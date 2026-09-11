@@ -1390,16 +1390,91 @@ row_begin a1_q2b
 ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_Q2B $rc
 
+# ---- A1.5/A1.6  the FIRST^C15 / LAST^C15 witness requirement ---------------------------------
+# 🔴 Q-487 (2026-09-11, R5 item 4). BOTH ROWS RECORDED PASS ON AN ENUMERATION THAT EMITTED ZERO
+# WALKS. Their only failure flag was the solver's EXIT STATUS, and an enumeration that finds
+# nothing exits 0. Measured at n=9 against the real binary:
+#     --kc-enum      FDIR --kc-c3-max 0 --kc-limit 1  ->  "[kc] enumerated 0 walk(s) (C3 in-path)"  rc 0
+#     --kc-enum-desc FDIR --kc-c3-max 0 --kc-limit 1  ->  "... 0 walk(s) ... (descending)"          rc 0
+# At n=31 the golden is MINTED from whatever was emitted (--mint-missing), so an n=31-only pruning
+# defect that suppresses every candidate -- or a wrong C3 threshold plumbed into the row -- would
+# publish an EMPTY FIRST^C15 / LAST^C15 as TR12_Q2C=PASS / TR12_Q2D=PASS. The battery ships FROZEN
+# by `git archive` at launch, so this had to land before the run to make the run's own verdict honest.
+#
+# WHAT THIS CHECKS AND WHAT IT DOES NOT. Extremality is NOT established here and cannot be: B32
+# records that only MEMBERSHIP is checkable for these two rows, and that limit is unchanged. What
+# is checked is that a walk was emitted at all, that the structure calls it a member, and that it
+# honours the row's own C3 bound. Today none of the three is checked. Do not read this gate as
+# evidence that the emitted walk is the least (resp. greatest) one.
+#
+# THE ABORT BOUND. QUERY_INVENTORY.md:233,433 promised "abort-and-report if >10^6 backtracks";
+# `grep -i backtrack` finds no such mechanism in solve.c or in this driver -- the safeguard was
+# documented and never built. A backtrack counter is an engine change; the honest equivalent that
+# does not re-open solve.c is a WALL-CLOCK bound with a loud token. The row sits in Group A1, which
+# runs BEFORE the scan, so the bound costs at most its own budget and never the scan's wall.
+# 6 h, chosen ABOVE the 1.0-3.0 h budgeted for the whole of Group A (KC_RUN_COST_PLAN.md) so it can
+# never fire on a plan-conforming run. It is a backstop against an unbounded search, NOT a budget
+# check: a row running long but finishing is not what this catches. Operator-overridable.
+Q2_ENUM_TIMEOUT="${TR12_Q2_ENUM_TIMEOUT:-21600}"
+
+# --- BEGIN kc_first_last_witness (extracted and executed by scripts/q2_witness_gate.sh) ---
+kc_first_last_witness() {
+    local tok="$1" out="$2" erc=0 w nf cd
+    w=$(grep -E '^[0-9]+(,[0-9]+)+$' "$out" | head -1)
+    nf=$(printf '%s' "$w" | awk -F',' '{print NF}')
+    if [ -z "$w" ] || [ "${nf:-0}" -ne "$((2 * N_PAIRS))" ]; then
+        echo "${tok}_FAIL	no walk of 2n=$((2 * N_PAIRS)) hexagrams was emitted (got ${nf:-0} field(s)) -- this row cannot publish an extremal walk it did not find"
+        return 1
+    fi
+    "$SOLVE" --kc-member "$FDIR" "$w" 2>/dev/null | grep -qx 'MEMBER' \
+      || { echo "${tok}_FAIL	--kc-member does not call the emitted walk a member of this f ladder"; erc=1; }
+    cd=$("$SOLVE" --kc-profile "$FDIR" "$GDIR" "$w" 2>/dev/null \
+           | sed -n 's/.*[[:space:]]cd=\([0-9][0-9]*\).*/\1/p' | head -1)
+    case "${cd:-}" in
+        ''|*[!0-9]*) echo "${tok}_FAIL	--kc-profile printed no numeric cd for the emitted walk (got '${cd:-<none>}')"; erc=1 ;;
+        *) [ "$cd" -le "$C3MAX" ] \
+             || { echo "${tok}_FAIL	cd=$cd exceeds this row's own C3MAX=$C3MAX -- the emitted walk does not satisfy the constraint the row enumerated under"; erc=1; } ;;
+    esac
+    return $erc
+}
+# --- END kc_first_last_witness ---
+
 # ---- A1.5  Q2(c) FIRST^C15 — the in-order-least C3-passing walk (REL order) -------------------
 row_begin a1_q2c
-( "$SOLVE" --kc-enum "$FDIR" --kc-c3-max "$C3MAX" --kc-limit 1 ) >>"$RAW" 2>&1; rc=$?
+(
+  erc=0
+  # Captured rather than written straight to the row stream so the walk can be read back; the
+  # bytes and their order are unchanged (a1_q2c.txt does not move). Same idiom as a1_q2b.
+  timeout "$Q2_ENUM_TIMEOUT" "$SOLVE" --kc-enum "$FDIR" --kc-c3-max "$C3MAX" --kc-limit 1 \
+      > "$WORK/q2c_probe.out" 2>&1; src=$?
+  cat "$WORK/q2c_probe.out"
+  if [ "$src" -eq 124 ]; then
+      echo "Q2C_FAIL	--kc-enum did not finish within TR12_Q2_ENUM_TIMEOUT=${Q2_ENUM_TIMEOUT}s"; erc=1
+  else
+      [ "$src" -eq 0 ] || erc=1
+      kc_first_last_witness Q2C "$WORK/q2c_probe.out" || erc=1
+  fi
+  exit $erc
+) >>"$RAW" 2>&1; rc=$?
 row_end TR12_Q2C $rc
 
 # ---- A1.6  Q2(d) LAST^C15 — the in-order-greatest C3-passing walk.  --kc-enum-desc has landed;
 #            its n=9 exhaustive gate ran in row a0_gates and carries a KEY=value token. ---------
 if "$SOLVE" --kc-enum-desc "$FDIR" --kc-limit 1 >/dev/null 2>&1; then
     row_begin a1_q2d
-    ( "$SOLVE" --kc-enum-desc "$FDIR" --kc-c3-max "$C3MAX" --kc-limit 1 ) >>"$RAW" 2>&1; rc=$?
+    (
+      erc=0
+      timeout "$Q2_ENUM_TIMEOUT" "$SOLVE" --kc-enum-desc "$FDIR" --kc-c3-max "$C3MAX" --kc-limit 1 \
+          > "$WORK/q2d_probe.out" 2>&1; src=$?
+      cat "$WORK/q2d_probe.out"
+      if [ "$src" -eq 124 ]; then
+          echo "Q2D_FAIL	--kc-enum-desc did not finish within TR12_Q2_ENUM_TIMEOUT=${Q2_ENUM_TIMEOUT}s"; erc=1
+      else
+          [ "$src" -eq 0 ] || erc=1
+          kc_first_last_witness Q2D "$WORK/q2d_probe.out" || erc=1
+      fi
+      exit $erc
+    ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q2D $rc
 else
     row_skip a1_q2d TR12_Q2D "PENDING:--kc-enum-desc" "PENDING:--kc-enum-desc — this binary does not accept it"
@@ -2070,7 +2145,7 @@ row_end_val TR12_Q1C $rc "$Q1C_VAL"
 # ---- A2.10 the f.g cut identity at every layer.  At full-31 this is a ~24 h single-threaded
 #            FULL LADDER PASS, not a point query — it stays behind --with-gcheck. --------------
 if [ "$N_PAIRS" -ge 31 ] && [ "$WITH_GCHECK" -eq 0 ]; then
-    row_skip a2_gcheck TR12_GCHECK "SKIP:cost-gated" "--kc-g-check at n=31 is a ~24 h single-threaded full ladder pass, not a point query. Pass --with-gcheck, or reuse Stage G's own banked --kc-g-check PASS."
+    row_skip a2_gcheck TR12_GCHECK "SKIP:cost-gated" "--kc-g-check at n=31 is a ~24 h single-threaded full ladder pass, not a point query. Pass --with-gcheck to run it here. The f.g cut identity DID execute at every layer k=0..31 during the Stage G build (rc 0 after 90,141 s, each layer printing the 40-digit N), so the identity itself is not unevidenced -- but two things travel with that: the KCG_CHECK=PASS token came from a VM-side wrapper that was never committed (solve.c prints the output shape KC-G CHECK n=%d PASS, which is verdict-by-output-shape), and F2_GCHECK_DETECTS=NO -- the check passes on ladders corrupted through the adopt path. Ladder soundness rests on PROVENANCE, not on this check."
 else
     row_begin a2_gcheck
     ( "$SOLVE" --kc-g-check "$FDIR" "$GDIR" ) >>"$RAW" 2>&1; rc=$?
@@ -2152,7 +2227,7 @@ fi
 if [ "$SCAN_OK" -eq 0 ]; then
     row_skip b_chunked TR12_SCAN_CHUNKED "SKIP:no-atlas" "the whole-atlas scan did not run, so there is nothing to compare a chunked atlas against"
 elif [ "$N_PAIRS" -ge 31 ] && [ "$WITH_CHUNKED" -eq 0 ]; then
-    row_skip b_chunked TR12_SCAN_CHUNKED "SKIP:cost-gated" "at n=31 the chunked==whole identity costs a second full scan; pass --with-chunked. The identity IS gated for free by --kc-layers-selftest, which ran in row a0_gates."
+    row_skip b_chunked TR12_SCAN_CHUNKED "SKIP:cost-gated" "at n=31 the chunked==whole identity costs a second full scan; pass --with-chunked. The identity is gated at n=9 by --kc-layers-selftest (row a0_gates); it is NOT gated at n=31 in this run."
 elif ! "$SOLVE" --kc-scan-merge 2>&1 | grep -q 'Usage: solve --kc-scan-merge'; then
     row_skip b_chunked TR12_SCAN_CHUNKED "PENDING:--kc-layers" "PENDING:--kc-layers/--kc-scan-merge — this binary does not accept them"
 else
@@ -2563,8 +2638,15 @@ fi
 row_skip c_xa_cd  TR12_XA_CD  "SKIP:xa-throughput-anchors" "needs the R-1 orbit-engine throughput anchors (36.14x work factor, 19.8x wall at 1T, nodes/sec hedged x2) — they are campaign measurements, not atlas fields, so the EXHAUSTIBLE/INFEASIBLE verdict cannot be derived from atlas.json alone"
 row_skip c_q10b   TR12_Q10B   "PENDING:--kc-coset-census" "PENDING:--kc-coset-census — the (Z/2)^6 coset labelling of the transversal is not aggregated by any subcommand"
 # The atlas consumer LANDED 2026-08-22 — in solve.py, not scripts/atlas_queries.py (the single-file
-# rule: all Python lives in solve.py).  It writes the same tables this driver computes in awk+bc,
-# so running both is a genuine two-implementation cross-check of every atlas-derived number.
+# rule: all Python lives in solve.py).  It writes the same tables this driver computes in awk+bc.
+# ⚠ THIS COMMENT USED TO END "so running both is a genuine two-implementation cross-check of every
+# atlas-derived number." IT WAS AN OVERSTATEMENT AND R5 (item 1a) CAUGHT IT: measured, `grep -n
+# 'consumer/'` outside comments returned 0 hits, so each side was diffed only against ITS OWN
+# golden and never against the other. Two implementations existed; the cross-check did not.
+# It does now, but only over the part that is genuinely comparable: row c_xcheck below compares
+# per-layer per-distance-class MASS, as integers, across all six emitted tables. The `p` columns
+# and every table without a (k, d, mass) shape are still NOT cross-checked, so do not read this
+# paragraph as covering "every atlas-derived number" either.
 if [ "$SCAN_OK" -eq 0 ] || [ ! -s "$ATLAS" ]; then
     row_skip c_consumer TR12_ATLAS_CONSUMER "SKIP:no-atlas" "no atlas.json — Group B did not produce one, so there is nothing for the consumer to read"
 elif PYTHONPATH="$REPO_ROOT" python3 -c 'import sys, solve; sys.exit(0 if hasattr(solve, "atlas_queries") else 1)' >/dev/null 2>&1; then
@@ -2589,6 +2671,103 @@ elif PYTHONPATH="$REPO_ROOT" python3 -c 'import sys, solve; sys.exit(0 if hasatt
     row_end TR12_ATLAS_CONSUMER $rc
 else
     row_skip c_consumer TR12_ATLAS_CONSUMER "PENDING:atlas-consumer" "solve.py on this tree has no atlas_queries entry point (pre-2026-08-22 checkout). The numeric legs (XA-a/b, XA-24, Q10a, Q6, V1, V2, V5) were computed by this driver in awk+bc instead."
+fi
+
+# ---- C.x  the two-implementation cross-check, which did not exist until now -------------------
+# 🔴 R5 item 1a (ACCEPTED, 2026-09-11). The comment below row c_consumer claimed that running both
+# implementations was "a genuine two-implementation cross-check of every atlas-derived number."
+# MEASURED: `grep -n 'consumer/'` outside comments returned 0 hits. Each side was diffed only
+# against ITS OWN golden, and at n=31 those goldens are minted by the run itself. Two
+# implementations existed; the cross-check did not. R5 offered a reword or this row, and preferred
+# this row, because it is a real n-INDEPENDENT gate on the EMITTERS: it would have caught
+# `v2-class-swap` and `ratio-zero` at n=31 without waiting for the RCQ04 F1 lift.
+#
+# WHAT IS COMPARED. Both sides publish per-layer per-distance-class mass, but in DIFFERENT SHAPES --
+# the shell rows write WIDE tables (k, d1..d6) and the consumer writes LONG ones (k, d, mass, ...) --
+# so this is a reshape-and-compare, not a diff, and that is why a naive `diff` was never going to
+# work here. Six tables are normalised to (k, d, mass) and every cell must agree across all six:
+# shell v2_river / q6_layer_mass / v5_grammar against consumer v2_river / q6_layer_mass / v5_grammar.
+# INTEGERS ONLY -- the `p` columns are awk doubles on one side and 17-significant-digit decimals on
+# the other, and the c_v5 doubles defect of 2026-09-11 is the precedent for not comparing them here.
+#
+# WHAT IT DOES NOT SEE, stated so the row is not read as more than it is. A whole-row class
+# permutation IN THE ATLAS appears identically on both sides, because both sides read that atlas.
+# This gate covers the EMITTERS, not the producer. Item 2's limit is untouched by it.
+#
+# RED TEST, EXECUTED 2026-09-11 against the real n=9 artifacts, both directions:
+#   clean            -> rc 0, silent
+#   d1/d2 masses transposed at layer 0 of the consumer's v2_river.tsv (R5's `v2-class-swap` shape):
+#     XCHECK_FAIL  layer 0 class d1: shell/v2_river says 14208, cons/v2_river says 9216
+#     XCHECK_FAIL  layer 0 class d2: shell/v2_river says 9216, cons/v2_river says 14208
+#     rc 1
+# ⚠ THE FAIL DIRECTION HAS NO AUTOMATED GATE, deferred with a reason rather than skipped: a gate
+# in the q7ranks/q2 extract-and-execute style would have to build a full n=9 atlas AND run the
+# consumer to have anything to compare -- roughly 3 minutes inside CORE on every push, against
+# ~30 s for the ladder-only gates. The row itself DOES run at n=9 on every battery run, so the
+# PASS direction is exercised continuously; only the FAIL direction rests on the measurement above.
+# Backlog Q-488.
+if [ -d "$ARTDIR/consumer/scan" ]; then
+    row_begin c_xcheck
+    (
+      erc=0
+      : > "$WORK/xnorm.tsv"
+      for f in v2_river q6_layer_mass v5_grammar; do
+          for side in shell cons; do
+              [ "$side" = shell ] && src="$ARTDIR/$f.tsv" || src="$ARTDIR/consumer/scan/$f.tsv"
+              if [ ! -r "$src" ]; then
+                  echo "XCHECK_FAIL	$side/$f is absent or unreadable -- a comparator that silently drops a side is not a comparator"
+                  erc=1; continue
+              fi
+              awk -v SRC="$side/$f" '
+                BEGIN { FS="\t"; OFS="\t"; rows=0 }
+                /^#/ { next }
+                /^[[:space:]]*$/ { next }
+                !hdr { hdr=1
+                       for (i=1; i<=NF; i++) { idx[$i]=i; if ($i ~ /^d[0-9]+$/) wide[i]=substr($i,2) }
+                       for (i in wide) iswide=1
+                       if (!iswide) { dcol=(("d" in idx)?idx["d"]:(("class" in idx)?idx["class"]:0))
+                                      mcol=("mass" in idx)?idx["mass"]:0 }
+                       kcol=("k" in idx)?idx["k"]:0
+                       next }
+                { if (!kcol) next
+                  k=$kcol; if (k !~ /^[0-9]+$/) next
+                  if (iswide) { for (i in wide) { v=$i; if (v ~ /^[0-9]+$/) { print SRC, k, wide[i], v; rows++ } } }
+                  else { if (!dcol || !mcol) next
+                         d=$dcol; sub(/^d/,"",d); v=$mcol
+                         if (d ~ /^[0-9]+$/ && v ~ /^[0-9]+$/) { print SRC, k, d, v; rows++ } } }
+                END { if (rows==0) print "ZERO_ROWS", SRC, "-", "-" }
+              ' "$src" >> "$WORK/xnorm.tsv"
+          done
+      done
+      # 🔴 AGGREGATE PER SOURCE FIRST, then compare across sources. The consumer's v5_grammar
+      # carries a SECOND dimension `w` (the new-pair-category axis). It is a -1 placeholder today
+      # -- TR12_V5 says PASS:REDUCED-NO-CROSSTAB -- but the axis is PENDING, not impossible, and if
+      # it ever lands then (k,d) gains several rows and a row-by-row comparator would report the
+      # SAME source disagreeing with itself. That is a FALSE FAIL at n=31 in a battery that ships
+      # FROZEN by `git archive`, i.e. uncorrectable for the whole run. Summing over the extra
+      # dimension is also the arithmetically correct reduction of a mass decomposition, and it
+      # still catches a duplicated row, which would double the total.
+      awk -F'\t' '
+        $1=="ZERO_ROWS" { print "XCHECK_FAIL\t" $2 " produced no comparable (k,d,mass) cell -- it was read and it said nothing"; f=1; next }
+        { agg[$1 SUBSEP $2 SUBSEP $3] += $4; cell[$2 SUBSEP $3]=1; seen[$1]=1 }
+        END { ns=0; for (s in seen) ns++
+              for (c in cell) {
+                  split(c, kd, SUBSEP); first=""; fsrc=""
+                  for (s in seen) {
+                      key = s SUBSEP kd[1] SUBSEP kd[2]
+                      if (!(key in agg)) { print "XCHECK_FAIL\tlayer " kd[1] " class d" kd[2] ": " s " publishes no such cell, the others do"; f=1; continue }
+                      v = agg[key] ""
+                      if (first == "") { first=v; fsrc=s; n++ }
+                      else if (first != v) { print "XCHECK_FAIL\tlayer " kd[1] " class d" kd[2] ": " fsrc " says " first ", " s " says " v; f=1 }
+                  } }
+              if (ns < 6) { print "XCHECK_FAIL\tonly " ns " of the 6 emitted tables were read -- the cross-check did not cross-check"; f=1 }
+              if (n < 1)  { print "XCHECK_FAIL\tno cells were compared at all"; f=1 }
+              exit f?1:0 }' "$WORK/xnorm.tsv" || erc=1
+      exit $erc
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_XCHECK $rc
+else
+    row_skip c_xcheck TR12_XCHECK "SKIP:no-consumer" "the consumer wrote no scan/ directory, so there is no second implementation to cross-check against"
 fi
 # The V1/V2/V4/V5 generators landed in viz/report_figures.py (TSV -> figure, no analysis logic).
 # They need matplotlib + numpy, which are deliberately NOT project dependencies, so a box without

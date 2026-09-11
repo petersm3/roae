@@ -45,8 +45,19 @@
 #   3 THE EXTRACTED ROW fails on a walk of rank 16244, and NAMES the value
 #   4 THE EXTRACTED ROW fails when the walk is not $ANCHOR
 #   5 the producer's format is restated, so a change to it is visible here
-# ERROR (rc 2) when it cannot measure: no compiler, no build, no ladders. A gate
-# that cannot see its subject must never report PASS.
+# ERROR (rc 2) when it cannot measure. FIVE causes, and the last two were added by the
+# round-6 rewrite and were missing from this list until F-5 round 7 (Y3) pointed out that a
+# list of ERROR causes which omits two real ones is the same doc-vs-code drift this gate
+# exists to catch:
+#     no compiler · the build failed · the ladders could not be built
+#     the battery is unreadable        (added r6: this gate now READS scripts/tr12_repro.sh)
+#     the extraction came back empty   (added r6: markers moved, or the row was removed)
+# A gate that cannot see its subject must never report PASS.
+#
+# Y4 (record only, F-5 round 7): legs 1 and 5 are the SAME measurement -- leg 5 re-runs leg 1's
+# awk on a regenerated copy of the same engine output -- so Q7RANKS_PARSE_LEGS=5 counts five
+# legs but four distinct measurements. No verdict depends on the count; it is stated here so a
+# reader does not infer more independence than exists.
 # =============================================================================
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

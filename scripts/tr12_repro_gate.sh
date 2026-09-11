@@ -97,7 +97,7 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # see it -- the regex covers .c/.py/.sh/.md, and widening it to .txt was MEASURED to sweep in
 # _GATE_STAMP.txt itself plus two enumeration artefacts. Naming the one file that matters is the
 # narrow fix; widening the grammar was the broad one that makes the stamp churn.
-CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh scripts/q7ranks_parse_gate.sh"
+CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh scripts/q7ranks_parse_gate.sh scripts/q2_witness_gate.sh"
 fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
@@ -129,6 +129,25 @@ q7ranks_parse_leg(){
   if printf '%s\n' "$out" | grep -qx 'Q7RANKS_PARSE=ERROR'; then
     echo "  [ERROR] Q7RANKS_PARSE could not be measured -- NOT the same as PASS"; return 2; fi
   echo "  [FAIL] Q7RANKS_PARSE=FAIL -- an n>=31-only row's parse does not match its producer"; return 1
+}
+
+# R5 item 4 / Q-487: rows a1_q2c and a1_q2d took the solver's EXIT STATUS as their only failure
+# flag, and an enumeration that finds NOTHING exits 0 -- measured, not argued. At n=31 those goldens
+# are minted from whatever the run emits, so an empty FIRST^C15 would have published as PASS and the
+# battery ships frozen by `git archive`. The gate EXTRACTS the witness helper and both rows from the
+# battery and EXECUTES them. Absence is ERROR, never agreement -- the F-5 round 6 lesson, where
+# deleting the check made the whole reproduction gate green.
+q2_witness_leg(){
+  [ -x ./scripts/q2_witness_gate.sh ] || {
+      echo "  [ERROR] scripts/q2_witness_gate.sh is absent or not executable -- the FIRST^C15 /"
+      echo "          LAST^C15 witness requirement is UNMEASURED. That is not the same as passing."
+      return 2; }
+  local out; out=$(bash ./scripts/q2_witness_gate.sh 2>&1)
+  printf '%s\n' "$out" | sed 's/^/  /'
+  if printf '%s\n' "$out" | grep -qx 'Q2_WITNESS=PASS'; then return 0; fi
+  if printf '%s\n' "$out" | grep -qx 'Q2_WITNESS=ERROR'; then
+    echo "  [ERROR] Q2_WITNESS could not be measured -- NOT the same as PASS"; return 2; fi
+  echo "  [FAIL] Q2_WITNESS=FAIL -- an extremal row can publish an enumeration that found nothing"; return 1
 }
 
 fingerprint_coverage_check(){
@@ -484,6 +503,11 @@ if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   q7ranks_parse_leg; _q7rc=$?
   if [ "$_q7rc" -eq 1 ]; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
   if [ "$_q7rc" -eq 2 ]; then echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
+  # Same placement and the same reason: a tree whose extremal rows can pass on an empty
+  # enumeration must not be stamped as reproducing.
+  q2_witness_leg; _q2rc=$?
+  if [ "$_q2rc" -eq 1 ]; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
+  if [ "$_q2rc" -eq 2 ]; then echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
 
   if [ "$MODE" = "--stamp" ]; then
     { echo "# Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,"

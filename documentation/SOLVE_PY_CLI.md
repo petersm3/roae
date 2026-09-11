@@ -623,9 +623,10 @@ figures read, and they gate every table they write.
 | `<out>/VERDICTS.txt` | the harness | one `KEY=value` line per row; an existing key is replaced, not duplicated. |
 
 Verdict tokens emitted: `TR12_Q3`, `TR12_Q3_KW`, `TR12_Q3_READER`, `TR12_Q6`,
-`TR12_V1`, `TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`, `TR12_XA_CD`,
-`TR12_XA_MOD24`, `TR12_Q10A`, `TR12_A2_SLOT`, `TR12_A3_EXTERNAL`, and at n=31
-`TR12_A5_ORBIT_COLUMNS` — matched with `grep -qx`, never by output shape.
+`TR12_Q6_EXTREMES`, `TR12_V1`, `TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`,
+`TR12_XA_CD`, `TR12_XA_MOD24`, `TR12_Q10A`, `TR12_A2_SLOT`, `TR12_A3_EXTERNAL`,
+and at n=31 `TR12_A5_ORBIT_COLUMNS` — matched with `grep -qx`, never by output
+shape.
 🔴 **Four of these were verdicts that could not fail, until 2026-09-04** (Codex
 review MQ1 §2d): `TR12_Q10A` and `TR12_XA_A` were the literal string `PASS`,
 `TR12_XA_B` tested only that `t_root_t_units` was PRESENT rather than that its
@@ -644,6 +645,7 @@ rationals from the written TSV. The engine does not grade its own homework.
 |---|---|---|
 | `TR12_Q3_KW` | `PASS` · `NOT-KW` · `SKIP:n=<n>` | The Q3 table is written as `q3_profile_kw.tsv` **only** when the trace has been checked row-for-row against `binary_hexagrams`. Naming was previously decided by `n == 31` alone — a property of the *universe*, not of the *walk* — so any valid full-31 walk was published under King Wen's name, and `TR12_Q3_READER`'s `Π p_i = 1/N` could not tell the difference because every valid walk satisfies it. A non-King-Wen trace now writes `q3_profile.tsv`, says so on stdout, and a sidecar `<table>.provenance.txt` binds the table to the atlas's `n`, `N_total`, `space` and `pl_hash`. |
 | `TR12_Q6` | `PASS:REDUCED-DISTANCE-CLASS` | The atlas carries per-layer per-**distance-class** mass, not the spec's per-`(state, choice)` extremes. |
+| `TR12_Q6_EXTREMES` | `PASS` · `FAIL:<n>-bad-row(s)` | Added 2026-09-11 for reviewer R5 item 1b. `q6_layer_extremes.tsv` — the argmax/argmin/ratio columns and King Wen's `kw_class_mass`/`kw_p`/`kw_class_pct` — **had no check that runs at n=31**. The existing gate lives in the brute-force selftest, which refuses `n > 13`, and reads `B["byclass"]`, the **recount**, not the atlas — so the queued RCQ04 F1 lift ("lift the 22 no-walks gates into `atlas_queries`") **does not reach it**, before or after F1 closes. This token is the atlas-sourced twin: it recomputes every published cell from `atlas.layers[k].by_class` in exact integer arithmetic and compares. It is n-independent, and an absent table **FAILS rather than skips** — a checker that cannot read its subject must not report agreement. ⚠ It does **not** see a whole-row class permutation; nothing atlas-sourced can. |
 | `TR12_V5` | `PASS:REDUCED-NO-CROSSTAB` | The new-pair-category axis is PENDING, so every row is emitted with the honest placeholder `w = -1`. |
 | `TR12_V2` | `PASS:REDUCED-NO-BRANCH-CLASS-RIVER` | `viz/viz_kc_river.md` row (c), the branch-class river, is PENDING and is not a flag. |
 

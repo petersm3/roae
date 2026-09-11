@@ -9491,3 +9491,44 @@ So the title survives at exactly one site in this repository, inside a historica
 a published contract rather than by an exemption anyone chose. **That is a conflict between two
 correct rules and it is recorded here rather than resolved silently.** If the ruling should override
 the append-only contract, that is the operator's call and this entry is where it would be recorded.
+
+## CX-44 — a documented safeguard that was never built, and two rows that passed on nothing
+
+`QUERY_INVENTORY.md` promised, in two places (the Q2c question row and the A1.5 group row), that
+the `FIRST^C15` enumeration would **"abort-and-report if >10⁶ backtracks."** There is no such
+mechanism. `grep -i backtrack` returns nothing in `solve.c` and nothing in `scripts/tr12_repro.sh`.
+The safeguard was specified, published, quoted forward into the group table, and never implemented.
+At n=31 the row would either find its walk or run without a bound.
+
+Found by external reviewer R5 (2026-09-11) as a side observation, ranked below the finding it sat
+next to — correctly, because an unbounded row refuses or stalls rather than publishing a wrong
+number, and it sits in Group A1, which runs before the scan.
+
+**The finding it sat next to is the one that mattered, and it is the same row.** Rows `a1_q2c` and
+`a1_q2d` took the solver's **exit status** as their only failure flag. An enumeration that finds
+nothing exits 0. Measured against the real binary on a real n=9 ladder:
+
+```
+--kc-enum      f --kc-c3-max 0 --kc-limit 1   ->  [kc] enumerated 0 walk(s) (C3 in-path)   rc 0
+--kc-enum-desc f --kc-c3-max 0 --kc-limit 1   ->  ... 0 walk(s) ... (descending)           rc 0
+```
+
+At n=31 the goldens for these rows are minted from whatever the run emits, so an n=31-only pruning
+defect that suppressed every candidate — or a wrong C3 threshold plumbed into the row — would have
+published an **empty** `FIRST^C15` and `LAST^C15` as `TR12_Q2C=PASS` and `TR12_Q2D=PASS`. Neither
+row checked that a walk was emitted, that the structure called it a member, or that it honoured the
+row's own C3 bound. The battery ships frozen by `git archive` at launch, so neither could have been
+repaired once the run began.
+
+**What was done.** Both rows now require a witness: one walk line of `2n` fields, `--kc-member` →
+`MEMBER`, and `--kc-profile` → `cd ≤ C3MAX`. The unbuilt backtrack counter was replaced by a
+wall-clock bound with a loud token (`TR12_Q2_ENUM_TIMEOUT`, default 6 h) rather than by an engine
+change, and both inventory rows were corrected to describe the bound that exists instead of the one
+that did not. `scripts/q2_witness_gate.sh` extracts the helper and both rows from the battery and
+executes them against the real binary; four mutants — deleting the witness call, neutering the
+helper, removing the battery, disabling the timeout branch — are killed.
+
+**What is still not checked, stated so the gate is not read as more than it is.** Extremality. B32
+records that only membership is checkable for these two rows and that limit is unchanged. The gate
+proves the rows refuse to publish nothing; it does not prove the walk they publish is the least or
+the greatest one.

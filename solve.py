@@ -12242,6 +12242,105 @@ def atlas_emit_q6(A, outdir, trace=None):
     return a, b
 
 
+def atlas_q6_extremes_check(A, scandir):
+    """ATLAS-SOURCED twin of the brute-force "Q6 extremes" gate -- the one that RUNS AT 31.
+
+    🔴 R5 item 1b (ACCEPTED by execution, 2026-09-11).  `q6_layer_extremes.tsv` carries the
+    published KW percentile (`kw_p`, `kw_class_pct`) and the argmax/argmin/ratio columns, and
+    until now the ONLY re-derivation of any of them lived inside `atlas_selftest` ("brute force:
+    Q6 extremes ... from the recount").  That gate is unreachable at the size that matters,
+    twice over: `atlas_selftest` REFUSES n > 13 ("brute force is a reduced-n gate"), and it
+    recomputes from `_atlas_brute_recount`'s `byclass`, i.e. from an explicit enumeration of the
+    whole universe, which is permanently impossible at 31.  Its `kw_d >= 0` half is even
+    self-labelled "full-31 only; unreachable while n <= 13 here" -- a branch that cannot execute
+    where it is written.  Net effect: the two KW columns TR-12 publishes had NO check at the one
+    n where they are not placeholders, and `--atlas-fault ratio-zero`, which blanks every derived
+    ratio in this table, still shipped `TR12_Q6=PASS:REDUCED-DISTANCE-CLASS` and rc 0.
+
+    This twin reads the ATLAS (`layers[k].by_class`) and the TSV read back OFF DISK, so it is
+    n-INDEPENDENT -- it runs at 9, at 13 and at 31 alike -- and it is wired into `atlas_queries`
+    (verdict `TR12_Q6_EXTREMES`), not into the selftest.  Two anti-closure properties, because a
+    verifier handed its witness by its subject is this project's recurring defect:
+      * every derived cell is judged by `_atlas_ratio_text_ok` -- integer long division against
+        the digits parsed back out of the cell.  It shares no code with `_atlas_f` and never
+        calls it, so the formatter cannot supply its own oracle;
+      * `kw_d` is recomputed from `binary_hexagrams` via `_atlas_kw_overlay`, not read out of the
+        row it is checking, so a wrong overlay column is a failure rather than a premise.
+    A missing table is a FAILURE, not a skip: a checker that cannot read its subject must not pass.
+
+    What it CANNOT see, stated so it is not over-claimed: a whole-row permutation of `by_class`.
+    Nothing atlas-sourced can -- both sides read the same atlas -- and
+    documentation/QUERY_INVENTORY.md records that limit.  This gate covers the DERIVATION from
+    the atlas to the published table, which is where `ratio-zero` and a mis-wired column live.
+
+    -> list of per-row failure strings; empty means the table follows from the atlas.
+    """
+    from fractions import Fraction
+    path = os.path.join(scandir, "q6_layer_extremes.tsv")
+    if not os.path.exists(path):
+        return ["%s: the published table is absent -- a checker that cannot read its subject "
+                "FAILS rather than skips" % path]
+    rows = _atlas_read_tsv(path)
+    n = A["n"]
+    N = _atlas_int(A["N_total"], "N_total")
+    kw_d, _, _ = _atlas_kw_overlay(n)
+    layers = {int(L["k"]): L for L in A["layers"]}
+    fails = []
+    want, got = sorted(layers), sorted(int(r["k"]) for r in rows)
+    if got != want:
+        fails.append("the table's layers %s are not the atlas's %s" % (got[:12], want[:12]))
+    for r in rows:
+        try:
+            k = int(r["k"])
+            if k not in layers or not 0 <= k < n:
+                continue                       # already reported by the layer-set check above
+            L = layers[k]
+            by = {d: _atlas_layer_class(L, d, k) for d in _ATLAS_CLASSES}
+            hi = max(by, key=lambda d: (by[d], -d))
+            nz = [d for d in _ATLAS_CLASSES if by[d] > 0]
+            lo = min(nz, key=lambda d: (by[d], d)) if nz else -1
+            lo_mass = by[lo] if lo >= 0 else 0
+            bad = []
+            if int(r["slot"]) != k + 2:
+                bad.append("slot=%s, want %d" % (r["slot"], k + 2))
+            if int(r["argmax_d"]) != hi or int(r["argmax_mass"]) != by[hi]:
+                bad.append("argmax=(d%s,%s), the atlas says (d%d,%d)"
+                           % (r["argmax_d"], r["argmax_mass"], hi, by[hi]))
+            if int(r["argmin_nonzero_d"]) != lo or int(r["argmin_mass"]) != lo_mass:
+                bad.append("argmin=(d%s,%s), the atlas says (d%d,%d)"
+                           % (r["argmin_nonzero_d"], r["argmin_mass"], lo, lo_mass))
+            if not _atlas_ratio_text_ok(r["ratio"], by[hi], lo_mass):
+                bad.append("ratio=%s, the atlas says %d/%d" % (r["ratio"], by[hi], lo_mass))
+            if int(r["kw_d"]) != kw_d[k]:
+                bad.append("kw_d=%s, the King Wen overlay says %d" % (r["kw_d"], kw_d[k]))
+            elif kw_d[k] < 0:
+                # reduced n: KW is absent, so all three overlay cells must SAY so.
+                if (int(r["kw_class_mass"]) != -1 or Fraction(r["kw_p"]) != -1
+                        or Fraction(r["kw_class_pct"]) != -1):
+                    bad.append("KW is absent at n=%d but the row publishes "
+                               "kw_class_mass=%s kw_p=%s kw_class_pct=%s instead of the -1 "
+                               "placeholders" % (n, r["kw_class_mass"], r["kw_p"],
+                                                 r["kw_class_pct"]))
+            elif kw_d[k] not in by:
+                bad.append("King Wen's transition class d%d at layer %d is outside the atlas's "
+                           "class set %s" % (kw_d[k], k, list(_ATLAS_CLASSES)))
+            else:
+                km = by[kw_d[k]]
+                if int(r["kw_class_mass"]) != km:
+                    bad.append("kw_class_mass=%s, the atlas says %d" % (r["kw_class_mass"], km))
+                if not _atlas_ratio_text_ok(r["kw_p"], km, N):
+                    bad.append("kw_p=%s, the atlas says %d/%d" % (r["kw_p"], km, N))
+                pct = sum(v for v in by.values() if v <= km)
+                if not _atlas_ratio_text_ok(r["kw_class_pct"], pct, N):
+                    bad.append("kw_class_pct=%s, the atlas says %d/%d"
+                               % (r["kw_class_pct"], pct, N))
+            if bad:
+                fails.append("layer %d: %s" % (k, "; ".join(bad)))
+        except (KeyError, ValueError, ZeroDivisionError) as e:
+            fails.append("row %r: unreadable (%s: %s)" % (r.get("k"), type(e).__name__, e))
+    return fails
+
+
 # --------------------------------------------------------------------------
 # Q10(a) -- the orbit census + the mod-24 integrity gate (XA-24)
 #
@@ -12827,6 +12926,39 @@ def atlas_q3_reader_check(tsv_path, N):
                         fails.append("step %s: bits=%s but log2(p_den/p_num) = %.9f -- the "
                                      "printed column does not follow from the exact ratio "
                                      "beside it" % (r["step"], r["bits"], exact))
+        # 🔴 `f` AND `alts` WERE PUBLISHED COLUMNS THIS READER NEVER LOOKED AT (R5 item 3a,
+        # ACCEPTED by execution 2026-09-11).  MEASURED before this block existed: the real n=9
+        # profile with step 5's `f` rewritten 80 -> 0 came back [] -- TR12_Q3_READER=PASS on a
+        # table asserting that the state the anchor's own walk is standing in is reached by NO
+        # prefix.  Both bounds are STRUCTURAL, not statistical, and both are about the walk the
+        # profile traces rather than about the universe:
+        #   f(s_i) counts the prefixes that reach s_i, and this walk's own prefix is one of
+        #     them, so f >= 1 on every visited step;
+        #   alts counts the admissible oriented successors with g > 0 (solve.c:23788) and the
+        #     step actually taken is one of them, so alts >= 1.
+        # >= 1 is the TIGHT bound, not a loose one: the committed golden
+        # scripts/tr12_expected/n9/a2_q3_profile.txt bottoms out at f = 1 (step 1) and at
+        # alts = 1 (steps 7 and 9), so anything stricter would fail the artifact.
+        # `mass_below` is deliberately NOT checked beside them: it is an O3 rank-block
+        # contribution that is legitimately 0 (step 5 of that same golden) and is filled with
+        # -1 when the source is a `--kc-profile --kc-tsv` table, which carries no such column.
+        # Presence-guarded exactly like `bits` above -- a column absent from this TSV is not
+        # published from this TSV either -- and both producers always write both columns
+        # (`_Q3_KEEP`; solve.c kc_prof_write_table), so the guard is not a bypass on any path
+        # that reaches here from atlas_queries or atlas_selftest.
+        for _col, _why in (("f", "a state on the walk's own path is reached by at least its "
+                                 "own prefix"),
+                           ("alts", "the step actually taken is itself an admissible "
+                                    "successor")):
+            if r.get(_col, "") != "":
+                try:
+                    _v = int(r[_col])
+                except ValueError:
+                    fails.append("step %s: %s=%r is not an integer" % (r["step"], _col, r[_col]))
+                else:
+                    if _v < 1:
+                        fails.append("step %s: %s = %d, but %s -- %s >= 1 on every visited step"
+                                     % (r["step"], _col, _v, _why, _col))
         # 🔴 THE p COLUMN MUST DESCRIBE THE g COLUMN PRINTED BESIDE IT, 2026-09-10
         # (RCQ04 finding 4, ACCEPTED by execution; the binding was absent at 34933bed too, so
         # this is not a regression in the delta -- it never existed).
@@ -12952,6 +13084,15 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
     if "q6" in sel:
         written.extend(atlas_emit_q6(A, scandir, trace=trace))
         verdicts["TR12_Q6"] = "PASS:REDUCED-DISTANCE-CLASS"
+        # 🔴 R5 item 1b: q6_layer_extremes.tsv -- argmax/argmin/ratio and the two PUBLISHED KW
+        # columns -- was re-derived nowhere that can run at 31.  `atlas_q6_extremes_check` is
+        # the atlas-sourced twin of the selftest's brute-force gate and lives HERE, on the
+        # n-independent path, precisely because the brute-force one refuses n > 13.
+        q6x = atlas_q6_extremes_check(A, scandir)
+        verdicts["TR12_Q6_EXTREMES"] = "PASS" if not q6x else "FAIL:%d-bad-row(s)" % len(q6x)
+        if q6x and not quiet:
+            for f in q6x[:8]:
+                print("[atlas] Q6 extremes check: %s" % f)
     if "q10a" in sel:
         p10, v10 = atlas_emit_q10a(A, outdir)
         written.append(p10); verdicts["TR12_Q10A"] = v10

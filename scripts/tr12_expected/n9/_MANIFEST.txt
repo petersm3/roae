@@ -1,4 +1,5 @@
 # Expected-output blocks for the TR-12 reproduction battery, universe n=9.
+# Written by --regen or --mint-missing; both produce the same self-hash.
 # Regenerate with:  scripts/tr12_repro.sh --n9 --regen   (then REVIEW the diff)
 # universe n=9  N=26112  N/24=1088
 # knobs C3MAX=31 SEED=9276183659154465378 Q8_K=200 Q4AC_M=20000 Q1C_M=200 V3_K=32
@@ -48,7 +49,7 @@
   f48c71717535e7f49e221fb0c53c71681e95bb2c493637cdfd613b05592b48e8  b_tcheck.txt
   e72ad4be05202a5b87366bfab4e5a3e5f6872675bcc6821dad95c5b8b068a0ea  b_tsha.txt
   807ac2f817a07c225522937a6c70ca518ed4522a58e255ba21e8750800ae761f  c_atlas.txt
-  f8312447390ec3190d64bf320f13dd2fc3079254f0a8d7361f9a3fb840f247d0  c_consumer.txt
+  a3376de39b81004f2b5920a4e8f329242808027e493c521f1d066bca46fbdd56  c_consumer.txt
   3ab86c8c8d5748e34e7d1b5882da46126bbfdbb4990c4b7b2b80be9d72376062  c_q10a.txt
   e3539dec5f904d13bbf9905b8d4e0845b67f2b16b020264da8f1316e66c877fa  c_q10a_kwrank.txt
   1a93f94e626594a663864eb944d0e0792dae8ab19fac2b8ee7aefc00f61df354  c_q6.txt
@@ -58,3 +59,4 @@
   3cbd5f00a8bb4d04efa76b24f572e18a9ccb942fbcc3c75e226cbe4457745bb6  c_viz.txt
   de8da3dabd91d5434edf6fac89c1c7d686965564e1b9305d26776446adc1e15e  c_xa_ab.txt
   888f344f018e0eff919b094470d17b19af744bf6adb75438d57d544071bbf028  c_xa_mod24.txt
+  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  c_xcheck.txt

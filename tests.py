@@ -5961,5 +5961,212 @@ class TestKingWenTableAgreesAcrossBothLanguages(unittest.TestCase):
                          "and would silently reassemble a DIFFERENT walk. If a site was "
                          "added deliberately, re-anchor this count rather than relaxing it.")
 
+
+# ---------------------------------------------------------------------------
+# R5 items 1b and 3a (2026-09-11). Landed from the solve.py lane; the local _load
+# shim the lane used was dropped in favour of this file's own loader.
+# ---------------------------------------------------------------------------
+
+class TestQ6ExtremesIsCheckedOnThePathThatRunsAtFull31(unittest.TestCase):
+    """`q6_layer_extremes.tsv` -- argmax/argmin/ratio and the two PUBLISHED KW columns
+    (`kw_p`, `kw_class_pct`) -- was re-derived only inside `atlas_selftest`, which refuses
+    n > 13 AND reads the brute-force recount, and whose `kw_d >= 0` half is self-labelled
+    "full-31 only; unreachable while n <= 13 here".  R5 item 1b, 2026-09-11.  MEASURED before
+    the fix: `--atlas-queries --atlas-fault ratio-zero` on the real n=9 atlas printed
+    TR12_Q6=PASS:REDUCED-DISTANCE-CLASS and returned rc 0 with every derived ratio reading 0.
+    `atlas_q6_extremes_check` is the atlas-sourced twin, wired into `atlas_queries`, so it runs
+    at every n."""
+
+    N = 26112
+
+    def _atlas(self, n, layers):
+        import json
+        d = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, d, True)
+        A = {"type": "roae-kc-scan-atlas", "n": n, "N_total": str(self.N),
+             "branch_atlas": [], "gates": {"fails": 0},
+             "layers": [{"k": k, "flow": str(self.N),
+                         "by_class": {("d%d" % d_): str(m) for d_, m in by.items()}}
+                        for k, by in enumerate(layers)]}
+        p = os.path.join(d, "atlas.json")
+        with open(p, "w") as fh:
+            json.dump(A, fh)
+        return p, d
+
+    def _n9(self):
+        # the real n=9 by_class rows (scripts/tr12_expected/n9/c_q6.txt)
+        return [{1: 14208, 2: 9216, 3: 0, 4: 2688, 6: 0},
+                {1: 5952, 2: 15552, 3: 0, 4: 4608, 6: 0},
+                {1: 5952, 2: 15264, 3: 0, 4: 4896, 6: 0},
+                {1: 0, 2: 15168, 3: 0, 4: 10944, 6: 0},
+                {1: 0, 2: 18528, 3: 0, 4: 7584, 6: 0},
+                {1: 0, 2: 18528, 3: 0, 4: 7584, 6: 0},
+                {1: 14208, 2: 8640, 3: 0, 4: 3264, 6: 0},
+                {1: 5952, 2: 14688, 3: 0, 4: 5472, 6: 0},
+                {1: 5952, 2: 14976, 3: 0, 4: 5184, 6: 0}]
+
+    def _run(self, S, path, out, fault=None):
+        old = S._ATLAS_FAULT
+        S._ATLAS_FAULT = fault
+        try:
+            return S.atlas_queries(path, out, select=["q6"], quiet=True)
+        finally:
+            S._ATLAS_FAULT = old
+
+    def test_the_real_n9_table_passes(self):
+        # POSITIVE CONTROL: a gate that cannot accept the producer is not a gate.
+        S = _load("solve")
+        p, d = self._atlas(9, self._n9())
+        R = self._run(S, p, os.path.join(d, "q"))
+        self.assertEqual("PASS", R["verdicts"]["TR12_Q6_EXTREMES"])
+        self.assertEqual(0, S.atlas_verdicts_rc(R["verdicts"]))
+
+    def test_ratio_zero_flips_the_verdict_and_the_exit_code(self):
+        # RED. This is the fault the selftest catches at n<=13 and NOTHING caught on the
+        # path that runs at 31: every derived ratio reads 0, every integer is right.
+        S = _load("solve")
+        p, d = self._atlas(9, self._n9())
+        R = self._run(S, p, os.path.join(d, "q"), fault="ratio-zero")
+        self.assertEqual("FAIL:9-bad-row(s)", R["verdicts"]["TR12_Q6_EXTREMES"])
+        self.assertEqual(1, S.atlas_verdicts_rc(R["verdicts"]))
+
+    def test_a_deleted_table_fails_rather_than_skips(self):
+        # VERIFIER CLOSURE: the checker must be FALSE when its subject is absent.
+        S = _load("solve")
+        p, d = self._atlas(9, self._n9())
+        out = os.path.join(d, "q")
+        self._run(S, p, out)
+        os.unlink(os.path.join(out, "scan", "q6_layer_extremes.tsv"))
+        A = S.atlas_load(p)
+        fails = S.atlas_q6_extremes_check(A, os.path.join(out, "scan"))
+        self.assertEqual(1, len(fails))
+        self.assertIn("absent", fails[0])
+
+    def test_a_single_corrupted_cell_and_a_dropped_row_are_caught(self):
+        S = _load("solve")
+        p, d = self._atlas(9, self._n9())
+        out = os.path.join(d, "q")
+        self._run(S, p, out)
+        A = S.atlas_load(p)
+        scan = os.path.join(out, "scan")
+        tsv = os.path.join(scan, "q6_layer_extremes.tsv")
+        with open(tsv) as fh:
+            base = fh.read().splitlines()
+        for col, tag in ((3, "argmax"), (5, "argmin"), (6, "ratio")):
+            rows = list(base)
+            cells = rows[1].split("\t")
+            cells[col] = "0" if col == 6 else str(int(cells[col]) + 1)
+            rows[1] = "\t".join(cells)
+            with open(tsv, "w") as fh:
+                fh.write("\n".join(rows) + "\n")
+            self.assertTrue(S.atlas_q6_extremes_check(A, scan), tag)
+        with open(tsv, "w") as fh:
+            fh.write("\n".join(base[:5] + base[6:]) + "\n")
+        fails = S.atlas_q6_extremes_check(A, scan)
+        self.assertTrue(any("not the atlas's" in f for f in fails), fails)
+
+    def test_the_KW_branch_is_reachable_and_red_at_n31(self):
+        # The half of the old gate that was self-labelled unreachable.  No n=31 atlas exists
+        # yet, so the INPUT here is synthetic; the emitter, the overlay and the checker are the
+        # shipped ones, and the point is that the branch executes and fails when corrupted.
+        S = _load("solve")
+        by = {1: 14208, 2: 9216, 3: 96, 4: 2496, 6: 96}
+        self.assertEqual(self.N, sum(by.values()))
+        p, d = self._atlas(31, [dict(by) for _ in range(31)])
+        out = os.path.join(d, "q")
+        R = self._run(S, p, out)
+        self.assertEqual("PASS", R["verdicts"]["TR12_Q6_EXTREMES"])
+        A = S.atlas_load(p)
+        scan = os.path.join(out, "scan")
+        tsv = os.path.join(scan, "q6_layer_extremes.tsv")
+        with open(tsv) as fh:
+            base = fh.read().splitlines()
+        hdr = base[0].split("\t")
+        self.assertNotEqual("-1", base[1].split("\t")[hdr.index("kw_d")],
+                            "the KW overlay is absent, so this test is not exercising it")
+        for col, val, needle in ((hdr.index("kw_p"), "0", "kw_p"),
+                                 (hdr.index("kw_class_pct"), "1", "kw_class_pct"),
+                                 (hdr.index("kw_class_mass"), "14208", "kw_class_mass"),
+                                 (hdr.index("kw_d"), "4", "King Wen overlay")):
+            rows = list(base)
+            cells = rows[1].split("\t"); cells[col] = val
+            rows[1] = "\t".join(cells)
+            with open(tsv, "w") as fh:
+                fh.write("\n".join(rows) + "\n")
+            fails = S.atlas_q6_extremes_check(A, scan)
+            self.assertTrue(any(needle in f for f in fails), (needle, fails))
+
+
+class TestQ3ReaderGatesTheFAndAltsColumns(unittest.TestCase):
+    """R5 item 3a, 2026-09-11: `f` and `alts` are published Q3 columns and the reader never
+    read either.  MEASURED before the fix on the REAL emitted n=9 profile with step 5's f
+    rewritten 80 -> 0: `atlas_q3_reader_check` returned [] and TR12_Q3_READER=PASS.  Both
+    bounds are structural: the walk's own prefix reaches every state it visits (f >= 1) and
+    the step it took is itself an admissible successor (alts >= 1).  `mass_below` is NOT
+    bounded with them -- it is legitimately 0 on the committed golden's step 5."""
+
+    N = 26112
+    # the real n=9 descent, from scripts/tr12_expected/n9/a2_q3_profile.txt
+    ROWS = [(1, 12, 9472, 1, 2368, 26112), (2, 9, 2720, 2, 456, 2368),
+            (3, 7, 1072, 8, 160, 456), (4, 5, 96, 40, 32, 160),
+            (5, 4, 0, 80, 8, 32), (6, 2, 0, 320, 4, 8),
+            (7, 1, 0, 640, 4, 4), (8, 4, 0, 1728, 1, 4),
+            (9, 1, 0, 4736, 1, 1)]
+
+    def _write(self, rows):
+        import math
+        d = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, d, True)
+        p = os.path.join(d, "q3_profile.tsv")
+        with open(p, "w") as fh:
+            fh.write("step\talts\tmass_below\tf\tg\tg_parent\tp_num\tp_den\tbits\n")
+            for step, alts, mb, f, g, gp in rows:
+                fh.write("%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.6f\n"
+                         % (step, alts, mb, f, g, gp, g, gp,
+                            math.log2(gp) - math.log2(g)))
+        return p
+
+    def test_the_real_descent_is_accepted(self):
+        # POSITIVE CONTROL, and the reason the bound is >= 1 and not > 1: this artifact
+        # bottoms out at f = 1 and at alts = 1.
+        S = _load("solve")
+        self.assertEqual([], S.atlas_q3_reader_check(self._write(self.ROWS), self.N))
+        self.assertIn(1, [r[1] for r in self.ROWS])
+        self.assertIn(1, [r[3] for r in self.ROWS])
+
+    def test_a_visited_step_with_f_zero_is_refused(self):
+        # RED: R5's f5_to_0 mutant.  0 failures before this landed.
+        S = _load("solve")
+        rows = [list(r) for r in self.ROWS]; rows[4][3] = 0
+        fails = S.atlas_q3_reader_check(self._write(rows), self.N)
+        self.assertTrue(any("step 5" in f and "f = 0" in f for f in fails), fails)
+
+    def test_a_visited_step_with_alts_zero_is_refused(self):
+        S = _load("solve")
+        rows = [list(r) for r in self.ROWS]; rows[6][1] = 0
+        fails = S.atlas_q3_reader_check(self._write(rows), self.N)
+        self.assertTrue(any("step 7" in f and "alts = 0" in f for f in fails), fails)
+
+    def test_mass_below_zero_is_still_accepted(self):
+        # The control that keeps the new bound from spreading to a column where 0 is honest:
+        # the committed golden is 0 from step 5 on, and -1 whenever the source is a
+        # --kc-profile table, which carries no mass_below column at all.
+        S = _load("solve")
+        rows = [list(r) for r in self.ROWS]
+        for r in rows:
+            r[2] = -1
+        self.assertEqual([], S.atlas_q3_reader_check(self._write(rows), self.N))
+
+    def test_the_emitter_always_publishes_f_and_alts(self):
+        # The f/alts bounds are presence-guarded (the `bits` precedent), so this pins the
+        # premise that makes that guard safe: every table that reaches the reader from
+        # atlas_queries / atlas_selftest carries both columns.
+        S = _load("solve")
+        self.assertIn("f", S._Q3_KEEP)
+        self.assertIn("alts", S._Q3_KEEP)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
