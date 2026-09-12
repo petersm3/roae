@@ -33,6 +33,12 @@
 [kc-scan-selftest] atlas extractor vs exhaustive brute force (n=9)
 KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
 [kc-scan-selftest] g ladder build                                               PASS
+[kc-scan] TAIL-CHECK vertical_raw_eq_N: PASS
+[kc-scan] TAIL-CHECK digit_cross_table_eq_cls_prefix: PASS
+[kc-scan] TAIL-CHECK kernel_cross_layer_eq: PASS
+[kc-scan] TAIL-CHECK kernel_rev_column_eq: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance: PASS
+KC_SCAN_TAILCHECK=PASS
 [kc-scan-selftest] scan core runs (raw expansion ON)                            PASS
 [kc-scan-selftest] scan internal ==N gates all PASS                             PASS
 [kc-scan-selftest] t-units computed at n=9                                      PASS
@@ -41,6 +47,17 @@ KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
 [kc-scan-selftest] branch atlas solutions == brute first-placement census       PASS
 [kc-scan-selftest] quotient marginal column sums == N (all layers)              PASS
 [kc-scan-selftest] class column sums == b0[d]*N (brute census AND extractor, all d) PASS
+[kc-scan-selftest] L6a reference walk (O3 midpoint) is a walk; thresholds == brute walks-through PASS
+[kc-scan-selftest] L3 structural counts == brute prefix DFS (all layers, all fields) PASS
+[kc-scan-selftest] L3 dead + live f mass == fmass (brute)                       PASS
+[kc-scan-selftest] L13 out-degree census (cnt, fmass, wmass) == brute (all layers) PASS
+[kc-scan-selftest] L4 extrema per (layer, class) == brute under the pinned order (w, cm, key, q, o; fv, gv) PASS
+[kc-scan-selftest] L6 magnitude histogram, all four columns == brute (all layers, classes, buckets) PASS
+[kc-scan-selftest] L6a rank bins lt/eq/gt (cnt, orb, mass) == brute (all layers, classes) PASS
+[kc-scan-selftest] L2' raw transition kernel M_k[a][b] == brute walk census (all layers, all cells) PASS
+[kc-scan-selftest] L7 budget-digit marginals == brute walk census (all layers, classes, digits) PASS
+[kc-scan-selftest] L7' rid joint == brute walk census (every rid)               PASS
+[kc-scan-selftest] NEGATIVE N3: a perturbed kernel cell IS caught by the brute comparator PASS
 [kc-scan-selftest] NEGATIVE N1: corrupted extractor mass IS caught by brute     PASS
 [kc-scan] layer 00 -> 01: transition mass 26112
 [kc-scan] layer 01 -> 02: transition mass 26112
@@ -51,6 +68,12 @@ KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
 [kc-scan] layer 06 -> 07: transition mass 26112
 [kc-scan] layer 07 -> 08: transition mass 26112
 [kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] TAIL-CHECK vertical_raw_eq_N: PASS
+[kc-scan] TAIL-CHECK digit_cross_table_eq_cls_prefix: PASS
+[kc-scan] TAIL-CHECK kernel_cross_layer_eq: PASS
+[kc-scan] TAIL-CHECK kernel_rev_column_eq: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance: PASS
+KC_SCAN_TAILCHECK=PASS
 [kc-scan] atlas written: <SELFTEST_TMP>/atlas.json
 KC_SCAN_TIDENTITY=SKIPPED
 [kc-scan] WARNING: no --kc-tdir - the arithmetic identity (t(root) == sum of f layer masses) was NOT run. It is the only value-level check on fmass[k] for k < n. This is a STRICTLY WEAKER attestation; pass --kc-tdir for a production atlas.
@@ -69,6 +92,12 @@ KC_SCAN=OK
 [kc-scan] layer 07 -> 08: transition mass 26112
 [kc-scan] layer 08 -> 09: transition mass 26112
 [kc-scan] GATE FAIL: t-recursion prefix total != f-ladder layer masses
+[kc-scan] TAIL-CHECK vertical_raw_eq_N: PASS
+[kc-scan] TAIL-CHECK digit_cross_table_eq_cls_prefix: PASS
+[kc-scan] TAIL-CHECK kernel_cross_layer_eq: PASS
+[kc-scan] TAIL-CHECK kernel_rev_column_eq: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance: PASS
+KC_SCAN_TAILCHECK=PASS
 [kc-scan] atlas written: <SELFTEST_TMP>/atlas.json
 KC_SCAN_TIDENTITY=SKIPPED
 [kc-scan] WARNING: no --kc-tdir - the arithmetic identity (t(root) == sum of f layer masses) was NOT run. It is the only value-level check on fmass[k] for k < n. This is a STRICTLY WEAKER attestation; pass --kc-tdir for a production atlas.
@@ -85,6 +114,12 @@ KC_SCAN=FAIL
 [kc-scan] layer 06 -> 07: transition mass 26112
 [kc-scan] layer 07 -> 08: transition mass 26112
 [kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] TAIL-CHECK vertical_raw_eq_N: PASS
+[kc-scan] TAIL-CHECK digit_cross_table_eq_cls_prefix: PASS
+[kc-scan] TAIL-CHECK kernel_cross_layer_eq: PASS
+[kc-scan] TAIL-CHECK kernel_rev_column_eq: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance: PASS
+KC_SCAN_TAILCHECK=PASS
 [kc-scan] atlas written: <SELFTEST_TMP>/atlas.json
 KC_SCAN_TIDENTITY=SKIPPED
 [kc-scan] WARNING: no --kc-tdir - the arithmetic identity (t(root) == sum of f layer masses) was NOT run. It is the only value-level check on fmass[k] for k < n. This is a STRICTLY WEAKER attestation; pass --kc-tdir for a production atlas.

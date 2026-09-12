@@ -7440,6 +7440,26 @@ wrong file. Each was found by asking why a control did *not* fail, and each is r
 file rather than quietly fixed. A fourth, written for the same guard, broke three previously-passing
 cases by borrowing a variable from a file that defines it into one that does not.
 
+**The instrument the run will be watched through.** The KC scan logging build landed on main —
+per-lookup and per-merge instrumentation, with the 64×64 transition kernel chosen over the smaller
+variant because output size was never the binding constraint. The gates that needed more than one
+machine ran on a separate VM, where four kill-mutants — including a kill inside the merge — were
+caught and the suite closed `KCPAR_VM_TESTS=PASS`. The scan `--selftest` sha is unchanged at
+`403f7202…`, which is what makes this an addition to the engine rather than a
+change to it. The measured cost is +19.9% per lookup
+at n=9 — an n=9 artefact; the n=31 figure is unmeasured by design.
+
+**A gate that counted one citation form and not the other.** Merging it moved `solve.c` by 3,113
+lines, so every `solve.c:NNNNN` citation in the CLI document had to be re-aimed — and neither
+side's numbers were right for the merged file: one was short by the branch's insertions, the other
+by the eighteen lines main had added underneath them. A gate catches that much. What it does not
+catch is that five citations are written as bare continuations — `solve.c:40914, :40915-40918` —
+and its pattern requires the `solve.c:` prefix, so those five went unmeasured by the 2026-09-04
+re-measurement and had drifted 3,707 lines behind a green PASS. They were re-aimed by hand. Two sets of numbers were deliberately left alone: those citing
+other files, and the coordinates inside the note that exists to record an *earlier* drift, where the
+stale values are the evidence and correcting them would destroy the record. The identifiers written
+`@21051` rather than `:21051` were already spelled that way for the same reason.
+
 **What did not move.** No canonical sha, no record count, no archive, and no published claim about the
 sequence was changed or withdrawn — the one number this day ADDS is `μ_rec^C15`, stated above with its
 interval. The scan has not run.

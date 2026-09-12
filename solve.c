@@ -365,6 +365,9 @@
 #include <limits.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
+#include <sys/utsname.h>        /* KC scan chunk telemetry host block (2026-09-11) */
+#include <gnu/libc-version.h>   /* ... gnu_get_libc_version() */
+#include <sched.h>              /* ... sched_getaffinity (E12) */
 
 /* GIT_BRANCH — the branch the binary was BUILT from. This was hardcoded "v4-compiler" at all
  * 11 provenance sites. That literal outlived the branch: --kc-scan runs from v4-query-program,
@@ -13798,6 +13801,38 @@ static inline int f1_eq(const F1U192 *a, const F1U192 *b) {
     return a->l0 == b->l0 && a->l1 == b->l1 && a->l2 == b->l2;
 }
 
+/* three-limb unsigned compare: -1 / 0 / +1. (KC scan logging build, 2026-09-11.) */
+static inline int f1_cmp(const F1U192 *a, const F1U192 *b) {
+    if (a->l2 != b->l2) return a->l2 < b->l2 ? -1 : 1;
+    if (a->l1 != b->l1) return a->l1 < b->l1 ? -1 : 1;
+    if (a->l0 != b->l0) return a->l0 < b->l0 ? -1 : 1;
+    return 0;
+}
+
+/* floor(log2 a) for a != 0, in 0..191 -- the L6 histogram bucket. */
+static inline int f1_log2(const F1U192 *a) {
+    if (a->l2) return 191 - __builtin_clzll(a->l2);
+    if (a->l1) return 127 - __builtin_clzll(a->l1);
+    return 63 - __builtin_clzll(a->l0);
+}
+
+/* a >> s, 0 <= s < 192 (logical). */
+static F1U192 f1_shr(F1U192 a, int s) {
+    F1U192 r = {0, 0, 0};
+    if (s >= 128) { r.l0 = a.l2 >> (s - 128); return r; }
+    if (s >= 64) {
+        const int t = s - 64;
+        r.l0 = t ? (a.l1 >> t) | (a.l2 << (64 - t)) : a.l1;
+        r.l1 = a.l2 >> t;
+        return r;
+    }
+    if (s == 0) return a;
+    r.l0 = (a.l0 >> s) | (a.l1 << (64 - s));
+    r.l1 = (a.l1 >> s) | (a.l2 << (64 - s));
+    r.l2 = a.l2 >> s;
+    return r;
+}
+
 static F1U192 f1_mul_small(F1U192 a, uint32_t m) {
     unsigned __int128 p = (unsigned __int128)a.l0 * m;
     F1U192 r;
@@ -16392,6 +16427,35 @@ static uint64_t f1c5_lstream_next(F1c5LayerStream *S, const uint8_t **out) {
         return unit * bn;
     }
     return 0;
+}
+
+/* Position an open stream at entry block b of the keys (section 2) or vals
+ * (section 3) section, so the next f1c5_lstream_next yields block b (v2: the
+ * inflated block; v1: a raw chunk starting at entry b*F1C5_OOC_BLK). v2 seeks to
+ * f1c5_v2_kblk_base + kidx[b] (keys) or + kidx[nblk] + vidx[b] (vals) -- the
+ * layout f1c5_lstream_advance walks sequentially; v1 seeks to kbase + 4*e0 /
+ * vbase + 24*e0 exactly as kc_ooc_block's v1 path does. Only the section cursor
+ * and file position change; the index loaded and validated at open is reused.
+ * (Parallel --kc-scan, 2026-09-11: each thread seeks its own two streams.) */
+static void f1c5_lstream_seek_block(F1c5LayerStream *S, int section, uint64_t b) {
+    F1_CHECK(section == 2 || section == 3, "[lstream] seek: section %d is not keys/vals", section);
+    const uint64_t e0 = b * (uint64_t)F1C5_OOC_BLK;
+    F1_CHECK(e0 < S->ne, "%s: seek to block %llu past the last entry (ne=%llu)", S->path,
+             (unsigned long long)b, (unsigned long long)S->ne);
+    uint64_t pos;
+    if (S->is_v2) {
+        const uint64_t base = f1c5_v2_kblk_base(S->nm, S->ne);
+        pos = (section == 2) ? base + S->kidx[b] : base + S->kidx[S->nblk] + S->vidx[b];
+        S->blk = b;
+        S->raw_left = 0;
+    } else {
+        const uint64_t kbase = sizeof(F1C5LayerHdr) + 4ull * S->nm + 8ull * (S->nm + 1);
+        pos = (section == 2) ? kbase + 4ull * e0 : kbase + 4ull * S->ne + 24ull * e0;
+        S->raw_left = (section == 2 ? 4ull : 24ull) * (S->ne - e0);
+    }
+    F1_CHECK(fseeko(S->f, (off_t)pos, SEEK_SET) == 0, "%s: seek to %llu failed", S->path,
+             (unsigned long long)pos);
+    S->section = section;
 }
 
 /* Classify a logical-stream offset into its section for divergence reports. */
@@ -20148,6 +20212,15 @@ typedef struct KcOoc {
     uint64_t tick, hits, misses;
     uint8_t *cbuf;                 /* compressed-block scratch (v2 inflate source) */
     F1C5OocIo io;
+    double sec_inflate;            /* wall seconds inside f1c5_inflate_block (v2 misses);
+                                    * KC scan instrumentation, 2026-09-11 */
+    double max_inflate_sec;        /* the longest single inflate (a stall an average hides);
+                                    * KC scan chunk telemetry L9, 2026-09-11. Bookkeeping
+                                    * only: no value the reader serves depends on it */
+    int max_inflate_k;             /* ... its witness (layer, block) (KCP4 E12) */
+    uint64_t max_inflate_blk;
+    int borrowed;                  /* 1 = a kc_ooc_clone_cache() clone: L[] (fds + index
+                                    * arrays) belong to the source reader, NOT to this one */
 } KcOoc;
 
 static inline uint32_t kc_ooc_hash(const KcOoc *o, int k, uint64_t blk) {
@@ -20195,10 +20268,18 @@ static KcCacheSlot *kc_ooc_block(KcOoc *o, int k, uint64_t blk) {
     if (L->is_v2) {
         uint64_t kcb = L->kidx[blk + 1] - L->kidx[blk];
         f1c5_ooc_pread(L->fd, o->cbuf, kcb, L->kbase + L->kidx[blk], L->path, &o->io);
+        double ti = omp_get_wtime();
         f1c5_inflate_block(o->cbuf, kcb, (Bytef *)S->keys, 4ull * bn);
+        double dt = omp_get_wtime() - ti;
+        o->sec_inflate += dt;
+        if (dt > o->max_inflate_sec) { o->max_inflate_sec = dt; o->max_inflate_k = k; o->max_inflate_blk = blk; }
         uint64_t vcb = L->vidx[blk + 1] - L->vidx[blk];
         f1c5_ooc_pread(L->fd, o->cbuf, vcb, L->vbase + L->vidx[blk], L->path, &o->io);
+        ti = omp_get_wtime();
         f1c5_inflate_block(o->cbuf, vcb, (Bytef *)S->vals, 24ull * bn);
+        dt = omp_get_wtime() - ti;
+        o->sec_inflate += dt;
+        if (dt > o->max_inflate_sec) { o->max_inflate_sec = dt; o->max_inflate_k = k; o->max_inflate_blk = blk; }
     } else {
         f1c5_ooc_pread(L->fd, S->keys, 4ull * bn, L->kbase + 4ull * e0, L->path, &o->io);
         f1c5_ooc_pread(L->fd, S->vals, 24ull * bn, L->vbase + 24ull * e0, L->path, &o->io);
@@ -20223,11 +20304,78 @@ static inline F1U192 kc_ooc_val_at(KcOoc *o, int k, uint64_t e) {
 
 static void kc_ooc_free(KcOoc *o) {
     if (!o) return;
+    F1_CHECK(!o->borrowed, "[kc-ooc] kc_ooc_free on a cache CLONE would close the source "
+             "reader's fds and free its index arrays; use kc_ooc_free_clone (defect)");
     for (int k = 0; k <= KC_MAX_PAIRS; k++) {
         KcOocLayer *L = &o->L[k];
         if (L->fd >= 0) close(L->fd);
         free(L->masks); free(L->off); free(L->kidx); free(L->vidx);
     }
+    if (o->slot)
+        for (int s = 0; s < o->nslot; s++) { free(o->slot[s].keys); free(o->slot[s].vals); }
+    free(o->slot); free(o->htab); free(o->cbuf);
+    free(o);
+}
+
+/* the LRU block cache proper: nslot slots of F1C5_OOC_BLK decompressed entries,
+ * the bucket table and the inflate scratch. Shared by kc_ooc_open_ext and
+ * kc_ooc_clone_cache so the two can never allocate a different cache shape. */
+static int kc_ooc_nslot_for_mb(int cache_mb) {
+    const uint64_t slot_bytes = 28ull * F1C5_OOC_BLK;
+    int nslot = (int)(((uint64_t)cache_mb << 20) / slot_bytes);
+    return nslot < 4 ? 4 : nslot;
+}
+
+static void kc_ooc_cache_alloc(KcOoc *o, int nslot) {
+    if (nslot < 4) nslot = 4;
+    o->nslot = nslot;
+    o->slot = (KcCacheSlot *)calloc((size_t)nslot, sizeof(KcCacheSlot));
+    F1_CHECK(o->slot != NULL, "[kc-ooc] cache slot alloc failed");
+    for (int s = 0; s < nslot; s++) {
+        o->slot[s].keys = (uint32_t *)malloc(4ull * F1C5_OOC_BLK);
+        o->slot[s].vals = (F1U192 *)malloc(24ull * F1C5_OOC_BLK);
+        F1_CHECK(o->slot[s].keys && o->slot[s].vals, "[kc-ooc] cache buffer alloc failed");
+        o->slot[s].k = -1;
+        o->slot[s].hnext = -1;
+    }
+    int hs = 1;
+    while (hs < 2 * nslot) hs <<= 1;
+    o->hsize = hs;
+    o->htab = (int *)malloc(sizeof(int) * (size_t)hs);
+    F1_CHECK(o->htab != NULL, "[kc-ooc] cache htab alloc failed");
+    for (int i = 0; i < hs; i++) o->htab[i] = -1;
+    o->cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
+    F1_CHECK(o->cbuf != NULL, "[kc-ooc] cbuf alloc failed");
+}
+
+/* ---- per-thread cache clone (parallel --kc-scan, 2026-09-11) ----
+ * kc_ooc_block mutates the reader on EVERY lookup (slot stamps, tick, hits) and
+ * on every miss (eviction, hash chains, the shared cbuf inflate scratch, the io
+ * counters), so one KcOoc cannot serve two threads. The layer table L[] is the
+ * opposite: written only at open, then read-only, and pread on a shared fd is
+ * safe. A clone therefore SHALLOW-copies L[] (same fd, same masks/off/kidx/
+ * vidx pointers, marked not-owned) and gets a FRESH slot/htab/cbuf/io/counters
+ * of its own -- no pointer to mutable state is shared with the source or with
+ * any other clone. kc_ooc_block / kc_ooc_flookup / kc_glookup are unchanged: a
+ * clone is the same code over the same layer table.
+ * cache_mb <= 0 => the source's slot count. The source must outlive every clone
+ * (the clone borrows its fds and index arrays). Design: roae-private
+ * KC_SCAN_PARALLEL_DESIGN_2026_09_11.md s3.2 (Claude Fable); implementation by
+ * Claude (Opus), developed with AI assistance (Claude, Anthropic). */
+static KcOoc *kc_ooc_clone_cache(const KcOoc *src, int cache_mb) {
+    F1_CHECK(src != NULL && !src->borrowed, "[kc-ooc] clone of NULL or of a clone (defect)");
+    KcOoc *o = (KcOoc *)calloc(1, sizeof(KcOoc));
+    F1_CHECK(o != NULL, "[kc-ooc] clone alloc");
+    memcpy(o->L, src->L, sizeof(o->L));
+    o->borrowed = 1;
+    kc_ooc_cache_alloc(o, cache_mb > 0 ? kc_ooc_nslot_for_mb(cache_mb) : src->nslot);
+    return o;
+}
+
+static void kc_ooc_free_clone(KcOoc *o) {
+    if (!o) return;
+    F1_CHECK(o->borrowed, "[kc-ooc] kc_ooc_free_clone on an OWNING reader would leak its "
+             "fds and index arrays; use kc_ooc_free (defect)");
     if (o->slot)
         for (int s = 0; s < o->nslot; s++) { free(o->slot[s].keys); free(o->slot[s].vals); }
     free(o->slot); free(o->htab); free(o->cbuf);
@@ -20390,27 +20538,8 @@ static int kc_ooc_open_ext(KC *kc, const char *dir, const char *pfx, int is_g,
         cache_mb = (e && *e) ? atoi(e) : 0;
         if (cache_mb <= 0) cache_mb = 2048;
     }
-    uint64_t slot_bytes = 28ull * F1C5_OOC_BLK;
-    int nslot = (int)(((uint64_t)cache_mb << 20) / slot_bytes);
-    if (nslot < 4) nslot = 4;
-    o->nslot = nslot;
-    o->slot = (KcCacheSlot *)calloc((size_t)nslot, sizeof(KcCacheSlot));
-    F1_CHECK(o->slot != NULL, "[kc-ooc] cache slot alloc failed");
-    for (int s = 0; s < nslot; s++) {
-        o->slot[s].keys = (uint32_t *)malloc(4ull * F1C5_OOC_BLK);
-        o->slot[s].vals = (F1U192 *)malloc(24ull * F1C5_OOC_BLK);
-        F1_CHECK(o->slot[s].keys && o->slot[s].vals, "[kc-ooc] cache buffer alloc failed");
-        o->slot[s].k = -1;
-        o->slot[s].hnext = -1;
-    }
-    int hs = 1;
-    while (hs < 2 * nslot) hs <<= 1;
-    o->hsize = hs;
-    o->htab = (int *)malloc(sizeof(int) * (size_t)hs);
-    F1_CHECK(o->htab != NULL, "[kc-ooc] cache htab alloc failed");
-    for (int i = 0; i < hs; i++) o->htab[i] = -1;
-    o->cbuf = (uint8_t *)malloc(compressBound(24ull * F1C5_OOC_BLK));
-    F1_CHECK(o->cbuf != NULL, "[kc-ooc] cbuf alloc failed");
+    const int nslot = kc_ooc_nslot_for_mb(cache_mb);
+    kc_ooc_cache_alloc(o, nslot);
     kc->ooc = o;
     /* exact total: f from the (tiny, single-mask) final layer; g from the
      * layer-0 anchor singleton (whole-space count, suffix side) — the g seed
@@ -27486,6 +27615,50 @@ typedef struct {
     F1U192 t192;                 /* exact t-units from the t ladder (--kc-tdir; any n) */
 } KcScanBranch;
 
+/* ---- the scan LOGGING tables (2026-09-11) ----
+ * Build list: roae-private SCAN_LOGGING_BUILD_LIST_2026_09_11.md REV1a (rows L1-L13),
+ * from FABLE_SCAN_REGRET_ANALYSIS_2026_09_11.md and FABLE_SCAN_LOGGING_LIST_REVIEW_2026_09_11.md.
+ * Claude Fable 5.1, developed with AI assistance (Claude, Anthropic).
+ * Every table below is an EXACT, ORDER-INDEPENDENT sum (f1_add / uint64) or a deterministic
+ * extremum under the ONE pinned total order (kc_h_ext_better), all indexed by transition layer
+ * k, so the chunk-range argument of kc_h_scan_layers and the parallel design's reduction
+ * (a cmp-identical atlas at every thread count) cover them unchanged.
+ *   L2'  kern[k][a][b]  raw transition kernel M_k: orbit-expanded walk mass through the
+ *        transitions of layer k with RAW exit hexagram a and RAW entry hexagram b. Accumulated
+ *        in the canonical frame into a per-mask scratch S[lastc][entry] (one f1_add per
+ *        nonzero lookup) and expanded once per mask through hinv of each distinct image's
+ *        representative -- the same representatives rawmarg uses, so its pair marginal is a
+ *        second implementation of the same map.
+ *   L3   cnt[k]         structural counts (entries / lookups / budget-pruned / zero-g / dead
+ *        ends and their f mass / live f mass / nonzero per class, canonical and orbit-weighted).
+ *   L4   ext[k][d][2]   max and min-nonzero w = f*g per (layer, class), with witness.
+ *   L6   hist[k][d][b]  magnitude histogram of w, b = floor(log2 w): cnt, orb, sum w, sum worb.
+ *   L7   dig[k][d][j]   budget-digit marginals: walk mass through f entries whose rid records
+ *        j class-d transitions used, accumulated from ew (the entry's admissible nonzero worb).
+ *   L13  deg_*[k][c]    out-degree census: entries with exactly c nonzero admissible children,
+ *        their f mass, and the walk mass through them. */
+#define KC_SCAN_HB 192           /* L6 buckets: w < 2^192 so floor(log2 w) in 0..191 */
+#define KC_SCAN_DJ 32            /* L7 digit slots per class: j in 0..b0[d], b0[d] <= n <= 31 */
+#define KC_SCAN_DEG 64           /* L13 out-degree slots: c in 0..2(n-k) <= 62 */
+#define KC_SCAN_NTC 5            /* tail checks (report-only unless SOLVE_KC_SCAN_TAIL_STRICT=1) */
+
+typedef struct {
+    F1U192 w, fv, gv;
+    uint32_t cm, key;            /* key = lastc << 16 | rid, unique within a mask */
+    uint8_t q, o, valid;
+} KcScanExt;
+
+typedef struct {                 /* L3, one layer */
+    uint64_t entries, lookups, pruned, zero_g, dead;
+    uint64_t nz[5], nz_orb[5];
+    F1U192 dead_fmass, live_fmass;
+} KcScanCnt;
+
+typedef struct { uint64_t cnt, orb; F1U192 mw, mworb; } KcScanHb;   /* L6, one bucket */
+typedef struct { uint64_t cnt, orb; F1U192 mworb; } KcScanKw;       /* L6a, one rank bin */
+#define KC_SCAN_KWSRC_KW "KW"
+#define KC_SCAN_KWSRC_O3 "O3-MIDPOINT"
+
 typedef struct {
     int n;
     int raw_enabled, t_done;
@@ -27496,16 +27669,76 @@ typedef struct {
     F1U192 *qmarg;               /* [n*32]   quotient-frame per-subset-pair marginal */
     F1U192 *rawmarg;             /* [n*32]   RAW-frame per-GLOBAL-pair marginal */
     F1U192 *fmass;               /* [n+1]    orbit-weighted f layer masses (#prefixes) */
+    /* the logging tables (2026-09-11); tables == 0 only in a SOLVE_KC_SCAN_TABLES=0
+     * measurement run, which writes neither a chunk nor an atlas */
+    int tables;
+    int pl_of_q[32];             /* c->pl[] and B.b0[] copied at alloc: the row writer sees only T */
+    int b0_of_d[5];
+    F1U192 *kern;                /* [n*64*64] L2' (raw mode only; zero otherwise) */
+    KcScanCnt *cnt;              /* [n]       L3 */
+    KcScanExt *ext;              /* [n*5*2]   L4: [k][d][0] = max, [k][d][1] = min-nonzero */
+    KcScanHb *hist;              /* [n*5*192] L6 */
+    F1U192 *dig;                 /* [n*5*32]  L7 */
+    uint64_t *deg_cnt;           /* [n*64]    L13 */
+    F1U192 *deg_fmass;           /* [n*64] */
+    F1U192 *deg_wmass;           /* [n*64] */
+    /* L6a (KCP4 E2): exact rank bins lt / eq / gt of every nonzero w against the reference
+     * walk's own transition product at layer k, per (layer, class). The reference walk is
+     * KW at n = 31 and the TR-12 battery's anchor, the O3 midpoint unrank(floor(N/2)), at
+     * every other n; the scan derives it from its own ladders and records it in the row,
+     * and the merge re-derives it and refuses on mismatch. */
+    int kw_ok;                   /* the reference walk and its thresholds are computed */
+    char kw_src[16];             /* KC_SCAN_KWSRC_KW / KC_SCAN_KWSRC_O3 */
+    uint8_t *kw_exit;            /* [n]   the walk's exit hexagram at step k */
+    int *kw_cls;                 /* [n]   its class at step k */
+    F1U192 *kw_w;                /* [n]   its transition product at layer k (the threshold) */
+    KcScanKw *kw;                /* [n*5*3]  [k][d][lt=0, eq=1, gt=2] */
+    /* L7' (KCP4 E3): the full rid joint. rsum[rid] == k on every layer-k entry, so ONE
+     * table over the rid space carries every layer; row k emits the rids with rsum == k. */
+    uint32_t R;
+    F1U192 *rid_mass;            /* [R] */
+    const uint8_t *rsum_of;      /* fkc->B.rsum (borrowed): rsum_of[rid] = the rid's layer */
     KcScanBranch br[64];
     int nbranch;
     uint64_t t_root;             /* 1 + sum of branch subtrees (t-units) */
     int gate_fails;
     int t_sum_ok;                /* t_ladder only: t(root) == sum of f layer masses
                                   * (the cross-chunk arithmetic identity, leg 5) */
+    /* tail checks (F3 rule): identities with a written proof that are NOT yet green at
+     * n=12/13 on v2 OOC ladders. Recorded and reported; they refuse only under
+     * SOLVE_KC_SCAN_TAIL_STRICT=1 (the n=12/13 VM leg G18 runs them strict). */
+    int tail_report_ran, tail_report_fails;
+    char tail_report[KC_SCAN_NTC][12];
 } KcScanTab;
 
 static void kc_scan_free(KcScanTab *T) {
     free(T->flow); free(T->cls); free(T->qmarg); free(T->rawmarg); free(T->fmass);
+    free(T->kern); free(T->cnt); free(T->ext); free(T->hist); free(T->dig);
+    free(T->deg_cnt); free(T->deg_fmass); free(T->deg_wmass);
+    free(T->kw_exit); free(T->kw_cls); free(T->kw_w); free(T->kw); free(T->rid_mass);
+}
+
+static const char *const kc_scan_tc_name[KC_SCAN_NTC] = {
+    "vertical_raw_eq_N",                 /* L8:  sum_k marginal_raw[k][p] == N, every free p */
+    "digit_cross_table_eq_cls_prefix",   /* L7:  sum_j j*dig[k][d][j] == sum_{k'<k} cls[k'][d] */
+    "kernel_cross_layer_eq",             /* L2': sum_b M_k[a][b] == sum_a' M_{k-1}[a'][partner a] */
+    "kernel_rev_column_eq",              /* L2': sum_k sum_a M_k[a][b] == same at rev b */
+    "kernel_g_invariance"                /* L2': M_k[pi a][pi b] == M_k[a][b], 24 lifts + rev */
+};
+
+/* the ONE pinned total order on canonical transitions, used for the in-thread running
+ * extremum AND the cross-thread reduction (design s8 M4: "first seen" is not an order).
+ * max: larger w, ties broken by the smaller (cm, key, q, o); min-nonzero: smaller w, ties
+ * the same way. (cm, key, q, o) is unique per transition, so this is a strict total order
+ * and the extremum of a set is a deterministic function of the set. */
+static int kc_h_ext_better(const KcScanExt *c, const KcScanExt *e, int is_min) {
+    if (!e->valid) return 1;
+    const int r = f1_cmp(&c->w, &e->w);
+    if (r != 0) return is_min ? (r < 0) : (r > 0);
+    if (c->cm != e->cm) return c->cm < e->cm;
+    if (c->key != e->key) return c->key < e->key;
+    if (c->q != e->q) return c->q < e->q;
+    return c->o < e->o;
 }
 
 /* valid-prefix (t-unit) subtree counter: counts every in-path-valid placement
@@ -27538,6 +27771,7 @@ static void kc_h_prefix_rec(const KC *kc, int depth, uint32_t m, int last,
  * emitter, so a merged atlas is byte-identical to a whole-run atlas BY
  * CONSTRUCTION rather than by two printf sites agreeing. Emits the row object
  * only (no trailing comma / newline). (KC-H chunking, 2026-08-22.) */
+static void kc_h_scan_write_layer_row_x(FILE *f, const KcScanTab *T, int k, int want_raw);
 static void kc_h_scan_write_layer_row(FILE *f, const KcScanTab *T, int k, int want_raw) {
     char t[64];
     const int n = T->n;
@@ -27568,7 +27802,142 @@ static void kc_h_scan_write_layer_row(FILE *f, const KcScanTab *T, int k, int wa
         }
         fprintf(f, "}");
     }
+    if (T->tables) kc_h_scan_write_layer_row_x(f, T, k, want_raw);
     fprintf(f, "}");
+}
+
+/* the logging tables of one layer row (2026-09-11), appended AFTER marginal_raw. Key
+ * hygiene (build list L12): every key here is unique at every nesting level of the chunk
+ * and the atlas and none is spelled flow / dN / qN / pairN / marginal_quotient / an
+ * identity field, because kc_h_field takes the FIRST strstr hit of "key": in a buffer and
+ * the merge reads the zero-skipped qN / pairN cells with required=0 by first occurrence.
+ * Zero cells are skipped in kernel / hist / outdeg (od0 is always emitted: it is the
+ * dead-end binding); counts, extrema and digits are emitted in full. */
+static void kc_h_scan_write_layer_row_x(FILE *f, const KcScanTab *T, int k, int want_raw) {
+    char t[64], t2[64];
+    static const int dv[5] = {1, 2, 3, 4, 6};
+    const KcScanCnt *C = &T->cnt[k];
+    /* L3 */
+    f1_dec(C->dead_fmass, t);
+    f1_dec(C->live_fmass, t2);
+    fprintf(f, ", \"counts\": {\"st_entries\": %llu, \"st_lookups\": %llu, \"st_pruned\": %llu, "
+            "\"st_zero_g\": %llu, \"st_dead\": %llu, \"st_dead_fmass\": \"%s\", "
+            "\"st_live_fmass\": \"%s\"",
+            (unsigned long long)C->entries, (unsigned long long)C->lookups,
+            (unsigned long long)C->pruned, (unsigned long long)C->zero_g,
+            (unsigned long long)C->dead, t, t2);
+    for (int d = 0; d < 5; d++)
+        fprintf(f, ", \"st_nz%d\": %llu", dv[d], (unsigned long long)C->nz[d]);
+    for (int d = 0; d < 5; d++)
+        fprintf(f, ", \"st_nzo%d\": %llu", dv[d], (unsigned long long)C->nz_orb[d]);
+    fprintf(f, "}");
+    /* L4 */
+    fprintf(f, ", \"extrema\": {");
+    for (int d = 0; d < 5; d++) {
+        fprintf(f, "%s\"ext%d\": {", d ? ", " : "", dv[d]);
+        for (int m = 0; m < 2; m++) {
+            const KcScanExt *E = &T->ext[(k * 5 + d) * 2 + m];
+            fprintf(f, "%s\"%s\": ", m ? ", " : "", m ? "min" : "max");
+            if (!E->valid) { fprintf(f, "null"); continue; }
+            f1_dec(E->w, t);
+            fprintf(f, "{\"x_w\": \"%s\", \"x_cm\": %u, \"x_lastc\": %d, \"x_rid\": %u, "
+                    "\"x_q\": %d, \"x_o\": %d, \"x_qpair\": %d", t, E->cm, (int)(E->key >> 16),
+                    E->key & 0xffffu, E->q, E->o, T->pl_of_q[E->q]);
+            f1_dec(E->fv, t);
+            f1_dec(E->gv, t2);
+            fprintf(f, ", \"x_fv\": \"%s\", \"x_gv\": \"%s\"}", t, t2);
+        }
+        fprintf(f, "}");
+    }
+    fprintf(f, "}");
+    /* L6 */
+    fprintf(f, ", \"hist\": {");
+    for (int d = 0; d < 5; d++) {
+        fprintf(f, "%s\"hb%d\": {", d ? ", " : "", dv[d]);
+        int first = 1;
+        for (int b = 0; b < KC_SCAN_HB; b++) {
+            const KcScanHb *H = &T->hist[(k * 5 + d) * KC_SCAN_HB + b];
+            if (H->cnt == 0) continue;
+            f1_dec(H->mw, t);
+            f1_dec(H->mworb, t2);
+            fprintf(f, "%s\"lg%d\": {\"hc\": %llu, \"ho\": %llu, \"hw\": \"%s\", \"hwo\": \"%s\"}",
+                    first ? "" : ", ", b, (unsigned long long)H->cnt, (unsigned long long)H->orb,
+                    t, t2);
+            first = 0;
+        }
+        fprintf(f, "}");
+    }
+    fprintf(f, "}");
+    /* L7: j in 0..b0[d] INCLUSIVE, no zero-skip */
+    fprintf(f, ", \"digits\": {");
+    for (int d = 0; d < 5; d++) {
+        fprintf(f, "%s\"dg%d\": {", d ? ", " : "", dv[d]);
+        for (int j = 0; j <= T->b0_of_d[d]; j++) {
+            f1_dec(T->dig[(k * 5 + d) * KC_SCAN_DJ + j], t);
+            fprintf(f, "%s\"j%d\": \"%s\"", j ? ", " : "", j, t);
+        }
+        fprintf(f, "}");
+    }
+    fprintf(f, "}");
+    /* L13: od0 always (the dead-end binding), other c only when populated */
+    fprintf(f, ", \"outdeg\": {");
+    {
+        int first = 1;
+        for (int c = 0; c < KC_SCAN_DEG; c++) {
+            if (c != 0 && T->deg_cnt[k * KC_SCAN_DEG + c] == 0) continue;
+            f1_dec(T->deg_fmass[k * KC_SCAN_DEG + c], t);
+            f1_dec(T->deg_wmass[k * KC_SCAN_DEG + c], t2);
+            fprintf(f, "%s\"od%d\": {\"dc\": %llu, \"df\": \"%s\", \"dw\": \"%s\"}",
+                    first ? "" : ", ", c, (unsigned long long)T->deg_cnt[k * KC_SCAN_DEG + c],
+                    t, t2);
+            first = 0;
+        }
+    }
+    fprintf(f, "}");
+    /* L6a: the reference walk's step and threshold, then the three rank bins per class */
+    {
+        f1_dec(T->kw_w[k], t);
+        fprintf(f, ", \"kwrank\": {\"kw_src\": \"%s\", \"kw_exit\": %d, \"kw_cls\": %d, "
+                "\"kw_w\": \"%s\"", T->kw_src, T->kw_exit[k], dv[T->kw_cls[k]], t);
+        static const char *const bn[3] = {"lt", "eq", "gt"};
+        for (int d = 0; d < 5; d++) {
+            fprintf(f, ", \"kwr%d\": {", dv[d]);
+            for (int b = 0; b < 3; b++) {
+                const KcScanKw *K = &T->kw[(k * 5 + d) * 3 + b];
+                f1_dec(K->mworb, t);
+                fprintf(f, "%s\"%s\": {\"rc\": %llu, \"ro\": %llu, \"rw\": \"%s\"}", b ? ", " : "",
+                        bn[b], (unsigned long long)K->cnt, (unsigned long long)K->orb, t);
+            }
+            fprintf(f, "}");
+        }
+        fprintf(f, "}");
+    }
+    /* L7': the rids of this layer (rsum == k) with mass; zero-skip */
+    fprintf(f, ", \"rid_mass\": {");
+    {
+        int first = 1;
+        for (uint32_t r = 0; r < T->R; r++) {
+            if (T->rsum_of[r] != k || f1_is_zero(&T->rid_mass[r])) continue;
+            f1_dec(T->rid_mass[r], t);
+            fprintf(f, "%s\"r%u\": \"%s\"", first ? "" : ", ", r, t);
+            first = 0;
+        }
+    }
+    fprintf(f, "}");
+    /* L2' (raw frame; emitted only with the raw marginals, like marginal_raw) */
+    if (want_raw) {
+        fprintf(f, ", \"kernel\": {");
+        int first = 1;
+        for (int a = 0; a < 64; a++)
+            for (int b = 0; b < 64; b++) {
+                const F1U192 *v = &T->kern[(size_t)k * 4096 + (size_t)(a << 6 | b)];
+                if (f1_is_zero(v)) continue;
+                f1_dec(*v, t);
+                fprintf(f, "%s\"m%d_%d\": \"%s\"", first ? "" : ", ", a, b, t);
+                first = 0;
+            }
+        fprintf(f, "}");
+    }
 }
 
 /* ---- scan core, split into three phases so a chunked (--kc-layers A B) run
@@ -27589,73 +27958,463 @@ static void kc_h_scan_alloc(const KC *fkc, int want_raw, KcScanTab *T) {
     T->rawmarg = (F1U192 *)calloc((size_t)n * 32, sizeof(F1U192));
     T->fmass = (F1U192 *)calloc((size_t)n + 1, sizeof(F1U192));
     F1_CHECK(T->flow && T->cls && T->qmarg && T->rawmarg && T->fmass, "[kc-scan] alloc");
+    /* the logging tables (2026-09-11), always allocated (zeroed) so every reader is total */
+    T->tables = 1;
+    for (int q = 0; q < 32; q++) T->pl_of_q[q] = q < n ? fkc->c.pl[q] : 0;
+    for (int d = 0; d < 5; d++) T->b0_of_d[d] = fkc->B.b0[d];
+    T->kern = (F1U192 *)calloc((size_t)n * 4096, sizeof(F1U192));
+    T->cnt = (KcScanCnt *)calloc((size_t)n, sizeof(KcScanCnt));
+    T->ext = (KcScanExt *)calloc((size_t)n * 10, sizeof(KcScanExt));
+    T->hist = (KcScanHb *)calloc((size_t)n * 5 * KC_SCAN_HB, sizeof(KcScanHb));
+    T->dig = (F1U192 *)calloc((size_t)n * 5 * KC_SCAN_DJ, sizeof(F1U192));
+    T->deg_cnt = (uint64_t *)calloc((size_t)n * KC_SCAN_DEG, sizeof(uint64_t));
+    T->deg_fmass = (F1U192 *)calloc((size_t)n * KC_SCAN_DEG, sizeof(F1U192));
+    T->deg_wmass = (F1U192 *)calloc((size_t)n * KC_SCAN_DEG, sizeof(F1U192));
+    F1_CHECK(T->kern && T->cnt && T->ext && T->hist && T->dig && T->deg_cnt && T->deg_fmass &&
+             T->deg_wmass, "[kc-scan] logging table alloc");
+    T->kw_exit = (uint8_t *)calloc((size_t)n, 1);
+    T->kw_cls = (int *)calloc((size_t)n, sizeof(int));
+    T->kw_w = (F1U192 *)calloc((size_t)n, sizeof(F1U192));
+    T->kw = (KcScanKw *)calloc((size_t)n * 15, sizeof(KcScanKw));
+    T->R = fkc->B.R ? fkc->B.R : 1;
+    T->rsum_of = fkc->B.rsum;
+    T->rid_mass = (F1U192 *)calloc((size_t)T->R, sizeof(F1U192));
+    F1_CHECK(T->kw_exit && T->kw_cls && T->kw_w && T->kw && T->rid_mass,
+             "[kc-scan] logging table alloc");
+    strcpy(T->kw_src, "none");
+    for (int i = 0; i < KC_SCAN_NTC; i++) strcpy(T->tail_report[i], "not-run");
 }
 
-/* phase 2: the layer pass over the HALF-OPEN transition-layer range
- * [k_lo, k_hi) subset of [0, n). Every accumulator it touches
- * (flow/cls/qmarg/rawmarg and fmass[k] for k < n) is indexed by k only, which
- * is what makes the range restriction sound. Returns 0 ok, -1 on IO. */
-static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
-                            int want_raw, KcScanTab *T, int k_lo, int k_hi,
-                            int verbose) {
+/* ---- parallel layer pass controls (2026-09-11) ----
+ * Design: roae-private KC_SCAN_PARALLEL_DESIGN_2026_09_11.md ss1.3, 2, 3.2, 7.1
+ * (Claude Fable); implementation by Claude (Opus), developed with AI assistance
+ * (Claude, Anthropic). threads defaults to 1 and every other field to "as
+ * before", so every existing caller's numbers are unchanged; the atlas is
+ * byte-identical at every thread count because every accumulator is an exact
+ * F1U192 sum of non-negative terms (design s2.1) -- the acceptance criterion is
+ * cmp against T=1, not the gates (design s8, mutant M4). */
+#define KC_SCAN_MAX_THREADS 1024
+typedef struct {
+    int threads;          /* team size: --kc-scan-threads T / SOLVE_KC_SCAN_THREADS (default 1) */
+    int gcache_mb;        /* per-thread g cache: --kc-gcache-mb-per-thread C; 0 = the g reader's size */
+    int stats;            /* KC_SCAN_STAT lines on stderr: SOLVE_KC_SCAN_STATS=1 (forced by measure) */
+    int measure;          /* 1 = measurement run: partial layers, NO chunk and NO atlas written */
+    uint64_t start_blk;   /* SOLVE_KC_SCAN_START_BLOCK (measure) */
+    uint64_t stop_blocks; /* SOLVE_KC_SCAN_STOP_AFTER_BLOCKS (measure; 0 = to the end of the layer) */
+    uint64_t stride;      /* SOLVE_KC_SCAN_BLOCK_STRIDE (measure; 1 = contiguous blocks) */
+    uint64_t unit;        /* SOLVE_KC_SCAN_UNIT_ENTRIES: entries per work unit (default one block) */
+    int selfkill;         /* SOLVE_KC_SCAN_SELFKILL test hook: 0 off, 1 team:K, 2 reduce:K,
+                           * 3 merge:K (honoured by --kc-scan-merge only; the scan ignores it) */
+    int selfkill_k;       /* ... at transition layer K (team/reduce) or after K chunks (merge) */
+    int tables;           /* 0 = SOLVE_KC_SCAN_TABLES=0: skip the L2'-L13 accumulations
+                           * (a MEASUREMENT run: no chunk, no atlas; the per-lookup cost knob) */
+    struct KcScanTel *tel;/* chunk telemetry sink (L9), NULL = none */
+} KcScanPar;
+
+/* ---- chunk telemetry (L9, 2026-09-11): persisted per (layer, thread), outside KC_MERGE_ID,
+ * never in the atlas. What KC_SCAN_STAT prints to stderr, kept as a record. ---- */
+typedef struct {
+    uint64_t items, entries, lookups, hits, misses, bytes_read, f_blocks, f_logical;
+    double sec_read, sec_inflate, max_inflate_sec, max_unit_sec, wall, cpu_user, cpu_sys;
+    int max_inflate_k;
+    uint64_t max_inflate_blk, max_unit_it, max_unit_blk;
+    double max_unit_at;
+    int64_t io_read;
+} KcScanTelThr;
+typedef struct {
+    int filled, granted;
+    uint64_t nm, ne, nblk, units, unit_entries;
+    long dyn_chunk;
+    double wall, reduce_sec, cpu_user, cpu_sys, rss_mb, peak_rss_mb;
+    int64_t io_read;
+    KcScanTelThr *thr;    /* [threads] */
+} KcScanTelLayer;
+typedef struct KcScanTel {
+    int n, threads;
+    char g_mode[16];
+    int g_slots;
+    double sec_digest_f, sec_digest_g, rows_sec, scan_sec, t_start_epoch;
+    KcScanTelLayer *lay;  /* [n] */
+} KcScanTel;
+
+static KcScanTel *kc_h_tel_new(int n, int threads) {
+    KcScanTel *T = (KcScanTel *)calloc(1, sizeof(KcScanTel));
+    F1_CHECK(T != NULL, "[kc-scan] telemetry alloc");
+    T->n = n;
+    T->threads = threads;
+    T->lay = (KcScanTelLayer *)calloc((size_t)n, sizeof(KcScanTelLayer));
+    F1_CHECK(T->lay != NULL, "[kc-scan] telemetry alloc");
+    for (int k = 0; k < n; k++) {
+        T->lay[k].thr = (KcScanTelThr *)calloc((size_t)threads, sizeof(KcScanTelThr));
+        F1_CHECK(T->lay[k].thr != NULL, "[kc-scan] telemetry alloc");
+    }
+    return T;
+}
+static void kc_h_tel_free(KcScanTel *T) {
+    if (!T) return;
+    for (int k = 0; k < T->n; k++) free(T->lay[k].thr);
+    free(T->lay);
+    free(T);
+}
+
+/* strict unsigned decimal environment value: unset/empty -> *out untouched, 0;
+ * anything else must parse completely into [lo, hi] or it is REFUSED (-1, after
+ * saying why) -- a malformed knob is never silently read as its default. */
+static int kc_h_env_u64(const char *name, const char *val, uint64_t lo, uint64_t hi,
+                        uint64_t *out, int *was_set) {
+    if (was_set) *was_set = 0;
+    if (!val || !*val) return 0;
+    char *end = NULL;
+    errno = 0;
+    const unsigned long long v = strtoull(val, &end, 10);
+    if (errno != 0 || end == val || *end != '\0' || val[0] == '-' || v < lo || v > hi) {
+        fprintf(stderr, "ERROR: [kc-scan] %s=\"%s\" is not an integer in [%llu, %llu]\n",
+                name, val, (unsigned long long)lo, (unsigned long long)hi);
+        return -1;
+    }
+    *out = (uint64_t)v;
+    if (was_set) *was_set = 1;
+    return 0;
+}
+
+/* defaults + environment (the CLI overrides threads / gcache_mb afterwards). */
+static int kc_scan_par_init(KcScanPar *P) {
+    memset(P, 0, sizeof(*P));
+    uint64_t v;
+    int s_start = 0, s_stop = 0, s_stride = 0;
+    v = 1;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_THREADS", getenv("SOLVE_KC_SCAN_THREADS"), 1,
+                     KC_SCAN_MAX_THREADS, &v, NULL) != 0) return -1;
+    P->threads = (int)v;
+    v = 0;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_STATS", getenv("SOLVE_KC_SCAN_STATS"), 0, 1, &v, NULL) != 0)
+        return -1;
+    P->stats = (int)v;
+    v = F1C5_OOC_BLK;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_UNIT_ENTRIES", getenv("SOLVE_KC_SCAN_UNIT_ENTRIES"), 1,
+                     1ull << 40, &v, NULL) != 0) return -1;
+    P->unit = v;
+    v = 0;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_START_BLOCK", getenv("SOLVE_KC_SCAN_START_BLOCK"), 0,
+                     1ull << 40, &v, &s_start) != 0) return -1;
+    P->start_blk = v;
+    v = 0;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_STOP_AFTER_BLOCKS", getenv("SOLVE_KC_SCAN_STOP_AFTER_BLOCKS"),
+                     1, 1ull << 40, &v, &s_stop) != 0) return -1;
+    P->stop_blocks = v;
+    v = 1;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_BLOCK_STRIDE", getenv("SOLVE_KC_SCAN_BLOCK_STRIDE"), 1,
+                     1ull << 20, &v, &s_stride) != 0) return -1;
+    P->stride = v;
+    P->measure = s_start || s_stop;
+    if (s_stride && !P->measure) {
+        fprintf(stderr, "ERROR: [kc-scan] SOLVE_KC_SCAN_BLOCK_STRIDE is a measurement knob and "
+                "needs SOLVE_KC_SCAN_START_BLOCK or SOLVE_KC_SCAN_STOP_AFTER_BLOCKS\n");
+        return -1;
+    }
+    /* L10 (2026-09-11): SOLVE_KC_SCAN_TABLES=0 skips the L2'-L13 accumulations so their
+     * per-lookup cost can be measured against the same pass with them on. The table would be
+     * incomplete by construction, so this is a MEASUREMENT run: no chunk, no atlas, and
+     * --kc-scan-selftest refuses it like the other measurement knobs. */
+    v = 1;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_TABLES", getenv("SOLVE_KC_SCAN_TABLES"), 0, 1, &v, NULL) != 0)
+        return -1;
+    P->tables = (int)v;
+    if (!P->tables) P->measure = 1;
+    if (P->measure) P->stats = 1;
+    /* H-4 drill hook (design s8 G5): raise(SIGKILL) at a DETERMINISTIC point, so a kill can be
+     * shown to land inside the thread team ("team:K": whichever thread first finishes a unit of
+     * layer K, while the rest of the team is mid-flight) or inside the reduction ("reduce:K":
+     * after thread 0's slice of layer K is added, before thread 1's). External timing cannot
+     * land a signal inside a microsecond reduction. Test-only; unset by default.
+     * "merge:K" (2026-09-11, VM run 2 of stage 1: an external kill -9 never landed inside a
+     * merge that finishes in under a second) is honoured by --kc-scan-merge only, after K
+     * chunks have been consumed by its chunk loop and before anything is written at OUT; the
+     * scan parses it so a shared environment is never refused, and ignores it. */
+    {
+        const char *sk = getenv("SOLVE_KC_SCAN_SELFKILL");
+        if (sk && *sk) {
+            int kk = -1, used = 0;
+            if (sscanf(sk, "team:%d%n", &kk, &used) == 1 && sk[used] == '\0') P->selfkill = 1;
+            else if (sscanf(sk, "reduce:%d%n", &kk, &used) == 1 && sk[used] == '\0') P->selfkill = 2;
+            else if (sscanf(sk, "merge:%d%n", &kk, &used) == 1 && sk[used] == '\0') P->selfkill = 3;
+            if (!P->selfkill || kk < (P->selfkill == 3 ? 1 : 0) ||
+                (P->selfkill != 3 && kk >= KC_MAX_PAIRS)) {
+                fprintf(stderr, "ERROR: [kc-scan] SOLVE_KC_SCAN_SELFKILL=\"%s\" must be team:K or "
+                        "reduce:K with 0 <= K < %d, or merge:K with K >= 1\n", sk, KC_MAX_PAIRS);
+                return -1;
+            }
+            P->selfkill_k = kk;
+        }
+    }
+    return 0;
+}
+
+/* SOLVE_KC_SCAN_TAIL_STRICT: 1 = the tail checks REFUSE (gate_fails) instead of reporting.
+ * Strict parse; malformed is refused, never read as a default. Returns 0/1, -1 malformed. */
+static int kc_h_tail_strict(void) {
+    uint64_t v = 0;
+    if (kc_h_env_u64("SOLVE_KC_SCAN_TAIL_STRICT", getenv("SOLVE_KC_SCAN_TAIL_STRICT"), 0, 1, &v,
+                     NULL) != 0)
+        return -1;
+    return (int)v;
+}
+
+/* one thread's accumulators for ONE layer k (the per-k slice of KcScanTab).
+ * Only F1U192 members, so it is also addressable as a flat F1U192 array. */
+typedef struct {
+    F1U192 flow, fmass, cls[5], qmarg[32], rawmarg[32];
+} KcScanAcc;
+
+/* the reduction (design s2.1): add one thread's layer-k slice into T by f1_add.
+ * Integer addition is associative and commutative, so any partition of the
+ * entry set and any reduction order yields the identical 192-bit values; a
+ * partial sum of non-negative terms is <= the full sum, so no thread and no
+ * step of this reduction can overflow unless the serial run would -- and then
+ * f1_add aborts here exactly as it would there. */
+static void kc_h_scan_reduce(KcScanTab *T, int k, const KcScanAcc *A) {
+    f1_add(&T->flow[k], &A->flow);
+    f1_add(&T->fmass[k], &A->fmass);
+    for (int d = 0; d < 5; d++) f1_add(&T->cls[k * 5 + d], &A->cls[d]);
+    for (int q = 0; q < 32; q++) f1_add(&T->qmarg[k * 32 + q], &A->qmarg[q]);
+    for (int p = 0; p < 32; p++) f1_add(&T->rawmarg[k * 32 + p], &A->rawmarg[p]);
+}
+
+/* one thread's LOGGING tables for one layer (2026-09-11), heap-allocated per thread by the
+ * master (~170 KB; not a stack object), zeroed before every layer. */
+typedef struct {
+    F1U192 kern[4096];
+    KcScanCnt cnt;
+    KcScanExt ext[10];
+    KcScanHb hist[5 * KC_SCAN_HB];
+    F1U192 dig[5 * KC_SCAN_DJ];
+    uint64_t deg_cnt[KC_SCAN_DEG];
+    F1U192 deg_fmass[KC_SCAN_DEG], deg_wmass[KC_SCAN_DEG];
+    KcScanKw kw[15];              /* L6a [d][lt, eq, gt] */
+    F1U192 *rid_mass;             /* L7' [R], allocated per thread by the master */
+    uint32_t R;
+} KcScanAccX;
+
+/* per-mask canonical-frame scratch for the kernel: S[lastc][entry], reset through the touched
+ * list (not a 98 KB memset per mask -- 13 M masks at layer 16). */
+typedef struct {
+    F1U192 S[4096];
+    uint16_t touched[4096];
+    uint8_t mark[4096];
+    int ntouched;
+} KcScanScr;
+
+/* flush the scratch of the mask just finished into the raw kernel: for every touched
+ * canonical cell (lc, en) and every distinct mask image s2 with representative gi, the raw
+ * cell is (hinv_gi[lc], hinv_gi[en]) -- the lift is a line permutation (linear, G16), so
+ * relabeling both hexagrams by the same inverse map is the exact raw image of the
+ * transition. A mask straddling two work units is flushed twice, partially, exactly. */
+static void kc_h_scan_flush_kern(KcScanScr *scr, KcScanAccX *X, const F1Ctx *c,
+                                 const int *orb_gi, int orb_cnt) {
+    for (int t = 0; t < scr->ntouched; t++) {
+        const int ci = scr->touched[t];
+        const int lc = ci >> 6, en = ci & 63;
+        for (int s2 = 0; s2 < orb_cnt; s2++) {
+            const uint8_t *hi = c->el[orb_gi[s2]].hinv;
+            f1_add(&X->kern[((int)hi[lc] << 6) | hi[en]], &scr->S[ci]);
+        }
+        scr->S[ci].l0 = scr->S[ci].l1 = scr->S[ci].l2 = 0;
+        scr->mark[ci] = 0;
+    }
+    scr->ntouched = 0;
+}
+
+/* the logging tables' reduction: f1_add / uint64 sums, and the extremum under the pinned
+ * total order (associative and commutative: it is max/min of a totally ordered set). */
+static void kc_h_scan_reduce_x(KcScanTab *T, int k, const KcScanAccX *X) {
+    for (int i = 0; i < 4096; i++) f1_add(&T->kern[(size_t)k * 4096 + (size_t)i], &X->kern[i]);
+    KcScanCnt *C = &T->cnt[k];
+    C->entries += X->cnt.entries; C->lookups += X->cnt.lookups; C->pruned += X->cnt.pruned;
+    C->zero_g += X->cnt.zero_g; C->dead += X->cnt.dead;
+    for (int d = 0; d < 5; d++) { C->nz[d] += X->cnt.nz[d]; C->nz_orb[d] += X->cnt.nz_orb[d]; }
+    f1_add(&C->dead_fmass, &X->cnt.dead_fmass);
+    f1_add(&C->live_fmass, &X->cnt.live_fmass);
+    for (int i = 0; i < 10; i++)
+        if (X->ext[i].valid && kc_h_ext_better(&X->ext[i], &T->ext[k * 10 + i], i & 1))
+            T->ext[k * 10 + i] = X->ext[i];
+    for (int i = 0; i < 5 * KC_SCAN_HB; i++) {
+        KcScanHb *H = &T->hist[(size_t)k * 5 * KC_SCAN_HB + (size_t)i];
+        H->cnt += X->hist[i].cnt;
+        H->orb += X->hist[i].orb;
+        f1_add(&H->mw, &X->hist[i].mw);
+        f1_add(&H->mworb, &X->hist[i].mworb);
+    }
+    for (int i = 0; i < 5 * KC_SCAN_DJ; i++)
+        f1_add(&T->dig[(size_t)k * 5 * KC_SCAN_DJ + (size_t)i], &X->dig[i]);
+    for (int c = 0; c < KC_SCAN_DEG; c++) {
+        T->deg_cnt[k * KC_SCAN_DEG + c] += X->deg_cnt[c];
+        f1_add(&T->deg_fmass[k * KC_SCAN_DEG + c], &X->deg_fmass[c]);
+        f1_add(&T->deg_wmass[k * KC_SCAN_DEG + c], &X->deg_wmass[c]);
+    }
+    for (int i = 0; i < 15; i++) {
+        T->kw[k * 15 + i].cnt += X->kw[i].cnt;
+        T->kw[k * 15 + i].orb += X->kw[i].orb;
+        f1_add(&T->kw[k * 15 + i].mworb, &X->kw[i].mworb);
+    }
+    for (uint32_t r = 0; r < X->R; r++) f1_add(&T->rid_mass[r], &X->rid_mass[r]);
+}
+
+/* the reference walk (L6a): KW at n = 31, else the TR-12 anchor unrank_O3(floor(N/2)); its
+ * per-step exit, class and transition product f(k, s_k) * g(k+1, s_{k+1}) in the raw frame
+ * (both lookups canonicalise; g is G-invariant, so the raw product equals the w the scan
+ * computes for the same transition at its canonical entry). Single-threaded, before the
+ * team; uses the g reader's own cache. 0 ok, -1 if no walk could be derived. */
+static int kc_h_scan_ref_walk(KC *fkc, KC *gkc, KcScanTab *T) {
     const int n = fkc->n;
-    F1_CHECK(k_lo >= 0 && k_hi <= n && k_lo <= k_hi, "[kc-scan] bad layer range");
+    uint8_t E[KC_MAX_PAIRS + 1];
+    if (n == 31) {
+        if (kc_h_kw_walk(fkc, E) != 0) return -1;
+        strcpy(T->kw_src, KC_SCAN_KWSRC_KW);
+    } else {
+        KcO3 o3;
+        kc_o3_ctx_init(&o3, fkc, gkc);
+        const F1U192 half = f1_shr(fkc->total, 1);
+        const int rc = kc_o3_unrank(&o3, half, E, NULL, NULL);
+        kc_o3_ctx_free(&o3);
+        if (rc != 0) return -1;
+        strcpy(T->kw_src, KC_SCAN_KWSRC_O3);
+    }
+    uint32_t rids[KC_MAX_PAIRS + 1];
+    int cd = 0;
+    if (kc_validate(fkc, E, rids, &cd) != 0) return -1;
+    uint32_t m = 0;
+    int last = fkc->start_exit;
+    for (int k = 0; k < n; k++) {
+        const int q = fkc->pair_of_sub[E[k]];
+        const int entry = fkc->partner[E[k]];
+        const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+        if (q < 0 || cls < 0) return -1;
+        const F1U192 fv = kc_flookup(fkc, k, m, last, rids[k]);
+        const F1U192 gv = kc_glookup(gkc, k + 1, m | (1u << q), E[k], rids[k + 1]);
+        if (f1_is_zero(&fv) || f1_is_zero(&gv)) return -1;
+        T->kw_w[k] = kc_u192_mul(&fv, &gv);
+        T->kw_exit[k] = E[k];
+        T->kw_cls[k] = cls;
+        m |= 1u << q;
+        last = E[k];
+    }
+    T->kw_ok = 1;
+    return 0;
+}
+
+/* per-thread state: a private view of g (its own cache clone when OOC), the
+ * layer accumulators copied out at the join, and the instrumentation. */
+typedef struct {
+    KC g;
+    KcScanAcc acc;
+    KcScanAccX *x;                /* the logging tables (NULL in a SOLVE_KC_SCAN_TABLES=0 run) */
+    KcScanScr *scr;               /* the kernel's per-mask scratch (raw mode with tables) */
+    uint64_t items, entries, lookups, hits, misses, bytes_read, f_blocks, f_logical;
+    double sec_read, sec_inflate, max_inflate_sec, max_unit_sec, wall, cpu_user, cpu_sys;
+    int max_inflate_k;            /* witnesses (E12): the max inflate's (layer, block); the max
+                                   * unit's (unit index, first block, wall offset in the layer) */
+    uint64_t max_inflate_blk, max_unit_it, max_unit_blk;
+    double max_unit_at;
+    int64_t io_read;              /* read_bytes delta from /proc/thread-self/io; -1 = unavailable */
+} KcScanThr;
+
+static int64_t kc_h_proc_read_bytes(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char line[160];
+    long long v = -1;
+    while (fgets(line, sizeof(line), f))
+        if (sscanf(line, "read_bytes: %lld", &v) == 1) break;
+    fclose(f);
+    return (int64_t)v;
+}
+
+static void kc_h_cpu_sec(int who, double *u, double *s) {
+    struct rusage ru;
+    *u = *s = 0.0;
+    if (getrusage(who, &ru) == 0) {
+        *u = (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec * 1e-6;
+        *s = (double)ru.ru_stime.tv_sec + (double)ru.ru_stime.tv_usec * 1e-6;
+    }
+}
+
+/* scan entries [e0, e1) of layer k (one work unit) into A. The boundary rule of
+ * design s1.3: seek both of this thread's streams to the block holding e0 and
+ * skip into it, find mi by binary search on off[] (the unique mi with
+ * off[mi] <= e0 < off[mi+1] -- what the serial walk's advance loop reaches), and
+ * rebuild the orbit expansion (cache_mi = -1), so a mask straddling two units
+ * is expanded once per unit, identically, F1_CHECKs included. The per-entry body
+ * is the serial pass's, with T->x[k...] replaced by A->x[...]. */
+static void kc_h_scan_range(const KC *fkc, const KC *gv, int k, const uint32_t *masks,
+                            const uint64_t *off, uint64_t nm, uint64_t e0, uint64_t e1,
+                            F1c5LayerStream *SK, F1c5LayerStream *SV, int want_raw,
+                            KcScanAcc *A, uint64_t *lookups, KcScanAccX *X, KcScanScr *scr,
+                            const F1U192 *kwthr) {
+    const int n = fkc->n;
     const F1Ctx *c = &fkc->c;
-    for (int k = k_lo; k < k_hi; k++) {
-        char lpath[4400];
-        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
-        F1c5LayerStream SK, SV;
-        if (f1c5_lstream_open(lpath, &SK) != 0) return -1;
-        if (f1c5_lstream_open(lpath, &SV) != 0) { f1c5_lstream_close(&SK); return -1; }
-        const uint64_t nm = SK.nm, ne = SK.ne;
-        uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
-        uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
-        F1_CHECK(masks && off, "[kc-scan] index alloc");
-        const uint8_t *chunk;
-        uint64_t len, have;
-        for (have = 0; have < 4ull * nm; have += len) {
-            len = f1c5_lstream_next(&SK, &chunk);
-            memcpy((uint8_t *)masks + have, chunk, len);
-        }
-        for (have = 0; have < 8ull * (nm + 1); have += len) {
-            len = f1c5_lstream_next(&SK, &chunk);
-            memcpy((uint8_t *)off + have, chunk, len);
-        }
-        /* SK now sits at keys; SV must be advanced to vals */
-        for (have = 0; have < 4ull * nm + 8ull * (nm + 1) + 4ull * ne; have += len)
-            len = f1c5_lstream_next(&SV, &chunk);
-        /* per-mask orbit expansion cache (raw mode) */
-        int64_t cache_mi = -1;
-        int orb_cnt = 0, orb_size = 1;
-        uint8_t orb_qinv[24][32];    /* inverse subset-pair map per distinct image */
-        const uint32_t *kbuf = NULL;
-        const F1U192 *vbuf = NULL;
-        uint64_t kleft = 0, vleft = 0, e = 0, mi = 0;
-        while (e < ne) {
-            if (kleft == 0) {
-                len = f1c5_lstream_next(&SK, &chunk);
-                kbuf = (const uint32_t *)(const void *)chunk;
-                kleft = len / 4;
+    const int kern_on = X != NULL && want_raw && scr != NULL;
+    F1_CHECK(X == NULL || (kwthr != NULL && X->rid_mass != NULL),
+             "[kc-scan] logging tables without a reference threshold or rid table (defect)");
+    f1c5_lstream_seek_block(SK, 2, e0 / F1C5_OOC_BLK);
+    f1c5_lstream_seek_block(SV, 3, e0 / F1C5_OOC_BLK);
+    uint64_t kskip = e0 % F1C5_OOC_BLK, vskip = kskip;
+    uint64_t lo = 0, hi = nm - 1;
+    while (lo < hi) {
+        const uint64_t mid = lo + (hi - lo) / 2;
+        if (off[mid + 1] <= e0) lo = mid + 1; else hi = mid;
+    }
+    uint64_t mi = lo;
+    F1_CHECK(off[mi] <= e0 && e0 < off[mi + 1], "[kc-scan] unit start %llu: no mask owns it (defect)",
+             (unsigned long long)e0);
+    /* per-mask orbit expansion cache (raw mode) */
+    int64_t cache_mi = -1;
+    int orb_cnt = 0, orb_size = 1;
+    uint8_t orb_qinv[24][32];    /* inverse subset-pair map per distinct image */
+    int orb_gi[24];              /* the representative element per distinct image (kernel flush) */
+    const uint32_t *kbuf = NULL;
+    const F1U192 *vbuf = NULL;
+    const uint8_t *chunk;
+    uint64_t len, kleft = 0, vleft = 0, e = e0, nlook = 0;
+    while (e < e1) {
+        if (kleft == 0) {
+            len = f1c5_lstream_next(SK, &chunk);
+            F1_CHECK(len >= 4 && SK->section == 2, "%s: keys stream ended at entry %llu (< %llu)",
+                     SK->path, (unsigned long long)e, (unsigned long long)e1);
+            kbuf = (const uint32_t *)(const void *)chunk;
+            kleft = len / 4;
+            if (kskip) {
+                F1_CHECK(kskip < kleft, "[kc-scan] key skip %llu >= chunk (defect)",
+                         (unsigned long long)kskip);
+                kbuf += kskip; kleft -= kskip; kskip = 0;
             }
-            if (vleft == 0) {
-                len = f1c5_lstream_next(&SV, &chunk);
-                vbuf = (const F1U192 *)(const void *)chunk;
-                vleft = len / 24;
+        }
+        if (vleft == 0) {
+            len = f1c5_lstream_next(SV, &chunk);
+            F1_CHECK(len >= 24 && SV->section == 3, "%s: vals stream ended at entry %llu (< %llu)",
+                     SV->path, (unsigned long long)e, (unsigned long long)e1);
+            vbuf = (const F1U192 *)(const void *)chunk;
+            vleft = len / 24;
+            if (vskip) {
+                F1_CHECK(vskip < vleft, "[kc-scan] val skip %llu >= chunk (defect)",
+                         (unsigned long long)vskip);
+                vbuf += vskip; vleft -= vskip; vskip = 0;
             }
-            uint64_t take = kleft < vleft ? kleft : vleft;
-            if (take > ne - e) take = ne - e;
-            for (uint64_t i = 0; i < take; i++, e++) {
+        }
+        uint64_t take = kleft < vleft ? kleft : vleft;
+        if (take > e1 - e) take = e1 - e;
+        for (uint64_t i = 0; i < take; i++, e++) {
                 while (mi < nm && off[mi + 1] <= e) mi++;
                 const uint32_t cm = masks[mi];
                 const uint32_t key = kbuf[i];
                 const int lastc = (int)(key >> 16);
                 const uint32_t rid = key & 0xffffu;
                 const F1U192 fv = vbuf[i];
-                {
-                    F1U192 w0 = f1_mul_small(fv, (uint32_t)f1_orbit_size(c, cm));
-                    f1_add(&T->fmass[k], &w0);
-                }
+                const F1U192 w0 = f1_mul_small(fv, (uint32_t)f1_orbit_size(c, cm));
+                f1_add(&A->fmass, &w0);
                 if ((int64_t)mi != cache_mi) {
+                    /* the kernel scratch holds the PREVIOUS mask's canonical cells: expand
+                     * them through its representatives before those are overwritten */
+                    if (kern_on && scr->ntouched) kc_h_scan_flush_kern(scr, X, c, orb_gi, orb_cnt);
                     cache_mi = (int64_t)mi;
                     orb_size = f1_orbit_size(c, cm);
                     orb_cnt = 0;
@@ -27675,49 +28434,788 @@ static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
                             /* inverse of iperm_{gi}: canonical q -> raw subset idx */
                             for (int j = 0; j < n; j++)
                                 orb_qinv[orb_cnt][c->el[gi].iperm[j]] = (uint8_t)j;
+                            orb_gi[orb_cnt] = gi;
                             orb_cnt++;
                         }
                         F1_CHECK(orb_cnt == orb_size,
                                  "[kc-scan] distinct mask images != orbit size (defect)");
                     }
                 }
+                /* per-entry logging state (L3 / L7 / L13): nz = nonzero admissible children,
+                 * ew = this entry's walk mass (sum of its admissible nonzero worb) */
+                int nz_e = 0;
+                F1U192 ew = {0, 0, 0};
+                if (X) X->cnt.entries++;
                 for (int q = 0; q < n; q++) {
                     if ((cm >> q) & 1) continue;
                     for (int o = 0; o < 2; o++) {
                         const int entry = o ? c->pa[q] : c->pb[q];
                         const int exitx = o ? c->pb[q] : c->pa[q];
                         const int cls = F1C5_CLS[__builtin_popcount((unsigned)(lastc ^ entry))];
-                        if (cls < 0 || fkc->B.dig[cls][rid] >= fkc->B.b0[cls]) continue;
+                        if (cls < 0 || fkc->B.dig[cls][rid] >= fkc->B.b0[cls]) {
+                            if (X) X->cnt.pruned++;
+                            continue;
+                        }
                         const uint32_t rid2 = rid + fkc->B.rad[cls];
-                        const F1U192 gv = kc_glookup(gkc, k + 1, cm | (1u << q), exitx, rid2);
-                        if (f1_is_zero(&gv)) continue;
-                        const F1U192 w = kc_u192_mul(&fv, &gv);
+                        nlook++;
+                        const F1U192 g = kc_glookup(gv, k + 1, cm | (1u << q), exitx, rid2);
+                        if (f1_is_zero(&g)) {
+                            if (X) X->cnt.zero_g++;
+                            continue;
+                        }
+                        const F1U192 w = kc_u192_mul(&fv, &g);
                         const F1U192 worb = f1_mul_small(w, (uint32_t)orb_size);
-                        f1_add(&T->flow[k], &worb);
-                        f1_add(&T->cls[k * 5 + cls], &worb);
-                        f1_add(&T->qmarg[k * 32 + q], &worb);
+                        f1_add(&A->flow, &worb);
+                        f1_add(&A->cls[cls], &worb);
+                        f1_add(&A->qmarg[q], &worb);
                         if (want_raw)
                             for (int s2 = 0; s2 < orb_cnt; s2++)
-                                f1_add(&T->rawmarg[k * 32 + c->pl[orb_qinv[s2][q]]], &w);
+                                f1_add(&A->rawmarg[c->pl[orb_qinv[s2][q]]], &w);
+                        if (X) {
+                            /* L2': canonical-frame cell, expanded per mask at the flush */
+                            if (kern_on) {
+                                const int ci = (lastc << 6) | entry;
+                                if (!scr->mark[ci]) {
+                                    scr->mark[ci] = 1;
+                                    scr->touched[scr->ntouched++] = (uint16_t)ci;
+                                }
+                                f1_add(&scr->S[ci], &w);
+                            }
+                            /* L6: b = floor(log2 w) */
+                            KcScanHb *H = &X->hist[cls * KC_SCAN_HB + f1_log2(&w)];
+                            H->cnt++;
+                            H->orb += (uint64_t)orb_size;
+                            f1_add(&H->mw, &w);
+                            f1_add(&H->mworb, &worb);
+                            /* L4: the running extrema under the pinned total order */
+                            KcScanExt cand;
+                            cand.w = w; cand.fv = fv; cand.gv = g;
+                            cand.cm = cm; cand.key = key;
+                            cand.q = (uint8_t)q; cand.o = (uint8_t)o; cand.valid = 1;
+                            if (kc_h_ext_better(&cand, &X->ext[cls * 2], 0)) X->ext[cls * 2] = cand;
+                            if (kc_h_ext_better(&cand, &X->ext[cls * 2 + 1], 1)) X->ext[cls * 2 + 1] = cand;
+                            /* L6a: rank bin against the reference walk's product at k */
+                            {
+                                const int r = f1_cmp(&w, kwthr);
+                                KcScanKw *K = &X->kw[cls * 3 + (r < 0 ? 0 : r == 0 ? 1 : 2)];
+                                K->cnt++;
+                                K->orb += (uint64_t)orb_size;
+                                f1_add(&K->mworb, &worb);
+                            }
+                            /* L3 */
+                            X->cnt.nz[cls]++;
+                            X->cnt.nz_orb[cls] += (uint64_t)orb_size;
+                            nz_e++;
+                            f1_add(&ew, &worb);
+                        }
                     }
                 }
-            }
-            kbuf += take;
-            vbuf += take;
-            kleft -= take;
-            vleft -= take;
+                if (X) {
+                    if (nz_e == 0) { X->cnt.dead++; f1_add(&X->cnt.dead_fmass, &w0); }
+                    else f1_add(&X->cnt.live_fmass, &w0);
+                    /* L13: out-degree c = nz_e (<= 2(n-k) < KC_SCAN_DEG) */
+                    X->deg_cnt[nz_e]++;
+                    f1_add(&X->deg_fmass[nz_e], &w0);
+                    f1_add(&X->deg_wmass[nz_e], &ew);
+                    /* L7: from ew (admissible nonzero worb), j = the entry's class-d digit */
+                    for (int d = 0; d < 5; d++)
+                        f1_add(&X->dig[d * KC_SCAN_DJ + fkc->B.dig[d][rid]], &ew);
+                    /* L7': the full rid joint, same term, one add */
+                    f1_add(&X->rid_mass[rid], &ew);
+                }
         }
-        f1c5_lstream_close(&SK);
-        f1c5_lstream_close(&SV);
+        kbuf += take;
+        vbuf += take;
+        kleft -= take;
+        vleft -= take;
+    }
+    /* the last mask of the unit: flush its scratch (a straddling mask is flushed again,
+     * partially and exactly, by the unit that continues it) */
+    if (kern_on && scr->ntouched) kc_h_scan_flush_kern(scr, X, c, orb_gi, orb_cnt);
+    if (X) X->cnt.lookups += nlook;
+    *lookups += nlook;
+}
+
+/* phase 2: the layer pass over the HALF-OPEN transition-layer range
+ * [k_lo, k_hi) subset of [0, n). Every accumulator it touches
+ * (flow/cls/qmarg/rawmarg and fmass[k] for k < n) is indexed by k only, which
+ * is what makes the range restriction sound. Returns 0 ok, -1 on IO.
+ *
+ * PARALLEL (2026-09-11, design s1.3). Per layer: the mask/offset index is read
+ * ONCE here and shared read-only; an OpenMP team of P->threads then splits the
+ * layer's work units (contiguous P->unit-entry ranges, one v2 block by default)
+ * with schedule(dynamic, CH), CH ~ units/(8T), so each thread walks contiguous
+ * runs of the f stream (the g-cache locality unit, design s3.4). Each thread owns
+ * its two f streams, a zeroed KcScanAcc, and a KC view of g whose OOC reader is
+ * its OWN cache clone (kc_ooc_clone_cache; nothing mutable shared). After the
+ * join the thread slices are reduced into T by f1_add in thread order, and only
+ * then is the verbose per-layer line printed, so stdout is unchanged.
+ * P == NULL => controls from the environment (SOLVE_KC_SCAN_THREADS, default 1);
+ * the measurement knobs are refused there -- only --kc-scan honours them. */
+static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
+                            int want_raw, KcScanTab *T, int k_lo, int k_hi,
+                            int verbose, const KcScanPar *Pin) {
+    const int n = fkc->n;
+    F1_CHECK(k_lo >= 0 && k_hi <= n && k_lo <= k_hi, "[kc-scan] bad layer range");
+    KcScanPar Penv;
+    const KcScanPar *P = Pin;
+    if (!P) {
+        if (kc_scan_par_init(&Penv) != 0) return -1;
+        if (Penv.measure) {
+            fprintf(stderr, "ERROR: [kc-scan] SOLVE_KC_SCAN_START_BLOCK / "
+                    "SOLVE_KC_SCAN_STOP_AFTER_BLOCKS are measurement knobs honoured only by "
+                    "--kc-scan itself; unset them for this command\n");
+            return -1;
+        }
+        P = &Penv;
+    }
+    const int nth = P->threads;
+    F1_CHECK(nth >= 1 && nth <= KC_SCAN_MAX_THREADS && P->unit >= 1 && P->stride >= 1,
+             "[kc-scan] bad parallel controls (threads=%d unit=%llu stride=%llu)", nth,
+             (unsigned long long)P->unit, (unsigned long long)P->stride);
+    /* a clone per thread whenever g is out-of-core and either the team has more than
+     * one thread or a per-thread cache size was asked for; at the default (T=1, no
+     * --kc-gcache-mb-per-thread) the single thread uses g's own reader, as before. */
+    const int use_clone = gkc->ooc != NULL && (nth > 1 || P->gcache_mb > 0);
+    KcScanThr *W = (KcScanThr *)calloc((size_t)nth, sizeof(KcScanThr));
+    F1_CHECK(W != NULL, "[kc-scan] thread table alloc");
+    for (int t = 0; t < nth; t++) {
+        W[t].g = *gkc;
+        if (use_clone) W[t].g.ooc = kc_ooc_clone_cache(gkc->ooc, P->gcache_mb);
+        if (P->tables) {
+            W[t].x = (KcScanAccX *)calloc(1, sizeof(KcScanAccX));
+            F1_CHECK(W[t].x != NULL, "[kc-scan] thread logging table alloc");
+            W[t].x->R = T->R;
+            W[t].x->rid_mass = (F1U192 *)calloc((size_t)T->R, sizeof(F1U192));
+            F1_CHECK(W[t].x->rid_mass != NULL, "[kc-scan] thread rid table alloc");
+            if (want_raw) {
+                W[t].scr = (KcScanScr *)calloc(1, sizeof(KcScanScr));
+                F1_CHECK(W[t].scr != NULL, "[kc-scan] thread kernel scratch alloc");
+            }
+        }
+    }
+    T->tables = P->tables;
+    /* L6a needs the reference walk's thresholds before the team starts (single-threaded;
+     * the g reader is not thread-safe). A caller that already computed them (the merge, a
+     * second in-process pass) keeps them. */
+    if (P->tables && !T->kw_ok) {
+        if (kc_h_scan_ref_walk((KC *)fkc, (KC *)gkc, T) != 0) {
+            fprintf(stderr, "ERROR: [kc-scan] cannot derive the reference walk (L6a) from these "
+                    "ladders\n");
+            for (int t = 0; t < nth; t++) {
+                if (use_clone) kc_ooc_free_clone(W[t].g.ooc);
+                if (W[t].x) free(W[t].x->rid_mass);
+                free(W[t].x); free(W[t].scr);
+            }
+            free(W);
+            return -1;
+        }
+    }
+    const char *gmode = !gkc->ooc ? "in-memory" : (use_clone ? "clone" : "shared");
+    const int gslots = gkc->ooc ? (use_clone ? W[0].g.ooc->nslot : gkc->ooc->nslot) : 0;
+    KcScanTel *tel = P->tel;
+    if (tel) {
+        snprintf(tel->g_mode, sizeof(tel->g_mode), "%s", gmode);
+        tel->g_slots = gslots;
+    }
+    int rc = 0;
+    for (int k = k_lo; k < k_hi && rc == 0; k++) {
+        char lpath[4400];
+        snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
+        F1c5LayerStream SI;
+        if (f1c5_lstream_open(lpath, &SI) != 0) { rc = -1; break; }
+        const uint64_t nm = SI.nm, ne = SI.ne;
+        uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
+        uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
+        F1_CHECK(masks && off, "[kc-scan] index alloc");
+        const uint8_t *chunk;
+        uint64_t len, have;
+        for (have = 0; have < 4ull * nm; have += len) {
+            len = f1c5_lstream_next(&SI, &chunk);
+            memcpy((uint8_t *)masks + have, chunk, len);
+        }
+        for (have = 0; have < 8ull * (nm + 1); have += len) {
+            len = f1c5_lstream_next(&SI, &chunk);
+            memcpy((uint8_t *)off + have, chunk, len);
+        }
+        f1c5_lstream_close(&SI);
+        F1_CHECK(off[0] == 0 && off[nm] == ne, "[kc-scan] %s offset table corrupt", lpath);
+        /* the work list: unit u covers entries [ebase + u*step, +unit) clipped to ne */
+        const uint64_t nblk = (ne + F1C5_OOC_BLK - 1) / F1C5_OOC_BLK;
+        uint64_t unit, step, ebase, nitems;
+        if (P->measure) {
+            unit = F1C5_OOC_BLK;
+            step = P->stride * (uint64_t)F1C5_OOC_BLK;
+            ebase = P->start_blk * (uint64_t)F1C5_OOC_BLK;
+            nitems = P->start_blk < nblk ? (nblk - P->start_blk + P->stride - 1) / P->stride : 0;
+            if (P->stop_blocks && nitems > P->stop_blocks) nitems = P->stop_blocks;
+        } else {
+            unit = P->unit;
+            step = unit;
+            ebase = 0;
+            nitems = (ne + unit - 1) / unit;
+        }
+        long ch = (long)(nitems / (8ull * (uint64_t)nth));
+        if (ch < 1) ch = 1;
+        /* zero EVERY thread slot now: a slot whose thread is not granted this layer
+         * must contribute zero, not the previous layer's slice */
+        for (int t = 0; t < nth; t++) {
+            memset(&W[t].acc, 0, sizeof(W[t].acc));
+            if (W[t].x) {
+                F1U192 *rm = W[t].x->rid_mass;
+                const uint32_t R = W[t].x->R;
+                memset(W[t].x, 0, sizeof(*W[t].x));
+                memset(rm, 0, sizeof(F1U192) * (size_t)R);
+                W[t].x->rid_mass = rm;
+                W[t].x->R = R;
+            }
+            if (W[t].scr) W[t].scr->ntouched = 0;   /* S and mark are clean after every flush */
+            W[t].items = W[t].entries = W[t].lookups = W[t].hits = W[t].misses = 0;
+            W[t].bytes_read = W[t].f_blocks = W[t].f_logical = 0;
+            W[t].sec_read = W[t].sec_inflate = W[t].wall = W[t].cpu_user = W[t].cpu_sys = 0;
+            W[t].max_inflate_sec = W[t].max_unit_sec = 0;
+            W[t].io_read = -1;
+            if (W[t].g.ooc) W[t].g.ooc->max_inflate_sec = 0;   /* per-layer max (bookkeeping) */
+        }
+        const int want_stats = P->stats || tel != NULL;
+        int bad = 0, granted = 0;
+        double pu0 = 0, ps0 = 0;
+        const int64_t pio0 = want_stats ? kc_h_proc_read_bytes("/proc/self/io") : -1;
+        if (want_stats) kc_h_cpu_sec(RUSAGE_SELF, &pu0, &ps0);
+        const double lw0 = omp_get_wtime();
+#pragma omp parallel num_threads(nth)
+        {
+            const int tid = omp_get_thread_num();
+            if (tid == 0) granted = omp_get_num_threads();
+            KcScanThr *w = &W[tid];
+            KcScanAcc A;                 /* thread-local, on this thread's stack */
+            memset(&A, 0, sizeof(A));
+            uint64_t items = 0, entries = 0, lookups = 0;
+            const KcOoc *go = w->g.ooc;
+            const uint64_t h0 = go ? go->hits : 0, m0 = go ? go->misses : 0;
+            const uint64_t b0 = go ? go->io.bytes_read : 0;
+            const double r0 = go ? go->io.sec_read : 0, i0 = go ? go->sec_inflate : 0;
+            double tu0 = 0, ts0 = 0, max_unit = 0, max_unit_at = 0;
+            uint64_t max_unit_it = 0;
+            int64_t tio0 = -1;
+            if (want_stats) {
+                kc_h_cpu_sec(RUSAGE_THREAD, &tu0, &ts0);
+                tio0 = kc_h_proc_read_bytes("/proc/thread-self/io");
+            }
+            const double tw0 = omp_get_wtime();
+            F1c5LayerStream SK, SV;
+            int ok = f1c5_lstream_open(lpath, &SK) == 0;
+            if (ok && f1c5_lstream_open(lpath, &SV) != 0) { f1c5_lstream_close(&SK); ok = 0; }
+            if (!ok) {
+#pragma omp atomic write
+                bad = 1;
+            }
+#pragma omp for schedule(dynamic, ch)
+            for (uint64_t it = 0; it < nitems; it++) {
+                if (!ok) continue;
+                const uint64_t e0 = ebase + it * step;
+                uint64_t e1 = e0 + unit;
+                if (e1 > ne) e1 = ne;
+                const double u0 = omp_get_wtime();
+                kc_h_scan_range(fkc, &w->g, k, masks, off, nm, e0, e1, &SK, &SV, want_raw,
+                                &A, &lookups, w->x, w->scr, &T->kw_w[k]);
+                const double ud = omp_get_wtime() - u0;
+                if (ud > max_unit) { max_unit = ud; max_unit_it = it; max_unit_at = u0 - lw0; }
+                items++;
+                entries += e1 - e0;
+                if (P->selfkill == 1 && k == P->selfkill_k && items == 1) {
+                    fprintf(stderr, "[kc-scan] SOLVE_KC_SCAN_SELFKILL=team:%d: SIGKILL inside the "
+                            "team (thread %d, after its first unit)\n", k, tid);
+                    raise(SIGKILL);
+                }
+            }
+            if (ok) {
+                w->f_blocks = SK.blocks + SV.blocks;
+                w->f_logical = SK.logical + SV.logical;
+                f1c5_lstream_close(&SK);
+                f1c5_lstream_close(&SV);
+            }
+            w->acc = A;
+            w->items = items;
+            w->entries = entries;
+            w->lookups = lookups;
+            if (go) {
+                w->hits = go->hits - h0;
+                w->misses = go->misses - m0;
+                w->bytes_read = go->io.bytes_read - b0;
+                w->sec_read = go->io.sec_read - r0;
+                w->sec_inflate = go->sec_inflate - i0;
+                w->max_inflate_sec = go->max_inflate_sec;
+                w->max_inflate_k = go->max_inflate_k;
+                w->max_inflate_blk = go->max_inflate_blk;
+            }
+            w->max_unit_sec = max_unit;
+            w->max_unit_blk = (ebase + max_unit_it * step) / F1C5_OOC_BLK;
+            w->max_unit_it = max_unit_it;
+            w->max_unit_at = max_unit_at;
+            w->wall = omp_get_wtime() - tw0;
+            if (want_stats) {
+                double tu1, ts1;
+                kc_h_cpu_sec(RUSAGE_THREAD, &tu1, &ts1);
+                w->cpu_user = tu1 - tu0;
+                w->cpu_sys = ts1 - ts0;
+                const int64_t tio1 = kc_h_proc_read_bytes("/proc/thread-self/io");
+                w->io_read = (tio0 >= 0 && tio1 >= 0) ? tio1 - tio0 : -1;
+            }
+        }
+        const double lwall = omp_get_wtime() - lw0;
         free(masks);
         free(off);
+        if (bad) { rc = -1; break; }
+        /* the reduction, after the join, in thread order (order is irrelevant: s2.1) */
+        const double rw0 = omp_get_wtime();
+        for (int t = 0; t < nth; t++) {
+            kc_h_scan_reduce(T, k, &W[t].acc);
+            if (W[t].x) kc_h_scan_reduce_x(T, k, W[t].x);
+            if (P->selfkill == 2 && k == P->selfkill_k && t == 0) {
+                fprintf(stderr, "[kc-scan] SOLVE_KC_SCAN_SELFKILL=reduce:%d: SIGKILL inside the "
+                        "reduction (after thread 0's slice)\n", k);
+                raise(SIGKILL);
+            }
+        }
+        const double reduce_sec = omp_get_wtime() - rw0;
         if (verbose) {
             char t[64];
             f1_dec(T->flow[k], t);
             printf("[kc-scan] layer %02d -> %02d: transition mass %s\n", k, k + 1, t);
         }
+        if (want_stats) {
+            /* design s7.1: one line per (layer, thread) + one per layer, stderr only
+             * (P->stats); and the same figures into the chunk telemetry sink (L9) */
+            uint64_t s_it = 0, s_en = 0, s_lk = 0, s_h = 0, s_m = 0, s_b = 0, s_fb = 0, s_fl = 0;
+            double s_r = 0, s_i = 0;
+            for (int t = 0; t < nth; t++) {
+                const KcScanThr *w = &W[t];
+                if (P->stats)
+                fprintf(stderr, "KC_SCAN_STAT k=%d tid=%d items=%llu entries=%llu lookups=%llu "
+                        "g_hits=%llu g_misses=%llu g_bytes_read=%llu g_sec_read=%.6f "
+                        "g_sec_inflate=%.6f g_max_inflate_sec=%.6f max_unit_sec=%.6f "
+                        "f_blocks=%llu f_logical=%llu wall_sec=%.6f "
+                        "cpu_user_sec=%.6f cpu_sys_sec=%.6f io_read_bytes=%lld\n",
+                        k, t, (unsigned long long)w->items, (unsigned long long)w->entries,
+                        (unsigned long long)w->lookups, (unsigned long long)w->hits,
+                        (unsigned long long)w->misses, (unsigned long long)w->bytes_read,
+                        w->sec_read, w->sec_inflate, w->max_inflate_sec, w->max_unit_sec,
+                        (unsigned long long)w->f_blocks,
+                        (unsigned long long)w->f_logical, w->wall, w->cpu_user, w->cpu_sys,
+                        (long long)w->io_read);
+                if (tel) {
+                    KcScanTelThr *tt = &tel->lay[k].thr[t];
+                    tt->items = w->items; tt->entries = w->entries; tt->lookups = w->lookups;
+                    tt->hits = w->hits; tt->misses = w->misses; tt->bytes_read = w->bytes_read;
+                    tt->f_blocks = w->f_blocks; tt->f_logical = w->f_logical;
+                    tt->sec_read = w->sec_read; tt->sec_inflate = w->sec_inflate;
+                    tt->max_inflate_sec = w->max_inflate_sec; tt->max_unit_sec = w->max_unit_sec;
+                    tt->max_inflate_k = w->max_inflate_k; tt->max_inflate_blk = w->max_inflate_blk;
+                    tt->max_unit_it = w->max_unit_it; tt->max_unit_blk = w->max_unit_blk;
+                    tt->max_unit_at = w->max_unit_at;
+                    tt->wall = w->wall; tt->cpu_user = w->cpu_user; tt->cpu_sys = w->cpu_sys;
+                    tt->io_read = w->io_read;
+                }
+                s_it += w->items; s_en += w->entries; s_lk += w->lookups; s_h += w->hits;
+                s_m += w->misses; s_b += w->bytes_read; s_fb += w->f_blocks; s_fl += w->f_logical;
+                s_r += w->sec_read; s_i += w->sec_inflate;
+            }
+            double pu1, ps1, rss, peak;
+            kc_h_cpu_sec(RUSAGE_SELF, &pu1, &ps1);
+            const int64_t pio1 = kc_h_proc_read_bytes("/proc/self/io");
+            f1_rss_mb(&rss, &peak);
+            if (tel) {
+                KcScanTelLayer *L = &tel->lay[k];
+                L->filled = 1; L->granted = granted; L->nm = nm; L->ne = ne; L->nblk = nblk;
+                L->units = nitems; L->unit_entries = unit; L->dyn_chunk = ch;
+                L->wall = lwall; L->reduce_sec = reduce_sec;
+                L->cpu_user = pu1 - pu0; L->cpu_sys = ps1 - ps0;
+                L->rss_mb = rss; L->peak_rss_mb = peak;
+                L->io_read = (pio0 >= 0 && pio1 >= 0) ? pio1 - pio0 : -1;
+            }
+            if (P->stats)
+            fprintf(stderr, "KC_SCAN_LAYER_STAT k=%d threads=%d granted=%d nm=%llu ne=%llu "
+                    "nblk=%llu units=%llu unit_entries=%llu dyn_chunk=%ld measure=%d "
+                    "start_blk=%llu stride=%llu items=%llu entries=%llu lookups=%llu "
+                    "g_mode=%s g_slots=%d g_hits=%llu g_misses=%llu g_bytes_read=%llu "
+                    "g_sec_read=%.6f g_sec_inflate=%.6f f_blocks=%llu f_logical=%llu "
+                    "wall_sec=%.6f cpu_user_sec=%.6f cpu_sys_sec=%.6f io_read_bytes=%lld "
+                    "rss_mb=%.1f peak_rss_mb=%.1f\n",
+                    k, nth, granted, (unsigned long long)nm, (unsigned long long)ne,
+                    (unsigned long long)nblk, (unsigned long long)nitems,
+                    (unsigned long long)unit, ch, P->measure,
+                    (unsigned long long)(P->measure ? P->start_blk : 0),
+                    (unsigned long long)(P->measure ? P->stride : 1), (unsigned long long)s_it,
+                    (unsigned long long)s_en, (unsigned long long)s_lk, gmode, gslots,
+                    (unsigned long long)s_h, (unsigned long long)s_m, (unsigned long long)s_b,
+                    s_r, s_i, (unsigned long long)s_fb, (unsigned long long)s_fl, lwall,
+                    pu1 - pu0, ps1 - ps0,
+                    (long long)((pio0 >= 0 && pio1 >= 0) ? pio1 - pio0 : -1), rss, peak);
+        }
     }
+    if (use_clone)
+        for (int t = 0; t < nth; t++) kc_ooc_free_clone(W[t].g.ooc);
+    for (int t = 0; t < nth; t++) {
+        if (W[t].x) free(W[t].x->rid_mass);
+        free(W[t].x); free(W[t].scr);
+    }
+    free(W);
+    return rc;
+}
+
+/* ---- gates on the logging tables (2026-09-11) ----
+ * Chunk-local and REFUSING: every identity below holds by construction of adjacent statements
+ * in kc_h_scan_range (the same term added to two tables), by the definition of the bucket
+ * function, or by a value re-lookup on the very ladders the pass read; each can fail only if a
+ * cell was altered after accumulation (a hand-edited chunk row, a bad merge parse) or the
+ * pass itself is defective. They run in the chunk process over its range and again in the
+ * tail over the assembled table. The identities that are theorems about the ensemble rather
+ * than about adjacent statements are the tail CHECKS further down (F3 rule). */
+
+/* n_entries of f layer k from its header, read independently of the pass (the entries ==
+ * n_entries binding of L3). 0 ok, -1 if the layer cannot be opened. */
+static int kc_h_layer_ne(const char *fdir, int k, uint64_t *ne) {
+    char lpath[4400];
+    F1c5LayerStream S;
+    snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
+    if (f1c5_lstream_open(lpath, &S) != 0) return -1;
+    *ne = S.ne;
+    f1c5_lstream_close(&S);
     return 0;
+}
+
+/* G16: the hexagram maps of the designated lifts are line permutations, hence linear over
+ * GF(2)^6 -- the fact the kernel's per-mask relabeling rests on. 24 x 64 x 64 checks of
+ * hinv[a^b] == hinv[a]^hinv[b] (and hmap), hinv[0] == 0, at every scan / merge open.
+ * Fail-loud: a table that is not linear aborts before any lookup. */
+static void kc_h_check_hex_linear(const F1Ctx *c) {
+    for (int e = 0; e < 24; e++) {
+        const uint8_t *hi = c->el[e].hinv, *hm = c->el[e].hmap;
+        F1_CHECK(hi[0] == 0 && hm[0] == 0, "[kc-scan] lift %d does not fix hexagram 0", e);
+        for (int a = 0; a < 64; a++)
+            for (int b = 0; b < 64; b++) {
+                F1_CHECK(hi[a ^ b] == (hi[a] ^ hi[b]),
+                         "[kc-scan] hinv of lift %d is not linear at (%d,%d) (defect)", e, a, b);
+                F1_CHECK(hm[a ^ b] == (hm[a] ^ hm[b]),
+                         "[kc-scan] hmap of lift %d is not linear at (%d,%d) (defect)", e, a, b);
+            }
+    }
+}
+
+#define KC_SCAN_LGATE(cond, fmt, ...) do { \
+    if (!(cond)) { printf("[kc-scan] GATE FAIL: layer %02d " fmt "\n", k, ##__VA_ARGS__); \
+                   T->gate_fails++; } } while (0)
+
+static void kc_h_scan_gates_x(const KC *fkc, const KC *gkc, const char *fdir, KcScanTab *T,
+                              int k, int want_raw) {
+    const int n = fkc->n;
+    const F1Ctx *c = &fkc->c;
+    const KcScanCnt *C = &T->cnt[k];
+    static const int dv[5] = {1, 2, 3, 4, 6};
+    /* L3: the header binding and the four structural identities */
+    {
+        uint64_t ne = 0;
+        if (kc_h_layer_ne(fdir, k, &ne) != 0)
+            KC_SCAN_LGATE(0, "f layer header unreadable for the entries binding");
+        else
+            KC_SCAN_LGATE(C->entries == ne, "entries visited %llu != header n_entries %llu",
+                          (unsigned long long)C->entries, (unsigned long long)ne);
+    }
+    KC_SCAN_LGATE(C->pruned + C->lookups == 2ull * (uint64_t)(n - k) * C->entries,
+                  "budget_pruned + lookups != 2(n-k)*entries");
+    {
+        uint64_t s = C->zero_g;
+        for (int d = 0; d < 5; d++) s += C->nz[d];
+        KC_SCAN_LGATE(C->lookups == s, "lookups != sum nonzero + zero_g");
+    }
+    {
+        F1U192 s = C->dead_fmass;
+        f1_add(&s, &C->live_fmass);
+        KC_SCAN_LGATE(f1_eq(&s, &T->fmass[k]), "dead_fmass + live_fmass != fmass");
+    }
+    /* L13, and its c=0 column bound to L3's dead-end fields */
+    {
+        const uint64_t *dc = &T->deg_cnt[k * KC_SCAN_DEG];
+        const F1U192 *df = &T->deg_fmass[k * KC_SCAN_DEG], *dw = &T->deg_wmass[k * KC_SCAN_DEG];
+        KC_SCAN_LGATE(dc[0] == C->dead && f1_eq(&df[0], &C->dead_fmass),
+                      "out-degree c=0 column != dead-end fields");
+        KC_SCAN_LGATE(f1_is_zero(&dw[0]), "out-degree c=0 walk mass != 0");
+        uint64_t sc = 0, scc = 0, snz = 0;
+        F1U192 sw = {0, 0, 0}, sf = {0, 0, 0};
+        for (int cc = 0; cc < KC_SCAN_DEG; cc++) {
+            sc += dc[cc];
+            scc += (uint64_t)cc * dc[cc];
+            f1_add(&sw, &dw[cc]);
+            f1_add(&sf, &df[cc]);
+            if (cc > 2 * (n - k)) KC_SCAN_LGATE(dc[cc] == 0, "out-degree %d > 2(n-k)", cc);
+        }
+        for (int d = 0; d < 5; d++) snz += C->nz[d];
+        KC_SCAN_LGATE(sc == C->entries, "sum of out-degree counts != entries");
+        KC_SCAN_LGATE(scc == snz, "sum c*deg_cnt != nonzero lookups");
+        KC_SCAN_LGATE(f1_eq(&sw, &fkc->total), "sum of out-degree walk mass != N");
+        KC_SCAN_LGATE(f1_eq(&sf, &T->fmass[k]), "sum of out-degree f mass != fmass");
+    }
+    /* L6: sums bound to cls / nonzero, and the exact per-bucket bound
+     * cnt*2^b <= sum w <= cnt*(2^{b+1}-1), computed as cnt <= (sum w >> b) < 2*cnt so it
+     * never depends on 192-bit headroom */
+    for (int d = 0; d < 5; d++) {
+        const KcScanHb *H = &T->hist[(size_t)(k * 5 + d) * KC_SCAN_HB];
+        uint64_t sc = 0, so = 0;
+        F1U192 sm = {0, 0, 0};
+        for (int b = 0; b < KC_SCAN_HB; b++) {
+            sc += H[b].cnt;
+            so += H[b].orb;
+            f1_add(&sm, &H[b].mworb);
+            if (H[b].cnt == 0) {
+                KC_SCAN_LGATE(H[b].orb == 0 && f1_is_zero(&H[b].mw) && f1_is_zero(&H[b].mworb),
+                              "class d%d bucket %d has mass but no count", dv[d], b);
+                continue;
+            }
+            const F1U192 q = f1_shr(H[b].mw, b);
+            const F1U192 lo = {H[b].cnt, 0, 0};
+            const F1U192 hi = f1_mul_small(lo, 2);
+            KC_SCAN_LGATE(f1_cmp(&q, &lo) >= 0 && f1_cmp(&q, &hi) < 0,
+                          "class d%d bucket %d: sum w outside [cnt*2^b, cnt*(2^(b+1)-1)]",
+                          dv[d], b);
+            /* the orbit-weighted bound (KCP4 E7): worb = w * orb_size with w in [2^b, 2^{b+1}),
+             * so orb*2^b <= sum worb < orb*2^{b+1} */
+            const F1U192 qo = f1_shr(H[b].mworb, b);
+            const F1U192 loo = {H[b].orb, 0, 0};
+            const F1U192 hio = f1_mul_small(loo, 2);
+            KC_SCAN_LGATE(f1_cmp(&qo, &loo) >= 0 && f1_cmp(&qo, &hio) < 0,
+                          "class d%d bucket %d: sum worb outside [orb*2^b, orb*(2^(b+1)-1)]",
+                          dv[d], b);
+            KC_SCAN_LGATE(H[b].orb >= H[b].cnt, "class d%d bucket %d: orb < cnt", dv[d], b);
+        }
+        KC_SCAN_LGATE(sc == C->nz[d], "class d%d histogram count != nonzero", dv[d]);
+        KC_SCAN_LGATE(so == C->nz_orb[d], "class d%d histogram orb != nonzero_orb", dv[d]);
+        KC_SCAN_LGATE(f1_eq(&sm, &T->cls[k * 5 + d]), "class d%d histogram mass != by_class",
+                      dv[d]);
+    }
+    /* L7: row sums == N, the k=0 anchor, nothing beyond b0[d] */
+    for (int d = 0; d < 5; d++) {
+        const F1U192 *D = &T->dig[(size_t)(k * 5 + d) * KC_SCAN_DJ];
+        F1U192 s = {0, 0, 0};
+        for (int j = 0; j < KC_SCAN_DJ; j++) {
+            f1_add(&s, &D[j]);
+            if (j > fkc->B.b0[d]) KC_SCAN_LGATE(f1_is_zero(&D[j]), "class d%d digit %d > b0", dv[d], j);
+        }
+        KC_SCAN_LGATE(f1_eq(&s, &fkc->total), "class d%d digit row sum != N", dv[d]);
+        if (k == 0) KC_SCAN_LGATE(f1_eq(&D[0], &fkc->total), "class d%d digit 0 at layer 0 != N", dv[d]);
+    }
+    /* L4: each witness re-looked-up on the ladders; w == f*g; consistency with the class */
+    for (int d = 0; d < 5; d++) {
+        const KcScanExt *mx = &T->ext[(k * 5 + d) * 2], *mn = &T->ext[(k * 5 + d) * 2 + 1];
+        KC_SCAN_LGATE((mx->valid != 0) == (C->nz[d] > 0) && (mn->valid != 0) == (C->nz[d] > 0),
+                      "class d%d extrema presence != nonzero presence", dv[d]);
+        if (!mx->valid || !mn->valid) continue;
+        KC_SCAN_LGATE(f1_cmp(&mn->w, &mx->w) <= 0, "class d%d min > max", dv[d]);
+        KC_SCAN_LGATE(f1_cmp(&mx->w, &T->cls[k * 5 + d]) <= 0, "class d%d max > by_class", dv[d]);
+        KC_SCAN_LGATE(!f1_is_zero(&mn->w), "class d%d min-nonzero is zero", dv[d]);
+        for (int m = 0; m < 2; m++) {
+            const KcScanExt *E = m ? mn : mx;
+            const int lastc = (int)(E->key >> 16), rid = (int)(E->key & 0xffffu);
+            const int q = E->q, o = E->o;
+            int ok = q < n && !((E->cm >> q) & 1) && __builtin_popcount(E->cm) == k &&
+                     lastc < 64 && f1_is_canonical(c, E->cm) && (uint32_t)rid < fkc->B.R &&
+                     fkc->B.rsum[rid] == k;   /* legality incl. rsum[rid] == k (KCP4 E9) */
+            if (ok) {
+                const int entry = o ? c->pa[q] : c->pb[q];
+                const int exitx = o ? c->pb[q] : c->pa[q];
+                const int cls = F1C5_CLS[__builtin_popcount((unsigned)(lastc ^ entry))];
+                ok = cls == d && fkc->B.dig[cls][rid] < fkc->B.b0[cls];
+                if (ok) {
+                    const F1U192 fv = kc_flookup(fkc, k, E->cm, lastc, (uint32_t)rid);
+                    const F1U192 gv = kc_glookup(gkc, k + 1, E->cm | (1u << q), exitx,
+                                                 (uint32_t)rid + fkc->B.rad[cls]);
+                    const F1U192 w = kc_u192_mul(&fv, &gv);
+                    ok = f1_eq(&fv, &E->fv) && f1_eq(&gv, &E->gv) && f1_eq(&w, &E->w) &&
+                         !f1_is_zero(&w);
+                }
+            }
+            KC_SCAN_LGATE(ok, "class d%d %s witness does not re-lookup to its value", dv[d],
+                          m ? "min" : "max");
+        }
+    }
+    /* L6a: the reference walk's own transition is counted (cnt_eq >= 1 in its class; proof:
+     * KCP4 adjudication s2.2 -- the walk's layer-k state is an f entry, its step is admissible
+     * and its child completes, so the loop computes exactly w = kw_w once), and the three bins
+     * partition the class's nonzero transitions */
+    KC_SCAN_LGATE(T->kw_ok && !f1_is_zero(&T->kw_w[k]), "reference walk threshold missing");
+    for (int d = 0; d < 5; d++) {
+        const KcScanKw *K = &T->kw[(k * 5 + d) * 3];
+        uint64_t sc = K[0].cnt + K[1].cnt + K[2].cnt, so = K[0].orb + K[1].orb + K[2].orb;
+        F1U192 sm = K[0].mworb;
+        f1_add(&sm, &K[1].mworb);
+        f1_add(&sm, &K[2].mworb);
+        KC_SCAN_LGATE(sc == C->nz[d] && so == C->nz_orb[d], "class d%d rank bins != nonzero",
+                      dv[d]);
+        KC_SCAN_LGATE(f1_eq(&sm, &T->cls[k * 5 + d]), "class d%d rank bin mass != by_class", dv[d]);
+        if (d == T->kw_cls[k])
+            KC_SCAN_LGATE(K[1].cnt >= 1, "reference walk's own transition not in the eq bin");
+    }
+    /* L7': per-layer total, the layer-0 anchor, and the two-implementation binding to dig */
+    {
+        F1U192 s = {0, 0, 0};
+        for (uint32_t r = 0; r < T->R; r++)
+            if (fkc->B.rsum[r] == k) f1_add(&s, &T->rid_mass[r]);
+        KC_SCAN_LGATE(f1_eq(&s, &fkc->total), "rid joint layer total != N");
+        if (k == 0) KC_SCAN_LGATE(f1_eq(&T->rid_mass[0], &fkc->total), "rid joint at rid 0 != N");
+        for (int d = 0; d < 5; d++)
+            for (int j = 0; j <= fkc->B.b0[d]; j++) {
+                F1U192 m = {0, 0, 0};
+                for (uint32_t r = 0; r < T->R; r++)
+                    if (fkc->B.rsum[r] == k && fkc->B.dig[d][r] == j) f1_add(&m, &T->rid_mass[r]);
+                KC_SCAN_LGATE(f1_eq(&m, &T->dig[(size_t)(k * 5 + d) * KC_SCAN_DJ + j]),
+                              "rid joint marginal (d%d, j=%d) != digits", dv[d], j);
+            }
+    }
+    /* L2' (raw): total, class marginal, pair marginal (two expansions of one map), zero
+     * pattern, and the layer-0 row */
+    if (want_raw) {
+        const F1U192 *M = &T->kern[(size_t)k * 4096];
+        F1U192 tot = {0, 0, 0}, cm5[5], pm[32];
+        memset(cm5, 0, sizeof(cm5));
+        memset(pm, 0, sizeof(pm));
+        int pattern_ok = 1;
+        for (int a = 0; a < 64; a++)
+            for (int b = 0; b < 64; b++) {
+                const F1U192 *v = &M[a << 6 | b];
+                if (f1_is_zero(v)) continue;
+                f1_add(&tot, v);
+                const int cls = F1C5_CLS[__builtin_popcount((unsigned)(a ^ b))];
+                const int qa = fkc->pair_of_sub[a], qb = fkc->pair_of_sub[b];
+                if (cls < 0 || qb < 0 || (k == 0 ? a != fkc->start_exit : (qa < 0 || qa == qb)))
+                    pattern_ok = 0;
+                else {
+                    f1_add(&cm5[cls], v);
+                    f1_add(&pm[c->pl[qb]], v);
+                }
+            }
+        KC_SCAN_LGATE(pattern_ok, "kernel has mass at an impossible (exit, entry) cell");
+        KC_SCAN_LGATE(f1_eq(&tot, &fkc->total), "kernel total != N");
+        for (int d = 0; d < 5; d++)
+            KC_SCAN_LGATE(f1_eq(&cm5[d], &T->cls[k * 5 + d]), "kernel class d%d marginal != by_class",
+                          dv[d]);
+        for (int p = 0; p < 32; p++)
+            KC_SCAN_LGATE(f1_eq(&pm[p], &T->rawmarg[k * 32 + p]),
+                          "kernel pair %d marginal != marginal_raw", p);
+    }
+}
+#undef KC_SCAN_LGATE
+
+/* L2' G-invariance of one layer: M_k[pi a][pi b] == M_k[a][b] for the 24 designated lifts and
+ * for rev. A theorem about the raw ensemble (G48 preserves C1-C5, the pair structure and the
+ * root), NOT a by-construction identity of the accumulator -- so it is a CHECK under the F3
+ * rule, reported per layer and refusing only when strict. */
+static int kc_h_scan_kern_inv_layer(const KC *fkc, const KcScanTab *T, int k) {
+    const F1U192 *M = &T->kern[(size_t)k * 4096];
+    for (int e = 0; e < 24; e++) {
+        const uint8_t *hm = fkc->c.el[e].hmap;
+        for (int a = 0; a < 64; a++)
+            for (int b = 0; b < 64; b++)
+                if (!f1_eq(&M[a << 6 | b], &M[hm[a] << 6 | hm[b]])) return 0;
+    }
+    for (int a = 0; a < 64; a++)
+        for (int b = 0; b < 64; b++) {
+            const int ra = f1_hex_act(F1_REV, a), rb = f1_hex_act(F1_REV, b);
+            if (!f1_eq(&M[a << 6 | b], &M[ra << 6 | rb])) return 0;
+        }
+    return 1;
+}
+
+/* the tail CHECKS (F3 rule, build list s6): identities with a written proof
+ * (FABLE_SCAN_LOGGING_LIST_REVIEW_2026_09_11.md s2.1-2.3) that are not yet green at n=12/13 on
+ * v2 OOC ladders. A wrong REFUSING tail gate at n=31 removes the atlas and strands every
+ * banked chunk (the merge refuses chunks from any other build), so until the VM leg G18 is
+ * green they REPORT: one line each, one KC_SCAN_TAILCHECK token, recorded in the atlas.
+ * SOLVE_KC_SCAN_TAIL_STRICT=1 makes each failure a GATE FAIL; G18 runs strict. The
+ * consumer (solve.py atlas_load, P1) re-sums every one of them at load in all cases. */
+static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
+    const int n = fkc->n;
+    const F1Ctx *c = &fkc->c;
+    int ok[KC_SCAN_NTC];
+    for (int i = 0; i < KC_SCAN_NTC; i++) ok[i] = -1;   /* -1 = n/a */
+    const int strict = kc_h_tail_strict();
+    F1_CHECK(strict >= 0, "[kc-scan] SOLVE_KC_SCAN_TAIL_STRICT malformed");
+    /* TC0 (L8): sum_k marginal_raw[k][p] == N for every free pair p, 0 for every other p.
+     * Proof: review s2.1 (representative-per-mask-image bijection; every raw walk places
+     * every free pair exactly once). */
+    if (want_raw) {
+        int inrun[32] = {0};
+        for (int q = 0; q < n; q++) inrun[c->pl[q]] = 1;
+        ok[0] = 1;
+        for (int p = 0; p < 32; p++) {
+            F1U192 s = {0, 0, 0};
+            for (int k = 0; k < n; k++) f1_add(&s, &T->rawmarg[k * 32 + p]);
+            if (inrun[p] ? !f1_eq(&s, &fkc->total) : !f1_is_zero(&s)) ok[0] = 0;
+        }
+    }
+    /* TC1 (L7): sum_j j*dig[k][d][j] == sum_{k'<k} cls[k'][d]. Proof: review s2.2. */
+    {
+        ok[1] = 1;
+        for (int d = 0; d < 5; d++) {
+            F1U192 pre = {0, 0, 0};
+            for (int k = 0; k < n; k++) {
+                F1U192 s = {0, 0, 0};
+                for (int j = 1; j < KC_SCAN_DJ; j++) {
+                    const F1U192 t = f1_mul_small(T->dig[(size_t)(k * 5 + d) * KC_SCAN_DJ + j],
+                                                  (uint32_t)j);
+                    f1_add(&s, &t);
+                }
+                if (!f1_eq(&s, &pre)) ok[1] = 0;
+                f1_add(&pre, &T->cls[k * 5 + d]);
+            }
+        }
+    }
+    if (want_raw) {
+        /* TC2 (L2'): the mass exiting a at step k equals the mass that entered partner(a)
+         * at step k-1, 1 <= k <= n-1. Proof: review s2.3. */
+        ok[2] = 1;
+        for (int k = 1; k < n; k++)
+            for (int a = 0; a < 64; a++) {
+                F1U192 out = {0, 0, 0}, in = {0, 0, 0};
+                for (int b = 0; b < 64; b++) f1_add(&out, &T->kern[(size_t)k * 4096 + (a << 6 | b)]);
+                const int pa = fkc->partner[a];
+                if (pa >= 0)
+                    for (int a2 = 0; a2 < 64; a2++)
+                        f1_add(&in, &T->kern[(size_t)(k - 1) * 4096 + (a2 << 6 | pa)]);
+                if (!f1_eq(&out, &in)) ok[2] = 0;
+            }
+        /* TC3 (L2'): rev-invariance of the entry column totals. Proof: review s2.3. */
+        ok[3] = 1;
+        for (int b = 0; b < 64; b++) {
+            const int rb = f1_hex_act(F1_REV, b);
+            F1U192 s = {0, 0, 0}, sr = {0, 0, 0};
+            for (int k = 0; k < n; k++)
+                for (int a = 0; a < 64; a++) {
+                    f1_add(&s, &T->kern[(size_t)k * 4096 + (a << 6 | b)]);
+                    f1_add(&sr, &T->kern[(size_t)k * 4096 + (a << 6 | rb)]);
+                }
+            if (!f1_eq(&s, &sr)) ok[3] = 0;
+        }
+        /* TC4 (L2'): G-invariance, every layer */
+        ok[4] = 1;
+        for (int k = 0; k < n; k++)
+            if (!kc_h_scan_kern_inv_layer(fkc, T, k)) ok[4] = 0;
+    }
+    T->tail_report_ran = 1;
+    T->tail_report_fails = 0;
+    for (int i = 0; i < KC_SCAN_NTC; i++) {
+        strcpy(T->tail_report[i], ok[i] < 0 ? "n/a" : (ok[i] ? "PASS" : "FAIL"));
+        printf("[kc-scan] TAIL-CHECK %s: %s%s\n", kc_scan_tc_name[i], T->tail_report[i],
+               ok[i] < 0 ? " (raw frame not emitted)" : "");
+        if (ok[i] == 0) {
+            T->tail_report_fails++;
+            if (strict) {
+                printf("[kc-scan] GATE FAIL: tail-check %s (SOLVE_KC_SCAN_TAIL_STRICT=1)\n",
+                       kc_scan_tc_name[i]);
+                T->gate_fails++;
+            }
+        }
+    }
+    printf("KC_SCAN_TAILCHECK=%s\n", T->tail_report_fails ? "FAIL" : "PASS");
 }
 
 /* phase 3: everything that is NOT per-layer — fmass[n], the branch atlas, the
@@ -27727,7 +29225,6 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
                           int want_raw, KcScanTab *T) {
     const int n = fkc->n;
     const F1Ctx *c = &fkc->c;
-    (void)gkc;
     /* layer-n f mass (prefix count at full depth == #walks) */
     {
         char lpath[4400];
@@ -27819,6 +29316,8 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
                 T->gate_fails++;
             }
         }
+        /* the logging tables' chunk-local gates, re-run over the assembled table (2026-09-11) */
+        if (T->tables) kc_h_scan_gates_x(fkc, gkc, fdir, T, k, want_raw);
     }
     {   /* VERTICAL: sum over layers of the class-d mass == b0[d] * N.
          * PROOF. kc_finish_init asserts sum_d b0[d] == n on EVERY ladder-open
@@ -27920,13 +29419,16 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
                 T->gate_fails++;
             }
         }
-    }    return 0;
+    }
+    /* the tail CHECKS on the logging tables (F3 rule; report-only unless strict) */
+    if (T->tables) kc_h_scan_tail_checks(fkc, T, want_raw);
+    return 0;
 }
 
 static int kc_h_scan_core(const KC *fkc, const KC *gkc, KC *tkc, const char *fdir,
-                          int want_raw, KcScanTab *T, int verbose) {
+                          int want_raw, KcScanTab *T, int verbose, const KcScanPar *P) {
     kc_h_scan_alloc(fkc, want_raw, T);
-    if (kc_h_scan_layers(fkc, gkc, fdir, want_raw, T, 0, fkc->n, verbose) != 0) return -1;
+    if (kc_h_scan_layers(fkc, gkc, fdir, want_raw, T, 0, fkc->n, verbose, P) != 0) return -1;
     return kc_h_scan_tail(fkc, gkc, tkc, fdir, want_raw, T);
 }
 
@@ -28001,9 +29503,285 @@ static int kc_h_scan_chunk_abort(FILE *f, const char *outp) {
     return -1;
 }
 
+/* sha256 of a memory buffer through the external sha256 tool (no in-process SHA-256 exists in
+ * solve.c; f1c5_layer_sha_hex uses the same popen-to-file route). 0 ok, -1 failure. Own temp
+ * name, so it never collides with a layer digest in flight in the same process. */
+static int kc_h_sha256_mem(const void *data, size_t len, char hex[65]) {
+    const char *tool = sha256_tool();
+    if (!tool) return -1;
+    char tmp[128], cmd[192];
+    snprintf(tmp, sizeof(tmp), "/tmp/solve_msha_%d", (int)getpid());
+    snprintf(cmd, sizeof(cmd), "%s > %s", tool, tmp);
+    FILE *p = popen(cmd, "w");
+    if (!p) return -1;
+    if (len && fwrite(data, 1, len, p) != len) { pclose(p); unlink(tmp); return -1; }
+    if (pclose(p) != 0) { unlink(tmp); return -1; }
+    FILE *tf = fopen(tmp, "r");
+    int ok = 0;
+    hex[0] = '\0';
+    if (tf) {
+        char buf[256] = {0};
+        if (fgets(buf, sizeof(buf), tf)) {
+            int i = 0;
+            while (i < 64 && buf[i] && buf[i] != ' ' && buf[i] != '\t' && buf[i] != '\n') {
+                hex[i] = buf[i]; i++;
+            }
+            hex[i] = '\0';
+            ok = (i == 64);
+        }
+        fclose(tf);
+    }
+    unlink(tmp);
+    return ok ? 0 : -1;
+}
+
+/* L1 (2026-09-11): the per-row content digest. Preimage = a separated fixed-width header
+ * (k, the f layer digest of k, the g layer digest of k+1, the engine exe sha), then EXACTLY
+ * the bytes kc_h_scan_write_layer_row emits for the row. Minted from the in-memory table at
+ * write time; the merge recomputes it over the row it extracted and refuses on mismatch. */
+static int kc_h_row_sha(int k, const char *fsha, const char *gsha, const char *exe_sha,
+                        const F1U192 *fmass_k, const char *row, size_t rowlen, char hex[65]) {
+    char hdr[384], fm[64];
+    f1_dec(*fmass_k, fm);   /* KCP4 E4: fmass_k is in the preimage, so a compensating pair of
+                             * fmass edits no longer passes the total-only fmass gate */
+    const int hl = snprintf(hdr, sizeof(hdr), "%02d\n%s\n%s\n%s\n%s\n", k, fsha, gsha, exe_sha, fm);
+    if (hl <= 0 || (size_t)hl >= sizeof(hdr)) return -1;
+    char *pre = (char *)malloc((size_t)hl + rowlen);
+    if (!pre) return -1;
+    memcpy(pre, hdr, (size_t)hl);
+    memcpy(pre + hl, row, rowlen);
+    const int rc = kc_h_sha256_mem(pre, (size_t)hl + rowlen, hex);
+    free(pre);
+    return rc;
+}
+
+/* count occurrences of a substring */
+static int kc_h_count_substr(const char *s, const char *sub) {
+    int n = 0;
+    const size_t l = strlen(sub);
+    for (const char *p = strstr(s, sub); p; p = strstr(p + l, sub)) n++;
+    return n;
+}
+
+static void kc_h_utc_stamp(double epoch, char out[32]) {
+    time_t t = (time_t)epoch;
+    struct tm tm;
+    gmtime_r(&t, &tm);
+    strftime(out, 32, "%Y-%m-%dT%H:%M:%SZ", &tm);
+}
+
+static double kc_h_epoch_now(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+/* one line of /proc/<file> starting with prefix, value after it, trimmed; "" if absent */
+static void kc_h_proc_line(const char *path, const char *prefix, char *out, size_t cap) {
+    out[0] = '\0';
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    char line[512];
+    const size_t pl = strlen(prefix);
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, prefix, pl) != 0) continue;
+        const char *p = line + pl;
+        while (*p == ' ' || *p == '\t' || *p == ':') p++;
+        size_t o = 0;
+        while (*p && *p != '\n' && o + 1 < cap) out[o++] = *p++;
+        while (o > 0 && (out[o - 1] == ' ' || out[o - 1] == '\t')) o--;
+        out[o] = '\0';
+        break;
+    }
+    fclose(f);
+}
+
+extern char **environ;
+
+/* the chunk telemetry object (L9). Every key is prefixed tm_ and is unique at its nesting
+ * level; every string passes through kc_h_json_escape; the object sits AFTER the identity
+ * fields and outside KC_MERGE_ID. No host name is recorded. */
+static void kc_h_tel_write(FILE *f, const KcScanTel *tel, const char *fdir, const char *gdir,
+                           int k_lo, int k_hi, int cache_mb, int force_ooc, const KcScanPar *P,
+                           int argc, char *argv[]) {
+    static char big[16384], esc[32768];
+    char ts[32];
+    fprintf(f, "  \"telemetry\": {\n    \"tm_schema\": 1,\n");
+    kc_h_utc_stamp(tel->t_start_epoch, ts);
+    fprintf(f, "    \"tm_t_start_utc\": \"%s\",\n", ts);
+    kc_h_utc_stamp(kc_h_epoch_now(), ts);
+    fprintf(f, "    \"tm_t_end_utc\": \"%s\",\n", ts);
+    fprintf(f, "    \"tm_scan_sec\": %.3f, \"tm_sec_digest_f\": %.3f, \"tm_sec_digest_g\": %.3f, "
+            "\"tm_rows_sec\": %.3f,\n", tel->scan_sec, tel->sec_digest_f, tel->sec_digest_g,
+            tel->rows_sec);
+    /* the run's own configuration: the team size REQUESTED here, the size GRANTED per layer
+     * below (tm_granted); the g counters are BLOCK ACCESSES (every key/val probe of the
+     * binary search calls kc_ooc_block), so tm_g_misses / tm_lookups is the miss rate per
+     * lookup and tm_g_hits is per probe, not per lookup (KCP4 E12) */
+    fprintf(f, "    \"tm_config\": {\"tm_scan_threads_requested\": %d, "
+            "\"tm_gcache_mb_per_thread\": %d, \"tm_cache_mb\": %d, \"tm_force_ooc\": %d, "
+            "\"tm_unit_entries\": %llu, \"tm_omp_schedule\": \"dynamic\", \"tm_g_mode\": \"%s\", "
+            "\"tm_g_slots\": %d, \"tm_tables\": %d, \"tm_stats\": %d, "
+            "\"tm_g_counter_semantics\": \"block accesses (kc_ooc_block calls), not lookups\"},\n",
+            P->threads, P->gcache_mb, cache_mb, force_ooc, (unsigned long long)P->unit,
+            tel->g_mode, tel->g_slots, P->tables, P->stats);
+    /* host block: no host name (feedback_no_cloud_identifiers) */
+    {
+        struct utsname u;
+        memset(&u, 0, sizeof(u));
+        uname(&u);
+        fprintf(f, "    \"tm_host\": {");
+        {   /* affinity and limits (E12); unavailable = null */
+            cpu_set_t cs;
+            CPU_ZERO(&cs);
+            if (sched_getaffinity(0, sizeof(cs), &cs) == 0)
+                fprintf(f, "\"tm_affinity_cpus\": %d, ", CPU_COUNT(&cs));
+            else
+                fprintf(f, "\"tm_affinity_cpus\": null, ");
+            struct rlimit rl;
+            if (getrlimit(RLIMIT_AS, &rl) == 0) {
+                if (rl.rlim_cur == RLIM_INFINITY) fprintf(f, "\"tm_rlimit_as\": \"unlimited\", ");
+                else fprintf(f, "\"tm_rlimit_as\": %llu, ", (unsigned long long)rl.rlim_cur);
+            } else fprintf(f, "\"tm_rlimit_as\": null, ");
+            if (getrlimit(RLIMIT_NOFILE, &rl) == 0) {
+                if (rl.rlim_cur == RLIM_INFINITY) fprintf(f, "\"tm_rlimit_nofile\": \"unlimited\", ");
+                else fprintf(f, "\"tm_rlimit_nofile\": %llu, ", (unsigned long long)rl.rlim_cur);
+            } else fprintf(f, "\"tm_rlimit_nofile\": null, ");
+        }
+        kc_h_json_escape(u.release, esc, sizeof(esc));
+        fprintf(f, "\"tm_uname_release\": \"%s\", ", esc);
+        kc_h_json_escape(u.machine, esc, sizeof(esc));
+        fprintf(f, "\"tm_uname_machine\": \"%s\", ", esc);
+        kc_h_proc_line("/proc/cpuinfo", "model name", big, sizeof(big));
+        kc_h_json_escape(big, esc, sizeof(esc));
+        fprintf(f, "\"tm_cpu_model\": \"%s\", ", esc);
+        fprintf(f, "\"tm_nproc\": %ld, ", sysconf(_SC_NPROCESSORS_ONLN));
+        kc_h_proc_line("/proc/meminfo", "MemTotal", big, sizeof(big));
+        kc_h_json_escape(big, esc, sizeof(esc));
+        fprintf(f, "\"tm_mem_total\": \"%s\", ", esc);
+        kc_h_json_escape(zlibVersion(), esc, sizeof(esc));
+        fprintf(f, "\"tm_zlib_version\": \"%s\", ", esc);
+        kc_h_json_escape(__VERSION__, esc, sizeof(esc));
+        fprintf(f, "\"tm_compiler\": \"%s\", ", esc);
+        fprintf(f, "\"tm_openmp\": %d, ", (int)_OPENMP);
+        kc_h_json_escape(gnu_get_libc_version(), esc, sizeof(esc));
+        fprintf(f, "\"tm_glibc\": \"%s\", ", esc);
+        fprintf(f, "\"tm_argv\": [");
+        for (int i = 0; i < argc; i++) {
+            kc_h_json_escape(argv[i], esc, sizeof(esc));
+            fprintf(f, "%s\"%s\"", i ? ", " : "", esc);
+        }
+        fprintf(f, "], \"tm_env\": [");
+        {   /* SOLVE_* / OMP_* / GOMP_* as found (E12) */
+            int first = 1;
+            for (char **e = environ; e && *e; e++) {
+                if (strncmp(*e, "SOLVE_", 6) != 0 && strncmp(*e, "OMP_", 4) != 0 &&
+                    strncmp(*e, "GOMP_", 5) != 0)
+                    continue;
+                kc_h_json_escape(*e, esc, sizeof(esc));
+                fprintf(f, "%s\"%s\"", first ? "" : ", ", esc);
+                first = 0;
+            }
+        }
+        fprintf(f, "]},\n");
+    }
+    /* the layer files read, by stat() (the sidecar's bin_bytes may be stale); null if absent */
+    fprintf(f, "    \"tm_files\": {");
+    {
+        struct stat st;
+        char sp[4400];
+        int first = 1;
+        for (int k = k_lo; k < k_hi; k++) {
+            snprintf(sp, sizeof(sp), "%s/f1c5_layer_%02d.bin", fdir, k);
+            if (stat(sp, &st) == 0)
+                fprintf(f, "%s\"tm_f_layer_bytes_%02d\": %lld", first ? "" : ", ", k, (long long)st.st_size);
+            else
+                fprintf(f, "%s\"tm_f_layer_bytes_%02d\": null", first ? "" : ", ", k);
+            first = 0;
+        }
+        for (int k = k_lo + 1; k <= k_hi; k++) {
+            snprintf(sp, sizeof(sp), "%s/g_layer_%02d.bin", gdir, k);
+            if (stat(sp, &st) == 0)
+                fprintf(f, ", \"tm_g_layer_bytes_%02d\": %lld", k, (long long)st.st_size);
+            else
+                fprintf(f, ", \"tm_g_layer_bytes_%02d\": null", k);
+        }
+    }
+    fprintf(f, "},\n");
+    /* ladder provenance: the sidecars' own_sha256_decompressed for the layers read; null
+     * when a sidecar is absent (rehearsal ladders), never an abort */
+    fprintf(f, "    \"tm_sidecars\": {");
+    {
+        int first = 1;
+        char sp[4400], hex[65];
+        for (int k = k_lo; k < k_hi; k++) {
+            snprintf(sp, sizeof(sp), "%s/f1c5_layer_stats_%02d.json", fdir, k);
+            if (f1c5_sidecar_read_own_sha(sp, hex) == 0)
+                fprintf(f, "%s\"tm_f_sidecar_sha_%02d\": \"%s\"", first ? "" : ", ", k, hex);
+            else
+                fprintf(f, "%s\"tm_f_sidecar_sha_%02d\": null", first ? "" : ", ", k);
+            first = 0;
+        }
+        for (int k = k_lo + 1; k <= k_hi; k++) {
+            snprintf(sp, sizeof(sp), "%s/g_layer_stats_%02d.json", gdir, k);
+            if (f1c5_sidecar_read_own_sha(sp, hex) == 0)
+                fprintf(f, ", \"tm_g_sidecar_sha_%02d\": \"%s\"", k, hex);
+            else
+                fprintf(f, ", \"tm_g_sidecar_sha_%02d\": null", k);
+        }
+    }
+    fprintf(f, "},\n");
+    /* per layer, per thread */
+    fprintf(f, "    \"tm_layers\": [\n");
+    for (int k = k_lo; k < k_hi; k++) {
+        const KcScanTelLayer *L = &tel->lay[k];
+        fprintf(f, "      {\"tm_k\": %d, \"tm_filled\": %d, \"tm_granted\": %d, \"tm_nm\": %llu, "
+                "\"tm_ne\": %llu, \"tm_nblk\": %llu, \"tm_units\": %llu, "
+                "\"tm_unit_entries_used\": %llu, \"tm_dyn_chunk\": %ld, "
+                "\"tm_layer_wall_sec\": %.6f, \"tm_reduce_sec\": %.6f, "
+                "\"tm_layer_cpu_user_sec\": %.6f, \"tm_layer_cpu_sys_sec\": %.6f, "
+                "\"tm_rss_mb\": %.1f, \"tm_peak_rss_mb\": %.1f, \"tm_layer_io_read_bytes\": ",
+                k, L->filled, L->granted, (unsigned long long)L->nm, (unsigned long long)L->ne,
+                (unsigned long long)L->nblk, (unsigned long long)L->units,
+                (unsigned long long)L->unit_entries, L->dyn_chunk, L->wall, L->reduce_sec,
+                L->cpu_user, L->cpu_sys, L->rss_mb, L->peak_rss_mb);
+        if (L->io_read >= 0) fprintf(f, "%lld, ", (long long)L->io_read);
+        else fprintf(f, "null, ");
+        fprintf(f, "\"tm_threads\": [");
+        for (int t = 0; t < tel->threads; t++) {
+            const KcScanTelThr *w = &L->thr[t];
+            fprintf(f, "%s{\"tm_tid\": %d, \"tm_items\": %llu, \"tm_entries\": %llu, "
+                    "\"tm_lookups\": %llu, \"tm_g_hits\": %llu, \"tm_g_misses\": %llu, "
+                    "\"tm_g_bytes_read\": %llu, \"tm_g_sec_read\": %.6f, "
+                    "\"tm_g_sec_inflate\": %.6f, \"tm_g_max_inflate_sec\": %.6f, "
+                    "\"tm_g_max_inflate_at_layer\": %d, \"tm_g_max_inflate_at_blk\": %llu, "
+                    "\"tm_max_unit_sec\": %.6f, \"tm_max_unit_at_unit\": %llu, "
+                    "\"tm_max_unit_at_blk\": %llu, \"tm_max_unit_at_offset_sec\": %.6f, "
+                    "\"tm_f_blocks\": %llu, \"tm_f_logical\": %llu, "
+                    "\"tm_thr_wall_sec\": %.6f, \"tm_thr_cpu_user_sec\": %.6f, "
+                    "\"tm_thr_cpu_sys_sec\": %.6f, \"tm_thr_io_read_bytes\": ",
+                    t ? ", " : "", t, (unsigned long long)w->items,
+                    (unsigned long long)w->entries, (unsigned long long)w->lookups,
+                    (unsigned long long)w->hits, (unsigned long long)w->misses,
+                    (unsigned long long)w->bytes_read, w->sec_read, w->sec_inflate,
+                    w->max_inflate_sec, w->max_inflate_k, (unsigned long long)w->max_inflate_blk,
+                    w->max_unit_sec, (unsigned long long)w->max_unit_it,
+                    (unsigned long long)w->max_unit_blk, w->max_unit_at,
+                    (unsigned long long)w->f_blocks,
+                    (unsigned long long)w->f_logical, w->wall, w->cpu_user, w->cpu_sys);
+            if (w->io_read >= 0) fprintf(f, "%lld}", (long long)w->io_read);
+            else fprintf(f, "null}");
+        }
+        fprintf(f, "]}%s\n", k + 1 < k_hi ? "," : "");
+    }
+    fprintf(f, "    ]\n  },\n");
+}
+
 static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC *fkc,
                                  const char *fdir, const char *gdir, const char *tdir,
-                                 int want_raw, int k_lo, int k_hi, double elapsed) {
+                                 int want_raw, int k_lo, int k_hi, double elapsed,
+                                 int scan_threads, KcScanTel *tel, int cache_mb, int force_ooc,
+                                 const KcScanPar *P, int argc, char *argv[]) {
     if (!sha256_tool()) { require_sha256_tool(); return -1; }
     /* G2 F1: run-time engine identity, never omittable at build. Refuse to write a chunk
      * that would carry none - the merge would (rightly) reject it later anyway. */
@@ -28019,8 +29797,10 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
         return -1;
     }
     char t[64], esc[2048], b0s[128];
-    /* chunk schema 2 (2026-09-04): + g_layer_sha_* (F2) + engine_exe_sha (F1) */
-    fprintf(f, "{\n  \"type\": \"roae-kc-scan-chunk\",\n  \"version\": 2,\n");
+    /* chunk schema 3 (2026-09-11): + the logging tables in every row, row_sha_* (L1), the
+     * telemetry object (L9), scan_threads always; schema 2 (2026-09-04) added g_layer_sha_*
+     * and engine_exe_sha. The merge refuses any other version through KC_MERGE_ID. */
+    fprintf(f, "{\n  \"type\": \"roae-kc-scan-chunk\",\n  \"version\": 3,\n");
     fprintf(f, "  \"n\": %d,\n  \"k_lo\": %d,\n  \"k_hi\": %d,\n", T->n, k_lo, k_hi);
     fprintf(f, "  \"range\": \"HALF-OPEN [k_lo, k_hi) over transition layers k in [0, n)\",\n");
     f1_dec(fkc->total, t);
@@ -28040,45 +29820,100 @@ static int kc_h_scan_write_chunk(const char *outp, const KcScanTab *T, const KC 
     }
     /* leg-3 binding: the exact decompressed-stream digest of every f layer this
      * chunk read (--f1c5-layer-sha's digest, f1c5_layer_sha_hex). */
+    char (*fsha)[65] = (char (*)[65])calloc((size_t)T->n + 1, 65);
+    char (*gsha)[65] = (char (*)[65])calloc((size_t)T->n + 1, 65);
+    F1_CHECK(fsha && gsha, "[kc-scan] digest table alloc");
+    double dw0 = kc_h_mono_sec();
     for (int k = k_lo; k < k_hi; k++) {
-        char lpath[4400], hex[65];
+        char lpath[4400];
         snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
-        if (f1c5_layer_sha_hex(lpath, hex, NULL, NULL, NULL) != 0) {
+        if (f1c5_layer_sha_hex(lpath, fsha[k], NULL, NULL, NULL) != 0) {
             fprintf(stderr, "ERROR: [kc-scan] cannot digest %s\n", lpath);
+            free(fsha); free(gsha);
             return kc_h_scan_chunk_abort(f, outp);
         }
-        fprintf(f, "  \"f_layer_sha_%02d\": \"%s\",\n", k, hex);
+        fprintf(f, "  \"f_layer_sha_%02d\": \"%s\",\n", k, fsha[k]);
     }
+    if (tel) tel->sec_digest_f = kc_h_mono_sec() - dw0;
     /* leg-3 binding, g side (G2 F2, 2026-09-04): transition layer k reads g layer k+1
      * (kc_glookup(gkc, k + 1, ...) in kc_h_scan_layers), so bind the same exact
      * decompressed-stream digest of g layers k_lo+1 .. k_hi. Before this a chunk bound
      * gdir as a PATH STRING only, and g content swapped under an unchanged path merged
      * KC_SCAN_MERGE=OK into a wrong atlas. The t ladder is never read by the layer pass
      * (tail-only; the merge recomputes it whole), so there is nothing of t to bind here. */
+    dw0 = kc_h_mono_sec();
     for (int k = k_lo + 1; k <= k_hi; k++) {
-        char lpath[4400], hex[65];
+        char lpath[4400];
         snprintf(lpath, sizeof(lpath), "%s/g_layer_%02d.bin", gdir, k);
-        if (f1c5_layer_sha_hex(lpath, hex, NULL, NULL, NULL) != 0) {
+        if (f1c5_layer_sha_hex(lpath, gsha[k], NULL, NULL, NULL) != 0) {
             fprintf(stderr, "ERROR: [kc-scan] cannot digest %s\n", lpath);
+            free(fsha); free(gsha);
             return kc_h_scan_chunk_abort(f, outp);
         }
-        fprintf(f, "  \"g_layer_sha_%02d\": \"%s\",\n", k, hex);
+        fprintf(f, "  \"g_layer_sha_%02d\": \"%s\",\n", k, gsha[k]);
     }
+    if (tel) tel->sec_digest_g = kc_h_mono_sec() - dw0;
     for (int k = k_lo; k < k_hi; k++) {
         f1_dec(T->fmass[k], t);
         fprintf(f, "  \"fmass_%02d\": \"%s\",\n", k, t);
     }
+    /* L1: render every row to memory FIRST, digest it (header + exactly the row bytes),
+     * emit the digests alongside fmass_NN, then the rows. Invariants gated here: a row is a
+     * single line (kc_h_chunk_row stops at '\n'), carries exactly one "flow": and one
+     * "marginal_quotient": (the row locator and tr12_repro.sh's layer count rest on them),
+     * and no new key is spelled like a zero-skipped cell the merge reads by first hit. */
+    dw0 = kc_h_mono_sec();
+    char **rows = (char **)calloc((size_t)T->n, sizeof(char *));
+    size_t *rowlen = (size_t *)calloc((size_t)T->n, sizeof(size_t));
+    F1_CHECK(rows && rowlen, "[kc-scan] row buffer alloc");
+    for (int k = k_lo; k < k_hi; k++) {
+        FILE *m = open_memstream(&rows[k], &rowlen[k]);
+        F1_CHECK(m != NULL, "[kc-scan] open_memstream");
+        kc_h_scan_write_layer_row(m, T, k, want_raw);
+        fclose(m);
+        F1_CHECK(rows[k] && rowlen[k] > 0 && memchr(rows[k], '\n', rowlen[k]) == NULL,
+                 "[kc-scan] layer row %02d is not a single line (defect)", k);
+        F1_CHECK(kc_h_count_substr(rows[k], "\"flow\":") == 1 &&
+                 kc_h_count_substr(rows[k], "\"marginal_quotient\":") == 1 &&
+                 kc_h_count_substr(rows[k], "\"marginal_raw\":") == (want_raw ? 1 : 0),
+                 "[kc-scan] layer row %02d anchor keys are not unique (defect)", k);
+        /* the row writer indents its object; the digest is over the row FROM ITS OPENING
+         * BRACE, which is exactly what the merge's extractor (kc_h_chunk_row) returns */
+        const char *rb = rows[k];
+        while (*rb == ' ') rb++;
+        F1_CHECK(*rb == '{', "[kc-scan] layer row %02d does not start with an object (defect)", k);
+        char hex[65];
+        if (kc_h_row_sha(k, fsha[k], gsha[k + 1], exe_sha, &T->fmass[k], rb,
+                         rowlen[k] - (size_t)(rb - rows[k]), hex) != 0) {
+            fprintf(stderr, "ERROR: [kc-scan] cannot digest layer row %02d\n", k);
+            for (int j = k_lo; j < k_hi; j++) free(rows[j]);
+            free(rows); free(rowlen); free(fsha); free(gsha);
+            return kc_h_scan_chunk_abort(f, outp);
+        }
+        fprintf(f, "  \"row_sha_%02d\": \"%s\",\n", k, hex);
+    }
     fprintf(f, "  \"layers\": [\n");
     for (int k = k_lo; k < k_hi; k++) {
-        kc_h_scan_write_layer_row(f, T, k, want_raw);
+        fwrite(rows[k], 1, rowlen[k], f);   /* the writer's own indent is inside the row */
         fprintf(f, "%s\n", k + 1 < k_hi ? "," : "");
+        free(rows[k]);
     }
+    free(rows); free(rowlen); free(fsha); free(gsha);
+    if (tel) tel->rows_sec = kc_h_mono_sec() - dw0;
     fprintf(f, "  ],\n");
     fprintf(f, "  \"gate_fails\": %d,\n", T->gate_fails);
     fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
             GIT_HASH, SOURCE_SHA);
     fprintf(f, "  \"engine_exe_sha\": \"%s\",\n", exe_sha);
     fprintf(f, "  \"elapsed_sec\": %.3f,\n", elapsed);
+    /* informational, run-variable like elapsed_sec, and deliberately OUTSIDE the
+     * merge's KC_MERGE_ID identity set: the table is bit-identical at every thread
+     * count (design s2), so chunks scanned at different T must merge. Schema 3 emits it
+     * always (schema 2 emitted it only when T != 1 to keep a default chunk byte-identical
+     * to the pre-parallel writer; the telemetry object spends that property anyway). */
+    fprintf(f, "  \"scan_threads\": %d,\n", scan_threads);
+    /* L9: the telemetry object -- after the identity fields, outside KC_MERGE_ID */
+    if (tel) kc_h_tel_write(f, tel, fdir, gdir, k_lo, k_hi, cache_mb, force_ooc, P, argc, argv);
     fprintf(f, "  \"semantics\": \"PARTIAL atlas chunk - NOT an atlas; assemble with "
             "--kc-scan-merge, which proves coverage and re-runs every gate\"\n}\n");
     if (kc_h_close_artifact(f, outp, "kc-scan") != 0) return -1;
@@ -28094,7 +29929,10 @@ static void kc_h_scan_write_atlas(FILE *f, const KcScanTab *T, const KC *fkc,
                                   const char *tdir, int want_raw) {
         char t[64], esc[2048];
         const int n = T->n;
-        fprintf(f, "{\n  \"type\": \"roae-kc-scan-atlas\",\n  \"version\": 1,\n");
+        /* atlas schema 2 (2026-09-11): every layer row carries the logging tables
+         * (counts / extrema / hist / digits / outdeg / kernel), gates gains their entries,
+         * and tail_checks records the F3-rule checks. Schema 1 rows and keys are unchanged. */
+        fprintf(f, "{\n  \"type\": \"roae-kc-scan-atlas\",\n  \"version\": 2,\n");
         fprintf(f, "  \"n\": %d,\n", n);
         f1_dec(fkc->total, t);
         fprintf(f, "  \"N_total\": \"%s\",\n", t);
@@ -28166,19 +30004,30 @@ static void kc_h_scan_write_atlas(FILE *f, const KcScanTab *T, const KC *fkc,
          * "not-run" rather than inherit the gate_fails==0 "true" of the gates
          * that did run -- otherwise an atlas built without a t ladder asserts
          * a cross-chunk identity nothing checked (Q-39). */
-        fprintf(f, "  \"gates\": {\"per_layer_flow_eq_N\": %s, \"raw_marginal_sums_eq_N\": "
-                "%s, \"class_row_sums_eq_N\": %s, \"quotient_marginal_sums_eq_N\": %s, "
-                "\"class_column_sums_eq_b0_N\": %s, \"branch_masses_sum_eq_N\": %s, "
-                "\"t_root_eq_f_layer_sum\": %s, \"fails\": %d},\n",
-                T->gate_fails ? "\"see fails\"" : "true",
-                want_raw ? (T->gate_fails ? "\"see fails\"" : "true") : "\"not-emitted\"",
-                T->gate_fails ? "\"see fails\"" : "true",
-                T->gate_fails ? "\"see fails\"" : "true",
-                T->gate_fails ? "\"see fails\"" : "true",
-                T->gate_fails ? "\"see fails\"" : "true",
-                !T->t_ladder ? "\"not-run (requires --kc-tdir)\""
-                             : (T->t_sum_ok ? "true" : "\"see fails\""),
-                T->gate_fails);
+        {
+            const char *g = T->gate_fails ? "\"see fails\"" : "true";
+            const char *graw = want_raw ? g : "\"not-emitted\"";
+            fprintf(f, "  \"gates\": {\"per_layer_flow_eq_N\": %s, \"raw_marginal_sums_eq_N\": "
+                    "%s, \"class_row_sums_eq_N\": %s, \"quotient_marginal_sums_eq_N\": %s, "
+                    "\"class_column_sums_eq_b0_N\": %s, \"branch_masses_sum_eq_N\": %s, "
+                    "\"t_root_eq_f_layer_sum\": %s, "
+                    "\"entries_eq_header_ne\": %s, \"count_identities\": %s, "
+                    "\"outdeg_identities\": %s, \"hist_bounds_and_sums\": %s, "
+                    "\"digit_row_sums_eq_N\": %s, \"extrema_relookup\": %s, "
+                    "\"kernel_marginals_eq_cls_raw\": %s, \"fails\": %d},\n",
+                    g, graw, g, g, g, g,
+                    !T->t_ladder ? "\"not-run (requires --kc-tdir)\""
+                                 : (T->t_sum_ok ? "true" : "\"see fails\""),
+                    g, g, g, g, g, g, graw, T->gate_fails);
+        }
+        /* the F3-rule tail checks: recorded, not refusing (unless SOLVE_KC_SCAN_TAIL_STRICT=1,
+         * in which case a failure has already removed the atlas). "n/a" = the raw frame was
+         * not emitted, so the identity has nothing to check. */
+        fprintf(f, "  \"tail_checks\": {");
+        for (int i = 0; i < KC_SCAN_NTC; i++)
+            fprintf(f, "%s\"%s\": \"%s\"", i ? ", " : "", kc_scan_tc_name[i],
+                    T->tail_report_ran ? T->tail_report[i] : "not-run");
+        fprintf(f, ", \"fails\": %d},\n", T->tail_report_ran ? T->tail_report_fails : -1);
         fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
                 GIT_HASH, SOURCE_SHA);
         fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
@@ -28202,15 +30051,47 @@ static int kc_scan_main(int argc, char *argv[]) {
                 "  when --kc-raw or n <= 13), and the top-level branch table (exact\n"
                 "  solutions per branch; valid-prefix t-units EXACT at any n from a\n"
                 "  --kc-tdir t ladder (--kc-t-build), else at small n by direct\n"
-                "  recursion, else PENDING). Fail-loud internal ==N gates. Exit 0/1/2.\n");
+                "  recursion, else PENDING). Fail-loud internal ==N gates. Exit 0/1/2.\n"
+                "  --kc-scan-threads T (or SOLVE_KC_SCAN_THREADS; default 1): OpenMP team\n"
+                "  over each f layer's block stream; the atlas/chunk is byte-identical at\n"
+                "  every T. --kc-gcache-mb-per-thread C: each thread's own g block cache\n"
+                "  (default: the --kc-cache-mb size). The f and t readers get a minimal\n"
+                "  cache (the scan streams f by path and makes ~2n t lookups).\n"
+                "  Measurement: SOLVE_KC_SCAN_START_BLOCK / SOLVE_KC_SCAN_STOP_AFTER_BLOCKS\n"
+                "  run a partial layer pass, print KC_SCAN_STAT lines and\n"
+                "  KC_SCAN_CHUNK=MEASUREMENT, and write NO chunk and NO atlas;\n"
+                "  SOLVE_KC_SCAN_TABLES=0 does the same over whole layers WITHOUT the\n"
+                "  logging tables (the per-lookup cost knob). SOLVE_KC_SCAN_TAIL_STRICT=1\n"
+                "  makes the report-only tail checks refusing (the n=12/13 VM leg).\n");
         return 2;
     }
     const char *fdir = argv[2], *gdir = argv[3], *outp = argv[4], *tdir = NULL;
     int want_raw = 0, force_ooc = 0, cache_mb = 0;
     int chunk_mode = 0, k_lo = 0, k_hi = 0;
+    KcScanPar P;
+    if (kc_scan_par_init(&P) != 0) {
+        printf("KC_SCAN=FAIL\n");
+        return 2;
+    }
     for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-raw") == 0) want_raw = 1;
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (strcmp(argv[ai], "--kc-scan-threads") == 0 ||
+                 strcmp(argv[ai], "--kc-gcache-mb-per-thread") == 0) {
+            const int is_t = strcmp(argv[ai], "--kc-scan-threads") == 0;
+            uint64_t v = 0;
+            if (ai + 1 >= argc ||
+                kc_h_env_u64(argv[ai], argv[ai + 1], 1,
+                             is_t ? (uint64_t)KC_SCAN_MAX_THREADS : (uint64_t)(1u << 22),
+                             &v, NULL) != 0 || v == 0) {
+                fprintf(stderr, "ERROR: [kc-scan] %s needs one integer argument (%s)\n",
+                        argv[ai], is_t ? "1..1024 threads" : "1..4194304 MB per thread");
+                printf("KC_SCAN=FAIL\n");
+                return 2;
+            }
+            if (is_t) P.threads = (int)v; else P.gcache_mb = (int)v;
+            ai++;
+        }
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tdir") == 0) tdir = argv[++ai];
         else if (ai + 2 < argc && strcmp(argv[ai], "--kc-layers") == 0) {
@@ -28228,12 +30109,15 @@ static int kc_scan_main(int argc, char *argv[]) {
     KC *gkc = (KC *)calloc(1, sizeof(KC));
     KC *tkc = tdir ? (KC *)calloc(1, sizeof(KC)) : NULL;
     F1_CHECK(fkc && gkc && (!tdir || tkc), "[kc-scan] alloc");
-    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); free(tkc); return 2; }
+    /* design s1.3/s1.2 row B: the scan streams f layers BY PATH and makes ~2n t
+     * lookups in the tail, so the f and t readers get the minimal cache (1 MB ->
+     * the 4-slot floor) instead of --kc-cache-mb each; only g is cache-bound. */
+    if (kc_open(fkc, fdir, force_ooc, 1) != 0) { free(fkc); free(gkc); free(tkc); return 2; }
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc); free(tkc);
         return 2;
     }
-    if (tdir && kc_open_as(tkc, tdir, "t", 2, force_ooc, cache_mb) != 0) {
+    if (tdir && kc_open_as(tkc, tdir, "t", 2, force_ooc, 1) != 0) {
         kc_free(fkc); kc_free(gkc); free(fkc); free(gkc); free(tkc);
         return 2;
     }
@@ -28244,6 +30128,40 @@ static int kc_scan_main(int argc, char *argv[]) {
                  f1_pl_hash(&fkc->c) == f1_pl_hash(&tkc->c),
                  "[kc-scan] f/t ladder context mismatch");
     if (fkc->n <= 13) want_raw = 1;   /* small-n: raw frame always feasible */
+    kc_h_check_hex_linear(&fkc->c);   /* G16: the lifts are linear, or nothing runs */
+    if (P.measure) {
+        /* design s7.1: a MEASUREMENT run. A partial layer pass whose table is
+         * incomplete by construction, so it must never reach disk as a chunk or an
+         * atlas (F-5 R3 s5 G: a partial chunk must never exist). Nothing is written;
+         * OUT is not opened, created or removed. */
+        int lo = 0, hi = fkc->n;
+        if (chunk_mode) { lo = k_lo; hi = k_hi; }
+        int mrc = 2;
+        if (!(lo >= 0 && hi <= fkc->n && lo < hi)) {
+            fprintf(stderr, "ERROR: [kc-scan] --kc-layers %d %d out of range (n=%d)\n", lo, hi,
+                    fkc->n);
+        } else {
+            KcScanTab MT;
+            kc_h_scan_alloc(fkc, want_raw, &MT);
+            const int lrc = kc_h_scan_layers(fkc, gkc, fdir, want_raw, &MT, lo, hi, 0, &P);
+            kc_scan_free(&MT);
+            if (lrc == 0) {
+                printf("[kc-scan] MEASUREMENT run over layers [%d,%d): start_blk=%llu "
+                       "stop_after_blocks=%llu stride=%llu threads=%d tables=%d -- %s layer "
+                       "pass, NO chunk and NO atlas written (%s untouched)\n", lo, hi,
+                       (unsigned long long)P.start_blk, (unsigned long long)P.stop_blocks,
+                       (unsigned long long)P.stride, P.threads, P.tables,
+                       P.tables ? "partial" : "table-free", outp);
+                mrc = 0;
+            } else {
+                fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n");
+            }
+        }
+        printf("KC_SCAN_CHUNK=%s\n", mrc == 0 ? "MEASUREMENT" : "FAIL");
+        kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc);
+        free(fkc); free(gkc); free(tkc);
+        return mrc;
+    }
     if (chunk_mode) {
         /* --kc-layers A B: partial (chunk) mode. Range is HALF-OPEN [A, B). */
         if (!(k_lo >= 0 && k_hi <= fkc->n && k_lo < k_hi)) {
@@ -28257,7 +30175,10 @@ static int kc_scan_main(int argc, char *argv[]) {
         const double t0 = kc_h_mono_sec();
         KcScanTab CT;
         kc_h_scan_alloc(fkc, want_raw, &CT);
-        const int lrc = kc_h_scan_layers(fkc, gkc, fdir, want_raw, &CT, k_lo, k_hi, 1);
+        KcScanTel *tel = kc_h_tel_new(fkc->n, P.threads);   /* L9 sink, chunk mode only */
+        tel->t_start_epoch = kc_h_epoch_now();
+        P.tel = tel;
+        const int lrc = kc_h_scan_layers(fkc, gkc, fdir, want_raw, &CT, k_lo, k_hi, 1, &P);
         int crc = 2;
         if (lrc != 0) {
             fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n");
@@ -28300,9 +30221,29 @@ static int kc_scan_main(int argc, char *argv[]) {
                         CT.gate_fails++;
                     }
                 }
+                /* the logging tables' chunk-local gates (2026-09-11), refusing; and the
+                 * per-layer G-invariance CHECK, reported (refusing only when strict) */
+                kc_h_scan_gates_x(fkc, gkc, fdir, &CT, k, want_raw);
+                if (want_raw) {
+                    const int inv = kc_h_scan_kern_inv_layer(fkc, &CT, k);
+                    printf("[kc-scan] TAIL-CHECK kernel_g_invariance layer %02d: %s\n", k,
+                           inv ? "PASS" : "FAIL");
+                    if (!inv) {
+                        const int strict = kc_h_tail_strict();
+                        F1_CHECK(strict >= 0, "[kc-scan] SOLVE_KC_SCAN_TAIL_STRICT malformed");
+                        if (strict) {
+                            printf("[kc-scan] GATE FAIL: layer %02d tail-check kernel_g_invariance "
+                                   "(SOLVE_KC_SCAN_TAIL_STRICT=1)\n", k);
+                            CT.gate_fails++;
+                        }
+                    }
+                }
             }
+            const double tw0 = kc_h_mono_sec();
+            tel->scan_sec = tw0 - t0;
             if (kc_h_scan_write_chunk(outp, &CT, fkc, fdir, gdir, tdir, want_raw,
-                                      k_lo, k_hi, kc_h_mono_sec() - t0) == 0) {
+                                      k_lo, k_hi, kc_h_mono_sec() - t0, P.threads, tel,
+                                      cache_mb, force_ooc, &P, argc, argv) == 0) {
                 printf("[kc-scan] chunk written: %s (layers [%d,%d))\n", outp, k_lo, k_hi);
                 printf("[kc-scan] VERDICT: %s (%d gate failure%s)\n",
                        CT.gate_fails ? "FAIL" : "PASS", CT.gate_fails,
@@ -28315,13 +30256,14 @@ static int kc_scan_main(int argc, char *argv[]) {
             }
         }
         if (crc == 2) printf("KC_SCAN_CHUNK=FAIL\n");
+        kc_h_tel_free(tel);
         kc_scan_free(&CT);
         kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc);
         free(fkc); free(gkc); free(tkc);
         return crc;
     }
     KcScanTab T;
-    const int rc0 = kc_h_scan_core(fkc, gkc, tkc, fdir, want_raw, &T, 1);
+    const int rc0 = kc_h_scan_core(fkc, gkc, tkc, fdir, want_raw, &T, 1, &P);
     int rc = 2;
     if (rc0 == 0) {
         FILE *f = fopen(outp, "w");
@@ -28434,6 +30376,395 @@ static int kc_h_chunk_u192(const char *buf, const char *key, F1U192 *out, int re
     return kc_u192_from_dec(v, out);
 }
 
+/* ---- sequential reader for the logging tables of a chunk row (2026-09-11) ----
+ * kc_h_field is a first-hit strstr over the whole buffer, right for the flat identity keys and
+ * for the row's own dN / qN / pairN cells, and wrong for a nested table whose inner keys
+ * repeat per class (hist, digits, outdeg, extrema). These read each table from its unique
+ * top-level key forward, member by member, and REFUSE anything they do not recognise, so the
+ * merged table round-trips to the whole-run bytes or the chunk is rejected. */
+typedef struct { const char *p; } KcJc;
+static void kcj_ws(KcJc *c) { while (*c->p == ' ' || *c->p == '\t') c->p++; }
+static int kcj_expect(KcJc *c, char ch) { kcj_ws(c); if (*c->p != ch) return -1; c->p++; return 0; }
+static int kcj_peek(KcJc *c) { kcj_ws(c); return (unsigned char)*c->p; }
+static int kcj_str(KcJc *c, char *out, size_t cap) {
+    kcj_ws(c);
+    if (*c->p != '"') return -1;
+    c->p++;
+    size_t o = 0;
+    while (*c->p && *c->p != '"' && o + 1 < cap) out[o++] = *c->p++;
+    if (*c->p != '"') return -1;
+    c->p++;
+    out[o] = '\0';
+    return 0;
+}
+static int kcj_key(KcJc *c, char *key, size_t cap) {
+    if (kcj_str(c, key, cap) != 0) return -1;
+    return kcj_expect(c, ':');
+}
+static int kcj_u64(KcJc *c, uint64_t *v) {
+    kcj_ws(c);
+    if (!(*c->p >= '0' && *c->p <= '9')) return -1;
+    char *end = NULL;
+    errno = 0;
+    const unsigned long long x = strtoull(c->p, &end, 10);
+    if (errno != 0 || end == c->p) return -1;
+    c->p = end;
+    *v = (uint64_t)x;
+    return 0;
+}
+static int kcj_u192(KcJc *c, F1U192 *v) {
+    char s[128];
+    if (kcj_str(c, s, sizeof(s)) != 0) return -1;
+    return kc_u192_from_dec(s, v);
+}
+/* after a member: ',' -> 1 (another member follows), '}' -> 0 (object closed), else -1 */
+static int kcj_sep(KcJc *c) {
+    kcj_ws(c);
+    if (*c->p == ',') { c->p++; return 1; }
+    if (*c->p == '}') { c->p++; return 0; }
+    return -1;
+}
+/* position after `"key": {` -- the key must be unique in the row (build list L12) */
+static int kcj_open(KcJc *c, const char *row, const char *key) {
+    char pat[64];
+    snprintf(pat, sizeof(pat), "\"%s\":", key);
+    const char *p = strstr(row, pat);
+    if (!p || strstr(p + strlen(pat), pat)) return -1;   /* absent, or not unique */
+    c->p = p + strlen(pat);
+    return kcj_expect(c, '{');
+}
+
+/* read the logging tables of layer k out of one extracted row into T. 0 ok, -1 malformed. */
+static int kc_h_chunk_parse_x(const char *row, KcScanTab *T, int k, int want_raw, const KC *fkc) {
+    static const int dv[5] = {1, 2, 3, 4, 6};
+    KcJc c;
+    char key[64];
+    int s;
+    /* duplicate cells are detected WITHIN THE ROW (never against what T already holds):
+     * a chunk overlap must reach leg 1, which names the double-counted layer */
+    uint8_t seenh[5 * KC_SCAN_HB], seenk[4096];
+    memset(seenh, 0, sizeof(seenh));
+    memset(seenk, 0, sizeof(seenk));
+    /* counts: every key required, in any order, no unknown key */
+    {
+        if (kcj_open(&c, row, "counts") != 0) return -1;
+        KcScanCnt *C = &T->cnt[k];
+        int seen = 0;
+        do {
+            if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+            uint64_t *u = NULL; F1U192 *m = NULL; int bit = -1;
+            if (!strcmp(key, "st_entries")) { u = &C->entries; bit = 0; }
+            else if (!strcmp(key, "st_lookups")) { u = &C->lookups; bit = 1; }
+            else if (!strcmp(key, "st_pruned")) { u = &C->pruned; bit = 2; }
+            else if (!strcmp(key, "st_zero_g")) { u = &C->zero_g; bit = 3; }
+            else if (!strcmp(key, "st_dead")) { u = &C->dead; bit = 4; }
+            else if (!strcmp(key, "st_dead_fmass")) { m = &C->dead_fmass; bit = 5; }
+            else if (!strcmp(key, "st_live_fmass")) { m = &C->live_fmass; bit = 6; }
+            else {
+                int d = -1, kind = 0;
+                for (int i = 0; i < 5; i++) {
+                    char a[16], b[16];
+                    snprintf(a, sizeof(a), "st_nz%d", dv[i]);
+                    snprintf(b, sizeof(b), "st_nzo%d", dv[i]);
+                    if (!strcmp(key, a)) { d = i; kind = 1; }
+                    if (!strcmp(key, b)) { d = i; kind = 2; }
+                }
+                if (d < 0) return -1;
+                u = kind == 1 ? &C->nz[d] : &C->nz_orb[d];
+                bit = 7 + (kind - 1) * 5 + d;
+            }
+            if (seen & (1 << bit)) return -1;
+            seen |= 1 << bit;
+            if (u ? kcj_u64(&c, u) != 0 : kcj_u192(&c, m) != 0) return -1;
+        } while ((s = kcj_sep(&c)) == 1);
+        if (s != 0 || seen != (1 << 17) - 1) return -1;
+    }
+    /* extrema: ext<d> for every class, each with max and min (object or null) */
+    {
+        if (kcj_open(&c, row, "extrema") != 0) return -1;
+        int seen = 0;
+        do {
+            if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+            int d = -1;
+            for (int i = 0; i < 5; i++) {
+                char a[16];
+                snprintf(a, sizeof(a), "ext%d", dv[i]);
+                if (!strcmp(key, a)) d = i;
+            }
+            if (d < 0 || (seen & (1 << d))) return -1;
+            seen |= 1 << d;
+            if (kcj_expect(&c, '{') != 0) return -1;
+            int mseen = 0;
+            do {
+                if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                const int m = !strcmp(key, "max") ? 0 : !strcmp(key, "min") ? 1 : -1;
+                if (m < 0 || (mseen & (1 << m))) return -1;
+                mseen |= 1 << m;
+                KcScanExt *E = &T->ext[(k * 5 + d) * 2 + m];
+                memset(E, 0, sizeof(*E));
+                if (kcj_peek(&c) == 'n') {
+                    if (strncmp(c.p, "null", 4) != 0) return -1;
+                    c.p += 4;
+                    continue;
+                }
+                if (kcj_expect(&c, '{') != 0) return -1;
+                uint64_t lastc = 0, rid = 0, q = 0, o = 0, qpair = 0, cm = 0;
+                int xs = 0, s2;
+                do {
+                    if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                    int bit = -1;
+                    if (!strcmp(key, "x_w")) { bit = 0; if (kcj_u192(&c, &E->w)) return -1; }
+                    else if (!strcmp(key, "x_cm")) { bit = 1; if (kcj_u64(&c, &cm)) return -1; }
+                    else if (!strcmp(key, "x_lastc")) { bit = 2; if (kcj_u64(&c, &lastc)) return -1; }
+                    else if (!strcmp(key, "x_rid")) { bit = 3; if (kcj_u64(&c, &rid)) return -1; }
+                    else if (!strcmp(key, "x_q")) { bit = 4; if (kcj_u64(&c, &q)) return -1; }
+                    else if (!strcmp(key, "x_o")) { bit = 5; if (kcj_u64(&c, &o)) return -1; }
+                    else if (!strcmp(key, "x_qpair")) { bit = 6; if (kcj_u64(&c, &qpair)) return -1; }
+                    else if (!strcmp(key, "x_fv")) { bit = 7; if (kcj_u192(&c, &E->fv)) return -1; }
+                    else if (!strcmp(key, "x_gv")) { bit = 8; if (kcj_u192(&c, &E->gv)) return -1; }
+                    else return -1;
+                    if (xs & (1 << bit)) return -1;
+                    xs |= 1 << bit;
+                } while ((s2 = kcj_sep(&c)) == 1);
+                if (s2 != 0 || xs != (1 << 9) - 1) return -1;
+                if (cm > 0xffffffffull || lastc > 63 || rid > 0xffff || q >= (uint64_t)fkc->n ||
+                    o > 1 || qpair != (uint64_t)fkc->c.pl[q])
+                    return -1;
+                E->cm = (uint32_t)cm;
+                E->key = ((uint32_t)lastc << 16) | (uint32_t)rid;
+                E->q = (uint8_t)q;
+                E->o = (uint8_t)o;
+                E->valid = 1;
+            } while ((s = kcj_sep(&c)) == 1);
+            if (s != 0 || mseen != 3) return -1;
+        } while ((s = kcj_sep(&c)) == 1);
+        if (s != 0 || seen != 31) return -1;
+    }
+    /* hist: hb<d> for every class; any subset of buckets, each with the four columns */
+    {
+        if (kcj_open(&c, row, "hist") != 0) return -1;
+        int seen = 0;
+        do {
+            if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+            int d = -1;
+            for (int i = 0; i < 5; i++) {
+                char a[16];
+                snprintf(a, sizeof(a), "hb%d", dv[i]);
+                if (!strcmp(key, a)) d = i;
+            }
+            if (d < 0 || (seen & (1 << d))) return -1;
+            seen |= 1 << d;
+            if (kcj_expect(&c, '{') != 0) return -1;
+            if (kcj_peek(&c) == '}') { c.p++; continue; }
+            do {
+                int b = -1, used = 0;
+                if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                if (sscanf(key, "lg%d%n", &b, &used) != 1 || key[used] != '\0' || b < 0 ||
+                    b >= KC_SCAN_HB)
+                    return -1;
+                KcScanHb *H = &T->hist[(size_t)(k * 5 + d) * KC_SCAN_HB + b];
+                if (seenh[d * KC_SCAN_HB + b]) return -1;   /* duplicate bucket IN THIS ROW */
+                seenh[d * KC_SCAN_HB + b] = 1;
+                memset(H, 0, sizeof(*H));
+                if (kcj_expect(&c, '{') != 0) return -1;
+                int hs = 0, s2;
+                do {
+                    if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                    int bit = -1;
+                    if (!strcmp(key, "hc")) { bit = 0; if (kcj_u64(&c, &H->cnt)) return -1; }
+                    else if (!strcmp(key, "ho")) { bit = 1; if (kcj_u64(&c, &H->orb)) return -1; }
+                    else if (!strcmp(key, "hw")) { bit = 2; if (kcj_u192(&c, &H->mw)) return -1; }
+                    else if (!strcmp(key, "hwo")) { bit = 3; if (kcj_u192(&c, &H->mworb)) return -1; }
+                    else return -1;
+                    if (hs & (1 << bit)) return -1;
+                    hs |= 1 << bit;
+                } while ((s2 = kcj_sep(&c)) == 1);
+                if (s2 != 0 || hs != 15 || H->cnt == 0) return -1;
+            } while ((s = kcj_sep(&c)) == 1);
+            if (s != 0) return -1;
+        } while ((s = kcj_sep(&c)) == 1);
+        if (s != 0 || seen != 31) return -1;
+    }
+    /* digits: dg<d> for every class, j0..j<b0[d]> exactly */
+    {
+        if (kcj_open(&c, row, "digits") != 0) return -1;
+        int seen = 0;
+        do {
+            if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+            int d = -1;
+            for (int i = 0; i < 5; i++) {
+                char a[16];
+                snprintf(a, sizeof(a), "dg%d", dv[i]);
+                if (!strcmp(key, a)) d = i;
+            }
+            if (d < 0 || (seen & (1 << d))) return -1;
+            seen |= 1 << d;
+            if (kcj_expect(&c, '{') != 0) return -1;
+            uint64_t jseen = 0;
+            do {
+                int j = -1, used = 0;
+                if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                if (sscanf(key, "j%d%n", &j, &used) != 1 || key[used] != '\0' || j < 0 ||
+                    j > fkc->B.b0[d] || (jseen & (1ull << j)))
+                    return -1;
+                jseen |= 1ull << j;
+                if (kcj_u192(&c, &T->dig[(size_t)(k * 5 + d) * KC_SCAN_DJ + j]) != 0) return -1;
+            } while ((s = kcj_sep(&c)) == 1);
+            if (s != 0 || jseen != (1ull << (fkc->B.b0[d] + 1)) - 1) return -1;
+        } while ((s = kcj_sep(&c)) == 1);
+        if (s != 0 || seen != 31) return -1;
+    }
+    /* outdeg: od0 required, any other od<c> */
+    {
+        if (kcj_open(&c, row, "outdeg") != 0) return -1;
+        uint64_t cseen = 0;
+        do {
+            int cc = -1, used = 0;
+            if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+            if (sscanf(key, "od%d%n", &cc, &used) != 1 || key[used] != '\0' || cc < 0 ||
+                cc >= KC_SCAN_DEG || (cseen & (1ull << cc)))
+                return -1;
+            cseen |= 1ull << cc;
+            if (kcj_expect(&c, '{') != 0) return -1;
+            int os = 0, s2;
+            do {
+                if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                int bit = -1;
+                if (!strcmp(key, "dc")) { bit = 0; if (kcj_u64(&c, &T->deg_cnt[k * KC_SCAN_DEG + cc])) return -1; }
+                else if (!strcmp(key, "df")) { bit = 1; if (kcj_u192(&c, &T->deg_fmass[k * KC_SCAN_DEG + cc])) return -1; }
+                else if (!strcmp(key, "dw")) { bit = 2; if (kcj_u192(&c, &T->deg_wmass[k * KC_SCAN_DEG + cc])) return -1; }
+                else return -1;
+                if (os & (1 << bit)) return -1;
+                os |= 1 << bit;
+            } while ((s2 = kcj_sep(&c)) == 1);
+            if (s2 != 0 || os != 7) return -1;
+            if (cc != 0 && T->deg_cnt[k * KC_SCAN_DEG + cc] == 0) return -1;   /* zero-skipped */
+        } while ((s = kcj_sep(&c)) == 1);
+        if (s != 0 || !(cseen & 1ull)) return -1;
+    }
+    /* kwrank: the reference walk's step (must equal what THIS process derived), then the
+     * three bins per class */
+    {
+        if (kcj_open(&c, row, "kwrank") != 0) return -1;
+        int seen = 0;
+        static const int dv2[5] = {1, 2, 3, 4, 6};
+        do {
+            if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+            if (!strcmp(key, "kw_src")) {
+                char src[32];
+                if (seen & 1) return -1;
+                seen |= 1;
+                if (kcj_str(&c, src, sizeof(src)) != 0 || strcmp(src, T->kw_src) != 0) return -1;
+            } else if (!strcmp(key, "kw_exit")) {
+                uint64_t v;
+                if (seen & 2) return -1;
+                seen |= 2;
+                if (kcj_u64(&c, &v) != 0 || v != T->kw_exit[k]) return -1;
+            } else if (!strcmp(key, "kw_cls")) {
+                uint64_t v;
+                if (seen & 4) return -1;
+                seen |= 4;
+                if (kcj_u64(&c, &v) != 0 || v != (uint64_t)dv2[T->kw_cls[k]]) return -1;
+            } else if (!strcmp(key, "kw_w")) {
+                F1U192 v;
+                if (seen & 8) return -1;
+                seen |= 8;
+                if (kcj_u192(&c, &v) != 0 || !f1_eq(&v, &T->kw_w[k])) return -1;
+            } else {
+                int d = -1;
+                for (int i = 0; i < 5; i++) {
+                    char a[16];
+                    snprintf(a, sizeof(a), "kwr%d", dv2[i]);
+                    if (!strcmp(key, a)) d = i;
+                }
+                if (d < 0 || (seen & (16 << d))) return -1;
+                seen |= 16 << d;
+                if (kcj_expect(&c, '{') != 0) return -1;
+                int bs = 0, s2;
+                do {
+                    if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                    const int b = !strcmp(key, "lt") ? 0 : !strcmp(key, "eq") ? 1 :
+                                  !strcmp(key, "gt") ? 2 : -1;
+                    if (b < 0 || (bs & (1 << b))) return -1;
+                    bs |= 1 << b;
+                    KcScanKw *K = &T->kw[(k * 5 + d) * 3 + b];
+                    if (kcj_expect(&c, '{') != 0) return -1;
+                    int fs = 0, s3;
+                    do {
+                        if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+                        int bit = -1;
+                        if (!strcmp(key, "rc")) { bit = 0; if (kcj_u64(&c, &K->cnt)) return -1; }
+                        else if (!strcmp(key, "ro")) { bit = 1; if (kcj_u64(&c, &K->orb)) return -1; }
+                        else if (!strcmp(key, "rw")) { bit = 2; if (kcj_u192(&c, &K->mworb)) return -1; }
+                        else return -1;
+                        if (fs & (1 << bit)) return -1;
+                        fs |= 1 << bit;
+                    } while ((s3 = kcj_sep(&c)) == 1);
+                    if (s3 != 0 || fs != 7) return -1;
+                } while ((s2 = kcj_sep(&c)) == 1);
+                if (s2 != 0 || bs != 7) return -1;
+            }
+        } while ((s = kcj_sep(&c)) == 1);
+        if (s != 0 || seen != (16 << 5) - 1) return -1;
+    }
+    /* rid_mass: any subset of r<rid> with rsum[rid] == k, each nonzero */
+    {
+        if (kcj_open(&c, row, "rid_mass") != 0) return -1;
+        if (kcj_peek(&c) == '}') {
+            c.p++;
+        } else {
+            uint8_t *seenr = (uint8_t *)calloc((size_t)T->R, 1);
+            F1_CHECK(seenr != NULL, "[kc-scan-merge] alloc");
+            int bad = 0;
+            do {
+                int r = -1, used = 0;
+                if (kcj_key(&c, key, sizeof(key)) != 0 ||
+                    sscanf(key, "r%d%n", &r, &used) != 1 || key[used] != '\0' || r < 0 ||
+                    (uint32_t)r >= T->R || fkc->B.rsum[r] != k || seenr[r]) { bad = 1; break; }
+                seenr[r] = 1;
+                if (kcj_u192(&c, &T->rid_mass[r]) != 0 || f1_is_zero(&T->rid_mass[r])) { bad = 1; break; }
+            } while ((s = kcj_sep(&c)) == 1);
+            free(seenr);
+            if (bad || s != 0) return -1;
+        }
+    }
+    /* kernel (raw only): any subset of m<a>_<b> cells, each nonzero */
+    if (want_raw) {
+        if (kcj_open(&c, row, "kernel") != 0) return -1;
+        if (kcj_peek(&c) == '}') { c.p++; return 0; }
+        do {
+            int a = -1, b = -1, used = 0;
+            if (kcj_key(&c, key, sizeof(key)) != 0) return -1;
+            if (sscanf(key, "m%d_%d%n", &a, &b, &used) != 2 || key[used] != '\0' || a < 0 ||
+                a > 63 || b < 0 || b > 63)
+                return -1;
+            F1U192 *v = &T->kern[(size_t)k * 4096 + (size_t)(a << 6 | b)];
+            if (seenk[a << 6 | b]) return -1;   /* duplicate cell in this row */
+            seenk[a << 6 | b] = 1;
+            if (kcj_u192(&c, v) != 0 || f1_is_zero(v)) return -1;
+        } while ((s = kcj_sep(&c)) == 1);
+        if (s != 0) return -1;
+    } else if (strstr(row, "\"kernel\":")) {
+        return -1;
+    }
+    return 0;
+}
+
+/* SOLVE_KC_SCAN_SELFKILL for the merge: merge:K -> K (>= 1); team:K / reduce:K are the
+ * scan's hooks and are ignored here (0); malformed -> -1 (refused, never a default). */
+static int kc_h_merge_selfkill(void) {
+    const char *sk = getenv("SOLVE_KC_SCAN_SELFKILL");
+    if (!sk || !*sk) return 0;
+    int kk = -1, used = 0;
+    if (sscanf(sk, "merge:%d%n", &kk, &used) == 1 && sk[used] == '\0' && kk >= 1) return kk;
+    if ((sscanf(sk, "team:%d%n", &kk, &used) == 1 || sscanf(sk, "reduce:%d%n", &kk, &used) == 1) &&
+        sk[used] == '\0' && kk >= 0 && kk < KC_MAX_PAIRS)
+        return 0;
+    fprintf(stderr, "ERROR: [kc-scan-merge] SOLVE_KC_SCAN_SELFKILL=\"%s\" must be merge:K "
+            "(K >= 1), team:K or reduce:K\n", sk);
+    return -1;
+}
+
 static int kc_scan_merge_main(int argc, char *argv[]) {
     if (argc < 6) {
         fprintf(stderr,
@@ -28496,6 +30827,11 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
         return 2;
     }
     if (!sha256_tool()) { require_sha256_tool(); printf("KC_SCAN_MERGE=FAIL\n"); return 2; }
+    /* H-4 drill hook, merge variant (2026-09-11): SIGKILL after K chunks have been consumed
+     * by the chunk loop below, before anything is written at OUT. Test-only; env-only. */
+    const int kill_after = kc_h_merge_selfkill();
+    if (kill_after < 0) { printf("KC_SCAN_MERGE=FAIL\n"); return 2; }
+    const double merge_w0 = kc_h_mono_sec();
 
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = (KC *)calloc(1, sizeof(KC));
@@ -28506,6 +30842,7 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
         printf("KC_SCAN_MERGE=FAIL\n");
         return 2;
     }
+    kc_h_check_hex_linear(&fkc->c);   /* G16 */
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc); free(tkc);
         printf("KC_SCAN_MERGE=FAIL\n");
@@ -28536,10 +30873,22 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
 
     KcScanTab T;
     kc_h_scan_alloc(fkc, want_raw, &T);
+    /* L6a: the merge derives the reference walk from ITS ladders; every chunk's recorded
+     * kw_* must agree (both sides are bound to the same ladders by leg 3) */
+    if (kc_h_scan_ref_walk(fkc, gkc, &T) != 0) {
+        fprintf(stderr, "ERROR: [kc-scan-merge] cannot derive the reference walk (L6a)\n");
+        printf("KC_SCAN_MERGE=FAIL\n");
+        kc_scan_free(&T);
+        kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc);
+        free(fkc); free(gkc); free(tkc);
+        return 2;
+    }
     int *seen = (int *)calloc((size_t)n, sizeof(int));
     int *fseen = (int *)calloc((size_t)n, sizeof(int));
-    F1_CHECK(seen && fseen, "[kc-scan-merge] alloc");
-    int identity_bad = 0, ladder_bad = 0, parse_bad = 0;
+    int *clo_of = (int *)calloc((size_t)nchunk, sizeof(int));
+    int *chi_of = (int *)calloc((size_t)nchunk, sizeof(int));
+    F1_CHECK(seen && fseen && clo_of && chi_of, "[kc-scan-merge] alloc");
+    int identity_bad = 0, ladder_bad = 0, parse_bad = 0, rowbind_bad = 0, rowbind_k = -1;
     /* G2 F1: this process's own engine identity, once */
     const char *my_exe = kc_h_exe_sha();
     int engine_bad = 0, engine_src_used = 0;
@@ -28547,9 +30896,15 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
      * by several chunks at once only through a coverage DUPLICATE, but the cache is cheap) */
     char *gcache = (char *)calloc((size_t)n + 1, 65);
     int *ghave = (int *)calloc((size_t)n + 1, sizeof(int));
-    F1_CHECK(gcache && ghave, "[kc-scan-merge] alloc");
+    /* merge telemetry (design O2): per-layer digest walls, written to <out>.merge_telemetry.json
+     * only on OK */
+    double *tel_f = (double *)calloc((size_t)n + 1, sizeof(double));
+    double *tel_g = (double *)calloc((size_t)n + 1, sizeof(double));
+    double tel_rows = 0, tel_tail = 0;
+    F1_CHECK(gcache && ghave && tel_f && tel_g, "[kc-scan-merge] alloc");
 
-    for (int ci = 0; ci < nchunk && !identity_bad && !ladder_bad && !parse_bad; ci++) {
+    for (int ci = 0; ci < nchunk && !identity_bad && !ladder_bad && !parse_bad && !rowbind_bad;
+         ci++) {
         FILE *cf = fopen(chunks[ci], "r");
         if (!cf) {
             fprintf(stderr, "ERROR: [kc-scan-merge] cannot read chunk %s\n", chunks[ci]);
@@ -28576,7 +30931,7 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     } } while (0)
 
         KC_MERGE_ID("type", "roae-kc-scan-chunk");
-        KC_MERGE_ID("version", "2");
+        KC_MERGE_ID("version", "3");   /* schema 3 (2026-09-11); a v2 chunk is refused here */
         KC_MERGE_ID("N_total", want_N);
         KC_MERGE_ID("pl_hash", want_pl);
         KC_MERGE_ID("b0", want_b0);
@@ -28591,8 +30946,9 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
          * -DSOURCE_SHA and they agree) or EXE-BOUND (both sides' run-time executable
          * digests are well-formed and agree). Two well-formed source digests that differ
          * abort regardless (never weaker than before). A sentinel never matches. */
+        char cexe[128];
         {
-            char csrc[128], cexe[128];
+            char csrc[128];
             if (kc_h_field(buf, "engine_source_sha", csrc, sizeof(csrc)) != 0) strcpy(csrc, "<absent>");
             if (kc_h_field(buf, "engine_exe_sha", cexe, sizeof(cexe)) != 0) strcpy(cexe, "<absent>");
             const int src_both = kc_h_sha_wellformed(SOURCE_SHA) && kc_h_sha_wellformed(csrc);
@@ -28634,16 +30990,20 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
             break;
         }
         printf("[kc-scan-merge] %s: layers [%d,%d)\n", chunks[ci], clo, chi);
+        clo_of[ci] = clo;
+        chi_of[ci] = chi;
 
-        for (int k = clo; k < chi && !parse_bad && !ladder_bad; k++) {
+        for (int k = clo; k < chi && !parse_bad && !ladder_bad && !rowbind_bad; k++) {
             /* leg 3 — recompute the f layer digest and bind it to the chunk */
             char lpath[4400], hex[65], key[64];
             snprintf(lpath, sizeof(lpath), "%s/f1c5_layer_%02d.bin", fdir, k);
+            double dw0 = kc_h_mono_sec();
             if (f1c5_layer_sha_hex(lpath, hex, NULL, NULL, NULL) != 0) {
                 fprintf(stderr, "ERROR: [kc-scan-merge] cannot digest %s\n", lpath);
                 ladder_bad = 1;
                 break;
             }
+            tel_f[k] = kc_h_mono_sec() - dw0;
             snprintf(key, sizeof(key), "f_layer_sha_%02d", k);
             if (kc_h_field(buf, key, v, sizeof(v)) != 0 || strcmp(v, hex) != 0) {
                 fprintf(stderr, "ERROR: [kc-scan-merge] %s: f layer %02d digest mismatch "
@@ -28660,11 +31020,13 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                 char *gh = gcache + (size_t)j * 65;
                 if (!ghave[j]) {
                     snprintf(lpath, sizeof(lpath), "%s/g_layer_%02d.bin", gdir, j);
+                    dw0 = kc_h_mono_sec();
                     if (f1c5_layer_sha_hex(lpath, gh, NULL, NULL, NULL) != 0) {
                         fprintf(stderr, "ERROR: [kc-scan-merge] cannot digest %s\n", lpath);
                         ladder_bad = 1;
                         break;
                     }
+                    tel_g[j] = kc_h_mono_sec() - dw0;
                     ghave[j] = 1;
                 }
                 snprintf(key, sizeof(key), "g_layer_sha_%02d", j);
@@ -28695,6 +31057,34 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                 parse_bad = 1;
                 break;
             }
+            /* L1 (2026-09-11): the row content binding. The extractor returns the line from
+             * `{"k":` to the newline, which carries the writer's trailing comma on every
+             * non-last row; strip exactly that, recompute the digest over the header (this
+             * k, the ladder digests just recomputed, the chunk's own engine_exe_sha) and the
+             * row bytes, and refuse on mismatch. A textual swap of two by_class objects, a
+             * parser offset, a hand edit: all fail here, before any cell is parsed. */
+            {
+                size_t rl = strlen(row);
+                if (rl && row[rl - 1] == ',') rl--;
+                char want[65], have[80];
+                dw0 = kc_h_mono_sec();
+                const int drc = kc_h_row_sha(k, hex, gcache + (size_t)(k + 1) * 65, cexe,
+                                             &T.fmass[k], row, rl, want);
+                tel_rows += kc_h_mono_sec() - dw0;
+                snprintf(key, sizeof(key), "row_sha_%02d", k);
+                if (drc != 0 || kc_h_field(buf, key, have, sizeof(have)) != 0 ||
+                    strcmp(have, want) != 0) {
+                    fprintf(stderr, "ERROR: [kc-scan-merge] %s: layer %02d row digest mismatch "
+                            "(chunk=%s recomputed=%s) - the row bytes are not the ones the "
+                            "scan minted\n", chunks[ci], k,
+                            kc_h_field(buf, key, have, sizeof(have)) == 0 ? have : "<absent>",
+                            drc == 0 ? want : "<undigestable>");
+                    rowbind_bad = 1;
+                    rowbind_k = k;
+                    free(row);
+                    break;
+                }
+            }
             int rbad = kc_h_chunk_u192(row, "flow", &T.flow[k], 1) != 0;
             static const int dv[5] = {1, 2, 3, 4, 6};
             for (int d = 0; d < 5 && !rbad; d++) {
@@ -28713,6 +31103,31 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                     snprintf(pk, sizeof(pk), "pair%d", pp);
                     rbad = kc_h_chunk_u192(row, pk, &T.rawmarg[k * 32 + pp], 0) != 0;
                 }
+            /* the logging tables (schema 3), read sequentially from their unique keys */
+            if (!rbad && kc_h_chunk_parse_x(row, &T, k, want_raw, fkc) != 0) rbad = 1;
+            /* KCP4 E5: the parse is bound to the bytes -- re-render row k from the parsed T
+             * through the one row writer and require the extracted bytes (comma stripped).
+             * A parser reading d2 into d1 passes the digest and the row sums; not this. */
+            if (!rbad) {
+                char *rr = NULL;
+                size_t rl2 = 0;
+                FILE *m = open_memstream(&rr, &rl2);
+                F1_CHECK(m != NULL, "[kc-scan-merge] open_memstream");
+                kc_h_scan_write_layer_row(m, &T, k, want_raw);
+                fclose(m);
+                size_t rl = strlen(row);
+                if (rl && row[rl - 1] == ',') rl--;
+                const char *rb = rr;
+                while (rb && *rb == ' ') rb++;   /* the writer's indent, before the brace */
+                const size_t rl3 = rr ? rl2 - (size_t)(rb - rr) : 0;
+                if (!rr || rl3 != rl || memcmp(rb, row, rl) != 0) {
+                    fprintf(stderr, "ERROR: [kc-scan-merge] %s: layer %02d row does not round-trip "
+                            "through the parser (%zu bytes extracted, %zu re-rendered)\n",
+                            chunks[ci], k, rl, rl3);
+                    rbad = 1;
+                }
+                free(rr);
+            }
             free(row);
             if (rbad) {
                 fprintf(stderr, "ERROR: [kc-scan-merge] %s: malformed layer row k=%d\n",
@@ -28722,16 +31137,28 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
             }
         }
         free(buf);
+        if (kill_after == ci + 1 && !identity_bad && !ladder_bad && !parse_bad && !rowbind_bad) {
+            fprintf(stderr, "[kc-scan-merge] SOLVE_KC_SCAN_SELFKILL=merge:%d: SIGKILL inside the "
+                    "chunk loop (after chunk %d of %d, nothing written at OUT)\n", kill_after,
+                    ci + 1, nchunk);
+            fflush(stdout);
+            raise(SIGKILL);
+        }
     }
 
     int rc = 2;
-    if (identity_bad || ladder_bad || parse_bad) {
+    if (identity_bad || ladder_bad || parse_bad || rowbind_bad) {
         printf("KC_SCAN_MERGE_COVERAGE=ABORTED\n");
         printf("KC_SCAN_MERGE_IDENTITY=%s\n", identity_bad ? "MISMATCH" : "OK");
         printf("KC_SCAN_MERGE_ENGINE=%s\n", engine_bad ? "MISMATCH" : "NOT-REACHED");
         printf("KC_SCAN_MERGE_LADDER=%s\n", ladder_bad ? "MISMATCH" : "OK");
+        /* token rule (build list G14 / F13): the first failing k ascending, in the first
+         * failing chunk in argv order -- the loops above are ascending and break at once */
+        if (rowbind_bad) printf("KC_SCAN_MERGE_ROWBIND=MISMATCH:k=%d\n", rowbind_k);
+        else printf("KC_SCAN_MERGE_ROWBIND=%s\n", (identity_bad || ladder_bad) ? "NOT-REACHED" : "OK");
         printf("KC_SCAN_MERGE=FAIL\n");
     } else {
+        printf("KC_SCAN_MERGE_ROWBIND=OK\n");
         printf("KC_SCAN_MERGE_ENGINE=%s\n", engine_src_used ? "SOURCE-BOUND" : "EXE-BOUND");
         /* leg 1 — coverage, exactly once */
         int gaps = 0, dups = 0;
@@ -28755,7 +31182,9 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
         } else {
             printf("KC_SCAN_MERGE_COVERAGE=COMPLETE\n");
             /* legs 4 + 5 — recompute the tail and RE-RUN every gate */
+            const double tw0 = kc_h_mono_sec();
             kc_h_scan_tail(fkc, gkc, tkc, fdir, want_raw, &T);
+            tel_tail = kc_h_mono_sec() - tw0;
             printf("KC_SCAN_MERGE_TIDENTITY=%s\n",
                    !tkc ? "SKIPPED" : (T.t_sum_ok ? "VERIFIED" : "FAILED"));
             if (!tkc)
@@ -28811,10 +31240,77 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                                 strerror(errno));
                         rc = 2;
                     }
+                    /* L9 merge sidecar (design O2), ONLY on OK, so "no atlas after a non-OK
+                     * exit" keeps meaning "no output". Never an atlas field. */
+                    if (rc == 0) {
+                        char sp[4400];
+                        snprintf(sp, sizeof(sp), "%s.merge_telemetry.json", outp);
+                        FILE *sf = fopen(sp, "w");
+                        if (sf) {
+                            char ts[32];
+                            kc_h_utc_stamp(kc_h_epoch_now(), ts);
+                            fprintf(sf, "{\n  \"type\": \"roae-kc-scan-merge-telemetry\",\n"
+                                    "  \"tm_schema\": 1,\n  \"tm_t_end_utc\": \"%s\",\n"
+                                    "  \"tm_merge_wall_sec\": %.3f,\n  \"tm_tail_sec\": %.3f,\n"
+                                    "  \"tm_row_digest_sec\": %.3f,\n  \"tm_chunks\": %d,\n",
+                                    ts, kc_h_mono_sec() - merge_w0, tel_tail, tel_rows, nchunk);
+                            fprintf(sf, "  \"tm_f_digest_sec\": [");
+                            for (int k = 0; k < n; k++) fprintf(sf, "%s%.3f", k ? ", " : "", tel_f[k]);
+                            fprintf(sf, "],\n  \"tm_g_digest_sec\": [");
+                            for (int k = 1; k <= n; k++) fprintf(sf, "%s%.3f", k > 1 ? ", " : "", tel_g[k]);
+                            fprintf(sf, "],\n");
+                            /* KCP4 E10: the manifest -- which chunks were accepted (path, sha,
+                             * range), the atlas digest, the merger's exe, the t identity */
+                            {
+                                char sh[65], esc2[4200];
+                                fprintf(sf, "  \"tm_manifest\": {\"tm_merger_exe_sha\": \"%s\", "
+                                        "\"tm_merger_git\": \"%s\", ", my_exe ? my_exe : "unknown",
+                                        GIT_HASH);
+                                if (sha256_of_logical(outp, sh, sizeof(sh)) == 0)
+                                    fprintf(sf, "\"tm_atlas_sha256\": \"%s\", ", sh);
+                                else
+                                    fprintf(sf, "\"tm_atlas_sha256\": null, ");
+                                if (tkc) {
+                                    char tt[64], tp[4400], th[65];
+                                    f1_dec(tkc->total, tt);
+                                    kc_h_json_escape(kc_h_dir_basename(tdir), esc2, sizeof(esc2));
+                                    snprintf(tp, sizeof(tp), "%s/t_layer_01.bin", tdir);
+                                    fprintf(sf, "\"tm_tdir\": \"%s\", \"tm_t_root\": \"%s\", ", esc2, tt);
+                                    if (f1c5_layer_sha_hex(tp, th, NULL, NULL, NULL) == 0)
+                                        fprintf(sf, "\"tm_t_layer_sha_01\": \"%s\", ", th);
+                                    else
+                                        fprintf(sf, "\"tm_t_layer_sha_01\": null, ");
+                                } else
+                                    fprintf(sf, "\"tm_tdir\": null, \"tm_t_root\": null, "
+                                            "\"tm_t_layer_sha_01\": null, ");
+                                fprintf(sf, "\"tm_chunks_accepted\": [");
+                                for (int ci = 0; ci < nchunk; ci++) {
+                                    kc_h_json_escape(chunks[ci], esc2, sizeof(esc2));
+                                    fprintf(sf, "%s{\"tm_path\": \"%s\", \"tm_k_lo\": %d, "
+                                            "\"tm_k_hi\": %d, \"tm_sha256\": ", ci ? ", " : "",
+                                            esc2, clo_of[ci], chi_of[ci]);
+                                    if (sha256_of_logical(chunks[ci], sh, sizeof(sh)) == 0)
+                                        fprintf(sf, "\"%s\"}", sh);
+                                    else
+                                        fprintf(sf, "null}");
+                                }
+                                fprintf(sf, "]}\n}\n");
+                            }
+                            if (kc_h_close_artifact(sf, sp, "kc-scan-merge") != 0)
+                                fprintf(stderr, "WARN: [kc-scan-merge] telemetry sidecar %s not "
+                                        "written (the atlas is unaffected)\n", sp);
+                        } else
+                            fprintf(stderr, "WARN: [kc-scan-merge] cannot write %s (the atlas is "
+                                    "unaffected)\n", sp);
+                    }
                 }
             }
         }
     }
+    free(tel_f);
+    free(tel_g);
+    free(clo_of);
+    free(chi_of);
     free(gcache);
     free(ghave);
     free(seen);
@@ -28830,6 +31326,56 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
 }
 
 /* ---------- --kc-scan-selftest (n=9 exhaustive brute cross-check) ---------- */
+
+/* G10 brute structures (2026-09-11): a uint64 -> uint64 open-addressing map, the packed raw
+ * state key (mask << 22 | last << 16 | rid), and the exhaustive prefix DFS. */
+typedef struct { uint64_t *key, *val; uint8_t *used; uint64_t cap, n; } KcScanBrMap;
+static void kc_h_brmap_init(KcScanBrMap *M, uint64_t cap) {
+    M->cap = cap;
+    M->n = 0;
+    M->key = (uint64_t *)calloc((size_t)cap, sizeof(uint64_t));
+    M->val = (uint64_t *)calloc((size_t)cap, sizeof(uint64_t));
+    M->used = (uint8_t *)calloc((size_t)cap, 1);
+    F1_CHECK(M->key && M->val && M->used, "[kc-scan-selftest] brute map alloc");
+}
+static void kc_h_brmap_free(KcScanBrMap *M) { free(M->key); free(M->val); free(M->used); }
+static uint64_t kc_h_brmap_slot(const KcScanBrMap *M, uint64_t key) {
+    uint64_t h = (key * 0x9E3779B97F4A7C15ull) & (M->cap - 1);
+    while (M->used[h] && M->key[h] != key) h = (h + 1) & (M->cap - 1);
+    return h;
+}
+static void kc_h_brmap_add(KcScanBrMap *M, uint64_t key, uint64_t add) {
+    const uint64_t h = kc_h_brmap_slot(M, key);
+    if (!M->used[h]) {
+        F1_CHECK(M->n * 2 < M->cap, "[kc-scan-selftest] brute map full");
+        M->used[h] = 1; M->key[h] = key; M->val[h] = 0; M->n++;
+    }
+    M->val[h] += add;
+}
+static uint64_t kc_h_brmap_get(const KcScanBrMap *M, uint64_t key) {
+    const uint64_t h = kc_h_brmap_slot(M, key);
+    return M->used[h] ? M->val[h] : 0;
+}
+static inline uint64_t kc_h_brkey(uint32_t m, int last, uint32_t rid) {
+    return ((uint64_t)m << 22) | ((uint64_t)last << 16) | (uint64_t)(rid & 0xffffu);
+}
+/* every valid prefix once (the t-unit tree, kc_h_prefix_rec's rule): pre[state] += 1 */
+static void kc_h_brute_prefixes(const KC *kc, int depth, uint32_t m, int last, uint32_t rid,
+                                KcScanBrMap *pre) {
+    kc_h_brmap_add(pre, kc_h_brkey(m, last, rid), 1);
+    if (depth == kc->n) return;
+    for (int i = 0; i < kc->n; i++) {
+        if ((m >> i) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[i] : kc->c.pb[i];
+            const int exitx = o ? kc->c.pb[i] : kc->c.pa[i];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+            kc_h_brute_prefixes(kc, depth + 1, m | (1u << i), exitx, rid + kc->B.rad[cls], pre);
+        }
+    }
+}
+
 #define KC_SCAN_GATE(name, cond) do { \
     int ok_ = (cond); \
     printf("[kc-scan-selftest] %-60s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
@@ -28867,7 +31413,7 @@ static int kc_scan_selftest(void) {
 
     KcScanTab T;
     KC_SCAN_GATE("scan core runs (raw expansion ON)",
-                 kc_h_scan_core(fkc, gkc, NULL, fdir, 1, &T, 0) == 0);
+                 kc_h_scan_core(fkc, gkc, NULL, fdir, 1, &T, 0, NULL) == 0);
     KC_SCAN_GATE("scan internal ==N gates all PASS", T.gate_fails == 0);
     KC_SCAN_GATE("t-units computed at n=9", T.t_done == 1);
 
@@ -28954,6 +31500,214 @@ static int kc_scan_selftest(void) {
         }
         KC_SCAN_GATE("class column sums == b0[d]*N (brute census AND extractor, all d)", ok);
     }
+    /* ---- G10 (2026-09-11): the logging tables against exhaustive ground truth ----
+     * Two brute structures, neither touching a ladder: (i) every valid prefix by DFS, giving
+     * f(s) = #prefixes reaching each RAW state s = (mask, last, rid); (ii) from the walk list,
+     * the number of walks THROUGH each raw (state, choice). For a state whose mask is canonical
+     * the scan's entry is that raw state itself (f1_canon is the identity there), its w for a
+     * choice is f(s) * g(child) = walks through (s, choice), and orb = f1_orbit_size(mask). */
+    {
+        const F1Ctx *c = &fkc->c;
+        KcScanBrMap pre, thr;
+        kc_h_brmap_init(&pre, 1u << 20);
+        kc_h_brmap_init(&thr, 1u << 21);
+        kc_h_brute_prefixes(fkc, 0, 0, fkc->start_exit, 0, &pre);
+        static uint64_t bM[KC_MAX_PAIRS][64][64];
+        static uint64_t bdig[KC_MAX_PAIRS][5][KC_SCAN_DJ];
+        uint64_t *bR = (uint64_t *)calloc((size_t)fkc->B.R, sizeof(uint64_t));
+        F1_CHECK(bR != NULL, "[kc-scan-selftest] alloc");
+        memset(bM, 0, sizeof(bM));
+        memset(bdig, 0, sizeof(bdig));
+        for (uint64_t i = 0; i < N; i++) {
+            const uint8_t *E = BR.walks + i * (size_t)n;
+            uint32_t rids[KC_MAX_PAIRS + 1];
+            int cd = 0;
+            F1_CHECK(kc_validate(fkc, E, rids, &cd) == 0, "[kc-scan-selftest] brute walk invalid");
+            uint32_t m = 0;
+            int last = fkc->start_exit;
+            for (int j = 0; j < n; j++) {
+                const int q = fkc->pair_of_sub[E[j]];
+                const int entry = fkc->partner[E[j]];
+                const int o = entry == c->pa[q] ? 1 : 0;
+                bM[j][last][entry]++;
+                for (int d = 0; d < 5; d++) bdig[j][d][fkc->B.dig[d][rids[j]]]++;
+                bR[rids[j]]++;
+                kc_h_brmap_add(&thr, kc_h_brkey(m, last, rids[j]) << 6 | (uint64_t)(q << 1 | o), 1);
+                m |= 1u << q;
+                last = E[j];
+            }
+        }
+        /* the reference walk's thresholds, from the through-counts at its own raw states */
+        {
+            int ok = T.kw_ok && strcmp(T.kw_src, KC_SCAN_KWSRC_O3) == 0;
+            uint8_t E[KC_MAX_PAIRS + 1];
+            for (int j = 0; j < n; j++) E[j] = T.kw_exit[j];
+            uint32_t rids[KC_MAX_PAIRS + 1];
+            int cd = 0;
+            ok = ok && kc_validate(fkc, E, rids, &cd) == 0;
+            uint32_t m = 0;
+            int last = fkc->start_exit;
+            for (int j = 0; j < n && ok; j++) {
+                const int q = fkc->pair_of_sub[E[j]];
+                const int entry = fkc->partner[E[j]];
+                const int o = entry == c->pa[q] ? 1 : 0;
+                const uint64_t w = kc_h_brmap_get(&thr, kc_h_brkey(m, last, rids[j]) << 6 |
+                                                        (uint64_t)(q << 1 | o));
+                const F1U192 bw = {w, 0, 0};
+                ok = w > 0 && f1_eq(&bw, &T.kw_w[j]) &&
+                     T.kw_cls[j] == F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+                m |= 1u << q;
+                last = E[j];
+            }
+            KC_SCAN_GATE("L6a reference walk (O3 midpoint) is a walk; thresholds == brute walks-through", ok);
+        }
+        /* per canonical state: counts, degree, extrema, histogram, rank bins, live/dead mass */
+        {
+            int ok_cnt = 1, ok_deg = 1, ok_ext = 1, ok_hist = 1, ok_kw = 1, ok_fm = 1;
+            static uint64_t bent[KC_MAX_PAIRS], blook[KC_MAX_PAIRS], bprune[KC_MAX_PAIRS],
+                bzero[KC_MAX_PAIRS], bdead[KC_MAX_PAIRS], bdeadf[KC_MAX_PAIRS], blivef[KC_MAX_PAIRS],
+                bnz[KC_MAX_PAIRS][5], bnzo[KC_MAX_PAIRS][5], bdegc[KC_MAX_PAIRS][KC_SCAN_DEG],
+                bdegf[KC_MAX_PAIRS][KC_SCAN_DEG], bdegw[KC_MAX_PAIRS][KC_SCAN_DEG],
+                bhc[KC_MAX_PAIRS][5][KC_SCAN_HB], bho[KC_MAX_PAIRS][5][KC_SCAN_HB],
+                bhw[KC_MAX_PAIRS][5][KC_SCAN_HB], bhwo[KC_MAX_PAIRS][5][KC_SCAN_HB],
+                bkc[KC_MAX_PAIRS][5][3], bko[KC_MAX_PAIRS][5][3], bkw[KC_MAX_PAIRS][5][3];
+            static KcScanExt bext[KC_MAX_PAIRS][10];
+            memset(bent, 0, sizeof(bent)); memset(blook, 0, sizeof(blook));
+            memset(bprune, 0, sizeof(bprune)); memset(bzero, 0, sizeof(bzero));
+            memset(bdead, 0, sizeof(bdead)); memset(bdeadf, 0, sizeof(bdeadf));
+            memset(blivef, 0, sizeof(blivef)); memset(bnz, 0, sizeof(bnz));
+            memset(bnzo, 0, sizeof(bnzo)); memset(bdegc, 0, sizeof(bdegc));
+            memset(bdegf, 0, sizeof(bdegf)); memset(bdegw, 0, sizeof(bdegw));
+            memset(bhc, 0, sizeof(bhc)); memset(bho, 0, sizeof(bho));
+            memset(bhw, 0, sizeof(bhw)); memset(bhwo, 0, sizeof(bhwo));
+            memset(bkc, 0, sizeof(bkc)); memset(bko, 0, sizeof(bko)); memset(bkw, 0, sizeof(bkw));
+            memset(bext, 0, sizeof(bext));
+            for (uint64_t h = 0; h < pre.cap; h++) {
+                if (!pre.used[h]) continue;
+                const uint64_t key = pre.key[h];
+                const uint32_t m = (uint32_t)(key >> 22);
+                const int last = (int)((key >> 16) & 63);
+                const uint32_t rid = (uint32_t)(key & 0xffffu);
+                const int k = __builtin_popcount(m);
+                if (k >= n || !f1_is_canonical(c, m)) continue;
+                const uint64_t fv = pre.val[h];
+                const uint64_t orb = (uint64_t)f1_orbit_size(c, m);
+                bent[k]++;
+                int nz = 0;
+                uint64_t ew = 0;
+                for (int q = 0; q < n; q++) {
+                    if ((m >> q) & 1) continue;
+                    for (int o = 0; o < 2; o++) {
+                        const int entry = o ? c->pa[q] : c->pb[q];
+                        const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+                        if (cls < 0 || fkc->B.dig[cls][rid] >= fkc->B.b0[cls]) { bprune[k]++; continue; }
+                        blook[k]++;
+                        const uint64_t w = kc_h_brmap_get(&thr, key << 6 | (uint64_t)(q << 1 | o));
+                        if (w == 0) { bzero[k]++; continue; }
+                        nz++;
+                        ew += w * orb;
+                        bnz[k][cls]++;
+                        bnzo[k][cls] += orb;
+                        const int b = 63 - __builtin_clzll(w);
+                        bhc[k][cls][b]++; bho[k][cls][b] += orb; bhw[k][cls][b] += w; bhwo[k][cls][b] += w * orb;
+                        const uint64_t thrk = T.kw_w[k].l0;
+                        const int bin = w < thrk ? 0 : w == thrk ? 1 : 2;
+                        bkc[k][cls][bin]++; bko[k][cls][bin] += orb; bkw[k][cls][bin] += w * orb;
+                        KcScanExt cand;
+                        memset(&cand, 0, sizeof(cand));
+                        cand.w.l0 = w; cand.fv.l0 = fv; cand.gv.l0 = w / fv;
+                        cand.cm = m; cand.key = ((uint32_t)last << 16) | rid;
+                        cand.q = (uint8_t)q; cand.o = (uint8_t)o; cand.valid = 1;
+                        if (w % fv) ok_ext = 0;
+                        if (kc_h_ext_better(&cand, &bext[k][cls * 2], 0)) bext[k][cls * 2] = cand;
+                        if (kc_h_ext_better(&cand, &bext[k][cls * 2 + 1], 1)) bext[k][cls * 2 + 1] = cand;
+                    }
+                }
+                if (nz == 0) { bdead[k]++; bdeadf[k] += fv * orb; } else blivef[k] += fv * orb;
+                bdegc[k][nz]++; bdegf[k][nz] += fv * orb; bdegw[k][nz] += ew;
+            }
+            for (int k = 0; k < n; k++) {
+                const KcScanCnt *C = &T.cnt[k];
+                F1U192 bdf = {bdeadf[k], 0, 0}, blf = {blivef[k], 0, 0};
+                ok_cnt &= C->entries == bent[k] && C->lookups == blook[k] && C->pruned == bprune[k] &&
+                          C->zero_g == bzero[k] && C->dead == bdead[k] &&
+                          f1_eq(&C->dead_fmass, &bdf) && f1_eq(&C->live_fmass, &blf);
+                for (int d = 0; d < 5; d++) ok_cnt &= C->nz[d] == bnz[k][d] && C->nz_orb[d] == bnzo[k][d];
+                F1U192 fm = {bdeadf[k] + blivef[k], 0, 0};
+                ok_fm &= f1_eq(&fm, &T.fmass[k]);
+                for (int cc = 0; cc < KC_SCAN_DEG; cc++) {
+                    F1U192 df = {bdegf[k][cc], 0, 0}, dw = {bdegw[k][cc], 0, 0};
+                    ok_deg &= T.deg_cnt[k * KC_SCAN_DEG + cc] == bdegc[k][cc] &&
+                              f1_eq(&T.deg_fmass[k * KC_SCAN_DEG + cc], &df) &&
+                              f1_eq(&T.deg_wmass[k * KC_SCAN_DEG + cc], &dw);
+                }
+                for (int d = 0; d < 5; d++) {
+                    for (int b = 0; b < KC_SCAN_HB; b++) {
+                        const KcScanHb *H = &T.hist[(size_t)(k * 5 + d) * KC_SCAN_HB + b];
+                        F1U192 mw = {bhw[k][d][b], 0, 0}, mwo = {bhwo[k][d][b], 0, 0};
+                        ok_hist &= H->cnt == bhc[k][d][b] && H->orb == bho[k][d][b] &&
+                                   f1_eq(&H->mw, &mw) && f1_eq(&H->mworb, &mwo);
+                    }
+                    for (int b = 0; b < 3; b++) {
+                        const KcScanKw *K = &T.kw[(k * 5 + d) * 3 + b];
+                        F1U192 kw = {bkw[k][d][b], 0, 0};
+                        ok_kw &= K->cnt == bkc[k][d][b] && K->orb == bko[k][d][b] && f1_eq(&K->mworb, &kw);
+                    }
+                    for (int mm = 0; mm < 2; mm++) {
+                        const KcScanExt *a = &T.ext[(k * 5 + d) * 2 + mm], *b = &bext[k][d * 2 + mm];
+                        ok_ext &= a->valid == b->valid;
+                        if (a->valid && b->valid)
+                            ok_ext &= f1_eq(&a->w, &b->w) && f1_eq(&a->fv, &b->fv) && f1_eq(&a->gv, &b->gv) &&
+                                      a->cm == b->cm && a->key == b->key && a->q == b->q && a->o == b->o;
+                    }
+                }
+            }
+            KC_SCAN_GATE("L3 structural counts == brute prefix DFS (all layers, all fields)", ok_cnt);
+            KC_SCAN_GATE("L3 dead + live f mass == fmass (brute)", ok_fm);
+            KC_SCAN_GATE("L13 out-degree census (cnt, fmass, wmass) == brute (all layers)", ok_deg);
+            KC_SCAN_GATE("L4 extrema per (layer, class) == brute under the pinned order (w, cm, key, q, o; fv, gv)", ok_ext);
+            KC_SCAN_GATE("L6 magnitude histogram, all four columns == brute (all layers, classes, buckets)", ok_hist);
+            KC_SCAN_GATE("L6a rank bins lt/eq/gt (cnt, orb, mass) == brute (all layers, classes)", ok_kw);
+        }
+        {   /* L2' kernel, L7 digits, L7' rid joint, from the walk list */
+            int okM = 1, okD = 1, okR = 1;
+            for (int k = 0; k < n; k++) {
+                for (int a = 0; a < 64; a++)
+                    for (int b = 0; b < 64; b++) {
+                        F1U192 v = {bM[k][a][b], 0, 0};
+                        if (!f1_eq(&v, &T.kern[(size_t)k * 4096 + (size_t)(a << 6 | b)])) okM = 0;
+                    }
+                for (int d = 0; d < 5; d++)
+                    for (int j = 0; j < KC_SCAN_DJ; j++) {
+                        F1U192 v = {bdig[k][d][j], 0, 0};
+                        if (!f1_eq(&v, &T.dig[(size_t)(k * 5 + d) * KC_SCAN_DJ + j])) okD = 0;
+                    }
+            }
+            for (uint32_t r = 0; r < fkc->B.R; r++) {
+                F1U192 v = {bR[r], 0, 0};
+                if (!f1_eq(&v, &T.rid_mass[r])) okR = 0;
+            }
+            KC_SCAN_GATE("L2' raw transition kernel M_k[a][b] == brute walk census (all layers, all cells)", okM);
+            KC_SCAN_GATE("L7 budget-digit marginals == brute walk census (all layers, classes, digits)", okD);
+            KC_SCAN_GATE("L7' rid joint == brute walk census (every rid)", okR);
+        }
+        {   /* NEGATIVE: the kernel comparator has power -- one cell perturbed is caught */
+            F1U192 *cell = &T.kern[(size_t)1 * 4096 + (size_t)(fkc->start_exit << 6 | 0)];
+            int caught = 0;
+            const F1U192 save = *cell;
+            cell->l0 ^= 1ull;
+            for (int a = 0; a < 64 && !caught; a++)
+                for (int b = 0; b < 64 && !caught; b++) {
+                    F1U192 v = {bM[1][a][b], 0, 0};
+                    if (!f1_eq(&v, &T.kern[(size_t)1 * 4096 + (size_t)(a << 6 | b)])) caught = 1;
+                }
+            *cell = save;
+            KC_SCAN_GATE("NEGATIVE N3: a perturbed kernel cell IS caught by the brute comparator", caught);
+        }
+        free(bR);
+        kc_h_brmap_free(&pre);
+        kc_h_brmap_free(&thr);
+    }
     /* NEGATIVE legs (K-4): a selftest with no leg that FAILS cannot tell a
      * working checker from a stub of the right shape. */
     {   /* N1: a corrupted extractor table entry MUST be caught by the brute
@@ -29037,6 +31791,289 @@ static int kc_scan_selftest(void) {
     printf("[kc-scan-selftest] %s (%d failure%s)\n",
            fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
     printf("KC_SCAN_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
+    return fails ? 1 : 0;
+}
+
+/* ---------- --kc-scan-par-selftest (parallel --kc-scan, 2026-09-11) ----------
+ * G9 of roae-private KC_SCAN_PARALLEL_DESIGN_2026_09_11.md s8 (the reduction with
+ * thread values >= 2^64 and >= 2^128, exact, and overflow aborting at exactly
+ * 2^192), the cache-clone isolation of s3.2, and in-process T-invariance: the
+ * layer table at T in {1,2,3,8} with 7-entry work units and 4-slot per-thread
+ * caches, over in-memory v1, out-of-core v1 and out-of-core v2 g readers, must be
+ * memcmp-identical to the T=1 in-memory reference. argv-dispatched only; never
+ * reached from --selftest (sha-pinned) or --kc-scan-selftest (golden-pinned).
+ * Claude (Opus), developed with AI assistance (Claude, Anthropic). */
+#define KC_PAR_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-scan-par-selftest] %-66s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* thread t, cell j: l0 = 2^64-1-j, l1 = t+j, l2 = (t+1)(j+1) for odd j else 0. Over
+ * t = 0..4 the exact sum is l0 = 2^64-5-5j (carry 4), l1 = 14+5j, l2 = 15(j+1) for
+ * odd j else 0 -- derived by hand, not by f1_add, and the j=0/j=1 cells are also
+ * pinned to decimals computed independently (python3, 2026-09-11). */
+static void kc_h_par_fill(KcScanAcc *A, int t) {
+    F1U192 *v = (F1U192 *)(void *)A;
+    const int ncell = (int)(sizeof(KcScanAcc) / sizeof(F1U192));
+    for (int j = 0; j < ncell; j++) {
+        v[j].l0 = UINT64_MAX - (uint64_t)j;
+        v[j].l1 = (uint64_t)t + (uint64_t)j;
+        v[j].l2 = (j & 1) ? (uint64_t)(t + 1) * (uint64_t)(j + 1) : 0;
+    }
+}
+
+static void kc_h_par_slice(const KcScanTab *T, int k, KcScanAcc *out) {
+    out->flow = T->flow[k];
+    out->fmass = T->fmass[k];
+    for (int d = 0; d < 5; d++) out->cls[d] = T->cls[k * 5 + d];
+    for (int q = 0; q < 32; q++) out->qmarg[q] = T->qmarg[k * 32 + q];
+    for (int p = 0; p < 32; p++) out->rawmarg[p] = T->rawmarg[k * 32 + p];
+}
+
+/* child process: T.flow[0] = base, reduce one slice whose flow is add; exit 0 if the
+ * result equals want, 3 if not -- or 70 from f1_overflow_abort inside the reduction. */
+static int kc_h_par_child_reduce(const KC *dk, F1U192 base, F1U192 add, F1U192 want) {
+    fflush(stdout);
+    fflush(stderr);
+    const pid_t pid = fork();
+    if (pid < 0) return -1;
+    if (pid == 0) {
+        if (!freopen("/dev/null", "w", stderr)) _exit(99);   /* the expected abort's ERROR line */
+        KcScanTab T;
+        kc_h_scan_alloc(dk, 0, &T);
+        KcScanAcc A;
+        memset(&A, 0, sizeof(A));
+        T.flow[0] = base;
+        A.flow = add;
+        kc_h_scan_reduce(&T, 0, &A);
+        _exit(f1_eq(&T.flow[0], &want) ? 0 : 3);
+    }
+    int st = 0;
+    if (waitpid(pid, &st, 0) != pid) return -1;
+    return WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+}
+
+static int kc_h_par_tab_eq(const KcScanTab *A, const KcScanTab *B, int n) {
+    /* the logging tables too (2026-09-11): the extremum records are compared field-wise,
+     * never by memcmp, because KcScanExt has padding */
+    for (int i = 0; i < n * 10; i++) {
+        const KcScanExt *a = &A->ext[i], *b = &B->ext[i];
+        if (a->valid != b->valid) return 0;
+        if (a->valid && !(f1_eq(&a->w, &b->w) && f1_eq(&a->fv, &b->fv) && f1_eq(&a->gv, &b->gv) &&
+                          a->cm == b->cm && a->key == b->key && a->q == b->q && a->o == b->o))
+            return 0;
+    }
+    for (int i = 0; i < n; i++) {
+        const KcScanCnt *a = &A->cnt[i], *b = &B->cnt[i];
+        if (a->entries != b->entries || a->lookups != b->lookups || a->pruned != b->pruned ||
+            a->zero_g != b->zero_g || a->dead != b->dead || !f1_eq(&a->dead_fmass, &b->dead_fmass) ||
+            !f1_eq(&a->live_fmass, &b->live_fmass))
+            return 0;
+        for (int d = 0; d < 5; d++)
+            if (a->nz[d] != b->nz[d] || a->nz_orb[d] != b->nz_orb[d]) return 0;
+    }
+    for (size_t i = 0; i < (size_t)n * 5 * KC_SCAN_HB; i++)
+        if (A->hist[i].cnt != B->hist[i].cnt || A->hist[i].orb != B->hist[i].orb ||
+            !f1_eq(&A->hist[i].mw, &B->hist[i].mw) || !f1_eq(&A->hist[i].mworb, &B->hist[i].mworb))
+            return 0;
+    return memcmp(A->flow, B->flow, sizeof(F1U192) * (size_t)n) == 0 &&
+           memcmp(A->cls, B->cls, sizeof(F1U192) * (size_t)n * 5) == 0 &&
+           memcmp(A->qmarg, B->qmarg, sizeof(F1U192) * (size_t)n * 32) == 0 &&
+           memcmp(A->rawmarg, B->rawmarg, sizeof(F1U192) * (size_t)n * 32) == 0 &&
+           memcmp(A->fmass, B->fmass, sizeof(F1U192) * (size_t)n) == 0 &&
+           memcmp(A->kern, B->kern, sizeof(F1U192) * (size_t)n * 4096) == 0 &&
+           memcmp(A->dig, B->dig, sizeof(F1U192) * (size_t)n * 5 * KC_SCAN_DJ) == 0 &&
+           memcmp(A->deg_cnt, B->deg_cnt, sizeof(uint64_t) * (size_t)n * KC_SCAN_DEG) == 0 &&
+           memcmp(A->deg_fmass, B->deg_fmass, sizeof(F1U192) * (size_t)n * KC_SCAN_DEG) == 0 &&
+           memcmp(A->deg_wmass, B->deg_wmass, sizeof(F1U192) * (size_t)n * KC_SCAN_DEG) == 0;
+}
+
+static int kc_scan_par_selftest(void) {
+    int fails = 0;
+    printf("[kc-scan-par-selftest] parallel --kc-scan: reduction, cache clone, T-invariance (n=9)\n");
+    KC *dk = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(dk != NULL, "[kc-scan-par-selftest] alloc");
+    dk->n = 9;
+    /* ---- P1-P3: the reduction ---- */
+    {
+        KcScanAcc S[5];
+        for (int t = 0; t < 5; t++) kc_h_par_fill(&S[t], t);
+        KcScanTab Tf, Tr;
+        kc_h_scan_alloc(dk, 1, &Tf);
+        kc_h_scan_alloc(dk, 1, &Tr);
+        for (int t = 0; t < 5; t++) kc_h_scan_reduce(&Tf, 3, &S[t]);
+        for (int t = 4; t >= 0; t--) kc_h_scan_reduce(&Tr, 3, &S[t]);
+        KcScanAcc got;
+        kc_h_par_slice(&Tf, 3, &got);
+        const F1U192 *g = (const F1U192 *)(const void *)&got;
+        const int ncell = (int)(sizeof(KcScanAcc) / sizeof(F1U192));
+        int exact = 1;
+        for (int j = 0; j < ncell; j++) {
+            const uint64_t w2 = (j & 1) ? 15ull * (uint64_t)(j + 1) : 0;
+            exact &= g[j].l0 == UINT64_MAX - 4 - 5ull * (uint64_t)j &&
+                     g[j].l1 == 14 + 5ull * (uint64_t)j && g[j].l2 == w2;
+        }
+        KC_PAR_GATE("P1 reduction exact, 71 cells, thread values >= 2^64 and >= 2^128", exact);
+        char d0[64], d1[64];
+        f1_dec(Tf.flow[3], d0);
+        f1_dec(Tf.fmass[3], d1);
+        KC_PAR_GATE("P2 decimal anchors (python3): 15*2^64-5 and a >= 2^128 cell",
+                    strcmp(d0, "276701161105643274235") == 0 &&
+                    strcmp(d1, "10208471007628153904270173104427237375990") == 0);
+        KC_PAR_GATE("P3 reduction order-independent (forward == reverse thread order)",
+                    kc_h_par_tab_eq(&Tf, &Tr, 9));
+        int untouched = 1;
+        for (int k = 0; k < 9; k++)
+            if (k != 3) untouched &= f1_is_zero(&Tf.flow[k]) && f1_is_zero(&Tf.fmass[k]);
+        KC_PAR_GATE("P3b reduction writes layer k only", untouched);
+        kc_scan_free(&Tf);
+        kc_scan_free(&Tr);
+    }
+    {   /* P4: overflow aborts at exactly 2^192, and not one below it */
+        const F1U192 top = {UINT64_MAX, UINT64_MAX, UINT64_MAX};
+        const F1U192 one = {1, 0, 0};
+        const F1U192 lo7 = {UINT64_MAX, UINT64_MAX, 0x7fffffffffffffffull};
+        const F1U192 hi8 = {0, 0, 0x8000000000000000ull};
+        KC_PAR_GATE("P4 (2^192-1) + 1 in the reduction aborts (exit 70)",
+                    kc_h_par_child_reduce(dk, top, one, top) == 70);
+        KC_PAR_GATE("P4b sum reaching exactly 2^192-1 does NOT abort, value exact",
+                    kc_h_par_child_reduce(dk, lo7, hi8, top) == 0);
+    }
+    /* ---- ladders for P5/P6 ---- */
+    char dir[4096], fdir[4200], gdir1[4200], gdir2[4200];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-scan-par-selftest] FAIL (no scratch dir)\n");
+        printf("KC_SCAN_PAR_SELFTEST=FAIL\n");
+        free(dk);
+        return 1;
+    }
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir1, sizeof(gdir1), "%s/g1", dir);
+    snprintf(gdir2, sizeof(gdir2), "%s/g2", dir);
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc-scan-par-selftest] alloc");
+        F1_CHECK(kc_init(kc, 9) == 0, "[kc-scan-par-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_PAR_GATE("g ladder build, v1 (in-memory reference)", kc_g_build_main(gdir1, 9, 0) == 0);
+    KC_PAR_GATE("g ladder build, v2 (out-of-core)", kc_g_build_main(gdir2, 9, 1) == 0);
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gm = (KC *)calloc(1, sizeof(KC)), *g1 = (KC *)calloc(1, sizeof(KC));
+    KC *g2 = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gm && g1 && g2, "[kc-scan-par-selftest] alloc");
+    F1_CHECK(kc_open(fkc, fdir, 0, 1) == 0, "[kc-scan-par-selftest] f open");
+    F1_CHECK(kc_open_as(gm, gdir1, "g", 1, 0, 0) == 0, "[kc-scan-par-selftest] g v1 open");
+    F1_CHECK(kc_open_as(g1, gdir1, "g", 1, 1, 1) == 0, "[kc-scan-par-selftest] g v1 OOC open");
+    F1_CHECK(kc_open_as(g2, gdir2, "g", 1, 1, 1) == 0, "[kc-scan-par-selftest] g v2 OOC open");
+    const int n = fkc->n;
+    KC_PAR_GATE("readers: g in-memory, g OOC v1 (4 slots), g OOC v2 (4 slots)",
+                !gm->ooc && g1->ooc && !g1->ooc->L[1].is_v2 && g1->ooc->nslot == 4 &&
+                g2->ooc && g2->ooc->L[1].is_v2 && g2->ooc->nslot == 4);
+    /* ---- P5: clone isolation (design s3.2, risk #1) ---- */
+    {
+        KcOoc *src = g2->ooc;
+        KcOoc *c1 = kc_ooc_clone_cache(src, 1), *c2 = kc_ooc_clone_cache(src, 0);
+        int iso = c1->borrowed && c2->borrowed && !src->borrowed && c1->nslot == 4 &&
+                  c2->nslot == src->nslot;
+        iso &= c1->slot != src->slot && c2->slot != src->slot && c1->slot != c2->slot;
+        iso &= c1->htab != src->htab && c2->htab != src->htab && c1->htab != c2->htab;
+        iso &= c1->cbuf != src->cbuf && c2->cbuf != src->cbuf && c1->cbuf != c2->cbuf;
+        iso &= c1->tick == 0 && c1->hits == 0 && c1->misses == 0 && c1->io.bytes_read == 0 &&
+               c1->sec_inflate == 0.0;
+        const int np = 2 * (src->nslot + c1->nslot + c2->nslot);
+        uint64_t *pp = (uint64_t *)malloc(sizeof(uint64_t) * (size_t)np);
+        F1_CHECK(pp != NULL, "[kc-scan-par-selftest] alloc");
+        int ip = 0;
+        const KcOoc *all[3] = {src, c1, c2};
+        for (int a = 0; a < 3; a++)
+            for (int s = 0; s < all[a]->nslot; s++) {
+                pp[ip++] = (uint64_t)(uintptr_t)all[a]->slot[s].keys;
+                pp[ip++] = (uint64_t)(uintptr_t)all[a]->slot[s].vals;
+            }
+        qsort(pp, (size_t)np, sizeof(uint64_t), f1c5_cmp_u64);
+        for (int i = 1; i < np; i++) iso &= pp[i] != pp[i - 1];
+        free(pp);
+        KC_PAR_GATE("P5 clones share NO mutable state (slots, buffers, htab, cbuf, counters)", iso);
+        int shared = 1;
+        for (int k = 0; k <= n; k++)
+            shared &= c1->L[k].fd == src->L[k].fd && c1->L[k].masks == src->L[k].masks &&
+                      c1->L[k].off == src->L[k].off && c1->L[k].kidx == src->L[k].kidx &&
+                      c1->L[k].vidx == src->L[k].vidx && c1->L[k].nblk == src->L[k].nblk;
+        KC_PAR_GATE("P5b clones share the read-only layer table (fds + index arrays)", shared);
+        fflush(stdout);
+        fflush(stderr);
+        const pid_t pid = fork();
+        if (pid == 0) {
+            if (!freopen("/dev/null", "w", stderr)) _exit(99);
+            kc_ooc_free(c1);          /* must abort: a clone does not own L[] */
+            _exit(0);
+        }
+        int st = 0, code = -1;
+        if (pid > 0 && waitpid(pid, &st, 0) == pid && WIFEXITED(st)) code = WEXITSTATUS(st);
+        KC_PAR_GATE("P5c kc_ooc_free on a clone aborts (exit 71), never closes the fds", code == 71);
+        kc_ooc_free_clone(c1);
+        kc_ooc_free_clone(c2);
+    }
+    /* ---- P6: T-invariance, in process ---- */
+    {
+        KcScanPar P;
+        memset(&P, 0, sizeof(P));
+        P.threads = 1;
+        P.unit = F1C5_OOC_BLK;
+        P.stride = 1;
+        P.tables = 1;             /* the logging tables are part of the T-invariance leg */
+        KcScanTab REF;
+        kc_h_scan_alloc(fkc, 1, &REF);
+        KC_PAR_GATE("P6 T=1 reference scan (g in-memory, default unit)",
+                    kc_h_scan_layers(fkc, gm, fdir, 1, &REF, 0, n, 0, &P) == 0);
+        int flow_ok = 1;
+        for (int k = 0; k < n; k++) flow_ok &= f1_eq(&REF.flow[k], &fkc->total);
+        KC_PAR_GATE("P6 reference: flow[k] == N at every layer", flow_ok);
+        const uint64_t t0 = g2->ooc->tick, h0 = g2->ooc->hits, m0 = g2->ooc->misses;
+        static const int TT[4] = {1, 2, 3, 8};
+        const KC *GV[3] = {gm, g1, g2};
+        static const char *GN[3] = {"g in-memory v1", "g OOC v1, 4-slot clones",
+                                    "g OOC v2, 4-slot clones"};
+        for (int gi = 0; gi < 3; gi++) {
+            int same = 1;
+            for (int ti = 0; ti < 4; ti++) {
+                P.threads = TT[ti];
+                P.unit = 7;
+                P.gcache_mb = 1;
+                KcScanTab X;
+                kc_h_scan_alloc(fkc, 1, &X);
+                /* the L6a reference walk is derived ONCE (in REF, through the source reader,
+                 * single-threaded, before any team) and copied here, so P6b below still
+                 * measures clone traffic alone */
+                X.kw_ok = REF.kw_ok;
+                strcpy(X.kw_src, REF.kw_src);
+                memcpy(X.kw_exit, REF.kw_exit, (size_t)n);
+                memcpy(X.kw_cls, REF.kw_cls, sizeof(int) * (size_t)n);
+                memcpy(X.kw_w, REF.kw_w, sizeof(F1U192) * (size_t)n);
+                same &= kc_h_scan_layers(fkc, GV[gi], fdir, 1, &X, 0, n, 0, &P) == 0 &&
+                        kc_h_par_tab_eq(&X, &REF, n);
+                kc_scan_free(&X);
+            }
+            char name[128];
+            snprintf(name, sizeof(name), "P6 T in {1,2,3,8}, 7-entry units, %s == reference", GN[gi]);
+            KC_PAR_GATE(name, same);
+        }
+        KC_PAR_GATE("P6b the source g reader is untouched by clone traffic",
+                    g2->ooc->tick == t0 && g2->ooc->hits == h0 && g2->ooc->misses == m0);
+        kc_scan_free(&REF);
+    }
+    kc_free(fkc); kc_free(gm); kc_free(g1); kc_free(g2);
+    free(fkc); free(gm); free(g1); free(g2);
+    free(dk);
+    kc_h_rm_rf(dir);
+    printf("[kc-scan-par-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS", fails,
+           fails == 1 ? "" : "s");
+    printf("KC_SCAN_PAR_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;
 }
 
@@ -31439,6 +34476,68 @@ static int kc_h_bytes_identical(const char *a, const char *b) {
 
 static int kc_h_exists(const char *p) { struct stat st; return stat(p, &st) == 0; }
 
+/* re-mint every row_sha_NN of a chunk file IN PLACE (selftest only, 2026-09-11). The legs that
+ * hand-tamper a row and expect the MERGED GATES to fire must first pass the L1 row digest,
+ * which is what a tamper now trips first; recomputing the digest is exactly what the merge's
+ * threat model excludes, so it is done here and nowhere else. 0 ok, -1 failure. */
+static int kc_h_chunk_remint(const char *path) {
+    char *buf = kc_h_slurp(path);
+    if (!buf) return -1;
+    char v[128], exe[128], fsha[80], gsha[80], key[64];
+    int klo = -1, khi = -1, rc = -1;
+    if (kc_h_field(buf, "k_lo", v, sizeof(v)) == 0) klo = atoi(v);
+    if (kc_h_field(buf, "k_hi", v, sizeof(v)) == 0) khi = atoi(v);
+    if (klo < 0 || khi <= klo || kc_h_field(buf, "engine_exe_sha", exe, sizeof(exe)) != 0) goto out;
+    for (int k = klo; k < khi; k++) {
+        F1U192 fm;
+        snprintf(key, sizeof(key), "f_layer_sha_%02d", k);
+        if (kc_h_field(buf, key, fsha, sizeof(fsha)) != 0) goto out;
+        snprintf(key, sizeof(key), "g_layer_sha_%02d", k + 1);
+        if (kc_h_field(buf, key, gsha, sizeof(gsha)) != 0) goto out;
+        snprintf(key, sizeof(key), "fmass_%02d", k);
+        if (kc_h_chunk_u192(buf, key, &fm, 1) != 0) goto out;
+        char *row = kc_h_chunk_row(buf, k);
+        if (!row) goto out;
+        size_t rl = strlen(row);
+        if (rl && row[rl - 1] == ',') rl--;
+        char hex[65];
+        const int drc = kc_h_row_sha(k, fsha, gsha, exe, &fm, row, rl, hex);
+        free(row);
+        if (drc != 0) goto out;
+        snprintf(key, sizeof(key), "\"row_sha_%02d\": \"", k);
+        char *p = strstr(buf, key);
+        if (!p) goto out;
+        memcpy(p + strlen(key), hex, 64);
+    }
+    {
+        FILE *f = fopen(path, "w");
+        if (!f) goto out;
+        const size_t len = strlen(buf);
+        rc = fwrite(buf, 1, len, f) == len ? 0 : -1;
+        if (fclose(f) != 0) rc = -1;
+    }
+out:
+    free(buf);
+    return rc;
+}
+
+/* the L1 refusal a hand-tampered row meets FIRST: merge, expect exit 2 with the token naming
+ * the tampered layer and no atlas; then re-mint so the leg's own gate can be reached. */
+static int kc_h_tamper_refused_then_remint(const char *fdir, const char *gdir, const char *tdir,
+                                           const char *c1, const char *bad, const char *c3,
+                                           const char *out, const char *log, int k, char *a,
+                                           size_t acap) {
+    unlink(out);
+    snprintf(a, acap, "--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
+             fdir, gdir, out, c1, bad, c3, tdir);
+    const int rc = kc_h_self_run(a, log);
+    char tokn[64];
+    snprintf(tokn, sizeof(tokn), "KC_SCAN_MERGE_ROWBIND=MISMATCH:k=%d", k);
+    const int ok = rc == 2 && kc_h_log_line(log, tokn) &&
+                   kc_h_log_line(log, "KC_SCAN_MERGE_COVERAGE=ABORTED") && !kc_h_exists(out);
+    return ok && kc_h_chunk_remint(bad) == 0;
+}
+
 /* G2 F3 (2026-09-04): plant a DECOY at OUT (a copy of a valid atlas) so a "NO atlas file
  * left" gate tests that the PROGRAM removes a pre-existing output on a failed merge.
  * Before this the negative legs unlink()ed OUT themselves, on a fresh path that had never
@@ -31698,6 +34797,10 @@ static int kc_layers_selftest(void) {
         kc_h_sh(cmd);
         free(cmd);
         snprintf(out, sizeof(out), "%s/badflow.json", dir);
+        KC_LAYERS_GATE("L9 tampered flow: REFUSED FIRST by the row digest (ROWBIND=MISMATCH:k=3, "
+                       "exit 2, no atlas); then re-minted for the gate legs",
+                       kc_h_tamper_refused_then_remint(fdir, gdir, tdir, c1, bad, c3, out, log, 3,
+                                                       a, KC_LAY_ABUF));
         unlink(out);
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, bad, c3, tdir);
@@ -31727,6 +34830,9 @@ static int kc_layers_selftest(void) {
         KC_LAYERS_GATE("R1 tampered class cell: the sed ACTUALLY edited the chunk",
                        !kc_h_bytes_identical(c2, bad));
         snprintf(out, sizeof(out), "%s/badcls.json", dir);
+        KC_LAYERS_GATE("R1 tampered class cell: REFUSED FIRST by the row digest; re-minted",
+                       kc_h_tamper_refused_then_remint(fdir, gdir, tdir, c1, bad, c3, out, log, 3,
+                                                       a, KC_LAY_ABUF));
         unlink(out);
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, bad, c3, tdir);
@@ -31756,6 +34862,9 @@ static int kc_layers_selftest(void) {
         KC_LAYERS_GATE("R2 tampered quotient cell: the sed ACTUALLY edited the chunk",
                        !kc_h_bytes_identical(c2, bad));
         snprintf(out, sizeof(out), "%s/badq.json", dir);
+        KC_LAYERS_GATE("R2 tampered quotient cell: REFUSED FIRST by the row digest; re-minted",
+                       kc_h_tamper_refused_then_remint(fdir, gdir, tdir, c1, bad, c3, out, log, 3,
+                                                       a, KC_LAY_ABUF));
         unlink(out);
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, bad, c3, tdir);
@@ -31788,6 +34897,9 @@ static int kc_layers_selftest(void) {
         KC_LAYERS_GATE("R3 swap: the swap ACTUALLY changed the chunk (not d1 == d2)",
                        !kc_h_bytes_identical(c2, bad));
         snprintf(out, sizeof(out), "%s/badswap.json", dir);
+        KC_LAYERS_GATE("R3 swap: REFUSED FIRST by the row digest (the N31 s6 class); re-minted",
+                       kc_h_tamper_refused_then_remint(fdir, gdir, tdir, c1, bad, c3, out, log, 3,
+                                                       a, KC_LAY_ABUF));
         unlink(out);
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, bad, c3, tdir);
@@ -33620,6 +36732,7 @@ static int kc_cli(int argc, char *argv[]) {
     if (strcmp(cmd, "--kc-ladder-verify") == 0) return kc_ladder_verify_main(argc, argv);
     if (strcmp(cmd, "--kc-cert-selftest") == 0) return kc_cert_selftest();
     if (strcmp(cmd, "--kc-scan-selftest") == 0) return kc_scan_selftest();
+    if (strcmp(cmd, "--kc-scan-par-selftest") == 0) return kc_scan_par_selftest();
     if (strcmp(cmd, "--kc-layers-selftest") == 0) return kc_layers_selftest();
     if (strcmp(cmd, "--kc-scan-merge") == 0) return kc_scan_merge_main(argc, argv);
     if (strcmp(cmd, "--kc-scan") == 0) return kc_scan_main(argc, argv);
