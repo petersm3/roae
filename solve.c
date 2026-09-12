@@ -13833,6 +13833,44 @@ static F1U192 f1_shr(F1U192 a, int s) {
     return r;
 }
 
+/* a << s as a GATE primitive: returns 0 when the result does not fit in 192 bits,
+ * instead of aborting. f1_mul_small aborts (:13882), which is right for an accumulator
+ * and wrong for a check -- a gate must be able to report "this does not fit" and FAIL
+ * the table, never take the process down. (KCP5 #3, Fable adjudication 2026-09-12.) */
+static int f1_shl_fits(F1U192 a, int s, F1U192 *out) {
+    if (s < 0 || s > 191) return 0;
+    if (f1_is_zero(&a)) { out->l0 = out->l1 = out->l2 = 0; return 1; }
+    if (f1_log2(&a) + s > 191) return 0;
+    F1U192 r = {0, 0, 0};
+    if (s >= 128) {
+        r.l2 = a.l0 << (s - 128);
+    } else if (s >= 64) {
+        const int t = s - 64;
+        r.l1 = t ? (a.l0 << t) : a.l0;
+        r.l2 = t ? ((a.l1 << t) | (a.l0 >> (64 - t))) : a.l1;
+    } else if (s == 0) {
+        r = a;
+    } else {
+        r.l0 = a.l0 << s;
+        r.l1 = (a.l1 << s) | (a.l0 >> (64 - s));
+        r.l2 = (a.l2 << s) | (a.l1 >> (64 - s));
+    }
+    *out = r;
+    return 1;
+}
+
+/* a - b, for a >= b (the caller establishes that with f1_cmp first). */
+static F1U192 f1_sub(F1U192 a, const F1U192 *b) {
+    F1U192 r;
+    const uint64_t bor0 = a.l0 < b->l0;
+    r.l0 = a.l0 - b->l0;
+    const uint64_t t1 = a.l1 - bor0;
+    const uint64_t bor1 = (a.l1 < bor0) | (t1 < b->l1);
+    r.l1 = t1 - b->l1;
+    r.l2 = a.l2 - bor1 - b->l2;
+    return r;
+}
+
 static F1U192 f1_mul_small(F1U192 a, uint32_t m) {
     unsigned __int128 p = (unsigned __int128)a.l0 * m;
     F1U192 r;
@@ -28957,8 +28995,19 @@ static void kc_h_scan_gates_x(const KC *fkc, const KC *gkc, const char *fdir, Kc
         KC_SCAN_LGATE(f1_eq(&sf, &T->fmass[k]), "sum of out-degree f mass != fmass");
     }
     /* L6: sums bound to cls / nonzero, and the exact per-bucket bound
-     * cnt*2^b <= sum w <= cnt*(2^{b+1}-1), computed as cnt <= (sum w >> b) < 2*cnt so it
-     * never depends on 192-bit headroom */
+     * cnt*2^b <= sum w <= cnt*(2^{b+1}-1), computed in KCP4 E7's subtraction form
+     *     lo = cnt << b ;  sum w >= lo ;  (sum w - lo) <= lo - cnt  [ = cnt*(2^b - 1) ]
+     * which needs no multiply and so no 192-bit headroom.
+     *
+     * 🔴 CORRECTED 2026-09-12 (Codex KCP5 #3, adjudicated by Fable). This comment used to
+     * claim the closed bound above while the code computed `cnt <= (sum w >> b) < 2*cnt` --
+     * the HALF-OPEN form, which admits sum w up to cnt*2^(b+1) - 1 and so accepts a window
+     * of width cnt-1 above the true maximum. Counterexample: b=1, cnt=2, sum=7 passed
+     * (7>>1 = 3, and 2 <= 3 < 4) although two members each at most 2^2-1 = 3 total 6.
+     * The orbit twin below carried the SAME looseness while its comment restated the weaker
+     * bound and cited E7 as its source; E7 specified the closed form. `mw` is constrained by
+     * no other gate, so nothing else caught it. Tightening cannot reject a correct table --
+     * the bound is exact by construction -- so this is safe to land at any n. */
     for (int d = 0; d < 5; d++) {
         const KcScanHb *H = &T->hist[(size_t)(k * 5 + d) * KC_SCAN_HB];
         uint64_t sc = 0, so = 0;
@@ -28972,18 +29021,30 @@ static void kc_h_scan_gates_x(const KC *fkc, const KC *gkc, const char *fdir, Kc
                               "class d%d bucket %d has mass but no count", dv[d], b);
                 continue;
             }
-            const F1U192 q = f1_shr(H[b].mw, b);
-            const F1U192 lo = {H[b].cnt, 0, 0};
-            const F1U192 hi = f1_mul_small(lo, 2);
-            KC_SCAN_LGATE(f1_cmp(&q, &lo) >= 0 && f1_cmp(&q, &hi) < 0,
+            const F1U192 cnt192 = {H[b].cnt, 0, 0};
+            F1U192 lo;
+            int ok_w = f1_shl_fits(cnt192, b, &lo) && f1_cmp(&H[b].mw, &lo) >= 0;
+            if (ok_w) {
+                const F1U192 dlt = f1_sub(H[b].mw, &lo);
+                const F1U192 room = f1_sub(lo, &cnt192);   /* cnt*2^b - cnt = cnt*(2^b - 1) */
+                ok_w = f1_cmp(&dlt, &room) <= 0;
+            }
+            KC_SCAN_LGATE(ok_w,
                           "class d%d bucket %d: sum w outside [cnt*2^b, cnt*(2^(b+1)-1)]",
                           dv[d], b);
             /* the orbit-weighted bound (KCP4 E7): worb = w * orb_size with w in [2^b, 2^{b+1}),
-             * so orb*2^b <= sum worb < orb*2^{b+1} */
-            const F1U192 qo = f1_shr(H[b].mworb, b);
-            const F1U192 loo = {H[b].orb, 0, 0};
-            const F1U192 hio = f1_mul_small(loo, 2);
-            KC_SCAN_LGATE(f1_cmp(&qo, &loo) >= 0 && f1_cmp(&qo, &hio) < 0,
+             * so orb*2^b <= sum worb <= orb*(2^{b+1}-1) -- the same closed bound, in the same
+             * subtraction form. E7's own words: "second bound orb*2^b <= Sworb <= orb*(2^{b+1}-1),
+             * computed as Sworb - orb*2^b <= orb*(2^b - 1)". */
+            const F1U192 orb192 = {H[b].orb, 0, 0};
+            F1U192 loo;
+            int ok_o = f1_shl_fits(orb192, b, &loo) && f1_cmp(&H[b].mworb, &loo) >= 0;
+            if (ok_o) {
+                const F1U192 dlto = f1_sub(H[b].mworb, &loo);
+                const F1U192 roomo = f1_sub(loo, &orb192);
+                ok_o = f1_cmp(&dlto, &roomo) <= 0;
+            }
+            KC_SCAN_LGATE(ok_o,
                           "class d%d bucket %d: sum worb outside [orb*2^b, orb*(2^(b+1)-1)]",
                           dv[d], b);
             KC_SCAN_LGATE(H[b].orb >= H[b].cnt, "class d%d bucket %d: orb < cnt", dv[d], b);
@@ -31877,6 +31938,19 @@ static int kc_h_par_tab_eq(const KcScanTab *A, const KcScanTab *B, int n) {
         if (A->hist[i].cnt != B->hist[i].cnt || A->hist[i].orb != B->hist[i].orb ||
             !f1_eq(&A->hist[i].mw, &B->hist[i].mw) || !f1_eq(&A->hist[i].mworb, &B->hist[i].mworb))
             return 0;
+    /* 🔴 L6a `kw` AND L7' `rid_mass` (Codex KCP5 #2, adjudicated by Fable 2026-09-12).
+     * Both are per-thread accumulators reduced at :28293-28297 and both are PERSISTED --
+     * `kwrank` at :27938/:27944, `rid_mass` at :27954/:27958 -- yet neither appeared in this
+     * comparator, so a difference confined to either could not fail the thread-count or
+     * in-core/OOC equality it backs. The gates do not close the gap: L6a's bins are
+     * invariant under an lt/gt swap (:29108), and L7' checks only 1-D marginals of the rid
+     * joint (:29132), so a 2x2 marginal-preserving move also passes. */
+    if (A->kw_ok != B->kw_ok || A->R != B->R) return 0;
+    for (int i = 0; i < n * 15; i++)
+        if (A->kw[i].cnt != B->kw[i].cnt || A->kw[i].orb != B->kw[i].orb ||
+            !f1_eq(&A->kw[i].mworb, &B->kw[i].mworb))
+            return 0;
+    if (memcmp(A->rid_mass, B->rid_mass, sizeof(F1U192) * (size_t)A->R) != 0) return 0;
     return memcmp(A->flow, B->flow, sizeof(F1U192) * (size_t)n) == 0 &&
            memcmp(A->cls, B->cls, sizeof(F1U192) * (size_t)n * 5) == 0 &&
            memcmp(A->qmarg, B->qmarg, sizeof(F1U192) * (size_t)n * 32) == 0 &&

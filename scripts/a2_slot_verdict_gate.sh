@@ -109,10 +109,21 @@ def atlas(slot2_pct, slot3_pct, slot32_pct=0.0785, n=31):
     # (Codex KCQ01 #1 / KCQ04 #2): the loader refuses an atlas whose producer gates failed
     # or whose class keys are not the consumer's registry. A fixture is still "minimal but
     # LOADABLE" only if it carries them.
+    # `tail_checks` joined that list 2026-09-12 (Codex KCP5 #1, adjudicated by Fable): the
+    # five F3-rule tail checks were REPORTED by the producer and read by nobody, so the
+    # loader now refuses an atlas whose tail verdict is absent, not-run, inconsistent or
+    # FAIL. Same lesson as the line above, four days later -- a loader tightening breaks
+    # every synthetic fixture, and the fixture is what must move, because the alternative
+    # is a consumer that accepts an atlas carrying no verdict at all.
     return {"type": solve._ATLAS_TYPE, "n": n, "N_total": str(N),
             "space": "a2-slot-gate-fixture",
             "semantics": "synthetic fixture for the A2 pair-slot gate; not a measurement",
             "gates": {"fails": 0},
+            "tail_checks": {"vertical_raw_eq_N": "PASS",
+                            "digit_cross_table_eq_cls_prefix": "PASS",
+                            "kernel_cross_layer_eq": "PASS",
+                            "kernel_rev_column_eq": "PASS",
+                            "kernel_g_invariance": "PASS", "fails": 0},
             "branch_atlas": [], "layers": layers}
 
 
@@ -242,10 +253,19 @@ def xa_atlas(perturb_flow=False, perturb_sol=False, perturb_t=False, n=9,
           "walks": NX, "prefixes_t_units": str(NX), "t_source": "t-ladder"}
     if strip_tsource:
         del br["t_source"]
+    # `tail_checks`: required of every atlas since 2026-09-12 (Codex KCP5 #1, adjudicated by
+    # Fable). Same reason as `gates` on the fixture above -- the loader refuses an atlas whose
+    # F3-rule tail verdict is absent, not-run, internally inconsistent or FAIL, so a fixture is
+    # "minimal but LOADABLE" only if it carries one.
     return {"type": solve._ATLAS_TYPE, "n": n, "N_total": str(NX),
             "space": "a2-slot-gate-fixture",
             "semantics": "synthetic fixture for the verdict-honesty legs; not a measurement",
             "gates": {"fails": 0},
+            "tail_checks": {"vertical_raw_eq_N": "PASS",
+                            "digit_cross_table_eq_cls_prefix": "PASS",
+                            "kernel_cross_layer_eq": "PASS",
+                            "kernel_rev_column_eq": "PASS",
+                            "kernel_g_invariance": "PASS", "fails": 0},
             "t_root_t_units": str(NX + 1 + (1 if perturb_t else 0)),
             "branch_atlas": [br],
             "layers": layers}

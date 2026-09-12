@@ -12015,6 +12015,65 @@ def atlas_load(path):
                 "rather than dropping or inventing a class."
                 % (path, L.get("k"), ",".join(sorted(have)), ",".join(sorted(want)),
                    ",".join(sorted(have - want)) or "-", ",".join(sorted(want - have)) or "-"))
+    # 🔴 THE TAIL VERDICT WAS EMITTED AND NEVER READ (Codex KCP5 #1, adjudicated by Fable
+    # 2026-09-12: ACCEPTED, and BROADER than charged). The five F3-rule tail checks count
+    # failures unconditionally (solve.c:29271) but increment `gate_fails` only under
+    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29273), while KC_SCAN (:30359) and KC_SCAN_MERGE
+    # (:31275) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
+    # beside `tail_checks.fails >= 1` in the SAME file and still prints KC_SCAN=OK, exit 0.
+    # SOLVE_C_CLI.md:2132 states that honestly; :2238 then claimed THIS loader closed it,
+    # and it did not -- `tail_check` and `tail_report` appeared ZERO times in this file
+    # (positive control: `atlas_emit_v1` = 2). Codex demonstrated the consequence rather
+    # than asserting it: moving 48 units between two raw pair marginals produced vertical
+    # totals of 26,160 and 26,064 against N = 26,112, and the V1 emitter still reported no
+    # failures. The gates arm above refuses on the producer's RECOMPUTED verdict; this arm
+    # refuses on the producer's REPORTED one, which is the half nothing was reading.
+    _TC_NAMES = ("vertical_raw_eq_N", "digit_cross_table_eq_cls_prefix",
+                 "kernel_cross_layer_eq", "kernel_rev_column_eq", "kernel_g_invariance")
+    tc = A.get("tail_checks")
+    if not isinstance(tc, dict):
+        raise AtlasError(
+            "%s: atlas carries no tail_checks object -- the producer's own F3-rule tail "
+            "verdict is missing, so nothing can vouch for the identities it covers" % path)
+    absent = [k for k in _TC_NAMES if k not in tc] + ([] if "fails" in tc else ["fails"])
+    if absent:
+        raise AtlasError(
+            "%s: tail_checks is incomplete (missing: %s). A partial verdict is not a verdict"
+            % (path, ", ".join(absent)))
+    tf = tc["fails"]
+    if isinstance(tf, bool) or not isinstance(tf, int):
+        raise AtlasError("%s: tail_checks.fails=%r is not an integer" % (path, tf))
+    verdicts = dict((k, tc[k]) for k in _TC_NAMES)
+    unknown = sorted(k for k, v in verdicts.items()
+                     if v not in ("PASS", "FAIL", "n/a", "not-run"))
+    if unknown:
+        raise AtlasError(
+            "%s: tail_checks carries unrecognised verdict(s): %s"
+            % (path, ", ".join("%s=%r" % (k, verdicts[k]) for k in unknown)))
+    notrun = sorted(k for k, v in verdicts.items() if v == "not-run")
+    if tf < 0 or notrun:
+        raise AtlasError(
+            "%s: the tail checks did NOT RUN (fails=%d%s). An atlas whose tail identities "
+            "were never evaluated cannot be published from -- re-run the scan or merge."
+            % (path, tf, ("; not-run: " + ", ".join(notrun)) if notrun else ""))
+    bad = sorted(k for k, v in verdicts.items() if v == "FAIL")
+    if len(bad) != tf:
+        raise AtlasError(
+            "%s: tail_checks.fails=%d but %d check(s) read FAIL (%s). The count and the "
+            "strings disagree, so one of them is wrong and neither can be trusted."
+            % (path, tf, len(bad), ", ".join(bad) or "-"))
+    na = sorted(k for k, v in verdicts.items() if v == "n/a")
+    if na and any(L.get("marginal_raw") for L in A["layers"]):
+        raise AtlasError(
+            "%s: tail_checks reports 'n/a' for %s, which means the raw frame was not "
+            "emitted -- but this atlas carries marginal_raw. The verdict and the data "
+            "disagree about what was computed." % (path, ", ".join(na)))
+    if tf != 0:
+        raise AtlasError(
+            "%s: the producer's OWN tail checks FAILED (%s). Refusing to publish anything "
+            "from a table whose emitter recorded a failed identity -- re-run under "
+            "SOLVE_KC_SCAN_TAIL_STRICT=1 and fix the input, do not query this file."
+            % (path, ", ".join(bad)))
     _atlas_validate_counts(A, path)
     return A
 

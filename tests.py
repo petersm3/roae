@@ -5645,10 +5645,20 @@ class TestA5RequiresACompleteInventoryAndFailsInvalidPairs(unittest.TestCase):
                    "by_class": {"d%d" % d: "0" for d in mod._ATLAS_CLASSES},
                    "marginal_raw": {p: str(v) for p, v in keys.items()}}
                   for k in range(n)]
+        # `tail_checks` is required of every atlas since 2026-09-12 (Codex KCP5 #1,
+        # adjudicated by Fable): the producer REPORTED its five F3-rule tail verdicts and
+        # no consumer read them, so atlas_load now refuses an atlas whose tail verdict is
+        # absent, not-run, inconsistent or FAIL. Same shape as `gates` above, same reason.
         return {"type": mod._ATLAS_TYPE, "n": n, "N_total": str(self.N),
                 "space": "a5-inventory-fixture",
                 "semantics": "synthetic fixture for the A-5 inventory gate; not a measurement",
-                "gates": {"fails": 0}, "branch_atlas": [], "layers": layers}
+                "gates": {"fails": 0},
+                "tail_checks": {"vertical_raw_eq_N": "PASS",
+                                "digit_cross_table_eq_cls_prefix": "PASS",
+                                "kernel_cross_layer_eq": "PASS",
+                                "kernel_rev_column_eq": "PASS",
+                                "kernel_g_invariance": "PASS", "fails": 0},
+                "branch_atlas": [], "layers": layers}
 
     def _complete_keys(self):
         """All 31 free pairs, one distinct column value per G48 orbit -- the shape a correct
@@ -5982,8 +5992,15 @@ class TestQ6ExtremesIsCheckedOnThePathThatRunsAtFull31(unittest.TestCase):
     def _atlas(self, n, layers):
         import json
         d = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, d, True)
+        # tail_checks: required since 2026-09-12 (Codex KCP5 #1, adjudicated by Fable) --
+        # atlas_load refuses an atlas whose F3-rule tail verdict is absent or failing.
         A = {"type": "roae-kc-scan-atlas", "n": n, "N_total": str(self.N),
              "branch_atlas": [], "gates": {"fails": 0},
+             "tail_checks": {"vertical_raw_eq_N": "PASS",
+                             "digit_cross_table_eq_cls_prefix": "PASS",
+                             "kernel_cross_layer_eq": "PASS",
+                             "kernel_rev_column_eq": "PASS",
+                             "kernel_g_invariance": "PASS", "fails": 0},
              "layers": [{"k": k, "flow": str(self.N),
                          "by_class": {("d%d" % d_): str(m) for d_, m in by.items()}}
                         for k, by in enumerate(layers)]}
