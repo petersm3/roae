@@ -789,7 +789,7 @@ Stage T`. Both are wrong. `g` and `t` are siblings; the arrows below are the cor
 - **f + g + t** are needed for the Exhaustion Atlas — the headline TR-12 section — and every
   per-branch exhaustion number (XA, EW-1, CAP-3/5/7).
 
-<!-- [REPRO-TAG] IS DELIBERATELY STILL A PLACEHOLDER (V3B-03#28, Fable adjudication 2026-09-11).
+<!-- The REPRO-TAG pin below IS DELIBERATELY STILL A PLACEHOLDER (V3B-03#28, Fable adjudication 2026-09-11).
      Do NOT substitute a sha or a guessed tag name here. It is replaced AT LAUNCH, after the
      archived BATTERY_REF_SHA has been tagged and that tag pushed to the public remote
      (tag-before-anything). Replacing it before the tag exists would publish a reproduction
@@ -859,7 +859,7 @@ TR-11's, and it is the **f**-ladder contract; **g needs ≥ 10 TB**, per the mea
 *after* F/G/T exist do the query steps below (Tier A step 6 onward) run — in minutes, near-$0.
 
 **TIER A — full rebuild (gold standard; trusts only public source + own hardware).**
-<!-- [REPRO-TAG]: still a placeholder ON PURPOSE; replaced at launch once the archived
+<!-- The REPRO-TAG pin in step 1 below: still a placeholder ON PURPOSE; replaced at launch once the archived
      BATTERY_REF_SHA is tagged and the tag is pushed public. See the note at the Build commands
      paragraph above (V3B-03#28). -->
 1. Clone the public repo at the pinned tag/commit **[REPRO-TAG]** (host-agnostic git — no
