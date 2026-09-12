@@ -11983,7 +11983,17 @@ def atlas_load(path):
     fails = gates["fails"]
     if isinstance(fails, bool) or not isinstance(fails, int):
         raise AtlasError("%s: gates.fails=%r is not an integer" % (path, fails))
-    failed = sorted(k for k, v in gates.items() if v == "see fails")
+    # 🔴 Q-560, FIXED 2026-09-12. "see fails" was the ONLY value read as a failure, so the
+    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30070, emitted
+    # for raw_marginal_sums_eq_N and kernel_marginals_eq_cls_raw whenever want_raw is 0 -- was
+    # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
+    # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
+    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30081) is ALSO an un-run gate,
+    # but VERIFY.md:1151 states as POLICY that it "is not a failed run". Reversing a documented
+    # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:5655,
+    # :5998; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
+    failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
         raise AtlasError(
             "%s: the producer's OWN recomputed gates FAILED (gates.fails=%d%s). Refusing to "
@@ -12044,8 +12054,11 @@ def atlas_load(path):
     if isinstance(tf, bool) or not isinstance(tf, int):
         raise AtlasError("%s: tail_checks.fails=%r is not an integer" % (path, tf))
     verdicts = dict((k, tc[k]) for k in _TC_NAMES)
+    # Q-561: "n/a" is no longer a recognised verdict. A pre-fix binary's atlas is now refused as
+    # UNRECOGNISED rather than silently accepted, which is the correct treatment of a verdict
+    # vocabulary this loader can no longer reason about.
     unknown = sorted(k for k, v in verdicts.items()
-                     if v not in ("PASS", "FAIL", "n/a", "not-run"))
+                     if v not in ("PASS", "FAIL", "not-run"))
     if unknown:
         raise AtlasError(
             "%s: tail_checks carries unrecognised verdict(s): %s"
@@ -12062,12 +12075,13 @@ def atlas_load(path):
             "%s: tail_checks.fails=%d but %d check(s) read FAIL (%s). The count and the "
             "strings disagree, so one of them is wrong and neither can be trusted."
             % (path, tf, len(bad), ", ".join(bad) or "-"))
-    na = sorted(k for k, v in verdicts.items() if v == "n/a")
-    if na and any(L.get("marginal_raw") for L in A["layers"]):
-        raise AtlasError(
-            "%s: tail_checks reports 'n/a' for %s, which means the raw frame was not "
-            "emitted -- but this atlas carries marginal_raw. The verdict and the data "
-            "disagree about what was computed." % (path, ", ".join(na)))
+    # 🔴 Q-561, FIXED 2026-09-12. The guard that stood here fired only when "n/a" verdicts
+    # were present AND some layer carried marginal_raw. But "n/a" was produced precisely when
+    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29939
+    # asserts it appears exactly want_raw times. So the guard was conditioned on the data that
+    # vanishes in the only case it had to catch: it could fire on a forged atlas and never on a
+    # real one. Removed, not repaired. Every un-run verdict now lands in the notrun arm above,
+    # which already refuses, and "n/a" itself is refused as unrecognised.
     if tf != 0:
         raise AtlasError(
             "%s: the producer's OWN tail checks FAILED (%s). Refusing to publish anything "

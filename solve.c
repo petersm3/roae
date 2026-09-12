@@ -29263,10 +29263,19 @@ static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
     }
     T->tail_report_ran = 1;
     T->tail_report_fails = 0;
+    /* 🔴 Q-547, FIXED 2026-09-12. An identity that was NEVER EVALUATED was reported as
+     * "n/a" -- a THIRD vocabulary that nothing refused. tail_report_fails counts only ok[i]==0,
+     * so four never-computed checks left it at zero and this function printed PASS. strict does
+     * not help: its arm below sits inside the ok[i]==0 branch, so an un-run check never reaches
+     * it. The consumer ALREADY refuses "not-run" (solve.py atlas_load), so the fix is not a new
+     * mechanism -- it is to stop laundering the un-run state through a word nothing checks.
+     * Unreachable at n<=13 (want_raw is forced at :30191 and :30925), so no golden moves. */
+    int tail_notrun = 0;
     for (int i = 0; i < KC_SCAN_NTC; i++) {
-        strcpy(T->tail_report[i], ok[i] < 0 ? "n/a" : (ok[i] ? "PASS" : "FAIL"));
+        strcpy(T->tail_report[i], ok[i] < 0 ? "not-run" : (ok[i] ? "PASS" : "FAIL"));
         printf("[kc-scan] TAIL-CHECK %s: %s%s\n", kc_scan_tc_name[i], T->tail_report[i],
-               ok[i] < 0 ? " (raw frame not emitted)" : "");
+               ok[i] < 0 ? " (raw frame not emitted -- pass --kc-raw)" : "");
+        if (ok[i] < 0) tail_notrun++;
         if (ok[i] == 0) {
             T->tail_report_fails++;
             if (strict) {
@@ -29276,7 +29285,13 @@ static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
             }
         }
     }
-    printf("KC_SCAN_TAILCHECK=%s\n", T->tail_report_fails ? "FAIL" : "PASS");
+    /* A third value, on the SAME token, because every consumer greps a whole line
+     * (query_program_run.sh:477 and three sites in kcpar_vm_tests.sh all use grep -qx
+     * KC_SCAN_TAILCHECK=PASS). NOT-RUN therefore closes the banking gate with no consumer
+     * edit at all. A separate _RAN counter would be a token nothing greps -- the KCP5 #1
+     * defect reproduced one line over. Matches the house grammar of KC_SCAN_TIDENTITY. */
+    printf("KC_SCAN_TAILCHECK=%s\n", T->tail_report_fails ? "FAIL"
+                                      : (tail_notrun ? "NOT-RUN" : "PASS"));
 }
 
 /* phase 3: everything that is NOT per-layer — fmass[n], the branch atlas, the

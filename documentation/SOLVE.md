@@ -774,7 +774,7 @@ python3 solve.py --null-debruijn --trials 20000   # Null-model comparison agains
 For enumeration at scale, the C implementation is ~60x faster than the Python version. It counts the solutions satisfying C1, C2, C4, C5 and then C3 **that it reaches within its node budget**, de-duplicates by canonical pair ordering, and reports unique ordering counts. (Corrected 2026-08-28: this read "For complete enumeration of the solution space". No published enumeration is complete — every one is budgeted; see [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) and [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md).)
 
 ```
-gcc -O3 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz    # Compile (-DGIT_HASH: sha-neutral provenance stamp; without it the run records git_hash "unknown")
+gcc -O3 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz    # Compile (-DGIT_HASH: sha-neutral provenance stamp; without it the run records git_hash "unknown")
 SOLVE_NODE_LIMIT=10000000000000 ./solve 0          # Canonical 10T run (deterministic)
 ./solve 3600                                        # Exploratory 1-hour run (non-reproducible)
 ```

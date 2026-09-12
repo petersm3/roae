@@ -884,12 +884,12 @@ artifacts, which remain exact for their stated C1–C5 scope — of which any la
 Any machine. ~11 s to compile, ~30 s for the selftest on 2 cores. Reads no campaign data.
 
 ```bash
-gcc -O2 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\"" -DSOURCE_SHA="\"$(sha256sum solve.c | cut -d' ' -f1)\"" -o solve solve.c -lm -lz
+gcc -O2 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\"" -DSOURCE_SHA="\"$(sha256sum solve.c | cut -d' ' -f1)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)\"" -o solve solve.c -lm -lz
 ./solve --selftest
 bash scripts/pre_push_compile_gate.sh
 ```
 
-⚠ **The two `-D` flags are not decoration and this file is the reason they are here.** The
+⚠ **The three `-D` flags are not decoration and this file is the reason they are here.** (`-DGIT_BRANCH` added 2026-09-12: `tr12_repro_gate.sh:13-14` records that the build line published here defined no branch, so a reproducer's binary emitted `branch=unknown` against expected blocks that diffed the field verbatim — this is the fix that comment asks for. The TR-12 goldens are unaffected: `tr12_repro.sh:318` normalises the trailer to `branch=<BRANCH>`.) The
 "Reporting a number" rule below requires every published figure to carry "its command line, the
 build identity, and the tokens" — and until 2026-09-06 the build line published *in this file*
 omitted the identity, so a run built from it recorded `git_hash "unknown"` and `source_sha
@@ -1081,7 +1081,7 @@ interrupted:
    🔴 **`--kc-raw` is REQUIRED at n=31 and is not optional.** `kc_scan_main` auto-enables raw
    expansion only when `n <= 13`. Omit it at n=31 and `marginal_raw` is never written — **figure V1
    is silently absent, and the atlas still reports `gates.fails = 0`**, because the raw gate
-   degrades to the string `"not-emitted"` rather than failing. A multi-day unresumable pass would
+   degrades to the string `"not-emitted"` rather than failing. 🔴 **Corrected 2026-09-12 (Q-560): the loader now REFUSES that string.** The producer still emits it — it is an honest disclosure — but `solve.py atlas_load` no longer treats it as passing. A multi-day unresumable pass would
    complete, look clean, and be missing a named figure. (This sentence read "a 48-85 h unresumable
    pass" until 2026-09-05; that wall figure is withdrawn — see the note under step 4.)
    🔴 **`--kc-tdir` is REQUIRED for the same reason, and for a sharper one.** The t ladder supplies

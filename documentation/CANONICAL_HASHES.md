@@ -546,10 +546,10 @@ The 1T / 5.6T / 10T / 11.2T published PSBs are the empirically-correct values �
 # Minimum to reproduce canonical sha (the -DGIT_HASH stamp is sha-neutral — measured 2026-09-02:
 # selftest 403f7202… with and without it — and is what makes the run's solutions.meta.json /
 # solutions.provenance.json record the commit instead of the literal "unknown"):
-gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
+gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz
 
 # Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on D64 Zen 4):
-gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
+gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz
 ```
 
 Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produces a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 with tight run-to-run variance (stddev 0.11% across 4 trials). Drop it if your toolchain doesn't support LTO.
@@ -589,7 +589,7 @@ Both verifiers operate without reference to the canonical sha; they validate the
 git clone https://github.com/petersm3/roae
 cd roae
 # pin the source: check out the commit named in the canonical's row above before building
-gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz
+gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz
 ./solve --print-config | grep git_hash   # must NOT say "unknown" — that is the provenance stamp the run writes
 ./solve --selftest                    # must print sha 403f7202
 ulimit -s unlimited                   # required at large scales

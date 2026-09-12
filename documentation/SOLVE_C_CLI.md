@@ -2129,7 +2129,7 @@ path — so a consumer that expects the same five lines every run will misread t
 | `KC_SCAN_MERGE_ENGINE` | **every** run, on both paths | `MISMATCH` / `NOT-REACHED` on the abort path; `SOURCE-BOUND` / `EXE-BOUND` on the success path. `EXE-BOUND` is the strong form: every chunk's run-time executable digest (`engine_exe_sha`) matched the merger's own. `SOURCE-BOUND` means at least one chunk was admitted on agreeing, well-formed `engine_source_sha` values while its **executable bytes differed** — same source, a differently-compiled binary. `NOT-REACHED` means the run aborted before engine identity became the deciding question |
 | `KC_SCAN_MERGE_LADDER` | abort path **only** | `MISMATCH` if a recomputed `f1c5_layer_NN.bin` or `g_layer_NN.bin` decompressed-stream digest disagreed with the value the chunk recorded, or if a layer could not be digested at all. `OK` has the same narrow meaning as above: this leg is not why the merge aborted |
 | `KC_SCAN_MERGE_ROWBIND` | **every** run (2026-09-11) | `OK` when every row's recomputed content digest (`row_sha_NN`, schema 3) matched; `MISMATCH:k=NN` names the first row, ascending, of the first chunk in argv order whose bytes are not the ones the scan minted — the merge aborts (exit 2, `COVERAGE=ABORTED`, no atlas); `NOT-REACHED` when an identity or ladder leg aborted first |
-| `KC_SCAN_TAILCHECK` | every `--kc-scan` whole run and every merge that reaches the tail | `PASS`/`FAIL` over the five report-only tail checks (`vertical_raw_eq_N`, `digit_cross_table_eq_cls_prefix`, `kernel_cross_layer_eq`, `kernel_rev_column_eq`, `kernel_g_invariance`), each also printed as a `[kc-scan] TAIL-CHECK <name>: PASS|FAIL|n/a` line and recorded in the atlas's `tail_checks` object. They REPORT by default (the atlas is still written and `KC_SCAN=OK` can accompany a `FAIL`) and REFUSE under `SOLVE_KC_SCAN_TAIL_STRICT=1` — see the F3 rule below |
+| `KC_SCAN_TAILCHECK` | every `--kc-scan` whole run and every merge that reaches the tail | `PASS`/`FAIL`/`NOT-RUN` over the five report-only tail checks (`vertical_raw_eq_N`, `digit_cross_table_eq_cls_prefix`, `kernel_cross_layer_eq`, `kernel_rev_column_eq`, `kernel_g_invariance`), each also printed as a `[kc-scan] TAIL-CHECK <name>: PASS|FAIL|n/a` line and recorded in the atlas's `tail_checks` object. They REPORT by default (the atlas is still written and `KC_SCAN=OK` can accompany a `FAIL`) and REFUSE under `SOLVE_KC_SCAN_TAIL_STRICT=1` — see the F3 rule below | — `NOT-RUN` added 2026-09-12 (Q-547): four of the five checks are evaluated only under `--kc-raw`, and the old two-valued token printed `PASS` when they had not run. Consumers grep this whole line (`query_program_run.sh:477` and three sites in `kcpar_vm_tests.sh`), so a third value closes the banking gate with no consumer change.
 
 Two well-formed `engine_source_sha` values that **differ** abort regardless of the executable
 digests, so `SOURCE-BOUND` is never weaker than an exact source match; what it gives up is the
@@ -2223,7 +2223,7 @@ count; every key is unique at every nesting level and none is spelled like `flow
 The atlas's `gates` object gains `entries_eq_header_ne`, `count_identities`, `outdeg_identities`,
 `hist_bounds_and_sums`, `digit_row_sums_eq_N`, `extrema_relookup` and `kernel_marginals_eq_cls_raw`
 (`"not-emitted"` without the raw frame), all refusing, and a `tail_checks` object recording the
-five report-only checks (`"n/a"` where the raw frame is absent, `"not-run"` on a table the tail
+five report-only checks (`"not-run"` where the raw frame is absent — it read `"n/a"` until 2026-09-12, a third vocabulary nothing refused, Q-547 — or `"not-run"` on a table the tail
 never reached) with their own `fails` count.
 
 **The F3 rule.** A wrong *refusing* tail gate at n = 31 removes the atlas and strands every banked
@@ -2245,7 +2245,7 @@ with report-only tail checks, an atlas could carry `tail_checks.fails ≥ 1` bes
 `gates.fails = 0` and still be queried. What the consumer does now, stated exactly: it refuses
 an atlas whose `gates.fails` is missing or non-zero, **and** one whose `tail_checks` is absent,
 incomplete, malformed, not-run, internally inconsistent (the `fails` count disagreeing with the
-verdict strings, or `n/a` beside a present `marginal_raw`), or carrying any `FAIL`. It still
+verdict strings; the `n/a`-beside-`marginal_raw` guard was REMOVED 2026-09-12 as dead — `n/a` was produced precisely when `marginal_raw` was absent, so it could fire only on a forged atlas, Q-561), or carrying any `FAIL`. It still
 does not independently re-sum the row tables; the producer's recomputed verdict is what it
 checks, and that verdict is now read in full rather than in part.
 

@@ -238,7 +238,7 @@ Printed by the engine into `gates` in the atlas, and re-checkable from the TSV:
 | Gate | Where |
 |---|---|
 | per-layer orbit-weighted flow == N (all layers) | `gates.per_layer_flow_eq_N` |
-| raw marginal row sums == N (all layers) | `gates.raw_marginal_sums_eq_N` (`"not-emitted"` without `--kc-raw`) |
+| raw marginal row sums == N (all layers) | `gates.raw_marginal_sums_eq_N` (`"not-emitted"` without `--kc-raw` — and since 2026-09-12 `solve.py atlas_load` REFUSES that string rather than accepting it beside `fails: 0`, Q-560) |
 | per-layer class row sum == N | `gates.class_row_sums_eq_N` (2026-09-08; the class frame, not the frame this figure plots) |
 | per-layer quotient marginal row sum == N | `gates.quotient_marginal_sums_eq_N` (2026-09-08) — the quotient frame this figure must not be fed from, above; the gate is a total, so it is blind to mass moved between slots |
 | `Σ_k cls[k][d]` == `b0[d] · N` | `gates.class_column_sums_eq_b0_N` (2026-09-08) — the only gate in the set that sees a mass-preserving rearrangement, and it does so in the CLASS frame only; the raw pair frame this figure plots has no such column gate |
