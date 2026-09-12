@@ -249,7 +249,7 @@ structurally (TR-11 §10(ii) v1.5). | `$SOLVE --kc-sample "$FDIR" 1000000 $GALSE
 |---|---|---|---|---|---|---|
 | **V1** | positional-marginal field: `P(pair j at slot k)` = 32×31 heat matrix, KW's placements overlaid. **Source: `atlas.layers[k].marginal_raw`** (RAW frame — requires `--kc-raw`). | scan (row Q6) then `PENDING:atlas-consumer --v1` then `PENDING:viz` | f+g | DERIVED (post-scan) | `tr12/scan/v1_field.tsv` + `reports/figures/fig_tr12_v1.{png,svg}` + `viz/viz_kc_field.md` | `TR12_V1=PASS` |
 | **V2** | mass river: layer-k mass split across k=1..31, KW's path drawn as a line. **Source: `atlas.layers[k].by_class{d1,d2,d3,d4,d6}`.** | same scan → `PENDING:atlas-consumer --v2` → `PENDING:viz` | f+g | DERIVED | `tr12/scan/v2_river.tsv` + `fig_tr12_v2.*` + `viz/viz_kc_river.md` | `TR12_V2=PASS` **(distance-class form only — §3.1)** |
-| **V3** | rank spectrum: walk-decomposable functional values of `unrank(r)` on a systematic grid `r = i·⌊N/K⌋`, K=10³. | `for i in $(seq 0 999); do R=$(python3 -c "print($i*(1097051278789181790036112071176579186688//1000))"); $SOLVE --kc-unrank "$FDIR" $R --kc-ooc --kc-cache-mb 196608; done > $OUT/v3_rel_grid.txt` then `python3 solve.py` batch evals | f (REL axis); f+g for the O3 axis | **POINT-BATCH — K=10³ MEASURED 31.4 min**, K=10⁴ ≈ +2.5–3 h. Keep it ONE process (cold phase is per-invocation). | `tr12/v3_rel_grid.tsv` + `fig_tr12_v3.*` + `viz/viz_kc_spectrum.md` | `TR12_V3=PASS` |
+| **V3** | rank spectrum: walk-decomposable functional values of `unrank(r)` on a systematic grid `r = i·⌊N/K⌋`, K=10³. | `for i in $(seq 0 999); do R=$(python3 -c "print($i*(1097051278789181790036112071176579186688//1000))"); $SOLVE --kc-unrank "$FDIR" $R --kc-ooc --kc-cache-mb 196608; done > $OUT/v3_rel_grid.txt` — **then the rank-grid → per-walk-functional join that produces `spectrum/v3_spectrum.tsv`, which does not exist**; `solve.py` has no batch walk-functional evaluator at HEAD (no `--eval-walks` / `--walk-functionals` / `--batch-eval`), so this cell named no command until 2026-09-12 (V3A-044#4) | f (REL axis); f+g for the O3 axis | **POINT-BATCH — K=10³ MEASURED 31.4 min**, K=10⁴ ≈ +2.5–3 h. Keep it ONE process (cold phase is per-invocation). | `tr12/v3_rel_grid.tsv` + `PENDING:viz-v3-spectrum` (the figure `fig_tr12_v3.*` is not produced) + `viz/viz_kc_spectrum.md` | `TR12_V3_TSV=PASS`, `TR12_V3=SKIP:leg-TR12_V3_FIG` |
 | **V4** | KW's neighbourhood shells: `g(KW-prefix_k)` vs k, log-scale = Q3 as a figure. **Source: the `g=` column of Q3's trace — needs NO scan.** | `PENDING:viz` over `$OUT/q3_profile_kw.tsv` | (rides Q3) | DERIVED, no compute, local | `fig_tr12_v4.*` + `viz/viz_kc_shells.md` | `TR12_V4=PASS` |
 | **V5** | transition grammar: `P(next-choice class \| layer k)` heat map, KW's actual choices marked. **Source: `atlas.layers[k].by_class`.** | same scan → `PENDING:atlas-consumer --v5` → `PENDING:viz` | f+g | DERIVED | `tr12/scan/v5_grammar.tsv` + `fig_tr12_v5.*` + `viz/viz_kc_grammar.md` | `TR12_V5=PASS` **(distance-class form only — §3.1)** |
 
@@ -950,10 +950,16 @@ of this appendix).*
 
 | class | n | share |
 |---|---|---|
-| ✅ **already public** — the figure is committed in the public repo, with a command | **26** | 63% |
-| 🔎 **public command exists** — reproducible by a public command, figure not itself published | **6** | 15% |
-| 🔒 **private command only** — internal script or artifact | **4** | 10% |
+| ✅ **already public** — the figure is committed in the public repo, with a command | **25** | 60% |
+| 🔎 **public command exists** — reproducible by a public command, figure not itself published | **6** | 14% |
+| 🔒 **private command only** — internal script or artifact | **5** | 12% |
 | 🔻 **NO command** — withheld from this draft rather than published unreproducibly | **6** | 14% |
+
+⚠ *(Tally corrected 2026-09-12, V3A-044#6: the R-1 throughput anchors moved from ✅ to 🔒, so the
+first two counts were 26 and 4. This table's own class definition for ✅ requires the figure to be
+public **with a command**; the anchors have a public citation — a skip **reason** in the battery —
+and no public command, which is the 🔒 definition. Shares are recomputed on the stated denominator
+of 42 and now sum to 100 %; they had been left on the pre-correction denominator of 41.)*
 
 **This is comparable to the TR-12 audit** (76/97 already public, 9 with no command). It does **not**
 change the operator's day-estimate.
@@ -966,8 +972,7 @@ change the operator's day-estimate.
 `lean/C3Decomposition.lean`); `C3 = 16 + 8·G`; `47/445740` (TR-8, three sites); `×11,364`
 (TR-1/TR-6/TR-8); `1395 = [6,3]₂` and the Suenaga credit (TR-11 §"novelty note"); the Q8 chi²
 bucket vector and `chi² = 20.224` and the bar `37.70` (`documentation/VERIFY.md`); the Q6 n=9
-`anchor_*` values (`scripts/tr12_expected/n9/c_q6.txt`); the R-1 throughput anchors `36.14×` and
-`19.8×` (`scripts/tr12_repro.sh:1401`); the twelve self-test names; the PENDING/LANDED flag
+`anchor_*` values (`scripts/tr12_expected/n9/c_q6.txt`); the twelve self-test names; the PENDING/LANDED flag
 inventory (`documentation/SOLVE_C_CLI.md` documents 135 `--kc-*` mentions).
 
 **🔎 Public command, figure not separately published (6).** `log₂ N ≈ 129.689` (one line of
@@ -976,7 +981,12 @@ tool-vs-`sha256sum` divergence (§5 A3 now carries the full build-and-compare re
 counts `rows/pass/fail/skip` (`bash scripts/tr12_repro.sh --n9`); the `--kc-coset-census` absence
 (a `git grep -c` returning 0); the n=9 atlas size; the `--kc-scan` point-lookup-vs-stream structure.
 
-**🔒 Private command only (4).** The Q1 labeling rehearsal (`o3_labeling_n9.py`, FINDING C-11); the
+**🔒 Private command only (5).** The **R-1 throughput anchors `36.14×` (work factor) and `19.8×`
+(wall at 1 T)** — *moved here from ✅ on 2026-09-12 (V3A-044#6). They are quoted in the battery's
+`c_xa_cd` skip **reason**, which is a public citation but not a public command; the driver's own
+words are that they "are campaign measurements, not atlas fields", and TR-12 §3 records that
+re-deriving them would need a fresh paired benchmark that **is not authorised**. So the fix is the
+label, not a run.* The Q1 labeling rehearsal (`o3_labeling_n9.py`, FINDING C-11); the
 EW-1 calibrated-null rehearsal percentiles `.2104 / .2387 / .3316 / .2360` (`ew1_null_n9.py`,
 FINDING C-12); the Q6/Q10a redesign patch (**now moot — the patch landed publicly**, FINDING
 resolved); the Stage G `KCG_CHECK=PASS` banking record (FINDING C-03).

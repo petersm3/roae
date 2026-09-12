@@ -52,7 +52,13 @@ specification behind them, not a substitute for them.
   log₂ N ≈ 129.689 bits — reader arithmetic on the published exact N, e.g.
   `python3 -c "import math;print(math.log2(1097051278789181790036112071176579186688))"`;
   N/24 exact). Orientation-explicit walks, C4's pair pinned.
-- **C15** = C1–C5 (C3 applied). |C15| = **1.3287×10³⁸, ESTIMATE** (TR-4; ±0.02%); **no
+- **C15** = C1–C5 (C3 applied). |C15| = **1.3287×10³⁸, ESTIMATE** (TR-4 abstract), **95 % CI
+  [1.3283, 1.3292]×10³⁸**. ⚠ *(Corrected 2026-09-12, V3B-03#4: this read "±0.02%". The 0.02 % TR-4
+  publishes is a **relative standard error** — `relerr = SE/mean`, `reports/METHODS.md` §relerr —
+  **not** a 95 % half-width, and rendering it with a ± sign invited exactly that reading. The CI's
+  own half-width is 0.00045/1.3287 = **0.034 %**, and 1.96·SE would be 0.039 %, so the ± form
+  understated the interval a reader would draw from it by ~1.7–2×. The estimate is unchanged; only
+  the uncertainty notation is.)* **no
   instrument in this program counts C3-conditioned** — the f/g/t ladders carry no C3 channel and
   the profile mode refuses `--kc-c3-max` outright — so C15-scoped results are estimates-with-CI,
   witness/search results, or filtered-enumeration results, never exact counts. *(Wording narrowed
@@ -207,7 +213,8 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   `documentation/SPECIFICATION.md` §C3 states that at the C1–C5 canonical scope King Wen sits
   **at the C3 ceiling, 12.125 exactly**; that the AT-ceiling tie fraction is measured per
   enumerated set and is not a universal constant (**~9.91%** over the 3.43 B-ordering 100 T
-  canonical, **~10.11%** over the 10.5 B-ordering 560 T canonical — ⚠ both are **560T/100T
+  canonical = **340,179,649** ties, and **~10.11%** over the 10.5 B-ordering 560 T canonical =
+  **1,063,580,364 of 10,525,271,997** records — ⚠ both are **560T/100T
   traversal samples: a DFS-order PREFIX of the space, not a uniform draw**, which is why the figure
   moved 9.91% → 10.11% as the budget grew; they are **record-level** tie shares and must not be read
   against a **walk-level** μ without the 1/m weighting of §Q4); and that the threshold is
@@ -216,7 +223,20 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   is not quoted here** and nothing above depends on it. The nearest quantity with a public
   reproduction command is `P(C3 ≤ 776) = 12.1288%` over the T5 mega-sample,
   `documentation/VERIFY.md` `verify.py --check-t5-c3`, a different estimand under its own scope
-  label. Instrument: `--c3-min` (min over a `solutions.bin`). **[I1 correction, C3 adversarial review 2026-07-22
+  label. Instrument: `--c3-min` (min over a `solutions.bin`).
+  **Where each numerator comes from, and which inputs are not public** *(added 2026-09-12,
+  V3B-03#8 — the figures above were quoted as bare percentages with their public numerators
+  uncited).* The 560 T pair 1,063,580,364 / 10,525,271,997 is published in
+  `documentation/PROJECT_OVERVIEW.md` §C3 and the record count in
+  `documentation/CANONICAL_HASHES.md` §"d3 560T"; the same sites carry min cd×64 = 392. Both, and
+  the 100 T analogue 340,179,649 = 9.9108 %, are `./solve --c3-min <solutions.bin>` outputs; the
+  100 T recipe and its log lines are committed at
+  `runs/20260419_100T_d3_d128westus3/README.md`, but **the 560 T `--c3-min` run log is not
+  committed** — `runs/20260608_560T_9a968fa2/` holds only `viz/` — so at 560 T the counts are
+  cited, not re-runnable from this tree (regenerating them means reading the archived 560 T
+  canonical, a deep-Archive rehydrate barred by standing rule). The 12.1288 % figure is
+  `verify.py --check-t5-c3` over the T5 parquet, whose **input is not in this repo**
+  (`documentation/VERIFY.md`). **[I1 correction, C3 adversarial review 2026-07-22
   (internal; the corrected value is public and is the anchor): the "sample min cd×64 = 576"
   formerly cited here was stale —
   `SPECIFICATION.md` §C3 records min cd×64 = 392 (i.e. G = 47) over the 10.5B-ordering 560T
@@ -274,10 +294,15 @@ QSET external review, which the external review itself missed; see
 - **Mechanism.** (a)/(c): exact-uniform `--kc-sample` (post-F; M = 10⁵–10⁶ walks; evaluate
   cd\* per walk; ⚠ **CI claim narrowed 2026-09-06, QSET-2 finding 5 — and this is residue of a
   correction applied only halfway on 2026-09-05.** That pass fixed the C15-vs-SUPER space label on
-  this row and left this clause untouched. The battery emits **one Wilson interval on the acceptance
-  mass** `P(cd ≤ T)`, not per-bin intervals: the histogram bins ship with counts and no CIs. Read
-  "binomial/multinomial CIs" as the **intended** design and the single Wilson interval as what is
-  delivered) — an estimator upgrade over this project's own prior C3
+  this row and left this clause untouched. 🔴 **Re-corrected 2026-09-12 (V3B-03#10): the 2026-09-06
+  narrowing was itself stale, in the opposite direction.** It said the battery emits "one Wilson
+  interval on the acceptance mass, not per-bin intervals: the histogram bins ship with counts and no
+  CIs". The battery at HEAD emits all three. **One output contract, stated once:** M =
+  `TR12_Q4AC_M` (default 10⁶ at n = 31), seed `TR12_SEED` (default **9276183659154465378**), level
+  95 % Wilson with z = 1.959964 — on `P(cd ≤ T)`, on μ = h[T]/accepted, **and as a per-bin Wilson
+  table over the histogram** (`cd  count  wilson95_lo  wilson95_hi`), row `a1_q4ac` of
+  `scripts/tr12_repro.sh`, landed battery F-5 D8 2026-09-08 and pinned in
+  `scripts/tr12_expected/n9/a1_q4ac.txt`) — an estimator upgrade over this project's own prior C3
   histograms (previous data was enumeration-slice-scoped; this is uniform over ALL of SUPER). (b): SAT
   binary search — `sat.py` C3 encoding — **[I1 correction, C3 adversarial review 2026-07-22:
   bisect on integer G, not on cd×64 units.** By the
@@ -308,7 +333,8 @@ QSET external review, which the external review itself missed; see
   TO-BUILD and nothing here claims otherwise.**
 - **Stage:** (a)/(c) post-F; (b) NOW-able (SAT needs no compiler). **Cost:** (a)/(c) ≈ $5–20;
   (b) ≈ $5–50 on a Spot D16 depending on SAT behavior [wide-hedged].
-- **Output/verification:** histogram TSV + CI table; DRAT certs re-checkable via drat-trim
+- **Output/verification:** histogram TSV + the three Wilson tables named in the Mechanism bullet
+  (acceptance mass, μ, and the per-bin table); DRAT certs re-checkable via drat-trim
   (rung 1); witnesses validated by `verify.py`-class checkers. TR-9's circularity note on C3's
   threshold is restated wherever the census is quoted (the ceiling is KW-defined).
 
@@ -319,9 +345,18 @@ QSET external review, which the external review itself missed; see
   `--lines` per-line change counts, `--canons` half-statistics, `--graycode` tallies, positional
   pair-marginal matches, boundary KW-match counts, edit-distance-to-KW (§ but see caveat 3).
   Class (b) — small extra state: `--markov` (×5 last-distance), `--mutual-info`
-  (bounded counters), `--yinyang` running-balance extrema, prefix level-cover masks. **NOT
-  DP-optimizable (class c), honestly listed:** `--complements` (C3 itself — monotone in-path
-  prune only), `--palindromes`, `--autocorrelation` (all lags), `--fft` magnitudes,
+  (bounded counters), `--yinyang` running-balance extrema, prefix level-cover masks, **and C3
+  itself** — ⚠ *(moved from class (c) on 2026-09-12, V3A-134#10; this row read "`--complements`
+  (C3 itself — monotone in-path prune only)" under **NOT DP-optimizable**, which the same
+  repository's own code contradicts.* C3 collapses to the bounded scalar **C3 = 16 + 8·G**
+  (`lean/C3Decomposition.lean`, `c3_slot_decomposition`), and the running slot-gap sum G has range
+  ±496 and is **orbit-invariant** — machine-checked as `runningG_orbit_invariant` in
+  `lean/PruneGInvariance.lean` — so it rides the canonical-mask quotient exactly like `rid`. The
+  instrument is built and shipped: `--f1-c3-hist --with-c5`. What actually blocks a C3 extremal is
+  narrower and is an *instrument* boundary, not a mathematical one: **the KC f/g/t ladders carry no
+  G channel**, and the full-31 run that does was priced and permanently declined on cost (§9).*)
+  **NOT DP-optimizable (class c), honestly listed:**
+  `--palindromes`, `--autocorrelation` (all lags), `--fft` magnitudes,
   `--windowed-entropy` (5¹⁵ state), `--recurrence` plots, positional maps of specific values,
   Davis GLB predicates. Constants-on-the-space (entropy of the wave histogram, path length,
   parity counts) are reported as TR-12 §11 material (theorem class), not extremals.
@@ -350,7 +385,18 @@ QSET external review, which the external review itself missed; see
   shortlist — yinyang excursion, markov self-transition, `--lines` imbalance are untouched.)*
 
 - **Mechanism:** **TO-BUILD** `--kc-extremal FUNC DIR` (per-functional min/max sweep + witness
-  reconstruction; separate subcommand, sha-neutral). **Shortlist proposed** (operator picks):
+  reconstruction; separate subcommand, sha-neutral). **Shortlist PROPOSED — no formula pinned, not
+  in the extremal registry** *(labelled 2026-09-12, V3B-03#12: these three were listed as a
+  shortlist an operator could simply pick from, and none of them is buildable as written. The
+  registry `--kc-extremal` actually dispatches — `KC_X_REG` in `solve.c`, cited by symbol because
+  line numbers drift — holds exactly `dclass:1/2/3/4/6`, `linechanges`, `graycode`, `yangcount`,
+  `entryyang` and the `posyang0` negative control. None of the three below is in it; `solve.py`
+  defines no `yinyang` or `markov` functional and `documentation/SOLVE_PY_CLI.md` documents no such
+  flag; and the registry's nearest entry, `linechanges`, is `invariant/C5-CONSTANT` — a forced
+  constant with nothing to optimise, which is not the imbalance functional proposed here. **Each
+  needs its formula — sequence scored, normalisation, objective — written down before it can be a
+  pick; until then it is a proposal, not a shortlist.** Nothing shipped depends on this: Q5 is
+  `SKIP:wave3-not-budgeted` and unbuildable at n = 31 regardless.)* (operator picks):
   max/min `--yinyang` cumulative-balance excursion; max/min `--markov` self-transition count;
   ⚠ ~~max KW-boundary-match count~~ **STRUCK 2026-09-05 (QSET finding 3,
   a circularity catch): the maximum is 31 and King Wen is the witness, BY CONSTRUCTION** — King Wen
@@ -370,7 +416,12 @@ QSET external review, which the external review itself missed; see
   mask carries orbit(cm) raw masks; placed-pair identity maps through the orbit transversal).
   Report per layer: argmax/argmin-nonzero choices by mass; KW's own **anchor-class percentile**
   per layer — the statistic the code computes is D5-08 `anchor_class_pct`, which is not a
-  "path percentile"; the older wording named a quantity nothing emits.
+  "path percentile"; the older wording named a quantity nothing emits. **The formulae, stated here
+  rather than left to the inventory** *(added 2026-09-12, V3B-03#13 — this site renamed the
+  statistic in 2026-09-06 and never gave it):* with `m_k(d)` the layer-k mass in distance class `d`
+  and `d_KW` the class of KW's own k-th transition,
+  **`anchor_p = m_k(d_KW)/N`** and **`anchor_class_pct = Σ_{d : m_k(d) ≤ m_k(d_KW)} m_k(d) / N`**
+  (ties included by the `≤`), per `documentation/QUERY_INVENTORY.md` §10.4.
 - **Mechanism:** **TO-BUILD** `--kc-scan FDIR GDIR --kc-raw` — ONE streaming pass joining adjacent f- and
   g-layers, emitting: (i) per-layer per-choice mass table (this query), (ii) positional-marginal
   field (V1), (iii) layer mass-flow aggregates (V2), (iv) transition-grammar table (V5). One
@@ -399,6 +450,21 @@ QSET external review, which the external review itself missed; see
   non-KW named sequence receives a serial number in TR-12 as built. Also note (D5-14): an O3 rank is
   label-relative — rank_O3(KW) = 0 by construction — so even a landed witness rank would be a
   serial number in a KW-derived coordinate, not a rarity statement.]**
+- **The three arrangements, printed** *(added 2026-09-12, V3B-03#14 — this section named them by
+  code identifier only, so a reader could not check a verdict without running the repository).*
+  `H = {0..63}` as 6-bit integers (`documentation/SPECIFICATION.md` §H); each array below is a
+  permutation of 0..63 and reproduces with
+  `python3 -c 'import solve;print(",".join(map(str,solve._r7_mawangdui())))'` (and the `_r7_fuxi` /
+  `_r7_jingfang` twins):
+  ```
+  _r7_mawangdui:
+  63,56,60,59,58,61,57,62,36,39,32,35,34,37,33,38,18,23,16,20,19,21,17,22,9,15,8,12,11,10,13,14,
+  0,7,4,3,2,5,1,6,27,31,24,28,26,29,25,30,45,47,40,44,43,42,41,46,54,55,48,52,51,50,53,49
+  _r7_fuxi:       0,1,2,…,63 (the identity on H)
+  _r7_jingfang:
+  63,62,60,56,48,32,40,47,9,8,10,14,6,22,30,25,18,19,17,21,29,13,5,2,36,37,39,35,43,59,51,52,
+  0,1,3,7,15,31,23,16,54,55,53,49,57,41,33,38,45,44,46,42,34,50,58,61,27,26,24,28,20,4,12,11
+  ```
 - **Mechanism:** **TO-BUILD** `--check-arrangement "h0,h1,...,h63"` (capability CAP-2's wrapper):
   raw-sequence adapter → the five existing predicates (`verify.py` check block; `solve.py`
   C1/C2/C3 helpers; C4/C5 point-checks trivial) → first-violation report; if valid → walk
@@ -421,6 +487,15 @@ QSET external review, which the external review itself missed; see
   (post-O3), cd\*/C3 value + verdict, functional profile (solve.py batch), `#provenance`.
 - **Mechanism:** `--kc-sample DIR 1000 <seed> --kc-record` (EXISTS, post-F); chi-square
   uniformity gate on rank buckets (the `--kc-midn` gate pattern at full-31).
+  **The gate is fully specified in public, and this section carried none of it** *(cross-referenced
+  2026-09-12, V3B-03#15 — TR-12 named a string seed and a "chi-square uniformity gate" while every
+  number lived elsewhere: `documentation/VERIFY.md`, `documentation/QUERY_INVENTORY.md` §0.4(1) and
+  the battery driver).* **Seed** = `TR12_SEED` = **9276183659154465378** =
+  `int(sha256("TR12-GALLERY-1")[:16],16)`; **K** = `TR12_Q8_K` = **1000** draws, plus a second
+  gallery of 1,000 C15 draws (not a ~121 subset). **Gate:** χ² over 16 rank buckets
+  `⌊16·rank/N⌋`, 15 dof, computed in integer arithmetic as `χ² = (16·S − k²)/k`, **PASS below
+  37.70**; the anchor run of 2026-08-07 gives buckets
+  `[71,55,64,59,75,58,53,74,51,49,64,60,58,81,60,68]` and **χ² = 20.224** on its 1,000 draws.
 - **Stage:** post-F. **Cost:** ≈ $5–15. **Output:** `tr12/gallery/` + seed + chi² line.
 - **Cross-check:** membership of every sample via `--kc-member` + constraint re-validation in
   Python (two-language); the gallery is the "typical member" baseline for TR-12.
@@ -449,11 +524,11 @@ members via f·g** — population quantities, not a projection of an enumerated 
 
 | # | Figure | Exact definition (SUPER unless noted) | Data source | Stage | Script sketch |
 |---|---|---|---|---|---|
-| V1 | `viz_kc_field.md` — positional-marginal field | P(pair j placed at slot k) = Σ_transitions orbit·f·g·[σ(pair)=j] / N; 32×31 heat matrix; KW's placements overlaid as marks | `--kc-scan` table (ii) | F+G+scan | matplotlib imshow from TSV; KW overlay from kw walk |
-| V2 | `viz_kc_river.md` — mass river | Layer-k mass split by top-level branch class (and by distance-class of the k-th transition): Sankey/stacked flow across k=1..31; KW's path drawn as a line | scan table (iii) | F+G+scan | stacked-area/Sankey from TSV |
+| V1 | `viz_kc_field.md` — positional-marginal field | P(pair j placed at slot k) = Σ_transitions orbit·f·g·[σ(pair)=j] / N; 32×31 heat matrix; KW's placements overlaid as marks. **Conventions the figure is read against** (`viz/viz_kc_field.md`): row `pair = 0` is **identically zero** (C4 pins pair 0 at slot 1, before layer 0 exists) and is kept so the row index reads as the pair index; `P` is **doubly stochastic** — every column sums to 1, and every non-pinned row sums to 1. All three are reader-side checks on the TSV | `--kc-scan` table (ii) | F+G+scan | matplotlib imshow from TSV; KW overlay from kw walk |
+| V2 | `viz_kc_river.md` — mass river | Layer-k mass split **by distance class of the k-th transition** (`atlas.layers[k].by_class{d1,d2,d3,d4,d6}`) — the **reduced form**, and the only one the atlas schema carries: a split by top-level branch class is **not** available, because `branch_atlas[]` holds per-branch totals, not per-layer-per-branch mass (`documentation/QUERY_INVENTORY.md` §3.1). Sankey/stacked flow across k=1..31; KW's path drawn as a line | scan table (iii) | F+G+scan | stacked-area/Sankey from TSV |
 | V3 | `viz_kc_spectrum.md` — rank spectrum | For ranks r on a systematic grid (r = i·⌊N/K⌋, K=10³–10⁴): walk-decomposable functional values of unrank(r) vs r — property drift across the index | `--kc-unrank` grid + solve.py evals | F (REL grid); G+O3 for the citable-order axis | shell loop + solve.py batch + scatter/line |
 | V4 | `viz_kc_shells.md` — KW's neighborhood shells | g(KW-prefix_k) vs k, log-scale (completions remaining after each KW choice) = Q3's rarity profile as a figure; optional band: min/max g over alternatives per step | Q3 output | G | semilog line from q3 TSV |
-| V5 | `viz_kc_grammar.md` — transition grammar | P(next-choice class \| layer k) exact (choice classes: distance class d∈{1,2,3,4,6} × new-pair category), heatmap over k; KW's actual choices marked | scan table (iv) | F+G+scan | heatmap from TSV |
+| V5 | `viz_kc_grammar.md` — transition grammar | P(next-choice class \| layer k) exact (choice classes: **distance class d∈{1,2,3,4,6} only**), heatmap over k; KW's actual choices marked. ⚠ *The "× new-pair category" second dimension was promised here until 2026-09-12 (V3B-03#13) and **is absent from the atlas schema** — `documentation/QUERY_INVENTORY.md` §3.1 rules V5 the distance-class form only* | scan table (iv) | F+G+scan | heatmap from TSV |
 
 Costs: data extraction rides §Q6's scan pass (V1/V2/V5) and Q3 (V4); V3's grid ≈ $5–20
 (K unranks). Rendering ≈ $0 (local). Verification: every figure's TSV is committed as evidence;
@@ -474,8 +549,10 @@ scale — the throughput anchor is the atlas run's own measurement, published wi
 pilot *artifacts* are not public, and re-deriving them would take a fresh paired benchmark that is
 not authorised — but the two anchors themselves are already published** and are quoted here rather
 than withheld: the R-1 orbit-engine work factor **36.14×** and wall ratio **19.8×** at 1 T are
-committed in the battery driver, `scripts/tr12_repro.sh:1401`, as the stated reason its `c_xa_cd`
-row skips (`SKIP:xa-throughput-anchors`); read them with
+committed in the battery driver as the stated reason its **`c_xa_cd`** row skips
+(`SKIP:xa-throughput-anchors`) — cited by row name rather than by line number, because the line
+moved (this read `scripts/tr12_repro.sh:1401` until 2026-09-12, V3A-044#6; the text is at `:2844`
+today and will move again); read them with
 `git grep -n "xa-throughput-anchors" main -- scripts/tr12_repro.sh`. What has **no** public
 basis, and is therefore still not quoted, is the nodes/sec rate itself; (d) **verdict**: EXHAUSTIBLE (fits a stated $ ceiling) vs
 INFEASIBLE. ⚠ **This call is WITHHELD and the consumer now refuses to make it.** Pricing t-units as
@@ -747,8 +824,15 @@ specced in the report; this is the execution spec behind them.
 
 ### R.0 — The catalog is THREE stages, f → g → t, and ALL are required (read this first)
 
-**No TR-12 query, no Exhaustion-Atlas number, and no published count can be reproduced without
-first building the three-tier compiled catalog. There is no shortcut and no partial path:** the
+**The Exhaustion Atlas and every exact-count or ranking query need the compiled catalog; a
+per-query table follows, and it is the `ladders` column of `documentation/QUERY_INVENTORY.md` §1
+rather than a blanket.** ⚠ *(Narrowed 2026-09-12, V3A-086#7. This read "No TR-12 query, no
+Exhaustion-Atlas number, and **no published count** can be reproduced without first building the
+three-tier compiled catalog. There is no shortcut and no partial path" — a blanket this document's
+own anchors contradict. `solve --kc-count FDIR` returns the exact N **from f alone**
+(`documentation/VERIFY.md`), REL rank/unrank works "from forward layers alone" (§0 above), and the
+inventory's own ladders column carries `f` for Q1b, Q2b, Q2c/d, Q4a/c and Q8 and `—` for Q4b, Q7
+and Q9 — which need no ladder at all. R.0 should reproduce that table, not contradict it.)* the
 1.097×10³⁹ solution space is never materialized; every TR-12 result is a *query against this
 catalog*, so the catalog IS the reproduction artifact. The three stages must be built **in
 dependency order** — **CORRECTED 2026-08-13: this is a FAN, NOT A CHAIN.** `f -> {g, t}`: both `g` and `t`
@@ -784,7 +868,12 @@ Stage T`. Both are wrong. `g` and `t` are siblings; the arrows below are the cor
    branch atlas (XA) needs all three: FDIR + GDIR + TDIR
 ```
 
-- **f alone** answers membership / first-violation only (Wave 1 queries).
+- **f alone** answers membership, first-violation, **`--kc-count` (the exact N — `documentation/VERIFY.md`
+  §counts)**, **REL rank/unrank** (Q1b, Q2b, Q2c/d, and the V3 REL axis) and **`--kc-sample`**
+  (Q4a/c, Q8, Q1c). *(Corrected 2026-09-12, V3A-086#7: this read "membership / first-violation
+  only".)*
+- **No ladder at all** is needed by Q7 (arrangement verdicts), Q9 (certified restatements) or
+  Q4b (SAT) — the inventory's ladders column carries `—` for all three.
 - **f + g** are needed for any exact count or ranking query (Q1–Q3, Q6; Wave 2).
 - **f + g + t** are needed for the Exhaustion Atlas — the headline TR-12 section — and every
   per-branch exhaustion number (XA, EW-1, CAP-3/5/7).
@@ -805,15 +894,25 @@ report it resolved to nothing. A reproduction instruction pointing at
 nothing is worse than one pointing at a tag the reader can list, so the placeholder is named as a
 placeholder rather than dressed as a commit.)* Each command below is OOC, resumable and sha-gated.
 Let `FDIR`/`GDIR`/`TDIR` be the three catalog directories. **They are not the same size, and
-the difference is load-bearing for provisioning** — measured on the completed full-31 ladders with
-`du -sb`:
+the difference is load-bearing for provisioning**. ⚠ *(Basis stated per row 2026-09-12, V3B-03#33.
+This table headed all three rows "measured … with `du -sb`" and they are **not on one basis** —
+which is why f exceeds its own archive total. Each row now says what was summed, and the
+reproducible public basis for all three is the 65-file registry in
+`runs/20260906_kc_ladders_n31/README.md` §Provenance.)*
 
 | ladder | measured size | provision |
 |---|---|---|
-| **f** (`FDIR`) | **3.29 TB** (3,293,894,951,830 B) | a 4 TB volume holds it, with little headroom |
-| **g** (`GDIR`) | **8.27 TB** (8,274,431,592,051 B over 32 layers) | ⚠ **≥ 10 TB.** A 4 TB volume does **not** hold it, and neither does an 8 TB volume shared with f |
-| **t** (`TDIR`) | **3.48 TB** *(MEASURED on the completed ladder, 2026-09-06; was "~3.1 TB projected")* | a 4 TB volume |
-| **total** | **15.05 TB** *(measured; was "~14.7 TB" from the t projection)* | — |
+| ladder | measured size | basis of the measurement | provision |
+|---|---|---|---|
+| **f** (`FDIR`) | **3.29 TB** (3,293,894,951,830 B) | `du -sb FDIR` on 2026-08-02 — **directory contents**, so sidecars and extras are included. It therefore **exceeds** the 65-file archive total 3,293,894,509,534 B by 442,296 B; not a contradiction, but a different basis | a 4 TB volume holds it, with little headroom |
+| **g** (`GDIR`) | **8.27 TB** (8,274,431,592,051 B) | **sum of the 32 `.bin` layer files only.** The 65-file archive total is 8,274,432,288,476 B; the 696,425 B difference is sidecars + manifest | ⚠ **≥ 10 TB.** A 4 TB volume does **not** hold it, and neither does an 8 TB volume shared with f |
+| **t** (`TDIR`) | **3.48 TB** (3,483,654,585,228 B) | the **65-file archive total** *(MEASURED on the completed ladder, 2026-09-06; was "~3.1 TB projected")* | a 4 TB volume |
+| **total** | **15.05 TB** *(measured; was "~14.7 TB" from the t projection)* | the three rows above, on the three different bases named | — |
+
+**Peak build space: UNMEASURED.** No peak figure exists for any stage and none can be obtained
+without a rebuild, so none is quoted. The bound the *format* gives is the finished ladder plus the
+live-layer window (`documentation/F1C5_LAYER_FORMAT.md`); a reproducer should provision above the
+finished sizes above, not at them.
 
 *(Corrected 2026-09-05. This line read "three catalog directories on ~4 TB disk each", and both
 `solve.c`'s `--kc-g-build` usage text and `documentation/SOLVE_C_CLI.md` predicted g at "~2.5-2.7 TB
@@ -875,8 +974,14 @@ TR-11's, and it is the **f**-ladder contract; **g needs ≥ 10 TB**, per the mea
    (`../README.md` §"Check it yourself" — the repository-root README, not `reports/README.md`) — and by the next sentence the two are sha-equivalent.
    **Toolchain freedom is load-bearing and stated:** all registered layer shas are over
    the DECOMPRESSED stream (the CR-3b subcommand `--f1c5-layer-sha`), and recompress-invariance
-   is PROVEN (CR-3b work, 2026-07-16) — compiler choice, zlib version, and gzip level CANNOT
-   change any registered sha. `--selftest` anchor + `build.sha` hygiene apply as usual.
+   is PROVEN (CR-3b work, 2026-07-16). **Two claims live here and they have different standing —
+   split 2026-09-12 (V3B-03#35), where one sentence had promoted both to "CANNOT".**
+   (i) **zlib version and gzip level cannot change a decompressed-stream sha** — that is a
+   *proof*, true by construction for a lossless codec. (ii) **Invariance to compiler, flags and
+   architecture is OBSERVED, not proven:** it holds on every recipe `reports/METHODS.md` §toolchain
+   lists — `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3`, `-O3 -flto`, and x86 vs ARM — which
+   METHODS itself records as **two witnesses, not an exhaustive guarantee** over every compiler
+   version and host. `--selftest` anchor + `build.sha` hygiene apply as usual.
 3. Rebuild the f-ladder from scratch: `--f1-exact-c1c2c4c5 --f1-out-of-core DIR` with
    `SOLVE_F1_KEEP_LAYERS=1` (the Stage-F form; `--resume-from-layers` after any interruption).
    The TR-11 §7 commodity contract governs: **~64 GB RAM + ~4 TB disk**. Expected cost/time,
@@ -1182,8 +1287,14 @@ claim-TYPE demonstrated at laptop scale with commands. **Cost:** $0 (artifacts e
 **Verification:** the §R small-tier commands ARE the appendix; reader-runnable in minutes.
 
 ### E. The constraint lattice ("which constraint does the work") — SHOULD (the budget item)
-The 2^5 intersection anatomy. Today the suite publishes exactly two cells (TR-11 exact
-C1C2C4C5; TR-4 estimated C15). Plan: (1) SIZING PASS first — which non-C3 cells the TR-11
+The 2^5 intersection anatomy. **Today the suite publishes at least three exact cells of the 2⁵
+lattice and one estimate** — C1∩C2∩C4 (TR-11 abstract, 7.5706×10⁴¹), C1∩C2∩C4∩C5 (TR-11 §9), and
+the closed-form C1∩C4 / C1 nulls whose exact G-laws `verify.py --check-null-g [--unpinned]` prints
+(which make C1∩C3∩C4 and C1∩C3 exact rationals × closed-form totals); the one estimate is TR-4's
+C15. ⚠ *(Corrected 2026-09-12, V3A-086#9: this read "publishes exactly two cells (TR-11 exact
+C1C2C4C5; TR-4 estimated C15)", which understates the suite's own published exact results — TR-11's
+abstract publishes |C1∩C2∩C4| exactly, with its command, and TR-4 tabulates it as a calibrated
+layer.)* Plan: (1) SIZING PASS first — which non-C3 cells the TR-11
 DP method computes exactly and at what cost (some cells may be far cheaper than Stage F;
 some larger-count cells may be pricier; no cell is run before its quote); (2) exact cells
 within budget + validated-estimator values for the rest, ALL cells labeled by method;
@@ -1202,8 +1313,13 @@ C1–C5 predicate family (structural argument and/or pair-level exhaustive/SAT c
 cert per the Fable-work rule).
 
 ### G. TR-4 v-next: estimator recalibration — versioned update (not TR-12)
-TR-11's absolute validation (ratio 0.999956 at 10^39) retroactively tightens every published
-estimate. One table: each prior estimate, its method, the post-validation confidence statement.
+TR-11's exact count falls inside the Knuth estimator's stated ±0.01 % envelope at the C1∩C2∩C4∩C5
+cell (the ratio 0.999956 is a five-significant-figure rounding gap, TR-11 v1.4). It **validates**
+that envelope; it does **not** tighten any interval, and nothing licenses a tightened error bar on
+the uncalibrated C3 layer — TR-4 §"Three points are consistency, not an error model" says so in
+terms. ⚠ *(Corrected 2026-09-12, V3A-086#6: this read "retroactively tightens every published
+estimate", promising a statistical tightening the cited reports deny.)* One table: each prior
+estimate, its method, and its **calibration status** — not a revised CI.
 **Cost:** $0 (writing + arithmetic). **Verification:** cites TR-11 §; no new computation.
 
 ---
@@ -1213,7 +1329,12 @@ estimate. One table: each prior estimate, its method, the post-validation confid
 *Folded in 2026-07-31 after the July prior-art sweep + the #32 Lean
 closeout. Assessment basis: the sharpest prior-art frameworks the sweep surfaced are **Ouyang
 1990/1992** (the hexagram set as (ℤ/2)⁶ with explicit subgroups and cosets — the fullest algebraic
-framing) and **Suenaga 2012** (the earliest to START the count, 1395 = [6,3]₂ Gaussian binomial);
+framing) and **Suenaga 2012** (an **independent arrival** at counting the arrangement space,
+1395 = [6,3]₂ Gaussian binomial — ⚠ *this read "the earliest to START the count" until 2026-09-12
+(V3A-086#8). That is a firstness claim, and `documentation/CITATIONS.md` §suenaga2012 **withdrew
+exactly it on 2026-08-28**, naming Huang 1997 (which transmits an earlier closed-form count) and
+Chen 2007 as earlier. No firstness is asserted here; the supported claim is independence, which is
+also the form TR-11's novelty note already uses*);
 plus the now-kernel-only DIV-24 theorems (`twenty_four_dvd_*`, #32) and the equivariance ceiling
 (P ≤ 1/24). None of this opens a new heavy-compute program — the flagship queries (Q1–Q3, Q6, Q8)
 and the exact/estimate boundary are UNCHANGED (the sweep did not make |C15| exact). It adds ONE new
@@ -1223,8 +1344,15 @@ query family and refines four existing items. All items below are labeled by spa
 - **Definition (SUPER, exact part).** The record-level action is free with 24-element orbits
   (TR-5; `twenty_four_dvd_*` now **kernel-only**, #32), so |SUPER|/24 and every layer count /24 are
   exact integers. (a) **Orbit census:** per g-ladder layer, the exact number of distinct 24-orbits,
-  **computed by canonical-form census — NOT by dividing the layer mass by 24** — and KW's orbit's
-  rank among them. ⚠ `layer walk-mass / 24` is not an orbit count and this document said it was:
+  **computed by canonical-form census — NOT by dividing the layer mass by 24**. ⚠ *(Matched to the
+  battery 2026-09-12, V3B-03#41. This promised "the exact number of distinct 24-orbits per layer …
+  **and KW's orbit's rank among them**", and the run produces neither as written. What row `c_q10a`
+  delivers is: N/24 **stated once** — a record-level identity, not a walk-orbit count — a per-layer
+  mod-24 gate, and a per-layer **STATE** census by G-orbit-size class plus a branching histogram,
+  transcribed from the f-ladder sidecars. The orbit-rank leg is measured separately as row
+  `c_q10a_kwrank`, and its measured value is
+  **`TR12_Q10A_KWRANK=EMPTY:class-rank-uncomputable-under-kw-labels`** — forced to 0 by KW-derived
+  labels, so it is a null result, not a rank.)* `layer walk-mass / 24` is not an orbit count and this document said it was:
   measured exhaustively at n=9: 432 records give **18 record-orbits** (432/24) and the 26,112 walks
   give **544 walk-orbits**, while N/24 = **1088** is neither. TR-11 §2's precision note already states
   why — *at the orientation-explicit sequence level orbits have size 48, so N/24 is 2× the
@@ -1233,7 +1361,14 @@ query family and refines four existing items. All items below are labeled by spa
   every layer. (b) **Coset-structured census (the Ouyang lens):** classify solution mass by position
   in the (ℤ/2)⁶ subgroup/coset lattice that Ouyang 1992 uses for the hexagram algebra — i.e. tabulate
   how walk-mass distributes across the cosets of the relevant XOR-translation subgroups, and whether
-  KW's coset is distinguished. **Honesty label:** (a) is EXACT and cheap; (b) is **EXPLORATORY
+  KW's coset is distinguished. 🔴 **(b)'s SUBGROUP SET AND COSET-ID MAP ARE UNDEFINED, and must be
+  defined before `--kc-coset-census` can even be specified** *(2026-09-12, V3B-03#41).* "The
+  relevant XOR-translation subgroups" names no particular set of subgroups, and "coset id via the
+  XOR structure" names no map from a canonical mask to a coset id — so there is nothing here a
+  builder could implement. `--kc-coset-census` does not exist (`git grep -c` → 0,
+  `documentation/QUERY_INVENTORY.md`), and `TR12_Q10B=PENDING:--kc-coset-census` is pinned in the
+  harness. **(b) does not need a producer yet; it needs a definition.**
+  **Honesty label:** (a) is EXACT and cheap; (b) is **EXPLORATORY
   (EW-class, FRONTIER discipline)** — it may reveal a real concentration or may be flat, and "flat"
   is a reportable negative (feeds Q9), NOT a failure. No structural claim is pre-committed.
 - **Mechanism.** (a) rides the existing `--kc-g-check` mass identity (Σ orbit·f·g = N already computed
@@ -1247,7 +1382,7 @@ query family and refines four existing items. All items below are labeled by spa
   gate — now Lean-kernel-backed) + `tr12/q10_coset_census.tsv` (mass by coset id + KW's coset). Gate:
   every layer count ≡ 0 (mod 24) EXACTLY (dispositive; ties to `twenty_four_dvd_*`); Σ over cosets =
   layer mass. Cross-check: n ≤ 13 exhaustive orbit counts. **Cite Ouyang 1990/1992 (framework) +
-  Suenaga 2012 (counting start) at the query site** — this is the query that visibly extends their lineage.
+  Suenaga 2012 (independent counting arrival) at the query site** — this is the query that visibly extends their lineage.
 
 ### Refinements to existing queries (no new compute)
 | Query | Refinement (source) | Action |
@@ -1255,7 +1390,7 @@ query family and refines four existing items. All items below are labeled by spa
 | **Q4** (C3 census) | C3 = 16 + 8·G identity CLOSED (kernel, `C3Decomposition.lean`). Beyond the already-adopted "bisect on integer G / bracket [12,47] / mod-8 lattice" correction, publish an **EXACT** G-channel companion to the (estimated) C15 histogram: the C1∩C4 null law of G — support **[12, 228]**, **E[G] = 128** (⇒ E[C3] = 1040), **P(G ≤ 95) = 641983711307479/7919632354008375 ≈ 8.106%** — exact via the G-channel DP. One column moves estimate→exact; the C15-conditioned histogram stays labeled ESTIMATE. | Add exact-G companion table + the ceiling-is-KW-defined circularity note (already in Q4). |
 | **Q9** (reportable negatives) | (i) Add the **equivariance ceiling** (P(KW-record) ≤ 1/24 for ANY G-invariant generator; `KingWen.lean`, kernel-only) as a strong new negative — no G-invariant scoring can concentrate on KW beyond 1/24. (ii) The **8 forced literature rules** (Find 1 → `C1RuleConstants.lean`) are now PROVEN constants of the entire C1 space, so they move from Q9's "candidates for proof upgrade (LS-1)" into the theorem class. | Promote the 8 rules; add the ceiling negative with its hypothesis-class scope stated. |
 | **XA** (Exhaustion Atlas) | Add an explicit **24-divisibility integrity self-check** on every **G-closed** headline count (⚠ NOT on every count: per-branch masses are not G-closed — measured, branch 0 = 2368 ≡ 16 (mod 24) — so extending this gate as first written makes a *correct* atlas fail) — now **Lean-kernel-backed** (`twenty_four_dvd_*`, no longer native_decide, #32). Cheap, dispositive, and it hardens the whole count cascade. | Add the mod-24 gate row to XA's integrity block; cite the kernel theorem. |
-| **LS / XA framing** | Express the counting cascade in the **Gaussian-binomial / [6,3]₂ lineage** where Suenaga 2012 began it (1395 = [6,3]₂), so the Atlas visibly EXTENDS a known partial count rather than presenting a bare number. | Add the q-binomial framing note + Ouyang 1992 / Suenaga 2012 citations to LS and XA provenance. |
+| **LS / XA framing** | Express the counting cascade in the **Gaussian-binomial / [6,3]₂ lineage** which Suenaga 2012 exhibits (1395 = [6,3]₂), so the Atlas visibly EXTENDS a known partial count rather than presenting a bare number. | Add the q-binomial framing note + Ouyang 1992 / Suenaga 2012 citations to LS and XA provenance. |
 
 ### Not changed (stated for the record)
 The exact/estimate boundary is UNCHANGED: |C1–C5| and |C1–C7| remain **estimates** (compute-bound;
@@ -1278,4 +1413,5 @@ Ouyang 1990/1992, Zhang 1994/1998/2000, Suenaga 2012, Luo 2015 (already in CITAT
 | version | date | change |
 |---|---|---|
 | v1.0 | 2026-09-05 | **First public release.** The specification body is the 2026-07-17 text by Claude (Fable 5) and is unchanged in substance. Three publication passes ran before release and are recorded here because each changed what a reader is looking at. (1) A **figure → reproduction-command audit**: every asserted figure was classified, and those with neither a public citation nor a public reproduction command were **struck rather than shipped**, each strike saying in place what was removed and why. (2) A **public-anchor pass**: citations to internal working notes were replaced by a published document, a runnable command or a code site; the one citation for which no public anchor exists is recorded as exactly that; the ladder-publication question was resolved as **per-layer SHA registries are published, the ladder data is not distributed by this project**; and the H3b specification amendment is recorded in §0. (3) A **novelty scrub under the publication freeze**, temporarily removing priority assertions; the removals are registered verbatim so the scrub is a loan, not a deletion, and their restoration is separately gated. **Cost figures:** the earlier revision of §9 quoted a dollar band and an operator price quote for the declined exact-C3 run; both are withdrawn, and the **dollar figures are redacted rather than restated**, following `TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md` v1.10 — a withdrawal that requotes a number publishes it. **Withheld:** the standing single-branch-exhaustion shortfall factor is not quoted; it has no public reproduction command, and its public anchor is a run (`documentation/HISTORY.md` §"April 22, 2026 — Campaign A Pass 1"; `runs/20260422_passA_10T_d64_laggard/`), not a figure. **Corrected at release:** four sites reused framings this document retracts elsewhere in its own text — the exact C15 count described as an "obstruction" or "not computable" when §9 records it as **priced and permanently declined on cost** (TR-11 §10(ii) v1.5 having withdrawn the structural claim), and §R.0's ladder diagram carrying both the retracted chain arrows and the corrected fan annotations under one label. No count, definition, verdict or query specification changed in any pass |
-| v1.1 *(current)* | 2026-09-05 | **Ladder provisioning corrected — g is 8.27 TB, not "~4 TB like the others" (found by a reader's challenge, hours after v1.0 shipped).** §R.0's build section said "three catalog directories on ~4 TB disk each" and now carries the measured per-ladder table: f **3.29 TB**, g **8.27 TB** (2.5× f), t ~3.1 TB projected, **~14.7 TB total**. The same stale hedge — "~2.5-2.7 TB … the same size class as f" — was live in four `solve.c` sites including the `--kc-g-build` **runtime usage string**, which told a reproducer that "a second 4 TB disk or a shared 8 TB with the f ladder both work"; g alone exceeds 8 TB, so provisioning from that line ran out of disk partway through a multi-day build. All corrected, with `du -sb` as the reproduction command; `documentation/CAMPAIGN_METHODOLOGY.md`-style commodity contract wording clarified — TR-11 §7's "~64 GB RAM + ~4 TB disk" is the **f** contract, not per-ladder. The g comment had said "hedged, **unmeasured until the run**"; the run happened and nothing propagated the measurement back. See [CORRECTIONS.md](../documentation/CORRECTIONS.md). **Sha-neutral** (`403f7202…` measured before and after). No count, definition, verdict or query specification changed |
+| v1.1 | 2026-09-05 | **Ladder provisioning corrected — g is 8.27 TB, not "~4 TB like the others" (found by a reader's challenge, hours after v1.0 shipped).** §R.0's build section said "three catalog directories on ~4 TB disk each" and now carries the measured per-ladder table: f **3.29 TB**, g **8.27 TB** (2.5× f), t ~3.1 TB projected, **~14.7 TB total**. The same stale hedge — "~2.5-2.7 TB … the same size class as f" — was live in four `solve.c` sites including the `--kc-g-build` **runtime usage string**, which told a reproducer that "a second 4 TB disk or a shared 8 TB with the f ladder both work"; g alone exceeds 8 TB, so provisioning from that line ran out of disk partway through a multi-day build. All corrected, with `du -sb` as the reproduction command; `documentation/CAMPAIGN_METHODOLOGY.md`-style commodity contract wording clarified — TR-11 §7's "~64 GB RAM + ~4 TB disk" is the **f** contract, not per-ladder. The g comment had said "hedged, **unmeasured until the run**"; the run happened and nothing propagated the measurement back. See [CORRECTIONS.md](../documentation/CORRECTIONS.md). **Sha-neutral** (`403f7202…` measured before and after). No count, definition, verdict or query specification changed |
+| v1.2 *(current)* | 2026-09-12 | **Documentation tranche from the Fable adjudication of the Codex v3 KC-surface review (17 findings; no count, definition or verdict changed, and no query specification changed).** §0: |C15|'s "±0.02%" is relabelled as what TR-4 actually publishes — a relative standard error, `relerr = SE/mean` — with the 95 % CI `[1.3283, 1.3292]×10³⁸` printed beside it (V3B-03#4). §Q4: the ~9.91 % / ~10.11 % ceiling-tie shares now carry their public numerators (340,179,649 and 1,063,580,364 / 10,525,271,997) and name the two inputs that are **not** public — the 560 T `--c3-min` log and the T5 parquet (V3B-03#8); the Q4(a,c) output contract is restated once, with M, seed, level and **all three** Wilson tables including the per-bin one, the 2026-09-06 narrowing having been stale in the opposite direction (V3B-03#10). §Q5: C3 moves from "NOT DP-optimizable" to the small-extra-state class, since `C3 = 16 + 8·G` is machine-checked and running G is orbit-invariant (`runningG_orbit_invariant`) — the real obstruction is that the KC ladders carry no G channel and the full-31 run was declined on cost (V3A-134#10); the three shortlisted functionals are labelled **PROPOSED — no formula pinned, not in the extremal registry**, with `KC_X_REG`'s actual contents named (V3B-03#12). §Q6/V1/V2/V5: the `anchor_p` / `anchor_class_pct` formulae are given at the site, V1 gains its doubly-stochastic and zero-row conventions, and V2/V5 are stated in the reduced distance-class form the atlas schema actually carries (V3B-03#13). §Q7 prints the three arrangement arrays (V3B-03#14); §Q8 prints the seed, K, bucket rule, `χ² = (16·S − k²)/k`, the 37.70 bar and the 20.224 anchor (V3B-03#15). §R.0's blanket "no published count can be reproduced without the catalog" is narrowed to the per-query table it contradicted — `--kc-count`, REL rank/unrank and `--kc-sample` all run from f alone, and Q4b/Q7/Q9 need no ladder (V3A-086#7); the ladder-size table states its basis per row, cites the 65-file archive registry, and records peak build space as UNMEASURED (V3B-03#33); the sha-invariance sentence is split into the codec proof and the **observed** compiler/flag/architecture property (V3B-03#35). §10E now says the suite publishes at least three exact cells plus one estimate (V3A-086#9); §10G states that TR-11's validation confirms the estimator envelope rather than tightening any interval (V3A-086#6). §11: the Suenaga 2012 firstness wording is replaced by the independent-arrival form its own bibliography entry adopted on 2026-08-28 (V3A-086#8), Q10(a) is matched to what the battery measures including `TR12_Q10A_KWRANK=EMPTY:class-rank-uncomputable-under-kw-labels`, and Q10(b) is marked undefined — no subgroup set, no coset-id map — ahead of any producer (V3B-03#41). §3 cites the throughput anchors by battery row name `c_xa_cd` instead of a line number that had moved (V3A-044#6) |
