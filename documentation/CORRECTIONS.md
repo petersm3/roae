@@ -9225,7 +9225,7 @@ with the test that proves each still true, deliberately shaped to **fail when th
 boundary 4's share as more than half of one. The registered retraction is **RP-9e8bee78**.
 
 **What was wrong.** The quantity is `sum_p H(pair at p)` — the SUM of per-position marginal
-entropies — which `solve.c:39757` states in as many words and which `HISTORY.md` recorded correctly
+entropies — which `solve.c:39772` states in as many words and which `HISTORY.md` recorded correctly
 when the figure first landed. A sum of marginals is not a joint entropy and is not bounded like one.
 
 **The measurement that settles it.** Joint entropy over the 10,525,271,997 canonical records is
@@ -9386,7 +9386,7 @@ defect class this whole review exists to remove. The actual string is registered
 - **What `--verify` actually does:** it computes `kw_found_v` and prints it (`King Wen
   found:`, plus the machine-readable whole-line `KW_PRESENT=YES|NO`). That value reaches
   `total_fail` **only** through `fail_kw`, which is set only under the opt-in `--expect-kw`
-  (`solve.c:37910`, summed at `:37926`). On a default `--verify`, an artifact with the King
+  (`solve.c:37925`, summed at `:37941`). On a default `--verify`, an artifact with the King
   Wen record deleted returns `VERIFY=PASS`, rc 0 — measured 2026-09-02.
 - **No number, sha, record count or verdict changed.** PASS was and remains PASS on the
   constraint, sort and dedup checks, and **the observation itself stands**: King Wen is in

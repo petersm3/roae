@@ -29269,7 +29269,7 @@ static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
      * not help: its arm below sits inside the ok[i]==0 branch, so an un-run check never reaches
      * it. The consumer ALREADY refuses "not-run" (solve.py atlas_load), so the fix is not a new
      * mechanism -- it is to stop laundering the un-run state through a word nothing checks.
-     * Unreachable at n<=13 (want_raw is forced at :30191 and :30925), so no golden moves. */
+     * Unreachable at n<=13 (want_raw is forced at :30206 and :30940), so no golden moves. */
     int tail_notrun = 0;
     for (int i = 0; i < KC_SCAN_NTC; i++) {
         strcpy(T->tail_report[i], ok[i] < 0 ? "not-run" : (ok[i] ? "PASS" : "FAIL"));

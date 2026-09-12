@@ -11984,11 +11984,11 @@ def atlas_load(path):
     if isinstance(fails, bool) or not isinstance(fails, int):
         raise AtlasError("%s: gates.fails=%r is not an integer" % (path, fails))
     # 🔴 Q-560, FIXED 2026-09-12. "see fails" was the ONLY value read as a failure, so the
-    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30070, emitted
+    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30085, emitted
     # for raw_marginal_sums_eq_N and kernel_marginals_eq_cls_raw whenever want_raw is 0 -- was
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
-    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30081) is ALSO an un-run gate,
+    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30095) is ALSO an un-run gate,
     # but VERIFY.md:1151 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:5655,
@@ -12077,7 +12077,7 @@ def atlas_load(path):
             % (path, tf, len(bad), ", ".join(bad) or "-"))
     # 🔴 Q-561, FIXED 2026-09-12. The guard that stood here fired only when "n/a" verdicts
     # were present AND some layer carried marginal_raw. But "n/a" was produced precisely when
-    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29939
+    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29954
     # asserts it appears exactly want_raw times. So the guard was conditioned on the data that
     # vanishes in the only case it had to catch: it could fire on a forged atlas and never on a
     # real one. Removed, not repaired. Every un-run verdict now lands in the notrun arm above,
