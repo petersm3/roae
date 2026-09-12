@@ -9,7 +9,7 @@ q1c_universe_N	26112
 q1c_interval	[0, 13056)
 Q1C_CARD	13056
 q1c_verdict	NONEMPTY
-# Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable.
+# Q1(c) — labelled ESTIMATE with binomial CI over the C1&C2&C4&C5 superspace; the exact C15 rank was PRICED AND DECLINED (~$3-5K; TR-12 s9), not 'not computable' (TR-11 s10(ii) obstruction dissolved by lean/C3Decomposition.lean).
 rank_O3_anchor	13056
 requested_M	200
 drawn_M	200

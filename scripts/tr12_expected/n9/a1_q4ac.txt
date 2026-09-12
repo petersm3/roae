@@ -1,5 +1,6 @@
 # Q4(a,c) C3 census — ESTIMATE over SUPER, space=C1C2C4C5-SUPERSPACE
 # walk-functional units (cd_true = 2*(walk_cd+1)); threshold used T=31
+# population: orientation-explicit WALKS uniform over SUPER; mu_rec is the HT record-level companion
 requested_M	20000
 realised_M	20000
 cd	count	fraction
@@ -13,6 +14,13 @@ c15_accepted_draws	5269
 mu_hat_P_C15_cd_eq_T	0.66426267
 mu_wilson95_lo	0.65139580
 mu_wilson95_hi	0.67689019
+c15_ht_weight_sum	146.76562500
+c15_ht_weight_sum_at_T	72.92187500
+mu_rec_C15_HT	0.49685936
+mu_rec_ht_n_eff	4160.7380
+mu_rec_wilson95_lo	0.48167694
+mu_rec_wilson95_hi	0.51204758
+label_mu_rec	ESTIMATE (HT 1/m reweighting, V4_RECORD_CONVENTION_DECISION_2026_07_14): the RECORD-level companion to mu_hat above, over the same draws; the interval is Wilson at the EFFECTIVE sample size n_eff = (sum w)^2 / sum w^2, never at the draw count
 cd	count	wilson95_lo	wilson95_hi
 23	1769	0.08459337	0.09246470
 31	3500	0.16979657	0.18032825

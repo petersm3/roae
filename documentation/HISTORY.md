@@ -7337,3 +7337,51 @@ verifier row that refuses n=31 by design, running unguarded inside the pre-scan 
 A `solve` grandchild kept writing 14.58 GB into a file that had already been unlinked, and that space
 came back only when the process was killed. The battery's exit trap now kills its own process tree
 before it removes its work directory.
+
+**The pre-freeze tranche, and why its deadline was real.** The KC query set is a multi-day paid run,
+and the battery, the engine and the n=9 goldens ship *frozen* — `git archive` of one commit — so a
+defect inside them is uncorrectable for the run's duration, and one that only appears at n=31 cannot
+be rehearsed beforehand. A Codex review and two Fable adjudications produced a set that had to land
+before that freeze. Six of them mattered.
+
+*Three numbers nothing was checking.* The pre-registration publishes `g(s_22) = 690,176`,
+`g(s_24) = 5,624` and `g(s_26) = 52` and says of them that a descent disagreeing with them is wrong.
+Nothing compared a descent to any of the three: `git grep 690176` over the scripts, the engine and
+the Python returned nothing at all. A full-31 descent carrying `g(s_26) = 51` would have passed every
+verdict token the program emits. The reader row now asserts all three at n=31, failure-only, so the
+n=9 transcript did not move; two new legs and two new mutants pin it, and one of those mutants exists
+because the check can only realistically fail by being deleted again.
+
+*A parent that outranked its own legs.* `TR12_Q3` was a literal `PASS`, set beside a reader check and
+a King Wen check that were both free to report failure — the one rule the battery enforces everywhere
+else. It is now read off its legs.
+
+*A gate that checked half of what it had pre-registered.* XA-b pre-registers two conditions, the
+t-unit identity and that every branch's `t_source` reads `t-ladder`. Only the first was decided. The
+consumer, worse, supplied its own default for a missing key — naming a method the producer never
+writes — so an atlas with no provenance at all was silently relabelled as having one. The default is
+now `ABSENT`, which fails the gate, and the column is printed in the verdict table beside it.
+
+*A promise the battery did not keep.* The query inventory has promised since 2026-09-06 that the C3
+census row would also emit `μ_rec^C15`, the record-level companion, by the ratified 1/m
+Horvitz–Thompson reweighting, and that it needed only one flag because `m` already shipped. It was
+never implemented. It is now: the gallery is uniform over *walks*, so a record class with `m`
+orientations is over-represented by exactly `m`, and dividing each accepted draw by its own `m`
+recovers the record census. At n=9 it reads 0.4969 against the independently measured 0.500, with the
+walk-level figure 0.6643 beside it — two different quantities over one sample, each labelled. This is
+the only number the tranche adds.
+
+*An impossibility claim the same file refuted.* Three places in the engine said C3 is "not
+DP-optimisable at all". Fifteen thousand lines above them, `--f1-c3-hist --with-c5` is that DP, and
+its orbit-invariance is machine-checked in Lean. What is true is narrower and less interesting: the
+KC ladders carry no G channel, and the full-31 run of the DP that does was priced and declined. The
+obstruction was a cost, and it had been written down as a theorem.
+
+*And a boundary that was measured with the wrong instrument.* The pre-registration escrowed the head
+of the `g` curve at `k ≤ 20`, on the strength of a 475-second measurement of the `k = 21` cell. That
+measurement had been an enumerative brute force; the dynamic programme already committed in
+`verify.py` does the same cell in 0.19 s and reaches `k = 16` in under three minutes. The boundary was
+five cells too shallow. It is now `k ≤ 15`, the six cells in between are disclosed as computed during
+review and held privately, and the escrow digest was re-minted once for both prereg corrections
+together. The lesson is the ordinary one: a claim about what is expensive is a claim about an
+instrument, and it is only as good as the instrument someone actually ran.

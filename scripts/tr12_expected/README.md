@@ -25,9 +25,18 @@ reading the diff destroys the only record of which it was.
 Each block is the row's output after one `sed` pass that removes **only** what varies between two
 correct runs of the same binary on the same universe: absolute paths, `mktemp` scratch directories,
 the `-DGIT_HASH` / `-DSOURCE_SHA` build identity, wall-clock timings and peak RSS. Every count,
-rank, walk, layer sha, gate verdict and provenance scope string is diffed **verbatim**. The exact
-substitution list is in the `norm` function of `scripts/tr12_repro.sh`, next to the reason for
-each one.
+rank, walk, layer sha, gate verdict and provenance scope string **that a row prints** is diffed
+**verbatim**. The exact substitution list is in the `norm` function of `scripts/tr12_repro.sh`,
+next to the reason for each one.
+
+⚠ **[CORRECTED 2026-09-11 (V3A-129#1)** — this sentence read "Every count … is diffed **verbatim**"
+without the qualifier, and that overstated what the blocks cover. The **consumer's** TSV tables
+(`$ARTDIR/consumer/**`, written by `solve.py --atlas-queries`) are in **no** expected block at all:
+row `c_consumer` captures its messages and verdict lines, not its tables. They are checked instead
+by row `c_xcheck` — cell-for-cell against the shell-side tables and, for the Q3 profile the V4
+figure plots, against the `q3_profile_exact.tsv` that row `a2_q3_reader` has already validated — and
+by the emitter's own gates. And at n=31 every block is **minted, not diffed**, because no golden for
+that universe exists.]**
 
 `_MANIFEST.txt` records the universe, the knob settings, the anchor walk and a sha256 per block, so
 a reviewer can see at a glance which blocks a change touched.

@@ -32047,8 +32047,18 @@ static int kc_layers_selftest(void) {
  * value slots per f state; transition (s,kappa) -> (s',kappa')) and is a
  * SEPARATE, SIZED item: at full-31 it multiplies both the value channel and
  * the working set by K. Size it honestly before proposing it.
- * CLASS (c) — C3 — is not DP-optimisable at all (monotone in-path prune only,
- * TR-12 §Q5), so --kc-c3-max is REJECTED here with an explicit error.
+ * CLASS (c) — C3 — is not carried by THESE LADDERS: the KC f/g/t ladders have no
+ * running-G channel, so --kc-c3-max is REJECTED here with an explicit error.
+ * That is an INSTRUMENT boundary, not a mathematical one. C3 IS DP-optimisable,
+ * and this same file implements it: the running slot-gap sum G (range ±496) is
+ * orbit-invariant and rides the canonical-mask quotient exactly like rid —
+ * machine-checked as runningG_orbit_invariant in lean/PruneGInvariance.lean —
+ * and --f1-c3-hist --with-c5 is the DP. The full-31 run of that DP was priced
+ * and then PERMANENTLY DECLINED on cost (TR-12 §9), which is why no G channel
+ * was ever built into the KC ladders.
+ * ⚠ Until 2026-09-11 (V3A-134#10) this comment denied that C3 admits a DP at
+ * all, calling it a monotone in-path prune only -- a claim --f1-c3-hist, some
+ * fifteen thousand lines above, refutes inside this same file.
  *
  * ---------------------------------------------------------------------------
  * SCOPE OF v1: IN-MEMORY ONLY (n <= 22).
@@ -32608,8 +32618,10 @@ static int kc_extremal_main(int argc, char *argv[]) {
             "  X(s)==NULL <=> g(s)==0 over every stored state.\n"
             "  A G-INVARIANCE GATE runs FIRST and the DP is REFUSED when it fails:\n"
             "  a quotient DP over a non-invariant functional returns a value no raw\n"
-            "  walk attains (TR-12 Q5 caveat 1). --kc-c3-max is REJECTED: C3 is not\n"
-            "  DP-optimisable, only a monotone in-path prune.\n"
+            "  walk attains (TR-12 Q5 caveat 1). --kc-c3-max is REJECTED: these\n"
+            "  ladders carry no running-G channel. C3 IS DP-optimisable (running\n"
+            "  slot-gap sum G, orbit-invariant, --f1-c3-hist --with-c5); the full-31\n"
+            "  run of that DP was priced and PERMANENTLY DECLINED (TR-12 section 9).\n"
             "  v1 IS IN-MEMORY ONLY (n <= 22); the OOC extremal builder is a\n"
             "  separate, unbuilt item, so full-31 is NOT reachable from here.\n"
             "  Gate: --kc-extremal-selftest (n=9 exhaustive brute force).\n"
@@ -32631,10 +32643,16 @@ static int kc_extremal_main(int argc, char *argv[]) {
     for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-c3-max") == 0) {
             fprintf(stderr,
-                "ERROR: [kc-extremal] --kc-c3-max is not accepted here. C3 is class (c):\n"
-                "       NOT DP-optimisable -- it is a monotone in-path prune only\n"
-                "       (TR-12 Q5). Conditioning an extremal sweep on C3 would need the\n"
-                "       plain unquotiented DP, which is memory-infeasible at full-31.\n");
+                "ERROR: [kc-extremal] --kc-c3-max is not accepted here. The KC f/g/t\n"
+                "       ladders carry no running-G channel, so a C3-conditioned extremal\n"
+                "       sweep cannot be answered from them. That is an INSTRUMENT\n"
+                "       boundary, not a mathematical one: C3 IS DP-optimisable -- the\n"
+                "       running slot-gap sum G (range +-496) is orbit-invariant\n"
+                "       (runningG_orbit_invariant, lean/PruneGInvariance.lean) and is\n"
+                "       implemented in this binary as --f1-c3-hist --with-c5. The\n"
+                "       full-31 run of that DP was priced and then PERMANENTLY DECLINED\n"
+                "       on cost (TR-12 section 9), which is why no G channel was built\n"
+                "       into these ladders.\n");
             return 2;
         }
         if (strcmp(argv[ai], "--kc-witness") == 0) want_w = 1;

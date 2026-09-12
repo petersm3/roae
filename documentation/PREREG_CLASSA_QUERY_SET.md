@@ -50,8 +50,16 @@ merely repeating:
 **This is intended to be the project's first pre-registration whose timing is checkable rather than
 attested** — and the sub-section below names the exact fact that would make it so, together with the
 one operator action that has to happen on the freeze day for that fact to exist. The **three**
-questions below are published **in full, in the open, before their answers are computed**; the
-answers have not been produced. A reader does not have to take our word for the ordering — the
+questions below are published **in full, in the open, before their answers are extracted**: the g
+and t ladders that contain those answers as entries have finished building (dates in §3), and no
+descent, lookup or scan has read them out. **Extraction, not computation, is what this file
+precedes** — the ladders are a compiled structure, and the numbers below exist implicitly inside
+them the moment the build ends. Non-inspection is therefore *attested*, not checkable, and this
+paragraph says so rather than implying otherwise. ⚠ **[CORRECTED 2026-09-11 (V3A-041#1)** — this
+sentence previously placed the publication before the answers were *computed*, and stated that they
+had not been produced. Both are false for any cell the finished ladders already determine: the
+ladders are built, so the values exist; what precedes this file is their **extraction**.] A reader
+does not have to take our word for the ordering — the
 question text is public, and the results, when they exist, will cite this file's digest.
 
 ### What a reader can check, and what is still only claimed
@@ -153,7 +161,10 @@ recollection — against two requirements:
 
 1. **pre-hoc** — the question's text predates the first existence of the full-31 compiled structure
    it interrogates; and
-2. **unrun** — no full-scale value of its headline statistic is recorded anywhere.
+2. **unrun** — no full-scale value of its headline statistic has been **read out or recorded**
+   anywhere (the values exist implicitly as ladder entries; what is attested is that nothing has
+   extracted them). ⚠ **[CORRECTED 2026-09-11 (V3A-041#1)** — this read "is recorded anywhere",
+   which conflated *not extracted* with *not determined*.]
 
 The split is **A = 12 pre-hoc-and-unrun, B = 4 post-hoc-but-unrun, C = 15 already answered**.
 
@@ -346,14 +357,33 @@ published — disclosed here 2026-09-06 rather than left for a reader to grep (Q
 `documentation/SYMMETRY_SEARCH.md` publishes, for King Wen's own prefixes,
 **`g(s_22) = 690,176`**, **`g(s_24) = 5,624`** and **`g(s_26) = 52`** (as "C1+C2+C4+C5 leaves" at the
 9-, 7- and 5-free rungs), and any tail cell with nine or fewer free pairs (k ≥ 22) is a sub-minute
-brute force from the committed `verify.py` — re-executed during review in 28 s. **The 10-free cell
-(k = 21) is NOT sub-minute:** it took 475 s on a 2-core host when it was brute-forced during the
-QSET-4 adjudication on 2026-09-06, and this sentence read "~10 or fewer … sub-minute" until then.
-That cell is therefore also a pre-known check; its value is held in the private review record and is
-not published. **Those three cells are therefore
-PRE-KNOWN CHECKS on the ladder descent, not escrowed results**, exactly as `t(root)` is for XA-b: a
-descent that disagrees with them is wrong. **What is escrowed is the HEAD of the curve, k ≤ 20** — the cells where
-brute force from `verify.py` is no longer a matter of minutes and only the ladders can answer. No
+brute force from the committed `verify.py` — re-executed during review in 28 s. **Those three cells
+are therefore PRE-KNOWN CHECKS on the ladder descent, not escrowed results**, exactly as `t(root)`
+is for XA-b: a descent that disagrees with them is wrong.
+
+⚠ **[CORRECTED 2026-09-11 (V3A-041#2), by execution.** This passage read: *"The 10-free cell
+(k = 21) is NOT sub-minute: it took 475 s on a 2-core host when it was brute-forced during the
+QSET-4 adjudication on 2026-09-06"*, and concluded *"What is escrowed is the HEAD of the curve,
+k ≤ 20 — the cells where brute force from `verify.py` is no longer a matter of minutes and only the
+ladders can answer."* **Both halves were wrong, and the second followed from the first.** The 475 s
+measurement was an *enumerative* brute force, not the shipped dynamic programme: run through
+`verify.py`'s own `_count_c1c2c4c5` on the same residual state, the k = 21 cell takes **0.19 s**.
+Re-measured on this 2-core host during the review that found it, the same DP reproduces all three
+published anchors (`g(s_26)` = 52 in 0.00 s, `g(s_24)` = 5,624 in 0.01 s, `g(s_22)` = 690,176 in
+0.07 s), then k = 21 in 0.19 s, k = 20 in 0.78 s, k = 19 in 2.26 s, k = 18 in 10.5 s, k = 17 in
+56.8 s and **k = 16 in 162 s under a 3 GB cap**. So the boundary the sentence drew was five cells
+too shallow.]**
+
+**What is escrowed is the HEAD of the curve, k ≤ 15** — the cells where the committed `verify.py`
+DP stops being a matter of minutes on a commodity host and only the ladders can answer. k = 15 was
+not run (projected ~10 minutes and more memory than that host should be given). Note what this
+boundary is and is not: it is a **cost** boundary of one shipped DP on a laptop, **not** a
+computability boundary — the same recurrence at k = 0 is TR-11's whole-space count, which needed
+the symmetry quotient and a worker, not an impossibility argument.
+
+**Disclosed, as it was for k = 21:** the six head cells **k = 16..21 were computed during review**
+(2026-09-11) and their values are held in the private review record and are not published here.
+Like the three tail anchors, they are pre-known checks on the descent, not escrowed results. No
 full-31 f·g descent of any walk has ever been run.
 
 **Not an independent question, and not scan-free — but the dependency is an `open()`, not a
@@ -574,12 +604,16 @@ layer loop. A reader estimating the cost of answering this pre-registration from
 get the wrong answer, and §3 is the paragraph to use instead.
 
 **5. Where the answers are genuinely unknown, and where they are partly constrained.**
- - **V4** — the **head** of the `g` curve (k ≤ 20) is genuinely unknown: no full-31 f·g descent of
+ - **V4** — the **head** of the `g` curve (k ≤ 15) is genuinely unknown: no full-31 f·g descent of
    King Wen's path, or of any walk, has ever been run. **Its tail is not unknown**, and this bullet
    said "the `g` curve is genuinely unknown" without that qualifier until 2026-09-06 (QSET-4 finding
    1): `g(s_22)`, `g(s_24)` and `g(s_26)` are published in `documentation/SYMMETRY_SEARCH.md`, and
-   every cell with k ≥ 21 is a minutes-or-less brute force from committed `verify.py` — pre-known
-   checks on the descent, not escrowed results, as the row states. Its `pair` column is **not**
+   every cell with **k ≥ 16** is a minutes-or-less run of committed `verify.py`'s `_count_c1c2c4c5`
+   — pre-known checks on the descent, not escrowed results, as the row states; the six cells
+   k = 16..21 were computed during the 2026-09-11 review and are held privately. ⚠ **[CORRECTED
+   2026-09-11 (V3A-041#2)** — this bullet said the head was `k ≤ 20` and the brute-forceable region
+   `k ≥ 21`, a boundary derived from a 475 s *enumerative* measurement rather than from the DP,
+   which does that same cell in 0.19 s. See the correction at the V4 row above.] Its `pair` column is **not**
    unknown either (it is `i` by the labelling) and is used only as a gate, never reported — see the
    row.
  - **XA-a, XA-b** — genuinely unknown; constrained only by the gate identities above (each sums to

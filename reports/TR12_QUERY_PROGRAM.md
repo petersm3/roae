@@ -231,7 +231,19 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   8.26 exclusion factor separates them. **The shipped quantity is the SUPER one**; a C15-scoped μ
   would need the C3-conditioned draws this program does not command. Whichever ships must carry its
   own label, per §0's space discipline — the mismatch is recorded rather than silently resolved,
-  because which one the report wants is a scope decision, not a typo. (b) C3-MIN: min{C3(w) : w ∈ SUPER} with argmin witness (note C3-min over SUPER =
+  because which one the report wants is a scope decision, not a typo.
+  🔴 **RESOLVED 2026-09-11 (V3B-03#9), and this row no longer reads "unresolved".** The scope
+  decision was taken and the battery implements it. **Exactly one estimand ships as the headline:
+  the WALK fraction over SUPER at `cd ≤ 387`** — `μ_walk^SUPER` = `mu_hat_P_C15_cd_eq_T` in row
+  `a1_q4ac`, an ESTIMATE with a 95 % Wilson interval on the C15-accepted draws. Beside it, and
+  labelled as a companion rather than as the headline, the row now also emits **`μ_rec^C15`
+  (`mu_rec_C15_HT`)**: the same draws reweighted by `1/m(k)`, the ratified Horvitz–Thompson
+  correction from `V4_RECORD_CONVENTION_DECISION_2026_07_14`, which converts the walk-uniform
+  gallery into the **record-level** census the historical ~10.11 % tie share belongs to. Its
+  interval is Wilson at the effective sample size `n_eff = (Σw)² / Σw²`, never at the draw count.
+  The two numbers are different quantities over one sample and each carries its own label; neither
+  is the other, and the difference between `μ_rec^C15` and the historical figure is the reportable
+  quantity. (b) C3-MIN: min{C3(w) : w ∈ SUPER} with argmin witness (note C3-min over SUPER =
   over C15 automatically since min ≤ 776). (c) The C3 distribution over SUPER (histogram).
 🔴 **Q4b(b) IS ALREADY ANSWERED IN THIS REPOSITORY, and this section posed it as open until
 2026-09-05.** `min{C3(w) : w ∈ SUPER} = **112**`, with a public witness. The lower bound `G ≥ 12` is
@@ -777,6 +789,13 @@ Stage T`. Both are wrong. `g` and `t` are siblings; the arrows below are the cor
 - **f + g + t** are needed for the Exhaustion Atlas — the headline TR-12 section — and every
   per-branch exhaustion number (XA, EW-1, CAP-3/5/7).
 
+<!-- [REPRO-TAG] IS DELIBERATELY STILL A PLACEHOLDER (V3B-03#28, Fable adjudication 2026-09-11).
+     Do NOT substitute a sha or a guessed tag name here. It is replaced AT LAUNCH, after the
+     archived BATTERY_REF_SHA has been tagged and that tag pushed to the public remote
+     (tag-before-anything). Replacing it before the tag exists would publish a reproduction
+     instruction that resolves to nothing -- which is the exact defect corrected at this line on
+     2026-09-05, when it carried a truncated sha unreachable from this repository's main. The same
+     applies to the second occurrence, in the Tier A step 1 of section R. -->
 **Build commands.** The pin `[REPRO-TAG]` is the tag minted at this report's publication and named
 in §R Tier A step 1; resolve it with `git ls-remote --tags origin | grep tr12`. *(Corrected
 2026-09-05: this line carried a truncated v4-compiler sha as the pin. That commit is a real Stage-T
@@ -840,6 +859,9 @@ TR-11's, and it is the **f**-ladder contract; **g needs ≥ 10 TB**, per the mea
 *after* F/G/T exist do the query steps below (Tier A step 6 onward) run — in minutes, near-$0.
 
 **TIER A — full rebuild (gold standard; trusts only public source + own hardware).**
+<!-- [REPRO-TAG]: still a placeholder ON PURPOSE; replaced at launch once the archived
+     BATTERY_REF_SHA is tagged and the tag is pushed public. See the note at the Build commands
+     paragraph above (V3B-03#28). -->
 1. Clone the public repo at the pinned tag/commit **[REPRO-TAG]** (host-agnostic git — no
    GitHub-specific machinery; the tag is minted at TR-12 publication and named in the report).
 2. Build `solve.c` with the **published** line — `documentation/VERIFY.md` Stage 0 of

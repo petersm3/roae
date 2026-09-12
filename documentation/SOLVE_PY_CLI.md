@@ -537,7 +537,14 @@ specific record families each keystone boundary uniquely eliminates.
 one streaming join of the f- and g-ladders, emitted once at the end of the
 pass. These two commands are its **only** consumer: they re-shape it into
 the tab-separated evidence tables the TR-12 queries and the V-family
-figures read, and they gate every table they write.
+figures read, and they gate the tables they write: V1 column sums, V2/Q6 layer
+sums and flows, and the XA identities; Q3 by `TR12_Q3_READER`; V5 is reduced
+(`PASS:REDUCED-NO-CROSSTAB`) and is gated by the battery's `c_xcheck` row only.
+⚠ **[CORRECTED 2026-09-11 (V3A-055#3)** — this read "gate every table they
+write". V1's column sums were gated only inside `--atlas-selftest`, which refuses
+n > 13, so at full-31 the table the figure plots was ungated; `TR12_V1` was a
+literal `PASS`. The V1 gate now lives in the emitter, which is what this sentence
+had been claiming.]
 
 ```
 --atlas-queries ATLAS_JSON   Read the atlas; write the query/figure TSVs.
@@ -582,11 +589,15 @@ figures read, and they gate every table they write.
 --atlas-fault NAME           TEST ONLY. Deliberately corrupt one emitted column so
                              the gate can be shown able to fail. One of
                              v1-drop-pair, v2-class-swap, xa-drop-branch,
-                             q3-perturb, q10-mod24, ratio-zero. Never on a real
-                             run. `ratio-zero` (added 2026-09-05, Q-422) makes
-                             the formatter emit 0 for every derived ratio while
-                             every integer column stays right; the other five
-                             corrupt an integer column.
+                             q3-perturb, q10-mod24, q10-mod48, v2-mod48,
+                             v1-mod16, ratio-zero, xa-strip-tsource. Never on a
+                             real run. `ratio-zero` (added 2026-09-05, Q-422)
+                             makes the formatter emit 0 for every derived ratio
+                             while every integer column stays right;
+                             `xa-strip-tsource` (added 2026-09-11, V3A-041#4)
+                             makes every branch's `t_source` read ABSENT, which
+                             must turn TR12_XA_B red; the others corrupt an
+                             integer column.
 --xa-nodes-per-sec F         XA-c/d: measured DFS throughput anchor.
 --xa-usd-per-hour F          XA-c/d: worker price anchor.
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call

@@ -118,7 +118,7 @@ and for the population. **Only the shape across k is informative**, never the to
 | `solutions` | decimal **string** | exact walks through this branch |
 | `share` | float | `solutions / N` |
 | `prefixes_t_units` | decimal string or `PENDING_T_LADDER(...)` | exhaustion cost in valid-prefix units |
-| `t_source` | string | `t-ladder`, or absent when computed by direct recursion at small n |
+| `t_source` | string | `t-ladder` — written by the producer whenever `--kc-tdir` was given — or `ABSENT`, the consumer's placeholder for a branch that carries no such key. `ABSENT` (or any other value) FAILS the XA-b gate: reading `t-ladder` is pre-registered. The consumer does **not** infer a provenance the producer never wrote |
 | `kw` | 0/1 | 1 for King Wen's own first placement (pair 1, `entry = KW[2]`, `exit = KW[3]`) |
 
 ## Generation

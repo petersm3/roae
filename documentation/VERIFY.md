@@ -1266,9 +1266,16 @@ programme), reproduced here with GNU Awk 5.2.1. The row now forces string compar
 and refuses any column that is not a canonical decimal integer — a string comparison of canonical
 decimals *is* integer equality — and prints `EXACT` only when all identities hold. The pass-path
 transcript is byte-identical, so the n=9 goldens did not move.
-`scripts/q3_reader_exactness_gate.sh` (`Q3_READER_EXACT_GATE=PASS|FAIL`) pins it: seven legs at
-full-31 magnitude including the +1 and +10²⁰ cases, five mutants including the original defect, and
-it FAILS when pointed at the pre-fix row or at a file lacking the row. Note that the *consumer's*
+`scripts/q3_reader_exactness_gate.sh` (`Q3_READER_EXACT_GATE=PASS|FAIL`) pins it: **nine** legs at
+full-31 magnitude including the +1 and +10²⁰ cases, **seven** mutants including the original defect,
+and it FAILS when pointed at the pre-fix row or at a file lacking the row. Legs 8 and 9 and mutants
+M6/M7 were added 2026-09-11 (V3A-041#3) for a second defect in the same row: it checked telescoping
+and canonical-decimal shape only, and asserted **none** of the three pre-known V4 tail cells
+`g(s_22) = 690,176`, `g(s_24) = 5,624`, `g(s_26) = 52` that
+`documentation/PREREG_CLASSA_QUERY_SET.md` publishes and calls checks "a descent that disagrees with
+them is wrong". Measured at that tip, `git grep 690176` over `scripts/ solve.py solve.c` returned
+nothing, so a full-31 descent carrying `g(s_26) = 51` passed every verdict token this program emits.
+The row now compares all three at `NP == 31`, failure-only, so the n=9 transcript is byte-identical. Note that the *consumer's*
 `TR12_Q3_READER` (`solve.py::atlas_q3_reader_check`, exact `Fraction` arithmetic over the
 `--kc-o3-rank` trace) was never affected; the shell row reads the *other* instrument
 (`--kc-profile --kc-tsv`), and the token you grep out of `VERDICTS.txt` is the shell row's.

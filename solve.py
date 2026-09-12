@@ -12094,6 +12094,7 @@ def atlas_emit_v1(A, outdir):
             "(marginal_quotient must NOT be plotted as the positional field)")
     _, _, kw_pair = _atlas_kw_overlay(n)
     rows = []
+    colsum = {}
     for L in A["layers"]:
         k = L["k"]
         for p in range(_ATLAS_PAIRS):
@@ -12106,10 +12107,23 @@ def atlas_emit_v1(A, outdir):
                 # v1-drop-pair cannot test V1-16: it sets the cell to 0, and 0 is divisible
                 # by everything.
                 m += 8
+            colsum[k] = colsum.get(k, 0) + m
             rows.append((k, k + 2, p, m, _atlas_f(_atlas_ratio(m, N)),
                          1 if kw_pair[k] == p else 0))
-    return _atlas_write(os.path.join(outdir, "v1_field.tsv"),
-                        ["k", "slot", "pair", "mass", "p", "kw"], rows)
+    # 🔴 THIS EMITTER GATED NOTHING (V3A-055#3, Fable adjudication 2026-09-11). It checked only
+    # that `marginal_raw` EXISTS, and `atlas_queries` then set TR12_V1 to the literal "PASS". The
+    # only column-sum gate in the tree lived in `--atlas-selftest`, which refuses n > 13 -- so at
+    # full-31, the one size where the figure is published, NOTHING re-derived the field's totals.
+    # And THIS is the table the figure reads: viz/report_figures.py renders V1 from
+    # <consumer>/scan/v1_field.tsv. The shell twin `c_v1` does check per-layer sums, but on its own
+    # parse of the atlas, not on the file the plot opens.
+    # Every walk places exactly one pair at each layer, so each layer's raw marginals sum to N.
+    # Silent on the pass path: the caller prints only failures, so no golden moves.
+    fails = ["layer %d: the raw pair marginals sum to %d, not N_total = %d" % (k, s, N)
+             for k, s in sorted(colsum.items()) if s != N]
+    return (_atlas_write(os.path.join(outdir, "v1_field.tsv"),
+                         ["k", "slot", "pair", "mass", "p", "kw"], rows),
+            fails)
 
 
 # --------------------------------------------------------------------------
@@ -12165,8 +12179,17 @@ def _atlas_branch_rows(A, N, n, wide):
         if not isinstance(t, str):     # no t ladder: the producer writes this one as %llu
             t = str(_atlas_int(t, "branch_atlas[%d].prefixes_t_units" % i, json_int=True))
         kw = 1 if (n == 31 and b["global_pair"] == 1 and entry == K[2]) else 0
+        # 🔴 THE CONSUMER MUST NOT INVENT A PROVENANCE (V3A-041#4, Fable adjudication 2026-09-11).
+        # Until today the fallback here named a small-n recursion. The producer writes
+        # `"t_source": "t-ladder"` and nothing else (solve.c, kc_h_scan emitter); there is no path
+        # on which it writes any other value. So an atlas MISSING the key was relabelled by the
+        # reader as having been computed by a method the producer never records -- and the
+        # pre-registered gate
+        # (PREREG_CLASSA_QUERY_SET.md: "`t_source` reads `t-ladder`") was then read against an
+        # invented string. ABSENT is the honest placeholder and it FAILS the XA-b gate below.
+        src = "ABSENT" if _atlas_fault("xa-strip-tsource") else b.get("t_source", "ABSENT")
         row = [i, b["global_pair"], entry, b["exit"], d, sol,
-               _atlas_f(_atlas_ratio(sol, N)), t, b.get("t_source", "direct-recursion")]
+               _atlas_f(_atlas_ratio(sol, N)), t, src]
         if wide:
             w = b.get("walks", None)   # producer writes `"walks": %llu` -- see _ATLAS_JSON_INT_SITES
             row.append("" if w is None else _atlas_int(w, "branch_atlas[%d].walks" % i, json_int=True))
@@ -12546,6 +12569,7 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
     # table beside them was free to print FAIL. Codex perturbed a branch to 26,113 against
     # N = 26,112; the table said FAIL and the token said PASS.
     gates = {}
+    srcs = sorted(set(str(r[8]) for r in rows))
     t_have = all(str(r[7]).lstrip("-").isdigit() for r in rows)
     t_sum = sum(int(r[7]) for r in rows) if t_have else None
     t_root = (_atlas_int(A["t_root_t_units"], "t_root_t_units", json_int=True)   # %llu when no t ladder
@@ -12562,7 +12586,23 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
         gates["a"] = "PASS" if sol_sum == N else "FAIL:sum_b(%d)!=N(%d)" % (sol_sum, N)
         fh.write("| `sum_b solutions(b) == N` | %d | %d | %s |\n" %
                  (N, sol_sum, "PASS" if sol_sum == N else "FAIL"))
-        if t_have and t_root is not None:
+        # 🔴 XA-b IS A PRE-REGISTERED GATE AND HALF OF IT WAS NOT CHECKED (V3A-041#4, Fable
+        # adjudication 2026-09-11). PREREG_CLASSA_QUERY_SET.md pre-registers TWO conditions under
+        # XA-b: the t-unit identity below, AND "`t_source` reads **`t-ladder`**". Only the first was
+        # ever decided here. An atlas whose branches carried a different provenance -- or none --
+        # could satisfy the arithmetic and still report PASS against a gate that says otherwise in
+        # the pre-registration a reader is invited to check us against.
+        # The t_source column is written into this table too, so the verdict token and the published
+        # gate table cannot disagree (the same rule the XA-a row was fixed under).
+        fh.write("| every branch `t_source` reads `t-ladder` (pre-registered) | t-ladder | %s | %s |\n"
+                 % (",".join(srcs), "PASS" if srcs == ["t-ladder"] else "FAIL"))
+        if t_have and srcs != ["t-ladder"]:
+            gates["b"] = "FAIL:t_source=%s" % ",".join(srcs)
+            fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | %s | %s | "
+                     "FAIL:t_source=%s |\n"
+                     % (t_root if t_root is not None else "-",
+                        1 + t_sum if t_sum is not None else "-", ",".join(srcs)))
+        elif t_have and t_root is not None:
             gates["b"] = ("PASS" if 1 + t_sum == t_root
                           else "FAIL:1+sum_t(%d)!=t_root(%d)" % (1 + t_sum, t_root))
             fh.write("| `1 + sum_b prefixes_t_units(b) == t(root)` | %d | %d | %s |\n" %
@@ -13589,7 +13629,16 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
             if A is not None and os.path.exists(p + ".provenance.txt"):
                 written.append(p + ".provenance.txt")
             fails = atlas_q3_reader_check(p, N)
-            verdicts["TR12_Q3"] = "PASS"
+            # 🔴 TR12_Q3 WAS AN UNCONDITIONAL LITERAL (V3A-041#3, Fable adjudication 2026-09-11).
+            # Its two legs -- the reader check right above and the King Wen identity check -- could
+            # both report FAIL while the PARENT token beside them read PASS, which is precisely the
+            # rule the battery's own agg() enforces everywhere else (tr12_repro.sh: "a parent token
+            # PASSes only if every one of its legs passed"). A reader grepping TR12_Q3 out of
+            # VERDICTS.txt saw a passing Q3 over a failed reader.
+            # kwst is SKIP:n=<n> below full-31 and PASS / NOT-KW at 31, so only an actual FAIL
+            # demotes the parent and the n=9 transcript is unchanged.
+            verdicts["TR12_Q3"] = ("PASS" if (not fails and not kwst.startswith("FAIL"))
+                                   else "FAIL:leg-reader-or-kw")
             verdicts["TR12_Q3_KW"] = kwst
             verdicts["TR12_Q3_READER"] = "PASS" if not fails else "FAIL"
             if not quiet:
@@ -13598,7 +13647,14 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
                 for f in fails:
                     print("[atlas] Q3 reader check: %s" % f)
     if "v1" in sel:
-        written.append(atlas_emit_v1(A, scandir)); verdicts["TR12_V1"] = "PASS"
+        # TR12_V1 was a LITERAL "PASS" here; it is now read off the emitter's own column-sum
+        # gate (V3A-055#3). Nothing prints on the pass path.
+        p1, v1fails = atlas_emit_v1(A, scandir)
+        written.append(p1)
+        verdicts["TR12_V1"] = "PASS" if not v1fails else "FAIL:%d-layer(s)-not-N" % len(v1fails)
+        if v1fails and not quiet:
+            for f in v1fails[:8]:
+                print("[atlas] V1 column-sum check: %s" % f)
     # 🔴 QUALIFIED, NOT BARE (Q-316 item 2 / Codex A03, 2026-09-04). These three shipped
     # `PASS` while their own spec pages mark the FULL query PENDING, so a reader grepping
     # the verdict file saw a completed deliverable where a reduced one had been produced.
@@ -15648,7 +15704,7 @@ def main():
     parser.add_argument("--atlas-fault", metavar="NAME", default=None,
                         choices=("v1-drop-pair", "v2-class-swap", "xa-drop-branch",
                                  "q3-perturb", "q10-mod24", "q10-mod48", "v2-mod48",
-                                 "v1-mod16", "ratio-zero"),
+                                 "v1-mod16", "ratio-zero", "xa-strip-tsource"),
                         help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
                              "can be shown able to fail (build-brief invariant 3). Never on a run.")
     parser.add_argument("--xa-nodes-per-sec", type=_ExactAnchor, default=None,

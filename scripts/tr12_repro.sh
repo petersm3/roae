@@ -1330,13 +1330,35 @@ row_end TR12_Q8_MIDN13 $rc
 #            obstruction itself was dissolved 2026-07-21, lean/C3Decomposition.lean) -- D5-16. ----
 row_begin a1_q4ac
 (
-  "$SOLVE" --kc-sample "$FDIR" "$Q4ACM" "$SEED" 2>/dev/null > "$WORK/q4.raw" || exit 1
+  # --kc-record (V3B-03#9) appends a `record  m=<m>  <repr>` line after each draw. It changes
+  # NOTHING about the sample: the rejection loop is not entered, kc_class_repr consumes no
+  # randomness, and the draw lines are byte-identical -- the walk-level numbers below are the same
+  # numbers as before. `m` is what the record-level HT column needs.
+  "$SOLVE" --kc-sample "$FDIR" "$Q4ACM" "$SEED" --kc-record 2>/dev/null > "$WORK/q4.raw" || exit 1
   awk -v M="$Q4ACM" -v T="$C3MAX" '
-    /^[0-9]/ { if (match($0,/cd=[0-9]+/)) { v=substr($0,RSTART+3,RLENGTH-3)+0; h[v]++; n++; if (v<=T) le++ } }
+    /^[0-9]/ { if (match($0,/cd=[0-9]+/)) { v=substr($0,RSTART+3,RLENGTH-3)+0; h[v]++; n++; if (v<=T) le++
+                                            lastv=v; have=1 }
+               next }
+    # The record line owned by the draw above. m(k) counts the oriented walks in the record class
+    # of that draw, so a walk-uniform draw hits a record with probability proportional to m and
+    # 1/m is its Horvitz-Thompson weight (V4_RECORD_CONVENTION_DECISION_2026_07_14).
+    $1=="record" && $2 ~ /^m=/ {
+        if (!have) { printf "Q4AC_FAIL\ta record line with no preceding draw -- the sampler output is not draw/record paired\n"; bad=1; next }
+        mm = substr($2,3)+0
+        if (mm <= 0) { printf "Q4AC_FAIL\tdraw at cd=%d carries m=%s; 1/m is undefined\n", lastv, substr($2,3); bad=1; have=0; next }
+        rec++
+        if (lastv <= T) { w = 1.0/mm; wden += w; wsq += w*w; if (lastv == T) wnum += w }
+        have=0; next }
     END{
       printf "# Q4(a,c) C3 census — ESTIMATE over SUPER, space=C1C2C4C5-SUPERSPACE\n"
       printf "# walk-functional units (cd_true = 2*(walk_cd+1)); threshold used T=%d\n", T
+      printf "# population: orientation-explicit WALKS uniform over SUPER; mu_rec is the HT record-level companion\n"
       printf "requested_M\t%d\nrealised_M\t%d\n", M, n
+      # 🔴 V3B-03#9. The HT column is only meaningful if EVERY draw was paired with its record
+      # line. An unpaired stream would silently reweight a subset, so this is a precondition, not
+      # a diagnostic: the row FAILS rather than publishing a fraction over draws it could not see.
+      if (bad) { exit 1 }
+      if (rec != n) { printf "Q4AC_FAIL\t%d record line(s) for %d draw(s) -- --kc-record did not pair one-to-one\n", rec, n; exit 1 }
       # 🔴 F-5 D11 (2026-09-08): a short or empty sample printed realised_M < requested_M and PASSED --
       # nothing tested n (and at n=0 the Wilson line divided by zero, fatal only under gawk). A census
       # over fewer draws than commanded is a different census: the row FAILS on it.
@@ -1361,6 +1383,43 @@ row_begin a1_q4ac
         printf "mu_wilson95_lo\t%.8f\nmu_wilson95_hi\t%.8f\n", (cl-hl<0?0:cl-hl), (cl+hl>1?1:cl+hl)
       } else {
         printf "c15_accepted_draws\t0\nmu_hat_P_C15_cd_eq_T\tNA\nmu_wilson95_lo\tNA\nmu_wilson95_hi\tNA\n"
+      }
+      # 🔴 mu_rec^C15 -- THE PROMISED RECORD-LEVEL COMPANION (V3B-03#9, Fable adjudication
+      # 2026-09-11). documentation/QUERY_INVENTORY.md has promised since 2026-09-06 that this row
+      # would "Also emit `μ_rec^C15` via the ratified 1/m Horvitz-Thompson reweighting
+      # ... and needs only --kc-record on this row -- `m` already ships". It did not: the row
+      # sampled without --kc-record and emitted no record-level column at all, so the promise was
+      # unimplemented in a battery that ships FROZEN by `git archive`.
+      #
+      # WHY THE REWEIGHTING. mu_hat above is a WALK fraction: the gallery is uniform over
+      # orientation-explicit walks, and a record class k with m(k) walk realisations is therefore
+      # over-represented by exactly m(k). Dividing each accepted draw by its own m recovers the
+      # record-level census -- the estimand the historical ~10.11% tie share belongs to, and NOT
+      # the one mu_hat measures. The two are different quantities over the same draws.
+      #
+      # THE TARGET THIS COLUMN CAN MISS, stated so it is falsifiable: the exhaustively-measured
+      # n=9 shares in QUERY_INVENTORY are walk/C15 66.6% and record/C15 50.0%, and it records
+      # that HT "recovers the exact record census to 0.2% at n=9". So mu_rec_C15_HT must land near
+      # 0.500 while mu_hat lands near 0.664; a build that drops the 1/m weight reproduces 0.664
+      # here and is wrong in a way this line makes visible.
+      if (le > 0 && wden > 0) {
+        mur = wnum/wden
+        neff = (wsq > 0 ? wden*wden/wsq : 0)
+        printf "c15_ht_weight_sum\t%.8f\n", wden
+        printf "c15_ht_weight_sum_at_T\t%.8f\n", wnum
+        printf "mu_rec_C15_HT\t%.8f\n", mur
+        printf "mu_rec_ht_n_eff\t%.4f\n", neff
+        if (neff > 0) {
+          dr=1+z*z/neff; cr=(mur+z*z/(2*neff))/dr
+          hr=z*sqrt(mur*(1-mur)/neff + z*z/(4*neff*neff))/dr
+          printf "mu_rec_wilson95_lo\t%.8f\nmu_rec_wilson95_hi\t%.8f\n", (cr-hr<0?0:cr-hr), (cr+hr>1?1:cr+hr)
+        } else {
+          printf "mu_rec_wilson95_lo\tNA\nmu_rec_wilson95_hi\tNA\n"
+        }
+        printf "label_mu_rec\tESTIMATE (HT 1/m reweighting, V4_RECORD_CONVENTION_DECISION_2026_07_14): the RECORD-level companion to mu_hat above, over the same draws; the interval is Wilson at the EFFECTIVE sample size n_eff = (sum w)^2 / sum w^2, never at the draw count\n"
+      } else {
+        printf "c15_ht_weight_sum\t0\nc15_ht_weight_sum_at_T\t0\nmu_rec_C15_HT\tNA\nmu_rec_ht_n_eff\tNA\nmu_rec_wilson95_lo\tNA\nmu_rec_wilson95_hi\tNA\n"
+        printf "label_mu_rec\tNA (no C15-accepted draw, so the record-level companion is undefined)\n"
       }
       printf "cd\tcount\twilson95_lo\twilson95_hi\n"
       for (i=0;i<k;i++) { q=h[a[i]]/n; dq=1+z*z/n; cq=(q+z*z/(2*n))/dq; hq=z*sqrt(q*(1-q)/n + z*z/(4*n*n))/dq
@@ -1813,6 +1872,31 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
             if (pn[k] != "1") { printf "READER_FAIL\tp_num[%d]=%s != 1\n", k, pn[k]; fails++ }
             else printf "reader_p_num_n_eq_1\tOK\n"
             for (i=1;i<=k;i++) { if (g[i]!=pn[i] || gp[i]!=pd[i]) { printf "READER_FAIL\tstep %d: (g,g_parent)=(%s,%s) != (p_num,p_den)=(%s,%s)\n", i,g[i],gp[i],pn[i],pd[i]; fails++ } }
+            # 🔴 THE THREE PRE-KNOWN V4 TAIL CELLS (V3A-041#3, Fable adjudication 2026-09-11).
+            # documentation/PREREG_CLASSA_QUERY_SET.md publishes g(s_22)=690,176, g(s_24)=5,624 and
+            # g(s_26)=52 and says of them "a descent that disagrees with them is wrong" -- and until
+            # today NO instrument compared a descent to any of the three. MEASURED at the tip:
+            # `git grep 690176` over scripts/ solve.py solve.c returned NOTHING; the only hits were
+            # in documentation/SYMMETRY_SEARCH.md:198-200, which is where these values come from
+            # (the 9-free / 7-free / 5-free C1+C2+C4+C5 leaf counts: 690,176 / 5,624 / 52). This row
+            # checked telescoping and canonical-decimal shape only, so a full-31 descent carrying
+            # g(s_26)=51 passed every token this program emits. The defect is n=31-ONLY and the
+            # battery ships FROZEN by `git archive`, so it is uncorrectable once the run starts.
+            #
+            # The step index is pairs PLACED, so after step k there are (31-k) free pairs left:
+            # step 22 <-> 9 free <-> 690,176.  The n=9 golden a2_v4.txt (step 9 -> g=1) is what
+            # fixes that convention.  STRING comparison, for the same reason the whole row uses
+            # strings: above 2^53 an awk numeric compare is a 53-bit compare.
+            # FAILURE-ONLY OUTPUT and NP==31 ONLY -- the n=9 transcript is byte-identical and no
+            # golden moves.  Pinned, in both directions, by scripts/q3_reader_exactness_gate.sh.
+            if (NP+0 == 31) {
+                nanch = split("22:690176 24:5624 26:52", ANCH, " ")
+                for (ai=1; ai<=nanch; ai++) {
+                    split(ANCH[ai], KV, ":"); si = KV[1]+0; want = KV[2]
+                    if (step[si] != si "") { printf "READER_FAIL\trow %d holds step %s, not step %d -- the pre-known tail anchors cannot be located in this table\n", si, step[si], si; fails++ }
+                    else if (g[si] != want) { printf "READER_FAIL\tg(s_%d)=%s, but the pre-registered tail anchor is %s (PREREG_CLASSA_QUERY_SET.md; SYMMETRY_SEARCH.md:198-200)\n", si, g[si], want; fails++ }
+                }
+            }
             if (fails==0) printf "reader_product_p_i\t1/%s EXACT (telescoping, re-derived by the reader from the columns)\n", NS
             else printf "reader_product_p_i\tNOT ESTABLISHED (%d identity failure(s) above)\n", fails
             printf "READER_FAILS\t%d\n", fails
@@ -2193,7 +2277,12 @@ case "${Q1C_VAL:-}" in
   NONEMPTY:*)
     (
       RANCH=$(awk -F'\t' '$1=="Q1C_CARD"{print $2; exit}' "$RAW")
-      echo "# Q1(c) — labelled ESTIMATE with binomial CI. Space: C15 rank is NOT exactly computable."
+      # 🔴 V3A-148#1 (Fable adjudication 2026-09-11). This line read "Space: C15 rank is NOT exactly
+      # computable." The obstruction it names was dissolved on 2026-07-21 by
+      # lean/C3Decomposition.lean (TR-11 §10(ii)); what stands is a PRICE, not an impossibility, and
+      # a2_q1.txt:24,53 already say so. Not run-published at n=31 (the EMPTY:* branch takes over
+      # there), but it is published at every reduced n and it is frozen at launch.
+      echo "# Q1(c) — labelled ESTIMATE with binomial CI over the C1&C2&C4&C5 superspace; the exact C15 rank was PRICED AND DECLINED (~\$3-5K; TR-12 s9), not 'not computable' (TR-11 s10(ii) obstruction dissolved by lean/C3Decomposition.lean)."
       echo "rank_O3_anchor	$RANCH"
       echo "requested_M	$Q1CM"
       "$SOLVE" --kc-sample "$FDIR" "$Q1CM" "$SEED" 2>/dev/null > "$WORK/q1c.raw" || exit 1
@@ -2299,6 +2388,20 @@ assert str(d.get("N_total")) == sys.argv[2], "atlas N_total %s != ladder N %s" %
     row_skip b_scan TR12_SCAN "SKIP:atlas-supplied" "--atlas was passed: this battery did NOT run the scan. The supplied atlas was validated in row b_atlas_supplied (TR12_SCAN_SUPPLIED) and Group C ran against it; whoever produced it attests the scan itself"
 elif [ "$DO_SCAN" -eq 0 ]; then
     row_skip b_scan TR12_SCAN "SKIP:no-scan-requested" "--no-scan was passed; the atlas was not produced, so every Group C row is skipped too"
+elif [ "$NFAIL" -ne 0 ] || [ "${TOKSTATE[TR12_SCAN_SELFTEST]:-MISSING}" != "PASS" ]; then
+    # 🔴 THE PUBLIC BATTERY SCANNED BEHIND A FAILING ROW (V3A-044#2, Fable adjudication
+    # 2026-09-11). The production driver in roae-private stops -- Stage 1 on --kc-scan-selftest,
+    # Stage 2 unless the pre-scan battery reported TR12_REPRO=PASS -- but THIS file run standalone
+    # (`--fdir F --gdir G --tdir T`, the published invocation) keyed its scan branch on
+    # ATLAS_IN / DO_SCAN / HAVE_T alone. Row b_scan_selftest's own rc was RECORDED and never
+    # CONSULTED, and no row's failure stopped anything. QUERY_INVENTORY §5, Group B is explicit
+    # about the self-test: "PASS (0 failures) or STOP. Never skip this."
+    # A multi-day unresumable pass must not be started behind a red battery, and an operator who
+    # runs the public file gets the same protection the private driver has.
+    # Placed AFTER the --atlas branch on purpose, so the production post-scan run -- which supplies
+    # its own atlas and takes that branch -- is untouched. Silent on the pass path: at n=9 clean,
+    # NFAIL is 0 and the self-test PASSes, so no golden moves.
+    row_skip b_scan TR12_SCAN "SKIP:pre-scan-failures" "$NFAIL row(s) failed before the scan, or the scan self-test did not PASS (TR12_SCAN_SELFTEST=${TOKSTATE[TR12_SCAN_SELFTEST]:-MISSING}); the multi-day scan is not started behind a failing battery (QUERY_INVENTORY §5 Group B: the self-test is PASS with 0 failures or STOP, never skipped)"
 elif [ "$HAVE_T" -eq 0 ]; then
     row_skip b_scan TR12_SCAN "SKIP:no-tdir" "no TDIR: --kc-scan without --kc-tdir yields an atlas with no t_source, and XA-b cannot be gated"
 else
@@ -2892,6 +2995,102 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
               if (ns < 6) { print "XCHECK_FAIL\tonly " ns " of the 6 emitted tables were read -- the cross-check did not cross-check"; f=1 }
               if (n < 1)  { print "XCHECK_FAIL\tno cells were compared at all"; f=1 }
               exit f?1:0 }' "$WORK/xnorm.tsv" || erc=1
+
+      # ---- V1, as its own comparison (V3A-055#3, Fable adjudication 2026-09-11) ----------------
+      # The block above normalises (k, distance-class, mass). V1 is keyed (k, PAIR, mass), a
+      # different namespace entirely, so folding it into that block would compare a pair index
+      # against a distance class and report a disagreement between tables that publish different
+      # objects. It gets its own pass.
+      # ⚠ THE TWO SIDES HAVE DIFFERENT SHAPES and a naive cell union is WRONG here: the shell row
+      # prints only the pairs the atlas's marginal_raw block carries (57 rows at n=9), while the
+      # consumer emits all 32 pairs per layer including the zeros (288 rows). Measured, both.
+      # So the comparison is TWO-DIRECTIONAL and closed: every shell cell must equal the
+      # consumer's, and every NONZERO consumer cell must appear in the shell table with the same
+      # value. A zeroed consumer cell that the shell says is non-zero fails the first leg; a
+      # consumer cell invented where the shell has none fails the second.
+      : > "$WORK/xv1.tsv"
+      for side in shell cons; do
+          [ "$side" = shell ] && src="$ARTDIR/v1_field.tsv" || src="$ARTDIR/consumer/scan/v1_field.tsv"
+          if [ ! -r "$src" ]; then
+              echo "XCHECK_FAIL	$side/v1_field is absent or unreadable -- a comparator that silently drops a side is not a comparator"
+              erc=1; continue
+          fi
+          awk -F'\t' -v SIDE="$side" '
+            BEGIN { OFS="\t" }
+            /^#/ { next }
+            /^[[:space:]]*$/ { next }
+            !hdr { hdr=1; for (i=1;i<=NF;i++) idx[$i]=i
+                   kc=("k" in idx)?idx["k"]:0; pc=("pair" in idx)?idx["pair"]:0
+                   mc=("mass" in idx)?idx["mass"]:0; next }
+            { if (!kc || !pc || !mc) next
+              if ($kc ~ /^[0-9]+$/ && $pc ~ /^[0-9]+$/ && $mc ~ /^[0-9]+$/) { print SIDE, $kc, $pc, $mc; rows++ } }
+            END { if (rows==0) print "ZERO_ROWS", SIDE, "-", "-" }' "$src" >> "$WORK/xv1.tsv"
+      done
+      awk -F'\t' '
+        $1=="ZERO_ROWS" { print "XCHECK_FAIL\tv1_field/" $2 " produced no comparable (k,pair,mass) cell -- it was read and it said nothing"; f=1; next }
+        { v[$1 SUBSEP $2 SUBSEP $3] = $4; seen[$1]=1; if ($1=="shell") ns++; else nc++ }
+        END {
+            if (!("shell" in seen) || !("cons" in seen)) { print "XCHECK_FAIL\tv1_field: only one side was read -- the cross-check did not cross-check"; exit 1 }
+            if (ns==0 || nc==0) { print "XCHECK_FAIL\tv1_field: a side contributed no cells"; f=1 }
+            for (key in v) {
+                split(key, kk, SUBSEP)
+                if (kk[1] != "shell") continue
+                ck = "cons" SUBSEP kk[2] SUBSEP kk[3]
+                if (!(ck in v)) { print "XCHECK_FAIL\tv1_field layer " kk[2] " pair " kk[3] ": shell publishes " v[key] ", the consumer publishes no such cell"; f=1; continue }
+                if (v[ck] != v[key]) { print "XCHECK_FAIL\tv1_field layer " kk[2] " pair " kk[3] ": shell says " v[key] ", consumer says " v[ck]; f=1 }
+            }
+            for (key in v) {
+                split(key, kk, SUBSEP)
+                if (kk[1] != "cons" || v[key] == "0") continue
+                sk = "shell" SUBSEP kk[2] SUBSEP kk[3]
+                if (!(sk in v)) { print "XCHECK_FAIL\tv1_field layer " kk[2] " pair " kk[3] ": consumer publishes " v[key] ", the shell table has no such cell"; f=1 }
+            }
+            exit f?1:0 }' "$WORK/xv1.tsv" || erc=1
+
+      # ---- Q3, the consumer's table against the profile a2_q3_reader already validated ---------
+      # V3A-129#1 (Fable adjudication 2026-09-11). scripts/tr12_expected/README.md says "Every
+      # count ... is diffed verbatim", but the consumer's TSVs are written under $ARTDIR/consumer
+      # and enter NO expected block. c_xcheck covered v2_river, q6_layer_mass and v5_grammar -- and
+      # not the consumer's Q3 table, which viz/report_figures.py renders as V4. Its `g` column is
+      # protected by atlas_q3_reader_check (g == p_num, telescoping); its `f` column was checked by
+      # NOTHING, and a zeroed `f` is a real, measured mutant.
+      # The source side is $ARTDIR/q3_profile_exact.tsv -- the very columns row a2_q3_reader
+      # validated -- so this compares the figure's input against an already-gated table, as
+      # integers, string-equal per step.
+      CQ3=""
+      for c in "$ARTDIR/consumer/q3_profile_kw.tsv" "$ARTDIR/consumer/q3_profile.tsv"; do
+          [ -r "$c" ] && { CQ3="$c"; break; }
+      done
+      if [ -z "$CQ3" ] || [ ! -r "$ARTDIR/q3_profile_exact.tsv" ]; then
+          echo "XCHECK_FAIL	the consumer Q3 table or the validated exact profile is missing -- the Q3 cross-check did not run, which is not the same as passing"
+          erc=1
+      else
+          awk -F'\t' '
+            # pass 1: the validated exact profile. Columns are fixed by --kc-profile --kc-tsv:
+            #   1 step  8 f  9 g  10 g_parent  11 p_num  12 p_den
+            FNR==NR { if ($1 ~ /^[0-9]+$/) { s[$1 SUBSEP "f"]=$8 ""; s[$1 SUBSEP "g"]=$9 ""
+                                             s[$1 SUBSEP "g_parent"]=$10 ""; s[$1 SUBSEP "p_num"]=$11 ""
+                                             s[$1 SUBSEP "p_den"]=$12 ""; ns++ }
+                      next }
+            # pass 2: the consumer table, read BY HEADER NAME (its column order is its own).
+            FNR==1 { for (i=1;i<=NF;i++) idx[$i]=i; next }
+            $1 ~ /^[0-9]+$/ {
+                st=$(idx["step"]); nc++
+                if (!((st SUBSEP "g") in s)) { printf "XCHECK_FAIL\tconsumer Q3 step %s has no row in the validated exact profile\n", st; f=1; next }
+                ncol=split("g g_parent f p_num p_den", C, " ")
+                for (ci=1; ci<=ncol; ci++) {
+                    cn=C[ci]
+                    if (!(cn in idx)) { printf "XCHECK_FAIL\tconsumer Q3 table publishes no %s column\n", cn; f=1; continue }
+                    got=$(idx[cn]) ""; want=s[st SUBSEP cn]
+                    if (got != want) { printf "XCHECK_FAIL\tstep %s: consumer %s=%s, source %s=%s\n", st, cn, got, cn, want; f=1 }
+                }
+            }
+            END {
+                if (ns==0) { print "XCHECK_FAIL\tthe validated exact profile contributed no step rows"; f=1 }
+                if (nc==0) { print "XCHECK_FAIL\tthe consumer Q3 table contributed no step rows"; f=1 }
+                if (ns != nc) { printf "XCHECK_FAIL\tthe consumer Q3 table has %d step(s), the validated profile has %d\n", nc, ns; f=1 }
+                exit f?1:0 }' "$ARTDIR/q3_profile_exact.tsv" "$CQ3" || erc=1
+      fi
       exit $erc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_XCHECK $rc

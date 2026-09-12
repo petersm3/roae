@@ -224,18 +224,30 @@ print("  [ok]   FAIL/FAIL:* are failures; PASS, PASS:*, SKIP:* and PENDING:* are
 NX = 26112              # the real n=9 world size; divisible by 24, so a clean fixture is PASS
 
 
-def xa_atlas(perturb_flow=False, perturb_sol=False, perturb_t=False, n=9):
+def xa_atlas(perturb_flow=False, perturb_sol=False, perturb_t=False, n=9,
+             strip_tsource=False):
     layers = [{"k": k, "flow": str(NX + (1 if (perturb_flow and k == 0) else 0)),
                "by_class": {"d%d" % d: "0" for d in solve._ATLAS_CLASSES},
                "marginal_raw": {"pair%d" % j: "0" for j in range(32)}} for k in range(n)]
+    # 🔴 THE FIXTURE MUST CARRY `t_source`, BECAUSE A REAL ATLAS DOES (V3A-041#4, 2026-09-11).
+    # XA-b pre-registers TWO conditions -- the t-unit identity AND that every branch's `t_source`
+    # reads `t-ladder` -- and only the first was ever decided here. When the second landed, the
+    # `perturb_t` leg below still went red, so the gate still "passed" its FAIL expectation, but
+    # for the WRONG REASON: it was reporting FAIL:t_source=ABSENT (presence) instead of the
+    # off-by-one t(root) identity the leg exists to test. A fixture that omits a field the
+    # producer always writes cannot tell those two failures apart.
+    # Producer reference: solve.c kc_h_scan writes "t_source": "t-ladder" and nothing else.
+    br = {"global_pair": 1, "entry": 63, "exit": 0,
+          "solutions": str(NX + (1 if perturb_sol else 0)),
+          "walks": NX, "prefixes_t_units": str(NX), "t_source": "t-ladder"}
+    if strip_tsource:
+        del br["t_source"]
     return {"type": solve._ATLAS_TYPE, "n": n, "N_total": str(NX),
             "space": "a2-slot-gate-fixture",
             "semantics": "synthetic fixture for the verdict-honesty legs; not a measurement",
             "gates": {"fails": 0},
             "t_root_t_units": str(NX + 1 + (1 if perturb_t else 0)),
-            "branch_atlas": [{"global_pair": 1, "entry": 63, "exit": 0,
-                              "solutions": str(NX + (1 if perturb_sol else 0)),
-                              "walks": NX, "prefixes_t_units": str(NX)}],
+            "branch_atlas": [br],
             "layers": layers}
 
 
@@ -272,7 +284,19 @@ CASES = [
     # t_root that satisfies the identity, so presence and truth coincide. The identity has
     # to be BROKEN while the field stays present for the difference to show.
     ("t(root) off by one while the field is present (XA-b identity, not presence)",
-     xa_atlas(perturb_t=True), None, {"TR12_XA_B": "FAIL"}, 1),
+     xa_atlas(perturb_t=True), None, {"TR12_XA_B": "FAIL:1+sum_t"}, 1),
+    # 🔴 THE OTHER PRE-REGISTERED HALF OF XA-b (V3A-041#4, 2026-09-11). PREREG_CLASSA_QUERY_SET.md
+    # registers two conditions under XA-b, and until today only the t-unit identity was decided:
+    # an atlas whose branches carried NO provenance satisfied the arithmetic and reported PASS,
+    # because the consumer supplied its own default (`direct-recursion`) for the missing key --
+    # a value the producer never writes anywhere. These two cases pin both directions: the key
+    # absent from the atlas, and the key present but stripped by the fault injector. The
+    # expectation above is now anchored on `FAIL:1+sum_t` rather than a bare `FAIL`, so a
+    # regression that makes the identity leg fire the PRESENCE failure instead cannot pass.
+    ("t_source absent from every branch (pre-registered presence half of XA-b)",
+     xa_atlas(strip_tsource=True), None, {"TR12_XA_B": "FAIL:t_source=ABSENT"}, 1),
+    ("--atlas-fault xa-strip-tsource (the consumer must not invent a provenance)",
+     xa_atlas(), "xa-strip-tsource", {"TR12_XA_B": "FAIL:t_source=ABSENT"}, 1),
 ]
 for label, A, fault, want, want_rc in CASES:
     got_rc, toks, out = cli_sel(A, SEL6, fault)
