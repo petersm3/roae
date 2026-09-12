@@ -7385,3 +7385,61 @@ five cells too shallow. It is now `k ≤ 15`, the six cells in between are discl
 review and held privately, and the escrow digest was re-minted once for both prereg corrections
 together. The lesson is the ordinary one: a claim about what is expensive is a claim about an
 instrument, and it is only as good as the instrument someone actually ran.
+
+## 2026-09-12 — the tranche that had to beat the freeze, and three guards that were never armed
+
+**Why a deadline existed at all.** The KC query set is one paid multi-day run, and the battery, the
+engine and the n=9 goldens ship *frozen* — `git archive` of a single commit — so a defect inside them
+is uncorrectable for the run's duration, and one that appears only at n=31 cannot be rehearsed. A
+Codex review and two Fable adjudications produced the set that had to land before that moment.
+
+**Three published numbers that nothing compared to anything.** The pre-registration publishes
+`g(s_22)=690,176`, `g(s_24)=5,624` and `g(s_26)=52`, and says a descent disagreeing with them is
+wrong — and no instrument had ever compared a descent to any of the three. A `git grep` for the first
+of them across the scripts, `solve.py` and `solve.c` returned nothing. The reader row now asserts all
+three at n=31, printed only on failure, so the n=9 transcript stays byte-identical.
+
+**A verdict that outranked the checks beneath it.** `TR12_Q3` was a literal PASS sitting above a
+reader check and a King Wen check that were both free to fail. It is now read off them.
+
+**A gate that decided half of what it had pre-registered.** XA-b registers two conditions and settled
+only one; worse, the consumer supplied its own default for a missing `t_source`, naming a method the
+producer never writes — so an atlas with no provenance was relabelled as having some. The default is
+now ABSENT, which fails.
+
+**A promise kept rather than withdrawn.** The query inventory had promised since 2026-09-06 that the
+C3 census row would also emit `μ_rec^C15` by 1/m Horvitz-Thompson reweighting. It never did. It does
+now: at n=9 it reads 0.49686 against the inventory's stated 50.0% target, with the walk-level 0.66426
+beside it (the golden records a Wilson 95% interval of 0.4817-0.5120, so the two are consistent rather than
+independently confirmed). A mutant that drops the 1/m weight reproduces the walk figure exactly, which is what makes
+the column falsifiable rather than decorative. It is the only number this day adds.
+
+**An impossibility claim the same file refuted.** Three places said C3 is "not DP-optimisable at
+all". That DP is fifteen thousand lines above, with its orbit-invariance machine-checked in Lean. The
+true statement is narrower — the KC ladders carry no G channel, and the full-31 run of the DP that
+does was priced and declined. Wording only; the canonical `--selftest` sha did not move.
+
+**Guards that existed on paper.** An adversarial review of the launch-path code found that it would
+detach a ladder disk from its home machine without checking that machine was off. Azure performs that
+detach whether or not the guest has the filesystem mounted, and the home machine mounts the ladders
+read-write, so the failure mode was a damaged filesystem on the artifact every n=31 number descends
+from. An independently built harness had kept exactly that check; this code had removed it
+deliberately. The guard is back in both, and it refuses before anything is created rather than after.
+
+Four more of the same family landed with it: a rehearsal could no longer write the one token that
+arms a real launch; a dropped terminal could no longer tear down a five-hour copy, because the
+hangup is now ignored; "the backstop cannot be queried" is no longer read as "the backstop is gone",
+which had let a transient login failure discard hours of work; and a run that stops for any reason
+now re-arms the machine's auto-shutdown and reads it back, instead of leaving it billing behind a log
+line nobody renders.
+
+**What the tests taught, which is the part worth keeping.** Three of the cases written for these
+guards passed while testing nothing: one drove a verb the script does not accept, one called a helper
+its own suite does not define, and one asserted the absence of log lines it was reading from the
+wrong file. Each was found by asking why a control did *not* fail, and each is recorded in the test
+file rather than quietly fixed. A fourth, written for the same guard, broke three previously-passing
+cases by borrowing a variable from a file that defines it into one that does not.
+
+**What did not move.** No canonical sha, no record count, no archive, and no published claim about the
+sequence was changed or withdrawn — the one number this day ADDS is `μ_rec^C15`, stated above with its
+interval. The scan has not run.
