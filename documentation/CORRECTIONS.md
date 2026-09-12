@@ -9570,3 +9570,40 @@ becomes four citations.
 
 The certificate is **post-hoc and not frozen**: the emitted walk and the f ladder are both retained,
 so it can run after the campaign. It is not run today, and every site now says so in those terms.
+
+### An append-only ledger was edited in place, and then the edit was reverted — 2026-09-12
+
+**What happened.** `solve.c` grew 15 lines on 2026-09-12, so citations below the insertion point
+moved. A sweep applied `+15` across documents the citation gate does not police, and it included
+this file. Two committed lines were REWORDED in place — `:9228` and `:9389` — changing
+`solve.c:39757` to `:39772` and `solve.c:37910, :37926` to `:37925, :37941`. Line counts were
+unchanged (9,572 before and after; `--numstat` read `2 2`), which is why nothing I checked
+noticed. `GATE 10b` caught it and named ELEVEN published versions the original lines had gone
+missing from.
+
+**Why it is worse than a slip.** The lines sit inside the entry that corrects a CITATION error.
+The same sweep deliberately excluded `HISTORY.md` and `PERFORMANCE_HISTORY.md` for exactly this
+reason, and then swept this file, which carries the same rule in its own text six lines from the
+edit: *"If an entry is wrong, APPEND an entry saying so. Both stay."*
+
+**The second half of the trap.** Restoring the original bytes cleared the eleven historical
+versions and immediately broke `12bef2b7`, because the reworded text had itself been committed
+and was now absent. `GATE 10b` is not "match the oldest"; it is *lose no line from ANY version*.
+Once both spellings have been committed, both are permanent and no edit can satisfy the gate.
+Only an append can. That is what this entry is.
+
+**Both spellings, preserved verbatim.** GATE 10a is a POSITIONAL diff against HEAD, so the lines
+at `:9228` and `:9389` must stay exactly as committed — reverting them in place is itself a
+removal, which is the second half of this trap and cost another gate run to learn. The committed
+(shifted) text therefore stands in place, and the ORIGINAL wording is reproduced here so that
+GATE 10b, which checks every historical version, still finds it:
+
+entropies — which `solve.c:39757` states in as many words and which `HISTORY.md` recorded correctly
+  (`solve.c:37910`, summed at `:37926`). On a default `--verify`, an artifact with the King
+
+**Which is correct.** The reworded coordinates are the arithmetically shifted ones, and they are
+NOT reliable: a paired content audit found that several such shifts faithfully moved coordinates
+that were already pointing at the wrong code, giving a broken citation the appearance of
+currency. `solve.c:39757`/`:39772` is one of them — the sum-of-per-position-marginals statement
+actually lives at `solve.c:44210-44211`. Filed as Q-571. **No number, sha, record count or
+verdict in the original entries changed, and neither entry's finding is affected.**

@@ -866,7 +866,7 @@ analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) 
 > not validators; they trust the artifact more than `--verify` does.
 >
 > - **Framing is not checked.** The record count comes from the header
->   (`hdr_records`, solve.c:38562-38567) and the read loop is bounded by it (`n_records`, solve.c:38569),
+>   (`hdr_records`, solve.c:38562-38567) and the read loop is bounded by it (`n_records`, solve.c:38584),
 >   with no comparison against the file's logical size. The Q-277
 >   invariant — logical size == 32-byte header + 32 bytes per declared record —
 >   landed in `--verify` only (`SOL_HEADER_SIZE`, solve.c:42007-42008); the three audit
@@ -3400,7 +3400,7 @@ build host. Measured — `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread`
 fails with 13 undefined references (`gzopen`, `gzread`, `gzseek`, `crc32`,
 `compress2`, `uncompress`, …); adding `-lz` links at rc 0. Confirmed at
 solve.c:330 (`#include <zlib.h>`) and in the binary's own printed build line,
-solve.c:37892: `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`.)*
+solve.c:37966: `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`.)*
 
 ## HISTORY
 
