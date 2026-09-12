@@ -1654,8 +1654,8 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # 🔴 CODEX R5 FINDING 5 (2026-09-11). This said "Pass --wave3 to run it anyway", which is an
     # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
     # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
-    # (solve.c:20490), and kc_extremal_main refuses an out-of-core f ladder immediately
-    # (solve.c:32664) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
+    # (solve.c:20657, reached via the kc_open wrapper at :20662), and kc_extremal_main refuses an out-of-core f ladder immediately
+    # (solve.c:35868) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
     # witness and the certificate: "v1 is IN-MEMORY ONLY ... the streaming, eviction-resumable OOC
     # extremal builder is a SEPARATE, UNBUILT item ... it is the full-31 enabler". So --wave3 at
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the

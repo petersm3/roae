@@ -48,10 +48,16 @@ quotient DP — is the **within-pair Hamming distance of the newly placed pair**
 `w = popcount(entry XOR exit) ∈ {2, 4, 6}`, whose multiset over the 32 pairs is fixed by C1 to
 {2:12, 4:12, 6:8} ([SPECIFICATION.md](../documentation/SPECIFICATION.md), machine-checked in
 [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean)). `w` is a function of the chosen pair
-alone and is invariant under the order-24 canonicalisation group, so it can be accumulated at the
-existing `--kc-scan` transition site as 5 × 3 = 15 counters per layer instead of 5 — **a cheap flag,
-not a re-build**. (Contrast [V2](viz_kc_river.md)'s branch split, which the DP state genuinely
-cannot support.) Other readings — pair orbit, trigram class — are possible and would need their own
+alone and is invariant under the order-24 canonicalisation group. It needs **no scan-side change at
+all**: with `--kc-raw` the scan already persists every nonzero raw kernel cell `m<a>_<b>`
+(`solve.c:27966-27975`), where `a` is the raw exit hexagram of the previous pair and `b` the raw
+entry hexagram of the new one. Both coordinates are therefore functions of the key alone —
+`d = popcount(a ^ b)` and `w = popcount(b ^ partner(b))` — so the cross-tab is a **consumer-side
+derivation over a frame that already ships, not a flag and not a re-scan**. ⚠ *Corrected 2026-09-12:
+this read "a cheap flag, not a re-build" and named a proposed `--kc-scan … --kc-grammar-cross`.
+That flag exists nowhere in solve.c or solve.py, and proposing a scan-side change to a pass paid
+exactly once — for something already persisted — is the expensive direction to be wrong in.*
+(Contrast [V2](viz_kc_river.md)'s branch split, which the DP state genuinely cannot support.) Other readings — pair orbit, trigram class — are possible and would need their own
 G-invariance argument. This doc does **not** pick one; it records the candidate and the reason.
 
 ## The quantity plotted
@@ -115,7 +121,9 @@ $B/solve --kc-scan-selftest                        # expect: PASS (0 failures)
 
 ```bash
 solve --kc-scan FDIR GDIR tr12/scan/atlas.json [--kc-ooc] [--kc-cache-mb MB]
-#   --kc-raw is NOT needed for this figure; --kc-tdir is NOT needed for this figure.
+#   --kc-tdir is NOT needed for this figure. --kc-raw is NOT needed for the
+#   distance-class-only form (by_class ships unconditionally), but IS REQUIRED for the
+#   (d, w) cross-tab, which derives from layers[].kernel and is absent without it.
 ```
 
 **Atlas JSON → TSV** — the atlas consumer. The `w = -1` placeholder is emitted honestly rather
