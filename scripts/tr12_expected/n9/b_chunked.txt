@@ -4,6 +4,10 @@
 [kc-scan] layer 01 -> 02: transition mass 26112
 [kc-scan] layer 02 -> 03: transition mass 26112
 [kc-scan] layer 03 -> 04: transition mass 26112
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 00: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 01: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 02: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 03: PASS
 [kc-scan] chunk written: <WORK>/chunk0.json (layers [0,4))
 [kc-scan] VERDICT: PASS (0 gate failures)
 KC_SCAN_CHUNK_RANGE=0-4
@@ -15,6 +19,11 @@ KC_SCAN_CHUNK=OK
 [kc-scan] layer 06 -> 07: transition mass 26112
 [kc-scan] layer 07 -> 08: transition mass 26112
 [kc-scan] layer 08 -> 09: transition mass 26112
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 04: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 05: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 06: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 07: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance layer 08: PASS
 [kc-scan] chunk written: <WORK>/chunk1.json (layers [4,9))
 [kc-scan] VERDICT: PASS (0 gate failures)
 KC_SCAN_CHUNK_RANGE=4-9
@@ -23,8 +32,15 @@ KC_SCAN_CHUNK=OK
 [f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
 [kc-scan-merge] <WORK>/chunk0.json: layers [0,4)
 [kc-scan-merge] <WORK>/chunk1.json: layers [4,9)
+KC_SCAN_MERGE_ROWBIND=OK
 KC_SCAN_MERGE_ENGINE=EXE-BOUND
 KC_SCAN_MERGE_COVERAGE=COMPLETE
+[kc-scan] TAIL-CHECK vertical_raw_eq_N: PASS
+[kc-scan] TAIL-CHECK digit_cross_table_eq_cls_prefix: PASS
+[kc-scan] TAIL-CHECK kernel_cross_layer_eq: PASS
+[kc-scan] TAIL-CHECK kernel_rev_column_eq: PASS
+[kc-scan] TAIL-CHECK kernel_g_invariance: PASS
+KC_SCAN_TAILCHECK=PASS
 KC_SCAN_MERGE_TIDENTITY=VERIFIED
 [kc-scan-merge] atlas written: <WORK>/merged.json (2 chunks, 9 layers)
 [kc-scan-merge] VERDICT: PASS (0 gate failures)
