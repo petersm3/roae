@@ -441,7 +441,11 @@ QSET external review, which the external review itself missed; see
   `(12,51) (18,45) (30,33)` contribute 2 or 4 each — so the range is `[90, 96]`. **Both endpoints are
   attained by orderings this project published on 2026-07-24**: lines 22 and 50 of
   `reports/certificates/c3_positional_witnesses.txt` give `yangcount=96 entryyang=90` and
-  `yangcount=90 entryyang=96`, each `verdict SUPER: IN` and `C15: IN`. A `$40–80` sweep of either
+  `yangcount=90 entryyang=96`, each `verdict SUPER: IN` and `C15: IN`. ⚠ *Annotated in the
+  certificate 2026-09-13 (V3B-03#11): the file carried the two orderings but no occurrence of
+  "yang", so it held the objects and not the claim. Each of those two lines now states its own
+  measured pair on the `G=`/`C3=` header immediately above it — the annotation sits on the header
+  because the `SEQ=` line is parsed as exactly 64 integers by row `a0_q4b`.* A `$40–80` sweep of either
   would rediscover a published number. *(This closes the two REGISTRY functionals, not §Q5's proposed
   shortlist — yinyang excursion, markov self-transition, `--lines` imbalance are untouched.)*
 
@@ -1326,7 +1330,13 @@ surface's own selftest and the committed n = 9 expected blocks are for. This lis
   the structural floor** for a distinct key. It is attained: the public 100 T log
   `runs/20260419_100T_d3_d128westus3/analyze_output.log.gz` (committed 2026-04-20) prints
   `[ 12] dist=2 rec#104178045`, and an explicit C15 witness at distance 2 was found by execution
-  during the review. Under the alternative "distinct walk" reading the minimum is **0**
+  during the review. ⚠ *That witness is no longer execution-only: it was appended to
+  [`reports/certificates/c3_positional_witnesses.txt`](../reports/certificates/c3_positional_witnesses.txt)
+  on 2026-09-13 (V3B-03#11) as the `DISTANCE-2 C15 WITNESS` block — King Wen with pair-slots 1 and
+  13 exchanged, `edit_dist_kw = 2`, C3 = 680, `verdict SUPER: IN` and `C15: IN`, carrying its full
+  `--check-arrangement` transcript. It is recorded as a commented block rather than as a `G=`/`C3=`
+  witness row because row `a0_q4b` grades on this file's row COUNT, and a 43rd row would change a
+  frozen n=9 golden.* Under the alternative "distinct walk" reading the minimum is **0**
   (`python3 verify.py --check-flips` → 9 of 31 single-orientation flips remain valid). Either way
   this needed no plain-DP sizing exercise. The original text, retained: it required the plain
   (unquotiented) DP with a ×32 channel — sizing unknown, possibly infeasible; DEFERRED with the

@@ -3268,7 +3268,12 @@ if [ "${#MINTED[@]}" -gt 0 ]; then
     say "         Their PASS attests exit status and in-row gates only. Review them before they are committed."
 fi
 
-# §0.3: the aggregate is emitted only if every non-SKIP token in scope is PASS.
+# §0.3: the aggregate is emitted when NO row FAILed -- SKIP and PENDING rows alike do not block it.
+# (Corrected 2026-09-13, V3A-044#1. This comment used to read "only if every non-SKIP token in scope
+# is PASS", which says a PENDING -- a non-SKIP token -- withholds the aggregate. It does not. What a
+# PENDING withholds is TR12_REPRO_COMPLETE: row_skip counts PENDING into NSKIP, and COMPLETE=YES is
+# emitted only at NSKIP == 0, so one PENDING already forces TR12_REPRO_COMPLETE=NO. The driver was
+# right and the comment was wrong. COMMENT ONLY -- not one executable line changed.)
 AGG_OK=1
 for t in "${TOKORDER[@]}"; do
     case "${TOKSTATE[$t]}" in FAIL*) AGG_OK=0 ;; esac

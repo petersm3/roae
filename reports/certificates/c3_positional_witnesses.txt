@@ -18,7 +18,7 @@ G=14 C3=128  # ladder rung
 SEQ=63 0 26 22 37 41 11 52 16 2 40 5 61 47 58 23 25 38 51 12 31 62 32 1 59 55 4 8 30 33 15 60 48 3 21 42 43 53 20 10 28 14 35 49 18 45 29 46 17 34 56 7 6 24 57 39 54 27 9 36 13 44 50 19
 G=15 C3=136  # ladder rung
 SEQ=63 0 38 25 32 1 31 62 18 45 41 37 22 26 61 47 2 16 51 12 52 11 33 30 21 42 43 53 50 19 13 44 10 20 54 27 9 36 60 15 3 48 40 5 23 58 14 28 49 35 46 29 7 56 34 17 24 6 39 57 8 4 59 55
-G=16 C3=144  # ladder rung
+G=16 C3=144  # ladder rung; the SEQ on the next line (file line 22) has yangcount=96 entryyang=90 -- the registry MAXIMUM of yangcount over SUPER and over C15 (annotated 2026-09-13, V3B-03#11; measured, and the pair sums to 186 across the 31 free slots)
 SEQ=63 0 38 25 20 10 42 21 53 43 55 59 8 4 33 30 54 27 9 36 12 51 7 56 37 41 26 22 47 61 2 16 6 24 57 39 11 52 32 1 31 62 40 5 23 58 14 28 17 34 46 29 18 45 49 35 15 60 48 3 50 19 13 44
 G=17 C3=152  # ladder rung
 SEQ=63 0 25 38 40 5 2 16 61 47 12 51 22 26 41 37 23 58 46 29 17 34 39 57 24 6 7 56 43 53 10 20 55 59 8 4 18 45 28 14 35 49 31 62 32 1 48 3 15 60 52 11 30 33 9 36 54 27 13 44 50 19 21 42
@@ -46,7 +46,7 @@ G=28 C3=240  # ladder rung
 SEQ=63 0 54 27 29 46 40 5 17 34 24 6 38 25 23 58 57 39 9 36 8 4 59 55 33 30 42 21 28 14 35 49 61 47 2 16 51 12 32 1 45 18 62 31 52 11 41 37 22 26 48 3 13 44 60 15 19 50 53 43 10 20 56 7
 G=29 C3=248  # ladder rung
 SEQ=63 0 26 22 37 41 40 5 7 56 42 21 30 33 38 25 23 58 11 52 12 51 16 2 47 61 17 34 55 59 8 4 3 48 60 15 45 18 43 53 20 10 28 14 35 49 32 1 31 62 39 57 24 6 29 46 36 9 27 54 44 13 50 19
-G=30 C3=256  # ladder rung
+G=30 C3=256  # ladder rung; the SEQ on the next line (file line 50) has yangcount=90 entryyang=96 -- the registry MINIMUM of yangcount over SUPER and over C15 (annotated 2026-09-13, V3B-03#11; measured, and the pair sums to 186 across the 31 free slots)
 SEQ=63 0 54 27 9 36 24 6 57 39 20 10 43 53 45 18 4 8 40 5 55 59 26 22 52 11 23 58 41 37 61 47 30 33 35 49 28 14 34 17 29 46 7 56 44 13 19 50 60 15 2 16 51 12 21 42 3 48 38 25 32 1 31 62
 G=31 C3=264  # ladder rung
 SEQ=63 0 54 27 7 56 9 36 29 46 17 34 24 6 39 57 31 62 35 49 32 1 13 44 28 14 30 33 50 19 41 37 20 10 15 60 53 43 42 21 3 48 25 38 58 23 5 40 26 22 12 51 16 2 47 61 59 55 18 45 52 11 4 8
@@ -94,3 +94,34 @@ G=95 C3=776  # tie at KW's value, pair-slot layout != KW (--not-kw)
 SEQ=63 0 25 38 53 43 49 35 5 40 46 29 6 24 44 13 39 57 19 50 36 9 51 12 41 37 56 7 61 47 28 14 26 22 20 10 17 34 58 23 11 52 54 27 18 45 42 21 1 32 31 62 15 60 30 33 48 3 59 55 16 2 8 4
 G=97 C3=792  # above the C3<=776 ceiling (G>=96 requested)
 SEQ=63 0 17 34 23 58 2 16 55 59 7 56 61 47 4 8 25 38 3 48 41 37 32 1 57 39 33 30 18 45 28 14 60 15 40 5 53 43 20 10 35 49 31 62 24 6 26 22 29 46 9 36 52 11 13 44 54 27 21 42 12 51 50 19
+#
+# --------------------------------------------------------------------------
+# DISTANCE-2 C15 WITNESS  (appended 2026-09-13, V3B-03#11)
+# --------------------------------------------------------------------------
+# King Wen's nearest DISTINCT C15 neighbour: KW with pair-slots 1 and 13 exchanged.
+# edit_dist_kw=2 (slots 1,13). Two distinct permutations of the 31 free pair-slots
+# differ in at least two slots, so 2 is the structural floor and this attains it.
+# Complement-distance sum C3 = 680 (rung G = 83), against King Wen's own 776.
+#
+# RECORDED AS A COMMENT, DELIBERATELY. Row a0_q4b of scripts/tr12_repro.sh grades on
+# this file's CONTENT: it counts lines matching the header grammar and prints
+# certificate_rows / lines_checked, both pinned at 42 by the frozen n=9 golden
+# scripts/tr12_expected/n9/a0_q4b.txt. A 43rd witness row would change that golden,
+# so this block carries the witness WITHOUT entering the header grammar.
+#
+# Re-check it yourself:
+#   ./solve --check-arrangement "$(sed -n 's/^# WITNESS_SEQ //p' reports/certificates/c3_positional_witnesses.txt | tr -s ' ' ,)"
+#
+# WITNESS_SEQ 63 0 33 30 23 58 2 16 55 59 7 56 61 47 4 8 25 38 3 48 41 37 32 1 57 39 17 34 18 45 28 14 60 15 40 5 53 43 20 10 35 49 31 62 24 6 26 22 29 46 9 36 52 11 13 44 54 27 50 19 51 12 21 42
+#
+# TRANSCRIPT, verbatim from ./solve --check-arrangement on the sequence above:
+#   [check-arrangement] permutation of 0..63:            OK
+#   [check-arrangement] C1 pair-partner adjacency:        HOLD
+#   [check-arrangement] C2 no distance-5 boundary:        HOLD (d=5 count 0, first n/a -1)
+#   [check-arrangement] C3 complement distance:           HOLD (value 680, ceiling 776)
+#   [check-arrangement] C4 anchor first (63 then 0):      HOLD
+#   [check-arrangement] C5 distance multiset == KW's:     HOLD (hist d1..d6 = 2,20,13,19,0,9)
+#   [check-arrangement] first violation (pinned order):  NONE
+#   [check-arrangement] verdict SUPER (C1&C2&C4&C5):     IN
+#   [check-arrangement] verdict C15  (C1-C5, C3<=776):   IN
+#   #provenance	engine=solve.c/check-arrangement	branch=main	git=355af16a	source_sha=ed9c65b24e9f2ff9cab05eef9f817dca9453ea2edf25b9186fc1f667abe063c9	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
