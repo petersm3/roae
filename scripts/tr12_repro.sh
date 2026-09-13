@@ -3268,6 +3268,34 @@ if [ "${#MINTED[@]}" -gt 0 ]; then
     say "         Their PASS attests exit status and in-row gates only. Review them before they are committed."
 fi
 
+# >>> TR12_MINT_STATE_BLOCK_BEGIN — extracted and EXECUTED by scripts/tr12_mint_state_gate.sh.
+# Do not reflow or re-indent between the markers without re-running that gate: it runs THIS TEXT,
+# not a copy of it, so that a mutation here goes red there instead of passing against a fixture.
+#
+# 🔴 THE MINT STATE IS LOAD-BEARING IN THE VERDICT (2026-09-13). Until today a MINTED run and a
+# DIFFED run printed the SAME STRING — `TR12_REPRO=PASS` — and so did the program-level aggregate.
+# At n=31 there is no committed golden (scripts/tr12_expected/n31/ does not exist), so the driver's
+# --mint-missing MINTS EVERY ROW and the golden-diff leg contributes ZERO information for every
+# row: each row's expected block is written FROM THE VERY RUN it was meant to check. The verdict
+# file was nevertheless byte-indistinguishable, in its verdict line, from one that had diffed 50
+# rows against a committed set. `TR12_REPRO_MINTED=<n>` was already printed beside it and the
+# driver already copied it verbatim — so the fact was PRESENT but NOT LOAD-BEARING, because every
+# consumer keyed on `grep -qx 'TR12_REPRO=PASS'` and nothing read the count.
+#
+# This is the cure tr12_n31_golden_gate.sh applied one level down when it split OK into
+# OK | MINTED-UNVERIFIED; its header: "a merely PRESENT golden and a CHECKED one were the same
+# string". The VALUE now carries the state, so a consumer that has not been taught the difference
+# FAILS CLOSED (its whole-line match simply stops matching) rather than reading a minted run as a
+# reproduced one. A separate advisory token alone could not do that: it would help only consumers
+# that had already been updated, which is exactly the set that does not need help.
+#
+# MINTED is never partially meaningful here: the count IS the payload, so it rides in the token.
+if [ "${#MINTED[@]}" -gt 0 ]; then
+    GOLDSTATE="MINTED-UNVERIFIED"; PASSTOK="PASS:MINTED-${#MINTED[@]}"
+else
+    GOLDSTATE="DIFFED";           PASSTOK="PASS"
+fi
+
 # §0.3: the aggregate is emitted when NO row FAILed -- SKIP and PENDING rows alike do not block it.
 # (Corrected 2026-09-13, V3A-044#1. This comment used to read "only if every non-SKIP token in scope
 # is PASS", which says a PENDING -- a non-SKIP token -- withholds the aggregate. It does not. What a
@@ -3284,9 +3312,10 @@ if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
     # ran (TR12_REPRO=PASS) and must not read as a passing PROGRAM -- added 2026-09-08 (F-5 D1),
     # when the production driver started running this file pre-scan with --no-scan.
     if [ "$N_PAIRS" -ge 31 ]; then AGGKEY=QUERY_PROGRAM; else AGGKEY=QUERY_DRYRUN; fi
-    if [ "$SCAN_OK" -eq 1 ]; then printf '%s=PASS\n' "$AGGKEY" >> "$VERD"
+    if [ "$SCAN_OK" -eq 1 ]; then printf '%s=%s\n' "$AGGKEY" "$PASSTOK" >> "$VERD"
     else                          printf '%s=SKIP:no-atlas\n' "$AGGKEY" >> "$VERD"; fi
-    printf 'TR12_REPRO=PASS\n' >> "$VERD"
+    printf 'TR12_REPRO=%s\n' "$PASSTOK" >> "$VERD"
+    printf 'TR12_REPRO_GOLDEN_STATE=%s\n' "$GOLDSTATE" >> "$VERD"
     say ""
     # 🔴 KCP1 SIDE FINDING S1 (Fable, 2026-09-11). This was `if [ "$REGEN" -eq 1 ]`, so
     # --mint-missing wrote expected blocks and NO _MANIFEST.txt. At n=31 MINTING IS THE PATH --
@@ -3311,7 +3340,8 @@ if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
         say "expected blocks WRITTEN to $EXPECTDIR — review them before they are committed."
         say "manifest: $EXPECTDIR/_MANIFEST.txt"
     fi
-    say "TR12_REPRO=PASS"
+    say "TR12_REPRO=$PASSTOK"
+    [ "$GOLDSTATE" = DIFFED ] || say "         ^ NOT a reproduction: ${#MINTED[@]} row(s) were WRITTEN by this run, not diffed."
     exit 0
 else
     printf 'TR12_REPRO=FAIL\n' >> "$VERD"
@@ -3319,3 +3349,4 @@ else
     say "TR12_REPRO=FAIL"
     exit 1
 fi
+# <<< TR12_MINT_STATE_BLOCK_END

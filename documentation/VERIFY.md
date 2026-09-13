@@ -1213,8 +1213,10 @@ scripts/tr12_repro.sh --n9 --regen                 # re-mint the expected blocks
 scripts/tr12_repro.sh --help                       # every flag and environment knob
 ```
 
-**Exit status** — `0` every executed row matched (`TR12_REPRO=PASS`); `1` a mismatch, a non-zero
-row, or a missing expected block (`TR12_REPRO=FAIL`); `2` usage or environment error.
+**Exit status** — `0` every executed row matched (`TR12_REPRO=PASS`, or `PASS:MINTED-<n>` when `<n>`
+of those rows had no expected block and this run **wrote** one under `--mint-missing`, so for those
+rows nothing was diffed); `1` a mismatch, a non-zero row, or a missing expected block
+(`TR12_REPRO=FAIL`, never qualified); `2` usage or environment error.
 
 **Run order is fixed and is not a preference.** `A0` (no ladder) → `A1` (f) → `A2` (f+g) →
 `B` (the scan) → `C` (atlas-derived). `--kc-scan` is one long pass with no resume flag that
@@ -1233,6 +1235,14 @@ grep -qx 'TR12_REPRO=PASS'          "$OUT/VERDICTS.txt"   # the battery
 grep -qx 'TR12_Q3_READER=PASS'      "$OUT/VERDICTS.txt"   # one row
 grep -qx 'TR12_REPRO_COMPLETE=YES'  "$OUT/VERDICTS.txt"   # ... and nothing was skipped
 ```
+
+**The first of those is deliberately strict.** Since 2026-09-13 a run that **minted** any expected
+block — `--mint-missing` writes one for a row that has none, so that row is diffed against nothing —
+reads `TR12_REPRO=PASS:MINTED-<n>` instead, and the whole-line match above stops matching. That is
+the intent: a reader who asked for a reproduction is not handed a run that compared nothing. `--n9`
+mints nothing, because every block it needs is committed, so the check above is the right one for
+it. Where either outcome is acceptable, read `TR12_REPRO_GOLDEN_STATE=DIFFED|MINTED-UNVERIFIED`
+beside it, with `TR12_REPRO_MINTED=<n>` counting the rows. `FAIL` is never qualified.
 
 Skipped values are short and machine-matchable — `SKIP:doc-only`, `SKIP:wave3-not-budgeted`,
 `PENDING:--kc-coset-census` — with the long human reason on a separate `<TOKEN>_REASON` line.

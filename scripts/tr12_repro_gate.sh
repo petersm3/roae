@@ -483,6 +483,18 @@ fi
 if ! ./scripts/tr12_repro.sh --n9 --solve "$WORK/solve" --out "$WORK/out" >"$WORK/repro.log" 2>&1; then
   :   # non-zero exit is expected on FAIL; the token below is the authority
 fi
+# A MINTED pass is refused BY NAME rather than falling through to the generic FAIL below, which
+# would report "the committed tree does not reproduce its own published battery" — true, but it
+# would hide WHY. This gate runs --n9, where all 56 expected blocks are committed and nothing can
+# legitimately be minted, so `PASS:MINTED-<n>` here means the golden set was not found or not read
+# and the battery graded itself against its own output (2026-09-13, with the mint-state change).
+if grep -q '^TR12_REPRO=PASS:MINTED-' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
+  echo "  [FAIL] the n=9 battery MINTED expected blocks instead of diffing them:"
+  grep -E '^TR12_REPRO=|^TR12_REPRO_GOLDEN_STATE=|^TR12_REPRO_MINTED' "$WORK/out/VERDICTS.txt" | sed 's/^/         /'
+  echo "         scripts/tr12_expected/n9/ carries every block this run needed, so a minted row"
+  echo "         means the golden set was not read — that is not a reproduction."
+  echo "TR12_REPRO_GATE=FAIL"; exit 1
+fi
 if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   sed -n 's/^rows=/  /p' "$WORK/repro.log" | tail -1
   echo "  [ok] TR12_REPRO=PASS"
