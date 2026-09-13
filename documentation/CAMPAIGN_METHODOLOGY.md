@@ -264,6 +264,77 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 >
 > The operational, cloud-specific runbook (credentials, resource names, launch scripts) is
 > maintained privately and remains out of the public record. That boundary is unchanged.
+>
+> **Decision (2026-09-13): removing the subscription ID from history was PRICED AND DECLINED.**
+> The scrub at `492115b6` (2026-04-18) took the identifier out of the working tree; the commit that
+> introduced it three days earlier is still in history. Finding (1) above is therefore a statement
+> about **tracked files at the measured sha, and not about history**. Excising it from history means
+> rewriting history, and that was costed rather than assumed. **Measured at `9dae6beb` (2026-09-13):**
+> the rewrite touches the introducing commit and every descendant of it —
+> `git rev-list --count 5405c953^..HEAD` → **1,455** of `git rev-list --count HEAD` → **1,675**
+> commits, **86.9 %** — and **all 36** tags descend from it, `reports-v1.0` included
+> (`git tag | while read t; do git merge-base --is-ancestor 5405c953 "$(git rev-list -n1 "refs/tags/$t")" && echo x; done | wc -l`).
+> Every rewritten commit takes a new sha, and **a commit sha is this project's citation mechanism**:
+> [reports/METHODS.md](../reports/METHODS.md) pins the repository by sha precisely because a sha is
+> content-addressed and immutable, the DOI alternative having been withdrawn as never having existed
+> ([reports/README.md](../reports/README.md)). Those citations are neither few nor decorative —
+> **714 distinct to-be-rewritten commits are cited at 1,715 sites in tracked files**, measured over
+> tracked files at `9dae6beb` and **excluding this file**, whose own text cites the commits it is
+> about — were it included, the figure would move every time the sentence reporting it was edited —
+> with
+> `git rev-list 5405c953^..HEAD > /tmp/inval && git ls-files -z | grep -zv '^documentation/CAMPAIGN_METHODOLOGY\.md$' | xargs -0 grep -ohIE '\b[0-9a-f]{7,40}\b' | awk -v F=/tmp/inval 'BEGIN{while((getline l<F)>0)for(i=7;i<=40;i++){k=substr(l,1,i);c[k]++;m[k]=l}} {if($0 in c && c[$0]==1){occ++;u[m[$0]]=1}} END{print occ, length(u)}'`
+> (a token is counted only where it is an unambiguous prefix of exactly one such commit). The largest
+> single concentration of them is [CORRECTIONS_INVENTORY.tsv](CORRECTIONS_INVENTORY.tsv), which is
+> **machine-derived from `git log`**: a rewrite would force the in-place rewriting of a published
+> record whose whole value is that it is not rewritten in place.
+>
+> **Scope correction (2026-09-13): three identifiers, not one.** A re-sweep of tracked files
+> **including the binary-classified ones an earlier `grep -rI` pass silently skipped** found that the
+> subscription ID is not the only operator identifier in this history. Two disk UUIDs were also
+> published and later redacted: one introduced at `46090e17` (2026-05-06), one at `8e72089c`
+> (2026-05-24), both removed from `documentation/HISTORY.md` by `65a4da38` (2026-07-31, whose subject
+> is *"redact orchestrator IPs + disk UUIDs"*). All three introducing commits are ancestors of
+> `origin/main` — `git merge-base --is-ancestor <commit> origin/main` — so all three are published.
+> No full UUID remains in the tree: `git ls-files -z | xargs -0 grep -hoIE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | sort -u | wc -l`
+> → **0** at `9dae6beb`; the same regex over `git show 65a4da38` matches the **2** lines that
+> redaction removed, which is the positive control showing the search can find what it reports absent.
+>
+> **This does not enlarge the rewrite, and that is the point.** `5405c953` is the earliest of the
+> three, so the descendant set a scrub would have to rewrite is unchanged: `git rev-list --count
+> 5405c953^..HEAD` → **1,455**, against **1,269** for `46090e17^..HEAD` and **1,187** for
+> `8e72089c^..HEAD`. Three identifiers cost exactly the same rewrite as one and retract exactly as
+> little, because the fork and every clone carry all three. The conclusion below is therefore
+> unchanged and better supported, not weakened.
+>
+> **Two gaps are recorded here rather than fixed here.** (i) *Ledger asymmetry.* `492115b6`'s scrub is
+> in the corrections ledger as **GIT-3889050**; `65a4da38`'s redaction has no ledger entry at all.
+> `grep -c 65a4da38 documentation/CORRECTIONS.md documentation/CORRECTIONS_INVENTORY.tsv` → **0** and
+> **0**, while the same grep for `492115b6` → **0** and **1**; that inventory hit is the positive
+> control, showing the search does find a redaction that *was* filed. (A repo-wide grep is the wrong
+> instrument here: this file now cites `65a4da38` itself and would match its own text — the same
+> self-reference the 1,715 / 714 count above excludes by construction.) Filing
+> that entry is a separate lane and is deliberately not done in this note. (ii) *A live partial in the
+> published tree.* `documentation/HISTORY.md:4158` still carries an 8-hex prefix of the UUID
+> introduced at `46090e17`, whose full form is in public history, and it is on `origin/main` now.
+> `HISTORY.md` is **append-only** in this project, so it is not edited here: remediation is an
+> operator decision. The only other such token, at `HISTORY.md:1907`, matches neither publicly
+> introduced UUID, and nothing further about it is asserted here. Finding (1) above enumerates IPs,
+> subscription and tenant IDs, keys, endpoints and credentials; it does **not** cover disk UUIDs or
+> resource-group names, and that is precisely the gap these three sit in.
+>
+> **And the rewrite would not retract the value.** This history is public and distributed: a public
+> fork carries the introducing commit as an ancestor of its head (observed 2026-09-13; the fork is
+> deliberately not named, so this observation — unlike every measured figure above — is not
+> reproducible from this document), and every clone already taken holds its own full copy. A
+> rewrite would invalidate every published citation while leaving the identifier recoverable from any
+> of them: the cost without the benefit that would justify paying it. **A subscription ID names an
+> account; it does not authenticate to one.** Azure Resource Manager refuses an unauthenticated call
+> whatever subscription it names, and the credentials that would authorise one are not in this
+> repository's tracked files at the sha measured in finding (1) above. That is deliberately the same
+> scope as finding (1) — tracked files at a measured sha — and not a claim about history: this
+> document publishes no history-wide credential scan, so it asserts none. The 2026-04-18 scrub stands
+> as the right fix — stop publishing it going forward — and the historical commits are **left in
+> place deliberately**.
 
 A canonical produced at budget *B* per cell **enables a canonical at any
 budget *B′* > B without redoing the original work**. This is the most
