@@ -71,21 +71,50 @@ specification behind them, not a substitute for them.
   `documentation/VERIFY.md` §"TR-12 query program" states it in the same terms — *"True C3 ≤ 776
   ⟺ the walk functional `--kc-c3-max 387` at full 31 pairs (`cd_true = 2·(walk_cd+1)`). Pass 387,
   never 776. Passing 776 silently doubles the ceiling."* — and 2·(387+1) = 776 closes it without
-  any project document. (The step-by-step derivation is an internal proof note; it is not cited,
-  because nothing above needs it.) Every C15 query
+  any project document. **`walk_cd` is the sum, over the 31 free complement couples `{h, 63^h}`
+  with both endpoints placed, of `|pos(h) − pos(63^h)|` — each couple counted ONCE.**
+  **The step-by-step derivation is PUBLIC, in `solve.c`, and this document used to say it was not**
+  *(corrected 2026-09-13, V3B-03#3; the retired sentence read "the step-by-step derivation is an
+  internal proof note; it is not cited, because nothing above needs it" — wrong in fact, and every
+  C15-scoped figure in this program rests on the `--kc-c3-max 387` it justifies)*. It is the
+  `UNITS (review C-1)` comment block on the walk functional, quoted verbatim: *"this walk functional
+  counts each couple ONCE and, at full-31, never sees the anchor couple {63,0} (neither endpoint is
+  a walk hexagram), whereas true C3 counts every couple TWICE over all 64 hexagrams and includes the
+  anchor couple. So at full-31 cd_true = 2*(walk_cd + 1), and C3 <= 776 (KW's ceiling) <=> walk
+  cd <= T = 387."* It is also gated **executably**, not merely commented: `kc_oracle_selftest`
+  asserts `KW boundary: walk-cd(KW) == 387 exactly (T admits KW)` and
+  `units: 2*(walk_cd+1) == whole-seq C3, every sampled walk`, so a 387-vs-388 off-by-one cannot
+  recur silently. Every C15 query
   passes `--kc-c3-max 387`, never 776.
 
 **Orders (never conflated).**
 - **REL** = reverse-exit lexicographic — the compiler's native descent order; `--kc-rank/--kc-unrank`
   implement it TODAY from forward layers alone.
 - **O3** = the ratified `compare_solutions` record comparator (pair-identity bytes primary, full
-  bytes tiebreak) — the CITABLE order (charter D2/H5). Ranking in O3 needs the Stage-G g-ladder +
+  bytes tiebreak) — the CITABLE order (charter D2/H5). **An independent comparator is constructible
+  from public sources alone, and this section cited none of them** *(added 2026-09-13, V3B-03#5)*:
+  the 32-byte record layout `byte[i] = (pair_index << 2) | (orient << 1)` and the 32-row pair table
+  are both published in `documentation/SOLUTIONS_FORMAT.md` (§"Record format", §"Pair table"); the
+  comparator is `compare_solutions` in `solve.c` — *"total strict order on 32-byte records. Primary
+  key is pair identity (byte & 0xFC); secondary key is the full byte (including orient bit)"* — and
+  the ladder-side implementation a reader can diff against it is `kc_o3_cmp`, a pure byte-level
+  comparison with no ladder involvement (both cited by symbol; line numbers drift).
+  Ranking in O3 needs the Stage-G g-ladder +
   the **O3 ranker (TO-BUILD, freeze row C7/E3; already on the Fable worklist)**.
 - **Walk-rank vs class-rank (design note for the O3-ranker builder, must be pinned before any
   citable rank ships):** records are orientation-masked classes (multiplicity m(k)); N counts
   walks. Freeze-row E3 defines rank(KW) as the superspace **walk** O3 rank; the class-rank (# of
   distinct records preceding KW's record) is a second quantity. TR-12 publishes the walk-rank as
-  primary; class-rank only if the ranker's m(k)-collapsed mode lands. `repr(KW)=KW` is PROVEN.
+  primary; class-rank only if the ranker's m(k)-collapsed mode lands. **`repr(KW)=KW`, and the
+  argument is one sentence** *(supplied 2026-09-13, V3B-03#5; this read "`repr(KW)=KW` is PROVEN"
+  and gave neither argument nor citation)*: a record's class representative is the
+  orientation-lex-least member of its class, and the labels are KW's OWN pair table, so KW's
+  pair-vector is the identity and every one of its orientation bits is 0 — the lex-least member of
+  its own class, i.e. its own representative. It is not only argued but **checked at n=31** by
+  battery row `a2_q1_labeling`, which requires `rank3`, `class_first_rank3` and `orient_idx` to read
+  0, 0, 0; at n=9 those same three fields are the fixture triple **13056 / 12960 / 96**
+  (`scripts/tr12_expected/n9/a2_q1.txt`), which is what a NON-degenerate labelling looks like and is
+  why the n=9 rehearsal cannot exercise the forced-zero branch.
 
 **H3b — the normative texts were AMENDED (2026-09-05), and this says so rather than leaving a
 reader to find the seam.** Until then this project's own specifications named two different
@@ -139,6 +168,16 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   ∈ [0, N)). Neighbors: unrank_O3(rank±1) — the walks immediately adjacent to KW in the citable
   order, reported in full with first-divergence positions. Scoped companion:
   rank_O3^C15(KW) = |{w ∈ C15 : w <_O3 KW}| — **estimate only** (see mechanism).
+- **Endpoint case (forced at full-31 by the KW-derived labelling, §Q2)** *(added 2026-09-13,
+  V3B-03#6; the battery has handled this case all along and this report never stated it)*:
+  `rank_O3(KW) = 0`, so the predecessor is `NONE` (`--kc-o3-cert` writes the literal), the successor
+  is `unrank_O3(1)`, and Q1(c)'s conditioning interval `[0, 0)` is empty — the battery records
+  `TR12_Q1C=EMPTY:interval-degenerate-at-n31` as a RESULT, not a skip, and the C15 estimate over
+  that interval is not run. **Read the headline rank accordingly:** a rank of 0 in ~10³⁹ is not a
+  measured rarity, it is a tautology of the labelling, because the labels are KW's own pair table
+  (§0, "Orders"). At n=9 the anchor is not the O3-least object, so the n=9 rehearsal returns
+  `NONEMPTY:interval-cardinality-13056` instead — the producer can refuse, which is what makes the
+  n=31 `EMPTY:` a measured null rather than an assertion.
 - **Mechanism.** O3 ranker (**TO-BUILD**, the CT1.5/CT3.6 item; g-weighted forward descent over
   the record order, consuming f·g per descent position; F1_CHECK f>0 on every g consumed per
   Stage-G review SG-1). C15 estimate: draw M exact-uniform ranks in [0, rank_O3^SUPER(KW)) via
@@ -155,11 +194,25 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
 ### Q2. Solutions #0, #N−1, #⌊N/2⌋
 - **Definition.** unrank_O3(0), unrank_O3(N−1), unrank_O3(⌊N/2⌋) in SUPER (exact). C15-scoped:
   FIRST^C15 = the O3-least C3-passing walk; LAST^C15 = O3-greatest. 🔴 **Two corrections, QSET-2
-  finding 3, 2026-09-06.** (a) **What the battery actually commands is REL, not O3.** The inventory's
+  finding 3, 2026-09-06.** (a) **What the battery commands for the C15-SCOPED endpoints is REL, not
+  O3.** ⚠ *Narrowed 2026-09-13 (V3B-03#7): this read as a blanket — "what the battery actually
+  commands is REL, not O3" — which understates the run in the SUPER direction. The two scopes are
+  delivered in different orders, and the definition is now stated as delivered.*
+  **SUPER endpoints — delivered in O3, with certificates.** Row `a2_q2` commands `--kc-o3-unrank`
+  at `0`, `N−1` and `⌊N/2⌋` under `--kc-bracket`, which unranks r∓1/r/r+1, ranks all three back and
+  checks strict O3 order with an independent comparator; at the two endpoints its `r∓1: NONE` line
+  IS the endpoint certificate. These are O3 quantities, not REL analogues.
+  **C15-scoped endpoints — delivered in REL.** The inventory's
   Q2c/Q2d rows invoke `--kc-enum` / `--kc-enum-desc`, whose own golden provenance line reads
   `order=REL-DESCENDING(…;NOT-O3)` and whose CLI documentation states REL "is **not** O3". No
-  filtered *O3* endpoint command exists in this tree, so the O3 definition above is not the quantity
-  the battery delivers. (b) **The O3 form is already determined:** `rank_O3(KW) = 0` is forced by the
+  filtered *O3* endpoint command exists in this tree, so for the C15 scope the O3 definition above
+  is not the quantity the battery delivers.
+  **The completion criterion, in one place so a reader needs no other:** the three SUPER probes are
+  complete when all three return `CERTIFICATE PASS` under `--kc-bracket` **and** `TR12_GCHECK` and
+  `TR12_GSHA` are PASS — the bracket certifies the rank/unrank PAIR, not the ladder, and measured, a
+  g ladder corrupted at 3 of 12 probed offsets fails `--kc-g-check` while the bracket still
+  certifies PASS, because rank and unrank read the same wrong g — plus, at n ≥ 31, the one external
+  anchor: `unrank_O3(0)` byte-identical to King Wen. (b) **The O3 form is already determined:** `rank_O3(KW) = 0` is forced by the
   KW-derived labelling (the Q1 labeling ruling), and King Wen is in C15, so **O3-`FIRST^C15` is King
   Wen** — by construction, not by measurement. O3-`LAST^C15` remains uncommanded. A C15 *midpoint* is **not
   shipped** — it would require an exact C3-conditioned count, which was priced and permanently
@@ -254,8 +307,16 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   because which one the report wants is a scope decision, not a typo.
   🔴 **RESOLVED 2026-09-11 (V3B-03#9), and this row no longer reads "unresolved".** The scope
   decision was taken and the battery implements it. **Exactly one estimand ships as the headline:
-  the WALK fraction over SUPER at `cd ≤ 387`** — `μ_walk^SUPER` = `mu_hat_P_C15_cd_eq_T` in row
-  `a1_q4ac`, an ESTIMATE with a 95 % Wilson interval on the C15-accepted draws. Beside it, and
+  the WALK fraction, at `cd ≤ 387`, OF C15** — `μ_walk^C15` = `mu_hat_P_C15_cd_eq_T` in row
+  `a1_q4ac`, an ESTIMATE with a 95 % Wilson interval on the C15-accepted draws.
+  ⚠ **Space label corrected 2026-09-13 (V3B-03#9): this read "the WALK fraction **over SUPER**" and
+  labelled the quantity `μ_walk^SUPER`.** The shipped number is `h[T] / le` — numerator **and**
+  denominator are C15-accepted draws — so it is a fraction **of C15**, and publishing it "over
+  SUPER" stated it against a population **8.26× larger** than the one it is a fraction of. The
+  2026-09-05 space-label correction that introduced the wording confused the **sampling frame** with
+  the **conditioning set**: the draws are uniform over SUPER (that is how the sample is taken) and
+  the ratio is conditioned on C3-acceptance (that is what the number is a fraction of). Both are
+  true; only the second is the space label. Beside it, and
   labelled as a companion rather than as the headline, the row now also emits **`μ_rec^C15`
   (`mu_rec_C15_HT`)**: the same draws reweighted by `1/m(k)`, the ratified Horvitz–Thompson
   correction from `V4_RECORD_CONVENTION_DECISION_2026_07_14`, which converts the walk-uniform
@@ -709,11 +770,17 @@ well-bounded null as a publishable finding.
   improbability is exactly log₂ N ≈ **129.689 bits**, and the rarity profile decomposes it
   exactly: 129.689 = Σᵢ −log₂ p_i over KW's 31 choices. Deliverable: the exact per-choice
   surprise spectrum (31 bars, exact rationals) + the **interpretation contract, fixed before
-  looking**: (i) surprise CONCENTRATION at specific steps marks where any undiscovered simple
-  constraint must live (a rule that "explains" KW must absorb bits where KW spends them);
-  (ii) near-uniform typicality (spectrum ≈ the entropy profile of a uniform random member —
-  computed as the comparison band from Q8's gallery) is boundable evidence that NO
-  further simple positional constraint exists. Both outcomes are findings.
+  looking**: **hypothesis under test (calibrated null, §9.4) — KW's surprise is more concentrated
+  than a uniform SUPER member's.** `localized-constraint-candidate` is a **lead** (where to look for
+  a per-step prefix-state rule), not evidence that a rule exists; `typicality-bound` bounds nothing
+  outside the named class; `anti-concentration` is reportable as-is.
+  ⚠ **Corrected 2026-09-13 (V3B-03#23). The retired clause (i) read that surprise CONCENTRATION
+  "marks where any undiscovered simple constraint MUST LIVE".** The identity cannot license it:
+  `Σᵢ bits_i = log₂ N` is a chain-rule identity, and nothing in it places a missing constraint's
+  bits at the steps where `bits_i` happens to be large — any sequence-global functional (this
+  project's own C3 sum is the worked example) spreads them across every step. "Must live" is
+  withdrawn; a lead is what concentration yields. The battery no longer prints the clause, so no
+  verdict token is affected.
   ⚠ **The contract is narrowed, 2026-09-05 (QSET finding 12).** As written, (ii) named no constraint
   CLASS and no statistical POWER, and the outcome vocabulary had no "the instrument could not
   decide" branch — so every result mapped to a finding and nothing could come out empty. That is
@@ -724,6 +791,20 @@ well-bounded null as a publishable finding.
   `localized-constraint-candidate`, `typicality-bound`, and `anti-concentration`.
   A pre-registered instrument must be allowed to return nothing, and **`typicality-bound` is that
   outcome** — it is returned precisely when KW sits inside the band.
+  **The decision rule, stated here rather than only in the battery** *(added 2026-09-13,
+  V3B-03#24: `TR12_EW1_NULL=<verdict>` was published under a statistic this report never defined)*.
+  **Statistic:** `top1_share = max_i(bits_i) / sum_i(bits_i)` over the 31 steps, with
+  `bits_i = −log₂ p_i` (`documentation/QUERY_INVENTORY.md` §5; printed by the battery).
+  **Band:** the Q8 gallery of K = `TR12_Q8_K` = 1,000 exact-uniform SUPER walks at the pinned seed
+  `TR12_SEED` = 9276183659154465378 (row `a1_q8_super`), one `--kc-profile` per gallery walk
+  (row `a2_ew1_null`), each walk contributing its own `top1_share`.
+  **Quantile convention:** percentiles are order statistics on the sorted band — the q-quantile is
+  `v[ceil(q·n)]`, index clamped to `[1, n]` — so p01 and p99 are band members, never interpolated.
+  **Outcome map (two-sided, evaluated ONCE):** KW's `top1_share` **> p99** ⇒
+  `localized-constraint-candidate`; **< p01** ⇒ `anti-concentration`; **otherwise** ⇒
+  `typicality-bound`. The n=9 rehearsal band is reproducible from the public battery
+  (`scripts/tr12_expected/n9/a2_ew1_null.txt`), so no private rehearsal script is needed to check
+  the rule.
   ⚠ Earlier revisions of this line named a **fourth** outcome, `undecided`, for "the band is too wide
   to exclude anything". It is removed: the governing ruling (`QUERY_INVENTORY.md` §9.4, 2026-09-04)
   adopts **three**, the executable implements three, and no width criterion was ever defined — so the
@@ -822,7 +903,15 @@ TR-12 ships reproduction as a first-class SECTION (not an appendix): the step-by
 an outsider rebuilds everything and reproduces every published number. Two tiers, both fully
 specced in the report; this is the execution spec behind them.
 
-### R.0 — The catalog is THREE stages, f → g → t, and ALL are required (read this first)
+### R.0 — The catalog is THREE stages, f → g → t, and WHICH of them a query needs is per-query (read this first)
+
+⚠ *(Heading corrected 2026-09-13, V3B-03#29 / V3A-086#7. It read "**and ALL are required**" — the
+blanket this section's own body had already been narrowed away from on 2026-09-12, leaving the
+heading asserting what the bullets below deny. The per-query table is the authority, and the
+difference is load-bearing for a third party's provisioning, not just for prose: on the measured
+sizes below, an f-only reproducer needs **3.29 TB** and an f+g reproducer **11.57 TB**, against
+**15.05 TB** for all three. Only the Exhaustion Atlas and its per-branch numbers need t. No run
+number moves either way.)*
 
 **The Exhaustion Atlas and every exact-count or ranking query need the compiled catalog; a
 per-query table follows, and it is the `ladders` column of `documentation/QUERY_INVENTORY.md` §1
@@ -840,8 +929,13 @@ read `f`, and **NEITHER `g` NOR `t` READS THE OTHER** (verified in code and from
 `t(s) = 1 + sum_c t(s.c)`, which needs to know WHICH CHILDREN ARE ADMISSIBLE — that is `f` — never HOW MANY
 COMPLETIONS a state has, which is `g`). The "each consumes the previous" phrasing below, and any caption
 saying **Stage T reads GDIR**, are WRONG and have misinformed reproducers. *(The wrong-caption
-example in this sentence itself read "Stage G reads FDIR" until 2026-09-05 — which is the
-**correct** dependency and so named the wrong error; corrected here.)* **Public anchors, no
+example in this sentence itself read "Stage G reads FDIR" until 2026-09-05, and this sentence then
+called that phrasing "the **correct** dependency". ⚠ **Corrected 2026-09-13, V3B-03#30: that
+conflates two different claims.** As a *logical* dependency it is true — g's values are determined
+by the same state space f enumerates. As a statement about the *command* it is false: `--kc-g-build`
+takes no FDIR argument and rebuilds the state space itself, which is why the step-2 heading below
+now says so. Settled by execution: with no f directory present anywhere on disk,
+`./solve --kc-g-build ./g9 --f1-pairs 9` succeeds.)* **Public anchors, no
 internal note required:** `documentation/GT_LADDER_FORMAT.md` §"t-ladder" gives the signature
 **`--kc-t-build FDIR TDIR`** — an f-directory and an output directory, no `GDIR` argument —
 and `documentation/VERIFY.md` and `documentation/SOLVE_PY_CLI.md` both publish the runnable line
@@ -874,9 +968,13 @@ Stage T`. Both are wrong. `g` and `t` are siblings; the arrows below are the cor
   only".)*
 - **No ladder at all** is needed by Q7 (arrangement verdicts), Q9 (certified restatements) or
   Q4b (SAT) — the inventory's ladders column carries `—` for all three.
-- **f + g** are needed for any exact count or ranking query (Q1–Q3, Q6; Wave 2).
+- **f + g** are needed for any exact count or ranking query (Q1–Q3, Q6; Wave 2) — **and for EW-1**,
+  which is DERIVED from Q3's `--kc-profile FDIR GDIR` artifact and opens no t ladder at all.
+  *(EW-1 moved here from the f+g+t bullet 2026-09-13, V3B-03#29: `documentation/QUERY_INVENTORY.md`
+  §5 already classed it `DERIVED, no compute` — "Rides Q3 — needs f+g, NOT the scan" — and the
+  battery builds it from a `--kc-profile FDIR GDIR` artifact with no `--kc-tdir` anywhere.)*
 - **f + g + t** are needed for the Exhaustion Atlas — the headline TR-12 section — and every
-  per-branch exhaustion number (XA, EW-1, CAP-3/5/7).
+  per-branch exhaustion number (XA, CAP-3/5/7).
 
 <!-- The REPRO-TAG pin below IS DELIBERATELY STILL A PLACEHOLDER (V3B-03#28, Fable adjudication 2026-09-11).
      Do NOT substitute a sha or a guessed tag name here. It is replaced AT LAUNCH, after the
@@ -900,8 +998,6 @@ which is why f exceeds its own archive total. Each row now says what was summed,
 reproducible public basis for all three is the 65-file registry in
 `runs/20260906_kc_ladders_n31/README.md` §Provenance.)*
 
-| ladder | measured size | provision |
-|---|---|---|
 | ladder | measured size | basis of the measurement | provision |
 |---|---|---|---|
 | **f** (`FDIR`) | **3.29 TB** (3,293,894,951,830 B) | `du -sb FDIR` on 2026-08-02 — **directory contents**, so sidecars and extras are included. It therefore **exceeds** the 65-file archive total 3,293,894,509,534 B by 442,296 B; not a contradiction, but a different basis | a 4 TB volume holds it, with little headroom |
@@ -928,7 +1024,10 @@ are corrected; see `documentation/CORRECTIONS.md`.)*
    #   verify:  ./solve --f1c5-layer-sha FDIR   (32 shas == runs/20260906_kc_ladders_n31/STAGE_F_LAYERSHA.txt)
    #   the run prints total == N and hard-aborts unless N ≡ 0 (mod 24)
    ```
-2. **Stage G (g-ladder) — reads FDIR:**
+2. **Stage G (g-ladder) — standalone, takes NO FDIR:** it rebuilds the state space on its own;
+   FDIR and GDIR meet only at `--kc-g-check` / `--kc-scan`. *(Heading corrected 2026-09-13,
+   V3B-03#30; it read "reads FDIR", which the command below contradicts — there is no FDIR argument
+   to contradict it with.)*
    ```
    ./solve --kc-g-build GDIR --f1-pairs 31 --kc-g-ooc
    #   --f1-pairs 31 is REQUIRED. Without it --kc-g-build silently builds n=9 (measured:
@@ -1054,6 +1153,34 @@ acquisition step.
    registry rather than one digest per stage.
 3. Run the identical step-6 query battery + step-7 certificates (identical commands; the query
    layer is artifact-source-agnostic by construction).
+
+**TIER C — the SMALL TIER (laptop scale, minutes, no ladder build, ~$0).** *(Added 2026-09-13,
+V3B-03#32. §10D states that "the §R small-tier commands ARE the appendix", and §R carried no such
+commands — `grep -c -- '--n9'` over this file returned **0**. The route existed only in
+`scripts/tr12_expected/README.md`. It is written out here, so §10D's sentence is true.)*
+
+```
+scripts/tr12_repro.sh --n9          # the whole battery at n=9 against the committed goldens:
+                                    #   each row diffed verbatim against scripts/tr12_expected/n9/,
+                                    #   QUERY_DRYRUN=PASS on success, skips reported explicitly,
+                                    #   non-zero exit on any mismatch
+scripts/tr12_repro_gate.sh --check  # currency check (milliseconds, no build): does the COMMITTED
+                                    #   tree still fingerprint-match its last recorded reproducing
+                                    #   PASS?   TR12_REPRO_GATE_CURRENT=YES|NO|UNKNOWN
+scripts/tr12_repro_gate.sh          # the full gate: EXTRACTS the published build line from
+                                    #   documentation/VERIFY.md, builds with it, runs the n=9
+                                    #   battery.  ~2 minutes on two cores; no ladder data, no
+                                    #   network, no disk beyond the repo
+./solve --kc-build D --f1-pairs 13 && ./solve --kc-count D
+                                    # the n=13 exact count witness: prints 2063395607040
+                                    #   (documentation/QUERY_INVENTORY.md §count witnesses);
+                                    #   ~352 ms to build, ~9 ms to count
+```
+
+These are the commands §10D's appendix refers to. Between them they exercise every TR-12 claim
+TYPE — exact count, rank/unrank round-trip, membership verdict, atlas identities, the mod-24 gate
+and the reproduction battery itself — at a scale a reader runs on a laptop in minutes, with no
+15 TB catalog and no cloud spend.
 
 **Independence-ladder labels (METHODS.md conventions; printed with each tier).**
 - Tier A: rung 3 (instrument stack) for all compiler-derived numbers — but with NO trust in any
@@ -1350,9 +1477,14 @@ query family and refines four existing items. All items below are labeled by spa
   delivers is: N/24 **stated once** — a record-level identity, not a walk-orbit count — a per-layer
   mod-24 gate, and a per-layer **STATE** census by G-orbit-size class plus a branching histogram,
   transcribed from the f-ladder sidecars. The orbit-rank leg is measured separately as row
-  `c_q10a_kwrank`, and its measured value is
+  `c_q10a_kwrank`, and the value that row is expected to emit at n=31 is
   **`TR12_Q10A_KWRANK=EMPTY:class-rank-uncomputable-under-kw-labels`** — forced to 0 by KW-derived
-  labels, so it is a null result, not a rank.)* `layer walk-mass / 24` is not an orbit count and this document said it was:
+  labels, so it is a null result, not a rank. ⚠ **Corrected 2026-09-13 (V3B-03#41): this read "its
+  **measured** value is", and nothing has measured it.** The only run to date is at n=9, where the
+  same producer returns `NONVACUOUS:anchor-is-not-the-o3-least-object`. The `EMPTY:` value above is
+  a **FORCED PREDICTION at n=31** — forced by the KW-derived labelling (§Q1's endpoint case) and
+  therefore certain, which is not the same thing as measured. It becomes a measured null on the
+  first full-31 run and not before.)* `layer walk-mass / 24` is not an orbit count and this document said it was:
   measured exhaustively at n=9: 432 records give **18 record-orbits** (432/24) and the 26,112 walks
   give **544 walk-orbits**, while N/24 = **1088** is neither. TR-11 §2's precision note already states
   why — *at the orientation-explicit sequence level orbits have size 48, so N/24 is 2× the
@@ -1379,9 +1511,32 @@ query family and refines four existing items. All items below are labeled by spa
 - **Stage:** post-G (needs the g-ladder). **Cost:** (a) ≈ $1–5 (projection of existing tables);
   (b) ≈ $5–15 (one extra aggregation over the scan pass). Rides Q6's `--kc-scan`; no new heavy pass.
 - **Output/verification:** `tr12/q10_orbit_census.tsv` (per-layer orbit counts + the /24 integrality
-  gate — now Lean-kernel-backed) + `tr12/q10_coset_census.tsv` (mass by coset id + KW's coset). Gate:
-  every layer count ≡ 0 (mod 24) EXACTLY (dispositive; ties to `twenty_four_dvd_*`); Σ over cosets =
-  layer mass. Cross-check: n ≤ 13 exhaustive orbit counts. **Cite Ouyang 1990/1992 (framework) +
+  gate — now Lean-kernel-backed) + `tr12/q10_coset_census.tsv` (mass by coset id + KW's coset).
+  **Gate — and WHICH counted object it runs on, because "every layer count" named none.**
+  ⚠ *(Corrected 2026-09-13, V3B-03#40. This read "Gate: every layer count ≡ 0 (mod 24) EXACTLY
+  (dispositive; ties to `twenty_four_dvd_*`)" and never said what a "layer count" was. Under the
+  **prefix-mass** reading the claim is simply false, and a reader can falsify it from this
+  repository's own committed golden in one line of arithmetic: `scripts/tr12_expected/n9/c_q10a.txt`
+  records per-layer `mass_total` of 1, 4, 28, 212, 894, 3580, 12784, 18272, 26720, 26112 — i.e.
+  1, 4, 4, 20, 6, 4, 16, 8, 8, 0 (mod 24) — so **only the final layer** is ≡ 0 (mod 24). Under the
+  **flow** reading it is true but not a discovery, since `flow(k) = N` is itself an atlas identity.
+  A gate advertised as dispositive must say which object it gates.)* The three objects, each with
+  its own divisor:
+  **(a) `flow(k)` = Σ_{s ∈ layer k} f(s)·g(s) = N** at every layer — walk-level. Every complete walk
+  crosses every layer exactly once, so this is the atlas's own cut identity restated per layer, and
+  `24 ∣ flow(k)` follows from `24 ∣ N`, not from anything about layer k. Sequence orbits have size
+  48 (TR-11 §2), so in fact `48 ∣ flow(k)`. **This is the gate**; it is an identity, and it is
+  checked independently by `--kc-g-check`, which prints the f·g cut identity == N at every layer.
+  **(b) per-layer per-class mass `m[k,d]`** — walk-level and G-closed, hence `48 ∣ m[k,d]`.
+  Per-branch masses are **not** G-closed: they are reported, not gated (measured, branch 0 = 2368 ≡
+  16 mod 24 — which is why extending the gate to "every headline count" makes a *correct* atlas
+  fail; see the XA row in §11's refinement table).
+  **(c) the sidecar `orbit_size_census`** — a census of DP **states** by stabiliser size over the
+  f-ladder canonical masks. It counts neither walks nor records, and no mod-24 gate applies to it.
+  Note also that Q10(a)'s **record-orbit** census is not emitted at n=31 by this run: the n=31
+  f ladder carries schema-v1 sidecars, so row `c_q10a` reports that column `NA:schema-v1-sidecar`
+  and gates every other field. Σ over cosets = layer mass.
+  Cross-check: n ≤ 13 exhaustive orbit counts. **Cite Ouyang 1990/1992 (framework) +
   Suenaga 2012 (independent counting arrival) at the query site** — this is the query that visibly extends their lineage.
 
 ### Refinements to existing queries (no new compute)
