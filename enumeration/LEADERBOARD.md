@@ -20,7 +20,12 @@ practitioners, arranged 64 symbols called
 the [King Wen sequence](https://en.wikipedia.org/wiki/King_Wen_sequence).
 There are more possible arrangements than atoms in the universe (about 10^89).
 But King Wen follows mathematical rules so strict that only a fraction of
-arrangements satisfy them all. This project is cataloging every valid arrangement
+arrangements satisfy them all. Most of that reduction is one elementary step:
+roughly 44 of the ~51 orders of magnitude come from the pair rule (C1) alone, and
+only about 7 from the constrained measurement (C2–C5) — and on our own estimate
+King Wen is not special by being rare or hard to find, but structural
+([SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)).
+This project is cataloging every valid arrangement
 to understand what makes the historical one special — or whether it is simply
 one choice among many.
 

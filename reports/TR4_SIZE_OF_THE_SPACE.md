@@ -73,7 +73,9 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16): the estimate deviated by
    0.0044%, well inside its stated envelope — the estimator's second absolute full-scale validation
    (the C1–C5 raw figure itself remains an estimate); total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of
-   the reduction funnel (64! ≈ 1.3×10⁸⁹ → C1 skeleton 32!·2³² ≈ 1.1×10⁴⁵ → ~10⁴⁰ → ≈1.3×10³⁸). Structure:
+   the reduction funnel (64! ≈ 1.3×10⁸⁹ → C1 skeleton 32!·2³² ≈ 1.1×10⁴⁵ → ~10⁴⁰ → ≈1.3×10³⁸). That
+   funnel is lopsided: roughly **44 of the ~51 orders of magnitude come from C1 alone**, and only about
+   7 from the constrained measurement (C2–C5) — §6 below draws the consequence for rarity. Structure:
    the 56 first-level branches are roughly uniform in RAW size (min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶ raw, spread
    ≈2.7× — no small or near-exhaustible branch exists) ⚠ **[LABEL CORRECTED 2026-08-28 — published as "canonical" per-branch counts; they are raw. See SEARCH_SPACE_SIZE.md §"Result — per first-level branch" and documentation/CORRECTIONS.md]**; the 65,281 productive depth-3 cells span only 94.6×
    in total size (10³¹·⁸–10³³·⁸) while their *budgeted* yields span ≈5.7 orders (10¹·¹–10⁶·⁸), and the two

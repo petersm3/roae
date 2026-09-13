@@ -9607,3 +9607,64 @@ that were already pointing at the wrong code, giving a broken citation the appea
 currency. `solve.c:39757`/`:39772` is one of them — the sum-of-per-position-marginals statement
 actually lives at `solve.c:44210-44211`. Filed as Q-571. **No number, sha, record count or
 verdict in the original entries changed, and neither entry's finding is affected.**
+
+## CX-46 — the reduction funnel was published unsplit, and 44 of its ~51 orders are one elementary step
+
+Every statement of the reduction funnel — 64! ≈ 10⁸⁹ down to an estimated ≈1.33×10³⁸ C1–C5 orderings
+— was published as a single undifferentiated number: "five constraints narrow 10^89 possibilities to
+an estimated ≈1.33×10³⁸", a reduction of ~51 orders of magnitude. Every such statement is
+arithmetically correct. Together they are still overselling, because the reduction is not evenly
+earned and nothing on the page said so.
+
+**The split, measured against our own published funnel** ([TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md)
+§3): 64! ≈ 1.3×10⁸⁹ → the C1 pair-structure skeleton 32!·2³² ≈ 1.1×10⁴⁵ → ~10⁴⁰ → ≈1.3×10³⁸.
+Roughly **44 of the ~51 orders of magnitude come from C1 alone** — an elementary independent-choice
+product count, the very kind of count this suite is elsewhere at pains to distinguish itself from —
+and only about **7** from the constrained measurement C2–C5. The seven orders are the hard-won part
+and they are the part no closed form reaches. But a presentation that lets 10⁸⁹ → 10³⁸ read as the
+achievement is overselling by construction.
+
+**How it was found.** Raised by external reviewer P02 (Codex, `gpt-6-astra`, effort max) as a hostile
+qualification, verified against this project's own funnel and upheld in full on internal adjudication
+(`CODEX_P02_ADJUDICATION.md`, roae-private — operator-attested provenance, not a document a reader
+can fetch; what the correction *changed* is fully public and is below). The prescription adopted
+verbatim: *the funnel should state the split explicitly wherever it appears.*
+
+**Corrected 2026-09-13.** Twelve sites in eight files now state the split. In document order:
+`documentation/PROJECT_OVERVIEW.md` (the opening answer sentence); `documentation/SOLVE_SUMMARY.md`
+×4 (the atoms-in-the-universe opener that sets the frame, the "What this means" funnel paragraph, the
+"someone arranged this" sentence, and the "numbers at a glance" footnote);
+`documentation/GUIDE.md`; `documentation/SOLVE.md` ×2; `documentation/CRITIQUE.md`;
+`documentation/SEARCH_SPACE_SIZE.md` (the canonical funnel definition);
+`enumeration/LEADERBOARD.md` (the public landing blurb); and
+`reports/TR4_SIZE_OF_THE_SPACE.md` (the literal funnel chain). The wording follows
+[MCKENNA.md](MCKENNA.md) §139, which received it first and is the reference phrasing.
+
+**Two same-file propagation gaps are what made this possible.**
+[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) already concluded at §"The headline holds" that King Wen
+is "not special by being rare or hard to find … its distinction is purely structural", and TR-4 §6
+already said the same — while the funnel paragraph earlier in each of those same two files said
+nothing of the kind. A reader who stopped at the funnel got the overselling and never reached the
+disclaimer. The sibling-sweep discipline exists for exactly this shape and did not fire here.
+
+**What did NOT change.** No number, sha, record count, canonical hash, theorem or verdict moves in
+this batch. The **1.33×10³⁸ figure remains a Knuth random-probe ESTIMATE, not a proven cardinality**,
+and is not upgraded anywhere by this wording. Every existing caveat, hedge, withdrawal marker, link
+and citation at the twelve sites is preserved verbatim: the split is *added alongside* them, not
+substituted for them. At `SOLVE_SUMMARY.md` the "numbers at a glance" table rows were deliberately
+left untouched and the split was stated in the table's existing footnote instead — the rows already
+*display* 10^89 → 10^45 at step 1, and editing cells would have meant changing published numbers to
+make a prose point.
+
+**No row was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), deliberately.** Nothing was
+retired. Every clause at every site still stands and is still true; what was missing was a fact
+standing next to it. Registering any of this batch's phrasings as retracted would be a gate that
+fires on correct, live prose — the false-retraction failure this registry's own PART B warns against.
+
+**A premise of this batch, corrected in the same breath.** The brief commissioning the sweep
+described commit `95594c85` as having "fixed MCKENNA.md alone". It did not: `95594c85` touched
+**eleven** files, and its MCKENNA.md hunk is in the "Where ROAE supports McKenna" paragraph, scoping
+a combined probability to a uniform-permutation null — it never touched the funnel sentence. The
+corrected funnel wording at MCKENNA.md:139 was **uncommitted working-tree text with no commit behind
+it** and lands in the same commit as this entry. Recorded because a correction ledger that repeats an
+unverified provenance claim is doing the thing it exists to prevent.
