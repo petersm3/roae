@@ -110,7 +110,7 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 MODE_N9=0; PAIRS=9
 FDIR=""; GDIR=""; TDIR=""
 SOLVE=""; OUTDIR=""; EXPECTDIR=""
-REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0; WITH_LADDERSHA=0
+REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0; WITH_LADDERSHA=0; WITH_TCHECK=0
 ATLAS_IN=""; MINT_MISSING=0
 
 # --help prints the file's leading comment block verbatim (it stops at the first non-comment line).
@@ -130,6 +130,7 @@ while [ $# -gt 0 ]; do
         --wave3)        WAVE3=1 ;;
         --with-gcheck)  WITH_GCHECK=1 ;;
         --with-laddersha) WITH_LADDERSHA=1 ;;
+        --with-tcheck)  WITH_TCHECK=1 ;;
         --with-chunked) WITH_CHUNKED=1 ;;
         --no-scan)      DO_SCAN=0 ;;
         --atlas)        ATLAS_IN="$2"; DO_SCAN=0; shift ;;
@@ -2439,7 +2440,9 @@ if [ "$HAVE_T" -eq 1 ]; then
 
     # --kc-t-check streams f+t (~6.8 TB at n=31). The pre-scan run takes it under the same binary
     # and universe, so the post-scan --atlas repeat is pure duplication (PD-4).
-    if [ -n "$ATLAS_IN" ]; then
+    if [ "$N_PAIRS" -ge 31 ] && [ "$WITH_TCHECK" -eq 0 ]; then
+        row_skip b_tcheck TR12_TCHECK "SKIP:cost-gated" "--kc-t-check streams f+t (~6.8 TB at n=31) and is MEASURED at ~20.5 h, uncheckpointed (STAGET_TRUE_COST_2026_08_24.md). Operator decision 2026-09-14: skipped to bring the run inside its deadline. 🔴 NOTE WHAT THIS COSTS: no --kc-t-check PASS verdict has EVER been recorded (TASK_GATED_QUERY_PROGRAM_100PCT.md:10; LANE_TRIGGERS_2026_09_03.md:102 names it as the single blocker for eight corpus sites), so this skip leaves the t ladder unverified by the sound instrument and those sites blocked. It can be run standalone on the same ladders later. Pass --with-tcheck to run it here."
+    elif [ -n "$ATLAS_IN" ]; then
         row_skip b_tcheck TR12_TCHECK "SKIP:banked-pre-scan" "--kc-t-check streams f+t (~6.8 TB at n=31) and the pre-scan run already ran it under the same binary and the same universe; repeating it in the post-scan --atlas run doubles the cost for no new information (PD-4)"
     else
         row_begin b_tcheck
