@@ -58,6 +58,17 @@
 #   --regen              write the expected blocks from this run instead of diffing against them
 #   --wave3              also run the wave-3 rows that are cost-gated at full-31 (Q5 extremals)
 #   --with-gcheck        run --kc-g-check at full-31 (a ~24 h single-threaded full ladder pass)
+#   --with-laddersha     run the FULL --f1c5-layer-sha passes (a1_fsha/a2_gsha/b_tsha) at n>=31.
+#                        MEASURED 2026-09-14 on an L64s_v4 over the real n=31 ladders: 24-61 MB/s
+#                        at ~34% of ONE core of 64 -- f 38 h, g 94 h, t 40 h, and the post-scan
+#                        --atlas run repeats each, so ~340 h for the three rows alone. The limit
+#                        is a GLOBAL ceiling inside solve's inflate->pipe->external-sha chain:
+#                        four concurrent processes deliver 54 MB/s against 61 for one, so running
+#                        them in parallel makes the aggregate WORSE, and plain sha256sum on the
+#                        same device reaches 2,314 MB/s at eight streams. Without this flag the
+#                        rows are cost-gated and ladder identity is pinned instead by the
+#                        *_ident rows below, which compare the BUILDER's recorded
+#                        own_sha256_decompressed against the PUBLISHED n=31 registry in 0.00 s.
 #   --with-chunked       run the chunked-scan == whole-scan identity at full-31 (a second scan)
 #   --no-scan            skip Group B's long pass (Group C then reports SKIP, not PASS)
 #   --atlas PATH         do NOT scan; validate the atlas at PATH (row b_atlas_supplied, token
@@ -99,7 +110,7 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 MODE_N9=0; PAIRS=9
 FDIR=""; GDIR=""; TDIR=""
 SOLVE=""; OUTDIR=""; EXPECTDIR=""
-REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0
+REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0; WITH_LADDERSHA=0
 ATLAS_IN=""; MINT_MISSING=0
 
 # --help prints the file's leading comment block verbatim (it stops at the first non-comment line).
@@ -118,6 +129,7 @@ while [ $# -gt 0 ]; do
         --regen)        REGEN=1 ;;
         --wave3)        WAVE3=1 ;;
         --with-gcheck)  WITH_GCHECK=1 ;;
+        --with-laddersha) WITH_LADDERSHA=1 ;;
         --with-chunked) WITH_CHUNKED=1 ;;
         --no-scan)      DO_SCAN=0 ;;
         --atlas)        ATLAS_IN="$2"; DO_SCAN=0; shift ;;
@@ -1174,7 +1186,75 @@ ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR
     ) >>"$RAW" 2>&1; rc=$?
     row_end "$token" $rc
 }
-ladder_sha_row a1_fsha TR12_FSHA "$FDIR"
+
+# ---- A1.1b  LADDER IDENTITY WITHOUT A FULL PASS: the BUILDER's recorded digest vs the PUBLISHED
+#             n=31 registry. Reads sidecars only -- no layer bytes -- and costs 0.00 s. ----------
+#
+# WHY. ladder_sha_row RECOMPUTES every layer's decompressed-stream digest from the bytes and
+# compares it to the sidecar beside it. That is the only check binding BYTES -> the builder's
+# record, and at n=31 it costs f 38 h + g 94 h + t 40 h, each DOUBLED because the post-scan
+# --atlas run re-executes Group A and the t rows (MEASURED 2026-09-14 on an L64s_v4).
+# This row answers the DIFFERENT question a1_fsha's own comment names: identity with the
+# PUBLISHED build, via runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt -- "the archived
+# ladders' --f1c5-layer-sha rows, 32 per stage, taken from these same sidecars".
+#
+# WHAT IT PROVES, AND WHAT IT DOES NOT. It pins sidecar own_sha256_decompressed == the published
+# LOGICAL digest, per layer, BY LAYER INDEX (a set comparison would pass on transposed layers).
+# It does NOT re-derive the digest from the bytes, so a layer rebuilt wrong together with a fresh
+# sidecar still agrees with itself. On Path C that gap is largely closed from the other side: the
+# copy-in drops the page cache and re-hashes every copied file ON the NVMe with O_DIRECT against
+# digests extracted BY FILENAME from the committed tables (130/130, VERIFY_FAILURES=0). For the
+# bytes to be wrong while BOTH checks pass you would need a sha256 collision.
+# 🔴 THE COPY-IN COVERS f AND g ONLY -- t is never copied, so t rests on this row alone.
+#
+# MEASURED 2026-09-14 against the live n=31 ladders: 96/96 match, position by position, 0.00 s.
+ladder_identity_row(){ # ladder_identity_row ROWID TOKEN DIR LAYER_PREFIX STAGE_LETTER
+    local id="$1" token="$2" dir="$3" pfx="$4" stage="$5"
+    local reg="$REPO_ROOT/runs/20260906_kc_ladders_n31/STAGE_${stage}_LAYERSHA.txt"
+    row_begin "$id"
+    (
+      echo "### ladder identity: builder sidecar own_sha256_decompressed vs the PUBLISHED n=31 registry"
+      echo "### registry: $reg"
+      [ -r "$reg" ] || { echo "LADDER_IDENTITY=FAIL no-registry"; exit 1; }
+      want=$((N_PAIRS+1)); ok=0; bad=0; k=0
+      while [ "$k" -lt "$want" ]; do
+        kk=$(printf '%02d' "$k")
+        sc="$dir/${pfx}_stats_${kk}.json"
+        pub=$(sed -n "s|^\([0-9a-f]\{64\}\)  .*/${pfx}_${kk}\.bin\$|\1|p" "$reg" | head -1)
+        own=$(sed -n 's/^ *"own_sha256_decompressed": *"\([0-9a-f]\{64\}\)".*/\1/p' "$sc" 2>/dev/null | head -1)
+        if   [ ! -f "$sc" ];      then echo "layer $kk  SIDECAR-MISSING ${sc##*/}"; bad=$((bad+1))
+        elif [ -z "$own" ];       then echo "layer $kk  NO-FIELD own_sha256_decompressed"; bad=$((bad+1))
+        elif [ -z "$pub" ];       then echo "layer $kk  NOT-IN-REGISTRY"; bad=$((bad+1))
+        elif [ "$own" = "$pub" ]; then echo "layer $kk  MATCH $own"; ok=$((ok+1))
+        else echo "layer $kk  MISMATCH sidecar=$own published=$pub"; bad=$((bad+1))
+        fi
+        k=$((k+1))
+      done
+      echo "layers=$want identity_match=$ok identity_bad=$bad"
+      if [ "$bad" -eq 0 ] && [ "$ok" -eq "$want" ]; then echo "LADDER_IDENTITY=OK"
+      else echo "LADDER_IDENTITY=FAIL"; exit 1; fi
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end "$token" $rc
+}
+
+# ladder_row ROWID TOKEN IDENT_ID IDENT_TOKEN DIR PREFIX STAGE -- choose the cheap or the full check.
+# 🔴 THE n>=31 GATE IS ON N_PAIRS, NOT ON WHETHER THE REGISTRY EXISTS. The n=31 registry ships in
+# every checkout, so "skip if absent" would have compared n=9 sidecars against n=31 digests and
+# failed every layer. At n<31 the full pass is cheap and runs, and the identity row stands down.
+ladder_row(){
+    local id="$1" tok="$2" iid="$3" itok="$4" dir="$5" pfx="$6" stage="$7"
+    if [ -n "$ATLAS_IN" ]; then
+        row_skip "$id" "$tok" "SKIP:banked-pre-scan" "the pre-scan (--no-scan) run already took this ladder's digests under the same binary and the same universe; re-running a multi-day pass in the post-scan --atlas run buys no new information (PD-4)"
+        row_skip "$iid" "$itok" "SKIP:banked-pre-scan" "ladder identity was pinned in the pre-scan run"
+    elif [ "$N_PAIRS" -ge 31 ] && [ "$WITH_LADDERSHA" -eq 0 ]; then
+        row_skip "$id" "$tok" "SKIP:cost-gated" "--f1c5-layer-sha over this ladder at n=31 is a multi-hour single-threaded decompress-and-hash pass, not a point query (MEASURED 2026-09-14: f 38 h, g 94 h, t 40 h; the limit is a GLOBAL ceiling in solve's inflate->pipe->external-sha chain, so parallelism does not lift it). Identity is pinned by $iid against the published registry instead. Pass --with-laddersha to run the full pass."
+        ladder_identity_row "$iid" "$itok" "$dir" "$pfx" "$stage"
+    else
+        ladder_sha_row "$id" "$tok" "$dir"
+        row_skip "$iid" "$itok" "SKIP:full-pass-ran" "$id recomputed every layer digest from the bytes, which subsumes the registry comparison"
+    fi
+}
+ladder_row a1_fsha TR12_FSHA a1_fident TR12_FIDENT "$FDIR" f1c5_layer F
 
 # ---- A1.0  the INDEPENDENT reading-(B) extremes oracle ------------------------------
 # Q6's per-(state,choice) argmax/argmin leg is SKIPPED by the engine (the atlas schema does not
@@ -1720,7 +1800,7 @@ fi
 group "GROUP A2 — f + g mounted (still pre-scan)"
 
 # A2.0  the g-layer shas, cross-checked against the builder's sidecars (F-5 R2; see a1_fsha).
-ladder_sha_row a2_gsha TR12_GSHA "$GDIR"
+ladder_row a2_gsha TR12_GSHA a2_gident TR12_GIDENT "$GDIR" g_layer G
 
 # ---- A2.2  Q1 the H3b rank certificate: rank/unrank roundtrip + the r-1/r/r+1 bracket ---------
 row_begin a2_q1
@@ -2355,11 +2435,17 @@ if [ "$HAVE_T" -eq 1 ]; then
     # sha256 is taken over the DECOMPRESSED stream, so a different zlib level or version changes
     # the file without changing this value: the gate tracks the mathematics, not the container.
     # Cross-checked against the t builder's sidecars (F-5 R2; see a1_fsha).
-    ladder_sha_row b_tsha TR12_TSHA "$TDIR"
+    ladder_row b_tsha TR12_TSHA b_tident TR12_TIDENT "$TDIR" t_layer T
 
-    row_begin b_tcheck
-    ( "$SOLVE" --kc-t-check "$FDIR" "$TDIR" ) >>"$RAW" 2>&1; rc=$?
-    row_end TR12_TCHECK $rc
+    # --kc-t-check streams f+t (~6.8 TB at n=31). The pre-scan run takes it under the same binary
+    # and universe, so the post-scan --atlas repeat is pure duplication (PD-4).
+    if [ -n "$ATLAS_IN" ]; then
+        row_skip b_tcheck TR12_TCHECK "SKIP:banked-pre-scan" "--kc-t-check streams f+t (~6.8 TB at n=31) and the pre-scan run already ran it under the same binary and the same universe; repeating it in the post-scan --atlas run doubles the cost for no new information (PD-4)"
+    else
+        row_begin b_tcheck
+        ( "$SOLVE" --kc-t-check "$FDIR" "$TDIR" ) >>"$RAW" 2>&1; rc=$?
+        row_end TR12_TCHECK $rc
+    fi
 else
     row_skip b_tsha TR12_TSHA "SKIP:no-tdir" "no TDIR given — the t-ladder's per-layer shas cannot be taken"
     row_skip b_tcheck TR12_TCHECK "SKIP:no-tdir" "no TDIR given — the t-ladder is REQUIRED for the Exhaustion Atlas and every per-branch number (TR-12 §R.0)"
