@@ -2,6 +2,8 @@
 # A run whose skip set differs from this list FAILS the gate (see the gate header). Re-stamp
 # in the SAME commit as any change that legitimately adds or removes a skip.
 TR12_EW_GOV=SKIP:doc-only
+TR12_FIDENT=SKIP:full-pass-ran
+TR12_GIDENT=SKIP:full-pass-ran
 TR12_LS_AUDIT=SKIP:doc-only
 TR12_LS_CITE=SKIP:doc-only
 TR12_LS_EXACT=SKIP:wave3-not-budgeted
@@ -13,6 +15,7 @@ TR12_Q7=SKIP:leg-TR12_Q7_RANKS
 TR12_Q7_RANKS=SKIP:reduced-universe
 TR12_Q7_WITNESSES=PENDING:kissat
 TR12_Q9=SKIP:doc-only
+TR12_TIDENT=SKIP:full-pass-ran
 TR12_V3=SKIP:leg-TR12_V3_FIG
 TR12_V3_FIG=PENDING:viz-v3-spectrum
 TR12_XA_CD=SKIP:xa-throughput-anchors
