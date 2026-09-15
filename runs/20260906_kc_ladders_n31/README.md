@@ -69,6 +69,38 @@ Content-MD5 that cloud storage stored at upload time — 195/195 matching on byt
 The producing commits are pinned in TR-12: `befd4e1be70ded9a50826df05fefec3d3422835d` for f,
 `453e1bf5c7e40151485a89be76c5bc88a08be910` for g and t.
 
+## The f·t node identity, checked at full n=31 (added 2026-09-15)
+
+`KC_T_CHECK_n31.txt` in this directory records a **`KC-T CHECK n=31 PASS`** — the f·t node identity
+holding at every layer `k = 0..31`, **0 failing layers**.
+
+This is a different kind of attestation from the digest registries above, and the difference is the
+point. A digest says *these bytes are the bytes we archived*. This says *the t ladder and the f
+ladder agree as mathematics*: it tests a **relationship between two ladders**, which no digest of
+either can substitute for.
+
+    f total (walks)      = 1097051278789181790036112071176579186688
+    t(root) (tree nodes) = 8690552978660778147480075615137911218123
+
+Reproduce, after rebuilding f and t per TR-12 Tier A and checking your bytes against the registries
+above:
+
+```bash
+./solve --kc-t-check FDIR TDIR --kc-ooc --kc-cache-mb 8192
+```
+
+Measured: 25 h 47 m single-threaded (2026-09-14 19:31:13 UTC → 2026-09-15 21:17:51 UTC), binary
+sha256 `a253828bfe9e065a82c57f1eec7f00e66f0416822deb1c7521cb7204eb576e59`. `--kc-cache-mb` is a
+memory/time trade only and does not change the values.
+
+🔴 **What a PASS does not establish.** From `documentation/GT_LADDER_FORMAT.md`: these are
+*"integrity checks: they constrain the FILES, not the shared transition relation. They hold for any
+transition DAG from which f, g and t were built consistently, so passing them cannot settle whether
+that relation is the right one; and the two endpoints degenerate."* The `k=0` and `k=n` endpoints
+degenerate by construction — the k=31 sum equals the f total exactly for that reason, and is not an
+independent confirmation. Read this as strong evidence of **file-level consistency between f and
+t**, not as a proof that the relation is correct.
+
 ## Rights
 
 The **code** in this repository is public domain. The **ladder data these fingerprint is not** — see

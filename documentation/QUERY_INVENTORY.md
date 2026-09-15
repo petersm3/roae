@@ -551,6 +551,16 @@ prints a SHAPE). ⚠ **Access boundary:** that wrapper lives in the project's pr
 not publicly readable; nothing here depends on it — the public path is to run `--kc-t-check` directly
 and read its output | SCAN-class | `KCT_CHECK=PASS` |
 
+> ✅ **A3.2 OBTAINED AT FULL n=31, 2026-09-15.** `KC-T CHECK n=31 PASS`, the f·t node identity at
+> every layer `k = 0..31`, **0 failing layers**; `t(root) = 8690552978660778147480075615137911218123`
+> against an f total of `1097051278789181790036112071176579186688` walks. Run directly — not through
+> the private wrapper — as `solve --kc-t-check FDIR TDIR --kc-ooc --kc-cache-mb 8192`, 25 h 47 m
+> single-threaded. The full per-layer output is published at
+> `runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt`. This also satisfies **Group B precondition 2**
+> below. ⚠ Scope, per `GT_LADDER_FORMAT.md`: the identity constrains **the files, not the transition
+> relation**, and both endpoints (`k=0`, `k=n`) degenerate — the `k=31` sum equals the f total for
+> that reason, and is not an independent agreement.
+
 > 🔴🔴 **TWO DIFFERENT HASHES, AND THE RUN ORDER CONFLATES THEM (found 2026-08-22, Q-08).**
 > `--f1c5-layer-sha` prints **`sha256(DECOMPRESSED)`** — the payload, excluding the header magic.
 > The ladder hash registry stores **`sha256(RAW FILE)`** plus its md5. Measured on the same layer

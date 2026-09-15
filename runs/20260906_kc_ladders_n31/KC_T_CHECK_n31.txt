@@ -1,0 +1,62 @@
+# KC-T CHECK, n=31 — the f·t node identity at every layer
+#
+# Verdict:   KC-T CHECK n=31 PASS, 0 failing layers, all k = 0..31
+# Produced:  2026-09-14 19:31:13 UTC -> 2026-09-15 21:17:51 UTC (25 h 47 m, single core)
+# Command:   solve --kc-t-check <FDIR> <TDIR> --kc-ooc --kc-cache-mb 8192
+# Binary:    sha256 a253828bfe9e065a82c57f1eec7f00e66f0416822deb1c7521cb7204eb576e59
+#
+# The identity asserted, per documentation/GT_LADDER_FORMAT.md:287 -- for every k in 0..n:
+#     sum over layer-k states of orbit(cm) * f(s) * t(s)  =  sum_{j=k..n} M_j
+#                                                         =  (# search-tree nodes at depth >= k)
+# At k = n this degenerates to M_n; at k = 0 to t(root) = sum_{j=0..n} M_j.
+#
+# SCOPE -- GT_LADDER_FORMAT.md:297, verbatim, and it governs any use of this file:
+#   "Read them as integrity checks: they constrain the FILES, not the shared transition
+#    relation. They hold for any transition DAG from which f, g and t were built
+#    consistently, so passing them cannot settle whether that relation is the right one;
+#    and the two endpoints degenerate."
+# A PASS is strong evidence the t ladder's bytes are consistent with the f ladder's.
+# It is NOT a proof that the transition relation is correct.
+#
+# Reproduce: rebuild f and t per TR-12 Tier A, check your bytes against STAGE_F_*.txt and
+# STAGE_T_*.txt in this directory, then run the command above and compare the values below.
+# Mount paths below are this run's; yours will differ and that is immaterial to the values.
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-ooc] opened /mnt/nvme/run_f: n=31 layers=0..31 kind=f format=v2 index=1255.8 MB cache=8192 MB (4681 blocks of 65536 entries)
+[kc-ooc] opened /mnt/staget/run_t: n=31 layers=0..31 kind=t format=v2 index=1255.8 MB cache=8192 MB (4681 blocks of 65536 entries)
+[kc-t] f total (walks)   = 1097051278789181790036112071176579186688
+[kc-t] t(root) (tree nodes) = 8690552978660778147480075615137911218123
+[kc-t] layer k= 0: sum orbit*f*t = 8690552978660778147480075615137911218123 (expect nodes-at-depth>=0 = 8690552978660778147480075615137911218123) OK
+[kc-t] layer k= 1: sum orbit*f*t = 8690552978660778147480075615137911218122 (expect nodes-at-depth>=1 = 8690552978660778147480075615137911218122) OK
+[kc-t] layer k= 2: sum orbit*f*t = 8690552978660778147480075615137911218066 (expect nodes-at-depth>=2 = 8690552978660778147480075615137911218066) OK
+[kc-t] layer k= 3: sum orbit*f*t = 8690552978660778147480075615137911215036 (expect nodes-at-depth>=3 = 8690552978660778147480075615137911215036) OK
+[kc-t] layer k= 4: sum orbit*f*t = 8690552978660778147480075615137911056672 (expect nodes-at-depth>=4 = 8690552978660778147480075615137911056672) OK
+[kc-t] layer k= 5: sum orbit*f*t = 8690552978660778147480075615137903081352 (expect nodes-at-depth>=5 = 8690552978660778147480075615137903081352) OK
+[kc-t] layer k= 6: sum orbit*f*t = 8690552978660778147480075615137516856000 (expect nodes-at-depth>=6 = 8690552978660778147480075615137516856000) OK
+[kc-t] layer k= 7: sum orbit*f*t = 8690552978660778147480075615119563143936 (expect nodes-at-depth>=7 = 8690552978660778147480075615119563143936) OK
+[kc-t] layer k= 8: sum orbit*f*t = 8690552978660778147480075614319820265280 (expect nodes-at-depth>=8 = 8690552978660778147480075614319820265280) OK
+[kc-t] layer k= 9: sum orbit*f*t = 8690552978660778147480075580240080065280 (expect nodes-at-depth>=9 = 8690552978660778147480075580240080065280) OK
+[kc-t] layer k=10: sum orbit*f*t = 8690552978660778147480074193461358423360 (expect nodes-at-depth>=10 = 8690552978660778147480074193461358423360) OK
+[kc-t] layer k=11: sum orbit*f*t = 8690552978660778147480020415282192756864 (expect nodes-at-depth>=11 = 8690552978660778147480020415282192756864) OK
+[kc-t] layer k=12: sum orbit*f*t = 8690552978660778147478037729649531070080 (expect nodes-at-depth>=12 = 8690552978660778147478037729649531070080) OK
+[kc-t] layer k=13: sum orbit*f*t = 8690552978660778147408740656594918815744 (expect nodes-at-depth>=13 = 8690552978660778147408740656594918815744) OK
+[kc-t] layer k=14: sum orbit*f*t = 8690552978660778145120379057920818697728 (expect nodes-at-depth>=14 = 8690552978660778145120379057920818697728) OK
+[kc-t] layer k=15: sum orbit*f*t = 8690552978660778074002130519610905362944 (expect nodes-at-depth>=15 = 8690552978660778074002130519610905362944) OK
+[kc-t] layer k=16: sum orbit*f*t = 8690552978660776003177742432279471984640 (expect nodes-at-depth>=16 = 8690552978660776003177742432279471984640) OK
+[kc-t] layer k=17: sum orbit*f*t = 8690552978660719791412679019609348188160 (expect nodes-at-depth>=17 = 8690552978660719791412679019609348188160) OK
+[kc-t] layer k=18: sum orbit*f*t = 8690552978659305358760180374733357813760 (expect nodes-at-depth>=18 = 8690552978659305358760180374733357813760) OK
+[kc-t] layer k=19: sum orbit*f*t = 8690552978626522546255652506297236676608 (expect nodes-at-depth>=19 = 8690552978626522546255652506297236676608) OK
+[kc-t] layer k=20: sum orbit*f*t = 8690552977931737991391278466142370070528 (expect nodes-at-depth>=20 = 8690552977931737991391278466142370070528) OK
+[kc-t] layer k=21: sum orbit*f*t = 8690552964578952500773461911811858972672 (expect nodes-at-depth>=21 = 8690552964578952500773461911811858972672) OK
+[kc-t] layer k=22: sum orbit*f*t = 8690552734204406920551890579374396735488 (expect nodes-at-depth>=22 = 8690552734204406920551890579374396735488) OK
+[kc-t] layer k=23: sum orbit*f*t = 8690549207102814897258372849326177550336 (expect nodes-at-depth>=23 = 8690549207102814897258372849326177550336) OK
+[kc-t] layer k=24: sum orbit*f*t = 8690502018006859526589568954681130090496 (expect nodes-at-depth>=24 = 8690502018006859526589568954681130090496) OK
+[kc-t] layer k=25: sum orbit*f*t = 8689960116691820860633740586132643119104 (expect nodes-at-depth>=25 = 8689960116691820860633740586132643119104) OK
+[kc-t] layer k=26: sum orbit*f*t = 8684758610647261359768201790731625955328 (expect nodes-at-depth>=26 = 8684758610647261359768201790731625955328) OK
+[kc-t] layer k=27: sum orbit*f*t = 8644352653188268191775986611660435226624 (expect nodes-at-depth>=27 = 8644352653188268191775986611660435226624) OK
+[kc-t] layer k=28: sum orbit*f*t = 8403262739689237297408651443112202207232 (expect nodes-at-depth>=28 = 8403262739689237297408651443112202207232) OK
+[kc-t] layer k=29: sum orbit*f*t = 7375108087147891416517625038286245330944 (expect nodes-at-depth>=29 = 7375108087147891416517625038286245330944) OK
+[kc-t] layer k=30: sum orbit*f*t = 4639970839325403966545311638266100842496 (expect nodes-at-depth>=30 = 4639970839325403966545311638266100842496) OK
+[kc-t] layer k=31: sum orbit*f*t = 1097051278789181790036112071176579186688 (expect nodes-at-depth>=31 = 1097051278789181790036112071176579186688) OK
+KC-T CHECK n=31 PASS (sum orbit*f*t == nodes-at-depth>=k at every layer 0..n) (0 failing layers)
