@@ -1661,6 +1661,24 @@ kc_first_last_witness() {
 # --- END kc_first_last_witness ---
 
 # ---- A1.5  Q2(c) FIRST^C15 — the in-order-least C3-passing walk (REL order) -------------------
+# 🔴 SKIPPED BY DEFAULT since 2026-09-16.  Set TR12_RUN_Q2_ENUM=1 to run it anyway.
+# MEASURED on the full n=31 f ladder (L64s_v4, binary a253828b, 2026-09-16):
+#   * --kc-enum emits in --kc-rank order at 125,000 walks/s (500,000 walks in 4 s).
+#   * cd is STRONGLY AUTOCORRELATED in rank order.  REL ranks 0..19 are 20 DISTINCT walks
+#     (sha-checked distinct) that ALL carry cd=787.  The A1.5 header's "rank(FIRST^C15) is
+#     geometric with mean ~8" assumed C3 acceptance is i.i.d. ACROSS RANK.  That assumption is
+#     FALSE, and it is why this row was budgeted at minutes and then ran past six hours.
+#   * 36 random ranks below 10^18 gave ZERO with cd<=387 (per-bin minima 767 / 739 / 599).
+#     The first passing sample appears near rank 5.1e29 (cd=355).
+#   * At the measured emission rate, reaching rank 10^18 is ~2.5e5 years; 10^29 is ~1e17 years.
+#     No budget reaches it, and neither does more parallelism: kc_enum_rec (solve.c:21078) is a
+#     plain recursive DFS with no OpenMP, so 64 idle cores buy exactly nothing.
+# ⚠ THIS IS A BOUND, NOT A PROOF OF NON-EXISTENCE, and the row must not be recorded as one.
+#   Walks with cd<=387 are COMMON: 30 uniform-random ranks gave 4 (13.3%, min cd 355), agreeing
+#   with this run's own measured C3 retention p_hat=0.12093700.  They exist in quantity; they are
+#   simply not reachable IN ORDER from rank 0.  A 6 h wall-clock abort is a bound on the search,
+#   never evidence about the object.
+if [ "${TR12_RUN_Q2_ENUM:-0}" = 1 ]; then
 row_begin a1_q2c
 (
   erc=0
@@ -1678,10 +1696,13 @@ row_begin a1_q2c
   exit $erc
 ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_Q2C $rc
+else
+    row_skip a1_q2c TR12_Q2C "SKIP:timeout-6h-unbounded-search" "in-order enumeration does not reach a cd<=387 walk: 36 random ranks below 10^18 gave zero, first passing sample near rank 5.1e29, ~2.5e5 years at the measured 125,000 walks/s, and --kc-enum is single-threaded. A BOUND, NOT a proof of non-existence -- such walks are common (13.3% of uniform-random ranks, min cd 355). Set TR12_RUN_Q2_ENUM=1 to attempt it."
+fi
 
 # ---- A1.6  Q2(d) LAST^C15 — the in-order-greatest C3-passing walk.  --kc-enum-desc has landed;
 #            its n=9 exhaustive gate ran in row a0_gates and carries a KEY=value token. ---------
-if "$SOLVE" --kc-enum-desc "$FDIR" --kc-limit 1 >/dev/null 2>&1; then
+if [ "${TR12_RUN_Q2_ENUM:-0}" = 1 ] && "$SOLVE" --kc-enum-desc "$FDIR" --kc-limit 1 >/dev/null 2>&1; then
     row_begin a1_q2d
     (
       erc=0
