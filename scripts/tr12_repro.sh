@@ -1719,7 +1719,16 @@ if [ "${TR12_RUN_Q2_ENUM:-0}" = 1 ] && "$SOLVE" --kc-enum-desc "$FDIR" --kc-limi
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q2D $rc
 else
-    row_skip a1_q2d TR12_Q2D "PENDING:--kc-enum-desc" "PENDING:--kc-enum-desc — this binary does not accept it"
+    # 🔴 TWO DIFFERENT REASONS, AND CONFLATING THEM PUBLISHES A FALSEHOOD (fixed 2026-09-16).
+    # This else-branch used to say only "this binary does not accept it". Once A1.5's gate was
+    # added above, the branch is ALSO taken when the binary accepts --kc-enum-desc perfectly well
+    # and TR12_RUN_Q2_ENUM is simply unset -- which is the DEFAULT. A reviewer who runs
+    # `solve --kc-enum-desc` sees it work and catches the row lying about its own reason.
+    if [ "${TR12_RUN_Q2_ENUM:-0}" != 1 ]; then
+        row_skip a1_q2d TR12_Q2D "SKIP:timeout-6h-unbounded-search" "same bound as a1_q2c: in-order enumeration does not reach a cd<=387 walk (36 random ranks below 10^18 gave zero; first passing sample near rank 5.1e29; ~2.5e5 years at the measured 125,000 walks/s; --kc-enum-desc is single-threaded). A BOUND, NOT a proof of non-existence. The binary DOES accept --kc-enum-desc; set TR12_RUN_Q2_ENUM=1 to attempt it."
+    else
+        row_skip a1_q2d TR12_Q2D "PENDING:--kc-enum-desc" "PENDING:--kc-enum-desc — this binary does not accept it"
+    fi
 fi
 
 # ---- A1.7  Q1(b) the REL-order second coordinate.  A DIFFERENT order from O3; labelled. ------
