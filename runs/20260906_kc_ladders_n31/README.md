@@ -101,6 +101,22 @@ degenerate by construction — the k=31 sum equals the f total exactly for that 
 independent confirmation. Read this as strong evidence of **file-level consistency between f and
 t**, not as a proof that the relation is correct.
 
+## Stage T's bytes, verified on the disk (added 2026-09-16)
+
+`STAGE_T_RAW_VERIFY.md` records **`T_RAW_BYTES=PASS` — 65 of 65 t files matching
+`STAGE_T_SHA256.txt`, zero mismatches**, hashed directly from the live managed disk.
+
+This closes an asymmetry the other two ladders did not have. f and g were re-read off the device at
+copy-in (`dd iflag=direct` after dropping the page cache, 130/130); **t is never copied** — it is the
+original disk, mounted read-only — so it never received that treatment. Its registry was generated
+*from the ladders as archived*, and the per-layer identity check compares each layer's
+**builder-recorded** digest to the registry. Both are real checks; neither reads the disk as it
+stands today. A sidecar would still match its registry row if the bytes beneath it had rotted.
+
+Three t checks now exist and none substitutes for another: `--kc-t-check` (the f·t node identity,
+`KC_T_CHECK_n31.txt`), the per-layer identity check (builder record vs registry), and this one
+(files as stored). The *logical* per-layer digest for t remains cost-gated at ~40 h.
+
 ## Rights
 
 The **code** in this repository is public domain. The **ladder data these fingerprint is not** — see
