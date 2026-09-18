@@ -1678,7 +1678,13 @@ kc_first_last_witness() {
 #   with this run's own measured C3 retention p_hat=0.12093700.  They exist in quantity; they are
 #   simply not reachable IN ORDER from rank 0.  A 6 h wall-clock abort is a bound on the search,
 #   never evidence about the object.
-if [ "${TR12_RUN_Q2_ENUM:-0}" = 1 ]; then
+# 🔴 SCOPED TO n>=31 (2026-09-18). The gate above was UNCONDITIONAL when it landed, and that was
+# wrong in a way the n=9 gate catches: at n<31 these rows COMPLETE in seconds and diff against
+# scripts/tr12_expected/n9/a1_q2c.txt and a1_q2d.txt, which are committed goldens. An
+# unconditional skip orphans both goldens and silently moves the n=9 skip set, without the
+# _EXPECTED_SKIPS.txt re-stamp that file's own header requires in the same commit.
+# The infeasibility measured below is a property of THE n=31 LADDER, not of the query.
+if [ "${TR12_RUN_Q2_ENUM:-0}" = 1 ] || [ "${N_PAIRS:-0}" -lt 31 ]; then
 row_begin a1_q2c
 (
   erc=0
@@ -1702,7 +1708,7 @@ fi
 
 # ---- A1.6  Q2(d) LAST^C15 — the in-order-greatest C3-passing walk.  --kc-enum-desc has landed;
 #            its n=9 exhaustive gate ran in row a0_gates and carries a KEY=value token. ---------
-if [ "${TR12_RUN_Q2_ENUM:-0}" = 1 ] && "$SOLVE" --kc-enum-desc "$FDIR" --kc-limit 1 >/dev/null 2>&1; then
+if { [ "${TR12_RUN_Q2_ENUM:-0}" = 1 ] || [ "${N_PAIRS:-0}" -lt 31 ]; } && "$SOLVE" --kc-enum-desc "$FDIR" --kc-limit 1 >/dev/null 2>&1; then
     row_begin a1_q2d
     (
       erc=0
@@ -1724,10 +1730,15 @@ else
     # added above, the branch is ALSO taken when the binary accepts --kc-enum-desc perfectly well
     # and TR12_RUN_Q2_ENUM is simply unset -- which is the DEFAULT. A reviewer who runs
     # `solve --kc-enum-desc` sees it work and catches the row lying about its own reason.
-    if [ "${TR12_RUN_Q2_ENUM:-0}" != 1 ]; then
-        row_skip a1_q2d TR12_Q2D "SKIP:timeout-6h-unbounded-search" "same bound as a1_q2c: in-order enumeration does not reach a cd<=387 walk (36 random ranks below 10^18 gave zero; first passing sample near rank 5.1e29; ~2.5e5 years at the measured 125,000 walks/s; --kc-enum-desc is single-threaded). A BOUND, NOT a proof of non-existence. The binary DOES accept --kc-enum-desc; set TR12_RUN_Q2_ENUM=1 to attempt it."
-    else
+    # 🔴 THE BINARY IS TESTED FIRST, because it is the only cause that is true regardless of n
+    # (corrected 2026-09-18). Ordering this the other way round -- gating on TR12_RUN_Q2_ENUM
+    # first -- makes a binary that genuinely lacks --kc-enum-desc report the n=31 FEASIBILITY
+    # bound instead, which is a capability gap wearing an infeasibility result's clothes. That is
+    # the same conflation bc372f3c was written to remove; it must not reappear here.
+    if ! "$SOLVE" --kc-enum-desc "$FDIR" --kc-limit 1 >/dev/null 2>&1; then
         row_skip a1_q2d TR12_Q2D "PENDING:--kc-enum-desc" "PENDING:--kc-enum-desc — this binary does not accept it"
+    else
+        row_skip a1_q2d TR12_Q2D "SKIP:timeout-6h-unbounded-search" "same bound as a1_q2c: at n=$N_PAIRS, in-order enumeration does not reach a cd<=387 walk (36 random ranks below 10^18 gave zero; first passing sample near rank 5.1e29; ~2.5e5 years at the measured 125,000 walks/s; --kc-enum-desc is single-threaded). A BOUND, NOT a proof of non-existence. The binary DOES accept --kc-enum-desc; set TR12_RUN_Q2_ENUM=1 to attempt it."
     fi
 fi
 
