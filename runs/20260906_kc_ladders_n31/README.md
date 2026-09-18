@@ -115,7 +115,14 @@ stands today. A sidecar would still match its registry row if the bytes beneath 
 
 Three t checks now exist and none substitutes for another: `--kc-t-check` (the f·t node identity,
 `KC_T_CHECK_n31.txt`), the per-layer identity check (builder record vs registry), and this one
-(files as stored). The *logical* per-layer digest for t remains cost-gated at ~40 h.
+(files as stored).
+
+**The *logical* per-layer digests are no longer cost-gated — they were re-derived on 2026-09-17.**
+All **32 of 32** t layers matched `STAGE_T_LAYERSHA.txt`, as part of a **96 of 96** sweep across f, g
+and t with zero mismatches. Reproduce with `./solve --f1c5-layer-sha DIR` and compare against the
+matching `STAGE_{F,G,T}_LAYERSHA.txt`. The ~40 h figure this note previously carried was a
+*per-process serial* estimate; because `--f1c5-layer-sha` accepts FILE arguments, the work runs
+concurrently and the real cost is set by the largest single layer, not by the sum.
 
 ## Rights
 
