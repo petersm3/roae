@@ -9668,3 +9668,38 @@ a combined probability to a uniform-permutation null — it never touched the fu
 corrected funnel wording at MCKENNA.md:139 was **uncommitted working-tree text with no commit behind
 it** and lands in the same commit as this entry. Recorded because a correction ledger that repeats an
 unverified provenance claim is doing the thing it exists to prevent.
+
+## CX-47 — the atlas step's reproduction cost was published as a rounding error (TR-12)
+
+**2026-09-18 · C3 · `reports/TR12_QUERY_PROGRAM.md`**
+
+§R's "Cost/time per stage" paragraph priced atlas assembly at a token dollar figure and told a
+reader that everything after the ladders runs "in minutes, near-$0". The second half is correct and
+stands. The first half was wrong by orders of magnitude, and it sat in the one paragraph a
+reproducer budgets from.
+
+`--kc-scan-merge` does not merely assemble the atlas: it **re-digests every f and g layer** before
+writing it. Measured 2026-09-18 against the n=31 ladders, the merge's scope is f layers 0..30 plus
+g layers 1..31 — **62 layers, 43.91 TB decompressed** — and at the measured single-process rate of
+**258.7 MB/s** that is **~47 h of wall time**. It is the dominant cost of a reproduction once the
+ladders exist, not a rounding error beneath them.
+
+**The figure is withdrawn, not restated**, following the rule TR-12 v1.0 already applied to the
+declined exact-C3 run and `TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md` v1.10 before it: a
+withdrawal that requotes the number publishes it again. The corrected paragraph gives hours and
+volumes — what a reproducer can check against their own hardware — and gives no replacement figure.
+
+**Two properties are recorded with it, because both change what is worth attempting.** The merge is
+single-threaded by construction: a plain digest nest with no OpenMP, and `--kc-scan-merge` exposes
+no threads knob, so a host with more cores does not shorten it. And it cannot be parallelised for
+chunks that are already banked — `kc_scan_merge` leg 2 refuses any chunk whose `engine_source_sha`
+is present and does not match, and that field is the sha256 of `solve.c` itself, so a patched binary
+is refused outright, side merges included. A parallel digest pre-pass was built and proved
+byte-identical on a merged atlas for a future lineage; it is inapplicable to data already banked.
+
+**How it was found: not by review, but by paying it.** The estimate went unexamined through v1.0–v1.3
+because nothing had executed that step at n=31 until this campaign, and in the text an estimate
+nobody has run is indistinguishable from a measured one. It is recorded here, and not only in the
+revision table, because a re-scoping revision row that never reaches this ledger is exactly the
+propagation gap `scripts/gate_published_consistency.sh` G10 was written to catch. G10 caught this
+one: it refused the push that carried the revision row without this entry.

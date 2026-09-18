@@ -438,13 +438,19 @@ Past violations:
 ## In-flight state
 
 For "what am I currently doing / what's running / what's next," read
-**`~/github/roae-private/CURRENT_STATE.md`** first — a short (~150-line)
-current-state file: live campaign, supervisor pids, open operator decisions,
+**`~/github/roae-private/CURRENT_STATE.md`** first — its lead `▶ RESUME HERE`
+block carries the live campaign, supervisor pids, open operator decisions and
 active hazards. It is rewritten in place as state changes; this CLAUDE.md is
-stable.
+stable. ⚠ **Read that lead block by offset, not the whole file.** Through
+2026-09-18 this line called it "a short (~150-line) current-state file"; it is
+**~8,300 lines** (8,305 measured 2026-09-18), so the old wording understated it
+by ~55× and advised reading whole a file that no longer fits that advice.
+Re-measure before quoting any figure here rather than refreshing this one.
 
 **Do NOT read `CURRENT_PLAN.md` to orient.** It is the append-only history
-behind that file and is now ~416 KB — reading it whole costs ~100k tokens and
+behind that file and is now ~451 KiB (461,844 bytes, measured 2026-09-18 —
+the "~416 KB" this line carried until then was stale) — reading it whole
+costs ~100k tokens and
 its lead block only duplicates `CURRENT_STATE.md`. Consult it for provenance
 (why a past decision was made), never for current state, and read it by
 targeted `grep`/offset rather than whole.
