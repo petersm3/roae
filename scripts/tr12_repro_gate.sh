@@ -522,6 +522,31 @@ if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   if [ "$_q2rc" -eq 2 ]; then echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
 
   if [ "$MODE" = "--stamp" ]; then
+    # 🔴 Q-587. RECOMPUTE HERE. Do NOT reuse the capture from the top of this file.
+    #
+    # $SKIPPIN was rewritten above (the --stamp branch that pins the observed skip set), and
+    # $SKIPPIN lives under scripts/tr12_expected -- which fingerprint() hashes. So the value
+    # captured before the battery ran is stale the instant the pin's CONTENT moves, and --stamp
+    # would certify a tree state that no longer exists: the stamp says "this tree reproduced"
+    # while naming a different tree.
+    #
+    # MEASURED 2026-09-18. c099a02c shipped fingerprint=b221de43 written exactly this way. The
+    # tree's true fingerprint was 7c926c3a -- computed deterministically, with all 42 inputs
+    # tracked, none modified against HEAD -- so the published gate was RED at HEAD until e8571948
+    # re-stamped it. The recorded workaround for this row was "run --stamp twice", which is what
+    # the second run was actually doing: recomputing after the pin had settled.
+    #
+    # WHY IT SURVIVED SO LONG: it only bites when the pin's content actually CHANGES. A normal
+    # --stamp rewrites $SKIPPIN byte-identically, the fingerprint is unaffected, and the stamp is
+    # correct by luck. That intermittency is the whole reason this needs to be structural rather
+    # than a habit.
+    #
+    # The capture at the top of the file STAYS: --check compares against it and exits before ever
+    # reaching this branch, so recomputing here fixes --stamp without touching --check semantics.
+    # This is also the last possible point -- it covers anything q7ranks_parse_leg or
+    # q2_witness_leg may have written under scripts/tr12_expected above. $STAMP itself is excluded
+    # from fingerprint(), so writing it below cannot invalidate the value being written.
+    FP=$(fingerprint)
     { echo "# Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,"
       echo "# not merely that it was committed. Re-stamp in the SAME commit as any solve.c,"
       echo "# tr12_repro.sh or expected-block change, or --check will correctly report NO."
