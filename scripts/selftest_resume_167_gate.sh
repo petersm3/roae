@@ -385,15 +385,29 @@ emit_tokens() {
 
 # ---------------------------------------------------------------------------- single run
 if [ "$BATTERY" -eq 0 ]; then
-  wd="$WORKDIR"
-  [ -n "$wd" ] || wd=$(mktemp -d /tmp/resume167_gate_XXXXXX)
+  # _wd_ours = 1 ONLY when we minted the directory ourselves. A caller-supplied
+  # --workdir -- the flag the USAGE block above advertises -- belongs to the caller and is
+  # never ours to `rm -rf`. Measured 2026-09-19 (Q-654): with the caller dir seeded, a
+  # PASS removed precious.txt and precious_sub/ outright. The PASS cleanup below is
+  # therefore narrowed to run_gate()'s own artifacts in that case, which is what the
+  # battery path at the bottom of this file already does.
+  wd="$WORKDIR"; _wd_ours=0
+  [ -n "$wd" ] || { wd=$(mktemp -d /tmp/resume167_gate_XXXXXX); _wd_ours=1; }
   mkdir -p "$wd"
   echo "[gate] mutant=$MUTANT  solve=$SOLVE_A  phase_b=${SOLVE_B:-<same>}  workdir=$wd"
   echo "[gate] shape: threads=$THREADS nodes_A=$NODES_A nodes_B=$NODES_B"
   run_gate "$MUTANT" "$SOLVE_A" "$SOLVE_B" "$wd"
   echo "[gate] $G_VERDICT — $G_MSG"
   if [ "$G_VERDICT" = "PASS" ] && [ "$KEEP" -eq 0 ]; then
-    rm -rf "$wd"
+    if [ "$_wd_ours" -eq 1 ]; then
+      rm -rf "$wd"
+    else
+      # Exactly what run_gate() creates under $wd: two dirs and six .txt files. Anything
+      # else in a caller-supplied --workdir was there before us and stays.
+      rm -rf "$wd/tdir_A" "$wd/tdir_B"
+      rm -f "$wd/pre_zero.txt" "$wd/pre_prod.txt" "$wd/_s.txt" "$wd/_b.txt" \
+            "$wd/s.txt" "$wd/b.txt"
+    fi
   else
     echo "[gate] evidence KEPT: $wd/tdir_A  $wd/tdir_B"
   fi

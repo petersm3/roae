@@ -10024,3 +10024,99 @@ the `KC_T_CHECK_n31.txt` verdict and its scope were read out of the published ar
 independently; every `solve.c`, `verify.c` and `roae.py` line citation above was re-read against
 this tree before being published; and the 42-file closure was obtained by running
 `fingerprint_files`, not by re-implementing it.
+
+## CX-53 — an orbit count 133,415× above its own ceiling, and a projection the boundary pins cannot reach (RP: none)
+
+**2026-09-19 · C1 · `reports/METHODS.md`, `reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md`,
+`reports/TR4_SIZE_OF_THE_SPACE.md`, this file**
+
+Two cures ride in one landing for the reason CX-52 gives: this file is inside the TR-12 reproduction
+closure, it is append-only, and each append invalidates the gate stamp — so landing them separately
+would pay the re-stamp twice and publish two trees that each reproduced only their own predecessor.
+
+**Item 1 — `N/24` was labelled a *record-level* orbit count at three sites; it is 2× the SEQUENCE-orbit
+count.** `reports/METHODS.md`'s canonical-quantities row published
+45,710,469,949,549,241,251,504,669,632,357,466,112 = |C1∩C2∩C4∩C5|/24 as a **record-level** orbit
+count, and TR-11 §9 and its Verification Guide's divisibility-gate bullet said the same. The label is
+refuted by this corpus's own ceiling arithmetic: record-level objects are canonical pair-orderings, of
+which there are at most 31! = 8.2228×10³³, so any record-level orbit count is bounded by 31!/24 =
+3.4262×10³² — and the published figure is 4.5710×10³⁷, **133,415× above that bound**. This is the same
+shape as the orientation-dedup figure withdrawn from METHODS on 2026-08-24 for exceeding its own 31!
+ceiling by ~4,013×, and it survived that sweep. N counts orientation-explicit **sequences**; the group
+acting there is the order-48 lift, acting freely, so the divisor at that level is 48. The figure is
+therefore **2× the sequence-orbit count**, and the sequence-orbit count itself is **N/48 =
+22,855,234,974,774,620,625,752,334,816,178,733,056**.
+
+**No integer changed and nothing was withdrawn.** N/24 is still exact and still N/24; what was wrong
+was the name of the object it counts. The sharpest part of the defect is that all three sites already
+carried a parenthetical stating the ÷48 rule, so each contradicted itself inside one sentence — and
+the label was added to TR-11's two sites on 2026-08-06 (v1.16) expressly to *make the counting units
+explicit*, matching METHODS' row. It made them explicitly wrong.
+
+**Deliberately NOT changed, and why.** `record-level` occurs eight times in TR-11 and once in METHODS;
+the occurrences left standing are correct. TR-11 §1's feasibility paragraph and §2's free-action
+paragraph describe the S₄ **group** and its free action at the record level, which is exactly where
+they live — and §2 is the 2026-07-30 precision note that states the correct ÷48 arithmetic, i.e. the
+text the three cured sites should have followed rather than contradicted. The two revision-history
+rows (v1.13, v1.16) record what was written on those dates; a changelog edited to look right stops
+being a record, so they stand and a new row says what changed.
+
+**Item 2 — the boundary-information curve projects an endpoint its own instrument cannot reach, and a
+2026-08-28 entry in this file defended that reading with a false premise.** `reports/TR4_SIZE_OF_THE_SPACE.md`
+said at four sites that the extrapolation "reaches one surviving ordering" / "full-space uniqueness"
+at ~15–20 boundaries. It cannot reach one, at any k. The boundaries are measured with
+`SOLVE_KNUTH_PIN_SLOTS`, which pins **pair identity only** — `solve.c:7899` applies the pin to the
+pair index chosen at a step and leaves the orientation loop untouched, and the flag accepts steps 1–31
+(`solve.c:39901`) — so pinning is blind to the orientation layer by construction. Pin all 31 and what
+remains is not one ordering but **1,720,320** of them: King Wen's C4-oriented orientation fibre, a
+constant this project has published since TR-1 §7 (v1.7, 2026-07-05) and gates in
+`scripts/doc_gates.sh` GATE 32 (`fiber-anchor`). log₂(1,720,320) = **20.71 bits** are therefore
+unreachable by ANY set of pair-level boundary pins, however many: the endpoint of the curve is King
+Wen's **pair-ordering class**, not King Wen's ordering. Of the 126.6 bits that identify King Wen in
+the orientation-explicit C1–C5 space, **105.9 are pin-reachable and 20.7 are not**. Every S(k) value,
+per-boundary gain, band position and the ~15–20 / ~12 figures are unchanged; only the endpoint they
+converge to is renamed.
+
+**The superseded entry.** The 2026-08-28 entry headed *"the 43,876,464,466 figure is not 'raw records',
+and the 4.17× is not a dedup ratio"* closes with a **Scope note** defending the 126.6-bit numerator as
+"correct as used, **since a boundary constraint identifies an *oriented* ordering**." That premise is
+false, and it is the load-bearing clause: a boundary constraint identifies a pair-level object, which
+is precisely why 20.71 bits survive every pin. The note's other half — that 126.6 prices the raw
+object while log₂(31!) = 112.66 prices the canonical one, and that comparing across them is a units
+error large enough to change a conclusion — **stands, and is not disturbed**. This ledger is
+append-only and GATE 10a enforces it, so that Scope note is preserved exactly as written and **this
+paragraph is its correction**, in the form the 2026-08-24 and 2026-08-28 entries already use for each
+other.
+
+**Not cured here, and stated rather than left silent.** (i) `reports/figures/fig_tr4_boundary_information.png`
+and the alt-text describing it still say the green band is where extrapolation reaches "full-space
+uniqueness". That text describes pixels; correcting it without regenerating the PNG from
+`viz/report_figures.py` would make the description disagree with the image, and the regeneration is a
+separate executed change (the v1.25 precedent regenerated it). (ii) `documentation/SEARCH_SPACE_SIZE.md`
+carries the same defect at two sites — its own projection paragraph and the premise sentence logged by
+the Codex V2-F29 #2 target — and is outside the scope of the two rows landed here. (iii) No row was
+added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), for the mechanical reason CX-52 records: each
+retired phrase now appears in two files — the dated marker in the document that corrects it, and this
+entry, which quotes it to say what changed — and GATE 3 matches a needle anywhere outside the single
+filename in its allow column, so a row would fire on correct, live correction-narration.
+
+**How it was found.** Fable, charged to find errors, batch 3: V3A-082 with its sibling V3A-085, and
+V3A-090, all ACCEPTED, filed as Q-642 and Q-643. Re-measured here rather than relayed — every
+`record-level` occurrence was re-read from the `origin/main` blob with `git show` rather than from a
+working tree; the 31!/24 ceiling, the 133,415× ratio, N mod 48 and N/48 were recomputed; and the
+1,720,320 fibre was re-derived by running `python3 verify.py --recount-fiber`, whose independent
+transfer DP recomputes B0 from King Wen and returned 1,720,320 MATCH with the 3·5·7·2¹⁴ factorization
+and 30 of 31 slots varying.
+
+**A third row from the same batch was REJECTED, and is recorded here because rejecting it was the
+finding.** Q-644 asked for TR-7's circular census (9.80×10³⁷) to be relabelled a lower bound and its
+dependent "0.74× the linear space" ratio withdrawn, on the ground that the decomposition silently
+omits **even-wrap** populations and that an explicit wrap-2 witness exists. **No edit was made to
+`reports/TR7_CIRCULAR_READING.md`.** Even wraps are not omitted — they are impossible:
+`wrap_parity_general` (`lean/KingWen.lean:245`) proves the wrap distance odd for *every* C4+C5-valid
+ordering by structural induction, not finite enumeration; `solve.c:38848` raises "theorem violated:
+… EVEN wrap distance" as a hard error; and no wrap-2 witness exists anywhere in the tree —
+`sat.py`'s witness targets are `plain`, `kw-pin`, `wrap-d5`, `alt-le-14` and `alt-ge-16` (positive
+control for that search: `wrap-d5` resolves at four sites). The two-term decomposition is complete
+because the parity theorem leaves d ∈ {1, 3, 5} and circular C2 removes d = 5. Withdrawing a correct
+published ratio on a false premise would itself have been a correction needing correction.

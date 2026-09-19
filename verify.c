@@ -1120,8 +1120,15 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
      * monotone; per-block compressed size within compressBound). Added 2026-09-03
      * (Codex V2-F59 #5): a trailing byte and a pad of 0x5A on the selftest's own
      * fixture both produced output byte-identical to the clean run — this reader
-     * claimed spec conformance it did not check. The gt reader (gt_open) had these
-     * checks; --check-layers and --scan-layers did not. */
+     * claimed spec conformance it did not check.
+     * ⚠ CORRECTED 2026-09-19 (Q-657): this comment used to state that the gt reader
+     * (gt_open) "had these checks". It did NOT have all of them. gt_open carried the
+     * v1-pad, exact-file-size and kidx/vidx-monotone checks but NOT the per-block
+     * compressBound guard below, and gt_next() then read an unchecked block length
+     * into a compressBound-sized heap buffer. The guard is mirrored into gt_open as
+     * of this same change; --check-layers and --scan-layers had none of these before
+     * 2026-09-03. Do not re-trust a "the other reader already checks this" claim in
+     * this file without grepping the other reader. */
     if (is_v1) LCF(pad==0, "v1 pad=%u != 0 (spec: v1 pad is zero)", pad);
     long fsz = -1;
     if (fseek(f, 0, SEEK_END) == 0) fsz = ftell(f);
@@ -1183,7 +1190,8 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
         kidx_off = off_off + (long)(nm+1)*8; vidx_off = kidx_off + (long)(nblk+1)*8;
         if ((nblk && (!kidx||!vidx)) ||
             !lc_pread(f, kidx_off, kidx, (nblk+1)*8) || !lc_pread(f, vidx_off, vidx, (nblk+1)*8)) {
-            printf("  k=%2d  *** FAIL: short kidx/vidx\n", k); free(kidx); free(vidx); goto cleanup; }
+            printf("  k=%2d  *** FAIL: short kidx/vidx\n", k); fail=1;
+            free(kidx); free(vidx); goto cleanup; }
         LCF(kidx[0]==0 && vidx[0]==0, "kidx/vidx[0] != 0");
         for (uint64_t b = 0; b < nblk && !fail; b++) {
             LCF(kidx[b+1] >= kidx[b] && vidx[b+1] >= vidx[b],
@@ -1208,6 +1216,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     unsigned char *vbuf = malloc((size_t)(BLK?BLK:65536)*24);
     unsigned char *zbuf = is_v2 ? malloc(compressBound(24u*BLK)+64) : NULL;
     if (!kbuf || !vbuf || (is_v2 && !zbuf)) { printf("  k=%2d  *** FAIL: OOM stream buffers\n", k);
+        fail=1;
         free(kbuf); free(vbuf); free(zbuf); free(kidx); free(vidx); goto cleanup; }
 
     uint64_t nblocks = is_v1 ? (ne ? (ne+65535)/65536 : 0) : nblk;
@@ -2780,9 +2789,23 @@ static int gt_open(const char *dir, const char *pfx, const char *magic7, char la
             !lc_pread(c->f, vidx_off, c->vidx, (c->nblk+1)*8)) {
             GTF(0, "short kidx/vidx"); gt_close(c); return 1; }
         GTF(c->kidx[0]==0 && c->vidx[0]==0, "kidx/vidx[0] != 0");
-        for (uint64_t b=0; b<c->nblk && !fail; b++)
+        /* Monotone is NOT sufficient. gt_next() reads kidx[b+1]-kidx[b] bytes into
+         * c->zbuf, which is sized compressBound(24*BLK)+64 — so an interior index that
+         * is monotone AND leaves kidx[nblk]/vidx[nblk] (hence the exact file-size check
+         * below) untouched can still name a block far larger than that buffer. Mirror
+         * of the f-layer reader's per-block guard; added 2026-09-19 (Q-657) after a
+         * flattened interior index overflowed the heap on the shipped selftest fixture. */
+        for (uint64_t b=0; b<c->nblk && !fail; b++) {
             if (c->kidx[b+1]<c->kidx[b] || c->vidx[b+1]<c->vidx[b])
                 GTF(0, "kidx/vidx not monotone at block %llu", (unsigned long long)b);
+            if (fail) break;
+            GTF(c->kidx[b+1]-c->kidx[b] <= compressBound(4u*c->BLK),
+                "key block %llu compressed size %llu > compressBound(4*BLK)",
+                (unsigned long long)b, (unsigned long long)(c->kidx[b+1]-c->kidx[b]));
+            GTF(c->vidx[b+1]-c->vidx[b] <= compressBound(24u*c->BLK),
+                "val block %llu compressed size %llu > compressBound(24*BLK)",
+                (unsigned long long)b, (unsigned long long)(c->vidx[b+1]-c->vidx[b]));
+        }
         c->kblk_base = 96 + 12*(long)c->nm + 16*(long)c->nblk;
         c->vblk_base = c->kblk_base + (long)c->kidx[c->nblk];
         GTF(fsz == c->vblk_base + (long)c->vidx[c->nblk], "v2 file size %ld != spec %ld",

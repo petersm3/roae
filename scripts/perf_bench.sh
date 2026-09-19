@@ -113,6 +113,17 @@ case "$SCALE" in
     *) echo "Unknown scale: $SCALE (use 1B / 1T / 11.2T)"; exit 2 ;;
 esac
 
+# Q-651: solve.c refuses a sub-canonical node limit unless SOLVE_ALLOW_SUB_CANONICAL=1 is set,
+# and `1B` above is sub-canonical. Without this, `--scale 1B` certifies two REFUSALS rather than
+# measuring anything: both builds exit non-zero, no solutions.bin is written, and before the
+# methodology gate below learned to read the rc that was still published as a speedup.
+SUB_CANON_ENV=""
+if [ "$NODE_LIMIT" -lt 1000000000000 ]; then
+    SUB_CANON_ENV="SOLVE_ALLOW_SUB_CANONICAL=1"
+    echo "  note: --scale $SCALE is sub-canonical; setting $SUB_CANON_ENV on both builds so the"
+    echo "        enumerator measures instead of refusing (solve.c's sub-canonical guard)."
+fi
+
 LAUNCH_ID=$(date -u +%H%M)
 RG="RG-PERFBENCH-${LAUNCH_ID}"
 VM="perfbench-${LAUNCH_ID}"
@@ -338,7 +349,7 @@ run_enum_only() {
         echo \"PERFBENCH_PAGE_CACHE_FLUSHED_$BUILD=\$PCF\"
         echo \"PERFBENCH_PAGE_CACHE_DETAIL_$BUILD=\$PCF_DETAIL\"
         START=\$(date +%s%N)
-        SOLVE_NODE_LIMIT=$NODE_LIMIT SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 \\
+        $SUB_CANON_ENV SOLVE_NODE_LIMIT=$NODE_LIMIT SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 \\
             SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=$THREADS SOLVE_SKIP_AUTOMERGE=1 \\
             ../solve_$BUILD --branch $BRANCH_PAIR $BRANCH_ORIENT > solve.log 2>&1
         ENUM_RC=\$?
@@ -350,9 +361,11 @@ run_enum_only() {
         if [ \$ENUM_RC -eq 0 ]; then
             MSTART=\$(date +%s%N)
             ../solve_$BUILD --merge > merge.log 2>&1
+            MERGE_RC=\$?
             MEND=\$(date +%s%N)
             MERGE_WALL_NS=\$((MEND - MSTART))
             echo \"BUILD $BUILD merge_wall_ns=\${MERGE_WALL_NS}\"
+            echo \"BUILD $BUILD merge_rc=\${MERGE_RC}\"
             # LOGICAL sha + record count (SOLUTIONS_FORMAT.md \"On-disk framing\"): sniff the
             # gzip magic 1f 8b; a gz-framed file is hashed and sized over its DECOMPRESSED
             # stream, the convention of every anchor in CANONICAL_HASHES.md. The container
@@ -383,6 +396,12 @@ run_enum_only() {
                 echo \"BUILD $BUILD framing=absent\"
                 echo \"BUILD $BUILD sha=ABSENT\"
             fi
+        else
+            # Q-651: the enumerator failed, so no merge ran. Say so ON THE TRANSCRIPT rather than
+            # leaving the line absent -- the collector must not have to infer failure from
+            # silence, and an absent line and a failed line must not look alike.
+            echo \"BUILD $BUILD merge_rc=SKIPPED-ENUM-FAILED\"
+            echo \"BUILD $BUILD sha=ABSENT\"
         fi
     "
 }
@@ -431,19 +450,52 @@ FRAMING_U=$(bench_field U framing)
 CSHA_N=$(bench_field N container_sha)
 CSHA_U=$(bench_field U container_sha)
 
+# Q-651: the collector used to read wall times, sha, records and framing but NO rc, and the gate
+# below keyed only on the page-cache and throttle probes. A run whose enumerator exited 25 (the
+# sub-canonical refusal) therefore produced rc 0, PERF_BENCH_METHODOLOGY=OK,
+# "methodology_valid": true and a published speedup_enum_pct -- a performance number from a run
+# that never completed. Read all four rc values, for BOTH builds.
+ENUM_RC_N=$(bench_field N enum_rc);   ENUM_RC_U=$(bench_field U enum_rc)
+MERGE_RC_N=$(bench_field N merge_rc); MERGE_RC_U=$(bench_field U merge_rc)
+
+# ABSENCE IS FAILURE. bench_field returns EMPTY when the producer never emitted the line, so an
+# aborted run leaves every one of these blank; blank must not read as success. Default to the
+# literal ABSENT and require an explicit 0.
+RUN_COMPLETE=1; RUN_INCOMPLETE_WHY=""
+for _rcpair in "control:enum_rc=${ENUM_RC_N:-ABSENT}"   "treatment:enum_rc=${ENUM_RC_U:-ABSENT}" \
+               "control:merge_rc=${MERGE_RC_N:-ABSENT}" "treatment:merge_rc=${MERGE_RC_U:-ABSENT}"; do
+    if [ "${_rcpair##*=}" != 0 ]; then
+        RUN_COMPLETE=0; RUN_INCOMPLETE_WHY="$RUN_INCOMPLETE_WHY $_rcpair"
+    fi
+done
+for _shapair in "control:sha=${SHA_N:-ABSENT}" "treatment:sha=${SHA_U:-ABSENT}"; do
+    case "${_shapair##*=}" in
+        ''|ABSENT|DECOMPRESS-FAILED)
+            RUN_COMPLETE=0; RUN_INCOMPLETE_WHY="$RUN_INCOMPLETE_WHY $_shapair" ;;
+    esac
+done
+
 PCF_N=$(pcf_status N);  PCF_DETAIL_N=$(pcf_detail N)
 PCF_U=$(pcf_status U);  PCF_DETAIL_U=$(pcf_detail U)
 
 # Verifier closure: the probe gate above exits 5 on anything but HEALTHY, so this branch is
 # unreachable today — it is here so that if that exit is ever removed or bypassed, the JSON
 # still cannot say methodology_valid without throttle evidence.
-if [ "$PCF_N" = CONFIRMED ] && [ "$PCF_U" = CONFIRMED ] && [ "$THROTTLE_PROBE" = HEALTHY ]; then
+if [ "$PCF_N" = CONFIRMED ] && [ "$PCF_U" = CONFIRMED ] && [ "$THROTTLE_PROBE" = HEALTHY ] && [ "$RUN_COMPLETE" -eq 1 ]; then
     PAGE_CACHE_FLUSHED="CONFIRMED"
     METHODOLOGY_OK=1
 elif [ "$THROTTLE_PROBE" != HEALTHY ]; then
     PAGE_CACHE_FLUSHED="control=$PCF_N, treatment=$PCF_U"
     METHODOLOGY_OK=0
     emit "🔴🔴🔴 METHODOLOGY VIOLATION — throttle probe is $THROTTLE_PROBE ($THROTTLE_DETAIL)"
+elif [ "$RUN_COMPLETE" -ne 1 ]; then
+    PAGE_CACHE_FLUSHED="control=$PCF_N, treatment=$PCF_U"
+    METHODOLOGY_OK=0
+    emit "🔴🔴🔴 METHODOLOGY VIOLATION — the bench did not complete:$RUN_INCOMPLETE_WHY"
+    emit "🔴 A speedup derived from a run whose enumerator or merge failed, or that produced"
+    emit "🔴 no solutions sha, is not a measurement. ABSENT means the producer never emitted"
+    emit "🔴 the line at all — that is a failure, not a pass."
+    emit "🔴 DO NOT paste this entry into PERFORMANCE_HISTORY.md."
 else
     PAGE_CACHE_FLUSHED="NOT CONFIRMED (control=$PCF_N [$PCF_DETAIL_N], treatment=$PCF_U [$PCF_DETAIL_U])"
     METHODOLOGY_OK=0

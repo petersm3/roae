@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Spot health pre-check for Azure Dalsv7 family.
+# Spot health pre-check for Azure Spot (low-priority) capacity.
 #
 # Answers: "is it currently safe to launch a Spot VM of <sku> in
 # <region>?" via three escalating signals:
 #   1. Azure-published SKU restrictions (cheap; az vm list-skus)
-#   2. Family vCPU quota headroom (cheap; az vm list-usage)
+#   2. Regional Spot vCPU quota headroom (cheap; az vm list-usage --
+#      `lowPriorityCores`, the bucket a Spot launch actually draws on,
+#      NOT the per-family on-demand row)
 #   3. Empirical probe — launch a $0.01 D2als_v7 Spot, see if it
 #      provisions within 90s and doesn't immediately evict (definitive
 #      but costs ~$0.01 per probe)
@@ -126,12 +128,18 @@ case "$_R1" in
         log "  signal-1 OK: restrictions present but not in $REGION" ;;
 esac
 
-# ===== Signal 2: family vCPU quota headroom =====
-# Dalsv7 family is the shared bucket; if it's near-full we'll get
-# AllocationFailed even if the SKU shows no restriction.
-log "Signal 2: family vCPU quota headroom in $REGION"
-if ! USAGE_JSON=$(az vm list-usage -l "$REGION" --query "[?contains(name.value, 'Dalsv7')]|[0]" -o json 2>/dev/null); then
-    verdict ERROR 4 "signal-2 ERROR: \`az vm list-usage\` failed; family quota was not measured."
+# ===== Signal 2: regional Spot (low-priority) vCPU quota headroom =====
+# 🔴 THIS USED TO READ THE WRONG BUCKET. It queried `[?contains(name.value,'Dalsv7')]`,
+# which selects `StandardDalsv7Family` -- the ON-DEMAND bucket. A Spot VM does not consume
+# family quota and a Regular VM does not consume Spot quota; DEPLOYMENT.md §quota states
+# they are two separate buckets. Everything this script does is about a `--priority Spot`
+# launch, so the family row is the wrong question and answering it produced false WAITs.
+# Measured read-only 2026-09-19: westus2 `StandardDalsv7Family` 4/10 -> FREE=6 -> WAIT at
+# the default NEED_VCPU=128, while `lowPriorityCores` was 0/128, i.e. the full 128 Spot
+# cores were free at that moment. (westus3 the same day: family 40/130, Spot 64/128.)
+log "Signal 2: regional Spot (low-priority) vCPU quota headroom in $REGION"
+if ! USAGE_JSON=$(az vm list-usage -l "$REGION" --query "[?name.value=='lowPriorityCores']|[0]" -o json 2>/dev/null); then
+    verdict ERROR 4 "signal-2 ERROR: \`az vm list-usage\` failed; Spot quota was not measured."
 fi
 # az now emits these as QUOTED STRINGS ("currentValue": "8"), not bare numbers. The
 # original pattern required an unquoted digit and so matched NOTHING -- which became
@@ -147,14 +155,16 @@ LIMIT=$(echo "$USAGE_JSON" | grep -oP '"limit":\s*"?\K[0-9]+' | head -1)
 case "${USED:-}" in ''|*[!0-9]*) USED=""; esac
 case "${LIMIT:-}" in ''|*[!0-9]*) LIMIT=""; esac
 if [ -z "$USED" ] || [ -z "$LIMIT" ]; then
-    log "  signal-2 ERROR: could not read Dalsv7 quota from az (empty or unparseable)"
+    log "  signal-2 ERROR: could not read lowPriorityCores quota from az (empty or unparseable)"
     verdict ERROR 4 "refusing to report headroom this check did not measure"
 fi
 FREE=$((LIMIT - USED))
-log "  family Dalsv7: $USED / $LIMIT used; $FREE free"
+log "  regional Spot pool (lowPriorityCores): $USED / $LIMIT used; $FREE free"
 if [ "$FREE" -lt "$NEED_VCPU" ]; then
-    log "  signal-2 WAIT: need $NEED_VCPU vCPU but only $FREE free in family"
-    log "  (a deallocated VM still counts; delete or shrink one to free quota)"
+    log "  signal-2 WAIT: need $NEED_VCPU Spot vCPU but only $FREE free in the region"
+    log "  (a deallocated Spot VM still counts -- measured 2026-09-19: westus3 read"
+    log "   lowPriorityCores 64/128 while its only Spot VM, a D64als_v7, was deallocated;"
+    log "   delete or shrink one to free quota)"
     verdict WAIT 2
 fi
 log "  signal-2 OK: $FREE vCPU free, enough for $NEED_VCPU"
@@ -195,7 +205,13 @@ az vm create \
 PROBE_OK=0
 while [ $(($(date +%s) - PROBE_START)) -lt "$PROBE_TIMEOUT_SEC" ]; do
     sleep 10
-    POW=$(az vm show -g "$RG" -n "$PROBE_NAME" --query 'instanceView.statuses[?starts_with(code, `PowerState`)].displayStatus | [0]' -d -o tsv 2>/dev/null)
+    # 🔴 `az vm show --query 'instanceView.statuses[...]' -d` returns EMPTY with rc 0 --
+    # `-d` flattens the power state into the top-level `powerState` field and does not
+    # expose an `instanceView` member to the JMESPath query, so the old form could never
+    # equal "VM running" and every poll fell through to WAIT. Measured read-only
+    # 2026-09-19 against a running VM: old form -> empty, `--query 'powerState' -d` ->
+    # "VM running". (`az vm get-instance-view` is the other working form; it needs no -d.)
+    POW=$(az vm show -g "$RG" -n "$PROBE_NAME" --query 'powerState' -d -o tsv 2>/dev/null)
     PROV=$(az vm show -g "$RG" -n "$PROBE_NAME" --query 'provisioningState' -o tsv 2>/dev/null)
     log "  probe poll: prov=$PROV pow=$POW"
     if [ "$PROV" = "Succeeded" ] && [ "$POW" = "VM running" ]; then
@@ -216,7 +232,7 @@ fi
 # Probe survived initial provisioning; quickly check it's still running
 # (catches the immediate-evict-after-allocation case)
 sleep 15
-FINAL_POW=$(az vm show -g "$RG" -n "$PROBE_NAME" --query 'instanceView.statuses[?starts_with(code, `PowerState`)].displayStatus | [0]' -d -o tsv 2>/dev/null)
+FINAL_POW=$(az vm show -g "$RG" -n "$PROBE_NAME" --query 'powerState' -d -o tsv 2>/dev/null)
 if [ "$FINAL_POW" != "VM running" ]; then
     log "  signal-3 WAIT: probe evicted within 15s of provisioning (Spot capacity unstable)"
     verdict WAIT 2

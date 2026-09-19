@@ -83,13 +83,34 @@ run_one(){
   if [ "$(noncomment "$f" | grep -cE "$ABSRE")" -gt 0 ]; then printf 'ABSPATH\t-\t-\n'; return; fi
   case "$name" in *.py) interp=python3 ;; *) interp=bash ;; esac
   skel=$(mktemp -d "${TMPDIR:-/tmp}/failopen_skel.XXXXXX") || { printf 'ERROR\t-\tmktemp\n'; return; }
-  mkdir -p "$skel/scripts" && cp "$f" "$skel/scripts/$name"
+  # Q-650 leg 1: an unchecked skeleton copy means a gate that was never placed is still
+  # launched, and its failure to find itself grades as CLOSED -- success reported from a
+  # skeleton that was never built.
+  mkdir -p "$skel/scripts" && cp "$f" "$skel/scripts/$name" \
+    || { rm -rf "$skel"; printf 'ERROR\t-\tskeleton-copy-failed\n'; return; }
+  # Q-650 leg 2: if the interpreter is absent the launcher dies and NOTHING runs, which the
+  # rc ladder below would read as CLOSED. Probe it first so the cause is named, not inferred.
+  command -v "$interp" >/dev/null 2>&1 \
+    || { rm -rf "$skel"; printf 'ERROR\t-\tinterpreter-absent:%s\n' "$interp"; return; }
   out=$(cd "$skel" && HOME=$skel TMPDIR=$skel nice -n 15 timeout -k 5 "$TO" "$interp" "scripts/$name" </dev/null 2>&1); rc=$?
   rm -rf "$skel"
   tok=$(printf '%s\n' "$out" | grep -E "$TOKRE" | head -1 | cut -c1-60)
   if [ -n "$tok" ]; then printf 'OPEN\t%s\t%s\n' "$rc" "$tok"
   elif [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then printf 'TIMEOUT\t%s\t-\n' "$rc"
   elif [ "$rc" -eq 0 ]; then printf 'RC0\t%s\t%s\n' "$rc" "$(printf '%s\n' "$out" | grep -E '^[A-Z][A-Z0-9_]{2,}=' | tail -1 | cut -c1-60)"
+  # Q-650 leg 3: THE VERIFIER-CLOSURE INVARIANT, APPLIED TO THIS GATE ITSELF. Every non-OK exit
+  # used to grade as CLOSED and count as `run`, so a dead LAUNCHER -- `timeout` missing or not
+  # executable -- produced FAILOPEN_CLOSURE=OK, exit 0 and a RUN count, with not one gate having
+  # executed. A gate must be FALSE when its target is absent, and "the launcher died" is the
+  # target being absent.
+  # 🔴 The condition is COMPOUND on purpose. A bare `rc in 125..127 -> ERROR` OVER-FIRES: a gate
+  # may legitimately exit 127 to say a helper it needs is missing, and that IS a correct refusal
+  # of an empty world. Only `timeout` itself announcing the failure on stderr distinguishes the
+  # two. Verified by fixture in --selftest, both directions.
+  # `grep -c`, not `grep -q`: see the pipefail/SIGPIPE note above.
+  elif [ "$rc" -ge 125 ] && [ "$rc" -le 127 ] \
+       && [ "$(printf '%s\n' "$out" | grep -cE '^timeout: ')" -gt 0 ]; then
+    printf 'ERROR\t%s\tlauncher-failed\n' "$rc"
   else printf 'CLOSED\t%s\t-\n' "$rc"; fi
 }
 
@@ -199,6 +220,22 @@ if [ "$SELFTEST" -eq 1 ]; then
   rm -f "$T/scripts/plant_open.sh" "$T/scripts/plant_rc0.sh" "$T/scripts/plant_py_open.py"
   out=$(gate "$T" "$T/allow"); rc=$?
   chk "with the open fixtures removed -> OK (rc 0)"  '[ "$rc" -eq 0 ] && grep -qx "FAILOPEN_CLOSURE=OK" <<<"$out"'
+  # Q-650: a PLANTED LAUNCHER FAILURE. The tree is in its OK state here, so anything but OK is
+  # attributable to the stand-in `timeout` alone. This is the case the gate used to report OK on.
+  STUB=$(mktemp -d)
+  printf '#!/bin/sh\necho "timeout: failed to run command: No such file or directory" >&2\nexit 127\n' > "$STUB/timeout"
+  chmod +x "$STUB/timeout"
+  out=$(PATH="$STUB:$PATH"; gate "$T" "$T/allow"); rc=$?
+  chk "a dead launcher -> ERROR, never OK"           '[ "$rc" -eq 2 ] && grep -qx "FAILOPEN_CLOSURE=ERROR" <<<"$out" && grep -q "launcher-failed" <<<"$out"'
+  chk "a dead launcher never reports OK"             '! grep -qx "FAILOPEN_CLOSURE=OK" <<<"$out"'
+  rm -rf "$STUB"
+  # OVER-FIRE CONTROL for the same arm: a gate that legitimately exits 127 (and prints no
+  # `timeout: ` line) is a correct refusal and must stay CLOSED. A bare rc-125..127 rule fails
+  # this check, which is why the arm above is compound.
+  mk plant_127.sh 'echo "PLANT127=ERROR a helper this gate needs is absent"; exit 127'
+  out=$(gate "$T" "$T/allow"); rc=$?
+  chk "a legitimate exit 127 stays CLOSED (no over-fire)" 'grep -qE "^\s*\[closed\] +plant_127.sh" <<<"$out" && ! grep -q "launcher-failed" <<<"$out"'
+  rm -f "$T/scripts/plant_127.sh"
   printf 'plant_closed.sh\tself-contained\tthis row exempts a script that is CLOSED\n' >> "$T/allow"
   out=$(gate "$T" "$T/allow"); rc=$?
   chk "an allowlist row that exempts nothing -> FAIL" '[ "$rc" -eq 1 ] && grep -q "exempts nothing" <<<"$out"'

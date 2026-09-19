@@ -100,7 +100,16 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    estimate and [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)'s exact integers, is, we believe,
    the first quantitative answer to Luo's question. Closing the remaining ≈105 bits **projects to**
    roughly 15–20 boundary constraints under the observed per-boundary cut rate (§5; an extrapolation,
-   not a bound). Exact small-scope corroboration: in the KW-following 22-pair
+   not a bound). ⚠ **[TARGET CORRECTED 2026-09-19 (Q-643) — "closing the remaining ≈105 bits" names a
+   target these boundaries cannot reach.** A boundary is measured with `SOLVE_KNUTH_PIN_SLOTS`, which pins
+   **pair identity only** (`solve.c:7899` constrains the pair index at a step and leaves the orientation
+   loop untouched), so pinning is blind to the orientation layer by construction. log₂(1,720,320) = **20.71
+   bits** of King Wen's orientation fibre survive *every* pair-level pin — see §5's marker and
+   [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7. Against this bullet's own C1–C7 space, log₂(5.21×10³¹) =
+   105.36 bits, at most 105.36 − 20.71 = **84.65 bits are pin-reachable**. The ~15–20 projection is
+   unchanged as a *rate* extrapolation; what is corrected is its endpoint, which is King Wen's
+   pair-ordering class and not King Wen's ordering. See
+   [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-53.]** Exact small-scope corroboration: in the KW-following 22-pair
    prefix subtree, exact counting finds 16,504 oriented C1–C5 completions of which exactly **8** satisfy
    C6/C7 — **all eight sharing King Wen's pair ordering**. ⚠ **[CORRECTED 2026-08-28 — "plus seven others" invites a pair-ordering reading that is the OPPOSITE of what the enumeration shows. All **eight** survivors carry **King Wen's own pair ordering**; the seven "others" are orientation variants of it. The 16,504 figure is ORIENTED — it is 899 distinct pair orderings — and C6/C7 eliminate 898 of those 899, leaving King Wen's alone. Verified with the shipped binary: with the pair ordering free, C6/C7 leave 8 survivors; with every free slot additionally pinned to KW's pairs and only orientation free, the count is **also 8** (tree_nodes 1169 → 233 ⚠ **[RUN DESCRIPTION CORRECTED 2026-08-28 — first published as "tree_nodes 1169 → 233" with the words "every free slot". That run pinned slots 24–32, which leaves position 23 order-free (pins 24–31 give the identical 233, so slot 32 was a no-op); pinning all nine free steps 23–32 gives **75** nodes. The survivor count is **8** in every variant and the conclusion is unchanged — only the description of the run was wrong. Found by the D2 lens-1 executed review, which re-ran it.]** ⚠ **[REPRODUCTION COMMAND PUBLISHED 2026-08-29 (Q-395, settling Q-343) — these two figures shipped with no way to check them, while the provenance note claimed the public verification path was "re-running the published `SOLVE_KNUTH_C67` command", which was published nowhere. Both reproduce in under 10 ms with the shipped binary:
 
@@ -134,7 +143,30 @@ The conclusion is untouched by all of this: **8** survivors in every variant, al
    full-space orderings. Extrapolating the roughly constant ~10³ per-boundary cut initially put full-space
    uniqueness at roughly 13–14 well-chosen boundaries — but the 2026-07-05 S(6)–S(8) measurement (see the
    Update below) shows the per-boundary gains bend downward past k = 5, revising this projection **up to
-   ~15–20 boundaries** and superseding the earlier 13–14 figure; the ~12-boundary
+   ~15–20 boundaries** and superseding the earlier 13–14 figure.
+
+   ⚠ **[ENDPOINT CORRECTED 2026-09-19 (Q-643) — "full-space uniqueness" is not reachable by boundary pins,
+   at any k.** This section's boundaries are measured with `SOLVE_KNUTH_PIN_SLOTS`, which pins **pair
+   identity only**: `solve.c:7899` applies the pin to the pair index chosen at a step
+   (`(knuth_pin_mask >> step) & 1u) && p != step`) and the orientation loop is untouched, and the flag
+   accepts steps 1–31 (`solve.c:39901`), so there are 31 pinnable boundaries in total. Pin **all 31** and
+   what remains is not one ordering but **1,720,320** of them — King Wen's C4-oriented orientation fibre,
+   a constant this project has published since [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7 (v1.7,
+   2026-07-05), gates in `scripts/doc_gates.sh` GATE 32 (`fiber-anchor`), and which
+   `python3 verify.py --recount-fiber` recomputes by an independent transfer DP with B0 re-derived from
+   King Wen — executed for this correction: **1,720,320 MATCH**, factorization 3·5·7·2¹⁴ MATCH, 30 of 31
+   slots varying somewhere in the fibre. **log₂(1,720,320) = 20.71 bits are therefore structurally
+   unreachable by any set of pair-level boundary pins, however many**, so of the 126.6 bits that identify
+   King Wen in the orientation-explicit C1–C5 space, **105.9 are pin-reachable and 20.7 are not**. The
+   S(k) curve, the measured gains and the ~15–20 rate extrapolation are all unchanged; what is corrected
+   is what the extrapolation converges *to* — King Wen's **pair-ordering class**, not a unique ordering.
+   The figure's alt-text and the PNG itself still say "full-space uniqueness" and are **not** cured here:
+   that text describes pixels, and correcting it without regenerating
+   `figures/fig_tr4_boundary_information.png` from [`viz/report_figures.py`](../viz/report_figures.py)
+   would make the description disagree with the image. See
+   [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-53.]**
+
+   The ~12-boundary
    observed-rate extrapolation (not a bound — see v1.7 update) is unaffected. A bracketing exploration
    over the *weakest* remaining boundaries (k = 5–8) reported roughly ×15–17 per boundary — but ⚠ **that
    band is not reproducible from published material and is offered as illustration, not measurement**
@@ -246,6 +278,14 @@ whose chain outputs are not archived and which is not reproducible from publishe
 it indicates rather than bounds how much the decay depends on boundary choice. The green band marks where extrapolation
 reaches one surviving ordering: ~15–20 boundaries (revised up from an earlier ~13–14 estimate by the
 2026-07-05 S(6)–S(8) measurement; wide error; observed-rate extrapolation ~12, not a bound).
+⚠ **[CAPTION CORRECTED 2026-09-19 (Q-643) — "reaches one surviving ordering" names an endpoint the pins
+cannot reach.** These boundaries pin **pair identity only**, so with all 31 pinnable boundaries fixed
+**1,720,320** orderings remain — King Wen's orientation fibre ([TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7;
+re-measured for this correction with `verify.py --recount-fiber`). Read the green band as where
+extrapolation reaches **one surviving pair-ordering class**, with log₂(1,720,320) = 20.71 bits of
+orientation left under it. The band's position and the ~15–20 figure are unchanged. §5's marker carries
+the full statement; the alt-text above and the PNG still say "uniqueness" and await a figure
+regeneration. See [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-53.]**
 Generated by [`viz/report_figures.py`](../viz/report_figures.py);
 [SVG](figures/fig_tr4_boundary_information.svg).*
 
@@ -320,7 +360,11 @@ selection caveat below) gives survivor COUNTS N(6) = 1.879x10^20, N(7) = 7.695x1
 per-boundary information gains are now, for k = 1..8: 10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93,
 6.14 bits. The "flat ~10.1 bits/boundary" pattern reported in v1.7 holds through k = 5 and then
 enters a clear declining tail. Consequences: (1) the heuristic PROJECTION for the number of
-boundary-adjacency facts needed to isolate King Wen moves UP from ~13 to roughly 15-20; (2) the
+boundary-adjacency facts needed to isolate King Wen moves UP from ~13 to roughly 15-20 *(scope
+corrected 2026-09-19, Q-643: what boundary-adjacency facts can isolate is King Wen's **pair
+ordering**, not King Wen's ordering — the pins are orientation-free, and 1,720,320 orientations of
+KW's pair sequence satisfy all 31 of them, leaving log₂(1,720,320) = 20.71 bits that no number of
+these facts can close. The projected COUNT is unaffected; see §5's marker)*; (2) the
 observed-rate extrapolation of ~12 boundaries is unaffected *(wording corrected 2026-08-09: this
 read "the heuristic floor k >= 12", a survivor of the pre-v1.16 label. The v1.16 note 19 lines
 above states the result was stated as a floor "first 'hard', then 'heuristic'" and that **it is
@@ -364,4 +408,5 @@ outputs; the private log adds working narrative, and this report rests no claim 
 | v1.26 | 2026-09-02 | **Stack requirement narrowed to what the binary enforces (prose batch P37, Codex V2-F08 #4; wording only).** The `--estimate-knuth` warning published `ulimit -s unlimited` as REQUIRED. It is a **sufficient** setting, not a necessary one, and on a host or container whose hard limit forbids `unlimited` the published requirement was a false blocker. `solve.c`'s preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB"; executed under TR-9 v1.24, `ulimit -s 8192` refuses and exits 1 while `ulimit -s 16384` runs the estimator to completion. The banner now states "at least 16 MB (`ulimit -s 16384` suffices)" with `unlimited` named as one sufficient setting. This is the sibling sweep TR-9 v1.24 reported but did not perform. No figure, count, command, claim or scope changes; the 2026-09-01 tail asserting the requirement "is unchanged and remains mandatory" was true of the failure-MODE correction it belonged to and false of this one, and is rescoped rather than deleted |
 | v1.27 | 2026-09-02 | **The two 5×10¹⁰ Knuth invocations published with thread count and archived stdout; the ellipsis command retired (code batch V-1, Codex V2-19 #3; no figure recomputed).** (1) §Verification Guide's uniqueness-refutation bullet printed `SOLVE_KNUTH_C67=1 ./solve --estimate-knuth` followed by an ellipsis in place of the probe count, and pointed at a private run log. Executed literally on a stock build of `main`, the ellipsis parses to zero probes and selects whole-tree exact enumeration — 25 s with no output, rc 124 under `timeout` — while the control `--estimate-knuth 1000` prints its banner immediately. The bullet now carries the full invocation (`SOLVE_KNUTH_C67=1 SOLVE_THREADS=32 ./solve --estimate-knuth 50000000000`) and the run's stdout is archived at `evidence/c67_probe.out`, which matches the published C1–C7 table digit-for-digit. (2) The whole-tree headline's own 5×10¹⁰ invocation, which v1.25's marker recorded as absent from the tracked corpus, is now published beside it (`SOLVE_THREADS=32 ./solve --estimate-knuth 50000000000`) with archived stdout `evidence/knuth_whole_tree_5e10.out` — the 2026-07-26 same-seed re-run, byte-identical in every reported figure to the published headline, the 2026-07-01 original's stdout never having been archived. The ellipsis form is registered in `RETRACTED_PHRASES.tsv` so it cannot be reintroduced unseen. No value in this report moves |
 | v1.28 | 2026-09-03 | **One label corrected and one provenance gap stated (hardening lane, Q-330 items 2 and 3; wording only, no figure recomputed).** (i) *The raw C1–C5 estimate was labelled* canonical *at two sites.* The abstract read "1.3287×10³⁸ raw canonical orderings" and §Sections item 3 read "canonical C1–C5 raw" — self-contradictory in this corpus's own vocabulary, since [SOLUTIONS_FORMAT.md](../documentation/SOLUTIONS_FORMAT.md) §Deduplication reserves *canonical* for the orientation-DEDUPLICATED object while 1.3287×10³⁸ is orientation-explicit. Now "raw C1–C5 orderings" and "C1–C5 raw (orientation-explicit)". Same class as the TR-10 relabel landed the same day under Q-321; **the bare *canonical* on the "16,504 vs 16,422 canonical" ORIENTED leaf counts (§Sections item 2) is deliberately NOT touched** — it is one of the ten sites [CORRECTIONS.md](../documentation/CORRECTIONS.md) defers pending the `solve.c` `leaves_canonical_C1C5` → `leaves_oriented_C1C5` rename, and so are the two `leaves_canonical_C1C5` lines in the §Sections item 4 reproduction transcript, which are verbatim program output. (ii) *N(7) has no committed log.* The 2026-07-05 update publishes N(6), N(7) and N(8); measured this session, `reports/evidence/sk/sk5_7_rounds.out` stops at round 6 and `sk8_round.out` carries round 8, so N(7) = 7.695×10¹⁷ — and with it the k = 7 and k = 8 bit gains, which are both computed from it — is reported without a public artifact. Stated inline rather than withdrawn: the round-7 PICK is recoverable from `sk8_round.out`'s pin list and nothing else in the report depends on the value. Both charges raised by the Codex T04 review pass; reviewers are acknowledged, not credited as authors. |
-| v1.29 *(current)* | 2026-09-05 | **§Update v1.7's 126.6-bit numerator given its population context (Fable lane, Q-131/Q-143; wording only — no count, CI or projection changes).** The decoy control of 2026-09-04 ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md) v1.28) measured King Wen's exact C5-layer count at the 65th percentile of 1,000 random C1∩C2 targets each counted under its own extracted multiset, so the numerator of the boundary-count arithmetic is the size of an extracted space that a random target reproduces, and the count prices identifying *any* member of such a space — which §6 already said ("not special by being rare or hard to find"). Stated in place, with the two King Wen-only parts named: the C3 cut inside 126.6 and the per-boundary rate, neither measured for any other target |
+| v1.29 | 2026-09-05 | **§Update v1.7's 126.6-bit numerator given its population context (Fable lane, Q-131/Q-143; wording only — no count, CI or projection changes).** The decoy control of 2026-09-04 ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md) v1.28) measured King Wen's exact C5-layer count at the 65th percentile of 1,000 random C1∩C2 targets each counted under its own extracted multiset, so the numerator of the boundary-count arithmetic is the size of an extracted space that a random target reproduces, and the count prices identifying *any* member of such a space — which §6 already said ("not special by being rare or hard to find"). Stated in place, with the two King Wen-only parts named: the C3 cut inside 126.6 and the per-boundary rate, neither measured for any other target |
+| v1.30 *(current)* | 2026-09-19 | **The boundary-information curve's endpoint corrected: pins reach a pair-ordering class, never a unique ordering (Fable batch 3 V3A-090; Q-643; wording and scope only — no measurement, gain, CI or projected count changed).** Four sites projected that the extrapolation "reaches one surviving ordering" / "full-space uniqueness" (§Sections item 4, §5, the figure caption, and the v1.7 update's consequence list). It cannot, at any k. The boundaries are measured with `SOLVE_KNUTH_PIN_SLOTS`, which pins **pair identity only** — `solve.c:7899` constrains the pair index chosen at a step and leaves the orientation loop untouched, and the flag accepts steps 1–31 (`solve.c:39901`) — so pinning is blind to the orientation layer by construction. With all 31 pinnable boundaries fixed, **1,720,320** orderings remain: King Wen's C4-oriented orientation fibre, published by [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7 since v1.7 (2026-07-05) and gated by `scripts/doc_gates.sh` GATE 32, and re-measured for this correction with `python3 verify.py --recount-fiber` (1,720,320 MATCH; 3·5·7·2¹⁴ MATCH) rather than relayed from the finding. **log₂(1,720,320) = 20.71 bits are structurally unreachable by any set of pair-level boundary pins**, so of the 126.6 bits identifying King Wen in the orientation-explicit C1–C5 space **105.9 are pin-reachable and 20.7 are not**; against §Sections item 4's C1–C7 space (105.36 bits) the reachable share is 84.65 bits. Every S(k) value, per-boundary gain, band position and the ~15–20 / ~12 figures stand exactly as published — only the endpoint they converge to is renamed. **Not cured:** the figure alt-text and `figures/fig_tr4_boundary_information.png` still read "full-space uniqueness"; that text describes the image, and curing it requires regenerating the PNG from [`viz/report_figures.py`](../viz/report_figures.py) (the v1.25 precedent), which is a separate executed change. A false justification for the old reading, appended to [CORRECTIONS.md](../documentation/CORRECTIONS.md) on 2026-08-28, is superseded by a new dated entry there rather than reworded — that ledger is append-only. See CX-53 |

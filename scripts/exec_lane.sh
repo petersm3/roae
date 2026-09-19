@@ -329,9 +329,24 @@ def placeholder(c):
             return True
     return False
 GIT_MUT = r'\bgit\s+(clone|push|commit|fetch|pull|reset|checkout|rebase|merge|tag|add|rm|mv|stash|init|remote)\b'
-OPS = r'(?:^|[\s|&;])(sudo|ssh|scp|sftp|az|azcopy|apt-get|apt|dpkg|pip3?|mkfs(\.\w+)?|mount|umount|dd|reboot|shutdown|poweroff|blkid|curl|wget|nc|ncat|setsid|nohup|kill|pkill|killall|crontab|systemctl|systemd-run|service|rm|resize2fs|fdisk|parted|mkswap|swapon|swapoff|fsck(\.\w+)?|e2fsck|tune2fs|losetup|elan|rustup)\b'
+OPS = r'(?:^|[\s|&;])(sudo|ssh|scp|sftp|az|azcopy|apt-get|apt|dpkg|pip3?|mkfs(\.\w+)?|mount|umount|dd|reboot|shutdown|poweroff|blkid|curl|wget|nc|ncat|setsid|nohup|kill|pkill|killall|crontab|systemctl|systemd-run|service|rm|chmod|chown|chgrp|resize2fs|fdisk|parted|mkswap|swapon|swapoff|fsck(\.\w+)?|e2fsck|tune2fs|losetup|elan|rustup)\b'
 DEVREF = r'(?:^|[\s="\'])/dev/(sd|nvme|xvd|loop)'   # block-device references are ops, full stop
+# Q-649: a command that names the CALLER'S HOME is an op whatever its verb. `azcopy` in the OPS
+# list requires a preceding ^/whitespace/|/&/; so it never matched inside `~/.azcopy`, and the
+# list carried no chmod/chown/chgrp at all -- so `chmod -R 755 ~/.azcopy`
+# (CAMPAIGN_METHODOLOGY.md:1140) and `mkdir -p ~/.azcopy/plans && chmod 755 ...` (:1142) both
+# classified RUN with gating=1, and :901 dispatches every non-SKIP class. Measured on the real
+# extractor over a `git archive origin/main` export. The trailing (?:/|\s|$) is what keeps
+# `echo homebrew` and `--homeless` out of the deny set.
+# 🔴 The `~` alternative MUST require a leading boundary. Measured: the first cut of this cure
+# was `(?:~|\$HOME|...)`, and re-running the real extractor over the tree moved a LEGITIMATE
+# published command out of RUN -- CORRECTIONS.md:7998, an awk one-liner containing
+# `$0~/^### CX-/`, where awk's MATCH OPERATOR `~` is immediately followed by a `/` regex
+# delimiter. Denying that row is a false positive, and it was invisible until the cure itself
+# was run against the corpus rather than against its own defect.
+HOMEREF = r'(?:(?:^|[\s"\'=,(:])~|\$HOME|\$\{HOME\}|/home)(?:/|\s|$)'
 def ops_deny(c):
+    if re.search(HOMEREF, c): return True
     if re.search(GIT_MUT, c): return True
     if re.search(r'\bgit\b', c) and not re.search(r'\bgit\s+(-C\s+\S+\s+)?(rev-parse|log|show|status|diff|reflog|describe|ls-files)\b', c):
         return True
@@ -589,12 +604,42 @@ fi
 WS="$(mktemp -d "${TMPDIR:-/tmp}/exec_lane_ws.XXXXXX")"
 LOGDIR="$(mktemp -d "${TMPDIR:-/tmp}/exec_lane_logs.XXXXXX")"
 ( cd "$ROOT" && git ls-files -z | tar --null -T - -cf - ) | tar -xf - -C "$WS"
-[ -d "$ROOT/.git" ] && cp -a "$ROOT/.git" "$WS/.git"
+# Q-649: a LINKED WORKTREE's .git is a FILE (`gitdir: /…/.git/worktrees/<name>`), not a
+# directory, so the `[ -d ]` test above was false and the copy never happened -- the `git add -A`
+# below then failed with rc 128 into /dev/null and the tree was NEVER staged, silently defeating
+# the per-command reset this block exists to make correct.
+# 🔴 The obvious fix -- drop the `-d` test and `cp -a` the .git FILE -- is HARMFUL and was
+# rejected by measurement: the copied file still points at the CALLER'S real repository, so
+# `git add -A` in the scratch workspace stages into the REAL INDEX (verified on a throwaway
+# repo: the planted file landed in the parent's index). Copy the COMMON dir instead, drop the
+# worktrees/ registrations (they name paths outside this scratch copy) and point HEAD at the
+# commit the target tree is actually on. For an ordinary worktree --git-common-dir is `.git`,
+# so the normal case is byte-for-byte the previous behaviour.
+GIT_COMMON="$(cd "$ROOT" && git rev-parse --git-common-dir 2>/dev/null || true)"
+case "$GIT_COMMON" in ''|/*) ;; *) GIT_COMMON="$ROOT/$GIT_COMMON" ;; esac
+GIT_HEAD_SHA="$(cd "$ROOT" && git rev-parse HEAD 2>/dev/null || true)"
+if [ -n "$GIT_COMMON" ] && [ -d "$GIT_COMMON" ]; then
+  cp -a "$GIT_COMMON" "$WS/.git"
+  rm -rf "$WS/.git/worktrees"
+  git --git-dir="$WS/.git" config core.bare false 2>/dev/null
+  [ -n "$GIT_HEAD_SHA" ] && git --git-dir="$WS/.git" --work-tree="$WS" update-ref HEAD "$GIT_HEAD_SHA" 2>/dev/null
+fi
 mkdir -p "$WS/.git/hooks" 2>/dev/null
 # Stage the copied tree so the per-command reset (git checkout -- .) restores the tree AS
 # GIVEN, not the last commit — without this, a --tree target's uncommitted state (e.g. a
 # scratch copy with a defect re-introduced) is silently reverted after the first command.
-git -C "$WS" add -A 2>/dev/null
+# Q-649: this used to swallow its own failure into /dev/null. When the staging does not happen
+# the per-command reset restores the LAST COMMIT rather than the tree as given, so every
+# subsequent verdict is against the wrong tree -- a silent wrong answer, which is worse than a
+# refusal. Fail loudly instead.
+if ! git -C "$WS" add -A; then
+  echo "  The scratch workspace's index could not be staged, so the per-command reset"
+  echo "  (git checkout -- .) would restore the last commit instead of the tree AS GIVEN,"
+  echo "  and every verdict below would be against the wrong tree."
+  echo "EXEC_LANE_ERROR=workspace-index-unstageable"
+  echo "EXEC_LANE=ERROR"
+  rm -f "$INV" "$HELP" "$MEAS_OUT"; rm -rf "$WS" "$LOGDIR"; exit 1
+fi
 echo "workspace: $WS  (scratch copy of tracked files; nothing runs in the real tree)"
 echo "logs:      $LOGDIR"
 echo "budgets:   run=${BUDGET}s build=${BUILD_BUDGET}s   stack: soft limit 8 MB (Linux default)"
@@ -753,7 +798,11 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   fi
   { echo "# src: $src"; echo "# cwd: $cwd  origins: $org  gating: $gat"; echo "# cmd: $show"; } > "$log"
   local t0=$SECONDS
-  setsid bash -c "ulimit -S -s 8192 2>/dev/null; cd '$WS/$cwd' || exit 97; $execmd" \
+  # Q-649: WITHOUT pipefail a pipeline reports only its LAST stage, so `bash -c 'kill -SEGV $$'
+  # | sha256sum` returned rc 0 and was recorded PASS -- a crashing producer was invisible.
+  # pipefail is PAIRED with the rc-141 rule in the outcome ladder below; on its own it would
+  # manufacture FAILs on every published row that pipes into an early-closing consumer.
+  setsid bash -c "set -o pipefail; ulimit -S -s 8192 2>/dev/null; cd '$WS/$cwd' || exit 97; $execmd" \
     </dev/null >>"$log" 2>&1 &
   local pid=$!
   local i=0 killed=0
@@ -782,6 +831,14 @@ $(tail -c 2000 "$ref")"; fi
   if   [ $docfail -eq 1 ] && [ $rc -ne 0 ]; then outcome="PASS(fails as the source line says it does — a quoted, withdrawn defect, rc=$rc)"
   elif [ $docfail -eq 1 ]; then outcome="FAIL(the source line says this command fails, but it exited 0 — the correction note is stale)"
   elif [ $rc -eq 0 ];   then outcome="PASS"
+  # Q-649, the other half of `set -o pipefail` above. A pipeline whose CONSUMER closes early
+  # (`| head -1`, `| grep -q`) SIGPIPEs its producer, and pipefail then surfaces 141 for what is
+  # the documented, intended behaviour of the published line. Measured on the live inventory:
+  # 55 RUN rows contain a pipe and 7 pipe into head/grep -q, so without this rule pipefail turns
+  # working rows into FAILs. The `|` test is what keeps it narrow -- a bare `kill -PIPE $$` with
+  # no pipeline still FAILs (verified).
+  elif [ $rc -eq 141 ] && grep -q '|' <<<"$execmd"; then
+    outcome="PASS(exit 141 = SIGPIPE — a later pipeline stage closed early, e.g. head/grep -q)"
   elif [ $rc -eq 1 ] && grep -qxE 'grep|egrep|fgrep|pgrep' <<<"$lst" && ! grep -qiE "error|usage" <<<"$out"; then
     outcome="PASS(exit 1 = no-match — documented result, not an error)"
   elif [ $rc -eq 1 ] && grep -qxE 'diff|cmp' <<<"$lst" && ! grep -qiE "error|usage|no such file" <<<"$out"; then
@@ -817,7 +874,14 @@ $(tail -c 2000 "$ref")"; fi
     fi
   elif grep -qE "command not found|not found on PATH" <<<"$out"; then
     outcome="SKIP-MISSING-TOOL"
-  elif grep -q "ulimit" <<<"$out"; then
+  # Q-649: :754 writes `# cmd: <the command>` into the log and $out is a tail of that log, so a
+  # command whose own text contains `ulimit` satisfied this refusal check from its HEADER alone
+  # -- a real `ulimit -s unlimited; python3 -c 'raise'` failure matched here and was graded as a
+  # refusal instead of the FAIL it was. Strip the harness's own header lines first.
+  # `grep -c`, NOT `grep -v ... | grep -q`: under the `set -o pipefail` at the top of this file
+  # grep -q exits at the first match, the upstream grep takes SIGPIPE, and the pipeline returns
+  # 141 -- which an `elif` reads as NO MATCH. That is fail-open ledger instance 24.
+  elif [ "$(grep -v '^# ' <<<"$out" | grep -c "ulimit")" -gt 0 ]; then
     if [ "$ctx" = "1" ]; then outcome="PASS(refused-as-documented: names a prereq the doc states)"
     else outcome="FAIL(refusal names a prereq the source doc does NOT state)"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
