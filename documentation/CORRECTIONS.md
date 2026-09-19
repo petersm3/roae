@@ -9703,3 +9703,160 @@ nobody has run is indistinguishable from a measured one. It is recorded here, an
 revision table, because a re-scoping revision row that never reaches this ledger is exactly the
 propagation gap `scripts/gate_published_consistency.sh` G10 was written to catch. G10 caught this
 one: it refused the push that carried the revision row without this entry.
+
+## CX-48 — a multiple-comparisons example dismissed a significant tail as noise (TR-12) (RP-e8d905ce)
+
+**2026-09-19 · C1 · `reports/TR12_QUERY_PROGRAM.md`**
+
+§EW-2 of TR-12 specifies how the exact-tail screen will do its multiple-comparisons accounting. Its
+parenthetical closed with a worked example — the exact wording is registered as `RP-e8d905ce` and is
+not quoted here — in which a tail of 10⁻⁴, arising in a screen of 100 families, was dismissed
+outright. **That example is arithmetically false at the α this suite publishes under.**
+
+**The arithmetic, from this suite's own conventions rather than an invented threshold.**
+[METHODS.md](../reports/METHODS.md) §Statistics conventions records that the suite applies
+**Bonferroni (family-wise error rate)** throughout (`reports/METHODS.md:316`) and states the bar in
+rank-free form — 0.05/91 ≈ 5.5×10⁻⁴ for the 91-observable ledger (`reports/METHODS.md:355`). Applied
+at α = 0.05 to a screen of 100 families, the per-candidate bar is 0.05/100 = **5×10⁻⁴**, which a
+tail of 10⁻⁴ **clears by ~5×**; equivalently the Bonferroni-adjusted p is 10⁻⁴ × 100 = **10⁻²**, and
+10⁻² < 0.05. The tail is **significant, not noise**. Both the correction family and the α are the
+suite's published choices; neither was chosen for this correction.
+
+**Why it was worth stating rather than cosmetic.** The retired sentence is true only under a
+threshold it never named — a pre-registered α ≤ 10⁻², or a correction family stricter than
+Bonferroni. It sat in the very clause that tells a reader how tails will be discounted, so as
+written it would have licensed discarding exactly the findings the screen exists to catch.
+
+**NOW.** The clause states the adjusted threshold beside the tail, names the correction family and
+α, and requires EW-2's pre-registration to pin **α** alongside the candidate list and the family
+size. Dated marker at `reports/TR12_QUERY_PROGRAM.md:838`.
+
+**No published number moves. EW-2 has not run**, and no tail, candidate list or α has been computed
+or published under it — the figure was illustrative. This is a correction to a *specification*, not
+to a measurement.
+
+**How it was found.** Codex v3 lens B as V3B-03#25, ruled in a Fable residual adjudication dated
+2026-09-19 against public tip `7253bd7a` (`roae-private` — operator-attested provenance, not a
+document a reader can fetch; what the correction *changed* is public and is above). The arithmetic
+was re-derived against METHODS.md rather than adjudicated on the reviewer's word.
+
+**Gated:** `RP-e8d905ce` in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), so the wording fails
+GATE 3 if it reappears outside the report that narrates its withdrawal. **Two limits of that needle
+are recorded in the registry row rather than left implicit:** GATE 3 matches case-sensitively, so a
+lowercase re-spelling is uncovered and is *not* registrable — the corrected text now uses the
+lowercase form inside a true sentence, and banning it would be a false retraction; and the
+one-filename allow column exempts the whole report, so the gate cannot police a reintroduction
+inside TR-12 itself.
+
+**Not cured here.** The pre-registration a reader would check is still unpublished: `ew_prereg_lock`
+returns zero files on `origin/main` and there is no `tr12_evidence` tree at tip. That is a
+publication action, not a text edit, and it is not claimed done.
+
+## CX-49 — TR-12 inherited a single-instrument caveat that TR-11 had already retired (RP: none)
+
+**2026-09-19 · C2 · `reports/TR12_QUERY_PROGRAM.md`**
+
+§R's independence ladder told a reader that the TR-11 §10(vi) **single-instrument** caveat was
+inherited by **both** tiers, with no split. TR-11 had retired half of that caveat on 2026-07-26,
+55 days before this report's tip.
+
+**What the sibling documents already said.** TR-11 records that the full-31 integer is
+**two-instrument** and that an earlier "remains single-instrument pending its own IE pass" was a
+**stale label, aligned 2026-07-26**
+(`reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md:525`, `:530`). METHODS.md's
+canonical-quantities table carries both \|C1∩C2∩C4\| and \|C1∩C2∩C4∩C5\| as **exact
+(two-instrument)** — independently recomputed at full scale on 2026-07-25 by `verify.c`'s
+inclusion–exclusion transfer-walk, exact MATCH, mod-24 gated (`reports/METHODS.md:72`, `:73`).
+
+**NOW.** The caveat splits at the site: the full-31 **totals** are two-instrument; every
+**per-query** Q1–Q10 output specified in TR-12 is **single-instrument**, no second engine computing
+it. Dated marker at `reports/TR12_QUERY_PROGRAM.md:1262`.
+
+**The defect ran against interest, which is why nothing caught it.** The report contained the string
+`two-instrument` **zero times**, so the published text *understated* this project's own
+verification. Gates and reviewers are aimed at overclaiming; an understatement trips nothing.
+
+**No count, verdict or query specification moves.** TR-11's honest residual is restated and is **not**
+cured: both instruments are project-authored, so no third-party recomputation exists.
+
+**Class C2 rather than C4.** What moved is an **epistemic label** that had already circulated in its
+corrected form through TR-11 and METHODS since 2026-07-26, leaving TR-12 as the unpropagated site —
+the shape C2 is for. It is not a live scope statement newly added at the claim, which is what C4
+excludes.
+
+**No row was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), deliberately.**
+"single-instrument" remains **true** of every per-query output and is live in the corrected text;
+registering it would be a gate firing on correct, live prose — the false-retraction failure that
+registry's PART B warns against.
+
+**How it was found.** Codex v3 lens B as V3B-03#36, ruled 2026-09-19 in the same adjudication as
+CX-48, and re-measured here against the TR-11 and METHODS blobs rather than relayed.
+
+## CX-50 — "exact" was published for a figure that is exact of the DP-defined law (TR-12) (RP: none)
+
+**2026-09-19 · C2 · `reports/TR12_QUERY_PROGRAM.md`**
+
+§11's Q4 refinement row published the C1∩C4 null law of G — P(G ≤ 95) =
+641983711307479/7919632354008375 ≈ **8.106%** — as "exact via the G-channel DP", unqualified.
+
+**What is actually kernel-proved.** [lean/README.md](../lean/README.md) states plainly that at
+production size (12 couples, 31 slots) there is **no theorem asserting that bin g of the DP
+histogram counts the permutations whose G equals g**; the DP→permutation-count bridge is
+machine-checked only at the toy sizes (2,1,5), (2,3,7) and (3,1,7), so the headline tail figure is a
+kernel-proved fact about the **DP-defined law** (`lean/README.md:92`, `:95`). Reading it as a
+probability over the 31! pair-orders rests on that bridge plus the DP-free E[G] = 128 linearity
+cross-check — not on a production-size semantic theorem.
+
+**NOW.** The row reads **exact of the DP-defined law**, and cites the lean README note that already
+carried the argument. Dated marker at `reports/TR12_QUERY_PROGRAM.md:1630`.
+
+**The number does not move.** The rational and the ≈8.106% are unchanged and stand.
+`verify.py --check-null-g` agreeing is independent corroboration, not the missing theorem
+(`lean/README.md:99-100`). **Only the label moved.**
+
+**The gap was a missing pointer, not a missing argument.** The report contained `DP-defined` **zero
+times**, so a reader of that row saw "exact" with no route to the qualification — while the full
+disclosure sat in a public file the row never cited.
+
+**No row was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), deliberately.** Nothing was
+withdrawn as false: the computation *is* exact of the law the DP defines, and the defect was the
+absent qualifier. Registering the old phrasing would ban a statement that is true at its own layer —
+the false-retraction shape PART B rules out. The distinction against CX-48 is the one that decides a
+registry row here: **CX-48's sentence was false, this one was unqualified.**
+
+**How it was found.** Codex v3 lens B as V3B-03#42, ruled 2026-09-19 in the same adjudication, with
+the lean README text read directly rather than taken from the finding.
+
+## CX-51 — "PROVEN constants" outran a transcription step that is not in the public tree (TR-12) (RP: none)
+
+**2026-09-19 · C2 · `reports/TR12_QUERY_PROGRAM.md`**
+
+§11's Q9 refinement row promoted the eight forced literature rules into the theorem class as "now
+PROVEN constants of the entire C1 space", unqualified.
+
+**What the Lean artifact supports.** [lean/README.md](../lean/README.md) discloses that Lean proves
+constancy of the **`countP` forms** defined in `C1RuleConstants.lean`, and that identifying those
+forms with the executable registry rules — `reg_*` in `solve.py`, `score_registry` in `solve.c` — is
+a **NON-Lean step**, validated numerically by driving the repo's own `reg_*` over **5,449**
+structured C1 sequences. In that file's own words the registry-rule claim is **Lean-proven modulo a
+validated transcription** (`lean/README.md:66`, `:68`).
+
+**NOW.** The row carries that qualifier and cites the disclosure. The theorem itself is
+kernel-checked and is not in question. Dated marker at `reports/TR12_QUERY_PROGRAM.md:1631`.
+
+**The reproducibility half, which is the part a reader feels.** The validator that carries the
+theorem across to the executable rules is a scratchpad script, `c1_constants_check.py`, with **zero
+occurrences in the public tree** — measured against a positive control of one for `verify.py`, which
+proves the search could find a tracked script. A reader cannot rerun the step. **Not cured here:**
+publishing that validator is a publication action, not a text edit, and it is not claimed done.
+
+**No count, rate or verdict moves.** The eight rules still measure at rate 1.0 under enumeration.
+
+**No row was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), deliberately**, for the reason
+given in CX-50: "PROVEN constants" is true of the Lean predicates, and a needle banning it would
+fire on a correct statement about the artifact rather than on the overreach, which lay in the
+missing scope.
+
+**How it was found.** Codex v3 lens B as V3B-03#43, ruled 2026-09-19 in the same adjudication; the
+absence of `c1_constants_check.py` was re-measured here with its positive control rather than
+relayed.
