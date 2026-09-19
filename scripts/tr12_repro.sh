@@ -3313,6 +3313,16 @@ fi
 # A parent token PASSes only if every one of its legs passed.  A skipped leg downgrades the parent
 # to SKIP — it is never allowed to read PASS with a hole in it.  That is the whole point of this
 # script: "the query ran and matched" and "the query did not run" must not look alike.
+#
+# 🔴 Q-631, 2026-09-19: ERROR* joins FAIL* HERE TOO. `tok_record` has treated ERROR* as a failure
+# since N3 (see its FAIL*|ERROR* arms), but `agg` enumerated PASS / MISSING / FAIL* / SKIP*|PENDING*
+# and had no ERROR* arm — so an ERROR leg fell through the case untouched, `st` stayed "PASS", and
+# the PARENT READ PASS. The two halves of the harness disagreed, and `agg` is the half that reports.
+# Measured by executing this function's own text against a synthetic ERROR leg: the parent came back
+# PASS, where a FAIL leg gave FAIL:leg-* and a SKIP leg gave SKIP:leg-*. It was latent only because
+# the two ERROR-capable tokens (TR12_Q1C, TR12_Q10A_KWRANK) are named in no agg line; it would have
+# gone live the moment an ERROR-emitting leg joined one. A measured-null producer that cannot take
+# its measurement says ERROR:<why> — "I cannot tell" — and that must never aggregate to PASS.
 agg(){
     local parent="$1"; shift
     local st="PASS" c
@@ -3320,7 +3330,7 @@ agg(){
         case "${TOKSTATE[$c]:-MISSING}" in
             PASS)           : ;;
             MISSING)        st="SKIP:leg-$c-not-reached" ;;
-            FAIL*)          st="FAIL:leg-$c"; break ;;
+            FAIL*|ERROR*)   st="FAIL:leg-$c"; break ;;
             SKIP*|PENDING*) [ "${st#FAIL}" = "$st" ] && st="SKIP:leg-$c" ;;
         esac
     done
@@ -3434,7 +3444,7 @@ fi
 # right and the comment was wrong. COMMENT ONLY -- not one executable line changed.)
 AGG_OK=1
 for t in "${TOKORDER[@]}"; do
-    case "${TOKSTATE[$t]}" in FAIL*) AGG_OK=0 ;; esac
+    case "${TOKSTATE[$t]}" in FAIL*|ERROR*) AGG_OK=0 ;; esac
 done
 if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
     # The program-level token is emitted only when Group C actually ran (SCAN_OK=1: this battery
