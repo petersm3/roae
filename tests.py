@@ -573,6 +573,93 @@ class TestGates(unittest.TestCase):
         self.assertIn("unrecognised flag(s): --wittness", r.stderr)
 
 
+class TestSatInputGuards(unittest.TestCase):
+    """Q-311: the sat.py input-surface guards must FAIL LOUDLY, not traceback or
+    silently succeed. The code landed 2026-08-28 (db4ac3dc); these are the gates
+    the row still owed — `each needs a gate SHOWN able to fail`.
+
+    Each test asserts the SPECIFIC message, never merely that SystemExit was
+    raised: `certify_count` can also exit with the missing-tools message
+    (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
+    while proving nothing about the guard. Verified 2026-09-19 that the --keep
+    guard fires BEFORE any tool use (sat.py:1804 precedes the d4 call at :1823),
+    so these are green on a host with no SAT toolchain installed."""
+
+    def test_keep_dir_uncreatable_is_refused_before_the_work(self):
+        # The guard exists because certify_count runs d4/cpog-gen for minutes and
+        # writes gigabytes; a bad --keep discovered afterwards discards the run.
+        #
+        # 🔴 THE ASSERTION NAMES THE SPECIFIC MESSAGE, and that is not pedantry —
+        # MEASURED 2026-09-19 by mutation: with `assertIn("--keep", ...)` this test
+        # SURVIVED deletion of the cannot-be-created guard, because control fell
+        # through to the "exists but is not a directory" guard whose message also
+        # contains "--keep". A three-guard block needs an assertion that can tell
+        # the three apart, or it proves only that *some* guard fired.
+        # The name says "uncreatable", not "unwritable": a read-only parent makes
+        # os.makedirs raise PermissionError, which is the cannot-be-created branch.
+        import stat
+        with tempfile.TemporaryDirectory() as td:
+            os.chmod(td, stat.S_IRUSR | stat.S_IXUSR)      # r-x: cannot create within
+            try:
+                with self.assertRaises(SystemExit) as cm:
+                    sat.certify_count(None, "probe", keep_dir=os.path.join(td, "sub"))
+                msg = str(cm.exception)
+                self.assertIn("cannot be created", msg,
+                              "must fail on the cannot-be-created guard specifically")
+                self.assertIn("--keep", msg,
+                              "and it must be the --keep guard, not the missing-tools message")
+            finally:
+                os.chmod(td, stat.S_IRWXU)                  # so TemporaryDirectory can clean up
+
+    def test_start_suffix_missing_is_refused(self):
+        # F1C5_UNIONS is module-level, so the malformed spec is injected and restored.
+        orig = dict(sat.F1C5_UNIONS)
+        try:
+            sat.F1C5_UNIONS[999] = "3.0,3.1,3.2"           # no @START at all
+            with self.assertRaises(SystemExit) as cm:
+                sat.subset_pairlist(999)
+            self.assertIn("needs an @START suffix", str(cm.exception))
+        finally:
+            sat.F1C5_UNIONS.clear(); sat.F1C5_UNIONS.update(orig)
+        self.assertNotIn(999, sat.F1C5_UNIONS, "fixture must not leak into other tests")
+
+    def test_start_suffix_non_integer_is_refused(self):
+        orig = dict(sat.F1C5_UNIONS)
+        try:
+            sat.F1C5_UNIONS[999] = "3.0,3.1,3.2@x"         # @START present but not an int
+            with self.assertRaises(SystemExit) as cm:
+                sat.subset_pairlist(999)
+            self.assertIn("@START must be an integer", str(cm.exception))
+        finally:
+            sat.F1C5_UNIONS.clear(); sat.F1C5_UNIONS.update(orig)
+
+    def test_decode_missing_model_file_is_refused(self):
+        # --decode is CLI-only (under `if __name__ == "__main__"`), so this one
+        # must go through a subprocess; it cannot be reached via the module API.
+        with tempfile.TemporaryDirectory() as td:
+            missing = os.path.join(td, "no_such_model.txt")
+            r = subprocess.run([sys.executable, "sat.py", "--decode", missing],
+                               capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0,
+                                "a missing --decode model must not exit 0")
+            self.assertIn("no such file", r.stderr + r.stdout)
+
+    def test_guards_do_not_fire_on_valid_input(self):
+        # NEGATIVE CONTROL. A gate that refuses everything is a permanent FALSE
+        # dressed as rigour, so prove the guards are silent when input is good.
+        self.assertIn(9, sat.F1C5_UNIONS)
+        pl, start = sat.subset_pairlist(9)                  # a real, well-formed spec
+        self.assertTrue(pl, "a valid union must parse to a non-empty pair list")
+        with tempfile.TemporaryDirectory() as td:
+            try:
+                sat.certify_count(None, "probe", keep_dir=td)   # writable: guard must pass
+            except SystemExit as e:
+                self.assertNotIn("--keep", str(e),
+                                 "a writable --keep must not trip the keep guard")
+            except Exception:
+                pass                                        # failing later (no d4) is expected
+
+
 class TestSatC5Subset(unittest.TestCase):
     """Gate for the C5 cardinality/budget encoding + the reduced-subset
     (small-n certified-count probe) instances in sat.py (TASK #225 §6.4).
