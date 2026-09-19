@@ -7463,3 +7463,37 @@ stale values are the evidence and correcting them would destroy the record. The 
 **What did not move.** No canonical sha, no record count, no archive, and no published claim about the
 sequence was changed or withdrawn — the one number this day ADDS is `μ_rec^C15`, stated above with its
 interval. The scan has not run.
+
+## 2026-09-19 — a correction that did not propagate, and a lower bound that was never falsified
+
+**A claim this file corrected the next day was re-asserted three weeks later, in this file.** On
+2026-04-22 a run record put growth from 1T to 10T at "~1,700× super-linear" and built an
+infeasibility conclusion on it. The α-correction entry dated 2026-04-23 above withdrew exactly that:
+the 960-solution baseline came from a legacy single-threaded probe, the comparable P1-parallel 1T
+figure is 4,899,772, and the ratio is 3.35× for 10× budget — **sub-linear**, which means the branch
+is approaching exhaustion rather than escaping it. The entry dated 2026-05-15 above nevertheless
+states "Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class."
+**That sentence is superseded.** Nothing above is reworded — this file's convention is annotate,
+never rewrite — but a reader arriving at the later entry first would take the withdrawn figure as
+current, which is how the same claim survived into a run README maintained as recently as
+2026-09-05.
+
+**The α figure itself is off in its last digit.** The 2026-04-23 entry states α ≈ 0.52. Recomputed
+two ways, log₁₀(16,431,733 / 4,899,772) = 0.5255, which rounds to **0.53**. Both values are
+sub-linear and the conclusion drawn from it is unchanged; the digit is corrected here for the
+record rather than left to be re-derived by the next reader.
+
+**A lower bound was described as falsified when it never was, and the error was ours in the
+adjudication, not in the published record.** The 2026-04-22 record calls 16.4M canonical solutions
+per branch "a very tight lower bound". A later 100T run on the same branch yielded 664,086,250 —
+40.4× that figure — and an internal review recorded this as *falsifying* the bound. **It does not.**
+A lower bound is not falsified by the truth being larger; that is precisely what a lower bound
+permits. The 16.4M figure remains valid and remains a lower bound. What 664M falsifies is the word
+**"tight"**, and only that word. The distinction is worth writing down because the proposed
+correction would have published a second error while fixing the first, and would have understated a
+result that still stands. It was caught before landing by the lane asked to apply it, which declined
+to write "falsified" into a run record it had checked.
+
+**What did not move.** No canonical sha, no record count, no archive, and no published claim about
+the sequence was withdrawn. Two numbers are corrected — an exponent's last digit and a multiplier —
+and one word, "tight", is retired from a bound that otherwise stands.

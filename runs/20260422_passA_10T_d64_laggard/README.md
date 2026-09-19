@@ -1,10 +1,54 @@
 # Pass 1 — Single-branch 10T on yield-16 laggards (2026-04-22)
 
 **Campaign:** Single-branch exhaustion plan, Pass 1.
-**Target class:** The two lowest-yield branches from the 100T d3 canonical (both yielded **16 canonical solutions** at 100T per-sub-branch budget ≈ 631M nodes).
-**Budget:** 10T nodes per branch (1,580× the 100T per-sub-branch budget).
+**Target class:** The two lowest-yield branches from the 100T d3 canonical (both yielded **16 canonical solutions** at 100T per-sub-branch budget ≈ 631M nodes). **Scope (added 2026-09-19):** "yield-16" is a property of *that budgeted sample*, not of the branch. The 16 is what a ≈631M-node per-sub-branch slice returned; it is a **lower bound** on the branch's C1–C5 population, not a measure of tree size. The same "yield = k is a budget artifact, not a structural class" result was recorded for the yield-1,116 cohort in `documentation/HISTORY.md` (2026-04-23).
+**Budget:** 10T nodes per branch (**15,836×** the 100T per-sub-branch budget — corrected 2026-09-19 from "1,580×", an order-of-magnitude slip: 10¹³ ÷ (10¹⁴ ÷ 158,364) = 15,836.4).
 **Purpose:** Test whether yield-16 branches can be pushed toward EXHAUSTED with a tractable budget ladder.
 **Answer:** **No** — super-linear growth persists. Tree is much bigger than 10T. Exhaustion-via-budget is infeasible for this class.
+
+> **⚠ CORRECTION — 2026-09-19. THE GROWTH RATE AND THE "ANSWER" ABOVE ARE SUPERSEDED, AND THE
+> CONCLUSION IS INVERTED.** The measured tables below are untouched and still stand; what was wrong
+> is the *comparison* built on top of them.
+>
+> This page was corrected **the next day**, 2026-04-23, by `documentation/HISTORY.md` (commit
+> `3812cf8e`) — but the correction was never propagated here, including through a later edit to this
+> file on 2026-09-05.
+>
+> **What was wrong.** The 1T baseline of **960** in the Growth-analysis table below came from a
+> *legacy single-threaded* 1T probe, and is not comparable with this run, which is P1-parallel at
+> depth-5 task granularity. A fresh **P1-parallel** 1T run on `22_0_30_1_20_0` yields
+> **4,899,772** canonical solutions, not 960: at equal budget the parallel solver spreads the work
+> across 2,507 simultaneous tasks and finds roughly 5,000× more canonical solutions than legacy DFS.
+>
+> **The corrected, like-for-like comparison** — 1T P1-parallel **4,899,772** → 10T P1-parallel
+> **16,431,733** — is a ratio of **3.354×** for a **10×** budget increase, i.e.
+> **α ≈ 0.53 — SUB-linear**, not super-linear.
+>
+> **This inverts the conclusion.** Sub-linear growth means the branch is *approaching* exhaustion
+> rather than running away from it. The tree-size estimate for the yield-16 laggards drops from
+> 10¹⁶⁺ to **10¹⁴–10¹⁵**, and exhaustion becomes feasible at **100T–1000T on Azure D64 Spot
+> (~$5–$50)**. The following statements on this page are therefore **superseded and should not be
+> cited**: the **Answer** line above ("super-linear growth persists … Exhaustion-via-budget is
+> infeasible for this class"); the "**~1,700× super-linear**" growth figure; the Pass-2/Pass-3
+> yield projections in *Implication for single-branch exhaustion*; and "Pass 2 … is **NOT
+> recommended**" under *Next steps*.
+>
+> **"A very tight lower bound" is also wrong — but not in the direction of a withdrawal.** The
+> 16.4M figure remains a **valid** lower bound; a lower bound is not falsified by the truth turning
+> out larger. It is simply not a *tight* one: the same branch went on to yield **664,086,250**
+> canonical orderings at 100T (`documentation/HISTORY.md`, 2026-04-29 pilot), **40.4×** the number
+> described here as "very tight".
+>
+> **Provenance note on the 960.** The access-boundary paragraph at the foot of this page (added
+> 2026-09-05) states that "every number above comes from the run artifacts in this directory". That
+> is **not true of the 960**: its cited source `runs/20260420_singlebranch1T_d32westus3/` has **no
+> tracked files** in this repo, so that figure cannot be checked from here. Its replacement,
+> 4,899,772, is recorded in `documentation/HISTORY.md` as cited above.
+>
+> *Correction authored 2026-09-19 (backlog row Q-647). The measured tables in "Results summary" and
+> "Growth analysis" are deliberately left verbatim — this is a run record, and its measurements are
+> not in dispute. Developed with AI assistance (Claude, Anthropic); errors are Claude's, corrections
+> invited.*
 
 ## Results summary
 

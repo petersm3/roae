@@ -12,7 +12,7 @@ helper-level checks in a single pass. Stdlib only."""
 
 import subprocess, sys, unittest, importlib.util, itertools
 import gzip  # gz-framing equivalence fixture (V2-F48 #4)
-import os, random, re, shutil, struct, tempfile, hashlib
+import os, random, re, shutil, signal, struct, tempfile, hashlib
 
 def _load(name):
     spec = importlib.util.spec_from_file_location(name, name + ".py")
@@ -4443,28 +4443,52 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
         upper = "403F7202A33A9337B781F4EE17E497D5C0773C2656E16FA0DB87EECCD6F3332E"
         if not self.build_ok:
             self.fail("solve.c did not build: " + self.build_err)
+        # START A NEW SESSION AND KILL THE GROUP, NOT THE PID (Q-656, 2026-09-19).
+        # --validate-canonical system()-launches a 1T enumeration at SOLVE_THREADS=128
+        # (solve.c:39379-39393) microseconds after the token this test reads, and solve.c
+        # calls no setsid/setpgid/setpgrp -- so pr.kill(), which signals the driver's PID
+        # alone, left that enumeration running and reparented on a 2-core box. Measured
+        # against a stub reproducing solve.c's stdout order: driver-only kill orphaned the
+        # enum in 3/3 reps whenever the harness lost the race (0/3 when it won -- not the
+        # arm to design for, since the C side reaches fork before Python is rescheduled);
+        # killing the session group is 0/3 in BOTH arms.
         pr = subprocess.Popen([self.sbin, "--validate-canonical", upper, "1T"],
                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                              text=True, cwd=self.tmp)
+                              text=True, cwd=self.tmp, start_new_session=True)
+        tdir = None
         try:
-            # The echo precedes the enum spawn; read only until the token, then kill.
+            # The echo precedes the enum spawn; read only as far as the temp-dir line,
+            # which solve.c prints immediately after the token, then kill. The
+            # "Running canonical enum" line is the last output until the enum finishes,
+            # so it is an unconditional stop and no read here can block on the enum.
             seen, echo = [], None
             for _ in range(400):
                 line = pr.stdout.readline()
                 if not line:
                     break
-                seen.append(line.strip())
-                if line.strip() == "EXPECTED_SHA_ECHO=lowercase":
-                    echo = True
-                    break
+                s = line.strip()
+                seen.append(s)
+                if s.startswith("[--validate-canonical] Temp dir:"):
+                    tdir = s.split("Temp dir:", 1)[1].strip()
                 if line.startswith("[--validate-canonical] Expected sha:"):
                     self.assertNotIn(upper, line,
                                      "the uppercase input was echoed back verbatim")
+                if s == "EXPECTED_SHA_ECHO=lowercase":
+                    echo = True
+                if echo and tdir:
+                    break
+                if s.startswith("[--validate-canonical] Running canonical enum"):
+                    break
         finally:
-            pr.kill()
+            try:
+                os.killpg(pr.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass                    # the whole group is already gone
             pr.wait(timeout=60)
             if pr.stdout:
                 pr.stdout.close()
+            if tdir:
+                shutil.rmtree(tdir, ignore_errors=True)   # solve.c mkdtemp's and never removes it
         self.assertTrue(echo, "EXPECTED_SHA_ECHO=lowercase not emitted; saw: " +
                         " | ".join(seen[-8:]))
 
