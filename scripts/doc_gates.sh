@@ -11864,6 +11864,8 @@ gate_hex_prefix() {
       echo "not a sha256: an ext4 filesystem UUID (HISTORY.md:1881)";;
     43745021|5f9dcb7d)
       echo "not a sha256: the two ext4 filesystem UUIDs from the 2026-09-19 non-tty mkfs reproduction, quoted in CLAUDE.md §Disk-handling safety rule 1 to show a live ext4 was silently reformatted WITHOUT -F — same class as d63bb25c above";;
+    5640d0cd)
+      echo "a SUPERSEDED artifact digest, quoted in the very record that replaced it — CORRECTIONS.md CX-55 cites the pre-regeneration PNG sha to prove the post-cure change was the edit and not renderer drift, so by construction no 64-nibble expansion survives in the tree. Same shape as d63bb25c above: a real hex string that is not a live sha";;
     5450b53e)
       echo "not a sha256: the mathlib git revision pinned by lake-manifest.json (lean/README.md:434)";;
     df3d92ba)
