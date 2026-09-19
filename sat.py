@@ -131,6 +131,15 @@ Targets:
                  adds no C2 constraint); SAT => a valid ordering with a 5-line wrap exists.
                  560T empirical: 0 of 10.5e9 records (wrap is 91.83% d=3 / 8.17% d=1).
   kw-pin         encoding validation: KW forced, no extra rule clauses (combine with --with-c3)
+  BASE-near-K    any target above AND "differs from King Wen in at most K SLOTS" (K in 0..31; a
+                 slot differs when its (pair, orientation) content does) -- the minimal-repair
+                 form (TR-2: moore-strict-near-2 UNSAT, moore-strict-near-3 SAT). The suffix
+                 CONJOINS: the base's own clause family is still emitted (2026-09-19, Q-648;
+                 until then alt-le-14 / alt-ge-16 / wrap-d5 keyed on the full target string and
+                 a suffixed target silently built the plain near-K formula). REFUSED on the KW-
+                 pinned bases (kw-pin, *-kwtest, *-kwfail, rc4-kwexempt, ccn8-kwchain*): the
+                 pin already forces every slot, so the label would name a relaxation the
+                 formula does not contain. -noY and --certify-count refuse it as documented.
 Flags (append after the target):
   --with-c3      encode C3 natively in CNF: sum_h |pos(h) - pos(comp(h))| <= 776, comp(h) = h^63
                  (the complement-distance ceiling; ground truth = solve.mean_complement_distance,
@@ -726,6 +735,22 @@ RULESETS = {   # target base -> literature rules enforced strictly (task #217 5-
 for _r in FIVE_RULES:
     RULESETS["five-loo-" + _r] = tuple(x for x in FIVE_RULES if x != _r)
 
+# ---- KW-pinned bases (2026-09-19, Q-648) ----
+# Every base below emits one unit clause per slot forcing the King Wen ordering, in build()
+# at the two sites that consume these tuples. They REFUSE the `-near-<k>` suffix: "pinned to
+# KW and within k slots of KW" is the pin, so the suffix would name a relaxation the formula
+# does not contain -- the same label/formula rule as the -noY refusal below. Until 2026-09-19
+# nine comparisons in build() tested the FULL target string, so any `-near-<k>` suffix slipped
+# past all of them: `alt-le-14-near-0`, `alt-ge-16-near-0` and `wrap-d5-near-0` built the plain
+# near-0 formula (King Wen, 15 odd boundaries and wrap distance 3, decoded SATISFIED / PASS),
+# `rc4-kwexempt-near-0` lost its exemption, `ccn4-kwfail-near-0` its permuted faces,
+# `ccn8-kwfail-near-0` its shifted locus, and all eleven bases here their pin. Every site now
+# keys on `tbase`, the target with its `-near-<k>` suffix removed.
+KW_PIN_VALIDATION_TARGETS = ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest", "ccn4-kwfail",
+                             "ccn8-kwtest", "ccn8-kwfail", "ccn8-kwchain", "ccn8-kwchain-not")
+KW_PIN_PLAIN_TARGETS = ("kw-pin", "moore-kwtest", "rhythm-kwtest")
+KW_PINNED_TARGETS = KW_PIN_VALIDATION_TARGETS + KW_PIN_PLAIN_TARGETS
+
 # ---- cardinality-only subset targets (2026-09-02; TR-6 abstract, Codex V2-F08 #3) ----
 # `<target>-noY` emits exactly the clauses of <target> in which no Y variable occurs. The
 # selection rule is that one predicate and nothing else: the Y variables are allocated FIRST in
@@ -854,6 +879,10 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
                          "drop, so the label would name a formula the file does not contain"
                          % (target, NOY_SUFFIX))
     tbase = target.split("-near-")[0]
+    if "-near-" in target and tbase in KW_PINNED_TARGETS:
+        raise SystemExit("%s refuses -near-: %s pins every slot to King Wen, so 'within k slots "
+                         "of KW' could add nothing and the label would name a relaxation the "
+                         "formula does not contain (Q-648)" % (target, tbase))
     rules = target_rules(target)
     cnf = CNF()
     Y = {}
@@ -902,15 +931,15 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
     for d, k in BETWEEN_MULTISET.items():
         exactly_k(cnf, [T[(s, d)] for s in range(31)], k)
 
-    if target in ("alt-le-14", "alt-ge-16"):
-        cnf.mark("alternation bound (%s)" % target)
+    if tbase in ("alt-le-14", "alt-ge-16"):
+        cnf.mark("alternation bound (%s)" % tbase)
         odd = []
         for s2 in range(31):
             o = cnf.var()
             cnf.add(-T[(s2, 1)], o); cnf.add(-T[(s2, 3)], o)
             cnf.add(-o, T[(s2, 1)], T[(s2, 3)])
             odd.append(o)
-        if target == "alt-le-14":
+        if tbase == "alt-le-14":
             at_most_k(cnf, odd, 14)
         else:
             at_least_k(cnf, odd, 16)
@@ -959,7 +988,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
         # (slot 0 = pair 0 = palindromes 63,0 = classes 1,2, pure-exempt). Palindrome pairs occupy two
         # positions (first hexagram lower, orientation-dependent); gender from popcount.
         # ATTRIBUTION: Schulz 1990 JCP 17:3 motif 2 (exception: Zhu Yuansheng 13th c.); Cook 2006 elab.
-        exempt_pos = {25, 26} if target == "rc4-kwexempt" else set()
+        exempt_pos = {25, 26} if tbase == "rc4-kwexempt" else set()
         cnf.mark("inversion-class position counter")
         def _rev6(h):
             r = 0
@@ -1014,8 +1043,8 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
             # slot s (inverse pair) = s+2+c; palindrome pairs occupy (s+2+c, s+3+c) and can
             # never match (faces are palindromes; the REQ values are asserted non-palindromic
             # at import) -> forbidden in-window.
-            REQ = CCN4_REQ_FAIL if target == "ccn4-kwfail" else CCN4_REQ
-            cnf.mark("rule ccn4" + (" (faces permuted)" if target == "ccn4-kwfail" else ""))
+            REQ = CCN4_REQ_FAIL if tbase == "ccn4-kwfail" else CCN4_REQ
+            cnf.mark("rule ccn4" + (" (faces permuted)" if tbase == "ccn4-kwfail" else ""))
             for st2 in SLOTS:
                 for j in range(NJ):
                     p2, o2, first2, second2 = ORIENTS[j]
@@ -1036,7 +1065,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
             # violation set is EXACTLY {A, A+1} AND both class positions also violate R-S2
             # (run-segmented adjacent pairing, solve._reg_rs2_violations). Locus (A, A+1) =
             # (25, 26); the ccn8-kwfail gate shifts it to (24, 25), which KW fails both ways.
-            A = 24 if target == "ccn8-kwfail" else 25
+            A = 24 if tbase == "ccn8-kwfail" else 25
             cnf.mark("rule ccn8 (locus %d,%d)" % (A, A + 1) if "ccn8" in rules
                      else "ccn8 chain machinery (%s)" % tbase)
             PMAX = A + 2
@@ -1108,25 +1137,24 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
                 for w1 in range(7):     # then A+1 opens: orphan (zero at A+2) or mismatch
                     if 6 - w1 != 3:
                         cnf.add(ropen, -P[A + 1][w1], -P[A + 2][6 - w1])
-        if target in ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest", "ccn4-kwfail",
-                      "ccn8-kwtest", "ccn8-kwfail", "ccn8-kwchain", "ccn8-kwchain-not"):
+        if tbase in KW_PIN_VALIDATION_TARGETS:
             cnf.mark("KW pin (validation target)")
             for st in SLOTS:
                 jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
                 cnf.add(Y[(st, jkw)])
-    if target == "wrap-d5":
+    if tbase == "wrap-d5":
         # wrap distance 5 from s0=63  <=>  popcount(second hexagram of slot 31) == 1
         cnf.mark("wrap-d5")
         for j in range(NJ):
             if pc(ORIENTS[j][3]) != 1:
                 cnf.add(-Y[(31, j)])
-    if target in ("kw-pin", "moore-kwtest", "rhythm-kwtest"):
+    if tbase in KW_PIN_PLAIN_TARGETS:
         # kw-pin: full KW pin, no extra rule clauses (pair with --with-c3 gates).
         # moore-kwtest / rhythm-kwtest (F-1 gates): KW pin + the strict parity /
         # rhythm clauses added above — UNSAT with conflicts at EXACTLY the
         # solve.r11_axes-scored loci (2 parity violations / 2 rhythm breaks);
         # tests.py decides both solver-free via unit propagation.
-        cnf.mark("KW pin (%s)" % target)
+        cnf.mark("KW pin (%s)" % tbase)
         for st in SLOTS:
             jkw = next(j for j in range(NJ) if ORIENTS[j][0] == st and ORIENTS[j][1] == 0)
             cnf.add(Y[(st, jkw)])
