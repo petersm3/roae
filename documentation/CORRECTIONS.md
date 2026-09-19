@@ -9860,3 +9860,167 @@ missing scope.
 **How it was found.** Codex v3 lens B as V3B-03#43, ruled 2026-09-19 in the same adjudication; the
 absence of `c1_constants_check.py` was re-measured here with its positive control rather than
 relayed.
+
+## CX-52 — eight cures in one landing: a stale "never recorded", a false asymptote, and a recovery recipe that silently destroys results (RP: none)
+
+**2026-09-19 · C1 · `scripts/tr12_repro.sh`, `documentation/BOUNDARY_MINIMUM.md`,
+`documentation/CAMPAIGN_METHODOLOGY.md`, `documentation/LARGE_SCALE_CAMPAIGNS.md`,
+`documentation/ROAE_PY_CLI.md`, `documentation/SOLUTIONS_FORMAT.md`,
+`documentation/SOLVE_C_CLI.md`**
+
+Eight cures ride in one commit because this file is **closure file #1** of the TR-12 reproduction
+gate: every cure needs an entry here, this file is append-only, and each append invalidates the
+gate stamp. Landing them separately would pay the re-stamp three times and publish three trees that
+each reproduced only their own predecessor. The closure was obtained by RUNNING `fingerprint_files`
+from `scripts/tr12_repro_gate.sh` — **42 files**. Of the sites cured below only
+`scripts/tr12_repro.sh` and this file are inside it; the six documentation targets are outside it,
+which is why their cures could not have re-stamped on their own.
+
+**Class, stated per item because this entry spans three.** Items 1, 2, 3, 4, 6 and the exit-22 half
+of item 8 are **C1** retractions; item 7 and the `--verify` half of item 8 are **C2** circulated
+scope-labels; item 5 is **C3**. The header carries the most severe, C1, following this file's
+one-class-per-entry convention — the three are not written as a conjoined label there because that
+spelling collides with the ruled legacy alias for the C1–C5 canonical population
+([DOC_GATE_ALIAS_REACH.tsv](DOC_GATE_ALIAS_REACH.tsv), rule row; `reports/METHODS.md`
+§"Legacy shorthand" is the ruling), and a correction ledger should not be the place that
+reintroduces it.
+
+**1. `scripts/tr12_repro.sh` (C1) — the battery published that a check had NEVER passed, 4 days
+after it passed.** The `b_tcheck` cost-gated skip reason read "🔴 NOTE WHAT THIS COSTS: no
+`--kc-t-check` PASS verdict has EVER been recorded … so this skip leaves the t ladder unverified by
+the sound instrument and those sites blocked." That was true when written and **false from
+2026-09-15**. A `KC-T CHECK n=31 PASS` — 0 failing layers, all k = 0..31 — was produced 2026-09-14
+19:31:13 UTC to 2026-09-15 21:17:51 UTC (25 h 47 m, single core) under binary sha256
+`a253828bfe9e065a82c57f1eec7f00e66f0416822deb1c7521cb7204eb576e59` and is **published in this tree**
+at `runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt`. **NOW** the reason states what the skip does
+and does not cost: the verdict exists, so the skip avoids repeating a 20.5 h pass that buys no new
+information in this run, rather than leaving the ladder unverified. The scope travels with it, per
+[GT_LADDER_FORMAT.md](GT_LADDER_FORMAT.md):297 — that PASS constrains the **FILES**, not the shared
+transition relation, and the k = 0 and k = n endpoints degenerate. The neighbouring
+`SKIP:banked-pre-scan` reason was already correct and is untouched. A wrap-aware sweep of the whole
+tree, with a positive control that returned this same line, found **no other site** carrying the
+stale claim; [QUERY_INVENTORY.md](QUERY_INVENTORY.md):554 had already recorded the PASS
+independently, so the corpus disagreed with itself at exactly one place.
+
+**2. `BOUNDARY_MINIMUM.md`:68 (C1) — "evidence that 5 is the asymptotic minimum" was evidence for a
+FALSE proposition.** Over the full C1–C5 space the identifying minimum is **≥ 7**. Seven
+C1–C5-valid orderings at edit distance 2 from King Wen have **pairwise-disjoint**
+distinguishing-boundary sets — `{1,2,3}` `{4,5,6}` `{8,9,31}` `{10,11,12}` `{16,17,18}` `{20,21,22}`
+`{23,24,25}` — so any identifying set must hit seven disjoint sets. All eight records (KW + seven)
+verify as one artifact under **both** independent verifiers (`verify.py` and `verify.c`, each
+`ARTIFACT=PASS` rc 0); the negative control, the 2↔3 swap without its flip, is `ARTIFACT=FAIL` rc 1
+under both, so the PASSes discriminate. Three of the seven cannot appear in the 100T or 560T
+datasets at all, whose dist-2 catalog holds 14 records against ≥ 47 valid dist-2 orderings — so
+**"stability at 5" measured that the budget never reached them.** `:68` now states the dataset
+scope and the ≥ 7 bound under a dated marker; `:60` is scoped the same way and `:97` carries the
+bound in the limits list. **No dataset figure moves:** 5 at d3 100T and d3 560T, §[8] = 0, and the
+greedy set `{4, 27, 25, 21, 1}` all stand. The ≥ 7 is itself a LOWER bound — the 47-ordering census
+swept slot swaps with flips of the moved pairs only.
+
+**3. `CAMPAIGN_METHODOLOGY.md` step 4 (~:402) (C1) — the extension-launch list omitted
+`SOLVE_DEPTH`.** It is **sha-determining**; this document's own §8 step 4 (:1396-1398) says so and
+says every d3 canonical needs `SOLVE_DEPTH=3`, while `solve.c` defaults it to **2**, and the
+checkpoint *shape* differs by depth. Whether the omission is caught depends on the age of the source
+archive, and for the archive this recipe is titled for it is **not**: with a `resume_contract.txt`
+(written since 2026-07-17) the run FATALs with exit **34**, but the 560 T archive predates that
+sidecar, so the run only WARNs, returns **rc 0**, writes fresh four-component `.dfs_state` files
+beside the untouched six-component ones, and resumes **nothing** — silently enumerating a different
+partition instead of extending. Both branches demonstrated by execution.
+
+**4. `CAMPAIGN_METHODOLOGY.md` (~:580) (C1) — the lineage snippet reported false violations.**
+`key()` returned `(rec.translate(MASK), rec)`, keying on the masked pair identity **and the full
+record bytes**. The retained record for a pair identity is the lexicographically smallest orient
+variant *among those the run encountered*, so a deeper budget can legitimately move the
+representative. Executed on a genuine extension losing nothing, the old form printed
+`source \ new : 1` and `*** NOT A SUPERSET ***`, rc 1, with every source key present. The key is now
+the masked identity alone and a moved representative is **reported** as `repr. changed`, not failed.
+Subset and strict-growth semantics are otherwise unchanged.
+
+**5. `CAMPAIGN_METHODOLOGY.md`:853 (C3) — a figure attributed to the wrong run.** The campaign #49
+row published pre-merge shard records as **43,876,464,466**, which is the **2026-06-30 re-run's**
+total. Campaign #49 is the ORIGINAL 2026-06-01 run — the 5 evictions two rows below are its own —
+and its total is **43,880,306,393**, the original having over-emitted exactly **+3,841,927** records
+(0.009%), every one a duplicate the canonical dedup erased. That is why both runs produce sha
+`9a968fa2…` byte-identically. Both figures are published and correct where they belong:
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md):99-100 and [HISTORY.md](HISTORY.md):5146-5147 carry the
+pair and are **not** changed. No sha, record count or verdict moves. The earlier triage note that
+the registry figure was "absent at tip" was itself false — it is present at both sites, measured
+here with a positive control.
+
+**6. `LARGE_SCALE_CAMPAIGNS.md`:461 and :500-503 (C1) — the documented runner marks a killed branch
+complete forever.** DONE was gated on `rc == 0 AND sha file exists`. But after a SIGTERM `--branch`
+**writes its sha, records `"status": "TIMED_OUT"`, and returns 0**: measured,
+`timeout --preserve-status -s TERM 15 solve --branch 2 0 0 2` gives rc 0, a written sha,
+`Sub-branches: 0/2824 completed` and zero `.dfs_state` files. Under the documented test that branch
+is DONE forever with none of its 2,824 cells walked. DONE is now additionally gated on the run's own
+`"status": "SEARCH_COMPLETE"`, and :500-503 says a clean exit plus a sha attests the **artifact**,
+not completion. **The repaired test is deliberately not oversold:** `SEARCH_COMPLETE` is a
+*lifecycle* status — simply the `else` of `if (global_timed_out)` at both emission sites — so it
+separates "finished normally" from "was stopped" and does **NOT** assert exhaustion, which every
+budgeted run would falsely claim ([DEPLOYMENT.md](DEPLOYMENT.md) §"Completion and archival").
+
+**7. `ROAE_PY_CLI.md`:366-369 (C2) — a pre-registered gate rejects a correct sampler, and it already
+fired.** The validity gate compares the sampler's mass(A ≤ 648) against the F4′ figure `0.04789`,
+but the two sides are drawn from different populations: F4′ is **C3-conditioned** (`solve.c:7995`
+gates on `compute_comp_dist_x64(seq) <= kw_comp_dist_x64` and `score_f4p` is called at `:8168`
+inside that block), while the sampler accepts on the exact C5 transition multiset only
+(`roae.py:4051-4083`). Paired-instrument measurement on one 2×10⁷ probe stream: the gated build
+gives **0.04783**, reproducing the published 0.04789; a one-line mutant opening the gate gives
+**0.03789**, reproducing the executed sampler's **0.037406** to under 1σ. **The ≈0.0105 gap the gate
+rejects on IS the C3 conditioning**, and it produced the 2026-07-26
+`GATE FAIL — population/sampler mismatch … NO verdicts issued`, logged at the time as a mismatch "to
+diagnose" and never diagnosed. **The cure is this entry plus a scope note at the CLI site, and
+nothing else.** `PREREG_H1_H3_TEST_2026_07_26.md` is **escrow-frozen** at
+`sha256=ab09648c…` ([PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md):67) and was **not
+edited**; the `0.04789` at `roae.py:4957` is a frozen-spec constant and was **not changed**.
+Re-registering the gate against an unconditioned reference (≈0.0379) would be a NEW
+pre-registration, not an edit, and is not done here.
+
+**8. `SOLUTIONS_FORMAT.md`:312-314 (C2) and `SOLVE_C_CLI.md`:3134 (C1) — a verdict that can wrap,
+and a recovery recipe that destroys results.** `--verify`'s failure counters and their sum are
+**32-bit** (`solve.c:42024-42025`, `:42184`, verdict at `:42199`) while records count in 64-bit
+(`:42028`), so the total wraps past 2³². Executed on a 1,073,741,825-record witness:
+`*** VERIFY FAIL: -549899140 issues found ***`, the true total 3,745,068,156 reduced mod 2³². The
+560 T canonical holds 10,525,271,997 records. **`verify.c` is immune** (`long long` at `:424`,
+`:443`, `:541`), so canonicals attested by the independent verifiers are unaffected. Separately, the
+exit-22 row told operators to delete the manifest row for a MISSING/SHRUNK shard "and let LOAD path
+re-walk". **It never re-walks**: the loader marks completion from checkpoint lines alone
+(`solve.c:1993`; no `stat`/`access`/`fopen` in `:1899-2003`) and the scheduler skips via
+`is_sub_branch_completed` (`:47616`) with no existence test. Five executed runs: the recipe as
+written returned **rc 0**, printed `auto-verify-manifest PASS` and `0 remaining`, never recreated
+the shard, and on a second victim merged **135,581 records — 199 canonical classes silently lost —
+and reported PASS**; the recipe plus dropping the checkpoint line reproduced the 1,097-shard
+baseline sha `403f7202…` byte-identically; deleting a shard while keeping its manifest row correctly
+exits 22. **The gate works and the documented recipe defeated it.** The row now requires dropping
+the cell's completion line(s) from `checkpoint.txt` / `checkpoint_t*.txt` and confirming
+`N remaining > 0` on restart, and records the asymmetry that makes shard-absence alone unusable as a
+trigger: a zero-solution cell legitimately has no shard (1,933 of 3,030 in the measured fixture).
+
+**Not cured here, and not claimed cured.** Three code changes are follow-up work and are named as
+such at their sites: the `solve.c` counter widths behind the `--verify` wrap; the same file's
+`gz_logical_size` framing, which reads the gzip ISIZE trailer mod 2³² and therefore mis-frames any
+artifact ≥ 4 GiB logical; and the binary's own error text at `solve.c:3895-3897`, which repeats the
+defeated exit-22 advice. Tracked as Q-641. Also not cured: the exact `--verify` PASS-flip (a total
+≡ 0 mod 2³²) was **not** executed and is not claimed, and the full-space boundary minimum is bounded
+below at 7 without being determined.
+
+**No row was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), and the reason is mechanical
+rather than editorial.** Two sentences here are genuinely false and would otherwise qualify — "no
+`--kc-t-check` PASS verdict has EVER been recorded" and "5 is the asymptotic minimum". But GATE 3
+matches a registered needle anywhere outside the **one** filename in its allow column, and each of
+these phrases now appears in **two** files: the dated marker in the document that corrects it, and
+this ledger entry, which quotes it in order to record what changed. CORRECTIONS.md is exempt from
+GATE 27, not from GATE 3. So a row would fire on correct, live correction-narration in whichever of
+the two files the allow column did not name — the false-retraction shape PART B warns against,
+arrived at from the opposite direction. Registering these needs either a multi-file allow column or
+a narration exemption for this file in GATE 3; both are gate changes, neither is a text edit, and
+neither is done here.
+
+**How it was found.** Fable, charged to find errors, as V3A-004, V3A-007 and V3A-032 (batch 1,
+Q-639) and V3A-042, V3A-052 and V3A-054 (batch 2, Q-641), all six ACCEPTED and all proven by
+execution against binaries built from the `origin/main` blob. Re-measured here rather than relayed:
+the `KC_T_CHECK_n31.txt` verdict and its scope were read out of the published artifact on
+`origin/main`; the 43,880,306,393 attribution was re-derived from CANONICAL_HASHES.md and HISTORY.md
+independently; every `solve.c`, `verify.c` and `roae.py` line citation above was re-read against
+this tree before being published; and the 42-file closure was obtained by running
+`fingerprint_files`, not by re-implementing it.

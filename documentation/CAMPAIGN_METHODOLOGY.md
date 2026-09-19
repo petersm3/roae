@@ -400,6 +400,7 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    560T-lineage build by the deeper canonical's recorded sha in
    [CANONICAL_HASHES.md](CANONICAL_HASHES.md) rather than through this flag. Tracked as Q-324.]**
 4. **Launch the extension enum** with:
+   - `SOLVE_DEPTH=<source partition depth; 3 for every d3 canonical; sha-determining>`
    - `SOLVE_NODE_LIMIT=<new_scale_total_nodes>`
    - `SOLVE_PER_SUB_BRANCH_LIMIT=<new_per_cell_budget>` (strictly greater
      than the source's `.budget` sidecar value)
@@ -407,6 +408,20 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    - `SOLVE_SKIP_IOPS_CHECK=1` (see the note below on the IOPS pre-check
      behavior — this flag bypasses a known issue at eviction-resume and on
      extension launch.)
+
+   ⚠ **[CORRECTED 2026-09-19 — `SOLVE_DEPTH` was missing from this list, and it is
+   **sha-determining**. This document's own §8 step 4 says it "must be copied from the
+   canonical's row" and that every d3 canonical needs `SOLVE_DEPTH=3` (:1396-1398), while
+   `solve.c` defaults it to **2** — and the checkpoint *shape* differs by depth (six-component
+   names at d3, four at d2). Whether omitting it is caught depends on the age of the source
+   archive, and for the archive this recipe is titled for it is NOT. With a `resume_contract.txt`
+   present (written since `de7d9172`, 2026-07-17) the run FATALs — `resume-shape contract
+   violation … depth=2`, exit **34**. Without it — the 560 T case, whose archive is `2b01b15` of
+   2026-06-06 and predates the sidecar — the run only prints `WARN … Proceeding` and returns rc
+   **0**, then writes fresh four-component `.dfs_state` files beside the source's untouched
+   six-component ones and resumes **nothing**: it silently enumerates a different partition
+   instead of extending, which is the failure this whole recipe exists to avoid. Demonstrated by
+   execution on both branches. See documentation/CORRECTIONS.md CX-52.]**
 
    The enumerator picks up each cell from its `.dfs_state` checkpoint and
    walks forward to the new per-cell budget, appending only the additional
@@ -577,24 +592,26 @@ def records(path):
                 sys.exit(f"{path}: trailing {len(rec)} bytes - not a multiple of {R}")
             yield rec
 
-def key(rec):        # compare_solutions order: pair identity first, then full bytes
-    return (rec.translate(MASK), rec)
+def key(rec):        # pair identity ALONE - the orient bits are NOT part of the key
+    return rec.translate(MASK)
 
 src, new = records(sys.argv[1]), records(sys.argv[2])
 s, n = next(src, None), next(new, None)
-n_src = n_new = missing = 0
+n_src = n_new = missing = repr_changed = 0
 while s is not None:
-    if n is None or key(n) > key(s):          # new stream walked past a source record
+    if n is None or key(n) > key(s):          # new stream walked past a source key
         missing += 1; n_src += 1; s = next(src, None); continue
-    if key(n) < key(s):                       # a record new to this budget
+    if key(n) < key(s):                       # a key new to this budget
         n_new += 1; n = next(new, None); continue
-    n_src += 1; n_new += 1                    # equal: source record present
+    if n != s: repr_changed += 1              # same key, different orient rep - LEGAL
+    n_src += 1; n_new += 1                    # equal key: source record present
     s, n = next(src, None), next(new, None)
 while n is not None:
     n_new += 1; n = next(new, None)
 print(f"source records : {n_src:,}")
 print(f"new records    : {n_new:,}")
 print(f"source \\ new   : {missing:,}")
+print(f"repr. changed  : {repr_changed:,}   (same pair identity, different orient rep - not a loss)")
 if missing:
     print("*** NOT A SUPERSET - the new canonical is missing source records ***"); sys.exit(1)
 if n_new <= n_src:
@@ -610,6 +627,17 @@ the recipe: **it is what stops an untouched copy of the parent from passing.** E
 against four fixtures — a true extension (rc 0), an identical copy of the parent (rc 1,
 `NO EXTENSION`), a file missing parent records (rc 1, `NOT A SUPERSET`), and mixed raw/gzip
 framing across the pair (read correctly).
+
+⚠ **[CORRECTED 2026-09-19 — `key()` returned `(rec.translate(MASK), rec)`, keying on the masked
+pair identity **and the full record bytes**, and that produces FALSE violations.** The retained
+record for a pair identity is the lexicographically smallest orient variant **among those the run
+encountered**, so a deeper budget can legitimately encounter a smaller variant and move the
+representative. Under the old key that record failed to match its own source counterpart and was
+counted as `missing`. Executed on src = {KW, K2@v1}, new = {KW, K2@v0, K3} — a genuine extension
+losing nothing — the old form printed `source \ new : 1` and `*** NOT A SUPERSET ***`, rc 1, with
+every source key present. The key is now the masked pair identity ALONE, and a changed orient
+representative is **reported** as `repr. changed` rather than failing the check. The subset and
+strict-growth semantics are otherwise unchanged. See documentation/CORRECTIONS.md CX-52.]**
 
 **What this establishes, and what it does not.** It is a **set-subset plus strict-growth** test.
 It is *not* the per-cell prefix property, and that property is **not observable from any published
@@ -850,7 +878,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | **Final sha256** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** |
 | Records | **10,525,271,997** unique canonical solutions |
 | Bytes | **336,808,703,936** on disk (32-byte header + records × 32; record-bytes = 336,808,703,904) |
-| Pre-merge shard records (per-sub-branch canonical) | **43,876,464,466** (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch (cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift: `analyze_solution()` hashes and compares `canonical[]` — the record with the orient bit cleared, matched as `existing[ci] & 0xFC` — and `flush_sub_solutions()` / `flush_sub_solutions_d3()` each end by `memset`-ing `ts->sol_table` and zeroing `ts->solution_count`), so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** |
+| Pre-merge shard records (per-sub-branch canonical) | **43,880,306,393** (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[CORRECTED 2026-09-19 — this cell read **43,876,464,466**, which is the **2026-06-30 re-run's** pre-merge total, not this campaign's. Campaign #49 is the ORIGINAL run launched 2026-06-01 — the 5 evictions two rows below are its own — and its pre-merge shard total is **43,880,306,393**. The original over-emitted exactly **+3,841,927** records (0.009%) relative to the re-run, every one a duplicate the canonical dedup erased, which is why both runs produce sha `9a968fa2…` byte-identically. Both figures are published and correct where they belong: [CANONICAL_HASHES.md](CANONICAL_HASHES.md):99-100 and [HISTORY.md](HISTORY.md):5146-5147 carry the pair, are correct, and are NOT changed by this correction. No sha, record count or verdict moves. See documentation/CORRECTIONS.md CX-52.]** ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch (cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift: `analyze_solution()` hashes and compares `canonical[]` — the record with the orient bit cleared, matched as `existing[ci] & 0xFC` — and `flush_sub_solutions()` / `flush_sub_solutions_d3()` each end by `memset`-ing `ts->sol_table` and zeroing `ts->solution_count`), so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** |
 | Final shard count | **65,281** cells with non-empty shards (41.2 % yield) |
 | Cells with zero solutions | 93,083 (58.8 %) — fully scanned, budget exhausted, no records emitted |
 | `.dfs_state` checkpoint count | 158,364 (100 % of cells scanned) |

@@ -368,6 +368,27 @@ against the independently measured F4′ `dist_autocorr` figure
 0.04789 ± 0.005 — on failure the run hard-stops with **exit code 3**
 and issues no verdicts.
 
+⚠ **[SCOPED 2026-09-19 — the two sides of this gate are not drawn from the same
+population, and the gate has already fired for that reason.** `0.04789` is a
+**C3-conditioned** figure: in `solve.c` the F4′ scorer runs inside the
+`compute_comp_dist_x64(seq) <= kw_comp_dist_x64` branch (`solve.c:7995`, with
+`score_f4p` called at `:8168` inside that block), so it is measured over
+C1∩C2∩C4∩C5 **∩ C3**. The sampler this gate tests is **not** C3-conditioned:
+`_gs_one_sample` (`roae.py:4051-4083`) accepts on the exact C5 transition
+multiset only. Paired-instrument measurement on one 2×10⁷ probe stream: the
+C3-gated build gives mass(A ≤ 648) = **0.04783**, reproducing the published
+0.04789, while a one-line mutant that opens the gate gives **0.03789**,
+reproducing the executed sampler's **0.037406** to under 1σ. **The ≈0.0105
+discrepancy this gate rejects on IS the C3 conditioning — not a defective
+sampler.** That is what produced the `GATE FAIL — population/sampler mismatch …
+NO verdicts issued` of 2026-07-26. The constant `0.04789` at `roae.py:4957` is a
+**frozen pre-registration spec value and is deliberately NOT changed**:
+re-registering this gate against an unconditioned reference (≈0.0379) would be a
+NEW pre-registration rather than an edit, and the pre-registration document
+itself is escrow-frozen (`documentation/PREREGISTRATION_ESCROW.md:67`). Read a
+FAIL here as "these two instruments condition differently", not as "the sampler
+is wrong". See documentation/CORRECTIONS.md CX-52.]**
+
 Flags: reuses `--gs-samples` (as N_eval), `--gs-workers`,
 `--gs-batches`, `--gs-json`, `--gs-checkpoint`, and `--seed` (same
 20260726 default), plus one of its own:

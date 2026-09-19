@@ -458,10 +458,17 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
     rc = $?
     sha_file = "$WORKDIR/solutions_${p1}_${o1}.sha256"
 
-    IF rc == 0 AND sha_file exists:
+    status = json_field(read("$WORKDIR/solve_results.json"), "status")
+
+    IF rc == 0 AND sha_file exists AND status == "SEARCH_COMPLETE":
       sha = first_field(read(sha_file))
       atomic_touch(DONE_MARKER)              # only NOW mark complete
       log "DONE $p1/$o1 sha=$sha"
+    ELSE IF rc == 0 AND status == "TIMED_OUT":
+      # SIGTERM or wall-clock stop. solve WRITES ITS SHA AND RETURNS 0 here,
+      # so an rc-plus-sha test alone marks this branch done forever with as
+      # little as 0 of its cells walked. Retry; do NOT touch DONE_MARKER.
+      log "$p1/$o1 exit=0 but status=TIMED_OUT; will retry next loop"
     ELSE IF rc != 0 AND log_contains("invalid (pruned at depth 1)"):
       # Structurally dead branch — solve exits 1 and will do so forever.
       # Mark it satisfied or the completion test below never fires.
@@ -497,10 +504,26 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
 - **Restart-safe.** Manually re-launching the script is a no-op
   for completed branches (skipped via DONE_MARKER) and a resume
   for the in-progress branch.
-- **Verifies before claiming complete.** The DONE_MARKER is only
-  touched after BOTH a clean exit AND a sha file exists. If solve
-  exits 0 but failed to write the sha (e.g., disk-full mid-merge),
-  it's not falsely marked done.
+- **A clean exit plus a sha attests the ARTIFACT, not completion.** The
+  DONE_MARKER is touched only after a clean exit, a sha file, AND the run's
+  own `"status": "SEARCH_COMPLETE"`. Exit status and sha alone are **not**
+  a completion test: after a SIGTERM, `--branch` writes its sha, records
+  `"status": "TIMED_OUT"`, and **returns 0**. Measured —
+  `timeout --preserve-status -s TERM 15 solve --branch 2 0 0 2` gives rc 0,
+  a written sha, `Sub-branches: 0/2824 completed`, and zero `.dfs_state`
+  files left behind. A runner keying on rc and sha marks that branch done
+  **forever**, with none of its 2,824 cells finished. ⚠ **[CORRECTED
+  2026-09-19 — this bullet read "Verifies before claiming complete. The
+  DONE_MARKER is only touched after BOTH a clean exit AND a sha file
+  exists", which is precisely the unsafe test, and the pseudocode above
+  implemented it. Note the limit of the repaired version, so it is not read
+  as more than it is: `SEARCH_COMPLETE` is a **lifecycle** status — in
+  `solve.c` it is simply the `else` of `if (global_timed_out)` at both
+  emission sites — so it separates "this process finished normally" from
+  "it was stopped", and it does **NOT** assert that the search space was
+  exhausted. Every budgeted run reports it; see
+  [DEPLOYMENT.md](DEPLOYMENT.md) §"Completion and archival". See
+  documentation/CORRECTIONS.md CX-52.]**
 
 ### 6c. Cross-VM orchestrator — pseudocode
 

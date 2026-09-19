@@ -320,6 +320,24 @@ Each record in solutions.bin satisfies:
   output says `Header: magic ROAE` before trusting a PASS.
   *(Clarified 2026-08-01, solve.c sweep: this bullet previously claimed
   `--verify` "fails loudly on bad magic".)*
+  ⚠ **[SCOPED 2026-09-19 — `--verify`'s failure total can WRAP, and the wrap is
+  reachable at the scale this project publishes.** The per-constraint failure
+  counters and their sum are **32-bit** (`int fail_c1 … fail_dup`,
+  `solve.c:42024-42025`; `int total_fail`, `:42184`; the verdict is
+  `total_fail == 0` at `:42199`), while the record loop counts in **64-bit**
+  (`long long r`, `:42028`). Past 2³² accumulated failures the total wraps.
+  **Executed** on a 1,073,741,825-record witness: `*** VERIFY FAIL: -549899140
+  issues found ***`, which is the true total 3,745,068,156 reduced mod 2³². The
+  560 T canonical holds **10,525,271,997** records, far past 2³². This bounds
+  what a `--verify` PASS attests on a large artifact. It does **not** put any
+  published canonical in doubt: those are attested by the independent verifiers,
+  and **`verify.c` is immune** — its counters and their sum are `long long`
+  (`verify.c:424`, `:443`, `:541`). The exact PASS-flip (a total ≡ 0 mod 2³²)
+  was **not** executed and is **not** claimed. A sibling limitation, reported
+  rather than cured: `--verify` frames a gzip artifact from the gzip ISIZE
+  trailer, itself mod 2³², so any artifact ≥ 4 GiB logical is mis-framed. The
+  `solve.c` counter-width fix is follow-up work, tracked as Q-641, and is NOT in
+  this commit. See documentation/CORRECTIONS.md CX-52.]**
 
 ## Reading the file from another language
 
