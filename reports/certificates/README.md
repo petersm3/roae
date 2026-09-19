@@ -31,13 +31,22 @@ fact, not a footnote to it, and the receipt is in this directory.
 
 Each certificate pairs with a deterministic CNF regeneration command; regenerated CNF + archived proof
 must check with drat-trim (`drat-trim <cnf> <proof>` -> `s VERIFIED`). See [reports/METHODS.md](../METHODS.md).
-`verify_all.sh` (this directory) checks every certificate below. Full inventory: 22 certificates —
+`verify_all.sh` (this directory) checks every certificate below. Full inventory: 24 certificates —
 the original 5 (conflict theorem + repair ladder + alternation theorem), the 14 of the [TR-2](../TR2_THE_RULES_CONFLICT.md) v1.6
 extension (five-rule union, its near-2/3/4 repair ladder, all five leave-one-out subsets, three of
 the four two-rule cores, and two encoding-validation gates), the fourth two-rule core
 (`core_gender_ccn4_unsat.drat.gz`, found 2026-08-28, shipped 2026-09-02 — see §Checker coverage
-below: as of 2026-09-02 it has passed both checkers, like the other 21), the [TR-5](../TR5_SYMMETRY.md) SC-4 rigidity kernel, and the
-C3 positional KW-exactness gate — plus one SAT-witness artifact (`c3_positional_witnesses.txt`).
+below: as of 2026-09-02 it has passed both checkers, like the other 21), the [TR-5](../TR5_SYMMETRY.md) SC-4 rigidity kernel, the
+C3 positional KW-exactness gate, and the two cardinality-only alternation subsets
+(`alt_le_14_noY_unsat.drat.gz`, `alt_ge_16_noY_unsat.drat.gz`, shipped 2026-09-03 — §TR-6
+alternation subset below) — plus one SAT-witness artifact (`c3_positional_witnesses.txt`).
+*(Count corrected 2026-09-19: this line stated 22, and named neither of the two subset proofs
+archived 2026-09-03, while `verify_all.sh` had already been corrected on 2026-09-10 to
+`CERT_FLOOR=24` and checks 24. The drift was possible because nothing compared this sentence against
+the directory; `scripts/doc_gates.sh cert-inventory` (GATE 77) now fails when the two disagree. That
+gate requires this page to carry EXACTLY ONE sentence of the live "Full inventory: N certificates"
+form — a retired count is quoted here as a bare number on purpose, because a pattern that can match
+a correction note as well as the claim is not a measurement of the claim.)*
 
 ## TR-5 SC-4 rigidity kernel
 
@@ -107,6 +116,30 @@ SAT-side encoding validations (no DRAT proof exists for SAT results; re-run dire
 `ccn4-kwtest` SAT, `ccn8-kwtest` SAT, `ccn8-kwchain` SAT, `rc4-kwtest` UNSAT-by-design gate — see
 `sat.py --help` and reports/TR2_THE_RULES_CONFLICT.md §Commands.
 
+## TR-6 alternation subset (cardinality-only `noY` proofs, archived 2026-09-03)
+
+These two are the CARDINALITY-ONLY clause subset of the two alternation targets — exactly the clauses
+of `alt-le-14` / `alt-ge-16` in which no ordering (Y) variable occurs — shown UNSAT on their own. The
+subset is emitted by the documented target suffix `-noY`
+([SAT_CLI.md](../../documentation/SAT_CLI.md) §`TARGET-noY`).
+
+| Certificate | Regenerate CNF | Establishes |
+|---|---|---|
+| alt_le_14_noY_unsat.drat.gz | `python3 sat.py --emit-cnf alt-le-14-noY f.cnf` | the ordering-variable-free subset of `alt-le-14` (11,073 of 240,039 clauses) is UNSAT on its own |
+| alt_ge_16_noY_unsat.drat.gz | `python3 sat.py --emit-cnf alt-ge-16-noY f.cnf` | the ordering-variable-free subset of `alt-ge-16` (11,134 of 240,100 clauses) is UNSAT on its own |
+
+Both archived files are the **core-trimmed** proofs (`drat-trim -l` on the raw kissat 4.0.1 output,
+then re-verified from the trimmed file: ~36.4k / ~11.7k lemmas in core, so neither is decided by unit
+propagation, and a half-truncated copy is `s NOT VERIFIED`). `verify_all.sh` regenerates each subset
+CNF and re-checks the archived proof against it, emitting the whole-line verdict
+`ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN`.
+
+⚠ **Scope, which is narrower than the file names suggest.** They certify the *semantic* claim behind
+[TR-6](../TR6_PARITY_SKELETON.md)'s "corroborating, not independent" verdict — the alternation
+theorem follows from C5's cardinalities before any ordering variable is consulted. They do **not**
+certify that no ordering variable appears in the *full* proofs: the archived `alt-le-14` core
+contains 356 of them, cores being proof-relative.
+
 ## Checker coverage — which checker each certificate has passed
 
 Two external checkers are used, and their trust status differs ([SAT_CLI.md](../../documentation/SAT_CLI.md)):
@@ -120,6 +153,7 @@ drat-trim is an untrusted elaborator.
 |---|---|---|
 | the 21 archived before 2026-09-02 (every file above except `core_gender_ccn4_unsat.drat.gz`) | `s VERIFIED` — 21/21 replay executed 2026-08-28 | `s VERIFIED UNSAT`, all 21, executed 2026-07-27 |
 | `core_gender_ccn4_unsat.drat.gz` | `s VERIFIED` — produced with kissat 4.0.1, checked off-tree 2026-08-28, and **replayed in the 22/22 run of 2026-09-02**; sha256 `bcfc72a1a9ce5ef7c4703f4fb0f321033ed6eb7f8d593007c136d449fb78fe61` | `s VERIFIED UNSAT` — executed **2026-09-02** on the same pinned checker |
+| `alt_le_14_noY_unsat.drat.gz`, `alt_ge_16_noY_unsat.drat.gz` (archived 2026-09-03) | `s VERIFIED` — kissat 4.0.1, core-trimmed and re-verified 2026-09-02, and replayed through `verify_all.sh`'s 24-entry map (`DRAT_CERTS_CHECKED=24`, 24 PASS / 0 FAIL, `ALT_NOY_SUBSET_UNSAT=PASS`) | **NOT RUN** — no cake_lpr leg has been executed for these two ([CLAIM_TO_ARTIFACT.md](../../documentation/CLAIM_TO_ARTIFACT.md) row 12, which records "drat-trim only; no cake_lpr leg for those two"). Not a failure and not a pass: an unrun check |
 
 **Both outstanding items are now closed, and the parity is real rather than asserted.** On 2026-09-02
 the shipped directory was replayed end to end — `verify_all.sh` reported **22/22 `PASS cert` lines,
@@ -129,6 +163,14 @@ compiled sha is **byte-identical to the binary used for the 2026-07-27 batch**, 
 have now been checked by provably the same verified checker, not merely by one bearing the same name.
 The proof's maximum variable (13,015) exceeds the CNF's variable count (7,035); this is ordinary
 solver factoring and both checkers were confirmed to accept it rather than assumed to.
+
+*(Coverage scope re-stated 2026-09-19, and the paragraph above is deliberately left as written: it
+is a dated record of the 2026-09-02 replay over a 22-certificate corpus, and was true of that
+corpus. The corpus is now 24. The two `noY` subset proofs archived 2026-09-03 carry **drat-trim
+only** — third row of the table above — so "all 22 certificates have now been checked by provably
+the same verified checker" is a statement about those 22 and must not be read as covering all 24.
+The gap is an unrun check, not a failed one, and closing it means running the cake_lpr leg on the
+two, not editing this page.)*
 
 ⚠ **Two operational facts, recorded because each can produce a false PASS.** `cake_lpr` **exits 0 on
 both success and failure** — the verdict is the `s VERIFIED UNSAT` line and nothing else; and its

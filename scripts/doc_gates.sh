@@ -151,6 +151,7 @@
 #   scripts/doc_gates.sh layer-profile    # GATE 70: TR-11's per-layer footprint table equals FULL31_EXACT_AGGREGATES.md's layer GB at printed precision
 #   scripts/doc_gates.sh boundary-scope   # GATE 75: a mandatoriness claim over boundary SETS is scoped to the subset size actually exhausted (C(31,4)), not to depth
 #   scripts/doc_gates.sh merge-semantics  # GATE 76: prose may not deny a merge capability solve.c's env surface (SOLVE_MERGE_MODE/CHUNK_GB) provides
+#   scripts/doc_gates.sh cert-inventory   # GATE 77: certificates/README.md's "Full inventory: N certificates" equals the archived .drat corpus, and verify_all.sh's CERT_FLOOR equals it too
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
 #                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
 #                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
@@ -19490,6 +19491,154 @@ PY
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# GATE 77 — the certificate directory's STATED inventory equals the corpus on disk
+# (`cert-inventory`).
+#
+# 🔴 WHY. reports/certificates/README.md carried a "Full inventory" count of 22 from 2026-09-02
+# until 2026-09-19 while the directory held 24: the two cardinality-only alternation subsets
+# (alt_le_14_noY_unsat, alt_ge_16_noY_unsat), archived 2026-09-03 by fcd9feab, were REPLAYED BY
+# verify_all.sh and described by that page nowhere. The count had already been caught once, on
+# 2026-09-10, at verify_all.sh's own section header and CERT_FLOOR (its note there reads "COUNT
+# CORRECTED 2026-09-10"); the README was not swept with it, which is the fix-the-instance failure
+# this repo has filed repeatedly.
+#
+# THE DEFECT IS THE MISSING DIRECTION, NOT THE WRONG NUMBER. GATE 39 LEG 1 (`cert-claims-shipped`)
+# runs MARKDOWN -> DISK: every certificate named in prose must exist and be mapped. Nothing ran
+# DISK -> MARKDOWN, so a certificate that no document mentions is invisible to it BY CONSTRUCTION.
+# Demonstrated rather than argued: a full `doc_gates.sh all` passed on 2026-09-19 against a tree
+# carrying this exact mismatch. This gate is that reverse direction, and it is why a README row
+# alone would not have closed the row it came from -- the drift mechanism would have survived.
+#
+# THREE LEGS, each failing loudly when its own input is absent:
+#   LEG 1  the archived corpus is enumerable and non-trivial; the git index and the directory agree
+#   LEG 2  README.md carries EXACTLY ONE live "Full inventory: N certificates" sentence, N == corpus
+#   LEG 3  verify_all.sh carries EXACTLY ONE CERT_FLOOR=<int>, and it equals the corpus too
+#
+# ON "EXACTLY ONE", which is a measured hazard here and not a nicety: a count captured by a pattern
+# that can match twice is not a value. This page quotes its own retired counts inside dated
+# correction notes (the house convention), so the FIRST draft of the 2026-09-19 repair made this
+# pattern match twice -- the live sentence and its own correction note. That FAILS here, naming the
+# remedy, rather than silently comparing whichever line grep reached first.
+#
+# VERDICT TOKEN: a whole line, CERT_INVENTORY=PASS or CERT_INVENTORY=FAIL, emitted on EVERY path
+# including those where an input is missing (`grep -qx 'CERT_INVENTORY=PASS'`). A gate that prints
+# nothing when its subject is absent is indistinguishable from a gate nobody ran.
+# COST: two greps, one git ls-files, one find over a 27-entry directory. Milliseconds; it is in `all`.
+# ---------------------------------------------------------------------------
+gate_cert_inventory() {
+  echo "== GATE 77: certificates/README.md's stated inventory equals the archived corpus =="
+  local readme="reports/certificates/README.md" vs="reports/certificates/verify_all.sh"
+  local dir="reports/certificates" t
+  # BOTH require_tracked outcomes are failures for THIS gate, including rc 1 ("absent and never
+  # tracked"), which is a legitimate skip elsewhere. Here the file IS the subject: if it is not
+  # there, nothing was compared, and a check that cannot run must ERROR rather than report clean.
+  require_tracked "$readme" "The inventory sentence is this gate's subject; with it absent, nothing was compared."
+  t=$?
+  if [ "$t" -ne 0 ]; then echo "  [FAIL] GATE 77 has no README to read — it checked NOTHING."; echo "CERT_INVENTORY=FAIL"; return 1; fi
+  require_tracked "$vs" "CERT_FLOOR is this gate's third leg; with verify_all.sh absent, nothing was compared."
+  t=$?
+  if [ "$t" -ne 0 ]; then echo "  [FAIL] GATE 77 has no verify_all.sh to read — it checked NOTHING."; echo "CERT_INVENTORY=FAIL"; return 1; fi
+  if [ ! -d "$dir" ]; then
+    echo "  [FAIL] $dir is not a directory — the archived corpus could not be enumerated."
+    echo "         An unreadable corpus is the strongest possible mismatch, not a reason to pass."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+
+  # ---------- LEG 1: the corpus itself ----------
+  # A FAILED listing is not an EMPTY one: both rc's are printed beside their counts so a tool
+  # error can never reach the comparison disguised as a number.
+  local glist grc dlist drc n_idx n_disk
+  glist=$(git ls-files -- "$dir/*.drat" "$dir/*.drat.gz"); grc=$?
+  if [ "$grc" -ne 0 ]; then
+    echo "  [FAIL] git ls-files failed (rc=$grc) — the tracked corpus could not be enumerated; nothing judged."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  dlist=$(find "$dir" -maxdepth 1 -type f \( -name '*.drat' -o -name '*.drat.gz' \) -print); drc=$?
+  if [ "$drc" -ne 0 ]; then
+    echo "  [FAIL] find failed (rc=$drc) over $dir — the on-disk corpus could not be enumerated; nothing judged."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  if [ -z "$glist" ]; then n_idx=0; else n_idx=$(printf '%s\n' "$glist" | wc -l); fi
+  if [ -z "$dlist" ]; then n_disk=0; else n_disk=$(printf '%s\n' "$dlist" | wc -l); fi
+  echo "  [info] corpus census: tracked=$n_idx on_disk=$n_disk (git rc=$grc, find rc=$drc)"
+  if [ "$n_idx" -lt 20 ]; then
+    echo "  [FAIL] only $n_idx tracked certificate(s) under $dir (floor 20) — the corpus collapsed or"
+    echo "         the glob stopped matching. A count this gate cannot trust is not a count it may compare."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  if [ "$n_idx" -ne "$n_disk" ]; then
+    echo "  [FAIL] the git index holds $n_idx certificate(s) and the directory holds $n_disk — they disagree,"
+    echo "         so 'the corpus' has no single size and neither number may be published as one."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+
+  # ---------- LEG 2: the README's stated inventory ----------
+  local claims crc nclaims n
+  claims=$(grep -oE 'Full inventory: [0-9]+ certificates' "$readme"); crc=$?
+  if [ "$crc" -gt 1 ]; then          # 0 = matched, 1 = no match, >1 = a grep ERROR
+    echo "  [FAIL] grep failed (rc=$crc) reading $readme — the claim was never read; nothing judged."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  if [ -z "$claims" ]; then nclaims=0; else nclaims=$(printf '%s\n' "$claims" | wc -l); fi
+  echo "  [info] README sentences in the live inventory form: $nclaims (grep rc=$crc)"
+  if [ "$nclaims" -ne 1 ]; then
+    echo "  [FAIL] $readme carries $nclaims sentence(s) of the form 'Full inventory: N certificates'; exactly 1 is required."
+    if [ "$nclaims" -eq 0 ]; then
+      echo "         ZERO means the sentence was reworded, moved or deleted. This gate then has nothing to"
+      echo "         compare against the directory, and an unanchored gate must fail rather than go quiet."
+    else
+      echo "         MORE THAN ONE means the capture is ambiguous. A retired count quoted in a dated"
+      echo "         correction note must not be written in the LIVE form — quote it as a bare number."
+    fi
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  n=${claims#Full inventory: }; n=${n% certificates}
+  if ! printf '%s\n' "$n" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] the captured inventory count is not a single integer: '$n'"
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+
+  # ---------- LEG 3: verify_all.sh's CERT_FLOOR ----------
+  local floors frc nfloors f
+  floors=$(grep -oE '^CERT_FLOOR=[0-9]+' "$vs"); frc=$?
+  if [ "$frc" -gt 1 ]; then
+    echo "  [FAIL] grep failed (rc=$frc) reading $vs — CERT_FLOOR was never read; nothing judged."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  if [ -z "$floors" ]; then nfloors=0; else nfloors=$(printf '%s\n' "$floors" | wc -l); fi
+  echo "  [info] verify_all.sh CERT_FLOOR assignments: $nfloors (grep rc=$frc)"
+  if [ "$nfloors" -ne 1 ]; then
+    echo "  [FAIL] $vs carries $nfloors CERT_FLOOR assignment(s); exactly 1 is required. Zero means the"
+    echo "         population floor was renamed or removed; more than one means the effective floor"
+    echo "         depends on which assignment runs last, which no reader can see."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  f=${floors#CERT_FLOOR=}
+  if ! printf '%s\n' "$f" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] the captured CERT_FLOOR is not a single integer: '$f'"
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+
+  # ---------- judge, as a step of its own ----------
+  echo "  [info] measured: corpus=$n_idx readme_claim=$n cert_floor=$f"
+  local bad=0
+  if [ "$n" -ne "$n_idx" ]; then
+    echo "  [FAIL] $readme states 'Full inventory: $n certificates' but $n_idx are archived under $dir."
+    echo "         Name every certificate that exists, or the page describes a corpus the repository does not ship."
+    bad=1
+  fi
+  if [ "$f" -ne "$n_idx" ]; then
+    echo "  [FAIL] $vs sets CERT_FLOOR=$f but $n_idx certificates are archived — the shrink-guard is off by $((n_idx - f))."
+    echo "         A floor below the corpus lets certificates disappear silently, which is the condition it exists to refuse."
+    bad=1
+  fi
+  if [ "$bad" -ne 0 ]; then echo "CERT_INVENTORY=FAIL"; return 1; fi
+  echo "  [ok] GATE 77: $n_idx archived certificate(s); README states $n; verify_all.sh CERT_FLOOR=$f — all three agree"
+  echo "CERT_INVENTORY=PASS"
+  return 0
+}
+
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
   npath) gate_npath || RC=1 ;;
@@ -19600,6 +19749,7 @@ case "$MODE" in
   prereg-escrow) gate_prereg_escrow || RC=1 ;;
   viz-shape) gate_viz_shape || RC=1 ;;
   separates-census) gate_separates_census || RC=1 ;;
+  cert-inventory) gate_cert_inventory || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1
            echo; gate_citation_lines || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
@@ -19684,6 +19834,7 @@ case "$MODE" in
            echo; gate_boundary_scope || RC=1
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1
+           echo; gate_cert_inventory || RC=1
            # 🔴 GATE 89, added to `all` 2026-09-08. It was deliberately held OUT while its
            # allowance table (documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv) was untracked:
            # `all` runs in a detached worktree of the PUSHED sha, and the gate ERRORs without
@@ -19692,7 +19843,7 @@ case "$MODE" in
            # that outlives its reason is the defect this repo spent 2026-09-08 removing.
            # Cost measured: ~2.5 s against a suite that already runs ~35 min.
            echo; gate_emitted_surface || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|cert-inventory|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
 esac
 
 echo
@@ -19739,7 +19890,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 18's CARVE-OUT, made explicit 2026-09-02 (Codex v2 charge 4). Naming 18 as hard

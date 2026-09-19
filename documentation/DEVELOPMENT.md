@@ -468,6 +468,40 @@ key no document names. The `DOC_GATE_EMITTED_SURFACE` verdict covers all three
 legs, so it — not any single count — is the thing to gate on.
 
 
+### `doc_gates.sh cert-inventory` (GATE 77) — the certificate-inventory agreement
+
+`reports/certificates/README.md` carried a "Full inventory" count of 22 from
+2026-09-02 until 2026-09-19 while the directory held 24: the two cardinality-only
+`noY` alternation subsets, archived 2026-09-03, were replayed by `verify_all.sh`
+and named on that page nowhere. GATE 39's `cert-claims-shipped` leg could not see
+it, and not by oversight — that leg runs **markdown → disk** (every certificate
+named in prose must exist and be mapped), so a certificate no document mentions
+is outside its population by construction. A full `doc_gates.sh all` ran green on
+2026-09-19 over a tree carrying exactly this mismatch. GATE 77 is the reverse
+direction, and it is the reason the repair was a gate rather than two README rows:
+the rows would have gone green while the drift mechanism survived.
+
+Three legs, each failing loudly when its own input is absent: the archived corpus
+is enumerable and the git index agrees with the directory; `README.md` carries
+**exactly one** live `Full inventory: N certificates` sentence whose `N` equals
+that corpus; and `verify_all.sh` carries **exactly one** `CERT_FLOOR=<int>`, equal
+to it too. "Exactly one" is load-bearing rather than tidy — the page quotes its
+own retired counts inside dated correction notes, so a pattern that can match a
+correction note as well as the claim is not a measurement of the claim. That is a
+`FAIL` here, naming the remedy, never a silent comparison against whichever line
+`grep` reached first.
+
+```sh
+bash scripts/doc_gates.sh cert-inventory
+```
+
+**Verdict token this gate emits** (whole line, read it with `grep -qx`, never on
+output shape):
+
+| token | meaning |
+|---|---|
+| `CERT_INVENTORY` | `PASS` \| `FAIL`. `PASS` means the archived corpus, the README's stated inventory and `verify_all.sh`'s `CERT_FLOOR` are the same integer. `FAIL` covers a genuine disagreement **and** every could-not-measure path: an absent README or `verify_all.sh`, an unreadable certificate directory, a failed `git ls-files` or `find`, a corpus below the floor of 20, a captured count that is not a single integer, or an inventory sentence occurring zero or more than once. A check that cannot run reports `FAIL` — never nothing, since a token that vanishes when the subject is missing is indistinguishable from a gate nobody ran |
+
 ### `gate_published_consistency.sh` — the `PUBLISHED_CONSISTENCY` token
 
 `scripts/gate_published_consistency.sh` is the published-consistency **ratchet**: nineteen legs
