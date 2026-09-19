@@ -15,6 +15,24 @@ so M_G is not reliably separable from M0 or M_D at this sample size. Per §6.3 n
 posterior, or verdict is computed or published. Full reporting, including what this does and does not
 license, is in [TR-2 §"Outcome (2026-07-20)"](../../TR2_THE_RULES_CONFLICT.md).
 
+⚠ **[ANNOTATION 2026-09-19 (Q-661) — the likelihood in `r11_calibration.py` does not match the generator
+beside it. The instrument below is FROZEN evidence and is deliberately NOT edited; this note records what
+it did.]** `l_builder` divides by `P_complete`, which `solve.py` defines as the probability a builder run
+reaches slot 31 without dead-ending — and `r11_builder_run` can only dead-end when `r11_children` returns
+empty, which tests C2's forbidden distance-5 step and the C5 transition budget and **never C3**. The draw
+path in this same file, however, redraws until `c3_val(seq) <= 776` and asserts it in `draw_validity_gate`.
+So the normalizer spans completions the sampler rejects. **The 67/100 above stands exactly as executed and
+the §6.3 veto is unaffected** — re-scored with matched denominators the primary rises above 70, but the
+size of the rise depends on P(C3 \| complete), which no artifact here records, and across a wide family of
+estimates it ranges 77–93, so no corrected integer is published. The `uncond` column sets the denominator
+to 1 and cannot move at all: it stays at **45/100**, below the bar, so M_G still fails the frozen
+sensitivity readings. Whether to re-freeze the design's §2.2 and re-run is an operator decision and is not
+queued. Checkable from the committed artifacts: the per-beta completion counts are exactly
+`phat × 32000` = 446/450/455/434/379/266/271 from `pcomplete.json`, and rescoring from
+`r11_builder_numerator` reproduces the archived `LG` to ~1 part in 10¹⁵ and every archived confusion matrix
+cell for cell. See [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) CX-54 and
+[TR-2](../../TR2_THE_RULES_CONFLICT.md) v1.33.
+
 **The full sensitivity grid, for every class (added 2026-08-02).** Until this date the four-variant
 grid was quoted only for M_G, the class that failed; the passing classes were reported at their
 primary number alone. That was selective, so the whole grid is now given. First-rank rate out of 100,

@@ -10120,3 +10120,95 @@ ordering by structural induction, not finite enumeration; `solve.c:38848` raises
 control for that search: `wrap-d5` resolves at four sites). The two-term decomposition is complete
 because the parity theorem leaves d ∈ {1, 3, 5} and circular C2 removes d = 5. Withdrawing a correct
 published ratio on a false premise would itself have been a correction needing correction.
+
+## CX-54 — a projection's endpoint at its last three sites, a chain's fifth boundary, and a likelihood that did not match its generator (RP: none)
+
+**2026-09-19 · C1 · `documentation/SEARCH_SPACE_SIZE.md`, `documentation/SPECIFICATION.md`,
+`reports/TR4_SIZE_OF_THE_SPACE.md`, `reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md`,
+`reports/TR2_THE_RULES_CONFLICT.md`, `reports/evidence/r11/README.md`, this file**
+
+Four cures ride in one landing for the reason CX-52 and CX-53 give: this file sits inside the TR-12
+reproduction closure and is append-only, so every append invalidates the gate stamp and landing them
+separately would pay the re-stamp four times over.
+
+**Item 1 — the endpoint correction of CX-53 had three un-propagated sites, and one of them was in a file
+already ruled "cured".** CX-53 (2026-09-19, Q-643) established that a boundary constraint pins **pair
+identity only**, so pinning all 31 pinnable steps still leaves **1,720,320** orderings — King Wen's
+C4-oriented orientation fibre — and **log₂(1,720,320) = 20.71 bits** are unreachable by any number of
+pair-level pins. It cured TR-4. The same projection was still published verbatim at
+`documentation/SEARCH_SPACE_SIZE.md:145` ("Closing the remaining ≈105 bits would require roughly 15–20
+boundary constraints"), at `documentation/SPECIFICATION.md:138` ("about 105 further bits … for full-space
+uniqueness"), and in this project's narrative at `documentation/HISTORY.md:5253`. Of the 105.36 bits that
+identify one ordering inside C1–C7, at most **84.65** are pin-reachable. The ~15–20 figure is unchanged as
+a *rate* extrapolation; only its endpoint is corrected, to King Wen's **pair-ordering class**. The fibre
+was re-derived for this landing rather than relayed — `python3 verify.py --recount-fiber` returned
+1,720,320 MATCH with the 3·5·7·2¹⁴ factorization and 30 of 31 slots varying. **The methodological point is
+the one worth keeping:** `SEARCH_SPACE_SIZE.md` had been ruled already-cured because the file contains a
+dated fibre marker — but that marker sits 65 lines *below* the defect, in a different section. *Presence of
+a cure somewhere in a file is not evidence the file is cured.* `HISTORY.md` is append-only and is corrected
+by the new dated entry of 2026-09-19, not by a rewrite.
+
+**Item 2 — the S(k) chain's fifth boundary is 2, and TR-4 said 1.** `SEARCH_SPACE_SIZE.md` corrected this
+on 2026-09-07; the propagation never reached TR-4, whose §Update v1.7 publishes per-boundary gains for
+k = 1..8 while §5 labels the chain "the 560T greedy identifying order {4, 27, 25, 21, 1}". Combining the
+two credits the fifth gain, 10.13 bits, to **boundary 1**. The archived chain records `round 5 PICK=2` with
+`pins=3,4,26,27,24,25,20,21,1,2` (`reports/evidence/sk/sk5_7_rounds.out`). Recomputed against
+N(4) = S(4)·1.3287×10³⁸ = 8.4240×10²⁵: boundary **2** leaves 7.596231×10²² for **10.11 bits** — the
+published 10.13 being the 2×10¹⁰ value run at 7.519490×10²² — while boundary **1** leaves 1.689464×10²⁴
+for **5.64 bits**, a 4.5-bit misattribution. The greedy chain tracks the 560T order only for the four pins
+S(k) actually measures; from round 5 it is re-derived over the full space and diverges. **Deliberately not
+changed: the `{4, 27, 25, 21, 1}` label itself**, at TR-4 §5, the figure caption and `viz/report_figures.py`.
+It is a true statement about the 560T dataset and about the four plotted pins; rewriting it to "2" would
+replace a correct dataset fact with a false one.
+
+**Item 3 — a 2026-08-29 entry in this file claimed a repo-wide census it had not performed.** That entry
+replaced TR-10's "the classical constraints" with "the C1–C5 constraints" and closed: *"These were the only
+two occurrences repo-wide, verified by grep before and after."* There was a third, and the grep could not
+see it, because it was an **exact-string** search and the third site is a **paraphrase**:
+`reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md:387` read "largely what the classical pairing constraints
+already make unremarkable", using the phrase as the **conditioning set** for that paragraph's tail masses.
+The conditioning set is C1–C5. Measured at `origin/main` on 2026-09-19, `git grep -F 'classical pairing'`
+returns 20 lines across 13 files, of which that one was the only conditioning-set use; the rest name C1
+itself or sit in registry and self-test rows. The cure carries the **later** taxonomy settled by the
+2026-09-01 `rev_V2-F14` entry — C1 classical (孔穎達); C4's *pair* choice classical, its orientation ours by
+definition; C2 external-modern (McKenna 1975); C3 and C5 project-derived — **not** the 2026-08-29 entry's
+"only C1 is classical", which that later entry had already corrected. Not cosmetic: TR-10 v1.12's own
+null-sensitivity note shows §3 rows 6–7 **reverse** under a different null, so the conditioning attribution
+is load-bearing. Both 2026-08-29 statements — the taxonomy and the occurrence count — stand in this file
+unreworded, as the append-only rule requires; this entry is what supersedes them.
+
+**Item 4 — a published Bayes-factor calibration normalized M_G's likelihood over a set its own generator
+cannot produce.** In `reports/evidence/r11/r11_calibration.py`, `l_builder` divides by `P_complete`, which
+`solve.py` defines as reaching slot 31 without dead-ending — and `r11_builder_run` dead-ends only when
+`r11_children` is empty, a predicate testing C2's forbidden distance-5 step and the C5 transition budget,
+**never C3**. The generator in the same file redraws until `c3_val(seq) <= 776` and asserts it in
+`draw_validity_gate`. So the normalizer spans completions the sampler rejects. The pre-registered design is
+itself split on the point (§2.2 defines `P_complete` as no-dead-end yet calls the division the "conditioned
+on C1–C5" clause, while §6 places C3 inside that substrate); that design is operator-held and is **cited,
+not amended**, and the frozen instrument is **annotated, not edited**. 🔴 **Nothing is un-vetoed, and this
+must not be read as a re-verdict.** The `uncond` variant sets the denominator to 1, is arithmetically
+immune to the defect, and stays at **45/100** — below the frozen bar of 70 — under every estimate tried, so
+M_G still fails the design's own declared sensitivity readings and the §6.3 veto stands **as executed:
+67/100, FAIL**. **No corrected integer is published**: the matched denominator requires P(C3 | complete),
+which no archived artifact records, and across a wide family of estimates for it the primary lands between
+77 and 93 of 100 — a range, not a result. Whether to re-freeze §2.2 and re-run is an **operator decision
+and is not queued**.
+
+**How it was verified.** Every site was re-located by content rather than by line number, against the
+`origin/main` blob. The fibre was recomputed (`verify.py --recount-fiber`). The S(k) gains were recomputed
+from the archived candidate estimates. For item 4 the replication was executed here: the archived per-beta
+completion counts are exactly `phat × 32000` = 446/450/455/434/379/266/271 from `pcomplete.json`; a
+from-scratch rescoring off `r11_builder_numerator` reproduces the archived `LG` and `LG_uncond` to ~1 part
+in 10¹⁵ and reproduces all four archived confusion matrices cell for cell (the positive control); and a
+negative control applying the same factor to M_C instead leaves M_G unchanged at 67, confirming
+specificity.
+
+**Not cured here, and stated rather than left silent.** (i) `reports/figures/fig_tr4_boundary_information.png`
+and its alt-text still say "full-space uniqueness", for the reason CX-53 records — that text describes
+pixels, and correcting it without regenerating the PNG would make the description disagree with the image.
+(ii) `viz/report_figures.py`'s `{4, 27, 25, 21, 1}` legend is correct for the four points it plots and is
+left alone; it is also inside the reproduction closure, so editing it would force a re-stamp for no gain.
+(iii) No row was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), for the mechanical reason CX-52
+and CX-53 both record: each retired phrase now appears in two files — the dated marker in the document that
+corrects it, and this entry, which quotes it to say what changed — and GATE 3 matches a needle anywhere
+outside the single filename in its allow column, so a row would fire on correct, live correction-narration.

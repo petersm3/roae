@@ -136,7 +136,18 @@ constraints enforced in the walk (5×10¹⁰ probes, `SOLVE_KNUTH_C67=1`) measur
 orderings at **5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, relative error 0.78%)**. C6+C7 cut the ≈1.33×10³⁸ C1–C5
 space by ×2.55×10⁶ and leave ≈10³¹·⁷ solutions — about 105 further bits of constraint would be required for
 full-space uniqueness (≈15–20 boundary constraints **on the extrapolation** in
-[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Every "uniquely determines King Wen" statement in the project
+[SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). ⚠ **[ENDPOINT CORRECTED 2026-09-19 (Q-660) — "full-space
+uniqueness" is not a target boundary constraints can reach, at any count.** A boundary constraint pins
+**pair identity only** (`SOLVE_KNUTH_PIN_SLOTS` constrains the pair index chosen at a step and leaves the
+orientation loop untouched), so pinning is blind to the orientation layer by construction. Pin all 31
+pinnable steps and **1,720,320** orderings remain — King Wen's C4-oriented orientation fibre, published by
+[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §7 since 2026-07-05 and re-measured for this correction
+with `python3 verify.py --recount-fiber` (1,720,320 MATCH, 3·5·7·2¹⁴ MATCH). **log₂(1,720,320) = 20.71
+bits** are therefore unreachable by any number of pair-level pins, so of the 105.36 bits identifying one
+ordering within C1–C7 at most **84.65** are pin-reachable. The ≈105-bit figure and the ~15–20 extrapolation
+are both unchanged; what is corrected is the endpoint — King Wen's **pair-ordering class**, not King Wen's
+ordering. This is the [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §5 correction of 2026-09-19 (Q-643)
+reaching its third and last un-propagated site; see [CORRECTIONS.md](CORRECTIONS.md) CX-54.]** Every "uniquely determines King Wen" statement in the project
 is therefore scoped to the enumerated datasets, where 4 greedy-ordered boundary constraints suffice at a 10T node budget and **5 are required at the canonical budgets** (d3 100T, d3 560T; see the per-dataset table below). *(Wording sharpened 2026-09-01: "depth" here means enumeration node budget, not partition depth — this section had been using the one word for both.)*
 
 **Evidence (from large-scale enumeration, 10 trillion nodes on 64 cores):**

@@ -7497,3 +7497,67 @@ to write "falsified" into a run record it had checked.
 **What did not move.** No canonical sha, no record count, no archive, and no published claim about
 the sequence was withdrawn. Two numbers are corrected — an exponent's last digit and a multiplier —
 and one word, "tight", is retired from a bound that otherwise stands.
+
+## 2026-09-19 — three cures: an endpoint that outran its pins, a chain's fifth boundary, and a likelihood that did not match its generator
+
+*(The second entry for this date; the one above records a different lane's work. This file's convention is
+to append and annotate, never to rewrite, so both stand.)*
+
+**A correction that landed in one section left the identical claim standing in another — in a file already
+ruled cured.** On 2026-09-19 the project established (CX-53) that a boundary constraint pins **pair
+identity only**: the orientation bit per pair is untouched, so pinning all 31 pinnable steps still leaves
+**1,720,320** orderings — King Wen's C4-oriented orientation fibre — and **log₂(1,720,320) = 20.71 bits**
+can be closed by no number of such pins. That cure reached TR-4 and stopped. The same projection was still
+published at `SEARCH_SPACE_SIZE.md:145`, at `SPECIFICATION.md:138`, and in this file. **The entry dated
+2026-07-02 above states: "~105 bits (≈15–20 boundary constraints) separate C1–C7 from genuine
+uniqueness." That sentence is superseded.** Of the 105.36 bits that identify a single ordering inside
+C1–C7, at most **84.65** are reachable by pair-level pins; the remaining 20.71 are the orientation fibre,
+and what the ~15–20 extrapolation converges to is King Wen's **pair-ordering class**, not King Wen's
+ordering. The rate extrapolation itself is untouched. Nothing above is reworded.
+
+The interesting part is why it was missed. `SEARCH_SPACE_SIZE.md` had been ruled already-cured because a
+search found the fibre constant and a dated marker in it — but that marker sits sixty-five lines *below*
+the defect, in a different section, so the defect and its own correction had been coexisting in one file
+for twelve days. *Presence of a cure somewhere in a file is not evidence the file is cured.* The check
+built for this landing tests each claim site against a disclosure window rather than testing the file, and
+it was run against a negative control first to confirm it could still go red.
+
+**The same curve's fifth boundary was the wrong one.** TR-4 publishes per-boundary information gains for
+k = 1..8 while its §5 labels the measured chain "the 560T greedy identifying order {4, 27, 25, 21, 1}" — so
+a reader combining the two credits the fifth gain, 10.13 bits, to boundary **1**. The archived run says
+`round 5 PICK=2`. Recomputed from that file's own candidate estimates, boundary 2 earns **10.11 bits** and
+boundary 1 earns **5.64** — the figure was right and the boundary it was hung on was not, a 4.5-bit
+misattribution. `SEARCH_SPACE_SIZE.md` had corrected this on 2026-09-07 and the propagation stopped there.
+The `{4, 27, 25, 21, 1}` label is **deliberately left alone**: it is a true statement about the 560T
+dataset and about the four pins the curve actually plots, and "correcting" it to 2 would have replaced a
+correct fact with a false one. That distinction — between the dataset-greedy set and the full-space greedy
+chain, which coincide for four steps and then part — is the whole of the defect.
+
+**A grep that could not see a paraphrase.** A 2026-08-29 correction fixed two sites that called the
+conditioning population "the classical constraints" and closed by asserting these were *"the only two
+occurrences repo-wide, verified by grep before and after."* There was a third. It read "the classical
+pairing constraints", and an exact-string search for the other wording could not see it. The census was
+wrong by one because the instrument and the claim were not the same shape — a failure this project has now
+recorded in both directions, having also caught an absence reported from a search that could not have found
+the thing. The cure carries the taxonomy as the tree now holds it: C1 classical, C4's pair choice classical
+with its orientation ours by definition, C2 external-modern, C3 and C5 project-derived — not the
+2026-08-29 entry's "only C1 is classical", which a later entry had already corrected.
+
+**A likelihood measured against a set its own generator cannot produce.** The four-class calibration that
+vetoed itself in July normalized the greedy-builder likelihood by `P_complete` — the probability a builder
+run reaches the last slot without dead-ending, where a run can die only on C2's forbidden step or the C5
+transition budget, **never on C3** — while the generator beside it discards every C3-invalid completion. The
+normalizer therefore covered sequences the sampler could not emit. Re-scored with matched denominators the
+greedy class's self-recovery does rise above the frozen bar. **It changes nothing, and the record says so
+plainly.** The `uncond` reading sets that denominator to 1, is arithmetically immune to the defect, and
+stays at 45 of 100 — below the bar — so the class still fails the design's own declared sensitivity
+readings, and the veto stands exactly as executed at 67/100. No corrected integer was published either,
+because the matched denominator needs a quantity no archived artifact records, and across a wide family of
+estimates for it the answer ranges from 77 to 93 — a range is not a result. The frozen instrument was
+annotated rather than edited, and the pre-registered design was cited rather than amended. Whether to
+re-freeze that design and re-run it is an operator decision, and it is not queued.
+
+**What did not move.** No canonical sha, record count, Bayes factor, posterior, certificate, tail
+probability, S(k) value, per-boundary gain or published verdict. Three endpoints were renamed, one gain was
+re-attributed to the boundary that earned it, one conditioning set was named correctly, and one instrument
+was described honestly.

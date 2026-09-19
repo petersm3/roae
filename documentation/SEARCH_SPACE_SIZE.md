@@ -142,7 +142,21 @@ measurable. Result (5×10¹⁰ probes, D32 — `SOLVE_KNUTH_C67=1 SOLVE_THREADS=
 King Wen is not uniquely determined by the published constraint system over the full space; uniqueness holds
 only within enumerated budgeted datasets (where 5 greedy-ordered boundary constraints isolate it at
 canonical depth; corrected 2026-07-04 from "4" — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). Closing
-the remaining ≈105 bits would require roughly 15–20 boundary constraints. A first exact corroboration at
+the remaining ≈105 bits would require roughly 15–20 boundary constraints. ⚠ **[ENDPOINT CORRECTED
+2026-09-19 (Q-660) — "closing the remaining ≈105 bits" names a target these boundaries cannot reach, and
+this paragraph said so nowhere.** The same correction landed 65 lines below, in §"An information-rate
+extrapolation for the uniqueness-boundary count", on 2026-09-07 — and never reached this sentence, so the
+defect and its cure have coexisted in this file since. *Presence of a cure somewhere in a file is not
+evidence the file is cured.* A boundary constraint pins **pair identity only**; the orientation bit per
+pair is untouched. With every one of the 31 pinnable steps pinned, C6/C7 on or off, **1,720,320**
+orientations survive — King Wen's C4-oriented fibre, re-measured for this correction with
+`python3 verify.py --recount-fiber` (1,720,320 MATCH, factorization 3·5·7·2¹⁴ MATCH, 30 of 31 slots
+varying) rather than relayed. So **log₂(1,720,320) = 20.71 bits** are structurally unreachable by any set
+of pair-level pins, however many; against the 105.36 bits that identify one ordering inside this section's
+own C1–C7 space, at most **84.65** are pin-reachable. The ~15–20 figure stands unchanged as a *rate*
+extrapolation — what is corrected is the endpoint it converges to, King Wen's **pair-ordering class** and
+not King Wen's ordering. Same defect and same cure as [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §5 and
+[SPECIFICATION.md](SPECIFICATION.md) §Theorems. See [CORRECTIONS.md](CORRECTIONS.md) CX-54.]** A first exact corroboration at
 small scope: within the KW-following 22-pair prefix subtree, exact counting finds 16,504 **oriented**
 C1–C5 completions of which exactly **8** satisfy C6/C7 — **all eight sharing King Wen's pair ordering**.
 ⚠ **[CORRECTED 2026-08-28 — this read "KW plus seven others even in its own immediate neighborhood", which
