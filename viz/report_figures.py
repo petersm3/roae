@@ -12,7 +12,8 @@ first member suffices).
 
 Figures produced (PNG + SVG, written to CWD — run from reports/figures/):
   fig_tr6_parity_alternations   — KW's 32-pair E/O class string with its 15 alternations marked (TR-6)
-  fig_tr4_boundary_information  — the S(k) log-decay curve + uniqueness extrapolation band (TR-4 §5)
+  fig_tr4_boundary_information  — the S(k) log-decay curve + the band extrapolating to one
+                                  surviving pair-ordering class (TR-4 §5)
   fig_tr1_rules_tradeoff        — KW vs the grand unified precursor on the four conflicting rules
                                   (TR-1 §5 / TR-2; the conflict theorem's trade-off)
   fig_tr3_campaign_timeline     — first 560T run timeline with the 5 Spot-eviction marks
@@ -128,7 +129,8 @@ def fig_tr6_parity_alternations():
 
 
 # ---------------------------------------------------------------------------
-# TR-4 §5 — boundary-information curve S(k) with the extrapolation-to-uniqueness band
+# TR-4 §5 — boundary-information curve S(k) with the band extrapolating to one surviving
+# pair-ordering class (NOT to one ordering — see NOTE 2026-09-19 in the function)
 # ---------------------------------------------------------------------------
 def fig_tr4_boundary_information():
     # Data: TR4_SIZE_OF_THE_SPACE.md §5 (pinned Knuth walks, 2e9 probes/prefix, rel. err <= 10%):
@@ -137,8 +139,12 @@ def fig_tr4_boundary_information():
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
     # bracket (k=5-8) reported at x15-17 per boundary but ILLUSTRATIVE, not measured — its
     # chain outputs are not archived and it is not reproducible from published material
-    # (restated 2026-09-02, TR-4 v1.25); extrapolated uniqueness at ~15-20
-    # boundaries (current; supersedes an earlier ~13-14 estimate; heuristic floor k>=12).
+    # (restated 2026-09-02, TR-4 v1.25); the ~15-20 boundary figure is the CURRENT rate
+    # extrapolation (supersedes an earlier ~13-14 estimate), and what it converges to is one
+    # surviving PAIR-ORDERING CLASS, not one ordering — see NOTE 2026-09-19 below. The
+    # observed-rate extrapolation is ~12 and is NOT a bound: TR-4 v1.16 removed the "floor"
+    # label rather than re-qualifying it, and CLAIMS_DECIDED.md reads "NOT a floor of any kind".
+    # The rendered text carried that superseded floor label until 2026-09-19 (Q-658).
     # NOTE 2026-08-01: the former "hard"-floor-of-13 wording was WITHDRAWN (the exact
     # retracted string is deliberately not repeated here — doc_gates.sh GATE 6 scans this
     # file for registered retracted phrasings and cannot distinguish narration from
@@ -157,11 +163,31 @@ def fig_tr4_boundary_information():
     # PNG/SVG because it is not a registered string in RETRACTED_PHRASES.tsv, so GATE 6's
     # generator scan had nothing to match. (This comment narrates; it does not restate the
     # retracted claim as fact.)
+    # NOTE 2026-09-19 (Q-658; CORRECTIONS.md CX-53/CX-54): the level plotted here was 1/N_total,
+    # labelled as the point where a single ordering survives, beneath a band labelled for
+    # uniqueness across the whole space. Neither retired string is repeated verbatim here: this
+    # row's closure gate greps this file for the old phrasing, and GATE 6 cannot tell narration
+    # from assertion — the same reason the 2026-08-01 note above paraphrases rather than quotes. A
+    # boundary constraint pins PAIR IDENTITY ONLY — solve.c:7899 constrains the pair index chosen
+    # at a step and leaves the orientation loop untouched, and SOLVE_KNUTH_PIN_SLOTS accepts steps
+    # 1-31 (solve.c:39901) — so pinning is blind to the orientation layer by construction. Pin all
+    # 31 and 1,720,320 orderings remain: King Wen's C4-oriented orientation fibre (TR-1 §7, gated
+    # by doc_gates.sh GATE 32, recomputed with `python3 verify.py --recount-fiber`). The reachable
+    # floor is therefore 1,720,320/N_total = 1.29e-32, and 1/N_total = 7.53e-39 sits
+    # log2(1,720,320) = 20.71 bits below it — 1,720,320x lower, and unreachable at any k. The
+    # correction landed in SEARCH_SPACE_SIZE.md on 2026-09-07 and in TR-4 on 2026-09-19 but never
+    # reached this generator, so the committed PNG/SVG went on asserting the unreachable endpoint
+    # in glyph paths no markdown gate can read. Every S(k) value, per-boundary gain and the band
+    # position are UNCHANGED; only the endpoint they converge to is renamed. The
+    # {4, 27, 25, 21, 1} legend is deliberately untouched (CX-54; GATE 64 checks it).
+    # Regenerate the figure after changing this text.
     k = np.array([1, 2, 3, 4])
     S = np.array([7.49e-4, 9.39e-7, 4.27e-10, 6.34e-13])
     survivors = ["9.95×10³⁴", "1.25×10³²", "5.68×10²⁸", "8.42×10²⁵"]
-    N_total = 1.3287e38
-    S_unique = 1.0 / N_total  # S at which exactly one ordering (KW) survives
+    N_total = 1.3287e38        # raw, ORIENTATION-EXPLICIT C1–C5 population (TR-4 §3)
+    FIBER = 1720320            # KW's C4-oriented orientation fibre — survives ALL 31 pair pins
+    S_class = FIBER / N_total  # 1.29e-32: the floor pair-level boundaries can actually reach
+    S_oriented = 1.0 / N_total # 7.53e-39: one ORIENTED ordering — NOT reachable at any k
 
     fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
     ax.set_yscale("log")
@@ -188,20 +214,31 @@ def fig_tr4_boundary_information():
                     color="#e8a33d", alpha=0.35,
                     label="weakest-remaining-boundary bracket, ×15–17/boundary (illustrative, k = 5–8)")
 
-    # the uniqueness level and the extrapolated-uniqueness band
-    ax.axhline(S_unique, color="#388e3c", lw=1.3, ls="-.")
-    ax.text(0.7, S_unique * 3, "uniqueness: S(k) = 1/1.3287×10³⁸ (one surviving ordering)",
+    # the REACHABLE floor (one pair-ordering class) and the extrapolated band
+    ax.axhline(S_class, color="#388e3c", lw=1.3, ls="-.")
+    ax.text(0.7, S_class * 3,
+            "reachable floor: S = 1,720,320/1.3287×10³⁸ = 1.29×10⁻³² (one surviving pair-ordering class)",
             fontsize=9, color="#2e7d32", va="bottom")
+    # the ORIENTED level, drawn to show what no number of pair-level pins reaches
+    ax.axhline(S_oriented, color="#9e9e9e", lw=1.1, ls=":")
+    # Kept narrow and right-aligned on purpose: a wider block runs under the lower-left legend
+    # (measured 2026-09-19 — two earlier placements did, and the rendered text is unreadable to
+    # every gate in the tree, so a collision here is only ever caught by looking at the image).
+    ax.text(20.3, S_oriented * 1.8,
+            "one ORIENTED ordering:\n1/1.3287×10³⁸ = 7.53×10⁻³⁹,\n"
+            "20.71 bits lower. Pins fix pair\nidentity, not orientation, so\nno k reaches this level.",
+            fontsize=8.5, color="#616161", ha="right", va="bottom")
     ax.axvspan(15, 20, color="#388e3c", alpha=0.12)
-    ax.text(16.5, 1e-8, "extrapolated full-space\nuniqueness range:\n~15–20 boundaries (current;\n"
-                        "supersedes earlier ~13–14 est.;\nheuristic floor k ≥ 12)",
+    ax.text(16.5, 1e-8, "extrapolated range for one\nsurviving pair-ordering class:\n~15–20 boundaries (current;\n"
+                        "supersedes earlier ~13–14 est.;\nobserved-rate extrap. ~12,\nnot a bound)",
             fontsize=9, color="#2e7d32", ha="center")
 
     ax.set_xlim(0.5, 20.5)
     ax.set_ylim(1e-42, 1e-1)
     ax.set_xticks(range(1, 21))
     ax.set_xlabel("k = number of King Wen boundary constraints imposed", fontsize=12)
-    ax.set_ylabel("S(k) = fraction of the full C1–C5 population agreeing with KW (log scale)", fontsize=11)
+    ax.set_ylabel("S(k) = fraction of the full C1–C5 population (orientation-explicit)\n"
+                  "agreeing with KW (log scale)", fontsize=11)
     ax.set_title("The boundary-information curve S(k) — slice-uniqueness vs space-uniqueness\n"
                  "(the first 4 of the 5 boundaries that identify KW in the 560T slice still admit "
                  "≈8.4×10²⁵ full-space orderings)", fontsize=12)

@@ -10212,3 +10212,48 @@ left alone; it is also inside the reproduction closure, so editing it would forc
 and CX-53 both record: each retired phrase now appears in two files — the dated marker in the document that
 corrects it, and this entry, which quotes it to say what changed — and GATE 3 matches a needle anywhere
 outside the single filename in its allow column, so a row would fire on correct, live correction-narration.
+
+## CX-55 — the figure went on asserting the endpoint two corrections had already retired, in glyph paths no gate can read (RP: none)
+
+**2026-09-19 · C1 · `viz/report_figures.py`, `reports/figures/fig_tr4_boundary_information.png`,
+`reports/figures/fig_tr4_boundary_information.svg`, `reports/TR4_SIZE_OF_THE_SPACE.md`, this file**
+
+**What was wrong.** CX-53 and CX-54 established that a boundary constraint pins **pair identity only**, so
+pinning all 31 pinnable steps still leaves **1,720,320** orderings — King Wen's C4-oriented orientation
+fibre — and log₂(1,720,320) = **20.71 bits** are unreachable by any number of such pins. Both entries cured
+prose and both recorded the figure as **not cured**, because the claim lives in matplotlib glyph paths.
+`viz/report_figures.py` computed `S_unique = 1.0 / N_total` on the **raw, orientation-explicit**
+1.3287×10³⁸ and drew it as "uniqueness: S(k) = 1/1.3287×10³⁸ (one surviving ordering)" beneath an
+"extrapolated full-space uniqueness range" band. The plotted endpoint, 7.53×10⁻³⁹, is **1,720,320× below**
+the floor the instrument can reach, 1,720,320/1.3287×10³⁸ = **1.29×10⁻³²**. Measured on the `origin/main`
+blob before the cure: `1,720,320` appeared **0** times in that file and `orient` **0** times.
+
+**Why it outlived its own corrections.** The endpoint was corrected in `SEARCH_SPACE_SIZE.md` on
+2026-09-07 and in TR-4 on 2026-09-19, and neither reached the generator — the recorded-but-unperformed
+propagation class TR-4 has logged at v1.16, v1.25 and v1.31. The rendered figure is invisible to every needle
+scan in the tree: GATE 6 exists precisely because matplotlib text is unreadable to grep, and it can only
+match **registered** phrasings, of which this was not one. The same function carries the scar of the same
+failure at 33 days (its 2026-08-06 note); this instance ran 49 days from the prose fix of 2026-08-01 that
+removed a superseded floor label which the pixels kept.
+
+**What changed.** The generator now derives the fibre constant explicitly, plots the **reachable floor** at
+1.29×10⁻³² labelled as one surviving **pair-ordering class**, marks 7.53×10⁻³⁹ separately as the oriented
+level no k attains, labels the population orientation-explicit, drops the superseded floor label in favour
+of the live "observed-rate extrapolation ~12, not a bound", and the PNG and SVG are regenerated. TR-4's
+alt-text, which also placed the green band at k≈13–20 while the figure draws it at k = 15–20, now matches
+the image. **No S(k) value, per-boundary gain, band position or projection changed.**
+
+**How it was verified.** The renderer was shown to reproduce before anything was attributed to the edit: a
+re-render of the **unmodified** generator on this host returned the committed PNG **byte-identically**
+(sha `5640d0cd…`), so the post-cure PNG change (`5640d0cd…` → the new digest) is the edit and not renderer
+drift. The rendered result was then **read as an image**, which caught two defects no gate could: a clipped
+axis label and an annotation running under the legend, both fixed before landing. The arithmetic in every
+hard-coded label was recomputed against the code's own constants.
+
+**Not cured here, and stated rather than left silent.** (i) **The SVG is not byte-reproducible**, contrary
+to the "Same input bytes in, same figure out" property `save()`'s docstring claims: matplotlib stamps a
+`<dc:date>` creation time and salts element ids, so a re-render of an unmodified generator produced 152
+differing lines at an identical byte count. The PNG half of that claim does hold. Curing it means setting
+`svg.hashsalt` and a fixed `metadata` Date, which would rewrite every committed SVG in the tree and is a
+separate change. (ii) The `{4, 27, 25, 21, 1}` legend is left alone, per CX-54 and GATE 64. (iii) No row
+was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), for the reason CX-52, CX-53 and CX-54 record.
