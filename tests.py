@@ -6268,11 +6268,6 @@ class TestQ3ReaderGatesTheFAndAltsColumns(unittest.TestCase):
         self.assertIn("alts", S._Q3_KEEP)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
-
 class TestClassSwapDetectorFoldedIntoSolvePy(unittest.TestCase):
     """The whole-row class-mass detector, folded out of scripts/ into solve.py on 2026-09-11.
 
