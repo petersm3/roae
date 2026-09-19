@@ -261,7 +261,10 @@ naming had reversed Azure LUN order: `/dev/nvme0n3` was actually
 the 3 TB `solver-data-westus3` disk holding the 100T canonical
 artifact (102 GB `solutions.bin`, sha `915abf30…`) and the entire
 2026-05 validation campaign's intermediate state. The `-F` flag
-bypassed mkfs's "refuse to format existing filesystem" check.
+was in the command, but it is not what let this through: mkfs's
+"refuse to format existing filesystem" check is gated on stdin and
+stdout both being terminals, so a scripted run never gets that
+refusal with or without `-F` (measured 2026-09-19; see rule 1).
 The disk's contents were destroyed. No snapshots existed.
 
 The shas survived (the project's reproducibility anchor is the sha
@@ -272,12 +275,22 @@ those safeguards, retroactively codified.
 
 **The rules — every disk-handling script MUST follow these:**
 
-1. **`mkfs -F` (and `--force`, `-FF`, `-y`) is BANNED.** Without
-   `-F`, `mkfs.ext4` refuses to format a device with an existing
-   filesystem. That refusal is the safety. If a fresh format is
-   needed on a disk that previously had data, the operator runs
-   `wipefs -a` as a separate, deliberate, explicitly-authorized
-   step — never bundled into `mkfs` invocation.
+1. **`mkfs -F` (and `--force`, `-FF`, `-y`) is BANNED.** The ban
+   removes one way to be careless; it is **not** itself the safety.
+   `mkfs.ext4` enables its existing-filesystem check only when
+   stdin **and** stdout are terminals, and every disk command on
+   this project is scripted and non-tty — so omitting `-F` buys
+   nothing on its own. Measured 2026-09-19 on a loop file, both
+   streams non-tty: `mkfs.ext4 -q` run twice with no `-F` returned
+   rc 0 both times and the UUID changed (`43745021…` →
+   `5f9dcb7d…`), silently reformatting a live ext4; the same second
+   format under a pty printed `Proceed anyway? (y,N)` and exited 1.
+   **What carries the safety is rules 3 and 5** — assert size AND
+   empty FSTYPE AND not-mounted, and hard-fail on mismatch — never
+   a refusal from `mkfs`. If a fresh format is needed on a disk
+   that previously had data, the operator runs `wipefs -a` as a
+   separate, deliberate, explicitly-authorized step — never bundled
+   into `mkfs` invocation.
 
 2. **Identify pre-existing disks by UUID, not by `/dev/<name>`.**
    Azure NVMe device naming is not stable across attaches:
@@ -299,8 +312,10 @@ those safeguards, retroactively codified.
 5. **Pre-flight assertion before any destructive op.** Before
    `mkfs`, `wipefs`, or `dd` to a block device, assert: size matches
    expected; filesystem state matches expected (empty for fresh
-   disks, matching UUID for pre-existing disks). Hard-fail on
-   mismatch with a clear error message.
+   disks, matching UUID for pre-existing disks); and the device is
+   **not mounted**. Hard-fail on mismatch with a clear error
+   message. This assertion — not any refusal from `mkfs` — is what
+   stands between the command and the disk.
 
 The helper functions `disk_by_uuid`, `new_disk_by_size`,
 `mount_known_disk`, `safe_mkfs`, and `preflight_assert_empty` are
