@@ -203,7 +203,10 @@ UNSAT verdicts therefore do not rest on trusting drat-trim. cake_lpr pinned at c
 run, so it attests the artifacts published here; the 22nd, `core_gender_ccn4_unsat.drat.gz` (shipped
 2026-09-02), postdates that batch and was taken through the same chain on 2026-09-02, on a
 rebuild of the same pin whose compiled sha is byte-identical to the batch binary — so all 22
-now carry the verified checker. The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
+carried the verified checker as of that date, and **all 24 do as of 2026-09-19**, when the two
+cardinality-only subset proofs archived 2026-09-03 were taken through the same chain in a
+full-archive run of the shipped harness (24/24 `s VERIFIED UNSAT`, 0 FAIL;
+`CAKE_LPR_ID=98c1649d…` — `reports/certificates/README.md` §Checker coverage). The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
 with `python3 sat.py --witness moore-strict` and
 `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf`.
 

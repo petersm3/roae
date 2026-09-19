@@ -106,12 +106,22 @@ distinction matters, so it is stated rather than blurred:
   regenerated CNF directly, so a bad elaboration can only be rejected.
 
 An UNSAT claim resting on drat-trim alone is scoped by an unverified
-checker. As of 2026-09-02 no archived certificate is in that position:
-the 21 archived before that date carry cake_lpr from the 2026-07-27
-batch, and the 22nd, `core_gender_ccn4_unsat.drat.gz`, was taken through
-the same chain to `s VERIFIED UNSAT` on 2026-09-02 using a binary rebuilt
-from the same pin whose compiled sha is byte-identical to the batch
-binary (`reports/certificates/README.md` §Checker coverage).
+checker. **As of 2026-09-19 no archived certificate is in that position:
+all 24 have passed cake_lpr** — the 21 archived before 2026-09-02 in the
+2026-07-27 batch; `core_gender_ccn4_unsat.drat.gz` on 2026-09-02, on a
+binary rebuilt from the same pin whose compiled sha is byte-identical to
+the batch binary; and the two cardinality-only subsets
+`alt_le_14_noY_unsat` / `alt_ge_16_noY_unsat` on 2026-09-19, when the whole
+24-certificate archive was re-run through the chain in one pass of the
+shipped harness (24/24 `s VERIFIED UNSAT`, 0 FAIL; pin `a36874a8`,
+`CAKE_LPR_ID=98c1649d…`, `cake_lpr.S` sha256 `2f3af32d…` —
+`reports/certificates/README.md` §Checker coverage carries the full shas
+and the scope of what that does and does not certify).
+⚠ **[RE-DATED 2026-09-19 — this read "As of 2026-09-02 no archived
+certificate is in that position", and went stale the next day: the two
+`noY` certificates were archived on 2026-09-03 carrying drat-trim only,
+and stayed drat-trim-only until the 2026-09-19 run. The date and the
+count are now true as written.]**
 
 ⚠ **Two things to know before wiring `cake_lpr` into anything.** It
 **exits 0 whether it verifies or fails** — the verdict is the

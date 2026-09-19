@@ -1788,6 +1788,19 @@ certified-counting checks rest on this stack.)*
   Checking and Trimming Using Expressive Clausal Proofs." In *Theory and Applications of
   Satisfiability Testing (SAT 2014)*, LNCS 8561. The DRAT proof checker that independently
   replays every UNSAT certificate (removing us from the trust chain).
+<a id="cakelpr2021"></a>
+- **Tan, Yong Kiam; Heule, Marijn J. H.; Myreen, Magnus O.** (2021). "cake_lpr: Verified
+  Propagation Redundancy Checking in CakeML." In *Tools and Algorithms for the Construction and
+  Analysis of Systems (TACAS 2021)*, LNCS 12652, 223–241.
+  [doi:10.1007/978-3-030-72013-1_12](https://doi.org/10.1007/978-3-030-72013-1_12). The formally
+  verified LRAT checker behind every "verified checker" claim in this repository: its
+  `machine_code_sound` theorem, machine-checked in HOL4 down to the x64 machine code, is what is
+  being cited whenever a certificate is said to rest on a *formally verified* checker, and is what
+  makes drat-trim an **untrusted elaborator** in the `drat-trim … -L <lrat>` → `cake_lpr` chain.
+  The theorem's conclusion is about the CNF the checker parses, so it does not speak to whether
+  that CNF encodes the intended claim. Journal version: *International Journal on Software Tools
+  for Technology Transfer* 25(2):167–184 (2023),
+  [doi:10.1007/s10009-022-00690-y](https://doi.org/10.1007/s10009-022-00690-y).
 <a id="d4-2017"></a>
 - **Lagniez, Jean-Marie; Marquis, Pierre** (2017). "An Improved Decision-DNNF Compiler."
   In *Proc. IJCAI 2017*. The D4 knowledge compiler underlying the certified model-counting checks.

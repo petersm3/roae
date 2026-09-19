@@ -153,7 +153,7 @@ drat-trim is an untrusted elaborator.
 |---|---|---|
 | the 21 archived before 2026-09-02 (every file above except `core_gender_ccn4_unsat.drat.gz`) | `s VERIFIED` — 21/21 replay executed 2026-08-28 | `s VERIFIED UNSAT`, all 21, executed 2026-07-27 |
 | `core_gender_ccn4_unsat.drat.gz` | `s VERIFIED` — produced with kissat 4.0.1, checked off-tree 2026-08-28, and **replayed in the 22/22 run of 2026-09-02**; sha256 `bcfc72a1a9ce5ef7c4703f4fb0f321033ed6eb7f8d593007c136d449fb78fe61` | `s VERIFIED UNSAT` — executed **2026-09-02** on the same pinned checker |
-| `alt_le_14_noY_unsat.drat.gz`, `alt_ge_16_noY_unsat.drat.gz` (archived 2026-09-03) | `s VERIFIED` — kissat 4.0.1, core-trimmed and re-verified 2026-09-02, and replayed through `verify_all.sh`'s 24-entry map (`DRAT_CERTS_CHECKED=24`, 24 PASS / 0 FAIL, `ALT_NOY_SUBSET_UNSAT=PASS`) | **NOT RUN** — no cake_lpr leg has been executed for these two ([CLAIM_TO_ARTIFACT.md](../../documentation/CLAIM_TO_ARTIFACT.md) row 12, which records "drat-trim only; no cake_lpr leg for those two"). Not a failure and not a pass: an unrun check |
+| `alt_le_14_noY_unsat.drat.gz`, `alt_ge_16_noY_unsat.drat.gz` (archived 2026-09-03) | `s VERIFIED` — kissat 4.0.1, core-trimmed and re-verified 2026-09-02, and replayed through `verify_all.sh`'s 24-entry map (`DRAT_CERTS_CHECKED=24`, 24 PASS / 0 FAIL, `ALT_NOY_SUBSET_UNSAT=PASS`) | `s VERIFIED UNSAT` — executed **2026-09-19**, closing the two-certificate gap; `CAKE_LPR_ID=98c1649d…` (⚠ **[UPDATED 2026-09-19** — this cell read "**NOT RUN** — no cake_lpr leg has been executed for these two … Not a failure and not a pass: an unrun check", which was accurate from 2026-09-03 until the leg ran**]**) |
 
 **Both outstanding items are now closed, and the parity is real rather than asserted.** On 2026-09-02
 the shipped directory was replayed end to end — `verify_all.sh` reported **22/22 `PASS cert` lines,
@@ -166,11 +166,57 @@ solver factoring and both checkers were confirmed to accept it rather than assum
 
 *(Coverage scope re-stated 2026-09-19, and the paragraph above is deliberately left as written: it
 is a dated record of the 2026-09-02 replay over a 22-certificate corpus, and was true of that
-corpus. The corpus is now 24. The two `noY` subset proofs archived 2026-09-03 carry **drat-trim
-only** — third row of the table above — so "all 22 certificates have now been checked by provably
-the same verified checker" is a statement about those 22 and must not be read as covering all 24.
-The gap is an unrun check, not a failed one, and closing it means running the cake_lpr leg on the
-two, not editing this page.)*
+corpus. The corpus is 24, and **as of 2026-09-19 all 24 carry both checkers** — the two `noY` subset
+proofs archived 2026-09-03 went through the cake_lpr chain that day, third row of the table above.
+So "all 22 certificates have now been checked by provably the same verified checker" remains a
+statement about those 22 and about 2026-09-02; the 24-certificate statement is the section below.
+An earlier draft of this note closed "the gap is an unrun check, not a failed one, and closing it
+means running the cake_lpr leg on the two, not editing this page" — the leg was run, and that is
+what closed it.)*
+
+### The 2026-09-19 full-archive run, and the binary that produced it
+
+All 24 were taken through the verified checker in a single pass of the **shipped** harness
+(`verify_all.sh`, unmodified, from a clean clone of the public tree): **24/24 `s VERIFIED UNSAT`,
+0 FAIL**, with `DRAT_CERTS_CHECKED=24` and `ALT_NOY_SUBSET_UNSAT=PASS` on the drat-trim leg beneath
+it.
+
+🔴 **A verdict line alone names nothing, which is why this table exists.** `cake_lpr` prints
+`s VERIFIED UNSAT` and exits 0 — and so would a 59-byte script that printed the same line. The only
+thing separating a genuine pass from that is the identity of the binary that produced it, so it is
+published here rather than described.
+
+| item | measured value |
+|---|---|
+| cake_lpr pin | `a36874a8b750b43fe4b385b8ddbf5b033e46a3fa` ([Tan, Heule & Myreen 2021](../../documentation/CITATIONS.md#cakelpr2021)) |
+| `cake_lpr.S` sha256 — **the durable anchor** | `2f3af32d55083839b3fa0e693afd817679c0b8944bef41def05a8b0ec72b7d4a` |
+| run binary sha256 (`CAKE_LPR_ID`) | `98c1649dc01f6ba38e4424beeff1b4681069b6175d90047b8c2c73316cd9ef2f` |
+| `basis_ffi.c` sha256, **as measured at that pin** | `8e30d84fdcb2177aa5571d7fa6661a2fae5ecfd56baa0ce49c65f9233a9f87cb` |
+| build | `gcc -O2 basis_ffi.c cake_lpr.S -o cake_lpr -std=c99` (the upstream repo's own default target), gcc 11.4.0 |
+| drat-trim (untrusted elaborator) | pin `2e3b2dc0ecf938addbd779d42877b6ed69d9a985`, binary sha256 `b535cc5334e97fba5b5db6013625c5a0b16ce348a98d59ff91b45a83fa56b39e` |
+
+⚠ **The compiled sha is compiler-dependent, so it is NOT the portable identity.** This run's binary
+(`98c1649d…`, gcc 11.4.0) differs from the 2026-07-27 / 2026-09-02 batch binary
+(`1822ca1e5d0f925e8f3b73047941a8261bee65eef6ccb0e33bb49f92821a09ca`, gcc 13.3.0). The `.S` input is
+byte-identical across all three runs, which is exactly why **`cake_lpr.S` sha256 `2f3af32d…` is the
+value a replicator should pin**; a binary sha names which build produced a given verdict and nothing
+more. The two numbers are recorded as measured, with no attempt to reconcile them.
+
+⚠ **The upstream pin's own provenance file disagrees with the upstream pin's own source file.**
+`cake_lpr.sha256` at `a36874a8` names `basis_ffi.c` =
+`3fbd8f31c380e7fb40fede74496ff8b7fb63043645b1afff1e5f26aacdccfa69`, while the actual `basis_ffi.c` at
+that pin hashes to `8e30d84f…`. The `.S` rows in that file *do* match. The table above carries what
+was measured; the upstream row is stale for that one file.
+
+⚠ **What 24/24 does NOT establish.** cake_lpr's `machine_code_sound` theorem is about the CNF the
+checker is handed: it certifies that each archived proof refutes the CNF `sat.py --emit-cnf`
+regenerates — **never that the CNF means what the prose says it means**
+([TR-2](../TR2_THE_RULES_CONFLICT.md) §2 states the same scope, and
+[METHODS](../METHODS.md) §"Independence ladder" puts the two on different rungs). "24/24 verified"
+is a statement about the proofs, not about the mathematics; the encoding-fidelity gap is closed by
+the two-way encoding validation, not by any checker. Three assumptions are inherited rather than
+proved: `basis_ffi.c`, gcc, the linker and the OS are unverified C and unverified toolchain; and the
+theorem is about **stdout**, while the harness greps merged `2>&1`.
 
 ⚠ **Two operational facts, recorded because each can produce a false PASS.** `cake_lpr` **exits 0 on
 both success and failure** — the verdict is the `s VERIFIED UNSAT` line and nothing else; and its
