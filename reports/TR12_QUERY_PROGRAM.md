@@ -1592,9 +1592,27 @@ query family and refines four existing items. All items below are labeled by spa
   in the scan pass) — the /24 orbit counts are a projection of numbers the ladder already produces; no
   new subcommand strictly needed (a thin `--kc-orbit-census` wrapper at most). (b) **TO-BUILD** light:
   a coset-labeling of the transversal (map each canonical mask to its (ℤ/2)⁶ coset id via the XOR
-  structure already in `applyPerm`/`pairKey`), then aggregate the scan-pass mass table by coset id.
+  structure — but NOT via `applyPerm`/`pairKey`.
+  ⚠ **[CORRECTED 2026-09-20 — this read "the XOR structure already in `applyPerm`/`pairKey`", and
+  both symbols are **Lean definitions**, not engine helpers: `lean/Automorphism.lean:127` defines
+  `applyPerm` and `:131` defines `pairKey`. Measured on `origin/main`: `applyPerm` occurs **0**
+  times in `solve.c` under every casing tried (`applyPerm`, `applyperm`, `APPLYPERM`, `ApplyPerm`,
+  `apply_perm`; control `main` = 38, `zzznotreal` = 0). The `PairKey` struct at `solve.c:43639` is
+  an unrelated `qsort` sort-record (`{ unsigned char pi[32]; long long idx; }`) with no coset
+  semantics, so calling this a misspelling would point the reader at real machinery that does the
+  wrong thing. The engine's actual XOR/coset tables are `F1Coset`/`f1_g24[24]`
+  (`solve.c:13944-14074`) and `F1UCoset`/`f1u_cos[48]` (`:37200-37347`), and **neither is
+  referenced anywhere on the `--kc-scan` path**.]** Aggregating the scan-pass mass table by coset
+  id is therefore not possible at all — see the withdrawn cost line below.
 - **Stage:** post-G (needs the g-ladder). **Cost:** (a) ≈ $1–5 (projection of existing tables);
-  (b) ≈ $5–15 (one extra aggregation over the scan pass). Rides Q6's `--kc-scan`; no new heavy pass.
+  (b) **ESTIMATE WITHDRAWN.**
+  ⚠ **[CORRECTED 2026-09-20 — this read "≈ $5–15 (one extra aggregation over the scan pass). Rides
+  Q6's `--kc-scan`; no new heavy pass." It is **withdrawn rather than re-priced**, because it
+  understated by omitting FEASIBILITY, not by mis-pricing. `solve.c:24955` names what the scan pass
+  touches — `flow[k]`, `cls[k][.]`, `qmarg[k][.]`, `rawmarg[k][.]`, `fmass[k]` — every one keyed by
+  layer and by distance class or quotient, with **no hexagram-identity axis**. No coset projection
+  can be aggregated out of those tables at any price, so (b) does not ride Q6's scan pass. No
+  replacement figure is offered: (b) needs a definition before it can honestly be costed.]**
 - **Output/verification:** `tr12/q10_orbit_census.tsv` (per-layer orbit counts + the /24 integrality
   gate — now Lean-kernel-backed) + `tr12/q10_coset_census.tsv` (mass by coset id + KW's coset).
   **Gate — and WHICH counted object it runs on, because "every layer count" named none.**
