@@ -7,6 +7,7 @@
 
 import argparse
 import cmath
+import hashlib
 import json
 import math
 import os
@@ -4443,15 +4444,30 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
     best = {}          # (kw, sig) -> candidate idx of min-L representative
     kw_true_syn = 0
     with Pool(workers) as pool:
-        for out in pool.imap_unordered(_gs_sig_worker, ranges):
+        for out in pool.imap(_gs_sig_worker, ranges):
             for idx, kw, sig in out:
                 if kw:
                     kw_true_syn += 1
                 key = (kw, sig)
-                if (key not in best
-                        or _gs_cand_L(_GS["cands"][idx])
-                        < _gs_cand_L(_GS["cands"][best[key]])):
+                # Q-646: compare (L, idx), never L alone. _gs_cand_L depends only on
+                # the form and len(atoms), so EVERY candidate sharing a (form, domain)
+                # pair has an IDENTICAL L -- ties are structural, not rare. A strict
+                # `<` therefore left the representative decided purely by worker
+                # ARRIVAL ORDER, and this runs for every candidate, not only the
+                # kw-true ones. Measured 2026-09-20: six candidates in one class all
+                # scored 14.701306, and reversing arrival order moved the
+                # representative from 0 to 5. Breaking the tie by candidate index
+                # keeps Phase C order-independent even if the pool is ever switched
+                # back to an unordered map. (The literal flag name is deliberately
+                # not written here: Q-646's gate greps the whole file for it, so
+                # naming it in prose would hold that gate red forever.)
+                if key not in best:
                     best[key] = idx
+                else:
+                    _cur = best[key]
+                    if ((_gs_cand_L(_GS["cands"][idx]), idx)
+                            < (_gs_cand_L(_GS["cands"][_cur]), _cur)):
+                        best[key] = idx
     wall_c = time.time() - t0
     n_dist = len(best)
     sel = math.log2(n_dist)  # selection charge, pinned to THIS run's measure
@@ -4491,7 +4507,19 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
     # different stream whenever the candidate count happened to match, and the report then described
     # a single-seed run that never happened. Same for a changed --nsamp/--gs-batches, which move
     # `want` and the batch partition. Every field that selects the sample is now written and checked.
-    _ck_ident = dict(seed=seed, ncand=len(ridx), batches=len(jobs), nsamp=nsamp)
+    # Q-646: ncand is a COUNT, not an IDENTITY. Phase D merges resumed rows BY
+    # POSITION in the hits[] loop below, so two runs with the same candidate COUNT
+    # but different candidates merged silently and misattributed hits -- measured
+    # common=247 mismatched=116, with 4 predicates attributed 0/8 against a true
+    # 8/8 or 6/8 while every identity check PASSED. This digest pins WHICH
+    # candidates, in order. hashlib, not builtin hash(): hash() is
+    # PYTHONHASHSEED-salted, so it would vary between runs and reintroduce exactly
+    # the non-determinism this fixes.
+    _ck_cands = hashlib.sha256(
+        json.dumps([list(_GS["cands"][i]) for i in ridx],
+                   separators=(",", ":")).encode()).hexdigest()[:16]
+    _ck_ident = dict(seed=seed, ncand=len(ridx), batches=len(jobs), nsamp=nsamp,
+                     cands=_ck_cands)
     if ckpt_path and os.path.exists(ckpt_path):
         rejected = {}
         with open(ckpt_path) as f:
@@ -4526,12 +4554,13 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
     nb_done = len(done)
     with Pool(workers) as pool:
         for batch_idx, n_b, trials_b, hits_b, cpu_b in \
-                pool.imap_unordered(_gs_rarity_batch, todo):
+                pool.imap(_gs_rarity_batch, todo):
             done[batch_idx] = (n_b, hits_b)
             nb_done += 1
             if ck:
                 ck.write(json.dumps(dict(batch=batch_idx, n=n_b,
                                          trials=trials_b, ncand=len(ridx),
+                                         cands=_ck_cands,
                                          seed=seed, batches=len(jobs), nsamp=nsamp,
                                          want=dict(jobs_by_batch).get(batch_idx),
                                          hits=hits_b)) + "\n")
@@ -4842,7 +4871,7 @@ def _ph_run_stream(label, seed, seed_off, ntotal, workers, batches,
     nb_done = len(done)
     with Pool(workers) as pool:
         for (batch_idx, n_b, trials_b, ha, hp, hq, pv, cpu_b) in \
-                pool.imap_unordered(_ph_batch, todo):
+                pool.imap(_ph_batch, todo):
             rec = dict(phase=phase_tag, seed=seed, batch=batch_idx, n=n_b,
                        trials=trials_b, parity_viol=pv, hist_a=ha,
                        hist_p=hp, hist_q=hq)

@@ -97,7 +97,23 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # see it -- the regex covers .c/.py/.sh/.md, and widening it to .txt was MEASURED to sweep in
 # _GATE_STAMP.txt itself plus two enumeration artefacts. Naming the one file that matters is the
 # narrow fix; widening the grammar was the broad one that makes the stamp churn.
-CORE="solve.c verify.py solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh scripts/q7ranks_parse_gate.sh scripts/q2_witness_gate.sh"
+# 🔴 Q-664, 2026-09-20. verify.c was OUTSIDE this fingerprint. It is one of exactly TWO
+# independent verifiers -- the INDEPENDENCE exception exists so a second opinion is not
+# compiled into the file it verifies -- and the METHODS report rests its two-instrument
+# exact counts on it (6 mentions there). Measured before the fix: verify.c occurred 0 in
+# this gate and 0 in tr12_repro.sh, while the control verify.py occurred 5 times here, so
+# derived_inputs() could never pull it in. A silent edit to verify.c therefore changed what
+# "two-instrument verified" means while this gate still reported CURRENT=YES -- and Q-657
+# had just found a heap overflow and a fail-open in that same file, which is what made an
+# unfingerprinted verifier more than theoretical. Cost, accepted deliberately: every future
+# verify.c edit now forces a re-stamp.
+#
+# ⚠ THIS CURES THE INSTANCE, NOT THE CLASS. Q-664 names the real defect: membership here is
+# an ACCIDENT OF TEXTUAL REFERENCE, not a declared contract -- Q-613 is the exact inverse,
+# where the report-figures generator is INSIDE only because comments mention it, so
+# a comment rewrite would silently drop it. A manifest the gate READS, rather than a set it
+# DERIVES by grep, is the structural fix and is NOT done here.
+CORE="solve.c verify.py verify.c solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh scripts/q7ranks_parse_gate.sh scripts/q2_witness_gate.sh"
 fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in

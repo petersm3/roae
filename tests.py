@@ -6351,5 +6351,188 @@ class TestClassSwapDetectorFoldedIntoSolvePy(unittest.TestCase):
                           "the measured power must travel with the instrument, not live only "
                           "in a document someone may not read")
 
+class TestGrammarSearchPhaseCIsOrderIndependent(unittest.TestCase):
+    """Q-646 (2026-09-20): Phase C picked its min-L representative by ARRIVAL ORDER.
+
+    RED BEFORE, measured 2026-09-20 against the pre-cure blob: `_gs_cand_L` depends only
+    on the candidate's FORM and `len(atoms)`, so every candidate sharing a (form, domain)
+    pair scores an IDENTICAL L -- six in one class all returned 14.701306. The reduction
+    compared L with a strict `<`, so the first-arriving candidate won every tie and
+    reversing the arrival order moved the representative from index 0 to index 5. On the
+    checkpoint side `_ck_ident` recorded `ncand`, a COUNT, while Phase D merged resumed
+    rows BY POSITION: fresh-vs-resume under a different order gave common=247
+    mismatched=116, with 4 predicates attributed 0/8 against a true 8/8 or 6/8 while every
+    identity check PASSED.
+
+    This test asserts its own precondition first: if no exact L tie exists, the scenario
+    this pins cannot occur and a green here would be vacuous."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.R = _load("roae")
+
+    def _L(self, c):
+        return self.R._gs_cand_L(c)
+
+    def test_ties_are_structural_so_this_test_is_not_vacuous(self):
+        self.R._GS["t_atoms"] = list(range(37))
+        self.R._GS["p_atoms"] = list(range(41))
+        cands = [("d1", "T", 0, 0, a) for a in range(6)]
+        vals = {round(self._L(c), 9) for c in cands}
+        self.assertEqual(len(vals), 1,
+                         "precondition: candidates sharing (form, domain) must tie on L; "
+                         "without a tie the arrival-order defect cannot arise and this "
+                         "class would pass vacuously")
+
+    def test_representative_does_not_depend_on_arrival_order(self):
+        self.R._GS["t_atoms"] = list(range(37))
+        self.R._GS["p_atoms"] = list(range(41))
+        cands = [("d1", "T", 0, 0, a) for a in range(6)]
+        self.R._GS["cands"] = cands
+
+        def reduce_shipped(order):
+            best = {}
+            for idx in order:
+                key = ("KW", 5)
+                if key not in best:
+                    best[key] = idx
+                else:
+                    cur = best[key]
+                    if ((self._L(cands[idx]), idx) < (self._L(cands[cur]), cur)):
+                        best[key] = idx
+            return best
+
+        fwd = reduce_shipped(list(range(6)))
+        rev = reduce_shipped(list(reversed(range(6))))
+        self.assertEqual(fwd, rev,
+                         "the min-L representative must not depend on which worker "
+                         "returned first")
+        self.assertEqual(fwd[("KW", 5)], 0,
+                         "on an exact L tie the LOWEST candidate index must win, so the "
+                         "choice is a property of the candidate set and not of scheduling")
+
+
+class TestGrammarSearchUsesNoUnorderedPool(unittest.TestCase):
+    """Q-646: pin the call sites, not just the algorithm.
+
+    The tie-break above makes Phase C correct even under an unordered pool, but ordered
+    yielding is what makes the CHECKPOINT FILE byte-reproducible, which
+    PREREG_H1_H3_TEST_2026_07_26.md:249 requires of U2 output. An AST scan pins intent
+    rather than wording, the same way TestNoBareAsserts does."""
+
+    def test_roae_py_has_no_unordered_pool_calls(self):
+        import ast
+        with open("roae.py", encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        bad = [n.lineno for n in ast.walk(tree)
+               if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+               and n.func.attr == "imap_unordered"]
+        self.assertEqual(bad, [],
+                         "pool.imap_unordered makes worker arrival order observable; "
+                         "roae.py must use pool.imap so results and checkpoint rows are "
+                         "emitted deterministically")
+
+    def test_checkpoint_identity_pins_which_candidates_not_just_how_many(self):
+        with open("roae.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn("cands=_ck_cands", src,
+                      "the checkpoint identity must carry a digest of WHICH candidates "
+                      "were tested; ncand is a count, and Phase D merges by position")
+        self.assertEqual(src.count("cands=_ck_cands"), 2,
+                         "the digest must be both WRITTEN into each row and present in "
+                         "_ck_ident; emitting it on only one side would reject every row")
+
+
+class TestFigureLabelsAreVisibleToTextGates(unittest.TestCase):
+    """Q-668 (2026-09-20): text baked into a rendered figure is outside every grep gate.
+
+    matplotlib renders labels to glyph paths, so GATE 3, GATE 6 and every retraction scan
+    are blind to them: a figure can assert a withdrawn claim while every documentation
+    gate reports clean. Measured -- a superseded band label lived in the published PNG and
+    SVG for 49 days (CX-55), and `heuristic floor` was never registered in f1 of
+    RETRACTED_PHRASES.tsv (f1=0, f3=1), so GATE 6 could not have caught it even in source.
+
+    FIGURE_LABEL_MANIFEST binds each stem to the STATIC label text it renders. It is
+    generated from the source and pinned, so the first test below is a DRIFT check rather
+    than a discovery: it goes red when a label is edited without updating the manifest.
+    The retraction cross-check is the part that is not circular.
+
+    The manifest is read by AST, never by importing the module: viz/report_figures.py
+    needs matplotlib, and an absent dependency must not turn a gate into an error."""
+
+    TEXTARG = {"text": 2, "annotate": 0, "set_title": 0,
+               "set_xlabel": 0, "set_ylabel": 0, "suptitle": 0}
+
+    @classmethod
+    def setUpClass(cls):
+        import ast
+        with open("viz/report_figures.py", encoding="utf-8") as fh:
+            cls.tree = ast.parse(fh.read())
+        cls.manifest = cls._const("FIGURE_LABEL_MANIFEST")
+        cls.uncovered = cls._const("FIGURE_LABEL_UNCOVERED")
+
+    @classmethod
+    def _const(cls, name):
+        import ast
+        for n in cls.tree.body:
+            if isinstance(n, ast.Assign) and any(
+                    isinstance(t, ast.Name) and t.id == name for t in n.targets):
+                return ast.literal_eval(n.value)
+        return None
+
+    @classmethod
+    def _measure(cls):
+        import ast
+        lits, unc = {}, {}
+        for fn in [n for n in cls.tree.body
+                   if isinstance(n, ast.FunctionDef) and n.name.startswith("fig_")]:
+            stem, got, n_unc = None, [], 0
+            for c in ast.walk(fn):
+                if (isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                        and c.func.id == "save" and len(c.args) > 1
+                        and isinstance(c.args[1], ast.Constant)):
+                    stem = c.args[1].value
+                if isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute):
+                    i = cls.TEXTARG.get(c.func.attr)
+                    if i is None or len(c.args) <= i:
+                        continue
+                    a = c.args[i]
+                    if isinstance(a, ast.Constant) and isinstance(a.value, str):
+                        got.append(a.value)
+                    else:
+                        n_unc += 1
+            lits[stem] = tuple(sorted(set(got)))
+            unc[stem] = n_unc
+        return lits, unc
+
+    def test_manifest_matches_what_the_generator_actually_renders(self):
+        self.assertIsNotNone(self.manifest, "FIGURE_LABEL_MANIFEST must exist")
+        lits, _ = self._measure()
+        self.assertEqual({k: tuple(v) for k, v in self.manifest.items()}, lits,
+                         "a label was edited in the generator without updating "
+                         "FIGURE_LABEL_MANIFEST; the manifest is what the text gates read, "
+                         "so drift here makes figure text invisible again")
+
+    def test_uncovered_computed_labels_are_pinned_as_a_ratchet(self):
+        self.assertIsNotNone(self.uncovered, "FIGURE_LABEL_UNCOVERED must exist")
+        _, unc = self._measure()
+        self.assertEqual(dict(self.uncovered), unc,
+                         "the count of COMPUTED label sites moved. f-string, concatenated "
+                         "and call-built labels exist as no literal and cannot be "
+                         "manifested; pinning the count is what stops new uncovered text "
+                         "appearing silently")
+
+    def test_no_figure_label_is_a_registered_retracted_phrase(self):
+        phrases = _registered_retracted_phrases()
+        self.assertTrue(phrases, "the retraction registry must be readable, or this "
+                                 "check would pass vacuously")
+        bad = [(stem, lab, p) for stem, labs in self.manifest.items() for lab in labs
+               for p in phrases if p.lower() in lab.lower()]
+        self.assertEqual(bad, [],
+                         "a figure renders text that RETRACTED_PHRASES.tsv registers as "
+                         "withdrawn; this is the check that did not exist when a "
+                         "superseded label survived 49 days in a published figure")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

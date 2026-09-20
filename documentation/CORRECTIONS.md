@@ -10257,3 +10257,69 @@ differing lines at an identical byte count. The PNG half of that claim does hold
 `svg.hashsalt` and a fixed `metadata` Date, which would rewrite every committed SVG in the tree and is a
 separate change. (ii) The `{4, 27, 25, 21, 1}` legend is left alone, per CX-54 and GATE 64. (iii) No row
 was added to [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv), for the reason CX-52, CX-53 and CX-54 record.
+
+## CX-56 — four instruments that could not see what they certified: an arrival order, a checkpoint identity, a docstring's scope, and a verifier outside its own fingerprint (RP: none)
+
+**What was wrong.** Four separate cures, each an instrument reporting clean about something it
+could not actually observe.
+
+*(i) Grammar-search Phase C chose its representative by ARRIVAL ORDER (Q-646).* `_gs_cand_L` scores
+a candidate from its FORM and `len(atoms)` only, so every candidate sharing a `(form, domain)` pair
+has an **identical** L. The reduction compared L with a strict `<`, so the first-arriving candidate
+won every tie. Measured 2026-09-20: six candidates in one class all returned **14.701306**, and
+reversing arrival order moved the representative from index 0 to index 5. The filed row measured
+7 of 254 rarity predicates differing between arrival orders with no resume at all; that is a lower
+bound on the symptom, because the mechanism is total. On the resume side `_ck_ident` recorded
+`ncand` — a COUNT — while Phase D merged resumed rows BY POSITION, giving `common=247
+mismatched=116` with **4 predicates attributed 0/8 against a true 8/8 or 6/8 while every identity
+check PASSED**.
+
+*(ii) `save()`'s docstring overstated its own guarantee (Q-667).* It claimed "Same input bytes in,
+same figure out" without qualification. True of the PNG — CX-55 reproduced the committed PNG
+byte-identically from an unmodified generator — and false of the SVG, where matplotlib stamps a
+`<dc:date>` and salts element ids, producing **152 differing lines at an identical byte count**.
+
+*(iii) One of the two independent verifiers sat OUTSIDE the reproduction fingerprint (Q-664).*
+`verify.c` occurred **0** times in `scripts/tr12_repro_gate.sh` and **0** in `scripts/tr12_repro.sh`
+(control: `verify.py` occurred 5 times in the gate), so `derived_inputs()` could never pull it in.
+A silent edit to it changed what "two-instrument verified" means while the stamp still read
+CURRENT=YES — and Q-657 had just found a heap overflow and a fail-open in that same file.
+
+*(iv) Figure-baked text was invisible to every text gate (Q-668).* matplotlib renders labels to
+glyph paths. Measured: 44 label sites across 9 figures, of which **34 are static literals and 10 are
+computed**; `fig_tr12_kc_spectrum` has **zero** static labels.
+
+**What changed.** Phase C now compares `(L, idx)`, so the representative is a property of the
+candidate set and not of scheduling — and it stays correct even if the pool is switched back to an
+unordered map. All three pool call sites now yield in order, which is what makes the checkpoint file
+itself reproducible, as the escrow-frozen pre-registration requires. `_ck_ident` gained a sha256
+digest of WHICH candidates were tested, in order, written into every row and checked on load;
+`hashlib`, not builtin `hash()`, because `hash()` is `PYTHONHASHSEED`-salted and would have
+reintroduced the exact non-determinism being cured. `verify.c` is now in `CORE`. `save()`'s
+docstring states PNG comparison is byte-wise and SVG comparison is line-wise.
+`FIGURE_LABEL_MANIFEST` binds each figure stem to its static label text, with
+`FIGURE_LABEL_UNCOVERED` pinning the 10 computed sites as a ratchet.
+
+**How it was verified.** Both arms measured before landing, never one: `imap_unordered` 3 on
+`origin/main` and 0 in the cure; "Same input bytes in" 1 and 0; `FIGURE_LABEL_MANIFEST` 0 and 1;
+`verify.c` in the gate 0 and 5. The closure was re-derived standalone rather than by sourcing the
+gate — which has no `BASH_SOURCE` guard and would have compiled `solve.c` — giving 43 files before
+and **44** after, with four controls reproducing known membership. A real in-tree baseline ran
+**285 tests OK** before any edit; the cured tree runs **292 tests OK**, the delta being exactly the
+seven new tests. The retraction cross-check reports **0 violations** across 34 labels against 209
+registered phrases, with a planted phrase **DETECTED** as its positive control.
+
+**Not cured here, and stated rather than left silent.** (i) **The membership CLASS, which is
+Q-664's actual point.** Closure membership is still an ACCIDENT OF TEXTUAL REFERENCE rather than a
+declared contract: files enter because some `.sh` file happens to mention a path. This was
+demonstrated the hard way during this very cure — an explanatory comment naming
+`reports/`METHODS`.md` silently pulled that file INTO the fingerprint, taking the closure to 45,
+and only a control line expecting it to stay OUT caught it. The comment was reworded and the
+closure returned to 44. A manifest the gate READS, rather than a set it DERIVES by grep, remains
+the structural fix. Q-601 compounds with it and is also open. (ii) **SVG byte-reproducibility** is
+not pinned; doing so means `svg.hashsalt` and a fixed `metadata` Date, rewriting every committed
+SVG, and CX-55 records the same decision. (iii) **10 computed label sites remain outside the
+manifest** by construction, `fig_tr12_kc_spectrum` entirely so; the ratchet makes new ones loud
+rather than making the existing ones visible. (iv) Checkpoint rows written before 2026-09-20 carry
+no `cands` key and are now refused, so an existing run restarts rather than resumes — the safe
+outcome, and documented in `ROAE_PY_CLI.md`.

@@ -49,6 +49,91 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from solve import binary_hexagrams  # noqa: E402
 
 
+# 🔴 Q-668, 2026-09-20. TEXT BAKED INTO A RENDERED FIGURE IS OUTSIDE EVERY GREP-BASED
+# GATE. matplotlib renders labels to glyph paths, so GATE 3, GATE 6 and every retraction
+# scan are blind to them -- a figure can assert a withdrawn claim while every
+# documentation gate reports clean. That is not hypothetical: a superseded band label
+# lived in a published PNG and SVG for 49 days (CX-55).
+#
+# This manifest binds each figure stem to the STATIC label text it renders, so the text
+# gates have something they CAN read. It is generated from the source and pinned; the
+# tests in tests.py fail when a label is edited here without updating it, and refuse any
+# entry that matches a registered retracted phrase.
+#
+# ⚠ IT IS NOT COMPLETE, AND SAYING SO IS THE POINT. Labels built by f-string, string
+# concatenation or a call are COMPUTED at render time and exist as no literal anywhere.
+# Measured 2026-09-20: 34 static label sites, 10 computed ones. fig_tr12_kc_spectrum has
+# ZERO static labels -- every word it renders is computed, so this manifest covers none
+# of it. FIGURE_LABEL_UNCOVERED pins those counts as a RATCHET: new uncovered text cannot
+# appear silently, it has to move a number a test is watching.
+FIGURE_LABEL_MANIFEST = {
+    'fig_tr12_kc_field': (
+        "V1 — positional-marginal field P(pair j at slot k), exact over C1C2C4C5-SUPERSPACE\nblue cells: King Wen's own placements (diagonal by construction — the value, not the shape, is the content)",
+        'global pair index',
+        'pair-slot (layer k fills slot k+2)',
+    ),
+    'fig_tr12_kc_grammar': (
+        'layer k',
+    ),
+    'fig_tr12_kc_river': (
+        'V2 — mass river: exact per-layer boundary-distance class mass (band AREAS are fixed by the C1+C5 theorem; only the shape across k is informative)',
+        'branch (pair : entry hexagram), sorted by mass',
+        "branch panel — solution mass (bars) vs exhaustion cost (line); a small-but-expensive branch is the atlas's point",
+        'branch share of N',
+        'layer k (fills pair-slot k+2)',
+        'log10 exhaustion cost (t-units)',
+        'share of C1C2C4C5-SUPERSPACE',
+    ),
+    'fig_tr12_kc_shells': (
+        'V4 — neighbourhood shells: exact completions remaining after each placement (annotation = # admissible alternatives)',
+        'log10 g(prefix) — completions remaining',
+        'step (free placement i)',
+        'the surprise spectrum — the bars sum to log2 N (EW-1)',
+        '−log2 p_i (bits)',
+    ),
+    'fig_tr12_kc_spectrum': (
+    ),
+    'fig_tr1_rules_tradeoff': (
+        '0 — perfect',
+        'KW keeps the trigram configuration exactly and misses the other three by two each\n(no extremal check excludes a smaller miss); the 3-edit grand precursor perfects\nthose three and breaks the trigram configuration. Both cannot be had.',
+        "THE CONFLICT THEOREM's trade-off: the four rules cannot all be satisfied\n(jointly UNSAT under C1+C2+C4+C5, drat-trim-verified) — any ordering must choose",
+        'misses (lower is better; 0 = the rule is satisfied perfectly)',
+        '✓ satisfied exactly',
+        '✗ violated (binary rule — no graded miss count)',
+    ),
+    'fig_tr3_campaign_timeline': (
+        '2026, Pacific Time',
+        'First 560T campaign timeline — 5 Spot evictions, all M-F in a 37-min window (07:12–07:49 PT), 0 on the weekend',
+        'enum complete\n171.5 h wall',
+        'launch\nSun 17:03 PT',
+        'weekend: 0 evictions\n(~54 h clean Spot runway)',
+    ),
+    'fig_tr4_boundary_information': (
+        'S(k) = fraction of the full C1–C5 population (orientation-explicit)\nagreeing with KW (log scale)',
+        'The boundary-information curve S(k) — slice-uniqueness vs space-uniqueness\n(the first 4 of the 5 boundaries that identify KW in the 560T slice still admit ≈8.4×10²⁵ full-space orderings)',
+        'extrapolated range for one\nsurviving pair-ordering class:\n~15–20 boundaries (current;\nsupersedes earlier ~13–14 est.;\nobserved-rate extrap. ~12,\nnot a bound)',
+        'k = number of King Wen boundary constraints imposed',
+        'one ORIENTED ordering:\n1/1.3287×10³⁸ = 7.53×10⁻³⁹,\n20.71 bits lower. Pins fix pair\nidentity, not orientation, so\nno k reaches this level.',
+        'reachable floor: S = 1,720,320/1.3287×10³⁸ = 1.29×10⁻³² (one surviving pair-ordering class)',
+    ),
+    'fig_tr6_parity_alternations': (
+        'pair position 1–32 (pair p = King Wen sequence positions 2p−1, 2p; class = popcount parity, E = even, O = odd; first pair {63, 0} is even — pinned by C4)',
+    ),
+}
+
+FIGURE_LABEL_UNCOVERED = {
+    'fig_tr12_kc_field': 0,
+    'fig_tr12_kc_grammar': 1,
+    'fig_tr12_kc_river': 0,
+    'fig_tr12_kc_shells': 1,
+    'fig_tr12_kc_spectrum': 2,
+    'fig_tr1_rules_tradeoff': 1,
+    'fig_tr3_campaign_timeline': 1,
+    'fig_tr4_boundary_information': 1,
+    'fig_tr6_parity_alternations': 3,
+}
+
+
 def save(fig, stem, provenance=None):
     """Write PNG + SVG, stamping the PROVENANCE footer into the figure margin.
 
@@ -61,8 +146,23 @@ def save(fig, stem, provenance=None):
 
     It is deliberately TIMESTAMP-FREE: a clock in the footer would make every
     re-render a different file and destroy byte-comparability, which is the
-    property the atlas half of TR-12 exists to have.  Same input bytes in, same
-    figure out.
+    property the atlas half of TR-12 exists to have.
+
+    Q-667 (2026-09-20).  That footer property holds, and for the PNG the whole
+    claim holds: a re-render of an UNMODIFIED generator reproduced the committed
+    PNG byte-identically (CX-55, sha 5640d0cd), which is what let that cure
+    attribute its change to the edit rather than to renderer drift.  THE SVG IS
+    DIFFERENT AND THIS DOCSTRING USED TO OVERSTATE IT: it read "Same input bytes
+    in, same figure out" without qualification.  matplotlib stamps a <dc:date>
+    creation time and salts element ids, neither of which this function
+    controls, so a zero-change SVG re-render produced 152 differing lines at an
+    IDENTICAL byte count -- a size or length check sees nothing and only a line
+    diff catches it.  So: PNG comparison is BYTE-wise; SVG comparison is
+    LINE-wise, and any gate asserting SVG byte-equality would be unsatisfiable
+    by construction (the class filed as Q-652).  Pinning the SVG out would mean
+    setting svg.hashsalt and a fixed metadata Date, which rewrites every
+    committed SVG in the tree; that is deliberately NOT done here, and CX-55
+    records the same decision.
 
     The footer is also the thing GATE 6 polices: that gate greps the GENERATOR's
     annotation strings because matplotlib renders text to glyph paths and the
