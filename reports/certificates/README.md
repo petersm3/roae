@@ -50,7 +50,10 @@ a correction note as well as the claim is not a measurement of the claim.)*
 
 **Files and proofs are counted separately, because they differ.** The 24 archived files carry
 **23 distinct proofs**: `grand_ccn4_unsat.drat.gz` and `five_loo_ccn8_unsat.drat.gz` decompress to
-the same DRAT byte for byte (sha256 `71855567…`), because the five-rule union minus CC-N8 *is* the
+the same DRAT byte for byte (sha256 of the decompressed proof,
+`718555676dbf207c744a6e93700c280ef275a735c4f738ec866bf10b3f14f2ef` — quoted in full here so the
+abbreviated `71855567…` used elsewhere resolves to something a reader can reach), because the
+five-rule union (`grander-strict`) minus CC-N8 *is* the
 four-rule conflict set — their regenerated CNFs differ only in the `c target=` comment line
 (measured 2026-09-21: `diff` of the non-comment lines is empty). One formula legitimately carries
 two target names, and both files stay so that each name remains checkable; but "24 certificates"

@@ -10323,3 +10323,35 @@ manifest** by construction, `fig_tr12_kc_spectrum` entirely so; the ratchet make
 rather than making the existing ones visible. (iv) Checkpoint rows written before 2026-09-20 carry
 no `cands` key and are now refused, so an existing run restarts rather than resumes — the safe
 outcome, and documented in `ROAE_PY_CLI.md`.
+
+## CX-57 — a certificate count published as 24 independent results when 23 are independent (TR-2) (RP: none)
+
+**2026-09-21.** TR-2 stated its archived certificate corpus as 24, in a context that invited a
+reader to take it as 24 independent refutations. It is 24 **files** carrying **23 distinct
+proofs**. `grand_ccn4_unsat.drat.gz` and `five_loo_ccn8_unsat.drat.gz` decompress to byte-identical
+DRAT — sha256
+`718555676dbf207c744a6e93700c280ef275a735c4f738ec866bf10b3f14f2ef` — because the five-rule union
+(`grander-strict`) minus CC-N8 *is* the four-rule conflict set. Their regenerated CNFs differ only
+in the `c target=` comment line; a `diff` of the non-comment lines is empty, measured 2026-09-21.
+
+**What is and is not affected.** No figure is withdrawn and no verdict moves: every "24/24" in TR-2
+is a count of files and stands as such. What changes is the inference a reader could draw from it —
+one formula legitimately carries two target names, so the corpus supplies 23 independent
+refutations, not 24. Both files are kept deliberately, so that each target name remains
+independently checkable.
+
+**Why this entry exists at all, stated plainly.** The defect was found by `scripts/doc_gates.sh
+cert-inventory` (GATE 77) gaining a fourth leg that decompresses every archived proof and compares
+the distinct-proof count against the page's claim (Q-640). That leg then immediately caught two
+further problems in the same commit that introduced it: it printed an abbreviated sha
+(`71855567…`) that expanded to no full string anywhere in the tree, which the `hex-prefix` gate
+refused; and TR-2's own revision row named `grand-ccn4` alongside the word "five" without naming
+`grander-strict`, which the conflict-ruleset labelling leg refused. Both are corrected here rather
+than in a follow-up, because a gate that catches its own author in the same landing is the outcome
+the suite is for, and splitting the fix across commits would hide that.
+
+**Not cured here.** The published-consistency ratchet's G10 leg harvests revision rows with
+`grep -iE 're-scoped|rescoped|withdrawn|retracted'`, so it fired on TR-2's row for the phrase "no
+figure **withdrawn**" — a negation. The entry above is owed on its merits regardless, so the
+trigger is recorded rather than worked around, and the harvester's inability to read negation is
+left as a known property of that leg.
