@@ -28,6 +28,11 @@
 #   scripts/tr12_repro_gate.sh            # build + run the n=9 battery, print the verdict
 #   scripts/tr12_repro_gate.sh --stamp    # ...and on PASS, record the input fingerprint
 #   scripts/tr12_repro_gate.sh --check    # fingerprint only: has anything changed since that PASS?
+#   scripts/tr12_repro_gate.sh --selftest-stamp-guard   # Q-546's comparator, on fixtures, no build
+#
+# --stamp REFUSES rather than writing when a fingerprinted input changed while the battery ran, or
+# when a newer stamp appeared meanwhile: TR12_STAMP_REFUSED=INPUT-CHANGED-MID-RUN |
+# NEWER-STAMP-PRESENT | ERROR-CANNOT-MEASURE, whole-line, beside TR12_REPRO_GATE=FAIL|ERROR.
 #
 # --check is the cheap leg (milliseconds, no build) that other checks call on every run. The full
 # gate is ~2 minutes on two cores and needs no ladder data, no disk and no network.
@@ -205,6 +210,107 @@ fingerprint(){
   } | sha256sum | cut -d' ' -f1
 }
 
+# ---- THE STAMP GUARD (Q-546) -------------------------------------------------------------------
+# 🔴 THE FINGERPRINT IS MEASURED MINUTES BEFORE IT IS WRITTEN, AND NOTHING COMPARED THE TWO.
+# `FP=$(fingerprint)` is captured below, the battery and every wired leg then run -- the two cc1
+# compiles alone are about 7.5 minutes on a 2-core box -- and only afterwards is a stamp written.
+# Until 2026-09-21 the ONLY comparison of a fingerprint anywhere in this file was inside `--check`;
+# `--stamp` recomputed and wrote, with no compare and no refusal. So any of the inputs edited
+# INSIDE that window was attested without having been exercised: the stamp said "this tree
+# reproduced" about a tree whose bytes the battery never saw. Reverting the edit afterwards makes
+# a later `--check` recompute over the reverted tree and report CURRENT=YES, so the discrepancy
+# self-conceals. That is Q-546, and it is an INTRA-PROCESS TOCTOU: one process is enough, so the
+# two-writer lock Q-544 asks for would leave it fully open.
+#
+# NOT THE SAME DEFECT AS Q-587, whose fix sits at the stamp write below. Q-587 was an ORDERING
+# bug -- the value written was captured before `$SKIPPIN` was rewritten, so it described the
+# pre-rewrite tree -- and it was fixed by RECOMPUTING at the write. Recomputing fixes "the value
+# is stale"; it cannot detect "the tree moved under the battery", because the fresh value it
+# writes is exactly the moved tree's. The recompute and this comparison are complementary, and
+# the file now carries both.
+#
+# TWO HALVES, COMPARED DIFFERENTLY, BECAUSE --stamp LEGITIMATELY WRITES ONE OF THEM.
+#   SOURCE half   -- `fingerprint_files`, i.e. $CORE plus derived_inputs (44 files on 2026-09-21).
+#                    This run NEVER writes any of them, so ANY difference is an outside edit and
+#                    is refused outright.
+#   EXPECTED half -- everything under scripts/tr12_expected. `--stamp` rewrites $SKIPPIN there by
+#                    design, so that ONE path is allowed to move and every other path is refused.
+#                    Measured 2026-09-21: neither q7ranks_parse_gate.sh nor q2_witness_gate.sh
+#                    references scripts/tr12_expected at all (`grep -n tr12_expected` rc 1 on
+#                    both), so the allowance needs no further members today; if a leg later writes
+#                    one, this refuses LOUDLY and names the path rather than certifying it.
+#
+# Per-file manifests rather than a single digest, so a refusal can NAME the file that moved. A
+# digest can only say "something changed", which is the report that sends someone hunting.
+source_manifest(){   fingerprint_files | xargs sha256sum 2>/dev/null; }
+expected_manifest(){ find scripts/tr12_expected -type f ! -name '_GATE_STAMP.txt' -print0 2>/dev/null \
+                       | sort -z | xargs -0 sha256sum 2>/dev/null; }
+# manifest_diff PRE POST [allowed-path…] — rc 0 unchanged (modulo allowed), 1 changed, 2 cannot measure.
+# Pure: it reads two files and nothing else, so --selftest-stamp-guard can drive it on fixtures.
+manifest_diff(){
+  local pre="$1" post="$2"; shift 2
+  [ -r "$pre" ]  || { echo "  [ERROR] stamp guard: pre-battery manifest unreadable ($pre)";  return 2; }
+  [ -r "$post" ] || { echo "  [ERROR] stamp guard: post-battery manifest unreadable ($post)"; return 2; }
+  local npre npost
+  npre=$(grep -c . "$pre"); npost=$(grep -c . "$post")
+  # 🔴 EMPTY IS NOT AGREEMENT. Two empty manifests compare equal, so a broken derivation or a
+  # vanished tree would read as "nothing moved" and certify anything. That is the same shape as
+  # fingerprint_coverage_check's reason for existing, one level down.
+  if [ "${npre:-0}" -eq 0 ] || [ "${npost:-0}" -eq 0 ]; then
+    echo "  [ERROR] stamp guard: a manifest is EMPTY ($npre rows before, $npost after) — an empty"
+    echo "          manifest agrees with every other empty one; that is not a measurement."
+    return 2
+  fi
+  local changed; changed=$(sort "$pre" "$post" | uniq -u | sed 's/^[0-9a-f]\{64\}  //' | sort -u)
+  local a keep
+  for a in "$@"; do
+    keep=$(printf '%s\n' "$changed" | grep -vxF "$a"); changed=$keep
+  done
+  changed=$(printf '%s\n' "$changed" | grep -v '^$')
+  [ -z "$changed" ] && return 0
+  echo "  [FAIL] these fingerprinted inputs CHANGED while the battery was running:"
+  printf '%s\n' "$changed" | sed 's/^/           /'
+  return 1
+}
+# stamp_guard — the wiring. Refuses when the tree the battery ran against is not the tree on disk,
+# or when another writer stamped during this run. Consumes $SRC_PRE/$EXP_PRE/$_RUN_T0, captured
+# beside `FP=$(fingerprint)` below.
+stamp_guard(){
+  local post_src post_exp rc
+  post_src=$(mktemp) || { echo "  [ERROR] stamp guard: mktemp failed"; return 2; }
+  post_exp=$(mktemp) || { rm -f "$post_src"; echo "  [ERROR] stamp guard: mktemp failed"; return 2; }
+  source_manifest   > "$post_src"
+  expected_manifest > "$post_exp"
+  manifest_diff "$SRC_PRE" "$post_src"; rc=$?
+  if [ "$rc" -eq 0 ]; then manifest_diff "$EXP_PRE" "$post_exp" "$SKIPPIN"; rc=$?; fi
+  rm -f "$post_src" "$post_exp"
+  if [ "$rc" -ne 0 ]; then
+    echo "  the battery PASSED, but it passed against DIFFERENT BYTES than are on disk now."
+    echo "  Refusing to record a fingerprint this run never measured. Re-run the gate on a quiet"
+    echo "  tree: scripts/tr12_repro_gate.sh --stamp"
+    [ "$rc" -eq 2 ] && { echo "TR12_STAMP_REFUSED=ERROR-CANNOT-MEASURE"; return 2; }
+    echo "TR12_STAMP_REFUSED=INPUT-CHANGED-MID-RUN"; return 1
+  fi
+  # A stamp written by SOMEONE ELSE while we ran. This is NOT a lock and does not claim to be one
+  # (that is Q-544, still open): it is the cheap half -- refuse to overwrite a stamp that is newer
+  # than this process, so the loser of a race cannot silently clobber the winner.
+  if [ -f "$STAMP" ]; then
+    local mt; mt=$(stat -c %Y "$STAMP" 2>/dev/null)
+    case "${mt:-}" in
+      ''|*[!0-9]*) echo "  [ERROR] stamp guard: cannot read the mtime of $STAMP"
+                   echo "TR12_STAMP_REFUSED=ERROR-CANNOT-MEASURE"; return 2;;
+    esac
+    if [ "$mt" -gt "$_RUN_T0" ]; then
+      echo "  [FAIL] $STAMP was written at $(date -u -d "@$mt" +%FT%TZ), AFTER this run started"
+      echo "         at $(date -u -d "@$_RUN_T0" +%FT%TZ) — another writer stamped while we ran."
+      echo "         Refusing to overwrite a stamp newer than this run's measurement."
+      echo "TR12_STAMP_REFUSED=NEWER-STAMP-PRESENT"; return 1
+    fi
+  fi
+  echo "  [ok] stamp guard: every fingerprinted input is byte-identical to the battery's view"
+  return 0
+}
+
 # ---- THE GOLDEN MANIFEST MUST DESCRIBE THE GOLDENS ---------------------------------------------
 # 🔴 UNTIL 2026-09-06 _MANIFEST.txt WAS WRITTEN BY THE BATTERY AND READ BY NOTHING.
 # tr12_repro.sh --regen emits it; no gate, script or test ever compared it to the files it names.
@@ -256,6 +362,15 @@ if ! manifest_check; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
 # 🔴 INVOKE IT. A coverage check nobody calls is the defect this gate is named after.
 fingerprint_coverage_check || { echo "TR12_REPRO_GATE=ERROR"; exit 2; }
 FP=$(fingerprint)
+# 🔴 Q-546: the battery's VIEW of the tree, recorded at the same instant as $FP, so the stamp
+# written minutes from now can be refused if the bytes moved underneath it. Per-file, so the
+# refusal can name the file. $_RUN_T0 is this run's start, for the newer-stamp check.
+_RUN_T0=$(date +%s)
+SRC_PRE=$(mktemp) || { echo "  [ERROR] could not create the pre-battery manifest"; echo "TR12_REPRO_GATE=ERROR"; exit 2; }
+EXP_PRE=$(mktemp) || { rm -f "$SRC_PRE"; echo "  [ERROR] could not create the pre-battery manifest"; echo "TR12_REPRO_GATE=ERROR"; exit 2; }
+trap 'rm -f "$SRC_PRE" "$EXP_PRE"' EXIT
+source_manifest   > "$SRC_PRE"
+expected_manifest > "$EXP_PRE"
 
 # 🔴 THE PINNED SKIP SET (2026-09-05 fail-open class sweep, S-06). tr12_repro.sh emits
 # TR12_REPRO=PASS whenever no executed row FAILED — rows that SKIP or report PENDING do not
@@ -310,6 +425,45 @@ if [ "$MODE" = "--selftest-skip-pin" ]; then
   [ "$f" -eq 0 ] && { echo "TR12_SKIP_PIN_SELFTEST=PASS"; exit 0; } || { echo "TR12_SKIP_PIN_SELFTEST=FAIL"; exit 1; }
 fi
 
+if [ "$MODE" = "--selftest-stamp-guard" ]; then
+  # Q-546's comparator on synthetic manifests — no battery, no build, milliseconds. This proves the
+  # COMPARISON; the WIRING is proven by running --stamp for real with an input edited mid-run
+  # (roae-private scripts/q546_stamp_guard_redtest.sh), because a selftest of a pure function can
+  # never show that the function is called.
+  T=$(mktemp -d); trap 'rm -rf "$T"' EXIT; f=0
+  h(){ printf '%064d  %s\n' "$1" "$2"; }
+  { h 1 solve.c; h 2 solve.py; h 3 scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt; } > "$T/pre"
+  cp "$T/pre" "$T/same"
+  { h 1 solve.c; h 9 solve.py; h 3 scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt; } > "$T/edited"
+  { h 1 solve.c; h 2 solve.py; h 9 scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt; } > "$T/pinmoved"
+  { h 1 solve.c; h 2 solve.py; } > "$T/dropped"
+  { h 1 solve.c; h 2 solve.py; h 3 scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt; h 4 scripts/tr12_expected/n9/new_golden.txt; } > "$T/added"
+  : > "$T/empty"
+  manifest_diff "$T/pre" "$T/same" >/dev/null; r=$?
+  [ "$r" -eq 0 ] && echo "  [ok] identical manifests -> 0" || { echo "  [FAIL] identical -> $r"; f=1; }
+  o=$(manifest_diff "$T/pre" "$T/edited"); r=$?
+  [ "$r" -eq 1 ] && grep -q 'solve.py' <<<"$o" && echo "  [ok] an EDITED input -> 1, named" || { echo "  [FAIL] edited input -> $r"; f=1; }
+  o=$(manifest_diff "$T/pre" "$T/dropped"); r=$?
+  [ "$r" -eq 1 ] && grep -q '_EXPECTED_SKIPS' <<<"$o" && echo "  [ok] a REMOVED input -> 1, named" || { echo "  [FAIL] removed input -> $r"; f=1; }
+  o=$(manifest_diff "$T/pre" "$T/added"); r=$?
+  [ "$r" -eq 1 ] && grep -q 'new_golden' <<<"$o" && echo "  [ok] an ADDED input -> 1, named" || { echo "  [FAIL] added input -> $r"; f=1; }
+  # the allowance, in both directions: allowed for the pin, and NOT a blanket pass
+  manifest_diff "$T/pre" "$T/pinmoved" scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt >/dev/null; r=$?
+  [ "$r" -eq 0 ] && echo "  [ok] the pin moving is ALLOWED (--stamp rewrites it) -> 0" || { echo "  [FAIL] allowed pin -> $r"; f=1; }
+  o=$(manifest_diff "$T/pre" "$T/edited" scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt); r=$?
+  [ "$r" -eq 1 ] && grep -q 'solve.py' <<<"$o" && echo "  [ok] the allowance does NOT excuse solve.py -> 1" || { echo "  [FAIL] allowance over-broad -> $r"; f=1; }
+  manifest_diff "$T/empty" "$T/pre" >/dev/null; r=$?
+  [ "$r" -eq 2 ] && echo "  [ok] an EMPTY pre manifest -> 2 (never 0)" || { echo "  [FAIL] empty pre -> $r"; f=1; }
+  manifest_diff "$T/pre" "$T/empty" >/dev/null; r=$?
+  [ "$r" -eq 2 ] && echo "  [ok] an EMPTY post manifest -> 2 (never 0)" || { echo "  [FAIL] empty post -> $r"; f=1; }
+  manifest_diff "$T/absent" "$T/pre" >/dev/null; r=$?
+  [ "$r" -eq 2 ] && echo "  [ok] a MISSING manifest -> 2" || { echo "  [FAIL] missing manifest -> $r"; f=1; }
+  # the live producers must themselves be non-empty, or the guard measures nothing in production
+  n=$(source_manifest | grep -c .);   [ "${n:-0}" -ge 5 ] && echo "  [ok] live source_manifest has $n rows"   || { echo "  [FAIL] live source_manifest has ${n:-0} rows"; f=1; }
+  n=$(expected_manifest | grep -c .); [ "${n:-0}" -ge 1 ] && echo "  [ok] live expected_manifest has $n rows" || { echo "  [FAIL] live expected_manifest has ${n:-0} rows"; f=1; }
+  [ "$f" -eq 0 ] && { echo "TR12_STAMP_GUARD_SELFTEST=PASS"; exit 0; } || { echo "TR12_STAMP_GUARD_SELFTEST=FAIL"; exit 1; }
+fi
+
 if [ "$MODE" = "--check" ]; then
   if [ ! -f "$STAMP" ]; then
     echo "  no stamp exists yet — run scripts/tr12_repro_gate.sh --stamp"
@@ -331,7 +485,7 @@ if [ -z "$BUILD" ]; then
   echo "  [FAIL] no 'gcc ... solve.c' line found in documentation/VERIFY.md — the published build line is the input to this gate"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
-WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
+WORK=$(mktemp -d); trap 'rm -rf "$WORK"; rm -f "$SRC_PRE" "$EXP_PRE"' EXIT
 printf '  build line (from documentation/VERIFY.md): %s\n' "$BUILD"
 # run it verbatim, only redirecting the output binary into the scratch dir
 if ! ( eval "${BUILD/-o solve/-o $WORK/solve}" ) >"$WORK/build.log" 2>&1; then
@@ -562,6 +716,14 @@ if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
     # This is also the last possible point -- it covers anything q7ranks_parse_leg or
     # q2_witness_leg may have written under scripts/tr12_expected above. $STAMP itself is excluded
     # from fingerprint(), so writing it below cannot invalidate the value being written.
+    # 🔴 Q-546. COMPARE BEFORE WRITING. The recompute below answers "what does the tree hash to
+    # now"; it cannot answer "is this the tree the battery ran against", and those differ exactly
+    # when someone edits a fingerprinted input while the gate is running. Placed BEFORE the
+    # recompute so that the refusal costs nothing and no value is computed for a tree we are about
+    # to refuse. Fails closed: rc 1 FAIL, rc 2 ERROR, and no stamp is written on either.
+    stamp_guard; _sgrc=$?
+    if [ "$_sgrc" -eq 1 ]; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
+    if [ "$_sgrc" -eq 2 ]; then echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
     FP=$(fingerprint)
     { echo "# Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,"
       echo "# not merely that it was committed. Re-stamp in the SAME commit as any solve.c,"
