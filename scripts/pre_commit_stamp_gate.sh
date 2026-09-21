@@ -212,7 +212,16 @@ if [ "$MODE" = "--selftest" ]; then
 
   # THE LIVE CONTROL: the real extraction, against the real gate, must produce a real closure.
   # Without this the selftest proves only that a comparison works on files I wrote myself.
-  R=$(git rev-parse --show-toplevel 2>/dev/null)
+  # 🔴 RESOLVE FROM THIS SCRIPT'S OWN LOCATION, NOT THE CALLER'S cwd. The first version used
+  # `git rev-parse --show-toplevel`, which answers about whatever repo the CALLER is standing in.
+  # MEASURED 2026-09-21, by executing the ledger proof that invokes it: run from roae-private,
+  # the live control looked for scripts/tr12_repro_gate.sh THERE, did not find it, and the
+  # selftest reported FAIL — a green check turned red by the caller's working directory, which is
+  # the same "the instrument measured the wrong subject" class this gate exists to catch, shipped
+  # inside the gate itself. tr12_repro_gate.sh uses this idiom for exactly this reason (:40).
+  # The REAL leg deliberately still uses the caller's repo: the index being committed belongs to
+  # it, and .git/hooks is shared across linked worktrees.
+  R=$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)
   if [ -n "$R" ] && [ -r "$R/$GATE_SRC" ]; then
     ( cd "$R" && awk '/^derived_inputs\(\)\{/{p=1} p{print} /^fingerprint_files\(\)\{/{if(p)exit}' "$GATE_SRC" > "$T/fns"
       . "$T/fns" 2>/dev/null && fingerprint_files 2>/dev/null | grep -v '^$' > "$T/live" )
