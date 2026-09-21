@@ -268,7 +268,7 @@ trade-off.
 | hook | dispatcher runs | blocks on |
 |---|---|---|
 | `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s), then its `pre_push_compile_gate.sh` (~56 s), and — when `needs_generated()` says the pushed range touches `roae.py`/`example/`, or the base cannot be determined — `doc_gates.sh generated` (~67 s). All three always run, findings aggregate; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
-| `pre-commit` | `pre_commit_registry_gate.sh` (WARN-only; full 6-gate scan when a registry/ledger file is staged, the two cheap retraction scans when any `reports/*.md`, `documentation/*.md` or `README.md` is staged), then `pre_commit_generated_gate.sh` (blocking) | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails |
+| `pre-commit` | `pre_commit_registry_gate.sh` (WARN-only; full 6-gate scan when a registry/ledger file is staged, the two cheap retraction scans when any `reports/*.md`, `documentation/*.md` or `README.md` is staged), then `pre_commit_stamp_gate.sh` (WARN-only, ~0.1 s; names any staged reproduction-closure input being committed without `scripts/tr12_expected/_GATE_STAMP.txt`), then `pre_commit_size_gate.sh` (blocking), then `pre_commit_generated_gate.sh` (blocking) | a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails, or a **first-time** file at or above the size gate's limit with no recorded approval. The registry and stamp legs never block — see the rc contract below. ⚠ This row listed only two legs until 2026-09-21: the size gate landed 2026-09-04 and the stamp gate 2026-09-21, and a hook table that omits a **blocking** leg is the doc-versus-code drift these gates exist to catch |
 
 **Pre-commit rc contract (2026-09-02, route C6).** The dispatcher reads **three** verdicts from
 `pre_commit_registry_gate.sh`, not two: rc `0` = CLEAN or NOT-APPLICABLE, rc `1` = FINDINGS, rc `2` =
@@ -349,15 +349,18 @@ WARN ONLY, commit proceeds` — on a commit staging `RETRACTED_PHRASES.tsv` and
 had been checked. The states now have separate words and separate statuses.
 
 **Read the verdict from the token, never from the shape of the text.** Every
-terminal path of both pre-commit gates prints a whole-line `KEY=value` token
+terminal path of every pre-commit gate prints a whole-line `KEY=value` token
 at column 0, so `grep -qx` is the correct reader:
 
 | token | values |
 |---|---|
 | `PRECOMMIT_REGISTRY=` | `CLEAN` · `FINDINGS` · `COULD-NOT-RUN` · `NOT-APPLICABLE` · `REFUSED-DIRTY` |
 | `PRECOMMIT_GENERATED=` | `CLEAN` · `FINDINGS` · `COULD-NOT-RUN` |
+| `PRECOMMIT_STAMP=` | `OK` · `MISSING-STAMP` · `NOT-APPLICABLE` · `ERROR`. `MISSING-STAMP` is the finding: a file in the reproduction fingerprint closure is staged while `scripts/tr12_expected/_GATE_STAMP.txt` is not, so the commit would carry a fingerprint describing a different tree — public `6fc04532` did exactly that with `documentation/CORRECTIONS.md`. WARN-only by requirement, not preference (O-redfloor, and `pre_push_gate.sh:737-741`'s reasoning). It answers only what the **index** can answer — it never recomputes a fingerprint, because `--check` compares against the worktree and that is Q-601's defect one hook earlier |
+| `PRECOMMIT_STAMP_INPUT=` | one staged closure input per line, so the finding **names** the files rather than counting them |
+| `PRECOMMIT_STAMP_COUNT=` · `PRECOMMIT_STAMP_ERROR=` | staged closure inputs (`-1` when unmeasured); and the cause, emitted only beside `=ERROR` — `gate-absent`, `extraction-failed`, `extraction-unparseable`, `closure-too-small`, `closure-control-missing`, `closure-unreadable`, `staged-unreadable`, `staged-list-failed`, `not-in-git-repo`, `mktemp-failed`. The closure is **extracted** from `tr12_repro_gate.sh`'s own `derived_inputs()`/`fingerprint_files()` and never copied; an extraction that stops working is `ERROR`, never `NOT-APPLICABLE`, because an empty closure intersects nothing and would certify every commit silently |
 
-**Return codes are NOT uniform across the two gates, and the difference is
+**Return codes are NOT uniform across these gates, and the difference is
 deliberate.** `pre_commit_registry_gate.sh` implements the three-state
 contract declared in its own header — `0` = CLEAN **or** NOT-APPLICABLE, `1`
 = FINDINGS, `2` = COULD-NOT-RUN, with `REFUSED-DIRTY` (index and working tree
@@ -374,8 +377,11 @@ way to tell a crash from a finding; the exit status cannot.
 `pre_commit_gate.sh` is the dispatcher and does no checking of its own. It
 classifies the registry gate's status (`0` silent, `1` "reported FINDINGS",
 **anything else** — 2, 126/127 from exec, ≥128 from a signal — the loud
-"COULD NOT RUN … it reported NOTHING") and then `exec`s the generated gate,
-whose status becomes the hook's.
+"COULD NOT RUN … it reported NOTHING"), classifies `pre_commit_stamp_gate.sh`
+the same three ways (added 2026-09-21; `timeout 60` wraps it, so a wedged leg
+cannot stall a commit, and a *missing* leg is announced rather than passed
+over in silence), runs the blocking size gate, and then `exec`s the generated
+gate, whose status becomes the hook's.
 
 🔴 **WARN-ONLY IS UNCHANGED. This rework did not make anything block.** The
 registry gate still cannot refuse a commit — not on FINDINGS and not on

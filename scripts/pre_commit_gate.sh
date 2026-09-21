@@ -63,6 +63,34 @@ case "$RRC" in
      echo "[pre-commit]    but do not record this commit as gated. Re-run once the box is quiet:"
      echo "[pre-commit]        bash scripts/pre_commit_registry_gate.sh" ;;
 esac
+# 🔴 THE REPRODUCTION STAMP, AT COMMIT TIME — added 2026-09-21, because the push-path check
+# arrives after the damage. Public 6fc04532 staged documentation/CORRECTIONS.md, one of the 44
+# files in the reproduction fingerprint closure, WITHOUT scripts/tr12_expected/_GATE_STAMP.txt:
+# the stamp blob it committed is byte-identical to its parent's, so as committed that tree
+# carried a fingerprint describing a different tree. pre_push_gate.sh:744-757 does check the
+# stamp and is correct; it simply runs at PUSH, and commits here are batched and pushed later.
+# Measured that day: `grep -c tr12_repro_gate .git/hooks/pre-commit` -> 0.
+#
+# WARN-ONLY, like the registry gate above and for the same operator ruling (O-redfloor), plus
+# pre_push_gate.sh:737-741's reasoning: a missing stamp means "not yet shown to reproduce",
+# which is a fact about evidence, not a broken tree. Its rc is READ and CLASSIFIED and never
+# propagated -- three verdicts, not two, so "I could not look" cannot read as "nothing to see".
+# `timeout` is belt-and-braces: a wedged leg must not be able to stall a commit.
+if [ -f "$SDIR/pre_commit_stamp_gate.sh" ]; then
+  timeout 60 bash "$SDIR/pre_commit_stamp_gate.sh"; STRC=$?
+  case "$STRC" in
+    0) ;;
+    1) echo "[pre-commit] ⚠ a reproduction-closure input is staged WITHOUT its stamp (named above)."
+       echo "[pre-commit]    WARN ONLY, commit proceeds. Fix: ./scripts/tr12_repro_gate.sh --stamp" ;;
+    *) echo "[pre-commit] ⚠ stamp gate COULD NOT RUN (rc=$STRC) - it reported NOTHING. That is not"
+       echo "[pre-commit]    a pass: the stamp content of this commit was checked by nothing."
+       echo "[pre-commit]    WARN ONLY, commit proceeds." ;;
+  esac
+else
+  echo "[pre-commit] ⚠ scripts/pre_commit_stamp_gate.sh is ABSENT - the commit-path stamp check"
+  echo "[pre-commit]    did NOT run. WARN ONLY, commit proceeds."
+fi
+
 # 🔴 SIZE GATE — added 2026-09-04 because the standing >=1 MB rule was enforced NOWHERE here.
 # Measured that day: no size check existed in this dispatcher, pre_commit_registry_gate.sh,
 # pre_commit_generated_gate.sh or pre_push_gate.sh, and `oversize_approved.tsv` lived only in
