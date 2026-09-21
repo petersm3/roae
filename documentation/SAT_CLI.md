@@ -228,9 +228,32 @@ does not contain). `--witness`, `--decode` and `--certify-count` refuse a
 ### --decode MODEL.txt [TARGET]
 
 ```
+python3 sat.py --emit-cnf plain plain.cnf
+kissat -q plain.cnf > model.txt
 python3 sat.py --decode model.txt plain
-python3 sat.py --decode model.txt --f1-pairs 13
+python3 sat.py --emit-cnf f1c5 n13.cnf --f1-pairs 13
+kissat -q n13.cnf > model13.txt
+python3 sat.py --decode model13.txt --f1-pairs 13
 ```
+
+`MODEL.txt` is a **SAT solver's output for the CNF that `--emit-cnf` wrote** —
+nothing in `sat.py` writes it (`--witness` runs `kissat` on a temporary CNF and
+decodes in-process; it keeps no model file). Until 2026-09-21 this section showed
+only the two `--decode` lines, so a reader who pasted them got
+`--decode 'model.txt': no such file` (exit 1) — the same fails-when-followed
+class as LEADERBOARD's LB-A6/LB-A7 (Q-435). Three facts about the producer side,
+each measured on the parser in `_read_model_lits` rather than assumed:
+`kissat`'s whole stdout is accepted as it comes (once a `v` line is present the
+`s`/`c` lines are ignored; a bare signed-integer list works too), `kissat`
+exits **10** on `s SATISFIABLE` (the contract `--witness` itself checks), so
+the middle line needs `|| true` under `set -e`; and the `TARGET` and flags given
+to `--decode` must be the ones given to `--emit-cnf`, because `--decode`
+rebuilds that formula to recover the variable map — a model of a *different*
+formula is reported `MODEL_CHECK=FALSIFIED` and `DECODE_VERDICT=FAIL` (King
+Wen's `plain` model decoded as `grand-strict`), and a full-31 model decoded
+with `--f1-pairs N` is `verify=False`, `DECODE_VERDICT=FAIL`, exit 1 (until
+2026-09-21 that last case was an `IndexError` traceback: the literals hit some
+subset slots but not all, and the boundary walk ran past the partial sequence).
 
 Rebuilds the CNF for `TARGET` (default `plain`, or the reduced subset when
 `--f1-pairs N` is given) to recover the variable map, parses the model

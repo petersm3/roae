@@ -392,6 +392,22 @@ QSET external review, which the external review itself missed; see
   ⇒ cd×64 ∈ [112, 392]) and the pre-commitment of the search **before** any driver is written.
   Pre-committing a method ahead of its instrument is the intended direction; **the driver loop is
   TO-BUILD and nothing here claims otherwise.**
+  ⚠ **[CORRECTED 2026-09-21, Q-665 — anchors (ii) and (iii) above no longer exist at `main` HEAD,
+  so a reader following them finds neither.** Since battery F-5 D10 (2026-09-08) row `a0_q4b` of
+  `scripts/tr12_repro.sh` does not skip: it runs `--check-arrangement` over every line of
+  `reports/certificates/c3_positional_witnesses.txt` and `TR12_Q4B` is `PASS` on a computed fact,
+  so no skip reason naming the bisection loop is printed and no `TR12_Q4B=PENDING:sat-c3min-driver`
+  row is pinned in `scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt` (measured at `8c2ce1f0`:
+  `grep -c TR12_Q4B` over that file returns 0 against 21 readable lines). The *question* was
+  answered 2026-09-05 — min C3 over SUPER = 112 — see the paragraph above beginning "What remains
+  genuinely open" and the 2026-09-05 entry in `documentation/CORRECTIONS.md` (the
+  `PENDING:sat-c3min-driver` token "accurate about the tooling and misleading about the question").
+  What still stands of this pre-registration is anchor (i), the CLI grammar, and the I1 method
+  bullet (bisect on integer G). A driver for that method has since been drafted outside this
+  repository; on `plain` it is not worth running for the minimum, because a G = 12 witness is IN
+  SUPER and SAT at G implies SAT at every larger G, so every probe from G = 12 upward is SAT and a
+  bisection can only return 112 after zero UNSAT legs — hence zero DRAT certificates — re-deriving
+  a published constant while exercising none of the certificate path.]**
 - **Stage:** (a)/(c) post-F; (b) NOW-able (SAT needs no compiler). **Cost:** (a)/(c) ≈ $5–20;
   (b) ≈ $5–50 on a Spot D16 depending on SAT behavior [wide-hedged].
 - **Output/verification:** histogram TSV + the three Wilson tables named in the Mechanism bullet

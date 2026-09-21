@@ -644,6 +644,35 @@ class TestSatInputGuards(unittest.TestCase):
                                 "a missing --decode model must not exit 0")
             self.assertIn("no such file", r.stderr + r.stdout)
 
+    def test_decode_subset_of_a_partial_or_foreign_model_is_a_verdict_not_a_traceback(self):
+        # Found 2026-09-21 (Q-435) by EXECUTING SAT_CLI.md's `--decode MODEL --f1-pairs N` form
+        # with a full-31 model: decode_subset() returns the slots the literals happen to hit --
+        # neither empty nor 2N long -- and verify_subset() then walked N boundaries over a shorter
+        # list and died with an IndexError traceback where DECODE_VERDICT=FAIL was owed. The empty
+        # model was already guarded (`if seq else []`); the PARTIAL one was not. The fixture is the
+        # smallest partial model there is: ONE true Y literal of the N=9 subset, so exactly one
+        # slot decodes and the boundary walk over-runs at the second. Red against the pre-fix
+        # verify_subset (measured: IndexError at sat.py:1491); green with the length guard.
+        cnf, ctx = sat.build_subset(9)
+        one = ctx["Y"][(ctx["slots"][0], 0)]
+        with tempfile.TemporaryDirectory() as td:
+            model = os.path.join(td, "partial.txt")
+            with open(model, "w") as fh:
+                fh.write("v %d 0\n" % one)
+            r = subprocess.run([sys.executable, "sat.py", "--decode", model, "--f1-pairs", "9"],
+                               capture_output=True, text=True)
+            self.assertNotIn("Traceback", r.stderr + r.stdout,
+                             "a model that decodes to a partial sequence must be a verdict, "
+                             "not an IndexError")
+            self.assertIn("DECODE_VERDICT=FAIL", r.stdout.splitlines(),
+                          "a partial decode cannot pass; the verdict line must still be printed")
+            self.assertEqual(r.returncode, 1, "DECODE_VERDICT=FAIL exits 1, a traceback exits 1 too "
+                             "-- which is why the Traceback assertion above is the load-bearing one")
+        # the guard is in verify_subset itself, so the module API shows the same shape
+        ok, bnd = sat.verify_subset(sat.decode_subset([one], ctx), ctx)
+        self.assertFalse(ok)
+        self.assertEqual(bnd, [], "a non-2N sequence has no N-boundary walk to report")
+
     def test_guards_do_not_fire_on_valid_input(self):
         # NEGATIVE CONTROL. A gate that refuses everything is a permanent FALSE
         # dressed as rigour, so prove the guards are silent when input is good.

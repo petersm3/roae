@@ -1487,8 +1487,14 @@ def verify_subset(seq, ctx):
     Returns (ok, boundary_distances)."""
     n = ctx["n"]
     ok = len(seq) == 2 * n and len(set(seq)) == 2 * n
+    # 2026-09-21 (Q-435 sibling, found by EXECUTING SAT_CLI.md's `--decode MODEL --f1-pairs N`
+    # form on a full-31 model): a model of a different formula decodes to the slots its literals
+    # happen to hit -- neither empty nor 2N long -- and the N-boundary walk below then indexed past
+    # the end of that partial list (IndexError traceback where DECODE_VERDICT=FAIL was owed). The
+    # empty case was guarded; the partial one was not. Only a 2N sequence has N boundaries to walk.
     bnd = ([solve.bit_diff(ctx["start_exit"], seq[0])]
-           + [solve.bit_diff(seq[2 * i + 1], seq[2 * i + 2]) for i in range(n - 1)]) if seq else []
+           + [solve.bit_diff(seq[2 * i + 1], seq[2 * i + 2]) for i in range(n - 1)]
+           ) if len(seq) == 2 * n else []
     ok = ok and all(bd != 5 for bd in bnd)
     got = {dv: 0 for dv in _DVAL}
     for bd in bnd:
