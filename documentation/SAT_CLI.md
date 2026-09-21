@@ -89,6 +89,14 @@ the `d = 2` entry of each literal was measured on 2026-09-01 to satisfy the
 guard. Deriving both from `solve.py` is a three-line change with no interface
 impact; until it lands, read the header rule as holding for clauses, and as
 guarded-but-not-derived for these two tables. *(Caveat added 2026-09-01.)*
+⚠ **[SUPERSEDED — note added 2026-09-21.** The caveat above describes the
+file as it stood on 2026-09-01 and is kept as that record; the paragraph
+before it is the current description. Since 2026-09-02 (`73d31e8b`) both
+tables are derived at import — `sat.py:239`
+`_tot, _wp, BETWEEN_MULTISET = derive_c5_tables(KW)` — and
+`python3 sat.py --c5-selfcheck` prints `C5_LITERALS_DERIVED=1` (measured
+2026-09-21 at `5219dc43`, rc 0, all five tokens at their passing values).
+The line numbers 139 / 143 / 152-154 it cites no longer point at literals.]**
 
 External solvers (`kissat` / `CaDiCaL`) run as separate binaries; their
 UNSAT answers are only trusted via DRAT/LRAT certificates checked by an
@@ -274,7 +282,7 @@ prints whole-line tokens (`grep -qx`):
 |---|---|
 | `TARGET_RULES=…` | the literature rules `TARGET` enforces strictly (`none` for base targets) |
 | `TARGET_RULES_VIOLATED=…` | `rule=count` for every enforced rule with a non-zero `solve.py` score, `none`, or `n/a (base checks failed)`; all **five** rules (parity, rhythm, gender, ccn4, ccn8) are re-scored — until 2026-09-03 only three were |
-| `MODEL_CHECK=SATISFIED\|CONSISTENT\|FALSIFIED` | the literals checked against the **formula** by unit propagation: `SATISFIED` = every clause has a true literal; `CONSISTENT` = no clause falsified but some left open (a partial model, e.g. the 31 Y literals of a sequence, leaves counter registers undetermined — *not refuted*, not proven); `FALSIFIED` = a clause with every literal false, contradictory input literals, or a literal naming a variable the formula does not have |
+| `MODEL_CHECK=SATISFIED\|CONSISTENT\|FALSIFIED` | the literals checked against the **formula** by unit propagation: `SATISFIED` = every clause has a true literal; `CONSISTENT` = no clause falsified but some left open (a partial model *can* leave counter registers undetermined — *not refuted*, not proven — but whether it does depends on the formula: measured 2026-09-21, King Wen's 31 Y literals under `plain` propagate to every one of its 6,882 variables and read `SATISFIED` with 0 undetermined clauses, while under `plain --with-c3` the same 31 literals leave 931 C3-ladder clauses open and read `CONSISTENT`; until 2026-09-21 this cell offered "the 31 Y literals of a sequence" as the example, which is false for `plain`); `FALSIFIED` = a clause with every literal false, contradictory input literals, or a literal naming a variable the formula does not have |
 | `MODEL_FALSIFIED_CLAUSES=` / `MODEL_UNDETERMINED_CLAUSES=` / `MODEL_FOREIGN_LITERALS=` | the tallies behind that verdict |
 | `MODEL_FALSIFIED_BY_FAMILY=family:count;…` | which clause families (C1, C2, C5, `rule parity`, …, `KW pin`, `C3 <= N bound`, …) are falsified. **Scope:** exact when the model assigns every variable (`MODEL_FAMILY_ATTRIBUTION=exact`); for a partial model it is a *first-conflict* attribution (`MODEL_FAMILY_ATTRIBUTION=first-conflict`) — the verdict is propagation-order independent, but which of two clauses forcing opposite values ends up falsified is not, so a family named here beside the expected one may be an artefact of the queue (measured: King Wen's 31 Y literals under `alt-le-14` name `C2 + boundary distance indicators` beside the alternation bound, though KW satisfies C2). The order-independent family-level control is `model_check(cnf, lits, exclude_stages=…)` in `tests.py` (`TestSatLane12`) |
 | `MODEL_INPUT_CONTRADICTORY=0\|1` | the model file asserted both `x` and `-x` |
@@ -305,6 +313,19 @@ semantics via the deterministic first-completion DFS (a port of `solve.c`'s
 `start_exit`, and `B0`. This is the small-n certified-count probe instance
 (TASK #225 §6.4): a scale at which a proof-emitting `#SAT` counter (D4/CPOG)
 can compile a certificate, cross-checked against the exact DP count.
+
+`f1c5` is the reduced instance's only name, and it exists only under this
+flag: `--emit-cnf f1c5 x.cnf` without `--f1-pairs` is `unknown target: f1c5`
+(exit 1). Since 2026-09-21 any other `TARGET` given with `--f1-pairs` is
+refused — `--f1-pairs N builds the reduced f1c5 instance, whose only name is
+'f1c5'; TARGET '…' has no reduced form`, exit 1, nothing written — because the
+C3 and literature-rule targets have no reduced form. Until then the handlers
+never read `TARGET` under this flag: measured 2026-09-21 at `5219dc43`,
+`--emit-cnf nonsense-target n13.cnf --f1-pairs 13` exited 0 and wrote a CNF
+byte-identical (same sha256) to the `f1c5` one — the pre-2026-09-03
+silent-drop class, on a positional. An `N` outside the nine group-closed
+unions is refused with the list (`--f1-pairs 10: no group-closed orbit union;
+have 9,13,16,18,19,24,25,27,28`).
 
 ### --witness TARGET
 
@@ -358,6 +379,16 @@ preflight, `kissat -q`, an expected-UNSAT assertion, and the optional
 first form and run `kissat` and `drat-trim` yourself. *(Behaviour note added
 2026-09-01; the paragraph below describes the intended, currently unreachable
 path.)*
+⚠ **[STALE — note added 2026-09-21.** The note above records the
+2026-08-28 → 2026-09-02 window and is kept as that record; it is not the
+current behaviour. Measured 2026-09-21 at `5219dc43` on a host without
+`kissat`: `python3 sat.py --rigidity-cnf rigidity.cnf --run` **writes the
+CNF** (`wrote … (4096 vars, 282760 clauses); encoding self-validation PASS`,
+4,400,140 B) and then exits 1 with `kissat is required for --rigidity-cnf
+--run but was not found on PATH` — the path the paragraph below describes,
+reachable since `sat.py` consumes `--run` before its stray-flag scan
+(2026-09-02, pinned by `tests.py`). With `kissat` present the `--run` leg
+could not be executed on this host and is described from the source only.]**
 
 TR-5 v2.0 symmetry-completeness rigidity kernel **[expect UNSAT]**: a
 bijection on the 64 hexagrams that is edge-preserving on the
@@ -431,9 +462,21 @@ the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
 > which `cpog-gen` shells out to. That is **five** binaries, not three:
 > measured 2026-08-20, with `drat-trim` absent the n=9 run fails
 > (`sh: 1: drat-trim: not found`, rc=1) and no certificate is produced.
-> If any of the five is missing, the subcommand exits gracefully with an
-> install message — **the rest of `sat.py` works without them**, exactly
-> as `kissat` is required only by `--witness` and `--rigidity-cnf --run`.
+> If any of the five is missing, the subcommand exits without a traceback —
+> **the rest of `sat.py` works without them**, exactly as `kissat` is
+> required only by `--witness` and `--rigidity-cnf --run`. The message
+> differs by which binary is absent, and the difference is stated rather than
+> blurred: `sat.py` preflights only the three it invokes itself, so a missing
+> `d4`, `cpog-gen` or `cpog-check` gets the four-line install message naming
+> it (measured 2026-09-21 without `d4`: `… but 'd4' was not found on PATH`,
+> rc 1); a missing `cadical` or `drat-trim` is seen only by `cpog-gen`, so it
+> surfaces as `cpog-gen failed (rc=1)` with the shell's `drat-trim: not
+> found` in the quoted output tail — that is the 2026-08-20 measurement
+> above, read from `_run_tool`/`certify_count`, not re-executed (no CPOG
+> toolchain on the auditing host). With `--keep DIR`, `DIR` is created and
+> `instance.cnf` written *before* the first tool runs, so on such a host they
+> exist when the message is printed (measured 2026-09-21: `plain`,
+> 3,619,520 B).
 
 Pipeline: (1) emit the DIMACS CNF (the same `build()` /
 `build_subset()` machinery as `--emit-cnf`); (2) `d4 -dDNNF … -out=…`
@@ -461,7 +504,7 @@ temp directory.
 | `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Values below the structural minimum C3 = 112 (2·8 self-complementary pairs + 8·12 complement couples at slot distance ≥ 1) are refused with a non-zero exit: no C1 layout attains them, and the unary ladder cannot represent such a bound. Consumes the following token as the integer bound. Since 2026-09-03 the `--decode` window label and the `--witness` acceptance test both honour `N` (until then both fell back to a literal `c3 ≤ 776` unless `--c3-min` was also given — measured 2026-09-01 on a C3 = 792 witness under `--c3-max 800`, reported `fail C3`). |
 | `--c3-min N` | Encode C3 ≥ `N` (the ≥ side of the unary couple-distance ladder). Does **not** imply the ≤ 776 ceiling — combine with `--c3-max` to window C3 exactly. Unlike the relaxed one-directional ≤ encoding, the ≥ side is exact (two-sided X↔Y binding plus spurious-true-distance-lit kill clauses), so a model's ladder value equals the decoded ordering's true couple-distance sum. Used by the C3 positional certificates (above-ceiling witness `--c3-min 784`, i.e. G ≥ 96; the G = 95 tie witness via `--c3-min 776 --c3-max 776`; and the `kw-pin --c3-min 777` KW-exactness UNSAT gate). Consumes the following token as the integer bound. |
 | `--not-kw` | Exclude every ordering whose pair-slot **layout** matches King Wen's (slot s = pair s for all s) — KW itself and all its within-pair orientation variants. Since the excluded set contains KW, any witness is ≠ KW, and stronger: it places at least one pair in a non-KW slot (G is orientation-blind, so an orientation-only variant would tie G trivially). |
-| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
+| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). `TARGET` must be `f1c5` (any other is refused since 2026-09-21; it was silently ignored before — see §`--emit-cnf … --f1-pairs N`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
 | `--expect N` | (`--certify-count` only) Assert the certified count equals `N` (the caller-supplied native reference count); prints `PASS`/`FAIL` and exits non-zero on `FAIL`. Consumes the following token as the integer `N`. |
 | `--keep DIR` | (`--certify-count` only) Preserve the `instance.cnf`/`.nnf`/`.cpog` artifacts in `DIR` (created if needed) instead of a removed temporary directory. Consumes the following token as the directory path. |
 

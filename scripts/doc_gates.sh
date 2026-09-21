@@ -19514,10 +19514,18 @@ PY
 # carrying this exact mismatch. This gate is that reverse direction, and it is why a README row
 # alone would not have closed the row it came from -- the drift mechanism would have survived.
 #
-# THREE LEGS, each failing loudly when its own input is absent:
+# FOUR LEGS, each failing loudly when its own input is absent:
 #   LEG 1  the archived corpus is enumerable and non-trivial; the git index and the directory agree
 #   LEG 2  README.md carries EXACTLY ONE live "Full inventory: N certificates" sentence, N == corpus
 #   LEG 3  verify_all.sh carries EXACTLY ONE CERT_FLOOR=<int>, and it equals the corpus too
+#   LEG 4  README.md carries EXACTLY ONE live "N distinct proofs" sentence, and N equals the number
+#          of DISTINCT proof objects — every archived proof decompressed and sha256'd (Q-640,
+#          2026-09-21). Files and proofs are different counts: grand_ccn4_unsat and
+#          five_loo_ccn8_unsat are byte-identical DRAT under two target names, so the corpus is 24
+#          files and 23 proofs, and a file-level census (legs 1-3, or any sha of the .gz blobs,
+#          which differ by compression) cannot see it. "24/24 verified" read as 24 independent
+#          results is the overstatement this leg exists to refuse. Cost: ~0.3 s for the whole
+#          corpus, measured.
 #
 # ON "EXACTLY ONE", which is a measured hazard here and not a nicety: a count captured by a pattern
 # that can match twice is not a value. This page quotes its own retired counts inside dated
@@ -19624,8 +19632,56 @@ gate_cert_inventory() {
     echo "CERT_INVENTORY=FAIL"; return 1
   fi
 
+  # ---------- LEG 4: distinct proof OBJECTS, not files (Q-640) ----------
+  # Every archived proof is decompressed and hashed; the .gz blobs themselves are NOT compared,
+  # because two gzips of one DRAT differ by compression and a blob census is exactly the
+  # instrument that missed this. A proof that cannot be decompressed is a census that did not
+  # happen, so it FAILS here rather than counting as one more distinct object.
+  local shalist="" h n_distinct
+  for h in $glist; do
+    local f_sha
+    case "$h" in
+      *.gz) f_sha=$(gzip -dc -- "$h" | sha256sum) ;;
+      *)    f_sha=$(sha256sum -- "$h") ;;
+    esac
+    if [ $? -ne 0 ] || [ -z "$f_sha" ]; then
+      echo "  [FAIL] could not decompress+hash $h — the proof census is incomplete; nothing judged."
+      echo "CERT_INVENTORY=FAIL"; return 1
+    fi
+    shalist="$shalist${f_sha%% *} $h"$'\n'
+  done
+  n_distinct=$(printf '%s' "$shalist" | cut -d' ' -f1 | sort -u | grep -c .)
+  if ! printf '%s\n' "$n_distinct" | grep -qxE '[1-9][0-9]*' || [ "$n_distinct" -gt "$n_idx" ]; then
+    echo "  [FAIL] distinct-proof census returned '$n_distinct' over $n_idx files — not a count this gate may compare."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  echo "  [info] proof census: $n_idx file(s), $n_distinct distinct proof object(s)"
+  # name every duplicate group, so a reader sees WHICH files share a proof, not just that some do
+  printf '%s' "$shalist" | cut -d' ' -f1 | sort | uniq -d | while read -r dup; do
+    echo "  [info] shared proof ${dup:0:16}…: $(printf '%s' "$shalist" | grep "^$dup " | cut -d' ' -f2- | xargs -n1 basename | tr '\n' ' ')"
+  done
+  local dclaims dcrc ndclaims nd
+  dclaims=$(grep -oE '[0-9]+ distinct proofs' "$readme"); dcrc=$?
+  if [ "$dcrc" -gt 1 ]; then
+    echo "  [FAIL] grep failed (rc=$dcrc) reading $readme — the distinct-proof claim was never read; nothing judged."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  if [ -z "$dclaims" ]; then ndclaims=0; else ndclaims=$(printf '%s\n' "$dclaims" | wc -l); fi
+  echo "  [info] README sentences in the live distinct-proof form: $ndclaims (grep rc=$dcrc)"
+  if [ "$ndclaims" -ne 1 ]; then
+    echo "  [FAIL] $readme carries $ndclaims sentence(s) of the form 'N distinct proofs'; exactly 1 is required."
+    echo "         ZERO means the files-vs-proofs disclosure was reworded or deleted; MORE THAN ONE means the"
+    echo "         capture is ambiguous — quote a retired count as a bare number, never in the live form."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  nd=${dclaims% distinct proofs}
+  if ! printf '%s\n' "$nd" | grep -qxE '[0-9]+'; then
+    echo "  [FAIL] the captured distinct-proof count is not a single integer: '$nd'"
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+
   # ---------- judge, as a step of its own ----------
-  echo "  [info] measured: corpus=$n_idx readme_claim=$n cert_floor=$f"
+  echo "  [info] measured: corpus=$n_idx readme_claim=$n cert_floor=$f distinct=$n_distinct readme_distinct_claim=$nd"
   local bad=0
   if [ "$n" -ne "$n_idx" ]; then
     echo "  [FAIL] $readme states 'Full inventory: $n certificates' but $n_idx are archived under $dir."
@@ -19637,8 +19693,13 @@ gate_cert_inventory() {
     echo "         A floor below the corpus lets certificates disappear silently, which is the condition it exists to refuse."
     bad=1
   fi
+  if [ "$nd" -ne "$n_distinct" ]; then
+    echo "  [FAIL] $readme states '$nd distinct proofs' but the decompressed corpus holds $n_distinct distinct proof object(s)."
+    echo "         Files and proofs are different counts; the page must state the one the census measures."
+    bad=1
+  fi
   if [ "$bad" -ne 0 ]; then echo "CERT_INVENTORY=FAIL"; return 1; fi
-  echo "  [ok] GATE 77: $n_idx archived certificate(s); README states $n; verify_all.sh CERT_FLOOR=$f — all three agree"
+  echo "  [ok] GATE 77: $n_idx archived certificate(s); README states $n; verify_all.sh CERT_FLOOR=$f; $n_distinct distinct proofs, README states $nd — all agree"
   echo "CERT_INVENTORY=PASS"
   return 0
 }

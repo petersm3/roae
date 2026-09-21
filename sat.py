@@ -1977,6 +1977,19 @@ if __name__ == "__main__":
         if _na:
             raise SystemExit("%s does not apply to %s (it was silently dropped before 2026-09-03; "
                              "it is an error now)" % (" ".join(_na), args[0]))
+    # 2026-09-21 (Q-410 description-accuracy sweep, found by EXECUTING SAT_CLI.md's --f1-pairs form
+    # with a wrong TARGET): under --f1-pairs the handlers call build_subset(npairs) and never read
+    # TARGET, so `--emit-cnf alt-le-14 OUT --f1-pairs 13` wrote the plain reduced f1c5 instance
+    # byte-identical to `--emit-cnf f1c5 OUT --f1-pairs 13` (measured, same sha) and exited 0 --
+    # the Q-309 silent-drop class, on a positional this time. The reduced instance has one name.
+    _F1C5_TARGET = "f1c5"
+    if npairs is not None and args[:1] in (["--emit-cnf"], ["--certify-count"], ["--decode"]):
+        _given_target = (args[1] if args[0] != "--decode" else
+                         (args[2] if len(args) == 3 else _F1C5_TARGET)) if len(args) >= 2 else None
+        if _given_target is not None and _given_target != _F1C5_TARGET:
+            raise SystemExit("--f1-pairs %d builds the reduced %s instance, whose only name is %r; "
+                             "TARGET %r has no reduced form (it was silently ignored before "
+                             "2026-09-21)" % (npairs, _F1C5_TARGET, _F1C5_TARGET, _given_target))
     # Arity: every handler below matches an exact argument count, and until 2026-09-03 a count
     # that matched none fell through to the help banner with exit 0 -- `--emit-cnf plain` (OUT
     # missing) printed the docstring and reported success (measured). Same class as the

@@ -673,6 +673,46 @@ class TestSatInputGuards(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(bnd, [], "a non-2N sequence has no N-boundary walk to report")
 
+    def test_at_least_k_over_k_is_refused_inside_the_primitive(self):
+        # Q-311's fourth fixture, the one routed to the SAT lane: `at_least_k(lits, k)` with
+        # k > len(lits) is an impossible cardinality. It is encoded by delegation --
+        # at_most_k(-lits, n-k) -- so the bound at_most_k sees is NEGATIVE, and the guard
+        # at sat.py:696 is what refuses it. That guard sits in the primitive precisely so
+        # every one of the 23 call sites is covered centrally; this test pins that the
+        # delegation actually reaches it. Red on a mutant with the guard deleted, MEASURED
+        # 2026-09-21: the mutant dies with IndexError (`s[0][0]` over an empty counter row),
+        # which is a traceback where a named refusal is owed, and this assertion does not
+        # accept it.
+        lits = [1, 2, 3]
+        with self.assertRaises(ValueError) as cm:
+            sat.at_least_k(sat.CNF(), lits, len(lits) + 1)
+        self.assertIn("negative bound", str(cm.exception),
+                      "the refusal must name the impossible bound, not surface as an IndexError")
+        self.assertIn("k=-1", str(cm.exception), "n-k = 3-4 = -1 is the bound the primitive saw")
+        # the direct form, same guard, different entry
+        with self.assertRaises(ValueError):
+            sat.at_most_k(sat.CNF(), lits, -1)
+        # exactly_k delegates to both; over-k must be refused there too, not encoded as UNSAT
+        with self.assertRaises(ValueError):
+            sat.exactly_k(sat.CNF(), lits, len(lits) + 1)
+
+    def test_cardinality_boundaries_are_encoded_not_refused(self):
+        # NEGATIVE CONTROL for the guard above: the legal boundaries must pass through and
+        # produce the encoding the semantics require, so the guard is shown to refuse ONLY
+        # the impossible bound. Each case is asserted on the emitted clauses, not on "no
+        # exception", because an encoder that silently emits nothing would also raise nothing.
+        lits = [1, 2, 3]
+        c = sat.CNF(); sat.at_least_k(c, lits, len(lits))       # k == n: every literal forced
+        self.assertEqual(sorted(c.cl), [[1], [2], [3]],
+                         "at_least_k(k=n) is at_most_k(-lits, 0): one unit clause per literal")
+        c = sat.CNF(); sat.at_least_k(c, lits, 0)               # k == 0: vacuous
+        self.assertEqual(c.cl, [], "at_least_k(k=0) constrains nothing")
+        c = sat.CNF(); sat.at_most_k(c, lits, len(lits))        # k == n: vacuous
+        self.assertEqual(c.cl, [], "at_most_k(k=n) constrains nothing")
+        c = sat.CNF(); sat.at_most_k(c, lits, 0)                # k == 0: every literal forbidden
+        self.assertEqual(sorted(c.cl), [[-3], [-2], [-1]],
+                         "at_most_k(k=0) is one negative unit clause per literal")
+
     def test_guards_do_not_fire_on_valid_input(self):
         # NEGATIVE CONTROL. A gate that refuses everything is a permanent FALSE
         # dressed as rigour, so prove the guards are silent when input is good.
@@ -687,6 +727,41 @@ class TestSatInputGuards(unittest.TestCase):
                                  "a writable --keep must not trip the keep guard")
             except Exception:
                 pass                                        # failing later (no d4) is expected
+
+    def test_f1_pairs_refuses_a_target_it_would_otherwise_ignore(self):
+        # Found 2026-09-21 (Q-410 description-accuracy sweep) by EXECUTING SAT_CLI.md's
+        # `--emit-cnf f1c5 n13.cnf --f1-pairs 13` form with a different TARGET: the handlers call
+        # build_subset(npairs) and never read TARGET, so `--emit-cnf alt-le-14 OUT --f1-pairs 13`
+        # wrote a CNF byte-identical to the f1c5 one (measured: same sha256) and exited 0 -- the
+        # Q-309 silent-drop class on a positional. `f1c5` is the reduced instance's only name and,
+        # without --f1-pairs, is `unknown target: f1c5`; so under --f1-pairs any other TARGET is a
+        # label the file would not contain. Red on a mutant with the guard deleted (MEASURED
+        # 2026-09-21: the mutant emits the CNF, rc 0, no message); green with it. The assertion
+        # names the specific message so the missing-tools exit cannot satisfy it by accident.
+        with tempfile.TemporaryDirectory() as td:
+            out = os.path.join(td, "wrong_target.cnf")
+            r = subprocess.run([sys.executable, "sat.py", "--emit-cnf", "alt-le-14", out,
+                                "--f1-pairs", "9"], capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0, "a TARGET that --f1-pairs ignores must not exit 0")
+            self.assertIn("has no reduced form", r.stderr,
+                          "the refusal must be the --f1-pairs/TARGET guard, not another exit")
+            self.assertFalse(os.path.exists(out), "a refused emit must write nothing")
+            # --decode's OPTIONAL third token is the same positional
+            model = os.path.join(td, "m.txt")
+            with open(model, "w") as fh:
+                fh.write("v 1 0\n")
+            r = subprocess.run([sys.executable, "sat.py", "--decode", model, "plain",
+                                "--f1-pairs", "9"], capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("has no reduced form", r.stderr)
+            # NEGATIVE CONTROL: the documented form still emits (a guard that refuses everything
+            # is a permanent FALSE dressed as rigour)
+            ok = os.path.join(td, "f1c5.cnf")
+            r = subprocess.run([sys.executable, "sat.py", "--emit-cnf", "f1c5", ok,
+                                "--f1-pairs", "9"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr[-400:])
+            self.assertTrue(os.path.getsize(ok) > 0)
+            self.assertIn("f1-pairs=9 ", r.stdout)
 
 
 class TestSatC5Subset(unittest.TestCase):
