@@ -588,6 +588,48 @@ echo "== 4. Lean kernel check (every lean/*.lean file) =="
 # The module count is a floor for the same reason as sections 5 and 6: an unmatched glob fails on
 # its own, but a directory that quietly lost modules must not pass either. 14 on `main` since
 # SatEncodingFidelity.lean (2026-08-31); override with LEAN_FILES_MIN on a branch that has fewer.
+# 🔴 A `sorry` PASSED THIS GATE (found 2026-09-21; roae-private LEAN_11_UNEXECUTED_CLAIM_RESOLVED_2026_09_21.md §3).
+# check() judges the exit status, and on the pinned 4.31.0 a module containing `sorry` exits 0 — its
+# only trace is `warning: declaration uses `sorry`` on STDOUT, which nothing here read. Measured on
+# this file's own check(), lifted verbatim: a shipped module with an appended `sorry` printed PASS;
+# with `sorry` + `#print axioms` (stdout `depends on axioms: [sorryAx]`) printed PASS; only a false
+# `rfl` (rc 1) printed FAIL. `native_decide` has the same shape — rc 0, no warning, its only trace
+# an auxiliary axiom `<decl>._native.native_decide.ax_*` in the `#print axioms` line — so the
+# "kernel-only, no compiler trust" claim lean/README.md makes was not enforced by this gate either.
+# Two legs now, both required, each on its own:
+#   (A) `-DwarningAsError=true`: the `sorry` warning becomes an error and the module exits 1.
+#       Measured: rc 1 on sorry mutants; rc 0 and byte-identical stdout on clean modules.
+#   (B) EVERY stdout line must be an in-file `#print axioms` report whose set lies within Lean's
+#       standard axioms [propext, Classical.choice, Quot.sound] — the allowlist form lean/README.md
+#       prescribes ("the tell is the allowlist, not the absence of one name"). Any other line —
+#       `[sorryAx]`, a `_native` axiom, a warning, an error — fails the module. This is the leg that
+#       catches native_decide, which leg (A) cannot; a module with no directive prints nothing and
+#       passes leg (B) on rc alone, so leg (A) is what carries it.
+# One whole-line token per module, written to $LOG and repeated on stdout:
+#   LEAN_MODULE_<Module>=PASS  |  LEAN_MODULE_<Module>=FAIL rc=<n> non_allowlisted_lines=<k>
+# The output is captured to a file and copied to $LOG BEFORE it is judged (class-B: no `| grep -q`),
+# so is_resource_status still sees a kill or a thread-creation failure. Red-tested on the shipped
+# script with sorry / sorry+#print axioms / native_decide / false-rfl mutants and a clean control
+# (roae-private scripts/lean_gate_redtest.sh).
+LEAN_AXIOM_ALLOWLIST_RE="^'[^']+' does not depend on any axioms\$|^'[^']+' depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]\$"
+LEAN_LAST_TOKEN=""
+lean_module_check() {   # $1 = <Module>.lean relative to lean/; runs from INSIDE lean/ (B11a above)
+  local m=$1 name cap rc bad
+  name=${m%.lean}
+  cap=$(mktemp "${TMPDIR:-/tmp}/roae_lean.XXXXXX") || { LEAN_LAST_TOKEN="LEAN_MODULE_$name=FAIL rc=? non_allowlisted_lines=MKTEMP_FAILED"; echo "$LEAN_LAST_TOKEN"; return 1; }
+  (cd lean && "$LEAN" -DwarningAsError=true "$m") > "$cap" 2>&1; rc=$?
+  cat "$cap"
+  bad=$(grep -v -E -- "$LEAN_AXIOM_ALLOWLIST_RE" "$cap" | grep -c '')
+  rm -f "$cap"
+  if [ "$rc" -eq 0 ] && [ "$bad" -eq 0 ]; then
+    LEAN_LAST_TOKEN="LEAN_MODULE_$name=PASS"; echo "$LEAN_LAST_TOKEN"; return 0
+  fi
+  LEAN_LAST_TOKEN="LEAN_MODULE_$name=FAIL rc=$rc non_allowlisted_lines=$bad"
+  echo "$LEAN_LAST_TOKEN"
+  [ "$bad" -gt 0 ] && echo "EVERY stdout line must be an in-file '#print axioms' report within [propext, Classical.choice, Quot.sound]; $bad line(s) above are not (a sorry, a native_decide axiom, a warning, or an error)."
+  [ "$rc" -ne 0 ] && return "$rc"
+  return 1
+}
 LEAN_PIN_FILE=lean/lean-toolchain
 # 14 -> 15 on 2026-09-04: `CompilerCorrectness.lean` arrived on `main` with the v4-query-program
 # merge (a19682b2). Raised rather than left at 14 for the same reason the compile gate's warning
@@ -622,7 +664,11 @@ else
       check "$f" "echo 'NOT RUN: kernel identity did not match $LEAN_PIN_FILE (LEAN_PIN_MATCH=$LEAN_PIN_MATCH); a proof checked by an unidentified kernel is not evidence'; false"
       continue
     fi
-    check "$f" "(cd lean && \"$LEAN\" \"${f#lean/}\")"
+    LEAN_LAST_TOKEN=""
+    check "$f" "lean_module_check \"${f#lean/}\""
+    # The token is in $LOG already (the check() redirect); repeat it on stdout so a reader can
+    # `grep -qx` the run's output for it, the way LEAN_ID= and DRAT_TRIM_ID= are consumed.
+    [ -n "$LEAN_LAST_TOKEN" ] && echo "$LEAN_LAST_TOKEN"
   done
   echo "LEAN_FILES=$_n" | tee -a "$LOG"
   check "lean module count >= $LEAN_FILES_MIN (found $_n)" "[ $_n -ge $LEAN_FILES_MIN ]"

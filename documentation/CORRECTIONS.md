@@ -10355,3 +10355,25 @@ the suite is for, and splitting the fix across commits would hide that.
 figure **withdrawn**" — a negation. The entry above is owed on its merits regardless, so the
 trigger is recorded rather than worked around, and the harvester's inability to read negation is
 left as a known property of that leg.
+
+**2026-09-21.** `reports/certificates/verify_all.sh`'s Lean phase — the "one command checks
+everything" front door — judged each module by its exit status alone, and on the pinned Lean
+4.31.0 a module containing `sorry` exits **0**: its only trace is `warning: declaration uses
+`sorry`` on **stdout**. Measured on the script's own `check()` lifted verbatim: a shipped module
+with an appended `sorry` printed `PASS`; with `sorry` + `#print axioms` (stdout `depends on
+axioms: [sorryAx]`) printed `PASS`; only a false `rfl` (rc 1) printed `FAIL`. A `native_decide`
+(rc 0, no warning, an auxiliary axiom in the `#print axioms` line) was invisible to it for the
+same reason. The phase now runs each module with `-DwarningAsError=true` (a `sorry` exits 1;
+clean modules exit 0 with byte-identical stdout) and requires every stdout line to be an in-file
+`#print axioms` report within `[propext, Classical.choice, Quot.sound]`, emitting one whole-line
+`LEAN_MODULE_<Module>=PASS|FAIL …` token per module; red-tested on the shipped script with
+`sorry`, `sorry`+`#print axioms`, `native_decide` and false-`rfl` mutants plus a clean control.
+
+**What is and is not affected.** No published proof claim moves: every module on `main` was
+verified 15/15 on a fresh host on 2026-09-10 with stdout exactly the 123 in-file `#print axioms`
+lines and a 1,500-constant axiom census at 0 hits, and 13/15 again on 2026-09-21 — those runs
+inspected stdout and the census, not the exit status, so nothing green rested on the defective
+leg. What was wrong is the instrument a replicator is told to run: it could not have refused a
+`sorry`. `lean/README.md`'s companion sentence, "exit code alone is fail-open, which is why
+'stderr 0 bytes' is the load-bearing half", named the wrong stream — stderr is empty for the
+`sorry`'d file too — and is corrected in place the same day.

@@ -243,7 +243,15 @@ only the directive sites) found **0** outside `[propext, Classical.choice, Quot.
 
 ⚠ **The detector was shown able to fire before its silence was trusted:** an appended false `rfl`
 gives rc 1; an appended `sorry` gives **rc 0 with only a warning** — exit code alone is fail-open,
-which is why "stderr 0 bytes" is the load-bearing half — but `#print axioms` then reports
+and the warning goes to **stdout** (stderr is 0 bytes for the `sorry`'d file too), which is why
+"stdout is EXACTLY the 123 `#print axioms` lines" is the load-bearing half ⚠ **[CORRECTED
+2026-09-21 — this read "which is why "stderr 0 bytes" is the load-bearing half". Measured on the
+pinned 4.31.0 (roae-private `lean_orchestrator_evidence_2026_09_21/ctl_CtlSorry.{out,err}`): the
+`sorry` warning is on stdout and stderr is empty either way, so the clause named the one stream
+that cannot see a `sorry`. `reports/certificates/verify_all.sh` judged the exit status alone until
+the same day — a shipped module with an appended `sorry` PASSED its Lean phase — and now runs each
+module with `-DwarningAsError=true` and requires every stdout line to be an allowlisted `#print
+axioms` report; see §"Verify yourself".]** — but `#print axioms` then reports
 `[sorryAx]`; and a `native_decide` control produces `<decl>._native.native_decide.ax_1_1` with **0**
 `ofReduceBool`.
 
@@ -307,7 +315,14 @@ listed by hand). It `cd`s to the repo root itself, so it can be invoked from any
 `lean-toolchain`; from the repo root elan uses its default toolchain instead — measured with a
 planted 4.30.0 default: 12 modules "passed" under the wrong kernel and two failed on `rw`
 elaboration differences) and prints the kernel it used as a whole-line `LEAN_ID=<pin>/<lean --version>`
-token plus `LEAN_PIN_MATCH=PASS|FAIL`; a mismatch fails every module line rather than skipping:
+token plus `LEAN_PIN_MATCH=PASS|FAIL`; a mismatch fails every module line rather than skipping.
+Since 2026-09-21 each module also runs with `-DwarningAsError=true`, and every line of its stdout
+must be an in-file `#print axioms` report within `[propext, Classical.choice, Quot.sound]`, reported
+as one whole line — `LEAN_MODULE_<Module>=PASS` or `LEAN_MODULE_<Module>=FAIL rc=<n>
+non_allowlisted_lines=<k>`. Until then the phase judged the exit status alone, which a `sorry` (rc 0,
+warning on stdout) and a `native_decide` (rc 0, an auxiliary axiom in the `#print axioms` line) both
+satisfy — measured that day: a shipped module with an appended `sorry` printed `PASS`. The exit-status
+leg catches `sorry`; the allowlist leg is what catches `native_decide`:
 
 ```bash
 bash reports/certificates/verify_all.sh
