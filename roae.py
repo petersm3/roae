@@ -2084,8 +2084,13 @@ def print_barchart():
             print(" ", end="")
     print()
 
+_LOOKUP_KEYS_HINT = ("Accepted keys: a King Wen number (1-64) or a trigram-derived label such as "
+                     "\"Water over Thunder\"; traditional and translated titles (Qian, 乾, Zhun) "
+                     "were removed 2026-08-27 and are not accepted.")
+
+
 def print_lookup(query):
-    """Look up a specific hexagram by number or name."""
+    """Look up a specific hexagram by number or trigram-derived label (see _LOOKUP_KEYS_HINT)."""
 
 
     # Try to parse as number
@@ -2111,6 +2116,7 @@ def print_lookup(query):
             return
         else:
             print(f"No hexagram found matching '{query}'.")
+            print(_LOOKUP_KEYS_HINT)
             return
 
     b = binary_hexagrams[idx]
@@ -2197,9 +2203,11 @@ def print_compare(a_query, b_query):
 
     if idx_a is None:
         print(f"Could not find hexagram: {a_query}")
+        print(_LOOKUP_KEYS_HINT)
         return
     if idx_b is None:
         print(f"Could not find hexagram: {b_query}")
+        print(_LOOKUP_KEYS_HINT)
         return
 
     a = binary_hexagrams[idx_a]
@@ -2294,8 +2302,8 @@ def print_help_sections():
         ("--recurrence", "Recurrence plot — where the difference wave repeats"),
         ("--codons", "DNA codon mapping — structural comparison with genetics"),
         ("", ""),
-        ("--lookup N", "Look up a hexagram by number (1-64) or name"),
-        ("--compare A B", "Compare two hexagrams (by number or name)"),
+        ("--lookup N", "Look up a hexagram by number (1-64) or trigram-derived label"),
+        ("--compare A B", "Compare two hexagrams (by number or trigram-derived label)"),
         ("--cast", "Simulate an I Ching reading (three-coin method)"),
         ("--explain N", "Walk through transition N step by step (1-63)"),
         ("--self-test", "Run mathematical invariant checks"),
@@ -5301,9 +5309,10 @@ def main():
                         help="grammar search: JSON report path")
     parser.add_argument("--gs-checkpoint", type=str, default="u2_checkpoint.jsonl",
                         help="grammar search: rarity checkpoint path (JSONL; "
-                             "completed batches skipped on re-run — only ncand "
-                             "is validated, so delete this file when changing "
-                             "--seed/--gs-samples/--gs-batches)")
+                             "completed batches skipped on re-run. Every row carries "
+                             "seed/ncand/cands/batches/nsamp/want and is REFUSED — reported "
+                             "as IGNORED — if any of them differs from this run, so a changed "
+                             "--seed/--gs-samples/--gs-batches restarts instead of resuming)")
     parser.add_argument("--prereg-h1h3", action="store_true",
                         help="pre-registered H1/H3 K=4 test against the "
                              "C1^C2^C4^C5 reference population (frozen "
@@ -5316,9 +5325,12 @@ def main():
     parser.add_argument("--self-test", action="store_true",
                         help="Run mathematical invariant checks")
     parser.add_argument("--lookup", type=str, default=None,
-                        help="Look up a hexagram by number (1-64) or name")
+                        help="Look up a hexagram by King Wen number (1-64) or by its "
+                             "trigram-derived label, e.g. \"Water over Thunder\" (traditional "
+                             "and translated titles such as Qian/乾 are NOT accepted)")
     parser.add_argument("--compare", nargs=2, type=str, default=None,
-                        help="Compare two hexagrams (by number or name)")
+                        help="Compare two hexagrams (each by number or trigram-derived "
+                             "label, on the same terms as --lookup)")
     parser.add_argument("--cast", action="store_true",
                         help="Simulate an I Ching reading (three-coin method)")
     parser.add_argument("--explain", type=str, default=None,

@@ -6638,5 +6638,258 @@ class TestFigureLabelsAreVisibleToTextGates(unittest.TestCase):
                          "superseded label survived 49 days in a published figure")
 
 
+class TestCliHelpDescribesTheCode(unittest.TestCase):
+    """The argparse help strings ARE the reader-facing description surface, and GATE 2
+    compares flag NAMES only, so a help string can be present and false with every gate
+    green. Q-410 surface sweep, 2026-09-21 (Fable lane): four such strings were false when
+    executed -- `--atlas-select` listed 7 selectors while the loader accepted 10;
+    `--gs-checkpoint` said "only ncand is validated" three fixes after seed/batches/nsamp/
+    cands/want were; `--t3-stats`/`--t3-membership` and the runtime `_T3_GEN` block said the
+    --kc-* sampler was "NOT on main" two months after it was; `--lookup` promised "or name"
+    for a key the tool stopped accepting on 2026-08-27. Every assertion below is derived
+    from the code that the description is about, never from a pinned phrase alone."""
+
+    @staticmethod
+    def _help_block(prog, flag):
+        r = subprocess.run([sys.executable, prog, "--help"], capture_output=True, text=True)
+        text = r.stdout
+        i = text.find("  " + flag)
+        assert i >= 0, "%s --help does not list %s" % (prog, flag)
+        j = re.search(r"\n  -", text[i + 2:])
+        return text[i:i + 2 + j.start()] if j else text[i:]
+
+    def test_atlas_select_help_names_every_selector_the_loader_accepts(self):
+        S = _load("solve")
+        sel = S._ATLAS_SELECTORS
+        self.assertGreaterEqual(len(sel), 10)          # a2/a3/a5 are in the tuple ...
+        self.assertTrue({"a2", "a3", "a5"} <= set(sel))
+        block = self._help_block("solve.py", "--atlas-select")
+        listed = set(re.findall(r"[a-z0-9]+", block.split("comma list of", 1)[1].split("(")[0]))
+        self.assertEqual(set(sel) - listed, set(),
+                         "--atlas-select help omits selectors the loader accepts: %s"
+                         % sorted(set(sel) - listed))
+
+    def test_gs_checkpoint_help_names_every_field_the_loader_validates(self):
+        src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "roae.py"),
+                   encoding="utf-8").read()
+        # The dict literal spans lines and its values contain calls (`len(ridx)`), so match
+        # up to its last keyword rather than to the first ')'.
+        m = re.search(r"_ck_ident = dict\((.*?cands=\w+)\)", src, re.S)
+        self.assertIsNotNone(m, "the checkpoint identity dict must exist for this test to mean anything")
+        keys = set(re.findall(r"(\w+)=", m.group(1)))
+        keys |= set(re.findall(r'bad\.append\("(\w+)"\)', src))
+        self.assertTrue({"seed", "ncand", "cands", "want"} <= keys)   # the fields Q-646 added
+        block = self._help_block("roae.py", "--gs-checkpoint")
+        missing = sorted(k for k in keys if k not in block)
+        self.assertEqual(missing, [], "--gs-checkpoint help does not name validated field(s) %s" % missing)
+        self.assertNotIn("only ncand", block)
+
+    def test_t3_descriptions_agree_with_where_the_sampler_lives(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        on_main = '"--kc-sample"' in open(os.path.join(here, "solve.c"), encoding="utf-8").read()
+        self.assertTrue(on_main, "positive control: this tree's solve.c dispatches --kc-sample")
+        V = _load("verify")
+        texts = {"_T3_GEN": V._T3_GEN,
+                 "--t3-stats": self._help_block("verify.py", "--t3-stats"),
+                 "--t3-membership": self._help_block("verify.py", "--t3-membership")}
+        for name, t in texts.items():
+            self.assertNotIn("NOT on main", t, name)
+            self.assertIn("on main", t, name + " must say where the --kc-* sampler lives")
+
+    def test_lookup_accepts_a_label_and_says_what_it_accepts_on_a_miss(self):
+        hit = subprocess.run([sys.executable, "roae.py", "--lookup", "Water over Thunder"],
+                             capture_output=True, text=True)
+        self.assertEqual(hit.returncode, 0)
+        self.assertRegex(hit.stdout, r"\b3\b.*Water over Thunder|Water over Thunder.*\b3\b")
+        miss = subprocess.run([sys.executable, "roae.py", "--lookup", "Qian"],
+                              capture_output=True, text=True)
+        self.assertIn("No hexagram found matching 'Qian'.", miss.stdout)   # the documented line
+        self.assertIn("Accepted keys:", miss.stdout)
+        self.assertIn("trigram-derived label", self._help_block("roae.py", "--lookup"))
+        self.assertNotIn("or name", self._help_block("roae.py", "--lookup"))
+
+
+class TestP2GzipInputIsTheDocumentedInput(unittest.TestCase):
+    """Two modes documented against `solutions.bin` behaved differently on its DEFAULT form
+    (gzip-framed, `SOLVE_COMPRESS` on), measured 2026-09-21 on the repo sample:
+    `compute_stats.json`'s `solutions_bin` -- documented as "the absolute path of the input"
+    -- recorded the mkstemp path the wrapper decompressed to (`/tmp/roae_gz_py_XXXX.bin`,
+    gone after the run), and `verify.py --check-t5-c3` opened the file raw and printed
+    `T5_C3_AGREE=FAIL bad magic` on an artifact every other mode accepts. Both fixtures here
+    are built by the tools themselves from King Wen, so no data file is needed; both tests
+    skip when pyarrow is absent because the modes under test cannot run without it."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import pyarrow  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest("pyarrow absent: --compute-stats and --check-t5-c3 need it")
+        cls.tmp = tempfile.mkdtemp(prefix="p2gz_")
+        S = _load("solve")
+        kw = ",".join(str(h) for h in S.binary_hexagrams)
+        stream = os.path.join(cls.tmp, "kw.out")
+        with open(stream, "w") as fh:
+            fh.write("record\tcd=387\t%s\n" % kw)
+        raw = os.path.join(cls.tmp, "raw.bin")
+        r = subprocess.run([sys.executable, "solve.py", "--encode-solutions", raw, stream],
+                           capture_output=True, text=True)
+        assert "ENCODE_ROUNDTRIP=PASS" in r.stdout.splitlines(), r.stdout + r.stderr
+        cls.gz = os.path.join(cls.tmp, "sample.bin")
+        with open(raw, "rb") as src, gzip.open(cls.gz, "wb") as dst:
+            dst.write(src.read())
+        cls.chunks = os.path.join(cls.tmp, "chunks")
+        r = subprocess.run([sys.executable, "solve.py", "--compute-stats", cls.gz, cls.chunks,
+                            "--compute-stats-workers", "1"], capture_output=True, text=True)
+        assert r.returncode == 0 and "COMPUTE_STATS=PASS" in r.stdout, r.stdout + r.stderr
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_sidecar_names_the_gzipped_input_not_the_temp_file(self):
+        import json
+        side = json.load(open(os.path.join(self.chunks, "compute_stats.json")))
+        self.assertEqual(side["solutions_bin"], os.path.abspath(self.gz))
+        self.assertNotIn("roae_gz_py_", side["solutions_bin"])
+        self.assertIs(side.get("gzip_decompressed"), True)
+
+    def test_check_t5_c3_reads_the_gzipped_artifact(self):
+        r = subprocess.run([sys.executable, "verify.py", "--check-t5-c3", self.gz, self.chunks],
+                           capture_output=True, text=True)
+        self.assertIn("T5_C3_AGREE=PASS", r.stdout.splitlines(), r.stdout + r.stderr)
+        self.assertEqual(r.returncode, 0)
+
+
+class TestMissingInputIsRefusedNotCrashed(unittest.TestCase):
+    """A missing, unreadable or wrong-format INPUT is the reader's error, and the answer is a
+    one-line refusal naming the path plus the mode's own whole-line token -- never a Python
+    traceback. Measured 2026-09-21 (Q-410 finding #9): eleven solve.py input paths and three
+    verify.py modes answered a mistyped path with a bare FileNotFoundError traceback, rc 1, no
+    token. A traceback prints no `KEY=value` line, so every `grep -qx` gate was blind to it, and
+    scripts/exec_lane.sh grades a "No such file" line as SKIP-MISSING-INPUT -- a broken command
+    scored as skipped. Every case below was also shown FAILING on a per-site mutant that reverts
+    its guard (scratch record in the private sweep note). Each row: argv, expected rc, and a
+    regex that must match one whole line of the combined output."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="nocrash_")
+        cls.missing = os.path.join(cls.tmp, "missing")
+        cls.text = os.path.join(cls.tmp, "text.bin")
+        with open(cls.text, "w") as fh:
+            fh.write("# not a solutions.bin, not JSON, not gzip\n")
+        cls.afile = os.path.join(cls.tmp, "afile")          # a FILE where a directory is needed
+        with open(cls.afile, "w") as fh:
+            fh.write("x\n")
+        cls.shards = os.path.join(cls.tmp, "shards")
+        os.makedirs(cls.shards)
+        with open(os.path.join(cls.shards, "shard_A_0.json"), "w") as fh:
+            fh.write('{"x": 1}\n')
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _check(self, prog, argv, rc, line_re):
+        r = subprocess.run([sys.executable, prog] + argv, capture_output=True, text=True,
+                           timeout=300)
+        out = r.stdout + r.stderr
+        self.assertNotIn("Traceback (most recent call last)", out, "%s %s\n%s" % (prog, argv, out))
+        self.assertEqual(r.returncode, rc, "%s %s\n%s" % (prog, argv, out))
+        self.assertTrue(any(re.match(line_re + r"$", l) for l in out.splitlines()),
+                        "no line matches %r in:\n%s" % (line_re, out))
+
+    def test_the_eleven_solvepy_input_paths_refuse(self):
+        M, T = self.missing, self.text
+        cases = [
+            (["--atlas-queries", M + ".json", "--atlas-out", self.tmp], 2,
+             r"ERROR: \[atlas\] .*: cannot read the atlas \(No such file or directory\)"),
+            (["--atlas-selftest", M + ".json"], 1, r"ATLAS_CONSUMER=FAIL:refused-at-load"),
+            (["--compute-stats", M + ".bin", os.path.join(self.tmp, "cs")], 1,
+             r"COMPUTE_STATS=FAIL cannot read .*: No such file or directory"),
+            (["--branch-yield-report", M + ".bin"], 2,
+             r"ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN .*: No such file or directory"),
+            (["--branch-yield-report", T, "--branch-yield-manifest", M + ".json"], 2,
+             r"ERROR: --branch-yield-report: cannot read (SOLUTIONS_BIN|MANIFEST_JSON) .*"),
+            (["--branch-yield-report", T, "--branch-yield-baseline", M + ".bin"], 2,
+             r"ERROR: --branch-yield-report: cannot read (SOLUTIONS_BIN|BASELINE_BIN) .*"),
+            (["--keystone-analysis", M + ".bin", os.path.join(self.tmp, "ks.md")], 1,
+             r"KEYSTONE_ANALYSIS=FAIL cannot read .*: No such file or directory"),
+            (["--compare-depth-profile", M + ".a", M + ".b"], 2,
+             r"ERROR: cannot read A=.* \(No such file or directory\)"),
+            (["--tr8-dof-merge", M], 1, r"cannot read OUT_DIR .* — nothing to merge"),
+            (["--h2-verify", M + ".dump"], 1, r"H2 VERIFY: FAIL \(unreadable dump\)"),
+            (["--h2-mass", M + ".dump"], 1, r"h2-mass: .*: cannot read the dump \(.*\) — aborting"),
+        ]
+        for argv, rc, line_re in cases:
+            with self.subTest(argv=argv):
+                self._check("solve.py", argv, rc, line_re)
+
+    def test_wrong_format_inputs_refuse_in_the_same_vocabulary(self):
+        T = self.text
+        cases = [
+            (["--compute-stats", T, os.path.join(self.tmp, "cs2")], 1,
+             r"COMPUTE_STATS=FAIL .*: Not v1 solutions\.bin \(magic=.*\)"),
+            (["--keystone-analysis", T, os.path.join(self.tmp, "ks2.md")], 1,
+             r"KEYSTONE_ANALYSIS=FAIL .*: Not v1 solutions\.bin \(magic=.*\)"),
+            (["--branch-yield-report", T], 2,
+             r"ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN .*: bad magic: .*"),
+            (["--atlas-queries", T, "--atlas-out", self.tmp], 2,
+             r"ERROR: \[atlas\] .*: not a JSON document \(.*\)"),
+            (["--atlas-selftest", T], 1, r"ATLAS_CONSUMER=FAIL:refused-at-load"),
+            (["--tr8-dof-merge", self.shards], 1,
+             r".*shard_A_0\.json is not a --tr8-dof-shard file \(missing field 'header'; .*"),
+            (["--h2-verify", T], 1, r"H2 VERIFY: FAIL \(insufficient leaves\)"),
+            (["--atlas-queries", os.path.join(self.afile, "atlas.json")], 2,
+             # a FILE where the output root must be: makedirs raises FileExistsError here and
+             # NotADirectoryError one level deeper -- both OSError, both a refusal
+             r"ERROR: \[atlas\] cannot create the output root .* \((Not a directory|File exists)\)"),
+            (["--sat-encode", os.path.join(self.afile, "out.cnf")], 2,
+             r"ERROR: --sat-encode: cannot write OUT_CNF .*: Not a directory"),
+            (["--tr8-dof-sampler", os.path.join(self.tmp, "s"), "--tr8-dof-seed", "T",
+              "--tr8-dof-pool-draws", "1001", "--tr8-dof-shards", "4", "--tr8-dof-predicates",
+              "5", "--tr8-dof-k", "8", "--tr8-dof-calib-draws", "100"], 1,
+             r"--tr8-dof-sampler: n_pool \(1001\) must be a positive multiple of n_shards \(4\).*"),
+            (["--h2-verify", T, "abc"], 2, r"solve\.py: error: --h2-verify DUMPFILE \[N\]: N must be an integer, got 'abc'"),
+        ]
+        for argv, rc, line_re in cases:
+            with self.subTest(argv=argv):
+                self._check("solve.py", argv, rc, line_re)
+
+    def test_verifypy_modes_refuse(self):
+        M, T = self.missing, self.text
+        cases = [
+            (["--check-atlas-orbit-frames", M + ".json"], 2,
+             r"ATLAS_ORBIT_FRAMES=ERROR \(cannot read .*: No such file or directory\)"),
+            (["--check-atlas-orbit-frames", T], 2, r"ATLAS_ORBIT_FRAMES=ERROR \(cannot read .*\)"),
+            (["--check-t5-c3", M + ".bin", self.tmp], 2,
+             r"T5_C3_AGREE=ERROR cannot read .*: No such file or directory"),
+            (["--q6-extremes-oracle", M + ".txt"], 1,
+             r"Q6_EXTREMES_ORACLE=FAIL \(cannot read .*: No such file or directory\)"),
+        ]
+        for argv, rc, line_re in cases:
+            with self.subTest(argv=argv):
+                self._check("verify.py", argv, rc, line_re)
+
+    def test_guard_is_narrow_a_real_bug_still_surfaces(self):
+        # The refusal guards catch OSError/ValueError/KeyError around ONE operation each. A
+        # defect elsewhere must still be a loud traceback, or the guards would be hiding bugs
+        # behind calm sentences. Positive control: an unexpected exception type raised from
+        # the same call site is not converted.
+        S = _load("solve")
+        real = S.h2_parse_dump
+        try:
+            def boom(path):
+                raise RuntimeError("synthetic defect")
+            S.h2_parse_dump = boom
+            with self.assertRaises(RuntimeError):
+                S.h2_mass(["anything"])
+            with self.assertRaises(RuntimeError):
+                S.h2_verify("anything", 2)
+        finally:
+            S.h2_parse_dump = real
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

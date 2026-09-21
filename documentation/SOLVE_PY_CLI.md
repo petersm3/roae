@@ -170,6 +170,15 @@ drew it is **not on `main`** (it lives on the `v4-compiler` snapshot branch — 
 artifacts"). `--uniform-marginals` would recompute the figure from the T5 chunks, but
 nothing on `main` can *produce* those chunks, so on this branch the number is attested
 rather than checkable.
+⚠ **[CORRECTED 2026-09-21 — the branch claim in this paragraph is false, and the note it cites
+says so.** The `--kc-*` sampler **is on `main`** and has been since 2026-07-17: `git show
+origin/main:solve.c | grep -c -- '--kc-sample'` returns 12 at `5219dc43`, and a fresh build
+accepts `--kc-sample DIR M SEED --kc-record`. VERIFY.md's *Branch note (T3 sampler)* — the very
+note this paragraph points a reader to — was corrected to that effect on 2026-09-11; this paragraph
+was not, so it sent a reader to a note that refutes it. What stays true is the **attestation
+status**: the T5 chunks themselves are not published, so the 87.9% figure is still attested rather
+than recomputable from this repository — but the reason is the absent artifact, not an absent
+producer. A reader with the 3.29 TB f-ladder can draw a sample with this tree's binary.]**
 
 ### Refined (v2) analyses
 
@@ -213,7 +222,7 @@ the file is missing.
 
 | Key | Invariant |
 |---|---|
-| `solutions_bin` | The absolute path of the input, resolved on the **producing host** at run time. Provenance, not a portable pointer and not an identity: no size, mtime or digest of the artifact is recorded, so a consumer cannot establish that the chunks and its own input are the same bytes — it only prints the basename back. |
+| `solutions_bin` | The absolute path of the input, resolved on the **producing host** at run time. Provenance, not a portable pointer and not an identity: no size, mtime or digest of the artifact is recorded, so a consumer cannot establish that the chunks and its own input are the same bytes — it only prints the basename back. ⚠ **Measured false for a gzipped input until 2026-09-21** — and gzip is the default form: the wrapper decompresses to an `mkstemp` file and the sidecar recorded *that* path (`/tmp/roae_gz_py_pd730rkk.bin` on the repo sample), a name that exists on no host after the run, so the field was provenance of nothing. Fixed the same day: the argument as given is recorded, and a boolean `gzip_decompressed` sits beside it (`true` when the wrapper inflated the input). Pinned by `tests.py::TestP2GzipInputIsTheDocumentedInput`. |
 | `declared_records` | The record count read out of the `solutions.bin` **header**, before any cap is applied. It is the artifact's own claim about itself, not a count of the body; the body is separately required to match it, and a run where it does not never reaches this file. |
 | `max_records` | The `--compute-stats-max-records` argument as passed, and **`null` when the flag was not given** (its default is `None`, not 0 and not the record count). A `null` here is the normal full-population case. |
 | `rows_written` | Rows actually emitted into the parquet chunks, summed across workers as each chunk completed. Because the workers round a short read **down** to whole records, this is a count of complete 32-byte records only; a trailing partial record is silently not counted, and the equality check above is what turns that into a failure rather than a quiet undercount. Equals `declared_records` on an uncapped run — see the warning above for why that equality is not independent evidence. |
@@ -399,6 +408,11 @@ measurement pool's own shard streams**. The `timing-probe` entry in `header.json
 is **reserved and unused**, there is no dedicated timing-probe mode, and no
 reproducibility property is claimed for a probe. To keep a probe off the
 measurement streams, give it its own `--tr8-dof-seed` root.]**
+*(Line citations in the two paragraphs above were measured stale on 2026-09-21: the
+`timing-probe` derivation is `solve.py:750`, and `:887` / `:1023` no longer point at the pool-seed
+use or the results writer. The claims themselves were re-checked by grep — `"timing-probe"` occurs
+once in `solve.py`, in the `seeds` dict — and by execution of the smoke example below; use the
+symbol names `tr8_seed`, `tr8_pool_shard` and `_tr8_finish` as anchors, not line numbers.)*
 
 ### The four JSON artifacts — what each key measures
 
@@ -464,7 +478,7 @@ that "same seed root ⇒ byte-identical `header.json`" stays a testable property
 
 | Key | Invariant |
 |---|---|
-| `statistics.by_k` | One entry per K rung, keyed by the K value **as a decimal string** (JSON object keys are strings), each holding that rung's `f_hat`, its Clopper–Pearson interval, the median with its order-statistic interval and censoring flag, deciles, min and max. ⚠ With `sort_keys=True` the rungs land in **lexicographic**, not numeric, order — the default ladder appears as `12, 16, 20, 24, 8`. Per-rung rarities are `hits / draws_used`, so every rung shares one denominator. |
+| `statistics.by_k` | One entry per K rung, keyed by the K value **as a decimal string** (JSON object keys are strings), each holding that rung's `f_hat`, its Clopper–Pearson interval, the median with its order-statistic interval and censoring flag, deciles, min and max. ⚠ With `sort_keys=True` the rungs land in **lexicographic**, not numeric, order — the default ladder appears as `12, 16, 20, 24, 8`. *(Measured false 2026-09-21: the rungs are `int` keys in memory and `json.dump(sort_keys=True)` sorts keys **before** stringifying them, so the file order is numeric — `python3 -c 'import json; print(json.dumps({8:1,12:1,16:1,20:1,24:1}, sort_keys=True))'` prints `{"8": 1, "12": 1, "16": 1, "20": 1, "24": 1}`, and the documented smoke run's `results.json` reads `"8", "12", "16"` in that order. The keys ARE strings once written, so a reader must still not sort them as strings, which is the hazard this cell meant to flag.)* Per-rung rarities are `hits / draws_used`, so every rung shares one denominator. |
 | `draws_used` | Pool draws actually summed into the statistics, and the **denominator of every rarity in `by_k`**. For a whole-pool run it is `n_pool`; for a merge it is the sum of the shard files' own `draws`. It equals `header.n_pool` in any file that exists, because the merge refuses a pool that is missing a shard *and* refuses one holding a shard the header does not declare — so a short denominator cannot reach this field. Prefer it over `n_pool` when reasoning about the numbers, since it is the one the arithmetic used. |
 | `gates.h_a_kw_satisfies_every_predicate` | 🔴 **The name is wider than the measurement.** It is `all(...)` over King Wen's clause vector against the **raw template bank** — the identical computation `bank.json` records as `h_a_kw_satisfies_all` — and it inspects **no drawn predicate at all**. That it holds for every drawn predicate is a *consequence* (a predicate is a conjunction of bank clauses, each instantiated at the value King Wen exhibits), not something this field checked. It is re-evaluated here rather than copied, so that a `--tr8-dof-merge`, which never runs the sampler's own pre-flight check, cannot report a gate it did not execute. |
 | `gates.h_b_observed` | The H-b count over the whole measurement: draws with `rc4_violations <= 2`, summed across the shards that were merged. Same quantity as the shards' `hb_hits`, aggregated. |
@@ -511,7 +525,7 @@ count of *possible* prefixes.
 
 | Key | Invariant |
 |---|---|
-| `input.baseline_bin` | The `--branch-yield-baseline` argument **verbatim as typed** — not absolutized, unlike `compute_stats.json`'s `solutions_bin` — and **`null` when no baseline was given**. `null` is the signal that the whole comparison half of the report is absent: no bucket carries `baseline_count`, `delta` or `pct_change`, and `summary.baseline_total` is `null` too. |
+| `input.baseline_bin` | The `--branch-yield-baseline` argument **verbatim as typed** — not absolutized, unlike `compute_stats.json`'s `solutions_bin` — and **`null` when no baseline was given**. `null` is the signal that the whole comparison half of the report is absent: no bucket carries `baseline_count`, `delta` or `pct_change`, and `summary.baseline_total` is `null` too. *(Measured 2026-09-21: on a gzip-framed baseline — the default form — this field recorded the mkstemp path the wrapper decompressed to (`/tmp/roae_gz_py_….bin`, gone after the run), not the argument, and `input.solutions_bin` did the same; the `compute_stats.json` defect of the same day. Both now record the argument as typed; on a raw `.bin` input the value was already the argument and is unchanged.)* |
 | `summary.baseline_total` | The baseline file's **own record count**, taken from its 32-byte `ROAE` header and required to equal its body length ÷ 32 before any bucketing happens — a header/body disagreement aborts the report rather than reporting over it. It is a whole-file total, not the sum of the baseline buckets shown (though it equals it, since both come from the same single stream). `null` without a baseline. |
 | `summary.buckets_count` | Distinct partition prefixes **holding at least one record in the current file**, at the `--branch-yield-depth` granularity. See the 🔴 above: this is the current file's non-empty prefixes, not the array length and not the space of prefixes. |
 | `buckets[].baseline_count` | The baseline's record count for **this** prefix, defaulting to `0` for a prefix the baseline never produced. Because baseline buckets are only created by observed records, a `0` here always means "this prefix does not occur in the baseline at all" — it is never a measured zero, and the two cases are not distinguishable in the file. Present only when a baseline was given. |
@@ -915,6 +929,60 @@ terminal and take precedence.
 
 The descriptive analyses print to stdout and exit 0; they do not encode
 findings in the exit status.
+
+⚠ **Measured 2026-09-21 (every row executed, this tree): the table above was incomplete in two
+ways, and the second was a defect, fixed the same day.** (1) **Exit 2 is not only argparse and
+`--atlas-queries`.** `--marginals`, `--bivariate`, `--joint-density`, `--joint-density-v2`,
+`--joint-permutation-test` and `--stratified-by-position-2-pair` on a directory holding no
+`chunk_*.parquet` exit **2** with `ERROR: no chunk_*.parquet files found in …` (`--bivariate` and
+`--joint-density` joined that family on 2026-09-21: until then the first created `OUT_DIR` and ran
+"sampling from 0 chunks", the second died in numpy's `need at least one array to concatenate`);
+`--encode-solutions` on an unreadable input prints `ENCODE_ROUNDTRIP=FAIL` and exits **2**.
+(2) **Until 2026-09-21 a missing input file was a Python traceback, exit 1, no token**, for
+`--atlas-queries` and `--atlas-selftest` (their `--atlas-walks` / `--atlas-q3-trace` inputs too),
+`--compute-stats`, `--branch-yield-report` / `--branch-yield-baseline` / `--branch-yield-manifest`,
+`--keystone-analysis`, `--compare-depth-profile`, `--tr8-dof-merge`, `--h2-verify` and `--h2-mass`
+(`FileNotFoundError` from the open), and a wrong-format file — a text file where `solutions.bin` was
+expected, a non-JSON atlas or manifest, a `.gz`-named log that is not gzip, a shard file that is not a
+shard — was a `ValueError` / `JSONDecodeError` / `KeyError` traceback the same way. The exit status
+was non-zero, so a shell gate failed closed, but no `KEY=value` line was printed, so every whole-line
+token gate in this repository was blind to it — and `scripts/exec_lane.sh` grades a "No such file"
+line as SKIP-MISSING-INPUT, so a genuinely broken command was scored as skipped rather than broken.
+(`--extended-selftest` was named in the first draft of this note in error: it has refused a missing
+binary with `FAIL: solve binary not found: …` rc 1 all along.) **Each of those modes now refuses in
+its own existing vocabulary**, measured on this tree, pinned by
+`tests.py::TestMissingInputIsRefusedNotCrashed`, and each guard was shown FAILING on a per-site mutant
+that reverts it. The healthy-path output of every mode is unchanged (diffed pre/post on the repo
+sample, an n=9 atlas with walks, a sharded TR-8 pool and two `DEPTH_PROFILE` logs). What each prints:
+
+| Mode | Missing / unreadable / wrong-format input prints | rc |
+|---|---|---|
+| `--atlas-queries` | `ERROR: [atlas] PATH: cannot read the atlas (No such file or directory)` on stderr; also `… not a JSON document (…)`, `… not a roae-kc-scan-atlas document (top level is a JSON list, not an object)`, `… cannot read the Q3 trace (…)`, `cannot create the output root DIR (…)` | 2 |
+| `--atlas-selftest` | `ATLAS_CONSUMER=FAIL:refused-at-load` (atlas), `ATLAS_CONSUMER=FAIL:refused-at-query` (`--atlas-q3-trace`), `ATLAS_CONSUMER=FAIL:refused-walks` (`--atlas-walks`) — the mode's `FAIL:<reason>` grammar; the last two reasons are new that day | 1 |
+| `--compute-stats` | `COMPUTE_STATS=FAIL cannot read PATH: No such file or directory` / `COMPUTE_STATS=FAIL PATH: Not v1 solutions.bin (magic=b'…')` | 1 |
+| `--keystone-analysis` | `KEYSTONE_ANALYSIS=FAIL cannot read PATH: …` / `KEYSTONE_ANALYSIS=FAIL PATH: Not v1 solutions.bin (magic=b'…')` | 1 |
+| `--branch-yield-report` (`SOLUTIONS_BIN`, `--branch-yield-baseline`, `--branch-yield-manifest`) | `ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN\|BASELINE_BIN\|MANIFEST_JSON PATH: …` (also bad magic, torn body, zero records, non-JSON manifest). This mode has **no `KEY=value` token** (`BRANCH_YIELD_SANITY=` is printed only under a manifest) and none was coined | 2 |
+| `--compare-depth-profile` | `ERROR: cannot read A=PATH (…)` / `B=…` (also a `.gz` name over non-gzip bytes) — the shape of its existing `ERROR: no DEPTH_PROFILE lines …` refusal; its verdict line is `VERDICT: PASS\|FAIL`, not `KEY=value` | 2 |
+| `--tr8-dof-merge` | one line on stderr — `cannot read OUT_DIR PATH (…) — nothing to merge`, `cannot read shard file PATH (…) — refusing to merge`, `PATH is not a --tr8-dof-shard file (missing field 'header'; expected header, hits, shard, hb_hits, draws) — refusing to merge`, `cannot read …/bank.json (…) …` — the mode's existing `SystemExit(message)` shape; no `KEY=value` token | 1 |
+| `--tr8-dof-sampler` | `--tr8-dof-sampler: n_pool (N) must be a positive multiple of n_shards (S) — …` and `--tr8-dof-sampler: cannot create OUT_DIR PATH (…)` on stderr (were `ValueError` / `PermissionError` tracebacks); a non-integer in `--tr8-dof-k` is an argparse usage error | 1 / 2 |
+| `--h2-verify` | `h2-verify: PATH: cannot read the dump (…) — REFUSING.` then `H2 VERIFY: FAIL (unreadable dump)` (a malformed `H2LEAF` line is named by `PATH:LINE`); a non-integer `N` is an argparse usage error | 1 / 2 |
+| `--h2-mass` | `h2-mass: PATH: cannot read the dump (…) — aborting` | 1 |
+| `--sat-encode` | `ERROR: --sat-encode: cannot write OUT_CNF PATH: …` (was a `FileNotFoundError` traceback after the whole encoding had been built) | 2 |
+
+Modes that already refused with a message and are unchanged: `--kc-x-recheck` (`KC_X_PYCHECK=ERROR`,
+rc 2), `--kc-class-swap-detect` (`KC_CLASS_SWAP_DETECT=ERROR`, rc 2), `--uniform-marginals`
+(`UNIFORM_MARGINALS=FAIL …`, rc 1 — the token line carries a reason suffix, so
+`grep -qx 'UNIFORM_MARGINALS=FAIL'` cannot match it; gate on the absence of `=PASS`),
+`--extended-selftest` (`FAIL: solve binary not found: …`, rc 1), `--encode-solutions`
+(`ENCODE_ROUNDTRIP=FAIL`, rc 2). Three modes — `--branch-yield-report`, `--compare-depth-profile` and
+`--tr8-dof-merge` / `--tr8-dof-sampler` — have **no `KEY=value` verdict token at all**; a token for
+them would be new vocabulary and was deliberately **not** introduced (candidate names, not emitted:
+`BRANCH_YIELD_REPORT=`, `DEPTH_PROFILE_COMPARE=`, `TR8_DOF_MERGE=`). Method: every option of the live
+parser whose metavar names a path (32 options) was run with a nonexistent path; **zero tracebacks
+remain on that surface**. Not covered: a missing third-party module (`pyarrow`, `matplotlib`,
+`sklearn`) is still an `ImportError` traceback in the P2 modes that import them, and an unwritable
+output path is guarded only where it was measured to crash (`--atlas-queries`, `--bivariate`,
+`--sat-encode`, `--tr8-dof-sampler`).**
 
 ## EXAMPLES
 

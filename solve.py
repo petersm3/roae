@@ -860,14 +860,22 @@ def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
     because every shard evaluates the same predicate ensemble, so the merge is exact and not an
     approximation of the single-process run (asserted by --tr8-dof-selftest)."""
     import json
+    # Argument refusals in the same vocabulary as --tr8-dof-merge: SystemExit("<message>"),
+    # rc 1. These were ValueErrors, i.e. a traceback for a documented command line with a
+    # non-divisible --tr8-dof-pool-draws (measured 2026-09-21, Q-410 sweep).
     if n_shards < 1 or n_pool < n_shards or n_pool % n_shards:
-        raise ValueError("n_pool (%d) must be a positive multiple of n_shards (%d) — the "
-                         "pre-registration fixes equal-size shards" % (n_pool, n_shards))
+        raise SystemExit("--tr8-dof-sampler: n_pool (%d) must be a positive multiple of "
+                         "n_shards (%d) — the pre-registration fixes equal-size shards"
+                         % (n_pool, n_shards))
     if shard is not None and not (0 <= shard < n_shards):
-        raise ValueError("shard %d is outside 0..%d" % (shard, n_shards - 1))
+        raise SystemExit("--tr8-dof-sampler: shard %d is outside 0..%d" % (shard, n_shards - 1))
     if pool not in ("A", "B", "calib"):
-        raise ValueError("pool must be A, B or calib")
-    os.makedirs(out_dir, exist_ok=True)
+        raise SystemExit("--tr8-dof-sampler: pool must be A, B or calib (got %r)" % (pool,))
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+    except OSError as e:
+        raise SystemExit("--tr8-dof-sampler: cannot create OUT_DIR %s (%s)"
+                         % (out_dir, e.strerror or e))
     t0 = time.time()
 
     bank, marg, admitted, _bh = tr8_bank_admit(calib_draws,
@@ -950,7 +958,18 @@ def tr8_dof_merge(out_dir, quiet=False):
     reporting one would be the exact failure this project's canonical gates exist to prevent."""
     import json
     import hashlib   # R12b #8(b): the bank-digest recomputation below needs it
-    files = sorted(n for n in os.listdir(out_dir)
+    # This mode's refusal vocabulary is SystemExit("<message>") -- the message on stderr,
+    # rc 1 -- used for every "refusing to merge" case below. Until 2026-09-21 a mistyped
+    # OUT_DIR was a FileNotFoundError traceback from os.listdir, and a missing bank.json or
+    # a shard file that is not JSON / not a shard traced back the same way (Q-410 finding
+    # #9). Each guard is narrow: the OSError/ValueError of one open+parse, the KeyError of
+    # one field read. There is no KEY=value token in this mode; none is coined.
+    try:
+        entries = os.listdir(out_dir)
+    except OSError as e:
+        raise SystemExit("cannot read OUT_DIR %s (%s) — nothing to merge"
+                         % (out_dir, e.strerror or e))
+    files = sorted(n for n in entries
                    if n.startswith("shard_") and n.endswith(".json"))
     if not files:
         raise SystemExit("no shard_*.json in %s" % out_dir)
@@ -960,22 +979,34 @@ def tr8_dof_merge(out_dir, quiet=False):
     drawn = 0
     seen = set()
     for name in files:
-        with open(os.path.join(out_dir, name), encoding="utf-8") as f:
-            d = json.load(f)
+        spath = os.path.join(out_dir, name)
+        try:
+            with open(spath, encoding="utf-8") as f:
+                d = json.load(f)   # ValueError = json.JSONDecodeError
+        except (OSError, ValueError) as e:
+            raise SystemExit("cannot read shard file %s (%s) — refusing to merge"
+                             % (spath, getattr(e, "strerror", None) or e))
+        try:
+            d_header, d_hits, d_shard = d["header"], d["hits"], d["shard"]
+            d_hb, d_draws = d["hb_hits"], d["draws"]
+        except (KeyError, TypeError) as e:
+            raise SystemExit("%s is not a --tr8-dof-shard file (missing field %s; expected "
+                             "header, hits, shard, hb_hits, draws) — refusing to merge"
+                             % (spath, e))
         if header is None:
-            header = d["header"]
-            hits = {int(k): [0] * len(v) for k, v in d["hits"].items()}
-        elif d["header"] != header:
+            header = d_header
+            hits = {int(k): [0] * len(v) for k, v in d_hits.items()}
+        elif d_header != header:
             raise SystemExit("%s carries a different run header — refusing to merge" % name)
-        if d["shard"] in seen:
-            raise SystemExit("shard %d appears twice — refusing to merge" % d["shard"])
-        seen.add(d["shard"])
-        for k, row in d["hits"].items():
+        if d_shard in seen:
+            raise SystemExit("shard %d appears twice — refusing to merge" % d_shard)
+        seen.add(d_shard)
+        for k, row in d_hits.items():
             tgt = hits[int(k)]
             for j in range(len(row)):
                 tgt[j] += row[j]
-        hb += d["hb_hits"]
-        drawn += d["draws"]
+        hb += d_hb
+        drawn += d_draws
     missing = sorted(set(range(header["n_shards"])) - seen)
     if missing:
         raise SystemExit("shard(s) %s missing from %s — refusing to merge a partial pool"
@@ -992,8 +1023,14 @@ def tr8_dof_merge(out_dir, quiet=False):
         raise SystemExit("shard(s) %s are outside this run's declared range 0..%d — refusing to "
                          "merge a pool holding shards the header does not declare (%s)"
                          % (extra, header["n_shards"] - 1, out_dir))
-    with open(os.path.join(out_dir, "bank.json"), encoding="utf-8") as f:
-        bj = json.load(f)
+    bpath = os.path.join(out_dir, "bank.json")
+    try:
+        with open(bpath, encoding="utf-8") as f:
+            bj = json.load(f)
+    except (OSError, ValueError) as e:
+        raise SystemExit("cannot read %s (%s) — the shards were drawn against a bank this "
+                         "directory no longer holds; refusing to merge"
+                         % (bpath, getattr(e, "strerror", None) or e))
     bank = [(e["family"], e["index"], e["comparator"], e["template"]) for e in bj["bank"]]
     marg = [e["marginal"] for e in bj["bank"]]
     admitted = [i for i, e in enumerate(bj["bank"]) if e["admitted"]]
@@ -4199,6 +4236,17 @@ def p2_compute_stats(solutions_bin, out_dir, workers=None,
     import time
     import pyarrow.parquet as pq
 
+    # The input is probed BEFORE anything is created. Until 2026-09-21 a mistyped path
+    # surfaced as a FileNotFoundError traceback from the header read -- no token, rc 1
+    # (Q-410 finding #9). This mode's only non-pass value is FAIL, and it already carries a
+    # reason suffix for refusals (zero records, populated out_dir), so that is the
+    # vocabulary used here too. OSError only: anything else is a bug and still surfaces.
+    try:
+        with open(solutions_bin, "rb") as probe:
+            probe.read(1)
+    except OSError as e:
+        print(f"COMPUTE_STATS=FAIL cannot read {solutions_bin}: {e.strerror or e}", flush=True)
+        return 1
     # A populated out_dir is refused outright rather than cleared: the reader
     # has to be TOLD that stale chunks were about to be mixed in. No force
     # switch -- an empty directory is one `rm -rf` away and the refusal names
@@ -4217,19 +4265,29 @@ def p2_compute_stats(solutions_bin, out_dir, workers=None,
     schema = _p2_parquet_schema()
     # #169: transparently decompress a gz solutions.bin to a temp so the
     # offset-seeking parallel workers below read a raw seekable file.
-    with _gz_resolved_path(solutions_bin) as solutions_bin:
-        return _p2_compute_stats_impl(solutions_bin, out_dir, workers,
-                                      chunk_size, max_records, schema)
+    # The sidecar's `solutions_bin` is documented as the INPUT's absolute path. Until
+    # 2026-09-21 the resolved temp path shadowed the argument here, so on a gzipped
+    # artifact -- the default form -- the sidecar recorded `/tmp/roae_gz_py_XXXX.bin`,
+    # a name that exists on no host after the run (measured: Q-410 sweep). Keep both.
+    with _gz_resolved_path(solutions_bin) as resolved:
+        return _p2_compute_stats_impl(resolved, out_dir, workers,
+                                      chunk_size, max_records, schema,
+                                      source_path=solutions_bin)
 
 
 def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
-                           chunk_size, max_records, schema):
+                           chunk_size, max_records, schema, source_path=None):
     import json
     import multiprocessing as mp
     import os
     import time
-    with open(solutions_bin, "rb") as f:
-        total_records, version = _p2_read_header(f)
+    try:
+        with open(solutions_bin, "rb") as f:
+            total_records, version = _p2_read_header(f)
+    except ValueError as e:
+        # _p2_read_header's own refusals (short header, wrong magic): a wrong FILE, not a bug.
+        print(f"COMPUTE_STATS=FAIL {source_path or solutions_bin}: {e}", flush=True)
+        return 1
     declared_records = total_records
     if max_records:
         total_records = min(total_records, max_records)
@@ -4294,7 +4352,8 @@ def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
     with open(sidecar, "w") as sf:
         json.dump({
             "tool": "solve.py --compute-stats",
-            "solutions_bin": os.path.abspath(solutions_bin),
+            "solutions_bin": os.path.abspath(source_path or solutions_bin),
+            "gzip_decompressed": bool(source_path) and source_path != solutions_bin,
             "declared_records": declared_records,
             "max_records": max_records,
             "rows_written": seen,
@@ -4653,8 +4712,20 @@ def p2_bivariate(chunks_dir, out_dir, samples_per_chunk=500, seed=42):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    os.makedirs(out_dir, exist_ok=True)
+    # Same refusal as --marginals (ERROR: ..., rc 2), checked BEFORE the output directory is
+    # created. Until 2026-09-21 a missing CHUNKS_DIR reached os.makedirs(out_dir) first --
+    # a PermissionError traceback when OUT_DIR was uncreatable, and otherwise an empty
+    # "sampling from 0 chunks" run (measured, Q-410 sweep).
     files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    if not files:
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        return 2
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+    except OSError as e:
+        print(f"ERROR: cannot create OUT_DIR {out_dir} ({e.strerror or e})", flush=True)
+        return 2
     print(f"[bivariate] sampling from {len(files)} chunks", flush=True)
     rng = np.random.default_rng(seed)
     cols = sorted({c for x, y in _P2_BIVARIATE_PAIRS for c in (x, y)})
@@ -4701,6 +4772,13 @@ def p2_joint_density(chunks_dir, out_md, samples_per_chunk=30,
     from sklearn.neighbors import KernelDensity
 
     files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
+    if not files:
+        # Same refusal as --marginals and --joint-density-v2 (ERROR: ..., rc 2). Until
+        # 2026-09-21 an empty glob ran on to numpy's `need at least one array to
+        # concatenate` traceback (measured, Q-410 sweep).
+        print(f"ERROR: no chunk_*.parquet files found in {chunks_dir} -- this input is produced "
+              f"by --compute-stats, not shipped in the repository", flush=True)
+        return 2
     print(f"[joint-density] sampling from {len(files)} chunks", flush=True)
     rng = np.random.default_rng(seed)
     accum = {c: [] for c in _P2_JD_DIMS}
@@ -5663,7 +5741,17 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     print(f"[sat-encode] C3={include_c3}, C4={include_c4}, C5={include_c5}", flush=True)
 
     sha = hashlib.sha256()
-    with open(out_path, "w") as f:
+    try:
+        f = open(out_path, "w")
+    except OSError as e:
+        # An OUT_CNF that cannot be created (missing directory, no permission) is a
+        # refusal, not a FileNotFoundError traceback (measured 2026-09-21, Q-410 sweep).
+        # This mode prints no KEY=value token (its lines are `[sat-encode] ...`); none is
+        # coined. rc 2 = refused input, the P2/P3 family's shape.
+        print(f"ERROR: --sat-encode: cannot write OUT_CNF {out_path}: {e.strerror or e}",
+              flush=True)
+        return 2
+    with f:
         f.write(f"c roae P3 SAT encoding — King Wen sequence\n")
         f.write(f"c generated {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n")
         # The DIMACS header names what is IN THIS FILE, not what was REQUESTED.
@@ -5865,6 +5953,7 @@ def branch_yield_report(solutions_bin, baseline_bin=None, manifest=None,
 
     # #169: transparently decompress gz inputs to temps for the duration of the
     # report (the readers below use os.path.getsize + seekable reads).
+    source_bin, source_baseline = solutions_bin, baseline_bin
     _ctx_s = _gz_resolved_path(solutions_bin); solutions_bin = _ctx_s.__enter__()
     _ctx_b = None
     if baseline_bin is not None:
@@ -5872,7 +5961,9 @@ def branch_yield_report(solutions_bin, baseline_bin=None, manifest=None,
     try:
         return _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
                                          depth, out_csv, out_json,
-                                         os, struct, json, defaultdict)
+                                         os, struct, json, defaultdict,
+                                         source_bin=source_bin,
+                                         source_baseline=source_baseline)
     finally:
         _ctx_s.__exit__(None, None, None)
         if _ctx_b is not None:
@@ -5881,7 +5972,20 @@ def branch_yield_report(solutions_bin, baseline_bin=None, manifest=None,
 
 def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
                               depth, out_csv, out_json,
-                              os, struct, json, defaultdict):
+                              os, struct, json, defaultdict,
+                              source_bin=None, source_baseline=None):
+    # Refusal shape for this mode (2026-09-21): `ERROR: --branch-yield-report: ...` on stdout,
+    # exit 2 -- the shape the chunk-consuming P2 siblings use for a refused input
+    # (`ERROR: no chunk_*.parquet ...`, rc 2). This mode has NO KEY=value verdict token of
+    # its own (BRANCH_YIELD_SANITY= is printed only under --branch-yield-manifest), so none
+    # is coined here; see the EXIT STATUS table. Until that day a mistyped SOLUTIONS_BIN,
+    # BASELINE_BIN or MANIFEST_JSON was a FileNotFoundError traceback, and a wrong-format
+    # file a ValueError traceback (Q-410 finding #9).
+    def _refuse(what, path, exc):
+        detail = getattr(exc, "strerror", None) or str(exc)
+        print(f"ERROR: --branch-yield-report: cannot read {what} {path}: {detail}", flush=True)
+        return 2
+
     def _read_header(f):
         """Read + validate v1 header. Returns (record_count, header_size)."""
         hdr = f.read(32)
@@ -5944,14 +6048,22 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
             return record_count_actual, dict(buckets)
 
     print(f"Reading {solutions_bin} ...")
-    total, buckets = _bucket_counts(solutions_bin, depth)
+    try:
+        # OSError: the open inside _bucket_counts. ValueError: _read_header's and
+        # _bucket_counts' own deliberate refusals (bad magic, torn body, zero records).
+        total, buckets = _bucket_counts(solutions_bin, depth)
+    except (OSError, ValueError) as e:
+        return _refuse("SOLUTIONS_BIN", source_bin or solutions_bin, e)
     print(f"  {total:,} records bucketed into {len(buckets):,} {('first-level','depth-2','depth-3')[depth-1]} buckets")
 
     baseline_total = None
     baseline_buckets = None
     if baseline_bin:
         print(f"Reading baseline {baseline_bin} ...")
-        baseline_total, baseline_buckets = _bucket_counts(baseline_bin, depth)
+        try:
+            baseline_total, baseline_buckets = _bucket_counts(baseline_bin, depth)
+        except (OSError, ValueError) as e:
+            return _refuse("BASELINE_BIN", source_baseline or baseline_bin, e)
         print(f"  baseline: {baseline_total:,} records in {len(baseline_buckets):,} buckets")
 
     # Manifest: budget map
@@ -5959,8 +6071,15 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
     budget_overrides = []   # list of dicts: {p1, o1, p2?, o2?, p3?, o3?, budget}
     manifest_data = None
     if manifest:
-        with open(manifest, "r") as mf:
-            manifest_data = json.load(mf)
+        try:
+            with open(manifest, "r") as mf:
+                manifest_data = json.load(mf)   # ValueError = json.JSONDecodeError
+        except (OSError, ValueError) as e:
+            return _refuse("MANIFEST_JSON", manifest, e)
+        if not isinstance(manifest_data, dict):
+            return _refuse("MANIFEST_JSON", manifest,
+                           ValueError("top level is a JSON %s, not an object"
+                                      % type(manifest_data).__name__))
         psb = manifest_data.get("per_sub_branch_budget", {})
         budget_default = psb.get("default")
         budget_overrides = psb.get("overrides", [])
@@ -6145,8 +6264,12 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
             "version": 1,
             "tool": "solve.py --branch-yield-report",
             "input": {
-                "solutions_bin": solutions_bin,
-                "baseline_bin": baseline_bin,
+                # The argument AS TYPED (SOLVE_PY_CLI.md: "verbatim as typed"). Until
+                # 2026-09-21 a gzip-framed input recorded the mkstemp path the wrapper
+                # decompressed to (`/tmp/roae_gz_py_XXXX.bin`), which exists on no host after
+                # the run -- the same defect compute_stats.json had (Q-410 finding #4).
+                "solutions_bin": source_bin or solutions_bin,
+                "baseline_bin": (source_baseline or baseline_bin) if baseline_bin else None,
                 "manifest": manifest,
                 "depth": depth,
             },
@@ -6200,18 +6323,35 @@ def keystone_analysis(solutions_bin, out_md, dump_dir=None,
     if chunk_size is None:
         chunk_size = _P2_CHUNK_RECORDS_DEFAULT
 
+    # The input is probed BEFORE the gz resolve. Until 2026-09-21 a mistyped path was a
+    # FileNotFoundError traceback (Q-410 finding #9); this mode's own failure vocabulary is
+    # `KEYSTONE_ANALYSIS=FAIL <reason>` + SystemExit(1) (the declared/seen mismatch below).
+    try:
+        with open(solutions_bin, "rb") as probe:
+            probe.read(1)
+    except OSError as e:
+        print(f"KEYSTONE_ANALYSIS=FAIL cannot read {solutions_bin}: {e.strerror or e}",
+              flush=True)
+        raise SystemExit(1)
     # #169: transparently decompress a gz solutions.bin to a temp for the
     # sequential read + os.path.getsize calls below.
-    with _gz_resolved_path(solutions_bin) as solutions_bin:
-        return _keystone_analysis_impl(solutions_bin, out_md, dump_dir,
+    with _gz_resolved_path(solutions_bin) as resolved:
+        return _keystone_analysis_impl(resolved, out_md, dump_dir,
                                        dump_limit, chunk_size,
-                                       time, os, np, bdrys_1idx, bdrys_0idx)
+                                       time, os, np, bdrys_1idx, bdrys_0idx,
+                                       source_path=solutions_bin)
 
 
 def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
-                            chunk_size, time, os, np, bdrys_1idx, bdrys_0idx):
-    with open(solutions_bin, "rb") as f:
-        total_records, version = _p2_read_header(f)
+                            chunk_size, time, os, np, bdrys_1idx, bdrys_0idx,
+                            source_path=None):
+    try:
+        with open(solutions_bin, "rb") as f:
+            total_records, version = _p2_read_header(f)
+    except ValueError as e:
+        # _p2_read_header's own refusals (short header, wrong magic): a wrong FILE, not a bug.
+        print(f"KEYSTONE_ANALYSIS=FAIL {source_path or solutions_bin}: {e}", flush=True)
+        raise SystemExit(1)
 
     print(f"[keystone] solutions.bin v{version}, {total_records:,} records "
           f"({os.path.getsize(solutions_bin) / 1e9:.2f} GB)", flush=True)
@@ -6936,8 +7076,21 @@ def compare_depth_profile(log_a, log_b, threshold=0.005):
                     prof[int(m.group(1))] = int(m.group(2))
         return prof
 
-    a = parse(log_a)
-    b = parse(log_b)
+    # A log that cannot be read is refused in this mode's own shape -- `ERROR: ...`, exit 2,
+    # the shape its no-DEPTH_PROFILE-lines refusal below already uses. Until 2026-09-21 a
+    # mistyped path was a FileNotFoundError traceback (Q-410 finding #9). OSError covers a
+    # missing/unreadable file and gzip.BadGzipFile (a `.gz` name over non-gzip bytes);
+    # EOFError is a truncated gzip stream. This mode has no KEY=value token (its verdict line
+    # is `VERDICT: PASS|FAIL`), so none is coined here.
+    parsed = []
+    for label, path in (("A", log_a), ("B", log_b)):
+        try:
+            parsed.append(parse(path))
+        except (OSError, EOFError) as e:
+            detail = getattr(e, "strerror", None) or str(e)
+            print(f"ERROR: cannot read {label}={path} ({detail})", flush=True)
+            return 2
+    a, b = parsed
     if not a or not b:
         missing = []
         if not a:
@@ -8817,21 +8970,27 @@ def h2_eval_leaf(seq):
 def h2_parse_dump(path):
     """Parse a SOLVE_KNUTH_H2_DUMP file -> list of leaf dicts."""
     out = []
+    # Raises OSError for a missing/unreadable dump and ValueError for a malformed H2LEAF line
+    # (naming path:line); the two callers, --h2-verify and --h2-mass, catch exactly those two
+    # around this call and refuse in their own vocabulary (2026-09-21, Q-410 finding #9).
     with open(path) as fh:
-        for ln in fh:
+        for lineno, ln in enumerate(fh, 1):
             if not ln.startswith("H2LEAF "):
                 continue
             d = {}
-            for tok in ln.split():
-                if tok == "H2LEAF":
-                    continue
-                k, v = tok.split("=", 1)
-                if k == "seq":
-                    d[k] = [int(x) for x in v.split(",")]
-                elif k in ("w", "fp", "fc"):
-                    d[k] = float(v)
-                else:
-                    d[k] = int(v)
+            try:
+                for tok in ln.split():
+                    if tok == "H2LEAF":
+                        continue
+                    k, v = tok.split("=", 1)
+                    if k == "seq":
+                        d[k] = [int(x) for x in v.split(",")]
+                    elif k in ("w", "fp", "fc"):
+                        d[k] = float(v)
+                    else:
+                        d[k] = int(v)
+            except ValueError as e:
+                raise ValueError("%s:%d: malformed H2LEAF line (%s)" % (path, lineno, e))
             out.append(d)
     return out
 
@@ -8855,7 +9014,15 @@ def h2_verify(dump_path, n_check=2, seed=20260726):
     if d != 3:
         print(f"h2-verify: witness slot-distance {d} != 3 FAIL")
         return 1
-    leaves = h2_parse_dump(dump_path)
+    try:
+        leaves = h2_parse_dump(dump_path)
+    except (OSError, ValueError) as e:
+        # Same refusal shape as the insufficient-leaves guard below: the mode's verdict line
+        # is `H2 VERIFY: FAIL (...)` (not KEY=value; none coined), rc 1. Was a traceback.
+        print(f"h2-verify: {dump_path}: cannot read the dump "
+              f"({getattr(e, 'strerror', None) or e}) — REFUSING.")
+        print("H2 VERIFY: FAIL (unreadable dump)")
+        return 1
     # 🔴 FAIL-OPEN, found by the v2 CODE review and reproduced: `min(n_check, len(leaves))` made an
     # EMPTY dump sample zero leaves, run zero comparisons, and still print "H2 VERIFY: PASS" with
     # exit 0. Measured before this guard: `--h2-verify /dev/null` -> "0 leaves; checking 2 ...
@@ -8896,7 +9063,16 @@ def h2_mass(dump_paths, boot=20000, seed=20260726):
     bootstrap (leaves resampled within runs) + per-run seed spread; N_gs
     uncertainty folded in quadrature (lognormal). Prints m and bits."""
     import math, random
-    runs = [h2_parse_dump(p) for p in dump_paths]
+    runs = []
+    for p in dump_paths:
+        try:
+            runs.append(h2_parse_dump(p))
+        except (OSError, ValueError) as e:
+            # Same shape as the empty-dump abort below (no KEY=value token in this mode;
+            # none coined), rc 1. Was a FileNotFoundError traceback until 2026-09-21.
+            print(f"h2-mass: {p}: cannot read the dump ({getattr(e, 'strerror', None) or e})"
+                  f" — aborting")
+            return 1
     for p, r in zip(dump_paths, runs):
         if not r:
             print(f"h2-mass: {p}: no leaves — aborting")
@@ -11957,8 +12133,23 @@ def atlas_load(path):
     """Load an atlas JSON, refusing float literals anywhere in the file."""
     import decimal
     import json as _json
-    with open(path) as fh:
-        A = _json.load(fh, parse_float=decimal.Decimal)
+    # A missing, unreadable or non-JSON atlas is the READER's error, not a crash. Refused
+    # through AtlasError so `--atlas-queries` answers with its documented `ERROR: [atlas]` rc 2
+    # and `--atlas-selftest` with ATLAS_CONSUMER=FAIL:refused-at-load. Until 2026-09-21 both
+    # printed a FileNotFoundError traceback -- no token, so every `grep -qx` gate was blind to
+    # it (Q-410 finding #9). Narrow on purpose: OSError from the open, ValueError
+    # (json.JSONDecodeError) from the parse -- the same pair `load_atlas` already converts
+    # for --kc-class-swap-detect. Anything else still surfaces.
+    try:
+        with open(path) as fh:
+            A = _json.load(fh, parse_float=decimal.Decimal)
+    except OSError as e:
+        raise AtlasError("%s: cannot read the atlas (%s)" % (path, e.strerror or e))
+    except ValueError as e:
+        raise AtlasError("%s: not a JSON document (%s)" % (path, e))
+    if not isinstance(A, dict):
+        raise AtlasError("%s: not a %s document (top level is a JSON %s, not an object)"
+                         % (path, _ATLAS_TYPE, type(A).__name__))
     if A.get("type") != _ATLAS_TYPE:
         raise AtlasError("%s: not a %s document (type=%r)" % (path, _ATLAS_TYPE, A.get("type")))
     for req in ("n", "N_total", "layers", "branch_atlas"):
@@ -12816,8 +13007,12 @@ def atlas_parse_q3_trace(path):
     along.  Every integer goes through `int()`; no column is ever floated.
     """
     steps = []
-    with open(path) as fh:
-        lines = fh.read().splitlines()
+    try:
+        with open(path) as fh:
+            lines = fh.read().splitlines()
+    except OSError as e:
+        # --atlas-q3-trace: a mistyped path is a refusal, not a traceback (2026-09-21).
+        raise AtlasError("%s: cannot read the Q3 trace (%s)" % (path, e.strerror or e))
     if any(l.startswith("#o3-trace\t") for l in lines):
         # 🔴 THE PRODUCER'S OWN VERDICT IS NOT OPTIONAL (RCQ01 F2, 2026-09-09).
         # This branch kept only "#o3-trace\t" rows and threw away everything else -- including
@@ -14391,7 +14586,12 @@ def _atlas_brute_recount(walks_path, n):
     marg = collections.defaultdict(collections.Counter)
     branch = collections.Counter()
     total = 0
-    with open(walks_path) as fh:
+    try:
+        fh = open(walks_path)
+    except OSError as e:
+        # --atlas-walks: a mistyped path is a refusal, not a traceback (2026-09-21).
+        raise AtlasError("%s: cannot read the walks file (%s)" % (walks_path, e.strerror or e))
+    with fh:
         for line in fh:
             line = line.strip()
             if not line or line.startswith("["):
@@ -14440,7 +14640,15 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
         return 1
     out = keep or tempfile.mkdtemp(prefix="atlas_selftest_")
     try:
-        R = atlas_queries(atlas_path, out, q3_trace=q3_trace, quiet=True)
+        try:
+            R = atlas_queries(atlas_path, out, q3_trace=q3_trace, quiet=True)
+        except AtlasError as e:
+            # The consumer's own refusal (an unreadable or mis-sized --atlas-q3-trace, an
+            # unknown selector) used to escape this function as a traceback because the
+            # enclosing try has only a finally. Same token grammar as refused-at-load.
+            print("[atlas-consumer] refusing at query time: %s" % e)
+            print("ATLAS_CONSUMER=FAIL:refused-at-query")
+            return 1
         scan = R["scandir"]
         v1 = _atlas_read_tsv(os.path.join(scan, "v1_field.tsv"))
         v2 = _atlas_read_tsv(os.path.join(scan, "v2_river.tsv"))
@@ -14580,7 +14788,12 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                   ("BRUTE FORCE: explicit n=%d enumeration (--atlas-walks)" % n,
                    "MISSING -- run `solve --kc-enum FDIR > walks.txt`"))
         else:
-            B = _atlas_brute_recount(walks_path, n)
+            try:
+                B = _atlas_brute_recount(walks_path, n)
+            except AtlasError as e:
+                print("[atlas-consumer] refusing the walks file: %s" % e)
+                print("ATLAS_CONSUMER=FAIL:refused-walks")
+                return 1
             gate("brute force: enumerated walk count == N_total", B["N"] == N,
                  "%d vs %d" % (B["N"], N))
             ok = all(B["flow"][k] == int(rk[str(k)]) for k in range(n))
@@ -15709,7 +15922,8 @@ def main():
                              "extensions (where some sub-branches were walked "
                              "at higher per-sub-branch budget). Optional "
                              "--baseline diff and --manifest annotation. "
-                             "See x/roae/BRANCH_YIELD_REPORT_DESIGN.md.")
+                             "Design notes: BRANCH_YIELD_REPORT_DESIGN.md in the private "
+                             "staging repo (roae-private).")
     parser.add_argument("--branch-yield-baseline", metavar="BASELINE_BIN",
                         help="--branch-yield-report: diff against this baseline solutions.bin")
     parser.add_argument("--branch-yield-manifest", metavar="MANIFEST_JSON",
@@ -15759,8 +15973,11 @@ def main():
                              "and figure TSVs (Q3, Q6, XA, V1/V2/V5 inputs) into --atlas-out")
     parser.add_argument("--atlas-out", metavar="DIR", default=None,
                         help="output root for --atlas-queries (default: the atlas's own directory)")
+    # Derived from _ATLAS_SELECTORS so the help cannot drift from what the loader accepts:
+    # until 2026-09-21 this string listed seven names while the tuple had ten (a2/a3/a5
+    # were added 2026-09-04 and 2026-09-10 without touching it). tests.py pins the derivation.
     parser.add_argument("--atlas-select", metavar="LIST", default=None,
-                        help="comma list of q3,q6,v1,v2,v5,xa,q10a (default: all)")
+                        help="comma list of %s (default: all)" % ",".join(_ATLAS_SELECTORS))
     parser.add_argument("--atlas-q3-trace", metavar="FILE", default=None,
                         help="`solve --kc-o3-rank F G WALK --kc-trace` output; supplies Q3/V4 "
                              "(Q6's KW columns no longer read it -- Q-394 item 3)")
@@ -15818,7 +16035,15 @@ def main():
 
     if args.atlas_queries:
         out = args.atlas_out or (os.path.dirname(os.path.abspath(args.atlas_queries)) or ".")
-        os.makedirs(out, exist_ok=True)
+        try:
+            os.makedirs(out, exist_ok=True)
+        except OSError as e:
+            # An output root that cannot be created is a refusal in this mode's documented
+            # shape (`ERROR: [atlas] ...`, rc 2), not a PermissionError traceback (measured
+            # 2026-09-21 with the atlas named inside a directory that does not exist).
+            print("ERROR: [atlas] cannot create the output root %s (%s)"
+                  % (out, e.strerror or e), file=sys.stderr)
+            sys.exit(2)
         sel = [s.strip() for s in args.atlas_select.split(",")] if args.atlas_select else None
         cost = {"nodes_per_sec": args.xa_nodes_per_sec,
                 "usd_per_hour": args.xa_usd_per_hour,
@@ -15872,7 +16097,11 @@ def main():
     if args.r11_verify is not None:
         sys.exit(r11_verify(args.r11_verify if args.r11_verify else None))
     if args.h2_verify:
-        n_chk = int(args.h2_verify[1]) if len(args.h2_verify) > 1 else 2
+        try:
+            n_chk = int(args.h2_verify[1]) if len(args.h2_verify) > 1 else 2
+        except ValueError:
+            parser.error("--h2-verify DUMPFILE [N]: N must be an integer, got %r"
+                         % (args.h2_verify[1],))
         sys.exit(h2_verify(args.h2_verify[0], n_chk))
     if args.h2_mass:
         sys.exit(h2_mass(args.h2_mass))
@@ -15995,7 +16224,11 @@ def main():
         sys.exit(tr8_dof_merge(args.tr8_dof_merge))
 
     if args.tr8_dof_sampler:
-        klist = tuple(int(x) for x in args.tr8_dof_k.split(",") if x.strip())
+        try:
+            klist = tuple(int(x) for x in args.tr8_dof_k.split(",") if x.strip())
+        except ValueError:
+            parser.error("--tr8-dof-k must be a comma-separated list of integers, got %r"
+                         % (args.tr8_dof_k,))
         sys.exit(tr8_dof_sampler(args.tr8_dof_sampler,
                                  seed_root=args.tr8_dof_seed,
                                  pool=args.tr8_dof_pool,

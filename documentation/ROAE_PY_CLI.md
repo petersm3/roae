@@ -125,6 +125,14 @@ The 29 analysis sections, each invoked by a single flag:
                    one file, solve.py, and resolves it by the CWD-relative path
                    "solve.py", so --verify must be run from the repository directory:
                    from anywhere else it reports "could not load solve.py" and exits 1.
+                   [STALE since 2026-09-02, measured 2026-09-21: solve.py is resolved
+                   as roae.py's SIBLING via __file__ (roae.py, run_verify, "resolved
+                   from __file__"), so the gate gives the same verdict from any
+                   directory — `cd /tmp && python3 <repo>/roae.py --verify` prints
+                   `ROAE VERIFY: ALL 11 CHECKS PASS`, rc 0. The fail-closed half is
+                   unchanged: a missing or unreadable sibling solve.py still FAILS
+                   the cross-file check and exits 1. The three sentences above
+                   described the loader as it was before the fix.]
                    No other file I/O; nothing is written.
                    Verifies roae.py's King Wen table is IDENTICAL to solve.py's (this
                    file carries its own copy and nothing enforced that agreement before
@@ -179,6 +187,14 @@ not-found message still does not say what the tool does accept. Those are code
 edits outside this documentation pass, and the retracted-phrase registry cannot
 guard them either: GATE 3's corpus is the tracked `*.md` set plus
 `reports/evidence/**`, so no needle registered here can reach a Python file.)*
+
+*(Closed 2026-09-21, Q-410 surface sweep. The four residues were at `roae.py:2297`, `:2298`,
+`:5319` and `:5321` by then — the line numbers above had drifted by 56 and 231 lines — and all four
+now read "trigram-derived label"; the not-found paths print a second line, `Accepted keys: a King
+Wen number (1-64) or a trigram-derived label such as "Water over Thunder"; …`, after the unchanged
+`No hexagram found matching '…'.` / `Could not find hexagram: …` line, so anything matching the
+documented first line still matches. `tests.py::TestCliHelpDescribesTheCode` pins both the label
+lookup and the hint, which is the Python-side guard this paragraph said GATE 3 could not be.)*
 
 Examples:
 
@@ -278,7 +294,7 @@ Parameters (all shared machinery flags are prefixed `--gs-`):
 | `--gs-workers N` | Worker processes (default 0 = all cores). |
 | `--gs-batches N` | Number of checkpointable rarity batches (default 100). |
 | `--gs-json PATH` | JSON report path (default `u2_report.json`): pre-registration record, per-phase tallies, MDL ledger, verdict. |
-| `--gs-checkpoint PATH` | JSONL rarity checkpoint (default `u2_checkpoint.jsonl`). Completed batches are skipped on re-run. Every field that selects the sample is written into each row and checked on load: `batch`/`n`/`trials`/`ncand`/`cands`/`seed`/`batches`/`nsamp`/`want`/`hits`. A row that mismatches any of them is REFUSED and counted in the `IGNORED` report, never silently reused. ⚠ **[CORRECTED 2026-09-20 — this read "The candidate count (`ncand`) is the only field validated on load … records no seed, sample count, probe size or batch count … is silently reused". That described a state two fixes ago. `seed`, `batches` and `nsamp` were already written and validated; Q-646 adds `cands`, a digest of WHICH candidates were rarity-tested and in what order, because `ncand` is a COUNT and not an IDENTITY — two runs with equal candidate counts but different candidates were merged BY POSITION, misattributing hits while every identity check passed.]** **Rows written before 2026-09-20 carry no `cands` key and are therefore refused: an existing checkpoint will restart rather than resume, which is the safe outcome, not a fault.** Delete the checkpoint file when changing any run parameter. |
+| `--gs-checkpoint PATH` | JSONL rarity checkpoint (default `u2_checkpoint.jsonl`). Completed batches are skipped on re-run. Every field that selects the sample is written into each row and checked on load: `batch`/`n`/`trials`/`ncand`/`cands`/`seed`/`batches`/`nsamp`/`want`/`hits`. A row that mismatches any of them is REFUSED and counted in the `IGNORED` report, never silently reused. *(Precision, measured 2026-09-21: the row carries all ten keys, but the ones **compared** on load are the six that select the sample — `seed`, `ncand`, `cands`, `batches`, `nsamp` and `want` (`_ck_ident` plus the per-batch `want` check in `roae.py`); `batch` is the lookup key and `n`/`trials`/`hits` are the payload the resume reuses. A checkpoint with `hits`, `trials` and `n` hand-edited resumed as "3 batches already complete" — nothing on load can validate a payload except by recomputing it. A changed `--seed` is refused as documented: `[D] checkpoint: IGNORED 3 row(s) — mismatched cands,seed`.)* ⚠ **[CORRECTED 2026-09-20 — this read "The candidate count (`ncand`) is the only field validated on load … records no seed, sample count, probe size or batch count … is silently reused". That described a state two fixes ago. `seed`, `batches` and `nsamp` were already written and validated; Q-646 adds `cands`, a digest of WHICH candidates were rarity-tested and in what order, because `ncand` is a COUNT and not an IDENTITY — two runs with equal candidate counts but different candidates were merged BY POSITION, misattributing hits while every identity check passed.]** **Rows written before 2026-09-20 carry no `cands` key and are therefore refused: an existing checkpoint will restart rather than resume, which is the safe outcome, not a fault.** Delete the checkpoint file when changing any run parameter. |
 
 `--seed` sets the base seed; when omitted, this mode (unlike the
 Monte-Carlo analysis sections) defaults to the fixed pre-registered seed
@@ -388,6 +404,9 @@ NEW pre-registration rather than an edit, and the pre-registration document
 itself is escrow-frozen (`documentation/PREREGISTRATION_ESCROW.md:67`). Read a
 FAIL here as "these two instruments condition differently", not as "the sampler
 is wrong". See documentation/CORRECTIONS.md CX-52.]**
+*(Line citations measured stale 2026-09-21, two days after the note was written: the `0.04789`
+gate constant is at `roae.py:4986`, `_gs_one_sample` is defined at `:4052`; the `solve.c:7995` /
+`:8168` citations still hold. Anchor on the symbol names.)*
 
 Flags: reuses `--gs-samples` (as N_eval), `--gs-workers`,
 `--gs-batches`, `--gs-json`, `--gs-checkpoint`, and `--seed` (same
@@ -487,7 +506,7 @@ Optional packages enable richer output:
 | Code | Meaning |
 |---|---|
 | 0 | Success, including a `--self-test` run in which every check passed. |
-| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5366` is `return 1 if print_self_test() else 0`, above the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. |
+| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory *(the working-directory clause is stale since 2026-09-02, when the loader became `__file__`-relative; measured 2026-09-21, `--verify` passes from `/tmp`. "Could not load solve.py" now means the sibling file is missing or unreadable, and it still exits 1 — see META FLAGS)* — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5366` is `return 1 if print_self_test() else 0`, above the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. *(The `return 1 if print_self_test() else 0` line sits at `roae.py:5396` as of 2026-09-21, not `:5366`; the behaviour was re-measured that day — 49/49 pass, rc 0 — and the line is the one to grep for.)* |
 | 2 | Invalid argument or unrecognised flag (emitted by `argparse`) |
 | 3 | `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) — the only `sys.exit(3)` in `roae.py` |
 
@@ -572,8 +591,10 @@ python3 roae.py --self-test
   "Heaven over Heaven" — **not** traditional or translated titles,
   which were removed on 2026-08-27; see the note at the top of
   `roae.py`). No external input file required.
-- `--verify` additionally reads `solve.py` from the current working
-  directory (see META FLAGS).
+- `--verify` additionally reads `solve.py` — the one **beside `roae.py`**,
+  resolved from `__file__`, not from the current working directory (the
+  CWD form was true until 2026-09-02; corrected here 2026-09-21, see META
+  FLAGS).
 
 **Writes** — the output-format flags below write only when requested;
 the two analysis modes at the end of the list write their JSON report

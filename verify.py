@@ -1680,8 +1680,17 @@ def check_atlas_orbit_frames(path):
     exactly equal to N.
     """
     import json
-    with open(path) as fh:
-        A = json.load(fh)
+    try:
+        with open(path) as fh:
+            A = json.load(fh)   # ValueError = json.JSONDecodeError
+    except (OSError, ValueError) as e:
+        # A check that cannot run must ERROR, never pass -- and never SKIP either, since
+        # every automated grader here reads SKIP as "not a failure". ERROR is the value this
+        # file already uses for that state (VERIFY=ERROR, T5_C3_AGREE=ERROR); until
+        # 2026-09-21 a missing or non-JSON atlas was a traceback with no token.
+        print("ATLAS_ORBIT_FRAMES=ERROR (cannot read %s: %s)"
+              % (path, getattr(e, "strerror", None) or e))
+        return 2
     n = A["n"]
     orbits = [o for o in _pair_orbits()]
     # 🔴 Recover the subset from the union of raw keys over ALL layers: an individual layer
@@ -1868,12 +1877,25 @@ def q6_extremes_oracle(path):
     order (a1,b1,a2,b2,...) -- the format `solve --kc-enum-desc` prints.
     """
     walks = []
-    with open(path) as fh:
-        for line in fh:
+    # FAIL with a parenthesised reason is this mode's own vocabulary (see the two refusals
+    # just below); a missing WALKS.txt was a FileNotFoundError traceback and a non-integer
+    # field a ValueError traceback until 2026-09-21.
+    try:
+        fh = open(path)
+    except OSError as e:
+        print("Q6_EXTREMES_ORACLE=FAIL (cannot read %s: %s)" % (path, e.strerror or e))
+        return 1
+    with fh:
+        for lineno, line in enumerate(fh, 1):
             line = line.strip()
             if not line or not line[0].isdigit():
                 continue
-            walks.append([int(x) for x in line.split(',')])
+            try:
+                walks.append([int(x) for x in line.split(',')])
+            except ValueError as e:
+                print("Q6_EXTREMES_ORACLE=FAIL (%s:%d: not a comma-separated integer walk: %s)"
+                      % (path, lineno, e))
+                return 1
     if not walks:
         print("Q6_EXTREMES_ORACLE=FAIL (no walks parsed from %s)" % path)
         return 1
@@ -3570,7 +3592,17 @@ def check_t5_c3(sol_bin, chunks_dir):
         print('T5_C3_AGREE=ERROR')
         return 2
 
-    with open(sol_bin, 'rb') as f:
+    # The read below is sequential, so a gzip-framed artifact (SOLVE_COMPRESS's default
+    # form, and what the records path accepts) streams through gzip.open unchanged. Until
+    # 2026-09-21 this opened raw only and reported `bad magic` on the gzip header.
+    _opener = gzip.open if _is_gzip(sol_bin) else open
+    try:
+        f = _opener(sol_bin, 'rb')
+    except OSError as e:
+        # The documented ERROR value (rc 2) for "cannot run", already used for a missing
+        # module; a missing SOLUTIONS_BIN was a FileNotFoundError traceback until 2026-09-21.
+        print('T5_C3_AGREE=ERROR cannot read %s: %s' % (sol_bin, e.strerror or e)); return 2
+    with f:
         hdr = f.read(32)
         if hdr[:4] != b'ROAE':
             print('T5_C3_AGREE=FAIL bad magic in %s' % sol_bin); return 1
@@ -5870,14 +5902,13 @@ _T3_GEN = (
     "    enumerator's KC sampler subcommand and these arguments:\n"
     "      --kc-sample <f-dir> 62500 <seed> --kc-record --kc-ooc --kc-cache-mb 384\n"
     "      (with SOLVE_F1_OOC_READ_MB=1)\n"
-    "    WHICH BUILD: the --kc-* subcommands are NOT on main. They live in solve.c on\n"
-    "    the published branch `v4-query-program`, which BRANCH_REGISTRY.tsv classes as\n"
-    "    a snapshot (a frozen working branch, not the authoritative corpus, and it may\n"
-    "    carry claims since corrected on main -- read main for the corpus). So the\n"
-    "    honest price of regenerating this sample includes checking out that branch\n"
-    "    and building its solve.c; the command is written here WITHOUT a `solve`\n"
-    "    prefix precisely because it is not runnable against this ref's binary, and\n"
-    "    a doc must not imply otherwise.\n"
+    "    WHICH BUILD: the --kc-* subcommands are on main (merged 2026-07-17), so the\n"
+    "    recipe runs against this tree's solve.c: `solve --kc-sample` prints its usage,\n"
+    "    --kc-record included, on this ref. The price of regenerating the sample is\n"
+    "    the ~12.6 h of compute and nothing else. (Until 2026-09-21 this text said the\n"
+    "    subcommands lived only on the `v4-query-program` snapshot branch and were not\n"
+    "    runnable here; that was true when written and stale after the merge. The\n"
+    "    same stale claim in VERIFY.md was corrected 2026-09-11; this copy was not.)\n"
     "    MEASURED COST: ~12.6 h wall on one D16als_v7 against a 3.1 TB f-ladder\n"
     "    (16 lanes, Premium P50 f-disk). Seed-deterministic: the same seeds against\n"
     "    the same f-ladder and binary regenerate the same draws.\n")
@@ -6538,9 +6569,9 @@ def main():
                              '4 sigma. GENERATING THE INPUT: 16 streams x 62,500 draws, one '
                              'KC-sampler invocation per stream — `--kc-sample <f-dir> 62500 '
                              '<seed> --kc-record --kc-ooc --kc-cache-mb 384`. Those subcommands '
-                             'are NOT on main: they live in solve.c on the published snapshot '
-                             'branch `v4-query-program`, so regenerating the sample means building '
-                             'that branch. MEASURED ~12.6 h on one D16als_v7 against a 3.1 TB '
+                             'are on main (since 2026-07-17; `solve --kc-sample` prints its usage '
+                             'on this ref), so regenerating the sample needs only this tree\'s '
+                             'solve.c. MEASURED ~12.6 h on one D16als_v7 against a 3.1 TB '
                              'f-ladder. The analysis itself is cheap: MEASURED 4.3-4.6 s wall '
                              'and ~22.9 MB peak RSS for the full 10^6 draws (3 runs, '
                              '/usr/bin/time -v, 2-vCPU D2as_v6). Wall is a band, not a figure '
@@ -6553,8 +6584,8 @@ def main():
                              'positive-controlled before it reports. Adds two checks beyond the '
                              'prereg: an independent recompute of the engine-recorded cd= value, and '
                              'duplicate detection. Bar: 100%% members. Same input and generating '
-                             'cost as --t3-stats (~12.6 h on a D16als_v7, plus a build of the '
-                             '`v4-query-program` branch, which is where the --kc-* sampler lives). '
+                             'cost as --t3-stats (~12.6 h on a D16als_v7; the --kc-* sampler is on '
+                             'main, so no other branch is needed). '
                              'The analysis itself is cheap: MEASURED ~149 MB peak RSS for the '
                              'full 10^6 draws — the one figure that reproduced across every '
                              'measurement condition. Wall ranged 60-98 s depending on what else '
@@ -6590,7 +6621,7 @@ def main():
                         help='Independent gate on the nuclear-hexagram (互卦) operation: derives it '
                              'from the classical line definition (lower = lines 2-4, upper = lines '
                              '3-5) rather than porting the engine shifts, and compares against '
-                             'solve.c:6269 f5_nuc on all 64 hexagrams. Emits '
+                             'solve.c\'s f5_nuc on all 64 hexagrams. Emits '
                              'NUCLEAR_SELFTEST=PASS|FAIL.')
     parser.add_argument('--q1-labeling-oracle', metavar='WALKS.txt', default=None,
                         help='the O3 labeling theorem executed on the enumerated n=9 universe: '
