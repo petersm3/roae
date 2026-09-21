@@ -53,6 +53,7 @@ python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR [--atlas-select LIST
                  [--xa-nodes-per-sec F --xa-usd-per-hour F --xa-budget-usd F]
                  [--xa-node-mapping-cert PATH]
 python3 solve.py --atlas-selftest ATLAS.json --atlas-walks WALKS.txt [--atlas-q3-trace TRACE.txt]
+python3 solve.py --atlas-probe ATLAS.json        # TR-12 §12: every atlas-derived figure as KEY=value
 
 # TR-8 dof-matched KW-fitting-predicate sampler
 python3 solve.py --tr8-dof-selftest
@@ -612,6 +613,111 @@ had been claiming.]
                              makes every branch's `t_source` read ABSENT, which
                              must turn TR12_XA_B red; the others corrupt an
                              integer column.
+--atlas-probe ATLAS_JSON     TR-12 §12 (added 2026-09-21). Recompute every atlas-
+                             derived figure from a `--kc-raw` atlas ALONE -- no
+                             ladder, no `solve` binary, no network -- and print
+                             each as a whole-line KEY=value token (match with
+                             `grep -qx`, never by shape). Every table is re-summed
+                             against N and the atlas's own gates before a figure
+                             that depends on it is printed. Works at any n the
+                             scan supports; the King-Wen cross-checks run at
+                             n = 31 ONLY, because below full-31 the walk that
+                             `kwrank` tracks is the reduced universe's O3
+                             midpoint (`kw_src`), not King Wen -- those legs print
+                             `SKIP:n=<n>`, never PASS. Exit status carries the
+                             verdict: 0 on `ATLAS_PROBE=PASS`, 1 on FAIL, 2 on
+                             `ATLAS_PROBE=ERROR:<reason>` (unreadable path, or an
+                             atlas lacking a table the probe needs -- a quotient-
+                             only atlas has no `kernel`/`marginal_raw` and is
+                             refused, not scored). Tokens, in print order:
+                             ATLAS_N, ATLAS_N_TOTAL, ATLAS_VERSION,
+                             ATLAS_TYPE_IS_KC_SCAN, ATLAS_LAYER_COUNT_EQ_N,
+                             ATLAS_GATES_ALL_TRUE, ATLAS_TAIL_CHECKS_ALL_PASS,
+                             INTERIOR_LAYER_WINDOW (slots 1..n-2);
+                             B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N,
+                             B0_FROM_COLUMN_SUMS (the run's C5 budget, recovered
+                             from the by_class column sums / N), B0_SUM_EQ_N,
+                             D6_MASS_AT_LAYER0, D3_MIN_LAYER_SHARE,
+                             BY_CLASS_MAX_ABS_DEV_FROM_B0_OVER_N_INTERIOR,
+                             D6_POSITION_LAW_MIN_MAX_INTERIOR;
+                             FMASS_LENGTH_EQ_N_PLUS_1, FMASS_SUM_EQ_T_ROOT,
+                             DEAD_PLUS_LIVE_EQ_FMASS_EVERY_LAYER,
+                             FMASS_N_EQ_N_TOTAL, DOOMED_PREFIX_NODES,
+                             DOOMED_FRACTION_OF_T_ROOT (share of the pruned-DFS
+                             tree, in t-units, spent on prefixes with g = 0),
+                             LIVE_FRACTION_OF_T_ROOT_INCL_LEAVES,
+                             FIRST_LAYER_WITH_DEAD_PREFIXES,
+                             FIRST_LAYER_DEAD_FRACTION_ABOVE_HALF,
+                             DEAD_FRACTION_BY_LAYER,
+                             DOOMED_MASS_TAIL_SHARE_FROM_LAYER;
+                             RID_MASS_EVERY_LAYER_SUMS_TO_N,
+                             RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL, RID_CELLS_TOTAL,
+                             EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS (total-
+                             variation distance of the residual-digit joint
+                             `rid_mass[k]` from the multivariate-hypergeometric
+                             law of a uniformly random arrangement of the b0
+                             multiset), EXCHANGEABLE_NULL_TV_BY_LAYER,
+                             CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX (the same
+                             distance from a deliberately wrong null, the product
+                             of the joint's own digit marginals),
+                             CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV (their
+                             ratio -- a reading, not a gate: ~10 at n = 31, below
+                             1 at n = 9), EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL,
+                             EXCHANGEABLE_NULL_MOST_ENHANCED_CELL (the cells with
+                             the smallest and largest observed/null mass ratio);
+                             REF_WALK_SOURCE (`kw_src`: `KW` at n = 31),
+                             REF_WALK_CLASSES_ARE_ADMISSIBLE,
+                             REF_WALK_CLASS_MULTISET_EQ_B0,
+                             REF_WALK_RID_RANK_BY_LAYER_1_IS_MODAL,
+                             RID_CELLS_BY_LAYER,
+                             REF_WALK_TRANSITIONS_MATCH_KW_CLS (the walk's
+                             transitions are rebuilt from `kw_exit` and the pair
+                             table: exit of the previous pair, pair-mate of the
+                             placed exit), REF_WALK_IS_KING_WEN (n = 31 only);
+                             KERNEL_EVERY_LAYER_SUMS_TO_N,
+                             KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1,
+                             KERNEL_INTERIOR_WINDOW (layers 6..n-8, n >= 14),
+                             KERNEL_TV_ADJACENT_MAX_INTERIOR,
+                             REF_WALK_KERNEL_CELLS_ALL_NONZERO,
+                             REF_WALK_KERNEL_LOG2_SCORE (sum over layers of
+                             log2 of the walk's kernel cell / N),
+                             KERNEL_POPULATION_MEAN_LOG2_SCORE (minus the sum of
+                             the per-layer kernel entropies -- the same score
+                             averaged over all walks),
+                             REF_WALK_KERNEL_SCORE_MINUS_POPULATION_MEAN_BITS,
+                             STEP_XOR_DISTINCT_VALUES,
+                             STEP_XOR_TOTAL_EQ_N_TIMES_N_TOTAL,
+                             STEP_XOR_POPCOUNT1_SHARE_MIN_MAX,
+                             STEP_XOR_POPCOUNT2_SHARE_MIN_MAX,
+                             STEP_XOR_POPCOUNT3_SHARE_MIN_MAX,
+                             STEP_XOR_POPCOUNT4_SHARE_MIN_MAX,
+                             STEP_XOR_POPCOUNT6_SHARE_MIN_MAX;
+                             PAIR_UNIVERSE_SIZE, PAIR_UNIVERSE_SIZE_EQ_N,
+                             PAIRS_NEVER_FIRST, PAIRS_NEVER_FIRST_HEX_POPCOUNTS,
+                             PAIRS_NEVER_FIRST_ARE_EXACTLY_THE_POPCOUNT5_PAIRS,
+                             PAIRS_ADMISSIBLE_LAST_COUNT,
+                             MARGINAL_RAW_NONZERO_CELL_MIN_MAX,
+                             POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR,
+                             KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR (n = 31
+                             only); KWRANK_BINS_SUM_TO_CLASS_MASS_EVERY_LAYER,
+                             REF_WALK_CELL_PERCENTILE_BY_LAYER_MASS_WEIGHTED_LT
+                             (`lt/(lt+eq+gt)` from the L6a `kwrank` bins: the
+                             walk-mass share of same-class transitions at that
+                             layer lighter than the walk's own),
+                             REF_WALK_CELL_PERCENTILE_MEAN_OVER_N_STEPS,
+                             REF_WALK_CELL_PERCENTILE_STEPS_BELOW_0_25,
+                             CELL_PERCENTILE_NULL_MEAN_PER_STEP (a statement,
+                             not a measurement: 0.5 less half the tie mass);
+                             OUTDEG_WALK_MASS_EVERY_LAYER_SUMS_TO_N,
+                             LIVE_BRANCHING_ENTRY_WEIGHTED_BY_LAYER,
+                             LIVE_BRANCHING_WALKMASS_WEIGHTED_BY_LAYER,
+                             HIST_WALK_MASS_EVERY_LAYER_SUMS_TO_N,
+                             HALF_MASS_TRANSITION_SHARE_UPPER_BOUND_BY_LAYER,
+                             LAYERS_WHERE_ONE_MASK_IS_MAX_WITNESS_FOR_ALL_5_CLASSES;
+                             ATLAS_PROBE_FAILS, ATLAS_PROBE. Gated by
+                             tests.py `TestAtlasProbe`: a real n=9 atlas passes,
+                             a perturbed class mass turns it red (rc 1), a
+                             quotient-only atlas is refused (rc 2).
 --xa-nodes-per-sec F         XA-c/d: measured DFS throughput anchor.
 --xa-usd-per-hour F          XA-c/d: worker price anchor.
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call

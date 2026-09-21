@@ -10377,3 +10377,35 @@ leg. What was wrong is the instrument a replicator is told to run: it could not 
 `sorry`. `lean/README.md`'s companion sentence, "exit code alone is fail-open, which is why
 'stderr 0 bytes' is the load-bearing half", named the wrong stream — stderr is empty for the
 `sorry`'d file too — and is corrected in place the same day.
+
+## CX-58 — a feasibility sentence in TR-12's Q10(b) cost line reached past the five tables it named (TR-12) (RP: none)
+
+**2026-09-21.** `reports/TR12_QUERY_PROGRAM.md` §11 Q10(b), in the cost line corrected on
+2026-09-20, says the scan pass touches `flow[k]`, `cls[k][.]`, `qmarg[k][.]`, `rawmarg[k][.]`,
+`fmass[k]` — *"with **no hexagram-identity axis**. No coset projection can be aggregated out of
+those tables at any price, so (b) does not ride Q6's scan pass."* The first two clauses are true
+of the five accumulators the cited comment names (the `--kc-layers` chunking comment on
+`--kc-scan`, `solve.c:24955` at `origin/main` `fa5a98dd`). The third reaches past them: the same
+scan pass, under `--kc-raw`, also accumulates the per-layer 64×64 raw kernel `T->kern` — emitted
+as `kernel`, cells `m<a>_<b>` — keyed by **exit hexagram a and entry hexagram b**, which is a
+hexagram-identity axis, and the same report's V5 row (line 612) has said so since 2026-09-12.
+Measured on the n=31 atlas: 31 layers of `kernel`, every one summing to N
+(`KERNEL_EVERY_LAYER_SUMS_TO_N=PASS` from `python3 solve.py --atlas-probe`, added today).
+
+**What follows, and what does not.** For the *step-difference* reading of (b) — cosets of
+`x = a ⊕ b` under an XOR-translation subgroup — a coset projection **is** a finite sum of persisted
+kernel cells: its data cost is zero and it needs no ladder. For the reading the row's own Mechanism
+bullet specifies — a coset id per canonical **mask** — the kernel does not help, because a kernel
+cell is one transition, not a prefix state, and no per-mask table is persisted at any n. Under
+**either** reading the blocker is the one line 1597 already states: the subgroup set and coset-id
+map are **undefined**, `--kc-coset-census` does not exist (`git grep -c kc-coset-census
+origin/main -- solve.c` → 0, against hits in the inventory, the battery and the skip pin), and
+`TR12_Q10B=PENDING:--kc-coset-census` stays pinned. **So the 2026-09-20 correction's conclusion
+stands** — no replacement cost figure, (b) needs a definition before it can be costed — and only
+its feasibility clause is narrowed, in place, to the tables it names. No count, verdict or query
+specification moves.
+
+**Why no `RETRACTED_PHRASES.tsv` row.** The sentence is true of the five tables it names and true
+under the mask-level reading; a needle on it would ban a true statement, which is the false
+retraction PART B of the registry warns against. The narrowing is carried by the dated annotation
+at the site and by this entry.

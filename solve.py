@@ -14612,6 +14612,353 @@ def _atlas_brute_recount(walks_path, n):
     return {"N": total, "flow": flow, "byclass": byclass, "marg": marg, "branch": branch}
 
 
+def atlas_probe(atlas_path):
+    """TR-12 §12: recompute every atlas-derived figure from the atlas alone.  Emits ATLAS_PROBE=.
+
+    Reads ONLY a `solve --kc-scan ... --kc-raw --kc-tdir` atlas JSON (`version` 2, the
+    2026-09-11 logging tables): no ladder, no solver binary, no network.  Every figure is a
+    whole-line `KEY=value` token, so a reader matches it with `grep -qx` and never by output
+    shape.  Every table is re-summed against N (and the atlas's own gates) before a figure that
+    depends on it is printed; the one statistic that needs a null (the C5 budget path against
+    the exchangeable multivariate-hypergeometric law) is also evaluated against a deliberately
+    WRONG null (the product of its own marginals), so the reader can see the statistic
+    discriminates.  Works at any n the scan supports; the King-Wen cross-checks run at n = 31
+    only, because below full-31 the walk `kwrank` tracks is the O3 midpoint of the reduced
+    universe (`kw_src`), not King Wen -- those legs print `SKIP:n=<n>`, never PASS.
+
+    Exit status carries the verdict: 0 on ATLAS_PROBE=PASS, 1 on FAIL, 2 on ERROR (the atlas
+    could not be read, or lacks a table this probe needs -- a quotient-only atlas without
+    `--kc-raw` has no `kernel` / `marginal_raw` and is refused, not scored).
+
+    Claude Fable 5.1, 2026-09-21.  Developed with AI assistance (Claude, Anthropic).  Ported
+    verbatim in method from the private generation-pass probe so that the figures published in
+    reports/TR12_QUERY_PROGRAM.md §12 have a public reproduction command.
+    """
+    from math import comb
+    fails = [0]
+
+    def tok(k, v):
+        print("%s=%s" % (k, v))
+
+    def gate(name, ok):
+        tok(name, "PASS" if ok else "FAIL")
+        if not ok:
+            fails[0] += 1
+
+    def pc(x):
+        return bin(x).count("1")
+
+    try:
+        with open(atlas_path) as fh:
+            a = json.load(fh)
+    except (OSError, ValueError) as exc:
+        print("ERROR: [atlas-probe] cannot read atlas %s: %s" % (atlas_path, exc),
+              file=sys.stderr)
+        tok("ATLAS_PROBE", "ERROR:cannot-read-atlas")
+        return 2
+    try:
+        n = int(a["n"])
+        N = int(a["N_total"])
+        L = a["layers"]
+        T_ROOT = int(a["t_root_t_units"])
+        CLS = ("d1", "d2", "d3", "d4", "d6")
+        DV = {1: 0, 2: 1, 3: 2, 4: 3, 6: 4}
+        need = ("by_class", "counts", "rid_mass", "kernel", "marginal_raw", "kwrank",
+                "outdeg", "hist", "extrema")
+        for l in L:
+            for key in need:
+                if key not in l:
+                    raise KeyError("layer %s lacks table %r (atlas built without --kc-raw, or "
+                                   "pre-version-2)" % (l.get("k"), key))
+        # ---------------------------------------------------------------- 0. identity of the input
+        tok("ATLAS_N", n)
+        tok("ATLAS_N_TOTAL", N)
+        tok("ATLAS_VERSION", a.get("version"))
+        gate("ATLAS_TYPE_IS_KC_SCAN", a.get("type") == _ATLAS_TYPE)
+        gate("ATLAS_LAYER_COUNT_EQ_N", len(L) == n and all(int(L[k]["k"]) == k for k in range(n)))
+        g = a.get("gates") or {}
+        gate("ATLAS_GATES_ALL_TRUE",
+             bool(g) and g.get("fails") == 0
+             and all(v is True for k, v in g.items() if k != "fails"))
+        t = a.get("tail_checks") or {}
+        gate("ATLAS_TAIL_CHECKS_ALL_PASS",
+             bool(t) and t.get("fails") == 0
+             and all(v == "PASS" for k, v in t.items() if k != "fails"))
+        lo_w, hi_w = 1, n - 2                      # interior slots: the wrap/anchor ends excluded
+        tok("INTERIOR_LAYER_WINDOW", "%d,%d" % (lo_w, hi_w))
+
+        # ---------------------------------------------------------------- 1. budget b0 from column sums
+        col = [sum(int(l["by_class"][c]) for l in L) for c in CLS]
+        gate("B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N", all(x % N == 0 for x in col))
+        b0 = [x // N for x in col]
+        tok("B0_FROM_COLUMN_SUMS", ",".join(str(x) for x in b0))
+        gate("B0_SUM_EQ_N", sum(b0) == n)
+        tok("D6_MASS_AT_LAYER0", int(L[0]["by_class"]["d6"]))
+        tok("D3_MIN_LAYER_SHARE", "%.5f" % min(int(l["by_class"]["d3"]) / N for l in L))
+        dev = max(abs(int(L[k]["by_class"][c]) / N - b0[i] / n)
+                  for k in range(lo_w, hi_w + 1) for i, c in enumerate(CLS))
+        tok("BY_CLASS_MAX_ABS_DEV_FROM_B0_OVER_N_INTERIOR", "%.5f" % dev)
+        d6pos = [int(l["by_class"]["d6"]) / N for l in L]
+        tok("D6_POSITION_LAW_MIN_MAX_INTERIOR",
+            "%.5f,%.5f" % (min(d6pos[lo_w:hi_w + 1]), max(d6pos[lo_w:hi_w + 1])))
+
+        # ---------------------------------------------------------------- 2. doomed-prefix share (L3 counts)
+        dead = [int(l["counts"]["st_dead_fmass"]) for l in L]
+        live = [int(l["counts"]["st_live_fmass"]) for l in L]
+        fm = [int(x) for x in a["fmass"]]
+        gate("FMASS_LENGTH_EQ_N_PLUS_1", len(fm) == n + 1)
+        gate("FMASS_SUM_EQ_T_ROOT", sum(fm) == T_ROOT)
+        gate("DEAD_PLUS_LIVE_EQ_FMASS_EVERY_LAYER", all(fm[k] == dead[k] + live[k] for k in range(n)))
+        gate("FMASS_N_EQ_N_TOTAL", fm[n] == N)
+        D = sum(dead)
+        tok("DOOMED_PREFIX_NODES", D)
+        tok("DOOMED_FRACTION_OF_T_ROOT", "%.6f" % (D / T_ROOT))
+        tok("LIVE_FRACTION_OF_T_ROOT_INCL_LEAVES", "%.6f" % ((sum(live) + N) / T_ROOT))
+        first_dead = next((k for k in range(n) if dead[k] > 0), "NONE")
+        tok("FIRST_LAYER_WITH_DEAD_PREFIXES", first_dead)
+        tok("FIRST_LAYER_DEAD_FRACTION_ABOVE_HALF", next((k for k in range(n) if dead[k] > live[k]), "NONE"))
+        tok("DEAD_FRACTION_BY_LAYER", ",".join("%.4f" % (dead[k] / (dead[k] + live[k])) for k in range(n)))
+        if D:
+            tok("DOOMED_MASS_TAIL_SHARE_FROM_LAYER",
+                ",".join("%.4f" % (sum(dead[k:]) / D) for k in range(n)))
+        else:
+            tok("DOOMED_MASS_TAIL_SHARE_FROM_LAYER", "NONE:no-dead-prefixes")
+
+        # ---------------------------------------------------------------- 3. the C5 budget path vs exchangeability
+        rad = [1]
+        for d in range(4):
+            rad.append(rad[-1] * (b0[d] + 1))
+
+        def digs(r):
+            return [(r // rad[d]) % (b0[d] + 1) for d in range(5)]
+
+        rm_by_k = []
+        sums_ok = digit_ok = True
+        for k in range(n):
+            rm = {int(kk[1:]): int(v) for kk, v in L[k]["rid_mass"].items()}
+            rm_by_k.append(rm)
+            sums_ok = sums_ok and sum(rm.values()) == N
+            digit_ok = digit_ok and all(sum(digs(r)) == k for r in rm)
+        gate("RID_MASS_EVERY_LAYER_SUMS_TO_N", sums_ok)
+        gate("RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL", digit_ok)
+        tv_hyper, tv_prod, ncell = [], [], []
+        worst = (1.0, None, None)
+        best = (1.0, None, None)
+        for k in range(n):
+            rm = rm_by_k[k]
+            marg = [{} for _ in range(5)]
+            for r, v in rm.items():
+                dg = digs(r)
+                for d in range(5):
+                    marg[d][dg[d]] = marg[d].get(dg[d], 0) + v
+            th = tp = 0.0
+            for r, v in rm.items():
+                dg = digs(r)
+                q = 1.0
+                for d in range(5):
+                    q *= comb(b0[d], dg[d])
+                q /= comb(n, k)
+                p = v / N
+                th += abs(p - q)
+                if q > 0 and p / q < worst[0]:
+                    worst = (p / q, k, dg)
+                if q > 0 and p / q > best[0]:
+                    best = (p / q, k, dg)
+                pf = 1.0
+                for d in range(5):
+                    pf *= marg[d][dg[d]] / N
+                tp += abs(p - pf)
+            tv_hyper.append(th / 2)
+            tv_prod.append(tp / 2)
+            ncell.append(len(rm))
+        tok("RID_CELLS_TOTAL", sum(ncell))
+        tok("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS", "%.4f" % max(tv_hyper))
+        tok("EXCHANGEABLE_NULL_TV_BY_LAYER", ",".join("%.4f" % x for x in tv_hyper))
+        tok("CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX", "%.4f" % max(tv_prod))
+        # A reading, not a gate: at n=31 the wrong null is ~10x worse than the exchangeable
+        # one; at n=9 (b0 = 2,5,0,2,0) the exchangeable null itself is off by TV 0.36 and the
+        # ratio is below 1.  Whether the statistic discriminates is a property of the data.
+        tok("CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV",
+            ("%.2f" % (max(tv_prod) / max(tv_hyper))) if max(tv_hyper) > 0 else "INF")
+        tok("EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL",
+            "ratio=%.3f layer=%s digits=%s" % (worst[0], worst[1], worst[2]))
+        tok("EXCHANGEABLE_NULL_MOST_ENHANCED_CELL",
+            "ratio=%.3f layer=%s digits=%s" % (best[0], best[1], best[2]))
+
+        # the reference walk `kwrank` tracks: King Wen at n=31, the O3 midpoint below it
+        kwsrc = sorted({str(l["kwrank"]["kw_src"]) for l in L})
+        tok("REF_WALK_SOURCE", "|".join(kwsrc))
+        kwc = [int(l["kwrank"]["kw_cls"]) for l in L]
+        kwx = [int(l["kwrank"]["kw_exit"]) for l in L]
+        gate("REF_WALK_CLASSES_ARE_ADMISSIBLE", all(c in DV for c in kwc))
+        cnt = [0] * 5
+        ref_rank = []
+        for k in range(n):
+            rid = sum(cnt[d] * rad[d] for d in range(5))
+            rm = rm_by_k[k]
+            ref_rank.append(1 + sum(1 for v in rm.values() if v > rm.get(rid, 0)))
+            cnt[DV[kwc[k]]] += 1
+        gate("REF_WALK_CLASS_MULTISET_EQ_B0", cnt == b0)
+        tok("REF_WALK_RID_RANK_BY_LAYER_1_IS_MODAL", ",".join(map(str, ref_rank)))
+        tok("RID_CELLS_BY_LAYER", ",".join(map(str, ncell)))
+
+        # ---------------------------------------------------------------- 4. kernel: stationarity, score, step-XOR
+        # The reference walk's transitions, reconstructed from `kwrank` alone: the layer-k
+        # transition is (exit of the previous pair, entry of the placed pair); C4 pins the
+        # anchor's exit to 0, and the placed pair's entry is the pair-mate of its exit.
+        mate = {}
+        for e, x in king_wen_pairs():
+            mate[e] = x
+            mate[x] = e
+        ref_t = []
+        prev = 0
+        for k in range(n):
+            ref_t.append((prev, mate[kwx[k]]))
+            prev = kwx[k]
+        gate("REF_WALK_TRANSITIONS_MATCH_KW_CLS", all(pc(x ^ y) == kwc[k] for k, (x, y) in enumerate(ref_t)))
+        if n == 31:
+            kw = binary_hexagrams
+            gate("REF_WALK_IS_KING_WEN",
+                 kwsrc == ["KW"] and all(kwx[k] == kw[2 * k + 3] for k in range(n))
+                 and all(ref_t[k] == (kw[2 * k + 1], kw[2 * k + 2]) for k in range(n)))
+        else:
+            tok("REF_WALK_IS_KING_WEN", "SKIP:n=%d" % n)
+
+        def kern(k):
+            return {tuple(int(s) for s in key[1:].split("_")): int(v) for key, v in L[k]["kernel"].items()}
+        Ms = [kern(k) for k in range(n)]
+        gate("KERNEL_EVERY_LAYER_SUMS_TO_N", all(sum(M.values()) == N for M in Ms))
+        tvs = []
+        for k in range(1, n):
+            keys = set(Ms[k]) | set(Ms[k - 1])
+            tvs.append(0.5 * sum(abs(Ms[k].get(x, 0) - Ms[k - 1].get(x, 0)) for x in keys) / N)
+        tok("KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1", ",".join("%.4f" % x for x in tvs))
+        if n >= 14:
+            klo, khi = 6, n - 8
+            tok("KERNEL_INTERIOR_WINDOW", "%d,%d" % (klo, khi))
+            tok("KERNEL_TV_ADJACENT_MAX_INTERIOR", "%.5f" % max(tvs[klo - 1:khi]))
+        else:
+            tok("KERNEL_INTERIOR_WINDOW", "SKIP:n=%d" % n)
+            tok("KERNEL_TV_ADJACENT_MAX_INTERIOR", "SKIP:n=%d" % n)
+        H = [-sum((v / N) * math.log2(v / N) for v in M.values()) for M in Ms]
+        gate("REF_WALK_KERNEL_CELLS_ALL_NONZERO", all(Ms[k].get(ref_t[k], 0) > 0 for k in range(n)))
+        if all(Ms[k].get(ref_t[k], 0) > 0 for k in range(n)):
+            score = sum(math.log2(Ms[k][ref_t[k]] / N) for k in range(n))
+            tok("REF_WALK_KERNEL_LOG2_SCORE", "%.3f" % score)
+            tok("KERNEL_POPULATION_MEAN_LOG2_SCORE", "%.3f" % (-sum(H)))
+            tok("REF_WALK_KERNEL_SCORE_MINUS_POPULATION_MEAN_BITS", "%.3f" % (score + sum(H)))
+        X = {}
+        for M in Ms:
+            for (x, y), v in M.items():
+                X[x ^ y] = X.get(x ^ y, 0) + v
+        tok("STEP_XOR_DISTINCT_VALUES", len(X))
+        gate("STEP_XOR_TOTAL_EQ_N_TIMES_N_TOTAL", sum(X.values()) == n * N)
+        for p in (1, 2, 3, 4, 6):
+            vals = sorted(v / N for x, v in X.items() if pc(x) == p)
+            tok("STEP_XOR_POPCOUNT%d_SHARE_MIN_MAX" % p,
+                ("%.4f,%.4f,count=%d" % (vals[0], vals[-1], len(vals))) if vals else "NA,NA,count=0")
+
+        # ---------------------------------------------------------------- 5. positional field (marginal_raw)
+        universe = set()
+        for l in L:
+            universe |= {int(x[4:]) for x in l["marginal_raw"]}
+        tok("PAIR_UNIVERSE_SIZE", len(universe))
+        gate("PAIR_UNIVERSE_SIZE_EQ_N", len(universe) == n)
+        pairs = king_wen_pairs()
+        k0 = {int(x[4:]) for x in L[0]["marginal_raw"]}
+        kl = {int(x[4:]) for x in L[n - 1]["marginal_raw"]}
+        absent0 = sorted(universe - k0)
+        tok("PAIRS_NEVER_FIRST", ",".join(map(str, absent0)) or "NONE")
+        tok("PAIRS_NEVER_FIRST_HEX_POPCOUNTS",
+            ";".join("%s:%d,%d" % (pairs[p], pc(pairs[p][0]), pc(pairs[p][1])) for p in absent0) or "NONE")
+        gate("PAIRS_NEVER_FIRST_ARE_EXACTLY_THE_POPCOUNT5_PAIRS",
+             set(absent0) == {p for p in universe if pc(pairs[p][0]) == 5 and pc(pairs[p][1]) == 5})
+        tok("PAIRS_ADMISSIBLE_LAST_COUNT", len(kl))
+        cells = [int(v) / N for l in L for v in l["marginal_raw"].values()]
+        tok("MARGINAL_RAW_NONZERO_CELL_MIN_MAX", "%.4f,%.4f" % (min(cells), max(cells)))
+        tvu = []
+        for k in range(lo_w, hi_w + 1):
+            mr = {int(x[4:]): int(v) / N for x, v in L[k]["marginal_raw"].items()}
+            tvu.append(0.5 * sum(abs(mr.get(p, 0.0) - 1.0 / n) for p in universe))
+        tok("POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR", "%.4f" % max(tvu))
+        if n == 31:
+            own = [int(L[k]["marginal_raw"]["pair%d" % (k + 1)]) / N for k in range(lo_w, hi_w + 1)]
+            tok("KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR", "%.4f,%.4f" % (min(own), max(own)))
+        else:
+            tok("KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR", "SKIP:n=%d" % n)
+
+        # ---------------------------------------------------------------- 6. the reference walk's cell percentile (L6a)
+        pct = []
+        bins_ok = True
+        for k in range(n):
+            kw = L[k]["kwrank"]
+            d = str(kw["kw_cls"])
+            r = kw["kwr" + d]
+            lt, eq, gt = (int(r[b]["rw"]) for b in ("lt", "eq", "gt"))
+            bins_ok = bins_ok and (lt + eq + gt == int(L[k]["by_class"]["d" + d]))
+            pct.append(lt / (lt + eq + gt))
+        gate("KWRANK_BINS_SUM_TO_CLASS_MASS_EVERY_LAYER", bins_ok)
+        tok("REF_WALK_CELL_PERCENTILE_BY_LAYER_MASS_WEIGHTED_LT", ",".join("%.3f" % x for x in pct))
+        tok("REF_WALK_CELL_PERCENTILE_MEAN_OVER_N_STEPS", "%.3f" % (sum(pct) / n))
+        tok("REF_WALK_CELL_PERCENTILE_STEPS_BELOW_0_25", sum(1 for x in pct if x < 0.25))
+        tok("CELL_PERCENTILE_NULL_MEAN_PER_STEP", "0.5-minus-half-the-tie-mass:STATED-NOT-MEASURED")
+
+        # ---------------------------------------------------------------- 7. out-degree and concentration (L13, L6)
+        bf = []
+        od_ok = True
+        for k in range(n):
+            od = {int(kk[2:]): v for kk, v in L[k]["outdeg"].items()}
+            E = sum(int(v["dc"]) for v in od.values())
+            W = sum(int(v["dw"]) for v in od.values())
+            od_ok = od_ok and W == N
+            bf.append((sum(c * int(v["dc"]) for c, v in od.items()) / E,
+                       sum(c * int(v["dw"]) for c, v in od.items()) / W))
+        gate("OUTDEG_WALK_MASS_EVERY_LAYER_SUMS_TO_N", od_ok)
+        tok("LIVE_BRANCHING_ENTRY_WEIGHTED_BY_LAYER", ",".join("%.2f" % x[0] for x in bf))
+        tok("LIVE_BRANCHING_WALKMASS_WEIGHTED_BY_LAYER", ",".join("%.2f" % x[1] for x in bf))
+        conc = []
+        hist_ok = True
+        for k in range(n):
+            buckets = {}
+            for d, h in L[k]["hist"].items():
+                for lg, v in h.items():
+                    b = int(lg[2:])
+                    buckets.setdefault(b, [0, 0])
+                    buckets[b][0] += int(v["ho"])
+                    buckets[b][1] += int(v["hwo"])
+            tot = sum(v[1] for v in buckets.values())
+            hist_ok = hist_ok and tot == N
+            ntot = sum(v[0] for v in buckets.values())
+            acc = cnt_ = 0
+            for b, v in sorted(buckets.items(), key=lambda kv: -kv[0]):
+                acc += v[1]
+                cnt_ += v[0]
+                if acc >= tot / 2:
+                    break
+            conc.append(cnt_ / ntot)
+        gate("HIST_WALK_MASS_EVERY_LAYER_SUMS_TO_N", hist_ok)
+        tok("HALF_MASS_TRANSITION_SHARE_UPPER_BOUND_BY_LAYER", ",".join("%.3f" % x for x in conc))
+
+        # ---------------------------------------------------------------- 8. extrema witness structure (L4)
+        share = {}
+        for k in range(n):
+            for d in ("1", "2", "3", "4", "6"):
+                e = L[k]["extrema"]["ext" + d]["max"]
+                if e:
+                    share.setdefault((k, e["x_cm"]), []).append(d)
+        all5 = sorted(k for (k, cm), ds in share.items() if len(ds) == 5)
+        tok("LAYERS_WHERE_ONE_MASK_IS_MAX_WITNESS_FOR_ALL_5_CLASSES", ",".join(map(str, all5)) or "NONE")
+    except (KeyError, TypeError, ValueError, IndexError, ZeroDivisionError) as exc:
+        print("ERROR: [atlas-probe] malformed or incomplete atlas %s: %s: %s"
+              % (atlas_path, type(exc).__name__, exc), file=sys.stderr)
+        tok("ATLAS_PROBE", "ERROR:malformed-atlas")
+        return 2
+
+    tok("ATLAS_PROBE_FAILS", fails[0])
+    tok("ATLAS_PROBE", "PASS" if fails[0] == 0 else "FAIL")
+    return 0 if fails[0] == 0 else 1
+
+
 def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
     """n=9 brute-force gate over the whole consumer.  Emits ATLAS_CONSUMER=."""
     import shutil
@@ -15986,6 +16333,12 @@ def main():
     parser.add_argument("--atlas-selftest", metavar="ATLAS_JSON",
                         help="reduced-n (n<=13) brute-force gate over the whole consumer; "
                              "emits ATLAS_CONSUMER=PASS|FAIL")
+    parser.add_argument("--atlas-probe", metavar="ATLAS_JSON",
+                        help="TR-12 §12: recompute every atlas-derived figure (b0 from column "
+                             "sums, doomed-prefix share, C5 budget-path exchangeability, kernel "
+                             "stationarity and score, positional field, cell percentile) from a "
+                             "--kc-raw atlas alone, as whole-line KEY=value tokens; emits "
+                             "ATLAS_PROBE=PASS|FAIL|ERROR:<reason> and exits 0/1/2")
     parser.add_argument("--atlas-walks", metavar="FILE", default=None,
                         help="--atlas-selftest: explicit enumeration `solve --kc-enum FDIR` "
                              "(one walk per line) for the brute-force recount")
@@ -16026,6 +16379,9 @@ def main():
         global _ATLAS_FAULT
         _ATLAS_FAULT = args.atlas_fault
         print("[atlas] FAULT INJECTION ACTIVE: %s (test-only)" % args.atlas_fault)
+
+    if args.atlas_probe:
+        sys.exit(atlas_probe(args.atlas_probe))
 
     if args.atlas_selftest:
         sys.exit(atlas_selftest(args.atlas_selftest,

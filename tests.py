@@ -6891,5 +6891,112 @@ class TestMissingInputIsRefusedNotCrashed(unittest.TestCase):
             S.h2_parse_dump = real
 
 
+class TestAtlasProbe(unittest.TestCase):
+    """`solve.py --atlas-probe` (TR-12 §12, 2026-09-21): the public reproduction command for
+    every figure derived from the n=31 `--kc-scan --kc-raw` atlas.  This class builds a REAL
+    n=9 f/g/t ladder and atlas with the tracked solve.c, runs the probe on it, and then proves
+    the probe can come out red: a perturbed class mass must turn it FAIL (rc 1), a quotient-only
+    atlas (no `kernel`) must be REFUSED (rc 2), and a missing path must be an ERROR line, never a
+    traceback.  Every token is matched whole-line.  A build failure is a test FAILURE, never a
+    skip -- a gate that cannot run must not read as one that passed."""
+
+    @classmethod
+    def setUpClass(cls):
+        import tempfile, os
+        cls.tmp = tempfile.mkdtemp(prefix="atlasprobe_")
+        cls.sbin = os.path.join(cls.tmp, "solve_probe")
+        cls.atlas = os.path.join(cls.tmp, "atlas9.json")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        if not cls.build_ok:
+            return
+        f, g, t = (os.path.join(cls.tmp, d) for d in ("f", "g", "t"))
+        for argv in ([cls.sbin, "--kc-build", f, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-g-build", g, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-t-build", f, t],
+                     [cls.sbin, "--kc-scan", f, g, cls.atlas, "--kc-tdir", t, "--kc-raw"]):
+            r = subprocess.run(argv, capture_output=True, text=True)
+            if r.returncode != 0:
+                cls.build_ok = False
+                cls.build_err = "%s: rc %d\n%s" % (" ".join(argv[1:3]), r.returncode, r.stdout[-1500:])
+                return
+        cls.build_ok = os.path.exists(cls.atlas)
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _probe(self, path):
+        r = subprocess.run([sys.executable, "solve.py", "--atlas-probe", path],
+                           capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        self.assertNotIn("Traceback (most recent call last)", out, out)
+        return r.returncode, set(r.stdout.splitlines()), out
+
+    def test_a_real_n9_atlas_passes_and_the_reduced_budget_is_read_off_it(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        rc, lines, out = self._probe(self.atlas)
+        self.assertEqual(rc, 0, out)
+        for want in ("ATLAS_PROBE=PASS", "ATLAS_PROBE_FAILS=0",
+                     # the reduced universe's C5 budget: d3 and d6 are ZERO there because the
+                     # deterministic-DFS witness multiset has no d3/d6 component -- the local
+                     # fact behind the small-n class zeros (TR-12 §12.1)
+                     "B0_FROM_COLUMN_SUMS=2,5,0,2,0", "B0_SUM_EQ_N=PASS",
+                     "REF_WALK_SOURCE=O3-MIDPOINT", "REF_WALK_IS_KING_WEN=SKIP:n=9",
+                     "KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR=SKIP:n=9",
+                     "PAIRS_NEVER_FIRST=4,6,21",
+                     "PAIRS_NEVER_FIRST_ARE_EXACTLY_THE_POPCOUNT5_PAIRS=PASS",
+                     "RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL=PASS",
+                     "REF_WALK_TRANSITIONS_MATCH_KW_CLS=PASS"):
+            self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
+        self.assertFalse([l for l in lines if l.endswith("=FAIL")], out)
+
+    def test_a_perturbed_class_mass_turns_the_probe_red(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, os
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        cell = a["layers"][3]["by_class"]
+        old = cell["d1"]
+        cell["d1"] = (str if isinstance(old, str) else int)(int(old) + 1)
+        mutant = os.path.join(self.tmp, "atlas9_mutant.json")
+        with open(mutant, "w") as fh:
+            json.dump(a, fh)
+        # precondition: the mutant differs from the fixture, and the fixture's gate was green
+        with open(self.atlas) as fa, open(mutant) as fm:
+            self.assertNotEqual(fa.read(), fm.read())
+        rc0, lines0, _ = self._probe(self.atlas)
+        self.assertIn("B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N=PASS", lines0)
+        rc, lines, out = self._probe(mutant)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("ATLAS_PROBE=FAIL", lines, out)
+        self.assertIn("B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N=FAIL", lines, out)
+        self.assertNotIn("ATLAS_PROBE_FAILS=0", lines, out)
+
+    def test_a_quotient_only_atlas_is_refused_not_scored(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, os
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        for layer in a["layers"]:
+            del layer["kernel"]
+        stripped = os.path.join(self.tmp, "atlas9_nokernel.json")
+        with open(stripped, "w") as fh:
+            json.dump(a, fh)
+        rc, lines, out = self._probe(stripped)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("ATLAS_PROBE=ERROR:malformed-atlas", lines, out)
+        self.assertNotIn("ATLAS_PROBE=PASS", lines, out)
+
+    def test_a_missing_atlas_is_an_error_line_not_a_traceback(self):
+        rc, lines, out = self._probe("/nonexistent/atlas.json")
+        self.assertEqual(rc, 2, out)
+        self.assertIn("ATLAS_PROBE=ERROR:cannot-read-atlas", lines, out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
