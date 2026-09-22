@@ -7464,6 +7464,700 @@ stale values are the evidence and correcting them would destroy the record. The 
 sequence was changed or withdrawn — the one number this day ADDS is `μ_rec^C15`, stated above with its
 interval. The scan has not run.
 
+## 2026-09-13 — one rule underneath every defect in the preflight, and three fixes of mine that were wrong
+
+**What the day was supposed to be.** The operator authorised the L-series scan-rate measurement and
+said in the same breath that they did not know we were ready — and the second half is the binding
+one. The task was to finish the preflight and turn "ready" from a feeling into a checklist. Every
+suite was already green. What the preflight found instead was a family of defects that no green
+suite could have caught, because the suites exercise the harness **doing its job**, not the harness
+being throttled, killed at the wall, or handed a malformed file. The discipline that made the day
+worth anything is the same in every case: each defect was **proven by execution, with a control,
+before a single fix was written**, and three of the fixes were proven wrong the same way.
+
+**The rule underneath nearly all of them.** The individual findings are less interesting than what
+they turned out to share. A sweep across the measurement harness, Path C, the launcher, the tick and
+`safe_disk_setup.sh` produced one decisive sentence: *every fail-open site tests `[ -n "$v" ]`,
+`[ -z "$v" ]` or `[ "$count" -eq 0 ]` where the EMPTY branch is the permissive one; every fail-closed
+site checks an exit status, tests a positive equality that empty cannot satisfy, or substitutes a
+non-empty sentinel.* The reason this is a finding rather than a list is that **the repo already obeys
+it almost everywhere, written by authors who demonstrably knew it.** `msr_canary.sh` computes the
+spend clock correctly with `|| echo ERR` — a sentinel that cannot satisfy a numeric comparison —
+where the driver's copy of the same awk ends `|| echo 0`, a failed measurement rendered as the safest
+possible value, so the hard spend wall silently never fires. `safe_disk_setup.sh` hardens its size
+read with the principle stated outright in its own comment — *"A non-numeric answer is a FAILED
+MEASUREMENT, not a size"* — and then, **thirteen lines later, does not sweep the adjacent filesystem
+read.** `query_pregate.sh` is clean throughout and is the model that was copied. The fixes are
+conformance, not invention.
+
+**Three of them would have cost money or data, and those are the ones worth naming.**
+
+*A routine Azure throttle, reported as a verified teardown.* One `az vm show` returning nothing —
+not an attack, a throttle, which is an expected event in a run that makes many `az` calls — made
+`teardown_vm` skip the ladder-attachment refusal entirely, emit the green token `TEARDOWN=VERIFIED`,
+exit 0, and delete the VM on the third call. Both ladder disks ended `Unattached` on `Premium_LRS`:
+the meter running, on precisely the outcome the refusal exists to prevent. It strands **more** than an
+honest failure would, because skipping the block also skips the remediation that brings the disks
+home. The control — the identical scenario with a healthy `az` — refused correctly and left the VM
+alive, so the result is not a harness artefact. Two sibling sites in the same function share the
+identical omission and fail *closed*, one of them only by the luck of using `sys.exit` inside its
+checker; that asymmetry is what proves this was a slip rather than a policy.
+
+*A format authorisation that could not tell an unreadable device from an empty one.* `safe_disk_setup.sh`
+exists because of 2026-05-06, when `mkfs.ext4 -F` destroyed a 3 TB canonical artifact. Its preflight
+refused to format a device carrying a filesystem by asking whether `blkid` printed a type — and
+discarded `blkid`'s status. Proven with `mkfs` stubbed to a recorder and hard-stop guards on every
+destructive tool, which never fired, the single most damning line of the day was a diff of two
+recording directories: `diff -r recorders/failopen recorders/control_empty` → **IDENTICAL**. The
+script's entire observation of "unreadable" and "empty" was byte-for-byte the same, and it formatted
+in both. **And the obvious fix would not have worked.** Measured against real `blkid` in the script's
+own invocation form, a genuinely empty file exits 2 while an unreadable one exits **0** — so a patch
+that merely stopped discarding `$?` would have shipped looking correct and fixed nothing. The landed
+fix proves readability instead of inferring emptiness, and keeps a control that must *still* format a
+genuinely empty device, because a "fix" that refuses everything is not a fix.
+
+*A paid run that had been refusing to start for a day, and nothing reported it.* Path C's copy-in
+gates on `grep -qx 'PATHC_REDTESTS=PASS'`. That suite had been failing since 2026-09-12, so the
+copy-in would have refused — independent of the engine pin and independent of the g-disk tier. The
+cause was one hunk: a non-Path-C commit widened the live launcher's required-flag list, and the
+frozen baseline the preserved-behaviour proof runs against was never mirrored. The two easy fixes
+were refused on the test's own terms — refreshing the baseline wholesale is what its comment calls
+*"the lazy fix… turns a preserved-behaviour proof into a tautology"*, and exempting the two flags is
+an exclusion list becoming a hit set. A no-touch experiment settled which fix was correct: applying
+only that one hunk to a scratch copy made all eight cases byte-identical again, which is exactly what
+the gate exists to show. The durable half is that the rule stopped being a comment. *"Is this change
+Path C?"* is undecidable at commit time; *"does the preserved-behaviour proof still pass on the bytes
+this commit will contain?"* is decidable in seconds and **is** the defect rather than a proxy for it.
+It was validated by replaying the real incident, and it re-measures HEAD on red so it blocks only the
+committer who actually caused the fault — because a gate that blocks on someone else's fault gets
+switched off, and then protects nothing.
+
+**Three errors of mine, which are the part of the day most worth keeping.**
+
+*Three fix specifications I wrote were caught wrong before landing, and one of them would have created
+a vulnerability rather than closed one.* The first was a data-safety gate I proposed at phase 8: it
+would have `grep -qx`'d a file that was, at that moment, injectable — a leg return-code containing an
+embedded newline could make a FAILED verdict also print a whole line `SCAN_RATE=MEASURED`. Landing
+that gate first would have converted a latent output-formatting bug into a **live bypass of the
+data-safety gate**. The sequencing is the finding, not a footnote; the sanitizer landed first, and
+the gate second. The second was a sanitizer placed at an emission point where the value it guarded
+had already been read four times earlier. The third was a blanket refusal of an operator-supplied
+evidence directory in dry mode, which — confirmed by running it — would have made the harness's own
+five documented rehearsals unrunnable without an escape hatch, **training the operator to set that
+hatch reflexively, which is how a guard gets disarmed at the moment it matters.** None of the three
+was caught by reading. All three were caught by executing.
+
+*I relayed a report that a change had landed, and it had not.* The operator ruled that the VM bound
+should go to eight days and that nothing should be killed at ten hours. An agent reported both
+rulings verifiably in place, citing file and line. I passed that on without checking. Measured
+afterwards, the work was real but lived as patch scripts in a scratchpad: the repo-wide search for
+every identifier the report named returned **zero hits**, the forbidden ten-hour fuse was still the
+default, all four cited files were unmodified, and the lines the report quoted contain unrelated
+text. **A file:line citation is not evidence that a change landed** — it is exactly as checkable, and
+as worth checking, as any other claim. An independent verifier caught it; I should have been the
+check.
+
+*And my own spend-ceiling commit disarmed the last stop it was computed from.* The spend ceiling had
+never been compared against anything — the value appeared in its definition, in documentation, and in
+a log line whose `<=` was a text character, not a test — while the shipped ladder's true worst case
+**exceeded that ceiling by about 9%**. The fix enforced the ceiling in code and **did not raise it**,
+moving `BACKSTOP_H` from 8 to 7.25 and the software wall from 7.0 to 6.75, bringing the worst case
+back under the ceiling with about 1.5% of headroom, validated at the exact boundary and one unit
+below. GNU `date` rejects fractional units:
+`date -u -d "+7.25 hours"` exits 1. So the Azure auto-shutdown schedule was PUT with an empty time,
+and both branches are bad — if Azure rejects it the readback kills every paid run at phase 1 *after*
+the VM exists, and if Azure accepts it the readback compares two identical strings and **passes
+vacuously with nothing armed.** Each change was correct alone. The ceiling enforcement required the
+backstop to move; the move made the value fractional; the fraction broke the call that arms the
+mechanism the ceiling is computed from. Nothing tested it — a grep for the backstop, its schedule
+field, its Azure verb and the variable carrying its time finds none of them anywhere under the
+harness's own `tests/` directory — and the dry run **structurally cannot** catch it, because it prints the intended time
+from the config variable and skips the readback. It was found by the final integration pass, the
+first time all of the day's changes were exercised together rather than individually, on that pass's
+first run. Everything else it checked came back clean. Its verdict was *"do not spend money yet"*,
+and it was right.
+
+**What the mutants taught, which is a sharper instrument than the fixtures.** One mutant **survived**:
+disabling the Spot-VM priority check outright left all 39 fixtures green and produced zero killers,
+because every fixture carried `"priority": null` — an *accepted* value — so the check had never once
+been exercised in its failing direction. The suite could not distinguish a working check from no
+check at all. Its positive controls are what make "SURVIVED" mean something: twelve other mutants
+died in the same run, the harness's own find-string guard did not fire, and the repo was byte-identical
+before and after. That gap is what drove the fixture set from 39 to 46 and the mutant set from 12 to
+16, every one now killed by the fixture that should kill it — including an absent-key case and an
+explicit `Spot` case as its two-sided control. In the Path C lane the same instrument had been lying
+in the other direction: three of four mutants reported KILLED had **never run**. Each packed a `||`
+inside a `|`-delimited field, the harness mis-parsed it and ran `bash <garbage path>`, and that
+failure was indistinguishable from a test failing — so it was recorded as a kill. One killed, three
+artefacts. The lane has since moved to a five-entry format with asserted arity.
+
+**The detector that proves a supervisor is alive was 12x too lax, and switched off in exactly the case
+it exists for.** Found while asking what bounds the costliest VM in the plan after its Azure backstop
+is released; the answer was "the cron supervisor", and the only thing watching the supervisor had
+three defects. Its period parser understood `*/N` but not the house idiom `4-59/5`, which begins
+with a digit and fell through to a 60-minute default — so a five-minute supervisor had to be silent
+for **180 minutes** before being flagged, and 23 of the 29 live crontab entries were mis-read, not
+the 29 assumed. Two
+further forms surfaced only by enumerating the live crontab instead of trusting its description: a
+comma schedule had no case at all, and an hour-field `*/6` was ignored, making that one 6x too *tight*
+and 63 minutes from a false alarm at the moment it was measured. The fix is not a bigger case table —
+a table of forms is the same defect one form later — but expansion of the schedule into the instants
+it actually fires, with the period taken as the **largest gap**, which is the quantity a liveness
+check needs; a schedule the parser cannot expand is an explicit error, never a default. Worse than
+the arithmetic: the liveness call was nested inside the freshness branch, so it ran only when the
+workstream was **active**, and a forgotten project — the entire scenario the check exists for — took
+the other branch and asserted, having measured nothing, that supervisors were unaffected. And the
+verdict was read by position rather than by key, so a detector that died before printing its verdict
+read as a detector reporting health. A sibling of the same family landed beside it: the canary
+answered a finished-but-still-leaking run by **deleting the operator's alert file**, on a run whose
+promoted disks were genuinely still billing. It now requires positive evidence that there is nothing
+to watch, and an unparseable ledger alerts, because unknown must not read as closed.
+
+**What the operator ruled, and the plan that inverted which risk mattered.** D3, D4, D5, D6 and D8
+were authorised, each recorded with its evidence rather than as a preference, along with the
+forward-port of the single non-Path-C hunk and the rule that the frozen baseline means "HEAD minus
+Path C"; separately, the VM bound goes to eight days and nothing is killed at ten hours. The
+operator's own operational sequence was written down for the first time — promote the ladder disks,
+copy into the L-series machine's local NVMe, and switch the disks back the moment the copy lands,
+while *never* deallocating the machine until the queries are done, because deallocation wipes the
+15 TB copy. That re-weighted the whole document by two orders of magnitude: the promoted-disk
+exposure this preflight spent sections on is smaller than the L64 line it barely examined by a factor
+of roughly 40 to 125. It also inverts the standing reflex — the
+Azure auto-shutdown that bounds an unattended copy-in becomes a **destructive** action the instant
+the copy exists, which the code
+already says in both the place that arms it and the place that releases it. Two figures for the
+copy-in window, 4.6 h parallel and 6.3 h serial, disagree and **neither is measured**; the 1.7 h gap
+is immaterial against the exposure it drives, so it is flagged rather than reconciled, and neither
+should be quoted as measured.
+One thing was gated for Fable under the operator's own carve-out and does not land on my say-so: any
+mechanism that acts **unattended** on the f/g ladder disks.
+
+**A rewrite priced and declined, in the public tree.** The one public-facing piece of the day is a
+decision block in `documentation/CAMPAIGN_METHODOLOGY.md` — still an uncommitted working-tree change —
+recording that excising a subscription identifier from git history was **costed rather than assumed**,
+and declined. The rewrite touches 1,455 of 1,675 commits and every one of the 36 tags, and a commit
+sha is this project's citation mechanism: **714 distinct to-be-rewritten commits are cited at 1,715
+sites in tracked files**, measured at `9dae6beb` and excluding the file that reports it, since its own
+text cites the commits it is about. (An earlier figure of roughly 1,850 was wrong — it summed two
+repositories without de-duplication, which is the same error in miniature as every uncontrolled count
+above.) The rewrite would invalidate every published citation while leaving the identifier recoverable
+from any clone already taken: the cost without the benefit that would justify paying it.
+
+**What did not move.** No canonical sha, no record count, no archive, and no published claim about the
+sequence was changed or withdrawn; the day adds no number about the sequence at all. No VM was
+created and **no compute was bought.** The scan has not run, and **the run is not
+launch-ready**: the standing advisory that operator discussion and re-review are required before
+launch, board or no board, is untouched by anything above.
+
+## 2026-09-14 — the run that could not finish, and the check that cost seconds instead of days
+
+**The day began with the ladders finally in place.** The Path C copy-in finished: 11.57 TB onto local
+NVMe in 4.52 h, every one of 130 files re-hashed **on the destination** with `O_DIRECT` after dropping
+the page cache, against digests extracted by filename from the committed Stage F manifest and Stage G
+README — `VERIFIED=130`, `VERIFY_FAILURES=0`. Then the launcher refused to arm, and finding out why
+took six separate defects, each hidden behind the one before it.
+
+**A launcher that could not log in to its own machine.** `query_program_launch.sh` defaults its key to
+`~/.ssh/f64_key`; the Path C VM is created with `${PATHC_SSH_PUBKEY:-~/.ssh/id_rsa.pub}` and accepts
+only `id_rsa`. Every remote probe answered `Permission denied (publickey)` into the log. `f64_key` is
+the fleet default used by a dozen other scripts, so the cure is a launch-scoped override, not a changed
+default. The copy-in record names the VM, the binary and the volume UUIDs but carries **no identity
+field at all**, which is why the launcher inherits *what* to talk to from the machine's own provenance
+and *how* to authenticate from a default that predates it.
+
+**Six gates reported ERROR, and they were right.** With the channel dead, `ENGINE_SELFTEST`,
+`QUERY_SURFACE`, `BATTERY_BINARY_CURRENCY` and others reported ERROR rather than FAIL — "I could not
+measure it" kept distinct from "it is broken", which is the distinction this project keeps having to
+re-learn. They were twice called dry-run artefacts and twice that was wrong: the probes really ran and
+really came back empty. Restoring the channel flipped four gates to PASS and three from ERROR to
+**FAIL** — genuinely broken all along, and invisible until the channel worked.
+
+**An engine that could not execute at all.** The shipped binary was built on the orchestrator against
+glibc 2.39 and sent to a machine running 2.35: `GLIBC_2.38 not found`. `PATHC_ENGINE_PINNED` had been
+green throughout, because the copy-in re-read the binary's **sha256** and never once **ran** it — a pin
+that proves identity without proving viability. The cure was to build on the run host from `main`, which
+also settled a branch question: the pinned `eaf435c9` is **unpublished**, so pointing the battery at it
+would have anchored the n=31 attestation to a commit existing nowhere but one working clone.
+
+**A gate one edit away from never being satisfiable.** `QUERY_SURFACE` self-widens over the battery and
+flagged `--kc-x-recheck` as uncovered. That flag belongs to `solve.py`, and appears in `solve.c` only
+inside a comment block, which no compiler emits — so adding it would have demanded a string the binary
+can never contain, on any build, for ever. The exclusion was widened instead, and measured: it removes
+exactly one flag and no other.
+
+**A probe that reported an unasked question as a failure.** `PATHC_COPY_VERIFIED` blocked the first live
+launch with `t-blockdev-not-setro(none)`. The device had been read-only the whole time; the probe wrapped
+its argument in escaped literal quotes, so the VM ran `blockdev --getro "/dev/nvme0n2"` with the quotes
+included, and `2>/dev/null` turned "could not ask" into an empty answer the gate read as a failure.
+
+**Then the run armed — and could not finish.** The pre-scan battery takes four full-ladder passes, and
+the post-scan `--atlas` run re-executes every one of them. Measured on the live ladders: f 38 h, g 94 h,
+t 40 h and `--kc-t-check` ~20.5 h, each doubled — against a supervision deadline of 114 h and the
+standing spend ceiling. `--f1c5-layer-sha` runs at 24–61 MB/s at about a third of ONE core out of sixty-four, because
+it inflates each layer and pipes the stream to an external `sha256` tool. **This had been predicted.** A
+pre-launch review named the four passes, said the cost plan under-stated by an order of magnitude, and
+specified the closing test: time it on one layer and multiply by thirty-two. Nobody ran it, including
+this session, until the run itself was already burning.
+
+**The obvious fix was proposed, proved correct, and withdrawn.** One process per layer under `xargs`
+produces byte-identical output after sorting — verified at n=9 on f and g against the committed goldens,
+with the sort shown to be load-bearing rather than cosmetic, because at n=31 there is no golden and a
+reordered block would be **minted** as the expectation and become invisible. But four concurrent
+processes deliver 54 MB/s against 61 for one: the ceiling is global, inside the inflate path, and more
+processes make the aggregate worse. It was proposed on the strength of a `dd | sha256sum` control that
+scaled to 2,314 MB/s at eight streams — a positive control for the **wrong mechanism**, since it never
+exercised the path it was standing in for.
+
+**What replaced it costs 0.00 seconds.** The battery's own comment had named the answer all along:
+identity with the *published* build is a different question, answered by the committed
+`STAGE_{F,G,T}_LAYERSHA.txt` registries — "the archived ladders' `--f1c5-layer-sha` rows, 32 per stage,
+taken from these same sidecars". Comparing each layer's builder-recorded `own_sha256_decompressed`
+against those registries: **96 of 96, position by position**, reading sidecars only. The full passes are
+now cost-gated behind `--with-laddersha`, and the post-scan repeat is skipped as already banked.
+
+**What that gives up, stated plainly.** The full pass was the only check binding *the bytes on disk* to
+the builder's record; the replacement compares two records and generates no digest at all. For f and g
+the gap is largely closed from the other side by the copy-in's `O_DIRECT` re-hash against published
+digests — bytes wrong while both checks pass would need a sha256 collision. **For t it is not closed:**
+t is never copied, so nothing has hashed its bytes on that disk. A container check against the published
+`STAGE_T_SHA256.txt` was started to close it.
+
+**Five measurement harnesses lied today, and the pattern was always the same.** A `timeout` killed jobs
+mid-flight and throughput was then computed over bytes never hashed. A `pgrep -f` — a standing
+prohibition — counted wrapper shells as solver processes. A `gsub` stripping non-digits turned
+`f1c5_layer_stats_00.json` into layer index `1500` and nearly produced a report of transposed ladder
+layers. Two mutants never mutated and their comparisons duly reported success. In every case the error
+was asserting a mutation or a filter rather than verifying it changed what it claimed to change. The
+rule was strengthened accordingly: **a mutant must be asserted different from the original before its
+result is allowed to count.**
+
+**What did not move.** No canonical sha, no record count, no archive and no published claim about the
+sequence was changed or withdrawn. No number was added. The scan has still not run: the pre-scan reached
+layer 12 of 32 of the first of eight passes before it was stopped, and `TR12_REPRO=PASS` at n=31 will
+continue to mean *minted*, not verified, because no golden exists at that n.
+
+## 2026-09-15 — the check that was deferred as too expensive, run on a core nobody was using
+
+**The headline is a verdict that two documents said would not be obtained this run.**
+
+    KC-T CHECK n=31 PASS (sum orbit*f*t == nodes-at-depth>=k at every layer 0..n) (0 failing layers)
+
+The f·t node identity, at every layer `k = 0..31`, at full n=31. It reads out
+`t(root) = 8690552978660778147480075615137911218123` tree nodes against an f total of
+`1097051278789181790036112071176579186688` walks.
+
+**Why that is more than a digest.** The published registries answer *are these the bytes we
+archived?* This answers a different question — *do the t ladder and the f ladder agree as
+mathematics?* It constrains a **relationship between two ladders**, and no digest of either can
+stand in for it. Until 2026-09-15 no `--kc-t-check` PASS had ever been recorded at n=31: it had been
+started and interrupted twice, once by a prior session's own `pkill` killing a duplicate it had
+itself launched.
+
+**It was deferred for a reason that turned out to be wrong.** A provenance note written the day
+before ruled it off the run: uncheckpointed, ~20.5 h against a Spot MTBE of 13.7 h, and better spent
+later on a right-sized Standard VM. The duration estimate was sound — it took
+**25 h 47 m** — but the placement was not. The machine running the query set is a 64-core L64s_v4
+and the query program was using **two cores**. The check is single-threaded and needs only f and t,
+so it ran beside the main run on a core that was otherwise idle, at no measurable marginal cost. The
+deferral had priced the work correctly and the *opportunity* not at all.
+
+**The honest scope, stated because a green token invites over-reading.** `GT_LADDER_FORMAT.md` says
+of these identities that they are *"integrity checks: they constrain the FILES, not the shared
+transition relation… passing them cannot settle whether that relation is the right one; and the two
+endpoints degenerate."* The `k=31` sum equals the f total exactly — that is the documented
+degeneracy at `k=n`, not a second independent agreement. What closed is *t as mathematics against
+f*. What remains open is the `--f1c5-layer-sha` recomputation, still cost-gated at n=31.
+
+**A provenance file that over-claimed, corrected in the same breath.** The note deferring the check
+had closed: *"every t-derived number in this run inherits an unverified t ladder. That includes XA-a,
+XA-b and `t(root)`."* XA-a does not belong in that list. The query inventory gives its ladders as
+`f+g` — it gates `Σ_b solutions(b) == N` from the branch atlas and has no t dependence, so it never
+inherited the gap. Only XA-b and `t(root)` did. An over-claim in a provenance record is the same
+defect as an under-claim: it misstates what rests on what.
+
+**Elsewhere the same day, a gate that had never run since the day it was written.** The wiring census
+had reported `scripts/tr12_mint_state_gate.sh` as the single new gate with no invoker on every commit
+since `8af5e55c` — the commit that created it. It is the gate that keeps `TR12_REPRO=PASS` from
+reading the same as a fully diffed run when in fact every row at n=31 is *minted from the run's own
+output*. It now runs from the local check's §5y, twice an hour. Measured 0.040 s; it extracts the
+mint-state block from the live battery and executes the battery's own bytes, so it goes red when the
+battery regresses and reports ERROR, never PASS, if the block is deleted.
+
+That last property is the whole test, and it is worth stating why. An earlier gate in this project
+bound to a *copy* of the logic it was checking, and duly reported PASS with the defect restored and
+the subject deleted outright. A gate that cannot see its subject must not be able to report success.
+
+**And a reminder that a static check is not a runtime one.** The census is a grep over a corpus; a
+parse check is a parse check. Neither shows a line actually executing. The wiring was only believed
+once the token appeared in a real 533-line run of the path cron actually takes — which, had the
+section fallen inside the expensive third that path skips, it would not have.
+
+## 2026-09-16 — a row budgeted in minutes that ran past six hours, and the reason it could not have been otherwise
+
+**The row was blocking the entire scan, and it was right to.** `a1_q2c` failed at its six-hour wall
+(`TR12_Q2_ENUM_TIMEOUT`), which sets `TR12_REPRO=FAIL` at `tr12_repro.sh:3477` (the line at the
+state this draft was written against; it is `:3466` at `bc372f3c` and `:3487` at today's HEAD) with no
+tolerated-failure allowance, and therefore `STOP_BEFORE_SCAN=1` in the driver. The scan could never
+have run behind it. What the day produced was not a workaround but a measurement explaining why the
+row's own cost model was wrong by an astronomical margin.
+
+**The assumption that failed, stated exactly.** The A1.5 header asserted that
+*"rank(FIRST^C15) is geometric with mean ~8"* — which presumes C3 acceptance is **i.i.d. across
+rank**. Measured on the full n=31 f ladder: `--kc-enum` emits in `--kc-rank` order at 125,000
+walks/s, and **cd is strongly autocorrelated in that order**. REL ranks 0..19 are twenty *distinct*
+walks — sha-checked, so not a repetition artefact — and **all twenty carry `cd = 787`**. A quantity
+that does not vary across the first twenty draws is not being sampled independently, and a geometric
+model of it will under-budget by whatever the correlation length happens to be. That is why a row
+budgeted at minutes was still running after six hours.
+
+**How far the order actually reaches.** Thirty-six random ranks below 10¹⁸ produced **zero** walks
+with `cd ≤ 387` (bin minima 767, 739, 599). The first passing sample sits near rank 5.1×10²⁹
+(`cd = 355`). At the measured emission rate, reaching rank 10¹⁸ alone is on the order of 2.5×10⁵
+years — and there is no parallel escape: `kc_enum_rec` (`solve.c:21078`) is a plain recursive DFS
+with **no OpenMP**, so idle cores buy nothing.
+
+🔴 **A BOUND, NOT A PROOF OF NON-EXISTENCE — and an earlier draft of mine said otherwise.** I had
+written that this made such walks "proven infeasible". **Withdrawn.** A wall-clock abort bounds what
+is *reachable in order*; it says nothing about what *exists*. And the evidence points the other way:
+walks with `cd ≤ 387` are **common**. Thirty uniform-random ranks gave four of them — 13.3%, minimum
+`cd` 355 — agreeing closely with this run's own `p̂ = 0.12093700`. They exist in quantity. They are
+simply not reachable **in order** from rank 0. The row now says that, in those terms.
+
+**Then I broke the fix with the fix.** Gating A1.5/A1.6 behind `TR12_RUN_Q2_ENUM` made the `a1_q2d`
+else-branch reachable for a *second* reason, while its message still named only the first:
+
+> `PENDING:--kc-enum-desc — this binary does not accept it`
+
+That sentence was true when the only route to the branch was a binary lacking the flag. In the
+default configuration it is **false** — the binary accepts `--kc-enum-desc` perfectly well, and the
+branch is taken merely because `TR12_RUN_Q2_ENUM` is unset. A reviewer who runs the flag sees it
+work, and catches a row misstating its own reason, **in a battery whose entire value is that its
+tokens mean what they say.** Caught by Fable's completeness review, not by me, eleven minutes after
+the commit that introduced it. The two reasons are now separated: the default emits
+`SKIP:timeout-6h-unbounded-search` carrying the same measured bound as `a1_q2c` and stating
+explicitly that the binary *does* accept the flag, while the genuine binary-lacks-the-flag case keeps
+its original wording.
+
+---
+
+## 2026-09-17 — the last ladder nobody had hashed where it actually lives
+
+**`T_RAW_BYTES=PASS` — all 65 Stage T files against `STAGE_T_SHA256.txt`, zero mismatches.** Thirty-two
+layer `.bin`, thirty-two stats `.json`, and `t_manifest.txt`, hashed 2026-09-16 directly from the live
+managed disk with eight parallel `sha256sum` streams.
+
+**Why this was the last open gap, and why two existing green checks did not close it.** The three
+ladders were never equally attested. At copy-in, f and g were re-read **off the device** with
+`dd iflag=direct` after dropping the page cache — 130 of 130. **t is never copied**: it is the
+original disk, mounted read-only, so it never received that treatment. Its registry was generated
+from the ladders **as archived**, and the per-layer identity check compares each layer's
+*builder-recorded* digest against that registry. Both are real checks. **Neither reads the disk as it
+stands today** — a sidecar would still match its registry row if the bytes beneath it had rotted.
+
+Three t checks now exist, and none substitutes for another:
+
+| check | question it answers | result |
+|---|---|---|
+| `--kc-t-check` | the f·t node identity | PASS (`KC_T_CHECK_n31.txt`) |
+| `TR12_TIDENT` | builder record vs registry | PASS, 32/32 |
+| this file | the files **as stored, on disk** | PASS, 65/65 |
+
+**Scope, stated because a green token invites over-reading.** This proves these are the archived
+bytes. It does **not** prove the t ladder is mathematically sound — that is the `--kc-t-check`
+question, and it is a different one.
+
+**What did not move.** No canonical sha, no record count, no archive and no published claim about the
+sequence was changed or withdrawn across either day. The one claim that *moved* moved backwards: the
+"proven infeasible" wording of 2026-09-16 was withdrawn to a bound, which is the weaker and correct
+statement.
+
+## 2026-09-18 — the night the scan finished, and what I got wrong getting there
+
+### What finished
+
+**The scan completed: 31 of 31 chunks, 2026-09-18T00:43:14Z.** The last piece, chunk 16, was also
+the largest and took ~45 h alone. Verified against the filesystem rather than a count:
+`chunk_16.json` (231,503 B) and `chunk_16.json.ok` both present, `.part` gone, and the marker
+carrying a binary identity matching the run's pinned engine plus the chunk's own content digest.
+Neither digest is reproduced here: the chunk artifacts are run evidence held in the operational
+repo, so a truncated prefix printed in this file would be a sha no reader could expand.
+
+**The driver was relaunched** at 01:59:14Z (pid 576052, `setsid`-detached). `QP_PREFLIGHT=PASS`,
+`QP_BINARY_PIN=MATCH` — the pin matching is what keeps the 31 banked chunks valid rather than
+re-scanned.
+
+---
+
+### Three findings worth keeping
+
+**1. The merge cannot be parallelised for these chunks, and the reason is a gate, not a limitation.**
+`kc_scan_merge` leg 2 compares engine identity: a chunk merges only if `engine_source_sha` matches
+or `engine_exe_sha` matches, and `(src_both && !src_ok)` aborts unconditionally. The banked chunks
+carry `engine_source_sha = ed9c65b2…`, which is the sha256 of `solve.c` itself. So ANY patched
+binary is refused — including for a side merge. The only route around it is re-scanning all 31
+chunks (372–720 h to save ~41). This is independent of `CHUNKKEY` and is the correct behaviour.
+
+**2. The merge tail SHRINKS with n — measured, and it retires a real risk.** The merge does three
+jobs: it re-digests every layer (the part I had measured), it builds the atlas, and it rebuilds the
+tail — the branch atlas and the t recursion, which chunks deliberately do not carry. I had never
+read `tel_tail`/`tel_rows`, which have existed in the telemetry all along.
+
+| n | tail / digest | unattributed |
+|--:|--:|--:|
+| 9 | 22.2% | 24.4% |
+| 13 | **6.1%** | 25.0% |
+
+The ratio falls as n grows, so the digest work outgrows the tail. That matters because the t
+recursion is combinatorial rather than linear in bytes and could in principle have exploded at
+n=31. It does not. The ~25% unattributed is flat across both sizes — fixed per-merge overhead, not
+something proportional. (n=11 refused for a real reason worth recording: `--f1-pairs 11
+unsupported — orbit-realizable n <= 22: 3,4,6,7,9,10,12,13,15,16,18,19,21,22`.)
+
+**3. The cost gate's "GLOBAL ceiling" premise is false.** `tr12_repro.sh:1251` tells a reader the
+ladder-sha limit "is a GLOBAL ceiling … so parallelism does not lift it". Measured: 40 concurrent
+`--f1c5-layer-sha` processes digested all 96 layers in 7 h 11 m against a 102.54 h serial sum —
+14.3×, at **2268 MB/s aggregate**, within 2% of the **2314 MB/s** that same comment cites for plain
+`sha256sum` as the unreachable ceiling. The limit is per-PROCESS. Filed TR12-LADDERSHA-CEILING; the
+comment's own 4-process result (54 MB/s vs 61 solo) remains UNRECONCILED and is recorded as open
+rather than dismissed.
+
+---
+
+### What I got wrong
+
+**I broke the public repro gate and left it red for two days.** `bc372f3c` (2026-09-16 01:21)
+changed `scripts/tr12_repro.sh` eleven minutes after `52f710f0` re-stamped, without re-stamping —
+exactly what `_GATE_STAMP.txt`'s header forbids. 97 consecutive failed cron runs. I only looked
+because a CPU spike made me.
+
+**Then I misdiagnosed it twice.** First I grepped for the wrong success token and concluded the
+gate had *never* passed. Then I treated a cumulative log as consecutive and concluded the failures
+*predated* my commits. Both wrong; the truth was 97 consecutive failures starting at my own commit.
+
+**The underlying defect was also mine.** I gated `a1_q2c`/`a1_q2d` behind `TR12_RUN_Q2_ENUM`
+UNCONDITIONALLY. At n<31 those rows complete in seconds and diff against committed goldens, so the
+gate orphaned two goldens and moved the n=9 skip set. Fixed by scoping to n>=31 (`c633504e`),
+validated on a clean Spot D8: `CURRENT=NO → TR12_REPRO_GATE=PASS`, `Q2_WITNESS=PASS` (11 legs).
+
+**Five wrong merge estimates before measuring one.** 87/89/111/126/141 h, then a "measured" 72.8 h
+that was itself wrong — it came from per-layer timings taken under 40-way contention. A lone
+process runs at 258.7 MB/s, not 167. The real figure is ~47 h of digests.
+
+**I wrote "measured, not guessed" in bold, about a third of the work.** In KC_STORY, while
+correcting an earlier wrong figure — which made it sound like the end of a convergence. It covered
+the digest loop only. On a page written for a non-expert reader that is worse than writing
+"roughly".
+
+**A 20-hour Group C figure with no basis.** Repeated all session. Ten of the thirteen Group C rows
+invoke no `solve` or `python` at all — they read fields out of `atlas.json`. It is minutes.
+
+**Three backlog filings invisible to the tooling.** `KC-MERGE-PARALLEL`, `TR12-LADDERSHA-CEILING`
+and `TR12-GATE-ORDER` were written as 6-cell rows with bare ids. The gate's population is
+`grep -c '^| \*\*Q-'` — 5 cells, bold `Q-` prefix. All three sat outside it, invisible, while three
+gates reported PASS. Still to be re-filed as Q-587/588/589.
+
+**Two orphaned Premium OS disks**, one per c307 run, from copying c306's
+`--os-disk-delete-option Detach` without noticing it leaves a disk behind — a small recurring
+charge against nothing. Deleted on
+operator approval after a preflight that asserted size, SKU, `Unattached` and `managedBy=None` —
+which mattered, because another VM's OS disk in the same subscription is also 30 GB Premium_LRS, so
+size and SKU alone would not have distinguished the orphans from a live disk.
+
+**A CPU spike on the 2-core orchestrator**, from running the n=9 battery while a scheduled canary
+was already compiling `solve.c`. I checked the load first and never checked what was *scheduled* —
+against my own recorded rule to serialise compiles on that box.
+
+**~16 ssh quoting failures.** `grep -E 'a|b'` through ssh has its `|` re-parsed remotely; an awk
+pattern missing a `]` matched nothing and I nearly reported the silence as a result. The working
+discipline is to pull the file and filter locally.
+
+**A gate ordering defect found, in the gate rather than in me.** `tr12_repro_gate.sh` captures
+`FP=$(fingerprint)` at line 242, rewrites `$SKIPPIN` at 507, then stamps the pre-rewrite value at
+529. Since the fingerprint hashes everything under `scripts/tr12_expected`, `--stamp` can never
+leave `--check` green in any run where the pin moves. Observed: pin 18 → 23 rows, gate PASS,
+`--check` still NO. Filed TR12-GATE-ORDER.
+
+---
+
+### Where it stands
+
+Battery running (~2.8 h elapsed, 26 rows resolved, 0 failures). Merge ~48–50 h and immovable.
+Group C minutes. **Total ~50 h, finishing ~2026-09-20.** The merge is ~95% of the remainder, so
+nothing off that critical path is worth optimising — a point the operator made before I did.
+
+The parallel-merge patch is built and verified for the NEXT lineage (5/5 edits, brace-neutral,
+`gcc -fsyntax-only` rc=0; 10.1× on the digest half, which the tail curve confirms is the right
+half). It cannot be used on this run.
+
+---
+
+## 2026-09-18 (afternoon) — the parallel-merge patch is proved, and three of my own instruments lied
+
+### The parallel-merge patch is proved, not merely built
+
+**c308 v3: `C308_VERIFY=PASS`.** A Spot D8 built the patched engine, ran the K-1 layers battery at
+the baseline tip and at the patched commit, and compared the results. The merged atlas is
+**byte-identical on a full sha** — `c8e33162317e62ac4ca5ba08ac0191557951b5f98550775e09d3f39c63e1d0c1`,
+221,284 bytes, both sides — with **both controls firing**: `C308_PREPASS_CONTROL=PASS` (the patched
+merge announces `digest pre-pass: 26 layer(s) on 8 thread(s)`, the baseline does not) and
+`C308_ENGINE_DIFFERS_CONTROL=PASS` (the identity-bearing files DO differ, so the patched binary
+really is a different engine). Apart from the pre-pass line, the two merge logs are line-for-line
+identical: same `ROWBIND=OK`, same `COVERAGE=COMPLETE`, all five tail-checks PASS, same verdict.
+
+**It took three runs, and v1 and v2 failed for harness reasons, not patch reasons.** v1 grepped the
+battery's own log for the pre-pass message, which goes to *solve's stderr* and lands in
+`$WORK/log/merge.log` — so its counter could only ever read 0, and did. Both v1 and v2 also hashed
+`chunk_*.json` and `*_layer_stats_*.json`, which carry `engine_source_sha` and therefore **cannot**
+match once `solve.c` changes; that comparison was guaranteed to fail by construction. v2 additionally
+tripped `grep -c`'s exit-1-on-zero, printing FAIL for a control that was satisfied. The lesson is
+not "the patch was fine all along" — it is that **I designed three verifiers before designing one
+that could distinguish the thing being tested from the thing being changed.**
+
+This still cannot be used on the banked chunks. Leg 2 refuses any binary whose `engine_source_sha`
+differs, and that field is the sha256 of `solve.c` itself.
+
+### The pre-push hook refused my TR-12 revision, and it was right
+
+TR-12 v1.4 corrects §R's reproduction cost: atlas assembly was priced as a rounding error, when
+`--kc-scan-merge` re-digests every f and g layer — **62 layers, 43.91 TB decompressed, ~47 h** at the
+measured 258.7 MB/s. The dollar figure is withdrawn rather than restated, per the rule v1.0 already
+applied to the declined exact-C3 run.
+
+**The first push was REJECTED**, and the gate was correct. `gate_published_consistency.sh` G10 rose
+to 2 from a pinned 1: a TR revision row that *withdraws* or *re-scopes* must be named in
+`documentation/CORRECTIONS.md` by an entry carrying both that TR and that date. A withdrawal recorded
+only in a revision table is exactly the propagation gap G10 exists to catch, and I had written one.
+Fixed by writing **CX-47**, not by re-pinning — re-pinning would have silenced a live finding, and
+the pin file's own note records that G10 was pinned for an editorial judgement, not as a budget for
+new cases. Ratchet back to `PASS-AT-PIN`, `G1:5 G2:10 G4:8 G10:1`, identical to the baseline.
+Amending was *forced* rather than tidy: the hook gates each pushed sha in its own worktree, so a
+second commit carrying the ledger entry would still have left the first sha failing alone.
+
+### Three of my own instruments lied to me in one afternoon
+
+- **`grep -c` exits 1 on a zero count.** `$(grep -c … || echo 0)` yields `"0\n0"`. It printed a FAIL
+  for a satisfied control, and separately made a background task report failure when the gate suite
+  had passed with zero FAILs.
+- **`… && echo YES || echo NO` always exits 0.** A *rejected* push was reported to me as exit code 0
+  — the same shape as the `568d432e` incident this project already has a rule about.
+- **`git push 2>&1 | tail -5` discarded the rejection reason.** Recovering the message my own
+  pipeline threw away cost several rounds and three wrong hypotheses (append-only gate, then ssh
+  transport, then disk) before I found the real one. My own standing rule says capture UNFILTERED and
+  conclude from the file afterwards; I wrote the filter into the capture instead.
+
+Filed as **Q-592**, one class rather than three anecdotes, and closed with a capture helper that
+writes the complete output to a file and emits the exit status as its own whole-line token, with a
+two-direction self-test proving it can report FAIL. The helper lives in the operational repo, not
+this one, so it is described here rather than linked.
+
+### Two ETAs I quoted had nothing behind them
+
+**`gcheck`.** I repeated "~25 h total, about an hour left" for hours. Its log is *four lines* — three
+startup banners — so it cannot support an ETA at all. The real signal is `/proc/<pid>/io`:
+`read_bytes` against `du -sb` of the ladders gave **81.5%**, ~5.6 h remaining, ~30.2 h total. Then I
+differenced two casual readings and got 36 MB/s (a 16 h ETA); a properly clocked 75 s window gave
+**99.95 MB/s**, confirming ~5.6 h. **The same mistake had already happened with the sampler** — an
+un-clocked difference read 4.07 draws/s against a true 14.746. Twice in one afternoon, the same way.
+
+**`a1_q4ac`'s sample size.** `M=1,000,000` is a round default with no derivation anywhere in the
+battery. Measured against the live run, p̂(cd ≤ 387) = 0.1208, so for the walk-level proportion alone
+1e6 is ~100× oversized. What actually justifies it is the Horvitz-Thompson column the comment never
+mentions: the `1/m` weights span **9,709×** and the effective sample size is only **15.2%** of
+nominal (ESS 95,209 of 625,342; ESS_LE 11,338 of 75,541). The size is right; the reason was never
+written down. Filed as **Q-590**.
+
+### What is parallelisable, and what is not — they are not the same question
+
+The merge is not, and the sampler is. `--kc-sample` takes its seed as a **CLI argument**, so 64
+workers of the already-pinned binary need no source change: `SOURCE_SHA` never moves and the banked
+chunks are untouched. That is 18.9 h → ~18 min on a box running two single-threaded jobs across 64
+cores. One constraint is not optional: `kc_splitmix64` advances by a fixed odd increment, so all 2⁶⁴
+states are **one additive cycle** and independently chosen seeds can overlap — disjointness must be
+*constructed* (worker *i* at `S + i·2⁴⁰·γ`), never assumed from "different seeds". Filed as **Q-591**.
+
+It is not actionable on this run. The driver's STAGE 2 gates STAGE 3, and the only ways round it are
+forging a `status=PASS` marker for a row that never ran (refused), a hand-run merge the driver redoes
+anyway, or a restart that discards 12.5 h of sampling to save 6.4 h. Filed as **Q-593**.
+
+### An alarm that could never go quiet
+
+The MSR canary had been red for 4.7 days. It was not stale noise — it was faithfully reporting a
+condition with **no truthful exit**. Its only quiet paths require `STATE=DONE`, and the driver's
+entire vocabulary is `P`, `DONE`, `ABORTED`, `ABORTED-EVIDENCE-NOT-SECURED`, the last written at one
+site with no transition out. For a run that aborted and whose evidence was secured *afterwards* — this
+one — the only way to silence it was to mark it `DONE`, which would falsify a run state. Refused, same
+class as forging a row marker. On the operator's decision the watch was retired (one cron line, verified
+70 → 69 with a one-line diff) and the prompt deleted, since once the writer is gone nothing can ever
+clear it. **Q-594 stays open**: the general defect — no honest terminal state for an aborted run —
+is untouched by the workaround.
+
+### The gate I fixed, after it caught me twice in one hour
+
+`--stamp` wrote a fingerprint that was stale the instant the skip pin's content moved: captured at
+`:242`, the pin rewritten at `:507`, the pre-rewrite value written at `:528` — and the pin lives
+under the very directory `fingerprint()` hashes. **I shipped that defect's consequence while writing
+the commit message describing the defect.** `c099a02c` published `b221de43` against a true
+`7c926c3a`, leaving the public repro gate RED at HEAD until `e8571948` re-stamped it.
+
+Fixed in `a93ccf93` by recomputing immediately before the write — a recompute, not a move, because
+`--check` compares against the `:242` value and exits long before the stamp branch. Proven red first
+(the row's own `awk` reported FAIL at 242 vs 507, passes now at 549) and verified by execution under
+the canary's flock: `--stamp` rc=0 in 263 s, then `--check` **YES from a single stamp**, with the
+written value matching an independent recomputation. The "run `--stamp` twice" workaround is retired.
+
+It survived so long because it only bites when the pin's content actually changes; a normal stamp
+rewrites identical bytes and is correct by luck.
+
+### A covenant I broke eight times, in the file I was writing proofs into
+
+`task_ledger_rules.tsv` states it in its header: *every new queue row with a mechanically checkable
+deliverable gets a rule here **in the same commit that creates the row***. I filed Q-587 through
+Q-594 — eight rows, every one carrying a `cmd:` proof — and supplied **none**. It is gated, not
+decorative: `workstream_check.sh` requires `LEDGER_ROWS_WITHOUT_RULE=0` and treats an *absent* token
+as failure too. Fixed with ST-623…ST-630, each driven through the real pattern-and-evidence path
+before filing rather than merely written.
+
+Two defects surfaced in the doing, both mine:
+
+**Q-590 was substantially wrong and its proof was vacuous.** I claimed the HT precision basis was
+"nowhere at the site". The battery *computes* the effective sample size (`neff = wden²/wsq`,
+`:1488`), *prints* it (`mu_rec_ht_n_eff`, `:1492`), builds the Wilson interval on it (`:1486-1496`),
+and *says so* in the emitted label (`:1500`). My "independent" ESS measurement re-derived a number
+the row already publishes. And the closure proof I filed — `grep -qi 'effective sample size'` — was
+**already satisfied when I wrote it**, by that same label: a ghost-closed rule, the exact class this
+backlog exists to catch, filed while cataloguing that class. Retracted in place. What survives is a
+documentation nit: `Q4ACM_DEF=1000000` is tied to no precision target (`M_JUSTIFIED=0`, against a
+working control `SEED_JUSTIFIED=1`).
+
+**The replacement proof was then negated backwards** — `!` copied from Q-589, where negation is right
+because there the deliverable is a *removal*. `!` negates the whole pipeline, so it read EXIT0 =
+"landed" on an open row. Measured both ways before correcting.
+
+### The pattern under all of it: checks that could not fail
+
+Six instances in one session, each caught only because something forced a second look:
+
+- `grep -c` exits 1 on a zero count, so `$(grep -c … || echo 0)` yields `"0\n0"` — a **satisfied**
+  c308 control printed FAIL, and a passing gate suite reported "failed with exit code 1"
+- `… && echo YES || echo NO` always exits 0 — a **rejected** push was reported to me as success
+- `| tail -5` discarded a rejection banner, costing three wrong hypotheses to recover
+- a closure proof already true when filed (Q-590)
+- a status parser reading `OPEN`/`DONE` out of row **prose** instead of the final cell
+- `pkill -f` matching **its own shell**, killing the command that issued it — against the standing
+  rule to kill by explicit PID, which exists for precisely that reason
+
+The seventh was caught *by* a control: a ledger search blind to its own file's escaping returned
+"no rule found", and only the positive control returning 0 where it had to return 1 exposed it.
+
+### Where it actually stands
+
+`a1_q4ac` ~6 h out, `gcheck` ~5.3 h (82.1%, clocked), the rest of the battery ~1–2 h, then the ~48 h
+merge in STAGE 3. **Total ~55 h.** The earlier "~50 h" understated it because `a1_q4ac` was sized at
+2 h when it is a 19 h row. Public tip at the time this section was drafted: `c099a02c` (14:43:32Z),
+private `74fd7e36`, both verified by containment — but the addendum below narrates two later public
+commits on the same day, `e8571948` (15:30:32Z) and `a93ccf93` (15:43:40Z), so `c099a02c` was the
+day's tip only until mid-afternoon and is not the day's closing state.
+
 ## 2026-09-19 — a correction that did not propagate, and a lower bound that was never falsified
 
 **A claim this file corrected the next day was re-asserted three weeks later, in this file.** On
