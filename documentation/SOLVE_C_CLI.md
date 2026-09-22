@@ -1257,7 +1257,7 @@ pairs with King Wen marked, into `OUT_DIR`. Consumes the `--compute-stats` chunk
 solve.py --joint-density CHUNKS_DIR OUT_MD
 ```
 
-`solve.py` companion command (P2 stage 3). KDE joint density over the 7 informative
+`solve.py` companion command (P2 stage 3). ⚠ **[CORRECTED 2026-09-22 (V3A-055#1, sibling of the SOLVE_PY_CLI.md entry) — this pipeline reproduces figures WITHDRAWN AS EVIDENCE on 2026-07-26 ([DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md):329-331), and neither this entry nor its `solve.py` counterpart carried that warning. The command and its dimension count are unchanged; the omission was the defect.]** KDE joint density over the 7 informative
 dimensions plus a bootstrap confidence interval on King Wen's percentile; writes a
 Markdown report to `OUT_MD`. A refined `--joint-density-v2` variant adds an automatic
 variance filter and CV bandwidth selection (`--joint-density-bandwidth silverman|cv`,

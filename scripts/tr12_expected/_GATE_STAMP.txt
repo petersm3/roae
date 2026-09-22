@@ -1,4 +1,4 @@
 # Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,
 # not merely that it was committed. Re-stamp in the SAME commit as any solve.c,
 # tr12_repro.sh or expected-block change, or --check will correctly report NO.
-fingerprint=f2609f327cf5becddc58cf9615d8d947fa948449693f85145cae696df4cc3456
+fingerprint=602ab289ff0162ccbd6fe612bc55954c16a0db1d77b960150327f10bcc03827c
