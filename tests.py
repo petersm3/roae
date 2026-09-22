@@ -6977,6 +6977,56 @@ class TestAtlasProbe(unittest.TestCase):
         self.assertIn("B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N=FAIL", lines, out)
         self.assertNotIn("ATLAS_PROBE_FAILS=0", lines, out)
 
+    def test_a_broken_by_class_row_sum_is_caught_by_its_own_gate(self):
+        """Adversarial review 2026-09-21: move N units of class d2 from one layer to another,
+        choosing two layers whose reference-walk class is NOT d2.  The column sums (b0) and the
+        kwrank bin identity are untouched, so every gate that existed before the review stays
+        green -- the test asserts that, so the new row-sum gate is proven load-bearing rather
+        than shadowed by an older one."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, os
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        N = int(a["N_total"])
+        ks = [k for k, l in enumerate(a["layers"]) if int(l["kwrank"]["kw_cls"]) != 2]
+        self.assertGreaterEqual(len(ks), 2, "need two layers whose kw_cls is not d2: %r" % ks)
+        for k, sgn in ((ks[0], 1), (ks[1], -1)):
+            cell = a["layers"][k]["by_class"]
+            old = cell["d2"]
+            cell["d2"] = (str if isinstance(old, str) else int)(int(old) + sgn * N)
+        mutant = os.path.join(self.tmp, "atlas9_rowsum.json")
+        with open(mutant, "w") as fh:
+            json.dump(a, fh)
+        rc, lines, out = self._probe(mutant)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("ATLAS_PROBE=FAIL", lines, out)
+        self.assertIn("BY_CLASS_ROW_SUMS_EQ_N_EVERY_LAYER=FAIL", lines, out)
+        # precondition of the claim: the pre-review gates cannot see this edit
+        self.assertIn("B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N=PASS", lines, out)
+        self.assertIn("KWRANK_BINS_SUM_TO_CLASS_MASS_EVERY_LAYER=PASS", lines, out)
+
+    def test_a_broken_marginal_raw_row_sum_is_caught_by_its_own_gate(self):
+        """Adversarial review 2026-09-21: one `marginal_raw` cell raised by N makes that slot's
+        row sum 2N.  Before the review this scored ATLAS_PROBE=PASS with a positional TV of
+        0.52 printed beside it; now the row-sum gate and the kernel cross-check both go red."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, os
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        N = int(a["N_total"])
+        row = a["layers"][1]["marginal_raw"]
+        key = next(iter(row))
+        row[key] = (str if isinstance(row[key], str) else int)(int(row[key]) + N)
+        mutant = os.path.join(self.tmp, "atlas9_margrow.json")
+        with open(mutant, "w") as fh:
+            json.dump(a, fh)
+        rc, lines, out = self._probe(mutant)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("ATLAS_PROBE=FAIL", lines, out)
+        self.assertIn("MARGINAL_RAW_ROW_SUMS_EQ_N_EVERY_LAYER=FAIL", lines, out)
+        self.assertIn("KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER=FAIL", lines, out)
+        self.assertIn("KERNEL_EVERY_LAYER_SUMS_TO_N=PASS", lines, out)
+
     def test_a_quotient_only_atlas_is_refused_not_scored(self):
         self.assertTrue(self.build_ok, self.build_err)
         import json, os

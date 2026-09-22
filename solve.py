@@ -14619,7 +14619,10 @@ def atlas_probe(atlas_path):
     2026-09-11 logging tables): no ladder, no solver binary, no network.  Every figure is a
     whole-line `KEY=value` token, so a reader matches it with `grep -qx` and never by output
     shape.  Every table is re-summed against N (and the atlas's own gates) before a figure that
-    depends on it is printed; the one statistic that needs a null (the C5 budget path against
+    depends on it is printed -- the `by_class` and `marginal_raw` rows and the kernel's class and
+    entry-pair marginals are re-summed HERE and cross-checked against each other, not read off
+    the atlas's self-reported gate booleans (2026-09-21 adversarial review: before that, a
+    `by_class` row summing to 2N scored PASS); the one statistic that needs a null (the C5 budget path against
     the exchangeable multivariate-hypergeometric law) is also evaluated against a deliberately
     WRONG null (the product of its own marginals), so the reader can see the statistic
     discriminates.  Works at any n the scan supports; the King-Wen cross-checks run at n = 31
@@ -14684,6 +14687,10 @@ def atlas_probe(atlas_path):
         gate("ATLAS_TAIL_CHECKS_ALL_PASS",
              bool(t) and t.get("fails") == 0
              and all(v == "PASS" for k, v in t.items() if k != "fails"))
+        # How many self-reported checks the two verdicts above ranged over: `{"fails": 0}` alone
+        # would satisfy both, so the count is printed beside them (14 and 5 on the n=31 atlas).
+        tok("ATLAS_GATE_COUNT", len([k for k in g if k != "fails"]))
+        tok("ATLAS_TAIL_CHECK_COUNT", len([k for k in t if k != "fails"]))
         lo_w, hi_w = 1, n - 2                      # interior slots: the wrap/anchor ends excluded
         tok("INTERIOR_LAYER_WINDOW", "%d,%d" % (lo_w, hi_w))
 
@@ -14693,6 +14700,18 @@ def atlas_probe(atlas_path):
         b0 = [x // N for x in col]
         tok("B0_FROM_COLUMN_SUMS", ",".join(str(x) for x in b0))
         gate("B0_SUM_EQ_N", sum(b0) == n)
+        # Re-summed here rather than trusted from the atlas's own `class_row_sums_eq_N`: moving
+        # N units of one class between two layers leaves the column sums (b0) and the kwrank
+        # bin identity intact, and before this gate existed such an atlas scored PASS
+        # (adversarial review, 2026-09-21).
+        gate("BY_CLASS_ROW_SUMS_EQ_N_EVERY_LAYER",
+             all(sum(int(l["by_class"][c]) for c in CLS) == N for l in L))
+        zero_some = sorted({c for l in L[1:] for c in CLS if int(l["by_class"][c]) == 0},
+                           key=CLS.index)
+        tok("CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1", ",".join(zero_some) or "NONE")
+        tok("LARGEST_CLASS_SET_OVER_LAYERS",
+            ",".join(sorted({max(CLS, key=lambda c: int(l["by_class"][c])) for l in L},
+                            key=CLS.index)))
         tok("D6_MASS_AT_LAYER0", int(L[0]["by_class"]["d6"]))
         tok("D3_MIN_LAYER_SHARE", "%.5f" % min(int(l["by_class"]["d3"]) / N for l in L))
         dev = max(abs(int(L[k]["by_class"][c]) / N - b0[i] / n)
@@ -14828,6 +14847,12 @@ def atlas_probe(atlas_path):
             return {tuple(int(s) for s in key[1:].split("_")): int(v) for key, v in L[k]["kernel"].items()}
         Ms = [kern(k) for k in range(n)]
         gate("KERNEL_EVERY_LAYER_SUMS_TO_N", all(sum(M.values()) == N for M in Ms))
+        # Cross-table: the kernel re-summed by distance class must reproduce `by_class`. A
+        # +1/-1 edit inside one layer keeps the layer sum at N; this is what sees it.
+        gate("KERNEL_CLASS_MARGINALS_EQ_BY_CLASS_EVERY_LAYER",
+             all(sum(v for (x, y), v in Ms[k].items() if pc(x ^ y) == d)
+                 == int(L[k]["by_class"]["d%d" % d])
+                 for k in range(n) for d in (1, 2, 3, 4, 6)))
         tvs = []
         for k in range(1, n):
             keys = set(Ms[k]) | set(Ms[k - 1])
@@ -14865,6 +14890,23 @@ def atlas_probe(atlas_path):
         tok("PAIR_UNIVERSE_SIZE", len(universe))
         gate("PAIR_UNIVERSE_SIZE_EQ_N", len(universe) == n)
         pairs = king_wen_pairs()
+        # Re-summed here rather than trusted from the atlas's own `raw_marginal_sums_eq_N`; a
+        # row summing to 2N scored PASS before this gate existed (adversarial review,
+        # 2026-09-21). Cross-table: the kernel re-summed by the ENTRY hexagram's pair must
+        # reproduce `marginal_raw` cell for cell (the atlas omits zero cells; so does the sum).
+        pair_of = {}
+        for i, (e, x) in enumerate(pairs):
+            pair_of[e] = pair_of[x] = i
+        gate("MARGINAL_RAW_ROW_SUMS_EQ_N_EVERY_LAYER",
+             all(sum(int(v) for v in l["marginal_raw"].values()) == N for l in L))
+        mr_ok = True
+        for k in range(n):
+            bypair = {}
+            for (x, y), v in Ms[k].items():
+                bypair[pair_of[y]] = bypair.get(pair_of[y], 0) + v
+            mr_ok = mr_ok and ({p: v for p, v in bypair.items() if v}
+                               == {int(x[4:]): int(v) for x, v in L[k]["marginal_raw"].items()})
+        gate("KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER", mr_ok)
         k0 = {int(x[4:]) for x in L[0]["marginal_raw"]}
         kl = {int(x[4:]) for x in L[n - 1]["marginal_raw"]}
         absent0 = sorted(universe - k0)

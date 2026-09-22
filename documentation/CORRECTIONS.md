@@ -10409,3 +10409,9 @@ specification moves.
 under the mask-level reading; a needle on it would ban a true statement, which is the false
 retraction PART B of the registry warns against. The narrowing is carried by the dated annotation
 at the site and by this entry.
+
+*(Addendum, 2026-09-21, same-day adversarial review of this entry before push: the two line
+references above — the V5 row at "line 612" and the blocker at "line 1597" — are line numbers at
+`origin/main` `fa5a98dd`, the revision the entry's `solve.c:24955` citation already pins. In the
+tree this entry lands in they are 620 and 1608, because the same revision inserts annotations
+above both. Recorded here rather than by rewording, since this file is append-only.)*

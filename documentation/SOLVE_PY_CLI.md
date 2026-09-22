@@ -633,10 +633,23 @@ had been claiming.]
                              ATLAS_N, ATLAS_N_TOTAL, ATLAS_VERSION,
                              ATLAS_TYPE_IS_KC_SCAN, ATLAS_LAYER_COUNT_EQ_N,
                              ATLAS_GATES_ALL_TRUE, ATLAS_TAIL_CHECKS_ALL_PASS,
-                             INTERIOR_LAYER_WINDOW (slots 1..n-2);
+                             ATLAS_GATE_COUNT, ATLAS_TAIL_CHECK_COUNT (how many
+                             self-reported checks the two verdicts ranged over --
+                             14 and 5 on the n=31 atlas; `{"fails": 0}` alone
+                             would satisfy both verdicts, so the count is printed
+                             beside them), INTERIOR_LAYER_WINDOW (slots 1..n-2);
                              B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N,
                              B0_FROM_COLUMN_SUMS (the run's C5 budget, recovered
                              from the by_class column sums / N), B0_SUM_EQ_N,
+                             BY_CLASS_ROW_SUMS_EQ_N_EVERY_LAYER (re-summed here,
+                             not read from the atlas's own gate; added by the
+                             2026-09-21 adversarial review, which found that
+                             moving N units of one class between two layers
+                             scored PASS), CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1
+                             (NONE at n = 31; `d3,d6` at n = 9),
+                             LARGEST_CLASS_SET_OVER_LAYERS (the set of per-layer
+                             argmax classes; `d3` alone means d3 is the largest
+                             class at every layer),
                              D6_MASS_AT_LAYER0, D3_MIN_LAYER_SHARE,
                              BY_CLASS_MAX_ABS_DEV_FROM_B0_OVER_N_INTERIOR,
                              D6_POSITION_LAW_MIN_MAX_INTERIOR;
@@ -675,6 +688,10 @@ had been claiming.]
                              table: exit of the previous pair, pair-mate of the
                              placed exit), REF_WALK_IS_KING_WEN (n = 31 only);
                              KERNEL_EVERY_LAYER_SUMS_TO_N,
+                             KERNEL_CLASS_MARGINALS_EQ_BY_CLASS_EVERY_LAYER (the
+                             kernel re-summed by popcount(a XOR b) reproduces
+                             by_class -- a +1/-1 edit inside one layer keeps the
+                             layer sum at N and only this sees it),
                              KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1,
                              KERNEL_INTERIOR_WINDOW (layers 6..n-8, n >= 14),
                              KERNEL_TV_ADJACENT_MAX_INTERIOR,
@@ -693,6 +710,12 @@ had been claiming.]
                              STEP_XOR_POPCOUNT4_SHARE_MIN_MAX,
                              STEP_XOR_POPCOUNT6_SHARE_MIN_MAX;
                              PAIR_UNIVERSE_SIZE, PAIR_UNIVERSE_SIZE_EQ_N,
+                             MARGINAL_RAW_ROW_SUMS_EQ_N_EVERY_LAYER (re-summed
+                             here; a row summing to 2N scored PASS before the
+                             2026-09-21 review),
+                             KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER
+                             (the kernel re-summed by the entry hexagram's pair
+                             reproduces marginal_raw cell for cell),
                              PAIRS_NEVER_FIRST, PAIRS_NEVER_FIRST_HEX_POPCOUNTS,
                              PAIRS_NEVER_FIRST_ARE_EXACTLY_THE_POPCOUNT5_PAIRS,
                              PAIRS_ADMISSIBLE_LAST_COUNT,
@@ -717,7 +740,19 @@ had been claiming.]
                              ATLAS_PROBE_FAILS, ATLAS_PROBE. Gated by
                              tests.py `TestAtlasProbe`: a real n=9 atlas passes,
                              a perturbed class mass turns it red (rc 1), a
-                             quotient-only atlas is refused (rc 2).
+                             quotient-only atlas is refused (rc 2), and -- from
+                             the 2026-09-21 review -- a broken by_class row sum
+                             and a broken marginal_raw row sum each turn their
+                             OWN gate red while every older gate stays green,
+                             so the new gates are proven load-bearing. What the
+                             probe still cannot see, stated: the dead/live split
+                             inside `counts` is checked for additivity against
+                             `fmass` only (no second table carries it), so
+                             DOOMED_FRACTION_OF_T_ROOT rests on the atlas's own
+                             `count_identities` gate for that split; and a
+                             PASS is an internal-consistency verdict, never a
+                             statement that the figures match §12 -- match each
+                             figure with `grep -qx`.
 --xa-nodes-per-sec F         XA-c/d: measured DFS throughput anchor.
 --xa-usd-per-hour F          XA-c/d: worker price anchor.
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call
