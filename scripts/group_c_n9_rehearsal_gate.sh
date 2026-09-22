@@ -183,7 +183,23 @@ NG=$(grep -cE 'n *[!=]= *31' "$WORK/consumer_region.py")
 #     grep can see it; a guard the ratchet cannot count is a guard the ratchet does not hold.
 # It went 3 -> 4 when the a5 skip branch was added, and this ratchet FAILED until the pin was
 # raised in the same change -- which is the ratchet working on its own author, not against them.
-PIN=${GROUPC_N31_GUARDS:-5}
+#   Raised 5 -> 7 on 2026-09-22, in the same change that the ratchet caught. Both new guards
+#   arrived with §12's atlas probe (public 5dbe08ac) and both are declared here with their
+#   coverage, which is what this ratchet exists to force:
+#   `if n == 31:` -> REF_WALK_IS_KING_WEN. The real check compares the reference walk against
+#     `binary_hexagrams` -- the literal King Wen sequence, which is a 64-hexagram object and
+#     therefore only meaningful when the universe IS the full 31 pairs. At reduced n the walk
+#     the atlas tracks is a different object, so the else branch emits SKIP:n=<n> rather than
+#     a false negative. n=9 CANNOT rehearse the PASS side: there is no n=9 King Wen.
+#   `if n == 31:` -> KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR. Reads marginal_raw["pair<k+1>"]
+#     for each interior layer k -- i.e. it asks how much mass King Wen's OWN pair carries at
+#     the slot King Wen puts it in. The pair->slot identification is a property of the King Wen
+#     ordering at full-31; at reduced n the free-pair subset is a proper subset by construction
+#     and "pair k+1" names a different pair, so the guard emits SKIP:n=<n>. Same shape as the
+#     _a5_inventory_defect rule below: a gate with no producer at n=9 is worse than no gate.
+#   Both are written `n == 31` with an explicit else that EMITS -- a guard whose else branch is
+#   silent is the defect this gate was built for (the a5 case, measured 2026-09-09).
+PIN=${GROUPC_N31_GUARDS:-7}
 if [ "$NG" -gt "$PIN" ]; then
   say "[FAIL] $NG 'n == 31' guard(s) in the atlas consumer, pinned at $PIN. A new one is a new"
   say "       path n=9 cannot rehearse. Declare it in Gate 3 and raise the pin IN THE SAME CHANGE."
