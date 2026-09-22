@@ -10415,3 +10415,52 @@ references above — the V5 row at "line 612" and the blocker at "line 1597" —
 `origin/main` `fa5a98dd`, the revision the entry's `solve.c:24955` citation already pins. In the
 tree this entry lands in they are 620 and 1608, because the same revision inserts annotations
 above both. Recorded here rather than by rewording, since this file is append-only.)*
+
+## CX-59 — TR-12 v1.7 scopes its C3 statement to what the program can measure, and the first draft did not (TR-12) (RP: none)
+
+**2026-09-22.** `reports/TR12_QUERY_PROGRAM.md` v1.7 adds §12.10, reporting the first execution of
+`TR12_A2_SLOT` and `TR12_A3_EXTERNAL` at n=31. Both FAIL against TR-7's published references by
+about twelve times tolerance. **The draft of that section, written before review, said the finding
+was that "the laws are not C3-insensitive" and that the question "is no longer unmeasured". Both
+overclaimed, and neither was published — they are recorded here because the correction is the
+substance of this revision.**
+
+**What was wrong with it.** The KC compiler is built on **C1, C2, C4 and C5 only**. This report's own
+§0 states it: *"no instrument in this program counts C3-conditioned — the f/g/t ladders carry no C3
+channel"*, and the atlas labels its own space `C1C2C4C5-SUPERSPACE`. So the SUPER side is measured
+here, exactly; the C1–C5 side is **not measured here at all** — it is TR-7's, from a different
+instrument on a different population. Saying the program had established a C3 result claimed an
+instrument it does not have.
+
+**What v1.7 says instead.** The two conditioning sets differ by exactly C3, and TR-7's published
+uncertainties (d1 17.4647 ± 0.0077, d3 65.1504 ± 0.0096, d5 17.3849 ± 0.0077 pp — the A3 gap of
+0.0249 is roughly 260 standard errors) exclude estimator error on that side. So the difference is
+**attributable** to C3-conditioning — but that attribution is an inference from two instruments each
+being right about what it measured, **not a measurement of C3 by this program**. The headline, the
+body, the causal wording in the rescaling paragraph and the revision row were corrected together;
+leaving any one of them would have been a correction that did not propagate.
+
+**Eight further wording defects were fixed in the same pass**, found by an adversarial review that
+also re-derived all six published figures independently — in exact rationals, without calling the
+engine's own check functions — and confirmed every one: a rescale ratio quoted to four significant
+figures when the fourth is not determined at the published precision (now ≈1.23, with a note that
+R-C1c is the *sum* of the other two and so not a third independent confirmation); *"no published
+figure is wrong"* softened to *"is contradicted"*, since this instrument cannot test the C1–C5 side;
+a verdict token quoted as `SKIP:no-trace` when the whole line written is
+`SKIP:no-trace(--atlas-q3-trace)`, which would have failed this document's own `grep -qx` discipline;
+§12's header promise that one command reproduces every figure below, now scoped to §12.1–§12.8 since
+§12.10 names its own command; the new section moved into natural order after the token table; both
+new §12.9 rows now naming the command that produces them; *"the first time either **could**
+execute"* corrected to *"first executed"*, the atlas having been complete some twenty hours earlier;
+and *"C4 fixes slot 0"* beside *"slot 32"* — 0-based and 1-based indexing in one paragraph — now
+*"the first pair-slot"*.
+
+**No published figure changes.** §12 is dated 2026-09-21 and predates the consumer run, so it carried
+no A2/A3 claim to revise.
+
+*(Recorded also because `scripts/gate_published_consistency.sh` G10 required it. That leg selects a
+TR revision row by the words `re-scoped|rescoped|withdrawn|retracted` and then demands a ledger entry
+naming both the TR and the date. It matched this row on the phrase "nothing is **retracted**" — a
+negation, the same shape of match this corpus has recorded twice before. The gate firing on a
+negation is a real limitation of its selector; the entry it demanded is nonetheless owed, because
+v1.7 does scope a claim, and that is what this file is for.)*
