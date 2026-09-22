@@ -62,7 +62,7 @@ for the frozen schema.
 | 4 | `position_2_pair` | Pair at byte 1 (categorical stratifier, 0-31) | Structural |
 | 5 | `mean_transition_hamming` | Mean 6-bit Hamming distance across 63 transitions | Spectral |
 | 6 | `max_transition_hamming` | Max of those 63 distances | Spectral |
-| 7 | `fft_dominant_freq` | Argmax k of |FFT(hexagram-sequence)[k]| for k ∈ 1..31 (the Nyquist bin k = 32 is **excluded by construction** — see Appendix B) | Spectral |
+| 7 | `fft_dominant_freq` | Argmax k of |FFT(hexagram-sequence)[k]\| for k ∈ 1..31 (the Nyquist bin k = 32 is **excluded by construction** — see Appendix B) \| Spectral |
 | 8 | `fft_peak_amplitude` | Amplitude at the dominant frequency | Spectral |
 | 9 | `shift_conformant_count` | Positions 3-19 where pair_idx[p] ∈ {p, p-1} (0-17) | KW-extracted *(reclassified 2026-07-26; was "Structural" — scores agreement with KW's own pair numbering)* |
 | 10 | `first_position_deviation` | 1-indexed position where first differs from KW (33 = identical) | KW-relative |
