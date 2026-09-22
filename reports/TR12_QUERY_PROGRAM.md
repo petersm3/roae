@@ -451,8 +451,11 @@ QSET external review, which the external review itself missed; see
   (2) Each extremal = a full-31 layered sweep carrying (extreme, backpointer) per state —
   Stage-F-shaped pass, ≈ $40–80 each ⇒ run a SHORTLIST only. (3) Edit-distance-to-KW extremal
   (nearest SUPER neighbor to KW) needs a ×32 matched-count state on the PLAIN DP (KW-indicators
-  are not G-invariant) — sizing unknown, flagged DEFERRED; the 560T sample minimum stands as the
-  interim bound.
+  are not G-invariant) — sizing unknown. ⚠ **CLOSED 2026-09-06, not DEFERRED — corrected
+  2026-09-22 (v1.8).** This clause read *"flagged DEFERRED; the 560T sample minimum stands as the
+  interim bound"* while §9 already recorded the answer: the pair-slot Hamming floor is **2**, it is
+  structural, and it is attained by a published witness, so the "interim bound" had equalled the
+  answer all along. See §9, *Edit-distance-to-KW extremal*. No sweep should be spent on it.
 🔴 **TWO OF THE FUNCTIONALS THIS ROW WOULD SWEEP ARE ALREADY CLOSED — do not spend a sweep on them
   (QSET-2 finding 1, 2026-09-06).** `--kc-extremal`'s registry carries exactly two `invariant/VARIES`
   functionals, `yangcount` and `entryyang`, and both extrema of both are **90 and 96**, over SUPER
@@ -488,7 +491,7 @@ QSET external review, which the external review itself missed; see
   is a member of SUPER, so "how close does any solution get to King Wen's transition skeleton" is
   maximised at King Wen itself. It measures the labelling, not the space. The non-trivial form is
   already listed in this section as the edit-distance-to-KW extremal (nearest SUPER *neighbour*),
-  and is DEFERRED on sizing;
+  which is **CLOSED at distance 2** (§9; corrected 2026-09-22 from "DEFERRED on sizing");
   min/max `--lines` imbalance. **Stage:** post-F (f layers suffice for forward sweeps).
   **Cost:** ≈ $40–80 per functional [ESTIMATED].
 - **Output/verification:** extreme value + explicit witness walk + certificate; witness re-checked
@@ -1007,7 +1010,8 @@ Stage T`. Both are wrong. `g` and `t` are siblings; the arrows below are the cor
        (g-ladder)            (t-ladder)
       exact count      exhaustion-cost / Exhaustion Atlas
 
-   g reads f.  t reads f.  NEITHER reads the other.
+   g and t are each DETERMINED BY f's state space; neither TAKES an FDIR argument.
+   (--kc-g-build rebuilds it; --kc-t-build takes FDIR.)  g and t never read each other.
    branch atlas (XA) needs all three: FDIR + GDIR + TDIR
 ```
 
@@ -1125,8 +1129,21 @@ that take minutes at near-$0; the atlas step above them is not one of them.
 2. Build `solve.c` with the **published** line — `documentation/VERIFY.md` Stage 0 of
    §"TR-12 query program":
    ```
-   gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz
+   gcc -O2 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)\"" -DSOURCE_SHA="\"$(sha256sum solve.c | cut -d' ' -f1)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)\"" -o solve solve.c -lm -lz
    ```
+   ⚠ **The three `-D` identity flags were missing from this step until 2026-09-22 (v1.8, CX-61).**
+   Without them the binary defaults both identity fields to `"unknown"`, every artifact it writes
+   records `engine_git "unknown"` / `engine_source_sha "unknown"`, and **the atlas digest §12 pins
+   can never be reproduced from the recipe this step printed** — the document demanded a thing its
+   own command could not produce. `documentation/VERIFY.md` Stage 0 gained these flags on
+   2026-09-06 (Q-331 item 7); this copy cites that file as its source and never received them,
+   which is a correction that did not propagate. Note `--short=12`: the `engine_git` value pinned
+   in §12 is the twelve-hex `8af5e55c8eed`, while a bare `git rev-parse --short HEAD` yields
+   **eight** hex on this repository (measured 2026-09-22), so VERIFY.md's own line reproduces that
+   field's content but not its width. The flags are **sha-neutral** for the `--selftest` anchor —
+   VERIFY.md Stage 0 measures this rather than assuming it — so adding them moves no pinned digest
+   here. Even correctly flagged, the raw atlas digest still depends on the ladder directory
+   basenames; see §12 "The input, pinned" for the normalised digest that does not.
    `-lz` is required to link and `-o solve` is required because every later step invokes
    `./solve`. For a multi-day ladder rebuild the repository's other published recipe adds
    optimisation — `gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz`
@@ -1172,8 +1189,11 @@ that take minutes at near-$0; the atlas step above them is not one of them.
    (Q8); the f·g identity (step 5). The ÷24 and product-of-conditionals checks are reader
    arithmetic — no project code needed.
 
-**TIER B — check a ladder you already hold against the published registries (minutes, ~$0
-compute).**
+**TIER B — check a ladder you already hold against the published registries (container check
+minutes; the logical sweep MEASURED at 7 h 11 min, ~$0 marginal compute on hardware you already
+have).** *(Heading corrected 2026-09-22, v1.8: it read "(minutes, ~$0 compute)" against this
+section's own measured 7 h 11 min at the logical-registry paragraph below — v1.3 updated the body
+and left the heading.)*
 
 **Resolved 2026-09-05 — what is published, and what is not.** **This project publishes the
 per-layer SHA registries, not the ladder data.** The ladders are large; they are also *derived*
@@ -1702,8 +1722,11 @@ Ouyang 1990/1992, Zhang 1994/1998/2000, Suenaga 2012, Luo 2015 (already in CITAT
 ## 12. What the n=31 atlas establishes — measured from the atlas alone (2026-09-21)
 
 *Added 2026-09-21 by Claude (Fable 5.1). Everything in this section is a MEASURED quantity over
-SUPER — walk-uniform, N-weighted — read off the n=31 atlas with one public command and no other
-input. It is a results section appended to a question set, and it is labelled as such: no query
+SUPER — walk-uniform, N-weighted — read off the n=31 atlas. §12.1–§12.8 come from one public
+command and no other input; §12.10 names its own second command and reads a published TR-7
+evidence file besides (corrected 2026-09-22, v1.8 — this sentence claimed "one public command and
+no other input" for the whole section, and §12.10 has neither property).
+It is a results section appended to a question set, and it is labelled as such: no query
 definition above changes, and nothing here is a p-value. Where a null is stated it is stated as a
 null, and where a result is negative it is reported as a negative. Cost is not discussed here.*
 
@@ -1716,11 +1739,27 @@ pass): `type=roae-kc-scan-atlas`, `n=31`, 31 layers, **5,978,126 B**, sha256
 **`8af5e55c8eed`** (on this repository's `main`), `engine_source_sha`
 `ed9c65b24e9f2ff9cab05eef9f817dca9453ea2edf25b9186fc1f667abe063c9` (the sha256 of the `solve.c`
 that wrote it), its 14 internal gates all `true` with `fails: 0`, its 5 tail checks all `PASS`.
-The file itself is not distributed with this revision; its digest is, so a Tier-A rebuild (the
-~47 h merge of v1.4, once the ladders exist) can be checked against it.
+The file itself is not distributed with this revision; its digest is.
+
+⚠ **What that digest does and does not promise — corrected 2026-09-22 (v1.8, CX-61).** This
+paragraph read *"its digest is, so a Tier-A rebuild … can be checked against it"*, and that
+contract was **unsatisfiable as printed**. The sha256 is over the file as written, and the atlas
+embeds its own provenance inside those bytes: `engine_git`, `engine_source_sha`, and the
+**basenames of the three ladder directories** — `"fdir": "run_f"`, `"gdir": "run_g"`,
+`"tdir": "run_t"`, the argv basenames of the production run, not the `FDIR`/`GDIR`/`TDIR` that §R
+writes. So the raw digest reproduces only for a reader who builds with the identity flags (§R
+Tier A step 2, which until this revision omitted them), whose binary is stamped with the same
+`engine_git` string, **and** who happens to name their directories `run_f`, `run_g`, `run_t`. The
+last two are not properties of the mathematics. **What a reproducer can check instead** is the
+provenance-normalised content digest: replace those five string values with `"-"` in the bytes and
+hash the result —
+**`923faa1b097cd364bbedd58044963df971809bf1c3d27765d29e84ae9f73071a`** (measured 2026-09-22 on the
+pinned file; the raw digest above is unaffected). That digest is invariant to the build stamp and
+to what the reader called their directories, and it is the one a Tier-A rebuild (the ~47 h merge
+of v1.4, once the ladders exist) can actually be checked against.
 
 **One command reproduces every figure in §12.1–§12.8**, as whole-line `KEY=value` tokens matched with
-`grep -qx`, never by output shape:
+`grep -Fqx`, never by output shape:
 
 ```
 python3 solve.py --atlas-probe atlas_n31.json      # ATLAS_PROBE=PASS, ATLAS_PROBE_FAILS=0, rc 0
@@ -1830,11 +1869,29 @@ log₂-score under its own layers' kernels is **−354.964** against a populatio
 **−354.862** (`REF_WALK_KERNEL_LOG2_SCORE`, `KERNEL_POPULATION_MEAN_LOG2_SCORE` — minus the
 summed kernel entropies, i.e. the same score averaged over all N walks): **−0.102 bits over 31
 steps** (`REF_WALK_KERNEL_SCORE_MINUS_POPULATION_MEAN_BITS`). The one-step hexagram-to-hexagram
-kernel cannot tell King Wen from a typical member of SUPER. This is a Q9-class reportable
-negative and is entered there. **Scope:** one-step *marginal* stationarity only — the kernel is
+kernel does not distinguish King Wen from a typical member of SUPER **at the scale these marginals
+fix**, and that scale is now stated rather than left implicit: were the 31 per-step terms
+independent the score's SD would be **1.943 bits** (`KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS`;
+per-step SDs 0.257–0.428, `KERNEL_SCORE_PER_STEP_SD_MIN_MAX_BITS`), and −0.102 is **0.05 of it**
+(`REF_WALK_KERNEL_SCORE_DEVIATION_OVER_INDEPENDENT_STEP_SD=-0.053`). The steps are **not**
+independent, and one-step marginals fix neither the score's distribution nor its variance — only
+that its SD is at most **10.794 bits** (`KERNEL_SCORE_SD_UPPER_BOUND_ANY_DEPENDENCE_BITS`, a
+Minkowski bound, rigorous under any dependence). So the atlas does not show the one-step kernel
+distinguishing King Wen, and **cannot show that it does not**: that needs the per-walk score
+distribution (one f+g point-lookup per gallery walk, the 12.7(i) class), which is not computed
+here. This is a Q9-class reportable negative and is entered there **as "not distinguished at the
+one-step scale measured", not as "cannot tell"**. ⚠ *Corrected 2026-09-22 (v1.8, CX-68): this read
+"the one-step hexagram-to-hexagram kernel cannot tell King Wen from a typical member of SUPER" — a
+conclusion drawn from −0.102 bits with no dispersion, percentile or threshold computed anywhere in
+the document. Codex KCR1-7 / TRQ1-F5a; scale derived here from the atlas alone.* **Scope:** one-step *marginal* stationarity only — the kernel is
 not a Markov model of the walk and its columns do not compose (`viz/viz_kc_grammar.md`); a true
-Markov test needs two-step joints, which cannot be formed from f×g at any price and so is not
-askable of these ladders. **Step-difference census:** the 31 kernels sum to
+Markov test needs two-step joints — the mass through consecutive transitions from a layer-k state s
+is f(s)·g(s∘c₁∘c₂), which the f and g ladders **do** hold but the atlas does not persist, and which
+the one-step kernels cannot recover (M_{k+1} is the marginal over the first choice). Forming them is
+a **second scan pass, not a lookup**: sized in 12.7, and not costed for authorisation here. ⚠
+*Corrected 2026-09-22 (v1.8, CX-69): this read "cannot be formed from f×g at any price and so is
+not askable of these ladders" — a **capability** limit published where a **cost** limit is the
+truth, which is exactly the class §9 says this document does not make. Codex TRQ1-F3.* **Step-difference census:** the 31 kernels sum to
 `STEP_XOR_DISTINCT_VALUES=57` distinct step values x = a ⊕ b — the 63 nonzero six-bit values less
 the six of popcount 5, which C2 forbids (`STEP_XOR_TOTAL_EQ_N_TIMES_N_TOTAL=PASS`). The per-value
 figures below are **expected uses per walk**, not fractions of one: each is that step value's total
@@ -1857,8 +1914,15 @@ interior slots 1–29 every nonzero cell lies in **0.0205–0.0636** against 1/3
 uniform is ≤ **0.0329** (`POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR`), and King Wen's own pair at
 its own slot carries **0.0299–0.0337** at every interior slot
 (`KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR`) — indistinguishable from any other pair. Pair
-position carries essentially no information about membership in SUPER, and King Wen's placements
-are typical of it. Reportable negative; entered under Q9.
+position **marginals** carry essentially no information about membership in SUPER, and King Wen's
+per-slot placements are typical of them. ⚠ *Scope, corrected 2026-09-22 (v1.8, CX-68): that is a
+statement about slot **marginals**. Flat marginals do not test the **joint** placement pattern —
+which pairs co-occur where — and a doubly-stochastic field can be flat in every row and column
+while its joint is far from product. Whether King Wen's joint placement pattern is typical is **not
+asked here**. This previously read "Pair position carries essentially no information about
+membership in SUPER, and King Wen's placements are typical of it", which generalised past what the
+marginals test. Codex TRQ1-F5b, the §12.5 sibling of KCR1-7.* Reportable negative; entered under
+Q9.
 
 ### 12.6 The order in which the C5 budget is spent, against the exchangeable null — measured; interpretation withheld
 
@@ -1877,10 +1941,33 @@ Consistently, the per-layer class shares stay within 0.18 percentage points of b
 (d6) takes 3.13–3.35 % of every interior layer (`D6_POSITION_LAW_MIN_MAX_INTERIOR`). King Wen's
 own residual is the modal cell at k = 0, 3 and 30 and mid-pack through the middle
 (`REF_WALK_RID_RANK_BY_LAYER_1_IS_MODAL`). **Controls, both directions:** against a deliberately
-wrong null — the product of the joint's own digit marginals — the same statistic reads 0.41, ten
-times larger (`CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=9.99`), so it can discriminate; and at
-n=9, where the budget is (2,5,0,2,0), the same statistic against the same exchangeable null reads
-**0.355**, so the statistic can read large and 0.04 at n=31 is not a floor of the instrument.
+wrong null — the product of the joint's own digit marginals — the same statistic reads 0.83, about
+twenty times larger (`CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=19.97`), so it can discriminate —
+**though what that control discriminates is narrower than the number alone suggests**: to four
+decimals the 0.83 **is** the mass the product form puts off the Σc = k hyperplane
+(`CONTROL_WRONG_NULL_MASS_OFF_BUDGET_HYPERPLANE_MAX_OVER_LAYERS=0.8289`, against
+`CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX=0.8289`). Every observed cell lies **on** that hyperplane,
+so a product form — which ignores the budget identity — places 56–83 % of its mass where no walk
+can be, and the control mostly measures **that**, not dependence among the digits given the budget.
+Conditioned on the hyperplane and renormalised the same control reads 0.1333 at n=31 (3.2× the
+exchangeable 0.0415) and 0.1948 at n=9 (0.34× the exchangeable 0.5686 — below 1 again for *that*
+control); neither is emitted as a token, and both are stated here so the reading is not overdrawn;
+and at n=9, where the budget is (2,5,0,2,0), the same statistic against the same exchangeable null
+reads **0.569**, so the statistic can read large and 0.04 at n=31 is not a floor of the instrument.
+⚠ *Corrected 2026-09-22 (v1.8, CX-60). Until this revision the quantity printed here summed
+`½Σ|P−Q|` over the cells the atlas **stores**, and `rid_mass` stores only cells of nonzero observed
+mass; both nulls put mass outside that support, so the term `½·Q(Sᶜ)` the definition requires was
+never added and the statistic was not the total-variation distance it is named as. The **n=31
+headline `0.0415` is unchanged** — layer 4, where the maximum falls, omits no mass — but the
+wrong-null control and every n=9 figure move. Superseded: the control read `0.4145` and the ratio
+`9.99`; at n=9 the three figures read `0.3554`, `0.2927` and `0.82`. The control now discriminates
+by more than was claimed, so the argument of this section is unchanged and only its numbers are.*
+⚠ *The n=9 figures in this section and in §12.9 are measured on an atlas **rebuilt from the
+n=9 recipe below**, not read from a committed fixture — no n=9 atlas ships in this tree
+(`git ls-files | grep atlas_n9` is empty, as `documentation/QUERY_INVENTORY.md` §8.10 records), so
+reproducing them means running that four-command recipe first. Measured 2026-09-22 on a freshly
+built n=9 atlas: `B0_FROM_COLUMN_SUMS=2,5,0,2,0`, `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.5686`,
+`CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX=0.5854`, `CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=1.03`.*
 **What is withheld, and why.** Exact exchangeability is refuted by the data itself (the ×0.058
 cells). Whether *approximate* exchangeability to TV 0.04 is informative — rather than forced by
 the same structure that makes the kernel stationary (12.4) — has no calibrated null here and no
@@ -1904,9 +1991,18 @@ be the finding); (iii) **which constraint kills** — among the doomed prefixes 
 death is a C2 event or a C5 class exhausted, and which class; `rid_mass` and `digits` carry live
 mass only, so this needs a tally over the late f and g layers (k ≥ 24 holds all but 0.005 % of
 doomed mass) that no shipped subcommand performs. None of the three is authorised or scheduled by
-this section; each is a point-lookup or a small tally, not a re-scan. Two things are not askable
-of these ladders at all and are listed so they are not costed: two-step joints (12.4) and
-per-branch per-layer marginals (V2's original form).
+this section; each is a point-lookup or a small tally, not a re-scan. Two things are **not in the atlas** and are a
+**further pass over the ladders rather than a lookup** — listed so the cost is visible and is not
+authorised here: (i) **two-step joints** (12.4) — naively 2(n−k−1) g-lookups per nonzero child,
+**3.49×10¹⁴** against the first scan's **1.27×10¹³** (27.6×; ≈ 800 h at the measured 28.9 h per
+64-thread scan, if lookup-bound), or ≈ 2.3× that scan (≈ 65 h) by recovering the previous exit per
+layer-(k+1) entry with ≤ 2k f-lookups and reusing the one-step g-lookups — on ladders that are now
+**cold**, whose 11.5 TB rehydration is not permitted by standing rule; and (ii) **per-branch
+per-layer marginals** (V2's original form) — ⚠ *this second clause is carried forward unchanged and
+is **not adjudicated**: it may share the same defect as the first (a pass mistaken for an
+impossibility) and has not been derived either way.* ⚠ *Corrected 2026-09-22 (v1.8, CX-69): this
+read "not askable of these ladders at all", a capability claim; the two-step half is a cost, now
+derived from the atlas's own measured counts. Codex TRQ1-F3.*
 
 ### 12.8 Q10(b): the data cost is zero under one reading, and the question is undefined under both
 
@@ -1917,7 +2013,13 @@ mask-level reading nothing; under either reading the blocker is the definition,
 `--kc-coset-census` does not exist, and `TR12_Q10B=PENDING:--kc-coset-census` stays pinned. No
 row moves.
 
-### 12.9 Figure → token, for the reader's `grep -qx`
+### 12.9 Figure → token, for the reader's `grep -Fqx`
+
+⚠ *`-F` is load-bearing and was missing until 2026-09-22 (v1.8, CX-62): two tokens in this table
+carry `digits=[…]`, and a bracket expression is regex syntax, so under plain `grep -qx` those two
+**fail to match their own output line**. In the other direction `.` matches any character, so a
+corrupted `DOOMED_FRACTION_OF_T_ROOT=0x686725` satisfies the published `…=0.686725` pattern under
+`-qx`. Both directions measured. Use `-F` everywhere in this document.*
 
 | figure | token at n=31 |
 |---|---|
@@ -1932,8 +2034,8 @@ row moves.
 | distinct step values | `STEP_XOR_DISTINCT_VALUES=57` |
 | positional field, TV from uniform | `POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR=0.0329` |
 | KW's pair at its own slot | `KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR=0.0299,0.0337` |
-| budget path vs exchangeable null, max TV | `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` (n=9: `0.3554`) |
-| wrong-null control ratio | `CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=9.99` (n=9: `0.82`) |
+| budget path vs exchangeable null, max TV | `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` (n=9: `0.5686`) |
+| wrong-null control ratio | `CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=19.97` (n=9: `1.03`) |
 | most suppressed / most enhanced cell | `EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL=ratio=0.058 layer=23 digits=[2, 0, 13, 7, 1]`; `EXCHANGEABLE_NULL_MOST_ENHANCED_CELL=ratio=1.101 layer=4 digits=[0, 1, 1, 2, 0]` |
 | the walk the atlas tracks is King Wen | `REF_WALK_IS_KING_WEN=PASS` (n=9: `SKIP:n=9`) |
 | A2 anchor-pair slot shares vs TR-7's published anchors | `TR12_A2_SLOT=FAIL` (n=9: `SKIP:n=9`) — from `--atlas-queries`, `DIR/VERDICTS.txt`; see §12.10; FAIL is the result, not a defect |
@@ -1982,8 +2084,21 @@ effect.
 to three significant figures — **≈1.23 in every cell**. (Exact-atlas against the unrounded published
 values: 1.234, 1.228, 1.232. A fourth figure is not determined at the published precision, and
 R-C1c is the *sum* of the first two, so it is a weighted mean of their ratios and cannot fall
-outside them — not a third independent confirmation.) Whatever separates the two populations does not
-perturb that histogram, it **rescales** it, uniformly across both circle-adjacent slots. A3 moves instead: mass flows *into*
+outside them — not a third independent confirmation.) **What separates the two populations reshapes
+that histogram rather than rescaling it**: it enriches the two circle-adjacent slots by the same
+≈×1.23 and, because both histograms sum to exactly 1, depletes the interior to pay for it. Over all
+31 slots the published/atlas ratio runs from **0.872 (slot 17)** to **1.234 (slot 32)**, exceeding 1
+only at slots 2–7 and 27–32. ⚠ *Corrected 2026-09-22 (v1.8, CX-63). This read "does not perturb that
+histogram, it **rescales** it, uniformly across both circle-adjacent slots" — **measured false**, and
+arithmetically impossible as a reading about the histogram: two distributions that each sum to 1
+cannot differ by a uniform factor. The three-cell arithmetic that the sentence generalised from is
+correct and unchanged; only the generalisation was wrong. Re-derived 2026-09-22 from the pinned
+atlas against `reports/evidence/r6/rc1c_primary.out`.* A further measured consequence, not
+previously stated: **on SUPER the A2 slot histogram is flat away from the two circle-adjacent
+slots** — interior slots 3–31 sit between 0.0297 and 0.0326 against 1/31 = 0.0323 — so TR-7's
+published U-shape is not a property of SUPER, and under this section's own inference rule it is
+attributable to C3. That is a *negative* for the SUPER side in the Q9 sense: A2 pair-slot position
+carries no interior structure here. A3 moves instead: mass flows *into*
 d3 (×1.040) and *out of* d1 and d5 (×0.929, ×0.943). Atlas masses sum to exactly 1, and all 16
 eligible closers are realised.
 
@@ -2049,4 +2164,5 @@ nothing here should be read as revising it. The gap between the two is the resul
 | v1.4 | 2026-09-18 | **§R understated the reproduction cost of the atlas step — the one number a reproducer budgets against.** §R priced atlas assembly as a rounding error and said the steps after it run "in minutes"; the second half is right, the first was not. `--kc-scan-merge` does not merely assemble, it **re-digests every f and g layer** before writing the atlas. **Measured 2026-09-18** on the n=31 ladders: scope is f layers 0..30 plus g layers 1..31 — **62 layers, 43.91 TB decompressed** — at a measured single-process rate of **258.7 MB/s**, i.e. **~47 h of wall time**, which makes it the dominant cost of a reproduction once the ladders exist. The earlier figure is **withdrawn rather than restated**, following the rule this report applied to the declined exact-C3 run in v1.0. Two further facts a reproducer needs, because both change what is worth trying. (i) The merge is **single-threaded by construction** — plain digest nest, no OpenMP, no threads knob on the subcommand — so a 64-core host does not shorten it. (ii) It is **not parallelisable for already-banked chunks by patching the engine**: `kc_scan_merge` leg 2 refuses a chunk whose `engine_source_sha` is present and does not match, and that field is the sha256 of `solve.c` itself, so *any* patched binary is refused outright and the only route around it is re-scanning every chunk. A parallel digest pre-pass was built and proved correct for a future lineage — merged atlas byte-identical on a full sha, with both a positive and a negative control firing — and is mentioned here only so the ~47 h is not mistaken for something a reader can optimise away on already-banked data. **Scope, so the figure is not over-read:** the hours are measured on this project's hardware and will move with the reader's; the layer count and the decompressed volume are properties of the n=31 ladders and will not. No count, definition, verdict or query specification changed |
 | v1.5 | 2026-09-19 | **Four documentation defects cured from the Fable adjudication of the Codex v3 lens-B review (V3B-03): one published arithmetic error, three labels that understated this project's own verification. No count, definition, verdict or query specification changed, and no published figure moves.** **§EW-2 (V3B-03#25) — the substantive one.** The multiple-comparisons clause read *"a 10⁻⁴ tail in a 100-family screen is NOISE, said so"*. That is **false** at the α this suite publishes under: Bonferroni-adjusting gives 10⁻⁴ × 100 = 10⁻², and 10⁻² < 0.05, so such a tail is significant — equivalently it clears the per-candidate bar 0.05/100 = 5×10⁻⁴ by ~5×. The clause now states the adjusted threshold explicitly, names the correction family and α ([METHODS.md](METHODS.md) §"Statistics conventions"), and requires EW-2's pre-registration to pin α alongside the candidate list and family size. The sentence was illustrative and **EW-2 has not run**, so no published tail is affected. **§R independence-ladder labels (V3B-03#36).** The report inherited TR-11 §10(vi)'s single-instrument caveat for *both* tiers — a caveat TR-11 retired for the totals on 2026-07-26 as a *"stale label"*. It now splits: the full-31 totals \|C1∩C2∩C4∩C5\| and \|C1∩C2∩C4\| are **two-instrument** (`verify.c`'s inclusion–exclusion transfer-walk, full scale, exact MATCH, mod-24 gated), while every **per-query** Q1–Q10 output is **single-instrument**. This report had carried the string `two-instrument` **zero times**, so the defect ran against interest. TR-11's honest residual — both instruments are project-authored — is restated, not cured. **§11 Q4 (V3B-03#42).** *"P(G ≤ 95) … exact via the G-channel DP"* is exact **of the DP-defined law**: at production size there is no theorem asserting that bin g of the DP histogram counts the permutations whose G equals g, the bridge being machine-checked only at (2,1,5)/(2,3,7)/(3,1,7). The row now carries that qualifier and cites [lean/README.md](../lean/README.md) lines 90-99, which already carried the argument; the rational and the ≈8.106% are **unchanged**. **§11 Q9 (V3B-03#43).** The 8 forced literature rules were called *"PROVEN constants"* without the qualifier lean/README.md lines 62-70 states: **Lean-proven modulo a validated transcription**, the `countP`→`reg_*` identification being a non-Lean step whose 5,449-sequence validator is a scratchpad script with zero occurrences in the public tree. Qualifier and pointer added; the theorem itself is kernel-checked. **Not cured here, recorded so it is not mistaken for closed:** the EW-2 pre-registration hash a reader would check (`ew_prereg_lock`) remains unpublished, and the `c1_constants_check.py` validator remains absent from the public tree — both are publication actions, not text edits, and neither is claimed done |
 | v1.6 | 2026-09-21 | **§12 added — this document's first results section: what the n=31 atlas establishes, measured from the atlas alone, every figure beside the one public command that reproduces it.** The command is new in this revision: `python3 solve.py --atlas-probe ATLAS.json` (ported into `solve.py` under the single-file rule, every token named in `documentation/SOLVE_PY_CLI.md`, gated by `tests.py TestAtlasProbe` on a real n=9 atlas with a red mutant and a refused quotient-only atlas). The atlas is pinned by sha256 and `engine_git`; the file is not distributed. **Six results.** (12.1) The C5 budget is a run parameter recovered exactly from the `by_class` column sums — `2,8,13,7,1` at full-31, `2,5,0,2,0` at n=9 — and the small-n zero-mass classes are its consequence via one predicate, so the n=13 `d3`/`d6` zeros are a local budget fact and not a question at n=31; corroborated by the f- and t-ladder manifests' `b0=` line and by `documentation/F1C5_LAYER_FORMAT.md`. (12.2) 68.67 % of the pruned-DFS tree, in t-units, is doomed prefixes — none before layer 9, a layer's majority from layer 25 — a ratio that leaves the withheld XA exhaustibility call untouched. (12.3) King Wen's own transition sits in the bottom quartile of its distance class by walk mass at 24 of 31 steps, mean percentile 0.219 against a stated null mean of 0.5; the steps are dependent, so it is published as a pointer with no p-value, and the instrument that would calibrate it is named. (12.4) The raw one-step kernel is stationary to TV ≤ 0.001 over layers 6–23 and scores King Wen 0.10 bits below the population mean — a **negative** result, entered under Q9. (12.5) The positional pair field is flat to ~3 % and King Wen's placements are typical of it — a **negative** reading of V1, entered under Q9. (12.6) The C5 budget path is within TV 0.042 of the exchangeable null with one-sided front-loading suppression, controlled against a wrong null (×10) and against n=9 (0.36); the measurement ships, and the claim that near-exchangeability is informative is **withheld** pending an argument either way. **One narrowing, in place** (§11 Q10(b), CX-58): the 2026-09-20 feasibility clause "no coset projection can be aggregated out of those tables at any price" is true of the five accumulators it names and reaches past them — the same scan pass persists the raw kernel, which gives the step-difference reading a zero-data-cost projection and the mask-level reading nothing; under either reading the blocker is the definition, as line 1597 (at `fa5a98dd`) already said, and no row moves. The "what this document is" paragraph is annotated so that its "no full-31 answers are stated here" reads as the rule for the question set. **Same-day adversarial review of this revision (Fable, before push):** every §12.9 token re-executed against the pinned atlas and matched whole-line, 42 of 42, with a negative control; the 59 values shared with the private generation probe re-compared, 0 differing. The review found the probe could return `ATLAS_PROBE=PASS` over a `by_class` table whose rows summed to 2N and 0, and over a `marginal_raw` row summing to 2N — its "re-sums every table" claim held for six tables and not those two, which it had trusted from the atlas's self-reported gate booleans. Four cross-table gates were added (`BY_CLASS_ROW_SUMS_EQ_N_EVERY_LAYER`, `MARGINAL_RAW_ROW_SUMS_EQ_N_EVERY_LAYER`, `KERNEL_CLASS_MARGINALS_EQ_BY_CLASS_EVERY_LAYER`, `KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER`), each red-tested in `tests.py` with the older gates asserted green so the new one is proven load-bearing; two tokens now carry the 12.1 claims that had none (`CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1=NONE`, `LARGEST_CLASS_SET_OVER_LAYERS=d3` — `D3_MIN_LAYER_SHARE=0.40687` alone does not establish "largest at every layer"); and the self-reported gate and tail-check counts are printed (`ATLAS_GATE_COUNT=14`, `ATLAS_TAIL_CHECK_COUNT=5`), since `{"fails": 0}` alone satisfied both verdicts. No figure in §12 moved. No query definition, verdict or count changes; §12 is additive |
-| v1.7 *(current)* | 2026-09-22 | **§12.10 added — the two external-anchor checks, first executed at n=31, disagree with the published references by about twelve times tolerance.** `TR12_A2_SLOT` and `TR12_A3_EXTERNAL` set this compiler's SUPER-space values against numbers TR-7 published for C1–C5; below full-31 both return `SKIP:n=<n>`, and 2026-09-22 was the first time either ran. The disagreement is a fact about the two populations. **This program is built on C1, C2, C4 and C5 only and has no C3 channel** (§0), so although the conditioning sets differ by exactly C3 and TR-7's published uncertainties exclude estimator error on its side, the attribution is an INFERENCE and not a measurement of C3 by this program. No published figure changes and nothing is retracted — §12 predates the consumer run and made no A2/A3 claim. Two rows added to §12.9 annotating why a FAIL there is a result. |
+| v1.7 | 2026-09-22 | **§12.10 added — the two external-anchor checks, first executed at n=31, disagree with the published references by about twelve times tolerance.** `TR12_A2_SLOT` and `TR12_A3_EXTERNAL` set this compiler's SUPER-space values against numbers TR-7 published for C1–C5; below full-31 both return `SKIP:n=<n>`, and 2026-09-22 was the first time either ran. The disagreement is a fact about the two populations. **This program is built on C1, C2, C4 and C5 only and has no C3 channel** (§0), so although the conditioning sets differ by exactly C3 and TR-7's published uncertainties exclude estimator error on its side, the attribution is an INFERENCE and not a measurement of C3 by this program. No published figure changes and nothing is retracted — §12 predates the consumer run and made no A2/A3 claim. Two rows added to §12.9 annotating why a FAIL there is a result. |
+| v1.8 *(current)* | 2026-09-22 | **Two published figures were wrong and one published sentence was false; both were found by independent re-derivation rather than by re-running the instrument against itself.** **(1) §12.6's "total-variation distance" was not one (CX-60).** The statistic summed `½Σ\|P−Q\|` over the cells the atlas *stores*, and `rid_mass` stores only cells of nonzero observed mass; both nulls place mass outside that support, so the `½·Q(Sᶜ)` term the definition requires was never added. **The n=31 headline `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` is UNCHANGED** — layer 4, where the maximum falls, omits no mass — and "≤ 0.0415 at every layer" still holds. What moves: the wrong-null control `CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX` **0.4145 → 0.8289** and the ratio `CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV` **9.99 → 19.97** (§12.6 "reads 0.41, ten times larger" → "reads 0.83, about twenty times larger"); and at n=9 **0.3554 → 0.5686**, **0.2927 → 0.5854**, **0.82 → 1.03**. 🔴 **The qualitative claim inverts:** the control ratio was published as *below 1 at n=9* and is now *just above 1*, corrected here and at `documentation/SOLVE_PY_CLI.md`. The control discriminates by more than was claimed, so this section's argument is unchanged and only its numbers are. **The n=9 provenance is now stated rather than implied:** those figures come from an atlas rebuilt with the four-command n=9 recipe, **not** from a committed fixture — no n=9 atlas ships in this tree — and the rebuilt-atlas values are printed at the site. **(2) §12's reproduction contract was unsatisfiable as printed (CX-61).** §12 said the pinned digest is published "so a Tier-A rebuild … can be checked against it", while §R Tier A step 2 printed a build line carrying **no `-DGIT_HASH`/`-DSOURCE_SHA`** — so a rebuilt atlas records `engine_git "unknown"` and could never hash to `9d6ba3d2…`. The hashed bytes further embed the ladder directory **basenames** `run_f`/`run_g`/`run_t`, which §R names as `FDIR`/`GDIR`/`TDIR`, so even a correctly flagged rebuild in differently named directories misses. Step 2 now prints `documentation/VERIFY.md` Stage 0's flagged line with `--short=12` (the pinned `engine_git` is 12 hex; a bare `--short` yields 8 here), and §12 states the basenames and publishes the **provenance-normalised content digest `923faa1b…`** — the five provenance fields set to `"-"` — which is invariant to build stamp and directory naming and is what a rebuild can actually match. This is the promise an archival export makes about its own reproducibility, so it is stated truthfully rather than repaired with a recipe that still would not reproduce. **(3) §12.10's rescaling sentence was false (CX-63).** It said the population difference "does not perturb that histogram, it **rescales** it, uniformly across both circle-adjacent slots". Measured over all 31 slots the published/atlas ratio runs **0.872 (slot 17) to 1.234 (slot 32)**, and since both histograms sum to 1 a uniform rescaling is arithmetically impossible. C3-conditioning **reshapes** the histogram: it enriches the two circle-adjacent slots ×1.23 and depletes the interior by up to 13 %. The three-cell arithmetic the sentence generalised from is correct and unchanged. A new measured consequence is recorded: on SUPER the A2 slot histogram is **flat** away from the circle-adjacent slots (interior 0.0297–0.0326 against 1/31), so TR-7's U-shape is attributable to C3 — a further negative under Q9. **(4) Reader instructions that cannot match their own tokens (CX-62).** §12 told readers to match with `grep -qx`, which is a **regex** match: the two tokens carrying `digits=[…]` fail to match their own output line, while a corrupted `DOOMED_FRACTION_OF_T_ROOT=0x686725` spuriously satisfies the published `0.686725` pattern. Both directions measured; every reader instruction in §12 and `SOLVE_PY_CLI.md` is now `grep -Fqx`. **(5) Four sites contradicting this document's own text, and a harness asserting work never done.** §12's intro claimed "one public command and no other input" for a section whose §12.10 has a second command and a TR-7 input; the Q5 caveat and shortlist still read DEFERRED where §9 records the edit-distance extremal **CLOSED** at distance 2; the Tier B heading read "(minutes, ~$0 compute)" against its own measured **7 h 11 min**; the §R.0 diagram read "g reads f" against the step-2 heading "standalone, takes NO FDIR" (CX-66). In `scripts/tr12_repro.sh`, the `SKIP:banked-pre-scan` reason claimed the pre-scan run "already took this ladder's digests" when the pre-scan receipts carry `SKIP:cost-gated` — the digests were never taken by any run — and `TR12_Q2` printed PASS beside two cost-gated legs its own published completion contract requires; the reason string now says what happened and the contract is **enforced** rather than weakened (CX-65). `documentation/QUERY_INVENTORY.md`'s "36-step run order" is re-counted as **37** (CX-64). No count, definition or query specification changes; the three moved figures above are the only published values affected. **Four further corrections landed in this same revision, none of which moves a figure but each of which changes what the document asserts** — and they are listed here because a revision row that stops at the figures understates what a reader should re-read. **(4) CX-67:** the entry CX-52 certified a neighbouring skip reason as "already correct" and it was false; that certification is withdrawn, CX-52 itself untouched, and the reason at the latent `--kc-t-check` branch now names the real provenance of the banked PASS. **(5) CX-68:** §12.4 concluded the one-step kernel "cannot tell" King Wen from a typical walk from −0.102 bits with **no dispersion, percentile or threshold computed anywhere**; the scale is now printed (independent-step SD 1.943 bits, so −0.102 is 0.05 of it; SD at most 10.794 bits under any dependence) and the conclusion is entered as *not distinguished at the one-step scale measured*. §12.5's sibling claim is scoped from marginals to marginals, with the joint placement pattern named as not asked. **(6) CX-69:** §12.4 and §12.7 published a **cost** limit as a **capability** limit — two-step joints CAN be formed from f and g, at a derived 27.6× the first scan naively or ≈2.3× by reusing the one-step lookups; §12.7's sibling per-branch clause is marked **not adjudicated** rather than silently carried. **(7) CX-70:** the wrong-null control's 0.83 is, to four decimals, the mass a product form puts **off the budget hyperplane** where no walk can be, so it mostly shows that a product form ignores the budget identity rather than that the digits are dependent given it; conditioned and renormalised it reads 0.1333 at n=31 and 0.1948 at n=9. The number is unchanged; the sentence around it is not |

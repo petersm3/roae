@@ -617,7 +617,10 @@ had been claiming.]
                              derived figure from a `--kc-raw` atlas ALONE -- no
                              ladder, no `solve` binary, no network -- and print
                              each as a whole-line KEY=value token (match with
-                             `grep -qx`, never by shape). Every table is re-summed
+                             `grep -Fqx`, never by shape -- -F is REQUIRED, two
+                             of these tokens carry `digits=[...]` and a bracket
+                             expression is regex syntax, so plain -qx fails to
+                             match their own output line). Every table is re-summed
                              against N and the atlas's own gates before a figure
                              that depends on it is printed. Works at any n the
                              scan supports; the King-Wen cross-checks run at
@@ -674,10 +677,34 @@ had been claiming.]
                              distance from a deliberately wrong null, the product
                              of the joint's own digit marginals),
                              CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV (their
-                             ratio -- a reading, not a gate: ~10 at n = 31, below
-                             1 at n = 9), EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL,
+                             ratio -- a reading, not a gate: ~20 at n = 31, just
+                             ABOVE 1 at n = 9. Corrected 2026-09-22 (CX-60) from
+                             "~10 at n = 31, below 1 at n = 9": the TV sum
+                             omitted the null's mass on cells the atlas does not
+                             store, which halved both controls. n=31 19.97,
+                             n=9 1.03 -- the n=9 side FLIPS above 1),
+                             CONTROL_WRONG_NULL_MASS_OFF_BUDGET_HYPERPLANE_MAX_OVER_LAYERS
+                             (added 2026-09-22: the product null's mass OFF the
+                             sum(c)=k hyperplane. Every observed cell lies ON it,
+                             so this equals CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX
+                             to 4 dp -- the wrong-null control mostly measures
+                             that a product form ignores the budget identity, NOT
+                             dependence among the digits given it. Print both
+                             before reading the ratio as a discrimination claim),
+                             EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL,
                              EXCHANGEABLE_NULL_MOST_ENHANCED_CELL (the cells with
-                             the smallest and largest observed/null mass ratio);
+                             the smallest and largest observed/null mass ratio --
+                             ranging over cells WITH OBSERVED MASS only),
+                             RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS (added
+                             2026-09-22: support cells the atlas stores no row
+                             for, whose observed/null ratio is 0 and which the two
+                             CELL tokens above therefore cannot report; 129 at
+                             n = 31),
+                             RID_KEYS_WITHIN_RADIX_RANGE_EVERY_CELL (gate, added
+                             2026-09-22: the probe decodes a rid key modulo
+                             (b0[d]+1) per digit, so a key past the radix top
+                             ALIASES onto a valid cell. Silent precondition of the
+                             omitted-mass identity below);
                              REF_WALK_SOURCE (`kw_src`: `KW` at n = 31),
                              REF_WALK_CLASSES_ARE_ADMISSIBLE,
                              REF_WALK_CLASS_MULTISET_EQ_B0,
@@ -702,6 +729,20 @@ had been claiming.]
                              the per-layer kernel entropies -- the same score
                              averaged over all walks),
                              REF_WALK_KERNEL_SCORE_MINUS_POPULATION_MEAN_BITS,
+                             KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS (added
+                             2026-09-22: the score's SD WERE the 31 per-step terms
+                             independent -- 1.943 bits at n = 31. They are NOT
+                             independent; this is the scale the marginals fix, not
+                             the true dispersion),
+                             KERNEL_SCORE_PER_STEP_SD_MIN_MAX_BITS,
+                             KERNEL_SCORE_SD_UPPER_BOUND_ANY_DEPENDENCE_BITS (a
+                             Minkowski bound -- rigorous under ANY dependence,
+                             10.794 bits at n = 31),
+                             REF_WALK_KERNEL_SCORE_DEVIATION_OVER_INDEPENDENT_STEP_SD
+                             (the deviation in units of the independent-step SD,
+                             -0.053 at n = 31. NO GATE on any of these four: every
+                             gate over them is a theorem and cannot fail, which is
+                             the KCR1-7 defect class itself),
                              STEP_XOR_DISTINCT_VALUES,
                              STEP_XOR_TOTAL_EQ_N_TIMES_N_TOTAL,
                              STEP_XOR_POPCOUNT1_SHARE_MIN_MAX,
@@ -752,7 +793,8 @@ had been claiming.]
                              `count_identities` gate for that split; and a
                              PASS is an internal-consistency verdict, never a
                              statement that the figures match §12 -- match each
-                             figure with `grep -qx`.
+                             figure with `grep -Fqx` (-F required; see the
+                             bracket-token note above).
 --xa-nodes-per-sec F         XA-c/d: measured DFS throughput anchor.
 --xa-usd-per-hour F          XA-c/d: worker price anchor.
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call
@@ -816,7 +858,7 @@ fold: the first wiring produced `error: ambiguous option: --atlas could match --
 | `SAMPLE …` | one or more raw walk-uniform `--kc-sample DIR M SEED` files (the Q4AC draw the driver retains with `--keep`), pooled |
 
 **Verdict token:** `KC_CLASS_SWAP_DETECT=CLEAN | SUSPECT | ERROR`, a whole line, matched with
-`grep -qx`. `ERROR` is the could-not-measure value and is **never** agreement. Exit codes 0/1/2
+`grep -Fqx`. `ERROR` is the could-not-measure value and is **never** agreement. Exit codes 0/1/2
 mirror it but never carry it alone.
 
 **`--json` keys:** `token`, `verdict`, `n`, `mode`, `draws`, `cells`, `statistic`, `eps`, `alpha`,
@@ -835,8 +877,10 @@ undetectability limit **stands** on measured rather than by-construction grounds
 Verdict tokens emitted: `TR12_Q3`, `TR12_Q3_KW`, `TR12_Q3_READER`, `TR12_Q6`,
 `TR12_Q6_EXTREMES`, `TR12_V1`, `TR12_V2`, `TR12_V5`, `TR12_XA_A`, `TR12_XA_B`,
 `TR12_XA_CD`, `TR12_XA_MOD24`, `TR12_Q10A`, `TR12_A2_SLOT`, `TR12_A3_EXTERNAL`,
-and at n=31 `TR12_A5_ORBIT_COLUMNS` — matched with `grep -qx`, never by output
-shape.
+and at n=31 `TR12_A5_ORBIT_COLUMNS` — matched with `grep -Fqx`, never by output
+shape. *(`-F` added 2026-09-22, CX-62: a token is a literal string, and without
+`-F` any `.` or `[` in a value is regex syntax — which silently both misses real
+matches and accepts corrupted ones.)*
 🔴 **Four of these were verdicts that could not fail, until 2026-09-04** (Codex
 review MQ1 §2d): `TR12_Q10A` and `TR12_XA_A` were the literal string `PASS`,
 `TR12_XA_B` tested only that `t_root_t_units` was PRESENT rather than that its

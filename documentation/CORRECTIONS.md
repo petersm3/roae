@@ -10464,3 +10464,382 @@ naming both the TR and the date. It matched this row on the phrase "nothing is *
 negation, the same shape of match this corpus has recorded twice before. The gate firing on a
 negation is a real limitation of its selector; the entry it demanded is nonetheless owed, because
 v1.7 does scope a claim, and that is what this file is for.)*
+
+---
+
+## CX-60 — §12.6's "total-variation distance" omitted the null's mass on unstored cells, and two published controls were half their true size (TR-12) (RP: none)
+
+**2026-09-22.** `reports/TR12_QUERY_PROGRAM.md` §12.6 publishes a total-variation distance between
+the residual-budget joint `rid_mass[k]` and a multivariate-hypergeometric null, plus a wrong-null
+control. **The quantity computed was not the total-variation distance it is named as.** It summed
+`½Σ|P−Q|` over the cells the atlas *stores*, and the scan writes only cells of **nonzero observed
+mass**; both nulls put mass outside that support, so the term `½·Q(Sᶜ)` that the definition
+requires was never added. Found by an external review (Codex KCR1) re-deriving the statistic from
+its definition rather than re-running the probe — the same-day review that preceded it had verified
+that the probe reproduces its own tokens, which cannot catch a wrong definition.
+
+**What it says now, and which figures move.** **The n=31 headline is UNCHANGED:**
+`EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415`, maximal at k = 4, still holds — layer 4 omits no
+mass — as does "≤ 0.0415 at every layer". What moves is the control and every n=9 figure:
+`CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX` **0.4145 → 0.8289**;
+`CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV` **9.99 → 19.97** (§12.6's prose "reads 0.41, ten times
+larger" → "reads 0.83, about twenty times larger"); and at n=9 **0.3554 → 0.5686**,
+**0.2927 → 0.5854**, **0.82 → 1.03**. 🔴 **A qualitative claim inverts.** The control ratio was
+published as *below 1 at n=9* — in §12.9 and in `documentation/SOLVE_PY_CLI.md`'s token
+description — and the corrected ratio is *just above 1*. Both sites are corrected; a correction that
+does not propagate is the defect this file exists to catch.
+
+**Why it matters.** The product null puts half its mass off the `Σc = k` hyperplane, which is
+exactly the mass the shipped sum ignored — so the control discriminates by **more** than was
+claimed. §12.6's argument is therefore unchanged and only its numbers are, which is the honest way
+to state it: the correction does not rescue a conclusion, it corrects values that happened not to
+carry one. The withheld interpretation stays withheld.
+
+**Provenance of the n=9 figures, stated because it was previously implied and not true.** They are
+measured on an atlas **rebuilt from the four-command n=9 recipe**, not read from a committed
+fixture: no n=9 atlas ships in this tree (`git ls-files | grep atlas_n9` is empty — a gap
+`documentation/QUERY_INVENTORY.md` §8.10 already records), so a reader reproducing them must build
+one first. §12.6 now says so and prints the rebuilt-atlas values beside the claim.
+
+**Published figures move: YES — five** (two at n=31, three at n=9), plus one inverted qualitative
+claim. The engine fix landed in `solve.py` in the same pass; `tests.py` pinned none of these token
+values.
+
+---
+
+## CX-61 — TR-12 §12 promised a reproduction check its own build recipe could not satisfy (TR-12) (RP: none)
+
+**2026-09-22.** `reports/TR12_QUERY_PROGRAM.md` §12 pins the n=31 atlas by sha256 and said the file
+itself is not distributed but "its digest is, so a Tier-A rebuild … can be checked against it".
+**That contract was unsatisfiable as the document stood**, for two independent reasons, both
+verified by execution against the pinned file.
+
+**What was wrong.** (i) §R Tier A step 2 printed `gcc -O2 -pthread -fopenmp -o solve solve.c -lm
+-lz` — **no `-DGIT_HASH`, no `-DSOURCE_SHA`**. The engine defaults both to `"unknown"`, so an atlas
+rebuilt from the printed recipe records `engine_git "unknown"` / `engine_source_sha "unknown"`
+inside the very bytes the digest covers, and can never hash to `9d6ba3d2…`. `documentation/VERIFY.md`
+Stage 0 gained those flags on 2026-09-06 (Q-331 item 7); TR-12's copy **cites VERIFY.md as its
+source** and never received them — a correction that did not propagate, and the same shape as the
+2026-09-02 "build line with no provenance" entry in this file. (ii) The hashed bytes also embed the
+ladder directory **basenames** — `"fdir": "run_f"`, `"gdir": "run_g"`, `"tdir": "run_t"`, the argv
+basenames of the production run — while §R names those directories `FDIR`/`GDIR`/`TDIR`. So even a
+correctly flagged rebuild misses unless the reader happens to name their directories `run_f`,
+`run_g`, `run_t`, which is not a property of the mathematics.
+
+**What it says now.** §R Tier A step 2 prints VERIFY.md Stage 0's flagged line, with `--short=12`:
+the pinned `engine_git` is the twelve-hex `8af5e55c8eed`, while a bare `git rev-parse --short HEAD`
+yields **eight** hex on this repository (measured), so VERIFY.md's own line reproduces the field's
+content but not its width. §12 now states the three basenames and publishes the
+**provenance-normalised content digest**
+`923faa1b097cd364bbedd58044963df971809bf1c3d27765d29e84ae9f73071a` — the five provenance string
+fields set to `"-"` — which is invariant to the build stamp and to directory naming, and is what a
+rebuild can actually be checked against. `documentation/VERIFY.md` carries a width caveat pointing
+at the same fact. The flags remain sha-neutral for the `--selftest` anchor, which VERIFY.md
+measures rather than assumes.
+
+**Why it matters.** This is the promise the project makes about its own reproducibility, and it is
+the promise an archival export inherits. A published contract that cannot be satisfied is worse
+than no contract: a reader who follows it gets a mismatch and cannot tell a wrong rebuild from a
+wrong recipe. Stating the contract truthfully — including that two of the three inputs to the raw
+digest are accidents of one run's directory layout — is the point, not printing a tidier recipe
+that still would not reproduce.
+
+**Published figures move: NO.** No count, definition or verdict changes; the raw digest is
+unchanged and is still correct for the file as written.
+
+---
+
+## CX-62 — every reader instruction in TR-12 §12 told readers to match literal tokens with a REGEX matcher (TR-12) (RP: none)
+
+**2026-09-22.** TR-12 §12 and `documentation/SOLVE_PY_CLI.md` instructed readers to match published
+verdict tokens whole-line with `grep -qx`. **`-qx` anchors the match but does not make it literal**,
+and two of the 42 published §12 tokens contain bracket expressions —
+`EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL=…digits=[2, 0, 13, 7, 1]` and the corresponding
+`…MOST_ENHANCED_CELL=…digits=[0, 1, 1, 2, 0]`.
+
+**What was wrong, measured in both directions.** Matching each of those two tokens against its own
+output line with `grep -qx` returns **rc 1 — it fails to match itself** — because `[…]` is regex
+syntax. In the opposite direction `.` matches any character, so a corrupted
+`DOOMED_FRACTION_OF_T_ROOT=0x686725` **satisfies** the published `DOOMED_FRACTION_OF_T_ROOT=0.686725`
+pattern under `-qx` (rc 0). Under `grep -Fqx` the two bracketed tokens match their own lines (rc 0)
+and the corrupted line is correctly rejected (rc 1). No shipped gate was affected — the battery's
+`-qx` call sites all match bracket-free tokens — so this was a defect in what readers were told, not
+in what the project ran.
+
+**What it says now.** `grep -Fqx` at every reader-facing site in TR-12 §12 (the token-matching
+instruction and the §12.9 heading) and in `documentation/SOLVE_PY_CLI.md`, each with a short note
+saying why `-F` is load-bearing.
+
+**Why it matters.** This document's whole verification discipline is "the token is the check,
+matched whole-line, never by output shape". An instruction that silently both misses true matches
+and accepts corrupted ones inverts that discipline for exactly the readers who follow it most
+carefully. It is also the cheapest class of defect to leave standing, which is why it stood.
+
+**Published figures move: NO.**
+
+---
+
+## CX-63 — §12.10 said C3-conditioning rescales the A2 slot histogram; measured, it reshapes it (TR-12) (RP: none)
+
+**2026-09-22.** `reports/TR12_QUERY_PROGRAM.md` §12.10, published the same morning in v1.7, compared
+two cells of the A2 pair-slot histogram — both circle-adjacent — found both published/atlas ratios
+≈1.23, and concluded of *the histogram*: "Whatever separates the two populations does **not perturb**
+that histogram, it **rescales** it, uniformly across both circle-adjacent slots."
+
+**What was wrong.** **Measured false, over all 31 slots.** The published/atlas ratio runs from
+**0.872 at slot 17** to **1.234 at slot 32**, exceeding 1 only at slots 2–7 and 27–32. It was also
+impossible *a priori*: both histograms are distributions over the 31 free slots and each sums to
+exactly 1.000000, so they cannot differ by a uniform factor — if two cells rise 23 %, the rest must
+fall. The sentence generalised from three verified cells to twenty-nine untested ones. The pre-push
+adversarial review of v1.7 confirmed the three cells and never tested the generalisation; that is
+recorded here against interest, and it is the same shape of miss as CX-60 — confirming the cells
+that were printed rather than the claim that was made.
+
+**What it says now.** C3-conditioning **reshapes** the histogram: it enriches both circle-adjacent
+slots by the same ≈×1.23 and, because both sum to 1, depletes the interior to pay for it — most at
+slot 17 (×0.872). The three-cell arithmetic is correct and unchanged. §12.10 additionally records a
+measured fact it had not stated: **on SUPER the A2 slot histogram is flat away from the two
+circle-adjacent slots** (interior slots 3–31 between 0.0297 and 0.0326, against 1/31 = 0.0323), so
+TR-7's published U-shaped A2 histogram is not a property of SUPER at all and is attributable to C3
+by the same inference — and is a further *negative* under Q9.
+
+**Why it matters.** The correction replaces a false claim with a stronger and more interesting true
+one, which is the outcome that makes adversarial review worth its cost. It also leaves the v1.7
+attribution logic exactly where CX-59 scoped it: attributable to C3 by inference from two
+instruments, never measured by this program.
+
+**Published figures move: NO** — no table figure and no token changes; the corrected claim is
+qualitative, and the two endpoint ratios it was built from were right.
+
+---
+
+## CX-64 — QUERY_INVENTORY promised a 36-step run order and §5 has 37 (TR-12) (RP: none)
+
+**2026-09-22.** `documentation/QUERY_INVENTORY.md`'s opening paragraph, which exists to tell an
+external reviewer the size of the question set, promised "a **36**-step run order in §5". §5 holds
+**37** labelled steps: A0.1–A0.7, A1.1–A1.8, A2.1–A2.10, A3.1–A3.2 and C.1–C.9 including **C.5b**,
+which was added on 2026-09-10 without propagating the new total to the sentence that counts them.
+Re-counted by enumerating the labelled step rows.
+
+**What it says now.** "a **37**-step run order in §5", with a dated note naming C.5b as the addition
+and stating the enumeration the count came from, so the next reader can re-derive it rather than
+trust it.
+
+**Why it matters.** The paragraph's own argument is that a review returning findings on nine
+questions "cannot be told apart from approval" unless the reader knows the true size of the set. A
+count that drifts undermines the one sentence whose job is to be countable. Small, but this file's
+standing rule is that a number in prose is a claim.
+
+**Published figures move: NO** — a count of document sections, not a result.
+
+---
+
+## CX-65 — the TR-12 battery gave a skip reason for work no run performed, and printed Q2 complete against its own published contract (TR-12) (RP: none)
+
+**2026-09-22.** Two defects in `scripts/tr12_repro.sh`, both found by external review (Codex KCR1)
+and both of one class: **the harness asserting more than the record supports.**
+
+**(1) A skip reason that described work never done.** On an `--atlas` run the ladder-digest rows
+were skipped as `SKIP:banked-pre-scan`, with the reason "the pre-scan (`--no-scan`) run already took
+this ladder's digests … re-running buys no new information". **The receipts refute it**: the n=31
+pre-scan runs carry `TR12_FSHA=SKIP:cost-gated`, `TR12_GSHA=SKIP:cost-gated`,
+`TR12_TSHA=SKIP:cost-gated` — the layer digests were **never computed, by any run**. What the
+pre-scan genuinely banked is the ladder **identity** rows (`TR12_FIDENT`/`GIDENT`/`TIDENT=PASS`
+against the published registry), which is a different and weaker statement. The reason string now
+says exactly that, names the cost gate as the real reason, and points at the identity row that did
+run. The underlying decision — cost-gating a multi-hour digest pass — was documented and is
+unchanged; only the sentence claiming it had already happened is.
+
+**(2) A completion contract the harness did not enforce.** `documentation/QUERY_INVENTORY.md` row Q2
+defines completion as the bracket certificate **and** `TR12_GCHECK` **and** `TR12_GSHA` — because,
+as that row states from measurement, the bracket "certifies the rank/unrank PAIR, not the ladder":
+a g ladder corrupted at 3 of 12 probed offsets still certifies PASS, since rank and unrank read the
+same wrong g. But `row_end TR12_Q2` took only its own rc, so all three n=31 verdict files print
+`TR12_Q2=PASS` beside `TR12_GCHECK=SKIP:cost-gated` and `TR12_GSHA=SKIP:cost-gated`.
+
+**What it says now, and the choice made.** The contract was **published first**, and it is the
+stronger and better-argued of the two, so **the harness is what moves**: `TR12_Q2` now aggregates
+its own verdict with both required legs, making the honest n=31 value `SKIP:leg-TR12_GSHA` (the
+aggregator's skip arm does not short-circuit, so the last skipped leg names the token). Q2 is
+listed as its own first leg so a genuine Q2 failure still dominates a skip. Verified by executing
+the aggregator in all three shapes: n=31 → `SKIP:leg-TR12_GSHA`, n=9 → `PASS`, and a genuine Q2
+non-zero exit → `FAIL:leg-TR12_Q2`. At n < 31 both legs actually run and PASS, so the n=9 battery
+and its pinned skip set are unchanged. Weakening the
+published contract to match the harness was the available alternative and was rejected: the reason
+the contract requires those legs is a measured failure mode, not a formality.
+
+**Why it matters.** A skip that reads as a pass, and a reason that asserts unperformed work, are the
+two failure modes this battery's whole skip-reporting design exists to prevent — and here they had
+appeared inside that design. Neither affects a published number: the n=31 verdict files are private,
+and the cost-gate decision they record was already documented.
+
+**Published figures move: NO.**
+
+---
+
+## CX-66 — four TR-12 sites that contradicted their own document (TR-12) (RP: none)
+
+**2026-09-22.** Four wording defects, grouped because they are one class: **a later correction or
+measurement landed in one place and left its contradiction standing in another.** All four are in
+`reports/TR12_QUERY_PROGRAM.md`.
+
+- **§12's opening** said every figure in the section is "read off the n=31 atlas with one public
+  command and no other input". §12.10 names its **own second command** and reads a published TR-7
+  evidence file. A previous review scoped the same overclaim at the header sentence below it and
+  landed only that half; this is the other half. Now scoped: §12.1–§12.8 from one command, §12.10
+  with its own command and input.
+- **The Q5 caveat and the Q5 shortlist** described the edit-distance-to-KW extremal as "flagged
+  DEFERRED; the 560T sample minimum stands as the interim bound" and "DEFERRED on sizing", while §9
+  of the same document records it **CLOSED** at distance 2 — the floor is structural and a published
+  witness attains it, so, as §9 says, "the row's own 'interim bound' already equalled the answer".
+  Both sites now say CLOSED and point at §9. The practical cost of leaving them: a reader could
+  budget a $40–80 sweep to rediscover a published number.
+- **The Tier B heading** read "(minutes, ~$0 compute)" against the measured **7 h 11 min** stated in
+  that section's own body, where v1.3 recorded the logical registry sweep and updated the body only.
+  The heading now carries the measured figure and distinguishes the container check (minutes) from
+  the logical sweep.
+- **The §R.0 dependency diagram** read "g reads f. t reads f." against the step-2 heading "Stage G
+  — standalone, takes NO FDIR". The document already splits these two senses in prose — logically g
+  is determined by f's state space, but `--kc-g-build` takes no FDIR argument and rebuilds it — and
+  the diagram was carrying the logical sense with a command verb, which is the exact confusion that
+  prose was written to end. The arrow is relabelled to the logical sense.
+
+**Why it matters.** Each of these is a place where this document tells a reader one thing in one
+section and the opposite in another; the Q5 pair and the Tier B heading would both have misdirected
+someone spending money or time. None is a new finding — every one of them is the residue of a
+correction that was made and not propagated, which is the failure mode this ledger tracks.
+
+**Published figures move: NO.**
+
+## CX-67 — CX-52 certified a skip reason as "already correct" and it was false; the certification is withdrawn (TR-12) (RP: none)
+
+**2026-09-22.** This entry corrects **an entry in this ledger**, which is why it is written even
+though nothing a reader can run behaves differently because of it.
+
+**What CX-52 said.** Correcting the `b_tcheck` *cost-gated* reason in `scripts/tr12_repro.sh`,
+CX-52 (2026-09-19) closed with:
+
+> *"The neighbouring `SKIP:banked-pre-scan` reason was already correct and is untouched. A
+> wrap-aware sweep of the whole tree, with a positive control that returned this same line, found
+> **no other site** carrying the stale claim."*
+
+**The neighbouring reason was not correct.** It read *"the pre-scan run already ran it under the
+same binary and the same universe"*. Measured across **every** `VERDICTS.txt` in the tree,
+`TR12_TCHECK=SKIP:cost-gated` at n=31 — `run1_prescan`, `battery_pre_20260921`,
+`banked/battery_pre`, `battery_final_20260922`, `n31_results_20260918`. The **only**
+`TR12_TCHECK=PASS` anywhere is the n=9 rehearsal. No pre-scan run has ever executed `--kc-t-check`
+at n=31. What is genuinely banked is a **standalone** 2026-09-14/15 pass published at
+`runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt` — which is what the *cost-gated* arm already
+cites correctly, and which is a different provenance from "the pre-scan run".
+
+**How a correct sweep reached a wrong conclusion, because this is the transferable part.** CX-52's
+sweep searched for the **stale PASS claim** — the specific false sentence it was fixing — and
+correctly found no other site carrying it. Its positive control confirmed the search could find
+that sentence. It then generalised from "no other site carries *this* falsehood" to "the
+neighbouring reason is correct", **which the search never tested**. A positive control proves a
+search could find what it was looking for; **it does not widen what the search was looking for.**
+
+**Scope, stated at its true size.** The defect is **latent, not live.** At n=31 with
+`WITH_TCHECK=0` the cost-gated branch is evaluated first and wins, so the `banked-pre-scan` arm is
+unreachable in production — which is exactly what the receipts show. No run has ever emitted it,
+and no published figure or verdict is affected. The cost is **where it lives**: a corrections
+ledger is the document a reader consults to learn what has already been checked, and an entry
+certifying a false string as correct converts that record into a hazard. The sibling defect found
+in the same pass — `ladder_row`'s reason claiming the pre-scan took the ladder digests — **was**
+live and is corrected under CX-65.
+
+**What changed.** The `banked-pre-scan` reason and the comment block above it now state what
+actually happened and name the real provenance of the banked PASS. **CX-52 itself is untouched**,
+as this file is append-only; this entry is the withdrawal of its certification, and a reader
+arriving at CX-52 should read it together with this one.
+
+**Published figures move: NO.** Origin: Codex review KCR1 item 1b, triaged by Fable, confirmed
+here from the receipts. Filed as Q-680; the live half is Q-679.
+
+## CX-68 — §12.4 concluded the kernel "cannot tell" King Wen from a typical walk, with no scale computed anywhere; §12.5 generalised from marginals to the joint (TR-12) (RP: none)
+
+**2026-09-22.** Origin: Codex review KCR1 item 7 and its §12.5 sibling TRQ1-F5b, adjudicated by
+Fable, with the scale derived from the atlas alone.
+
+**What was wrong.** §12.4 published *"The one-step hexagram-to-hexagram kernel cannot tell King Wen
+from a typical member of SUPER"* on the strength of **−0.102 bits** against the population mean —
+and **no dispersion, percentile or threshold appeared anywhere in the document**. A deviation
+without a scale is not a negative result; it is an unread instrument.
+
+**The scale, now printed.** Were the 31 per-step terms independent the score's SD would be **1.943
+bits** (`KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS`, per-step 0.257–0.428), making −0.102 **0.05 of it**
+(`REF_WALK_KERNEL_SCORE_DEVIATION_OVER_INDEPENDENT_STEP_SD=-0.053`). **The steps are not
+independent**, and one-step marginals fix neither the score's distribution nor its variance — only
+that the SD is at most **10.794 bits** (`KERNEL_SCORE_SD_UPPER_BOUND_ANY_DEPENDENCE_BITS`, a
+Minkowski bound valid under any dependence). **The conclusion survives the scale**, which is why no
+figure moves; what changes is that the document now says what it measured. Entered under Q9 as
+*not distinguished at the one-step scale measured*, not as *cannot tell* — the atlas cannot show
+that it cannot, and the instrument that would (the per-walk score distribution) is named.
+
+🔴 **No gate was added on the four new tokens, deliberately.** Every gate expressible over them is a
+theorem about the arithmetic and cannot fail — which is the KCR1-7 defect class itself. The red
+test instead recomputes them independently and proves a mass-preserving kernel trade moves them.
+
+**§12.5, the sibling.** *"Pair position carries essentially no information about membership in
+SUPER"* was drawn from flat per-slot **marginals**. Flat marginals do not test the **joint**
+placement pattern — which pairs co-occur where — and a doubly-stochastic field can be flat in every
+row and column while its joint is far from product. The claim is now scoped to the marginals, with
+the joint named as **not asked here**.
+
+**Published figures move: NO.**
+
+## CX-69 — §12.4 and §12.7 published a COST limit as a CAPABILITY limit (TR-12) (RP: none)
+
+**2026-09-22.** Origin: Codex review TRQ1 item F3, adjudicated and costed by Fable.
+
+**What was wrong.** §12.4 read *"a true Markov test needs two-step joints, which cannot be formed
+from f×g **at any price** and so is not askable of these ladders"*, and §12.7 listed two-step joints
+among things *"not askable of these ladders **at all**"*. **False.** The mass through consecutive
+transitions from a layer-k state s is `f(s)·g(s∘c₁∘c₂)`, and the f and g ladders hold both factors.
+
+**What is true** is that the **atlas** does not persist them and the one-step kernels cannot recover
+them (M_{k+1} is the marginal over the first choice), so forming them is a **second pass over the
+ladders, not a lookup**. Costed from the atlas's own measured counts: naively **3.49×10¹⁴**
+g-lookups against the first scan's **1.27×10¹³** (27.6×, ≈ 800 h at the measured 28.9 h per
+64-thread scan if lookup-bound), or ≈ 2.3× that scan (≈ 65 h) by recovering the previous exit per
+layer-(k+1) entry with ≤ 2k f-lookups and reusing the one-step g-lookups. Both need **warm**
+ladders; they are cold, and the 11.5 TB rehydration is not permitted by standing rule.
+
+**Why this matters beyond the wording.** §9 states that this document does not publish capability
+limits where cost limits are the truth. This was one, and it originated in a private analysis note
+whose sentence was copied into §12 without re-derivation.
+
+⚠ **The sibling clause is flagged, not fixed.** §12.7's sentence also lists *per-branch per-layer
+marginals* as not askable. That half **was not derived** and may carry the same defect; it is
+carried forward with an explicit "not adjudicated" marker rather than silently corrected or
+silently left. **Closing half a sentence and not saying so is how the first error survived.**
+
+**Published figures move: NO.**
+
+## CX-70 — the wrong-null control's 0.83 is mostly the mass a product form puts where no walk can be (TR-12) (RP: none)
+
+**2026-09-22.** Exposed by CX-60's own correction, and found while verifying it rather than by a
+reviewer — recorded because it changes what a published number **means** without changing the
+number.
+
+**What §12.6 implied.** With the omitted mass restored, the wrong-null control reads **0.83**,
+about twenty times the exchangeable statistic's 0.0415 — offered as evidence that *"it can
+discriminate"*. The natural reading is that the exchangeable null fits far better than a
+product-of-marginals form **because the digits are dependent**.
+
+**What it actually measures.** To four decimals that 0.83 **is** the product null's mass off the
+Σc = k hyperplane (`CONTROL_WRONG_NULL_MASS_OFF_BUDGET_HYPERPLANE_MAX_OVER_LAYERS=0.8289`, against
+`CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX=0.8289`). Every observed cell lies **on** the hyperplane —
+the residual digits must sum to k, that is the budget identity — so a product form, which ignores
+it, places **56–83 %** of its mass where no walk can be. The control is mostly detecting that.
+Conditioned on the hyperplane and renormalised it reads **0.1333** at n = 31 (3.2× the exchangeable
+0.0415) and **0.1948** at n = 9 (0.34× the exchangeable 0.5686 — below 1 again for that control).
+
+**The ratio-flip at n=9 is therefore a property of *which* control is meant**, which is worth
+knowing beside CX-60's correction of it.
+
+**No figure changes; the sentence around them does.** "Twenty times larger" is honest for the
+statistic as defined, and §12.6 now says what the statistic is. The conditioned values are stated
+in prose and **not emitted as tokens**, because they are not computed by the published command.
+
+**Published figures move: NO.**

@@ -7047,6 +7047,211 @@ class TestAtlasProbe(unittest.TestCase):
         self.assertEqual(rc, 2, out)
         self.assertIn("ATLAS_PROBE=ERROR:cannot-read-atlas", lines, out)
 
+    # ------------------------------------------------------------------ 2026-09-22, Codex KCR1/TRQ1
+    def _mutant(self, name, edit):
+        import json, os
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        edit(a)
+        p = os.path.join(self.tmp, name)
+        with open(p, "w") as fh:
+            json.dump(a, fh)
+        return p
+
+    def test_a_gate_dict_naming_no_gate_cannot_pass(self):
+        """Codex KCR1-4a, executed by TRQ1-F2 (2026-09-22): `gates={"fails": 0}` and
+        `tail_checks={"fails": 0}`.  Each verdict was `bool(d) and fails == 0 and all(<generator>)`,
+        and `all` over an empty iterable is True, so both verdict lines and ATLAS_PROBE read PASS
+        with zero gate witnesses.  MEASURED RED on that probe; the producer's 14-gate / 5-tail
+        inventory is now required, both directions."""
+        self.assertTrue(self.build_ok, self.build_err)
+        # POSITIVE CONTROL: the producer's own atlas carries the full inventory and is green
+        rc0, lines0, out0 = self._probe(self.atlas)
+        self.assertEqual(rc0, 0, out0)
+        for want in ("ATLAS_GATE_INVENTORY_COMPLETE=PASS", "ATLAS_TAIL_CHECK_INVENTORY_COMPLETE=PASS",
+                     "ATLAS_GATE_COUNT=14", "ATLAS_TAIL_CHECK_COUNT=5"):
+            self.assertIn(want, lines0, out0)
+
+        def strip(a):
+            a["gates"] = {"fails": 0}
+            a["tail_checks"] = {"fails": 0}
+        rc, lines, out = self._probe(self._mutant("atlas9_nogates.json", strip))
+        self.assertEqual(rc, 1, out)
+        for want in ("ATLAS_PROBE=FAIL", "ATLAS_GATES_ALL_TRUE=FAIL", "ATLAS_TAIL_CHECKS_ALL_PASS=FAIL",
+                     "ATLAS_GATE_INVENTORY_COMPLETE=FAIL", "ATLAS_TAIL_CHECK_INVENTORY_COMPLETE=FAIL",
+                     "ATLAS_GATE_COUNT=0", "ATLAS_TAIL_CHECK_COUNT=0"):
+            self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
+        for never in ("ATLAS_PROBE_FAILS=0", "ATLAS_GATES_ALL_TRUE=PASS", "ATLAS_TAIL_CHECKS_ALL_PASS=PASS"):
+            self.assertNotIn(never, lines, out)
+
+    def test_a_gate_inventory_is_required_both_directions_and_fails_must_be_an_int(self):
+        """Siblings of the empty-dict case (the KCR1-4c residue): one named gate absent, one
+        unknown gate present, `fails: False` (which == 0 in Python) beside fourteen `true`s, and
+        one tail check absent.  Each must turn its own verdict line and ATLAS_PROBE red."""
+        self.assertTrue(self.build_ok, self.build_err)
+        cases = (
+            ("atlas9_gate_missing.json", lambda a: a["gates"].pop("extrema_relookup"),
+             ("ATLAS_GATE_INVENTORY_MISSING=extrema_relookup", "ATLAS_GATE_INVENTORY_COMPLETE=FAIL",
+              "ATLAS_GATES_ALL_TRUE=FAIL")),
+            ("atlas9_gate_extra.json", lambda a: a["gates"].__setitem__("made_up_gate", True),
+             ("ATLAS_GATE_INVENTORY_UNEXPECTED=made_up_gate", "ATLAS_GATE_INVENTORY_COMPLETE=FAIL",
+              "ATLAS_GATES_ALL_TRUE=FAIL")),
+            ("atlas9_fails_false.json", lambda a: a["gates"].__setitem__("fails", False),
+             ("ATLAS_GATE_INVENTORY_COMPLETE=PASS", "ATLAS_GATES_ALL_TRUE=FAIL")),
+            ("atlas9_tail_missing.json", lambda a: a["tail_checks"].pop("kernel_g_invariance"),
+             ("ATLAS_TAIL_CHECK_INVENTORY_MISSING=kernel_g_invariance",
+              "ATLAS_TAIL_CHECK_INVENTORY_COMPLETE=FAIL", "ATLAS_TAIL_CHECKS_ALL_PASS=FAIL")),
+        )
+        for name, edit, wants in cases:
+            rc, lines, out = self._probe(self._mutant(name, edit))
+            self.assertEqual(rc, 1, (name, out))
+            for want in ("ATLAS_PROBE=FAIL",) + wants:
+                self.assertIn(want, lines, "%s: %s missing as a whole line in:\n%s" % (name, want, out))
+
+    def test_a_rid_key_past_the_radix_top_is_caught_not_aliased(self):
+        """The probe decodes a rid key modulo (b0[d]+1) per digit, so a key r + rad_top carries the
+        SAME digits as r: the digit-sum gate and every mass sum stay green while both null
+        comparisons read the aliased cell.  The range gate landed 2026-09-22 with the exact
+        omitted-mass identity, whose precondition it is; MEASURED RED on the probe before it."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        N = int(a["N_total"])
+        b0 = [sum(int(l["by_class"][c]) for l in a["layers"]) // N for c in ("d1", "d2", "d3", "d4", "d6")]
+        rad_top = 1
+        for b in b0:
+            rad_top *= b + 1
+
+        def alias(a):
+            row = a["layers"][2]["rid_mass"]
+            key = next(iter(row))
+            row["r%d" % (int(key[1:]) + rad_top)] = row.pop(key)
+        rc, lines, out = self._probe(self._mutant("atlas9_ridalias.json", alias))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("ATLAS_PROBE=FAIL", lines, out)
+        self.assertIn("RID_KEYS_WITHIN_RADIX_RANGE_EVERY_CELL=FAIL", lines, out)
+        # precondition of the claim: the older gates cannot see the alias
+        self.assertIn("RID_MASS_EVERY_LAYER_SUMS_TO_N=PASS", lines, out)
+        self.assertIn("RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL=PASS", lines, out)
+
+    def test_the_total_variation_tokens_include_the_omitted_null_mass(self):
+        """Codex KCR1-2 / TRQ1-F1 (2026-09-22).  The atlas writes no zero-mass rid cell and the
+        probe summed |P - Q| over the cells present only, dropping Q(S^c)/2 for BOTH nulls.  On the
+        real n=9 atlas the shipped tokens read 0.3554 / 0.2927 / 0.82 (TR-12 v1.7 §12.6, §12.9);
+        the definitional values are 0.5686 / 0.5854 / 1.03.  MEASURED RED on the tree that
+        published v1.7.  Recomputed here by FULL ENUMERATION of each null's support in exact
+        rationals -- a different derivation from the probe's `1 - sum` identity -- and the tokens
+        are pinned to that, plus the literal corrected figures by name."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, math
+        from fractions import Fraction
+        from math import comb
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        n = int(a["n"]); N = int(a["N_total"]); L = a["layers"]
+        b0 = [sum(int(l["by_class"][c]) for l in L) // N for c in ("d1", "d2", "d3", "d4", "d6")]
+        rad = [1]
+        for d in range(4):
+            rad.append(rad[-1] * (b0[d] + 1))
+        supp = [dg for dg in itertools.product(*[range(b + 1) for b in b0]) if sum(dg) < n]
+        tvh, tvp, zero = [], [], 0
+        for k in range(n):
+            obs = {}
+            for kk, v in L[k]["rid_mass"].items():
+                r = int(kk[1:])
+                obs[tuple((r // rad[d]) % (b0[d] + 1) for d in range(5))] = Fraction(int(v), N)
+            marg = [{} for _ in range(5)]
+            for dg, p in obs.items():
+                for d in range(5):
+                    marg[d][dg[d]] = marg[d].get(dg[d], Fraction(0)) + p
+            layer = [dg for dg in supp if sum(dg) == k]
+            zero += len([dg for dg in layer if dg not in obs])
+            tvh.append(sum(abs(obs.get(dg, Fraction(0))
+                               - Fraction(math.prod(comb(b0[d], dg[d]) for d in range(5)), comb(n, k)))
+                           for dg in layer) / 2)
+            grid = list(itertools.product(*[sorted(m) for m in marg]))
+            self.assertTrue(set(obs) <= set(grid))
+            tvp.append(sum(abs(obs.get(dg, Fraction(0))
+                               - math.prod(marg[d][dg[d]] for d in range(5)))
+                           for dg in grid) / 2)
+        rc, lines, out = self._probe(self.atlas)
+        self.assertEqual(rc, 0, out)
+        for want in ("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=%.4f" % max(tvh),
+                     "CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX=%.4f" % max(tvp),
+                     "CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=%.2f" % (max(tvp) / max(tvh)),
+                     "EXCHANGEABLE_NULL_TV_BY_LAYER=" + ",".join("%.4f" % x for x in tvh),
+                     "RID_SUPPORT_CELLS_TOTAL=%d" % len(supp),
+                     "RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS=%d" % zero,
+                     # the literal n=9 corrections, by name
+                     "EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.5686",
+                     "CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX=0.5854",
+                     "CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=1.03",
+                     "RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS=30"):
+            self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
+        for never in ("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.3554",
+                      "CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX=0.2927",
+                      "CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=0.82"):
+            self.assertNotIn(never, lines, out)
+
+    def test_the_kernel_score_scale_tokens_are_recomputed_and_read_the_data(self):
+        """Codex KCR1-7 / TRQ1-F5a (2026-09-22): TR-12 §12.4's -0.102 bits was published with no
+        scale.  The independent-step SD and the Minkowski bound are recomputed here from the
+        kernel tables with the test's own formula and the tokens pinned to them; then mass is
+        moved between two kernel cells that share their entry hexagram and distance class --
+        every probe gate stays green -- and the SD token must move: it reads the data."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, math
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        n = int(a["n"]); N = int(a["N_total"]); L = a["layers"]
+        var_k = []
+        for l in L:
+            ps = [int(v) / N for v in l["kernel"].values()]
+            self.assertAlmostEqual(sum(ps), 1.0, places=9)
+            m = sum(p * math.log2(p) for p in ps)
+            var_k.append(sum(p * (math.log2(p) - m) ** 2 for p in ps))
+        sd_ind = math.sqrt(sum(var_k))
+        sd_ub = sum(math.sqrt(v) for v in var_k)
+        rc, lines, out = self._probe(self.atlas)
+        self.assertEqual(rc, 0, out)
+        for want in ("KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS=%.3f" % sd_ind,
+                     "KERNEL_SCORE_SD_UPPER_BOUND_ANY_DEPENDENCE_BITS=%.3f" % sd_ub,
+                     "KERNEL_SCORE_PER_STEP_SD_MIN_MAX_BITS=%.3f,%.3f"
+                     % (min(math.sqrt(v) for v in var_k), max(math.sqrt(v) for v in var_k))):
+            self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
+        dev = [l for l in lines if l.startswith("REF_WALK_KERNEL_SCORE_MINUS_POPULATION_MEAN_BITS=")]
+        z = [l for l in lines if l.startswith("REF_WALK_KERNEL_SCORE_DEVIATION_OVER_INDEPENDENT_STEP_SD=")]
+        self.assertEqual(1, len(dev), out)
+        self.assertEqual(1, len(z), out)
+        self.assertAlmostEqual(float(z[0].split("=")[1]), float(dev[0].split("=")[1]) / sd_ind, places=2)
+        # the mutant: same entry hexagram b, same distance class, both cells stay nonzero
+        pc = lambda x: bin(x).count("1")
+        found = None
+        for k, l in enumerate(L):
+            cells = {tuple(int(s) for s in key[1:].split("_")): (key, int(v)) for key, v in l["kernel"].items()}
+            for (a1, b1), (k1, v1) in cells.items():
+                for (a2, b2), (k2, v2) in cells.items():
+                    if b1 == b2 and a1 < a2 and pc(a1 ^ b1) == pc(a2 ^ b2) and v1 >= 4 and v2 >= 4:
+                        if found is None or v1 > found[3]:
+                            found = (k, k1, k2, v1, v2)
+        self.assertIsNotNone(found, "no two same-entry same-class kernel cells to trade mass between")
+        k, k1, k2, v1, v2 = found
+
+        def trade(a):
+            row = a["layers"][k]["kernel"]
+            t = type(row[k1])
+            row[k1] = t(v1 - v1 // 2)
+            row[k2] = t(v2 + v1 // 2)
+        rc, mlines, mout = self._probe(self._mutant("atlas9_kerneltrade.json", trade))
+        self.assertEqual(rc, 0, mout)
+        self.assertFalse([l for l in mlines if l.endswith("=FAIL")], mout)
+        sd0 = [l for l in lines if l.startswith("KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS=")]
+        sd1 = [l for l in mlines if l.startswith("KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS=")]
+        self.assertEqual(1, len(sd1), mout)
+        self.assertNotEqual(sd0, sd1, "the SD token did not move under a %d-unit kernel trade at layer %d"
+                            % (v1 // 2, k))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

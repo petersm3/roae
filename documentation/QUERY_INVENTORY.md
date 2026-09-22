@@ -7,7 +7,10 @@
 > carries **35** question rows — Q1, Q1b, Q1c, Q2, Q2b, Q2c, Q2d, Q3, Q4a/c, Q4b, Q5, Q6, Q7, Q8,
 > Q9, V1–V5, XA-iii, XA-a, XA-b, XA-c/d, XA-24, LS-w0, LS-forced8, LS-exact, LS-audit, LS-cite,
 > EW-1, EW-gov, Q10a, Q10b, Q4-Gexact — plus **9** capability rows in §1 (the `PENDING:` table) and
-> a **36**-step run order in §5. (Counted 2026-09-05 by enumerating the bolded row labels between the §2 and §3 headings; an
+> a **37**-step run order in §5. *(Run-order count corrected 2026-09-22 from **36**, CX-64: step
+> C.5b was added 2026-09-10 and nothing propagated the new total to this sentence. Re-counted by
+> enumerating the labelled step rows of §5 — A0.1–A0.7, A1.1–A1.8, A2.1–A2.10, A3.1–A3.2,
+> C.1–C.9 including C.5b — which is 37.)* (Counted 2026-09-05 by enumerating the bolded row labels between the §2 and §3 headings; an
 > earlier tally of "39" is not reproducible against the file and is superseded by this one.) **A
 > review that returns findings on nine questions and silence on the other twenty-six cannot be told
 > apart from approval** — that is why this file ships alongside TR-12 rather than after it.

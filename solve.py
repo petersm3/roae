@@ -11980,6 +11980,25 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
 
 _ATLAS_TYPE = "roae-kc-scan-atlas"
 _ATLAS_CLASSES = (1, 2, 3, 4, 6)          # boundary distance classes; d=0 impossible, d=5 killed by C2
+# The producer's own check inventories, verbatim from solve.c: the `"gates"` fprintf in
+# kc_h_scan_write_atlas (fourteen names) and kc_scan_tc_name (five).  Both are producer
+# constants, not functions of n -- the tracked solve.c writes the same key sets at n=9 and
+# n=31 (measured on both atlases, 2026-09-22).  `--atlas-probe` requires them, both directions,
+# because `bool(g) and g["fails"] == 0 and all(<empty>)` is True over `{"fails": 0}` -- a gate
+# dict that names no gate scored ATLAS_GATES_ALL_TRUE=PASS, ATLAS_TAIL_CHECKS_ALL_PASS=PASS and
+# ATLAS_PROBE=PASS (Codex KCR1-4a, and TRQ1-F2 executed it, 2026-09-22).  atlas_load keeps its
+# documented denylist for `gates` (Q-560: an absent key is a different defect from a failed
+# one, and the minimal fixtures must still load); its tail_checks arm already required the
+# five names and now reads them from here.
+_ATLAS_GATE_NAMES = (
+    "per_layer_flow_eq_N", "raw_marginal_sums_eq_N", "class_row_sums_eq_N",
+    "quotient_marginal_sums_eq_N", "class_column_sums_eq_b0_N", "branch_masses_sum_eq_N",
+    "t_root_eq_f_layer_sum", "entries_eq_header_ne", "count_identities", "outdeg_identities",
+    "hist_bounds_and_sums", "digit_row_sums_eq_N", "extrema_relookup",
+    "kernel_marginals_eq_cls_raw")
+_ATLAS_TAIL_CHECK_NAMES = (
+    "vertical_raw_eq_N", "digit_cross_table_eq_cls_prefix", "kernel_cross_layer_eq",
+    "kernel_rev_column_eq", "kernel_g_invariance")
 _ATLAS_PAIRS = 32                         # global pair index space (pair 0 is C4-pinned)
 _ATLAS_ORBIT = 24                         # |G/kernel| — the free order-24 action (TR-5)
 
@@ -12229,8 +12248,7 @@ def atlas_load(path):
     # totals of 26,160 and 26,064 against N = 26,112, and the V1 emitter still reported no
     # failures. The gates arm above refuses on the producer's RECOMPUTED verdict; this arm
     # refuses on the producer's REPORTED one, which is the half nothing was reading.
-    _TC_NAMES = ("vertical_raw_eq_N", "digit_cross_table_eq_cls_prefix",
-                 "kernel_cross_layer_eq", "kernel_rev_column_eq", "kernel_g_invariance")
+    _TC_NAMES = _ATLAS_TAIL_CHECK_NAMES
     tc = A.get("tail_checks")
     if not isinstance(tc, dict):
         raise AtlasError(
@@ -14638,6 +14656,8 @@ def atlas_probe(atlas_path):
     reports/TR12_QUERY_PROGRAM.md §12 have a public reproduction command.
     """
     from math import comb
+    from fractions import Fraction
+    import itertools
     fails = [0]
 
     def tok(k, v):
@@ -14680,15 +14700,40 @@ def atlas_probe(atlas_path):
         gate("ATLAS_TYPE_IS_KC_SCAN", a.get("type") == _ATLAS_TYPE)
         gate("ATLAS_LAYER_COUNT_EQ_N", len(L) == n and all(int(L[k]["k"]) == k for k in range(n)))
         g = a.get("gates") or {}
-        gate("ATLAS_GATES_ALL_TRUE",
-             bool(g) and g.get("fails") == 0
-             and all(v is True for k, v in g.items() if k != "fails"))
         t = a.get("tail_checks") or {}
+        # Inventory first, both directions (Codex KCR1-4a / TRQ1-F2, 2026-09-22).  Until then
+        # each verdict was `bool(g) and fails == 0 and all(<generator>)`, and `all` over an
+        # empty iterable is True, so `{"fails": 0}` alone scored PASS on both lines and the
+        # probe printed ATLAS_PROBE=PASS with zero gate witnesses (TRQ1 executed exactly that).
+        # A name the producer wrote and this list lacks is a verdict the probe cannot read; a
+        # name this list carries and the atlas lacks is a check that never ran -- either way
+        # the verdict is FAIL, not "all of nothing passed".  `fails` must also be an int: False
+        # == 0 in Python, so `{"fails": False}` is refused explicitly.
+        def _inventory(d, names):
+            missing = [k for k in names if k not in d] + ([] if "fails" in d else ["fails"])
+            extra = sorted(k for k in d if k != "fails" and k not in names)
+            return missing, extra
+
+        def _fails_is_zero(d):
+            f = d.get("fails")
+            return isinstance(f, int) and not isinstance(f, bool) and f == 0
+
+        g_missing, g_extra = _inventory(g, _ATLAS_GATE_NAMES)
+        t_missing, t_extra = _inventory(t, _ATLAS_TAIL_CHECK_NAMES)
+        tok("ATLAS_GATE_INVENTORY_MISSING", ",".join(g_missing) or "NONE")
+        tok("ATLAS_GATE_INVENTORY_UNEXPECTED", ",".join(g_extra) or "NONE")
+        gate("ATLAS_GATE_INVENTORY_COMPLETE", not g_missing and not g_extra)
+        gate("ATLAS_GATES_ALL_TRUE",
+             not g_missing and not g_extra and _fails_is_zero(g)
+             and all(g[k] is True for k in _ATLAS_GATE_NAMES))
+        tok("ATLAS_TAIL_CHECK_INVENTORY_MISSING", ",".join(t_missing) or "NONE")
+        tok("ATLAS_TAIL_CHECK_INVENTORY_UNEXPECTED", ",".join(t_extra) or "NONE")
+        gate("ATLAS_TAIL_CHECK_INVENTORY_COMPLETE", not t_missing and not t_extra)
         gate("ATLAS_TAIL_CHECKS_ALL_PASS",
-             bool(t) and t.get("fails") == 0
-             and all(v == "PASS" for k, v in t.items() if k != "fails"))
-        # How many self-reported checks the two verdicts above ranged over: `{"fails": 0}` alone
-        # would satisfy both, so the count is printed beside them (14 and 5 on the n=31 atlas).
+             not t_missing and not t_extra and _fails_is_zero(t)
+             and all(t[k] == "PASS" for k in _ATLAS_TAIL_CHECK_NAMES))
+        # How many self-reported checks the two verdicts above ranged over (14 and 5 on every
+        # atlas the tracked producer writes); kept as tokens beside the inventory verdicts.
         tok("ATLAS_GATE_COUNT", len([k for k in g if k != "fails"]))
         tok("ATLAS_TAIL_CHECK_COUNT", len([k for k in t if k != "fails"]))
         lo_w, hi_w = 1, n - 2                      # interior slots: the wrap/anchor ends excluded
@@ -14760,9 +14805,23 @@ def atlas_probe(atlas_path):
             digit_ok = digit_ok and all(sum(digs(r)) == k for r in rm)
         gate("RID_MASS_EVERY_LAYER_SUMS_TO_N", sums_ok)
         gate("RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL", digit_ok)
-        tv_hyper, tv_prod, ncell = [], [], []
-        worst = (1.0, None, None)
-        best = (1.0, None, None)
+        # `digs` decodes a key modulo (b0[d]+1) per digit, so a key at or past the radix top
+        # would alias onto a legitimate cell -- same digits, same digit sum -- and both null
+        # comparisons below would silently read it as that cell.  Gated, because the identity
+        # used for the omitted null mass assumes every observed cell lies inside the support.
+        rad_top = rad[4] * (b0[4] + 1)
+        gate("RID_KEYS_WITHIN_RADIX_RANGE_EVERY_CELL",
+             all(0 <= r < rad_top for rm in rm_by_k for r in rm))
+        # The hypergeometric null's full support, per layer: {c : 0 <= c_d <= b0_d, sum c = k}
+        # (6,047 cells over k=0..30 at n=31).  Enumerated once so the cells the atlas omits can
+        # be COUNTED; the omitted null MASS below needs no enumeration.
+        supp = [0] * n
+        for dg in itertools.product(*[range(b + 1) for b in b0]):
+            if sum(dg) < n:
+                supp[sum(dg)] += 1
+        tv_hyper, tv_prod, ncell, omit_h, omit_p, off_plane = [], [], [], [], [], []
+        worst = (Fraction(1), None, None)
+        best = (Fraction(1), None, None)
         for k in range(n):
             rm = rm_by_k[k]
             marg = [{} for _ in range(5)]
@@ -14770,33 +14829,78 @@ def atlas_probe(atlas_path):
                 dg = digs(r)
                 for d in range(5):
                     marg[d][dg[d]] = marg[d].get(dg[d], 0) + v
-            th = tp = 0.0
+            # Exact rationals, deliberately.  The omitted-mass terms below are 1 minus a sum
+            # that is exactly 1 on layers with nothing omitted; the float version of this loop
+            # landed at 1 - sum = -2.2e-16 on two such layers (k=3, k=7 at n=31, measured
+            # 2026-09-22) and needed a max(0, .) clamp, which would equally have hidden a real
+            # excess.  With Fraction the two sums are exact and nothing is clamped.
+            th = tp = sq = spf = Fraction(0)
+            cnk = comb(n, k)
             for r, v in rm.items():
                 dg = digs(r)
-                q = 1.0
+                qn = 1
                 for d in range(5):
-                    q *= comb(b0[d], dg[d])
-                q /= comb(n, k)
-                p = v / N
+                    qn *= comb(b0[d], dg[d])
+                q = Fraction(qn, cnk)
+                p = Fraction(v, N)
                 th += abs(p - q)
+                sq += q
                 if q > 0 and p / q < worst[0]:
                     worst = (p / q, k, dg)
                 if q > 0 and p / q > best[0]:
                     best = (p / q, k, dg)
-                pf = 1.0
+                pfn = 1
                 for d in range(5):
-                    pf *= marg[d][dg[d]] / N
+                    pfn *= marg[d][dg[d]]
+                pf = Fraction(pfn, N ** 5)
                 tp += abs(p - pf)
+                spf += pf
+            # The atlas stores only cells with nonzero observed mass (solve.c writes no zero
+            # cell), so the loop above ranges over the observed support S -- but BOTH nulls put
+            # mass outside it.  TV(P,Q) = 1/2 * sum_{x in S} |P-Q| + 1/2 * Q(S^c), and since each
+            # null sums to 1 over its own full support, Q(S^c) = 1 - sum_{x in S} Q(x) exactly:
+            # the hypergeometric weights sum to 1 over {sum c = k} by Vandermonde, and the
+            # product of five marginals that each sum to N sums to N^5/N^5 over the full grid.
+            # Omitting the term understated both statistics (Codex KCR1-2 / TRQ1-F1,
+            # 2026-09-22): at n=31 the product-null control read 0.4145 rather than 0.8289 and
+            # the n=9 exchangeable figure 0.3554 rather than 0.5686.  The hypergeometric null's
+            # support is {c : 0 <= c_d <= b0_d, sum c = k}; the product null's is the full grid
+            # of the observed digit marginals, most of which lies OFF the sum c = k hyperplane
+            # -- that off-plane mass is the bulk of the control's distance and is printed
+            # separately below so the control is read for what it measures.
+            oh, op = 1 - sq, 1 - spf
+            omit_h.append(oh)
+            omit_p.append(op)
+            th += oh
+            tp += op
             tv_hyper.append(th / 2)
             tv_prod.append(tp / 2)
             ncell.append(len(rm))
+            # product-null mass off the budget hyperplane: the full grid of observed
+            # marginals, minus the part with digit sum k (at most 6,048 cells per layer)
+            on_plane = Fraction(0)
+            for dg in itertools.product(*[sorted(m) for m in marg]):
+                if sum(dg) == k:
+                    pfn = 1
+                    for d in range(5):
+                        pfn *= marg[d][dg[d]]
+                    on_plane += Fraction(pfn, N ** 5)
+            off_plane.append(1 - on_plane)
         tok("RID_CELLS_TOTAL", sum(ncell))
+        tok("RID_SUPPORT_CELLS_TOTAL", sum(supp))
+        tok("RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS", sum(supp) - sum(ncell))
         tok("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS", "%.4f" % max(tv_hyper))
         tok("EXCHANGEABLE_NULL_TV_BY_LAYER", ",".join("%.4f" % x for x in tv_hyper))
+        tok("EXCHANGEABLE_NULL_OMITTED_MASS_MAX_OVER_LAYERS", "%.6f" % max(omit_h))
+        tok("EXCHANGEABLE_NULL_OMITTED_MASS_BY_LAYER", ",".join("%.6f" % x for x in omit_h))
         tok("CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX", "%.4f" % max(tv_prod))
-        # A reading, not a gate: at n=31 the wrong null is ~10x worse than the exchangeable
-        # one; at n=9 (b0 = 2,5,0,2,0) the exchangeable null itself is off by TV 0.36 and the
-        # ratio is below 1.  Whether the statistic discriminates is a property of the data.
+        tok("CONTROL_WRONG_NULL_OMITTED_MASS_MAX_OVER_LAYERS", "%.4f" % max(omit_p))
+        tok("CONTROL_WRONG_NULL_MASS_OFF_BUDGET_HYPERPLANE_MAX_OVER_LAYERS", "%.4f" % max(off_plane))
+        # A reading, not a gate: at n=31 the wrong null is ~20x worse than the exchangeable
+        # one; at n=9 (b0 = 2,5,0,2,0) the exchangeable null itself is off by TV 0.57 and the
+        # ratio is just above 1.  Whether the statistic discriminates is a property of the data.
+        # (Both readings moved when the omitted null mass was restored above -- before that fix
+        # the n=31 ratio read 9.99 and the n=9 ratio 0.82, i.e. "below 1".)
         tok("CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV",
             ("%.2f" % (max(tv_prod) / max(tv_hyper))) if max(tv_hyper) > 0 else "INF")
         tok("EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL",
@@ -14872,6 +14976,24 @@ def atlas_probe(atlas_path):
             tok("REF_WALK_KERNEL_LOG2_SCORE", "%.3f" % score)
             tok("KERNEL_POPULATION_MEAN_LOG2_SCORE", "%.3f" % (-sum(H)))
             tok("REF_WALK_KERNEL_SCORE_MINUS_POPULATION_MEAN_BITS", "%.3f" % (score + sum(H)))
+            # The scale for the line above (Codex KCR1-7 / TRQ1-F5a, 2026-09-22).  A walk's
+            # score is a sum of n dependent per-step terms, and one-step marginals fix neither
+            # its distribution nor its variance -- the covariances need multi-step joints the
+            # atlas does not hold.  Two things the marginals DO fix are printed: the SD the
+            # score would have if the steps were independent (root of the summed per-layer
+            # variances), and the largest SD any dependence could give it (the sum of the
+            # per-layer SDs, by Minkowski).  The true SD lies in [0, that bound]; these are
+            # readings of scale, not a null distribution, and are gated only through the
+            # kernel tables they are computed from (KERNEL_EVERY_LAYER_SUMS_TO_N above).
+            var_k = [sum((v / N) * (math.log2(v / N) + H[k]) ** 2 for v in M.values())
+                     for k, M in enumerate(Ms)]
+            sd_k = [math.sqrt(v) for v in var_k]
+            sd_ind = math.sqrt(sum(var_k))
+            tok("KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS", "%.3f" % sd_ind)
+            tok("KERNEL_SCORE_SD_UPPER_BOUND_ANY_DEPENDENCE_BITS", "%.3f" % sum(sd_k))
+            tok("KERNEL_SCORE_PER_STEP_SD_MIN_MAX_BITS", "%.3f,%.3f" % (min(sd_k), max(sd_k)))
+            tok("REF_WALK_KERNEL_SCORE_DEVIATION_OVER_INDEPENDENT_STEP_SD",
+                ("%.3f" % ((score + sum(H)) / sd_ind)) if sd_ind > 0 else "INF")
         X = {}
         for M in Ms:
             for (x, y), v in M.items():

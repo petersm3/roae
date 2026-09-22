@@ -1245,7 +1245,12 @@ ladder_identity_row(){ # ladder_identity_row ROWID TOKEN DIR LAYER_PREFIX STAGE_
 ladder_row(){
     local id="$1" tok="$2" iid="$3" itok="$4" dir="$5" pfx="$6" stage="$7"
     if [ -n "$ATLAS_IN" ]; then
-        row_skip "$id" "$tok" "SKIP:banked-pre-scan" "the pre-scan (--no-scan) run already took this ladder's digests under the same binary and the same universe; re-running a multi-day pass in the post-scan --atlas run buys no new information (PD-4)"
+        # 🔴 REASON STRING CORRECTED 2026-09-22 (KCR1-1b). It said the pre-scan run "already took
+        # this ladder's digests". It did not: the pre-scan receipts carry
+        # TR12_FSHA/GSHA/TSHA=SKIP:cost-gated, so the layer digests were NEVER computed, by any
+        # run. What the pre-scan genuinely banked is the IDENTITY rows (FIDENT/GIDENT/TIDENT=PASS).
+        # A skip reason that asserts work the record shows was not done is worse than no reason.
+        row_skip "$id" "$tok" "SKIP:banked-pre-scan" "NOT TAKEN, here or in the pre-scan: the pre-scan (--no-scan) run stood this same row down with SKIP:cost-gated, so these layer digests have never been computed by any run. What the pre-scan DID bank is this ladder's IDENTITY ($iid=PASS against the published registry), which is the row below. Re-running the multi-day full-digest pass in the post-scan --atlas run remains declined on cost (PD-4); the cost gate is the real reason and is documented at the cost-gated branch below."
         row_skip "$iid" "$itok" "SKIP:banked-pre-scan" "ladder identity was pinned in the pre-scan run"
     elif [ "$N_PAIRS" -ge 31 ] && [ "$WITH_LADDERSHA" -eq 0 ]; then
         row_skip "$id" "$tok" "SKIP:cost-gated" "--f1c5-layer-sha over this ladder at n=31 is a multi-hour single-threaded decompress-and-hash pass, not a point query (MEASURED 2026-09-14: f 38 h, g 94 h, t 40 h; the limit is a GLOBAL ceiling in solve's inflate->pipe->external-sha chain, so parallelism does not lift it). Identity is pinned by $iid against the published registry instead. Pass --with-laddersha to run the full pass."
@@ -2479,12 +2484,19 @@ if [ "$HAVE_T" -eq 1 ]; then
     # Cross-checked against the t builder's sidecars (F-5 R2; see a1_fsha).
     ladder_row b_tsha TR12_TSHA b_tident TR12_TIDENT "$TDIR" t_layer T
 
-    # --kc-t-check streams f+t (~6.8 TB at n=31). The pre-scan run takes it under the same binary
-    # and universe, so the post-scan --atlas repeat is pure duplication (PD-4).
+    # --kc-t-check streams f+t (~6.8 TB at n=31), so both skip arms below stand it down.
+    # 🔴 CORRECTED 2026-09-22 (Q-680, CX-67). This comment used to read "The pre-scan run takes it
+    # under the same binary and universe, so the post-scan --atlas repeat is pure duplication
+    # (PD-4)" -- and the pre-scan run does NOT take it. MEASURED across every receipt in the tree:
+    # TR12_TCHECK=SKIP:cost-gated in run1_prescan, battery_pre_20260921, banked/battery_pre,
+    # battery_final_20260922 and n31_results_20260918. The only TR12_TCHECK=PASS anywhere is the
+    # n=9 rehearsal. The t-check PASS that DOES exist at n=31 came from a standalone run on
+    # 2026-09-14/15, published at runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt -- which is what
+    # the cost-gated arm below correctly cites. Keep the two arms' justifications distinct.
     if [ "$N_PAIRS" -ge 31 ] && [ "$WITH_TCHECK" -eq 0 ]; then
         row_skip b_tcheck TR12_TCHECK "SKIP:cost-gated" "--kc-t-check streams f+t (~6.8 TB at n=31) and is MEASURED at ~20.5 h, uncheckpointed (STAGET_TRUE_COST_2026_08_24.md). Operator decision 2026-09-14: skipped to bring the run inside its deadline. WHAT THIS SKIP DOES AND DOES NOT COST: a KC-T CHECK n=31 PASS verdict HAS been recorded -- 0 failing layers, all k=0..31, produced 2026-09-14 19:31:13 UTC to 2026-09-15 21:17:51 UTC (25 h 47 m, single core) under binary sha256 a253828bfe9e065a82c57f1eec7f00e66f0416822deb1c7521cb7204eb576e59, published in this tree at runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt. So this skip does NOT leave the t ladder unverified by the sound instrument; it avoids repeating a 20.5 h pass that buys no new information in THIS run. Scope, per documentation/GT_LADDER_FORMAT.md:297: that PASS constrains the FILES, not the shared transition relation, and the k=0 and k=n endpoints degenerate. Pass --with-tcheck to run it here."
     elif [ -n "$ATLAS_IN" ]; then
-        row_skip b_tcheck TR12_TCHECK "SKIP:banked-pre-scan" "--kc-t-check streams f+t (~6.8 TB at n=31) and the pre-scan run already ran it under the same binary and the same universe; repeating it in the post-scan --atlas run doubles the cost for no new information (PD-4)"
+        row_skip b_tcheck TR12_TCHECK "SKIP:banked-pre-scan" "--kc-t-check streams f+t (~6.8 TB at n=31), so this post-scan --atlas run stands it down. CORRECTED 2026-09-22 (Q-680, CX-67): this reason used to assert that the pre-scan run had already run it under the same binary and universe. IT DID NOT. Every n=31 receipt in the tree records TR12_TCHECK=SKIP:cost-gated -- run1_prescan, battery_pre_20260921, banked/battery_pre, battery_final_20260922, n31_results_20260918 -- and the only TR12_TCHECK=PASS anywhere is the n=9 rehearsal. WHAT IS ACTUALLY BANKED, and it is not from a pre-scan battery: a standalone KC-T CHECK n=31 PASS, 0 failing layers over all k=0..31, produced 2026-09-14 19:31:13 UTC to 2026-09-15 21:17:51 UTC under binary sha256 a253828bfe9e065a82c57f1eec7f00e66f0416822deb1c7521cb7204eb576e59, published at runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt. Scope per documentation/GT_LADDER_FORMAT.md:297: that PASS constrains the FILES, not the shared transition relation, and the k=0 and k=n endpoints degenerate. Pass --with-tcheck to run it here."
     else
         row_begin b_tcheck
         ( "$SOLVE" --kc-t-check "$FDIR" "$TDIR" ) >>"$RAW" 2>&1; rc=$?
@@ -3346,6 +3358,22 @@ agg TR12_V3 TR12_V3_TSV TR12_V3_FIG
 agg TR12_V2 TR12_V2_TSV TR12_VIZ
 agg TR12_V4 TR12_V4_TSV TR12_VIZ
 agg TR12_V5 TR12_V5_TSV TR12_VIZ
+
+# 🔴 Q2's PUBLISHED completion contract, now ENFORCED (KCR1-1c, 2026-09-22).
+# QUERY_INVENTORY.md row Q2 defines completion as the bracket certificate AND TR12_GCHECK AND
+# TR12_GSHA -- because the bracket "certifies the rank/unrank PAIR, not the ladder" (measured: a g
+# ladder corrupted at 3 of 12 probed offsets still certifies PASS, since rank and unrank read the
+# same wrong g). `row_end TR12_Q2` takes only its own rc, so at n=31 TR12_Q2=PASS printed beside
+# TR12_GCHECK=SKIP:cost-gated and TR12_GSHA=SKIP:cost-gated -- the harness asserting a completion
+# the published contract does not grant.
+# THE CONTRACT WAS PUBLISHED FIRST, SO THE HARNESS IS WHAT MOVES. Listing TR12_Q2 as its own first
+# leg folds in its own verdict, so a genuine Q2 failure still dominates (FAIL beats SKIP in agg).
+# At n<31 both legs actually run and PASS, so the n=9 battery and its _EXPECTED_SKIPS are
+# unchanged; at n=31 the honest value becomes SKIP:leg-TR12_GSHA -- agg's SKIP arm does not break,
+# so the LAST skipped leg names the token. Verified by executing agg in all three shapes
+# (2026-09-22): n=31 -> SKIP:leg-TR12_GSHA, n=9 -> PASS, and a genuine Q2 rc!=0 -> FAIL:leg-TR12_Q2,
+# i.e. a real failure still dominates a skip.
+agg TR12_Q2 TR12_Q2 TR12_GCHECK TR12_GSHA
 
 {
   echo "# TR-12 reproduction battery verdicts — one KEY=value line per row, matched with grep -qx."

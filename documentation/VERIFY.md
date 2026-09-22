@@ -913,6 +913,16 @@ therefore cannot move any pinned sha in this repository. Verify it yourself rath
 sentence for it — build both ways and compare, which is the same advice this section already gives
 about never copying a sha out of a document.
 
+⚠ **One width caveat, added 2026-09-22 (CX-61), for anyone reproducing an artifact that PINS
+`engine_git`.** The line above uses `git rev-parse --short HEAD`, whose width is chosen by git and
+is **8 hex on this repository** (measured 2026-09-22). Artifacts written by the KC scan record
+`engine_git` as **12** hex — TR-12 §12 pins `8af5e55c8eed` — so a binary built from the line above
+stamps the right commit at the wrong width, and any digest taken over bytes containing that field
+will not match. Where the goal is to reproduce such a digest rather than to pass the selftest, use
+`--short=12`; `reports/TR12_QUERY_PROGRAM.md` §R Tier A step 2 prints that form and explains why.
+This does not affect the `--selftest` anchor or any sha in this file, both of which are
+flag-neutral as the paragraph above measures.
+
 `git rev-parse` falls back to `unknown` outside a checkout, so the line still works from a plain
 tarball; `SOURCE_SHA` is derived from `solve.c` itself and always resolves. It is deliberately **one
 line**: `scripts/tr12_repro_gate.sh` extracts the published build with `grep -m1` and runs it
