@@ -14962,6 +14962,15 @@ def atlas_probe(atlas_path):
             keys = set(Ms[k]) | set(Ms[k - 1])
             tvs.append(0.5 * sum(abs(Ms[k].get(x, 0) - Ms[k - 1].get(x, 0)) for x in keys) / N)
         tok("KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1", ",".join("%.4f" % x for x in tvs))
+        # 🔴 FULL PRECISION, added 2026-09-22 (Codex TRQ1-F6b). TR-12 §12.4 publishes six of these
+        # distances to six and ten decimals -- 0.004979, 0.001105, 0.001007, 0.001025, 0.000290 and
+        # 0.0009874424 -- because at %.4f the values 0.00099 and 0.0010 are indistinguishable and
+        # four layers could not be told apart. Those digits were settled by a PRIVATE recomputation
+        # from the same `kernel` tables, so the report published figures that the one public command
+        # it names could not reproduce: §12 promises "one command reproduces every figure in
+        # §12.1-§12.8" and this was the exception. Emitting the vector at full precision closes that
+        # gap in the direction of MORE public output rather than a softer claim.
+        tok("KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1_FULL", ",".join("%.10f" % x for x in tvs))
         if n >= 14:
             klo, khi = 6, n - 8
             tok("KERNEL_INTERIOR_WINDOW", "%d,%d" % (klo, khi))

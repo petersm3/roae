@@ -720,6 +720,17 @@ had been claiming.]
                              by_class -- a +1/-1 edit inside one layer keeps the
                              layer sum at N and only this sees it),
                              KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1,
+                             KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1_FULL (added
+                             2026-09-22: the SAME vector at 10 decimals. At the
+                             4-dp precision of the token above, 0.00099 and
+                             0.0010 are INDISTINGUISHABLE, so four layers could
+                             not be told apart and TR-12 12.4's published
+                             figures -- 0.004979, 0.001105, 0.001007, 0.001025,
+                             0.000290 and 0.0009874424 -- had been settled by a
+                             PRIVATE recomputation. That made them the one
+                             exception to 12's promise that a single public
+                             command reproduces every figure. Use this token to
+                             reproduce them),
                              KERNEL_INTERIOR_WINDOW (layers 6..n-8, n >= 14),
                              KERNEL_TV_ADJACENT_MAX_INTERIOR,
                              REF_WALK_KERNEL_CELLS_ALL_NONZERO,

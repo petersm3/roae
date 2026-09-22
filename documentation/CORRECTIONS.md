@@ -10843,3 +10843,84 @@ statistic as defined, and §12.6 now says what the statistic is. The conditioned
 in prose and **not emitted as tokens**, because they are not computed by the published command.
 
 **Published figures move: NO.**
+
+## CX-71 — a disagreement between two instruments was published as evidence that neither is defective (TR-12) (RP: none)
+
+**2026-09-22.** Origin: Codex review TRQ1 item C3b, confirmed here.
+
+**What was wrong.** §12.10 reported both external checks failing and wrote: *"Both FAIL — a fact
+about the two populations, **not a defect in either instrument**."* The second clause does not
+follow from the first. A population difference **explains** a disagreement; it **certifies** nothing.
+A `FAIL` is equally consistent with a genuine population gap and with a fault in either side, and
+what distinguishes them is each instrument's own gates and reproduction — never the existence of
+the gap.
+
+🔴 **Why this one is worth its own entry: it is an UNSWEPT SIBLING of a cure applied the same day.**
+The pre-push review of v1.7 caught the identical overclaim one sentence later — *"no published
+figure is **wrong**"* was softened to *"is **contradicted**"*, precisely because this program cannot
+test the C1–C5 side — and did not look at the neighbouring sentence making the same move. Fixing an
+instance and not sweeping its class is how the second copy survives, which is the failure mode this
+ledger exists to record; it is also, exactly, the shape of CX-67's defect one level up.
+
+**What it says now.** The FAIL is reported as a fact about the two populations, with the reasoning
+that certifies each instrument left where it belongs — in the gates each one passes.
+
+**Published figures move: NO.**
+
+## CX-72 — six §12.4 figures were published from a private recomputation the one public command could not reproduce (TR-12) (RP: none)
+
+**2026-09-22.** Origin: Codex review TRQ1 item F6b, confirmed here by execution.
+
+**What was wrong.** §12 promises that *"one command reproduces every figure in §12.1–§12.8"*.
+§12.4 published six kernel total-variation distances — 0.004979, 0.001105, 0.001007, 0.001025,
+0.000290 and 0.0009874424 — while `KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1` prints the vector at
+**four** decimals, at which 0.00099 and 0.0010 are indistinguishable. Four of those layers could
+not be told apart from the public output at all. The digits were settled by a **private**
+recomputation from the same `kernel` tables, recorded only in an internal finding.
+
+**The figures were right.** Each is reproduced exactly by the fix: k=4 `0.0049787974`, k=5
+`0.0011054067`, k=24 `0.0002900820`, k=25 `0.0010072525`, k=26 `0.0010246560`, window maximum
+`0.0009874424`. **No figure moves.** What was wrong was their standing: *a figure a reader cannot
+recompute is not published, it is asserted*, and §12's own header said otherwise.
+
+**What changed, and the direction matters.** A new token,
+`KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1_FULL`, emits the same vector at ten decimals from the same
+public command. The alternative cure — softening §12's promise to exclude these six — would also
+have made the document true, and would have left the reader with less. **Closing a reproduction gap
+by publishing more output is preferable to closing it by claiming less**, whenever the output
+exists and costs nothing to emit.
+
+**Published figures move: NO.**
+
+## CX-73 — three harness statements that misdescribed what the run did (TR-12) (RP: none)
+
+**2026-09-22.** Origin: Codex review KCR1 items T3, 1a and 6. Grouped as one entry because they are
+one class — *the harness describing work it did not do* — the same class as CX-65 and CX-67, which
+is itself worth noticing: this is the fourth and fifth instance found in a single day.
+
+**1. A deliverable path that has never existed (KCR1-T3).** `a0_q9`'s skip reason named
+`tr12/q9_negatives.md` as where Q9's restatement lives. **`git ls-files` matches zero paths against
+`q9_neg`.** The reason advertised an output a reader cannot open. It now points at
+`documentation/QUERY_INVENTORY.md` row Q9 and the reportable-negative readings in §12.4 and §12.5,
+which is where the restatement actually is.
+
+**2. A skip justified by a subsumption that does not hold (KCR1-1a).** The `SKIP:full-pass-ran`
+reason said the full digest pass *"subsumes the registry comparison"*. It does not: `ladder_sha_row`
+binds **bytes → sidecar**, `ladder_identity_row` binds **sidecar → published registry**. A ladder
+could match its own sidecars while both disagree with what is published, and that branch skipped the
+row that would catch it. ⚠ Reachable only at n ≥ 31 with `--with-laddersha`; production takes the
+cost-gated branch, where the identity row **does** run, so no shipped verdict is affected. **The
+stronger fix — running the identity row rather than justifying the skip — is a behaviour change and
+is deliberately not taken here**, so that the wording correction is not mistaken for closing the gap.
+
+**3. A golden-state verdict that described the opposite of what happened (KCR1-6).** Both `--regen`
+arms wrote an expected block and diffed nothing, but left `MINTED` empty — and `GOLDSTATE` keys on
+`MINTED` being empty. So a `--regen` run reported **`TR12_REPRO_GOLDEN_STATE=DIFFED` having diffed
+nothing**, with `PASSTOK=PASS` rather than `PASS:MINTED-<n>`. Codex executed it:
+`REGEN=1 GOLDSTATE=DIFFED PASSTOK=PASS`. Fixed by reusing the existing minted-unverified mechanism
+in **both** arms — the split `tr12_n31_golden_gate.sh` introduced so consumers fail closed — rather
+than inventing a third state they have not been taught. **Both arms, because fixing one and leaving
+its twin is the propagation failure this ledger exists to record.** Production is unaffected: it
+does not pass `--regen`.
+
+**Published figures move: NO.**

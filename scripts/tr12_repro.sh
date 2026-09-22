@@ -408,7 +408,15 @@ row_end(){  # row_end TOKEN RC
     elif [ "$rc" -ne 0 ]; then
         status="FAIL:nonzero-exit($rc)"
     elif [ "$REGEN" -eq 1 ]; then
-        if mkdir -p "$EXPECTDIR" && cp "$got" "$EXPECTDIR/$ROW_ID.txt"; then status="PASS"
+        # 🔴 MINTED+= added 2026-09-22 (Q-683, Codex KCR1-6). This arm WRITES the expected block and
+        # diffs nothing, exactly like the --mint-missing arm below, but it used to leave MINTED
+        # empty -- and GOLDSTATE keys on MINTED being empty. So a --regen run reported
+        # TR12_REPRO_GOLDEN_STATE=DIFFED having diffed NOTHING, and PASSTOK=PASS rather than
+        # PASS:MINTED-<n>. Codex executed it: REGEN=1 GOLDSTATE=DIFFED PASSTOK=PASS. Reusing the
+        # existing minted-unverified mechanism rather than inventing a third state keeps consumers
+        # failing closed the way tr12_n31_golden_gate.sh's split already taught them to.
+        if mkdir -p "$EXPECTDIR" && cp "$got" "$EXPECTDIR/$ROW_ID.txt"; then
+            MINTED+=("$ROW_ID"); status="PASS"
         else status="FAIL:mint-write"; fi
     elif [ -z "$exp" ] && [ "$MINT_MISSING" -eq 1 ]; then
         if mkdir -p "$EXPECTDIR" && cp "$got" "$EXPECTDIR/$ROW_ID.txt"; then
@@ -454,7 +462,10 @@ row_end_val(){ # row_end_val TOKEN RC VALUE
     elif [ -z "$value" ]; then
         status="FAIL:no-verdict-extracted"
     elif [ "$REGEN" -eq 1 ]; then
-        if mkdir -p "$EXPECTDIR" && cp "$got" "$exp"; then status="$value"
+        # MINTED+= added 2026-09-22 (Q-683, Codex KCR1-6) -- the row_end_val twin of the arm above.
+        # Fixing one arm and not its sibling is the propagation failure this corpus keeps recording.
+        if mkdir -p "$EXPECTDIR" && cp "$got" "$exp"; then
+            MINTED+=("$ROW_ID"); status="$value"
         else status="FAIL:mint-write"; fi
     elif [ ! -f "$exp" ] && [ "$MINT_MISSING" -eq 1 ]; then
         if mkdir -p "$EXPECTDIR" && cp "$got" "$exp"; then
@@ -1048,7 +1059,7 @@ row_end TR12_LS_W0_COND_MC $rc
 # EMPTY:interval-degenerate-at-n31 only when the measurement says so -- and ERROR when it
 # cannot say. It is not declared in A0 any more because A0 has no ladder and therefore no
 # certificate to read, and a verdict has to be produced where its evidence lives.
-row_skip a0_q9        TR12_Q9        "SKIP:doc-only" "DOC-only: Q9 is certified restatement of the reportable negatives (tr12/q9_negatives.md); no executable command exists to diff"
+row_skip a0_q9        TR12_Q9        "SKIP:doc-only" "DOC-only: Q9 is a certified restatement of the reportable negatives; no executable command exists to diff. CORRECTED 2026-09-22 (Q-683, Codex KCR1-T3): this reason used to name a deliverable at tr12/q9_negatives.md. NO SUCH FILE HAS EVER EXISTED -- git ls-files matches zero paths against q9_neg -- so the reason advertised an output path nobody can open. The restatement lives in documentation/QUERY_INVENTORY.md row Q9 and in the reportable-negative readings of TR-12 sections 12.4 and 12.5, which is where a reader should be sent"
 # F-5 D13 (2026-09-08): this reason used to assert that lean/C1RuleConstants.lean is NOT an ancestor of
 # this branch. It has been on main since e9490e16 (QUERY_INVENTORY §3.3, corrected 2026-09-05), so the
 # skip reason was stale for three days of runs. It now reports what THIS tree actually holds.
@@ -1257,7 +1268,7 @@ ladder_row(){
         ladder_identity_row "$iid" "$itok" "$dir" "$pfx" "$stage"
     else
         ladder_sha_row "$id" "$tok" "$dir"
-        row_skip "$iid" "$itok" "SKIP:full-pass-ran" "$id recomputed every layer digest from the bytes, which subsumes the registry comparison"
+        row_skip "$iid" "$itok" "SKIP:full-pass-ran" "$id recomputed every layer digest from the bytes, which re-derives the sidecar values. CORRECTED 2026-09-22 (Q-683, Codex KCR1-1a): the old reason said this SUBSUMES the registry comparison. IT DOES NOT. The two rows bind different things -- ladder_sha_row binds BYTES to SIDECAR, ladder_identity_row binds SIDECAR to the PUBLISHED REGISTRY -- so skipping the identity row here leaves the registry comparison unmade, and a ladder could match its own sidecars while both disagree with what is published. Reachable only at n>=31 with --with-laddersha; production takes the cost-gated branch, where the identity row DOES run, which is why no shipped verdict is affected. THE STRONGER FIX IS TO RUN THE IDENTITY ROW HERE TOO rather than justify the skip; that is a behaviour change and is left to its own row"
     fi
 }
 ladder_row a1_fsha TR12_FSHA a1_fident TR12_FIDENT "$FDIR" f1c5_layer F

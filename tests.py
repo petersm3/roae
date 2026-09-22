@@ -7194,6 +7194,58 @@ class TestAtlasProbe(unittest.TestCase):
                       "CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=0.82"):
             self.assertNotIn(never, lines, out)
 
+    def test_the_adjacent_kernel_tv_vector_is_published_at_full_precision(self):
+        """Codex TRQ1-F6b (2026-09-22).  TR-12 §12 promises that ONE PUBLIC COMMAND reproduces
+        every figure in §12.1-§12.8.  §12.4 published six kernel TV distances -- 0.004979,
+        0.001105, 0.001007, 0.001025, 0.000290 and 0.0009874424 -- while
+        KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1 printed the vector at FOUR decimals, at which 0.00099
+        and 0.0010 are indistinguishable: four of those layers could not be told apart from the
+        public output at all, and the digits rested on a PRIVATE recomputation.  The figures were
+        right; their standing was not.  A figure a reader cannot recompute is asserted, not
+        published.
+
+        This test is red in BOTH directions that matter.  (1) On the tree that published v1.8 the
+        _FULL token does not exist, so the lookup fails.  (2) If anyone ever reverts the format
+        from %.10f to %.4f -- the regression that silently re-opens CX-72 -- the last assertion
+        fails, because rounding the vector to four decimals would then lose nothing.  A precision
+        token that carries no precision is the vacuous-gate defect in a new costume."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        n = int(a["n"]); N = int(a["N_total"]); L = a["layers"]
+        rc, lines, out = self._probe(self.atlas)
+        self.assertEqual(rc, 0, out)
+
+        full = [l for l in lines if l.startswith("KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1_FULL=")]
+        self.assertEqual(1, len(full),
+                         "KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1_FULL missing (CX-72):\n%s" % out)
+        vals = [float(x) for x in full[0].split("=", 1)[1].split(",")]
+        self.assertEqual(n - 1, len(vals), "expected one distance per adjacent pair k=1..n-1")
+
+        # Recomputed here from the atlas's own kernel tables, not read back from the probe.
+        def kern(k):
+            return {key: int(v) for key, v in L[k]["kernel"].items()}
+        for k in range(1, n):
+            A, B = kern(k), kern(k - 1)
+            keys = set(A) | set(B)
+            tv = 0.5 * sum(abs(A.get(x, 0) - B.get(x, 0)) for x in keys) / N
+            self.assertAlmostEqual(tv, vals[k - 1], places=9,
+                                   msg="layer %d: probe %r vs recomputed %r" % (k, vals[k - 1], tv))
+
+        # The 4-dp token must be exactly this vector rounded -- one instrument, two precisions.
+        four = [l for l in lines if l.startswith("KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1=")]
+        self.assertEqual(1, len(four), out)
+        self.assertEqual(four[0].split("=", 1)[1],
+                         ",".join("%.4f" % x for x in vals),
+                         "the 4-dp token is not the full vector rounded")
+
+        # 🔴 THE LOAD-BEARING ASSERTION: the full token must actually carry precision the 4-dp one
+        # cannot.  Without this the test would pass against a %.4f revert, i.e. against the very
+        # defect it exists to prevent.
+        self.assertTrue(any(abs(x - round(x, 4)) > 1e-9 for x in vals),
+                        "no value differs from its own 4-dp rounding: the _FULL token adds nothing")
+
     def test_the_kernel_score_scale_tokens_are_recomputed_and_read_the_data(self):
         """Codex KCR1-7 / TRQ1-F5a (2026-09-22): TR-12 §12.4's -0.102 bits was published with no
         scale.  The independent-step SD and the Minkowski bound are recomputed here from the
