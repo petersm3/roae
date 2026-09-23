@@ -10924,3 +10924,47 @@ its twin is the propagation failure this ledger exists to record.** Production i
 does not pass `--regen`.
 
 **Published figures move: NO.**
+
+## CX-74 — a rendering gap was published as a data gap: V4 was said to need a 15 TB ladder read, and needed two Python packages (TR-12) (RP: none)
+
+**2026-09-23.** Origin: operator question — *"if we needed nvme copy, why didn't we generate it
+then?"* — asked against TR-12 §2's claim that figures V3 and V4 could not be rendered. The question
+was the right one and the claim did not survive it. Two items, grouped because both are the same
+error: **a blocker was named from where the work stopped, not from what actually stopped it.**
+
+**1. V4 was never blocked on the ladders.** TR-12 §2 read *"V3 (rank spectrum) and V4 (neighborhood
+shells) are not rendered, and no full-31 version of either exists. Both need a read of the f/g
+ladders, which are cold and unmounted, and the 15 TB rehydration that would feed them is not
+permitted by standing rule."* `viz/README.md` and `viz/viz_kc_shells.md` ("Full-31 (PENDING the
+ladders)") carried the same attribution. **It is false for V4.** The n=31 battery receipt records
+`TR12_V4_TSV=PASS`: V4's input, the King Wen rarity profile, was produced by the run of 2026-09-22
+**while the ladders were mounted on NVMe**. The figure did not appear for one reason, recorded in
+the same receipt one line away: `TR12_VIZ=SKIP:matplotlib-absent` — matplotlib and numpy are not
+project dependencies and were not installed on the query host, which was then torn down. The TSV was
+banked. Rendered 2026-09-23 from that banked profile in seconds, with **no ladder and no VM**, and
+committed as `tr12/q3_profile_kw.tsv` beside `reports/figures/fig_tr12_kc_shells.{png,svg}`.
+**What the error cost a reader:** it priced a free figure at a 15 TB rehydration and filed it under
+a standing rule that forbids one. Nobody re-checked whether the input already existed, because the
+sentence explaining its absence was fluent and plausible. **V3 is genuinely unrendered and its
+blocker is also mis-stated:** the rank grid IS produced (`tr12/v3_rel_grid.tsv`, 1000 points,
+31.4 min measured); what is missing is the join to per-walk observables that yields
+`spectrum/v3_spectrum.tsv`, which neither the battery driver nor the atlas consumer emits. A local
+computation over 1000 walks, not a ladder read. `TR12_V3_FIG=PENDING:viz-v3-spectrum` is unchanged.
+
+**2. The Q7 witnesses were classified as a TOOLING obstruction, and installing the tool closes
+nothing.** TR-12's §Open Problems row 4 — added earlier the same day — graded the Q7
+historical-arrangement witnesses **"obstruction (tooling)"**, on the reading that the leg is blocked
+because `kissat` is not on PATH. The battery's own code contradicts that:
+`scripts/tr12_repro.sh:915` branches on `command -v kissat`, and **with the solver present the token
+becomes `PENDING:q7-witness-row`, not PASS** — because which satisfying sequence a solver returns is
+build-dependent, so a golden of solver-chosen bytes would pin one build's arbitrary choice.
+`documentation/QUERY_INVENTORY.md`'s decision column already said so: *"needs a contract decision
+first."* A second gap sits underneath it: `sat.py` invokes `kissat -q` with **no proof flag** on the
+`--witness` path, so DRAT emission is absent there. Re-graded **research direction — a contract
+decision, NOT the tooling gap it looks like.** Nothing was spent on a solver build that would have
+bought a different pending token rather than a result.
+
+**Both items share a root worth naming:** the published reason was the *last observed symptom*
+rather than the measured cause, and in both cases the measured cause was already recorded, one line
+away, in an artifact this project had banked. Neither was found by a gate. Both were found by being
+asked why.

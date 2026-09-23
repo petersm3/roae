@@ -406,6 +406,16 @@ commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are determini
   command; encodings are deterministic, so regenerated CNF + archived proof must check.
 - **solutions.bin artifacts** are not distributed (size); they are re-derivable to the byte
   ([CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) per-anchor commands) and their shas are the scientific anchor.
+- **TR-12's compiled catalog — the f/g/t ladders, 15.05 TB — is likewise not distributed**, and for
+  the same reason: what ships is the *recipe plus a fingerprint*. The per-layer SHA registries are
+  public under `runs/20260906_kc_ladders_n31/` (`STAGE_{F,G,T}_LAYERSHA.txt`, 32 rows per stage,
+  plus the container-level `STAGE_{F,G,T}_SHA256.txt`); the rebuild path is
+  [TR-12](TR12_QUERY_PROGRAM.md) §R **Tier A**, and Tier B is a registry *check*, not a substitute
+  for it. **The n=31 atlas that every §12 figure is computed from IS distributed** —
+  `runs/20260906_kc_ladders_n31/atlas_n31.json`, 5,978,126 bytes, sha256 `9d6ba3d2…` — so those
+  figures are re-derivable with no ladder at all: `python3 solve.py --atlas-probe atlas_n31.json`,
+  under a second. Run order and hardware notes live in
+  [VERIFY.md](../documentation/VERIFY.md) §"TR-12 query program".
 
 ## Independence ladder (what requires trusting project code)
 1. **Nothing**: DRAT certificates (drat-trim), **kernel-checked** Lean theorems, the two-line parity proofs.

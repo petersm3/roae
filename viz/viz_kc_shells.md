@@ -118,7 +118,13 @@ columns exist for the axes and must never be the quoted value.
 
 ## Generation
 
-**Full-31 (PENDING the ladders).** `--kc-o3-rank` takes an explicit walk — it does **not** accept
+**Full-31 — RUN, and the figure is rendered (2026-09-23).** ⚠ *This heading read "PENDING the
+ladders" until 2026-09-23, which was stale rather than cautious: the command below was executed on
+2026-09-22 with the ladders mounted, the receipt records `TR12_V4_TSV=PASS`, and the resulting
+profile is committed at `tr12/q3_profile_kw.tsv`. The figure did not appear at the time only
+because matplotlib was absent on the query host (`TR12_VIZ=SKIP:matplotlib-absent`); it renders
+from the banked TSV with no ladder. Re-running the command below needs the ladders; re-rendering
+the figure does not.* `--kc-o3-rank` takes an explicit walk — it does **not** accept
 the literal `KW` (that convenience lives on `--kc-o3-cert` and `--check-arrangement`), so build the
 walk string from `solve.py`, the single source of truth for the King Wen sequence:
 

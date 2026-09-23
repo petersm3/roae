@@ -49,11 +49,19 @@ the published atlas (`../runs/20260906_kc_ladders_n31/atlas_n31.json`, sha256 `9
 `solve.py --atlas-queries … --atlas-select v1,v2,v5` and then `report_figures.py`. ⚠ **V2 and V5 are
 the REDUCED variants** (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`,
 `TR12_V5=PASS:REDUCED-NO-CROSSTAB`) — the full forms need inputs the atlas consumer does not emit.
-⚠ **V3 and V4 are NOT rendered and cannot be from the atlas alone:** V4's input
-(`<artifact-root>/q3_profile_kw.tsv`) comes from `--kc-o3-rank FDIR GDIR`, i.e. a read of the 15.05 TB f/g
-ladders, which are cold; V3 needs a rank grid joined to per-walk functionals that neither the
-consumer nor the figure driver emits (`TR12_V3_FIG=PENDING:viz-v3-spectrum`). Both remain pending
-for the reason each page already states — that is a cost decision, not an oversight.
+🔴 **V4 IS RENDERED as of 2026-09-23, and the reason it was missing was not the one this file
+used to give.** This paragraph read *"V3 and V4 are NOT rendered and cannot be from the atlas
+alone"*, attributing both to a read of the cold 15.05 TB f/g ladders. **That was wrong for V4.**
+Its input `<artifact-root>/q3_profile_kw.tsv` was produced by the full-31 run of 2026-09-22 **while
+the ladders were mounted on NVMe** — the receipt records `TR12_V4_TSV=PASS` — and the figure failed
+to appear for one reason only: `TR12_VIZ=SKIP:matplotlib-absent`, i.e. matplotlib and numpy were not
+installed on the query host, which has since been torn down. The TSV was banked, so the figure
+renders anywhere those two packages exist, with **no ladder and no VM**. It costs seconds.
+⚠ **V3 remains unrendered, and its blocker is an emitter, not the ladders.** The rank grid *is*
+produced (`v3_rel_grid.tsv`, 1000 grid points, measured 31.4 min); what is missing is the **join**
+to per-walk observables that would yield `spectrum/v3_spectrum.tsv`, which neither the battery
+driver nor the atlas consumer emits (`TR12_V3_FIG=PENDING:viz-v3-spectrum`). That is a local
+computation over 1000 walks — not a 15 TB rehydration.
 
 **Scope warning that applies to all five: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5 — C3 is NOT
 applied.** Every caption must carry the space label `C1C2C4C5-SUPERSPACE`. Specified by TR-12 §2

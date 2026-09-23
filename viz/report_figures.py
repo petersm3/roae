@@ -692,6 +692,16 @@ def fig_tr12_kc_field(tsv):
     for i, j in kw:
         ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,
                                    edgecolor="#4fc3f7", lw=1.6))
+    # The overlay is named in a LEGEND as well as the subtitle. The subtitle carries the
+    # caveat (diagonal by construction); the legend carries the key, and a reader who scans
+    # figures before prose needs the key. Placed BELOW the axes on purpose: this is a dense
+    # heat matrix and an in-axes legend would cover cells that are themselves the result.
+    if kw:
+        from matplotlib.lines import Line2D
+        ax.legend(handles=[Line2D([], [], color="#4fc3f7", lw=1.6,
+                                  label="King Wen's own placement (one cell per slot)")],
+                  fontsize=8.5, loc="upper center", bbox_to_anchor=(0.5, -0.085),
+                  frameon=False)
     ax.set_xticks(range(len(ks)))
     ax.set_xticklabels([str(k + 2) for k in ks], fontsize=7)
     ax.set_yticks(range(0, len(ps), 2))
@@ -824,6 +834,21 @@ def fig_tr12_kc_grammar(tsv):
     for i, j in marks:
         ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,
                                    edgecolor="#ffffff", lw=1.8))
+    # Same convention as V1 and V2: the King Wen overlay gets a LEGEND KEY, not only a
+    # subtitle sentence. Below the axes, because every cell here is a published number.
+    if marks:
+        from matplotlib.lines import Line2D
+        # 🔴 The frame is NOT decoration. This key is WHITE, because on the plot it outlines
+        # cells of a dark viridis map. Drawn frameless on the page's white ground the swatch
+        # is invisible and the entry degrades to orphaned text beside nothing — worse than no
+        # legend, since a reader sees a caption with no key. The dark patch reproduces the
+        # background the marker actually sits on, so the key looks like what it labels.
+        _lg = ax.legend(handles=[Line2D([], [], color="#ffffff", lw=1.8,
+                                        label="King Wen's own class at this layer")],
+                        fontsize=8.5, loc="upper center", bbox_to_anchor=(0.5, -0.20),
+                        frameon=True, facecolor="#33324a", edgecolor="#33324a",
+                        labelcolor="#ffffff")
+        _lg.get_frame().set_alpha(1.0)
     ax.set_yticks(range(len(cls)))
     ax.set_yticklabels([f"d={d}" + ("" if w < 0 else f", w={w}") for d, w in cls], fontsize=8)
     ax.set_xticks(range(len(ks)))
@@ -874,15 +899,24 @@ def fig_tr12_kc_shells(tsv):
     for s, y, a in zip(steps, logg, alts):
         ax.annotate(str(a), (s, y), textcoords="offset points", xytext=(0, 7),
                     ha="center", fontsize=6.5, color="#555555")
-    ax.set_ylabel("log10 g(prefix) — completions remaining", fontsize=10)
-    ax.set_title("V4 — neighbourhood shells: exact completions remaining after each "
-                 "placement (annotation = # admissible alternatives)", fontsize=11)
+    ax.set_ylabel("log10 g(King Wen's prefix) — completions remaining", fontsize=10)
+    # 🔴 The title used to read "exact completions remaining after each placement" and the
+    # y-label "log10 g(prefix)" — NEITHER said King Wen. V1, V2 and V5 plot a population with
+    # King Wen overlaid, so a reader arriving from those figures reasonably reads this one the
+    # same way. It is not: every point here is ONE walk, King Wen's own. Saying so is worth
+    # more than any marker, because the thing a marker would distinguish does not exist here.
+    ax.set_title("V4 — King Wen's neighbourhood shells: exact completions remaining after "
+                 "each of King Wen's 31 free placements\nEVERY point is King Wen's own "
+                 "trajectory — this figure plots ONE walk, not a population "
+                 "(annotation = # admissible alternatives)", fontsize=11)
     ax.grid(True, ls=":", alpha=0.4)
     ax2.bar(steps, bits, color="#e8a33d")
     ax2.set_ylabel("−log2 p_i (bits)", fontsize=10)
     ax2.set_xlabel("step (free placement i)", fontsize=10)
     ax2.grid(True, axis="y", ls=":", alpha=0.4)
-    ax2.set_title("the surprise spectrum — the bars sum to log2 N (EW-1)", fontsize=10)
+    ax2.set_title("the surprise spectrum — King Wen's own per-step −log2 p_i; the bars sum "
+                  "to log2 N (EW-1). A step with ONE admissible alternative costs 0 bits.",
+                  fontsize=10)
     fig.tight_layout()
     save(fig, "fig_tr12_kc_shells", _prov(tsv))
     return True
