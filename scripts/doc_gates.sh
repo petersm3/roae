@@ -11737,6 +11737,8 @@ gate_script_paths() {
       echo "QUERY_INVENTORY.md narrating a planned path that was never created: the atlas consumer landed inside solve.py (git grep -n \"def atlas_queries\" -- solve.py), and the file names the wrong path in order to correct it. Same shape as the d128 row above -- a correction that cannot name its own subject is unreadable";;
     example/report.pdf)
       echo "CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
+    tr12/q9_negatives.md)
+      echo "a deliverable that was specified and NEVER created, now named only by the two texts that WITHDRAW it: CX-73 in CORRECTIONS.md (append-only, so the wording cannot be rewritten) and TR-12 v1.9's revision-history row recording that same correction. Same shape as the d128 and example/report.pdf rows above -- a correction that cannot name its own subject is unreadable. The two LIVE pointers that once sent a reader here (QUERY_INVENTORY.md rows Q9 and LS-forced8) were repointed to \$OUT/q9_negatives.md on 2026-09-23, so nothing remaining is an instruction to open this path";;
     roae/findings/)
       echo "dated HISTORY narration of the pre-2026-06 findings/ layout (consolidation recorded at HISTORY.md ~:4875)";;
     runs/20260420_singlebranch1T_d32westus3/)

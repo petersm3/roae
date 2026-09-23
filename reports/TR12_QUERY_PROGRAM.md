@@ -1,4 +1,4 @@
-# TR-12 QUERY PROGRAM — Distinguished Elements of the Solution Space — 2026-07-17
+# TR-12 — The Query Program: Distinguished Elements of the Solution Space
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
 proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
 interpretation are argued, not verified. One caveat is structural, and it frames all the rest: the same
@@ -6,21 +6,140 @@ author wrote the claims, the software that checks them, and this report that gra
 Verification here is independent in mechanism, never in authorship; no independent party has yet
 audited or reproduced any of it (METHODS.md §"Authorship independence").*
 
-**2026-07-17. Claude (Fable 5). Developed with AI assistance (Claude, Anthropic).**
+Methods, environment pinning, statistics conventions, and artifact access: see [METHODS.md](METHODS.md).
 
-> **STATUS: executable SPECIFICATION, not an execution order.** Nothing here fires autonomously:
-> every unbuilt `solve.c` surface is under the project's standing operator gate for engine code, and
-> every run above small-worker scale is cost-gated. Sections marked TO-BUILD in the 2026-07-17 text
-> are annotated in §8 with their status at public `main` HEAD; most have since shipped.
+## Executive summary
+
+[TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) counted the space this project had only ever
+sampled: **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097×10³⁹** orderings satisfy
+C1∩C2∩C4∩C5. A population that size is never listed, only **queried** — and a query you cannot
+re-run is not a result. This report is the question set written to query it, and the answers that
+came back. Drafted 2026-07-17 as a specification, it fixed for each of ten query families (Q1–Q10),
+five figures, an Exhaustion Atlas and a reproduction spine the same four things *before* any of them
+could be answered: the exact definition, the space the quantity is scoped to, the instrument, and
+the check a reader can re-run. **The program was then built and executed.** The three-stage compiled
+catalog — the f, g and t ladders, **15.05 TB** — was built in 2026-09 and checked against its
+published per-layer registries (96 of 96 logical digests, 65 of 65 container digests, §R Tier B);
+the n=31 atlas was assembled from it on 2026-09-21; the queries ran on 2026-09-22, on hardware since
+torn down. §0–§11 are preserved as written, with every correction made in place; **§12 is what the
+atlas answered**, each figure printed beside the one public command that reproduces it.
+
+**What it answered.** The C5 budget vector `2,8,13,7,1` is recovered exactly from the atlas's own
+column sums — and it is King Wen's own boundary multiset, a *parameter the run was given*, not a
+property the ladders discovered (§12.1). **68.67 % of the pruned search tree is doomed**: prefixes
+valid so far that can never complete — and the waste is late, none before layer 9 and a majority of
+a layer only from layer 25 (§12.2, in t-units, which price no production-DFS node). King Wen's own
+transition sits low in its distance class at **24 of 31 steps**, mean percentile 0.219 against a
+null mean of 0.5 — published as a **pointer with no p-value**, because the 31 steps are dependent
+and the atlas yields no distribution for their mean (§12.3). Two results are **negative, and
+reported as negative**: the raw one-step transition kernel is stationary across the interior of the
+walk (TV ≤ 0.00099 over layers 6–23) and scores King Wen just **0.10 bits** from the population mean
+(§12.4), and the positional pair field is **flat to about 3 %**, King Wen's placements typical of it
+(§12.5) — both entered under Q9, the reportable-negatives section, which is where this program
+expects most of its answers to land. The order in which the C5 budget is spent sits within TV
+**0.0415** of the exchangeable null (§12.6). Finally, the two checks that compare this compiler
+against numbers **published from a different instrument** disagree, by about twelve times tolerance:
+`TR12_A2_SLOT=FAIL` and `TR12_A3_EXTERNAL=FAIL` (§12.10). **That FAIL is the measurement, not a
+defect** — the two sides count different populations, differing by exactly C3 — but this program has
+no C3 channel, so the attribution is an inference from two instruments each being right about what
+it measured, and **not a measurement of C3 by this program**.
+
+**What it withheld, and why.** The Exhaustion Atlas's headline verdict — EXHAUSTIBLE vs INFEASIBLE —
+is **withheld**, and the consumer refuses to emit it: pricing t-units as production-DFS nodes needs a
+mapping nothing certifies, and the run that would certify it needs a change to the production
+enumerator that was never budgeted (§3). Whether the near-exchangeability of §12.6 is *informative*
+rather than forced by the same structure that makes the kernel stationary has no calibrated null
+here, so the number ships as a measurement and the interpretation does not (§12.6). Q10(b), the
+coset census, is **undefined** — no subgroup set, no coset-id map — and needs a definition before it
+can have a producer (§12.8). The Q7 historical-arrangement *witnesses* need `kissat`, which is
+absent. Peak build space is **UNMEASURED** and no figure is quoted for it (§R.0). An exact C15 count
+was **priced and permanently declined on cost — not found impossible**, and §9 keeps those two
+reasons apart. **Wave 3 was never budgeted and never ran** (§Wave-status ruling), so the extremal
+sweeps, the literature exact-count shortlist and the EW-2 screens specified here remain
+specifications. The cost bands throughout are the 2026-07-17 estimates; realized costs are not
+restated (§0 "Cost basis").
+
+## Abstract
+
+We specify and execute a query program over a compiled catalog of the C1∩C2∩C4∩C5 solution space
+(**SUPER**, |SUPER| = N = 1.097051×10³⁹ exact, TR-11), in which the space is never materialized:
+every result is a query against a three-stage out-of-core ladder — f (membership), g (exact
+completions) and t (exhaustion cost) — totalling 15.05 TB, whose per-layer digests are published as
+the reproduction fingerprint while the ladder data itself is not distributed. The specification
+(§0–§11, 2026-07-17) fixes for each query its exact definition, its space label under a mandatory
+C-8 discipline that never conflates SUPER with C15 = C1–C5, its instrument, its output shape and its
+reader-side check; §R gives the three-tier reproduction spine (full rebuild, registry check, and a
+laptop-scale small tier that exercises every claim *type* at n=9 and n=13 in minutes). The program
+executed at n=31 in 2026-08/09, and §12 reports what the resulting atlas establishes, measured over
+the whole population rather than over an enumerated slice: the C5 budget is recovered exactly from
+the atlas's column sums and is King Wen's own multiset by construction; 68.67 % of the pruned search
+tree consists of prefixes that cannot complete, none before layer 9; King Wen's transition is low in
+its distance class at 24 of 31 steps (mean percentile 0.219 vs a null mean of 0.5), stated as a
+pointer rather than a p-value because the steps are dependent; the one-step transition kernel is
+stationary across the interior and does not distinguish King Wen at the scale its marginals fix
+(−0.102 bits, 0.05 of an independent-step SD); the positional pair field is flat to ~3 % with King
+Wen typical of it; and the C5 budget path lies within TV 0.0415 of the exchangeable null, measured
+with two-sided controls and with its interpretation withheld. Two checks against externally
+published C1–C5 quantities FAIL by ~12× tolerance — a difference between populations that this
+C3-free compiler can exhibit but cannot attribute by measurement. The exactness frontier is stated
+as cost where it is cost and as capability where it is capability, and never traded: an exact
+C3-conditioned count is declined on price, not barred by structure; the Exhaustion Atlas's
+exhaustibility verdict is withheld for want of a certified t-unit-to-node mapping; wave 3 was never
+budgeted and did not run.
+
+## Sections
+
+- **What this document is, and what it is not.** The standing rules every figure below inherits: a
+  number appears only as a cited prior publication, as a quantity printed beside its reproduction
+  command, or as a labelled `[ESTIMATED]` plan parameter. The document is **not** a
+  pre-registration and does not claim to be one.
+- **§0. Conventions.** The space labels (SUPER, C15) and why no instrument here counts
+  C3-conditioned; the units gate `cd_true = 2·(walk_cd+1)`, so every C15 query passes
+  `--kc-c3-max 387` and never 776; the two orders (REL, the compiler's native descent; O3, the
+  citable record comparator) and the walk-rank/class-rank distinction; the H3b amendment; the cost
+  basis.
+- **§1. The nine core queries (Q1–Q9).** rank(KW) and its neighbours; the O3/REL endpoints; King
+  Wen's 31-step rarity profile; the C3 census (and the C3 minimum, **112**, closed by a structural
+  bound met by a published witness); functional extremals; density extremes; historical-arrangement
+  certificates; the exact-uniform gallery; and the reportable negatives.
+- **§2. Visualization program (V1–V5).** Five population-exact figures over all ~1.1×10³⁹ members.
+  **Three are rendered and embedded here** (V1, V2, V5); V3 and V4 are not renderable at full-31
+  from published material — see the section.
+- **§3. The Exhaustion Atlas (XA).** Per-branch exact solution mass and exhaustion cost in t-units.
+  The EXHAUSTIBLE/INFEASIBLE verdict is **withheld**, and the reason is a missing certificate, not
+  a missing number.
+- **§4. Literature-claims exactness sweep (LS).** Which of ~70 literature-anchored functionals are
+  walk-decomposable and could be counted exactly, which need extended state, and which honestly
+  stay sampled — under a mandatory circularity-audit gate.
+- **§5. The exploration wave (EW).** Constraint hunting under FRONTIER discipline, with a
+  pre-registered three-outcome interpretation contract that is allowed to return nothing.
+- **§6. Capabilities program appendix (CAP-1..8).** The 2026-07-17 capability plan; build status at
+  HEAD is in §8.
+- **§R. Independent-reproduction methods spec.** The ladder fan (f → {g, t}; g and t never read
+  each other), the measured per-ladder sizes, and the three tiers: **A** full rebuild from public
+  source, **B** registry check (executed here, 96/96 and 65/65), **C** the laptop small tier.
+- **§7. Dependency waves + cost.** The 2026-07-17 plan. Waves 0–2 executed; wave 3 did not.
+- **§8. The TO-BUILD worklist and its build status.** Thirteen rows, re-verified against HEAD.
+- **§9. Judged NOT report-grade (and why).** The honesty section: what was declined, and whether the
+  reason was cost or capability.
+- **§10. Capstone additions.** The DONE-contract set (A–D) and the versioned updates to other
+  reports (E–G).
+- **§11. Prior-art refresh addendum.** Q10, the orbit/(ℤ/2)⁶-coset census in the Ouyang framing,
+  plus refinements that need no new compute.
+- **§12. What the n=31 atlas establishes.** This document's results section: six measured readings
+  over SUPER (§12.1–§12.6), what the atlas leaves open (§12.7), Q10(b) (§12.8), the figure→token
+  table for `grep -Fqx` (§12.9), and the two external anchors that disagree (§12.10).
+- **§Verification Guide.** Every claim type above, mapped to the command that checks it.
 
 ---
 
 ## What this document is, and what it is not
 
-**It is a question set, not a results report.** This is the specification of a query program
-against the compiled solution catalog: for each query, the exact definition, the space label, the
-instrument, the cost band, the output shape, and the check a reader can re-run. **The full-31
-answers are not computed here and are not stated here.** Where a number appears it is one of
+**It is a question set (§0–§11) with a results section (§12).** This is the specification of a query
+program against the compiled solution catalog: for each query, the exact definition, the space label,
+the instrument, the cost band, the output shape, and the check a reader can re-run. **The full-31
+answers to Q1–Q10 are not stated in §0–§11**; §12 states, for the rows it names, what the n=31 atlas
+establishes, each beside the command that reproduces it. Where a number appears it is one of
 three things, and never a fourth: (i) a quantity already published in TR-1…TR-11 or
 `documentation/`, cited; (ii) a quantity with a public reproduction command, printed beside it;
 (iii) a cost band or plan parameter, labelled `[ESTIMATED]`. **No figure in this document is
@@ -36,7 +155,7 @@ as one.)*
 its answers exist is not the same act as registering those questions with a checkable timestamp
 and a per-query pre-hoc/post-hoc provenance label. **This document carries no such labels and
 makes no claim about when any individual query was first written.** A reader should treat the
-program as a specification of what will be asked and how it will be checked — nothing more. Any
+program as a specification of what was asked and how it is checked — nothing more. Any
 future use of it as a pre-registration would require that per-query provenance work to be done
 first, and it has not been.
 
@@ -49,6 +168,18 @@ specification behind them, not a substitute for them.
 ---
 
 ## 0. Conventions every item below inherits
+
+**Output paths.** Output names of the form `tr12/<file>` below are the 2026-07-17 specification's,
+and **no `tr12/` directory is tracked in this repository**. The basenames are real and the prefix is
+not: `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` writes `VERDICTS.txt`,
+`q10_orbit_census.tsv`, `xa_branches.tsv`, `xa_verdict.md` and a `scan/` subdirectory
+(`v1_field.tsv`, `v2_river.tsv`, `v2_branches.tsv`, `v5_grammar.tsv`, `q6_layer_mass.tsv`,
+`q6_layer_extremes.tsv`) into whatever `DIR` the reader names, and `scripts/tr12_repro.sh` writes the
+same basenames under its own run directory's `artifacts/` tree — so `tr12/` is a directory a reader
+chooses, not a path this repository ships. Three of the spec's names correspond to nothing at HEAD
+and are flagged where they appear: `q10_coset_census.tsv` has no producer (`--kc-coset-census` does
+not exist, §11 Q10(b)), `q9_negatives.md` has never existed in this repository (CX-73), and the XA
+convention pin is written as `xa_node_convention.json`, not `.txt` (§3). *(Added 2026-09-23.)*
 
 **Spaces (the C-8 label discipline; used on every quantity).**
 - **SUPER** = C1∩C2∩C4∩C5, the compiled walk superspace. |SUPER| = N =
@@ -147,15 +278,18 @@ other** — see §9.
 **Instruments that EXIST** (v4-compiler pin `8a7e3f0`+`86ec533`): `--kc-count/-unrank/-rank/
 -member/-repr/-sample/-enum` (OOC, full-n; REL order; `--kc-c3-max`, `--kc-record`,
 `--kc-class-uniform`; `#provenance` trailer on all record-facing output), `--kc-g-build/-check/
--selftest` (Stage G engine, reviewed, run pending), `--f1c5-layer-sha` (decompressed-stream layer
+-selftest` (Stage G engine; the n=31 g-ladder was built 2026-09 — 8.27 TB, 32/32 layer digests
+registered, §R.0 and §R Tier B), `--f1c5-layer-sha` (decompressed-stream layer
 shas), `sat.py` (CNF emit incl. C3 encoding, witnesses, DRAT), `verify.py`/`solve.py` constraint
 predicates, `--null-historical`, the DFS walker (v4-canonical `b1464fa`). **Certificate hygiene:**
 every published number carries: command line, build identity (git+source sha), layer-dir sha
 registry, `#provenance` scope line, and the reader-side re-derivation (H6 form; "certificate, not
 proof").
 
-**Cost basis [all ESTIMATED unless marked].** Stage F ≈ $75–105 central (RUNNING, R-2); Stage G
-+$60–110 (D3-authorized); Spot D8/D16/D32 ≈ $0.03–0.30/hr; a full-31 layered count-DP re-run
+**Cost basis [all ESTIMATED unless marked].** Stage F ≈ $75–105 central and Stage G +$60–110 — both
+are 2026-07-17 estimates, and both stages have since been built (measured sizes, §R.0); realized
+cost is not restated (`documentation/CAMPAIGN_METHODOLOGY.md` §7 rule 9). Spot D8/D16/D32 ≈
+$0.03–0.30/hr; a full-31 layered count-DP re-run
 (no layer retention) ≈ $40–80; a full ladder streaming pass (scan class) ≈ $15–50; point queries
 against mounted ladders ≈ $1–5. **No campaign-scale dollar anchor is quoted here.** The 560 T
 campaign's realized total is not published: `documentation/CAMPAIGN_METHODOLOGY.md`
@@ -163,9 +297,23 @@ campaign's realized total is not published: `documentation/CAMPAIGN_METHODOLOGY.
 under that file's §7 rule 9, which sets the bar for restating one at an **itemized** ledger —
 VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orchestrator.
 
+> **⚠ The cost bands in this section and in every per-query `Cost:` line below are the 2026-07-17
+> estimates**, made before Stage G existed and before any query was executed. Every stage and every
+> wave-0–2 query has since run; **realized costs are not restated** (`documentation/CAMPAIGN_METHODOLOGY.md`
+> §7 rule 9 bars putting a cost total in a published document without an itemized ledger), and the
+> measured wall times and hardware are in `documentation/VERIFY.md` §"TR-12 query program". The bands
+> are stated as *dollar* bands; **their implied wall times are not current.** Wave 3 was never
+> budgeted and did not run, so its bands were never tested against anything.
+
 ---
 
 ## 1. The nine core queries (Q1–Q9)
+
+**TO-BUILD** below is the 2026-07-17 label, kept as written. §8 gives each surface's status at HEAD:
+items 1–7, 11 and 13 are **BUILT**; item 8's LS/EW property-channel extension, item 9's SAT
+bisection driver loop, item 10 (the CAP-7 slice wrapper) and item 12 (the CAP-4 prototype) are not.
+The TO-BUILD marks that remain accurate are the BnB walker, the SAT driver, CAP-4, CAP-7 and the
+Q10(b) coset census.
 
 ### Q1. rank(KW) in the citable order + rank-neighbors — the H3b certificate
 - **Definition.** rank_O3^SUPER(KW) = |{w ∈ SUPER : w <_O3 KW}| (walk-rank; exact integer
@@ -189,7 +337,7 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   CI. H3b certificate = rank(unrank(r))=r + unrank(rank(KW)) byte-identical to KW + neighbor
   bracket + `#provenance`.
 - **Stage:** needs Stage G + O3 ranker. **Cost:** queries ≈ $1–5; estimate leg (M=10⁴) ≈ $5–15.
-- **Output:** `tr12/q1_rank_kw.txt` — exact decimal rank, the two neighbor walks + records, the
+- **Output:** `<artifact-root>/q1_rank_kw.txt` — exact decimal rank, the two neighbor walks + records, the
   C15 estimate ±CI, certificate block. Machine-checkable: re-run rank/unrank; big-int compare.
 - **Cross-check:** DFS rank consistency at exhaustive n ≤ 13 (cross-engine byte-match precedent,
   n=9 landed); REL-order rank(KW) via existing `--kc-rank` as an independent second coordinate
@@ -253,7 +401,7 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
   exposes its per-position f·g trace; else **TO-BUILD** `--kc-profile "e,x,..."` (thin wrapper,
   prints the 31-row table for ANY walk — KW is just the first customer).
 - **Stage:** post-G. **Cost:** ≈ $1–5.
-- **Output:** `tr12/q3_profile_kw.tsv` (31 rows: choice, #alternatives, g of each alternative,
+- **Output:** `<artifact-root>/q3_profile_kw.tsv` (31 rows: choice, #alternatives, g of each alternative,
   p_i, −log₂ p_i) + the product self-check line. C15 companion: ⚠ **WITHDRAWN
   2026-09-05 (QSET finding 2).** This promised "sampled per-step C3-pass corrections (rejection
   sampling), labeled ESTIMATE" — a named deliverable **with no instrument**. The battery commands
@@ -348,8 +496,9 @@ Reproduce, from published artifacts only:
 #   -> C3 complement distance: HOLD (value 112, ceiling 776);  verdict SUPER: IN
 ```
 **What remains genuinely open is only the SAT *machinery*** — `sat.py`'s bisection driver, `kissat`
-and `drat-trim` are still absent, so the `PENDING:sat-c3min-driver` token below is accurate about the
-*tooling* and was misleading about the *question*. Found 2026-09-05 by a Fable adjudication of the
+and `drat-trim` are still absent. The `PENDING:sat-c3min-driver` token this sentence once pointed at
+has since been retired (2026-09-21 correction below): the tooling is absent, and the question is
+closed at 112. Found 2026-09-05 by a Fable adjudication of the
 QSET external review, which the external review itself missed; see
 [`documentation/CORRECTIONS.md`](../documentation/CORRECTIONS.md).
 
@@ -382,8 +531,10 @@ QSET external review, which the external review itself missed; see
   per-decision timeout + fallback: report the bracket [deepest-UNSAT-G+1, best-witness-G]
   honestly (G units; ×8+16 for cd×64). Optional cross-check: BnB walker with the monotone
   partial-cd bound (**TO-BUILD**, research-grade, not report-critical).
-- **The bisection is pre-registered in public, and the instrument that would run it does not yet
-  exist.** This is stated as a method commitment, not a result. Its three public anchors, all at
+- **The bisection is pre-registered in public, and the instrument that would run it does not exist
+  in this repository** — and, as the 2026-09-21 correction below shows, running it for the minimum
+  would re-derive 112 with zero UNSAT legs, hence zero DRAT certificates. This is stated as a method
+  commitment, not a result. Its three public anchors, all at
   `main` HEAD: (i) the primitives — `python3 sat.py --emit-cnf|--decode|--witness TARGET
   [--with-c3] [--c3-max N] [--c3-min N]`, grammar and semantics in
   `documentation/SAT_CLI.md` (§usage synopsis; `DECODE_VERDICT=PASS|FAIL` is `PASS` only when C3
@@ -584,7 +735,7 @@ QSET external review, which the external review itself missed; see
   `⌊16·rank/N⌋`, 15 dof, computed in integer arithmetic as `χ² = (16·S − k²)/k`, **PASS below
   37.70**; the anchor run of 2026-08-07 gives buckets
   `[71,55,64,59,75,58,53,74,51,49,64,60,58,81,60,68]` and **χ² = 20.224** on its 1,000 draws.
-- **Stage:** post-F. **Cost:** ≈ $5–15. **Output:** `tr12/gallery/` + seed + chi² line.
+- **Stage:** post-F. **Cost:** ≈ $5–15. **Output:** `<artifact-root>/gallery/` + seed + chi² line.
 - **Cross-check:** membership of every sample via `--kc-member` + constraint re-validation in
   Python (two-language); the gallery is the "typical member" baseline for TR-12.
 
@@ -626,6 +777,67 @@ Costs: data extraction rides §Q6's scan pass (V1/V2/V5) and Q3 (V4); V3's grid 
 (K unranks). Rendering ≈ $0 (local). Verification: every figure's TSV is committed as evidence;
 row/column sums = N gates printed by the scan.
 
+### Figures — V1, V2 and V5 (rendered 2026-09-23 from the n=31 atlas)
+
+**Three of the five are rendered below. V3 and V4 are not, and this section says so rather than
+implying five figures exist.** All three are computed over the *whole* superspace — every one of the
+~1.097×10³⁹ members at once, via f·g — not over an enumerated sample slice. Each is generated by
+[`viz/report_figures.py`](../viz/report_figures.py) from the TSV whose content digest is printed in
+the figure's own lower-right corner.
+
+![Heat matrix of the exact positional-marginal field over the C1C2C4C5 superspace: 32 global pair-index rows against pair-slots 2 to 32, every interior cell between 0.0205 and 0.0636 against a uniform 1/31 = 0.0323, with King Wen's own 31 placements outlined in blue along the diagonal, an identically zero row 0 (C4 pins pair 0 at slot 1), three zero cells in the slot-2 column (pairs 4, 6 and 21, the popcount-5 pairs C2 forbids at distance 5 from exit 0), and a slot-32 column in which only 16 of the 32 pairs are admissible.](figures/fig_tr12_kc_field.png)
+
+*V1, the positional-marginal field (§12.5's object). P(pair j at slot k), exact over SUPER; the
+field is doubly stochastic by gate — every column sums to 1, and so does every non-pinned row. **The
+reading is negative:** the interior is flat to about 3 % (`POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR=0.0329`)
+and King Wen's own pair at its own slot carries 0.0299–0.0337 at every interior slot — indistinguishable
+from any other pair. King Wen's outlined cells run down the diagonal **by construction**, because the
+pair indices are King Wen's own labels: the value in each cell, not the shape of the outline, is the
+content. The structure that *is* visible is forced — row 0 zero by C4, the three slot-2 zeros by C2,
+the 16 admissible closers by the wrap predicate (§12.1). Flat marginals do not test the **joint**
+placement pattern, which is not asked here. [SVG](figures/fig_tr12_kc_field.svg).*
+
+![Two-panel figure. Upper panel: a stacked mass river across layers 0 to 30 showing the exact share of the superspace in each boundary-distance class d = 1, 2, 3, 4 and 6, the bands nearly parallel across the whole walk with d = 3 the widest at about 0.41, and King Wen's own class at each layer drawn as a white step line. Lower panel: a bar chart of the 56 top-level branches sorted by solution mass, each between about 0.010 and 0.021 of N, with log10 exhaustion cost in t-units overlaid as a red line falling in four steps from about 38.28 to 37.95.](figures/fig_tr12_kc_river.png)
+
+*V2, the mass river, and the branch panel. **Upper:** exact per-layer mass by boundary-distance
+class. The band **areas** are fixed by the C1+C5 theorem — each class d is spent exactly b0(d) times
+by every walk, so the column sums recover the budget `2,8,13,7,1` (§12.1) — and therefore only the
+**shape across k** carries information; it is nearly flat, the per-layer class shares staying within
+0.18 percentage points of b0/31 on layers 1–29 (§12.6). **Lower:** each top-level branch's exact
+solution mass against its exact exhaustion cost in t-units — the atlas's point being that mass and
+cost do not track each other, so a small branch need not be a cheap one. The EXHAUSTIBLE/INFEASIBLE
+verdict is **not** drawn from this panel and remains withheld (§3). ⚠ **This is the REDUCED form**
+(`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is split by distance class, **not** by
+top-level branch class as §2's table originally specified. The branch-class split is not a missing
+flag — the compiled DP state carries no tag for which branch a prefix descended from, so it would
+need a branch-tagged forward ladder of order 10² TB ([`viz/viz_kc_river.md`](../viz/viz_kc_river.md)).
+[SVG](figures/fig_tr12_kc_river.svg).*
+
+![Heat map of the exact transition grammar: five rows, one per boundary-distance class d = 1, 2, 3, 4, 6, against layers 0 to 30, each column summing to 1. The d = 3 row is uniformly the brightest at about 0.41 to 0.42 across every layer, d = 2 and d = 4 sit near 0.25, and d = 1 and d = 6 are dark near 0.03 to 0.06, with King Wen's own distance class at each layer marked by a white outlined cell.](figures/fig_tr12_kc_grammar.png)
+
+*V5, the transition grammar. P(next-choice class | layer k), exact over SUPER, read down each column.
+d = 3 is the largest class at every layer (`LARGEST_CLASS_SET_OVER_LAYERS=d3`,
+`D3_MIN_LAYER_SHARE=0.40687`), and d = 6 is zero at layer 0 only — the complement of the anchor exit
+is already placed (§12.1). ⚠ **Two honesty notes.** This is the REDUCED form
+(`TR12_V5=PASS:REDUCED-NO-CROSSTAB`): the second axis V5 was specified with — the cross-tab against
+new-pair category — is PENDING, and the category itself is undefined, a consumer-side decision rather
+than a missing scan ([`viz/viz_kc_grammar.md`](../viz/viz_kc_grammar.md)). With only the
+distance-class axis available, **V5 and V2's upper panel plot the same numbers**: the layer flow is N
+at every layer, an engine-gated identity, so the conditional and the joint coincide and the two
+figures differ in rhetoric — a normalized heat map read column-by-column versus a stacked flow read
+left-to-right — not in content. Presenting them side by side without saying so would overstate the
+evidence. [SVG](figures/fig_tr12_kc_grammar.svg).*
+
+**V3 (rank spectrum) and V4 (neighborhood shells) are not rendered, and no full-31 version of either
+exists.** Both need a read of the f/g ladders, which are **cold and unmounted**, and the 15 TB
+rehydration that would feed them is not permitted by standing rule. V4 is Q3's rarity profile drawn
+as a figure — f+g point lookups per step — and [`viz/viz_kc_shells.md`](../viz/viz_kc_shells.md)
+labels its full-31 form "PENDING the ladders". V3 needs the ladders **and** an instrument that does
+not exist: the grid emitter `--kc-unrank-grid` is PENDING
+([`viz/viz_kc_spectrum.md`](../viz/viz_kc_spectrum.md)). Until they land, §12.9's figure→token table
+is the figure surrogate for the quantities V3 and V4 would have shown, and the five-figure program of
+this section is delivered three-fifths.
+
 ---
 
 ## 3. The Exhaustion Atlas (XA) — headline TR-12 section
@@ -643,8 +855,9 @@ not authorised — but the two anchors themselves are already published** and ar
 than withheld: the R-1 orbit-engine work factor **36.14×** and wall ratio **19.8×** at 1 T are
 committed in the battery driver as the stated reason its **`c_xa_cd`** row skips
 (`SKIP:xa-throughput-anchors`) — cited by row name rather than by line number, because the line
-moved (this read `scripts/tr12_repro.sh:1401` until 2026-09-12, V3A-044#6; the text is at `:2844`
-today and will move again); read them with
+moved (this read `scripts/tr12_repro.sh:1401` until 2026-09-12, V3A-044#6, and a later revision
+replaced that with another line number, which had moved again by 2026-09-23 — no line number is
+quoted here for that reason); read them with
 `git grep -n "xa-throughput-anchors" main -- scripts/tr12_repro.sh`. What has **no** public
 basis, and is therefore still not quoted, is the nodes/sec rate itself; (d) **verdict**: EXHAUSTIBLE (fits a stated $ ceiling) vs
 INFEASIBLE. ⚠ **This call is WITHHELD and the consumer now refuses to make it.** Pricing t-units as
@@ -689,11 +902,16 @@ prunes with C3 while t counts SUPER prefixes, so the ratio is per-branch, and t-
 production nodes from above — EXHAUSTIBLE would be sound, INFEASIBLE would not. Original wording: "valid prefixes" (t-units) vs
 `solve.c`'s `SOLVE_NODE_LIMIT` node-counter semantics — at n ≤ 13, exhaust with the DFS
 (node counter on) AND compute t; assert the exact mapping (incl. orientation-explicitness, d3
-cell-splitting, and C3-prune visit accounting); no atlas number ships before this certificate
-(`tr12/xa_node_convention.txt`). Small Spot worker, ≈ $1.
+cell-splitting, and C3-prune visit accounting); no atlas number **priced in production-DFS nodes**
+ships before this certificate — the t-unit ratios of §12.2 carry no such price, which is why they
+ship and the exhaustibility verdict does not. **W0-D was not run** (the host is torn down) and the
+certificate does not exist; the ≈ $1 is the 2026-07-17 estimate. The battery emits it as
+`xa_node_convention.json`, not the `.txt` this 2026-07-17 line names.
 
 **Stage:** convention pin NOW; (a) post-G; (b) post-t-ladder; (c)/(d) then. **Cost:** t-ladder
-≈ $60–110 if standalone [ESTIMATED]; atlas assembly ≈ $5. **Verification:** t vs DFS at n ≤ 13
+≈ $60–110 if standalone [ESTIMATED]; atlas assembly: see §R — **measured ~47 h single-threaded** on
+the n=31 ladders (v1.4); the earlier dollar figure is withdrawn there and is not restated here.
+**Verification:** t vs DFS at n ≤ 13
 (the pin); Σ_b solutions(b) = N; Σ_b prefixes(b) + shared trunk = t(root).
 ⚠ *(2026-09-21: one exact t-unit figure the atlas now supplies — 68.67 % of the pruned-DFS tree
 is doomed prefixes, none before layer 9 — is in §12.2. It is a ratio of t-units and says nothing
@@ -804,7 +1022,7 @@ well-bounded null as a publishable finding.
   improbability is exactly log₂ N ≈ **129.689 bits**, and the rarity profile decomposes it
   exactly: 129.689 = Σᵢ −log₂ p_i over KW's 31 choices. Deliverable: the exact per-choice
   surprise spectrum (31 bars, exact rationals) + the **interpretation contract, fixed before
-  looking**: **hypothesis under test (calibrated null, §9.4) — KW's surprise is more concentrated
+  looking**: **hypothesis under test (calibrated null, `documentation/QUERY_INVENTORY.md` §9.4) — KW's surprise is more concentrated
   than a uniform SUPER member's.** `localized-constraint-candidate` is a **lead** (where to look for
   a per-step prefix-state rule), not evidence that a rule exists; `typicality-bound` bounds nothing
   outside the named class; `anti-concentration` is reportable as-is.
@@ -872,8 +1090,9 @@ well-bounded null as a publishable finding.
   clears the per-candidate bar 0.05/100 = 5×10⁻⁴ by a factor of ~5. The retracted sentence is true
   only under a threshold it never stated, and it sat in the very clause that tells a reader how
   multiple-comparisons accounting will be done — so as written it would have licensed discarding
-  exactly the findings this screen exists to catch. **No published number moves: EW-2 has not run**,
-  and no tail, candidate list or α has been computed or published under it; the figure was
+  exactly the findings this screen exists to catch. **No published number moves: EW-2 was not run** —
+  it is a wave-3 item and wave 3 was never budgeted (§Wave-status ruling) — and no tail, candidate
+  list or α was computed or published under it; the figure was
   illustrative. See [CORRECTIONS.md](../documentation/CORRECTIONS.md).]**;
   the D-B1 circularity audit as a MANDATORY pre-publication gate per candidate. Stage: post-F;
   cost per exact screen ≈ $40–105 (shares LS machinery — schedule jointly).
@@ -896,7 +1115,7 @@ well-bounded null as a publishable finding.
 
 ---
 
-## 6. Capabilities program appendix (CAP-1..8) — "per 1–8, plan to do them"
+## 6. Capabilities program appendix (CAP-1..8) — the 2026-07-17 capability plan, with status at HEAD in §8
 
 Grading key: **[R]** report-grade findings (feed TR-12 or a future TR) · **[I]** infrastructure
 (documented in SOLVE_C_CLI/SOLVE_PY_CLI when built) · **[RG]** research program, not report-grade.
@@ -1174,16 +1393,22 @@ that take minutes at near-$0; the atlas step above them is not one of them.
    R.0 step 3: `--kc-t-build FDIR TDIR --kc-ooc`; verify the t-layer shas
    `runs/20260906_kc_ladders_n31/STAGE_T_LAYERSHA.txt` and the n ≤ 13 t-vs-DFS agreement; then assemble the atlas with
    `--kc-scan FDIR GDIR atlas.json --kc-tdir TDIR --kc-raw` (internal gate Σ_b solutions(b) == N; `--kc-raw` is required at n=31).
-6. Run each TR-12 query as ONE command and diff against the report's **expected-output block**
-   ([EXPECTED-Q1]..[EXPECTED-Q9], [EXPECTED-XA], … — every published number appears in a
-   verbatim, diff-able block). **The driver is public and built:** `scripts/tr12_repro.sh`
-   (1,570 lines at public `main` `76e5d680`) runs the battery against named FDIR/GDIR, diffs each
-   output against the committed expected blocks in `scripts/tr12_expected/n9/`, prints
-   `TR12_REPRO=PASS|FAIL`, reports skips explicitly, and exits non-zero on any mismatch.
-   ⚠ *At n=31 there is no committed expected set and there cannot be one before the run: the
-   production run mints its blocks (`--mint-missing`), and a minted row records PASS without
-   diffing. At full scale every defence is what a row ASSERTS, never what it MATCHES
-   (`documentation/QUERY_INVENTORY.md` §3.0). Added 2026-09-11 (Fable PD-3).*
+6. Run each TR-12 query as ONE command and diff each row's output against the **committed
+   expected-output blocks**, `scripts/tr12_expected/n9/<row>.txt`. ⚠ *(Corrected 2026-09-23: this
+   step named a block `[EXPECTED-Q1]..[EXPECTED-Q9], [EXPECTED-XA], …` and said "every published
+   number appears in a verbatim, diff-able block". **No `[EXPECTED-…]` block has ever existed in
+   this report** — `grep -c '\[EXPECTED-'` over this file matched only that one instruction — so the
+   step pointed a reproducer at an object it could not find. The real objects are the per-row files
+   under `scripts/tr12_expected/n9/`, which is what this step now names.)*
+   **The driver is public and built:** `scripts/tr12_repro.sh` runs the battery against named
+   FDIR/GDIR, diffs each output against those committed blocks, prints `TR12_REPRO=PASS|FAIL`,
+   reports skips explicitly, and exits non-zero on any mismatch.
+   ⚠ *At n=31 **no expected set is committed in this tree.** The 2026-09-22 production run minted
+   its own blocks (`--mint-missing`), and a minted row records PASS without diffing anything;
+   publishing that minted set is a separate publication action, not taken in this revision. At full
+   scale every defence is therefore what a row ASSERTS, never what it MATCHES
+   (`documentation/QUERY_INVENTORY.md` §3.0). Added 2026-09-11 (Fable PD-3); tense closed
+   2026-09-23, the run having happened.*
 7. Re-derive the certificates: rank(unrank(r)) = r + the KW neighbor bracket (Q1);
    Π p_i = 1/N exactly (Q3); N mod 24 = 0; Σ_b solutions(b) = N (XA); the gallery chi² gate
    (Q8); the f·g identity (step 5). The ÷24 and product-of-conditionals checks are reader
@@ -1324,15 +1549,15 @@ and the reproduction battery itself — at a scale a reader runs on a laptop in 
   the report. *(Revised 2026-09-05 with the tier: the earlier wording priced the trust in
   "downloaded blobs", which presumed a distribution that does not exist.)*
 
-**Stage/cost:** the RM section itself is documentation (wave 0, ~$0); `tr12_repro.sh` is a
-small wave-2 TO-BUILD; the ladder-publication question is **RESOLVED (2026-09-05): SHA registries
+**Stage/cost:** the RM section itself is documentation (wave 0, ~$0); `tr12_repro.sh` was the
+small wave-2 TO-BUILD and is **BUILT at HEAD** (§8 item 13); the ladder-publication question is **RESOLVED (2026-09-05): SHA registries
 are published, the ladder data is not distributed** — so it is no longer a gate on anything.
 The registries land automatically with Stage F/G (R-2's 32 per-layer sha registration is
 already a pass gate).
 
 ---
 
-## 7. Dependency waves + cost
+## 7. Dependency waves + cost (the 2026-07-17 plan; waves 0–2 executed 2026-08/09, wave 3 not run)
 
 | Wave | Gate | Items | Incremental cost [ESTIMATED] |
 |---|---|---|---|
@@ -1341,21 +1566,27 @@ already a pass gate).
 | **2 — post-Stage-G + O3 ranker** | D3 Stage-G run + CT1.5/CT3.6 ranker gates | Q1 (H3b cert); Q2 O3 endpoints; Q3 profile; Q6 + `--kc-scan`; V1/V2/V4/V5; XA(a); EW-1; CAP-3 IDs; CAP-7 slices | Stage G $60–110 (authorized D3) + t-ladder $60–110 (if standalone; ~$0–30 if co-scheduled as a G channel) + scan $15–50 + queries $10–30 |
 | **3 — elective, per-item operator-gated** | operator selection + cost-confirm each | Q5 extremal shortlist ($40–80 ea); LS exact-count shortlist ($250–800); CAP-5 grid ($360–720 for 9 pts); EW-2 screens ($40–105 ea); CAP-4/CAP-8 research | $700–2,400 depending on selection |
 
+**Status at HEAD:** waves 0–2 **ran** — the surfaces in §8, the ladders and their registry checks in
+§R Tier B, and the measured results in §12. **Wave 3 did not run** and was never budgeted
+(§Wave-status ruling), so every wave-3 item above remains a specification. The dollar bands are the
+2026-07-17 estimates (§0 "Cost basis"); realized costs are not restated.
+
 **Total line:** committed-path (waves 0–2, beyond the already-authorized Stage F/G):
 **≈ $125–360 [ESTIMATED]**; with the elective wave 3 as scoped: **≈ $0.8–2.8K [ESTIMATED,
 NOT AUTHORIZED — per-item cost gates]**. Per the charter, quote per-stage figures only.
 
 ---
 
-## 8. Consolidated TO-BUILD worklist (feeds the O3-ranker + H-tier agents)
+## 8. The 2026-07-17 TO-BUILD worklist and its build status
 
 All C items = `solve.c` subcommands, argv-dispatched, sha-neutral, NEVER inside `--selftest`
 (F-C-5); all under the H-code operator gate; every one ships with reduced-n brute-force gates
 before full-31 use. Ordered by wave.
 
-**Build status against public `main` HEAD `76e5d680`, re-verified 2026-09-05** by reading the
-committed blob (`git show HEAD:solve.c`, `git show HEAD:sat.py`, `git ls-tree HEAD`), not a
-working tree. **A surface's presence in the committed source is evidence that it exists; it is not
+**Build status against public `main` HEAD `d6b1334e`, re-verified 2026-09-23** (previously pinned to
+`76e5d680` and re-verified 2026-09-05; that commit is an ancestor of this one, so nothing below was
+false, but "HEAD" had come to name a commit several revisions old). The re-verification greps each
+row's argv string in the tracked sources — `solve.c`, `sat.py`, `scripts/` — not a working tree. **A surface's presence in the committed source is evidence that it exists; it is not
 a certification that it satisfies the requirement stated in its row** — that is what each
 surface's own selftest and the committed n = 9 expected blocks are for. This list was written on
 2026-07-17 as a worklist; most of it has since shipped.
@@ -1384,7 +1615,7 @@ surface's own selftest and the committed n = 9 expected blocks are for. This lis
    G-invariance check per functional; reduced-n exhaustive gate mandatory. Wave 3.
    **BUILT at HEAD:** `--kc-extremal`, `--kc-extremal-selftest`. The surface existing does not
    authorise the sweeps: wave 3 is deferred and unbudgeted (see the wave-status ruling).
-8. `--kc-oracle` property channels — extend the already-queued R-3.5 harness with the LS/EW
+8. `--kc-oracle` property channels — extend the `--kc-oracle` harness (BASE BUILT, below) with the LS/EW
    count-DP property grammar (violation counters, station counter for ST-* rules). Wave 3.
    **BASE BUILT at HEAD** (`--kc-oracle`, `--kc-oracle-repr`, `--kc-oracle-selftest`); **the LS/EW
    property-channel extension is not present.**
@@ -1405,8 +1636,9 @@ surface's own selftest and the committed n = 9 expected blocks are for. This lis
     any mismatch (shell only, no new .c/.py). Wave 2. ⚠ *The diff applies where an expected set exists
     (n=9 today); at n=31 the run mints and asserts rather than diffs — see step 6 above and
     `QUERY_INVENTORY.md` §3.0.*
-    **BUILT at HEAD:** `scripts/tr12_repro.sh`, 1,570 lines, with its committed expected blocks
-    under `scripts/tr12_expected/n9/`.
+    **BUILT at HEAD:** `scripts/tr12_repro.sh`, **3,531 lines** at `d6b1334e` (measured
+    2026-09-23 with `wc -l`; the "1,570 lines" this row carried was true of `76e5d680` and had
+    since more than doubled), with its committed expected blocks under `scripts/tr12_expected/n9/`.
 
 ---
 
@@ -1478,6 +1710,8 @@ surface's own selftest and the committed n = 9 expected blocks are for. This lis
 
 ---
 
+## Attribution
+
 *Attribution: direction and the distinguished-elements/capabilities/exploration programs are the
 operator's; the query specifications, feasibility triage, and this document are by Claude
 (Fable 5), 2026-07-17, building on prior Fable/Opus session work (compiler, Stage-G engine,
@@ -1496,9 +1730,16 @@ registries are published; the ladder data is not distributed by this project), a
 H3b specification amendment in §0. No query definition, no verdict, and no cost band other than
 the withdrawn one changed in either pass.*
 
+*The 2026-09-23 finalization pass — the six house-format elements (Executive summary, Abstract,
+Sections map, Verification Guide, the METHODS.md line and the title form), the removal of the draft
+byline and STATUS box, the closing of stale and forward-looking tense throughout, and the embedding
+of the three rendered figures — is by Claude (Opus 5), against a format-parity and staleness review
+by Claude (Fable 5.1). No query definition, no verdict, no count and no published figure changed in
+that pass.*
+
 
 ## Wave-status ruling (operator, 2026-07-17)
-- **Waves 0–2: approved in principle** (~$125–360 total new compute beyond the authorized R-ladder), sequenced behind the campaign; wave 2's t-ladder doubles as the byte-level gate upgrade — until it runs, the promotion uses the pre-declared degraded-rank labeling.
+- **Waves 0–2: approved in principle** (~$125–360 total new compute beyond the authorized R-ladder), sequenced behind the campaign; wave 2's t-ladder doubles as the byte-level gate upgrade — until it runs, the promotion uses the pre-declared degraded-rank labeling. *(t-ladder built 2026-09-06; 32/32 logical and 65/65 container digests verified, §R Tier B.)*
 - **Wave 3: DEFERRED — NOT BUDGETED** ("I can't afford wave 3"). Every wave-3 item is independently gated and may be cherry-picked individually later (e.g., a 5-rule literature-sweep slice ≈ $50–100 instead of the full ~70-rule sweep at $250–800). No wave-3 item is required for the campaign, the promotion, or TR-12 v1.0 (waves 0–1 suffice for a lean TR-12; wave 2 makes it the full report).
 
 ---
@@ -1675,7 +1916,7 @@ query family and refines four existing items. All items below are labeled by spa
   stays pinned. The conclusion — no replacement figure; a definition first — stands. See §12.8
   and [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-58.]**
 - **Output/verification:** `tr12/q10_orbit_census.tsv` (per-layer orbit counts + the /24 integrality
-  gate — now Lean-kernel-backed) + `tr12/q10_coset_census.tsv` (mass by coset id + KW's coset).
+  gate — now Lean-kernel-backed) + `<artifact-root>/q10_coset_census.tsv` (mass by coset id + KW's coset).
   **Gate — and WHICH counted object it runs on, because "every layer count" named none.**
   ⚠ *(Corrected 2026-09-13, V3B-03#40. This read "Gate: every layer count ≡ 0 (mod 24) EXACTLY
   (dispositive; ties to `twenty_four_dvd_*`)" and never said what a "layer count" was. Under the
@@ -1739,7 +1980,7 @@ pass): `type=roae-kc-scan-atlas`, `n=31`, 31 layers, **5,978,126 B**, sha256
 **`8af5e55c8eed`** (on this repository's `main`), `engine_source_sha`
 `ed9c65b24e9f2ff9cab05eef9f817dca9453ea2edf25b9186fc1f667abe063c9` (the sha256 of the `solve.c`
 that wrote it), its 14 internal gates all `true` with `fails: 0`, its 5 tail checks all `PASS`.
-The file itself is not distributed with this revision; its digest is.
+The file itself is not distributed with this report; its digest is.
 
 ⚠ **What that digest does and does not promise — corrected 2026-09-22 (v1.8, CX-61).** This
 paragraph read *"its digest is, so a Tier-A rebuild … can be checked against it"*, and that
@@ -1979,7 +2220,7 @@ built n=9 atlas: `B0_FROM_COLUMN_SUMS=2,5,0,2,0`, `EXCHANGEABLE_NULL_TV_MAX_OVER
 cells). Whether *approximate* exchangeability to TV 0.04 is informative — rather than forced by
 the same structure that makes the kernel stationary (12.4) — has no calibrated null here and no
 argument either way has been checked; a near-flat result can be forced rather than found. So the
-number ships as a measurement, with its command and its controls, and this revision makes no
+number ships as a measurement, with its command and its controls, and this report makes no
 claim that near-exchangeability is a property of the space beyond what the number says. The
 house precedent for the null form is TR-8's pair-exchangeable null, which is a different object
 (pair identities, not class order) and is precedent for the method, not for this result.
@@ -2157,11 +2398,73 @@ nothing here should be read as revising it. The gap between the two is the resul
 
 ---
 
-> **⚠ Wall-time caveat.** The cost bands in §0 and per-query above are the 2026-07-17 estimates,
-> made before Stage G existed and before any query was executed. They are stated as *dollar* bands;
-> **their implied wall times are not current.** The measured hardware and rate table in public
-> `documentation/VERIFY.md` §"TR-12 query program" is the figure of record for timing and sizing.
+*(The wall-time caveat that stood here through v1.9 has **moved to §0 "Cost basis"**, where a reader
+meets it before the ~25 cost bands it governs rather than after all of them. Its content is
+unchanged and is extended there with the execution status of each wave.)*
 
+
+---
+
+## Verification Guide
+
+Every claim type in this report, mapped to the command that checks it. Match tokens whole-line with
+`grep -Fqx` — **`-F` is load-bearing** (§12.9 explains both directions in which plain `grep -qx`
+fails on this document's own tokens).
+
+- **Every figure in §12.1–§12.8** — `python3 solve.py --atlas-probe atlas_n31.json`. Prints
+  `ATLAS_PROBE=PASS`, `ATLAS_PROBE_FAILS=0`, `ATLAS_GATE_COUNT=14`, `ATLAS_TAIL_CHECK_COUNT=5`; rc 0;
+  under a second on the 5.98 MB JSON, no ladder and no cluster. The probe re-sums every table it
+  reads against N before printing a figure that depends on it, and evaluates the one statistic
+  needing a null against a deliberately wrong null so the reader can see it discriminates. The
+  figure→token table is **§12.9**.
+- **§12.10's two external anchors** — `python3 solve.py --atlas-queries atlas_n31.json --atlas-out DIR`.
+  Exit status **1**, `TR12_A2_SLOT=FAIL`, `TR12_A3_EXTERNAL=FAIL`. The FAIL **is** the result (two
+  populations differing by exactly C3), and exit 1 is the documented behaviour when any verdict
+  written is a failure. `--atlas-q3-trace` is deliberately not required: it is a run artifact not
+  distributed with this report.
+- **The whole battery at laptop scale, no ladder** — `scripts/tr12_repro.sh --n9`: every row diffed
+  verbatim against the committed goldens in `scripts/tr12_expected/n9/`, `QUERY_DRYRUN=PASS` on
+  success, skips reported explicitly, non-zero exit on any mismatch. Currency check (milliseconds,
+  no build): `scripts/tr12_repro_gate.sh --check` → `TR12_REPRO_GATE_CURRENT=YES|NO|UNKNOWN`. Full
+  gate (~2 minutes on two cores, no network): `scripts/tr12_repro_gate.sh`, which **extracts** the
+  published build line from `documentation/VERIFY.md` rather than trusting a copy.
+- **The exact-count witness at n=13** — `./solve --kc-build D --f1-pairs 13 && ./solve --kc-count D`
+  prints `2063395607040` (~352 ms to build, ~9 ms to count).
+- **Q4(b), the C3 minimum = 112** — reproduce from published artifacts only:
+  `./solve --check-arrangement "$(sed -n 's/^SEQ=//p' reports/certificates/c3_positional_witnesses.txt | head -1 | tr -s ' ' ,)"`
+  → `C3 complement distance: HOLD (value 112, ceiling 776); verdict SUPER: IN`. The structural bound
+  `G ≥ 12` plus this exhibited witness closes the bracket at its floor: **no bisection, no UNSAT leg
+  and no DRAT certificate are required for the minimum** (§Q4).
+- **Q7, the historical arrangements** — the three permutations are printed in full in §Q7; re-derive
+  them with `python3 -c 'import solve;print(",".join(map(str,solve._r7_mawangdui())))'` (and the
+  `_r7_fuxi` / `_r7_jingfang` twins) and feed each to `--check-arrangement` for its verdict and
+  first-violated constraint. ⚠ The *witnesses* leg is a named skip — `TR12_Q7_WITNESSES=PENDING:kissat`
+  — because `kissat` is absent; no non-KW named sequence receives a rank in this report.
+- **The ladders, if you hold or rebuild them** (§R Tier B) — logical/content:
+  `./solve --f1c5-layer-sha DIR` against `runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt`
+  (32 rows/stage). Container/files: `sha256sum -c` against `STAGE_{F,G,T}_SHA256.txt` (65
+  rows/stage). **Do not cross them** — they digest different byte streams. Both were executed by this
+  project 2026-09-17: **96 of 96** logical, **65 of 65** container, zero mismatches. A match says your
+  ladder is byte-identical to the one every number here was computed against; it does **not** say the
+  ladder is mathematically sound — that is `--kc-g-check` and `--kc-t-check`, different instruments.
+- **Reader-side arithmetic, needing no project code** (rung 1) — N mod 24 = 0 on the published exact
+  N; Π p_i = 1/N exactly over Q3's 31 rows; Σ_b solutions(b) = N; the f·g cut identity printing N at
+  every layer.
+- **The full three-tier spec** — §R: Tier A rebuilds everything from public source (the gold
+  standard, and the only tier that establishes anything without trusting a registry this project
+  published), Tier B checks a ladder you already hold, Tier C is the laptop tier above.
+
+**What this tree does not let you check, stated so no reader hunts for it.** The atlas file itself is
+**not distributed** — its raw sha256 is `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`
+and, because the raw digest embeds the build stamp and the ladder directory basenames, the digest a
+rebuild can actually match is the provenance-normalised `923faa1b097cd364bbedd58044963df971809bf1c3d27765d29e84ae9f73071a`
+(§12). The **ladder data** is not distributed either; the per-layer registries are the published
+fingerprint (§R Tier B). **No n=31 expected-output set is committed** — the production run minted its
+own (§R Tier A step 6). `kissat` and `drat-trim` are absent, so the SAT legs are named skips. And
+every **per-query** Q1–Q10 output here is **single-instrument**: no second engine computes it. Only
+the full-31 totals |C1∩C2∩C4∩C5| and |C1∩C2∩C4| are two-instrument, independently recomputed by
+`verify.c`'s transfer-walk engine — and both instruments are project-authored, so no third-party
+recomputation of anything in this report exists.
 
 ---
 
@@ -2178,4 +2481,5 @@ nothing here should be read as revising it. The gap between the two is the resul
 | v1.6 | 2026-09-21 | **§12 added — this document's first results section: what the n=31 atlas establishes, measured from the atlas alone, every figure beside the one public command that reproduces it.** The command is new in this revision: `python3 solve.py --atlas-probe ATLAS.json` (ported into `solve.py` under the single-file rule, every token named in `documentation/SOLVE_PY_CLI.md`, gated by `tests.py TestAtlasProbe` on a real n=9 atlas with a red mutant and a refused quotient-only atlas). The atlas is pinned by sha256 and `engine_git`; the file is not distributed. **Six results.** (12.1) The C5 budget is a run parameter recovered exactly from the `by_class` column sums — `2,8,13,7,1` at full-31, `2,5,0,2,0` at n=9 — and the small-n zero-mass classes are its consequence via one predicate, so the n=13 `d3`/`d6` zeros are a local budget fact and not a question at n=31; corroborated by the f- and t-ladder manifests' `b0=` line and by `documentation/F1C5_LAYER_FORMAT.md`. (12.2) 68.67 % of the pruned-DFS tree, in t-units, is doomed prefixes — none before layer 9, a layer's majority from layer 25 — a ratio that leaves the withheld XA exhaustibility call untouched. (12.3) King Wen's own transition sits in the bottom quartile of its distance class by walk mass at 24 of 31 steps, mean percentile 0.219 against a stated null mean of 0.5; the steps are dependent, so it is published as a pointer with no p-value, and the instrument that would calibrate it is named. (12.4) The raw one-step kernel is stationary to TV ≤ 0.001 over layers 6–23 and scores King Wen 0.10 bits below the population mean — a **negative** result, entered under Q9. (12.5) The positional pair field is flat to ~3 % and King Wen's placements are typical of it — a **negative** reading of V1, entered under Q9. (12.6) The C5 budget path is within TV 0.042 of the exchangeable null with one-sided front-loading suppression, controlled against a wrong null (×10) and against n=9 (0.36); the measurement ships, and the claim that near-exchangeability is informative is **withheld** pending an argument either way. **One narrowing, in place** (§11 Q10(b), CX-58): the 2026-09-20 feasibility clause "no coset projection can be aggregated out of those tables at any price" is true of the five accumulators it names and reaches past them — the same scan pass persists the raw kernel, which gives the step-difference reading a zero-data-cost projection and the mask-level reading nothing; under either reading the blocker is the definition, as line 1597 (at `fa5a98dd`) already said, and no row moves. The "what this document is" paragraph is annotated so that its "no full-31 answers are stated here" reads as the rule for the question set. **Same-day adversarial review of this revision (Fable, before push):** every §12.9 token re-executed against the pinned atlas and matched whole-line, 42 of 42, with a negative control; the 59 values shared with the private generation probe re-compared, 0 differing. The review found the probe could return `ATLAS_PROBE=PASS` over a `by_class` table whose rows summed to 2N and 0, and over a `marginal_raw` row summing to 2N — its "re-sums every table" claim held for six tables and not those two, which it had trusted from the atlas's self-reported gate booleans. Four cross-table gates were added (`BY_CLASS_ROW_SUMS_EQ_N_EVERY_LAYER`, `MARGINAL_RAW_ROW_SUMS_EQ_N_EVERY_LAYER`, `KERNEL_CLASS_MARGINALS_EQ_BY_CLASS_EVERY_LAYER`, `KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER`), each red-tested in `tests.py` with the older gates asserted green so the new one is proven load-bearing; two tokens now carry the 12.1 claims that had none (`CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1=NONE`, `LARGEST_CLASS_SET_OVER_LAYERS=d3` — `D3_MIN_LAYER_SHARE=0.40687` alone does not establish "largest at every layer"); and the self-reported gate and tail-check counts are printed (`ATLAS_GATE_COUNT=14`, `ATLAS_TAIL_CHECK_COUNT=5`), since `{"fails": 0}` alone satisfied both verdicts. No figure in §12 moved. No query definition, verdict or count changes; §12 is additive |
 | v1.7 | 2026-09-22 | **§12.10 added — the two external-anchor checks, first executed at n=31, disagree with the published references by about twelve times tolerance.** `TR12_A2_SLOT` and `TR12_A3_EXTERNAL` set this compiler's SUPER-space values against numbers TR-7 published for C1–C5; below full-31 both return `SKIP:n=<n>`, and 2026-09-22 was the first time either ran. The disagreement is a fact about the two populations. **This program is built on C1, C2, C4 and C5 only and has no C3 channel** (§0), so although the conditioning sets differ by exactly C3 and TR-7's published uncertainties exclude estimator error on its side, the attribution is an INFERENCE and not a measurement of C3 by this program. No published figure changes and nothing is retracted — §12 predates the consumer run and made no A2/A3 claim. Two rows added to §12.9 annotating why a FAIL there is a result. |
 | v1.8 | 2026-09-22 | **Two published figures were wrong and one published sentence was false; both were found by independent re-derivation rather than by re-running the instrument against itself.** **(1) §12.6's "total-variation distance" was not one (CX-60).** The statistic summed `½Σ\|P−Q\|` over the cells the atlas *stores*, and `rid_mass` stores only cells of nonzero observed mass; both nulls place mass outside that support, so the `½·Q(Sᶜ)` term the definition requires was never added. **The n=31 headline `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` is UNCHANGED** — layer 4, where the maximum falls, omits no mass — and "≤ 0.0415 at every layer" still holds. What moves: the wrong-null control `CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX` **0.4145 → 0.8289** and the ratio `CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV` **9.99 → 19.97** (§12.6 "reads 0.41, ten times larger" → "reads 0.83, about twenty times larger"); and at n=9 **0.3554 → 0.5686**, **0.2927 → 0.5854**, **0.82 → 1.03**. 🔴 **The qualitative claim inverts:** the control ratio was published as *below 1 at n=9* and is now *just above 1*, corrected here and at `documentation/SOLVE_PY_CLI.md`. The control discriminates by more than was claimed, so this section's argument is unchanged and only its numbers are. **The n=9 provenance is now stated rather than implied:** those figures come from an atlas rebuilt with the four-command n=9 recipe, **not** from a committed fixture — no n=9 atlas ships in this tree — and the rebuilt-atlas values are printed at the site. **(2) §12's reproduction contract was unsatisfiable as printed (CX-61).** §12 said the pinned digest is published "so a Tier-A rebuild … can be checked against it", while §R Tier A step 2 printed a build line carrying **no `-DGIT_HASH`/`-DSOURCE_SHA`** — so a rebuilt atlas records `engine_git "unknown"` and could never hash to `9d6ba3d2…`. The hashed bytes further embed the ladder directory **basenames** `run_f`/`run_g`/`run_t`, which §R names as `FDIR`/`GDIR`/`TDIR`, so even a correctly flagged rebuild in differently named directories misses. Step 2 now prints `documentation/VERIFY.md` Stage 0's flagged line with `--short=12` (the pinned `engine_git` is 12 hex; a bare `--short` yields 8 here), and §12 states the basenames and publishes the **provenance-normalised content digest `923faa1b…`** — the five provenance fields set to `"-"` — which is invariant to build stamp and directory naming and is what a rebuild can actually match. This is the promise an archival export makes about its own reproducibility, so it is stated truthfully rather than repaired with a recipe that still would not reproduce. **(3) §12.10's rescaling sentence was false (CX-63).** It said the population difference "does not perturb that histogram, it **rescales** it, uniformly across both circle-adjacent slots". Measured over all 31 slots the published/atlas ratio runs **0.872 (slot 17) to 1.234 (slot 32)**, and since both histograms sum to 1 a uniform rescaling is arithmetically impossible. C3-conditioning **reshapes** the histogram: it enriches the two circle-adjacent slots ×1.23 and depletes the interior by up to 13 %. The three-cell arithmetic the sentence generalised from is correct and unchanged. A new measured consequence is recorded: on SUPER the A2 slot histogram is **flat** away from the circle-adjacent slots (interior 0.0297–0.0326 against 1/31), so TR-7's U-shape is attributable to C3 — a further negative under Q9. **(4) Reader instructions that cannot match their own tokens (CX-62).** §12 told readers to match with `grep -qx`, which is a **regex** match: the two tokens carrying `digits=[…]` fail to match their own output line, while a corrupted `DOOMED_FRACTION_OF_T_ROOT=0x686725` spuriously satisfies the published `0.686725` pattern. Both directions measured; every reader instruction in §12 and `SOLVE_PY_CLI.md` is now `grep -Fqx`. **(5) Four sites contradicting this document's own text, and a harness asserting work never done.** §12's intro claimed "one public command and no other input" for a section whose §12.10 has a second command and a TR-7 input; the Q5 caveat and shortlist still read DEFERRED where §9 records the edit-distance extremal **CLOSED** at distance 2; the Tier B heading read "(minutes, ~$0 compute)" against its own measured **7 h 11 min**; the §R.0 diagram read "g reads f" against the step-2 heading "standalone, takes NO FDIR" (CX-66). In `scripts/tr12_repro.sh`, the `SKIP:banked-pre-scan` reason claimed the pre-scan run "already took this ladder's digests" when the pre-scan receipts carry `SKIP:cost-gated` — the digests were never taken by any run — and `TR12_Q2` printed PASS beside two cost-gated legs its own published completion contract requires; the reason string now says what happened and the contract is **enforced** rather than weakened (CX-65). `documentation/QUERY_INVENTORY.md`'s "36-step run order" is re-counted as **37** (CX-64). No count, definition or query specification changes; the three moved figures above are the only published values affected. **Four further corrections landed in this same revision, none of which moves a figure but each of which changes what the document asserts** — and they are listed here because a revision row that stops at the figures understates what a reader should re-read. **(4) CX-67:** the entry CX-52 certified a neighbouring skip reason as "already correct" and it was false; that certification is withdrawn, CX-52 itself untouched, and the reason at the latent `--kc-t-check` branch now names the real provenance of the banked PASS. **(5) CX-68:** §12.4 concluded the one-step kernel "cannot tell" King Wen from a typical walk from −0.102 bits with **no dispersion, percentile or threshold computed anywhere**; the scale is now printed (independent-step SD 1.943 bits, so −0.102 is 0.05 of it; SD at most 10.794 bits under any dependence) and the conclusion is entered as *not distinguished at the one-step scale measured*. §12.5's sibling claim is scoped from marginals to marginals, with the joint placement pattern named as not asked. **(6) CX-69:** §12.4 and §12.7 published a **cost** limit as a **capability** limit — two-step joints CAN be formed from f and g, at a derived 27.6× the first scan naively or ≈2.3× by reusing the one-step lookups; §12.7's sibling per-branch clause is marked **not adjudicated** rather than silently carried. **(7) CX-70:** the wrong-null control's 0.83 is, to four decimals, the mass a product form puts **off the budget hyperplane** where no walk can be, so it mostly shows that a product form ignores the budget identity rather than that the digits are dependent given it; conditioned and renormalised it reads 0.1333 at n=31 and 0.1948 at n=9. The number is unchanged; the sentence around it is not |
-| v1.9 *(current)* | 2026-09-22 | **Three further corrections from the same two Codex reviews, landed after v1.8 was published rather than folded into it, because v1.8 was already live and silently growing a published revision is its own defect.** **(1) §12.4's six full-precision figures now have a public command (CX-72).** §12 promises that one command reproduces every figure in §12.1–§12.8, and these six were the exception: `KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1` prints four decimals, at which 0.00099 and 0.0010 are indistinguishable, so four layers could not be told apart from the public output and the digits rested on a private recomputation. A new token, `KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1_FULL`, emits the same vector at ten decimals. **Every published figure is reproduced exactly and none moves** — k=4 `0.0049787974`, k=5 `0.0011054067`, k=24 `0.0002900820`, k=25 `0.0010072525`, k=26 `0.0010246560`, window maximum `0.0009874424`. The alternative cure, narrowing §12's promise to exclude them, would also have made the document true and would have left the reader with less: **a reproduction gap is better closed by publishing more output than by claiming less.** **(2) §12.10 no longer argues that a disagreement certifies its instruments (CX-71).** It read *"Both FAIL — a fact about the two populations, not a defect in either instrument"*; a population difference **explains** a disagreement and **certifies** nothing, since a FAIL is equally consistent with a genuine gap and with a fault, and only each instrument's own gates separate them. This was the unswept sibling of a v1.7 pre-push cure applied one sentence later. **(3) Three harness statements that misdescribed what the run did (CX-73)** — a skip reason naming a deliverable, `tr12/q9_negatives.md`, that has never existed in this repository; a skip justified by a subsumption that does not hold, since the digest pass binds bytes to sidecar while the identity row binds sidecar to the published registry; and both `--regen` arms reporting `TR12_REPRO_GOLDEN_STATE=DIFFED` while having written every block and diffed nothing. None is reachable on the production path, so no shipped verdict changes. No count, definition, query specification or published figure changes in this revision |
+| v1.9 | 2026-09-22 | **Three further corrections from the same two Codex reviews, landed after v1.8 was published rather than folded into it, because v1.8 was already live and silently growing a published revision is its own defect.** **(1) §12.4's six full-precision figures now have a public command (CX-72).** §12 promises that one command reproduces every figure in §12.1–§12.8, and these six were the exception: `KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1` prints four decimals, at which 0.00099 and 0.0010 are indistinguishable, so four layers could not be told apart from the public output and the digits rested on a private recomputation. A new token, `KERNEL_TV_ADJACENT_LAYERS_K1_TO_KNM1_FULL`, emits the same vector at ten decimals. **Every published figure is reproduced exactly and none moves** — k=4 `0.0049787974`, k=5 `0.0011054067`, k=24 `0.0002900820`, k=25 `0.0010072525`, k=26 `0.0010246560`, window maximum `0.0009874424`. The alternative cure, narrowing §12's promise to exclude them, would also have made the document true and would have left the reader with less: **a reproduction gap is better closed by publishing more output than by claiming less.** **(2) §12.10 no longer argues that a disagreement certifies its instruments (CX-71).** It read *"Both FAIL — a fact about the two populations, not a defect in either instrument"*; a population difference **explains** a disagreement and **certifies** nothing, since a FAIL is equally consistent with a genuine gap and with a fault, and only each instrument's own gates separate them. This was the unswept sibling of a v1.7 pre-push cure applied one sentence later. **(3) Three harness statements that misdescribed what the run did (CX-73)** — a skip reason naming a deliverable, `tr12/q9_negatives.md`, that has never existed in this repository; a skip justified by a subsumption that does not hold, since the digest pass binds bytes to sidecar while the identity row binds sidecar to the published registry; and both `--regen` arms reporting `TR12_REPRO_GOLDEN_STATE=DIFFED` while having written every block and diffed nothing. None is reachable on the production path, so no shipped verdict changes. No count, definition, query specification or published figure changes in this revision |
+| v1.10 *(current)* | 2026-09-23 | **Finalization: the report is brought into the house format, and its framing is closed on a program that has finished.** Measured against TR-1..TR-11, all eleven carry six elements this report carried none of; all six are added. A `# TR-N — Title` **title form** (the trailing 2026-07-17 date moves to this table, where the v1.0 row already records that provenance); the **METHODS.md** line; an **Executive summary** stating what the program asked, what it answered at n=31, and what it withheld; a single-paragraph **Abstract**; a **Sections** map, which for a document this long is the element whose absence cost a referee most; and a **Verification Guide** mapping every claim type to the command that checks it, including a closing paragraph on what this tree does **not** let a reader check. Two elements **no** other report carries are removed: the dated draft byline, whose facts the Attribution section already carried, and the `STATUS: executable SPECIFICATION, not an execution order` box, whose framing had been overtaken — the ladders were built and registry-checked, the atlas assembled 2026-09-21, the queries run 2026-09-22. The attribution is promoted to a `## Attribution` section in TR-11's form. **Tense and staleness, ~30 sites.** The head no longer opens by denying it has results: it reads "a question set (§0–§11) with a results section (§12)". A pre-registration caveat read "what **will** be asked and how it **will** be checked"; Stage G read "reviewed, run pending" against a ladder built in 2026-09 at 8.27 TB with 32 of 32 digests registered; §7's wave table, §8's worklist heading and §6's heading read as plans. **Three honest limitations had their tense closed without being weakened:** the SAT C3-min instrument "does not **yet** exist" becomes "does not exist in this repository", with the added point that running it for the minimum would re-derive 112 with zero UNSAT legs; "EW-2 **has not** run" becomes "was not run", naming the wave-3 budget as the reason; and the n=31 expected set is stated as not committed, with the minted blocks named as an unpublished publication action rather than as something that cannot exist. **Two published pointers were checked and found stale:** `scripts/tr12_repro.sh` is **3,531 lines**, not the 1,570 recorded at two sites, and §8's build status is re-pinned from `76e5d680` to `d6b1334e` with each row's argv string re-greped 2026-09-23. **One instruction pointed at nothing:** §R Tier A step 6 told a reproducer to diff against `EXPECTED-Q1`-through-`EXPECTED-XA` blocks that **have never existed in this report**; it now names the real objects, the per-row files under `scripts/tr12_expected/n9/`. **One false sentence:** §3 said "no atlas number ships before this certificate" while §12.2 ships t-unit ratios — scoped to numbers *priced in production-DFS nodes*, which is what the certificate governs and what keeps the withheld exhaustibility call withheld. **Spec-era output paths are labelled once, in §0**, after measurement: the `tr12/` prefix is a directory a reader chooses and is tracked nowhere here, the basenames are what `--atlas-out DIR` really writes, and three spec names correspond to nothing at HEAD. The 2026-07-17 cost-band caveat **moves from the last screen to §0**, where a reader meets it before the bands rather than after all of them, extended with each wave's execution status. **Figures: three of five now exist and are embedded** (§2) — V1 the positional-marginal field, V2 the mass river with its branch panel, V5 the transition grammar — each with the space label, a reproduction pointer and its content digest. Both reduced forms are declared rather than glossed: V2 carries no branch-class split and V5 no cross-tab, and because only the distance-class axis exists **V5 and V2's upper panel plot the same numbers**, which the captions say outright. **V3 and V4 are stated as not rendered**: both need the now-cold ladders, and V3 additionally needs an emitter that does not exist. **Deliberately not done, and not to be read as closed:** no git tag is minted, so the two REPRO-TAG pins stand; §10's DONE-contract MUSTs A and B are neither delivered nor retired; and the n=31 battery's verdict set is not published, so §11 Q10(a)'s forced prediction is **left as a prediction** rather than restated as measured — a "measured" claim resting on a private anchor is the defect class v1.0 struck. No count, definition, verdict, query specification or published figure changes in this revision |

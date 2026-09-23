@@ -40,7 +40,20 @@ below visualize the **whole compiled walk superspace** — every member of C1 �
 the space [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) sizes, taken *before* C3 is applied — via the
 f/g/t counting ladders and the `--kc-scan` atlas. Nothing is sampled and nothing is projected: every
 plotted value is an exact integer ratio. Its exact cardinality `N` is whatever `solve --kc-count`
-reports once Stage F lands; no figure quotes a number ahead of the command that produces it.
+reports; no figure quotes a number ahead of the command that produces it.
+
+**Status at 2026-09-23 — three of the five are rendered, and the other two are blocked on data, not
+on code.** The n=31 ladders were built in September and the atlas was scanned from them, so V1, V2
+and V5 now exist at `../reports/figures/fig_tr12_kc_{field,river,grammar}.{png,svg}`, generated from
+the published atlas (`../runs/20260906_kc_ladders_n31/atlas_n31.json`, sha256 `9d6ba3d2…`) by
+`solve.py --atlas-queries … --atlas-select v1,v2,v5` and then `report_figures.py`. ⚠ **V2 and V5 are
+the REDUCED variants** (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`,
+`TR12_V5=PASS:REDUCED-NO-CROSSTAB`) — the full forms need inputs the atlas consumer does not emit.
+⚠ **V3 and V4 are NOT rendered and cannot be from the atlas alone:** V4's input
+(`<artifact-root>/q3_profile_kw.tsv`) comes from `--kc-o3-rank FDIR GDIR`, i.e. a read of the 15.05 TB f/g
+ladders, which are cold; V3 needs a rank grid joined to per-walk functionals that neither the
+consumer nor the figure driver emits (`TR12_V3_FIG=PENDING:viz-v3-spectrum`). Both remain pending
+for the reason each page already states — that is a cost decision, not an oversight.
 
 **Scope warning that applies to all five: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5 — C3 is NOT
 applied.** Every caption must carry the space label `C1C2C4C5-SUPERSPACE`. Specified by TR-12 §2

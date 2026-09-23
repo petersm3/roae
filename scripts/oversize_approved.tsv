@@ -8,3 +8,4 @@
 #
 # `solve.c` is NOT listed — it is exempt in the gate itself by operator ruling 2026-08-06.
 reports/evidence/knuth195_percell_100000.csv.gz	operator	2026-09-04	"4. ok" — asked whether to publish the per-cell table given it cannot be brought under 1 MiB losslessly (measured gzip -9 floor 1,112,677 B)
+runs/20260906_kc_ladders_n31/atlas_n31.json	operator	2026-09-23	"4. publish" — asked whether to publish the 5,978,126 B n=31 atlas, the input every §12 figure and --atlas-probe token is computed from; its sha256 9d6ba3d2… is the digest TR-12 §12 already pins, and CX-72 turned on six figures a reader could not otherwise recompute

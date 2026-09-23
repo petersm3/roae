@@ -96,7 +96,7 @@ verifications, `flow_identities=31/31`, `sum_bits` and `log2N`.
 
 ## Input TSV
 
-`tr12/q3_profile_kw.tsv` — one row per free placement, 31 data rows at full-31:
+`<artifact-root>/q3_profile_kw.tsv` — one row per free placement, 31 data rows at full-31:
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -226,7 +226,7 @@ out; **no analysis logic in `viz/`**.
 
 - **This doc:** `viz/viz_kc_shells.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
-- **Evidence:** `tr12/q3_trace_kw.txt` (raw engine output) and `tr12/q3_profile_kw.tsv`
+- **Evidence:** `<artifact-root>/q3_trace_kw.txt` (raw engine output) and `<artifact-root>/q3_profile_kw.tsv`
 - **Figures:** `runs/<run-id>/viz/viz_kc_shells.{png,svg}` → mirrored to
   `reports/figures/fig_tr12_kc_shells.{png,svg}`
 

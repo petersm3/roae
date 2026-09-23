@@ -12906,7 +12906,8 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                  (bad if bad else "none", "PASS" if not bad else "FAIL"))
         fh.write("The t-unit accounting convention (a t-unit is one valid oriented prefix; the\n"
                  "empty prefix counts; dead ends count) is certified separately and exhaustively\n"
-                 "at n=9 by `solve --kc-t-cert` (TR-12 XA(iii) / `tr12/xa_node_convention.json`).\n"
+                 "at n=9 by `solve --kc-t-cert` (TR-12 XA(iii) / `xa_node_convention.json`,\n"
+                 "written into this same artifact root by that command).\n"
                  "This consumer does NOT re-derive it and does not claim it.\n\n")
         if t_have:
             lo = min(rows, key=lambda r: int(r[7]))

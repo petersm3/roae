@@ -145,7 +145,7 @@ repeat the defect. Treat `c3_total` as unbounded-above for acceptance purposes a
 
 ## Input TSV
 
-`tr12/spectrum/v3_spectrum.tsv` — one row per grid point, `K` data rows:
+`<artifact-root>/spectrum/v3_spectrum.tsv` — one row per grid point, `K` data rows:
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -248,7 +248,7 @@ column is absent the panel has no reference line: the renderer will not invent o
 
 - **This doc:** `viz/viz_kc_spectrum.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
-- **Evidence TSV:** `tr12/spectrum/v3_spectrum.tsv` (one per order)
+- **Evidence TSV:** `<artifact-root>/spectrum/v3_spectrum.tsv` (one per order)
 - **Figures:** `runs/<run-id>/viz/viz_kc_spectrum.{png,svg}` → mirrored to
   `reports/figures/fig_tr12_kc_spectrum.{png,svg}`
 

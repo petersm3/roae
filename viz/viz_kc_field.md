@@ -266,7 +266,7 @@ form and must not be asserted. Full accounting in
 - **This doc:** `viz/viz_kc_field.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence TSV:** `tr12/scan/v1_field.tsv` (committed with the figure)
-- **Atlas JSON:** `tr12/scan/atlas.json`, schema `roae-kc-scan-atlas` v1
+- **Atlas JSON:** `runs/20260906_kc_ladders_n31/atlas_n31.json`, schema `roae-kc-scan-atlas` v1
 - **Figures:** `runs/<run-id>/viz/viz_kc_field.{png,svg}` → mirrored to
   `reports/figures/fig_tr12_kc_field.{png,svg}`
 

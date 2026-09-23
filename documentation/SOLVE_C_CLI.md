@@ -1866,7 +1866,7 @@ rows):
 step 1 alone has up to 62 alternatives. `--kc-tsv OUT.tsv` writes the label
 line + header + data rows to a file through the **same writer** used for
 stdout, so the file is the stdout block verbatim (this is the artifact TR-12
-files as `tr12/q3_profile_kw.tsv`).
+files as `<artifact-root>/q3_profile_kw.tsv`).
 
 **Order / object / space labels.** There is no ranking here: rows follow the
 walk's own path, labelled `order=NATIVE-WALK-PATH`, `object=WALK`,

@@ -174,7 +174,7 @@ A survey of all 204 non-KW configurations (5 minutes max each) revealed a spectr
 | **Deallocated VMs still hold quota reservations (2026-04-20).** When campaign-westus2 hit its 3rd spot eviction in one session, I tried to pivot to on-demand. D32als_v7 on-demand in westus2: blocked by Dalsv7 family quota of 10 cores. Checked westus3 Dalsv7 quota: 130 limit, 128 used. The 128 current reservation was held by `d128-westus3` VM — which was *deallocated* (no compute charges) but still consumed its 128-core quota slot. Azure doesn't free quota on deallocation, only on VM deletion. Blocked the on-demand pivot until d128-westus3 was deleted. | Delayed the campaign by ~15 min; required user approval to delete legacy d128-westus3 VM. Could have blocked the campaign entirely if legacy VM deletion wasn't authorized. | Documented in `DEPLOYMENT.md` under "Quota accounting — deallocated VMs still hold your quota." Before leaving a large VM deallocated "for later," ask: will I want to provision a *different* VM in the same region + family before restarting this one? If yes, delete rather than deallocate. Spot and on-demand are separate quota buckets, so mixed-priority fleets are partially protected. Verification: `az vm list-usage -l <region> -o table` — "Current" reflects reserved (deallocated + running) cores. |
 | **F64als_v6 `solver-d3` ad-hoc VMs repeatedly leaked — THREE incidents on 2026-04-19, 2026-04-20, 2026-04-22.** Project policy since 2026-04-19 morning has been "NO F-series VMs, D-als-v7 family only." Despite that, `solver-d3` (Standard_F64als_v6 spot, westus2) was provisioned THREE times to mount the `solver-data` managed disk for brief inspection tasks, each time left running long after the inspection ended. **All three incidents Claude-attributable** (confirmed by user 2026-04-22: "this is all you"). Azure Activity Log shows `mrpeterson2@gmail.com` as caller for all three because Claude's `az` CLI uses the user's credentials — the log cannot distinguish Claude from user, and this attribution ambiguity itself delayed recognizing incident #3 as Claude-driven. Durations: #1 ~32 hrs (~$25), #2 ~9.5 hrs (~$7.50), #3 ~6 hrs (~$5). **Root cause (anti-pattern, all three):** (a) choosing F64 — a banned SKU — when D4als_v7 suffices for 10-min disk-mount tasks; (b) no pairing of VM-creation with teardown in same command sequence; (c) the name `solver-d3` and SKU `F64als_v6` are bound as a retrievable command template from the pre-ban era, and the ban's prose language competes with that template at decision time; (d) Azure Activity Log attribution is ambiguous, so we cannot clearly audit "which Claude session did this." | Cumulative avoidable: **~$37.50 across 3 incidents**. `solver-data` itself preserved through all teardowns per user rule. | **Mitigations attempted and found insufficient (see `roae-private/SOLVER_D3_POSTMORTEM.md` for full analysis):** (1) Explicit STRICT-policy language in CLAUDE.md + DEPLOYMENT.md banning F-series — failed, template retrieval can bypass prose rules. (2) Session-lifetime VM log at `/tmp/claude_session_vms.txt` with reconciliation — failed, reconciliation is post-hoc operator-dependent. (3) Memory file `feedback_vm_lifecycle_discipline.md` — failed, not all Claude sessions load this project's memory. **Next-level mitigation (recommended, user-required):** deploy an Azure Policy `DENY` assignment on `Microsoft.Compute/virtualMachines/sku.name like 'Standard_F*'` at the `rg-claude` scope. That is the only TECHNICAL (non-bypassable) enforcement that makes incidents #4+ impossible regardless of Claude-session behavior. Policies are free ($0 cost); ~10 min of user CLI to apply. Secondary mitigations: delete `~/.ssh/f64_key` (breaks the retrieval template); add Azure Activity Log caveat to CLAUDE.md clarifying attribution ambiguity; add session-start VM-inventory reconcile as a gating check for any new session. |
 | **Archive VM torn down without `sync && umount` → silent truncation of 4 `.gz` files (2026-04-21 archive + same-day discovery).** After tar-piping d2/d3 validation artifacts from westus2 to `solver-data-westus3` and `gzip -9`-compressing them, `archive-westus3` was deleted via `az vm delete` without first unmounting `/data`. The VM's sha256-manifest verification step had completed and passed before teardown — but the manifest was computed with dirty pages still in the page cache, so it missed the in-flight truncation of the last files being written. User authorized deletion of source `solver-validate-d2` / `solver-validate-d3` disks based on that (now-known-to-be-incomplete) verification. | 4 of 57,754 `.gz` files silently truncated. Two were redundant (raw `.txt` preserved alongside) → zero data loss. Two were historical `enum_output.log.gz` files with no raw source → content lost, non-critical. `solutions.bin.gz` (both d2 and d3) intact, sha-verified against canonical shas post-remediation. Scientific payload fully recovered. | Spun up `verify-westus3` (D2als_v7 on-demand, ~$0.07 / 42 min), ran `gzip -t` over all 57,754 `.gz` files, identified the 4 corrupt, regenerated checkpoints from raw, deleted unrecoverable logs, re-swept clean, clean-umounted, tore down VM. **Standing rule added (CLAUDE.md):** any VM teardown following an archive-write workload must `sync && sudo umount <datadisk>` on-host before `az vm delete`/detach. Archive sha256 manifests must be generated after a sync flush, not from live page-cache state — ideally post-umount/remount-cycle to force a durable read. |
-| **d128-westus3 provisioned as on-demand, not spot — ~$48-80 overspend on the 100T d3 run (2026-04-19 to 2026-04-20).** The user's standing policy, documented across memory files, HISTORY.md, DSERIES_ROI_REPORT.md, and CLAUDE.md, was "use spot VMs for large compute workloads." When d128-westus3 was created (~2026-04-19 03:34 UTC during an earlier autonomous Claude session — most likely a hand-off from the overnight autonomous work), the `az vm create` command did NOT include `--priority Spot --eviction-policy Deallocate --max-price -1`. The VM came up as an on-demand (regular) instance at $5.146/hr Linux westus3 instead of spot at $0.95/hr. When the 100T d3 enumeration + merge was launched on that same VM later that day, the operating Claude session did NOT run `az vm show --query priority` to verify the VM's purchase type before committing to a 16h 48m pipeline. Final impact: ~$112 actual VM cost for the 100T run; ~$35-40 would have been possible under the corrected policy "spot for enumeration, standard for merge" (enum 11.4h × $0.95 spot + merge 5.4h × $5.146 on-demand = $10.85 + $27.99 = $38.84). **Avoidable overspend: ~$73**. **Attribution:** both the creation-time miss and the launch-time verification miss were Claude's (not the user's) — the standing policy was clearly in the user's memory files and repo docs; execution failed to read and apply it. **Fix (applied 2026-04-20):** new auto-memory rule `feedback_spot_for_enum_standard_for_merge.md` mandating an explicit `az vm show --query priority` verification step before any >1-hour workload; added pre-launch gate language to POST_MERGEDONE_CHECKLIST.md; refined the policy itself to "spot for enumeration (eviction-resilient), on-demand for merge (eviction-fragile)." All docs that claimed "D128als_v7 spot" for the 2026-04-19/20 100T run should be updated to "on-demand (priority mis-provisioning)" for accuracy. |
+| **d128-westus3 provisioned as on-demand, not spot — ~$48-80 overspend on the 100T d3 run (2026-04-19 to 2026-04-20).** The user's standing policy, documented across memory files, HISTORY.md, DSERIES_ROI_REPORT.md, and CLAUDE.md, was "use spot VMs for large compute workloads." When d128-westus3 was created (~2026-04-19 03:34 UTC during an earlier autonomous Claude session — most likely a hand-off from the overnight autonomous work), the `az vm create` command did NOT include `--priority Spot --eviction-policy Deallocate --max-price -1`. The VM came up as an on-demand (regular) instance at $5.146/hr Linux westus3 instead of spot at $0.95/hr. When the 100T d3 enumeration + merge was launched on that same VM later that day, the operating Claude session did NOT run `az vm show --query priority` to verify the VM's purchase type before committing to a 16h 48m pipeline. Final impact: ~$112 actual VM cost for the 100T run; ~$35-40 would have been possible under the corrected policy "spot for enumeration, standard for merge" (enum 11.4h × $0.95 spot + merge 5.4h × $5.146 on-demand = $10.85 + $27.99 = $38.84). **Avoidable overspend: ~$73**. **Attribution:** both the creation-time miss and the launch-time verification miss were Claude's (not the user's) — the standing policy was clearly in the user's memory files and repo docs; execution failed to read and apply it. **Fix (applied 2026-04-20):** new auto-memory rule `feedback_spot_for_enum_standard_for_merge.md` mandating an explicit `az vm show --query priority` verification step before any >1-hour workload; added pre-launch gate language to POST_MERGEDONE_CHECKLIST.md; refined the policy itself to "spot for enumeration (eviction-resilient), on-demand for merge (eviction-fragile)." All docs that claimed "D128als_v7 spot" for the 2026-04-19/20 100T run should be updated to "on-demand (priority mis-provisioning)" for accuracy. |  |  |
 
 ## What actually advanced understanding
 
@@ -3423,7 +3423,7 @@ via `byte & 0xFC` mask. Results:
 |---|---|---|
 | 1B | 1.342 (fail-first +34%) | differ |
 | 10B | 0.980 (−2%) | differ |
-| 100B (~canonical) | **0.770 (−23%)** | **|N ∩ F| = 0 — disjoint** |
+| 100B (~canonical) | **0.770 (−23%)** | **\|N ∩ F\| = 0 — disjoint** |
 | 1T (5.7× canonical) | 0.922 (−7.8%) | differ |
 
 At canonical-relevant scale (100B per-cell budget ≈ canonical's
@@ -5753,6 +5753,16 @@ and Fable 5) under operator direction; the completeness theorem is TR-5's, its m
 (Fable 5). Every remediation preserves the canonical selftest sha `403f7202…` — nothing in this arc
 touched the enumeration.
 
+## 2026-07-18/26: An eight-lens adversarial hardening pass over the public corpus
+Two serial review rounds — reproducibility, circularity, citation; then proof/trust-base, inference-warrant,
+internal-consistency, cultural-framing, completeness — audited the whole public repo. The deductive core held **airtight**
+(theorems, DRAT certificates, exact counts, shas, the referee-facing apparatus, the math-not-mysticism framing, the
+sha/record-count backbone). Every correction was documentation- or framing-level. The most consequential: **withdrawing a
+circular flagship distributional headline** — a joint-KDE "~12,800× deficit / <10⁻⁵ rank" that was driven by tautological and
+KW-extracted dimensions — and replacing it with the honest de-circularized result: **KW sits at ~30th percentile,
+distributionally unremarkable** on the KW-independent dimensions. Also: two `native_decide` trust-label corrections, scope
+fixes to over-compressed headline slogans, and date/citation/hedge corrections. No result changed. [pushed 2026-07-26]
+
 ## 2026-07-22/31: The results ledger for the second-instrument window — an exact null law, a third exact count, two Lean corollaries, and the C3 floor
 
 *(Ported 2026-09-02 from a staging draft written 2026-07-26 and left unported for five weeks. It is
@@ -5957,6 +5967,59 @@ control the review protocol asks for and the reason it is now written down.
 Attribution: reviews, fixes, and independent verification by Claude (Opus 4.8, Opus 5, and Fable 5) under
 operator direction. Every change in this window preserves the canonical selftest sha `403f7202…` —
 nothing here touched the enumeration.
+
+## 2026-07-22: The C3 constraint is a scalar identity — C3 = 16 + 8·G, and a program closes
+The complement-proximity constraint C3, long treated as a positional threshold (≤ 776), was shown to
+reduce to a closed scalar identity: **C3 = 16 + 8·G**, where G is the free-action orbit count. The result
+is machine-checked in Lean and reproduced by a dedicated engine channel. With the identity in hand the
+C3 program closed: the math is fully proven, the cheapest instrument that could compute it was built, and
+no cheaper one exists — the flagship remained deliberately under-sized against it, reinforcing the
+rule-out. *(Cross-ref: TR on the C3 identity; C3=16+8·G.)*
+
+## 2026-07-25/26: The exactness program — estimates become exact, and two flagship counts become two-instrument
+A sweep converted several previously-estimated quantities to exact values, and — more importantly —
+made the two flagship constrained counts **independently two-instrument**:
+- **|C1∩C2∩C4∩C5|** (the 1.097051×10³⁹ flagship) and **|C1∩C2∩C4|** were each *independently recomputed*
+  by a new inclusion–exclusion transfer-walk engine (`verify.c`, `--ie-count`) — a different algorithm
+  class sharing no code with the primary out-of-core DP — and **matched exactly**. The single-instrument
+  caveat on these counts is retired.
+- **|C1∩C2∩C4∩C5∩C6∩C7|** (|C1–C7| with C3 dropped) = **516,880,238,445,773,965,371,923,491,676,160**
+  became exact, then **two-instrument**: a second, genuinely independent engine ("Route D", a layered
+  exact-cover mask DP with no inclusion–exclusion) reproduced it to the digit.
+- **C3|C1 = 6.4211367496%** and the **C2 unpinned rarity = 4.29341%** became exact (from Monte-Carlo).
+- The full flagship **|C1–C5| = 1.3287×10³⁸** was shown to be **irreducibly expensive** to make exact —
+  a quantified state-space argument (the C3 positional channel needs ~3,600 D128-core-years per pass;
+  no-free-lumping kills every shortcut) — so it stays a (well-characterized) estimate. A capstone
+  "here is precisely why it cannot be made exact cheaply."
+
+Methodological note worth keeping: *a single-instrument exact count can often be independently
+re-derived cheaply by changing the ALGORITHM (inclusion–exclusion / a different DP), not by re-running
+the same one.* The `verify.c` IE engine + its variants are public.
+
+## 2026-07-26: The equivariance ceiling, and Radisic's optimality re-derived kernel-only
+Two machine-checked results landed publicly:
+- **Radisic's C1 optimality, independently re-derived in-repo.** The first-principles optimality of the
+  pairing rule (that C1 is the unique Hamming-cost-minimizing comp/rev matching, from Radisic 2026) —
+  previously resting on an external unrefereed preprint — was independently rebuilt from his artifact and
+  **re-proved in the repo's own Lean** with a kernel-only (`[propext]`) trust base, including the global
+  uniqueness statement and the load-bearing comp/rev scope guard.
+- **The equivariance ceiling.** A corollary of the constraint system's free-action symmetry: any generator
+  whose scoring is built from the symmetry-invariant bit-structural vocabulary must weight King Wen and
+  its 23 record-level twins equally, so it can concentrate at most 1/24 of its mass on King Wen — it can
+  never single KW out. Machine-checked, reusing the existing free-action theorem. *(The mathematics is
+  the standard invariance/orbit argument — Curie's principle — as the accompanying novelty note states;
+  only the King-Wen instantiation is new.)*
+
+## 2026-07-26: The false "Theorem 6" retracted, replaced by a machine-checked symmetry — and a fiber sharpened
+An adversarial proof audit found the long-stated "Theorem 6 (forced orientation)" was FALSE: global complementation
+(x → x ⊕ 63) is an exact Z2 symmetry of C1 & C2 & C3 & C5 (broken only by the *oriented* form of C4), so both orientations of
+the opening pair are valid and the orientation is a definitional, classically-attested convention (the *Xugua*'s
+Heaven-then-Earth opening), not a theorem. Its empirical support had been circular (the enumerator hardcodes seq[0]=63). The
+claim was retracted and REPLACED by the true statement, machine-checked kernel-only in Lean (`comp_symmetry_c1_c2_c3_c5`,
+`orientation_not_forced`; trust base `[propext, Quot.sound]`). Re-checking the Van den Berghe orientation battery on the
+corrected pair-only fiber (2,703,360 vectors, not the previously-stated 1,720,320) sharpened a published number: the fiber
+maximum is 30, not 29 (two vectors, both reversed-orientation — Van den Berghe's own declared exception, reversed), and
+P(≥29) becomes 2.22×10⁻⁵. No exact count, sha, or bit-ledger changed. Independently machine-confirmed before publication. [pushed 2026-07-26]
 
 ## 2026-08-02/07: The gates turn on themselves — a hardening campaign that kept catching its own fixes
 
@@ -6433,6 +6496,412 @@ of the findings above rest on private review notes with **no public reproduction
 are marked as such in place rather than dressed up as results. Corrections are welcome; several of the
 items here are corrections of us by people who were not looking for us.
 
+## 2026-08-08/11: the pre-reviewer hardening wave — gates for classes, not instances
+
+A concentrated push to make the repo survive a stranger reading it, driven by the finding that
+several defects were **class** defects the existing gates structurally could not see.
+
+- **CX-34 retracted.** The `f1709ab0` deprecation was **withdrawn**: the artifact reproduces from
+  four code states across two lineages, so it was a configuration difference, not corruption
+  (`af12a678`, `DRAFT_CX34_f1709ab0_2026_08_08.md` (private)).
+  ⚠ **Publication interlock:** `documentation/CANONICAL_HASHES.md:271,292` on `v4-query-program`
+  **still asserts the deprecation and the retracted "imperfect-resume artifact pattern" wording.**
+  That is the known **Q-76** condition — `main` carries the fix, the working branch does not —
+  gated behind the **Q-77** merge. Publishing this entry while the branch still contradicts it
+  would put a retraction and the wording it retracted in the same repo. `3afb6d85` then closed the 22-line live
+  contradiction the retraction left behind, which GATE 3 could not see.
+- **Five public branches contradicted `main` and no gate could see it** → GATE 19 + the branch
+  registry (`55f813d1`). Seven commits that existed on **one machine** were registered
+  (`44a22bbd`).
+- **GATE 20, 21, 24, 25** landed across 08-09→08-11: publication-state markers (`aff4f648`),
+  `## DRAFT` in a shipped doc (`c52b979e`), backticked script paths that must resolve
+  (`78a2716c`), documented value sets vs the literal domain in code (`396271dc`), and — the one
+  that mattered most later — **a documented reproduction command must be RUNNABLE** (`a23d82a9`).
+- **A second instrument on 5.21e31**: a clean-room Knuth prober in `verify.c`, pre-registered
+  before it ran (`cb190a48`, `PREREG_KNUTH_CLEANROOM_2026_08_08.md` (private)).
+- **The n=18 rung** was filled in TR-11 §4b and independently reproduced by the DP in `verify.py`
+  (`30b0c7aa`, `5d04b8d6`) — recorded as *a gap closed, not a correction*.
+- `d0dbc25c`: the rot-class disclosure block **under-reported its own debt, twice in one night**.
+
+## 2026-08-09: Stage G measured — the number that later caught a stale figure
+
+`STAGEG_LADDER_MEASURED_20260809.md` (private): g layers 16–31 = **3,829.1 GiB**, mirrored **7,658.2 GiB**,
+cross-checked against `df`. A first attempt calibrating bytes/entry from one layer was **738 GiB
+short** and was discarded rather than reconciled.
+
+*Consequence recorded 2026-08-24:* this measurement superseded the `~2.6 TB` Tier-2 design figure
+from 07-26, and the tier table was never updated — caught only when the operator's question exposed
+it (`TIER2_SIZE_RESTATED_2026_08_24.md` (private)).
+
+## 2026-08-10/13: repr(k), the orbit engine, and a 19-document review block
+
+- `46c4a6d9` forward-checked recanon DFS (`SOLVE_REPR_FC`) + `--kc-repr-normalize`; `c996a42b`
+  prune-A exact-consumption fail-safe with an FC-equivalence selftest.
+- `5f473242` Gate-A leg (c): a **cross-format `.dfs_state` semantic comparator** with a
+  negative-control battery.
+- `0e4b30e1`/`2a8f0da4`: the per-bin G gate is **mod-48 under either base**, not mod-24 C2-on-only —
+  a documented invariant that was wrong in both code and prose.
+- **08-13 was a single-day block of 19 review documents** (Claude Fable 5 under operator direction).
+  Calling them "design reviews" is wrong: most are *audits* of code and of the published corpus, and
+  only three — supervisor-SPOF hardening, the Gate-T G3 query program, and Gate-A leg (c) — are
+  design specifications, each of which explicitly authorised no run, build or spend. **Nine of the
+  nineteen were re-read for this entry; the other ten are not characterised here.** The nine do not
+  all point the same way:
+  - 🔴 **The dual-anchor `--selftest` gate was decorative on most launcher paths.** The in-binary
+    gate fails closed on every branch audited. The *launcher-side* check wrapped around it —
+    grepping the binary's own output for the anchor string — is structurally unable to fail, because
+    the binary prints its expected sha **unconditionally, before running the child**, so the grep
+    matches whether the test passed or failed. Canonical **enumeration** artifacts were protected
+    anyway by an independent return-code-checked backstop compiled into the binary and armed at
+    ≥1T nodes; the non-enumeration production paths had no such backstop. Separately, the v4
+    prunes-ON anchor was cataloged in **no** hash registry — its only sources were the source file
+    and literals pinned inside launchers.
+  - **Every "machine-checked" claim in the public corpus was audited, and none was unbacked:** all 92
+    distinct Lean theorem names cited anywhere in the public tree exist in the file named, and the
+    "proven to the DFS standard" phrase class is gone repo-wide. Six defects were found — one
+    overstated index line, three sites missing a transcription caveat, one citation naming no
+    theorem, and one use of "machine-checked" for a shell doc-gate. **None changed a number, a
+    theorem or a verdict.**
+  - **Prune predicates vs their Lean theorems:** every prune that actually exists in C matches its
+    theorem at the model level, with the bridge gaps exactly where the Lean files themselves place
+    them. The finding runs the other way — **two Lean files prove predicates that no C code
+    implements**, and no public artifact said so.
+  - Four earlier minor ranker findings were confirmed **still present**, and confirmed still not to
+    affect the published `rank(KW)`.
+  - The launcher re-audit was **tiered and says so**: 114 launchers × 10 incident classes, deep reads
+    only on the active set and grep-level coverage on closed campaigns — "residual risk, not
+    certified clean," in its own words.
+  - The leaf-free-prune lemma behind `SOLVE_REPR_FC` moved from paper-proven to **Lean-verified**,
+    compiled on the orchestrator with no `sorry` and no `axiom`, with its uncovered bridge facts
+    enumerated rather than glossed. Its own text declines novelty for the mathematics — pruning a
+    dead subtree in first-found search is classical — and claims only the machine-checked mapping
+    onto this pipeline.
+  ⚠ These verdicts live in private review notes. **No public reproduction command exists for any of
+  them**; this entry records what was reviewed and found, not a published result.
+  [CITATION NEEDED: the nine 08-13 review documents these verdicts are drawn from are not individually named anywhere in this draft; nine of the nineteen `FABLE_*` documents of 2026-08-13 (private)]
+
+## 2026-08-14: two corrections and an incident
+
+- **The 1T recon yields were off by one**, from a shard header that does not exist (`80d7b8d1`),
+  then strengthened with direct 1T-shard evidence (`23609714`). A published number, corrected in
+  the published narrative.
+- `2271d796` scrubbed a storage-account name from public docs (Q28-N2).
+- `INCIDENT_2026_08_14_SYMLINK_ENUMERATION.md` (private).
+- `b043ec7a` flagged two superseded snapshot claims and a sampling limitation in `evidence/f1`.
+
+## 2026-08-15/16: 🔴 the cession wave — the deepest attribution work this project has done
+
+The most consequential entries in this window, and the ones that most need to reach the public
+narrative, because they **subtract** from the project's claims.
+
+- **The K4 orbit decomposition was ceded to the classical tradition.** First to **吳澄 c.1300**
+  (`35844cc9`, *"the deepest cession this project makes"*, `WUCHENG_PRIOR_ART_2026_08_16.md` (private)), then
+  — **the same day** — superseded to **朱元昇 (by 1270)** as earliest (`a1e07c58`,
+  `ZHU_YUANSHENG_PRIOR_ART_2026_08_16.md` (private)). `f67c01d0` corrected `solve.c`'s attribution, which had
+  been modern-only.
+- **`8a9f2e16`: the 'novel contribution' claim was withdrawn on `main`.**
+- **沈有鼎 1936 cited directly, from the source** (`e7821f76`), with two sharpenings: his six groups
+  **are** the K4 orbits (`9968d032`), and his brevity is a **venue artifact** — explicitly *not* to
+  be read as undeveloped (`43cfa499`).
+- `f8c5bbab` cited 焦循 + 來知德 and widened the cession lists to the classical lineage;
+  `55b74b1b` cited Xing Wen 2021 and corrected a Cui Shu reference.
+- `47496141` scoped three overclaims; `3e7e7528` replaced a sample with an exact count and credited
+  the rival group to the tradition that supplied it.
+- **Reproduction shipped alongside the claims:** `e0fb20ba` shipped the code behind three classical
+  claims that had none; `7dd7d7d5` added `--check-kw-pair-adjacency`; `ADJACENCY_EXACT_COUNT_2026_08_16.md` (private).
+- **The cession is a CHAIN of three, not one step**, and each supersession was independently
+  re-derived rather than accepted: 崔述 c. 1800 → **吳澄 c. 1300** (`WUCHENG_PRIOR_ART_2026_08_16.md` (private), *"I
+  re-derived it, I did not take the agent's word"*) → **朱元昇 by 1270** (`ZHU_YUANSHENG_PRIOR_ART_2026_08_16.md` (private),
+  *"MATHEMATICALLY VALIDATED, not taken on trust"*). It was also tested against near-misses: 來知德
+  and 俞琰 **fail** a test 朱元昇 passes. And 崔述 is not merely superseded — he is an **independent
+  rediscoverer of a subset**, with his own testimony that the joint use was novel c. 1800.
+- ⚠ **We already cited 吳澄 — for the wrong chapter.** The man was in the bibliography; the passage
+  that anticipates us was not.
+
+## 🛑 2026-08-16: a PUBLICATION FREEZE, and the claim that did not survive
+
+**This is the most consequential entry in the window and it must not be omitted from the public
+narrative.** `NOVELTY_POSITION_2026_08_16.md` (private):
+
+- **Our impossibility argument was not novel.** It is *"the field's settled position since
+  2004–05"* — 陳仁仁 2005, 謝金良 2004, 王振復 2004.
+- **Exactly ONE claim survives:** counting the **orderings** of the 64 that respect the orbits,
+  under a stated convention. Re-confirmed untouched by the later Song sweep
+  (`FABLE_SONG_SWEEP_46_20260820.md` (private)).
+- 🛑 **A publication freeze was declared and it still stands** (re-confirmed 2026-08-20):
+  *"No capstone, no paper, no merge to `main` that asserts novelty, until 王俊龍 and 關曉思 are read."*
+  ⚠ Quoted verbatim: the freeze text names **關曉思**, an author who does not exist — both
+  characters of the surname and both of the given name are wrong. The papers are by **管小思**
+  (image-verified from both first pages), and that is a finding in its own right, not a typo:
+  it explains why CNKI author-search never found him (Q-109).
+  🔴 **Its READING CONDITION was discharged 2026-09-04, and the freeze still stands.** Both
+  authors were read end-to-end from primary sources (`FABLE_Q111_FREEZE_READING_2026_09_04.md` (private);
+  the discharge is recorded against 管小思), and neither poses nor answers the enumeration
+  question. **A reading condition being met is not a publication authorisation** — the operator
+  ruled separately the same day, *"leave the rule, inform me of any blockers"*
+  (`FREEZE_LIFT_DECIDED.md` (private), Q-111). Quoting the condition without its discharge would leave a
+  reader thinking the freeze is waiting on reading that has already happened.
+- **The stated concern is not any single cession — it is the RATE and the METHOD**, and the frame
+  moved from *"establish novelty"* to **"establish exactly what is left."**
+- The mathematics is untouched by any of it. §1 says so explicitly, and that distinction is the
+  reason the freeze is survivable rather than fatal.
+
+*The rest of the 08-16 sweep, with its verdicts read rather than its titles listed.* It was not
+neutral breadth: two passes refuted premises of **ours**, one surfaced the closest prior-art title
+the project has ever seen, and two came back clean for the surviving claim.
+
+- **CNKI passes 2, 4 and 5** (there was no pass 3; pass 6 came on 08-31).
+  - *Pass 2 — clean negative.* No modern group-theoretic reading of 崔述 exists under any title
+    searched, and 「克萊因四元群」 (Klein four-group) has **zero** intersection with 易 in CNKI.
+    [CITATION NEEDED: no `CNKI_PASS2_*` document exists in `roae-private`; the pass-2 result is unsourced]
+  - 🔴 *Pass 4 — one of our own conclusions refuted* (`CNKI_PASS4_GUAXU_MATH_2026_08_16.md` (private)).
+    Our July sweep had recorded the
+    卦序-mathematics literature as "effectively covered." **It was not:** 32 distinct titles came
+    back, including a sustained multi-paper programme on the mathematical regularity of the received
+    sequence, a 1995 paper on the *topological group structure* of the hexagram symbols, and a 2021
+    paper applying *lattice theory* to it. The sharpest was **張清宇 2000,《錯綜不變組和散卦卦序結構》,
+    《哲學研究》** — 「錯綜不變組」 is our orbit concept, named, in a top-tier philosophy journal, in
+    2000. It was retrieved and read on 08-24; on that reading it **defines the orbit and partitions
+    all 64 into the same 20 groups, derives ordering rules, and counts no orderings** — which would
+    leave the surviving claim standing. **That verdict was deliberately routed and not rendered**, and
+    is not adjudicated as of this entry.
+  - *Pass 5 — the first search designed against the surviving claim, and it came back empty*
+    (`CNKI_PASS5_READ_2026_08_16.md` (private)). Every
+    sharp formal term returned zero: exhaustive enumeration, traversal, constraint, Hamiltonian path,
+    graph theory, orbit, equivalence class, invariant, automorphism.
+- **The 上博 (Shanghai Museum) strand.** The colour-plate census is **complete** — 132 photographs,
+  every page, zero gaps, no re-shoot needed.
+  [CITATION NEEDED: source for the 132-photograph colour-plate census and for the 上博 symbol prior-art sweep]
+  The symbol prior-art sweep found the 錯/綜 *pair*
+  classification to be thoroughly occupied prior art from 2003 onward. ⚠ Its headline also recorded
+  the K₄ orbit partition as claimed by no one; **that was scoped to the 上博 symbol literature and was
+  overtaken the same day** by the 吳澄 → 朱元昇 cession above, which is precisely that partition. It
+  must not be carried forward.
+- **陳仁仁 2005** (`FABLE_CHEN_RENREN_2005_AUDIT_20260820.md` (private)) — the source behind the
+  novelty-position finding above: our own impossibility
+  argument about the Chu-slip symbol evidence was the settled position of that literature by 2005.
+- 🔴 **房振三 2005 — our reading of it was wrong and was withdrawn.** (`FABLE_FANG_ZHENSAN_2005_AUDIT_20260820.md` (private))
+  We had recorded that the symbol
+  form-classes track the two copyists' hands, and had built a third, codicological hypothesis on it.
+  He says close to the opposite: the form-classes are **shared** across both hands, and what tracks
+  the hands is execution and usage discipline. The hypothesis went, and a second misreading — of what
+  his 「不能再糅合在一起分析」 governs — went with it.
+- **謝向榮 2005** — read in full, and the closest published work to our own that exists. Four of our
+  claims about it were wrong; the load-bearing one survived and came out stronger than we could
+  previously show.
+  [CITATION NEEDED: the 謝向榮 audit is referenced below only as one of the nine per-scholar Fable audits of 2026-08-19/21; its filename is not recorded in this draft]
+- **崔述** — the same-day supersession recorded above, with his standing restated rather than erased:
+  an independent rediscoverer of 6 of the 20 orbits, on 16 of the 64, at a time when 吳澄's text had
+  been lost since the Ming and only recently reconstructed.
+- **A source-holdings audit, triggered by our own error.** A local directory was read as data loss, a
+  source was reported gone, and re-purchase was recommended — when the material had been moved to
+  cold storage two weeks earlier, with a manifest already sitting beside it. The gap was that nothing
+  in the working tree reflected the move, so "obtained" was unverifiable from inside the repo.
+  [CITATION NEEDED: source for the source-holdings audit and the cold-storage manifest it turned on]
+- `16217a4e` **retracted** the "convention divergence" reading of `6f86d2cb` — a reading retracted
+  within a day of being published.
+
+## 2026-08-17/19: Stage G closeout, and a gap in the archive story
+
+- `STAGEG_MIRROR_ALARM_ANALYSIS_2026_08_17.md` (private), `STAGEF_ARCHIVE_RECONCILE_2026_08_18.md` (private).
+- **`ARCHIVE_VERIFICATION_GAP_2026_08_19.md` (private) — `--put-md5` lost its purpose when rehydrate was
+  banned.** Two individually correct rules interacted badly. `--put-md5` was specified so every
+  future *download* would be auto-validated; banning rehydrate as a verification route removed the
+  download, and with it the purpose. What remains is a **missing middle link**: disk bytes → sha256
+  registry ✅, blob `Content-MD5` ✅ (73/73 on Stage F), but **disk bytes → md5 ❌**. The stored
+  Content-MD5 is therefore *self-consistent but unanchored* — "whatever azcopy computed", with
+  nothing to check it against. A sha256 registry cannot close it: different hash functions.
+- **李尚信 audited, and the audits refuted one of OUR premises.** `FABLE_LI_SHANGXIN_1999_AUDIT_20260819.md` (private) /
+  `FABLE_LI_SHANGXIN_2002_AUDIT_20260819.md` (private) (read at 400 dpi from page images):
+  - **1999 — CONFIRMED**, with a provenance caveat that matters for attribution: the *membership* of
+    the six-group split is the modified-《乾鑿度》 skeleton he attributes to the 吳澄→劉大鈞 lineage;
+    what is in his own voice is the 六組 formalisation and the 錯-adjacency rationale. **Neither
+    purely his own principle nor purely restatement.**
+  - **2002 — our scope premise REFUTED.** We had recorded *"page 61 is NOT in this PDF"*; p. 61 **is**
+    PDF page 5, carrying 「（上接第49页）」 and his full 7-item reference list. The article was complete
+    all along and the TRUNCATED warning was moot.
+  - **2002 — CORRECTED, in the direction that costs us:** the quadruple pairing is **李's own**, not
+    our inference (図一 arrows + text at pp. 47–49). With the p. 49 pairs added he holds **all four**
+    焦循 quadruples **plus three more**, and cites 焦循 nowhere. Two of the orbits are intra-經, which
+    our table had labelled 上經/下經.
+- `776f5873` corrected a **stale acquisition status** for the 1999/2000 papers in public CITATIONS.
+- `ORBIT_LEDGER_2026_08_19.md` (private) + `FABLE_ORBIT_LEDGER_VERIFY_20260819.md` (private).
+
+## 2026-08-20/21: T5 recomputed independently, then the pre-Codex self-hardening block
+
+- `0921120d` — `verify.py --check-t5-c3` **independently recomputes C3 for all 1e6 T5 records**.
+  `c16900e9`/`0c4526cb` added `--encode-solutions` and `--uniform-marginals`.
+- `3ea4901b`: *the shared C prefix does not mean equal strength* — a specification clarification
+  that prevents a real misreading.
+- **The self-hardening block found defects in the published reproduction path itself:**
+  `0fb3b859` **the documented `verify.c` build line was missing `-lm` and did not link**;
+  `1e4bd04a` the published estimator commands need a stack requirement that was never stated;
+  `2b8063ae` state the hardware envelope where a replicator reads it, and **fail loudly** on a short
+  stack. Plus GAP-3/4/6/7 (`607451c6`, `3dac0056`) and `7440ecf5`, which applied hardening findings
+  that had been **sitting unpublished**.
+
+## 2026-08-22: the execution lane — a blind spot, not a bug
+
+`298012f1` landed [`scripts/exec_lane.sh`](../scripts/exec_lane.sh) together with **six defects it found on its first runs**.
+The finding behind it: **no review pass and no repo gate had ever EXECUTED a published reproduction
+command.** Four named blind spots — no execution lane; doc-vs-code auditing that covered flags but
+never build lines; a counted-number sweep that was list-driven; report-only gate legs never invoked.
+
+Also: the **constraint freeze disclosed** with its precise scope (`0daa5ecb`); the atlas **A-5
+orbit-column gate**, which catches what sum-to-N cannot (`38187520`); `318bb1d9` derived the 10:3:3
+wrap class map and **named its blind spot**; `50e6b65b` declared `v4-query-program` under GATE 19 —
+*"which I violated by pushing it"*.
+
+## 2026-08-23/24: cross-model review, and the reproduction path re-broken and re-fixed
+
+- **The Codex cross-model review ran to completion: 71 targets, 71 transcripts.** Run 1 was later
+  found to have run at reasoning effort **none** (the CLI default) — not invalidated, but re-run as
+  a controlled A/B at `max` (`CODEX_MODEL_TIER_2026_08_24.md` (private), run 1 preserved under
+  `codex_transcripts/run1_sol_effort-none/` (private)).
+- **A-39: the 560T C3-minimum witness at 392** (`A39_WITNESS_FOUND.md` (private)), verified by an independent
+  C implementation.
+- **SAT n=13: the 64-bit patch validated** at 86.3 GB / ~315M nodes, exceeding the 32-bit build's
+  fatal MaxRSS — stopped by operator authorisation, logged explicitly as **not a crash**.
+  [CITATION NEEDED: source for the 86.3 GB / ~315M-node SAT n=13 measurement]
+- **Stage T** running throughout on Spot, with its true cost rebaselined to **$300–490** and an
+  **uncheckpointed phase 2** identified that must run on Standard (`STAGET_TRUE_COST_2026_08_24.md` (private)).
+- 🔴 **A clean checkout was found FAILING its own reproduction battery** — `TR12_REPRO=FAIL`, 13 of
+  56 rows, for two days. Eleven failures were one field: a correct fix to the provenance trailer
+  made `branch=` build-environment-dependent while the expected blocks diffed it verbatim. Fixed,
+  and a **reproduction gate** now exists that extracts the *published* build line rather than
+  carrying its own (`TR12_REPRO_GATED_IN_CI.md` (private)).
+- **The Q6 reading-(B) oracle** — which had already rejected two implementations — was found to
+  exist **only inside a chat transcript**, and is now in `verify.py` behind a gate shown able to
+  reject a wrong *definition* (`Q6_ORACLE_IN_TR12_FIXTURES.md` (private)).
+
+---
+
+## 2026-08-25/27: the hardening stretch — gates found blind by the gates after them
+
+*Diffs read 2026-09-02 for every commit cited below; figures are from the commits and the artifacts
+they touch, except the cost estimate, which is flagged where it appears.*
+
+A week of gate-building that kept teaching the same lesson: **a gate can be independent, correct, and
+still blind, because coverage is a property of the test VALUES, not of the instrument's independence.**
+Of the four gates landed across two days, **two were found blind by the gate that followed them**, and
+a third closed a hole the gate before it had named in its own commit message.
+
+**The full-31 exact layer aggregates were published** ([FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md),
+`9d164507`). Every small artifact before it was either a sampled subset of the full computation or a
+smaller-problem rung; this is neither — the per-layer aggregate of the exact build, 31 rows, terminal
+row the already-published |C1∩C2∩C4∩C5| = 1.097051×10³⁹. The rung *totals* had been independently
+recounted since 2026-07-21; the **intermediate layers had never been checked by anything**, so
+`verify.py --recount-rung-layers` was written to gate the published table against a plain budgeted DP
+with no symmetry quotient. All 22 layer masses at n=9 and n=13 agree; twelve had no prior cross-check.
+
+**Then that gate was found blind.** `f1_dec()` renders every exact count the project publishes, but its
+only end-to-end exercise was the n=9 rung total **26112** — five digits, one limb. n=13's largest mass
+is 2.1×10¹², still inside one 64-bit limb, while the published headline integer sits in limb 2. A
+full-range gate followed (`--f1-dec-roundtrip`, 113 renderings to 58 digits). Dropping the carry into
+limb 1 leaves 26112 rendering perfectly while the headline integer becomes a plausible 38-digit number
+wrong by ~14×.
+
+**The self-consistency trap was measured rather than argued.** Reversing the limb declaration order —
+one line, engine still internally correct — makes `solve` write bytes that are garbage to any outside
+reader. It then *resumes from those files and reports 26112, correct*. Writer and reader cancel the
+defect exactly. `verify.py --f1u192-binary-roundtrip` reads the same bytes in Python and gets
+8.885×10⁴². This matters because `SOLVE_F1_KEEP_LAYERS` retains the layer files as the published query
+substrate — an outside reader is the whole reason they are kept. The first version of that gate read
+**v1 raw** while production writes **v2 per-block gzip**; a third arm was added at n=16 because no rung
+at n≤13 reaches the 65,536-entry block size at all — n=9's final layer is 6 entries and the widest at
+n=13 is 11,102, so no earlier arm ever crossed a block boundary. ⚠ The commit that added it states the
+limit plainly, and it cuts against the story: a block-seam off-by-one is **already loud inside the
+engine**, which hard-fails on the inflated size, so the multi-block arm supplies an outside witness for
+that path rather than catching something the engine misses.
+
+**`canonical_masks` had no instrument** — an object-level integer published on the engine's word alone.
+Burnside over the 24-element pair-permutation quotient, derived from the 48 commuting bit-perms rather
+than read from `solve.c`, reproduces all 31. Burnside over *half* the group gives 26,067,040 where the
+full group gives 13,047,760, so the agreement is a real coincidence of two derivations.
+
+**A published sentence was retracted.** The artifact said *"no instrument in this repository can
+recount full-31 independently"*, justified by the layered DP's RAM ceiling past n≈19. `verify.c` Route
+B is signed inclusion–exclusion with DP state `(last, budget vector)` — 64 × ≤413 slots, **under 1 MB
+per thread and no disk at full 31** — and already ships `--ie-spec full31@0` and `--ie-probe`. A
+universal claim had been drawn from one method's limit without auditing the other instrument in the
+same repository. Retracted in `d74a790b`; priced instead.
+
+**And the price looks affordable — priced, not authorised, and not spent.** `--ie-probe` is a public
+documented command; the extrapolation built on it is a **private working estimate with no public
+reproduction path**, and it should be quoted with its own hedges or not at all.
+[CITATION NEEDED: the private pricing note carrying the 239.4 core-hour, 5.61 h and $5.3–$9.6 figures is not named]
+
+
+- The **93,939,712 canonical subsets** are neither an extrapolation nor new. The probe *counts* them
+  exactly, and the figure is a long-published constant of this project (TR-11 §3). Only the **timing**
+  is sampled — 200 samples per popcount class, measured on a 2-core box.
+- **239.4 core-hours per prime pass**, and three passes at **5.61 h wall on a D128**, are the linear
+  extrapolation of that timing. ⚠ The pricing note explicitly tells the reader **not** to quote 5.61 h:
+  at 128 threads the walk DP contends for memory bandwidth, the realistic band is 5.6 h to roughly 3×
+  that, and **the honest planning figure is a 6–17 h window.** Eviction over a run that long is likely
+  at least once.
+- Recorded Spot rates give **$5.3–$9.6 of compute**, before setup, disk and eviction overhead; leaning
+  high, **~$6–15**. That sits inside the standing approval gate but above the self-execute floor, so it
+  is an operator decision. **The price exists; the authorisation does not, and the run has not been
+  made.**
+- The probe's canonicity scan does corroborate the Burnside count, on the classes it prints: the
+  93,939,712 total, the k=15/16 peak at 13,047,760, and the k=23–31 tail. On those, `canonical_masks`
+  agrees across **three** derivations — the engine's enumeration, the Burnside generating function, and
+  the probe's own scan. Noted for completeness: the probe prints a hardcoded expected total beside the
+  one it computes, so the agreement is real but the expectation ships inside the same binary.
+
+**A monitoring defect found live.** (`STAGET_BUILDING_K_HONEST.md` (private)) During a Spot
+eviction the Stage T heartbeat read
+`building_k=31` — the last layer, the reading most likely to be taken for "nearly done" — while every
+other field degraded honestly to `?`. One inline expression collapsed *"the ssh probe never returned"*
+into *"the manifest says no layer is complete yet"* — the unknowable state into the knowable,
+reassuring one. The script's own comments had warned about that exact field, by name, and the code
+did it anyway. Fixed with a seven-row truth table shown to fail on 4 of 7 rows against
+the expression it replaced.
+
+## 2026-08-29/30: the second Codex review, and what it found in the machinery
+
+The v1 review had read 87 targets and yielded four findings that survived contact with the tree. The
+v2 sweep was scoped wider — 111 targets, max effort, pinned to one published sha — and it did not
+behave like its predecessor.
+
+[CITATION NEEDED: no adjudication document is cited anywhere in this section — the 252/240/2/7/3 charge tally, the four Criticals, the 2,201-file and 157,960-of-199,637 (20.9%) figures, the 23 fail-open instances, the 87- and 111-target counts and the 80% extraction under-count are all unsourced here]
+
+**What it found.** 252 charges adjudicated: 240 accepted, 2 rejected, 7 already closed, 3 accepted
+with the *charge itself* corrected. Four Criticals, three proven by construction rather than argued.
+The sharpest was a documented "fresh run" cleanup that left 2,201 files behind, so a directory
+inheriting one stale checkpoint printed `*** SEARCH COMPLETE ***`, exited 0, and wrote **157,960 of
+199,637 solutions — 20.9% silently missing behind a self-consistent sha.** Its guardrail did fire,
+loudly, rc=22 — and then named the override that bypasses it, in the same breath.
+
+**The class underneath it.** Twenty-three instances of one shape: *a check that reports clean
+without having looked*. Seven were in our own gate suite, and six of those seven survived every test
+that planted bad input and fell immediately when their **extractor** was stubbed to `exit 1`. One
+printed "OK to launch" before a real `az vm create` while a numeric comparison silently errored.
+That distinction — break the producer, not the input — is the single most useful testing lesson of
+the campaign.
+
+**What it did not find.** No published number was wrong. Batches 8 through 13 each derived, on
+different grounds, that nothing published could have come through a defective path; the canonicals
+are fenced by independent from-scratch byte-identical replication. Batch 14 broke that run with
+exactly one exposure: the de-circularized FFT headline rests on a spectrum that structurally
+excludes the Nyquist bin, and batch 15 established the same surface carries three distinct defects.
+That recompute is running as this is written.
+
+**And it kept finding our own corrections.** Repeatedly the reviewers were right about a claim that
+a *previous* correction had already fixed everywhere except the one site nobody swept — a correction
+ledger outpacing its own body, diagnosed independently in TR-11, TR-2, TR-3 and DEVELOPMENT.md.
+Twice the tree was found to be *stronger* than it claimed: all 21 SAT certificates had been
+re-verified in July with cake_lpr, a formally verified checker, and the replacement text was drafted
+in August and never landed.
+
+**The instrument was the problem more often than the corpus.** The extraction tooling under-counted
+by 80% across three successive format failures, and the strongest single reviewer in the whole
+corpus — 5 of 5 behavioural charges confirmed by execution — was invisible for the entire review
+until the last of those fixes. Seven whole-file code targets produced no report at all while the
+queue read `DONE`, because `DONE` meant the tick had *run* them. A guard caught it, wrote 136 lines
+into a log, and nobody read the log.
+
 ## 2026-08-30/09-02: A merge every gate accepts, and a prose sweep whose refusals were the point
 
 > **The gap this entry once declared is now closed, and the declaration is kept.** As published on
@@ -6633,6 +7102,173 @@ sweep worked through were raised by an external reviewer (Codex V2). Reviewers a
 never credited as authors**. None of the above is offered as novel outside this project's own
 record, and corrections are welcome — the refusal rate reported here is itself a measurement of our
 charge sheets, not a claim about anyone else's.
+
+## 2026-08-30: fixing it — and the freeze that had already expired
+
+The review pinned every finding to one published sha, so nothing could be fixed while reviewers held
+worktrees against it. That constraint expired the moment collection finished and the review VM was
+deallocated, and the fixing began the same day.
+
+[CITATION NEEDED: no document and no commit sha is cited anywhere in this section — the seven repaired fail-open checks, the quota-parser defect (122 of 130 vCPU free), the 21/21 cake_lpr re-verification and the gate resolved six weeks earlier are all unsourced here]
+
+**The gates first, because they guard everything else.** Seven fail-open checks repaired, each
+red-tested by breaking its producer rather than by feeding it bad input. The one that mattered most
+guarded money: a Spot pre-check whose numeric comparison silently errored on a malformed argument, so
+bash treated the failed test as false and it printed "OK to launch" immediately before a real
+`az vm create`. Using that same repaired pre-check for a genuine launch then exposed a second defect
+underneath it — Azure had begun returning quota values as *quoted strings*, so the parser matched
+nothing and would have reported "0 free" while 122 of 130 vCPU were available. The morning's fix is
+what surfaced it: the gate refused to report a number it had not obtained, and the refusal was the
+diagnosis.
+
+**A claim made stronger, not weaker.** The tree said its SAT certificates were checked by "an
+independent verified checker"; the checker was drat-trim, which is independent but not formally
+verified. The correction did not weaken the claim — it published a July campaign that had already
+re-verified all 21 certificates with cake_lpr, whose soundness is machine-checked in HOL4 down to the
+machine code, in a chain where drat-trim is merely an untrusted elaborator. Verified before
+publishing, because a false strengthening is worse than the overclaim it replaces: 21/21 verdicts,
+all LRATs intact, and — the load-bearing check — no commit had touched any `.drat.gz` since, so the
+July run attests today's bytes.
+
+**And a rule rewritten because it was unfollowable.** A standing instruction required every VM except
+the orchestrator to be Spot. Uncheckpointable work cannot honour that — an eviction loses the whole
+run — so the rule was quietly worked around instead of followed, and an unfollowable rule is worse
+than none because its existence suppresses the workable one. It now splits by checkpointability, and
+the first VM created under it was deliberately Standard.
+
+**A gate that had been resolved for six weeks was raised as blocking for the third time.** Its
+resolution was recorded correctly — in the gate's own charter, which nothing that *asks* about gate
+status ever reads. The project came within one approval of commissioning a classical-Chinese review
+that had already been done and was sitting in the private tree. The fix was a registry that answers
+the question in one command, not a resolution to check more carefully.
+
+## 2026-09-01/02: a fifteen-batch prose sweep, and the night the anchor was shown to be blind
+
+### The result that outranks the rest
+The `v4-query-program` → `main` merge for `solve.c` was prepared in August with per-hunk
+dispositions. On 2026-09-02 it was **re-derived independently**, by a reviewer forbidden to read the
+prepared answer until it had written its own. The two agreed on **all twenty** marked conflict
+hunks — and the independent pass then found **four conflicts git does not mark**, because only one
+side changed those lines.
+
+The worst is measurable and was measured. `main` had hardened a class of destructive commands,
+writing `rm -rf '%s'` **quoted** at every site with a helper and a comment reading *"QUOTING ALONE
+IS NOT"* sufficient. The branch forked before that fix and writes `rm -rf %s` **unquoted** at six
+sites, one of them fed by an environment variable that exists only on the branch side.
+
+The resolution was then built and run:
+
+```
+--selftest  Expected 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
+            Actual   403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e   PASS
+```
+
+and the **same file** still contained **two unquoted `rm -rf`**, at the two sites the resolution
+took from the branch rather than from `main`.
+
+🔴 **So a fix present on `main` can be silently reverted by a merge that every gate in this project
+accepts.** The canonical sha attests the *enumeration path*; the regress harness, comments and
+early-returning dispatch branches lie outside what it can see. **"The canonical sha is unchanged" is
+necessary and not sufficient** — and that is now demonstrated on a real artifact rather than argued.
+Nothing was merged: the merge sits behind a five-condition master gate, all five unmet.
+
+### Fifteen prose batches, and what they were actually for
+P26–P43 ran against the accepted findings of the second external review. The headline is not the
+count but the **refusal rate**: eleven batches refused a charge or half a census, and **every
+refusal was correct**. Among them —
+
+- a prescribed fix that would have made a **true sentence false** (two sites assert a three-predicate
+  null model; relabelling them to the five-constraint population would have broken them);
+- a charge quoting a version of a file **that no longer existed**, whose live text already recorded
+  the very provenance the charge wanted added;
+- a charge whose own **diagnostic test was false** — it offered a marker to tell stale text from
+  corrected, and all four sites bearing the "stale" marker carried the corrected wording;
+- a census of **12 sites in 12 files** where **zero** were live;
+- an absence claim — *"a literature figure with no in-repo reproducer"* — refuted by executing the
+  reproducer, in a document about reproducibility.
+
+**The technique that found the most was mechanical:** GATE 3 flattens whitespace before matching, so
+a defective phrase spanning a line wrap is invisible to `grep`. Six batches found live sites only by
+searching the flattened corpus — including a retraction that had reached four of five files and was
+missing from the fifth **solely because of a line break**.
+
+### Findings the sweep produced
+- **Rotation invariance was false.** C3(KW) = 776, but rotate-4 = 888, rotate-16 = 1240, and **21 of
+  31** non-identity rotations exceed 776. The circular multiset survives rotation, so C1/C2/C5 hold
+  and **C3 alone breaks it**. Re-derived on two code paths sharing nothing.
+- **`16,504` was never a canonical count.** The engine's `exact_count` iterates both orientations, so
+  the counter printed as `leaves_canonical` is an *oriented* count — while the same document reserved
+  "canonical" for post-dedup sequences. The document contradicted itself on its own page.
+- **A pre-registration escrow contained its own outcome.** Of ten frozen files, three were amended
+  after their freeze commit and the table paired the *first-committed* date with the *amended* hash.
+  For two, the amendment is the result — one commit is titled *"#194 RESULT: frozen gate PASS"*.
+- **A published record id existed at one scale, not "both canonical scales"** — `grep` over the
+  larger run returns zero hits for it.
+- **The `--check-repr` oracle was sold as fails-closed and is blind to C3**, in both reference
+  verifiers, across four code paths. No published result is exposed — every registered canonical
+  passes by the records path, which does check C3 — but two review instruments had a latent
+  false-PASS.
+- **A software attribution was simply wrong.** The first Timewave implementation was Kelley and
+  Taylor (1974 or earlier, FORTRAN on a CDC 6400), then Broadwell (1978/79); the credited author's
+  own work begins 1985–86. And an arithmetic-error objection attributed to a critic **does not appear
+  in the cited page at all** — zero occurrences of "arithmetic", "error", "mistake" or "miscalculat".
+  Withdrawn rather than replaced, since substituting a characterisation would mean describing a
+  source not in the tracked corpus.
+
+### Certificates, gates and the code lane
+The fourth two-rule core's certificate shipped, taking the archive 21 → 22, and **all 22 now carry
+the formally verified checker** — `cake_lpr` rebuilt from the same pin, its compiled sha
+**byte-identical** to the batch binary used in July, so the parity is with provably the same checker
+rather than one of the same name. It was red-tested with seven mutations before its pass was
+trusted. Two hazards are recorded because each can manufacture a false PASS: **`cake_lpr` exits 0 on
+failure as well as success**, and its default heap and stack exceed an 8 GB host.
+
+Six new documentation gates landed. **Red-testing found four of the six green and wrong before any
+shipped** — most sharply, a gate that asked whether a sentence *mentions* a figure, where the
+sentence names two, so swapping which one it called the divisor left the gate green. **It passed its
+own red test.**
+
+The artifact checkers gained the C3, header-version, reserved-byte and geometry legs they lacked;
+before the change both instruments returned `ARTIFACT=PASS` on a C3-violating record. A sibling sweep
+found a genuine two-instrument divergence on a torn trailing record, already adjudicated, where the C
+implementation was right and the Python one silently dropped the tail.
+
+### An encoder that emitted 786,432 clauses nothing read
+`--sat-c3 adder` emitted the PB mode's full auxiliary scaffolding — 262,144 variables, 786,432
+linking clauses — and then produced no adder network at all, its own metadata marking it
+*deferred/superseded*. Removed; `adder` is now byte-identical to `none`, and **its clause sha moved,
+intentionally**, which the documentation says outright so the move is not read as a regression.
+
+No model-count proof was needed. The linking is a full Tseitin AND-definition, so the auxiliary
+variables are *defined* by the primary ones and removing a defined variable together with its
+definition cannot change the projected count. Checked rather than asserted: two copies of the linking
+over one shared assignment plus "some auxiliary differs" is **UNSAT**, machine-verified.
+
+### The ranking, and a limit that is now published
+The full-31 ranking's total order — the comparator that makes a rank mean anything — **was published
+nowhere**, existing only in a source comment. It is now on the page. An independent reader, written
+from the format specification alone, agrees with the engine on **all 26,112 walks at n = 9** and at
+full-31 ranks the last walk to **N−1 without executing the engine at all**.
+
+🔴 **What that does not fix is now stated too.** Every published check on the `f` ladder is a *linear
+functional* of the layer's values, so a perturbation orthogonal to the continuation counts satisfies
+**every** mass and cut identity exactly while changing individual ranks. The gates are not weak; they
+are the **wrong shape** — they constrain values collectively and a rank consumes them individually.
+The only known pin is exhaustive entry-level verification, and it was **declined**, with this note
+published in its place and an instruction to revisit if any claim comes to depend on a specific rank.
+
+### The storage record corrected itself
+Stage F's integrity manifest recorded `tier(s): Archive`. Queried against the account, all 72 blobs
+were **Cool**, explicitly tiered, with no Archive period anywhere in their history — and the claim
+had been wrong the day it was written. Everything else on that line verified to the byte. **The hard
+numbers were measured; the one field nobody re-read was asserted.** The dependent export analysis had
+inherited it, doubling the estimated rehydration scope.
+
+Stage F was subsequently archived for real, on the Stage G convention — data at Archive, one README
+at Cool carrying the full inventory so the archive stays describable and verifiable **without
+rehydrating anything**.
+
+---
 
 ## 2026-09-03 — a sweep through the checks themselves: fail-opens in both independent verifiers, and a linker that deleted the thing under test
 
@@ -7271,6 +7907,88 @@ claim about the sequence. **`solve.c` was not edited** — the findings above ar
 and the Q5 row remains gated behind them. The `n=9` end-to-end rehearsal of the query-program driver
 was re-run and re-attested `QUERY_DRYRUN=PASS` against the tree as published, with nothing minted.
 
+## 2026-09-09 — the supervisor that was never installed, and two cost errors that hid each other
+
+**A launch could have been armed with nothing watching it.** `query_program_launch.sh` said, in a
+dry-run plan line, *"(orchestrator installs the crontab entry for `query_program_tick.sh` — NOT this
+script)"*. No orchestrator-side installer existed. `crontab -l | grep -c query_program_tick` returned
+**0**, with fourteen other ticks running beside it — so a multi-week unattended run could have
+started, printed a full green board, and been handed to a supervisor that was not running. The
+eviction handler, the budget ceiling and the stall alarm all live in that tick. A division of labour
+is not a mechanism.
+
+`roae-private/scripts/query_program_cron_install.sh` now exists, with `--check/--install/--remove/--selftest` and
+a four-valued verdict. It distinguishes *"no crontab"* from *"crontab unreadable"* — `crontab -l`
+exits 1 for both — because reporting a broken cron as a clean absence is FAIL where the honest answer
+is ERROR. It preserves the other fourteen entries and **reads back what it wrote** before emitting
+`INSTALLED`. Its selftest drives all seven branches and asserts the real crontab is unchanged. The
+entry was installed and **cron fired it at 06:34Z** (`QUERY_TICK=IDLE`, stamp written) — measured, not
+asserted. Pre-gate legs `S-1` and `S-2` and launcher `GATE 12b CRON_SUPERVISOR` now cover it.
+
+**The tick's wall constants were sized to a refuted estimate.** `DEADLINE_H` 240 → **1080**,
+`SCAN_H_HIGH` 85 → **720**, `MAXRESTART` 6 → **120**, and `CHUNK_H` 6 → **119** — the *largest*
+chunk, not an average. The old value authorised restarts on six hours of budget for a chunk that
+takes a hundred and nineteen.
+
+**A rate that priced a different disk.** `GDISK_PREM_USD_HR` was commented as *"the
+Premium-over-StandardSSD delta on 8192 GiB"*, but was computed as P60 minus **E50**: an 8 TiB Premium
+price minus a 4 TiB Standard one — two different capacities. Retail-verified live against
+`prices.azure.com`, westus3, all four meters: the g disk is 8,192 GiB, so the correct delta is
+P60 − E60. The shipped constant overstated it **2.26×**, and it feeds `EST_HIGH`, which is what
+decides whether any ceiling can pass `BUDGET_APPROVAL`. New `GATE 0c DISK_PRICING` re-derives it from
+the size and SKU Azure reports and
+returns **UNKNOWN, never PASS**, when it cannot read them.
+
+**Pre-emptible capacity was refuted for this workload.** The plan's price for the query set rested on
+*"Spot is only viable because of `--kc-layers` chunking"*. The 31 chunks are not equal: work at layer
+*k* goes as `entries(k) × 2(31−k)` over a ladder whose measured per-layer volumes span **ten orders of
+magnitude**. The largest single chunk is **16.54% of the pass** — 61–119 h — against a measured MTBE
+of ~15 h and no resume inside a chunk. Expected Spot wall **2,958 h** (ideal) to **96,776 h**, against
+372–720 h on Standard, and the promoted disk bills through all of it.
+
+**The two errors nearly cancelled**, which is why neither was caught for four days: §11.5's path A
+quoted a band built from an overstated disk and an understated VM, the two errors running in opposite
+directions and leaving the total looking plausible. `KC_RUN_COST_PLAN.md` and
+`roae-private/scripts/kc_run_cost_model.py` (`--selftest` → `KC_COST_MODEL=PASS`) replace both, so no figure in the
+plan is hand-typed.
+
+**`Standard_L64s_v4` was measured for the first time**, both support-ticket quotas having landed
+(`Lasv4` and `Lsv4` both 0/64 in westus3). A 13-minute Spot probe, torn down and verified:
+**8 × 1,919,850,381,312 B = 15.359 TB of local NVMe**, 64 vCPU, 503 GiB RAM, and **3.0 GB/s per
+device with no degradation running all eight at once** — 1.388 s solo against 1.388–1.403 s under
+full load, so ≈**24 GB/s aggregate**, 48× a P60. A first pass summed all nine NVMe devices and got
+15.39 TB; the 32.2 GB *"MSFT NVMe Accelerator v1.0"* is a remote-disk accelerator, not local storage,
+and the figure was corrected before it reached a document.
+
+**`--kc-extremal` was reviewed adversarially and came back `KC_EXTREMAL_REVIEW=BLOCKED`.** The
+review's own gate had **one consumer and no producer** — `FABLE_KC_EXTREMAL_REVIEW.md` did not exist
+and the token appeared nowhere but one line of `query_pregate.sh` — the same defect already recorded
+for `R-C`, one leg down. Two HIGH findings, both confirmed independently here. **K10
+(`solve.c:32861`), the only positive argv leg, asserts `rc==0` and five tokens and never the
+computed value**; three one-line mutants survive `--kc-extremal-selftest` with PASS, and nothing at
+all catches an invariance gate looping `g < 23` so `el[23]` is never checked. And the registry's
+`py_ref` cites `solve.py::_dist_multiset`, `_boundary_distances`, `_yang_count` — **zero occurrences
+in any tracked Python**, while `solve.c` cites them eight times and the module header makes that
+re-check a shipping condition.
+
+**Infrastructure.** `c284-staget` resized `D96als_v7` → `D16als_v7` at operator request: an
+accidental unattended month now costs **6× less**, and that one VM had been **68% of the fleet's**
+runaway exposure. `az vm resize` on a deallocated VM is metadata only. Priority cannot be changed in
+place — Azure fixes Regular-vs-Spot at creation — and Regular is the correct priority here anyway.
+The `c290-fable` orphan set (NIC, public IP, NSG, 256 GiB disk — all still metering with no VM
+attached) was removed after confirming its A-prime evidence was already committed; the VM itself had
+been deleted, and the public IP is the resource that `--os-disk-delete-option Delete` does not cover.
+With it gone, a standing finding is
+now false: **westus3 and westus2 low-priority quota read 8/128 and 0/128**, where both regions were
+previously pinned at 128/128 by two deallocated D128 Spot VMs.
+
+**What did not move.** No canonical sha, no record count, no archive, no theorem, and no published
+claim about the sequence. `solve.c` was **not edited**. The public tree stands at `8119678c`
+throughout; every change above is in `roae-private` except the `n=9` rehearsal, which re-attested
+`QUERY_DRYRUN=PASS` against that public sha without modifying it.
+
+---
+
 ## 2026-09-10 — the Q5 gate learns to see the number it guards
 
 **The finding of 2026-09-09, closed.** The `--kc-extremal` selftest's only positive argv leg, K10,
@@ -7648,6 +8366,221 @@ sequence was changed or withdrawn; the day adds no number about the sequence at 
 created and **no compute was bought.** The scan has not run, and **the run is not
 launch-ready**: the standing advisory that operator discussion and re-review are required before
 launch, board or no board, is untouched by anything above.
+
+## 2026-09-13 — completing 2026-09-09: a supervisor that was never installed, a constant that priced the wrong disk, and a machine measured for the first time
+
+**This entry completes an earlier one.** The 2026-09-09 entry above narrates one day's work — the
+`--kc-extremal` adversarial review — and that was one of seven things that happened that day. The
+other six were written up the same day and stayed in the private working record; four days of
+entries went past without picking them up. This file is append-only, so the 2026-09-09 heading
+cannot absorb them and is not edited here; the earlier entry stands exactly as it was written,
+including its silence, which is the evidence of how the gap happened. What follows is what was
+missing, written from the private working record and from re-read code, with each figure re-checked
+against the tree as it stands today rather than quoted forward from the draft.
+
+That re-check is the reason this entry is worth more than a late paste. **Three of the six have been
+overtaken by work done since**, and in each case the entry states what was true then and what is
+known now. Publishing a four-day-old estimate as though it were current would have been a worse
+outcome than the gap.
+
+**A supervisor that was never installed, and a plan line that described whose job it was rather
+than anything happening.** `query_program_launch.sh` carried, in a dry-run plan line, the note
+*"(orchestrator installs the crontab entry for `query_program_tick.sh` — NOT this script)"*. It was
+true about the division of labour and false about the world: **no orchestrator-side installer
+existed**, and `crontab -l | grep -c query_program_tick` returned **0** with fourteen other ticks
+running beside it. A multi-week unattended run could have been armed, printed a fully green board,
+and been handed to a supervisor that was not running — and the eviction handler, the ceiling check
+and the stall alarm all live in that tick. **A division of labour is not a mechanism.**
+
+`roae-private/scripts/query_program_cron_install.sh` now exists, with `--check`, `--install`, `--remove` and
+`--selftest`, and a **four-valued** verdict. It distinguishes *"no crontab"* from *"crontab
+unreadable"* — `crontab -l` exits 1 for both — because reporting a broken cron as a clean absence is
+a FAIL where the honest answer is ERROR. It preserves the other entries, and it **reads back what it
+wrote** before emitting `QUERY_CRON=INSTALLED`, on the principle that emitting a success token
+because a write returned zero is the defect this project names most often. Its selftest drives every
+branch against a test seam and asserts the real crontab is untouched. The entry was installed and
+**cron fired it**, with `QUERY_TICK=IDLE` and a stamp on disk — measured, not asserted. Pre-gate
+legs `S-1` and `S-2` and launcher `GATE 12b CRON_SUPERVISOR` now cover it, and the gate's failure
+text says what the failure means rather than naming a token.
+
+*Known now, and it sharpens rather than softens the above:* installed-ness was the easy half. The
+check that a running supervisor is **alive** was audited on 2026-09-13 and had three defects of its
+own — its period parser did not understand the house schedule idiom `4-59/5`, which is exactly the
+form this entry's own crontab line uses, so it silently fell through to a much laxer default. The
+installer verified here was correct; the thing watching it was not. That audit is recorded in the
+private record and is not yet published.
+
+**The tick's wall constants had been sized against an estimate that was later refuted.**
+`DEADLINE_H` 240 → **1080**, `SCAN_H_HIGH` 85 → **720**, `MAXRESTART` 6 → **120**, and `CHUNK_H`
+6 → **119**. The old values came from a 48–85 h scan estimate that `ATLAS_SCOPING` had refuted on
+2026-09-05 and that nothing had gone back to re-sized against; the corrected band is 372–720 h. Left
+as they were, `DEADLINE_H` would have halted supervision around day ten of a run of two to four
+weeks — **with the machine still running and still billing**, because the deadline branch leaves the
+run alive by design — and `MAXRESTART` would have given up after six evictions where, at the
+recorded mean time between evictions, several dozen are expected. The governing rule is
+`feedback_canonical_watchdog_sizing`: never a wall cutoff below ETA-high × 1.5. **A watchdog that
+can fire on a healthy run is not a watchdog; it is a second failure mode.** ⚠ *Superseded: `48–85 h` is a registered WITHDRAWN figure (WITHDRAWN_FIGURES.tsv, 2026-09-05), restated here only as the estimate that was refuted and never as a live number; the corrected band is 372–720 h.*
+
+`CHUNK_H` is the one worth dwelling on, because it is not an average. A restart pays for whatever
+chunk was in flight, and `--kc-layers` chunks are nowhere near equal — so `CHUNK_H` is the
+**largest** chunk, 119 h, against an old value of 6 that had been authorising restarts on six hours
+of headroom for work that takes a hundred and nineteen.
+
+*Known now:* these four are no longer fixed defaults. The machine shape the run will actually use
+was changed on 2026-09-11, and the constants above belong to the *other* shape. They could not
+simply be re-edited, for a reason worth recording: the relaunch gate multiplies them by an hourly
+rate to ask whether the remaining ceiling can pay for a restart, so on a much more expensive machine
+the old hour counts demand more headroom than the run would have, and **the first driver death would
+refuse to relaunch and halt supervision with the machine still running** — the identical failure,
+arrived at from the opposite direction. They are now per-run parameters that the launch writes into
+the run's env file, with an explicit precedence: a value set in the calling environment wins over
+the env file, which wins over the historical default, and "was it set by the caller" is captured
+*before* the `${X:-default}` assignments make the question unanswerable. A run that does not declare
+the new topology leaves the tick behaving exactly as it always has.
+
+**A constant that priced a different disk.** `GDISK_PREM_USD_HR` was commented as *"the
+Premium-over-StandardSSD delta on 8192 GiB"*. It was nothing of the sort: it subtracted a **4 TiB**
+Standard tier's rate from an **8 TiB** Premium one, for a disk that is **8,192 GiB**. Re-derived
+against the live retail price API for all four meters in the relevant region, the correct delta is
+the P60-over-E60 one, and the shipped constant was **overstated by a factor of 2.26**. That matters
+beyond arithmetic because the constant feeds `EST_HIGH`, which is what decides whether any ceiling
+can pass `BUDGET_APPROVAL` at all. New **`GATE 0c DISK_PRICING`** re-derives the rate from the size
+and SKU Azure actually reports for the disk, and returns **UNKNOWN — never PASS** — when it cannot
+read them, because a pricing gate that cannot see the disk has not checked anything.
+
+**The second error is why the first survived four days: the two nearly cancelled.** The plan's
+headline had been computed with an overstated disk delta against an understated machine rate, and
+two wrongs in opposite directions produce a plausible total. Both are now gone: a single costed
+plan document and `roae-private/scripts/kc_run_cost_model.py` (`--selftest` → `KC_COST_MODEL=PASS`) replace the
+two superseded tables, and **no figure in the plan is hand-typed** — which is the standing rule
+`feedback_published_numbers_need_code_and_methods` applied to the project's own internal numbers
+rather than only to published ones. The figures themselves live in the cost ledger, not here.
+
+**Pre-emptible capacity was refuted for this workload, and the refutation is about eviction, not
+price.** The plan had rested on the note *"Spot is only viable because of `--kc-layers` chunking"*.
+Chunking gives 31 independent chunks — but they are nowhere near equal. Work at layer *k* goes as
+`entries(k) × 2(31−k)` over a ladder whose measured per-layer volumes span **ten orders of
+magnitude**, from 164 B at layer 0 to 1.33 TB at layer 15. So the **largest single chunk is 16.54%
+of the pass** and the **top five are 70.65%** of it: 61.5 h at the low end of the wall band, 119.1 h
+at the high end. `--kc-scan` has **no resume inside a chunk** — the atlas is written once, at the
+end — so an eviction at hour *h* discards *h* hours. Against the recorded mean time between
+evictions of ~15 h, the probability that the largest chunk survives uninterrupted is **1.66%** at
+the low wall and **0.04%** at the high one, and the expected wall runs from **2,958 h** to
+**96,776 h** against 372–720 h on a non-pre-emptible machine — **8 to 134 times slower**, with the
+promoted disk billing through every hour of it. Chunking was never the wrong idea; it is still what
+makes a restart cheap for the other 26 chunks. **It simply does not reach the five chunks that are
+71% of the work.**
+
+Three limits are named rather than buried, because the conclusion is robust and the magnitudes are
+not. The chunk shape is a **proxy**: the exact weights need the f-ladder's per-layer entry counts,
+that disk is deallocated, and the measured g-ladder per-layer byte sizes stand in for the population
+shape. Both are middle-peaked ladders of the same family at n=31, and for the largest chunk to fall
+under a 15 h eviction mean the distribution would have to be near-uniform across 25-plus layers,
+which a ten-order-of-magnitude spread is not — so the **sign is robust and the magnitude is not
+certified**. The scheduling model is **not measured**: whether one `--kc-layers` invocation
+saturates the disk on its own decides whether the largest chunk runs for a sixth of the wall or for
+the whole of it, and the model deliberately reports the *favourable* case, so the unfavourable one
+is strictly worse and the conclusion does not wait on the answer. And the ~15 h eviction mean is a
+**D128** figure from the tick, never measured for the smaller machine; the operator declined to
+measure it, so it stays an assumption permanently and pre-emptible capacity stays off the table as a
+**closed decision rather than an open gap**. Both open measurements are carried as backlog rows.
+
+*Known now:* this one has held and hardened. The path authorised on 2026-09-11 is
+non-pre-emptible, and the scan-rate measurement authorised afterwards was ruled
+**Standard, not Spot** — explicitly overriding two standing project rules that would otherwise have
+put it on pre-emptible capacity.
+
+**`Standard_L64s_v4` was measured for the first time.** Both Microsoft quota tickets had landed
+(`Lasv4` and `Lsv4`, each 0/64 in the home region), retiring a caveat that had ridden along in the
+plans unchecked since they were written. A **thirteen-minute** pre-emptible probe, torn down and
+verified, with its teardown plan written *before* the create: **8 × 1,919,850,381,312 B =
+15,358,803,050,496 B = 15.359 TB** of local NVMe, **64 vCPU**, **503 GiB** RAM, and **3.0 GB/s per
+device with no degradation running all eight at once** — 1.388 s solo against 1.388–1.403 s under
+full load, so the parallelism costs nothing and the aggregate is **≈24 GB/s**, **48×** a P60's rated
+500 MB/s. A first pass summed all **nine** NVMe devices the kernel reports and got 15.39 TB; the
+32.2 GB *"MSFT NVMe Accelerator v1.0"* is a remote-disk accelerator, **not local storage**, and the
+figure was corrected before it reached any document.
+
+*Known now, and this is the one most changed by later work.* The measurements above stand — they
+are device readings and they have not been contradicted. What has been overtaken is the
+**consequence** drawn from them, and it was overtaken twice.
+
+First, on 2026-09-11 an as-built review compared the launcher against the authorised plan and found
+that the wall band the measurement had made possible is **unreachable by the code that exists**: the
+driver runs the layer chunks **serially**, one at a time, and `kc_h_scan_layers` is a
+**single-threaded** loop with no parallel region anywhere in the scan path. **One core of the
+sixty-four.** On the plan's own arithmetic that is thousands of hours, not tens. A parallel design
+was commissioned and delivered the same day — threads inside the scan loop over the f layer's block
+stream, with an exact order-independent reduction, demonstrated at n=9 to produce a
+**byte-identical** atlas at one, two, three and seven threads — but a design with an n=9 prototype
+is not a shipped parallel scan, and this entry does not claim one.
+
+Second, on 2026-09-12 the workload itself was characterised, and it is not what the bandwidth figure
+implies. The scan issues **~0.2–0.5 MB variable-length random reads against large files, two per
+cache miss**, at a measured **8.32 block accesses per logical lookup** — and every miss is followed
+by a zlib inflate that costs roughly **35× more than the read itself**. The job is **CPU-bound on
+decompression, not bandwidth-bound**, so 24 GB/s was never going to be the binding constraint. The
+same re-examination revised one of the day's own retractions in the other direction: the 503 GiB of
+RAM had been written off on 2026-09-09 because the block cache evicts by linear scan over every
+slot, making a larger cache *more* expensive per miss — the parallel design recovers it with
+per-thread caches, without rewriting the eviction. **The honest summary is that the machine is as
+fast as measured and the reasons to want it are different reasons than the ones recorded on the
+day.** No scan has run.
+
+**An infrastructure day, of the kind this file usually skips and should not.** A long-deallocated
+enumeration VM was **resized in place** at the operator's request, from a 96-core size to a 16-core
+one. `az vm resize` on a *deallocated* VM is a metadata operation — same VM, same OS disk, same
+identity, nothing moved — and the exposure it removes is not the run's cost but the cost of
+*forgetting*: an accidental unattended month at the old size is **six times** what it is at the new
+one, and that single machine was **68% of the entire fleet's** runaway exposure. Priority could not
+be changed in the same way — Azure fixes pre-emptible-versus-regular at creation, and changing it
+needs a delete and recreate — which is moot here, since the preceding section is the argument that
+regular is the correct priority for this work anyway.
+
+Separately, an orphan sweep found a **resource-count mismatch** — nine VMs against ten NICs, ten
+public IPs and ten NSGs — which is what surfaced it: a deleted VM had left a NIC, a public IP, an
+NSG and an unattached OS disk behind, all still billing. Deleted in dependency order, and the
+evidence that machine had produced was confirmed already committed and tracked **before** anything
+was removed. Two things are worth keeping from it. **The public IP is the resource that
+`--os-disk-delete-option Delete` and `--nic-delete-option Delete` do not cover** — this is the
+second time the same leak has been found, and the first time it was found the cleanup was partial.
+And `az resource list` went on returning the deleted disk **for minutes** after `az disk show`
+returned NotFound: two APIs, two answers, the index one lagging. **Verify a deletion with the
+resource-specific command, never the index.**
+
+The sweep also broke a gate, in the instructive direction. A gate that copied evidence *from a live
+host* could no longer pass once that host was deleted, and it reported **"the evidence-copy
+mechanism is broken"** when the truth was **"the host is gone"** — a gate whose green state had no
+path to existing, crying wolf about data that was preserved the whole time. It was rebuilt
+stronger rather than weaker: the positive case never needed a VM at all and now runs against a local
+fixture through an injectable transport, deterministic and runnable anywhere; the negative case
+still goes through a **real** `scp` to an unroutable address, so the transport is not stubbed out; a
+leg was added that the old gate lacked, refusing a **zero-byte** ledger, without which a fetch that
+created an empty file would have satisfied "it landed" and authorised a teardown; and a configured
+host that cannot be reached is **ERROR, never FAIL**.
+
+Measured after the sweep, a standing infrastructure finding became **false**: both home regions had
+been recorded as having their entire pre-emptible core allowance pinned by idle deallocated
+machines, and neither is now. That is recorded as a state change, not as an opportunity — the
+section above closes the door on pre-emptible capacity for this run on eviction grounds, not on
+availability grounds, and an unblocked quota does not reopen a decision that was made on other
+evidence.
+
+**What did not move.** No canonical sha, no record count, no archive, no theorem, and no published
+claim about the sequence was changed, added or withdrawn by anything in this entry. The work
+narrated here is supervision, pricing, machine measurement and cleanup; none of it touches the
+enumeration, and none of it is a result. `solve.c` **was** edited on 2026-09-09, by a separate
+lane and for a separate finding — the 2026-09-09 entry's *"`solve.c` was not edited"* is scoped to
+the `--kc-extremal` review's findings, which were recorded rather than fixed, and it should not be
+read as a statement about the whole day. Nothing in this entry is a launch approval, and nothing in
+it says the program is ready to launch: the scan has not run, and the standing requirement that the
+operator discuss and re-review before any launch is unchanged by every green gate described above.
+
+<!-- ============ ENTRY ENDS — paste to here ============ -->
+
+---
+
+# PRIVATE APPENDIX — **NOT PART OF THE ENTRY. DO NOT PASTE.**
 
 ## 2026-09-14 — the run that could not finish, and the check that cost seconds instead of days
 
@@ -8255,3 +9188,259 @@ re-freeze that design and re-run it is an operator decision, and it is not queue
 probability, S(k) value, per-boundary gain or published verdict. Three endpoints were renamed, one gain was
 re-attributed to the boundary that earned it, one conditioning set was named correctly, and one instrument
 was described honestly.
+
+## 2026-09-20 — an ETA wrong by sixteen hours, and the instrument that had been right all along
+
+**The merge's completion time was misreported all evening, by about sixteen hours.** "Atlas
+~23:31–23:33Z" was repeated across roughly twenty samples. The corrected figure was ~15:30Z the
+following day, with a defensible bracket of 12–19 h. The number was load-bearing — the campaign
+completion sequence, the generation pass, the g-ladder publication and the teardown gate all
+sequenced off it — so the retraction was written up rather than quietly superseded.
+
+**Two independent errors produced it, and both were errors of instrument choice.** First, progress
+was measured as `pos` on the one layer file descriptor that was advancing, against that layer's
+size. `pos == size` does not mean "fully read": `pos` also advances on `lseek`, and this reader
+seeks to a per-layer index. Nearly every layer showed `pos == size` while `read_bytes` stood at
+9.5 TB against a ~15 TB nominal total — a flat contradiction that was explained away instead of
+treated as evidence. Second, a single named layer was probed and its empty result read as
+completion: when `g_layer_18` reached EOF the read phase was announced finished, then announced to
+have moved to the f ladder. Both announcements were wrong. A census over *all* descriptors, counting
+how many have `pos != size`, is the only sound form of that question. `read_bytes` was the honest
+instrument throughout and was the one not being read.
+
+**What the merge was actually doing, once someone looked at the source instead of the telemetry.**
+`--kc-scan-merge` was in leg 3 of five (`solve.c:31072`, *"ladder-bytes binding, RE-CHECKED here"*).
+For every transition layer `k` it recomputes `f1c5_layer_sha_hex` on f layer `k` and on g layer
+`k+1` — the two layers the transition pass actually reads — and requires each to equal the digest
+the chunk recorded. It exists to catch a ladder mutated between chunk runs. Each call opens one
+layer, streams its decompressed logical bytes through a single `popen("sha256sum …")`, then closes
+and unlinks: **one sha child per layer**, which is why one child died and another was born at 23:33,
+a transition that had been misread as a phase change.
+
+**The corrected model was then validated against the instrument rather than asserted.** With the
+loop at k=18, predicted cumulative read was ~9.562 TB against a measured `read_bytes` of 9.516 TB —
+**agreement to 0.5%**. That is what promoted the second estimate from a story to a model, and it is
+the step the first estimate never had.
+
+**A publication gate whose predicate could never be satisfied.** `CC_GPUBLISH`, the check that was
+to confirm the g-ladder result had reached the public repo, carried two stacked faults: it ran
+against the wrong git root *and* looked for the wrong in-repo path. Either alone would have made it
+unsatisfiable; together they made it unsatisfiable twice. It had never once been able to return
+true.
+
+**Four smaller instruments repaired the same evening**, each found by use rather than by audit: a
+freshness guard whose window was a year stale; an atlas gate-readout that failed open and now fails
+closed; a `grep -c` trap in the atlas sha-verify path, red-tested before that path ever ran; and
+health alarms that were overwriting one another so that only the last one survived to be seen. The
+g-ladder check, which had been running blind, was given a progress signal.
+
+## 2026-09-21 — a whole-space count confirmed from two directions, and a work-list that published finished work
+
+**The merge ended at 10:37:01Z and the atlas landed at 10:30:04Z, 5,978,126 bytes.** It finished
+ahead of the previous day's corrected bracket — 12–19 h from 23:45Z spans 11:45Z to 18:45Z, and the
+true answer was 10:30Z, about an hour and a quarter early. The correction was right to replace a
+sixteen-hour error, and its bracket still did not contain the outcome. Both things are recorded
+because a bracket that misses is a smaller failure than a point estimate that misses, not no
+failure.
+
+**The g-ladder identity check at n=31 returned an accepted verdict**: `GLADDER_RESULT=PASS`,
+`IDENTITIES_CHECKED=32`, `IDENTITIES_SKIPPED=0`, all three read whole-line from the pulled log
+rather than from a transcript. All three are required. `verify --check-g-ladder` once reported
+success over **zero** verified identities when an f layer was absent — a pass that proved nothing —
+and the two counters exist so that a run which checked nothing cannot read green. The count 32 is
+one identity per layer for k = 0..n at n = 31. This was the first run of the check at n=31; it had
+previously run only at n=9 and on fixtures.
+
+**The strongest line in that log was one nobody asked for.** The check reports
+`g(0) = 1097051278789181790036112071176579186688  MATCHES the f-ladder total` — and that integer is
+byte-identical to the `N_total` carried in the atlas, which was produced by a different program on a
+different pass. Two artifacts arriving at the whole-space count from opposite directions is worth
+more than either alone.
+
+**A performance claim in the staged publication was contradicted by the run it described.** The
+draft said the check is "bound by SHA-256 throughput, not by disk." The run read 11.57 TB of
+compressed layer files in 30 h 37 m 56 s — about 105 MB/s, single-threaded at ~0.96 of one core, at
+~1.5% device utilisation. SHA-256 on one modern core sustains several hundred MB/s. The clause was
+ruled **false**: the check is CPU-bound on zlib inflate plus 192-bit arithmetic, it is not
+disk-bound, and **it performs no hashing at all**. The sentence was not silently rewritten while it
+sat under an approval given for a specific text; it was ruled on, and the ruling is what changed it.
+
+**The 43.91 TB merge denominator was re-derived, and it holds to four significant figures.** Every
+ETA quoted during the merge divided by a figure that had been inherited rather than measured — and a
+rate can be stable to 0.2% across six baselines while being stable around a wrong answer. Summing
+`n_entries` from the per-layer stats sidecars at the entry width stated in source (28 B/entry,
+`solve.c:14821` and `:20205`) over f layers 0..30 and g layers 1..31 gives **43.906 TB**, against the
+recorded 43.91 — **by a route that shares no step with the original**, which derived its figure from
+compressed bytes times a decompression ratio. The ratio is no longer a load-bearing input.
+
+**On the way to that confirmation, a trap worth naming: an open file descriptor is not evidence of
+scope.** The merge holds descriptors on 96 layer files across three ladders, and a census of
+`/proc/<pid>/fd` would build a denominator about **30% too large** — then report a merge running 30%
+behind schedule when it was exactly on time. `kc_scan_merge` reads exactly two path templates,
+`f1c5_layer_%02d.bin` and `g_layer_%02d.bin`; there is no t-layer among them. The descriptor table
+describes what a process *may* touch, not what it *is* doing — the same class as `pos == size` the
+day before. The cheap discriminator is to read the source's path templates.
+
+**A work-list published twelve already-finished jobs as outstanding work.** `MITIGATION_NEXT.md`
+asserted two incompatible things eight lines apart: 100% mitigated, and twelve findings still to do.
+The tracker was right and the list was wrong. `mitigation_driver_tick.sh:78` piped a 99 KB producer
+into `grep -q` under `set -uo pipefail`; `grep -q` exits at its first match and SIGPIPEs the
+producer, the pipeline status becomes 141, and a **match reads as no match**. Measured **5
+inversions in 60** on the real subject before the fix and **0 in 60** after, with a genuinely-absent
+key correctly reported absent 20 times out of 20 — that last control is what makes the rest mean
+anything, since a test that answers "present" to everything would also score zero inversions. End to
+end, the published list collapsed from twelve entries to none.
+
+**This is the mirror of a ghost closure, and worse.** A ghost-closed row is marked done with nothing
+behind it. This was an open work-item whose work was already complete — and unlike a stale status it
+is *actionable*: the file is titled "next N unmitigated findings" and exists to be picked up. A lane
+obeying it would have redone twelve finished fixes.
+
+**The scope claim collapsed when its matches were read rather than counted.** 239 `| grep -q` sites
+exist in scripts that set `pipefail`; of those, 3 have a producer that reads a file — the only ones
+with real exposure — and **1** is live code rather than a comment. One of the two comments documents
+this same defect, already fixed there. "239 sites affected" would have been a headline published
+before its matches were read.
+
+**A guard that could not report its own verdict.** `lean_gate_redtest.sh`, invoked by a relative
+path inside a `systemd-run` unit, died with rc 127 and emitted **zero verdict tokens** — a check that
+cannot run must be loud, and this one was silent. It now resolves its own path and refuses to re-exec
+if it cannot. Three passes in each direction afterwards, and zero spurious passes across six runs.
+
+**Dead proof arms are a class, not an instance.** A census found eight across five distinct shapes,
+including proofs whose own output satisfied the proof, and closure rules that were already true when
+they were filed. Each repair was red-tested in both directions before landing.
+
+**TR-12 reached v1.6 with the n=31 atlas results, each beside the public command that reproduces
+it** — a new §12 running 12.1 through 12.9 and closing with a figure-to-token table, so that every
+figure in it can be checked by a whole-line `grep -qx` rather than by the shape of some output. It
+ships with a new `--atlas-probe` reproduction path in `solve.py` and four tests that exercise it in
+both directions: a real atlas passes, a perturbed class mass turns the probe red, a quotient-only
+atlas is refused rather than scored, and a missing atlas produces an error line instead of a
+traceback.
+
+**Four mistakes from these two days, named.**
+
+*A commit message asserted something the commit had not done.* It said the attestations had been
+pulled off the machine **and committed**; the commit changed one file. `git add` had printed an
+ignore hint and exited 0, and the exit code was trusted over the output. Corrected the same hour by
+a force-add, with the original left standing and annotated rather than amended.
+
+*Five explanations for one alarm, each abandoned under measurement.* Timeout, pipeline status,
+stderr handling, a variable, a gate-internal SIGPIPE, a temp directory — all wrong. When a detector
+was finally armed and caught a real capture, that was misread too: it was a race with a live lane
+whose gate source was three seconds old, not a defect.
+
+*A blocker was repeated as fact without being checked — and then the correction was wrong too.*
+A drafting lane reported that a "history-currency gate" would demand an entry before publication.
+That was passed on as established and four probes were spent chasing it. It was then declared a
+phantom — *"no such gate exists"* — and **that declaration was itself false.**
+`scripts/history_currency_gate.sh` exists in this repo and runs: against `origin/main` on 2026-09-22
+it reports `HISTORY_CURRENCY=FAIL`, naming 2026-09-20, 09-21 and 09-22 as unnarrated. The probes had
+searched `doc_gates.sh` for a gate *leg* by that name and, not finding one, concluded the gate did not
+exist anywhere. **Two true statements were needed and only one was reached:** `HISTORY.md` is exempt
+from `doc_gates.sh`'s staleness legs by design — that file states it plainly, *"HISTORY.md is exempt
+BY DESIGN. It is a dated narrative log … the whole point of that file is to preserve what was believed
+at the time"* — **and** a separate currency gate exists that reads `origin/main` and is consumed by a
+private cron, wired into no push path. So the operational conclusion held: a stale history is a real
+completeness gap and was never a publication blocker. The reasoning that reached it did not. Searching
+one file for a name and generalising to the repository is the same error as the absence reported from
+a search that could not have found the thing — recorded twice in these two days, in both directions.
+
+*Fourteen probes were written that could not answer the question asked of them* — among them a
+wrong-directory check whose failure was hidden by a token-only grep, an invented gate name, a
+closure probe that prompted the retraction of a correct fact and then the retraction of that
+retraction, and the identical dead `|| fallback` after a `sed`-terminated pipeline written three
+separate times, in the same session in which that exact defect had been fixed in another script and
+written up. The through-line is not carelessness about facts; it is reaching for a remembered rule
+ahead of the measurement that would settle it. The findings from these two days that held up — the
+denominator, the work-list inversion, the silent guard — all began with a falsifiable prediction and
+a test that could have failed.
+
+**What did not move.** No canonical sha, no record count, no published verdict, no reproduction
+parameter; `documentation/CANONICAL_HASHES.md` is untouched across both days. Stated precisely,
+because the diff does carry six 64-hex values and none of them is a canonical: two are reproduction
+stamp fingerprints rotating, one is the sha256 of `solve.c` itself, and the rest are digests quoted
+in prose. What did change under `reports/certificates/` is `verify_all.sh` gaining a second Lean leg
+— verification machinery, not a certificate. One whole-space count was confirmed from a second direction, one denominator
+was promoted from inherited to proved, one performance claim was ruled false before publication
+rather than after, and one work-list stopped advertising completed work.
+
+## 2026-09-22 — the first full-31 run, and a published law that did not survive its own conditioning
+
+**The n=31 reproduction battery finished at 06:43Z: 73 rows, 29 skipped, 11 minted, and two
+failures.** Every other row passed, skipped or was recorded pending. The two failures are adjacent
+Group C rows, `c_consumer` and `c_consumer_verdicts`, and they are one fault propagated rather than
+two. The row that took 18½ hours completed. The driver exited and left nothing running.
+
+**The failure is a measurement, and it answers a question that had been open and explicitly
+provisional.** The atlas counts over `SUPER` — C1, C2, C4 and C5 applied, **C3 not applied**. The
+published references it is checked against are fractions of C3-passing C1–C5 mass. Those are
+different populations, and the code that performs the check has said so in its own output all along:
+*"Agreement corroborates only if the law is C3-insensitive at tol, which is UNMEASURED until the
+first full-31 atlas."* The note beside it set the disposition in advance — *"the first full-31 atlas
+decides it: compare its SUPER fractions against the references and record the gap either way"* — and
+the project's own pre-registration of this run stated that **a failure here would be information
+about the data**. An external reviewer who raised the population mismatch had filed it as
+*provisional* precisely because he could not establish the real full-31 SUPER fractions.
+
+They are now established. **The law is not C3-insensitive.** The gap is about twelve times the
+tolerance.
+
+**The shape of the gap is more interesting than its size.** For the alternating anchor pair, all
+three measured cells rescale by the *same* factor to three significant figures — slot 32 from 0.0636
+to a published 0.0785, slot 2 from 0.0424 to 0.0520, and their sum from 0.1059 to 0.1305, each a
+ratio of about 1.23 **in the three cells that were measured**. ⚠ *This draft originally read "C3-conditioning does not perturb that histogram; it rescales it, uniformly across both circle-adjacent slots" — and that generalisation was measured FALSE the same week, before this entry was ever published. Over all 31 slots the published/atlas ratio runs from 0.872 (slot 17) to 1.234 (slot 32), and since both histograms sum to exactly 1 a uniform rescaling is arithmetically impossible. What happens is a RESHAPE: the two circle-adjacent slots are enriched about ×1.23 and the interior is depleted to pay for it. The three-cell arithmetic above is correct and unchanged; only the generalisation was wrong. Corrected here BEFORE publication rather than annotated after — `HISTORY.md` is append-only, so a false claim landed in it could never be reworded, only apologised for. See TR-12 v1.8, CX-63.* For the wrap classes the movement is directional instead: mass
+flows *into* d3 (0.6271 against a published 0.652) and *out of* d1 and d5 (0.1884 against 0.175, and
+0.1845 against 0.174). The atlas masses sum to 1.0000 exactly, all sixteen eligible closers are
+realised, the ladder carries its full 31 layers, and the atlas's internal gate count of failures is
+zero. Nothing about the artifact is malformed; the disagreement is real and it is with a different
+population, which is what nobody had been able to measure before.
+
+**No published figure is wrong.** The references are C1–C5 quantities and remain C1–C5 quantities.
+What changed is that the relationship between them and the unconditioned space is no longer an
+assumption.
+
+**The failure was only visible because a fail-open had been closed eighteen days earlier.** Until
+2026-09-04 this code path ended in an unconditional success exit, so a genuine failure returned a
+zero status. Had that not been repaired, **this run — the first one that could ever produce these
+numbers — would have recorded the wrong values as the expected ones** and sealed them into a golden
+file. The repair was made before the run that needed it, which is the only order in which such a
+repair is worth anything. The red test that accompanied it pins the reference values to the published
+figures, so a red fixture cannot be turned green by editing what it expects.
+
+**The standing instruction, recorded so it is not quietly undone:** do not widen the tolerance, do not
+re-gold these two cells, and do not restate published figures against the unconditioned space. The
+gap is the result. What remains open is a question of verdict *grammar* — whether a population
+disagreement should read as a plain failure, as it does today, or carry a distinct shape that a
+reader can tell apart from a broken instrument. That is not a decision to take on the strength of one
+run, and any such change must remain unable to hide a real fault.
+
+**The seven-day narrative hole from 09-13 to 09-18 was closed.** 694 lines and seven dated entries
+were **inserted before** the first 09-19 heading rather than appended after it — five separate drafts
+had each carried the instruction "paste after the last existing heading", which in a chronological
+append-only file would have filed six days out of order. Measured rather than asserted: nothing
+removed, 695 lines added, 36 dated headings becoming 43. Six defects in those drafts were caught
+before publication, four by reading and two by the document gates.
+
+**A correction that had to be retracted, and the instrument that settled it.** Working on that hole,
+the claim was advanced that `HISTORY.md` sits outside the reproduction-fingerprint closure — and a
+prior backlog row saying otherwise was marked as an error. The evidence for the new claim was a
+command-line flag that does not exist, which returned an empty result that was read as a negative
+finding. A differential check against the parent commit and against `origin/main` showed the opposite.
+**The original row was right and the correction was wrong.** The lesson is narrow and expensive: an
+absence returned by a tool is only evidence once the tool has been shown capable of producing a
+presence.
+
+**Three findings were filed.** A retooling of the campaign's most expensive row for parallelism — a
+launcher, not an engine change, needing no alteration to the C source. A completion signal that could
+never fire, because the predicate that declares the campaign finished tests for a local file that a
+silent size cap prevents from ever arriving; measured across 2,177 consecutive checks, it had
+announced completion zero times, so a machine would have idled past the end of its work with nothing
+to say so. And the population finding above.
+
+**What did not move.** No canonical sha, no record count, no reproduction parameter, no published
+verdict; the canonical hash registry, the certificates directory, the C source and the enumeration
+leaderboard are untouched. One open question was closed in the negative, one narrative hole was
+closed, one correction was itself corrected, and one campaign-completion signal was shown to have
+never worked.

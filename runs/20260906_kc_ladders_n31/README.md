@@ -1,8 +1,19 @@
 # Knowledge Compiler ladders, n=31 — the published per-layer SHA registries
 
-**This directory publishes fingerprints, not data.** The f, g and t ladders are 15.05 TB; they are
-not distributed here and nothing in TR-12 is conditional on obtaining them. What ships is the
-*recipe plus a fingerprint* — rebuild by TR-12's Tier A, then check your bytes against these files.
+**This directory publishes fingerprints for the ladders, and — since 2026-09-22 — the atlas itself.**
+The f, g and t ladders are 15.05 TB; they are **not** distributed here and nothing in TR-12 is
+conditional on obtaining them. What ships for *those* is the *recipe plus a fingerprint* — rebuild
+by TR-12's Tier A, then check your bytes against these files.
+
+**`atlas_n31.json` is different, and is the one piece of DATA here.** It is 5,978,126 bytes,
+sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558` — the digest TR-12 §12
+pins — and it is the *input* every figure in §12 and every token from
+`python3 solve.py --atlas-probe` is computed from. It is published because §12's corrections of
+2026-09-22 (CX-60, CX-72) turned on figures a reader could not recompute, and the cheapest honest
+answer to "a figure a reader cannot recompute is asserted, not published" is to ship the 6 MB input
+rather than to soften the claim. Until that date this file's digest was distributed and the file
+was not; the earlier wording of this README said so, and is corrected here rather than silently
+replaced.
 
 ## Two registries, and they answer different questions
 
