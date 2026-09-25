@@ -140,15 +140,29 @@ class TestTr8DofSampler(unittest.TestCase):
 
     def test_h_b_violation_distribution_matches_closed_form(self):
         # The strong form of H-b: the whole violation-count distribution, not just its tail.
-        # This is what actually proves the pool is the same null the exact DP models.
+        # ⚠ Q-700 (2026-09-25, Codex V3A-136#3): this comment said the check "actually proves the
+        # pool is the same null the exact DP models". It cannot: rc4_violations keys each class by
+        # min(h, rev(h)), so the count is blind to the 28 reversal pairs' orientation coins
+        # (executed: flipping all 28 in 20,000 draws changed 0 counts). A sampler that froze those
+        # coins would pass. The orientation marginal is therefore checked below, on the same draws.
         import random
         rng = random.Random(7)
         pairs = solve.king_wen_pairs()
         n = 20000
         obs = {}
+        rev = [int(format(h, '06b')[::-1], 2) for h in range(64)]
+        fwd = {a: 0 for a, b in pairs if b == rev[a] and a != b}   # the 28 reversal pairs
         for _ in range(n):
-            v = solve.rc4_violations(solve.pair_null_draw(rng, pairs))[0]
+            s = solve.pair_null_draw(rng, pairs)
+            v = solve.rc4_violations(s)[0]
             obs[v] = obs.get(v, 0) + 1
+            for i in range(0, 64, 2):
+                if s[i] in fwd:
+                    fwd[s[i]] += 1
+        self.assertEqual(len(fwd), 28)
+        # Each coin is fair: count ~ Bin(n, 1/2), sd = sqrt(n)/2; 5 sd over 28 coins.
+        for a, c in fwd.items():
+            self.assertLess(abs(c - n / 2.0), 5.0 * (n ** 0.5) / 2.0, "pair %d: %d of %d" % (a, c, n))
         worst = 0.0
         checked = 0
         for v, p in solve.pair_null_gender_distribution_exact().items():
@@ -1057,11 +1071,13 @@ class TestAtlasRatioPrecision(unittest.TestCase):
 
     # (numerator, denominator) pairs.  The n=31-scale entry is the project's own
     # 1.3287e38 / 1.097051e39 conditional, at the magnitude it is actually published at.
+    # ⚠ Q-700 (2026-09-25, Codex V3A-136#4): the numerator was a 40-digit literal (1.3287e39), so
+    # this entry tested 1.2112, not the published 0.12112. It is spelled by exponent now.
     CASES = [
         (26112, 2 ** 20),
         (1234567, 26112),
-        (1328700000000000000000000000000000000000,
-         1097051000000000000000000000000000000000),
+        (13287 * 10 ** 34,
+         1097051 * 10 ** 33),
         (2 ** 130 + 1, 3 * (2 ** 130)),
         (1, 3),
         (7, 11),
@@ -7627,8 +7643,10 @@ class TestAtlasProbe(unittest.TestCase):
     def test_the_committed_n31_atlas_passes_the_probe(self):
         """Q-734: `solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` is TR-12
         §12's published reproduction command, and nothing ran it on the published atlas.  No
-        build: the atlas is a tracked file and the probe reads only it (~0.5 s measured on the
-        worker, 2026-09-24).  The bytes are first tied to the digest TR-12 publishes for them,
+        build: the atlas is a tracked file and the probe reads only it.  It took ~0.5 s on the
+        worker on 2026-09-24; with Q-738's every-layer G48 invariant it takes 5.3-5.5 s on the
+        D16 worker and 7.0 s on the 2-core orchestrator (measured 2026-09-25, Q-737, which also
+        runs it at push time through scripts/atlas_n31_probe_gate.sh).  The bytes are first tied to the digest TR-12 publishes for them,
         read from the report rather than restated here, so a PASS is a PASS on the published
         atlas and on nothing else."""
         import hashlib, os, re
@@ -9097,6 +9115,99 @@ class TestPreregZeroHitStops(unittest.TestCase):
         self.assertEqual((g["hits"], g["status"]), (1, "FAIL"))
         g = roae._ph_grade(True, 1 / self.N, self.N, 9.0)
         self.assertEqual(g["status"], "PASS")
+
+
+class TestCheckArrangementLabel(unittest.TestCase):
+    """Q-795 (2026-09-25): `solve --check-arrangement ... --label NAME`.
+
+    Its own class at the end of the file, so no existing tests.py line moves (solve.py and the
+    documentation cite tests.py by line). Built like TestSolveCliHardeningTokens: -O1 from the
+    tracked solve.c, ROAE_TESTS_SOLVE_SRC overrides the source for red runs only, and a build
+    failure is a FAILURE, never a skip."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q795_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q795")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, args):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        return subprocess.run([self.sbin] + args, capture_output=True, text=True,
+                              cwd=self.tmp, timeout=600)
+
+    # ---- Q-795 (2026-09-25) -- --check-arrangement had no --label: every explicit certificate read
+    # "explicit", so tr12_repro.sh's a2_q7_ranks could only name a witness by its certificate FILENAME.
+    # Pre-fix: --label was silently ignored (rc 0, "label": "explicit"), so all three are RED on the
+    # pre-fix binary. Test 3's first half (no --label -> "explicit" / "KW") is the control and holds
+    # on both binaries; its second half (--label changes the label line and nothing else) is red.
+    def _kw_explicit(self):
+        cert = os.path.join(self.tmp, "q795_kw.json")
+        r = self._run(["--check-arrangement", "KW", "--cert-out", cert])
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        with open(cert) as fh:
+            m = re.search(r'"arrangement": "([0-9,]+)"', fh.read())
+        self.assertIsNotNone(m, "the KW certificate carries no arrangement")
+        return m.group(1)
+
+    def _cert_lines(self, path):
+        with open(path) as fh:
+            return fh.read().splitlines()
+
+    def test_check_arrangement_label_lands_in_the_certificate(self):
+        seq = self._kw_explicit()
+        cert = os.path.join(self.tmp, "q795_labelled.json")
+        r = self._run(["--check-arrangement", seq, "--cert-out", cert, "--label", "moore-strict"])
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        lines = self._cert_lines(cert)
+        self.assertIn('  "label": "moore-strict",', lines)
+        self.assertNotIn('  "label": "explicit",', lines)
+        # the label is free text to the re-verifier: a labelled certificate still verifies
+        v = self._run(["--verify-certificate", cert])
+        self.assertEqual(v.returncode, 0, "a labelled certificate must re-verify: " + v.stdout[-500:])
+        # 64 characters is the cap, inclusive
+        r64 = self._run(["--check-arrangement", seq, "--cert-out", cert, "--label", "a" * 64])
+        self.assertEqual(r64.returncode, 0, r64.stderr[-500:])
+        self.assertIn('  "label": "%s",' % ("a" * 64), self._cert_lines(cert))
+
+    def test_check_arrangement_refuses_a_bad_label(self):
+        seq = self._kw_explicit()
+        for bad in (["--label", ""], ["--label", "a b"], ["--label", 'x"y'], ["--label", "-lead"],
+                    ["--label", ".lead"], ["--label", "a" * 65], ["--label", "a/b"], ["--label"]):
+            cert = os.path.join(self.tmp, "q795_bad.json")
+            if os.path.exists(cert):
+                os.remove(cert)
+            r = self._run(["--check-arrangement", seq, "--cert-out", cert] + bad)
+            self.assertEqual(r.returncode, 2, "--label %r must be refused with rc 2, got %d"
+                             % (bad[1:], r.returncode))
+            self.assertIn("--label must be 1..64 chars", r.stderr)
+            self.assertFalse(os.path.exists(cert), "a refused --label must not leave a certificate")
+
+    def test_check_arrangement_without_label_is_unchanged(self):
+        seq = self._kw_explicit()
+        a = os.path.join(self.tmp, "q795_default.json")
+        b = os.path.join(self.tmp, "q795_named.json")
+        ra = self._run(["--check-arrangement", seq, "--cert-out", a])
+        self.assertEqual(ra.returncode, 0, ra.stderr[-500:])
+        self.assertIn('  "label": "explicit",', self._cert_lines(a))
+        k = os.path.join(self.tmp, "q795_kwdefault.json")
+        self._run(["--check-arrangement", "KW", "--cert-out", k])
+        self.assertIn('  "label": "KW",', self._cert_lines(k))
+        # the ONLY difference --label makes, in the certificate and on stdout, is the label line
+        rb = self._run(["--check-arrangement", seq, "--cert-out", b, "--label", "q7-probe"])
+        self.assertEqual(rb.stdout.replace(b, a), ra.stdout)
+        diff = [(x, y) for x, y in zip(self._cert_lines(a), self._cert_lines(b)) if x != y]
+        self.assertEqual(diff, [('  "label": "explicit",', '  "label": "q7-probe",')])
+        self.assertEqual(len(self._cert_lines(a)), len(self._cert_lines(b)))
 
 
 if __name__ == "__main__":

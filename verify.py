@@ -2315,9 +2315,9 @@ _C5_RUNGS = [
 # supervisor and an OOM there would kill a 9-day campaign): 2026-08-10, n=16 packed-DP
 # self-gate ok, B0 re-derived (0,7,1,10,0) MATCH, count 3,211,799,156,883,456 EXACT,
 # 157 s wall / 953 MB peak RSS.  Only then was the value wired in.
-# n=18's published B0 column was already gated before this.  n=24/25/27/28 are NOT reachable by this plain
-# DP on any single-node RAM budget (peak live states ~4e9 at n=24, ~100 GB per
-# layer) — they remain covered by the engine's in-RAM/out-of-core concordance
+# n=18's published B0 column was already gated before this.  n=24/25/27/28 are NOT supported by this plain
+# DP (it has no rung past 19) (ESTIMATED peak live states ~4e9 at n=24, ~100 GB per layer; not
+# measured, and not a bound on every single node) — they remain covered by the engine's in-RAM/out-of-core concordance
 # and verify.c's IE engine.
 _C5_RUNGS_LARGE = {
     18: ("6.0,6.1,6.2",     (0, 7, 1, 10, 0), 3211799156883456),
@@ -2385,8 +2385,8 @@ def recount_rung(n):
             print(f"n={n} is covered in-process by --recount; use that.")
         else:
             print(f"--recount-rung: n={n} not supported. Supported: 18, 19.")
-            print("n=24/25/27/28 exceed any single-node RAM budget for the plain")
-            print("DP (peak live states ~4e9 at n=24, ~100 GB/layer); they remain")
+            print("n=24/25/27/28 are not supported by the plain DP (no rung past 19)")
+            print("(estimated peak live states ~4e9 at n=24, ~100 GB/layer); they remain")
             print("covered by the engine's in-RAM/out-of-core concordance and")
             print("verify.c's IE engine (--ie-spec/--ie-expect).")
         return 2

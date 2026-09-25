@@ -189,7 +189,7 @@ CASES = [
   (True,  './solve 0 128',                             'bare with threads'),
   (True,  'SOLVE_THREADS=128 ./solve 0 128',           'ISOLATING CASE (SOLVE_C_CLI.md:519)'),
   (True,  'SOLVE_RESUME_HISTORY="2026-05-14T18:23:00Z=spot-eviction-at-90%" ./solve 0 64',
-                                                       'ISOLATING CASE (DEVELOPMENT.md:914): the'
+                                                       'ISOLATING CASE (DEVELOPMENT.md:916): the'
                                                        ' assignment value holds an = and must be'
                                                        ' stripped quote-aware'),
   (True,  'SOLVE_A="x y z" ./solve 0',                 'assignment value with SPACES'),

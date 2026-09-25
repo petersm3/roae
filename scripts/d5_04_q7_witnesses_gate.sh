@@ -16,7 +16,8 @@
 #           `row_end TR12_Q7_WITNESSES`; no row_skip records TR12_Q7_WITNESSES as PENDING:kissat
 #           or PASS (the Q-714 dependence of the skip pin on `command -v kissat` is gone)
 #   leg 2   GREEN: the extracted row, on the committed witnesses, with NO kissat on PATH -> rc 0,
-#           Q7WIT_OK for both targets, a witness_sha256 line equal to sha256sum of each file
+#           Q7WIT_OK for both targets, a witness_sha256 line equal to sha256sum of each file, and
+#           (Q-795) each q7_<target>.json it wrote carries "label": "<target>" from --label
 #   leg 3   the same run with a stub kissat FIRST on PATH -> byte-identical row output (Q-714)
 #   leg 4   RED, planted bad witness: two hexagrams from different pairs swapped (C1 broken) -> FAIL,
 #           named ("does not say IN SUPER")
@@ -150,7 +151,14 @@ for t in moore-strict grand-strict; do
   printf '%s\n' "$out" | grep -qx "witness_sha256	$want" || fail "leg 2: the row did not print the sha256 of $t.txt ($want)"
 done
 printf '%s\n' "$out" | grep -q 'Q7WIT_FAIL' && fail "leg 2: a Q7WIT_FAIL line on a green run"
-echo "  [gate] leg 2: GREEN -- both pinned witnesses verify solver-free; sha256 lines match the files"
+# Q-795: the row passes --label <target>, so each certificate it writes is named by its target, and
+# a2_q7_ranks keys on that label. Exactly one run dir exists at this point (leg 2's).
+for t in moore-strict grand-strict; do
+  set -- "$WORK"/run.*/art/"q7_$t.json"
+  [ "$#" -eq 1 ] && [ -f "$1" ] || fail "leg 2: expected one q7_$t.json from the green run, found $# ($*)"
+  grep -qx "  \"label\": \"$t\"," "$1" 2>/dev/null || fail "leg 2: q7_$t.json does not carry \"label\": \"$t\" -- a2_q7_ranks would fall back to the filename"
+done
+echo "  [gate] leg 2: GREEN -- both pinned witnesses verify solver-free; sha256 lines match the files; certificates carry their target label"
 
 # ---- leg 3: byte-identical with a stub solver first on PATH --------------------------------------
 out2=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$EVID" 0 "$STUB:$BASEPATH"); rc=$?

@@ -29,8 +29,12 @@
 #
 # ALLOWLIST (scripts/failopen_closure_allow.tsv, TAB-separated: name  class  reason). Classes:
 #   self-contained  the OK token is a computed result with no tree input (a Monte-Carlo null,
-#                   a fixture-only red-test) — PASS legitimately does not depend on the tree
-#   timeout         the script cannot finish inside --timeout in an empty tree (say why)
+#                   a fixture-only red-test) — PASS legitimately does not depend on the tree.
+#                   Covers BOTH outcomes of the run: finished with its token (OPEN) or killed
+#                   by --timeout (TIMEOUT). Which one happens is a fact about the HOST, not the
+#                   tree (Q-705, below), so the exemption must not depend on it.
+#   timeout         the script cannot finish inside --timeout in an empty tree (say why).
+#                   Covers TIMEOUT only: if it finishes and prints an OK token it is OPEN.
 #   rc0-by-design   exits 0 with an explicit non-OK token that a consumer must grep
 # A row that names a script which is NOT open here exempts nothing and is a FAIL (stale
 # exemptions rot — GATE 4b LEG 5's rule). A row naming a nonexistent script is an ERROR.
@@ -45,6 +49,14 @@
 # open=2 rc0=1"), so the `grep -qx` this header promises could not match either of them, and the
 # ERROR forms ended in a bare cause word. Every one of those numbers was ALREADY on its own
 # FAILOPEN_CLOSURE_* line; the causes moved to FAILOPEN_CLOSURE_ERROR. Nothing was dropped.
+#
+# 🔴 Q-705 (2026-09-25): THE VERDICT DEPENDED ON HOST SPEED. c2c3_joint_null.py was allowlisted
+# as `timeout`, but whether it finishes inside 60 s depends on the engine it finds and on the host,
+# not on the tree. MEASURED on the D16 worker at 5c296837 + batches 1-11: numpy engine 15.9 s
+# (three runs 15.70-15.86 s, 15.87 s in the skeleton) -> OPEN, so FAILOPEN_CLOSURE=FAIL on a
+# pristine tree; C2C3_FORCE_STDLIB=1 -> killed at 60 s (rc 124) -> TIMEOUT. It is now
+# `self-contained`, and the TIMEOUT arm honours that class as well as `timeout`. A `timeout` row
+# still does NOT cover a finished run, and `--selftest` plants both cases.
 #
 # usage: failopen_closure_gate.sh [--tree DIR] [--allow FILE] [--timeout SECS] [--selftest]
 set -uo pipefail
@@ -148,7 +160,9 @@ gate(){
       UNRUN)   unrun=$((unrun+1)); printf '  [unrun ] %-44s not executed (touches az/ssh/sudo/git-commit/…); grade by reading\n' "$name" ;;
       ABSPATH) unrun=$((unrun+1)); printf '  [abspth] %-44s not executed: hard-codes an absolute repo/mount path, so a skeleton cannot isolate its inputs; grade by reading\n' "$name" ;;
       TIMEOUT) run=$((run+1)); tmo=$((tmo+1))
-               if [ "${ALLOWC[$name]:-}" = timeout ]; then printf '  [allow ] %-44s timeout — %s\n' "$name" "${ALLOWR[$name]}"; allowed=$((allowed+1))
+               # Q-705: a self-contained script's token does not depend on the tree whether or not it
+               # finishes in time, so its TIMEOUT is exempt too. Any other TIMEOUT stays an ERROR.
+               if [ "${ALLOWC[$name]:-}" = timeout ] || [ "${ALLOWC[$name]:-}" = self-contained ]; then printf '  [allow ] %-44s %s, timed out — %s\n' "$name" "${ALLOWC[$name]}" "${ALLOWR[$name]}"; allowed=$((allowed+1))
                else printf '  [ERROR ] %-44s did not finish in %ss with NO inputs — ungradable, and suspicious\n' "$name" "$TO"; err=1; fi ;;
       OPEN)    run=$((run+1))
                if [ "${ALLOWC[$name]:-}" = self-contained ]; then printf '  [allow ] %-44s %s (self-contained: %s)\n' "$name" "$tok" "${ALLOWR[$name]}"; allowed=$((allowed+1))
@@ -247,6 +261,22 @@ if [ "$SELFTEST" -eq 1 ]; then
   out=$(TO=2 gate "$T" "$T/allow"); rc=$?; # TO is read by run_one from the global
   chk "a script that cannot finish with no inputs -> ERROR (ungradable)" '[ "$rc" -eq 2 ] && grep -q "did not finish" <<<"$out"'
   rm -f "$T/scripts/plant_slow.sh"
+  # Q-705: the SAME self-contained script must be allowed whichever way the host decides. Before
+  # the fix, a `self-contained` row that timed out was an ERROR, and a `timeout` row that finished
+  # was OPEN -- so no single class was green on both a fast host and a slow one.
+  mk plant_sc_slow.sh 'sleep 30; echo "PLANT_SC_SLOW=OK"'
+  printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\nplant_sc_slow.sh\tself-contained\tfixture: a no-input computation that outlives the timeout\n' > "$T/allow"
+  out=$(TO=2 gate "$T" "$T/allow"); rc=$?
+  chk "Q-705: a self-contained script that TIMES OUT is allowed (rc 0)" '[ "$rc" -eq 0 ] && grep -qx "FAILOPEN_CLOSURE=OK" <<<"$out" && grep -qE "^\s*\[allow \] +plant_sc_slow.sh +self-contained, timed out" <<<"$out"'
+  rm -f "$T/scripts/plant_sc_slow.sh"
+  # ...and the `timeout` class stays narrow: a script allowlisted as `timeout` that FINISHES and
+  # prints an OK token is OPEN. This keeps the gate able to fail on the class it was built for.
+  mk plant_to_fast.sh 'echo "PLANT_TO_FAST=OK"; exit 0'
+  printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\nplant_to_fast.sh\ttimeout\tfixture: claims to time out but finishes at once\n' > "$T/allow"
+  out=$(gate "$T" "$T/allow"); rc=$?
+  chk "Q-705: a timeout-class script that FINISHES with an OK token is still OPEN (rc 1)" '[ "$rc" -eq 1 ] && grep -qx "FAILOPEN_CLOSURE=FAIL" <<<"$out" && grep -qE "^\s*\[OPEN  \] +plant_to_fast.sh" <<<"$out"'
+  rm -f "$T/scripts/plant_to_fast.sh"
+  printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\n' > "$T/allow"
   T2=$(mktemp -d); mkdir -p "$T2/scripts"; printf 'echo A=OK\n' > "$T2/scripts/a.sh"; printf 'echo B=ERROR; exit 2\n' > "$T2/scripts/b.sh"
   out=$(gate "$T2" ""); rc=$?; rm -rf "$T2"
   chk "population floor: 2 scripts -> ERROR"        '[ "$rc" -eq 2 ] && grep -q "population collapsed" <<<"$out"'

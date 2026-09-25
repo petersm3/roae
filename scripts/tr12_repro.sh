@@ -1033,7 +1033,7 @@ q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON  -> the solver-free property c
     local t="$1" seq="$2" cert="$3" frc=0 nv kwarr
     nv=$(printf '%s\n' "$seq" | tr ',' '\n' | grep -c .)
     if [ "$nv" -ne 64 ]; then echo "Q7WIT_FAIL	$t: the sequence has $nv values, not 64"; return 1; fi
-    "$SOLVE" --check-arrangement "$seq" --cert-out "$cert" > "$WORK/q7wit_$t.out" 2>&1 < /dev/null
+    "$SOLVE" --check-arrangement "$seq" --cert-out "$cert" --label "$t" > "$WORK/q7wit_$t.out" 2>&1 < /dev/null   # Q-795: label = target; a2_q7_ranks keys on it
     echo "### $t checker_rc=$?"
     cat "$WORK/q7wit_$t.out"
     grep -q 'verdict SUPER (C1&C2&C4&C5):     IN' "$WORK/q7wit_$t.out" || { echo "Q7WIT_FAIL	$t: --check-arrangement does not say IN SUPER"; frc=1; }
@@ -2590,7 +2590,7 @@ if [ "$N_PAIRS" -ge 31 ]; then
       for j in "$ARTDIR"/q7_*.json; do
           [ -f "$j" ] || continue
           v=$(sed -n 's/.*"verdict_super": "\([^"]*\)".*/\1/p' "$j" | head -1)
-          lab=$(sed -n 's/.*"label": "\([^"]*\)".*/\1/p' "$j" | head -1)
+          lab=$(sed -n 's/.*"label": "\([^"]*\)".*/\1/p' "$j" | head -1); id=${lab:-explicit}; [ "$id" = explicit ] && id=$(basename "$j" .json)   # Q-795: a witness is named by its label; the filename is only the fallback for a pre---label ("explicit") certificate
           arr=$(sed -n 's/.*"arrangement": "\([^"]*\)".*/\1/p' "$j" | head -1)
           echo "### $(basename "$j") label=$lab verdict_super=$v"
           if [ "$v" = "IN" ] && [ -n "$arr" ]; then
@@ -2637,7 +2637,7 @@ if [ "$N_PAIRS" -ge 31 ]; then
                   # established -- so a 0 here means the wrong walk was ranked, not a witness.
                   echo "Q7RANKS_FAIL	$(basename "$j"): rank3=0 for a non-KW input -- the walk ranked is the anchor walk, so this is not a witness"; erc=1
               elif [ "$lab" != "KW" ]; then
-                  echo "witness_serial	$(basename "$j" .json)	rank3=$r3	(rank_O3 in the KW-derived coordinate; D5-14)"
+                  echo "witness_serial	$id	rank3=$r3	(rank_O3 in the KW-derived coordinate; D5-14)"
               fi
               if [ "$lab" = "KW" ] && [ "$w" != "$ANCHOR" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): the walk ranked here is not \$ANCHOR -- two derivations of King Wen's walk disagree"; erc=1

@@ -1059,7 +1059,7 @@ PYEOF
     # grep -q exits at the first match, the producer dies of SIGPIPE, and under `set -o pipefail`
     # the pipeline status is 141 -- so a MATCH would read as NO MATCH and this leg would fail open
     # a second time, in a second way.
-    if printf '%s\n' "$_ua" | grep -q '^ERROR'; then
+    if grep -q '^ERROR' <<<"$_ua"; then
       echo "  [FAIL] GATE 2 usage-grammar leg: $(printf '%s\n' "$_ua" | sed -n 's/^ERROR //p')"
       echo "         The extractor is broken, so NOTHING was compared."; bad=1
     else
@@ -3499,7 +3499,16 @@ if [ "${1:-}" = "--selftest" ]; then
     if [ "$rc" -eq 0 ]; then
       echo "  [FAIL] $label — $gate did NOT fire on an injected defect"; PASS=1; return
     fi
-    if printf '%s' "$out" | grep -qE -- "$want"; then
+    # 🔴 Q-799 (2026-09-25): a HERE-STRING, never `printf '%s' "$out" | grep -qE`. Under this
+    # file's `set -o pipefail` that pipe is a RACE: grep -q exits at its first match, the printf
+    # builtin takes SIGPIPE on its next buffered write, the pipeline status is 141, and a MATCH reads
+    # as "never names". GATE 10b's output (~52 KB, 121 ledger blobs, the match on line 3) is what
+    # tripped it: measured on one pinned CPU, 7-8 of 300 pipe runs gave PIPESTATUS "141 0" and 0 of
+    # 300 here-string runs failed. Neither the gate's message nor this ERE had drifted. The same
+    # construct was replaced at every site where the match can land before the end of a multi-line,
+    # multi-KB string. A string flattened to ONE line (tr '\n' ' ') is immune and was left alone:
+    # grep cannot match a line before reading all of it, so the writer always finishes first.
+    if grep -qE -- "$want" <<<"$out"; then
       echo "  [ok]   $label — $gate fires, and WHY names: $want"
     else
       echo "  [FAIL] $label — $gate fired, but its output never names \"$want\","
@@ -3608,7 +3617,7 @@ if [ "${1:-}" = "--selftest" ]; then
       echo "  [FAIL] $label — $gate fired on a case it is supposed to leave alone"
       PASS=1; return
     fi
-    if printf '%s' "$out" | grep -qE -- "$want"; then
+    if grep -qE -- "$want" <<<"$out"; then
       echo "  [ok]   $label — stays green, and its output names: $want"
     else
       echo "  [FAIL] $label — $gate stayed green, but its output never names \"$want\","
@@ -4047,7 +4056,7 @@ open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure re
 "p='reports/evidence/r11/README.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')")
-  if printf '%s' "$_asc_probe" | grep -q 'stayed green, but its output never names'; then
+  if grep -q 'stayed green, but its output never names' <<<"$_asc_probe"; then
     echo "  [ok]   assert_stays_clean_why — a gate that stays green WITHOUT printing the"
     echo "         evidence line is a FAIL, so every negative control on it asserts more than"
     echo "         rc 0 (the COUNT is not restated here — it said six against a live seven,"
@@ -5441,7 +5450,7 @@ G5BPY
       echo "  [FAIL] $label — GATE 8 did NOT fire on an injected defect"
       PASS=1; return
     fi
-    if printf '%s\n' "$out" | grep -Eq -- "$want"; then
+    if grep -Eq -- "$want" <<<"$out"; then
       echo "  [ok]   $label — GATE 8 fires, and WHY matches: $want"
     else
       echo "  [FAIL] $label — GATE 8 fired, but not for the asserted reason"
@@ -5544,7 +5553,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organisin
       PASS=1; return
     fi
     for want in "$@"; do
-      if ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
+      if ! grep -Eq -- "$want" <<<"$out"; then
         echo "  [FAIL] $label — GATE 8 exited 0 but never printed the byte-exact verdict for one"
         echo "         of its legs, so that leg did not compare anything."
         echo "         expected a line matching: $want"
@@ -5594,13 +5603,13 @@ open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organisin
     if [ "$rc" -eq 0 ]; then
       echo "  [FAIL] $label — GATE 8 did NOT fire on a hand-edited digit"; PASS=1; return
     fi
-    if ! printf '%s\n' "$out" | grep -Eq -- "$want"; then
+    if ! grep -Eq -- "$want" <<<"$out"; then
       echo "  [FAIL] $label — GATE 8 fired, but not on the digit leg"
       echo "         expected a line matching: $want"
       printf '%s\n' "$out" | grep -E '\[FAIL\]' | head -3 | sed 's/^/           got > /'
       PASS=1; return
     fi
-    if ! printf '%s\n' "$out" | grep -Eq -- "$alsowant"; then
+    if ! grep -Eq -- "$alsowant" <<<"$out"; then
       echo "  [FAIL] $label — the digit leg fired, but the digit-BLIND leg did not report [ok],"
       echo "         so this case does not prove the new leg is what caught it."
       echo "         expected a line matching: $alsowant"
@@ -12892,7 +12901,11 @@ PREREGPY
 #     `;` or opens with a quote — those are the `echo 'WORK=$(mktemp -d); RAW=...'` shell fragments
 #     the d5_* harnesses write into generated scripts, not verdicts. 10 lines over 7 names are
 #     dropped today and the DROPPED count is printed, so the filter cannot drift silently; a real
-#     verdict token written only in that shape would still be invisible here.
+#     verdict token written only in that shape would still be invisible here. SAME DROP, DECLARED
+#     (Q-795, 2026-09-25): an emitting line that ENDS in the comment `# not-a-verdict` is a harness
+#     assignment by its author's say-so (e.g. `echo "Q7WIT_DIR=$d"  # not-a-verdict` written into a
+#     generated script) and is dropped and counted in DROPPED like a fragment. The marker is a claim,
+#     not a proof: it would hide a real verdict too, so it belongs only on lines no consumer greps.
 #   * ONLY `scripts/*.sh` AND solve.c EMIT. Tokens emitted by *.py helpers, by lean/, or by scripts
 #     in nested directories are not extracted.
 #
@@ -12979,7 +12992,9 @@ for f in sorted(glob.glob("scripts/*.sh")):
         val = m.group(3)
         # Fragment generation, not a verdict: `echo 'WORK=$(mktemp -d); RAW=...'` writes shell
         # source into a generated script. A verdict line is the WHOLE line and nothing else.
-        if ";" in val or val[:1] in ('"', "'"):
+        # Q-795: a line ending in the literal comment `# not-a-verdict` is a harness ASSIGNMENT
+        # (`echo "KEY=$v" >> gen.sh`), declared as such by its author; dropped and COUNTED alike.
+        if ";" in val or val[:1] in ('"', "'") or ln.rstrip().endswith("# not-a-verdict"):
             dropped += 1
             continue
         toks.setdefault(m.group(2), "%s:%d" % (f, i))

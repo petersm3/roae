@@ -67,9 +67,9 @@ Hamming-isometric, so suffix counts and subtree sizes are preserved.
   implementation.** The identity `f(s)·g(s)` licenses exact rank/unrank in
   principle; it does not establish that this codebase's rank/unrank is correct
   at full-31. **The shipped ranking is pinned against an external instrument
-  only at n = 9**, where two independent brute-force lists are built and sorted
-  with a separate comparator and every rank/unrank pair is checked
-  (`solve.c:18258`, `:18236`, `:21175`, `:21221`). At n = 13 and above the gates
+  only at n = 9**, where the forward brute-force oracle's walk list is built twice and sorted
+  with a separate comparator, and every rank/unrank pair is checked against it: gate A3 of `kc_selftest()` (`--kc-selftest`) and gates OA2–OA4 of `kc_o3_selftest()` (`--kc-o3-selftest`)
+  (the oracle is the `independent forward brute force (the verification oracle)` block at `solve.c:21175`, whose list builder is `kc_brute()` at `:21221`). At n = 13 and above the gates
   are **sampled** round-trips plus sampled monotonicity, with a local neighbour
   bracket — and `rank(unrank(r)) == r` is **closure, not correctness**. A
   consistently wrong, n-dependent ranking round-trips and certificate-verifies
@@ -239,8 +239,8 @@ path (small `n`) writes v1 while the out-of-core path writes v2 by default
 (`SOLVE_F1_OOC_FORMAT=v1` overrides).
 
 Reduced instances: the g build accepts the same group-closed pair-orbit
-unions as the f engine (`n ∈ {9,13,16,18,19,21,22,24,25,27,28}`) plus full
-31; the t build takes its instance from the f ladder it is built on.
+unions as the f engine (`n ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28}`, every row of `f1c5_unions[]`) plus full
+31; the t build takes its instance from the f ladder it is built on. ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-028#3) — the list read `n ∈ {9,13,16,18,19,21,22,24,25,27,28}`.** `kc_g_resolve_pairs()` looks `n` up in the same `f1c5_unions[]` table as the f engine, which has had rows 3, 4, 6, 7, 10, 12 and 15 since 2026-08-09. Executed 2026-09-25 on this tree: `--kc-g-build GDIR --f1-pairs 3` builds all four layers and exits 0, and `--f1-pairs 5` is refused with exactly the list above plus 31.]**
 
 ## Expected boundary layers (exact content)
 

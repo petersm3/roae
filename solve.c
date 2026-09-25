@@ -25319,15 +25319,19 @@ static int kc_h_close_artifact(FILE *f, const char *path, const char *tag) {
 static int kc_check_arrangement_main(int argc, char *argv[]) {
     if (argc < 3) {
         fprintf(stderr,
-                "Usage: solve --check-arrangement \"h0,h1,...,h63\"|KW [--cert-out FILE]\n"
+                "Usage: solve --check-arrangement \"h0,h1,...,h63\"|KW [--cert-out FILE] [--label NAME]\n"
                 "  First-principles C1..C5 check of an explicit 64-hexagram arrangement\n"
                 "  (values 0..63; independent reimplementation — TR-12 Q7 / CAP-2).\n"
                 "  Pinned check order C1->C2->C3->C4->C5; exit 0 = IN (C15), 1 = OUT.\n");
         return 2;
     }
-    const char *cert_out = NULL;
+    const char *cert_out = NULL, *label = NULL;  /* Q-795: --label NAME = the certificate's "label" (default KW/explicit) */
     for (int ai = 3; ai + 1 < argc; ai++)
         if (strcmp(argv[ai], "--cert-out") == 0) cert_out = argv[ai + 1];
+        else if (strcmp(argv[ai], "--label") == 0) label = argv[ai + 1];
+    if (argc > 3 && strcmp(argv[argc - 1], "--label") == 0) label = "";  /* a value-less --label is refused, never ignored */
+    if (label && (!*label || strlen(label) > 64 || strchr("._-", *label) || label[strspn(label, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")]))
+        { fprintf(stderr, "ERROR: [check-arrangement] --label must be 1..64 chars of [A-Za-z0-9._-], starting alphanumeric\n"); return 2; }
     int s[64];
     if (kc_h_arr_parse(argv[2], s) != 0) {
         fprintf(stderr, "ERROR: [check-arrangement] need exactly 64 integers (or KW)\n");
@@ -25349,16 +25353,12 @@ static int kc_check_arrangement_main(int argc, char *argv[]) {
                r.c3 ? "HOLD" : "FAIL", r.c3_value);
         printf("[check-arrangement] C4 anchor first (63 then 0):      %s\n",
                r.c4 ? "HOLD" : "FAIL");
-        printf("[check-arrangement] C5 distance multiset == KW's:     %s "
-               "(hist d1..d6 = %d,%d,%d,%d,%d,%d)\n",
-               r.c5 ? "HOLD" : "FAIL",
-               r.dist[1], r.dist[2], r.dist[3], r.dist[4], r.dist[5], r.dist[6]);
+        printf("[check-arrangement] C5 distance multiset == KW's:     %s (hist d1..d6 = %d,%d,%d,%d,%d,%d)\n",
+               r.c5 ? "HOLD" : "FAIL", r.dist[1], r.dist[2], r.dist[3], r.dist[4], r.dist[5], r.dist[6]);
     }
     printf("[check-arrangement] first violation (pinned order):  %s\n", vn[r.first_viol]);
-    printf("[check-arrangement] verdict SUPER (C1&C2&C4&C5):     %s\n",
-           r.in_super ? "IN" : "OUT");
-    printf("[check-arrangement] verdict C15  (C1-C5, C3<=776):   %s\n",
-           r.in_c15 ? "IN" : "OUT");
+    printf("[check-arrangement] verdict SUPER (C1&C2&C4&C5):     %s\n", r.in_super ? "IN" : "OUT");
+    printf("[check-arrangement] verdict C15  (C1-C5, C3<=776):   %s\n", r.in_c15 ? "IN" : "OUT");
     printf("#provenance\tengine=solve.c/check-arrangement\tbranch=%s\tgit=%s\t"
            "source_sha=%s\tsemantics=independent-first-principles(C1..C5;"
            "SPECIFICATION.md,verify.py-diffable)\tcertificate-not-proof\n",
@@ -25366,7 +25366,7 @@ static int kc_check_arrangement_main(int argc, char *argv[]) {
     if (cert_out) {
         FILE *f = fopen(cert_out, "w");
         if (!f) { fprintf(stderr, "ERROR: [check-arrangement] cannot write %s\n", cert_out); return 2; }
-        kc_h_arr_cert_write(f, s, &r, argv[2][0] == 'K' && argv[2][1] == 'W' && !argv[2][2]
+        kc_h_arr_cert_write(f, s, &r, label ? label : argv[2][0] == 'K' && argv[2][1] == 'W' && !argv[2][2]
                             ? "KW" : "explicit");
         if (kc_h_close_artifact(f, cert_out, "check-arrangement") != 0) return 2;
         printf("[check-arrangement] certificate written: %s\n", cert_out);
@@ -38370,9 +38370,9 @@ static int kc_cli(int argc, char *argv[]) {
  *
  * Computes |C1 ∩ C2| — complete 64-hexagram sequences built from the 32 KW
  * pairs (C1), no Hamming-5 adjacent transition (C2), START FREE (no C4 pin) —
- * as a residue mod P.  Three distinct 63-bit prime runs + offline CRT give the
+ * as a residue mod P.  Three distinct prime runs, P < 2^62 + offline CRT give the
  * exact integer (rigorous bound: |C1∩C2| <= |C1| = 32!*2^32 ~ 1.13e45 <
- * p1*p2*p3 ~ 7.8e56), removing the last SAMPLED figure in the C2-rarity chain
+ * p1*p2*p3 ~ 9.8e55), removing the last SAMPLED figure in the C2-rarity chain
  * (SPECIFICATION.md: "~4.3% of pair-constrained orderings").
  *
  * Method: the #215 layered orbit-quotient gather DP (above), with three changes:
@@ -41778,7 +41778,7 @@ int main(int argc, char *argv[]) {
         return kc_verify_certificate_main(argc, argv);
     } else if (argc > 1 && strcmp(argv[1], "--f1-exact-c1c2") == 0) {
         /* E1 (2026-07-25): |C1 & C2| with the START UNPINNED, as a residue
-         * mod a 63-bit prime — three distinct-prime runs + offline CRT give
+         * mod a prime P < 2^62 — three distinct-prime runs + offline CRT give
          * the exact integer. See the module header above f1u_exact_main()
          * for method, gates, and attribution. Sha-neutral (argv-dispatched,
          * never on the enum path). */

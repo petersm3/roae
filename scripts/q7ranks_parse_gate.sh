@@ -59,6 +59,12 @@
 # (leg 6), and must FAIL by name when its walk ranks 0, i.e. IS the anchor walk (leg 7). Both run
 # the real engine on the n=9 ladders, so the parse of the witness branch is exercised here.
 #
+# Q-795 (2026-09-25): leg 8 covers the row's IDENTIFIER. a0_q7_witnesses now passes
+# --label <target>, and the row names a witness by the certificate's label field, falling back to the
+# filename only for a label-less or "explicit" (pre---label) certificate -- leg 6 keeps measuring that
+# fallback. Leg 8 feeds a certificate whose label and filename DISAGREE; a row still keyed on the
+# filename prints the filename and goes red.
+#
 # Y4 (record only, F-5 round 7): legs 1 and 5 are the SAME measurement -- leg 5 re-runs leg 1's
 # awk on a regenerated copy of the same engine output -- so Q7RANKS_PARSE_LEGS=5 counts five
 # legs but four distinct measurements. No verdict depends on the count; it is stated here so a
@@ -193,6 +199,19 @@ else
   r FAIL "leg 7: a non-KW certificate ranking 0 gave rc=$rc without naming it -- the anchor walk could ship as a witness serial number"
 fi
 
-printf 'Q7RANKS_PARSE_LEGS=7\n'
+# ---- LEG 8 (Q-795): the witness is named by its LABEL, not its certificate filename ----
+if [ -n "$W16" ]; then
+  out=$(run_row "$W16" "$W0" moore-strict q7_not-the-label.json); rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^witness_serial	moore-strict	rank3=16244	'; then
+    r ok "leg 8: a labelled certificate (label moore-strict, file q7_not-the-label.json) is named by its label"
+  else
+    r FAIL "leg 8: a labelled certificate gave rc=$rc without 'witness_serial moore-strict' -- the row still keys on the filename"
+    printf '%s\n' "$out" | grep '^witness_serial' | sed 's/^/        /' | head -2
+  fi
+else
+  r FAIL "leg 8: could not unrank 16244 (cannot measure the label-keyed case)"
+fi
+
+printf 'Q7RANKS_PARSE_LEGS=8\n'
 [ "$fail" -eq 0 ] && echo "Q7RANKS_PARSE=PASS" || echo "Q7RANKS_PARSE=FAIL"
 exit "$fail"

@@ -83,7 +83,7 @@ solve --kc-dead-census FDIR GDIR|- [--kc-layers A B]     # atlas query 7: which 
 solve --kc-dead-census-selftest                         # its n=9 exhaustive brute-force gate
 solve --kc-witness-walks FDIR GDIR ATLAS.json           # atlas query 9: one realised walk per extrema witness
 solve --kc-witness-walks-selftest                       # its n=9 exhaustive brute-force gate
-solve --check-arrangement "h0,...,h63"|KW               # first-principles C1..C5 verdict (H3a/CAP-2)
+solve --check-arrangement "h0,...,h63"|KW [--label N]   # first-principles C1..C5 verdict (H3a/CAP-2)
 solve --check-arrangement-selftest                      # its KW/historical/mutation battery
 solve --verify-certificate CERT.json [--kc-mutate]      # H6 certificate re-verifier + non-vacuity battery
 solve --rc1c-verify [SEQ]                               # R6 circular anchor-adjacency (R-C1c) gate (KW A2={21,42})
@@ -205,7 +205,7 @@ resume after interrupt or eviction.
 Output sha matches a canonical entry in
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md) iff inputs (env vars +
 solver version) match. Mismatch **within the tested toolchain class**
-(see [DEVELOPMENT.md](DEVELOPMENT.md):1579) is a bug, not a new result;
+(see [DEVELOPMENT.md](DEVELOPMENT.md):1581) is a bug, not a new result;
 across toolchain classes, see the scope note under REPRODUCIBILITY below.
 *(Qualifier added 2026-09-01.)*
 
@@ -1410,9 +1410,9 @@ from `--f1-exact-c1c2c4` above: that DP seeds only the C4-pinned start (first
 pair Qian/Kun = (63, 0)) and delivers |C1 ∩ C2 ∩ C4| as a full-precision
 192-bit integer; `--f1-exact-c1c2` seeds layer 1 with *every* (pair,
 orientation) start and delivers the larger start-free count |C1 ∩ C2| — but as
-a residue mod a chosen prime. Three runs at distinct 63-bit primes plus offline
+a residue mod a chosen prime. Three runs at distinct primes below 2⁶² (62-bit primes) plus offline
 CRT reconstruct the exact integer (rigorous, since |C1 ∩ C2| ≤ |C1| =
-32!·2³² ≈ 1.13×10⁴⁵ < p₁p₂p₃). Purpose: remove the last sampled figure in the
+32!·2³² ≈ 1.13×10⁴⁵ < p₁p₂p₃ ≈ 9.8×10⁵⁵). ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-054#5) — this read "Three runs at distinct 63-bit primes plus offline CRT".** The binary refuses a 63-bit modulus: `--f1-mod` must satisfy 2 < P < 2⁶² (`F1_CHECK(P > 2 && P < (1ULL << 62) …)` in `f1u_exact_main`). Executed 2026-09-25 on this tree: `--f1-mod 9223372036854775783` (the largest prime below 2⁶³) exits **71** at that check. The three moduli [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) publishes are 2⁶² − 57, 2⁶² − 87 and 2⁶² − 117, each 62 bits long. `verify.c --ie-count` is a different instrument and does run at the three largest primes below 2⁶³.]** Purpose: remove the last sampled figure in the
 C2-rarity chain (the "~4.3% of pair-constrained orderings" estimate in
 [SPECIFICATION.md](SPECIFICATION.md)).
 
@@ -1658,7 +1658,7 @@ Exit 0 ok, 2 error, 30 if no SHA-256 tool is on PATH. Sha-neutral.
 ### --check-arrangement
 
 ```
-solve --check-arrangement "h0,h1,...,h63"|KW [--cert-out FILE]
+solve --check-arrangement "h0,h1,...,h63"|KW [--cert-out FILE] [--label NAME]
 solve --check-arrangement-selftest
 ```
 
@@ -1675,7 +1675,7 @@ complement-distance value (ceiling 776), the boundary-distance histogram,
 the first violated constraint, and BOTH space verdicts — SUPER
 (C1∧C2∧C4∧C5, the compiled walk superspace) and C15 (SUPER ∧ C3≤776).
 `--cert-out` writes a JSON arrangement certificate re-verifiable (and
-mutation-testable) via `--verify-certificate`. The selftest battery covers
+mutation-testable) via `--verify-certificate`. `--label NAME` (Q-795) sets that certificate's `label` field to NAME; without it the field reads `KW` for the built-in sequence and `explicit` for any other, byte-identical to before. NAME must be 1–64 characters of `[A-Za-z0-9._-]` starting with a letter or digit, because it is written into the JSON verbatim; anything else, or a `--label` with no value, is refused with exit **2** before the check runs. The label is free text to `--verify-certificate` (not recomputed, not mutated). The TR-12 battery passes `--label <target>` for the pinned Q7 SAT witnesses, and row `a2_q7_ranks` names a witness by this field, falling back to the certificate filename only when the label is `explicit` or absent. The selftest battery covers
 KW (IN, C3=776 exactly), a distinct IN member (orientation-flip variant),
 single-constraint violations (reversed KW = C4 only), and the three
 historical arrangements (Fu Xi, Jing Fang, Mawangdui — all OUT with pinned
@@ -1719,8 +1719,8 @@ file re-streamed, stream shas + all tallies + verdict compared), and
 `--kc-fdir`/`--kc-gdir` override the ladder paths recorded in the
 certificate (e.g. after a dir move). `--kc-mutate` runs the **non-vacuity
 mutation battery** ("test the test"): after the baseline verification
-passes, every certificate field is mutated in memory and the verifier must
-CATCH each mutation; any uncaught mutation fails the run. Outputs are
+passes, a fixed list of single-field mutations of the recomputed fields (shas, tallies, ranks, verdicts, totals; never free-text labels or notes) is applied in memory, one at a time, and the verifier must
+CATCH each mutation; any uncaught mutation fails the run. ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-054#6) — this read "every certificate field is mutated".** The battery is one hand-written list per certificate type, and the source comment scopes it to the recomputed fields. An arrangement certificate gets 13 mutations. Its 64-slot arrangement is touched by one swap and its seven-bin distance histogram by one bin. Its `label`, `check_order`, `space_labels`, `checker` and `engine_*` strings are never mutated. An h1-oracle certificate's list has 7 entries, and the file-level ones touch only the first input file's record. An h3b rank certificate's list has 11, and an entry that does not apply at the certified rank prints `SKIPPED`. The arrangement count was executed 2026-09-25 on this tree (`--check-arrangement KW --cert-out`, then `--verify-certificate … --kc-mutate`: 13 `CAUGHT` lines, exit 0). The other two counts are the lists' lengths in `solve.c`.]** Outputs are
 certificates, not proofs. Exit **0** verified (and, with `--kc-mutate`, all
 mutations caught) / **1** any mismatch or uncaught mutation / **2**
 usage/parse/open errors. Sha-neutral. The `--kc-*` H-tier family
@@ -3457,7 +3457,7 @@ External cleanup is not required but is a disk-hygiene best practice.
   **Across hardware and region the guarantee is scoped, not absolute:** it
   holds *within the tested toolchain class*
   ([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Reproducibility;
-  [DEVELOPMENT.md](DEVELOPMENT.md):1579). ⚠ [CORRECTED 2026-09-04 — this read
+  [DEVELOPMENT.md](DEVELOPMENT.md):1581). ⚠ [CORRECTED 2026-09-04 — this read
   "a host-level drift event is on the record, and at 1T scale
   CAMPAIGN_METHODOLOGY.md:604-607 notes that moving between hosts *in the
   same SKU class* can change the sha". **No host-level drift event is on the

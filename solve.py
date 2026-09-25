@@ -12551,8 +12551,8 @@ def atlas_load(path):
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30130) is ALSO an un-run gate,
     # but VERIFY.md:1159 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6211,
-    # :6548; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6227,
+    # :6564; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
         raise AtlasError(

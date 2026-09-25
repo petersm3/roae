@@ -700,6 +700,42 @@ for sha in $SHAS; do
     SHARC=1
   fi
 
+  # ---- BLOCKING: THE n=31 ATLAS PROBE (Q-737, 2026-09-25) ------------------
+  # TR-12 §12's published reproduction command is `solve.py --atlas-probe
+  # runs/20260906_kc_ladders_n31/atlas_n31.json`. tests.py pins it at ATLAS_PROBE=PASS
+  # (Q-734), and nothing on the push path runs tests.py, so a commit that corrupted the
+  # atlas, or changed solve.py so the probe no longer passed on it, reached the public
+  # record with nothing noticing. scripts/atlas_n31_probe_gate.sh runs the same two checks
+  # as that test: the atlas bytes against the one digest TR-12 pins, and the probe itself.
+  # UNCONDITIONAL because it is LIGHT, which is the reason for this design: no build, one
+  # sha256 and one probe of a tracked file. MEASURED 2026-09-25: 5.3-5.5 s wall on the
+  # D16 worker (three runs) and 7.0 s on the 2-core orchestrator, one core either way.
+  # Nearly all of it is the probe's every-layer G48 invariant (Q-738; cProfile puts 14.9
+  # of 16.3 profiled seconds there). Before that leg the probe took 0.59 s (public
+  # 5c296837's solve.py on the same worker), and tests.py's "~0.5 s" dates from then.
+  # `--selftest` runs four probes (16.7 s on the worker), so the hook runs only the gate.
+  # Its red test is `--selftest`: a corrupted atlas copy must turn the probe leg red on its own,
+  # a byte-only change must be caught by the digest leg, and the real atlas must pass.
+  # Read through one_token + tok_is, like every verdict here: PASS is the ONLY accepted value,
+  # and a missing script is a FAIL, the same rule as the compile gate above.
+  if [ -f "$WT/scripts/atlas_n31_probe_gate.sh" ]; then
+    _ap_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+                 bash scripts/atlas_n31_probe_gate.sh 2>&1 ); _aprc=$?
+    if one_token ATLAS_N31_GATE "$_ap_out" && tok_is 'ATLAS_N31_GATE=PASS' && [ "$_aprc" -eq 0 ]; then
+      echo "pre-push: n=31 atlas probe PASS — TR-12's pinned digest, and solve.py --atlas-probe = ATLAS_PROBE=PASS"
+    else
+      echo "pre-push: FAIL — the n=31 atlas probe did not PASS on pushed sha $short (rc=$_aprc, '${TOK:-<no single ATLAS_N31_GATE= line>}')."
+      printf '%s\n' "$_ap_out" | grep -E '^ *\[(FAIL|ERROR)\]|^ATLAS_N31_(DIGEST|PROBE|GATE_ERROR)=|^ {11}' | head -12 | sed 's/^/         /'
+      echo "         Reproduce: bash scripts/atlas_n31_probe_gate.sh"
+      SHARC=1
+    fi
+  else
+    echo "pre-push: FAIL — pushed sha $short has no scripts/atlas_n31_probe_gate.sh."
+    echo "  Deleting the gate that runs TR-12 §12's reproduction command is the regression it"
+    echo "  exists to prevent; --no-verify is the visible bypass."
+    SHARC=1
+  fi
+
   # ---- ADVISORY: the Q-479 solve.c battery (2026-09-11) --------------------
   # WHY THIS EXISTS. Four gates in this repository had NO INVOKER: nothing ran
   # them, so at run time each was indistinguishable from a gate that does not
@@ -805,10 +841,15 @@ for sha in $SHAS; do
   # The estimate was wrong by an order of magnitude, and for a structural reason
   # worth recording: a gate that fails-CLOSED exits in milliseconds in an empty
   # world, so the only script that costs its full timeout is the one already
-  # allowlisted as `timeout` (c2c3_joint_null.py, a Monte-Carlo with no tree
-  # input) — ~60 of those 61 seconds are that single script waiting out its
-  # clock. So this does NOT need its own scheduled slot; 61 s sits inside the
-  # ~70-90 s this hook already costs per pushed sha.
+  # allowlisted (c2c3_joint_null.py, a Monte-Carlo with no tree input) — ~60
+  # of those 61 seconds are that single script waiting out its clock. So this
+  # does NOT need its own scheduled slot; 61 s sits inside the ~70-90 s this
+  # hook already costs per pushed sha.
+  # Q-705 (2026-09-25): that script's row was classed `timeout`, and on a host
+  # where its numpy engine finishes first (15.9 s on the D16 worker) it printed
+  # its OK token and the sweep read FAIL on a pristine tree. It is now
+  # `self-contained`, which the gate accepts whether the run finishes or times
+  # out; 16.5 s wall for the whole sweep on the D16 worker.
   #
   # CONDITIONAL on the pushed range touching scripts/ — its exact subject. A new
   # fail-open reaches the public record only through a scripts/ change, and the

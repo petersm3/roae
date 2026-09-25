@@ -1,10 +1,10 @@
 # The Full-31 Exact Layer Aggregates
 
 **What this is.** The per-layer aggregate of the exact full-scale computation of
-|C1∩C2∩C4∩C5| — all 31 layers, as integers. Every previous small artifact in this repository
+|C1∩C2∩C4∩C5| — all 31 layers, as integers. Almost every previous small artifact in this repository
 has been either a **sampled** subset of the full computation or a **smaller-problem** rung
-(n=9…19). Both are proxies. This is neither: it is an *aggregate of an exact computation*,
-and an aggregate of an exact computation is itself exact, where a sample of one is not.
+(n=9…19). Both are proxies. The exception is one exact full-31 column, the per-layer canonical-mask counts in [layer_curve.md](../runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md), published 2026-07-17; §1 below carries that column beside the rest of each layer. This table is neither a sample nor a smaller rung: it is an *aggregate of an exact computation*,
+and an aggregate of an exact computation is itself exact, where a sample of one is not. ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-081#4) — this read "Every previous small artifact in this repository has been either a sampled subset … or a smaller-problem rung".** `runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md` has published the 32 full-31 `canonical_masks` values since 2026-07-17, six weeks before this report first shipped on 2026-08-27. Its k = 10…31 values are read from the run log, and its k = 0…9 values are their Burnside-palindrome mirrors.]**
 
 **Who it is for.** A reader who wants to *check us* is already served by the small-n rung table in
 [VERIFY.md](../documentation/VERIFY.md) and by the independent per-layer recount in §2 below. A
@@ -149,8 +149,8 @@ reaches in-process on a 2-core host (measured ~90 s, ~0.95 GB peak); n=18/19 are
 
 ⚠ **A correction to an earlier version of this sentence.** It read *"no instrument in this
 repository can recount full-31 independently"*, justified by the plain DP's peak live-state count
-exceeding any single-node RAM budget past n≈19. **That ceiling is real but does not support the
-universal claim.** `verify.c` carries a second instrument of a *different algorithm class* — Route B,
+exceeding any single-node RAM budget past n≈19. **That ceiling is an extrapolation, not a measurement, and it does not support the
+universal claim either.** ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-081#2) — this read "That ceiling is real".** The plain DP accepts rungs up to n = 19 and no larger (`verify.py --recount-rung` takes 18 and 19 only), and its largest measured run is small: `python3 verify.py --recount-rung 19`, 573 s, ~3.2 GB, per [REPRODUCE.md](../documentation/REPRODUCE.md). Past n = 19 the only figure is `verify.py`'s own estimate of ~4×10⁹ peak live states at n = 24. Single nodes with 6–24 TiB of RAM exist and were never tried ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §6). So the ceiling describes the hosts this project used, not every single node.]** `verify.c` carries a second instrument of a *different algorithm class* — Route B,
 a signed inclusion–exclusion over subsets of the free pairs (Karp/Ryser/Björklund–Husfeldt style,
 used rather than invented here) — whose DP state is `(last hexagram, budget vector)`, **64 × ≤413
 slots, under 1 MB per thread and no disk at full 31**. It accepts `--ie-spec full31@0` and ships
