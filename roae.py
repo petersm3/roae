@@ -4917,6 +4917,89 @@ def _ph_mass(hist, pred):
     n = sum(hist.values())
     return sum(c for v, c in hist.items() if pred(v)) / n
 
+# Zero-hit status token for the pre-registered H1/H3 grading.
+#
+# ⚠ WHY THIS EXISTS (2026-09-25, Q-758 / Codex V3A-042#3). The frozen spec
+# (PREREG_H1_H3_TEST_2026_07_26.md §4.3) says: "if any predicate somehow scores
+# 0 hits, report the one-sided 95% Wilson bound via `_gs_wilson_lower` and stop
+# — no auto-escalation". Until this date the grader instead computed
+# `passed = bool(kw_sat[t]) and hits > 0 and be > bar`, so a KW-satisfied
+# predicate with ZERO hits in the evaluation stream (the rarest possible outcome,
+# i.e. the strongest evidence FOR the hypothesis) was graded "FAIL" and counted
+# toward "NULL ... 4/4 FAIL -> HELD". That inverted the spec's exceptional path.
+# Now such a test is graded by the spec's iff against its REPORTED bound: the
+# one-sided 95% Wilson lower bound on bits-explained (be_lo). If be_lo clears the
+# bar the test PASSes like any other PASS (NO CLAIM; the §8 re-audit fires); at
+# the pre-registered N_eval = 1e6 that is always the case (18.49 bits). Only a
+# zero-hit whose bound cannot resolve the bar (too small an N) gets status
+# ZERO-HIT:STOP: not graded, and the 4/4-FAIL prediction reads UNDECIDED rather
+# than HELD. A KW-UNsatisfied predicate still FAILs even at 0 hits: the
+# criterion's first conjunct ("KW satisfies the predicate") is false. Both
+# halves were ruled by a Fable pre-publication review on 2026-09-25
+# (ROAE_ZEROHIT_RULE=CHANGE; the KW-unsatisfied half approved as written).
+PH_ZERO_HIT = "ZERO-HIT:STOP"
+
+
+def _ph_grade(kw_satisfies, f_eval, n, bar):
+    """Grade ONE pre-registered test (spec §4.3). Pure: no I/O, no sampling.
+
+    Returns a dict with hits, be (bits explained, or None when not computed),
+    be_lo / be_hi (one-sided 95% Wilson interval in bits), f_lo, status
+    (PASS / FAIL / FAIL-KW / ZERO-HIT:STOP) and the printed verdict."""
+    hits = round(f_eval * n)
+    f_lo = _gs_wilson_lower(hits, n)
+    f_hi = 1.0 - _gs_wilson_lower(n - hits, n)
+    be_lo = -math.log2(f_hi) if f_hi > 0 else float("inf")
+    be_hi = -math.log2(f_lo) if f_lo > 0 else float("inf")
+    if not kw_satisfies:
+        status, be = "FAIL-KW", (None if hits == 0 else -math.log2(f_eval))
+        verdict = "FAIL (KW-unsatisfied, 0 bits)"
+    elif hits == 0:
+        # Spec §4.3: report the one-sided 95% Wilson bound and stop (no escalation). The GRADE is
+        # still the iff: -log2 f_eval = +inf > bar, and the reported bound be_lo is the figure
+        # that must clear the bar. At the pre-registered N_eval = 1e6 it always does (18.49 bits).
+        be = None
+        if be_lo > bar:
+            status = "PASS"
+            verdict = (f"PASS — 0 hits of {n}; bits-explained >= {be_lo:.2f} (one-sided 95% "
+                       f"Wilson) clears the bar; NO CLAIM: adversarial re-audit required (spec §8); "
+                       f"no escalation (spec §4.3)")
+        else:
+            status = PH_ZERO_HIT
+            verdict = (f"{PH_ZERO_HIT} — 0 hits of {n}; one-sided 95% Wilson bound: "
+                       f"bits-explained >= {be_lo:.2f} does not resolve the bar {bar:.2f}. NOT "
+                       f"graded (spec §4.3: report the bound and stop, no escalation)")
+    else:
+        be = -math.log2(f_eval)
+        status = "PASS" if be > bar else "FAIL"
+        verdict = ("PASS — NO CLAIM: adversarial re-audit required (spec §8)"
+                   if status == "PASS" else "FAIL")
+    return dict(hits=hits, be=be, be_lo=be_lo, be_hi=be_hi, f_lo=f_lo,
+                status=status, verdict=verdict)
+
+
+def _ph_overall(statuses):
+    """Aggregate the four per-test statuses into (verdict, held_word, held).
+
+    held is True / False / None; None means UNDECIDED because a zero-hit test
+    was stopped rather than graded. A PASS anywhere still takes precedence: it
+    is what triggers the spec §8 re-audit and must never be masked."""
+    zero = [t for t, s in statuses.items() if s == PH_ZERO_HIT]
+    if any(s == "PASS" for s in statuses.values()):
+        extra = (f" ({', '.join(zero)} stopped at 0 hits, not graded)"
+                 if zero else "")
+        return ("ATTENTION — at least one test passed its bar; NO CLAIM: "
+                "adversarial circularity re-audit required before anything "
+                "else (spec §8)" + extra, "NOT HELD", False)
+    if zero:
+        return (f"STOPPED — {', '.join(zero)} scored 0 hits in the evaluation "
+                "stream; the Wilson bound is reported and grading stops there "
+                "(spec §4.3). The 4/4 prediction is not graded.",
+                "UNDECIDED (zero-hit stop)", None)
+    return ("NULL — all 4 pre-registered tests FAIL their bars (the "
+            "pre-registered predicted outcome)", "HELD", True)
+
+
 def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
                     json_path, ckpt_path):
     """Pre-registered H1/H3 K=4 test (see the section banner above; the
@@ -5020,29 +5103,15 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
     print(f"[L] per-test ledger (bar = L(C) + selection log2(4) = "
           f"L(C) + {SEL:.2f}; n_eval = {n_e}):")
     report["tests"] = {}
-    all_fail = True
+    statuses = {}
     for t in ("T1", "T2", "T3", "T4"):
-        hits = round(freq[t] * n_e)
-        if hits == 0:
-            # Zero-hit path (spec §4.3): report Wilson bound and stop there.
-            be = float("inf")
-            be_str = f">= {math.log2(n_e):.1f} (0 hits; Wilson)"
-        else:
-            be = -math.log2(freq[t])
-            be_str = f"{be:.3f}"
-        # One-sided 95% Wilson interval for f -> interval for bits-explained.
-        f_lo = _gs_wilson_lower(hits, n_e)
-        f_hi = 1.0 - _gs_wilson_lower(n_e - hits, n_e)
-        be_lo = -math.log2(f_hi) if f_hi > 0 else float("inf")
-        be_hi = -math.log2(f_lo) if f_lo > 0 else float("inf")
         bar = L[t] + SEL
-        passed = bool(kw_sat[t]) and hits > 0 and be > bar
-        if passed:
-            all_fail = False
-        verdict = ("PASS — NO CLAIM: adversarial re-audit required (spec §8)"
-                   if passed else
-                   ("FAIL (KW-unsatisfied, 0 bits)" if not kw_sat[t]
-                    else "FAIL"))
+        g = _ph_grade(bool(kw_sat[t]), freq[t], n_e, bar)
+        statuses[t] = g["status"]
+        hits, be, be_lo, be_hi = g["hits"], g["be"], g["be_lo"], g["be_hi"]
+        be_str = (f"{be:.3f}" if be is not None
+                  else f">= {be_lo:.2f} (0 hits; one-sided 95% Wilson)")
+        verdict = g["verdict"]
         print(f"    {t} {names[t]:28s} KW-sat={'Y' if kw_sat[t] else 'N'} "
               f"f={freq[t]:.5f} ({hits}/{n_e}) be={be_str} bits "
               f"[Wilson 95pct: {be_lo:.2f}..{be_hi:.2f}] "
@@ -5050,11 +5119,13 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
         report["tests"][t] = dict(
             name=names[t], kw_satisfies=bool(kw_sat[t]), f_eval=freq[t],
             hits=hits, n=n_e,
-            bits_explained=(None if hits == 0 else round(be, 3)),
+            bits_explained=(None if be is None else round(be, 3)),
             wilson_bits_lo=round(be_lo, 3),
-            wilson_bits_hi=(None if f_lo == 0 else round(be_hi, 3)),
+            wilson_bits_hi=(None if g["f_lo"] == 0 else round(be_hi, 3)),
             L_bits=L[t], selection_bits=SEL, bar_bits=round(bar, 2),
-            verdict=verdict)
+            status=g["status"], verdict=verdict)
+    zero_hit = [t for t, s in statuses.items() if s == PH_ZERO_HIT]
+    print(f"PREREG_ZERO_HIT_STOP={','.join(zero_hit) if zero_hit else 'NONE'}")
 
     # ---- at-KW masses: C3-class, priced as DATA — explicitly NOT tests ----
     at_kw = dict(
@@ -5073,16 +5144,12 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
         **{k: round(v, 6) for k, v in at_kw.items()})
 
     # ---- final verdict vs the pre-registered prediction ----
-    verdict = ("NULL — all 4 pre-registered tests FAIL their bars (the "
-               "pre-registered predicted outcome)" if all_fail else
-               "ATTENTION — at least one test passed its bar; NO CLAIM: "
-               "adversarial circularity re-audit required before anything "
-               "else (spec §8)")
+    verdict, held_word, held = _ph_overall(statuses)
     print(f"[V] {verdict}")
-    print(f"[V] pre-registered prediction was 4/4 FAIL -> "
-          f"{'HELD' if all_fail else 'NOT HELD'}")
+    print(f"[V] pre-registered prediction was 4/4 FAIL -> {held_word}")
     report["verdict"] = verdict
-    report["prediction_4of4_fail_held"] = bool(all_fail)
+    # None (JSON null) = undecided: a zero-hit test was stopped, not graded.
+    report["prediction_4of4_fail_held"] = held
     report["preregistration"] = dict(
         n_eval=n_eval, n_thr=n_thr, seed=seed, K=4,
         selection_bits=SEL,

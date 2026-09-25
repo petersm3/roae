@@ -68,6 +68,7 @@ solve --f4p-verify | --f5-verify | --f6-verify | --dav-verify | --dav2-verify | 
 solve --rc4b-verify [SEQ]                               # R13 HEC two-convention parity gate (KW anchors)
 solve --kc-enum-desc DIR [--kc-c3-max T] [--kc-limit M] # REL-DESCENDING in-order enumeration (TR12 Q2 LAST^C15)
 solve --kc-enum-desc-selftest                           # its n=9 exhaustive brute-force gate
+solve --kc-sample DIR COUNT SEED [--kc-c3-max T] [--kc-class-uniform] [--kc-record]  # uniform walk sampler (TR12 Q1c/Q8); exit 2 KC_SAMPLE_C15_EMPTY if no walk has cd <= T
 solve --kc-profile FDIR GDIR "e,x,..."|KW               # per-step rarity/surprise profile of a walk (TR12 Q3/EW-1/V4)
 solve --kc-profile-selftest                             # its n=9 exhaustive brute-force gate
 solve --kc-scan F G OUT.chunk.json --kc-layers A B      # chunked partial atlas over HALF-OPEN layers [A,B)
@@ -105,7 +106,6 @@ solve --f1c5-layer-cmp FILE_A FILE_B                    # decompressed-stream la
 solve --f1c5-sidecar-retrofit DIR [DIR ...]             # regenerate catalog layer-stats sidecars
 solve --cpu-features | --cpu-freq [MHZ]                 # ISA / throttle diagnostics
 ```
-
 ## DESCRIPTION
 
 `solve` is a single-binary command-line tool that performs all of the
@@ -2898,8 +2898,8 @@ solve --symmetry-search [--validate-counts]
 
 Group-theoretic symmetry hunt across the solution space. Searches
 for non-trivial automorphisms of the C1-C5 ordering structure.
-Has produced negative results to date (no non-trivial group
-discovered).
+It finds the group: of the 720 bit-permutations it enumerates, **48
+preserve C1**, and 47 of those act non-trivially on the (pair, orient) space. That is the order-48 group of bit permutations commuting with bit-reversal, which [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) proves is an exact symmetry of C1–C5 (machine-checked in Lean). ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-054#3) — this read "Has produced negative results to date (no non-trivial group discovered)."** SYMMETRY_SEARCH.md withdrew that negative on 2026-07-02, and this entry was not updated. Executed 2026-09-25 on this tree: `./solve --symmetry-search` prints `C1-preserving: 48 (6.7%)` and `Non-trivial on (pair,orient) space: 47`, and it does not print the "NO non-trivial bit-permutation" branch.]**
 
 `--validate-counts` annotates each candidate symmetry with empirical
 yield equality across orientations.
@@ -3386,7 +3386,7 @@ solve --double-regression-test 5600000000000    # argv is a node BUDGET, not a d
 - `solutions.bin` (when verifying / analyzing / showing).
 - `checkpoint.txt` (resume state for interrupted runs).
 - `*.dfs_state` (per-sub-branch DFS-frame sidecars when
-  `SOLVE_DFS_CHECKPOINT=1`).
+  `SOLVE_DFS_CHECKPOINT=1`). **v2 sidecar layout, and the zero-yield flag (added 2026-09-25, Q-730).** A v2 sidecar is one `DFSCheckpointState_v2`, 440 bytes: magic `DFSS`, `format_version` 2, the 34 stack frames and state arrays, then `prior_budget` (int64, byte offset 400), `prior_nodes_walked` (408), `prior_solutions_found` (416), and `reserved2[16]` (424–439). Since `075931f4` (2026-09-05, Q-414), `reserved2[0]` is a **flags byte**. Bit 0, `DFS_V2_FLAG_YIELD_ATTESTED` (0x01), means that `prior_solutions_found` holds the cell's solution count captured before the shard flush, so a 0 there really means zero yield. Bits 1–7 are undefined; the reader masks bit 0 and ignores the rest. The `#167` resume guard resumes a cell whose `sub_*.bin` is absent only when all three hold: the v2 resume is active, bit 0 is set, and the count is 0. Any other shard-less sidecar is discarded and its cell walked from node 0. `sizeof`, magic and `format_version` did not change, so a pre-fix binary reads a new sidecar exactly as before (it ignores `reserved2`). **Scope:** v1 sidecars and v2 sidecars written before `075931f4` have the flag clear. A fixed binary therefore still re-walks their zero-yield cells, and that includes every sidecar in the June-8 560 T archive (58.8 % of its cells; [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 rule 9). Gate: `scripts/selftest_resume_167_gate.sh` (`RESUME_167_*` tokens, [DEVELOPMENT.md](DEVELOPMENT.md)).
 - `build.sha` — sha256 of the binary that last touched this cwd.
   Read on canonical-enum dispatch; mismatch exits 26 unless
   `SOLVE_ALLOW_BUILD_MISMATCH=1`.

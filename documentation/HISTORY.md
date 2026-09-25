@@ -9615,3 +9615,110 @@ benchmark's figures were never published with their method, so they are not repe
 
 **Build note.** The solver links zlib. Today's build line is
 `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`, with the zlib headers present at compile time.
+
+## 2026-09-25 — the queue run's first push, an eleventh batch of cures, and a night of operational mistakes, most of them mine
+
+**The first ten batches of the queue run went out as one commit, `6d0694c4`, in the early hours of
+09-25 (UTC).** Its content is narrated in the 2026-09-23/24 entry above, which travelled in the same
+commit, and it carries CX-75 through CX-93. After the push, the remote's `main` was read back with
+`git ls-remote`, not taken from a local ref, and it matched. This entry covers what followed on 09-25: an
+eleventh batch, two repairs to what had just been pushed, and the night's operations. The operations
+went less cleanly than the batches did.
+
+**Batch 11 is four corrections, CX-94 to CX-97.** Each one says what a published page or instrument
+did, what it does now, and what was run to show the difference.
+
+- **Instruments that accepted the wrong thing, or never returned (CX-94).** `--v3-spectrum` printed
+  its verdict with the detail on the same line, so the documented whole-line match never matched,
+  even on success. It now prints a bare verdict line. V3's acceptance range for
+  `fft_peak_amplitude`, 0…500, was a histogram limit used as a gate. A permuted witness that is a
+  member of the space scores **517.53**. The gate now uses the proven envelope for any permutation,
+  **75.05…835.99**. `viz/visualize.py` had been called gzip-aware and had no gzip path at all; a `.gz`
+  input now gets a refusal that names `gzip -dk`. And `--kc-sample` with a C3 cap that no walk meets
+  used to run forever. After **2^16** straight rejections it now decides emptiness exactly, once,
+  and refuses with rc 2.
+- **A citation gate that a push range could fool (CX-95).** Batch 9 repinned about 250 line
+  citations. Batch 10 then edited some of the citing lines and moved their targets, and four
+  citations went stale again. Checked against the last published commit, the gate passed. Its
+  shift leg reads only citing lines that the range left untouched, and these had been edited. The
+  gate now pairs each edited citation with its counterpart at the base. It reads anchors from
+  `.tsv` notes, stops counting a common word near a shell citation as an anchor, and hashes the
+  content of every pin, so a pinned citation goes red when the lines it points at change. Measured
+  on the batch 1–10 tree, the new leg's false positives were **25** correct repins out of **417**
+  edited citations. Each was checked by content and attested. One class it cannot catch, a citation already wrong at the base, is stated as a
+  residual.
+- **Reading instructions that the tables do not support (CX-96).** The V4 reader accepted a zero, so a
+  trace containing a 0/0 factor printed EXACT and exited 0. Its gate had no leg that could see that.
+  The reader now accepts positive values only, and the gate went from 9 legs and 7 mutants to **11 and
+  9**. The V1 row gate flagged **23** all-zero rows of a correct n=9 table. The V5 page read a
+  positional zero as the C5 budget binding. Each is corrected with a ⚠ note.
+- **Live published claims that were false or stale (CX-97).** The peak RSS published for the July
+  full-31 landing run was a two-digit number of megabytes, below TR-11's own floor. It came from a
+  restart that resumed after the count had landed and did no work. The segment that did the work
+  printed **24,122.0 MB**, and that run's log is now published. Five sites treated order-64 Costas
+  arrays as an open question. One exists, by the Golomb construction, and C1 excludes every one of
+  them. The #167 resume defect was still described as open, or assumed, at four sites, although it
+  was fixed in `075931f4`. Those sites now carry the fix and its scope limit, stated publicly for the
+  first time: sidecars written before that commit are unflagged, so extending the June 560T archive
+  still re-walks its **93,083** zero-yield cells. The size convention in CANONICAL_HASHES.md is now
+  defined as the decompressed size. The symmetry search's
+  own output, **48** C1-preserving and **47** non-trivial, replaces a superseded negative. SOLVE.md's
+  boundary list is corrected. And `roae.py` had graded a King-Wen-satisfied zero-hit predicate FAIL,
+  the strongest possible evidence read as the weakest. The implementer's first reading of the frozen
+  spec, report the Wilson bound and grade nothing, was put to a review before this batch was pushed,
+  and the review ruled the other way: the grade is the spec's own iff, so a zero-hit whose one-sided
+  95% Wilson lower bound on bits-explained clears the bar is a PASS and counts like any other PASS,
+  and only a zero-hit at an N too small to resolve its bar is left UNDECIDED. That is what ships.
+
+**Two repairs to what had just been pushed.** The TR-12 v1.12 revision row went out in `6d0694c4`
+with an unescaped pipe inside a formula. A Markdown table splits cells on it even inside backticks,
+so the row rendered with a column the table does not have. A table-shape check wired that morning
+found it. The same class had been swept by hand on 09-22, in `d6b1334e`, and that sweep left no
+public check behind it. The pipe is escaped in this batch (Q-801).
+Separately, the pre-push hook's advisory doc-gate selftest failed on one leg: the append-only
+gate's history check fired on its planted deletion, but not with the message the selftest
+expects. Either the message drifted or the expectation is stale. It is filed as Q-799, it was still
+being worked when this entry was written, and nothing here claims it fixed.
+
+**The medium's cloud copy was uploaded overnight, and I let a schedule I had forgotten stop it.**
+With the operator's go, the upload of the medium to a cloud archive tier started early on 09-25.
+Partway through, the upload VM was deallocated in the middle of the run. The cause was an
+auto-shutdown schedule on that VM, created weeks earlier by other tooling with its notifications off.
+I had not checked for schedules before opening the window. **That was my miss.** The runner writes
+a completion record only after each file is fully uploaded. After the restart, every uploaded file
+had its record and every record had its file, so nothing was half-committed. The upload resumed
+where it stopped. On the operator's instruction the schedule was then deleted, and read back as
+gone. The operator also ruled that the archive copy is not to be read back in full to verify it.
+Its verification rests on the upload's own acceptance, a metadata post-check, and a re-run of
+`VERIFY.sh` on the drive when it comes back. When this entry was written the upload was nearly
+done and the post-check was still ahead.
+
+**The build worker was evicted, and the check it was running had a flaw of mine in it.** The worker
+that runs every compile, test and gate is a spot-priced machine, and it was reclaimed during the final
+pre-push check. It restarted with its disk and lanes intact. The check it had been running had one
+FAIL, and it came from my harness, not the tree. I had put the previous batch's base commit into the
+candidate's ancestry, so the append-only gate read unpublished edits as removals. The base was moved
+to a side branch and the check was run again. The upload was unaffected.
+
+**The orchestrating machine's root disk filled.** I had been leaving scratch trees and finished lane
+clones on it. When it filled, tool output was lost and one lane's clone failed, and that lane
+stopped cleanly. Nothing was lost that was not reproducible. The scratch trees and the clones of
+already-integrated lanes were removed, and the lane was restarted. Nothing was watching free space,
+and that is mine too. On the same night the push's own hook compiled the solver on the orchestrator,
+which the run's rules keep off that machine. The operator flagged the CPU. The push was de-prioritised
+rather than killed, and moving that work to the worker is filed.
+
+**A review found a blind spot in the gate meant to catch citation drift, and the practice it
+recommended paid off the same night.** The adversarial review of batches 7–10 measured that batch
+10's four re-staled citations passed the citation gate when the base was the last published commit.
+It recommended also checking each batch against the tree of the batch before it. The final pre-push
+check did that, and it found **three more** citations that batch 10 had moved. They were fixed by
+content before the push. The gate itself was then fixed, as CX-95, so it no longer depends on the
+base being chosen well.
+
+**What did not move.** No canonical sha, canonical record count or reproduction parameter moved. The
+published figures that moved are the peak RSS, now 24,122.0 MB; one documented range, now the
+proven envelope; and a fiber-size mean, restated on its own population. `solve.c` changed in a comment and in one
+refusal, with no net change in lines, and the selftest still reproduces `403f7202`. The TR-12
+fingerprint moves, so the reproduction stamp has to be re-minted with the batch. The medium is still
+validated and unminted, and its cloud copy is not yet post-checked.

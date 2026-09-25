@@ -1320,7 +1320,7 @@ nothing, so a full-31 descent carrying `g(s_26) = 51` passed every verdict token
 The row now compares all three at `NP == 31`, failure-only, so the n=9 transcript is byte-identical. Note that the *consumer's*
 `TR12_Q3_READER` (`solve.py::atlas_q3_reader_check`, exact `Fraction` arithmetic over the
 `--kc-o3-rank` trace) was never affected; the shell row reads the *other* instrument
-(`--kc-profile --kc-tsv`), and the token you grep out of `VERDICTS.txt` is the shell row's.
+(`--kc-profile --kc-tsv`), and the token you grep out of `VERDICTS.txt` is the shell row's. ⚠ *Corrected 2026-09-25 (Q-699, V3A-125#1/#2): the gate above had **nine** legs and **seven** mutants and now has **eleven** and **nine**. Measured before the fix, replacing the row's `p_numₙ = 1` test with `if (0)` left the gate at PASS: no leg presented a trace whose only defect was the terminal numerator (now leg 10 and mutant M8). The canonical-integer test also accepted `0`, so a trace with a zero shell at step 30 (`p_num₃₀ = p_den₃₁ = 0`, then `p_num₃₁ = 1`) printed `1/N EXACT` and exited 0 on a 0/0 factor. The row now accepts **positive** canonical decimals only (now leg 11 and mutant M9). The pass-path transcript is unchanged, so the n=9 golden did not move.*
 
 🔴 **CORRECTED 2026-09-05 — four rows attested a computation other than the one their prose
 names (roae-private `D5_QUERY_PROGRAM_REVIEW_2026_09_04.md`, D5-02/-03/-04/-08).** None of them

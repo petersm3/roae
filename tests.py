@@ -1139,15 +1139,15 @@ class TestMooreKwGates(unittest.TestCase):
         self.assertEqual(sum(sat.MOORE_COUNTED.values()), 18)
 
     def test_sat_c4_pins_the_oriented_form(self):
-        # 2026-08-01: --sat-c4 pinned hexagram 0 (Kun) at position 0 — the COMPLEMENT of
-        # SPECIFICATION.md C4 (s0 = 63 Qian, s1 = 0 Kun). The decisive test is that the
-        # pinned orientation must be one KING WEN ITSELF satisfies; the old pin excluded it.
+        # 2026-08-01: --sat-c4 pinned hexagram 0 (Kun) at position 0, the COMPLEMENT of C4 (s0=63
+        # Qian, s1=0 Kun). Q-700 (2026-09-25, Codex V3A-136#2): this test compared _sat_var calls
+        # with identical arguments, so a reversed pin stayed green. It now reads the EMITTED CNF.
         partner = solve._sat_partner_map()
         self.assertEqual(partner[63], 0)          # Qian's partner is Kun
         self.assertEqual((KW[0], KW[1]), (63, 0))  # C4's oriented form, from the sequence
-        # the unit clauses the encoder emits must be satisfied by KW's own opening
-        self.assertEqual(solve._sat_var(0, KW[0]), solve._sat_var(0, 63))
-        self.assertEqual(solve._sat_var(1, partner[63]), solve._sat_var(1, KW[1]))
+        units = _sat_c4_unit_clauses(True)        # unit clauses p3_sat_encode actually writes
+        self.assertEqual(units, {solve._sat_var(0, KW[0]), solve._sat_var(1, KW[1])})
+        self.assertEqual(_sat_c4_unit_clauses(False), set())   # control: no pin without --sat-c4
 
     def test_verify_seq_rescores_literature_rules(self):
         # F-1: the decoded-witness round-trip re-scores Moore parity, Moore
@@ -8611,6 +8611,492 @@ class TestQ782LadderShaRowChecksLayerIdentity(unittest.TestCase):
         self.assertIn("ERROR: cannot open %s" % p, r.stderr)
         want = [l for l in ok.stdout.splitlines() if "/g_layer_05.bin " not in l]
         self.assertEqual(want, r.stdout.splitlines())
+
+
+
+class TestQ690V3SpectrumVerdictIsABareLine(unittest.TestCase):
+    """Q-690: `--v3-spectrum` printed `V3_SPECTRUM=PASS 1000 rows, ...` on ONE line, so the
+    documented `grep -qx V3_SPECTRUM=PASS` could never match, even on success. The verdict is now a
+    bare line and the detail goes on the next one. RED before: the scan leg finds 18 verdict
+    literals carrying trailing text, and the PASS/FAIL legs see no bare line."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    @staticmethod
+    def exact(out, token):          # what `grep -qx TOKEN` answers
+        return token in out.splitlines()
+
+    def _run(self, grid):
+        import io, contextlib
+        S = _load("solve")
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(buf):
+            rc = S.v3_spectrum(grid, os.path.join(d, "v3.tsv"))
+        return rc, buf.getvalue()
+
+    def test_the_exact_line_check_discriminates_old_from_new(self):
+        old = "V3_SPECTRUM=PASS 1000 rows, 9 observable(s) + 5 kw_* reference column(s)\n"
+        self.assertFalse(self.exact(old, "V3_SPECTRUM=PASS"), "the check cannot see the defect")
+        self.assertTrue(self.exact("V3_SPECTRUM=PASS\n[v3-spectrum] 1000 rows\n",
+                                   "V3_SPECTRUM=PASS"))
+
+    def test_no_verdict_literal_carries_trailing_text(self):
+        with open(os.path.join(self.HERE, "solve.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        bad = re.findall(r'print\(f?"V3_SPECTRUM=(?:PASS|FAIL)[^"]', src)
+        self.assertEqual([], bad, "verdict printed with detail on the same line")
+        self.assertEqual(1, src.count('print("V3_SPECTRUM=PASS")'))
+        self.assertEqual(1, src.count('print("V3_SPECTRUM=FAIL")'))
+
+    def test_pass_on_the_committed_grid_is_a_bare_line_with_detail_after(self):
+        rc, out = self._run(os.path.join(self.HERE, "tr12", "v3_rel_grid.tsv"))
+        self.assertEqual(0, rc, out)
+        lines = out.splitlines()
+        self.assertEqual(["V3_SPECTRUM=PASS"], [l for l in lines if l.startswith("V3_SPECTRUM")])
+        self.assertRegex(lines[lines.index("V3_SPECTRUM=PASS") + 1], r"^\[v3-spectrum\] 1000 rows, ")
+
+    def test_a_refusal_is_a_bare_fail_line_with_detail_after(self):
+        with tempfile.TemporaryDirectory() as d:
+            g = os.path.join(d, "g.tsv")
+            with open(g, "w") as fh:
+                fh.write("i\tr\twalk\n")
+            rc, out = self._run(g)
+        self.assertEqual(1, rc, out)
+        lines = out.splitlines()
+        self.assertEqual(["V3_SPECTRUM=FAIL"], [l for l in lines if l.startswith("V3_SPECTRUM")])
+        self.assertIn("header only, 0 data rows", lines[lines.index("V3_SPECTRUM=FAIL") + 1])
+
+
+class TestQ698FftPeakAmplitudeIsNotBoundedBy500(unittest.TestCase):
+    """Q-698 (V3A-145#1): V3 accepted fft_peak_amplitude against 0.0..500.0, a --marginals histogram
+    limit. A C1&C2&C4&C5 member scores 517.53. RED before: `_V3_FLOAT_ACCEPT` did not exist and the
+    member fell outside the only range V3 checked."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    def _member_517(self):
+        with open(os.path.join(self.HERE, "reports", "certificates",
+                               "c3_positional_witnesses.txt")) as fh:
+            line = [l for l in fh if l.startswith("SEQ=")][5]    # the G=17 rung, file line 24
+        P = (4, 2, 0, 5, 3, 1)
+        return [sum(((h >> i) & 1) << P[i] for i in range(6)) for h in map(int, line[4:].split())]
+
+    def _record(self, S, seq):
+        import numpy as np
+        table = S._v3_pair_table()
+        rec = np.zeros((1, 32), dtype=np.uint8)
+        for k in range(32):
+            p, o = table[(seq[2 * k], seq[2 * k + 1])]           # KeyError = not C1
+            rec[0, k] = (p << 2) | (o << 1)
+        return rec
+
+    def test_a_member_above_500_is_accepted_and_was_rejected(self):
+        import collections
+        S = _load("solve")
+        seq = self._member_517()
+        self.assertEqual(sorted(seq), list(range(64)))
+        self.assertEqual((63, 0), tuple(seq[:2]))
+        d = [bin(seq[j] ^ seq[j + 1]).count("1") for j in range(63)]
+        self.assertEqual(S._V3_C5_MULTISET, dict(collections.Counter(d)))   # C5, hence C2
+        v = float(S._p2_compute_all_stats(self._record(S, seq))["fft_peak_amplitude"][0])
+        self.assertAlmostEqual(517.53, v, places=2)
+        old = dict((c[0], c[1:3]) for c in S._P2_FLOAT_COLS)["fft_peak_amplitude"]
+        self.assertFalse(old[0] <= v <= old[1], "positive control: the old range rejects it")
+        lo, hi = S._V3_FLOAT_ACCEPT["fft_peak_amplitude"]
+        self.assertTrue(lo <= v <= hi)
+
+    def test_the_parseval_envelope_holds_on_random_permutations(self):
+        import numpy as np
+        rng = np.random.default_rng(698)
+        x = np.array([rng.permutation(64) for _ in range(20000)], dtype=np.float32)
+        x -= x.mean(axis=1, keepdims=True)
+        a = np.abs(np.fft.fft(x, axis=1)[:, 1:32]).max(axis=1)
+        S = _load("solve")
+        lo, hi = S._V3_FLOAT_ACCEPT["fft_peak_amplitude"]
+        self.assertTrue(lo <= a.min() and a.max() <= hi, (a.min(), a.max()))
+
+
+class TestQ699VisualizeRefusesGzipAndReadsLegacy(unittest.TestCase):
+    """Q-699 (V3A-139#4): viz/README.md called visualize.py "gz-aware"; it has no gzip path, and a
+    .gz (like every headerless legacy file) died with NameError on the never-assigned `data`.
+    RED before: NameError in both legs."""
+
+    def _viz(self):
+        spec = importlib.util.spec_from_file_location("visualize_q699", os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "viz", "visualize.py"))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+
+    def test_gzip_input_is_refused_by_name(self):
+        V = self._viz()
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "solutions.bin.gz")
+            with gzip.open(p, "wb") as fh:
+                fh.write(b"ROAE" + bytes(60))
+            with self.assertRaisesRegex(ValueError, "gzip-compressed"):
+                V.load_solutions(p)
+
+    def test_a_headerless_64_byte_file_loads(self):
+        V = self._viz()
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "legacy.bin")
+            with open(p, "wb") as fh:
+                fh.write(bytes(V.KW) * 3)
+            sol = V.load_solutions(p)
+        self.assertEqual((3, 64), tuple(sol.shape))
+        self.assertEqual(list(V.KW), [int(v) for v in sol[0]])
+
+
+class TestQ715KcSampleRefusesAnEmptyC15(unittest.TestCase):
+    """Q-715: `--kc-sample ... --kc-c3-max T` rejection-sampled forever when no walk has cd <= T.
+    It now refuses with rc 2 and KC_SAMPLE_C15_EMPTY. RED before: the T = min_cd - 1 leg hits the
+    subprocess timeout. The boundary is MEASURED here with --kc-enum, not assumed."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q715_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q715")
+        cls.fdir = os.path.join(cls.tmp, "f")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.ok = r.returncode == 0
+        if cls.ok:
+            r = subprocess.run([cls.sbin, "--kc-build", cls.fdir, "--f1-pairs", "9"],
+                               capture_output=True, text=True)
+            cls.ok, cls.err = r.returncode == 0, "kc-build rc %d" % r.returncode
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.ok, self.err)
+
+    def _min_cd(self):
+        for t in range(0, 200):
+            r = subprocess.run([self.sbin, "--kc-enum", self.fdir, "--kc-c3-max", str(t),
+                                "--kc-limit", "1"], capture_output=True, text=True, timeout=60)
+            if r.stdout.strip():
+                return t
+        self.fail("no walk with cd < 200 at n=9")
+
+    def _sample(self, t):
+        try:
+            return subprocess.run([self.sbin, "--kc-sample", self.fdir, "5", "715", "--kc-c3-max",
+                                   str(t)], capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            self.fail("--kc-sample --kc-c3-max %d did not return within 60 s" % t)
+
+    def test_below_the_minimum_cd_fails_fast_with_rc_2(self):
+        t = self._min_cd()
+        self.assertGreater(t, 0, "precondition: T = min_cd - 1 must be a legal T >= 0")
+        for below in (0, t - 1):
+            r = self._sample(below)
+            self.assertEqual(2, r.returncode, r.stdout + r.stderr)
+            self.assertIn("KC_SAMPLE_C15_EMPTY", r.stderr)
+            self.assertEqual("", r.stdout, "no draw may be printed before the refusal")
+
+    def test_positive_control_at_the_minimum_cd_it_samples(self):
+        t = self._min_cd()
+        r = self._sample(t)
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        rows = [l for l in r.stdout.splitlines() if re.match(r"^\d+\tcd=", l)]
+        self.assertEqual(5, len(rows), r.stdout)
+        self.assertTrue(all(int(l.split("\t")[1][3:]) <= t for l in rows))
+
+
+def _doc_row_awk(doc, row_prefix):
+    """The runnable awk code span of the Markdown table row that starts with `row_prefix`, with the
+    table's `\\|` escapes undone and a trailing input path dropped (the caller supplies one); None when
+    the row carries no awk command."""
+    with open(doc, encoding="utf-8") as fh:
+        rows = [l for l in fh if l.startswith(row_prefix)]
+    if len(rows) != 1:
+        raise AssertionError("%d rows start with %r in %s" % (len(rows), row_prefix, doc))
+    spans = [c for c in re.findall(r"`((?:[^`])+)`", rows[0]) if c.startswith("awk ")]
+    if not spans:
+        return None, rows[0]
+    cmd = spans[-1].replace("\\|", "|")
+    return re.sub(r"\s+\S+\.tsv$", "", cmd), rows[0]
+
+
+class TestQ698SpectrumReaderGateReadsRank(unittest.TestCase):
+    """Q-698 (V3A-145#3): viz_kc_spectrum.md's reader-side monotonicity gate compared `$3` -- the `x`
+    column -- for a decrease only; it never read `rank`, equality or [0,1). The documented one-liner is
+    extracted from the page and run on the committed REL table (must print nothing) and on mutants
+    (each must print something). RED before: the rank, equal-rank, sub-ulp and x = 1 mutants pass."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    DOC = os.path.join(HERE, "viz", "viz_kc_spectrum.md")
+    TSV = os.path.join(HERE, "tr12", "v3_spectrum.tsv")
+
+    def _run(self, rows):
+        cmd, row = _doc_row_awk(self.DOC, "| **reader-side:** `rank`")
+        self.assertIsNotNone(cmd, "no awk command in the row: " + row)
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "t.tsv")
+            with open(p, "w") as fh:
+                fh.write("".join("\t".join(r) + "\n" for r in rows))
+            r = subprocess.run(["bash", "-c", cmd + ' "$1"', "_", p], capture_output=True, text=True)
+        self.assertEqual("", r.stderr)
+        return r.stdout
+
+    def _rows(self):
+        with open(self.TSV) as fh:
+            return [l.rstrip("\n").split("\t") for l in fh]
+
+    def test_the_committed_table_is_clean(self):
+        rows = self._rows()
+        self.assertEqual(["i", "rank", "x", "order"], rows[0][:4])
+        self.assertEqual(1001, len(rows))
+        self.assertEqual("", self._run(rows))
+
+    def test_every_mutant_is_reported(self):
+        base = self._rows()
+        def mut(f):
+            rows = [list(r) for r in base]
+            f(rows)
+            return rows
+        def swap(r):
+            r[5][1], r[6][1] = r[6][1], r[5][1]
+        def dup(r):
+            r[7][1] = r[6][1]
+        def subulp(r):                       # one less than its predecessor: a binary64 sees them equal
+            r[9][1] = str(int(r[8][1]) - 1)
+        def xone(r):
+            r[-1][2] = "1"
+        def mixed(r):
+            r[20][3] = "O3"
+        def sci(r):
+            r[30][1] = "%.16e" % float(r[30][1])
+        self.assertEqual(float(base[8][1]), float(str(int(base[8][1]) - 1)),
+                         "precondition: the sub-ulp mutant is invisible to a binary64 compare")
+        for name, f in (("swap", swap), ("dup", dup), ("subulp", subulp), ("xone", xone),
+                        ("mixed", mixed), ("sci", sci)):
+            with self.subTest(mutant=name):
+                self.assertNotEqual("", self._run(mut(f)), "the documented gate accepted " + name)
+
+
+class TestQ699FieldRowGateAcceptsReducedN(unittest.TestCase):
+    """Q-699 (V3A-141#2): viz_kc_field.md's reader-side row gate ("every non-pinned row of `p` sums to
+    1.0 -- same with `$3` as the key") rejects a correct n=9 table, where the 23 pairs outside the
+    subset are all-zero rows. The documented gate is run on a REAL n=9 table (built here: --kc-build,
+    --kc-g-build, --kc-scan, --atlas-queries), on the committed full-31 table, and on mutants.
+    RED before: the n=9 leg fails."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    DOC = os.path.join(HERE, "viz", "viz_kc_field.md")
+    FULL = os.path.join(HERE, "tr12", "scan", "v1_field.tsv")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q699f_")
+        sbin = os.path.join(cls.tmp, "solve_q699f")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(cls.HERE, "solve.c"))
+        cls.n9 = os.path.join(cls.tmp, "out", "scan", "v1_field.tsv")
+        steps = [["gcc", "-O1", "-pthread", "-fopenmp", "-o", sbin, src, "-lm", "-lz"],
+                 [sbin, "--kc-build", os.path.join(cls.tmp, "f"), "--f1-pairs", "9"],
+                 [sbin, "--kc-g-build", os.path.join(cls.tmp, "g"), "--f1-pairs", "9"],
+                 [sbin, "--kc-scan", os.path.join(cls.tmp, "f"), os.path.join(cls.tmp, "g"),
+                  os.path.join(cls.tmp, "atlas.json")],
+                 [sys.executable, os.path.join(cls.HERE, "solve.py"), "--atlas-queries",
+                  os.path.join(cls.tmp, "atlas.json"), "--atlas-out", os.path.join(cls.tmp, "out"),
+                  "--atlas-select", "v1"]]
+        cls.ok, cls.err = True, ""
+        for argv in steps:
+            r = subprocess.run(argv, capture_output=True, text=True, cwd=cls.HERE)
+            if r.returncode != 0:
+                cls.ok, cls.err = False, "%s rc %d: %s" % (argv[:2], r.returncode, r.stderr[-1500:])
+                break
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _gate(self, path):
+        """True iff the page's documented row gate accepts the table at `path`."""
+        try:
+            cmd, row = _doc_row_awk(self.DOC, "| **reader-side:** every row with any nonzero mass")
+        except AssertionError:
+            cmd, row = _doc_row_awk(self.DOC, "| **reader-side:** every non-pinned row")
+        if cmd is None:
+            # the pre-fix row: "same with `$3` as the key" as the column gate, whose sums must be 1
+            self.assertIn("same with `$3` as the key", row)
+            col, _ = _doc_row_awk(self.DOC, "| **reader-side:** every column")
+            cmd = col.replace("s[$1]", "s[$3]")
+            out = subprocess.run(["bash", "-c", cmd + ' "$1"', "_", path], capture_output=True,
+                                 text=True).stdout.split("\n")
+            return all(abs(float(l.split()[1]) - 1.0) < 1e-9 for l in out if l.strip()
+                       and l.split()[0] != "0")
+        r = subprocess.run(["bash", "-c", cmd + ' "$1"', "_", path], capture_output=True, text=True)
+        self.assertEqual("", r.stderr)
+        return r.stdout == "ROW_GATE=PASS\n"
+
+    def _mutant(self, f):
+        with open(self.FULL) as fh:
+            rows = [l.rstrip("\n").split("\t") for l in fh]
+        f(rows)
+        p = os.path.join(self.tmp, "mut.tsv")
+        with open(p, "w") as fh:
+            fh.write("".join("\t".join(r) + "\n" for r in rows))
+        return p
+
+    def test_a_correct_n9_table_passes(self):
+        self.assertTrue(self.ok, self.err)
+        with open(self.n9) as fh:
+            rows = [l.rstrip("\n").split("\t") for l in fh][1:]
+        pairs = {r[2] for r in rows}
+        zero = {j for j in pairs if all(r[3] == "0" for r in rows if r[2] == j)}
+        self.assertEqual((32, 23), (len(pairs), len(zero)), "precondition: the n=9 shape")
+        self.assertTrue(self._gate(self.n9), "the documented row gate rejects a correct n=9 table")
+
+    def test_the_committed_full31_table_passes(self):
+        self.assertTrue(self._gate(self.FULL))
+
+    def test_mutants_fail(self):
+        def move(rows):                      # column sums kept, two row sums broken
+            a = [r for r in rows[1:] if r[0] == "5" and r[2] == "3"][0]
+            b = [r for r in rows[1:] if r[0] == "5" and r[2] == "4"][0]
+            a[4], b[4] = repr(float(a[4]) + 0.01), repr(float(b[4]) - 0.01)
+        def drop(rows):                      # one placed pair's row zeroed entirely
+            for r in rows[1:]:
+                if r[2] == "7":
+                    r[3], r[4] = "0", "0"
+        for name, f in (("move", move), ("drop", drop)):
+            with self.subTest(mutant=name):
+                self.assertFalse(self._gate(self._mutant(f)), "the row gate accepted " + name)
+
+
+class TestQ699Q3ReaderRefusesZeroAndChecksTerminal(unittest.TestCase):
+    """Q-699 (V3A-125#1/#2): the a2_q3_reader row admitted 0 as a canonical integer (a 0/0 factor
+    "telescoped" to 1/N EXACT), and no leg of q3_reader_exactness_gate.sh covered p_num[n] == 1.
+    RED before: the gate's leg 11 fails on the old reader (Q3_READER_EXACT_GATE=FAIL)."""
+
+    def test_the_gate_passes_with_eleven_legs_and_nine_mutants(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        r = subprocess.run(["bash", os.path.join(here, "scripts", "q3_reader_exactness_gate.sh")],
+                           capture_output=True, text=True, cwd=here)
+        lines = r.stdout.splitlines()
+        self.assertIn("Q3_READER_EXACT_GATE=PASS", lines, r.stdout + r.stderr)
+        self.assertIn("  [gate] baseline PASS on 11 legs; 9/9 mutants killed", lines)
+        self.assertEqual(0, r.returncode)
+
+
+def _sat_c4_unit_clauses(include_c4):
+    """Q-700 (2026-09-25): run solve.p3_sat_encode into a temp dir and return the set of
+    literals that appear as UNIT clauses in the emitted DIMACS. The C4 pin test inspects
+    these, not _sat_var arithmetic, so a reversed or dropped pin turns it red."""
+    import contextlib, io
+    d = tempfile.mkdtemp(prefix="c4pin_")
+    try:
+        out = os.path.join(d, "c4.cnf")
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = solve.p3_sat_encode(out, include_c4=include_c4)
+        if rc not in (None, 0):
+            raise RuntimeError(f"p3_sat_encode returned {rc}")
+        units = set()
+        with open(out) as f:
+            for ln in f:
+                if ln[:1] in ("c", "p"):
+                    continue
+                lits = ln.split()
+                if not lits or lits[-1] != "0":
+                    raise RuntimeError(f"malformed DIMACS clause line: {ln!r}")
+                if len(lits) == 2:
+                    units.add(int(lits[0]))
+        return units
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+class TestPreregZeroHitStops(unittest.TestCase):
+    """Q-758 / Codex V3A-042#3 (2026-09-25). The frozen spec §4.3 says a
+    predicate that scores 0 hits gets its one-sided 95% Wilson bound reported,
+    with no escalation. roae.py graded it FAIL and folded it into "4/4 FAIL ->
+    HELD", so the strongest possible outcome read as the predicted null. Per
+    the Fable ruling (ROAE_ZEROHIT_RULE=CHANGE) a KW-satisfied zero-hit is
+    graded by that bound against the bar, and is stopped ungraded only when
+    the bound cannot resolve the bar. These tests drive the pure grader with
+    synthetic zero-hit inputs; no sampling runs."""
+
+    N = 1000
+    BAR = 10.06   # T4's frozen bar. At N = 1000 the zero-hit Wilson bound (8.53 bits) is
+                  # below it, so this fixture is an UNRESOLVED zero-hit (stopped, not graded)
+
+    def _zero_hit_freq(self):
+        # Synthetic evaluation histogram in which no sample has Q == 2.
+        hist_q = {0: 400, 1: 350, 3: 250}
+        f = roae._ph_mass(hist_q, lambda v: v == 2)
+        # PRECONDITION: the fixture really is zero-hit, or the test proves nothing.
+        self.assertEqual(round(f * self.N), 0)
+        return f
+
+    def test_kw_satisfied_zero_hit_is_stopped_not_failed(self):
+        g = roae._ph_grade(True, self._zero_hit_freq(), self.N, self.BAR)
+        self.assertEqual(g["status"], roae.PH_ZERO_HIT)
+        self.assertIsNone(g["be"])
+        self.assertNotIn("FAIL", g["verdict"])
+        # The reported bound is the spec's: 1 - Wilson_lower(n - 0, n) on f.
+        import math
+        want = -math.log2(1.0 - roae._gs_wilson_lower(self.N, self.N))
+        self.assertAlmostEqual(g["be_lo"], want, places=9)
+        self.assertTrue(0 < g["be_lo"] < float("inf"))
+
+    def test_zero_hit_makes_the_prediction_undecided_not_held(self):
+        verdict, word, held = roae._ph_overall(
+            {"T1": "FAIL", "T2": "FAIL", "T3": "FAIL-KW", "T4": roae.PH_ZERO_HIT})
+        self.assertIsNone(held)
+        self.assertNotEqual(word, "HELD")
+        self.assertTrue(verdict.startswith("STOPPED"), verdict)
+        self.assertNotIn("NULL", verdict)
+
+    def test_controls_all_fail_holds_and_a_pass_is_never_masked(self):
+        # Positive controls: the aggregator is not simply returning None.
+        _, word, held = roae._ph_overall(
+            {"T1": "FAIL", "T2": "FAIL", "T3": "FAIL-KW", "T4": "FAIL"})
+        self.assertEqual((word, held), ("HELD", True))
+        verdict, word, held = roae._ph_overall(
+            {"T1": "PASS", "T2": "FAIL", "T3": "FAIL", "T4": roae.PH_ZERO_HIT})
+        self.assertEqual((word, held), ("NOT HELD", False))
+        self.assertTrue(verdict.startswith("ATTENTION"), verdict)
+
+    def test_zero_hit_is_graded_by_its_wilson_bound_against_the_bar(self):
+        # Fable HH ruling (ROAE_ZEROHIT_RULE=CHANGE, 2026-09-25): a KW-satisfied 0-hit
+        # predicate PASSes when its one-sided 95% Wilson lower bound on bits-explained
+        # clears the bar, and is stopped (ZERO-HIT:STOP) only when it cannot. The N = 1000
+        # fixture above cannot tell that rule from "always stop" (8.53 < 10.06 either way);
+        # the pre-registered N_eval = 10**6 can (18.49 > 11.17).
+        import math
+        # PRECONDITIONS: the two sample sizes really sit on opposite sides of their bars.
+        lo_big = -math.log2(1.0 - roae._gs_wilson_lower(10**6, 10**6))
+        lo_small = -math.log2(1.0 - roae._gs_wilson_lower(1000, 1000))
+        self.assertGreater(lo_big, 11.17)
+        self.assertLess(lo_small, 10.06)
+        g = roae._ph_grade(True, 0.0, 10**6, 11.17)
+        self.assertEqual((g["hits"], g["status"]), (0, "PASS"))
+        self.assertIn("NO CLAIM", g["verdict"])
+        self.assertAlmostEqual(g["be_lo"], lo_big, places=9)
+        g = roae._ph_grade(True, 0.0, 1000, 10.06)
+        self.assertEqual((g["hits"], g["status"]), (0, roae.PH_ZERO_HIT))
+        # A 0-hit PASS counts like any PASS: the prediction is NOT HELD and §8 fires.
+        verdict, word, held = roae._ph_overall(
+            {"T1": "FAIL", "T2": "FAIL", "T3": "FAIL-KW",
+             "T4": roae._ph_grade(True, 0.0, 10**6, 10.06)["status"]})
+        self.assertEqual((word, held), ("NOT HELD", False))
+        self.assertTrue(verdict.startswith("ATTENTION"), verdict)
+
+    def test_kw_unsatisfied_still_fails_at_zero_hits(self):
+        g = roae._ph_grade(False, self._zero_hit_freq(), self.N, self.BAR)
+        self.assertEqual(g["status"], "FAIL-KW")
+
+    def test_nonzero_hits_are_graded_against_the_bar(self):
+        g = roae._ph_grade(True, 1 / self.N, self.N, self.BAR)   # 1 hit: 9.97 bits
+        self.assertEqual((g["hits"], g["status"]), (1, "FAIL"))
+        g = roae._ph_grade(True, 1 / self.N, self.N, 9.0)
+        self.assertEqual(g["status"], "PASS")
 
 
 if __name__ == "__main__":

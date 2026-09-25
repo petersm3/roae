@@ -10,7 +10,7 @@
 # header, verify.c's and tests.py's WHAT-WAS-WRONG comments), and (b) the gate scripts hold the
 # needles themselves in their own comments (doc_gates.sh, corrections_inventory.sh). Neither is a
 # reason to exempt a FILE: a second, live use of the same phrase in the same file is exactly the
-# defect this gate exists to catch (solve.c:19 carried one fifteen lines below the block that
+# defect this gate exists to catch (solve.c:19 at ff804bb0^ carried one fifteen lines below the block that
 # withdrew it). So every row names the FILE, the PHRASE (byte-identical to its registry row), and
 # the MAXIMUM occurrence count measured when the row was written. More occurrences than `max`
 # FAILS; ZERO occurrences FAILS too — a stale allowance is a row that could later hide a new use,

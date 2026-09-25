@@ -38,7 +38,21 @@ Out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-o
 | Hardware | D128als_v7 Spot, westus3, 4 TB scratch disk |
 | Launched / landed | 2026-07-09 / 2026-07-16 (~7 days wall) |
 | Spot evictions | 12, every one auto-recovered from the last complete-layer checkpoint (no lost work) |
-| Peak RSS | ~13 MB (out-of-core; index-only in RAM) |
+| Peak RSS | **24,122.0 MB** (≈23.6 GiB) — the highest `rss_peak` in the run's own `[f1c5-ooc]` telemetry, at `SOLVE_F1_OOC_SCRATCH_MB` = 16384 (see the correction below) |
+
+⚠ **[CORRECTED 2026-09-25 (Q-758, Codex V3B-02#12) — the Peak RSS row read "~13 MB (out-of-core;
+index-only in RAM)", and `count_result.json` carried `"peak_rss_mb": 13`.** That is below TR-11's own
+floor: the two live layers' 12 B/mask indexes alone are 12 × (13,047,760 + 11,530,906) B ≈ 295 MB at
+k16/k17. The run's log, `run.out` (now published beside this README; its sha256 `8c7d063e…` is the
+one `PRESERVE_SHA256.txt` has listed since the landing), shows where 13 came from. After the count
+landed at line 169, the relaunch loop started the binary 18 more times. Each start resumed from the
+completed layer 31, did no work, and printed `PEAK RSS 10.8`–`12.9 MB measured … (at layer k=0)`.
+The landing record's "~13 MB" matches those no-op lines, not the working run. The segment that actually finished the count prints
+`PEAK RSS 24122.0 MB measured` at line 165. Across the 31 per-layer `[f1c5-ooc] layer k=` lines, `rss_peak`
+rises from 13.5 MB at k=1 to 24,122.0 MB by k=24. Every one of the 31 segment headers prints
+`scratch_budget=16384 MB`. The number in the row above is therefore a high-water mark per process
+(`VmHWM`), and it is the maximum over what was logged. A segment that was evicted between two layer
+lines could have gone higher without leaving a record. No count, sha or gate moves.]**
 
 ## Files in this record
 
@@ -47,6 +61,7 @@ Out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-o
 - `layer_curve.md` — per-layer canonical-mask counts (Burnside palindrome) + peak
 - `f1c5_manifest.txt` — the run manifest (last_complete_k=31, pl_hash)
 - `PRESERVE_SHA256.txt` — sha256 of the preserved landing artifacts
+- `run.out` — the run's full console log (385 lines; published 2026-09-25, Q-758; sha256 as listed in `PRESERVE_SHA256.txt`)
 
 ## Reproducing
 

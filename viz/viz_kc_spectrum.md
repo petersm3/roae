@@ -30,9 +30,22 @@ perfectly structural one. Reporting that as *"the index is arbitrary"* is a **fa
 as a finding**. The `dclass:*` observables are C5-forced in the same way.
 
 ⚠ **Two rules for reading this figure.**
-1. **Establish each observable's range on the space FIRST** (`--kc-extremal FUNC DIR max` and `min`;
-   `constant_on_space=yes` is printed for exactly the forced ones). An observable with one value
-   carries no spectrum; drop it or label it CONSTANT rather than plotting a flat line.
+1. **Establish each observable's range on the space FIRST.** An observable with one value carries no
+   spectrum; drop it or label it CONSTANT rather than plotting a flat line. **What exists for this:**
+   `solve --kc-extremal FUNC DIR max|min` prints `constant_on_space=yes|no`, but only for its registry
+   (`solve --kc-extremal list`: `dclass:1…6`, `linechanges`, `graycode`, `yangcount`, `entryyang`,
+   and the `posyang0` control), and only in memory (n ≤ 22), so not at full-31. **None of the nine
+   V3 battery observables is registered, and none has a range producer.** For them, the Range
+   column below gives a documented bound, not a computed extreme. Two of the nine are constant on the
+   space by construction and must be labelled CONSTANT. `max_transition_hamming` is 6 because C5
+   allots exactly one d = 6 boundary. `mean_transition_hamming` is 211/63 ≈ 3.3492064, because pair
+   identity fixes every within-pair distance and C5 fixes the between-pair multiset. Both hold on all
+   1,000 rows of `tr12/v3_spectrum.tsv`.
+   ⚠ *Corrected 2026-09-25 (Q-698, V3A-145#4): this rule read "(`--kc-extremal FUNC DIR max` and
+   `min`; `constant_on_space=yes` is printed for exactly the forced ones)", a step no command could
+   perform for this figure. Executed at n=9: `--kc-extremal fft_peak_amplitude|c3_total|edit_dist_kw|mean_transition_hamming DIR max`
+   each exit 2 (unknown functional), and `--kc-extremal linechanges DIR max` prints
+   `constant_on_space=yes`.*
 2. **Values are orbit-replicated.** G-invariant observables are constant on a whole orbit, so a
    K-point rank grid samples far fewer independent values than K. The step structure that results
    is symmetry, not signal — the same caveat V1 carries.
@@ -133,7 +146,7 @@ The battery is the existing, frozen `solve.py --compute-stats` set — **`_P2_IN
 | `shift_conformant_count` | 0…17 | 17 |
 | `first_position_deviation` | 1…33 | 33 — ⚠ **O3-axis panel is a THEOREM, see below** |
 | `mean_transition_hamming` | 2.0…4.0 | 3.3492064 |
-| `fft_peak_amplitude` | 0.0…500.0 | 374.77 |
+| `fft_peak_amplitude` | ⚠ **no tight range is known — proven envelope 75.05…835.99, see the note below** (was `0.0…500.0`) | 374.77 |
 
 Note `c3_total` is an *observable* here, not a filter: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5, so
 grid points may and will carry C3 values above King Wen's 776. That is a property of the space, not
@@ -162,6 +175,25 @@ and `solve.py`'s own T5 SUPER sample spans **352…1648**. **No hard range is as
 the true supremum over SUPER is not published, and substituting a second guessed interval would
 repeat the defect. Treat `c3_total` as unbounded-above for acceptance purposes and check it against
 `C3 = 16 + 8·G` instead, which is exact and kernel-checked.
+
+⚠ **Corrected 2026-09-25 (Q-698, V3A-145#1): `fft_peak_amplitude` read `0.0…500.0`, which is not
+a bound.** `500.0` is the `--marginals` histogram limit in `solve.py`'s `_P2_FLOAT_COLS`, which was
+set for an enumerated slice. It does not bound SUPER, and it rejects a valid walk. **Executed
+counterexample:** take the `G = 17` witness in
+[`reports/certificates/c3_positional_witnesses.txt`](../reports/certificates/c3_positional_witnesses.txt)
+(the `SEQ=` line after `G=17`) and move bit `i` of every hexagram to bit `P[i]`, with
+`P = (4,2,0,5,3,1)` and bit 0 the least significant. The image is a member of C1 ∩ C2 ∩ C4 ∩ C5: it opens `(63, 0)`,
+every slot pair is a King Wen pair, it has no distance-5 or distance-0 transition, and its
+difference wave is exactly `{1:2, 2:20, 3:13, 4:19, 6:9}`. Under the battery's own formula (zero-mean,
+`max |F[1:32]|`, float32) it scores **517.53, at frequency 13**. The witness itself scores 312.84.
+On the committed full-31 REL grid `tr12/v3_spectrum.tsv`, the observed span is **202.73…448.70**
+over 1,000 points. **The proven envelope, for every permutation of 0…63:** Parseval gives
+Σ_{k=1..63} |F_k|² = 64 · 21,840 = 1,397,760. Since |F_k| = |F_{64−k}|, the maximum over k = 1…31 is at
+most √698,880 = **835.99**. Since |F_32| ≤ 1024, it is at least √((1,397,760 − 1024²)/62) = **75.05**.
+The true extremes over SUPER are not published, and this envelope is not claimed to be tight.
+`--v3-spectrum` now accepts `fft_peak_amplitude` against this envelope (`_V3_FLOAT_ACCEPT` in
+`solve.py`, rounded outward to 75.0…836.0), not against 500.0. `--marginals` keeps its histogram
+limit, which applies to its own enumerated scope.
 
 ## Input TSV
 
@@ -286,8 +318,11 @@ column is absent the panel has no reference line: the renderer will not invent o
   statements ("x% of the space has …") require `--kc-sample`'s exact-uniform draw with a pinned
   seed, not this grid. Do not compute percentiles from the spectrum.
 - **Nothing about C3 or C15.** The space is C1 ∩ C2 ∩ C4 ∩ C5. `c3_total` is plotted as an
-  observable of superspace members; the C15-conditioned distribution is a different, and not exactly
-  computable, quantity.
+  observable of superspace members; the C15-conditioned distribution is a different quantity, and
+  this figure does not carry it. It is exactly computable in principle (`--f1-c3-hist --with-c5`),
+  but its full-31 run was priced and permanently declined on cost
+  ([TR-12](../reports/TR12_QUERY_PROGRAM.md) §9). ⚠ *Corrected 2026-09-25 (Q-698, V3A-145#7): this
+  read "a different, and not exactly computable, quantity", which contradicts TR-12's own record.*
 - **Never quote a REL rank as a rank.** REL is the compiler's native descent order; the citable
   order is O3. The `order` column exists so this cannot be lost in a figure caption.
 - **No King Wen percentile.** King Wen's position in the citable order is the Q1 certificate
@@ -301,11 +336,12 @@ column is absent the panel has no reference line: the renderer will not invent o
 | Gate | Where |
 |---|---|
 | n=9 exhaustive: `unrank3(i)` byte-matches the independently sorted brute enumeration for all 26,112 walks | `solve --kc-o3-selftest` |
-| REL unrank/rank round trip + exhaustive emission check | `solve --kc-ar2 FDIR GDIR`, `solve --kc-ar2-selftest` |
+| **O3** unrank/rank round trip + exhaustive emission check (⚠ *corrected 2026-09-25, Q-698, V3A-145#2: this row read "REL"; AR-2 is the O3 battery and its trailer prints `order=O3`*) | `solve --kc-ar2 FDIR GDIR`, `solve --kc-ar2-selftest` |
+| **REL** unrank/rank round trip, n=9 exhaustive (the order of the shipped table) | `solve --kc-selftest`, gate `A3 unrank(i)==i-th walk && rank o unrank == id, ALL i` |
 | **grid emitter, n=9 exhaustive** (PENDING with the flag — the O3 route only; the shipped REL figure does not use it) | must be shown able to FAIL before any full-31 use |
 | **the shipped join** | `--v3-spectrum` re-derives C1/C2/C4/C5 membership from every emitted record through the battery's own decoder and packs King Wen as a positive control that must reproduce every frozen `_P2_KW_VALUES` entry; any failure refuses the run (`V3_SPECTRUM=FAIL`) |
-| **reader-side:** re-rank every walk in the TSV; `rank` must come back byte-identical | `solve --kc-o3-rank FDIR GDIR "$walk"` per row |
-| **reader-side:** `rank` strictly increasing, `x` in [0,1) | `awk -F'\t' 'NR>1{if ($3<p) print "NONMONOTONE", NR; p=$3}'` |
+| **reader-side:** re-rank every walk in the TSV with the ranker of the row's `order`; `rank` must come back byte-identical (⚠ *corrected 2026-09-25, Q-698, V3A-145#2: this named `--kc-o3-rank` for every row, but the shipped table is REL. Executed at n=9: the REL rank-0 walk has O3 rank 16244, and `--kc-rank` returns 0*) | `order = REL`: `solve --kc-rank FDIR "$walk"`; `order = O3`: `solve --kc-o3-rank FDIR GDIR "$walk"` |
+| **reader-side:** `rank` a canonical integer, strictly increasing; `x` in [0,1), strictly increasing; one `order` per table (⚠ *corrected 2026-09-25, Q-698, V3A-145#3: the old one-liner compared only `$3`, which is `x`, and only for a decrease. It never read `rank`, and it never tested equality or [0,1). `rank` is compared as a string by length because awk compares numeric-looking fields through a binary64*) | `awk -F'\t' 'NR==1{next} {r=$2 ""; if (r !~ /^(0\|[1-9][0-9]*)$/) print "BADRANK", NR; else if (NR>2 && (length(r)<length(p) \|\| (length(r)==length(p) && r<=p))) print "NONMONOTONE", NR; if (!($3+0>=0 && $3+0<1)) print "X_RANGE", NR; if (NR>2 && $3+0<=px) print "X_NONMONOTONE", NR; if (NR>2 && $4!=o) print "MIXED_ORDER", NR; p=r; px=$3+0; o=$4}' tr12/v3_spectrum.tsv` (must print nothing) |
 | **reader-side:** every observable within its documented range | the table above |
 
 ## Where the files live

@@ -7309,9 +7309,9 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
     echo "         leg below could be scored. LEG 2 is report-only: a leg that cannot read"
     echo "         its own census is silent, not clean."
     PASS=1
-  elif [ -n "$_G25_KL" ] && [ "$_G25_KL" -ge 1234567 ]; then
+  elif [ -n "$_G25_KL" ] && [ "$_G25_KL" -ge 98765432109876 ]; then
     echo "  [FAIL] GATE 25 LEG 2 — precondition: GT_LADDER_FORMAT.md's largest grouped figure is"
-    echo "         already $_G25_KL >= 1,234,567, so the injected figure could not be named as"
+    echo "         already $_G25_KL >= 98,765,432,109,876, so the injected figure could not be named as"
     echo "         largest and neither leg below can discriminate. Raise the injected figure."
     PASS=1
   else
@@ -7320,12 +7320,12 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
     if python3 -c "
 p='documentation/GT_LADDER_FORMAT.md'
 s=open(p,encoding='utf-8').read()
-open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 rows.'+chr(10))" 2>/dev/null; then
+open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432,109,876 rows.'+chr(10))" 2>/dev/null; then
       _G25_F=$(bash "$0" repro-reach 2>&1); _G25_FRC=$?
       _selftest_revert documentation/GT_LADDER_FORMAT.md
       _G25_FN=$(printf '%s' "$_G25_F" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
       if [ "$_G25_FN" = "$_G25_FEXP" ] \
-         && printf '%s' "$_G25_F" | grep -qF "documentation/GT_LADDER_FORMAT.md — $((_G25_K + 1)) figure(s), largest 1,234,567" \
+         && printf '%s' "$_G25_F" | grep -qF "documentation/GT_LADDER_FORMAT.md — $((_G25_K + 1)) figure(s), largest 98,765,432,109,876" \
          && [ "$_G25_FRC" -eq "$_G25_BASERC" ]; then
         echo "  [ok]   GATE 25 LEG 2 fires: a grouped figure in a file with no reproduction"
         echo "         command is reported (file count $_G25_N -> $_G25_FN; the file's figures"
@@ -7334,7 +7334,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
       else
         echo "  [FAIL] GATE 25 LEG 2 — an injected figure in a command-less file was not"
         echo "         reported (file count $_G25_N -> $_G25_FN, expected $_G25_FEXP; the file"
-        echo "         must show $((_G25_K + 1)) figure(s), largest 1,234,567), or MOVED THE"
+        echo "         must show $((_G25_K + 1)) figure(s), largest 98,765,432,109,876), or MOVED THE"
         echo "         EXIT CODE (rc $_G25_BASERC -> $_G25_FRC). The last of those is the"
         echo "         serious one: LEG 2 is report-only and a blocking pre-push hook runs it."
         printf '%s\n' "$_G25_F" | grep -E 'LEG 2|GT_LADDER' | sed 's/^/           > /' | head -3
@@ -7352,7 +7352,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
     if python3 -c "
 p='documentation/GT_LADDER_FORMAT.md'
 s=open(p,encoding='utf-8').read()
-open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 rows.'+chr(10)
+open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432,109,876 rows.'+chr(10)
                                     +'Reproduce: python3 verify.py --recount'+chr(10))" 2>/dev/null; then
       _G25_C=$(bash "$0" repro-reach 2>&1); _G25_CRC=$?
       _selftest_revert documentation/GT_LADDER_FORMAT.md
@@ -14431,7 +14431,7 @@ PROPOSAL = ['queued', 'outstanding fix', 'not yet implemented', 'pending flag', 
 # line, rc 0 — 'pending' is on 317 lines of 51 files at 5c296837, and "a marker is consulted
 # only for a flag that failed to resolve" bounds how OFTEN it fires, not WHAT it waives. The
 # two-word forms are what the corpus actually writes for a proposal; the real corpus still
-# yields exactly the same 2 [prop] waivers (`solve --kc-unrank-grid`, viz/viz_kc_spectrum.md:81
+# yields exactly the same 2 [prop] waivers (`solve --kc-unrank-grid`, viz/viz_kc_spectrum.md:94
 # caption, :232 sentence), and the two probes above now FAIL. Fire-proven in --selftest
 # ("GATE 25 (S2) ordinary 'pending' prose does not waive"). Every waiver granted is printed as
 # a [prop] line, never silently counted.

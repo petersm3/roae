@@ -68,6 +68,13 @@ def load_solutions(filename):
     # Peek at magic bytes without loading full file
     with open(filename, 'rb') as f:
         magic = f.read(4)
+    if magic[:2] == b'\x1f\x8b':   # Q-699 (V3A-139#4): refuse .gz loudly; this used to die with NameError
+        raise ValueError(f"{filename} is gzip-compressed; decompress it first (gzip -dk {filename})")
+    # The legacy (headerless) branches below read `data`, which was never assigned (NameError).
+    data = b''
+    if not (file_size >= 32 and magic == b'ROAE'):
+        with open(filename, 'rb') as f:
+            data = f.read()
 
     # Check for format v1 magic ('ROAE' at offset 0)
     if file_size >= 32 and magic == b'ROAE':

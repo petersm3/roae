@@ -19795,7 +19795,7 @@ static void kc_free(KC *kc);   /* fwd decl: kc_ooc_free is defined below */
  * states f can reach, which is closed under the recurrence (x belongs to
  * pair i, a pair of the successor mask) and is all the f*g identity and the
  * O3 ranker ever consume. g is well-defined on other `last` values too but
- * they are never stored (keeps the g ladder f-sized; documented deviation). */
+ * they are never stored (documented deviation; bounds g's per-mask keys as in f, but g is NOT f-sized on disk: 8.27 TB = 2.5x f measured, Q-700). */
 
 /* last-exit domain of states at (k, tm): the 2k elements of tm's pairs, or
  * the anchor at k=0. Returns the count; dom must hold 2*KC_MAX_PAIRS ints. */
@@ -38291,7 +38291,7 @@ static int kc_cli(int argc, char *argv[]) {
         long long M = atoll(argv[3]);
         uint64_t seed = (uint64_t)strtoull(argv[4], NULL, 10);
         uint8_t E[KC_MAX_PAIRS], repr[KC_MAX_PAIRS];
-        for (long long s = 0; s < M; s++) {
+        for (long long s = 0, rej = 0; s < M; s++) {   /* Q-715: rej counts C3 rejections before the first draw; at 2^16, decide once whether C15 is empty */
             F1U192 r;
             int cd;
             uint64_t m = 0;
@@ -38300,7 +38300,8 @@ static int kc_cli(int argc, char *argv[]) {
                 F1_CHECK(kc_unrank(kc, r, E) == 0, "[kc] sample unrank failed");
                 uint32_t rids[KC_MAX_PAIRS + 1];
                 F1_CHECK(kc_validate(kc, E, rids, &cd) == 0, "[kc] sample walk invalid");
-                if (c3max >= 0 && cd > c3max) continue;
+                if (c3max >= 0 && cd > c3max && (s > 0 || ++rej != 65536 || kc_enum(kc, c3max, 0, kc_ed_first_cb, &(KcEdFirst){kc->n, {0}, 0}))) continue;
+                if (c3max >= 0 && cd > c3max) { fprintf(stderr, "ERROR: [kc] KC_SAMPLE_C15_EMPTY: no walk has cd <= %lld; refused\n", c3max); kc_free(kc); free(kc); return 2; }
                 if (class_uniform) {   /* walk-uniform -> class-uniform (freeze §3.4) */
                     m = kc_class_repr(kc, E, repr, c3max);
                     F1_CHECK(m > 0, "[kc] member walk with m=0 (adapter defect)");
@@ -38308,8 +38309,7 @@ static int kc_cli(int argc, char *argv[]) {
                 }
                 break;
             }
-            char tdec[64];
-            f1_dec(r, tdec);
+            char tdec[64]; f1_dec(r, tdec);
             if (class_uniform) {
                 printf("%s\tcd=%d\tm=%llu\trecord\t", tdec, cd, (unsigned long long)m);
                 kc_print_walk(kc, repr, stdout);   /* record-facing: emit repr(k) */

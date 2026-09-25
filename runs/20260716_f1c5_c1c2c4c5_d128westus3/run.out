@@ -1,0 +1,385 @@
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=64 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 64 threads
+[f1c5] layer k= 1/31: canonical_masks=7 (of C(31,1)=31) states=12 entries=12 V_k=5 bytes=0.000000GB two_layer=0.000000GB peak2=0.000000GB mass=56 elapsed=0.08s (enum=0.00s count=0.07s fill=0.00s stats=0.00s ckpt=0.01s) total=0.1s
+[f1c5-ooc] layer k= 1: read=0.000000 GB (8.2 MB/s) write=0.000000 GB (0.0 MB/s) windows=1 rss_cur=13.5 MB rss_peak=13.5 MB
+[f1c5] layer k= 2/31: canonical_masks=56 (of C(31,2)=465) states=193 entries=263 V_k=14 bytes=0.000008GB two_layer=0.000008GB peak2=0.000008GB mass=3030 elapsed=0.05s (enum=0.00s count=0.04s fill=0.00s stats=0.00s ckpt=0.02s) total=0.2s
+[f1c5-ooc] layer k= 2: read=0.000000 GB (40.7 MB/s) write=0.000001 GB (0.0 MB/s) windows=1 rss_cur=14.4 MB rss_peak=14.4 MB
+[f1c5] layer k= 3/31: canonical_masks=378 (of C(31,3)=4495) states=2224 entries=6012 V_k=29 bytes=0.000173GB two_layer=0.000181GB peak2=0.000181GB mass=158364 elapsed=0.07s (enum=0.00s count=0.06s fill=0.00s stats=0.00s ckpt=0.02s) total=0.2s
+[f1c5-ooc] layer k= 3: read=0.000001 GB (363.2 MB/s) write=0.000014 GB (0.4 MB/s) windows=1 rss_cur=16.9 MB rss_peak=17.6 MB
+[f1c5] layer k= 4/31: canonical_masks=2087 (of C(31,4)=31465) states=16682 entries=110732 V_k=50 bytes=0.003126GB two_layer=0.003298GB peak2=0.003298GB mass=7975320 elapsed=0.11s (enum=0.00s count=0.10s fill=0.00s stats=0.00s ckpt=0.01s) total=0.4s
+[f1c5-ooc] layer k= 4: read=0.000009 GB (2338.4 MB/s) write=0.000165 GB (4.1 MB/s) windows=1 rss_cur=19.4 MB rss_peak=76.3 MB
+[f1c5] layer k= 5/31: canonical_masks=9707 (of C(31,5)=169911) states=97070 entries=1418864 V_k=77 bytes=0.039845GB two_layer=0.042970GB peak2=0.042970GB mass=386225352 elapsed=0.49s (enum=0.00s count=0.47s fill=0.00s stats=0.00s ckpt=0.01s) total=0.8s
+[f1c5-ooc] layer k= 5: read=0.000140 GB (6313.4 MB/s) write=0.001997 GB (33.8 MB/s) windows=1 rss_cur=29.2 MB rss_peak=484.9 MB
+[f1c5] layer k= 6/31: canonical_masks=38262 (of C(31,6)=736281) states=459144 entries=12465946 V_k=110 bytes=0.349506GB two_layer=0.389350GB peak2=0.389350GB mass=17953712064 elapsed=3.61s (enum=0.00s count=3.59s fill=0.00s stats=0.00s ckpt=0.02s) total=4.5s
+[f1c5-ooc] layer k= 6: read=0.001880 GB (14552.1 MB/s) write=0.019068 GB (80.6 MB/s) windows=1 rss_cur=50.5 MB rss_peak=2718.8 MB
+[f1c5] layer k= 7/31: canonical_masks=128414 (of C(31,7)=2629575) states=1797796 entries=78990559 V_k=149 bytes=2.213277GB two_layer=2.562782GB peak2=2.562782GB mass=799742878656 elapsed=21.36s (enum=0.00s count=21.34s fill=0.00s stats=0.00s ckpt=0.02s) total=25.8s
+[f1c5-ooc] layer k= 7: read=0.032303 GB (18848.7 MB/s) write=0.134686 GB (92.9 MB/s) windows=2 rss_cur=52.1 MB rss_peak=10276.8 MB
+[f1c5] layer k= 8/31: canonical_masks=369823 (of C(31,8)=7888725) states=5917168 entries=383080548 V_k=193 bytes=10.730693GB two_layer=12.943970GB peak2=12.943970GB mass=34079740200000 elapsed=97.21s (enum=0.01s count=97.19s fill=0.00s stats=0.00s ckpt=0.01s) total=123.0s
+[f1c5-ooc] layer k= 8: read=0.648432 GB (18378.9 MB/s) write=0.745716 GB (94.7 MB/s) windows=218 rss_cur=21.9 MB rss_peak=17383.8 MB
+[f1c5] layer k= 9/31: canonical_masks=919819 (of C(31,9)=20160075) states=16556742 entries=1470651410 V_k=239 bytes=41.189277GB two_layer=51.919971GB peak2=51.919971GB mass=1386778721641920 elapsed=438.41s (enum=0.01s count=438.38s fill=0.00s stats=0.00s ckpt=0.02s) total=561.4s
+[f1c5-ooc] layer k= 9: read=7.587571 GB (18250.3 MB/s) write=3.419742 GB (94.9 MB/s) windows=11212 rss_cur=67.8 MB rss_peak=18779.9 MB
+[f1c5] layer k=10/31: canonical_masks=1986807 (of C(31,10)=44352165) states=39736140 entries=4522319129 V_k=283 bytes=126.648777GB two_layer=167.838055GB peak2=167.838055GB mass=53778179165666496 elapsed=1797.50s (enum=0.03s count=1797.45s fill=0.00s stats=0.00s ckpt=0.02s) total=2358.9s
+[f1c5-ooc] layer k=10: read=52.656845 GB (18215.3 MB/s) write=13.120228 GB (94.1 MB/s) windows=104989 rss_cur=91.1 MB rss_peak=19644.6 MB
+[f1c5] layer k=11/31: canonical_masks=3746013 (of C(31,11)=84672315) states=82412286 entries=11297381503 V_k=322 bytes=316.371634GB two_layer=443.020412GB peak2=443.020412GB mass=1982685632661686784 elapsed=5403.50s (enum=0.05s count=5403.43s fill=0.00s stats=0.00s ckpt=0.02s) total=7762.4s
+[f1c5-ooc] layer k=11: read=229.862449 GB (18976.1 MB/s) write=38.851087 GB (66.8 MB/s) windows=411628 rss_cur=137.2 MB rss_peak=20184.2 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=11 (3746013 canonical masks, 11297381503 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=12 restart at chunk t0=2047890 (2047890/6191140 masks done, 122555 blocks + 59229 partial committed)
+[f1c5] layer k=12/31: canonical_masks=6191140 (of C(31,12)=141120525) states=148587360 entries=23398431312 V_k=355 bytes=655.230370GB two_layer=971.602005GB peak2=971.602005GB mass=69297073054612254336 elapsed=10485.48s (enum=0.07s count=10485.39s fill=0.00s stats=0.00s ckpt=0.01s) total=10486.8s
+[f1c5-ooc] layer k=12: read=686.834525 GB (3841.9 MB/s) write=91.879240 GB (52.7 MB/s) windows=1046182 rss_cur=158.4 MB rss_peak=20484.6 MB
+[f1c5] layer k=13/31: canonical_masks=8998676 (of C(31,13)=206253075) states=233965576 entries=40833342233 V_k=382 bytes=1143.441567GB two_layer=1798.671937GB peak2=1798.671937GB mass=2288361598674100118016 elapsed=28157.87s (enum=0.08s count=28157.78s fill=0.00s stats=0.00s ckpt=0.01s) total=38644.7s
+[f1c5-ooc] layer k=13: read=1586.551009 GB (13624.3 MB/s) write=183.952116 GB (30.7 MB/s) windows=2084350 rss_cur=288.7 MB rss_peak=21379.3 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=13 (8998676 canonical masks, 40833342233 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=14 restart at chunk t0=2114472 (2114472/11530906 masks done, 172970 blocks + 41715 partial committed)
+[f1c5] layer k=14/31: canonical_masks=11530906 (of C(31,14)=265182525) states=322865368 entries=60643413855 V_k=402 bytes=1698.153959GB two_layer=2841.595525GB peak2=2841.595525GB mass=71118248538309913334784 elapsed=42133.60s (enum=0.13s count=42133.46s fill=0.00s stats=0.00s ckpt=0.02s) total=42135.6s
+[f1c5-ooc] layer k=14: read=3014.955602 GB (3329.9 MB/s) write=313.253794 GB (28.6 MB/s) windows=3551192 rss_cur=312.7 MB rss_peak=21729.8 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=14 (11530906 canonical masks, 60643413855 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=15 restart at chunk t0=1787346 (1787346/13047760 masks done, 162503 blocks + 26624 partial committed)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=14 (11530906 canonical masks, 60643413855 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=15 restart at chunk t0=11671911 (11671911/13047760 masks done, 1055025 blocks + 1446 partial committed)
+[f1c5] layer k=15/31: canonical_masks=13047760 (of C(31,15)=300540195) states=391432800 entries=76987817848 V_k=413 bytes=2155.815473GB two_layer=3853.969432GB peak2=3853.969432GB mass=2070824388087331433378304 elapsed=17846.36s (enum=0.14s count=17846.20s fill=0.00s stats=0.00s ckpt=0.02s) total=17849.1s
+[f1c5-ooc] layer k=15: read=4748.665802 GB (2226.5 MB/s) write=446.353968 GB (28.3 MB/s) windows=4707304 rss_cur=337.1 MB rss_peak=21756.8 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=15 (13047760 canonical masks, 76987817848 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=16 restart at chunk t0=6309873 (6309873/13047760 masks done, 620982 blocks + 56010 partial committed)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=15 (13047760 canonical masks, 76987817848 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=16 restart at chunk t0=12105207 (12105207/13047760 masks done, 1186016 blocks + 21226 partial committed)
+[f1c5] layer k=16/31: canonical_masks=13047760 (of C(31,16)=300540195) states=417528320 entries=83585570784 V_k=413 bytes=2340.552555GB two_layer=4496.368028GB peak2=4496.368028GB mass=56211765063412670123796480 elapsed=17808.28s (enum=0.14s count=17808.12s fill=0.00s stats=0.00s ckpt=0.01s) total=17811.1s
+[f1c5-ooc] layer k=16: read=6127.170345 GB (3037.1 MB/s) write=532.509596 GB (28.1 MB/s) windows=4956037 rss_cur=356.1 MB rss_peak=22235.1 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=16 (13047760 canonical masks, 83585570784 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=17 restart at chunk t0=5786976 (5786976/11530906 masks done, 595350 blocks + 65210 partial committed)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=16 (13047760 canonical masks, 83585570784 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=17 restart at chunk t0=10294140 (10294140/11530906 masks done, 1056901 blocks + 56454 partial committed)
+[f1c5] layer k=17/31: canonical_masks=11530906 (of C(31,17)=265182525) states=392050804 entries=77425711716 V_k=402 bytes=2168.058299GB two_layer=4508.610854GB peak2=4508.610854GB mass=1414432652498644875990374400 elapsed=22302.32s (enum=0.12s count=22302.18s fill=0.00s stats=0.00s ckpt=0.01s) total=22304.9s
+[f1c5-ooc] layer k=17: read=6641.049817 GB (1987.0 MB/s) write=539.568766 GB (28.0 MB/s) windows=5077093 rss_cur=340.0 MB rss_peak=22731.7 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=17 (11530906 canonical masks, 77425711716 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=18 restart at chunk t0=4538245 (4538245/8998676 masks done, 472974 blocks + 8410 partial committed)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=17 (11530906 canonical masks, 77425711716 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=18 restart at chunk t0=8725142 (8725142/8998676 masks done, 907225 blocks + 8658 partial committed)
+[f1c5] layer k=18/31: canonical_masks=8998676 (of C(31,18)=206253075) states=323952336 entries=61293906654 V_k=382 bytes=1716.337370GB two_layer=3884.395669GB peak2=3884.395669GB mass=32782812504527868436121137152 elapsed=11765.58s (enum=0.09s count=11765.48s fill=0.00s stats=0.00s ckpt=0.02s) total=11768.4s
+[f1c5-ooc] layer k=18: read=5941.081208 GB (5976.4 MB/s) write=451.572685 GB (28.3 MB/s) windows=3875889 rss_cur=297.7 MB rss_peak=22626.2 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=18 (8998676 canonical masks, 61293906654 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=19 restart at chunk t0=4662888 (4662888/6191140 masks done, 478402 blocks + 17710 partial committed)
+[f1c5] layer k=19/31: canonical_masks=6191140 (of C(31,19)=141120525) states=235263320 entries=41584984170 V_k=355 bytes=1164.453850GB two_layer=2880.791221GB peak2=2880.791221GB mass=694784554864374040154866606080 elapsed=22303.59s (enum=0.07s count=22303.51s fill=0.00s stats=0.00s ckpt=0.02s) total=22305.6s
+[f1c5-ooc] layer k=19: read=4307.160898 GB (914.7 MB/s) write=325.424151 GB (28.1 MB/s) windows=2467491 rss_cur=234.0 MB rss_peak=23109.2 MB
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=19 (6191140 canonical masks, 41584984170 entries; index only, entries stream from disk)
+[f1c5-ooc] RESUME intra-layer checkpoint: layer k=20 restart at chunk t0=3681910 (3681910/3746013 masks done, 361361 blocks + 58566 partial committed)
+[f1c5] layer k=20/31: canonical_masks=3746013 (of C(31,20)=84672315) states=149840520 entries=24094948608 V_k=322 bytes=674.703513GB two_layer=1839.157364GB peak2=1839.157364GB mass=13352785490617816554330511097856 elapsed=4686.51s (enum=0.04s count=4686.46s fill=0.00s stats=0.00s ckpt=0.02s) total=4688.5s
+[f1c5-ooc] layer k=20: read=2647.714105 GB (7037.2 MB/s) write=195.555419 GB (29.6 MB/s) windows=1341767 rss_cur=164.8 MB rss_peak=21125.0 MB
+[f1c5] layer k=21/31: canonical_masks=1986807 (of C(31,21)=44352165) states=83445894 entries=11810354354 V_k=283 bytes=330.713764GB two_layer=1005.417277GB peak2=1839.157364GB mass=230374545580221571332437462237184 elapsed=14025.08s (enum=0.02s count=14025.05s fill=0.00s stats=0.00s ckpt=0.02s) total=18713.6s
+[f1c5-ooc] layer k=21: read=1279.795902 GB (1411.2 MB/s) write=99.544941 GB (33.0 MB/s) windows=567046 rss_cur=145.1 MB rss_peak=23449.5 MB
+[f1c5] layer k=22/31: canonical_masks=919819 (of C(31,22)=20160075) states=40472036 entries=4840233152 V_k=239 bytes=135.537566GB two_layer=466.251330GB peak2=1839.157364GB mass=3527101592023293517730048219185152 elapsed=4765.86s (enum=0.01s count=4765.83s fill=0.00s stats=0.00s ckpt=0.02s) total=23479.4s
+[f1c5-ooc] layer k=22: read=475.865095 GB (2628.1 MB/s) write=40.070091 GB (96.2 MB/s) windows=133148 rss_cur=116.3 MB rss_peak=23713.8 MB
+[f1c5] layer k=23/31: canonical_masks=369823 (of C(31,23)=7888725) states=17011858 entries=1643386030 V_k=193 bytes=46.019247GB two_layer=181.556813GB peak2=1839.157364GB mass=47189095955370668803894645047459840 elapsed=1335.50s (enum=0.00s count=1335.48s fill=0.00s stats=0.00s ckpt=0.02s) total=24814.9s
+[f1c5-ooc] layer k=23: read=122.572687 GB (22895.5 MB/s) write=13.249400 GB (96.2 MB/s) windows=19762 rss_cur=116.5 MB rss_peak=24036.6 MB
+[f1c5] layer k=24/31: canonical_masks=128414 (of C(31,24)=2629575) states=6163872 entries=459819732 V_k=149 bytes=12.876493GB two_layer=58.895740GB peak2=1839.157364GB mass=541901315038665955828368548486971392 elapsed=304.02s (enum=0.00s count=304.01s fill=0.00s stats=0.00s ckpt=0.02s) total=25118.9s
+[f1c5-ooc] layer k=24: read=20.794453 GB (22377.2 MB/s) write=3.705147 GB (96.3 MB/s) windows=763 rss_cur=68.1 MB rss_peak=24122.0 MB
+[f1c5] layer k=25/31: canonical_masks=38262 (of C(31,25)=736281) states=1913100 entries=105376944 V_k=110 bytes=2.951014GB two_layer=15.827507GB peak2=1839.157364GB mass=5201506044559500865538795401017163776 elapsed=70.41s (enum=0.00s count=70.39s fill=0.00s stats=0.00s ckpt=0.01s) total=25189.3s
+[f1c5-ooc] layer k=25: read=3.709306 GB (22532.5 MB/s) write=0.810384 GB (96.3 MB/s) windows=12 rss_cur=70.1 MB rss_peak=24122.0 MB
+[f1c5] layer k=26/31: canonical_masks=9707 (of C(31,26)=169911) states=504764 entries=19466384 V_k=77 bytes=0.545175GB two_layer=3.496189GB peak2=1839.157364GB mass=40405957458993167992215179071190728704 elapsed=13.02s (enum=0.00s count=13.01s fill=0.00s stats=0.00s ckpt=0.02s) total=25202.4s
+[f1c5-ooc] layer k=26: read=0.810876 GB (22885.2 MB/s) write=0.132178 GB (94.8 MB/s) windows=3 rss_cur=70.1 MB rss_peak=24122.0 MB
+[f1c5] layer k=27/31: canonical_masks=2087 (of C(31,27)=31465) states=112698 entries=2823150 V_k=50 bytes=0.079073GB two_layer=0.624248GB peak2=1839.157364GB mass=241089913499030894367335168548233019392 elapsed=2.01s (enum=0.00s count=2.00s fill=0.00s stats=0.00s ckpt=0.01s) total=25204.4s
+[f1c5-ooc] layer k=27: read=0.132056 GB (20203.8 MB/s) write=0.017658 GB (82.1 MB/s) windows=1 rss_cur=70.1 MB rss_peak=24122.0 MB
+[f1c5] layer k=28/31: canonical_masks=378 (of C(31,28)=4495) states=21168 entries=307746 V_k=29 bytes=0.008621GB two_layer=0.087695GB peak2=1839.157364GB mass=1028154652541345880891026404825956876288 elapsed=0.28s (enum=0.00s count=0.27s fill=0.00s stats=0.00s ckpt=0.01s) total=25204.7s
+[f1c5-ooc] layer k=28: read=0.017632 GB (10744.1 MB/s) write=0.001793 GB (38.8 MB/s) windows=1 rss_cur=73.1 MB rss_peak=24122.0 MB
+[f1c5] layer k=29/31: canonical_masks=56 (of C(31,29)=465) states=3248 entries=22824 V_k=14 bytes=0.000640GB two_layer=0.009261GB peak2=1839.157364GB mass=2735137247822487449972313400020144488448 elapsed=0.10s (enum=0.00s count=0.08s fill=0.00s stats=0.00s ckpt=0.01s) total=25204.8s
+[f1c5-ooc] layer k=29: read=0.001789 GB (18645.4 MB/s) write=0.000120 GB (3.8 MB/s) windows=1 rss_cur=73.1 MB rss_peak=24122.0 MB
+[f1c5] layer k=30/31: canonical_masks=7 (of C(31,30)=31) states=420 entries=1056 V_k=5 bytes=0.000030GB two_layer=0.000669GB peak2=1839.157364GB mass=3542919560536222176509199567089521655808 elapsed=0.11s (enum=0.00s count=0.10s fill=0.00s stats=0.00s ckpt=0.01s) total=25204.9s
+[f1c5-ooc] layer k=30: read=0.000120 GB (10979.4 MB/s) write=0.000005 GB (0.2 MB/s) windows=1 rss_cur=73.3 MB rss_peak=24122.0 MB
+[f1c5] layer k=31/31: canonical_masks=1 (of C(31,31)=1) states=32 entries=32 V_k=1 bytes=0.000001GB two_layer=0.000031GB peak2=1839.157364GB mass=1097051278789181790036112071176579186688 elapsed=0.09s (enum=0.00s count=0.08s fill=0.00s stats=0.00s ckpt=0.01s) total=25205.0s
+[f1c5-ooc] layer k=31: read=0.000005 GB (1493.7 MB/s) write=0.000000 GB (0.0 MB/s) windows=1 rss_cur=73.3 MB rss_peak=24122.0 MB
+[f1c5-ooc] PEAK RSS 24122.0 MB measured; in-RAM two-live-layer would be 1839.157364 GB (at layer k=20)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (25205.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 10.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 10.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 10.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 10.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 10.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.9 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[f1c5-ooc] layer format: v2 (per-block gzip)
+[f1c5] run: FULL-31 n=31 pairs [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 n_eff=24 threads=128 out_of_core_dir=/mnt/f1c5/run_c5
+[f1c5-ooc] out-of-core mode: read_buf=1024 MB scratch_budget=16384 MB gap_read_through=1024 KB (SOLVE_F1_OOC_READ_MB/_SCRATCH_MB/_GAP_KB)
+[f1c5] B0 boundary budget (d=1,2,3,4,6) = (2,8,13,7,1) sum=31 [KW-derived] rid_space=6048 V_max=413/layer scratch=0.63 MB/thread x 128 threads
+[f1c5] RESUME from last complete layer k=31 (1 canonical masks, 32 entries; index only, entries stream from disk)
+[f1c5-ooc] PEAK RSS 12.8 MB measured; in-RAM two-live-layer would be 0.000000 GB (at layer k=0)
+F1C5 EXACT |C1 & C2 & C4 & C5| = 1097051278789181790036112071176579186688
+  N / 24 (S4-orbit count) = 45710469949549241251504669632357466112
+  vs estimator 1.3287e38 (+/-0.02%): ratio = 8.256576
+F1C5 EXACT: DONE (0.0s)

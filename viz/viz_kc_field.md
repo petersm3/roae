@@ -60,7 +60,7 @@ slot 1 by C4, before layer 0 exists. It is kept in the figure so the row index r
 index, and its zero row is itself a reader-side gate.
 
 **`P` is doubly stochastic.** Every column sums to 1 (each walk makes exactly one placement per
-layer) and every non-pinned row sums to 1 (each walk places each pair exactly once). Both are
+layer) and every non-pinned row of a pair in the space sums to 1 (each walk places each such pair exactly once; at reduced n the pairs outside the subset are all-zero rows). Both are
 checkable from the TSV; the per-column identity is additionally gated inside the engine.
 
 ### 🔴 The field has SEVEN distinct rows, not 32 — read the shape accordingly
@@ -165,9 +165,17 @@ Pure re-shaping; the only arithmetic is the division by `N` that the figure plot
 on exact 192-bit integers, never on floats:
 
 ```bash
-python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 --atlas-select v1
-#   writes tr12/scan/v1_field.tsv and the TR12_V1= line in tr12/VERDICTS.txt
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 --atlas-select v1,a5
+#   writes tr12/scan/v1_field.tsv and the TR12_V1=, TR12_A5_ORBIT_COLUMNS= and
+#   TR12_A5_ORBIT_MEMBERSHIP= lines in tr12/VERDICTS.txt
 ```
+
+⚠ *Corrected 2026-09-25 (Q-699, V3A-141#1): this command read `--atlas-select v1`. Selectors are
+independent, and the A-5 orbit gates run only when `a5` is selected, so `v1` alone never checked the
+orbit structure this page says the field shows. Executed on the committed atlas: `v1` alone writes
+only `TR12_V1=PASS`. `v1,a5` adds `TR12_A5_ORBIT_COLUMNS=PASS` (31 pairs → 7 columns, group sizes
+[3, 3, 3, 4, 6, 6, 6]) and `TR12_A5_ORBIT_MEMBERSHIP=PASS`. Both runs write a `v1_field.tsv` that is
+byte-identical to the committed `tr12/scan/v1_field.tsv`.*
 
 **The full-31 atlas is in this repository:** `runs/20260906_kc_ladders_n31/atlas_n31.json`
 (5,978,126 B, 31 layers, raw sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`),
@@ -252,7 +260,7 @@ Printed by the engine into `gates` in the atlas, and re-checkable from the TSV:
 | branch masses sum == N | `gates.branch_masses_sum_eq_N` |
 | n=9 exhaustive brute-force cross-check of the whole extractor | `solve --kc-scan-selftest` |
 | **reader-side:** every column of `p` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$5} END{for (k in s) print k, s[k]}' tr12/scan/v1_field.tsv` |
-| **reader-side:** every non-pinned row of `p` sums to 1.0 | same with `$3` as the key |
+| **reader-side:** every row with any nonzero mass sums to 1.0, and there are exactly as many of them as layers; every other row (pair 0, and at reduced n each pair outside the subset) is all-zero (⚠ *corrected 2026-09-25, Q-699, V3A-141#2: this read "every non-pinned row of `p` sums to 1.0 — same with `$3` as the key", which rejects a correct reduced-n table. Executed at n=9 (`--kc-scan` → `--atlas-queries --atlas-select v1,v5`): 32 rows, 23 all-zero, 9 summing to 1 over 9 layers, so the old gate flagged 23 rows on a correct artefact*) | `awk -F'\t' 'NR>1{s[$3]+=$5; nz[$3]+=($4!="0"); K[$1]=1} END{nk=0; for (k in K) nk++; one=0; bad=0; for (j in s) {if (!nz[j]) continue; if (s[j]>1-1e-9 && s[j]<1+1e-9) one++; else {print "ROW_SUM", j, s[j]; bad=1}} if (one!=nk) {print "ROWS_EQ_1", one, "LAYERS", nk; bad=1} print (bad ? "ROW_GATE=FAIL" : "ROW_GATE=PASS")}' tr12/scan/v1_field.tsv` (must print exactly `ROW_GATE=PASS`) |
 | **reader-side:** row `pair == 0` is identically zero | `awk -F'\t' '$3==0 && $4!="0"' tr12/scan/v1_field.tsv` (must print nothing) |
 
 A figure whose TSV fails any of these is not publishable — the gate failure, not the picture, is

@@ -153,7 +153,7 @@ format; that is a separate certificate.
   recurrence; at `k = 0` the only `last` is the anchor `start_exit`. States
   with `g = 0` are **not stored** (the emitters skip zero slots, as in f).
   `g` is well-defined on other `last` values too but they are never stored —
-  a documented deviation that keeps the g ladder f-sized. The stored key set
+  a documented deviation that bounds the g ladder's per-mask key space by the mask's own pair elements, as in f. It does **not** make g f-sized on disk: the completed n=31 g ladder measures 8,274,431,592,051 B (8.27 TB) against f's 3.29 TB, 2.5× f, and `--kc-g-build`'s usage text says to provision ≥ 10 TB for GDIR alone. ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-028#1) — this clause read "a documented deviation that keeps the g ladder f-sized".** The 8.27 TB is the 32 completed layer files summed (reproduce: `du -sb GDIR`), measured 2026-09-05 and recorded in CORRECTIONS.md's 2026-09-05 g-ladder sizing entry. The design comment in `solve.c` that made the same prediction was corrected on 2026-09-05. This page was not.]** The stored key set
   is therefore the mask's pair elements minus the zero-`g` slots, and it is
   **incomparable** with the forward-reachable set — neither contains the
   other. The seed layer stores **all** `2n` pair elements, including `last`

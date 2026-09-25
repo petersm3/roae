@@ -343,7 +343,7 @@ is the property of the method. The shipped enumerator realises it only for
 cells that emitted a shard — its `#167` resume guard re-walks every
 zero-yield cell from scratch, 58.8 % of a 560 T parent; §7 rule 9 states the
 arithmetic and the open code fix. The saving is real for the other 41.2 %
-and the bytes come out the same either way.)*
+and the bytes come out the same either way.)* ⚠ **[FOLLOW-UP 2026-09-25 (Q-730) — the code fix this note calls open shipped in `075931f4` (2026-09-05, Q-414). It covers new sidecars only, and the 560 T archive's are old: extending *that* archive still re-walks its 58.8 %.** §7 rule 9's follow-up gives the mechanism and the scope.]**
 
 ### Why this works: prefix-determinism per cell
 
@@ -439,7 +439,7 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    the node arithmetic (≈329 T of repeated work at 560 T → 1120 T) and the
    code fix that is still open. Demonstrated by execution during the
    2026-08-30 review: a two-stage d2 extension fired the guard exactly once
-   per checkpoint-without-shard cell, 1,933 of 1,933.]**
+   per checkpoint-without-shard cell, 1,933 of 1,933.]** ⚠ **[FOLLOW-UP 2026-09-25 (Q-730) — "the code fix that is still open" is no longer true: it shipped in `075931f4` on 2026-09-05. Its scope is new sidecars: a fixed binary resumes a zero-yield cell only when that cell's `.dfs_state` says so, and no sidecar written before the fix says so.** The June-8 560 T archive's sidecars predate it, so extending that archive still re-walks its 93,083 zero-yield cells exactly as described above. The mechanism, the scope limit and the measurement are in §7 rule 9's follow-up.]**
 
 > **Note on `SOLVE_SKIP_IOPS_CHECK=1` and the I/O pre-check behavior.**
 >
@@ -1273,7 +1273,7 @@ specific symptom that motivated it.
    "critical for the 1120T extension"; it fires on legitimately-empty cells.
    **This is a code defect, not a documentation one, and it is not fixed.**
    Any extension cost or wall estimate must either assume the redo or wait for
-   the guard to be made yield-aware.
+   the guard to be made yield-aware. ⚠ **[FOLLOW-UP 2026-09-25 (Q-730) — FIXED in `075931f4` (2026-09-05, Q-414) for sidecars that a fixed binary writes. It is NOT fixed for any archive written before that date, the 560 T one included.** The sentence above, "it is not fixed", was true when written and got no follow-up when the fix landed. That commit's edits to this file were about the 1 T budget pair. *What shipped.* The v2 `.dfs_state` writer now stores the cell's solution count, captured before the shard flush zeroes it, in `prior_solutions_found`. It also sets bit 0 of a flags byte, `reserved2[0]` (`DFS_V2_FLAG_YIELD_ATTESTED`), to say that the count is meaningful. The `#167` guard resumes a shard-less cell only when three things hold: the v2 resume is active, the flag is set, and the count is 0. Every other shard-less case still discards and walks the cell fresh. The byte layout is in [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §Files. The flag was needed because every sidecar written between `d7e6a1c0` and the fix already carried `prior_solutions_found = 0` whatever the yield. A bare 0 therefore could not be trusted, and exempting it would have switched the guard off for every cell. *Scope limit.* Only a binary containing `075931f4` sets the flag. Every v1 sidecar, and every v2 sidecar written before 2026-09-05, has it clear, so the guard discards exactly as before. That covers the June-8 560 T archive (`20260608_560T_9a968fa2`). A 560 T → 1120 T extension of it would still re-walk 93,083 zero-yield cells, 329,156,121,299,181 nodes, 58.8 % of the source campaign, as computed above. The output would still be correct. Only an archive whose sidecars were written by a fixed binary gets the saving. *Measured* 2026-09-25 with `scripts/selftest_resume_167_gate.sh --threads 2` (shipped with the fix; see DEVELOPMENT.md), on a d2 shape of 3,030 cells, 1,933 of them zero-yield. Positive control: `RESUMED=1933 DISCARDED=0`, `EXCESS_NODES=3030` (one re-entered frame per cell), `SELFTEST_RESUME_167=PASS`. Mutant M3 clears the flag on one attested zero-yield sidecar: `RESUMED=1932 DISCARDED=1`, `EXCESS_NODES=19530`, with the merged sha equal to single-shot in both runs. The extra 16,500 nodes are that one cell re-walking its first-phase budget from zero. That is the scope limit in miniature: an unflagged zero-yield sidecar is re-walked, and a 2026-06 sidecar is unflagged.]**
    ⚠ **[CORRECTED 2026-09-01 — replaces "Extension cost is NOT 2× the source's
    cost; it's incremental … Real estimate … **~$390 incremental** … For
    560T → 1120T, that fraction was empirically ~41-50 %."** The 41-50 % was
@@ -1300,7 +1300,7 @@ specific symptom that motivated it.
     of cells continue, and the mechanism claimed for the sublinearity does not
     exist. Same defective model as rule 9, which carries the full
     correction. Note also that the `#167` redo hazard described in rule 9
-    would add ~329 T nodes of repeated work to this wall until it is fixed.]**
+    would add ~329 T nodes of repeated work to this wall until it is fixed.]** ⚠ **[FOLLOW-UP 2026-09-25 (Q-730): fixed in `075931f4` for new sidecars only. The ~329 T still applies to an extension of the June-8 560 T archive, whose sidecars are unflagged; see rule 9's follow-up.]**
 
 11. **Cold archive completeness — split into two categories.**
     Original 560T cold archive shipped without `EXTENSION_RECIPE.txt`,

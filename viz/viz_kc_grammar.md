@@ -186,12 +186,21 @@ figure out; **no analysis logic in `viz/`**.
 - **Each column is a probability distribution over classes**, conditioned on having reached that
   layer. Read the heat map **down**, never across; brightness in different columns is comparable
   only because every column sums to 1.
-- **The grammar tightens as the budget is spent.** C5 allots exactly (2, 8, 13, 7, 1) boundaries of
-  classes (1, 2, 3, 4, 6) across the 31 transitions
-  ([TRIGRAM_STRUCTURE.md](../documentation/TRIGRAM_STRUCTURE.md)); once a class's allotment is
-  exhausted along a prefix its probability drops to zero for those walks, so late columns should
-  concentrate on the classes with budget left. Rows going dark from the right is the expected
-  signature.
+- **Read each class row against its budget share; do not read budget exhaustion off it.** C5 allots
+  exactly (2, 8, 13, 7, 1) boundaries of classes (1, 2, 3, 4, 6) across the 31 transitions
+  ([TRIGRAM_STRUCTURE.md](../documentation/TRIGRAM_STRUCTURE.md)), so each class's row, summed
+  over `w` and over `k`, is exactly its allotment. On the committed table every class share sits
+  within 0.020 of `b0[d]/31` at every layer (d = 1: 0.061…0.066 against 2/31 = 0.065), with one
+  exception: d = 6 is 0 at k = 0, because d = 6 from hexagram 0 needs entry 63, which pair 0 holds.
+  No row goes dark from the right. A zero cell here is **positional**; it is not a budget running out.
+  ⚠ *Corrected 2026-09-25 (Q-699, V3A-142#1). This bullet read "The grammar tightens as the budget is
+  spent … once a class's allotment is exhausted along a prefix its probability drops to zero for
+  those walks, so late columns should concentrate on the classes with budget left. Rows going dark
+  from the right is the expected signature." The cells are layer marginals and say nothing about any
+  walk's residual budget. Measured by exhaustive enumeration at n=9 (all 26,112 walks, one class
+  multiset {1,1,2,2,2,2,2,4,4}): d = 1 is 0 at k = 3, 4, 5 and back to 0.544 at k = 6, while 100% of
+  walks still hold unspent d = 1 budget at k = 3…6, so those zeros are positional. At full-31 no
+  row goes dark (above).*
 - **The d = 6 rows are a single forced event.** Exactly one d = 6 boundary exists in every valid
   ordering, so those three rows, summed over `w`, *are* its exact positional distribution — the population version of the
   "9th six" ([MCKENNA.md](../documentation/MCKENNA.md)). King Wen puts it at k = 18.
@@ -205,7 +214,10 @@ figure out; **no analysis logic in `viz/`**.
 
 1. **Exact conditional transition probabilities** over the entire superspace, per layer — the
    "grammar" of the space in the literal sense, with no estimator anywhere.
-2. **Where the C5 budget binds**, positionally and exactly.
+2. **Where each distance class sits, positionally and exactly** — the layer marginal of each class.
+   ⚠ *Corrected 2026-09-25 (Q-699, V3A-142#1): this read "Where the C5 budget binds". A marginal
+   cannot show where a walk's budget binds; that needs the law conditioned on residual budget, which
+   no shipped table carries.*
 3. **The exact positional law of the unique d = 6 boundary**, and King Wen's position in it.
 4. **Whether King Wen's individual transitions are modal or marginal** under that grammar — per
    layer, marginally.

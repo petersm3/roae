@@ -1569,8 +1569,8 @@ row_begin a1_q8_super
 cp "$RAW" "$ARTDIR/q8_super.tsv"
 row_end TR12_Q8_SUPER $rc
 
-row_begin a1_q8_c15
-( "$SOLVE" --kc-sample "$FDIR" "$Q8K" "$SEED" --kc-c3-max "$C3MAX" --kc-record ) >>"$RAW" 2>&1; rc=$?
+row_begin a1_q8_c15   # Q-715: solve.c refuses an empty C15 (rc 2); the 6 h wall is the backstop for the rest
+( timeout "${TR12_Q8_C15_TIMEOUT:-21600}" "$SOLVE" --kc-sample "$FDIR" "$Q8K" "$SEED" --kc-c3-max "$C3MAX" --kc-record ) >>"$RAW" 2>&1; rc=$?; [ "$rc" -eq 124 ] && echo "Q8_C15_FAIL	--kc-sample did not finish within TR12_Q8_C15_TIMEOUT=${TR12_Q8_C15_TIMEOUT:-21600}s" >>"$RAW"
 cp "$RAW" "$ARTDIR/q8_c15.tsv"
 row_end TR12_Q8_C15 $rc
 
@@ -2250,7 +2250,7 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
     row_begin a2_q3_reader
     (
       awk -F'\t' -v N="$N_TOTAL" -v NP="$N_PAIRS" '
-        function canon(s){ return (s ~ /^(0|[1-9][0-9]*)$/) }
+        function canon(s){ return (s ~ /^[1-9][0-9]*$/) }   # POSITIVE only: a 0 cell made 0/0 "telescope" (Q-699, V3A-125#2)
         $1 ~ /^[0-9]+$/ {
             step[++k]=$1; pn[k]=$11 ""; pd[k]=$12 ""; g[k]=$9 ""; gp[k]=$10 ""
         }
@@ -2260,7 +2260,7 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
             printf "reader_steps\t%d\n", k
             if (k != NP+0) { printf "READER_FAIL\tstep count %d != n %d\n", k, NP; fails++ }
             if (!canon(NS)) { printf "READER_FAIL\tN=%s is not a canonical decimal integer\n", NS; fails++ }
-            for (i=1;i<=k;i++) if (!canon(g[i]) || !canon(gp[i]) || !canon(pn[i]) || !canon(pd[i])) { printf "READER_FAIL\tstep %d: non-canonical integer column (g,g_parent,p_num,p_den)=(%s,%s,%s,%s)\n", i,g[i],gp[i],pn[i],pd[i]; fails++ }
+            for (i=1;i<=k;i++) if (!canon(g[i]) || !canon(gp[i]) || !canon(pn[i]) || !canon(pd[i])) { printf "READER_FAIL\tstep %d: non-canonical or non-positive integer column (g,g_parent,p_num,p_den)=(%s,%s,%s,%s)\n", i,g[i],gp[i],pn[i],pd[i]; fails++ }
             if (pd[1] != NS) { printf "READER_FAIL\tp_den[1]=%s != N=%s\n", pd[1], NS; fails++ }
             else printf "reader_p_den_1_eq_N\tOK (%s)\n", pd[1]
             for (i=2;i<=k;i++) if (pd[i] != pn[i-1]) { printf "READER_FAIL\tp_den[%d]=%s != p_num[%d]=%s\n", i, pd[i], i-1, pn[i-1]; fails++ }

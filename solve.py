@@ -3974,8 +3974,8 @@ def print_null_debruijn(trials=5000, seed=None):
     print("Caveats:")
     print(f"  - {trials} samples is small vs. 2^26 (~67M) distinct B(2, 6) sequences;")
     print("    randomized Hierholzer is non-uniform. Finding is suggestive, not exhaustive.")
-    print("  - Other structured families (Costas arrays, Gray codes, lexicographic)")
-    print("    are NOT tested. This addresses one of several gaps in CRITIQUE.md.")
+    print("  - Other structured families (Gray codes, lexicographic) are not tested by")  # Q-758 2026-09-25: Costas removed
+    print("    this mode; order-64 Costas arrays are excluded by C1 analytically (CRITIQUE.md).")
 
 
 # ============================================================================
@@ -4427,6 +4427,13 @@ _V3_C5_MULTISET = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}
 # reports/certificates/c3_positional_witnesses.txt.
 _V3_C3_FLOOR = 112
 
+# Q-698 (V3A-145#1): `_P2_FLOAT_COLS`' 0.0..500.0 for fft_peak_amplitude is a --marginals histogram
+# limit, not a bound -- a C1&C2&C4&C5 member scores 517.53 (viz_kc_spectrum.md). V3 accepts the
+# PROVEN envelope instead. A walk is a permutation of 0..63, so Parseval gives sum_{k=1..63}|F_k|^2
+# = 64*21840 = 1,397,760; over F[:,1:32] (k = 1..31, Nyquist excluded) |F_k| = |F_64-k| gives max <=
+# sqrt(698,880) = 835.990; |F_32| <= 1024 gives max >= sqrt((1,397,760-1024^2)/62) = 75.047. Rounded outward for float32.
+_V3_FLOAT_ACCEPT = {"fft_peak_amplitude": (75.0, 836.0)}
+
 
 def _v3_pair_table():
     """{(entry, exit): (pair_index, orient)} over the 32 canonical King Wen pairs.
@@ -4446,6 +4453,13 @@ def _v3_pair_table():
     return table
 
 
+def _v3_fail(detail, flush=True):
+    """Q-690: the verdict is a bare `grep -qx` line; the detail goes on the next line."""
+    print("V3_SPECTRUM=FAIL")
+    print(f"[v3-spectrum] {detail}", flush=flush)
+    return 1
+
+
 def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     """Handler for --v3-spectrum.  Rank grid (i/r/walk) -> v3_spectrum.tsv.
 
@@ -4453,7 +4467,8 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     (scripts/tr12_repro.sh row a1_v3 -> tr12/v3_rel_grid.tsv), evaluates the
     FROZEN `--compute-stats` battery on each walk, and writes the one-row-per-
     grid-point evidence TSV that `viz/report_figures.py fig_tr12_kc_spectrum`
-    consumes.  Emits `V3_SPECTRUM=PASS` or `V3_SPECTRUM=FAIL`.
+    consumes.  Emits `V3_SPECTRUM=PASS` or `V3_SPECTRUM=FAIL` as a bare line
+    (match with `grep -qx`), with the detail on the next line.
 
     The battery is frozen: `_P2_INT_COLS` / `_P2_FLOAT_COLS` are READ here and
     never widened, and their table order is the column order the spec pins.
@@ -4481,8 +4496,7 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     import numpy as np
 
     if order not in ("REL", "O3"):
-        print(f"V3_SPECTRUM=FAIL unknown order {order!r}; must be REL or O3", flush=True)
-        return 1
+        return _v3_fail(f"unknown order {order!r}; must be REL or O3", flush=True)
 
     # ---- read the grid -----------------------------------------------------
     rows = []
@@ -4495,19 +4509,16 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
             if header is None:
                 header = fields
                 if header[:3] != ["i", "r", "walk"]:
-                    print(f"V3_SPECTRUM=FAIL {grid_tsv}: header is {header}, expected "
-                          f"i/r/walk (the --kc-unrank grid emitted by row a1_v3)",
-                          flush=True)
-                    return 1
+                    return _v3_fail(f"{grid_tsv}: header is {header}, expected "
+                                    f"i/r/walk (the --kc-unrank grid emitted by row a1_v3)",
+                                    flush=True)
                 continue
             if len(fields) != len(header):
-                print(f"V3_SPECTRUM=FAIL {grid_tsv}: {len(fields)} field(s) against a "
-                      f"{len(header)}-column header -- torn or mis-delimited", flush=True)
-                return 1
+                return _v3_fail(f"{grid_tsv}: {len(fields)} field(s) against a "
+                                f"{len(header)}-column header -- torn or mis-delimited", flush=True)
             rows.append(fields)
     if not rows:
-        print(f"V3_SPECTRUM=FAIL {grid_tsv}: header only, 0 data rows", flush=True)
-        return 1
+        return _v3_fail(f"{grid_tsv}: header only, 0 data rows", flush=True)
     K = len(rows)
 
     # ---- the rank axis, exactly (decimal strings, never float) -------------
@@ -4516,21 +4527,18 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     idx = [int(r[0]) for r in rows]
     ranks = [int(r[1]) for r in rows]
     if idx != list(range(K)):
-        print(f"V3_SPECTRUM=FAIL {grid_tsv}: `i` is not the contiguous run 0..{K-1} "
-              f"-- the renderer's grid check would refuse this table", flush=True)
-        return 1
+        return _v3_fail(f"{grid_tsv}: `i` is not the contiguous run 0..{K-1} "
+                        f"-- the renderer's grid check would refuse this table", flush=True)
     step = _V3_SUPERSPACE_N // K
     bad_rank = [(i, ranks[i], i * step) for i in range(K) if ranks[i] != i * step]
     if bad_rank:
         i, got, want = bad_rank[0]
-        print(f"V3_SPECTRUM=FAIL {grid_tsv}: rank at i={i} is {got}, but "
-              f"i*floor(N/K) = {want} for N={_V3_SUPERSPACE_N} K={K} "
-              f"({len(bad_rank)} row(s) disagree) -- this grid was not built "
-              f"against this superspace size", flush=True)
-        return 1
+        return _v3_fail(f"{grid_tsv}: rank at i={i} is {got}, but "
+                        f"i*floor(N/K) = {want} for N={_V3_SUPERSPACE_N} K={K} "
+                        f"({len(bad_rank)} row(s) disagree) -- this grid was not built "
+                        f"against this superspace size", flush=True)
     if any(ranks[i] <= ranks[i - 1] for i in range(1, K)):
-        print(f"V3_SPECTRUM=FAIL {grid_tsv}: `rank` is not strictly increasing", flush=True)
-        return 1
+        return _v3_fail(f"{grid_tsv}: `rank` is not strictly increasing", flush=True)
 
     # ---- walk -> record, and read the record back through the battery ------
     table = _v3_pair_table()
@@ -4541,13 +4549,11 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
         try:
             w = [int(v) for v in walk_str.split(",")]
         except ValueError:
-            print(f"V3_SPECTRUM=FAIL row i={i}: walk is not a comma-separated "
-                  f"integer list", flush=True)
-            return 1
+            return _v3_fail(f"row i={i}: walk is not a comma-separated "
+                            f"integer list", flush=True)
         if len(w) != 62:
-            print(f"V3_SPECTRUM=FAIL row i={i}: walk has {len(w)} integers, expected 62 "
-                  f"(entry,exit for each of the 31 free pairs)", flush=True)
-            return 1
+            return _v3_fail(f"row i={i}: walk has {len(w)} integers, expected 62 "
+                            f"(entry,exit for each of the 31 free pairs)", flush=True)
         walks.append(walk_str)
         # C4: the pinned opening pair (63, 0) is PREPENDED -- it is not in the
         # walk, which carries only the 31 free placements.
@@ -4555,10 +4561,9 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
         for k in range(31):
             key = (w[2 * k], w[2 * k + 1])
             if key not in table:
-                print(f"V3_SPECTRUM=FAIL row i={i}: ({key[0]},{key[1]}) is not one of the "
-                      f"32 canonical King Wen pairs -- C1 violated, so this walk is not a "
-                      f"member of the space", flush=True)
-                return 1
+                return _v3_fail(f"row i={i}: ({key[0]},{key[1]}) is not one of the "
+                                f"32 canonical King Wen pairs -- C1 violated, so this walk is not a "
+                                f"member of the space", flush=True)
             pair_index, orient = table[key]
             records[i, k + 1] = (pair_index << 2) | (orient << 1)
 
@@ -4570,25 +4575,21 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     for i in range(K):
         s = [int(v) for v in seq[i]]
         if sorted(s) != list(range(64)):
-            print(f"V3_SPECTRUM=FAIL row i={i}: decoded sequence is not a permutation "
-                  f"of 0..63 -- a pair was placed twice", flush=True)
-            return 1
+            return _v3_fail(f"row i={i}: decoded sequence is not a permutation "
+                            f"of 0..63 -- a pair was placed twice", flush=True)
         if (s[0], s[1]) != (63, 0):
-            print(f"V3_SPECTRUM=FAIL row i={i}: sequence opens ({s[0]}, {s[1]}), not "
-                  f"(63, 0) -- C4 is not satisfied by the prepended pair", flush=True)
-            return 1
+            return _v3_fail(f"row i={i}: sequence opens ({s[0]}, {s[1]}), not "
+                            f"(63, 0) -- C4 is not satisfied by the prepended pair", flush=True)
         dists = [int(popcount[s[j] ^ s[j + 1]]) for j in range(63)]
         if 5 in dists or 0 in dists:
-            print(f"V3_SPECTRUM=FAIL row i={i}: a transition of distance "
-                  f"{5 if 5 in dists else 0} -- C2 forbids it", flush=True)
-            return 1
+            return _v3_fail(f"row i={i}: a transition of distance "
+                            f"{5 if 5 in dists else 0} -- C2 forbids it", flush=True)
         got = dict(collections.Counter(dists))
         if got != _V3_C5_MULTISET:
-            print(f"V3_SPECTRUM=FAIL row i={i}: difference-wave multiset {got} != "
-                  f"{_V3_C5_MULTISET} -- C5 violated, so the decoded walk is not a "
-                  f"member of C1&C2&C4&C5 and the adapter is packing the wrong bytes",
-                  flush=True)
-            return 1
+            return _v3_fail(f"row i={i}: difference-wave multiset {got} != "
+                            f"{_V3_C5_MULTISET} -- C5 violated, so the decoded walk is not a "
+                            f"member of C1&C2&C4&C5 and the adapter is packing the wrong bytes",
+                            flush=True)
 
     # Positive control: King Wen must round-trip to every frozen reference
     # value.  A wrong shift, a swapped orientation or a dropped pin changes at
@@ -4600,10 +4601,9 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
         got = float(kw_stats[name][0])
         tol = 0.01 if isinstance(ref, float) else 0.0
         if abs(got - float(ref)) > tol:
-            print(f"V3_SPECTRUM=FAIL King Wen positive control: {name} packs to {got}, "
-                  f"frozen reference is {ref} -- the record convention is wrong",
-                  flush=True)
-            return 1
+            return _v3_fail(f"King Wen positive control: {name} packs to {got}, "
+                            f"frozen reference is {ref} -- the record convention is wrong",
+                            flush=True)
 
     # ---- the frozen battery ------------------------------------------------
     stats = _p2_compute_all_stats(records)
@@ -4646,6 +4646,7 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
             violations.append(f"{name}={v} at i={i} outside documented range {lo}..{hi}")
         spans.append((name, vmin, vmax, f"{lo}..{hi}"))
     for name, lo, hi, _kw in float_cols:
+        lo, hi = _V3_FLOAT_ACCEPT.get(name, (lo, hi))
         arr = stats[name].astype(np.float64)
         vmin, vmax = float(arr.min()), float(arr.max())
         out_of = [(int(i), float(v)) for i, v in enumerate(arr)
@@ -4696,8 +4697,7 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
             # abscissa is a float BY SPEC, the rank beside it stays exact.
             x = ranks[i] / _V3_SUPERSPACE_N
             if not (0.0 <= x < 1.0):
-                print(f"V3_SPECTRUM=FAIL row i={i}: x={x} outside [0,1)", flush=True)
-                return 1
+                return _v3_fail(f"row i={i}: x={x} outside [0,1)", flush=True)
             row = [str(i), str(ranks[i]), "%.17g" % x, order, walks[i]]
             row += [str(int(stats[n][i])) for n in names_int]
             row += ["%.7f" % float(stats[n][i]) for n in names_float]
@@ -4722,17 +4722,17 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     if violations:
         for v in violations:
             print(f"[v3-spectrum] RANGE VIOLATION: {v}", flush=True)
-        print(f"V3_SPECTRUM=FAIL {len(violations)} observable value(s) outside the "
-              f"documented range; wrote {out_tsv} UNCLAMPED so the violation is "
-              f"inspectable", flush=True)
-        return 1
+        return _v3_fail(f"{len(violations)} observable value(s) outside the "
+                        f"documented range; wrote {out_tsv} UNCLAMPED so the violation is "
+                        f"inspectable", flush=True)
     # Count the columns ACTUALLY WRITTEN, not the battery size. This line used to report
     # `len(names_int) + len(names_float)` for both figures, so after the circular kw_* columns
     # were suppressed it still announced 9 reference columns while writing 5 -- a verdict line
     # contradicting its own output, which is the class CX-65/67/73 all belong to.
     _n_kw = len(kw_int_cols) + len(kw_float_cols)
     _n_supp = (len(int_cols) + len(float_cols)) - _n_kw
-    print(f"V3_SPECTRUM=PASS {K} rows, {len(names_int) + len(names_float)} observable(s) "
+    print("V3_SPECTRUM=PASS")
+    print(f"[v3-spectrum] {K} rows, {len(names_int) + len(names_float)} observable(s) "
           f"+ {_n_kw} kw_* reference column(s) ({_n_supp} suppressed as KW-anchored: "
           f"{', '.join(sorted(_KW_TAUTOLOGICAL))}) -> {out_tsv}",
           flush=True)
@@ -17418,7 +17418,8 @@ def main():
                              "constant kw_<observable> reference column for each. Re-derives "
                              "C1/C2/C4/C5 membership from every emitted record and refuses the "
                              "run rather than emitting an unverified spectrum. Emits "
-                             "V3_SPECTRUM=PASS/FAIL. See viz/viz_kc_spectrum.md.")
+                             "V3_SPECTRUM=PASS/FAIL as a bare line (grep -qx), detail on "
+                             "the next line. See viz/viz_kc_spectrum.md.")
     parser.add_argument("--v3-spectrum-order", choices=("REL", "O3"), default="REL",
                         help="Which total order --v3-spectrum's GRID_TSV ranks refer to "
                              "(default REL, the order --kc-unrank implements). Written into the "

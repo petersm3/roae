@@ -172,6 +172,6 @@ python3 ../../../../viz/growth_curve.py                         # the growth cur
 ```
 
 `visualize.py` scales to billions of solutions in a few minutes — PCA on the 32×32 covariance is nearly
-instant; the bottleneck is reading `solutions.bin` from disk (gz-aware). Outputs are 4 PNG + 4 SVG
+instant; the bottleneck is reading `solutions.bin` from disk. The input must be **uncompressed**: run `gzip -dk solutions.bin.gz` first, since a `.gz` is refused with a `ValueError` that says so. ⚠ *Corrected 2026-09-25 (Q-699, V3A-139#4): this said "(gz-aware)", but `visualize.py` has no gzip path. A `.gz` input, and every headerless legacy file, used to crash with `NameError`.* Outputs are 4 PNG + 4 SVG
 (~10-15 MB total) plus the growth curve. Per-run directories may carry their own brief, dataset-specific
 `README.md`; this file is the stable index across all runs.

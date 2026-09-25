@@ -135,8 +135,12 @@ are over raw orientation-resolved sequences. A rule's *value* is orientation-inv
 only on the pair ordering, but its reported *fraction* is not: it is Σ_{P: R(P)} fiber(P) / Σ_P fiber(P),
 a fiber-size-weighted fraction, and fiber size is a function of the pair ordering's transition geometry —
 the same geometry most literature rules score. Fiber size is far from constant (0 for every pair ordering
-admitting no valid orientation; ≥1,720,320 for King Wen's, against a mean of ≈1.3×10⁵ over all 31! pair
-orderings). Read every fraction below as a weighted-population fraction whose weighting is not known to be
+admitting no valid orientation; ≥1,720,320 for King Wen's, against a mean of ≈1.6×10⁴ over all 31! pair
+orderings, 1.3287×10³⁸ / 31! = 16,159, in the C1–C5 population these fractions are taken over). ⚠ **[CORRECTED
+2026-09-25 (Q-758, Codex V3A-033#4) — the mean read "≈1.3×10⁵". That is the mean over the C1∩C2∩C4∩C5
+population, |C1∩C2∩C4∩C5| / 31! = 1.097051×10³⁹ / 31! = 133,415, which has no C3 bound, and
+[TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §1(b) states it with that population named. This
+page's fractions are C1–C5 fractions, so the like-for-like mean is 8.3× smaller.]** Read every fraction below as a weighted-population fraction whose weighting is not known to be
 independent of the rules. *(Corrected 2026-08-01: this caveat previously said "orientation-invariant rules
 are unaffected", which is true of a predicate's value and **false of the reported fraction** — the
 correction landed in [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §1(b) on 2026-08-01 and is

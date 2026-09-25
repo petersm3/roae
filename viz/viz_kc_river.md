@@ -33,6 +33,19 @@ order-TB at full-31 — an order-10² TB artifact [ESTIMATED, hedged]. That is a
 What panel (b) gives instead is exact and cheap: the branch *terminal* widths (each branch's total
 solution mass), which is the river's right-hand edge without the interior.
 
+⚠ *Corrected 2026-09-25 (Q-699, V3A-143#1): the two paragraphs above attach the ≈56× ladder to the
+wrong quantity.* **Completed-solution mass split by first branch needs no new ladder, because it
+does not change with k.** A walk keeps its first branch at every layer, so the layer-k mass of
+branch *b* is `solutions(b)` for every *k*, which is a flat band of the width panel (b) already
+prints; the "interior" of that river is its right-hand edge repeated. Measured by exhaustive
+enumeration at n=9 (26,112 walks, 12 first branches): branch (1, 32) carries 2,368 walks at every
+one of the 9 layers. What a plain f ladder cannot give is a **finer** split: the joint of the layer-k
+distance class and the first branch (for the same branch at n=9, its d = 2 count by layer is
+0, 1824, 1824, 1088, 1824, 1824, 0, 1728, 1728), or the per-layer *prefix* count by branch. Either one
+needs the branch-tagged forward ladder, and the ≈56× estimate applies to those. So panel (c) has to
+say which of them it means before it is priced; "layer-k mass split by top-level branch", read as
+solution mass, is already drawable and is flat.
+
 ## The quantity plotted
 
 **Panel (a) — the distance-class river.** Let **SUPER** = C1 ∩ C2 ∩ C4 ∩ C5 (C3 is **not**

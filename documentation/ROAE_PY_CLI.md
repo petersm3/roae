@@ -379,6 +379,34 @@ offsets. Separation is an offset convention, not an enforced bound, and
 batch 10000+k and evaluation batch k are seeded identically and draw the
 same samples. Keep `--gs-batches` far below 10,000 (the default is 100).
 
+⚠ **[CORRECTED 2026-09-25 (Q-758, Codex V3A-042#3; the zero-hit rule was
+ruled the same day by a Fable pre-publication review) — a zero-hit test is
+graded by its reported Wilson bound, not failed.]** The frozen spec's §4.3
+says that a predicate scoring 0 hits gets its one-sided 95% Wilson bound
+reported, with no escalation; the grade is still the spec's `iff` (KW
+satisfies the predicate ∧ bits-explained > bar). Until this date the grader
+tested `hits > 0` inside the pass condition, so a King-Wen-satisfied
+predicate with zero evaluation-stream hits — the rarest outcome the run can
+produce — printed `FAIL` and counted toward `NULL … 4/4 FAIL -> HELD`. Such
+a test is now graded against its reported bound: when the one-sided 95%
+Wilson lower bound on bits-explained exceeds the bar it is a `PASS`,
+printed as that bound (`be=>= …`), and it counts like any other PASS — the
+prediction is NOT HELD and the §8 adversarial re-audit fires. At the
+pre-registered N_eval = 10⁶ the bound is 18.49 bits, above every frozen bar
+(9.58 / 9.58 / 11.17 / 10.06), so there a zero-hit always passes. Only a
+zero-hit at an N too small for the bound to resolve the bar (8.53 bits at
+N = 1,000, against T4's 10.06) prints status `ZERO-HIT:STOP`, is not
+graded, and makes the run report the prediction as `UNDECIDED (zero-hit
+stop)` (JSON `prediction_4of4_fail_held: null`) instead of HELD. A PASS
+elsewhere still takes precedence. A KW-unsatisfied predicate still FAILs at
+0 hits (`FAIL-KW`), because the criterion's first conjunct is already
+false; the review approved that half as written. Every run prints the token
+`PREREG_ZERO_HIT_STOP=<tests>|NONE`, which lists only unresolved zero-hits.
+No published verdict moves: the one recorded run of this mode (2026-07-26,
+see the cross-check note below) stopped at the cross-check gate and issued
+no verdicts. Regression tests: `tests.py` `TestPreregZeroHitStops`,
+including a case at N_eval = 10⁶ where the two readings of the rule differ.
+
 A validity gate cross-checks the evaluation stream's mass(A ≤ 648)
 against the independently measured F4′ `dist_autocorr` figure
 0.04789 ± 0.005 — on failure the run hard-stops with **exit code 3**
@@ -397,15 +425,15 @@ C3-gated build gives mass(A ≤ 648) = **0.04783**, reproducing the published
 reproducing the executed sampler's **0.037406** to under 1σ. **The ≈0.0105
 discrepancy this gate rejects on IS the C3 conditioning — not a defective
 sampler.** That is what produced the `GATE FAIL — population/sampler mismatch …
-NO verdicts issued` of 2026-07-26. The constant `0.04789` at `roae.py:4994` is a
+NO verdicts issued` of 2026-07-26. The constant `0.04789` at `roae.py:5077` is a
 **frozen pre-registration spec value and is deliberately NOT changed**:
 re-registering this gate against an unconditioned reference (≈0.0379) would be a
 NEW pre-registration rather than an edit, and the pre-registration document
 itself is escrow-frozen (`documentation/PREREGISTRATION_ESCROW.md:67`). Read a
 FAIL here as "these two instruments condition differently", not as "the sampler
 is wrong". See documentation/CORRECTIONS.md CX-52.]**
-*(Line citations measured stale 2026-09-21, two days after the note was written, and re-pinned 2026-09-25 (Q-791): the `0.04789`
-gate constant is at `roae.py:4994`, `_gs_one_sample` is defined at `:4060`; the `solve.c:7995` /
+*(Line citations measured stale 2026-09-21, two days after the note was written, and re-pinned 2026-09-25 (Q-791), and again the same day (Q-758, after the zero-hit grader helpers were inserted above it, and once more when the Fable zero-hit ruling widened that grader): the `0.04789`
+gate constant is at `roae.py:5077`, `_gs_one_sample` is defined at `:4060`; the `solve.c:7995` /
 `:8168` citations still hold. Anchor on the symbol names.)*
 
 Flags: reuses `--gs-samples` (as N_eval), `--gs-workers`,
@@ -506,7 +534,7 @@ Optional packages enable richer output:
 | Code | Meaning |
 |---|---|
 | 0 | Success, including a `--self-test` run in which every check passed. |
-| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory *(the working-directory clause is stale since 2026-09-02, when the loader became `__file__`-relative; measured 2026-09-21, `--verify` passes from `/tmp`. "Could not load solve.py" now means the sibling file is missing or unreadable, and it still exits 1 — see META FLAGS)* — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5408` is `return 1 if print_self_test() else 0`, directly below the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. *(That line number was re-pinned on 2026-09-21 and again on 2026-09-25, Q-791; the behaviour was re-measured on 2026-09-21 — 49/49 pass, rc 0 — and the line is the one to grep for.)* |
+| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory *(the working-directory clause is stale since 2026-09-02, when the loader became `__file__`-relative; measured 2026-09-21, `--verify` passes from `/tmp`. "Could not load solve.py" now means the sibling file is missing or unreadable, and it still exits 1 — see META FLAGS)* — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5475` is `return 1 if print_self_test() else 0`, directly below the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. *(That line number was re-pinned on 2026-09-21, again on 2026-09-25 (Q-791), and twice more the same day (Q-758, after the zero-hit grader helpers were inserted above it, and after the Fable zero-hit ruling widened that grader); the behaviour was re-measured on 2026-09-21 — 49/49 pass, rc 0 — and the line is the one to grep for.)* |
 | 2 | Invalid argument or unrecognised flag (emitted by `argparse`) |
 | 3 | `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) — the only `sys.exit(3)` in `roae.py` |
 

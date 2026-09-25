@@ -249,7 +249,7 @@ matter what `SOLVE_NODE_LIMIT` it is given.
 
 ### 3b. Natural termination always leaves you under
 
-Even with the per-cell budget set correctly, **most cells walk
+⚠ **[CORRECTED 2026-09-25 (Q-758, Codex V3A-032#5) — the mechanism this subsection asserts has never been observed in a published run.** It says "most cells walk fewer than per_cell_budget nodes because they naturally terminate", and that "even on a clean run there's some natural-termination contribution". The measured record says the opposite, at every depth it covers. This guide's own §1 table, from the 100T pilot's `per_task_stats.csv`, records **0 of 975** depth-5 sub-tasks naturally terminated. The tracked 100T canonical analyzer log (`runs/20260419_100T_d3_d128westus3/analyze_output.log.gz` §[27]) prints `Total entries: 4096 (EXHAUSTED/COMPLETE: 0, BUDGETED: 4096, INTERRUPTED: 0)`. At 560T, 158,364 of 158,364 cells checkpointed at budget ([CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7). Natural termination is possible in principle: a cell whose subtree is finite below its budget stops early. No published run has a cell that did. The 0.57 % under-shoot below is therefore the two crashes, not natural termination. §3c's "cannot guarantee total walked ≥ N" still holds as a statement about what the code permits. Just do not read it as a description of what happens.]** Even with the per-cell budget set correctly, **most cells walk
 fewer than per_cell_budget nodes** because they naturally terminate
 (C2 / C3 / C5 pruning kills the branch, or the search tree is
 genuinely finite at this depth). Total walked per first-level
@@ -449,7 +449,7 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
                                                  # to stderr. NOT the CSV —
                                                  # per_task_stats.csv is
                                                  # written unconditionally.
-            SOLVE_CKPT_INTERVAL          = 300,  # 5-min checkpoint cadence
+            # ⚠ CORRECTED 2026-09-25 (Q-758, Codex V3A-032#3): a line here read `SOLVE_CKPT_INTERVAL = 300,  # 5-min checkpoint cadence`. --branch never reads it: the only getenv("SOLVE_CKPT_INTERVAL") in solve.c sits in the parallel --sub-branch spawn, beside the thread_func_ckpt launch. This runner checkpoints through SOLVE_DFS_CHECKPOINT's per-cell .dfs_state sidecars, which are written when a cell reaches its budget, not on a timer. Setting it is harmless. It is not a 5-minute cadence.
             SOLVE_THREADS                = 64,
          }
          INTO $WORKDIR

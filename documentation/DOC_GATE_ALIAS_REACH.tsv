@@ -80,7 +80,7 @@
 #
 # WHAT THIS GATE CANNOT CATCH, stated rather than left to be rediscovered:
 #   * article-less naming uses of "exhaustive enumeration" for the actual runs -
-#     TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md:45 "alongside exhaustive enumeration
+#     TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md:48 "alongside exhaustive enumeration
 #     (exact lower bounds; TR-3)" and CITATIONS.md:995 at 05a8d815 (removed 2026-09-02) "or exhaustive enumeration.
 #     [analyzed]" are live borderline sites the fixed string cannot reach without
 #     swallowing the hypothetical-contrast sense corpus-wide. They are recorded here

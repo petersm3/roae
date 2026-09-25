@@ -24,9 +24,9 @@ Figures produced (PNG + SVG, written to CWD — run from reports/figures/):
   fig_tr12_kc_shells            — V4 King Wen's shells           (viz/viz_kc_shells.md)
   fig_tr12_kc_grammar           — V5 transition grammar          (viz/viz_kc_grammar.md)
 
-The five TR-12 figures are TSV-in/figure-out over the tables written by
-`python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` — no analysis
-logic lives here. Each is skipped with a message if its TSV is absent.
+The five TR-12 figures are TSV-in/figure-out, no analysis logic here: V1/V2/V5 read what `solve.py --atlas-queries ATLAS.json --atlas-out DIR` writes,
+V4 needs `--atlas-q3-trace TRACE` added to that call, V3 needs the separate `solve.py --v3-spectrum GRID OUT` join (Q-699, V3A-140#3,
+2026-09-25: this said all five came from the bare --atlas-queries call). V3 is optional; the other four refuse, with a message, if absent.
 
 Requires: matplotlib, numpy (external — not a dependency of roae.py / solve.c).
 

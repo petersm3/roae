@@ -35,7 +35,14 @@ a laptop and are the part you can check immediately.
 `k` is the layer (number of pairs placed). `canonical_masks` counts orbit representatives of the
 placed-set under the 24-element pair-permutation quotient of G48, out of C(31,k) sets in total.
 `states` counts distinct (canonical mask, last-exit) pairs; `entries` counts stored
-(canonical mask, last-exit, C5-residual) triples. `V_k` is the per-layer valid-exit bound.
+(canonical mask, last-exit, C5-residual) triples. `V_k` is the number of C5 budget-usage vectors
+(p₁, p₂, p₃, p₄, p₆), with 0 ≤ p_d ≤ B0_d for B0 = (2, 8, 13, 7, 1), whose digits sum to k. These
+are the C5-residual states a layer-k entry can carry. ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex
+V3A-081#1) — this read "`V_k` is the per-layer valid-exit bound".** The printed `V_k` is
+`vcnt[k]` in `solve.c`'s rid tables, `for (r …) if (B.rsum[r] == s) cnt++`, which counts residual
+ids, not exits. Recomputed 2026-09-25 by enumerating the 3·9·14·8·2 = 6,048 vectors: the counts by
+digit sum are 5, 14, 29, …, 413, 413, …, 14, 5, 1 for k = 1…31, the `V_k` column below row for
+row, with maximum 413 (the log's `V_max=413/layer`).]**
 `mass` is the **orbit-weighted count of valid length-k prefixes in the full (unquotiented)
 space** — the column of scientific interest.
 
@@ -153,6 +160,17 @@ true is the narrower statement: *the layered DP used for the n=9/n=13 gate above
 full 31.
 
 ## 3. Source
+
+⚠ **[ADDED 2026-09-25 (Q-700, Codex V3A-081#3) — the log hashed below is not published, so these
+two hashes cannot be checked from this repository.** `run_f/run.out` stays on the held Stage F
+data disk. A second, independent log of the same computation **is** published:
+[`runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out`](../runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out),
+the July full-31 landing run (sha256 `8c7d063e…`, listed in that directory's `PRESERVE_SHA256.txt`
+since the landing). Its 31 `[f1c5] layer k=` lines reproduce every column of the §1 table except
+`C(31,k)`, which is arithmetic: `canonical_masks`, `states`, `entries`, `V_k`, `layer GB` and
+`mass`, for all 31 rows. Checked 2026-09-25 by extracting those seven fields from both and taking a
+`diff`, which was empty. The table is therefore auditable from the tree. The two hashes below remain
+hashes of bytes a reader cannot obtain.]**
 
 Layer telemetry extracted from the Stage F build log `run_f/run.out`
 (sha256 `46250754ba4c8a9ce5e75a496e02df105a8e6b40018c59f196dc99a733c6adfb`, 39,347 bytes), whose

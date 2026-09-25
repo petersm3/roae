@@ -1129,7 +1129,7 @@ Three-part hardening landed to make this class of bug structurally impossible:
 1. **`scripts/build_pgo.sh`** — canonical PGO build helper. Builds both passes to the SAME output name (renames after Pass 1), so the `.gcda` lookup key matches. Asserts `.gcda` file count > 0 between passes. Adds `-Werror=missing-profile` on Pass 2.
 
    > **⚠ Correction (2026-08-30):** **as of 2026-08-30 this helper can no longer build `solve.c`.** Both of its link lines — Pass 1 at
-   > `scripts/build_pgo.sh:77-78` and Pass 2 at `:128-130` — end in `-lm` with no `-lz`, but `solve.c:330` has
+   > `scripts/build_pgo.sh:77-78@184e3523` and Pass 2 at `:128-130` — end in `-lm` with no `-lz`, but `solve.c:330` has
    > included `<zlib.h>` since #169, and its own comment there says "link with `-lz`" (`DEVELOPMENT.md` marks
    > `-lz` mandatory in the canonical recipe too). Running the script's exact Pass-1 command against `solve.c`
    > at this commit fails at link: rc=1, undefined references to `gzclose`, `gzfread` and friends. The

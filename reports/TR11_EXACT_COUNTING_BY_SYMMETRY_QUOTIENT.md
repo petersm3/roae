@@ -254,7 +254,7 @@ Luo's question.*
    aggregate table, in one pass, with no build:
 
    ```
-   awk -F'|' 'NF>=10 && /^\| *[0-9]+ *\|/{k=$2+0;g=$3;e=$6;s=$8;gsub(/[ ,]/,"",g);gsub(/[ ,]/,"",e);
+   awk -F'|' 'NF>=10 && /^\| *[0-9]+ *\|/ && $8 ~ /\./{k=$2+0;g=$3;e=$6;s=$8;gsub(/[ ,]/,"",g);gsub(/[ ,]/,"",e);
      gsub(/ /,"",s);if(sprintf("%.6f",(e*28+g*12)/1e9)!=s)bad++;gb[k]=s+0;n++}
      END{for(k=1;k<=31;k++)if(gb[k]>pk){pk=gb[k];pki=k};
      for(k=1;k<31;k++){t=gb[k]+gb[k+1];if(t>ps){ps=t;psi=k}};
@@ -266,6 +266,16 @@ Luo's question.*
    k14+k15=3853.97 GB` — the zero mismatch count is the unit assertion (every one of the 31 published
    `layer GB` values equals entries × 28 B + canonical_masks × 12 B to the last printed digit), and the
    two pair figures are the ones this section publishes.
+
+   ⚠ **[CORRECTED 2026-09-25 (Q-758, Codex V3B-02#10) — the selector read
+   `NF>=10 && /^\| *[0-9]+ *\|/` with no `$8 ~ /\./` term, and run against the tree it printed
+   `rows=40 unit-mismatches=9`, not the result quoted above.** It also matched the nine rows of the
+   three-column n=9 / n=13 / n=16 mass table in FULL31 §2, whose eighth field is an integer mass, so
+   the unit check failed on exactly those nine. The added term keeps only rows whose `layer GB` field
+   has a decimal point, which is the 31-row table alone. Measured 2026-09-25: the old selector prints
+   `rows=40 unit-mismatches=9 …`, the new one prints the line quoted above, and changing one
+   `layer GB` digit in a copy of FULL31 makes the new one print `rows=31 unit-mismatches=1`. The peak
+   figures were right under both selectors; only the two gate counts were wrong.]**
 
    ⚠ **What this table said before, and what that number actually was.** Rows 12–14 carried a derived
    or rounded value (≈656 GB, 1.6 TB) and the k=15 row gave a lower bound of more than 2.45 TB marked
@@ -575,6 +585,13 @@ Luo's question.*
   recorded layer — a layer completed after the last manifest write is rebuilt, at no cost to the count). Per-layer
   `[f1c5-ooc]` telemetry prints bytes read/written, MB/s, and RSS. Knobs: `SOLVE_F1_OOC_READ_MB` /
   `SOLVE_F1_OOC_SCRATCH_MB` / `SOLVE_F1_OOC_GAP_KB` (documentation/SOLVE_C_CLI.md).
+  *(Measured datapoint, added 2026-09-25, Q-758: the 2026-07-16 full-31 landing run ran at
+  `scratch_budget=16384 MB` — every one of its log's 31 segment headers prints that value — and its
+  highest logged `rss_peak` is **24,122.0 MB**, about 1.47× the setting, at layer 24 of the final
+  working segment. So at this setting ≈2.2× is a conservative sizing figure rather than a measured
+  ratio. Source: that run's `run.out`, now published at
+  [runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out](../runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out);
+  its sha256 is the one its `PRESERVE_SHA256.txt` has listed since the landing.)*
 - Cross-mode equivalence, reader-side: run any `--f1-pairs N` subset both with and without
   `--f1-out-of-core` — totals must match exactly, and with `SOLVE_F1_OOC_FORMAT=v1` the layer files
   must be byte-identical (`sha256sum` them; under the current v2 out-of-core default the files are
@@ -806,4 +823,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.26 | 2026-09-03 | **§9's commodity recipe asked for ~132 GiB of RSS on the 64 GiB box it sizes** (Codex V2, `TR11:471`). `SOLVE_F1_OOC_SCRATCH_MB` example corrected **61440 → 16384**, which is what `documentation/SOLVE_C_CLI.md` already gave for the same box; the two documents now agree. Root cause: the production 256-GiB D128 setting from §8 was copied into the commodity recipe. **No integer, count or measurement changed** — the ~64 GB commodity-reproducibility claim itself was never falsified, only one copied constant. |
 | v1.27 | 2026-09-04 | **A published characterisation of a named scholar corrected.** The prior-art paragraph said Huang Shisheng 黄石声 (1997) "mislabels" 8!×8! = 1,625,702,400 as the count of *arbitrary* arrangements. His next sentence — 「只有当上下卦都定好次序，才是唯一的64种排法」 — states the restriction, so 8!×8! is exact for the space he describes and the characterisation was our reading of half a passage. Withdrawn. Two adjacent imprecisions moved with it: the figure is *reported* by Huang as 沈宜甲/董光璧's argument, and "matrix-form" is Chen Zhuangwei (2007)'s gloss, not Huang's. Wording only — no count, theorem or canonical value changed; the v1.21 row stands as the record of what was written. See [CORRECTIONS.md](../documentation/CORRECTIONS.md). |
 | v1.28 | 2026-09-19 | **N/24 was labelled a *record-level* orbit count at two sites here; it is 2× the SEQUENCE-orbit count (Fable batch 3 V3A-085, sibling of V3A-082; Q-642; label only, no integer changed).** §9 and the Verification Guide's divisibility-gate bullet both called 45,710,469,949,549,241,251,504,669,632,357,466,112 = N/24 a **record-level** orbit count. Record-level objects are canonical pair-orderings, at most 31! = 8.2228×10³³ of them, so a record-level orbit count is bounded by 31!/24 = 3.4262×10³²; the published figure is 4.5710×10³⁷, **133,415× above its own ceiling** — the same shape as the orientation-dedup figure METHODS withdrew on 2026-08-24 for exceeding 31! by ~4,013×. N counts orientation-explicit sequences, the acting group there is the order-48 lift acting freely, so N/24 = 2× the sequence-orbit count and the sequence-orbit count is **N/48 = 22,855,234,974,774,620,625,752,334,816,178,733,056** (N ≡ 0 mod 48 re-derived, not relayed). Both cured sites already carried a parenthetical stating the ÷48 rule, so each contradicted itself in one sentence; the label was introduced by v1.16 on 2026-08-06 expressly to make units explicit. **Deliberately not changed:** §2's free-action paragraph and §1's group description use *record-level* correctly — they describe the S₄ action, which does live at the record level, and §2 is the 2026-07-30 precision note that states the correct ÷48 arithmetic these two sites should have followed; the v1.13 and v1.16 rows above are the append-only record of what was written and are not edited. `reports/METHODS.md`'s canonical-quantities row carried the same defect and is corrected in the same landing. **No count, theorem or canonical value changed** — only the name of the object N/24 counts. See [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-53. |
-| v1.29 *(current)* | 2026-09-24 | **The implementation-bridge paragraph names the comparison it actually has (Codex V3A-085#3, Q-742; wording only).** §10(vi) said the bridge to `solve.c` was carried in part by "the n ≤ 28 plain-vs-quotient agreement". At 24–28 the agreement is in-RAM quotient against out-of-core quotient, and the two share the `f1c5_gather_entries` kernel (§Sections item 7), so it is not a plain-vs-quotient check. Plain recursions against the quotient exist up to n = 18: the U1–U3 subset gate and `verify.py --recount-rung 18`. The sentence now says so, with a ⚠ note in place. No count, gate or theorem changed |
+| v1.29 | 2026-09-24 | **The implementation-bridge paragraph names the comparison it actually has (Codex V3A-085#3, Q-742; wording only).** §10(vi) said the bridge to `solve.c` was carried in part by "the n ≤ 28 plain-vs-quotient agreement". At 24–28 the agreement is in-RAM quotient against out-of-core quotient, and the two share the `f1c5_gather_entries` kernel (§Sections item 7), so it is not a plain-vs-quotient check. Plain recursions against the quotient exist up to n = 18: the U1–U3 subset gate and `verify.py --recount-rung 18`. The sentence now says so, with a ⚠ note in place. No count, gate or theorem changed |
+| v1.30 *(current)* | 2026-09-25 | **§6's footprint awk now selects only the 31-row table, and §9 gets the landing run's measured RSS (Q-758; Codex v3 E3 batch 5, V3B-02#10 and #12).** (1) The published awk printed `rows=40 unit-mismatches=9` against the tree, because its selector also matched FULL31's three-column mass table. The added `$8 ~ /\./` term restores the advertised `rows=31 unit-mismatches=0`, and a one-digit mutant of a `layer GB` cell makes it print `unit-mismatches=1`. The peak figures were right under both selectors. (2) The 2026-07-16 landing run's peak `rss_peak` was 24,122.0 MB at `SOLVE_F1_OOC_SCRATCH_MB=16384`, about 1.47× the setting. The run README's old two-digit figure came from no-op relaunches after the landing and is corrected there. That run's `run.out` is now published. No count changes. |

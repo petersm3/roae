@@ -12584,3 +12584,472 @@ token of an existing row changes. One new PASS row and one new opt-in SKIP row a
 token retired. Doc gates RC 0 (no `[FAIL]` line; run 01:35Z on the corrected docs — the first run of this batch found
 the stale `WITNESSES` allowance row, the `Q7WIT_DIR` harness echo and a README phrase that GATE 25 misread as an invocation with an output flag solve.c does not have, all three fixed above) and `tests.py` `OK (skipped=1)`, rc 0, 3 m 10 s, on
 the worker with this batch overlaid (see the lane report for the transcript lines).
+
+## CX-94 — four viz/instrument defects fixed. V3_SPECTRUM was not a bare verdict line; fft_peak_amplitude had a 500.0 "range" that a member exceeds; `--atlas-select v1` skipped the A-5 gates; README called visualize.py "gz-aware"; and `--kc-sample --kc-c3-max` never returned on an empty C15 set (solve.py, solve.c, viz/visualize.py, scripts/tr12_repro.sh; SOLVE_PY_CLI.md, viz/README.md, viz/viz_kc_field.md, viz/viz_kc_spectrum.md)
+
+**2026-09-25.** Origin: backlog rows Q-690 (Opus C), Q-698 and Q-699 (Codex v3 E3 batch 1, items
+V3A-145#1, V3A-141#1 and V3A-139#4, adjudicated by Fable H), and Q-715 (Opus G). Opus AC re-confirmed
+each row at the integrated tip. Landed by Opus AE. Every claim below was run on the worker, on a clean
+clone at 5c296837 with batches 1–9 overlaid plus this batch.
+
+**1. Q-690 (P1): `--v3-spectrum` now prints its verdict as a bare line.** The PASS line and all 17 FAIL
+lines used to carry their detail on the same line, as in `V3_SPECTRUM=PASS 1000 rows, …`. As a result,
+the documented `grep -qx 'V3_SPECTRUM=PASS'` never matched, even on success. SOLVE_PY_CLI.md had a
+2026-09-24 note advising a prefix match instead.
+- **Now.** `V3_SPECTRUM=PASS` or `V3_SPECTRUM=FAIL` is printed on its own line. The detail follows on
+  the next line, as `[v3-spectrum] …`.
+- **Code.** A single helper, `_v3_fail`, prints the verdict and the detail and returns 1. The 17 FAIL
+  sites now call it.
+- **Docs.** The `--help` text and the SOLVE_PY_CLI.md row now say "bare line, `grep -qx`". The
+  prefix-match note carries a ⚠ correction.
+- **Consumers.** No script, gate or test grepped `V3_SPECTRUM`. The TR-12 battery never runs the join,
+  and its skip row `TR12_V3_FIG` is unchanged.
+
+**2. Q-698 (V3A-145#1): the 0.0…500.0 range for `fft_peak_amplitude` was not a bound.** It is the
+`--marginals` histogram limit in `_P2_FLOAT_COLS`, and `--v3-spectrum` used it as an acceptance gate.
+- **Executed counterexample.** Take the G=17 witness at `c3_positional_witnesses.txt:24` and move bit i
+  to bit P[i], with P = (4,2,0,5,3,1). An independent membership check confirms that the image is a
+  member of C1∩C2∩C4∩C5. Under the battery's own formula it scores **517.53 at frequency 13**.
+- **Observed span.** The committed full-31 grid `tr12/v3_spectrum.tsv` spans 202.73…448.70.
+- **Proven envelope, for any permutation of 0…63.** The upper bound comes from Parseval: √698,880 =
+  835.99. The lower bound uses |F_32| ≤ 1024: √((1,397,760 − 1024²)/62) = 75.05.
+- **Fix.** V3 now accepts the observable against this envelope, through `_V3_FLOAT_ACCEPT` rounded
+  outward to 75.0…836.0. `--marginals` keeps its histogram limit.
+- **Docs.** The viz_kc_spectrum.md table row carries a ⚠ correction, with the counterexample and the
+  derivation. The SOLVE_PY_CLI.md row also gained a sentence.
+
+**3. Q-699, part 1 (V3A-141#1): the generation command in viz_kc_field.md read `--atlas-select v1`.**
+Selectors are independent, so that command never runs the A-5 orbit gates.
+- **Executed on the committed atlas.** `v1` alone writes only `TR12_V1=PASS`. `v1,a5` adds
+  `TR12_A5_ORBIT_COLUMNS=PASS` (31 pairs → 7 columns, group sizes [3,3,3,4,6,6,6]) and
+  `TR12_A5_ORBIT_MEMBERSHIP=PASS`.
+- Both runs write a `v1_field.tsv` that is byte-identical to the committed one.
+- The command now reads `v1,a5`, and the page carries a ⚠ correction.
+
+**4. Q-699, part 2 (V3A-139#4): viz/README.md said visualize.py is "gz-aware".** It has no gzip path.
+- **Before.** A `.gz` input died with `NameError`, and so did every headerless legacy file. The legacy
+  branches read `data`, which was never assigned.
+- **Now.** A `.gz` is refused with a `ValueError` that names `gzip -dk`. The legacy branches read the
+  file. That is 7 lines, and the ROAE-v1 path is untouched.
+- The README carries a ⚠ correction.
+
+**5. Q-715: `--kc-sample … --kc-c3-max T` never returned when no walk has cd ≤ T.** Nothing bounded the
+row either: `a1_q8_c15` had no `timeout`.
+- **Now.** The sampler counts C3 rejections until the first draw. At 2^16 of them it decides emptiness
+  once and exactly, with `kc_enum` (first hit, C3 in-path). On an empty set it prints
+  `ERROR: [kc] KC_SAMPLE_C15_EMPTY: …` to stderr and exits with rc 2, before any draw.
+- **Cost.** A normal run never enumerates. At n=31, T=387, the acceptance rate is 12%, so the chance of
+  2^16 straight rejections is about 0. Once any draw is emitted, `s > 0` short-circuits the check.
+- **Line count.** The solve.c change is net zero. Every solve.c citation is unmoved, and leg A of the
+  citation gate reports `shifted=0`.
+- **The row.** `a1_q8_c15` now runs under `timeout ${TR12_Q8_C15_TIMEOUT:-21600}`, with a
+  `Q8_C15_FAIL` line on rc 124. That change is also net zero.
+- **Token name.** Per Q-745, `KC_SAMPLE_C15_EMPTY` still needs the owner's sign-off.
+
+**6. Red and green, executed.** 10 new tests in tests.py.
+- **Red.** They were run against the pre-fix solve.c, solve.py and visualize.py: 4 FAIL and 4 ERROR.
+  The Q-715 leg hit the 60 s subprocess timeout.
+- **Green.** All 10 pass after the fix, in 8.8 s.
+- **Q-715 boundary.** It is measured in-test, not assumed. The minimum cd at n=9 is found with
+  `--kc-enum`. T = min−1 and T = 0 each refuse with rc 2 in 0.33 s and print nothing on stdout. At
+  T = min, the sampler draws 5 walks.
+- **Discriminator controls.** The exact-line check rejects the old line format. The old 0…500 range
+  rejects the 517.53 member. 20,000 random permutations fall inside the Parseval envelope.
+
+**Not closed in these rows.** Q-698 and Q-699 are groups; this batch fixes only the items named above.
+Left to CX-96 below, which closes every one of them in the same batch: V3A-145#2, #3, #4 and #7;
+V3A-141#2; V3A-142#1; V3A-143#1; V3A-144#3; V3A-140#3; and V3A-125#1/#2.
+
+**Gates:** tests.py: 374 tests, OK (1 skipped), in 200 s. doc_gates.sh: 4 [FAIL] findings. All four come from files this batch does not touch, or were measured in the base: the `--encode-solutions` citation key; the phrase registered as RP-187725f9 at TR12_QUERY_PROGRAM.md:2235; DEVELOPMENT.md → X.md; and "when S(6..8) land" in citation_line_gate.sh. citation_line_gate.sh --all-files
+--all-targets: FAIL, identical to the integrated base (stale=66; the one FAIL key,
+SOLVE_PY_CLI.md→solve.py[--encode-solutions], is pre-existing), with leg A `shifted=0`.
+gate_published_consistency.sh: `PUBLISHED_CONSISTENCY=PASS-AT-PIN`. `./solve --selftest`: sha `403f7202…` PASS.
+
+**Published figures move: NO.** No count, sha or verdict changes. One documented range is corrected:
+fft_peak_amplitude, from 0…500 to the proven 75.05…835.99. **The TR-12 fingerprint changes**
+(solve.c, solve.py, tr12_repro.sh), so a re-stamp is needed. No golden changes: `a1_q8_c15` emits the
+same bytes unless the refusal fires.
+
+## CX-95 — a line citation repinned and then re-staled inside one push range passed the citation gate, and pins could not see a changed target (scripts/citation_line_gate.sh legs A2 and B; DOC_GATE_ALIAS_REACH.tsv, DOC_GATE_CODE_NEEDLE_ALLOW.tsv, PERFORMANCE_HISTORY.md, tr12_repro.sh, tr12_repro_gate.sh)
+
+**2026-09-25.** Origin: the batch 7–10 pre-publication review, findings S1 and S3, and backlog row
+Q-793 (filed by Opus XX, relayed by Opus AB). Landed by Opus AF. Every gate claim below was run on
+the worker VM, on a fresh clone at 5c296837 with batches 1–10 and this change overlaid.
+
+**1. The defect class.** Batch 9 (CX-92) repinned about 250 line citations. Batch 10 (CX-93) then
+added 169 lines to `scripts/tr12_repro.sh` and edited several of the citing lines. Four citations
+went stale again. With `--base 5c296837` the gate passed. The review measured this. There were four
+reasons:
+- Leg A (shift) reads only citing lines that the change left byte-identical, and these lines had
+  been edited.
+- Leg B (anchors) read no `.tsv` file.
+- On `.sh` targets, a common word such as a variable name landed in the ±2 window by chance.
+- Pins were keyed by the anchor's name. A pinned citation could point anywhere and stay green
+  (Q-793). One pin's stated reason named a line that was wrong.
+
+**2. What the gate does now.** The four changes are in `scripts/citation_line_gate.sh`.
+- **Leg A2 (edited citing lines).** Every citation on a line that the range edited is paired with
+  the same target's citations on that line's counterpart at BASE. The counterpart is the most
+  similar cited line of the same diff hunk, with similarity at least 0.5. The new number passes if
+  one of these is true:
+  - it is `map(old)`;
+  - the old cited lines now sit there verbatim;
+  - it lands under leg B;
+  - a content-hashed pin covers it.
+
+  Otherwise the gate prints `REPIN file:line … was N -> map M` and FAILs.
+- **Leg B reads `*.tsv`.** Anchors come from the note cell that carries the citation.
+- **The rarity rule for `.sh` targets.** Some anchors occur on more than 3 lines of the script.
+  Such an anchor now counts only when it is on the cited span itself. A rarer anchor keeps the ±2
+  slack.
+- **Content-hashed pins (Q-793).** Every pin row now carries a 12-hex sha256 of the lines it
+  cites. A pin covers its citation only while that content is unchanged; after any change the gate
+  prints `PINNED CONTENT CHANGED`. Key `-` marks an *attested* pin. That is an unanchored citation
+  that a person has checked by content. It covers the citation in leg A2 and is exact, like every
+  other pin.
+- `--base` also accepts a tree, so a batch can be checked against the previous batch's
+  `git write-tree`.
+
+**3. Measured on the batch 1–10 tree, base 5c296837.**
+- **Leg A2.** It examined 417 edited citations and flagged 70:
+  - 43 were leg-B rows that were already pinned. They are now hash-pinned.
+  - 2 were real. They are fixed below.
+  - 25 were correct repins with no anchor. These are the leg's false positives. Each one was
+    checked by content and attested, so the false-positive rate is 25 of 417 edited citations.
+- **Leg B on `.tsv`.** It added 27 citations to leg B's population. Seven were stale: two
+  real ones, fixed below; four historical by their own wording, pinned; and one correct repin with
+  no usable anchor (review S3), pinned.
+- **The rarity rule.** Every checkable citation was shifted by ±7, ±50 and ±200 lines, and the
+  gate counted how many `.sh` citations still landed. The chance landings fell from
+  26 of 180 to 15 of 180. On the real tree the rule found one stale
+  citation, fixed below, and has two false positives, which are pinned.
+- **The per-batch base.** With `--base <batch-9 tree>`, leg A found three more citations that
+  batch 10 had shifted under pins. They are fixed below.
+
+**4. Citations fixed by content.** Each edit asserted that it matched exactly once.
+- **`DOC_GATE_ALIAS_REACH.tsv:83`, `TR11…QUOTIENT.md:45` → `:48`.** The quoted text "alongside
+  exhaustive enumeration" is on line 48, and it was there at 5c296837 too.
+- **`DOC_GATE_CODE_NEEDLE_ALLOW.tsv:13`.** The comment "solve.c:19 carried one" is historical. It
+  now reads "solve.c:19 at ff804bb0^ carried one". Line 19 of the parent of ff804bb0 carries the header sentence withdrawn under Q-353 (Codex V2-F56 #1; registered in RETRACTED_PHRASES.tsv).
+- **`PERFORMANCE_HISTORY.md:1132`.** `scripts/build_pgo.sh:77-78` now reads
+  `scripts/build_pgo.sh:77-78@184e3523`, the form that its sibling at line 1605 already uses. At
+  184e3523, lines 77–78 and 128–130 are the two link lines that lack `-lz`.
+- **`tr12_repro.sh:3176`, `(:2978)` → `(:3147)`.** This is the F-5 D11 fix in row `c_v1`. Batch
+  10 moved it.
+- **`tr12_repro_gate.sh:201`, `(:225, :229)` → `(:228, :232)`.** These are the `q2_witness` leg's
+  `./scripts/…` paths. Batch 10 moved them.
+- **`DEVELOPMENT.md:675`, `:642` → `:653`.** This is the sibling of review S1's fix. The rank3 awk
+  is at line 653. This sentence has not been published.
+- **Pin reasons.** The pins for `by_class` and the `q2_witness` idiom now name the new lines. The
+  `TR12_Q7` pin's call sites changed from 3471/3476 to 3640/3645 (S3).
+
+**5. Red and green, executed.**
+- **Selftest.** The selftest has 13 new legs, N0 to N11 plus N4b.
+  - N1: an edited citing line whose number did not follow a +2 shift FAILs. It prints only
+    `REPIN`, with no `SHIFT` or `NEW`, so the case isolates leg A2.
+  - N3 to N5: an unexplained repin FAILs, and passes once it is attested. The attested state is
+    then committed and passes (N4b). When the attested line changes, the gate FAILs on the
+    attested pin alone (N5).
+  - N6: a stale `.tsv` note FAILs.
+  - N7 and N8: a pin passes, then FAILs with `PINNED CONTENT CHANGED` when the cited line is edited
+    and nothing moves.
+  - N9 to N11: a common `.sh` anchor one line off FAILs, the same case with the rule off passes,
+    and the anchor on the cited line passes.
+- **Gate mutants.** Seven mutants were run, and each one turns `--selftest` red:
+  - A2 disabled, and A2 accepting any number (N1, N3);
+  - `.tsv` unread (N6, N7);
+  - the rarity rule off (N9);
+  - the hash computed from line numbers instead of content (I, M6, N4, N4b, N7);
+  - pins keyed by name only, the pre-Q-793 behaviour (N8);
+  - attested pins that never expire (N5).
+- **Real data.** A scratch copy of this tree had the S1, S2 and S3 fixes reverted. All 7 reverted
+  lines are byte-identical to lines of the batch-9 tree.
+  - With `--base 5c296837`, the old gate PASSes. This reproduces the review's measurement. The new
+    gate FAILs, with 7 `REPIN` lines, 2 `PINNED CONTENT CHANGED` and the attested pins unmatched.
+  - With `--base <batch-9 tree>`, both gates FAIL on 6 `SHIFT`s. The new gate adds the two S3 pins
+    whose content changed.
+  - The S2 revert is caught by neither gate (see residual).
+
+**Residual, stated.** Leg A2 cannot catch a citation that was already wrong at BASE and whose line
+map still resolves, which is the review's S2 (`KC_O3_TRACE`, both numbers on one line, one
+anchor). Only an anchor that tells the two sites apart can catch that.
+
+**Published figures move: NO.** Five citation numbers or revision pins change in published files,
+and each now points at the text it describes. No count, sha, verdict or pinned token moves.
+
+## CX-96 — the V-family reading instructions and reader gates said things the tables do not support, and the V4 reader admitted a 0/0 factor (viz_kc_{spectrum,field,grammar,river,shells}.md, report_figures.py, VERIFY.md; tr12_repro.sh a2_q3_reader, q3_reader_exactness_gate.sh)
+
+**2026-09-25.** Origin: Codex v3 E3 batch 1 (V3A-125, 140, 141, 142, 143, 144, 145), adjudicated by
+Fable H, and filed as the remaining items of Q-698 and Q-699. Landed by Opus AG. Every claim below
+was executed on the worker, on a clean clone at 5c296837 with batches 1–10 and Opus AE's work
+overlaid, plus this change. No item was judged a false finding: each one reproduced.
+
+**1. V4 reader: a zero cell telescoped, and the third identity had no leg (V3A-125#1/#2).**
+- **Measured before the fix.** `canon()` in row `a2_q3_reader` accepted `0`. A full-31 trace with
+  `g(s_30) = p_num[30] = p_den[31] = 0`, then `p_num[31] = 1`, printed `reader_product_p_i 1/N EXACT`
+  and exited 0, although the product contains a 0/0 factor. Replacing the reader's
+  `if (pn[k] != "1")` with `if (0)` left `q3_reader_exactness_gate.sh` at PASS, because no leg
+  presented a trace whose only defect was the terminal numerator.
+- **Fix.** `canon()` now accepts positive canonical decimals only, and the failure message says "non-positive". The
+  gate gains leg 10 (`p_num[31] = 2`, exactly one READER_FAIL naming it), leg 11 (the zero shell,
+  refused by name, no `EXACT`), mutant M8 (terminal check deleted) and mutant M9 (canon re-admits 0).
+  The count moves from 9 legs and 7 mutants to 11 and 9, and VERIFY.md carries the ⚠ note.
+- **Red/green.** The new gate on the old reader gives `leg 11 … rc=0: a 0/0 factor was accepted` and
+  `Q3_READER_EXACT_GATE=FAIL`. The new gate on the new reader with the terminal check deleted fails at
+  leg 10. The old gate with the terminal check deleted gives PASS, which is the defect. On the fixed
+  tree the gate gives PASS, `baseline PASS on 11 legs; 9/9 mutants killed`. Leg 7 still byte-matches
+  the n=9 golden `a2_q3_reader.txt`, so no golden moves.
+
+**2. V3 spectrum page (V3A-145#2, #3, #4, #7).**
+- **#2, REL/O3.** The verification table called AR-2 a REL gate, but `--kc-ar2` prints `order=O3`
+  (executed at n=9). The REL round trip is `--kc-selftest` gate A3, which passes. The reader-side
+  re-rank named `--kc-o3-rank` for every row, but the shipped table is REL. At n=9 the REL rank-0
+  walk has O3 rank 16244, while `--kc-rank` returns 0 (and returns 1, 777 and 26111 for those REL
+  ranks). The rows now name the ranker by the table's `order`.
+- **#3, awk gate.** The old one-liner read only `$3` (`x`), and only for a decrease. The new one reads `rank` as
+  a canonical integer, strictly increasing by length-then-string comparison (awk compares
+  numeric-looking fields through a binary64). It also requires `x` strictly increasing in [0,1) and
+  one `order` per table. It prints nothing on `tr12/v3_spectrum.tsv`.
+- **#4, `--kc-extremal`.** The registry holds `dclass:*`, `linechanges`, `graycode`, `yangcount`,
+  `entryyang` and `posyang0`, in memory with n ≤ 22. All four battery names tried exit 2. Rule 1 now
+  says what exists and that the nine V3 observables have no range producer. It also names the two
+  constants provable from C5: `max_transition_hamming` = 6, and `mean_transition_hamming` = 211/63,
+  which holds on all 1,000 committed rows.
+- **#7.** The page said C15 was "not exactly computable". It now says the C15 distribution is exactly
+  computable in principle (`--f1-c3-hist --with-c5`) and was declined on cost (TR-12 §9).
+
+**3. V1 field row gate (V3A-141#2).** Executed at n=9 (`--kc-scan` → `--atlas-queries --atlas-select
+v1,v5`), the table has 32 rows: 23 are all-zero and 9 sum to 1 over 9 layers. The documented
+"every non-pinned row sums to 1" therefore flagged 23 rows of a correct artefact. The gate is now an
+awk that prints `ROW_GATE=PASS` when every row with nonzero mass sums to 1 and their count equals the
+layer count. It passes at n=9 and on the committed full-31 table (31 rows over 31 layers, 1 zero
+row).
+
+**4. V5 grammar reading (V3A-142#1).**
+- **n=9, exhaustive over 26,112 walks.** Every walk has the class multiset {1,1,2,2,2,2,2,4,4}. d = 1
+  is 0 at k = 3, 4 and 5 and back to 0.544 at k = 6, while 100% of walks still hold unspent d = 1
+  budget at k = 3…6. Those zeros are positional.
+- **Full-31, committed table.** Every class share is within 0.0195 of `b0[d]/31` at every layer,
+  except d = 6 at k = 0, which is 0 because d = 6 from hexagram 0 needs entry 63, in pair 0.
+  No row goes dark.
+- **The fix.** "Rows going dark from the right is the expected signature" and claim 2, "where the C5
+  budget binds", are corrected with ⚠ notes.
+
+**5. V2 river panel (c) (V3A-143#1).** Completed-solution mass by first branch is constant in k. At
+n=9, branch (1, 32) is 2,368 at all 9 layers. So it needs no ladder. The ≈56× branch-tagged ladder
+is needed for the joint of distance class and branch, whose d = 2 count for that branch varies
+0…1824 by layer, or for per-layer prefix counts. The page now says so.
+
+**6. V4 shells reading (V3A-144#3).** The renderer plots log₁₀ g from step 1 (37.31) down to 0; the
+root N (39.04) is not a point. The bars are the `bits` column: for i ≥ 2 they are log₂10 × the curve's
+drop, to 5.0e-7, and bits₁ = log₂N − log₂g(s₁) = 5.764. The two bullets are rewritten with a ⚠ note.
+
+**7. `report_figures.py` docstring (V3A-140#3).** The docstring said all five TR-12 figures came from
+the bare `--atlas-queries` call. V4 also needs `--atlas-q3-trace`, and V3 needs the separate
+`--v3-spectrum` join. The fix is line-neutral.
+
+**Tests (tests.py, 3 new classes).** `TestQ698SpectrumReaderGateReadsRank` extracts the page's awk
+and requires it to be clean on the committed table and to report 6 mutants: rank swap, duplicate
+rank, a rank one below its predecessor that a binary64 cannot distinguish, x = 1, mixed order and a
+non-canonical rank. `TestQ699FieldRowGateAcceptsReducedN` builds a real n=9 table and runs the
+documented gate on it, on the committed full-31 table and on 2 mutants. `TestQ699Q3ReaderRefusesZeroAndChecksTerminal`
+runs the gate. With the pre-fix files all three classes go red, 8 failures in all: 6 spectrum
+mutants accepted, the n=9 table rejected, and Q3 leg 11. All 6 tests pass on the fix.
+
+**Citations.** One shifted citation is repinned by content: `doc_gates.sh` cited
+`viz_kc_spectrum.md:81` for the grid-command line (the proposed flag it names does not exist), which is now `:94`.
+
+**Published figures move: NO.** Reading instructions, gate one-liners and one docstring change. The
+reader's pass-path transcript is byte-identical. No count, sha, verdict token or TSV moves. The
+TR-12 battery source (`tr12_repro.sh`) changes, so the TR-12 reproduction stamp must be re-minted
+with the rest of this batch.
+
+## CX-97 — live published claims that were false or stale: a two-digit-MB peak RSS, a checkpoint cadence the runner never reads, order-64 Costas arrays called untested, an on-disk size convention, a zero-hit predicate graded FAIL, a resume defect still called "not fixed", and five more (Q-758, Q-730, Q-700; roae.py, tests.py, solve.py, a solve.c comment, TR-1/2/6/11, FULL31, 11 documents, 3 registries, one run record)
+
+**2026-09-25.** Origin: Codex v3 E3 batch 5 (Fable V) for Q-758, Fable N's D11 attack A12 for Q-730, and
+Codex v3 E3 batch 1 (Fable H) for Q-700. Lane Opus AC's reconciliation listed the live sites. Landed by
+Opus AD. Every claim below was measured or executed on this tree. The worker runs used a clean clone at
+5c296837 with batches 1–9 and this batch overlaid.
+
+**1. The withdrawn peak RSS (Q-758, Codex V3B-02#12; RF-39e398d5).** `runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md`
+and `count_result.json` gave the full-31 landing run's peak RSS as a two-digit number of MB. That is below TR-11's own
+two-live-index floor of ≈295 MB. The run's log explains it. The log is `run.out`, sha256 `8c7d063e…`,
+listed in that directory's `PRESERVE_SHA256.txt` since the landing, and **published in this batch**
+(51 KB). After the count landed, the relaunch loop started the binary 18 more times. Each start resumed
+from layer 31, did no work, and printed `PEAK RSS 10.8`–`12.9 MB`. The segment that finished the count
+printed `PEAK RSS 24122.0 MB`. That is also the highest `rss_peak` on any of the 31 per-layer lines, and
+all 31 segment headers show `scratch_budget=16384 MB`. **Fixed:** the README row now reads 24,122.0 MB,
+with a dated note; `count_result.json` has `peak_rss_mb: 24122.0` plus a `peak_rss_note`; TR-11 §9
+records the datapoint (1.47× the setting, so ≈2.2× is conservative at 16384) and gets a v1.30 row.
+HISTORY.md's 2026-07-16 narrative keeps the old figure because the file is append-only. It is allowlisted
+as `historical`.
+
+**2. The TR-11 footprint awk (Q-758, Codex V3B-02#10).** Run against the tree, the published command
+printed `rows=40 unit-mismatches=9`. Its selector also matched FULL31's three-column mass table. It now
+adds `$8 ~ /\./` and prints the advertised `rows=31 unit-mismatches=0 …`. A copy of FULL31 with one
+`layer GB` digit changed prints `rows=31 unit-mismatches=1`. The peak figures never moved.
+
+**3. `SOLVE_CKPT_INTERVAL=300` in a `--branch` runner (Q-758, Codex V3A-032#3; RP-3cb89c44).** The
+only `getenv("SOLVE_CKPT_INTERVAL")` in `solve.c` sits in the parallel `--sub-branch` spawn, beside
+`thread_func_ckpt`. The runner line in LARGE_SCALE_CAMPAIGNS.md is replaced by a comment block that
+quotes it and explains that it is inert.
+
+**4. The natural-termination paragraph (Q-758, Codex V3A-032#5; RP-e0cae70c).** LARGE_SCALE_CAMPAIGNS
+§3b now opens with a dated note giving the measured record. The same file's §1 records 0 of 975
+depth-5 tasks naturally terminated. The tracked 100T analyzer log §[27] prints
+`EXHAUSTED/COMPLETE: 0, BUDGETED: 4096`. At 560T, 158,364 of 158,364 cells checkpointed at budget.
+
+**5. Order-64 Costas arrays (Q-758 V3A-015#5, Q-700 V3A-056#3; RP-6fb349c7, RP-e651cc7b, RP-3852e69b,
+RP-0251c5a9, RP-d04cdf24).** Five sites called the family unknown, uncertain, untested or unexplored.
+**Executed:** the Golomb G₂ construction over GF(67) with α = 7, β = 61 (both primitive; α + β ≡ 1)
+gives order 65 with a corner dot. Deleting it (G₃) leaves a permutation of 0..63 whose 2,016
+displacement vectors are all distinct. C1 excludes every order-64 Costas array. The reversal mates of
+1, 13, 19 and 31 are each 31 larger, so any C1 sequence has four displacement vectors from
+{(1, +31), (1, −31)}, and two of them coincide. King Wen shows (1, −31), (1, +31), (1, −31), (1, +31).
+**Fixed:** CRITIQUE.md §Missing analyses and §Open questions item 1, SOLVE_SUMMARY.md, SOLVE.md,
+DEVELOPMENT.md, and `solve.py print_null_debruijn`'s caveat (line for line). The existence claim leans
+on no unchecked citation: Codex cited Drakakis, Theorem 4, and that citation was not verified here.
+
+**6. `V_k` definition (Q-700, Codex V3A-081#1; RP-44f44ede).** `V_k` is not a bound on exits. It counts
+the C5 budget-usage vectors (p₁, p₂, p₃, p₄, p₆), with 0 ≤ p_d ≤ B0_d, whose digits sum to k.
+Enumerating the 6,048 vectors reproduces the published column row for row: 5, 14, 29, … 413, 413, …,
+14, 5, 1.
+
+**7. FULL31's unpublished source log (Q-700, Codex V3A-081#3).** The Stage F `run_f/run.out` stays on
+the held disk. §3 now says so, and it points to the published July `run.out` from item 1. That log's
+31 layer lines reproduce the §1 table's `canonical_masks`, `states`, `entries`, `V_k`, `layer GB` and
+`mass` for every row: the `diff` of the extracted fields is empty. The two Stage F hashes are still of
+unobtainable bytes, and the note says that too.
+
+**8. SOLVE.md (Q-758, Codex V3A-053#2/#5/#6/#7; RP-3ef32e96, RP-44b2feb3, RP-6e93b6a0).**
+- (#5) Steps 1 and 4 of the greedy boundary list were swapped. The log's §[6] reads 4, 27, 25, 1.
+- (#6) RP-3ef32e96: the fourth boundary is now "boundary 1, 2 or 3". §[8]'s 4-sets containing {4, 25, 27} are
+  exactly those three.
+- (#7) RP-44b2feb3: the six slice survivors were called the C1–C5 survivors. **Measured:** with the rest of King Wen fixed, 7
+  non-identity orders of pairs 20–23 admit a C1–C5-valid orientation. Three of them are absent from
+  the six, for example `23 20 22 21` with pair 23 reversed, at C3 = 776.
+- (#2) RP-6e93b6a0: 24 dead branches. The d2 and d3 10T logs both print `Live first-level branches: 56 of 64`,
+  and all 56 d2 counts are non-zero. The smallest is 956 (pair 29, orientation 1, in the d2 log's
+  §[26]); the correction note first gave 23,765, which is the fourth smallest, and was fixed before
+  publication (Fable HH's batch-11 review, S4).
+
+**9. CANONICAL_HASHES size convention (Q-758, Codex V3A-008#3; RP-9d95cc8f).** The File size field is
+now defined as the logical (decompressed) size. **Measured** on the `--selftest` enumeration
+with its directory kept: magic `1f8b`, 512,472 B on disk, 4,344,992 B decompressed
+(= 32 + 135,780 × 32), decompressed sha `403f7202…`. The container's own sha256 is a different digest.
+
+**10. The zero-hit grader (Q-758, Codex V3A-042#3; the rule ruled by Fable).** The frozen spec §4.3
+says: "report the one-sided 95% Wilson bound … and stop". `roae.py` graded a King-Wen-satisfied
+zero-hit predicate FAIL and counted it toward "4/4 FAIL → HELD". **Code fix:**
+- New pure helpers `_ph_grade` and `_ph_overall`.
+- A KW-satisfied zero-hit is graded by the spec's iff against its reported bound. It PASSes when the
+  one-sided 95% Wilson lower bound on bits-explained exceeds the bar, and counts like any other PASS:
+  the prediction is NOT HELD and the §8 re-audit fires. At the pre-registered N_eval = 10⁶ the bound
+  is 18.49 bits, above all four frozen bars, so there a zero-hit always passes.
+- Status `ZERO-HIT:STOP` is left for a zero-hit whose bound cannot resolve its bar (too small an N).
+  It reports the bound in bits and grades nothing, and the prediction is then reported as
+  `UNDECIDED (zero-hit stop)`, with JSON `null`.
+- A PASS still takes precedence, so the §8 re-audit trigger is never masked.
+- A new whole-line token `PREREG_ZERO_HIT_STOP=<tests>|NONE`, which lists only unresolved zero-hits.
+
+A KW-unsatisfied predicate still FAILs at 0 hits, because the criterion's first conjunct decides it.
+**The ruling.** Lane AC flagged this item for Fable, and Fable HH's batch-11 pre-publication review
+ruled on it (`ROAE_ZEROHIT_RULE=CHANGE`). Its KW-unsatisfied half was approved as written. Its
+KW-satisfied half was changed: lane AD's first version stopped every such zero-hit ungraded, so the
+§8 re-audit, the spec's only response to a pass, could never fire from one. §4.3's parenthetical
+governs reporting and escalation; the grade is its iff sentence, and the spec's reason for needing
+no escalation path (every bar is resolvable by direct sampling at N_eval = 10⁶) is the statement
+that a zero-hit at that N passes. **Tests:** `TestPreregZeroHitStops`, six tests. Its fixture
+asserts its own zero-hit precondition, and its controls pin HELD for 4/4 FAIL and NOT HELD with a
+PASS. The N = 1,000 fixture cannot tell the two rules apart (8.53 bits against T4's 10.06 stops
+under both), so the sixth test grades a zero-hit at N = 10⁶ against T3's 11.17 (PASS, and NOT HELD
+overall) and at N = 1,000 (stopped). It fails on lane AD's version and passes on the fix.
+ROAE_PY_CLI.md documents the rule. Its `roae.py:N` citations were repinned by content, twice.
+**No published verdict moves:** the only recorded run stopped at its cross-check gate.
+
+**11. The tautological C4 pin test (Q-700, Codex V3A-136#2).** `test_sat_c4_pins_the_oriented_form`
+compared `_sat_var` calls with identical arguments. It now runs `solve.p3_sat_encode`, parses the
+emitted DIMACS, and asserts that the unit clauses are exactly {x[0][KW₀], x[1][KW₁]}. As a control, it
+also asserts that there are none without `--sat-c4`. The body is line-for-line, so no `tests.py`
+citation moves. The helper sits at the end of the file.
+
+**12. The superseded symmetry negative (Q-700, Codex V3A-054#3; RP-387c92a4).** **Executed:**
+`./solve --symmetry-search` prints `C1-preserving: 48 (6.7%)` and `Non-trivial … 47`. SOLVE_C_CLI.md
+now says the search finds the order-48 group that SYMMETRY_SEARCH.md proves.
+
+**13. The g-ladder size clause (Q-700, Codex V3A-028#1; RP-1de6df49).** GT_LADDER_FORMAT.md now
+gives the measured 8,274,431,592,051 B (2.5× f) and the ≥ 10 TB provisioning line. The same clause in
+the `solve.c` design comment is fixed in place. The selftest sha is unchanged (`403f7202…`, measured
+after the edit).
+
+**14. The fiber-size mean (Q-758, Codex V3A-033#4).** LITERATURE_RULES_POPULATION_TESTS.md's "≈1.3×10⁵"
+is the C1∩C2∩C4∩C5 mean, 133,415. The page's fractions are C1–C5, whose mean is 1.3287×10³⁸ / 31! =
+16,159. The page now gives ≈1.6×10⁴ and names both. **Not registered (B4):** TR-1 §1(b) states
+≈1.3×10⁵ correctly, with its population named.
+
+**15. Thread pins (Q-758, F1 class).** Each value was read from the archived output's own first line:
+- TR-1: the F5 population run, `SOLVE_THREADS=64`.
+- TR-6: the `par_switch` discovery run, 32.
+- TR-2: the f11 runs A and B at 32, C and C2 at 64. The four N_gs direct runs at 64, with
+  `SOLVE_KNUTH_SEED` 1001, 2003, 3011 and 4013.
+
+TR-1, TR-2 and TR-6 get revision rows. TR-9 and TR-1's scoreboard were already pinned or disclosed by
+CX-81 and CX-84. TR-8's thread item duplicates TR-1's disclosed unrecorded run, so nothing here is
+TR-8-specific.
+
+**16. The #167 zero-yield resume defect (Q-730; RP-c100bf5e, RP-bfdc0e58).** CAMPAIGN_METHODOLOGY.md
+called the defect unfixed at two sites and assumed it at two more. All four now carry dated FOLLOW-UP
+notes. The fix is `075931f4` (2026-09-05, Q-414): a flags byte, `reserved2[0]` bit 0
+`DFS_V2_FLAG_YIELD_ATTESTED`, over the pre-flush `prior_solutions_found`.
+
+**The scope limit, stated publicly for the first time.** Sidecars written before `075931f4` are
+unflagged. That includes the June-8 560T archive's. Extending that archive still re-walks its 93,083
+zero-yield cells (≈329 T nodes, 58.8%).
+
+SOLVE_C_CLI.md §Files gains the v2 layout. **Measured** by compiling the struct from `solve.c`:
+`sizeof` 440, `prior_budget` @400, `prior_solutions_found` @416, `reserved2` @424. The same section
+gives the flag semantics and the scope. **Gate evidence**, from `selftest_resume_167_gate.sh
+--threads 2`:
+- Positive control: `RESUMED=1933 DISCARDED=0 EXCESS_NODES=3030 PASS`.
+- Mutant M3 (flag cleared on one sidecar): `RESUMED=1932 DISCARDED=1 EXCESS_NODES=19530`.
+
+**Registered:** 16 RP rows and 1 RF row, keys as cited above. All are cited here by key only.
+- Every needle matched at least one allowed narration when it was registered.
+- Census, A1–A6:
+  - Each needle's spellings were grepped across all tracked files.
+  - The corpus-external survivors were fixed (A5): `solve.py`, the `solve.c` comment and
+    `count_result.json`.
+  - `CORRECTIONS_INVENTORY.tsv` row INL-d8f0a01 is inventory history and was left alone.
+- The RF row has three `DOC_GATE_FIGURE_ALLOWLIST.txt` rows: two `meta-mention` rows in the run README
+  and one `historical` row in HISTORY.md.
+
+**Not done, stated.**
+- Q-700's "P3 wording tail", covering V3A-028#3, V3A-054#5/#6, V3A-056#4–#6, V3A-081#2/#4 and
+  V3A-136#3/#4.
+- Q-758's F5 ledger annotation on the promoted V3B-14 row, which is private and append-only and
+  belongs to the orchestrator.
+- D11's two reader hardenings: unknown flag bits read as UNKNOWN, and size-checked dispatch.
+
+**Gates, run on the worker.** The tree was the orchestrator's integ9 (`c500e5d`) with this batch applied
+as a patch.
+- `doc_gates.sh` without this entry: the only FAILs are GATE 11's 17 unrecorded keys (16 RP, 1 RF).
+- `doc_gates.sh` with this entry appended to CORRECTIONS.md: `DOC GATES: PASS`. GATE 3b reports
+  2 historical, 1 literal and 64 meta-mention narrations; GATE 11 reports 249 retractions and
+  18 figures recorded.
+- `citation_line_gate.sh --all-files --all-targets`: `CITATION_LINE_GATE=PASS`. Five documents were
+  kept line-count-neutral so that no cited line moved: CAMPAIGN_METHODOLOGY, LARGE_SCALE_CAMPAIGNS,
+  SOLVE, GT_LADDER_FORMAT and SOLVE_C_CLI. A first draft that added lines shifted 11 citations.
+- `gate_published_consistency.sh`: `PASS-AT-PIN`, with G1:4 G2:9 G4:8 G10:1 unchanged.
+- `python3 tests.py`: 369 tests OK, 1 skipped.
+- Mutants: grading zero hits through the old path turns `TestPreregZeroHitStops` red, and pinning
+  hexagram 0 at position 0 in `p3_sat_encode` turns the C4 test red.
+- `--selftest`: `403f7202…` after the `solve.c` comment edit.
+
+**Published figures move: YES.**
+- The peak RSS (RF-39e398d5) → 24,122.0 MB.
+- The LRPT fiber mean: ≈1.3×10⁵ → ≈1.6×10⁴, same quantity on the right population.
+- The TR-11 awk's printed gate counts now match its text.
+
+No canonical count, sha, theorem, verdict or pinned token moves. `tests.py`, `solve.py` and `solve.c`
+changed, so the TR-12 reproduction fingerprint moves and the stamp must be re-minted with this batch.
+It was not re-minted here.

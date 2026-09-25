@@ -216,9 +216,33 @@ PYEOF
 #     than repinning it to whatever holds that line number today.
 #   * Codex batch locators `(BATCH A03 row 22, F.md:N)` / `Codex A01 row 32 (F.md:N)` name Codex's
 #     snapshot and are excluded, like the `Codex v2 solve.c:N` ids above.
-# Pins: ALL_PINS (solve.c) plus TARGET_PINS below, keyed (citing file, target, anchor key).
+# Pins: ALL_PINS (solve.c) plus TARGET_PINS below, keyed (citing file, target, anchor key, hash).
+#
+# ==================================================================================================
+# REPIN-THEN-RESTALE AND CONTENT-HASHED PINS (the batch 7-10 pre-publication review S1/S3, and
+# Q-793; Opus AF, 2026-09-25). MEASURED: batch 9 repinned a `tr12_repro.sh` citation, batch 10
+# moved that awk 162 lines and edited the citing line, and with `--base 5c296837` the gate passed:
+# leg A reads only BYTE-IDENTICAL citing lines, leg B read no `.tsv`, a common `.sh` word landed in
+# the +-2 window by chance, and the 18 + 47 pins were keyed by NAME, so a pinned citation could
+# point anywhere. Four changes, each red-tested in --selftest:
+#   * LEG A2 (edited citing lines; see the block above `_bsrc` below). A number on a line the range
+#     changed must be map(old), or carry the old cited text verbatim, or LAND by anchor, or be
+#     vouched for by a content-hashed pin. Otherwise REPIN, a FAIL.
+#   * LEG B reads `.tsv`, mining the note cell that carries the citation.
+#   * RARITY RULE for `.sh` targets: an anchor on more than 3 lines of the script must be ON the
+#     cited span; only a rare one keeps the +-2 slack.
+#   * CONTENT-HASHED PINS (Q-793). Every pin row carries the 12-hex sha256 of its cited lines
+#     (chash below). A stale citation is OPEN only when (file, target, key, hash) all match, so a pin
+#     stops covering its citation the moment the cited content changes -- a shift, an edit of the
+#     cited code, a repin -- and the gate reports "PINNED CONTENT CHANGED". Key `-` is an ATTESTED
+#     pin: an unanchored citation a person checked by content. It vouches for that citation in leg
+#     A2 and is exact like the others: when no citation of that file into that target has that
+#     content any more, it FAILs until it is re-checked. CITGATE_PINROWS=1 prints the row, hash
+#     included, for every stale or REPIN citation.
+# A pin's hash depends only on the cited lines, never on the base, so the tables mean the same thing
+# at pre-push (base = the remote tip) as in a local run against HEAD.
 
-# THE --all-files PIN TABLE: <file> TAB <key> TAB <reason>. One row per pinned stale citation;
+# THE --all-files PIN TABLE: <file> TAB <key> TAB <hash> TAB <reason>. One row per pinned citation;
 # a file's budget IS its row count. Lines starting with # are comments. Empty = no known-open.
 # MEASURED 2026-09-25 (Opus XX, on the integrated batch 1-8 tree): leg B 241 citations in scope,
 # 24 stale; leg A 1 shifted. 4 of the 24 were genuinely stale and were FIXED by content, not pinned
@@ -230,90 +254,125 @@ PYEOF
 # hidden. None is a known-wrong live citation.
 # A LANDS row still has leg A behind it: a shift under it fails leg A regardless of this pin.
 ALL_PINS_DEFAULT=$(cat <<'PINS'
-# file	key	reason
-documentation/DEVELOPMENT.md	update_progress	HISTORICAL by its own words: the callsite 'in the 2026-05-15 tree', a line of a named past tree, not of HEAD
-documentation/QUERY_INVENTORY.md	--kc-profile	QUOTES the retired wrong citation 16664ff (Q-540) to explain its re-anchoring; the live usage-block citation on the same row lands
-documentation/QUERY_INVENTORY.md	--kc-profile	the second number of that same quotation (16664 is a sidecar-write comment, which is the row's point)
-documentation/QUERY_INVENTORY.md	(d, w)	LANDS: line 28002 opens the `"kernel"` object of raw cells (Opus UU repin, content-checked 2026-09-25); the placeholder m<a>_<b> is not source text and `kernel` is a plain word
-documentation/SEARCH_SPACE_SIZE.md	E[W at a reached depth-32 leaf]	LANDS: line 8344 is `double se = sqrt(var / dn)`, the SE the sentence says is computed correctly; the sentence names no symbol of it
-documentation/VERIFY.md	--help	SELF-ANNOTATED: the sentence itself says this number is stale and names f5_nuc's current line (dated 2026-09-21); keeping the retired number visible is an editorial choice
-reports/TR12_QUERY_PROGRAM.md	(d, w)	LANDS: the same `"kernel"` emitter as QUERY_INVENTORY.md row V5 (line 28002)
-reports/TR4_SIZE_OF_THE_SPACE.md	SOLVE_KNUTH_PIN_SLOTS	LANDS: line 7899 is the knuth_pin_mask pair-index test; the env var that fills the mask is parsed elsewhere
-scripts/doc_gates.sh	This read	HISTORICAL: names the header sentence at line 19 that carried a retracted phrase before ff804bb0; line 19 still holds that sentence, corrected, and the anchors on the line are that gate's own vocabulary
-scripts/exec_lane.sh	--preflight	LANDS: line 4112 is the disk-IOPS pre-check PASS fprintf; the comment paraphrases its words with '...', so nothing is verbatim
-scripts/exec_lane_verdict_gate.sh	disk_iops_pre_check	LANDS: line 4119 is the 'ERROR: projected fsync-wait' format string; the fixture below it is rendered output, not the format
-scripts/tr12_repro.sh	$SOLVE	LANDS: line 37077 is the in-memory-only refusal `if (fkc->ooc != NULL)` (Opus UU repin, content-checked); the row describes it in prose only
-scripts/tr12_repro.sh	$SOLVE	LANDS: line 20692 is the `n > KC_MEM_MAX_PAIRS` out-of-core switch (Opus UU repin, content-checked); same row
-solve.py	KC_SCAN	LANDS: line 29314 is `if (ok[i] == 0)`, the unconditional tail-failure count; gate_fails is bumped under `if (strict)` just outside the +-2 window
-solve.py	%s\tcd=%d\t	LANDS: line 38239 is the record-line emitter the comment cites; the cd= form it also names is the sibling at 38314
-viz/report_figures.py	SOLVE_KNUTH_PIN_SLOTS	LANDS: the same knuth_pin_mask test as TR4 (line 7899)
-viz/report_figures.py	N_total	LANDS: line 41140 is `if (v >= 1 && v <= 31) knuth_pin_mask |= ...`; the env name is read 4 lines above, outside +-2
-viz/viz_kc_grammar.md	--kc-raw	LANDS: 28001-28010 is the `if (want_raw)` raw kernel-cell loop (Opus UU repin, content-checked); the flag itself is parsed elsewhere
+# file	key	hash	reason
+documentation/DEVELOPMENT.md	update_progress	ca1fe793f568	HISTORICAL by its own words: the callsite 'in the 2026-05-15 tree', a line of a named past tree, not of HEAD
+documentation/QUERY_INVENTORY.md	--kc-profile	1a998633977c	QUOTES the retired wrong citation 16664ff (Q-540) to explain its re-anchoring; the live usage-block citation on the same row lands
+documentation/QUERY_INVENTORY.md	--kc-profile	1a998633977c	the second number of that same quotation (16664 is a sidecar-write comment, which is the row's point)
+documentation/QUERY_INVENTORY.md	(d, w)	29da842d5d58	LANDS: line 28002 opens the `"kernel"` object of raw cells (Opus UU repin, content-checked 2026-09-25); the placeholder m<a>_<b> is not source text and `kernel` is a plain word
+documentation/SEARCH_SPACE_SIZE.md	E[W at a reached depth-32 leaf]	1aa64b021593	LANDS: line 8344 is `double se = sqrt(var / dn)`, the SE the sentence says is computed correctly; the sentence names no symbol of it
+documentation/VERIFY.md	--help	35f11ed31bdd	SELF-ANNOTATED: the sentence itself says this number is stale and names f5_nuc's current line (dated 2026-09-21); keeping the retired number visible is an editorial choice
+reports/TR12_QUERY_PROGRAM.md	(d, w)	29da842d5d58	LANDS: the same `"kernel"` emitter as QUERY_INVENTORY.md row V5 (line 28002)
+reports/TR4_SIZE_OF_THE_SPACE.md	SOLVE_KNUTH_PIN_SLOTS	89f91885326d	LANDS: line 7899 is the knuth_pin_mask pair-index test; the env var that fills the mask is parsed elsewhere
+scripts/doc_gates.sh	This read	71cca2890d80	HISTORICAL: names the header sentence at line 19 that carried a retracted phrase before ff804bb0; line 19 still holds that sentence, corrected, and the anchors on the line are that gate's own vocabulary
+scripts/exec_lane.sh	--preflight	79a53af2bda3	LANDS: line 4112 is the disk-IOPS pre-check PASS fprintf; the comment paraphrases its words with '...', so nothing is verbatim
+scripts/exec_lane_verdict_gate.sh	disk_iops_pre_check	9d2869f3b948	LANDS: line 4119 is the 'ERROR: projected fsync-wait' format string; the fixture below it is rendered output, not the format
+scripts/tr12_repro.sh	$SOLVE	26292c76c925	LANDS: line 37077 is the in-memory-only refusal `if (fkc->ooc != NULL)` (Opus UU repin, content-checked); the row describes it in prose only
+scripts/tr12_repro.sh	$SOLVE	b2335c01d0c4	LANDS: line 20692 is the `n > KC_MEM_MAX_PAIRS` out-of-core switch (Opus UU repin, content-checked); same row
+solve.py	KC_SCAN	8641105daf4a	LANDS: line 29314 is `if (ok[i] == 0)`, the unconditional tail-failure count; gate_fails is bumped under `if (strict)` just outside the +-2 window
+solve.py	%s\tcd=%d\t	10a6b42ea6c7	LANDS: line 38239 is the record-line emitter the comment cites; the cd= form it also names is the sibling at 38314
+viz/report_figures.py	SOLVE_KNUTH_PIN_SLOTS	89f91885326d	LANDS: the same knuth_pin_mask test as TR4 (line 7899)
+viz/report_figures.py	N_total	7c6ea7c736be	LANDS: line 41140 is `if (v >= 1 && v <= 31) knuth_pin_mask |= ...`; the env name is read 4 lines above, outside +-2
+viz/viz_kc_grammar.md	--kc-raw	5ea7506691f6	LANDS: 28001-28010 is the `if (want_raw)` raw kernel-cell loop (Opus UU repin, content-checked); the flag itself is parsed elsewhere
+# ATTESTED (key -): unanchored citations leg A2 met edited in the batch 1-10 range and a person checked by content
+documentation/GT_LADDER_FORMAT.md	-	b766f36ff4eb	ATTESTED: line 21175 opens the 'independent forward brute force (the verification oracle)' block the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72)
+documentation/GT_LADDER_FORMAT.md	-	3344cd723ce8	ATTESTED: line 21221 is `static void kc_brute(`, the brute-force list builder the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72)
+solve.c	-	c68b08ebf7c7	ATTESTED: line 23342 is `if (k < 0 || k > fkc->n) {` in kc_g_check_layer_main (CX-89) (content-checked 2026-09-25, Opus AF; cited from line 37980)
+solve.py	-	1e842b067951	ATTESTED: line 42948 is the sub-canonical gate `if (node_limit > 0 && node_limit < 1000000000000LL ...` (content-checked 2026-09-25, Opus AF; cited from line 6948)
+solve.py	-	c41ad0b2c3ec	ATTESTED: line 23990 is the comment defining alts, the admissible oriented successors with g > 0 (content-checked 2026-09-25, Opus AF; cited from line 14167)
+verify.py	-	0224b4f4cc0a	ATTESTED: line 6816 is `static inline int f5_nuc(int h)`, the encoding restated (content-checked 2026-09-25, Opus AF; cited from line 1977)
 PINS
 )
 ALL_PINS="${CITGATE_ALL_PINS-$ALL_PINS_DEFAULT}"
 
-# THE --all-targets PIN TABLE (Q-791): <citing file> TAB <target> TAB <key> TAB <reason>, for stale
+# THE --all-targets PIN TABLE (Q-791): <citing file> TAB <target> TAB <key> TAB <hash> TAB <reason>, for stale
 # citations into files OTHER than solve.c (solve.c's rows are the table above, reused as-is).
 TARGET_PINS_DEFAULT=$(cat <<'PINS'
-# file	target	key	reason
-documentation/CRITIQUE.md	documentation/CRITIQUE.md	a few hours	LANDS: line 60 is the Gray-code C3 rate bound 'scoped to its sampler', the over-reach correction the note refers back to (self-reference)
-documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	LANDS: HISTORY.md line 4158 is the line carrying the 8-hex UUID prefix `3620ba16-…` the sentence describes
-documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	LANDS: HISTORY.md line 1907 carries the `d63bb25c…` UUID token the sentence describes
-documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	9a968fa2	LANDS: HISTORY.md line 5146-5147 carry the old/new pre-merge shard totals (43,876,464,466) the cell names
-documentation/CITATIONS.md	documentation/CITATIONS.md	6a3feaaa	LANDS: line 401 is this section's preamble sentence (Suenaga ... initiated counting) that Q-127/Q-263 read; re-pinned by content 2026-09-25 (Q-791)
-documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
-documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
-documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
-documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
-documentation/QUERY_INVENTORY.md	solve.py	PENDING	LANDS: solve.py line 13673 is `def atlas_emit_xa`, the XA consumer the ruling describes (re-pinned from line 12062ff, which pointed there at a19682b2)
-documentation/QUERY_INVENTORY.md	solve.py	extrema	LANDS: the Q6 'per-distance-class mass, not per-(state,choice)' comment in solve.py (re-pinned 2026-09-25, Q-791); the anchors mined are the row's other words
-documentation/QUERY_INVENTORY.md	solve.py	extrema	LANDS: the Q6 'per-distance-class mass, not per-(state,choice)' comment in solve.py (re-pinned 2026-09-25, Q-791); the anchors mined are the row's other words
-documentation/QUERY_INVENTORY.md	viz/viz_kc_grammar.md	(d, w)	LANDS: viz_kc_grammar.md line 61-62 is where the new-pair category is stated to be undefined in TR-12 section 2 (re-pinned from line 44, Q-791)
-documentation/QUERY_INVENTORY.md	scripts/tr12_repro.sh	TR12_Q7	LANDS: tr12_repro.sh line 3626 is `agg(){`, the helper definition the sentence names; the row's anchors are the two agg call sites (line 3640/line 3645, which land)
-documentation/SOLUTIONS_FORMAT.md	runs/20260419_100T_d3_d128westus3/README.md	_10T_d3_d128westus3	LANDS: the run README's line 10 is 'Solver commit at enumeration launch'; the only mined anchor is a directory-name fragment
-documentation/SOLVE_C_CLI.md	solve.py	--books-verify	LANDS: solve.py line 10496-10499 is the Goldenberg attribution block (re-pinned from line 9682-9685, Q-791)
-documentation/SOLVE_C_CLI.md	documentation/CITATIONS.md	--books-verify	LANDS: CITATIONS.md line 2646 is the goldenberg1975 ledger anchor (re-pinned from line 1855, Q-791)
-documentation/SOLVE_PY_CLI.md	solve.py	--tr8-dof-pool-draws	LANDS: solve.py line 1093-1096 writes results.json / RESULTS.md, the results writer the sentence means (re-pinned from line 1023, Q-791)
-documentation/SOLVE_PY_CLI.md	solve.py	"timing-probe"	LANDS: the pool-seed use (line 901) and results writer (line 1093-1096) named in the re-pin note itself (Q-791)
-documentation/SOLVE_PY_CLI.md	solve.py	"timing-probe"	LANDS: the pool-seed use (line 901) and results writer (line 1093-1096) named in the re-pin note itself (Q-791)
-documentation/SOLVE_PY_CLI.md	documentation/DISTRIBUTIONAL_ANALYSIS.md	--joint-density	LANDS: DISTRIBUTIONAL_ANALYSIS.md line 217 opens the de-circularized two-dimension re-run the cell points to
-documentation/VERIFY.md	documentation/CITATIONS.md	exact count	LANDS: CITATIONS.md line 416 and line 1501 carry 'validated estimates for C1-C5' beside the exact C1-C2-C4-C5 layer counts (re-pinned from line 346/line 964, Q-791)
-documentation/VERIFY.md	documentation/CITATIONS.md	exact count	LANDS: CITATIONS.md line 416 and line 1501 carry 'validated estimates for C1-C5' beside the exact C1-C2-C4-C5 layer counts (re-pinned from line 346/line 964, Q-791)
-documentation/VERIFY.md	documentation/DESCRIPTION_LENGTH.md	|C1–C7|	LANDS: DESCRIPTION_LENGTH.md line 77 is '|C1∩C4∩C5| = |C1∩C2∩C4∩C5| exactly. The C3 conditional remains sampled by design.'
-reports/TR12_QUERY_PROGRAM.md	viz/viz_kc_grammar.md	(d, w)	LANDS: the same viz_kc_grammar.md line 61-62 category-undefined passage as QUERY_INVENTORY.md row V5 (Q-791)
-reports/TR9_PRICING_THE_CONSTRAINTS.md	documentation/DESCRIPTION_LENGTH.md	 relaxation** of	LANDS: DESCRIPTION_LENGTH.md line 54 is the '+ C2 (no-5)' table row, the sibling cell (re-pinned from line 36, which it was at 6ffab778; Q-791)
-reports/TR9_PRICING_THE_CONSTRAINTS.md	documentation/DESCRIPTION_LENGTH.md	 relaxation** of	LANDS: DESCRIPTION_LENGTH.md line 205-207 is the 2026-07-10 C2 refinement paragraph, the second sibling (re-pinned from line 127-129, Q-791)
-scripts/doc_gates.sh	documentation/CORRECTIONS.md	quoted	LANDS: CORRECTIONS.md line 4146-4147 is the ledger's quotation of the retired 'maximum by construction' sentence (re-pinned from line 4121, where it was at b69f13f1; Q-791)
-scripts/doc_gates.sh	reports/TR6_PARITY_SKELETON.md	at the time of the SAT work (×11,364),	LANDS: TR6:132-133 carry the qualifier, hard-wrapped across the two lines, so the verbatim fragment is on neither
-scripts/doc_gates.sh	reports/TR4_SIZE_OF_THE_SPACE.md	sharpens further when S(6..8) land	LANDS: TR4:361 is the P34 wording ('sharpened by the 2026-07-05 S(6)-S(8) measurement'); the anchor is the retired wording the red test restores
-scripts/doc_gates.sh	documentation/CLAIM_TO_ARTIFACT.md	canonical	LANDS: CLAIM_TO_ARTIFACT.md line 45 is the n=9 26,112 row (row 14; re-pinned from line 41, Q-791); 'canonical' is the word the defect removed
-scripts/doc_gates.sh	documentation/PROJECT_OVERVIEW.md	_10T_d3_fresh	LANDS: PROJECT_OVERVIEW.md line 102 attributes 21,794,755 / 152,468,987 to d3 10T; the anchor is the log path, named elsewhere
-scripts/doc_gates.sh	documentation/LARGE_SCALE_CAMPAIGNS.md	sort + dedup	LANDS: LARGE_SCALE_CAMPAIGNS.md line 1026 is 'There is no S at which you need code that does not exist' (re-pinned from line 995, Q-791)
-scripts/exec_lane.sh	documentation/SOLVE_C_CLI.md	./solve	LANDS: SOLVE_C_CLI.md line 3545 quotes the pre-correction build line (re-pinned from line 2061, Q-791)
-scripts/exec_lane.sh	documentation/CORRECTIONS.md	--follow	LANDS: CORRECTIONS.md line 3189 carries the bare `git log -S` fragment (re-pinned from line 3164, Q-791)
-scripts/exec_lane_verdict_gate.sh	documentation/BRANCHES_EXPLAINED.md	--branch	LANDS: BRANCHES_EXPLAINED.md line 382 is '**All-branch enumeration** (`solve 0 64`)' (re-pinned from line 383, Q-791)
-scripts/pre_commit_generated_gate.sh	roae.py	--seed	LANDS: roae.py line 23 is `_global_seed = None`, i.e. seeds nothing by default (re-pinned from line 22, Q-791)
-scripts/tr12_repro.sh	documentation/GT_LADDER_FORMAT.md	--kc-t-check	LANDS: GT_LADDER_FORMAT.md line 297 is 'integrity checks: they constrain the FILES, not the shared'; this text is a row_skip REASON emitted into the goldens, so it is pinned, not reworded
-scripts/tr12_repro.sh	documentation/GT_LADDER_FORMAT.md	--kc-t-check	LANDS: the same GT_LADDER_FORMAT.md line 297 sentence, in the sibling row_skip reason (goldens text)
-scripts/tr12_repro.sh	scripts/tr12_repro.sh	by_class	LANDS: line 2978 is the F-5 D11 fix in row c_v1 (self-reference, re-pinned from line 2260, Q-791)
-scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	LANDS: line 225/line 229 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
-scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	LANDS: line 225/line 229 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
-solve.py	tests.py	--kc-tdir	LANDS: tests.py line 6211 is a minimal `"gates": {"fails": 0}` fixture (re-pinned from line 5655, Q-791)
-solve.py	documentation/SOLVE_C_CLI.md	KC_SCAN	LANDS: SOLVE_C_CLI.md line 2249-2250 is the corrected paragraph quoting the claim that this loader closed it (re-pinned from line 2238, Q-791)
-solve.py	viz/viz_kc_field.md	layers	LANDS: viz_kc_field.md line 34 is 'Index the ordering by its 32 pair-slots', the published convention the comment quotes
-tests.py	sat.py	--keep	LANDS: sat.py line 1854 is the `_run_tool(["d4", ...])` call (re-pinned from line 1823, Q-791); 'd4' is too short to mine
-tests.py	solve.py	--rules	LANDS: solve.py line 1649-1657 is print_rules' docstring withdrawal plus the retired-banner comment (re-pinned from line 1581, Q-791)
+# file	target	key	hash	reason
+documentation/CRITIQUE.md	documentation/CRITIQUE.md	a few hours	ece79aa85b24	LANDS: line 60 is the Gray-code C3 rate bound 'scoped to its sampler', the over-reach correction the note refers back to (self-reference)
+documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	76d247e90143	LANDS: HISTORY.md line 4158 is the line carrying the 8-hex UUID prefix `3620ba16-…` the sentence describes
+documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	0a6a430f95ad	LANDS: HISTORY.md line 1907 carries the `d63bb25c…` UUID token the sentence describes
+documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	9a968fa2	db73f707cca7	LANDS: HISTORY.md line 5146-5147 carry the old/new pre-merge shard totals (43,876,464,466) the cell names
+documentation/CITATIONS.md	documentation/CITATIONS.md	6a3feaaa	c92bc6ec35bf	LANDS: line 401 is this section's preamble sentence (Suenaga ... initiated counting) that Q-127/Q-263 read; re-pinned by content 2026-09-25 (Q-791)
+documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	bd706672e0f3	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
+documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	33f0823c95ee	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
+documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	33f0823c95ee	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
+documentation/DEVELOPMENT.md	scripts/perf_bench.sh	--keep-vm	fa1236b01ff5	LANDS: the four explicit `teardown` call sites in perf_bench.sh (re-measured 2026-09-25, Q-791: four, not three); the miner's anchors are the teardown function's words
+documentation/QUERY_INVENTORY.md	solve.py	PENDING	ae4bda73379b	LANDS: solve.py line 13673 is `def atlas_emit_xa`, the XA consumer the ruling describes (re-pinned from line 12062ff, which pointed there at a19682b2)
+documentation/QUERY_INVENTORY.md	solve.py	extrema	57492d7cc487	LANDS: the Q6 'per-distance-class mass, not per-(state,choice)' comment in solve.py (re-pinned 2026-09-25, Q-791); the anchors mined are the row's other words
+documentation/QUERY_INVENTORY.md	solve.py	extrema	7bef2b9d6798	LANDS: the Q6 'per-distance-class mass, not per-(state,choice)' comment in solve.py (re-pinned 2026-09-25, Q-791); the anchors mined are the row's other words
+documentation/QUERY_INVENTORY.md	viz/viz_kc_grammar.md	(d, w)	fa49f1697728	LANDS: viz_kc_grammar.md line 61-62 is where the new-pair category is stated to be undefined in TR-12 section 2 (re-pinned from line 44, Q-791)
+documentation/QUERY_INVENTORY.md	scripts/tr12_repro.sh	TR12_Q7	8cc56d7454e8	LANDS: tr12_repro.sh line 3626 is `agg(){`, the helper definition the sentence names; the row's anchors are the two agg call sites (line 3640/line 3645, which land)
+documentation/SOLUTIONS_FORMAT.md	runs/20260419_100T_d3_d128westus3/README.md	_10T_d3_d128westus3	5883f38a672d	LANDS: the run README's line 10 is 'Solver commit at enumeration launch'; the only mined anchor is a directory-name fragment
+documentation/SOLVE_C_CLI.md	solve.py	--books-verify	b91ac445daea	LANDS: solve.py line 10496-10499 is the Goldenberg attribution block (re-pinned from line 9682-9685, Q-791)
+documentation/SOLVE_C_CLI.md	documentation/CITATIONS.md	--books-verify	2b094b79c0be	LANDS: CITATIONS.md line 2646 is the goldenberg1975 ledger anchor (re-pinned from line 1855, Q-791)
+documentation/SOLVE_PY_CLI.md	solve.py	--tr8-dof-pool-draws	0ced75f2076d	LANDS: solve.py line 1093-1096 writes results.json / RESULTS.md, the results writer the sentence means (re-pinned from line 1023, Q-791)
+documentation/SOLVE_PY_CLI.md	solve.py	"timing-probe"	62c3f79731e3	LANDS: the pool-seed use (line 901) and results writer (line 1093-1096) named in the re-pin note itself (Q-791)
+documentation/SOLVE_PY_CLI.md	solve.py	"timing-probe"	0ced75f2076d	LANDS: the pool-seed use (line 901) and results writer (line 1093-1096) named in the re-pin note itself (Q-791)
+documentation/SOLVE_PY_CLI.md	documentation/DISTRIBUTIONAL_ANALYSIS.md	--joint-density	1a97db3cd038	LANDS: DISTRIBUTIONAL_ANALYSIS.md line 217 opens the de-circularized two-dimension re-run the cell points to
+documentation/VERIFY.md	documentation/CITATIONS.md	exact count	b1fcd3e28e64	LANDS: CITATIONS.md line 416 and line 1501 carry 'validated estimates for C1-C5' beside the exact C1-C2-C4-C5 layer counts (re-pinned from line 346/line 964, Q-791)
+documentation/VERIFY.md	documentation/CITATIONS.md	exact count	9a036f732bdb	LANDS: CITATIONS.md line 416 and line 1501 carry 'validated estimates for C1-C5' beside the exact C1-C2-C4-C5 layer counts (re-pinned from line 346/line 964, Q-791)
+documentation/VERIFY.md	documentation/DESCRIPTION_LENGTH.md	|C1–C7|	5071a89ad75a	LANDS: DESCRIPTION_LENGTH.md line 77 is '|C1∩C4∩C5| = |C1∩C2∩C4∩C5| exactly. The C3 conditional remains sampled by design.'
+reports/TR12_QUERY_PROGRAM.md	viz/viz_kc_grammar.md	(d, w)	fa49f1697728	LANDS: the same viz_kc_grammar.md line 61-62 category-undefined passage as QUERY_INVENTORY.md row V5 (Q-791)
+reports/TR9_PRICING_THE_CONSTRAINTS.md	documentation/DESCRIPTION_LENGTH.md	 relaxation** of	924ab4666b2e	LANDS: DESCRIPTION_LENGTH.md line 54 is the '+ C2 (no-5)' table row, the sibling cell (re-pinned from line 36, which it was at 6ffab778; Q-791)
+reports/TR9_PRICING_THE_CONSTRAINTS.md	documentation/DESCRIPTION_LENGTH.md	 relaxation** of	4370fc8a5cfd	LANDS: DESCRIPTION_LENGTH.md line 205-207 is the 2026-07-10 C2 refinement paragraph, the second sibling (re-pinned from line 127-129, Q-791)
+scripts/doc_gates.sh	documentation/CORRECTIONS.md	quoted	a624447579f8	LANDS: CORRECTIONS.md line 4146-4147 is the ledger's quotation of the retired 'maximum by construction' sentence (re-pinned from line 4121, where it was at b69f13f1; Q-791)
+scripts/doc_gates.sh	reports/TR6_PARITY_SKELETON.md	at the time of the SAT work (×11,364),	818de1e7b4fb	LANDS: TR6:132-133 carry the qualifier, hard-wrapped across the two lines, so the verbatim fragment is on neither
+scripts/doc_gates.sh	reports/TR4_SIZE_OF_THE_SPACE.md	sharpens further when S(6..8) land	047717c1306d	LANDS: TR4:361 is the P34 wording ('sharpened by the 2026-07-05 S(6)-S(8) measurement'); the anchor is the retired wording the red test restores
+scripts/doc_gates.sh	documentation/CLAIM_TO_ARTIFACT.md	canonical	f37fef14dbf6	LANDS: CLAIM_TO_ARTIFACT.md line 45 is the n=9 26,112 row (row 14; re-pinned from line 41, Q-791); 'canonical' is the word the defect removed
+scripts/doc_gates.sh	documentation/PROJECT_OVERVIEW.md	_10T_d3_fresh	19b739cabf35	LANDS: PROJECT_OVERVIEW.md line 102 attributes 21,794,755 / 152,468,987 to d3 10T; the anchor is the log path, named elsewhere
+scripts/doc_gates.sh	documentation/LARGE_SCALE_CAMPAIGNS.md	sort + dedup	07cecd264fdd	LANDS: LARGE_SCALE_CAMPAIGNS.md line 1026 is 'There is no S at which you need code that does not exist' (re-pinned from line 995, Q-791)
+scripts/exec_lane.sh	documentation/SOLVE_C_CLI.md	./solve	f7fa3e543185	LANDS: SOLVE_C_CLI.md line 3545 quotes the pre-correction build line (re-pinned from line 2061, Q-791)
+scripts/exec_lane.sh	documentation/CORRECTIONS.md	--follow	025e532dcecf	LANDS: CORRECTIONS.md line 3189 carries the bare `git log -S` fragment (re-pinned from line 3164, Q-791)
+scripts/exec_lane_verdict_gate.sh	documentation/BRANCHES_EXPLAINED.md	--branch	a4a6e06c28ce	LANDS: BRANCHES_EXPLAINED.md line 382 is '**All-branch enumeration** (`solve 0 64`)' (re-pinned from line 383, Q-791)
+scripts/pre_commit_generated_gate.sh	roae.py	--seed	9cd17968a666	LANDS: roae.py line 23 is `_global_seed = None`, i.e. seeds nothing by default (re-pinned from line 22, Q-791)
+scripts/tr12_repro.sh	documentation/GT_LADDER_FORMAT.md	--kc-t-check	cb9ac715fe11	LANDS: GT_LADDER_FORMAT.md line 297 is 'integrity checks: they constrain the FILES, not the shared'; this text is a row_skip REASON emitted into the goldens, so it is pinned, not reworded
+scripts/tr12_repro.sh	documentation/GT_LADDER_FORMAT.md	--kc-t-check	cb9ac715fe11	LANDS: the same GT_LADDER_FORMAT.md line 297 sentence, in the sibling row_skip reason (goldens text)
+scripts/tr12_repro.sh	scripts/tr12_repro.sh	by_class	d0a7ac7a7790	LANDS: line 2978 is the F-5 D11 fix in row c_v1 (self-reference, re-pinned from line 2260, Q-791)
+scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	00d251fa549e	LANDS: line 225/line 229 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
+scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	b923394391cb	LANDS: line 225/line 229 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
+solve.py	tests.py	--kc-tdir	85890e4eebc6	LANDS: tests.py line 6211 is a minimal `"gates": {"fails": 0}` fixture (re-pinned from line 5655, Q-791)
+solve.py	documentation/SOLVE_C_CLI.md	KC_SCAN	11173c521dec	LANDS: SOLVE_C_CLI.md line 2249-2250 is the corrected paragraph quoting the claim that this loader closed it (re-pinned from line 2238, Q-791)
+solve.py	viz/viz_kc_field.md	layers	77a7b41c3bc3	LANDS: viz_kc_field.md line 34 is 'Index the ordering by its 32 pair-slots', the published convention the comment quotes
+tests.py	sat.py	--keep	ac0e6d6eba88	LANDS: sat.py line 1854 is the `_run_tool(["d4", ...])` call (re-pinned from line 1823, Q-791); 'd4' is too short to mine
+tests.py	solve.py	--rules	2e018c376311	LANDS: solve.py line 1649-1657 is print_rules' docstring withdrawal plus the retired-banner comment (re-pinned from line 1581, Q-791)
+documentation/DEVELOPMENT.md	scripts/tr12_repro.sh	--kc-o3-rank	a3c7ef14609e	LANDS (rarity rule): line 2629 is the n>=31 rank3 awk the row names; `--kc-o3-rank` occurs on 11 lines of tr12_repro.sh and sits on the comment above the awk, not on it
+documentation/DEVELOPMENT.md	scripts/tr12_repro.sh	--kc-o3-rank	941b26ee7499	LANDS (rarity rule): line 653 is the q1c rank3 awk, the first sibling the row names (re-pinned from line 642 by content, 2026-09-25: 642 was one line of CX-93's shift behind); same common anchor
+documentation/RETRACTED_PHRASES.tsv	documentation/DEVELOPMENT.md	Constraint set	a1e7684b2f3b	LANDS: DEVELOPMENT.md line 2459-2461 is the Xugua sentence the note describes (review S3 re-pin by content, 2026-09-25); the mined anchor is the METHODS.md section name the note also quotes
+documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	be32b4e7bc0b	HISTORICAL by its own words: solve.py line 1581 'at the 2026-09-02 HEAD', the run-time banner title; print_rules is at solve.py line 1646 today
+documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	dcdccd4d30ac	HISTORICAL by its own words: the print_rules() comment GATE 6 fired on at the row's 2026-09-02 build
+documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	e849e24fe9f9	HISTORICAL by its own words: the 'B2 MEASURED' negation sites at the row's 2026-09-02 build
+documentation/RETRACTED_PHRASES.tsv	documentation/SOLVE_PY_CLI.md	--rules	3f83ae6f9546	HISTORICAL by its own words: 'B2 MEASURED' at the row's 2026-09-02 build; the negation now sits at SOLVE_PY_CLI.md line 105
+# ATTESTED (key -): unanchored citations leg A2 met edited in the batch 1-10 range and a person checked by content
+documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv	scripts/tr12_repro_gate.sh	-	1e178531ce02	ATTESTED: line 503 is the `printf 'TR12_A=PASS\n...'` fixture literal the row names (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 50)
+documentation/ROAE_PY_CLI.md	roae.py	-	5dd6051f8a32	ATTESTED: line 5077 is `gate_ok = abs(p_le_648 - 0.04789) <= 0.005`, the constant the sentence names (content-checked 2026-09-25, Opus AF; cited from line 428 and line 436; reason re-pinned from line 4994, Fable HH N2)
+documentation/SOLVE_C_CLI.md	documentation/DEVELOPMENT.md	-	fdde236ba43a	ATTESTED: DEVELOPMENT.md line 1579 is the 'Caveat — cross-host reproducibility' paragraph that bounds the tested toolchain class (content-checked 2026-09-25, Opus AF; cited from line 208)
+documentation/VERIFY.md	documentation/CLAIM_TO_ARTIFACT.md	-	8a71d7b9b18c	ATTESTED: CLAIM_TO_ARTIFACT.md line 34 is row 3, |C1∩C2∩C4∩C5| EXACT, the qualification the sentence means (content-checked 2026-09-25, Opus AF; cited from line 1054)
+scripts/doc_gates.sh	reports/TR2_THE_RULES_CONFLICT.md	-	75d1d558ef44	ATTESTED: TR2 line 587 is the bold label 'Stop-flag resolution (v1.12, 2026-07-13)' the comment quotes (content-checked 2026-09-25, Opus AF; cited from line 1775)
+scripts/doc_gates.sh	documentation/DESCRIPTION_LENGTH.md	-	01dd010f3e03	ATTESTED: DESCRIPTION_LENGTH.md line 74 carries the decimal ×23.325025987… the fixture names (content-checked 2026-09-25, Opus AF; cited from line 12402)
+scripts/doc_gates.sh	documentation/CITATIONS.md	-	91ee7e608492	ATTESTED: CITATIONS.md line 1976-1977 is the gender/position-parity bullet with the 'at the time of the SAT work' qualifier (content-checked 2026-09-25, Opus AF; cited from line 15807)
+scripts/doc_gates.sh	documentation/DEPLOYMENT.md	-	5738628c0c1a	ATTESTED: DEPLOYMENT.md line 166 is the d3 100T merge bullet, 'external merge streams in chunks' (an affirmation) (content-checked 2026-09-25, Opus AF; cited from line 19835)
+scripts/exec_lane.sh	documentation/SOLUTIONS_FORMAT.md	-	1a3f74ef552c	ATTESTED: SOLUTIONS_FORMAT.md line 437 is `env | grep -c '^SOLVE_DEPTH='` returning 0 (content-checked 2026-09-25, Opus AF; cited from line 770)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2629 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 95)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2629 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 103)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	941b26ee7499	ATTESTED: line 653 is the q1c rank3 awk, the first sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 103)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	1dbdb132ab0c	ATTESTED: line 2700 is the a2_q3 `--kc-o3-rank ... | awk` rank3 parse, the second sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 103)
+scripts/tr12_repro_gate.sh	scripts/tr12_repro.sh	-	37b8c4bff44f	ATTESTED: line 1202 is `row_begin a0_q4b` (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 148)
+solve.c	solve.py	-	a2eec7945003	ATTESTED: solve.py line 7111 is `"SOLVE_HASH_LOG2": "16",  # keep RAM use modest on tiny VMs`, quoted (content-checked 2026-09-25, Opus AF; cited from line 39724)
+solve.c	documentation/SOLVE_C_CLI.md	-	13caa29fe0ed	ATTESTED: SOLVE_C_CLI.md line 518 is `set -a; eval "$(./solve --canonical-config 100T)"; set +a` (content-checked 2026-09-25, Opus AF; cited from line 41952)
+solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 43415)
+solve.c	documentation/SOLVE_C_CLI.md	-	fc6e90f7a78a	ATTESTED: SOLVE_C_CLI.md line 791 is 'King Wen presence is reported, not enforced' (content-checked 2026-09-25, Opus AF; cited from line 43649)
+solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 43850)
 PINS
 )
 TARGET_PINS="${CITGATE_TARGET_PINS-$TARGET_PINS_DEFAULT}"
 
 _run_all() { # $1 root  $2 base ref  $3 base-explicit (1|"")  $4 pins  $5 all-targets (1|"")  $6 target pins
   ROOT="$1" BASE="$2" BASE_EXPLICIT="$3" PINS="$4" ALLT="${5:-}" TPINS="${6:-}" python3 - <<'PYEOF'
-import os, re, subprocess, sys
+import difflib, hashlib, os, re, subprocess, sys
 from collections import Counter, defaultdict
 root, base, base_explicit, pins_raw = (os.environ[k] for k in ("ROOT", "BASE", "BASE_EXPLICIT", "PINS"))
 allt, tpins_raw = os.environ["ALLT"] == "1", os.environ["TPINS"]
+sys.stdout.reconfigure(line_buffering=True)   # PINROW audit lines go to stderr: keep the two in order
 try:
     os.chdir(root)
 except OSError as e:
@@ -444,7 +503,7 @@ REVPIN = dict(LINE_EXCL)["rev-pin"]
 BATCHROW = re.compile(r'(?:\((?:BATCH|batch) A?\d+ row \d+,|\bCodex A\d+ row \d+ \()[^)]*$')
 BTFILE = re.compile(r'`([^`\s]+\.[A-Za-z]{1,5})`:(?=\d)')
 MDLINK = re.compile(r'\[[^\]\n]*\]\(`?([^)\s#`]+\.[A-Za-z]{1,5})`?\):(?=\d)')
-def cites(line, citer, prev=()):
+def cites(line, citer, prev=(), quiet=False):
     """(target, lo, hi, text) for every live citation on the line; exclusions counted."""
     if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):1855`, is the
         line = MDLINK.sub(lambda m: " " + m.group(1) + ":", line)   # same citation: read it as one;
@@ -492,7 +551,7 @@ def cites(line, citer, prev=()):
         out.append((cur, lo, hi, m.group(0).strip()))
         if m.group("file") is None and not re.search(r'[\w\-]\.[A-Za-z]{1,5}:\d', line[:m.start()]):
             implied_n[cur == citer] += 1
-            if os.environ.get("CITGATE_PINROWS") == "1":   # audit trail: which file each bare :N was read as
+            if os.environ.get("CITGATE_PINROWS") == "1" and not quiet:   # audit trail: which file each bare :N was read as
                 sys.stderr.write("PINROW\tIMPLIED\t%s -> %s\t%s\n" % (citer, cur, m.group(0).strip()))
     if out:
         for cls, rx in LINE_EXCL:
@@ -517,10 +576,14 @@ for p in out.split("\n"):
 # ---- LEG A: the shift map ---------------------------------------------------------------------
 # One map per changed TARGET (solve.c alone without --all-targets). `thunks[t]` is t's hunk list.
 thunks, legA_note, changed = {}, "", set()
-rc, _ = git(["rev-parse", "--verify", "-q", base + "^{commit}"])
+# A TREE is accepted as well as a commit (Q-793 lane, 2026-09-25): assembly checks each batch against the previous
+# batch's `git write-tree`, which is a tree with no commit around it. `git diff` and `git show
+# <tree>:<path>` both take one.
+rc, _ = git(["rev-parse", "--verify", "-q", base + "^{tree}"])
+based = rc == 0
 if rc != 0:
     if base_explicit:
-        print("ERROR base ref %r does not resolve to a commit" % base); sys.exit(0)
+        print("ERROR base ref %r does not resolve to a commit or a tree" % base); sys.exit(0)
     legA_note = "base %s unresolvable -- leg A measured nothing" % base
 else:
     rc, names = git(["diff", "--name-only", "--no-renames", base])
@@ -536,8 +599,8 @@ else:
         if h:
             thunks[t] = h
     if not thunks:
-        legA_note = ("no tracked file" if allt else "solve.c") + \
-                    " is changed against %s -- nothing moved, leg A vacuous" % base
+        legA_note = ("no tracked file is" if allt else "solve.c is not") + \
+                    " changed against %s -- nothing moved, leg A vacuous" % base
 hunks = bool(thunks)
 
 def lmap(n, t):
@@ -599,8 +662,127 @@ def context(lines, li, ismd):
             out.append(t); j += step
     return "\n".join(out)
 
-LEGB = re.compile(r'\.(?:md|py|sh)$')
+# ---- LEG B scope and matching (the batch 7-10 review, S1/S3 class, 2026-09-25) --------------------
+# * `.tsv` is in scope. A registry row's NOTE cell carries citations (RETRACTED_PHRASES.tsv,
+#   DOC_GATE_*_OPEN.tsv) and no leg read them: DOC_GATE_EMITTED_SURFACE_OPEN.tsv:50 sat on a `}` for
+#   a whole batch. Anchors are mined from the ONE cell that carries the citation -- the other
+#   columns (a retracted phrase, a key, an allow-list) are different claims from the note's.
+# * RARITY RULE for `.sh` targets. A script repeats its own vocabulary (`awk`, `ARTDIR`, `row_begin`,
+#   a variable) on hundreds of lines, so under the +-2 window some mined word lands BY CHANCE; the
+#   review found two stale `tr12_repro.sh` citations green that way. An anchor that occurs on more
+#   than RARE (3) lines of a .sh target now counts only when it is on the cited span itself; a rare
+#   one keeps the +-2 slack. MEASURED (see DEVELOPMENT.md, CITATION_LINE_GATE): the chance-landing
+#   rate of deliberately shifted .sh citations falls, and no unshifted citation turned stale.
+#   CITGATE_SH_TIGHT=0 restores the old rule; it exists to reproduce that measurement.
+# * CITGATE_PROBE_SHIFT=k adds k to every leg-B citation before judging it. It is the POSITIVE
+#   CONTROL for the leg: with k != 0 almost every checkable citation must go stale, and the ones
+#   that do not are the leg's chance landings. Never set it in a gate run.
+LEGB = re.compile(r'\.(?:md|py|sh|tsv)$')
+SH_TIGHT = os.environ.get("CITGATE_SH_TIGHT", "1")
+RARE = 3
+PROBE = int(os.environ.get("CITGATE_PROBE_SHIFT", "0") or 0)
+_occ = {}
+def occ(t, c):
+    if (t, c) not in _occ:
+        _occ[(t, c)] = sum(1 for l in tsrc(t)[0] if c in l)
+    return _occ[(t, c)]
+
+def tsv_cell(line, t):
+    for cell in line.split("\t"):
+        if t in cell:
+            return cell
+    return line
+
+def chash(src, lo, hi):
+    """Q-793: the content hash a pin carries -- 12 hex of sha256 over the cited lines lo..hi of the
+    target (trailing blanks stripped). A pinned citation whose target CONTENT changes, for any
+    reason (a shift, an edit of the cited code, a repin to another line), no longer matches its pin."""
+    body = "\n".join(x.rstrip() for x in src[lo - 1:hi]) if 1 <= lo and hi <= len(src) else "<out-of-range>"
+    return hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12]
+
+def judge_b(tg, lo, hi, ctx, heading, ismd):
+    """Leg B on one citation -> (state, key, anchors); state is lands | stale | unchk."""
+    src, srctext = tsrc(tg)
+    cands = candidates(ctx, tg) | (candidates(heading, tg) if ismd else set())
+    cands = {c for c in cands if c in srctext}
+    if not cands:
+        return "unchk", None, []
+    lo, hi = lo + PROBE, hi + PROBE
+    win, core = src[max(0, lo - 3):max(0, hi + 2)], src[max(0, lo - 1):max(0, hi)]
+    hit = False
+    for c in cands:
+        if any(c in l for l in win):
+            if (SH_TIGHT != "0" and tg.endswith(".sh") and occ(tg, c) > RARE
+                    and not any(c in l for l in core)):
+                continue                 # a common word two lines off is chance, not a landing
+            hit = True; break
+    if lo < 1 or hi > len(src) or not hit:
+        return "stale", sorted(cands)[0], sorted(cands)
+    return "lands", sorted(cands)[0], sorted(cands)
+
+# ---- LEG A2: an EDITED citing line (the batch 7-10 review, S1, 2026-09-25) -----------------------
+# Leg A reads only a citing line the change left byte-identical. A citation that is repinned and
+# then re-staled INSIDE ONE push range (batch 9 repinned a tr12_repro.sh citation to line 2467,
+# batch 10 moved the code 162 lines, the citing line was edited in between) is invisible to it. Leg A2 takes
+# every citation on a line the range DID change, finds that line's counterpart at BASE (the most
+# similar line of its own diff hunk that carries a citation, similarity >= 0.5), and pairs each new
+# citation with the base's citations of the SAME target. The new number is accepted when it is
+#   (1) FOLLOWED   -- map(old) through the target's base->head line map, i.e. it moved with the code;
+#   (2) MOVED-WITH -- the cited base lines, verbatim (trailing blanks aside, >= 8 characters), are the
+#                     new cited lines: the code was moved by a rewrite the map cannot see through;
+#   (3) ANCHORED   -- leg B checks it and it LANDS (rarity rule included), or it is leg-B stale and
+#                     matched by a content-hashed pin, which is a reviewed attestation of that content.
+# Anything else is a REPIN failure: the number changed to something neither the line map nor the
+# target's content explains. A citation with no base counterpart (a new line, a new target) is
+# FRESH and left to leg B. The leg needs a base; like leg A it is vacuous on a clean tree at HEAD.
+_bsrc = {}
+def base_src(t):
+    if t not in _bsrc:
+        rc, bt = git(["show", "%s:%s" % (base, t)])
+        _bsrc[t] = bt.split("\n") if rc == 0 else None
+    return _bsrc[t]
+
+_chunks = {}
+def hunks_of(p):
+    if p in thunks:
+        return thunks[p]
+    if p not in _chunks:
+        rc, d = git(["diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames", base, "--", p])
+        _chunks[p] = [tuple(int(x) if x != '' else 1 for x in hh) for hh in
+                      re.findall(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', d, re.M)] if rc == 0 else []
+    return _chunks[p]
+
+CITEISH = re.compile(r'\.[A-Za-z]{1,5}`?\)?:\d|[(`\s]:\d')
+def counterpart(p, li, line):
+    """The base line number this edited line replaced, or None (a new line)."""
+    bl = base_src(p)
+    if bl is None:
+        return None
+    for os_, ol, ns, nl in hunks_of(p):
+        if nl and ns <= li < ns + nl:
+            best, bj = 0.0, None
+            for j in range(os_ - 1, os_ - 1 + ol if ol else os_ - 1):
+                o = bl[j] if 0 <= j < len(bl) else ""
+                if not CITEISH.search(o):
+                    continue
+                sm = difflib.SequenceMatcher(None, line, o, autojunk=False)
+                if sm.real_quick_ratio() < 0.5 or sm.quick_ratio() < 0.5:
+                    continue
+                r = sm.ratio()
+                if r > best:
+                    best, bj = r, j
+            return bj + 1 if bj is not None and best >= 0.5 else None
+    return None
+
+def moved_with(bs, a, b, hs, lo, hi):
+    if b - a != hi - lo or a < 1 or lo < 1 or b > len(bs) or hi > len(hs):
+        return False
+    x = "\n".join(s.strip() for s in bs[a - 1:b])
+    return len(re.sub(r'\s', '', x)) >= 8 and x == "\n".join(s.strip() for s in hs[lo - 1:hi])
+
 shift, inhunk, stale, cited = [], [], [], set()
+pend, a2 = [], Counter()
+bstate, sh_ck, sh_st, att_seen = {}, Counter(), Counter(), Counter()
 totA = totB = checked = 0
 for p in files:
     try:
@@ -608,24 +790,23 @@ for p in files:
     except OSError:
         continue
     base_lines = None
-    if hunks and p in changed:
+    if based and p in changed:
         rc, bt = git(["show", "%s:%s" % (base, p)])
         base_lines = Counter(bt.split("\n")) if rc == 0 else Counter()
-    heading, isb, ismd = "", bool(LEGB.search(p)), p.endswith(".md")
+    heading, isb, ismd, istsv = "", bool(LEGB.search(p)), p.endswith(".md"), p.endswith(".tsv")
     for li, line in enumerate(lines, 1):
         if ismd and line.startswith("#"):
             heading = line
         prev = []
-        if True:
-            j = li - 2
-            while j >= 0 and len(prev) < 15 and lines[j].strip():
-                prev.append(lines[j]); j -= 1
+        j = li - 2
+        while j >= 0 and len(prev) < 15 and lines[j].strip():
+            prev.append(lines[j]); j -= 1
         cs_line = cites(line, p, prev)
         if not cs_line:
             continue
-        # LEG A
-        if hunks and (base_lines is None or base_lines[line] > 0):
-            for tg, lo, hi, t in cs_line:
+        # LEG A (a citing line this change left byte-identical)
+        if base_lines is None or base_lines[line] > 0:
+            for tg, lo, hi, t in (cs_line if hunks else ()):
                 totA += 1
                 ml, mh = lmap(lo, tg), lmap(hi, tg)
                 tt = t if tg == "solve.c" else "%s [%s]" % (t, tg)
@@ -633,75 +814,148 @@ for p in files:
                     inhunk.append("%s:%d %s" % (p, li, tt))
                 elif ml != lo or mh != hi:
                     shift.append("%s:%d %s -> map %s" % (p, li, tt, ml if lo == hi else "%d-%d" % (ml, mh)))
+        # LEG A2 (a citing line this change edited)
+        else:
+            oli = counterpart(p, li, line)
+            olds = []
+            if oli is not None:
+                bl = base_src(p)
+                oprev, j = [], oli - 2
+                while j >= 0 and len(oprev) < 15 and bl[j].strip():
+                    oprev.append(bl[j]); j -= 1
+                ex0, im0 = excluded.copy(), implied_n.copy()
+                olds = cites(bl[oli - 1], p, oprev, quiet=True)
+                excluded.clear(); excluded.update(ex0); implied_n.clear(); implied_n.update(im0)
+            for tg, lo, hi, t in cs_line:
+                prior = [(a, b) for tg0, a, b, _ in olds if tg0 == tg]
+                if not prior:
+                    a2["fresh"] += 1; continue
+                a2["edited"] += 1
+                if any(lmap(a, tg) == lo and lmap(b, tg) == hi for a, b in prior):
+                    a2["followed"] += 1; continue
+                bs = base_src(tg)
+                if bs is not None and any(moved_with(bs, a, b, tsrc(tg)[0], lo, hi) for a, b in prior):
+                    a2["moved-with"] += 1; continue
+                pend.append((p, li, t, tg, lo, hi, prior))
         # LEG B
-        if not isb:
-            continue
-        ctx = context(lines, li, ismd)
         for tg, lo, hi, t in cs_line:
+            h = chash(tsrc(tg)[0], lo, hi)
+            att_seen[(p, tg, h)] += 1    # every citation, so an attested pin means the same in both modes
+            if not isb:                  # outside leg B's scope: only an ATTESTED pin can vouch for it
+                bstate[(p, li, tg, lo, hi)] = ("unchk", None, h)
+                continue
             totB += 1
             cited.add(tg)
-            src, srctext = tsrc(tg)
-            cands = candidates(ctx, tg) | (candidates(heading, tg) if ismd else set())
-            cands = {c for c in cands if c in srctext}
-            if not cands:
+            if istsv and not line.lstrip().startswith("#"):
+                ctx = tsv_cell(line, t)
+            else:
+                ctx = context(lines, li, ismd)
+            st, key, cands = judge_b(tg, lo, hi, ctx, heading, ismd)
+            bstate[(p, li, tg, lo, hi)] = (st, key, h)
+            if st == "unchk":
                 continue
             checked += 1
-            win = "\n".join(src[max(0, lo - 3):hi + 2])
-            if hi > len(src) or not any(c in win for c in cands):
-                stale.append((p, tg, li, t, sorted(cands)[0], sorted(cands)))
+            sh_ck[tg.endswith(".sh")] += 1
+            if st == "stale":
+                stale.append((p, tg, li, t, key, cands, h))
+                sh_st[tg.endswith(".sh")] += 1
 
-# Pins are keyed (citing file, target, anchor key). The solve.c table has 3 columns (its target is
-# solve.c); the --all-targets table has 4: file TAB target TAB key TAB reason.
-pins = Counter()
-for raw, ncol in ((pins_raw, 3), (tpins_raw if allt else "", 4)):
+# Pins are keyed (citing file, target, anchor key, target content hash) -- Q-793. The solve.c table
+# has 4 columns (file TAB key TAB hash TAB reason; its target is solve.c); the --all-targets table
+# has 5 (file TAB target TAB key TAB hash TAB reason). The hash is chash() of the cited span.
+pins, pinned_keys = Counter(), Counter()
+for raw, ncol in ((pins_raw, 4), (tpins_raw if allt else "", 5)):
     for r in raw.split("\n"):
         if not r.strip() or r.lstrip().startswith("#"):
             continue
         f = r.split("\t")
-        if len(f) < ncol or not f[ncol - 1].strip():
-            print("ERROR malformed pin row (need %s TAB reason): %r"
-                  % ("file TAB key" if ncol == 3 else "file TAB target TAB key", r)); sys.exit(0)
-        pins[(f[0], "solve.c", f[1]) if ncol == 3 else (f[0], f[1], f[2])] += 1
+        if len(f) < ncol or not f[ncol - 1].strip() or not re.fullmatch(r'[0-9a-f]{12}', f[ncol - 2]):
+            print("ERROR malformed pin row (need %s TAB <12-hex content hash> TAB reason): %r"
+                  % ("file TAB key" if ncol == 4 else "file TAB target TAB key", r)); sys.exit(0)
+        k = (f[0], "solve.c", f[1], f[2]) if ncol == 4 else (f[0], f[1], f[2], f[3])
+        pins[k] += 1
+        pinned_keys[k[:3]] += 1
 
 if totB == 0 or checked == 0:
     print("ERROR leg B found %d citation(s), %d checkable -- measured nothing" % (totB, checked)); sys.exit(0)
+
+seen = Counter((p, tg, k, h) for p, tg, _, _, k, _, h in stale)
+repin = []
+for p, li, t, tg, lo, hi, prior in pend:
+    st, k, h = bstate.get((p, li, tg, lo, hi), ("unchk", None, None))
+    if st == "lands":
+        a2["anchored"] += 1; continue
+    if st == "stale" and pins[(p, tg, k, h)] >= seen[(p, tg, k, h)]:
+        a2["pinned"] += 1; continue
+    if pins[(p, tg, "-", h)] > 0:
+        a2["attested"] += 1; continue
+    tt = t if tg == "solve.c" else "%s [%s]" % (t, tg)
+    mp = ", ".join((str(a) if a == b else "%d-%d" % (a, b)) + " -> map " +
+                   ("inhunk" if lmap(a, tg) is None or lmap(b, tg) is None else
+                    str(lmap(a, tg)) if a == b else "%d-%d" % (lmap(a, tg), lmap(b, tg))) for a, b in prior)
+    repin.append("%s:%d %s was %s; leg B: %s" % (p, li, tt, mp,
+                 {"unchk": "no anchor", "stale": "stale"}.get(st, st)))
+    if os.environ.get("CITGATE_PINROWS") == "1":
+        sys.stderr.write("PINROW\t%s\t%s\t%s\t%s\t%s:%d %s\n" % (p, tg, "-" if st == "unchk" else k, h, p, li, t))
 
 print(("COUNT all-targets cited-targets=%d implied-self=%d implied-context=%d\n"
        % (len(cited), implied_n[True], implied_n[False]) if allt else "")
       + "COUNT files=%d legB total=%d checked=%d stale=%d uncheckable=%d pinned=%d"
       % (len(files), totB, checked, len(stale), totB - checked, sum(pins.values())))
+print("COUNT legB .sh-targets checked=%d stale=%d; other targets checked=%d stale=%d%s"
+      % (sh_ck[True], sh_st[True], sh_ck[False], sh_st[False],
+         "" if SH_TIGHT != "0" else " (rarity rule OFF)") + (" PROBE-SHIFT=%+d" % PROBE if PROBE else ""))
 print("COUNT excluded " + (" ".join("%s=%d" % kv for kv in sorted(excluded.items())) or "none"))
 if legA_note:
     print("COUNT legA " + legA_note)
 else:
     print("COUNT legA base=%s files-moved=%d hunks=%d unmoved-citations=%d shifted=%d inhunk=%d"
           % (base, len(thunks), sum(len(v) for v in thunks.values()), totA, len(shift), len(inhunk)))
+if based and changed:
+    print("COUNT legA2 edited=%d fresh=%d followed=%d moved-with=%d anchored=%d pinned=%d attested=%d repin=%d"
+          % (a2["edited"], a2["fresh"], a2["followed"], a2["moved-with"], a2["anchored"], a2["pinned"],
+             a2["attested"], len(repin)))
 for s in shift:
     print("SHIFT " + s)
 for s in inhunk:
     print("INHUNK " + s)
-seen = Counter((p, tg, k) for p, tg, _, _, k, _ in stale)
-for p, tg, li, t, k, cs in stale:
-    print("%s %s:%d %s%s names %s" % ("OPEN" if seen[(p, tg, k)] <= pins[(p, tg, k)] else "NEW",
-                                      p, li, t, "" if tg == "solve.c" else " [%s]" % tg, ",".join(cs[:4])))
+for s in repin:
+    print("REPIN " + s)
+hashes_of = defaultdict(list)
+for k in pins:
+    hashes_of[k[:3]].append(k[3])
+for p, tg, li, t, k, cs, h in stale:
+    ok = seen[(p, tg, k, h)] <= pins[(p, tg, k, h)]
+    moved = "" if ok or not hashes_of[(p, tg, k)] else \
+        " -- PINNED CONTENT CHANGED (pin %s, target now %s)" % ("/".join(sorted(set(hashes_of[(p, tg, k)]))), h)
+    print("%s %s:%d %s%s names %s%s" % ("OPEN" if ok else "NEW", p, li, t,
+                                        "" if tg == "solve.c" else " [%s]" % tg, ",".join(cs[:4]), moved))
     if os.environ.get("CITGATE_PINROWS") == "1":      # a pin-table row, key verbatim (keys may hold commas)
-        sys.stderr.write("PINROW\t%s\t%s\t%s\t%s:%d %s\n" % (p, tg, k, p, li, t))
+        sys.stderr.write("PINROW\t%s\t%s\t%s\t%s\t%s:%d %s\n" % (p, tg, k, h, p, li, t))
 bad = []
 if shift:
     bad.append("leg A: %d citation(s) left behind by a %s shift" % (len(shift), "target-file" if allt else "solve.c"))
+if repin:
+    bad.append("leg A2: %d edited citation(s) now name a line that neither the line map nor the "
+               "target's content explains" % len(repin))
 new = sorted(k for k in seen if seen[k] > pins[k])
-gone = sorted(k for k in pins if seen[k] < pins[k])
+gone = sorted(k for k in pins if k[2] != "-" and seen[k] < pins[k])
+gone_att = sorted(k for k in pins if k[2] == "-" and att_seen[(k[0], k[1], k[3])] < pins[k])
 if new:
-    bad.append("leg B: stale citation(s) beyond the pin: " + ", ".join("%s->%s[%s]" % k for k in new))
+    bad.append("leg B: stale citation(s) beyond the pin: " + ", ".join("%s->%s[%s]#%s" % k for k in new))
 if gone:
-    bad.append("leg B: pinned stale citation(s) no longer stale -- TIGHTEN the pin: "
-               + ", ".join("%s->%s[%s]" % k for k in gone))
+    bad.append("leg B: pinned stale citation(s) no longer stale at the pinned content -- TIGHTEN or "
+               "RE-HASH the pin: " + ", ".join("%s->%s[%s]#%s" % k for k in gone))
+if gone_att:
+    bad.append("leg A2: attested pin(s) match no unanchored citation at that content -- the citation "
+               "moved or its target changed; RE-CHECK and re-hash, or drop: "
+               + ", ".join("%s->%s#%s" % (k[0], k[1], k[3]) for k in gone_att))
 if bad:
     for b in bad:
         print("VERDICT FAIL " + b)
 else:
-    print("VERDICT PASS leg A %s; leg B %d stale, all pinned exactly"
-          % ("vacuous" if legA_note else "0 shifted", len(stale)))
+    print("VERDICT PASS leg A %s; leg A2 %d repin; leg B %d stale, all pinned exactly"
+          % ("vacuous" if legA_note else "0 shifted", len(repin), len(stale)))
 PYEOF
 }
 
@@ -724,7 +978,7 @@ verdict_all() { # $1 root $2 base $3 base-explicit $4 pins [$5 all-targets $6 ta
   else echo FAIL; fi
 }
 print_all() { # the --all-files report; a run that printed no verdict at all (a crash) shows its tail
-  sed -n 's/^COUNT /  [cite] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p' "$OUT"
+  sed -n 's/^COUNT /  [cite] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p' "$OUT"
   grep -q '^VERDICT \|^ERROR ' "$OUT" || tail -5 "$OUT" | sed 's/^/  [crash] /'
 }
 
@@ -750,6 +1004,12 @@ if [ "${1:-}" = "--selftest" ]; then
   [ "$c" = ERROR ] || { echo "  [gate] leg C (no citations) gave $c, want ERROR"; rc=1; }
   [ "$d" = PASS  ] || { echo "  [gate] leg D (ratchet pins the known defect) gave $d, want PASS"; rc=1; }
   [ "$rc" = 0 ] && echo "  [ok] red-test: A=PASS B=FAIL C=ERROR D=PASS (A vs B differ by one digit)"
+
+  # The content hash a pin carries (Q-793), computed the way the gate's chash() computes it.
+  hsh() { python3 -c 'import hashlib, sys
+src = open(sys.argv[1], encoding="utf-8", errors="replace").read().split("\n"); lo, hi = int(sys.argv[2]), int(sys.argv[3])
+body = "\n".join(x.rstrip() for x in src[lo - 1:hi]) if 1 <= lo and hi <= len(src) else "<out-of-range>"
+print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$2" "${3:-$2}"; }
 
   # --all-files legs, on a throwaway git repo (leg A needs a real base commit and a real diff).
   # Fixture solve.c: `alpha_beta_gamma` on line 3, `kc_widget_count` on line 8, 12 lines.
@@ -777,9 +1037,10 @@ if [ "${1:-}" = "--selftest" ]; then
   mk_src; G add -A; G commit -q -m restore
   sed -i 's/kc_widget_count/alpha_beta_gamma/' "$R/doc.md"   # ONE mutated anchor (exists at :3)
   h=$(verdict_all "$R" HEAD "" "")
-  i=$(verdict_all "$R" HEAD "" "$(printf 'doc.md\talpha_beta_gamma\tselftest pin')")
+  PIN1=$(printf 'doc.md\talpha_beta_gamma\t%s\tselftest pin' "$(hsh "$R/solve.c" 8)")
+  i=$(verdict_all "$R" HEAD "" "$PIN1")
   printf "$L1$L2" 8 10 >"$R/doc.md"        # repaired, but the pin was left behind -> FAIL
-  j=$(verdict_all "$R" HEAD "" "$(printf 'doc.md\talpha_beta_gamma\tselftest pin')")
+  j=$(verdict_all "$R" HEAD "" "$PIN1")
   x=$(verdict_all "$R" no-such-ref-q786 1 "")   # an explicit base that does not resolve -> ERROR
   printf 'No citations.\n' >"$R/doc.md"
   y=$(verdict_all "$R" HEAD "" "")            # nothing to measure -> ERROR
@@ -821,9 +1082,10 @@ if [ "${1:-}" = "--selftest" ]; then
   printf "$D2" 1 5 7 >"$R2/doc2.md"; G2 add -A; G2 commit -q -m moved
   printf "$D2" 1 9 7 >"$R2/doc2.md"                # ONE digit: the anchored citation now misses
   m5=$(verdict_all "$R2" HEAD "" "" 1 "")
-  m6=$(verdict_all "$R2" HEAD "" "" 1 "$(printf 'doc2.md\thelper.sh\twidget_total\tselftest pin')")
+  PIN2=$(printf 'doc2.md\thelper.sh\twidget_total\t%s\tselftest pin' "$(hsh "$R2/helper.sh" 9)")
+  m6=$(verdict_all "$R2" HEAD "" "" 1 "$PIN2")
   printf "$D2" 1 5 7 >"$R2/doc2.md"                # repaired, pin left behind -> FAIL
-  m7=$(verdict_all "$R2" HEAD "" "" 1 "$(printf 'doc2.md\thelper.sh\twidget_total\tselftest pin')")
+  m7=$(verdict_all "$R2" HEAD "" "" 1 "$PIN2")
   [ "$m0" = PASS ] || { echo "  [gate] leg M0 (--all-targets, clean tree) gave $m0, want PASS"; rc=1; }
   [ "$m1" = PASS ] || { echo "  [gate] leg M1 (plain --all-files over a helper.sh shift) gave $m1, want PASS"; rc=1; }
   [ "$m2" = FAIL ] || { echo "  [gate] leg M2 (--all-targets, helper.sh +2 under unmoved citations) gave $m2, want FAIL"; rc=1; }
@@ -835,7 +1097,78 @@ if [ "${1:-}" = "--selftest" ]; then
   [ "$m5" = FAIL ] || { echo "  [gate] leg M5 (--all-targets, one-digit anchor miss) gave $m5, want FAIL"; rc=1; }
   [ "$m6" = PASS ] || { echo "  [gate] leg M6 (--all-targets, the same defect pinned) gave $m6, want PASS"; rc=1; }
   [ "$m7" = FAIL ] || { echo "  [gate] leg M7 (--all-targets, pin outlived its defect) gave $m7, want FAIL"; rc=1; }
-  if [ "$rc" = 0 ]; then echo "  [ok] red-test --all-targets: M0=PASS M1=PASS(plain blind) M2=FAIL(shift incl. self-ref) M3=PASS M4=PASS(@sha) M5=FAIL M6=PASS M7=FAIL"
+  [ "$rc" = 0 ] && echo "  [ok] red-test --all-targets: M0=PASS M1=PASS(plain blind) M2=FAIL(shift incl. self-ref) M3=PASS M4=PASS(@sha) M5=FAIL M6=PASS M7=FAIL"
+
+  # LEG A2, .tsv, CONTENT-HASHED PINS and the .sh RARITY RULE (review S1/S3 + Q-793, 2026-09-25),
+  # on a third throwaway repo. helper.sh (base, 12 lines): `widget_total() {` 3, `}` 5,
+  # `rare_marker_fn() {` 6, and `$ARTDIR` on lines 7 and 9-12 (5 lines: a COMMON word).
+  # doc3.md line 1 names nothing, so leg B cannot check it -- only leg A2 can; line 3 is anchored
+  # so leg B has something to measure. reg.tsv's NOTE cell cites the same function.
+  R3="$W/r3"; mkdir -p "$R3"
+  G3() { git -C "$R3" -c user.name=selftest -c user.email=selftest@invalid "$@" >/dev/null 2>&1; }
+  G3 init -q
+  printf 'static int kc_widget_count;\n' >"$R3/solve.c"
+  mk_h3() { { printf "$1"; printf '#!/bin/sh\n# helper\nwidget_total() {\n  echo "$SOLVE_TOTAL_WIDGETS"\n}\nrare_marker_fn() {\n  echo "$ARTDIR"\n}\n'
+              printf 'echo "$ARTDIR" %s\n' one two three four; } >"$R3/helper.sh"; }
+  D3='The function body ends at helper.sh:%s.\n\nThe `rare_marker_fn` helper is at helper.sh:%s.\n'
+  T3='# registry\nrow1\tvalue\tthe `rare_marker_fn` helper is defined at helper.sh:%s\n'
+  mk_h3 ''; printf "$D3" 5 6 >"$R3/doc3.md"; printf "$T3" 6 >"$R3/reg.tsv"
+  G3 add -A; G3 commit -q -m base
+  n0=$(verdict_all "$R3" HEAD "" "" 1 "")                       # clean -> PASS
+  # One range: +2 lines at the top of helper.sh, and doc3.md line 1 is EDITED (reworded) while its
+  # number stays 5 -- the repin-then-restale shape. Line 3 and the .tsv follow the code (+2).
+  mk_h3 '# ins 1\n# ins 2\n'; printf "$T3" 8 >"$R3/reg.tsv"
+  D3E='The closing brace of the function is at helper.sh:%s.\n\nThe `rare_marker_fn` helper is at helper.sh:%s.\n'
+  printf "$D3E" 5 8 >"$R3/doc3.md"
+  n1=$(verdict_all "$R3" HEAD "" "" 1 ""); n1o=$(cat "$OUT")    # REPIN -> FAIL, leg A and B silent
+  printf "$D3E" 7 8 >"$R3/doc3.md"
+  n2=$(verdict_all "$R3" HEAD "" "" 1 "")                       # followed the code -> PASS
+  printf "$D3E" 6 8 >"$R3/doc3.md"
+  n3=$(verdict_all "$R3" HEAD "" "" 1 "")                       # neither map nor content -> FAIL
+  ATT3=$(printf 'doc3.md\thelper.sh\t-\t%s\tselftest attested' "$(hsh "$R3/helper.sh" 6)")
+  n4=$(verdict_all "$R3" HEAD "" "" 1 "$ATT3")                  # a person attested it -> PASS
+  G3 add -A; G3 commit -q -m attested                           # published: no range can see it now
+  n4b=$(verdict_all "$R3" HEAD "" "" 1 "$ATT3")                 # the attestation still holds -> PASS
+  sed -i '6s/.*/  echo "$SOLVE_TOTAL_WIDGETS" edited/' "$R3/helper.sh"
+  n5=$(verdict_all "$R3" HEAD "" "" 1 "$ATT3"); n5o=$(cat "$OUT")   # attested content changed -> FAIL
+  # A stale .tsv note, committed (so no leg A/A2 range can see it): only leg B's .tsv read can.
+  mk_h3 '# ins 1\n# ins 2\n'; printf "$D3E" 7 8 >"$R3/doc3.md"; printf "$T3" 14 >"$R3/reg.tsv"
+  G3 add -A; G3 commit -q -m tsv-stale
+  n6=$(verdict_all "$R3" HEAD "" "" 1 ""); n6o=$(cat "$OUT")    # stale .tsv -> FAIL
+  PIN3=$(printf 'reg.tsv\thelper.sh\trare_marker_fn\t%s\tselftest pin' "$(hsh "$R3/helper.sh" 14)")
+  n7=$(verdict_all "$R3" HEAD "" "" 1 "$PIN3")                  # pinned at its content -> PASS
+  sed -i '14s/four/FOUR/' "$R3/helper.sh"                      # the cited line changes; nothing moves
+  n8=$(verdict_all "$R3" HEAD "" "" 1 "$PIN3"); n8o=$(cat "$OUT")   # Q-793: the pin no longer covers it -> FAIL
+  # The .sh RARITY RULE. After the +2, `$ARTDIR` is on lines 9 and 11-14; line 10 is `}`. A
+  # citation of line 10 for `ARTDIR` lands under the +-2 window by chance only.
+  mk_h3 '# ins 1\n# ins 2\n'; printf "$T3" 8 >"$R3/reg.tsv"
+  printf "$D3E"'\nThe `ARTDIR` echo is at helper.sh:%s.\n' 7 8 10 >"$R3/doc3.md"; G3 add -A; G3 commit -q -m rar
+  n9=$(verdict_all "$R3" HEAD "" "" 1 "")                       # common word, 1 line off -> FAIL
+  n10=$(CITGATE_SH_TIGHT=0 verdict_all "$R3" HEAD "" "" 1 "")   # the pre-rule window -> PASS (the blind spot)
+  printf "$D3E"'\nThe `ARTDIR` echo is at helper.sh:%s.\n' 7 8 9 >"$R3/doc3.md"; G3 add -A; G3 commit -q -m rar2
+  n11=$(verdict_all "$R3" HEAD "" "" 1 "")                      # on the cited line -> PASS
+  [ "$n0" = PASS ] || { echo "  [gate] leg N0 (clean) gave $n0, want PASS"; rc=1; }
+  [ "$n1" = FAIL ] || { echo "  [gate] leg N1 (edited citing line, number left behind) gave $n1, want FAIL"; rc=1; }
+  grep -qxF "$(printf 'REPIN doc3.md:%d helper.sh:%d [helper.sh] was 5 -> map 7; leg B: no anchor' 1 5)" <<<"$n1o" \
+                   || { echo "  [gate] leg N1 did not print the REPIN line"; rc=1; }
+  grep -q '^SHIFT \|^NEW ' <<<"$n1o" && { echo "  [gate] leg N1: leg A or B fired too, so N1 does not isolate leg A2"; rc=1; }
+  [ "$n2" = PASS ] || { echo "  [gate] leg N2 (edited line, number followed the code) gave $n2, want PASS"; rc=1; }
+  [ "$n3" = FAIL ] || { echo "  [gate] leg N3 (edited line, unexplained number) gave $n3, want FAIL"; rc=1; }
+  [ "$n4" = PASS ] || { echo "  [gate] leg N4 (the same, attested by content hash) gave $n4, want PASS"; rc=1; }
+  [ "$n4b" = PASS ] || { echo "  [gate] leg N4b (attested, committed, unchanged) gave $n4b, want PASS"; rc=1; }
+  [ "$n5" = FAIL ] || { echo "  [gate] leg N5 (attested citation's target content changed) gave $n5, want FAIL"; rc=1; }
+  grep -q '^VERDICT FAIL leg A2: attested pin' <<<"$n5o" || { echo "  [gate] leg N5 did not fail on the attested pin"; rc=1; }
+  grep -q '^REPIN \|^SHIFT \|^NEW ' <<<"$n5o" && { echo "  [gate] leg N5: another leg fired, so N5 does not isolate the attested pin"; rc=1; }
+  [ "$n6" = FAIL ] || { echo "  [gate] leg N6 (stale .tsv note) gave $n6, want FAIL"; rc=1; }
+  grep -qF "$(printf 'NEW reg.tsv:%d helper.sh:%d [helper.sh] names rare_marker_fn' 2 14)" <<<"$n6o" \
+                   || { echo "  [gate] leg N6 did not report the reg.tsv row"; rc=1; }
+  [ "$n7" = PASS ] || { echo "  [gate] leg N7 (the .tsv defect pinned with its content hash) gave $n7, want PASS"; rc=1; }
+  [ "$n8" = FAIL ] || { echo "  [gate] leg N8 (pinned citation's target content changed) gave $n8, want FAIL"; rc=1; }
+  grep -q 'PINNED CONTENT CHANGED' <<<"$n8o" || { echo "  [gate] leg N8 did not say PINNED CONTENT CHANGED"; rc=1; }
+  [ "$n9" = FAIL ] || { echo "  [gate] leg N9 (.sh common anchor one line off) gave $n9, want FAIL"; rc=1; }
+  [ "$n10" = PASS ] || { echo "  [gate] leg N10 (same, rarity rule off) gave $n10, want PASS"; rc=1; }
+  [ "$n11" = PASS ] || { echo "  [gate] leg N11 (.sh common anchor on the cited line) gave $n11, want PASS"; rc=1; }
+  if [ "$rc" = 0 ]; then echo "  [ok] red-test A2/tsv/hash/rarity: N0=PASS N1=FAIL(repin-restale, A2 alone) N2=PASS N3=FAIL N4=PASS(attested) N4b=PASS N5=FAIL(attested content changed, alone) N6=FAIL(.tsv) N7=PASS N8=FAIL(pinned content changed) N9=FAIL N10=PASS(rule off) N11=PASS"
                          echo "CITATION_LINE_GATE=PASS"; exit 0
   else echo "CITATION_LINE_GATE=FAIL"; exit 40; fi
 fi

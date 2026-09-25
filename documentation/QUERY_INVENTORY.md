@@ -436,7 +436,7 @@ Q1c's spec says "draw M exact-uniform ranks **in [0, rank_O3^SUPER(KW))**". `--k
 uniformly over **all** of SUPER and has no rank-range argument. The prefix restriction is therefore
 **post-filter arithmetic in the consumer** (compare each draw's O3 rank to KW's), which changes the
 effective M. Either budget M large enough that the retained subsample still gives the stated CI, or
-build a rank-range sampler. **State the realised M and CI, never the requested M.**
+build a rank-range sampler. **State the realised M and CI, never the requested M.** `--kc-sample … --kc-c3-max T` refuses with exit 2 and `ERROR: [kc] KC_SAMPLE_C15_EMPTY: no walk has cd <= T` when no walk satisfies the C3 bound (decided once, exactly, by a first-hit `kc_enum` after 2¹⁶ consecutive C3 rejections before the first draw; Q-715, 2026-09-25); the battery row `a1_q8_c15` additionally runs under `timeout ${TR12_Q8_C15_TIMEOUT:-21600}` and prints `Q8_C15_FAIL` on rc 124.
 
 ---
 

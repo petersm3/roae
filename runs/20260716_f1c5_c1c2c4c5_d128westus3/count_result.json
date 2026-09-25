@@ -26,7 +26,8 @@
     "wall_days_approx": 7,
     "spot_evictions": 12,
     "eviction_recovery": "all auto-recovered from last complete-layer checkpoint; no lost work",
-    "peak_rss_mb": 13
+    "peak_rss_mb": 24122.0,
+    "peak_rss_note": "CORRECTED 2026-09-25 (Q-758, Codex V3B-02#12): this field read 13. That was the VmHWM of the 18 no-op relaunches after the count landed. The completing segment printed PEAK RSS 24122.0 MB, which is also the highest per-layer rss_peak anywhere in run.out, at SOLVE_F1_OOC_SCRATCH_MB=16384. See README.md."
   },
   "reproduce": "./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR   (~64 GB RAM + ~4 TB disk; --resume-from-layers after interruption)",
   "report": "TR-11 section 9",

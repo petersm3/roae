@@ -180,10 +180,18 @@ out; **no analysis logic in `viz/`**.
 
 ## How to read it
 
-- **The main curve is a descent from `log₂N` bits to zero** across 31 steps. Its *shape* is the
-  content: steep segments are choices that discard most of the remaining space, flat segments are
-  choices that barely narrow it.
-- **`bits_i` is the same information, differenced.** A tall bar is a rare choice; a short bar is a
+- **The main curve is `log₁₀ g(s_i)`, the completions left after King Wen's first *i* placements,
+  at steps 1–31.** It starts at step 1 (`log₁₀ g(s_1)` = 37.31 on the committed table) and ends at 0
+  (`g(s_31)` = 1). The root `g(s_0) = N` (`log₁₀ N` = 39.04) is not a point on it, because the TSV has
+  no step-0 row. Its *shape* is the content: steep segments are choices that discard most of the
+  remaining space, flat segments are choices that barely narrow it.
+- **The bars are the TSV's `bits` column, `−log₂ p_i`.** For i ≥ 2 a bar is the drop in the main
+  curve from step i−1 to step i, times log₂10 (to within the column's 6-decimal rounding; measured
+  worst case 5.0e-7). `bits_1` = `log₂ N − log₂ g(s_1)` (5.764) is the drop from the unplotted root.
+  ⚠ *Corrected 2026-09-25 (Q-699, V3A-144#3): these two bullets read "a descent from `log₂N` bits to
+  zero across 31 steps" and "`bits_i` is the same information, differenced". The renderer plots
+  `log₁₀ g` from step 1, not bits from the root, and draws the bars from the `bits` column.*
+  A tall bar is a rare choice; a short bar is a
   cheap one. Because `Σ bits_i = log₂ N` exactly, the bar panel is a **budget allocation** — it
   shows *where* King Wen's total improbability is spent, and the total is fixed for every member of
   the space, King Wen included.

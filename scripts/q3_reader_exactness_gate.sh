@@ -27,7 +27,18 @@
 #                                                            naming g(s_26)  (V3A-041#3)
 #   leg 9  the step column shifted by one                 -> exit 1: the anchors cannot be located,
 #                                                            so they must not be read off row index
-# plus seven mutants of the extracted programme, every one of which must turn a leg red.
+#   leg 10 p_num[31] = g[31] = 2, all else telescoping    -> exit 1, EXACTLY ONE READER_FAIL, naming
+#                                                            p_num[31]  (the third identity; V3A-125#1)
+#   leg 11 g[30] = p_num[30] = p_den[31] = 0              -> exit 1, naming a zero column: 0/0 is not
+#                                                            a probability  (V3A-125#2)
+# plus nine mutants of the extracted programme, every one of which must turn a leg red.
+#
+# LEGS 10 AND 11 (Q-699, V3A-125#1/#2, 2026-09-25). MEASURED at 5c296837 + the batch-1..10 index:
+# replacing the reader's `if (pn[k] != "1")` with `if (0)` left this gate at PASS -- no leg ever
+# presented a trace whose ONLY defect is the terminal numerator -- and canon() accepted "0", so a
+# trace with a 0 cell at step 30 (p_den[31] = p_num[30] = 0, then p_num[31] = 1) made the row print
+# `reader_product_p_i 1/N EXACT` and exit 0. A product containing 0/0 telescopes only formally. canon()
+# now accepts POSITIVE canonical decimals only; M8 and M9 are the two reverted forms.
 #
 # LEGS 8 AND 9 EXIST BECAUSE NOTHING ENFORCED THE THREE PRE-KNOWN V4 TAIL CELLS (V3A-041#3, Fable
 # adjudication 2026-09-11). documentation/PREREG_CLASSA_QUERY_SET.md publishes g(s_22) = 690,176,
@@ -83,11 +94,12 @@ PY
 # between anchors cost the control nothing. p_den[1] = N and p_den[i] = p_num[i-1] = g[i-1], so the
 # product telescopes to g[31]/N = 1/N exactly and every (g,g_parent) equals (p_num,p_den).
 N=1097051278789181790036112071176579186688       # |C1 n C2 n C4 n C5| at n=31 (TR-11)
-mktrace(){ # mktrace <out> <delta_den2> <delta_g2> <den2_lit_or_empty> <num1_lit_or_empty> [g26] [step_offset]
-  python3 - "$1" "$2" "$3" "$4" "$5" "$N" "${6:-52}" "${7:-0}" <<'PY'
+mktrace(){ # mktrace <out> <delta_den2> <delta_g2> <den2_lit_or_empty> <num1_lit_or_empty> [g26] [step_offset] [g30] [g31]
+  python3 - "$1" "$2" "$3" "$4" "$5" "$N" "${6:-52}" "${7:-0}" "${8:-}" "${9:-}" <<'PY'
 import sys
 out,dden,dg,den2lit,num1lit,N=sys.argv[1],int(sys.argv[2]),int(sys.argv[3]),sys.argv[4],sys.argv[5],int(sys.argv[6])
 g26,stepoff=int(sys.argv[7]),int(sys.argv[8])
+g30,g31=sys.argv[9],sys.argv[10]    # optional overrides of the last two shells (legs 10 and 11)
 M=N//2
 # The shell sizes, by step. 22/24/26 are the published anchors; g26 is a parameter so leg 8 can
 # contradict ONE of them while leaving the telescoping chain intact (p_den[27] follows g[26]).
@@ -98,6 +110,8 @@ for i in range(1,32):
     elif i <= 25: GA[i]=5624
     elif i <= 30: GA[i]=g26
     else:         GA[i]=1
+if g30: GA[30]=int(g30)
+if g31: GA[31]=int(g31)
 rows=[]
 for i in range(1,32):
     g   = GA[i]
@@ -123,6 +137,11 @@ mktrace "$WORK/t_anch26.tsv" 0 0 "" "" 51
 # The step column shifted by one: 31 rows, telescoping intact, but row 22 is step 23 -- the anchors
 # are NOT at the row indices they name, so reading them off the index would compare the wrong cell.
 mktrace "$WORK/t_stepoff.tsv" 0 0 "" "" 52 1
+# The terminal numerator: g(s_31) = p_num[31] = 2. Every link still telescopes and every anchor holds,
+# so the ONLY identity broken is p_num[n] == 1 (leg 10). And a zero shell at step 30: p_num[30] =
+# g[30] = 0 = p_den[31] = g_parent[31], then p_num[31] = 1 -- formally telescoping, a 0/0 factor (leg 11).
+mktrace "$WORK/t_term2.tsv" 0 0 "" "" 52 0 "" 2
+mktrace "$WORK/t_zero30.tsv" 0 0 "" "" 52 0 0 ""
 
 run(){ # run <prog> <trace> <N> <NP>  -> prints rc; stdout in $WORK/last.out
   awk -F'\t' -v "N=$3" -v "NP=$4" -f "$1" "$2" > "$WORK/last.out" 2>"$WORK/last.err"; echo $?
@@ -154,6 +173,15 @@ verdict(){ # verdict <prog> ; 0 iff every leg behaves
   rc=$(run "$p" "$WORK/t_stepoff.tsv" "$N" 31)
   [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ] \
     || { echo "    leg 9 (step column shifted by one) rc=$rc: the tail anchors were read off the ROW INDEX, not the step"; return 1; }
+  # Leg 10. EXACTLY ONE READER_FAIL, naming p_num[31]: the trace differs from the control only in
+  # g(s_31) and p_num[31], so a second failure would mean the fixture broke something else.
+  rc=$(run "$p" "$WORK/t_term2.tsv" "$N" 31)
+  [ "$rc" = 1 ] && [ "$(nfails)" = 1 ] && grep -q 'p_num\[31\]=2 != 1' "$WORK/last.out" \
+    || { echo "    leg 10 (terminal numerator p_num[31]=2) rc=$rc, READER_FAIL count $(nfails): the third identity p_num[n] == 1 is not enforced"; return 1; }
+  # Leg 11. A zero cell must be refused BY NAME, not merely by some other identity.
+  rc=$(run "$p" "$WORK/t_zero30.tsv" "$N" 31)
+  [ "$rc" = 1 ] && grep -q 'non-positive' "$WORK/last.out" && ! grep -q 'EXACT' "$WORK/last.out" \
+    || { echo "    leg 11 (zero shell at step 30) rc=$rc: a 0/0 factor was accepted as telescoping"; return 1; }
   # The control must actually CARRY the anchors, or legs 8 and 9 are testing an empty check. This
   # is the precondition, asserted rather than assumed: leg 1 already required rc 0 on t_ctrl, and
   # t_ctrl and t_anch26 differ in exactly the g(s_26) cells.
@@ -162,7 +190,7 @@ verdict(){ # verdict <prog> ; 0 iff every leg behaves
   return 0
 }
 
-verdict "$WORK/reader.awk" || fail "baseline: the committed reader does not behave on one of the nine legs (see above)"
+verdict "$WORK/reader.awk" || fail "baseline: the committed reader does not behave on one of the eleven legs (see above)"
 
 # Mutants. Each is a sed rewrite of the extracted programme and MUST turn a leg red. A sed that
 # does not change the programme is itself a failure: it would be a mutant identical to the baseline.
@@ -184,5 +212,9 @@ mutant M5_N_compared_numeric     's/if (pd\[1\] != NS)/if (pd[1]+0 != NS+0)/'
 # at all until 2026-09-11, so "it was quietly dropped again" is the realistic future failure.
 mutant M6_no_tail_anchor_block   's/if (NP+0 == 31) {/if (0) {/'
 mutant M7_anchor_by_row_index    's/if (step\[si\] != si "")/if (0) {} else if (0)/'
-echo "  [gate] baseline PASS on 9 legs; 7/7 mutants killed"
+# M8 and M9 are the V3A-125 pair: drop the terminal identity (killed by leg 10 alone -- before leg 10
+# existed it SURVIVED, measured), and re-admit 0 as a canonical integer (killed by leg 11).
+mutant M8_no_terminal_identity   's/if (pn\[k\] != "1")/if (0)/'
+mutant M9_canon_admits_zero      's|return (s ~ /^\[1-9\]\[0-9\]\*\$/)|return (s ~ /^(0\|[1-9][0-9]*)$/)|'
+echo "  [gate] baseline PASS on 11 legs; 9/9 mutants killed"
 echo "Q3_READER_EXACT_GATE=PASS"
