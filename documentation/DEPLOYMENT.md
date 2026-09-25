@@ -786,13 +786,26 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
       §Deployment lifecycle step 6. A partial wipe resumes silently and reports
       success.
 - [ ] Persistent volume mount verified
-- [ ] Free disk space ≥ estimated output × 1.5 (inputs + outputs both fit)
-- [ ] Free RAM ≥ estimated working set (merge needs ~uniqueN × 32 bytes in memory)
+- [ ] Free disk space ≥ estimated output × 1.5 (inputs + outputs both fit). On the merge host the
+      in-memory merge's own preflight is stricter: it refuses unless free disk ≥ 2 × pre-dedup
+      records × 32 bytes. ⚠ *(Added 2026-09-24, Q-762, CX-82: "output" here is the deduplicated file; the
+      merge preflight sizes from the pre-dedup input, as the RAM box below now says.)*
+- [ ] Free RAM ≥ estimated working set: the **in-memory** merge allocates every **pre-dedup** shard
+      record × 32 bytes at once (`malloc(total_records × 32)`; ≈443 GB at d3 100T, whose 13,832,832,979
+      input records dedup to 3,432,399,297, ≈110 GB), and auto mode switches to the external merge when that exceeds
+      80% of RAM. Enumeration's own floor is the hash tables: `threads × 512 MB` initial (32,768 MB at 64
+      threads), growing at 75% load. ⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this box read "merge needs
+      ~uniqueN × 32 bytes in memory", which sizes the buffer from the deduplicated count; the solver
+      allocates for all input records.]**
 - [ ] `run_id.txt` written before solver start (write BEFORE wipe, not after)
 - [ ] Monitor started **as a separate process** and verified with `pgrep`
 - [ ] Monitor completion-detection signal matches what the solver actually emits **in the mode being run**: the `solve_results.json` status field in single-VM (bundled-merge) mode; in split mode (`SOLVE_SKIP_AUTOMERGE=1`) that file is never written on the enum VM — key on rc=0 + the `skipping bundled merge` line + shard/manifest state, or the supervisor's done/fail markers (§Completion and archival)
 - [ ] Post-completion gates configured: `--verify` pass + hash-drop count == 0
-- [ ] Sub_*.bin integrity check enabled on eviction resume (size % 32 == 0)
+- [ ] Sub_*.bin integrity check enabled on eviction resume: `gzip -t` passes and the **decompressed**
+      length is a multiple of 32 (`gzip -dc sub_X.bin | wc -c`); on a `SOLVE_COMPRESS=0` raw shard, the file
+      size itself. ⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this read "size % 32 == 0". Shards are
+      gzip-framed by default since #169, so the on-disk size of a valid shard is a compressed length, and a
+      rule that deletes on it removes good shards.]**
 - [ ] Watchdog merge-phase exemption verified (don't kill solver during merge)
 - [ ] Merge VM is on-demand (not spot) — merge has no checkpoint
 - [ ] **Pre-launch verification: `az vm show --query priority` matches the workload type** (Spot for enum; null/Regular for merge). See §Standing policy. Skipping this gate caused the 2026-04-19/20 overspend incident.
@@ -1254,11 +1267,17 @@ branch `22 0 30 1 20 0` produces 2,507 tasks.
 
 | Threads | Wall | Speedup | Efficiency |
 |---|---|---|---|
-| 1 | 182s | 1× | 100% |
+| 1 | 1,820s | 1× | 100% |
 | 32 | 77.7s | 23.4× | 73% |
 | 64 | 52.1s | 34.9× | **55%** ← knee of the curve |
 | 96 | 51.0s | 35.7× | 37% |
 | 128 | 49.9s | 36.5× | 29% |
+
+⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — the 1-thread cell read `182s`, a factor of ten below the
+baseline its own columns use.** Every speedup and efficiency in the table divides **1,820 s** by the row's
+wall: 1820/77.7 = 23.4×, 1820/52.1 = 34.9×, 1820/51.0 = 35.7×, 1820/49.9 = 36.5×, while 182/52.1 would be
+only 3.49×. The cell now carries the value the table was computed from. It was not re-measured; no other
+cell moves.]**
 
 **Key finding: memory bandwidth saturates at ~N=64.** Going from 64 → 128 cores
 gives only 4% additional speedup, at double the VM cost.

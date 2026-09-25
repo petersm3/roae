@@ -492,8 +492,8 @@ theorem c5_implies_c2 (l : List Nat) (h5 : c5ok l = true) : c2ok l = true := by
     64 hexagrams is a Gray code — some transition changes more than one line,
     because every within-pair distance is even and nonzero (hence ≥ 2). A
     circular Gray reading fails a fortiori: its linear part is already not
-    all-distance-1. (The refutation of the McKenna–Mair Gray-code replacement
-    program rests here; the very first pair already breaks it.) -/
+    all-distance-1. (Not a refutation of McKenna–Mair: their ordering is hybrid, single-line
+    steps only BETWEEN pair representatives; TR-8 withdrew that reading. Corrected 2026-09-24.) -/
 theorem gray_code_impossible (l : List Nat) (hb : ∀ x ∈ l, x < 64)
     (hlen : l.length = 64) (h1 : c1ok l = true) :
     ¬ ((transitions l).all (· == 1) = true) := by

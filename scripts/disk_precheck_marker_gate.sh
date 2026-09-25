@@ -32,7 +32,7 @@ if [ -n "${DISK_PRECHECK_SOLVE:-}" ]; then
   SOLVE="$DISK_PRECHECK_SOLVE"; [ -x "$SOLVE" ] || fail "DISK_PRECHECK_SOLVE=$SOLVE is not executable"
   # 🔴 EXECUTABLE IS NOT CURRENT. The else-arm compiles the committed solve.c seconds before
   # use and is safe by construction; this arm is not. DISK_PRECHECK_SOLVE names a PATH and only its
-  # +x bit was checked. pre_push_gate.sh:467 hands in ./solve_167, which it built moments earlier
+  # +x bit was checked. pre_push_gate.sh's "CONDITIONAL #167 zero-yield resume leg" hands in ./solve_167, which it built moments earlier
   # -- but a hand run `DISK_PRECHECK_SOLVE=./solve bash scripts/disk_precheck_marker_gate.sh`
   # points the gate at whatever artifact is lying in the tree, and leg 4 of this gate is the
   # ANTI-OVERCLAIM leg: a stale binary there manufactures exactly the false report it exists to

@@ -1,0 +1,6 @@
+# Q7 pinned SAT witness -- target grand-strict: C1&C2&C4&C5, C3 <= 776, Moore-2005 parity (all 18)
+# AND Moore-1989 rhythm (0 breaks) AND Schulz-1990 gender (0 violations). Produced ONCE with kissat
+# 4.0.4 on 2026-09-25 (README.md beside this file: commands, CNF and model sha256). It is verified
+# SOLVER-FREE on every battery run by scripts/tr12_repro.sh row a0_q7_witnesses.
+# One SEQ= line: the 64 hexagram values (SPECIFICATION.md section H), C4 anchor 63,0 first.
+SEQ=63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42

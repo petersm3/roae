@@ -198,19 +198,27 @@ Headlines only — each links to its full treatment (technical reports in [repor
   may read: it **rules out one explanation** — damage to an original that was perfect under all four —
   because **no such original could exist.** (A *three*-rule-perfect precursor does exist; whether the anomalies are an
   arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
-  comparison.) A 47-year-old proposal to replace the sequence is decided along the way. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
+  comparison.) A 47-year-old proposal to replace the sequence is re-examined along the way: its premise is
+  measured, and a *fully smooth* variant is proven impossible. The hybrid ordering its authors actually
+  published is feasible, and nothing here refutes it. ⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#11,
+  Q-742) — this sentence said the proposal was settled in passing (registered as RP-3001bc5f). [TR-8](reports/TR8_REORDERING_REVISITED.md) says of
+  that proposal, "It does not refute their construction", and names it hybrid by design.]** [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
 - **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4
   ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space — a superset
   of the measured population, so every valid ordering inherits King Wen's value. They are consequences
   of the constraint system, not choices; the zero-violation 2×10¹⁰-probe measurements now serve as
   instrument validation. *(Scope: Lean proves constancy of the `countP` forms defined in that file.
   Identifying those forms with the registry rules as implemented — `reg_*` in solve.py,
-  `score_registry` in solve.c — is a **non-Lean transcription step**, numerically validated by driving
-  the repo's own `reg_*` over 5,449 structured C1 sequences with zero deviations, and disclosed in the
-  Lean file's header and in [lean/README.md](lean/README.md). So the eight are Lean-proven **modulo a
-  validated transcription** — the same runtime-carried bridge disclosed for PartitionInvariance and
-  PruneExactness. The 5,449-sequence check was run from a scratchpad script that is not in the repo;
-  re-deriving it as a tracked artifact is an open item.)* (A separate analytic theorem — the no-5 rule's implication chain, behind
+  `score_registry` in solve.c — is a **non-Lean transcription step**. A check that drove the repo's own
+  `reg_*` over 5,449 structured C1 sequences with zero deviations is **attested, not reproducible**: it
+  was run from a scratchpad script that is not in the repo. It is disclosed in the Lean file's header and
+  in [lean/README.md](lean/README.md). So the eight are Lean-proven **modulo a transcription step whose
+  only numerical check is attested** — a bridge carried outside Lean, like those disclosed for
+  PartitionInvariance and PruneExactness, but with its check unarchived. Re-deriving it as a tracked
+  artifact is an open item. ⚠ **[CORRECTED 2026-09-24 — this called the transcription numerically validated, twice, which a
+  check no reader can re-run does not support; the attested-not-
+  reproducible status stated below under "The enumeration record is reproducible" now applies here too.
+  Codex V3B-14#4 / V3B-13#12, Q-778.]**)* (A separate analytic theorem — the no-5 rule's implication chain, behind
   McKenna's 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
   ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
@@ -236,8 +244,11 @@ Headlines only — each links to its full treatment (technical reports in [repor
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs
   one more rule. Orderings violating that rule are 17.4% of the full space yet absent from all 10.5
   billion enumerated records — a stark demonstration that bounded search sees a biased sample. (The
-  17.4% is a 2×10¹⁰-probe sampled estimate, independently reproduced by a second archived run to within 0.05
-  percentage points — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
+  17.4% is a 2×10¹⁰-probe sampled estimate, which a second archived run matches to within 0.05 percentage
+  points. That run is a partially overlapping replicate that shares half its probes, not an independent
+  draw — TR-7 §5.) ⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#18, Q-742) — this called the second run an independent
+  reproduction (registered as RP-6cae8396); TR-7 calls the same run "a partially overlapping replicate, not an
+  independent draw".]** [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **In bits, half the sequence's description length is accounted for by known structure; half is not.**
   *("Accounted for", not "explained": which layers are **granted** explanatory standing is a choice made
   below.)* The classical pairing carries

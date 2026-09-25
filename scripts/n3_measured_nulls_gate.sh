@@ -5,7 +5,9 @@
 #
 # WHY. Q1c and Q10a's KW-orbit-rank leg were both published as hand-written absence claims —
 # `row_skip a0_q1c TR12_Q1C "SKIP:merged-into-Q4AC"` and, in c_q10a's golden, the sentence
-# "(iv) KW-orbit-rank: DROPPED". Both were TRUE. Neither was CHECKED. Replacing a hand-typed
+# "(iv) KW-orbit-rank: DROPPED". Both held at n=31 (and not at n=9), and neither was CHECKED (scoped
+# 2026-09-24, Q-717: the n=31 receipt measures both EMPTY; at n=9 the KW-orbit-rank leg is
+# NONVACUOUS, tr12_expected/n9/c_q10a_kwrank.txt has q10a_rank3 13056). Replacing a hand-typed
 # SKIP with a hand-typed EMPTY would move the defect, not fix it: this project's dominant failure
 # mode is a program emitting a success token for something it never computed, and "the answer is
 # nothing" is exactly the kind of claim that rots silently once the thing it describes changes.

@@ -153,7 +153,7 @@ points (`--compute-stats`, `--marginals`, `--bivariate`,
 **v2** analyses and the pipeline modifiers below have no other CLI home:
 
 **Stage 0 — `--encode-solutions OUT_BIN IN [IN ...]`.** The P2 entry points read a
-`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:37076` and `:37083` emit **repr(k)** on the record line, and `solve.py:14928` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
+`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:38315` and `:38322` emit **repr(k)** on the record line, and `solve.py:16825` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
 `record` lines into that binary (32-byte `ROAE` header; 32-byte records,
 `byte[i] = (pair_index << 2) | (orient << 1)`, KW-consecutive pair table). A
 **mandatory round-trip gate** re-reads the output with `verify.py`'s own decoder and
@@ -396,24 +396,26 @@ core for the full per-draw scoring path (draw + 319 templates + the H-b
 with a small `--tr8-dof-pool-draws`; its output is **timing evidence only** and
 is never merged into a measurement pool — **by convention, not by code**: a probe
 runs the ordinary sampler and writes a full `results.json`/`RESULTS.md` like any
-other run (`solve.py:1023`); the operator discards them. ⚠ **[CORRECTED
+other run (`solve.py:1093-1096`); the operator discards them. ⚠ **[CORRECTED
 2026-09-02 — this paragraph previously said the `timing-probe` seed is recorded
 in `header.json` so that the probe is reproducibly fixed by it, and that a probe
 produces no statistic. Both halves are false, and the second is what makes the
-first matter. The seed is derived and written (`solve.py:744`) but **no code path
+first matter. The seed is derived and written (`solve.py:750`) but **no code path
 reads it** — that string is its only occurrence in the file; the pool draws come
-from the `pool-<A|B>/shard-<i>` seeds (`solve.py:887`), and `tr8_pool_shard`
+from the `pool-<A|B>/shard-<i>` seeds (`solve.py:901`), and `tr8_pool_shard`
 seeds a fresh `random.Random` with them. So a probe run with the same seed root
 and pool name does not get an isolated stream: it redraws a **prefix of the
 measurement pool's own shard streams**. The `timing-probe` entry in `header.json`
 is **reserved and unused**, there is no dedicated timing-probe mode, and no
 reproducibility property is claimed for a probe. To keep a probe off the
 measurement streams, give it its own `--tr8-dof-seed` root.]**
-*(Line citations in the two paragraphs above were measured stale on 2026-09-21: the
-`timing-probe` derivation is `solve.py:750`, and `:887` / `:1023` no longer point at the pool-seed
-use or the results writer. The claims themselves were re-checked by grep — `"timing-probe"` occurs
-once in `solve.py`, in the `seeds` dict — and by execution of the smoke example below; use the
-symbol names `tr8_seed`, `tr8_pool_shard` and `_tr8_finish` as anchors, not line numbers.)*
+*(Line citations in the two paragraphs above were measured stale on 2026-09-21 and re-pinned by
+content on 2026-09-25 (Q-791): the `timing-probe` derivation is `solve.py:750`, the pool-seed use
+`solve.py:901` and the results writer `solve.py:1093-1096`, and `scripts/citation_line_gate.sh
+--all-files --all-targets` now fails a change that moves those lines without moving these numbers.
+The claims themselves were re-checked by grep — `"timing-probe"` occurs once in `solve.py`, in the
+`seeds` dict — and by execution of the smoke example below; the symbol names `tr8_seed`,
+`tr8_pool_shard` and `_tr8_finish` remain the durable anchors.)*
 
 ### The four JSON artifacts — what each key measures
 
@@ -553,8 +555,14 @@ one streaming join of the f- and g-ladders, emitted once at the end of the
 pass. These two commands are its **only** consumer: they re-shape it into
 the tab-separated evidence tables the TR-12 queries and the V-family
 figures read, and they gate the tables they write: V1 column sums, V2/Q6 layer
-sums and flows, and the XA identities; Q3 by `TR12_Q3_READER`; V5 is reduced
-(`PASS:REDUCED-NO-CROSSTAB`) and is gated by the battery's `c_xcheck` row only.
+sums and flows, and the XA identities; Q3 by `TR12_Q3_READER`; V5's `(d, w)`
+cross-tab is gated at emit time — it must marginalise over `w` back to
+`by_class[d]` at every `(k, d)` and sum to the layer flow, or the emitter
+refuses — and cell-by-cell against the explicit enumeration at n ≤ 13.
+⚠ **[Updated 2026-09-23** — this read "V5 is reduced
+(`PASS:REDUCED-NO-CROSSTAB`) and is gated by the battery's `c_xcheck` row only."
+Both halves have moved: the `w` axis has landed (operator-pinned), and V5 now
+carries gates of its own on both the n-independent and the brute-force paths.**]**
 ⚠ **[CORRECTED 2026-09-11 (V3A-055#3)** — this read "gate every table they
 write". V1's column sums were gated only inside `--atlas-selftest`, which refuses
 n > 13, so at full-31 the table the figure plots was ungated; `TR12_V1` was a
@@ -605,14 +613,21 @@ had been claiming.]
                              the gate can be shown able to fail. One of
                              v1-drop-pair, v2-class-swap, xa-drop-branch,
                              q3-perturb, q10-mod24, q10-mod48, v2-mod48,
-                             v1-mod16, ratio-zero, xa-strip-tsource. Never on a
+                             v1-mod16, ratio-zero, xa-strip-tsource,
+                             v5-cross-swap. Never on a
                              real run. `ratio-zero` (added 2026-09-05, Q-422)
                              makes the formatter emit 0 for every derived ratio
                              while every integer column stays right;
                              `xa-strip-tsource` (added 2026-09-11, V3A-041#4)
                              makes every branch's `t_source` read ABSENT, which
-                             must turn TR12_XA_B red; the others corrupt an
-                             integer column.
+                             must turn TR12_XA_B red; `v5-cross-swap` (added
+                             2026-09-23 with the V5 `w` axis) moves one unit of
+                             mass between two `w` cells INSIDE a single
+                             `(k, d)`, which preserves `by_class[d]`, the layer
+                             flow and every horizontal gate in the program — it
+                             is caught only by the brute-force `(d, w)` recount,
+                             which is the point of shipping it; the others
+                             corrupt an integer column.
 --atlas-probe ATLAS_JSON     TR-12 §12 (added 2026-09-21). Recompute every atlas-
                              derived figure from a `--kc-raw` atlas ALONE -- no
                              ladder, no `solve` binary, no network -- and print
@@ -635,7 +650,15 @@ had been claiming.]
                              refused, not scored). Tokens, in print order:
                              ATLAS_N, ATLAS_N_TOTAL, ATLAS_VERSION,
                              ATLAS_TYPE_IS_KC_SCAN, ATLAS_LAYER_COUNT_EQ_N,
-                             ATLAS_GATES_ALL_TRUE, ATLAS_TAIL_CHECKS_ALL_PASS,
+                             ATLAS_GATE_INVENTORY_MISSING,
+                             ATLAS_GATE_INVENTORY_UNEXPECTED,
+                             ATLAS_GATE_INVENTORY_COMPLETE, ATLAS_GATES_ALL_TRUE,
+                             ATLAS_TAIL_CHECK_INVENTORY_MISSING,
+                             ATLAS_TAIL_CHECK_INVENTORY_UNEXPECTED,
+                             ATLAS_TAIL_CHECK_INVENTORY_COMPLETE,
+                             ATLAS_TAIL_CHECKS_ALL_PASS (the four INVENTORY
+                             tokens were printed from 2026-09-22 and missing from
+                             this list until 2026-09-24),
                              ATLAS_GATE_COUNT, ATLAS_TAIL_CHECK_COUNT (how many
                              self-reported checks the two verdicts ranged over --
                              14 and 5 on the n=31 atlas; `{"fails": 0}` alone
@@ -648,7 +671,35 @@ had been claiming.]
                              not read from the atlas's own gate; added by the
                              2026-09-21 adversarial review, which found that
                              moving N units of one class between two layers
-                             scored PASS), CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1
+                             scored PASS); the G48 divisibility block (Q-734,
+                             2026-09-24: the consumer's XA-48 / V2-48 / V1-16
+                             gates live in --atlas-selftest, which refuses
+                             n > 13, so until then none of them ran on the
+                             n = 31 atlas) -- N_TOTAL_MOD48_EQ_0,
+                             LAYER_FLOW_EQ_N_EVERY_LAYER (the `flow` column
+                             re-summed; before this only the atlas's own
+                             `per_layer_flow_eq_N` covered it),
+                             BY_CLASS_EVERY_CELL_MOD48_EQ_0,
+                             MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0
+                             (|Stab(p)| = 48 / |G48-orbit of p| divides every
+                             raw cell of pair p; a theorem at every rung
+                             --f1-pairs builds: each such universe contains an
+                             orbit whose hexagram set has trivial pointwise
+                             stabiliser in G48 -- all but {13,14,30}, which is
+                             never built alone -- so G48 acts freely on its
+                             complete walks; checked exhaustively at n = 9, 13,
+                             16 and 31), and
+                             MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL
+                             (EMPIRICAL at n = 31, measured not proven: 22 of
+                             the 31 pairs have stabiliser 8 or 12, so G48
+                             predicts only 8 | cell or 12 | cell for them. At
+                             n = 9 it coincides with the stabiliser gate. It
+                             shipped with Q-734 as the only gate that caught a
+                             kernel-consistent move between orbit-4 or orbit-6
+                             pairs; since Q-738 the theorem gates below catch
+                             every such move measured, so it is a labelled
+                             extra, not the only witness. A red on a new atlas
+                             means doubt the identity first); CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1
                              (NONE at n = 31; `d3,d6` at n = 9),
                              LARGEST_CLASS_SET_OVER_LAYERS (the set of per-layer
                              argmax classes; `d3` alone means d3 is the largest
@@ -667,22 +718,31 @@ had been claiming.]
                              DEAD_FRACTION_BY_LAYER,
                              DOOMED_MASS_TAIL_SHARE_FROM_LAYER;
                              RID_MASS_EVERY_LAYER_SUMS_TO_N,
-                             RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL, RID_CELLS_TOTAL,
+                             RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL,
+                             RID_KEYS_WITHIN_RADIX_RANGE_EVERY_CELL (gate, added
+                             2026-09-22: the probe decodes a rid key modulo
+                             (b0[d]+1) per digit, so a key past the radix top
+                             ALIASES onto a valid cell. Silent precondition of the
+                             omitted-mass identity below), RID_CELLS_TOTAL,
+                             RID_SUPPORT_CELLS_TOTAL,
+                             RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS (added
+                             2026-09-22: support cells the atlas stores no row
+                             for, whose observed/null ratio is 0 and which the two
+                             CELL tokens below therefore cannot report; 129 at
+                             n = 31),
                              EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS (total-
                              variation distance of the residual-digit joint
                              `rid_mass[k]` from the multivariate-hypergeometric
                              law of a uniformly random arrangement of the b0
                              multiset), EXCHANGEABLE_NULL_TV_BY_LAYER,
+                             EXCHANGEABLE_NULL_OMITTED_MASS_MAX_OVER_LAYERS,
+                             EXCHANGEABLE_NULL_OMITTED_MASS_BY_LAYER (the null's
+                             mass on support cells the atlas omits, added into
+                             the TV above),
                              CONTROL_WRONG_NULL_PRODUCT_FORM_TV_MAX (the same
                              distance from a deliberately wrong null, the product
                              of the joint's own digit marginals),
-                             CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV (their
-                             ratio -- a reading, not a gate: ~20 at n = 31, just
-                             ABOVE 1 at n = 9. Corrected 2026-09-22 (CX-60) from
-                             "~10 at n = 31, below 1 at n = 9": the TV sum
-                             omitted the null's mass on cells the atlas does not
-                             store, which halved both controls. n=31 19.97,
-                             n=9 1.03 -- the n=9 side FLIPS above 1),
+                             CONTROL_WRONG_NULL_OMITTED_MASS_MAX_OVER_LAYERS,
                              CONTROL_WRONG_NULL_MASS_OFF_BUDGET_HYPERPLANE_MAX_OVER_LAYERS
                              (added 2026-09-22: the product null's mass OFF the
                              sum(c)=k hyperplane. Every observed cell lies ON it,
@@ -691,20 +751,17 @@ had been claiming.]
                              that a product form ignores the budget identity, NOT
                              dependence among the digits given it. Print both
                              before reading the ratio as a discrimination claim),
+                             CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV (their
+                             ratio -- a reading, not a gate: ~20 at n = 31, just
+                             ABOVE 1 at n = 9. Corrected 2026-09-22 (CX-60) from
+                             "~10 at n = 31, below 1 at n = 9": the TV sum
+                             omitted the null's mass on cells the atlas does not
+                             store, which halved both controls. n=31 19.97,
+                             n=9 1.03 -- the n=9 side FLIPS above 1),
                              EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL,
                              EXCHANGEABLE_NULL_MOST_ENHANCED_CELL (the cells with
                              the smallest and largest observed/null mass ratio --
-                             ranging over cells WITH OBSERVED MASS only),
-                             RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS (added
-                             2026-09-22: support cells the atlas stores no row
-                             for, whose observed/null ratio is 0 and which the two
-                             CELL tokens above therefore cannot report; 129 at
-                             n = 31),
-                             RID_KEYS_WITHIN_RADIX_RANGE_EVERY_CELL (gate, added
-                             2026-09-22: the probe decodes a rid key modulo
-                             (b0[d]+1) per digit, so a key past the radix top
-                             ALIASES onto a valid cell. Silent precondition of the
-                             omitted-mass identity below);
+                             ranging over cells WITH OBSERVED MASS only);
                              REF_WALK_SOURCE (`kw_src`: `KW` at n = 31),
                              REF_WALK_CLASSES_ARE_ADMISSIBLE,
                              REF_WALK_CLASS_MULTISET_EQ_B0,
@@ -745,10 +802,10 @@ had been claiming.]
                              independent -- 1.943 bits at n = 31. They are NOT
                              independent; this is the scale the marginals fix, not
                              the true dispersion),
-                             KERNEL_SCORE_PER_STEP_SD_MIN_MAX_BITS,
                              KERNEL_SCORE_SD_UPPER_BOUND_ANY_DEPENDENCE_BITS (a
                              Minkowski bound -- rigorous under ANY dependence,
                              10.794 bits at n = 31),
+                             KERNEL_SCORE_PER_STEP_SD_MIN_MAX_BITS,
                              REF_WALK_KERNEL_SCORE_DEVIATION_OVER_INDEPENDENT_STEP_SD
                              (the deviation in units of the independent-step SD,
                              -0.053 at n = 31. NO GATE on any of these four: every
@@ -768,13 +825,59 @@ had been claiming.]
                              KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER
                              (the kernel re-summed by the entry hexagram's pair
                              reproduces marginal_raw cell for cell),
+                             KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER
+                             (Q-734, 2026-09-24: layer k's kernel row sums
+                             re-summed against layer k-1's exit sums, cell for
+                             cell. Until then the atlas's own
+                             `kernel_cross_layer_eq` tail check was trusted, and
+                             a 48-unit partner flip at layers n-1 and n-2 that
+                             kept every class column and every divisibility
+                             scored PASS on a corrupted n = 31 atlas),
+                             PAIR_UNIVERSE_IS_G48_CLOSED,
+                             KERNEL_G48_INVARIANT_EVERY_LAYER,
+                             KERNEL_ENTRY_COLUMN_TOTALS_REV_SYMMETRIC,
+                             MARGINAL_RAW_COLUMN_SUMS_EQ_N_EVERY_PAIR,
+                             DIGITS_WEIGHTED_SUM_EQ_CLASS_PREFIX_EVERY_LAYER,
+                             RID_MASS_DIGIT_MARGINALS_EQ_DIGITS_EVERY_LAYER
+                             (Q-738, 2026-09-24: the atlas's remaining tail
+                             checks -- `kernel_g_invariance`,
+                             `kernel_rev_column_eq`, `vertical_raw_eq_N` and
+                             `digit_cross_table_eq_cls_prefix` -- re-derived
+                             from the tables instead of trusted as booleans.
+                             Each is a theorem of the raw census. Every G48
+                             element maps complete walks to complete walks layer
+                             by layer, so M_k[(g x, g y)] = M_k[(x, y)] once the
+                             pair universe is a union of G48 orbits (gated
+                             first); rev is in G48, so the kernel's entry-column
+                             totals are rev-symmetric; every walk places each
+                             free pair exactly once, so each pair's
+                             `marginal_raw` column sums to N; and `digits` is the
+                             class-count census of the prefixes, so its
+                             j-weighted sums are the by_class prefix sums and it
+                             is `rid_mass`'s digit marginal. An atlas without
+                             `digits` is refused like any other missing table),
                              PAIRS_NEVER_FIRST, PAIRS_NEVER_FIRST_HEX_POPCOUNTS,
                              PAIRS_NEVER_FIRST_ARE_EXACTLY_THE_POPCOUNT5_PAIRS,
                              PAIRS_ADMISSIBLE_LAST_COUNT,
-                             MARGINAL_RAW_NONZERO_CELL_MIN_MAX,
+                             MARGINAL_RAW_NONZERO_CELL_MIN_MAX (all layers; its
+                             extremes are the two end slots),
+                             MARGINAL_RAW_NONZERO_CELL_MIN_MAX_INTERIOR (layers
+                             1..n-2),
                              POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR,
                              KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR (n = 31
-                             only); KWRANK_BINS_SUM_TO_CLASS_MASS_EVERY_LAYER,
+                             only); the V5 `(d, w)` factorisation block — gates
+                             V5_CROSSTAB_W_IN_C1_CLASSES_AND_MARGINALISES_TO_BY_CLASS_EVERY_LAYER,
+                             V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY, then
+                             V5_K0_ADMISSIBLE_DW_CELLS,
+                             V5_FACTORISATION_MAX_DEV_ALL{,_AT},
+                             V5_FACTORISATION_MAX_DEV_K0{,_AT},
+                             V5_K0_MAX_DEV_CELL_JOINT_AND_PRODUCT,
+                             V5_FACTORISATION_MAX_DEV_K_GE_1{,_AT},
+                             V5_FACTORISATION_MAX_DEV_INTERIOR{,_AT} (max over
+                             cells of |P(d,w|k) − P(d|k)P(w|k)|; layer 0 is
+                             reported separately because C4 pins its exit, so
+                             only 7 of 15 cells are admissible there);
+                             KWRANK_BINS_SUM_TO_CLASS_MASS_EVERY_LAYER,
                              REF_WALK_CELL_PERCENTILE_BY_LAYER_MASS_WEIGHTED_LT
                              (`lt/(lt+eq+gt)` from the L6a `kwrank` bins: the
                              walk-mass share of same-class transitions at that
@@ -796,8 +899,40 @@ had been claiming.]
                              the 2026-09-21 review -- a broken by_class row sum
                              and a broken marginal_raw row sum each turn their
                              OWN gate red while every older gate stays green,
-                             so the new gates are proven load-bearing. What the
-                             probe still cannot see, stated: the dead/live split
+                             so the new gates are proven load-bearing. Since
+                             Q-734 (2026-09-24) the class also probes the
+                             published n = 31 atlas itself (digest checked against
+                             TR-12 first; it must print ATLAS_PROBE=PASS), and
+                             three kernel-consistent n = 9 mutants turn only
+                             gates added since Q-734 red. Since Q-738 three more
+                             n = 9 mutants do the same: a class-preserving 2x2
+                             kernel rectangle (only the G48 gate sees it), an
+                             interior 16-unit V1 move (only the G48, rev-column
+                             and V1 column-sum gates see it) and a one-unit
+                             `digits` move (only the two digit gates see it).
+                             What the probe still cannot see, stated (Q-738,
+                             2026-09-24): the published V1 field and every class
+                             figure are checked exactly; the rectangle and the
+                             16-unit move above are caught by theorem gates. The
+                             kernel is checked up to a residual lattice of
+                             perturbations that are G48-invariant at every layer
+                             and keep every exit-row, entry-column and class
+                             marginal of every layer. That lattice is nonzero at
+                             every n measured; its rank is not published here,
+                             because no public command reproduces it yet. A
+                             rectangle trade summed over its 48 G48
+                             images is an explicit member at both n; tests.py
+                             carries it as a mutant every gate must pass and on
+                             which KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS must
+                             move. No table in the atlas can see that lattice:
+                             each is either a marginal of the kernel, which the
+                             lattice fixes, or a census of prefix states that the
+                             probe can tie to the kernel only through those
+                             marginals. Seeing it needs the ladder. So no
+                             marginal figure in TR-12 §12 can feel it, while the
+                             kernel-score tokens, which read kernel cells one by
+                             one, can. The EMPIRICAL mod-16 gate stays as a
+                             labelled extra, never a proof. The dead/live split
                              inside `counts` is checked for additivity against
                              `fmass` only (no second table carries it), so
                              DOOMED_FRACTION_OF_T_ROOT rests on the atlas's own
@@ -811,14 +946,90 @@ had been claiming.]
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call
                              is made against.
 --xa-node-mapping-cert P     XA-c/d: path to a W0-D t-unit -> SOLVE_NODE_LIMIT
-                             mapping certificate. WITHOUT IT THE PRICING PATH
-                             REFUSES with TR12_XA_CD=PENDING:W0-D-node-mapping
-                             and emits no EXHAUSTIBLE/INFEASIBLE row. A t-unit is
-                             one valid oriented SUPER prefix; SOLVE_NODE_LIMIT
-                             counts production-DFS nodes under C3 pruning, and
-                             nothing certifies the map between them -- `solve
-                             --kc-t-cert` says so in its own JSON
-                             (solve_node_limit_mapping: NOT CLAIMED HERE).
+                             mapping certificate. WITHOUT A USABLE ONE THE
+                             PRICING PATH REFUSES with
+                             TR12_XA_CD=PENDING:W0-D-node-mapping and emits no
+                             EXHAUSTIBLE/INFEASIBLE row. A t-unit is one valid
+                             oriented SUPER prefix; SOLVE_NODE_LIMIT counts
+                             production-DFS nodes, and `solve --kc-t-cert` does
+                             not certify the map between them (its own JSON:
+                             solve_node_limit_mapping: NOT CLAIMED HERE); it is
+                             refused by its type. The runbook's EXACT producer
+                             (W0-D, reduced-n production DFS) does not exist
+                             (Q-433, operator-gated). The one producer in the
+                             repository is --xa-w0d-lb-cert (below): a
+                             LOWER-BOUND certificate for the full-31 space
+                             only. Without a certificate every real run reads
+                             PENDING.
+                             The certificate is a fixed JSON schema (Q-772,
+                             2026-09-24), read at the TOP LEVEL only:
+                             "type": "roae-w0d-node-mapping-certificate",
+                             "version": 1, "mapping": {"kind": "exact" |
+                             "upper-bound" | "lower-bound", "nodes_per_t_unit":
+                             "p/q" (an exact rational STRING, p, q >= 1; a JSON
+                             number is refused), "residual": <int, 0 when
+                             exact>, "formula": <text>, "law": <text>},
+                             "measured": {...}, "provenance": {"engine_git":
+                             <text>, ...}. Anything else -- including the
+                             legacy key solve_node_limit_mapping, however
+                             worded -- is refused with a reason, never an
+                             exception. The factor F is USED: each row prices
+                             t-units x F production-DFS nodes, and
+                             xa_verdict.md echoes the certificate path, sha256,
+                             kind, F, residual, formula, law, measured.n,
+                             measured.verdict_line and provenance.engine_git
+                             beside the priced table. kind limits the call:
+                             exact -> EXHAUSTIBLE/INFEASIBLE and
+                             TR12_XA_CD=PASS; upper-bound -> EXHAUSTIBLE or
+                             UNDECIDED:upper-bound (never INFEASIBLE);
+                             lower-bound -> INFEASIBLE or UNDECIDED:lower-bound
+                             (never EXHAUSTIBLE); a bound's token is
+                             TR12_XA_CD=ONE-SIDED:<kind>, never PASS.
+--xa-w0d-lb-cert OUT [ATLAS] XA-c/d: write the W0-D LOWER-BOUND node-mapping
+                             certificate (kind lower-bound, nodes_per_t_unit
+                             "1/1", scope n=31 only) to OUT. Claim: for every
+                             first-level branch b of the full-31 production
+                             space, the exhaustive SOLVE_NODE_LIMIT counter
+                             total over b's sub-branches (normal mode,
+                             SOLVE_DEPTH 2 or 3) is >= t(b). Basis: C3 is a
+                             leaf filter in solve.c's production DFS, not a
+                             prune, and its combined 63-transition C5 budget is
+                             weaker than the t-ladder's boundary cap, so every
+                             t-unit prefix is a production node (K within P);
+                             the only t-units the counter skips are the
+                             sub-branch trunk (T(b) <= 56), and the producer
+                             enumerates, EXACTLY and with no sampling, at least
+                             T(b) counted P-not-K prefixes per branch (found at
+                             depth 5), so no additive term is needed. Tokens:
+                             W0D_LB_B0, W0D_LB_BRANCHES,
+                             W0D_LB_K_PREFIXES_DEPTH_1_2_3,
+                             W0D_LB_P_PREFIXES_DEPTH_1_2_3 (56,3030,158364 =
+                             the normal-mode partition),
+                             W0D_LB_K_SUBSET_P_VIOLATIONS,
+                             W0D_LB_BRANCHES_X_GE_T_SOLVE_DEPTH_2|3,
+                             W0D_LB_X_SEARCH_DEPTH_MAX, and with ATLAS (must be
+                             n=31; anything else is ERROR before enumerating)
+                             W0D_LB_ATLAS_FMASS_1_2_3_EQ_K and
+                             W0D_LB_ATLAS_BRANCH_SET_EQ. Verdict
+                             XA_W0D_LB_CERT=PASS|FAIL:<why>|ERROR:<why>, exit
+                             0/1/2; OUT is written only on PASS. It says
+                             NOTHING about a reduced-n atlas: the consumer does
+                             not check scope, so do not pass it with an n<31
+                             atlas. JSON beyond the Q-768 schema: "scope"
+                             {"n": 31, "space", "enumerator", "excluded"};
+                             "measured" {"n": [31], "per_n": [{"n", "B0"
+                             ("d1:2,..."), "K_prefixes_depth_1_2_3",
+                             "P_prefixes_depth_1_2_3", "K_subset_P_violations",
+                             "atlas_sha256" (null without ATLAS), "branches":
+                             [{"pair", "orient", "entry", "exit", "k2", "p2",
+                             "k3", "p3", "T_d2", "T_d3", "X_found",
+                             "X_search_depth"}]}], "method", "verdict_line"};
+                             "provenance" {"engine_git", "engine_source_sha"
+                             (sha256 of solve.c), "producer_source_sha" (of
+                             solve.py), "host_fingerprint", "produced"}. The XA
+                             consumer refuses a certificate whose "scope.n"
+                             differs from the atlas's n. Evidence and method:
+                             reports/evidence/w0d_lower_bound/README.md.
 --xa-hedge F                 XA-c/d: throughput hedge for scale (default 2.0).
 --xa-work-factor F           XA-c/d: engine work factor to divide the rate by
                              (default 1.0 = none).
@@ -832,10 +1043,10 @@ had been claiming.]
 | `<out>/scan/v1_field.tsv` | **V1**, Q6 | `k slot pair mass p kw` — the positional-marginal field, RAW frame (requires an atlas built with `--kc-raw`; a quotient-only atlas is refused, not plotted). |
 | `<out>/scan/v2_river.tsv` | **V2** | `k d mass p kw_d` — per-layer boundary-distance class mass. |
 | `<out>/scan/v2_branches.tsv` | **V2** panel (b) | `branch pair entry exit d solutions share prefixes_t_units t_source kw`. |
-| `<out>/scan/v5_grammar.tsv` | **V5** | `k d w mass p_cond kw_d kw_w` — `w = -1` where the (distance × within-pair) cross-tab is not emitted by the scan. |
+| `<out>/scan/v5_grammar.tsv` | **V5** | `k d w mass p_cond kw_d kw_w` — the (distance × within-pair) cross-tab, `31 × 5 × 3 = 465` rows at full-31. ⚠ **Updated 2026-09-23:** this read "`w = -1` where the … cross-tab is not emitted by the scan". The cross-tab needs **no** scan-side emission: it is a consumer-side derivation over `layers[].kernel`, which already ships (`d = popcount(a ^ b)` and `w = popcount(b ^ partner(b))` are both functions of the `m<a>_<b>` key alone), and the category `w` was **pinned by operator ruling** to the within-pair Hamming distance per `viz/viz_kc_grammar.md`. `w = -1` now means only that the atlas carries **no kernel** to refine by (a quotient-only scan above n = 13); the full 5 × 3 product is emitted including zero cells, because the figure's row axis is the class set and a hole would fail the renderer's grid check. |
 | `<out>/scan/q6_layer_mass.tsv` | **Q6** | `k slot d mass p is_argmax is_argmin_nonzero`. |
 | `<out>/scan/q6_layer_extremes.tsv` | **Q6** | per-layer argmax / argmin-nonzero, their ratio, and King Wen's own class `kw_d`, its class mass `kw_class_mass`, `kw_p = m_k(d_KW)/N` and `kw_class_pct = Σ_{d: m_k(d) ≤ m_k(d_KW)} m_k(d)/N` (−1 below n=31, where KW is absent). ⚠ **Corrected 2026-09-05 (Q-394 item 3 / Codex A09 f3):** until then the last two columns were `kw_mass_below` / `kw_pct`, read from the `--kc-trace` `mass_below` column — an O3 rank-block contribution, not a percentile numerator (n=9 k=1: 2720 beside a `g_parent` of 2368), and identically 0 for KW at full-31 under KW-derived labels. The KW columns no longer read `--atlas-q3-trace`. The shell leg `scripts/tr12_repro.sh` row `c_q6` computes the same two statistics for the battery's anchor walk (`anchor_p`, `anchor_class_pct`), so the two implementations are comparable at n=31. |
-| `<out>/q3_profile_kw.tsv` (`q3_profile.tsv` at n ≠ 31) | **Q3**, **V4**, EW-1 | `step pair entry exit orient alts mass_below f g g_parent p_num p_den p bits`, plus `dclass g_alt_min g_alt_max choice_rank` when the source was `--kc-profile --kc-tsv` (those four are V4's optional alternatives band). `mass_below` is an O3-rank quantity: it reads `-1`, not a guess, when the source was `--kc-profile`. |
+| `<out>/q3_profile_kw.tsv` (King Wen's walk at n = 31) or `<out>/q3_profile.tsv` (everything else) | **Q3**, **V4**, EW-1 | `step pair entry exit orient alts mass_below f g g_parent p_num p_den p bits`, plus `dclass g_alt_min g_alt_max choice_rank` when the source was `--kc-profile --kc-tsv` (those four are V4's optional alternatives band). `mass_below` is an O3-rank quantity: it reads `-1`, not a guess, when the source was `--kc-profile`. The table is named `q3_profile_kw.tsv` only when the trace is King Wen's walk at n = 31, and `q3_profile.tsv` otherwise: every n ≠ 31, **and** an n = 31 trace that is not King Wen's (`TR12_Q3_KW=NOT-KW`). ⚠ *Corrected 2026-09-24 (Q-776): the file column read "`<out>/q3_profile_kw.tsv` (`q3_profile.tsv` at n ≠ 31)", which left out the n = 31 NOT-KW case.* Each write first **removes the other name**, the other name's `.provenance.txt` sidecar and this name's own old sidecar (Q-766), so a reused `--atlas-out` never holds both. The sidecar `<table>.provenance.txt` (`q3_table=`, `q3_is_king_wen=`, `q3_reason=`, `atlas_n=`, `atlas_N_total=`, `atlas_space=`, `atlas_pl_hash=`) is written whenever an atlas was loaded. `viz/report_figures.py` `tr12_figures` chooses V4's table **by the sidecar, not by which name exists** (`_tr12_q3_table`): it takes `q3_profile_kw.tsv` only when that table's own sidecar reads `q3_is_king_wen=PASS` and `q3_table=q3_profile_kw.tsv`, and it refuses to draw V4 when both names are present or when the KW table's sidecar contradicts it. One exception: a directory with no sidecar for either name, such as the committed `tr12/` tree, has its KW table taken as written. |
 | `<out>/q10_orbit_census.tsv` | **Q10(a)**, XA-24 | `scope k flow orbits mod24_ok`. |
 | `<out>/xa_branches.tsv` | **XA-a/b** | the branch table plus the `walks` column. |
 | `<out>/xa_verdict.md` | **XA-c/d**, XA-24 | the gate table, the branch extremes, and the exhaustibility call. |
@@ -911,7 +1122,7 @@ rationals from the written TSV. The engine does not grade its own homework.
 | `TR12_Q3_KW` | `PASS` · `NOT-KW` · `SKIP:n=<n>` | The Q3 table is written as `q3_profile_kw.tsv` **only** when the trace has been checked row-for-row against `binary_hexagrams`. Naming was previously decided by `n == 31` alone — a property of the *universe*, not of the *walk* — so any valid full-31 walk was published under King Wen's name, and `TR12_Q3_READER`'s `Π p_i = 1/N` could not tell the difference because every valid walk satisfies it. A non-King-Wen trace now writes `q3_profile.tsv`, says so on stdout, and a sidecar `<table>.provenance.txt` binds the table to the atlas's `n`, `N_total`, `space` and `pl_hash`. |
 | `TR12_Q6` | `PASS:REDUCED-DISTANCE-CLASS` | The atlas carries per-layer per-**distance-class** mass, not the spec's per-`(state, choice)` extremes. |
 | `TR12_Q6_EXTREMES` | `PASS` · `FAIL:<n>-bad-row(s)` | Added 2026-09-11 for reviewer R5 item 1b. `q6_layer_extremes.tsv` — the argmax/argmin/ratio columns and King Wen's `kw_class_mass`/`kw_p`/`kw_class_pct` — **had no check that runs at n=31**. The existing gate lives in the brute-force selftest, which refuses `n > 13`, and reads `B["byclass"]`, the **recount**, not the atlas — so the queued RCQ04 F1 lift ("lift the 22 no-walks gates into `atlas_queries`") **does not reach it**, before or after F1 closes. This token is the atlas-sourced twin: it recomputes every published cell from `atlas.layers[k].by_class` in exact integer arithmetic and compares. It is n-independent, and an absent table **FAILS rather than skips** — a checker that cannot read its subject must not report agreement. ⚠ It does **not** see a whole-row class permutation; nothing atlas-sourced can. |
-| `TR12_V5` | `PASS:REDUCED-NO-CROSSTAB` | The new-pair-category axis is PENDING, so every row is emitted with the honest placeholder `w = -1`. |
+| `TR12_V5` | `PASS` · `PASS:REDUCED-NO-CROSSTAB` | ⚠ **Updated 2026-09-23.** This row read `PASS:REDUCED-NO-CROSSTAB` unconditionally, with "the new-pair-category axis is PENDING, so every row is emitted with the honest placeholder `w = -1`". The axis has landed: the operator pinned the category as the within-pair distance `w = popcount(entry ^ exit) ∈ {2, 4, 6}` and the cross-tab derives from `layers[].kernel` with no scan-side change. The token now names the form actually written — bare `PASS` for the `(d, w)` cross-tab, `PASS:REDUCED-NO-CROSSTAB` when the atlas carries no kernel and the honest `w = -1` table is emitted instead. A verdict hardcoded to REDUCED would under-report a landed axis, the mirror of the bare `PASS` it replaced overstating a pending one. |
 | `TR12_V2` | `PASS:REDUCED-NO-BRANCH-CLASS-RIVER` | `viz/viz_kc_river.md` row (c), the branch-class river, is PENDING and is not a flag. |
 
 A bare `PASS` is a claim about the **query**; these are claims about a
@@ -1046,10 +1257,18 @@ count in `c_consumer.txt`; no pinned number changed), which is the case
 cd reports/figures/ && python3 ../../viz/report_figures.py /path/to/tr12
 ```
 
-TSV in, figure out — no analysis logic lives in `viz/`. Each figure is
-skipped with a message if its TSV is absent. V3 does not ride the atlas
-(it comes from a rank grid joined to the `--compute-stats` battery; see
-[../viz/viz_kc_spectrum.md](../viz/viz_kc_spectrum.md)).
+TSV in, figure out — no analysis logic lives in `viz/`. V1, V2, V4 and V5
+are **required**: a missing or malformed TSV prints `SKIP …`/a shape refusal,
+then `TR12_FIGURES=FAIL required=<list>`, and `tr12_figures` raises, so the
+process exits non-zero. V3 alone is **optional** and is only reported when
+absent, because it does not ride the atlas: its input is the rank grid joined
+to the frozen `--compute-stats` battery by `solve.py --v3-spectrum` (see the
+table below and [../viz/viz_kc_spectrum.md](../viz/viz_kc_spectrum.md)), read
+from `<root>/spectrum/v3_spectrum.tsv` or, failing that, `<root>/v3_spectrum.tsv`
+(the committed `tr12/` layout).
+⚠ **[Corrected 2026-09-24** — this read "Each figure is skipped with a message
+if its TSV is absent", which has been true only of V3 since the required-figure
+gate (Codex KCP1 findings 6/7, 2026-09-11; `viz/report_figures.py::tr12_figures`).**]**
 
 ## ANALYSIS MODIFIERS
 
@@ -1097,11 +1316,12 @@ for discovery — follow the Reference for the full description:
 | `--h2-mass DUMP [DUMP ...]` | H2 near-precursor instrument, final pooled estimate: one `SOLVE_KNUTH_H2` dump per independent-seed run. Computes the self-normalized importance ratio E[f] = ΣW·f / ΣW pooled across runs, a stratified bootstrap 95% CI (B = 20,000; leaves resampled within runs), per-run seed spread, and folds the N_gs measurement uncertainty in quadrature (lognormal); prints the mass `m` and `bits = -log2(m)` for both denominators (flagship C1∩C2∩C4∩C5, exact; canonical C1–C5, estimate). Aborts (exit 1) on an empty dump or any leaf that failed its in-dump brute cross-check; exit 0 otherwise. **Magnitude only** — H2 remains a private SEMI-FITTED hypothesis (C3/C5-class, MDL-net-negative); no promotion, no spec change, no sha touched. | (this doc) |
 | `--r7-verify` | R7 cross-tradition corpus-control: assert the frozen anchors deterministically — FC-2 construction cross-validation (roae.py Mawangdui == solve.c `--null-historical`; each ordering a permutation of 0..63); the Jing Fang family J1–J5 reproduces its tradition; the Mawangdui family M1–M5 + the exact M1∧M3∧M4 reconstruction of the corrected silk-text array; the two diff-wave signatures ({1:48,3:15} / {1:21,2:10,3:29,4:2,5:1}); the cross-application matrix a-priori/theorem cells; the FC-1 positive-control expectation at the pilot N=10⁴ (Jing Fang & Mawangdui ≥8/11 EXTREME, KW extremes == {a,b,f}); and the Amendment-1 (2026-07-12) corrected FC-4 anchor counts over the exact J1 space (comp-sum-1024 attainers 9,216/40,320 ≈ 22.86%, mid-percentile 88.57; P(J4\|J1) numerator 384; P(J2∧J3\|J1) numerator 1 — counts-only fast path). No N=10⁶ measurement. Sha-neutral. Frozen design: `roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md` + its Amendment 1. | [SOLVE_C_CLI.md#--r7-verify-solvepy-only](SOLVE_C_CLI.md#--r7-verify-solvepy-only) |
 | `--r7-corpus [--r7-n N] [--r7-seed S]` | R7 battery (the operator-gated measurement): each historical ordering's own constraint family in its own representation (KW C1–C5; Jing Fang J1–J5, palace-orbit repn; Mawangdui M1–M5, trigram-octet repn; Fu Xi B1, identity) vs matched nulls. Emits the L0 uniform-null scoreboard (11 F8 observables × 4 orderings, plus the P(comp-sum=1024\|L0) rate, the TG-3 S₃-relabel-invariance note on the c1/c2 columns, and the §7 pilot-vs-rerun EXTREME-boundary halt-rule diff), the KW pair-preserving second null, the cross-application matrix (the manufacture alarm), the Jing Fang L1 **exact** 8!=40,320 null (full 11-observable battery + P(J1\|L0) analytic, P(J2∧J3\|J1), P(J4\|J1), and the Amendment-1-corrected comp-sum anchor), the Mawangdui L1 sampled ladder ×2 (full 11-observable battery + exact P(M4\|M1)=1/8! with sampled cross-check), the Mawangdui L2 null (M1∧M3-conditioned, both conventions free; sampled per the frozen <2 h exact-grid-else-sampled decision rule, deviation logged), the MDL pricing row, and the FC-1..FC-4 verdicts (FC-4 per the corrected Amendment-1 anchor) — markdown to stdout, report-only. **Heavy** at the frozen defaults (N=10⁶, seed 42): run on a Spot D4/D8 worker, NOT the orchestrator. `--r7-n`/`--r7-seed` override only for smoke tests. Sha-neutral. | [SOLVE_C_CLI.md#--r7-corpus-solvepy-only](SOLVE_C_CLI.md#--r7-corpus-solvepy-only) |
-| `--kc-x-recheck CERT.json [CERT.json …]` | **The TR-12 §Q5 two-language obligation.** Re-evaluate Φ on the witness walk inside one or more `solve --kc-extremal --kc-json` certificates, using `solve.py`'s own `_dist_multiset` / `_boundary_distances` / `_yang_count` — the three functions `solve.c`'s registry `py_ref` column has always cited and which, until 2026-09-10, did not exist in any tracked Python file (Codex KCQ03 #1, adjudicated TRUE 2026-09-02; Fable review 2026-09-09 F2) — and require the result to equal both `extreme_value` and `witness_value`. The formulas are derived from each registry row's documented description, not transcribed from `solve.c`, and the pair table is rebuilt from `build_pairs()`; the certificate's `start_exit` supplies the boundary convention so none is assumed. Prints `KC_X_PYCHECK_SCOPE=`, one `KC_X_PYCHECK_ROW=` per certificate and the whole-line verdict `KC_X_PYCHECK=PASS|FAIL\|ERROR` (exit 0/1/2). `ERROR` — no certificate given, none readable, or every one a refused (non-invariant) run — is distinct from `FAIL` because a check that measured nothing must never read as agreement. **SCOPE: attainability, not extremality.** It re-checks that the published walk evaluates to the published number; it does not reimplement the DP. Run by `scripts/tr12_repro.sh` row `a1_q5`, which fails on anything but `PASS`. Sha-neutral. \| [SOLVE_C_CLI.md#--kc-extremal](SOLVE_C_CLI.md#--kc-extremal) |
+| `--kc-x-recheck CERT.json [CERT.json …]` | **The TR-12 §Q5 two-language obligation.** Re-evaluate Φ on the witness walk inside one or more `solve --kc-extremal --kc-json` certificates, using `solve.py`'s own `_dist_multiset` / `_boundary_distances` / `_yang_count` — the three functions `solve.c`'s registry `py_ref` column has always cited and which, until 2026-09-10, did not exist in any tracked Python file (Codex KCQ03 #1, adjudicated TRUE 2026-09-02; Fable review 2026-09-09 F2) — and require the result to equal both `extreme_value` and `witness_value`. The formulas are derived from each registry row's documented description, not transcribed from `solve.c`, and the pair table is rebuilt from `build_pairs()`; the certificate's `start_exit` supplies the boundary convention so none is assumed. ⚠ *Added 2026-09-24 (Q-775): the refusals below landed with Q-771 and were not listed here.* **Per-certificate refusals, checked in this order before Φ is evaluated** (each is a `FAIL-<reason>` in that certificate's `KC_X_PYCHECK_ROW=` line and makes the run `FAIL`): `FAIL-no-start-exit` — the certificate has no `start_exit` field; `FAIL-bad-start-exit` — `start_exit` is not the integer 0 or 63 (the two G-fixed starts). This is checked for every functional, including `yangcount`, which never reads it; before Q-771 a hand-edited `"start_exit": 99` re-checked as `CHECKED-AGREE`; `FAIL-null-vs-g` — `null_vs_g` is `"INCONSISTENT"`: the producer's `--kc-gdir` structural cross-gate (X(s) = NULL ⇔ g(s) = 0) failed, so its ladder is not trusted; `FAIL-bad-null-vs-g` — `null_vs_g` is present but is neither `null` nor `"CONSISTENT"`; `FAIL-no-null-vs-g` — `gdir` is set but `null_vs_g` is `null` or missing, so the cross-gate result is absent and is not read as `CONSISTENT`. `null_vs_g: null` together with `gdir: null` means the cross-gate was not run (no `--kc-gdir`). That is accepted, and nothing is claimed about it. The other row verdicts are `CHECKED-AGREE`, `CHECKED-DISAGREE`, `REFUSED` (`g_invariant: false`, no value) and `FAIL-not-a-certificate` / `-unknown-version` / `-value-on-refused-run` / `-no-extreme-value` / `-no-witness` / `-witness-not-verified` / `-unevaluable`. Prints `KC_X_PYCHECK_SCOPE=`, one `KC_X_PYCHECK_ROW=` per certificate and the whole-line verdict `KC_X_PYCHECK=PASS|FAIL\|ERROR` (exit 0/1/2). `ERROR` — no certificate given, none readable, or every one a refused (non-invariant) run — is distinct from `FAIL` because a check that measured nothing must never read as agreement. **SCOPE: attainability, not extremality.** It re-checks that the published walk evaluates to the published number; it does not reimplement the DP. Run by `scripts/tr12_repro.sh` row `a1_q5`, which fails on anything but `PASS`. Sha-neutral. \| [SOLVE_C_CLI.md#--kc-extremal](SOLVE_C_CLI.md#--kc-extremal) |
 | `--extended-selftest SOLVE_BINARY` | Small-scale path-invariance + resume regression suite against a compiled `solve` binary (CI gate; wall ~10 min). | [SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand](SOLVE_C_CLI.md#--extended-selftest-solvepy-not-a-solve-c-subcommand) |
 | `--compare-depth-profile RUN_A_LOG RUN_B_LOG` | Tree-walk validator (#48): compare `DEPTH_PROFILE` node counts from two run logs; PASS if divergence < `--compare-depth-profile-threshold` (default 0.005). | [SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only](SOLVE_C_CLI.md#--compare-depth-profile-solvepy-only) |
 | `--compute-stats SOLUTIONS_BIN OUT_DIR` | P2 stage 1: stream `solutions.bin`, emit per-chunk parquet stats. | [SOLVE_C_CLI.md#--compute-stats-solvepy-only](SOLVE_C_CLI.md#--compute-stats-solvepy-only) |
 | `--marginals CHUNKS_DIR OUT_MD` | P2 stage 2: per-dimension marginal percentiles with KW marked. | [SOLVE_C_CLI.md#--marginals-solvepy-only](SOLVE_C_CLI.md#--marginals-solvepy-only) |
+| `--v3-spectrum GRID_TSV OUT_TSV` · `--v3-spectrum-order REL\|O3` | **The V3 join** — the instrument [viz/viz_kc_spectrum.md](../viz/viz_kc_spectrum.md) calls the one V-family member with a real missing piece. Both unrankers existed and the battery existed, but `--kc-unrank` prints a walk as an `entry,exit,…` line while `--compute-stats` consumes 32-byte records, and nothing adapted between them. Reads the `i`/`r`/`walk` rank grid (`tr12/v3_rel_grid.tsv`, row `a1_v3`), packs each walk into a record (C4-pinned pair prepended, `byte = (pair_index << 2) \| (orient << 1)`), evaluates the **frozen** `--compute-stats` battery — `_P2_INT_COLS`/`_P2_FLOAT_COLS` are read, never widened — and writes `OUT_TSV` (by convention `<consumer>/spectrum/v3_spectrum.tsv`; the committed REL table is `tr12/v3_spectrum.tsv`, which `viz/report_figures.py::tr12_figures` falls back to) for `fig_tr12_kc_spectrum`: `i`, exact decimal `rank`, `x` = rank/N, the **mandatory** `order`, the walk, one column per observable in the spec's table order, and a constant `kw_<observable>` column **for every observable except the four KW-anchored ones** — `edit_dist_kw`, `first_position_deviation`, `shift_conformant_count`, `c6_c7_count` (`_KW_TAUTOLOGICAL` in `solve.py::v3_spectrum`) — which get **no** `kw_` column and so no King Wen reference line: all four measure similarity to King Wen, on which King Wen necessarily takes the extreme value, so a line there would restate the circularity DISTRIBUTIONAL_ANALYSIS.md's 2026-07-26 audit withdrew a headline for. The observable columns themselves are all kept. REL therefore writes 9 observable columns + 5 `kw_` columns (`kw_c3_total`, `kw_max_transition_hamming`, `kw_fft_dominant_freq`, `kw_mean_transition_hamming`, `kw_fft_peak_amplitude`), and the PASS line reports the suppressed count. A `kw_` column is the only way the renderer draws a reference line, since `viz/` holds no analysis. ⚠ *Corrected 2026-09-24: this read "a constant `kw_<observable>` column per observable".* Because a wrong adapter *fabricates* rather than fails (Q-430), membership is re-derived from every emitted record through the battery's own decoder and checked against C1 (partner pairs), C2 (no 5-line transition), C4 (the `(63, 0)` opening) and C5 (the exact `{1:2, 2:20, 3:13, 4:19, 6:9}` multiset), with King Wen packed as a positive control that must reproduce every frozen `_P2_KW_VALUES` entry; any failure refuses the run instead of emitting an unverified spectrum. `c3_total` is accepted against the exact identity **C3 = 16 + 8·G** and the published floor 112, **not** against the withdrawn `424…776` range (wrong at both ends, QSET finding 8 — values above King Wen's 776 are expected, since the space is C1∩C2∩C4∩C5 and C3 is not applied). `--v3-spectrum-order O3` **holds out** `first_position_deviation`, whose trend on that axis is forced by lex order rather than measured (QSET-2 finding 4); REL is unaffected. One TSV per order, never mixed. Emits `V3_SPECTRUM=PASS`/`=FAIL`. ⚠ *(2026-09-24: this said "match with `grep -qx`", but both lines carry trailing detail — `V3_SPECTRUM=PASS 1000 rows, …` — so `grep -qx 'V3_SPECTRUM=PASS'` never matches, even on success. Until the token is printed as a bare line of its own, match the prefix: `grep -q '^V3_SPECTRUM=PASS '`.)* Sha-neutral. ⚠ **Not run by the reproduction battery:** `scripts/tr12_repro.sh` produces the rank grid (row `a1_v3`) but never invokes this join, so inside the battery the figure's input is absent and `TR12_V3_FIG` stays `PENDING:viz-v3-spectrum`; the committed table and `reports/figures/fig_tr12_kc_spectrum.{png,svg}` were produced outside it. | — |
 | `--uniform-marginals CHUNKS_DIR OUT_MD` | Marginals for an exact-uniform **C1∩C2∩C4∩C5 (no C3)** sample — the knowledge compiler's native population. Bins are derived from the observed data instead of `--marginals`' enumerated-scope `_P2_INT_COLS` ranges, which cannot represent it; the declared ranges are carried alongside as a column so the scope gap is visible. Two exact passes, chunk-wise, no sampling. Emits `UNIFORM_MARGINALS=PASS`/`=FAIL` (per-column coverage gate: histogram counts == row count); match with `grep -qx`. | — |
 | `--extraction-null N` · `--extraction-null-seed S` | **The decoy sampler.** Draws `N` orderings uniformly from **C1∩C2** and prints each one's 63-transition Hamming multiset in the exact `d:count,…` form `SOLVE_KNUTH_C5_BUDGET` consumes, so a null distribution is built by composition rather than by a bespoke harness. This is the mode [SPECIFICATION.md](SPECIFICATION.md)'s null-model caveat names as its outstanding fix — that caveat's "9 of 10" figure is flagged there as an **unreproduced historical observation** precisely because no command, seed or target list for it existed. The draw shuffles the 32 King Wen pairs with random orientations (uniform over C1) and **rejects** any draw carrying a distance-5 or distance-0 transition (that is C2) — rejection, not repair, because repairing would bias the very multiset being measured. Measured acceptance **4.349 %** at the default seed (`EXTRACTION_NULL=OK n=1000 accepted=4.3490% seed=20260904`), 0.4σ from the published exact C2 rate of 4.29341 % *(corrected 2026-09-05 — this read "~4.9%", which is ≈4σ above the exact rate and was never the sampler's output; [CORRECTIONS.md](CORRECTIONS.md) 2026-09-05)*. The composed run — sampler piped into `./solve --estimate-knuth 100000` with the load-bearing `SOLVE_THREADS=2` — and its archived output are at [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) §Verification Guide. ⚠ **C4 is not resampled**: the opening pair stays King Wen's, so the null it feeds asks whether King Wen's *difference-wave signature* is unusually restrictive with the pair set and opening held fixed. Deterministic under `--extraction-null-seed` (default `20260904`). Emits `EXTRACTION_NULL=OK n=… accepted=…` or `EXTRACTION_NULL=ERROR` with a non-zero exit — never a silently short list. | — |
 | `--bivariate CHUNKS_DIR OUT_DIR` | P2 stage 2: hexbin heatmaps for 5 observable pairs with KW marked. | [SOLVE_C_CLI.md#--bivariate-solvepy-only](SOLVE_C_CLI.md#--bivariate-solvepy-only) |

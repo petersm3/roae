@@ -20,16 +20,27 @@ enumeration-derived visuals come in two families:
 The two pages cross-link each other; start with whichever question you have. This README is the index
 and does not re-explain individual plots.
 
-### Planned, not yet drawn (accepted 2026-09-04, Q-308 — both zero-dollar)
+### Accepted 2026-09-04 (Q-308 — all three zero-dollar)
 
 | Page | What it covers | Status |
 |---|---|---|
-| **[viz_scale.md](viz_scale.md)** | **The scale figure** — `N` as one horizontal line on the existing growth curve, ~29 decades above the deepest measured canonical. Carries the enumeration-is-not-a-route negative, the compiler's justification, and the narrative document's N4 overclaim gate in a single image. Every constant already published; no computation, no ladder read, no VM. | PLAN ROW |
-| **[viz_narrative.md](viz_narrative.md)** | **The narrative document's two figures** — §1 the object, §§4–5 the f·g mechanism. Filed as plan rows *before* drafting, because a narrative document with no planned figures does not end up with none, it ends up with improvised ones. | PLAN ROWS |
+| **[viz_scale.md](viz_scale.md)** | **The scale figure** — `N` as one horizontal line on the existing growth curve, ~29 decades above the deepest measured canonical. Carries the enumeration-is-not-a-route negative, the compiler's justification, and the narrative document's N4 overclaim gate in a single image. Every constant already published; no computation, no ladder read, no VM. | **DRAWN 2026-09-23; embedded 2026-09-24** in [TR-12](../reports/TR12_QUERY_PROGRAM.md) §"What this document is, and what it is not" (its one embedding) |
+| **[viz_narrative.md](viz_narrative.md)** | **The narrative document's two figures** — §1 the object, §§4–5 the f·g mechanism. Filed as plan rows *before* drafting, because a narrative document with no planned figures does not end up with none, it ends up with improvised ones. | **DRAWN, HELD** — see below |
 
-Both pages are **specifications, not renderings**. They exist so that the caption and the job of each
-figure are fixed before anyone draws it — which for the scale figure is the whole risk, since it puts
-a budgeted slice and a compiled superspace on one axis and a careless caption would invite exactly the
+⚠ *(corrected 2026-09-23: this section was headed "Planned, not yet drawn" and both rows read PLAN
+ROW / PLAN ROWS. All three figures have since been drawn, so the heading described the tree as it
+stood on 2026-09-04, not as it stands now.)*
+
+**Why the two narrative figures are drawn but HELD.** They illustrate §1 and §§4–5 of the narrative
+document, and that document has **no public counterpart** — it lives only in `petersm3/roae-private`,
+which a reader of this repository cannot fetch. Landing the figures here would publish two images
+whose referent is unobtainable, which is the orphan-figure failure this index exists to prevent. They
+land when the document they serve does, and not before. The scale figure has no such dependency: its
+referent is the growth curve and TR-11's `N`, both public.
+
+These pages are **specifications first**. They exist so that the caption and the job of each figure
+are fixed before anyone draws it — which for the scale figure is the whole risk, since it puts a
+budgeted slice and a compiled superspace on one axis and a careless caption would invite exactly the
 conflation it was drawn to prevent.
 
 ## The V-family — compiled-superspace figures (`viz_kc_*.md`)
@@ -46,9 +57,17 @@ reports; no figure quotes a number ahead of the command that produces it.
 on code.** The n=31 ladders were built in September and the atlas was scanned from them, so V1, V2
 and V5 now exist at `../reports/figures/fig_tr12_kc_{field,river,grammar}.{png,svg}`, generated from
 the published atlas (`../runs/20260906_kc_ladders_n31/atlas_n31.json`, sha256 `9d6ba3d2…`) by
-`solve.py --atlas-queries … --atlas-select v1,v2,v5` and then `report_figures.py`. ⚠ **V2 and V5 are
-the REDUCED variants** (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`,
-`TR12_V5=PASS:REDUCED-NO-CROSSTAB`) — the full forms need inputs the atlas consumer does not emit.
+`solve.py --atlas-queries … --atlas-select v1,v2,v5` and then `report_figures.py`. ⚠ **V2 is still the REDUCED variant** (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): its river is
+split by distance class, not by top-level branch class, because the compiled DP state carries no tag
+for which branch a prefix descended from. 🔴 **V5 is NO LONGER reduced as of 2026-09-23.** It read
+`TR12_V5=PASS:REDUCED-NO-CROSSTAB` and now reads `TR12_V5=PASS`: the second axis was pinned to
+`w = popcount(entry XOR exit) ∈ {2,4,6}` and the `(d,w)` cross-tab is derived **consumer-side from
+`layers[k].kernel`, which already ships in the published atlas** — no re-scan, no ladder, no VM. The
+table went from 155 rows to 465. ⚠ `w` is CONSTANT on each of the seven pair-orbits and takes only
+three distinct values across them, so a row is **3 orbit-classes, never an individual pair**.
+What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured d–w dependence: on layers
+1–30 the joint is within 0.0097 of the product of its marginals (`V5_FACTORISATION_MAX_DEV_K_GE_1`,
+`solve.py --atlas-probe`), and the all-layer 0.173 is the C4-forced layer 0 ([viz_kc_grammar.md](viz_kc_grammar.md)).
 🔴 **V4 IS RENDERED as of 2026-09-23, and the reason it was missing was not the one this file
 used to give.** This paragraph read *"V3 and V4 are NOT rendered and cannot be from the atlas
 alone"*, attributing both to a read of the cold 15.05 TB f/g ladders. **That was wrong for V4.**
@@ -57,11 +76,21 @@ the ladders were mounted on NVMe** — the receipt records `TR12_V4_TSV=PASS` �
 to appear for one reason only: `TR12_VIZ=SKIP:matplotlib-absent`, i.e. matplotlib and numpy were not
 installed on the query host, which has since been torn down. The TSV was banked, so the figure
 renders anywhere those two packages exist, with **no ladder and no VM**. It costs seconds.
-⚠ **V3 remains unrendered, and its blocker is an emitter, not the ladders.** The rank grid *is*
-produced (`v3_rel_grid.tsv`, 1000 grid points, measured 31.4 min); what is missing is the **join**
-to per-walk observables that would yield `spectrum/v3_spectrum.tsv`, which neither the battery
-driver nor the atlas consumer emits (`TR12_V3_FIG=PENDING:viz-v3-spectrum`). That is a local
-computation over 1000 walks — not a 15 TB rehydration.
+🔴 **V3 IS RENDERED TOO, as of 2026-09-23 — all five now exist.** This paragraph read "V3 remains
+unrendered, and its blocker is an emitter, not the ladders", which was the *second* wrong blocker
+named for this figure in one day. The rank grid was already produced (`v3_rel_grid.tsv`, 1000 grid
+points, 31.4 min measured) and the observable battery already existed; the "missing emitter" was a
+join between two things that both shipped. It now exists as `solve.py --v3-spectrum GRID OUT`, and
+`fig_tr12_kc_spectrum.{png,svg}` renders from its output with **no ladder, no VM and no new figure
+code**. ⚠ The proposed convenience flag `--kc-unrank-grid` still does NOT exist and was never the
+blocker. ⚠ `TR12_V3_FIG=PENDING:viz-v3-spectrum` **stays pinned** and is not hand-edited:
+~~`scripts/tr12_repro.sh` already emits `TR12_V3_FIG=PASS` when the figure is present, so the token
+flips on the next full-31 run, by measurement rather than by assertion.~~ *Corrected 2026-09-24: it
+will not flip on its own.* The battery records `PASS` only when its own render step draws the
+figure, which needs `<consumer>/spectrum/v3_spectrum.tsv` — and no row of `scripts/tr12_repro.sh`
+runs `solve.py --v3-spectrum` to write it (row `a1_v3` stops at the grid). The token clears by
+measurement once a battery row runs the join. The n=31 receipt
+(`reports/evidence/tr12/`) keeps `PENDING` because that is what was true when that run executed.
 
 **Scope warning that applies to all five: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5 — C3 is NOT
 applied.** Every caption must carry the space label `C1C2C4C5-SUPERSPACE`. Specified by TR-12 §2
@@ -75,8 +104,9 @@ applied.** Every caption must carry the space label `C1C2C4C5-SUPERSPACE`. Speci
 | **[viz_kc_shells.md](viz_kc_shells.md)** | V4, King Wen's neighbourhood shells | how the space collapses onto one ordering, and where King Wen's improbability is spent |
 | **[viz_kc_grammar.md](viz_kc_grammar.md)** | V5, transition grammar | the exact conditional law of the next move at every layer |
 
-**Status: none of the five can be rendered at full-31 yet** — the full-31 f and g ladders (Stage F /
-Stage G) have not been built. The *pipeline* is complete and exercised end to end at n=9: atlas →
+~~**Status: none of the five can be rendered at full-31 yet** — the full-31 f and g ladders (Stage F /
+Stage G) have not been built.~~ *Superseded (noted 2026-09-24): all five are rendered at full-31 from
+committed TSVs, as the section above records.* The *pipeline* is complete and exercised end to end at n=9: atlas →
 `solve.py --atlas-queries` → TSV → `viz/report_figures.py` → figure. Each page carries its own Status table naming exactly which instruments exist,
 which are PENDING and under what flag name, and every page's pipeline is rehearsable today at n=9 in
 under a second. The standing rule for this family is **TSV-to-figure only**: the evidence TSV is

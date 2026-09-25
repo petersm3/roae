@@ -100,7 +100,7 @@
 #   - A command a source line QUOTES AS FAILING (the verb right after the closing backtick:
 #     "fails", "does not link", ...) is held to failing — PASS if rc != 0, FAIL if it exits 0 (a
 #     stale correction note). Counting cannot tell a defect from its own withdrawal quote; the
-#     verb can (2026-09-02, SOLVE_C_CLI.md:2061).
+#     verb can (2026-09-02, SOLVE_C_CLI.md:3545).
 #   - A failed BUILD line's `-o` target is restored from the previous successful build: ld
 #     unlinks its output on a failed link, and on 2026-09-02 one quoted-as-failing build line
 #     took `solve` with it, so 167 RUN commands reported SKIP-MISSING-INPUT and no `./solve`
@@ -179,7 +179,7 @@ def strip_opt(c):
     `solve --verify [f]` runs; a bracket INSIDE quotes is program text and stays
     (`int(sys.argv[1])`, `lambda k:[...]`). Whitespace collapses outside quotes only, so a quoted
     multi-line program keeps its newlines and indentation. (Quote-aware since 2026-09-02;
-    measured pre-fix: CANONICAL_HASHES.md:436 ran as `int(sys.argv)`, CIRCULAR_KING_WEN.md:57 as
+    measured pre-fix: CANONICAL_HASHES.md:507 ran as `int(sys.argv)`, CIRCULAR_KING_WEN.md:57 as
     `r=lambda k:;` -- two FAIL(rc=1) verdicts the lane itself manufactured.)"""
     out, stack, q, i, n = [], [], None, 0, len(c)
     while i < n:
@@ -297,7 +297,7 @@ def placeholder(c):
     for v in re.findall(r'\$\{?([A-Za-z_][A-Za-z0-9_]*)', c):
         if v not in os.environ: return True           # unset $METAVAR -- lowercase too: measured
                                                       # 2026-09-02, `./solve --branch $p $o 0 2` is
-                                                      # a loop body (LARGE_SCALE_CAMPAIGNS.md:671)
+                                                      # a loop body (LARGE_SCALE_CAMPAIGNS.md:737)
                                                       # and ran as FAIL(rc=1) 'Invalid pair index 0'
     # Codex v2 (adjudication row 27's named policy fix, batch P77): QUOTING WAS IGNORED, so a
     # LITERAL living inside a quoted argument was misread as a metavariable and the command was
@@ -334,7 +334,7 @@ DEVREF = r'(?:^|[\s="\'])/dev/(sd|nvme|xvd|loop)'   # block-device references ar
 # Q-649: a command that names the CALLER'S HOME is an op whatever its verb. `azcopy` in the OPS
 # list requires a preceding ^/whitespace/|/&/; so it never matched inside `~/.azcopy`, and the
 # list carried no chmod/chown/chgrp at all -- so `chmod -R 755 ~/.azcopy`
-# (CAMPAIGN_METHODOLOGY.md:1140) and `mkdir -p ~/.azcopy/plans && chmod 755 ...` (:1142) both
+# (CAMPAIGN_METHODOLOGY.md:1158) and `mkdir -p ~/.azcopy/plans && chmod 755 ...` (:1160) both
 # classified RUN with gating=1, and :901 dispatches every non-SKIP class. Measured on the real
 # extractor over a `git archive origin/main` export. The trailing (?:/|\s|$) is what keeps
 # `echo homebrew` and `--homeless` out of the deny set.
@@ -372,9 +372,9 @@ def unbounded_branch(c):
     docstring above already stated the opposite policy, so the lane was scoring the exact
     could-not-fail shape it exists to refuse. Measured 2026-09-07 on --list, both gating,
     both fence-origin, both published as recipes a reader is meant to paste:
-        documentation/SOLVE_C_CLI.md:429   SOLVE_THREADS=128 ./solve 0 128
-        documentation/DEVELOPMENT.md:585   SOLVE_RESUME_HISTORY="..." ./solve 0 64
-    time_limit ALSO defaults to 0 (SOLVE_C_CLI.md:172-173, "`0` means run to completion.
+        documentation/SOLVE_C_CLI.md:519   SOLVE_THREADS=128 ./solve 0 128
+        documentation/DEVELOPMENT.md:914   SOLVE_RESUME_HISTORY="..." ./solve 0 64
+    time_limit ALSO defaults to 0 (SOLVE_C_CLI.md:199-200, "`0` means run to completion.
     Default 0"), so a MISSING time_limit is the same unbounded run as an explicit `0`.
     Matched on the strip_opt output, before run_one's `./` prefixing, with leading `VAR=...`
     assignments stripped quote-aware (the DEVELOPMENT.md value carries an `=` of its own).
@@ -473,7 +473,7 @@ for f in files:
             # A quoted program that spans lines (`python3 -c "` ... `"`) is ONE command: keep
             # joining, newline-separated and indentation kept, until the quotes balance or the
             # fence ends. Measured pre-fix: DISTRIBUTIONAL_ANALYSIS.md:84/432/523 and
-            # VERIFY.md:154 were extracted as their opening line alone (`python3 -c "`) and each
+            # VERIFY.md:1072 were extracted as their opening line alone (`python3 -c "`) and each
             # ran as an unterminated-quote error, FAIL(rc=2). A block that never balances is
             # still emitted (it fails closed as before) -- a silent drop would hide a defect.
             while more(j) and not balanced(strip_comment(raw)):
@@ -731,8 +731,8 @@ corpus_publishes_complete_form() {   # $1 = command; true iff the inventory hold
 
 doc_says_fails() {   # $1 = sources, $2 = command; true iff a source LINE (joined with the line
   # after it -- the verb is often hard-wrapped) quotes the command and says, right after the
-  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:2061 quotes the
-  # pre-correction build line `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` and line 2062
+  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:3545 quotes the
+  # pre-correction build line `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` and line 3546
   # begins "fails with 13 undefined references" -- a correction note DOCUMENTING the defect it
   # withdrew, and the lane reported the quote as a live FAIL. Counting cannot tell a defect from
   # its own correction; the verb after the backtick can. A quoted defect is then held the other
@@ -754,7 +754,7 @@ VERB = (r'\s*(fails\b|fails to\b|(does|will|would) not (link|compile|build|run|w
         r'|cannot (link|compile|build|run)\b|would fail\b|is (broken|rejected|refused)\b'
         r'|exits (with )?(nonzero|non-zero|rc ?[1-9]|[1-9]\b)|dies with\b|errors out\b'
         r'|no longer (links|compiles|runs)\b|is not (a |an )?(dispatched|recogni[sz]ed|accepted|implemented|subcommand|mode|flag|option)\b'
-        r'|does not exist\b)')   # "is not dispatched" / "is not a subcommand": SOLVE_C_CLI.md:522, LARGE_SCALE_CAMPAIGNS.md:1031
+        r'|does not exist\b)')   # "is not dispatched" / "is not a subcommand": SOLVE_C_CLI.md:738, LARGE_SCALE_CAMPAIGNS.md:1104
 norm = lambda x: re.sub(r'\s+', ' ', x).strip()
 for m in re.finditer(r'`([^`]+)`', line):
     if norm(m.group(1)) == norm(cmd) and re.match(VERB, line[m.end():m.end()+48]):
@@ -767,7 +767,7 @@ PY
 last_stage_tok() {  # first token of the LAST pipeline stage, quoted spans blanked first. A
   # pipeline's exit status is its last command's, so `env | grep -c '^SOLVE_'` exiting 1 is
   # grep's documented no-match exactly as a bare `grep` is. Measured 2026-09-02: three published
-  # sites whose doc says the count is 0 (SOLUTIONS_FORMAT.md:405, SOLVE_C_CLI.md:365/1840) were
+  # sites whose doc says the count is 0 (SOLUTIONS_FORMAT.md:437, SOLVE_C_CLI.md:526/3319) were
   # reported FAIL(rc=1) because the grep-family rule looked only at the first token, `env`.
   local s; s="$(sed -E "s/'[^']*'/Q/g; s/\"[^\"]*\"/Q/g" <<<"$1")"
   s="${s##*|}"; s="${s#"${s%%[![:space:]]*}"}"
@@ -787,7 +787,7 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
                           # `solve --extended-selftest` vs the doc's span, missed on the first run)
   case "$execmd" in solve\ *|solve) execmd="./$execmd" ;; verify\ *|verify) execmd="./$execmd" ;; esac
   # A failed link UNLINKS its output (ld's default). Measured 2026-09-02 on the full lane: BUILD
-  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:2061, a quoted pre-fix line)
+  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3545, a quoted pre-fix line)
   # failed as documented and took the `solve` that BUILD 17 had just built with it; 167 RUN
   # commands then reported SKIP-MISSING-INPUT and `./solve --selftest` never ran. Keep the
   # previous output of a build line's `-o` target and put it back if the failed build removed it.
@@ -886,14 +886,14 @@ $(tail -c 2000 "$ref")"; fi
     else outcome="FAIL(refusal names a prereq the source doc does NOT state)"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
     outcome="SKIP-RESOURCE(allocation/disk failure — host, not claim)"
-  # solve.c's disk_iops_pre_check (solve.c:4073) refuses with "ERROR: projected fsync-wait
-  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:43269).
+  # solve.c's disk_iops_pre_check (solve.c:4119) refuses with "ERROR: projected fsync-wait
+  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:48769).
   # That is a HOST verdict — this box's disk is too slow — not a verdict on the documented
   # claim, so it is a SKIP-RESOURCE exactly as an allocation failure is. Measured 2026-09-07:
-  # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:295 — a gating row,
+  # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:385 — a gating row,
   # and bare --preflight defaults to 560T so the IOPS probe really runs) fell through to the
   # terminal `else` and was reported FAIL(rc=31): a host refusal published as a doc defect.
-  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4066)
+  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4112)
   # also says "fsync ~x% of est enum wall ... fsync-wait vs ... est wall". SOLVE_ALLOW_SLOW_IOPS
   # is the second anchor because `out` is only the last 4000 bytes: the ERROR's first line can
   # fall outside that window while its override hint survives.
@@ -902,16 +902,16 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qE "projected fsync-wait|SOLVE_ALLOW_SLOW_IOPS" <<<"$out"; then
     outcome="SKIP-RESOURCE(disk-IOPS pre-check refused — host disk too slow, not claim)"
   elif grep -qiE "no such file|cannot open|cannot read|\[Errno 2\]|no .* files found" <<<"$out"; then
-    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:221)
+    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:241)
     # says "--decode 'model.txt': no such file" -- lowercase, no "or directory" -- and was FAIL(rc=1)
     if [ "$cls" = "BUILD" ]; then
       outcome="FAIL(build cannot find a source or header its compile line names — the tree does not ship what the recipe compiles)"
       NBLDMISS=$((NBLDMISS+1))
     else outcome="SKIP-MISSING-INPUT"; fi
   # Usage-error shapes, each measured on a real published fragment. Added 2026-09-02: git's
-  # "switch `S' requires a value" (`git log -S`, CORRECTIONS.md:3164, rc 129), "--follow requires
-  # exactly one pathspec" (`git log --follow`, CORRECTIONS.md:4969, rc 128) and sha256sum's "no
-  # properly formatted ... checksum lines found" (`sha256sum -c`, CORRECTIONS.md:2365, rc 1) --
+  # "switch `S' requires a value" (`git log -S`, CORRECTIONS.md:3189, rc 129), "--follow requires
+  # exactly one pathspec" (`git log --follow`, CORRECTIONS.md:4994, rc 128) and sha256sum's "no
+  # properly formatted ... checksum lines found" (`sha256sum -c`, CORRECTIONS.md:2390, rc 1) --
   # four inline prose mentions reported FAIL because their usage text matched no shape here.
   elif [ "$org" = "inline" ] && grep -qiE "usage|requires an argument|requires a value|requires exactly one|missing operand|no input file|invalid|unexpected end of file|stdin|no makefile found|No rule to make target|no matching criteria|no properly formatted|arguments are required|too few arguments|Try '" <<<"$out"; then
     if corpus_publishes_complete_form "$cmd"; then

@@ -81,7 +81,7 @@ on a single fresh D128als_v7 Spot in westus3, page-cache flushes between paired 
 script at this commit, that overstates it on three counts, and the JSON it emits is not self-certifying:
 
 - **The SKU is per scale, not fixed.** 1B runs on `Standard_D8als_v7`; 1T and 11.2T run on
-  `Standard_D128als_v7` (`scripts/perf_bench.sh:60-62`). Per-scale SKU selection is fine — but it means a bench
+  `Standard_D128als_v7` (`scripts/perf_bench.sh:116-118`). Per-scale SKU selection is fine — but it means a bench
   is comparable only to another bench at the same scale, and no entry below should be read as pairing numbers
   across scales.
 - **The page-cache flush is now verified, and was not before 2026-09-02.** *(Fixed 2026-09-02, code lane.)*
@@ -376,10 +376,10 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 
 **Stale references corrected**: HISTORY.md April 2026 plan section now carries a `[REFUTED 2026-05-16]` callout against the 1.4–2.0× projection.
 
-> **⚠ Correction (2026-08-30):** **that callout is not there.** Checked at this commit: `grep -n "REFUTED 2026-05-16" documentation/HISTORY.md`
-> returns exactly one line — `HISTORY.md:3310` — and that line is this same *claim* that the callout is "already
-> in place", not a callout. The unqualified 1.4–2.0× projections still stand unmarked at `HISTORY.md:1510-1514`
-> ("Speedup ceiling revised upward to **1.4–2.0× total runtime**") and at `HISTORY.md:2610` ("Plan expects
+> **⚠ Correction (2026-08-30):** **that callout is not there.** Checked at this commit (`184e3523`): `grep -n "REFUTED 2026-05-16" documentation/HISTORY.md`
+> returns exactly one line — `HISTORY.md:3310@184e3523` — and that line is this same *claim* that the callout is "already
+> in place", not a callout. The unqualified 1.4–2.0× projections still stand unmarked at `HISTORY.md:1510-1514@184e3523`
+> ("Speedup ceiling revised upward to **1.4–2.0× total runtime**") and at `HISTORY.md:2610@184e3523` ("Plan expects
 > 1.4-2.0× per the implementation doc"). Searching for the bare token "REFUTED" near both sites finds nothing
 > either. This is the failure mode of a document asserting a marker it never supplied — a reader who trusts the
 > sentence above never goes looking.
@@ -398,7 +398,11 @@ Archive: `canonical-archive/20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3
 
 ---
 
-## 2026-05-17 — task #71: one-step C2 lookahead — shipped + benched + reverted (commits `438d297`, `9d00c48`)
+## 2026-05-16 — task #71: one-step C2 lookahead — shipped + benched + reverted (commits `438d297`, `9d00c48`)
+
+> **⚠ Correction (2026-09-24, Q-779):** this heading was dated 2026-05-17. Both commits are dated
+> 2026-05-16 (`438d297` at 18:39 UTC, the revert `9d00c48` at 20:08 UTC), and HISTORY.md §"#71 — one-step
+> C2 lookahead REVERTED (2026-05-16, post-bench)" gives the same day.
 
 **Category**: prune (NO-SHIP)  
 **Sha impact**: would have been preserving (semantic equivalence to without-lookahead)  
@@ -414,6 +418,14 @@ Precompute a 64-entry `c2_compat[hex]` mask. After placing hex h, AND the remain
 ### Result
 - per-thread node rate: **-10.7% regression** vs without-lookahead
 - output sha: byte-identical (semantically correct)
+
+> **⚠ Correction (2026-09-24, Q-762, CX-82):** the methodology and metric above do not match the bench's
+> own record. [HISTORY.md](HISTORY.md) §"#71 — one-step C2 lookahead REVERTED" gives the run as a 1T paired
+> enum-only bench on **Standard on-demand** D128als_v7 (not Spot, chosen to avoid eviction noise), **two
+> pairs**, not ten alternating reps, aborted after pair 2 because the direction was already clear. The
+> figure compared was **mean wall time**, not a median or a per-thread node rate: with-#71 1266 s and
+> 1259 s against without-#71 1144 s and 1135 s, a mean ratio (without / with) of **0.903×**. The −10.7%
+> is that wall ratio read as a slowdown (1 / 0.903 = 1.107, i.e. #71 made runs 10.7% slower). The NO-SHIP decision and the byte-identical sha are unaffected.
 
 ### Delta vs baseline (commit `7b5ff6d` = v2 without #71)
 - per-thread rate: **-10.7%**
@@ -680,6 +692,16 @@ Paired numeric-vs-fail-first runs on `--branch 24 0` (largest first-level branch
 | 10B | 4M | **0.980** | 9,762,700 | 9,568,717 | canonical-shas differ |
 | 100B | 40M (≈ canonical) | **0.770** | 60,519,764 | 46,569,461 | **\|N∩F\|=0 — DISJOINT** |
 | 1T | 402M (5.7× canonical) | **0.922** | 305,975,483 | 282,009,708 | shas differ; intersection size computation killed |
+
+> **⚠ Correction (2026-09-24, Q-762, CX-82):** `--branch 24 0` has **2,824** depth-3 cells, not 2,488, so
+> the per-cell column above is about 14% high at every row. Re-derived on the shipped solver at `5c296837`
+> (`SOLVE_DEPTH=3 SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_NODE_LIMIT=1000000000 ./solve --branch 24 0`), which
+> prints `Sub-branches for pair 24 orient 0: 2824 remaining` and `Per-branch node limit: 354107 (1000000000
+> / 2824 total-branches)`; pairs 1 and 17 also give 2,824. (The 2026-05-18 binary itself was not re-run.) The per-cell budgets are therefore **354,107**
+> (1B), **3,541,076** (10B), **35,410,764** (100B) and **354,107,648** (1T). Against the 11.2T per-cell
+> budget of 70,723,196 the 1T row is **5.0×**, not 5.7×, and the 100B row is **0.50×**, so the "≈ canonical"
+> label on 100B, and the "canonical-equivalent scale" wording this entry's Decision line and SHELVE reasons
+> build on it, overstate it by about 2×. The record counts, K ratios and sha relationships were measured and do not move.
 
 ### Why SHELVE
 1. The 1B K=1.342 was a small-budget artifact — both orderings find their own "easy" subset; the 34% advantage doesn't replicate at larger scales.
@@ -1107,7 +1129,7 @@ Three-part hardening landed to make this class of bug structurally impossible:
 1. **`scripts/build_pgo.sh`** — canonical PGO build helper. Builds both passes to the SAME output name (renames after Pass 1), so the `.gcda` lookup key matches. Asserts `.gcda` file count > 0 between passes. Adds `-Werror=missing-profile` on Pass 2.
 
    > **⚠ Correction (2026-08-30):** **as of 2026-08-30 this helper can no longer build `solve.c`.** Both of its link lines — Pass 1 at
-   > `scripts/build_pgo.sh:77-78` and Pass 2 at `:128-130` — end in `-lm` with no `-lz`, but `solve.c:317` has
+   > `scripts/build_pgo.sh:77-78` and Pass 2 at `:128-130` — end in `-lm` with no `-lz`, but `solve.c:330` has
    > included `<zlib.h>` since #169, and its own comment there says "link with `-lz`" (`DEVELOPMENT.md` marks
    > `-lz` mandatory in the canonical recipe too). Running the script's exact Pass-1 command against `solve.c`
    > at this commit fails at link: rc=1, undefined references to `gzclose`, `gzfread` and friends. The
@@ -1184,6 +1206,18 @@ After fixing the silent no-PGO build bug in the prior 2026-05-24 bench (see `scr
 
 This entry is a course-correction on the earlier `#78 PGO` entry (+6.5%) and the broken-PGO entry's interpretation: those measurements were on the 2-core `claude` orchestrator (Skylake) at small workload — they do not generalize to canonical-scale workloads on 128-core Bergamo.
 
+> **⚠ Correction (2026-09-24, Q-762, CX-82):** the hardware attribution in the paragraph above is wrong. The +6.5% comes
+> from the task #78 v3 rerun entry above (2026-05-18), measured on a **D128als_v7 Spot host at 128 threads**
+> (1067 s → 997 s enum-only, preflight probe 3868 MHz), and the broken-PGO bench was also a D128als_v7 1T
+> run. No PGO measurement in this record ran on the 2-core orchestrator; "task #47" names the bundle that
+> *banked* the #78 figure, not a separate microbench. The real contrast is the one the 2026-05-25 audit
+> entry below tabulates: #78 measured LTO+PGO against an LTO control on **one first-level branch**
+> (`--branch 24 0`) at 1T, while this re-run measured LTO+PGO+bitset against vanilla `-O3` on the **full
+> 1T enumeration**, with a profile trained at 6,315 nodes per sub-branch and no throttle probe. The
+> first PGO attempt on the v3 build also silently applied no profile, because under `-flto` GCC keys the
+> `.gcda` lookup on the output binary's name ([HISTORY.md](HISTORY.md), 2026-05-24). The measurements in
+> this entry are unaffected.
+
 ### Build provenance (confirms PGO applied this time)
 
 | Aspect | First bench (broken PGO) | This re-run (PGO applied) |
@@ -1217,6 +1251,10 @@ Expected: `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
 ### Why the prediction didn't replicate
 
 1. **Task #47's +6.5% was on a 2-core Skylake at microbench scale.** Branch-prediction wins from PGO are largest when single-thread instruction throughput is the bottleneck. At 128-thread Bergamo on a memory-bandwidth-bound 1T workload, that bottleneck is gone — memory subsystem dominates.
+
+   > **⚠ Correction (2026-09-24, Q-762, CX-82):** reason 1 is withdrawn. The +6.5% was measured on the
+   > same D128als_v7 hardware class at 128 threads (the #78 v3 rerun entry above), so it cannot explain the
+   > gap. See the correction under this entry's headline for the actual differences between the two benches.
 
 2. **PGO trained on a 1B-node workload with 6315 nodes/sub-branch** hot-paths the budget-bound exit code. The 1T canonical workload has 6,315,458 nodes/sub-branch — 1000× more time in the actual DFS enumeration loop, which the profile-gen didn't exercise.
 
@@ -1537,7 +1575,7 @@ says so explicitly and states what the original text read.
 | 2 | 2026-05-11 #70 (C3 optimistic bound) | Baseline labelled "#67 alone" | The 831-record delta is over **v1+C5+#67**. A `v1+#67+#70` run does not exist anywhere in this log |
 | 3 | 2026-05-13 LTO | Sha gate recorded as passing *by definition* | Reworded to the **measured** byte-identical result. Sha gates in this solver settle only empirically |
 | 4 | 2026-05-16 #46 (AVX-512 null) | "verified from commits `cd4e61c`/`b26cd9b`/`0783d52`" | Those objects are **absent from the shipped repo** (`git cat-file -t` fails on each) → the figures are operator-attested, per this file's Access boundary |
-| 5 | 2026-05-16 #46 (AVX-512 null) | "HISTORY.md … now carries a `[REFUTED 2026-05-16]` callout" | **The callout is not there.** The one match in `HISTORY.md` is that sentence's twin claiming it is "already in place"; the 1.4–2.0× projections stand unmarked at `HISTORY.md:1510-1514` and `:2610`. **✅ Discharged 2026-09-02 (P64): both callouts written, at the drifted lines `:1521` / `:2628`; the third site in `DEVELOPMENT.md:586` marked the same day.** |
+| 5 | 2026-05-16 #46 (AVX-512 null) | "HISTORY.md … now carries a `[REFUTED 2026-05-16]` callout" | **The callout is not there.** The one match in `HISTORY.md` is that sentence's twin claiming it is "already in place"; the 1.4–2.0× projections stand unmarked at `HISTORY.md:1510-1514@184e3523` and `:2610`. **✅ Discharged 2026-09-02 (P64): both callouts written, at the drifted lines `:1521` / `:2628`; the third site in `DEVELOPMENT.md:1068` marked the same day.** |
 | 6 | 2026-05-17 v2 11.2T anchor | A "~1-2%" v2 advantage projected for 100T+ | Measured **+6.74%** at 100T (+231,181,617 records). The advantage **grew** with depth: +4.83% at 11.2T → +6.74% at 100T |
 | 7 | 2026-05-18 per-prune ladder | #68 called 24-27× more impactful than #67 at every scale | **≈14.5-36.9×** across the four scales in its own table; 24-27× holds only at 1B-10B. The *ranking* claim stands |
 | 8 | 2026-05-18 per-prune ladder | Unlimited budget framed as v1 and v2 exhausting different predicates; +4.83% called v2's "real" extra solutions | Both prune sets are sound: **v1(∞) = v2(∞) = v3(∞)**. +4.83% is a **budgeted-slice** delta at 11.2T — a convergence-rate effect, not a larger solution space |
@@ -1564,14 +1602,14 @@ or `HISTORY.md` (or, for 5, was *supposed* to be) while this log kept the supers
 They live in other files and must be fixed there; each is marked at its site above so a reader is warned in the
 meantime.
 
-1. **`scripts/build_pgo.sh` cannot build `solve.c`.** Both link lines (`:77-78` Pass 1, `:128-130` Pass 2) end
-   in `-lm` with no `-lz`, while `solve.c:317` has included `<zlib.h>` since #169. Running the script's exact
+1. **`scripts/build_pgo.sh` cannot build `solve.c`.** Both link lines (`build_pgo.sh:77-78@184e3523` Pass 1, `:128-130` Pass 2) end
+   in `-lm` with no `-lz`, while `solve.c:330` has included `<zlib.h>` since #169. Running the script's exact
    Pass-1 command against `solve.c` at this commit fails at link (rc=1, undefined `gzclose`/`gzfread`/…). The
    2026-05-24 entry advertises this script as the canonical reusable PGO recipe; it is not one until `-lz`
    lands, and a repo self-check should assert its Pass-1 link against HEAD `solve.c`.
 2. **`scripts/perf_bench.sh` can certify a run whose stated conditions did not hold.** The page-cache flush ends
-   `|| true` (`:176`) so a failed flush proceeds, while the JSON emits `"page_cache_flushed": true` as an
-   unconditional literal (`:254`) — a bench that never flushed ships certified-looking JSON. The script also has
+   `|| true` (`perf_bench.sh:176@184e3523`) so a failed flush proceeds, while the JSON emits `"page_cache_flushed": true` as an
+   unconditional literal (`perf_bench.sh:254@184e3523`) — a bench that never flushed ships certified-looking JSON. The script also has
    no preflight throttle burn, though this log's own 2026-05-18 methodological finding makes that burn
    mandatory. The field must carry the flush's real status, and the burn must run or the JSON must say
    `throttle_probe: absent`. The "Standard bench harness" section at the top of this file has been corrected to
@@ -1586,7 +1624,7 @@ meantime.
    core before the bench, `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED`, teardown and exit 5 on
    anything but `HEALTHY`; and `sha`/`records` moved from the container to the decompressed stream. See
    §"Standard bench harness" above.
-3. **The `[REFUTED 2026-05-16]` callouts promised for `HISTORY.md:1510-1514` and `:2610` do not exist** and need
+3. **The `[REFUTED 2026-05-16]` callouts promised for `HISTORY.md:1510-1514@184e3523` and `:2610` do not exist** and need
    to be written, alongside a check that any sentence asserting a marker is "already in place" resolves to an
    actual marker at the named location.
 

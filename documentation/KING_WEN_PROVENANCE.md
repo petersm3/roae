@@ -112,14 +112,19 @@ not ours.** It is stated explicitly by 孔穎達 (574–648) and has an earlier 
 adjacent-pair structure **64/64**; every **complete** alternative pairing rule tested scores
 12–16/64. Bare reversal is the one rule outside that range and is not a rival: it is the rule the
 classical one *completes*, scoring 56/64 (`RULE_REV_ALONE`) and leaving exactly the eight
-self-reverse hexagrams unpaired — 64 − 8. **The tradition also supplies a rival group**, and it fares
-no better: 焦循's 八卦相錯 (c. 1813) generates 20 orbits with the *same* size profile as ⟨complement,
+self-reverse hexagrams unpaired — 64 − 8. **The tradition also supplies the operations for a rival
+group**, and it fares no better: complement with the within-hexagram exchange of upper and lower
+trigram (虞翻's 旁通 and 兩象易) generates 20 orbits with the *same* size profile as ⟨complement,
 reversal⟩ — 8 of size 2 and 12 of size 4, structurally indistinguishable — and **at the group
-level** King Wen respects it only 24/64. Exactly, not sampled: of the 3.845×10⁴⁶
+level** King Wen respects it only 24/64. ⚠ **[CORRECTED 2026-09-24 (Q-760) — this sentence attributed
+the rival group to 焦循's 八卦相錯 (c. 1813). [CITATIONS.md](CITATIONS.md#jiaoxun) records that
+八卦相錯 exchanges lower trigrams between two hexagrams and that Jiao distinguishes it from 兩象易; the
+measured group uses the one-hexagram swap. No source cited here assembles complement and 兩象易 into
+this group. The counts are unchanged. Adjudicated by Fable (Codex V3A-061#2).]** Exactly, not sampled: of the 3.845×10⁴⁶
 involutions on the 64 with eight fixed points, **exactly 70** reproduce King Wen's pairing, and all 70
 are 孔穎達's rule up to a **vacuous relabelling** on the hexagrams where the two operations coincide.
 **So the classical rule is not *a* symmetry that happens to fit; it is *the* rule** — and the rival it
-beats was supplied by the same tradition, not constructed by us. Reproduce with
+beats is built from operations the same tradition supplies, not ones we constructed. Reproduce with
 `python3 verify.py --check-classical-groups`. It is also
 applied to the Chu manuscript's symbols by 濮茅左 (2003), and to a 36-unit quotient by 近藤浩之
 (2005). **We claim no priority for the pairing insight.**

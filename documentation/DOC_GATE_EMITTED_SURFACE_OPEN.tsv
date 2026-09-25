@@ -22,6 +22,11 @@
 # publishing a token a reader can never see in a real log is worse than the gap it closes. If
 # LEG 2 ever learns to tell a fixture from a verdict, both rows go.
 #
+# 2026-09-25 (CX-93): the WITNESSES row is DELETED. scripts/d5_04_q7_witnesses_gate.sh was rewritten
+# when the Q7 witness row became real (pinned witnesses, solver-free verification); its stub harness
+# no longer writes or reads a WITNESSES= line, so the allowance matched nothing and GATE 89 said so.
+# One row remains (TR12_A); "the two rows" above is the 2026-09-08 count, left as written.
+#
 # An allowance row that matches nothing FAILS: if the code stops emitting the name, or the name
 # becomes documented, the row must be deleted. It therefore cannot outlive its fix, and it cannot
 # be padded with names the code does not emit.
@@ -42,5 +47,4 @@
 #            it is written into and the flag that writes it — symbols, never line numbers, which
 #            go stale within the day.
 #   reason   why the row stands
-verdict-token	TR12_A	scripts/tr12_repro_gate.sh:188	NOT a runtime verdict and deliberately left undocumented: the only occurrence in the tree is a fixture literal inside scripts/tr12_repro_gate.sh --selftest-skip-pin, standing in for an arbitrary battery row while skip_pin_compare is red-tested. The real per-row tokens (TR12_Q7, TR12_XA_A, ...) are written dynamically via printf '%s=%s' and are invisible to LEG 2; no row named TR12_A exists in any VERDICTS.txt or in scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt. Documenting it would publish a name no run emits.
-verdict-token	WITNESSES	scripts/d5_04_q7_witnesses_gate.sh:84	NOT a published verdict and deliberately left undocumented: emitted only into a stub harness that scripts/d5_04_q7_witnesses_gate.sh generates and then parses itself (sed -n 's/^WITNESSES=//p'), to read back TOKSTATE[TR12_Q7_WITNESSES] in the with-solver and without-solver worlds. It never reaches the gate's own caller; the gate's verdict token is D5_04_Q7_WITNESSES_GATE.
+verdict-token	TR12_A	scripts/tr12_repro_gate.sh:503	NOT a runtime verdict and deliberately left undocumented: the only occurrence in the tree is a fixture literal inside scripts/tr12_repro_gate.sh --selftest-skip-pin, standing in for an arbitrary battery row while skip_pin_compare is red-tested. The real per-row tokens (TR12_Q7, TR12_XA_A, ...) are written dynamically via printf '%s=%s' and are invisible to LEG 2; no row named TR12_A exists in any VERDICTS.txt or in scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt. Documenting it would publish a name no run emits.

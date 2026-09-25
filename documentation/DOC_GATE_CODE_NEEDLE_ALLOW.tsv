@@ -44,3 +44,4 @@ tests.py	maps every hexagram to its partner	1	WHAT WAS WRONG	WHAT-WAS-WRONG comm
 solve.c	finds all orderings	1	This read	header CORRECTED block quotes the withdrawn wording to withdraw it (Q-353 / P44; the :19 site retired ff804bb0)
 solve.c	Enumerates ALL orderings	1	This read	header CORRECTED block quotes the withdrawn wording to withdraw it (Q-353 / P44; the :19 site retired ff804bb0)
 solve.py	To reconstruct the King Wen sequence, satisfy these rules simultaneously	1	The banner used to read	print_rules() comment quotes the retired --rules banner's second line, hard-wrapped across two comment lines, to withdraw it (CX-02)
+scripts/citation_line_gate.sh	when S(6..8) land	1	TR4_SIZE_OF_THE_SPACE.md	the citation gate's TARGET_PINS row quotes the retired TR-4 wording as the anchor its red test restores (Q-791); not a live claim

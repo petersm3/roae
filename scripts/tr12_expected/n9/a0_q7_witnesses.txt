@@ -1,0 +1,52 @@
+# Q7 leg 3: the PINNED SAT witnesses (CX-93). Solver-free: each pinned sequence is re-verified by
+# --check-arrangement (C1..C5, independent checker), compared with KW, and re-scored on every rule
+# its target enforces (solve.py; Schulz gender also by verify.py). No byte is trusted because a
+# solver once produced it. Provenance: reports/evidence/q7_witnesses/README.md
+### moore-strict
+witness_file	reports/evidence/q7_witnesses/moore-strict.txt
+witness_sha256	79fa29f5bdbfa1b4e0fb3bdc40399430b1a586a11aae0e914d2a32412389e788
+witness_seq	63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42
+### moore-strict checker_rc=0
+[check-arrangement] permutation of 0..63:            OK
+[check-arrangement] C1 pair-partner adjacency:        HOLD
+[check-arrangement] C2 no distance-5 boundary:        HOLD (d=5 count 0, first n/a -1)
+[check-arrangement] C3 complement distance:           HOLD (value 776, ceiling 776)
+[check-arrangement] C4 anchor first (63 then 0):      HOLD
+[check-arrangement] C5 distance multiset == KW's:     HOLD (hist d1..d6 = 2,20,13,19,0,9)
+[check-arrangement] first violation (pinned order):  NONE
+[check-arrangement] verdict SUPER (C1&C2&C4&C5):     IN
+[check-arrangement] verdict C15  (C1-C5, C3<=776):   IN
+#provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+[check-arrangement] certificate written: <ART>/q7_moore-strict.json
+kw_string_identical	NO
+rules_enforced	parity rhythm
+target_verdict	base=True c3=776 c3<=776 PASS ok=True
+rule_scores	parity=0 rhythm=0 gender=0 ccn4=1 ccn8=1
+rule_violations	NONE
+gender_indep	0	(verify.py _rc4_violations_indep; agrees with solve.py: YES)
+kw_identical	NO	(positions differing from KW: 6; pair-slot layout differs from KW: YES)
+Q7WIT_OK	moore-strict
+### grand-strict
+witness_file	reports/evidence/q7_witnesses/grand-strict.txt
+witness_sha256	860c221d407ca58c5e0ed17fea02cf5f31e3441daf3cb1eebc7e08da246a9569
+witness_seq	63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42
+### grand-strict checker_rc=0
+[check-arrangement] permutation of 0..63:            OK
+[check-arrangement] C1 pair-partner adjacency:        HOLD
+[check-arrangement] C2 no distance-5 boundary:        HOLD (d=5 count 0, first n/a -1)
+[check-arrangement] C3 complement distance:           HOLD (value 776, ceiling 776)
+[check-arrangement] C4 anchor first (63 then 0):      HOLD
+[check-arrangement] C5 distance multiset == KW's:     HOLD (hist d1..d6 = 2,20,13,19,0,9)
+[check-arrangement] first violation (pinned order):  NONE
+[check-arrangement] verdict SUPER (C1&C2&C4&C5):     IN
+[check-arrangement] verdict C15  (C1-C5, C3<=776):   IN
+#provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
+[check-arrangement] certificate written: <ART>/q7_grand-strict.json
+kw_string_identical	NO
+rules_enforced	gender parity rhythm
+target_verdict	base=True c3=776 c3<=776 PASS ok=True
+rule_scores	parity=0 rhythm=0 gender=0 ccn4=1 ccn8=1
+rule_violations	NONE
+gender_indep	0	(verify.py _rc4_violations_indep; agrees with solve.py: YES)
+kw_identical	NO	(positions differing from KW: 6; pair-slot layout differs from KW: YES)
+Q7WIT_OK	grand-strict

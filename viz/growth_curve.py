@@ -28,7 +28,11 @@ import numpy as np
 # documentation/CANONICAL_HASHES.md (the authoritative, byte-dispositive counts).
 SCALES = [
     (70_723_196,    759_608_573,    "11.2T", "0c0fe37c"),
-    (631_456_644,   3_432_399_298,  "100T",  "915abf30"),
+    # 🔴 …297, not …298. CANONICAL_HASHES.md §"d3 100T" records 3,432,399,297 and carries a
+    # dated record-count correction (2026-07-04) reversing an earlier erroneous note. This file
+    # kept the superseded value, so the growth curve was fitted through a point the registry
+    # had already corrected. Found 2026-09-23 while drawing the scale figure from the registry.
+    (631_456_644,   3_432_399_297,  "100T",  "915abf30"),
     (3_536_157_207, 10_525_271_997, "560T",  "9a968fa2"),
 ]
 # Projection anchor for the planned extension (per-cell budget only; records unknown).

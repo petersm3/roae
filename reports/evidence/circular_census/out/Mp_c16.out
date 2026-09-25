@@ -1,0 +1,70 @@
+[knuth] RNG SEED OVERRIDE ACTIVE: base=0x0000000078c3d5f8 (R11 Phase-2 independent-seed replicate; estimator-only, sha-neutral)
+[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)
+[knuth] 1000000000 probes, 64 threads, 0 prefix level(s)
+[knuth] C5 BUDGET OVERRIDE ACTIVE (R6): d0=0 d1=1 d2=20 d3=14 d4=19 d6=8 (post pure-pair decrement; estimator-only, sha-neutral)
+KNUTH-PROBES planned=1000000000 executed=1000000000
+KNUTH_PROBES=EXECUTED-EQ-PLANNED
+KNUTH-ESTIMATE probes=1000000000 threads=64 start_step=1 prefix_levels=0
+KNUTH-PROVENANCE seed_base=0x0000000078c3d5f8 moore_strict=0 gender_strict=0 score=1 r11_hist=0 wall_s=258
+  tree_nodes            : est=9.195028e+39  95%CI=[9.1931e+39, 9.1970e+39]  relerr=0.01%  hitrate=1
+  leaves_C1C2C4C5       : est=5.215219e+38  95%CI=[5.2098e+38, 5.2206e+38]  relerr=0.05%  hitrate=0.0124
+  leaves_canonical_C1C5 : est=6.498684e+37  95%CI=[6.4795e+37, 6.5179e+37]  relerr=0.15%  hitrate=0.00155
+  [diag] canonical top single-probe share : max_w=1.411843e+42 = 0.0022% of estimate mass (skew/ESS audit; lower=better)
+  [score] R-C1 final-pair-anchor  : 0.078723 of canonical mass se=3.847e-04
+  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=0.134035 slot2=0.055312 slot32=0.078723 (McKenna 1975 frame; slot32 must reproduce R-C1=0.078723)
+  [score] R-C1c A2 pair-slot histogram (report-only; fraction of canonical mass, slots 1-32):
+  a2slot 2 5.5311811394e-02
+  a2slot 3 3.8530258713e-02
+  a2slot 4 3.5447800749e-02
+  a2slot 5 3.2570763632e-02
+  a2slot 6 3.2252361377e-02
+  a2slot 7 3.0202728709e-02
+  a2slot 8 2.9827316031e-02
+  a2slot 9 2.9316053814e-02
+  a2slot 10 2.8684465392e-02
+  a2slot 11 2.8034780076e-02
+  a2slot 12 2.8307868412e-02
+  a2slot 13 2.7128221231e-02
+  a2slot 14 2.7437608259e-02
+  a2slot 15 2.6759177247e-02
+  a2slot 16 2.6977770002e-02
+  a2slot 17 2.6681826876e-02
+  a2slot 18 2.6712529952e-02
+  a2slot 19 2.6885159241e-02
+  a2slot 20 2.6909202807e-02
+  a2slot 21 2.7500767119e-02
+  a2slot 22 2.7295368991e-02
+  a2slot 23 2.8118070625e-02
+  a2slot 24 2.8453385995e-02
+  a2slot 25 2.8922818707e-02
+  a2slot 26 2.9686237238e-02
+  a2slot 27 3.0894734632e-02
+  a2slot 28 3.1657605752e-02
+  a2slot 29 3.2958179298e-02
+  a2slot 30 3.3952800560e-02
+  a2slot 31 3.7859116166e-02
+  a2slot 32 7.8723211001e-02
+  [score] R-C2 first7-level-cover : 0.115973 of canonical mass se=4.645e-04
+  [score] R-C5 18:18-HEC-split    : 0.363454 of canonical mass se=7.255e-04
+  [score] R-M1 Moore-parity strict : 0.000002 of canonical mass (18/18; KW itself FAILS this) se=1.015e-06
+  [score] R-M1 Moore-parity >=16/18: 0.000791 of canonical mass (KW level) se=3.979e-05
+  [score] R-M1 max compliance seen : 18 of 18 (Moore-2005 precursor existence bound)
+  [score] R-M2 Moore-1989 R/F <=2 breaks: 0.034167 of canonical mass (KW level) se=2.822e-04
+  [score] R-M2 strict 0 breaks     : 0.000549 of canonical mass se=3.447e-05; min breaks seen = 0 (KW = 2)
+  [score] Moore joint (M1>=16 & M2<=2): 0.00002798 of canonical mass se=9.177e-06 (independence: 0.00002704)
+  [score] R-C3 level-3 positions == KW : 0.00000000 se=0.000e+00 | S-gap pattern anywhere: 0.00009869 se=1.262e-05 (Cook 2006)
+  [score] R-C4 gender/valence <=2 viol : 0.000123 se=1.886e-05 | 0 viol: 0.000000 se=2.204e-07 (Cook 2006)
+  [score] R-C4-B exception-form (0 viol OR 2 adjacent) : 1.3110700810e-05 se=4.363e-06 | R-C4-C KW locus [25,26]: 1.9683538362e-06 se=1.968e-06 (R13 two-convention; Schulz 1990/Cook 2006)
+  [score] R-C4 0-viol DERIVED-N_gs abs : est=2.022992e+31  95%CI=[-7.8496e+30, 4.8309e+31]  relerr=70.82%  hits=2
+  [score] Davis palindrome windows >=1 : 0.501535 se=7.532e-04 | >=2 (KW level): 0.139923 se=5.262e-04 (Davis 2012)
+  [score] Pareto-dominates KW          : 0.00000000 of canonical mass se=0.000e+00 (F4-A)
+  [score] wrap-distance mass d(s63,s0)  : d1=0.174579 d3=0.651068 d5=0.174352 se=5.891e-04/7.311e-04/5.894e-04 (odd-only per theorem; circular-C2 price = d5 mass)
+  [score] WRAPBIN-SCRATCH d0 : frac=0.000000 se=0.000e+00 | abs est=0.000000e+00 se=0.000e+00 relerr=0.000%
+  [score] WRAPBIN-SCRATCH d1 : frac=0.174579 se=5.891e-04 | abs est=1.134535e+37 se=4.246e+34 relerr=0.374%
+  [score] WRAPBIN-SCRATCH d2 : frac=0.000000 se=0.000e+00 | abs est=0.000000e+00 se=0.000e+00 relerr=0.000%
+  [score] WRAPBIN-SCRATCH d3 : frac=0.651068 se=7.311e-04 | abs est=4.231088e+37 se=7.729e+34 relerr=0.183%
+  [score] WRAPBIN-SCRATCH d4 : frac=0.000000 se=0.000e+00 | abs est=0.000000e+00 se=0.000e+00 relerr=0.000%
+  [score] WRAPBIN-SCRATCH d5 : frac=0.174352 se=5.894e-04 | abs est=1.133061e+37 se=4.249e+34 relerr=0.375%
+  [score] WRAPBIN-SCRATCH d6 : frac=0.000000 se=0.000e+00 | abs est=0.000000e+00 se=0.000e+00 relerr=0.000%
+RC=0
+SEED=2026100216

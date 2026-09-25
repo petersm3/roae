@@ -9,8 +9,17 @@ and an aggregate of an exact computation is itself exact, where a sample of one 
 **Who it is for.** A reader who wants to *check us* is already served by the small-n rung table in
 [VERIFY.md](../documentation/VERIFY.md) and by the independent per-layer recount in §2 below. A
 reader who wants to *do their own research* is served by neither, because
-n=19 is ~0.015% scale and answers nothing about the real object. Exact per-layer widths and
+the n=19 f-ladder is about **0.0027 %** of the full-31 f-ladder on disk, and n=21 about **0.013 %**,
+and neither answers anything about the real object. Exact per-layer widths and
 masses let you test scaling laws, size your own build, or contradict us with arithmetic.
+⚠ **[CORRECTED 2026-09-24 (Q-726) — this sentence gave n=19 as roughly 0.015 per cent of scale,
+about 5.6× too high, with no stated basis.]** The ratios are now `*.bin` bytes over the measured
+full-31 f-ladder: n=19 is 88,311,188 B in 20 `*.bin` files and n=21 is 430,629,560 B in 22 (both
+measured 2026-09-24 with `find outN -name '*.bin' -printf '%s\n'`), against the 65-file f
+registry total of 3,293,894,509,534 B in
+[runs/20260906_kc_ladders_n31/README.md](../runs/20260906_kc_ladders_n31/README.md). The
+denominator is the 65-file registry total, which includes 32 per-layer stats sidecars and one
+manifest; the registry publishes no per-file sizes, so the ratios are stated against that total.
 
 **Reproduction command.** The table below is the layer telemetry of
 

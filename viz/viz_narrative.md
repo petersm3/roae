@@ -1,10 +1,24 @@
-# Visualization plan — figures for the narrative document · **PLAN ROWS, not yet drawn**
+# Figures for the narrative document · **DRAWN, HELD — not landed in this repository**
 
-> **Status: planned, zero-dollar, not drafted.** Accepted 2026-09-04 (Q-308). Filed as plan rows
-> BEFORE drafting, which is the whole point: `TASK_GATED_CAPSTONE_NARRATIVE_DOCUMENT.md` names its
+> **Status: DRAWN 2026-09-23, deliberately NOT landed.** Accepted 2026-09-04 (Q-308). Filed as plan
+> rows BEFORE drafting, which is the whole point: the gated narrative-document task named its
 > audience and its arc, and **zero planned figures served it**. A narrative document with no planned
 > figures does not end up with no figures — it ends up with improvised ones, chosen by whoever is
 > writing that paragraph on that day.
+>
+> **Why they are held.** Both figures exist (`fig_viz_narrative_n1_object`,
+> `fig_viz_narrative_n2_fg_mechanism` in `report_figures.py`), but the narrative document they
+> illustrate has **no public counterpart** — it lives only in the project's private staging
+> repository. Publishing the figures here would strand two images whose referent a reader of this
+> repository cannot obtain. They land with the document, not before.
+>
+> ⚠ *(corrected 2026-09-23: the title read "PLAN ROWS, not yet drawn" and this block read "planned,
+> zero-dollar, not drafted" — both were stale, since the figures had been drawn. This block also
+> cited `TASK_GATED_CAPSTONE_NARRATIVE_DOCUMENT.md` by name; **no file of that name is present in
+> the private repository** as of this date — the narrative document carried there
+> has a different name. Whether the task doc was renamed or never existed under the cited name
+> is not established here, so the dangling citation is replaced with a description rather than with
+> a different filename asserted to be the same thing.)*
 
 The narrative document's audience is a reader who is not going to run anything. For that reader a
 figure is not decoration; it is the only load-bearing evidence they will actually inspect. Two are

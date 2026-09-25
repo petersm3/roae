@@ -21,10 +21,23 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
 - **Kong Yingda 孔穎達** (574–648). *Zhouyi zhengyi* 周易正義 (in the *Shisanjing zhushu* 十三經注疏, Zhonghua Shuju edition, 1980). **The classical formulation of C1**: his subcommentary on the [Xugua](#xugua) states the received order's pairing principle — the hexagrams run two-by-two, each pair related to its partner by reversal or, where the reversal is symmetric, by complement — the Tang-dynasty source every modern statement of the pairing rule descends from or independently rediscovers. The concept has still earlier attestation lineage (Yu Fan 虞翻, 164–233, whose pangtong/fandui pair relations transmit via Li Dingzuo's *Zhouyi jijie*; and — argued, not shown — three reversal pairs of received neighbours (#7·8, #9·10, #63·64) that [Li Xueqin 2003](#lixueqin2003) reads out of six numeral hexagrams on two late-Western-Zhou pottery paddles; those objects carry no complement pair, so only the reversal half of the rule is even arguably that old), but Kong Yingda's is the explicit formulation.
   **Measured 2026-08-16, and it sharpens what the rule is worth.** His 非覆即變 — reversal, falling
   back to complement where a hexagram is reversal-symmetric — reproduces King Wen's adjacent-pair
-  structure **64/64**. Every alternative pairing rule tested scores 12–16/64, including one built from
-  a **structurally indistinguishable rival group that the tradition itself supplies**:
-  [Jiao Xun](#jiaoxun)'s 八卦相錯 generates 20 orbits with the *same* size profile as ⟨complement,
-  reversal⟩ (8 of size 2, 12 of size 4), and King Wen respects it only 24/64. Exactly, not by sampling:
+  structure **64/64**. Every **complete** alternative pairing rule tested scores 12–16/64; bare reversal, the
+  rule C1 completes, scores 56/64 (`RULE_REV_ALONE`) and is not a rival. The tested rules include one built from
+  a **structurally indistinguishable rival group built from operations the tradition itself supplies**:
+  complement together with the within-hexagram exchange of upper and lower trigram — [Yu Fan](#yufan)'s
+  旁通 and 兩象易 — generates 20 orbits with the *same* size profile as ⟨complement,
+  reversal⟩ (8 of size 2, 12 of size 4), and **at the group level** King Wen respects it only 24/64. No source cited here
+  assembles those two operations into this group; the group is our assembly, its generators are not.
+  ⚠ **[CORRECTED 2026-09-24 (Q-760) — this sentence attributed the rival group to [Jiao Xun](#jiaoxun)'s
+  八卦相錯. His own entry below records that 八卦相錯 is a different operation, an exchange of lower
+  trigrams between two hexagrams, which he distinguishes from 虞翻's 兩象易; `--check-classical-groups`
+  implements the one-hexagram swap. The 20 orbits, the size profile and the 24/64 are unchanged. Adjudicated
+  by Fable (Codex V3A-061#2).]** ⚠ **[SCOPED 2026-09-24 (Q-764) — the first sentence of this measurement
+  said every alternative pairing rule tested falls in the 12–16/64 band. Bare reversal does not: it scores
+  56/64, because with no fallback it leaves exactly the eight self-reverse hexagrams unpaired (64 − 8).
+  The universal was scoped to *complete* rules in [VERIFY.md](VERIFY.md) on 2026-09-01 (prose batch P10)
+  and in [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md) on 2026-09-02 (P60), but not here; `python3 verify.py
+  --check-classical-groups` prints `RULE_REV_ALONE=56/64`. See documentation/CORRECTIONS.md.]** Exactly, not by sampling:
   **70 of 3.845×10⁴⁶ involutions score 64/64, and all 70 are Kong Yingda's rule up to a vacuous
   relabelling** on the degenerate hexagrams. So the pairing rule is not *a* symmetry that happens to
   fit — it is **the** rule, against a rival the tradition supplied rather than one we constructed.
@@ -652,8 +665,9 @@ enumerates that space, or proves a ceiling on it.
 <a id="jiaoxun"></a>
 - **Jiao Xun 焦循** (1763–1820). *Yi tulüe* 《易圖略》 [Outline of Yi diagrams], 8 juan; in 《焦氏叢書》.
   Free: `https://ctext.org/wiki.pl?if=gb&chapter=953240`.
-  A Qing mathematician's systematic *Yi* apparatus, and the source of one of the two **rival group
-  actions** this project measures King Wen against. Three items bear on us:
+  A Qing mathematician's systematic *Yi* apparatus, and the source that names and separates the two
+  trigram exchanges behind the **rival group action** this project measures King Wen against (the group
+  itself uses 虞翻's 兩象易, not his 八卦相錯; see *(iii)*, corrected 2026-09-24). Three items bear on us:
   *(i)* **旁通 = complementation.** 《易圖略》卷一 旁通圖 tabulates all 32 complement pairs, credited by
   him to 虞翻.
   *(ii)* **He composes the two operations.** 卷六〈原序第三〉: 「**反對旁通四卦交互，如九數之維乘**」 —
@@ -665,12 +679,17 @@ enumerates that space, or proves a ceiling on it.
   classification. **[Wu Cheng](#wucheng) does all of that, 500 years earlier.**
   *(iii)* **八卦相錯 is a DIFFERENT operation**, not complementation — 卷四 八卦相錯圖, a binary
   operation exchanging the lower trigrams of two hexagrams, from 說卦傳. He separates it from 虞翻's
-  兩象易 explicitly: 「此與相錯似近，而非」. **The group ⟨complement, trigram-swap⟩ it generates is an
-  exhaustive partition of the 64 into 20 orbits with the SAME size profile as ⟨錯,綜⟩ (8 of size 2,
-  12 of size 4) — yet King Wen respects it only 24/64, against 64/64 for ⟨錯,綜⟩.** That measurement,
-  reproducible with `python3 verify.py --check-classical-groups`, is why this entry matters: **the
-  rival group is not ours, it is his**, and a structurally indistinguishable alternative from the same
-  tradition does not fit the sequence.
+  兩象易 explicitly: 「此與相錯似近，而非」. **The group ⟨complement, trigram-swap⟩ that
+  `python3 verify.py --check-classical-groups` measures is therefore NOT generated by 八卦相錯:** its swap is the
+  within-hexagram exchange, which is 兩象易. That group is an exhaustive partition of the 64 into 20
+  orbits with the SAME size profile as ⟨錯,綜⟩ (8 of size 2, 12 of size 4) — yet King Wen respects it only
+  24/64, against 64/64 for ⟨錯,綜⟩. Jiao's part in that measurement is the distinction itself: he names
+  both operations and keeps them apart. No source cited here assembles complement and 兩象易 into this
+  group. ⚠ **[CORRECTED 2026-09-24 (Q-760) — this passage said the ⟨complement, trigram-swap⟩ group is
+  generated by 八卦相錯 and called the rival group "his", contradicting the sentence before it, which
+  records that 八卦相錯 exchanges trigrams between two hexagrams and that Jiao separates it from 兩象易.
+  The orbit census and the 24/64 are unchanged; only the attribution moves, to [Yu Fan](#yufan)'s
+  兩象易. Adjudicated by Fable (Codex V3A-061#2).]**
   ⚠ **Not obtained:** 《易通釋》20卷, the fuller work 《易圖略》 abridges, where he may work the
   quadruples harder. Scans only, OCR unusable. *(Added 2026-08-16.)* [analyzed 2026-08-16]
 
@@ -1443,7 +1462,7 @@ enumerates that space, or proves a ceiling on it.
   **an independent arrival at counting the arrangement space**: computes exactly
   1395 = [6 choose 3]₂ order-8 subgroups, and poses (but does not complete — halted, he reports, by
   his calculator's display) the product 1395 × 56 × 48 × 40 × 32 × 24 × 16 × 8 ≈ 1.47×10¹³ for
-  eight-palace-style templates. ⚠ **[FIRSTNESS CLAIM WITHDRAWN 2026-08-28 — this read "the first author we have located to start counting the arrangement space". This project's own Chen Zhuangwei adjudication ruled that FALSE AS WRITTEN on 2026-08-24; the sentence entered main on 2026-07-31 (`6a3feaaa`) and was never removed. Q-127 (DONE) and Q-263 (OPEN) both recorded it as no longer live because the checks read this section's preamble (:293) and never this entry body — so Q-263's question to the operator rests on a false premise. No firstness is asserted here; the cession chain is public. Found by the D2 novelty lens; see Q-358.]** He also reports finding **no rule that fixes the King Wen sequence**
+  eight-palace-style templates. ⚠ **[FIRSTNESS CLAIM WITHDRAWN 2026-08-28 — this read "the first author we have located to start counting the arrangement space". This project's own Chen Zhuangwei adjudication ruled that FALSE AS WRITTEN on 2026-08-24; the sentence entered main on 2026-07-31 (`6a3feaaa`) and was never removed. Q-127 (DONE) and Q-263 (OPEN) both recorded it as no longer live because the checks read this section's preamble (:401) and never this entry body — so Q-263's question to the operator rests on a false premise. No firstness is asserted here; the cession chain is public. Found by the D2 novelty lens; see Q-358.]** He also reports finding **no rule that fixes the King Wen sequence**
   (an informal under-determination statement). His counted objects (F₂⁶ subspaces; algebraic
   templates) are disjoint from ROAE's constraint-satisfying total orders; he never completed or
   validated a count and connected no structure to the King Wen ordering. Simple closed-form counts

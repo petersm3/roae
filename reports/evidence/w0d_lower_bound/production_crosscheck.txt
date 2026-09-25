@@ -1,0 +1,66 @@
+# Production-binary positive controls for the P mirror in solve.py --xa-w0d-lb-cert.
+# Binary: gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz, solve.c sha256 edfaac875da2d793d0997d900a0998250d61a951c51089b1a0975e9c71e7794b (the shipped solve.c; first recorded on 64a01e53…, re-run 2026-09-25 on the shipped binary: both controls below byte-identical)
+# (1) ./solve --list-branches: per-branch (pair, orient, depth-2 sub-branches, entry, exit)
+list_branches pair=1 orient=0 subbr=54 entry=17 exit=34 | mirror p2=54
+list_branches pair=1 orient=1 subbr=54 entry=34 exit=17 | mirror p2=54
+list_branches pair=2 orient=0 subbr=54 entry=23 exit=58 | mirror p2=54
+list_branches pair=2 orient=1 subbr=54 entry=58 exit=23 | mirror p2=54
+list_branches pair=3 orient=0 subbr=55 entry=2 exit=16 | mirror p2=55
+list_branches pair=3 orient=1 subbr=55 entry=16 exit=2 | mirror p2=55
+list_branches pair=5 orient=0 subbr=54 entry=7 exit=56 | mirror p2=54
+list_branches pair=5 orient=1 subbr=54 entry=56 exit=7 | mirror p2=54
+list_branches pair=7 orient=0 subbr=55 entry=4 exit=8 | mirror p2=55
+list_branches pair=7 orient=1 subbr=55 entry=8 exit=4 | mirror p2=55
+list_branches pair=8 orient=0 subbr=54 entry=25 exit=38 | mirror p2=54
+list_branches pair=8 orient=1 subbr=54 entry=38 exit=25 | mirror p2=54
+list_branches pair=9 orient=0 subbr=54 entry=3 exit=48 | mirror p2=54
+list_branches pair=9 orient=1 subbr=54 entry=48 exit=3 | mirror p2=54
+list_branches pair=10 orient=0 subbr=54 entry=41 exit=37 | mirror p2=54
+list_branches pair=10 orient=1 subbr=54 entry=37 exit=41 | mirror p2=54
+list_branches pair=11 orient=0 subbr=55 entry=32 exit=1 | mirror p2=55
+list_branches pair=11 orient=1 subbr=55 entry=1 exit=32 | mirror p2=55
+list_branches pair=12 orient=0 subbr=54 entry=57 exit=39 | mirror p2=54
+list_branches pair=12 orient=1 subbr=54 entry=39 exit=57 | mirror p2=54
+list_branches pair=13 orient=0 subbr=54 entry=33 exit=30 | mirror p2=54
+list_branches pair=13 orient=1 subbr=54 entry=30 exit=33 | mirror p2=54
+list_branches pair=14 orient=0 subbr=54 entry=18 exit=45 | mirror p2=54
+list_branches pair=14 orient=1 subbr=54 entry=45 exit=18 | mirror p2=54
+list_branches pair=15 orient=0 subbr=54 entry=28 exit=14 | mirror p2=54
+list_branches pair=15 orient=1 subbr=54 entry=14 exit=28 | mirror p2=54
+list_branches pair=16 orient=0 subbr=54 entry=60 exit=15 | mirror p2=54
+list_branches pair=16 orient=1 subbr=54 entry=15 exit=60 | mirror p2=54
+list_branches pair=17 orient=0 subbr=54 entry=40 exit=5 | mirror p2=54
+list_branches pair=17 orient=1 subbr=54 entry=5 exit=40 | mirror p2=54
+list_branches pair=18 orient=0 subbr=54 entry=53 exit=43 | mirror p2=54
+list_branches pair=18 orient=1 subbr=54 entry=43 exit=53 | mirror p2=54
+list_branches pair=19 orient=0 subbr=54 entry=20 exit=10 | mirror p2=54
+list_branches pair=19 orient=1 subbr=54 entry=10 exit=20 | mirror p2=54
+list_branches pair=20 orient=0 subbr=54 entry=35 exit=49 | mirror p2=54
+list_branches pair=20 orient=1 subbr=54 entry=49 exit=35 | mirror p2=54
+list_branches pair=22 orient=0 subbr=54 entry=24 exit=6 | mirror p2=54
+list_branches pair=22 orient=1 subbr=54 entry=6 exit=24 | mirror p2=54
+list_branches pair=23 orient=0 subbr=54 entry=26 exit=22 | mirror p2=54
+list_branches pair=23 orient=1 subbr=54 entry=22 exit=26 | mirror p2=54
+list_branches pair=24 orient=0 subbr=54 entry=29 exit=46 | mirror p2=54
+list_branches pair=24 orient=1 subbr=54 entry=46 exit=29 | mirror p2=54
+list_branches pair=25 orient=0 subbr=54 entry=9 exit=36 | mirror p2=54
+list_branches pair=25 orient=1 subbr=54 entry=36 exit=9 | mirror p2=54
+list_branches pair=26 orient=0 subbr=54 entry=52 exit=11 | mirror p2=54
+list_branches pair=26 orient=1 subbr=54 entry=11 exit=52 | mirror p2=54
+list_branches pair=27 orient=0 subbr=54 entry=13 exit=44 | mirror p2=54
+list_branches pair=27 orient=1 subbr=54 entry=44 exit=13 | mirror p2=54
+list_branches pair=28 orient=0 subbr=54 entry=54 exit=27 | mirror p2=54
+list_branches pair=28 orient=1 subbr=54 entry=27 exit=54 | mirror p2=54
+list_branches pair=29 orient=0 subbr=54 entry=50 exit=19 | mirror p2=54
+list_branches pair=29 orient=1 subbr=54 entry=19 exit=50 | mirror p2=54
+list_branches pair=30 orient=0 subbr=54 entry=51 exit=12 | mirror p2=54
+list_branches pair=30 orient=1 subbr=54 entry=12 exit=51 | mirror p2=54
+list_branches pair=31 orient=0 subbr=54 entry=21 exit=42 | mirror p2=54
+list_branches pair=31 orient=1 subbr=54 entry=42 exit=21 | mirror p2=54
+LIST_BRANCHES_ROWS=56
+LIST_BRANCHES_SUBBR_SUM=3030
+LIST_BRANCHES_EQ_MIRROR_MISMATCHES=0
+# (2) SOLVE_DEPTH=3 SOLVE_PER_SUB_BRANCH_LIMIT=1 SOLVE_THREADS=2 ./solve 60 2 (fresh empty directory)
+Sub-branches: 158364 remaining of 158364 total
+Sub-branches: 0/158364 completed
+MIRROR_P_DEPTH3_TOTAL=158364

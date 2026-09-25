@@ -56,6 +56,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 - **[CANONICAL_HASHES.md](CANONICAL_HASHES.md)** — The canonical sha256 registry. Every published canonical run with reproducibility env vars, record counts, and validation status. **Single source of truth for canonical anchors.**
 - **[SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md)** — Binary format of `solutions.bin` (32-byte records, header, canonical-equivalence mask).
 - **[REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md)** — How to reproduce the canonical enumeration from a clean checkout: build, run, sha-verify.
+- **[REPRODUCE.md](REPRODUCE.md)** — Rebuild the small exact catalogs (n ≤ 19) yourself and match their digests, downloading nothing: the commands, the byte counts and the sha256 digests, plus the three mistakes that would make you think the engine is wrong.
 
 - **[VERIFY.md](VERIFY.md)** — The independent second instruments (`verify.py`, `verify.c`): what each recomputes, and why derivation-independence rather than re-execution is what makes them independent.
 - **[CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md)** — The claim-to-artifact matrix: for each headline claim, the named artifact and the named command that check it.

@@ -9444,3 +9444,174 @@ verdict; the canonical hash registry, the certificates directory, the C source a
 leaderboard are untouched. One open question was closed in the negative, one narrative hole was
 closed, one correction was itself corrected, and one campaign-completion signal was shown to have
 never worked.
+
+## 2026-09-23/24 — a medium checked end to end as a recipient would check it, a queue run's cures, and three questions I never put in front of the operator
+
+**TR-12 closed out in the first hours of 09-23 (UTC).** v1.10 brought the report into the house format
+that TR-1 to TR-11 share. v1.11 wrote the two sections its own §10 had declared MUST since 2026-07-17
+and published the receipt its conclusions rest on. That same day the report's claim that figure V4 could not be
+rendered without a read of the ladders fell to a one-line operator question. V4's input had been
+produced while the ladders were mounted, and the figure was missing only because the plotting
+packages were not installed on the query host. It rendered in seconds from the banked table, with no
+ladder and no VM. The lesson is recorded in CX-74: **a blocker was named from where the work stopped,
+not from what stopped it.**
+
+**The disk-box medium went green and was deliberately not minted.** On 09-23 its root check passed,
+and the findings of successive review passes over its scripts were closed. A smoke test then ran on the real
+stage disks, with the unmodified `VERIFY.sh`, and found a real blocker: an **empty hidden directory**
+on one stage disk, residue of an earlier upload, listed in no manifest. It was caught only because a
+hardening pass that same day had taught the curation check to see empty directories; a walk over
+regular files alone could not have found it. It was not deleted, because the source disks are mounted
+read-only and remounting a canonical disk read-write to remove one empty directory is
+disproportionate. Instead the ship list is now built from the manifests and checked both ways against
+the assembled tree, so the stray is excluded at the copy step rather than by hand. The same day
+surfaced a second gap: the last full data pass over the medium, from 2026-09-07, had left only a PASS line. Its log was never
+pulled off the machine before that machine was deallocated. A PASS nobody can re-read is a claim.
+
+**On 09-24 the medium was checked end to end on the real bytes, as a recipient would check it.**
+The full tree, about 15 TB, was assembled exactly as the single shipped disk will be. The stray was
+masked out by a read-only overlay rather than removed. `VERIFY.sh` then ran over all of it,
+unmodified, as an ordinary user: root manifests, curation (nothing present that should not be),
+and each of the three stages on sha256, md5 and byte count, with each layer file's container magic
+checked. **It passed.** A second run as root exercised the one branch an ordinary user cannot reach, the
+filesystem's own `lost+found`, and passed too. The evidence was pulled off the machine before teardown,
+which is the step 09-07 skipped. The medium is now validated end to end. Minting and shipping it is
+the operator's call, and it has not been made.
+
+**A queue run worked the backlog in parallel for the rest of 09-24, and a series of public batches came out of it.**
+Each lane worked in its own git worktree and owned whole files, never passages of one. Compiles, the test
+suite, the document gates and the reproduction stamp ran on a separate worker machine, never on the
+orchestrating one. The batches were assembled by three-way apply, one lane at a time. Each combined
+tree was re-checked on a clean checkout. Every batch had an adversarial pre-publication review before it was accepted; each returned 'ship after fixes', and every fix was applied before assembly. The corrections are CX-75 through CX-86; the 09-25 follow-ups are CX-87 through CX-93. They fall into a few classes:
+
+- **Published sentences that the committed data contradicted.** TR-12's V2 caption said mass and cost
+  "do not track each other", and the committed table shows **0 of 1,540** branch pairs with the
+  smaller mass and the larger cost (CX-75). A figure page predicted a tail its own trace refutes
+  (CX-76). A position-locking table had no analyzer log behind it (CX-78 to CX-80).
+- **Numbers that were never derived.** An estimator reading rule was published without ever being
+  calibrated (CX-76). An f-ladder disk projection outlived the measurement that exceeded it (CX-77).
+  A scaling baseline was off by ten, and a capacity table's checkpoint column was 6,000× too large
+  (CX-82).
+- **Checks that could not fail, or had quietly stopped running.** `verify_all.sh` §3b had checked
+  nothing but permutation-ness **since 2026-08-01** while printing PASS. A stray double quote in a
+  comment had truncated its heredoc (CX-81). A gate could not tell a defect from its cure (CX-80). An
+  independent verifier checked the root layer's shape but not its content (CX-84). A t-ladder root key
+  was checked only against another unchecked copy of itself (CX-86).
+- **A rejection that was itself wrong.** TR-7's circular census had been defended as complete. It
+  left out two of its four wrap classes. Measured, the circular space is about **1.407** times the linear
+  one, not three-quarters of it (CX-83, with the census in `reports/evidence/circular_census/`).
+- **Citations that had drifted.** `solve.c:N` line citations pointed at the wrong code in files no
+  gate checks (CX-85).
+
+**The Codex v3 review is now fully adjudicated.** Its remaining targets were worked in
+batches across the day, and every one now carries a recorded ruling. Several of the corrections above
+are its findings, and each entry that rests on one credits Codex and names the review target.
+
+**The atlas questions I never put in front of the operator.** When the n=31 campaign closed, I
+gave the operator a list of what had never been answered at n=31. I built that list from the
+battery's verdicts alone. It therefore left out three result-producing questions from the atlas-generation
+plan, each needing whole-ladder point lookups: a sampled null for King Wen's cell-percentile profile,
+King Wen's flip-neighbour profiles, and the extrema witness walks. None was
+run. None was declined with a reason. The ledger that was meant to record each as answered or
+declined was never built. My "yes" to tearing down the query host was true only narrowly: the
+fast copies on that host were verified copies of disks that still exist, so the teardown lost
+nothing. **This was my miss, not the operator's and not a lane's.** A list of open questions built
+from one instrument's outputs contains only what that instrument was asked. The questions are still
+answerable, because the ladder disks hold the bytes. They are filed as Q-781, and the operator has since
+directed that they be run.
+
+**The upload runner for the medium's cloud copy was dry-run on the real disks, and the real disks
+found a bug a synthetic test could not.** Its test suite was already green on stub trees built from
+the manifests. On the real disks, the first live test stopped fail-closed on its very first file:
+the runner could not find a size for a manifest. The three root manifests cannot list their own
+sizes, and the stage-level documents are sized in the root manifest, not the stage one. A tree built
+from the manifests could never exhibit that, because building it is exactly where the assumption
+lives. Nothing wrong was uploaded. After the fix, a full dry run over every file on the real prefix passed, and a
+deliberate collision failed as designed. The live upload waits on the operator.
+
+**The ladder-sha check counts layers; it does not identify them.** Preparing that same window, a lane found
+that the reproduction battery's ladder-digest row passes when the layer count is right and each
+layer matches the sidecar beside it. It never checks that the indices run exactly 0..N. The solver's
+directory form of the digest check also skips an unreadable layer and still exits 0. Both were reproduced at
+n=9 on the real function: a missing top layer replaced by a stray one reads OK, and so does an
+unreadable layer beside a stray. This is filed as Q-782 and is **not yet fixed**. The check is only as strong as
+its weakest leg, and until the fix lands it should be read as a count check.
+
+**Two smaller mistakes of mine, named.** A reproduction stamp was first minted on a worker that had
+a SAT solver on its PATH. That pinned a different skip reason from the one a reproducer without it
+would get. The batch was re-stamped with the solver off PATH, and the host dependence was filed. And
+a close note in the private adjudication ledger said a batch's rulings had all been appended when some
+had not. They were appended, and the note was annotated rather than reworded.
+
+**What did not move.** No canonical sha, no canonical record count, and no reproduction parameter
+moved. No sha, count or parameter in `documentation/CANONICAL_HASHES.md` moved across both days (two historical line citations in it were reworded, CX-92). `solve.c` changed only in what
+it prints, refuses and self-checks: a line-neutral print for the circular census, a duplicated failure
+line removed, a flag refusal, and new certificate self-check legs. The selftest was re-run after those
+changes and still reproduces `403f7202`. Several published sentences were withdrawn, and each is registered. One census changed a
+published ratio. Several checks that could not fail can now fail. The medium is validated but unminted.
+Three questions that were never asked have been put in front of the operator, and nothing is
+running.
+
+## 2026-06-17/19 — the native-gzip pipeline (#169): canonical campaigns on compressed disks, with every sha unchanged
+
+*Written late, on 2026-09-25, and placed here at the end because this file is append-only. A draft
+of this entry was written in June and held behind a gate: publish only after a 100T run under the
+new pipeline had landed byte-identical to the anchor. That condition was met on 2026-06-19, the day
+after the pipeline landed. Nothing re-read the gate, and the draft sat unported for three months. A
+gate that nothing re-examines is not a gate; it is a shelf. When the draft was finally re-read, it
+carried a 100T record count that had been publicly corrected in the meantime, and figures that no
+public document or evidence file carries. The first is corrected below, and the second are left out.*
+
+**The solver's large-file I/O was converted end to end to native zlib streaming** (public commit
+`d8671550`, 2026-06-17). That covers shard writes and reads, both merge paths (in-memory and external
+k-way), the external sort's spill and temp chunks, `solutions.bin`, and every reader, including
+`--verify`, `--analyze`, `--show` and `verify.py`. Compression is on by default
+(`SOLVE_COMPRESS=1`, level `SOLVE_GZIP_LEVEL=9`), and `SOLVE_COMPRESS=0` is a transparent raw escape
+hatch. Filenames did not change. Readers detect gzip by its magic bytes. **Every canonical sha is
+computed on the decompressed stream**, so the storage layer cannot move a canonical hash, and none
+moved.
+
+**Why it was built.** The next scale step was then planned as a 560T→1120T extension, and its raw
+peak footprint was several times larger than the disks a campaign could practically hold. That
+extension has not been planned since 2026-08-01 (CANONICAL_HASHES.md, CAMPAIGN_METHODOLOGY.md), so
+the goal it was built for no longer applies. What remains is the default framing of every
+`solutions.bin` the solver writes.
+
+**Correctness was checked at canonical scale, not just smoke-tested.**
+- The selftest reproduced `403f7202`, and the change was recorded as sha-neutral on it. An
+  eviction-resume regression test (#165) was added in the same commit.
+- At 1T the solver's auto-divided budget gave `74d39760` identically for gz, raw and a second build.
+  That value is the *reference-only* 1T row of CANONICAL_HASHES.md. The active 1T anchor is
+  `5a0f0bc2`, and the difference between the two is the budget, not the storage layer.
+- At 11.2T the first run under the new pipeline did **not** reproduce the anchor. `--validate-canonical`
+  derived the per-cell budget instead of injecting the published one, and produced `2184bdd8` against
+  `0c0fe37c`. That was diagnosed and fixed in the same commit, and it is recorded in CORRECTIONS.md
+  and BRANCHES_EXPLAINED.md. The post-fix 11.2T re-run was never added to CANONICAL_HASHES.md's
+  witness table, and this entry does not add it.
+- At 100T, a resumable external-merge rehearsal under the gz pipeline re-derived `915abf30`, with
+  **3,432,399,297 records** (public commit `522e75ff`, 2026-06-19). That commit's own message carries
+  a record count one higher, a figure later corrected. The value above is the one CANONICAL_HASHES.md
+  registers.
+- Both merge paths were checked to write **no uncompressed intermediate files**. Records exist
+  decompressed only in memory during the merge.
+
+**The rehearsal earned its cost by failing first.** At 100T it tripped a false FATAL in the external
+sort's post-write size check. gzip records the uncompressed size modulo 2³², so any chunk over 4 GiB
+"mismatched". The fix compares modulo 2³² for gz and directly for raw, and it does not change the
+merge output (#185, in `522e75ff`). No smaller run could have found it, because no smaller run
+writes a chunk that large.
+
+**A second trap came with the framing, and it has bitten since.** With `solutions.bin` gzip-framed by
+default, `sha256sum solutions.bin` hashes the *container*. That value matches nothing in the registry.
+The 1T gz ladder hit exactly that false mismatch. The canonical recipe is `gzip -dc solutions.bin | sha256sum`,
+and TR-3, SOLUTIONS_FORMAT.md and CANONICAL_HASHES.md all say so.
+
+**What compression buys, stated without the numbers.** It was measured at the time on a same-host
+benchmark: a large reduction in the on-disk footprint, and a small compute cost. It also reduces the
+*volume* written. It leaves the *count* of write operations and fsyncs essentially unchanged, because
+that count is set by the per-cell checkpoint cadence, not by compression. So gzip buys space and
+bandwidth. Relieving an fsync-bound bottleneck on slow rotational disks is a separate problem. That
+benchmark's figures were never published with their method, so they are not repeated here.
+
+**Build note.** The solver links zlib. Today's build line is
+`gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`, with the zlib headers present at compile time.

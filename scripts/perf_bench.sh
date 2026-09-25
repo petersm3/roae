@@ -76,7 +76,13 @@ SCALE=1T
 BRANCH_PAIR=24
 BRANCH_ORIENT=0
 THREADS=128
-PGO_WORKLOAD="SOLVE_NODE_LIMIT=200000000 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_THREADS=8 ./solve_inst --branch 25 1"
+# 🔴 2026-09-24 (Q-749, Codex v3 E3 V3A-118#2): SOLVE_ALLOW_SUB_CANONICAL=1 is REQUIRED here. A 2e8
+# node limit is below solve.c's canonical-stability threshold, and without the documented override
+# the guard refuses it (rc 25, 0.00 s, nothing profiled). The build step below ran it `|| true`
+# after the instrumented --selftest, and the selftest's own .gcda satisfied the ".gcda > 0" check,
+# so every --treatment-pgo bench was trained on the SELFTEST while reporting a PGO build.
+# Measured on the worker with the override: rc 0 in ~16 s (uninstrumented, 8 threads).
+PGO_WORKLOAD="SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_NODE_LIMIT=200000000 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_THREADS=8 ./solve_inst --branch 25 1"
 KEEP_VM=0
 THROTTLE_MIN_MHZ=3664   # AVX-512 definitive-bench precedent (PERFORMANCE_HISTORY.md, D128als_v7)
 BURN_SECS=60            # sample is taken at the END of the burn; the 2026-05-18 finding needs >=30 s
@@ -218,8 +224,18 @@ $SSH "$ADMIN@$VM_IP" "
             -DGIT_HASH=\\\"${TREATMENT_COMMIT}\\\" -o solve_U solve_trt.c -lm -lz 2>&1 | tail -2
         mv solve_U solve_inst
         ./solve_inst --selftest > /dev/null 2>&1
-        # PGO workload: representative hot paths
-        $PGO_WORKLOAD > /tmp/pgo_workload.log 2>&1 || true
+        # The selftest is a sanity gate, NOT training data: clear its .gcda so the count below
+        # can only be satisfied by the workload (Q-749; it used to satisfy it on its own).
+        rm -rf profdir && mkdir profdir
+        # PGO workload: representative hot paths. Its status is READ, not swallowed: a refused
+        # or failed workload leaves a profile of nothing, and Pass 2 must not build from it.
+        PGO_RC=0
+        $PGO_WORKLOAD > /tmp/pgo_workload.log 2>&1 || PGO_RC=\$?
+        if [ \"\$PGO_RC\" -ne 0 ]; then
+            echo \"FATAL: PGO workload exited rc=\$PGO_RC; refusing to build a PGO binary from it\" >&2
+            tail -5 /tmp/pgo_workload.log >&2
+            exit 1
+        fi
         # Assert profile data was produced before Pass 2
         GCDA=\$(find \$PWD/profdir -name '*.gcda' | wc -l)
         if [ \"\$GCDA\" -eq 0 ]; then

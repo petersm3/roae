@@ -46,7 +46,7 @@ import matplotlib.dates as mdates
 
 # Import solve.py (repo root) for the King Wen sequence — single source of truth.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from solve import binary_hexagrams  # noqa: E402
+from solve import binary_hexagrams, reverse_6bit  # noqa: E402
 
 
 # 🔴 Q-668, 2026-09-20. TEXT BAKED INTO A RENDERED FIGURE IS OUTSIDE EVERY GREP-BASED
@@ -62,9 +62,9 @@ from solve import binary_hexagrams  # noqa: E402
 #
 # ⚠ IT IS NOT COMPLETE, AND SAYING SO IS THE POINT. Labels built by f-string, string
 # concatenation or a call are COMPUTED at render time and exist as no literal anywhere.
-# Measured 2026-09-20: 34 static label sites, 10 computed ones. fig_tr12_kc_spectrum has
-# ZERO static labels -- every word it renders is computed, so this manifest covers none
-# of it. FIGURE_LABEL_UNCOVERED pins those counts as a RATCHET: new uncovered text cannot
+# Measured 2026-09-20: 34 static label sites, 10 computed ones. fig_tr12_kc_spectrum had
+# ZERO static labels then -- every word it rendered was computed; since 2026-09-24 it has
+# one (its x-axis label), and its titles are still computed. FIGURE_LABEL_UNCOVERED pins those counts as a RATCHET: new uncovered text cannot
 # appear silently, it has to move a number a test is watching.
 FIGURE_LABEL_MANIFEST = {
     'fig_tr12_kc_field': (
@@ -73,25 +73,33 @@ FIGURE_LABEL_MANIFEST = {
         'pair-slot (layer k fills slot k+2)',
     ),
     'fig_tr12_kc_grammar': (
+        # 2026-09-24: the title is now STATIC per branch (it was composed at runtime, which
+        # left the orbit caveat -- w is constant on each of the 7 pair-orbits, so a row is 3
+        # orbit-classes and NEVER an individual pair -- as text no gate could read).  All three
+        # branch literals are pinned; FIGURE_LABEL_UNCOVERED for this stem drops 1 -> 0.
+        'V5 — transition grammar P(class | layer k), exact over C1C2C4C5-SUPERSPACE\nread DOWN each column (every column sums to 1)\nREDUCED FORM: this table carries no w axis (w = -1), so a row is a distance class d and the white outline is King Wen\'s own d',
+        'V5 — transition grammar P(class | layer k), exact over C1C2C4C5-SUPERSPACE\nread DOWN each column (every column sums to 1)\nno King Wen overlay in this table — kw_d/kw_w match no plotted class at any layer (n != 31?)',
+        'V5 — transition grammar P(d, w | layer k), exact over C1C2C4C5-SUPERSPACE\nd = boundary distance to the new pair, w = within-pair distance of the new pair; read DOWN each column (every column sums to 1)\n⚠ w is CONSTANT on each of the 7 pair-orbits and takes only 3 values across them — a row is 3 orbit-classes, NEVER an individual pair',
         'layer k',
     ),
     'fig_tr12_kc_river': (
         'V2 — mass river: exact per-layer boundary-distance class mass (band AREAS are fixed by the C1+C5 theorem; only the shape across k is informative)',
         'branch (pair : entry hexagram), sorted by mass',
-        "branch panel — solution mass (bars) vs exhaustion cost (line); a small-but-expensive branch is the atlas's point",
+        "branch panel — solution mass (bars) vs exhaustion cost (line); measured at n=31 the two are CO-MONOTONE: no branch is small-but-expensive",
         'branch share of N',
         'layer k (fills pair-slot k+2)',
         'log10 exhaustion cost (t-units)',
         'share of C1C2C4C5-SUPERSPACE',
     ),
     'fig_tr12_kc_shells': (
-        'V4 — neighbourhood shells: exact completions remaining after each placement (annotation = # admissible alternatives)',
-        'log10 g(prefix) — completions remaining',
+        "V4 — King Wen's neighbourhood shells: exact completions remaining after each of King Wen's 31 free placements\nEVERY point is King Wen's own trajectory — this figure plots ONE walk, not a population (annotation = # admissible alternatives)",
+        "log10 g(King Wen's prefix) — completions remaining",
         'step (free placement i)',
-        'the surprise spectrum — the bars sum to log2 N (EW-1)',
+        "the surprise spectrum — King Wen's own per-step −log2 p_i; the bars sum to log2 N (EW-1). A step with ONE admissible alternative costs 0 bits.",
         '−log2 p_i (bits)',
     ),
     'fig_tr12_kc_spectrum': (
+        'x = rank / N',
     ),
     'fig_tr1_rules_tradeoff': (
         '0 — perfect',
@@ -119,11 +127,43 @@ FIGURE_LABEL_MANIFEST = {
     'fig_tr6_parity_alternations': (
         'pair position 1–32 (pair p = King Wen sequence positions 2p−1, 2p; class = popcount parity, E = even, O = odd; first pair {63, 0} is even — pinned by C4)',
     ),
+    'viz_narrative_n1_object': (
+        '',
+        'N-1 — the object: the received King Wen ordering of the 64 hexagrams, as its 32 consecutive pairs\ndrawn from the sequence itself (solve.py `binary_hexagrams`), not from a schematic',
+        'WHAT THIS IS — the received King Wen ordering. Each cell is one pair; the numbers beneath the two hexagrams are their sequence positions, so pair p occupies positions 2p−1 and 2p, and the grey\nthread runs 1 → 64 through the pairs in order. Lines are read bottom-to-top: a full bar is a solid (yang) line, a split bar a broken (yin) line.\nTHE PAIRING RULE (C1, documentation/SPECIFICATION.md) — the second hexagram of a pair is the first REVERSED (turned upside down); where a hexagram is its own reversal, its partner is the\nline-by-line COMPLEMENT instead. Both the split (28 reversal, 4 complement) and every individual pairing on this figure are derived from the sequence by the generator and asserted, not annotated by hand.\nTHE RULE IS CLASSICAL AND NOT A RESULT OF THIS PROJECT — it is stated explicitly by Kong Yingda (574–648) and has an earlier lineage. The classical formulation is quoted, in Chinese, in\ndocumentation/KING_WEN_PROVENANCE.md and SPECIFICATION.md; it is not reproduced in this figure only because the stock matplotlib font carries no CJK glyphs and would render it as empty boxes.\nThis figure makes no claim about the ordering. It is the object that every later claim in the narrative is a claim about.',
+    ),
+    'viz_narrative_n2_fg_mechanism': (
+        '',
+        'Every complete walk crosses every layer EXACTLY ONCE. So a walk through state s is a prefix that reaches s paired with a completion that leaves it —\nand the number of walks through s is the PRODUCT f(s)·g(s). Summing that product over every state in the layer counts every walk in the space, once:',
+        'N-2 — the f·g mechanism: how an exact count is COMPUTED rather than counted, over the C1C2C4C5-SUPERSPACE\nN = |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 — C3 is not among its constraints, and neither are C6/C7',
+        'NOTHING HERE IS SAMPLED, ESTIMATED OR FITTED. The sum runs over every state in the layer, the values are exact 192-bit integers, and the identity is CHECKED:\nreports/KC_G_CHECK_n31.txt evaluates it at all 32 layers and reports 0 failing layers. This is why N can be COMPUTED from a completed ladder in seconds\nrather than counted — the enumerator never has to visit the walks in order to count them.',
+        'f — the FORWARD ladder, built k = 0 → 31',
+        'f(s) = the exact number of valid PREFIXES that reach state s',
+        'g — the BACKWARD ladder, built k = 31 → 0',
+        'g(s) = the exact number of COMPLETIONS from state s',
+        'k = 0\n(empty prefix)',
+        'k = 31\n(a complete walk)',
+        'log10 of the exact count',
+        'one layer k — a cut across every walk',
+        "step i — King Wen's 31 free placements (C4 pins the first pair-slot); step i arrives at ladder layer k = i",
+        "the same two quantities as PUBLISHED EXACT INTEGERS, along King Wen's own walk — f rises as prefixes accumulate, g falls as freedom is spent",
+        'Σ over EVERY state s in layer k:   orbit(mask(s)) · f(s) · g(s)   =   N',
+        '— and this holds at every one of the 32 layers, k = 0 … 31',
+        '⚠ This panel is ONE walk. For a single state, f(s)·g(s) is the number of walks THROUGH THAT STATE — it is not N.\nOnly the sum over the whole layer, in the panel above, equals N.',
+    ),
+    'viz_scale': (
+        '',
+        'N = 1,097,051,278,789,181,790,036,112,071,176,579,186,688   (exact, two-instrument; 24 | N)',
+        'POINTS — d3 canonical record counts: the orderings satisfying C1–C5 that the enumerator FOUND WITHIN ITS PER-CELL NODE BUDGET. Each canonical is an exactly-reproducible\nBUDGETED SLICE of C1–C5, and its record count is a LOWER BOUND on the C1–C5 population — not that population\'s size (documentation/SOLUTIONS_FORMAT.md).\nLINE — N = |C1∩C2∩C4∩C5|, the EXACT cardinality of the C1C2C4C5-SUPERSPACE, computed by the knowledge compiler from a completed ladder. C3 is NOT among its\nconstraints, and neither are C6/C7, so N is not a count of C1–C5 either.\nTHE GAP is between a BUDGETED SLICE and a COMPILED SUPERSPACE. It is NOT "how much of the space we found": the two series do not count the same set, and no\nrecord count on this figure is a fraction of N. What the gap does show is that more budget is not a route — it is why the space is compiled rather than enumerated.',
+        'The scale figure — a node-BUDGETED SLICE of C1–C5 against the EXACT compiled C1C2C4C5-SUPERSPACE\nthree canonical enumerations; N sits ~29 decades above the deepest, counted in different units (see caption)',
+        'count (log scale) — ⚠ the two series COUNT DIFFERENT SPACES, see caption',
+        'per-cell node budget, SOLVE_PER_SUB_BRANCH_LIMIT (log scale)',
+    ),
 }
 
 FIGURE_LABEL_UNCOVERED = {
     'fig_tr12_kc_field': 0,
-    'fig_tr12_kc_grammar': 1,
+    'fig_tr12_kc_grammar': 0,
     'fig_tr12_kc_river': 0,
     'fig_tr12_kc_shells': 1,
     'fig_tr12_kc_spectrum': 2,
@@ -131,6 +171,9 @@ FIGURE_LABEL_UNCOVERED = {
     'fig_tr3_campaign_timeline': 1,
     'fig_tr4_boundary_information': 1,
     'fig_tr6_parity_alternations': 3,
+    'viz_narrative_n1_object': 3,
+    'viz_narrative_n2_fg_mechanism': 0,
+    'viz_scale': 2,
 }
 
 
@@ -270,7 +313,7 @@ def fig_tr4_boundary_information():
     # from assertion — the same reason the 2026-08-01 note above paraphrases rather than quotes. A
     # boundary constraint pins PAIR IDENTITY ONLY — solve.c:7899 constrains the pair index chosen
     # at a step and leaves the orientation loop untouched, and SOLVE_KNUTH_PIN_SLOTS accepts steps
-    # 1-31 (solve.c:39901) — so pinning is blind to the orientation layer by construction. Pin all
+    # 1-31 (solve.c:41140) — so pinning is blind to the orientation layer by construction. Pin all
     # 31 and 1,720,320 orderings remain: King Wen's C4-oriented orientation fibre (TR-1 §7, gated
     # by doc_gates.sh GATE 32, recomputed with `python3 verify.py --recount-fiber`). The reachable
     # floor is therefore 1,720,320/N_total = 1.29e-32, and 1/N_total = 7.53e-39 sits
@@ -483,6 +526,255 @@ def fig_tr3_campaign_timeline():
     save(fig, "fig_tr3_campaign_timeline")
 
 
+
+# ---------------------------------------------------------------------------
+# THE SCALE FIGURE (spec: viz/viz_scale.md) — the three canonicals' record
+# counts with N, the exact compiled superspace count, as one horizontal line.
+#
+# 🔴 THE CAPTION IS THE WHOLE RISK, AND THE SPEC PAGE SAYS SO. This figure puts
+# two counts of DIFFERENT SPACES on one axis: the points are record counts over
+# node-BUDGETED SLICES of C1–C5, each a LOWER BOUND (SOLUTIONS_FORMAT.md); the
+# line is the EXACT |C1∩C2∩C4∩C5| of the C1C2C4C5-SUPERSPACE, which does not
+# have C3 among its constraints and does not have C6/C7 either. Putting them on
+# one axis is the point of the figure; a caption that says only "solutions"
+# invites exactly the conflation it was drawn to prevent. Both space labels go
+# in the CAPTION, not in a footnote, and the gap is named as a gap between a
+# budgeted slice and a compiled superspace — never as "how much of the space we
+# found". viz_scale.md §"The caption MUST carry BOTH space labels".
+#
+# AXIS CHOICE: the axis runs the FULL ~29 decades, unbroken. The REASONING for
+# that choice is NOT repeated here — it belongs to the spec page, which asked
+# that the drafter state it "in the page, not in the image", and this comment
+# was the one place it had been left instead. See viz_scale.md §"Decided at
+# drafting — axis treatment". The `assert` on `decades` below is that decision
+# made enforceable; keep the two in sync via the page, not by editing this line.
+# ---------------------------------------------------------------------------
+def fig_viz_scale():
+    # x — per-cell node budget (SOLVE_PER_SUB_BRANCH_LIMIT, the only budget the
+    #     DFS enforces): documentation/CANONICAL_HASHES.md §"Reproducibility
+    #     parameters", the d3 11.2T / 100T / 560T recipe rows.
+    # y — canonical record counts + sha prefixes: CANONICAL_HASHES.md registry.
+    #     ⚠ The 100T count here is 3,432,399,297. viz/growth_curve.py still
+    #     carries 3,432,399,298, which CANONICAL_HASHES.md §"d3 100T" explicitly
+    #     corrects (2026-07-04): the retired value divided the file size by 32
+    #     without subtracting the 32-byte header. The published count is used.
+    SCALES = [
+        (70_723_196,    759_608_573,    "11.2T", "0c0fe37c"),
+        (631_456_644,   3_432_399_297,  "100T",  "915abf30"),
+        (3_536_157_207, 10_525_271_997, "560T",  "9a968fa2"),
+    ]
+    # N = |C1 ∩ C2 ∩ C4 ∩ C5|, EXACT (two-instrument, mod-24 gated) — from
+    # reports/METHODS.md §"Canonical quantities", TR-11 §9, and the n=31 row of
+    # documentation/VERIFY.md (`solve --kc-count` against a completed Stage F
+    # ladder, 10.3 s). The digits are copied from the published sources, never
+    # retyped; the mod-24 assert below is the reader's one-line check.
+    N = 1097051278789181790036112071176579186688
+    assert N % 24 == 0, "TR-5 free-action gate: 24 | N (documentation/VERIFY.md)"
+
+    budgets = np.array([s[0] for s in SCALES], dtype=float)
+    records = np.array([s[1] for s in SCALES], dtype=float)
+    # Power-law fit over the three measured points — the same arithmetic
+    # viz/growth_curve.py publishes (α ≈ 0.67, CANONICAL_HASHES.md §"d3 560T").
+    alpha, logk = np.polyfit(np.log(budgets), np.log(records), 1)
+    kfit = math.exp(logk)
+    assert 0.6 < alpha < 0.75, "published 3-point fit is alpha ~ 0.67"
+    # The gap, from the published constants alone: N / (deepest measured slice).
+    decades = math.log10(N) - math.log10(SCALES[-1][1])
+    assert 28.5 < decades < 29.5, "viz_scale.md: the line sits ~29 decades up"
+
+    fig, ax = plt.subplots(figsize=(11.5, 9.5), dpi=150)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+
+    xs = np.logspace(math.log10(budgets.min() * 0.45), math.log10(budgets.max() * 2.6), 200)
+    ax.plot(xs, kfit * xs ** alpha, "-", color="#1f77b4", lw=1.4, alpha=0.75, zorder=3)
+    ax.scatter(budgets, records, s=110, color="#d32f2f", zorder=6,
+               label="d3 canonical record counts — a BUDGETED SLICE of C1–C5 (each a LOWER BOUND)")
+    ax.plot([], [], "-", color="#1f77b4", lw=1.4, alpha=0.75,
+            label=f"power-law fit over the three measured points (α ≈ {alpha:.2f} < 1 ⇒ sublinear)")
+    for b, r, lab, sh in zip(budgets, records, [s[2] for s in SCALES], [s[3] for s in SCALES]):
+        # ABOVE-right, not below. At (13, -30) the label is thrown downward into the x-axis
+        # tick labels: measured on the first render, `0c0f687c` crossed the 10^9 tick and
+        # `915abf30` was struck through by the axis line. The band between the points and the
+        # N line is empty, so upward is free.
+        ax.annotate(f"{lab}\n{r:,.0f}\nsha {sh}…", (b, r), textcoords="offset points",
+                    xytext=(11, 15), fontsize=8.5, color="#8b1a1a")
+
+    # N — the one horizontal line this figure adds to the existing growth curve.
+    ax.axhline(N, color="#6a1b9a", lw=2.0, zorder=5,
+               label="N = |C1∩C2∩C4∩C5| — the EXACT count of the C1C2C4C5-SUPERSPACE (C3 not applied)")
+    ax.text(budgets.min() * 0.5, N * 2.2,
+            "N = 1,097,051,278,789,181,790,036,112,071,176,579,186,688   "
+            "(exact, two-instrument; 24 | N)",
+            fontsize=9.5, color="#4a148c", va="bottom")
+
+    # The gap itself, drawn at the deepest measured budget.
+    ax.annotate("", xy=(budgets[-1], N), xytext=(budgets[-1], records[-1]),
+                arrowprops=dict(arrowstyle="<->", color="#6a1b9a", lw=1.8, alpha=0.9))
+    ax.text(budgets[-1] * 1.25, 10 ** ((math.log10(N) + math.log10(records[-1])) / 2),
+            f"N / (deepest measured slice)\n= 1.097×10³⁹ / 1.053×10¹⁰\n"
+            f"≈ 1.04×10²⁹  ({decades:.1f} decades)",
+            fontsize=10, color="#4a148c", va="center")
+
+    ax.set_xlim(budgets.min() * 0.4, budgets.max() * 12)
+    ax.set_ylim(1e8, 1e42)
+    ax.set_xlabel("per-cell node budget, SOLVE_PER_SUB_BRANCH_LIMIT (log scale)", fontsize=11.5)
+    ax.set_ylabel("count (log scale) — ⚠ the two series COUNT DIFFERENT SPACES, see caption",
+                  fontsize=11.5)
+    ax.set_title("The scale figure — a node-BUDGETED SLICE of C1–C5 against the EXACT compiled "
+                 "C1C2C4C5-SUPERSPACE\nthree canonical enumerations; N sits ~29 decades above "
+                 "the deepest, counted in different units (see caption)", fontsize=12.5)
+    ax.grid(True, which="both", ls=":", alpha=0.4)
+    # 🔴 THIS PLACEMENT WAS WRONG THREE TIMES, SO THE REASONING IS RECORDED, NOT THE ANSWER.
+    # `upper left` sat on the N annotation at (budgets.min()*0.5, N*2.2) — on the 40-digit
+    # exact N. `lower right` struck through the 100T point's sha label. `lower left` then
+    # covered the 11.2T label. All three failed for ONE structural reason: every datum in this
+    # figure lives in a thin band at the BOTTOM (records ~1e8..1e10) or in a single line at the
+    # TOP (N ~1e39), and the point annotations follow the points. Any corner is therefore
+    # occupied. The empty region is the MIDDLE-LEFT — ~29 decades of blank between the two
+    # series, which is the very gap this figure exists to show.
+    ax.legend(fontsize=9, loc="center left")
+    ax.set_facecolor("#f8f8f8")
+
+    fig.text(0.5, -0.085,
+             "POINTS — d3 canonical record counts: the orderings satisfying C1–C5 that the enumerator FOUND WITHIN ITS "
+             "PER-CELL NODE BUDGET. Each canonical is an exactly-reproducible\nBUDGETED SLICE of C1–C5, and its record "
+             "count is a LOWER BOUND on the C1–C5 population — not that population's size (documentation/SOLUTIONS_FORMAT.md).\n"
+             "LINE — N = |C1∩C2∩C4∩C5|, the EXACT cardinality of the C1C2C4C5-SUPERSPACE, computed by the knowledge "
+             "compiler from a completed ladder. C3 is NOT among its\nconstraints, and neither are C6/C7, so N is not a "
+             "count of C1–C5 either.\n"
+             "THE GAP is between a BUDGETED SLICE and a COMPILED SUPERSPACE. It is NOT \"how much of the space we found\": "
+             "the two series do not count the same set, and no\nrecord count on this figure is a fraction of N. What the "
+             "gap does show is that more budget is not a route — it is why the space is compiled rather than enumerated.",
+             ha="center", va="top", fontsize=9, color="#333333")
+
+    fig.tight_layout()
+    save(fig, "viz_scale",
+         "source: documentation/CANONICAL_HASHES.md (budgets, record counts, shas)  "
+         "reports/METHODS.md §Canonical quantities + TR-11 §9 (N)  "
+         "spec: viz/viz_scale.md   (viz/report_figures.py)")
+
+
+# ---------------------------------------------------------------------------
+# N-1 — THE OBJECT (spec: viz/viz_narrative.md §"Figure N-1"), narrative §1.
+#
+# Job: show what a King Wen ordering IS, before any claim is made about it —
+# 64 hexagrams, 32 pairs, the pairing rule visible, the sequence running
+# through them.
+#
+# 🔴 THE SPEC'S STATED FAILURE MODE: "it must be drawn from the actual King Wen
+# sequence, not a schematic. The pairing is the content; a stylised diagram that
+# gets the pairing approximately right is worse than no figure, because it looks
+# authoritative." So every glyph here is rendered from solve.py's
+# `binary_hexagrams` (the repo's single source of truth for the sequence) and
+# every pair's TYPE is derived with solve.py's own `reverse_6bit` — no pairing
+# is hand-written here, and the 28/4 split is ASSERTED, not annotated. If the
+# sequence or the rule moved, this figure would fail rather than mislead.
+# ---------------------------------------------------------------------------
+def fig_viz_narrative_n1_object():
+    # Bit convention (solve.py:32, restated verify.py): bit 0 = bottom line,
+    # bit 5 = top; 1 = solid (yang), 0 = broken (yin). Source OEIS A102241.
+    seq = list(binary_hexagrams)
+    assert len(seq) == 64 and sorted(seq) == list(range(64)), \
+        "the sequence must be a permutation of all 64 hexagrams"
+
+    # C1 (documentation/SPECIFICATION.md §C1): s_{i+1} = partner(s_i), where
+    # partner is the reversal, or the complement for the 8 reversal-symmetric
+    # hexagrams (the 6-bit palindromes). Derived, never tabulated by hand.
+    def partner(h):
+        r = reverse_6bit(h)
+        return r if r != h else h ^ 0b111111
+    pairs = [(seq[2 * i], seq[2 * i + 1]) for i in range(32)]
+    kinds = []
+    for a, b in pairs:
+        assert b == partner(a), "C1 pairing must hold on the received sequence"
+        kinds.append("reversal" if reverse_6bit(a) != a else "complement")
+    assert kinds.count("reversal") == 28 and kinds.count("complement") == 4, \
+        "the received sequence pairs 28 by reversal and 4 by complement"
+
+    C_REV, C_COMP, C_INK = "#1f77b4", "#d32f2f", "#222222"
+    W, LT, LP = 1.0, 0.085, 0.155        # glyph width, line thickness, line pitch
+    DX, PX, PY = 1.25, 2.95, 2.25        # within-pair offset, pair pitch, row pitch
+    GH = 6 * LP                          # glyph height
+
+    fig, ax = plt.subplots(figsize=(16.5, 8.4), dpi=150)
+
+    def hexagram(x0, y0, v):
+        for L in range(6):                       # L = 0 is the BOTTOM line
+            y = y0 + L * LP
+            if (v >> L) & 1:
+                ax.add_patch(plt.Rectangle((x0, y), W, LT, facecolor=C_INK, lw=0))
+            else:
+                ax.add_patch(plt.Rectangle((x0, y), 0.42 * W, LT, facecolor=C_INK, lw=0))
+                ax.add_patch(plt.Rectangle((x0 + 0.58 * W, y), 0.42 * W, LT,
+                                           facecolor=C_INK, lw=0))
+
+    centers = []
+    for p, ((a, b), kind) in enumerate(zip(pairs, kinds)):
+        r, c = p // 8, p % 8
+        x0, y0 = c * PX, -r * PY
+        col = C_REV if kind == "reversal" else C_COMP
+        ax.add_patch(plt.Rectangle((x0 - 0.16, y0 - 0.5), DX + W + 0.32, GH + 0.94,
+                                   fill=False, edgecolor=col, lw=1.5))
+        hexagram(x0, y0, a)
+        hexagram(x0 + DX, y0, b)
+        ax.text(x0 + W / 2, y0 - 0.30, str(2 * p + 1), ha="center", fontsize=7.5, color="#555555")
+        ax.text(x0 + DX + W / 2, y0 - 0.30, str(2 * p + 2), ha="center", fontsize=7.5,
+                color="#555555")
+        ax.text(x0 + (DX + W) / 2, y0 + GH + 0.56, f"pair {p + 1}", ha="center", fontsize=7.5,
+                color=col)
+        centers.append((x0 + (DX + W) / 2, y0 + GH / 2, r))
+
+    # The sequence thread: positions 1 -> 64 run through the pairs in order.
+    for i in range(31):
+        (x1, y1, r1), (x2, y2, r2) = centers[i], centers[i + 1]
+        if r1 == r2:
+            ax.annotate("", xy=(x2 - 1.28, y2), xytext=(x1 + 1.28, y1),
+                        arrowprops=dict(arrowstyle="->", color="#9e9e9e", lw=1.1))
+        else:
+            ax.plot([x1 + 1.28, x1 + 1.95, x1 + 1.95], [y1, y1, y1 - PY + 0.35],
+                    color="#9e9e9e", lw=1.1, ls=":")
+            ax.plot([x1 + 1.95, -1.05, -1.05], [y1 - PY + 0.35, y1 - PY + 0.35, y2],
+                    color="#9e9e9e", lw=1.1, ls=":")
+            ax.annotate("", xy=(x2 - 1.28, y2), xytext=(-1.05, y2),
+                        arrowprops=dict(arrowstyle="->", color="#9e9e9e", lw=1.1))
+
+    from matplotlib.lines import Line2D
+    ax.legend(handles=[
+        Line2D([], [], color=C_REV, lw=1.5, label="pair joined by REVERSAL — the second hexagram "
+                                                  "is the first turned upside down (28 pairs)"),
+        Line2D([], [], color=C_COMP, lw=1.5, label="pair joined by COMPLEMENT — used where a "
+                                                   "hexagram is its own reversal (4 pairs)"),
+        Line2D([], [], color="#9e9e9e", lw=1.1, label="sequence order: positions 1 → 64"),
+    ], fontsize=9.5, loc="upper center", bbox_to_anchor=(0.5, -0.005), ncol=3, frameon=False)
+
+    ax.set_xlim(-1.9, 7 * PX + DX + W + 0.6)
+    ax.set_ylim(-3 * PY - 1.55, GH + 1.35)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_title("N-1 — the object: the received King Wen ordering of the 64 hexagrams, "
+                 "as its 32 consecutive pairs\ndrawn from the sequence itself (solve.py "
+                 "`binary_hexagrams`), not from a schematic", fontsize=13)
+
+    fig.text(0.5, 0.012,
+             "WHAT THIS IS — the received King Wen ordering. Each cell is one pair; the numbers beneath the two hexagrams are their "
+             "sequence positions, so pair p occupies positions 2p−1 and 2p, and the grey\nthread runs 1 → 64 through the pairs in order. "
+             "Lines are read bottom-to-top: a full bar is a solid (yang) line, a split bar a broken (yin) line.\n"
+             "THE PAIRING RULE (C1, documentation/SPECIFICATION.md) — the second hexagram of a pair is the first REVERSED (turned upside "
+             "down); where a hexagram is its own reversal, its partner is the\nline-by-line COMPLEMENT instead. Both the split (28 reversal, "
+             "4 complement) and every individual pairing on this figure are derived from the sequence by the generator and asserted, not "
+             "annotated by hand.\n"
+             "THE RULE IS CLASSICAL AND NOT A RESULT OF THIS PROJECT — it is stated explicitly by Kong Yingda (574–648) and has an earlier "
+             "lineage. The classical formulation is quoted, in Chinese, in\ndocumentation/KING_WEN_PROVENANCE.md and SPECIFICATION.md; it is "
+             "not reproduced in this figure only because the stock matplotlib font carries no CJK glyphs and would render it as empty boxes.\n"
+             "This figure makes no claim about the ordering. It is the object that every later claim in the narrative is a claim about.",
+             ha="center", va="bottom", fontsize=9, color="#333333")
+
+    fig.tight_layout(rect=(0, 0.145, 1, 1))
+    save(fig, "viz_narrative_n1_object",
+         "source: solve.py binary_hexagrams (King Wen sequence, OEIS A102241)  "
+         "pairing rule: documentation/SPECIFICATION.md §C1  "
+         "spec: viz/viz_narrative.md §N-1   (viz/report_figures.py)")
 
 
 # ===========================================================================
@@ -761,13 +1053,17 @@ def fig_tr12_kc_river(river_tsv, branches_tsv):
         ax.step(ks, y, where="mid", color="#111111", lw=1.0, zorder=7,
                 label="King Wen's own class")
     ax.set_xlim(min(ks), max(ks))
-    ax.set_ylim(0, 1)
+    # 2026-09-24: headroom ABOVE 1.0 for the legend.  With ylim (0, 1) the upper-right legend
+    # sat on the d = 6 band and hid King Wen's step at k = 18 -- the one layer where King Wen
+    # stands in d = 6, i.e. the "9th six" the page tells the reader to look for.
+    ax.set_ylim(0, 1.10)
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
     ax.set_xlabel("layer k (fills pair-slot k+2)", fontsize=10)
     ax.set_ylabel("share of C1C2C4C5-SUPERSPACE", fontsize=10)
     ax.set_title("V2 — mass river: exact per-layer boundary-distance class mass "
                  "(band AREAS are fixed by the C1+C5 theorem; only the shape across k "
                  "is informative)", fontsize=11)
-    ax.legend(fontsize=8.5, loc="upper right", ncol=len(ds) + 1)
+    ax.legend(fontsize=8.5, loc="upper center", ncol=len(ds) + 1, frameon=False)
     if have_b:
         br = _read_tsv(branches_tsv,
                        required=("branch", "pair", "entry", "share", "prefixes_t_units"))
@@ -790,8 +1086,13 @@ def fig_tr12_kc_river(river_tsv, branches_tsv):
                      label="log10 prefixes_t_units")
             ax3.set_ylabel("log10 exhaustion cost (t-units)", fontsize=9, color="#d32f2f")
             ax3.tick_params(axis="y", labelcolor="#d32f2f")
+        # 🔴 2026-09-24: this title read "a small-but-expensive branch is the atlas's point",
+        # and the panel it titles shows NO such branch.  Measured on the committed n=31
+        # tr12/scan/v2_branches.tsv: 0 of 1,540 branch pairs are discordant (a smaller mass
+        # with a larger cost); the 56 branches fall into 7 mass levels mapping one-to-one onto
+        # 7 cost levels; cost/mass spans 7.65-8.20.  The title now states what is drawn.
         ax2.set_title("branch panel — solution mass (bars) vs exhaustion cost "
-                      "(line); a small-but-expensive branch is the atlas's point",
+                      "(line); measured at n=31 the two are CO-MONOTONE: no branch is small-but-expensive",
                       fontsize=10)
     fig.tight_layout()
     save(fig, "fig_tr12_kc_river", _prov(river_tsv, branches_tsv))
@@ -810,8 +1111,9 @@ def fig_tr12_kc_grammar(tsv):
     for r in rows:
         r["_crank"] = str(_cr[(int(r["d"]), int(r["w"]))])
     _check_grid(rows, ("k", "_crank"), tsv)
-    # 🔴 Q-316 item (4).  The `w` (new-pair category) axis is PENDING -- viz_kc_grammar.md
-    # marks it so, and the emitter writes the honest placeholder w=-1 on every row.  The
+    # 🔴 Q-316 item (4).  A table WITHOUT the `w` axis (an atlas with no kernel -- the emitter
+    # then writes the honest placeholder w=-1 on every row; the committed full-31 table HAS
+    # the axis since 2026-09-23, w in {2,4,6}) must still get its King Wen overlay.  The
     # King Wen overlay matched on (kw_d == d AND kw_w == w), and at full-31 kw_w is a real
     # within-pair distance in {2,4,6}, so `kw_w == -1` is FALSE on every row and the outline
     # the caption promised COULD NEVER BE DRAWN.  A caption describing a mark the figure
@@ -844,8 +1146,10 @@ def fig_tr12_kc_grammar(tsv):
         # legend, since a reader sees a caption with no key. The dark patch reproduces the
         # background the marker actually sits on, so the key looks like what it labels.
         _lg = ax.legend(handles=[Line2D([], [], color="#ffffff", lw=1.8,
-                                        label="King Wen's own class at this layer")],
-                        fontsize=8.5, loc="upper center", bbox_to_anchor=(0.5, -0.20),
+                                        label=("King Wen's own distance class d at this layer"
+                                               if reduced else
+                                               "King Wen's own (d, w) cell at this layer"))],
+                        fontsize=8.5, loc="upper center", bbox_to_anchor=(0.5, -0.09),
                         frameon=True, facecolor="#33324a", edgecolor="#33324a",
                         labelcolor="#ffffff")
         _lg.get_frame().set_alpha(1.0)
@@ -854,16 +1158,28 @@ def fig_tr12_kc_grammar(tsv):
     ax.set_xticks(range(len(ks)))
     ax.set_xticklabels([str(k) for k in ks], fontsize=7)
     ax.set_xlabel("layer k", fontsize=10)
-    _kwnote = ("white outline = King Wen's own DISTANCE class (the new-pair-category axis "
-               "is PENDING, so a row is a class)" if reduced else
-               "white outline = King Wen's own (distance, category) class")
+    # 🔴 THE TITLE IS STATIC, BRANCH BY BRANCH (2026-09-24).  It used to be composed at
+    # runtime (a conditional `_kwnote` concatenated into set_title), which made the orbit
+    # caveat below text no gate could read -- see the FIGURE_LABEL_MANIFEST note.  Each branch
+    # now passes ONE literal, so all three are manifested.  It was also ONE subtitle line of
+    # ~230 characters, which bbox_inches="tight" honoured by widening the canvas to ~3100 px
+    # with the heat map stranded in the middle; it is now wrapped.
     if not marks:
-        _kwnote = ("no King Wen overlay in this table — kw_d carries no layer that matches "
-                   "a plotted class (n != 31?)")
-    ax.set_title("V5 — transition grammar P(class | layer k), exact over "
-                 "C1C2C4C5-SUPERSPACE\nread DOWN each column (every column sums to 1); "
-                 + _kwnote,
-                 fontsize=11)
+        ax.set_title("V5 — transition grammar P(class | layer k), exact over C1C2C4C5-SUPERSPACE\n"
+                     "read DOWN each column (every column sums to 1)\n"
+                     "no King Wen overlay in this table — kw_d/kw_w match no plotted class "
+                     "at any layer (n != 31?)", fontsize=11)
+    elif reduced:
+        ax.set_title("V5 — transition grammar P(class | layer k), exact over C1C2C4C5-SUPERSPACE\n"
+                     "read DOWN each column (every column sums to 1)\n"
+                     "REDUCED FORM: this table carries no w axis (w = -1), so a row is a distance "
+                     "class d and the white outline is King Wen's own d", fontsize=11)
+    else:
+        ax.set_title("V5 — transition grammar P(d, w | layer k), exact over C1C2C4C5-SUPERSPACE\n"
+                     "d = boundary distance to the new pair, w = within-pair distance of the new pair; "
+                     "read DOWN each column (every column sums to 1)\n"
+                     "⚠ w is CONSTANT on each of the 7 pair-orbits and takes only 3 values across "
+                     "them — a row is 3 orbit-classes, NEVER an individual pair", fontsize=11)
     fig.colorbar(im, ax=ax, label="P(class | layer k)")
     fig.tight_layout()
     save(fig, "fig_tr12_kc_grammar", _prov(tsv))
@@ -987,18 +1303,208 @@ def fig_tr12_kc_spectrum(tsv):
         a.set_title(name + (" (— King Wen)" if ref in rows[0] else ""), fontsize=9)
         a.grid(True, ls=":", alpha=0.4)
         a.tick_params(labelsize=7)
+        # 2026-09-24: the x axis carried NO label on any panel -- "x = rank / N" lived only
+        # in the suptitle.  Label the bottom panel of every column.
+        if idx + ncol >= len(obs):
+            a.set_xlabel("x = rank / N", fontsize=8)
     for idx in range(len(obs), nrow * ncol):
         axes[idx // ncol][idx % ncol].axis("off")
+    # 2026-09-24: the dropped constants are NAMED (TR-12 §2's caption says they are "named in
+    # the subtitle"; the subtitle gave only a count), and the panels WITHOUT a line are named
+    # too, so a missing line cannot be read as a missing value.  Wrapped onto lines: one line
+    # of all of this widened the canvas.
+    unmarked = [c for c in obs if "kw_" + c not in rows[0]]
     fig.suptitle(f"V3 — rank spectrum in {orders[0]} order: observable drift across the "
-                 f"index (x = rank / N)"
-                 + (f"   [{marked}/{len(obs)} panel(s) carry King Wen's value as a dashed "
-                    f"reference line]" if marked else
-                    "   [no kw_* reference values in this TSV — no King Wen line drawn]")
-                 + (f"   [{len(const)} constant observable(s) dropped]" if const else ""),
-                 fontsize=12)
+                 f"index (x = rank / N)\n"
+                 + (f"dashed red = King Wen's value, on {marked}/{len(obs)} panels; no line on "
+                    f"{', '.join(unmarked)}\nthe TSV supplies no King Wen value for those: they "
+                    f"measure similarity TO King Wen, so its value is extreme by construction "
+                    f"(viz_kc_spectrum.md)"
+                    if marked and unmarked else
+                    f"dashed red = King Wen's value, on all {marked} panels" if marked else
+                    "no kw_* reference values in this TSV — no King Wen line drawn")
+                 + (f"\ndropped as CONSTANT on the whole grid (no spectrum to draw): "
+                    f"{', '.join(f'{c} = {rows[0][c]}' for c in const)}" if const else ""),
+                 fontsize=11)
     fig.tight_layout()
     save(fig, "fig_tr12_kc_spectrum", _prov(tsv))
     return True
+
+
+# ---------------------------------------------------------------------------
+# N-2 — THE f·g MECHANISM (spec: viz/viz_narrative.md §"Figure N-2"), §§4-5.
+#
+# Job: show how the forward and backward ladders meet — that a count at layer k
+# is a product of what ARRIVES from one end and what DEPARTS from the other,
+# and that this is why an exact count is possible without enumeration.
+#
+# 🔴 THE SPEC'S STATED FAILURE MODE: "the figure must not imply the ladders are
+# SAMPLED. The mechanism is exact; a drawing that suggests estimation would
+# undercut the very claim it is illustrating." Three things are done about that,
+# none of them decorative: (i) the identity is drawn as a SUM OVER EVERY STATE
+# in the layer, with the words "every" and "exact" carried in the panel itself;
+# (ii) the evidence cited is reports/KC_G_CHECK_n31.txt, which checks the
+# identity at all 32 layers with 0 failing layers, so the claim is a receipt
+# rather than an assertion; (iii) the lower panel plots PUBLISHED EXACT
+# INTEGERS from tr12/q3_profile_kw.tsv -- no fit, no smoothing, no error band,
+# because there is no error to band.
+#
+# TWO INDEX CONVENTIONS EXIST AND ARE DELIBERATELY NOT MIXED. The ladder
+# convention (documentation/GT_LADDER_FORMAT.md) has layers k = 0..31, layer k
+# holding states with popcount(mask) = k -- that is the top panel. The walk
+# convention (tr12/q3_profile_kw.tsv, viz/viz_kc_shells.md) indexes the 31 FREE
+# placements as step 1..31 -- that is the bottom panel. The bottom panel's
+# caption says which it is using.
+# ---------------------------------------------------------------------------
+@_shape_guarded("N-2 f·g mechanism")
+def fig_viz_narrative_n2_fg_mechanism(tsv=None):
+    if tsv is None:
+        tsv = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                           "tr12", "q3_profile_kw.tsv")
+    if not os.path.exists(tsv):
+        return _missing(tsv, "N-2 f·g mechanism",
+                        how="python3 solve.py --kc-profile against a completed ladder; "
+                            "the published copy is tr12/q3_profile_kw.tsv")
+    # f and g are exact 192-bit decimal STRINGS; they are never float()-ed, only
+    # placed on a log axis by digit count (_log10_bigint), as in V4.
+    rows = _read_tsv(tsv, required=("step", "f", "g"))
+    _check_grid(rows, ("step",), tsv)
+    steps = [int(r["step"]) for r in rows]
+    lf = [_log10_bigint(r["f"]) for r in rows]
+    lg = [_log10_bigint(r["g"]) for r in rows]
+
+    fig, (ax, ax2) = plt.subplots(2, 1, figsize=(13.5, 11), dpi=150,
+                                  gridspec_kw={"height_ratios": [3, 4]})
+
+    # ---- panel A: the mechanism ------------------------------------------
+    ax.set_xlim(0, 31)
+    ax.set_ylim(0, 10)
+    ax.axis("off")
+    KCUT = 17
+    for k in range(32):                      # the 32 layers, k = 0..31
+        ax.plot([k, k], [3.9, 4.9], color="#d0d0d0", lw=1.0, zorder=1)
+    ax.plot([0, 31], [4.4, 4.4], color="#bdbdbd", lw=1.2, zorder=1)
+    ax.plot([KCUT, KCUT], [3.1, 5.7], color="#6a1b9a", lw=2.4, zorder=4)
+    # Below the axis on purpose: above it this label lands on the identity's
+    # second line, and a caption that overprints the equation it explains is
+    # worse than no caption (measured -- the first render did exactly that).
+    ax.text(KCUT, 2.95, "one layer k — a cut across every walk", ha="center", va="top",
+            fontsize=10, color="#4a148c")
+
+    ax.annotate("", xy=(KCUT - 0.35, 4.4), xytext=(0.3, 4.4),
+                arrowprops=dict(arrowstyle="-|>", color="#1f77b4", lw=3.0, alpha=0.85))
+    ax.annotate("", xy=(KCUT + 0.35, 4.4), xytext=(30.7, 4.4),
+                arrowprops=dict(arrowstyle="-|>", color="#e07b00", lw=3.0, alpha=0.85))
+    ax.text(KCUT / 2, 4.85, "f — the FORWARD ladder, built k = 0 → 31", ha="center",
+            fontsize=11, color="#14567f")
+    ax.text(KCUT / 2, 3.55, "f(s) = the exact number of valid PREFIXES that reach state s",
+            ha="center", fontsize=10, color="#14567f")
+    ax.text((KCUT + 31) / 2, 4.85, "g — the BACKWARD ladder, built k = 31 → 0", ha="center",
+            fontsize=11, color="#9a5500")
+    ax.text((KCUT + 31) / 2, 3.55, "g(s) = the exact number of COMPLETIONS from state s",
+            ha="center", fontsize=10, color="#9a5500")
+    ax.text(0.2, 2.6, "k = 0\n(empty prefix)", ha="left", fontsize=9, color="#666666")
+    ax.text(30.8, 2.6, "k = 31\n(a complete walk)", ha="right", fontsize=9, color="#666666")
+
+    ax.text(15.5, 9.35,
+            "Every complete walk crosses every layer EXACTLY ONCE. So a walk through state s is a "
+            "prefix that reaches s paired with a completion that leaves it —\nand the number of "
+            "walks through s is the PRODUCT f(s)·g(s). Summing that product over every state in "
+            "the layer counts every walk in the space, once:",
+            ha="center", va="top", fontsize=10.5, color="#333333")
+    ax.text(15.5, 7.0,
+            "Σ over EVERY state s in layer k:   orbit(mask(s)) · f(s) · g(s)   =   N",
+            ha="center", va="top", fontsize=13.5, color="#4a148c", family="monospace")
+    ax.text(15.5, 6.35, "— and this holds at every one of the 32 layers, k = 0 … 31",
+            ha="center", va="top", fontsize=10.5, color="#4a148c")
+    ax.text(15.5, 1.75,
+            "NOTHING HERE IS SAMPLED, ESTIMATED OR FITTED. The sum runs over every state in the "
+            "layer, the values are exact 192-bit integers, and the identity is CHECKED:\n"
+            "reports/KC_G_CHECK_n31.txt evaluates it at all 32 layers and reports 0 failing "
+            "layers. This is why N can be COMPUTED from a completed ladder in seconds\n"
+            "rather than counted — the enumerator never has to visit the walks in order to count "
+            "them.",
+            ha="center", va="top", fontsize=10, color="#333333")
+
+    # ---- panel B: the two ladders as published exact integers -------------
+    ax2.plot(steps, lf, "-o", ms=4, lw=1.8, color="#1f77b4",
+             label="f — valid prefixes reaching King Wen's state (exact)")
+    ax2.plot(steps, lg, "-o", ms=4, lw=1.8, color="#e07b00",
+             label="g — completions remaining from it (exact)")
+    ax2.set_xlim(0.5, 31.5)
+    ax2.set_xticks(range(1, 32))
+    ax2.tick_params(axis="x", labelsize=7.5)
+    ax2.set_xlabel("step i — King Wen's 31 free placements (C4 pins the first pair-slot); "
+                   "step i arrives at ladder layer k = i", fontsize=10.5)
+    ax2.set_ylabel("log10 of the exact count", fontsize=10.5)
+    ax2.set_title("the same two quantities as PUBLISHED EXACT INTEGERS, along King Wen's own "
+                  "walk — f rises as prefixes accumulate, g falls as freedom is spent",
+                  fontsize=11)
+    ax2.grid(True, ls=":", alpha=0.45)
+    ax2.legend(fontsize=9.5, loc="center left")
+    ax2.set_facecolor("#f8f8f8")
+    ax2.text(16, 1.5,
+             "⚠ This panel is ONE walk. For a single state, f(s)·g(s) is the number of walks "
+             "THROUGH THAT STATE — it is not N.\nOnly the sum over the whole layer, in the panel "
+             "above, equals N.",
+             ha="center", fontsize=9.5, color="#8b1a1a")
+
+    fig.suptitle("N-2 — the f·g mechanism: how an exact count is COMPUTED rather than counted, "
+                 "over the C1C2C4C5-SUPERSPACE\n"
+                 "N = |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 "
+                 "— C3 is not among its constraints, and neither are C6/C7",
+                 fontsize=13)
+    fig.tight_layout(rect=(0, 0, 1, 0.945))
+    save(fig, "viz_narrative_n2_fg_mechanism",
+         _prov(tsv) + "  identity: reports/KC_G_CHECK_n31.txt  "
+         "semantics: documentation/GT_LADDER_FORMAT.md  spec: viz/viz_narrative.md §N-2")
+    return True
+
+
+def _tr12_q3_table(root):
+    """The Q3 profile V4 should draw from `root`, chosen by its SIDECAR. -> (path | None, why).
+
+    🔴 Q-766 (RCQ02 F5, CONFIRMED 2026-09-09, fixed 2026-09-24). This used to be
+    `q3_profile_kw.tsv if it exists else q3_profile.tsv` -- selection by EXISTENCE. A reused
+    output directory that had held a King Wen full-31 run kept that run's q3_profile_kw.tsv after
+    a later n=9 run wrote q3_profile.tsv beside it, and the old KW profile was drawn as the new
+    run's. The name is a claim; the sidecar `solve.py` writes beside it
+    (`q3_is_king_wen=`, `q3_table=`) is the evidence for the claim, so the KW table is taken only
+    when its own sidecar says q3_is_king_wen=PASS for that table. The emitter now removes the
+    other name (solve.py atlas_emit_q3), so both names present at once means a directory written
+    by an older emitter: that is refused, never guessed.
+
+    One exception, stated rather than hidden: a directory with NO sidecar at all -- neither name's
+    -- was not written by an atlas consumer that emits them. The committed `tr12/` tree is such a
+    directory (it ships q3_profile_kw.tsv and no sidecar), so there the KW name is still taken as
+    written. Any consumer run writes a sidecar, so a reused --atlas-out never reaches this branch.
+    """
+    kw = os.path.join(root, "q3_profile_kw.tsv")
+    plain = os.path.join(root, "q3_profile.tsv")
+    have_kw, have_plain = os.path.exists(kw), os.path.exists(plain)
+    if have_kw and have_plain:
+        return None, ("both q3_profile_kw.tsv and q3_profile.tsv are in %s: a reused output "
+                      "directory, and which one is current cannot be told from the names -- "
+                      "re-run the consumer into a clean directory" % root)
+    if not have_kw:
+        return plain, ""
+    side = kw + ".provenance.txt"
+    if os.path.exists(side):
+        fields = {}
+        with open(side, encoding="utf-8") as fh:
+            for line in fh:
+                k, sep, v = line.rstrip("\n").partition("=")
+                if sep:
+                    fields[k] = v
+        if fields.get("q3_is_king_wen") == "PASS" and fields.get("q3_table") == "q3_profile_kw.tsv":
+            return kw, ""
+        return None, ("%s is present but its sidecar reads q3_is_king_wen=%s, q3_table=%s -- "
+                      "the King Wen name is not backed by its own provenance"
+                      % (kw, fields.get("q3_is_king_wen"), fields.get("q3_table")))
+    if os.path.exists(plain + ".provenance.txt"):
+        return None, ("%s has no sidecar, but q3_profile.tsv's sidecar is in the same directory: "
+                      "the KW table is a leftover of an earlier run" % kw)
+    return kw, ""
 
 
 def tr12_figures(root="tr12"):
@@ -1018,19 +1524,33 @@ def tr12_figures(root="tr12"):
     new run's PASS, which is worse than an absent figure because it looks answered.
 
     V3 (spectrum) stays OPTIONAL and is reported, never fatal: its input is a rank
-    grid joined to per-walk functionals that neither this driver nor the atlas
-    consumer emits (TR12_V3_FIG=PENDING:viz-v3-spectrum).  Making it required here
-    would be a gate that cannot be satisfied.
+    grid joined to per-walk functionals by `solve.py --v3-spectrum` (2026-09-23),
+    which the atlas consumer does not run and scripts/tr12_repro.sh does not yet
+    invoke -- so inside the battery the input is still absent and
+    TR12_V3_FIG=PENDING:viz-v3-spectrum.  Making it required here would be a gate
+    that cannot be satisfied.
+
+    PATH (2026-09-24).  The spec path is <root>/spectrum/v3_spectrum.tsv, but the
+    COMMITTED table is tr12/v3_spectrum.tsv (no spectrum/ level), so
+    tr12_figures("tr12") silently skipped the one V3 input the repo ships.  The
+    flat path is now a FALLBACK, taken only when the spec path is absent and the
+    flat file exists -- when neither exists the message still names the spec path,
+    so the battery's c_viz output is unchanged.
     """
     scan = os.path.join(root, "scan")
-    q3 = os.path.join(root, "q3_profile_kw.tsv")
+    q3, q3_why = _tr12_q3_table(root)
+
+    def _v4():
+        if q3 is None:
+            print("[tr12_figures] V4 refused: %s" % q3_why)
+            return False
+        return fig_tr12_kc_shells(q3)
     required = [
         ("V1", lambda: fig_tr12_kc_field(os.path.join(scan, "v1_field.tsv"))),
         ("V2", lambda: fig_tr12_kc_river(os.path.join(scan, "v2_river.tsv"),
                                          os.path.join(scan, "v2_branches.tsv"))),
         ("V5", lambda: fig_tr12_kc_grammar(os.path.join(scan, "v5_grammar.tsv"))),
-        ("V4", lambda: fig_tr12_kc_shells(q3 if os.path.exists(q3)
-                                          else os.path.join(root, "q3_profile.tsv"))),
+        ("V4", _v4),
     ]
     failed = []
     for name, call in required:
@@ -1040,7 +1560,10 @@ def tr12_figures(root="tr12"):
         # a contract the renderers do not yet have.
         if got is False:
             failed.append(name)
-    opt = fig_tr12_kc_spectrum(os.path.join(root, "spectrum", "v3_spectrum.tsv"))
+    v3 = os.path.join(root, "spectrum", "v3_spectrum.tsv")
+    if not os.path.exists(v3) and os.path.exists(os.path.join(root, "v3_spectrum.tsv")):
+        v3 = os.path.join(root, "v3_spectrum.tsv")
+    opt = fig_tr12_kc_spectrum(v3)
     if opt is False:
         # V3's absence is already reported by the battery's own TR12_V3_FIG skip row; printing
         # here too would add a line to c_viz.txt and move that golden as well.
@@ -1162,6 +1685,12 @@ if __name__ == "__main__":
     fig_tr4_boundary_information()
     fig_tr1_rules_tradeoff()
     fig_tr3_campaign_timeline()
+    # The scale figure (viz/viz_scale.md) and the narrative document's two figures
+    # (viz/viz_narrative.md). The first two need no data file at all; N-2 reads the
+    # published King Wen walk profile and SKIPs cleanly when that TSV is absent.
+    fig_viz_scale()
+    fig_viz_narrative_n1_object()
+    fig_viz_narrative_n2_fg_mechanism()
     # TR-12 V1..V5: rendered from the atlas-consumer TSVs when they are present.
     # Root defaults to ./tr12 (the TR-12 artifact root); override with argv[1].
     tr12_figures(sys.argv[1] if len(sys.argv) > 1 else "tr12")

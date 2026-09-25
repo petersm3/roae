@@ -181,15 +181,15 @@ the tool accepts. Verified by running it, not by reading it: `--lookup Qian`,
 returns hexagram 3 and `--compare Qian Kun` prints
 `Could not find hexagram: Qian`. **Residue disclosed rather than left silent:**
 `roae.py` itself still says "or name" in four places — its `--help-sections`
-menu rows for `--lookup` and `--compare` (`roae.py:2241`, `:2242`) and the two
-matching `argparse` help strings (`roae.py:5088`, `:5090`) — and the
+menu rows for `--lookup` and `--compare` (`roae.py:2241`, `:2242` at `6c82f0ff`) and the two
+matching `argparse` help strings (`roae.py:5088`, `:5090` at `6c82f0ff`) — and the
 not-found message still does not say what the tool does accept. Those are code
 edits outside this documentation pass, and the retracted-phrase registry cannot
 guard them either: GATE 3's corpus is the tracked `*.md` set plus
 `reports/evidence/**`, so no needle registered here can reach a Python file.)*
 
-*(Closed 2026-09-21, Q-410 surface sweep. The four residues were at `roae.py:2297`, `:2298`,
-`:5319` and `:5321` by then — the line numbers above had drifted by 56 and 231 lines — and all four
+*(Closed 2026-09-21, Q-410 surface sweep. The four residues were, at `8c2ce1f0`, `roae.py:2297`, `:2298`,
+`:5319` and `:5321` (all four at `8c2ce1f0`) — the line numbers above had drifted by 56 and 231 lines — and all four
 now read "trigram-derived label"; the not-found paths print a second line, `Accepted keys: a King
 Wen number (1-64) or a trigram-derived label such as "Water over Thunder"; …`, after the unchanged
 `No hexagram found matching '…'.` / `Could not find hexagram: …` line, so anything matching the
@@ -397,15 +397,15 @@ C3-gated build gives mass(A ≤ 648) = **0.04783**, reproducing the published
 reproducing the executed sampler's **0.037406** to under 1σ. **The ≈0.0105
 discrepancy this gate rejects on IS the C3 conditioning — not a defective
 sampler.** That is what produced the `GATE FAIL — population/sampler mismatch …
-NO verdicts issued` of 2026-07-26. The constant `0.04789` at `roae.py:4957` is a
+NO verdicts issued` of 2026-07-26. The constant `0.04789` at `roae.py:4994` is a
 **frozen pre-registration spec value and is deliberately NOT changed**:
 re-registering this gate against an unconditioned reference (≈0.0379) would be a
 NEW pre-registration rather than an edit, and the pre-registration document
 itself is escrow-frozen (`documentation/PREREGISTRATION_ESCROW.md:67`). Read a
 FAIL here as "these two instruments condition differently", not as "the sampler
 is wrong". See documentation/CORRECTIONS.md CX-52.]**
-*(Line citations measured stale 2026-09-21, two days after the note was written: the `0.04789`
-gate constant is at `roae.py:4986`, `_gs_one_sample` is defined at `:4052`; the `solve.c:7995` /
+*(Line citations measured stale 2026-09-21, two days after the note was written, and re-pinned 2026-09-25 (Q-791): the `0.04789`
+gate constant is at `roae.py:4994`, `_gs_one_sample` is defined at `:4060`; the `solve.c:7995` /
 `:8168` citations still hold. Anchor on the symbol names.)*
 
 Flags: reuses `--gs-samples` (as N_eval), `--gs-workers`,
@@ -506,7 +506,7 @@ Optional packages enable richer output:
 | Code | Meaning |
 |---|---|
 | 0 | Success, including a `--self-test` run in which every check passed. |
-| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory *(the working-directory clause is stale since 2026-09-02, when the loader became `__file__`-relative; measured 2026-09-21, `--verify` passes from `/tmp`. "Could not load solve.py" now means the sibling file is missing or unreadable, and it still exits 1 — see META FLAGS)* — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5366` is `return 1 if print_self_test() else 0`, above the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. *(The `return 1 if print_self_test() else 0` line sits at `roae.py:5396` as of 2026-09-21, not `:5366`; the behaviour was re-measured that day — 49/49 pass, rc 0 — and the line is the one to grep for.)* |
+| 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory *(the working-directory clause is stale since 2026-09-02, when the loader became `__file__`-relative; measured 2026-09-21, `--verify` passes from `/tmp`. "Could not load solve.py" now means the sibling file is missing or unreadable, and it still exits 1 — see META FLAGS)* — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5408` is `return 1 if print_self_test() else 0`, directly below the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. *(That line number was re-pinned on 2026-09-21 and again on 2026-09-25, Q-791; the behaviour was re-measured on 2026-09-21 — 49/49 pass, rc 0 — and the line is the one to grep for.)* |
 | 2 | Invalid argument or unrecognised flag (emitted by `argparse`) |
 | 3 | `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) — the only `sys.exit(3)` in `roae.py` |
 

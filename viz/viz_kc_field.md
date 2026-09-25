@@ -18,7 +18,7 @@ See also [viz_pca.md](viz_pca.md) (the enumerated-slice projections this figure 
 | Layer-by-layer RAW positional marginals | `solve --kc-scan FDIR GDIR OUT.json --kc-raw` | **EXISTS** (source + binary, verified) |
 | Internal gates (per-layer flow = N, raw row sums = N) | inside `--kc-scan` | **EXISTS**, printed as `gates` in the atlas |
 | n=9 brute-force cross-check | `solve --kc-scan-selftest` | **EXISTS** (`PASS (0 failures)`) |
-| Full-31 f and g ladders | Stage F / Stage G | **NOT YET BUILT** — no full-31 atlas exists |
+| Full-31 f and g ladders | Stage F / Stage G | **BUILT** — the n=31 atlas exists and the committed `tr12/scan/v1_field.tsv` was emitted from it; re-rendering needs no ladder. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT — no full-31 atlas exists".* |
 | Atlas JSON → figure TSV | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` | **EXISTS** (n=9 brute-force gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
 The full-31 figure cannot be rendered until Stage F **and** Stage G have landed and a
@@ -150,7 +150,7 @@ $B/solve --kc-scan    $A/f $A/g $A/atlas.json         # RAW marginals are automa
 $B/solve --kc-scan-selftest                           # expect: PASS (0 failures)
 ```
 
-**Full-31 (PENDING the ladders):**
+**Full-31 (run once, 2026-09; repeating it needs the f/g ladders mounted — re-rendering does not):**
 
 ```bash
 solve --kc-scan FDIR GDIR tr12/scan/atlas.json --kc-raw --kc-tdir TDIR [--kc-ooc] [--kc-cache-mb MB]
@@ -165,9 +165,16 @@ Pure re-shaping; the only arithmetic is the division by `N` that the figure plot
 on exact 192-bit integers, never on floats:
 
 ```bash
-python3 solve.py --atlas-queries tr12/scan/atlas.json --atlas-out tr12 --atlas-select v1
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 --atlas-select v1
 #   writes tr12/scan/v1_field.tsv and the TR12_V1= line in tr12/VERDICTS.txt
 ```
+
+**The full-31 atlas is in this repository:** `runs/20260906_kc_ladders_n31/atlas_n31.json`
+(5,978,126 B, 31 layers, raw sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`),
+and the command above reads it. It re-derives `tr12/scan/v1_field.tsv` with no ladder mounted;
+`python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` checks the file first
+(`ATLAS_PROBE=PASS`). The output path in the `--kc-scan` line above is where a **rebuild** from the
+ladders would write a fresh atlas; the ladders themselves are not distributed.
 
 Gated at n=9 against the committed reference atlas by
 `python3 solve.py --atlas-selftest ATLAS.json --atlas-walks WALKS.txt`, which re-derives every

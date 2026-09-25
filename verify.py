@@ -873,21 +873,21 @@ def check_classical_groups():
     WHY THIS EXISTS. The obvious deflation of a pairing constraint is "of course a
     symmetric arrangement satisfies some symmetry -- you went looking for a group
     and found one that fits." This answers that with a measurement, using rival
-    groups WE DID NOT INVENT: every one below is taken from a classical source.
+    groups built from operations WE DID NOT INVENT: every generator below is classical.
 
-    THE SOURCES, none of them ours:
+    THE SOURCES:
       * <comp, rev>  -- 吳澄 Wu Cheng (1249-1333), 《易纂言外翼》卷一〈卦對第二〉.
         The complete decomposition: 「卦畫奇偶正對，二篇共二十對」. CITATIONS.md#wucheng
       * <rev, swap>  -- 吳澄, THE SAME CHAPTER: 「卦體上下互易，二篇共十八對…純卦八…
         不與」, where swap exchanges the upper and lower trigrams.
-      * <comp, swap> -- 焦循 Jiao Xun (1763-1820), 《易圖略》卷四 八卦相錯圖, an
-        exhaustive partition of the 64 built from 說卦傳's 八卦相錯. CITATIONS.md#jiaoxun
+      * <comp, swap> -- 虞翻 Yu Fan's 旁通 (complement) + 兩象易 (the swap below); no cited
+        source assembles the group. NOT 焦循's 八卦相錯 (corrected 2026-09-24). CITATIONS.md#yufan
       * the pairing rule itself is 孔穎達 (574-648), 非覆即變. CITATIONS.md#kongyingda
 
     THE RESULT THIS PRINTS. <comp,swap> has the SAME orbit profile as <comp,rev> --
     20 orbits, 8 of size 2 and 12 of size 4 -- yet King Wen seats partners adjacently
     64/64 under <comp,rev> and only 24/64 under <comp,swap>. Two structurally
-    indistinguishable group actions, both classically attested, and the received
+    indistinguishable group actions, both built from classical operations, and the received
     sequence selects one decisively. That is a property of the sequence, not an
     artifact of looking for symmetry.
 
@@ -921,7 +921,7 @@ def check_classical_groups():
     GROUPS = [
         ("comp_rev",  "<comp,rev>  Wu Cheng c.1300",   [_cuo, _zong]),
         ("rev_swap",  "<rev,swap>  Wu Cheng, same ch", [_zong, _swap]),
-        ("comp_swap", "<comp,swap> Jiao Xun c.1813",   [_cuo, _swap]),
+        ("comp_swap", "<comp,swap> Yu Fan 旁通+兩象易", [_cuo, _swap]),
     ]
     for key, label, gens in GROUPS:
         orbs = _orbits(gens)
@@ -1943,7 +1943,7 @@ def q6_extremes_oracle(path):
 def nuclear_selftest():
     """Independent gate on the nuclear-hexagram (互卦) operation.
 
-    WHY THIS EXISTS. solve.c:6269 defines `f5_nuc` and calls it "a port of solve.py _vdb_nuc".
+    WHY THIS EXISTS. solve.c:6816 defines `f5_nuc` and calls it "a port of solve.py _vdb_nuc".
     A port shares its source's bugs, so a port cannot gate the thing it was ported from. This
     implementation is derived from the CLASSICAL DEFINITION instead:
 
@@ -1974,7 +1974,7 @@ def nuclear_selftest():
         return out
 
     def nuc_engine(h):
-        # the encoding solve.c:6269 uses, restated for comparison only
+        # the encoding solve.c:6816 uses, restated for comparison only
         return ((h >> 1) & 7) | (((h >> 2) & 7) << 3)
 
     bad = []
@@ -4438,32 +4438,16 @@ def twins_bisect(path):
     print("TWINS_BISECT=DONE")
     return 0
 
-def orbit_cv(table):
-    """--orbit-cv TABLE: TR-5 §3(iii) / SYMMETRY_SEARCH.md orbit-CV aggregation,
-    recomputed from the archived 65,281-cell Knuth per-cell estimate table
-    (columns p1 o1 p2 o2 p3 o3 tree_nodes leaves_c1c2c4c5 leaves_canonical relerr,
-    10^5 probes per cell; sha256 bdf34be6... as archived 2026-07-10).
-    Orbits are taken under the 48 bit-permutations g with g(KW) C1-C5-valid
-    (_sigma_valid_perms), acting on a depth-3 cell (p1,o1,p2,o2,p3,o3) by
-    mapping each (pair, orientation) slot through g.  The tool asserts that
-    this set equals the centraliser of the reverse permutation in S6 (the
-    group the 2026-07 measurement used), so the orbit relation is the same.
-    Published figures (TR-5 v2.15 §3(iii)): 4,183 orbit classes met, median
-    within-orbit CV 0.112 and population CV 0.72 of leaves_canonical.  Gated
-    here at the 4-dp values the archived table yields, 4183 / 0.1118 / 0.7202.
-    The table's median relerr (0.1192) is printed but NOT gated: the '0.130
-    noise floor' it once stood beside was withdrawn (RF-4e81ce69) because the
-    quantity it measured is unrecorded.  ~6 s in CPython.  Does NOT read
-    solutions.bin.  Prints ORBIT_CV=PASS only when every gate matched."""
-    import itertools, statistics as st
-    from collections import defaultdict
-    rc = 0
-    def gate(name, got, want):
-        nonlocal rc
-        ok = (got == want)
-        if not ok:
-            rc = 1
-        print(f"[{' MATCH' if ok else '*FAIL*'}] {name}: recomputed {got!r}  published {want!r}")
+def _read_percell_table(table, token, se_scale=1.0):
+    """Read the archived 65,281-cell Knuth per-cell estimate table (columns
+    p1 o1 p2 o2 p3 o3 tree_nodes leaves_c1c2c4c5 leaves_canonical relerr; .gz or
+    plain; the generator's "[percell] DONE <n> rows" trailer REQUIRED).  Returns
+    (rows, trailer) with rows[cell] = (tree_nodes, leaves_c1c2c4c5,
+    leaves_canonical, relerr as a fraction), or (None, None) after printing the
+    [*FAIL*] line and `<token>=FAIL`.  se_scale multiplies every printed relerr
+    at parse time (the --orbit-coverage positive control); 1.0 reads the table
+    as archived.  Shared by --orbit-cv and --orbit-coverage so the two flags
+    read one table one way."""
     HEADER = "p1 o1 p2 o2 p3 o3 tree_nodes leaves_c1c2c4c5 leaves_canonical relerr"
     rows = {}
     try:
@@ -4472,8 +4456,8 @@ def orbit_cv(table):
             hdr = " ".join(fh.readline().split())
             if hdr != HEADER:
                 print(f"[*FAIL*] header mismatch: got {hdr!r}, want {HEADER!r}")
-                print("ORBIT_CV=FAIL")
-                return 1
+                print(f"{token}=FAIL")
+                return None, None
             trailer = None
             for n, line in enumerate(fh, 2):
                 p = line.split()
@@ -4484,43 +4468,41 @@ def orbit_cv(table):
                     # absence means a truncated table, so it is required, not skipped.
                     if trailer is not None:
                         print(f"[*FAIL*] {table}:{n}: second DONE trailer")
-                        print("ORBIT_CV=FAIL")
-                        return 1
+                        print(f"{token}=FAIL")
+                        return None, None
                     trailer = int(p[2])
                     continue
                 if trailer is not None:
                     print(f"[*FAIL*] {table}:{n}: data after the DONE trailer")
-                    print("ORBIT_CV=FAIL")
-                    return 1
+                    print(f"{token}=FAIL")
+                    return None, None
                 if len(p) != 10:
                     print(f"[*FAIL*] {table}:{n}: {len(p)} columns, want 10")
-                    print("ORBIT_CV=FAIL")
-                    return 1
+                    print(f"{token}=FAIL")
+                    return None, None
                 cell = tuple(int(x) for x in p[:6])
                 if cell in rows:
                     print(f"[*FAIL*] {table}:{n}: duplicate cell {cell}")
-                    print("ORBIT_CV=FAIL")
-                    return 1
+                    print(f"{token}=FAIL")
+                    return None, None
                 rows[cell] = (float(p[6]), float(p[7]), float(p[8]),
-                              float(p[9].rstrip("%")) / 100.0)
+                              float(p[9].rstrip("%")) / 100.0 * se_scale)
     except (OSError, EOFError, ValueError) as e:
         print(f"[*FAIL*] cannot read {table}: {e}")
-        print("ORBIT_CV=FAIL")
-        return 1
+        print(f"{token}=FAIL")
+        return None, None
     if trailer is None:
         print(f"[*FAIL*] {table}: no '[percell] DONE <n> rows' trailer — the table is truncated")
-        print("ORBIT_CV=FAIL")
-        return 1
-    print(f"ORBIT_TABLE_ROWS={len(rows)}")
-    gate("rows == the table's own DONE trailer count", len(rows), trailer)
-    gate("archived per-cell table rows", len(rows), 65281)
-    G = [tuple(g) for g in _sigma_valid_perms()]
-    REV = (5, 4, 3, 2, 1, 0)
-    cent = {p for p in itertools.permutations(range(6))
-            if all(p[REV[i]] == REV[p[i]] for i in range(6))}
-    gate("orbit group order", len(G), 48)
-    gate("valid sigma == centraliser of reverse in S6", set(G) == cent, True)
-    print(f"ORBIT_GROUP={len(G)}")
+        print(f"{token}=FAIL")
+        return None, None
+    return rows, trailer
+
+def _percell_orbits(rows, G):
+    """Partition the table's cells into orbits under the bit permutations G,
+    acting on a depth-3 cell (p1,o1,p2,o2,p3,o3) by mapping each (pair,
+    orientation) slot through g.  Returns {representative: [cells]} over the
+    cells present in `rows` (the productive cells)."""
+    from collections import defaultdict
     # (pair, orient) -> (pair', orient') under each g
     maps = []
     for g in G:
@@ -4549,6 +4531,48 @@ def orbit_cv(table):
     orbs = defaultdict(list)
     for c in rows:
         orbs[rep[c]].append(c)
+    return orbs
+
+def orbit_cv(table):
+    """--orbit-cv TABLE: TR-5 §3(iii) / SYMMETRY_SEARCH.md orbit-CV aggregation,
+    recomputed from the archived 65,281-cell Knuth per-cell estimate table
+    (columns p1 o1 p2 o2 p3 o3 tree_nodes leaves_c1c2c4c5 leaves_canonical relerr,
+    10^5 probes per cell; sha256 bdf34be6... as archived 2026-07-10).
+    Orbits are taken under the 48 bit-permutations g with g(KW) C1-C5-valid
+    (_sigma_valid_perms), acting on a depth-3 cell (p1,o1,p2,o2,p3,o3) by
+    mapping each (pair, orientation) slot through g.  The tool asserts that
+    this set equals the centraliser of the reverse permutation in S6 (the
+    group the 2026-07 measurement used), so the orbit relation is the same.
+    Published figures (TR-5 v2.15 §3(iii)): 4,183 orbit classes met, median
+    within-orbit CV 0.112 and population CV 0.72 of leaves_canonical.  Gated
+    here at the 4-dp values the archived table yields, 4183 / 0.1118 / 0.7202.
+    The table's median relerr (0.1192) is printed but NOT gated: the '0.130
+    noise floor' it once stood beside was withdrawn (RF-4e81ce69) because the
+    quantity it measured is unrecorded.  ~6 s in CPython.  Does NOT read
+    solutions.bin.  Prints ORBIT_CV=PASS only when every gate matched."""
+    import itertools, statistics as st
+    from collections import defaultdict
+    rc = 0
+    def gate(name, got, want):
+        nonlocal rc
+        ok = (got == want)
+        if not ok:
+            rc = 1
+        print(f"[{' MATCH' if ok else '*FAIL*'}] {name}: recomputed {got!r}  published {want!r}")
+    rows, trailer = _read_percell_table(table, "ORBIT_CV")
+    if rows is None:
+        return 1
+    print(f"ORBIT_TABLE_ROWS={len(rows)}")
+    gate("rows == the table's own DONE trailer count", len(rows), trailer)
+    gate("archived per-cell table rows", len(rows), 65281)
+    G = [tuple(g) for g in _sigma_valid_perms()]
+    REV = (5, 4, 3, 2, 1, 0)
+    cent = {p for p in itertools.permutations(range(6))
+            if all(p[REV[i]] == REV[p[i]] for i in range(6))}
+    gate("orbit group order", len(G), 48)
+    gate("valid sigma == centraliser of reverse in S6", set(G) == cent, True)
+    print(f"ORBIT_GROUP={len(G)}")
+    orbs = _percell_orbits(rows, G)
     print(f"ORBIT_CLASSES_MET={len(orbs)}")
     gate("orbit classes met by productive cells", len(orbs), 4183)
     sizes = [len(v) for v in orbs.values()]
@@ -4568,6 +4592,192 @@ def orbit_cv(table):
     rel = st.median(rows[c][3] for c in rows)
     print(f"ORBIT_RELERR_MEDIAN={rel:.4f}   (not gated: the published 0.130 was withdrawn, RF-4e81ce69)")
     print(f"ORBIT_CV={'PASS' if rc == 0 else 'FAIL'}")
+    return rc
+
+def orbit_coverage(table, se_scale=1.0):
+    """--orbit-coverage TABLE [--orbit-coverage-se-scale F]: the empirical
+    COVERAGE of the Knuth estimator's printed interval, i.e. the calibration
+    behind METHODS.md's reading rule for figures at >=10% relerr (Q-696 /
+    Codex V3A-082#2, 2026-09-24; it replaced an uncalibrated "read as a fixed
+    +-20% band" rule).  Same table as --orbit-cv: 65,281 productive depth-3
+    cells, each an independent 10^5-probe estimate of leaves_canonical with its
+    printed relerr = SE/est.  Cells in one G-orbit (the 48 valid sigma, TR-5
+    §3(iii) — the action --orbit-cv gates) have the SAME true count, so an
+    orbit's other members are same-truth replicates of each cell.  For a cell c
+    in an orbit of k>=2 productive members:
+      T_c   = leave-one-out mean of the other k-1 estimates   (truth proxy)
+      seT_c = sqrt(sum_{j!=c} se_j^2)/(k-1)                    (the proxy's own SE)
+      z_c   = (est_c - T_c)/sqrt(se_c^2 + seT_c^2)             (N(0,1) if the printed SEs are right)
+    A band est_c +- h covers the TRUTH with the probability that |est_c - T_c|
+    <= h*sqrt(1 + seT_c^2/se_c^2) (exact under Gaussian errors: est - truth ~
+    N(0, se^2) but est - T ~ N(0, se^2 + seT^2)).  Three intervals are scored:
+      WALD95  h = 1.96*se_c                 (what the binary prints as 95%CI)
+      FIX20   h = 0.20*est_c                (the retired METHODS.md reading rule)
+      LOGN95  |ln est_c - ln T_c| <= 1.96*sqrt(relerr_c^2 + (seT_c/T_c)^2)
+    Over the FULL table (no subsampling), by printed-relerr subset; plus the
+    orbit-wise ratio printed-SE / replicate-SD (k>=5 orbits) and |z| quantiles.
+    SCOPE of the calibration: leaves_canonical at depth-3 cells, printed relerr
+    5-30% (BIN_30_50_N=19, BIN_50_UP_N=0); a figure beyond 30% relerr is
+    uncalibrated here.  ZERO-SD ORBITS: 5 of the 3,732 k>=5 orbits (40 cells,
+    relerr 13-16%, each 8 cells that differ only in the orientation and order
+    of two of their three pairs) carry byte-identical estimates -- the same walk under the fixed base seed the table
+    predates SOLVE_KNUTH_SEED by -- so they are excluded from the SE/SD ratio
+    (ORBITS_K_GE_5_ZERO_SD=5, gated) and score z = 0 in the coverage; excluding
+    them from the coverage as well moves no published figure by more than 0.1
+    point.  Every measurement is a bare KEY=value line.  At se_scale 1.0 the
+    METHODS.md figures are GATED and Q696_COVERAGE=PASS prints only when all match.
+    --orbit-coverage-se-scale F is the POSITIVE CONTROL: every printed relerr is
+    multiplied by F at parse time (bin membership moves with it) and the run
+    ends Q696_COVERAGE=CONTROL, never PASS — a calibration instrument that could
+    not see a halved or doubled SE would be no instrument (measured 2026-09-24:
+    WALD95 at >=10% relerr 72.3% / 94.4% / 99.9% at F = 0.5 / 1 / 2).  ~2 s in
+    CPython.  Does NOT read solutions.bin."""
+    import math, statistics as st
+    rc = 0
+    def gate(name, got, want):
+        nonlocal rc
+        ok = (got == want)
+        if not ok:
+            rc = 1
+        print(f"[{' MATCH' if ok else '*FAIL*'}] {name}: recomputed {got!r}  published {want!r}")
+    if not (se_scale > 0.0 and math.isfinite(se_scale)):
+        print(f"[*FAIL*] --orbit-coverage-se-scale must be a finite positive number, got {se_scale!r}")
+        print("Q696_COVERAGE=FAIL")
+        return 1
+    control = (se_scale != 1.0)
+    rows, trailer = _read_percell_table(table, "Q696_COVERAGE", se_scale)
+    if rows is None:
+        return 1
+    print(f"SE_SCALE={se_scale:g}")
+    print(f"TABLE_ROWS={len(rows)}")
+    gate("rows == the table's own DONE trailer count", len(rows), trailer)
+    gate("archived per-cell table rows", len(rows), 65281)
+    G = [tuple(g) for g in _sigma_valid_perms()]
+    gate("orbit group order", len(G), 48)
+    orbs = _percell_orbits(rows, G)
+    print(f"ORBIT_CLASSES={len(orbs)}")
+    gate("orbit classes met by productive cells (the --orbit-cv gate)", len(orbs), 4183)
+    print(f"ORBIT_MEAN_PRODUCTIVE_PER_CLASS={st.fmean(len(v) for v in orbs.values()):.1f}")
+    print(f"RELERR_MEDIAN={st.median(r[3] for r in rows.values()):.4f}")
+    # per-cell scores against the leave-one-out orbit mean
+    recs = []  # (relerr, k, z, wald, fix20, logn)
+    zero = 0        # cells whose own estimate is <= 0 (unscorable: no log, no relerr)
+    single = 0      # cells alone in their orbit (no same-truth replicate to score against)
+    zero_orbit = 0  # POSITIVE cells skipped because an orbit-mate's estimate is <= 0
+    for mem in orbs.values():
+        k = len(mem)
+        if k < 2:
+            single += k
+            continue
+        E = [rows[c][2] for c in mem]
+        SE = [rows[c][3] * rows[c][2] for c in mem]
+        if min(E) <= 0:
+            zero += sum(1 for e in E if e <= 0)
+            zero_orbit += sum(1 for e in E if e > 0)
+            continue
+        sumE, sumSE2 = sum(E), sum(s * s for s in SE)
+        for i, c in enumerate(mem):
+            e, s = E[i], SE[i]
+            T = (sumE - e) / (k - 1)
+            seT = math.sqrt(sumSE2 - s * s) / (k - 1)
+            d = e - T
+            z = d / math.sqrt(s * s + seT * seT)
+            infl = math.sqrt(1.0 + (seT / s) ** 2) if s > 0 else float("inf")
+            wald = abs(d) <= 1.96 * s * infl          # == |z| <= 1.96
+            fix20 = abs(d) <= 0.20 * e * infl
+            logn = abs(math.log(e) - math.log(T)) <= 1.96 * math.sqrt(rows[c][3] ** 2 + (seT / T) ** 2)
+            recs.append((rows[c][3], k, z, wald, fix20, logn))
+    print(f"CELLS_SCORED={len(recs)}")
+    print(f"CELLS_IN_SINGLETON_ORBITS={single}")
+    print(f"ZERO_EST_CELLS={zero}")
+    print(f"CELLS_IN_ZERO_EST_ORBITS={zero_orbit}")
+    gate("every productive cell is scored, singleton, zero or in a zero-mate orbit",
+         len(recs) + single + zero + zero_orbit, len(rows))
+    def summarize(tag, R):
+        n = len(R)
+        print(f"{tag}_N={n}")
+        if n == 0:
+            return {}
+        Z = sorted(abs(r[2]) for r in R)
+        q = lambda p: Z[min(n - 1, int(p * n))]
+        miss = [r for r in R if not r[3]]
+        low = sum(1 for r in miss if r[2] < 0)  # truth proxy ABOVE the interval (estimate low)
+        out = {
+            "WALD95_COV": f"{100 * sum(r[3] for r in R) / n:.1f}",
+            "FIX20_COV": f"{100 * sum(r[4] for r in R) / n:.1f}",
+            "LOGN95_COV": f"{100 * sum(r[5] for r in R) / n:.1f}",
+            "MEDIAN_Z": f"{st.median(r[2] for r in R):+.3f}",
+            "FRAC_EST_BELOW_PROXY": f"{100 * sum(1 for r in R if r[2] < 0) / n:.1f}",
+            "ABSZ_Q90": f"{q(0.90):.2f}",
+            "ABSZ_Q95": f"{q(0.95):.2f}",
+            "WALD_MISSES_LOW_SIDE": f"{100 * low / max(1, len(miss)):.0f}",
+        }
+        for key, val in out.items():
+            print(f"{tag}_{key}={val}")
+        return out
+    bins = (("BIN_00_05", 0.00, 0.05), ("BIN_05_10", 0.05, 0.10), ("BIN_10_15", 0.10, 0.15),
+            ("BIN_15_20", 0.15, 0.20), ("BIN_20_30", 0.20, 0.30), ("BIN_30_50", 0.30, 0.50),
+            ("BIN_50_UP", 0.50, float("inf")))
+    S = {}
+    S["ALL"] = summarize("ALL", recs)
+    S["RELERR_GE_10"] = summarize("RELERR_GE_10", [r for r in recs if r[0] >= 0.10])
+    S["RELERR_GE_20"] = summarize("RELERR_GE_20", [r for r in recs if r[0] >= 0.20])
+    for tag, lo, hi in bins:
+        S[tag] = summarize(tag, [r for r in recs if lo <= r[0] < hi])
+    # printed SE vs replicate SD, orbit-wise (k>=5 orbits). An orbit whose members carry
+    # byte-identical estimates has replicate SD 0 and no ratio: those are the cells that
+    # drew the SAME walk under the fixed base seed (the 8 orientation/order variants of two
+    # of a cell's three pairs; the table predates SOLVE_KNUTH_SEED), and they are COUNTED and printed, not silently
+    # dropped by the sd > 0 guard, so that ORBITS_K_GE_5 reads as what it is -- k>=5
+    # orbits with a non-zero replicate SD -- and the exclusion is visible in the tokens.
+    rat = []
+    zero_sd = 0
+    for mem in orbs.values():
+        if len(mem) < 5:
+            continue
+        E = [rows[c][2] for c in mem]
+        if min(E) <= 0:
+            continue
+        sd = st.stdev(E)
+        ms = st.fmean(rows[c][3] * rows[c][2] for c in mem)
+        if sd > 0:
+            rat.append(ms / sd)
+        else:
+            zero_sd += 1
+    print(f"ORBITS_K_GE_5={len(rat)}")
+    print(f"ORBITS_K_GE_5_ZERO_SD={zero_sd}")
+    print(f"MEDIAN_PRINTED_SE_OVER_REPLICATE_SD={st.median(rat) if rat else float('nan'):.3f}")
+    if control:
+        print(f"[info] positive control: every printed relerr scaled by {se_scale:g}; the METHODS.md "
+              "figures are not gated on a rescaled table and PASS is unreachable")
+        print(f"Q696_COVERAGE={'CONTROL' if rc == 0 else 'FAIL'}")
+        return rc
+    # the figures METHODS.md publishes (2026-09-24), gated at the printed precision
+    n10 = len([r for r in recs if r[0] >= 0.10])
+    n20 = len([r for r in recs if r[0] >= 0.20])
+    gate("cells at relerr >= 10% (published 47,103)", n10, 47103)
+    gate("cells at relerr >= 20% (published 1,353)", n20, 1353)
+    for tag, key, want in (("RELERR_GE_10", "WALD95_COV", "94.4"),
+                           ("RELERR_GE_10", "FIX20_COV", "85.8"),
+                           ("RELERR_GE_10", "LOGN95_COV", "94.9"),
+                           ("RELERR_GE_10", "ABSZ_Q90", "1.67"),
+                           ("RELERR_GE_10", "ABSZ_Q95", "2.02"),
+                           ("RELERR_GE_10", "WALD_MISSES_LOW_SIDE", "85"),
+                           ("RELERR_GE_20", "WALD95_COV", "92.8"),
+                           ("RELERR_GE_20", "FIX20_COV", "69.9"),
+                           ("RELERR_GE_20", "LOGN95_COV", "96.2"),
+                           ("BIN_10_15", "WALD95_COV", "94.5"),
+                           ("BIN_15_20", "WALD95_COV", "94.1"),
+                           ("BIN_20_30", "WALD95_COV", "92.7"),
+                           ("BIN_10_15", "FIX20_COV", "89.0"),
+                           ("BIN_15_20", "FIX20_COV", "77.8"),
+                           ("BIN_20_30", "FIX20_COV", "69.9")):
+        gate(f"{tag} {key}", S[tag].get(key), want)
+    gate("orbits with >= 5 productive cells and non-zero replicate SD (published 3,727)", len(rat), 3727)
+    gate("orbits with >= 5 productive cells and ZERO replicate SD (published 5)", zero_sd, 5)
+    gate("median printed SE / replicate SD (published 1.031)",
+         f"{st.median(rat):.3f}" if rat else None, "1.031")
+    print(f"Q696_COVERAGE={'PASS' if rc == 0 else 'FAIL'}")
     return rc
 
 def sigma_isomorphism_all48(limit=None):
@@ -6437,6 +6647,23 @@ def main():
                              'estimate table (whitespace columns, .gz or plain). ~6 s. Gated at the 4-dp '
                              'values 4183 / 0.1118 / 0.7202; prints ORBIT_CV=PASS only when all match. '
                              'Does NOT read solutions.bin.')
+    parser.add_argument('--orbit-coverage', metavar='TABLE', default=None,
+                        help='METHODS.md reading-rule calibration (Q-696): the empirical coverage of '
+                             'the Knuth estimator\'s printed 95%% interval, of the retired fixed +-20%% '
+                             'band and of the log-normal interval, scored on the same 65,281-cell table '
+                             'as --orbit-cv against each cell\'s leave-one-out G-orbit mean (same-truth '
+                             'replicates). Bare KEY=value lines by printed-relerr subset (e.g. '
+                             'RELERR_GE_10_WALD95_COV=94.4), the orbit-wise printed-SE / replicate-SD '
+                             'ratio and |z| quantiles; gated at the published figures, prints '
+                             'Q696_COVERAGE=PASS only when all match. Scope of the calibration: '
+                             'leaves_canonical at depth-3 cells, printed relerr 5-30%% (19 cells at '
+                             '30-50%%, none above); a figure beyond 30%% relerr is uncalibrated here. '
+                             '~2 s. Does NOT read solutions.bin.')
+    parser.add_argument('--orbit-coverage-se-scale', type=float, metavar='F', default=1.0,
+                        help='With --orbit-coverage: POSITIVE CONTROL. Multiply every printed relerr by '
+                             'F at parse time and re-score (F=0.5 / 2 measured 72.3%% / 99.9%% WALD95 '
+                             'coverage at >=10%% relerr against 94.4%% at F=1). Any F != 1 ends '
+                             'Q696_COVERAGE=CONTROL and can never print PASS.')
     parser.add_argument('--recount-finite', action='store_true',
                         help='Independently recompute the finite record-mode + wrap/parity tallies: '
                              'TR-5\'s 48-of-720 validity classification / 24 records / 23 twins '
@@ -6507,13 +6734,13 @@ def main():
     parser.add_argument('--check-classical-groups', action='store_true',
                         help='(added 2026-08-16) report the group actions on the 64 hexagrams that '
                              'the CLASSICAL literature attests, and how King Wen scores against '
-                             'each. Sources, none of them ours: <comp,rev> and <rev,swap> from '
+                             'each. Sources: <comp,rev> and <rev,swap> from '
                              '吳澄 Wu Cheng (1249-1333) 《易纂言外翼》卷一〈卦對第二〉; <comp,swap> '
-                             'from 焦循 Jiao Xun (1763-1820) 《易圖略》八卦相錯圖. The point: '
+                             'from 虞翻 Yu Fan\'s 旁通 + 兩象易, assembled in no cited source (not 焦循\'s 八卦相錯). The point: '
                              '<comp,swap> has the SAME orbit profile as <comp,rev> (20 orbits, '
                              '8x2 + 12x4) yet King Wen seats partners adjacently 64/64 under '
                              '<comp,rev> and only 24/64 under <comp,swap> — a structurally '
-                             'indistinguishable rival group, classically attested, that does NOT '
+                             'indistinguishable rival group, built from classical operations, that does NOT '
                              'fit. Also re-derives 吳澄\'s own 「共十八對」 as a reading check. '
                              'Changes no enumeration. Reads no files.')
     parser.add_argument('--check-kw-pair-adjacency', action='store_true',
@@ -6694,6 +6921,15 @@ def main():
 
     if args.orbit_cv is not None:
         sys.exit(orbit_cv(args.orbit_cv))
+
+    if args.orbit_coverage_se_scale != 1.0 and args.orbit_coverage is None:
+        # Q-696 review N6: argparse accepted the control flag alone and did nothing, so a
+        # mistyped subject flag read as a clean run. Refused with a bare token, rc 2.
+        print("Q696_COVERAGE=REFUSED")
+        sys.stdout.flush()
+        parser.error("--orbit-coverage-se-scale only makes sense with --orbit-coverage TABLE")
+    if args.orbit_coverage is not None:
+        sys.exit(orbit_coverage(args.orbit_coverage, args.orbit_coverage_se_scale))
 
     if args.recount_fiber:
         sys.exit(recount_fiber())

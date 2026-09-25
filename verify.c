@@ -1071,6 +1071,22 @@ static uint64_t lc_rec_hash(const char *s) {
     return h;
 }
 
+/* LAYER-0 CONTENT (the :758 promise "layer 0 exactly {mask 0, key start_exit<<16,
+ * value 1}"). Until 2026-09-24 both readers checked only the SHAPE (nm==1, mask 0,
+ * ne==1): a root entry whose key named the wrong start exit, or whose value was 2,
+ * passed every check -- the per-entry legs admit both (last<64, rid 0 has digit-sum
+ * 0, value nonzero). Found by Codex V3A-137#3; red legs [12]/[13] in
+ * --check-layers-selftest and fixtures d/e in --scan-selftest. Spec:
+ * F1C5_LAYER_FORMAT.md "Layer 0 has exactly one entry: mask 0, key start_exit << 16
+ * (rid 0)" with value 1. Expanded inside lc_check_layer and lcs_scan_layer (it uses
+ * their LCF, k, fail, ne, grand, exp_se), at the same point in both, so the scan
+ * identity contract (unprefixed output byte-identical) holds on a failing root too. */
+#define LC_ROOT_CHECK(root_key_) do { if (k == 0 && !fail && ne == 1) { \
+        LCF((root_key_) == (exp_se << 16), "layer 0 key=0x%08x != start_exit<<16 = 0x%08x", \
+            (unsigned)(root_key_), (unsigned)(exp_se << 16)); \
+        LCF(u192_eq(grand, (u192){{1,0,0}}), "layer 0 value != 1 (spec: the root entry's value is 1)"); \
+    } } while (0)
+
 /* Verify one layer file. Returns 0 ok, 1 fail. Accumulates grand into *grand
  * (only meaningful when the caller knows this is the final layer) and the
  * §Reading-recipe step-5/6 ORBIT-WEIGHTED MASS into *mass_out:
@@ -1180,7 +1196,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     /* stream entries in global order, attributing each to its mask span via off[] */
     u192 grand = {{0,0,0}}, mass = {{0,0,0}}, span_sum = {{0,0,0}};
     uint64_t bad_last=0, bad_rid=0, bad_sum=0, bad_zero=0, bad_order=0, bad_finalrid=0, ovf=0, movf=0;
-    uint64_t e = 0, mi = 0; uint32_t prev_key = 0; int have_prev = 0;
+    uint64_t e = 0, mi = 0; uint32_t prev_key = 0, first_key = 0; int have_prev = 0;
     long keys_base=0, vals_base=0, kidx_off=0, vidx_off=0, kblk_base=0, vblk_base=0;
     uint64_t nblk=0, *kidx=NULL, *vidx=NULL;
     if (is_v1) { keys_base = off_off + (long)(nm+1)*8; vals_base = keys_base + (long)ne*4; }
@@ -1248,6 +1264,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             uint32_t key = kbuf[j];
             u192 val; memcpy(&val, vbuf + j*24, 24);
             uint32_t rid = key & 0xffff;
+            if (e == 0) first_key = key;  /* layer 0: the root key (lc_root_check) */
             if (key >> 22) bad_last++;   /* last = key>>16 must fit 0..63 */
             if (rid >= R) { bad_rid++; }
             else if (lc_rid_digits(rid, exp_b0, rad) != k) bad_sum++;
@@ -1276,6 +1293,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     LCF(ovf==0,       "192-bit overflow summing values");
     LCF(movf==0,      "192-bit overflow in orbit-weighted mass");
     if (is_final) LCF(bad_finalrid==0, "%llu final-layer entries with rid != R-1", (unsigned long long)bad_finalrid);
+    LC_ROOT_CHECK(first_key);
     if (grand_out) *grand_out = grand;
     if (mass_out)  *mass_out  = mass;
     if (nm_out) *nm_out = nm;
@@ -1737,6 +1755,31 @@ static int lc_selftest(void) {
     WRITE_V2(kidx,0);                                    /* leave the fixture valid */
     #undef WRITE_V2
 
+    /* ---- ROOT-CONTENT legs (2026-09-24, Codex V3A-137#3): layer 0 keeps its SHAPE
+     * {mask 0, 1 entry} and passes every per-entry leg (last<64, rid 0 = digit-sum 0,
+     * value nonzero); only the promised CONTENT is wrong. Before LC_ROOT_CHECK both
+     * files PASSED. Each leg mutates one field of the valid layer 0 used by [1]/[2]. */
+    #define WRITE_L0(key_,v0_) do{ unsigned char h0[72]; memset(h0,0,72); memcpy(h0,"F1C5LAY1",8); \
+      uint32_t v_=1; memcpy(h0+8,&v_,4); memcpy(h0+12,&n,4); uint32_t z_=0; memcpy(h0+16,&z_,4); \
+      memcpy(h0+20,&se,4); memcpy(h0+24,&plhash,8); uint64_t one_=1; memcpy(h0+32,&one_,8); memcpy(h0+40,&one_,8); \
+      for(int c=0;c<5;c++){uint32_t t_=(uint32_t)b0v[c];memcpy(h0+48+4*c,&t_,4);} \
+      uint32_t m0_=0; uint64_t o0_[2]={0,1}; uint32_t k0_=(key_); u192 val_={{(v0_),0,0}}; \
+      snprintf(path,sizeof path,"%s/f1c5_layer_00.bin",dir); FILE *g_=fopen(path,"wb"); \
+      lc_wr(g_,h0,72); lc_wr(g_,&m0_,4); lc_wr(g_,o0_,16); lc_wr(g_,&k0_,4); lc_wr(g_,&val_,24); fclose(g_); }while(0)
+    WRITE_L0(se<<16, 2);
+    printf("\n[12] layer 0 with root VALUE 2 (spec: value 1; shape and per-entry legs all\n"
+           "     hold) — MUST be rejected (was PASS before 2026-09-24):\n");
+    int r12 = lc_check_layers(dir, 31, NULL);
+    WRITE_L0((se+1)<<16, 1);
+    printf("\n[13] layer 0 with root KEY (start_exit+1)<<16 (spec: start_exit<<16; last=1 < 64,\n"
+           "     rid 0) — MUST be rejected (was PASS before 2026-09-24):\n");
+    int r13 = lc_check_layers(dir, 31, NULL);
+    WRITE_L0(se<<16, 1);                                 /* leave the fixture valid */
+    printf("\n[14] layer 0 restored to {key start_exit<<16, value 1} — must PASS again\n"
+           "     (positive control: [12]/[13] fail on the root, not on a fixture artefact):\n");
+    int r14 = lc_check_layers(dir, 31, NULL);
+    #undef WRITE_L0
+
     #undef PUT
 
     /* =====================================================================
@@ -1848,14 +1891,17 @@ static int lc_selftest(void) {
 
     printf("\n======================================================================\n");
     int layout_ok = (r8!=0 && r9!=0 && r10!=0 && r11!=0);
-    int ok = (r1==0 && r2==0 && r3!=0 && grp_ok && r5==0 && r6!=0 && r7!=0 && layout_ok);
+    int root_ok = (r12!=0 && r13!=0 && r14==0);
+    int ok = (r1==0 && r2==0 && r3!=0 && grp_ok && r5==0 && r6!=0 && r7!=0 && layout_ok && root_ok);
     printf("SELFTEST: v1 pass=%s  v2 pass=%s  corruption caught=%s  group-math=%s\n"
            "          nontrivial-stab mass pass=%s  wrong-mass caught=%s  non-canonical caught=%s\n"
            "          layout caught (v2 trailing=%s v2 kidx=%s v1 trailing=%s v1 pad=%s)\n"
+           "          root caught (value=%s key=%s; restored pass=%s)\n"
            "          =>  %s\n",
            r1==0?"Y":"N", r2==0?"Y":"N", r3!=0?"Y":"N", grp_ok?"Y":"N",
            r5==0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N",
            r8!=0?"Y":"N", r9!=0?"Y":"N", r10!=0?"Y":"N", r11!=0?"Y":"N",
+           r12!=0?"Y":"N", r13!=0?"Y":"N", r14==0?"Y":"N",
            ok?"PASS":"*** FAIL ***");
     printf("LCSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
     printf("======================================================================\n");
@@ -2301,6 +2347,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
      * or entries (v1), each lane a contiguous block range */
     uint64_t nblocks = is_v1 ? (ne ? (ne+65535)/65536 : 0) : nblk;
     uint64_t e_total = 0;
+    uint32_t root_key = 0; int have_root = 0;        /* the globally first entry's key */
     u192 grand = {{0,0,0}}, mass = {{0,0,0}};
     uint64_t bad_last=0, bad_rid=0, bad_sum=0, bad_zero=0, bad_order=0, bad_finalrid=0, ovf=0, movf=0;
     {
@@ -2344,6 +2391,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
         /* merge — fixed lane-ascending order, integer only */
         for (int t = 0; t < Lc; t++) {
             LcsLane *L = &ln[t];
+            if (!have_root && L->nonempty && L->e_cnt) { root_key = L->first_key; have_root = 1; }
             e_total += L->e_cnt;
             bad_last += L->bad_last; bad_rid += L->bad_rid; bad_sum += L->bad_sum;
             bad_zero += L->bad_zero; bad_order += L->bad_order;
@@ -2404,6 +2452,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     LCF(ovf==0,       "192-bit overflow summing values");
     LCF(movf==0,      "192-bit overflow in orbit-weighted mass");
     if (is_final) LCF(bad_finalrid==0, "%llu final-layer entries with rid != R-1", (unsigned long long)bad_finalrid);
+    LC_ROOT_CHECK(root_key);
     if (grand_out) *grand_out = grand;
     if (mass_out)  *mass_out  = mass;
     if (nm_out) *nm_out = nm;
@@ -2596,6 +2645,23 @@ static int lcs_selftest(const char *argv0) {
         lc_wr(g,keys,ne*4); for (uint64_t i=0;i<ne;i++) lc_wr(g,&bad[i],24);
         fclose(g);
     }
+    /* ---- fixtures d/e (2026-09-24, V3A-137#3): fixture A v1 with the ROOT entry's
+     * value set to 2 (d) or its key to (start_exit+1)<<16 (e) — both must FAIL in
+     * both modes, and (identity contract) with byte-identical unprefixed output ---- */
+    for (int which = 0; which < 2; which++) {
+        const char *sub = which ? "e" : "d";
+        LCS_CMD("mkdir -p %s/%s && cp %s/a1/f1c5_layer_01.bin %s/a1/f1c5_manifest.txt %s/%s/",
+                dir, sub, dir, dir, dir, sub);
+        if (system(cmd)) {}
+        SPUT("F1C5LAY1", 1, 0, 0, 1, 1);
+        snprintf(path, sizeof path, "%s/%s/f1c5_layer_00.bin", dir, sub);
+        FILE *g = fopen(path, "wb");
+        { uint32_t m0=0; uint64_t o0[2]={0,1};
+          uint32_t k0 = which ? ((se+1)<<16) : (se<<16);
+          u192 v0 = {{which ? 1u : 2u, 0, 0}};
+          lc_wr(g,hd,72); lc_wr(g,&m0,4); lc_wr(g,o0,16); lc_wr(g,&k0,4); lc_wr(g,&v0,24); }
+        fclose(g);
+    }
     #undef SPUT
 
     /* ---- run both modes, compare ---- */
@@ -2651,6 +2717,30 @@ static int lcs_selftest(const char *argv0) {
                r1 ? "YES" : "*** NO ***", r2 ? "YES" : "*** NO ***");
         if (!r1 || !r2) ok = 0;
     }
+    /* root-content fixtures d/e: both modes must FAIL, and the unprefixed output
+     * must still be byte-identical (both readers expand LC_ROOT_CHECK at one point) */
+    for (int which = 0; which < 2; which++) {
+        const char *sub = which ? "e" : "d";
+        char rdir[1200]; snprintf(rdir, sizeof rdir, "%s/%s", dir, sub);
+        LCS_CMD("%s --check-layers %s 31 > %s/ref_%s.out", exe, rdir, dir, sub);
+        int r1 = system(cmd);
+        setenv("LC_SCAN_LANES", "3", 1);
+        LCS_CMD("%s --scan-layers %s 31 > %s/scan_%s.out", exe, rdir, dir, sub);
+        int r2 = system(cmd);
+        char rp1[1300], rp2[1300];
+        snprintf(rp1, sizeof rp1, "%s/ref_%s.out", dir, sub);
+        snprintf(rp2, sizeof rp2, "%s/scan_%s.out", dir, sub);
+        char *rb = lcs_slurp(rp1, NULL), *sb = lcs_slurp(rp2, NULL);
+        char *sf = sb ? lcs_strip_pfx(sb, "[scan] ", NULL) : NULL;
+        int ident = rb && sf && strcmp(rb, sf) == 0;
+        int named = rb && strstr(rb, which ? "layer 0 key=" : "layer 0 value != 1") != NULL;
+        printf("  [%s root %s] sequential rc!=0: %s  scan rc!=0: %s  names the root: %s  filtered==sequential: %s\n",
+               sub, which ? "key" : "value",
+               r1 ? "YES" : "*** NO ***", r2 ? "YES" : "*** NO ***",
+               named ? "YES" : "*** NO ***", ident ? "YES" : "*** NO ***");
+        if (!r1 || !r2 || !named || !ident) ok = 0;
+        free(rb); free(sb); free(sf);
+    }
     printf("SCAN-SELFTEST: %s\n", ok ? "PASS" : "*** FAIL ***");
     return ok ? 0 : 1;
 }
@@ -2684,7 +2774,10 @@ static int lcs_selftest(const char *argv0) {
  *      also equal the published count.
  *   t  structural: F1C5TLY1/2 magic+version, t_manifest_v1, GEOMETRY
  *      BYTE-IDENTICAL to the f layer (masks, off, keys) at every layer,
- *      every value >= 1, layer-n values exactly 1, layer-0 anchor singleton.
+ *      every value >= 1, layer-n values exactly 1, layer-0 anchor singleton
+ *      whose key is start_exit<<16 (key content added 2026-09-24, Q-780: the
+ *      mirror alone let an f+t pair with matching wrong roots through; the
+ *      root VALUE is covered by the k=0 identity t(root) == S_0 below).
  *   t  identity: M_j (orbit-weighted f masses = # valid depth-j prefixes)
  *      re-derived from the f ladder's bytes, M_0 == 1, and at EVERY layer
  *      sum orbit(mask) * f(s)*t(s) == S_k = sum_{j>=k} M_j — the unfolded
@@ -3212,6 +3305,7 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
     u192 acc = {{0,0,0}};
     int ovf = 0;
     uint64_t bad_key = 0, bad_rid = 0, bad_zero = 0, bad_seed = 0;
+    uint32_t troot_key = 0;
     for (uint64_t i = 0; i < tc.nm && !fail; i++) {
         u192 msum = {{0,0,0}};
         uint64_t cnt = tc.off[i+1] - tc.off[i];
@@ -3223,7 +3317,7 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
             if (rid >= R || lc_rid_digits(rid, b0v, rad) != k) bad_rid++;
             if (u192_zero(tv)) bad_zero++;
             if (k == (int)n) { u192 one = {{1,0,0}}; if (!u192_eq(tv, one)) bad_seed++; }
-            if (k == 0 && i == 0 && j == 0) { *troot_out = tv; *troot_got = 1; }
+            if (k == 0 && i == 0 && j == 0) { *troot_out = tv; *troot_got = 1; troot_key = tk; }
             u192 p = u192_mul(fv, tv, &ovf);
             if (u192_add(&msum, p)) ovf = 1;
         }
@@ -3239,6 +3333,18 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
     if (ovf) { printf("  [t] k=%2d  *** FAIL: 192-bit overflow in f*t identity\n", k); fail = 1; }
     if (k == 0 && !fail && (tc.nm != 1 || tc.masks[0] != 0 || tc.ne != 1)) {
         printf("  [t] k= 0  *** FAIL: layer 0 is not the anchor singleton\n"); fail = 1; }
+    /* ANCHOR KEY CONTENT (2026-09-24, Q-780; the t-mode sibling of LC_ROOT_CHECK).
+     * GT_LADDER_FORMAT.md: t layer 0 is exactly {mask 0, key start_exit<<16, value
+     * t(root)}. The shape test above and the per-entry legs (last<64, rid 0 =
+     * digit-sum 0, key == the f layer's key) never compared the key with the
+     * manifest's start_exit, and lc_f_mass_layer reads no keys, so an f+t pair whose
+     * roots both named the wrong exit passed this mode (--check-gt-selftest leg [12]
+     * returned rc 0 before this check). The VALUE needs no new check: the k=0 f·t
+     * identity below reduces to t(root) = S_0 and the tail re-checks t(root)
+     * (leg [13]). Nothing from solve.c is used. */
+    if (k == 0 && !fail && troot_key != (se << 16)) {
+        printf("  [t] k= 0  *** FAIL: layer 0 key=0x%08x != start_exit<<16 = 0x%08x\n",
+               (unsigned)troot_key, (unsigned)(se << 16)); fail = 1; }
 
     if (!fail && have_S) {
         int ok = u192_eq(acc, *Sk);
@@ -3749,16 +3855,55 @@ static int lc_gt_selftest(void) {
       gts_write_v1(fd, "f1c5", "F1C5LAY1", GTS_NP, plh, Lmasks[0][GTS_NP], Lnm[0][GTS_NP],
                    Loff[0][GTS_NP], Lkeys[0][GTS_NP], Lvals[0][GTS_NP], Lne[0][GTS_NP]);
 
+      /* ---- t ROOT-CONTENT legs (2026-09-24, Q-780; the t-mode sibling of the
+       * --check-layers LC_ROOT_CHECK legs). GT_LADDER_FORMAT.md: t layer 0 is
+       * exactly {mask 0, key start_exit<<16, value t(root)}. Before the anchor-key
+       * check in lc_t_layer the KEY was tied only to the f layer's own layer-0 key
+       * (the geometry mirror) and to last<64 / rid 0, and lc_f_mass_layer reads no
+       * keys, so an f+t pair whose roots BOTH named the wrong start exit passed this
+       * mode: leg [12] returned rc 0 on the pre-check build (a t-only key change is
+       * leg [7]'s mirror failure and does not isolate the gap). The VALUE was already
+       * content-checked by the k=0 f·t identity (t(root) = S_0) and the t(root) tail
+       * line; leg [13] executes that claim instead of asserting it. [14] restores
+       * both files and must PASS again (positive control). */
+      uint32_t sfk = Lkeys[0][0][0], stk = Lkeys[2][0][0];
+      Lkeys[0][0][0] = (uint32_t)(GTS_SE + 1) << 16;
+      Lkeys[2][0][0] = (uint32_t)(GTS_SE + 1) << 16;
+      gts_write_v1(fd, "f1c5", "F1C5LAY1", 0, plh, Lmasks[0][0], Lnm[0][0], Loff[0][0],
+                   Lkeys[0][0], Lvals[0][0], Lne[0][0]);
+      gts_write_v1(td, "t", "F1C5TLY1", 0, plh, Lmasks[2][0], Lnm[2][0], Loff[2][0],
+                   Lkeys[2][0], Lvals[2][0], Lne[2][0]);
+      printf("\n[12] f AND t layer 0 with root key (start_exit+1)<<16 (mirror intact; spec:\n"
+             "     key start_exit<<16) — t check must FAIL (anchor KEY content):\n");
+      int r12 = lc_check_t(fd, td, 31);
+      Lkeys[0][0][0] = sfk; Lkeys[2][0][0] = stk;
+      gts_write_v1(fd, "f1c5", "F1C5LAY1", 0, plh, Lmasks[0][0], Lnm[0][0], Loff[0][0],
+                   Lkeys[0][0], Lvals[0][0], Lne[0][0]);
+      sv = Lvals[2][0][0];
+      Lvals[2][0][0].l[0] += 1;
+      gts_write_v1(td, "t", "F1C5TLY1", 0, plh, Lmasks[2][0], Lnm[2][0], Loff[2][0],
+                   Lkeys[2][0], Lvals[2][0], Lne[2][0]);
+      printf("\n[13] t layer 0 with root VALUE t(root)+1 — t check must FAIL (anchor VALUE\n"
+             "     content: the k=0 f·t identity t(root) = S_0):\n");
+      int r13 = lc_check_t(fd, td, 31);
+      Lvals[2][0][0] = sv;
+      gts_write_v1(td, "t", "F1C5TLY1", 0, plh, Lmasks[2][0], Lnm[2][0], Loff[2][0],
+                   Lkeys[2][0], Lvals[2][0], Lne[2][0]);
+      printf("\n[14] f and t layer 0 restored — t check must PASS again (positive control):\n");
+      int r14 = lc_check_t(fd, td, 31);
+
       printf("\n======================================================================\n");
       int ok = gen_ok && r2 == 0 && r3 == 0 && r4 == 0 &&
                r5 != 0 && r6 != 0 && r7 != 0 && r8 != 0 && r9 != 0 &&
-               r10 != 0 && r11 != 0;
+               r10 != 0 && r11 != 0 && r12 != 0 && r13 != 0 && r14 == 0;
       printf("GT SELFTEST: anchors=%s  g-v1=%s  t-v1=%s  g-v2=%s  g-tamper=%s  t-tamper=%s\n"
              "             t-geom-tamper=%s  magic-confusion=%s  seed-tamper=%s\n"
-             "             f-absent-mid-g=%s  f-absent-beyond-maxk-t=%s  =>  %s\n",
+             "             f-absent-mid-g=%s  f-absent-beyond-maxk-t=%s\n"
+             "             t-root caught (key=%s value=%s; restored pass=%s)  =>  %s\n",
              gen_ok?"Y":"N", r2==0?"Y":"N", r3==0?"Y":"N", r4==0?"Y":"N",
              r5!=0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N", r8!=0?"Y":"N", r9!=0?"Y":"N",
              r10!=0?"Y":"N", r11!=0?"Y":"N",
+             r12!=0?"Y":"N", r13!=0?"Y":"N", r14==0?"Y":"N",
              ok ? "PASS" : "*** FAIL ***");
       printf("GTSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
       printf("======================================================================\n");

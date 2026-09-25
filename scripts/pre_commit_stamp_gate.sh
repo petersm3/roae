@@ -21,18 +21,26 @@
 # scripts/v4_execlane_evidence/tr12_canary.log:1645); the commit landed at 05:11:21Z, 25 minutes
 # later, and took the source files without it. Nothing was missing except a consumer.
 #
-# 🔴 WHY NOTHING CAUGHT IT. scripts/pre_push_gate.sh:744-757 DOES consume the stamp, and it is
-# correct — but it runs at PUSH, and commits here are batched and pushed later, so by the time
-# anything looked the defect was already history. Measured the same day:
+# 🔴 WHY NOTHING CAUGHT IT. scripts/pre_push_gate.sh DOES consume the stamp (today in the per-sha
+# leg headed "ADVISORY: THE REPRODUCTION STAMP OF THE PUSHED SHA") — but it runs at PUSH, and commits here are batched and pushed later, so by the
+# time anything looked the defect was already history.
+# ⚠ Corrected 2026-09-24 (Q-710): this cited that leg by line number and called it "correct". It
+# was not. On 2026-09-21 it sat at the foot of the hook and ran --check in $ROOT, the developer's
+# working tree, not in the pushed sha: public bec69b7a's stamp was current only as an uncommitted
+# edit, so every local check read YES and every fresh clone read NO (Q-601, which moved the leg
+# into the per-sha worktree loop on 2026-09-24). The timing argument above stands without it.
+# Line numbers are no longer cited because that file moves; the leg is found by its header.
+# Measured the same day:
 #
 #     grep -c tr12_repro_gate .git/hooks/pre-commit   ->   0
 #
 # The COMMIT path had no stamp awareness at all. That is this repository's recurring shape one
-# level out from the code: a gate that is correct, runs somewhere, and is never asked at the
-# moment the damage is done.
+# level out from the code: a gate that exists, runs somewhere, and is never asked at the moment
+# the damage is done.
 #
 # 🔴 ADVISORY, NOT BLOCKING — A HARD REQUIREMENT, NOT A PREFERENCE, and the reasoning is
-# pre_push_gate.sh:737-741's, honoured rather than re-invented. A stale or unstaged stamp means
+# the "ADVISORY, NOT BLOCKING" paragraph of pre_push_gate.sh's "ADVISORY: THE REPRODUCTION STAMP OF THE PUSHED SHA" leg,
+# honoured rather than re-invented. A stale or unstaged stamp means
 # "this tree has not been shown to reproduce", which is a fact about EVIDENCE, not a broken tree.
 # Beyond that, operator ruling O-redfloor applies with full force here: a hook that refuses a
 # commit also stops a unit committing to protect its work from another unit's `git checkout --`,
@@ -218,7 +226,7 @@ if [ "$MODE" = "--selftest" ]; then
   # the live control looked for scripts/tr12_repro_gate.sh THERE, did not find it, and the
   # selftest reported FAIL — a green check turned red by the caller's working directory, which is
   # the same "the instrument measured the wrong subject" class this gate exists to catch, shipped
-  # inside the gate itself. tr12_repro_gate.sh uses this idiom for exactly this reason (:40).
+  # inside the gate itself. tr12_repro_gate.sh uses this idiom for exactly this reason (:42).
   # The REAL leg deliberately still uses the caller's repo: the index being committed belongs to
   # it, and .git/hooks is shared across linked worktrees.
   R=$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)

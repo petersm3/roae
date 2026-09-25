@@ -2000,12 +2000,27 @@ if __name__ == "__main__":
 
     def _out_path(path):
         """Q-311 (2026-09-03): an OUT.cnf whose directory does not exist or is not writable was
-        a FileNotFoundError traceback AFTER the (seconds-long) build. Check first."""
+        a FileNotFoundError traceback AFTER the (seconds-long) build. Check first.
+
+        2026-09-24 (Fable lane, Q-311 sibling, found while re-verifying Q-287): the check
+        required the DIRECTORY to be writable even when the file already existed, so
+        `--emit-cnf T /dev/null` was refused as "not writable" — a false statement (/dev/null
+        is writable; /dev is not), and it blocked the /tmp-free proof-cell form. open(path,"w")
+        on an EXISTING path needs write permission on the file, not its directory; on a NEW
+        path it needs write permission on the directory. Test whichever applies. A directory
+        handed as OUT.cnf passed both tests and was an IsADirectoryError traceback after the
+        build (measured 2026-09-24); refused here now."""
+        if os.path.isdir(path):
+            raise SystemExit("%s: is a directory, not a file" % path)
+        if os.path.exists(path):
+            if not os.access(path, os.W_OK):
+                raise SystemExit("%s: not writable" % path)
+            return path
         d = os.path.dirname(os.path.abspath(path))
         if not os.path.isdir(d):
             raise SystemExit("%s: directory %s does not exist" % (path, d))
-        if not os.access(d, os.W_OK) or (os.path.exists(path) and not os.access(path, os.W_OK)):
-            raise SystemExit("%s: not writable" % path)
+        if not os.access(d, os.W_OK):
+            raise SystemExit("%s: directory %s is not writable" % (path, d))
         return path
 
     def _emit_label(target):

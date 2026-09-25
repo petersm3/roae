@@ -1039,7 +1039,7 @@ def tr8_dof_merge(out_dir, quiet=False):
     # marginal could be edited in place, its shape preserved, and the merge would
     # still exit 0 while reporting stale labels. A digest that is written and never
     # checked is decoration. Recomputed here with the SAME expression that produced
-    # it (solve.py:753), so the two cannot drift apart silently.
+    # it (solve.py:755-757), so the two cannot drift apart silently.
     _recomputed = hashlib.sha256(
         "\n".join("%s%d|%s|%s|%.6f" % (bank[i][0], bank[i][1], bank[i][2], bank[i][3], marg[i])
                    for i in admitted).encode("utf-8")).hexdigest()
@@ -4389,6 +4389,356 @@ _P2_FLOAT_COLS = [
 ]
 
 
+# ---- V3 rank spectrum: the rank-grid -> observable-battery JOIN -------------
+# viz/viz_kc_spectrum.md calls V3 "the one V-family member with a real missing
+# instrument": both unrankers exist and the battery exists, but `--kc-unrank`
+# prints a walk as an `entry,exit,...` line while `--compute-stats` consumes
+# 32-byte records, and NOTHING adapted between them.  This is that adapter plus
+# the join.  It lives in solve.py because `viz/` holds no analysis -- which is
+# also why the renderer cannot look King Wen's values up, and why the optional
+# `kw_<observable>` columns emitted here are the ONLY way a reference line is
+# ever drawn.
+#
+# 🔴 THE FAILURE MODE THIS IS WRITTEN AGAINST (Q-430, 2026-09-07): a wrong
+# adapter does not fail, IT FABRICATES.  A mis-packed record still decodes, the
+# battery still computes, the figure still renders, and a spectrum over garbage
+# carries no sign of being wrong -- strictly worse than the honest PENDING skip
+# it replaces.  So nothing here is trusted by eye.  Every emitted record is read
+# back through the battery's OWN decoder (`_p2_build_hexagram_sequence`) and the
+# resulting 64-hexagram sequence is checked against the constraints that DEFINE
+# the space: C1 (consecutive partner pairs, via the pair table), C2 (no 5-line
+# transition), C4 (the pinned (63, 0) opening) and C5 (the exact multiset
+# {1:2, 2:20, 3:13, 4:19, 6:9}).  A row failing any of them is a hard error, not
+# a dropped row -- a silently shortened spectrum is the same lie in a smaller
+# font.  The convention itself is pinned by a positive control: packing King Wen
+# (`pair_index == slot`, `orient == 0`) must reproduce every frozen `_P2_KW_VALUES`
+# entry, which a wrong shift or a swapped orientation cannot do.
+#
+# N = |C1 & C2 & C4 & C5| at n=31, exact.  It is cross-checked against the grid
+# the caller actually supplies (`step == N // K`), so a grid built against a
+# different N is refused rather than silently re-scaled onto this one.
+_V3_SUPERSPACE_N = 1097051278789181790036112071176579186688
+
+# C5's difference-wave multiset (SPECIFICATION.md C5), the membership test that
+# makes a fabricated walk loud.
+_V3_C5_MULTISET = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}
+
+# The published structural floor for C3 over SUPER: C3 = 112 at G = 12,
+# reports/certificates/c3_positional_witnesses.txt.
+_V3_C3_FLOOR = 112
+
+
+def _v3_pair_table():
+    """{(entry, exit): (pair_index, orient)} over the 32 canonical King Wen pairs.
+
+    Built from `_p2_kw_arrays()` -- the same single source of truth the battery
+    decodes records with -- so the adapter cannot drift from the decoder.
+    `orient == 0` means (PAIRS_A[p], PAIRS_B[p]), the King Wen orientation;
+    `orient == 1` is the reversed placement.  This is the inverse of the
+    `byte = (pair_index << 2) | (orient << 1)` packing in SOLUTIONS_FORMAT.md.
+    """
+    _, pairs_a, pairs_b = _p2_kw_arrays()
+    table = {}
+    for p in range(32):
+        a, b = int(pairs_a[p]), int(pairs_b[p])
+        table[(a, b)] = (p, 0)
+        table[(b, a)] = (p, 1)
+    return table
+
+
+def v3_spectrum(grid_tsv, out_tsv, order="REL"):
+    """Handler for --v3-spectrum.  Rank grid (i/r/walk) -> v3_spectrum.tsv.
+
+    Reads the `i`, `r`, `walk` grid emitted by the `--kc-unrank` K-loop
+    (scripts/tr12_repro.sh row a1_v3 -> tr12/v3_rel_grid.tsv), evaluates the
+    FROZEN `--compute-stats` battery on each walk, and writes the one-row-per-
+    grid-point evidence TSV that `viz/report_figures.py fig_tr12_kc_spectrum`
+    consumes.  Emits `V3_SPECTRUM=PASS` or `V3_SPECTRUM=FAIL`.
+
+    The battery is frozen: `_P2_INT_COLS` / `_P2_FLOAT_COLS` are READ here and
+    never widened, and their table order is the column order the spec pins.
+
+    Two documented traps are honoured structurally rather than by luck:
+
+    * `c3_total` HAS NO HARD RANGE.  The `424...776` pair carried in
+      `_P2_INT_COLS` was wrong at BOTH ends (QSET finding 8) and is withdrawn:
+      the compiled space is C1&C2&C4&C5, C3 is not applied, so values above King
+      Wen's 776 are EXPECTED, and 424 was a slice minimum rather than a bound
+      (the published floor is 112 at G = 12).  Acceptance therefore checks the
+      exact kernel-checked identity `C3 = 16 + 8*G` -- i.e. `(c3 - 16) % 8 == 0`
+      and `c3 >= 112` -- and reports the observed span as unbounded-above.
+      Substituting a second guessed interval would repeat the defect.
+
+    * `first_position_deviation` is HELD OUT OF THE O3 AXIS (QSET-2 finding 4).
+      Under O3 -- lexicographic on the pair vector with King Wen as the identity
+      -- first-deviation-from-identity is monotone non-increasing by a two-line
+      argument (brute-forced at n = 5, 6, 7), so that panel's trend is forced by
+      the order and is a theorem about the axis, not a measurement of the
+      population.  REL is unaffected, and the shipped grid is REL; the hold-out
+      fires only when `order == "O3"`, and says so.
+    """
+    import collections
+    import numpy as np
+
+    if order not in ("REL", "O3"):
+        print(f"V3_SPECTRUM=FAIL unknown order {order!r}; must be REL or O3", flush=True)
+        return 1
+
+    # ---- read the grid -----------------------------------------------------
+    rows = []
+    with open(grid_tsv, encoding="utf-8") as fh:
+        header = None
+        for line in fh:
+            if not line.strip() or line.startswith("#"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            if header is None:
+                header = fields
+                if header[:3] != ["i", "r", "walk"]:
+                    print(f"V3_SPECTRUM=FAIL {grid_tsv}: header is {header}, expected "
+                          f"i/r/walk (the --kc-unrank grid emitted by row a1_v3)",
+                          flush=True)
+                    return 1
+                continue
+            if len(fields) != len(header):
+                print(f"V3_SPECTRUM=FAIL {grid_tsv}: {len(fields)} field(s) against a "
+                      f"{len(header)}-column header -- torn or mis-delimited", flush=True)
+                return 1
+            rows.append(fields)
+    if not rows:
+        print(f"V3_SPECTRUM=FAIL {grid_tsv}: header only, 0 data rows", flush=True)
+        return 1
+    K = len(rows)
+
+    # ---- the rank axis, exactly (decimal strings, never float) -------------
+    # Big integers are parsed with int().  float() here would round r to ~53
+    # bits and silently collide neighbouring grid points at this magnitude.
+    idx = [int(r[0]) for r in rows]
+    ranks = [int(r[1]) for r in rows]
+    if idx != list(range(K)):
+        print(f"V3_SPECTRUM=FAIL {grid_tsv}: `i` is not the contiguous run 0..{K-1} "
+              f"-- the renderer's grid check would refuse this table", flush=True)
+        return 1
+    step = _V3_SUPERSPACE_N // K
+    bad_rank = [(i, ranks[i], i * step) for i in range(K) if ranks[i] != i * step]
+    if bad_rank:
+        i, got, want = bad_rank[0]
+        print(f"V3_SPECTRUM=FAIL {grid_tsv}: rank at i={i} is {got}, but "
+              f"i*floor(N/K) = {want} for N={_V3_SUPERSPACE_N} K={K} "
+              f"({len(bad_rank)} row(s) disagree) -- this grid was not built "
+              f"against this superspace size", flush=True)
+        return 1
+    if any(ranks[i] <= ranks[i - 1] for i in range(1, K)):
+        print(f"V3_SPECTRUM=FAIL {grid_tsv}: `rank` is not strictly increasing", flush=True)
+        return 1
+
+    # ---- walk -> record, and read the record back through the battery ------
+    table = _v3_pair_table()
+    records = np.zeros((K, _P2_RECORD_SIZE), dtype=np.uint8)
+    walks = []
+    for i, r in enumerate(rows):
+        walk_str = r[2]
+        try:
+            w = [int(v) for v in walk_str.split(",")]
+        except ValueError:
+            print(f"V3_SPECTRUM=FAIL row i={i}: walk is not a comma-separated "
+                  f"integer list", flush=True)
+            return 1
+        if len(w) != 62:
+            print(f"V3_SPECTRUM=FAIL row i={i}: walk has {len(w)} integers, expected 62 "
+                  f"(entry,exit for each of the 31 free pairs)", flush=True)
+            return 1
+        walks.append(walk_str)
+        # C4: the pinned opening pair (63, 0) is PREPENDED -- it is not in the
+        # walk, which carries only the 31 free placements.
+        records[i, 0] = (0 << 2) | (0 << 1)
+        for k in range(31):
+            key = (w[2 * k], w[2 * k + 1])
+            if key not in table:
+                print(f"V3_SPECTRUM=FAIL row i={i}: ({key[0]},{key[1]}) is not one of the "
+                      f"32 canonical King Wen pairs -- C1 violated, so this walk is not a "
+                      f"member of the space", flush=True)
+                return 1
+            pair_index, orient = table[key]
+            records[i, k + 1] = (pair_index << 2) | (orient << 1)
+
+    # Membership, re-derived from the EMITTED RECORD via the battery's own
+    # decoder.  This is the check that makes a mis-packed record loud instead of
+    # merely plausible.
+    seq = _p2_build_hexagram_sequence(records)
+    popcount = np.array([bin(v).count("1") for v in range(64)], dtype=np.uint8)
+    for i in range(K):
+        s = [int(v) for v in seq[i]]
+        if sorted(s) != list(range(64)):
+            print(f"V3_SPECTRUM=FAIL row i={i}: decoded sequence is not a permutation "
+                  f"of 0..63 -- a pair was placed twice", flush=True)
+            return 1
+        if (s[0], s[1]) != (63, 0):
+            print(f"V3_SPECTRUM=FAIL row i={i}: sequence opens ({s[0]}, {s[1]}), not "
+                  f"(63, 0) -- C4 is not satisfied by the prepended pair", flush=True)
+            return 1
+        dists = [int(popcount[s[j] ^ s[j + 1]]) for j in range(63)]
+        if 5 in dists or 0 in dists:
+            print(f"V3_SPECTRUM=FAIL row i={i}: a transition of distance "
+                  f"{5 if 5 in dists else 0} -- C2 forbids it", flush=True)
+            return 1
+        got = dict(collections.Counter(dists))
+        if got != _V3_C5_MULTISET:
+            print(f"V3_SPECTRUM=FAIL row i={i}: difference-wave multiset {got} != "
+                  f"{_V3_C5_MULTISET} -- C5 violated, so the decoded walk is not a "
+                  f"member of C1&C2&C4&C5 and the adapter is packing the wrong bytes",
+                  flush=True)
+            return 1
+
+    # Positive control: King Wen must round-trip to every frozen reference
+    # value.  A wrong shift, a swapped orientation or a dropped pin changes at
+    # least one of these, so this is the check that can FAIL if the convention
+    # above is wrong -- the range checks below cannot catch that on their own.
+    kw_record = np.array([[(p << 2) for p in range(32)]], dtype=np.uint8)
+    kw_stats = _p2_compute_all_stats(kw_record)
+    for name, ref in _P2_KW_VALUES.items():
+        got = float(kw_stats[name][0])
+        tol = 0.01 if isinstance(ref, float) else 0.0
+        if abs(got - float(ref)) > tol:
+            print(f"V3_SPECTRUM=FAIL King Wen positive control: {name} packs to {got}, "
+                  f"frozen reference is {ref} -- the record convention is wrong",
+                  flush=True)
+            return 1
+
+    # ---- the frozen battery ------------------------------------------------
+    stats = _p2_compute_all_stats(records)
+
+    # Column order is the spec's table order, which IS the _P2_INT_COLS then
+    # _P2_FLOAT_COLS order.  `position_2_pair` is a categorical stratifier in
+    # neither list and is deliberately not a spectrum panel.
+    int_cols = list(_P2_INT_COLS)
+    float_cols = list(_P2_FLOAT_COLS)
+    held_out = []
+    if order == "O3":
+        int_cols = [c for c in int_cols if c[0] != "first_position_deviation"]
+        held_out.append("first_position_deviation")
+        print("[v3-spectrum] HELD OUT of the O3 axis: first_position_deviation. Its trend "
+              "under O3 is FORCED by lex order (monotone non-increasing from the identity), "
+              "so the panel would be a theorem about the axis, not a measurement "
+              "(viz_kc_spectrum.md, QSET-2 finding 4).", flush=True)
+
+    # ---- acceptance: every observable inside its documented range ----------
+    violations = []
+    spans = []
+    for name, lo, hi, _kw in int_cols:
+        arr = stats[name].astype(np.int64)
+        vmin, vmax = int(arr.min()), int(arr.max())
+        if name == "c3_total":
+            # No hard range -- see the docstring.  The identity is the test.
+            off = [(int(i), int(v)) for i, v in enumerate(arr) if (int(v) - 16) % 8 != 0]
+            low = [(int(i), int(v)) for i, v in enumerate(arr) if int(v) < _V3_C3_FLOOR]
+            for i, v in off:
+                violations.append(f"c3_total={v} at i={i} violates the exact identity "
+                                  f"C3 = 16 + 8*G")
+            for i, v in low:
+                violations.append(f"c3_total={v} at i={i} is below the published "
+                                  f"structural floor {_V3_C3_FLOOR}")
+            spans.append((name, vmin, vmax,
+                          f"identity C3=16+8G, floor {_V3_C3_FLOOR}, UNBOUNDED ABOVE"))
+            continue
+        out_of = [(int(i), int(v)) for i, v in enumerate(arr) if not (lo <= int(v) <= hi)]
+        for i, v in out_of:
+            violations.append(f"{name}={v} at i={i} outside documented range {lo}..{hi}")
+        spans.append((name, vmin, vmax, f"{lo}..{hi}"))
+    for name, lo, hi, _kw in float_cols:
+        arr = stats[name].astype(np.float64)
+        vmin, vmax = float(arr.min()), float(arr.max())
+        out_of = [(int(i), float(v)) for i, v in enumerate(arr)
+                  if not (lo <= float(v) <= hi)]
+        for i, v in out_of:
+            violations.append(f"{name}={v} at i={i} outside documented range {lo}..{hi}")
+        spans.append((name, vmin, vmax, f"{lo}..{hi}"))
+
+    # ---- write ------------------------------------------------------------
+    names_int = [c[0] for c in int_cols]
+    names_float = [c[0] for c in float_cols]
+    # 🔴 FOUR OBSERVABLES GET NO REFERENCE LINE, AND THE REASON IS CIRCULARITY.
+    # The renderer draws King Wen's horizontal line for exactly those observables whose
+    # `kw_<name>` column this file supplies (viz/viz_kc_spectrum.md: "the only way a reference
+    # line gets drawn"), so suppression happens HERE, in the data, not in viz/ -- which holds no
+    # analysis and must not decide what is circular.
+    #
+    # DISTRIBUTIONAL_ANALYSIS.md's adversarial circularity audit (2026-07-26) names these four:
+    # `edit_dist_kw` and `first_position_deviation` are TAUTOLOGICAL -- "only KW itself can score
+    # 0 / 33 -- any reference ordering is the unique minimizer of distance-to-itself" -- while
+    # `shift_conformant_count` and `c6_c7_count` "score agreement with KW's own pair placement
+    # and adjacency pins (KW-extracted, priced data-like in METHODS)". Read the code: `kw_exp` IS
+    # arange(32), so all four measure similarity to King Wen, on which King Wen necessarily takes
+    # the extreme value. Drawn as reference lines they sit outside the sampled cloud and a reader
+    # concludes King Wen is remarkable -- which is the exact inference that audit WITHDREW a
+    # published joint-KDE headline for. The drift result is unaffected; only the lines go.
+    #
+    # `c3_total` KEEPS its line: the audit's reason for it was "ceiling placement guaranteed by
+    # the C3 <= 776 population filter", and this grid is SUPER with C3 NOT applied, so King Wen's
+    # 776 sits INSIDE the observed span rather than at a filter's edge.
+    _KW_TAUTOLOGICAL = {"edit_dist_kw", "first_position_deviation",
+                        "shift_conformant_count", "c6_c7_count"}
+    # Header and row are built from THE SAME filtered lists on purpose: filtering one and not the
+    # other would silently shift every value into the wrong column, which is worse than the
+    # circularity being cured.
+    kw_int_cols = [c for c in int_cols if c[0] not in _KW_TAUTOLOGICAL]
+    kw_float_cols = [c for c in float_cols if c[0] not in _KW_TAUTOLOGICAL]
+    head = ["i", "rank", "x", "order", "walk"] + names_int + names_float
+    head += (["kw_" + c[0] for c in kw_int_cols]
+             + ["kw_" + c[0] for c in kw_float_cols])
+    out_dir = os.path.dirname(os.path.abspath(out_tsv))
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(out_tsv, "w", encoding="utf-8") as fh:
+        fh.write("\t".join(head) + "\n")
+        for i in range(K):
+            # int/int in Python is correctly rounded even at 192 bits; the
+            # abscissa is a float BY SPEC, the rank beside it stays exact.
+            x = ranks[i] / _V3_SUPERSPACE_N
+            if not (0.0 <= x < 1.0):
+                print(f"V3_SPECTRUM=FAIL row i={i}: x={x} outside [0,1)", flush=True)
+                return 1
+            row = [str(i), str(ranks[i]), "%.17g" % x, order, walks[i]]
+            row += [str(int(stats[n][i])) for n in names_int]
+            row += ["%.7f" % float(stats[n][i]) for n in names_float]
+            # kw_* are CONSTANT down the grid by construction -- they are the
+            # frozen table values, written unchanged on every row.  The renderer
+            # refuses a non-constant kw_ column as a labelling error.
+            row += [str(c[3]) for c in kw_int_cols]
+            row += ["%.7f" % float(c[3]) for c in kw_float_cols]
+            fh.write("\t".join(row) + "\n")
+
+    print(f"[v3-spectrum] {K} grid points, order={order}, N={_V3_SUPERSPACE_N}, "
+          f"step={step}", flush=True)
+    for name, vmin, vmax, rng in spans:
+        if isinstance(vmin, float):
+            print(f"[v3-spectrum]   {name:26s} observed {vmin:.7f}..{vmax:.7f}  "
+                  f"documented {rng}", flush=True)
+        else:
+            print(f"[v3-spectrum]   {name:26s} observed {vmin}..{vmax}  "
+                  f"documented {rng}", flush=True)
+    if held_out:
+        print(f"[v3-spectrum] held out for this axis: {', '.join(held_out)}", flush=True)
+    if violations:
+        for v in violations:
+            print(f"[v3-spectrum] RANGE VIOLATION: {v}", flush=True)
+        print(f"V3_SPECTRUM=FAIL {len(violations)} observable value(s) outside the "
+              f"documented range; wrote {out_tsv} UNCLAMPED so the violation is "
+              f"inspectable", flush=True)
+        return 1
+    # Count the columns ACTUALLY WRITTEN, not the battery size. This line used to report
+    # `len(names_int) + len(names_float)` for both figures, so after the circular kw_* columns
+    # were suppressed it still announced 9 reference columns while writing 5 -- a verdict line
+    # contradicting its own output, which is the class CX-65/67/73 all belong to.
+    _n_kw = len(kw_int_cols) + len(kw_float_cols)
+    _n_supp = (len(int_cols) + len(float_cols)) - _n_kw
+    print(f"V3_SPECTRUM=PASS {K} rows, {len(names_int) + len(names_float)} observable(s) "
+          f"+ {_n_kw} kw_* reference column(s) ({_n_supp} suppressed as KW-anchored: "
+          f"{', '.join(sorted(_KW_TAUTOLOGICAL))}) -> {out_tsv}",
+          flush=True)
+    return 0
+
+
 def p2_marginals(chunks_dir, out_md):
     """Handler for --marginals."""
     import glob as _lane_glob
@@ -6595,7 +6945,7 @@ def extended_selftest(solve_binary):
     def _run(env_extra, dir_, args_=("0", "4")):
         env = os.environ.copy()
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
-        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:20627) refuses to start
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:42948) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
         # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
         # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
@@ -12194,15 +12544,15 @@ def atlas_load(path):
     if isinstance(fails, bool) or not isinstance(fails, int):
         raise AtlasError("%s: gates.fails=%r is not an integer" % (path, fails))
     # 🔴 Q-560, FIXED 2026-09-12. "see fails" was the ONLY value read as a failure, so the
-    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30085, emitted
+    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30120, emitted
     # for raw_marginal_sums_eq_N and kernel_marginals_eq_cls_raw whenever want_raw is 0 -- was
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
-    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30095) is ALSO an un-run gate,
-    # but VERIFY.md:1151 states as POLICY that it "is not a failed run". Reversing a documented
+    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30130) is ALSO an un-run gate,
+    # but VERIFY.md:1159 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:5655,
-    # :5998; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6211,
+    # :6548; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
         raise AtlasError(
@@ -12237,11 +12587,11 @@ def atlas_load(path):
                    ",".join(sorted(have - want)) or "-", ",".join(sorted(want - have)) or "-"))
     # 🔴 THE TAIL VERDICT WAS EMITTED AND NEVER READ (Codex KCP5 #1, adjudicated by Fable
     # 2026-09-12: ACCEPTED, and BROADER than charged). The five F3-rule tail checks count
-    # failures unconditionally (solve.c:29271) but increment `gate_fails` only under
-    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29273), while KC_SCAN (:30359) and KC_SCAN_MERGE
-    # (:31275) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
+    # failures unconditionally (solve.c:29314) but increment `gate_fails` only under
+    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29316), while KC_SCAN (:30409) and KC_SCAN_MERGE
+    # (:31325) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
     # beside `tail_checks.fails >= 1` in the SAME file and still prints KC_SCAN=OK, exit 0.
-    # SOLVE_C_CLI.md:2132 states that honestly; :2238 then claimed THIS loader closed it,
+    # SOLVE_C_CLI.md:2142 states that honestly; :2249 then claimed THIS loader closed it,
     # and it did not -- `tail_check` and `tail_report` appeared ZERO times in this file
     # (positive control: `atlas_emit_v1` = 2). Codex demonstrated the consequence rather
     # than asserting it: moving 48 units between two raw pair marginals produced vertical
@@ -12286,7 +12636,7 @@ def atlas_load(path):
             % (path, tf, len(bad), ", ".join(bad) or "-"))
     # 🔴 Q-561, FIXED 2026-09-12. The guard that stood here fired only when "n/a" verdicts
     # were present AND some layer carried marginal_raw. But "n/a" was produced precisely when
-    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29954
+    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29989
     # asserts it appears exactly want_raw times. So the guard was conditioned on the data that
     # vanishes in the only case it had to catch: it could fire on a forged atlas and never on a
     # real one. Removed, not repaired. Every un-run verdict now lands in the notrun arm above,
@@ -12483,24 +12833,111 @@ def _atlas_branch_rows(A, N, n, wide):
 # --------------------------------------------------------------------------
 # V5 -- the transition grammar (viz/viz_kc_grammar.md)
 # --------------------------------------------------------------------------
+# The within-pair distance classes of the pinned second axis.  C1 forces the multiset over
+# the 32 pairs to {2: 12, 4: 12, 6: 8}, so these three values are the whole support.
+_ATLAS_W_CLASSES = (2, 4, 6)
+
+
 def atlas_emit_v5(A, outdir):
+    """V5, the transition grammar.  Returns (path, crosstab).
+
+    THE SECOND AXIS IS AN OPERATOR RULING, NOT A MEASUREMENT (2026-09-23).  TR-12 section 2
+    names V5's classes "distance class d x new-pair category" and defines "new-pair category"
+    NOWHERE; viz/viz_kc_grammar.md records that it "must be pinned by the operator before the
+    cross-tab is built" and names one candidate.  The operator pinned that candidate:
+
+        w = popcount(entry XOR exit) = popcount(b XOR partner(b))    in {2, 4, 6}
+
+    the within-pair Hamming distance of the newly placed pair.  Other readings (pair orbit,
+    trigram class) remain possible and would each need their own G-invariance argument.  This
+    code implements the pinned one and nothing else.  The CHOICE of axis is a ruling; every
+    number computed under it is measured and gated below.
+
+    NO SCAN-SIDE CHANGE, NO LADDER READ, NO RE-SCAN.  Both coordinates are functions of the
+    kernel key alone: `layers[k].kernel` maps "m<a>_<b>" -> mass, where `a` is the raw exit of
+    the previous pair and `b` the raw entry of the new one, so d = popcount(a ^ b) and
+    w = popcount(b ^ partner(b)).  The key convention is the one this module already uses in
+    atlas_probe (its `kern()` helper), reused rather than re-invented.
+
+    An atlas with no kernel (a quotient-only scan, `--kc-scan` without --kc-raw above n = 13)
+    still gets the honest reduced table with w = -1: the second dimension is then ABSENT, not
+    guessed, and the caller's verdict token says which form was written.
+    """
+    import collections
     N = _atlas_int(A["N_total"], "N_total")
     n = A["n"]
     kw_d, kw_w, _ = _atlas_kw_overlay(n)
+    pc = lambda x: bin(x).count("1")
+    # C1's pairing, from this module's single source of truth for the pair structure.
+    mate = {}
+    for _e, _x in king_wen_pairs():
+        mate[_e] = _x
+        mate[_x] = _e
+    # C1 fixes the within-pair multiset over the 32 pairs to {2: 12, 4: 12, 6: 8}
+    # (documentation/SPECIFICATION.md, machine-checked in lean/TrigramTheorems.lean).  If the
+    # pairing in hand does not reproduce it, `w` is not the axis the operator pinned -- so
+    # REFUSE rather than emit a column that would be read as that axis.
+    wmult = collections.Counter(pc(_e ^ _x) for _e, _x in king_wen_pairs())
+    if dict(wmult) != {2: 12, 4: 12, 6: 8}:
+        raise AtlasError("within-pair distance multiset over the 32 pairs is %s, not C1's "
+                         "{2: 12, 4: 12, 6: 8} -- the pinned w axis is not what it claims"
+                         % dict(sorted(wmult.items())))
+    have_kernel = all("kernel" in L for L in A["layers"])
     rows = []
     for L in A["layers"]:
         k = L["k"]
         flow = _atlas_int(L["flow"], "layers[%d].flow" % k)
         if flow != N:
             raise AtlasError("layers[%d].flow != N_total -- gate failure, do not plot" % k)
+        if not have_kernel:
+            for d in _ATLAS_CLASSES:
+                m = _atlas_layer_class(L, d, k)
+                rows.append((k, d, -1, m, _atlas_f(_atlas_ratio(m, flow)), kw_d[k], kw_w[k]))
+            continue
+        G = collections.defaultdict(int)
+        for key, v in L["kernel"].items():
+            a, b = (int(s) for s in key[1:].split("_"))
+            G[(pc(a ^ b), pc(b ^ mate[b]))] += _atlas_int(
+                v, "layers[%d].kernel.%s" % (k, key))
+        # GATES, NOT ADJUSTMENTS.  The refinement must marginalise back to the table it
+        # refines -- at every (k, d) -- and the layer must still carry exactly the flow.  A
+        # mismatch means the derivation is wrong, so it REFUSES; nothing here is nudged to
+        # make an identity hold.
         for d in _ATLAS_CLASSES:
-            m = _atlas_layer_class(L, d, k)
-            # w = -1: the (distance x within-pair) cross-tab is NOT emitted by
-            # the scan (QUERY_INVENTORY 3.1).  The placeholder is honest; the
-            # second dimension is absent, not guessed.
-            rows.append((k, d, -1, m, _atlas_f(_atlas_ratio(m, flow)), kw_d[k], kw_w[k]))
-    return _atlas_write(os.path.join(outdir, "v5_grammar.tsv"),
-                        ["k", "d", "w", "mass", "p_cond", "kw_d", "kw_w"], rows)
+            tot = sum(G[(d, w)] for w in _ATLAS_W_CLASSES)
+            ref = _atlas_layer_class(L, d, k)
+            if tot != ref:
+                raise AtlasError(
+                    "layers[%d]: the (d, w) cross-tab sums to %d at d=%d but by_class says "
+                    "%d -- the kernel refinement does not marginalise to the class it "
+                    "refines, do not plot" % (k, tot, d, ref))
+        if sum(G.values()) != flow:
+            raise AtlasError("layers[%d]: the (d, w) cross-tab sums to %d, not the layer "
+                             "flow %d -- do not plot" % (k, sum(G.values()), flow))
+        if any(w not in _ATLAS_W_CLASSES for _, w in G):
+            raise AtlasError("layers[%d]: the cross-tab carries a within-pair distance "
+                             "outside C1's {2, 4, 6}: %s"
+                             % (k, sorted({w for _, w in G} - set(_ATLAS_W_CLASSES))))
+        if _atlas_fault("v5-cross-swap") and k == 0:
+            # TEST ONLY.  Move one unit of mass between two `w` cells INSIDE a single (k, d).
+            # by_class[d], the layer flow and every horizontal gate above stay green -- this
+            # is deliberately the one corruption only a (d, w) recount can see, so the new
+            # brute-force leg is shown able to fail rather than merely asserted to work.
+            for d in _ATLAS_CLASSES:
+                if G[(d, 2)] > 0:
+                    G[(d, 2)] -= 1
+                    G[(d, 4)] += 1
+                    break
+        # The full 5 x 3 product, zero cells included: the figure's row axis is the CLASS
+        # SET, and a class absent from one layer but present in another would leave a hole
+        # that viz/report_figures.py's grid check refuses (and should).
+        for d in _ATLAS_CLASSES:
+            for w in _ATLAS_W_CLASSES:
+                m = G[(d, w)]
+                rows.append((k, d, w, m, _atlas_f(_atlas_ratio(m, flow)), kw_d[k], kw_w[k]))
+    return (_atlas_write(os.path.join(outdir, "v5_grammar.tsv"),
+                         ["k", "d", "w", "mass", "p_cond", "kw_d", "kw_w"], rows),
+            have_kernel)
 
 
 # --------------------------------------------------------------------------
@@ -12717,120 +13154,517 @@ def _xa_exact(v):
     """The exact rational value of an XA anchor (typed decimal if we have it)."""
     from fractions import Fraction
     e = getattr(v, "exact", None)
-    return e if isinstance(e, Fraction) else Fraction(v)
+    if isinstance(e, Fraction):
+        return e
+    # 🔴 Q-767 (3), RCQ04 P3, 2026-09-24. `Fraction(0.1)` is the binary64
+    # 3602879701896397/36028797018963968, not 1/10: a bare float has already lost the decimal the
+    # operator typed, so deciding an exact verdict from it would be exact arithmetic on the wrong
+    # number. The CLI always hands over an `_ExactAnchor`; anything else that is a float is refused.
+    if isinstance(v, float):
+        raise AtlasError("XA: anchor %r is a bare float, whose exact value is its binary64 "
+                         "approximation, not the decimal that was typed; pass an _ExactAnchor, "
+                         "a Fraction, a Decimal or an int" % (v,))
+    return Fraction(v)
 
 
-_XA_CERT_KEY = "solve_node_limit_mapping"
-# The token a W0-D mapping certificate must lead with to be treated as claiming anything.
-_XA_CERT_CLAIM_PREFIX = "CERTIFIED:"
+# 🔴 Q-772, implementing the Q-768 ruling (Fable Y, 2026-09-24): THE CERTIFICATE IS NOW USED.
+# Until this change the W0-D certificate was consumed as a PERMISSION BIT. `_xa_node_mapping_cert_
+# defect` searched the whole JSON, recursively, for the key `solve_node_limit_mapping` and returned
+# None ("authorised") for any string starting "CERTIFIED:" with text after it, or for any object
+# with "claimed": true. `atlas_emit_xa` then priced the t-unit count ITSELF as production-DFS
+# nodes: nothing from the certificate reached the arithmetic. RCQ04 measured
+#     "CERTIFIED: no mapping has been established"    -> authorised
+#     {"claimed": true, "mapping": "unrelated"}       -> authorised
+# and three rounds of tightening the sentence's grammar had each closed only the strings shown.
+# No grammar closes it; the closure recorded in the old function was "read the mapping factor out
+# of the certificate and price with it". This loader does that. A certificate is a fixed JSON
+# shape (below). Nothing is searched for and nothing is inferred from prose, and the factor it
+# carries MULTIPLIES every priced row, so a certificate that lies about the factor moves every
+# number it touches.
+#
+#     {"type": "roae-w0d-node-mapping-certificate", "version": 1,
+#      "mapping": {"kind": "exact" | "upper-bound" | "lower-bound",
+#                  "nodes_per_t_unit": "p/q",       # exact rational STRING, p >= 1, q >= 1
+#                  "residual": 0,                   # int; MUST be 0 when kind == "exact"
+#                  "formula": "...", "law": "..."}, # echoed, never parsed
+#      "measured": {"n": [...], "per_n": [...], "verdict_line": "W0-D PASS mapping: ..."},
+#      "provenance": {"engine_git": ..., "engine_source_sha": ..., "host_fingerprint": ...,
+#                     "produced": "<ISO date>"},
+#      "semantics": "certificate-not-proof"}
+#
+# `kind` is the direction of the bound: production_nodes(b) =, <= or >= F * t(b), and
+# `atlas_emit_xa` never prints a call that the bound's direction cannot support.
+# 🔴 DIRECTION (Opus SS, 2026-09-25). The Q-768 ruling expected an UPPER bound, reasoning that the
+# production DFS prunes with C3 while t counts SUPER prefixes. The code says otherwise: C3 is a
+# LEAF filter in `backtrack` / `backtrack_iterative` (solve.c), not a prune, and production's C5
+# check is one combined 63-transition budget, WEAKER than the t-ladder's boundary cap B0. So the
+# production tree CONTAINS the t tree, strictly (measured: P-not-K prefixes appear at depth 4-5 on
+# every branch), and t bounds production nodes from BELOW. An upper-bound certificate would make
+# EXHAUSTIBLE rows unsound. The one producer, `--xa-w0d-lb-cert` (below), is lower-bound and
+# full-31 only. Real runs WITHOUT a certificate still read `PENDING:W0-D-node-mapping`,
+# byte-identical to before. There is deliberately no UNCERTIFIED mode.
+_XA_W0D_CERT_TYPE = "roae-w0d-node-mapping-certificate"
+_XA_W0D_CERT_VERSION = 1
+_XA_W0D_KINDS = ("exact", "upper-bound", "lower-bound")
+# The `solve --kc-t-cert` output. It certifies the t-unit CONVENTION, and its own
+# `solve_node_limit_mapping` field reads "NOT CLAIMED HERE". It is refused BY TYPE.
+_XA_KC_T_CERT_TYPE = "roae-kc-t-node-convention-certificate"
+# The key the pre-Q-772 permission bit searched for. It is no longer consulted. It is named here
+# only so a refusal can say why a certificate that carries it and nothing else prices nothing.
+_XA_LEGACY_CERT_KEY = "solve_node_limit_mapping"
 
 
-def _xa_node_mapping_cert_defect(path):
-    """None if `path` is a usable W0-D mapping certificate, else WHY it is not.
+def _xa_w0d_factor(s):
+    """`nodes_per_t_unit` -> a positive Fraction, or None. Only the string "p/q" with p, q >= 1.
 
-    \U0001f534 Q-433 sibling, 2026-09-07. The guard below used to be
-    `cost.get("node_mapping_cert") is None` -- it tested that a PATH STRING had been
-    supplied and NEVER OPENED THE FILE. `--xa-node-mapping-cert /does/not/exist.json`
-    was therefore enough to unblock an EXHAUSTIBLE/INFEASIBLE verdict, which is weaker
-    than `test -f`: not even existence stood between a flag and a published number.
-    That is the identical class-A defect ("the artifact is present" standing in for
-    "the artifact says what we need") that the hardening backlog is draining elsewhere,
-    sitting one level down in the consumer.
+    A JSON number is refused, not coerced: a binary64 factor would bring back the boundary flip
+    the exact pricing exists to prevent. So are "1.5", "3", "0/1", "-3/2", "1/0" and "abc"."""
+    import re
+    from fractions import Fraction
+    if not isinstance(s, str):
+        return None
+    m = re.fullmatch(r"([0-9]+)/([0-9]+)", s)
+    if not m:
+        return None
+    p, q = int(m.group(1)), int(m.group(2))
+    if p < 1 or q < 1:
+        return None
+    return Fraction(p, q)
 
-    NO SCHEMA IS INVENTED HERE, deliberately -- an invented key name would be a check
-    that reads FALSE forever, which is worse than none. We anchor on the ONE key this
-    repository actually emits: `solve --kc-t-cert` writes `solve_node_limit_mapping`,
-    and writes it with the value "NOT CLAIMED HERE - ...". So the instrument's own
-    output is refused BY ITS OWN DISCLAIMER, and a certificate that never mentions the
-    mapping at all is refused for not speaking to the thing it is authorising.
-    """
+
+def _xa_w0d_mapping_defect(mp):
+    """None if the top-level `mapping` object is well formed, else WHY it is not."""
+    if not isinstance(mp, dict):
+        return "`mapping` is not an object"
+    missing = [k for k in ("kind", "nodes_per_t_unit", "residual", "formula", "law")
+               if k not in mp]
+    if missing:
+        return "`mapping` lacks %s" % ", ".join("`%s`" % k for k in missing)
+    if mp["kind"] not in _XA_W0D_KINDS:
+        return "`mapping.kind` is %r; it must be one of %s" % (mp["kind"], ", ".join(_XA_W0D_KINDS))
+    if _xa_w0d_factor(mp["nodes_per_t_unit"]) is None:
+        return ("`mapping.nodes_per_t_unit` is %r; it must be an exact rational STRING \"p/q\" "
+                "with integers p >= 1 and q >= 1 (a JSON number is refused: binary64 is not exact)"
+                % (mp["nodes_per_t_unit"],))
+    if type(mp["residual"]) is not int:
+        return "`mapping.residual` is %r; it must be an integer" % (mp["residual"],)
+    if mp["kind"] == "exact" and mp["residual"] != 0:
+        return ("`mapping.kind` is \"exact\" but `mapping.residual` is %d; an exact mapping has "
+                "residual 0 (the W0-D runbook: residual != 0 = FAIL)" % mp["residual"])
+    for k in ("formula", "law"):
+        if not isinstance(mp[k], str) or not mp[k].strip():
+            return "`mapping.%s` must be a non-empty string (it is echoed beside every price)" % k
+    return None
+
+
+def _xa_node_mapping_load(path):
+    """(mapping, None) if `path` is a usable W0-D node-mapping certificate, else (None, WHY).
+
+    `mapping` = {"factor": Fraction, "kind", "residual", "formula", "law", "sha256", "path",
+    "provenance", "engine_git", "measured_n", "verdict_line"}. The schema and the refusal rules
+    are the Q-768 ruling's section 1 (see the block comment above). Every malformed input is a
+    REFUSAL with a reason, never an exception."""
+    import hashlib
     import json
 
     if path is None:
-        return "no certificate was supplied"
+        return None, "no certificate was supplied"
     try:
-        with open(path, "r", encoding="utf-8") as fh:
-            doc = json.load(fh)
+        with open(path, "rb") as fh:
+            raw = fh.read()
     except FileNotFoundError:
-        return "the certificate path %r does not exist" % (path,)
-    except ValueError as exc:
-        return "the certificate %r is not parseable JSON (%s)" % (path, exc)
+        return None, "the certificate path %r does not exist" % (path,)
     except OSError as exc:
-        return "the certificate %r could not be read (%s)" % (path, exc)
+        return None, "the certificate %r could not be read (%s)" % (path, exc)
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except ValueError as exc:                      # includes UnicodeDecodeError
+        return None, "the certificate %r is not parseable JSON (%s)" % (path, exc)
+    except RecursionError:
+        # Q-767 (2): a 100,000-deep array made json.load raise RecursionError. A certificate too
+        # deeply nested to read is a refusal, not a traceback.
+        return None, ("the certificate %r is nested too deeply to parse (RecursionError), so it "
+                      "certifies nothing" % (path,))
+    if not isinstance(doc, dict):
+        return None, "the certificate %r is not a JSON object" % (path,)
+    if doc.get("type") == _XA_KC_T_CERT_TYPE:
+        return None, ("the certificate %r is the `solve --kc-t-cert` output (type %r). It "
+                      "certifies the t-unit CONVENTION and its own %s field reads \"NOT CLAIMED "
+                      "HERE\"; it carries no node-mapping factor. Refused by type"
+                      % (path, _XA_KC_T_CERT_TYPE, _XA_LEGACY_CERT_KEY))
+    # TOP LEVEL ONLY. No recursive search: a `mapping` nested anywhere else is not this schema.
+    mp = doc.get("mapping")
+    if not isinstance(mp, dict):
+        return None, ("the certificate %r has no top-level `mapping` object; nothing to price with%s"
+                      % (path, " (the legacy `%s` key is no longer consulted: a sentence is "
+                         "not a factor)" % _XA_LEGACY_CERT_KEY
+                         if _XA_LEGACY_CERT_KEY in raw.decode("utf-8") else ""))
+    if doc.get("type") != _XA_W0D_CERT_TYPE:
+        return None, ("the certificate %r has type %r; a W0-D node-mapping certificate has type %r"
+                      % (path, doc.get("type"), _XA_W0D_CERT_TYPE))
+    if type(doc.get("version")) is not int or doc.get("version") != _XA_W0D_CERT_VERSION:
+        return None, ("the certificate %r has version %r; this consumer reads version %d"
+                      % (path, doc.get("version"), _XA_W0D_CERT_VERSION))
+    why = _xa_w0d_mapping_defect(mp)
+    if why:
+        return None, "the certificate %r is malformed: %s" % (path, why)
+    measured = doc.get("measured")
+    prov = doc.get("provenance")
+    if not isinstance(measured, dict):
+        return None, "the certificate %r has no `measured` object to echo" % (path,)
+    if not isinstance(prov, dict) or not isinstance(prov.get("engine_git"), str) \
+            or not prov.get("engine_git").strip():
+        return None, ("the certificate %r has no `provenance.engine_git`; a price must name the "
+                      "engine that measured its factor" % (path,))
+    return {"factor": _xa_w0d_factor(mp.get("nodes_per_t_unit")),
+            "kind": mp.get("kind"), "residual": mp.get("residual"),
+            "formula": mp.get("formula"), "law": mp.get("law"),
+            "sha256": hashlib.sha256(raw).hexdigest(), "path": path,
+            "provenance": prov, "engine_git": prov.get("engine_git"),
+            "measured_n": measured.get("n"),
+            # Optional `scope.n` (Opus SS, 2026-09-25): a certificate that declares the one atlas
+            # size it is valid for is refused by atlas_emit_xa on any other n.
+            "scope_n": (doc.get("scope") or {}).get("n")
+            if isinstance(doc.get("scope"), dict) else None,
+            "verdict_line": measured.get("verdict_line")}, None
 
-    def find(node):
-        if isinstance(node, dict):
-            for k, v in node.items():
-                if k == _XA_CERT_KEY:
-                    return [v]
-                hit = find(v)
-                if hit:
-                    return hit
-        elif isinstance(node, list):
-            for v in node:
-                hit = find(v)
-                if hit:
-                    return hit
-        return []
 
-    hit = find(doc)
-    if not hit:
-        return ("the certificate %r never mentions %s, so it does not certify the map "
-                "it is being used to authorise" % (path, _XA_CERT_KEY))
-    if isinstance(hit[0], str) and "NOT CLAIMED HERE" in hit[0]:
-        return ("the certificate %r is the `solve --kc-t-cert` output, whose own %s field "
-                "reads \"NOT CLAIMED HERE\" -- it disclaims exactly the mapping being "
-                "relied on here" % (path, _XA_CERT_KEY))
-    # 🔴 A POSITIVE GRAMMAR, BECAUSE A BLACKLIST OF ONE PHRASE IS NOT A CHECK.
-    # Until 2026-09-09 the line above was the ONLY value test, so everything that was not that
-    # exact disclaimer fell through to `return None` and AUTHORISED an EXHAUSTIBLE verdict.
-    # Measured (Codex RCQ02 F2, adjudicated by Fable, reproduced through the real CLI on a fresh
-    # n=9 atlas): a certificate whose field is `null`, `false`, `""` or the string "FAIL" each gave
-    # rc 0, TR12_XA_CD=PASS and 12 EXHAUSTIBLE rows. `false` certifying exhaustibility is the
-    # clearest statement of the defect.
-    #
-    # The docstring above declines to invent a KEY NAME, and that reasoning still holds -- an
-    # invented key reads FALSE forever. It does not extend to the VALUE. Defining the value grammar
-    # costs nothing precisely BECAUSE no producer emits a certifying value yet: the only writer of
-    # this key is `solve --kc-t-cert`, which writes the disclaimer refused above. So this cannot
-    # break a real certificate; there are none. It fixes the grammar before W0-D's producer exists,
-    # rather than after something starts depending on the gap.
-    # 🔴 THE PREFIX IS NOT THE CLAIM, 2026-09-10 (RCQ04 finding 2, MEASURED).
-    # This was `startswith(_XA_CERT_CLAIM_PREFIX)` alone, added 2026-09-09 to close RCQ02 F2 --
-    # and it accepted the BARE PREFIX. Measured on this function:
-    #     {"solve_node_limit_mapping": "CERTIFIED:"}     -> returned None  (authorised)
-    #     {"solve_node_limit_mapping": "CERTIFIED:   "}  -> returned None  (authorised)
-    # so a certificate that states nothing at all authorised an EXHAUSTIBLE verdict, which is the
-    # exact class RCQ02 F2 was about (`false`, `null`, `""` and `"FAIL"` were refused; the empty
-    # claim was not). Yesterday's fix required the SHAPE of an assertion and never required it to
-    # ASSERT anything -- a positive grammar with no positive content.
-    # A claim must now carry non-whitespace text after the prefix. The threshold is deliberately
-    # "not empty" rather than a length or keyword test: the W0-D producer does not exist yet, and a
-    # stricter rule invented here would be a gate nobody can satisfy.
-    #
-    # 🔴 AND THIS GRAMMAR IS A FLOOR, NOT A GATE. RCQ04's adjudication (2026-09-10) measured two
-    # inputs that STILL authorise and that no string rule can close:
-    #     "CERTIFIED: no mapping has been established"   -> authorised (a NEGATION wearing the prefix)
-    #     {"claimed": true, "mapping": "unrelated"}      -> authorised
-    # The reason is structural, not grammatical: this certificate is consumed as a PERMISSION BIT.
-    # `atlas_emit_xa` reads nothing out of it, so no amount of tightening the shape of the sentence
-    # makes the sentence true. Three rounds of this function have each closed the exact strings they
-    # were shown and left the next one open, which is what a shape check does.
-    # CLOSURE CONDITION, recorded now so it is not rediscovered: when the W0-D producer exists, READ
-    # THE MAPPING FACTOR OUT OF THE CERTIFICATE AND PRICE WITH IT. A certificate that is used cannot
-    # lie undetectably; one that is merely present always can. Until then this row stays OPEN.
-    if isinstance(hit[0], str) and hit[0].startswith(_XA_CERT_CLAIM_PREFIX):
-        if hit[0][len(_XA_CERT_CLAIM_PREFIX):].strip():
+# --------------------------------------------------------------------------
+# W0-D LOWER-BOUND PRODUCER (Opus SS, 2026-09-25; the Q-768 schema, kind `lower-bound`).
+#
+# WHAT IS PROVED, AND FROM WHAT. Let K be the set of prefixes the t-ladder counts (t-units: every
+# oriented prefix after the pinned (63, 0) whose boundary transitions avoid d = 5 and whose
+# boundary-class counts never exceed B0 = KW's boundary multiset, (2, 8, 13, 7, 1) over
+# d = (1, 2, 3, 4, 6); `kc_brute_rec` in solve.c is the reference). Let P be the set of prefixes the
+# PRODUCTION DFS visits (`backtrack` / `backtrack_iterative` and the sub-branch generator in
+# solve.c's normal mode): its only interior prunes are `used`, C2 (bd == 5) and ONE COMBINED budget
+# over all 63 transitions, `kw_dist`, from which each placement debits its boundary AND its
+# within-pair distance. C3 is a LEAF filter there (`cd <= kw_comp_dist_x64` at step 32), not a
+# prune, so it changes no node count.
+#
+#   Lemma (K is a subset of P). If a prefix is in K, every step passes production's check: before
+#   the boundary debit the remaining combined budget of class bd is (B0 + W - bnd - wplaced)_bd
+#   >= 1 + W_bd - wplaced_bd >= 1, where W = the 32 within-pair distances and wplaced the placed
+#   ones; after it, the within check sees (B0 + W - bnd' - wplaced)_wd >= W_wd - wplaced_wd >= 1,
+#   because the new pair's own within-distance is not yet placed.
+#
+# So on every first-level branch b the exhaustive counter satisfies
+#     production_nodes(b) = |P_b at depth >= d0|  >=  t(b) - T(b) + X(b),
+# where d0 is the depth the counter starts at (2 for SOLVE_DEPTH=2, 3 for SOLVE_DEPTH=3: the
+# sub-branch prefix is placed by the wrapper, uncounted), T(b) = the K-prefixes of b above d0
+# (uncounted), and X(b) = P-but-not-K prefixes of b at depth >= 3 (counted in both modes, not in
+# t). This function ENUMERATES T(b) exactly and counts X(b) exactly by depth-limited enumeration
+# (P == K through depth 3, measured: 158,364 each; P-not-K first appears at depth 4-5), stopping at
+# X(b) >= T(b); it emits the certificate only if that holds on all 56 branches -- which makes
+# production_nodes(b) >= 1 x t(b) with no additive term. The strictness of P over K (X > 0) is
+# also why no upper bound is available: t does NOT bound production nodes from above, and an
+# `upper-bound` certificate would be unsound.
+#
+# SCOPE, stated in the certificate: the full-31 production space only (production has no reduced-n
+# mode, so this says NOTHING about an n=9 or n=13 atlas); normal mode, SOLVE_DEPTH 2 or 3, no
+# --sub-branch parallel mode (whose counter starts at depth 5 -- not enumerated here). It is a
+# lower bound, so the consumer can print INFEASIBLE and never EXHAUSTIBLE.
+# --------------------------------------------------------------------------
+_W0D_LB_B0_EXPECTED = {1: 2, 2: 8, 3: 13, 4: 7, 6: 1}
+
+
+def xa_w0d_lower_bound_enumerate(prod_uses_b0=False, max_depth=6, only_branches=None):
+    """Exact trunk enumeration behind the lower-bound certificate. Returns a dict.
+
+    `max_depth` bounds the P-not-K search (depth 5 suffices on every branch, measured
+    2026-09-25); `only_branches` is TEST-ONLY and truncates the branch loop.
+
+    `prod_uses_b0` is a TEST-ONLY mutant: it makes the production mirror use the t-ladder's
+    boundary cap, so P == K, X == 0 and the certificate must NOT be emitted."""
+    kwp = king_wen_pairs()
+    if kwp[0] != (63, 0):
+        raise ValueError("KW pair 0 is %r, not the pinned (63, 0)" % (kwp[0],))
+    seq = binary_hexagrams
+    kw_dist = [0] * 7
+    for i in range(63):
+        kw_dist[bit_diff(seq[i], seq[i + 1])] += 1
+    W = [0] * 7
+    for a, b in kwp:
+        W[bit_diff(a, b)] += 1
+    B0 = [kw_dist[d] - W[d] for d in range(7)]
+    npairs = len(kwp)
+
+    def prod_step(budget, bnd, last, p, o):
+        first, second = (kwp[p][1], kwp[p][0]) if o else kwp[p]
+        bd = bit_diff(last, first)
+        if bd == 5:
             return None
-        return ("the certificate %r has %s = %r: the claim prefix %r is present but nothing follows "
-                "it, so the certificate asserts nothing. State the mapping after the prefix."
-                % (path, _XA_CERT_KEY, hit[0], _XA_CERT_CLAIM_PREFIX))
-    if isinstance(hit[0], dict) and hit[0].get("claimed") is True:
-        return None
-    return ("the certificate %r has %s = %r, which certifies nothing. A usable certificate states "
-            "the claim positively: either a string beginning %r, or an object with "
-            "\"claimed\": true. Absence of a refusal is not an authorisation."
-            % (path, _XA_CERT_KEY, hit[0], _XA_CERT_CLAIM_PREFIX))
+        if prod_uses_b0:
+            if bnd[bd] >= B0[bd]:
+                return None
+        elif budget[bd] <= 0:
+            return None
+        nb = list(budget)
+        nb[bd] -= 1
+        wd = bit_diff(first, second)
+        if nb[wd] <= 0:
+            return None
+        nb[wd] -= 1
+        return nb
+
+    def kc_step(bnd, last, p, o):
+        first = kwp[p][1] if o else kwp[p][0]
+        bd = bit_diff(last, first)
+        if bd == 5 or bd == 0 or bnd[bd] >= B0[bd]:
+            return None
+        nb = list(bnd)
+        nb[bd] += 1
+        return nb
+
+    budget0 = list(kw_dist)
+    budget0[bit_diff(63, 0)] -= 1          # the pinned pair's within-pair transition
+    tot = {"K": [1, 0, 0, 0], "P": [1, 0, 0, 0]}
+    violations = 0
+    branches = []
+
+    def children(used, last, budget, bnd, kin):
+        """Yield (p, o, second, P-budget|None, K-bnd|None) for every unused placement."""
+        for p in range(npairs):
+            if p in used:
+                continue
+            for o in (0, 1):
+                second = kwp[p][0] if o else kwp[p][1]
+                pb = prod_step(budget, bnd, last, p, o) if budget is not None else None
+                kb = kc_step(bnd, last, p, o) if kin else None
+                yield p, o, second, pb, kb
+
+    def _w0d_px_search(depth, used, last, budget, bnd, kin, lim, need, acc):
+        """Count P-not-K prefixes at depths 3..lim below this prefix into acc[0]; stop at need."""
+        nonlocal violations
+        for p, o, second, pb, kb in children(used, last, budget, bnd, kin):
+            if kb is not None and pb is None:
+                violations += 1
+            if pb is None:
+                continue
+            if kb is None and depth + 1 >= 3:
+                acc[0] += 1
+                if acc[0] >= need:
+                    return True
+            if depth + 1 < lim and _w0d_px_search(depth + 1, used | {p}, second, pb,
+                                                  kb if kb is not None else [0] * 7,
+                                                  kb is not None, lim, need, acc):
+                return True
+        return False
+
+    for p1, o1, s1, pb1, kb1 in children({0}, 0, budget0, [0] * 7, True):
+        if only_branches is not None and len(branches) >= only_branches:
+            break                          # TEST-ONLY truncation; the certificate never sets it
+        if kb1 is not None and pb1 is None:
+            violations += 1
+        if pb1 is None:
+            continue
+        row = {"pair": p1, "orient": o1, "entry": (kwp[p1][1] if o1 else kwp[p1][0]),
+               "exit": s1, "k1": 1 if kb1 is not None else 0,
+               "k2": 0, "p2": 0, "k3": 0, "p3": 0}
+        tot["P"][1] += 1
+        tot["K"][1] += row["k1"]
+        bnd1 = kb1 if kb1 is not None else [0] * 7
+        for p2, o2, s2, pb2, kb2 in children({0, p1}, s1, pb1, bnd1, kb1 is not None):
+            if kb2 is not None and pb2 is None:
+                violations += 1
+            if pb2 is None:
+                continue
+            row["p2"] += 1
+            row["k2"] += 1 if kb2 is not None else 0
+            bnd2 = kb2 if kb2 is not None else [0] * 7
+            for p3, o3, s3, pb3, kb3 in children({0, p1, p2}, s2, pb2, bnd2, kb2 is not None):
+                if kb3 is not None and pb3 is None:
+                    violations += 1
+                if pb3 is None:
+                    continue
+                row["p3"] += 1
+                row["k3"] += 1 if kb3 is not None else 0
+        tot["P"][2] += row["p2"]
+        tot["K"][2] += row["k2"]
+        tot["P"][3] += row["p3"]
+        tot["K"][3] += row["k3"]
+        # T = the K-prefixes above the counter's start depth d0 (the wrapper places them, the
+        # counter never sees them): T_d2 = the branch node, T_d3 = it plus its depth-2 children.
+        row["T_d2"] = row["k1"]
+        row["T_d3"] = row["k1"] + row["k2"]
+        # X = P-not-K prefixes at depth >= 3, which BOTH modes count and t does not. Measured
+        # 2026-09-25: P == K through depth 3 (158,364 both), so X must be found deeper. Exact
+        # depth-limited enumeration, iterative deepening to `max_depth`, stopping as soon as
+        # X >= T_d3 (>= T_d2): the recorded X is a count of DISTINCT prefixes, so a truncated count
+        # is still a valid lower bound on the true X, and no sampling is involved.
+        need = row["T_d3"]
+        row["X_found"], row["X_search_depth"] = 0, None
+        for lim in range(4, max_depth + 1):
+            acc = [0]
+            _w0d_px_search(1, {0, p1}, s1, pb1, bnd1, kb1 is not None, lim, need, acc)
+            if acc[0] >= need:
+                row["X_found"], row["X_search_depth"] = acc[0], lim
+                break
+            row["X_found"] = acc[0]
+        row["ok_d2"] = row["X_found"] >= row["T_d2"]
+        row["ok_d3"] = row["X_found"] >= row["T_d3"]
+        branches.append(row)
+    return {"B0": {d: B0[d] for d in range(7) if B0[d] or d in _W0D_LB_B0_EXPECTED},
+            "kw_dist": kw_dist, "W": W, "totals": tot, "containment_violations": violations,
+            "branches": branches}
+
+
+def _w0d_lb_branch_row(r):
+    """One `measured.per_n[0].branches` row, with literal keys and int() values so the doc
+    gate's key census resolves the whole payload (see xa_w0d_lower_bound_cert)."""
+    return {"pair": int(r["pair"]), "orient": int(r["orient"]), "entry": int(r["entry"]),
+            "exit": int(r["exit"]), "k2": int(r["k2"]), "p2": int(r["p2"]), "k3": int(r["k3"]),
+            "p3": int(r["p3"]), "T_d2": int(r["T_d2"]), "T_d3": int(r["T_d3"]),
+            "X_found": int(r["X_found"]), "X_search_depth": int(r["X_search_depth"])}
+
+
+def xa_w0d_lower_bound_cert(out_path, atlas_path=None, prod_uses_b0=False):
+    """`--xa-w0d-lb-cert OUT.json [ATLAS.json]`: emit the W0-D LOWER-BOUND certificate.
+
+    Prints whole-line KEY=value tokens and `XA_W0D_LB_CERT=PASS|FAIL|ERROR:<reason>`; exits
+    0/1/2. The JSON is written ONLY on PASS. ATLAS.json, if given, must be the n=31 atlas: its
+    first three fmass layers must equal the K totals enumerated here and its 56 branches must be
+    the same (entry, exit) set -- a positive control that the K mirror is the t-ladder's K."""
+    import datetime
+    import hashlib
+    import subprocess
+
+    def tok(k, v):
+        print("%s=%s" % (k, v))
+
+    atlas_sha, A = None, None
+    if atlas_path is not None:
+        try:
+            with open(atlas_path, "rb") as fh:
+                raw = fh.read()
+            A = json.loads(raw.decode("utf-8"))
+        except (OSError, ValueError) as exc:
+            tok("XA_W0D_LB_CERT", "ERROR:atlas-unreadable:%s" % type(exc).__name__)
+            return 2
+        atlas_sha = hashlib.sha256(raw).hexdigest()
+        if not isinstance(A, dict) or A.get("n") != 31:
+            tok("W0D_LB_ATLAS_N", A.get("n") if isinstance(A, dict) else "-")
+            tok("XA_W0D_LB_CERT", "ERROR:atlas-is-not-the-n31-production-space")
+            return 2
+    try:
+        E = xa_w0d_lower_bound_enumerate(prod_uses_b0=prod_uses_b0)
+    except ValueError as exc:
+        tok("XA_W0D_LB_CERT", "ERROR:%s" % str(exc).replace(" ", "_"))
+        return 2
+    fails = []
+    b0 = {d: v for d, v in E["B0"].items() if d in _W0D_LB_B0_EXPECTED}
+    tok("W0D_LB_B0", ",".join("d%d:%d" % (d, b0[d]) for d in sorted(b0)))
+    if b0 != _W0D_LB_B0_EXPECTED or E["B0"].get(5, 0) != 0:
+        fails.append("B0")
+    tok("W0D_LB_BRANCHES", len(E["branches"]))
+    if len(E["branches"]) != 56:
+        fails.append("branch-count")
+    for kind in ("K", "P"):
+        tok("W0D_LB_%s_PREFIXES_DEPTH_1_2_3" % kind, ",".join(str(x) for x in E["totals"][kind][1:]))
+    tok("W0D_LB_K_SUBSET_P_VIOLATIONS", E["containment_violations"])
+    if E["containment_violations"]:
+        fails.append("K-not-subset-P")
+    bad2 = [r for r in E["branches"] if not r["ok_d2"]]
+    bad3 = [r for r in E["branches"] if not r["ok_d3"]]
+    tok("W0D_LB_BRANCHES_X_GE_T_SOLVE_DEPTH_2", "%d/%d" % (len(E["branches"]) - len(bad2),
+                                                          len(E["branches"])))
+    tok("W0D_LB_BRANCHES_X_GE_T_SOLVE_DEPTH_3", "%d/%d" % (len(E["branches"]) - len(bad3),
+                                                          len(E["branches"])))
+    if bad2 or bad3:
+        fails.append("X<T")
+    depths = [r["X_search_depth"] for r in E["branches"]]
+    tok("W0D_LB_X_SEARCH_DEPTH_MAX", max(depths) if depths and None not in depths else "NONE")
+    if atlas_path is not None:
+        try:
+            fm = [int(x) for x in A.get("fmass", [])[:4]]
+            aset = sorted((int(r["entry"]), int(r["exit"])) for r in A.get("branch_atlas", []))
+        except (TypeError, ValueError, KeyError, AttributeError) as exc:
+            tok("XA_W0D_LB_CERT", "ERROR:atlas-malformed:%s" % type(exc).__name__)
+            return 2
+        ok_fm = fm[1:4] == E["totals"]["K"][1:4]
+        tok("W0D_LB_ATLAS_FMASS_1_2_3_EQ_K", "PASS" if ok_fm else "FAIL:%s" % fm[1:4])
+        pset = sorted((r["entry"], r["exit"]) for r in E["branches"])
+        ok_br = aset == pset
+        tok("W0D_LB_ATLAS_BRANCH_SET_EQ", "PASS" if ok_br else "FAIL")
+        if not (ok_fm and ok_br):
+            fails.append("atlas-cross-check")
+    if fails:
+        tok("XA_W0D_LB_CERT", "FAIL:%s" % ",".join(fails))
+        return 1
+
+    here = os.path.dirname(os.path.abspath(__file__))
+
+    def sha_of(name):
+        try:
+            with open(os.path.join(here, name), "rb") as fh:
+                return hashlib.sha256(fh.read()).hexdigest()
+        except OSError:
+            return None
+    try:
+        git = subprocess.run(["git", "-C", here, "rev-parse", "--short=12", "HEAD"],
+                             capture_output=True, text=True, timeout=30).stdout.strip()
+        if git and subprocess.run(["git", "-C", here, "status", "--porcelain",
+                                   "--untracked-files=no"], capture_output=True, text=True,
+                                  timeout=120).stdout.strip():
+            git += "+uncommitted"          # a working tree ahead of HEAD says so
+    except (OSError, subprocess.SubprocessError):
+        git = ""
+    formula = ("for every first-level branch b of the full-31 production space, the exhaustive "
+               "SOLVE_NODE_LIMIT counter total over b's sub-branches (normal mode, SOLVE_DEPTH 2 "
+               "or 3) satisfies production_nodes(b) >= 1 x t(b), t(b) = the atlas's "
+               "prefixes_t_units(b)")
+    law = ("structural, from solve.c at provenance.engine_source_sha: K (t-units, boundary cap B0) "
+           "is a subset of P (production, combined 63-transition budget; C3 is a leaf filter, "
+           "not a prune), so production_nodes(b) >= t(b) - T(b) + X(b); T(b) (K-prefixes the "
+           "counter skips) and X(b) (P-not-K prefixes it counts, all at depth >= 3; found by "
+           "depth 5) are enumerated exactly in `measured` and X(b) >= T(b) on all 56 branches "
+           "for counter start depth d0 = 2 and 3. "
+           "residual is defined for kind exact only and is recorded as 0. NOT APPLICABLE to a "
+           "reduced-n atlas: production has no reduced-n mode")
+    verdict_line = ("W0-D LOWER-BOUND mapping (structural, full-31, NOT the runbook's reduced-n "
+                    "exhaust): production_nodes(b) >= 1/1 x t(b) on all 56 branches")
+    # Every emitted value is bound to a plain name first, so the doc gate's key census can see
+    # the whole payload (a dict value read through a subscript is opaque to it).
+    b0_text = ",".join("d%d:%d" % (d, b0[d]) for d in sorted(b0))
+    tk, tp = E["totals"]["K"], E["totals"]["P"]
+    k_tot = [int(tk[1]), int(tk[2]), int(tk[3])]
+    p_tot = [int(tp[1]), int(tp[2]), int(tp[3])]
+    n_viol = int(E["containment_violations"])
+    branch_rows = [_w0d_lb_branch_row(r) for r in E["branches"]]
+    doc = {
+        "type": _XA_W0D_CERT_TYPE, "version": _XA_W0D_CERT_VERSION,
+        "mapping": {"kind": "lower-bound", "nodes_per_t_unit": "1/1", "residual": 0,
+                    "formula": formula, "law": law},
+        "scope": {"n": 31, "space": "C1C2C4C5-SUPERSPACE after the pinned (63, 0)",
+                  "enumerator": "solve.c normal mode, SOLVE_DEPTH 2 or 3 "
+                                "(thread_func_single -> backtrack / backtrack_iterative)",
+                  "excluded": ["any reduced-n atlas (n < 31)", "--sub-branch parallel mode",
+                               "node- or time-limited runs (the bound is on the EXHAUSTIVE count)"]},
+        "measured": {
+            "n": [31],
+            "per_n": [{"n": 31, "B0": b0_text,
+                       "K_prefixes_depth_1_2_3": k_tot,
+                       "P_prefixes_depth_1_2_3": p_tot,
+                       "K_subset_P_violations": n_viol,
+                       "atlas_sha256": atlas_sha,
+                       "branches": branch_rows}],
+            "method": "exact enumeration of every prefix to depth 3 under both predicates, "
+                      "then, per branch, exact depth-limited enumeration of P-not-K prefixes "
+                      "(iterative deepening from depth 4) until X >= T "
+                      "(python3 solve.py --xa-w0d-lb-cert); no sampling",
+            "verdict_line": verdict_line},
+        "provenance": {"engine_git": git or "UNKNOWN (not a git checkout)",
+                       "engine_source_sha": sha_of("solve.c"),
+                       "producer_source_sha": sha_of("solve.py"),
+                       "host_fingerprint": None,
+                       "produced": datetime.date.today().isoformat()},
+        "semantics": "certificate-not-proof"}
+    with open(out_path, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, indent=1, sort_keys=True)
+        fh.write("\n")
+    tok("W0D_LB_CERT_PATH", out_path)
+    tok("XA_W0D_LB_CERT", "PASS")
+    return 0
 
 
 # --------------------------------------------------------------------------
@@ -12918,10 +13752,23 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             fh.write("- costliest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
                      "%s solutions\n\n" % (hi[0], hi[1], hi[2], hi[3], hi[7], hi[5]))
         fh.write("## Exhaustibility (XA-c/d)\n\n")
+        # Q-772: the certificate is LOADED, and what it says is what prices the rows below. A
+        # refusal (None, why) keeps the historical PENDING path; there is no uncertified mode.
+        xa_map, xa_refusal = ((None, "no certificate was supplied") if cost is None
+                              else _xa_node_mapping_load(cost.get("node_mapping_cert")))
+        # SCOPE (Opus SS, 2026-09-25): the one producer in the tree, --xa-w0d-lb-cert, proves a
+        # bound about the FULL-31 production DFS; production has no reduced-n mode, so that bound
+        # says nothing about an n=9 atlas. Measured before this check: the n=31 certificate was
+        # accepted on the n=9 atlas and priced its rows. A declared `scope.n` must equal the atlas n.
+        if xa_map is not None and xa_map.get("scope_n") is not None \
+                and xa_map["scope_n"] != n:
+            xa_map, xa_refusal = None, ("the certificate %r is scoped to n=%r (`scope.n`) and this "
+                                        "atlas is n=%r; its bound is not a statement about this "
+                                        "space" % (xa_map["path"], xa_map["scope_n"], n))
         if not t_have:
             fh.write("**PENDING** -- no t-ladder in this atlas, so there is no node cost to price.\n")
             verdict = "PENDING:--kc-t-build"
-        elif cost is None or _xa_node_mapping_cert_defect(cost.get("node_mapping_cert")):
+        elif xa_map is None:
             # 🔴 REFUSE. Pricing t-units as production-DFS nodes is a SCIENTIFIC VERDICT resting on
             # a map that nothing certifies: `solve --kc-t-cert` says in its own JSON
             # "solve_node_limit_mapping: NOT CLAIMED HERE". Before this guard existed, three flags
@@ -12931,16 +13778,23 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             fh.write("**PENDING** -- pricing t-units as production-DFS nodes needs a W0-D t-unit ->\n"
                      "`SOLVE_NODE_LIMIT` mapping certificate, supplied with `--xa-node-mapping-cert`.\n"
                      "A t-unit is one valid oriented SUPER prefix; `SOLVE_NODE_LIMIT` counts\n"
-                     "production-DFS nodes under C3 pruning. Nothing here certifies the map, so no\n"
-                     "EXHAUSTIBLE/INFEASIBLE call is made. The t-unit column above is exact and\n"
-                     "stands on its own.\n")
-            # The historical no-certificate wording above is left BYTE-IDENTICAL so the pinned
-            # goldens do not move. The extra line fires only in the NEW case -- a certificate was
-            # supplied and REJECTED -- which no golden has ever exercised, because until today
+                     "production-DFS nodes, and that DFS prunes on one combined kw_dist budget and\n"
+                     "applies C3 only as a filter at the full-walk leaf. Nothing here certifies the\n"
+                     "map, so no EXHAUSTIBLE/INFEASIBLE call is made. The t-unit column above is\n"
+                     "exact and stands on its own.\n")
+            # ⚠ 2026-09-25, Q-787: the paragraph above said `SOLVE_NODE_LIMIT` counts production-
+            # DFS nodes "under C3" pruning (quote split so Q-787's grep check stays meaningful).
+            # That is false of the code: `backtrack` / `backtrack_iterative` in solve.c test C3
+            # only at step 32, as a leaf filter, so it prunes nothing
+            # (reports/evidence/w0d_lower_bound/README.md). The Q-768 ruling (R8)
+            # had kept this wording byte-identical so the goldens would not move; measured, no
+            # golden carries it (n9 c_consumer.txt records only that xa_verdict.md was written).
+            # Its copies are tests.py PENDING_TEXT and the tracked tr12/xa_verdict.md.
+            # The extra line fires only in the NEW case -- a certificate was supplied and
+            # REJECTED -- which no golden has ever exercised, because until the Q-768 fix
             # supplying anything at all was accepted.
             if cost is not None and cost.get("node_mapping_cert") is not None:
-                fh.write("\nThe certificate supplied was REFUSED: %s.\n"
-                         % _xa_node_mapping_cert_defect(cost.get("node_mapping_cert")))
+                fh.write("\nThe certificate supplied was REFUSED: %s.\n" % xa_refusal)
             verdict = "PENDING:W0-D-node-mapping"
         elif cost.get("nodes_per_sec") is None or cost.get("usd_per_hour") is None \
                 or cost.get("budget_usd") is None:
@@ -12977,25 +13831,58 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                      "`wall (h)`, `$` and `cost/budget` NUMERALS are 4-significant-digit\n"
                      "decimal renderings of those exact values, for reading only.  Do not\n"
                      "re-derive a verdict from the printed numerals -- at the boundary a\n"
-                     "binary64 round trip is enough to reverse the call.\n\n")
-            fh.write("| branch | pair | t-units | wall (h) | $ | verdict | cost/budget |\n")
-            fh.write("|---|---|---|---|---|---|---|\n")
-            cheapest_ok = None
+                     "binary64 round trip is enough to reverse the call.  The `$ exact`\n"
+                     "column is the exact rational cost itself.\n\n")
+            # Q-772: the ECHO BLOCK. The factor and the direction of its bound sit beside every
+            # priced number, so a copied number carries its qualifier (the ruling, section 2).
+            F = xa_map["factor"]
+            kind = xa_map["kind"]
+            fh.write("Node mapping (W0-D certificate, echoed; every priced row below depends on "
+                     "it):\n\n")
+            fh.write("- certificate: `%s`, sha256 `%s`\n" % (xa_map["path"], xa_map["sha256"]))
+            fh.write("- kind: `%s`; F = nodes_per_t_unit = `%s`; residual = %d\n"
+                     % (kind, F, xa_map["residual"]))
+            fh.write("- formula: %s\n" % xa_map["formula"])
+            fh.write("- law: %s\n" % xa_map["law"])
+            fh.write("- measured.n: %s; measured.verdict_line: %s\n"
+                     % (json.dumps(xa_map["measured_n"]), json.dumps(xa_map["verdict_line"])))
+            fh.write("- provenance.engine_git: `%s`\n\n" % xa_map["engine_git"])
+            fh.write("### production-DFS nodes = t-units x F, F = %s (%s), certificate %s "
+                     "sha256 %s\n\n" % (F, kind, os.path.basename(str(xa_map["path"])),
+                                          xa_map["sha256"]))
+            if kind == "upper-bound":
+                fh.write("The certificate BOUNDS production nodes from ABOVE, so an over-budget "
+                         "row is UNDECIDED:upper-bound, never INFEASIBLE.\n\n")
+            elif kind == "lower-bound":
+                fh.write("The certificate BOUNDS production nodes from BELOW, so an in-budget "
+                         "row is UNDECIDED:lower-bound, never EXHAUSTIBLE.\n\n")
+            fh.write("| branch | pair | t-units | nodes (= t-units x F) | wall (h) | $ | $ exact "
+                     "| verdict | cost/budget |\n")
+            fh.write("|---|---|---|---|---|---|---|---|---|\n")
+            cheapest = None
             for r in sorted(rows, key=lambda r: int(r[7])):
-                nodes = int(r[7])                      # exact 192-bit count
-                x_hours = Fraction(nodes) / x_rate / 3600
+                x_nodes = Fraction(int(r[7])) * xa_map["factor"]   # exact: 192-bit t x rational F
+                x_hours = x_nodes / x_rate / 3600
                 x_usd = x_hours * x_uph
-                ok = x_usd <= x_bud                    # EXACT verdict
+                ok = x_usd <= x_bud                    # EXACT comparison
                 x_short = x_usd / x_bud if x_bud else None
-                if cheapest_ok is None:
-                    cheapest_ok = ok
-                fh.write("| %d | %d | %s | %.4g | %.4g | %s | %s |\n" %
-                         (r[0], r[1], r[7], float(x_hours), float(x_usd),
-                          "EXHAUSTIBLE" if ok else "INFEASIBLE",
+                # The call a bound can support. An upper bound on the cost can prove it fits and
+                # never that it does not; a lower bound the mirror image.
+                if kind == "exact":
+                    rv = "EXHAUSTIBLE" if ok else "INFEASIBLE"
+                elif kind == "upper-bound":
+                    rv = "EXHAUSTIBLE" if ok else "UNDECIDED:upper-bound"
+                else:
+                    rv = "INFEASIBLE" if not ok else "UNDECIDED:lower-bound"
+                if cheapest is None:
+                    cheapest = rv
+                fh.write("| %d | %d | %s | %s | %.4g | %.4g | %s | %s | %s |\n" %
+                         (r[0], r[1], r[7], x_nodes, float(x_hours), float(x_usd), x_usd, rv,
                           ("%.4g" % float(x_short)) if x_short is not None else "inf"))
-            fh.write("\nCall: the argmin branch is **%s** at the stated ceiling.\n"
-                     % ("EXHAUSTIBLE" if cheapest_ok else "INFEASIBLE"))
-            verdict = "PASS"
+            fh.write("\nCall: the argmin branch is **%s** at the stated ceiling.\n" % cheapest)
+            # PASS means "the exhaustibility question was answered" to every consumer of
+            # TR12_XA_CD, so a bound -- which answers it only one way -- never reads PASS.
+            verdict = "PASS" if kind == "exact" else "ONE-SIDED:%s" % kind
     return tsv, md, verdict, gates
 
 
@@ -13184,6 +14071,20 @@ def atlas_emit_q3(steps, outdir, n, A=None, quiet=False):
     if status == "NOT-KW" and not quiet:
         print("[atlas] Q3: this full-31 trace is NOT King Wen's walk -- %s. Writing %s, "
               "not q3_profile_kw.tsv." % (why, name))
+    # 🔴 Q-766 (RCQ02 F5, CONFIRMED 2026-09-09, fixed 2026-09-24). This function wrote ONE of two
+    # names and never removed the OTHER. A reused --atlas-out that first held a King Wen full-31
+    # run and then an n=9 run kept the old q3_profile_kw.tsv (and its PASS sidecar) beside the new
+    # q3_profile.tsv, and viz chose the _kw name by existence -- so the previous universe's profile
+    # was published as this run's. The other name, its sidecar, and this name's own old sidecar are
+    # removed BEFORE the write: if the write then fails, nothing stale is left to be picked up.
+    other = "q3_profile.tsv" if name == "q3_profile_kw.tsv" else "q3_profile_kw.tsv"
+    for stale in (os.path.join(outdir, other),
+                  os.path.join(outdir, other) + ".provenance.txt",
+                  os.path.join(outdir, name) + ".provenance.txt"):
+        try:
+            os.unlink(stale)
+        except FileNotFoundError:
+            pass
     path = _atlas_write(os.path.join(outdir, name),
                         _Q3_KEEP + ["p_num", "p_den", "p", "bits"] + extra, rows)
     # PROVENANCE SIDECAR, not a header line: `_atlas_read_tsv` and viz's reader both take
@@ -13263,7 +14164,7 @@ def atlas_q3_reader_check(tsv_path, N):
         # profile traces rather than about the universe:
         #   f(s_i) counts the prefixes that reach s_i, and this walk's own prefix is one of
         #     them, so f >= 1 on every visited step;
-        #   alts counts the admissible oriented successors with g > 0 (solve.c:23788) and the
+        #   alts counts the admissible oriented successors with g > 0 (solve.c:23990) and the
         #     step actually taken is one of them, so alts >= 1.
         # >= 1 is the TIGHT bound, not a loose one: the committed golden
         # scripts/tr12_expected/n9/a2_q3_profile.txt bottoms out at f = 1 (step 1) and at
@@ -13949,14 +14850,22 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
     # the token now says which reduction. The `PASS:` prefix is kept so an existing
     # "did it fail?" reader still reads them as non-failures.
     #   V2 -- viz_kc_river.md row (c): the branch-class river is PENDING and is not a flag.
-    #   V5 -- viz_kc_grammar.md: the new-pair-category axis is PENDING, so every row is w=-1.
+    #   V5 -- viz_kc_grammar.md: REDUCED only when the atlas carries no kernel to refine by.
     #   Q6 -- the atlas carries per-layer per-DISTANCE-CLASS mass, not per-(state,choice).
     if "v2" in sel:
         written.extend(atlas_emit_v2(A, scandir))
         verdicts["TR12_V2"] = "PASS:REDUCED-NO-BRANCH-CLASS-RIVER"
     if "v5" in sel:
-        written.append(atlas_emit_v5(A, scandir))
-        verdicts["TR12_V5"] = "PASS:REDUCED-NO-CROSSTAB"
+        # 🔴 THE TOKEN NAMES THE FORM THAT WAS ACTUALLY WRITTEN (2026-09-23).  The operator
+        # pinned the new-pair category as the within-pair distance w, and the cross-tab is a
+        # consumer-side derivation over `layers[].kernel`, which already ships -- so V5 is the
+        # full (d, w) table whenever that kernel is present and the reduced w = -1 table when
+        # it is not.  A verdict hardcoded to REDUCED would now under-report a landed axis,
+        # which is the same class of defect as the bare PASS it replaced overstating a
+        # pending one.
+        p5, v5_cross = atlas_emit_v5(A, scandir)
+        written.append(p5)
+        verdicts["TR12_V5"] = "PASS" if v5_cross else "PASS:REDUCED-NO-CROSSTAB"
     if "q6" in sel:
         written.extend(atlas_emit_q6(A, scandir, trace=trace))
         verdicts["TR12_Q6"] = "PASS:REDUCED-DISTANCE-CLASS"
@@ -14161,7 +15070,7 @@ from fractions import Fraction as _Fraction   # module-level: the atlas external
 # reader of these dicts -- scripts/a2_slot_verdict_gate.sh compares them to float literals within
 # 1e-9 -- keeps working unchanged.
 _A3_REFERENCES = {                      # TR7_CIRCULAR_READING.md v2.0 / v1.9
-    3: _Fraction("0.652"),              # |C_circ| = 0.652*N_lin + 0.175*...
+    3: _Fraction("0.652"),              # linear wrap masses d1/d3/d5 (TR-7 §5); not a circular-space sum
     1: _Fraction("0.175"),
     5: _Fraction("0.174"),
 }
@@ -14461,7 +15370,7 @@ def pair_orbit_partition():
 
     That the two agree is then a real cross-check rather than a tautology.  The
     index convention matters and is easy to get wrong: solve.c indexes pairs by
-    KING WEN ORDER (`pairs[p] = (KW[2p], KW[2p+1])`, solve.c:68), so
+    KING WEN ORDER (`pairs[p] = (KW[2p], KW[2p+1])`, init_pairs at solve.c:1708), so
     `king_wen_pairs()` is the matching constructor.  `build_pairs()` indexes by
     ascending hexagram value and yields the SAME SEVEN ORBIT SIZES with DIFFERENT
     MEMBERS -- a relabelling that would silently produce a wrong gate.
@@ -14602,8 +15511,14 @@ def _atlas_brute_recount(walks_path, n):
         pair_of[K[2 * j + 1]] = j
     flow = collections.Counter()
     byclass = collections.defaultdict(collections.Counter)
+    cross = collections.defaultdict(collections.Counter)
     marg = collections.defaultdict(collections.Counter)
     branch = collections.Counter()
+    # C1's pairing, for the pinned V5 second axis (see atlas_emit_v5).
+    mate = {}
+    for _e, _x in king_wen_pairs():
+        mate[_e] = _x
+        mate[_x] = _e
     total = 0
     try:
         fh = open(walks_path)
@@ -14624,11 +15539,22 @@ def _atlas_brute_recount(walks_path, n):
             for k in range(n):
                 e, x = w[2 * k], w[2 * k + 1]
                 flow[k] += 1
-                byclass[k][bin(prev ^ e).count("1")] += 1
+                dd = bin(prev ^ e).count("1")
+                byclass[k][dd] += 1
+                # The pinned V5 second axis, recounted INDEPENDENTLY of the emitter.  The walk
+                # hands over the placed pair as (entry, exit) directly, so w is read straight
+                # off the walk; the emitter instead derives it from the kernel key as
+                # popcount(b ^ mate[b]).  Asserting C1's x == mate[e] here is what makes the
+                # two derivations a cross-check rather than the same one run twice.
+                if x != mate[e]:
+                    raise AtlasError("%s: the walk pairs %d with %d, but C1 pairs %d with %d"
+                                     % (walks_path, e, x, e, mate[e]))
+                cross[k][(dd, bin(e ^ x).count("1"))] += 1
                 marg[k][pair_of[e]] += 1
                 prev = x
             branch[(pair_of[w[0]], w[0], w[1])] += 1
-    return {"N": total, "flow": flow, "byclass": byclass, "marg": marg, "branch": branch}
+    return {"N": total, "flow": flow, "byclass": byclass, "cross": cross,
+            "marg": marg, "branch": branch}
 
 
 def atlas_probe(atlas_path):
@@ -14641,7 +15567,11 @@ def atlas_probe(atlas_path):
     depends on it is printed -- the `by_class` and `marginal_raw` rows and the kernel's class and
     entry-pair marginals are re-summed HERE and cross-checked against each other, not read off
     the atlas's self-reported gate booleans (2026-09-21 adversarial review: before that, a
-    `by_class` row summing to 2N scored PASS); the one statistic that needs a null (the C5 budget path against
+    `by_class` row summing to 2N scored PASS).  That includes the kernel ACROSS layers: each
+    layer's kernel row sums are re-summed against the previous layer's exit sums (Q-734,
+    2026-09-24; until then the producer's `kernel_cross_layer_eq` was trusted), and the G48
+    divisibility identities are gated here at every n (`--atlas-selftest` refuses n > 13).  One
+    of them, 16 | every raw V1 cell, is EMPIRICAL at n = 31 and its token says so.  The one statistic that needs a null (the C5 budget path against
     the exchangeable multivariate-hypergeometric law) is also evaluated against a deliberately
     WRONG null (the product of its own marginals), so the reader can see the statistic
     discriminates.  Works at any n the scan supports; the King-Wen cross-checks run at n = 31
@@ -14688,7 +15618,7 @@ def atlas_probe(atlas_path):
         CLS = ("d1", "d2", "d3", "d4", "d6")
         DV = {1: 0, 2: 1, 3: 2, 4: 3, 6: 4}
         need = ("by_class", "counts", "rid_mass", "kernel", "marginal_raw", "kwrank",
-                "outdeg", "hist", "extrema")
+                "outdeg", "hist", "extrema", "digits")
         for l in L:
             for key in need:
                 if key not in l:
@@ -14752,7 +15682,52 @@ def atlas_probe(atlas_path):
         # (adversarial review, 2026-09-21).
         gate("BY_CLASS_ROW_SUMS_EQ_N_EVERY_LAYER",
              all(sum(int(l["by_class"][c]) for c in CLS) == N for l in L))
-        zero_some = sorted({c for l in L[1:] for c in CLS if int(l["by_class"][c]) == 0},
+
+        # ---------------------------------------------------------------- 1b. G48 divisibility (Q-314 / Q-734)
+        # 🔴 The consumer's XA-48 / V2-48 / V1-16 gates live in `--atlas-selftest`, which REFUSES
+        # n > 13, so at full-31 -- the only atlas the published figures come from -- none of them
+        # ran.  This probe is the n-independent path, so they are re-derived here from the raw
+        # decimal strings (integer arithmetic only).  Measured before wiring (Q-314, 2026-09-24,
+        # CODEX_A08_STRONGER_IDENTITIES_GATED.md): n=9 and n=31 both pass with zero violations.
+        # WHY the first three hold (theorem at every rung `--f1-pairs` builds): each such universe
+        # contains an orbit whose hexagram set has trivial pointwise stabiliser in G48 (all but
+        # {13,14,30}, whose pointwise stabiliser has order 8 and which is never built alone), so
+        # G48 = C_S6(rev) acts FREELY on its complete raw sequences (checked exhaustively at
+        # n = 9, 13, 16 and 31); G48 also preserves the layer index and every boundary's Hamming
+        # distance, so each
+        # (k, d) cell is a union of free orbits (48 | cell), and each (k, pair p) cell is a union
+        # of free Stab(p)-orbits (|Stab(p)| = 48 / |G48-orbit of p| divides it).
+        gate("N_TOTAL_MOD48_EQ_0", N % 48 == 0)
+        # The layer `flow` column was never read by this probe: its only check was the producer's
+        # self-reported `per_layer_flow_eq_N` boolean.  So it is re-summed as flow == N rather
+        # than gated mod 48 (Opus Q's draft carried LAYER_FLOW_MOD48_EQ_0_EVERY_LAYER); together
+        # with N_TOTAL_MOD48_EQ_0 the equality implies 48 | flow, which made that gate redundant.
+        gate("LAYER_FLOW_EQ_N_EVERY_LAYER", all(int(l["flow"]) == N for l in L))
+        gate("BY_CLASS_EVERY_CELL_MOD48_EQ_0",
+             all(int(l["by_class"][c]) % 48 == 0 for l in L for c in CLS))
+        _orb = {p: len(o) for o in pair_orbit_partition() for p in o}
+        _bad_key = [key for l in L for key in l["marginal_raw"]
+                    if not (key.startswith("pair") and key[4:].isdigit()
+                            and int(key[4:]) in _orb)]
+        gate("MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0",
+             not _bad_key and
+             all(int(v) % (48 // _orb[int(key[4:])]) == 0
+                 for l in L for key, v in l["marginal_raw"].items()))
+        # ⚠ EMPIRICAL AT n = 31 -- MEASURED, NOT PROVEN.  At n = 9 every placed pair lies in a
+        # size-3 orbit, so |Stab| = 16 and this is the stabiliser gate above (a theorem there).  At
+        # n = 31 the size-4 and size-6 orbits (stabilisers 12 and 8; 22 of the 31 pairs) are
+        # present, and the G48 argument predicts only 12 | cell or 8 | cell for them.  16 | cell
+        # holds there by measurement only (every raw cell's gcd carries 2^19; the source of that
+        # 2-adic surplus is unexplained).  It shipped (Q-734) as the only probe gate that caught a
+        # kernel-consistent move of 8 units between orbit-6 pairs or 12 units between orbit-4
+        # pairs.  Since Q-738 the theorem gates below (G48 invariance, rev-symmetric entry-column
+        # totals, V1 column sums of N) also catch every such move measured, the 16-unit one that
+        # passes this gate included, so this one is a labelled extra, not the only witness.  A red here on a legitimate new
+        # atlas means doubt the identity, not the atlas first; it must never be cited as proved.
+        # See SOLVE_PY_CLI.md, "What the probe still cannot see".
+        gate("MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL",
+             all(int(v) % 16 == 0 for l in L for v in l["marginal_raw"].values()))
+        zero_some =sorted({c for l in L[1:] for c in CLS if int(l["by_class"][c]) == 0},
                            key=CLS.index)
         tok("CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1", ",".join(zero_some) or "NONE")
         tok("LARGEST_CLASS_SET_OVER_LAYERS",
@@ -15039,7 +16014,88 @@ def atlas_probe(atlas_path):
             mr_ok = mr_ok and ({p: v for p, v in bypair.items() if v}
                                == {int(x[4:]): int(v) for x, v in L[k]["marginal_raw"].items()})
         gate("KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER", mr_ok)
-        k0 = {int(x[4:]) for x in L[0]["marginal_raw"]}
+        # Q-734 (2026-09-24): the producer's `kernel_cross_layer_eq` was TRUSTED here, never
+        # re-summed, although the docstring says the kernel is re-summed HERE.  MEASURED (Opus Q,
+        # CODEX_A08_STRONGER_IDENTITIES_GATED.md): moving 48 units of kernel mass to the partner
+        # entry of the same pair at layer n-1 (class 2 -> 4) and back at layer n-2 (4 -> 2), with
+        # every class column, row and pair marginal preserved and every divisibility kept, scored
+        # ATLAS_PROBE=PASS on a corrupted n=31 atlas.  Walks leaving layer k-1 through exit
+        # mate(y) are exactly the walks whose layer-k kernel row is mate(y), so the row sums of
+        # M_k equal the exit sums of M_{k-1}, cell for cell (zero cells omitted on both sides).
+        xl_ok = True
+        for k in range(1, n):
+            rows, exits = {}, {}
+            for (x, y), v in Ms[k].items():
+                rows[x] = rows.get(x, 0) + v
+            for (x, y), v in Ms[k - 1].items():
+                exits[mate[y]] = exits.get(mate[y], 0) + v
+            xl_ok = xl_ok and ({h: v for h, v in rows.items() if v}
+                               == {h: v for h, v in exits.items() if v})
+        gate("KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER", xl_ok)
+        # Q-738 (2026-09-24, Fable T): the producer's other tail checks -- `vertical_raw_eq_N`,
+        # `digit_cross_table_eq_cls_prefix`, `kernel_rev_column_eq`, `kernel_g_invariance` -- were
+        # still TRUSTED here as booleans.  Each is a theorem of the raw census with a written
+        # proof (roae-private FABLE_SCAN_LOGGING_LIST_REVIEW_2026_09_11.md s2.1-2.3), so each is
+        # re-derived from the tables.  G48 invariance is the load-bearing one: a class-preserving
+        # 2x2 kernel rectangle trade (rows, entries, classes and V5 preserved) and a kernel- and
+        # cross-layer-consistent 16-unit V1 move between same-orbit pairs both scored
+        # ATLAS_PROBE=PASS before it (Q-734 review, 2026-09-24).  Every G48 element is a
+        # bit-position permutation commuting with rev, so it maps King Wen pairs to pairs
+        # (partner = rev, or complement on the rev-fixed hexagrams, and both commute with it),
+        # fixes the anchor exit 0, and preserves every Hamming distance -- hence C1/C2/C4/C5, the
+        # layer index and the C5 budget.  It is therefore a bijection of the complete walks
+        # carrying "transition (x, y) at layer k" to "(g x, g y) at layer k" (TR-5
+        # symmetry_completeness), provided the rung's pair universe is G48-closed, which is gated
+        # first.  What survives all of this is a G48-INVARIANT perturbation that keeps every row,
+        # entry-column and class marginal: see SOLVE_PY_CLI.md, "What the probe still cannot see".
+        _orbs = pair_orbit_partition()
+        gate("PAIR_UNIVERSE_IS_G48_CLOSED",
+             all(set(o) <= universe or not (set(o) & universe) for o in _orbs))
+        _g48 = _tg_g48()
+        g48_ok = True
+        for k in range(n):
+            M = Ms[k]
+            for (x, y), v in M.items():
+                if any(M.get((_tg_apply_perm(p, x), _tg_apply_perm(p, y)), 0) != v for p in _g48):
+                    g48_ok = False
+                    break
+            if not g48_ok:
+                break
+        gate("KERNEL_G48_INVARIANT_EVERY_LAYER", g48_ok)
+        # rev is in G48, so the entry-column totals are rev-symmetric (the producer's TC3, verbatim).
+        _coltot = {}
+        for M in Ms:
+            for (x, y), v in M.items():
+                _coltot[y] = _coltot.get(y, 0) + v
+        gate("KERNEL_ENTRY_COLUMN_TOTALS_REV_SYMMETRIC",
+             all(_coltot.get(_tg_rev6(b), 0) == v for b, v in _coltot.items()))
+        # every complete walk places every free pair exactly once (TC0): the V1 field's COLUMN
+        # sums are N.  The 16-unit V1 move above changed two of them and nothing here read them.
+        _vert = {}
+        for l in L:
+            for key, v in l["marginal_raw"].items():
+                _vert[int(key[4:])] = _vert.get(int(key[4:]), 0) + int(v)
+        gate("MARGINAL_RAW_COLUMN_SUMS_EQ_N_EVERY_PAIR",
+             set(_vert) == universe and all(v == N for v in _vert.values()))
+        # digits[k][d][j] is the mass of walks with j class-d transitions among their first k, so
+        # sum_j j * digits[k][d][j] == sum_{k' < k} by_class[k'][d] (TC1), and the digit marginals
+        # of rid_mass[k] are digits[k] cell for cell (both are censuses of the same prefixes).
+        dig_ok = rid_ok = True
+        for di, c in enumerate(CLS):
+            pre = 0
+            for k in range(n):
+                dg = L[k]["digits"]["dg" + c[1:]]
+                dig_ok = dig_ok and sum(int(v) for v in dg.values()) == N \
+                    and sum(int(j[1:]) * int(v) for j, v in dg.items()) == pre
+                marg = {}
+                for r, v in rm_by_k[k].items():
+                    j = digs(r)[di]
+                    marg[j] = marg.get(j, 0) + v
+                rid_ok = rid_ok and marg == {int(j[1:]): int(v) for j, v in dg.items() if int(v)}
+                pre += int(L[k]["by_class"][c])
+        gate("DIGITS_WEIGHTED_SUM_EQ_CLASS_PREFIX_EVERY_LAYER", dig_ok)
+        gate("RID_MASS_DIGIT_MARGINALS_EQ_DIGITS_EVERY_LAYER", rid_ok)
+        k0 ={int(x[4:]) for x in L[0]["marginal_raw"]}
         kl = {int(x[4:]) for x in L[n - 1]["marginal_raw"]}
         absent0 = sorted(universe - k0)
         tok("PAIRS_NEVER_FIRST", ",".join(map(str, absent0)) or "NONE")
@@ -15050,6 +16106,14 @@ def atlas_probe(atlas_path):
         tok("PAIRS_ADMISSIBLE_LAST_COUNT", len(kl))
         cells = [int(v) / N for l in L for v in l["marginal_raw"].values()]
         tok("MARGINAL_RAW_NONZERO_CELL_MIN_MAX", "%.4f,%.4f" % (min(cells), max(cells)))
+        # The token above ranges over ALL n layers, and both of its extremes sit on the two END
+        # slots (k = 0 is slot 2, k = n-1 is slot n+1: at n = 31, 0.0205 at slot 2 and 0.0636 at
+        # slot 32).  TR-12 section 12.5 quoted it as the INTERIOR range beside two neighbours
+        # that are windowed (TR-12 review B4, 2026-09-24), so the windowed twin is printed here
+        # under its own name; at n = 31 it is 0.0297,0.0345 (layers 1..29 = slots 3..31).
+        cells_i = [int(v) / N for k in range(lo_w, hi_w + 1)
+                   for v in L[k]["marginal_raw"].values() if int(v) > 0]
+        tok("MARGINAL_RAW_NONZERO_CELL_MIN_MAX_INTERIOR", "%.4f,%.4f" % (min(cells_i), max(cells_i)))
         tvu = []
         for k in range(lo_w, hi_w + 1):
             mr = {int(x[4:]): int(v) / N for x, v in L[k]["marginal_raw"].items()}
@@ -15060,6 +16124,60 @@ def atlas_probe(atlas_path):
             tok("KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR", "%.4f,%.4f" % (min(own), max(own)))
         else:
             tok("KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR", "SKIP:n=%d" % n)
+
+        # ---------------------------------------------------------------- 5b. V5 (d, w) cross-tab vs the product of its marginals
+        # TR-12 section 2's V5 caption quoted "max deviation from factorisation 0.173 (k=0, d=3,
+        # w=4)" with no public command behind it (TR-12 review B3, 2026-09-24).  That number is
+        # real but it is a LAYER-0 ARTEFACT: C4 pins the exit before layer 0 to hexagram 0, so at
+        # k = 0 both coordinates -- d = popcount(0 ^ entry) and w = popcount(entry ^ partner) --
+        # are functions of the entry hexagram alone, only 7 of the 15 (d, w) cells are admissible
+        # there, and the 0.173 is P(d=3|0) * P(w=4|0) at a cell whose JOINT is identically zero.
+        # A departure from the product forced by C1/C4 says nothing about the walk measure.  So
+        # the headline is the maximum over layers k >= 1 (and, separately, over the interior
+        # window the neighbouring tokens use), with the k = 0 value printed beside it under its
+        # own name and its cause gated rather than narrated: every k = 0 kernel key must carry
+        # exit 0, and the argmax cell's joint mass is printed with the product it is compared
+        # to.  Same derivation as atlas_emit_v5 (the tracked tr12/scan/v5_grammar.tsv), over the
+        # FULL 5 x 3 product including zero cells -- a zero cell with a nonzero product IS a
+        # deviation, and dropping it would hide exactly the layer-0 mechanism described above.
+        # Exact rationals throughout; only the printed value is rounded.  Fable C, 2026-09-24.
+        WCLS = (2, 4, 6)
+        DCLS = tuple(int(c[1:]) for c in CLS)
+        dev = []                                   # per layer: (deviation, d, w, joint, product)
+        v5_ok = True
+        for k in range(n):
+            G = {}
+            for (x, y), v in Ms[k].items():
+                key = (pc(x ^ y), pc(y ^ mate[y]))
+                G[key] = G.get(key, 0) + v
+            v5_ok = v5_ok and all(w in WCLS for (_d, w) in G) and all(
+                sum(G.get((d, w), 0) for w in WCLS) == int(L[k]["by_class"]["d%d" % d]) for d in DCLS)
+            Pd = {d: sum(G.get((d, w), 0) for w in WCLS) for d in DCLS}
+            Pw = {w: sum(G.get((d, w), 0) for d in DCLS) for w in WCLS}
+            best = None
+            for d in DCLS:
+                for w in WCLS:
+                    joint = Fraction(G.get((d, w), 0), N)
+                    prod = Fraction(Pd[d] * Pw[w], N * N)
+                    x = abs(joint - prod)
+                    if best is None or x > best[0]:      # ties: the first (smallest d, then w)
+                        best = (x, d, w, joint, prod)
+            dev.append(best)
+        gate("V5_CROSSTAB_W_IN_C1_CLASSES_AND_MARGINALISES_TO_BY_CLASS_EVERY_LAYER", v5_ok)
+        gate("V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY", all(x == 0 for (x, _y) in Ms[0]))
+        adm0 = {(pc(x ^ y), pc(y ^ mate[y])) for (x, y), v in Ms[0].items() if v > 0}
+        tok("V5_K0_ADMISSIBLE_DW_CELLS", "%d,%d" % (len(adm0), len(DCLS) * len(WCLS)))
+
+        def _v5_max(lo, hi, name):
+            k = max(range(lo, hi + 1), key=lambda j: (dev[j][0], -j))   # ties: the earliest layer
+            tok("V5_FACTORISATION_MAX_DEV_%s" % name, "%.4f" % dev[k][0])
+            tok("V5_FACTORISATION_MAX_DEV_%s_AT" % name, "k=%d,d=%d,w=%d" % (k, dev[k][1], dev[k][2]))
+            return k
+        _v5_max(0, n - 1, "ALL")
+        k0 = _v5_max(0, 0, "K0")
+        tok("V5_K0_MAX_DEV_CELL_JOINT_AND_PRODUCT", "%.4f,%.4f" % (dev[k0][3], dev[k0][4]))
+        _v5_max(1, n - 1, "K_GE_1")
+        _v5_max(lo_w, hi_w, "INTERIOR")
 
         # ---------------------------------------------------------------- 6. the reference walk's cell percentile (L6a)
         pct = []
@@ -15206,9 +16324,17 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
         # 🔴 Q-314 item (3), 2026-09-07. EVERY V2/V1/V5/Q6 gate above is HORIZONTAL: it
         # sums one layer across distance classes and compares to N. All of them are blind to mass
         # moving BETWEEN classes inside a layer, which is exactly what `--atlas-fault v2-class-swap`
-        # does. MEASURED: that fault leaves all 20 no-walks gates GREEN and is caught only by the
-        # brute-force legs -- and brute force cannot exist at n=31, so at full-31 the fault is
-        # invisible. These legs are VERTICAL: they sum one class DOWN the layers.
+        # does. MEASURED (2026-09-07, before the legs below existed): that fault left every no-walks
+        # gate then present GREEN and was caught only by the brute-force legs -- and brute force
+        # cannot exist at n=31, so at full-31 the fault was invisible. These legs are VERTICAL:
+        # they sum one class DOWN the layers.
+        # Q-722 (2026-09-24): this comment used to say "all 20 no-walks gates". The count is not 20.
+        # Runtime gates in atlas_selftest are now: 22 without walks and with --atlas-q3-trace, 19
+        # without walks and without it, and 37 with walks and the trace (38 gate() call sites; the
+        # XA t-units check is an if/else, so only one of its two arms runs). These are static counts
+        # of this file by `python3 gatecount.py solve.py` (roae-private
+        # evidence_opusJ_2026_09_24/gatecount.py). The 22 was also confirmed at runtime at 5c296837
+        # (roae-private N31_ATTESTATION_SCOPE.md, Q677 section). Recount rather than trust this.
         #
         # B0 is DEFINED here as colsum // N, never hardcoded, and the `d` column of v2_river.tsv
         # holds distance VALUES (_ATLAS_CLASSES = 1, 2, 3, 4, 6) rather than class indices -- so
@@ -15321,8 +16447,33 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
             gate("brute force: per-layer flow == emitted flow", ok)
             ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v2)
             gate("brute force: V2 river cell-by-cell", ok)
-            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v5)
-            gate("brute force: V5 grammar cell-by-cell", ok)
+            # V5 carries the pinned (d, w) cross-tab when the atlas ships a kernel to refine
+            # by, and the honest w = -1 reduced table when it does not.  The gate follows the
+            # table it was given: cell-by-cell against the RECOUNTED cross-tab in the first
+            # case, against by_class in the second.  Shown able to fail:
+            # `--atlas-fault v5-cross-swap`, which moves mass between two w cells inside one
+            # (k, d) and is invisible to every horizontal gate in this program.
+            if all(int(r["w"]) < 0 for r in v5):
+                ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v5)
+                gate("brute force: V5 grammar cell-by-cell (reduced form, w = -1)", ok)
+            else:
+                bad5 = [(r["k"], r["d"], r["w"], r["mass"]) for r in v5
+                        if B["cross"][int(r["k"])][(int(r["d"]), int(r["w"]))] != int(r["mass"])]
+                gate("brute force: V5 grammar (d, w) cross-tab cell-by-cell", not bad5,
+                     "%d bad cell(s); first %s" % (len(bad5), bad5[0]) if bad5 else "")
+                # The refinement must marginalise back to the table it refines, on the
+                # RECOUNT's own numbers -- the emitter asserts this against the atlas, this
+                # asserts it against the explicit enumeration.
+                gate("brute force: V5 cross-tab marginalises over w to the distance class",
+                     all(sum(B["cross"][kk][(dd, ww)] for ww in _ATLAS_W_CLASSES)
+                         == B["byclass"][kk][dd]
+                         for kk in range(n) for dd in _ATLAS_CLASSES))
+                # C1's within-pair multiset, seen from the walks: every layer places exactly
+                # one pair per walk, so summing the cross-tab over d must reproduce the
+                # per-layer w law, and over the whole table the w support is {2, 4, 6}.
+                gate("brute force: V5 cross-tab w support is C1's {2, 4, 6}",
+                     all(ww in _ATLAS_W_CLASSES
+                         for kk in range(n) for (_dd, ww) in B["cross"][kk]))
             ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in q6)
             gate("brute force: Q6 layer-mass cell-by-cell", ok)
             ok = all(B["marg"][int(r["k"])][int(r["pair"])] == int(r["mass"]) for r in v1)
@@ -15354,7 +16505,9 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                         r["p"], B["byclass"][int(r["k"])][int(r["d"])], B["N"])] +
                    [("v5", r["k"], r["d"], r["p_cond"]) for r in v5
                     if not _atlas_ratio_text_ok(
-                        r["p_cond"], B["byclass"][int(r["k"])][int(r["d"])],
+                        r["p_cond"],
+                        (B["byclass"][int(r["k"])][int(r["d"])] if int(r["w"]) < 0 else
+                         B["cross"][int(r["k"])][(int(r["d"]), int(r["w"]))]),
                         B["flow"][int(r["k"])])] +
                    [("q6", r["k"], r["d"], r["p"]) for r in q6
                     if not _atlas_ratio_text_ok(
@@ -15401,8 +16554,18 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
             p = os.path.join(out, atlas_q3_name(atlas_parse_q3_trace(q3_trace), n)[0])
             gate("Q3: reader-side prod(p_i) == 1/N in exact big-int rationals",
                  not atlas_q3_reader_check(p, N))
+            # 🔴 Q-767 (1), RCQ04 P3, 2026-09-24. This gate read only TR12_Q3 == "PASS", the parent
+            # token the consumer derives from the two legs, so it re-stated the reader gate above
+            # and never looked at the KW leg at all. It now asserts BOTH legs by name: the reader
+            # leg PASSed, and the King Wen leg is the SKIP this reduced universe must report
+            # (atlas_selftest refuses n > 13, so a PASS or NOT-KW here is a mis-naming, not a result).
             gate("Q3: verdict tokens emitted",
-                 R["verdicts"].get("TR12_Q3") == "PASS")
+                 R["verdicts"].get("TR12_Q3") == "PASS"
+                 and R["verdicts"].get("TR12_Q3_READER") == "PASS"
+                 and R["verdicts"].get("TR12_Q3_KW") == "SKIP:n=%d" % n,
+                 "TR12_Q3=%s TR12_Q3_READER=%s TR12_Q3_KW=%s (want PASS, PASS, SKIP:n=%d)"
+                 % (R["verdicts"].get("TR12_Q3"), R["verdicts"].get("TR12_Q3_READER"),
+                    R["verdicts"].get("TR12_Q3_KW"), n))
             bad = [(r["step"], r["p_num"], r["p_den"], r["p"]) for r in _atlas_read_tsv(p)
                    if not _atlas_ratio_text_ok(r["p"], int(r["p_num"]), int(r["p_den"]))]
             gate("Q3: p column == p_num/p_den to %d correct digits (Q-422)" % _ATLAS_SIG,
@@ -15670,7 +16833,7 @@ def t3_encode_solutions(out_bin, input_paths):
                     # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
                     # legitimate line. Refusing it would have broken the tool on real
                     # --kc-sample/--kc-unrank output. Checked by reading the emitters
-                    # (solve.c:32665, :32740 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    # (solve.c:38239, :38314 and the `%s\tcd=%d\t` form beside them), not assumed.
                     #
                     # What is safe, and is done, is to COUNT what the skip discards, so a changed
                     # input shape is visible instead of silent.
@@ -15812,7 +16975,10 @@ def extraction_null(n_draw, seed, probes=None):
 
     SOLVE_THREADS is load-bearing for digit-level reproduction (Knuth seeds are per-thread): the
     2026-09-04 run used 2 threads. Another thread count reproduces the percentile only to within
-    the estimator's ~4% per-decoy error. (Command corrected 2026-09-05: it named `--seed`, which
+    the estimator's per-decoy error: relative SE median 5.30%, p95 21.1%, 185 of the 1,000 rows
+    above 10%, measured by re-running all 1,000 decoy estimates. ⚠ [CORRECTED 2026-09-24 (Q-778;
+    Codex V3A-151#1 sibling): this read "~4% per-decoy error", a single figure the measured
+    distribution does not support.] (Command corrected 2026-09-05: it named `--seed`, which
     this mode does not read, and piped the completion token into the estimator loop.)
 
     THE DRAW, and why it is uniform over the right population. The 32 King Wen pairs are shuffled and
@@ -16062,6 +17228,28 @@ def _kc_x_check_cert(cert):
         return ("FAIL-no-start-exit",
                 "certificate predates the start_exit field; the boundary convention cannot "
                 "be re-derived without assuming it")
+    # Q-771 F1 (Fable Y, 2026-09-24): start_exit used to be validated only inside
+    # _boundary_distances, so a functional that never consults it (yangcount) accepted ANY
+    # integer -- a certificate hand-edited to "start_exit": 99 re-checked as CHECKED-AGREE.
+    # The boundary convention needs a G-fixed start (0 or 63); anything else is refused here.
+    if type(start_exit) is not int or start_exit not in (0, 63):
+        return ("FAIL-bad-start-exit",
+                "start_exit must be G-fixed (0 or 63); got %r" % (start_exit,))
+    # Q-771 F4: the --kc-gdir structural cross-gate (X(s)==NULL <=> g(s)==0). Its verdict used
+    # to live only on stdout, so a certificate written after NULL_VS_G=INCONSISTENT was shaped
+    # exactly like a passing one. null = the cross-gate did not run (no --kc-gdir); a gdir with
+    # no verdict is refused, because absent must not read as CONSISTENT.
+    nvg = cert.get("null_vs_g")
+    if nvg == "INCONSISTENT":
+        return ("FAIL-null-vs-g",
+                "null_vs_g=INCONSISTENT: the producer's structural cross-gate against the g "
+                "ladder failed, so its ladder is not trusted")
+    if nvg is not None and nvg != "CONSISTENT":
+        return "FAIL-bad-null-vs-g", "null_vs_g=%r" % (nvg,)
+    if nvg is None and cert.get("gdir") is not None:
+        return ("FAIL-no-null-vs-g",
+                "gdir=%r but no null_vs_g verdict; an absent cross-gate result must not "
+                "read as CONSISTENT" % (cert.get("gdir"),))
     if "extreme_value" not in cert:
         return "FAIL-no-extreme-value", "g_invariant=true but no extreme_value"
     if cert.get("witness") is None:
@@ -16220,6 +17408,24 @@ def main():
                         help="P2: Stream solutions.bin and emit per-chunk parquet files of observable stats")
     parser.add_argument("--marginals", nargs=2, metavar=("CHUNKS_DIR", "OUT_MD"),
                         help="P2: Per-dimension marginal percentiles with KW's position marked")
+    parser.add_argument("--v3-spectrum", nargs=2, metavar=("GRID_TSV", "OUT_TSV"),
+                        help="V3: join a rank grid (i/r/walk, as emitted by the --kc-unrank "
+                             "K-loop into tr12/v3_rel_grid.tsv) to the FROZEN --compute-stats "
+                             "observable battery and write the spectrum/v3_spectrum.tsv that "
+                             "viz/report_figures.py fig_tr12_kc_spectrum consumes: one row per "
+                             "grid point, exact decimal `rank`, `x` = rank/N, the mandatory "
+                             "`order` column, the walk, one column per battery observable and a "
+                             "constant kw_<observable> reference column for each. Re-derives "
+                             "C1/C2/C4/C5 membership from every emitted record and refuses the "
+                             "run rather than emitting an unverified spectrum. Emits "
+                             "V3_SPECTRUM=PASS/FAIL. See viz/viz_kc_spectrum.md.")
+    parser.add_argument("--v3-spectrum-order", choices=("REL", "O3"), default="REL",
+                        help="Which total order --v3-spectrum's GRID_TSV ranks refer to "
+                             "(default REL, the order --kc-unrank implements). Written into the "
+                             "mandatory `order` column -- one TSV per order, never mixed. O3 "
+                             "additionally HOLDS OUT first_position_deviation, whose trend on "
+                             "that axis is forced by lex order rather than measured "
+                             "(viz_kc_spectrum.md, QSET-2 finding 4).")
     parser.add_argument("--extraction-null", type=int, metavar="N",
                         help="Q-143 decoy sampler: draw N orderings uniformly from C1&C2 and print "
                              "each one's 63-transition multiset as a SOLVE_KNUTH_C5_BUDGET vector. "
@@ -16521,7 +17727,8 @@ def main():
     parser.add_argument("--atlas-fault", metavar="NAME", default=None,
                         choices=("v1-drop-pair", "v2-class-swap", "xa-drop-branch",
                                  "q3-perturb", "q10-mod24", "q10-mod48", "v2-mod48",
-                                 "v1-mod16", "ratio-zero", "xa-strip-tsource"),
+                                 "v1-mod16", "ratio-zero", "xa-strip-tsource",
+                                 "v5-cross-swap"),
                         help="TEST ONLY: deliberately corrupt one emitted column so the n=9 gate "
                              "can be shown able to fail (build-brief invariant 3). Never on a run.")
     parser.add_argument("--xa-nodes-per-sec", type=_ExactAnchor, default=None,
@@ -16531,12 +17738,21 @@ def main():
     parser.add_argument("--xa-budget-usd", type=_ExactAnchor, default=None,
                         help="XA-c/d: the $ ceiling the EXHAUSTIBLE/INFEASIBLE call is made against")
     parser.add_argument("--xa-node-mapping-cert", default=None,
-                        help="XA-c/d: path to a W0-D t-unit -> SOLVE_NODE_LIMIT mapping certificate. "
-                             "WITHOUT IT THE PRICING PATH REFUSES. A t-unit is one valid oriented "
-                             "SUPER prefix; SOLVE_NODE_LIMIT counts production-DFS nodes under C3 "
-                             "pruning. Those are different quantities and nothing in this repository "
-                             "certifies the map between them (see solve --kc-t-cert, which states "
-                             "solve_node_limit_mapping: NOT CLAIMED HERE).")
+                        help="XA-c/d: path to a W0-D t-unit -> SOLVE_NODE_LIMIT mapping certificate "
+                             "(the Q-768 schema). WITHOUT A USABLE ONE THE PRICING PATH REFUSES. A "
+                             "t-unit is one valid oriented SUPER prefix; SOLVE_NODE_LIMIT counts "
+                             "production-DFS nodes (C3 is a leaf filter there, not a prune). They "
+                             "are different quantities; solve --kc-t-cert does not map them "
+                             "(solve_node_limit_mapping: NOT CLAIMED HERE). --xa-w0d-lb-cert "
+                             "produces a LOWER-BOUND certificate for the full-31 space only.")
+    parser.add_argument("--xa-w0d-lb-cert", nargs="+", metavar="PATH", default=None,
+                        help="XA-c/d: OUT.json [ATLAS.json] -- write the W0-D LOWER-BOUND "
+                             "node-mapping certificate (full-31 production space only): enumerates "
+                             "every prefix to depth 3 under the t-ladder's and the production "
+                             "DFS's predicates and emits the JSON only if production_nodes(b) >= "
+                             "t(b) is established on all 56 branches. ATLAS.json, if given, must "
+                             "be the n=31 atlas (fmass/branch-set cross-check). Emits "
+                             "XA_W0D_LB_CERT=PASS|FAIL|ERROR:<reason>; exits 0/1/2")
     parser.add_argument("--xa-hedge", type=_ExactAnchor, default=_ExactAnchor("2.0"),
                         help="XA-c/d: throughput hedge factor for scale (TR-12 section 3: x2)")
     parser.add_argument("--xa-work-factor", type=_ExactAnchor, default=_ExactAnchor("1.0"),
@@ -16556,6 +17772,14 @@ def main():
 
     if args.atlas_probe:
         sys.exit(atlas_probe(args.atlas_probe))
+
+    if args.xa_w0d_lb_cert:
+        if len(args.xa_w0d_lb_cert) > 2:
+            print("XA_W0D_LB_CERT=ERROR:usage:--xa-w0d-lb-cert_OUT.json_[ATLAS.json]")
+            sys.exit(2)
+        sys.exit(xa_w0d_lower_bound_cert(args.xa_w0d_lb_cert[0],
+                                         args.xa_w0d_lb_cert[1]
+                                         if len(args.xa_w0d_lb_cert) == 2 else None))
 
     if args.atlas_selftest:
         sys.exit(atlas_selftest(args.atlas_selftest,
@@ -16702,6 +17926,9 @@ def main():
                          chunk_size=args.compute_stats_chunk_size,
                          max_records=args.compute_stats_max_records))
         return
+    if args.v3_spectrum:
+        sys.exit(v3_spectrum(args.v3_spectrum[0], args.v3_spectrum[1],
+                             order=args.v3_spectrum_order))
     if args.marginals:
         sys.exit(p2_marginals(args.marginals[0], args.marginals[1]))
         return

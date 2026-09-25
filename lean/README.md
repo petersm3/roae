@@ -63,11 +63,13 @@ trust-base note below for what that means and how it came to hold). What that bu
   are **constants of the entire C1 space** — each depends only on the unordered pair-partition, which C1
   fixes, *(scope, 2026-08-01: Lean proves constancy of the **countP forms** defined in that file. Identifying
   those forms with the actual registry rules — `reg_*` in solve.py / `score_registry` in solve.c — is a
-  NON-Lean step, numerically validated by driving the repo's own `reg_*` over 5,449 structured C1 sequences
-  and disclosed in `C1RuleConstants.lean`'s header. So "proven, not just measured" holds of the Lean
-  predicates; for the registry rules themselves it is Lean-proven **modulo a validated transcription** — the
-  same runtime-carried bridge disclosed at the claim site for PartitionInvariance and PruneExactness, and it
-  belongs here too)*, so no valid ordering can violate them. This upgrades the "empirically forced (sampled)" status
+  NON-Lean step. Its one numerical check, a drive of the repo's own `reg_*` over 5,449 structured C1
+  sequences, is **attested, not reproducible**: the script is not in the repo. It is disclosed in
+  `C1RuleConstants.lean`'s header. So "proven, not just measured" holds of the Lean predicates; for the
+  registry rules themselves it is Lean-proven **modulo a transcription step whose check is attested only** —
+  a bridge carried outside Lean, as at the claim site for PartitionInvariance and PruneExactness, and it
+  belongs here too. ⚠ **[CORRECTED 2026-09-24 — this called the transcription numerically validated, twice; the check
+  behind that word is unarchived. Codex V3B-14#4 / V3B-13#12, Q-778.]**)*, so no valid ordering can violate them. This upgrades the "empirically forced (sampled)" status
   to a theorem; the zero-hit enumeration measurement is now a corollary. (Orientation-invariance of each
   per-pair predicate is `decide`d over all 64 hexagrams; the fixed range-64 counts by kernel `decide`
   since 2026-07-27 — the whole file is now kernel-only, nothing in it trusts the compiler;
@@ -107,7 +109,7 @@ trust-base note below for what that means and how it came to hold). What that bu
   because until 2026-08-07 this bullet claimed each file checks "in seconds **on any machine**"
   with three time exceptions and **no memory exceptions** — and that was false at every revision
   since the kernel migrations landed: kernel evaluation of the heavy finite obligations is
-  memory-hungry, peaking at **~9.6 GB resident for `Automorphism.lean` and ~7.9 GB for
+  memory-hungry, peaking at **~9.6 GB resident for `Automorphism.lean` and 8.04 GB for
   `KingWen.lean`**, so an 8 GB machine cannot verify those two files at all (this is the price of
   their kernel-only trust base, independent of anything else in the tree). Half the files check in
   about a second at under 0.7 GB; the expensive ones are `Automorphism.lean` (~4 min, ~9.6 GB),
@@ -133,7 +135,7 @@ trust-base note below for what that means and how it came to hold). What that bu
   ⚠ **These figures were REVISED UPWARD on 2026-08-21** after a full 13-module re-measurement on a
   Standard_D128als_v7 (`/usr/bin/time -v`, one module at a time on an otherwise-idle box, same
   pinned toolchain). The previous table under-stated four rows — `TrigramTheorems` by **8.9%**
-  (4.4 → 4.79), `C3Decomposition` by 4.4%, `PruneGInvariance` by 5.6%, `KingWen` by 1.8%. Sizing a
+  (4.4 → 4.79), `C3Decomposition` by 4.4%, `PruneGInvariance` by 5.9% (3.9 → 4.13), `KingWen` by 1.8%. Sizing a
   host from the old numbers could OOM. Provision headroom above these, not to them.
   Full measured per-file table and host guidance in §"Verify yourself" below — read it before
   running the suite on a small machine.
@@ -375,15 +377,21 @@ reproduced their D16 figures to within 0.03 GB):
 | file | wall | peak RSS |
 |---|---|---|
 | `Automorphism.lean` | ~4 min | 9.6 GB |
-| `KingWen.lean` | ~1 min 54 s | 7.9 GB |
-| `C3Decomposition.lean` | ~1 min 13 s | 4.5 GB |
-| `TrigramTheorems.lean` | ~1 min 55 s | 4.4 GB |
-| `PruneGInvariance.lean` | ~1 min 24 s | 3.9 GB |
+| `KingWen.lean` | ~1 min 54 s | 8.04 GB (was 7.9; re-measured 2026-08-21 — see note below) |
+| `C3Decomposition.lean` | ~1 min 13 s | 4.70 GB (was 4.5; 2026-08-21) |
+| `TrigramTheorems.lean` | ~1 min 55 s | 4.79 GB (was 4.4; 2026-08-21) |
+| `PruneGInvariance.lean` | ~1 min 24 s | 4.13 GB (was 3.9; 2026-08-21) |
 | `SatEncodingFidelity.lean` | **0.85 s** (was "~7 s"; measured 0.85 / 0.70 / 0.80 s on three fresh hosts, 2026-09-10) | 0.55 GB |
 | `SymmetryCompleteness.lean` | ~22 s | 2.8 GB |
 | `C1RuleConstants.lean` | ~1 s | 0.7 GB |
 | the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |
 | `PruneReprFC.lean` | ~1.5 s | 0.49 GB |
+
+⚠ **[CORRECTED 2026-09-24 (Q-753) — four peak-RSS cells above still carried the figures that the
+2026-08-21 revision noted near the top of this file had already replaced, so the table told a reader
+to provision to numbers that same note says can OOM a host. They now carry the 2026-08-21
+re-measurement (Standard_D128als_v7, `/usr/bin/time -v`, one module at a time, same pinned
+toolchain); the wall-clock column is still the D16 baseline. Provision headroom above these, not to them. Adjudicated by Fable (Codex V3A-076#5).]**
 
 (The `PruneReprFC.lean` row was measured 2026-08-15 on the 2-core `claude`
 orchestrator (D2as_v6), Lean 4.31.0, not the D16 host of the other rows —

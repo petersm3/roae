@@ -33,6 +33,8 @@
 # --stamp REFUSES rather than writing when a fingerprinted input changed while the battery ran, or
 # when a newer stamp appeared meanwhile: TR12_STAMP_REFUSED=INPUT-CHANGED-MID-RUN |
 # NEWER-STAMP-PRESENT | ERROR-CANNOT-MEASURE, whole-line, beside TR12_REPRO_GATE=FAIL|ERROR.
+# It also refuses when ANOTHER --stamp already holds the writer lock (Q-544, below):
+# TR12_STAMP_REFUSED=LOCKED | ERROR-NO-LOCK, beside TR12_REPRO_GATE=ERROR.
 #
 # --check is the cheap leg (milliseconds, no build) that other checks call on every run. The full
 # gate is ~2 minutes on two cores and needs no ladder data, no disk and no network.
@@ -40,6 +42,40 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 STAMP=scripts/tr12_expected/_GATE_STAMP.txt
 MODE=${1:-run}
+
+# ---- THE STAMP WRITER LOCK (Q-544) --------------------------------------------------------------
+# 🔴 UNTIL 2026-09-24 THIS GATE TOOK NO LOCK. Measured 2026-09-12: flock occurred zero times in this
+# file, while the cron canary ran `--stamp` on its own schedule and people ran it by hand; eight
+# concurrent tr12_repro processes were observed that day, a manual --stamp overlapping a canary run,
+# and the fingerprint on disk written by an undetermined one of them. Q-546's newer-stamp check
+# (stamp_guard, below) narrows that race but does not close it: two writers can both pass the check
+# before either writes, two writers finishing inside the same second compare equal on a
+# one-second mtime, and $SKIPPIN is rewritten with no check at all.
+#
+# So --stamp holds an exclusive, NON-BLOCKING flock for its WHOLE run -- the skip-pin write, the
+# guard and the stamp write -- and a second --stamp refuses at once rather than queueing behind a
+# ten-minute battery. The lock is taken on the DIRECTORY that holds the stamp: it exists in every
+# checkout (git clone, worktree or `git archive` tarball), it is per-tree exactly as the stamp is,
+# and locking it creates no file -- a lock file under scripts/tr12_expected would itself be hashed
+# by fingerprint(). Every caller respects it because the gate takes it itself; no caller has to.
+# fd 8 is inherited by the battery's children, so a child that outlived the gate would keep the
+# lock held; that fails CLOSED (the next --stamp refuses LOCKED), which is the safe side.
+if [ "$MODE" = "--stamp" ]; then
+  if ! command -v flock >/dev/null 2>&1; then
+    echo "  [ERROR] flock(1) is not installed; --stamp will not write without the writer lock (Q-544)"
+    echo "TR12_STAMP_REFUSED=ERROR-NO-LOCK"; echo "TR12_REPRO_GATE=ERROR"; exit 2
+  fi
+  STAMP_LOCK_ON=$(dirname "$STAMP")
+  if ! exec 8<"$STAMP_LOCK_ON"; then
+    echo "  [ERROR] cannot open $STAMP_LOCK_ON to lock it; --stamp will not write unlocked (Q-544)"
+    echo "TR12_STAMP_REFUSED=ERROR-NO-LOCK"; echo "TR12_REPRO_GATE=ERROR"; exit 2
+  fi
+  if ! flock -n 8; then
+    echo "  [FAIL] another --stamp holds the writer lock on $STAMP_LOCK_ON. Two writers must never"
+    echo "         race on $STAMP; wait for that run to finish, then re-run --stamp if still needed."
+    echo "TR12_STAMP_REFUSED=LOCKED"; echo "TR12_REPRO_GATE=ERROR"; exit 2
+  fi
+fi
 
 # The fingerprint covers everything that can invalidate a PASS: the engine (solve.c), the two
 # Python files the battery CALLS as second implementations (verify.py, solve.py), the driver, the
@@ -64,14 +100,25 @@ MODE=${1:-run}
 # CURRENT=YES. The currency stamp certified a state that no longer produced the result it certified.
 # Fixed point rather than one extra level: a gate that invokes a gate is not a special case, and
 # pinning the depth would just move the blind spot down one.
+# `derived_inputs code` (Q-613) runs the same fixed point over the scripts with comment text
+# removed -- whole-line `#` comments and ` #` trailing ones -- so comment_membership_check can tell
+# a file the scripts reach in CODE from one they reach only in PROSE. The default (no argument)
+# output is unchanged: it is still what fingerprint() hashes.
 derived_inputs(){   # repo-relative files the battery and this gate reference, transitively
-  local seeds="scripts/tr12_repro.sh scripts/tr12_repro_gate.sh" acc="" prev="" i=0
+  local seeds="scripts/tr12_repro.sh scripts/tr12_repro_gate.sh" acc="" prev="" i=0 view=${1:-all}
   acc=$(printf '%s\n' $seeds)
   while [ "$acc" != "$prev" ] && [ "$i" -lt 8 ]; do
     prev=$acc; i=$((i+1))
     acc=$( { printf '%s\n' "$acc"
              printf '%s\n' "$acc" | while read -r src; do
-               case "$src" in *.sh) [ -f "$src" ] && grep -ohE '(scripts/|lean/|viz/|documentation/)?[A-Za-z0-9_./-]+\.(c|py|sh|md)\b' "$src" 2>/dev/null;; esac
+               case "$src" in *.sh) [ -f "$src" ] || continue
+                 if [ "$view" = code ]; then
+                   sed -e 's/^[[:space:]]*#.*//' -e 's/[[:space:]]#.*$//' "$src" 2>/dev/null \
+                     | grep -ohE '(scripts/|lean/|viz/|documentation/)?[A-Za-z0-9_./-]+\.(c|py|sh|md)\b'
+                 else
+                   grep -ohE '(scripts/|lean/|viz/|documentation/)?[A-Za-z0-9_./-]+\.(c|py|sh|md)\b' "$src" 2>/dev/null
+                 fi;;
+               esac
              done
            } | sed 's|^\./||' | sort -u | while read -r f; do
                # 🔴 RESOLVE A BARE NAME AGAINST scripts/ BEFORE DISCARDING IT. tr12_repro.sh sources
@@ -88,7 +135,7 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # VERIFY.md is CORE because this gate EXECUTES the build command published in it: if that command
 # changes, this gate builds something else, and the stamp must not survive that.
 # 🔴 lib_binary_currency.sh is CORE because the battery SOURCES it:
-# `. "$SCRIPT_DIR/lib_binary_currency.sh"` (tr12_repro.sh:183). The derivation recovers only
+# `. "$SCRIPT_DIR/lib_binary_currency.sh"` (tr12_repro.sh:254). The derivation recovers only
 # "/lib_binary_currency.sh" from that -- a path that exists nowhere as written -- so the existence
 # filter dropped it and the fingerprint was blind to a file the battery EXECUTES. Measured by the
 # F-5 re-review 2026-09-09: mutate it and the fingerprint is byte-identical.
@@ -98,7 +145,7 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # to bypass. The general case (the NEXT library sourced through a variable) is a real gap and is
 # queued, not silently closed by over-widening this.
 # reports/certificates/c3_positional_witnesses.txt is CORE for the same reason the sourced library
-# is: row a0_q4b READS it and GRADES ON ITS CONTENT (tr12_repro.sh:704), and the derivation cannot
+# is: row a0_q4b READS it and GRADES ON ITS CONTENT (tr12_repro.sh:1202), and the derivation cannot
 # see it -- the regex covers .c/.py/.sh/.md, and widening it to .txt was MEASURED to sweep in
 # _GATE_STAMP.txt itself plus two enumeration artefacts. Naming the one file that matters is the
 # narrow fix; widening the grammar was the broad one that makes the stamp churn.
@@ -118,8 +165,27 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # where the report-figures generator is INSIDE only because comments mention it, so
 # a comment rewrite would silently drop it. A manifest the gate READS, rather than a set it
 # DERIVES by grep, is the structural fix and is NOT done here.
-CORE="solve.c verify.py verify.c solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh scripts/q7ranks_parse_gate.sh scripts/q2_witness_gate.sh"
-fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
+# 🔴 Q-613, 2026-09-24: viz/report_figures.py is CORE. The battery EXECUTES it (tr12_repro.sh
+# `import report_figures as R`), but the harvesting regex cannot see an import, so until today it was
+# a member only because four COMMENT lines in tr12_repro.sh happened to name it: delete those comments
+# and it left the fingerprint with nothing going red (Fable ruling E15, the open half of V3A-132).
+# 🔴 CX-93, 2026-09-25: the two PINNED Q7 witnesses are CORE for the same reason
+# c3_positional_witnesses.txt is -- row a0_q7_witnesses READS them and GRADES ON THEIR CONTENT, and
+# the derivation cannot see a .txt. Their README is not: the battery does not read it.
+CORE="solve.c verify.py verify.c solve.py documentation/VERIFY.md scripts/lib_binary_currency.sh reports/certificates/c3_positional_witnesses.txt reports/evidence/q7_witnesses/moore-strict.txt reports/evidence/q7_witnesses/grand-strict.txt scripts/tr12_repro.sh scripts/tr12_repro_gate.sh scripts/q7ranks_parse_gate.sh scripts/q2_witness_gate.sh viz/report_figures.py"
+# 🔴 Q-613, the CLASS: the explicit membership list for every file that was in the fingerprint ONLY
+# because a comment named it. Measured 2026-09-24 at public 5c296837 with `derived_inputs` vs
+# `derived_inputs code`: 43 derived members, 31 reached in code, and exactly these 12 reached only
+# through comments (viz/report_figures.py, the executed one, is promoted to CORE above; the other 11
+# are listed here). Declaring them keeps the fingerprint set BYTE-IDENTICAL to what it was -- this
+# row changes no membership, it only makes the membership that already existed a stated contract
+# instead of a side effect of prose. Whether the five documentation files belong in a reproduction
+# fingerprint at all is a separate question and is NOT decided here.
+# comment_membership_check (below) keeps it that way: a file reached only by a comment and named
+# in neither list makes the gate ERROR, so membership can no longer be created -- or silently
+# destroyed -- by rewording a comment.
+DECLARED="documentation/CORRECTIONS.md documentation/HISTORY.md documentation/PREREG_CLASSA_QUERY_SET.md documentation/SOLVE_PY_CLI.md documentation/SYMMETRY_SEARCH.md reports/TR8_REORDERING_REVISITED.md scripts/manifest_zero_entry_gate.sh scripts/resume_budget_infinity_gate.sh scripts/tr12_expected/README.md scripts/tr12_mint_state_gate.sh tests.py"
+fingerprint_files(){ { printf '%s\n' $CORE $DECLARED; derived_inputs; } | sort -u; }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
 # a set BUILT FROM the derived inputs -- true by construction, and therefore worthless: the exact
@@ -132,7 +198,7 @@ fingerprint_files(){ { printf '%s\n' $CORE; derived_inputs; } | sort -u; }
 # could see it. row_assertion_gate.sh proves a row ASSERTS; it cannot prove the assertion's parse
 # MATCHES ITS PRODUCER. This runs that check against a freshly built binary and real ladders.
 q7ranks_parse_leg(){
-  # Paths are relative to the repo root, matching this file's own idiom (:306, :318).
+  # Paths are relative to the repo root, matching this file's own idiom (:228, :232).
   # The first draft used "$ROOT", which is pre_push_gate.sh's variable and is unset here --
   # under `set -u` that aborted the gate AFTER the battery passed and BEFORE the stamp was
   # written. Loud and in the right direction (no stamp on an unmeasured tree), but a defect.
@@ -198,6 +264,28 @@ fingerprint_coverage_check(){
   done
   if [ -n "$known_missing" ]; then
     echo "  [FAIL] the derivation no longer sees:$known_missing — the battery calls these"
+    return 1
+  fi
+  comment_membership_check || return 1
+  return 0
+}
+
+# 🔴 Q-613: NO FINGERPRINT MEMBER MAY HANG ON A COMMENT. A file the derivation reaches only through
+# comment text is one a comment rewrite would silently drop (or a new comment silently add). Every
+# such file must be named in CORE or DECLARED, which are read here directly rather than derived, so
+# its membership survives any rewording. rc 1 names each offender; it never passes on an empty
+# code-view derivation, because then EVERY member would be listed.
+comment_membership_check(){
+  local all code declared only
+  all=$(derived_inputs); code=$(derived_inputs code)
+  declared=$(printf '%s\n' $CORE $DECLARED | sort -u)
+  only=$(comm -23 <(printf '%s\n' "$all" | sort -u) \
+                  <( { printf '%s\n' "$code"; printf '%s\n' "$declared"; } | sort -u) | grep -v '^$')
+  if [ -n "$only" ]; then
+    echo "  [FAIL] these fingerprint members are reached ONLY through comment text, so rewording a"
+    echo "         comment would drop them from the fingerprint with nothing going red (Q-613):"
+    printf '%s\n' "$only" | sed 's/^/           /'
+    echo "         Add each to CORE (the battery executes it) or DECLARED in scripts/tr12_repro_gate.sh."
     return 1
   fi
   return 0
@@ -291,9 +379,10 @@ stamp_guard(){
     [ "$rc" -eq 2 ] && { echo "TR12_STAMP_REFUSED=ERROR-CANNOT-MEASURE"; return 2; }
     echo "TR12_STAMP_REFUSED=INPUT-CHANGED-MID-RUN"; return 1
   fi
-  # A stamp written by SOMEONE ELSE while we ran. This is NOT a lock and does not claim to be one
-  # (that is Q-544, still open): it is the cheap half -- refuse to overwrite a stamp that is newer
-  # than this process, so the loser of a race cannot silently clobber the winner.
+  # A stamp written by SOMEONE ELSE while we ran. This is NOT the lock -- that is Q-544's writer
+  # lock at the top of this file, held for the whole --stamp run -- it is the second line behind
+  # it: refuse to overwrite a stamp that is newer than this process, e.g. one written by a writer
+  # that does not go through this gate at all.
   if [ -f "$STAMP" ]; then
     local mt; mt=$(stat -c %Y "$STAMP" 2>/dev/null)
     case "${mt:-}" in
@@ -630,9 +719,11 @@ fi
 # byte-identical). d5_02 and d5_08 were hashed only by accident, because they happen to be named
 # with `.sh` somewhere else in the tree. Writing the path the way the file is actually spelled
 # costs nothing and removes a class of invisibility that depends on coincidence.
+# CX-93 (2026-09-25): d5_04 now EXECUTES the extracted witness row against a real binary; it takes
+# this gate's already-built one via Q7WIT_SOLVE rather than compiling solve.c a second time.
 for leg in scripts/d5_02_q8_chi2_gallery_gate.sh scripts/d5_03_ls_w0_exact_gate.sh \
            scripts/d5_04_q7_witnesses_gate.sh scripts/d5_08_q6_q10a_shell_gate.sh; do
-  if ! bash "./$leg"; then
+  if ! Q7WIT_SOLVE="$WORK/solve" bash "./$leg"; then
     echo "  [FAIL] $leg did not PASS (see message above)"
     echo "TR12_REPRO_GATE=FAIL"; exit 1
   fi

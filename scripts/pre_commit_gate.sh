@@ -67,12 +67,14 @@ esac
 # arrives after the damage. Public 6fc04532 staged documentation/CORRECTIONS.md, one of the 44
 # files in the reproduction fingerprint closure, WITHOUT scripts/tr12_expected/_GATE_STAMP.txt:
 # the stamp blob it committed is byte-identical to its parent's, so as committed that tree
-# carried a fingerprint describing a different tree. pre_push_gate.sh:744-757 does check the
-# stamp and is correct; it simply runs at PUSH, and commits here are batched and pushed later.
+# carried a fingerprint describing a different tree. pre_push_gate.sh does check the stamp (the
+# per-sha leg headed "ADVISORY: THE REPRODUCTION STAMP OF THE PUSHED SHA"); it simply runs at PUSH, and commits here
+# are batched and pushed later. (Until Q-601, 2026-09-24, that leg also measured $ROOT rather than
+# the pushed sha, so it was not correct either; see pre_commit_stamp_gate.sh's header, Q-710.)
 # Measured that day: `grep -c tr12_repro_gate .git/hooks/pre-commit` -> 0.
 #
 # WARN-ONLY, like the registry gate above and for the same operator ruling (O-redfloor), plus
-# pre_push_gate.sh:737-741's reasoning: a missing stamp means "not yet shown to reproduce",
+# the "ADVISORY, NOT BLOCKING" reasoning in pre_push_gate.sh's "ADVISORY: THE REPRODUCTION STAMP OF THE PUSHED SHA" leg: a missing stamp means "not yet shown to reproduce",
 # which is a fact about evidence, not a broken tree. Its rc is READ and CLASSIFIED and never
 # propagated -- three verdicts, not two, so "I could not look" cannot read as "nothing to see".
 # `timeout` is belt-and-braces: a wedged leg must not be able to stall a commit.
@@ -103,11 +105,17 @@ fi
 # registry finding is a judgement call about content. This one is arithmetic about a file the
 # operator has said must not be added without their word, and letting it through means the commit
 # has already happened by the time anyone reads a warning.
+# Q-746 / V3A-119#1 (2026-09-24): the advice below used to say only "gzip -9 the file". Followed
+# literally that leaves the big blob in the index, and the size gate then skipped it because the
+# working copy was gone -- the remedy WAS the bypass. The gate now measures the index blob whether
+# or not a working copy exists, and the advice says to re-stage.
 bash "$SDIR/pre_commit_size_gate.sh"; SZRC=$?
 if [ "$SZRC" -ne 0 ]; then
   echo "[pre-commit] 🔴 BLOCKED by the size gate (rc=$SZRC). Nothing was committed."
   echo "[pre-commit]    Get the operator's OK and record it in scripts/oversize_approved.tsv,"
-  echo "[pre-commit]    or gzip -9 the file, or gitignore it. Do not raise the threshold."
+  echo "[pre-commit]    or gitignore it, or gzip -9 it AND RE-STAGE: the size gate measures the INDEX,"
+  echo "[pre-commit]    so run 'git rm --cached -- <file>' and 'git add -- <file>.gz' as well; gzip alone"
+  echo "[pre-commit]    leaves the uncompressed blob staged. Do not raise the threshold."
   exit "$SZRC"
 fi
 

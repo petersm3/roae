@@ -10,7 +10,10 @@
 # 192-bit atlas sums, the mod-24 gates and the Q3 reader check — is done in `awk` and `bc`, never
 # by a helper script.  It does CALL the repo's existing Python where that Python is the authority:
 #   * `python3 -c "import solve; ..."` for the three historical arrangements of Q7 and for the KW
-#     walk at n=31 (both have a shell-only fallback or a loud SKIP);
+#     walk at n=31 (both have a shell-only fallback or a loud SKIP), and `python3 - <<PY` over
+#     solve.py/sat.py/verify.py for the literature-rule re-score of the PINNED Q7 SAT witnesses
+#     (row a0_q7_witnesses; the rules exist only there) and for `sat.py --witness` in the opt-in
+#     re-solve row a0_q7_resolve;
 #   * `python3 solve.py --atlas-queries/--atlas-selftest` for the atlas consumer, as a SECOND
 #     implementation to cross-check the awk+bc legs against;
 #   * `python3 solve.py --kc-x-recheck` for row a1_q5, which is the TR-12 §Q5 TWO-LANGUAGE
@@ -50,7 +53,15 @@
 #
 # OPTIONS
 #   --n9                 build a throwaway n=9 f/g/t ladder set and run against it
-#   --pairs N            with --n9, use n=N instead of 9 (n<=13 is the sane range)
+#   --pairs N            with --n9, use n=N instead of 9. Accepted ONLY for the measured set
+#                        {7, 9, 10}. Any other n is REFUSED before the build, with TR12_REPRO=ERROR and
+#                        TR12_REPRO_REASON=unsupported-pairs-n<N> (exit 2); see the Q-461 note. Only
+#                        n=9 has committed expected blocks. At any other accepted n, a plain run ends
+#                        TR12_REPRO=FAIL (no-expected-block-set-for-n<N>), which is not a defect in
+#                        your tree. Run it with --regen --expect <scratch dir>, and read the resulting
+#                        PASS:MINTED-<k> as exit status and in-row gates only, NOT as a reproduction.
+#                        (This line said "n<=13 is the sane range" until 2026-09-24. It was never
+#                        measured, and n=6 fails.)
 #   --fdir/--gdir/--tdir named ladder directories (TDIR is optional; without it the t-legs SKIP)
 #   --solve PATH         the solve binary (default: build solve.c into a temp dir)
 #   --out DIR            artifact root (default: a temp dir; printed at the end)
@@ -62,13 +73,21 @@
 #                        MEASURED 2026-09-14 on an L64s_v4 over the real n=31 ladders: 24-61 MB/s
 #                        at ~34% of ONE core of 64 -- f 38 h, g 94 h, t 40 h, and the post-scan
 #                        --atlas run repeats each, so ~340 h for the three rows alone. The limit
-#                        is a GLOBAL ceiling inside solve's inflate->pipe->external-sha chain:
-#                        four concurrent processes deliver 54 MB/s against 61 for one, so running
-#                        them in parallel makes the aggregate WORSE, and plain sha256sum on the
-#                        same device reaches 2,314 MB/s at eight streams. Without this flag the
+#                        is PER PROCESS, inside solve's single-threaded inflate->pipe->external-sha
+#                        chain, and NOT a global ceiling (Q-589; this comment said "GLOBAL" until
+#                        2026-09-24). MEASURED 2026-09-17: 40 concurrent --f1c5-layer-sha processes
+#                        digested all 96 f/g/t layers in 7 h 11 m against a 102.54 h serial sum
+#                        (14.3x), 2,268 MB/s aggregate -- within 2% of the 2,314 MB/s plain
+#                        sha256sum reaches on the same device at eight streams. An earlier reading
+#                        (four concurrent processes, 54 MB/s against 61 for one) stays UNRECONCILED:
+#                        its untested causes are the device or build contention on 2026-09-14.
+#                        This script runs the three rows ONE AFTER ANOTHER, so the flag still costs
+#                        the serial figure above; the 14.3x was taken outside it. Without this flag the
 #                        rows are cost-gated and ladder identity is pinned instead by the
 #                        *_ident rows below, which compare the BUILDER's recorded
 #                        own_sha256_decompressed against the PUBLISHED n=31 registry in 0.00 s.
+#                        WITH the flag those *_ident rows now run TOO (Q-683, taken 2026-09-25 under
+#                        Q-782); until then they were skipped, leaving the registry comparison unmade.
 #   --with-chunked       run the chunked-scan == whole-scan identity at full-31 (a second scan)
 #   --no-scan            skip Group B's long pass (Group C then reports SKIP, not PASS)
 #   --atlas PATH         do NOT scan; validate the atlas at PATH (row b_atlas_supplied, token
@@ -81,6 +100,12 @@
 #                        do have a block are still diffed. This is how a first run at a universe
 #                        with no committed goldens (n=31) can execute and record what it saw.
 #                        Never use it where goldens exist and you want them enforced -- they are.
+#   --q7-resolve         run row a0_q7_resolve: the LIVE re-solve of the Q7 witness targets with
+#                        `python3 sat.py --witness moore-strict|grand-strict` (needs kissat on PATH;
+#                        FAILS loudly without it). Asserts SAT status and re-verifies whatever
+#                        sequence comes back, never byte-equality with the pinned witnesses, which
+#                        row a0_q7_witnesses verifies solver-free on every run. Off by default so
+#                        the n=9 skip pin does not depend on what is on PATH (CX-93, 2026-09-25).
 #   --keep               keep the work directory
 #
 # ENVIRONMENT KNOBS (all have defaults; every one is echoed into the run header)
@@ -111,6 +136,7 @@ MODE_N9=0; PAIRS=9
 FDIR=""; GDIR=""; TDIR=""
 SOLVE=""; OUTDIR=""; EXPECTDIR=""
 REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0; WITH_LADDERSHA=0; WITH_TCHECK=0
+Q7_RESOLVE=0
 ATLAS_IN=""; MINT_MISSING=0
 
 # --help prints the file's leading comment block verbatim (it stops at the first non-comment line).
@@ -135,6 +161,7 @@ while [ $# -gt 0 ]; do
         --no-scan)      DO_SCAN=0 ;;
         --atlas)        ATLAS_IN="$2"; DO_SCAN=0; shift ;;
         --mint-missing) MINT_MISSING=1 ;;
+        --q7-resolve)   Q7_RESOLVE=1 ;;
         --keep)         KEEP=1 ;;
         -h|--help)      usage; exit 0 ;;
         *) echo "FATAL: unknown option '$1' (try --help)" >&2; exit 2 ;;
@@ -166,6 +193,27 @@ LOG="$OUTDIR/tr12_repro.log"; : > "$LOG"
 say(){ printf '%s\n' "$*" | tee -a "$LOG"; }
 die(){ say "FATAL: $*"; exit 2; }
 
+# ---- Q-461 (2026-09-24): --pairs is REFUSED outside the MEASURED set, by name, before any build.
+# The help text used to offer "n<=13 is the sane range", and the battery does not deliver it. Only
+# n=9 has committed expected blocks. MEASURED 2026-09-24 with --regen into a scratch --expect:
+#   n=7   every row PASSes or SKIPs by name (PASS:MINTED-55). Before the a2_q1_relabel fix below,
+#         TR12_Q1_RELABEL FAILed and stood the scan down.
+#   n=6   NOT supported. Every walk has cd=36, above the default C3 threshold T=31, so C15 is EMPTY:
+#         a1_q8_c15's rejection sampler never returns (killed after 19 min), and
+#         a1_q8_subset, a1_q2c and a1_q2d FAIL.
+#   n=10  every row PASSes or SKIPs by name (PASS:MINTED-54), about 1.5 min on 8 cores.
+# Any other n is unmeasured and refused. A FAIL or a hang at an n nobody has run looks like a defect in
+# the reader's own tree, which is what this row was filed to prevent. TR12_ALLOW_UNSUPPORTED_PAIRS=1
+# lets a developer measure a new n on purpose. That run is exploration, never a reproduction.
+TR12_PAIRS_SUPPORTED="7 9 10"
+if [ "$MODE_N9" -eq 1 ] && [ "${TR12_ALLOW_UNSUPPORTED_PAIRS-}" != 1 ] \
+   && ! printf ' %s ' $TR12_PAIRS_SUPPORTED | grep -qF " $PAIRS "; then
+    say "REFUSED: --pairs $PAIRS is outside the measured set {$TR12_PAIRS_SUPPORTED}; see the Q-461 note"
+    say "         in this file. Set TR12_ALLOW_UNSUPPORTED_PAIRS=1 to explore it deliberately."
+    printf 'TR12_REPRO=ERROR\nTR12_REPRO_REASON=unsupported-pairs-n%s\n' "$PAIRS" | tee -a "$VERD"
+    exit 2
+fi
+
 # ------------------------------------------------------------------------------- the binary ---
 SOLVE_HANDED_IN=0; [ -n "$SOLVE" ] && SOLVE_HANDED_IN=1
 if [ -z "$SOLVE" ]; then
@@ -179,7 +227,7 @@ fi
 
 # 🔴 EXECUTABLE IS NOT CURRENT. The build arm above compiles $REPO_ROOT/solve.c seconds
 # before use and is safe by construction. `--solve <path>` is not: it names a PATH, and the line
-# above checks only the +x bit. tr12_repro_gate.sh:343 passes a binary it just built from the
+# above checks only the +x bit. tr12_repro_gate.sh:744 passes a binary it just built from the
 # PUBLISHED build line, so the pre-push route was never exposed; a hand run
 # `scripts/tr12_repro.sh --n9 --solve ./solve` is, and that is the documented way to run this
 # battery against an existing binary. This file is the TR-12 REPRODUCTION harness: every row it
@@ -240,6 +288,15 @@ N_DIV24="$(echo "$N_TOTAL / 24" | bc)"
 # knobs — reduced universes get reduced batch sizes so the whole battery stays under a minute
 if [ "$N_PAIRS" -ge 31 ]; then
     C3MAX_DEF=387;  Q8K_DEF=1000; Q4ACM_DEF=1000000; Q1CM_DEF=10000; V3K_DEF=1000
+    # WHY Q4ACM = 1e6 (Q-590, 2026-09-24). The size is set by a1_q4ac's RECORD-level HT column, whose
+    # interval uses n_eff = (sum w)^2 / sum w^2, not the draw count. It is not set by the walk-level
+    # p_hat. MEASURED on the n=31 battery (M=1e6, receipt 2026-09-22): n_eff = 17,883 of 120,937
+    # C15-accepted draws (14.8%), mu_rec_C15_HT = 0.0759 +/- 0.0039 (Wilson 95%, ~5% relative), while
+    # p_hat = 0.1209 +/- 0.0006, and 1e4 draws would already give p_hat +/-0.0064. A half-width scales as
+    # 1/sqrt(M), so for mu_rec 1e5 gives ~+/-0.012 (~16% relative) and 1e4 ~+/-0.039 (~51%). 1e6
+    # is the smallest decade that puts the HT column near 5% relative precision, at ~19 h (Q-590
+    # timing, 2026-09-18). NO precision target was pre-registered; this is a post-hoc defence, not a
+    # derivation. For a target half-width h, take M = 1e6 * (0.0039 / h)^2.
 else
     C3MAX_DEF=31;   Q8K_DEF=200;  Q4ACM_DEF=20000;   Q1CM_DEF=200;   V3K_DEF=32
 fi
@@ -804,7 +861,7 @@ row_begin a0_gates
 row_end TR12_GATES $rc
 
 # ---- A0.x  the OUT-OF-CORE reader, which is the ONLY read path at n=31 ------------------------
-# 🔴 Q-492. `KC_MEM_MAX_PAIRS` is 22 (solve.c:19482) and `kc_resolve_pairs` sends anything larger
+# 🔴 Q-492. `KC_MEM_MAX_PAIRS` is 22 (solve.c:19619) and `kc_resolve_pairs` sends anything larger
 # down the out-of-core loader -- a DIFFERENT loader, a v2 gzip layer format and an LRU block cache.
 # So EVERY `--kc-*` query at n=31 reads through code that no n<=13 execution touches: measured, the
 # n=9 `--kc-build` writes `F1C5LAY1` magic, so the in-memory path is taken and the OOC reader is
@@ -911,13 +968,160 @@ fi
 #            (QUERY_INVENTORY section 3.4); and even with it the row is unbuilt, because a solver-chosen
 #            witness has no reproducibility contract (which IN sequence kissat returns is build-dependent,
 #            so there is no expected block to diff until the witness bytes are pinned). Named skip,
-#            aggregated into TR12_Q7 below: the parent can never read PASS without this leg. -----------
-if command -v kissat >/dev/null 2>&1; then
-    row_skip a0_q7_witnesses TR12_Q7_WITNESSES "PENDING:q7-witness-row" \
-      "kissat is on PATH but the witness row is unbuilt: a solver-chosen witness has no reproducibility contract (which IN sequence kissat returns is build-dependent), so there is no expected block to diff until the witness bytes are pinned"
+#            aggregated into TR12_Q7 below: the parent can never read PASS without this leg.
+#            2026-09-25 (CX-93, Fable): THE WITNESS BYTES ARE PINNED and the row is real. Each witness
+#            was produced ONCE with kissat 4.0.4 and committed as reports/evidence/q7_witnesses/<target>.txt
+#            (one `SEQ=` line of 64 hexagram values; the README beside it records the kissat version, the
+#            exact commands, and the CNF and model sha256s). This row needs NO solver: it verifies the
+#            PINNED sequence, so its output is byte-identical with and without kissat on PATH (the
+#            Q-714 skip-pin dependence on `command -v kissat` is gone with the skip). Per target:
+#              (1) the file exists and carries exactly one SEQ= line of 64 integers (sha256 printed);
+#              (2) $SOLVE --check-arrangement -- the independent first-principles C1..C5 checker --
+#                  says IN SUPER and IN C15 (C3 <= 776), and its certificate is written to
+#                  $ARTDIR/q7_<target>.json, which a2_q7_ranks consumes at n>=31 for the serial number;
+#              (3) the sequence is NOT King Wen: compared as a string with the arrangement in the
+#                  battery's own q7_kw.json (from leg 1), and by solve.py (positions differing,
+#                  pair-slot layout);
+#              (4) every literature rule the target enforces re-scores 0 through solve.py's scorers
+#                  (sat.target_verdict: Moore-2005 parity + Moore-1989 rhythm for moore-strict, plus
+#                  Schulz gender for grand-strict), and Schulz gender is ALSO recounted by verify.py's
+#                  independent re-implementation, which must agree with solve.py.
+#            WHAT THIS ROW DOES NOT CLAIM: that a solver would return THESE bytes. The pinned sequence
+#            is one member of a (possibly large) satisfying set; the live re-solve is row a0_q7_resolve
+#            below, opt-in (--q7-resolve), and it never compares bytes. A rule the encoder enforces
+#            that solve.py cannot score is impossible by construction (sat.py asserts the scorer set
+#            equals FIVE_RULES at import), so a rule silently unchecked here would fail the import. ----
+Q7WIT_DIR="$REPO_ROOT/reports/evidence/q7_witnesses"
+q7wit_props(){ # q7wit_props TARGET SEQ  -> property lines via solve.py/sat.py/verify.py; rc 0 iff every checked property holds
+    (cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" Q7T="$1" Q7S="$2" python3 - <<'PY'
+import os, sys
+import solve, sat, verify
+t = os.environ["Q7T"]; seq = [int(x) for x in os.environ["Q7S"].split(",")]
+kw = list(solve._r7_kw())
+rules = sorted(sat.target_rules(t))
+v = sat.target_verdict(seq, t)
+bad = 0
+print("rules_enforced\t%s" % " ".join(rules))
+print("target_verdict\tbase=%s c3=%s %s ok=%s" % (v["base"], v["c3"], v["c3_label"], v["ok"]))
+if v["scores"] is None:
+    print("Q7WIT_FAIL\t%s: base C1/C2/C5 re-verification failed in solve.py, no rule can be scored" % t); bad = 1
+else:
+    print("rule_scores\t" + " ".join("%s=%d" % (r, v["scores"][r]) for r in sat.FIVE_RULES))
+    print("rule_violations\t%s" % (" ".join("%s=%d" % kv for kv in sorted(v["rule_viol"].items())) or "NONE"))
+    if v["rule_viol"]:
+        print("Q7WIT_FAIL\t%s: the pinned sequence violates a rule the target enforces (%s)"
+              % (t, " ".join("%s=%d" % kv for kv in sorted(v["rule_viol"].items())))); bad = 1
+    g_indep, _ = verify._rc4_violations_indep(seq)
+    agree = "YES" if g_indep == v["scores"]["gender"] else "NO"
+    print("gender_indep\t%d\t(verify.py _rc4_violations_indep; agrees with solve.py: %s)" % (g_indep, agree))
+    if agree != "YES":
+        print("Q7WIT_FAIL\t%s: verify.py and solve.py disagree on Schulz gender violations (%d vs %d)"
+              % (t, g_indep, v["scores"]["gender"])); bad = 1
+if not v["ok"]:
+    print("Q7WIT_FAIL\t%s: sat.target_verdict says not ok (base=%s rules=%s c3=%s)" % (t, v["base"], v["rule_viol"], v["c3_label"])); bad = 1
+diff = sum(1 for a, b in zip(seq, kw) if a != b)
+lay = lambda s: [frozenset(s[i:i + 2]) for i in range(0, 64, 2)]
+print("kw_identical\t%s\t(positions differing from KW: %d; pair-slot layout differs from KW: %s)"
+      % ("YES" if seq == kw else "NO", diff, "YES" if lay(seq) != lay(kw) else "NO"))
+if seq == kw:
+    print("Q7WIT_FAIL\t%s: the sequence IS King Wen -- a witness must be a non-KW member" % t); bad = 1
+sys.exit(bad)
+PY
+    )
+}
+q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON  -> the solver-free property check shared by both Q7 witness rows; rc 0 iff all hold
+    local t="$1" seq="$2" cert="$3" frc=0 nv kwarr
+    nv=$(printf '%s\n' "$seq" | tr ',' '\n' | grep -c .)
+    if [ "$nv" -ne 64 ]; then echo "Q7WIT_FAIL	$t: the sequence has $nv values, not 64"; return 1; fi
+    "$SOLVE" --check-arrangement "$seq" --cert-out "$cert" > "$WORK/q7wit_$t.out" 2>&1 < /dev/null
+    echo "### $t checker_rc=$?"
+    cat "$WORK/q7wit_$t.out"
+    grep -q 'verdict SUPER (C1&C2&C4&C5):     IN' "$WORK/q7wit_$t.out" || { echo "Q7WIT_FAIL	$t: --check-arrangement does not say IN SUPER"; frc=1; }
+    grep -q 'verdict C15  (C1-C5, C3<=776):   IN' "$WORK/q7wit_$t.out" || { echo "Q7WIT_FAIL	$t: --check-arrangement does not say IN C15 (C3 <= 776)"; frc=1; }
+    # not King Wen, by the battery's OWN KW certificate (leg 1, the independent checker's KW table)
+    kwarr=$(sed -n 's/.*"arrangement": "\([^"]*\)".*/\1/p' "$ARTDIR/q7_kw.json" 2>/dev/null | head -1)
+    if [ -z "$kwarr" ]; then echo "Q7WIT_FAIL	$t: no arrangement in $ARTDIR/q7_kw.json -- KW-distinctness cannot be established"; frc=1
+    elif [ "$seq" = "$kwarr" ]; then echo "Q7WIT_FAIL	$t: the sequence is byte-identical to the KW arrangement of q7_kw.json"; frc=1
+    else echo "kw_string_identical	NO"; fi
+    q7wit_props "$t" "$seq" || frc=1
+    return $frc
+}
+if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
+   && PYTHONPATH="$REPO_ROOT" python3 -c 'import solve, sat, verify' >/dev/null 2>&1; then
+    row_begin a0_q7_witnesses
+    (
+      wrc=0
+      echo "# Q7 leg 3: the PINNED SAT witnesses (CX-93). Solver-free: each pinned sequence is re-verified by"
+      echo "# --check-arrangement (C1..C5, independent checker), compared with KW, and re-scored on every rule"
+      echo "# its target enforces (solve.py; Schulz gender also by verify.py). No byte is trusted because a"
+      echo "# solver once produced it. Provenance: reports/evidence/q7_witnesses/README.md"
+      for t in moore-strict grand-strict; do
+          f="$Q7WIT_DIR/$t.txt"
+          echo "### $t"
+          echo "witness_file	reports/evidence/q7_witnesses/$t.txt"
+          if [ ! -f "$f" ]; then echo "Q7WIT_FAIL	$t: pinned witness file is MISSING (reports/evidence/q7_witnesses/$t.txt)"; wrc=1; continue; fi
+          echo "witness_sha256	$(sha256sum < "$f" | cut -d' ' -f1)"
+          nseq=$(grep -c '^SEQ=' "$f")
+          if [ "$nseq" -ne 1 ]; then echo "Q7WIT_FAIL	$t: expected exactly one SEQ= line, found $nseq"; wrc=1; continue; fi
+          seq=$(sed -n 's/^SEQ=//p' "$f" | tr -d ' \r')
+          echo "witness_seq	$seq"
+          q7wit_check "$t" "$seq" "$ARTDIR/q7_$t.json" || { wrc=1; continue; }
+          echo "Q7WIT_OK	$t"
+      done
+      exit $wrc
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_Q7_WITNESSES $rc
 else
-    row_skip a0_q7_witnesses TR12_Q7_WITNESSES "PENDING:kissat" \
-      "PENDING:kissat — sat.py --witness moore-strict|grand-strict needs kissat on PATH (absent; QUERY_INVENTORY §3.4). No SAT witness is materialised, so no non-KW IN sequence reaches a2_q7_ranks and no witness serial number is produced"
+    row_skip a0_q7_witnesses TR12_Q7_WITNESSES "SKIP:python3-unavailable" \
+      "python3+solve.py/sat.py/verify.py unavailable — the pinned witnesses' literature rules (Moore parity/rhythm, Schulz gender) are defined only in solve.py, so the rule re-score cannot run"
+fi
+
+# ---- A0.3d Q7 leg 3b: the OPTIONAL live re-solve (--q7-resolve; needs kissat on PATH).  CX-93.
+#            Runs the inventory's own command, `python3 sat.py --witness <target>`, and asserts
+#            ONLY (a) the whole-line WITNESS_RESULT=WITNESS token (SAT, decoded, re-verified by sat.py)
+#            and (b) the same solver-free property check as above on whatever sequence came back.
+#            It NEVER compares the returned bytes with the pinned witness: which member of the
+#            satisfying set a solver returns is build-dependent, so byte-equality is not a contract.
+#            Nothing build-dependent is printed to the diffed output (no sequence, no attempt count);
+#            the full transcript goes to $ARTDIR/q7resolve_<target>.txt. Opt-in rather than
+#            `command -v kissat`, so the n=9 skip pin does not depend on what is on PATH (Q-714); with
+#            --q7-resolve and no kissat the row FAILS loudly instead of skipping. ----------------------
+if [ "$Q7_RESOLVE" -eq 1 ]; then
+    row_begin a0_q7_resolve
+    (
+      rrc=0
+      echo "# Q7 leg 3b: live re-solve of the witness targets with the solver on PATH. Asserts SAT status and"
+      echo "# re-verifies the returned sequence; never asserts byte-equality with the pinned witness."
+      for t in moore-strict grand-strict; do
+          echo "### $t"
+          if ! command -v kissat >/dev/null 2>&1; then echo "Q7RESOLVE_FAIL	$t: --q7-resolve given but kissat is not on PATH"; rrc=1; continue; fi
+          (cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 sat.py --witness "$t") > "$WORK/q7res_$t.out" 2>&1 < /dev/null
+          src=$?
+          cp "$WORK/q7res_$t.out" "$ARTDIR/q7resolve_$t.txt"
+          res=$(grep -x 'WITNESS_RESULT=[A-Z_]*' "$WORK/q7res_$t.out" | head -1)
+          echo "sat_witness_exit	$src"
+          echo "witness_result	${res:-NONE}"
+          if [ "$res" != "WITNESS_RESULT=WITNESS" ] || [ "$src" -ne 0 ]; then
+              echo "Q7RESOLVE_FAIL	$t: sat.py --witness did not end in WITNESS_RESULT=WITNESS with exit 0 (see artifacts/q7resolve_$t.txt)"; rrc=1; continue
+          fi
+          rseq=$(sed -n 's/^WITNESS: \[\(.*\)\]$/\1/p' "$WORK/q7res_$t.out" | head -1 | tr -d ' ')
+          if [ -z "$rseq" ]; then echo "Q7RESOLVE_FAIL	$t: no WITNESS: line to re-verify"; rrc=1; continue; fi
+          # property check only; the certificate name is q7resolve_* so the q7_*.json glob of
+          # a2_q7_ranks does not pick up a solver-chosen sequence
+          q7wit_check "$t" "$rseq" "$ARTDIR/q7resolve_$t.json" > "$WORK/q7res_props_$t.out" 2>&1; prc=$?
+          cp "$WORK/q7res_props_$t.out" "$ARTDIR/q7resolve_${t}_props.txt"
+          grep -E '^(Q7WIT_FAIL|rules_enforced|rule_violations|kw_string_identical|kw_identical|gender_indep)	' "$WORK/q7res_props_$t.out" | sed 's/^kw_identical\t\([A-Z]*\)\t.*/kw_identical\t\1/; s/^gender_indep\t[0-9]*\t(verify.py _rc4_violations_indep; agrees with solve.py: \([A-Z]*\))$/gender_indep_agrees\t\1/'
+          grep -q 'verdict SUPER (C1&C2&C4&C5):     IN' "$WORK/q7res_props_$t.out" && echo "resolve_super	IN" || echo "resolve_super	NOT-IN"
+          grep -q 'verdict C15  (C1-C5, C3<=776):   IN' "$WORK/q7res_props_$t.out" && echo "resolve_c15	IN" || echo "resolve_c15	NOT-IN"
+          [ "$prc" -eq 0 ] || { echo "Q7RESOLVE_FAIL	$t: the returned witness fails the solver-free property check (see artifacts/q7resolve_${t}_props.txt)"; rrc=1; continue; }
+          echo "Q7RESOLVE_OK	$t"
+      done
+      exit $rrc
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_Q7_RESOLVE $rc
+else
+    row_skip a0_q7_resolve TR12_Q7_RESOLVE "SKIP:opt-in" \
+      "the live re-solve of the Q7 witness targets runs only with --q7-resolve (kissat on PATH); it asserts SAT status and re-verifies whatever sequence comes back, never byte-equality with the pinned witness. The pinned witnesses themselves are verified solver-free in a0_q7_witnesses"
 fi
 
 # ---- A0.4  LS-w0: TR-8's pair-only null, EXACT.  D5-03 (2026-09-05).  TR-12 section 4(a)(5) names
@@ -1163,14 +1367,23 @@ group "GROUP A1 — f-ladder mounted"
 # question, answered by runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt (the archived
 # ladders' --f1c5-layer-sha rows, 32 per stage, taken from these same sidecars); at n=9 the
 # committed golden pins the values.
-ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR
-    local id="$1" token="$2" dir="$3"
+# 🔴 Q-782 (2026-09-25, found and reproduced by Opus RR): THE ROW CHECKED LAYER COUNT, NOT LAYER
+# IDENTITY. It passed when layers == n+1 and each digested layer matched the sidecar beside it, and
+# never asked WHICH layers those were. At n=9, deleting g_layer_09 and adding a g_layer_10 (a copy of
+# 08 with its sidecar) printed LADDER_SHA_CHECK=OK, and so did g_layer_05 at mode 000 plus a stray
+# 10, because the DIR form of --f1c5-layer-sha skipped an unreadable layer with rc 0 (fixed in
+# solve.c the same day: an existing unreadable layer is now "ERROR: cannot open" and rc 2). Now,
+# for k = 0..n, <LAYER_PREFIX>_kk.bin (f1c5_layer_kk / g_layer_kk / t_layer_kk) must be present,
+# readable, digested and MATCHED, and any other *_layer_NN.bin in DIR is a named STRAY failure. These lines print ONLY on a failure, so a healthy
+# ladder's transcript -- and the committed n=9 goldens -- are byte-identical to before.
+ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR LAYER_PREFIX
+    local id="$1" token="$2" dir="$3" pfx="$4"
     row_begin "$id"
     (
       "$SOLVE" --f1c5-layer-sha "$dir" > "$WORK/lsha.$id" 2>&1; trc=$?
       cat "$WORK/lsha.$id"
       echo "### sidecar cross-check: tool digest vs the own_sha256_decompressed the builder recorded"
-      layers=0; ok=0; bad=0
+      layers=0; ok=0; bad=0; matched=""
       while read -r tag hex path _rest; do
           [ "$tag" = "sha256(decompressed)" ] || continue
           layers=$((layers+1))
@@ -1184,13 +1397,32 @@ ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR
               echo "sidecar ${sc##*/}  NO-FIELD own_sha256_decompressed"; bad=$((bad+1))
           elif [ "$own" = "$hex" ]; then
               echo "sidecar ${sc##*/}  own_sha256_decompressed=$own  MATCH"; ok=$((ok+1))
+              matched="$matched$path"$'\n'
           else
               echo "sidecar ${sc##*/}  own_sha256_decompressed=$own  MISMATCH tool=$hex"; bad=$((bad+1))
           fi
       done < "$WORK/lsha.$id"
       want=$((N_PAIRS+1))
+      # Q-782: layer IDENTITY -- exactly <LAYER_PREFIX>_00..NN, each present, readable and MATCHED.
+      idbad=0; k=0
+      while [ "$k" -lt "$want" ]; do
+          lp="$dir/${pfx}_$(printf '%02d' "$k").bin"
+          if   [ ! -e "$lp" ]; then echo "layer ${lp##*/}  MISSING"; idbad=$((idbad+1))
+          elif [ ! -r "$lp" ]; then echo "layer ${lp##*/}  UNREADABLE"; idbad=$((idbad+1))
+          else case $'\n'"$matched" in *$'\n'"$lp"$'\n'*) : ;;
+                   *) echo "layer ${lp##*/}  NOT-MATCHED"; idbad=$((idbad+1)) ;; esac
+          fi
+          k=$((k+1))
+      done
+      for lp in "$dir"/*_layer_[0-9][0-9].bin; do
+          [ -e "$lp" ] || continue
+          case "${lp##*/}" in "${pfx}"_[0-9][0-9].bin)
+              [ "$((10#${lp: -6:2}))" -lt "$want" ] && continue ;; esac
+          echo "layer ${lp##*/}  STRAY (not ${pfx}_00..$(printf '%02d' "$N_PAIRS"))"; idbad=$((idbad+1))
+      done
+      [ "$idbad" -eq 0 ] || echo "layer_identity_bad=$idbad"
       echo "layers=$layers expected=$want sidecar_match=$ok sidecar_bad=$bad tool_rc=$trc"
-      if [ "$trc" -eq 0 ] && [ "$bad" -eq 0 ] && [ "$layers" -eq "$want" ] && [ "$ok" -eq "$want" ]; then
+      if [ "$trc" -eq 0 ] && [ "$bad" -eq 0 ] && [ "$idbad" -eq 0 ] && [ "$layers" -eq "$want" ] && [ "$ok" -eq "$want" ]; then
           echo "LADDER_SHA_CHECK=OK"
       else
           echo "LADDER_SHA_CHECK=FAIL"; exit 1
@@ -1264,11 +1496,21 @@ ladder_row(){
         row_skip "$id" "$tok" "SKIP:banked-pre-scan" "NOT TAKEN, here or in the pre-scan: the pre-scan (--no-scan) run stood this same row down with SKIP:cost-gated, so these layer digests have never been computed by any run. What the pre-scan DID bank is this ladder's IDENTITY ($iid=PASS against the published registry), which is the row below. Re-running the multi-day full-digest pass in the post-scan --atlas run remains declined on cost (PD-4); the cost gate is the real reason and is documented at the cost-gated branch below."
         row_skip "$iid" "$itok" "SKIP:banked-pre-scan" "ladder identity was pinned in the pre-scan run"
     elif [ "$N_PAIRS" -ge 31 ] && [ "$WITH_LADDERSHA" -eq 0 ]; then
-        row_skip "$id" "$tok" "SKIP:cost-gated" "--f1c5-layer-sha over this ladder at n=31 is a multi-hour single-threaded decompress-and-hash pass, not a point query (MEASURED 2026-09-14: f 38 h, g 94 h, t 40 h; the limit is a GLOBAL ceiling in solve's inflate->pipe->external-sha chain, so parallelism does not lift it). Identity is pinned by $iid against the published registry instead. Pass --with-laddersha to run the full pass."
+        row_skip "$id" "$tok" "SKIP:cost-gated" "--f1c5-layer-sha over this ladder at n=31 is a multi-hour single-threaded decompress-and-hash pass, not a point query (MEASURED 2026-09-14: f 38 h, g 94 h, t 40 h, run serially by this script; the limit is per PROCESS, not global -- 40 concurrent processes did all 96 layers in 7 h 11 m, MEASURED 2026-09-17). Identity is pinned by $iid against the published registry instead. Pass --with-laddersha to run the full pass."
         ladder_identity_row "$iid" "$itok" "$dir" "$pfx" "$stage"
     else
-        ladder_sha_row "$id" "$tok" "$dir"
-        row_skip "$iid" "$itok" "SKIP:full-pass-ran" "$id recomputed every layer digest from the bytes, which re-derives the sidecar values. CORRECTED 2026-09-22 (Q-683, Codex KCR1-1a): the old reason said this SUBSUMES the registry comparison. IT DOES NOT. The two rows bind different things -- ladder_sha_row binds BYTES to SIDECAR, ladder_identity_row binds SIDECAR to the PUBLISHED REGISTRY -- so skipping the identity row here leaves the registry comparison unmade, and a ladder could match its own sidecars while both disagree with what is published. Reachable only at n>=31 with --with-laddersha; production takes the cost-gated branch, where the identity row DOES run, which is why no shipped verdict is affected. THE STRONGER FIX IS TO RUN THE IDENTITY ROW HERE TOO rather than justify the skip; that is a behaviour change and is left to its own row"
+        ladder_sha_row "$id" "$tok" "$dir" "$pfx"
+        # 🔴 Q-683 STRONGER FIX, TAKEN 2026-09-25 (Q-782). At n>=31 under --with-laddersha the
+        # identity row used to be SKIPPED with a reason admitting the registry comparison went
+        # unmade. The two rows bind different things (bytes->sidecar, sidecar->PUBLISHED registry),
+        # and the identity row reads sidecars only (0.00 s), so it now RUNS here too. At n<31 there
+        # is no published registry for that n -- the one that ships is n=31's -- so it still stands
+        # down, and the committed n=9 goldens pin the digests instead.
+        if [ "$N_PAIRS" -ge 31 ]; then
+            ladder_identity_row "$iid" "$itok" "$dir" "$pfx" "$stage"
+        else
+            row_skip "$iid" "$itok" "SKIP:full-pass-ran" "$id recomputed every layer digest from the bytes and bound each to its sidecar, and to exactly the indices 00..n (Q-782). The registry comparison this row makes is against the PUBLISHED n=31 registry, which has no rows for n=$N_PAIRS; at this n the committed golden for $id pins the digests instead. At n>=31 this row RUNS beside the full pass (Q-683, 2026-09-25); the old SKIP there, and its CORRECTED 2026-09-22 reason (Codex KCR1-1a: the full pass does NOT subsume the registry comparison), are retired."
+        fi
     fi
 }
 ladder_row a1_fsha TR12_FSHA a1_fident TR12_FIDENT "$FDIR" f1c5_layer F
@@ -1295,7 +1537,7 @@ if [ "$N_PAIRS" -le 9 ] && command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROO
       # verify.py's alone -- so an --kc-enum-desc that emitted a PREFIX of the universe (or nothing
       # at all) would hand the oracle a short list, and the oracle, which only ever sees the list it
       # is given, would certify extremes over it and the row would pass. The universe size is known
-      # INDEPENDENTLY of this enumeration: N_TOTAL comes from `--kc-count` on the f ladder (:211),
+      # INDEPENDENTLY of this enumeration: N_TOTAL comes from `--kc-count` on the f ladder (:275-278),
       # which counts by DP and never walks. Compared as strings -- both are canonical decimals and
       # N is 192-bit at full-31, where shell arithmetic would silently wrap. Also: an enumeration
       # that repeats a walk has the right length and the wrong content, so distinctness is checked
@@ -1580,7 +1822,7 @@ row_begin a1_q2b
   # walk three times -- passed. The REL rank/unrank pair has an inverse that costs one extra ladder
   # descent per probe: `--kc-rank FDIR <walk>` must return the r that was unranked. That is the
   # same certificate `--kc-bracket` supplies for O3 in row a2_q2 (--kc-bracket is O3-ONLY,
-  # solve.c:33459, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
+  # solve.c:37906, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
   # not the `record` line: measured 2026-09-11 at n=9, r=0 -> the plain line ranks 0 and the
   # `record m=32` line ranks 21, because the record form is a different representative of the
   # orbit. The solver's output is captured and cat'd rather than written straight to the row
@@ -1687,7 +1929,7 @@ kc_first_last_witness() {
 #   * 36 random ranks below 10^18 gave ZERO with cd<=387 (per-bin minima 767 / 739 / 599).
 #     The first passing sample appears near rank 5.1e29 (cd=355).
 #   * At the measured emission rate, reaching rank 10^18 is ~2.5e5 years; 10^29 is ~1e17 years.
-#     No budget reaches it, and neither does more parallelism: kc_enum_rec (solve.c:21078) is a
+#     No budget reaches it, and neither does more parallelism: kc_enum_rec (solve.c:21113) is a
 #     plain recursive DFS with no OpenMP, so 64 idle cores buy exactly nothing.
 # ⚠ THIS IS A BOUND, NOT A PROOF OF NON-EXISTENCE, and the row must not be recorded as one.
 #   Walks with cd<=387 are COMMON: 30 uniform-random ranks gave 4 (13.3%, min cd 355), agreeing
@@ -1792,14 +2034,14 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # 🔴 CODEX R5 FINDING 5 (2026-09-11). This said "Pass --wave3 to run it anyway", which is an
     # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
     # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
-    # (solve.c:20657, reached via the kc_open wrapper at :20662), and kc_extremal_main refuses an out-of-core f ladder immediately
-    # (solve.c:35868) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
+    # (solve.c:20692, reached via the kc_open wrapper at :20697), and kc_extremal_main refuses an out-of-core f ladder immediately
+    # (solve.c:37077) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
     # witness and the certificate: "v1 is IN-MEMORY ONLY ... the streaming, eviction-resumable OOC
     # extremal builder is a SEPARATE, UNBUILT item ... it is the full-31 enabler". So --wave3 at
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
     # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
     # ships. Budget is an operator decision; an unbuilt builder is not.
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:35868) and an n=31 f ladder always opens out-of-core (:20657), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:37077) and an n=31 f ladder always opens out-of-core (:20692), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -1930,7 +2172,21 @@ fi
 # enumerated universe, and fails in BOTH directions — change the fixture triple and O3 fails;
 # change the relabeling and O3-KW9 stops being 0.
 # n>9 is refused rather than attempted: 26,112 walks at n=9, 2.06e12 at n=13.
-if [ "$N_PAIRS" -le 9 ] && command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/verify.py" ] && [ -n "$ANCHOR" ]; then
+# 🔴 Q-461 (2026-09-24): n<9 is refused too, BY NAME. This guard used to read `-le 9`, so a
+# `--n9 --pairs 7` run handed verify.py a universe its oracle has no fixture for. The oracle pins
+# the universe size (26,112) and the three pre-registered rank triples at n=9 ONLY, and refuses
+# anything else ("no pinned universe size for n=7"). That refusal surfaced here as
+# TR12_Q1_RELABEL=FAIL, and the pre-scan failure then stood the whole of Groups B and C down. The
+# row's reach is now exactly the oracle's: n=9 runs, and any other n is a named SKIP.
+if [ "$N_PAIRS" -ne 9 ]; then
+  if [ "$N_PAIRS" -gt 9 ]; then
+    row_skip a2_q1_relabel TR12_Q1_RELABEL "SKIP:universe-too-large" \
+      "the oracle ranks the anchor under three labelings over EVERY walk; that is 26,112 at n=9 and 2.06e12 at n=13 — refused, not attempted. The theorem is about the labels, so a miniature universe demonstrates it."
+  else
+    row_skip a2_q1_relabel TR12_Q1_RELABEL "SKIP:oracle-pinned-at-n9-only" \
+      "verify.py --q1-labeling-oracle pins its universe size (26,112 walks) and its three pre-registered rank triples at n=9 only, and refuses n=$N_PAIRS. There is nothing to diff at this n, so the row is not attempted. The labeling theorem is demonstrated at n=9 (run --n9 without --pairs)."
+  fi
+elif command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/verify.py" ] && [ -n "$ANCHOR" ]; then
   row_begin a2_q1_relabel
   (
     "$SOLVE" --kc-enum-desc "$FDIR" 2>/dev/null \
@@ -1939,8 +2195,10 @@ if [ "$N_PAIRS" -le 9 ] && command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROO
   ) >>"$RAW" 2>&1; rc=$?
   row_end TR12_Q1_RELABEL $rc
 else
-  row_skip a2_q1_relabel TR12_Q1_RELABEL "SKIP:universe-too-large" \
-    "the oracle ranks the anchor under three labelings over EVERY walk; that is 26,112 at n=9 and 2.06e12 at n=13 — refused, not attempted. The theorem is about the labels, so a miniature universe demonstrates it."
+  # n=9, but python3, verify.py or the anchor is missing. Until 2026-09-24 this case printed the
+  # universe-too-large reason, which is false at n=9.
+  row_skip a2_q1_relabel TR12_Q1_RELABEL "SKIP:oracle-unavailable" \
+    "the n=9 labeling oracle needs python3, verify.py and the anchor walk; at least one is absent here"
 fi
 
 # ---- A2.3  Q3 the 31-step rarity profile via the O3 descent trace + neighbour bracket ---------
@@ -2218,7 +2476,7 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
       #  (1) the emitted table must carry one data row per source data row, and n of them, in
       #      step order 1..n -- that is what kills the header-only table;
       #  (2) THE TIE TO a2_q3_reader: that row asserts g == p_num and g_parent == p_den on the
-      #      source columns (:1587) after proving them canonical decimals and telescoping. This
+      #      source columns (:2270) after proving them canonical decimals and telescoping. This
       #      row therefore checks its OWN published cells against those same source columns, so a
       #      projection that read the wrong column cannot publish a plausible table. String
       #      comparison of canonical decimals is exact integer equality, which is why both sides
@@ -2323,8 +2581,12 @@ if [ "$N_PAIRS" -ge 31 ]; then
     row_begin a2_q7_ranks
     (
       erc=0
-      echo "# inputs: every q7_*.json written by the Q7 legs above. D5-04: until TR12_Q7_WITNESSES lands, the"
-      echo "# only IN input is KW (the historical arrangements are OUT), and rank_O3(KW) = 0 is a labeling theorem."
+      echo "# inputs: every q7_*.json written by the Q7 legs above: KW (IN; rank_O3(KW) = 0 is a labeling theorem),"
+      echo "# the three historical arrangements (OUT; no rank), and -- since CX-93, 2026-09-25 -- the two PINNED"
+      echo "# SAT witnesses q7_moore-strict.json / q7_grand-strict.json (IN; each gets its rank_O3, the witness"
+      echo "# serial number TR-12 section Q7 promised). A witness rank is a serial number in the KW-derived O3"
+      echo "# coordinate (D5-14), not a rarity statement; it is required to be present and NON-zero, because"
+      echo "# rank 0 is the anchor walk itself and a0_q7_witnesses has already established the witness != KW."
       for j in "$ARTDIR"/q7_*.json; do
           [ -f "$j" ] || continue
           v=$(sed -n 's/.*"verdict_super": "\([^"]*\)".*/\1/p' "$j" | head -1)
@@ -2367,8 +2629,15 @@ if [ "$N_PAIRS" -ge 31 ]; then
               r3=$(awk -F'\t' '$1=="rank3"{print $2; exit}' "$WORK/q7rank.out")
               if [ -z "$r3" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): no rank3 field was printed -- an unmeasured rank is not a rank"; erc=1
-              elif [ "$r3" != "0" ]; then
+              elif [ "$lab" = "KW" ] && [ "$r3" != "0" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): rank3=$r3, but rank_O3 of an anchor-derived labeling is FORCED to 0"; erc=1
+              elif [ "$lab" != "KW" ] && [ "$r3" = "0" ]; then
+                  # CX-93 (2026-09-25): a non-KW IN input (a pinned SAT witness) ranks 0 only if its
+                  # walk IS the anchor walk, which contradicts the KW-distinctness a0_q7_witnesses
+                  # established -- so a 0 here means the wrong walk was ranked, not a witness.
+                  echo "Q7RANKS_FAIL	$(basename "$j"): rank3=0 for a non-KW input -- the walk ranked is the anchor walk, so this is not a witness"; erc=1
+              elif [ "$lab" != "KW" ]; then
+                  echo "witness_serial	$(basename "$j" .json)	rank3=$r3	(rank_O3 in the KW-derived coordinate; D5-14)"
               fi
               if [ "$lab" = "KW" ] && [ "$w" != "$ANCHOR" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): the walk ranked here is not \$ANCHOR -- two derivations of King Wen's walk disagree"; erc=1
@@ -2583,7 +2852,7 @@ else
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk0.json" --kc-tdir "$TDIR" --kc-raw --kc-layers 0 "$half" || exit 1
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk1.json" --kc-tdir "$TDIR" --kc-raw --kc-layers "$half" "$N_PAIRS" || exit 1
       # 🔴 CODEX KCP1 FINDING 6 (2026-09-11). Both --kc-scan calls above carry --kc-raw; this
-      # merge did not. solve.c:28527 auto-enables want_raw ONLY when n <= 13, and :28621 then
+      # merge did not. solve.c:30975 auto-enables want_raw ONLY when n <= 13, and :31088 then
       # REQUIRES the merge's want_raw to agree with each chunk's. So at n=31 the chunks are raw=1
       # and the merge is raw=0, the identity check fails, and the battery REJECTS CORRECT CHUNKS
       # after paying for a second full scan. Invisible at n<=13, where the auto-enable makes them
@@ -2698,7 +2967,10 @@ else
     #      As first written this row printed layer_flow/24 for every layer as an "orbit census" -- but
     #      the atlas gate per_layer_flow_eq_N forces flow == N, so the "census" was N/24 printed n times
     #      (n=9: 1088 x 9) -- and the promised "KW's orbit's rank" had no commanded source (the o3-cert's
-    #      own line: class-rank NOT computed) and is 0 under KW-derived labels anyway. Now:
+    #      own line: class-rank NOT computed) and, AT n=31 ONLY, is 0 under KW-derived labels. (Q-478,
+    #      2026-09-24: this said "is 0 under KW-derived labels anyway" with no scope. It is FALSE at n=9,
+    #      where the labels are not anchor-derived: row c_q10a_kwrank measures rank3=13056 there and
+    #      emits TR12_Q10A_KWRANK=NONVACUOUS -- see scripts/tr12_expected/n9/c_q10a_kwrank.txt.) Now:
     #        (i)   N/24 stated ONCE, as the identity it is (the free order-24 action on solutions);
     #        (ii)  the mod-24 gate on every layer flow (kept; kernel-backed);
     #        (iii) the census CONTENT: the per-layer STATE census by G-orbit-size class and the branching
@@ -2708,7 +2980,9 @@ else
     #              this is a transcription of Stage F's own sidecars (D5-15). A missing or unparseable
     #              sidecar FAILS the row, and the last layer's mass_total must equal N (the f-ladder's own
     #              count agreeing with --kc-count), so a transcription cannot silently skip a layer;
-    #        (iv)  the KW-orbit-rank leg is DROPPED: uncommanded, and vacuous under KW-derived labels.
+    #        (iv)  the KW-orbit-rank leg is NOT dropped any more: row c_q10a_kwrank below MEASURES it
+    #              (N3, 2026-09-10). It is uncommanded everywhere, but vacuous only where the labels are
+    #              anchor-derived (n=31); at n=9 it is measured NON-vacuous (Q-478 scope fix, 2026-09-24).
     #      Pinned by scripts/d5_08_q6_q10a_shell_gate.sh.
     row_begin c_q10a
     (
@@ -2769,8 +3043,11 @@ else
 
     # ---- C.5b Q10(a) KW-ORBIT-RANK — the dropped leg, given a token and a producer (N3, 2026-09-10).
     #      Line (iv) of the row above used to be the whole treatment: a comment reading "KW-orbit-rank:
-    #      DROPPED (no commanded source; 0 under KW-derived labels)". Both halves of that were true and
-    #      neither was checked, and prose in a golden is not a verdict a reader can grep -- so from
+    #      DROPPED (no commanded source; 0 under KW-derived labels)". Neither half was checked, and the
+    #      second was only HALF true: it holds at n=31, where the labels are anchor-derived, and is
+    #      measured FALSE at n=9 (rank3=13056, TR12_Q10A_KWRANK=NONVACUOUS in the n=9 golden). This
+    #      comment said "Both halves of that were true" until 2026-09-24 (Q-478). Prose in a golden is
+    #      not a verdict a reader can grep -- so from
     #      outside, "dropped" was indistinguishable from "forgotten". It now has its own whole-line
     #      token, and the token is EMPTY only when both halves are MEASURED to hold:
     #        (1) the o3-cert supplies no class/orbit rank (checked by field name, so a future producer
@@ -2896,7 +3173,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:2260) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3147) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.
@@ -3044,7 +3321,7 @@ fi
 # this row, because it is a real n-INDEPENDENT gate on the EMITTERS: it would have caught
 # `v2-class-swap` at n=31 without waiting for the RCQ04 F1 lift.
 # ⚠ THIS SENTENCE ALSO CLAIMED `ratio-zero`, AND THAT WAS WRONG. Measured (KCP2 §5): `ratio-zero`
-# blanks only `_atlas_f` output (`solve.py:11889`), i.e. the DERIVED ratio columns; this row
+# blanks only `_atlas_f` output (`solve.py:12428`), i.e. the DERIVED ratio columns; this row
 # compares per-class MASS as integers and never reads a ratio, so `--atlas-fault ratio-zero`
 # against the committed n=9 atlas gives `c_xcheck` rc 0. `ratio-zero` is caught by
 # `TR12_Q6_EXTREMES`, not here. An overclaim about what a gate covers is the same defect class as

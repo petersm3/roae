@@ -94,6 +94,17 @@ is_resource_status() {
 LAST_RC=-1                     # status of the most recent check(); -1 = none ran (read by section 3)
 check() {
   local rc before
+  # ARGUMENT-COUNT GUARD (2026-09-24, Q-742). check takes exactly two words: a label and a command
+  # string that is eval'd. A stray double quote inside a multi-line command string ends the word
+  # early, the remainder becomes a third argument, and check used to ignore it silently. That is
+  # what happened to §3b from a15c6ddc (2026-08-01) until today: the comment `labelled it "C1, C4"`
+  # inside the heredoc split the command, so the eval'd heredoc stopped at that comment, Python ran
+  # only the permutation test, and the C1/C2/C3/G/C4/C5 checks and the n == 42 count never executed
+  # while the section printed PASS. Any other argument count is now a FAIL, not a silent truncation.
+  if [ "$#" -ne 2 ]; then
+    echo "FAIL  ${1:-<no label>}   (check() called with $# arguments, expected 2 — a stray double quote in the command string?)"
+    FAIL=$((FAIL+1)); LAST_RC=2; return 0
+  fi
   before=$(wc -c < "$LOG")
   { echo "### $1"; eval "$2"; } >>"$LOG" 2>&1
   rc=$?
@@ -520,7 +531,7 @@ check "c3_positional_witnesses.txt (42 witnesses)" "python3 - <<'PYEOF'
 import sys
 sys.argv = ['verify.py']
 import verify
-g = c3 = None; n = 0
+g = c3 = None; n = 0; seen_g = []
 for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     if ln.startswith('G='):
         head = ln.split('#')[0].split()
@@ -532,7 +543,7 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
         raise SystemExit(f'FAIL witness {n}: not a permutation of H')
     # C1 is the PAIRING predicate (SPECIFICATION.md: s_{i+1} = partner(s_i) for even i),
     # not permutation-ness. Until 2026-08-01 this line asserted only the permutation and
-    # labelled it "C1, C4" — so a witness with broken pair structure would have passed the
+    # labelled it 'C1, C4' — so a witness with broken pair structure would have passed the
     # 'independent recheck' these artifacts are advertised under. verify.PAIRS was already
     # imported for exactly this. (All 42 archived witnesses re-verified WITH pairing when the
     # gap was found: all pass. The data was sound; the checker was not.)
@@ -550,12 +561,26 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     if not (verify.compute_comp_dist(seq) == c3 == 16 + 8*g):             # C3/G
         raise SystemExit(f'FAIL witness {n}: C3/G mismatch '
                          f'({verify.compute_comp_dist(seq)} vs c3={c3} vs {16 + 8*g})')
+    seen_g.append(g)
     n += 1
 if n != 42:
     raise SystemExit(f'FAIL: checked {n} witnesses, expected 42 — '
                      f'a short count means the input was truncated or empty, '
                      f'not that the witnesses passed')
-print(f'  [ok] {n} witnesses re-checked independently (permutation, C1, C2, C3/G, C4, C5)')
+# COVERAGE, NOT JUST COUNT (2026-09-24, Q-742 / Codex V3A-097#1). Until today the gate asserted
+# n == 42 and nothing else, so a file whose G=12 witness had been replaced by a second G=13
+# witness still counted 42 and printed [ok] while the floor witness the README promises was gone
+# (executed: CODEX_V3_E3_BATCH2 F6). The README promises one witness at EVERY rung G = 12..51
+# plus the tie (G = 95) and the above-ceiling row (G = 97); assert exactly that multiset.
+_want_g = list(range(12, 52)) + [95, 97]
+if sorted(seen_g) != _want_g:
+    _dup = sorted({x for x in seen_g if seen_g.count(x) > 1})
+    _miss = sorted(set(_want_g) - set(seen_g))
+    _extra = sorted(set(seen_g) - set(_want_g))
+    raise SystemExit(f'FAIL: witness G-set is not {{12..51, 95, 97}} — '
+                     f'missing {_miss}, duplicated {_dup}, unexpected {_extra}')
+print(f'  [ok] {n} witnesses re-checked independently (permutation, C1, C2, C3/G, C4, C5); '
+      f'G-set = {{12..51, 95, 97}}')
 PYEOF"
 fi
 

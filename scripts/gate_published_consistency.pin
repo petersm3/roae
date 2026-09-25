@@ -11,15 +11,17 @@
 #      5: [REPRO-TAG] x2 (a git tag minted at TR-12 publication; it cannot be filled before the
 #      freeze) and [EXPECTED-Q1|Q9|XA] x3 (filled by the n=31 battery's expected-output blocks,
 #      which do not exist until that run happens).
-G1=5
+#      2026-09-24: measured 4 on the combined queue-run tree (was 5); re-pinned in the same commit.
+G1=4
 # G2 — published --estimate-knuth commands with no thread pin.
 #      10: NOT fixable by adding a number. Measured 2026-09-06: 45 files under reports/evidence/
 #      carry a threads= header, so the counts exist, but the mapping from a PUBLISHED FIGURE to the
-#      RUN that produced it is not recorded. TR7_CIRCULAR_READING.md:158 has six candidate evidence
+#      RUN that produced it is not recorded. TR7_CIRCULAR_READING.md:170 has six candidate evidence
 #      files matching its probe count and nothing says which one produced the published figures.
 #      Adding a pin would FABRICATE provenance, which is worse than the gap. The real defect is one
 #      level up: a published command does not name the artifact it reproduces.
-G2=10
+#      2026-09-24: measured 9 on the combined batch-6 tree (was 10); re-pinned in the same commit.
+G2=9
 # G3 — published disclosures that have gone stale. Shaped to fire when the artifact EXISTS.
 G3=0
 # G4 — corrections that name a propagation target which does not carry the correction id.

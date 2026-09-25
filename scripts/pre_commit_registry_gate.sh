@@ -167,11 +167,21 @@ WATCHED="documentation/RETRACTED_PHRASES.tsv
 documentation/RETRACTED_FIGURES.tsv
 documentation/CORRECTIONS.md"
 
-# DELETIONS ARE INCLUDED (D), unlike #85's hook, which uses ACM. Deleting the
+# DELETIONS ARE INCLUDED (D), and since Q-750 so is #85's hook. Deleting the
 # ledger or a registry is the maximal form of the defect this gate exists for, not
-# an exemption from it; require_tracked inside GATE 11 is what catches it. R covers
-# a rename, which reports the new path.
-STAGED=$(git diff --cached --name-only --diff-filter=ACMRD)
+# an exemption from it; require_tracked inside GATE 11 is what catches it.
+# 🔴 Q-750 / V3A-121#2-#3 (Codex v3 E3 batch 3, Fable R, 2026-09-24), both EXECUTED at 5c296837:
+#   #2 this comment used to say "R covers a rename, which reports the new path" -- and reporting
+#      only the new path IS the hole. `git mv documentation/RETRACTED_PHRASES.tsv x.tsv` staged an
+#      R100 whose only name was x.tsv, nothing matched, and the gate said NOT-APPLICABLE, rc 0.
+#      `--no-renames` splits a move into its D and A halves, so the watched source path is seen.
+#   #3 the command's status was never read: an invalid index (git rc 128) gave an empty list and
+#      the same NOT-APPLICABLE, rc 0. "Could not list" is COULD-NOT-RUN, not "nothing staged".
+STAGED=$(git diff --cached --name-only --no-renames --diff-filter=ACMRDT 2>/dev/null); _src=$?
+if [ "$_src" -ne 0 ]; then
+  cantrun "git diff --cached exited $_src, so the staged list could not be read" \
+    "Nothing about this commit's registry, ledger or doc corpus was checked."
+fi
 [ -n "$STAGED" ] || { echo "PRECOMMIT_REGISTRY=NOT-APPLICABLE"; exit 0; }
 
 HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null || true)
@@ -244,9 +254,19 @@ printf '  %s\n' $HITS
 # The gates read the WORKING TREE; the commit records the INDEX. If those disagree
 # for a watched path the gate would validate bytes this commit does not contain and
 # report a pass for them. Same reasoning as #85's hook, same refusal.
+#
+# Q-750 / V3A-121#1: this loop ran over $HITS (the STAGED watched files) only, but GATE 11 relates
+# all three: stage a registry row, leave its CORRECTIONS.md entry unstaged, and the gate read the
+# entry off disk and said CLEAN for a commit that ships the row without it. All of $WATCHED is
+# checked now, presence first (a `git rm --cached` leaves the file on disk, where `git diff` is
+# silent about it), then bytes.
 DIRTY=""
-for f in $HITS; do
-  if ! git diff --quiet -- "$f" 2>/dev/null; then DIRTY="$DIRTY $f"; fi
+for f in $WATCHED; do
+  if git ls-files --error-unmatch -- ":(literal)$f" >/dev/null 2>&1; then _ix=1; else _ix=0; fi
+  if [ -e "$f" ] || [ -L "$f" ]; then _wt=1; else _wt=0; fi
+  if [ "$_ix" != "$_wt" ]; then DIRTY="$DIRTY $f"; continue; fi
+  [ "$_ix" = 1 ] || continue
+  if ! git diff --quiet -- ":(literal)$f" 2>/dev/null; then DIRTY="$DIRTY $f"; fi
 done
 if [ -n "$DIRTY" ]; then
   echo "pre-commit: REFUSING — these paths differ between the index and the working tree:"

@@ -326,6 +326,21 @@ require_tracked() {
 # A registry is never legitimately empty here (23 / 11 / 61 rows today), so zero rows is a defect.
 require_rows() { # $1=registry  $2=why it matters
   local f="$1" n
+  # 🔴 Q-702 (2026-09-24, Fable K). Every call site of this guard runs it BEFORE `require_tracked`,
+  # and on a MISSING file `grep -c` reports 0 — so a tracked registry deleted from the worktree
+  # was reported as "has ZERO rows", and the A1 arm ("is tracked in git but missing") that
+  # GATE 3's and 3b's (A1) fire-proofs assert on was unreachable at every site (GATES 3, 3b, 27,
+  # 47 and alias-reach; GATE 27 has no require_tracked call at all). Measured on 5c296837: both
+  # (A1) legs RED with `never names "... is tracked in git but missing"`. The fix is here rather
+  # than a re-ordering at five sites, so the next site cannot get the order wrong: an ABSENT
+  # file is require_tracked's question, not a row count. Only a tracked-or-historical absence is
+  # delegated (rc 2 there); a file that never existed still reads as ZERO rows, exactly as before.
+  if [ ! -f "$f" ]; then
+    local _rt
+    require_tracked "$f" "$2"; _rt=$?
+    [ "$_rt" -eq 2 ] && return 1
+    # _rt = 1: never tracked, [skip] already printed — fall through to the ZERO-rows verdict.
+  fi
   # NOTE: `grep -c` PRINTS 0 and EXITS 1 when nothing matches, so an appended `|| echo 0` would
   # emit a SECOND zero and make the test an integer-expression error rather than a verdict.
   n=$(grep -cvE '^[[:space:]]*(#|$)' "$f" 2>/dev/null); n=${n:-0}
@@ -335,6 +350,47 @@ require_rows() { # $1=registry  $2=why it matters
     return 1
   fi
   return 0
+}
+
+# reg_row_kind <loud|quiet> <col1> [col2 ...]
+#   Q-761 (2026-09-24, Opus FF). What is a COMMENT in the two retracted-string registries
+#   (RETRACTED_PHRASES.tsv, RETRACTED_FIGURES.tsv, and the figure open-list keyed on them)?
+#   Every consumer here asked `case "$phrase" in '#'*) continue`, i.e. "does the NEEDLE start
+#   with #". So a registered retraction whose needle begins with a hexagram number ('#7/#8, ...')
+#   was skipped as a comment: GATE 3 printed no `[ok] retracted` line for it, GATE 11 printed no
+#   `RP-... recorded` line, and the run was RC 0. Opus DD's first needle was ignored exactly so.
+#
+#   "A comment is a line whose WHOLE LINE starts with #" cannot separate the two, because the
+#   needle IS the start of the line. The files' own header convention does: all 101 comment
+#   lines in RETRACTED_PHRASES.tsv and all of RETRACTED_FIGURES.tsv's are `#` alone or `# `
+#   (hash, SPACE) — measured 2026-09-24, zero exceptions. So:
+#     comment  = column 1 is exactly `#`, or starts with `# `
+#     data row = anything else, INCLUDING a needle starting `#7`, `#12`, `#` + non-space
+#   The one form still indistinguishable is a needle that itself starts `# ` (a markdown heading
+#   marker). That cannot be matched, so it is made LOUD instead: a `# `-shaped line carrying a
+#   later tab-separated column that is not a `<placeholder>` (the header's own FORMAT template,
+#   `#   <retracted fixed string>\t<file ...>\t<note>`, is all placeholders) is a data row written
+#   in comment shape, and in `loud` mode it is a [FAIL]. Register such a needle without the `# `.
+#   Returns 0 = skip (blank or comment), 1 = data row, 2 = ambiguous (skip; FAIL printed if loud).
+reg_row_kind() {
+  local mode="$1" c1="$2" c; shift 2
+  [ -z "$c1" ] && return 0
+  case "$c1" in
+    '#'|'# '*)
+      for c in "$@"; do
+        case "$c" in ''|'<'*'>') ;;
+          *) if [ "$mode" = loud ]; then
+               echo "  [FAIL] Q-761: a registry line is comment-shaped (\"# ...\") but carries data column(s):"
+               echo "         \"$c1\"  ->  \"$c\""
+               echo "         A needle starting with \"# \" cannot be told from a comment, so it is not checked."
+               echo "         Register it without the leading \"# \", or drop the tab-separated columns."
+             fi
+             return 2 ;;
+        esac
+      done
+      return 0 ;;
+  esac
+  return 1
 }
 
 # require_final_newline <path>
@@ -603,7 +659,7 @@ require_final_newline() {
 # and it returns SIX lines, not five. The five above are the present-tense pointers. The
 # sixth is the `all_top` stack-sizing comment in the full-enum merge of main(), which reads
 # "Earlier 64*TOP_N produced a stack-buffer-overflow at line 12058": past tense, so the
-# census dropped it as NARRATIVE, the same class as this file's own `:119`/`:5563` drift
+# census dropped it as NARRATIVE, the same class as this file's own past-tense drift
 # notes. That call is defensible and this re-census does NOT overturn it — but the narrative
 # cases elsewhere say IN THE SENTENCE that the number is historical, and this one does not,
 # while the line it cites has drifted clean out of every function: today that line is the
@@ -771,8 +827,13 @@ gate_cli() {
     # with the counts BLANK, because it compared zero flags against zero documentation. The
     # gate's own message carried the proof it had examined nothing, and nothing read it.
     # Do not leak cf if df is the one that fails.
-    cf=$(mktemp) || { echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; return 1; }
-    df=$(mktemp) || { rm -f "$cf"; echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; return 1; }
+    # Q-748 (a) (V3A-111#2, Fable R code-read; demonstrated 2026-09-24 by Opus FF): these two
+    # branches did `return 1` WITHOUT bad=1, and every check_pair caller below ignores its
+    # status, so under TMPDIR=/dev/null all five pairs printed [FAIL] ... NOTHING was checked
+    # while the gate returned 0 and the run printed `DOC GATES: PASS  (cli)`. The printed FAIL
+    # was decoration. bad=1 is what the gate's verdict reads, so it is set here, in BOTH branches.
+    cf=$(mktemp) || { echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; bad=1; return 1; }
+    df=$(mktemp) || { rm -f "$cf"; echo "  [FAIL] GATE 2: mktemp failed, so NOTHING was checked."; bad=1; return 1; }
     # ITEM A4 (2026-08-02) — DECIDED: NARROW, and here is the decision rather than a
     # rediscovery of the question. The extractor is a line-based grep, so a COMMENTED-OUT
     # declaration was emitted as an undocumented flag. MEASURED while writing item A3's
@@ -1056,21 +1117,29 @@ gate_citation_lines() {
   # SIGPIPE, and under `set -o pipefail` the pipeline status is 141, so a MATCH reads as NO
   # MATCH. That is the same fail-open shape as the truncating regex this gate family just
   # removed, and a `printf` builtin only escapes it by accident of pipe-buffer size.
-  local _out _rc
-  _out=$(bash scripts/citation_line_gate.sh 2>&1); _rc=$?
-  sed -n '/^  \[/p' <<<"$_out"
-  if grep -qx 'CITATION_LINE_GATE=PASS' <<<"$_out"; then
-    return 0
-  fi
-  if grep -qx 'CITATION_LINE_GATE=ERROR' <<<"$_out"; then
-    echo "  [FAIL] GATE 2c measured NOTHING (ERROR verdict) — this is not agreement"
-    return 1
-  fi
-  if grep -qx 'CITATION_LINE_GATE=FAIL' <<<"$_out"; then
-    return 1
-  fi
-  echo "  [FAIL] GATE 2c produced no verdict token at all (rc=$_rc) — treated as FAIL"
-  return 1
+  # THREE runs, each judged on its own token (Q-786, 2026-09-25): the SOLVE_C_CLI.md mode (the
+  # original gate, unchanged); `--all-files`, every tracked text file's `solve.c:N` citations
+  # (LEG A shift map against $CITGATE_BASE, default HEAD; LEG B anchor ratchet); and the gate's
+  # own `--selftest`, so a mutant of the gate (a disabled comparison) turns THIS gate red rather
+  # than silently passing everything. A FOURTH run (Q-791, 2026-09-25): `--all-files --all-targets`,
+  # the same two legs over `<file>:N` citations into EVERY tracked file, not only solve.c -- one
+  # batch had left 88 of them behind, none of which the solve.c-only run could see.
+  local _out _rc _mode _bad=0
+  for _mode in "" --all-files "--all-files --all-targets" --selftest; do
+    _out=$(bash scripts/citation_line_gate.sh $_mode 2>&1); _rc=$?
+    [ -n "$_mode" ] && echo "  -- citation_line_gate.sh $_mode"
+    sed -n '/^  \[/p' <<<"$_out"
+    if grep -qx 'CITATION_LINE_GATE=PASS' <<<"$_out"; then
+      continue
+    fi
+    _bad=1
+    if grep -qx 'CITATION_LINE_GATE=ERROR' <<<"$_out"; then
+      echo "  [FAIL] GATE 2c ${_mode:-(SOLVE_C_CLI.md)} measured NOTHING (ERROR verdict) — this is not agreement"
+    elif ! grep -qx 'CITATION_LINE_GATE=FAIL' <<<"$_out"; then
+      echo "  [FAIL] GATE 2c ${_mode:-(SOLVE_C_CLI.md)} produced no verdict token at all (rc=$_rc) — treated as FAIL"
+    fi
+  done
+  return $_bad
 }
 
 # ----------------------------------------------------------------------------------
@@ -1211,7 +1280,8 @@ gate_retract() {
     tr '\n' ' ' < "$folddir/$f" | tr -s ' ' > "$flatevdir/$f"
   done
   while IFS=$'\t' read -r phrase allow note; do
-    case "$phrase" in ''|'#'*) continue;; esac
+    # Q-761: was `case "$phrase" in ''|'#'*) continue`, which skipped a needle starting with #.
+    reg_row_kind loud "$phrase" "$allow" "$note"; case $? in 0) continue;; 2) bad=1; continue;; esac
     local np hits=""
     np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
     for f in $DOCS; do
@@ -1345,7 +1415,9 @@ if not os.path.exists(REG):
 
 figs = []
 for ln in open(REG, encoding='utf-8'):
-    if not ln.strip() or ln.startswith('#'):
+    # Q-761: comment = column 1 exactly '#' or starting '# ' (reg_row_kind's rule); a figure
+    # starting '#7' is DATA. ln.startswith('#') skipped it.
+    if not ln.strip() or ln.split('\t')[0].rstrip('\n') == '#' or ln.startswith('# '):
         continue
     f = ln.rstrip('\n').split('\t')
     if len(f) >= 2 and f[0].strip():
@@ -1686,7 +1758,7 @@ gate_secrefs() {
   #     MEASURED, because a claim about how weak a rule is should not be a guess. Across the
   #     corpus there are 55 resolving delimited references, 2 of them using the `…` gap form.
   #     Ranked by (reference length / matched heading length) the weakest is 0.10 —
-  #     `HISTORY.md:4987 -> MCKENNA.md §"Rule 2"` against the heading "mckenna's rule 2 —
+  #     `HISTORY.md:5052 -> MCKENNA.md §"Rule 2"` against the heading "mckenna's rule 2 —
   #     declined for promotion to formal c-rule". Every one of the 15 weakest was read: all
   #     are a short PREFIX of a long heading, which is how this repo cites, and NONE resolves
   #     against an unrelated heading. So the rule is loose but is not currently producing a
@@ -1698,9 +1770,9 @@ MDLINK = re.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
 HEAD   = re.compile(r'^#+\s+(.*?)\s*$', re.M)
 # ITEM B1 (2026-08-02, drain-2) — THE SECOND ANCHOR FORM. This repo names a block in two
 # ways, and until now the gate modelled only one. `**Global observable ledger (enterprise-wide
-# multiple comparisons).**` at reports/METHODS.md:165 is cited as METHODS.md §"Global observable
+# multiple comparisons).**` at reports/METHODS.md:318 is cited as METHODS.md §"Global observable
 # ledger" from five files; `**Stop-flag resolution (v1.12, 2026-07-13): …**` at
-# TR2_THE_RULES_CONFLICT.md:412 is cited from three. MEASURED, not assumed: of the 19 non-meta
+# TR2_THE_RULES_CONFLICT.md:587 is cited from three. MEASURED, not assumed: of the 19 non-meta
 # rows on the allowlist, 10 resolve against a line-leading bold label and 2 more resolve after a
 # stale word is fixed in the citation — a majority. Rewriting twelve citations to name the
 # enclosing `##` heading instead would have made each of them point at a whole section rather
@@ -1931,7 +2003,7 @@ for src, tgt, want in stale:
 # WHAT SHIPPED INSTEAD: `_match(..., anchored=True)` on the bold leg only. A reference must match
 # at the LABEL'S START. Population at ship time: 0 of 18 — the rule is green with NO allowlist,
 # because the one reference that violated it was fixed at f3179f8
-# (documentation/CITATIONS.md:1055 -> SPECIFICATION.md §"wrap-around parity", which resolved at
+# (documentation/CITATIONS.md:1055@d8b94054 -> SPECIFICATION.md §"wrap-around parity", which resolved at
 # offset 9 inside "theorem (wrap-around parity is odd)" and was widened to the label's own
 # opening form). That fix is what the LEG 7 fire-proof re-injects, so this rule is proven against
 # its real motivating example rather than a synthesised one.
@@ -1999,10 +2071,10 @@ for line in open(reg, encoding='utf-8'):
 #
 # WHY the anchor is now the PRIMARY key (2026-08-01, second revision). The file:line form drifts,
 # and drifts constantly: both entries in the allowlist drifted within a single day. The TR-4
-# calibration row was written at :119, two lines were inserted above it, and the entry then
-# (a) failed to suppress the real row at :121 and (b) silently covered whatever had moved into
+# calibration row was written at line 119, two lines were inserted above it, and the entry then
+# (a) failed to suppress the real row at line 121 and (b) silently covered whatever had moved into
 # :119. Direction (b) is the dangerous one — an unreviewed line inheriting somebody else's
-# suppression. The HISTORY.md entry then repeated the pattern: correct at :5563 when written,
+# suppression. The HISTORY.md entry then repeated the pattern: correct at line 5563 when written,
 # pushed to :5566 hours later by an unrelated insertion three lines above it.
 #
 # Matching an anchored entry by (file, anchor) instead of (file, line) fixes both directions at
@@ -2071,7 +2143,7 @@ for f in files:
                 # none of them examined.
                 # 🔴 THE FIRST CUT OF THIS FIX WAS WRONG AND THE MEASUREMENT CAUGHT IT. Without
                 # the code-span condition below it added ONE [WARN], and that [WARN] was false:
-                # CORRECTIONS.md:2025 quotes solver output, and the only 'exact' token on the
+                # CORRECTIONS.md:2050 quotes solver output, and the only 'exact' token on the
                 # line is the FLAG NAME `--f1-exact-c1c2c4c5` inside a code span. A quoted
                 # transcript is evidence, not a status claim about the figure -- the same
                 # reasoning, on the same notation, that GATE 26 LEG 2 records at length. With
@@ -2385,7 +2457,7 @@ gate_figures() {
   # gates closed the same day. Inline per (row, generator): the generator set is ~3
   # files, so the extra sed processes are ~2 per row, noise.
   while IFS=$'\t' read -r phrase allow note; do
-    case "$phrase" in ''|'#'*) continue;; esac
+    reg_row_kind quiet "$phrase" "$allow" "$note"; [ $? -eq 1 ] || continue   # Q-761 (GATE 3/11 are the loud sites)
     local np hits=""
     np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
     for f in $gens; do
@@ -2422,7 +2494,7 @@ gate_figures() {
     1) echo "  [note] no figure registry, so retracted STATISTICS in generators are unchecked" ;;
     0)
       while IFS=$'\t' read -r figure fignote; do
-        case "$figure" in ''|'#'*) continue;; esac
+        reg_row_kind quiet "$figure" "$fignote"; [ $? -eq 1 ] || continue   # Q-761
         nfig=$((nfig+1))
         local nf fighits=""
         nf=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
@@ -2515,7 +2587,7 @@ gate_figures() {
     # The allow column is ignored here for the same reason the generator leg ignores it: a
     # rendered figure carries no changelog row and no retraction narration to quote.
     while IFS=$'\t' read -r phrase allow note; do
-      case "$phrase" in ''|'#'*) continue;; esac
+      reg_row_kind quiet "$phrase" "$allow" "$note"; [ $? -eq 1 ] || continue   # Q-761
       local np3
       np3=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
       if printf '%s' "$nx" | grep -qF -- "$np3"; then
@@ -2529,7 +2601,7 @@ gate_figures() {
     done < "$reg"
     if [ -f "$figreg" ]; then
       while IFS=$'\t' read -r figure fignote; do
-        case "$figure" in ''|'#'*) continue;; esac
+        reg_row_kind quiet "$figure" "$fignote"; [ $? -eq 1 ] || continue   # Q-761
         local nf3
         nf3=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
         if printf '%s' "$nx" | grep -qF -- "$nf3"; then
@@ -2611,7 +2683,7 @@ DISPO = ['stopped at', 'was stopped', 'completed', 'requested', 'never reached',
          'hypothetical', 'as of this', 'at the time']
 # NARRATION MARKERS — deliberately SAME-LINE scope, not the ±4/+3 window DISPO uses.
 #
-# Added 2026-09-02. GATE 7 fired on documentation/CORRECTIONS.md:5662, a correction entry
+# Added 2026-09-02. GATE 7 fired on documentation/CORRECTIONS.md:5687, a correction entry
 # NARRATING a frozen status it had just withdrawn: "the sentence was written 2026-06-13 with
 # the re-derive described as *in flight*". A report ABOUT a defect is not an instance of it,
 # and because `all` is the blocking pre-push leg this false positive blocked EVERY PUSH. It
@@ -3817,6 +3889,25 @@ assert s.count(a)==1, 'anchor moved: %d occurrences' % s.count(a)
 n='    # parser.add_argument(\"--doc-gates-fireproof-cmt\", action=\"store_true\", help=\"doc_gates --selftest injection; reverted by the harness\")\n'
 open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
 
+  # Q-748 (a) — GATE 2 (BLOCKING) MUST FAIL WHEN IT CANNOT MAKE ITS TEMP FILES. RED BEFORE,
+  # measured 2026-09-24 (Opus FF) on the batch-1..4 staged tree: `TMPDIR=/dev/null ... cli`
+  # printed five `[FAIL] GATE 2: mktemp failed, so NOTHING was checked.` lines and then
+  # `DOC GATES: PASS  (cli)`, rc 0 — check_pair returned 1 without bad=1 and no caller reads
+  # check_pair's status. The printed [FAIL] is therefore NOT evidence; the leg asserts on rc AND
+  # on the WHY line together, because the before-copy prints the same WHY line at rc 0.
+  # Written inline, not through assert_fires_why: there is no file to mutate (the environment
+  # is the defect), and the helper's callers=N is pinned in DOC_GATE_SELFTEST_INSTRUMENTS.txt.
+  _Q748_OUT=$(TMPDIR=/dev/null bash "$0" cli 2>&1); _Q748_RC=$?
+  if [ "$_Q748_RC" -ne 0 ] \
+     && printf '%s\n' "$_Q748_OUT" | grep -qF '[FAIL] GATE 2: mktemp failed, so NOTHING was checked.' \
+     && ! printf '%s\n' "$_Q748_OUT" | grep -qE '^DOC GATES: PASS'; then
+    echo "  [ok]   GATE 2 (Q-748a) mktemp failure under TMPDIR=/dev/null is a FAIL (rc=$_Q748_RC), not a PASS"
+  else
+    echo "  [FAIL] GATE 2 (Q-748a) — with mktemp failing, GATE 2 compared NOTHING and returned rc=$_Q748_RC"
+    printf '%s\n' "$_Q748_OUT" | grep -E 'GATE 2|DOC GATES' | sed 's/^/           > /' | head -4
+    PASS=1
+  fi
+
   # A5/#65: assert the MATCHED STRING, not just the exit code. GATE 3's registry holds
   # morphology-independent stems, so several rows can be live at once and an exit code alone
   # cannot say which one saw the injection.
@@ -3824,6 +3915,55 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
     'matched as the fixed string: "hard floor k>=13"' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>=13 by construction.\n')"
+
+  # Q-761 — A REGISTERED NEEDLE THAT STARTS WITH `#` IS A ROW, NOT A COMMENT. RED BEFORE,
+  # measured 2026-09-24 (Opus FF) on the batch-1..4 staged tree: every leg below went RED,
+  # because GATE 3 and GATE 11 skipped any row whose PHRASE began with `#` (`case '#'*`), so
+  # the planted needle was never searched for and never ledger-checked, at rc 0. The needle
+  # starts `#7/#8` because that is the shape that was lost (Opus DD's hexagram-number needle).
+  # Inline, not assert_fires_why, for the callers=N reason given at the Q-748 leg above; the
+  # revert is a plain `git checkout --` of exactly the two files touched.
+  _Q761_N='#7/#8 doc-gates Q-761 synthetic retracted needle'
+  _Q761_K="RP-$(printf '%s' "$_Q761_N" | sha256sum | cut -c1-8)"
+  # LEG 1 — GATE 3 must SEARCH for it: planted in a doc, it must FAIL naming the needle.
+  printf '%s\t%s\t%s\n' "$_Q761_N" '__none__' 'Self-test row (Q-761); reverted by the harness.' \
+    >> documentation/RETRACTED_PHRASES.tsv
+  printf '\n\nSelf-test sentence: %s here.\n' "$_Q761_N" >> documentation/GUIDE.md
+  _Q761_OUT=$(bash "$0" retract 2>&1); _Q761_RC=$?
+  git checkout -- documentation/RETRACTED_PHRASES.tsv documentation/GUIDE.md 2>/dev/null
+  if [ "$_Q761_RC" -ne 0 ] \
+     && printf '%s\n' "$_Q761_OUT" | grep -qF "retracted phrasing still present: \"$_Q761_N\""; then
+    echo "  [ok]   GATE 3 (Q-761) a registered needle starting with '#' is searched for, and FIRES when planted"
+  else
+    echo "  [FAIL] GATE 3 (Q-761) — a needle starting with '#' planted in GUIDE.md was not reported"
+    echo "         (rc=$_Q761_RC): the row was read as a comment and never searched for."
+    PASS=1
+  fi
+  # LEG 2 — GATE 11 must LEDGER-CHECK it: registered with no CORRECTIONS entry, it must FAIL
+  # naming its own RP key (computed here, never copied from a run).
+  printf '%s\t%s\t%s\n' "$_Q761_N" '__none__' 'Self-test row (Q-761); reverted by the harness.' \
+    >> documentation/RETRACTED_PHRASES.tsv
+  _Q761_OUT=$(bash "$0" ledger-phrases 2>&1); _Q761_RC=$?
+  git checkout -- documentation/RETRACTED_PHRASES.tsv 2>/dev/null
+  if [ "$_Q761_RC" -ne 0 ] && printf '%s\n' "$_Q761_OUT" | grep -qF "[FAIL] $_Q761_K has NO entry"; then
+    echo "  [ok]   GATE 11 (Q-761) a registered needle starting with '#' is ledger-checked ($_Q761_K)"
+  else
+    echo "  [FAIL] GATE 11 (Q-761) — a registered needle starting with '#' got no $_Q761_K verdict"
+    echo "         (rc=$_Q761_RC): skipped as a comment."
+    PASS=1
+  fi
+  # LEG 3 — the one indistinguishable form (`# ` + needle, WITH data columns) must be LOUD.
+  printf '# %s\t%s\t%s\n' 'doc-gates Q-761 heading-shaped needle' '__none__' 'Self-test row (Q-761).' \
+    >> documentation/RETRACTED_PHRASES.tsv
+  _Q761_OUT=$(bash "$0" ledger-phrases 2>&1); _Q761_RC=$?
+  git checkout -- documentation/RETRACTED_PHRASES.tsv 2>/dev/null
+  if [ "$_Q761_RC" -ne 0 ] \
+     && printf '%s\n' "$_Q761_OUT" | grep -qF 'Q-761: a registry line is comment-shaped'; then
+    echo "  [ok]   GATE 11 (Q-761) a comment-shaped line carrying data columns is a FAIL, not a skip"
+  else
+    echo "  [FAIL] GATE 11 (Q-761) — a '# '-shaped row with data columns was silently skipped (rc=$_Q761_RC)"
+    PASS=1
+  fi
 
   # GATE 3b — THREE cases, and the positive one is its OWN MOTIVATING EXAMPLE rather than a
   # synthetic string. reports/evidence/r11/PHASE2_README.md is the artifact that actually
@@ -3856,11 +3996,22 @@ open(p,'w',encoding='utf-8').write(s+'\n\nThe ledger prices C2 at marginal\n4.6 
   # from real runs in a scratch clone. So matching 45 proves the injected line was SEEN and
   # then EXEMPTED, which is the whole content of the claim; rc 0 alone is equally consistent
   # with the file having dropped out of the 79-file scan entirely.
-  # DELIBERATELY COUNT-PINNED: if the corpus gains an allowlisted narration this FAILS loudly
-  # and the number must be re-measured under the mutation. A range ERE would restore exactly
-  # the blindness this argument is about.
+  # 🔴 Q-702 (2026-09-24, Fable K): THE PIN ROTTED, AS GATE 12 (6)'s DID. It said 46 against a live
+  # 63 (clean census 62) at 5c296837, so this control was RED for seventeen allowlisted narrations
+  # the corpus gained since — not for anything about the gate. The count is now COMPARED, not
+  # pinned: the clean census is taken from a real run first and the mutated run must print
+  # exactly base+1. That is the same property ("the injected line was SEEN and then EXEMPTED")
+  # with nothing to re-measure when the corpus grows, and it is strictly narrower than a range
+  # ERE — base+1 is one number. A base run that prints no census is a FAIL, not a skip.
+  _G3B_N=$(bash "$0" retract-figures 2>&1 | grep -oE '[0-9]+ meta-mention' | grep -oE '^[0-9]+')
+  if [ -z "$_G3B_N" ]; then
+    echo "  [FAIL] GATE 3b negative control — the clean retract-figures run printed no"
+    echo "         'N meta-mention' census, so the control below has no base to compare"
+    echo "         against. A control that cannot read its own base is silent, not clean."
+    PASS=1; _G3B_N=-1
+  fi
   assert_stays_clean_why "GATE 3b negative control — an anchored narration is exempt" \
-    retract-figures '46 meta-mention' \
+    retract-figures "$((_G3B_N + 1))"' meta-mention' \
 "p='reports/evidence/r11/README.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')"
@@ -3887,13 +4038,12 @@ open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure re
   # `PASS=1` dies with the subshell, while its `_selftest_revert` acts on the real tree and
   # persists. The expected [FAIL] text is captured, never printed.
   #
-  # 45 AND 46 MOVE TOGETHER. Both come from the same pair of runs; if the corpus gains an
-  # allowlisted narration, the live assertion above FAILS loudly and BOTH numbers must be
-  # re-taken from real runs — the probe's number is the clean census, the assertion's is the
-  # census under the mutation.
+  # THE TWO NUMBERS MOVE TOGETHER, and since Q-702 neither is written down: the probe scores
+  # against the CLEAN census the live assertion above measured (base), the assertion against
+  # base+1. A mutated run that prints base is a run that never read the injection.
   _asc_probe=$(assert_stays_clean_why \
     "PROBE (expected to FAIL) — a green run scored against the census of a run that never read the injection" \
-    retract-figures '45 meta-mention' \
+    retract-figures "$_G3B_N"' meta-mention' \
 "p='reports/evidence/r11/README.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nRestated for the index: this figure read 1.4σ until 2026-08-02.\n')")
@@ -3954,7 +4104,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nPriced as data ([CRITIQUE.md](CR
 
   # ITEM A7 — GATE 4b's AMBIGUITY note, proven on the corpus's own weakest reference.
   #
-  # documentation/HISTORY.md:4987 carries `MCKENNA.md §"Rule 2"`, which today resolves against
+  # documentation/HISTORY.md:5052 carries `MCKENNA.md §"Rule 2"`, which today resolves against
   # exactly one heading ("mckenna's rule 2 - declined for promotion to formal c-rule",
   # coverage ratio 0.10 — the weakest in the corpus). A7's hazard is stated in exactly these
   # terms: `§"Rule 2"` would ALSO resolve against a heading `"Rule 25"`. So the mutation adds
@@ -4286,13 +4436,24 @@ open('reports/README.md','w').write(s.replace(a,'interpretation are sound.',1))"
   # the new classification it would report as a re-wrap and this assertion would go red for a
   # reason that has nothing to do with the leg. A fixture whose class depends on where the
   # midpoint happens to fall is the "fails for the wrong reason" shape; it is pinned now.
+  # 🔴 Q-702 (2026-09-24, Fable K): THE PIN ABOVE WAS NOT ENOUGH. At 5c296837 the first non-blank
+  # line at the midpoint was the one-word wrap `this.`, whose collapsed text is a substring of
+  # the rest of the ledger — so 10a fired (rc 1) and classified it, correctly by its own rule,
+  # as a RE-WRAP, and this leg was RED for "never names ... LOST". The fixture's premise is that
+  # the deleted line carries text found nowhere else; it now SELECTS such a line (>= 40 chars,
+  # collapsed text absent from the rest of the file) instead of assuming the midpoint is one.
+  # The rule's weakness on short lines is filed separately; it is a classification, not a miss.
   assert_fires_why "GATE 10a append-only vs HEAD (committed line deleted)" appendonly-head \
     'missing committed line\(s\) are LOST' \
-"L=open('documentation/CORRECTIONS.md').read().split(chr(10))
+"import re
+L=open('documentation/CORRECTIONS.md').read().split(chr(10))
 assert len(L) > 60, 'ledger too short to mutate meaningfully'
 i=len(L)//2
-while i < len(L) and not L[i].strip(): i+=1
-assert i < len(L), 'no non-blank line at or after the midpoint'
+while i < len(L):
+    t=re.sub(r'\s+',' ',L[i]).strip()
+    if len(t) >= 40 and t not in re.sub(r'\s+',' ',chr(10).join(L[:i]+L[i+1:])): break
+    i+=1
+assert i < len(L), 'no line at or after the midpoint whose text is unique in the ledger'
 del L[i]
 open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
 
@@ -4439,6 +4600,125 @@ orig=\$(git rev-parse HEAD)
 printf 'CX-1 first entry.\nCX-3 third entry.\n' > documentation/CORRECTIONS.md
 git add -A && git commit -q --amend -m 'ledger: three entries'
 if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
+
+  # 🔴 Q-702 (2026-09-24, Fable K) — NEGATIVE CONTROL for the arm that made (iii) green. The fix
+  # distinguishes "on THIS branch's published lineage" (FAIL) from "on some OTHER remote branch"
+  # (Q-283's MERGE GAP, a [note]). Without this control, (iii) is equally consistent with the
+  # arm having simply reverted Q-283 — every non-ancestor a FAIL — which would re-open the
+  # v4-query-program false positive Q-283 measured (441 commits divergent, 3 lines that never
+  # arrived). Same scratch shape as scratch_appendonly, written INLINE because every helper's
+  # callers=N is pinned in documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt and this lane does
+  # not own that file. Scenario: main is published (refs/remotes/origin/main == HEAD) and a
+  # topic branch, published ONLY as refs/remotes/origin/topic, holds an extra ledger line that
+  # main never had. 10b must print the lineage it holds main to, report the topic line as a
+  # MERGE GAP, and exit 0.
+  _g10c_d=$(mktemp -d) || { echo "  [FAIL] GATE 10b (Q-702) merge-gap control — no tmpdir"; PASS=1; }
+  if [ -n "${_g10c_d:-}" ] && [ -d "$_g10c_d" ]; then
+    mkdir -p "$_g10c_d/scripts" "$_g10c_d/documentation"
+    cp "$0" "$_g10c_d/scripts/doc_gates.sh"
+    ( set -e; cd "$_g10c_d"
+      export GIT_AUTHOR_NAME=selftest GIT_AUTHOR_EMAIL=selftest@invalid
+      export GIT_COMMITTER_NAME=selftest GIT_COMMITTER_EMAIL=selftest@invalid
+      git init -q .; git symbolic-ref HEAD refs/heads/main
+      printf 'CX-1 first entry.\nCX-2 second entry.\nCX-3 third entry.\n' > documentation/CORRECTIONS.md
+      git add -A && git commit -qm 'ledger: three entries'
+      git update-ref refs/remotes/origin/main HEAD
+      git checkout -q -b topic
+      printf 'CX-1 first entry.\nCX-2 second entry.\nCX-3 third entry.\nCX-4 topic-only entry.\n' > documentation/CORRECTIONS.md
+      git add -A && git commit -qm 'ledger: topic-only fourth entry'
+      git update-ref refs/remotes/origin/topic HEAD
+      git checkout -q main; git branch -q -D topic
+      # premise: the topic commit is NOT an ancestor of main and NOT reachable from origin/main
+      if git merge-base --is-ancestor refs/remotes/origin/topic HEAD; then exit 3; fi
+      if git merge-base --is-ancestor refs/remotes/origin/topic refs/remotes/origin/main; then exit 3; fi
+    ) >/dev/null 2>&1; _g10c_rcS=$?
+    if [ "$_g10c_rcS" -ne 0 ]; then
+      echo "  [FAIL] GATE 10b (Q-702) merge-gap control — scratch setup broke or its premise failed (rc=$_g10c_rcS), so the assertion did NOT run"
+      PASS=1
+    else
+      _g10c_out=$(cd "$_g10c_d" && bash scripts/doc_gates.sh appendonly-history 2>&1); _g10c_rc=$?
+      if [ "$_g10c_rc" -eq 0 ] \
+         && printf '%s' "$_g10c_out" | grep -qF 'published lineage of this branch: refs/remotes/origin/main' \
+         && printf '%s' "$_g10c_out" | grep -qF 'MERGE GAP, not a lost line' \
+         && printf '%s' "$_g10c_out" | grep -qF 'CX-4 topic-only entry.'; then
+        echo "  [ok]   GATE 10b (Q-702) merge-gap control — a line published only on ANOTHER remote branch"
+        echo "         stays a [note] (rc 0) while main's lineage is named as the hard baseline"
+      else
+        echo "  [FAIL] GATE 10b (Q-702) merge-gap control — expected rc 0 with the lineage line, a MERGE GAP"
+        echo "         note and the topic line quoted; got rc=$_g10c_rc:"
+        printf '%s\n' "$_g10c_out" | grep -E '\[(FAIL|note|ok)\]|published lineage' | sed 's/^/           > /' | head -4
+        PASS=1
+      fi
+    fi
+    rm -rf "$_g10c_d"
+  fi
+
+  # 🔴 S3 (2026-09-24, batch-2 pre-publication review, Fable P) — the published-lineage arm
+  # must NOT fire on a feature branch created with `git checkout -b feat origin/main`. That
+  # layout is git's default (branch.autoSetupMerge) and makes @{upstream} = origin/main for a
+  # branch that will never push to main; the first cut of the Q-702 arm took @{upstream}
+  # unconditionally and hard-FAILED it as soon as origin/main gained a line. Inline for the
+  # callers=N reason above. Scenario: feat branches from origin/main with that upstream and
+  # APPENDS a ledger line of its own; main then publishes a different fourth line, so the two
+  # have DIVERGED (the shape the first cut hard-FAILED; a feat with no commit of its own is
+  # merely BEHIND origin/main, which even the first cut reported as a [note], so that shape
+  # would not distinguish the two). On feat, 10b must find NO baseline (git refuses @{push}
+  # under push.default=simple, there is no origin/feat, and the upstream's short name is main,
+  # not feat), report main's later line as a MERGE GAP, and exit 0. push.default is pinned to
+  # simple INSIDE the scratch repo so a developer's global push.default=upstream — under which a
+  # FAIL would be correct, since a push really would land on main — cannot change what this leg
+  # measures. The amend leg (iii) above keeps proving the arm still FIRES. Mutation-tested
+  # 2026-09-24: with step 3's same-name condition removed the leg reports rc=1 and the hard FAIL.
+  _g10d_d=$(mktemp -d) || { echo "  [FAIL] GATE 10b (S3) feature branch tracking origin/main — no tmpdir"; PASS=1; }
+  if [ -n "${_g10d_d:-}" ] && [ -d "$_g10d_d" ]; then
+    mkdir -p "$_g10d_d/scripts" "$_g10d_d/documentation"
+    cp "$0" "$_g10d_d/scripts/doc_gates.sh"
+    ( set -e; cd "$_g10d_d"
+      export GIT_AUTHOR_NAME=selftest GIT_AUTHOR_EMAIL=selftest@invalid
+      export GIT_COMMITTER_NAME=selftest GIT_COMMITTER_EMAIL=selftest@invalid
+      git init -q .; git symbolic-ref HEAD refs/heads/main
+      git config push.default simple
+      git remote add origin /nonexistent-doc-gates-selftest-remote
+      printf 'CX-1 first entry.\nCX-2 second entry.\nCX-3 third entry.\n' > documentation/CORRECTIONS.md
+      git add -A && git commit -qm 'ledger: three entries'
+      git update-ref refs/remotes/origin/main HEAD
+      git checkout -q -b feat origin/main
+      git checkout -q main
+      printf 'CX-1 first entry.\nCX-2 second entry.\nCX-3 third entry.\nCX-9 main-later.\n' > documentation/CORRECTIONS.md
+      git add -A && git commit -qm 'ledger: fourth entry, published on main after feat branched'
+      git update-ref refs/remotes/origin/main HEAD
+      git checkout -q feat
+      printf 'CX-1 first entry.\nCX-2 second entry.\nCX-3 third entry.\nCX-5 feat-only entry.\n' > documentation/CORRECTIONS.md
+      git add -A && git commit -qm 'ledger: a feat-only fifth entry (feat and origin/main now diverge)'
+      # premises: feat's upstream IS origin/main, @{push} does NOT resolve, and the two have DIVERGED
+      [ "$(git rev-parse --symbolic-full-name '@{upstream}')" = refs/remotes/origin/main ]
+      if git rev-parse --symbolic-full-name '@{push}' >/dev/null 2>&1; then exit 4; fi
+      if git merge-base --is-ancestor refs/remotes/origin/main HEAD; then exit 4; fi
+      if git merge-base --is-ancestor HEAD refs/remotes/origin/main; then exit 4; fi
+    ) >/dev/null 2>&1; _g10d_rcS=$?
+    if [ "$_g10d_rcS" -ne 0 ]; then
+      echo "  [FAIL] GATE 10b (S3) feature branch tracking origin/main — scratch setup broke or a premise failed (rc=$_g10d_rcS), so the assertion did NOT run"
+      PASS=1
+    else
+      _g10d_out=$(cd "$_g10d_d" && bash scripts/doc_gates.sh appendonly-history 2>&1); _g10d_rc=$?
+      if [ "$_g10d_rc" -eq 0 ] \
+         && printf '%s' "$_g10d_out" | grep -qF "branch 'feat' has no @{push}, no same-named remote branch and no" \
+         && printf '%s' "$_g10d_out" | grep -qF 'NO baseline here' \
+         && printf '%s' "$_g10d_out" | grep -qF 'MERGE GAP, not a lost line' \
+         && printf '%s' "$_g10d_out" | grep -qF 'CX-9 main-later.' \
+         && ! printf '%s' "$_g10d_out" | grep -qF 'published lineage of this branch:' \
+         && ! printf '%s' "$_g10d_out" | grep -qF '[FAIL]'; then
+        echo "  [ok]   GATE 10b (S3) feature branch tracking origin/main — no baseline is claimed, the"
+        echo "         later main line is a MERGE GAP [note], rc 0 (the amend leg above still fires)"
+      else
+        echo "  [FAIL] GATE 10b (S3) feature branch tracking origin/main — expected rc 0, the no-baseline"
+        echo "         note, a MERGE GAP note quoting the main-later line and NO [FAIL]; got rc=$_g10d_rc:"
+        printf '%s\n' "$_g10d_out" | grep -E '\[(FAIL|note|ok)\]|published lineage|no @\{push\}' | sed 's/^/           > /' | head -5
+        PASS=1
+      fi
+    fi
+    rm -rf "$_g10d_d"
+  fi
 
   # GATE 11: a registry row with no ledger entry must fire it. Injected as a NEW registry
   # row rather than by deleting a ledger entry, because deletion would fire GATE 10 and
@@ -4782,14 +5062,23 @@ open(f,'w',encoding='utf-8').write(s.replace(a,'| v1.9 | 2026-07-04 | Figures ad
 
   # (4) *(current)* NOT LAST — the leg that caught TR-4. Moving the marker up one row keeps
   #     the count at exactly one, so the count leg cannot be what fires.
+  # 🔴 Q-702 (2026-09-24, Fable K): the anchors were the LITERAL rows `| v2.2 *(current)* |` and
+  # `| v2.1 |`; TR-7 is at v2.5 and this leg had been "could not inject (anchor moved)" since
+  # v2.3 landed. A fixture keyed to a report's version number rots on every revision of that
+  # report. It now finds the ONE row carrying the marker and the row immediately above it, and
+  # asserts both (exactly one marker; a `| vX.Y |` row directly above) before writing.
   assert_fires_why "GATE 12 the *(current)* marker is not on the last row" revhist \
     'is not the LAST revision row' \
-"f='reports/TR7_CIRCULAR_READING.md'
-s=open(f,encoding='utf-8').read()
-a='| v2.2 *(current)* |'
-b='| v2.1 |'
-assert a in s and b in s, 'anchor moved'
-open(f,'w',encoding='utf-8').write(s.replace(a,'| v2.2 |',1).replace(b,'| v2.1 *(current)* |',1))"
+"import re
+f='reports/TR7_CIRCULAR_READING.md'
+L=open(f,encoding='utf-8').read().split(chr(10))
+cur=[i for i,l in enumerate(L) if re.match(r'\| v[0-9.]+ \*\(current\)\* \|', l)]
+assert len(cur)==1, 'anchor moved: %d *(current)* rows' % len(cur)
+i=cur[0]
+assert i>0 and re.match(r'\| v[0-9.]+ \|', L[i-1]), 'anchor moved: no plain version row above the marker'
+L[i]=L[i].replace(' *(current)* |',' |',1)
+L[i-1]=L[i-1].replace(' |',' *(current)* |',1)
+open(f,'w',encoding='utf-8').write(chr(10).join(L))"
 
   # (5) MISSING INPUT (item A1's class, applied to the new gate before it can grow the
   #     hole). The gate enumerates from `git ls-files` and opens from the worktree, so a
@@ -4974,7 +5263,7 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
   # -----------------------------------------------------------------------
   # GATE 5's ALLOWLIST — three assertions (2026-08-02, item A8). Re-keying the allowlist on
   # (file, anchor) alone deleted the drift branch that had a live negative control (an
-  # entry recorded at :9999 fired it). Deleting a branch deletes its proof, so the
+  # entry recorded at line 9999 fired it). Deleting a branch deletes its proof, so the
   # replacement proofs are written here rather than assumed. All three are OUTPUT
   # assertions: GATE 5 is report-only and always exits 0.
   #
@@ -5062,7 +5351,7 @@ open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUI
   # The mutation is NOT injected via `python3 -c` for the same reason: the shell layer is
   # where the escaping went wrong. It is written to a file and run, so the string reaching
   # python is the string in this script.
-  # THE LINE NUMBER IS DERIVED, NOT PINNED (2026-08-07). It was hardcoded `:70`; TR-9 grew
+  # THE LINE NUMBER IS DERIVED, NOT PINNED (2026-08-07). It was hardcoded as line 70; TR-9 grew
   # and the cell moved to :78, so the grep missed and this printed "GATE 5b did not fire on
   # the defect it was written for" — which was FALSE. The gate fired correctly; the fixture's
   # expectation was stale. That is a worse failure mode than a missed anchor: it accuses a
@@ -5220,7 +5509,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organisin
   # CASE 5 — THE NEGATIVE CONTROL, REBUILT 2026-09-04 WHEN ITS OLD SUBJECT CEASED TO EXIST.
   #
   # WHAT IT USED TO BE, and why it is not that any more. Until today legs 1-4 stripped digits,
-  # and this case existed to pin the 2026-08-02 false FAIL: roae.py:1400 formats with
+  # and this case existed to pin the 2026-08-02 false FAIL: roae.py:1458 formats with
   # `{ratio:,}`, the normaliser stripped digits but not the group separator, and
   # `doc_gates.sh generated` printed
   #   +added   > Approximately in random orderings share this property.
@@ -5988,14 +6277,19 @@ open(p,'w',encoding='utf-8').write(s.replace(a, chr(9)+'kind=INVOCATION callers=
   # (round 10, item N4) when _g15d's did; each taken from a run under this mutation, and it
   # is the census MOVING that made the re-take necessary, which is the property being
   # asserted.
+  # 🔴 Q-702 (2026-09-24, Fable K): the anchor was the note's first CLAUSE (`GATE 8's negative
+  # control: proves`); the row's note was reworded to `...: the only case in this harness that`
+  # and this leg read "could not inject" ever since (0 matches at 5c296837). The anchor is now
+  # the tab plus the note's opening label up to the colon, and the rewrite replaces only that
+  # label — the clause after the colon is free to change without moving this fixture.
   assert_stays_clean_why "GATE 15 LEG 3 a rewritten note changes no claim" instruments \
     'claims column: 8 kind=INVOCATION' \
 "p='documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt'
 s=open(p,encoding='utf-8').read()
-a=chr(9)+\"GATE 8's negative control: proves\"
+a=chr(9)+\"GATE 8's negative control:\"
 assert s.count(a)==1, 'anchor moved: %d' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(
-    a, chr(9)+'This sentence is false and no machine reads it: proves', 1))"
+    a, chr(9)+'This sentence is false and no machine reads it:', 1))"
 
   # GATE 15 LEG 4 FIRE-PROOFS (item N4, round 10 drain-2, 2026-08-02) — THREE LEGS, ALL RUN.
   #
@@ -6161,7 +6455,7 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
   # all; the ERE it would have collided with was never compared against anything.
   if python3 -c "
 L=open('scripts/doc_gates.sh',encoding='utf-8').read().splitlines(True)
-A='retract-figures '+chr(39)+'46 meta-mention'+chr(39)+' '+chr(92)
+A='retract-figures '+chr(34)+chr(36)+'((_G3B_N + 1))'+chr(34)+chr(39)+' meta-mention'+chr(39)+' '+chr(92)
 t=[i for i,l in enumerate(L) if l.strip()==A]
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]='    retract-figures '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
@@ -6178,7 +6472,8 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     fi
   else
     echo "  [FAIL] GATE 16 guard (7) leg A — could not build the mutated copy (the GATE 3b"
-    echo "         negative control's '46 meta-mention' anchor moved), so it did NOT run."
+    echo "         negative control's '\"\$((_G3B_N + 1))\"'\'' meta-mention' anchor moved — Q-702"
+    echo "         re-keyed it from the pinned '46 meta-mention'), so it did NOT run."
     PASS=1
   fi
 
@@ -6724,8 +7019,16 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
   # BOARDS entry matches and no line of this fire-proof does. Second instance of the class in
   # two days; the general lesson is that a fire-proof searching its own source file must
   # match on a form its own text cannot take.
-  _G17_COPY=$(git rev-parse --git-dir)/doc_gates_g17_copy.sh
-  if grep -v '^    "documentation/LITERATURE_RULES_POPULATION_TESTS.md",$' \
+  #
+  # Q-748 (b) (V3A-111#3; mechanism Opus CC; fixed 2026-09-24 Opus FF). The copy was written to
+  # $(git rev-parse --git-dir), and UNLIKE the GATE 15/16 copies (read via DOC_GATES_SRC_OVERRIDE,
+  # location-free) this one is RUN, so its own `cd "$(dirname "$0")/.."` decides the tree it
+  # checks. In a normal clone git-dir is `.git` and `.git/..` is the root, by luck. In a LINKED
+  # worktree git-dir is `<main>/.git/worktrees/<name>`, the copy cd'd into `.git/worktrees`, and
+  # the leg failed there on every run. The copy now lives in scripts/ itself (mktemp, so two
+  # clones or a stale file cannot collide), which makes `dirname/..` the root in BOTH layouts.
+  _G17_COPY=$(mktemp scripts/.doc_gates_g17_copy.XXXXXX) || _G17_COPY=""
+  if [ -n "$_G17_COPY" ] && grep -v '^    "documentation/LITERATURE_RULES_POPULATION_TESTS.md",$' \
        scripts/doc_gates.sh > "$_G17_COPY" \
      && ! grep -qE '^    "documentation/LITERATURE_RULES_POPULATION_TESTS\.md",$' "$_G17_COPY"; then
     G17OUT=$(bash "$_G17_COPY" scoreboard 2>&1); G17RC=$?
@@ -6741,10 +7044,10 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
     fi
   else
     echo "  [FAIL] GATE 17 LEG 6 — could not build the mutated copy (the BOARDS entry anchor"
-    echo "         moved), so the assertion did NOT run."
+    echo "         moved, or mktemp in scripts/ failed), so the assertion did NOT run."
     PASS=1
   fi
-  rm -f "$_G17_COPY"
+  [ -n "$_G17_COPY" ] && rm -f "$_G17_COPY"
 
   # GATE 25 FIRE-PROOF (2026-08-11, the day after the gate landed). GATE 25 shipped at
   # a23d82a9 with NO assertion of any kind, so nothing in this harness could separate a gate
@@ -6853,6 +7156,107 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --doc-gat
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount\n')"
 
+  # 🔴 Q-703 (2026-09-24, Fable K) — GATE 25's POPULATION IS $DOCS, proven on the case the old
+  # hand-written glob list could not see. A scratch tree (real sources symlinked, so `have[]` is
+  # the live flag set) tracks TWO markdown files: documentation/CLEAN.md with a real flag, and
+  # viz/README.md with a flag solve.c does not have. The shipped population (documentation/,
+  # reports/, *.md) never read viz/ — measured at 5c296837: 83 docs scanned, rc 0, while the
+  # same gate over $DOCS scanned 97 and fired on viz/viz_kc_spectrum.md — so on this fixture the
+  # OLD gate exits 0 and the NEW one must fire, name the flag, name viz/README.md, and print the
+  # population token for exactly the two tracked files. Inline for the callers=N reason above.
+  _g25p_d=$(mktemp -d) || { echo "  [FAIL] GATE 25 (Q-703) population from \$DOCS — no tmpdir"; PASS=1; }
+  if [ -n "${_g25p_d:-}" ] && [ -d "$_g25p_d" ]; then
+    mkdir -p "$_g25p_d/scripts" "$_g25p_d/documentation" "$_g25p_d/viz"
+    cp "$0" "$_g25p_d/scripts/doc_gates.sh"
+    for _g25p_f in solve.c verify.c solve.py verify.py sat.py roae.py; do ln -s "$PWD/$_g25p_f" "$_g25p_d/$_g25p_f"; done
+    ( set -e; cd "$_g25p_d"
+      export GIT_AUTHOR_NAME=selftest GIT_AUTHOR_EMAIL=selftest@invalid
+      export GIT_COMMITTER_NAME=selftest GIT_COMMITTER_EMAIL=selftest@invalid
+      git init -q .; git symbolic-ref HEAD refs/heads/main
+      printf 'Run `solve --selftest` first.\n' > documentation/CLEAN.md
+      printf 'Then run `solve --no-such-flag-fablek`.\n' > viz/README.md
+      git add -A && git commit -qm 'two docs'
+      grep -q '"--selftest"' solve.c            # premise: the CLEAN flag really is a solve.c flag
+      ! grep -q -- '--no-such-flag-fablek' solve.c   # premise: the viz flag really is not
+    ) >/dev/null 2>&1; _g25p_rcS=$?
+    if [ "$_g25p_rcS" -ne 0 ]; then
+      echo "  [FAIL] GATE 25 (Q-703) population from \$DOCS — scratch setup broke or a premise failed (rc=$_g25p_rcS), so the assertion did NOT run"
+      PASS=1
+    else
+      _g25p_out=$(cd "$_g25p_d" && bash scripts/doc_gates.sh repro-reach 2>&1); _g25p_rc=$?
+      if [ "$_g25p_rc" -ne 0 ] \
+         && printf '%s' "$_g25p_out" | grep -qx 'GATE25_POPULATION_FROM_DOCS=2' \
+         && printf '%s' "$_g25p_out" | grep -qF '[FAIL] solve --no-such-flag-fablek — not a flag of solve.c' \
+         && printf '%s' "$_g25p_out" | grep -qF 'cited in viz/README.md' \
+         && ! printf '%s' "$_g25p_out" | grep -qF 'solve --selftest'; then
+        echo "  [ok]   GATE 25 (Q-703) population from \$DOCS — a bad flag in viz/README.md fires the gate"
+        echo "         (the old glob list never read viz/), the population token counts both tracked"
+        echo "         docs, and the real flag in documentation/ is not named"
+      else
+        echo "  [FAIL] GATE 25 (Q-703) population from \$DOCS — expected rc!=0, GATE25_POPULATION_FROM_DOCS=2,"
+        echo "         the viz/README.md flag named and the documentation/ flag silent; got rc=$_g25p_rc:"
+        printf '%s\n' "$_g25p_out" | grep -E 'GATE25_POPULATION|\[FAIL\]|\[ok\]|cited in' | sed 's/^/           > /' | head -5
+        PASS=1
+      fi
+    fi
+    rm -rf "$_g25p_d"
+  fi
+
+  # 🔴 S2 (2026-09-24, batch-2 pre-publication review, Fable P) — the PROPOSAL markers must not
+  # waive a broken command because the word 'pending' is nearby as ordinary prose. The bare
+  # marker Q-703 shipped did exactly that (measured: two misspelt flags, [prop], rc 0). Same
+  # scratch shape as the Q-703 leg (real sources symlinked, so `have[]` is the live flag set),
+  # inline for the callers=N reason above. Two tracked docs: documentation/PROBE.md is the
+  # reviewer's probe — "pending review" as a fence caption and "(the pending rerun)" in a
+  # sentence, each beside a flag solve.c does not have — and viz/PROP.md is the CONTROL, the two
+  # marker forms the viz/ pages really use ("### PENDING flag (...)" caption, "(PENDING --x)" on
+  # the line before the command), each beside another absent flag. The gate must FAIL the two
+  # probe flags, waive the two control flags as [prop] naming the marker and its scope, and
+  # never cross them: a leg that only checked the FAIL half could pass with the marker list
+  # emptied, and one that only checked the [prop] half could pass with the bare marker back.
+  _g25q_d=$(mktemp -d) || { echo "  [FAIL] GATE 25 (S2) ordinary 'pending' prose does not waive — no tmpdir"; PASS=1; }
+  if [ -n "${_g25q_d:-}" ] && [ -d "$_g25q_d" ]; then
+    mkdir -p "$_g25q_d/scripts" "$_g25q_d/documentation" "$_g25q_d/viz"
+    cp "$0" "$_g25q_d/scripts/doc_gates.sh"
+    for _g25q_f in solve.c verify.c solve.py verify.py sat.py roae.py; do ln -s "$PWD/$_g25q_f" "$_g25q_d/$_g25q_f"; done
+    ( set -e; cd "$_g25q_d"
+      export GIT_AUTHOR_NAME=selftest GIT_AUTHOR_EMAIL=selftest@invalid
+      export GIT_COMMITTER_NAME=selftest GIT_COMMITTER_EMAIL=selftest@invalid
+      git init -q .; git symbolic-ref HEAD refs/heads/main
+      printf 'Results are pending review:\n\n```\nsolve --kc-scann --kc-limit 1\n```\n\nSee `solve --verifyy PATH` (the pending rerun).\n' > documentation/PROBE.md
+      printf '### PENDING flag (proposed name)\n\n```\nsolve --kc-nonesuch-fablep FDIR\n```\n\n```bash\n# 1. the grid  (PENDING --kc-nonesuch-fablep2)\nsolve --kc-nonesuch-fablep2 FDIR\n```\n' > viz/PROP.md
+      git add -A && git commit -qm 'probe and control'
+      for _g25q_flag in '--kc-scann' '--verifyy' '--kc-nonesuch-fablep' '--kc-nonesuch-fablep2'; do
+        if grep -q -- "$_g25q_flag" solve.c; then exit 4; fi   # premise: none of the four is a real flag
+      done
+    ) >/dev/null 2>&1; _g25q_rcS=$?
+    if [ "$_g25q_rcS" -ne 0 ]; then
+      echo "  [FAIL] GATE 25 (S2) ordinary 'pending' prose does not waive — scratch setup broke or a premise failed (rc=$_g25q_rcS), so the assertion did NOT run"
+      PASS=1
+    else
+      _g25q_out=$(cd "$_g25q_d" && bash scripts/doc_gates.sh repro-reach 2>&1); _g25q_rc=$?
+      if [ "$_g25q_rc" -ne 0 ] \
+         && printf '%s' "$_g25q_out" | grep -qF '[FAIL] solve --kc-scann — not a flag of solve.c' \
+         && printf '%s' "$_g25q_out" | grep -qF '[FAIL] solve --verifyy — not a flag of solve.c' \
+         && printf '%s' "$_g25q_out" | grep -qF "[prop] solve --kc-nonesuch-fablep — viz/PROP.md:" \
+         && printf '%s' "$_g25q_out" | grep -qF "('pending flag' in the fence caption)" \
+         && printf '%s' "$_g25q_out" | grep -qF "[prop] solve --kc-nonesuch-fablep2 — viz/PROP.md:" \
+         && printf '%s' "$_g25q_out" | grep -qF "('pending --' in the sentence)" \
+         && ! printf '%s' "$_g25q_out" | grep -qF '[prop] solve --kc-scann' \
+         && ! printf '%s' "$_g25q_out" | grep -qF '[prop] solve --verifyy' \
+         && ! printf '%s' "$_g25q_out" | grep -qF '[FAIL] solve --kc-nonesuch-fablep'; then
+        echo "  [ok]   GATE 25 (S2) ordinary 'pending' prose does not waive — both probe flags FAIL while"
+        echo "         the two real marker forms still waive as [prop], each naming its marker and scope"
+      else
+        echo "  [FAIL] GATE 25 (S2) ordinary 'pending' prose does not waive — expected rc!=0, [FAIL] for"
+        echo "         --kc-scann and --verifyy, [prop] for the two control flags, no crossing; got rc=$_g25q_rc:"
+        printf '%s\n' "$_g25q_out" | grep -E '\[FAIL\]|\[prop\]|\[ok\]' | sed 's/^/           > /' | head -6
+        PASS=1
+      fi
+    fi
+    rm -rf "$_g25q_d"
+  fi
+
   # GATE 25 LEG 2 (REPORT-ONLY) — PROVEN ON OUTPUT AND ON rc NOT MOVING, never on rc alone.
   #
   # It cannot use assert_fires_why: that helper FAILS the assertion unless the gate exits
@@ -6888,12 +7292,31 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
   # more than a fourth BLOCK row.
   _G25_BASE=$(bash "$0" repro-reach 2>&1); _G25_BASERC=$?
   _G25_N=$(printf '%s' "$_G25_BASE" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
+  # 🔴 Q-702 (2026-09-24, Fable K): THE TARGET'S OWN STATE IS PART OF THE BASE. At 5c296837
+  # GT_LADDER_FORMAT.md already carries ONE grouped figure (`26,112`) and names no command, so it
+  # was already among the noted files: the fire case could not add a file (5 -> 5) and the control
+  # REMOVED one (5 -> 4), and both legs were RED with the leg itself working exactly as specified.
+  # The expectation is now derived from the target's base state K (its figure count in the base
+  # note list, 0 when absent): the fire case must report the file with K+1 figures and the
+  # injected one as `largest`, moving the file count by +1 only when K was 0; the control must
+  # drop the file from the list, moving the count by -1 only when K was > 0. Preconditions:
+  # the injected figure must exceed the file's current largest, or `largest` could not name it.
+  _G25_K=$(printf '%s' "$_G25_BASE" | grep -oE 'documentation/GT_LADDER_FORMAT\.md — [0-9]+ figure' | grep -oE '[0-9]+')
+  _G25_K=${_G25_K:-0}
+  _G25_KL=$(printf '%s' "$_G25_BASE" | grep -oE 'documentation/GT_LADDER_FORMAT\.md — [0-9]+ figure\(s\), largest [0-9,]+' | grep -oE '[0-9,]+$' | tr -d ,)
   if [ -z "$_G25_N" ]; then
     echo "  [FAIL] GATE 25 LEG 2 — the base run printed no '; N publish' census, so neither"
     echo "         leg below could be scored. LEG 2 is report-only: a leg that cannot read"
     echo "         its own census is silent, not clean."
     PASS=1
+  elif [ -n "$_G25_KL" ] && [ "$_G25_KL" -ge 1234567 ]; then
+    echo "  [FAIL] GATE 25 LEG 2 — precondition: GT_LADDER_FORMAT.md's largest grouped figure is"
+    echo "         already $_G25_KL >= 1,234,567, so the injected figure could not be named as"
+    echo "         largest and neither leg below can discriminate. Raise the injected figure."
+    PASS=1
   else
+    _G25_FEXP=$((_G25_N + (_G25_K == 0 ? 1 : 0)))
+    _G25_CEXP=$((_G25_N - (_G25_K > 0 ? 1 : 0)))
     if python3 -c "
 p='documentation/GT_LADDER_FORMAT.md'
 s=open(p,encoding='utf-8').read()
@@ -6901,18 +7324,20 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
       _G25_F=$(bash "$0" repro-reach 2>&1); _G25_FRC=$?
       _selftest_revert documentation/GT_LADDER_FORMAT.md
       _G25_FN=$(printf '%s' "$_G25_F" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
-      if [ "$_G25_FN" = "$((_G25_N + 1))" ] \
-         && printf '%s' "$_G25_F" | grep -qF 'documentation/GT_LADDER_FORMAT.md — 1 figure(s), largest 1,234,567' \
+      if [ "$_G25_FN" = "$_G25_FEXP" ] \
+         && printf '%s' "$_G25_F" | grep -qF "documentation/GT_LADDER_FORMAT.md — $((_G25_K + 1)) figure(s), largest 1,234,567" \
          && [ "$_G25_FRC" -eq "$_G25_BASERC" ]; then
         echo "  [ok]   GATE 25 LEG 2 fires: a grouped figure in a file with no reproduction"
-        echo "         command joins the note list ($_G25_N -> $((_G25_N + 1))), is named with its"
-        echo "         figure, and the exit code does NOT move (rc $_G25_BASERC both runs)"
+        echo "         command is reported (file count $_G25_N -> $_G25_FN; the file's figures"
+        echo "         $_G25_K -> $((_G25_K + 1)), largest = the injected one), and the exit code"
+        echo "         does NOT move (rc $_G25_BASERC both runs)"
       else
         echo "  [FAIL] GATE 25 LEG 2 — an injected figure in a command-less file was not"
-        echo "         reported ($_G25_N -> $_G25_FN), or was not named, or MOVED THE"
+        echo "         reported (file count $_G25_N -> $_G25_FN, expected $_G25_FEXP; the file"
+        echo "         must show $((_G25_K + 1)) figure(s), largest 1,234,567), or MOVED THE"
         echo "         EXIT CODE (rc $_G25_BASERC -> $_G25_FRC). The last of those is the"
         echo "         serious one: LEG 2 is report-only and a blocking pre-push hook runs it."
-        printf '%s\n' "$_G25_F" | grep -F 'LEG 2' | sed 's/^/           > /' | head -3
+        printf '%s\n' "$_G25_F" | grep -E 'LEG 2|GT_LADDER' | sed 's/^/           > /' | head -3
         PASS=1
       fi
     else
@@ -6932,18 +7357,19 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
       _G25_C=$(bash "$0" repro-reach 2>&1); _G25_CRC=$?
       _selftest_revert documentation/GT_LADDER_FORMAT.md
       _G25_CN=$(printf '%s' "$_G25_C" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
-      if [ "$_G25_CN" = "$_G25_N" ] \
-         && ! printf '%s' "$_G25_C" | grep -qF 'documentation/GT_LADDER_FORMAT.md — 1 figure(s)' \
+      if [ "$_G25_CN" = "$_G25_CEXP" ] \
+         && ! printf '%s' "$_G25_C" | grep -qF 'documentation/GT_LADDER_FORMAT.md — ' \
          && [ "$_G25_CRC" -eq "$_G25_BASERC" ]; then
         echo "  [ok]   GATE 25 LEG 2 negative control: the SAME figure in the SAME file, beside a"
-        echo "         reproduction command, is not reported (count stays $_G25_N) — the note is"
-        echo "         driven by the ABSENCE of a command, not by the figure"
+        echo "         reproduction command, is not reported (file count $_G25_N -> $_G25_CN, the"
+        echo "         file leaves the list) — the note is driven by the ABSENCE of a command, not"
+        echo "         by the figure"
       else
         echo "  [FAIL] GATE 25 LEG 2 negative control — a file that DOES name a reproduction"
-        echo "         command was still reported (count $_G25_N -> $_G25_CN, rc"
-        echo "         $_G25_BASERC -> $_G25_CRC). LEG 2 is then a note on the corpus at large,"
-        echo "         which is how a report-only leg stops being read."
-        printf '%s\n' "$_G25_C" | grep -F 'LEG 2' | sed 's/^/           > /' | head -3
+        echo "         command was still reported (file count $_G25_N -> $_G25_CN, expected"
+        echo "         $_G25_CEXP; rc $_G25_BASERC -> $_G25_CRC). LEG 2 is then a note on the"
+        echo "         corpus at large, which is how a report-only leg stops being read."
+        printf '%s\n' "$_G25_C" | grep -E 'LEG 2|GT_LADDER' | sed 's/^/           > /' | head -3
         PASS=1
       fi
     else
@@ -7268,7 +7694,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 1,234,567 
   # ANCHOR-FREE ON THE REGISTRY SIDE: the row is APPENDED, and the planted sentence is its own
   # anchor, so neither half can go stale when the registry gains or loses rows. The planted
   # line is appended to documentation/GUIDE.md, which already carries the alias legitimately
-  # (an inline glossary token at :161 and an `allow literal` row) — so this case also shows the
+  # (an inline glossary token and an `allow literal` row) — so this case also shows the
   # ratchet firing in a file where the alias is NOT globally forbidden.
   assert_fires_why "GATE 18 ratchet: a new defect silenced by a new open row (the escalation)" \
     alias-reach '3 adjudicated-open SITE\(s\), budget 2' \
@@ -7443,6 +7869,9 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'## Self-test reader checklist'+chr
   _selftest_revert
   echo
   [ "$PASS" -eq 0 ] && echo "DOC GATES SELF-TEST: PASS" || echo "DOC GATES SELF-TEST: FAIL"
+  # Q-702 (2026-09-24, Fable K): a bare KEY=value verdict for `grep -qx`, so a pre-push leg can
+  # read the outcome without parsing the banner. Both lines are printed; the token is the contract.
+  [ "$PASS" -eq 0 ] && echo "DOC_GATES_SELFTEST=PASS" || echo "DOC_GATES_SELFTEST=FAIL"
   exit "$PASS"
 fi
 
@@ -7657,7 +8086,7 @@ gate_generated() {
   # ever removed. Sample the generator TWICE and treat a line identical in both samples as
   # deterministic, requiring the artifact to match those lines with digits intact. IT
   # PRODUCES FALSE FAILS ON CORRECT ARTIFACTS. Measured: `Min pair-constrained observed:`
-  # (roae.py:1355, `min(pair_totals)` over `random.random()` draws) read 192 in two
+  # (roae.py:1413, `min(pair_totals)` over `random.random()` draws) read 192 in two
   # consecutive runs and 189 in the shipped artifact; three further samples gave 193, 190,
   # 192. A min over a narrow discrete range repeats often, so two agreeing samples are not
   # evidence of determinism, and no number of samples turns that into a sound inference. The
@@ -7689,7 +8118,7 @@ gate_generated() {
   #
   # THE GROUP SEPARATOR IS PART OF THE NUMBER (fixed 2026-08-02, round 4).
   # The first version stripped [0-9] and nothing else, so roae.py's `f"{ratio:,}"`
-  # (roae.py:1400) left a bare comma behind whenever a Monte Carlo figure landed at
+  # (roae.py:1458) left a bare comma behind whenever a Monte Carlo figure landed at
   # >= 1000 on one side of the comparison and < 1000 on the other:
   #     artifact  "Approximately 1 in 476 random orderings share this property."
   #               -> "Approximately in random orderings share this property."
@@ -8199,6 +8628,78 @@ gate_appendonly_history() {
   # reaches 24 commits and 24 blobs. The one blob visible only with this fix, 2f14cc5f, contains
   # THREE lines absent from the current file — a live miss, not a constructible one.
   # Passing the remote refs to rev-list walks their history, and rev-list dedupes the overlap free.
+  #
+  # 🔴 Q-702 (2026-09-24, Fable K) — THE Q-283 SPLIT BELOW HAD RE-OPENED CASE (2). Its rule was
+  # "not an ancestor of HEAD -> MERGE GAP, reported, never failed". But a commit that is not an
+  # ancestor of HEAD is ALSO exactly what an amend/rebase leaves behind: the pre-rewrite commit
+  # on refs/remotes/origin/main is no ancestor of the rewritten HEAD, so the one baseline this
+  # half exists to hold (the header's "(ii) ... answers case (2)") was being reported as a merge
+  # gap and the gate exited 0. Measured on 5c296837 with the harness's own scratch fixture (iii):
+  # `[note] 1 line(s) exist in <orig> ... MERGE GAP ... Reported, not failed` then
+  # `[ok] every line of all 2 distinct historical/published version(s) survives`, rc 0 — the
+  # fire-proof "GATE 10b vs an AMEND that drops a PUBLISHED line" was RED for that reason.
+  #
+  # THE DISTINCTION THAT WAS MISSING is WHICH remote history holds the commit. Q-283's live case
+  # (blob 2f14cc5f on v4-query-program, 441 commits divergent) is on a branch this lineage never
+  # merged. The amend case is on THIS BRANCH'S OWN PUBLISHED HISTORY — what a push from here
+  # would land on. Resolved in this order (batch-2 pre-publication review item S3, 2026-09-24,
+  # Fable P; the first cut took `@{upstream}` unconditionally and was measured to hard-FAIL a
+  # legitimate layout, below):
+  #   1. `@{push}` — the push destination, which is what "a push from here" means. Under
+  #      push.default=simple (git's default) it resolves only when the upstream has the same
+  #      name as the branch; under push.default=upstream it resolves to the upstream, and a
+  #      FAIL there is then correct, because a push really would land on it.
+  #   2. the same-named branch under every remote (`refs/remotes/<remote>/<branch>`, which is
+  #      what the scratch fixture and a fresh `git clone` both have).
+  #   3. `@{upstream}`, ONLY when its short name (after the remote) equals the branch name.
+  # WHY NOT `@{upstream}` ALONE: `git checkout -b feat origin/main` (the default
+  # branch.autoSetupMerge) sets feat's upstream to refs/remotes/origin/main, for a branch that
+  # will never push to main — git itself refuses `@{push}` there ("cannot resolve 'simple' push
+  # to a single destination"). Measured on a scratch repo of that shape: once origin/main gained
+  # a ledger line after feat branched, the unconditional-upstream arm printed `published lineage
+  # of this branch: refs/remotes/origin/main` and hard-FAILED feat for a line nothing published
+  # could lose. That layout is a [note] (merge gap) now, and stays fire-proven in --selftest.
+  # A commit reachable from the resolved lineage's remote but not from HEAD is either a rewrite
+  # that dropped it or a local branch that is behind/diverged from what it publishes — and in
+  # both a push from here carries fewer published lines than the remote holds, which is the
+  # append-only violation. Hard FAIL, with its own sentence so the two readings are not
+  # conflated. Everything on OTHER remote branches keeps Q-283's [note].
+  # A detached HEAD, or a branch with none of the three, has no published lineage here; that is
+  # printed, not assumed, so a silent disarm is visible. THE PRE-PUSH HOOK RUNS `all` IN A
+  # DETACHED PER-SHA WORKTREE, so this arm is disarmed there and says so; it is armed in a
+  # developer's own checkout, where a manual run is what sees it.
+  local _g10b_up="" _g10b_ref _g10b_rest _g10b_br _g10b_how=""
+  _g10b_br=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  if _g10b_ref=$(git rev-parse --symbolic-full-name '@{push}' 2>/dev/null) && [ -n "$_g10b_ref" ]; then
+    _g10b_up="$_g10b_ref"; _g10b_how="@{push}"
+  elif [ -n "$_g10b_br" ]; then
+    for _g10b_ref in $(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null); do
+      _g10b_rest="${_g10b_ref#refs/remotes/}"
+      [ "${_g10b_rest#*/}" = "$_g10b_br" ] && _g10b_up="$_g10b_up $_g10b_ref"
+    done
+    _g10b_up="${_g10b_up# }"
+    if [ -n "$_g10b_up" ]; then
+      _g10b_how="same-named remote branch"
+    elif _g10b_ref=$(git rev-parse --symbolic-full-name '@{upstream}' 2>/dev/null) && [ -n "$_g10b_ref" ]; then
+      _g10b_rest="${_g10b_ref#refs/remotes/}"
+      if [ "${_g10b_rest#*/}" = "$_g10b_br" ]; then
+        _g10b_up="$_g10b_ref"; _g10b_how="@{upstream}, same short name"
+      fi
+    fi
+  fi
+  if [ -n "$_g10b_up" ]; then
+    echo "  published lineage of this branch: $_g10b_up [$_g10b_how] (a line there and not here is a hard FAIL)"
+  else
+    if [ -z "$_g10b_br" ]; then
+      echo "  [note] detached HEAD (the pre-push hook's per-sha worktree is one), so the"
+    else
+      echo "  [note] branch '$_g10b_br' has no @{push}, no same-named remote branch and no"
+      echo "         same-named upstream (an upstream of another name, e.g. origin/main under"
+      echo "         'git checkout -b $_g10b_br origin/main', is not a push destination), so the"
+    fi
+    echo "         rewritten-published-history arm has NO baseline here; other remote branches"
+    echo "         are still walked and reported as merge gaps."
+  fi
   for src in $(git rev-list HEAD $(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) \
                -- "$f" 2>/dev/null); do
     # 🔴 Q-283 finding 8, second half — a distinction the branch's fix does not draw and this tree
@@ -8211,7 +8712,23 @@ gate_appendonly_history() {
     # v4-query-program ONLY — 441 commits divergent. Its 3 lines were never removed from main; they
     # never arrived. Reporting that as "a line was lost" would blame the wrong act and leave a hard
     # gate permanently red for a merge decision the gate cannot make.
-    if git merge-base --is-ancestor "$src" HEAD 2>/dev/null; then _g10b_kind=ancestor; else _g10b_kind=unmerged; fi
+    if git merge-base --is-ancestor "$src" HEAD 2>/dev/null; then
+      _g10b_kind=ancestor
+    else
+      _g10b_kind=unmerged
+      for _g10b_ref in $_g10b_up; do
+        if git merge-base --is-ancestor "$src" "$_g10b_ref" 2>/dev/null; then
+          # PURELY BEHIND vs REWRITTEN/DIVERGED. If HEAD is itself an ancestor of that upstream,
+          # nothing was rewritten: the lines arrive with a fast-forward and a push from here is
+          # refused as non-fast-forward anyway. That is a [note] (measured: a `git fetch` that
+          # brought a ledger append would otherwise turn this gate red on an untouched tree).
+          # If HEAD and the upstream have DIVERGED, the published commit was rewritten past or
+          # a merge is pending that could drop it — the hard FAIL.
+          if git merge-base --is-ancestor HEAD "$_g10b_ref" 2>/dev/null; then _g10b_kind=behind; else _g10b_kind=published; fi
+          break
+        fi
+      done
+    fi
     blob=$(git rev-parse --quiet --verify "$src:$f" 2>/dev/null) || continue
     [ -n "$blob" ] || continue
     case " $seen " in *" $blob "*) continue;; esac
@@ -8251,6 +8768,26 @@ for line in sys.stdin:
         head -5 "$g10b_lostf" | cut -c1-140 | sed 's/^/           /'
         echo "         If an entry is wrong, APPEND an entry saying so. Both stay."
         bad=1
+      elif [ "${_g10b_kind:-ancestor}" = published ]; then
+        # Q-702: the commit is on THIS branch's published lineage and no longer an ancestor of
+        # HEAD. Either the local history was rewritten past it (amend/rebase/squash — case (2)
+        # of this gate's header) or this branch is behind/diverged from its own remote. In both,
+        # a push from here loses a PUBLISHED line. That is not a merge gap: it is the case the
+        # published-baseline half exists for.
+        echo "  [FAIL] $lost line(s) present in the PUBLISHED lineage of this branch — $src ($blob)"
+        echo "         — are absent from the working copy, and that commit is no longer an ancestor"
+        echo "         of HEAD. Either the history was REWRITTEN past it (amend/rebase/squash) or"
+        echo "         this branch is behind/diverged from what it publishes; either way a push"
+        echo "         from here carries fewer published lines than the remote holds."
+        head -5 "$g10b_lostf" | cut -c1-140 | sed 's/^/           /'
+        echo "         Restore the line (merge/rebase onto the remote, or re-add it); never force-push over it."
+        bad=1
+      elif [ "${_g10b_kind:-ancestor}" = behind ]; then
+        echo "  [note] $lost line(s) exist in $src ($blob) on this branch's published lineage, and this"
+        echo "         checkout is purely BEHIND it (HEAD is an ancestor of the upstream): nothing was"
+        echo "         rewritten, the lines arrive with a fast-forward, and a push from here is refused"
+        echo "         as non-fast-forward. Reported, not failed. Remedy: git pull --ff-only."
+        head -3 "$g10b_lostf" | cut -c1-140 | sed 's/^/           /'
       else
         # Q-283 finding 8: an UNMERGED branch commit. The content was never in this lineage, so it
         # was not lost — it never arrived. Reported, never a FAIL: the remedy is the merge (Q-77 /
@@ -8357,7 +8894,7 @@ gate_ledger_figures() {
   require_final_newline "$reg"  || bad=1
   require_final_newline "$open" || bad=1
   while IFS=$'\t' read -r fig note; do
-    case "$fig" in ''|'#'*) continue;; esac
+    reg_row_kind loud "$fig" "$note"; case $? in 0) continue;; 2) bad=1; continue;; esac   # Q-761
     n=$((n+1))
     key="RF-$(printf '%s' "$fig" | sha256sum | cut -c1-8)"
     why=''
@@ -8385,7 +8922,7 @@ gate_ledger_figures() {
   done < "$reg"
   if [ -f "$open" ]; then
     while IFS=$'\t' read -r fig note; do
-      case "$fig" in ''|'#'*) continue;; esac
+      reg_row_kind quiet "$fig" "$note"; [ $? -eq 1 ] || continue   # Q-761
       grep -qF -- "$(printf '%s\t' "$fig")" "$reg" || {
         echo "  [note] open-list row matches no registry row: \"$fig\""
         echo "         Either the figure was de-registered (delete the row) or the text drifted."; }
@@ -8419,7 +8956,8 @@ gate_ledger_phrases() {
   local bad=0 n=0 key
   require_final_newline "$reg" || bad=1
   while IFS=$'\t' read -r phrase allow note; do
-    case "$phrase" in ''|'#'*) continue;; esac
+    # Q-761: was `case "$phrase" in ''|'#'*) continue` — a needle starting with # got no RP line.
+    reg_row_kind loud "$phrase" "$allow" "$note"; case $? in 0) continue;; 2) bad=1; continue;; esac
     n=$((n+1))
     key="RP-$(printf '%s' "$phrase" | sha256sum | cut -c1-8)"
     if grep -qF -- "$key" "$f"; then
@@ -10912,7 +11450,7 @@ PY
 # at seeding time that string separated the naming defect from the legitimate
 # hypothetical/finite-complete senses ("under true exhaustive enumeration…",
 # "exhaustive enumeration of all 2^27") with zero curated rows. Residuals of that
-# narrowing (article-less naming uses: TR-11:45, CITATIONS.md:995) are stated in the
+# narrowing (article-less naming uses: TR-11:45, CITATIONS.md:995 at 05a8d815, since removed) are stated in the
 # registry header rather than left to be rediscovered.
 #
 # ORDER OF CHECKS IS LOAD-BEARING: token → open → allow → FAIL. `open` is checked
@@ -11836,8 +12374,8 @@ gate_script_paths() {
 # `a09280fc` NEAR at 7, `a0928cfb8` DANGLE at 5, `b09280fb8` DANGLE at 1).
 #
 # SCOPE — three limits.
-#   * TOKEN LENGTH 7-63, not the 7-16 originally specified. HISTORY.md:4758 and
-#     :4760 cite `0c0fe37cf449cbc6e275...` at 20 nibbles, and a 16-cap would
+#   * TOKEN LENGTH 7-63, not the 7-16 originally specified. HISTORY.md:4804 and
+#     :4806 cite `0c0fe37cf449cbc6e275...` at 20 nibbles, and a 16-cap would
 #     have skipped both without saying so. 64 is excluded: that is a full-length
 #     string, not a prefix of one.
 #   * THE UNIVERSE IS HEAD, plus tracked files that DIFFER from HEAD. HEAD alone
@@ -11857,21 +12395,21 @@ gate_hex_prefix() {
   # already defines an allow() inside gate_script_paths.
   hex_allow() { case "$1" in
     e31ef86a|c247b9f9|467025fe)
-      echo "declared narrative run identifier — HISTORY.md:2269-2272 states no 64-hex expansion exists";;
+      echo "declared narrative run identifier — HISTORY.md:2299-2302 states no 64-hex expansion exists";;
     0004080c|00040a0c)
-      echo "not a sha: the head of an elided 32-byte solution RECORD (HISTORY.md:2242-2243)";;
+      echo "not a sha: the head of an elided 32-byte solution RECORD (HISTORY.md:2268-2269)";;
     325025987)
-      echo "not hex: the tail of the decimal x23.325025987... (DESCRIPTION_LENGTH.md:54)";;
+      echo "not hex: the tail of the decimal x23.325025987... (DESCRIPTION_LENGTH.md:74)";;
     d63bb25c)
-      echo "not a sha256: an ext4 filesystem UUID (HISTORY.md:1881)";;
+      echo "not a sha256: an ext4 filesystem UUID (HISTORY.md:1907)";;
     43745021|5f9dcb7d)
       echo "not a sha256: the two ext4 filesystem UUIDs from the 2026-09-19 non-tty mkfs reproduction, quoted in CLAUDE.md §Disk-handling safety rule 1 to show a live ext4 was silently reformatted WITHOUT -F — same class as d63bb25c above";;
     5640d0cd)
       echo "a SUPERSEDED artifact digest, quoted in the very record that replaced it — CORRECTIONS.md CX-55 cites the pre-regeneration PNG sha to prove the post-cure change was the edit and not renderer drift, so by construction no 64-nibble expansion survives in the tree. Same shape as d63bb25c above: a real hex string that is not a live sha";;
     5450b53e)
-      echo "not a sha256: the mathlib git revision pinned by lake-manifest.json (lean/README.md:434)";;
+      echo "not a sha256: the mathlib git revision pinned by lake-manifest.json (lean/README.md:647)";;
     df3d92ba)
-      echo "not a real sha: the head of the elided trailing 56 characters of the HALLUCINATED phantom 11.2T value, which HISTORY.md:4758 states correspond to no artifact anywhere";;
+      echo "not a real sha: the head of the elided trailing 56 characters of the HALLUCINATED phantom 11.2T value, which HISTORY.md:4804 states correspond to no artifact anywhere";;
     0d10944dda|10aa1f84|163a7660|188ce945|1ce20ff3|2954b271|2db60543|4ad70a0f|4ad70a0fb9|4f1cd8b3|76ada31e|86a74da5|8c35a854|95c2f8f0|98b8c0ef|9ab1cd08|b415c8ec|b82a2f48|daab1c48|e353086e|e5cfc6cd|f6b554ea|fc1e921e|fe98e58a)
       echo "sha256 of a build artifact / intermediate run / --selftest output, published only in truncated form";;
     *) echo "";; esac; }
@@ -12040,7 +12578,7 @@ gate_scratch_examples() {
     f=${h%%:*}; ln=$(printf '%s' "$h" | cut -d: -f2)
     # 🔴 STRIP THE file:line: PREFIX BEFORE EXTRACTING THE NUMBER. The first cut of this leg
     # ran the digit regex over the whole grep -n line, so it captured the LINE NUMBER as the
-    # example value and reported "SOLVE_C_CLI.md:1779 says 1779". Caught on the first real run
+    # example value and reported "SOLVE_C_CLI.md:<N> says <N>" (N = the grep line number itself, 1779 in that run). Caught on the first real run
     # rather than by reading, which is the only reason it is not in the corpus now.
     local body; body=$(printf '%s' "$h" | cut -d: -f3-)
     val=$(printf '%s' "$body" | grep -oE "[0-9]{3,6}" | head -1)
@@ -12775,7 +13313,7 @@ docs = "\n".join(texts)
 # 🔴 HYPHENATED NAMES WERE UNDOCUMENTABLE BY CONSTRUCTION (fixed 2026-09-08).
 # This vocabulary was [A-Za-z_][A-Za-z0-9_]* , which can never yield a token containing a
 # hyphen. So header.json seed-purpose keys "bank-calibration" and "timing-probe" -- both
-# named VERBATIM at documentation/SOLVE_PY_CLI.md:349 -- could not be cleared by any amount
+# named VERBATIM at documentation/SOLVE_PY_CLI.md:359 -- could not be cleared by any amount
 # of writing, and sat OPEN as "undocumented". An instrument that cannot register a real fix
 # sends the next reader to write prose that changes nothing. The second pattern adds the
 # hyphen- and slash-separated compounds; it only ADDS to the vocabulary, so it can move a
@@ -13711,7 +14249,7 @@ PY
 # WHY A NARRATION REGISTRY, NOT A PURE SCANNER. Two legitimate cases name a flag that
 # does not exist, and both are CORRECT documentation:
 #   (a) a correction must name the command it corrects;
-#   (b) a doc may document NON-existence to warn readers away — SOLVE_C_CLI.md:387
+#   (b) a doc may document NON-existence to warn readers away — SOLVE_C_CLI.md:738
 #       reads "`solve --extended-selftest` is not dispatched by the binary".
 # This is the same legitimate-restatement problem GATE 3b solved for retracted figures,
 # and it is handled the same way GATE 21 handles unresolvable script paths: resolve, OR
@@ -13749,8 +14287,10 @@ PY
 # revert is this gate's line in the `all` dispatch arm and the two banner lines that name it.
 gate_repro_reach() {
   echo "== GATE 25: every documented reproduction command resolves to a real flag =="
-  python3 - <<'PY'
-import bisect, glob, re, sys
+  # Q-703 (2026-09-24, Fable K): the population is the script's own $DOCS (git ls-files '*.md'),
+  # passed in by environment because the heredoc is quoted. See the `docs =` note below.
+  DOC_GATES_DOCS="$DOCS" python3 - <<'PY'
+import bisect, os, re, sys
 
 TOOLS = {"verify.py": "verify.py", "solve.py": "solve.py", "sat.py": "sat.py",
          "roae.py": "roae.py", "solve": "solve.c", "verify": "verify.c"}
@@ -13763,7 +14303,7 @@ NARRATION = {
     ("solve", "--branch-yield-report"):   "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
     ("solve", "--constraint-spec"):       "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
     ("solve.py", "--compare-leaf-rates"): "removed subcommand, cited in DEVELOPMENT/HISTORY",
-    ("solve", "--extended-selftest"):     "documented NON-existence; SOLVE_C_CLI.md:387 warns readers away",
+    ("solve", "--extended-selftest"):     "documented NON-existence; SOLVE_C_CLI.md:738 warns readers away",
     ("solve", "--kc-repr-normalize"):     "documented NON-existence (case b); lives on an UNLANDED v4 branch that BRANCH_REGISTRY marks snapshot-do-not-cite. VERIFY.md carries a NOT-AVAILABLE box, and both invocation-form cite sites were given an inline warning 2026-08-16 so a reader entering the file at either one cannot be misled. Retire this row if the branch lands.",
 }
 
@@ -13834,7 +14374,7 @@ def _command_flags(text, at):
 # not claiming. LEG 1 could not tell "run this" from "we should build this", so it fired on
 # four PROJECT_OVERVIEW/SOLVE/SOLVE_SUMMARY/SPECIFICATION sites whose own sentence disclaims
 # the figure the flag would reproduce ("the outstanding fix is a `solve.py --extraction-null`
-# mode") and on CORRECTIONS.md:4659 ("It is queued to the code lane ... and a
+# mode") and on CORRECTIONS.md:4684 ("It is queued to the code lane ... and a
 # `verify.py --twins-bisect` flag"). Every one is the project being scrupulous about what does
 # NOT exist. A gate that gets louder the more honestly the corpus describes its own gaps has
 # the wrong gradient — this file's GATE 7 header records rewording the corpus to satisfy an
@@ -13842,7 +14382,7 @@ def _command_flags(text, at):
 #
 # 🔴 SCOPE WAS CHOSEN BY MEASUREMENT, AND THE FIRST TWO CANDIDATES WERE BOTH REFUTED.
 #   * SAME-LINE (the scope ced18ec9 landed for GATE 7) is INSUFFICIENT here: it clears all four
-#     --extraction-null sites and MISSES CORRECTIONS.md:4659, where the marker "is queued to the
+#     --extraction-null sites and MISSES CORRECTIONS.md:4684, where the marker "is queued to the
 #     code lane" ends line 4658 and the invocation opens 4659. Markdown hard-wrap, not a
 #     coincidence of adjacency — it is one sentence.
 #   * WHOLE-SENTENCE (bounded only by terminators and blank lines) is far WORSE than the ±4/+3
@@ -13880,7 +14420,39 @@ def _command_flags(text, at):
 # 'would be', 'planned' — each matches ordinary prose far more often than it matches a proposal.
 #
 # WAIVERS ARE PRINTED, not merely counted: a proposal that is never built must stay visible.
-PROPOSAL = ['queued', 'outstanding fix', 'not yet implemented']
+PROPOSAL = ['queued', 'outstanding fix', 'not yet implemented', 'pending flag', 'pending --']
+# 'pending flag' and 'pending --' (Q-703, 2026-09-24, Fable K; NARROWED the same day by the batch-2
+# pre-publication review, item S2, Fable P) are the two forms the viz/ pages use for a flag they
+# PROPOSE: "### PENDING flag (proposed name — TR-12 §8 should pin it before it is built)" as a
+# fence caption, and "# 1. the grid  (PENDING --kc-unrank-grid)" on the line before the command.
+# 🔴 THE BARE MARKER 'pending' SHIPPED FIRST AND FAILED OPEN, MEASURED: against a lower-cased
+# sentence scope and (new in Q-703) a lower-cased fence caption, "Results are pending review:"
+# above a fence and "(the pending rerun)" in a sentence each waived a MISSPELT flag as a [prop]
+# line, rc 0 — 'pending' is on 317 lines of 51 files at 5c296837, and "a marker is consulted
+# only for a flag that failed to resolve" bounds how OFTEN it fires, not WHAT it waives. The
+# two-word forms are what the corpus actually writes for a proposal; the real corpus still
+# yields exactly the same 2 [prop] waivers (`solve --kc-unrank-grid`, viz/viz_kc_spectrum.md:81
+# caption, :232 sentence), and the two probes above now FAIL. Fire-proven in --selftest
+# ("GATE 25 (S2) ordinary 'pending' prose does not waive"). Every waiver granted is printed as
+# a [prop] line, never silently counted.
+
+def _fence_caption(lines, i):
+    """Q-703. When lines[i] sits INSIDE a fenced code block, the block's caption: the nearest
+    non-blank line above the OPENING fence, lower-cased. A synopsis block is labelled by the
+    heading or sentence that introduces it, not by a sentence of its own — the sentence scope
+    above sees only the fence line. Returns '' when lines[i] is not inside a fence, so this
+    never widens the scope of a command written in prose."""
+    inside, opening = False, -1
+    for j in range(i):
+        if lines[j].lstrip().startswith(("```", "~~~")):
+            inside = not inside
+            opening = j
+    if not inside:
+        return ''
+    k = opening - 1
+    while k >= 0 and not lines[k].strip():
+        k -= 1
+    return lines[k].lower() if k >= 0 else ''
 
 def _proposal_scope(lines, i, col):
     """The sentence containing column `col` of lines[i], reconstructed across at most one
@@ -13957,11 +14529,20 @@ for tool, src in sorted(TOOLS.items()):
             in_code.add(_m.group(1) or _m.group(2))
     comment_only[tool] = have[tool] - in_code
 
-docs = sorted(set(glob.glob("documentation/*.md") + glob.glob("reports/*.md")
-                  + glob.glob("*.md") + glob.glob("reports/**/*.md", recursive=True)))
+# 🔴 Q-703 (2026-09-24, Fable K). This was a HAND-WRITTEN glob list — documentation/*.md,
+# reports/*.md, *.md, reports/**/*.md — and it never scanned viz/ (10 pages, 37 tool invocations
+# with flags), lean/README.md, example/*.md or scripts/**/*.md. Measured at 5c296837 in a scratch
+# clone: shipped 83 docs / 1,418 flag uses / [ok]; the same gate over $DOCS 97 docs / 1,500 uses /
+# `[FAIL] solve --kc-unrank-grid — not a flag of solve.c` (viz/viz_kc_spectrum.md). The population
+# is now the script's $DOCS, the same `git ls-files '*.md'` every other gate reads, so a new
+# directory of markdown is in scope the day it is tracked. The count is printed as a bare token
+# so a pre-push log can be grepped for the population that was actually scanned.
+docs = sorted(set(l for l in os.environ.get("DOC_GATES_DOCS", "").split("\n") if l.strip()))
 if not docs:
-    print("  [FAIL] zero docs scanned — vacuous, treated as failure.")
+    print("  [FAIL] zero docs scanned — vacuous, treated as failure (DOC_GATES_DOCS was empty;"
+          " the script's own DOCS guard should have refused before this point).")
     sys.exit(1)
+print("GATE25_POPULATION_FROM_DOCS=%d" % len(docs))
 
 total = waived = 0
 proposals = []
@@ -13994,10 +14575,16 @@ for d in docs:
             if scope is None:
                 scope = _proposal_scope(lines, i, m.start() - offs[i])
             hit = [k for k in PROPOSAL if k in scope]
+            where = 'sentence'
+            if not hit:
+                # Q-703: a command inside a fenced block is labelled by the block's caption.
+                cap = _fence_caption(lines, i)
+                hit = [k for k in PROPOSAL if k in cap] if cap else []
+                where = 'fence caption'
             if hit:
                 # PER-SITE, not per-flag: the same flag proposed in one doc and asserted as
                 # runnable in another must still FAIL at the second site.
-                proposals.append((d, i + 1, tool, fl, hit[0]))
+                proposals.append((d, i + 1, tool, fl, hit[0], where))
                 continue
             bad.setdefault((tool, fl), set()).add(d)
 
@@ -14008,9 +14595,9 @@ if not total:
 print("  scanned %d docs, %d documented command-flag use(s), %d declared-narration waiver(s),"
       " %d proposal-marker waiver(s), %d flag(s) witnessed ONLY by a source comment"
       % (len(docs), total, waived, len(proposals), len(cited_comment_only)))
-for (d, ln, tool, fl, kw) in sorted(proposals):
-    print("  [prop] %s %s — %s:%d names it as a PROPOSAL (%r), not as a runnable command"
-          % (tool, fl, d, ln, kw))
+for (d, ln, tool, fl, kw, where) in sorted(proposals):
+    print("  [prop] %s %s — %s:%d names it as a PROPOSAL (%r in the %s), not as a runnable command"
+          % (tool, fl, d, ln, kw, where))
 for (tool, fl), ds in sorted(cited_comment_only.items()):
     print("  [FAIL] %s %s — its ONLY quoted occurrence in %s is on a comment line, so the"
           % (tool, fl, TOOLS[tool]))
@@ -14206,8 +14793,8 @@ PY
 #
 # WHY THIS GATE AND NOT ANOTHER SWEEP. The "≈3×10³⁷ distinct canonical orderings" figure was
 # withdrawn on 2026-08-24 by enumerating nineteen sites that matched the STRING. Four days later,
-# building this gate found the same figure still live at five more (`enumeration/LEADERBOARD.md:3`
-# and `:170`, `documentation/SOLVE_SUMMARY.md:178` and `:211`, `documentation/CITATIONS.md:97`) and
+# building this gate found the same figure still live at five more (`enumeration/LEADERBOARD.md:3@db4ac3dc`
+# and `:170@db4ac3dc`, `documentation/SOLVE_SUMMARY.md:178@db4ac3dc` and `:211`, `documentation/CITATIONS.md:97@db4ac3dc`) and
 # the same DEFECT live at five per-branch sites written as `10³⁶`. None of the ten matched a search
 # for `3.3×10³⁷`, because a decomposition (`10³⁶` per branch), a restatement ("valid arrangements")
 # and a hyphenation (`distinct-canonical`) are not the string. A sweep keyed on a figure cannot find
@@ -14257,11 +14844,11 @@ PY
 #
 # 🔴 WHY NOT THE REGEX THAT WAS PRESCRIBED. The adjudicated form was the bare
 # `\d(?:\.\d+)?[eE]\+?\d+`. It was PLANT-TESTED BEFORE BEING ADOPTED, and it is unusable:
-# run over the corpus with every one of LEG 1's other filters applied, it fires on EIGHT sha256
+# run over the corpus (at fcd9feab) with every one of LEG 1's other filters applied, it fires on EIGHT sha256
 # fragments in five files and on nothing else —
-#   documentation/HISTORY.md:2014 (`…df2495e7999315afc…` -> 5e7999315),  :2268, :4784, :4786, :4808,
-#   documentation/PERFORMANCE_HISTORY.md:424 (`2cc966e48399841e…` -> 6e48399841),
-#   documentation/PROJECT_OVERVIEW.md:109, runs/20260419_100T_d3_d128westus3/README.md:3
+#   documentation/HISTORY.md:2014@fcd9feab (`…df2495e7999315afc…` -> 5e7999315),  :2268, :4784, :4786, :4808,
+#   documentation/PERFORMANCE_HISTORY.md:424@fcd9feab (`2cc966e48399841e…` -> 6e48399841),
+#   documentation/PROJECT_OVERVIEW.md:109@fcd9feab, runs/20260419_100T_d3_d128westus3/README.md:3@fcd9feab
 # — because a hex digest contains `e` between digits, and `9a968fa21f74e36ad…` therefore reads as
 # 4×10³⁶. Eight false positives and zero true ones is the always-fires failure this gate's own
 # charter (above) was written to refuse; it would be switched off within a day.
@@ -14484,7 +15071,7 @@ for f in files:
     try: lines=io.open(f,encoding="utf-8").read().splitlines()
     except OSError as e: print("READFAIL\t%s\t%s"%(f,e)); n+=1; continue
     # 🔴 PARAGRAPH WINDOW, not a single line. Measured 2026-08-28 while building this gate: a
-    # line-level rule flagged reports/TR4:72 and DISTRIBUTIONAL_ANALYSIS.md:360, both of which
+    # line-level rule flagged reports/TR4:72 and DISTRIBUTIONAL_ANALYSIS.md:587, both of which
     # ARE correctly marked -- TR4 carries the figures on one line and its marker on the next
     # (wrapped prose), and DISTRIBUTIONAL holds "null P = 0.034" INSIDE the quoted text of its own
     # correction marker. Flagging correctly-marked prose is the always-fires failure that gets a
@@ -14568,7 +15155,7 @@ print("COUNT\t%d"%n)
 
 gate_framing_era() {
   echo "== GATE 28: a published sha256sum recipe that ignores the gz-framing era =="
-  # Q-346. DEPLOYMENT.md:910 published `sha256sum -c sub_<branch>.sha256` as THE archive
+  # Q-346. DEPLOYMENT.md:910@cbf818c4 published `sha256sum -c sub_<branch>.sha256` as THE archive
   # verification recipe. Since #169 (d8671550, 2026-06-17) shards are gz-framed by default and
   # the .sha256 sidecar holds the LOGICAL (decompressed) sha, so that command hashes the gzip
   # CONTAINER and prints FAILED on a byte-correct artifact. Measured 2026-08-29 with the shipped
@@ -14688,7 +15275,7 @@ if not files:
     print("ERROR\tgit ls-files matched no reports"); raise SystemExit(0)
 # Directive shapes: modal-about-the-document, and meta-nouns naming a part as a thing to produce.
 # 🔴 `can be written` ALONE IS TOO BROAD, and the gate's own first run proved it: it flagged
-# METHODS.md:105, "it can be written as 'positions/values match King Wen's'" — a MATHEMATICAL
+# METHODS.md:131, "it can be written as 'positions/values match King Wen's'" — a MATHEMATICAL
 # can-be-expressed-as, not an instruction to an author. The discriminating feature of the real
 # defect is that the modal is applied to a DOCUMENT PART: "section 2 can be written so that...".
 # So the pattern is anchored to a section reference. This is the same lesson the CNKI passes paid
@@ -14789,7 +15376,7 @@ PY
 #   END of the match, not its start: the claim shapes below often begin OUTSIDE the quotation
 #   and end inside it (`called the k = 1 gain "the maximum by construction"`), and testing the
 #   start read that as unquoted. Measured - it was this gate's first false positive, at
-#   reports/TR4_SIZE_OF_THE_SPACE.md:345. A retracted
+#   reports/TR4_SIZE_OF_THE_SPACE.md:433. A retracted
 #   phrase QUOTED by the correction that retired it is narration, not assertion, and
 #   exempting it is what stops these gates firing on their own fixes. Measured: without
 #   it, GATE 30 fails on documentation/CORRECTIONS.md:4496-4497 and GATE 31 on :4121,
@@ -14937,8 +15524,8 @@ PY
 #   * TR4:280 - "deriving one requires the maximum single-boundary information gain over
 #     *all* boundaries and *all* conditioning contexts" is exactly RIGHT and needs no
 #     "unconditional"; it is already quantified over contexts. Hence the `supremum` exemption.
-#   * CORRECTIONS.md:4121 - the ledger QUOTING the retired sentence. Hence `quoted`.
-#   * HISTORY.md:5892 - narrates the divisor without attributing it to a first/greedy step.
+#   * CORRECTIONS.md:4146-4147 - the ledger QUOTING the retired sentence. Hence `quoted`.
+#   * HISTORY.md:5942 - narrates the divisor without attributing it to a first/greedy step.
 #     Hence the requirement that the sentence attribute the maximum to the first/greedy gain.
 # A gate that fired on any of these would be the self-defeating shape this suite keeps
 # catching: a rule red on the correction that fixed the thing it hunts.
@@ -14947,7 +15534,7 @@ PY
 #   LEG 1: changed TR4:302's list entry 11.10 -> 9.10, so the published max became 10.38
 #          while the divisor sentence still says 11.10. Gate [FAIL] on the divisor
 #          mismatch AND on the cross-file list disagreement. Restored; [ok].
-#   LEG 2: deleted the word "unconditional" from SEARCH_SPACE_SIZE.md:245. Gate [FAIL]
+#   LEG 2: deleted the word "unconditional" from SEARCH_SPACE_SIZE.md:278. Gate [FAIL]
 #          naming that line. Restored; [ok].
 gate_sk_gains() {
   echo "== GATE 31: the S(k) marginal-gain maximum, its divisor, and its qualifier =="
@@ -15069,7 +15656,7 @@ PY
 # cannot see is a future defect written without any of that vocabulary; recorded, not hidden.
 #
 # RED TESTS (2026-09-02, scratch clone), one per leg:
-#   FACT: changed documentation/SOLUTIONS_FORMAT.md:226 `3·5·7·2^14` -> `3·5·7·2^15`.
+#   FACT: changed documentation/SOLUTIONS_FORMAT.md:240 `3·5·7·2^14` -> `3·5·7·2^15`.
 #         Gate [FAIL]: factorization evaluates to 3,440,640, which the sentence does not state.
 #   SUM:  changed documentation/SOLVE.md:683 `983,040 reversed` -> `983,041 reversed`.
 #         Gate [FAIL]: 1,720,320 + 983,041 is stated nowhere in that sentence.
@@ -15095,7 +15682,7 @@ FACT = re.compile(r'(?<![\d.])(\d+(?:[·*]\d+)+(?:\^\d+)?)(?![\d.])')
 # 3,686,400 at three sites. The operands are therefore taken as the NEAREST grouped
 # integer either side of the '+', which is what a reader takes them as.
 # The '+' must be a BINARY operator: whitespace on both sides. Measured on this gate's
-# second run - reports/TR1_EIGHT_CENTURIES_MEASURED.md:526 writes "2,703,360 vectors
+# second run - reports/TR1_EIGHT_CENTURIES_MEASURED.md:422 writes "2,703,360 vectors
 # (+983,040 reversed-opening)", where the '+' is a SIGN on an annotation, not an
 # addition, and reading it as one failed the gate on correct prose.
 PLUS = re.compile(r'(?<=\s)\+\s(\d{1,3}(?:,\d{3})+)')
@@ -15203,7 +15790,7 @@ PY
 # precise enough to miss it. This gate flattens (so it sees the twin) and then asks
 # whether the same sentence carries a temporal or category qualifier (so it passes it).
 # MEASURED at authoring time: 7 occurrences, 0 unqualified. One match itself spans a wrap
-# (documentation/CITATIONS.md:1362-1363, "strongest measured literature / discriminator")
+# (documentation/CITATIONS.md:1976-1977, "strongest measured literature / discriminator")
 # and at that same site the QUALIFIER "at the time of the SAT work" is on the following
 # source line again — so both the needle and its exemption are line-based-invisible there.
 #
@@ -15215,9 +15802,9 @@ PY
 #
 # RED TEST (2026-09-02, scratch clone): deleted "at the time of the SAT work (×11,364),
 # later exceeded by the data-like S25-28 configuration at ×5×10⁷" from
-# reports/TR6_PARITY_SKELETON.md:120-121, restoring the pre-P37 bare superlative. Gate
+# reports/TR6_PARITY_SKELETON.md:132-133, restoring the pre-P37 bare superlative. Gate
 # [FAIL] naming that line. Restored; [ok]. A second red test confirmed the wrap case:
-# deleted the qualifier from documentation/CITATIONS.md:1362-1363, where the superlative
+# deleted the qualifier from documentation/CITATIONS.md:1976-1977, where the superlative
 # and its qualifier sit on DIFFERENT source lines - gate [FAIL], as flattening requires.
 gate_superlative() {
   echo "== GATE 33: a 'strongest measured discriminator' with no qualifier =="
@@ -15368,7 +15955,7 @@ PY
 # corpus-wide coverage of the status-word class, and no banner here says it is.
 #
 # RED TEST (2026-09-02, scratch clone): restored the pre-P34 wording at
-# reports/TR4_SIZE_OF_THE_SPACE.md:296, twelve lines above the Update heading —
+# reports/TR4_SIZE_OF_THE_SPACE.md:361, just above the 2026-07-05 Update heading —
 # "sharpens further when S(6..8) land". Gate [FAIL] naming that line and the heading it
 # contradicts. Restored; [ok]. Closure red test: renamed the heading to "### Later work",
 # and the gate went [FAIL] ERROR (population 0) rather than reporting clean.
@@ -15607,7 +16194,7 @@ PY
 # gate is measuring nothing", rc 1 — an ERROR, not a pass.
 #
 # RED TEST (2026-09-02, measured, both directions, on a full copy of the corpus):
-#   BEFORE README.md's fix -> [FAIL] README.md:240 0.78% with +-0.01 bits, rc 1, exactly one HIT.
+#   BEFORE README.md's fix -> [FAIL] README.md:<line> 0.78% with +-0.01 bits (line 240 of that day's working tree), rc 1, exactly one HIT.
 #   AFTER  README.md's fix -> [ok], rc 0, with the candidate and exemption census unchanged.
 #   MUTANT (the charge's own rule, i.e. compare against the 95% conversion instead of the
 #     1-sigma one) -> fires on documentation/DESCRIPTION_LENGTH.md and reports/TR9... , the two
@@ -15830,31 +16417,31 @@ PY
 #   filename regex extracts `_unsat.drat` from that and checks NOTHING, so the one site
 #   the leg exists for is invisible to it — measured: without expansion the four real names
 #   never enter the population. One brace group per line is expanded before matching.
-#   EXEMPT: command metavariables (`OUT.cnf.drat` at SAT_CLI.md:234 — a template, not a
+#   EXEMPT: command metavariables (`OUT.cnf.drat` at SAT_CLI.md:413 — a template, not a
 #   claim). Declared as an ALL-CAPS stem segment, and counted.
 #
 # LEG 2 `four-five-labels` (row 2) — `grander-strict` is the FIVE-rule union and
-#   `grand-ccn4` the FOUR-rule conflict theorem. THE DEFECT: CLAIM_TO_ARTIFACT.md:34 mapped
+#   `grand-ccn4` the FOUR-rule conflict theorem. THE DEFECT: CLAIM_TO_ARTIFACT.md:38 mapped
 #   "The four literature rules are jointly unsatisfiable" to `grander_strict_unsat.drat.gz`
 #   — a different formula (7249v/271066c vs 7035v/262093c), and UNSAT(F∧ccn8) does not
-#   imply UNSAT(F). SAT_CLI.md:253 inverted the same pair.
+#   imply UNSAT(F). SAT_CLI.md:253@b9f0fd2c inverted the same pair.
 #   🔴 IDENTIFIER MASKING IS LOAD-BEARING AND WAS MEASURED. The ruleset and certificate
 #   names CONTAIN the words: `five_loo_ccn8_unsat.drat.gz`, `five-loo-ccn8`, `five-sub-…`.
-#   certificates/README.md:98 reads "five_loo_ccn8_unsat.drat.gz | … (= grand-ccn4): still
+#   certificates/README.md:131 reads "five_loo_ccn8_unsat.drat.gz | … (= grand-ccn4): still
 #   UNSAT" — a CORRECT line that a bare `grand-ccn4` AND `five` needle fails. So identifier-
 #   embedded four/five and code spans are masked before the PROSE words are read, while the
 #   ruleset detection runs on the raw line. A line naming BOTH rulesets is exempt: that is
 #   the "four- / five-rule conflict decisions" row, which is how the pair is stated correctly.
 #
 # LEG 3 `se-claims-have-se` (row 5) — a sentence claiming standard errors for a named
-#   evidence file must be true of that file. THE DEFECT: CLAIM_TO_ARTIFACT.md:37 asserted
+#   evidence file must be true of that file. THE DEFECT: CLAIM_TO_ARTIFACT.md:41 asserted
 #   "masses now carry SEs" while naming `reports/evidence/dav_tier1.out`, which contains
 #   ZERO `se=` fields (the delta-method emission landed 2026-08-28; the archived run is
 #   2026-07-04). METHODS.md itself disclosed the gap the matrix row denied.
 #
 # LEG 4 the 26,112/`canonical` pair leg (row 3b) — the n-ladder integers 26,112 /
 #   2,063,395,607,040 / 267,765,117,419,520 are ORIENTATION-EXPLICIT sequence counts.
-#   THE DEFECT: CLAIM_TO_ARTIFACT.md:41 called 26,112 the "n=9 **canonical** count", and in
+#   THE DEFECT: CLAIM_TO_ARTIFACT.md:45 called 26,112 the "n=9 **canonical** count", and in
 #   this repository "canonical" records collapse orientation (SOLUTIONS_FORMAT.md), so the
 #   adjective states a different quantity. TR-11 v1.13 exists because the same conflation
 #   was already caught once at the report level.
@@ -15950,7 +16537,7 @@ for f in corpus():
         if h4 and h5:
             exb += 1
             continue          # states the pair — the correct form
-        # The append-only ledger QUOTES the labels it retired: CORRECTIONS.md:7080 reads
+        # The append-only ledger QUOTES the labels it retired: CORRECTIONS.md:7105 reads
         # 'Three sites nevertheless called the four-rule decision "five": the `grand-ccn4`
         # docstring …'. Failing a correction for naming the wording it withdrew is the
         # disclosure-penalising shape; a withdrawal has to quote what it withdrew, and the
@@ -16084,7 +16671,7 @@ PY
 #
 # QUEUED AS: PROSE_LANE_FOLLOWUPS.md, prose batch P30 / Codex V2-F30 #6 — "any line citing
 # `--mutual-info` must disambiguate" which of the two statistics it means.
-# THE DEFECT (152c986c): MCKENNA.md:107 read "`--mutual-info` shows near-zero mutual
+# THE DEFECT (152c986c): MCKENNA.md:107@152c986c read "`--mutual-info` shows near-zero mutual
 # information between upper and lower trigram **transitions**" and then explained that
 # value with the complete Latin square. The analysis prints TWO figures and the explanation
 # belongs to the other one: the TRANSITION MI (changed/unchanged indicators across the 63
@@ -16163,7 +16750,7 @@ PY
 # non-invariant subset, which is exactly the error the "all-cells orbit test" wording made.
 #
 # 🔴 THE ONE CANDIDATE IN THE CORPUS IS THE LEDGER QUOTING ITSELF, and it is exempted by
-# CONTENT rather than by filename: CORRECTIONS.md:3976 carries the retired wording inside
+# CONTENT rather than by filename: CORRECTIONS.md:4001 carries the retired wording inside
 # its own **BEFORE.** quotation, on a line that also says "measures 41.2% of the cells".
 # The 41.2%/productive/158,364 vocabulary is what makes the sentence correct, so the same
 # test that clears the correction is the test the corrected prose has to pass — no
@@ -16185,7 +16772,7 @@ ALL = re.compile(r'all[- ]cells|entire space|whole space|all the cells|every cel
 # What makes such a sentence true: it names the AMBIENT count or the fraction, or states
 # the non-closure. 🔴 `productive` AND `yield` WERE REMOVED AFTER A FAILED RED TEST, for
 # the same reason GATE 38's restriction moved off sentence scope. The retired wording at
-# SYMMETRY_SEARCH.md:177 reads "**All-cells orbit test:** the 65,281 **productive** 560T
+# SYMMETRY_SEARCH.md:177@b7ac534a reads "**All-cells orbit test:** the 65,281 **productive** 560T
 # cells partition into 4,183 G-orbits … orbit-equal … across the entire space." The word
 # `productive` is in its PREMISE; the defect is the conclusion generalising to the whole
 # space from a subset that is 41.2% of it and not G-closed. With `productive` in this
@@ -16284,9 +16871,9 @@ NARR = re.compile(r'published as measured|was published as|BEFORE\.|Registered a
 REV  = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
 # 🔴 CONTIGUOUS-BLOCK SCOPE, AND A LINE-SCOPE DRAFT WAS MEASURED FAILING BOTH ITS OWN
 # SITES. The marker sits on the NEXT physical line at both places it matters:
-# TR-4:133 ends "…reported roughly ×15–17 per boundary — but ⚠ **that" and :134 opens
-# "band is not reproducible from published material"; report_figures.py:141 is the bracket
-# comment and :142 the "ILLUSTRATIVE, not measured" one. A line-scope needle reports two
+# TR-4:174 ends "…reported roughly ×15–17 per boundary — but ⚠ **that" and :175 opens
+# "band is not reproducible from published material"; report_figures.py:351 is the bracket
+# comment and :352 the "ILLUSTRATIVE, not measured" one. A line-scope needle reports two
 # [FAIL]s on correct prose — the hard-wrap blindness this suite has already been bitten by.
 # The unit is the maximal run of non-blank lines: a paragraph, or a comment block and the
 # call it annotates. That is a real syntactic unit, not a +-N line window.
@@ -16780,7 +17367,7 @@ PY
 # data — was in no needle scan at all. Two live emitters of registered-retracted claims were found
 # on 2026-09-02 precisely because no registry row could reach them: solve.c:19 (a comment carrying
 # the Q-353 wording fifteen lines below the block that withdrew it; retired ff804bb0) and
-# solve.py:1581 (the `--rules` banner printing the CX-02 "generative recipe" framing AT RUN TIME,
+# solve.py:1649-1657 (the `--rules` banner printing the CX-02 "generative recipe" framing AT RUN TIME,
 # four lines below the docstring that withdraws it; retired the same day, uncommitted).
 #
 # CORPUS: every tracked file that is not *.md, not under reports/evidence/ (GATE 3's half), and
@@ -16885,7 +17472,8 @@ def fold(s):
     return " ".join(p.stdout.split())
 rows=[]
 for l in io.open(reg, encoding="utf-8"):
-    if not l.strip() or l.startswith("#"): continue
+    # Q-761: reg_row_kind's rule — a needle starting '#7' is a row, not a comment.
+    if not l.strip() or l.split("\t")[0].rstrip("\n") == "#" or l.startswith("# "): continue
     c=l.rstrip("\n").split("\t")
     if len(c)<2: continue
     rows.append((c[0], c[1], c[2] if len(c)>2 else ""))
@@ -18034,7 +18622,7 @@ PY
 # Altra, Graviton} must be a registered pair. POPULATION printed and floored at 3 adjacencies.
 # MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show d70d8dde:documentation/BRANCHES_EXPLAINED.md`)
 # -> HIT "Intel Zen", rc 1; live -> 0 mismatches over the measured adjacency population, rc 0
-# (BRANCHES_EXPLAINED.md:802's revision narration quoting "Intel Zen 5" is stripped, not counted);
+# (BRANCHES_EXPLAINED.md:808's revision narration quoting "Intel Zen 5" is stripped, not counted);
 # mutation (live "AMD EPYC" -> "Intel EPYC" at one site) -> HIT rc 1.
 gate_cpu_vendor() {
   echo "== GATE 61: a CPU vendor is paired only with its own microarchitecture family =="
@@ -18148,7 +18736,7 @@ PY
 # (any quote style, or none). Each must contain `frame`. `[CORRECTED …]` spans and `*Revision` paragraphs
 # are stripped. POPULATION printed and floored at 2 (glossary row + >= 1 body definition).
 # MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show d70d8dde:documentation/BRANCHES_EXPLAINED.md`)
-# -> 2 HITs (:277 body, :629 glossary), rc 1; live -> "every frame entry is a node" + glossary "one frame
+# -> 2 HITs at d70d8dde (:277 body, :629 glossary), rc 1; live -> "every frame entry is a node" + glossary "one frame
 # entry", rc 0; mutation (live glossary row with BOTH `frame` mentions replaced by "parent-to-child")
 # -> HIT rc 1 (a first mutation that left the cell's second `frame` in place did not fire — correctly).
 gate_glossary_consistency() {
@@ -18278,7 +18866,7 @@ PY
 # M_G builder in solve.py"), a correct sentence, so the clause rule is what separates the two.
 # A claim naming such a file must carry a scope word in the same paragraph: core|except|default|
 # optional|lazily|lazy|P2|itself|Scoped|--check-t5-c3. POPULATION printed and floored at 3 claims.
-# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:` DEVELOPMENT.md:47 + METHODS.md:93)
+# MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:` DEVELOPMENT.md:47@89e7a9a1 + METHODS.md:93@89e7a9a1)
 # -> 2 HITs (solve.py 39 third-party import lines, verify.py 2; no scope word), rc 1; live -> every
 # claim naming solve.py/verify.py carries core/default/except/lazily, rc 0 (12 claims, 7 naming such a
 # file); mutation (live DEVELOPMENT.md:47-55 bullet replaced by the unscoped pre-fix sentence) -> HIT rc 1
@@ -18335,7 +18923,7 @@ PY
     [ "$tag" = HIT ] || continue
     echo "  [FAIL] $f: $msg"; rc=1
   done < <(printf '%s\n' "$out")
-  if [ "$rc" -ne 0 ]; then echo "         Scope it: 'stdlib only for the core paths; the P2 modes / --check-t5-c3 need numpy/pyarrow' (DEVELOPMENT.md:47 form)."; return 1; fi
+  if [ "$rc" -ne 0 ]; then echo "         Scope it: 'stdlib only for the core paths; the P2 modes / --check-t5-c3 need numpy/pyarrow' (DEVELOPMENT.md:47-53 form)."; return 1; fi
   echo "  [ok] GATE 65: $pn stdlib claim(s) across $pf docs; $pm name a file with third-party imports and each of those is scoped"
   return 0
 }
@@ -18488,7 +19076,7 @@ PY
 # CIRCULAR_KING_WEN.md publishes a C1–C5-valid witness with wrap d=5 (absent from the 560T slice).
 # MECHANICS: every flattened SPECIFICATION.md sentence (`[CORRECTED …]` spans stripped) containing
 # `d=1 vs d=3` must contain `d=5` or a scope marker: `within the canonical` | `as measured` | `slice` |
-# `in the enumerated`. Kept to SPECIFICATION.md as the row prescribed: SOLVE_C_CLI.md:677 uses the same
+# `in the enumerated`. Kept to SPECIFICATION.md as the row prescribed: SOLVE_C_CLI.md:922 uses the same
 # phrase to describe what `--verify-wrap-parity` prints, where neither d=5 nor a scope word belongs.
 # POPULATION printed and floored at 1.
 # MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/SPECIFICATION.md`) ->
@@ -19241,16 +19829,16 @@ PY
 # THE DENIAL GRAMMAR IS CLAUSE-SCOPED, ON FLATTENED PARAGRAPHS, AND CHECKS EVERY OCCURRENCE.
 # Three separate measurements forced each of those:
 #   (1) LINE-scoped scored the real pre-fix tree 0 — `793210b7^`'s defect at
-#       LARGE_SCALE_CAMPAIGNS.md:590 is HARD-WRAPPED as "does not currently implement true
+#       LARGE_SCALE_CAMPAIGNS.md:590@fbd6f9e5 is HARD-WRAPPED as "does not currently implement true
 #       external" / "sort + dedup", so the noun does not exist on any single line. Same lesson as
 #       GATE 18's whitespace-normalisation leg, met again on a different gate.
-#   (2) PARAGRAPH-scoped without a clause bound fired on affirmations: `DEPLOYMENT.md:149`
-#       ("external merge streams in chunks, doesn't…") and `LARGE_SCALE_CAMPAIGNS.md:995`
+#   (2) PARAGRAPH-scoped without a clause bound fired on affirmations: `DEPLOYMENT.md:166`
+#       ("external merge streams in chunks, doesn't…") and `LARGE_SCALE_CAMPAIGNS.md:1026`
 #       ("There is no S at which you need code that does not exist. External merge is not
 #       RAM-bounded") both carry a negation and an external-merge noun and both are CORRECT. The
 #       negation must govern the noun within one clause, cut at `. ` / `; ` / ` — `.
 #   (3) FIRST-occurrence-only let a paragraph that affirms and then denies pass on its opening
-#       clause — measured on the live narration paragraph at :841, which opens "**`solve --merge`
+#       clause — measured on the live narration paragraph at LARGE_SCALE_CAMPAIGNS.md:873, which opens "**`solve --merge`
 #       already does external sort + dedup.**" and quotes the retracted denial two sentences
 #       later. Every occurrence is now checked.
 #
@@ -19424,7 +20012,7 @@ PY
 #   pre-P39 tree (`42620c77^`)  -> HITs on BOUNDARY_MINIMUM.md's headline ("at every tested depth")
 #     and §What this implies ("at both canonical scales") plus SOLVE.md:329, rc 1
 #   mutation: BOUNDARY_MINIMUM.md:58 "at 560T" deleted after the literal  -> HIT rc 1
-#   mutation: BOUNDARY_MINIMUM.md:97 quotation marks removed from the narrated qualifier -> HIT rc 1
+#   mutation: BOUNDARY_MINIMUM.md:108 quotation marks removed from the narrated qualifier -> HIT rc 1
 #   mutation: CLAIMS_DECIDED.md:42 sixty chars of filler between the literal and "560T" -> HIT rc 1
 #   mutation: "(100T and 560T), the survivor is rec#330177707" planted -> HIT rc 1 (proximity alone
 #     would have passed it)

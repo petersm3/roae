@@ -322,8 +322,8 @@ corrections invited on every "we have not located..." hedge):
   the 14-family decomposition, or about his circular reordering built from
   complement, reversal, trigram swap and the nuclear ("linking") map, must
   cite Hershock. Trigram OPERATIONS on hexagrams as such are older and are
-  NOT his: ⟨comp, rev⟩ and ⟨rev, swap⟩ are Wu Cheng's (13th c.) and
-  ⟨comp, swap⟩ Jiao Xun's (18th c.) — verify.py --check-classical-groups —
+  NOT his: ⟨comp, rev⟩ and ⟨rev, swap⟩ are Wu Cheng's (13th c.); ⟨comp, swap⟩ is
+  built from Yu Fan's 旁通 and 兩象易, not Jiao Xun's 八卦相錯 (corrected 2026-09-24) — verify.py --check-classical-groups —
   and the two groups are related by more than vocabulary: they share the
   order-4 subgroup ⟨rev, swap⟩, every element of which is a line-position
   permutation in G₁₂; complement is not a line permutation, and that is

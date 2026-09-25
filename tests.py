@@ -582,7 +582,7 @@ class TestSatInputGuards(unittest.TestCase):
     raised: `certify_count` can also exit with the missing-tools message
     (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
     while proving nothing about the guard. Verified 2026-09-19 that the --keep
-    guard fires BEFORE any tool use (sat.py:1804 precedes the d4 call at :1823),
+    guard fires BEFORE any tool use (sat.py:1834 precedes the d4 call at :1854),
     so these are green on a host with no SAT toolchain installed."""
 
     def test_keep_dir_uncreatable_is_refused_before_the_work(self):
@@ -652,7 +652,7 @@ class TestSatInputGuards(unittest.TestCase):
         # model was already guarded (`if seq else []`); the PARTIAL one was not. The fixture is the
         # smallest partial model there is: ONE true Y literal of the N=9 subset, so exactly one
         # slot decodes and the boundary walk over-runs at the second. Red against the pre-fix
-        # verify_subset (measured: IndexError at sat.py:1491); green with the length guard.
+        # verify_subset (measured at `b61f1cc9`: IndexError at sat.py:1491); green with the length guard.
         cnf, ctx = sat.build_subset(9)
         one = ctx["Y"][(ctx["slots"][0], 0)]
         with tempfile.TemporaryDirectory() as td:
@@ -1746,7 +1746,7 @@ class TestCheckArtifactControls(unittest.TestCase):
                            capture_output=True, text=True)
         py = (p.returncode, toks(p.stdout))
         if not self.have_c:
-            self.skipTest("verify.c did not build: " + self.c_build_err)
+            self.fail("verify.c did not build, so nothing was verified: " + self.c_build_err)
         c = subprocess.run([self.vbin, mode, path], capture_output=True, text=True)
         cc = (c.returncode, toks(c.stdout))
         return py, cc
@@ -1862,7 +1862,7 @@ class TestCheckArtifactControls(unittest.TestCase):
         self.assertEqual(py.returncode, 0)
         self.assertIn("BAD_GEOMETRY=0", py.stdout.splitlines())
         if not self.have_c:
-            self.skipTest("verify.c did not build")
+            self.fail("verify.c did not build, so nothing was verified: " + self.c_build_err)
         c = subprocess.run([self.vbin, "--check-artifact", p, "1", "0"],
                            capture_output=True, text=True)
         self.assertEqual(c.returncode, 0)
@@ -2275,7 +2275,7 @@ class TestRevPartnerTwoInstruments(unittest.TestCase):
         self.assertEqual(len(pyt), 2, f"verify.py emitted {pyt} — a missing "
                                       f"verdict line is an ERROR, not a pass")
         if not self.have_c:
-            self.skipTest("verify.c did not build: " + self.c_build_err)
+            self.fail("verify.c did not build, so nothing was verified: " + self.c_build_err)
         c = subprocess.run([self.vbin, "--rev-partner"],
                            capture_output=True, text=True)
         self.assertEqual(c.returncode, 0, c.stdout[-800:])
@@ -2291,7 +2291,7 @@ class TestRevPartnerTwoInstruments(unittest.TestCase):
         and the C instrument must refuse it. The count leg is what moves; the
         conclusion leg does not, which is exactly why both are printed."""
         if not self.have_c:
-            self.skipTest("verify.c did not build")
+            self.fail("verify.c did not build, so nothing was verified: " + self.c_build_err)
         bad = self.src.replace(
             "static int partner(int h) { int r = rev6(h); return (r != h) ? r : comp6(h); }",
             "static int partner(int h) { return rev6(h); }")
@@ -2317,7 +2317,7 @@ class TestRevPartnerTwoInstruments(unittest.TestCase):
         """The second token is not decoration. Break rev6 so the conclusion
         fails while leaving a count behind; REV_FIXES_ALL_PAIRS must move."""
         if not self.have_c:
-            self.skipTest("verify.c did not build")
+            self.fail("verify.c did not build, so nothing was verified: " + self.c_build_err)
         bad = self.src.replace(
             "static int rev6(int n) {",
             "static int rev6(int n) { if (n >= 0) return (n + 1) & 63;")
@@ -3627,7 +3627,7 @@ def _registered_retracted_phrases(path=None):
 class TestRulesBannerCarriesNoRetractedPhrase(unittest.TestCase):
     """R-4 (2026-09-02): the run-time-emitter class, two confirmed instances the same
     day — solve.c:19 (a comment restating the Q-353 wording fifteen lines below the block
-    that withdrew it) and solve.py:1581 (the `--rules` banner printing the CX-02 framing
+    that withdrew it) and solve.py:1649-1657 (the `--rules` banner printing the CX-02 framing
     four lines below the docstring that withdraws it). Both sat outside every needle scan
     because GATE 3 reads *.md and reports/evidence/** only. GATE 47 now scans the tracked
     code, but a gate reads SOURCE and this test reads what the program PRINTS: a banner
@@ -3689,7 +3689,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     CORRECTED 2026-09-04, twice, because this docstring's own premises expired under it.
     (1) It said "solve.c has no --expect-kw; verify.py's flag is the only instrument that
     promotes absence to a failure". solve.c GAINED --expect-kw on 2026-09-04 (g_expect_kw,
-    folded into the verdict at solve.c:37552 for --verify and :37981 for --validate), so
+    folded into the verdict at solve.c:43410 for --verify and :43845 for --validate), so
     both instruments now answer the question and the tests below pin BOTH halves: the
     default is still reported-not-enforced, and --expect-kw makes absence fatal.
     (2) It said "solve.c is behind the MASTER GATE and is not edited". That gate is Q-77,
@@ -3804,7 +3804,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
         self.assertIn("KW_REQUIRED=NO", lines)
 
     def test_kw_presence_is_a_machine_readable_token_in_both_modes(self):
-        """KW_PRESENT mirrors verify.py:6717 exactly, and pairs with KW_REQUIRED.
+        """KW_PRESENT mirrors verify.py:7127 exactly, and pairs with KW_REQUIRED.
 
         Presence is a FACT about the artifact; KW_REQUIRED is the CONTRACT in force. A log carrying
         only the second cannot answer "was King Wen actually there?" without re-parsing the prose
@@ -4470,6 +4470,55 @@ class TestSatLane12(unittest.TestCase):
                 with open(out, "rb") as fh:
                     self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), sha, target)
 
+    def test_emit_cnf_refuses_a_c3_max_below_the_structural_minimum(self):
+        # Q-687 (2026-09-24), the regression lock for Q-287. build()'s guard refuses a --c3-max
+        # below C3's structural floor 2*|C3_SELFC| + 8*|C3_COUPLES| = 112 (every complement
+        # couple sits at slot distance >= 1, so no C1 layout can go lower) BEFORE the ladder is
+        # emitted. The guard predates this test; it is pinned because a ladder rewrite that
+        # drops it turns `--c3-max 0` into a seconds-long build of an unsatisfiable formula
+        # (rc 0, `vars=`), which a proof cell would then hand to a solver as if it meant
+        # something. RED on a mutant sat.py with the `sbudget < len(C3_COUPLES)` block deleted
+        # (measured 2026-09-24: rc 1 but a ValueError TRACEBACK from at_most_k's negative-bound
+        # refusal, the second-line guard, for 111); GREEN on the shipped guard. /dev/null is the
+        # /tmp-free proof-cell form (Q-688) and needs the 2026-09-24 _out_path: at HEAD 5c296837
+        # this test is red on `/dev/null: not writable` before the guard is ever reached.
+        self.assertEqual(2 * len(sat.C3_SELFC) + 8 * len(sat.C3_COUPLES), 112)
+        for b in (111, 0, -5):
+            r = self._sat(["--emit-cnf", "plain", "/dev/null", "--with-c3", "--c3-max", str(b)])
+            self.assertEqual(r.returncode, 1, (b, r.stdout, r.stderr[-300:]))
+            self.assertNotIn("Traceback", r.stderr, (b, r.stderr))
+            self.assertIn("structural minimum C3 = 112", r.stderr, (b, r.stderr))
+        r = self._sat(["--emit-cnf", "plain", "/dev/null", "--with-c3", "--c3-max", "112"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-300:])
+        self.assertIn("vars=", r.stdout)
+
+    def test_emit_cnf_out_path_is_judged_on_the_file_it_will_open(self):
+        # Q-687 (2026-09-24), the 2026-09-24 `_out_path` rules (Q-311 sibling). RED at HEAD
+        # 5c296837 on two legs: `/dev/null` was refused as "not writable" because the DIRECTORY
+        # /dev was tested although the file exists and is writable, and a directory handed as
+        # OUT.cnf passed the pre-check and was an IsADirectoryError traceback after the build.
+        # The missing-directory and read-only-file legs already held at HEAD and are locked.
+        r = self._sat(["--emit-cnf", "plain", "/dev/null"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-300:])
+        self.assertIn("vars=", r.stdout)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._sat(["--emit-cnf", "plain", tmp])
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr[-300:])
+            self.assertNotIn("Traceback", r.stderr)
+            self.assertIn("is a directory, not a file", r.stderr)
+            r = self._sat(["--emit-cnf", "plain", os.path.join(tmp, "no_such_dir", "x.cnf")])
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr[-300:])
+            self.assertNotIn("Traceback", r.stderr)
+            self.assertIn("does not exist", r.stderr)
+            if os.geteuid() != 0:            # root ignores mode bits: this leg would be vacuous
+                ro = os.path.join(tmp, "ro.cnf")
+                open(ro, "w").close()
+                os.chmod(ro, 0o444)
+                r = self._sat(["--emit-cnf", "plain", ro])
+                self.assertEqual(r.returncode, 1, r.stdout + r.stderr[-300:])
+                self.assertNotIn("Traceback", r.stderr)
+                self.assertIn("not writable", r.stderr)
+
 
 class TestSolveCliHardeningTokens(unittest.TestCase):
     """Whole-line KEY=value gates for the Codex v2 solve.c CLI/validator fixes landed 2026-09-04.
@@ -4508,7 +4557,7 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
     def _lines(self, r):
         return [" ".join(l.split()) for l in (r.stdout + "\n" + r.stderr).splitlines()]
 
-    # ---- solve.c:17514 -- --merge consumed and silently discarded its arguments (pre-fix rc 0)
+    # ---- Codex v2 solve.c:17514 -- --merge consumed and silently discarded its arguments (pre-fix rc 0)
     def test_merge_refuses_arguments_it_cannot_honour(self):
         r = self._run(["--merge", "/data/solutions.bin"])
         self.assertNotEqual(r.returncode, 0,
@@ -4525,7 +4574,7 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
                         "bare --merge should reach the shard scan; got: " +
                         "\n".join(self._lines(r))[-500:])
 
-    # ---- solve.c:18678 -- atoll truncated the budget, and skipped gates read as passing gates
+    # ---- Codex v2 solve.c:18678 -- atoll truncated the budget, and skipped gates read as passing gates
     def test_preflight_refuses_a_non_numeric_budget(self):
         # Pre-fix: atoll("560Q") == 560, and the command printed "all in-process gates PASS" rc 0.
         r = self._run(["--preflight", "560Q"])
@@ -4542,14 +4591,14 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
         self.assertFalse(any("all in-process gates PASS" in l for l in lines),
                          "a preflight that ran nothing must not claim all gates passed")
 
-    # ---- solve.c:18508 -- an uppercase sha was accepted, echoed uppercase, compared lowercase
+    # ---- Codex v2 solve.c:18508 -- an uppercase sha was accepted, echoed uppercase, compared lowercase
     def test_validate_canonical_normalises_the_sha_case(self):
         upper = "403F7202A33A9337B781F4EE17E497D5C0773C2656E16FA0DB87EECCD6F3332E"
         if not self.build_ok:
             self.fail("solve.c did not build: " + self.build_err)
         # START A NEW SESSION AND KILL THE GROUP, NOT THE PID (Q-656, 2026-09-19).
         # --validate-canonical system()-launches a 1T enumeration at SOLVE_THREADS=128
-        # (solve.c:39379-39393) microseconds after the token this test reads, and solve.c
+        # (solve.c:40618-40632) microseconds after the token this test reads, and solve.c
         # calls no setsid/setpgid/setpgrp -- so pr.kill(), which signals the driver's PID
         # alone, left that enumeration running and reparented on a 2-core box. Measured
         # against a stub reproducing solve.c's stdout order: driver-only kill orphaned the
@@ -5508,6 +5557,68 @@ class TestKcExtremalTwoLanguageRecheck(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("KC_X_PYCHECK=FAIL", lines)
 
+    # ---- Q-771's refusals: start_exit range and the null_vs_g cross-gate (Q-775 #3) ----------
+    # Each red leg changes ONE field of CERT. The positive controls below first show that CERT
+    # with that field at an accepted value is CHECKED-AGREE, so a red verdict can only come from
+    # the field under test. Verdicts are read as the row's verdict WORD, not by substring.
+
+    def _verdict(self, cert):
+        verdict, _detail = solve._kc_x_check_cert(cert)
+        return verdict
+
+    def test_the_refusal_legs_have_a_passing_baseline(self):
+        # Precondition for every red leg below. CERT is a yangcount certificate, which never
+        # reads start_exit, so start_exit=63 must pass too. A red leg is meaningful only if the
+        # base certificate is not already failing for some other reason.
+        self.assertEqual(self._verdict(self.CERT), "CHECKED-AGREE")
+        self.assertEqual(self._verdict(dict(self.CERT, start_exit=63)), "CHECKED-AGREE")
+        self.assertEqual(self._verdict(dict(self.CERT, gdir=None, null_vs_g=None)),
+                         "CHECKED-AGREE")
+        self.assertEqual(self._verdict(dict(self.CERT, gdir="/g", null_vs_g="CONSISTENT")),
+                         "CHECKED-AGREE")
+
+    def test_an_out_of_range_start_exit_is_refused_even_where_phi_ignores_it(self):
+        # 🔴 The Q-771 F1 defect: before the fix, yangcount accepted ANY start_exit, because
+        # only _boundary_distances validated it and yangcount never calls it.
+        for bad in (99, 1, -1, True, "0", 0.0):
+            self.assertEqual(self._verdict(dict(self.CERT, start_exit=bad)),
+                             "FAIL-bad-start-exit", "start_exit=%r was not refused" % (bad,))
+
+    def test_an_inconsistent_null_vs_g_is_refused(self):
+        self.assertEqual(self._verdict(dict(self.CERT, gdir="/g", null_vs_g="INCONSISTENT")),
+                         "FAIL-null-vs-g")
+
+    def test_an_unknown_null_vs_g_value_is_refused(self):
+        for bad in ("consistent", "PASS", "", 0, True):
+            self.assertEqual(self._verdict(dict(self.CERT, gdir="/g", null_vs_g=bad)),
+                             "FAIL-bad-null-vs-g", "null_vs_g=%r was not refused" % (bad,))
+
+    def test_a_gdir_without_a_null_vs_g_verdict_is_refused(self):
+        # Absent must not read as CONSISTENT: a --kc-gdir run always carries the verdict.
+        self.assertEqual(self._verdict(dict(self.CERT, gdir="/g", null_vs_g=None)),
+                         "FAIL-no-null-vs-g")
+        self.assertEqual(self._verdict(dict(self.CERT, gdir="/g")), "FAIL-no-null-vs-g")
+
+    def test_the_driver_fails_on_each_refusal_and_names_it(self):
+        # The same refusals end to end through `solve.py --kc-x-recheck`: each certificate's
+        # row carries its token, and the whole run is FAIL with exit 1.
+        bads = [dict(self.CERT, start_exit=99),
+                dict(self.CERT, gdir="/g", null_vs_g="INCONSISTENT"),
+                dict(self.CERT, gdir="/g", null_vs_g="PASS"),
+                dict(self.CERT, gdir="/g", null_vs_g=None)]
+        want = ["FAIL-bad-start-exit", "FAIL-null-vs-g", "FAIL-bad-null-vs-g",
+                "FAIL-no-null-vs-g"]
+        rc, lines = self._recheck(self.CERT, *bads)
+        self.assertEqual(rc, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+        self.assertIn("KC_X_PYCHECK_AGREE=1", lines)
+        self.assertIn("KC_X_PYCHECK_FAILED=4", lines)
+        rows = {l.split()[0][len("KC_X_PYCHECK_ROW="):]: l.split()[1]
+                for l in lines if l.startswith("KC_X_PYCHECK_ROW=")}
+        self.assertEqual(rows.get("cert_00.json"), "CHECKED-AGREE")
+        for i, tok in enumerate(want, start=1):
+            self.assertEqual(rows.get("cert_%02d.json" % i), tok)
+
     def test_a_refused_run_is_reported_but_never_counts_as_a_check(self):
         # posyang0's certificate: g_invariant=false, no value. On its own that is ERROR, not
         # PASS -- a run that re-checked nothing must never read as agreement.
@@ -5630,55 +5741,285 @@ class TestKcExtremalRecheckKillsACoordinatedCMutant(unittest.TestCase):
                         "expected phi_py=30 against extreme_value=39; got:\n" + "\n".join(lines))
 
 
-class TestXaCertClaimPrefixIsNotItselfAClaim(unittest.TestCase):
-    """A certificate must ASSERT something, not merely be SHAPED like an assertion.
+class TestW0DNodeMappingCertificateIsUsedQ772(unittest.TestCase):
+    """Q-772: the W0-D certificate is USED, not merely present (the Q-768 ruling, R1-R8).
 
-    WHAT WENT WRONG, TWICE, IN TWO DAYS. `_xa_node_mapping_cert_defect` guards the XA-c/d
-    pricing path: without a W0-D t-unit -> SOLVE_NODE_LIMIT mapping certificate, no
-    EXHAUSTIBLE/INFEASIBLE verdict may be published. Round one (before 2026-09-07) tested only
-    that a PATH STRING had been supplied and never opened the file. Round two (2026-09-09,
-    RCQ02 F2) found `false`, `null`, `""` and `"FAIL"` all authorised, and required a POSITIVE
-    grammar -- a string beginning "CERTIFIED:".
+    WHAT WENT WRONG, FOUR ROUNDS RUNNING. `_xa_node_mapping_cert_defect` guarded the XA-c/d
+    pricing path with a PERMISSION BIT. It searched the JSON for `solve_node_limit_mapping`,
+    returned None ("authorised") for a string starting "CERTIFIED:" with text after it or for
+    an object with "claimed": true, and `atlas_emit_xa` then priced the t-unit count ITSELF as
+    production-DFS nodes. Round one never opened the file; round two (RCQ02 F2) let `false`,
+    `null`, `""` and "FAIL" through; round three (RCQ04) let the bare prefix through; and the
+    RCQ04 adjudication MEASURED that no grammar could close it:
 
-    Round three is this class. RCQ04 (2026-09-10) MEASURED that the positive grammar accepted
-    THE BARE PREFIX:
+        "CERTIFIED: no mapping has been established"   -> authorised
+        {"claimed": true, "mapping": "unrelated"}      -> authorised
 
-        {"solve_node_limit_mapping": "CERTIFIED:"}     -> returned None, i.e. authorised
-        {"solve_node_limit_mapping": "CERTIFIED:   "}  -> returned None, i.e. authorised
-
-    The fix had required the SHAPE of an assertion and never required it to ASSERT anything.
-    Each round closed the cases it was shown and left the next open, which is why the red arm
-    below enumerates whitespace forms rather than one empty string.
-
-    THE POSITIVE ARM IS LOAD-BEARING: a validator that refuses everything is a permanent FALSE
-    dressed as rigour, so a well-formed certificate must still be ACCEPTED.
+    because nothing the certificate said reached the arithmetic. The fix, per the ruling, is a
+    fixed schema whose `mapping.nodes_per_t_unit` (an exact "p/q") MULTIPLIES every priced row
+    and whose `mapping.kind` limits which call a row may make. Each test names the leg of the
+    ruling it implements and the mutant it kills; `scripts/q433_xa_cert_gate.sh` carries the
+    mutants themselves. THE POSITIVE ARM IS LOAD-BEARING: a loader that refuses everything is a
+    permanent FALSE dressed as rigour, so a full-schema certificate must still PRICE.
     """
 
-    def _defect(self, value):
-        import json, tempfile
-        mod = _load("solve")
-        d = tempfile.mkdtemp()
-        path = os.path.join(d, "cert.json")
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump({"node_convention": {"solve_node_limit_mapping": value}}, fh)
-        return mod._xa_node_mapping_cert_defect(path)
+    PENDING_TEXT = (
+        "**PENDING** -- pricing t-units as production-DFS nodes needs a W0-D t-unit ->\n"
+        "`SOLVE_NODE_LIMIT` mapping certificate, supplied with `--xa-node-mapping-cert`.\n"
+        "A t-unit is one valid oriented SUPER prefix; `SOLVE_NODE_LIMIT` counts\n"
+        "production-DFS nodes, and that DFS prunes on one combined kw_dist budget and\n"
+        "applies C3 only as a filter at the full-walk leaf. Nothing here certifies the\n"
+        "map, so no EXHAUSTIBLE/INFEASIBLE call is made. The t-unit column above is\n"
+        "exact and stands on its own.\n")
 
-    def test_a_well_formed_certificate_is_accepted(self):
-        self.assertIsNone(self._defect(
-            "CERTIFIED: 1 t-unit == 1 SOLVE_NODE_LIMIT node, certified by the W0-D worker run"))
+    def setUp(self):
+        self.S = _load("solve")
+        self.d = tempfile.mkdtemp(prefix="q772_")
+        self.addCleanup(shutil.rmtree, self.d, True)
 
-    def test_the_bare_claim_prefix_certifies_nothing(self):
-        for empty in ("CERTIFIED:", "CERTIFIED: ", "CERTIFIED:   ",
-                      "CERTIFIED:\t", "CERTIFIED:\n", "CERTIFIED:\t\n "):
-            with self.subTest(value=empty):
-                self.assertIsNotNone(
-                    self._defect(empty),
-                    "%r has the shape of a claim and asserts nothing" % empty)
+    @staticmethod
+    def cert_doc(kind="exact", F="1/1", residual=0, **top):
+        doc = {"type": "roae-w0d-node-mapping-certificate", "version": 1,
+               "mapping": {"kind": kind, "nodes_per_t_unit": F, "residual": residual,
+                           "formula": "TEST: production_nodes(b) = F * t(b)",
+                           "law": "TEST: fixture for tests.py Q-772"},
+               "measured": {"n": [9, 13], "per_n": [],
+                            "verdict_line": "W0-D PASS mapping: TEST"},
+               "provenance": {"engine_git": "FIXTURE:tests.py", "engine_source_sha": "FIXTURE",
+                              "host_fingerprint": "FIXTURE", "produced": "FIXTURE"},
+               "semantics": "certificate-not-proof"}
+        doc.update(top)
+        return doc
 
-    def test_the_values_rcq02_found_are_still_refused(self):
-        for bad in (None, False, "", "FAIL"):
-            with self.subTest(value=bad):
-                self.assertIsNotNone(self._defect(bad))
+    def write(self, name, obj):
+        import json
+        p = os.path.join(self.d, name)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(obj if isinstance(obj, str) else json.dumps(obj))
+        return p
+
+    def emit(self, cert, t_units=("10",), budget="1", nps="1000", uph="1"):
+        """The REAL emitter over a small atlas; returns (TR12_XA_CD value, xa_verdict.md)."""
+        S = self.S
+        A = {"n": 9, "N_total": str(24 * len(t_units)), "layers": [{"flow": "24"}],
+             "branch_atlas": [{"global_pair": i + 1, "entry": 2, "exit": 0, "solutions": "24",
+                               "walks": 24, "prefixes_t_units": t}
+                              for i, t in enumerate(t_units)]}
+        cost = {"nodes_per_sec": S._ExactAnchor(nps), "usd_per_hour": S._ExactAnchor(uph),
+                "budget_usd": S._ExactAnchor(budget), "hedge": S._ExactAnchor("1"),
+                "work_factor": S._ExactAnchor("1"), "note": "tests.py Q-772",
+                "node_mapping_cert": cert}
+        out = tempfile.mkdtemp(dir=self.d)
+        _tsv, md, verdict, _g = S.atlas_emit_xa(A, out, cost=cost, atlas_path="q772.json")
+        with open(md, encoding="utf-8") as fh:
+            return verdict, fh.read()
+
+    @staticmethod
+    def priced_rows(md):
+        """{t-units: (exact $ Fraction, verdict)} parsed from the EXACT column, never the %.4g."""
+        from fractions import Fraction
+        out = {}
+        for line in md.splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) == 9 and cells[0].isdigit():
+                out[cells[2]] = (Fraction(cells[6]), cells[7])
+        return out
+
+    def assertRefused(self, cert, label):
+        verdict, md = self.emit(cert)
+        self.assertEqual(verdict, "PENDING:W0-D-node-mapping", label)
+        self.assertNotRegex(md, r"(?m)^\|.*(EXHAUSTIBLE|INFEASIBLE)", label)
+        self.assertIn("The certificate supplied was REFUSED: ", md, label)
+        return md
+
+    # ---- R1: the RCQ04 inputs, in the legacy key, are REFUSED (kills the permission bit) ----
+    def test_R1_the_rcq04_permission_bit_inputs_are_refused(self):
+        for i, val in enumerate(["CERTIFIED: no mapping has been established",
+                                 {"claimed": True, "mapping": "unrelated"},
+                                 # and every value the three earlier rounds were about
+                                 "CERTIFIED: 1 t-unit == 1 SOLVE_NODE_LIMIT node", "CERTIFIED:",
+                                 None, False, "", "FAIL"]):
+            with self.subTest(value=val):
+                for shape in ({"solve_node_limit_mapping": val},
+                              {"node_convention": {"solve_node_limit_mapping": val}}):
+                    md = self.assertRefused(self.write("r1_%d.json" % i, shape), repr(val))
+                    self.assertIn("nothing to price with", md)
+
+    # ---- R2: the factor MULTIPLIES every row (kills m1, `* 1`) --------------------------------
+    def test_R2_the_factor_scales_every_exact_cost_and_can_flip_a_row(self):
+        from fractions import Fraction
+        # rate 1000 nodes/s, $1/h: t = 2,400,000 costs exactly $2/3 at F = 1, exactly $1 at 3/2
+        # (ON the budget: EXHAUSTIBLE), and t = 3,000,000 costs $5/6 at F = 1 (EXHAUSTIBLE) and
+        # $5/4 at F = 3/2 (INFEASIBLE). Anchors identical across the two runs.
+        t = ("2400000", "3000000")
+        v1, md1 = self.emit(self.write("f1.json", self.cert_doc(F="1/1")), t_units=t)
+        v2, md2 = self.emit(self.write("f32.json", self.cert_doc(F="3/2")), t_units=t)
+        r1, r2 = self.priced_rows(md1), self.priced_rows(md2)
+        self.assertEqual(sorted(r1), sorted(t), md1)
+        self.assertEqual(sorted(r2), sorted(t), md2)
+        for k in t:
+            self.assertEqual(r2[k][0], Fraction(3, 2) * r1[k][0], k)
+        self.assertEqual(r1["2400000"][0], Fraction(2, 3))
+        self.assertEqual(r2["2400000"], (Fraction(1), "EXHAUSTIBLE"))
+        self.assertEqual(r1["3000000"], (Fraction(5, 6), "EXHAUSTIBLE"))
+        self.assertEqual(r2["3000000"], (Fraction(5, 4), "INFEASIBLE"))
+        self.assertIn("| 1 | 2 | 3000000 | 4500000 |", md2)   # the nodes column is t x F
+        self.assertEqual((v1, v2), ("PASS", "PASS"))
+
+    # ---- R3: the kind limits the call (kills m2, every kind treated as exact) -----------------
+    def test_R3_a_one_sided_certificate_never_makes_the_call_it_cannot_support(self):
+        t = ("600000", "6000000")            # $1/6 (in budget) and $5/3 (over), F = 1
+        v, md = self.emit(self.write("ub.json", self.cert_doc(kind="upper-bound", residual=5)),
+                          t_units=t)
+        rows = self.priced_rows(md)
+        self.assertEqual(rows["600000"][1], "EXHAUSTIBLE")
+        self.assertEqual(rows["6000000"][1], "UNDECIDED:upper-bound")
+        self.assertNotRegex(md, r"(?m)^\|.*INFEASIBLE")
+        self.assertEqual(v, "ONE-SIDED:upper-bound")
+        v, md = self.emit(self.write("lb.json", self.cert_doc(kind="lower-bound", residual=-5)),
+                          t_units=t)
+        rows = self.priced_rows(md)
+        self.assertEqual(rows["600000"][1], "UNDECIDED:lower-bound")
+        self.assertEqual(rows["6000000"][1], "INFEASIBLE")
+        self.assertNotRegex(md, r"(?m)^\|.*EXHAUSTIBLE")
+        self.assertIn("Call: the argmin branch is **UNDECIDED:lower-bound**", md)
+        self.assertEqual(v, "ONE-SIDED:lower-bound")
+        # the exact kind is the only one that reads PASS
+        v, _md = self.emit(self.write("ex.json", self.cert_doc()), t_units=t)
+        self.assertEqual(v, "PASS")
+
+    # ---- R4: a malformed mapping is a REFUSAL with a reason, never an exception (kills m3) ----
+    def test_R4_a_malformed_mapping_is_refused_with_a_reason(self):
+        bad = {"F_number": dict(F=1.5), "F_int_number": dict(F=1), "F_zero": dict(F="0/1"),
+               "F_negative": dict(F="-3/2"), "F_text": dict(F="abc"), "F_div0": dict(F="1/0"),
+               "F_decimal": dict(F="1.5"), "F_bare_int": dict(F="3"), "F_null": dict(F=None),
+               "exact_with_residual": dict(residual=7), "kind_sideways": dict(kind="sideways"),
+               "residual_float": dict(residual=0.0), "residual_bool": dict(residual=False)}
+        for name, kw in sorted(bad.items()):
+            with self.subTest(case=name):
+                # The legacy claim rides along so the PRE-Q-772 consumer would have priced it:
+                # this leg is red there on behaviour, not merely on a missing function.
+                doc = self.cert_doc(solve_node_limit_mapping="CERTIFIED: legacy claim", **kw)
+                p = self.write("r4_%s.json" % name, doc)
+                md = self.assertRefused(p, name)
+                m, why = self.S._xa_node_mapping_load(p)
+                self.assertIsNone(m, name)
+                self.assertIsInstance(why, str)
+                self.assertIn(why, md)
+        for key in ("kind", "nodes_per_t_unit", "residual", "formula", "law"):
+            with self.subTest(missing=key):
+                doc = self.cert_doc(solve_node_limit_mapping="CERTIFIED: legacy claim")
+                del doc["mapping"][key]
+                md = self.assertRefused(self.write("r4_no_%s.json" % key, doc), key)
+                self.assertIn("lacks `%s`" % key, md)
+        for name, top in (("wrong_type", {"type": "roae-something-else"}),
+                          ("wrong_version", {"version": 2}), ("version_str", {"version": "1"}),
+                          ("no_provenance", {"provenance": {}}), ("no_measured", {"measured": 3})):
+            with self.subTest(case=name):
+                doc = self.cert_doc(solve_node_limit_mapping="CERTIFIED: legacy claim", **top)
+                self.assertRefused(self.write("r4_%s.json" % name, doc), name)
+
+    # ---- R5: refused by TYPE; no recursive search; no RecursionError (kills m4) --------------
+    def test_R5_kc_t_cert_output_nested_mapping_and_deep_nesting(self):
+        import json
+        # (a) the REAL `solve --kc-t-cert` output, refused by its type. A build failure is a
+        # FAILURE here, never a skip.
+        sbin = os.path.join(self.d, "solve_q772")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, "gcc: " + r.stderr[-2000:])
+        kct = os.path.join(self.d, "kct.json")
+        r = subprocess.run([sbin, "--kc-t-cert", kct], capture_output=True, text=True, cwd=self.d)
+        self.assertEqual(r.returncode, 0, r.stdout[-2000:] + r.stderr[-2000:])
+        with open(kct, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["type"], "roae-kc-t-node-convention-certificate")
+        md = self.assertRefused(kct, "kc-t-cert")
+        self.assertIn("Refused by type", md)
+        # (b) a valid mapping, but NESTED: only the top level is this schema.
+        doc = self.cert_doc()
+        doc["node_convention"] = {"mapping": doc.pop("mapping"),
+                                  "solve_node_limit_mapping": "CERTIFIED: nested"}
+        md = self.assertRefused(self.write("nested.json", doc), "nested")
+        self.assertIn("no top-level `mapping` object", md)
+        # (c) a 100,000-deep array: a refusal, not a RecursionError
+        p = self.write("deep.json", "[" * 100000 + "]" * 100000)
+        try:
+            m, why = self.S._xa_node_mapping_load(p)
+        except RecursionError:
+            self.fail("RecursionError escaped the loader: a crash, not a refusal")
+        self.assertIsNone(m)
+        self.assertIn("nested too deeply", why)
+        # (d) a valid certificate with a deep (but parseable) array BESIDE its mapping still loads
+        doc = self.cert_doc()
+        p = self.write("deep_ok.json", json.dumps(doc)[:-1] + ', "pad": ' + "[" * 400
+                       + "]" * 400 + "}")
+        m, why = self.S._xa_node_mapping_load(p)
+        self.assertIsNone(why)
+        self.assertEqual(str(m["factor"]), "1")
+
+    # ---- R6: the old "good" certificate flips; a full-schema one is ACCEPTED and PRICED -------
+    def test_R6_the_string_only_certificate_flips_and_the_positive_arm_prices(self):
+        old_good = {"node_convention": {"solve_node_limit_mapping":
+                    "CERTIFIED: 1 t-unit == 1 SOLVE_NODE_LIMIT node, certified by the W0-D "
+                    "worker run"}}
+        self.assertRefused(self.write("old_good.json", old_good), "old L1")
+        p = self.write("new_good.json", self.cert_doc())
+        m, why = self.S._xa_node_mapping_load(p)
+        self.assertIsNone(why)
+        self.assertEqual((m["kind"], str(m["factor"]), m["residual"]), ("exact", "1", 0))
+        v, md = self.emit(p)
+        self.assertEqual(v, "PASS")
+        self.assertRegex(md, r"(?m)^\| 0 \| 1 \| 10 \| 10 \|.*\| EXHAUSTIBLE \|")
+
+    # ---- R7: the xa_exact_verdict_gate fixture is full-schema and names itself ----------------
+    def test_R7_the_arithmetic_gate_still_reaches_the_priced_branch(self):
+        with open(os.path.join("scripts", "xa_exact_verdict_gate.sh"), encoding="utf-8") as fh:
+            body = fh.read()
+        self.assertIn('"type": "roae-w0d-node-mapping-certificate"', body)
+        self.assertIn('"engine_git": "FIXTURE:xa_exact_verdict_gate.sh"', body)
+        r = subprocess.run(["bash", "scripts/xa_exact_verdict_gate.sh"], capture_output=True,
+                           text=True, timeout=300)
+        lines = r.stdout.splitlines()
+        self.assertIn("XA_EXACT_VERDICT=OK", lines, r.stdout[-3000:] + r.stderr[-2000:])
+        self.assertEqual(r.returncode, 0)
+        # and the echo block beside the priced table carries the FIXTURE: provenance
+        v, md = self.emit(self.write("fixture_like.json", self.cert_doc()))
+        self.assertIn("- provenance.engine_git: `FIXTURE:tests.py`", md)
+        self.assertIn("- kind: `exact`; F = nodes_per_t_unit = `1`; residual = 0", md)
+        self.assertIn("production-DFS nodes = t-units x F, F = 1 (exact), certificate "
+                      "fixture_like.json sha256 ", md)
+
+    # ---- R8: a real run (no W0-D certificate) keeps the historical PENDING, byte for byte ------
+    # ⚠ 2026-09-25, Q-787: PENDING_TEXT's fourth line used to describe SOLVE_NODE_LIMIT as counting
+    # production-DFS nodes under a C3 prune. Production tests C3 only at the step-32 leaf, so that
+    # clause was false and was corrected in solve.py atlas_emit_xa. R8 still pins the paragraph byte for byte; only the
+    # wording it pins moved. No n9 golden carries the paragraph (c_consumer.txt does not).
+    def test_R8_real_runs_stay_pending_with_the_historical_wording(self):
+        with open(os.path.join("scripts", "tr12_expected", "n9", "c_consumer.txt"),
+                  encoding="utf-8") as fh:
+            self.assertIn("TR12_XA_CD=PENDING:W0-D-node-mapping", fh.read().splitlines())
+        v, md = self.emit(None)
+        self.assertEqual(v, "PENDING:W0-D-node-mapping")
+        self.assertTrue(md.endswith("## Exhaustibility (XA-c/d)\n\n" + self.PENDING_TEXT), md)
+        self.assertNotIn("C3 pruning", md)   # Q-787: the retired clause must not come back
+        # The certificate a real operator could hold today -- the legacy sentence, or the
+        # `--kc-t-cert` convention certificate -- is refused, and the historical wording is
+        # still emitted BYTE-IDENTICAL, with only the refusal line after it.
+        for name, doc, why in (
+                ("legacy", {"solve_node_limit_mapping": "CERTIFIED: W0-D run done"},
+                 "nothing to price with"),
+                ("kct_shape", {"type": "roae-kc-t-node-convention-certificate", "version": 1,
+                               "convention": {"solve_node_limit_mapping": "NOT CLAIMED HERE"}},
+                 "Refused by type")):
+            with self.subTest(case=name):
+                v, md = self.emit(self.write("r8_%s.json" % name, doc))
+                self.assertEqual(v, "PENDING:W0-D-node-mapping")
+                tail = md.split("## Exhaustibility (XA-c/d)\n\n", 1)[1]
+                self.assertTrue(tail.startswith(self.PENDING_TEXT
+                                                + "\nThe certificate supplied was REFUSED: "),
+                                tail)
+                self.assertIn(why, tail)
 
 
 class TestQ3ReaderChecksTheRootTransition(unittest.TestCase):
@@ -6654,7 +6995,8 @@ class TestCliHelpDescribesTheCode(unittest.TestCase):
         r = subprocess.run([sys.executable, prog, "--help"], capture_output=True, text=True)
         text = r.stdout
         i = text.find("  " + flag)
-        assert i >= 0, "%s --help does not list %s" % (prog, flag)
+        if i < 0:                       # explicit raise, not `assert`: survives -O (Q-373)
+            raise AssertionError("%s --help does not list %s" % (prog, flag))
         j = re.search(r"\n  -", text[i + 2:])
         return text[i:i + 2 + j.start()] if j else text[i:]
 
@@ -6734,14 +7076,16 @@ class TestP2GzipInputIsTheDocumentedInput(unittest.TestCase):
         raw = os.path.join(cls.tmp, "raw.bin")
         r = subprocess.run([sys.executable, "solve.py", "--encode-solutions", raw, stream],
                            capture_output=True, text=True)
-        assert "ENCODE_ROUNDTRIP=PASS" in r.stdout.splitlines(), r.stdout + r.stderr
+        if "ENCODE_ROUNDTRIP=PASS" not in r.stdout.splitlines():     # explicit raise (Q-373)
+            raise AssertionError("--encode-solutions did not PASS: " + r.stdout + r.stderr)
         cls.gz = os.path.join(cls.tmp, "sample.bin")
         with open(raw, "rb") as src, gzip.open(cls.gz, "wb") as dst:
             dst.write(src.read())
         cls.chunks = os.path.join(cls.tmp, "chunks")
         r = subprocess.run([sys.executable, "solve.py", "--compute-stats", cls.gz, cls.chunks,
                             "--compute-stats-workers", "1"], capture_output=True, text=True)
-        assert r.returncode == 0 and "COMPUTE_STATS=PASS" in r.stdout, r.stdout + r.stderr
+        if r.returncode != 0 or "COMPUTE_STATS=PASS" not in r.stdout:    # explicit raise (Q-373)
+            raise AssertionError("--compute-stats did not PASS: " + r.stdout + r.stderr)
 
     @classmethod
     def tearDownClass(cls):
@@ -6951,7 +7295,356 @@ class TestAtlasProbe(unittest.TestCase):
                      "PAIRS_NEVER_FIRST=4,6,21",
                      "PAIRS_NEVER_FIRST_ARE_EXACTLY_THE_POPCOUNT5_PAIRS=PASS",
                      "RID_DIGIT_SUM_EQ_LAYER_EVERY_CELL=PASS",
-                     "REF_WALK_TRANSITIONS_MATCH_KW_CLS=PASS"):
+                     "REF_WALK_TRANSITIONS_MATCH_KW_CLS=PASS",
+                     # the V5 factorisation block (TR-12 review B3/B4, 2026-09-24; Q-692): the
+                     # (d, w) cross-tab re-summed from `kernel` must sit in C1's w-classes and
+                     # marginalise to `by_class`, and every k = 0 key must carry exit 0 -- the
+                     # C4 pin that makes the layer-0 deviation an artefact, gated, not narrated
+                     "V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY=PASS",
+                     "V5_CROSSTAB_W_IN_C1_CLASSES_AND_MARGINALISES_TO_BY_CLASS_EVERY_LAYER=PASS",
+                     # the G48 divisibility block and the cross-layer kernel re-sum (Q-734,
+                     # 2026-09-24).  At n = 9 every placed pair sits in a size-3 orbit, so the
+                     # MOD16 gate coincides with the stabiliser gate here; it is EMPIRICAL only
+                     # at n = 31.
+                     "N_TOTAL_MOD48_EQ_0=PASS", "LAYER_FLOW_EQ_N_EVERY_LAYER=PASS",
+                     "BY_CLASS_EVERY_CELL_MOD48_EQ_0=PASS",
+                     "MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0=PASS",
+                     "MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL=PASS",
+                     "KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER=PASS"):
+            self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
+        # the windowed twin of MARGINAL_RAW_NONZERO_CELL_MIN_MAX (review B4) is printed under
+        # its own name; its value is the atlas's, so only its presence is pinned here
+        self.assertTrue([l for l in lines if l.startswith("MARGINAL_RAW_NONZERO_CELL_MIN_MAX_INTERIOR=")],
+                        "MARGINAL_RAW_NONZERO_CELL_MIN_MAX_INTERIOR= missing in:\n%s" % out)
+        self.assertFalse([l for l in lines if l.endswith("=FAIL")], out)
+
+    def test_a_k0_kernel_key_with_a_nonzero_exit_turns_the_v5_gate_red(self):
+        """Q-692 red test (mutant A of the V5 block, 2026-09-24): rewrite ONE k = 0 kernel key
+        `m0_<y>` to `m5_<y>`, i.e. an exit of 5 where C4 pins it to 0.  The entry `y` is chosen
+        so that popcount(5 ^ y) == popcount(y) and (0, y) is not the reference walk's cell, so
+        the layer sum, the class marginals, the entry-pair marginals, the V5 cross-tab
+        marginalisation and the reference-walk cell all stay green -- the test asserts that,
+        so V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY is proven to be the only gate OLDER than
+        Q-738 that sees the edit, load-bearing rather than shadowed by an older one.  Since
+        Q-738 KERNEL_G48_INVARIANT_EVERY_LAYER sees it too (the moved cell's G48 images keep
+        exit 0), and the exact FAIL set below pins both."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, os
+        pc = lambda v: bin(v).count("1")
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        L0 = a["layers"][0]
+        mate = {}
+        for e, x in solve.king_wen_pairs():
+            mate[e] = x
+            mate[x] = e
+        ref_entry = mate[int(L0["kwrank"]["kw_exit"])]      # ref_t[0] = (0, mate[kwx[0]])
+        k0_keys = sorted(L0["kernel"])
+        # precondition of the claim: every k = 0 key carries exit 0 BEFORE the edit
+        self.assertTrue(k0_keys and all(k.startswith("m0_") for k in k0_keys), k0_keys)
+        cand = [k for k in k0_keys
+                if pc(5 ^ int(k[3:])) == pc(int(k[3:])) and int(k[3:]) != ref_entry]
+        self.assertTrue(cand, "no k=0 key with popcount(5^y)==popcount(y) off the ref cell: %r" % k0_keys)
+        old_key = cand[0]
+        new_key = "m5_" + old_key[3:]
+        self.assertNotIn(new_key, L0["kernel"])
+        L0["kernel"][new_key] = L0["kernel"].pop(old_key)
+        mutant = os.path.join(self.tmp, "atlas9_k0exit.json")
+        with open(mutant, "w") as fh:
+            json.dump(a, fh)
+        # precondition: the mutation actually changed a k = 0 key on disk
+        with open(mutant) as fm:
+            m = json.load(fm)
+        self.assertNotIn(old_key, m["layers"][0]["kernel"])
+        self.assertIn(new_key, m["layers"][0]["kernel"])
+        self.assertTrue(any(not k.startswith("m0_") for k in m["layers"][0]["kernel"]))
+        # precondition: the fixture's own gate is green
+        rc0, lines0, out0 = self._probe(self.atlas)
+        self.assertEqual(rc0, 0, out0)
+        self.assertIn("V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY=PASS", lines0, out0)
+        rc, lines, out = self._probe(mutant)
+        self.assertNotEqual(rc, 0, out)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY=FAIL", lines, out)
+        self.assertIn("ATLAS_PROBE=FAIL", lines, out)
+        self.assertNotIn("ATLAS_PROBE_FAILS=0", lines, out)
+        # the older gates cannot see this edit: of the gates before Q-738, the V5 one alone does
+        for still in ("KERNEL_EVERY_LAYER_SUMS_TO_N=PASS",
+                      "KERNEL_CLASS_MARGINALS_EQ_BY_CLASS_EVERY_LAYER=PASS",
+                      "KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER=PASS",
+                      "REF_WALK_KERNEL_CELLS_ALL_NONZERO=PASS",
+                      "V5_CROSSTAB_W_IN_C1_CLASSES_AND_MARGINALISES_TO_BY_CLASS_EVERY_LAYER=PASS"):
+            self.assertIn(still, lines, "%s missing as a whole line in:\n%s" % (still, out))
+        self.assertEqual(sorted(l for l in lines if l.endswith("=FAIL")),
+                         ["ATLAS_PROBE=FAIL", "KERNEL_G48_INVARIANT_EVERY_LAYER=FAIL",
+                          "V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY=FAIL"], out)
+
+    # ------------------------------------------------------------------ Q-734, 2026-09-24
+    # Kernel-CONSISTENT mutants (Opus Q, roae-private CODEX_A08_STRONGER_IDENTITIES_GATED.md,
+    # control table B).  Each edit balances every linear re-sum the probe did before Q-734, so the
+    # pre-Q-734 probe scored all of them ATLAS_PROBE=PASS.  Each test pins the EXACT set of FAIL
+    # lines: when that set holds only Q-734/Q-738 tokens plus ATLAS_PROBE, every pre-existing gate
+    # printed PASS on the mutant, which is the "old probe PASSes it" half of the claim, asserted
+    # rather than narrated.
+    _Q734_NEW = ("N_TOTAL_MOD48_EQ_0", "LAYER_FLOW_EQ_N_EVERY_LAYER", "BY_CLASS_EVERY_CELL_MOD48_EQ_0",
+                 "MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0",
+                 "MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL",
+                 "KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER")
+    # Q-738 (2026-09-24): the producer's remaining tail checks, re-derived.  A mutant that
+    # balances every re-sum is now also held to G48 invariance, to rev-symmetric entry-column
+    # totals, to V1 column sums of N and to the digits/rid_mass identities.
+    _Q738_NEW = ("PAIR_UNIVERSE_IS_G48_CLOSED", "KERNEL_G48_INVARIANT_EVERY_LAYER",
+                 "KERNEL_ENTRY_COLUMN_TOTALS_REV_SYMMETRIC", "MARGINAL_RAW_COLUMN_SUMS_EQ_N_EVERY_PAIR",
+                 "DIGITS_WEIGHTED_SUM_EQ_CLASS_PREFIX_EVERY_LAYER",
+                 "RID_MASS_DIGIT_MARGINALS_EQ_DIGITS_EVERY_LAYER")
+    # every gate token added to --atlas-probe since public HEAD 5c296837 (Q-734 + Q-738); a later
+    # lane adds its own tuple here rather than widening a Q-numbered one.
+    _NEW_SINCE_5c296837 = _Q734_NEW + _Q738_NEW
+
+    def _q734_setup(self):
+        """Fixture JSON plus the maps every Q-734 mutant needs, and the reference walk's
+        last-layer kernel cell (a mutant must not touch it: zeroing it would fire an OLD gate)."""
+        import json
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        n = int(a["n"])
+        pair_of, mate = {}, {}
+        for i, (e, x) in enumerate(solve.king_wen_pairs()):
+            pair_of[e] = pair_of[x] = i
+            mate[e] = x
+            mate[x] = e
+        L = a["layers"]
+        ref_last = (int(L[n - 2]["kwrank"]["kw_exit"]), mate[int(L[n - 1]["kwrank"]["kw_exit"])])
+        cells = {tuple(map(int, k[1:].split("_"))): int(v) for k, v in L[n - 1]["kernel"].items()}
+        return a, n, pair_of, mate, ref_last, cells
+
+    @staticmethod
+    def _bump(d, key, delta):
+        old = d[key]
+        d[key] = (str if isinstance(old, str) else int)(int(old) + delta)
+
+    def _probe_mutant_run(self, a, name, want_fail):
+        """Write the mutant, prove it differs from the fixture and that the fixture is green on
+        the gates it targets, then pin the mutant's exact FAIL set."""
+        import json, os
+        mutant = os.path.join(self.tmp, name)
+        with open(mutant, "w") as fh:
+            json.dump(a, fh)
+        with open(self.atlas) as fa:
+            self.assertNotEqual(json.load(fa), a, "precondition: the mutation changed nothing")
+        rc0, lines0, out0 = self._probe(self.atlas)
+        self.assertEqual(rc0, 0, out0)
+        for tok in want_fail:
+            self.assertIn(tok + "=PASS", lines0, out0)
+        rc, lines, out = self._probe(mutant)
+        self.assertEqual(rc, 1, out)
+        self.assertNotIn("ATLAS_PROBE_FAILS=0", lines, out)
+        fails = sorted(l for l in lines if l.endswith("=FAIL"))
+        self.assertEqual(fails, sorted(["ATLAS_PROBE=FAIL"] + [t + "=FAIL" for t in want_fail]), out)
+        # every FAIL is a Q-734 or Q-738 token: no gate that existed at 5c296837 sees this edit
+        self.assertTrue(all(l[:-5] in self._NEW_SINCE_5c296837 + ("ATLAS_PROBE",)
+                            for l in fails), fails)
+
+    def test_a_kernel_consistent_v1_move_is_caught_by_the_stabiliser_and_theorem_gates(self):
+        """Q-734 (control B row 4): move 8 units of LAST-layer kernel mass inside one exit row
+        between entries of two DIFFERENT orbit-3 pairs with equal class d and equal within-pair w,
+        mirrored in marginal_raw.  Kernel, class, entry-pair, V5 and row sums all still balance and
+        the last layer has no successor for the cross-layer gate to compare; before Q-738 only
+        the G48 stabiliser gates (|Stab| = 16 for an orbit-3 pair) saw it, and since Q-738 the
+        G48-invariance and V1 column-sum gates see it too."""
+        self.assertTrue(self.build_ok, self.build_err)
+        pc = lambda v: bin(v).count("1")
+        a, n, pair_of, mate, ref_last, cells = self._q734_setup()
+        orb = {p: len(o) for o in solve.pair_orbit_partition() for p in o}
+        hit = next(((x, y1, y2) for (x, y1), v in sorted(cells.items())
+                    if v >= 8 and (x, y1) != ref_last
+                    for y2 in range(64)
+                    if (x, y2) in cells and pair_of[y2] != pair_of[y1]
+                    and orb.get(pair_of[y1]) == orb.get(pair_of[y2]) == 3
+                    and pc(x ^ y1) == pc(x ^ y2) and pc(y1 ^ mate[y1]) == pc(y2 ^ mate[y2])), None)
+        self.assertIsNotNone(hit, "precondition: no admissible orbit-3 move in the fixture")
+        x, y1, y2 = hit
+        Lk = a["layers"][n - 1]
+        # precondition: 8 is not a multiple of 16, so the move must break the stabiliser identity
+        self.assertEqual(int(Lk["marginal_raw"]["pair%d" % pair_of[y1]]) % 16, 0)
+        self._bump(Lk["kernel"], "m%d_%d" % (x, y1), -8)
+        self._bump(Lk["kernel"], "m%d_%d" % (x, y2), +8)
+        self._bump(Lk["marginal_raw"], "pair%d" % pair_of[y1], -8)
+        self._bump(Lk["marginal_raw"], "pair%d" % pair_of[y2], +8)
+        # Q-738: the same edit breaks G48 invariance (one cell of a 24-cell orbit moved) and the
+        # V1 column sums (pair y1 now places N - 8 times over the walk); the rev-column totals
+        # survive because y1 and y2 are each rev-fixed here.
+        self._probe_mutant_run(a, "atlas9_q734_v1stab.json",
+                       ["MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL",
+                        "MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0",
+                        "KERNEL_G48_INVARIANT_EVERY_LAYER",
+                        "MARGINAL_RAW_COLUMN_SUMS_EQ_N_EVERY_PAIR"])
+
+    def test_a_kernel_row_move_is_caught_by_the_cross_layer_and_g48_gates(self):
+        """Q-734: the probe took the producer's `kernel_cross_layer_eq` on trust.  Move 48 units at
+        the LAST layer from (x1, y) to (x2, y), x1 != x2, popcount(x1^y) == popcount(x2^y): the entry
+        y is unchanged, so class, entry-pair, V5 and every divisibility (48 | 48) balance, but the
+        row sums of M_{n-1} no longer equal the exit sums of M_{n-2}.  Before Q-738 only that
+        re-sum saw it; since Q-738 the G48-invariance gate sees it too."""
+        self.assertTrue(self.build_ok, self.build_err)
+        pc = lambda v: bin(v).count("1")
+        a, n, pair_of, mate, ref_last, cells = self._q734_setup()
+        hit = next(((x1, x2, y) for (x1, y), v in sorted(cells.items())
+                    if v >= 48 and (x1, y) != ref_last
+                    for x2 in range(64)
+                    if x2 != x1 and (x2, y) in cells and pc(x1 ^ y) == pc(x2 ^ y)), None)
+        self.assertIsNotNone(hit, "precondition: no admissible row move in the fixture")
+        x1, x2, y = hit
+        K = a["layers"][n - 1]["kernel"]
+        self._bump(K, "m%d_%d" % (x1, y), -48)
+        self._bump(K, "m%d_%d" % (x2, y), +48)
+        self._probe_mutant_run(a, "atlas9_q734_rowmove.json",
+                       ["KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER",
+                        "KERNEL_G48_INVARIANT_EVERY_LAYER"])          # Q-738: one cell of an orbit
+
+    # ------------------------------------------------------------------ Q-738, 2026-09-24
+    def test_a_class_preserving_kernel_rectangle_is_caught_only_by_the_g48_gate(self):
+        """Q-738 (Fable T, 2026-09-24): the documented blind spot.  A class-preserving 2x2
+        rectangle trade inside one layer's kernel keeps every row, entry-column and class
+        marginal, so every re-sum balances and the pre-Q-738 probe scored it PASS.  G48 acts on
+        complete walks and carries the cell (x, y) to (g x, g y) at the same layer, so a single
+        moved cell breaks M_k[g x][g y] == M_k[x][y]; the producer's own `kernel_g_invariance`
+        tail is left at "PASS" here, so only the re-derivation can see it."""
+        self.assertTrue(self.build_ok, self.build_err)
+        pc = lambda v: bin(v).count("1")
+        a, n, pair_of, mate, ref_last, _cells = self._q734_setup()
+        found = None
+        for k, l in enumerate(a["layers"]):
+            cells = {tuple(int(s) for s in key[1:].split("_")): int(v) for key, v in l["kernel"].items()}
+            xs = sorted({x for x, _ in cells})
+            ys = sorted({y for _, y in cells})
+            for i, x1 in enumerate(xs):
+                for x2 in xs[i + 1:]:
+                    for j, y1 in enumerate(ys):
+                        for y2 in ys[j + 1:]:
+                            quad = ((x1, y1), (x1, y2), (x2, y1), (x2, y2))
+                            if not all(c in cells for c in quad):
+                                continue
+                            if pc(x1 ^ y1) != pc(x2 ^ y1) or pc(x1 ^ y2) != pc(x2 ^ y2):
+                                continue
+                            u = min(cells[(x1, y2)], cells[(x2, y1)]) // 2
+                            if u >= 1 and (found is None or u > found[1]):
+                                found = (k, u, quad)
+        self.assertIsNotNone(found, "precondition: no class-preserving rectangle in the fixture")
+        k, u, quad = found
+        K = a["layers"][k]["kernel"]
+        for (x, y), sgn in zip(quad, (1, -1, -1, 1)):
+            self._bump(K, "m%d_%d" % (x, y), sgn * u)
+        self.assertEqual(a["tail_checks"]["kernel_g_invariance"], "PASS")   # self-report untouched
+        self._probe_mutant_run(a, "atlas9_q738_rectangle.json", ["KERNEL_G48_INVARIANT_EVERY_LAYER"])
+
+    def test_a_kernel_consistent_16_unit_v1_move_is_caught_by_the_re_derived_tails(self):
+        """Q-738 (the batch 3+4 review's second blind spot): at an INTERIOR layer move 16 units in
+        one exit row between entries of two different pairs of the same G48-orbit size with equal
+        class and equal w, mirrored in marginal_raw, and move 16 units at the next layer between
+        the two partner rows at one entry of equal class.  Kernel, class, entry-pair, V5, row and
+        cross-layer sums all balance and 16 | every cell, so every Q-734 gate stays green.  Three
+        re-derived tails see it: G48 invariance, the rev-symmetry of the entry-column totals, and
+        the V1 column sums (every complete walk places each free pair exactly once)."""
+        self.assertTrue(self.build_ok, self.build_err)
+        pc = lambda v: bin(v).count("1")
+        a, n, pair_of, mate, _ref, _c = self._q734_setup()
+        orb = {p: len(o) for o in solve.pair_orbit_partition() for p in o}
+        L = a["layers"]
+        hit = None
+        for k in range(1, n - 1):
+            cells = {tuple(map(int, key[1:].split("_"))): int(v) for key, v in L[k]["kernel"].items()}
+            nxt = {tuple(map(int, key[1:].split("_"))): int(v) for key, v in L[k + 1]["kernel"].items()}
+            for (x, y1), v in sorted(cells.items()):
+                if v < 16:
+                    continue
+                for y2 in range(64):
+                    if (x, y2) not in cells or y2 not in pair_of or pair_of[y2] == pair_of[y1]:
+                        continue
+                    if orb.get(pair_of[y1]) != orb.get(pair_of[y2]):
+                        continue
+                    if pc(x ^ y1) != pc(x ^ y2) or pc(y1 ^ mate[y1]) != pc(y2 ^ mate[y2]):
+                        continue
+                    r1, r2 = mate[y1], mate[y2]
+                    yp = next((z for z in range(64) if (r1, z) in nxt and (r2, z) in nxt
+                               and nxt[(r1, z)] >= 16 and pc(r1 ^ z) == pc(r2 ^ z)), None)
+                    if yp is not None:
+                        hit = (k, x, y1, y2, r1, r2, yp)
+                        break
+                if hit:
+                    break
+            if hit:
+                break
+        self.assertIsNotNone(hit, "precondition: no admissible interior move in the fixture")
+        k, x, y1, y2, r1, r2, yp = hit
+        self._bump(L[k]["kernel"], "m%d_%d" % (x, y1), -16)
+        self._bump(L[k]["kernel"], "m%d_%d" % (x, y2), +16)
+        self._bump(L[k]["marginal_raw"], "pair%d" % pair_of[y1], -16)
+        self._bump(L[k]["marginal_raw"], "pair%d" % pair_of[y2], +16)
+        self._bump(L[k + 1]["kernel"], "m%d_%d" % (r1, yp), -16)
+        self._bump(L[k + 1]["kernel"], "m%d_%d" % (r2, yp), +16)
+        for tc in ("kernel_g_invariance", "kernel_rev_column_eq", "vertical_raw_eq_N"):
+            self.assertEqual(a["tail_checks"][tc], "PASS")            # self-reports untouched
+        self._probe_mutant_run(a, "atlas9_q738_v1move16.json",
+                       ["KERNEL_G48_INVARIANT_EVERY_LAYER",
+                        "KERNEL_ENTRY_COLUMN_TOTALS_REV_SYMMETRIC",
+                        "MARGINAL_RAW_COLUMN_SUMS_EQ_N_EVERY_PAIR"])
+
+    def test_a_digits_cell_move_is_caught_by_the_digit_identities(self):
+        """Q-738: `digits` was never read by the probe.  Moving one unit between two j-cells of one
+        (layer, class) keeps the row at N; the weighted sum no longer equals the class prefix and
+        the rid_mass digit marginal no longer matches.  Nothing else reads the table."""
+        self.assertTrue(self.build_ok, self.build_err)
+        a, n, _p, _m, _r, _c = self._q734_setup()
+        hit = None
+        for k in range(1, n):
+            for c, dg in a["layers"][k]["digits"].items():
+                js = [j for j, v in dg.items() if int(v) >= 1]
+                if len(js) >= 2:
+                    hit = (k, c, js[0], js[1])
+                    break
+            if hit:
+                break
+        self.assertIsNotNone(hit, "precondition: no (layer, class) with two occupied digit cells")
+        k, c, j1, j2 = hit
+        self._bump(a["layers"][k]["digits"][c], j1, -1)
+        self._bump(a["layers"][k]["digits"][c], j2, +1)
+        self.assertEqual(a["tail_checks"]["digit_cross_table_eq_cls_prefix"], "PASS")
+        self._probe_mutant_run(a, "atlas9_q738_digits.json",
+                       ["DIGITS_WEIGHTED_SUM_EQ_CLASS_PREFIX_EVERY_LAYER",
+                        "RID_MASS_DIGIT_MARGINALS_EQ_DIGITS_EVERY_LAYER"])
+
+    def test_a_layer_flow_off_n_is_caught_by_its_own_re_sum(self):
+        """Q-734: the probe never read `layers[k].flow`; only the producer's self-reported
+        `per_layer_flow_eq_N` covered it, and that boolean is left True here.  flow + 48 keeps
+        48 | flow, so a mod-48 flow gate would stay green -- which is why the gate is flow == N."""
+        self.assertTrue(self.build_ok, self.build_err)
+        a, n, _p, _m, _r, _c = self._q734_setup()
+        self.assertIs(a["gates"]["per_layer_flow_eq_N"], True)   # precondition: self-report stays True
+        self._bump(a["layers"][1], "flow", +48)
+        self._probe_mutant_run(a, "atlas9_q734_flow.json", ["LAYER_FLOW_EQ_N_EVERY_LAYER"])
+
+    def test_the_committed_n31_atlas_passes_the_probe(self):
+        """Q-734: `solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` is TR-12
+        §12's published reproduction command, and nothing ran it on the published atlas.  No
+        build: the atlas is a tracked file and the probe reads only it (~0.5 s measured on the
+        worker, 2026-09-24).  The bytes are first tied to the digest TR-12 publishes for them,
+        read from the report rather than restated here, so a PASS is a PASS on the published
+        atlas and on nothing else."""
+        import hashlib, os, re
+        path = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+        self.assertTrue(os.path.isfile(path), "the published n=31 atlas is missing: %s" % path)
+        with open(os.path.join("reports", "TR12_QUERY_PROGRAM.md"), encoding="utf-8") as fh:
+            pins = re.findall(r"The atlas every §12 figure is read from \|[^|\n]*sha256 `([0-9a-f]{64})`",
+                              fh.read())
+        self.assertEqual(len(pins), 1, "precondition: TR-12 must pin exactly one atlas digest: %r" % pins)
+        with open(path, "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), pins[0])
+        rc, lines, out = self._probe(path)
+        self.assertEqual(rc, 0, out)
+        for want in ("ATLAS_PROBE=PASS", "ATLAS_PROBE_FAILS=0", "ATLAS_N=31",
+                     "B0_FROM_COLUMN_SUMS=2,8,13,7,1", "REF_WALK_IS_KING_WEN=PASS") + tuple(
+                         t + "=PASS" for t in self._Q734_NEW):
             self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
         self.assertFalse([l for l in lines if l.endswith("=FAIL")], out)
 
@@ -7250,8 +7943,9 @@ class TestAtlasProbe(unittest.TestCase):
         """Codex KCR1-7 / TRQ1-F5a (2026-09-22): TR-12 §12.4's -0.102 bits was published with no
         scale.  The independent-step SD and the Minkowski bound are recomputed here from the
         kernel tables with the test's own formula and the tokens pinned to them; then mass is
-        moved between two kernel cells that share their entry hexagram and distance class --
-        every probe gate stays green -- and the SD token must move: it reads the data."""
+        traded around a class-preserving 2x2 kernel rectangle (rows, entries, classes and the V5
+        cross-tab all preserved; reshaped for Q-734, see below) -- every probe gate stays green --
+        and the SD token must move: it reads the data."""
         self.assertTrue(self.build_ok, self.build_err)
         import json, math
         with open(self.atlas) as fh:
@@ -7277,32 +7971,646 @@ class TestAtlasProbe(unittest.TestCase):
         self.assertEqual(1, len(dev), out)
         self.assertEqual(1, len(z), out)
         self.assertAlmostEqual(float(z[0].split("=")[1]), float(dev[0].split("=")[1]) / sd_ind, places=2)
-        # the mutant: same entry hexagram b, same distance class, both cells stay nonzero
+        # The mutant: a 2x2 RECTANGLE trade inside one layer, +u at (x1,y1) and (x2,y2), -u at
+        # (x1,y2) and (x2,y1), with popcount(x1^y1) == popcount(x2^y1) and popcount(x1^y2) ==
+        # popcount(x2^y2).  Row sums, entry (column) sums, class marginals and the V5 (d, w) cross-tab
+        # are all preserved, so every gate stays green.  Until Q-734 (2026-09-24) this was a
+        # same-entry trade between two ROWS; that changes the layer's row sums, which the new
+        # KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER re-sum correctly calls a corrupted
+        # atlas.  The test had been leaning on the probe's blind spot, and its "every gate stays
+        # green" premise was true only because of that blind spot.
         pc = lambda x: bin(x).count("1")
         found = None
         for k, l in enumerate(L):
-            cells = {tuple(int(s) for s in key[1:].split("_")): (key, int(v)) for key, v in l["kernel"].items()}
-            for (a1, b1), (k1, v1) in cells.items():
-                for (a2, b2), (k2, v2) in cells.items():
-                    if b1 == b2 and a1 < a2 and pc(a1 ^ b1) == pc(a2 ^ b2) and v1 >= 4 and v2 >= 4:
-                        if found is None or v1 > found[3]:
-                            found = (k, k1, k2, v1, v2)
-        self.assertIsNotNone(found, "no two same-entry same-class kernel cells to trade mass between")
-        k, k1, k2, v1, v2 = found
+            cells = {tuple(int(s) for s in key[1:].split("_")): int(v) for key, v in l["kernel"].items()}
+            xs = sorted({x for x, _ in cells})
+            ys = sorted({y for _, y in cells})
+            for i, x1 in enumerate(xs):
+                for x2 in xs[i + 1:]:
+                    for j, y1 in enumerate(ys):
+                        for y2 in ys[j + 1:]:
+                            quad = ((x1, y1), (x1, y2), (x2, y1), (x2, y2))
+                            if not all(c in cells for c in quad):
+                                continue
+                            if pc(x1 ^ y1) != pc(x2 ^ y1) or pc(x1 ^ y2) != pc(x2 ^ y2):
+                                continue
+                            u = min(cells[(x1, y2)], cells[(x2, y1)]) // 2
+                            if u >= 1 and (found is None or u > found[1]):
+                                found = (k, u, quad)
+        self.assertIsNotNone(found, "no class-preserving 2x2 kernel rectangle to trade mass around")
+        # Q-738 (2026-09-24): a single rectangle now turns KERNEL_G48_INVARIANT_EVERY_LAYER red, so
+        # the trade is SYMMETRISED over G48 (the rectangle's 48 images, summed).  Rows, entry
+        # columns, classes and V5 are still preserved and the result is G48-invariant: this is the
+        # residual class the probe cannot see from the atlas alone (roae-private
+        # Q738_ATLAS_PROBE_BLIND_SPOTS_2026_09_24.md), and the test doubles as its executable form.
+        g48 = solve._tg_g48()
+        ap = solve._tg_apply_perm
+        sym = None
+        for k, l in enumerate(L):
+            cells = {tuple(int(s) for s in key[1:].split("_")): int(v) for key, v in l["kernel"].items()}
+            xs = sorted({x for x, _ in cells})
+            ys = sorted({y for _, y in cells})
+            for i, x1 in enumerate(xs):
+                for x2 in xs[i + 1:]:
+                    for j, y1 in enumerate(ys):
+                        for y2 in ys[j + 1:]:
+                            quad = ((x1, y1), (x1, y2), (x2, y1), (x2, y2))
+                            if not all(c in cells for c in quad):
+                                continue
+                            if pc(x1 ^ y1) != pc(x2 ^ y1) or pc(x1 ^ y2) != pc(x2 ^ y2):
+                                continue
+                            delta = {}
+                            for p in g48:
+                                for (x, y), sgn in zip(quad, (1, -1, -1, 1)):
+                                    c = (ap(p, x), ap(p, y))
+                                    delta[c] = delta.get(c, 0) + sgn
+                            delta = {c: s for c, s in delta.items() if s}
+                            if not delta or any(c not in cells for c in delta):
+                                continue
+                            u = min((cells[c] - 1) // (-s) for c, s in delta.items() if s < 0)
+                            if u >= 1 and (sym is None or u > sym[1]):
+                                sym = (k, u, delta)
+        self.assertIsNotNone(sym, "no G48-symmetrised rectangle with u >= 1 in the fixture")
+        k, u, delta = sym
 
         def trade(a):
             row = a["layers"][k]["kernel"]
-            t = type(row[k1])
-            row[k1] = t(v1 - v1 // 2)
-            row[k2] = t(v2 + v1 // 2)
+            for (x, y), s in delta.items():
+                key = "m%d_%d" % (x, y)
+                t = type(row[key])
+                row[key] = t(int(row[key]) + s * u)
         rc, mlines, mout = self._probe(self._mutant("atlas9_kerneltrade.json", trade))
         self.assertEqual(rc, 0, mout)
         self.assertFalse([l for l in mlines if l.endswith("=FAIL")], mout)
         sd0 = [l for l in lines if l.startswith("KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS=")]
         sd1 = [l for l in mlines if l.startswith("KERNEL_SCORE_INDEPENDENT_STEP_SD_BITS=")]
         self.assertEqual(1, len(sd1), mout)
-        self.assertNotEqual(sd0, sd1, "the SD token did not move under a %d-unit kernel trade at layer %d"
-                            % (v1 // 2, k))
+        self.assertNotEqual(sd0, sd1, "the SD token did not move under a %d-unit kernel rectangle trade at layer %d"
+                            % (u, k))
+
+
+
+def _tr12_figures_under_stubs(root):
+    """Run viz/report_figures.py's REAL `tr12_figures` (and `_tr12_q3_table`, when the tree has
+    it) with every renderer stubbed. -> (V4 path or None, raised exception or None).
+
+    The functions are lifted out of the file by AST and executed in a namespace holding only
+    `os` and the stubs: tests.py is stdlib-only and report_figures imports numpy and matplotlib
+    at module level. What runs is the file's own selection code, on either side of a fix, so the
+    same test can be red before it and green after."""
+    import ast
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "viz",
+                           "report_figures.py"), encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
+    keep = [n for n in tree.body if isinstance(n, ast.FunctionDef)
+            and n.name in ("tr12_figures", "_tr12_q3_table")]
+    for n in keep:
+        n.decorator_list = []
+    if not any(n.name == "tr12_figures" for n in keep):
+        raise AssertionError("viz/report_figures.py has no tr12_figures; nothing was exercised")
+    got = []
+    ns = {"os": os,
+          "fig_tr12_kc_field": lambda *a, **k: True,
+          "fig_tr12_kc_river": lambda *a, **k: True,
+          "fig_tr12_kc_grammar": lambda *a, **k: True,
+          "fig_tr12_kc_spectrum": lambda *a, **k: True,
+          "fig_tr12_kc_shells": lambda path, *a, **k: got.append(path) or True}
+    exec(compile(ast.Module(body=keep, type_ignores=[]), "report_figures.py", "exec"), ns)
+    try:
+        ns["tr12_figures"](root)
+    except RuntimeError as exc:
+        return (got[0] if got else None), exc
+    return (got[0] if got else None), None
+
+
+class TestQ766StaleQ3ProfileIsNeverPublished(unittest.TestCase):
+    """Q-766 (RCQ02 F5, CONFIRMED 2026-09-09, never fixed until 2026-09-24).
+
+    `atlas_emit_q3` writes q3_profile_kw.tsv (a checked King Wen full-31 walk) OR
+    q3_profile.tsv, and never removed the other one; `tr12_figures` drew V4 from the _kw name
+    whenever it EXISTED. A reused --atlas-out therefore published the previous universe's profile.
+    Seed-then-rerun, both orders: the stale table must be gone, and V4 must draw the current one.
+    Red before the fix: order A draws the old King Wen table over an n=9 run; order B leaves the
+    old n=9 table in the published directory."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    def _kw31(self):
+        import csv
+        with open(os.path.join(self.HERE, "tr12", "q3_profile_kw.tsv"), encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh, delimiter="\t"))
+        for r in rows:
+            r["p_num"], r["p_den"] = int(r["p_num"]), int(r["p_den"])
+        return rows
+
+    def _n9(self, S):
+        return S.atlas_parse_q3_trace(os.path.join(self.HERE, "scripts", "tr12_expected", "n9",
+                                                   "a2_q3.txt"))
+
+    @staticmethod
+    def _A(n, N):
+        return {"n": n, "N_total": str(N), "space": "C1C2C4C5-SUPERSPACE", "pl_hash": "0" * 16}
+
+    def _emit(self, S, d, which):
+        with open(os.devnull, "w") as dn:
+            old, sys.stdout = sys.stdout, dn
+            try:
+                if which == "kw31":
+                    steps = self._kw31()
+                    return S.atlas_emit_q3(steps, d, 31, A=self._A(31, steps[0]["g_parent"]),
+                                           quiet=True)
+                return S.atlas_emit_q3(self._n9(S), d, 9, A=self._A(9, 26112), quiet=True)
+            finally:
+                sys.stdout = old
+
+    def _dir(self):
+        d = tempfile.mkdtemp(prefix="q766_")
+        self.addCleanup(shutil.rmtree, d, True)
+        return d
+
+    def test_precondition_the_kw_fixture_really_earns_the_kw_name(self):
+        # Without this the two orders below would test two plain tables.
+        S = _load("solve")
+        self.assertEqual(S.atlas_q3_name(self._kw31(), 31)[:2], ("q3_profile_kw.tsv", "PASS"))
+        self.assertEqual(S.atlas_q3_name(self._n9(S), 9)[:2], ("q3_profile.tsv", "SKIP:n=9"))
+
+    def test_kw31_then_n9_publishes_the_n9_table_only(self):
+        S = _load("solve")
+        d = self._dir()
+        self._emit(S, d, "kw31")
+        self.assertTrue(os.path.exists(os.path.join(d, "q3_profile_kw.tsv")))
+        path, _, _ = self._emit(S, d, "n9")
+        self.assertEqual(os.path.basename(path), "q3_profile.tsv")
+        for stale in ("q3_profile_kw.tsv", "q3_profile_kw.tsv.provenance.txt"):
+            self.assertFalse(os.path.exists(os.path.join(d, stale)),
+                             "%s from the earlier King Wen run survived the n=9 rerun" % stale)
+        v4, exc = _tr12_figures_under_stubs(d)
+        self.assertIsNone(exc, exc)
+        self.assertEqual(v4, os.path.join(d, "q3_profile.tsv"),
+                         "V4 drew %s, not this run's n=9 table" % v4)
+
+    def test_n9_then_kw31_publishes_the_kw_table_only(self):
+        S = _load("solve")
+        d = self._dir()
+        self._emit(S, d, "n9")
+        path, _, _ = self._emit(S, d, "kw31")
+        self.assertEqual(os.path.basename(path), "q3_profile_kw.tsv")
+        for stale in ("q3_profile.tsv", "q3_profile.tsv.provenance.txt"):
+            self.assertFalse(os.path.exists(os.path.join(d, stale)),
+                             "%s from the earlier n=9 run survived the King Wen rerun" % stale)
+        v4, exc = _tr12_figures_under_stubs(d)
+        self.assertIsNone(exc, exc)
+        self.assertEqual(v4, os.path.join(d, "q3_profile_kw.tsv"))
+
+    # ---- the reader on its own: a directory an OLDER emitter left dirty -----------------------
+    def _write(self, d, name, sidecar=None):
+        with open(os.path.join(d, name), "w") as fh:
+            fh.write("step\tg\n1\t1\n")
+        if sidecar is not None:
+            with open(os.path.join(d, name + ".provenance.txt"), "w") as fh:
+                fh.write("q3_table=%s\nq3_is_king_wen=%s\n" % (name, sidecar))
+
+    def test_both_names_present_is_refused_not_guessed(self):
+        # RED before: existence picked the _kw table.
+        d = self._dir()
+        self._write(d, "q3_profile_kw.tsv", "PASS")
+        self._write(d, "q3_profile.tsv", "SKIP:n=9")
+        v4, exc = _tr12_figures_under_stubs(d)
+        self.assertIsNone(v4, "V4 drew %s from a directory holding both names" % v4)
+        self.assertIsNotNone(exc)
+
+    def test_a_kw_table_whose_sidecar_is_not_PASS_is_refused(self):
+        d = self._dir()
+        self._write(d, "q3_profile_kw.tsv", "SKIP:n=9")
+        v4, exc = _tr12_figures_under_stubs(d)
+        self.assertIsNone(v4)
+        self.assertIsNotNone(exc)
+
+    def test_a_kw_table_with_no_sidecar_beside_a_plain_sidecar_is_refused(self):
+        d = self._dir()
+        self._write(d, "q3_profile_kw.tsv")
+        with open(os.path.join(d, "q3_profile.tsv.provenance.txt"), "w") as fh:
+            fh.write("q3_table=q3_profile.tsv\nq3_is_king_wen=SKIP:n=9\n")
+        v4, exc = _tr12_figures_under_stubs(d)
+        self.assertIsNone(v4)
+        self.assertIsNotNone(exc)
+
+    def test_positive_controls_the_published_tree_and_a_clean_kw_directory(self):
+        # The committed tr12/ ships q3_profile_kw.tsv with NO sidecar and must still draw it.
+        self.assertFalse(os.path.exists(os.path.join(self.HERE, "tr12",
+                                                     "q3_profile_kw.tsv.provenance.txt")),
+                         "tr12/ now carries a sidecar; this control no longer tests the "
+                         "no-sidecar branch")
+        v4, exc = _tr12_figures_under_stubs(os.path.join(self.HERE, "tr12"))
+        self.assertIsNone(exc, exc)
+        self.assertEqual(os.path.basename(v4), "q3_profile_kw.tsv")
+        d = self._dir()
+        self._write(d, "q3_profile_kw.tsv", "PASS")
+        v4, exc = _tr12_figures_under_stubs(d)
+        self.assertIsNone(exc, exc)
+        self.assertEqual(v4, os.path.join(d, "q3_profile_kw.tsv"))
+
+
+class TestQ767XaCertAndAnchorHardening(unittest.TestCase):
+    """Q-767 items (2) and (3), RCQ04 P3 (2026-09-10), fixed 2026-09-24."""
+
+    def _cert(self, text):
+        d = tempfile.mkdtemp(prefix="q767_")
+        self.addCleanup(shutil.rmtree, d, True)
+        p = os.path.join(d, "cert.json")
+        with open(p, "w") as fh:
+            fh.write(text)
+        return p
+
+    def test_a_100000_deep_certificate_is_a_refusal_not_a_crash(self):
+        # RED before: RecursionError escaped the function (the adjudication's own reproduction).
+        # Q-772: the loader that replaced `_xa_node_mapping_cert_defect` keeps this refusal.
+        S = _load("solve")
+        p = self._cert("[" * 100000 + "]" * 100000)
+        try:
+            m, why = S._xa_node_mapping_load(p)
+        except RecursionError:
+            self.fail("RecursionError escaped _xa_node_mapping_load: a crash, not a refusal")
+        self.assertIsNone(m)
+        self.assertIsInstance(why, str)
+        self.assertIn("nested too deeply", why)
+
+    def test_a_deep_legacy_claim_is_no_longer_walked_to(self):
+        # Q-772 (the Q-768 ruling): the iterative walk this test used to guard is GONE, with the
+        # permission bit it searched for. A legacy claim at any depth now prices nothing.
+        S = _load("solve")
+        depth = 500
+        p = self._cert("[" * depth + '{"solve_node_limit_mapping": "CERTIFIED: m"}' + "]" * depth)
+        m, why = S._xa_node_mapping_load(p)
+        self.assertIsNone(m)
+        self.assertIn("not a JSON object", why)
+        import json
+        p = self._cert(json.dumps({"a": [{"solve_node_limit_mapping": {"claimed": True}}],
+                                   "solve_node_limit_mapping": "CERTIFIED: x"}))
+        m, why = S._xa_node_mapping_load(p)
+        self.assertIsNone(m)
+        self.assertIn("nothing to price with", why)
+
+    def test_xa_exact_refuses_a_bare_float(self):
+        # RED before: _xa_exact(0.1) returned 3602879701896397/36028797018963968.
+        S = _load("solve")
+        with self.assertRaises(S.AtlasError):
+            S._xa_exact(0.1)
+
+    def test_xa_exact_keeps_every_exact_input(self):
+        from fractions import Fraction
+        from decimal import Decimal
+        S = _load("solve")
+        self.assertEqual(S._xa_exact(S._ExactAnchor("0.1")), Fraction(1, 10))
+        self.assertEqual(S._xa_exact(S._ExactAnchor("2.0")), Fraction(2))
+        self.assertEqual(S._xa_exact(Fraction(1, 3)), Fraction(1, 3))
+        self.assertEqual(S._xa_exact(Decimal("0.1")), Fraction(1, 10))
+        self.assertEqual(S._xa_exact(7), Fraction(7))
+
+
+class TestW0dLowerBoundCert(unittest.TestCase):
+    """The W0-D LOWER-BOUND producer (`--xa-w0d-lb-cert`, Opus SS 2026-09-25).
+
+    Each test names what it kills. The certificate's claim is production_nodes(b) >= t(b); it
+    rests on K (t-units) being a subset of P (production) and on X(b) >= T(b) per branch."""
+
+    def test_first_branches_carry_x_ge_t(self):
+        # The per-branch inequality on a truncated run (the full run is the end-to-end test).
+        S = _load("solve")
+        E = S.xa_w0d_lower_bound_enumerate(max_depth=5, only_branches=3)
+        self.assertEqual(len(E["branches"]), 3)
+        self.assertEqual({d: v for d, v in E["B0"].items() if v},
+                         {1: 2, 2: 8, 3: 13, 4: 7, 6: 1})
+        self.assertEqual(E["containment_violations"], 0)
+        for r in E["branches"]:
+            self.assertTrue(r["ok_d2"] and r["ok_d3"], r)
+            self.assertGreaterEqual(r["X_found"], r["T_d3"])
+
+    def test_mutant_production_uses_the_t_cap_emits_nothing(self):
+        # Kills "P == K": if production pruned with the t-ladder's boundary cap there would be no
+        # P-not-K prefix, X == 0 < T, and the lower bound could not be certified without an
+        # additive term. The positive twin above must pass on the same branches.
+        S = _load("solve")
+        E = S.xa_w0d_lower_bound_enumerate(prod_uses_b0=True, max_depth=4, only_branches=2)
+        self.assertEqual(len(E["branches"]), 2)
+        for r in E["branches"]:
+            self.assertEqual(r["X_found"], 0)
+            self.assertFalse(r["ok_d3"])
+
+    def test_the_certificate_loads_as_lower_bound_and_prices_one_sided(self):
+        # End to end, the real producer (~15 s): the loader accepts it as kind lower-bound,
+        # F = 1/1, and the consumer can print INFEASIBLE and never EXHAUSTIBLE.
+        import io, contextlib, json
+        from fractions import Fraction
+        S = _load("solve")
+        d = tempfile.mkdtemp(prefix="w0dlb_")
+        self.addCleanup(shutil.rmtree, d, True)
+        out = os.path.join(d, "cert.json")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = S.xa_w0d_lower_bound_cert(out)
+        self.assertEqual(rc, 0, buf.getvalue())
+        lines = buf.getvalue().splitlines()
+        self.assertIn("XA_W0D_LB_CERT=PASS", lines)
+        # Positive control on the production mirror: the normal-mode partition counts.
+        self.assertIn("W0D_LB_P_PREFIXES_DEPTH_1_2_3=56,3030,158364", lines)
+        self.assertIn("W0D_LB_K_SUBSET_P_VIOLATIONS=0", lines)
+        m, why = S._xa_node_mapping_load(out)
+        self.assertIsNone(why)
+        self.assertEqual(m["kind"], "lower-bound")
+        self.assertEqual(m["factor"], Fraction(1))
+        self.assertEqual(m["measured_n"], [31])
+        with open(out) as fh:
+            doc = json.load(fh)
+        self.assertEqual(doc["scope"]["n"], 31)
+        self.assertIn("any reduced-n atlas (n < 31)", doc["scope"]["excluded"])
+
+    def test_a_scoped_certificate_is_refused_on_another_n(self):
+        # RED before the scope check: the n=31 lower-bound certificate was ACCEPTED on the n=9
+        # atlas and priced its rows (measured 2026-09-25, TR12_XA_CD=ONE-SIDED:lower-bound). The
+        # same certificate without `scope` must still price, so the check is not refuse-all.
+        import json
+        S = _load("solve")
+        d = tempfile.mkdtemp(prefix="w0dscope_")
+        self.addCleanup(shutil.rmtree, d, True)
+
+        def cert(scope):
+            doc = {"type": "roae-w0d-node-mapping-certificate", "version": 1,
+                   "mapping": {"kind": "lower-bound", "nodes_per_t_unit": "1/1", "residual": 0,
+                               "formula": "TEST", "law": "TEST"},
+                   "measured": {"n": [31], "verdict_line": "TEST"},
+                   "provenance": {"engine_git": "FIXTURE:tests.py"}}
+            if scope is not None:
+                doc["scope"] = {"n": scope}
+            p = os.path.join(d, "c%s.json" % scope)
+            with open(p, "w") as fh:
+                json.dump(doc, fh)
+            return p
+        A = {"n": 9, "N_total": "24", "type": "branch-atlas", "space": "fixture",
+             "t_root_t_units": "1001", "layers": [{"k": 0, "flow": "24"}],
+             "branch_atlas": [{"global_pair": 1, "entry": 17, "exit": 0, "solutions": "24",
+                               "walks": 24, "prefixes_t_units": "1000",
+                               "t_source": "t-ladder"}]}
+        verdicts = {}
+        for scope in (31, 9, None):
+            cost = {"nodes_per_sec": S._ExactAnchor("1"), "usd_per_hour": S._ExactAnchor("1"),
+                    "budget_usd": S._ExactAnchor("1000"), "hedge": S._ExactAnchor("1"),
+                    "work_factor": S._ExactAnchor("1"), "node_mapping_cert": cert(scope),
+                    "note": "test"}
+            out = os.path.join(d, "o%s" % scope)
+            os.makedirs(out)
+            _tsv, md, verdict, _g = S.atlas_emit_xa(A, out, cost=cost, atlas_path="a.json")
+            verdicts[scope] = verdict
+            if scope == 31:
+                with open(md) as fh:
+                    self.assertIn("scoped to n=31", fh.read())
+        self.assertEqual(verdicts[31], "PENDING:W0-D-node-mapping")
+        self.assertEqual(verdicts[9], "ONE-SIDED:lower-bound")
+        self.assertEqual(verdicts[None], "ONE-SIDED:lower-bound")
+
+    def test_a_reduced_n_atlas_is_refused_as_the_cross_check(self):
+        # The producer's optional atlas cross-check refuses anything but the n=31 space, BEFORE
+        # enumerating, and writes no certificate.
+        import io, contextlib, json
+        S = _load("solve")
+        d = tempfile.mkdtemp(prefix="w0dlb_")
+        self.addCleanup(shutil.rmtree, d, True)
+        a = os.path.join(d, "a9.json")
+        with open(a, "w") as fh:
+            json.dump({"n": 9, "fmass": [1], "branch_atlas": []}, fh)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = S.xa_w0d_lower_bound_cert(os.path.join(d, "c.json"), a)
+        self.assertEqual(rc, 2, buf.getvalue())
+        self.assertIn("XA_W0D_LB_CERT=ERROR:atlas-is-not-the-n31-production-space",
+                      buf.getvalue().splitlines())
+        self.assertFalse(os.path.exists(os.path.join(d, "c.json")))
+
+
+class TestQ767Q3TokenGateAndChunkFailLine(unittest.TestCase):
+    """Q-767 items (1) and (4), on a real n=9 atlas built by solve.c.
+
+    (1) atlas_selftest's "Q3: verdict tokens emitted" gate read only the parent TR12_Q3. With the
+    Q3 name forced to the King Wen claim at n=9 (the KW-naming path misfiring), TR12_Q3 and the
+    reader both still PASS and the gate stayed green; it must now read the KW leg and fail.
+    (4) a chunk-write failure printed KC_SCAN_CHUNK=FAIL twice; exactly one line is the contract.
+    A build failure is a test FAILURE, never a skip."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    GATE = "Q3: verdict tokens emitted"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q767_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q767")
+        cls.atlas = os.path.join(cls.tmp, "atlas9.json")
+        cls.fdir, cls.gdir, cls.tdir = (os.path.join(cls.tmp, x) for x in ("f", "g", "t"))
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        if not cls.build_ok:
+            return
+        for argv in ([cls.sbin, "--kc-build", cls.fdir, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-g-build", cls.gdir, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-t-build", cls.fdir, cls.tdir],
+                     [cls.sbin, "--kc-scan", cls.fdir, cls.gdir, cls.atlas, "--kc-tdir", cls.tdir,
+                      "--kc-raw"]):
+            r = subprocess.run(argv, capture_output=True, text=True)
+            if r.returncode != 0:
+                cls.build_ok = False
+                cls.build_err = "%s: rc %d\n%s" % (" ".join(argv[1:3]), r.returncode,
+                                                   r.stdout[-1500:])
+                return
+        cls.build_ok = os.path.exists(cls.atlas)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.build_ok, self.build_err)
+
+    def _selftest(self, S):
+        import io, contextlib
+        buf = io.StringIO()
+        trace = os.path.join(self.HERE, "scripts", "tr12_expected", "n9", "a2_q3.txt")
+        with contextlib.redirect_stdout(buf):
+            rc = S.atlas_selftest(self.atlas, q3_trace=trace)
+        out = buf.getvalue()
+        gate = [l for l in out.splitlines() if l.startswith("[atlas-consumer] " + self.GATE)]
+        self.assertEqual(1, len(gate), out)
+        return rc, gate[0], out
+
+    def test_positive_control_the_real_n9_q3_leg_passes(self):
+        S = _load("solve")
+        rc, gate, out = self._selftest(S)
+        self.assertTrue(gate.rstrip().endswith("PASS"), out)
+        # No --atlas-walks here, so the consumer's verdict is SKIP:no-brute-force-walks by design;
+        # what this control needs is that every gate that DID run passed.
+        self.assertRegex(out, r"(?m)^\[atlas-consumer\] \d+ gate\(s\) run, 0 failure\(s\)$", out)
+        self.assertIn("ATLAS_CONSUMER=SKIP:no-brute-force-walks", out.splitlines(), out)
+
+    def test_a_kw_name_forced_at_n9_turns_the_token_gate_red(self):
+        # RED before: the gate compared TR12_Q3 (still PASS here) to "PASS" and printed PASS.
+        from unittest import mock
+        S = _load("solve")
+        forced = lambda steps, n: ("q3_profile_kw.tsv", "PASS", "forced by the Q-767 red test")
+        with mock.patch.object(S, "atlas_q3_name", forced):
+            rc, gate, out = self._selftest(S)
+        self.assertIn("FAIL", gate, "the Q3 token gate stayed green with TR12_Q3_KW=PASS at n=9:\n"
+                      + out)
+        self.assertIn("TR12_Q3_KW=PASS", gate)
+        self.assertRegex(out, r"(?m)^\[atlas-consumer\] \d+ gate\(s\) run, [1-9]\d* failure\(s\)$", out)
+        self.assertIn("ATLAS_CONSUMER=FAIL", out.splitlines(), out)
+
+    def _chunk(self, outp):
+        r = subprocess.run([self.sbin, "--kc-scan", self.fdir, self.gdir, outp,
+                            "--kc-layers", "0", "2"], capture_output=True, text=True)
+        return r.returncode, r.stdout.splitlines(), r.stdout + r.stderr
+
+    def test_a_failed_chunk_write_prints_the_fail_token_exactly_once(self):
+        # RED before: two KC_SCAN_CHUNK=FAIL lines (solve.c write-failure else + the crc == 2 line).
+        rc, lines, out = self._chunk(os.path.join(self.tmp, "no", "such", "dir", "chunk.json"))
+        self.assertEqual(2, rc, out)
+        self.assertEqual(1, lines.count("KC_SCAN_CHUNK=FAIL"), out)
+        self.assertFalse([l for l in lines if l.startswith("KC_SCAN_CHUNK=")
+                          and l != "KC_SCAN_CHUNK=FAIL"], out)
+
+    def test_positive_control_a_written_chunk_prints_ok_exactly_once(self):
+        rc, lines, out = self._chunk(os.path.join(self.tmp, "chunk_ok.json"))
+        self.assertEqual(0, rc, out)
+        self.assertEqual(1, lines.count("KC_SCAN_CHUNK=OK"), out)
+        self.assertFalse([l for l in lines if l.startswith("KC_SCAN_CHUNK=")
+                          and l != "KC_SCAN_CHUNK=OK"], out)
+
+
+class TestQ782LadderShaRowChecksLayerIdentity(unittest.TestCase):
+    """Q-782 (found and reproduced by Opus RR, 2026-09-24).
+
+    scripts/tr12_repro.sh's ladder_sha_row checked layer COUNT, not layer IDENTITY: it passed when
+    n+1 layers were digested and each matched the sidecar beside it, never asking which indices
+    they were. And `solve --f1c5-layer-sha DIR` skipped a layer it could not read with rc 0. So at
+    n=9 a ladder with g_layer_09 gone and a stray g_layer_10 (a copy of 08 with its sidecar) got
+    LADDER_SHA_CHECK=OK, and so did one with g_layer_05 at mode 000 plus that stray.
+
+    The battery's OWN function is extracted and executed (never a copy), with only row_begin and
+    row_end stubbed, on a real n=9 g ladder built by solve.c. Red before the fix: the three
+    tampered ladders print OK and the DIR form exits 0. A build failure is a test FAILURE."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q782_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q782")
+        cls.gdir = os.path.join(cls.tmp, "g")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        if not cls.build_ok:
+            return
+        r = subprocess.run([cls.sbin, "--kc-g-build", cls.gdir, "--f1-pairs", "9"],
+                           capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and all(
+            os.path.exists(os.path.join(cls.gdir, "g_layer_%02d.bin" % k)) and
+            os.path.exists(os.path.join(cls.gdir, "g_layer_stats_%02d.json" % k))
+            for k in range(10))
+        cls.build_err = "--kc-g-build rc %d\n%s" % (r.returncode, r.stdout[-1500:])
+        with open(os.path.join(cls.HERE, "scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
+            m = re.search(r"(?ms)^ladder_sha_row\(\)\{.*?^\}$", fh.read())
+        cls.fn = m.group(0) if m else None
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        self.assertIsNotNone(self.fn, "scripts/tr12_repro.sh has no ladder_sha_row; nothing exercised")
+
+    def _ladder(self, name):
+        d = os.path.join(self.tmp, name)
+        shutil.copytree(self.gdir, d)
+        return d
+
+    def _stray10(self, d):
+        # layer 10 = a copy of 08 WITH its sidecar, so it digests and matches like a real layer
+        shutil.copy(os.path.join(d, "g_layer_08.bin"), os.path.join(d, "g_layer_10.bin"))
+        shutil.copy(os.path.join(d, "g_layer_stats_08.json"), os.path.join(d, "g_layer_stats_10.json"))
+
+    def _drop(self, d, k):
+        os.remove(os.path.join(d, "g_layer_%02d.bin" % k))
+        os.remove(os.path.join(d, "g_layer_stats_%02d.json" % k))
+
+    def _row(self, d):
+        work = tempfile.mkdtemp(dir=self.tmp)
+        script = ('row_begin(){ RAW="$WORK/raw.txt"; : > "$RAW"; }\n'
+                  'row_end(){ echo "ROW_RC=$2" >> "$RAW"; }\n'
+                  'eval "$FN"\n'
+                  'ladder_sha_row a2_gsha TR12_GSHA "$LDIR" g_layer\n'
+                  'cat "$RAW"\n')
+        env = dict(os.environ, FN=self.fn, WORK=work, SOLVE=self.sbin, N_PAIRS="9", LDIR=d)
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env)
+        lines = r.stdout.splitlines()
+        verdict = [l for l in lines if l.startswith("LADDER_SHA_CHECK=")]
+        self.assertEqual(1, len(verdict), r.stdout + r.stderr)
+        return verdict[0], lines, r.stdout + r.stderr
+
+    def test_positive_control_an_intact_n9_ladder_is_ok(self):
+        v, lines, out = self._row(self._ladder("intact"))
+        self.assertEqual("LADDER_SHA_CHECK=OK", v, out)
+        self.assertIn("ROW_RC=0", lines, out)
+        self.assertFalse([l for l in lines if l.startswith("layer ")], out)
+
+    def test_last_layer_replaced_by_a_stray_10_fails(self):
+        d = self._ladder("swap09")
+        self._drop(d, 9); self._stray10(d)
+        v, lines, out = self._row(d)
+        self.assertEqual("LADDER_SHA_CHECK=FAIL", v, out)       # RED before: OK
+        self.assertIn("layer g_layer_09.bin  MISSING", lines, out)
+        self.assertTrue([l for l in lines if l.startswith("layer g_layer_10.bin  STRAY")], out)
+
+    def test_missing_middle_layer_with_a_stray_10_fails(self):
+        d = self._ladder("drop05")
+        self._drop(d, 5); self._stray10(d)
+        v, lines, out = self._row(d)
+        self.assertEqual("LADDER_SHA_CHECK=FAIL", v, out)       # RED before: OK
+        self.assertIn("layer g_layer_05.bin  MISSING", lines, out)
+        self.assertTrue([l for l in lines if l.startswith("layer g_layer_10.bin  STRAY")], out)
+
+    def test_unreadable_layer_with_a_stray_10_fails(self):
+        d = self._ladder("chmod05")
+        p = os.path.join(d, "g_layer_05.bin")
+        self._stray10(d); os.chmod(p, 0)
+        try:
+            # precondition: mode 000 must actually deny the read (it does not for root)
+            self.assertFalse(os.access(p, os.R_OK), "mode 000 is still readable (running as root?); "
+                             "this case cannot be exercised here")
+            v, lines, out = self._row(d)
+        finally:
+            os.chmod(p, 0o644)
+        self.assertEqual("LADDER_SHA_CHECK=FAIL", v, out)       # RED before: OK
+        self.assertIn("layer g_layer_05.bin  UNREADABLE", lines, out)
+
+    def test_dir_form_exits_2_on_an_unreadable_layer_and_prints_the_rest_unchanged(self):
+        d = self._ladder("chmoddir")
+        ok = subprocess.run([self.sbin, "--f1c5-layer-sha", d], capture_output=True, text=True)
+        self.assertEqual(0, ok.returncode, ok.stdout + ok.stderr)
+        p = os.path.join(d, "g_layer_05.bin")
+        os.chmod(p, 0)
+        try:
+            self.assertFalse(os.access(p, os.R_OK), "mode 000 is still readable (running as root?)")
+            r = subprocess.run([self.sbin, "--f1c5-layer-sha", d], capture_output=True, text=True)
+        finally:
+            os.chmod(p, 0o644)
+        self.assertEqual(2, r.returncode, r.stdout + r.stderr)    # RED before: 0, layer skipped
+        self.assertIn("ERROR: cannot open %s" % p, r.stderr)
+        want = [l for l in ok.stdout.splitlines() if "/g_layer_05.bin " not in l]
+        self.assertEqual(want, r.stdout.splitlines())
 
 
 if __name__ == "__main__":

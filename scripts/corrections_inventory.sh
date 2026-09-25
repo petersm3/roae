@@ -37,6 +37,12 @@
 #   scripts/corrections_inventory.sh --summary  # counts per class/source, no file written
 #   scripts/corrections_inventory.sh --selftest # known-answer anchors (see below)
 #
+# ERRORS: every refusal prints one `CORRECTIONS_INVENTORY=ERROR <cause> ...` line and exits 2
+# without touching the published TSV. Causes: source-failed:markdown | source-failed:git |
+# shallow-repository | mktemp-failed | sweep-failed (incl. id-collision) | population-collapsed.
+# (Same one-line shape as the pre-existing population-collapsed line; splitting the cause onto a
+# separate whole-line cause token needs a DEVELOPMENT.md token-table row first.)
+#
 # SAFETY (2-core orchestrator)
 #   Index-based `git grep` / `git log` only. No `find` over trees. NO bounded-repetition
 #   regex (`.{0,N}`) anywhere — a pathological one hung this box on a 381-byte input.
@@ -90,8 +96,15 @@ PATHSPEC=( -- '*.md' ":!$LEDGER" )
 #   because they have different reliability: a changelog row is a deliberate record and
 #   an inline marker is prose, and TR-2 v1.20 is the standing proof that a changelog row
 #   can assert a propagation that never happened.
+# 🔴 2026-09-24 (Q-747, Codex v3 E3 V3A-105#1): `2>/dev/null` used to hide this command's
+# errors, and its status was lost inside `{ src_markdown; src_git; } | classify` (a brace group's
+# status is its LAST command's). A `git grep` that could not run therefore produced 0 markdown rows
+# while ~744 git rows cleared the population floor, and the published inventory was overwritten
+# with no INL-/CHA- rows at rc 0. stderr is no longer suppressed, and sweep() below reads each
+# source's status separately. Under pipefail this function's status is git grep's: 0 = matches,
+# 1 = no match at all (itself impossible for this corpus, so also a failure), >1 = error.
 src_markdown() {
-  git grep -n -I -i -E "$ALL_RE" "${PATHSPEC[@]}" 2>/dev/null | awk '
+  git grep -n -I -i -E "$ALL_RE" "${PATHSPEC[@]}" | awk '
     { gsub(/\t/, " ") }
     {
       i = index($0, ":"); if (i == 0) next
@@ -108,8 +121,17 @@ src_markdown() {
 #   Each commit is flattened to ONE record (subject + body) with \x01 as the record
 #   separator, so a multi-line body cannot break the framing. One `git log`, one `tr`
 #   chain; no per-commit subprocess.
+#
+#   🔴 2026-09-24 (Q-747, V3A-105#2): the hash is `%H` cut to a FIXED 8 characters. It was `%h`,
+#   whose length is core.abbrev's (7 on a default-config clone, "auto" grows it with the object
+#   count), and that string is `doc`, which enters the id's hash key. At core.abbrev=7 none of the
+#   562 published GIT- ids reproduced; every published GIT- row carries an 8-character hash, so a
+#   fixed 8 reproduces all of them on any clone, whatever its config. `%H` + cut, not
+#   `--abbrev=8`: git lengthens an abbreviation that is ambiguous, and the length must not depend
+#   on the object store either. A shallow clone is refused in sweep(): it would publish a
+#   truncated history as the whole of it.
 src_git() {
-  git log --date=short --format='%x01%h%x09%ad%x09%s %b' 2>/dev/null \
+  git log --date=short --format='%x01%H%x09%ad%x09%s %b' \
     | tr -d '\r' | tr '\t' ' ' | tr '\n' ' ' | tr '\001' '\n' | awk -v RE="$ALL_RE" '
     NF == 0 { next }
     {
@@ -117,6 +139,7 @@ src_git() {
       # fields were joined with a literal space by the format string; recover them
       sha = a[1]; dt = a[2]
       msg = substr($0, length(sha) + length(dt) + 3)
+      sha = substr(sha, 1, 8)
       if (tolower(msg) ~ RE) print "git\t" sha "\t" dt "\t" msg
     }'
 }
@@ -146,6 +169,7 @@ classify() {
     BEGIN {
       CHARS = " !\"#$%&'"'"'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
       OFS = "\t"
+      tokre["C1"] = C1RE; tokre["C2"] = C2RE; tokre["C3"] = C3RE; tokre["C4"] = C4RE
       print "id", "date", "class", "matched", "source", "document", "line", "text"
     }
     {
@@ -164,8 +188,31 @@ classify() {
 
       # date: an explicit ISO date on the line beats everything (it is the date the
       # correction is ASSERTED to have happened); otherwise the commit date; else "-".
-      if (match(text, /20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/))
+      # 🔴 2026-09-24 (Q-747, V3A-105#4): the date is BOUND TO THE MARKER when the line says so.
+      # It used to be the FIRST ISO date on the line, so CANONICAL_HASHES.md:117 -- "... not
+      # planned (2026-08-01) ... WITHDRAWN 2026-08-24 -- ..." -- was dated 2026-08-01, a date the
+      # line gives for something else. Now, when an occurrence of a token of the winning class is
+      # IMMEDIATELY followed by a date (only spaces/punctuation between: "WITHDRAWN 2026-08-24",
+      # "(Corrected 2026-07-04:"), that date is the one asserted. Otherwise the first date, as
+      # before. Deliberately tight: a looser "first date within 40 characters after the token"
+      # was measured against the corpus and mis-dated rows such as "supersedes the 2026-07-03
+      # estimator value" and "corrected ... -- a 2026-05-30 doc-pass", where the nearby date is
+      # the thing corrected, not the correction. A `changelog` row keeps its row date (column 2 of
+      # a revision table, which is also its first date). The date is not part of the id.
+      if (match(text, /20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
         dt = substr(text, RSTART, RLENGTH)
+        if (src != "changelog") {
+          scan = low; off = 0
+          while (match(scan, tokre[cls])) {
+            rest = substr(text, off + RSTART + RLENGTH)
+            adv = RSTART + RLENGTH
+            if (match(rest, /^[^A-Za-z0-9]*20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) && RLENGTH <= 14) {
+              dt = substr(rest, RLENGTH - 9, 10); break
+            }
+            scan = substr(scan, adv); off += adv - 1
+          }
+        }
+      }
       else if (dt == "") dt = "-"
 
       # Truncation marker is explicit. `matched` above already carries the evidence for
@@ -177,17 +224,47 @@ classify() {
 
       key = src "|" doc "|" tolower(out)
       id = toupper(substr(src, 1, 3)) "-" hash(key)
-      if (id in seen && seen[id] != key) {
+      # 🔴 2026-09-24 (Q-747, V3A-105#3): the id is hashed over the TRUNCATED text (kept, so that
+      # none of the 1,115 truncated published ids renumbers), but the collision check now compares
+      # the FULL normalised text. It compared `key`, so two distinct lines sharing their first
+      # MAXTEXT characters -- the same key by construction -- got one id silently (Fable R: a
+      # C3 line and a C1 line, one id, rc 0). Identical full text is the same row, not a collision.
+      full = text; gsub(/[[:space:]]+/, " ", full); sub(/^ /, "", full)
+      fkey = src "|" doc "|" tolower(full)
+      if (id in seen && seen[id] != fkey) {
         printf("COLLISION\t%s\t%s\n", id, key) > "/dev/stderr"
         collided = 1
       }
-      seen[id] = key
+      seen[id] = fkey
       print id, dt, cls, tok, src, doc, ln, out
     }
     END { if (collided) exit 3 }'
 }
 
-sweep() { { src_markdown; src_git; } | classify; }
+# 🔴 2026-09-24 (Q-747, V3A-105#1): each source is captured to its own file and its status read
+# BEFORE anything is classified. See src_markdown for the fail-open this replaces. A source that
+# fails, or yields nothing, is an ERROR with its name on the line: the population floor below is a
+# second net, and it did not catch this case (744 git rows clear a floor of 50 on their own).
+sweep() {
+  local d rc_md rc_git rc
+  d=$(mktemp -d) || { echo "CORRECTIONS_INVENTORY=ERROR mktemp-failed" >&2; return 2; }
+  if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" != "false" ]; then
+    echo "CORRECTIONS_INVENTORY=ERROR shallow-repository — git log would see a truncated history" >&2
+    rm -rf "$d"; return 2
+  fi
+  src_markdown > "$d/md";  rc_md=$?
+  src_git      > "$d/git"; rc_git=$?
+  if [ "$rc_md" -ne 0 ] || [ ! -s "$d/md" ]; then
+    echo "CORRECTIONS_INVENTORY=ERROR source-failed:markdown rc=$rc_md rows=$(grep -c . "$d/md")" >&2
+    rm -rf "$d"; return 2
+  fi
+  if [ "$rc_git" -ne 0 ] || [ ! -s "$d/git" ]; then
+    echo "CORRECTIONS_INVENTORY=ERROR source-failed:git rc=$rc_git rows=$(grep -c . "$d/git")" >&2
+    rm -rf "$d"; return 2
+  fi
+  cat "$d/md" "$d/git" | classify; rc=$?
+  rm -rf "$d"; return "$rc"
+}
 
 # ---------------------------------------------------------------------------
 # SELF-TEST — known-answer anchors, written before the classifier was trusted.
@@ -239,7 +316,7 @@ selftest() {
     'Conflict theorem rescoped 2026-07-30 to C1nC2nC4nC5 scope; propagated 2026-08-01.'
 
   # (4) C3, the bulk class.
-  anchor "C3 typo/consistency (SOLVE.md:324 shape)" C3 "corrected" \
+  anchor "C3 typo/consistency (SOLVE.md:334 shape)" C3 "corrected" \
     '*(Corrected 2026-07-04: previously listed as "4".)*'
 
   # (5) C4, which must be reachable but must NOT outrank anything.
@@ -302,6 +379,61 @@ selftest() {
     rc=1
   fi
 
+  # (10)-(13) 2026-09-24, Q-747 (Codex v3 E3 V3A-105). Each leg is the red case Fable R executed.
+  # (10) GIT- ids do not depend on core.abbrev: every git row's hash is exactly 8 characters at
+  #      core.abbrev=7 (the default-config clone that reproduced 0 of 562 published ids).
+  local badlen ngit
+  ngit=$(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.abbrev GIT_CONFIG_VALUE_0=7 src_git | grep -c .)
+  badlen=$(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.abbrev GIT_CONFIG_VALUE_0=7 src_git \
+             | awk -F'\t' 'length($2) != 8' | grep -c .)
+  if [ "${ngit:-0}" -gt 0 ] && [ "${badlen:-1}" -eq 0 ]; then
+    echo "  [ok]   GIT- hash column is a fixed 8 characters at core.abbrev=7 ($ngit rows)"
+  else
+    echo "  [FAIL] GIT- hash column depends on core.abbrev (rows=$ngit, not 8 chars=$badlen)"
+    rc=1
+  fi
+
+  # (11) two DISTINCT lines sharing their first 400 characters get one id: that must be a loud
+  #      COLLISION (exit 3), not a silent merge. Control: the same line twice is one row, rc 0.
+  local pfx crc crc2
+  pfx=$(printf 'x%.0s' $(seq 1 405))     # > MAXTEXT, so both lines truncate to the same 400
+  printf 'inline\tX.md\t1\t%s Corrected tail one\ninline\tX.md\t2\t%s Withdrawn tail two\n' "$pfx" "$pfx" \
+    | classify >/dev/null 2>&1; crc=$?
+  printf 'inline\tX.md\t1\t%s Corrected tail one\ninline\tX.md\t2\t%s Corrected tail one\n' "$pfx" "$pfx" \
+    | classify >/dev/null 2>&1; crc2=$?
+  if [ "$crc" -eq 3 ] && [ "$crc2" -eq 0 ]; then
+    echo "  [ok]   shared-400-char-prefix lines collide LOUDLY (rc 3); an identical repeat does not"
+  else
+    echo "  [FAIL] truncated-prefix collision: distinct rc=$crc (want 3), identical rc=$crc2 (want 0)"
+    rc=1
+  fi
+
+  # (12) the date is the one bound to the marker, not the first on the line (CANONICAL_HASHES:117).
+  dout=$(printf 'inline\tX.md\t1\t%s\n' \
+    'not planned (2026-08-01). More prose here. **[WITHDRAWN 2026-08-24 — the figure exceeds its own bound' \
+    | classify | tail -n +2 | cut -f2)
+  if [ "$dout" = "2026-08-24" ]; then
+    echo "  [ok]   date bound to the marker (2026-08-24), not the first date on the line"
+  else
+    echo "  [FAIL] date binding: got '$dout', expected 2026-08-24"
+    rc=1
+  fi
+
+  # (13) a markdown source that cannot run fails the sweep; it does not publish git rows alone.
+  local shim src
+  shim=$(mktemp -d) && {
+    printf '#!/bin/sh\n[ "$1" = grep ] && { echo "shim: git grep refused" >&2; exit 2; }\nexec %s "$@"\n' \
+      "$(command -v git)" > "$shim/git"; chmod +x "$shim/git"
+    PATH="$shim:$PATH" sweep >/dev/null 2>&1; src=$?
+    rm -rf "$shim"
+    if [ "$src" -ne 0 ]; then
+      echo "  [ok]   a failing git grep fails the sweep (rc $src)"
+    else
+      echo "  [FAIL] a failing git grep still returned rc 0 from sweep"
+      rc=1
+    fi
+  }
+
   rm -f "$tmp"
   echo
   [ "$rc" -eq 0 ] && echo "CORRECTIONS INVENTORY SELF-TEST: PASS" \
@@ -324,7 +456,13 @@ case "${1:-}" in
   *)  echo "usage: $0 [--stdout|--summary|--selftest]"; exit 2 ;;
 esac
 
-sweep > "$OUT.new" || { echo "sweep failed"; rm -f "$OUT.new"; exit 1; }
+sweep > "$OUT.new"; SRC=$?
+if [ "$SRC" -ne 0 ]; then
+  rm -f "$OUT.new"
+  # a failed source already said why (stderr); an id collision (classify rc 3) printed COLLISION rows
+  echo "CORRECTIONS_INVENTORY=ERROR sweep-failed rc=$SRC$([ "$SRC" -eq 3 ] && echo ' id-collision') — $OUT NOT overwritten"
+  exit 2
+fi
 # 🔴 POPULATION FLOOR (2026-09-05 fail-open class sweep). `src_markdown` runs `git grep … 2>/dev/null`
 # and `src_git` runs `git log … 2>/dev/null`; when either cannot run, the sweep is EMPTY and this
 # script used to print "wrote 0 candidates", overwrite the published inventory with a header-only

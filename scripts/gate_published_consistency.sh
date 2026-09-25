@@ -265,7 +265,7 @@ fi
 # 🔴 LB-A6/LB-A7, 2026-09-07. LEADERBOARD published `./solve --branch 24 0 0` with no budget: run as
 # printed it prints "No time limit - running to completion" and does not return (measured -- killed
 # at 20 s). And `--validate solutions_merged.bin` named a file --merge has NEVER written; the merge
-# output is <layer_root>/_merged_/solutions.bin (solve.c:33837, :36922). A reader who pastes the
+# output is <layer_root>/_merged_/solutions.bin (solve.c:39447, :42615). A reader who pastes the
 # block gets a hang and then a missing file. exec_lane runs commands but checks neither, so this is
 # a static leg over the published text.
 G9=0
@@ -401,7 +401,7 @@ fi
 # 🔴 SSS-A1, 2026-09-07. SEARCH_SPACE_SIZE projected ~15-20 boundaries to full-space uniqueness. A
 # boundary fixes pair IDENTITY and leaves the orientation bit alone: with all 31 pinnable steps
 # pinned, 1,720,320 orientations survive -- the C4-oriented fiber already published at
-# TR1_EIGHT_CENTURIES_MEASURED.md:333, and log2 of it is 20.71 bits no boundary count can close.
+# TR1_EIGHT_CENTURIES_MEASURED.md:346, and log2 of it is 20.71 bits no boundary count can close.
 # The projection is fine for the pair-ordering object; it must not read as a route to a unique
 # oriented sequence.
 G14=0
@@ -472,11 +472,23 @@ fi
 
 
 # ---- G17: a dead-branch claim must be scoped to its dataset and budget ------------------------
-# 🔴 LB-A2, 2026-09-07 (W1/Q-434). LEADERBOARD.md labels 12 position-2 pairs "Estimated dead" on a
-# 10T run that reached no ordering for them. §[11] of the SAME artifact gives 11 of those 12 positive
-# first-level record counts, and its own zero set is {4, 6, 21}. The two slices measure different
-# things; the unqualified label implied one was the other. GATE 53 could not see this: its universe is
-# LARGE_SCALE_CAMPAIGNS.md, and the defect lives in LEADERBOARD.md.
+# 🔴 LB-A2, 2026-09-07 (W1/Q-434). LEADERBOARD.md labels 12 position-2 pairs "Estimated dead" on the
+# pre-bugfix 10T run its table was built from, which reached no ordering for them. §[11] of
+# enumeration/analyze_sec25fix_742M.txt gives ALL 12 of those pairs positive first-level record
+# counts. §[11]'s pair index is 0-based (§[21]: position 1 is p0, King Wen's position-2 pair #3/#4 is
+# p1), so pair i is hexagrams #(2i+1)/#(2i+2), and its zero set {4, 6, 21} is #9/#10, #13/#14,
+# #43/#44 -- three pairs the table does not list at all. The two datasets therefore do not disagree
+# about any pair the table shows; the defect was an unqualified label that read as globally dead.
+# GATE 53 could not see this: its universe is LARGE_SCALE_CAMPAIGNS.md, and the defect lives in
+# LEADERBOARD.md.
+# 🔴 CORRECTED 2026-09-24 (Q-764). This comment said §[11] gave 11 of the 12 pairs positive counts
+# and that the two slices measure different things -- the 2026-09-07 qualifier's 1-based misreading
+# of §[11] (Q-753, CX-78), copied here. And the leg only asked for the string "{4, 6, 21}", which
+# the mis-mapped 2026-09-07 wording ALSO carried, so it was green on the defect and on the cure
+# alike. Three assertions now tell them apart (the same three as the proposed private LB-A2 leg,
+# Opus DD 2026-09-24): the correct hexagram mapping of the zero set is stated, the 1-based mapping
+# is gone, and the "11 carry positive record counts" count is gone. Measured: RED on the 5c296837
+# LEADERBOARD, GREEN on the Q-753 re-mapped one.
 G17=0
 _LB17=${G17_DOC:-enumeration/LEADERBOARD.md}
 if [ -r "$_LB17" ]; then
@@ -494,8 +506,21 @@ if [ -r "$_LB17" ]; then
       echo "  [FAIL] G17: $_unq unqualified 'choices lead to dead branches' claim(s) survive"
       _g17=$((_g17+_unq))
     fi
+    # Q-764: the three discriminating assertions. grep -c, never grep -q (see the note in G18).
+    if [ "$(grep -icF -- '#9/#10, #13/#14, #43/#44' "$_LB17" 2>/dev/null)" -eq 0 ]; then
+      echo "  [FAIL] G17: the {4, 6, 21} zero set is not mapped to #9/#10, #13/#14, #43/#44 (0-based pair index)"
+      _g17=$((_g17+1))
+    fi
+    if [ "$(grep -icF -- '#7/#8, #11/#12, #41/#42' "$_LB17" 2>/dev/null)" -gt 0 ]; then
+      echo "  [FAIL] G17: the 1-based mapping of the zero set (#7/#8, #11/#12, #41/#42) is still published"
+      _g17=$((_g17+1))
+    fi
+    if [ "$(grep -icF -- '11 carry positive record counts' "$_LB17" 2>/dev/null)" -gt 0 ]; then
+      echo "  [FAIL] G17: the 1-based count '11 carry positive record counts' is still published (all 12 do)"
+      _g17=$((_g17+1))
+    fi
     if [ "$_g17" -eq 0 ]; then
-      echo "  [ok]   G17: dead-branch claims are scoped, and the {4, 6, 21} zero set is stated"
+      echo "  [ok]   G17: dead-branch claims are scoped, and the {4, 6, 21} zero set is stated and mapped 0-based"
     fi
     G17=$_g17
   fi

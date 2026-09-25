@@ -82,7 +82,16 @@ Calibration artifacts in this directory (master seed 20260720, deterministic):
 | `scores.json` | every draw scored under all four models |
 | `hits.json`, `pcomplete.json`, `gates.json` | rule-hit tables, greedy completion probabilities, pre-gates |
 
-Reproduce with `python3 r11_calibration.py --phase gates|draws|pcomplete|hits|score|report`. Note the
+Reproduce with `python3 r11_calibration.py --phase gates|draws|pcomplete|hits|score|report`.
+⚠ **[INPUT STATED 2026-09-24 (Codex V3A-157#3, Q-742) — the `score` phase cannot run from this list
+alone. It also reads an unconditioned 8-axis histogram dump through `--hist` (default
+`~/r11_calib/hist.out`), which none of the six phases produces. The dump behind the committed
+`scores.json` is the `r11_hist.out` described below, and it is **not committed**. To run `score`,
+first generate a dump with the estimator command given there and pass it as `--hist <path>`. The
+phase asserts that the dump's N_can lies within 5 % of `f11_runA.out`'s. The thread count of the
+original dump is not recorded, so a regenerated dump is a fresh draw, not the same one: M_D's
+likelihoods, and therefore `scores.json` and `calibration_report.txt`, are not reproducible digit for
+digit from this bundle. The six committed outputs are the record of the run that was made.]** Note the
 KW-facing integration script (`compute_r11_bf.py`) **does not exist and is not planned**: the veto means
 there is nothing it would be permitted to report.
 
@@ -151,8 +160,13 @@ this bundle is unaffected as a measurement.)*
 - unconditioned 8-axis joint violation histogram — 150,758 cells; mass sums to 1; seven
   marginals reproduce the run's independent scoreboard lines to <0.3%. The raw dump
   (`r11_hist.out`, 6.5 MB; gzip -9 → 1.7 MB) is **not committed** (over the repository's
-  1 MB asset threshold) and is exactly regenerable from the pushed code:
+  1 MB asset threshold). A dump of the same quantity can be regenerated from the pushed code:
   `SOLVE_KNUTH_SCORE=1 SOLVE_KNUTH_R11_HIST=1 ./solve --estimate-knuth 20000000000`.
+  ⚠ **[SCOPED 2026-09-24 (Codex V3A-157#3 / V3B-14#13, Q-742) — this read "is exactly regenerable
+  from the pushed code". Knuth seeds are per-thread, so a draw repeats exactly only at the same
+  (probes, threads), and no committed file records the thread count of this run. No
+  `SOLVE_THREADS` value is added, because one would be a guess. The command regenerates the
+  histogram's distribution, not its bytes.]**
   The KW cell (2,2,2,0,0,0,0,0) is absent by rarity, as expected: its estimated mass
   (~10⁻²³ of canonical mass) is ~11 orders below the run's smallest sampled cell
   (5.9×10⁻¹²); scorer correctness is established by the two-language `--r11-verify` gate,

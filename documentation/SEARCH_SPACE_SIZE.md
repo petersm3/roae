@@ -18,7 +18,7 @@ Knuth (1975, *Estimating the efficiency of backtrack programs*, Math. Comp. 29).
 - At a node with `d` live children (children passing the same C1/C2/C4/C5 prune predicates used by the real `backtrack()`), set `W ← W · d` and descend to one of the `d` children chosen uniformly at random.
 - Stop at a dead end or at a completed depth-32 leaf.
 
-Then `E[Σ W over the visited path]` equals the total number of tree nodes, and `E[W at a reached depth-32 leaf]` equals the number of complete orderings; applying the C3 test at the leaf gives the **canonical (C1–C5)** count. Each probe is an *unbiased* estimator of the whole; averaging `N` independent probes reduces **variance as `1/N`**, hence the **standard error** as `1/√N` ⚠ *(this line said variance fell as 1/√N until 2026-09-07 — that is the SE; `solve.c:8283` computes it correctly, so only the prose was wrong. Measured across 4× probe increases: relerr 1.45 → 0.72 → 0.36 → 0.18 %, exactly halving, which is the SE behaviour)*. The estimator is pure compute — **it touches no solution data and needs no enumeration artifacts** — and it reuses `solve.c`'s exact prune predicates, so it samples the identical tree the enumerator walks.
+Then `E[Σ W over the visited path]` equals the total number of tree nodes, and `E[W at a reached depth-32 leaf]` equals the number of complete orderings; applying the C3 test at the leaf gives the **canonical (C1–C5)** count. Each probe is an *unbiased* estimator of the whole; averaging `N` independent probes reduces **variance as `1/N`**, hence the **standard error** as `1/√N` ⚠ *(this line said variance fell as 1/√N until 2026-09-07 — that is the SE; `solve.c:8344` computes it correctly, so only the prose was wrong. Measured across 4× probe increases: relerr 1.45 → 0.72 → 0.36 → 0.18 %, exactly halving, which is the SE behaviour)*. The estimator is pure compute — **it touches no solution data and needs no enumeration artifacts** — and it reuses `solve.c`'s exact prune predicates, so it samples the identical tree the enumerator walks.
 
 Implementation: `solve --estimate-knuth <probes> [prefix…]` (see [`SOLVE_C_CLI.md`](SOLVE_C_CLI.md)). Sha-neutral to the enumerator: the subcommand shares the prune predicates but adds no code on the enumeration path (`--selftest` unchanged).
 
@@ -220,7 +220,7 @@ projection to ~15–20 (observed-rate extrapolation ~12; see the note below — 
 ⚠ **But no number of these boundaries reaches ORIENTED uniqueness, and this projection did not say so
 until 2026-09-07.** A boundary constraint fixes pair IDENTITY; the orientation bit per pair is untouched.
 Measured with every one of the 31 pinnable steps pinned, C6/C7 on or off: **1,720,320 orientations
-survive** — the same C4-oriented fiber already published at `TR1_EIGHT_CENTURIES_MEASURED.md:333`. That
+survive** — the same C4-oriented fiber already published at `TR1_EIGHT_CENTURIES_MEASURED.md:346`. That
 is **log₂(1,720,320) ≈ 20.71 bits** these boundaries cannot close, so of the ≈105 bits they can reach at
 most ≈84.65. The projection is sound for the pair-ordering object and cannot be read as a route to a
 unique oriented sequence. A bracketing exploration choosing among the *weakest* remaining boundaries

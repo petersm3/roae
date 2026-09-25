@@ -1034,7 +1034,13 @@ the end of a multi-day campaign.
 
 The project's data shows orientation symmetry is **not universal**:
 only 16.3% of multi-variant `(p1, p2, p3)` groups have all
-orientations equal at 100T budget. Applying an "8× symmetry
+orientations equal at 100T budget — and that share compares only the
+variants that emitted records (`--yield-report` reads the log's `Wrote`
+lines). **585 of those 1,636 groups contain a feasible variant that
+emitted nothing**; requiring every feasible variant to have emitted
+records leaves 1,051 of 8,072 (13.0%). See
+[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) for the definition and its
+re-derivation *(definition added 2026-09-24, Q-760)*. Applying an "8× symmetry
 speedup" blanket-everywhere is **not defensible** for a published
 canonical — most prefixes don't have the symmetry, and the
 empirical observation at one budget doesn't prove it at higher

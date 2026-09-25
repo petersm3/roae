@@ -47,7 +47,7 @@ ckpt_line='Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 3 orient1 0 pai
 # value below 1T ("below the canonical-stability threshold ... the output sha256 is
 # CODE-SPECIFIC"), and its own error text points at SOLVE_PER_SUB_BRANCH_LIMIT for
 # "intentional within-code-state runs", which is exactly what this is.  That
-# override sets current_per_branch_budget directly (solve.c:41904, :43098), which
+# override sets current_per_branch_budget directly (solve.c:47565, :48759), which
 # is the variable under test.
 run_case() { # run_case <budget-or-empty>; echoes the completed-from-checkpoint count
   local d out here bin

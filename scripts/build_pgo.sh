@@ -30,13 +30,19 @@
 #                      enum workload (representative of canonical hot
 #                      paths). The string is eval'd; use $INSTR_BIN
 #                      to refer to the instrumented binary path.
+#                      It MUST exit 0: a non-zero workload is an ERROR
+#                      (2026-09-24, Q-749). A sub-canonical node limit
+#                      needs SOLVE_PER_SUB_BRANCH_LIMIT (as the default
+#                      sets) or SOLVE_ALLOW_SUB_CANONICAL=1, or solve.c
+#                      refuses it with rc 25.
 #
 # Example (560T-class build):
 #   cd /home/solver/src
 #   scripts/build_pgo.sh solve_v3 /home/solver/build_dir
 #
-# Example with custom workload:
-#   scripts/build_pgo.sh solve /opt/build \
+# Example with custom workload (the source file is the 3rd argument; the
+# workload was once written in its slot, which fails "... not found"):
+#   scripts/build_pgo.sh solve /opt/build solve.c \
 #     'SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=5000000000 \
 #      SOLVE_PER_SUB_BRANCH_LIMIT=31577 \
 #      SOLVE_THREADS=$(nproc) SOLVE_SKIP_AUTOMERGE=1 \
@@ -49,6 +55,11 @@ BUILD_DIR="${2:-$(pwd)}"
 SOURCE_FILE="${3:-solve.c}"
 DEFAULT_WORKLOAD='SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=1000000000 SOLVE_PER_SUB_BRANCH_LIMIT=6315 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=$(nproc) SOLVE_SKIP_AUTOMERGE=1 "$INSTR_BIN" 0 $(nproc)'
 PGO_WORKLOAD="${4:-$DEFAULT_WORKLOAD}"
+
+# Absolute, because the script `cd`s into it below (V3A-102#3: a relative
+# build_dir broke the `mv` after the cd).
+BUILD_DIR=$(cd "$BUILD_DIR" 2>/dev/null && pwd) || {
+    echo "ERROR: build_dir ${2:-} is not a directory" >&2; exit 1; }
 
 PROFILE_DIR="$BUILD_DIR/pgo_profile_$$"
 INSTR_BIN="$BUILD_DIR/${OUTPUT}.instr"
@@ -91,17 +102,31 @@ if ! "$INSTR_BIN" --selftest > /tmp/pgo_pass1_selftest.log 2>&1; then
     exit 1
 fi
 
+# 🔴 2026-09-24 (Q-749, Codex v3 E3 V3A-102#1). The selftest above is a
+# sanity gate, NOT training data, and its .gcda used to stay in
+# $PROFILE_DIR. With the workload `false` the script printed "workload
+# returned non-zero; checking .gcda anyway", found the selftest's one
+# .gcda, and reported "PGO build complete" at rc 0 -- rule 3 above
+# ("Pass 1 actually wrote profile data") satisfied without any workload.
+# The selftest's profile is cleared here, and the workload's status is
+# read: non-zero is an ERROR. (The old comment said a node-limit hit may
+# exit non-zero; measured on the worker, a budgeted run exits 0.)
+rm -rf "$PROFILE_DIR"
+mkdir -p "$PROFILE_DIR"
+
 # ===== Profile-gen workload =====
 # Run the instrumented binary on a representative workload so it
 # writes .gcda profile data files.
 echo "[$(date -u +%FT%TZ)] PGO profile-gen workload"
 export INSTR_BIN
-eval "$PGO_WORKLOAD" > /tmp/pgo_workload.log 2>&1 || {
-    # Workload may exit non-zero (e.g., node limit hit before
-    # natural completion); we don't care about exit code, only
-    # that .gcda files got written.
-    echo "  (workload returned non-zero; checking .gcda anyway)"
-}
+eval "$PGO_WORKLOAD" > /tmp/pgo_workload.log 2>&1
+WORKLOAD_RC=$?
+if [ "$WORKLOAD_RC" -ne 0 ]; then
+    echo "ERROR: PGO workload exited rc=$WORKLOAD_RC; refusing to build a PGO binary from it" >&2
+    echo "       workload log:" >&2
+    tail -20 /tmp/pgo_workload.log >&2
+    exit 1
+fi
 
 # ===== Assert profile data was produced =====
 # This is the belt-and-suspenders check that prevents Pass 2 from

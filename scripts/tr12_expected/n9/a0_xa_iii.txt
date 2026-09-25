@@ -24,7 +24,7 @@
     "dead_ends_counted": true,
     "space": "C1C2C4C5-SUPERSPACE (no C3 filter)",
     "reference_dfs": "kc_brute_rec (solve.c): nodes = one increment per recursive visit; per-state subtrees counted by the SAME code path",
-    "solve_node_limit_mapping": "NOT CLAIMED HERE - the W0-D worker run (WAVE0_RUNBOOK item w0d) pins the mapping to the production enumerator's SOLVE_NODE_LIMIT counter (orientation explicitness, d3 cell splitting, C3-prune visit accounting) using this instrument"
+    "solve_node_limit_mapping": "NOT CLAIMED HERE - the W0-D worker run (WAVE0_RUNBOOK item w0d) pins the mapping to the production enumerator's SOLVE_NODE_LIMIT counter (orientation explicitness, d3 cell splitting, and the prefixes its combined kw_dist budget admits beyond the t-ladder's boundary cap; C3 is only a leaf filter there) using this instrument"
   },
   "n9": {
     "N_walks": 26112,

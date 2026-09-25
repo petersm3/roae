@@ -12,8 +12,12 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 What if the sequence is a circle — the last hexagram wrapping around to the first? Several scholars,
 notably [Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975), read it that way. This report re-derives the mathematics under the circular
-reading. Two results stand out. First, the wrap-around step is **forced to be odd** (proved formally),
+reading. Two results stand out. First, for any ordering that satisfies C1–C5, read as a
+cycle, the wrap-around step is **forced to be odd** (proved formally),
 which makes McKenna's observed 3-to-1 ratio of even-to-odd transitions a necessity, not a choice.
+That scope matters. The wider *circular* solution space, measured in §"The anchors on the circle",
+also holds orderings that satisfy the transition rule only as cycles, and nearly half of that space
+wraps at an even distance.
 Second, a surprise: the sequence's missing distance-5 transition is a **genuine extra rule** in the
 circular reading — orderings that wrap at distance 5 make up 17.4% of the valid space, yet **not one**
 appears among 10.5 billion enumerated records. That gap between the full space and the enumerated
@@ -26,7 +30,9 @@ and their published counts (64 transitions, "three even integers to each odd int
 closure. We work out exactly what the ROAE constraint system says under the circular reading. Three
 theorems and one SAT decision result: (i) the wrap-around Hamming distance d(s₆₃, s₀) is odd for *every*
 C4+C5-valid ordering — now machine-checked in Lean 4 at full generality (`wrap_parity_general`, structural
-induction, not finite enumeration); (ii) McKenna's exact 3:1 even:odd transition ratio is a *forced
+induction, not finite enumeration). Here C5 is King Wen's *linear* 63-transition multiset, so (i)
+covers C1–C5-valid orderings read as cycles, not every member of the circular solution space, about
+48% of which wraps at an even distance (§"The anchors on the circle"); (ii) McKenna's exact 3:1 even:odd transition ratio is a *forced
 consequence* of C4 + C5 plus the XOR parity identity — a regularity he read as a design feature that turns
 out to be a theorem, not a choice; (iii) every valid circular reading has exactly 16 parity-class
 alternations, and the first and last hexagrams of any valid linear ordering lie in opposite
@@ -88,6 +94,12 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    and the wrap boundary is forced to alternate (equivalent to wrap parity — two routes to one fact).
    **Corollary: every valid circular reading has exactly 16 alternations**, and the first and last
    hexagrams of any valid linear ordering lie in opposite popcount-parity classes (KW: 63 even → 42 odd ✓).
+   This route runs through wrap parity, so it proves the 16-alternation count for C1–C5-valid orderings
+   read as cycles. The count also holds for every member of the circular solution space measured in
+   §"The anchors on the circle", including the members that wrap at an even distance, by a shorter
+   route: an alternation is exactly an odd transition, and the circular multiset
+   {1:2, 2:20, 3:14, 4:19, 6:9} contains 2 + 14 = 16 of them. The first-and-last statement is about
+   linear orderings and does not extend: an even-wrap member begins and ends in the same class.
 5. **Circular C2 is a genuine extra constraint — the SAT decision.** The wrap-parity theorem restricts the
    wrap to d ∈ {1, 3, 5}. At the 560T canonical the wrap is d=3 in 91.83% of records, d=1 in 8.17%, and
    d=5 in **exactly zero of 10,525,271,997**. Nevertheless, valid linear orderings with a 5-line wrap
@@ -186,7 +198,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
 *The 64 hexagrams as a cycle in King Wen order (computed from the sequence itself). Red edges are odd
 transitions; the highlighted wrap edge 64→1 jumps d = 3 — odd, as the wrap-parity theorem forces. The
 circular reading has 16 odd transitions where the linear reading has 15: the wrap adds exactly one,
-always.*
+always, for an ordering that satisfies C1–C5 as written.*
 
 ## Prior work note (v1.7)
 
@@ -215,13 +227,25 @@ index 63 — also odd. The parity-alternation theorem ([TR-6](TR6_PARITY_SKELETO
 transitions, and the wrap-parity theorem (§2) makes the wrap odd, so there are exactly 16 odd
 transitions (McKenna's 16-of-64, §3), all confined to odd cyclic indices. Adjacent indices on a
 64-cycle have opposite index parity (including the 63/0 seam), so the 16 odd transitions are pairwise
-non-adjacent — 16 isolated values, each contributing exactly two switches: 32. The result is invariant
-across the wrap's distance class (d ∈ {1, 3, 5} are all odd). This fills the one remaining cell in the
+non-adjacent — 16 isolated values, each contributing exactly two switches: 32. For these orderings the
+result is invariant across the wrap's distance class (d ∈ {1, 3, 5} are all odd). This fills the one remaining cell in the
 TR-6/TR-7 linear→circular lattice: alternations 15 → 16 (§4), switches 30 (TR-6 corollary) → **32**.
 Verified on King Wen: cyclic odd transitions = 16, all at odd indices; linear switches = 30; cyclic
 switches = 32. Derived in cross-report synthesis 2026-07-04 (composition of TR-6's 30-switches
 corollary with this report's wrap-parity theorem), independently re-derived and re-verified before
 folding in.
+
+*Scope (added v2.6).* The proof above uses the parity-alternation and wrap-parity theorems, so as
+written it covers C1+C4+C5-valid orderings read as cycles. The count of 32 also holds for every member
+of the circular solution space (§"The anchors on the circle"), including the members that wrap at an
+even distance, without either theorem:
+- such a member's 64 cyclic transitions have King Wen's circular multiset, so exactly 16 are odd
+  (2 + 14);
+- C1 makes the 32 within-pair transitions even, so all 16 odd transitions sit at odd cyclic indices;
+- the counting above then gives 32.
+
+Checked on the wrap-2 member listed in that section's Verification Guide: 16 odd transitions and
+32 switches.
 
 *Verification:* both ingredient theorems are kernel-checked (`switches_30_general`,
 `wrap_parity_general` in lean/KingWen.lean); the KW instance is a three-line check from solve.py's
@@ -249,7 +273,10 @@ particular KW's wrap distance 3 (§2) is forced by *which pair closes*, not by a
 
 (ii) *Seam eligibility (T2i):* pairs are parity-homogeneous (16 even / 16 odd — [TR-6](TR6_PARITY_SKELETON.md)
 ingredients), and the wrap-parity theorem (§2) then forbids all 16 even pairs — including all four
-self-reverse pairs and the pure pair itself — from ever occupying the final slot.
+self-reverse pairs and the pure pair itself — from occupying the final slot of any C1+C4+C5-valid
+ordering. This is a statement about orderings with King Wen's linear multiset. In the wider circular
+solution space measured below, an even pair can close: the wrap-2 member listed in the Verification
+Guide ends on the pair (23, 58), whose two hexagrams both have popcount 4.
 
 (iii) *Pair-determined wrap (T2ii):* for each of the 16 eligible (odd) pairs the wrap distance is a
 function of the pair alone (orientation-free), classifying them **10 : 3 : 3** into d = 3, 1, 5 closers
@@ -298,16 +325,69 @@ late-biased — though slot 32 remains the global maximum. The KW ground truth (
 slot 32 = 1, adjacent = 1) and the negative control (the wrap-d5 SAT witness scores adjacent = 0)
 were verified in both languages before the run. In plain terms: roughly one in eight valid
 orderings places the two anchor pairs adjacent on the circle — KW's configuration is
-population-common, and this measurement prices it; it does not elevate it. Likewise the *circular
-solution-space size* is now measured: the C5-budget-override walk passed its self-gate (the
-standard-multiset override reproduces N_lin byte-identically) and gives N(M′) = 6.507×10³⁷
-(95% CI [6.50, 6.51]×10³⁷) with wrap-d1 mass f₁(M′) = 0.175, so the exact decomposition yields
-**|C_circ| = 0.652·|C1–C5| + 0.175·6.507×10³⁷ ≈ 9.80×10³⁷ — about 0.74× the linear space**
-(using the fresh run's f₃ = 0.6518 instead of the published 0.652 changes nothing at 3
-significant figures). This resolves the one report-only R-series observable registered in v1.9;
-per the §6 non-promotion decision it is measurement and theorem, not constraint — neither the
-circular reading (McKenna's frame) nor the anchor rule (Cook's observation) enters the formal
-system.
+population-common, and this measurement prices it; it does not elevate it.
+
+**Circular solution-space size.** This has been measured too. The figure printed here through v2.5
+was a **lower bound**, not the size. ⚠ **[CORRECTED 2026-09-24. Codex (target V3A-093) found it;
+Fable adjudicated the finding and executed its witness. Through v2.5 this paragraph called its
+two-term sum an exact decomposition of the circular space, and gave that sum as about three-quarters
+of the linear space. Both statements are withdrawn. The two terms are correct, but two further terms
+were missing. See CORRECTIONS.md CX-83.]**
+
+Under this report's own circular definition (§1, §4), a member of the circular space C_circ has the
+circular transition multiset C = {1:2, 2:20, 3:14, 4:19, 6:9}, with no 5-line step anywhere on the
+cycle. Its linear 63-transition multiset is C minus its wrap distance w, so C_circ splits into one
+class per value of w:
+- **w = 3:** King Wen's linear multiset. The term is T3 = f₃·N_lin, with f₃ the linear d = 3 wrap
+  mass of §5.
+- **w = 1:** M′ = {1:1, 2:20, 3:14, 4:19, 6:9}. The term is T1 = N(M′)·f₁(M′). The C5-budget-override
+  walk passed its self-gate (the standard-multiset override reproduces N_lin byte-identically) and
+  gives N(M′) = 6.507×10³⁷ (95% CI [6.50, 6.51]×10³⁷), with wrap-d1 mass f₁(M′) = 0.175.
+- **w = 2 and w = 4:** M₂ = {1:2, 2:19, 3:14, 4:19, 6:9} and M₄ = {1:2, 2:20, 3:14, 4:18, 6:9}.
+  **These two classes were omitted through v2.5.** Each linear multiset has 16 odd transitions, so
+  the walk ends on an even-popcount hexagram and the wrap is even.
+- **w = 5** is excluded by circular C2.
+- **w = 6** is impossible: it would put hexagram 0 last, and C4 puts it second.
+
+The wrap-parity theorem (§2) does not exclude the even classes. Its hypothesis is King Wen's *linear*
+multiset, which these orderings do not have, so it constrains C1–C5-valid orderings read as cycles,
+not every member of C_circ. An explicit wrap-2 member exists:
+- it is a permutation that satisfies C1 and C4;
+- its C3 is 768, within the 776 ceiling;
+- its 64 cyclic transitions have exactly King Wen's circular multiset, with no 5-line step.
+
+The Verification Guide below lists it with a one-line check.
+
+All four terms, measured. T1, T2 and T4 each use 2×10¹⁰ probes, run as 20 seed-distinct chunks of
+10⁹ ([evidence/circular_census/](evidence/circular_census/)), and each term is the absolute wrap-bin
+estimate that the walk prints for the class's own bin:
+
+| w | class | term | estimate | ± (1 SE) |
+|---|---|---|---:|---:|
+| 3 | King Wen linear | T3 = f₃·N_lin | 8.658×10³⁷ | ≈2.2×10³⁴ |
+| 1 | M′ | T1 | 1.1385×10³⁷ | 0.96×10³⁴ |
+| 2 | M₂ | T2 | 4.7531×10³⁷ | 2.2×10³⁴ |
+| 4 | M₄ | T4 | 4.1501×10³⁷ | 2.1×10³⁴ |
+| | | **\|C_circ\|** | **1.870×10³⁸** | **≈3.8×10³⁴** |
+
+- **T3** is f₃ = 0.651504 times N_lin = 1.32889×10³⁸, both from the seed-distinct pair of §5. Its ± is
+  propagated from their two SEs in quadrature. That is an approximation, because both come from the
+  same runs.
+- **T1** was re-measured on fresh seeds. It agrees with the value printed through v2.5
+  (0.175 × 6.507×10³⁷ ≈ 1.1388×10³⁷) to 0.03%.
+- For each class, the spread of the 20 chunk estimates agrees with the printed SE (χ²₁₉ = 14.9, 17.8
+  and 15.7).
+- Every bin of the wrong parity is exactly zero in every chunk.
+
+**The two published terms sum to ≈ 9.80×10³⁷, which is a lower bound.** Adding the two omitted
+classes, which are 47.6% of the total, gives **|C_circ| ≈ 1.87×10³⁸ ≈ 1.41 × N_lin**. The circular
+space is larger than the linear one, not smaller. Only the w = 3 class lies inside the linear C1–C5
+space. The other three classes are orderings whose linear multiset differs from King Wen's.
+
+The adjacency figures above (R-C1c, the A₂ slot histogram) are fractions of *linear* C1–C5 mass and
+are unaffected. This resolves the one report-only R-series observable registered in v1.9. Per the
+§6 non-promotion decision, it is measurement and theorem, not constraint: neither the circular
+reading (McKenna's frame) nor the anchor rule (Cook's observation) enters the formal system.
 
 *Attribution: circular frame McKenna & McKenna (1975); the final-pair anchor rule Cook (2006); the
 rigidity/eligibility theorems, the 10:3:3 classification, and the eligibility-adjusted re-pricing are
@@ -332,10 +412,36 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
   `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (KW gate: slot2 = 0, slot32 = 1,
   adjacent = 1; d5-witness negative control = 0; the run's slot-32 mass must reproduce
   R-C1 ≈ 7.84% — measured run: `evidence/r6/rc1c_primary.out`, adjacent = 0.130472).
-- Circular-space size:
-  `SOLVE_KNUTH_C5_BUDGET="1:1,2:20,3:14,4:19,6:9" SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`
-  (self-gate: standard-budget override `1:2,2:20,3:13,4:19,6:9` reproduces N_lin — verified
-  byte-identical, `evidence/r6/budget_selfgate.out`; M′ run: `evidence/r6/mprime_walk.out`).
+- Circular-space size, all four classes (v2.6 added the w = 2 and w = 4 classes):
+  - Command: `SOLVE_KNUTH_C5_BUDGET="<L>" SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth <P>`.
+  - Read each class's own bin on the `[score] wrap-bin` lines (`documentation/SOLVE_C_CLI.md`
+    §`SOLVE_KNUTH_SCORE`):
+
+    | L | class | bin |
+    |---|---|---|
+    | `1:1,2:20,3:14,4:19,6:9` | M′ | d1 |
+    | `1:2,2:19,3:14,4:19,6:9` | M₂ | d2 |
+    | `1:2,2:20,3:14,4:18,6:9` | M₄ | d4 |
+
+  - Self-gate: the standard-budget override `1:2,2:20,3:13,4:19,6:9` reproduces N_lin (verified
+    byte-identical, `evidence/r6/budget_selfgate.out`). The v2.0 M′ run is
+    `evidence/r6/mprime_walk.out`.
+  - The v2.6 census is in [evidence/circular_census/](evidence/circular_census/). Its README gives
+    the 60 chunks of 10⁹ probes at 64 threads and every seed, and
+    the shell script `bash reports/evidence/circular_census/pool.sh` re-derives the table above from
+    the chunk outputs.
+  - Controls: M₂ and M₄ put exactly zero mass in every odd bin; M′ and the linear walk put exactly
+    zero in every even bin.
+- Wrap-2 member of C_circ (Codex, target V3A-093; executed by Fable). It checks in seconds with the
+  clean-room `verify.py`, no build required:
+  `python3 -c "import verify as v,collections as c; S=[63,0,17,34,33,30,2,16,55,59,7,56,61,47,4,8,25,38,3,48,41,37,32,1,57,39,21,42,18,45,28,14,60,15,40,5,53,43,20,10,35,49,31,62,24,6,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,23,58]; h=lambda a,b:bin(a^b).count('1'); m=c.Counter(h(S[i],S[(i+1)%64]) for i in range(64)); print(sorted(S)==list(range(64)), v._t3_c1(S), v._t3_c4(S), h(S[63],S[0]), dict(sorted(m.items())), v.compute_comp_dist(S))"`
+  → `True True True 2 {1: 2, 2: 20, 3: 14, 4: 19, 6: 9} 768`. In order, that output shows:
+  - it is a permutation, and it satisfies C1 and C4;
+  - its wrap distance is 2;
+  - its circular multiset is King Wen's, with no 5;
+  - its C3 is 768, within 776.
+
+  King Wen itself is the control: its wrap is 3 and its C3 is 776.
 
 ## Revision history
 | Version | Date | Changes |
@@ -349,4 +455,5 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 | v2.2 | 2026-07-26 | **Wrap-mass uncertainty stated from archived artifacts (round-2 audit, completeness loop 4e G2).** The published 17.5/65.2/17.4% masses always cited "CIs per METHODS" without printing them; the instrument in fact emits point masses without per-class CIs, so no ± existed to print. The abstract and §5 now state the published uncertainty as the two-run agreement: the independent v2.0 r6 rerun (`evidence/r6/rc1c_primary.out`, 2×10¹⁰ probes) re-measured 17.45/65.18/17.37% — within 0.05 pp per class of the published figures. Per-class bootstrap CIs would need a recompute and are left as an open improvement. No mass value changed |
 | v2.3 | 2026-09-02 | **Four Codex V2-F09 corrections (prose batch P36).** (1) §6's rotation claim was false: without C4 the 32 pair-slot rotations act as symmetries of a circular system only if C3 is *also* circularized. Under this report's absolute-position C3, **21 of the 31 non-identity rotations of KW exceed the 776 ceiling** (rotate-4 = 888, rotate-16 = 1240); the sentence now says so, §1 carries the matching caveat that "unaffected by closure" is not rotation-invariance, and the Verification Guide gains a one-line reproduction from `verify.py`'s clean-room C3. The identical sentence at documentation/CIRCULAR_KING_WEN.md §"Symmetry under closure" was corrected in the same pass. (2) The published uncertainty statement is **withdrawn**: the r6 rerun is not an independent draw. Neither archived artifact carries a `SEED OVERRIDE` line, and the estimator seeds worker *i* by thread index alone, so the 32-thread and 64-thread runs share 10×10⁹ of their 20×10⁹ probes; the 0.05-pp agreement is arithmetic. The companion "no per-class CIs" premise was also stale — the instrument has printed `se=` since 2026-08-28 (METHODS.md), though the 2026-07 artifacts predate the field. Abstract, §5 and the Verification Guide now all state that **no ± is published for these masses**. (3) The Cook-anchor split ×1.9 forced · ×1.25 contingent assumed exchangeability across the 16 eligible pairs, which is unproved and which the same paragraph's measured class masses contradict; recomputed against the **measured** 6.52% d = 3 class average as **×2.02 · ×1.20**, with 1/16 relabelled a reference rather than a null. Two sibling sites (TR-1 §2(d), LITERATURE_RULES_POPULATION_TESTS.md §3) are adjudicated separately and remain outstanding. (4) The Meyer (1998) prior-art note stated the document's content flatly; the source 404'd in 2026-08 with zero Wayback captures, so the note now marks the read unrepeatable and credits the wrap value and no-5 property as stated claims to McKenna & McKenna (1975), as CITATIONS.md already did. No measurement, theorem or canonical sha changed; two published ratios changed and both are recomputations from figures already printed in this report |
 | v2.4 | 2026-09-02 | **Stack requirement narrowed to what the binary enforces (prose batch P37, Codex V2-F08 #4; wording only).** The `--estimate-knuth` warning published `ulimit -s unlimited` as REQUIRED. It is a **sufficient** setting, not a necessary one, and on a host or container whose hard limit forbids `unlimited` the published requirement was a false blocker. `solve.c`'s preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB"; executed under TR-9 v1.24, `ulimit -s 8192` refuses and exits 1 while `ulimit -s 16384` runs the estimator to completion. The banner now states "at least 16 MB (`ulimit -s 16384` suffices)" with `unlimited` named as one sufficient setting. This is the sibling sweep TR-9 v1.24 reported but did not perform. No figure, count, command, claim or scope changes |
-| v2.5 *(current)* | 2026-09-02 | **§"The anchors on the circle" marker updated: the two sibling sites of the withdrawn counting split are no longer outstanding (prose lane, backlog item 104).** v2.3 corrected this report's ×1.9 · ×1.25 split to the measured ×2.02 · ×1.20 and named [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §2(d) and [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §3 as still carrying the counting split. Both were corrected later the same day (TR-1 v1.32; the population-tests document's 2026-09-02 marker) to the same quotients of the same figures this report prints — 6.52 / 3.2258 = ×2.02 and 7.84 / 6.52 = ×1.20 — and the marker now says so. The sibling sweep's population and count are recorded in CORRECTIONS.md. No figure, theorem, certificate or verdict in this report changes |
+| v2.5 | 2026-09-02 | **§"The anchors on the circle" marker updated: the two sibling sites of the withdrawn counting split are no longer outstanding (prose lane, backlog item 104).** v2.3 corrected this report's ×1.9 · ×1.25 split to the measured ×2.02 · ×1.20 and named [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §2(d) and [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §3 as still carrying the counting split. Both were corrected later the same day (TR-1 v1.32; the population-tests document's 2026-09-02 marker) to the same quotients of the same figures this report prints — 6.52 / 3.2258 = ×2.02 and 7.84 / 6.52 = ×1.20 — and the marker now says so. The sibling sweep's population and count are recorded in CORRECTIONS.md. No figure, theorem, certificate or verdict in this report changes |
+| v2.6 *(current)* | 2026-09-24 | **The circular-space size was a lower bound, not an exact size (Codex, target V3A-093; adjudicated and executed by Fable; this reopens a 2026-09-19 rejection recorded in CORRECTIONS.md CX-53).** Split by wrap distance, the circular space C_circ has four classes, not two. The wrap-2 and wrap-4 classes, whose linear multisets M₂ and M₄ each have 16 odd transitions, were omitted. The rejection that kept them out cited `wrap_parity_general`, whose hypothesis is King Wen's linear multiset, so the theorem does not reach them. §"The anchors on the circle" withdraws two statements: that the two-term sum was an exact decomposition, and that the circular space was about three-quarters of the linear one. The sum ≈ 9.80×10³⁷ is relabelled a lower bound. The section now states all four terms with their SEs: T3 8.658×10³⁷, T1 1.1385×10³⁷ (re-measured; it agrees with the published value to 0.03%), T2 4.7531×10³⁷ and T4 4.1501×10³⁷. T1, T2 and T4 each come from 2×10¹⁰ probes in 20 seed-distinct chunks, archived in `reports/evidence/circular_census/`. The total is \|C_circ\| ≈ 1.87×10³⁸ ≈ 1.41 × N_lin, and the two omitted classes are 47.6% of it. An explicit wrap-2 member is cited, with a one-line check, in the Verification Guide. `solve.c` now prints the `[score] wrap-bin` lines the census reads (print-only, sha-neutral). Scope sentences were added where this report states wrap parity as if it covered every circular ordering: the Executive summary, Abstract (i), §4, the 32-switch corollary, T2i and the figure caption. The 16-alternation and 32-switch counts hold on all of C_circ; the text now says so and gives the shorter proof that covers the even-wrap members. No linear figure, theorem, certificate or canonical sha changes. See CORRECTIONS.md CX-83 |

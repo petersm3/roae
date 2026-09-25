@@ -14,6 +14,11 @@
 #      MEASURED on the pre-fix binary: 11 of 28 duplicate-pair vectors returned a POSITIVE
 #      multiplicity and a repr line at rc=0, under a #provenance trailer stamping the ratified
 #      convention -- a class representative for an object that is not a walk.
+#  Q-765 (RCQ02 F4, fixed 2026-09-24): item (3)'s table let `--kc-unrank DIR R --kc-c3-max T`
+#      through WITHOUT --kc-record, and --kc-unrank reads c3max only inside its --kc-record arm,
+#      so the flag was accepted and ignored at rc=0. L12 is the red leg (exit 2, no walk, the
+#      refusal names the fix), L13 the green one (with --kc-record a filtering T is honoured),
+#      and mutant M5 restores the unconditional `KO_RECORD | KO_C3`.
 #
 # THE POINT OF LEGS 6, 7 AND 10 is that refusing everything is not a fix. THE POINT OF LEG 11 is
 # that item (5) belongs in kc_parse_walk, which all four walk-taking queries share: a fix in the
@@ -50,7 +55,7 @@ if [ -n "${Q326_QS_SOLVE:-}" ]; then
   # exits 1 in the NORMAL case, so a bare call under this file's pipefail would abort mid-function
   # with an empty signal.
   #
-  # The four mutants below are NOT checked and must not be: they are compiled here from a
+  # The five mutants below are NOT checked and must not be: they are compiled here from a
   # deliberately mutated solve.c, so a differing SOURCE_SHA is the point of them.
   . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
   # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
@@ -59,8 +64,14 @@ if [ -n "${Q326_QS_SOLVE:-}" ]; then
     echo "          (set Q326_QS_ALLOW_STALE=1 to override, deliberately.)" >&2
     echo "Q326_QUERY_SURFACE=ERROR"; exit 2
   fi
+else
+  # THE ELSE-ARM the comment above describes. 14efc27f replaced it instead of inserting
+  # beside it, so from 2026-09-08 a hand run with Q326_QS_SOLVE unset died on `set -u`
+  # ("SOLVE: unbound variable", rc 1) with NO verdict token; only tr12_repro_gate.sh, which
+  # always sets the variable, could run this gate at all. Restored 2026-09-24 (Q-765 lane).
+  build solve.c base || fail "published build line failed on the committed solve.c"
+  SOLVE="$WORK/b_base/bin"
 fi
-mkdir -p "$WORK/f" "$WORK/g"
 "$SOLVE" --kc-build   "$WORK/f" --f1-pairs 9 >"$WORK/bf.log" 2>&1 || fail "--kc-build failed"
 "$SOLVE" --kc-g-build "$WORK/g" --f1-pairs 9 >"$WORK/bg.log" 2>&1 || fail "--kc-g-build failed"
 
@@ -74,8 +85,9 @@ mkdir -p "$WORK/f" "$WORK/g"
 #
 # WHY BOTH AND NOT JUST THIS ONE. The runtime report alone has a false-ERROR arm the library
 # does not: a binary built by a bare `gcc -O2 ... -o solve solve.c` passes no -DSOURCE_SHA, so it
-# reports the "unknown" default (solve.c:389) and is CURRENT BY CONSTRUCTION all the same -- see
-# pre_push_gate.sh:458, which builds exactly that way. Erroring on it would be the same disease in
+# reports the "unknown" default (solve.c:393) and is CURRENT BY CONSTRUCTION all the same -- see
+# the `gcc -O2 ... -o ./solve_167 solve.c` line in pre_push_gate.sh's "CONDITIONAL #167 zero-yield
+# resume leg", which builds exactly that way. Erroring on it would be the same disease in
 # the other direction. So the ladder is: the library decides (and is the one that runs BEFORE any
 # binary is executed, catching a stale or foreign binary at zero cost), and this check is a STRICT
 # ADDITION that fires only on a POSITIVE disagreement -- a binary that names a source and names
@@ -108,7 +120,7 @@ print(','.join(f))" >> "$WORK/bad.txt"
 done
 [ "$(grep -c . "$WORK/bad.txt")" = 8 ] || fail "expected 8 malformed vectors, got $(grep -c . "$WORK/bad.txt")"
 
-legs(){ # legs <solve> -> L1..L11
+legs(){ # legs <solve> -> L1..L13
   local S="$1" rc out n
   q(){ "$S" "$@" >"$WORK/o" 2>"$WORK/e"; echo $?; }
   rc=$(q --kc-count "$WORK/f" --kc-c3-max 387)
@@ -147,16 +159,29 @@ legs(){ # legs <solve> -> L1..L11
   rc=$(q --kc-o3-rank "$WORK/f" "$WORK/g" "$(head -1 "$WORK/bad.txt")")
   { [ "$rc" != 0 ] && [ "$(grep -c 'repeats pair index' "$WORK/e")" -gt 0 ]; } \
       && echo "L11=OK" || echo "L11=BAD(rc=$rc)"
+  # Q-765 red leg: --kc-c3-max without --kc-record is REFUSED, nothing is computed, and the
+  # refusal says what is missing. T = 0 is the value that would change the answer if it were
+  # honoured (L7), so an accept-and-ignore here is a wrong answer, not a harmless no-op.
+  rc=$(q --kc-unrank "$WORK/f" 0 --kc-c3-max 0)
+  { [ "$rc" = 2 ] && [ "$(grep -cE '^[0-9]+(,[0-9]+)+$' "$WORK/o")" -eq 0 ] \
+    && [ "$(grep -c 'kc-c3-max needs --kc-record' "$WORK/e")" -gt 0 ]; } \
+      && echo "L12=OK" || echo "L12=BAD(rc=$rc)"
+  # Q-765 green leg: WITH --kc-record the same flag is still accepted and still acts. rank 0's
+  # class under the no-filter bound T = -1 has a completion (rc 0, m >= 1); L7 is the same
+  # command at T = 0, where it has none -- so the pair shows the value reaching kc_class_repr.
+  rc=$(q --kc-unrank "$WORK/f" 0 --kc-record --kc-c3-max -1)
+  { [ "$rc" = 0 ] && [ "$(grep -cE '^record	m=[1-9][0-9]*	' "$WORK/o")" -eq 1 ]; } \
+      && echo "L13=OK" || echo "L13=BAD(rc=$rc)"
 }
 
 BASE=$(legs "$SOLVE")
-[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 11 ] \
-  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 11 -- the gate measured nothing"
+[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 13 ] \
+  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 13 -- the gate measured nothing"
 case "$BASE" in *=BAD*)
   printf '%s\n' "$BASE" | grep '=BAD' | sed 's/^/  [FAIL] baseline /'
   echo "Q326_QUERY_SURFACE=FAIL"; exit 1 ;;
 esac
-echo "  [gate] baseline PASS on 11 legs"
+echo "  [gate] baseline PASS on 13 legs"
 
 # NEVER `legs | grep -q` under pipefail: grep -q exits at the first match, SIGPIPEs the producer,
 # the pipeline reports 141, and a KILLED mutant reads as SURVIVED. Capture, then match.
@@ -175,6 +200,9 @@ elif E == "int_narrowing":         # item (4) restored
     new = "        uint64_t emitted = kc_enum(kc, (int)c3max, desc, kc_enum_print_cb, &ud);\n"
 elif E == "mask_set_never_tested": # the half-fix: `used` is maintained but never consulted
     old = "        if ((used >> i) & 1) {\n"; new = "        if (0) {\n"
+elif E == "unrank_c3_unconditional":  # Q-765 restored: --kc-c3-max admitted without --kc-record
+    old = "allowed = KO_RECORD | (want_record ? KO_C3 : 0);\n"
+    new = "allowed = KO_RECORD | KO_C3;\n"
 else: sys.exit(2)
 assert s.count(old) == 1, "mutant anchor drift: " + E
 open(os.environ["MUT"], "w", encoding="utf-8").write(s.replace(old, new))
@@ -182,17 +210,18 @@ PY
   cmp -s solve.c "$WORK/m.c" && { echo "  [ERROR] mutant $name did not change solve.c"; return 2; }
   build "$WORK/m.c" mut || { echo "  [ERROR] mutant $name did not compile"; return 2; }
   out=$(legs "$WORK/b_mut/bin")
-  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 11 ] \
+  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 13 ] \
     || { echo "  [ERROR] mutant $name produced no leg verdicts -- nothing was measured"; return 2; }
   case "$out" in *=BAD*) echo "  [gate] mutant $name killed"; return 0 ;; esac
   echo "  [FAIL] mutant $name SURVIVED -- the gate cannot see this fault"; return 1; }
 
 K=0
 for m in M1_permissive_table:permissive_table M2_atoll_not_strtoll:atoll_not_strtoll \
-         M3_int_narrowing:int_narrowing M4_mask_set_never_tested:mask_set_never_tested; do
+         M3_int_narrowing:int_narrowing M4_mask_set_never_tested:mask_set_never_tested \
+         M5_unrank_c3_unconditional:unrank_c3_unconditional; do
   mutate "${m%%:*}" "${m##*:}"
   case $? in 0) K=$((K+1)) ;; 1) echo "Q326_QUERY_SURFACE=FAIL"; exit 1 ;; *) echo "Q326_QUERY_SURFACE=ERROR"; exit 2 ;; esac
 done
-[ "$K" = 4 ] || fail "evaluated $K mutants, expected 4"
-echo "  [gate] baseline PASS on 11 legs; $K/4 mutants killed"
+[ "$K" = 5 ] || fail "evaluated $K mutants, expected 5"
+echo "  [gate] baseline PASS on 13 legs; $K/5 mutants killed"
 echo "Q326_QUERY_SURFACE=PASS"

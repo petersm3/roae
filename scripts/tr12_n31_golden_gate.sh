@@ -99,7 +99,7 @@ N31_DIV24=45710469949549241251504669632357466112
 C3MAX31=387
 ANCHOR_VALUES31=62
 # Q8 gallery, 2026-08-07 T4 run; already public in scripts/d5_02_q8_chi2_gallery_gate.sh:81 and
-# documentation/QUERY_INVENTORY.md:806. Its one-time process caveat (MEMBER_FAILURES 1000 -> 0) was
+# documentation/QUERY_INVENTORY.md:934. Its one-time process caveat (MEMBER_FAILURES 1000 -> 0) was
 # RESOLVED 2026-08-13 (roae-private/GATE_T_G1_MEMBER_FAILURES_RESOLVED_20260813.md), so this anchor
 # is unconditioned.
 Q8_CHI2=20.224

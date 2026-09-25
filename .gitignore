@@ -76,3 +76,5 @@ solve.binary.snapshot
 !/example/hexagrams.*
 !/example/report.*
 !/example/wave.*
+# doc_gates.sh GATE 17 LEG 6 scratch copy (left behind only if a selftest is interrupted)
+scripts/.doc_gates_g17_copy.*

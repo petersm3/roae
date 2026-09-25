@@ -411,7 +411,7 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 
    ⚠ **[CORRECTED 2026-09-19 — `SOLVE_DEPTH` was missing from this list, and it is
    **sha-determining**. This document's own §8 step 4 says it "must be copied from the
-   canonical's row" and that every d3 canonical needs `SOLVE_DEPTH=3` (:1396-1398), while
+   canonical's row" and that every d3 canonical needs `SOLVE_DEPTH=3` (:1442-1444), while
    `solve.c` defaults it to **2** — and the checkpoint *shape* differs by depth (six-component
    names at d3, four at d2). Whether omitting it is caught depends on the age of the source
    archive, and for the archive this recipe is titled for it is NOT. With a `resume_contract.txt`
@@ -702,18 +702,36 @@ The fix is two-pronged:
    hold uncompressed working copy + gzipped warm-tier mirror BEFORE
    launch, not after merge completes. The 560 T campaign's solver-data
    was 2 TB (≈ 800 GB free) at launch, insufficient for the 560 T uncompressed
-   plus mirror (≈ 2.4 TB). It was resized 2 TB → 4 TB online 2026-06-08
+   plus mirror (≈ 2.4 TB; see the ⚠ under the table below, which removes the checkpoint figures from this
+   total). It was resized 2 TB → 4 TB online 2026-06-08
    to fit, but the right policy is to size it before launch.
 
 Capacity planning table (rough, derived from the 560 T artifact sizes,
 power-law-projected for 1120 T):
 
-| Scale | `solutions.bin` | Shards (.bin) | Checkpoints (.dfs_state) | Uncompressed total | Cold mirror (gzip-9 of binary subset) | Required solver-data free |
+| Scale | `solutions.bin` | Shards (.bin) | Checkpoints (.dfs_state) | On-disk total (mixed framing; see ⚠) | Cold mirror (gzip-9 of binary subset) | Required solver-data free |
 |---|---|---|---|---|---|---|
-| 11.2 T | ~5 GB | ~10 GB | ~50 GB | ~65 GB | + ~30 GB | ~95 GB |
-| 100 T | ~115 GB | ~150 GB | ~300 GB | ~565 GB | + ~250 GB | ~815 GB |
-| 560 T | ~337 GB | ~870 GB | ~400 GB | ~1.6 TB | + ~800 GB | ~2.4 TB |
-| 1120 T (projected) | ~620 GB | ~1.6 TB | ~750 GB | ~3.0 TB | + ~1.5 TB | ~4.5 TB |
+| 11.2 T | ~5 GB | ~10 GB | ≈70 MB | ~15 GB | + ~30 GB | ~45 GB |
+| 100 T | ~115 GB | ~150 GB | ≈70 MB | ~265 GB | + ~250 GB | ~515 GB |
+| 560 T | ~337 GB | ~870 GB | ≈70 MB | ~1.2 TB | + ~800 GB | ~2.0 TB |
+| 1120 T (projected) | ~620 GB | ~1.6 TB | ≈70 MB | ~2.2 TB | + ~1.5 TB | ~3.7 TB |
+
+⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this table was headed "Uncompressed total" and its checkpoint
+column read ~50 GB, ~300 GB, ~400 GB and ~750 GB.** Two things were wrong. **(1) The checkpoint column.** A d3
+run writes one `.dfs_state` file per cell, 158,364 cells at every scale, and each file is a fixed-size struct:
+440 bytes for the iterative path's v2 format (240 for v1; `solve.c` bounds them at ≤2,048 and ≤1,024). Measured
+2026-09-24 on the shipped solver at `5c296837`: 2,824 `.dfs_state` files from one `--branch` run, every one
+440 bytes. So the total is 158,364 × 440 B ≈ **70 MB**, not hundreds of GB. If the old figures measured some other
+file class, the table never said which, so they are not carried. The total and required-free columns are
+recomputed from the same rows without them: 65 → 15 GB, 565 → 265 GB, 1.6 → 1.2 TB, 3.0 → 2.2 TB; 95 → 45 GB,
+815 → 515 GB, 2.4 → 2.0 TB, 4.5 → 3.7 TB. The 560 T conclusion above still holds, since ≈2.0 TB is far more
+than the ≈800 GB that was free. **(2) The framing.** The cells are on-disk sizes in whatever framing the
+artifact had, not uncompressed sizes. The 100 T and 560 T `solutions.bin` cells are raw files
+(109,836,777,536 B and 336,808,703,936 B). The 11.2 T cell is not: the raw file is 759,608,573 × 32 + 32 =
+24,307,474,368 B (24.3 GB), so ~5 GB can only be a compressed size. The 560 T shard cell is also below its raw
+volume of 43,880,306,393 × 32 B ≈ 1.40 TB, so ~870 GB cannot be a raw shard volume; the table does not say
+what it measured. Size a raw working copy from records × 32 B: at 560 T that is ≈1.40 TB of pre-dedup shards
+plus the 337 GB output, before any mirror.]**
 
 This finding is non-obvious from the supervisor's published doc-comments
 (which say "solutions.provenance.json copied to solver-data BEFORE teardown",

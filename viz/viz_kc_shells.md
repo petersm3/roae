@@ -19,7 +19,7 @@ shells counting `Shell_0 = SUPER`, but the TSV has one row per free PLACEMENT �
 | The 31-row f·g descent trace along King Wen's own path | `solve --kc-o3-rank FDIR GDIR "<walk>" --kc-trace` | **EXISTS** (source + binary, verified) |
 | Per-step flow identity, endpoint checks, `Π p_i = 1/N` self-check | printed by the same command as `#o3-trace-summary` | **EXISTS** |
 | Optional band: min/max `g` over the *alternatives* at each step | `solve --kc-profile FDIR GDIR "<walk>" --kc-tsv FILE --kc-alts` | **EXISTS** (`g_alt_min` / `g_alt_max`; the consumer carries them through and `fig_tr12_kc_shells` shades the band) |
-| Full-31 f and g ladders | Stage F / Stage G | **NOT YET BUILT** |
+| Full-31 f and g ladders | Stage F / Stage G | **BUILT** — the full-31 run of 2026-09-22 produced `tr12/q3_profile_kw.tsv` with them mounted. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT".* |
 | Trace text → figure TSV | `python3 solve.py --atlas-queries ATLAS.json --atlas-q3-trace TRACE.txt` | **EXISTS** (n=9 gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
 Unlike the other four, V4's main curve needs **no new engine work at all** — only the ladders. The
@@ -98,6 +98,20 @@ verifications, `flow_identities=31/31`, `sum_bits` and `log2N`.
 
 `<artifact-root>/q3_profile_kw.tsv` — one row per free placement, 31 data rows at full-31:
 
+⚠ *Added 2026-09-24 (Q-776).* **Which file is read.** The consumer (`solve.py atlas_emit_q3`) names
+the table `q3_profile_kw.tsv` only when the trace has been checked to be King Wen's walk at n = 31.
+Every other trace, including a full-31 trace that is not King Wen's (`TR12_Q3_KW=NOT-KW`), is
+written as `q3_profile.tsv`. Before it writes, the emitter removes the other name and both
+`.provenance.txt` sidecars, so one directory never holds both names from two runs. The renderer
+(`viz/report_figures.py` `tr12_figures`, via `_tr12_q3_table`) chooses by the sidecar, not by
+which name exists. It draws `q3_profile_kw.tsv` only when that table's own
+`q3_profile_kw.tsv.provenance.txt` reads `q3_is_king_wen=PASS` and `q3_table=q3_profile_kw.tsv`.
+It refuses V4 when both names are present, or when the KW table's sidecar says anything else.
+One exception: a directory with no sidecar for either name, such as the committed `tr12/` tree,
+has its KW table taken as written. A consumer run always writes a sidecar, so a reused
+`--atlas-out` never reaches that branch.
+
+
 | Column | Type | Meaning |
 |---|---|---|
 | `step` | int, 1…31 | the *i*-th free placement (fills pair-slot `step + 1`) |
@@ -140,12 +154,12 @@ solve --kc-o3-rank FDIR GDIR "$KWWALK" --kc-trace [--kc-ooc] [--kc-cache-mb MB] 
 rendering of an exact fraction the engine already printed:
 
 ```bash
-python3 solve.py --atlas-queries tr12/scan/atlas.json --atlas-out tr12 \
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 \
                  --atlas-q3-trace tr12/q3_trace_kw.txt --atlas-select q3
 #   --atlas-q3-trace also accepts a `--kc-profile ... --kc-tsv` table (auto-detected); that
 #   source additionally carries dclass / g_alt_min / g_alt_max / choice_rank, and carries no
 #   mass_below (an O3-rank quantity), which the consumer writes as -1 rather than guessing.
-#   writes tr12/q3_profile_kw.tsv (tr12/q3_profile.tsv at n != 31) and, in tr12/VERDICTS.txt,
+#   writes tr12/q3_profile_kw.tsv (tr12/q3_profile.tsv at n != 31 or for a NOT-KW trace) and, in tr12/VERDICTS.txt,
 #   BOTH TR12_Q3= and TR12_Q3_READER=.
 ```
 
@@ -178,9 +192,19 @@ out; **no analysis logic in `viz/`**.
   `bits_i − log₂ alts_i` is therefore the readable quantity: negative means King Wen took a
   heavier-than-average alternative, positive means a lighter-than-average one. Read the two series
   together; neither is interpretable alone.
-- **Late steps are nearly forced.** As the C5 boundary budget is exhausted, `alts` collapses; expect
-  the last handful of steps to contribute almost no bits at all. That is a property of the
-  constraint system, not of King Wen.
+- **Late steps have few alternatives, but they are not free.** `alts` does fall along the walk
+  (56 at step 1; 6, 5, 2, 3, 1, 2 at steps 26–31), yet the last five steps still carry
+  **5.700 bits** — 2.379, 0.737, 1.585, 0.000 and 1.000 at steps 27–31 — and step 31 alone carries
+  **1.000 bit** (two admissible completions of equal mass, `p = 1/2`). Only step 30 is forced
+  (`alts = 1`, `p = 1`, `bits = 0`), and it is the only forced step in the whole trace. Read the
+  tail against `log₂ alts`, not against zero: steps 29 and 31 cost exactly `log₂ 3` and `log₂ 2`.
+  Numbers from the committed `tr12/q3_profile_kw.tsv`, recomputed from its exact `p_num`/`p_den`
+  columns (the 31 surprisals sum to `log₂N` = 129.689).
+  ⚠ **Corrected 2026-09-24 (Q-697; Codex V3A-144#2, adjudicated by Fable).** This bullet
+  predicted that, as the C5 boundary budget ran out and `alts` collapsed, the late steps would be
+  close to forced and the last handful would contribute almost no bits, as a property of the
+  constraint system rather than of King Wen. The committed King Wen trace that this page documents
+  refutes it: one forced step in the last five, and 5.700 bits spent there.
 - **`f(s_i)` is the mirror quantity**: how many *prefixes* reach the same state. `f · g` at any step
   is the mass of walks through that state, and equals the layer flow when summed — the identity V1
   and V2 are built on.

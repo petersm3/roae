@@ -22,7 +22,9 @@
     countP over List.range 64.
   · §2 per-rule slot predicates: each reg_* aggregates independent per-pair
     terms with permutation-invariant aggregators (all/len/sum/histogram —
-    read directly from solve.py:5680-5952 and solve.c:5225-5404), so each
+    read from solve.py's `reg_*` bodies and solve.c's `score_registry`; ⚠ the
+    line ranges this header used to cite, solve.py:5680-5952 and
+    solve.c:5225-5404, were stale by 2026-09-24 and are not repeated), so each
     rule is a Boolean combination of even-slot counts of slot predicates
     g(h) := f(h, partner h). Orientation invariance g(partner h) = g(h) is
     decided over all 64 hexagrams (NOT sampled) — this is the "factors
@@ -32,34 +34,60 @@
     migrated from native_decide 2026-07-27).
   · §4 the sequence-level constancy theorems, each: within_double + omega.
 
-  The ONLY non-Lean steps, stated for the record:
-  (a) transcription fidelity reg_* (Python/C) → the countP forms below —
-      verified two-language style by driving the repo's own reg_* functions
-      over 5,449 structured C1 sequences (all 32 orientation flips + all 31
-      adjacent transpositions from KW and 6 random bases + full reversal +
-      5,000 random C1 samples): zero deviations from the KW value
-      (scratchpad c1_constants_check.py, 2026-07-21);
-  (b) for r4/r5's total-cost conjunct: the one-line arithmetic
-      2·12 + 4·12 + 6·8 = 120 converting the Lean-checked within-pair
-      histogram {2:12, 4:12, 6:8} into the total pairing cost (the histogram
-      itself is ALSO already machine-checked at C1 generality by the landed
-      lean/TrigramTheorems.lean within_multiset_general).
+  WHAT THE LEAN KERNEL CHECKS — everything that `lean C1RuleConstants.lean`
+  verifies, and nothing more (inventory re-read and re-executed 2026-09-24):
+  · §2b: 19 orientation-invariance lemmas g(partner h) = g(h) for all h < 64,
+    each by kernel `decide`;
+  · §3: 20 fixed range-64 counts and the pointwise p1c4Viol_r3Viol_false, each
+    by kernel `decide`;
+  · §4: seven constancy theorems — mmt4_const, p1c4_const, s1_const, s6_const,
+    r3_const, c2_hist_const, r5_const — for EVERY l with l ~ range 64 and
+    c1ok l = true. Their statements are about the countP FORMS `pcount l g` of
+    the §2 slot predicates, NOT about solve.py's reg_* or solve.c's
+    score_registry; the rule names are the transcription claim (a) below;
+  · §5: KW is C1-valid and is a permutation (guards against a vacuous
+    hypothesis).
+  A reader reproduces the trust base by appending `#print axioms <name>` to a
+  copy of this file and running `lean` on it. Done 2026-09-24 (Lean 4.31.0): the
+  §3 counts, p1c4Viol_r3Viol_false and kw_c1ok report [propext]; the seven §4
+  theorems report [propext, Classical.choice, Quot.sound] — Lean's standard
+  axioms only. The proof body contains zero `sorry`, `admit`, `axiom` or
+  `native_decide` (kernel-only since 2026-07-27; the §3 counts were migrated
+  from native_decide then). Nothing in this file trusts Lean's compiler.
 
-  *** COMPILES CLEAN on Lean 4.31.0 (2026-07-21, x86_64 linux, core only —
-  *** no mathlib, no lake project): `lean C1RuleConstants.lean` exits 0 with
-  *** zero errors/warnings; zero `sorry`, zero `axiom`, zero `admit`. The
-  *** pinned toolchain is recorded in this directory's `lean-toolchain`
-  *** (leanprover/lean4:v4.31.0). Every finite fact below was verified
-  *** numerically in Python (all-64 exhaustive checks, 18 exact lemmas, plus a
-  *** 5,449-sequence drive of the repo's own reg_* functions with zero
-  *** deviations) BEFORE being drafted in Lean — repeatable via the scratchpad
-  *** cross-check c1_constants_check.py (TR-12 exactness pass, 2026-07-21).
-  *** Trust base: KERNEL-ONLY since 2026-07-27 — every proof in this file is
-  *** `decide`/structural (the §3 finite counts were migrated from
-  *** native_decide; `#print axioms`: the finite counts report [propext] or no
-  *** axioms, the sequence-level constancy theorems [propext, Classical.choice,
-  *** Quot.sound] — Lean's standard axioms only; nothing here trusts Lean's
-  *** compiler).
+  WHAT LEAN DOES NOT CHECK, stated for the record — a reader who wants the
+  registry-rule claim (not just the countP-form claim) needs these too:
+  (a) TRANSCRIPTION: that each §2 slot predicate is the per-pair term of the
+      registry rule it is named for, and that each §4 statement is that rule's
+      aggregator. This is a reading of the Python/C source, not a theorem.
+      ⚠ [CORRECTED 2026-09-24 (Q-780, Fable): this header called the
+      transcription "verified two-language style" by a 5,449-sequence drive of
+      the repo's reg_* functions and "repeatable via the scratchpad cross-check
+      c1_constants_check.py". That script was never committed and no shipped
+      command replays it (`solve.py --registry-verify` evaluates reg_* on KW
+      alone), so the 2026-07-21 drive is ATTESTED, NOT REPRODUCIBLE from this
+      repository. On 2026-09-24 a fresh driver re-ran the same design against
+      the current solve.py — 5,455 C1-valid sequences (KW and 6 random C1 bases,
+      each with its 32 single-orientation flips, 31 adjacent pair transpositions
+      and full reversal, plus 5,000 random C1 samples): 0 deviations from the KW
+      values across the 8 rules, and as positive control 200 of 200 random
+      non-C1 permutations deviate. That driver is likewise not in the repo, so
+      the transcription stays "attested" until a shipped command replays it.]
+  (b) r4 = 120: the one-line arithmetic 2·12 + 4·12 + 6·8 = 120 converting the
+      Lean-checked within-pair histogram {2:12, 4:12, 6:8} (c2_hist_const;
+      independently lean/TrigramTheorems.lean within_multiset_general) into the
+      total pairing cost. Lean states the histogram, not the sum.
+  (c) c2's published tuple ((2,12),(4,12),(6,8)) is that histogram in reg_c2's
+      output format; the formatting is not in Lean.
+  Nothing below rests on any numerical pre-check: the Python evaluations that
+  preceded the drafting on 2026-07-21 (also unarchived) were scaffolding that
+  the kernel `decide` proofs superseded.
+
+  *** BUILD: core Lean 4 only — no mathlib, no lake project. `lean
+  *** C1RuleConstants.lean` exits 0 with zero errors/warnings on the pinned
+  *** toolchain (this directory's `lean-toolchain` = leanprover/lean4:v4.31.0):
+  *** first 2026-07-21; re-run 2026-09-24 on x86_64 linux, 1.85 s wall,
+  *** 0.58 GB peak RSS.
 -/
 
 namespace C1RuleConstants

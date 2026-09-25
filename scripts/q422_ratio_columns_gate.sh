@@ -19,7 +19,7 @@
 #   leg 1  plain                       -> rc 0, ATLAS_CONSUMER=PASS, and the selftest transcript
 #                                         byte-identical to the golden's selftest block
 #   leg 2  --atlas-fault ratio-zero    -> rc 1, ATLAS_CONSUMER=FAIL, EXACTLY the five Q-422 gates
-#                                         FAIL and the 29 pre-existing gates still PASS (the fault
+#                                         FAIL and the 31 pre-existing gates still PASS (the fault
 #                                         corrupts derived cells only; an integer gate firing would
 #                                         mean the fault is not the one described)
 #   leg 3  the cell Astra computed      -> v2_river.tsv k=0 d=1 p == 0.54411764705882353, which is
@@ -75,7 +75,7 @@ if [ -n "${Q422_SOLVE:-}" ]; then
   SOLVE="$Q422_SOLVE"; [ -x "$SOLVE" ] || fail "Q422_SOLVE=$SOLVE is not executable"
   # 🔴 EXECUTABLE IS NOT CURRENT. The else-arm compiles the committed solve.c seconds before
   # use and is safe by construction; this arm is not. Q422_SOLVE names a PATH and only its +x bit
-  # was checked above. tr12_repro_gate.sh:253 hands in a binary it just built, but a hand run
+  # was checked above. tr12_repro_gate.sh:622 hands in a binary it just built, but a hand run
   # `Q422_SOLVE=./solve bash scripts/q422_ratio_columns_gate.sh` points the gate at whatever
   # artifact is lying in the tree -- and this gate then asserts things about --kc-scan output and
   # about 26112, i.e. about COUNTS.
@@ -146,10 +146,15 @@ verdict(){ # verdict <dir> ; 0 iff every leg behaves; explains on stderr-of-gate
   nf=$(grep -cE '^\[atlas-consumer\] .* FAIL( |$)' "$WORK/last.out"); np=$(grep -cE '^\[atlas-consumer\] .* PASS$' "$WORK/last.out")
   # 🔴 THIS COUNT IS A PIN AND MUST MOVE WITH THE CONSUMER. 24 -> 25 -> 27 on 2026-09-07 when Q-314
   # item 1 added the XA-48 gate, then 27 -> 29 the same day when Q-314 item 3 added the two
-  # vertical V2-B0 legs. A hardcoded total like this is exactly the kind of number that
+  # vertical V2-B0 legs, then 29 -> 31 on 2026-09-23 when the V5 (d, w) cross-tab added its two
+  # gates (marginalisation over w back to the distance class, and w support == C1's {2,4,6}).
+  # That bump belongs on THIS side of the pin and not the FAIL side: both new gates are INTEGER
+  # checks, and the ratio-zero fault corrupts derived cells only, so they must keep PASSing --
+  # had either landed in $nf instead, the fault would not be the one this leg describes.
+  # A hardcoded total like this is exactly the kind of number that
   # goes stale silently, so it is asserted rather than approximated: if it disagrees, either a
   # gate was added (move the pin IN THE SAME COMMIT) or one vanished (do not move it).
-  [ "$nf" = 5 ] && [ "$np" = 29 ] || { echo "    leg 2 (ratio-zero): $nf FAIL / $np PASS gate lines, expected exactly 5 / 29"; return 1; }
+  [ "$nf" = 5 ] && [ "$np" = 31 ] || { echo "    leg 2 (ratio-zero): $nf FAIL / $np PASS gate lines, expected exactly 5 / 31"; return 1; }
   grep -E '^\[atlas-consumer\] .* FAIL' "$WORK/last.out" | grep -qE 'V1 p == marginal/N' || { echo "    leg 2 (ratio-zero): the V1 p gate (the plotted column) did not fire"; return 1; }
   return 0
 }

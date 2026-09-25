@@ -8,7 +8,7 @@
 # THERE IS NO LINE NUMBER, by decision. The anchor was already the key; the recorded line
 # was documentation, and documentation that drifts on every insertion above it is a
 # standing source of [note] lines carrying no information. Both entries below drifted
-# within a single day of being written (:119 -> :121, :5563 -> :5566), and a [note] class
+# within a single day of being written (line 119 -> 121, 5563 -> 5566), and a [note] class
 # readers learn to skip is worse than no [note] at all.
 #
 # Round 3 named three options — (i) keep and refresh by hand, (ii) drop it and lose the

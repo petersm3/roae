@@ -172,8 +172,8 @@ fi
 # against a ./solve two days older than the commit that fixed exactly that (779fff4c). Measured
 # both ways that night: stale binary -> FAIL, binary built from HEAD -> PASS. This gate is in the
 # same position: it takes a PATH and never builds, so run by hand as `--solve ./solve` its subject
-# is whatever artifact happens to be lying in the tree. pre_push_gate.sh:458 is safe by
-# construction (it builds ./solve_167 first); a hand run is not.
+# is whatever artifact happens to be lying in the tree. pre_push_gate.sh's "CONDITIONAL #167
+# zero-yield resume leg" is safe by construction (it builds ./solve_167 first); a hand run is not.
 #
 # ERROR, not FAIL: an unestablished subject is not a defect, and reporting it as one sends a
 # reader hunting a bug that is not there. FAIL here is rc 40 and means "the #167 fix is broken";

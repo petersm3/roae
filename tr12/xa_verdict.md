@@ -29,6 +29,7 @@ This consumer does NOT re-derive it and does not claim it.
 **PENDING** -- pricing t-units as production-DFS nodes needs a W0-D t-unit ->
 `SOLVE_NODE_LIMIT` mapping certificate, supplied with `--xa-node-mapping-cert`.
 A t-unit is one valid oriented SUPER prefix; `SOLVE_NODE_LIMIT` counts
-production-DFS nodes under C3 pruning. Nothing here certifies the map, so no
-EXHAUSTIBLE/INFEASIBLE call is made. The t-unit column above is exact and
-stands on its own.
+production-DFS nodes, and that DFS prunes on one combined kw_dist budget and
+applies C3 only as a filter at the full-walk leaf. Nothing here certifies the
+map, so no EXHAUSTIBLE/INFEASIBLE call is made. The t-unit column above is
+exact and stands on its own.

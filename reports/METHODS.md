@@ -55,7 +55,7 @@ the reports means the **C1–C5** population unless stated otherwise.
 (and `solve.c`'s own console strings) describe the canonical enumerated population as "C1+C2+C3". That
 is **historical naming, not a narrower constraint set**: the enumerator's counter is called `solutions_c3`
 but, as its own source comment states, *"C3-valid" = passed ALL constraints (C1-C5), not just C3*
-(`solve.c:865`) — and `solve --verify` confirms every canonical record satisfies C1–C5
+(`solve.c:957`) — and `solve --verify` confirms every canonical record satisfies C1–C5
 (CANONICAL_HASHES §"d3 560T", CAMPAIGN_METHODOLOGY §7). Read "the C1+C2+C3 canonical" as
 **the C1–C5 canonical** wherever it appears. New text should say C1–C5.
 
@@ -213,8 +213,60 @@ which is what produced every published figure — with the divergence disclosed:
   fractions should not be read as bias-corrected. S(k)-style
   ratios of separate runs add relative variances (the whole-space denominator's 0.02% is negligible).
   Caveats: weights are right-skewed, so CIs at low effective sample size (n_eff = 1/relerr²; e.g. relerr
-  10% → n_eff ≈ 100) are approximate and skew toward underestimation — figures at ≥10% relerr should be
-  read as ±20% with ~90–93% practical coverage; zero-hit estimates print 0 with a degenerate CI and are
+  10% → n_eff ≈ 100) are approximate and skew toward underestimation — **a figure at ≥10% relerr is read
+  as its printed interval, est·(1 ± 1.96·relerr), i.e. est ± 1.96·SE (measured coverage ≈94%, not 95%,
+  with 85% of the misses on the low side — the true value sits ABOVE the interval), or as the log-normal interval
+  est·exp(±1.96·relerr) when that low-side tail matters; never as a fixed-width band.** ⚠ **[RULE
+  CORRECTED 2026-09-24 (Q-696; Codex V3A-082#2) — this sentence told the reader to take every figure at
+  ≥10% relerr as a fixed ±20% band and assigned that band a "practical coverage" of ~90–93% (the retired
+  clause is paraphrased, not quoted, so that registering it as a retracted phrasing cannot trip this
+  block). That was a heuristic transcribed from a 2026-07-10 hardening note, never calibrated, and wrong
+  in kind: a fixed ±20% band is ±(0.20/relerr) standard
+  errors — ±2 SE at 10% relerr, ±1 SE at 20%, ±0.3 SE at 65% — so its coverage falls with relerr
+  instead of holding at 90–93%. The corrected reading is calibrated against the largest archived same-truth
+  replicate set in this regime (the r11 four-seed and the 12-seed sets above are same-truth replicates
+  too, but 4 or 12 replicates cannot resolve a coverage to within several points): the 65,281-cell per-cell table
+  ([evidence/knuth195_percell_100000.csv.gz](evidence/knuth195_percell_100000.csv.gz), 10⁵ probes per
+  cell, median relerr 11.9%; its `relerr` is the `leaves_canonical` estimate's — printed SE ÷
+  between-cell SD is 1.031, median over 3,727 of the 3,732 orbits with ≥5 cells; the five excluded
+  orbits are the zero-SD orbits described below). Cells in the same G-orbit
+  ([TR-5] §3(iii); 4,183 classes, 15.6 productive cells each on average) have the same true count, so
+  every cell's interval is scored against the leave-one-out mean of its orbit-mates, the band widened
+  by √(1 + SE_proxy²/SE²) for the proxy's own error (exact under Gaussian errors; a halved or doubled
+  SE moves the measured coverage to 72% or 99.9%, so the instrument discriminates). Over the **47,103 cells at relerr ≥ 10%** (the full table, no
+  subsampling): the printed Wald 95% interval covers **94.4%** (92.8% over the 1,353 cells at ≥ 20%; by
+  bin 94.5 / 94.1 / 92.7% at 10–15 / 15–20 / 20–30% relerr), and **85% of its misses are on the low
+  side**; the log-normal interval covers **94.9%** (96.2% at ≥ 20%); the retired fixed ±20% band covers
+  **89.0% at 10–15%, 77.8% at 15–20% and 69.9% at 20–30%** — nowhere 90–93% above ~12% relerr. The
+  printed SE is the right scale (|z| quantiles 1.67 at 90% and 2.02 at 95%, against the Gaussian
+  1.645 / 1.96); "skew toward underestimation" is a tail statement — the median z is −0.04 and 51.7%
+  of estimates fall below their orbit proxy — not a shift of the centre. Scope of this calibration:
+  `leaves_canonical` at depth-3 cells, relerr 5–30% (19 cells lie in 30–50%, none above 50%), so a
+  figure beyond 30% relerr — e.g. the ±65% derived-path cross-check in
+  [evidence/r11/PHASE2_README.md](evidence/r11/PHASE2_README.md) — is uncalibrated and read as
+  order-of-magnitude only; the delta-method `se=` on the mass lines is validated in scale by the
+  12-seed replicates above, but its coverage is not measured here; the ~1/n_eff ratio bias two
+  sentences above is untouched. The table predates the seed override (`SOLVE_KNUTH_SEED`, 2026-07-11),
+  so its cells drew from the fixed base seed: their walks differ where the subtrees differ, and the
+  1.031 SE/SD ratio is what independent draws predict, but independence is measured, not proved — and
+  the table itself shows where it fails: 3,727 of the 3,732 orbits with ≥5 cells enter the SE/SD ratio;
+  the other 5 (40 cells, relerr 13–16%, each 8 cells that differ only in the orientation and order of two of their
+  three pairs) carry
+  byte-identical estimates — the same walk under the fixed base seed — so they are excluded from the
+  SE/SD ratio (`ORBITS_K_GE_5_ZERO_SD=5`) and score z = 0 in the coverage; excluding them from the
+  coverage as well moves no figure by more than 0.1 point (BIN 15–20%: Wald 94.0, fixed band 77.7).
+  Reproduce (about a second, from the repository root; 0.8 s measured 2026-09-24):
+  `python3 verify.py --orbit-coverage reports/evidence/knuth195_percell_100000.csv.gz` →
+  `RELERR_GE_10_N=47103`, `RELERR_GE_10_WALD95_COV=94.4`, `RELERR_GE_10_FIX20_COV=85.8`,
+  `RELERR_GE_10_LOGN95_COV=94.9`, …, `MEDIAN_PRINTED_SE_OVER_REPLICATE_SD=1.031`, and
+  `Q696_COVERAGE=PASS` only when every figure in this paragraph is matched at its printed precision
+  ([VERIFY.md](../documentation/VERIFY.md) lists the tokens); the positive control is
+  `--orbit-coverage-se-scale 0.5` / `2` (ends `Q696_COVERAGE=CONTROL`, never `PASS`); the orbit
+  action is the one `verify.py --orbit-cv` gates, and the two flags share one table reader. No published figure moved: no report applied
+  the retired band to reach a verdict, and the ≥10%-relerr verdicts that were re-checked (the three r11
+  convergence gates and the Phase-1 consistency check behind [TR-2] §"Stop-flag resolution", 9.5–65%
+  relerr) are σ-arithmetic on the printed SE, which this calibration supports at 10–30% and which a
+  larger-than-printed SE could only make MORE consistent at 65%.]** Zero-hit estimates print 0 with a degenerate CI and are
   reported as starvation, not as bounds. **That is a reports-side convention applied by hand; the
   estimator's own output does not mark it** (measured 2026-08-30 against `solve.c`'s print sites). A
   starved fiber layer prints, verbatim, `records_C1C2C4C5 : est=0.000000e+00  95%CI=[0.0000e+00,
@@ -360,7 +412,17 @@ which is what produced every published figure — with the divergence disclosed:
   number, [TR-8](TR8_REORDERING_REVISITED.md) §Executive summary): a per-rule rarity of 1.054×10⁻⁴ clears
   the global bar by **~5×** under Bonferroni and by **≥~10×** under BH at q = 0.05 — the BH figure is a
   floor, not a point, because only *i* ≥ 2 is supported (forced by `dav_rotinv` at 6.5×10⁻⁵ being strictly
-  smaller and inside the roster). TR-8 holds that BH reading **conditional** on this rarity counting as a
+  smaller and inside the roster).
+  ⚠ **[SIDEDNESS SCOPED 2026-09-24 (Codex V3A-094#1 sibling, Q-778) — the ≥~10× floor holds only on a
+  wholly ONE-SIDED ledger.** 6.5×10⁻⁵ is `dav_rotinv`'s one-sided mass. Two-sided, the suite's convention
+  since 2026-08-28, it is 1.306×10⁻⁴, which is larger than 1.054426×10⁻⁴, so it no longer forces *i* ≥ 2.
+  With the anchor doubled and the rarity left as is, rank 1 is not excluded and the BH margin is the
+  Bonferroni one, **~5.21×**. With both doubled, *i* ≥ 2 returns, but 2·(0.05/91) ÷ 2.108853×10⁻⁴ is again
+  ~5.21×, and the Bonferroni margin itself halves to ~2.61×. [TR-8](TR8_REORDERING_REVISITED.md)
+  §Executive summary (v1.17) and [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3 now carry the same
+  scoping, and the SIDEDNESS note above already shows that the `dav_trigarray` counterfactual in this
+  paragraph is one-sided. Read the ≥~10× below, and in the "review record" paragraph of §"Independence ladder", as a one-sided figure. No
+  verdict moves: the rarity clears the global bar under every reading.]** TR-8 holds that BH reading **conditional** on this rarity counting as a
   ledger member, and on that ground names the **~5× Bonferroni margin the firmer of the two**; quote the
   BH floor with that conditional attached rather than bare. A **~52×** figure for that same rarity circulated in draft; it is BH at
   rank *i* = 10, which requires nine strictly-smaller values, and the only nine available are the registry
@@ -493,7 +555,9 @@ is an entry in [CORRECTIONS](../documentation/CORRECTIONS.md), every withdrawn p
 and each report's revision table dates its own changes. **Findings were also rejected**, and those
 are recorded too — a proposed ~52× look-elsewhere factor for TR-8 was examined and *declined*
 because the evidence supports only a floor of ≥~10×, and that decision is written down rather than
-quietly dropped. Rejections are the part of a review record that is easy to omit and hardest to
+quietly dropped. ⚠ **[SCOPED 2026-09-24 (Q-778): that ≥~10× floor is one-sided; under the suite's
+two-sided convention the BH margin is ~5.21× (see the SIDEDNESS SCOPED note in §"Global observable
+ledger"). The decision recorded here does not change.]** Rejections are the part of a review record that is easy to omit and hardest to
 reconstruct later; a reader who wants to audit the grading should start there.
 
 **The file drawer — an open gap, stated as such.** For an argument of this shape ("the received

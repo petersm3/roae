@@ -78,12 +78,12 @@ applied to both (see [CORRECTIONS.md](CORRECTIONS.md), 2026-09-02).
 
 ⚠ **The rule is the file's stated policy, and it currently has two measured
 exceptions.** No *clause* is hand-written, but two C5 *parameter* tables are
-hard-coded rather than derived: `sat.py:139` `BETWEEN_MULTISET`, which builds
-the C5 CNF, and `sat.py:143` `_tot`, the round-trip verifier's acceptance
+hard-coded rather than derived (line numbers at `84259168d19c`): `sat.py:139` `BETWEEN_MULTISET`, which builds
+the C5 CNF, and `sat.py:143` (at `84259168d19c`) `_tot`, the round-trip verifier's acceptance
 multiset. Both are **correct today** — re-derived clean-room on 2026-09-01 from
 `solve.binary_hexagrams` and `solve.bit_diff` alone, giving exactly
 `{1:2, 2:8, 3:13, 4:7, 6:1}` and `{1:2, 2:20, 3:13, 4:19, 6:9}` respectively.
-But the in-file guard at `sat.py:152-154` ties only their *difference* to the
+But the in-file guard at `sat.py:152-154` at `84259168d19c` ties only their *difference* to the
 derived within-pair multiset, so an equal edit to both passes it: adding 1 to
 the `d = 2` entry of each literal was measured on 2026-09-01 to satisfy the
 guard. Deriving both from `solve.py` is a three-line change with no interface
@@ -345,6 +345,16 @@ the formula — it adds a blocking clause and iterates (up to 200
 attempts). **Requires `kissat` on `PATH`** (see the requirements table
 above); if it is missing, `sat.py` exits with a clear install message.
 
+> ⚠ **Pinned witnesses (2026-09-25, CX-93).** The `moore-strict` and `grand-strict` witnesses
+> that TR-12 §Q7 names are **pinned** in `reports/evidence/q7_witnesses/` (produced once with
+> kissat 4.0.4; the README there gives the commands, the CNF and model sha256s). The battery
+> verifies the pinned sequences *without* a solver (`scripts/tr12_repro.sh` row
+> `a0_q7_witnesses`); its opt-in `--q7-resolve` row runs this command live and asserts only the
+> `WITNESS_RESULT=WITNESS` token plus the same property checks on whatever ordering comes back —
+> never byte-equality with the pinned file, because which satisfying ordering a solver returns
+> is build-dependent. On the producing build both targets returned the same ordering at attempt
+> 0 (that is an observation, not a contract).
+
 Since 2026-09-03 the loop ends with a whole-line `WITNESS_RESULT=` token
 and a matching exit status:
 
@@ -371,9 +381,9 @@ python3 sat.py --rigidity-cnf rigidity.cnf --run   # requires kissat; drat-trim 
 ```
 
 ⚠ **Measured 2026-09-01: the second form exits 1 and writes nothing.** The
-global unrecognised-flag guard added 2026-08-28 (`sat.py:1406-1409`) rejects
+global unrecognised-flag guard added 2026-08-28 (`sat.py:1406-1409` at `84259168d19c`) rejects
 `--run` before dispatch, printing `unrecognised flag(s): --run`. The `--run`
-implementation is intact but unreached (`sat.py:1557-1578` — `kissat`
+implementation is intact but unreached (`sat.py:1557-1578` at `84259168d19c` — `kissat`
 preflight, `kissat -q`, an expected-UNSAT assertion, and the optional
 `drat-trim` leg). Until the guard is taught this flag, emit the CNF with the
 first form and run `kissat` and `drat-trim` yourself. *(Behaviour note added
@@ -595,8 +605,16 @@ value. An unrecognised flag or subcommand token exits 1; so does a
 recognised modifier on a subcommand it does not apply to (e.g. `--expect`
 with `--emit-cnf`), a wrong argument count (`--emit-cnf plain` with no
 `OUT.cnf` — it printed the help banner and exited 0 before 2026-09-03),
-and an `OUT.cnf` whose directory does not exist or is not writable
-(checked before the build).
+and an `OUT.cnf` that cannot be written (checked before the build): a new
+file in a directory that does not exist or is not writable, an existing
+file that is not writable, or a path that is a directory. An existing
+writable file is accepted regardless of its directory, so `/dev/null` is a
+valid `OUT.cnf` for a build-only check (e.g. `--emit-cnf plain /dev/null
+--with-c3 --c3-max 111` exercises the below-minimum refusal without
+touching disk). Before 2026-09-24 the check required the *directory* to be
+writable even for an existing file, so `/dev/null` was refused as "not
+writable", and a directory given as `OUT.cnf` was an `IsADirectoryError`
+traceback after the build.
 
 ## NOTES
 

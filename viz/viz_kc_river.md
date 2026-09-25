@@ -15,7 +15,7 @@ mass — and the exact exhaustion cost — of each of the 56 first-level branche
 | (a) distance-class river | layer-k mass split by the k-th transition's distance class d ∈ {1,2,3,4,6} | `solve --kc-scan` → `layers[].by_class` | **EXISTS** |
 | (b) branch mass + exhaustion cost | per-branch total solutions and valid-prefix count | `solve --kc-scan … --kc-tdir TDIR` → `branch_atlas[]` | **EXISTS** (t-units need a `--kc-t-build` ladder) |
 | (c) branch-class river | layer-k mass split by *top-level branch* | — | **PENDING, and not a flag** — see below |
-| Full-31 f / g / t ladders | — | Stage F / G / T | **NOT YET BUILT** |
+| Full-31 f / g / t ladders | — | Stage F / G / T | **BUILT** — the committed `tr12/scan/v2_river.tsv` / `v2_branches.tsv` came from the n=31 atlas, with `t_source = t-ladder` on the branch rows. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT".* |
 | Atlas JSON → figure TSV | — | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` | **EXISTS** (n=9 brute-force gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
 ### Why panel (c) is not simply a missing flag
@@ -138,7 +138,7 @@ $B/solve --kc-scan    $A/f $A/g $A/atlas.json --kc-tdir $A/t
 $B/solve --kc-scan-selftest                              # expect: PASS (0 failures)
 ```
 
-**Full-31 (PENDING the ladders):**
+**Full-31 (run once, 2026-09; repeating it needs the f/g/t ladders mounted — re-rendering does not):**
 
 ```bash
 solve --kc-scan FDIR GDIR tr12/scan/atlas.json --kc-tdir TDIR [--kc-ooc] [--kc-cache-mb MB]
@@ -152,9 +152,16 @@ exhaustion series.
 **Atlas JSON → TSV** — the atlas consumer:
 
 ```bash
-python3 solve.py --atlas-queries tr12/scan/atlas.json --atlas-out tr12 --atlas-select v2
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 --atlas-select v2
 #   writes tr12/scan/v2_river.tsv + tr12/scan/v2_branches.tsv and TR12_V2= in tr12/VERDICTS.txt
 ```
+
+**The full-31 atlas is in this repository:** `runs/20260906_kc_ladders_n31/atlas_n31.json`
+(5,978,126 B, 31 layers, raw sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`),
+and the command above reads it. It re-derives `tr12/scan/v2_river.tsv` and `v2_branches.tsv` with no ladder mounted;
+`python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` checks the file first
+(`ATLAS_PROBE=PASS`). The output path in the `--kc-scan` line above is where a **rebuild** from the
+ladders would write a fresh atlas; the ladders themselves are not distributed.
 
 The `prefixes_t_units` column is passed through verbatim — a decimal string when a t-ladder was
 mounted, `PENDING_T_LADDER(...)` when it was not. Gated at n=9 by
@@ -180,7 +187,10 @@ five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorte
 - **King Wen's step line** should be read as *which band it is standing in*, not as a height.
 - **Panel (b)**: branch bars sorted by mass show how unevenly the space divides at the first
   placement; the paired `prefixes_t_units` series is the exhaustion cost of the same branch, so a
-  branch that is small in solutions but large in prefixes is expensive per result.
+  branch that is small in solutions but large in prefixes is expensive per result. ⚠ *Measured on the committed
+  full-31 table (2026-09-24), no such branch exists:* the 56 branches form 7 mass levels mapping
+  one-to-one onto 7 cost levels, 0 of 1,540 branch pairs are discordant, and cost per solution spans
+  7.65–8.20 t-units. The panel shows mass and cost **co-monotone**; read it that way.
 
 ## What this figure is allowed to claim
 

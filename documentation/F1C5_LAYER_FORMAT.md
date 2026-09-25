@@ -99,10 +99,14 @@ mode) or finishes (in-RAM mode), layer `k−1` is deleted — the directory hold
 at most two adjacent complete layers, and after a completed full run it holds
 layers `n−1` and `n` only. Two `main`-only environment hooks modify this:
 `SOLVE_F1_KEEP_LAYERS=1` suppresses the delete entirely (all layers `0..n`
-retained; full-31 v2 ladder ≈ 2.5–2.7 TB **projected** — 1.624 TB was
-measured on disk at `k = 0..16`, 17 of the 32 layers, on 2026-07-23, and the
-remainder is a mask-palindrome projection rather than a measurement, at v2
-zlib level 6 with the default BLK; plan a 4 TB disk), and
+retained; full-31 v2 ladder **3.29 TB MEASURED** — 3,293,894,951,830 B by
+`du -sb FDIR` on 2026-08-02, [TR-12](../reports/TR12_QUERY_PROGRAM.md) §R.0's
+measured table, at v2 zlib level 6 with the default BLK; a 4 TB disk holds it
+with little headroom. ⚠ *[CORRECTED 2026-09-24 (Q-725): this parenthesis gave
+a 2.5 to 2.7 TB projection from the 2026-07-23 partial measurement — 1.624 TB
+at `k = 0..16`, 17 of 32 layers, plus a mask-palindrome projection — and said
+to plan a 4 TB disk. The completed ladder measured 3.29 TB, above the whole
+projected range.]*), and
 `SOLVE_F1_STREAM_COLD_CMD` names a command invoked as
 `<cmd> <layer_path> <k>` on each layer just before the rolling delete.
 Neither changes layer bytes.

@@ -583,7 +583,15 @@ gzip -dc runs/20260419_100T_d3_d128westus3/enum_output.log.gz |
 At the finer scope of multi-variant groups,
 [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) records 16.3% (1,636 of
 10,027) exhibiting perfect orientation-symmetry and the remaining 83.7%
-variant-dependent.
+variant-dependent. That share counts symmetry **among the variants that
+emitted records**: a group is multi-variant when at least two of its
+variants wrote records, and symmetric when those positive yields are all
+equal; a feasible variant that emitted nothing is not compared, because
+`--yield-report` reads only the log's `Wrote` lines. **585 of the 1,636
+groups contain such a zero-yield variant**, so they are not
+orientation-symmetric by any reading; requiring every feasible variant to
+have emitted records leaves 1,051 of 8,072 (13.0%). *(Definition added
+2026-09-24, Q-760; the figures are PROJECT_OVERVIEW.md's, re-derived there.)*
 
 ⚠ These are **budget-truncated** yields. Per the 2026-07-02 reversal
 recorded in [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md), comparisons of this

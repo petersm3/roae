@@ -112,7 +112,13 @@ explicit.
    |C1∩C4∩C5| = |C1∩C2∩C4∩C5| exactly — every C5-containing lattice cell equals its C2-added twin.
    Only the C3 conditional remains sampled (by design; a bounded-state design exists — C3 = 16 + 8·G — but the exact G-channel run is ruled out on cost: TR-11 §10(ii)).
 
-   **Population context for the C5 marginal (decoy control, 2026-09-04).** Over N = 1,000 targets drawn uniformly from C1∩C2 (`solve.py --extraction-null`, seed 20260904), each counted under *its own* extracted transition multiset by the same estimator (`SOLVE_KNUTH_C5_BUDGET`, 10⁵ probes, `SOLVE_THREADS=2` — command and raw output in the Verification Guide), the 9.4-bit marginal is method-typical: a random target's own histogram compresses it by a median 9.9 bits (5th–95th percentiles 8.1–14.2), and King Wen's exact 1.097051×10³⁹ sits at the **65th percentile** of the decoy cardinalities (651 of 1,000 below it; the decoy interquartile range is 2.4 bits and King Wen is 0.5 bit above the median). The verdict "description, not explanation" is therefore measured as well as priced. The control holds C1, C2 and C4 fixed and says nothing about the C3 row.
+   **Population context for the C5 marginal (decoy control, 2026-09-04).** Over N = 1,000 targets drawn uniformly from C1∩C2 (`solve.py --extraction-null`, seed 20260904), each counted under *its own* extracted transition multiset by the same estimator (`SOLVE_KNUTH_C5_BUDGET`, 10⁵ probes, `SOLVE_THREADS=2` — command and raw output in the Verification Guide), the 9.4-bit marginal is method-typical: a random target's own histogram compresses it by a median 9.9 bits (5th–95th percentiles 8.1–14.2) ⚠ **[SCOPED 2026-09-24 (v1.29; Codex
+V3A-095#2, Q-742) — read "the count of C4-opened orderings that share the target's multiset is a median
+9.9 bits below |C1∩C2∩C4|". The sampler shuffles the opening pair with the others and the estimator
+pins (63,0), so only 14 of the 1,000 targets are members of the set their own figure counts (replayed
+2026-09-24; [evidence/decoy/README.md](evidence/decoy/README.md)). "Compresses it" is therefore not a
+statement about the target for the other 986. The King Wen comparison is unaffected, because both sides
+count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the counted side only.]**, and King Wen's exact 1.097051×10³⁹ sits at the **65th percentile** of the decoy cardinalities (651 of 1,000 below it; the decoy interquartile range is 2.4 bits and King Wen is 0.5 bit above the median). The verdict "description, not explanation" is therefore measured as well as priced. The control holds C1, C2 and C4 fixed and says nothing about the C3 row.
 
    ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits, charged in full — pair AND
    orientation (the orientation bit is definitional — our convention, not a classical attestation: the
@@ -153,8 +159,8 @@ explicit.
    bracket its own operands give, **+0.5 to +2.0** — positive under every coding this corpus states.
    The verdict does not move: C2 is break-even to marginally explanatory either way, and remains the
    only narrow rule that reaches break-even. What does move is §4's savings envelope, whose low corner
-   consumed the −4; see there. The sibling cells at `documentation/DESCRIPTION_LENGTH.md:36` and
-   `:127–129` carry the same defect under a separate adjudication and are not edited here. ⁸ *(Added 2026-09-02, prose lane; mirrors [DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) fn⁸.)* The 13.5 is
+   consumed the −4; see there. The sibling cells at `documentation/DESCRIPTION_LENGTH.md:54` and
+   `:205–207` carry the same defect under a separate adjudication and are not edited here. ⁸ *(Added 2026-09-02, prose lane; mirrors [DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) fn⁸.)* The 13.5 is
    log₂(11,364) = 13.47, and the ×11,364 was measured under **this project's "≤2 violations anywhere" relaxation** of
    the Schulz gender rule, not the form its sources state — parity throughout with at most one exception pair at
    adjacent class positions ([Schulz 1990](../documentation/CITATIONS.md#schulz1990-motifs), elaborated by
@@ -252,7 +258,15 @@ explicit.
    picks 15.7 (net −6.3,
    "costs ~1.7×"). Flipping C5's sign would require ≥98.7% of the 52,360 boundary weak-compositions to be
    infeasible — and even then C5 would only reach break-even, never explanatory. The qualitative verdict —
-   statement cost exceeds the 9.4-bit compression under every defensible convention — is robust; the "2.5×"
+   statement cost exceeds the 9.4-bit compression under every convention this ledger declares — is robust;
+   ⚠ **[SCOPED 2026-09-24 (v1.29; Codex V3A-095#1, Q-742) — this sentence claimed the verdict for every convention a reader could defend (registered as RP-16fc7cf8).
+   The ledger's conventions price the multiset as uniform over feasible compositions. A code that does not
+   look at King Wen also exists, and it prices it below the compression: with p(d) = C(6,d)/57 on the
+   five allowed distances, a multinomial code over the 52,360 weak compositions of the 31 boundary
+   transitions gives King Wen's boundary histogram (2, 8, 13, 7, 1) an ideal length of 9.3323 bits, and a
+   Huffman code built on that distribution gives it a 9-bit codeword (Kraft sum 1). Both are below the 9.4306-bit compression, so C5 nets positive by about
+   0.1 to 0.4 bit under that code. The verdict holds under the declared conventions. It is not
+   convention-free.]** the "2.5×"
    figure is the full-multiset convention, "1.7×" the marginal one. (c) **What counts as derivable** is philosophy-laden: the derivation convention
    credits C1 because Radisic's principle is independently stated and machine-verified; no comparable
    derivation exists for C2 or C5, and admitting looser "principles" would smuggle parameters into free
@@ -435,9 +449,12 @@ class* (principled rules stated ahead of the data), not a run scale: this is the
 estimator run named in the same sentence, not the campaign "Tier 1" 11.2T canonical of
 [LARGE_SCALE_CAMPAIGNS.md](../documentation/LARGE_SCALE_CAMPAIGNS.md) and not the "Tier 1"
 determinism-hardening level of [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md)** (all 13 scoreboard rows + full per-functional
-value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 ./solve --estimate-knuth
+value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 SOLVE_THREADS=32 ./solve --estimate-knuth
 2000000000` with the two-language KW gate `./solve --f4p-verify` vs `solve.py --f4p-verify`
-(flags and gates documented in SOLVE_C_CLI.md).
+(flags and gates documented in SOLVE_C_CLI.md). ⚠ **[THREAD PIN ADDED 2026-09-24 (v1.29; Codex V3B-14#13,
+Q-742) — the command carried no `SOLVE_THREADS`. The archived output names it: the first line of
+[evidence/f4p_tier1.out](evidence/f4p_tier1.out) reads `KNUTH-ESTIMATE probes=2000000000 threads=32`.
+Knuth seeds are per-thread, so only (2×10⁹, 32) reproduces that file's digits.]**
 
 ## Revision history
 | Version | Date | Changes |
@@ -478,4 +495,5 @@ v1.0.*
 | v1.25 | 2026-09-02 | **The reproduction-command exception narrowed to history (code batch V-1, Codex V2-19 #3; wording only).** The banner-exception note above §1 recorded that the ledger's two Knuth estimates had no published full-scale invocation. TR-4 v1.27 publishes both 5×10¹⁰ invocations with their thread count and archives their stdout under `reports/evidence/`; the note now says so and keeps the gap on record. No figure, bit value or verdict moves |
 | v1.26 | 2026-09-02 | **The Schulz gender row's two unqualified cells footnoted at all three of their sites (prose lane; Codex V2-F35 #2, the sibling of DESCRIPTION_LENGTH.md fn⁸/fn⁹).** The 13.5-bit gross figure at the §2 ledger cell, the §3 prose and the Verification Guide line is log₂(11,364) measured under this project's ≤2-violations relaxation, not the source-stated rule, which is ≈11× rarer (≈16.9 bits); and the "rule text ≈ 10–15" cost is underived (`PRIOR_ART=NONE`), labelled as fn⁶ labels its ~20.6. The charge's census named two TR-9 sites; measured, there are three — the Verification Guide line is the one a replicator runs. **No count, bound, net-bit bracket or verdict moves**; the error runs against the literature, so the row's ≈ 0 verdict holds a fortiori. |
 | v1.27 | 2026-09-03 | **"tier-1" disambiguated at the §5 evidence citation (hardening lane, Q-86; wording only).** The corpus uses "Tier 1"/"tier-1" for at least three unrelated things — the campaign-scale 11.2T canonical, the determinism-hardening level, and this report's scoring-axis class — and the `f4p_tier1.out` citation gave a reader no way to tell which. It now says which, in place. **No mass, bit value, threshold, verdict or count changes** |
-| v1.28 *(current)* | 2026-09-05 | **The decoy control's cardinality result published at the C5 layer, with its command and raw output; one over-reading phrase narrowed (Fable lane, Q-131/Q-143). Narrowing only: no ledger value, residual endpoint, verdict or count changes, and nothing is retracted.** (1) The executive summary's "how much *structure* is still unaccounted for" read the residual as evidence that structure remains to be found; it now says *information*, with the measured context — a random C1∩C2 target under its own extracted multiset leaves a residual of the same size (N = 1,000, King Wen at the 65th percentile). (2) §2 gains a population-context paragraph for the C5 marginal (method-typical: median 9.9 bits, 5th–95th percentiles 8.1–14.2), so "description, not explanation" is measured as well as priced. (3) §4 states which reading the control speaks to: the 129.7 row directly; the 3.0-bit C3 cut between 129.7 and 126.6 has no decoy measurement; the 139.1 endpoint is the same for every such target by construction. (4) Verification Guide: the composed sampler+estimator command with its load-bearing `SOLVE_THREADS=2`, and the raw output shipped at `reports/evidence/decoy/`. The sampler's published acceptance figure is corrected in the same change (SOLVE_PY_CLI.md, solve.py; [CORRECTIONS.md](../documentation/CORRECTIONS.md) 2026-09-05) |
+| v1.28 | 2026-09-05 | **The decoy control's cardinality result published at the C5 layer, with its command and raw output; one over-reading phrase narrowed (Fable lane, Q-131/Q-143). Narrowing only: no ledger value, residual endpoint, verdict or count changes, and nothing is retracted.** (1) The executive summary's "how much *structure* is still unaccounted for" read the residual as evidence that structure remains to be found; it now says *information*, with the measured context — a random C1∩C2 target under its own extracted multiset leaves a residual of the same size (N = 1,000, King Wen at the 65th percentile). (2) §2 gains a population-context paragraph for the C5 marginal (method-typical: median 9.9 bits, 5th–95th percentiles 8.1–14.2), so "description, not explanation" is measured as well as priced. (3) §4 states which reading the control speaks to: the 129.7 row directly; the 3.0-bit C3 cut between 129.7 and 126.6 has no decoy measurement; the 139.1 endpoint is the same for every such target by construction. (4) Verification Guide: the composed sampler+estimator command with its load-bearing `SOLVE_THREADS=2`, and the raw output shipped at `reports/evidence/decoy/`. The sampler's published acceptance figure is corrected in the same change (SOLVE_PY_CLI.md, solve.py; [CORRECTIONS.md](../documentation/CORRECTIONS.md) 2026-09-05) |
+| v1.29 *(current)* | 2026-09-24 | **Three scopings from the Codex v3 E3 batch-2 adjudication (Q-742).** **(i)** "statement cost exceeds the 9.4-bit compression under every defensible convention" is now "under every convention this ledger declares". A multinomial code on p(d) = C(6,d)/57 does not look at King Wen, yet prices his histogram at 9.33 ideal bits and 9 Huffman bits, below the compression (V3A-095#1, executed). **(ii)** The decoy control's "compresses it" holds for the counted set, not for the target. The sampler shuffles the opening pair and the estimator pins (63,0), so 14 of the 1,000 targets are in their own counted set (V3A-095#2, replayed). **(iii)** The F4P battery command gains `SOLVE_THREADS=32`, which is the thread count its archived output records (V3B-14#13). No measurement or verdict changed: the ledger, the 651/1,000 percentile and the thirteen nulls stand |

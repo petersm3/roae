@@ -53,8 +53,13 @@ Out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-o
 Any reader can reproduce the count on commodity hardware (~64 GB RAM + ~4 TB disk):
 
 ```
-./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR   # raise SOLVE_F1_OOC_SCRATCH_MB (e.g. 61440) to hold read amplification near 1x
+./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR   # raise SOLVE_F1_OOC_SCRATCH_MB (e.g. 16384 on a 64 GiB box) to hold read amplification near 1x
 ```
+
+⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#23, Q-742) — the example read `61440`. Resident memory runs at
+about 2.2× the setting, so 61440 asks for ≈132 GiB on the ~64 GB box this section sizes. 61440 is the
+production 256-GiB D128 setting. TR-11 v1.26 (2026-09-03) and `documentation/SOLVE_C_CLI.md` already give
+16384 for this box, and this run README was not swept then.]**
 
 Every completed layer file in `DIR` is a checkpoint; after any interruption re-run with `--resume-from-layers`. Cross-mode equivalence: run any `--f1-pairs N` subset with and without `--f1-out-of-core` — totals must match, and with `SOLVE_F1_OOC_FORMAT=v1` the layer files must be byte-identical (under the v2 out-of-core default the files are content-identical but byte-different; compare with `--f1c5-verify-layer` — TR-11 §10(vi) precision note). See TR-11 Verification Guide.
 

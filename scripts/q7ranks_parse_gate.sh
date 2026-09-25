@@ -54,6 +54,11 @@
 #     the extraction came back empty   (added r6: markers moved, or the row was removed)
 # A gate that cannot see its subject must never report PASS.
 #
+# CX-93 (2026-09-25): legs 6 and 7 cover the row's NEW branch -- a non-KW IN input (a pinned SAT
+# witness, label "explicit") must yield a witness_serial line with the engine's rank3 and rc 0
+# (leg 6), and must FAIL by name when its walk ranks 0, i.e. IS the anchor walk (leg 7). Both run
+# the real engine on the n=9 ladders, so the parse of the witness branch is exercised here.
+#
 # Y4 (record only, F-5 round 7): legs 1 and 5 are the SAME measurement -- leg 5 re-runs leg 1's
 # awk on a regenerated copy of the same engine output -- so Q7RANKS_PARSE_LEGS=5 counts five
 # legs but four distinct measurements. No verdict depends on the count; it is stated here so a
@@ -87,7 +92,7 @@ fi
 
 # 🔴 F-5 ROUND 6. THE FIRST VERSION OF THIS GATE DEFINED ITS OWN parse() HERE -- a hand-copied
 # second instance of the row's awk -- and never read scripts/tr12_repro.sh at all. Fable measured
-# the consequence: restore the exact 92516f8d defect at tr12_repro.sh:1970 and this gate still
+# the consequence: restore the exact 92516f8d defect at tr12_repro.sh:2629 and this gate still
 # reported PASS while the row itself failed; DELETE tr12_repro.sh entirely and it STILL reported
 # PASS. It bound to the producer and to a COPY of the consumer, so the red test that shipped
 # mutated THE GATE, not THE ROW. That is the same verifier closure B1(r5) was, committed inside
@@ -95,7 +100,7 @@ fi
 #
 # The row is now EXTRACTED FROM THE BATTERY AND EXECUTED. ⚠ SCOPE, corrected after F-5 round 7
 # flagged the sentence that stood here: this gate covers the ONE n>=31-only copy of that parse
-# (tr12_repro.sh:1970). The same awk appears at :564 and :2029, and BOTH of those ARE exercised at
+# (tr12_repro.sh:2629). The same awk appears at :653 and :2700, and BOTH of those ARE exercised at
 # n=9 by the battery itself -- which is why they are not this gate's subject and why "exactly one
 # copy of the parse in the tree", as this comment previously read, was false. Extraction is by the
 # row's own markers, and an empty or
@@ -118,9 +123,11 @@ echo "  [ok] extracted $(grep -c . "$W/block.sh") lines of a2_q7_ranks from $BAT
 # so the extracted block contains no N_PAIRS test and the N_PAIRS=31 set below is inert. F-5 round 7
 # proved it by mutation (`-ge 32` -> this gate still PASSes). The guard is covered by the battery's
 # own SKIP:reduced-universe row at n=9, not here; claiming it here was an overclaim.
-run_row(){ # $1 = arrangement walk, $2 = ANCHOR ; echoes row output, returns the row's rc
-  local arr=$1 anchor=$2 d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/art" "$d/work"
-  printf '{"label": "KW", "verdict_super": "IN", "arrangement": "63,0,%s"}' "$arr" > "$d/art/q7_kw.json"
+run_row(){ # $1 = arrangement walk, $2 = ANCHOR [, $3 = label (KW), $4 = cert file name (q7_kw.json)] ; echoes row output, returns the row's rc
+  # CX-93 (2026-09-25): $3/$4 let legs 6-7 feed the row a NON-KW IN certificate the way a pinned SAT
+  # witness arrives (label "explicit", file q7_<target>.json).
+  local arr=$1 anchor=$2 lab=${3:-KW} fn=${4:-q7_kw.json} d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/art" "$d/work"
+  printf '{"label": "%s", "verdict_super": "IN", "arrangement": "63,0,%s"}' "$lab" "$arr" > "$d/art/$fn"
   ( set +u
     row_begin(){ :; }; row_end(){ ROWRC=$2; }
     SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; ARTDIR="$d/art"; WORK="$d/work"
@@ -162,6 +169,30 @@ else
   r FAIL "leg 5: the engine no longer prints a tab-separated rank3 field -- the row's parse is keyed to a format that no longer holds"
 fi
 
-printf 'Q7RANKS_PARSE_LEGS=5\n'
+# ---- LEG 6 (CX-93, 2026-09-25): a NON-KW IN input gets its serial number ----
+# A pinned SAT witness reaches this row as q7_<target>.json with label "explicit" and
+# verdict_super IN. Its rank_O3 is the "serial number" TR-12 section Q7 promises; the row must
+# print it as a witness_serial line, with the engine's rank3, and return 0.
+if [ -n "$W16" ]; then
+  out=$(run_row "$W16" "$W0" explicit q7_moore-strict.json); rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^witness_serial	q7_moore-strict	rank3=16244	'; then
+    r ok "leg 6: a non-KW IN certificate with a rank-16244 walk passes and prints witness_serial rank3=16244"
+  else
+    r FAIL "leg 6: a non-KW IN certificate gave rc=$rc without a witness_serial rank3=16244 line -- the witness serial number would not be produced"
+    printf '%s\n' "$out" | sed 's/^/        /' | head -4
+  fi
+else
+  r FAIL "leg 6: could not unrank 16244 (cannot measure the witness-serial case)"
+fi
+
+# ---- LEG 7 (CX-93): a NON-KW input that ranks 0 is the anchor walk, not a witness ----
+out=$(run_row "$W0" "$W0" explicit q7_moore-strict.json); rc=$?
+if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'rank3=0 for a non-KW input'; then
+  r ok "leg 7: a non-KW certificate whose walk ranks 0 fails the row by name"
+else
+  r FAIL "leg 7: a non-KW certificate ranking 0 gave rc=$rc without naming it -- the anchor walk could ship as a witness serial number"
+fi
+
+printf 'Q7RANKS_PARSE_LEGS=7\n'
 [ "$fail" -eq 0 ] && echo "Q7RANKS_PARSE=PASS" || echo "Q7RANKS_PARSE=FAIL"
 exit "$fail"

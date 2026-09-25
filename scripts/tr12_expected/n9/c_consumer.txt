@@ -19,7 +19,9 @@
 [atlas-consumer] brute force: enumerated walk count == N_total                  PASS
 [atlas-consumer] brute force: per-layer flow == emitted flow                    PASS
 [atlas-consumer] brute force: V2 river cell-by-cell                             PASS
-[atlas-consumer] brute force: V5 grammar cell-by-cell                           PASS
+[atlas-consumer] brute force: V5 grammar (d, w) cross-tab cell-by-cell          PASS
+[atlas-consumer] brute force: V5 cross-tab marginalises over w to the distance class PASS
+[atlas-consumer] brute force: V5 cross-tab w support is C1's {2, 4, 6}          PASS
 [atlas-consumer] brute force: Q6 layer-mass cell-by-cell                        PASS
 [atlas-consumer] brute force: V1 field cell-by-cell (32 pairs x 9 layers)       PASS
 [atlas-consumer] brute force: XA branch solutions cell-by-cell                  PASS
@@ -32,7 +34,7 @@
 [atlas-consumer] Q3: verdict tokens emitted                                     PASS
 [atlas-consumer] Q3: p column == p_num/p_den to 17 correct digits (Q-422)       PASS
 [atlas-consumer] A-5: one raw marginal column per WHOLE pair-orbit (9 pair(s) -> 3 column(s), group sizes [3, 3, 3]) PASS
-[atlas-consumer] 34 gate(s) run, 0 failure(s)
+[atlas-consumer] 36 gate(s) run, 0 failure(s)
 ATLAS_CONSUMER=PASS
 [atlas] Q3 King Wen check: SKIP:n=9 -- the reduced n=9 universe carries no King Wen walk to compare against
 [atlas] A2 slot check: SKIP:n=9 -- A2's published slot histogram is a full-31 measurement
@@ -60,7 +62,7 @@ TR12_Q6=PASS:REDUCED-DISTANCE-CLASS
 TR12_Q6_EXTREMES=PASS
 TR12_V1=PASS
 TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER
-TR12_V5=PASS:REDUCED-NO-CROSSTAB
+TR12_V5=PASS
 TR12_XA_A=PASS
 TR12_XA_B=PASS
 TR12_XA_CD=PENDING:W0-D-node-mapping

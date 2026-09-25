@@ -688,8 +688,16 @@ example : Fcount [[1, 1], [1, 0]] [3, 1] = 0 ∧ Fcount [[1, 1], [1, 0]] [2, 2] 
     What is NOT covered (unchanged status): the C implementation bridge
     (layer files, sparse absent-=-zero storage, canonical-mask table
     lookup, 192-bit arithmetic) — prose + the runtime gates + the
-    empirical n ≤ 28 plain-vs-quotient agreement; and TR-11 §10(vi)'s
-    independent-engine recomputation, which this section does not replace.
+    empirical agreement ladder: plain DP against the quotient up to
+    n = 18 (the U1–U3 subset gate and verify.py --recount-rung 18), and
+    in-RAM against out-of-core QUOTIENT runs up to n = 28, which share
+    the f1c5_gather_entries kernel and so test storage and streaming, not
+    the gather arithmetic; and TR-11 §10(vi)'s independent-engine
+    recomputation, which this section does not replace.
+    ⚠ [CORRECTED 2026-09-24 (Q-778; TR-11 v1.29, Codex V3A-085#3): this
+    read "the empirical n ≤ 28 plain-vs-quotient agreement". At 24–28 the
+    comparison is quotient against quotient. Comment only; no definition
+    or proof changed.]
 
     Attribution: the orbit-quotient design is TR-11's (operator direction,
     Claude implementation); the mathematics here is standard finite group

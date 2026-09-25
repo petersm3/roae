@@ -28,7 +28,19 @@ order; the sampler is deterministic under its seed and the multiset column repro
 reproduce digit-for-digit — checked 2026-09-05 on rows 1–3, 5 (the King Wen multiset,
 `1:2,2:20,3:13,4:19,6:9` → `1.182455e+39`) and 204–205; `SOLVE_THREADS=1` returns different digits
 (e.g. `1.092788e+39` for the King Wen row). Any thread count reproduces the percentile only to within
-the ≈4 % per-decoy relative error at 10⁵ probes.
+the per-decoy sampling error at 10⁵ probes, which is not uniform: the estimator's printed relative
+standard error (`relerr=`) over the 999 non-zero rows has **median 5.30 %, 95th percentile 21.1 %,
+maximum 100 %**, with 710 rows above 4 % and 185 above 10 %. ⚠ **[CORRECTED 2026-09-24 (Codex
+V3A-151#1, Q-742) — this gave one ≈4 % figure as the per-decoy error at 10⁵ probes (registered as RP-68f7d58e),
+a single figure the distribution does not support. Measured 2026-09-24 by re-running every row with the command above
+(`SOLVE_THREADS=2`, `ulimit -s 16384`, engine at public `5c296837`) and reading `relerr=` from each
+`leaves_C1C2C4C5` line. All 1,000 re-run estimates agree with the archived column: 999 digit for digit, and the starved
+row is 0 in both (archived `0`, replay `0.000000e+00`), so these are the standard errors of the archived estimates themselves. The replay output is not
+committed. To re-derive it, have the awk in the command above print `$6` (the `relerr=` field)
+next to `$3`; the one starved row prints no `relerr=`. At one standard error, a row at 20 % relative
+error is uncertain by about a quarter of a bit in log₂, so single-row placements near King Wen's
+129.69 bits are not resolved. The 65th percentile is a rank over 1,000
+rows and is not re-stated here.]**
 
 **The file has 1,001 lines, not 1,000.** Line 206 is a stray `0.000000e+00` with no multiset, written
 by the 2026-09-04 harness; it is kept as written rather than silently deleted. Drop it with `NF==2`.
@@ -61,7 +73,14 @@ against King Wen's 9.43 bits.
 C1∩C2∩C4∩C5 layer — TR-9's 129.7-bit row — for a target's own extracted multiset. It does not measure
 any decoy's own C3 cut (TR-9's 126.6-bit row adds King Wen's 3.0-bit C3 cut, which has no decoy
 analogue here), any uniqueness rate (the historical "9 of 10" figure is a different tier and remains
-unreproduced), or any per-boundary information rate (TR-4). C1, C2 and C4 are matched by construction.
+unreproduced), or any per-boundary information rate (TR-4). C1, C2 and C4 are matched by construction. ⚠ **[SCOPED 2026-09-24 (Codex V3A-095#2, Q-742) — C4 is
+matched on the *counted* side only. The sampler shuffles all 32 pairs, the opening pair included,
+while the estimator pins (63,0). Replayed 2026-09-24 (the `extraction_null` draw loop, seed
+20260904: 1,000 draws in 22,994 tries, 4.3490 %): **14 of the 1,000 targets open with (63,0)**. So for
+986 targets the count is of the C4-opened orderings that share the target's multiset, a set the
+target itself is not in. The comparison with King Wen is still like for like, because both sides
+count C4-opened orderings under a given multiset. What is not supported is reading a decoy's figure
+as a compression *of that target*.]**
 The pre-registered criterion (survives below the 1st percentile, fails between the 5th and 95th)
 returns FAIL for the specialness framing on this axis: the cardinality of King Wen's admissible set is
 unremarkable.

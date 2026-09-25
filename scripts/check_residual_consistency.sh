@@ -43,11 +43,37 @@ for f in $FILES; do
   fi
   scanned=$((scanned+n))
   # a point estimate is "~126...-bit/bits ... residual" with NO range marker on the same line
+  # 🔴 2026-09-24 (Q-747, Codex v3 E3 V3A-104). Two holes, both executed by Fable R on fixtures:
+  #   #1 the matcher was `12[0-9](\.[0-9])?-bit`, so the range's own endpoints and anything
+  #      outside 120-129 -- ~105.4-bit, ~139.1-bit -- and a two-decimal ~126.60-bit all PASSED,
+  #      although the header promises to catch any bare point estimate of the 105-139 range.
+  #      Now: any 105-139 value, any number of decimals, as its own number (not the tail of 1105).
+  #   #2 the exemption was a bare SUBSTRING test for `105|139|range`, so "rearrangement" and
+  #      "Of 139 tests" exempted the line. Now a line is exempt only for a written RANGE
+  #      (105-139, 105–139, ~105 to ~139: two 105-139 values joined by a dash or "to"), the whole
+  #      word "range"/"ranges", or one of the layer-scope phrases, each at word boundaries. A
+  #      NAMED LAYER SET (log₂|C1–C7|, |C1∩C2∩C4|) is a layer scope too: it says which reading
+  #      the number is. That is not a new exemption but the old `C1.C5.layer` one generalised --
+  #      the widened matcher first flagged TR-9:210, "log₂|C1–C7| = 105.4 bits ... the most
+  #      conservative reading", whose range is stated two lines on.
+  #   A REVISION-HISTORY ROW (`| v1.24 | ...`) keeps the PRE-2026-09-24 matcher (12x only): the
+  #      widening does not reach it, and nothing the old gate checked is un-checked. It is an
+  #      append-only record, never reworded, and the widened matcher's other new hit was one:
+  #      TR-9's v1.24 row, whose "107.2 bits" is a savings-envelope corner that shares the line
+  #      with "residual endpoint", not a residual.
+  PT='(^|[^0-9.])~?(10[5-9]|1[12][0-9]|13[0-9])(\.[0-9]+)?[- ]?bits?([^[:alnum:]]|$)'
+  PT_REVROW='(^|[^0-9.])~?12[0-9](\.[0-9]+)?[- ]?bits?([^[:alnum:]]|$)'
+  RANGE_MARK='(^|[^0-9.])~?(10[5-9]|1[12][0-9]|13[0-9])(\.[0-9]+)?(-bits?)? ?(-|–|—|to) ?~?(10[5-9]|1[12][0-9]|13[0-9])(\.[0-9]+)?([^0-9]|$)'
+  SCOPE_MARK='(^|[^[:alnum:]])(ranges?|depends on which layers|C1.C5.layer|C1.C5 reading)([^[:alnum:]]|$)|\|C1(–|—|-|∩)C[0-9]'
   while IFS= read -r line; do
-    printf '%s' "$line" | grep -qE '~?12[0-9](\.[0-9])?[- ]?bit' || continue
+    printf '%s' "$line" | grep -qE "$PT" || continue
+    if printf '%s' "$line" | grep -qE '^\| *v[0-9]'; then
+      printf '%s' "$line" | grep -qE "$PT_REVROW" || continue
+    fi
     # a point estimate WITH its scope named is fine -- "~126-bit (C1-C5-layer)" is honest.
     # Only a BARE point estimate, with neither the range nor the layer scope, is the defect.
-    printf '%s' "$line" | grep -qE '105|139|range|depends on which layers|C1.C5.layer|C1.C5 reading|C1.C5-layer' && continue
+    printf '%s' "$line" | grep -qE "$RANGE_MARK" && continue
+    printf '%s' "$line" | grep -qiE "$SCOPE_MARK" && continue
     printf '%s' "$line" | grep -qiE 'residual|unexplained' || continue
     echo "  POINT-ESTIMATE RESIDUAL without its range: $f"
     echo "    $(printf '%s' "$line" | cut -c1-120)"

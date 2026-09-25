@@ -167,7 +167,7 @@ Terms used in the program output:
 - **Monte Carlo** — A method that uses repeated random sampling to estimate probabilities. The program shuffles the 64 hexagrams thousands of times and counts how often the shuffled orderings share a property with King Wen.
 - **Nuclear hexagram** — A derived hexagram formed by taking the inner four lines (2-5) of a hexagram and splitting them into new upper and lower trigrams. A fixed property of the binary encoding, not of the ordering.
 - **Shannon entropy** — A measure of disorder or unpredictability. Maximum entropy means all values are equally likely (random); low entropy means some values dominate (structured).
-- **XOR** — Exclusive OR, a bitwise operation. When applied to two hexagrams, it produces a third hexagram representing their "difference." Any reverse/inverse pairing of 6-bit values produces exactly 7 unique XOR products — this is a mathematical theorem, not a property specific to King Wen.
+- **XOR** — Exclusive OR, a bitwise operation. When applied to two hexagrams, it produces a third hexagram representing their "difference." For any reverse/inverse pairing of 6-bit values, every XOR product lies in a fixed set of 7 — that containment is a mathematical theorem, not a property specific to King Wen; that all seven are *attained* is a fact about C1's pairing, not about every such pairing (the complement-only matching yields {111111} alone, and 729 of the 4,096 reverse/complement perfect matchings attain all seven). ⚠ *(corrected 2026-09-24, Q-762, CX-82: this entry said every such pairing produces exactly 7 products, the quantifier Q-630 corrected in the table row below on 2026-09-21; see [SOLVE.md](SOLVE.md) §Theorem 2)*
 
 ## How to read the key sections
 

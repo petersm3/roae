@@ -62,13 +62,25 @@ import solve
 # file (Q-433), every fixture here stopped reaching the priced branch and this gate went
 # ERROR -- correctly. The lesson is the gate's own: a fixture that satisfies a check by being
 # shaped like evidence rather than by being evidence fails the moment the check gets honest.
+# \U0001f534 Q-772 (the Q-768 ruling, section 3): the fixture is now a FULL-SCHEMA W0-D certificate,
+# because the consumer no longer reads a permission sentence -- it reads `mapping.nodes_per_t_unit`
+# and MULTIPLIES every row by it. F = 1/1 and kind = exact keep the three boundary fixtures below
+# exactly where they were. `provenance.engine_git` starts "FIXTURE:", and the consumer echoes it
+# beside the priced table, so any xa_verdict.md this fixture ever reaches names itself.
 _CERT = os.path.join(tempfile.mkdtemp(), "node_mapping_cert.json")
 with open(_CERT, "w", encoding="utf-8") as _fh:
-    json.dump({"node_convention": {"solve_node_limit_mapping":
-               "CERTIFIED: xa_exact_verdict_gate.sh fixture: 1 t-unit == 1 SOLVE_NODE_LIMIT "
-               "node. This "
-               "asserts the map ONLY so the pricing ARITHMETIC downstream can be graded; it "
-               "is not a W0-D certificate and must never be copied into a real run."}}, _fh)
+    json.dump({"type": "roae-w0d-node-mapping-certificate", "version": 1,
+               "mapping": {"kind": "exact", "nodes_per_t_unit": "1/1", "residual": 0,
+                           "formula": "FIXTURE: 1 t-unit == 1 production-DFS node, asserted ONLY "
+                                      "so the pricing ARITHMETIC can be graded",
+                           "law": "FIXTURE: none -- this is not a W0-D certificate and must never "
+                                  "be copied into a real run"},
+               "measured": {"n": [], "per_n": [],
+                            "verdict_line": "FIXTURE: no W0-D run was made"},
+               "provenance": {"engine_git": "FIXTURE:xa_exact_verdict_gate.sh",
+                              "engine_source_sha": "FIXTURE", "host_fingerprint": "FIXTURE",
+                              "produced": "FIXTURE"},
+               "semantics": "certificate-not-proof"}, _fh)
 
 K = solve.binary_hexagrams
 rc = 0
@@ -195,10 +207,16 @@ if not (re.search(r"^\|.*EXHAUSTIBLE", _with, re.M) or re.search(r"^\|.*INFEASIB
     _bad.append("cert supplied but the priced branch was NOT reached -- the guard blocks everything")
 if "t-units = pruned-DFS nodes" in _without or "t-units = pruned-DFS nodes" in _with:
     _bad.append("the heading still asserts t-units == pruned-DFS nodes")
+# Q-772 R7: the priced branch carries the certificate's echo block, and the fixture names itself.
+if "- provenance.engine_git: `FIXTURE:xa_exact_verdict_gate.sh`" not in _with:
+    _bad.append("cert supplied and priced, but the echo block does not name the FIXTURE provenance")
+if "- kind: `exact`; F = nodes_per_t_unit = `1`; residual = 0" not in _with:
+    _bad.append("cert supplied and priced, but the echo block does not state kind and F")
 if _bad:
     for b in _bad: print("  [FAIL] node-mapping refusal: %s" % b)
     print("XA_EXACT_VERDICT=FAIL"); sys.exit(1)
-print("  [ok]   node-mapping refusal fires without a cert AND lifts with one (both directions)")
+print("  [ok]   node-mapping refusal fires without a cert AND lifts with one (both directions);")
+print("         the priced run echoes kind, F and the FIXTURE: provenance")
 
 # ---- LEG 3: the CLI must hand the anchors over as typed decimals ---------
 # The three value fixtures build `cost` directly, so a regression of the argparse

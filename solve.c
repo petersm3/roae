@@ -8924,11 +8924,11 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                sD1/sC, KNUTH_MASS_SE(zD1, sD1/sC, sC, qC), sD2/sC, KNUTH_MASS_SE(zD2, sD2/sC, sC, qC));
         printf("  [score] Pareto-dominates KW          : %.8f of canonical mass se=%.3e (F4-A)\n", sPA/sC,
                KNUTH_MASS_SE(zPA, sPA/sC, sC, qC));
-        printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f se=%.3e/%.3e/%.3e (odd-only per theorem; circular-C2 price = d5 mass)\n",
-               sWR[1]/sC, sWR[3]/sC, sWR[5]/sC,
-               KNUTH_MASS_SE(zWR[1], sWR[1]/sC, sC, qC),
-               KNUTH_MASS_SE(zWR[3], sWR[3]/sC, sC, qC),
-               KNUTH_MASS_SE(zWR[5], sWR[5]/sC, sC, qC));
+        printf("  [score] wrap-distance mass d(s63,s0)  : d1=%.6f d3=%.6f d5=%.6f se=%.3e/%.3e/%.3e (odd-only per theorem; circular-C2 price = d5 mass)\n", sWR[1]/sC, sWR[3]/sC, sWR[5]/sC,
+               KNUTH_MASS_SE(zWR[1], sWR[1]/sC, sC, qC), KNUTH_MASS_SE(zWR[3], sWR[3]/sC, sC, qC), KNUTH_MASS_SE(zWR[5], sWR[5]/sC, sC, qC));
+        /* Q-741 (TR-7 circular census): every wrap bin d0..d6 as a fraction of canonical mass AND as an absolute estimate sWR[w]/N, se = sqrt(sample var / N). Print only; sha-neutral. */
+        for (int w3 = 0; w3 < 7; w3++) { double mw = sWR[w3]/dN, vw = (dN > 1.0) ? (zWR[w3] - dN*mw*mw)/(dN - 1.0) : 0.0; if (vw < 0) vw = 0; double sew = sqrt(vw/dN);
+            printf("  [score] wrap-bin d%d : frac=%.6f se=%.3e | abs est=%.6e se=%.3e relerr=%.3f%%\n", w3, sWR[w3]/sC, KNUTH_MASS_SE(zWR[w3], sWR[w3]/sC, sC, qC), mw, sew, mw > 0 ? 100.0*sew/mw : 0.0); }
     }
     if (knuth_score_reg && sC > 0) {
         /* CANDIDATE_REGISTRY_2026_07 rules at KW-threshold form (ground truth: solve.py reg_*;
@@ -19454,6 +19454,41 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       and the --kc-c3-max refusal).
  *                                       Emits KC_PROFILE_SELFTEST=PASS|FAIL.
  *                                       Sha-neutral; never inside --selftest.
+ *   --kc-dead-census FDIR GDIR|- [--kc-layers A B] [--kc-out OUT.tsv]
+ *                                 [--kc-local-max R]
+ *                                       Atlas query 7 (which constraint
+ *                                       kills; KC-D module header below):
+ *                                       same-layer f/g stream, every DEAD
+ *                                       stored state (f>0, g==0) tallied by
+ *                                       its exhausted-class pattern and by
+ *                                       what blocks its candidate successors
+ *                                       (C2 / C5:classes / MIXED / DEEP);
+ *                                       weights = canonical states and
+ *                                       orbit*f (raw doomed prefixes); fresh
+ *                                       deaths per layer. GDIR `-` = the
+ *                                       g-free local completion search
+ *                                       (<= R remaining pairs, default 5).
+ *                                       Emits KC_DEAD_CENSUS_IDENTITY=OK|FAIL
+ *                                       and KC_DEAD_CENSUS=OK|FAIL.
+ *   --kc-dead-census-selftest           its n=9 exhaustive brute-force gate
+ *                                       (D1..D6 + negatives N1/N2). Emits
+ *                                       KC_DEAD_CENSUS_SELFTEST=PASS|FAIL.
+ *                                       Sha-neutral; never inside --selftest.
+ *   --kc-witness-walks FDIR GDIR ATLAS.json [--kc-out OUT.tsv]
+ *                                       Atlas query 9 (KC-W module header
+ *                                       below): ONE realised walk per L4
+ *                                       extrema witness transition of a
+ *                                       --kc-scan atlas (backward through f,
+ *                                       the witness step, forward first
+ *                                       completion through g), each
+ *                                       re-validated and checked against the
+ *                                       atlas's f/g/w. Emits
+ *                                       KC_WITNESS_WALKS_N=, _OK= and
+ *                                       KC_WITNESS_WALKS=OK|FAIL.
+ *   --kc-witness-walks-selftest         its n=9 exhaustive brute-force gate
+ *                                       (W0..W5 + negatives N1/N2). Emits
+ *                                       KC_WITNESS_WALKS_SELFTEST=PASS|FAIL.
+ *                                       Sha-neutral; never inside --selftest.
  *   --kc-extremal FUNC DIR max|min [--kc-witness] [--kc-json OUT.json]
  *                                 [--kc-gdir GDIR]
  *                                       TR-12 Q5 per-functional DP EXTREMAL
@@ -29269,7 +29304,7 @@ static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
      * not help: its arm below sits inside the ok[i]==0 branch, so an un-run check never reaches
      * it. The consumer ALREADY refuses "not-run" (solve.py atlas_load), so the fix is not a new
      * mechanism -- it is to stop laundering the un-run state through a word nothing checks.
-     * Unreachable at n<=13 (want_raw is forced at :30206 and :30940), so no golden moves. */
+     * Unreachable at n<=13 (want_raw is forced at :30241 and :30975), so no golden moves. */
     int tail_notrun = 0;
     for (int i = 0; i < KC_SCAN_NTC; i++) {
         strcpy(T->tail_report[i], ok[i] < 0 ? "not-run" : (ok[i] ? "PASS" : "FAIL"));
@@ -30327,9 +30362,9 @@ static int kc_scan_main(int argc, char *argv[]) {
                 printf("KC_SCAN_CHUNK_RANGE=%d-%d\n", k_lo, k_hi);
                 printf("KC_SCAN_CHUNK=%s\n", CT.gate_fails ? "FAIL" : "OK");
                 crc = CT.gate_fails ? 1 : 0;
-            } else {
-                printf("KC_SCAN_CHUNK=FAIL\n");
-            }
+            }   /* Q-767 (4), 2026-09-24: a failed write leaves crc == 2, and the ONE FAIL line  */
+                /* below covers it; an else here printed KC_SCAN_CHUNK=FAIL a second time.     */
+                /* Line-neutral on purpose: docs cite solve.c line numbers below this point.   */
         }
         if (crc == 2) printf("KC_SCAN_CHUNK=FAIL\n");
         kc_h_tel_free(tel);
@@ -31954,12 +31989,12 @@ static int kc_h_par_tab_eq(const KcScanTab *A, const KcScanTab *B, int n) {
             !f1_eq(&A->hist[i].mw, &B->hist[i].mw) || !f1_eq(&A->hist[i].mworb, &B->hist[i].mworb))
             return 0;
     /* 🔴 L6a `kw` AND L7' `rid_mass` (Codex KCP5 #2, adjudicated by Fable 2026-09-12).
-     * Both are per-thread accumulators reduced at :28293-28297 and both are PERSISTED --
-     * `kwrank` at :27938/:27944, `rid_mass` at :27954/:27958 -- yet neither appeared in this
+     * Both are per-thread accumulators reduced at :28328-28332 and both are PERSISTED --
+     * `kwrank` at :27973/:27979, `rid_mass` at :27989/:27993 -- yet neither appeared in this
      * comparator, so a difference confined to either could not fail the thread-count or
      * in-core/OOC equality it backs. The gates do not close the gap: L6a's bins are
-     * invariant under an lt/gt swap (:29108), and L7' checks only 1-D marginals of the rid
-     * joint (:29132), so a 2x2 marginal-preserving move also passes. */
+     * invariant under an lt/gt swap (:29143), and L7' checks only 1-D marginals of the rid
+     * joint (:29167), so a 2x2 marginal-preserving move also passes. */
     if (A->kw_ok != B->kw_ok || A->R != B->R) return 0;
     for (int i = 0; i < n * 15; i++)
         if (A->kw[i].cnt != B->kw[i].cnt || A->kw[i].orb != B->kw[i].orb ||
@@ -33161,11 +33196,11 @@ static int kc_ar2_selftest(void) {
  *   - leaves      : full walks (depth n) are nodes with t = 1;
  *   - dead ends   : every valid prefix is a node even when it has no valid
  *                   completion (g = 0) — the DFS visits it, then backtracks.
- * The mapping of these t-units to the production enumerator's
- * SOLVE_NODE_LIMIT counter semantics (orientation explicitness, d3 cell
- * splitting, C3-prune visit accounting) is deliberately NOT claimed by this
- * module — that is the W0-D worker run (roae-private WAVE0_RUNBOOK item
- * w0d), which consumes this instrument.
+ * The t-unit -> production SOLVE_NODE_LIMIT mapping (orientation explicitness, d3 cell splitting,
+ * the extra prefixes production's weaker combined kw_dist budget admits) is NOT claimed here; that
+ * is the W0-D run (roae-private WAVE0_RUNBOOK item w0d), which consumes this instrument. ⚠ Q-787,
+ * 2026-09-25: the third item read "C3-prune visit accounting", but production tests C3 only as a
+ * step-32 leaf filter, so there are no such visits (reports/evidence/w0d_lower_bound/README.md).
  *
  * DOMAIN (the load-bearing difference from g). g never stores value-0
  * states; t must — a dead-end valid prefix is still a node, and a reachable
@@ -33771,7 +33806,7 @@ static int kc_t_cert_main(const char *outp) {
         fprintf(f, "    \"solve_node_limit_mapping\": \"NOT CLAIMED HERE - the W0-D worker "
                 "run (WAVE0_RUNBOOK item w0d) pins the mapping to the production "
                 "enumerator's SOLVE_NODE_LIMIT counter (orientation explicitness, d3 cell "
-                "splitting, C3-prune visit accounting) using this instrument\"\n");
+                "splitting, and the prefixes its combined kw_dist budget admits beyond the t-ladder's boundary cap; C3 is only a leaf filter there) using this instrument\"\n");
         fprintf(f, "  },\n");
         fprintf(f, "  \"n9\": {\n    \"N_walks\": 26112,\n");
         fprintf(f, "    \"t_root\": %llu,\n    \"brute_dfs_nodes\": %llu,\n",
@@ -35132,6 +35167,1158 @@ static int kc_layers_selftest(void) {
     return fails ? 1 : 0;
 }
 
+/* ===================== KC-D — --kc-dead-census (atlas query 7: which constraint kills) =====
+ *
+ * WHAT THIS IS. The doomed-prefix census the atlas cannot give (FABLE_ATLAS_GENERATION
+ * 2026-09-21 §3 row 7): rid_mass / digits carry LIVE walk mass only, and counts carries the
+ * dead f-mass per layer without a residual axis. A stored f-state s = (k, cm, lastc, rid) is
+ * DOOMED (dead) when f(s) > 0 and g(s) == 0: some prefix reaches it, no completion leaves it.
+ * For every dead state the census records the LOCAL situation, which needs no lookup at all:
+ *
+ *   exhausted  the 5-bit pattern of classes whose residual digit sits at its budget b0[d]
+ *   kill       what blocks the 2(n-k) candidate successors (unused pair x orientation):
+ *                C2     every candidate is a distance-5 entry (the C2 prune, cls < 0)
+ *                C5:dX  every candidate is C2-blocked or C5-blocked, no C2 among them, and
+ *                       the blocked classes are exactly the listed ones
+ *                MIXED  both C2- and C5-blocked candidates, nothing admissible
+ *                DEEP   at least one ADMISSIBLE candidate -- every one of which is itself
+ *                       dead, because g(s) = SUM over admissible c of g(s o c) = 0. The
+ *                       death is decided further down; only the exhausted pattern is local.
+ *
+ * Weights: `states` counts canonical entries (== the atlas's st_dead); `prefixes` is the
+ * orbit-weighted f-mass f(s)*orbit(cm) (== st_dead_fmass): the number of RAW doomed prefixes
+ * sitting at that state. `c2_blocked` / `c5_blocked` / `admissible` are the candidate counts
+ * weighted the same way (blocked EDGES per prefix, summed).
+ *
+ * FRESH DEATHS. A prefix at layer k whose parent was alive dies AT k. Every admissible
+ * extension of a dead prefix is dead, and every prefix has exactly one parent, so
+ *     fresh(k) = dead_prefixes(k) - SUM over dead states s at k-1 of f(s)*orbit(cm)*adm(s)
+ * with adm(s) the admissible-candidate count -- two same-layer passes, no k+1 lookup.
+ * Printed when layer k-1 is inside the requested range, `-` otherwise.
+ *
+ * THE g-FREE SHORTCUT (row 7's "at k >= 27 the census may be decidable from the f layer plus
+ * the local predicate"), proved and gated rather than assumed: g(s) is the number of
+ * completions of s under the SAME transition rule the brute DFS uses (Stage-G GA4), so
+ * g(s) > 0 iff an exhaustive search over the remaining n-k pairs reaches a leaf. With GDIR
+ * given as `-` the census decides liveness by that search (kc_dead_alive_local), REFUSING any
+ * layer with more than --kc-local-max remaining pairs (default 5: at most 5!*2^5 = 3840
+ * leaves per state). The selftest requires the g-ladder census and the g-free census to
+ * agree cell for cell on every layer both can serve.
+ *
+ * SAME-LAYER STREAMING, like kc_g_identity_layer: one sequential pass over the f and g layer
+ * entry lists per layer (two-pointer merge on the key-sorted spans; an f entry with no g
+ * entry reads g == 0, an explicit zero reads the same and both are counted). No random
+ * access, so the late layers a full-31 census needs (24..30, 4.67 GB of f) stream at
+ * decompression speed through the OOC reader.
+ *
+ * GATE. --kc-dead-census-selftest (n=9): (D1) the g-ladder census over every layer, cell for
+ * cell, against an INDEPENDENT forward brute force over the whole prefix tree, which decides
+ * death by its own subtree leaf count and computes exhausted/kill from an explicit per-class
+ * step histogram (no rid decoding, no ladder); (D2) distinct canonical dead states per cell;
+ * (D3) fresh deaths per layer against the brute "dead child of a live parent" count;
+ * (D4) the g-free census equals the g-ladder census on every layer with <= 5 remaining pairs;
+ * (D5) the identity dead + live == fmass at every layer; (N1) a corrupted census cell IS
+ * caught; (N2) a brute tally computed with a WRONG key (exhausted at b0-1) is NOT accepted;
+ * (D6) the argv leg through the real dispatcher writes a table ending in the verdict token.
+ * Emits KC_DEAD_CENSUS_SELFTEST=PASS|FAIL. Sha-neutral, never inside --selftest.
+ *
+ * Attribution: question and shortcut from the 2026-09-21 atlas generation pass; census and
+ * gate by Claude (Fable 5.1), 2026-09-24, developed with AI assistance (Claude, Anthropic).
+ * Nothing here is claimed novel: it is the dead-state theory of the Stage-F module applied
+ * to the retained ladders. Corrections invited. */
+
+#define KC_DEAD_NKEY 4096          /* kill(2) | c5set(5) | exhausted(5) -> 12 bits */
+#define KC_DEAD_LOCAL_MAX_DEFAULT 5
+
+enum { KC_DEAD_KILL_C2 = 0, KC_DEAD_KILL_C5 = 1, KC_DEAD_KILL_MIXED = 2, KC_DEAD_KILL_DEEP = 3 };
+static const char *const kc_dead_kill_name[4] = {"C2", "C5", "MIXED", "DEEP"};
+
+typedef struct {
+    int n_c2, n_c5[5], n_adm;    /* candidate successors by what blocks them */
+    int exh, c5set;              /* 5-bit class sets (index order 1,2,3,4,6) */
+} KcDeadCls;
+
+/* the LOCAL situation of state (m, last, rid): no lookup, no ladder */
+static void kc_dead_classify(const KC *kc, uint32_t m, int last, uint32_t rid, KcDeadCls *D) {
+    memset(D, 0, sizeof(*D));
+    for (int d = 0; d < 5; d++)
+        if (kc->B.dig[d][rid] == kc->B.b0[d]) D->exh |= 1 << d;
+    for (int q = 0; q < kc->n; q++) {
+        if ((m >> q) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[q] : kc->c.pb[q];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+            if (cls < 0) { D->n_c2++; continue; }
+            if (kc->B.dig[cls][rid] >= kc->B.b0[cls]) { D->n_c5[cls]++; D->c5set |= 1 << cls; continue; }
+            D->n_adm++;
+        }
+    }
+}
+
+static int kc_dead_kill_of(const KcDeadCls *D) {
+    if (D->n_adm > 0) return KC_DEAD_KILL_DEEP;
+    if (D->n_c2 > 0 && D->c5set) return KC_DEAD_KILL_MIXED;
+    if (D->n_c2 > 0) return KC_DEAD_KILL_C2;
+    return KC_DEAD_KILL_C5;
+}
+static int kc_dead_key_of(const KcDeadCls *D) {
+    return (kc_dead_kill_of(D) << 10) | (D->c5set << 5) | D->exh;
+}
+/* "d1+d3" or "-" */
+static void kc_dead_set_str(int set, char *out /* >= 16 */) {
+    int o = 0;
+    for (int d = 0; d < 5; d++)
+        if ((set >> d) & 1) o += snprintf(out + o, 16 - (size_t)o, "%sd%d", o ? "+" : "", F1C5_DVAL[d]);
+    if (!o) { out[0] = '-'; out[1] = '\0'; }
+}
+
+/* g(s) > 0 decided by exhaustive completion search (the g-free shortcut) */
+static int kc_dead_alive_local(const KC *kc, int depth, uint32_t m, int last, uint32_t rid) {
+    if (depth == kc->n) return 1;
+    for (int q = 0; q < kc->n; q++) {
+        if ((m >> q) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[q] : kc->c.pb[q];
+            const int exitx = o ? kc->c.pb[q] : kc->c.pa[q];
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(last ^ entry))];
+            if (cls < 0 || kc->B.dig[cls][rid] >= kc->B.b0[cls]) continue;
+            if (kc_dead_alive_local(kc, depth + 1, m | (1u << q), exitx, rid + kc->B.rad[cls]))
+                return 1;
+        }
+    }
+    return 0;
+}
+
+typedef struct {
+    uint64_t cnt[KC_DEAD_NKEY];                    /* canonical dead states */
+    F1U192 mass[KC_DEAD_NKEY];                     /* orbit-weighted f: raw doomed prefixes */
+    F1U192 c2b[KC_DEAD_NKEY], c5b[KC_DEAD_NKEY], admb[KC_DEAD_NKEY];
+    uint64_t dead_states, live_states, g_absent, g_zero, f_zero;
+    F1U192 dead_mass, live_mass, fmass, dead_adm;  /* dead_adm: SUM f*orbit*adm over dead states */
+    int done;
+} KcDeadLayer;
+
+typedef struct {
+    int n, k_lo, k_hi, local, local_max;
+    F1U192 N;
+    KcDeadLayer *L;                                /* n+1 layers (only [k_lo,k_hi) filled) */
+} KcDeadTab;
+
+static int kc_dead_tab_init(KcDeadTab *T, int n, int k_lo, int k_hi) {
+    memset(T, 0, sizeof(*T));
+    T->n = n; T->k_lo = k_lo; T->k_hi = k_hi;
+    T->L = (KcDeadLayer *)calloc((size_t)n + 1, sizeof(KcDeadLayer));
+    return T->L ? 0 : -1;
+}
+static void kc_dead_tab_free(KcDeadTab *T) { free(T->L); T->L = NULL; }
+
+/* one layer, streamed. g == NULL => the g-free shortcut (T->local_max enforced). */
+static int kc_dead_census_layer(KC *f, KC *g, int k, KcDeadTab *T) {
+    KcDeadLayer *Y = &T->L[k];
+    const uint32_t *fm, *gm = NULL;
+    const uint64_t *fo, *go = NULL;
+    uint64_t fnm, gnm = 0;
+    kc_any_geom(f, k, &fm, &fo, &fnm);
+    if (g) {
+        kc_any_geom(g, k, &gm, &go, &gnm);
+        if (fnm != gnm || memcmp(fm, gm, sizeof(uint32_t) * fnm) != 0) {
+            fprintf(stderr, "ERROR: [kc-dead] layer k=%d: f/g MASK LIST MISMATCH (f=%llu g=%llu)\n",
+                    k, (unsigned long long)fnm, (unsigned long long)gnm);
+            return -1;
+        }
+    } else if (f->n - k > T->local_max) {
+        fprintf(stderr, "ERROR: [kc-dead] layer k=%d has %d remaining pairs > --kc-local-max %d; "
+                "the g-free shortcut is REFUSED there (give the g ladder)\n", k, f->n - k, T->local_max);
+        return -1;
+    }
+    memset(Y, 0, sizeof(*Y));
+    for (uint64_t mi = 0; mi < fnm; mi++) {
+        const uint32_t cm = fm[mi];
+        const uint32_t orb = (uint32_t)f1_orbit_size(&f->c, cm);
+        uint64_t eg = g ? go[mi] : 0;
+        const uint64_t eg1 = g ? go[mi + 1] : 0;
+        for (uint64_t ef = fo[mi]; ef < fo[mi + 1]; ef++) {
+            const uint32_t key = kc_any_key(f, k, ef);
+            const int lastc = (int)(key >> 16);
+            const uint32_t rid = key & 0xffffu;
+            const F1U192 fv = kc_any_val(f, k, ef);
+            if (f1_is_zero(&fv)) { Y->f_zero++; continue; }
+            int alive;
+            if (g) {
+                F1U192 gv = {0, 0, 0};
+                while (eg < eg1 && kc_any_key(g, k, eg) < key) eg++;
+                if (eg < eg1 && kc_any_key(g, k, eg) == key) {
+                    gv = kc_any_val(g, k, eg);
+                    if (f1_is_zero(&gv)) Y->g_zero++;
+                } else Y->g_absent++;
+                alive = !f1_is_zero(&gv);
+            } else {
+                alive = kc_dead_alive_local(f, k, cm, lastc, rid);
+            }
+            const F1U192 w0 = f1_mul_small(fv, orb);
+            f1_add(&Y->fmass, &w0);
+            if (alive || k == f->n) {
+                Y->live_states++;
+                f1_add(&Y->live_mass, &w0);
+                continue;
+            }
+            KcDeadCls D;
+            kc_dead_classify(f, cm, lastc, rid, &D);
+            const int idx = kc_dead_key_of(&D);
+            Y->cnt[idx]++;
+            f1_add(&Y->mass[idx], &w0);
+            {
+                int c5 = 0;
+                for (int d = 0; d < 5; d++) c5 += D.n_c5[d];
+                F1U192 t;
+                t = f1_mul_small(w0, (uint32_t)D.n_c2);  f1_add(&Y->c2b[idx], &t);
+                t = f1_mul_small(w0, (uint32_t)c5);      f1_add(&Y->c5b[idx], &t);
+                t = f1_mul_small(w0, (uint32_t)D.n_adm); f1_add(&Y->admb[idx], &t);
+                f1_add(&Y->dead_adm, &t);
+            }
+            Y->dead_states++;
+            f1_add(&Y->dead_mass, &w0);
+        }
+    }
+    Y->done = 1;
+    return 0;
+}
+
+static int kc_dead_census_run(KC *f, KC *g, KcDeadTab *T) {
+    for (int k = T->k_lo; k < T->k_hi; k++)
+        if (kc_dead_census_layer(f, g, k, T) != 0) return -1;
+    return 0;
+}
+
+/* the identity dead + live == fmass at every done layer; 0 ok / -1 */
+static int kc_dead_identity(const KcDeadTab *T) {
+    for (int k = T->k_lo; k < T->k_hi; k++) {
+        const KcDeadLayer *Y = &T->L[k];
+        F1U192 s = Y->dead_mass;
+        f1_add(&s, &Y->live_mass);
+        if (!Y->done || !f1_eq(&s, &Y->fmass)) return -1;
+    }
+    return 0;
+}
+
+static void kc_dead_write(FILE *o, const KcDeadTab *T, const char *fdir, const char *gdir) {
+    char nd[64], a[64], b[64], c[64], d[64], e[64];
+    f1_dec(T->N, nd);
+    fprintf(o, "#kc-dead-census\tn=%d\tN=%s\tlayers=[%d,%d)\tliveness=%s\tobject=STATE\t"
+               "space=C1C2C4C5-SUPERSPACE\tfdir=%s\tgdir=%s\n",
+            T->n, nd, T->k_lo, T->k_hi, T->local ? "g-free-local-search" : "g-ladder", fdir, gdir);
+    fprintf(o, "layer\tkill\tc5_classes\texhausted\tstates\tprefixes\tc2_blocked\tc5_blocked\tadmissible\n");
+    for (int k = T->k_lo; k < T->k_hi; k++) {
+        const KcDeadLayer *Y = &T->L[k];
+        for (int idx = 0; idx < KC_DEAD_NKEY; idx++) {
+            if (Y->cnt[idx] == 0) continue;
+            char s5[16], sx[16];
+            kc_dead_set_str((idx >> 5) & 31, s5);
+            kc_dead_set_str(idx & 31, sx);
+            f1_dec(Y->mass[idx], a); f1_dec(Y->c2b[idx], b); f1_dec(Y->c5b[idx], c); f1_dec(Y->admb[idx], d);
+            fprintf(o, "%d\t%s\t%s\t%s\t%llu\t%s\t%s\t%s\t%s\n", k, kc_dead_kill_name[idx >> 10], s5, sx,
+                    (unsigned long long)Y->cnt[idx], a, b, c, d);
+        }
+    }
+    fprintf(o, "#layer\tdead_states\tdead_prefixes\tlive_states\tlive_prefixes\tfmass\tfresh_dead_prefixes\t"
+               "g_absent\tg_zero\tf_zero\n");
+    for (int k = T->k_lo; k < T->k_hi; k++) {
+        const KcDeadLayer *Y = &T->L[k];
+        f1_dec(Y->dead_mass, a); f1_dec(Y->live_mass, b); f1_dec(Y->fmass, c);
+        if (k > T->k_lo) {
+            F1U192 fr = Y->dead_mass;
+            const F1U192 *inh = &T->L[k - 1].dead_adm;
+            if (kc_u192_cmp(&fr, inh) < 0) snprintf(d, sizeof(d), "NEGATIVE");
+            else { kc_u192_sub(&fr, inh); f1_dec(fr, d); }
+        } else snprintf(d, sizeof(d), "-");
+        fprintf(o, "#L\t%d\t%llu\t%s\t%llu\t%s\t%s\t%s\t%llu\t%llu\t%llu\n", k,
+                (unsigned long long)Y->dead_states, a, (unsigned long long)Y->live_states, b, c, d,
+                (unsigned long long)Y->g_absent, (unsigned long long)Y->g_zero, (unsigned long long)Y->f_zero);
+    }
+    /* range totals by kill type, and by C5 class among the LOCAL kills */
+    {
+        F1U192 tk[4] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0}}, tc[5] = {{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0}};
+        F1U192 tdead = {0, 0, 0};
+        uint64_t sk[4] = {0, 0, 0, 0};
+        for (int k = T->k_lo; k < T->k_hi; k++) {
+            const KcDeadLayer *Y = &T->L[k];
+            f1_add(&tdead, &Y->dead_mass);
+            for (int idx = 0; idx < KC_DEAD_NKEY; idx++) {
+                if (Y->cnt[idx] == 0) continue;
+                const int kill = idx >> 10;
+                f1_add(&tk[kill], &Y->mass[idx]);
+                sk[kill] += Y->cnt[idx];
+                if (kill == KC_DEAD_KILL_C5)
+                    for (int dd = 0; dd < 5; dd++)
+                        if ((idx >> (5 + dd)) & 1) f1_add(&tc[dd], &Y->mass[idx]);
+            }
+        }
+        f1_dec(tdead, e);
+        fprintf(o, "#range\tdead_prefixes=%s\n", e);
+        for (int kill = 0; kill < 4; kill++) {
+            f1_dec(tk[kill], a);
+            fprintf(o, "#range-kill\t%s\tstates=%llu\tprefixes=%s\n", kc_dead_kill_name[kill],
+                    (unsigned long long)sk[kill], a);
+        }
+        for (int dd = 0; dd < 5; dd++) {
+            f1_dec(tc[dd], a);
+            fprintf(o, "#range-c5-class\td%d\tprefixes_with_class_blocked=%s\n", F1C5_DVAL[dd], a);
+        }
+    }
+    fprintf(o, "#provenance\tengine=solve.c/kc-dead-census\tbranch=%s\tgit=%s\tsource_sha=%s\tn=%d\t"
+               "semantics=certificate-not-proof;dead=f>0&g==0;weights=orbit*f\n",
+            GIT_BRANCH, GIT_HASH, SOURCE_SHA, T->n);
+}
+
+/* --kc-dead-census FDIR GDIR|- [--kc-layers A B] [--kc-out OUT.tsv] [--kc-local-max R] ... */
+static int kc_dead_census_main(int argc, char *argv[]) {
+    if (argc < 4) {
+        fprintf(stderr,
+            "Usage: solve --kc-dead-census FDIR GDIR|- [--kc-layers A B] [--kc-out OUT.tsv]\n"
+            "                              [--kc-local-max R] [--kc-ooc] [--kc-cache-mb MB]\n"
+            "  Atlas query 7: which constraint kills. Streams f and g layer by layer and\n"
+            "  tallies every DEAD stored state (f > 0, g == 0) by its LOCAL situation:\n"
+            "  the exhausted-class pattern of its residual and what blocks its candidate\n"
+            "  successors (C2 / C5:classes / MIXED / DEEP = admissible-but-dead).\n"
+            "  Weights: canonical states and orbit-weighted f (raw doomed prefixes).\n"
+            "  --kc-layers A B: the HALF-OPEN layer range [A, B) subset of [0, n).\n"
+            "  GDIR `-`: decide liveness by exhaustive completion search instead of the\n"
+            "  g ladder; refused on any layer with more than R (default 5) remaining pairs.\n"
+            "  Emits KC_DEAD_CENSUS_IDENTITY=OK|FAIL and KC_DEAD_CENSUS=OK|FAIL. Exit 0/1/2.\n"
+            "  Gate: --kc-dead-census-selftest (n=9 exhaustive brute force).\n");
+        return 2;
+    }
+    const char *fdir = argv[2], *gdir = argv[3], *outp = NULL;
+    int force_ooc = 0, cache_mb = 0, k_lo = -1, k_hi = -1, local_max = KC_DEAD_LOCAL_MAX_DEFAULT;
+    for (int ai = 4; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-out") == 0) outp = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-local-max") == 0) local_max = atoi(argv[++ai]);
+        else if (ai + 2 < argc && strcmp(argv[ai], "--kc-layers") == 0) {
+            k_lo = atoi(argv[ai + 1]); k_hi = atoi(argv[ai + 2]); ai += 2;
+        } else {
+            fprintf(stderr, "ERROR: [kc-dead] unknown or incomplete option '%s' (accepted: "
+                    "--kc-layers A B --kc-out OUT --kc-local-max R --kc-ooc --kc-cache-mb MB)\n", argv[ai]);
+            return 2;
+        }
+    }
+    const int local = strcmp(gdir, "-") == 0;
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = local ? NULL : (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && (local || gkc), "[kc-dead] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (!local) {
+        if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+            kc_free(fkc); free(fkc); free(gkc);
+            return 2;
+        }
+        kc_g_ctx_check(fkc, gkc);
+    }
+    const int n = fkc->n;
+    if (k_lo < 0) { k_lo = 0; k_hi = n; }
+    if (k_lo < 0 || k_hi > n || k_lo >= k_hi) {
+        fprintf(stderr, "ERROR: [kc-dead] --kc-layers %d %d is not a non-empty subrange of [0, %d)\n",
+                k_lo, k_hi, n);
+        kc_free(fkc); free(fkc); if (gkc) { kc_free(gkc); free(gkc); }
+        return 2;
+    }
+    KcDeadTab T;
+    F1_CHECK(kc_dead_tab_init(&T, n, k_lo, k_hi) == 0, "[kc-dead] alloc");
+    T.N = fkc->total; T.local = local; T.local_max = local_max;
+    int rc = 0;
+    if (kc_dead_census_run(fkc, gkc, &T) != 0) rc = 1;
+    const int id_ok = rc == 0 && kc_dead_identity(&T) == 0;
+    if (rc == 0) {
+        kc_dead_write(stdout, &T, fdir, gdir);
+        if (outp) {
+            FILE *o = fopen(outp, "w");
+            if (!o) { fprintf(stderr, "ERROR: [kc-dead] cannot write %s\n", outp); rc = 1; }
+            else {
+                kc_dead_write(o, &T, fdir, gdir);
+                fprintf(o, "KC_DEAD_CENSUS_IDENTITY=%s\n", id_ok ? "OK" : "FAIL");
+                fprintf(o, "KC_DEAD_CENSUS=%s\n", id_ok ? "OK" : "FAIL");
+                if (kc_h_close_artifact(o, outp, "kc-dead") != 0) rc = 1;
+                if (!id_ok) kc_h_unlink_regular(outp);
+            }
+        }
+    }
+    printf("KC_DEAD_CENSUS_IDENTITY=%s\n", id_ok ? "OK" : "FAIL");
+    if (!id_ok) rc = 1;
+    printf("KC_DEAD_CENSUS=%s\n", rc == 0 ? "OK" : "FAIL");
+    kc_dead_tab_free(&T);
+    kc_free(fkc); free(fkc);
+    if (gkc) { kc_free(gkc); free(gkc); }
+    return rc;
+}
+
+/* ---------- --kc-dead-census-selftest (n=9 exhaustive brute-force gate) ---------- */
+#define KC_DEAD_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-dead-census-selftest] %-64s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* the brute side: an INDEPENDENT classification from the prefix's own step histogram
+ * (no rid decoding, no B.dig); wrong_key plants the N2 mutant (exhausted at b0-1) */
+typedef struct {
+    uint64_t cnt[KC_MAX_PAIRS + 1][KC_DEAD_NKEY];     /* raw dead prefixes per (k, key) */
+    uint64_t fresh[KC_MAX_PAIRS + 1];                 /* dead prefixes whose parent is alive */
+    uint64_t dead[KC_MAX_PAIRS + 1];
+    /* distinct canonical dead states per (k, key): (k, key, cm, keyc) rows, sorted later */
+    uint64_t *st; uint64_t nst, cst;
+    int wrong_key;
+} KcDeadBrute;
+
+static int kc_dead_brute_key(const KC *kc, uint32_t m, int last, const int *used, int wrong_key) {
+    int exh = 0, c5set = 0, nc2 = 0, nadm = 0;
+    for (int d = 0; d < 5; d++)
+        if (used[d] == kc->b0v[d] - (wrong_key ? 1 : 0)) exh |= 1 << d;
+    for (int q = 0; q < kc->n; q++) {
+        if ((m >> q) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[q] : kc->c.pb[q];
+            const int hd = __builtin_popcount((unsigned)(last ^ entry));
+            if (hd == 5) { nc2++; continue; }
+            const int d = hd == 6 ? 4 : hd - 1;          /* dvals 1,2,3,4,6 -> 0..4 */
+            if (used[d] >= kc->b0v[d]) { c5set |= 1 << d; continue; }
+            nadm++;
+        }
+    }
+    const int kill = nadm ? KC_DEAD_KILL_DEEP : (nc2 && c5set) ? KC_DEAD_KILL_MIXED : nc2 ? KC_DEAD_KILL_C2 : KC_DEAD_KILL_C5;
+    return (kill << 10) | (c5set << 5) | exh;
+}
+
+/* returns the leaf count under this node; tallies dead nodes on the way back up. A node is
+ * alive iff leaves > 0, which is only known AFTER its children return, so fresh deaths
+ * (dead child of a live parent) are tallied by the parent from the recorded subtree sizes. */
+static uint64_t kc_dead_brute_rec(const KC *kc, int depth, uint32_t m, int last, int *used,
+                                  KcDeadBrute *B) {
+    if (depth == kc->n) return 1;
+    uint64_t leaves = 0;
+    uint64_t sub[2 * KC_MAX_PAIRS];
+    int nsub = 0;
+    for (int q = 0; q < kc->n; q++) {
+        if ((m >> q) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[q] : kc->c.pb[q];
+            const int exitx = o ? kc->c.pb[q] : kc->c.pa[q];
+            const int hd = __builtin_popcount((unsigned)(last ^ entry));
+            if (hd == 5) continue;
+            const int d = hd == 6 ? 4 : hd - 1;
+            if (used[d] >= kc->b0v[d]) continue;
+            used[d]++;
+            sub[nsub++] = kc_dead_brute_rec(kc, depth + 1, m | (1u << q), exitx, used, B);
+            used[d]--;
+            leaves += sub[nsub - 1];
+        }
+    }
+    const int alive = leaves > 0;
+    if (!alive) {
+        const int key = kc_dead_brute_key(kc, m, last, used, B->wrong_key);
+        B->cnt[depth][key]++;
+        B->dead[depth]++;
+        int g;
+        const uint32_t cm = f1_canon(&kc->c, m, &g);
+        const uint32_t keyc = ((uint32_t)kc->c.el[g].hmap[last] << 16);   /* rid is a function of used[] */
+        uint32_t rid = 0;
+        for (int d = 0; d < 5; d++) rid += (uint32_t)used[d] * kc->B.rad[d];
+        F1_CHECK(cm < (1u << 22) && kc->n <= 22, "[kc-dead-census-selftest] row packing needs n <= 22");
+        if (B->nst == B->cst) {
+            B->cst = B->cst ? B->cst * 2 : 4096;
+            B->st = (uint64_t *)realloc(B->st, B->cst * sizeof(uint64_t));
+            F1_CHECK(B->st != NULL, "[kc-dead-census-selftest] OOM");
+        }
+        B->st[B->nst++] = ((uint64_t)depth << 56) | ((uint64_t)key << 44) | ((uint64_t)cm << 22) |
+                          (uint64_t)((keyc | rid) & 0x3fffffu);
+    }
+    if (alive) {
+        int i = 0;
+        for (int q = 0; q < kc->n; q++) {
+            if ((m >> q) & 1) continue;
+            for (int o = 0; o < 2; o++) {
+                const int entry = o ? kc->c.pa[q] : kc->c.pb[q];
+                const int hd = __builtin_popcount((unsigned)(last ^ entry));
+                if (hd == 5) continue;
+                const int d = hd == 6 ? 4 : hd - 1;
+                if (used[d] >= kc->b0v[d]) continue;
+                if (sub[i] == 0 && depth + 1 < kc->n) B->fresh[depth + 1]++;
+                i++;
+            }
+        }
+    }
+    return leaves;
+}
+
+static int kc_dead_u64_cmp(const void *a, const void *b) {
+    const uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b;
+    return x < y ? -1 : x > y;
+}
+
+/* census cell (k, key) == brute cell: prefixes (mass) and distinct canonical states */
+static int kc_dead_compare(const KcDeadTab *T, KcDeadBrute *B, int k_lo, int k_hi, int check_states) {
+    qsort(B->st, B->nst, sizeof(uint64_t), kc_dead_u64_cmp);
+    /* one pass over the sorted (depth, key, cm, keyc|rid) rows: distinct states per cell */
+    uint64_t *dist = (uint64_t *)calloc((size_t)(KC_MAX_PAIRS + 1) * KC_DEAD_NKEY, sizeof(uint64_t));
+    F1_CHECK(dist != NULL, "[kc-dead-census-selftest] OOM");
+    for (uint64_t i = 0; i < B->nst; i++) {
+        if (i > 0 && B->st[i] == B->st[i - 1]) continue;
+        const int k = (int)(B->st[i] >> 56), key = (int)((B->st[i] >> 44) & 0xfff);
+        dist[k * KC_DEAD_NKEY + key]++;
+    }
+    int rc = 0;
+    for (int k = k_lo; k < k_hi && rc == 0; k++) {
+        for (int key = 0; key < KC_DEAD_NKEY; key++) {
+            const F1U192 bm = {B->cnt[k][key], 0, 0};
+            if (!f1_eq(&bm, &T->L[k].mass[key])) { rc = -1; break; }
+            if (check_states && dist[k * KC_DEAD_NKEY + key] != T->L[k].cnt[key]) { rc = -1; break; }
+        }
+    }
+    free(dist);
+    return rc;
+}
+
+static int kc_dead_census_selftest(void) {
+    int fails = 0;
+    printf("[kc-dead-census-selftest] atlas query 7 census vs exhaustive brute force (n=9)\n");
+    char dir[4096], fdir[4200], gdir[4200], outp[4300];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-dead-census-selftest] FAIL (no scratch dir)\nKC_DEAD_CENSUS_SELFTEST=FAIL\n");
+        return 1;
+    }
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir, sizeof(gdir), "%s/g", dir);
+    snprintf(outp, sizeof(outp), "%s/census.tsv", dir);
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL && kc_init(kc, 9) == 0, "[kc-dead-census-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_DEAD_GATE("n=9 g ladder build", kc_g_build_main(gdir, 9, 0) == 0);
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-dead-census-selftest] alloc");
+    F1_CHECK(kc_open(fkc, fdir, 0, 0) == 0, "[kc-dead-census-selftest] f open");
+    F1_CHECK(kc_open_as(gkc, gdir, "g", 1, 0, 0) == 0, "[kc-dead-census-selftest] g open");
+    const int n = fkc->n;
+
+    KcDeadTab TG, TL;
+    F1_CHECK(kc_dead_tab_init(&TG, n, 0, n) == 0 && kc_dead_tab_init(&TL, n, n - KC_DEAD_LOCAL_MAX_DEFAULT, n) == 0,
+             "[kc-dead-census-selftest] alloc");
+    TG.N = TL.N = fkc->total; TL.local = 1; TL.local_max = KC_DEAD_LOCAL_MAX_DEFAULT;
+    KC_DEAD_GATE("g-ladder census over every layer", kc_dead_census_run(fkc, gkc, &TG) == 0);
+    KC_DEAD_GATE("D5 dead + live == fmass at every layer", kc_dead_identity(&TG) == 0);
+    {
+        uint64_t any = 0;
+        for (int k = 0; k < n; k++) any += TG.L[k].dead_states;
+        KC_DEAD_GATE("the n=9 ladder HAS dead states (the gate is not vacuous)", any > 0);
+    }
+
+    KcDeadBrute *B = (KcDeadBrute *)calloc(1, sizeof(KcDeadBrute));
+    F1_CHECK(B != NULL, "[kc-dead-census-selftest] alloc");
+    {
+        int used[5] = {0, 0, 0, 0, 0};
+        const uint64_t leaves = kc_dead_brute_rec(fkc, 0, 0, fkc->start_exit, used, B);
+        KC_DEAD_GATE("brute prefix tree leaves == N", leaves == fkc->total.l0 && fkc->total.l1 == 0);
+    }
+    KC_DEAD_GATE("D1+D2 every (layer, kill, c5set, exhausted) cell == brute (prefixes AND distinct states)",
+                 kc_dead_compare(&TG, B, 0, n, 1) == 0);
+    {
+        int ok = 1;
+        for (int k = 0; k < n; k++) {
+            const F1U192 bd = {B->dead[k], 0, 0};
+            if (!f1_eq(&bd, &TG.L[k].dead_mass)) ok = 0;
+            if (k > 0) {
+                F1U192 fr = TG.L[k].dead_mass;
+                if (kc_u192_cmp(&fr, &TG.L[k - 1].dead_adm) < 0) { ok = 0; continue; }
+                kc_u192_sub(&fr, &TG.L[k - 1].dead_adm);
+                const F1U192 bf = {B->fresh[k], 0, 0};
+                if (!f1_eq(&fr, &bf)) ok = 0;
+            } else if (B->fresh[0] != TG.L[0].dead_states) ok = 0;
+        }
+        KC_DEAD_GATE("D3 fresh deaths per layer (dead - inherited) == brute dead-child-of-live-parent", ok);
+    }
+    KC_DEAD_GATE("g-free census over the last 5 layers", kc_dead_census_run(fkc, NULL, &TL) == 0);
+    {
+        int ok = 1;
+        for (int k = TL.k_lo; k < TL.k_hi; k++)
+            if (memcmp(TL.L[k].cnt, TG.L[k].cnt, sizeof(TG.L[k].cnt)) != 0 ||
+                memcmp(TL.L[k].mass, TG.L[k].mass, sizeof(TG.L[k].mass)) != 0 ||
+                TL.L[k].dead_states != TG.L[k].dead_states || !f1_eq(&TL.L[k].dead_mass, &TG.L[k].dead_mass))
+                ok = 0;
+        KC_DEAD_GATE("D4 g-free (local search) census == g-ladder census, cell for cell", ok);
+        KcDeadTab TR;
+        F1_CHECK(kc_dead_tab_init(&TR, n, n - KC_DEAD_LOCAL_MAX_DEFAULT - 1, n) == 0, "[kc-dead-census-selftest] alloc");
+        TR.local = 1; TR.local_max = KC_DEAD_LOCAL_MAX_DEFAULT;
+        KC_DEAD_GATE("g-free census REFUSES a layer beyond --kc-local-max", kc_dead_census_run(fkc, NULL, &TR) != 0);
+        kc_dead_tab_free(&TR);
+    }
+    {   /* N1: a corrupted census cell IS caught (the comparator has power) */
+        int k0 = -1, key0 = -1;
+        for (int k = 0; k < n && k0 < 0; k++)
+            for (int key = 0; key < KC_DEAD_NKEY && k0 < 0; key++)
+                if (TG.L[k].cnt[key]) { k0 = k; key0 = key; }
+        F1U192 save = TG.L[k0].mass[key0];
+        TG.L[k0].mass[key0].l0 ^= 1ull;
+        KC_DEAD_GATE("NEGATIVE N1: a corrupted census cell IS caught", kc_dead_compare(&TG, B, 0, n, 0) != 0);
+        TG.L[k0].mass[key0] = save;
+        KC_DEAD_GATE("NEGATIVE N1: restored cell agrees again", kc_dead_compare(&TG, B, 0, n, 0) == 0);
+    }
+    {   /* N2: the brute tally under a WRONG key (exhausted at b0-1) must NOT be accepted */
+        KcDeadBrute *W = (KcDeadBrute *)calloc(1, sizeof(KcDeadBrute));
+        F1_CHECK(W != NULL, "[kc-dead-census-selftest] alloc");
+        W->wrong_key = 1;
+        int used[5] = {0, 0, 0, 0, 0};
+        kc_dead_brute_rec(fkc, 0, 0, fkc->start_exit, used, W);
+        KC_DEAD_GATE("NEGATIVE N2: a brute tally keyed WRONGLY (exhausted at b0-1) is REJECTED",
+                     kc_dead_compare(&TG, W, 0, n, 0) != 0);
+        free(W->st);
+        free(W);
+    }
+    {   /* D6: argv leg through the real driver */
+        char *av[9] = { (char *)"solve", (char *)"--kc-dead-census", fdir, gdir, (char *)"--kc-layers",
+                        (char *)"0", (char *)"9", (char *)"--kc-out", outp };
+        const int rc = kc_dead_census_main(9, av);
+        FILE *f = fopen(outp, "r");
+        int rows = 0, tok = 0;
+        char line[512];
+        while (f && fgets(line, sizeof(line), f)) {
+            if (line[0] >= '0' && line[0] <= '9') rows++;
+            if (strcmp(line, "KC_DEAD_CENSUS=OK\n") == 0) tok = 1;
+        }
+        if (f) fclose(f);
+        uint64_t cells = 0;
+        for (int k = 0; k < n; k++)
+            for (int key = 0; key < KC_DEAD_NKEY; key++) cells += TG.L[k].cnt[key] != 0;
+        KC_DEAD_GATE("D6 argv leg: --kc-dead-census FDIR GDIR --kc-layers 0 9 --kc-out -> rows + verdict token",
+                     rc == 0 && tok && (uint64_t)rows == cells);
+    }
+    free(B->st);
+    free(B);
+    kc_dead_tab_free(&TG);
+    kc_dead_tab_free(&TL);
+    kc_free(fkc); kc_free(gkc); free(fkc); free(gkc);
+    kc_h_rm_rf(dir);
+    printf("[kc-dead-census-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    printf("KC_DEAD_CENSUS_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
+    return fails ? 1 : 0;
+}
+
+/* ===================== KC-W — --kc-witness-walks (atlas query 9: extrema corridors) =====
+ *
+ * WHAT THIS IS. The atlas's L4 `extrema` table names, per transition layer k and distance
+ * class d, the max-w and min-nonzero-w TRANSITION under the pinned total order
+ * (kc_h_ext_better): a source state (k, cm, lastc, rid), the pair q placed with orientation
+ * o, and w = f(src) * g(dst) = the number of walks that cross that transition. The witness
+ * is a state plus a step; the walks are not in the atlas. This realises ONE walk per witness:
+ *
+ *   backward   from src, descend through f exactly as kc_enum_rec does -- at layer j the
+ *              predecessor drops the pair of `last`, its own `last` must be an element of a
+ *              pair still in the mask (f is stored on all reachable states, so absence == 0),
+ *              the class must be spendable (dig > 0), and f(pred) > 0; the FIRST such
+ *              predecessor in hexagram order is taken (<= 2(j-1) lookups per layer)
+ *   the step   E[k] = the witness's exit; dst = (k+1, cm | 1<<q, exit, rid + rad[cls])
+ *   forward    from dst, the first admissible successor with g > 0 at every step, in
+ *              (pair, orientation) order -- the first completion (<= 2(n-j) lookups per
+ *              layer). g > 0 at dst guarantees one exists at every step (the DP recurrence).
+ *
+ * The realised walk is then checked, not trusted: kc_validate (forward semantics,
+ * independent of the descent), its layer-k state and step equal the witness, f(src), g(dst)
+ * and the product equal the atlas's x_fv / x_gv / x_w. Every check is a column and a
+ * failing row fails the run. The witness fields are read from the atlas JSON in place with
+ * the same kcj_* reader --kc-scan-merge uses (each layer row holds exactly one "extrema"
+ * block, in layer order).
+ *
+ * Duplicates are realised, not merged: the same transition can be the witness of several
+ * (class, max|min) cells (at n=31 one mask is the max witness for all five classes at k=8
+ * and k=9); each row names its own cell.
+ *
+ * GATE. --kc-witness-walks-selftest (n=9): builds the f and g ladders and a real atlas
+ * (--kc-scan through its own driver), then (W0) the witness count equals an independent
+ * count of "x_w" fields in the file; (W1) every realised walk validates; (W2) every one is
+ * a member of the exhaustive brute enumeration; (W3) every one passes through its witness
+ * state AND takes the witness step; (W4) f, g and w agree with the atlas; (N1) a valid walk
+ * that DEVIATES at the witness step (another admissible g > 0 successor) is REJECTED by the
+ * through-witness check; (N2) a corrupted walk is REJECTED by the validity check; (W5) the
+ * argv leg writes a table whose row count equals the witness count and ends in the token.
+ * Emits KC_WITNESS_WALKS_SELFTEST=PASS|FAIL. Sha-neutral, never inside --selftest.
+ *
+ * SCOPE. Certificate, not proof, and no claim rides on it: TR-12 §9 already rules that a
+ * minimum-mass corridor "distinguishes nothing by itself". This makes the corridors
+ * LOOKABLE-AT while the ladders are warm; what they mean is a separate adjudication.
+ * By Claude (Fable 5.1), 2026-09-24, developed with AI assistance (Claude, Anthropic). */
+
+typedef struct {
+    int k, d, is_min;            /* d: class index 0..4 (dvals 1,2,3,4,6) */
+    uint32_t cm, rid;
+    int lastc, q, o, qpair;
+    F1U192 w, fv, gv;
+} KcWit;
+
+/* parse every non-null extrema witness of an atlas / chunk file; returns count or -1 */
+static int kc_wit_parse_atlas(const char *path, int n, KcWit **out) {
+    FILE *f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "ERROR: [kc-witness] cannot open %s\n", path); return -1; }
+    fseek(f, 0, SEEK_END);
+    const long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *buf = (char *)malloc((size_t)sz + 1);
+    F1_CHECK(buf != NULL, "[kc-witness] alloc");
+    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) { fclose(f); free(buf); return -1; }
+    fclose(f);
+    buf[sz] = '\0';
+    {   /* the atlas must be the ladders': its top-level "n" (the first "n": in the file is the
+         * header's) must equal the ladder's n, else the witness fields mean nothing here */
+        const char *pn = strstr(buf, "\"n\":");
+        const int an = pn ? atoi(pn + 4) : -1;
+        if (an != n) {
+            fprintf(stderr, "ERROR: [kc-witness] atlas %s has n=%d, the ladders have n=%d -- not the "
+                    "atlas of these ladders\n", path, an, n);
+            free(buf);
+            return -1;
+        }
+    }
+    static const int dv[5] = {1, 2, 3, 4, 6};
+    KcWit *W = NULL;
+    int cnt = 0, cap = 0, rc = 0;
+    const char *p = buf;
+    for (int k = 0; k < n && rc == 0; k++) {
+        char pat[64];
+        snprintf(pat, sizeof(pat), "{\"k\": %d, \"flow\": \"", k);
+        const char *row = strstr(p, pat);
+        if (!row) { rc = -1; break; }
+        const char *ext = strstr(row, "\"extrema\":");
+        if (!ext) { rc = -1; break; }
+        KcJc c;
+        c.p = ext + strlen("\"extrema\":");
+        if (kcj_expect(&c, '{') != 0) { rc = -1; break; }
+        int seen = 0, s = 0;
+        do {
+            char key[64];
+            if (kcj_key(&c, key, sizeof(key)) != 0) { rc = -1; break; }
+            int d = -1;
+            for (int i = 0; i < 5; i++) {
+                char a[16];
+                snprintf(a, sizeof(a), "ext%d", dv[i]);
+                if (!strcmp(key, a)) d = i;
+            }
+            if (d < 0 || (seen & (1 << d)) || kcj_expect(&c, '{') != 0) { rc = -1; break; }
+            seen |= 1 << d;
+            int s2 = 0;
+            do {
+                if (kcj_key(&c, key, sizeof(key)) != 0) { rc = -1; break; }
+                const int m = !strcmp(key, "max") ? 0 : !strcmp(key, "min") ? 1 : -1;
+                if (m < 0) { rc = -1; break; }
+                if (kcj_peek(&c) == 'n') {
+                    if (strncmp(c.p, "null", 4) != 0) { rc = -1; break; }
+                    c.p += 4;
+                } else {
+                    if (kcj_expect(&c, '{') != 0) { rc = -1; break; }
+                    KcWit X;
+                    memset(&X, 0, sizeof(X));
+                    X.k = k; X.d = d; X.is_min = m;
+                    uint64_t u;
+                    int bits = 0, s3 = 0;
+                    do {
+                        if (kcj_key(&c, key, sizeof(key)) != 0) { rc = -1; break; }
+                        int bit = -1;
+                        if (!strcmp(key, "x_w")) { bit = 0; if (kcj_u192(&c, &X.w)) rc = -1; }
+                        else if (!strcmp(key, "x_cm")) { bit = 1; if (kcj_u64(&c, &u)) rc = -1; else X.cm = (uint32_t)u; }
+                        else if (!strcmp(key, "x_lastc")) { bit = 2; if (kcj_u64(&c, &u)) rc = -1; else X.lastc = (int)u; }
+                        else if (!strcmp(key, "x_rid")) { bit = 3; if (kcj_u64(&c, &u)) rc = -1; else X.rid = (uint32_t)u; }
+                        else if (!strcmp(key, "x_q")) { bit = 4; if (kcj_u64(&c, &u)) rc = -1; else X.q = (int)u; }
+                        else if (!strcmp(key, "x_o")) { bit = 5; if (kcj_u64(&c, &u)) rc = -1; else X.o = (int)u; }
+                        else if (!strcmp(key, "x_qpair")) { bit = 6; if (kcj_u64(&c, &u)) rc = -1; else X.qpair = (int)u; }
+                        else if (!strcmp(key, "x_fv")) { bit = 7; if (kcj_u192(&c, &X.fv)) rc = -1; }
+                        else if (!strcmp(key, "x_gv")) { bit = 8; if (kcj_u192(&c, &X.gv)) rc = -1; }
+                        if (bit < 0 || rc != 0) { rc = -1; break; }
+                        bits |= 1 << bit;
+                        s3 = kcj_sep(&c);
+                    } while (s3 == 1);
+                    if (rc != 0 || s3 != 0 || bits != 0x1ff) { rc = -1; break; }
+                    if (cnt == cap) {
+                        cap = cap ? cap * 2 : 64;
+                        W = (KcWit *)realloc(W, (size_t)cap * sizeof(KcWit));
+                        F1_CHECK(W != NULL, "[kc-witness] alloc");
+                    }
+                    W[cnt++] = X;
+                }
+                s2 = kcj_sep(&c);
+            } while (s2 == 1);
+            if (rc != 0 || s2 != 0) { rc = -1; break; }
+            s = kcj_sep(&c);
+        } while (s == 1);
+        if (rc == 0 && (s != 0 || seen != 31)) rc = -1;
+        p = row + 1;
+    }
+    free(buf);
+    if (rc != 0) { free(W); fprintf(stderr, "ERROR: [kc-witness] malformed extrema table in %s\n", path); return -1; }
+    *out = W;
+    return cnt;
+}
+
+typedef struct {
+    int realised;                /* backward + forward both found a path */
+    int valid;                   /* kc_validate */
+    int through;                 /* layer-k state == witness AND E[k] == witness exit */
+    int f_ok, g_ok, w_ok;        /* ladder lookups == atlas fields; product == x_w */
+    F1U192 f_src, g_dst, prod;
+} KcWitCheck;
+
+/* the witness's step in raw terms */
+static void kc_wit_step(const KC *kc, const KcWit *X, int *entry, int *exitx, int *cls) {
+    *entry = X->o ? kc->c.pa[X->q] : kc->c.pb[X->q];
+    *exitx = X->o ? kc->c.pb[X->q] : kc->c.pa[X->q];
+    *cls = F1C5_CLS[__builtin_popcount((unsigned)(X->lastc ^ *entry))];
+}
+
+/* realise one walk through witness X into E[0..n-1]; returns 0 or -1 (no path found) */
+static int kc_wit_realise(const KC *f, const KC *g, const KcWit *X, uint8_t *E) {
+    const int n = f->n;
+    /* backward through f */
+    uint32_t m = X->cm, rid = X->rid;
+    int last = X->lastc;
+    for (int j = X->k; j >= 1; j--) {
+        const int i = f->pair_of_sub[last];
+        if (i < 0 || !((m >> i) & 1)) return -1;
+        const int entry = f->partner[last];
+        const uint32_t m2 = m ^ (1u << i);
+        int found = 0;
+        for (int lc = 0; lc < 64 && !found; lc++) {
+            if (j == 1) { if (lc != f->start_exit) continue; }
+            else if (f->pair_of_sub[lc] < 0 || !((m2 >> f->pair_of_sub[lc]) & 1)) continue;
+            const int cls = F1C5_CLS[__builtin_popcount((unsigned)(lc ^ entry))];
+            if (cls < 0 || f->B.dig[cls][rid] == 0) continue;
+            const uint32_t rid2 = rid - f->B.rad[cls];
+            const F1U192 v = kc_flookup(f, j - 1, m2, lc, rid2);
+            if (f1_is_zero(&v)) continue;
+            E[j - 1] = (uint8_t)last;
+            m = m2; last = lc; rid = rid2;
+            found = 1;
+        }
+        if (!found) return -1;
+    }
+    if (m != 0 || rid != 0 || last != f->start_exit) return -1;
+    /* the witness step */
+    int entry, exitx, cls;
+    kc_wit_step(f, X, &entry, &exitx, &cls);
+    if (cls < 0 || X->q < 0 || X->q >= n || ((X->cm >> X->q) & 1) ||
+        f->B.dig[cls][X->rid] >= f->B.b0[cls]) return -1;
+    E[X->k] = (uint8_t)exitx;
+    m = X->cm | (1u << X->q); last = exitx; rid = X->rid + f->B.rad[cls];
+    /* forward through g: the first completion */
+    for (int j = X->k + 1; j < n; j++) {
+        int found = 0;
+        for (int q = 0; q < n && !found; q++) {
+            if ((m >> q) & 1) continue;
+            for (int o = 0; o < 2 && !found; o++) {
+                const int e2 = o ? f->c.pa[q] : f->c.pb[q];
+                const int x2 = o ? f->c.pb[q] : f->c.pa[q];
+                const int c2 = F1C5_CLS[__builtin_popcount((unsigned)(last ^ e2))];
+                if (c2 < 0 || f->B.dig[c2][rid] >= f->B.b0[c2]) continue;
+                const uint32_t rid2 = rid + f->B.rad[c2];
+                const F1U192 v = kc_glookup(g, j + 1, m | (1u << q), x2, rid2);
+                if (f1_is_zero(&v)) continue;
+                E[j] = (uint8_t)x2;
+                m |= 1u << q; last = x2; rid = rid2;
+                found = 1;
+            }
+        }
+        if (!found) return -1;
+    }
+    return 0;
+}
+
+/* check a walk against its witness: every field of C is set; returns 1 iff ALL hold */
+static int kc_wit_check(const KC *f, const KC *g, const KcWit *X, const uint8_t *E, KcWitCheck *C) {
+    const int n = f->n;
+    uint32_t rids[KC_MAX_PAIRS + 1];
+    if (X->k < 0 || X->k >= n || X->q < 0 || X->q >= n || X->lastc < 0 || X->lastc > 63 ||
+        ((X->cm >> X->q) & 1) || X->rid >= f->B.R) {
+        /* a witness that names no transition of this ladder: every check false, no lookup */
+        C->valid = C->through = C->f_ok = C->g_ok = C->w_ok = 0;
+        return 0;
+    }
+    C->valid = kc_validate(f, E, rids, NULL) == 0;
+    C->through = 0;
+    if (C->valid) {
+        uint32_t m = 0;
+        for (int j = 0; j < X->k; j++) m |= 1u << f->pair_of_sub[E[j]];
+        const int last = X->k ? E[X->k - 1] : f->start_exit;
+        int entry, exitx, cls;
+        kc_wit_step(f, X, &entry, &exitx, &cls);
+        C->through = m == X->cm && last == X->lastc && rids[X->k] == X->rid && X->k < n && E[X->k] == exitx;
+    }
+    C->f_src = kc_flookup(f, X->k, X->cm, X->lastc, X->rid);
+    C->f_ok = f1_eq(&C->f_src, &X->fv);
+    {
+        int entry, exitx, cls;
+        kc_wit_step(f, X, &entry, &exitx, &cls);
+        F1U192 z = {0, 0, 0};
+        C->g_dst = z;
+        if (cls >= 0 && f->pair_of_sub[exitx] == X->q && f->B.dig[cls][X->rid] < f->B.b0[cls])
+            C->g_dst = kc_glookup(g, X->k + 1, X->cm | (1u << X->q), exitx, X->rid + f->B.rad[cls]);
+        C->g_ok = f1_eq(&C->g_dst, &X->gv);
+        C->prod = kc_u192_mul(&C->f_src, &C->g_dst);
+        C->w_ok = f1_eq(&C->prod, &X->w);
+    }
+    return C->realised && C->valid && C->through && C->f_ok && C->g_ok && C->w_ok;
+}
+
+static void kc_wit_write_header(FILE *o, const KC *f, const char *atlas) {
+    char nd[64];
+    f1_dec(f->total, nd);
+    fprintf(o, "#kc-witness-walks\tn=%d\tN=%s\tatlas=%s\torder=NATIVE-WALK-PATH\tobject=WALK\t"
+               "space=C1C2C4C5-SUPERSPACE\n", f->n, nd, atlas);
+    fprintf(o, "idx\tk\tdclass\text\tcm\tlastc\trid\tq\to\tqpair\tw\tfv\tgv\tf_src\tg_dst\t"
+               "realised\tvalid\tthrough\tf_ok\tg_ok\tw_ok\twalk\n");
+}
+
+static void kc_wit_write_row(FILE *o, const KC *f, int idx, const KcWit *X, const uint8_t *E, const KcWitCheck *C) {
+    char a[64], b[64], c[64], d[64], e[64];
+    f1_dec(X->w, a); f1_dec(X->fv, b); f1_dec(X->gv, c); f1_dec(C->f_src, d); f1_dec(C->g_dst, e);
+    fprintf(o, "%d\t%d\t%d\t%s\t%u\t%d\t%u\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t",
+            idx, X->k, F1C5_DVAL[X->d], X->is_min ? "min" : "max", X->cm, X->lastc, X->rid, X->q, X->o,
+            X->qpair, a, b, c, d, e, C->realised, C->valid, C->through, C->f_ok, C->g_ok, C->w_ok);
+    if (C->realised)
+        for (int j = 0; j < f->n; j++)
+            fprintf(o, "%s%d,%d", j ? "," : "", f->partner[E[j]], E[j]);
+    else fprintf(o, "-");
+    fprintf(o, "\n");
+}
+
+/* --kc-witness-walks FDIR GDIR ATLAS.json [--kc-out OUT.tsv] [--kc-ooc] [--kc-cache-mb MB] */
+static int kc_witness_walks_main(int argc, char *argv[]) {
+    if (argc < 5) {
+        fprintf(stderr,
+            "Usage: solve --kc-witness-walks FDIR GDIR ATLAS.json [--kc-out OUT.tsv]\n"
+            "                                [--kc-ooc] [--kc-cache-mb MB]\n"
+            "  Atlas query 9: realise ONE walk through every non-null L4 `extrema`\n"
+            "  witness transition of a --kc-scan atlas (or chunk) built over these\n"
+            "  ladders: backward through f (first predecessor), the witness step,\n"
+            "  forward through g (first completion). Each walk is re-validated and\n"
+            "  checked to pass through its witness with f, g and w equal to the atlas.\n"
+            "  One row per witness; duplicates realised, not merged.\n"
+            "  Emits KC_WITNESS_WALKS_N=<rows>, KC_WITNESS_WALKS_OK=<rows passing all\n"
+            "  checks> and KC_WITNESS_WALKS=OK|FAIL. Exit 0/1/2.\n"
+            "  Gate: --kc-witness-walks-selftest (n=9 exhaustive brute force).\n");
+        return 2;
+    }
+    const char *fdir = argv[2], *gdir = argv[3], *atlas = argv[4], *outp = NULL;
+    int force_ooc = 0, cache_mb = 0;
+    for (int ai = 5; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-out") == 0) outp = argv[++ai];
+        else {
+            fprintf(stderr, "ERROR: [kc-witness] unknown or incomplete option '%s' (accepted: "
+                    "--kc-out OUT --kc-ooc --kc-cache-mb MB)\n", argv[ai]);
+            return 2;
+        }
+    }
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-witness] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
+    if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+        kc_free(fkc); free(fkc); free(gkc);
+        return 2;
+    }
+    kc_g_ctx_check(fkc, gkc);
+    KcWit *W = NULL;
+    const int cnt = kc_wit_parse_atlas(atlas, fkc->n, &W);
+    if (cnt < 0) {
+        kc_free(fkc); kc_free(gkc); free(fkc); free(gkc);
+        printf("KC_WITNESS_WALKS=FAIL\n");
+        return 2;
+    }
+    FILE *o = NULL;
+    int rc = 0;
+    if (outp) {
+        o = fopen(outp, "w");
+        if (!o) { fprintf(stderr, "ERROR: [kc-witness] cannot write %s\n", outp); rc = 1; }
+        else kc_wit_write_header(o, fkc, atlas);
+    }
+    kc_wit_write_header(stdout, fkc, atlas);
+    int nok = 0;
+    for (int i = 0; i < cnt; i++) {
+        uint8_t E[KC_MAX_PAIRS];
+        KcWitCheck C;
+        memset(&C, 0, sizeof(C));
+        C.realised = kc_wit_realise(fkc, gkc, &W[i], E) == 0;
+        if (kc_wit_check(fkc, gkc, &W[i], E, &C)) nok++;
+        kc_wit_write_row(stdout, fkc, i, &W[i], E, &C);
+        if (o) kc_wit_write_row(o, fkc, i, &W[i], E, &C);
+    }
+    if (nok != cnt) rc = 1;
+    printf("#provenance\tengine=solve.c/kc-witness-walks\tbranch=%s\tgit=%s\tsource_sha=%s\tn=%d\t"
+           "semantics=certificate-not-proof;one-walk-per-witness;first-predecessor+first-completion\n",
+           GIT_BRANCH, GIT_HASH, SOURCE_SHA, fkc->n);
+    printf("KC_WITNESS_WALKS_N=%d\nKC_WITNESS_WALKS_OK=%d\nKC_WITNESS_WALKS=%s\n", cnt, nok, rc == 0 ? "OK" : "FAIL");
+    if (o) {
+        fprintf(o, "KC_WITNESS_WALKS_N=%d\nKC_WITNESS_WALKS_OK=%d\nKC_WITNESS_WALKS=%s\n", cnt, nok, rc == 0 ? "OK" : "FAIL");
+        if (kc_h_close_artifact(o, outp, "kc-witness") != 0) rc = 1;
+        if (rc != 0) {
+            kc_h_unlink_regular(outp);
+            fprintf(stderr, "ERROR: [kc-witness] verdict is FAIL; removed %s\n", outp);
+        }
+    }
+    free(W);
+    kc_free(fkc); kc_free(gkc); free(fkc); free(gkc);
+    return rc;
+}
+
+/* ---------- --kc-witness-walks-selftest (n=9 exhaustive brute-force gate) ---------- */
+#define KC_WIT_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-witness-walks-selftest] %-64s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+static int kc_witness_walks_selftest(void) {
+    int fails = 0;
+    printf("[kc-witness-walks-selftest] atlas query 9 witness walks vs exhaustive brute force (n=9)\n");
+    char dir[4096], fdir[4200], gdir[4200], atlas[4300], outp[4300];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-witness-walks-selftest] FAIL (no scratch dir)\nKC_WITNESS_WALKS_SELFTEST=FAIL\n");
+        return 1;
+    }
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir, sizeof(gdir), "%s/g", dir);
+    snprintf(atlas, sizeof(atlas), "%s/atlas.json", dir);
+    snprintf(outp, sizeof(outp), "%s/walks.tsv", dir);
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL && kc_init(kc, 9) == 0, "[kc-witness-walks-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_WIT_GATE("n=9 g ladder build", kc_g_build_main(gdir, 9, 0) == 0);
+    {
+        char *av[5] = { (char *)"solve", (char *)"--kc-scan", fdir, gdir, atlas };
+        KC_WIT_GATE("n=9 atlas via --kc-scan (its own gates PASS)", kc_scan_main(5, av) == 0);
+    }
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc && gkc, "[kc-witness-walks-selftest] alloc");
+    F1_CHECK(kc_open(fkc, fdir, 0, 0) == 0, "[kc-witness-walks-selftest] f open");
+    F1_CHECK(kc_open_as(gkc, gdir, "g", 1, 0, 0) == 0, "[kc-witness-walks-selftest] g open");
+    const int n = fkc->n;
+    KcWit *W = NULL;
+    const int cnt = kc_wit_parse_atlas(atlas, n, &W);
+    KC_WIT_GATE("witness table parsed (non-empty)", cnt > 0);
+    {   /* W0: independent count of "x_w" fields in the file */
+        FILE *f = fopen(atlas, "rb");
+        long sz = 0;
+        char *buf = NULL;
+        if (f) { fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET); buf = (char *)malloc((size_t)sz + 1); }
+        int nx = 0;
+        if (buf && fread(buf, 1, (size_t)sz, f) == (size_t)sz) {
+            buf[sz] = '\0';
+            for (const char *p = buf; (p = strstr(p, "\"x_w\":")) != NULL; p += 6) nx++;
+        }
+        if (f) fclose(f);
+        free(buf);
+        KC_WIT_GATE("W0 witness count == independent count of x_w fields", cnt > 0 && nx == cnt);
+    }
+    KcList BR;
+    kc_brute(fkc, &BR);
+    kc_n_for_cmp = n;
+    qsort(BR.walks, (size_t)BR.cnt, (size_t)n, kc_walk_cmp);
+    int all_real = 1, all_valid = 1, all_member = 1, all_through = 1, all_fgw = 1;
+    int n1_tested = 0, n1_rejected = 0, n2_rejected = 1;
+    for (int i = 0; i < (cnt > 0 ? cnt : 0); i++) {
+        uint8_t E[KC_MAX_PAIRS];
+        KcWitCheck C;
+        memset(&C, 0, sizeof(C));
+        C.realised = kc_wit_realise(fkc, gkc, &W[i], E) == 0;
+        kc_wit_check(fkc, gkc, &W[i], E, &C);
+        if (!C.realised) { all_real = 0; continue; }
+        if (!C.valid) all_valid = 0;
+        if (!bsearch(E, BR.walks, (size_t)BR.cnt, (size_t)n, kc_walk_cmp)) all_member = 0;
+        if (!C.through) all_through = 0;
+        if (!(C.f_ok && C.g_ok && C.w_ok)) all_fgw = 0;
+        /* N1: deviate at the witness step -- another admissible successor with g > 0 --
+         * complete from there; the result is a VALID walk that must be REJECTED as through */
+        {
+            const KcWit *X = &W[i];
+            int entry, exitx, cls;
+            kc_wit_step(fkc, X, &entry, &exitx, &cls);
+            uint8_t D[KC_MAX_PAIRS];
+            memcpy(D, E, (size_t)n);
+            int dev = 0;
+            for (int q = 0; q < n && !dev; q++) {
+                if ((X->cm >> q) & 1) continue;
+                for (int o = 0; o < 2 && !dev; o++) {
+                    const int e2 = o ? fkc->c.pa[q] : fkc->c.pb[q];
+                    const int x2 = o ? fkc->c.pb[q] : fkc->c.pa[q];
+                    if (x2 == exitx) continue;
+                    const int c2 = F1C5_CLS[__builtin_popcount((unsigned)(X->lastc ^ e2))];
+                    if (c2 < 0 || fkc->B.dig[c2][X->rid] >= fkc->B.b0[c2]) continue;
+                    const uint32_t rid2 = X->rid + fkc->B.rad[c2];
+                    const F1U192 v = kc_glookup(gkc, X->k + 1, X->cm | (1u << q), x2, rid2);
+                    if (f1_is_zero(&v)) continue;
+                    KcWit Y = *X;
+                    Y.q = q; Y.o = o;
+                    dev = kc_wit_realise(fkc, gkc, &Y, D) == 0;
+                }
+            }
+            if (dev) {
+                KcWitCheck C2;
+                memset(&C2, 0, sizeof(C2));
+                C2.realised = 1;
+                n1_tested++;
+                if (!kc_wit_check(fkc, gkc, X, D, &C2) && C2.valid && !C2.through) n1_rejected++;
+            }
+        }
+        /* N2: corrupt the walk (repeat one exit) -- must be rejected as invalid */
+        {
+            uint8_t D[KC_MAX_PAIRS];
+            memcpy(D, E, (size_t)n);
+            D[(i + 1) % n] = D[i % n];
+            KcWitCheck C2;
+            memset(&C2, 0, sizeof(C2));
+            C2.realised = 1;
+            if (kc_wit_check(fkc, gkc, &W[i], D, &C2) || C2.valid) n2_rejected = 0;
+        }
+    }
+    KC_WIT_GATE("every witness realised (backward + step + forward found a path)", cnt > 0 && all_real);
+    KC_WIT_GATE("W1 every realised walk validates (kc_validate)", all_valid);
+    KC_WIT_GATE("W2 every realised walk is a member of the brute enumeration", all_member);
+    KC_WIT_GATE("W3 every realised walk passes through its witness state AND takes the witness step", all_through);
+    KC_WIT_GATE("W4 f(src), g(dst) and the product equal the atlas's x_fv / x_gv / x_w", all_fgw);
+    KC_WIT_GATE("NEGATIVE N1: a valid walk deviating at the witness step is REJECTED (through=0)",
+                n1_tested > 0 && n1_rejected == n1_tested);
+    KC_WIT_GATE("NEGATIVE N2: a corrupted walk (repeated exit) is REJECTED (valid=0)", cnt > 0 && n2_rejected);
+    {   /* W5: argv leg */
+        char *av[7] = { (char *)"solve", (char *)"--kc-witness-walks", fdir, gdir, atlas, (char *)"--kc-out", outp };
+        const int rc = kc_witness_walks_main(7, av);
+        FILE *f = fopen(outp, "r");
+        int rows = 0, tok = 0;
+        char line[4096];
+        while (f && fgets(line, sizeof(line), f)) {
+            if (line[0] >= '0' && line[0] <= '9') rows++;
+            if (strcmp(line, "KC_WITNESS_WALKS=OK\n") == 0) tok = 1;
+        }
+        if (f) fclose(f);
+        KC_WIT_GATE("W5 argv leg: --kc-witness-walks FDIR GDIR ATLAS --kc-out -> rows == witnesses + token",
+                    rc == 0 && tok && rows == cnt);
+    }
+    free(W);
+    free(BR.walks);
+    free(BR.cds);
+    kc_free(fkc); kc_free(gkc); free(fkc); free(gkc);
+    kc_h_rm_rf(dir);
+    printf("[kc-witness-walks-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    printf("KC_WITNESS_WALKS_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
+    return fails ? 1 : 0;
+}
+
 /* ===================== KC-X — per-functional DP extremal sweep (TR-12 Q5) =====
  * TR-12 §8 item 7 / Q5: "min/max of a shortlisted G-invariant walk functional
  * over the C1&C2&C4&C5 SUPERSPACE, with an explicit witness walk". This is the
@@ -35730,12 +36917,17 @@ static uint64_t kc_x_null_vs_g(const KC *fkc, const F1C5Layer *XL, KC *gkc) {
 /* 0 = the certificate is on disk and closed cleanly; -1 = it is not (open,
  * write or close failed; a partial file is unlinked). The caller MUST turn -1
  * into KC_EXTREMAL_CERT=FAILED and a nonzero exit -- this used to be void, and
- * an unwritable --kc-json still exited 0 with KC_EXTREMAL=OK (KCQ03 #3). */
+ * an unwritable --kc-json still exited 0 with KC_EXTREMAL=OK (KCQ03 #3).
+ * null_vs_g: -1 = the --kc-gdir structural cross-gate did not run (JSON null),
+ * 0 = CONSISTENT, 1 = INCONSISTENT. Q-771 F4 (Fable Y, 2026-09-24): the verdict
+ * lived only on stdout, so a certificate written after NULL_VS_G=INCONSISTENT
+ * was byte-for-byte shaped like a passing one; solve.py now refuses it. */
 static int kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
                            const char *fdir, const char *gdir, int want_max,
                            int invariant, long long value, int is_const,
                            const uint8_t *E, int want_w, int have_w,
-                           long long wval, int wmember, int wverified) {
+                           long long wval, int wmember, int wverified,
+                           int null_vs_g) {
     FILE *f = fopen(path, "w");
     if (!f) {
         fprintf(stderr, "ERROR: [kc-extremal] cannot write %s (%s)\n", path, strerror(errno));
@@ -35767,6 +36959,8 @@ static int kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
     } else {
         fprintf(f, "  \"gdir\": null,\n");
     }
+    if (null_vs_g < 0) fprintf(f, "  \"null_vs_g\": null,\n");
+    else fprintf(f, "  \"null_vs_g\": \"%s\",\n", null_vs_g ? "INCONSISTENT" : "CONSISTENT");
     fprintf(f, "  \"g_invariant\": %s,\n", invariant ? "true" : "false");
     if (invariant) {
         fprintf(f, "  \"extreme_value\": %lld,\n", value);
@@ -35916,7 +37110,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
                "semantics=certificate-not-proof\n", F->name, GIT_BRANCH, GIT_HASH, SOURCE_SHA);
         if (jout) {
             const int cw = kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 0, 0, 0,
-                                           NULL, want_w, 0, 0, 0, 0);
+                                           NULL, want_w, 0, 0, 0, 0, -1);
             printf("KC_EXTREMAL_CERT=%s\n", cw == 0 ? "WRITTEN" : "FAILED");
         }
         printf("KC_EXTREMAL=FAIL\n");
@@ -35944,6 +37138,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
            value, is_const ? "yes" : "no", other);
 
     int rc = 0;
+    int nvg = -1;   /* -1 = cross-gate not run; else 0/1 = CONSISTENT/INCONSISTENT */
     /* optional structural cross-gate against a g ladder */
     if (gdir) {
         KC *gkc = (KC *)calloc(1, sizeof(KC));
@@ -35958,6 +37153,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
                  "they are not a matching pair");
         const uint64_t bad = kc_x_null_vs_g(fkc, XL, gkc);
         printf("KC_EXTREMAL_NULL_VS_G=%s\n", bad == 0 ? "CONSISTENT" : "INCONSISTENT");
+        nvg = bad == 0 ? 0 : 1;
         if (bad) {
             fprintf(stderr, "ERROR: [kc-extremal] %llu stored state(s) violate "
                     "X(s)==NULL <=> g(s)==0\n", (unsigned long long)bad);
@@ -35998,7 +37194,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
            F->name, GIT_BRANCH, GIT_HASH, SOURCE_SHA, fkc->n, KC_MEM_MAX_PAIRS);
     if (jout) {
         const int cw = kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 1, value, is_const,
-                                       E, want_w, have_w, wval, wmember, wverified);
+                                       E, want_w, have_w, wval, wmember, wverified, nvg);
         printf("KC_EXTREMAL_CERT=%s\n", cw == 0 ? "WRITTEN" : "FAILED");
         if (cw != 0) rc = 2;          /* the artifact asked for does not exist */
     }
@@ -36063,8 +37259,12 @@ static int kc_extremal_main(int argc, char *argv[]) {
  *      kc_x_brute_ext over the 26112 raw walks, computed in this process. K10
  *      used to assert tokens only, so a run could print the minimum under
  *      `max` with every token green (Fable review 2026-09-09, F1/m1, F1/m2).
+ *      The JSON's start_exit (G-fixed, == the ladder's) and its
+ *      "null_vs_g": "CONSISTENT" are pinned too (Q-771 F1/F4).
  *  K11 --kc-extremal list exits 0 with KC_EXTREMAL_LIST=OK.
- *  K12 --kc-c3-max is REFUSED (exit 2, no DP run).
+ *  K12 --kc-c3-max is REFUSED (exit 2, no DP run); so are an unknown
+ *      functional, a bad direction, and a misspelt modifier (`--kc-witnes`:
+ *      exit 2 and no KC_EXTREMAL= line; Q-771 F3).
  *
  * HOW THIS GATE WAS SHOWN ABLE TO FAIL (invariant 3 of the build brief; both
  * demonstrations were run and their transcripts recorded off-tree):
@@ -36085,6 +37285,11 @@ static int kc_extremal_main(int argc, char *argv[]) {
  *      kc_x_invariant_scan -- was PASS with NOTHING anywhere against it, now
  *      FAIL on the single K6b coverage row. Each mutant is killed by the guard
  *      aimed at it and by no other, so no kill is borrowed from a neighbour.
+ *  (4) Q-771 (the Q-769 KC-X re-cover: Fable Y's mutants M5 and M9), re-run
+ *      2026-09-24: M5 `"start_exit": c.start_exit + 1` in kc_x_write_cert and
+ *      M9 the unknown-option `return 2` -> `continue` in kc_extremal_main
+ *      both PASSED this gate; M5 now FAILs the two K10 start_exit rows and M9
+ *      the K12 misspelt-modifier row.
  * Restore all, observe PASS. */
 
 #define KC_X_GATE(name, cond) do { \
@@ -36550,6 +37755,22 @@ static int kc_extremal_selftest(void) {
                 KC_X_GATE(nm, kc_h_log_sub(jsn, jd) && kc_h_log_sub(jsn, jv) &&
                               kc_h_log_sub(jsn, jw));
             }
+            /* Q-771 F1/F4 (Fable Y, 2026-09-24). start_exit is the one identity field
+             * solve.py's re-check cannot run without, and nothing pinned it: mutant M5
+             * (written as start_exit + 1) passed this whole selftest. Pinned to the
+             * in-process ladder's own value, which must also be G-fixed (0 or 63).
+             * null_vs_g is pinned beside it, so the cross-gate's verdict cannot drop out
+             * of the certificate while stdout still says CONSISTENT. */
+            snprintf(nm, sizeof(nm),
+                     "K10 %s argv leg: certificate start_exit (%d, G-fixed) + null_vs_g PINNED",
+                     ds, fkc->c.start_exit);
+            {
+                char js[64];
+                snprintf(js, sizeof(js), "\"start_exit\": %d,", fkc->c.start_exit);
+                KC_X_GATE(nm, (fkc->c.start_exit == 0 || fkc->c.start_exit == 63) &&
+                              kc_h_log_sub(jsn, js) &&
+                              kc_h_log_sub(jsn, "\"null_vs_g\": \"CONSISTENT\","));
+            }
         }
 
         snprintf(a, sizeof(a), "--kc-extremal list");
@@ -36565,6 +37786,13 @@ static int kc_extremal_selftest(void) {
 
         snprintf(a, sizeof(a), "--kc-extremal yangcount '%s' sideways", fdir);
         KC_X_GATE("K12 bad direction REFUSED (exit 2)", kc_h_self_run(a, log) == 2);
+
+        /* Q-771 F3 (Fable Y, 2026-09-24): KCQ03 #4 made an unknown modifier fail
+         * closed, and nothing guarded it -- mutant M9 (`return 2` -> `continue`)
+         * passed this selftest while `--kc-witnes` printed KC_EXTREMAL=OK, rc 0. */
+        snprintf(a, sizeof(a), "--kc-extremal yangcount '%s' max --kc-witnes", fdir);
+        KC_X_GATE("K12 misspelt modifier REFUSED (exit 2, no verdict)",
+                  kc_h_self_run(a, log) == 2 && !kc_h_log_sub(log, "KC_EXTREMAL="));
     }
 
     free(XL);
@@ -36749,7 +37977,7 @@ static int kc_cli(int argc, char *argv[]) {
             kval = strtol(ks, &kend, 10);
             /* SYNTAX only. The RANGE check belongs to kc_g_check_layer_main, which
              * already tests k against the REAL ladder (`k < 0 || k > fkc->n`,
-             * solve.c:22958) and so knows the bound this dispatch does not. Duplicating
+             * solve.c:23342) and so knows the bound this dispatch does not. Duplicating
              * it here with a constant would be a second source of truth that drifts. */
             if (ks[0] == '\0' || kend == ks || *kend != '\0' ||
                 errno == ERANGE || kval < INT_MIN || kval > INT_MAX) {
@@ -36830,6 +38058,12 @@ static int kc_cli(int argc, char *argv[]) {
      * this explicit-argv block, not the DIR-based chain. */
     if (strcmp(cmd, "--kc-profile-selftest") == 0) return kc_profile_selftest();
     if (strcmp(cmd, "--kc-profile") == 0) return kc_profile_main(argc, argv);
+    /* KC-D / KC-W: atlas queries 7 and 9 (module headers above). argv[2]=FDIR
+     * argv[3]=GDIR, so they belong in this explicit-argv block too. */
+    if (strcmp(cmd, "--kc-dead-census-selftest") == 0) return kc_dead_census_selftest();
+    if (strcmp(cmd, "--kc-dead-census") == 0) return kc_dead_census_main(argc, argv);
+    if (strcmp(cmd, "--kc-witness-walks-selftest") == 0) return kc_witness_walks_selftest();
+    if (strcmp(cmd, "--kc-witness-walks") == 0) return kc_witness_walks_main(argc, argv);
     /* KC-X: the TR-12 Q5 per-functional DP extremal sweep + witness (KC-X module
      * header above). argv[2]=FUNC argv[3]=DIR argv[4]=max|min, so it belongs in
      * this explicit-argv block, not the DIR-based chain. */
@@ -36924,17 +38158,22 @@ static int kc_cli(int argc, char *argv[]) {
          * C15 companion is a SAMPLED correction, which is --kc-sample. */
         int allowed = 0;
         if (strcmp(cmd, "--kc-build") == 0)                                allowed = KO_PAIRS;
-        else if (strcmp(cmd, "--kc-unrank") == 0)                          allowed = KO_RECORD | KO_C3;
+        else if (strcmp(cmd, "--kc-unrank") == 0)                          allowed = KO_RECORD | (want_record ? KO_C3 : 0);
         else if (strcmp(cmd, "--kc-repr") == 0)                            allowed = KO_C3;
         else if (strcmp(cmd, "--kc-sample") == 0)                          allowed = KO_C3 | KO_UNIFORM | KO_RECORD;
         else if (strcmp(cmd, "--kc-enum") == 0 ||
                  strcmp(cmd, "--kc-enum-desc") == 0)                       allowed = KO_C3 | KO_LIMIT;
+        /* Q-765 (RCQ02 F4, 2026-09-24): --kc-unrank consults c3max ONLY inside its
+         * --kc-record arm (kc_class_repr). Without --kc-record the flag was accepted and
+         * never read -- the same accept-and-ignore this block exists to refuse. */
         int bad = saw & ~allowed;
         if (bad) {
-            fprintf(stderr, "ERROR: [kc] %s does not accept:%s%s%s%s%s\n"
+            const int unrank_c3 = (bad & KO_C3) && strcmp(cmd, "--kc-unrank") == 0;
+            fprintf(stderr, "ERROR: [kc] %s does not accept:%s%s%s%s%s%s\n"
                     "       These were previously PARSED AND DISCARDED, so the command answered "
                     "a DIFFERENT question than the one asked and said nothing about it.\n", cmd,
                     (bad & KO_C3)      ? " --kc-c3-max" : "",
+                    unrank_c3          ? " (--kc-c3-max needs --kc-record here)" : "",
                     (bad & KO_LIMIT)   ? " --kc-limit" : "",
                     (bad & KO_UNIFORM) ? " --kc-class-uniform" : "",
                     (bad & KO_RECORD)  ? " --kc-record" : "",
@@ -38482,7 +39721,7 @@ int main(int argc, char *argv[]) {
                   * ~2.1 GB at the old hardcoded 4 threads, on a 7 GB box, concurrently with a
                   * gcc -O3 -march=native in the same gate. That is the MEMORY half of the crash;
                   * the thread fix above is only the CPU half and halving threads only halves it.
-                  * solve.py:6619 already sets this knob for the same reason ("keep RAM use modest
+                  * solve.py:7111 already sets this knob for the same reason ("keep RAM use modest
                   * on tiny VMs"); the push path simply never picked it up.
                   * SHA-SAFE: this is the INITIAL table size, not a ceiling -- the table
                   * auto-doubles past a 75%% load factor (see the header at the top of this file),
@@ -40383,7 +41622,7 @@ int main(int argc, char *argv[]) {
                     for (int k = 0; k <= 99; k++) {   /* <pfx>_layer_%02d.bin */
                         char lp[4096];
                         snprintf(lp, sizeof(lp), "%s/%s_layer_%02d.bin", argv[ai], lsha_pfx[pi], k);
-                        if (access(lp, R_OK) != 0) continue;
+                        if (access(lp, F_OK) != 0) continue;  /* Q-782: exists-but-unreadable -> "cannot open", rc 2; never skipped */
                         found = 1;
                         int r = f1c5_layer_sha_file(lp);
                         if (r > lsha_rc) lsha_rc = r;
@@ -40710,7 +41949,7 @@ int main(int argc, char *argv[]) {
                      * bug to a launcher author diffing d2-10T against 10T, and it is neither.
                      *
                      * 🔴 ON STDERR, NOT STDOUT, and that is not a style choice. The documented
-                     * consumer is `eval $(./solve --canonical-config 100T)` (SOLVE_C_CLI.md:284).
+                     * consumer is `eval $(./solve --canonical-config 100T)` (SOLVE_C_CLI.md:518).
                      * Unquoted command substitution word-splits, so eval sees ONE line — a '#'
                      * comment emitted on stdout would swallow every var printed after it, which
                      * under --full is SOLVE_DFS_ITERATIVE and SOLVE_DFS_CHECKPOINT. A note meant
@@ -42173,7 +43412,7 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", verify_file);
             fail_kw = 1;
         }
-        /* Mirror verify.py's PAIR exactly (verify.py:6717-6718 prints KW_PRESENT then
+        /* Mirror verify.py's PAIR exactly (verify.py:7127-7128 prints KW_PRESENT then
          * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
          * "King Wen found:" prose line above: presence is a FACT about the artifact,
          * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
@@ -42407,7 +43646,7 @@ int main(int argc, char *argv[]) {
         /* 🔴 Codex v2 `solve.c:21051/:21439`, 2026-09-04: this line used to list "King Wen
            presence" among the things being CHECKED, while the result was only printed. The
            PROMISE, not the behaviour, was the defect -- the behaviour is deliberate
-           (RP-60347080, retracted 2026-09-02). SOLVE_C_CLI.md:638 already said "reported, not
+           (RP-60347080, retracted 2026-09-02). SOLVE_C_CLI.md:791 already said "reported, not
            enforced"; the runtime banner said otherwise, and the banner is what an operator
            actually reads. */
         printf("  King Wen presence: REPORTED, not enforced (a shard or budgeted slice may\n");
@@ -42608,7 +43847,7 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", validate_file);
             errors++;
         }
-        /* Mirror verify.py's PAIR exactly (verify.py:6717-6718 prints KW_PRESENT then
+        /* Mirror verify.py's PAIR exactly (verify.py:7127-7128 prints KW_PRESENT then
          * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
          * "King Wen found:" prose line above: presence is a FACT about the artifact,
          * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second

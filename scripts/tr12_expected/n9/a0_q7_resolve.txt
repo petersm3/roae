@@ -1,0 +1,24 @@
+# Q7 leg 3b: live re-solve of the witness targets with the solver on PATH. Asserts SAT status and
+# re-verifies the returned sequence; never asserts byte-equality with the pinned witness.
+### moore-strict
+sat_witness_exit	0
+witness_result	WITNESS_RESULT=WITNESS
+kw_string_identical	NO
+rules_enforced	parity rhythm
+rule_violations	NONE
+gender_indep_agrees	YES
+kw_identical	NO
+resolve_super	IN
+resolve_c15	IN
+Q7RESOLVE_OK	moore-strict
+### grand-strict
+sat_witness_exit	0
+witness_result	WITNESS_RESULT=WITNESS
+kw_string_identical	NO
+rules_enforced	gender parity rhythm
+rule_violations	NONE
+gender_indep_agrees	YES
+kw_identical	NO
+resolve_super	IN
+resolve_c15	IN
+Q7RESOLVE_OK	grand-strict

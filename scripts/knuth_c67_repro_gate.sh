@@ -43,6 +43,15 @@ cd "$(dirname "$0")/.." || exit 1
 DOCS=(documentation/SEARCH_SPACE_SIZE.md reports/TR4_SIZE_OF_THE_SPACE.md)
 rc=0
 
+# THE EXECUTED SPEC -- one definition, read by BOTH legs (Q-749). LEG 1 requires each document's
+# block to parse to exactly this; LEG 2 runs exactly this. Line 1 is the prefix, then one
+# "pins|figure" line per case, in the documented order.
+PREFIX=""
+for i in $(seq 1 22); do PREFIX="$PREFIX $i 0"; done
+PREFIX=${PREFIX# }
+CASES=("|1169" "24,25,26,27,28,29,30,31|233" "23,24,25,26,27,28,29,30,31|75")
+SPEC=$(printf '%s\n' "$PREFIX" "${CASES[@]}")
+
 # ---- LEG 1: every document that PUBLISHES the figures also publishes the command ----
 echo "  == LEG 1: the figures do not ship ahead of their reproduction command =="
 present=0
@@ -62,24 +71,60 @@ for d in "${DOCS[@]}"; do
   # python3 yielded an empty string, fell to the else branch, printed [ok] for every
   # document and emitted KNUTH_C67_REPRO=OK with the extractor never having run.
   # Proven by putting an `exit 1` python3 first on PATH. Capture the STATUS.
-  if ! miss=$(python3 - "$d" <<'PY'
-import re, sys
+  if ! miss=$(KC67_SPEC="$SPEC" python3 - "$d" <<'PY'
+import os, re, sys
+# 🔴 2026-09-24 (Q-749, Codex v3 E3 V3A-116#1). This leg used to require four SUBSTRINGS in one
+# block, the prefix among them keyed on its first six tokens ('1 0 2 0 3 0'), while LEG 2 built
+# its own 22-pair prefix from `seq`. Nothing compared the recipe a reader copies with the one the
+# gate runs, so a block whose prefix stopped at pair 3 -- or whose pins or figures differed --
+# still certified. Now the block is PARSED: its PREFIX= line, and every `--estimate-knuth 0
+# $PREFIX` command with its pins and the tree_nodes figure on the comment line under it, must
+# equal the spec LEG 2 executes (KC67_SPEC), token for token.
 body = open(sys.argv[1], encoding='utf-8', errors='replace').read()
-need = {'SOLVE_KNUTH_C67=1': 'SOLVE_KNUTH_C67=1',
-        'SOLVE_KNUTH_PIN_SLOTS=': 'SOLVE_KNUTH_PIN_SLOTS',
-        '--estimate-knuth 0': '--estimate-knuth-0',
-        '1 0 2 0 3 0': 'the-22-pair-prefix'}
-blocks = re.findall(r'^```[^\n]*\n(.*?)^```', body, re.M | re.S)
+spec = os.environ['KC67_SPEC'].split('\n')
+want_prefix = spec[0].split()
+want_cases = [tuple(l.split('|')) for l in spec[1:] if l]      # (pins, figure)
+blocks = [b for b in re.findall(r'^```[^\n]*\n(.*?)^```', body, re.M | re.S)
+          if 'SOLVE_KNUTH_C67=1' in b]
+if not blocks:
+    print('no-fenced-block-with-SOLVE_KNUTH_C67=1'); sys.exit(0)
+cmd_re = re.compile(r'^SOLVE_KNUTH_C67=1 (?:SOLVE_KNUTH_PIN_SLOTS="([0-9,]+)" )?'
+                    r'\./solve --estimate-knuth 0 \$PREFIX\s*$')
 best = None
 for b in blocks:
-    missing = [label for tok, label in need.items() if tok not in b]
-    if best is None or len(missing) < len(best):
-        best = missing
-    if not missing:
-        best = []
+    diffs = []
+    lines = b.split('\n')
+    pl = [l for l in lines if l.startswith('PREFIX=')]
+    if len(pl) != 1:
+        diffs.append('prefix-line-count=%d' % len(pl))
+    else:
+        got = pl[0][len('PREFIX='):].strip().strip('"').split()
+        if got != want_prefix:
+            diffs.append('prefix-differs(documented %d tokens, executed %d)' % (len(got), len(want_prefix)))
+    if not any(l.strip() == 'ulimit -s unlimited' for l in lines):
+        diffs.append('no-ulimit-s-unlimited')
+    cases = []
+    for i, l in enumerate(lines):
+        if '--estimate-knuth' not in l:
+            continue
+        m = cmd_re.match(l.strip())
+        if not m:
+            diffs.append('unparsed-invocation:' + l.strip().replace(' ', '_'))
+            continue
+        fig = None
+        for nxt in lines[i+1:i+3]:
+            fm = re.match(r'^#\s*tree_nodes\s+([0-9]+)', nxt.strip())
+            if fm:
+                fig = fm.group(1); break
+        cases.append((m.group(1) or '', fig or 'MISSING'))
+    if cases != want_cases:
+        diffs.append('cases-differ(documented=%s executed=%s)' % (
+            ';'.join('%s:%s' % c for c in cases).replace(' ', '_') or 'none',
+            ';'.join('%s:%s' % c for c in want_cases)))
+    if best is None or len(diffs) < len(best):
+        best = diffs
+    if not diffs:
         break
-if best is None:
-    best = ['no-fenced-code-block-at-all']
 print(' '.join(best))
 PY
 ); then
@@ -89,12 +134,12 @@ PY
   fi
   miss=$(printf '%s' "$miss" | tr -s ' ')
   if [ -n "$miss" ]; then
-    echo "  [FAIL] $d publishes 1169/233 but no single code block runs them; missing from the closest block: $miss"
+    echo "  [FAIL] $d publishes 1169/233 but its recipe is not the one this gate executes: $miss"
     echo "         A reader cannot check this figure, and guessing the prefix turns an exact"
     echo "         subtree enumeration into an unbounded full walk."
     rc=1
   else
-    echo "  [ok]   $d publishes the figures AND the invocation"
+    echo "  [ok]   $d publishes the figures AND the invocation LEG 2 executes"
   fi
 done
 if [ "$present" -lt 2 ]; then
@@ -107,11 +152,16 @@ fi
 echo "  == LEG 2: the shipped binary still prints them =="
 BIN=${SOLVE_BIN:-}
 if [ -z "$BIN" ]; then
-  BIN=$(mktemp -u /tmp/claude-1000/solve_knuthgate.XXXXXX)
-  gcc -O2 -pthread -fopenmp -o "$BIN" solve.c -lm -lz 2>/dev/null || {
-    echo "  [ERROR] gcc could not build solve.c"
+  # 2026-09-24 (V3A-116#2): this was `mktemp -u /tmp/claude-1000/...` -- a host-specific directory
+  # nobody creates on a fresh clone -- with gcc's stderr thrown away, so the ERROR named no cause.
+  BDIR=$(mktemp -d "${TMPDIR:-/tmp}/solve_knuthgate.XXXXXX") || {
+    echo "  [ERROR] mktemp -d failed under ${TMPDIR:-/tmp}"
     echo "KNUTH_C67_REPRO_ERROR=build-failed"; echo "KNUTH_C67_REPRO=ERROR"; exit 1; }
-  trap 'rm -f "$BIN"' EXIT
+  trap 'rm -rf "$BDIR"' EXIT
+  BIN="$BDIR/solve"
+  gcc -O2 -pthread -fopenmp -o "$BIN" solve.c -lm -lz 2>"$BDIR/gcc.err" || {
+    echo "  [ERROR] gcc could not build solve.c:"; tail -5 "$BDIR/gcc.err" | sed 's/^/         | /'
+    echo "KNUTH_C67_REPRO_ERROR=build-failed"; echo "KNUTH_C67_REPRO=ERROR"; exit 1; }
 fi
 [ -x "$BIN" ] || { echo "  [ERROR] not executable: $BIN"
   echo "KNUTH_C67_REPRO_ERROR=not-executable:$BIN"; echo "KNUTH_C67_REPRO=ERROR"; exit 1; }
@@ -149,20 +199,30 @@ if [ -n "${SOLVE_BIN:-}" ] && [ "${KNUTH_C67_ALLOW_STALE-}" != "1" ]; then
   fi
 fi
 
-PREFIX=""
-for i in $(seq 1 22); do PREFIX="$PREFIX $i 0"; done
-
-# label | expected tree_nodes | PIN_SLOTS value ("" = none)
+# 🔴 2026-09-24 (Q-749, V3A-116#3/#4). (a) The no-pins case inherited an exported
+# SOLVE_KNUTH_PIN_SLOTS: with the 233 pins in the caller's environment it printed 233 and the gate
+# said "published figure is 1169 ... the figure is stale or the estimator changed", a false
+# instruction. Every case now runs under `env -u` for EVERY inherited SOLVE_* variable -- the class,
+# not the one variable Fable R exported -- and sets only what the documented command sets.
+# (b) The solver's exit status was never read, so a run that crashed after printing a tree_nodes
+# line would certify. The status is captured and must be 0.
+UNSET=(); CLEARED=""
+for v in $(compgen -e | grep '^SOLVE_'); do UNSET+=(-u "$v"); CLEARED="$CLEARED $v"; done
+[ -n "$CLEARED" ] && echo "  note: cleared inherited${CLEARED} for the solver runs"
 run_case(){
-  local label=$1 want=$2 pins=$3 out got
-  if [ -n "$pins" ]; then
-    out=$( ulimit -s unlimited 2>/dev/null; SOLVE_KNUTH_C67=1 SOLVE_KNUTH_PIN_SLOTS="$pins" "$BIN" --estimate-knuth 0 $PREFIX 2>&1 )
-  else
-    out=$( ulimit -s unlimited 2>/dev/null; SOLVE_KNUTH_C67=1 "$BIN" --estimate-knuth 0 $PREFIX 2>&1 )
-  fi
+  local label=$1 want=$2 pins=$3 out got runrc
+  local envset=(SOLVE_KNUTH_C67=1)
+  [ -n "$pins" ] && envset+=(SOLVE_KNUTH_PIN_SLOTS="$pins")
+  # shellcheck disable=SC2086  # PREFIX is deliberately word-split, exactly as the documented $PREFIX
+  out=$( ulimit -s unlimited 2>/dev/null; env "${UNSET[@]}" "${envset[@]}" "$BIN" --estimate-knuth 0 $PREFIX 2>&1 )
+  runrc=$?
   got=$(printf '%s\n' "$out" | awk '/tree_nodes/{print $NF; exit}')
-  if [ "$got" = "$want" ]; then
-    echo "  [ok]   $label -> tree_nodes $got"
+  if [ "$runrc" -ne 0 ]; then
+    echo "  [FAIL] $label -> solver exited rc=$runrc (tree_nodes '${got:-<none>}'); a figure from a failed run certifies nothing"
+    printf '%s\n' "$out" | tail -5 | sed 's/^/         | /'
+    rc=1
+  elif [ "$got" = "$want" ]; then
+    echo "  [ok]   $label -> tree_nodes $got (rc 0)"
   else
     echo "  [FAIL] $label -> tree_nodes '${got:-<none>}', published figure is $want"
     echo "         Either the figure is stale or the estimator changed. Do not edit the number"
@@ -170,9 +230,11 @@ run_case(){
     rc=1
   fi
 }
-run_case "C6/C7 only, no slot pins          " 1169 ""
-run_case "C6/C7 + steps 24-31 (positions 25-32)" 233 "24,25,26,27,28,29,30,31"
-run_case "C6/C7 + every free step 23-31     "   75 "23,24,25,26,27,28,29,30,31"
+for c in "${CASES[@]}"; do
+  pins=${c%%|*}; want=${c##*|}
+  if [ -n "$pins" ]; then label="C6/C7 + pins $pins"; else label="C6/C7 only, no slot pins"; fi
+  run_case "$label" "$want" "$pins"
+done
 
 [ "$rc" -eq 0 ] || { echo "KNUTH_C67_REPRO=FAIL"; exit 1; }
 echo "KNUTH_C67_REPRO=OK"

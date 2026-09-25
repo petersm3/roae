@@ -192,6 +192,14 @@ still straddles the bar at n=1000; and the prereg explicitly forbids that infere
 > (95% CI [0.930, 1.000]). **The published Bayes factor should therefore not be described as
 > calibrated in the pooled sense.**
 
+⚠ **[CORRECTED 2026-09-24 (Codex V3A-152#6 / V3A-088#1, Q-742) — the wording recommended above does not
+match the by-V table in this file. The failure is not confined to V=0: V=1–2 recovers 56/63 and V=3–4
+59/61, nine failures outside V=0. And 51/51 is the pooled V=5–7 stratum, not V=6 alone. Accurate
+form: "the failure is concentrated in the V=0 stratum (0/277), with nine further failures at V=1–4
+and none at V≥5 (599/599); the observed sequence's V=6 falls in the V=5–7 stratum, which recovers
+51/51." The recommended quote is kept as written because TR-2 published it; TR-2 v1.35 carries the
+corrected form.]**
+
 ## The proper next instrument, if one is wanted
 
 A **V-matched gate** — "at V ~= 6, are M_corr and M_tend distinguishable?" — is the question the

@@ -37,7 +37,7 @@
 # kept rather than deleted because the hole was real for thirteen months. It read:
 # the `generated` gate compares NON-NUMERIC lines only for
 # report.txt/report.md/README.md, because roae.py seeds nothing by default
-# (roae.py:22) and Monte-Carlo figures differ every run, so a hand-edited DIGIT in
+# (roae.py:23) and Monte-Carlo figures differ every run, so a hand-edited DIGIT in
 # example/report.txt is caught by nothing — measured, and documented at
 # doc_gates.sh's "ITEM A2" comment; closing it means shipping example/ with
 # `--seed` so the comparison can be byte-exact, which changes published artifacts
@@ -59,7 +59,18 @@ cd "$REPO_ROOT" || exit 1
 # population silently narrows every time the generator gains an output, which is the
 # same defect shape as GATE 3 (blind to C string literals) and GATE 25 (excludes
 # lean/). DERIVE it instead: roae.py plus everything tracked under example/.
-WATCHED=$(printf 'roae.py\n'; git ls-files example/ 2>/dev/null)
+#
+# 🔴 Q-750 / V3A-120#2 (Codex v3 E3 batch 3, Fable R, 2026-09-24). The population was derived from
+# `git ls-files example/` -- the INDEX -- and the staged list used `--diff-filter=ACM`. So a
+# DELETION was invisible twice over: D was filtered out of $STAGED, and the deleted path was no
+# longer in the index to be watched. Executed at 5c296837: `git rm example/report.txt` -> rc 0,
+# silent, from a BLOCKING gate whose downstream GATE 8 treats a missing artifact as a FAILURE. A
+# rename away from example/ was the same hole with R. The watched population is now the union of
+# HEAD's and the index's paths (a path the commit removes is still a path it touches), and the
+# staged list is every status, renames split into their D and A halves.
+WATCHED=$( { printf 'roae.py\n'
+             git ls-files -- example/ 2>/dev/null
+             git ls-tree -r --name-only HEAD -- example/ 2>/dev/null; } | sort -u)
 # A population that collapses is an error, not an empty watch list. If git ls-files
 # returns nothing the gate would silently watch only roae.py and pass everything else.
 if [ "$(printf '%s\n' "$WATCHED" | grep -c .)" -lt 2 ]; then
@@ -72,7 +83,10 @@ fi
 # genuinely empty result, and both arms exit 0. A `git diff --cached` that errors gives an
 # empty $STAGED, and the hook then certifies a commit it never looked at. Status first,
 # emptiness second.
-if ! STAGED=$(git diff --cached --name-only --diff-filter=ACM); then
+# ACMRDT + --no-renames (Q-750): every status that changes what a watched path holds. With rename
+# detection a move reports only its DESTINATION, so example/report.txt -> elsewhere/x read as
+# "touches nothing watched".
+if ! STAGED=$(git diff --cached --name-only --no-renames --diff-filter=ACMRDT); then
   echo "pre-commit: GENERATED_GATE=ERROR could not read the index (git diff --cached failed)." >&2
   echo "  Refusing to certify a commit whose contents this hook could not enumerate." >&2
   exit 1
@@ -97,15 +111,28 @@ printf '  %s\n' $HITS
 # The gate reads the WORKING TREE, but the commit records the INDEX. If those
 # disagree for a watched path, the gate would validate bytes that are not the
 # bytes being committed and report a pass for them. Refuse rather than mislead.
+#
+# 🔴 Q-750 / V3A-120#1: this loop ran over $HITS -- the STAGED watched paths -- only. GATE 8 reads
+# ALL of them. Stage roae.py alone, leave the regenerated example/hexagrams.csv unstaged, and the
+# gate compared the new generator against the new CSV and passed a commit that ships the new
+# generator with the OLD CSV. Every watched path is checked now, and `git diff --quiet` alone is not
+# enough: it is silent for a path that is in the index but not the worktree's view of it, and for a
+# path `git rm --cached` removed from the index while the file stays on disk (example/'s names are
+# also .gitignore'd, so such a file is not even "untracked"). Presence is compared first, then bytes.
 DIRTY=""
-for f in $HITS; do
-  if ! git diff --quiet -- "$f" 2>/dev/null; then DIRTY="$DIRTY $f"; fi
+for f in $WATCHED; do
+  if git ls-files --error-unmatch -- ":(literal)$f" >/dev/null 2>&1; then _ix=1; else _ix=0; fi
+  if [ -e "$f" ] || [ -L "$f" ]; then _wt=1; else _wt=0; fi
+  if [ "$_ix" != "$_wt" ]; then DIRTY="$DIRTY $f"; continue; fi
+  [ "$_ix" = 1 ] || continue            # in neither: deleted and gone -- GATE 8 judges the absence
+  if ! git diff --quiet -- ":(literal)$f" 2>/dev/null; then DIRTY="$DIRTY $f"; fi
 done
 if [ -n "$DIRTY" ]; then
   echo "pre-commit: REFUSING — these paths differ between the index and the working tree:"
   printf '  %s\n' $DIRTY
   echo "  The gate inspects the working tree, so it would be checking bytes this"
-  echo "  commit will not contain. Stage them (git add) or stash the difference."
+  echo "  commit will not contain. Stage them (git add / git rm) or stash the difference."
+  echo "PRECOMMIT_GENERATED=REFUSED-DIRTY"
   exit 1
 fi
 
