@@ -75,7 +75,9 @@ with open(_CERT, "w", encoding="utf-8") as _fh:
                                       "so the pricing ARITHMETIC can be graded",
                            "law": "FIXTURE: none -- this is not a W0-D certificate and must never "
                                   "be copied into a real run"},
-               "measured": {"n": [], "per_n": [],
+               # Q-841 S6: the loader now requires a non-empty integer `measured.n`, so the
+               # fixture names the atlas size it prices (9); the verdict line says no run was made.
+               "measured": {"n": [9], "per_n": [],
                             "verdict_line": "FIXTURE: no W0-D run was made"},
                "provenance": {"engine_git": "FIXTURE:xa_exact_verdict_gate.sh",
                               "engine_source_sha": "FIXTURE", "host_fingerprint": "FIXTURE",

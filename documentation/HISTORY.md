@@ -9800,3 +9800,13 @@ review.
 - the independent `verify.c` g- and t-ladder checks are battery rows (CX-167); the atlas probe, the consumer, three separate loaders and the TSV readers refuse respelled keys and counts, and the consumer's ratio columns are checked at every n (CX-145, CX-154, CX-159, CX-168); GATE 5's status and estimate tokenisers are word-boundaried (CX-141, CX-149); four documentation residues are corrected in place — the `--validate` box, the layer-format label, the exit-21 advice, and the claims of per-shard stream identity and of an independent null-law cross-check (CX-144, CX-150, CX-152); a measured inventory sorts the inline correction markers by whether a gate depends on them (CX-166); the landing page shows the report figures (CX-143); and the 224 `solve.c` line citations moved by the batch's one net inserted line were re-pinned by content (CX-175).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-26 (later) — batch 17: a withdrawn TR-4 band, a harder certificate loader, and the Codex LDQ1 follow-ups
+
+**Batch 17 (CX-176..CX-178) cleared the same review and is the commit that carries this addition.** It is small, and one item in it changes a published figure:
+
+- TR-4's "roughly 15–20 boundary constraints" band is withdrawn, because no continuation rule of TR-4's own eight measured gains reproduces it. The band first appeared before S(6)–S(8) were measured and never stated a rule. It is replaced by one conditional scale marker: if no later boundary gains more than the eighth's 6.14 bits, the pair-ordering floor is reached no sooner than k ≈ 14. The boundary-information figure is regenerated with a line at k = 14 in place of the shaded band, and gate G14 is re-keyed to the new wording (CX-178);
+- the W0-D certificate loader is hardened on seven points from a Fable review: a line break in a certificate field can no longer write a table row, oversized factors and negative price anchors are refused, `scope.n` must be an integer, the echoed certificate sha256 is now checked, and one-sided bounds print `<=` or `>=` rather than `=`. No committed output changes (CX-177);
+- the Codex LDQ1 review of the query program found no gap that needs the ladders, and its wording follow-ups are made: stale passages in TR-12 and QUERY_INVENTORY.md are corrected, and the Q10(a) census column is renamed from `orbits` to `flow_div_24`, because `flow/24` is not an orbit count (CX-176).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.

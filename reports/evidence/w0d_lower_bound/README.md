@@ -82,8 +82,8 @@ verdict tokens in `producer_tokens.txt`:
     XA_W0D_LB_CERT=PASS
 
 `atlas_n31.json` is the n=31 atlas that TR-12 pins by sha256
-(`9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`). It is not distributed, so
-the certificate is also reproducible **without** it. Only the last two tokens need the atlas.
+(`9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`). It is distributed at `runs/20260906_kc_ladders_n31/atlas_n31.json`, and
+the certificate is also reproducible **without** it. ⚠ *(corrected 2026-09-26: this read "It is not distributed, so the certificate is also reproducible without it"; the file is tracked, and its raw sha256 matches the pin above.)* Only the last two tokens need the atlas.
 They are positive controls that the K mirror is the t-ladder's K: the atlas's `fmass[1..3]` equals
 the enumerated K totals, and its 56 branches are the same (entry, exit) set.
 

@@ -451,12 +451,12 @@ sits in an orbit of exactly 24 mutually indistinguishable orderings.
 [TR-5 §Figure: the symmetry collapse](reports/TR5_SYMMETRY.md#figure-the-symmetry-collapse) ·
 [SVG](reports/figures/fig_tr5_orbit_collapse.svg)
 
-![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points, a dashed extrapolation, an orange illustrative bracket, a green dash-dot line marking the reachable floor of one surviving pair-ordering class, and a grey dotted line below it marking one oriented ordering that pair-level pins never reach.](reports/figures/fig_tr4_boundary_information.png)
+![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points, a dashed extrapolation, an orange illustrative bracket, a green dash-dot line marking the reachable floor of one surviving pair-ordering class, a grey dotted line below it marking one oriented ordering that pair-level pins never reach, and a green vertical line at k = 14 marking the earliest the floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits.](reports/figures/fig_tr4_boundary_information.png)
 
 **The boundary-information curve S(k).** Red points are measured; the dashed line extrapolates and
 is NOT measured, and the orange band is **illustrative** and not reproducible from published
-material. The boundaries pin pair identity only, so the green band marks where extrapolation reaches
-one surviving pair-ordering class, never a unique ordering.
+material. The boundaries pin pair identity only, so the floor is one surviving pair-ordering class, never a unique ordering; the green line at k = 14 is the earliest
+that floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits — a scale marker, not a bound.
 [TR-4 §Figure](reports/TR4_SIZE_OF_THE_SPACE.md#figure) ·
 [SVG](reports/figures/fig_tr4_boundary_information.svg)
 

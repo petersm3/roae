@@ -12,8 +12,8 @@ first member suffices).
 
 Figures produced (PNG + SVG, written to CWD — run from reports/figures/):
   fig_tr6_parity_alternations   — KW's 32-pair E/O class string with its 15 alternations marked (TR-6)
-  fig_tr4_boundary_information  — the S(k) log-decay curve + the band extrapolating to one
-                                  surviving pair-ordering class (TR-4 §5)
+  fig_tr4_boundary_information  — the S(k) log-decay curve + the k ≈ 14 marker where one surviving
+                                  pair-ordering class is first reached at a constant last gain (TR-4 §5)
   fig_tr1_rules_tradeoff        — KW vs the grand unified precursor on the four conflicting rules
                                   (TR-1 §5 / TR-2; the conflict theorem's trade-off)
   fig_tr3_campaign_timeline     — first 560T run timeline with the 5 Spot-eviction marks
@@ -119,8 +119,8 @@ FIGURE_LABEL_MANIFEST = {
     'fig_tr4_boundary_information': (
         'S(k) = fraction of the full C1–C5 population (orientation-explicit)\nagreeing with KW (log scale)',
         'The boundary-information curve S(k) — slice-uniqueness vs space-uniqueness\n(the first 4 of the 5 boundaries that identify KW in the 560T slice still admit ≈8.4×10²⁵ full-space orderings)',
-        'extrapolated range for one\nsurviving pair-ordering class:\n~15–20 boundaries (current;\nsupersedes earlier ~13–14 est.;\nobserved-rate extrap. ~12,\nnot a bound)',
         'k = number of King Wen boundary constraints imposed',
+        'k ≈ 14: the earliest the pair-ordering\nfloor is reached IF no later boundary\ngains more than the 8th measured\none (6.14 bits). A scale marker,\nnot a bound; no far end set by the data.',
         'one ORIENTED ordering:\n1/1.3287×10³⁸ = 7.53×10⁻³⁹,\n20.71 bits lower. Pins fix pair\nidentity, not orientation, so\nno k reaches this level.',
         'reachable floor: S = 1,720,320/1.3287×10³⁸ = 1.29×10⁻³² (one surviving pair-ordering class)',
     ),
@@ -282,8 +282,8 @@ def fig_tr4_boundary_information():
     # Full-space size 1.3287e38 (TR-4 §3); greedy per-boundary cut ~1e3; weakest-boundary
     # bracket (k=5-8) reported at x15-17 per boundary but ILLUSTRATIVE, not measured — its
     # chain outputs are not archived and it is not reproducible from published material
-    # (restated 2026-09-02, TR-4 v1.25); the ~15-20 boundary figure is the CURRENT rate
-    # extrapolation (supersedes an earlier ~13-14 estimate), and what it converges to is one
+    # (restated 2026-09-02, TR-4 v1.25); the ~15-20 band (it superseded a ~13-14 estimate) is
+    # WITHDRAWN, see NOTE 2026-09-26 at the axvline; what any continuation converges to is one
     # surviving PAIR-ORDERING CLASS, not one ordering — see NOTE 2026-09-19 below. The
     # observed-rate extrapolation is ~12 and is NOT a bound: TR-4 v1.16 removed the "floor"
     # label rather than re-qualifying it, and CLAIMS_DECIDED.md reads "NOT a floor of any kind".
@@ -357,7 +357,7 @@ def fig_tr4_boundary_information():
                     color="#e8a33d", alpha=0.35,
                     label="weakest-remaining-boundary bracket, ×15–17/boundary (illustrative, k = 5–8)")
 
-    # the REACHABLE floor (one pair-ordering class) and the extrapolated band
+    # the REACHABLE floor (one pair-ordering class); the k = 14 marker is drawn below
     ax.axhline(S_class, color="#388e3c", lw=1.3, ls="-.")
     ax.text(0.7, S_class * 3,
             "reachable floor: S = 1,720,320/1.3287×10³⁸ = 1.29×10⁻³² (one surviving pair-ordering class)",
@@ -371,10 +371,24 @@ def fig_tr4_boundary_information():
             "one ORIENTED ordering:\n1/1.3287×10³⁸ = 7.53×10⁻³⁹,\n"
             "20.71 bits lower. Pins fix pair\nidentity, not orientation, so\nno k reaches this level.",
             fontsize=8.5, color="#616161", ha="right", va="bottom")
-    ax.axvspan(15, 20, color="#388e3c", alpha=0.12)
-    ax.text(16.5, 1e-8, "extrapolated range for one\nsurviving pair-ordering class:\n~15–20 boundaries (current;\n"
-                        "supersedes earlier ~13–14 est.;\nobserved-rate extrap. ~12,\nnot a bound)",
-            fontsize=9, color="#2e7d32", ha="center")
+    # NOTE 2026-09-26 (Q-827 ruling, implemented as Q-842): the green k = 15-20 band is
+    # WITHDRAWN. It was first published on 2026-07-02, three days BEFORE S(6)-S(8) were
+    # measured, and TR-4 v1.8 carried it forward without stating a continuation rule. Every rule
+    # tried against TR-4's own gains (k = 1..8: 10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93,
+    # 6.14; sum 73.36 bits; floor log2(1.3287e38) - log2(1,720,320) = 105.93 bits, oriented
+    # level 126.64) puts the FLOOR outside it: last gain held constant -> floor at k = 14
+    # (oriented 17, which falls inside the band, but pins never reach that level); the k = 1..8
+    # mean (9.17) -> 12 and 14; a least-squares line through k = 5..8 reaches zero gain at
+    # k = 13 having added 12.55 bits (reaches neither); a geometric decline at the k = 5..8
+    # ratio (x0.846) -> floor at k ~ 28, oriented never. The band is replaced by ONE
+    # conditional line at k = 14, labelled as a scale marker: hold every later gain at the 8th's
+    # 6.14 bits and the floor is first reached at k = 8 + ceil(32.57 / 6.14) = 14. It is a line,
+    # not a band, because the data set no far end (a continued decline: k ~ 28 or never).
+    ax.axvline(14, color="#388e3c", lw=1.3, ls="-", alpha=0.8)
+    ax.text(14.25, 1e-8, "k ≈ 14: the earliest the pair-ordering\nfloor is reached IF no later boundary\n"
+                         "gains more than the 8th measured\none (6.14 bits). A scale marker,\n"
+                         "not a bound; no far end set by the data.",
+            fontsize=9, color="#2e7d32", ha="left")
 
     ax.set_xlim(0.5, 20.5)
     ax.set_ylim(1e-42, 1e-1)

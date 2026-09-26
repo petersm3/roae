@@ -55,7 +55,7 @@ sha256sum -c STAGE_T_SHA256.txt
 ```
 
 **Which framing era this recipe assumes: the RAW container, post-#169.** `STAGE_T_SHA256.txt` records
-each file's digest *as stored on disk*, gzip framing included, so plain `sha256sum -c` is the correct
+each file's digest *as stored on disk* — the container with its internal per-block zlib streams, and no outer gzip wrapper (there is none; ⚠ *corrected 2026-09-26: this read "gzip framing included"*) — so plain `sha256sum -c` is the correct
 tool here and no `gzip -dc` step belongs in front of it. That is the **opposite** of the #169 shard
 case, where the `.sha256` sidecar held the LOGICAL (decompressed) digest and `sha256sum -c` therefore
 printed `FAILED` on a byte-correct artifact. The logical digests for t live in a *different* registry,

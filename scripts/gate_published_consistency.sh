@@ -410,8 +410,16 @@ _T14=${G14_TR1:-reports/TR1_EIGHT_CENTURIES_MEASURED.md}
 if [ -r "$_S14" ] && [ -r "$_T14" ]; then
   if ! grep -q '1,720,320' "$_T14" 2>/dev/null; then
     echo "  [FAIL] G14: TR-1 no longer publishes the 1,720,320 fiber -- this leg measured NOTHING"; G14=1
-  elif grep -qE 'projection to ~15–20|projection to ~15-20' "$_S14" 2>/dev/null \
-       && ! grep -q '31 pinnable steps pinned' "$_S14" 2>/dev/null; then
+  # Re-keyed 2026-09-26 (Q-842, Fable's Q-827 ruling): the ~15-20 band this leg used to key on is
+  # WITHDRAWN, so keying on it would leave the leg green by absence. It now keys on the statement
+  # that replaced it -- the conditional k ~ 14 marker -- and is red when that marker is gone
+  # (nothing measured), when the withdrawn band is republished as a projection, or when the marker
+  # stands without the oriented-fiber floor.
+  elif ! grep -q 'reached no sooner than k ≈ 14' "$_S14" 2>/dev/null; then
+    echo "  [FAIL] G14: $_S14 no longer states the conditional k ≈ 14 marker -- this leg measured NOTHING"; G14=1
+  elif grep -qE 'projection (up )?to ~15(–|-)20' "$_S14" 2>/dev/null; then
+    echo "  [FAIL] G14: the ~15–20 boundary band (withdrawn 2026-09-26, Q-827) is published as a projection again"; G14=1
+  elif ! grep -q '31 pinnable steps pinned' "$_S14" 2>/dev/null; then
     echo "  [FAIL] G14: a boundary-count projection is published without the oriented-fiber floor;"
     echo "         1,720,320 orientations survive all 31 pins = 20.71 bits no boundary count closes."
     G14=1

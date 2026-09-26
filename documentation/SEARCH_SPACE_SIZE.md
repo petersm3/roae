@@ -142,7 +142,7 @@ measurable. Result (5×10¹⁰ probes, D32 — `SOLVE_KNUTH_C67=1 SOLVE_THREADS=
 King Wen is not uniquely determined by the published constraint system over the full space; uniqueness holds
 only within enumerated budgeted datasets (where 5 greedy-ordered boundary constraints isolate it at
 canonical depth; corrected 2026-07-04 from "4" — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). Closing
-the remaining ≈105 bits would require roughly 15–20 boundary constraints. ⚠ **[ENDPOINT CORRECTED
+the remaining ≈105 bits is not projected to a boundary count: in the C1–C5 space the S(k) chain is measured in, if no later boundary gains more than the eighth measured one's 6.14 bits, King Wen's pair-ordering floor is reached no sooner than k ≈ 14, and the data set no far end (see §"An information-rate extrapolation" below). ⚠ *[BAND WITHDRAWN 2026-09-26 (Q-827) — this sentence read "would require roughly 15–20 boundary constraints"; no continuation rule of the eight measured gains reproduces that band. See [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) v1.35.]* ⚠ **[ENDPOINT CORRECTED
 2026-09-19 (Q-660) — "closing the remaining ≈105 bits" names a target these boundaries cannot reach, and
 this paragraph said so nowhere.** The same correction landed 65 lines below, in §"An information-rate
 extrapolation for the uniqueness-boundary count", on 2026-09-07 — and never reached this sentence, so the
@@ -153,7 +153,7 @@ orientations survive — King Wen's C4-oriented fibre, re-measured for this corr
 `python3 verify.py --recount-fiber` (1,720,320 MATCH, factorization 3·5·7·2¹⁴ MATCH, 30 of 31 slots
 varying) rather than relayed. So **log₂(1,720,320) = 20.71 bits** are structurally unreachable by any set
 of pair-level pins, however many; against the 105.36 bits that identify one ordering inside this section's
-own C1–C7 space, at most **84.65** are pin-reachable. The ~15–20 figure stands unchanged as a *rate*
+own C1–C7 space, at most **84.65** are pin-reachable. The ~15–20 figure *(withdrawn 2026-09-26, Q-827 — see the note above)* stands unchanged as a *rate*
 extrapolation — what is corrected is the endpoint it converges to, King Wen's **pair-ordering class** and
 not King Wen's ordering. Same defect and same cure as [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §5 and
 [SPECIFICATION.md](SPECIFICATION.md) §Theorems. See [CORRECTIONS.md](CORRECTIONS.md) CX-54.]** A first exact corroboration at
@@ -215,8 +215,8 @@ see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)) — still admit
 ≈**10²⁶ orderings in the full space** — the sharpest quantification yet of the slice-uniqueness vs
 space-uniqueness distinction this document has always cautioned about. Extrapolating the roughly constant
 ~10³ per-boundary cut put full-space uniqueness at roughly 13–14 boundaries; the 2026-07-05 S(6)–S(8)
-measurement (TR-4 §"the marginal-gain curve bends") shows the gains decline past k=5, revising the
-projection to ~15–20 (observed-rate extrapolation ~12; see the note below — it is not a lower bound).
+measurement (TR-4 §"the marginal-gain curve bends") shows the gains decline past k=5, superseding that
+projection with no replacement band: if no later boundary gains more than the eighth's 6.14 bits, the pair-ordering floor (105.93 bits) is reached no sooner than k ≈ 14 and the oriented level (126.64 bits) no sooner than k ≈ 17; a continued geometric decline puts the floor at k ≈ 28 or beyond the 31 pinnable boundaries, so the data set no far end (observed-rate extrapolation ~12; see the note below — it is not a lower bound). ⚠ *[BAND WITHDRAWN 2026-09-26 (Q-827) — this line gave the 2026-07-05 revision as a ~15–20 band. That band first appeared on 2026-07-02, before S(6)–S(8) existed, and no continuation rule reproduces it: constant last gain 14 / 17, k = 1..8 mean 12 / 14, a straight line through k = 5–8 reaches neither, a geometric decline ≈ 28 / never (floor / oriented level). See [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) v1.35.]*
 ⚠ **But no number of these boundaries reaches ORIENTED uniqueness, and this projection did not say so
 until 2026-09-07.** A boundary constraint fixes pair IDENTITY; the orientation bit per pair is untouched.
 Measured with every one of the 31 pinnable steps pinned, C6/C7 on or off: **1,720,320 orientations
@@ -295,5 +295,5 @@ attributed to was not
 - **Rate projection: ≈ 13.** At the observed average marginal rate, the chain reaches 126.6 bits at
   k ≈ 13, tightening the earlier 13–20 extrapolation toward its lower end.
 
-Both figures sharpened once S(6..8) had landed: **2026-07-05, revising the projection up to ~15–20** (see the S(k) section above and TR-4 v1.8); the ≈13 figure below predates that measurement. *(Tense corrected 2026-09-02, prose batch P34 — the line had read as a pending condition beside its own answer; RP-11166bb6.)* Derivation: this section's arithmetic
+Both figures sharpened once S(6..8) had landed: **2026-07-05, revising the projection upward** (see the S(k) section above and TR-4 v1.8; the ~15–20 band it gave was withdrawn 2026-09-26, Q-827, TR-4 v1.35); the ≈13 figure below predates that measurement. *(Tense corrected 2026-09-02, prose batch P34 — the line had read as a pending condition beside its own answer; RP-11166bb6.)* Derivation: this section's arithmetic
 is fully reproducible from the S(k) masses above and the space size; no new measurement was used.

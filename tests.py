@@ -5922,6 +5922,8 @@ class TestW0DNodeMappingCertificateIsUsedQ772(unittest.TestCase):
         bad = {"F_number": dict(F=1.5), "F_int_number": dict(F=1), "F_zero": dict(F="0/1"),
                "F_negative": dict(F="-3/2"), "F_text": dict(F="abc"), "F_div0": dict(F="1/0"),
                "F_decimal": dict(F="1.5"), "F_bare_int": dict(F="3"), "F_null": dict(F=None),
+               # Q-841 N2: a trailing space or trailing junk; red under re.match for re.fullmatch
+               "F_trailing_space": dict(F="1/1 "), "F_trailing_junk": dict(F="3/2x"),
                "exact_with_residual": dict(residual=7), "kind_sideways": dict(kind="sideways"),
                "residual_float": dict(residual=0.0), "residual_bool": dict(residual=False)}
         for name, kw in sorted(bad.items()):
@@ -6013,11 +6015,19 @@ class TestW0DNodeMappingCertificateIsUsedQ772(unittest.TestCase):
         self.assertIn("XA_EXACT_VERDICT=OK", lines, r.stdout[-3000:] + r.stderr[-2000:])
         self.assertEqual(r.returncode, 0)
         # and the echo block beside the priced table carries the FIXTURE: provenance
-        v, md = self.emit(self.write("fixture_like.json", self.cert_doc()))
+        import hashlib
+        p = self.write("fixture_like.json", self.cert_doc())
+        v, md = self.emit(p)
         self.assertIn("- provenance.engine_git: `FIXTURE:tests.py`", md)
         self.assertIn("- kind: `exact`; F = nodes_per_t_unit = `1`; residual = 0", md)
+        # Q-841 S2: the EXACT sha256 of the certificate's bytes, in the echo block and the
+        # heading. Before, only the word "sha256 " was checked, so an echo of sha256(b'') passed.
+        with open(p, "rb") as fh:
+            hx = hashlib.sha256(fh.read()).hexdigest()
+        self.assertNotEqual(hx, hashlib.sha256(b"").hexdigest())
+        self.assertIn("- certificate: `%s`, sha256 `%s`\n" % (p, hx), md)
         self.assertIn("production-DFS nodes = t-units x F, F = 1 (exact), certificate "
-                      "fixture_like.json sha256 ", md)
+                      "fixture_like.json sha256 %s\n" % hx, md)
 
     # ---- R8: a real run (no W0-D certificate) keeps the historical PENDING, byte for byte ------
     # ⚠ 2026-09-25, Q-787: PENDING_TEXT's fourth line used to describe SOLVE_NODE_LIMIT as counting
@@ -13952,6 +13962,322 @@ __attribute__((destructor)) static void fin(void) {
         self.assertGreater(v["OPENED"], 100, "precondition: the extension opened budget temp files")
         self.assertEqual(v["FSYNC_FAILED"], v["OPENED"], "precondition: every budget fsync failed")
         self.assertEqual(v["LEAKED"], 0)
+
+
+class TestTr4BoundaryBandWithdrawn(unittest.TestCase):
+    """Lane EW: Q-842.
+
+    Fable's Q-827 ruling withdrew TR-4's '~15-20 boundaries' band: no continuation rule of the
+    eight measured S(k) gains reproduces it. Three things are pinned here. (1) The figure
+    generator no longer draws or labels the band and draws the k = 14 constant-last-gain line
+    instead. (2) Every surviving '15-20' mention in TR-4 and its three sibling documents is a
+    revision row, the 2026-09-19 Q-658 narration, or carries a withdrawal note. (3) G14 of
+    scripts/gate_published_consistency.sh, re-keyed from the withdrawn band to the conditional
+    k ~ 14 marker, is green on the tree and red on each mutant, including the pre-Q-842 wording.
+    The k = 14 / 17 figures are recomputed from TR-4's own gains, not copied."""
+
+    GATE = os.path.join("scripts", "gate_published_consistency.sh")
+    SSS = os.path.join("documentation", "SEARCH_SPACE_SIZE.md")
+    DOCS = (os.path.join("reports", "TR4_SIZE_OF_THE_SPACE.md"), SSS,
+            os.path.join("documentation", "SPECIFICATION.md"),
+            os.path.join("documentation", "CLAIMS_DECIDED.md"))
+    GAINS = (10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93, 6.14)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.tmp = tempfile.mkdtemp(prefix="ew_q842_")
+        with open(os.path.join(cls.root, cls.SSS), encoding="utf-8") as fh:
+            cls.sss = fh.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_k14_and_k17_recompute_from_tr4_gains(self):
+        import math
+        total = math.log2(1.3287e38)
+        floor = total - math.log2(1720320)
+        s = sum(self.GAINS)
+        self.assertAlmostEqual(s, 73.36, places=2)
+        self.assertAlmostEqual(floor, 105.93, places=2)
+        self.assertEqual(8 + math.ceil((floor - s) / self.GAINS[-1]), 14)
+        self.assertEqual(8 + math.ceil((total - s) / self.GAINS[-1]), 17)
+        # No continuation rule lands in 15..20 for the FLOOR (the endpoint pins can reach).
+        mean = s / 8
+        self.assertEqual(8 + math.ceil((floor - s) / mean), 12)
+
+    def test_generator_draws_the_line_not_the_band(self):
+        with open(os.path.join(self.root, "viz", "report_figures.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        body = src.split("def fig_tr4_boundary_information():", 1)[1].split("\ndef ", 1)[0]
+        code = "\n".join(l for l in body.splitlines() if not l.lstrip().startswith("#"))
+        self.assertIn("ax.axvline(14,", code)          # positive control: the replacement exists
+        self.assertNotIn("axvspan(15, 20", code)
+        self.assertNotIn("15–20", code)
+        man = src.split("'fig_tr4_boundary_information': (", 1)[1].split("),", 1)[0]
+        self.assertIn("k ≈ 14", man)
+        self.assertNotIn("15–20", man)
+
+    def test_surviving_band_mentions_are_marked(self):
+        bad = []
+        for rel in self.DOCS:
+            with open(os.path.join(self.root, rel), encoding="utf-8") as fh:
+                for n, line in enumerate(fh, 1):
+                    if not re.search(r"15(–|-)20", line):
+                        continue
+                    if (re.search(r"withdrawn|WITHDRAWN|are removed", line)
+                            or line.startswith("| v1.")
+                            or "while the figure draws it at k = 15–20" in line):
+                        continue
+                    bad.append("%s:%d" % (rel, n))
+        self.assertEqual(bad, [], "a '15-20' band mention without a withdrawal note")
+
+    def _g14(self, text):
+        path = os.path.join(self.tmp, "SSS.md")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        env = dict(os.environ, G14_DOC=path)
+        r = subprocess.run(["bash", os.path.join(self.root, self.GATE)], capture_output=True,
+                           text=True, env=env, cwd=self.root, timeout=600)
+        red = re.search(r"^\s*\[FAIL\] G14:", r.stdout, re.M) is not None
+        green = re.search(r"^\s*\[ok\]\s+G14: ", r.stdout, re.M) is not None
+        self.assertNotEqual(red, green, "G14 printed neither or both verdicts:\n" + r.stdout[-3000:])
+        return "RED" if red else "GREEN"
+
+    def test_g14_green_on_tree(self):
+        self.assertIn("reached no sooner than k ≈ 14", self.sss)
+        self.assertIn("31 pinnable steps pinned", self.sss)
+        self.assertEqual(self._g14(self.sss), "GREEN")
+
+    def test_g14_red_without_fibre_floor(self):
+        m = self.sss.replace("31 pinnable steps pinned", "31 pinnable steps fixed")
+        self.assertNotEqual(m, self.sss)
+        self.assertEqual(self._g14(m), "RED")
+
+    def test_g14_red_when_band_republished(self):
+        m = self.sss + "\nrevising the projection to ~15–20 boundaries.\n"
+        self.assertEqual(self._g14(m), "RED")
+
+    def test_g14_red_when_marker_absent(self):
+        m = self.sss.replace("reached no sooner than k ≈ 14", "reached at some k")
+        self.assertNotEqual(m, self.sss)
+        self.assertEqual(self._g14(m), "RED")
+
+    def test_g14_red_on_pre_q842_wording(self):
+        # The uncured sentence shape: the band as a projection, no k ~ 14 marker.
+        m = self.sss.replace("reached no sooner than k ≈ 14", "reached at some k")
+        m += "\nrevising the projection to ~15–20 (observed-rate extrapolation ~12).\n"
+        self.assertEqual(self._g14(m), "RED")
+# end class TestTr4BoundaryBandWithdrawn (lane EW)
+
+
+class TestQ10aCensusColumnIsFlowDiv24NotOrbits(unittest.TestCase):
+    """Codex LDQ1 follow-up (2026-09-26). q10_orbit_census.tsv headed its fourth column `orbits`,
+    but the column is flow // 24 at every row and the header named no group; under G48, whose
+    sequence orbits have size 48 (TR-11 s2), the orbit count is flow // 48. It is now `flow_div_24` in the emitter, in the
+    XA-24 reader, and in the tracked tr12/ copy. These tests pin the header, the arithmetic the
+    header now names, that the XA-24 gate still reads the column it gates, and that the consumer
+    re-emits the tracked copy byte for byte from the distributed atlas."""
+
+    ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    TRACKED = os.path.join("tr12", "q10_orbit_census.tsv")
+
+    @classmethod
+    def setUpClass(cls):
+        import contextlib, io
+        cls.S = _load("solve")
+        cls.tmp = tempfile.mkdtemp()
+        out = os.path.join(cls.tmp, "out")
+        with contextlib.redirect_stdout(io.StringIO()):
+            cls.R = cls.S.atlas_queries(cls.ATLAS, out, quiet=False)
+        cls.OUT = os.path.join(out, "q10_orbit_census.tsv")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, True)
+
+    def _rows(self, path):
+        with open(path, encoding="utf-8") as fh:
+            return [l.rstrip("\n").split("\t") for l in fh if l.strip()]
+
+    def test_header_names_flow_div_24_and_no_orbits_column(self):
+        for path in (self.OUT, self.TRACKED):
+            hdr = self._rows(path)[0]
+            self.assertEqual(["scope", "k", "flow", "flow_div_24", "mod24_ok"], hdr, path)
+            self.assertNotIn("orbits", hdr, path)
+
+    def test_the_column_is_exactly_flow_div_24_on_every_row(self):
+        rows = self._rows(self.TRACKED)[1:]
+        self.assertEqual(32, len(rows), "precondition: the global row plus 31 layer rows, k = 0..30")
+        for r in rows:
+            self.assertEqual(int(r[2]) // 24, int(r[3]), r[:2])
+            self.assertEqual(0, int(r[2]) % 24, r[:2])
+
+    def test_xa24_gate_reads_the_renamed_column_and_passes(self):
+        xa24 = [e for e in self.R["arith"] if e[0] == "XA-24"]
+        self.assertEqual(1, len(xa24), "precondition: the XA-24 gate ran on the q10 table")
+        self.assertIs(True, xa24[0][3], xa24)
+
+    def test_consumer_reemits_the_tracked_table_byte_for_byte(self):
+        with open(self.OUT, "rb") as a, open(self.TRACKED, "rb") as b:
+            self.assertEqual(b.read(), a.read(), "tr12/q10_orbit_census.tsv is not what the consumer writes")
+
+
+class TestW0DCertLoaderHardeningQ841(unittest.TestCase):
+    """Q-841: seven should-fix items from Fable's Q-817 review of the W0-D certificate loader.
+
+    Each test is red on the pre-Q-841 loader/emitter and names the item it closes. S2 (the exact
+    sha256 hex) lives in TestW0DNodeMappingCertificateIsUsedQ772.test_R7 and the q433 gate's L1;
+    the N2 factor cases ("1/1 ", "3/2x") in that class's R4 table. The helpers are that class's
+    own, borrowed (not inherited, so its tests do not run twice)."""
+
+    _Q772 = TestW0DNodeMappingCertificateIsUsedQ772
+    cert_doc = staticmethod(_Q772.cert_doc)
+    priced_rows = staticmethod(_Q772.priced_rows)
+    write = _Q772.write
+    emit = _Q772.emit
+    assertRefused = _Q772.assertRefused
+
+    def setUp(self):
+        self.S = _load("solve")
+        self.d = tempfile.mkdtemp(prefix="q841_")
+        self.addCleanup(shutil.rmtree, self.d, True)
+
+    def doc(self, mutate):
+        d = self.cert_doc()
+        mutate(d)
+        return d
+
+    # ---- S1: a line break in formula/law could write a row into the priced table -------------
+    def test_S1_a_line_break_in_an_echoed_field_is_refused(self):
+        inj = "\n| 9 | 9 | 1 | 1 | 0 | 0 | 0 | EXHAUSTIBLE | 0 |"
+        cases = {"formula_LF": ("mapping", "formula", "TEST" + inj),
+                 "formula_CR": ("mapping", "formula", "TEST\r| x"),
+                 "law_LF": ("mapping", "law", "TEST" + inj),
+                 "law_U2028": ("mapping", "law", "TEST | x"),
+                 "law_trailing_LF": ("mapping", "law", "TEST\n"),
+                 "engine_git_LF": ("provenance", "engine_git", "FIXTURE" + inj)}
+        for name, (obj, key, val) in sorted(cases.items()):
+            with self.subTest(case=name):
+                d = self.cert_doc(kind="lower-bound")
+                d[obj][key] = val
+                md = self.assertRefused(self.write("s1_%s.json" % name, d), name)
+                self.assertIn("line break", md)
+        # the path itself is echoed too
+        m, why = self.S._xa_node_mapping_load(os.path.join(self.d, "a\nb.json"))
+        self.assertIsNone(m)
+        self.assertIn("line break", why)
+        # POSITIVE CONTROL: a single-line formula with quotes and a pipe still prices, and the
+        # echo is json.dumps of the value, so no character reaches the file unescaped.
+        f = 'TEST: "q" | p = F * t(b) \\ end'
+        d = self.cert_doc()
+        d["mapping"]["formula"] = f
+        import json
+        v, md = self.emit(self.write("s1_ok.json", d))
+        self.assertEqual(v, "PASS")
+        self.assertIn("- formula: %s\n" % json.dumps(f), md)
+        self.assertIn("- law: %s\n" % json.dumps("TEST: fixture for tests.py Q-772"), md)
+
+    # ---- S3: a >4300-digit numerator raised ValueError instead of refusing -------------------
+    def test_S3_an_oversized_factor_is_a_refusal_not_an_exception(self):
+        for name, F in (("5000_digits", "1" * 5000 + "/1"), ("101_digits", "1" * 101 + "/1"),
+                        ("den_101_digits", "1/" + "1" * 101)):
+            with self.subTest(case=name):
+                p = self.write("s3_%s.json" % name, self.cert_doc(F=F))
+                try:
+                    m, why = self.S._xa_node_mapping_load(p)
+                except ValueError as exc:
+                    self.fail("ValueError escaped the loader: %s" % exc)
+                self.assertIsNone(m)
+                self.assertIn("at most 100 digits", why)
+                self.assertLess(len(why), 2000)      # the refusal does not echo 5,000 digits
+                self.assertRefused(p, name)
+        # POSITIVE CONTROL: 100 digits is inside the bound and prices.
+        F = "1" * 100 + "/3"
+        v, md = self.emit(self.write("s3_ok.json", self.cert_doc(F=F)), budget="1" + "0" * 200)
+        self.assertEqual(v, "PASS")
+        rows = self.priced_rows(md)
+        self.assertEqual(rows["10"][1], "EXHAUSTIBLE")
+
+    # ---- S4: negative anchors priced every row one way --------------------------------------
+    def _emit_anchors(self, nps="1000", uph="1", budget="1", hedge="1", wf="1"):
+        S = self.S
+        A = {"n": 9, "N_total": "24", "layers": [{"flow": "24"}],
+             "branch_atlas": [{"global_pair": 1, "entry": 2, "exit": 0, "solutions": "24",
+                               "walks": 24, "prefixes_t_units": "10"}]}
+        X = S._ExactAnchor
+        cost = {"nodes_per_sec": X(nps), "usd_per_hour": X(uph), "budget_usd": X(budget),
+                "hedge": X(hedge), "work_factor": X(wf), "note": "tests.py Q-841",
+                "node_mapping_cert": self.write("s4.json", self.cert_doc())}
+        out = tempfile.mkdtemp(dir=self.d)
+        _t, md, verdict, _g = S.atlas_emit_xa(A, out, cost=cost, atlas_path="q841.json")
+        with open(md, encoding="utf-8") as fh:
+            return verdict, fh.read()
+
+    def test_S4_negative_anchors_are_a_named_error(self):
+        for name, kw, msg in (("nps_negative", dict(nps="-1000"), "> 0"),
+                              ("hedge_negative", dict(hedge="-1"), "> 0"),
+                              ("wf_negative", dict(wf="-2"), "> 0"),
+                              ("hedge_and_wf_negative", dict(hedge="-1", wf="-1"), "> 0"),
+                              ("uph_negative", dict(uph="-1"), ">= 0"),
+                              ("budget_negative", dict(budget="-1"), ">= 0")):
+            with self.subTest(case=name):
+                with self.assertRaises(self.S.AtlasError) as cm:
+                    self._emit_anchors(**kw)
+                self.assertIn(msg, str(cm.exception))
+        # POSITIVE CONTROL: zero $/hour and zero budget are legal, and price.
+        v, md = self._emit_anchors(uph="0")
+        self.assertEqual((v, self.priced_rows(md)["10"][1]), ("PASS", "EXHAUSTIBLE"))
+        v, md = self._emit_anchors(budget="0")
+        self.assertEqual((v, self.priced_rows(md)["10"][1]), ("PASS", "INFEASIBLE"))
+
+    # ---- S5: scope.n must be an int, and it is echoed ---------------------------------------
+    def test_S5_scope_n_is_an_int_and_is_echoed(self):
+        for name, scope in (("float", {"n": 9.0}), ("bool", {"n": True}), ("str", {"n": "9"}),
+                            ("list", {"n": [9]}), ("scope_not_object", [9])):
+            with self.subTest(case=name):
+                md = self.assertRefused(self.write("s5_%s.json" % name,
+                                                   self.cert_doc(scope=scope)), name)
+                self.assertIn("scope", md.split("REFUSED: ", 1)[1])
+        v, md = self.emit(self.write("s5_ok.json", self.cert_doc(scope={"n": 9})))
+        self.assertEqual(v, "PASS")
+        self.assertIn("- scope.n: 9\n", md)
+        v, md = self.emit(self.write("s5_none.json", self.cert_doc()))
+        self.assertEqual(v, "PASS")
+        self.assertIn("- scope.n: null\n", md)
+
+    # ---- S6: measured.n and measured.verdict_line are required ------------------------------
+    def test_S6_measured_n_and_verdict_line_are_required(self):
+        cases = {"n_absent": lambda m: m.pop("n"), "n_empty": lambda m: m.update(n=[]),
+                 "n_float": lambda m: m.update(n=[9.0]), "n_bool": lambda m: m.update(n=[True]),
+                 "n_str": lambda m: m.update(n="9"), "n_int": lambda m: m.update(n=9),
+                 "vl_absent": lambda m: m.pop("verdict_line"),
+                 "vl_empty": lambda m: m.update(verdict_line=" "),
+                 "vl_two_lines": lambda m: m.update(verdict_line="W0-D PASS\n| 9 | EXHAUSTIBLE |"),
+                 "vl_number": lambda m: m.update(verdict_line=5)}
+        for name, mut in sorted(cases.items()):
+            with self.subTest(case=name):
+                d = self.cert_doc()
+                mut(d["measured"])
+                md = self.assertRefused(self.write("s6_%s.json" % name, d), name)
+                self.assertIn("measured.", md.split("REFUSED: ", 1)[1])
+        v, _md = self.emit(self.write("s6_ok.json", self.cert_doc()))
+        self.assertEqual(v, "PASS")
+
+    # ---- S7: the heading and column print the relation the kind proves -----------------------
+    def test_S7_heading_and_column_use_the_kinds_relation(self):
+        for kind, res, rel in (("exact", 0, "="), ("upper-bound", 5, "<="),
+                               ("lower-bound", -5, ">=")):
+            with self.subTest(kind=kind):
+                _v, md = self.emit(self.write("s7_%s.json" % kind,
+                                              self.cert_doc(kind=kind, residual=res)))
+                self.assertIn("### production-DFS nodes %s t-units x F, F = 1 (%s)" % (rel, kind),
+                              md)
+                self.assertIn("| branch | pair | t-units | nodes (%s t-units x F) |" % rel, md)
+                if kind != "exact":
+                    self.assertNotIn("production-DFS nodes = t-units", md)
+                    self.assertNotIn("nodes (= t-units", md)
 
 
 if __name__ == "__main__":

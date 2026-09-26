@@ -24,6 +24,9 @@
 #   m2  every kind is treated as exact              -> L16 (R3)
 #   m3  the loader's field checks are removed       -> L17 (R4)
 #   m4  a recursive search for `mapping` is kept    -> L18 (R5)
+# and two Q-841 mutants (Fable's Q-817 review, 2026-09-26), which survived every leg before:
+#   m5  the echoed sha256 is not the file's (sha256(b''))    -> L1 (L1 now asserts the exact hex)
+#   m6  `re.fullmatch` -> `re.match` in the factor parser    -> L17 ("1/1 " and "3/2x" now refused)
 set -uo pipefail
 cd "$(dirname "$0")/.." || { echo "Q433_XA_CERT=ERROR cannot reach repo root"; exit 2; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
@@ -39,7 +42,7 @@ grep -qE '_xa_node_mapping_load\(cost\.get\("node_mapping_cert"\)\)' solve.py \
        echo "Q433_XA_CERT=FAIL"; exit 1; }
 
 cat > "$WORK/legs.py" <<'PY'
-import importlib.util, json, os, re, sys, tempfile
+import hashlib, importlib.util, json, os, re, sys, tempfile
 from fractions import Fraction
 src = sys.argv[1]
 spec = importlib.util.spec_from_file_location("solve_under_test", src)
@@ -73,11 +76,13 @@ def emit(p, t_units=("10",), budget="1"):
             "hedge": X("1"), "work_factor": X("1"), "note": "q433 gate", "node_mapping_cert": p}
     out = tempfile.mkdtemp(dir=d)
     _t, md, v, _g = m.atlas_emit_xa(A, out, cost=cost, atlas_path="q433.json")
+    text = open(md, encoding="utf-8").read()
     rows = {}
-    for line in open(md, encoding="utf-8").read().splitlines():
+    for line in text.splitlines():
         c = [x.strip() for x in line.strip().strip("|").split("|")]
         if len(c) == 9 and c[0].isdigit():
             rows[c[2]] = (Fraction(c[6]), c[7])
+    emit.md = text
     return v, rows
 def leg(name, fn):
     try:
@@ -87,9 +92,16 @@ def leg(name, fn):
     print("%s=OK" % name if ok else "%s=BAD" % name)
 LEGACY = "solve_node_limit_mapping"
 # L1  a full-schema exact certificate is ACCEPTED and PRICED -- without this the fix is a FALSE.
+# Q-841 S2: and the sha256 it echoes (echo block AND heading) is the EXACT hex of the file's
+# bytes. Before, nothing checked it: a mutant echoing sha256(b'') passed this gate and tests.py.
 def _l1():
-    v, rows = emit(w("good.json", cert()))
-    return v == "PASS" and rows.get("10", (None, ""))[1] == "EXHAUSTIBLE"
+    p = w("good.json", cert())
+    hx = hashlib.sha256(open(p, "rb").read()).hexdigest()
+    v, rows = emit(p)
+    md = emit.md
+    return (v == "PASS" and rows.get("10", (None, ""))[1] == "EXHAUSTIBLE"
+            and ("- certificate: `%s`, sha256 `%s`\n" % (p, hx)) in md
+            and ("certificate good.json sha256 %s\n" % hx) in md)
 leg("L1", _l1)
 # L1b the pre-Q-772 "good" certificate (a sentence, no factor) is now REFUSED: the flip.
 leg("L1b", lambda: refused(w("old_good.json", {"node_convention": {LEGACY:
@@ -131,7 +143,7 @@ leg("L16", _l16)
 # L17  R4: a malformed mapping is a refusal with a reason (kills m3)
 def _l17():
     bad = [dict(F=1.5), dict(F="0/1"), dict(F="-3/2"), dict(F="abc"), dict(F="1/0"),
-           dict(residual=7), dict(kind="sideways")]
+           dict(F="1/1 "), dict(F="3/2x"), dict(residual=7), dict(kind="sideways")]
     ok = all(refused(w("r4_%d.json" % i, cert(**kw))) for i, kw in enumerate(bad))
     miss = cert(); del miss["mapping"]["residual"]
     return ok and refused(w("r4_miss.json", miss))
@@ -170,7 +182,7 @@ s = open("solve.py", encoding="utf-8").read()
 FIX = ('    if True:\n        from fractions import Fraction as _F\n'
        '        return {"factor": _F(1), "kind": "exact", "residual": 0, "formula": "m",\n'
        '                "law": "m", "sha256": "0" * 64, "path": str(path), "provenance": {},\n'
-       '                "engine_git": "m", "measured_n": [], "verdict_line": "m"}, None\n')
+       '                "engine_git": "m", "measured_n": [], "verdict_line": "m", "scope_n": None}, None\n')
 if edit == "accept_all":
     old = '    if path is None:\n        return None, "no certificate was supplied"\n'
     new = FIX
@@ -186,6 +198,12 @@ elif edit == "m2_kind_ignored":
 elif edit == "m3_checks_removed":
     old = '    why = _xa_w0d_mapping_defect(mp)\n'
     new = '    why = None\n'
+elif edit == "m5_sha_unverified":
+    old = '"sha256": hashlib.sha256(raw).hexdigest()'
+    new = '"sha256": hashlib.sha256(b"").hexdigest()'
+elif edit == "m6_prefix_match":
+    old = '    m = re.fullmatch(r"([0-9]{1,%d})/([0-9]{1,%d})"'
+    new = '    m = re.match(r"([0-9]{1,%d})/([0-9]{1,%d})"'
 elif edit == "m4_recursive_find":
     old = '    mp = doc.get("mapping")\n'
     new = ('    def _mf(n):\n'
@@ -224,7 +242,8 @@ export MUT="$WORK/mutant.py"
 K=0
 for m in M0_accept_all:accept_all:L1b M0b_refuse_all:refuse_all:L1 \
          m1_factor_ignored:m1_factor_ignored:L15 m2_kind_ignored:m2_kind_ignored:L16 \
-         m3_checks_removed:m3_checks_removed:L17 m4_recursive_find:m4_recursive_find:L18; do
+         m3_checks_removed:m3_checks_removed:L17 m4_recursive_find:m4_recursive_find:L18 \
+         m5_sha_unverified:m5_sha_unverified:L1 m6_prefix_match:m6_prefix_match:L17; do
   IFS=: read -r mname medit mleg <<<"$m"
   mutate "$mname" "$medit" "$mleg"
   case $? in
@@ -233,6 +252,6 @@ for m in M0_accept_all:accept_all:L1b M0b_refuse_all:refuse_all:L1 \
     *) echo "Q433_XA_CERT=ERROR"; exit 2 ;;
   esac
 done
-[ "$K" = 6 ] || fail "evaluated $K mutants, expected 6"
-echo "  [gate] baseline PASS on $NLEGS legs; $K/6 mutants killed"
+[ "$K" = 8 ] || fail "evaluated $K mutants, expected 8"
+echo "  [gate] baseline PASS on $NLEGS legs; $K/8 mutants killed"
 echo "Q433_XA_CERT=PASS"

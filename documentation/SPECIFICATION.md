@@ -135,7 +135,7 @@ single out King Wen over the full space: an unbiased Knuth random-probe estimate
 constraints enforced in the walk (5×10¹⁰ probes, `SOLVE_KNUTH_C67=1`) measures the number of C1–C7-satisfying
 orderings at **5.21×10³¹ (95% CI [5.13, 5.29]×10³¹, relative error 0.78%)**. C6+C7 cut the ≈1.33×10³⁸ C1–C5
 space by ×2.55×10⁶ and leave ≈10³¹·⁷ solutions — about 105 further bits of constraint would be required for
-full-space uniqueness (≈15–20 boundary constraints **on the extrapolation** in
+full-space uniqueness (no boundary count is projected — the ≈15–20 band once given here **on the extrapolation** was withdrawn 2026-09-26, Q-827, because no continuation rule reproduces it; if no later boundary gains more than the eighth measured one's 6.14 bits, the pair-ordering floor is reached no sooner than k ≈ 14, with no far end set by the data; see
 [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). ⚠ **[ENDPOINT CORRECTED 2026-09-19 (Q-660) — "full-space
 uniqueness" is not a target boundary constraints can reach, at any count.** A boundary constraint pins
 **pair identity only** (`SOLVE_KNUTH_PIN_SLOTS` constrains the pair index chosen at a step and leaves the
@@ -144,7 +144,7 @@ pinnable steps and **1,720,320** orderings remain — King Wen's C4-oriented ori
 [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §7 since 2026-07-05 and re-measured for this correction
 with `python3 verify.py --recount-fiber` (1,720,320 MATCH, 3·5·7·2¹⁴ MATCH). **log₂(1,720,320) = 20.71
 bits** are therefore unreachable by any number of pair-level pins, so of the 105.36 bits identifying one
-ordering within C1–C7 at most **84.65** are pin-reachable. The ≈105-bit figure and the ~15–20 extrapolation
+ordering within C1–C7 at most **84.65** are pin-reachable. The ≈105-bit figure and the ~15–20 extrapolation *(the latter withdrawn 2026-09-26, Q-827)*
 are both unchanged; what is corrected is the endpoint — King Wen's **pair-ordering class**, not King Wen's
 ordering. This is the [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §5 correction of 2026-09-19 (Q-643)
 reaching its third and last un-propagated site; see [CORRECTIONS.md](CORRECTIONS.md) CX-54.]** Every "uniquely determines King Wen" statement in the project

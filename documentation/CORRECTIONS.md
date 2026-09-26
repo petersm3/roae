@@ -17741,3 +17741,166 @@ CX-146 are unchanged, because this ledger is append-only. This entry corrects bo
 `--selftest` PASS, with the new KD leg. `TestNoBareAsserts` fails on the old
 `correction_marker_inventory.sh` and passes on the new one. The full `tests.py`, doc_gates and the
 other gates are listed in the lane report.
+
+## CX-176 — stale TR-12 and QUERY_INVENTORY passages corrected, and the Q10(a) census column renamed from `orbits` to `flow_div_24` (TR-12; QUERY_INVENTORY.md; SOLVE_PY_CLI.md; solve.py; tests.py; tr12/q10_orbit_census.tsv; three READMEs)
+
+**2026-09-26.** Wording follow-ups from the Codex LDQ1 review, which found no gap that needs the
+ladders. Landed by Opus ET. No count, figure, definition or verdict changes.
+
+**1. TR-12 §12.10's reproduction note.** It said the `solve.c` that wrote the atlas "is
+byte-identical to this revision's". It is the one at commit `8af5e55c8eed` (`engine_source_sha
+ed9c65b24e9f…`, the value the atlas and the committed trace carry), and `solve.c` has changed since.
+The same sentence said `atlas_a2_slot_check`, `atlas_a3_external_check` and `atlas_a3_wrap_class_map`
+were all unchanged since the atlas was written. Compared function by function against
+`8af5e55c8eed`: two are unchanged in code (a comment in `atlas_a3_wrap_class_map` was reworded), and `atlas_a3_external_check` now parses `marginal_raw` keys through
+the stricter `_atlas_key_int`. The numeric values of their reference constants are unchanged. The
+note now says both, and that the figures were measured on this revision's `solve.py`.
+
+**2. Four "unavailable" passages that had gone stale.**
+- QUERY_INVENTORY §3 item 3 still called the edit-distance-to-KW extremal DEFERRED. TR-12 §9 and
+  §Q5 caveat (3) have recorded it CLOSED since 2026-09-06: the floor is 2, and the
+  `DISTANCE-2 C15 WITNESS` block in `reports/certificates/c3_positional_witnesses.txt` attains it.
+- TR-12's summary said the Q7 witnesses "need `kissat`, which is absent". §R said the same about
+  "the SAT legs". Both were stale since CX-93 pinned the witness bytes. The one leg that runs a solver
+  is the opt-in `--q7-resolve` re-solve.
+- QUERY_INVENTORY's Q6 percentile row said no consumer reads `kwrank`, "as for all eight new
+  tables". Since 2026-09-21 `solve.py --atlas-probe` reads it (`KWRANK_BINS_SUM_TO_CLASS_MASS_EVERY_LAYER`,
+  `REF_WALK_CELL_PERCENTILE_BY_LAYER_MASS_WEIGHTED_LT`), and it refuses an atlas that lacks any of the
+  eight logging tables.
+- `reports/evidence/w0d_lower_bound/README.md` said the n=31 atlas "is not distributed". It is
+  tracked at `runs/20260906_kc_ladders_n31/atlas_n31.json`, and its sha256 matches the pin.
+
+**3. The Q4(a,c) CI contract.** QUERY_INVENTORY's Q4a/c row still carried the 2026-09-06 narrowing
+("one Wilson interval on the acceptance mass, not per-bin CIs"). TR-12 §Q4 had already reversed it,
+but it named three intervals. Row `a1_q4ac` of `scripts/tr12_repro.sh` emits four: on `P(cd ≤ T)`,
+on μ, on the record-level `mu_rec_C15_HT` at `n_eff`, and a per-bin table
+(`scripts/tr12_expected/n9/a1_q4ac.txt`). Both documents now say four.
+
+**4. The Stage F/G/T diagram** said neither g nor t takes an FDIR argument, and the next line
+contradicted it. Per `solve.c`'s usage strings, `--kc-t-build FDIR TDIR` takes FDIR and
+`--kc-g-build GDIR` does not. The diagram now says so.
+
+**5. "gzip framing included".** `runs/20260906_kc_ladders_n31/STAGE_T_RAW_VERIFY.md` and two §R notes in
+TR-12 described the raw-file registries as covering each file "gzip framing included". The layer
+files carry internal per-block zlib streams and have no outer gzip wrapper
+(`runs/20260906_kc_ladders_n31/README.md`, "Which digest, and why there are two"). All three now
+say that. The v1.3 revision row that quotes the old phrase is left as it was, because it records that
+revision's text.
+
+**6. TR-12's Verification Guide** credited `--atlas-probe` with "every figure in §12.1–§12.8". It now
+covers the §12.1–§12.6 figures that §12.9 maps to a token. On the distributed atlas, all 21 of those
+tokens are printed whole-line by the probe (`grep -Fqx`), and `ATLAS_PROBE=PASS`. §12.7's cost figures
+are derived and are not printed by the probe.
+
+**7. `tr12/q10_orbit_census.tsv` named its fourth column `orbits`.** That column is `flow // 24` at
+every row. The header named no group, and under G48, whose sequence orbits have size 48 (TR-11 §2),
+the orbit count is flow/48, so `orbits` invited the wrong reading. It is renamed `flow_div_24` in the emitter (`atlas_emit_q10a`), in the XA-24
+reader (`atlas_arith_gates`), in the tracked copy and in `documentation/SOLVE_PY_CLI.md`. TR-12's
+Q10(a) output line no longer calls it "per-layer orbit counts".
+
+**8. `viz/viz_kc_shells.md`** headed the alternatives band "(PENDING)". The per-step `g_alt_min` /
+`g_alt_max` from `--kc-profile … KW` were produced at n = 31 and are not published. The heading
+and text now say that. No band is drawn, and the data is not published by this change.
+
+- New `tests.py` class `TestQ10aCensusColumnIsFlowDiv24NotOrbits`, four tests on the distributed
+  atlas: the header in the consumer's output and in the tracked copy; `flow_div_24 = flow // 24` on all
+  32 rows; the XA-24 gate runs and passes; and the consumer's output matches the tracked copy byte for
+  byte. On the pre-change tree the header test fails (`orbits`). Two mutants each turn the class red.
+  With the reader reverted to `r["orbits"]`, the consumer raises `KeyError: 'orbits'`. With the
+  emitter writing `flow // 48`, the XA-24 test and the byte-match test fail.
+- TR-12's v1.15 revision row gains a "later the same day" sentence. Every doc edit is same-line, so no
+  line citation moves.
+
+## CX-177 — the W0-D certificate loader let a certificate write a table row, crashed on a long factor, accepted negative anchors and scope.n 9.0, and printed '=' for one-sided bounds (solve.py; tests.py; scripts/q433_xa_cert_gate.sh; scripts/xa_exact_verdict_gate.sh)
+
+**2026-09-26.** Seven should-fix items from a Fable review of the Q-772 certificate loader (`_xa_w0d_factor`, `_xa_w0d_mapping_defect`, `_xa_node_mapping_load`) and the priced branch of `atlas_emit_xa`. None of them was a blocking defect, and none changes a committed output: `tr12/xa_verdict.md` is on the PENDING path, which no certificate reaches. Landed by Opus EV.
+
+**1. A line break in `mapping.formula` or `mapping.law` wrote a row.** Both fields were echoed raw into `xa_verdict.md`. A lower-bound certificate whose formula carried a newline and a `| ... | EXHAUSTIBLE |` line put a priced-looking EXHAUSTIBLE row into the table of a certificate that can never make that call, and the row parsers in `tests.py` and `scripts/xa_exact_verdict_gate.sh` both read it as a row. The loader now refuses any value that `str.splitlines` would split (CR, LF, U+2028 and the rest). The same check covers `provenance.engine_git` and the certificate path, which are echoed too, and formula and law are now echoed through `json.dumps`.
+
+**2. The echoed sha256 was checked by nothing.** A mutant that echoed `sha256(b'')` passed the q433 gate, the exact-verdict gate and `tests.py`. R7 in `TestW0DNodeMappingCertificateIsUsedQ772` and leg L1 of the q433 gate now assert the exact hex of the certificate's bytes, in the echo block and in the heading, and the gate carries the mutant (m5), which L1 kills.
+
+**3. A numerator of more than 4,300 digits raised ValueError.** That is Python's int-string limit. The loader now refuses either side of `p/q` beyond 100 digits, with a reason, and truncates what it echoes in the refusal. Unbounded, a few hundred digits would also overflow the `float()` behind the display numerals.
+
+**4. Negative anchors priced every row one way.** `--xa-nodes-per-sec -1000` made every row EXHAUSTIBLE and `--xa-budget-usd -1` made every row INFEASIBLE, because only zero was refused. The priced branch now raises `AtlasError` unless nodes/sec, hedge and work factor are each greater than zero and $/hour and budget are each at least zero. Hedge and work factor are checked one at a time, so two negatives cannot cancel.
+
+**5. `scope.n` was not echoed, and 9.0 was accepted as 9.** `scope.n` decides whether a certificate may price an atlas at all, and Python's `9.0 == 9` let a float scope through on the n=9 atlas. It must now be an int when present (a bool is refused too), `scope` itself must be an object, and the echo block prints `- scope.n:`.
+
+**6. `measured.n` and `measured.verdict_line` could be missing and the certificate still priced,** echoing `null` beside every row. `measured.n` must now be a non-empty list of ints and `measured.verdict_line` a non-empty single line. The fixture in `scripts/xa_exact_verdict_gate.sh` had `"n": []` and now reads `[9]`. The one real producer, `--xa-w0d-lb-cert`, already met both rules (`[31]` and a one-line verdict).
+
+**7. The heading and column header printed '=' for every kind.** They now print `=` for exact, `<=` for upper-bound and `>=` for lower-bound. The exact-kind heading is unchanged byte for byte.
+
+- New `tests.py` class `TestW0DCertLoaderHardeningQ841`, six tests (S1, S3 to S7), each with a positive control that still prices. Against the pre-fix `solve.py` they fail on 31 subtests or asserts. The two N2 factor cases (`"1/1 "`, `"3/2x"`) join the R4 table. The pre-fix loader already refused them, so they are red only against the `re.fullmatch` to `re.match` mutant. Measured on the lane tree: that mutant fails R4 on both cases, and the sha mutant fails R7.
+- The q433 gate now has eight mutants (m5, the sha echo, killed by L1; m6, the prefix match, killed by L17, which gained the two N2 cases). Its old version PASSES with the sha mutant applied.
+- Not fixed here, and left as follow-ups: the anchor note (`--xa-anchor-note`) is still echoed raw, although it is operator-typed rather than certificate-borne; the gate's mutant set is still narrower than `tests.py`'s; the echo prints the reduced Fraction, not the literal the certificate carried; `residual` is not constrained for the bound kinds; and duplicate JSON keys in a certificate resolve last-wins.
+- `solve.py` grew by 61 lines above `atlas_emit_xa` (75 in all), and `tests.py` by 10 lines inside the Q-772 class, so four line citations were re-pinned, each as a same-line edit: `documentation/QUERY_INVENTORY.md` (`solve.py:13673ff` to `:13734ff`, `solve.py:14846` to `:14921`), `documentation/SOLVE_PY_CLI.md` (`solve.py:17048` to `:17123`), and a comment in `solve.py` (`tests.py:6240` to `:6250`).
+
+## CX-178 — TR-4's ~15–20 boundary band is withdrawn, because no continuation rule reproduces it, and the boundary-information figure is regenerated (reports/TR4_SIZE_OF_THE_SPACE.md; reports/figures/fig_tr4_boundary_information.png and .svg; viz/report_figures.py; documentation/SEARCH_SPACE_SIZE.md; documentation/SPECIFICATION.md; documentation/CLAIMS_DECIDED.md; scripts/gate_published_consistency.sh; tests.py)
+
+**2026-09-26.** Origin: Fable's Q-827 ruling, implemented as Q-842. Landed by Opus EW.
+
+**1. What was published.** TR-4 said that closing the remaining ≈105 bits "projects to roughly
+15–20 boundary constraints under the observed per-boundary cut rate". §5, §Update (1), the figure
+caption, the alt-text and a shaded band on the figure said the same. SEARCH_SPACE_SIZE.md,
+SPECIFICATION.md and CLAIMS_DECIDED.md repeated it. On 2026-09-25 a note in TR-4's abstract
+(Codex v3 review, V3B-07#23) found that no rule for the band is recorded, and called it a
+judgment band.
+
+**2. Why it is withdrawn.** No continuation rule of TR-4's own gains reproduces 15–20. The band
+first appears on 2026-07-02, in commit 8baff0c3, three days before S(6)–S(8) were measured. TR-4
+v1.8 (commit 5d5eeb27) carried it forward and states no rule. The figures were recomputed for this
+entry from the gains TR-4 publishes, k = 1..8: 10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93, 6.14.
+Their sum is 73.36 bits. The oriented level is log₂(1.3287×10³⁸) = 126.64 bits. The orientation
+fibre is log₂(1,720,320) = 20.71 bits, so the pair-ordering floor, the most boundary pins can
+reach, is 105.93 bits. That leaves 32.57 bits to the floor and 53.28 bits to the oriented level.
+- Holding the last gain, 6.14 bits, constant reaches the floor at k ≈ 14 and the oriented level at
+  k ≈ 17.
+- The mean gain over k = 1..8, 9.17 bits, reaches them at k ≈ 12 and 14.
+- A least-squares straight line through the k = 5–8 gains has slope −1.27 bits per boundary. It
+  falls to zero at k = 13, having added 12.55 bits, so it reaches neither.
+- A geometric decline at the k = 5–8 ratio, ×0.846 per boundary, reaches the floor at k ≈ 28 and
+  never reaches the oriented level: its sum converges to 107.2 bits. A log-linear least-squares
+  ratio of ×0.853 gives k ≈ 24 for the floor.
+
+No rule puts the pair-ordering floor inside 15–20, and the floor is the endpoint the band has
+named since 2026-09-19. No rule yields a range at all. The constant-last-gain rule's k ≈ 17 for
+the oriented level does fall inside the band, but pins cannot reach that level and the band does
+not name it. So the band is withdrawn, not re-derived.
+
+**3. What replaces it.** One conditional statement: if no later boundary gains more than the
+eighth's 6.14 bits, the pair-ordering floor is reached no sooner than k ≈ 14, and the oriented
+level no sooner than k ≈ 17. This is a scale marker, not a bound in either direction. The data set
+no far end. It is stated in TR-4's abstract, §5 and §Update (1), in the caption and alt-text, and at
+the sibling sites in SEARCH_SPACE_SIZE.md (lines 145, 219 and 298), SPECIFICATION.md (line 138) and
+CLAIMS_DECIDED.md (line 34). §Update (1) said "the projected COUNT is unaffected" by the
+2026-09-19 endpoint correction. That held only because the band was never computed from a target.
+It now has a dated note saying so. Five 2026-09-19 markers called the band unchanged: TR-4 lines
+109, 161 and 289, SEARCH_SPACE_SIZE.md line 156 and SPECIFICATION.md line 147. Each has a dated
+withdrawal note, and none was reworded. TR-4 has revision row v1.35. Every edit is on the same
+line, so no line citation into these files moves. The one added line is the new revision row at
+the end of TR-4.
+
+**4. The figure.** `figures/fig_tr4_boundary_information.png` and its SVG were regenerated from
+`viz/report_figures.py`. The unmodified generator was first re-rendered with the matplotlib
+version that wrote the committed image, 3.11.0. It reproduced the committed PNG byte for byte. The
+SVG matched in size and differed only in element ids and the creation date, as CX-55 records. So
+the change is the edit, not renderer drift. The shaded k = 15–20 band and its label are replaced
+by one green vertical line at k = 14, with the conditional statement as its label.
+`FIGURE_LABEL_MANIFEST` is updated to match. No S(k) value, gain, floor, oriented level or legend
+entry changed.
+
+**5. The gate.** G14 in `scripts/gate_published_consistency.sh` keyed on the text
+`projection to ~15–20` in SEARCH_SPACE_SIZE.md. With the band withdrawn, that key would be absent,
+and the leg would stay green without checking anything. It now keys on the replacement statement,
+"reached no sooner than k ≈ 14". It is red when that statement is missing, when the band comes
+back as a projection, or when the oriented-fibre floor statement ("31 pinnable steps pinned") is
+missing. `TestTr4BoundaryBandWithdrawn` in tests.py runs the gate on the tree (green) and on four
+mutants (all red), one of them the pre-fix wording. It also checks the generator and the four
+documents, and recomputes k = 14 and k = 17 from the gains.
+
+**6. Not changed.** The observed-rate figure of ~12 boundaries divides the oriented 126.6 bits by
+11.10. Against the 105.93-bit floor it would be about 10. That is a separate item.
+
+**7. The README Figures section,** new in the same push, captioned this figure with "the green band
+marks where extrapolation reaches one surviving pair-ordering class". Its caption and alt-text now
+describe the k = 14 line. The review before commit also corrected two TR-4 sentences that attached
+the log-linear ×0.853 figure, k ≈ 24, to the oriented level. It is a floor count, as item 2 says.

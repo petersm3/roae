@@ -12551,7 +12551,7 @@ def atlas_load(path):
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30131) is ALSO an un-run gate,
     # but VERIFY.md:1159 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6240,
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6250,
     # :6583; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
@@ -13110,7 +13110,7 @@ def atlas_emit_q10a(A, outdir):
         rows.append(("layer", k, flow, flow // _ATLAS_ORBIT,
                      1 if flow % _ATLAS_ORBIT == 0 else 0))
     path = _atlas_write(os.path.join(outdir, "q10_orbit_census.tsv"),
-                        ["scope", "k", "flow", "orbits", "mod24_ok"], rows)
+                        ["scope", "k", "flow", "flow_div_24", "mod24_ok"], rows)   # headed "orbits" until 2026-09-26; it is flow // 24, and G48 sequence orbits have size 48
     # 🔴 THE VERDICT IS READ OFF THE TABLE, NOT ASSERTED (Codex MQ1 §2c/§2d, 2026-09-04).
     # `verdicts["TR12_Q10A"]` was the literal string "PASS" in atlas_queries, so this table
     # could emit `mod24_ok = 0` on every row and the consumer still reported Q10a PASS --
@@ -13212,18 +13212,34 @@ _XA_KC_T_CERT_TYPE = "roae-kc-t-node-convention-certificate"
 # The key the pre-Q-772 permission bit searched for. It is no longer consulted. It is named here
 # only so a refusal can say why a certificate that carries it and nothing else prices nothing.
 _XA_LEGACY_CERT_KEY = "solve_node_limit_mapping"
+# Q-841 S3 (Fable's Q-817 review, 2026-09-26): the digit bound on each side of "p/q". Unbounded,
+# a numerator past Python's 4,300-digit int-string limit made `int()` raise ValueError -- a
+# traceback, not a refusal -- and a few hundred digits already overflow the float() the table's
+# display numerals use. No nodes-per-t-unit ratio is anywhere near 10^100.
+_XA_W0D_FACTOR_MAX_DIGITS = 100
+
+
+def _xa_single_line(v):
+    """True iff `v` is a non-empty string that is ONE line with visible text (Q-841 S1/S6).
+
+    `str.splitlines` is the widest line-break set any reader of xa_verdict.md applies (CR, LF,
+    VT, FF, FS/GS/RS, NEL, U+2028, U+2029), so a value it does not split cannot start a new
+    markdown row when echoed."""
+    return isinstance(v, str) and bool(v.strip()) and v.splitlines() == [v]
 
 
 def _xa_w0d_factor(s):
     """`nodes_per_t_unit` -> a positive Fraction, or None. Only the string "p/q" with p, q >= 1.
 
     A JSON number is refused, not coerced: a binary64 factor would bring back the boundary flip
-    the exact pricing exists to prevent. So are "1.5", "3", "0/1", "-3/2", "1/0" and "abc"."""
+    the exact pricing exists to prevent. So are "1.5", "3", "0/1", "-3/2", "1/0" and "abc", and
+    so is a side longer than _XA_W0D_FACTOR_MAX_DIGITS digits (Q-841 S3)."""
     import re
     from fractions import Fraction
     if not isinstance(s, str):
         return None
-    m = re.fullmatch(r"([0-9]+)/([0-9]+)", s)
+    m = re.fullmatch(r"([0-9]{1,%d})/([0-9]{1,%d})"
+                     % (_XA_W0D_FACTOR_MAX_DIGITS, _XA_W0D_FACTOR_MAX_DIGITS), s)
     if not m:
         return None
     p, q = int(m.group(1)), int(m.group(2))
@@ -13243,9 +13259,10 @@ def _xa_w0d_mapping_defect(mp):
     if mp["kind"] not in _XA_W0D_KINDS:
         return "`mapping.kind` is %r; it must be one of %s" % (mp["kind"], ", ".join(_XA_W0D_KINDS))
     if _xa_w0d_factor(mp["nodes_per_t_unit"]) is None:
-        return ("`mapping.nodes_per_t_unit` is %r; it must be an exact rational STRING \"p/q\" "
-                "with integers p >= 1 and q >= 1 (a JSON number is refused: binary64 is not exact)"
-                % (mp["nodes_per_t_unit"],))
+        return ("`mapping.nodes_per_t_unit` is %s; it must be an exact rational STRING \"p/q\" "
+                "with integers p >= 1 and q >= 1 of at most %d digits each (a JSON number is "
+                "refused: binary64 is not exact)"
+                % (_xa_short_repr(mp["nodes_per_t_unit"]), _XA_W0D_FACTOR_MAX_DIGITS))
     if type(mp["residual"]) is not int:
         return "`mapping.residual` is %r; it must be an integer" % (mp["residual"],)
     if mp["kind"] == "exact" and mp["residual"] != 0:
@@ -13254,7 +13271,23 @@ def _xa_w0d_mapping_defect(mp):
     for k in ("formula", "law"):
         if not isinstance(mp[k], str) or not mp[k].strip():
             return "`mapping.%s` must be a non-empty string (it is echoed beside every price)" % k
+        # Q-841 S1: echoed into xa_verdict.md, a line break let a certificate WRITE A ROW: a
+        # lower-bound certificate whose formula carried "\n| 9 | 9 | 1 | ... | EXHAUSTIBLE |"
+        # put an EXHAUSTIBLE line in the priced table that tests.py's priced_rows and the
+        # xa_exact gate both read as a row. Refused here; also echoed through json.dumps.
+        if not _xa_single_line(mp[k]):
+            return ("`mapping.%s` contains a line break; it is echoed beside every price and "
+                    "must be a single line" % k)
     return None
+
+
+def _xa_short_repr(v, cap=120):
+    """repr(v), cut to `cap` characters: a refusal must not echo a 5,000-digit value whole."""
+    try:
+        r = repr(v)
+    except ValueError:             # an int past the int-string limit cannot even be repr'd
+        return "<%s too large to print>" % type(v).__name__
+    return r if len(r) <= cap else "%s... (%d characters)" % (r[:cap], len(r))
 
 
 def _xa_node_mapping_load(path):
@@ -13269,6 +13302,10 @@ def _xa_node_mapping_load(path):
 
     if path is None:
         return None, "no certificate was supplied"
+    # Q-841 S1 sibling: the path is echoed into xa_verdict.md (and its basename into the heading),
+    # so a path with a line break could write a row as well as any certificate field could.
+    if isinstance(path, str) and path.splitlines() != [path]:
+        return None, "the certificate path %r contains a line break" % (path,)
     try:
         with open(path, "rb") as fh:
             raw = fh.read()
@@ -13312,10 +13349,35 @@ def _xa_node_mapping_load(path):
     prov = doc.get("provenance")
     if not isinstance(measured, dict):
         return None, "the certificate %r has no `measured` object to echo" % (path,)
+    # Q-841 S6: `measured.n` and `measured.verdict_line` are what the echo block says was
+    # measured. Absent, the certificate still priced, echoing `null` beside every row.
+    mn = measured.get("n")
+    if not isinstance(mn, list) or not mn or any(type(x) is not int for x in mn):
+        return None, ("the certificate %r has `measured.n` = %s; it must be a non-empty list of "
+                      "integers (the sizes the factor was measured at)"
+                      % (path, _xa_short_repr(mn)))
+    if not _xa_single_line(measured.get("verdict_line")):
+        return None, ("the certificate %r has `measured.verdict_line` = %s; it must be a "
+                      "non-empty single line (it is echoed beside every price)"
+                      % (path, _xa_short_repr(measured.get("verdict_line"))))
     if not isinstance(prov, dict) or not isinstance(prov.get("engine_git"), str) \
             or not prov.get("engine_git").strip():
         return None, ("the certificate %r has no `provenance.engine_git`; a price must name the "
                       "engine that measured its factor" % (path,))
+    # Q-841 S1 sibling: engine_git is echoed in backticks beside the priced table.
+    if not _xa_single_line(prov["engine_git"]):
+        return None, ("the certificate %r has a `provenance.engine_git` with a line break; it is "
+                      "echoed beside every price and must be a single line" % (path,))
+    # Q-841 S5: `scope.n` decides acceptance (atlas_emit_xa refuses a certificate scoped to
+    # another n), so it must be an int, not merely compare equal to one: 9.0 == 9 and True == 1
+    # in Python, and a float scope used to be accepted on the n=9 atlas as if it said 9.
+    scope = doc.get("scope")
+    if "scope" in doc and not isinstance(scope, dict):
+        return None, ("the certificate %r has `scope` = %s; when present it must be an object"
+                      % (path, _xa_short_repr(scope)))
+    if isinstance(scope, dict) and "n" in scope and type(scope["n"]) is not int:
+        return None, ("the certificate %r has `scope.n` = %s; when present it must be an integer"
+                      % (path, _xa_short_repr(scope["n"])))
     return {"factor": _xa_w0d_factor(mp.get("nodes_per_t_unit")),
             "kind": mp.get("kind"), "residual": mp.get("residual"),
             "formula": mp.get("formula"), "law": mp.get("law"),
@@ -13324,8 +13386,7 @@ def _xa_node_mapping_load(path):
             "measured_n": measured.get("n"),
             # Optional `scope.n` (Opus SS, 2026-09-25): a certificate that declares the one atlas
             # size it is valid for is refused by atlas_emit_xa on any other n.
-            "scope_n": (doc.get("scope") or {}).get("n")
-            if isinstance(doc.get("scope"), dict) else None,
+            "scope_n": scope.get("n") if isinstance(scope, dict) else None,
             "verdict_line": measured.get("verdict_line")}, None
 
 
@@ -13811,11 +13872,19 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             x_nps = _xa_exact(cost["nodes_per_sec"])
             x_uph = _xa_exact(cost["usd_per_hour"])
             x_bud = _xa_exact(cost["budget_usd"])
-            x_den = _xa_exact(cost["hedge"]) * _xa_exact(cost["work_factor"])
-            if x_den == 0 or x_nps == 0:
-                raise AtlasError("XA: nodes/sec, hedge and work factor must all be non-zero "
+            x_hedge = _xa_exact(cost["hedge"])
+            x_wf = _xa_exact(cost["work_factor"])
+            x_den = x_hedge * x_wf
+            # Q-841 S4: a SIGN check, not only a zero check. --xa-nodes-per-sec -1000 made every
+            # cost negative, so every row read EXHAUSTIBLE; --xa-budget-usd -1 made every row
+            # INFEASIBLE. Rate, hedge and work factor must be > 0; $/hour and budget >= 0.
+            if x_nps <= 0 or x_hedge <= 0 or x_wf <= 0:
+                raise AtlasError("XA: nodes/sec, hedge and work factor must all be > 0 "
                                  "(got %s / (%s * %s))" % (cost["nodes_per_sec"],
                                                            cost["hedge"], cost["work_factor"]))
+            if x_uph < 0 or x_bud < 0:
+                raise AtlasError("XA: $/hour and budget must both be >= 0 (got $/hour = %s, "
+                                 "budget = %s)" % (cost["usd_per_hour"], cost["budget_usd"]))
             x_rate = x_nps / x_den                     # exact effective nodes/sec
             rate = float(x_rate)                       # display only
             fh.write("Anchors (operator-supplied, echoed for the certificate): "
@@ -13842,13 +13911,19 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             fh.write("- certificate: `%s`, sha256 `%s`\n" % (xa_map["path"], xa_map["sha256"]))
             fh.write("- kind: `%s`; F = nodes_per_t_unit = `%s`; residual = %d\n"
                      % (kind, F, xa_map["residual"]))
-            fh.write("- formula: %s\n" % xa_map["formula"])
-            fh.write("- law: %s\n" % xa_map["law"])
+            # Q-841 S1: json.dumps, so no character of either field reaches the file unescaped.
+            fh.write("- formula: %s\n" % json.dumps(xa_map["formula"]))
+            fh.write("- law: %s\n" % json.dumps(xa_map["law"]))
             fh.write("- measured.n: %s; measured.verdict_line: %s\n"
                      % (json.dumps(xa_map["measured_n"]), json.dumps(xa_map["verdict_line"])))
+            # Q-841 S5: scope.n decided acceptance above, so it is echoed with the rest.
+            fh.write("- scope.n: %s\n" % json.dumps(xa_map["scope_n"]))
             fh.write("- provenance.engine_git: `%s`\n\n" % xa_map["engine_git"])
-            fh.write("### production-DFS nodes = t-units x F, F = %s (%s), certificate %s "
-                     "sha256 %s\n\n" % (F, kind, os.path.basename(str(xa_map["path"])),
+            # Q-841 S7: the relation printed is the one the certificate's kind proves -- a
+            # lower-bound certificate says production nodes >= t x F, not =.
+            rel = {"exact": "=", "upper-bound": "<=", "lower-bound": ">="}[kind]
+            fh.write("### production-DFS nodes %s t-units x F, F = %s (%s), certificate %s "
+                     "sha256 %s\n\n" % (rel, F, kind, os.path.basename(str(xa_map["path"])),
                                           xa_map["sha256"]))
             if kind == "upper-bound":
                 fh.write("The certificate BOUNDS production nodes from ABOVE, so an over-budget "
@@ -13856,8 +13931,8 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             elif kind == "lower-bound":
                 fh.write("The certificate BOUNDS production nodes from BELOW, so an in-budget "
                          "row is UNDECIDED:lower-bound, never EXHAUSTIBLE.\n\n")
-            fh.write("| branch | pair | t-units | nodes (= t-units x F) | wall (h) | $ | $ exact "
-                     "| verdict | cost/budget |\n")
+            fh.write("| branch | pair | t-units | nodes (%s t-units x F) | wall (h) | $ | $ exact "
+                     "| verdict | cost/budget |\n" % rel)
             fh.write("|---|---|---|---|---|---|---|---|---|\n")
             cheapest = None
             for r in sorted(rows, key=lambda r: int(r[7])):
@@ -16666,7 +16741,7 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     if needs(q10):
         gate("XA-24", "pre", "Q10a/XA-24: N_total and every layer flow divisible by 24",
              all(r["mod24_ok"] == "1" for r in q10) and
-             all(_tsv_int(r["flow"]) == _tsv_int(r["orbits"]) * _ATLAS_ORBIT for r in q10),
+             all(_tsv_int(r["flow"]) == _tsv_int(r["flow_div_24"]) * _ATLAS_ORBIT for r in q10),
              owners=["TR12_Q10A", "TR12_XA_MOD24"])
         # ---- mod 48 (Q-314 item 1) ----------------------------------------
         # 🔴 The gate above reads a PRECOMPUTED column, `mod24_ok`, so it checks that the

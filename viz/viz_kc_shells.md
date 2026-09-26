@@ -73,11 +73,11 @@ Two exact self-checks follow by telescoping and are printed by the engine:
 Π_{i=1..31} p_i = 1/N            Σ_{i=1..31} bits_i = log₂ N
 ```
 
-**The alternatives band (PENDING).** At step *i* the trace reports `alts` — the number of admissible
+**The alternatives band (data exists, not yet published).** At step *i* the trace reports `alts` — the number of admissible
 oriented successors with `g > 0` — but not their individual masses. TR-12 §8 item 5 specifies
-`--kc-profile "e,x,…"` to print `g` for *each* alternative, which is what a min/max band around the
-shell curve requires. Without it the figure ships as the curve plus the `alts` count, and **must not
-draw a band**.
+`--kc-profile FDIR GDIR "e,x,…"|KW`, which prints the per-step `g_alt_min` / `g_alt_max` a min/max band around the
+shell curve requires; it has been run on King Wen at n = 31 and its output is held with the run's evidence, not in this tree (the tracked receipt `reports/evidence/tr12/VERDICTS_n31_20260922.txt` records `TR12_Q3_PROFILE=PASS` for that run). Until it is published the figure ships as the curve plus the `alts` count, and **must not
+draw a band**. ⚠ *(corrected 2026-09-26: the heading read "(PENDING)" and the text implied the per-alternative values had not been computed; they have, and are unpublished.)*
 
 ## Where the numbers come from
 
