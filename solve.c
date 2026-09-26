@@ -2547,7 +2547,7 @@ static void append_shard_provenance(const char *bin_fname,
         return;
     }
     char build_sha[80] = {0};
-    snprintf(build_sha, sizeof(build_sha), "%s", run_binary_sha256());  /* Q-840 sibling: the WRITING binary's own digest ("" if unavailable), not build.sha, which --sub-branch/--branch never check or write */
+    snprintf(build_sha, sizeof(build_sha), "%s", run_binary_sha256());  /* Q-840 sibling: the WRITING binary's own digest ("" if unavailable), not build.sha, which --sub-branch/--branch did not check or write before Q-844 */
     char host_fp[80] = {0};
     (void)compute_host_fingerprint(host_fp);
     char tbuf[64];
@@ -3810,7 +3810,7 @@ static int resume_contract_check_and_stamp(int n_threads, int depth,
         return 0;   /* stamp is best-effort; never abort a run for it */
     }
     char build_sha[80] = {0};
-    snprintf(build_sha, sizeof(build_sha), "%s", run_binary_sha256());  /* Q-840 sibling: this binary's own digest, not build.sha (the --branch path never checks or writes build.sha) */
+    snprintf(build_sha, sizeof(build_sha), "%s", run_binary_sha256());  /* Q-840 sibling: this binary's own digest, not build.sha (the --branch path did not check or write build.sha before Q-844) */
     char tbuf[64];
     time_t now = time(NULL); struct tm tm_b;
     strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tm_b));
@@ -25726,15 +25726,15 @@ static int kc_h_sha_wellformed(const char *s) {
  * chunks from two DIFFERENT binaries merge into a wrong atlas). Streams /proc/self/exe
  * through sha256_tool() exactly like f1c5_layer_sha_hex. "unavailable" on any failure,
  * which kc_h_sha_wellformed rejects, so a sentinel can never satisfy an equality (K-2).
- * Cached per process. */
-static const char *kc_h_exe_sha(void) {
-    static char cached[65];
-    static int done = 0;
-    if (done) return cached;
-    done = 1;
+ * Cached per process, computed once under pthread_once (Q-844): the cache used to be two unguarded statics that set done=1 BEFORE computing, so a second thread could read "unavailable" or a half-copied digest. */
+static char kc_h_exe_sha_buf[65]; static pthread_once_t kc_h_exe_sha_once = PTHREAD_ONCE_INIT; static void kc_h_exe_sha_init(void);
+static const char *kc_h_exe_sha(void) {  /* safe from any thread: the only reader of kc_h_exe_sha_buf, and it returns only after the one computation finished */
+    pthread_once(&kc_h_exe_sha_once, kc_h_exe_sha_init); return kc_h_exe_sha_buf; }
+static void kc_h_exe_sha_init(void) {  /* called ONLY through pthread_once above; never call it directly */
+    char *cached = kc_h_exe_sha_buf;
     strcpy(cached, "unavailable");
     const char *tool = sha256_tool();
-    if (!tool) return cached;
+    if (!tool) return;
     /* 🔴 OPEN /proc/self/exe DIRECTLY, 2026-09-10 (RCQ03 F5, ACCEPTED by execution).
      * This used to readlink("/proc/self/exe") and fopen() the RESOLVED PATH. When the
      * executable is replaced or renamed while running -- an atomic deploy, or a build
@@ -25749,12 +25749,12 @@ static const char *kc_h_exe_sha(void) {
      * so opening it works whether or not the path still exists. No readlink needed: the
      * pathname was used for nothing but this open. */
     FILE *in = fopen("/proc/self/exe", "rb");
-    if (!in) return cached;
+    if (!in) return;
     char tmp[128], cmd[192];
     snprintf(tmp, sizeof(tmp), "/tmp/solve_exesha_%d", (int)getpid());
     snprintf(cmd, sizeof(cmd), "%s > %s", tool, tmp);
     FILE *p = popen(cmd, "w");
-    if (!p) { fclose(in); return cached; }
+    if (!p) { fclose(in); return; }
     unsigned char buf[65536];
     size_t got;
     int wbad = 0;
@@ -25763,7 +25763,7 @@ static const char *kc_h_exe_sha(void) {
     const int rbad = ferror(in);
     fclose(in);
     const int prc = pclose(p);
-    if (wbad || rbad || prc != 0) { unlink(tmp); return cached; }
+    if (wbad || rbad || prc != 0) { unlink(tmp); return; }
     char hex[65] = {0};
     FILE *tf = fopen(tmp, "r");
     if (tf) {
@@ -25779,7 +25779,7 @@ static const char *kc_h_exe_sha(void) {
     }
     unlink(tmp);
     if (kc_h_sha_wellformed(hex)) memcpy(cached, hex, 65);
-    return cached;
+    return;
 }
 
 /* G2 F3 (2026-09-04): remove a REGULAR file at path if one exists. 0 = absent or removed,
@@ -40221,46 +40221,46 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
         validate_mode = 1;
         validate_file = "solutions.bin";
-        for (int ai = 2; ai < argc; ai++) {
+        for (int ai = 2, nfile = 0; ai < argc; ai++) {
             if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1;
-            else validate_file = argv[ai];
+            else if (nfile++) { fprintf(stderr, "ERROR: --validate checks ONE file; got a second ('%s') after '%s'.\n       Before 2026-09-26 the last file named was checked and the others were silently skipped.\nVALIDATE_ARGS=REFUSED\n", argv[ai], validate_file); return 2; } else validate_file = argv[ai]; /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         }
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--null-debruijn-exact") == 0) {
-        run_null_debruijn_exact();
+        if (argc > 2) { fprintf(stderr, "ERROR: --null-debruijn-exact takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nNULL_DEBRUIJN_EXACT_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_null_debruijn_exact(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-gray") == 0) {
-        run_null_gray();
+        if (argc > 2) { fprintf(stderr, "ERROR: --null-gray takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nNULL_GRAY_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_null_gray(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-latin") == 0) {
-        run_null_latin();
+        if (argc > 2) { fprintf(stderr, "ERROR: --null-latin takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nNULL_LATIN_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_null_latin(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-latin-col") == 0) {
-        run_null_latin_col();
+        if (argc > 2) { fprintf(stderr, "ERROR: --null-latin-col takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nNULL_LATIN_COL_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_null_latin_col(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-lex") == 0) {
-        run_null_lex();
+        if (argc > 2) { fprintf(stderr, "ERROR: --null-lex takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nNULL_LEX_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_null_lex(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-historical") == 0) {
-        run_null_historical();
+        if (argc > 2) { fprintf(stderr, "ERROR: --null-historical takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nNULL_HISTORICAL_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_null_historical(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-random") == 0) {
-        uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
+        if (argc > 3 || (argc == 3 && (argv[2][strspn(argv[2], "0123456789")] != 0 || strlen(argv[2]) > 19 || strtoull(argv[2], NULL, 10) == 0))) { fprintf(stderr, "ERROR: --null-random takes at most ONE argument, a positive decimal sample count N; got '%s'%s.\n       An extra argument was previously ignored, and a non-numeric N was read as 0 or a prefix of it.\nNULL_RANDOM_ARGS=REFUSED\n", argv[argc > 3 ? 3 : 2], argc > 3 ? " as an extra argument" : ""); return 2; } uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL; /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         run_null_random(n);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-pair-constrained") == 0) {
-        uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
+        if (argc > 3 || (argc == 3 && (argv[2][strspn(argv[2], "0123456789")] != 0 || strlen(argv[2]) > 19 || strtoull(argv[2], NULL, 10) == 0))) { fprintf(stderr, "ERROR: --null-pair-constrained takes at most ONE argument, a positive decimal sample count N; got '%s'%s.\n       An extra argument was previously ignored, and a non-numeric N was read as 0 or a prefix of it.\nNULL_PAIR_CONSTRAINED_ARGS=REFUSED\n", argv[argc > 3 ? 3 : 2], argc > 3 ? " as an extra argument" : ""); return 2; } uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL; /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         run_null_pair_constrained(n);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-latin-explain") == 0) {
-        run_null_latin_explain();
+        if (argc > 2) { fprintf(stderr, "ERROR: --null-latin-explain takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nNULL_LATIN_EXPLAIN_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_null_latin_explain(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--null-gray-random") == 0) {
-        uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL;
+        if (argc > 3 || (argc == 3 && (argv[2][strspn(argv[2], "0123456789")] != 0 || strlen(argv[2]) > 19 || strtoull(argv[2], NULL, 10) == 0))) { fprintf(stderr, "ERROR: --null-gray-random takes at most ONE argument, a positive decimal sample count N; got '%s'%s.\n       An extra argument was previously ignored, and a non-numeric N was read as 0 or a prefix of it.\nNULL_GRAY_RANDOM_ARGS=REFUSED\n", argv[argc > 3 ? 3 : 2], argc > 3 ? " as an extra argument" : ""); return 2; } uint64_t n = (argc > 2) ? strtoull(argv[2], NULL, 10) : 1000000000ULL; /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         run_null_gray_random(n);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--c3-min") == 0) {
-        const char *fn = (argc > 2) ? argv[2] : "solutions.bin";
+        const char *fn = (argc > 2) ? argv[2] : "solutions.bin"; if (argc > 3) { fprintf(stderr, "ERROR: --c3-min takes at most ONE argument (the solutions file); got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nC3_MIN_ARGS=REFUSED\n", argc - 3, argv[3]); return 2; } /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         run_c3_min(fn);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--yield-report") == 0) {
@@ -40268,14 +40268,14 @@ int main(int argc, char *argv[]) {
          * clustering + orientation-symmetry report. Usage:
          *   zcat enum_output.log.gz | ./solve --yield-report
          */
-        run_yield_report();
+        if (argc > 2) { fprintf(stderr, "ERROR: --yield-report takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nYIELD_REPORT_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } run_yield_report(); /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--symmetry-search") == 0) {
         /* Hamming-class-preserving permutation search. Phase 1+2 always run
          * (orbit structure on (pair_idx, orient) space). With --validate-counts
          * a second arg, also run Phase 3: parse enum log from stdin and
          * compare yields across σ orbits. */
-        int with_yield = (argc > 2 && strcmp(argv[2], "--validate-counts") == 0);
+        int with_yield = (argc > 2 && strcmp(argv[2], "--validate-counts") == 0); if (argc > 3 || (argc == 3 && !with_yield)) { fprintf(stderr, "ERROR: --symmetry-search takes at most ONE argument, --validate-counts; got '%s'.\n       An argument here was previously accepted and silently ignored.\nSYMMETRY_SEARCH_ARGS=REFUSED\n", argv[with_yield ? 3 : 2]); return 2; } /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         run_symmetry_search(with_yield);
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
@@ -40289,9 +40289,9 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--verify") == 0) {
         verify_mode = 1;
         verify_file = "solutions.bin";
-        for (int ai = 2; ai < argc; ai++) {
+        for (int ai = 2, nfile = 0; ai < argc; ai++) {
             if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1;
-            else verify_file = argv[ai];
+            else if (nfile++) { fprintf(stderr, "ERROR: --verify checks ONE file; got a second ('%s') after '%s'.\n       Before 2026-09-26 the last file named was verified and the others were silently skipped.\nVERIFY_ARGS=REFUSED\n", argv[ai], verify_file); return 2; } else verify_file = argv[ai]; /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         }
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--show") == 0) {
@@ -48229,7 +48229,7 @@ int main(int argc, char *argv[]) {
                 current_per_branch_budget = per_sub_branch_override;
             else if (node_limit > 0)
                 { int q623_branch_partition(const int *, const int *, int); int nt = q623_branch_partition(budget_prefix, used_prefix, seq_prefix[3]); current_per_branch_budget = node_limit / (nt > 0 ? nt : 1); }  /* V3A-134#8: the allocator's divisor (this branch's partition), not 3030 */
-            load_sub_checkpoint();
+            { if (check_build_sha_invariant() != 0) return 26; }  /* Q-844: --branch resumes checkpoint.txt and writes shards, so it refuses a foreign build.sha as the enum path does (same SOLVE_ALLOW_BUILD_MISMATCH override), before the checkpoint is read */ load_sub_checkpoint();
             if (n_completed_subs > 0) {
                 printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
                        n_completed_subs);
@@ -48331,7 +48331,7 @@ int main(int argc, char *argv[]) {
             all_sub[0].orient2 = ssb_orient2;
             all_sub[0].pair3 = ssb_pair3;
             all_sub[0].orient3 = ssb_orient3;
-            n_sub = 1;
+            n_sub = 1; if (check_build_sha_invariant() != 0) return 26;  /* Q-844: --sub-branch writes a shard into this directory, so it refuses a foreign build.sha as the enum path does; placed after argument validation so a refused request writes nothing */
             goto sub_enum_done;
         }
 
@@ -51046,11 +51046,11 @@ static const char *merge_self_exe_sha256(void) {
 
 /* Q-840 sibling sweep (2026-09-26). The per-shard sidecar's writes[].binary_sha256 and
  * resume_contract.txt's build_sha= line also copied build.sha from the working directory. The
- * full-enum path rewrites build.sha to its own digest at startup (check_build_sha_invariant), but
- * --sub-branch and --branch never call that check, so a shard written there carried whatever
+ * full-enum path writes build.sha from its own digest on a first run and refuses to start when an existing one differs (check_build_sha_invariant), but
+ * --sub-branch and --branch did not call that check until Q-844, so a shard written there carried whatever
  * build.sha an earlier binary left (measured: a planted value was recorded verbatim), and a
  * skipped check (no sha256 tool, popen failure) left a stale value on the full-enum path too.
- * Both now take the running binary's digest from here. kc_h_exe_sha() caches in unguarded
+ * Both now take the running binary's digest from here. kc_h_exe_sha() cached in unguarded (Q-844: now pthread_once-guarded itself)
  * statics and append_shard_provenance runs on worker threads, so the first call goes through
  * pthread_once. "" when unavailable, the fields' empty-on-missing convention. Sha-neutral:
  * sidecars only, never solutions.bin or a shard. */

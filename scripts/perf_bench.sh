@@ -82,7 +82,7 @@ THREADS=128
 # after the instrumented --selftest, and the selftest's own .gcda satisfied the ".gcda > 0" check,
 # so every --treatment-pgo bench was trained on the SELFTEST while reporting a PGO build.
 # Measured on the worker with the override: rc 0 in ~16 s (uninstrumented, 8 threads).
-PGO_WORKLOAD="SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_NODE_LIMIT=200000000 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_THREADS=8 ./solve_inst --branch 25 1"
+PGO_WORKLOAD='SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_NODE_LIMIT=200000000 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_THREADS=8 "$INSTR_BIN" --branch 25 1'
 KEEP_VM=0
 THROTTLE_MIN_MHZ=3664   # AVX-512 definitive-bench precedent (PERFORMANCE_HISTORY.md, D128als_v7)
 BURN_SECS=60            # sample is taken at the END of the burn; the 2026-05-18 finding needs >=30 s
@@ -129,6 +129,12 @@ if [ "$NODE_LIMIT" -lt 1000000000000 ]; then
     echo "  note: --scale $SCALE is sub-canonical; setting $SUB_CANON_ENV on both builds so the"
     echo "        enumerator measures instead of refusing (solve.c's sub-canonical guard)."
 fi
+
+# Q-847: the PGO workload runs in a FRESH directory (mktemp -d, as scripts/build_pgo.sh does), so a
+# relative `./solve_inst` no longer names the instrumented binary. Refuse it here, before a VM is
+# bought, rather than as rc 127 after the build; name the binary "$INSTR_BIN" (an absolute path).
+case "$PGO_WORKLOAD" in *./solve_inst*)
+    echo '--pgo-workload runs in a fresh directory; name the instrumented binary "$INSTR_BIN", not ./solve_inst'; exit 2 ;; esac
 
 LAUNCH_ID=$(date -u +%H%M)
 RG="RG-PERFBENCH-${LAUNCH_ID}"
@@ -229,8 +235,17 @@ $SSH "$ADMIN@$VM_IP" "
         rm -rf profdir && mkdir profdir
         # PGO workload: a short training run, not canonical-scale (V3A-102#4). Its status is READ,
         # not swallowed: a refused or failed workload leaves a profile of nothing, and Pass 2 must not build from it.
+        # 🔴 Q-847 (2026-09-26): it used to run HERE, in the login directory, which nothing clears
+        # between benches: a second bench on the same host resumed the first one's checkpoint.txt and
+        # trained on whatever work was left (and a solve that refuses a foreign build.sha would exit
+        # on it). It now runs in a new mktemp directory, as scripts/build_pgo.sh runs its own (Q-756),
+        # so every bench trains from nothing. .gcda files go to the absolute profdir, so the working
+        # directory does not move them. Like build_pgo.sh, the directory is kept for forensics.
+        INSTR_BIN=\$PWD/solve_inst; export INSTR_BIN
+        PGO_WORK=\$(mktemp -d \"\$PWD/pgo_work.XXXXXX\") || { echo \"FATAL: could not create a fresh PGO workload directory\" >&2; exit 1; }
+        echo \"  PGO workload dir: \$PGO_WORK\"
         PGO_RC=0
-        $PGO_WORKLOAD > /tmp/pgo_workload.log 2>&1 || PGO_RC=\$?
+        ( cd \"\$PGO_WORK\" && $PGO_WORKLOAD ) > /tmp/pgo_workload.log 2>&1 || PGO_RC=\$?
         if [ \"\$PGO_RC\" -ne 0 ]; then
             echo \"FATAL: PGO workload exited rc=\$PGO_RC; refusing to build a PGO binary from it\" >&2
             tail -5 /tmp/pgo_workload.log >&2
@@ -331,7 +346,13 @@ run_enum_only() {
     local BUILD=$1
     $SSH "$ADMIN@$VM_IP" "
         set +e
-        rm -rf run_$BUILD && mkdir run_$BUILD && cd run_$BUILD
+        # Q-847: a fresh mktemp directory per run, as scripts/build_pgo.sh does. The old
+        # \`rm -rf run_X && mkdir run_X && cd run_X\` ran under set +e, so a failed mkdir/cd fell
+        # through and the bench ran in the login directory, beside any earlier checkpoint.txt.
+        RUN_DIR=\$(mktemp -d \"\$PWD/run_$BUILD.XXXXXX\") && cd \"\$RUN_DIR\" || {
+            echo \"BUILD $BUILD enum_rc=WORKDIR-FAILED\"; echo \"BUILD $BUILD merge_rc=SKIPPED-ENUM-FAILED\"
+            echo \"BUILD $BUILD sha=ABSENT\"; exit 1; }
+        echo \"BUILD $BUILD run_dir=\$RUN_DIR\"
         sync
         # --- page-cache flush: ATTEMPT, then REPORT WHAT WAS OBSERVED ---
         # Three outcomes, all reported explicitly on their own line:
@@ -531,8 +552,10 @@ emit "STEP 5: Pull artifacts to claude"
 RESULTS_DIR=/tmp/perf_bench_${LAUNCH_ID}_results
 mkdir -p "$RESULTS_DIR"
 for B in N U; do
+    RUN_DIR_B=$(bench_field "$B" run_dir)   # Q-847: each run's own mktemp directory
+    [ -n "$RUN_DIR_B" ] || continue
     for f in solve.log merge.log; do
-        $SCP "$ADMIN@$VM_IP:run_$B/$f" "$RESULTS_DIR/${B}_${f}" >/dev/null 2>&1 || true
+        $SCP "$ADMIN@$VM_IP:$RUN_DIR_B/$f" "$RESULTS_DIR/${B}_${f}" >/dev/null 2>&1 || true
     done
 done
 

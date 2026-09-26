@@ -41,7 +41,7 @@ solve --branch <p1> <o1> [time_limit] [threads]         # single first-level bra
 solve --sub-branch <p1> <o1> <p2> <o2> <p3> <o3> [time_limit] [threads]
                                                         # depth-3 sub-branch only
 solve --list-branches                                   # 56 valid first-level (p,o) pairs
-solve --c3-min                                          # complement-distance minimum search
+solve --c3-min [SOLUTIONS_BIN]                          # complement-distance minimum search
 solve --yield-report < log                              # per-sub-branch yield analysis from stdin log
 solve --symmetry-search                                 # group-theoretic symmetry hunt
 solve --null-<family>                                   # null-model comparison families
@@ -775,7 +775,7 @@ Auto-detects ROAE-header (full canonical solutions.bin) vs raw
 shard mode (sub_*.bin file with no header).
 
 Reports PASS or per-record failure counts. Fast — the constraint
-checks are pure-arithmetic per record.
+checks are pure-arithmetic per record. *(2026-09-26, Q-845: it checks ONE file, plus the optional `--expect-kw`. A second file name is refused with exit 2 and a `VERIFY_ARGS=REFUSED` line, before any file is read. Before that the argument loop let the last file name win, so `./solve --verify a.bin b.bin` verified `b.bin` alone and said nothing about `a.bin`.)*
 
 ### --validate
 
@@ -786,7 +786,7 @@ solve --validate [solutions.bin]
 Parallel (OpenMP + mmap) whole-file checker: per-record C1-C5,
 strict-ascending sort order, and King Wen presence. Unlike
 `--verify` it has no headerless-shard fallback — it requires a
-valid `ROAE` header and aborts on bad magic or unknown version.
+valid `ROAE` header and aborts on bad magic or unknown version. *(2026-09-26, Q-845: it checks ONE file, plus the optional `--expect-kw`. A second file name is refused with exit 2 and a `VALIDATE_ARGS=REFUSED` line, before any file is read. Before that the last file name won and the others were silently skipped.)*
 
 > ⚠️ **King Wen presence is reported, not enforced — in *both* checkers.**
 > `kw_found_v` is printed (`solve.c:44506` for `--validate`, `:44058` for
@@ -2796,7 +2796,7 @@ solve --analyze [solutions.bin]
 Computes statistics across the entire solution set: complement-
 distance distribution, position-2 marginal distribution, line-
 autocorrelation per position, K-N pair-frequency tables,
-boundary-uniqueness exhaustive search, and more. *(2026-09-26, Q-839 sibling sweep: it takes at most one argument, the solutions file; any further argument is refused with exit 2 and a `ANALYZE_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
+boundary-uniqueness exhaustive search, and more. *(2026-09-26, Q-839 sibling sweep: it takes at most one argument, the solutions file; any further argument is refused with exit 2 and an `ANALYZE_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 Outputs a long human-readable report to stdout. Used during
 research to characterize where King Wen sits in the
@@ -2864,7 +2864,7 @@ hamming-5); 6 of the 62 candidates fail-fast, leaving 56 effective
 branches. See `--list-branches`.
 
 Output: `sub_*.bin` shards in CWD; the merge at the end writes
-`solutions_<p1>_<o1>.bin` (with `.sha256`, `.meta.json` and `results_<p1>_<o1>.json`) from every `sub_<p1>_<o1>_*.bin` in CWD, so it equals `./solve --merge` run over those shards. ⚠ *(Corrected 2026-09-25, Q-825: this said the merge produces `solutions.bin`. The file is `solutions_<p1>_<o1>.bin`, and before the Q-825 fix it always held 0 records, because it was built from in-memory tables that every sub-branch flush clears; the shards held the solutions. `tests.py` `TestBranchModeOutputHoldsTheShards` checks it against `--merge`.)*
+`solutions_<p1>_<o1>.bin` (with `.sha256`, `.meta.json` and `results_<p1>_<o1>.json`) from every `sub_<p1>_<o1>_*.bin` in CWD, so it equals `./solve --merge` run over those shards. ⚠ *(Corrected 2026-09-25, Q-825: this said the merge produces `solutions.bin`. The file is `solutions_<p1>_<o1>.bin`, and before the Q-825 fix it always held 0 records, because it was built from in-memory tables that every sub-branch flush clears; the shards held the solutions. `tests.py` `TestBranchModeOutputHoldsTheShards` checks it against `--merge`.)* ⚠ *(2026-09-26, Q-844: it now runs the full enumeration's `build.sha` check before it reads `checkpoint.txt`: a first run writes `build.sha`, and a `build.sha` written by a different binary exits **26** unless `SOLVE_ALLOW_BUILD_MISMATCH=1`. Until this date it ran no check, so a resume in a directory another binary had used was not refused. See the exit-26 row.)*
 
 ### --sub-branch
 
@@ -2878,7 +2878,7 @@ Used for targeted exhaustion of single sub-branches at extreme
 node budgets (10T, 100T, 1000T).
 
 Output: shard files `sub_P1_O1_P2_O2_P3_O3.bin` in CWD; checkpoint
-+ DFS state sidecar files for resume. Single-threaded (the default, `[threads]` = 1, or `SOLVE_SUB_BRANCH_PARALLELISM=single`) it also writes `solutions_<p1>_<o1>.bin` holding that one shard's records; with more than one thread (the parallel path) it writes the shard only. ⚠ *(Added 2026-09-25, Q-825: before that day's fix the single-threaded `solutions_<p1>_<o1>.bin` always held 0 records and the report printed `Unique pair orderings: 0`, while the shard held the solutions.)*
++ DFS state sidecar files for resume. Single-threaded (the default, `[threads]` = 1, or `SOLVE_SUB_BRANCH_PARALLELISM=single`) it also writes `solutions_<p1>_<o1>.bin` holding that one shard's records; with more than one thread (the parallel path) it writes the shard only. ⚠ *(Added 2026-09-25, Q-825: before that day's fix the single-threaded `solutions_<p1>_<o1>.bin` always held 0 records and the report printed `Unique pair orderings: 0`, while the shard held the solutions.)* ⚠ *(2026-09-26, Q-844: it now runs the full enumeration's `build.sha` check after its arguments are validated, so a refused request writes nothing: a first run writes `build.sha`, and a `build.sha` written by a different binary exits **26** unless `SOLVE_ALLOW_BUILD_MISMATCH=1`. Until this date it ran no check, so a resume in a directory another binary had used was not refused. See the exit-26 row.)*
 
 ### --list-branches
 
@@ -2894,12 +2894,12 @@ loops. It takes no arguments: since 2026-09-26 (Q-839) any argument is refused w
 ### --c3-min
 
 ```
-solve --c3-min
+solve --c3-min [SOLUTIONS_BIN]
 ```
 
 Searches the canonical solution set for the orderings with minimum
 total complement distance. Used in the c3-minimum analysis that
-established KW sits at the C3 *ceiling* (776), not the floor.
+established KW sits at the C3 *ceiling* (776), not the floor. `SOLUTIONS_BIN` defaults to `solutions.bin`. *(2026-09-26, Q-845: the code has always read this one optional argument; the synopsis showed none and now shows it. Any further argument is refused with exit 2 and a `C3_MIN_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 Prints the whole-line token `C3MIN_SCOPE=FILE` before its results, and that
 token is the mode's scope disclaimer in machine-readable form: **every verdict
@@ -2931,7 +2931,7 @@ solve --yield-report < log
 
 Reads a depth-3 enumeration log on stdin and produces a
 per-sub-branch yield-clustering report. Identifies dead branches,
-dominant branches, and orientation-symmetry patterns.
+dominant branches, and orientation-symmetry patterns. *(2026-09-26, Q-845: it takes no arguments and reads only stdin. An argument, a log file name for instance, is refused with exit 2 and a `YIELD_REPORT_ARGS=REFUSED` line. Before that it was ignored and stdin was read as usual.)*
 
 ### --symmetry-search
 
@@ -2945,7 +2945,7 @@ It finds the group: of the 720 bit-permutations it enumerates, **48
 preserve C1**, and 47 of those act non-trivially on the (pair, orient) space. That is the order-48 group of bit permutations commuting with bit-reversal, which [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) proves is an exact symmetry of C1–C5 (machine-checked in Lean). ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-054#3) — this read "Has produced negative results to date (no non-trivial group discovered)."** SYMMETRY_SEARCH.md withdrew that negative on 2026-07-02, and this entry was not updated. Executed 2026-09-25 on this tree: `./solve --symmetry-search` prints `C1-preserving: 48 (6.7%)` and `Non-trivial on (pair,orient) space: 47`, and it does not print the "NO non-trivial bit-permutation" branch.]**
 
 `--validate-counts` annotates each candidate symmetry with empirical
-yield equality across orientations.
+yield equality across orientations. *(2026-09-26, Q-845: `--validate-counts` is the only argument it takes. Any other, or any second one, is refused with exit 2 and a `SYMMETRY_SEARCH_ARGS=REFUSED` line. Before that an argument other than `--validate-counts` was silently ignored, so a misspelt `--validate-count` ran phases 1 and 2 alone and exited 0.)*
 
 ### --null-*
 
@@ -2956,10 +2956,10 @@ solve --null-latin
 solve --null-latin-col
 solve --null-lex
 solve --null-historical
-solve --null-random
-solve --null-pair-constrained
+solve --null-random [N]
+solve --null-pair-constrained [N]
 solve --null-latin-explain
-solve --null-gray-random
+solve --null-gray-random [N]
 ```
 
 Null-model comparisons: how does King Wen rank against various
@@ -2971,7 +2971,7 @@ Each variant tests KW's structural metrics against a different
 null distribution. Used to qualify "robust" findings (where KW is
 extreme against multiple null models) from "constraint-extraction"
 findings (where KW appears extreme only against unconstrained
-random).
+random). *(2026-09-26, Q-845: `--null-random`, `--null-pair-constrained` and `--null-gray-random` take one optional argument, the sample count `N` (default 1000000000), which must be a positive decimal integer. The other seven take none. Anything else is refused with exit 2 and a `NULL_<FAMILY>_ARGS=REFUSED` line, for example `NULL_GRAY_ARGS=REFUSED`. Before that an extra argument was silently ignored, and `N` went through `strtoull` unchecked, so `1e6` ran 1 sample, a word ran 0, and `-5` wrapped to about 1.8 × 10¹⁹ samples, which does not finish.)*
 
 `--null-gray-random` prints the whole-line token `GRAY_SCOPE=INDUCED` ahead of
 its rates, and that word is load-bearing. The sampler walks to an unvisited
@@ -3323,7 +3323,7 @@ completeness and honesty, not as knobs to set.
 | **22** | **Shard-manifest verify failed** — MISSING / SHRUNK / DIVERGED shard detected by `--verify-shard-manifest` or by the auto-verify at canonical-enum startup. Recovery: investigate the named shard. For **DIVERGED**, do NOT trust the new content. For **MISSING / SHRUNK**, removing the manifest row is **NOT sufficient, and on its own it silently loses results**: the loader marks a cell complete from `checkpoint.txt` / `checkpoint_t*.txt` lines ALONE — `load_sub_checkpoint_file` sets `completed_sub_bitmap` from those lines and issues no `stat`, `access` or `fopen` at all — and the scheduler then skips that cell via `is_sub_branch_completed` with no existence test — so the cell is never re-walked. You must ALSO delete that cell's completion line(s) from `checkpoint.txt` **and** the per-thread `checkpoint_t*.txt`, then confirm on restart that the run reports **`N remaining > 0`**. ⚠ **[CORRECTED 2026-09-19 — this row read "for MISSING / SHRUNK delete from manifest and let LOAD path re-walk", and it never re-walks. Measured across five runs: baseline 1,097 shards, merge 135,780 records, sha `403f7202…`; the recipe **as written** returned **rc 0**, printed `auto-verify-manifest PASS` and `0 remaining`, never recreated the shard, and on a second victim merged **135,581 records — 199 canonical classes silently lost — and reported PASS**. The recipe PLUS dropping the checkpoint line recreated the shard and reproduced the baseline sha **byte-identically**. Deleting a shard while KEEPING its manifest row correctly exits 22 — so **the gate works, and the documented recipe defeated it**. Note the asymmetry that makes shard-absence alone unusable as the trigger: a zero-solution cell legitimately has no shard (1,933 of 3,030 cells in the measured fixture), so the precise re-walk condition is a completed checkpoint line with solutions > 0 and no shard on disk. The binary repeats the same advice in its own `auto-verify-manifest FAIL` error text; that is a code change, is **not** cured here, and is tracked as Q-641 *(cured 2026-09-26: the error text now says not to delete shards or manifest rows, and points to this row)*. (Both sites are cited by symbol rather than line number, because `solve.c` line numbers drift — the convention this file's other markers already follow.) See documentation/CORRECTIONS.md CX-52.]** |
 | **24** | **Auto-selftest failed** — binary does not reproduce canonical selftest sha `403f7202…`. Compile toolchain regression. Recovery: rebuild with verified flags, investigate compiler/libc/optimizer differences. Override: `SOLVE_SKIP_AUTO_SELFTEST=1` only after investigation. |
 | **25** | **Sub-canonical scale gate** — `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set (canonical-grade reproducibility requires ≥1T). Recovery: either raise `SOLVE_NODE_LIMIT` to ≥1T, OR set `SOLVE_PER_SUB_BRANCH_LIMIT` (partition-invariance use case), OR set `SOLVE_ALLOW_SUB_CANONICAL=1` (acknowledged sub-canonical run). |
-| **26** | **Build provenance mismatch** — `build.sha` in cwd was written by a different binary than the current one. Recovery: restore the prior binary (continue cleanly), OR `SOLVE_ALLOW_BUILD_MISMATCH=1` + accept lineage-mix risk, OR `rm build.sha` and restart from scratch. ⚠ *(2026-09-26, Q-837: a `build.sha` equal to the digest of the host's current `sha256sum`, which is what binaries built before 2026-09-26 wrote, is not exit 26: it is reported with a WARN and rewritten with this binary's sha, and the run proceeds. A legacy digest of a different `sha256sum` build (coreutils upgraded since, or another host) is not recognised and does exit 26. It names no solve build, so establish the build from the provenance sidecars' `git_hash` before choosing a recovery.)* ⚠ *(2026-09-26, follow-up to the note above: "not recognised" is now narrower. When the live digest misses, the binary also checks a committed table of the `/usr/bin/sha256sum` digests from every Ubuntu coreutils 8.32, 9.4 and 9.5 package (amd64 and arm64, 30 builds, recomputed from the published .deb files), so a directory written under an older package, such as the 9.4-3ubuntu6.2 amd64 digest read on a 6.3 host, is reported with a WARN naming the package and rewritten instead of exiting 26. A digest in neither place (another distro, a `shasum` host, whose legacy value is perl's digest) still exits 26, and the message now says that a prior sha equal to `sha256sum $(command -v sha256sum)` on the host that wrote it names no build: take the build from the sidecars' `git_hash`, then `rm build.sha`. The digest of any other solve build still exits 26.)* |
+| **26** | **Build provenance mismatch** — `build.sha` in cwd was written by a different binary than the current one. Recovery: restore the prior binary (continue cleanly), OR `SOLVE_ALLOW_BUILD_MISMATCH=1` + accept lineage-mix risk, OR `rm build.sha` and restart from scratch. ⚠ *(2026-09-26, Q-837: a `build.sha` equal to the digest of the host's current `sha256sum`, which is what binaries built before 2026-09-26 wrote, is not exit 26: it is reported with a WARN and rewritten with this binary's sha, and the run proceeds. A legacy digest of a different `sha256sum` build (coreutils upgraded since, or another host) is not recognised and does exit 26. It names no solve build, so establish the build from the provenance sidecars' `git_hash` before choosing a recovery.)* ⚠ *(2026-09-26, follow-up to the note above: "not recognised" is now narrower. When the live digest misses, the binary also checks a committed table of the `/usr/bin/sha256sum` digests from every Ubuntu coreutils 8.32, 9.4 and 9.5 package (amd64 and arm64, 30 builds, recomputed from the published .deb files), so a directory written under an older package, such as the 9.4-3ubuntu6.2 amd64 digest read on a 6.3 host, is reported with a WARN naming the package and rewritten instead of exiting 26. A digest in neither place (another distro, a `shasum` host, whose legacy value is perl's digest) still exits 26, and the message now says that a prior sha equal to `sha256sum $(command -v sha256sum)` on the host that wrote it names no build: take the build from the sidecars' `git_hash`, then `rm build.sha`. The digest of any other solve build still exits 26.)* ⚠ *(2026-09-26, Q-844: the paths that exit 26 are the full enumeration, `--branch` and `--sub-branch`; the last two ran no check before this date. `--merge` never exits 26 on this account: it prints `MERGE_BUILD_SHA=MISMATCH` and proceeds.)* |
 | **27** | **LOCK file held by live process** — concurrent `solve` invocation on same cwd refused. Recovery: kill the conflicting process OR use a different cwd. Stale locks (dead PID or different hostname) auto-reclaimed. |
 | **28** | **`--merge` cannot raise RLIMIT_STACK** — `setrlimit` could not raise to unlimited or to ≥64MB hard cap. External-merge spill would silently SIGSEGV. Recovery: run `ulimit -s unlimited` in shell before `solve --merge`. |
 | **29** | **Disk-space pre-check failed** — projected required bytes for `SOLVE_NODE_LIMIT` exceed free bytes in cwd's filesystem. Recovery: move to a larger filesystem (`solver-data-westus3` has 2 TB free), OR `SOLVE_SKIP_DISK_CHECK=1` if you're confident the projection is wrong. |
@@ -3473,7 +3473,7 @@ solve --double-regression-test 5600000000000    # argv is a node BUDGET, not a d
   the same cwd (exit 27). Stale locks (dead PID or different host)
   are auto-reclaimed. Override: `SOLVE_SKIP_CANONICAL_LOCK=1`.
 - `build.sha` — sha256 of the running binary (from 2026-09-26; earlier binaries wrote the `sha256sum` tool's digest, Q-837), written at canonical-
-  enum startup if absent. Future invocations cross-check.
+  enum startup if absent (and, from 2026-09-26, Q-844, at `--branch` / `--sub-branch` startup). Future invocations cross-check.
 - `shard_manifest.txt` — auto-emitted at promotion/startup (after
   `promote_orphaned_shards`) and at clean completion — those two points
   only, not after every flush (`auto_emit_shard_manifest_default`, solve.c:49465 and solve.c:49908) — unless

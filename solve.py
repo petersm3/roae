@@ -4097,7 +4097,7 @@ def _p2_decode_records(chunk_bytes):
 def _p2_build_hexagram_sequence(records):
     import numpy as np
     _, PAIRS_A, PAIRS_B = _p2_kw_arrays()
-    pair_idx = (records >> 2).astype(np.int16)
+    pair_idx = (_pidx_scan(records) >> 2).astype(np.int16)  # Q-846: a named refusal, not an IndexError
     orient = ((records >> 1) & 1).astype(np.int16)
     first = np.where(orient == 0, PAIRS_A[pair_idx], PAIRS_B[pair_idx])
     second = np.where(orient == 0, PAIRS_B[pair_idx], PAIRS_A[pair_idx])
@@ -4184,11 +4184,11 @@ def _p2_worker_init(schema_bytes):
 def _p2_worker_chunk(task):
     import pyarrow as pa
     import pyarrow.parquet as pq
-    filename, offset, n_records, chunk_idx, out_dir = task
+    filename, offset, n_records, chunk_idx, out_dir, *label = task  # label: the input as named (Q-846)
     with open(filename, "rb") as f:
         f.seek(offset)
         raw = f.read(n_records * _P2_RECORD_SIZE)
-    records = _p2_decode_records(raw[: (len(raw) // _P2_RECORD_SIZE) * _P2_RECORD_SIZE])
+    records = _pidx_scan(_p2_decode_records(raw[: (len(raw) // _P2_RECORD_SIZE) * _P2_RECORD_SIZE]), (label or [filename])[0], (offset - _P2_HEADER_SIZE) // _P2_RECORD_SIZE)
     stats = _p2_compute_all_stats(records)
     batch = pa.record_batch(
         [pa.array(stats[c.name]).cast(c.type) for c in _P2_WORKER_SCHEMA],
@@ -4307,7 +4307,7 @@ def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
     chunk_idx = 0
     while remaining > 0:
         n = min(chunk_size, remaining)
-        tasks.append((solutions_bin, offset, n, chunk_idx, out_dir))
+        tasks.append((solutions_bin, offset, n, chunk_idx, out_dir, source_path or solutions_bin))
         offset += n * _P2_RECORD_SIZE
         remaining -= n
         chunk_idx += 1
@@ -4318,8 +4318,8 @@ def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
     seen = chunks_done = 0
     with mp.Pool(workers, initializer=_p2_worker_init,
                  initargs=(schema_bytes,), maxtasksperchild=32) as pool:
-        for (out_path, n_rec) in pool.imap_unordered(
-                _p2_worker_chunk, tasks, chunksize=1):
+        for (out_path, n_rec) in _pidx_guard(pool.imap_unordered(
+                _p2_worker_chunk, tasks, chunksize=1), "COMPUTE_STATS"):
             seen += n_rec
             chunks_done += 1
             if chunks_done % 10 == 0 or seen >= total_records:
@@ -6248,9 +6248,9 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
 _KEYSTONE_BDRYS_1IDX = (1, 4, 21, 25, 27)
 
 
-def _keystone_decode_pair_positions(records):
-    """records: shape (N, 32) uint8. Returns (N, 32) uint8 of pair indices."""
-    return (records >> 2) & 0x3F
+def _keystone_decode_pair_positions(records, path="<records>", first=0, token=None):
+    """records: shape (N, 32) uint8. Returns (N, 32) uint8 of pair indices; refuses 32..63 (Q-846)."""
+    return (_pidx_scan(records, path, first, token) >> 2) & 0x3F
 
 
 def _keystone_compute_mask(pair_at_pos, bdrys_0idx):
@@ -6350,7 +6350,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         record_count = struct.unpack("<Q", hdr[8:16])[0]
         return record_count, 32
 
-    def _bucket_counts(path, depth):
+    def _bucket_counts(path, depth, label=None):
         """Stream solutions.bin and bucket records by partition prefix.
         Returns (record_count_actual, dict[tuple -> count])."""
         with open(path, "rb") as f:
@@ -6374,7 +6374,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
             buckets = defaultdict(int)
             CHUNK = 1 << 20  # 1M records per chunk = 32 MB
             while True:
-                chunk = f.read(CHUNK * 32)
+                chunk = _pidx_scan(first=(f.tell() - hdr_size) // 32, records=f.read(CHUNK * 32), path=label or path)  # Q-846
                 if not chunk:
                     break
                 n = len(chunk) // 32
@@ -6401,7 +6401,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
     try:
         # OSError: the open inside _bucket_counts. ValueError: _read_header's and
         # _bucket_counts' own deliberate refusals (bad magic, torn body, zero records).
-        total, buckets = _bucket_counts(solutions_bin, depth)
+        total, buckets = _bucket_counts(solutions_bin, depth, source_bin)
     except (OSError, ValueError) as e:
         return _refuse("SOLUTIONS_BIN", source_bin or solutions_bin, e)
     print(f"  {total:,} records bucketed into {len(buckets):,} {('first-level','depth-2','depth-3')[depth-1]} buckets")
@@ -6411,7 +6411,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
     if baseline_bin:
         print(f"Reading baseline {baseline_bin} ...")
         try:
-            baseline_total, baseline_buckets = _bucket_counts(baseline_bin, depth)
+            baseline_total, baseline_buckets = _bucket_counts(baseline_bin, depth, source_baseline)
         except (OSError, ValueError) as e:
             return _refuse("BASELINE_BIN", source_baseline or baseline_bin, e)
         print(f"  baseline: {baseline_total:,} records in {len(baseline_buckets):,} buckets")
@@ -6758,7 +6758,7 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
                     break
             records = np.frombuffer(raw[:n * _P2_RECORD_SIZE],
                                     dtype=np.uint8).reshape(n, _P2_RECORD_SIZE)
-            pair_at_pos = _keystone_decode_pair_positions(records)
+            pair_at_pos = _keystone_decode_pair_positions(records, source_path or solutions_bin, seen, "KEYSTONE_ANALYSIS")
             mask = _keystone_compute_mask(pair_at_pos, bdrys_0idx)
 
             # tabulate (vectorized)
@@ -19007,6 +19007,61 @@ def _atlas_kernel_cells(kern, where):
     key only when int(v) was non-zero, and then with int() on a split)."""
     return [(_atlas_kernel_key(key, where), _atlas_int(v, "%s.%s" % (where, key)))
             for key, v in kern.items()]
+
+
+class PairIndexOutOfRange(ValueError):
+    """Q-846 (2026-09-26): a solutions.bin record byte whose pair index is 32..63.
+
+    A record byte is `(pair_index<<2)|(orient<<1)` (SOLUTIONS_FORMAT.md), so `byte >> 2` is 0..63
+    while the pair table has 32 entries: a byte with bit 7 set is corrupt input. solve.c refuses it
+    with `ERROR: PAIR_INDEX_OUT_OF_RANGE: ...` (`sol_pidx_scan`, CX-139); this is the same refusal
+    for the solve.py readers, with the same text. It subclasses ValueError so a mode that already
+    turns a ValueError into its own refusal line (`--branch-yield-report`) carries the text over."""
+
+
+def _pidx_scan(records, path="<records>", first=0, token=None):
+    """Return `records` unchanged if no byte in it decodes a pair index of 32 or more.
+
+    `records` is bytes or a uint8 array of whole 32-byte records; `first` is the 0-based index in
+    `path` of its first record, so the refusal names the same record and byte `sol_pidx_scan` in
+    solve.c would. On a bad byte: with `token` None, raise PairIndexOutOfRange; with a token, print
+    `TOKEN=FAIL <message>` on stdout (the mode's existing refusal shape) and `ERROR: <message>` on
+    stderr, then exit 1. It never clamps or skips a record. Scanning every byte rather than just the
+    bytes a reader decodes is deliberate: a record with any bad byte is not a valid record."""
+    import numpy as np
+    if isinstance(records, (bytes, bytearray)):
+        if records.isascii():                  # every byte < 0x80 <=> every pair index < 32
+            return records
+        flat = np.frombuffer(bytes(records), dtype=np.uint8)
+    else:
+        flat = np.asarray(records).reshape(-1)
+        if flat.size == 0 or int(flat.max()) < 0x80:
+            return records
+    k = int(np.flatnonzero(flat >= 0x80)[0])
+    v = int(flat[k])
+    exc = PairIndexOutOfRange(
+        "PAIR_INDEX_OUT_OF_RANGE: %s record %d byte %d = 0x%02X decodes pair index %d, outside "
+        "the 32-entry pair table (SOLUTIONS_FORMAT.md: byte = (pair_index<<2)|(orient<<1)); "
+        "refusing to decode" % (path, first + k // 32, k % 32, v, v >> 2))
+    if token is None:
+        raise exc
+    _pidx_refuse(exc, token)
+
+
+def _pidx_refuse(exc, token):
+    """Print a PairIndexOutOfRange as `TOKEN=FAIL ...` (stdout) + `ERROR: ...` (stderr); exit 1."""
+    print("%s=FAIL %s" % (token, exc), flush=True)
+    print("ERROR: %s" % (exc,), file=sys.stderr, flush=True)
+    raise SystemExit(1)
+
+
+def _pidx_guard(results, token):
+    """Pass `results` through; a PairIndexOutOfRange raised while iterating (by a pool worker)
+    becomes `_pidx_refuse(exc, token)` in the parent."""
+    try:
+        yield from results
+    except PairIndexOutOfRange as exc:
+        _pidx_refuse(exc, token)
 
 
 if __name__ == "__main__":

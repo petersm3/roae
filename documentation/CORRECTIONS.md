@@ -18071,3 +18071,313 @@ and `TestQ520RecordPairIndexBounds` stays green on that mutant.
 rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS.
 solve.c did not change, so `--selftest` output cannot move. tests.py is in the TR-12 reproduction
 fingerprint, so the stamp needs re-stamping.
+
+## CX-182 — `--branch` and `--sub-branch` now refuse a `build.sha` written by a different binary, and `kc_h_exe_sha()` computes its cache under `pthread_once` (solve.c; tests.py; documentation/DEVELOPMENT.md; documentation/SOLVE_C_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-844, filed by Opus FB as the follow-up in CX-180 item 4.
+Landed by Opus FE. Measured on the worker VM on a fresh clone of the batch-18 base with this change
+overlaid.
+
+**No published number moves.** The change adds a startup check to two subcommands and changes how
+one digest is cached. No shard, `solutions.bin`, `solutions.sha256` or `solutions.meta.json` changes.
+`./solve --selftest` prints `403f7202…`.
+
+**1. The gap.** Only the full-enumeration path called `check_build_sha_invariant()`, which writes
+`build.sha` on a first run and exits 26 when an existing one names a different binary. `--branch`
+and `--sub-branch` called nothing. Both write shards into the working directory, and both resume
+from it: `--branch` reads `checkpoint.txt`, and `--sub-branch` reloads its per-worker checkpoints
+(parallel path) or a `.dfs_state` sidecar (single-threaded path). So a resume there with a
+different binary, the case the guard exists for, was not refused.
+
+**2. The rule: the enumeration's.** CX-180 chose a warning for `--merge`, because a merge writes no
+shard and its output is checked by the `solutions.bin` sha. Neither reason holds here: these two
+paths write shards and resume from checkpoints exactly as the enumeration does. They now call the
+same function with the same outcomes. A first run writes `build.sha`. A match logs `build.sha PASS`.
+A mismatch exits 26 and leaves `build.sha` and the directory untouched. `SOLVE_ALLOW_BUILD_MISMATCH=1`
+overrides and rewrites `build.sha`, and a legacy `sha256sum` digest (CX-147, CX-162) is recognised
+as before. `--branch` checks before it reads `checkpoint.txt`. `--sub-branch` checks after its six
+arguments are validated, so a request that is refused for a bad argument writes nothing, not even
+`build.sha`. `--merge` is unchanged.
+
+CX-180 defined `MERGE_BUILD_SHA=ABSENT` as "no well-formed `build.sha`". The reader behind it,
+`read_build_sha_for_provenance()`, reports absent when `build.sha` is missing or empty, or when its
+first whitespace-delimited token is shorter than 64 characters. It does not check that the
+characters are hex, and it reads a longer token as its first 64 characters, so such a file is
+compared (and reported `MISMATCH`), not absent. The enumeration's check reads up to 79 characters
+and treats any token that is not exactly 64 long as no prior value. This entry changes neither
+reader.
+
+**3. `kc_h_exe_sha()`.** It cached the executable's digest in two unguarded statics and set its
+`done` flag before computing, so a second thread that called it during the first call would have
+read `unavailable` or a partly copied digest. CX-180 routed the shard-sidecar writer, which runs on
+worker threads, through `run_binary_sha256()` and its `pthread_once`. That protected that caller only.
+`kc_h_exe_sha()` itself now runs its computation once through its own `pthread_once`, so every
+caller on any thread is safe, and the computing function is reachable only through it. The value it
+returns is unchanged.
+
+**4. Documentation.** DEVELOPMENT.md §build.sha invariant has a dated note saying which paths run
+the guard. The `writes[].binary_sha256` row's Q-840 note said the full-enumeration path "rewrites
+`build.sha` to its own digest at startup". It now says the path writes `build.sha` from its own
+digest on a first run and refuses to start when an existing one differs, and a dated Q-844 note
+follows it. The solve.c comment it mirrors says the same. SOLVE_C_CLI.md's `--branch` and
+`--sub-branch` entries and its exit-26 row have dated same-line notes, and the `build.sha`
+file-list entry names both paths. In the same file, the `--analyze` note's "a
+`ANALYZE_ARGS=REFUSED` line" now reads "an". The other seven `<MODE>_ARGS=REFUSED` notes were
+checked and each already takes "a".
+
+**5. Tests and gates**, on the lane tree. A new `tests.py` class,
+`TestQ844BranchSubBranchBuildShaGuard`, holds four tests. For each of `--branch` and `--sub-branch`:
+a foreign `build.sha` exits 26, prints both digests, and leaves only `build.sha` in the directory.
+The positive controls cover no `build.sha` (the file is created with the binary's digest), a matching
+one (the PASS line is printed) and the override (the file is rewritten). All three go on to write
+their output. An invalid `--sub-branch` request exits 1 and writes nothing. A source check requires
+`kc_h_exe_sha()` to go through `pthread_once`, with no direct call of its initializer. On the pre-fix
+`solve.c` the class fails 9 subtests. Six mutants are each killed: the `--branch` check deleted, the
+`--sub-branch` check deleted, the `--sub-branch` check moved ahead of argument validation, exit 1
+instead of 26, the `--sub-branch` result ignored, and the unguarded `done` flag restored. The last
+one is caught only by the source check. No test can make two threads race on the old cache in a
+repeatable way.
+`TestQ840MergeBuildShaVerdictAndWriterIdentity` had two premises that were true only while these
+paths ran no check: that a `--sub-branch` fixture and a `--branch` run leave a planted foreign
+`build.sha` in place. Both runs now pass `SOLVE_ALLOW_BUILD_MISMATCH=1`, and the premises now
+require `build.sha` rewritten to the binary's own digest. On these two paths the Q-840 sidecar and
+contract fix now matters only when the check is skipped, because `build.sha` and the running
+binary agree whenever it runs. solve.c's edits each replace an existing line, so no line moved.
+
+**6. Follow-up, not changed.** `scripts/perf_bench.sh` runs its default PGO training workload
+(`./solve_inst --branch 25 1`) in the remote home directory, not a fresh one. A second bench on the
+same VM would now exit 26 there, and before this change it would have resumed the first bench's
+`checkpoint.txt`. Cured in the same batch by CX-185, which moves every perf_bench.sh workload into a fresh directory.
+
+## CX-183 — `--verify` and `--validate` let the last file name win, and thirteen more modes ignored arguments they did not read (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-845, the two follow-ups CX-179 item 2 filed. Landed by Opus
+FF. Measured on the worker VM on a fresh clone of the batch-18 base with this change overlaid.
+
+**No published number moves.** Each change is in the argv dispatch, before any mode runs, and none
+is on the enumeration path. `./solve --selftest` prints `403f7202…`.
+
+**1. `--verify` and `--validate`.** Both read every argument: `--expect-kw` sets a flag and any
+other argument is taken as the file, so a second file name replaced the first. Measured on the
+pre-fix `solve.c`, with `bad.bin` a record holding pair index 63: `./solve --verify bad.bin` exits
+1 and `./solve --verify bad.bin kw.bin` exits 0, and `--validate` behaves the same way. The file
+that failed was never read. Verifying each file in turn was the other option the row gave. It was
+not taken, because no caller passes two files: every invocation in `tests.py`, `scripts/`,
+`reports/` and `documentation/` names one file, with or without `--expect-kw` before or after it.
+A second file name is now refused with exit 2 and a `VERIFY_ARGS=REFUSED` or
+`VALIDATE_ARGS=REFUSED` line, before any file is read. `--expect-kw` is still accepted in any
+position.
+
+**2. The modes that return straight from the dispatch.** These do not use `arg_offset`. They run
+and return, and any argument they did not read was dropped.
+- The seven `--null-*` modes that take no argument (`--null-debruijn-exact`, `--null-gray`,
+  `--null-latin`, `--null-latin-col`, `--null-lex`, `--null-historical`,
+  `--null-latin-explain`) ran with any number of arguments.
+- `--yield-report` reads stdin only. Given a file name, it ignored it and read stdin.
+- `--c3-min` reads one optional argument, the solutions file, and ignored any after it.
+  SOLVE_C_CLI.md showed no argument at all, while TR-12 and `tests.py` pass the file. The code
+  is right and the synopsis was not, so the synopsis now shows `[SOLUTIONS_BIN]`.
+- `--symmetry-search` compared its first argument with `--validate-counts` and dropped anything
+  else. A misspelt `--validate-count` ran phases 1 and 2 alone and exited 0.
+- `--null-random`, `--null-pair-constrained` and `--null-gray-random` read an optional sample
+  count N and ignored any argument after it. N went through `strtoull` with no check, so `1e6`
+  ran 1 sample, a word ran 0 and printed a `-nan%` rate, and `-5` wrapped to about 1.8 × 10¹⁹
+  samples (`--null-gray-random -5` was still running after 60 s). That is a misread argument rather than a dropped one, in
+  the same place, so it is fixed here too: N must be a positive decimal integer of at most 19
+  digits.
+
+Each now exits 2 with a `<MODE>_ARGS=REFUSED` line (`NULL_DEBRUIJN_EXACT`, `NULL_GRAY`,
+`NULL_LATIN`, `NULL_LATIN_COL`, `NULL_LEX`, `NULL_HISTORICAL`, `NULL_LATIN_EXPLAIN`,
+`NULL_RANDOM`, `NULL_PAIR_CONSTRAINED`, `NULL_GRAY_RANDOM`, `YIELD_REPORT`, `C3_MIN`,
+`SYMMETRY_SEARCH`) and a stderr line naming the argument. Each edit replaces one existing line, so
+no line of `solve.c` moved. SOLVE_C_CLI.md has a dated same-line note in each entry, and its
+synopses now show `[N]` for the three sampling modes and `[SOLUTIONS_BIN]` for `--c3-min`.
+
+**3. No documented invocation is refused.** Each was run on the lane tree and exits as before:
+`--verify FILE` and `--validate FILE`, each with `--expect-kw` before or after the file;
+`--c3-min FILE`; `--symmetry-search`, and `--symmetry-search --validate-counts` and `--yield-report`, each on an
+empty stdin (`--yield-report` exits 1 there, as before, saying it found no log lines); the seven argument-free `--null-*` modes bare;
+`--null-random [N]` and `--null-pair-constrained [N]` as SOLVE.md gives them, including
+`--null-pair-constrained 1000000` (`scripts/tr12_repro.sh`) and `--null-pair-constrained
+1000000000` (QUERY_INVENTORY.md); and `--null-gray-random [N]`. The three slow argument-free
+modes, `--null-debruijn-exact`, `--null-latin` and `--null-latin-col`, were not run bare; their
+refusal is the same `argc > 2` test as `--null-gray`, which was.
+
+**4. Tests**, on the lane tree. A new `tests.py` class, `TestQ845MoreArgRefusal`, has 36 refusal
+cases. Each requires exit 2, the mode's `_ARGS=REFUSED` line and nothing on stdout. On the
+pre-fix `solve.c` all 36 fail: the modes run and exit 0, `--yield-report` exits 1 on empty
+stdin, and the slow modes and the `-5` cases hit the 30 s test timeout. The positive control runs
+19 documented forms and requires no refusal and the old exit code. It includes `--verify bad.bin`
+and `--validate bad.bin` alone, which exit 1, so the two-file case can tell which file was
+checked. Twenty-five mutants are killed: each of the fifteen refusal branches disabled in turn;
+the limit of each sampling mode and of `--c3-min` lowered by one, which refuses an accepted
+argument; each of the three N checks (digits only, at most 19 digits, not zero) removed from
+`--null-random`; `--symmetry-search`'s test inverted; and the file counter of `--verify` and of
+`--validate` pre-incremented, which refuses the first file.
+
+**5. Not changed.** Outside the dispatch block that holds these modes, fourteen later
+subcommands have no `argc` and no `argv[2]` or later in their dispatch branch (a text search, not a
+read of each), among them `--selftest`,
+`--selftest-resume`, `--f4p-verify`, `--dav-verify`, `--print-config` and `--cpu-features`. Whether
+each drops extra arguments or passes them to the general parser was not checked. It is filed as a
+follow-up.
+
+**6. Gates**, on the lane tree. `python3 tests.py` 594 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS. solve.c and tests.py
+are in the TR-12 reproduction fingerprint, so the stamp needs re-stamping.
+
+## CX-184 — three solve.py readers of the solution record accepted a pair index of 32..63; they now refuse it with the solve.c text (solve.py; tests.py; documentation/SOLVE_PY_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-846, the follow-up CX-181 filed. Landed by Opus FG. Measured
+on the worker VM on a fresh clone of the batch-18 base with this change overlaid.
+
+**1. The defect.** A record byte is `(pair_index<<2)|(orient<<1)`, so `byte >> 2` is 0..63 and the
+pair table has 32 entries. solve.c refuses a byte of `0x80`..`0xFF` (CX-139). Three solve.py modes
+did not. On a file of two records, King Wen and a copy with byte 1 set to `0x80` (pair index 32)
+or `0xFC` (63), the old code did this:
+- `--branch-yield-report` exited 0 and printed a bucket `(32, 0)` or `(63, 0)` next to `(1, 0)`.
+  Its depth-2 and depth-3 keys read bytes 2 and 3 the same way.
+- `--keystone-analysis` exited 0 and wrote its report. The boundary mask compares each pair index
+  with its position, so the bad byte counted as a non-match to King Wen.
+- `--compute-stats` exited 1 with a numpy traceback, `IndexError: index 32 is out of bounds for
+  axis 0 with size 32`, from the sequence build. That is loud, but it is not a named refusal and
+  it prints no `COMPUTE_STATS=` line.
+
+None of the three can read out of bounds. The first two turned corrupt input into a report.
+
+**2. The fix.** Three functions are appended at the end of solve.py, after the last function.
+`_pidx_scan` checks every byte of the records it is given. A byte below `0x80` is a pair index
+below 32, so the check on a whole chunk is one comparison per byte. On a bad byte it raises
+`PairIndexOutOfRange`, a `ValueError`, with the solve.c text: `PAIR_INDEX_OUT_OF_RANGE: PATH
+record R byte B = 0xVV decodes pair index P, outside the 32-entry pair table (...); refusing to
+decode`. R is 0-based, as solve.c counts it. PATH is the input as the user named it, so a gzipped
+input is named and not the temp file it is inflated to. Nothing is clamped or skipped.
+- `--branch-yield-report`: each 32 MB chunk is scanned as it is read. The mode already turns a
+  `ValueError` into `ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN PATH: ...`, rc 2, so
+  the refusal reaches the CLI in that shape. The baseline file is read by the same reader and is
+  refused as `BASELINE_BIN`.
+- `--keystone-analysis`: `_keystone_decode_pair_positions` scans each chunk. Through the CLI it
+  prints `KEYSTONE_ANALYSIS=FAIL PAIR_INDEX_OUT_OF_RANGE: ...` on stdout and `ERROR:
+  PAIR_INDEX_OUT_OF_RANGE: ...` on stderr and exits 1. No report is written.
+- `--compute-stats`: each pool worker scans its chunk before it computes anything, so no chunk
+  file is written for a bad chunk. The parent turns the error into `COMPUTE_STATS=FAIL
+  PAIR_INDEX_OUT_OF_RANGE: ...` and exits 1. Chunks that finished before the refusal stay in
+  OUT_DIR. The mode's existing check refuses a populated OUT_DIR on the next run. Called
+  directly, `_p2_build_hexagram_sequence` also scans, so `_p2_compute_all_stats` and the V3
+  adapter raise the named error, not `IndexError`.
+
+Each existing line that changed was replaced by one line, so no line of solve.py above the
+appended functions moved. On valid input nothing a mode writes changes. Each mode was run before
+and after the change on the selftest artifact, rebuilt on the worker (decompressed sha256
+`403f7202…`, 135,780 records), both gzipped and raw: `--compute-stats` in 4,096-record chunks,
+`--keystone-analysis` with its dump, and `--branch-yield-report` at depths 1, 2 and 3 and with a
+baseline. All 106 output files were compared, and 93 are byte-identical. They include all 92
+data files: 68 parquet chunks, 2 sidecars, 10 keystone dump files, and 6 CSV and 6 JSON reports.
+The other 13 are 11 console logs and the 2 keystone reports. They differ only in temp-file names
+and timing figures, and are identical once those are masked.
+
+**3. The test.** `TestQ846SolvePyPairIndexBounds` in tests.py writes two-record files with the bad
+record at record 1. It sets byte 1 to index 32 and to 63, byte 31 to 32, and byte 0 to 63. It
+runs each mode through the CLI and requires the exit code, the full refusal text with the path,
+record, byte, value and index, and no output: no bucket line, no keystone report, no parquet
+chunk. A gzipped four-record file checked with a chunk size of 1 pins two things: the record
+number is counted across chunks, and the refusal names the gzipped input. The three decoders are
+also called directly. The clean King Wen file is the positive control in every mode. On the old
+solve.py the three positive controls pass and the other five tests fail, with 37 failing cases.
+All eight pass on the new one. Nine mutants each turn the class red:
+- the scan disabled;
+- the scan's bound loosened from `0x80` to `0x84`;
+- the scan call removed at each of the four call sites;
+- the parent's error handler removed;
+- the chunk-offset record number off by one;
+- the keystone record number held at 0.
+
+A fifth scan, at the top of `_p2_compute_all_stats`, was drafted and then dropped. Its mutant
+stayed green, because the sequence build two lines later already refuses.
+
+**4. The sweep.** Every solve.py and roae.py reader of the 32-byte record was listed.
+- `--branch-yield-report` prefix buckets, `--keystone-analysis` boundary mask, and the
+  `--compute-stats` sequence build: fixed here.
+- `--compute-stats` `edit_dist_kw` and `position_2_pair`: they compare or copy the index without
+  using it as a subscript. Their function returns nothing unless the sequence build it calls
+  passes its scan.
+- The V3 superspace adapter: it builds its records itself, from pair-table lookups of 0..31, and
+  its decode goes through the scanned sequence build.
+- `--encode-solutions`: it writes records from pair-table codes. Its round-trip reads them back
+  through verify.py's `decode`, which checks `p >= 32`.
+- roae.py: it reads no solution records.
+
+**5. Gates**, on the lane tree. `python3 tests.py` 600 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS. solve.c did
+not change. solve.py, tests.py and SOLVE_PY_CLI.md are in the TR-12 reproduction fingerprint,
+so the stamp needs re-stamping.
+
+## CX-185 — `scripts/perf_bench.sh` ran its PGO training workload in the VM's login directory, so a second bench on the same host resumed the first one's checkpoint; every workload now runs in a fresh `mktemp -d` (scripts/perf_bench.sh, tests.py, documentation/DEVELOPMENT.md)
+
+**2026-09-26.** Origin: backlog row Q-847. Landed by Opus FH. Measured on the worker VM on a fresh
+clone of the batch-18 base with this change overlaid. No VM was provisioned: the script was run
+end to end with `az`, `ssh`, `scp`, `sudo`, `gcc`, `sleep` and `yes` replaced by PATH stubs.
+
+**1. The defect.** With `--treatment-pgo`, `scripts/perf_bench.sh` trains the instrumented build
+on a short `--branch 25 1` run. The default workload named the binary `./solve_inst` and ran in
+the ssh login directory on the VM. Nothing clears that directory between benches, and solve.c
+writes `checkpoint.txt` there and reads it back on the next start. A second bench on the same
+host therefore resumed the first bench's run and trained the profile on whatever work was left.
+It did not train on a full run. `scripts/build_pgo.sh` had the same defect and was fixed on
+2026-09-25 (Q-756) by running its workload in a new `mktemp -d` directory. perf_bench.sh copies
+that build step inline, so it did not get the fix.
+
+**2. The fix.** The PGO workload now runs in `mktemp -d "$PWD/pgo_work.XXXXXX"`, as build_pgo.sh
+does. The instrumented binary is exported as `$INSTR_BIN`, an absolute path. The default workload
+names `"$INSTR_BIN"` instead of `./solve_inst`. The `.gcda` files still go to the absolute
+`profdir`, so moving the working directory does not move them. As in build_pgo.sh, the directory
+is kept for forensics and its path is printed. A custom `--pgo-workload` that names `./solve_inst`
+would fail with rc 127 in the new directory, so the argument check refuses it with exit 2, before
+any VM is provisioned.
+
+The two paired bench runs also used a reused name. They ran `rm -rf run_X && mkdir run_X && cd
+run_X` under `set +e`, so a failed `mkdir` or `cd` fell through and the bench ran in the login
+directory. Each run now makes its own `mktemp -d` directory. If that fails, the run reports
+`enum_rc=WORKDIR-FAILED`, and the collector already treats a non-zero rc as an incomplete bench.
+The run directory is printed on the transcript, and the artifact pull reads it from there.
+
+**3. The test.** `TestQ847PerfBenchFreshWorkdir` in tests.py runs the script twice, with the
+default PGO workload, against one fake host that persists between the two runs. The stub solve
+logs FRESH, or RESUMED when `checkpoint.txt` is already in its working directory, together with
+that directory. All six workloads must log FRESH: the PGO run and the two paired runs of each
+bench. They must use six different directories, none of them the login directory, and no
+`checkpoint.txt` may be left in the login directory. The positive control runs the stub twice in
+one directory and requires FRESH then RESUMED. Two more checks cover the refusal: a workload
+naming `./solve_inst` must exit 2, and `az` must not be called. On the old script the test is red.
+The second bench's PGO run logs RESUMED, and the refusal test gets rc 0 instead of 2. Four mutants
+were each killed: running the workload in the login directory, a fixed reused PGO directory, a
+fixed reused bench-run directory, and removing the refusal.
+
+**4. The sweep.** Every tracked shell script that runs a solve workload was checked for a reused
+working directory.
+- `scripts/build_pgo.sh`: fresh `mktemp -d` since Q-756.
+- `scripts/manifest_zero_entry_gate.sh`, `scripts/q317_missing_shard_merge_gate.sh`,
+  `scripts/resume_budget_infinity_gate.sh`, `scripts/test_eviction_resume_manifest.sh`: each runs
+  its solve workloads under a new `mktemp -d` directory.
+- `scripts/exec_lane.sh`: commands run in a new `mktemp -d` workspace.
+- `scripts/selftest_resume_167_gate.sh`: fresh when it makes its own directory. With a
+  caller-supplied `--workdir`, `run_gate` only runs `mkdir -p` on `tdir_A` and `tdir_B`. After a
+  FAIL or a `--keep` run those directories are left in place, so a second run with the same
+  `--workdir` would start phase A beside the first run's checkpoints. This was found by reading
+  the script, not by a measurement, and is filed as a follow-up.
+- The other scripts that name `--branch` (`exec_lane_verdict_gate.sh`, `xa_exact_verdict_gate.sh`,
+  the doc gates) only parse or describe the command and run no enumeration.
+
+**5. Earlier entries.** No PERFORMANCE_HISTORY.md timing is a resume. The paired runs always
+started in a directory that was deleted and made again, and each perf_bench.sh run provisions its
+own VM. Only the PGO training profile was exposed, and only when two PGO builds ran on one host.
+The script never does that on its own. The entries whose profile came from the same
+`--branch 25 1` training run are the 2026-05-18 task #78 pilot and v2 retry, and the 2026-05-18
+v3 rerun. The public text does not say whether their builds shared a host. It does say that the
+v3 rerun was on a different host from the v2 retry. This is reported, and no entry was edited.
+
+**6. Gates**, on the lane tree. `python3 tests.py` 596 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS. The
+citation gate asked for eight `perf_bench.sh` line citations in documentation/DEVELOPMENT.md to be
+re-pinned, and each was re-pinned on its own line. solve.c did not change. tests.py is in the
+TR-12 reproduction fingerprint, so the stamp was re-stamped.

@@ -14369,7 +14369,10 @@ class TestQ840MergeBuildShaVerdictAndWriterIdentity(unittest.TestCase):
     sidecar's writes[].binary_sha256 and resume_contract.txt's build_sha= copied build.sha, which
     --sub-branch and --branch never check or write, so a planted value was recorded verbatim; both
     now carry the writing binary's own digest. ROAE_TESTS_SOLVE_SRC builds a different source
-    (used to show each test red on the pre-fix solve.c); nothing in the harness sets it."""
+    (used to show each test red on the pre-fix solve.c); nothing in the harness sets it.
+    Q-844 (lane FE) made --sub-branch and --branch refuse a foreign build.sha (exit 26) as the
+    enum path does, so the fixture and the --branch run now pass SOLVE_ALLOW_BUILD_MISMATCH=1,
+    under which the check rewrites build.sha with this binary's digest before any shard."""
 
     FOREIGN = "ab" * 32
     ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30",
@@ -14397,7 +14400,8 @@ class TestQ840MergeBuildShaVerdictAndWriterIdentity(unittest.TestCase):
             fh.write(cls.FOREIGN + "\n")
         cls.fixture_ok, cls.fixture_err = False, "not built"
         if cls.build_ok:
-            r = subprocess.run([cls.sbin] + cls.SUB, cwd=cls.fixture, env=cls._env(),
+            r = subprocess.run([cls.sbin] + cls.SUB, cwd=cls.fixture,
+                               env=cls._env(SOLVE_ALLOW_BUILD_MISMATCH="1"),
                                capture_output=True, text=True, timeout=600)
             cls.fixture_ok = (r.returncode == 0 and
                               os.path.exists(os.path.join(cls.fixture, cls.SHARD)))
@@ -14475,9 +14479,10 @@ class TestQ840MergeBuildShaVerdictAndWriterIdentity(unittest.TestCase):
     def test_sub_branch_sidecar_names_the_writing_binary(self):
         import json
         self._need()
-        # Premise: --sub-branch never checks or writes build.sha, so the planted value survives.
+        # Q-844: --sub-branch now runs the build.sha check; under the override it rewrote the
+        # planted value with this binary's digest.
         with open(os.path.join(self.fixture, "build.sha")) as fh:
-            self.assertEqual(fh.read().strip(), self.FOREIGN)
+            self.assertEqual(fh.read().strip(), self.self_sha)
         with open(os.path.join(self.fixture, self.SHARD + ".provenance.json")) as fh:
             writes = json.load(fh)["writes"]
         self.assertTrue(writes)
@@ -14490,14 +14495,15 @@ class TestQ840MergeBuildShaVerdictAndWriterIdentity(unittest.TestCase):
         with open(os.path.join(d, "build.sha"), "w") as fh:
             fh.write(self.FOREIGN + "\n")
         r = subprocess.run([self.sbin, "--branch", "1", "0"], cwd=d,
-                           env=self._env(SOLVE_DFS_CHECKPOINT="1"), capture_output=True,
+                           env=self._env(SOLVE_DFS_CHECKPOINT="1", SOLVE_ALLOW_BUILD_MISMATCH="1"),
+                           capture_output=True,
                            text=True, timeout=600)
         self.assertEqual(r.returncode, 0, r.stderr[-2000:])
         with open(os.path.join(d, "resume_contract.txt")) as fh:
             lines = [ln.strip() for ln in fh if ln.startswith("build_sha=")]
         self.assertEqual(lines, ["build_sha=" + self.self_sha])
-        with open(os.path.join(d, "build.sha")) as fh:   # premise: --branch never rewrote it
-            self.assertEqual(fh.read().strip(), self.FOREIGN)
+        with open(os.path.join(d, "build.sha")) as fh:   # Q-844: the override rewrote it
+            self.assertEqual(fh.read().strip(), self.self_sha)
 # end class TestQ840MergeBuildShaVerdictAndWriterIdentity (lane FB)
 
 
@@ -14577,6 +14583,591 @@ class TestQ843C3DistPairIndexBoundary(unittest.TestCase):
                     self.assertNotIn("[c3-dist]", r.stdout)
                     self.assertNotIn("C3 range in dataset", r.stdout)
 # end class TestQ843C3DistPairIndexBoundary (lane FD)
+
+
+class TestQ844BranchSubBranchBuildShaGuard(unittest.TestCase):
+    """Lane FE: Q-844.
+
+    --sub-branch and --branch write shards into the working directory and resume from its
+    checkpoints, but only the full-enumeration path ran check_build_sha_invariant, so a resume
+    there with a different binary was not refused. Both now run it with the enum rule: a first
+    run writes build.sha, a foreign one exits 26 and is left untouched, SOLVE_ALLOW_BUILD_MISMATCH=1
+    overrides (and rewrites build.sha). --branch checks before reading checkpoint.txt;
+    --sub-branch checks after its arguments are validated, so a refused request writes nothing.
+    Also: kc_h_exe_sha() computes its cache under pthread_once, so a worker-thread caller cannot
+    read a half-built digest. ROAE_TESTS_SOLVE_SRC builds a different source (used to show the
+    tests red on the pre-fix solve.c and on mutants); nothing in the harness sets it."""
+
+    FOREIGN = "cd" * 32
+    ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30",
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+    MODES = {"branch": ["--branch", "1", "0"],
+             "sub_branch": ["--sub-branch", "1", "0", "2", "0", "3", "0", "0", "1"]}
+    BAD_SUB = ["--sub-branch", "1", "0", "1", "0", "3", "0", "0", "1"]   # p2 == p1: invalid
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q844fe_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q844fe")
+        cls.src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, cls.src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.self_sha = ""
+        if cls.build_ok:
+            with open(cls.sbin, "rb") as fh:
+                cls.self_sha = hashlib.sha256(fh.read()).hexdigest()
+
+    @classmethod
+    def tearDownClass(cls):
+        tmp = getattr(cls, "tmp", None)
+        if tmp and os.path.isdir(tmp):
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def _need(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        self.assertRegex(self.self_sha, r"^[0-9a-f]{64}$")
+        self.assertNotEqual(self.self_sha, self.FOREIGN)
+
+    def _run(self, name, argv, build_sha, **extra):
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        if build_sha is not None:
+            with open(os.path.join(d, "build.sha"), "w") as fh:
+                fh.write(build_sha + "\n")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(self.ENV)
+        env.update(extra)
+        r = subprocess.run([self.sbin] + argv, cwd=d, env=env, capture_output=True, text=True,
+                           timeout=600)
+        bs = os.path.join(d, "build.sha")
+        got = None
+        if os.path.exists(bs):
+            with open(bs) as fh:
+                got = fh.read().strip()
+        shards = sorted(f for f in os.listdir(d) if f.startswith("sub_") and f.endswith(".bin"))
+        return d, r, got, shards
+
+    def _wrote_output(self, mode, d, shards):
+        # --branch at this budget finds 0 records (no shard) but writes its results; --sub-branch
+        # writes its shard. Either way the run went past the check and wrote into the directory.
+        if mode == "branch":
+            self.assertTrue(os.path.exists(os.path.join(d, "results_1_0.json")), os.listdir(d))
+        else:
+            self.assertEqual(shards, ["sub_1_0_2_0_3_0.bin"])
+
+    def test_foreign_build_sha_is_refused_with_exit_26(self):
+        self._need()
+        for mode, argv in sorted(self.MODES.items()):
+            with self.subTest(mode=mode):
+                d, r, got, shards = self._run("foreign_" + mode, argv, self.FOREIGN)
+                self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+                self.assertIn("ERROR: build.sha mismatch", r.stderr)
+                self.assertIn(self.FOREIGN, r.stderr)
+                self.assertIn(self.self_sha, r.stderr)
+                self.assertEqual(got, self.FOREIGN, "a refused run rewrote build.sha")
+                self.assertEqual(shards, [], "a refused run wrote a shard")
+                self.assertEqual(sorted(os.listdir(d)), ["build.sha"],
+                                 "a refused run wrote something")
+
+    def test_positive_controls_first_run_match_and_override(self):
+        self._need()
+        for mode, argv in sorted(self.MODES.items()):
+            with self.subTest(mode=mode, case="absent"):
+                d, r, got, shards = self._run("absent_" + mode, argv, None)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertIn("[hardening] build.sha CREATED (binary sha " + self.self_sha,
+                              r.stderr)
+                self.assertEqual(got, self.self_sha)
+                self._wrote_output(mode, d, shards)
+            with self.subTest(mode=mode, case="match"):
+                d, r, got, shards = self._run("match_" + mode, argv, self.self_sha)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertIn("[hardening] build.sha PASS (binary sha " + self.self_sha,
+                              r.stderr)
+                self.assertEqual(got, self.self_sha)
+                self._wrote_output(mode, d, shards)
+            with self.subTest(mode=mode, case="override"):
+                d, r, got, shards = self._run("override_" + mode, argv, self.FOREIGN,
+                                              SOLVE_ALLOW_BUILD_MISMATCH="1")
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertIn("proceeding because SOLVE_ALLOW_BUILD_MISMATCH=1", r.stderr)
+                self.assertEqual(got, self.self_sha)
+                self._wrote_output(mode, d, shards)
+
+    def test_invalid_sub_branch_request_writes_no_build_sha(self):
+        self._need()
+        d, r, got, shards = self._run("bad_absent", self.BAD_SUB, None)
+        self.assertEqual(r.returncode, 1, r.stdout[-2000:] + r.stderr[-2000:])
+        self.assertIn("Invalid p2 index", r.stdout)
+        self.assertEqual(os.listdir(d), [], "an invalid request wrote into the directory")
+        d, r, got, shards = self._run("bad_foreign", self.BAD_SUB, self.FOREIGN)
+        self.assertEqual(r.returncode, 1, r.stdout[-2000:] + r.stderr[-2000:])
+        self.assertEqual(got, self.FOREIGN)
+
+    def test_kc_h_exe_sha_cache_is_pthread_once_guarded(self):
+        with open(self.src) as fh:
+            src = fh.read()
+        m = re.search(r"^static const char \*kc_h_exe_sha\(void\) \{(.*?)^\}|"
+                      r"^static const char \*kc_h_exe_sha\(void\) \{([^\n]*\n[^\n]*\})",
+                      src, re.S | re.M)
+        self.assertIsNotNone(m, "kc_h_exe_sha definition not found")
+        body = m.group(1) if m.group(1) is not None else m.group(2)
+        self.assertIn("pthread_once(&kc_h_exe_sha_once, kc_h_exe_sha_init)", body)
+        self.assertNotIn("static int done", body)
+        self.assertEqual(src.count("kc_h_exe_sha_init()"), 0,
+                         "kc_h_exe_sha_init called directly, bypassing pthread_once")
+        self.assertEqual(len(re.findall(r"kc_h_exe_sha_buf", src)), 4,
+                         "kc_h_exe_sha_buf read or written outside kc_h_exe_sha / its init")
+# end class TestQ844BranchSubBranchBuildShaGuard (lane FE)
+
+
+class TestQ845MoreArgRefusal(unittest.TestCase):
+    """Lane FF: Q-845 (the Q-839 sibling sweep, second half).
+
+    --verify and --validate read every argument and let the last file name win, so
+    `--verify BAD KW` verified KW alone and exited 0. The seven argument-free --null-* modes,
+    --yield-report, --c3-min (one optional file) and --symmetry-search (one optional
+    --validate-counts) returned from the dispatch ignoring any argument they did not read, and
+    the three sampling --null-* modes read N with an unchecked strtoull ('1e6' ran 1 sample, a
+    word ran 0, '-5' wrapped to ~1.8e19 and does not finish). Each now exits 2 with a
+    `<MODE>_ARGS=REFUSED` line before any work. RED on the pre-fix solve.c (via
+    ROAE_TESTS_SOLVE_SRC): every REFUSE case exits 0 (or 1 for --yield-report) or hits the
+    timeout. Positive controls: every documented invocation still runs, and BAD alone fails
+    --verify/--validate, so the two-file case discriminates. ROAE_TESTS_SOLVE_SRC is never set
+    by the harness."""
+
+    NULL0 = ["--null-debruijn-exact", "--null-gray", "--null-latin", "--null-latin-col",
+             "--null-lex", "--null-historical", "--null-latin-explain"]
+    NULLN = ["--null-random", "--null-pair-constrained", "--null-gray-random"]
+
+    @staticmethod
+    def _tok(mode):
+        return mode[2:].upper().replace("-", "_")
+
+    @classmethod
+    def refuse_cases(cls):
+        cases = [("--verify", ["BAD", "KW"], "VERIFY"),
+                 ("--verify", ["--expect-kw", "KW", "KW"], "VERIFY"),
+                 ("--validate", ["BAD", "KW"], "VALIDATE"),
+                 ("--validate", ["KW", "--expect-kw", "KW"], "VALIDATE"),
+                 ("--c3-min", ["KW", "extra"], "C3_MIN"),
+                 ("--yield-report", ["log.txt"], "YIELD_REPORT"),
+                 ("--symmetry-search", ["--validate-count"], "SYMMETRY_SEARCH"),   # misspelt
+                 ("--symmetry-search", ["--validate-counts", "x"], "SYMMETRY_SEARCH")]
+        cases += [(m, ["x"], cls._tok(m)) for m in cls.NULL0]
+        for m in cls.NULLN:
+            for extra in (["1000", "x"], ["1e6"], ["x"], ["0"], ["-5"], [""],
+                          ["99999999999999999999"]):
+                cases.append((m, extra, cls._tok(m)))
+        return cases
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q845_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q845")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        kw = bytes(i << 2 for i in range(32))          # KW = pairs 0..31 in order, orient 0
+        bad = bytearray(kw); bad[5] = 0xFC               # pair index 63: both checkers fail it
+        hdr = b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16
+        cls.kw = os.path.join(cls.tmp, "kw.bin")
+        cls.bad = os.path.join(cls.tmp, "bad.bin")
+        with open(cls.kw, "wb") as fh:
+            fh.write(hdr + kw)
+        with open(cls.bad, "wb") as fh:
+            fh.write(hdr + bytes(bad))
+
+    @classmethod
+    def tearDownClass(cls):
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, argv, timeout=30):
+        argv = [{"KW": self.kw, "BAD": self.bad}.get(a, a) for a in argv]
+        d = tempfile.mkdtemp(dir=self.tmp)
+        try:
+            return subprocess.run([self.sbin] + argv, cwd=d, capture_output=True, text=True,
+                                  stdin=subprocess.DEVNULL, timeout=timeout,
+                                  env=dict(os.environ, OMP_NUM_THREADS="2"))
+        except subprocess.TimeoutExpired:
+            return None
+
+    def test_unread_arguments_are_refused(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode, extra, tok in self.refuse_cases():
+            with self.subTest(argv=[mode] + extra):
+                r = self._run([mode] + extra)
+                self.assertIsNotNone(r, mode + " ran past the timeout instead of refusing")
+                self.assertEqual(r.returncode, 2, mode + ": " + r.stdout[-300:] + r.stderr[-300:])
+                self.assertIn(tok + "_ARGS=REFUSED", r.stderr.splitlines())
+                self.assertEqual(r.stdout, "", mode + " must refuse before doing any work")
+
+    def test_documented_invocations_are_not_refused(self):
+        # Positive control: each documented form (SOLVE_C_CLI.md, SOLVE.md, tests.py,
+        # scripts/tr12_repro.sh) still runs. The slow argument-free null modes
+        # (--null-debruijn-exact, --null-latin, --null-latin-col) are covered by the same
+        # `argc > 2` shape as --null-gray and are not run here.
+        self.assertTrue(self.build_ok, self.build_err)
+        ok = [(["--verify", "KW"], 0), (["--verify", "--expect-kw", "KW"], 0),
+              (["--verify", "KW", "--expect-kw"], 0), (["--verify", "BAD"], 1),
+              (["--validate", "KW"], 0), (["--validate", "--expect-kw", "KW"], 0),
+              (["--validate", "KW", "--expect-kw"], 0), (["--validate", "BAD"], 1),
+              (["--c3-min", "KW"], 0), (["--symmetry-search"], 0),
+              (["--symmetry-search", "--validate-counts"], 0),
+              (["--yield-report"], 1),                 # empty stdin: the mode ran and said so
+              (["--null-gray"], 0), (["--null-lex"], 0), (["--null-historical"], 0),
+              (["--null-latin-explain"], 0), (["--null-random", "1000"], 0),
+              (["--null-pair-constrained", "1000000"], 0), (["--null-gray-random", "1000"], 0)]
+        for argv, want_rc in ok:
+            with self.subTest(argv=argv):
+                r = self._run(argv, timeout=120)
+                self.assertIsNotNone(r, "timeout")
+                out = r.stdout + r.stderr
+                self.assertNotIn("_ARGS=REFUSED", out)
+                self.assertEqual(r.returncode, want_rc, out[-500:])
+        r = self._run(["--yield-report"])
+        self.assertIn("ERROR: no 'Wrote N solutions to sub_*.bin' lines found on stdin", r.stderr)
+        r = self._run(["--null-random", "1000"])
+        self.assertIn("# Null-model: 1000 uniformly random 64-permutations", r.stdout)
+
+# end class TestQ845MoreArgRefusal (lane FF)
+
+
+class TestQ846SolvePyPairIndexBounds(unittest.TestCase):
+    """Lane FG: Q-846.
+
+    A record byte is `(pair_index<<2)|(orient<<1)`, so `byte >> 2` is 0..63 and the pair table
+    has 32 entries. solve.c refuses a byte of 0x80..0xFF (CX-139). Three solve.py readers did not:
+    `--branch-yield-report` bucketed the bad index and exited 0, `--keystone-analysis` counted it
+    as a non-match to King Wen and exited 0, and `--compute-stats` died on a bare numpy IndexError
+    traceback. Each now refuses with the solve.c text `PAIR_INDEX_OUT_OF_RANGE: PATH record R
+    byte B = 0xVV decodes pair index P, ...` in its own refusal shape and a non-zero exit. The
+    bad record is record 1 (0-based, as solve.c counts), the lowest (32) and highest (63) bad
+    index are both used, and the clean King Wen file is the positive control for every mode."""
+
+    CASES = ((1, 32), (1, 63), (31, 32), (0, 63))   # (byte, pair index): 0x80 / 0xFC
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest("numpy absent: the readers under test need it")
+        cls.tmp = tempfile.mkdtemp(prefix="q846_")
+        cls.kw = bytes(i << 2 for i in range(32))       # King Wen: pairs 0..31 in order, orient 0
+        cls.good = cls._write("kw.bin", [cls.kw, cls.kw])
+        try:
+            import pyarrow  # noqa: F401
+            cls.have_pyarrow = True
+        except ImportError:
+            cls.have_pyarrow = False
+
+    @classmethod
+    def tearDownClass(cls):
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _write(cls, name, recs, gz=False):
+        path = os.path.join(cls.tmp, name)
+        body = b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", len(recs)) + b"\0" * 16 \
+            + b"".join(recs)
+        with (gzip.open(path, "wb") if gz else open(path, "wb")) as f:
+            f.write(body)
+        return path
+
+    def _bad(self, byte, pidx, gz=False, n_after=1):
+        rec = bytearray(self.kw)
+        rec[byte] = (pidx << 2) & 0xFF
+        name = "bad_b%d_p%d%s.bin" % (byte, pidx, "_gz" if gz else "")
+        return self._write(name, [self.kw, bytes(rec)] + [self.kw] * n_after, gz), rec[byte]
+
+    def _msg(self, path, byte, val, pidx):
+        return ("PAIR_INDEX_OUT_OF_RANGE: %s record 1 byte %d = 0x%02X decodes pair index %d, "
+                "outside the 32-entry pair table" % (path, byte, val, pidx))
+
+    def _py(self, *args):
+        return subprocess.run([sys.executable, "solve.py"] + list(args), capture_output=True,
+                              text=True, timeout=600)
+
+    # ---- positive controls: the clean King Wen file ----------------------------------------
+    def test_positive_control_branch_yield_report(self):
+        for depth in ("1", "2", "3"):
+            r = self._py("--branch-yield-report", self.good, "--branch-yield-depth", depth)
+            self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-600:])
+            self.assertIn("2 records bucketed into 1 ", r.stdout)
+            self.assertNotIn("PAIR_INDEX_OUT_OF_RANGE", r.stdout + r.stderr)
+
+    def test_positive_control_keystone_analysis(self):
+        md = os.path.join(self.tmp, "ks_good.md")
+        r = self._py("--keystone-analysis", self.good, md)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-600:])
+        self.assertTrue(os.path.exists(md))
+        self.assertNotIn("PAIR_INDEX_OUT_OF_RANGE", r.stdout + r.stderr)
+
+    def test_positive_control_compute_stats(self):
+        if not self.have_pyarrow:
+            self.skipTest("pyarrow absent: --compute-stats needs it")
+        out = os.path.join(self.tmp, "cs_good")
+        r = self._py("--compute-stats", self.good, out, "--compute-stats-workers", "1")
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-600:])
+        self.assertIn("COMPUTE_STATS=PASS 2 rows in 1 chunks", r.stdout)
+        self.assertNotIn("PAIR_INDEX_OUT_OF_RANGE", r.stdout + r.stderr)
+
+    # ---- the refusals -----------------------------------------------------------------------
+    def test_branch_yield_report_refuses(self):
+        for byte, pidx in self.CASES:
+            path, val = self._bad(byte, pidx)
+            for depth in ("1", "2", "3"):
+                with self.subTest(byte=byte, pidx=pidx, depth=depth):
+                    r = self._py("--branch-yield-report", path, "--branch-yield-depth", depth)
+                    self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-600:])
+                    self.assertIn("ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN %s: %s"
+                                  % (path, self._msg(path, byte, val, pidx)), r.stdout)
+                    self.assertNotIn("records bucketed", r.stdout)
+            with self.subTest(byte=byte, pidx=pidx, leg="baseline"):
+                r = self._py("--branch-yield-report", self.good, "--branch-yield-baseline", path)
+                self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("ERROR: --branch-yield-report: cannot read BASELINE_BIN %s: %s"
+                              % (path, self._msg(path, byte, val, pidx)), r.stdout)
+
+    def test_keystone_analysis_refuses(self):
+        for byte, pidx in self.CASES:
+            path, val = self._bad(byte, pidx)
+            md = os.path.join(self.tmp, "ks_b%d_p%d.md" % (byte, pidx))
+            with self.subTest(byte=byte, pidx=pidx):
+                r = self._py("--keystone-analysis", path, md)
+                self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("KEYSTONE_ANALYSIS=FAIL " + self._msg(path, byte, val, pidx),
+                              r.stdout)
+                self.assertIn("ERROR: " + self._msg(path, byte, val, pidx), r.stderr)
+                self.assertFalse(os.path.exists(md), "a report was written over corrupt input")
+
+    def test_compute_stats_refuses(self):
+        if not self.have_pyarrow:
+            self.skipTest("pyarrow absent: --compute-stats needs it")
+        for byte, pidx in self.CASES:
+            path, val = self._bad(byte, pidx)
+            out = os.path.join(self.tmp, "cs_b%d_p%d" % (byte, pidx))
+            with self.subTest(byte=byte, pidx=pidx):
+                r = self._py("--compute-stats", path, out, "--compute-stats-workers", "1")
+                self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("COMPUTE_STATS=FAIL " + self._msg(path, byte, val, pidx), r.stdout)
+                self.assertNotIn("IndexError", r.stderr)
+                self.assertNotIn("COMPUTE_STATS=PASS", r.stdout)
+                self.assertEqual(sorted(os.listdir(out)) if os.path.isdir(out) else [], [])
+
+    def test_record_index_is_counted_across_chunks_and_names_the_gz_input(self):
+        # chunk size 1 puts the bad record in the second chunk, so the record number comes from
+        # the chunk offset; the gz input must be named, not the temp file it is inflated to.
+        path, val = self._bad(31, 32, gz=True, n_after=2)
+        msg = self._msg(path, 31, val, 32)
+        r = self._py("--branch-yield-report", path)
+        self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-600:])
+        self.assertIn("SOLUTIONS_BIN %s: %s" % (path, msg), r.stdout)
+        S = _load("solve")
+        import contextlib, io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                S.keystone_analysis(path, os.path.join(self.tmp, "ks_gz.md"), chunk_size=1)
+        self.assertEqual(cm.exception.code, 1)
+        self.assertIn("KEYSTONE_ANALYSIS=FAIL " + msg, buf.getvalue())
+        if self.have_pyarrow:
+            r = self._py("--compute-stats", path, os.path.join(self.tmp, "cs_gz"),
+                         "--compute-stats-workers", "2", "--compute-stats-chunk-size", "1")
+            self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+            self.assertIn("COMPUTE_STATS=FAIL " + msg, r.stdout)
+            self.assertNotIn("roae_gz_py_", r.stdout)
+
+    def test_direct_decoders_raise_the_named_error_not_index_error(self):
+        import numpy as np
+        S = _load("solve")
+        good = np.frombuffer(self.kw * 2, dtype=np.uint8).reshape(2, 32)
+        self.assertEqual(int(S._p2_compute_all_stats(good)["edit_dist_kw"][0]), 0)   # control
+        self.assertEqual(S._keystone_decode_pair_positions(good)[1].tolist(), list(range(32)))
+        for byte, pidx in self.CASES:
+            recs = good.copy()
+            recs[1, byte] = (pidx << 2) & 0xFF
+            for fn in (S._p2_compute_all_stats, S._p2_build_hexagram_sequence,
+                       S._keystone_decode_pair_positions):
+                with self.subTest(fn=fn.__name__, byte=byte, pidx=pidx):
+                    with self.assertRaises(S.PairIndexOutOfRange) as cm:
+                        fn(recs)
+                    self.assertIn(self._msg("<records>", byte, int(recs[1, byte]), pidx),
+                                  str(cm.exception))
+# end class TestQ846SolvePyPairIndexBounds (lane FG)
+
+
+class TestQ847PerfBenchFreshWorkdir(unittest.TestCase):
+    """Lane FH: Q-847.
+
+    scripts/perf_bench.sh ran its default PGO workload (`./solve_inst --branch 25 1`) in the
+    remote login directory, which nothing clears between benches, so a second bench on the same
+    host resumed the first bench's checkpoint.txt. Every workload (the PGO training run and both
+    paired bench runs) must now run in a fresh `mktemp -d`, as scripts/build_pgo.sh does.
+
+    The script is run end to end, twice, against ONE persistent fake host: `az`, `ssh`, `scp`,
+    `sudo`, `gcc`, `sleep` and `yes` are PATH stubs (no VM, no spend, no real compile). The stub
+    `gcc` writes a stub solve whose `--branch` logs FRESH or RESUMED (checkpoint.txt already in its
+    working directory, the resume trigger of the real solve.c) and its working directory.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SCRIPT = os.path.join(ROOT, "scripts", "perf_bench.sh")
+    SESSION_LOG = "/tmp/claude_session_vms.txt"   # the script appends to it; restored below
+
+    STUBS = {
+        "az": r"""#!/bin/sh
+echo "$*" >> "$PB_AZ_LOG"
+case "$*" in "vm show"*) echo 192.0.2.1 ;; "vm create"*) echo Spot ;; esac
+exit 0
+""",
+        "ssh": r"""#!/bin/bash
+cmd="${@: -1}"
+cd "$PB_FAKE_HOME" && HOME="$PB_FAKE_HOME" exec bash -c "$cmd"
+""",
+        "scp": r"""#!/bin/bash
+src="${@: -2:1}"; dst="${@: -1}"
+case "$src" in *@*:*) src="${src#*:}"; case "$src" in /*) ;; *) src="$PB_FAKE_HOME/$src";; esac;; esac
+case "$dst" in *@*:*) dst="${dst#*:}"; case "$dst" in /*) ;; *) dst="$PB_FAKE_HOME/$dst";; esac;; esac
+exec cp "$src" "$dst"
+""",
+        "sudo": r"""#!/bin/sh
+[ "$1" = -n ] && shift
+case "$1" in tee) cat > /dev/null ;; esac
+exit 0
+""",
+        "sleep": "#!/bin/sh\nexit 0\n",
+        "yes": "#!/bin/sh\nexit 0\n",
+        "gcc": r"""#!/bin/bash
+out=""; gdir=""
+while [ $# -gt 0 ]; do
+  case "$1" in -o) out="$2"; shift 2; continue ;; -fprofile-generate=*) gdir="${1#*=}" ;; esac
+  shift
+done
+cat > "$out" <<EOF
+#!/bin/sh
+[ -n "$gdir" ] && touch "$gdir/solve.gcda"
+case "\$1" in
+  --selftest) echo "selftest: PASS" ;;
+  --branch) if [ -e checkpoint.txt ]; then st=RESUMED; else st=FRESH; fi
+            echo "\$st \$PWD" >> "\$PB_PROBE_LOG"; echo "0 COMPLETE" >> checkpoint.txt ;;
+  --merge) head -c 64 /dev/zero > solutions.bin ;;
+esac
+exit 0
+EOF
+chmod +x "$out"
+""",
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q847_")
+        cls.bin = os.path.join(cls.tmp, "bin")
+        cls.home = os.path.join(cls.tmp, "fakehost")
+        os.makedirs(cls.bin); os.makedirs(cls.home)
+        for name, body in cls.STUBS.items():
+            path = os.path.join(cls.bin, name)
+            with open(path, "w") as fh:
+                fh.write(body)
+            os.chmod(path, 0o755)
+        cls.probe_log = os.path.join(cls.tmp, "probe.log")
+        cls.az_log = os.path.join(cls.tmp, "az.log")
+        cls.env = dict(os.environ, PATH=cls.bin + os.pathsep + os.environ["PATH"],
+                       PB_FAKE_HOME=cls.home, PB_PROBE_LOG=cls.probe_log, PB_AZ_LOG=cls.az_log)
+        try:
+            cls.session_log_size = os.path.getsize(cls.SESSION_LOG)
+        except OSError:
+            cls.session_log_size = None
+        cls.pids, cls.results_dirs, cls.runs = [], [], []
+        # Two consecutive benches on the SAME fake host, default PGO workload.
+        for _ in range(2):
+            cls.runs.append(cls._bench())
+
+    @classmethod
+    def _bench(cls, *extra):
+        argv = ["bash", cls.SCRIPT, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
+                "--treatment-pgo", "--scale", "1B", "--burn-seconds", "30",
+                "--throttle-min-mhz", "0"] + list(extra)
+        p = subprocess.Popen(argv, cwd=cls.ROOT, env=cls.env, text=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, _ = p.communicate(timeout=300)
+        cls.pids.append(p.pid)
+        m = re.search(r'"artifacts": "(/tmp/perf_bench_[0-9]+_results)/"', out)
+        if m:
+            cls.results_dirs.append(m.group(1))
+        return p.returncode, out
+
+    @classmethod
+    def tearDownClass(cls):
+        for pid in getattr(cls, "pids", []):
+            for path in [f"/tmp/perf_bench_{pid}.log"] + \
+                    [os.path.join("/tmp", d) for d in os.listdir("/tmp")
+                     if d.startswith("perf_bench_") and d.endswith(f"_{pid}_raw")]:
+                if os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                elif os.path.exists(path):
+                    os.remove(path)
+        for d in set(getattr(cls, "results_dirs", [])):
+            shutil.rmtree(d, ignore_errors=True)
+        size = getattr(cls, "session_log_size", None)
+        if size is None:
+            if os.path.exists(cls.SESSION_LOG):
+                os.remove(cls.SESSION_LOG)
+        elif os.path.exists(cls.SESSION_LOG):
+            os.truncate(cls.SESSION_LOG, size)
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _probe(self):
+        with open(self.probe_log) as fh:
+            return [ln.split(" ", 1) for ln in fh.read().splitlines()]
+
+    def test_positive_control_stub_detects_a_resume(self):
+        # The FRESH verdicts below mean something only if a reused directory reads RESUMED.
+        solve_n = os.path.join(self.home, "solve_N")
+        self.assertTrue(os.access(solve_n, os.X_OK), "stub build did not produce solve_N")
+        d = tempfile.mkdtemp(dir=self.tmp)
+        env = dict(self.env, PB_PROBE_LOG=os.path.join(self.tmp, "control.log"))
+        for _ in range(2):
+            subprocess.run([solve_n, "--branch", "0", "0"], cwd=d, env=env, check=True)
+        with open(env["PB_PROBE_LOG"]) as fh:
+            self.assertEqual([ln.split(" ")[0] for ln in fh.read().splitlines()], ["FRESH", "RESUMED"])
+
+    def test_both_benches_complete(self):
+        for i, (rc, out) in enumerate(self.runs):
+            with self.subTest(run=i):
+                self.assertEqual(rc, 0, out[-2000:])
+                self.assertIn("PERF_BENCH_METHODOLOGY=OK", out.splitlines())
+                self.assertTrue("PGO workload dir: " + self.home + "/pgo_work." in out, out[-1500:])
+
+    def test_every_workload_of_two_consecutive_benches_starts_from_scratch(self):
+        rows = self._probe()
+        # per bench: the PGO training run + the N and U paired runs
+        self.assertEqual(len(rows), 6, rows)
+        self.assertEqual([st for st, _ in rows], ["FRESH"] * 6, rows)
+        dirs = [d for _, d in rows]
+        self.assertEqual(len(set(dirs)), 6, "a working directory was reused: %r" % dirs)
+        for d in dirs:
+            self.assertNotEqual(d, self.home, "a workload ran in the login directory")
+            self.assertEqual(os.path.dirname(d), self.home, d)
+        self.assertFalse(os.path.exists(os.path.join(self.home, "checkpoint.txt")),
+                         "a workload left checkpoint.txt in the login directory")
+
+    def test_relative_solve_inst_workload_is_refused_before_provisioning(self):
+        open(self.az_log, "w").close()
+        rc, out = self._bench("--pgo-workload", "SOLVE_THREADS=8 ./solve_inst --branch 25 1")
+        self.assertEqual(rc, 2, out[-1500:])
+        self.assertIn('name the instrumented binary "$INSTR_BIN"', out)
+        with open(self.az_log) as fh:
+            self.assertEqual(fh.read(), "", "az was called before the refusal")
+# end class TestQ847PerfBenchFreshWorkdir (lane FH)
 
 
 if __name__ == "__main__":

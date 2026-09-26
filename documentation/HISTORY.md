@@ -9820,3 +9820,14 @@ The selftest still reproduces `403f7202`, and no canonical sha, count or reprodu
 - `--c3-dist` was already guarded against a pair index of 32..63 by the batch-15 scan; a boundary test now pins the bound at exactly 32, which the earlier test (index 63 only) could not see move (CX-181).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-26 (night) — batch 19: every shard-writing path checks its binary, and the remaining silent arguments are refused
+
+**Batch 19 (CX-182..CX-185) cleared the same review and is the commit that carries this addition.** It closes the gaps batch 18's sweeps found:
+
+- `--branch` and `--sub-branch` write shards and resume from checkpoints like a full enumeration, but ran no build-identity check. They now apply the enumeration rule: a `build.sha` written by a different binary is refused with exit 26 and nothing in the directory changes; `SOLVE_ALLOW_BUILD_MISMATCH=1` overrides. The executable-digest cache is now computed under `pthread_once` (CX-182);
+- `--verify` and `--validate` checked only the last of several file names and exited 0 on a bad first file; a second file is now refused. `--c3-min`, `--symmetry-search`, `--yield-report` and the `--null-*` modes refuse arguments they do not read, and the three sampling modes require N to be a positive decimal (`-5` had meant about 1.8×10¹⁹ samples) (CX-183);
+- three `solve.py` readers of the solution record accepted a pair index of 32..63: `--branch-yield-report` bucketed it, `--keystone-analysis` counted it as a non-match, and `--compute-stats` crashed with a bare numpy error. All three refuse it with `solve.c`'s wording; on valid input every data file they write is byte-identical (CX-184);
+- `scripts/perf_bench.sh` ran its PGO training workload in the VM's login directory, so a second bench on one host resumed the first bench's checkpoint. Every workload and bench run now gets a fresh directory. No timed figure in PERFORMANCE_HISTORY.md was a resume (CX-185).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
