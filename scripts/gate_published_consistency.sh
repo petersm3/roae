@@ -193,7 +193,7 @@ if [ -r "$_SSS" ]; then
   if [ -z "$_line" ]; then
     echo "  [FAIL] G6: the per-cell tree-size sentence is gone from $_SSS -- this leg measured NOTHING"
     G6=1
-  elif printf '%s' "$_line" | grep -qi 'orientation-explicit'; then
+  elif grep -qi 'orientation-explicit' <<<"$_line"; then
     echo "  [ok]   G6: the per-cell tree-size figures are labelled orientation-explicit, not canonical"
   else
     echo "  [FAIL] G6: per-cell tree sizes are not labelled orientation-explicit."

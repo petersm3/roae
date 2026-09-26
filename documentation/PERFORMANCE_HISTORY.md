@@ -1129,7 +1129,7 @@ Three-part hardening landed to make this class of bug structurally impossible:
 1. **`scripts/build_pgo.sh`** — canonical PGO build helper. Builds both passes to the SAME output name (renames after Pass 1), so the `.gcda` lookup key matches. Asserts `.gcda` file count > 0 between passes. Adds `-Werror=missing-profile` on Pass 2.
 
    > **⚠ Correction (2026-08-30):** **as of 2026-08-30 this helper can no longer build `solve.c`.** Both of its link lines — Pass 1 at
-   > `scripts/build_pgo.sh:77-78@184e3523` and Pass 2 at `:128-130` — end in `-lm` with no `-lz`, but `solve.c:330` has
+   > `scripts/build_pgo.sh:77-78@184e3523` and Pass 2 at `:128-130@184e3523` — end in `-lm` with no `-lz`, but `solve.c:330` has
    > included `<zlib.h>` since #169, and its own comment there says "link with `-lz`" (`DEVELOPMENT.md` marks
    > `-lz` mandatory in the canonical recipe too). Running the script's exact Pass-1 command against `solve.c`
    > at this commit fails at link: rc=1, undefined references to `gzclose`, `gzfread` and friends. The
@@ -1575,7 +1575,7 @@ says so explicitly and states what the original text read.
 | 2 | 2026-05-11 #70 (C3 optimistic bound) | Baseline labelled "#67 alone" | The 831-record delta is over **v1+C5+#67**. A `v1+#67+#70` run does not exist anywhere in this log |
 | 3 | 2026-05-13 LTO | Sha gate recorded as passing *by definition* | Reworded to the **measured** byte-identical result. Sha gates in this solver settle only empirically |
 | 4 | 2026-05-16 #46 (AVX-512 null) | "verified from commits `cd4e61c`/`b26cd9b`/`0783d52`" | Those objects are **absent from the shipped repo** (`git cat-file -t` fails on each) → the figures are operator-attested, per this file's Access boundary |
-| 5 | 2026-05-16 #46 (AVX-512 null) | "HISTORY.md … now carries a `[REFUTED 2026-05-16]` callout" | **The callout is not there.** The one match in `HISTORY.md` is that sentence's twin claiming it is "already in place"; the 1.4–2.0× projections stand unmarked at `HISTORY.md:1510-1514@184e3523` and `:2610`. **✅ Discharged 2026-09-02 (P64): both callouts written, at the drifted lines `:1521` / `:2628`; the third site in `DEVELOPMENT.md:1097` marked the same day.** |
+| 5 | 2026-05-16 #46 (AVX-512 null) | "HISTORY.md … now carries a `[REFUTED 2026-05-16]` callout" | **The callout is not there.** The one match in `HISTORY.md` is that sentence's twin claiming it is "already in place"; the 1.4–2.0× projections stand unmarked at `HISTORY.md:1510-1514@184e3523` and `:2610`. **✅ Discharged 2026-09-02 (P64): both callouts written, at the drifted lines `:1521` / `:2628`; the third site in `DEVELOPMENT.md:1141` marked the same day.** |
 | 6 | 2026-05-17 v2 11.2T anchor | A "~1-2%" v2 advantage projected for 100T+ | Measured **+6.74%** at 100T (+231,181,617 records). The advantage **grew** with depth: +4.83% at 11.2T → +6.74% at 100T |
 | 7 | 2026-05-18 per-prune ladder | #68 called 24-27× more impactful than #67 at every scale | **≈14.5-36.9×** across the four scales in its own table; 24-27× holds only at 1B-10B. The *ranking* claim stands |
 | 8 | 2026-05-18 per-prune ladder | Unlimited budget framed as v1 and v2 exhausting different predicates; +4.83% called v2's "real" extra solutions | Both prune sets are sound: **v1(∞) = v2(∞) = v3(∞)**. +4.83% is a **budgeted-slice** delta at 11.2T — a convergence-rate effect, not a larger solution space |
@@ -1602,7 +1602,7 @@ or `HISTORY.md` (or, for 5, was *supposed* to be) while this log kept the supers
 They live in other files and must be fixed there; each is marked at its site above so a reader is warned in the
 meantime.
 
-1. **`scripts/build_pgo.sh` cannot build `solve.c`.** Both link lines (`build_pgo.sh:77-78@184e3523` Pass 1, `:128-130` Pass 2) end
+1. **`scripts/build_pgo.sh` cannot build `solve.c`.** Both link lines (`build_pgo.sh:77-78@184e3523` Pass 1, `:128-130@184e3523` Pass 2) end
    in `-lm` with no `-lz`, while `solve.c:330` has included `<zlib.h>` since #169. Running the script's exact
    Pass-1 command against `solve.c` at this commit fails at link (rc=1, undefined `gzclose`/`gzfread`/…). The
    2026-05-24 entry advertises this script as the canonical reusable PGO recipe; it is not one until `-lz`

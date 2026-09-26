@@ -78,15 +78,15 @@ fi
 "$SOLVE" --check-arrangement KW --cert-out "$WORK/q7_kw.json" >/dev/null 2>&1 || err "the binary cannot certify KW"
 
 # ---- leg 1: source text -------------------------------------------------------------------------
-grep -E '^agg TR12_Q7 ' "$SRC" | grep -q 'TR12_Q7_WITNESSES' || fail "leg 1: the agg TR12_Q7 line does not name TR12_Q7_WITNESSES"
+grep -E '^agg TR12_Q7 ' "$SRC" | grep -c 'TR12_Q7_WITNESSES' >/dev/null || fail "leg 1: the agg TR12_Q7 line does not name TR12_Q7_WITNESSES"
 [ "$(grep -cE '^agg TR12_Q7 ' "$SRC")" -eq 1 ] || fail "leg 1: expected exactly one agg TR12_Q7 line"
 grep -qE '^\s*row_end TR12_Q7_WITNESSES ' "$SRC" || fail "leg 1: no row_end TR12_Q7_WITNESSES -- the witness row is not a real row"
-if grep -vE '^\s*#' "$SRC" | grep -E 'TR12_Q7_WITNESSES' | grep -qE '"PENDING:kissat"|"PENDING:q7-witness-row"|"PASS"'; then
+if grep -vE '^\s*#' "$SRC" | grep -E 'TR12_Q7_WITNESSES' | grep -cE '"PENDING:kissat"|"PENDING:q7-witness-row"|"PASS"' >/dev/null; then
   fail "leg 1: a non-comment line still records TR12_Q7_WITNESSES as PENDING:kissat / PENDING:q7-witness-row / PASS"
 fi
-if grep -vE '^\s*#' "$SRC" | grep -qE 'command -v kissat.*then\s*$' ; then
+if grep -vE '^\s*#' "$SRC" | grep -cE 'command -v kissat.*then\s*$' >/dev/null ; then
   # a `command -v kissat` BRANCH is allowed only inside the opt-in resolve row (a failure, never a skip)
-  if grep -vE '^\s*#' "$SRC" | grep -E 'row_skip .*(kissat|q7-witness)' | grep -q .; then
+  if grep -vE '^\s*#' "$SRC" | grep -E 'row_skip .*(kissat|q7-witness)' | grep -c . >/dev/null; then
     fail "leg 1: a row_skip keyed on kissat's presence is back (Q-714)"
   fi
 fi
@@ -146,11 +146,11 @@ out=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$EVID" 0 "$NOKISSAT:$BASEPATH")
 printf '%s\n' "$out" > "$WORK/green.raw"
 [ "$rc" -eq 0 ] || { printf '%s\n' "$out" | grep -E 'Q7WIT_FAIL|checker_rc' | sed 's/^/        /'; fail "leg 2: the row FAILS (rc=$rc) on the committed witnesses with no solver on PATH"; }
 for t in moore-strict grand-strict; do
-  printf '%s\n' "$out" | grep -qx "Q7WIT_OK	$t" || fail "leg 2: no Q7WIT_OK for $t"
+  grep -qx "Q7WIT_OK	$t" <<<"$out" || fail "leg 2: no Q7WIT_OK for $t"
   want=$(sha256sum < "$EVID/$t.txt" | cut -d' ' -f1)
-  printf '%s\n' "$out" | grep -qx "witness_sha256	$want" || fail "leg 2: the row did not print the sha256 of $t.txt ($want)"
+  grep -qx "witness_sha256	$want" <<<"$out" || fail "leg 2: the row did not print the sha256 of $t.txt ($want)"
 done
-printf '%s\n' "$out" | grep -q 'Q7WIT_FAIL' && fail "leg 2: a Q7WIT_FAIL line on a green run"
+grep -q 'Q7WIT_FAIL' <<<"$out" && fail "leg 2: a Q7WIT_FAIL line on a green run"
 # Q-795: the row passes --label <target>, so each certificate it writes is named by its target, and
 # a2_q7_ranks keys on that label. Exactly one run dir exists at this point (leg 2's).
 for t in moore-strict grand-strict; do
@@ -203,53 +203,53 @@ PY
 # ---- leg 4: planted bad witness (C1 broken) ------------------------------------------------------
 mkfix "$WORK/fix4" "$BAD" -
 out=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$WORK/fix4" 0 "$NOKISSAT:$BASEPATH"); rc=$?
-[ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q7WIT_FAIL	moore-strict: --check-arrangement does not say IN SUPER' \
+[ "$rc" -ne 0 ] && grep -q 'Q7WIT_FAIL	moore-strict: --check-arrangement does not say IN SUPER' <<<"$out" \
   || { printf '%s\n' "$out" | grep -E 'Q7WIT' | sed 's/^/        /'; fail "leg 4: a witness with C1 broken did not fail the row by name (rc=$rc)"; }
-printf '%s\n' "$out" | grep -qx 'Q7WIT_OK	grand-strict' || fail "leg 4: the untouched grand-strict witness should still pass beside the bad one"
+grep -qx 'Q7WIT_OK	grand-strict' <<<"$out" || fail "leg 4: the untouched grand-strict witness should still pass beside the bad one"
 echo "  [gate] leg 4: RED on a planted C1-broken witness, named"
 
 # ---- leg 5: an IN-C15 non-KW sequence breaking one enforced rule ---------------------------------
 if [ "$L5TARGET" = grand-strict ]; then mkfix "$WORK/fix5" - "$L5SEQ"; else mkfix "$WORK/fix5" "$L5SEQ" -; fi
 out=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$WORK/fix5" 0 "$NOKISSAT:$BASEPATH"); rc=$?
-[ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q "Q7WIT_FAIL	$L5TARGET: the pinned sequence violates a rule the target enforces" \
+[ "$rc" -ne 0 ] && grep -q "Q7WIT_FAIL	$L5TARGET: the pinned sequence violates a rule the target enforces" <<<"$out" \
   || { printf '%s\n' "$out" | grep -E 'Q7WIT|rule_' | sed 's/^/        /'; fail "leg 5: an IN-C15 sequence breaking a $L5TARGET rule did not fail the row by name (rc=$rc)"; }
-printf '%s\n' "$out" | grep -q "verdict C15  (C1-C5, C3<=776):   IN" || fail "leg 5: the fixture was meant to be IN C15 (only a rule broken) and is not"
+grep -q "verdict C15  (C1-C5, C3<=776):   IN" <<<"$out" || fail "leg 5: the fixture was meant to be IN C15 (only a rule broken) and is not"
 echo "  [gate] leg 5: RED on an IN-C15 non-KW sequence that breaks one $L5TARGET rule ($(printf '%s\n' "$out" | sed -n 's/^rule_violations\t//p' | head -1)), named"
 
 # ---- leg 6: King Wen submitted as the witness ---------------------------------------------------
 mkfix "$WORK/fix6" "$KWARR" -
 out=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$WORK/fix6" 0 "$NOKISSAT:$BASEPATH"); rc=$?
-[ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q7WIT_FAIL	moore-strict: the sequence is byte-identical to the KW arrangement' \
-  && printf '%s\n' "$out" | grep -q 'Q7WIT_FAIL	moore-strict: the sequence IS King Wen' \
+[ "$rc" -ne 0 ] && grep -q 'Q7WIT_FAIL	moore-strict: the sequence is byte-identical to the KW arrangement' <<<"$out" \
+  && grep -q 'Q7WIT_FAIL	moore-strict: the sequence IS King Wen' <<<"$out" \
   || { printf '%s\n' "$out" | grep -E 'Q7WIT|kw_' | sed 's/^/        /'; fail "leg 6: King Wen as the witness did not fail the row by both identity checks (rc=$rc)"; }
-printf '%s\n' "$out" | grep -qx 'kw_identical	YES	(positions differing from KW: 0; pair-slot layout differs from KW: NO)' || fail "leg 6: kw_identical line missing"
+grep -qx 'kw_identical	YES	(positions differing from KW: 0; pair-slot layout differs from KW: NO)' <<<"$out" || fail "leg 6: kw_identical line missing"
 echo "  [gate] leg 6: RED on King Wen submitted as the witness, named by both identity checks (and by the rule check, as stated above)"
 
 # ---- leg 7: missing witness file ---------------------------------------------------------------
 mkfix "$WORK/fix7" - ""
 out=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$WORK/fix7" 0 "$NOKISSAT:$BASEPATH"); rc=$?
-[ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q7WIT_FAIL	grand-strict: pinned witness file is MISSING' \
+[ "$rc" -ne 0 ] && grep -q 'Q7WIT_FAIL	grand-strict: pinned witness file is MISSING' <<<"$out" \
   || fail "leg 7: a missing grand-strict.txt did not fail the row by name (rc=$rc)"
 echo "  [gate] leg 7: RED on a missing witness file, named"
 
 # ---- leg 8: malformed file ---------------------------------------------------------------------
 mkfix "$WORK/fix8" - -; printf '# no SEQ line here\n' > "$WORK/fix8/moore-strict.txt"
 out=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$WORK/fix8" 0 "$NOKISSAT:$BASEPATH"); rc=$?
-[ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q7WIT_FAIL	moore-strict: expected exactly one SEQ= line, found 0' \
+[ "$rc" -ne 0 ] && grep -q 'Q7WIT_FAIL	moore-strict: expected exactly one SEQ= line, found 0' <<<"$out" \
   || fail "leg 8: a file without a SEQ= line did not fail the row by name (rc=$rc)"
 echo "  [gate] leg 8: RED on a malformed witness file, named"
 
 # ---- leg 9: --q7-resolve with a stub solver -----------------------------------------------------
 out=$(run_row "$WORK/res.sh" "$WORK/helpers.sh" "$EVID" 1 "$STUB:$BASEPATH"); rc=$?
-[ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q7RESOLVE_FAIL	moore-strict: sat.py --witness did not end in WITNESS_RESULT=WITNESS' \
-  && printf '%s\n' "$out" | grep -qx 'witness_result	WITNESS_RESULT=SOLVER_ERROR' \
+[ "$rc" -ne 0 ] && grep -q 'Q7RESOLVE_FAIL	moore-strict: sat.py --witness did not end in WITNESS_RESULT=WITNESS' <<<"$out" \
+  && grep -qx 'witness_result	WITNESS_RESULT=SOLVER_ERROR' <<<"$out" \
   || { printf '%s\n' "$out" | sed 's/^/        /' | head -8; fail "leg 9: a stub solver (exit 42) did not fail the re-solve row by name (rc=$rc)"; }
 echo "  [gate] leg 9: RED on --q7-resolve with a stub solver (WITNESS_RESULT=SOLVER_ERROR), named"
 
 # ---- leg 10: --q7-resolve with no solver -------------------------------------------------------
 out=$(run_row "$WORK/res.sh" "$WORK/helpers.sh" "$EVID" 1 "$NOKISSAT:$BASEPATH"); rc=$?
-[ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q7RESOLVE_FAIL	moore-strict: --q7-resolve given but kissat is not on PATH' \
-  && ! printf '%s\n' "$out" | grep -q '^SKIPPED' \
+[ "$rc" -ne 0 ] && grep -q 'Q7RESOLVE_FAIL	moore-strict: --q7-resolve given but kissat is not on PATH' <<<"$out" \
+  && ! grep -q '^SKIPPED' <<<"$out" \
   || fail "leg 10: --q7-resolve without kissat did not FAIL loudly (rc=$rc)"
 echo "  [gate] leg 10: RED, loud, on --q7-resolve with no solver on PATH (never a skip)"
 
@@ -257,9 +257,9 @@ echo "  [gate] leg 10: RED, loud, on --q7-resolve with no solver on PATH (never 
 if [ "${Q7WIT_LIVE:-0}" = 1 ]; then
   command -v kissat >/dev/null 2>&1 || err "Q7WIT_LIVE=1 but no kissat on PATH"
   out=$(run_row "$WORK/res.sh" "$WORK/helpers.sh" "$EVID" 1 "$PATH"); rc=$?
-  [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qx 'Q7RESOLVE_OK	moore-strict' && printf '%s\n' "$out" | grep -qx 'Q7RESOLVE_OK	grand-strict' \
+  [ "$rc" -eq 0 ] && grep -qx 'Q7RESOLVE_OK	moore-strict' <<<"$out" && grep -qx 'Q7RESOLVE_OK	grand-strict' <<<"$out" \
     || { printf '%s\n' "$out" | sed 's/^/        /' | head -12; fail "leg 11: the live re-solve row failed on the real solver (rc=$rc)"; }
-  printf '%s\n' "$out" | grep -qE '^witness_seq|^SEQ|[0-9]+(,[0-9]+){63}' && fail "leg 11: the re-solve row printed a sequence (build-dependent bytes in diffed output)"
+  grep -qE '^witness_seq|^SEQ|[0-9]+(,[0-9]+){63}' <<<"$out" && fail "leg 11: the re-solve row printed a sequence (build-dependent bytes in diffed output)"
   echo "  [gate] leg 11: live re-solve with $(kissat --version 2>/dev/null | head -1 | sed 's/^/kissat /'): rc 0, Q7RESOLVE_OK for both targets, no sequence printed"
 else
   echo "  [gate] leg 11: NOT RUN (opt-in: Q7WIT_LIVE=1 with kissat on PATH); the live re-solve is unmeasured by this run"
@@ -277,7 +277,7 @@ mutant_row(){ # mutant_row <id> <file> <sed-expr> <fixture-dir> <fixture-name> <
   sed -e "$expr" "$WORK/$f" > "$m"
   cmp -s "$m" "$WORK/$f" && err "mutant $id did not apply ($expr) -- anchors inside the row moved?"
   out=$(run_row "$m" "$WORK/helpers.sh" "$fix" 0 "$NOKISSAT:$BASEPATH"); rc=$?
-  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q "$6"; then
+  if [ "$rc" -ne 0 ] && grep -q "$6" <<<"$out"; then
     fail "mutant $id SURVIVED ($expr): the mutated row still fails by name on $5, so the covering leg cannot detect that regression"
   fi
   echo "  [gate] mutant $id killed (mutated row: rc=$rc on $5 -- the covering leg goes red)"
@@ -285,7 +285,7 @@ mutant_row(){ # mutant_row <id> <file> <sed-expr> <fixture-dir> <fixture-name> <
 mutant_row M1_missing_file_not_fatal wit.sh 's/is MISSING \(.*\)"; wrc=1; continue; fi/is MISSING \1"; continue; fi/' "$WORK/fix7" "a missing file" 'pinned witness file is MISSING'
 mutant_row M2_property_check_not_fatal wit.sh 's/|| { wrc=1; continue; }/|| true/' "$WORK/fix6" "King Wen" 'the sequence IS King Wen'
 # M3 is a source-text mutant of leg 1: the pre-fix aggregation line must be caught by leg 1's grep
-if sed 's/^agg TR12_Q7 .*/agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_RANKS/' "$SRC" | grep -E '^agg TR12_Q7 ' | grep -q 'TR12_Q7_WITNESSES'; then
+if sed 's/^agg TR12_Q7 .*/agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_RANKS/' "$SRC" | grep -E '^agg TR12_Q7 ' | grep -c 'TR12_Q7_WITNESSES' >/dev/null; then
   fail "mutant M3 SURVIVED: leg 1's grep would accept an aggregation line without the witness leg"
 fi
 echo "  [gate] mutant M3_prefix_agg_line killed"

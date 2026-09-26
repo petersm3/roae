@@ -53,7 +53,7 @@
 # WHAT GATE 3b CANNOT SEE — stated here rather than left to be rediscovered, because a gate's
 # green banner is read as coverage and these are the places it is not:
 #   1. IT DISCOVERS NOTHING. The registry is hand-seeded. A figure retracted and never
-#      registered is invisible, and the gate cannot tell an empty registry from a clean corpus.
+#      registered is invisible. An EMPTY registry is caught (require_rows fails on zero rows; this read "cannot tell an empty registry from a clean corpus" until 2026-09-25, Q-763); an UNDER-seeded one is not.
 #      The first nine rows were seeded by walking every `| vN.N |` revision row in reports/ for
 #      a quoted numeral and reading each one; that pass is repeatable but it is not automatic.
 #      UNDER-SEEDING CONFIRMED 2026-08-02 (item A7). A sweep of BODY prose — supersession verbs
@@ -97,7 +97,7 @@
 #      unless it is either recorded in CORRECTIONS.md or listed, with a reason, in
 #      documentation/DOC_GATE_FIGURE_LEDGER_OPEN.txt.
 #      WHAT IS STILL OPEN: the adjudication. Four of the eleven are recorded (CX-20, CX-19
-#      twice, CX-07; their keys are indexed in CX-21); the other SEVEN have no ledger entry
+#      twice, CX-07; their keys are indexed in CX-21); the other SEVEN had no ledger entry (CLOSED 2026-08-07: all seven are recorded as CX-32 — see DOC_GATE_FIGURE_LEDGER_OPEN.txt; annotated 2026-09-25, Q-763)
 #      and sit on the open list, printed as [OPEN] with a count on every run. An [OPEN] row
 #      is an open defect, not an exemption.
 #      WHY THE KEY IS NOT THE FIGURE TEXT, measured: six of the eleven figures OCCUR in
@@ -122,13 +122,13 @@
 #      9 registered figures x 3 tracked generators = 0 hits.
 
 1.4σ	TR-2 v1.19 (2026-08-01) withdrew it as unreconstructible; v1.23 (2026-08-02) restored the comparison as 0.57σ BELOW under the file's stated convention |Δ|/sqrt(SE1²+SE2²). 1.4 came from dividing by the raw between-seed SD and omitting the Phase-1 run's own ±16.7%.
-2.0σ	TR-2 v1.19: the convergence-gate summary quoted the derived-CI cross-path gate as 2.0σ while the body reported 1.9σ; v1.23's convention reproduces it as 1.92. Against a pre-committed 2σ gate the retracted value read as sitting AT the gate rather than inside it.
-19 total	TR-2 v1.19: §Extension said the certificate directory holds "19 total"; it holds 21 (certificates/README; TR-5 v2.1 records the intermediate 19→20 step).
+2.0σ	TR-2 v1.19: the convergence-gate summary quoted the derived-CI cross-path gate as 2.0σ while the body reported 1.9σ; v1.23's convention reproduces it as 1.92. Against a pre-committed 2σ gate the retracted value read as sitting AT the gate rather than inside it. ⚠ (2026-09-25, Q-763: the derived-CI cross-path gate is 2.5σ — reports/evidence/r11/PHASE2_README.md gate 3; 2σ is gate 2 — so 2.0σ and 1.9σ both sit inside it; the retraction stands as a misquote, not as a gate-crossing.)
+19 total	TR-2 v1.19: §Extension said the certificate directory holds "19 total"; it held 21 at that revision (certificates/README; TR-5 v2.1 records the intermediate 19→20 step). It holds 24 `.drat.gz` as of 2026-09-25 (Q-763; `ls reports/certificates/*.drat.gz | wc -l`).
 ~5,500×	TR-8 v1.9 (2026-08-01): the look-elsewhere aside overstated the factor by 10×. Correct is ~500× (0.05 / 1.054e-4 = 474).
 ≈10×	TR-10 v1.8 (2026-08-01, second pass): the BH margin for trigarray is WITHDRAWN — the extra ledger values were registry masses outside the 91-observable roster plus two zero-sampled-mass entries. The verdict is unchanged; only the margin is gone.
 ~52×	TR-8 v1.11 / METHODS §"Statistics conventions" (2026-08-02): recorded and DECLINED. It is BH at rank i = 10, and rank 10 requires the nine registry masses METHODS withdrew from ranking on 2026-08-01. The supported statement is a floor, ≥~10× — which is BH-derived, and which TR-8 itself holds CONDITIONAL on reading this rarity as a ledger member, naming the ~5× Bonferroni margin "the firmer of the two" (TR8_REORDERING_REVISITED.md:82). Quote the floor with that conditional attached, never bare.
 marginal 4.6	TR-9 v1.7 (2026-07-10) restated the C2 marginal as 4.5 from unrounded operands; DESCRIPTION_LENGTH.md carries the same correction.
-net +1.6	TR-9 v1.7 (2026-07-10) restated the C2 net as ≈ 0 (break-even, sign-convention-dependent). It survived in TR-11 §4 until v1.14 and in TR-9's own draft-stage note until v1.20.
+net +1.6	TR-9 v1.7 (2026-07-10) restated the C2 net as ≈ 0 (break-even, sign-convention-dependent). ⚠ That replacement's negative half is itself withdrawn (row −0.6 to −4 below); the current statement is a positive net, +0.54 to +1.96 bits (DESCRIPTION_LENGTH.md; pointer added 2026-09-25, Q-763). It survived in TR-11 §4 until v1.14 and in TR-9's own draft-stage note until v1.20.
 +125	TR-9 v1.16 (2026-08-01): §5(a) quoted the comp∘rev-admitted low end as both "~+127" and "+125"; 146.3 − 19.0 = 127.3, so +127 is correct.
 marginal 21.2	DESCRIPTION_LENGTH.md (2026-07-10 unrounded-operand pass) restated the C6+C7 marginal as 21.3; TR-9 §2 and DESCRIPTION_LENGTH's live ledger both carry 21.3. Seeded 2026-08-02 by item A7's BODY sweep, not by the revision-row pass: its sentence-sibling "marginal 4.6" was registered and it was not, which is what a value-by-value seeding of revision rows looks like from the outside.
 palnbr 16	TR-10 v1.2 (2026-07-05, Mawangdui corpus-control erratum) recomputed the non-flagged Davis predicates on the corrected Shaughnessy array: palnbr 16 -> 13. TR-10 §3's live value is 13. No TR-10 verdict moved. Seeded 2026-08-02 by item A7's body sweep.

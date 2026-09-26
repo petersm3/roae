@@ -7,7 +7,7 @@ that mapping lived only in the reader's head, and the cost was measurable: a fir
 (entered `main` 2026-07-31 in `6a3feaaa`, ruled false 2026-08-24, still live 2026-08-28) ⚠ *— this
 line read "four weeks after our own adjudication" until 2026-09-07, which conflates the time on
 `main` with the time after the ruling and makes the lapse seven times worse than it was*, and a "smallest measured margins"
-superlative was published at six sites while the evidence file that refutes it sat in
+superlative was published at six sites while the evidence file that leaves it unsupported (not refuted — the histogram is not CC-N4-conditioned) sat in
 `reports/evidence/`. Both are the same failure — **a claim and its evidence that nobody had to look
 at together.**
 
@@ -32,7 +32,7 @@ not yet reach it, and extending coverage is tracked rather than assumed.
 | 1 | The binary's canonical identity | `CANONICAL_HASHES.md` | `--selftest` internal digest | `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest` | EXACT — `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` |
 | 2 | \|C1∩C2∩C4\| ≈ 7.5706×10⁴¹ | TR-11 | symmetry-quotient DP | `./solve --f1-exact-c1c2c4` | EXACT |
 | 3 | \|C1∩C2∩C4∩C5\| ≈ 1.097051×10³⁹ | TR-11 | DP + independent IE transfer-walk | `./solve --f1-exact-c1c2c4c5` ; cross-check `./verify --ie-count` | EXACT — two algorithm classes agree |
-| 4 | C1–C5 space ≈1.3287×10³⁸ | TR-4 | Knuth random-probe estimator | `./solve --estimate-knuth <nodes>` | ESTIMATE — quote with its CI |
+| 4 | C1–C5 space ≈1.3287×10³⁸ | TR-4 | Knuth random-probe estimator; `reports/evidence/knuth_whole_tree_5e10.out` | `SOLVE_THREADS=32 ./solve --estimate-knuth 50000000000` (stack ≥ 16 MB) | ESTIMATE — 95% CI [1.3283, 1.3292]×10³⁸ at 5×10¹⁰ probes, 32 threads, as the archived output's header records |
 | 5 | Exactly 15 parity-class alternations | TR-6 | `lean/KingWen.lean` `alternations_15_general` | `cd lean && lean KingWen.lean` | KERNEL — the independent leg; see row 6 |
 | 6 | ≤14 and ≥16 alternations are UNSAT | TR-6 | `alt-le-14` / `alt-ge-16` DRAT | `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf f.drat && drat-trim f.cnf f.drat` (likewise `alt-ge-16`); `verify_all.sh` replays both archived proofs | CERTIFIED — **corroborating, not independent**: refuted by C5 cardinality alone (see CORRECTIONS 2026-08-29) |
 | 7 | The four literature rules are jointly unsatisfiable | TR-2 | `grand_ccn4_unsat.drat.gz` | `python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf f.drat && drat-trim f.cnf f.drat` | CERTIFIED — parity + rhythm + gender + CC-N4, at C1∩C2∩C4∩C5 scope (TR-2 §4) |

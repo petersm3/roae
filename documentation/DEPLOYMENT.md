@@ -140,9 +140,9 @@ resume from the saved frontier).
 
 ## Graceful shutdown is load-bearing
 
-The solver's SIGTERM handler does real work on exit: it reads all committed
-`sub_*.bin` files, merges them, deduplicates, sorts, and writes the final
-`solutions.bin` + sha256. When aborting a run, always `kill -TERM` the solver
+In bundled-merge mode the solver's SIGTERM handler does real work on exit: it reads all committed
+`sub_*.bin` files, merges them, deduplicates, sorts, and writes the final `solutions.bin` + sha256 (under `SOLVE_SKIP_AUTOMERGE=1` — the split
+mode this file prescribes for canonical runs — it returns before the merge, and `--merge` on the merge VM produces them). ⚠ *(Scoped 2026-09-25, Q-763: this read as if every mode merged on SIGTERM.)* When aborting a run, always `kill -TERM` the solver
 (not SIGKILL) and wait for it to finish — otherwise you lose the merged output
 even though the per-sub-branch data is safe on disk.
 
@@ -332,7 +332,7 @@ A 2026-05-12 cascade re-provision drew a host running at **3562 MHz boost** (129
 
 **Cost of detection vs. cost of not:** a 5-line script run once per provisioned VM is essentially free. Skipping the check on a single 5.6T run on a throttled host wastes ~$5; on a 100T run it wastes hours of wall and $30+. **Always check before launching long enum work.**
 
-The actual SKU underlying Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vCPU). Project memory previously claimed "Zen 5 Turin" for this family — that was incorrect. The 9V45 is a cloud-optimized AMD SKU; per-core performance at full boost is comparable to (slightly below) Genoa for our DFS-heavy workload, *as long as the host is not throttling*.
+The actual SKU underlying Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vCPU). Microsoft's Dalsv7-series page lists the family's processor as AMD EPYC 9005 (Turin), and §Measured scaling below calls it Zen 5c "Turin Dense"; the 9V45 is that generation's cloud part. ⚠ *(Corrected 2026-09-25, Q-763: this sentence called the earlier "Zen 5 Turin" label incorrect; it was right at the family level.)* The 9V45 is a cloud-optimized AMD SKU; per-core performance at full boost is comparable to (slightly below) Genoa for our DFS-heavy workload, *as long as the host is not throttling*.
 
 ### Disk tier matters — more than you might think
 
@@ -797,7 +797,7 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
       threads), growing at 75% load. ⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this box read "merge needs
       ~uniqueN × 32 bytes in memory", which sizes the buffer from the deduplicated count; the solver
       allocates for all input records.]**
-- [ ] `run_id.txt` written before solver start (write BEFORE wipe, not after)
+- [ ] `run_id.txt` written after the stale-state wipe and before solver start (compare, wipe, then write — the order of the worked example in §Deployment lifecycle). ⚠ *(Corrected 2026-09-25, Q-763: this read "write BEFORE wipe, not after"; an ID written before an interrupted wipe makes the next launch skip the wipe.)*
 - [ ] Monitor started **as a separate process** and verified with `pgrep`
 - [ ] Monitor completion-detection signal matches what the solver actually emits **in the mode being run**: the `solve_results.json` status field in single-VM (bundled-merge) mode; in split mode (`SOLVE_SKIP_AUTOMERGE=1`) that file is never written on the enum VM — key on rc=0 + the `skipping bundled merge` line + shard/manifest state, or the supervisor's done/fail markers (§Completion and archival)
 - [ ] Post-completion gates configured: `--verify` pass + hash-drop count == 0
@@ -1093,8 +1093,8 @@ inspection or a short-lived compute task.
    az vm create ... -n temp-vm && ssh solver@<ip> '...' && az vm delete ... --yes
    ```
 
-   Rule 6's `--ephemeral-os-disk true` removes the orphan-OS-disk loop entirely
-   for VMs that will live < 1 hour. If the task is too complex to script in one
+   On a size with a local (temp) disk, rule 6's `--ephemeral-os-disk true` removes the orphan-OS-disk loop
+   for VMs that will live < 1 hour (not on Dalsv7 — see rule 6). If the task is too complex to script in one
    sequence, build teardown into an immediately-scheduled follow-up wakeup with
    no branches that skip it.
 4. **Maintain a session-lifetime log of created VMs.** When creating a new
@@ -1108,9 +1108,9 @@ inspection or a short-lived compute task.
    torn down now.
 5. **Data disks are NEVER deleted.** Detach before VM delete. User explicit
    approval required for anything touching a data disk's contents.
-6. **Default to `--ephemeral-os-disk true`** for VMs that will live < 1 hour.
+6. **Default to `--ephemeral-os-disk true`** for VMs that will live < 1 hour, **on a size that has local storage.**
    Ephemeral OS disks are destroyed with the VM automatically, eliminating
-   orphan-cleanup steps.
+   orphan-cleanup steps. The Dalsv7 family has no local storage and does not support ephemeral OS disks (Microsoft's Dalsv7-series page: "Ephemeral OS Disk — Not Supported"); on it, create with `--os-disk-delete-option Delete` so the managed OS disk is removed with the VM. ⚠ *(Scoped 2026-09-25, Q-763.)*
 7. **Parallel `az vm create` returns IPs in completion order, not submission
    order — bind IP-to-name via `az vm show` after create (lesson from
    2026-04-22 Pass 1 launch mixup).** If you launch multiple VMs with
@@ -1120,8 +1120,8 @@ inspection or a short-lived compute task.
    that IP is VM B" has a 50% chance of being wrong. Always follow up with:
 
    ```bash
-   az vm show -g <rg> -n <vmA> --query publicIpAddress -o tsv  # the truth
-   az vm show -g <rg> -n <vmB> --query publicIpAddress -o tsv
+   az vm show -d -g <rg> -n <vmA> --query publicIps -o tsv  # the truth (-d: the instance view carries the addresses; use privateIps on a private-IP deployment)
+   az vm show -d -g <rg> -n <vmB> --query publicIps -o tsv  # ⚠ corrected 2026-09-25 (Q-763): read `az vm show --query publicIpAddress`, which prints nothing: the plain view has no address field, and -d adds publicIps/privateIps
    ```
 
    Past incident: at Pass 1 launch on 2026-04-22 I misassigned which IP

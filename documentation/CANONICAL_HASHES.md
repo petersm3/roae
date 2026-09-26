@@ -492,7 +492,7 @@ For the full `solve.c` command-line reference (every subcommand, env var, and ex
 
 The other variables shown above are **operational** — they affect runtime / scheduling / safety gates but produce byte-identical canonical output:
 
-- `SOLVE_DFS_ITERATIVE=1` + `SOLVE_DFS_CHECKPOINT=1` — enable the iterative-DFS code path with on-disk checkpointing. Required for the multi-trillion-node depth-3 canonicals because the recursive path would blow the stack and there's no resume otherwise; sha-equivalent to the recursive path at scales that fit in memory.
+- `SOLVE_DFS_ITERATIVE=1` + `SOLVE_DFS_CHECKPOINT=1` — enable the iterative-DFS code path with on-disk checkpointing. Required for the multi-trillion-node depth-3 canonicals because the recursive path has no resume, so a Spot eviction loses the run; ⚠ *(corrected 2026-09-25: this also said the recursive path "would blow the stack", but the recursive 11.2T reproduction in [HISTORY.md](HISTORY.md)'s verification-tier table (Tier 7a) completed. Codex v3 review, V3A-008#5)* sha-equivalent to the recursive path at scales that fit in memory.
 - `SOLVE_THREADS=128` — parallelism degree. Sha-equivalent across `SOLVE_THREADS` values because the merge dedup step is order-stable (also reproduced at `SOLVE_THREADS=64` for the d3 10T canonical).
 - `SOLVE_SKIP_AUTOMERGE=1` — skips the post-enum auto-merge step; needed when using the canonical pipeline pattern (separate Standard VM for merge).
 - `SOLVE_SKIP_IOPS_CHECK=1` — skips the fsync-throughput pre-flight gate (exit 31). Skip it, or prefer `SOLVE_ALLOW_SLOW_IOPS=1` (probe runs and logs, launch proceeds), when a durable archival disk cannot clear the gate's *aggregate* floor — see the correction below for what that floor actually is.
@@ -552,7 +552,7 @@ gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HE
 gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz
 ```
 
-Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produces a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 with tight run-to-run variance (stddev 0.11% across 4 trials). Drop it if your toolchain doesn't support LTO.
+Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produced a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 — +2.06% on 4-trial means, but +0.06% with each arm's slowest trial dropped, because one baseline trial ran ~8 s slow; the LTO arm's stddev was 0.11% and the baseline's 3.47% ([HISTORY.md](HISTORY.md) §"Phase 1 D64 canonical-correlation measurements") ⚠ *(corrected 2026-09-25: this quoted the LTO arm's 0.11% alone. Codex v3 review, V3A-008#6)*. Drop it if your toolchain doesn't support LTO.
 
 **Historical lineages:**
 - **v1** (original lineage, pre-2026-05-21) — anchor lineage; v3 reproduces v1's shas byte-identically.

@@ -155,7 +155,7 @@ verdict(){ # verdict <dir> ; 0 iff every leg behaves; explains on stderr-of-gate
   # goes stale silently, so it is asserted rather than approximated: if it disagrees, either a
   # gate was added (move the pin IN THE SAME COMMIT) or one vanished (do not move it).
   [ "$nf" = 5 ] && [ "$np" = 31 ] || { echo "    leg 2 (ratio-zero): $nf FAIL / $np PASS gate lines, expected exactly 5 / 31"; return 1; }
-  grep -E '^\[atlas-consumer\] .* FAIL' "$WORK/last.out" | grep -qE 'V1 p == marginal/N' || { echo "    leg 2 (ratio-zero): the V1 p gate (the plotted column) did not fire"; return 1; }
+  grep -E '^\[atlas-consumer\] .* FAIL' "$WORK/last.out" | grep -cE 'V1 p == marginal/N' >/dev/null || { echo "    leg 2 (ratio-zero): the V1 p gate (the plotted column) did not fire"; return 1; }
   return 0
 }
 

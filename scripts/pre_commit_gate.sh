@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-commit dispatcher — runs BOTH commit gates.
+# Pre-commit dispatcher — runs FIVE legs in this order: registry, stamp, reproduction-currency (all WARN ONLY), size, generated (both BLOCKING).
 #
 # Installed to .git/hooks/pre-commit 2026-08-03 per operator ruling #1
 # (O-redfloor); tracked here since 2026-08-06 (task #145) because the hook
@@ -7,7 +7,7 @@
 # clone lost it, and the install line DEVELOPMENT.md documented at the time
 # (a bare symlink to pre_commit_generated_gate.sh) would have silently
 # dropped the registry gate. Replacing this dispatcher with a bare symlink
-# to either gate SILENTLY DISABLES the other — that is the failure this
+# to any one gate SILENTLY DISABLES the others — that is the failure this
 # dispatcher exists to prevent.
 #
 # INSTALL (one command per clone, see DEVELOPMENT.md "Git hooks"; no chmod
@@ -15,13 +15,13 @@
 #
 #   ln -sf ../../scripts/pre_push_gate.sh .git/hooks/pre-push && ln -sf ../../scripts/pre_commit_gate.sh .git/hooks/pre-commit
 #
-#   1. registry gate  -- WARN ONLY. It reports retraction-registry / ledger
-#      findings but MUST NOT block: a hook that refuses a red commit also stops
-#      a unit committing to protect its work from another unit's
-#      `git checkout -- .`, which destroyed uncommitted work four times.
-#      Since task #150 it also fires WARN-only cheap retraction scans when any
-#      reports/*.md, documentation/*.md or README.md is staged (see its header).
-#   2. generated gate (#85) -- BLOCKING. Its exit status is the hook's.
+#   1. registry gate  -- WARN ONLY: retraction-registry / ledger findings; it MUST NOT block (a hook
+#      that refuses a red commit also stops a unit committing to protect its work from another unit's
+#      `git checkout -- .`, which destroyed uncommitted work four times). Since task #150 it also fires
+#      WARN-only retraction scans when any reports/*.md, documentation/*.md or README.md is staged.
+#   2. stamp gate, 3. reproduction-currency gate -- WARN ONLY (O-redfloor; the latter refuses only on opt-in).
+#   4. size gate -- BLOCKING, and it exits before leg 5 when it refuses (V3A-119#2: this list named two legs).
+#   5. generated gate (#85) -- BLOCKING, run last by exec. Its exit status is the hook's.
 ROOT=$(git rev-parse --show-toplevel) || exit 1
 # WORKTREE FIX (2026-08-13): resolve the gate scripts from THIS script's own
 # location, not from $ROOT. .git/hooks is shared across git worktrees, so a
@@ -91,6 +91,38 @@ if [ -f "$SDIR/pre_commit_stamp_gate.sh" ]; then
 else
   echo "[pre-commit] ⚠ scripts/pre_commit_stamp_gate.sh is ABSENT - the commit-path stamp check"
   echo "[pre-commit]    did NOT run. WARN ONLY, commit proceeds."
+fi
+
+# 🔴 THE REPRODUCTION STAMP MUST BE CURRENT FOR THE STAGED TREE (Q-694, the residual of Q-685).
+# The leg above only notices that the stamp did not MOVE; nothing asked whether the staged stamp is
+# RIGHT. pre_commit_repro_current_gate.sh does, when a fingerprint input is staged: it lays the
+# index's fingerprint members into a scratch tree and runs the staged gate's own
+#     bash scripts/tr12_repro_gate.sh --check
+# there (no build, no battery) and reports unless it prints TR12_REPRO_GATE_CURRENT=YES.
+# WARN-ONLY like the leg above, per operator ruling O-redfloor (a hook that refuses a commit also
+# stops a unit committing to protect its work). A leg that is missing, times out or cannot measure
+# is reported as unmeasured, never as current. ROAE_REQUIRE_CURRENT_STAMP=1 opts in to refusing.
+if [ -f "$SDIR/pre_commit_repro_current_gate.sh" ]; then
+  timeout 120 bash "$SDIR/pre_commit_repro_current_gate.sh"; RCRC=$?
+else
+  echo "[pre-commit] scripts/pre_commit_repro_current_gate.sh is ABSENT - reproduction currency unmeasured."
+  RCRC=127
+fi
+if [ "$RCRC" -ne 0 ]; then
+  case "$RCRC" in
+    1) RCWHY="the staged stamp does not describe the staged tree (TR12_REPRO_GATE_CURRENT is not YES)" ;;
+    *) RCWHY="the reproduction-currency leg could not measure (rc=$RCRC)" ;;
+  esac
+  echo "[pre-commit] ⚠ $RCWHY."
+  echo "[pre-commit]    Stamp the exact tree being committed (./scripts/tr12_repro_gate.sh --stamp,"
+  echo "[pre-commit]    or on a VM and copy scripts/tr12_expected/_GATE_STAMP.txt back), then"
+  echo "[pre-commit]    git add scripts/tr12_expected/_GATE_STAMP.txt."
+  if [ "${ROAE_REQUIRE_CURRENT_STAMP:-}" = 1 ]; then
+    echo "[pre-commit] 🔴 BLOCKED (ROAE_REQUIRE_CURRENT_STAMP=1). Nothing was committed."
+    exit 1
+  fi
+  echo "[pre-commit]    WARN ONLY (operator ruling O-redfloor), commit proceeds."
+  echo "[pre-commit]    This commit is NOT shown reproduction-current."
 fi
 
 # 🔴 SIZE GATE — added 2026-09-04 because the standing >=1 MB rule was enforced NOWHERE here.

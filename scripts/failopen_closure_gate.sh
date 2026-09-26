@@ -277,9 +277,9 @@ if [ "$SELFTEST" -eq 1 ]; then
   chk "Q-705: a timeout-class script that FINISHES with an OK token is still OPEN (rc 1)" '[ "$rc" -eq 1 ] && grep -qx "FAILOPEN_CLOSURE=FAIL" <<<"$out" && grep -qE "^\s*\[OPEN  \] +plant_to_fast.sh" <<<"$out"'
   rm -f "$T/scripts/plant_to_fast.sh"
   printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\n' > "$T/allow"
-  T2=$(mktemp -d); mkdir -p "$T2/scripts"; printf 'echo A=OK\n' > "$T2/scripts/a.sh"; printf 'echo B=ERROR; exit 2\n' > "$T2/scripts/b.sh"
+  T2=$(mktemp -d); mkdir -p "$T2/scripts"; printf 'echo AAA=OK\n' > "$T2/scripts/a.sh"; printf 'echo BBB=ERROR; exit 2\n' > "$T2/scripts/b.sh"  # V3A-114#4: 3-char keys, or SRCTOK selects NOTHING and the leg is vacuous
   out=$(gate "$T2" ""); rc=$?; rm -rf "$T2"
-  chk "population floor: 2 scripts -> ERROR"        '[ "$rc" -eq 2 ] && grep -q "population collapsed" <<<"$out"'
+  chk "population floor: 2 scripts -> ERROR"        '[ "$rc" -eq 2 ] && grep -q "population collapsed" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RUN=2" <<<"$out"'
   out=$(gate "$T/nowhere" ""); rc=$?
   chk "no scripts/ dir -> ERROR"                    '[ "$rc" -eq 2 ]'
   [ "$f" -eq 0 ] && { echo "FAILOPEN_CLOSURE_SELFTEST=PASS"; exit 0; } || { echo "FAILOPEN_CLOSURE_SELFTEST=FAIL"; exit 1; }

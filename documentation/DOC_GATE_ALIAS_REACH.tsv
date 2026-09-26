@@ -101,7 +101,7 @@
 # the two alias rulings) or task #157 (the Zheng Qiao attribution sites - each `open`
 # row names its owner), not a gate change. TO CLOSE an open row: fix the line (say C1-C5 /
 # budgeted, or add a same-line pointer to the ruling), then DELETE the row here; a row
-# whose anchor no longer matches anything is re-printed as [note] every run - the
+# whose anchor no longer matches anything is a [FAIL] every run ("open/allow row matched nothing"; this read [note] until Q-763) - the
 # drift audit - so a stale row cannot sit here unnoticed. A NEW unadjudicated use
 # fails the build from the day this gate shipped.
 #
@@ -136,7 +136,7 @@ attrib	Zheng Qiao	nocase	-	corrected 2026-07-30	documentation/CITATIONS.md §"At
 # ---- allow rows: curated legitimate senses (see class vocabulary above) ----
 allow	reports/METHODS.md	C1+C2+C3	describe the canonical enumerated population as	resolution-note	The §"Legacy shorthand" note's own body: names the alias in the act of resolving it. The heading line above it carries the token; these body lines do not.
 allow	reports/METHODS.md	C1+C2+C3	Read "the C1+C2+C3 canonical" as	resolution-note	The note's operative sentence - the ruling itself.
-allow	documentation/SOLVE_SUMMARY.md	C1+C2+C3	no family other than KW simultaneously satisfies	literal	Three-predicate sense: the seven null families are tested against C1, C2, C3 individually (each fails C1 outright). The C1-C5 canonical is not the object; "correcting" this to C1-C5 would introduce an error.
+allow	documentation/SOLVE_SUMMARY.md	C1+C2+C3	no family other than KW simultaneously satisfies	literal	Three-predicate sense: the seven null families are tested against C1, C2, C3 individually (the six unconditional families each fail C1 outright; the seventh, the pair-constrained null, has C1 by construction - corrected 2026-09-25, Q-763). The C1-C5 canonical is not the object; "correcting" this to C1-C5 would introduce an error.
 allow	documentation/SOLVE_SUMMARY.md	C1+C2+C3	Costas arrays accidentally satisfy	literal	Three-predicate sense: whether a specific published array satisfies the three predicates. Not a population naming.
 allow	documentation/HISTORY.md	C1+C2+C3	The honest framing:	historical	Dated narrative record (the C1/C2/C3-as-individual-findings framing of its day). Rewriting the log would falsify the record; HISTORY.md is the project's append-style narrative.
 allow	documentation/HISTORY.md	C1+C2+C3	Axiom "minimize C3" picks 221 records	historical	Dated 2026-04-20 entry using the naming convention in force when written; the ruling (2026-08-01) post-dates it and HISTORY is a record, not live guidance.
@@ -154,6 +154,6 @@ allow	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	scoped in the opening t
 # ---- open rows: ADJUDICATED-OPEN DEFECTS - alias rows owned by task #146 ----
 # ---- (corpus-wide propagation of the two rulings), Zheng Qiao attribution ----
 # ---- rows owned by task #157. Fixing a line = delete its row here. ----
-open	documentation/CRITIQUE.md	C1+C2+C3	Simultaneous C1+C2+C3 satisfaction	DUAL-SENSE LINE: first use is literal (families vs the three predicates - must survive the fix), second use ("706M orderings under C1+C2+C3") is the legacy alias. Fix ONLY the second, then replace this row with an `allow literal` row anchored on the first. #146.
+allow	documentation/CRITIQUE.md	C1+C2+C3	Simultaneous C1+C2+C3 satisfaction	literal	Three-predicate sense: the unconditional null families against the three predicates C1, C2, C3. The line's former second use, the legacy alias ("706M orderings under C1+C2+C3"), now reads C1-C5, so the `open` row this replaces (#146) is closed (Q-763, 2026-09-25).
 open	documentation/CRITIQUE.md	Zheng Qiao	Zheng Qiao/Hu Yigui trigram clustering	A DIFFERENT claim (trigram clustering, not the 18:18 split) - but the bibliography's only remaining Zheng Qiao content is the correction itself, so this credit has no bibliographic anchor. #157: either source it independently (then re-adjudicate as `allow other-contribution`) or amend - the F4' registration is FROZEN, so the fix path is its own dated-amendment clause.
 allow	documentation/SOLVE_PY_CLI.md	C1+C2+C3	c constraints: C1+C2+C3(pb)	literal	QUOTED IN ORDER TO RETRACT IT. This is the .cnf emitter's OWN header string, reproduced verbatim so a reader recognises it in the artifact; the sentence it sits in says it "overstates the file's contents" and that the sole occurrence of C3 in kw.cnf is that comment. Measured 2026-08-31 (batch P06): --sat-c3 pb writes C3 only to the .opb sidecar. Remove this row when the emitter header is fixed.

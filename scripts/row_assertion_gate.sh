@@ -270,7 +270,7 @@ run_gate(){   # run_gate BATTERY STRICT ; prints the report, sets globals, retur
     if [ "$arc" -eq 3 ]; then printf '%s\n' "$out"; echo "ROW_ASSERTION_ERROR=unbalanced-block"; echo "ROW_ASSERTION=ERROR"; return 2; fi
     if [ "$arc" -eq 4 ]; then printf '%s\n' "$out"; echo "ROW_ASSERTION_ERROR=no-rows-parsed"; echo "ROW_ASSERTION=ERROR"; return 2; fi
     if [ "$arc" -ne 0 ]; then echo "ROW_ASSERTION_ERROR=analyzer-failed"; echo "ROW_ASSERTION=ERROR"; return 2; fi
-    printf '%s\n' "$out" | grep -q '^ROW	' || { echo "ROW_ASSERTION_ERROR=no-rows-parsed"; echo "ROW_ASSERTION=ERROR"; return 2; }
+    grep -q '^ROW	' <<<"$out" || { echo "ROW_ASSERTION_ERROR=no-rows-parsed"; echo "ROW_ASSERTION=ERROR"; return 2; }
 
     local pop emit drvn asrt unas rcon
     pop=$(printf '%s\n' "$out" | grep -c '^ROW	')
@@ -293,7 +293,7 @@ run_gate(){   # run_gate BATTERY STRICT ; prints the report, sets globals, retur
             line=$(printf '%s\n' "$out" | awk -F'\t' -v i="$xid" '$2==i')
             if [ -z "$line" ]; then
                 echo "STALE	$xid	exemption names a row that is not in this battery"; unknown=$((unknown+1)); continue; fi
-            if printf '%s\n' "$line" | awk -F'\t' '$6=="ASSERTED"{exit 0} {exit 1}'; then
+            if awk -F'\t' '$6=="ASSERTED"{exit 0} {exit 1}' <<<"$line"; then
                 echo "STALE	$xid	exemption is stale: this row now asserts, remove the line"; stale=$((stale+1)); continue; fi
             allowed=$((allowed+1))
         done <<< "$ex"

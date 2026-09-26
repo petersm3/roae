@@ -12,13 +12,13 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 The King Wen sequence has famous "irregularities" — places where its otherwise elegant patterns break.
 For centuries these were read as mistakes, corruption, or lost meaning. This report proves a different
-explanation: the four strongest design rules proposed for the sequence (two by Steve Moore, two
+explanation: the four strongest design rules proposed for the sequence ("strongest" names these four named-author rules, not a scoreboard ranking, on which the meta-rule `ccn8` outranks Moore's parity rule; two by Steve Moore, two
 traceable through Larry Schulz to a 13th-century commentator) are **mutually contradictory — no
 C1∩C2∩C4∩C5-valid arrangement (the pairing-preserving space with the base constraints the encoding
 fixes; §2) can satisfy all of them**, a fact established by an exhaustive logic
 search with an independently checkable certificate. King Wen keeps one rule perfectly and misses the other three by two each — **not, as this previously claimed, by the smallest possible margins** ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]** Its irregularities are **consistent with** a forced trade-off,
 and **cannot** be damage to a once-perfect-under-all-four original — none could exist. **How far that may be read is
-calibrated in §5:** all four rules are KW-derived, so King Wen sitting near their joint Pareto frontier is
+calibrated in §5:** all four rules are KW-derived, so King Wen scoring well on all four at once (nearness to their joint Pareto frontier is unverified: no extremal check exists) is
 *expected* rather than an efficiency result, and UNSAT means every C1∩C2∩C4∩C5-valid ordering sits at some
 such forced choice — the KW-specific residue is the measured margin of 2 and exact satisfaction of the
 one rule this report itself calls the most data-like of the four. **These two framings — "not damage" here and the corruption Bayes factor below — are not in
@@ -256,7 +256,7 @@ and `ccn4-kwfail` (the required S25/S26 and S27/S28 faces swapped, a derangement
 so King Wen must mismatch at all four stations — expect **UNSAT**), with those faces derived at
 import from `solve.reg_ccn4` / `solve._reg_stations` and cross-checked against an independent
 replica on King Wen, 300 seeded random permutations and three targeted mutants
-([`sat.py`](../sat.py):442-505) rather than hand-written. The lattice shows the conflict is not an
+([`sat.py`](../sat.py):442-505) rather than hand-written. ⚠ *(Named 2026-09-25, Codex v3 review, V3B-05#6: these checks run when `sat.py` is imported, so `python3 -c "import sat"` exits 0 only if the replica agrees on King Wen, on all 300 permutations drawn from `random.Random(2016)`, and on the three mutants.)* The lattice shows the conflict is not an
 artifact of piling on constraints; the battery is what shows the trigram clauses say what the rule
 says. ⚠ **[CORRECTED 2026-09-01 — this read "A single fragile encoding choice cannot produce that
 pattern", attributing to the lattice an exclusion the lattice does not carry.]**
@@ -285,14 +285,14 @@ itself calls a definitional triviality.]**
 **What follows.** The exceptions that Zhu Yuansheng, Moore and Schulz each recorded independently are not
 evidence of damage to an original perfect under the full four-rule inventory, because no such original
 could exist (damage relative to the three-graded-rule precursor, which does exist, is the separate
-question weighed in the Bayesian section). They are the visible
-seam of a forced trade-off among competing regularities. King Wen keeps one rule exactly and misses the other three by two each — **not, as this previously claimed, by the smallest possible margins** ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]**
+question weighed in the Bayesian section). They are **consistent with** a
+forced trade-off among competing regularities within C1∩C2∩C4∩C5 ⚠ **[CORRECTED 2026-09-25 — this sentence still called the exceptions the visible seam of that trade-off, as established fact; the 2026-09-07 narrowing to "consistent with" reached the two other sites but missed this one, split across two lines. The certificate shows only that no C1∩C2∩C4∩C5-valid ordering reaches zero on all four rules. Codex v3 review, V3B-05#8.]** King Wen keeps one rule exactly and misses the other three by two each — **not, as this previously claimed, by the smallest possible margins** ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]**
 
 **Baseline calibration — how far that may be read (added 2026-08-01).** It is tempting to read the
 preceding sentence as saying King Wen is a *good solution* to the unsatisfiable problem, and this report
 did read it that way until now. That inference does not survive its own baseline. **All four rules are
 KW-derived** — each was selected because King Wen exhibits it, even where its stated form is general — so
-King Wen sitting near their joint Pareto frontier is **expected rather than an efficiency result**, and no
+King Wen scoring well on all four at once (nearness to their joint Pareto frontier is unverified: no extremal check exists) is **expected rather than an efficiency result**, and no
 arbitrary-rule-bundle baseline exists to price it against. The same calibration is carried by
 [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §5 and
 [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md); TR-1 v1.14
@@ -346,7 +346,7 @@ certificate says no C1∩C2∩C4∩C5-valid ordering reaches zero on all four ax
 
 ## Extension (v1.6): the conflict's fine structure — the minimal two-rule cores
 
-Adding the next-strongest discriminating rule from the population scoreboard (Schulz's exception
+Adding a fifth discriminating rule from the population scoreboard (Schulz's exception
 co-location rule, CC-N8) sharpens the theorem in two ways, both certificate-backed and re-verified on
 independent hardware:
 
@@ -363,7 +363,7 @@ independent hardware:
    (drat-trim `s VERIFIED`), and passed a SAT control ({parity, rhythm} → `s SATISFIABLE`) to show
    the check can return either answer. Certificate: `core_gender_ccn4_unsat.drat`. The theorem in
    item 1 is UNAFFECTED — a further core makes the conflict tighter, not weaker. See CORRECTIONS.md.]** Every leave-one-out four-subset of the
-   five rules remains unsatisfiable, and each core is a two-rule contradiction on its own. In
+   five rules remains unsatisfiable, and each core is a two-rule contradiction on its own. ⚠ *(Scoped 2026-09-25, Codex v3 review, V3B-05#6 and #9: the UNSAT halves have certificates in [reports/certificates/](certificates/README.md), the four `core_*` and five `five_loo_*` files. The satisfiable-alone halves and the full census of the lattice are not archived. `python3 sat.py --emit-cnf five-sub-<rule>[+<rule>…] f.cnf` writes any subset's CNF for a solver, but the census was not re-run for this note.)* In
    particular, the four-rule system of the main theorem was not a MINIMAL unsatisfiable set — the
    gender rule is not needed for that instance of the conflict. The main theorem's statement is
    unaffected; its anatomy is now finer: the literature's rules do not fail jointly in one tangle,
@@ -506,7 +506,7 @@ is **operator-attested, not publicly verifiable**: the first public commit carry
 2026-07-04 22:10 UTC) also carries the results bundle — registration and measurement landed the same
 day, and no earlier public commit contains the frozen text alone, so an external reviewer cannot
 distinguish freeze-before-measure from batch-landing from the git record. Because this section reports
-a **positive** result, that distinction is load-bearing, and readers who discount unverifiable freezes
+a **positive** result (as registered; the Bayes factor was withdrawn 2026-08-07, CX-26), that distinction is load-bearing, and readers who discount unverifiable freezes
 should weight instead the features that hold regardless of freeze timing: the pre-committed
 publish-whatever-it-says clause was honored; the full 24-configuration sensitivity grid is published and
 its direction never flips (worst gridpoint BF = 3.3, still > 1); the symbolic-parameter-grid gap is
@@ -585,7 +585,7 @@ derived bracket fired, was investigated, and is closed. Under the measured value
 weakens by ×0.79 and no configuration leaves the strong band; the flip threshold is 52× away.
 
 **Stop-flag resolution (v1.12, 2026-07-13): the pre-registered gate fired, was investigated, and
-is CLOSED — verdict re-affirmed.** The v1.10 annotation recorded that the four-class extension's
+is CLOSED — verdict re-affirmed** *(historical: the verdict was withdrawn 2026-08-07, CX-26)*. The v1.10 annotation recorded that the four-class extension's
 ingredient run measured N_gs **directly** for the first time (5.00×10²⁵, relative error 16.7%)
 and that this fell outside the derived bracket [1.03, 3.57]×10²⁵, triggering the pre-registered
 stop-and-investigate rule. The investigation ran in stages, all archived in
@@ -595,7 +595,7 @@ stop-and-investigate rule. The investigation ran in stages, all archived in
 estimates** of the same derived quantity — a rare conditional fraction times a population size —
 and neither carried propagated uncertainty: one multiplies a three-significant-figure scoreboard
 fraction whose sampling error was unknown; the other is a single sparse histogram cell with no
-interval at all. Empirically, independent draws of that derived estimator at comparable budgets
+interval at all. ⚠ *(The two operands, named 2026-09-25, Codex v3 review, V3B-05#19: `0 viol: 0.000327` ([evidence/f11/f11_runC.out](evidence/f11/f11_runC.out):15) times that file's line-4 estimate 1.091306×10²⁹ gives 3.57×10²⁵; the cell `f11_hist 0 0 0 8.8276943829e-05` (`f11_runB.out`:19) times its line-4 estimate 1.165830×10²⁹ gives 1.03×10²⁵.)* Empirically, independent draws of that derived estimator at comparable budgets
 span 1.03–3.57×10²⁵ with a higher-budget draw between them at 1.73×10²⁵ — a per-draw scatter of
 roughly ×2–4. Weighted rare-event estimators of this kind are also right-skewed (typical draws land
 below the mean), so a span of typical draws is predictably centered low, and a correct direct
@@ -607,15 +607,15 @@ the reference interval it compared against.
 triple-strict prune) give 4.15, 4.99, 4.34, 4.53 ×10²⁵ — mutually consistent (χ²₃ = 1.4,
 p ≈ 0.7) — pooling to **N_gs = 4.50×10²⁵** with a conservative propagated relative error of 6.1%
 (95% CI [3.96, 5.05]×10²⁵; the empirical between-seed scatter gives 4.0%, and the larger figure is
-adopted). Correctness evidence: every run reproduces the build's self-test sha and the two-language
+adopted). ⚠ *(Pooling rule stated 2026-09-25, Codex v3 review, V3B-05#21: the four runs print relerr 9.47%, 13.82%, 13.91% and 10.56%. N_gs is their unweighted mean. Its SE is √(ΣSEᵢ²)/4, where SEᵢ is run i's printed 95% half-width over 1.96, and χ²₃ = Σ(Nᵢ − N̄)²/SEᵢ². Recomputed from the four archived `seed*_*.out` files in [evidence/r11/](evidence/r11/): 4.5031×10²⁵, 6.14%, χ²₃ = 1.36.)* Correctness evidence: every run reproduces the build's self-test sha and the two-language
 KW axis-reproduction gate; an independent in-walk full-scan re-scorer reports zero mismatches on
 every reached leaf in all four runs; and exact brute-force counts of three non-empty deep subtrees
-are reproduced by the estimator machinery to within 0.11%.
+are reproduced by the estimator machinery to within 0.11%. ⚠ *(Sourced 2026-09-25, Codex v3 review, V3B-05#22: each `seed*_*.out` prints `gender-strict leaf cross-check mismatches (must be 0): 0`. The three subtrees are rows 20036, 20057 and 22015 of `exact_audit.tsv`, exact counts 253,232, 75,971,424 and 1,106,032, estimated at −0.105%, −0.017% and +0.027%.)*
 
 *The three convergence gates.* The pre-registered convergence rule required three cross-checks, and
 all three now pass. (1) The four-seed χ² consistency check agrees at ~1σ. (2) A Moore-strict-only
 derived re-run — now instrumented with a propagated CI, closing the gap that made the original
-bracket unsound — lands 1.9σ below the direct value (consistent; that path is intrinsically noisy).
+bracket unsound — lands 1.9σ below the direct value (consistent; that path is intrinsically noisy). ⚠ **[Scope note 2026-09-25 (v1.37; Q-713):** the 1.9σ is a Wald distance on the two printed SEs, and the derived path's 65% relerr lies outside the 5–30% range in which [METHODS](METHODS.md) §"Statistics conventions" calibrates that interval, so it reads as order-of-magnitude only; on a log scale the distance is 1.26–1.38σ, and gate 3 passes on either reading.]**
 (3) A stratified-start cross-check was at first un-poolable: its estimator was found to mis-compose
 the strict prunes with fixed-prefix starts, biasing the naive branch sum upward (3.35σ high). That
 composition defect was repaired with an estimator-only, self-test-neutral fix (the build's self-test
@@ -657,7 +657,7 @@ unquantified-uncertainty ingredient to a directly measured one with stated error
 
 **What this does NOT say.** Nothing about who altered the sequence, when, or how; no dating, no
 attribution, no reconstruction of events. It licenses no claim beyond the model pair compared: conditional
-on the literature's three rules being the relevant regularities, the received sequence is far better
+on the literature's three rules being the relevant regularities, the as-computed comparison (withdrawn 2026-08-07, CX-26) found the received sequence far better
 explained as a corrupted rule-perfect ordering than as the output of a soft-preference arranger — whether
 the rules are the right lens remains open. In particular it does **not** exclude the two mundane rivals
 that a skeptic should reach for first: a **greedy or otherwise local builder**, which was never in the
@@ -804,7 +804,7 @@ it fired, and we abide by it. Running the comparison against King Wen would have
 confident-looking number that our own pre-registered criterion says we may not believe.
 
 **What this does and does not license.** It does *not* say the greedy-builder explanation is correct, nor
-that the v1.7 corruption result is wrong; the v1.7 two-model comparison and its v1.12 re-affirmation are
+that the v1.7 corruption result is wrong (it was already withdrawn as a claimed result on 2026-08-07, CX-26, after the two-model confusability gate failed, CX-25); the v1.7 two-model comparison and its v1.12 re-affirmation are
 untouched, and their scope statements above already say they exclude only the soft-preference arranger.
 What it says is narrower and more useful: **at this sample size these four explanations are not reliably
 distinguishable by this method**, so the honest position on the greedy-local and rules-epiphenomenal
@@ -894,4 +894,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.33 | 2026-09-19 | **The four-class calibration's M_G likelihood was normalized over a larger set than its own generator can produce (Q-661; account corrected, no figure withdrawn and no verdict moved).** §Outcome's confusability table and its sensitivity sentence are kept as executed. The defect is a mismatch between two halves of the same instrument: the likelihood divides by `P_complete` — defined in `solve.py` as reaching slot 31 without dead-ending, where a run can die only on C2's distance-5 step or the C5 transition budget, **C3 never being evaluated** — while the generator in `reports/evidence/r11/r11_calibration.py` redraws until `c3_val(seq) <= 776`. The normalizer therefore covers completions the sampler rejects. The pre-registered design is internally split on it (§2.2 defines `P_complete` as no-dead-end yet calls the division the "conditioned on C1–C5" clause, and §6 places C3 inside that substrate); the design is operator-held and is cited, not amended, and the frozen instrument in `evidence/r11/` is **annotated, not edited**. Verified rather than relayed: the archived per-beta completion counts are exactly `phat × 32000` = 446/450/455/434/379/266/271 from `pcomplete.json`; a from-scratch rescoring reproduces the archived `LG` and `LG_uncond` to ~1 part in 10¹⁵ and all four archived confusion matrices cell for cell; and a negative control applying the same factor to M_C instead leaves M_G at 67. **No corrected integer is published**, because P(C3 \| complete) is not archived and the recomputed primary ranges 77–93 of 100 across a wide family of estimates for it — a range, not a result. 🔴 **Nothing is un-vetoed.** The `uncond` variant sets the denominator to 1 and is arithmetically immune to the defect, staying at **45/100** below the frozen bar of 70 under every estimate tried, so M_G still fails the design's own declared sensitivity readings and the §6.3 veto stands as executed at 67/100 FAIL. Re-freezing §2.2 and re-running is an operator decision and is **not** queued. No Bayes factor, posterior, certificate, count or canonical sha changes |
 | v1.34 | 2026-09-21 | **The certificate count was stated as if 24 files were 24 independent results; they are 23 (Q-640; no figure withdrawn, no verdict moved).** `grand_ccn4_unsat.drat.gz` and `five_loo_ccn8_unsat.drat.gz` decompress to byte-identical DRAT (sha256 `71855567…`) because the five-rule union (`grander-strict`) minus CC-N8 is the four-rule conflict set — the two regenerated CNFs differ only in their `c target=` comment line, measured. Both files stay so each target name remains checkable; §Checker coverage now says files and proofs are different counts, `reports/certificates/README.md` states both, and `scripts/doc_gates.sh cert-inventory` (GATE 77) gained a fourth leg that decompresses every archived proof and fails when the page's distinct-proof count disagrees with the census. Every "24/24" in this report is a file count and stands. |
 | v1.35 | 2026-09-24 | **The calibration summary is brought into line with its own by-V table (Codex V3A-088#1 / V3A-152#6, Q-742).** The CX-25 bullet said the confusability-gate failure was "a step function confined to one stratum" (V=0) and that the received sequence's V=6 self-recovers 51/51. The by-V table in `reports/evidence/f11halfb/RESULTS.md` shows nine failures outside V=0 (56/63 at V=1–2, 59/61 at V=3–4) and reports 51/51 for the pooled V=5–7 stratum, not for V=6. The bullet now says so, with a ⚠ note in place; the same sentence in the evidence file's "Recommended published wording" is annotated there. No count, bar, verdict or withdrawal moved |
-| v1.36 *(current)* | 2026-09-25 | **Thread counts and seeds for every sampled run this report reproduces (Q-758; Codex v3 E3 batch 5, V3B-05, the F1 thread-pin class).** The f11 reproduction paragraph now names each run's `SOLVE_THREADS`: A and B at 32, C and C2 at 64. The four N_gs direct runs are pinned at 64 threads with seeds 1001, 2003, 3011 and 4013. All values are read from the archived outputs' first lines. No figure changes. |
+| v1.36 | 2026-09-25 | **Thread counts and seeds for every sampled run this report reproduces (Q-758; Codex v3 E3 batch 5, V3B-05, the F1 thread-pin class).** The f11 reproduction paragraph now names each run's `SOLVE_THREADS`: A and B at 32, C and C2 at 64. The four N_gs direct runs are pinned at 64 threads with seeds 1001, 2003, 3011 and 4013. All values are read from the archived outputs' first lines. No figure changes. |
+| v1.37 *(current)* | 2026-09-25 | **The last unswept site of the 2026-09-07 narrowing, three wording repairs, and five recipe gaps (Q-759; Codex V3B-05).** (i) The "What follows" paragraph still stated the forced trade-off as fact. The sentence is split across two lines, so the line-based sweep missed it. It now reads "consistent with", scoped to C1∩C2∩C4∩C5, with a ⚠ note (#8). (ii) "The four strongest" is defined at first use; "near their joint Pareto frontier" is replaced at two sites; "the next-strongest discriminating rule" becomes "a fifth discriminating rule" (#4, #12). (iii) Present-tense passages about the Bayes factor now say it was withdrawn on 2026-08-07 (CX-26) at all four cited sites (#28). (iv) Recipe gaps, each with a dated ⚠ note in place. The CC-N4 replica checks are named as import-time checks of `sat.py` (#6). The satisfiable-alone halves and the lattice census are stated to be unarchived (#6, #9). The derived bracket's two operands are named with file and line (#19). The N_gs pooling rule and per-run errors are stated and recomputed from the archived outputs (#21). The zero-mismatch line and the three audited subtrees are sourced (#22). No figure changes. **The gate-3 1.9σ is scoped to the range its interval is calibrated in (Q-713).** §"The three convergence gates" quoted the derived-path cross-check as 1.9σ with no note that its input carries a 65% relerr. The figure is reproduced from the archived inputs: DERIVED-N_gs 1.977×10²⁵ at relerr 64.99% (SE 1.285×10²⁵, `reports/evidence/r11/derived_ci.out`) against the pooled direct 4.503×10²⁵ with SE 0.277×10²⁵ gives (4.503 − 1.977) / √(1.285² + 0.277²) = 1.92. That is a Wald distance, and [METHODS](METHODS.md) calibrates the printed interval only at 5–30% relerr, so a ⚠ note in place reads it as order-of-magnitude only. On a log scale the distance is 1.26σ with each relerr taken as the SE of ln N, or 1.38σ with √ln(1 + relerr²), and gate 3 (within 2.5σ) passes either way. The same note is added to `reports/evidence/r11/PHASE2_README.md` gate 3 and pointed to from `reports/evidence/r11/README.md`. No figure, gate verdict or threshold changes |

@@ -668,9 +668,9 @@ def tr8_statistics(hits_by_k, n_pool, n_pred_by_k, alpha=0.05):
     """Turn per-predicate hit counts into the pre-registered statistics.
 
     PRIMARY  F_hat(K) = fraction of predicates with r_hat <= r_KW, Clopper-Pearson CI. It is
-             primary because it is immune to censoring: a predicate with zero hits is CERTAINLY
-             rarer than r_KW, so it counts correctly even though its rarity is only known as
-             "< 1/N_pool".
+             primary because a zero-hit (censored) predicate still classifies, r_hat = 0 <= r_KW --
+             sound only while 1/N_pool << r_KW (registered N_pool = 1e7). The CI is over the predicate
+             count ONLY: conditional on the shared pool, pool-sampling noise unpropagated (V3A-135#6).
     SECONDARY m_hat(K) = median rarity with a distribution-free order-statistic CI. CX-27 names
              the median specifically, so it ships regardless — but it is reportable only while
              fewer than half the predicates are censored, and this function says so rather than
@@ -832,18 +832,18 @@ def tr8_emit_bank(seed_root=TR8_DEFAULT_SEED_ROOT, calib_draws=100000,
     print()
     print("  wall %.1f s" % (time.time() - t0))
     if out_dir:
-        import json
+        # ONE bank.json WRITER (Q-450). This block used to write its own bank.json, carrying
+        # calibration_seed, h_a_kw_satisfies_all and a per-instance calibration `hits` count,
+        # while --tr8-dof-sampler wrote a second, leaner schema to the same path without those
+        # three fields -- so a sampler run into a directory holding an emit-bank bank.json
+        # overwrote it and silently lost them. Both flags now write through tr8_emit_bank_json,
+        # which re-derives the seed and H-a from the same inputs and takes the same hits, so an
+        # emit-bank file is byte-identical to before and a sampler file gains the three fields.
+        # (tr8_bank_admit is deterministic in (calib_draws, seed, band): the sampler's own call
+        # returns the identical hits this one did, so neither writer can clobber the other with
+        # different content for the same seed root.)
         os.makedirs(out_dir, exist_ok=True)
-        with open(os.path.join(out_dir, "bank.json"), "w", encoding="utf-8") as f:
-            json.dump({"seed_root": seed_root, "calibration_seed": seed,
-                       "calibration_draws": calib_draws, "band": list(band),
-                       "b_raw": len(bank), "b_admitted": len(admitted),
-                       "h_a_kw_satisfies_all": ha,
-                       "bank": [{"family": bank[i][0], "index": bank[i][1],
-                                 "comparator": bank[i][2], "template": bank[i][3],
-                                 "marginal": marg[i], "hits": hits[i],
-                                 "admitted": i in set(admitted)}
-                                for i in range(len(bank))]}, f, indent=1, sort_keys=True)
+        tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted, hits)
         print("  wrote %s" % os.path.join(out_dir, "bank.json"))
     return 0 if ha else 1
 
@@ -878,8 +878,8 @@ def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
                          % (out_dir, e.strerror or e))
     t0 = time.time()
 
-    bank, marg, admitted, _bh = tr8_bank_admit(calib_draws,
-                                               tr8_seed(seed_root, "bank-calibration"), band)
+    bank, marg, admitted, bhits = tr8_bank_admit(calib_draws,
+                                                 tr8_seed(seed_root, "bank-calibration"), band)
     kwv = tr8_clause_values(list(binary_hexagrams))
     if not all(kwv):
         bad = [i for i, x in enumerate(kwv) if not x]
@@ -922,7 +922,7 @@ def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
     if shard is None or shard == 0:
         with open(os.path.join(out_dir, "header.json"), "w", encoding="utf-8") as f:
             json.dump(header, f, indent=1, sort_keys=True)
-        tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted)
+        tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted, bhits)
 
     if shard is not None:
         path = os.path.join(out_dir, "shard_%s_%d.json" % (pool, shard))
@@ -938,15 +938,15 @@ def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
                        bank, quiet)
 
 
-def tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted):
-    import json
-    adm = set(admitted)
+def tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted, hits):
+    import json  # the ONLY bank.json writer (Q-450): emit-bank and the sampler share this schema
+    adm, ha, cseed = set(admitted), all(tr8_clause_values(list(binary_hexagrams))), tr8_seed(seed_root, "bank-calibration")
     with open(os.path.join(out_dir, "bank.json"), "w", encoding="utf-8") as f:
-        json.dump({"seed_root": seed_root, "calibration_draws": calib_draws,
-                   "band": list(band), "b_raw": len(bank), "b_admitted": len(admitted),
+        json.dump({"seed_root": seed_root, "calibration_draws": calib_draws, "calibration_seed": cseed,
+                   "h_a_kw_satisfies_all": ha, "band": list(band), "b_raw": len(bank), "b_admitted": len(admitted),
                    "bank": [{"family": bank[i][0], "index": bank[i][1],
                              "comparator": bank[i][2], "template": bank[i][3],
-                             "marginal": marg[i], "admitted": i in adm}
+                             "marginal": marg[i], "hits": hits[i], "admitted": i in adm}
                             for i in range(len(bank))]}, f, indent=1, sort_keys=True)
 
 
@@ -1077,7 +1077,7 @@ def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted,
     ha_ok = all(kwv)
     if not ha_ok:
         verdict, why = "INCONCLUSIVE", "sanity gate H-a (KW satisfies every clause) FAILED"
-    gates = {"h_a_kw_satisfies_every_predicate": ha_ok,
+    gates = {"h_a_kw_satisfies_every_raw_template": ha_ok,
              "h_b_null_calibration": hb_ok,
              "h_b_observed": hb, "h_b_expected": exp_hb,
              "h_b_sigma": sigma,
@@ -1141,8 +1141,8 @@ def _tr8_results_md(res, bank, admitted, marg):
     L.append("## Sanity gates")
     L.append("")
     g = res["gates"]
-    L.append("- **H-a** (King Wen satisfies every drawn predicate by construction): **%s**"
-             % ("PASS" if g["h_a_kw_satisfies_every_predicate"] else "FAIL"))
+    L.append("- **H-a** (King Wen satisfies every raw template clause, so every drawn predicate): **%s**"
+             % ("PASS" if g["h_a_kw_satisfies_every_raw_template"] else "FAIL"))
     L.append("- **H-b** (the pool reproduces the exact pair-null gender rate): **%s** — "
              "observed %d, expected %.2f, sigma %.2f"
              % ("PASS" if g["h_b_null_calibration"] else "FAIL",
@@ -1151,7 +1151,7 @@ def _tr8_results_md(res, bank, admitted, marg):
     L.append("## Statistics")
     L.append("")
     L.append("`F_hat` = fraction of drawn predicates at least as rare as King Wen "
-             "(PRIMARY; censoring-immune). `m_hat` = median rarity (SECONDARY).")
+             "(PRIMARY; CI conditional on the shared pool). `m_hat` = median rarity (SECONDARY).")
     L.append("")
     L.append("| K | F_hat | 95% CP CI | m_hat | 95% order-stat CI | censored |")
     L.append("|---|---|---|---|---|---|")
@@ -1678,7 +1678,7 @@ def print_rules():
     print("Rule 3: COMPLEMENT PROXIMITY")
     print(f"  Mean positional distance between complementary hexagrams must be")
     print(f"  <= {mean_complement_distance(binary_hexagrams):.1f} (King Wen's value).")
-    print(f"  Random pair-constrained orderings average ~21.7.")
+    print(f"  Null means: ~21.7 unconstrained (65/3); 16.75 pair-only (C1); 16.25 with the opening pair fixed (C1&C4).")
     print()
     print("Rule 4: XOR ALGEBRAIC CONSTRAINT")
     print("  The XOR of each pair must produce one of exactly 7 values:")
@@ -1787,7 +1787,7 @@ def print_adjacency_graph(pairs):
 
     print(f"\nForced or near-forced steps (<=2 options): {forced_count}/{n-1}")
     print(f"Mean options per step: {sum(choice_counts)/len(choice_counts):.1f}")
-    print(f"Total path freedom (product of options): ~10^{sum(len(str(c)) for c in choice_counts if c > 0):.0f}")
+    print(f"Total path freedom (product of options): ~10^{sum(math.log10(c) for c in choice_counts if c > 0):.1f}")
     print()
 
     # What fraction of the graph does King Wen traverse?
@@ -2001,8 +2001,8 @@ def print_sequential_construction():
     print("At each decision point, which selection strategy matches King Wen?")
     print()
 
-    used = set()
-    used.add(0)
+    used = {0}
+    null_exp = {"min_distance": 0.0, "max_distance": 0.0, "trigram_link": 0.0}  # tie-aware per-heuristic null
 
     heuristics = {
         "min_distance": 0,    # choose smallest Hamming distance
@@ -2033,17 +2033,17 @@ def print_sequential_construction():
         testable_steps += 1
         boundary_dist = bit_diff(prev_tail, curr_first)
 
-        # Min distance heuristic
         min_d = min(bit_diff(prev_tail, f) for _, _, f in valid)
+        null_exp["min_distance"] += sum(bit_diff(prev_tail, f) == min_d for _, _, f in valid) / len(valid)
         if boundary_dist == min_d:
             heuristics["min_distance"] += 1
 
-        # Max distance heuristic
         max_d = max(bit_diff(prev_tail, f) for _, _, f in valid)
+        null_exp["max_distance"] += sum(bit_diff(prev_tail, f) == max_d for _, _, f in valid) / len(valid)
         if boundary_dist == max_d:
             heuristics["max_distance"] += 1
 
-        # Trigram link heuristic
+        null_exp["trigram_link"] += sum(bool({upper_trigram(prev_tail), lower_trigram(prev_tail)} & {upper_trigram(f), lower_trigram(f)}) for _, _, f in valid) / len(valid)
         tu = upper_trigram(prev_tail)
         tl = lower_trigram(prev_tail)
         hu = upper_trigram(curr_first)
@@ -2054,15 +2054,15 @@ def print_sequential_construction():
 
         used.add(step)
 
-    print(f"{'Heuristic':<20} {'Correct':>8} {'of':>3} {testable_steps:>3} {'Rate':>8}")
-    print(f"{'----------':<20} {'-------':>8} {'--':>3} {'---':>3} {'----':>8}")
+    print(f"{'Heuristic':<20} {'Correct':>8} {'of':>3} {testable_steps:>3} {'Rate':>8} {'Null':>8}")
+    print(f"{'----------':<20} {'-------':>8} {'--':>3} {'---':>3} {'----':>8} {'----':>8}")
     for name, count in heuristics.items():
-        rate = count / testable_steps * 100 if testable_steps > 0 else 0
-        print(f"{name:<20} {count:>8} {'of':>3} {testable_steps:>3} {rate:>7.0f}%")
+        rate, nul = (count / testable_steps * 100, null_exp[name] / testable_steps * 100) if testable_steps > 0 else (0, 0)
+        print(f"{name:<20} {count:>8} {'of':>3} {testable_steps:>3} {rate:>7.2f}% {nul:>7.2f}%")
 
-    # What would random choice predict?
-    random_expected = testable_steps / (total_options / (n - 1))  # rough
-    print(f"\nRandom choice expected: ~{random_expected:.0f}% per heuristic")
+    # Each heuristic is scored against its OWN null (V3A-135#2), not one shared "~1%" figure.
+    print("\nNull = expected rate if each next pair were drawn uniformly from that step's valid")
+    print("options, ties counted (tie-aware, per heuristic). Rate at or below Null = no preference.")
 
 def print_enumerate(max_nodes=10_000_000, time_limit=60):
     """Backtracking enumeration with all constraints and a node/time budget."""
@@ -2994,11 +2994,11 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=F
         min_val = all_vals[0]
         max_val = all_vals[-1]
 
-        is_extremal = ""
-        if rank == 1 or rank == n_sol:
+        is_extremal = "constant" if min_val == max_val else ""  # constant across solutions (e.g. a C5 identity): no rank
+        if not is_extremal and (rank == 1 or rank == n_sol):
             is_extremal = "*** EXTREMAL"
             extremal_features.append((feat_name, kw_val, rank, n_sol))
-        elif rank <= 3 or rank >= n_sol - 2:
+        elif not is_extremal and (rank <= 3 or rank >= n_sol - 2):
             is_extremal = "* near"
             notable_features.append((feat_name, kw_val, rank, n_sol))
 
@@ -3018,11 +3018,11 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=F
         min_val = all_vals[0]
         max_val = all_vals[-1]
 
-        is_extremal = ""
-        if rank == 1 or rank == n_sol:
+        is_extremal = "constant" if min_val == max_val else ""  # constant across solutions (e.g. a C5 identity): no rank
+        if not is_extremal and (rank == 1 or rank == n_sol):
             is_extremal = "*** EXTREMAL"
             extremal_features.append((feat_name, kw_val, rank, n_sol))
-        elif rank <= 3 or rank >= n_sol - 2:
+        elif not is_extremal and (rank <= 3 or rank >= n_sol - 2):
             is_extremal = "* near"
             notable_features.append((feat_name, kw_val, rank, n_sol))
 
@@ -3043,9 +3043,9 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=F
             val_str = f"{val:.3f}" if isinstance(val, float) else str(val)
             print(f"  {name}: {val_str} ({direction} of {total} solutions)")
         print()
-        print("These are candidate rules — properties that could narrow the solution")
-        print("space to King Wen alone. To verify, add each as a constraint and")
-        print("re-run enumeration.")
+        print("Candidate constraints only (constant features are listed as 'constant',")
+        print("never extremal): each could narrow the solution space; none is shown to")
+        print("isolate King Wen. To test, add each as a constraint and re-run enumeration.")
     else:
         print("No extremal features found. King Wen is not at the min or max of")
         print("any measured property. The missing rule may involve a combination")
@@ -3079,7 +3079,7 @@ def print_rule7_test(max_nodes=100_000_000, time_limit=3600):
     print("solution space to King Wen uniquely.")
     print()
     print("Rule 7a: complement_distance must equal 12.125 (exact maximum)")
-    print("Rule 7b: mean line autocorrelation must equal -0.115 (exact maximum)")
+    print("Rule 7b: mean line autocorrelation must equal -0.115 (a C5 identity: constant, cannot narrow)")
     print()
 
     kw_pairs = king_wen_pairs()
@@ -3284,7 +3284,7 @@ def print_rule7_test(max_nodes=100_000_000, time_limit=3600):
 
 def generate_rule7a_solutions(max_nodes=30_000_000, time_limit=120):
     """Generate solutions satisfying Rules 1-6 + Rule 7a (exact complement distance).
-    Returns list of unique pair orderings."""
+    Returns (unique pair orderings, exhausted); exhausted=False means the budget cut the search."""
     kw_pairs = king_wen_pairs()
     n = len(kw_pairs)
     kw_diffs = [bit_diff(binary_hexagrams[i], binary_hexagrams[i + 1]) for i in range(63)]
@@ -3297,13 +3297,13 @@ def generate_rule7a_solutions(max_nodes=30_000_000, time_limit=120):
     pair_options = [[(a, b), (b, a)] for a, b in kw_pairs]
 
     solutions = []
-    nodes = [0]
+    nodes = [0, False]  # [node count, budget hit] -- budget hit => partial, NOT exhaustive (V3A-135#1)
     start = time.time()
 
     def backtrack(seq, used, dist_budget):
         nodes[0] += 1
-        if nodes[0] > max_nodes or (time.time() - start) > time_limit:
-            return
+        nodes[1] = nodes[1] or nodes[0] > max_nodes or (time.time() - start) > time_limit
+        if nodes[1]: return  # budget hit: this call and every later one abort
         step = len(seq) // 2
         if step == n:
             cd = mean_complement_distance(seq)
@@ -3327,7 +3327,7 @@ def generate_rule7a_solutions(max_nodes=30_000_000, time_limit=120):
                     continue
                 new_budget[wd] -= 1
                 backtrack(seq + [first, second], used | {j}, new_budget)
-                if nodes[0] > max_nodes or (time.time() - start) > time_limit:
+                if nodes[1]:  # the budget refused a node, so the flag is exact
                     return
 
     init_budget = dict(kw_dist)
@@ -3346,7 +3346,7 @@ def generate_rule7a_solutions(max_nodes=30_000_000, time_limit=120):
     elapsed = time.time() - start
     print(f"  Generated {len(solutions)} raw -> {len(unique)} unique orderings "
           f"({nodes[0]:,} nodes, {elapsed:.1f}s)", file=sys.stderr)
-    return unique
+    return unique, not nodes[1]
 
 def print_fingerprint(max_nodes=30_000_000, time_limit=120):
     """Three analyses to characterize the missing rule."""
@@ -3359,7 +3359,7 @@ def print_fingerprint(max_nodes=30_000_000, time_limit=120):
     print()
 
     print("Generating Rule 7a solutions...")
-    survivors = generate_rule7a_solutions(max_nodes=max_nodes, time_limit=time_limit)
+    survivors, exhausted = generate_rule7a_solutions(max_nodes=max_nodes, time_limit=time_limit)
 
     if len(survivors) < 2:
         print("Not enough solutions for analysis.")
@@ -3525,8 +3525,8 @@ def print_fingerprint(max_nodes=30_000_000, time_limit=120):
 
     if unique_to_kw:
         print()
-        print("The unique adjacencies ARE the missing rule — King Wen is the only")
-        print("solution that has these specific pairs next to each other:")
+        print("Among the orderings found, King Wen is the only one with these pairs")
+        print("next to each other (sample-scoped; not shown to be the missing rule):")
         for pos in unique_to_kw:
             a1, b1 = kw_canonical[pos]
             a2, b2 = kw_canonical[pos + 1]
@@ -3578,8 +3578,8 @@ def print_fingerprint(max_nodes=30_000_000, time_limit=120):
         print(f"Constraint positions: {[pos + 1 for pos, _ in selected]}")
         print()
         if len(selected) <= 10:
-            print("These adjacencies, combined with Rules 1-7a, uniquely determine")
-            print("the King Wen sequence.")
+            print("Search complete: with Rules 1-7a these adjacencies leave King Wen alone." if exhausted else
+                  "PARTIAL search (budget exhausted; not exhaustive): within this sample these adjacencies\nseparate King Wen from every other ordering found -- not a proof of uniqueness (CX-02).")
 
 def print_reconstruct():
     """Reconstruct the King Wen sequence step by step using all constraints.
@@ -5588,8 +5588,8 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
 
     p2col = fit_data[:, 0].astype(int)
     rest_fit = fit_data[:, 1:]
-    rest_cols = cols[1:]
-    rest_fit, rest_cols, kw_vals, dropped = _p2_v2_variance_filter(rest_fit, rest_cols, _P2_KW_VALUES)
+    rest_fit, rest_cols, kw_vals, dropped = _p2_v2_variance_filter(rest_fit, cols[1:], _P2_KW_VALUES)
+    cols = ["position_2_pair"] + rest_cols  # V3A-135#7: both scoring arms read the FILTERED dims mu/sigma fit
     if rest_fit.shape[1] == 0:
         raise SystemExit("[v2-strat] all non-stratifier dims dropped")
     kw_p2 = _P2_KW_VALUES["position_2_pair"]
@@ -12552,7 +12552,7 @@ def atlas_load(path):
     # but VERIFY.md:1159 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6240,
-    # :6583; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
+    # :6583; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
         raise AtlasError(
@@ -14948,6 +14948,12 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
             print("[atlas] A5 orbit-column check: %s -- %s"
                   % (verdicts["TR12_A5_ORBIT_COLUMNS"], detail))
 
+    # 🔴 RCQ04 F1 (Q-581, 2026-09-25): the n-independent arithmetic gates run HERE, at every n.
+    # They lived only in atlas_selftest, behind its n > 13 refusal, so at full-31 TR12_V1/V2/V5/Q6
+    # were assigned PASS on emission and no gate had read the numbers. See atlas_arith_gates.
+    arith = atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace)
+    _atlas_arith_apply(arith, verdicts, n, quiet)
+
     if verdicts_path is None:
         verdicts_path = os.path.join(outdir, "VERDICTS.txt")
     _atlas_write_verdicts(verdicts_path, verdicts)
@@ -14957,7 +14963,7 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
         for k in sorted(verdicts):
             print("%s=%s" % (k, verdicts[k]))
     return {"atlas": A, "written": written, "verdicts": verdicts,
-            "outdir": outdir, "scandir": scandir, "N": N, "n": n}
+            "outdir": outdir, "scandir": scandir, "N": N, "n": n, "arith": arith}
 
 
 # A-3 (verified 2026-08-22) -- the ONLY full-31 check against PUBLISHED numbers.
@@ -16032,6 +16038,7 @@ def atlas_probe(atlas_path):
             xl_ok = xl_ok and ({h: v for h, v in rows.items() if v}
                                == {h: v for h, v in exits.items() if v})
         gate("KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER", xl_ok)
+        gate("KERNEL_MASS_ONLY_AT_POSSIBLE_CELLS_EVERY_LAYER", _atlas_kernel_cells_possible(Ms, universe, pair_of))
         # Q-738 (2026-09-24, Fable T): the producer's other tail checks -- `vertical_raw_eq_N`,
         # `digit_cross_table_eq_cls_prefix`, `kernel_rev_column_eq`, `kernel_g_invariance` -- were
         # still TRUSTED here as booleans.  Each is a theorem of the raw census with a written
@@ -16295,139 +16302,20 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
         v5 = _atlas_read_tsv(os.path.join(scan, "v5_grammar.tsv"))
         q6 = _atlas_read_tsv(os.path.join(scan, "q6_layer_mass.tsv"))
         xa = _atlas_read_tsv(os.path.join(out, "xa_branches.tsv"))
-        q10 = _atlas_read_tsv(os.path.join(out, "q10_orbit_census.tsv"))
 
-        # ---- structural: no float ever reached a mass column -------------
-        ok = all(("." not in r["mass"] and "e" not in r["mass"].lower())
-                 for r in v1 + v2 + v5 + q6)
-        gate("no mass column carries a float literal (192-bit integrity)", ok)
-
-        # ---- totals: every table sums to N_total exactly ------------------
-        col = {}
-        for r in v1:
-            col[r["k"]] = col.get(r["k"], 0) + int(r["mass"])
-        gate("V1: every layer's pair marginals sum to N_total",
-             all(v == N for v in col.values()) and len(col) == n,
-             str(sorted(set(col.values()))))
-        row = {}
-        for r in v1:
-            row[r["pair"]] = row.get(r["pair"], 0) + int(r["mass"])
-        used = {p: m for p, m in row.items() if m}
-        gate("V1: every placed pair's row sums to N_total (each walk places it once)",
-             all(v == N for v in used.values()) and len(used) == n)
-        gate("V1: the C4-pinned pair 0 row is identically zero", row.get("0", 0) == 0)
+        # ---- the n-independent gates (RCQ04 F1, Q-581, 2026-09-25) ------------------------
+        # These 18 legs, the three Q3 legs and A-5 below used to be computed HERE, behind the
+        # n > 13 refusal above, so at full-31 none of them ran. They now live in
+        # atlas_arith_gates(), which atlas_queries() calls at EVERY n; this function replays the
+        # results that call already produced, in the same order and with the same names, so the
+        # n=9 transcript (scripts/tr12_expected/n9/c_consumer.txt) is byte-identical.
+        arith = R["arith"]
+        for e in arith:
+            if e[1] == "pre":
+                gate(e[2], e[3], e[4])
         rk = {}
         for r in v2:
             rk[r["k"]] = rk.get(r["k"], 0) + int(r["mass"])
-        gate("V2: every layer's distance-class masses sum to N_total",
-             all(v == N for v in rk.values()) and len(rk) == n)
-        # 🔴 Q-314 item (3), 2026-09-07. EVERY V2/V1/V5/Q6 gate above is HORIZONTAL: it
-        # sums one layer across distance classes and compares to N. All of them are blind to mass
-        # moving BETWEEN classes inside a layer, which is exactly what `--atlas-fault v2-class-swap`
-        # does. MEASURED (2026-09-07, before the legs below existed): that fault left every no-walks
-        # gate then present GREEN and was caught only by the brute-force legs -- and brute force
-        # cannot exist at n=31, so at full-31 the fault was invisible. These legs are VERTICAL:
-        # they sum one class DOWN the layers.
-        # Q-722 (2026-09-24): this comment used to say "all 20 no-walks gates". The count is not 20.
-        # Runtime gates in atlas_selftest are now: 22 without walks and with --atlas-q3-trace, 19
-        # without walks and without it, and 37 with walks and the trace (38 gate() call sites; the
-        # XA t-units check is an if/else, so only one of its two arms runs). These are static counts
-        # of this file by `python3 gatecount.py solve.py` (roae-private
-        # evidence_opusJ_2026_09_24/gatecount.py). The 22 was also confirmed at runtime at 5c296837
-        # (roae-private N31_ATTESTATION_SCOPE.md, Q677 section). Recount rather than trust this.
-        #
-        # B0 is DEFINED here as colsum // N, never hardcoded, and the `d` column of v2_river.tsv
-        # holds distance VALUES (_ATLAS_CLASSES = 1, 2, 3, 4, 6) rather than class indices -- so
-        # the 1..5 assumption that once made a fault a silent no-op cannot recur here: the values
-        # are read back from the emitted data instead of being re-typed.
-        colsum = {}
-        for r in v2:
-            colsum[int(r["d"])] = colsum.get(int(r["d"]), 0) + int(r["mass"])
-        gate("V2-B0: every distance class's column sums to a whole multiple of N_total",
-             bool(colsum) and all(m % N == 0 for m in colsum.values()),
-             " ".join("d=%d:rem=%d" % (d, colsum[d] % N) for d in sorted(colsum)))
-        b0 = {d: m // N for d, m in colsum.items()}
-        # MEASURED, not predicted: this leg DOES fire on v2-class-swap (sum B0 = 8, n = 9), but
-        # only DERIVATIVELY -- once a column stops being a multiple of N the floor division above
-        # truncates and the budget drops. It is not independent evidence of that fault, and it is
-        # shipped WITH the leg above, never instead of it. Its own fault is a different one: a
-        # column that IS a clean multiple of N but the wrong multiple.
-        gate("V2-B0: the C5 boundary budget sums to n (one boundary per layer, per walk)",
-             sum(b0.values()) == n, "sum B0 = %d, n = %d" % (sum(b0.values()), n))
-        gk = {}
-        for r in v5:
-            gk[r["k"]] = gk.get(r["k"], 0) + int(r["mass"])
-        gate("V5: p_cond is a distribution -- class masses sum to the layer flow",
-             all(v == N for v in gk.values()) and len(gk) == n)
-        qk = {}
-        for r in q6:
-            qk[r["k"]] = qk.get(r["k"], 0) + int(r["mass"])
-        gate("Q6: every layer's class masses sum to N_total",
-             all(v == N for v in qk.values()) and len(qk) == n)
-        gate("XA: sum_b solutions(b) == N_total",
-             sum(int(r["solutions"]) for r in xa) == N,
-             "%d vs %d" % (sum(int(r["solutions"]) for r in xa), N))
-        gate("V2 branch panel and XA branch table agree on solutions",
-             [r["solutions"] for r in v2b] == [r["solutions"] for r in xa])
-
-        # ---- per-layer flows match the atlas ------------------------------
-        af = {L["k"]: _atlas_int(L["flow"], "flow") for L in A["layers"]}
-        gate("per-layer flow in every table == atlas layers[k].flow",
-             all(rk[str(k)] == f for k, f in af.items()) and
-             all(gk[str(k)] == f for k, f in af.items()) and
-             all(qk[str(k)] == f for k, f in af.items()) and
-             all(col[str(k)] == f for k, f in af.items()))
-
-        # ---- t-units ------------------------------------------------------
-        if all(r["prefixes_t_units"].isdigit() for r in xa) and "t_root_t_units" in A:
-            troot = _atlas_int(A["t_root_t_units"], "t_root_t_units", json_int=True)
-            tsum = sum(int(r["prefixes_t_units"]) for r in xa)
-            gate("XA: 1 + sum_b prefixes_t_units(b) == t(root)", 1 + tsum == troot,
-                 "%d vs %d" % (1 + tsum, troot))
-        else:
-            gate("XA: t-units present (--kc-tdir)", False, "no t-ladder in this atlas")
-
-        # ---- mod 24 -------------------------------------------------------
-        gate("Q10a/XA-24: N_total and every layer flow divisible by 24",
-             all(r["mod24_ok"] == "1" for r in q10) and
-             all(int(r["flow"]) == int(r["orbits"]) * _ATLAS_ORBIT for r in q10))
-
-        # ---- mod 48 (Q-314 item 1) ----------------------------------------
-        # 🔴 The gate above reads a PRECOMPUTED column, `mod24_ok`, so it checks that the
-        # emitter's own arithmetic agrees with the emitter. This one re-derives from the
-        # flow values themselves and asks the stronger question: 48, not 24. The two
-        # totals were spot-verified by hand before wiring it -- 26112/48 = 544 and
-        # 2063395607040/48 = 42987408480 -- so the gate is asserting something known true,
-        # which is the only honest way to add a divisibility check: if it had gone red on
-        # arrival the correct response would have been to doubt the CLAIM, not raise it.
-        gate("XA-48: N_total and every layer flow divisible by 48 (re-derived, not a column)",
-             N % 48 == 0 and all(int(r["flow"]) % 48 == 0 for r in q10),
-             "N%%48=%d, offending layer flows: %s" % (
-                 N % 48,
-                 [r.get("k", "?") for r in q10 if int(r["flow"]) % 48][:5]))
-
-        # ---- stabiliser arithmetic (Q-314 item 2) --------------------------
-        # 48 divides every V2 distance-class cell and 16 divides every RAW V1 cell. Both were
-        # MEASURED on the committed n=9 fixture before being wired -- 45 V2 cells and 288 V1
-        # cells, zero violations -- for the same reason as XA-48: a divisibility gate that goes
-        # red on arrival should make you doubt the CLAIM, not weaken the gate.
-        gate("V2-48: every distance-class cell divisible by 48",
-             all(int(r["mass"]) % 48 == 0 for r in v2),
-             "offending (k,d): %s" % [(r.get("k"), r.get("d")) for r in v2
-                                      if int(r["mass"]) % 48][:5])
-        gate("V1-16: every RAW per-pair cell divisible by 16",
-             all(int(r["mass"]) % 16 == 0 for r in v1),
-             "offending rows: %s" % [(r.get("k"), r.get("pair")) for r in v1
-                                     if int(r["mass"]) % 16][:5])
-
-        # ---- layer 0 vs the branch table (independent of the DP path) -----
-        l0 = {}
-        for r in xa:
-            d = bin(int(r["entry"])).count("1")
-            l0[d] = l0.get(d, 0) + int(r["solutions"])
-        a0 = {d: _atlas_layer_class(A["layers"][0], d, 0) for d in _ATLAS_CLASSES}
-        gate("layer-0 class masses == branch table aggregated by popcount(entry)",
-             all(l0.get(d, 0) == a0[d] for d in _ATLAS_CLASSES), str(l0))
 
         # ---- the brute-force recount --------------------------------------
         if walks_path is None:
@@ -16549,35 +16437,21 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
             gate("brute force: XA and V2-branch share == solutions/N re-rendered from the recount",
                  not bad, _first(bad))
 
-        # ---- Q3 ------------------------------------------------------------
+        # ---- Q3 and A-5: replayed from atlas_arith_gates (RCQ04 F1), same order as before ----
         if q3_trace:
-            p = os.path.join(out, atlas_q3_name(atlas_parse_q3_trace(q3_trace), n)[0])
-            gate("Q3: reader-side prod(p_i) == 1/N in exact big-int rationals",
-                 not atlas_q3_reader_check(p, N))
-            # 🔴 Q-767 (1), RCQ04 P3, 2026-09-24. This gate read only TR12_Q3 == "PASS", the parent
-            # token the consumer derives from the two legs, so it re-stated the reader gate above
-            # and never looked at the KW leg at all. It now asserts BOTH legs by name: the reader
-            # leg PASSed, and the King Wen leg is the SKIP this reduced universe must report
-            # (atlas_selftest refuses n > 13, so a PASS or NOT-KW here is a mis-naming, not a result).
-            gate("Q3: verdict tokens emitted",
-                 R["verdicts"].get("TR12_Q3") == "PASS"
-                 and R["verdicts"].get("TR12_Q3_READER") == "PASS"
-                 and R["verdicts"].get("TR12_Q3_KW") == "SKIP:n=%d" % n,
-                 "TR12_Q3=%s TR12_Q3_READER=%s TR12_Q3_KW=%s (want PASS, PASS, SKIP:n=%d)"
-                 % (R["verdicts"].get("TR12_Q3"), R["verdicts"].get("TR12_Q3_READER"),
-                    R["verdicts"].get("TR12_Q3_KW"), n))
-            bad = [(r["step"], r["p_num"], r["p_den"], r["p"]) for r in _atlas_read_tsv(p)
-                   if not _atlas_ratio_text_ok(r["p"], int(r["p_num"]), int(r["p_den"]))]
-            gate("Q3: p column == p_num/p_den to %d correct digits (Q-422)" % _ATLAS_SIG,
-                 not bad, "%d bad row(s); first %s" % (len(bad), bad[0]) if bad else "")
+            for e in arith:
+                if e[1] == "q3":
+                    gate(e[2], e[3], e[4])
         else:
             print("[atlas-consumer] %-62s %s" % ("Q3 leg (--atlas-q3-trace)", "SKIP"))
 
-        ncol, sizes, ok_orb, detail = atlas_orbit_columns(A)
-        if ok_orb is None:
-            print("[atlas-consumer] %-62s %s" % ("A-5 orbit-columns", "SKIP: " + detail))
-        else:
-            gate("A-5: one raw marginal column per WHOLE pair-orbit (%s)" % detail, ok_orb)
+        for e in arith:
+            if e[1] != "a5":
+                continue
+            if e[3] is None:
+                print("[atlas-consumer] %-62s %s" % ("A-5 orbit-columns", "SKIP: " + e[4]))
+            else:
+                gate(e[2], e[3], e[4])
 
         fails = [nm for nm, ok, _ in results if not ok]
         print("[atlas-consumer] %d gate(s) run, %d failure(s)" % (len(results), len(fails)))
@@ -16592,6 +16466,355 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
     finally:
         if keep is None:
             shutil.rmtree(out, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------
+# RCQ04 F1 (Q-581, 2026-09-25): the n-independent arithmetic gates, run at EVERY n.
+# --------------------------------------------------------------------------
+# WHY THIS EXISTS. Until 2026-09-25 these gates were computed only inside atlas_selftest, after
+# its `n > 13` refusal ("brute force is a reduced-n gate"). atlas_queries -- the path a full-31
+# run takes -- called none of them, so at n=31 TR12_V1/V2/V5/Q6 were assigned PASS on emission
+# and no gate had read the numbers they stood for (RCQ04 F1, ACCEPTED 2026-09-10). None of these
+# gates needs the explicit enumeration: each reads only the tables atlas_queries has just written
+# and the atlas itself. So they now live here, atlas_queries calls this at every n, and a failure
+# turns the tokens the gate vouches for into FAIL (_atlas_arith_apply). atlas_selftest replays
+# the same results, in the same order and under the same names, so its transcript is unchanged.
+#
+# THE POPULATION: 22 gates, from 23 call sites (the XA t-units check is an if/else pair and
+# exactly one arm runs). 18 read only the emitted tables and the atlas; three are the Q3 legs,
+# which need --atlas-q3-trace; one is A-5. Without a Q3 trace the runtime count is 19.
+# Count them from _ATLAS_ARITH_IDS, never from this comment.
+#
+# PARTIAL --atlas-select. A gate runs only when every table it reads was written by THIS call
+# (its selector is in `sel`), so a stale table from an earlier run in the same --atlas-out is
+# never read. The float-literal and per-layer-flow gates range over whichever of V1/V2/V5/Q6 were
+# written; under the default selection that is all four, which is what atlas_selftest ran. A gate
+# whose tables were not written is reported as not run (ok=None) and vouches for nothing.
+#
+# Each entry: (gid, section, name, ok, detail, owners). `section` is "pre" (the 18 that run
+# before the brute-force block in atlas_selftest), "q3" or "a5"; `ok` is True/False, or None
+# when the gate could not run; `owners` are the verdict keys the gate vouches for.
+_ATLAS_ARITH_IDS = ("float", "V1-col", "V1-row", "V1-pair0", "V2-layer", "V2-B0-col",
+                    "V2-B0-budget", "V5-dist", "Q6-layer", "XA-sum", "V2B-XA", "flow",
+                    "XA-t", "XA-24", "XA-48", "V2-48", "V1-16", "L0-branch",
+                    "Q3-prod", "Q3-tokens", "Q3-ptext", "A-5")
+_ATLAS_ARITH_BRUTE_MAX_N = 13     # atlas_selftest's refusal bound; above it nothing else prints these
+
+
+def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
+    """The 22 n-independent consumer gates over the tables atlas_queries just wrote."""
+    n, N = A["n"], _atlas_int(A["N_total"], "N_total")
+    res = []
+
+    def gate(gid, section, name, ok, detail="", owners=()):
+        res.append((gid, section, name, None if ok is None else bool(ok), detail,
+                    tuple(o for o in owners if o in verdicts)))
+
+    def tsv(key, path):
+        return _atlas_read_tsv(path) if key in sel else None
+
+    v1 = tsv("v1", os.path.join(scandir, "v1_field.tsv"))
+    v2 = tsv("v2", os.path.join(scandir, "v2_river.tsv"))
+    v2b = tsv("v2", os.path.join(scandir, "v2_branches.tsv"))
+    v5 = tsv("v5", os.path.join(scandir, "v5_grammar.tsv"))
+    q6 = tsv("q6", os.path.join(scandir, "q6_layer_mass.tsv"))
+    xa = tsv("xa", os.path.join(outdir, "xa_branches.tsv"))
+    q10 = tsv("q10a", os.path.join(outdir, "q10_orbit_census.tsv"))
+    VQ = ("TR12_V1", "TR12_V2", "TR12_V5", "TR12_Q6")
+    have = [(t, o) for t, o in ((v1, "TR12_V1"), (v2, "TR12_V2"), (v5, "TR12_V5"),
+                                (q6, "TR12_Q6")) if t is not None]
+
+    def needs(*tabs):
+        return all(t is not None for t in tabs)
+
+    def notrun(gid, section, name, why):
+        gate(gid, section, name, None, "not run: " + why)
+
+    # ---- structural: no float ever reached a mass column -------------
+    if have:
+        ok = all(("." not in r["mass"] and "e" not in r["mass"].lower())
+                 for t, _ in have for r in t)
+        gate("float", "pre", "no mass column carries a float literal (192-bit integrity)", ok,
+             owners=[o for _, o in have])
+    else:
+        notrun("float", "pre", "no mass column carries a float literal (192-bit integrity)",
+               "none of v1,v2,v5,q6 selected")
+
+    # ---- totals: every table sums to N_total exactly ------------------
+    col = row = rk = gk = qk = None
+    if needs(v1):
+        col = {}
+        for r in v1:
+            col[r["k"]] = col.get(r["k"], 0) + int(r["mass"])
+        gate("V1-col", "pre", "V1: every layer's pair marginals sum to N_total",
+             all(v == N for v in col.values()) and len(col) == n,
+             str(sorted(set(col.values()))), owners=["TR12_V1"])
+        row = {}
+        for r in v1:
+            row[r["pair"]] = row.get(r["pair"], 0) + int(r["mass"])
+        used = {p: m for p, m in row.items() if m}
+        gate("V1-row", "pre",
+             "V1: every placed pair's row sums to N_total (each walk places it once)",
+             all(v == N for v in used.values()) and len(used) == n, owners=["TR12_V1"])
+        gate("V1-pair0", "pre", "V1: the C4-pinned pair 0 row is identically zero",
+             row.get("0", 0) == 0, owners=["TR12_V1"])
+    else:
+        for gid, nm in (("V1-col", "V1: every layer's pair marginals sum to N_total"),
+                        ("V1-row", "V1: every placed pair's row sums to N_total (each walk places it once)"),
+                        ("V1-pair0", "V1: the C4-pinned pair 0 row is identically zero")):
+            notrun(gid, "pre", nm, "v1 not selected")
+    if needs(v2):
+        rk = {}
+        for r in v2:
+            rk[r["k"]] = rk.get(r["k"], 0) + int(r["mass"])
+        gate("V2-layer", "pre", "V2: every layer's distance-class masses sum to N_total",
+             all(v == N for v in rk.values()) and len(rk) == n, owners=["TR12_V2"])
+        # 🔴 Q-314 item (3), 2026-09-07. EVERY V2/V1/V5/Q6 gate above is HORIZONTAL: it
+        # sums one layer across distance classes and compares to N. All of them are blind to mass
+        # moving BETWEEN classes inside a layer, which is exactly what `--atlas-fault v2-class-swap`
+        # does. MEASURED (2026-09-07, before the legs below existed): that fault left every no-walks
+        # gate then present GREEN and was caught only by the brute-force legs -- and brute force
+        # cannot exist at n=31, so at full-31 the fault was invisible. These legs are VERTICAL:
+        # they sum one class DOWN the layers.
+        # Q-722 (2026-09-24) recorded that the no-walks count was not the "20" this comment once
+        # carried; RCQ04 F1 (2026-09-25) moved every no-walks gate here. The population is
+        # _ATLAS_ARITH_IDS: 22 ids, 19 at runtime without --atlas-q3-trace.
+        #
+        # B0 is DEFINED here as colsum // N, never hardcoded, and the `d` column of v2_river.tsv
+        # holds distance VALUES (_ATLAS_CLASSES = 1, 2, 3, 4, 6) rather than class indices -- so
+        # the 1..5 assumption that once made a fault a silent no-op cannot recur here: the values
+        # are read back from the emitted data instead of being re-typed.
+        colsum = {}
+        for r in v2:
+            colsum[int(r["d"])] = colsum.get(int(r["d"]), 0) + int(r["mass"])
+        gate("V2-B0-col", "pre",
+             "V2-B0: every distance class's column sums to a whole multiple of N_total",
+             bool(colsum) and all(m % N == 0 for m in colsum.values()),
+             " ".join("d=%d:rem=%d" % (d, colsum[d] % N) for d in sorted(colsum)),
+             owners=["TR12_V2"])
+        b0 = {d: m // N for d, m in colsum.items()}
+        # MEASURED, not predicted: this leg DOES fire on v2-class-swap (sum B0 = 8, n = 9), but
+        # only DERIVATIVELY -- once a column stops being a multiple of N the floor division above
+        # truncates and the budget drops. It is not independent evidence of that fault, and it is
+        # shipped WITH the leg above, never instead of it. Its own fault is a different one: a
+        # column that IS a clean multiple of N but the wrong multiple.
+        gate("V2-B0-budget", "pre",
+             "V2-B0: the C5 boundary budget sums to n (one boundary per layer, per walk)",
+             sum(b0.values()) == n, "sum B0 = %d, n = %d" % (sum(b0.values()), n),
+             owners=["TR12_V2"])
+    else:
+        for gid, nm in (("V2-layer", "V2: every layer's distance-class masses sum to N_total"),
+                        ("V2-B0-col", "V2-B0: every distance class's column sums to a whole multiple of N_total"),
+                        ("V2-B0-budget", "V2-B0: the C5 boundary budget sums to n (one boundary per layer, per walk)")):
+            notrun(gid, "pre", nm, "v2 not selected")
+    if needs(v5):
+        gk = {}
+        for r in v5:
+            gk[r["k"]] = gk.get(r["k"], 0) + int(r["mass"])
+        gate("V5-dist", "pre", "V5: p_cond is a distribution -- class masses sum to the layer flow",
+             all(v == N for v in gk.values()) and len(gk) == n, owners=["TR12_V5"])
+    else:
+        notrun("V5-dist", "pre", "V5: p_cond is a distribution -- class masses sum to the layer flow",
+               "v5 not selected")
+    if needs(q6):
+        qk = {}
+        for r in q6:
+            qk[r["k"]] = qk.get(r["k"], 0) + int(r["mass"])
+        gate("Q6-layer", "pre", "Q6: every layer's class masses sum to N_total",
+             all(v == N for v in qk.values()) and len(qk) == n, owners=["TR12_Q6"])
+    else:
+        notrun("Q6-layer", "pre", "Q6: every layer's class masses sum to N_total", "q6 not selected")
+    if needs(xa):
+        gate("XA-sum", "pre", "XA: sum_b solutions(b) == N_total",
+             sum(int(r["solutions"]) for r in xa) == N,
+             "%d vs %d" % (sum(int(r["solutions"]) for r in xa), N), owners=["TR12_XA_A"])
+    else:
+        notrun("XA-sum", "pre", "XA: sum_b solutions(b) == N_total", "xa not selected")
+    if needs(v2b, xa):
+        gate("V2B-XA", "pre", "V2 branch panel and XA branch table agree on solutions",
+             [r["solutions"] for r in v2b] == [r["solutions"] for r in xa],
+             owners=["TR12_V2", "TR12_XA_A"])
+    else:
+        notrun("V2B-XA", "pre", "V2 branch panel and XA branch table agree on solutions",
+               "needs both v2 and xa")
+
+    # ---- per-layer flows match the atlas ------------------------------
+    sums = [(s, o) for s, o in ((rk, "TR12_V2"), (gk, "TR12_V5"), (qk, "TR12_Q6"),
+                                (col, "TR12_V1")) if s is not None]
+    if sums:
+        af = {L["k"]: _atlas_int(L["flow"], "flow") for L in A["layers"]}
+        gate("flow", "pre", "per-layer flow in every table == atlas layers[k].flow",
+             all(all(s.get(str(k)) == f for k, f in af.items()) for s, _ in sums),
+             owners=[o for _, o in sums])
+    else:
+        notrun("flow", "pre", "per-layer flow in every table == atlas layers[k].flow",
+               "none of v1,v2,v5,q6 selected")
+
+    # ---- t-units ------------------------------------------------------
+    if not needs(xa):
+        notrun("XA-t", "pre", "XA: 1 + sum_b prefixes_t_units(b) == t(root)", "xa not selected")
+    elif all(r["prefixes_t_units"].isdigit() for r in xa) and "t_root_t_units" in A:
+        troot = _atlas_int(A["t_root_t_units"], "t_root_t_units", json_int=True)
+        tsum = sum(int(r["prefixes_t_units"]) for r in xa)
+        gate("XA-t", "pre", "XA: 1 + sum_b prefixes_t_units(b) == t(root)", 1 + tsum == troot,
+             "%d vs %d" % (1 + tsum, troot), owners=["TR12_XA_B"])
+    else:
+        gate("XA-t", "pre", "XA: t-units present (--kc-tdir)", False, "no t-ladder in this atlas",
+             owners=["TR12_XA_B"])
+
+    # ---- mod 24 -------------------------------------------------------
+    if needs(q10):
+        gate("XA-24", "pre", "Q10a/XA-24: N_total and every layer flow divisible by 24",
+             all(r["mod24_ok"] == "1" for r in q10) and
+             all(int(r["flow"]) == int(r["orbits"]) * _ATLAS_ORBIT for r in q10),
+             owners=["TR12_Q10A", "TR12_XA_MOD24"])
+        # ---- mod 48 (Q-314 item 1) ----------------------------------------
+        # 🔴 The gate above reads a PRECOMPUTED column, `mod24_ok`, so it checks that the
+        # emitter's own arithmetic agrees with the emitter. This one re-derives from the
+        # flow values themselves and asks the stronger question: 48, not 24. The two
+        # totals were spot-verified by hand before wiring it -- 26112/48 = 544 and
+        # 2063395607040/48 = 42987408480 -- so the gate is asserting something known true,
+        # which is the only honest way to add a divisibility check: if it had gone red on
+        # arrival the correct response would have been to doubt the CLAIM, not raise it.
+        gate("XA-48", "pre",
+             "XA-48: N_total and every layer flow divisible by 48 (re-derived, not a column)",
+             N % 48 == 0 and all(int(r["flow"]) % 48 == 0 for r in q10),
+             "N%%48=%d, offending layer flows: %s" % (
+                 N % 48,
+                 [r.get("k", "?") for r in q10 if int(r["flow"]) % 48][:5]),
+             owners=["TR12_Q10A", "TR12_XA_MOD24"])
+    else:
+        notrun("XA-24", "pre", "Q10a/XA-24: N_total and every layer flow divisible by 24",
+               "q10a not selected")
+        notrun("XA-48", "pre",
+               "XA-48: N_total and every layer flow divisible by 48 (re-derived, not a column)",
+               "q10a not selected")
+
+    # ---- stabiliser arithmetic (Q-314 item 2) --------------------------
+    # 48 divides every V2 distance-class cell and 16 divides every RAW V1 cell. Both were
+    # MEASURED on the committed n=9 fixture before being wired -- 45 V2 cells and 288 V1
+    # cells, zero violations -- for the same reason as XA-48: a divisibility gate that goes
+    # red on arrival should make you doubt the CLAIM, not weaken the gate.
+    if needs(v2):
+        gate("V2-48", "pre", "V2-48: every distance-class cell divisible by 48",
+             all(int(r["mass"]) % 48 == 0 for r in v2),
+             "offending (k,d): %s" % [(r.get("k"), r.get("d")) for r in v2
+                                      if int(r["mass"]) % 48][:5], owners=["TR12_V2"])
+    else:
+        notrun("V2-48", "pre", "V2-48: every distance-class cell divisible by 48", "v2 not selected")
+    if needs(v1):
+        gate("V1-16", "pre", "V1-16: every RAW per-pair cell divisible by 16",
+             all(int(r["mass"]) % 16 == 0 for r in v1),
+             "offending rows: %s" % [(r.get("k"), r.get("pair")) for r in v1
+                                     if int(r["mass"]) % 16][:5], owners=["TR12_V1"])
+    else:
+        notrun("V1-16", "pre", "V1-16: every RAW per-pair cell divisible by 16", "v1 not selected")
+
+    # ---- layer 0 vs the branch table (independent of the DP path) -----
+    if needs(xa):
+        l0 = {}
+        for r in xa:
+            d = bin(int(r["entry"])).count("1")
+            l0[d] = l0.get(d, 0) + int(r["solutions"])
+        a0 = {d: _atlas_layer_class(A["layers"][0], d, 0) for d in _ATLAS_CLASSES}
+        gate("L0-branch", "pre", "layer-0 class masses == branch table aggregated by popcount(entry)",
+             all(l0.get(d, 0) == a0[d] for d in _ATLAS_CLASSES), str(l0),
+             owners=["TR12_XA_A"])
+    else:
+        notrun("L0-branch", "pre",
+               "layer-0 class masses == branch table aggregated by popcount(entry)",
+               "xa not selected")
+
+    # ---- Q3 ------------------------------------------------------------
+    if "q3" in sel and trace is not None:
+        p = os.path.join(outdir, atlas_q3_name(trace, n)[0])
+        # The KW expectation is re-derived here, NOT read from atlas_q3_name -- the function that
+        # chose the token -- or a mis-naming there would set the expectation to match itself
+        # (tests.py TestQ767Q3TokenGateAndChunkFailLine forces exactly that at n=9).
+        if n != 31:
+            want_kw = "SKIP:n=%d" % n
+        else:
+            want_kw = "PASS" if atlas_q3_trace_is_king_wen(trace)[0] else "NOT-KW"
+        gate("Q3-prod", "q3", "Q3: reader-side prod(p_i) == 1/N in exact big-int rationals",
+             not atlas_q3_reader_check(p, N), owners=["TR12_Q3", "TR12_Q3_READER"])
+        # 🔴 Q-767 (1), RCQ04 P3, 2026-09-24. This gate read only TR12_Q3 == "PASS", the parent
+        # token the consumer derives from the two legs, so it re-stated the reader gate above
+        # and never looked at the KW leg at all. It now asserts BOTH legs by name: the reader
+        # leg PASSed, and the King Wen leg is the SKIP:n=<n> a reduced universe must report, or at
+        # full-31 the PASS / NOT-KW that a row-for-row King Wen comparison of the trace gives.
+        # (RCQ04 F1, 2026-09-25: this read a hardcoded SKIP:n=<n>, which was right only while the
+        # gate could not run above n = 13.)
+        gate("Q3-tokens", "q3", "Q3: verdict tokens emitted",
+             verdicts.get("TR12_Q3") == "PASS"
+             and verdicts.get("TR12_Q3_READER") == "PASS"
+             and verdicts.get("TR12_Q3_KW") == want_kw,
+             "TR12_Q3=%s TR12_Q3_READER=%s TR12_Q3_KW=%s (want PASS, PASS, %s)"
+             % (verdicts.get("TR12_Q3"), verdicts.get("TR12_Q3_READER"),
+                verdicts.get("TR12_Q3_KW"), want_kw), owners=["TR12_Q3"])
+        bad = [(r["step"], r["p_num"], r["p_den"], r["p"]) for r in _atlas_read_tsv(p)
+               if not _atlas_ratio_text_ok(r["p"], int(r["p_num"]), int(r["p_den"]))]
+        gate("Q3-ptext", "q3", "Q3: p column == p_num/p_den to %d correct digits (Q-422)" % _ATLAS_SIG,
+             not bad, "%d bad row(s); first %s" % (len(bad), bad[0]) if bad else "",
+             owners=["TR12_Q3"])
+    else:
+        why = "q3 not selected" if "q3" not in sel else "no --atlas-q3-trace"
+        for gid, nm in (("Q3-prod", "Q3: reader-side prod(p_i) == 1/N in exact big-int rationals"),
+                        ("Q3-tokens", "Q3: verdict tokens emitted"),
+                        ("Q3-ptext", "Q3: p column == p_num/p_den to %d correct digits (Q-422)"
+                         % _ATLAS_SIG)):
+            notrun(gid, "q3", nm, why)
+
+    # ---- A-5 -----------------------------------------------------------
+    if "a5" in sel:
+        ncol, sizes, ok_orb, detail = atlas_orbit_columns(A)
+        if ok_orb is None:
+            gate("A-5", "a5", "A-5 orbit-columns", None, detail)
+        else:
+            gate("A-5", "a5", "A-5: one raw marginal column per WHOLE pair-orbit (%s)" % detail,
+                 ok_orb, owners=["TR12_A5_ORBIT_COLUMNS"])
+    else:
+        notrun("A-5", "a5", "A-5 orbit-columns", "a5 not selected")
+    if tuple(e[0] for e in res) != _ATLAS_ARITH_IDS:
+        raise RuntimeError("atlas_arith_gates produced %r, not _ATLAS_ARITH_IDS"
+                           % [e[0] for e in res])
+    return res
+
+
+def _atlas_arith_apply(arith, verdicts, n, quiet):
+    """Derive the owned verdicts from the gate results, and report them.
+
+    A failed gate turns every verdict it vouches for into FAIL:arith-gate:<ids> (an emitter's
+    own FAIL is kept: it is the more specific reason). Nothing else is changed, so at n=9 on a
+    clean atlas VERDICTS.txt is byte-identical to what it was before this existed.
+
+    Printing: above _ATLAS_ARITH_BRUTE_MAX_N every gate prints one line and the run ends with
+    ATLAS_ARITH=PASS|FAIL, because nothing else will ever print these gates at that size. At or
+    below it the pass path is silent (atlas_selftest prints the same gates from these same
+    results, and the n=9 goldens pin that transcript); a failure prints at every n.
+    """
+    failed = {}
+    for gid, _sec, _nm, ok, _det, owners in arith:
+        if ok is False:
+            for o in owners:
+                failed.setdefault(o, []).append(gid)
+    for o, gids in failed.items():
+        if not verdicts[o].startswith("FAIL"):
+            verdicts[o] = "FAIL:arith-gate:" + "+".join(gids)
+    if quiet:
+        return
+    nfail = sum(1 for e in arith if e[3] is False)
+    loud = n > _ATLAS_ARITH_BRUTE_MAX_N
+    for gid, _sec, nm, ok, det, _owners in arith:
+        if ok is False or (loud and ok is True):
+            print("[atlas-arith] %-62s %s%s" % (nm, "PASS" if ok else "FAIL",
+                                                ("  " + det) if det and not ok else ""))
+        elif loud:
+            print("[atlas-arith] %-62s SKIP  %s" % (nm, det))
+    if loud or nfail:
+        nrun = sum(1 for e in arith if e[3] is not None)
+        print("[atlas-arith] %d gate(s) run, %d failure(s), %d not run"
+              % (nrun, nfail, len(arith) - nrun))
+        print("ATLAS_ARITH=%s" % ("FAIL" if nfail else "PASS"))
 
 
 def symmetry_completeness():
@@ -17337,6 +17560,213 @@ def kc_x_recheck(paths):
     return 0
 
 
+def _atlas_kernel_cells_possible(Ms, universe, pair_of):
+    """Q-755: every kernel cell that carries mass is a transition a complete walk can make.
+
+    The producer refuses an atlas whose kernel has mass at an "impossible (exit, entry) cell"
+    (solve.c's per-layer raw-kernel pattern check) and `--atlas-probe` had never re-derived it.
+    A layer-k cell (x, y) is possible iff popcount(x ^ y) is an admissible boundary class
+    (1, 2, 3, 4 or 6), y's pair is in the rung's pair universe, and either k = 0 and x is the
+    C4 anchor exit 0, or k >= 1 and x's pair is in the universe and is NOT y's pair: a
+    transition joins the pair placed at k-1 to a DIFFERENT pair placed at k.  A theorem by
+    construction.  The k = 0 exit clause is NOT repeated here: it is the probe's own
+    V5_K0_EXIT_IS_ANCHOR_HEXAGRAM_EVERY_KEY, and a second gate on it would only shadow that one.
+    Most other violations are also seen elsewhere (a bad class by the class marginals, an entry
+    pair outside the universe by the entry-pair marginals, an exit outside it by the cross-layer
+    row sums); the one only this sees is mass at (x, mate(x)) for k >= 1, which can be traded so
+    that every row, column and class sum holds.  `Ms[k]` maps (x, y) to an int; zero cells are
+    ignored."""
+    for k, M in enumerate(Ms):
+        for (x, y), v in M.items():
+            if not v:
+                continue
+            if not (0 <= x < 64 and 0 <= y < 64) or bin(x ^ y).count("1") not in (1, 2, 3, 4, 6):
+                return False
+            if pair_of.get(y) not in universe:
+                return False
+            if k and (pair_of.get(x) not in universe or pair_of[x] == pair_of[y]):
+                return False
+    return True
+
+
+def _int_matrix_rank_certified(A):
+    """Exact rank of an integer matrix, with a certificate for each direction (Q-755).
+
+    Rank by Bareiss fraction-free elimination: integers only, every division asserted exact.
+    Then two checks that do not trust that elimination:
+      * LOWER: the r x r minor on the pivot rows and pivot columns is re-computed modulo two
+        primes by plain modular elimination; nonzero modulo either prime means nonzero over the
+        integers, so rank >= r.
+      * UPPER: one integer null vector per non-pivot column, built by exact back-substitution
+        (Fraction, then scaled to integers) and re-multiplied against EVERY row of the original
+        matrix with integer arithmetic.  Each vector is nonzero at its own free column and zero
+        at every other free column, so they are linearly independent: nullity >= ncol - r, i.e.
+        rank <= r.
+    Returns (r, lower_ok, upper_ok).  A certificate that fails leaves r printed and the verdict
+    red; it never adjusts r."""
+    from fractions import Fraction
+    from math import lcm
+    m = len(A)
+    ncol = len(A[0]) if m else 0
+    E = [list(row) for row in A]
+    order = list(range(m))
+    prev, r, pcols = 1, 0, []
+    for c in range(ncol):
+        piv = next((i for i in range(r, m) if E[i][c] != 0), None)
+        if piv is None:
+            continue
+        E[r], E[piv] = E[piv], E[r]
+        order[r], order[piv] = order[piv], order[r]
+        for i in range(r + 1, m):
+            for j in range(c + 1, ncol):
+                q, rem = divmod(E[r][c] * E[i][j] - E[i][c] * E[r][j], prev)
+                if rem:
+                    raise AssertionError("Bareiss division not exact (defect)")
+                E[i][j] = q
+            E[i][c] = 0
+        prev = E[r][c]
+        pcols.append(c)
+        r += 1
+        if r == m:
+            break
+
+    def det_mod(rows, cols, p):
+        S = [[A[i][j] % p for j in cols] for i in rows]
+        d = 1
+        for c in range(len(cols)):
+            piv = next((i for i in range(c, len(rows)) if S[i][c]), None)
+            if piv is None:
+                return 0
+            if piv != c:
+                S[c], S[piv] = S[piv], S[c]
+                d = -d
+            d = d * S[c][c] % p
+            inv = pow(S[c][c], p - 2, p)
+            for i in range(c + 1, len(rows)):
+                f = S[i][c] * inv % p
+                if f:
+                    S[i] = [(a - f * b) % p for a, b in zip(S[i], S[c])]
+        return d % p
+
+    prow = order[:r]
+    lower_ok = r == 0 or any(det_mod(prow, pcols, p) for p in ((1 << 61) - 1, (1 << 31) - 1))
+    free = [c for c in range(ncol) if c not in set(pcols)]
+    vecs = []
+    for f in free:
+        x = {f: Fraction(1)}                     # the other free columns are 0
+        for t in range(r - 1, -1, -1):
+            c = pcols[t]
+            x[c] = -Fraction(E[t][f] + sum(E[t][pcols[u]] * x[pcols[u]]
+                                            for u in range(t + 1, r))) / E[t][c]
+        D = lcm(*[v.denominator for v in x.values()])
+        vecs.append([int(x[j] * D) if j in x else 0 for j in range(ncol)])
+    # the re-multiplication runs over the ORIGINAL matrix, column-sparse
+    nz = [[(i, A[i][j]) for i in range(m) if A[i][j]] for j in range(ncol)]
+
+    def is_null(v):
+        acc = [0] * m
+        for j, vj in enumerate(v):
+            if vj:
+                for i, aij in nz[j]:
+                    acc[i] += aij * vj
+        return not any(acc)
+    upper_ok = (all(is_null(v) for v in vecs)
+                and all((vecs[i][f] != 0) == (i == j) for i in range(len(free))
+                        for j, f in enumerate(free)))
+    return r, lower_ok, upper_ok
+
+
+def atlas_residual_rank(atlas_path):
+    """Q-755: the rank of the kernel perturbations `--atlas-probe` cannot see.  Emits
+    ATLAS_RESIDUAL_RANK= and ATLAS_RESIDUAL_RANK_VERDICT=.
+
+    A perturbation of the atlas's `kernel` tables that is G48-invariant at every layer and keeps
+    every exit-row sum, every entry-column sum and every distance-class sum of every layer passes
+    every kernel gate of the probe with every other table left as it is: the row sums carry the
+    cross-layer identity and the layer sum, the column sums carry `marginal_raw` (and so the V1
+    field, its column sums and divisibility gates), and the class sums carry `by_class`.  Those
+    perturbations form a lattice.  Its rank is computed here exactly, layer by layer: one unknown
+    per G48-orbit of the cells that carry mass (so the perturbation stays on the atlas's own
+    support and is G48-invariant by construction), one linear constraint per exit row, entry
+    column and class; the layer's residual rank is (#orbits - rank of that constraint matrix),
+    and the total is their sum.  Integer and exact-rational arithmetic only; the rank carries a
+    two-sided certificate (`_int_matrix_rank_certified`).  The measurement was first made
+    privately by Fable T (2026-09-24, Q-738); this is its public reproduction.
+
+    Reads only the atlas.  Exit status: 0 on ATLAS_RESIDUAL_RANK_VERDICT=PASS, 1 on FAIL (a
+    certificate failed, or the premise that the support is a union of G48 orbits failed -- the
+    rank is still printed), 2 on ERROR (unreadable or malformed atlas).  Developed with AI
+    assistance (Claude, Anthropic)."""
+    def tok(k, v):
+        print("%s=%s" % (k, v))
+
+    try:
+        with open(atlas_path) as fh:
+            a = json.load(fh)
+    except (OSError, ValueError) as exc:
+        print("ERROR: [atlas-residual-rank] cannot read atlas %s: %s" % (atlas_path, exc),
+              file=sys.stderr)
+        tok("ATLAS_RESIDUAL_RANK_VERDICT", "ERROR:cannot-read-atlas")
+        return 2
+    try:
+        n = int(a["n"])
+        L = a["layers"]
+        if len(L) != n:
+            raise ValueError("%d layers for n=%d" % (len(L), n))
+        supp = []
+        for l in L:
+            cells = set()
+            for key, v in l["kernel"].items():
+                if int(v):
+                    x, y = (int(s) for s in key[1:].split("_"))
+                    if key[0] != "m" or not (0 <= x < 64 and 0 <= y < 64):
+                        raise ValueError("bad kernel key %r" % key)
+                    cells.add((x, y))
+            supp.append(cells)
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        print("ERROR: [atlas-residual-rank] malformed atlas %s: %s: %s"
+              % (atlas_path, type(exc).__name__, exc), file=sys.stderr)
+        tok("ATLAS_RESIDUAL_RANK_VERDICT", "ERROR:malformed-atlas")
+        return 2
+    img = [[_tg_apply_perm(p, h) for h in range(64)] for p in _tg_g48()]
+    closed = lower = upper = True
+    n_orb, c_rank, res = [], [], []
+    for cells in supp:
+        orbit_of = {}
+        orbits = []
+        for c in sorted(cells):
+            if c in orbit_of:
+                continue
+            o = sorted({(t[c[0]], t[c[1]]) for t in img})
+            closed = closed and all(d in cells for d in o)
+            for d in o:
+                orbit_of[d] = len(orbits)
+            orbits.append(o)
+        cons = {}
+        for j, o in enumerate(orbits):
+            for (x, y) in o:
+                for key in (("row", x), ("col", y), ("cls", bin(x ^ y).count("1"))):
+                    cons.setdefault(key, [0] * len(orbits))[j] += 1
+        rows = [cons[k] for k in sorted(cons)]
+        r, lo, up = _int_matrix_rank_certified(rows) if orbits else (0, True, True)
+        lower, upper = lower and lo, upper and up
+        n_orb.append(len(orbits))
+        c_rank.append(r)
+        res.append(len(orbits) - r)
+    tok("ATLAS_RESIDUAL_N", n)
+    tok("ATLAS_RESIDUAL_SUPPORT_CELLS_BY_LAYER", ",".join(str(len(s)) for s in supp))
+    tok("ATLAS_RESIDUAL_SUPPORT_IS_G48_CLOSED_EVERY_LAYER", "PASS" if closed else "FAIL")
+    tok("ATLAS_RESIDUAL_G48_ORBITS_BY_LAYER", ",".join(map(str, n_orb)))
+    tok("ATLAS_RESIDUAL_CONSTRAINT_RANK_BY_LAYER", ",".join(map(str, c_rank)))
+    tok("ATLAS_RESIDUAL_RANK_MINOR_CERT_EVERY_LAYER", "PASS" if lower else "FAIL")
+    tok("ATLAS_RESIDUAL_RANK_NULL_VECTOR_CERT_EVERY_LAYER", "PASS" if upper else "FAIL")
+    tok("ATLAS_RESIDUAL_RANK_BY_LAYER", ",".join(map(str, res)))
+    tok("ATLAS_RESIDUAL_RANK", sum(res))
+    ok = closed and lower and upper
+    tok("ATLAS_RESIDUAL_RANK_VERDICT", "PASS" if ok else "FAIL")
+    return 0 if ok else 1
+
+
 
 def main():
     # 🔴 INTERCEPTED BEFORE argparse, deliberately. The detector takes `--atlas ATLAS.json`, and
@@ -17720,6 +18150,11 @@ def main():
                              "stationarity and score, positional field, cell percentile) from a "
                              "--kc-raw atlas alone, as whole-line KEY=value tokens; emits "
                              "ATLAS_PROBE=PASS|FAIL|ERROR:<reason> and exits 0/1/2")
+    parser.add_argument("--atlas-residual-rank", metavar="ATLAS_JSON",
+                        help="Q-755: exact rank of the kernel perturbations --atlas-probe cannot "
+                             "see (G48-invariant, row/column/class-sum preserving, on the atlas's "
+                             "support), with a two-sided certificate; emits ATLAS_RESIDUAL_RANK=<n> "
+                             "and ATLAS_RESIDUAL_RANK_VERDICT=PASS|FAIL|ERROR:<reason>, exits 0/1/2")
     parser.add_argument("--atlas-walks", metavar="FILE", default=None,
                         help="--atlas-selftest: explicit enumeration `solve --kc-enum FDIR` "
                              "(one walk per line) for the brute-force recount")
@@ -17773,6 +18208,9 @@ def main():
 
     if args.atlas_probe:
         sys.exit(atlas_probe(args.atlas_probe))
+
+    if args.atlas_residual_rank:
+        sys.exit(atlas_residual_rank(args.atlas_residual_rank))
 
     if args.xa_w0d_lb_cert:
         if len(args.xa_w0d_lb_cert) > 2:

@@ -42,9 +42,9 @@ The sol counter on each progress line is a pre-dedup explored-candidate count (n
 | 3 × 10¹² | 9.321 × 10¹⁰ | 9.288 × 10¹⁰ | 0.996 |
 | 1 × 10¹³ | 2.988 × 10¹¹ | 2.982 × 10¹¹ | **0.998** |
 
-⚠ **The fresh-run column is a historical record, not a checkable measurement.** Its `run.log` was never archived (§Reproducibility) and no public script recomputes it, so the 3,666-sample count, the node-matching rule and all seven ratios cannot be re-derived by a reader — or by us. **Pass 1's column is fully reproducible** from the archived log named in §Reproducibility.
+⚠ **The fresh-run column is a historical record, not a checkable measurement.** Its `run.log` was never archived (§Reproducibility) and no public script recomputes it, so the 3,666-sample count and all seven ratios cannot be re-derived by a reader — or by us. **Pass 1's column is fully reproducible** from the archived log named in §Reproducibility, and so is its node-matching rule: it is the **nearest progress sample** to each target, not an interpolated value at it — 9.1B, 27.8B, 100.7B, 297.0B, 999.9B, 2,995.5B and 9,997.7B nodes (offsets −9.0%, −7.3%, +0.7%, −1.0%, −0.01%, −0.15%, −0.02%; the awk in [CORRECTIONS.md](CORRECTIONS.md) that re-derives the column prints them). ⚠ *(Corrected 2026-09-25, Q-763: this said the node-matching rule could not be re-derived either; the correction was owed since that CORRECTIONS.md entry.)*
 
-From 10¹¹ onward, the two runs agree to under 1%. On a log-log overlay of sol-vs-nodes, the two trajectories are indistinguishable from 10¹⁰ through 10¹³.
+From 10¹¹ onward, the two columns agree to under 1% — at nearest samples, not matched node counts: Pass 1's samples sit up to 1.0% off target (300B row) and the fresh run's offsets are unknown, so sub-1% agreement is not established to that resolution. On a log-log overlay of sol-vs-nodes the two trajectories are indistinguishable from 3 × 10¹⁰ through 10¹³; at 10¹⁰ they differ by the 1.331 ratio above (the startup transient). ⚠ *(Corrected 2026-09-25, Q-763: this read "indistinguishable from 10¹⁰" and stated the agreement without the sampling caveat.)*
 
 ## Why determinism holds
 
@@ -52,7 +52,7 @@ Three factors combine:
 
 1. **DFS traversal order is deterministic.** Driven by `solve.c`, the depth-first walk visits sub-branches in a fixed order given the same sub-branch specifier, the same task-queue generation, and the same thread count.
 2. **Counter increments are deterministic per visit.** Each visit produces the same C3-evaluation outcome and the same stored-or-not decision.
-3. **Thread scheduling differences wash out** in the aggregate across 64 threads × billions of nodes. The < 1% deviations are likely reflective of small ordering-of-counter-update races, not differences in actual work performed.
+3. **Thread scheduling differences wash out** in the aggregate across 64 threads × billions of nodes — in the aggregate counters only. Tasks are claimed atomically against a shared per-branch budget, so which subtrees get how much of it can differ between runs; equal aggregate `sol` does not show identical work, and the < 1% deviations may reflect either counter-update ordering or genuinely different per-subtree work. ⚠ *(Qualified 2026-09-25, Q-763: this said the deviations were "not differences in actual work performed".)*
 
 ## What changes break the match
 
@@ -60,7 +60,7 @@ The match is **falsifiable**. It would fail under any of:
 
 - Different `SOLVE_THREADS` (changes how the depth-5 task queue is sharded)
 - Solver commit changes that alter enumeration order (e.g., sub-branch queue generation, task scheduling, or DFS recursion order)
-- Different `SOLVE_DEPTH` (depth-3 vs depth-2 is structurally different)
+- Different `SOLVE_DEPTH` (depth-3 vs depth-2 is structurally different) — for a **main-enum** run only: a `--sub-branch` run with an explicit prefix, like both runs here, skips partition enumeration and builds its depth-5 tasks directly, so `SOLVE_DEPTH` does not reach it and is not a falsifier for this comparison (Q-763)
 
 Between the Pass 1 commit `cca1a40` and the post-bug-fix commit `3eb00c2`, `solve.c` changed over **8 commits** (`git log cca1a40..3eb00c2 -- solve.c`). The feature delta **includes**: `--depth-profile`, depth-counter checkpoint durability, completed-task bitmap, SIGUSR1 handler, hash bit-mix, pre-sized consolidation, tier2 cleanup reorder, `--kde-score-stream` subcommand — and, itemised here for the first time, per-task stats plus a per-task depth histogram and `c3_leaves` (`bf1afb1a`), and a depth-5 prefix tuple added to the per-task CSV (`d8ca0533`). ⚠ **[CORRECTED 2026-09-01 — this list was previously introduced with a word asserting it was exhaustive. It was not: the eight items above map to six of the eight commits in the range, and the two named last were missing. Verified by `git log cca1a40..3eb00c2 -- solve.c`. The list's conclusion is unaffected — both additions are bookkeeping — but the claim of completeness was false, and a reader checking the range would have found more commits than the sentence admitted.]** **None of these is expected to change enumeration order**: the added counters and CSV fields are per-visit bookkeeping, and the hash bit-mix affects bucket layout, not which records are visited or their order. This is a judgement from reading the diffs, not a measured result — see the caveat immediately below.
 
@@ -74,7 +74,7 @@ The selftest baseline is **consistent with** this but **cannot confirm it**. ⚠
 
 ## Operational consequences
 
-1. **Pre-10T work is redundant** for any future re-run of this branch. The first 1.094 thousand progress lines re-derive Pass 1; new science only starts in the 10T → ∞ regime.
+1. **Pre-10T work is redundant** for any future re-run of this branch, to the extent item 3 above allows: the agreement is in the aggregate pre-dedup `sol` counter, which does not show the same records were reached. The first 1.094 thousand progress lines re-derive Pass 1's counters; new science only starts in the 10T → ∞ regime.
 
 2. **Cheap reproducibility check** for any future single-branch run: extract progress lines from the new run's `run.log`, compare against Pass 1's at matched node counts, expect <1% agreement.
 

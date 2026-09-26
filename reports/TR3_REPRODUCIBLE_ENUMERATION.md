@@ -10,7 +10,7 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 ## Executive summary
 
-This is the engineering report: how a computation that visited 560 trillion search states and produced
+This is the engineering report: how a computation budgeted at 560 trillion search states and producing
 10.5 billion records became a **reproducible scientific object** — re-derivable byte-for-byte on hardware
 the project doesn't control, given a matching toolchain class (see the qualifier below). The proof is
 demonstrated, not promised: the entire computation
@@ -95,7 +95,7 @@ Stated precisely, because the unqualified form would overclaim:
 
 ### 1. The reproducibility contract
 
-The claim this report defends is narrow and mechanical: `solutions.bin` is a **mathematical function of
+The claim this report defends is narrow and mechanical: `solutions.bin` — its decompressed record stream, which is what every canonical sha hashes (Verification Guide, step 3) — is a **mathematical function of
 its published launch configuration** — the enumeration depth `SOLVE_DEPTH`, the per-cell budget
 `SOLVE_PER_SUB_BRANCH_LIMIT`, and the node budget `SOLVE_NODE_LIMIT` — together with the constraint
 system. Fix those and the output is determined: not determined up to ordering, not determined up to a
@@ -144,7 +144,7 @@ gate performs.)* A fixed micro-enumeration — `SOLVE_THREADS=4`,
 `SOLVE_NODE_LIMIT=100000000` — that must reproduce sha `403f7202…`. This is the project's operational
 definition of "this change is enumeration-neutral": a refactor, an added subcommand, a new analysis flag
 all leave the sha untouched, and anything that moves it must justify itself. It runs in minutes, it runs
-constantly, and it has caught more would-be silent behaviour changes than any other mechanism here.
+constantly, and it has caught more would-be silent behaviour changes than any other mechanism here. ⚠ *(Scoped 2026-09-25, Codex v3 review, V3B-06#9: that ranking is the operator's experience. No count of caught changes is kept for this or any other mechanism, so it cannot be checked.)*
 Its cost is not zero — the gate compiles a 25k-line translation unit and runs a four-thread enumeration,
 which on a small orchestrator takes ~15 minutes and needs real memory. Placing it in a `pre-push` hook
 on an undersized box has produced both false failures under memory pressure and dropped SSH connections
@@ -206,7 +206,7 @@ Durability is expensive, and the naive implementation spent most of its time wai
 serialised behind a single checkpoint mutex. **Giving each thread its own checkpoint file (#108)
 took CPU utilisation from ~35% to ~95.3%**, cutting 1T canonical enumeration wall time ~2.0×
 (3,430 s → 1,679 s) and raising measured sub-branch throughput ~43% (~28 → 40.05 sub-branches/sec) —
-obtained by removing contention rather than by doing less work. The occupancy ratio (~2.7×) is not the
+obtained by removing contention rather than by doing less work. ⚠ *(Sourced 2026-09-25, Codex v3 review, V3B-06#14: [PERFORMANCE_HISTORY.md](../documentation/PERFORMANCE_HISTORY.md) §"2026-05-27 — task #106/#108" records the setup. The 1T gate ran at `SOLVE_NODE_LIMIT=1000000000000` and `SOLVE_THREADS=128` on a 128-core host, on commit `c72eada` with and without the #108 bundle, once each. The utilisation and sub-branch figures come from a separate 5-minute benchmark on the same host class. The bench scripts are private, so these are single recorded measurements, not reproducible from this tree.)* The occupancy ratio (~2.7×) is not the
 throughput figure: work completed rose by the smaller factors, and quoting the utilisation ratio as
 throughput overstates the gain.
 
@@ -222,11 +222,11 @@ no throughput measurement supports; and the citation above was pinned by line nu
 gone stale, so it is now given by section.
 
 The defect worth dwelling on is the **eviction-resume bug**. It was found by targeted testing rather
-than observed in production, reproduced deterministically with a kill-mid-walk regression test, and
+than observed in production, reproduced deterministically with a kill-mid-walk regression test (the resume gate ships as `./solve --selftest-resume`), and
 fixed. That is ordinary engineering. What followed is the part we consider the heart of the discipline:
 because the defect *could* have corrupted the published 560T artifact, and because "could have" is not a
 state a scientific record may rest in, the entire campaign was **re-run from scratch on the fixed
-solver** — a full repetition of the ~171.5-enumeration-hour workload — through seven fresh evictions. It reproduced `9a968fa2…`
+solver** — a full repetition of the ~171.5-hour enumeration leg (wall time, ≈52 h of it the first campaign's eviction-defer windows; §4) — through seven fresh evictions. It reproduced `9a968fa2…`
 byte-for-byte, with the identical 10,525,271,997 records. The defect had not corrupted the artifact.
 That is now a demonstrated fact rather than an argument, and the cost of demonstrating it was accepted
 rather than debated.
@@ -234,7 +234,7 @@ rather than debated.
 ### 4. Spot economics and the reclamation pattern
 
 The economics are the reason for all of the above. D-family Spot capacity runs at roughly **15–20% of
-on-demand** — a D128als_v7 at ~$0.95/hr against ~$5.15/hr — so the ~171.5-hour enumeration leg costs
+on-demand** — a D128als_v7 at ~$0.95/hr against ~$5.15/hr — so the ~171.5-hour enumeration leg (priced here as if billed throughout; ≈52 h of that wall time were the five weekday eviction-to-18:01 PT defer windows, when the deallocated VM does not bill) costs
 roughly **$163 rather than roughly $880**, and adding the ~18 h 42 m merge leg still leaves the
 on-demand figure under $1,000 at the same rate. A few hundred dollars instead of most of a thousand: a
 real discount, not the order of magnitude the round numbers invite. Checkpoint overhead is the price
@@ -290,12 +290,12 @@ only because of §1's inversion — the sha, not the bytes, was the record.
 
 **`ARG_MAX` silently truncating file counts.** Shell globs over shard directories stop working somewhere
 past ~30,000 files, and they fail by returning a wrong answer rather than an error. Counting shards with
-`find … | wc -l` instead of a glob is not stylistic preference; it is the difference between a correct
+`find DIR -name 'sub_*.dfs_state' | wc -l` instead of `ls DIR/sub_*.dfs_state | wc -l` is not stylistic preference; it is the difference between a correct
 and a quietly incorrect completeness check at scale.
 
 **IOPS gates after an fsync-bound campaign.** A campaign run on HDD-backed storage was limited not by
 CPU but by durability latency, which the instrumentation at the time did not surface. Pre-flight IOPS
-checks were added so the condition is detected before hours are spent rather than inferred afterward.
+checks were added so the condition is detected before hours are spent rather than inferred afterward: `solve` probes the fsync rate at startup and exits 31 on a slow volume (`SOLVE_SKIP_IOPS_CHECK`, [SOLVE_C_CLI.md](../documentation/SOLVE_C_CLI.md)).
 
 ### 6. What transfers
 
@@ -347,9 +347,9 @@ exactly as published (copy them verbatim — do *not* re-derive the per-cell bud
 # 1. enumerate (D128als_v7 Spot westus3 was used; 128 threads assumed by the resume paths)
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=560000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=3536157207 \
 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128 \
-SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; survives eviction via checkpoints
+SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; after an eviction, re-run this same command in the same directory: each cell resumes from its .dfs_state checkpoint
 
-# 2. merge separately, on a Standard (non-preemptible) VM — mid-merge eviction loses the work
+# 2. merge separately, on a Standard (non-preemptible) VM — mid-merge eviction loses the work (external-merge settings: runs/20260419_100T_d3_d128westus3/README.md)
 ./solve --merge
 
 # 3. verify — solutions.bin is GZIP-FRAMED under the default SOLVE_COMPRESS=1, and every
@@ -385,7 +385,7 @@ No sha, record count, or canonical anchor changed.]**
 Expected result: **10,525,271,997 records**, **336,808,703,936 bytes** — the byte figure is the
 **logical (decompressed)** size, 32-byte header + 32 bytes/record; the on-disk gz file is smaller, so
 compare it against `gzip -dc solutions.bin | wc -c`, not `ls -l`. Expected effort, so nobody starts
-this unaware: ~**171.5 h** enumeration wall time on a 128-vCPU Spot instance plus ~**18 h 42 m** for the
+this unaware: ~**171.5 h** enumeration wall time on a 128-vCPU Spot instance (including ≈52 h of eviction-defer windows; ⚠ clause added 2026-09-25) plus ~**18 h 42 m** for the
 merge on a 16-vCPU Standard instance, and ~4 TB of fast scratch for shards. `SOLVE_THREADS` is not
 sha-determining (the merge dedup is order-stable), but the eviction-recovery and resume paths assume 128.
 Per-anchor parameters for every other canonical: [CANONICAL_HASHES.md §Reproducibility
@@ -414,4 +414,5 @@ parameters](../documentation/CANONICAL_HASHES.md#reproducibility-parameters).
 | v1.12 | 2026-09-04 | **The toolchain qualifier's evidence withdrawn; the qualifier kept as tested scope (second correction of the 1T anchor fact).** §Scope cited one host-level drift event as the qualifier's evidence — the 1T pair `5a0f0bc2…` / `74d39760…`. That pair is two per-cell budgets (the published 6,315,458 versus the auto-divided 6,314,566), and on 2026-09-04 one binary built from unmodified `main` `82f96b6b` produced both values on one host with the budget as the only variable. The 2026-08-30 correction this report relied on had itself substituted "host environment" for "LTO layout" without comparing the recorded budgets, so this is the second correction of the same fact. §Scope, §Practical reading and §2(d) rewritten; the qualifier is replaced by the eight-path 11.2T census (including the ARM Neoverse-N2 gcc 13.3.0 rebuild) with the honest residual that no per-anchor gcc version is recorded; the "scale-sensitive drift" clause is deleted outright because it has no referent — 11.2T re-derived because its witnesses set the published budget, 1T's did not. The §3 recipe comment no longer calls `74d39760` canonical. No sha, count or verdict changed; the 560T claims are untouched. Codex review V2-F25 #3 proposed the budget confound on 2026-09-02 and was wrongly ruled refuted |
 | v1.13 | 2026-09-07 | **§Verification Guide's `--verify` comment promised a check the binary does not perform (doc-vs-code sweep).** The step-3 comment read `# C1-C5 + sorted + no duplicates + King Wen present`, listing King Wen's presence among the things `--verify` checks. It is **reported, not enforced**: `kw_found_v` is printed (`King Wen found:` and the whole-line `KW_PRESENT=YES\|NO`) and omitted from `total_fail` (`solve.c:38167`), so an artifact with the King Wen record removed returns `VERIFY=PASS`, rc 0 — verified against the current tree. The behaviour is deliberate and was **not** changed: the "one canonical King Wen record per file" rule was retracted 2026-09-02 (registry `RP-60347080`) because a shard or a budgeted slice legitimately lacks the record, and `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test. Comment rewritten to say *reported, not enforced*, naming the opt-in `--expect-kw` (added 2026-09-04) that does make absence a FAIL; a dated correction note follows the code block. This is the last uncorrected instance of a wording `solve.c` itself already disposed of — its `--validate` runtime banner carried the identical promise and was corrected 2026-09-04, as were `SOLVE_C_CLI.md` and `CANONICAL_HASHES.md`; the report was missed by that sweep. Class swept across `reports/`: `METHODS.md` §Legacy shorthand and `TR7_CIRCULAR_READING.md` §2 both cite `solve --verify` for C1-C5 / C4+C5 enforcement only, which is accurate (`fail_c4` and `fail_c5` do enter `total_fail`), and no other report attributes a King Wen check to either checker. No sha, record count, or canonical anchor changed |
 | v1.14 | 2026-09-19 | **§Operational failure catalogue: the `-F` flag was credited with a safeguard that does not exist (backlog row Q-636, from Codex finding V3A-002#1).** The disk-wipe entry read "The `-F` flag suppressed exactly the refusal that would have prevented it" — asserting that `mkfs.ext4` would otherwise have refused the populated device. It does not: mke2fs enables its existing-filesystem check only when stdin **and** stdout are terminals, and every disk command on this project, the 2026-05-06 setup script included, runs non-interactively. Measured 2026-09-19 on a loop **file** (never a device), both streams non-tty: `mkfs.ext4 -q` run twice with no `-F` returned rc 0 both times and the UUID changed (`43745021…` → `5f9dcb7d…`), silently reformatting a live ext4; the identical second format under a pty printed `Proceed anyway? (y,N)` and exited 1 leaving the UUID intact — the positive control showing the check exists but is tty-gated. The sentence now states that the suppressed refusal is one a scripted run never receives, so omitting `-F` would not have saved the disk, and the three rules are labelled for what they are: the `-F` ban a discipline, the UUID identification and the marker check the safeguards that actually bind. The same false mechanism was cured in the same pass at its source, `CLAUDE.md` §"Disk-handling safety" rule 1, whose rule 5 now also requires a not-mounted assertion. **Knowingly left unchanged:** `documentation/HISTORY.md` states the identical mechanism in its 2026-05-06 entry and in the rules-as-adopted list; that file is the append-only historical record of what was believed and codified at the time, not a live claim, and rewriting it would falsify the record. No sha, record count, or canonical anchor changed |
-| v1.15 *(current)* | 2026-09-24 | **Shard-partition invariance moved out of the 560T "demonstrated" bullet (Codex V3A-089#2, Q-742; wording only).** §"Scope of the reproducibility claim" listed shard partitions among what the twice-derived 560T sha demonstrates. [PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md) records that both 560T derivations used the same depth-3 partition and that the partition-strategy re-run was deferred, so partition invariance at 560T is inherited from the 5.6T and 100T direct witnesses. The bullet now says so, with a ⚠ note in place. No sha, anchor or measurement changed |
+| v1.15 | 2026-09-24 | **Shard-partition invariance moved out of the 560T "demonstrated" bullet (Codex V3A-089#2, Q-742; wording only).** §"Scope of the reproducibility claim" listed shard partitions among what the twice-derived 560T sha demonstrates. [PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md) records that both 560T derivations used the same depth-3 partition and that the partition-strategy re-run was deferred, so partition invariance at 560T is inherited from the 5.6T and 100T direct witnesses. The bullet now says so, with a ⚠ note in place. No sha, anchor or measurement changed |
+| v1.16 *(current)* | 2026-09-25 | **The 171.5 h enumeration time is labelled as including its eviction-defer windows, and seven recipe gaps are closed or labelled (Q-759; Codex V3B-06).** (i) Five weekday evictions, each deferred to the 18:01 PT relaunch, account for ≈52.1 h of the 171.5 h wall time. The eviction times are from CAMPAIGN_METHODOLOGY's table. This is now stated at the three sites that use the figure, and §4's Spot-rate price says that it bills every hour (#17). (ii) "Visited 560 trillion" becomes "budgeted at" (#2). (iii) The reproducibility contract names the decompressed record stream that the sha hashes (#26). (iv) The kill-mid-walk test is named (`--selftest-resume`), and the recipe says how to resume after an eviction (#15, #16). (v) The `ARG_MAX` lesson shows the unsafe and the safe count; the IOPS lesson names the binary's exit-31 startup probe; the merge step points at the 100T run README's external-merge settings (#22, #23, #25). (vi) The self-test's "caught more … than any other mechanism" is scoped to the operator's experience, since no count is kept (#9). The #108 figures are sourced to PERFORMANCE_HISTORY.md's record of the run, and labelled single measurements whose bench scripts are private (#14). No sha, anchor or measurement changed |

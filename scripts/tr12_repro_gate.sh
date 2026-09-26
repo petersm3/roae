@@ -212,8 +212,8 @@ q7ranks_parse_leg(){
       return 2; }
   local out; out=$(bash ./scripts/q7ranks_parse_gate.sh 2>&1)
   printf '%s\n' "$out" | sed 's/^/  /'
-  if printf '%s\n' "$out" | grep -qx 'Q7RANKS_PARSE=PASS'; then return 0; fi
-  if printf '%s\n' "$out" | grep -qx 'Q7RANKS_PARSE=ERROR'; then
+  if grep -qx 'Q7RANKS_PARSE=PASS' <<<"$out"; then return 0; fi
+  if grep -qx 'Q7RANKS_PARSE=ERROR' <<<"$out"; then
     echo "  [ERROR] Q7RANKS_PARSE could not be measured -- NOT the same as PASS"; return 2; fi
   echo "  [FAIL] Q7RANKS_PARSE=FAIL -- an n>=31-only row's parse does not match its producer"; return 1
 }
@@ -231,8 +231,8 @@ q2_witness_leg(){
       return 2; }
   local out; out=$(bash ./scripts/q2_witness_gate.sh 2>&1)
   printf '%s\n' "$out" | sed 's/^/  /'
-  if printf '%s\n' "$out" | grep -qx 'Q2_WITNESS=PASS'; then return 0; fi
-  if printf '%s\n' "$out" | grep -qx 'Q2_WITNESS=ERROR'; then
+  if grep -qx 'Q2_WITNESS=PASS' <<<"$out"; then return 0; fi
+  if grep -qx 'Q2_WITNESS=ERROR' <<<"$out"; then
     echo "  [ERROR] Q2_WITNESS could not be measured -- NOT the same as PASS"; return 2; fi
   echo "  [FAIL] Q2_WITNESS=FAIL -- an extremal row can publish an enumeration that found nothing"; return 1
 }
@@ -260,7 +260,7 @@ fingerprint_coverage_check(){
   for f in solve.py verify.py sat.py documentation/VERIFY.md \
            scripts/q326_kc_query_surface_gate.sh scripts/q433_xa_cert_gate.sh \
            scripts/kc_writer_devfull_gate.sh scripts/a5_orbit_membership_gate.sh; do
-    printf '%s\n' "$_derived" | grep -qx "$f" || known_missing="$known_missing $f"
+    grep -qx "$f" <<<"$_derived" || known_missing="$known_missing $f"
   done
   if [ -n "$known_missing" ]; then
     echo "  [FAIL] the derivation no longer sees:$known_missing — the battery calls these"
@@ -581,7 +581,7 @@ if ! ( eval "${BUILD/-o solve/-o $WORK/solve}" ) >"$WORK/build.log" 2>&1; then
   # Show the ERRORS, not the first ten lines. A link failure (-lm dropped) lands at the END of
   # the log behind pages of warnings, and the first negative-control run printed warnings only.
   echo "  [FAIL] the PUBLISHED build line does not build:"
-  grep -E 'error:|undefined reference|collect2|ld returned' "$WORK/build.log" | head -10 \
+  grep -m10 -E 'error:|undefined reference|collect2|ld returned' "$WORK/build.log" \
     || tail -10 "$WORK/build.log"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
@@ -732,11 +732,11 @@ done
 # Sibling sweep (2026-09-05, MQ1A adjudication): the two other full-31-only verdict gates already in
 # the tree were wired into NOTHING -- each could be run by hand and was run by nobody. Same class,
 # same remedy; 1.1 s and 0.3 s.
-if ! bash ./scripts/a2_slot_verdict_gate.sh | grep -qx 'A2_SLOT_VERDICT=OK'; then
+if ! bash ./scripts/a2_slot_verdict_gate.sh | grep -cx 'A2_SLOT_VERDICT=OK' >/dev/null; then
   echo "  [FAIL] the A2 slot / verdict-exit gate (MQ1 §2a/§2d) did not report OK"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
-if ! bash ./scripts/xa_exact_verdict_gate.sh | grep -qx 'XA_EXACT_VERDICT=OK'; then
+if ! bash ./scripts/xa_exact_verdict_gate.sh | grep -cx 'XA_EXACT_VERDICT=OK' >/dev/null; then
   echo "  [FAIL] the XA exact-verdict gate (MQ1 §4) did not report OK"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi

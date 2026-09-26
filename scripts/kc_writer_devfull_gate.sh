@@ -73,7 +73,7 @@ probe(){
   if [ "$rc" -eq 0 ]; then
     say "[FAIL] $name: exit 0 writing to /dev/full — it reported success for an artifact that does not exist"
     fails=$((fails+1)); red=0
-  elif [ -n "$tok" ] && ! printf '%s\n' "$out" | grep -qx "$tok"; then
+  elif [ -n "$tok" ] && ! grep -qx "$tok" <<<"$out"; then
     say "[FAIL] $name: nonzero exit but no whole-line $tok — a wrapper grepping tokens still reads it as clean"
     fails=$((fails+1)); red=0
   else

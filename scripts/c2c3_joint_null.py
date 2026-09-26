@@ -24,11 +24,11 @@ Both anchors are ASSERTED, so a broken build fails loudly instead of reporting a
 
 WHAT THE SELF-VALIDATION DOES NOT CATCH, stated so it is not over-read. The KW anchors catch a
 wrong C2 or C3 predicate (verified: flipping the C2 distance to 4, or the C3 ceiling to 800, both
-abort at the assert). The marginal sigma-gate catches gross sampler errors. Neither can discriminate
-the two CONDITIONINGS: C2 given C1&C4 is 4.2872% against 4.29341% start-free, ~0.006pp apart, far
-inside the noise at any N this runs at. So pinning the start would pass every check here and still
-be the wrong population. The conditioning is correct BY CONSTRUCTION -- perm and ori are both fully
-free above -- and that is the reason it is spelled out rather than left to the reader.
+abort at the assert). The marginal sigma-gate catches gross sampler errors. The C2 gate cannot tell
+the two CONDITIONINGS apart: C2 given C1&C4 is 4.2872% against 4.29341% start-free, ~0.006pp apart, far
+inside the noise at any N this runs at. The C3 gate CAN (corrected 2026-09-25, Codex V3A-103#2; this said
+"pinning the start would pass every check here"): C3 given C1&C4 is 8.106231% (verify.py --check-null-g), and
+a pinned-start copy FAILS at 100,000 stdlib draws (8.07400%, +21.3 sigma). The conditioning is still correct BY CONSTRUCTION.
 
 DEPENDENCIES, and why this script carries a second sampler. numpy is used when it is present and
 is the fast path. It is NOT required. Codex v2 adjudication row 24 (V2-L10 #3) executed the
@@ -230,11 +230,11 @@ def main():
     print(f"  P(C2|C1)    = {100*p2:.5f}%   exact {100*EXACT_C2:.5f}%   ({sig(p2, EXACT_C2):+.1f} sigma)")
     print(f"  P(C3|C1)    = {100*p3:.5f}%   exact {100*EXACT_C3:.7f}%  ({sig(p3, EXACT_C3):+.1f} sigma)")
     print(f"  product     = {100*prod:.5f}%  (independence estimate, NOT a ceiling)")
-    print(f"  P(C2^C3|C1) = {100*p23:.5f}%  ({(p23-prod)/se:+.1f} sigma over the product, "
-          f"ratio {p23/prod:.4f})")
-    # A marginal off by >5 sigma means a wrong predicate, and then the joint is meaningless.
+    print(f"  P(C2^C3|C1) = {100*p23:.5f}%  " + (f"({(p23-prod)/se:+.1f} sigma over the product, " if se else
+          f"(no sigma: {n23} joint hits in {done:,} -- the joint is unmeasured at this N, raise N_TRIALS; ") + f"ratio {p23/prod:.4f})")
+    # A marginal off by >5 sigma means a wrong predicate; a joint with se == 0 has no sigma (V3A-103#1). Either -> FAIL.
     print(f"C2C3_JOINT_NULL_ENGINE={engine}")
-    if abs(sig(p2, EXACT_C2)) > 5 or abs(sig(p3, EXACT_C3)) > 5:
+    if se == 0 or abs(sig(p2, EXACT_C2)) > 5 or abs(sig(p3, EXACT_C3)) > 5:
         print("C2C3_JOINT_NULL=FAIL")
         return 1
     print("C2C3_JOINT_NULL=OK")

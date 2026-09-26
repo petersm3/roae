@@ -58,6 +58,8 @@
 #     closure input without staging its stamp?", and that is the question asked. Any byte change
 #     to a closure input moves the fingerprint, so "the stamp must move in the same commit" is
 #     not an approximation of the stamp's header requirement — it IS the requirement.
+#     "Is the staged stamp current?" is asked against the INDEX, and blocks, by the next leg,
+#     pre_commit_repro_current_gate.sh (Q-694).
 #   * CLOSURE MEMBERSHIP is derived from the worktree (the gate's functions read files), while
 #     the STAGED SET comes from the index. They differ only if the worktree moved after staging;
 #     in that window membership can be misjudged. Bounded, named, not silently assumed away.
@@ -263,10 +265,10 @@ FNS=$(mktemp) || { rm -f "$STAGED" "$CLOSURE"; echo "PRECOMMIT_STAMP_ERROR=mktem
 trap 'rm -f "$STAGED" "$CLOSURE" "$FNS"' EXIT
 
 # DELETIONS ARE INCLUDED (D), like pre_commit_registry_gate.sh and unlike the generated gate:
-# deleting a closure input moves the fingerprint exactly as editing one does. R reports the new
-# path. An index that cannot be read is ERROR — a `git diff --cached` that fails and an empty
+# deleting a closure input moves the fingerprint exactly as editing one does. --no-renames turns a rename into D old + A new
+# (with rename detection only the NEW path was listed, so renaming a closure input away read as unrelated). An index that cannot be read is ERROR — a `git diff --cached` that fails and an empty
 # index are indistinguishable by output alone, which is how a gate comes to certify nothing.
-if ! git diff --cached --name-only --diff-filter=ACMRD > "$STAGED" 2>/dev/null; then
+if ! git diff --cached --no-renames --name-only --diff-filter=ACMRD > "$STAGED" 2>/dev/null; then  # --no-renames: a rename lists BOTH paths (Q-750 residual)
   echo "  [ERROR] could not read the index (git diff --cached failed)"
   echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=staged-list-failed"
   echo "PRECOMMIT_STAMP=ERROR"; exit 2

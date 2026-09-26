@@ -134,7 +134,7 @@ records. (Subcommand: `solve.py --marginals`; full table in
 | `shift_conformant_count` | **17** | 3,429,763,541 | 2,635,756 | **99.96%** |
 | `first_position_deviation` | **33** | 3,432,399,296 | 1 | **100.00%** (unique) |
 | `mean_transition_hamming` | 3.3492 | 0 | 3,432,399,297 | 50.00% (invariant) |
-| `fft_peak_amplitude` | ~374.77 | ~3,276,971,650 | ~324,161 | **~95.48%** |
+| `fft_peak_amplitude` | ~374.77 | ~3,276,971,650 | ~324,161 (same histogram bin, not equal value) | **~95.48%** |
 
 **Interpretation of marginals:**
 
@@ -178,7 +178,7 @@ None is itself dispositive.
 ## Bivariate structure
 
 Five hexbin heatmaps of the 100T canonical joint distribution (1.7M
-uniformly-sampled points, KW marked with gold star) are archived at
+sampled points — 500 per parquet chunk (`solve.py` `p2_bivariate`), so uniform within a chunk, not across records, and a short final chunk is over-represented — KW marked with gold star) are archived at
 `roae-private/viz/`: *(private staging repo — not publicly accessible)*
 
 - `viz_edit_dist_kw__c3_total.png`
@@ -472,7 +472,7 @@ report for KW reflects the standard convention (half-bin rank among tied
 records), not rarity — KW shares its dominant frequency with 433 million
 other C1-C5 valid orderings.
 
-**Interpretation.** Period-4 structure is common across valid orderings
+**Interpretation (a proposed explanation, not tested: no shuffle or other control was run).** Period-4 structure is common across valid orderings
 because the pair structure (C1) creates a natural length-2 alternation
 (the a-then-b within each pair), and the aggregation of 32 such
 alternations produces frequency content concentrated at or near the

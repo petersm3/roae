@@ -205,7 +205,7 @@ resume after interrupt or eviction.
 Output sha matches a canonical entry in
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md) iff inputs (env vars +
 solver version) match. Mismatch **within the tested toolchain class**
-(see [DEVELOPMENT.md](DEVELOPMENT.md):1608) is a bug, not a new result;
+(see [DEVELOPMENT.md](DEVELOPMENT.md):1652) is a bug, not a new result;
 across toolchain classes, see the scope note under REPRODUCIBILITY below.
 *(Qualifier added 2026-09-01.)*
 
@@ -308,7 +308,7 @@ path that canonical extensions (e.g. 560T → 1120T) rely on.
 > ("single-branch eviction-resume invariance"), which calls `proc.terminate()`
 > during a `--branch` walk and then resumes — solve.py:7280-7335.
 > *(Corrected 2026-09-01: this paragraph described the gate as interrupting
-> the run and as covering eviction recovery.)*
+> the run and as covering eviction recovery.)* ⚠ *(Scoped 2026-09-25, CX-134: until that fix the per-branch file subtest 8 hashes held 0 records, so its clean-vs-resumed sha comparison compared two copies of one header-only sha (`4cd43b2b…`) and could fail only on an exit code; its first content check is its PASS on the fixed binary (measured 2026-09-25). See documentation/CORRECTIONS.md CX-134.)*
 
 Any commit touching the checkpoint format or resume logic MUST keep this
 passing (see the checkpoint-format merge gate). Exits 0 on PASS, non-zero
@@ -880,17 +880,17 @@ analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) 
 >   `NINTH_SIX=PASS` and `WRAP_PARITY=PASS` — with the surplus record
 >   silently unexamined, while `--verify` on the same file prints
 >   `VERIFY=ERROR`.
-> - **Pair indices are not bounds-checked.** A record byte decodes to
+> - **Pair indices: ✅ bounds-checked since 2026-09-25 (Q-520).** A record byte decodes to
 >   `pidx = (rec[i] >> 2) & 0x3F` in the `--verify-rule2` scan loop (solve.c:40456-40486),
 >   and indexes the global `pairs`/`n_pairs` table (solve.c:473-474), which has 32
->   entries, with no `pidx < 32` guard. Measured: a one-record artifact whose first byte
->   is `0x80` (pidx 32) reads past the array and still prints a normal
->   `RULE2=TABULATED` at exit 0.
+>   entries. Before the fix there was no guard: a record byte of `0x80` (pidx 32) read past
+>   the array and still printed a normal `RULE2=TABULATED` at exit 0. Each block is now
+>   scanned by `sol_pidx_scan` before decoding; a bad byte prints `RULE2=ERROR` (`NINTH_SIX=`,
+>   `WRAP_PARITY=`) and `ERROR: PAIR_INDEX_OUT_OF_RANGE: …` and exits 20.
 >
 > So run these on artifacts `--verify` has already accepted; on a
 > hand-crafted or corrupt file their verdicts are not trustworthy.
-> Adding the framing invariant and the `pidx` bound to all three readers
-> is an open code change.
+> Adding the framing invariant to all three readers is an open code change.
 
 ### --verify-9th-six
 
@@ -2800,7 +2800,7 @@ boundary-uniqueness exhaustive search, and more.
 
 Outputs a long human-readable report to stdout. Used during
 research to characterize where King Wen sits in the
-solution-space distribution.
+solution-space distribution. ⚠ *(Label changed 2026-09-25, Q-830: §[9]'s second list, the ten boundary pairs with the lowest overlap coefficient joint/min(single), printed in descending order, is now headed "lowest-OVERLAP". It was headed "most-INDEPENDENT", which that ratio cannot measure. Analyze logs archived before this date keep the old heading. Only the heading changed; every figure prints as before.)*
 
 `-fopenmp` parallelizes the hot loops in this subcommand.
 
@@ -2863,8 +2863,8 @@ infeasible (transition from hex-0 to first hex of pair `p1` is
 hamming-5); 6 of the 62 candidates fail-fast, leaving 56 effective
 branches. See `--list-branches`.
 
-Output: `sub_*.bin` shards in CWD; auto-merge at end produces
-`solutions.bin` for that branch.
+Output: `sub_*.bin` shards in CWD; the merge at the end writes
+`solutions_<p1>_<o1>.bin` (with `.sha256`, `.meta.json` and `results_<p1>_<o1>.json`) from every `sub_<p1>_<o1>_*.bin` in CWD, so it equals `./solve --merge` run over those shards. ⚠ *(Corrected 2026-09-25, Q-825: this said the merge produces `solutions.bin`. The file is `solutions_<p1>_<o1>.bin`, and before the Q-825 fix it always held 0 records, because it was built from in-memory tables that every sub-branch flush clears; the shards held the solutions. `tests.py` `TestBranchModeOutputHoldsTheShards` checks it against `--merge`.)*
 
 ### --sub-branch
 
@@ -2878,7 +2878,7 @@ Used for targeted exhaustion of single sub-branches at extreme
 node budgets (10T, 100T, 1000T).
 
 Output: shard files `sub_P1_O1_P2_O2_P3_O3.bin` in CWD; checkpoint
-+ DFS state sidecar files for resume.
++ DFS state sidecar files for resume. Single-threaded (the default, `[threads]` = 1, or `SOLVE_SUB_BRANCH_PARALLELISM=single`) it also writes `solutions_<p1>_<o1>.bin` holding that one shard's records; with more than one thread (the parallel path) it writes the shard only. ⚠ *(Added 2026-09-25, Q-825: before that day's fix the single-threaded `solutions_<p1>_<o1>.bin` always held 0 records and the report printed `Unique pair orderings: 0`, while the shard held the solutions.)*
 
 ### --list-branches
 
@@ -3429,7 +3429,7 @@ solve --double-regression-test 5600000000000    # argv is a node BUDGET, not a d
 - `solutions.bin` (when verifying / analyzing / showing).
 - `checkpoint.txt` (resume state for interrupted runs).
 - `*.dfs_state` (per-sub-branch DFS-frame sidecars when
-  `SOLVE_DFS_CHECKPOINT=1`). **v2 sidecar layout, and the zero-yield flag (added 2026-09-25, Q-730).** A v2 sidecar is one `DFSCheckpointState_v2`, 440 bytes: magic `DFSS`, `format_version` 2, the 34 stack frames and state arrays, then `prior_budget` (int64, byte offset 400), `prior_nodes_walked` (408), `prior_solutions_found` (416), and `reserved2[16]` (424–439). Since `075931f4` (2026-09-05, Q-414), `reserved2[0]` is a **flags byte**. Bit 0, `DFS_V2_FLAG_YIELD_ATTESTED` (0x01), means that `prior_solutions_found` holds the cell's solution count captured before the shard flush, so a 0 there really means zero yield. Bits 1–7 are undefined; the reader masks bit 0 and ignores the rest. The `#167` resume guard resumes a cell whose `sub_*.bin` is absent only when all three hold: the v2 resume is active, bit 0 is set, and the count is 0. Any other shard-less sidecar is discarded and its cell walked from node 0. `sizeof`, magic and `format_version` did not change, so a pre-fix binary reads a new sidecar exactly as before (it ignores `reserved2`). **Scope:** v1 sidecars and v2 sidecars written before `075931f4` have the flag clear. A fixed binary therefore still re-walks their zero-yield cells, and that includes every sidecar in the June-8 560 T archive (58.8 % of its cells; [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 rule 9). Gate: `scripts/selftest_resume_167_gate.sh` (`RESUME_167_*` tokens, [DEVELOPMENT.md](DEVELOPMENT.md)).
+  `SOLVE_DFS_CHECKPOINT=1`). **v2 sidecar layout, and the zero-yield flag (added 2026-09-25, Q-730).** A v2 sidecar is one `DFSCheckpointState_v2`, 440 bytes: magic `DFSS`, `format_version` 2, the 34 stack frames and state arrays, then `prior_budget` (int64, byte offset 400), `prior_nodes_walked` (408), `prior_solutions_found` (416), and `reserved2[16]` (424–439). Since `075931f4` (2026-09-05, Q-414), `reserved2[0]` is a **flags byte**. Bit 0, `DFS_V2_FLAG_YIELD_ATTESTED` (0x01), means that `prior_solutions_found` holds the cell's solution count captured before the shard flush, so a 0 there really means zero yield. Bits 1–7 are undefined. **Reader rules (since 2026-09-25, Q-732):** the flags byte at offset 424 attests only when the whole byte equals `DFS_V2_FLAG_YIELD_ATTESTED` (0x01); any other non-zero value, 0xFF included, is read as not attested and the `[dfs-v2] READ` line ends in `WARN: unknown flag bits, yield NOT attested`. (Before Q-732 the reader masked bit 0 and ignored the rest, so such a byte read as attested.) A file stamped `format_version` 2 must be exactly 440 bytes: a longer one is refused with `WARN: dfs_state_read_v2: <file> is stamped v2 but longer than 440 bytes`, falls through to the v1 reader, which refuses it too, and its cell is walked from node 0. The `#167` resume guard resumes a cell whose `sub_*.bin` is absent only when all three hold: the v2 resume is active, the flags byte equals `DFS_V2_FLAG_YIELD_ATTESTED`, and the count is 0. Any other shard-less sidecar is discarded and its cell walked from node 0. `sizeof`, magic and `format_version` did not change, so a pre-fix binary reads a new sidecar exactly as before (it ignores `reserved2`). **Scope:** v1 sidecars and v2 sidecars written before `075931f4` have the flag clear. A fixed binary therefore still re-walks their zero-yield cells, and Q-732's equality rule does not change that: a clear byte is never an attestation, and nothing in an unflagged sidecar can be upgraded to one after the fact. That includes every sidecar in the June-8 560 T archive, so any resume or extension of it at a higher budget re-walks its zero-yield cells by design (58.8 % of its cells; [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 rule 9). Gate: `scripts/selftest_resume_167_gate.sh` (`RESUME_167_*` tokens; its `--battery` mutants M7 and M8 plant a 0xFF flags byte and a 576-byte v2 sidecar and require the refusal; [DEVELOPMENT.md](DEVELOPMENT.md)).
 - `build.sha` — sha256 of the binary that last touched this cwd.
   Read on canonical-enum dispatch; mismatch exits 26 unless
   `SOLVE_ALLOW_BUILD_MISMATCH=1`.
@@ -3500,7 +3500,7 @@ External cleanup is not required but is a disk-hygiene best practice.
   **Across hardware and region the guarantee is scoped, not absolute:** it
   holds *within the tested toolchain class*
   ([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Reproducibility;
-  [DEVELOPMENT.md](DEVELOPMENT.md):1608). ⚠ [CORRECTED 2026-09-04 — this read
+  [DEVELOPMENT.md](DEVELOPMENT.md):1652). ⚠ [CORRECTED 2026-09-04 — this read
   "a host-level drift event is on the record, and at 1T scale
   CAMPAIGN_METHODOLOGY.md:604-607 notes that moving between hosts *in the
   same SKU class* can change the sha". **No host-level drift event is on the

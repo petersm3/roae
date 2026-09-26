@@ -122,7 +122,7 @@ the rival group to 焦循's 八卦相錯 (c. 1813). [CITATIONS.md](CITATIONS.md#
 measured group uses the one-hexagram swap. No source cited here assembles complement and 兩象易 into
 this group. The counts are unchanged. Adjudicated by Fable (Codex V3A-061#2).]** Exactly, not sampled: of the 3.845×10⁴⁶
 involutions on the 64 with eight fixed points, **exactly 70** reproduce King Wen's pairing, and all 70
-are 孔穎達's rule up to a **vacuous relabelling** on the hexagrams where the two operations coincide.
+are 孔穎達's rule up to a **vacuous relabelling** on the hexagrams whose King Wen partner is their complement (the checker's `ELIGIBLE_FIXED_HEXAGRAMS=16`; reversal and complement coincide on only 8 of those 16, the other 8 being reversal-symmetric) ⚠ *(corrected 2026-09-25: this read "where the two operations coincide". Codex v3 review, V3A-031#3)*.
 **So the classical rule is not *a* symmetry that happens to fit; it is *the* rule** — and the rival it
 beats is built from operations the same tradition supplies, not ones we constructed. Reproduce with
 `python3 verify.py --check-classical-groups`. It is also

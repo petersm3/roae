@@ -571,8 +571,8 @@ for k in [k for k in opens if k not in used_open]:
 # ratchet had been resting on 40 dead rows' worth of headroom; see GATE 18 LEG
 # stale-registry-row above, which is what now keeps the two counts equal without anyone
 # remembering to lower this line.
-OPEN_SITE_BUDGET = 2
-OPEN_ROW_BUDGET  = 2
+OPEN_SITE_BUDGET = 1  # LOWERED 2 -> 1 2026-09-25 (Q-763): the CRITIQUE.md:137 row became `allow literal`; one open site left
+OPEN_ROW_BUDGET  = 1  # LOWERED 2 -> 1 in the same change; the Zheng Qiao row (#157) is the one open row
 ratchet = []
 if len(openhits) > OPEN_SITE_BUDGET:
     ratchet.append(f'{len(openhits)} adjudicated-open SITE(s), budget {OPEN_SITE_BUDGET}')

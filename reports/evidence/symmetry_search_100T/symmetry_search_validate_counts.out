@@ -1,0 +1,160 @@
+=== SYMMETRY SEARCH (Hamming-class-preserving σ on C1 partition) ===
+
+Spec: documentation/SYMMETRY_SEARCH.md
+Phase 1+2: enumerate 720 bit-permutations, filter to C1-preserving,
+compute σ's induced action on (pair_idx, orient) space.
+
+σ #1: bit-perm [0 1 3 2 4 5]
+        48 orbits on (pair,orient) space; sizes: 32×1 16×2 
+σ #2: bit-perm [0 2 1 4 3 5]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #3: bit-perm [0 2 4 1 3 5]
+        24 orbits on (pair,orient) space; sizes: 8×1 4×2 12×4 
+σ #4: bit-perm [0 3 1 4 2 5]
+        24 orbits on (pair,orient) space; sizes: 8×1 4×2 12×4 
+σ #5: bit-perm [0 3 4 1 2 5]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #6: bit-perm [0 4 2 3 1 5]
+        48 orbits on (pair,orient) space; sizes: 32×1 16×2 
+σ #7: bit-perm [0 4 3 2 1 5]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #8: bit-perm [1 0 2 3 5 4]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #9: bit-perm [1 0 3 2 5 4]
+        36 orbits on (pair,orient) space; sizes: 8×1 28×2 
+σ #10: bit-perm [1 2 0 5 3 4]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #11: bit-perm [1 2 5 0 3 4]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #12: bit-perm [1 3 0 5 2 4]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #13: bit-perm [1 3 5 0 2 4]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #14: bit-perm [1 5 2 3 0 4]
+        24 orbits on (pair,orient) space; sizes: 8×1 4×2 12×4 
+σ #15: bit-perm [1 5 3 2 0 4]
+        22 orbits on (pair,orient) space; sizes: 4×1 6×2 12×4 
+σ #16: bit-perm [2 0 1 4 5 3]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #17: bit-perm [2 0 4 1 5 3]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #18: bit-perm [2 1 0 5 4 3]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #19: bit-perm [2 1 5 0 4 3]
+        24 orbits on (pair,orient) space; sizes: 8×1 4×2 12×4 
+σ #20: bit-perm [2 4 0 5 1 3]
+        36 orbits on (pair,orient) space; sizes: 8×1 28×2 
+σ #21: bit-perm [2 4 5 0 1 3]
+        22 orbits on (pair,orient) space; sizes: 4×1 6×2 12×4 
+σ #22: bit-perm [2 5 1 4 0 3]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #23: bit-perm [2 5 4 1 0 3]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #24: bit-perm [3 0 1 4 5 2]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #25: bit-perm [3 0 4 1 5 2]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #26: bit-perm [3 1 0 5 4 2]
+        24 orbits on (pair,orient) space; sizes: 8×1 4×2 12×4 
+σ #27: bit-perm [3 1 5 0 4 2]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #28: bit-perm [3 4 0 5 1 2]
+        22 orbits on (pair,orient) space; sizes: 4×1 6×2 12×4 
+σ #29: bit-perm [3 4 5 0 1 2]
+        36 orbits on (pair,orient) space; sizes: 8×1 28×2 
+σ #30: bit-perm [3 5 1 4 0 2]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #31: bit-perm [3 5 4 1 0 2]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #32: bit-perm [4 0 2 3 5 1]
+        24 orbits on (pair,orient) space; sizes: 8×1 4×2 12×4 
+σ #33: bit-perm [4 0 3 2 5 1]
+        22 orbits on (pair,orient) space; sizes: 4×1 6×2 12×4 
+σ #34: bit-perm [4 2 0 5 3 1]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #35: bit-perm [4 2 5 0 3 1]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #36: bit-perm [4 3 0 5 2 1]
+        24 orbits on (pair,orient) space; sizes: 4×1 20×3 
+σ #37: bit-perm [4 3 5 0 2 1]
+        14 orbits on (pair,orient) space; sizes: 2×1 1×2 2×3 9×6 
+σ #38: bit-perm [4 5 2 3 0 1]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #39: bit-perm [4 5 3 2 0 1]
+        36 orbits on (pair,orient) space; sizes: 8×1 28×2 
+σ #40: bit-perm [5 1 2 3 4 0]
+        48 orbits on (pair,orient) space; sizes: 32×1 16×2 
+σ #41: bit-perm [5 1 3 2 4 0]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #42: bit-perm [5 2 1 4 3 0]
+        36 orbits on (pair,orient) space; sizes: 8×1 28×2 
+σ #43: bit-perm [5 2 4 1 3 0]
+        22 orbits on (pair,orient) space; sizes: 4×1 6×2 12×4 
+σ #44: bit-perm [5 3 1 4 2 0]
+        22 orbits on (pair,orient) space; sizes: 4×1 6×2 12×4 
+σ #45: bit-perm [5 3 4 1 2 0]
+        36 orbits on (pair,orient) space; sizes: 8×1 28×2 
+σ #46: bit-perm [5 4 2 3 1 0]
+        40 orbits on (pair,orient) space; sizes: 16×1 24×2 
+σ #47: bit-perm [5 4 3 2 1 0]
+        36 orbits on (pair,orient) space; sizes: 8×1 28×2 
+
+=== Phase 1+2 SUMMARY ===
+Total 6-bit permutations:               720
+C1-preserving:                          48 (6.7%)
+Non-trivial on (pair,orient) space:     47
+
+=== Phase 3: count comparison across σ orbits ===
+(checks whether σ-image prefix has identical yield as preimage)
+
+σ #1 [0 1 3 2 4 5]:  matches=14850  mismatches=22466  missing=23217  max_diff=1550062   →  FALSIFIED
+σ #2 [0 2 1 4 3 5]:  matches=2217  mismatches=27606  missing=30710  max_diff=1692016   →  FALSIFIED
+σ #3 [0 2 4 1 3 5]:  matches=217  mismatches=29279  missing=31037  max_diff=1687959   →  FALSIFIED
+σ #4 [0 3 1 4 2 5]:  matches=217  mismatches=29279  missing=31037  max_diff=1687959   →  FALSIFIED
+σ #5 [0 3 4 1 2 5]:  matches=1859  mismatches=34144  missing=24530  max_diff=1632949   →  FALSIFIED
+σ #6 [0 4 2 3 1 5]:  matches=8656  mismatches=35666  missing=16211  max_diff=1465373   →  FALSIFIED
+σ #7 [0 4 3 2 1 5]:  matches=5900  mismatches=30704  missing=23929  max_diff=1550062   →  FALSIFIED
+σ #8 [1 0 2 3 5 4]:  matches=2608  mismatches=38694  missing=19231  max_diff=1604299   →  FALSIFIED
+σ #9 [1 0 3 2 5 4]:  matches=2100  mismatches=28952  missing=29481  max_diff=1642804   →  FALSIFIED
+σ #10 [1 2 0 5 3 4]:  matches=26  mismatches=26528  missing=33979  max_diff=1699327   →  FALSIFIED
+σ #11 [1 2 5 0 3 4]:  matches=32  mismatches=25990  missing=34511  max_diff=1637664   →  FALSIFIED
+σ #12 [1 3 0 5 2 4]:  matches=46  mismatches=23625  missing=36862  max_diff=1734295   →  FALSIFIED
+σ #13 [1 3 5 0 2 4]:  matches=49  mismatches=31657  missing=28827  max_diff=1699644   →  FALSIFIED
+σ #14 [1 5 2 3 0 4]:  matches=303  mismatches=32552  missing=27678  max_diff=1633471   →  FALSIFIED
+σ #15 [1 5 3 2 0 4]:  matches=307  mismatches=32565  missing=27661  max_diff=1622959   →  FALSIFIED
+σ #16 [2 0 1 4 5 3]:  matches=26  mismatches=26528  missing=33979  max_diff=1699327   →  FALSIFIED
+σ #17 [2 0 4 1 5 3]:  matches=46  mismatches=23625  missing=36862  max_diff=1734295   →  FALSIFIED
+σ #18 [2 1 0 5 4 3]:  matches=1774  mismatches=28068  missing=30691  max_diff=1497068   →  FALSIFIED
+σ #19 [2 1 5 0 4 3]:  matches=152  mismatches=21034  missing=39347  max_diff=1550062   →  FALSIFIED
+σ #20 [2 4 0 5 1 3]:  matches=1484  mismatches=31226  missing=27823  max_diff=1487564   →  FALSIFIED
+σ #21 [2 4 5 0 1 3]:  matches=134  mismatches=21010  missing=39389  max_diff=1550062   →  FALSIFIED
+σ #22 [2 5 1 4 0 3]:  matches=79  mismatches=31637  missing=28817  max_diff=1679513   →  FALSIFIED
+σ #23 [2 5 4 1 0 3]:  matches=96  mismatches=26013  missing=34424  max_diff=1636911   →  FALSIFIED
+σ #24 [3 0 1 4 5 2]:  matches=32  mismatches=25990  missing=34511  max_diff=1637664   →  FALSIFIED
+σ #25 [3 0 4 1 5 2]:  matches=49  mismatches=31657  missing=28827  max_diff=1699644   →  FALSIFIED
+σ #26 [3 1 0 5 4 2]:  matches=152  mismatches=21034  missing=39347  max_diff=1550062   →  FALSIFIED
+σ #27 [3 1 5 0 4 2]:  matches=1724  mismatches=30958  missing=27851  max_diff=1487564   →  FALSIFIED
+σ #28 [3 4 0 5 1 2]:  matches=134  mismatches=21010  missing=39389  max_diff=1550062   →  FALSIFIED
+σ #29 [3 4 5 0 1 2]:  matches=1002  mismatches=28692  missing=30839  max_diff=1497068   →  FALSIFIED
+σ #30 [3 5 1 4 0 2]:  matches=38  mismatches=23629  missing=36866  max_diff=1734295   →  FALSIFIED
+σ #31 [3 5 4 1 0 2]:  matches=46  mismatches=26586  missing=33901  max_diff=1699327   →  FALSIFIED
+σ #32 [4 0 2 3 5 1]:  matches=303  mismatches=32552  missing=27678  max_diff=1633471   →  FALSIFIED
+σ #33 [4 0 3 2 5 1]:  matches=307  mismatches=32565  missing=27661  max_diff=1622959   →  FALSIFIED
+σ #34 [4 2 0 5 3 1]:  matches=79  mismatches=31637  missing=28817  max_diff=1679513   →  FALSIFIED
+σ #35 [4 2 5 0 3 1]:  matches=38  mismatches=23629  missing=36866  max_diff=1734295   →  FALSIFIED
+σ #36 [4 3 0 5 2 1]:  matches=96  mismatches=26013  missing=34424  max_diff=1636911   →  FALSIFIED
+σ #37 [4 3 5 0 2 1]:  matches=46  mismatches=26586  missing=33901  max_diff=1699327   →  FALSIFIED
+σ #38 [4 5 2 3 0 1]:  matches=3638  mismatches=27776  missing=29119  max_diff=1629269   →  FALSIFIED
+σ #39 [4 5 3 2 0 1]:  matches=3643  mismatches=38066  missing=18824  max_diff=1604035   →  FALSIFIED
+σ #40 [5 1 2 3 4 0]:  matches=7877  mismatches=28830  missing=23826  max_diff=1544064   →  FALSIFIED
+σ #41 [5 1 3 2 4 0]:  matches=7559  mismatches=36648  missing=16326  max_diff=1465373   →  FALSIFIED
+σ #42 [5 2 1 4 3 0]:  matches=1266  mismatches=34596  missing=24671  max_diff=1633712   →  FALSIFIED
+σ #43 [5 2 4 1 3 0]:  matches=154  mismatches=29229  missing=31150  max_diff=1639099   →  FALSIFIED
+σ #44 [5 3 1 4 2 0]:  matches=154  mismatches=29229  missing=31150  max_diff=1639099   →  FALSIFIED
+σ #45 [5 3 4 1 2 0]:  matches=1390  mismatches=28286  missing=30857  max_diff=1692016   →  FALSIFIED
+σ #46 [5 4 2 3 1 0]:  matches=8050  mismatches=28510  missing=23973  max_diff=1544064   →  FALSIFIED
+σ #47 [5 4 3 2 1 0]:  matches=26158  mismatches=32456  missing=1919  max_diff=811359   →  FALSIFIED
+
+(missing = σ-image prefix had no entry in the parsed log;
+ typically because the prefix was BUDGETED with 0 solutions and
+ no Wrote-line was emitted. Treat as inconclusive for that σ-pair.)

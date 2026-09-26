@@ -1,0 +1,8 @@
+[knuth] 0 probes, 16 threads, 22 prefix level(s)
+EXACT-COUNT start_step=23 prefix_levels=22
+  tree_nodes            : 9422793
+  leaves_C1C2C4C5       : 690176
+  leaves_canonical_C1C5 : 16504
+  LEAVES_CANONICAL_GLOSS=present
+    (raw ORIENTED leaves passing the C1-C5 filter; NOT deduped orientation
+     classes -- see the records_* lines for deduped counts)

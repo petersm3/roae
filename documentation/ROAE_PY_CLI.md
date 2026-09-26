@@ -75,10 +75,10 @@ The 29 analysis sections, each invoked by a single flag:
 |---|---|
 | `--table` | Hexagram reference table with binary encoding, trigrams, names, and properties for all 64 hexagrams |
 | `--pairs` | Reverse vs. inverse pair analysis — tests whether KW's 32 pairs all satisfy the pairing structure (C1 in [SPECIFICATION.md](SPECIFICATION.md)) |
-| `--trigrams` | Trigram (upper/lower 3-line) frequency, transitions, 8×8 matrices — plus (2026-07-03) pair-preserving permutation nulls, pure-hexagram Classic-ends placement ([Lai Zhide](CITATIONS.md#laizhide) via [Schulz 1982](CITATIONS.md#schulz1982)), nuclear-trigram reduction 64→16→4, [Jing Fang](CITATIONS.md#jingfang) palace rank-correlation + null, symmetry-group trigram-split subgroup |
+| `--trigrams` | Trigram (upper/lower 3-line) frequency, transitions, 8×8 matrices — plus (2026-07-03) pair-preserving permutation nulls, pure-hexagram Classic-ends placement (a proxy for [Lai Zhide](CITATIONS.md#laizhide)'s Kan/Li Classic-endings observation via [Schulz 1982](CITATIONS.md#schulz1982): Kan and Li are doubled at 29–30 but mixed at 63–64, so a pure-hexagram count cannot test it directly), nuclear-trigram reduction 64→16→4, [Jing Fang](CITATIONS.md#jingfang) palace rank-correlation + null, symmetry-group trigram-split subgroup |
 | `--nuclear` | Nuclear hexagram chains — lines 2-3-4 and 3-4-5 generate inner hexagrams; this analysis traces the nuclear-derivation chains and their cycles |
 | `--lines` | Line-change positional analysis — which of the 6 line positions changes most often as you walk the sequence |
-| `--complements` | Complement distance — for each hexagram, where its bit-flipped opposite sits in the sequence |
+| `--complements` | Complement distance — for each hexagram, where its bit-flipped opposite sits in the sequence, against unrestricted shuffles and (since 2026-09-25) the pair-preserving null, whose exact tail is `verify.py --check-null-g --unpinned` |
 | `--codons` | DNA codon mapping — structural comparison of King Wen with the genetic code, given the natural 64-element correspondence |
 
 ### Sequence-as-signal
@@ -103,7 +103,7 @@ The 29 analysis sections, each invoked by a single flag:
 
 | Flag | Description |
 |---|---|
-| `--sequences` | Compare King Wen vs. Fu Xi vs. Mawangdui orderings on each measure |
+| `--sequences` | Compare King Wen vs. Fu Xi vs. Mawangdui orderings on their difference waves: the distance tally, total and mean line change, and spark line (not on every measure in this table; Q-763) |
 | `--constraints` | Constraint satisfaction — how rare is King Wen's combined properties (pair structure + no-5)? |
 | `--bootstrap` | Bootstrap confidence intervals for Monte Carlo estimates |
 
@@ -213,7 +213,7 @@ reference population (exact rejection sampling: uniform over C1∧C4
 orderings — 31 free pair slots × 2³¹ orientations, first pair pinned
 (63, 0) — accepted iff the transition multiset equals C5's, which implies
 C2). Both run and exit (they do not combine with the analysis sections),
-fan out across worker processes, and are **much heavier** than the
+fan out across worker processes — **forked** ones: workers inherit the shared search state through `fork` (`roae.py`, the "Shared state for forked worker processes" block), so these modes need the `fork` start method; where the default is `spawn` or `forkserver` (macOS and Windows, and Linux from Python 3.14) they are unsupported as shipped — and are **much heavier** than the
 descriptive analyses at their default sample sizes — size the machine
 accordingly. Both are report-only: they produce no sha-anchored
 artifacts and change no constraint definitions.
@@ -237,7 +237,7 @@ reader cannot check that the grammar predates any particular run. Each
 KW-satisfied candidate then runs through a five-phase pipeline:
 
 1. **Probe sampling (A)** — a small probe set (`--gs-probe`) drawn from
-   a seed stream *disjoint* from the rarity sample;
+   a seed stream *disjoint* from the rarity sample (for a base seed ≥ 0 — a negative `--seed` is refused, see below);
 2. **Candidate enumeration + masks (B)**;
 3. **Signature dedup (C)** — probe-trivial classes (true on the whole
    probe set, i.e. common under C1–C5) are absorbed; the **selection
@@ -299,7 +299,7 @@ Parameters (all shared machinery flags are prefixed `--gs-`):
 `--seed` sets the base seed; when omitted, this mode (unlike the
 Monte-Carlo analysis sections) defaults to the fixed pre-registered seed
 20260726. Probe and rarity streams derive from it disjointly
-(seed+100+w and seed+10000+b).
+(seed+100+w and seed+10000+b) for any seed ≥ 0. A negative `--seed` is refused (exit 2, before any sampling): CPython seeds `random.Random(n)` by |n|, so under `--seed -5050` the probe stream seed+100 and the rarity stream seed+10000 are both |4950| and draw the same sample. ⚠ *(Corrected 2026-09-25, Q-763: this said the streams were disjoint for every seed, and nothing refused a negative one.)*
 
 ### --prereg-h1h3
 

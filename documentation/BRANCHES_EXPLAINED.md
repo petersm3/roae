@@ -473,13 +473,13 @@ We've verified this:
 - Across regions (Azure westus2 vs westus3)
 - Across enumerator modes (all-branch vs single-branch via `--branch`)
 
-The verification is by SHA-256: hash the solutions.bin from each path,
+The verification is by SHA-256: hash the **decompressed** record stream of each path's solutions.bin (gzip-framed by default since #169 — `gzip -dc`, per [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §8),
 they have to match exactly. See [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)
 for the formal statement and [HISTORY.md](HISTORY.md) for the validation
 runs.
 
 This is what makes ROAE's claims reproducible. Anyone with the source
-code can re-run any of these enumerations and verify the same hash.
+code can re-run any enumeration whose anchor is active in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) and verify the same hash (retired anchors there are marked, and some are irreproducible from any extant commit).
 
 ---
 
@@ -605,8 +605,8 @@ see [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md).
 **First-level yield distribution.** Plotting yields across all 56
 first-level branches makes a histogram. If it's flat, the constraints
 treat all first-levels equally. If it's spiky, certain first-levels are
-favored. Empirically it's spiky — some first-level branches contain ten
-times more orderings than others.
+favored. Empirically the *yields* are spiky — some first-level branches yield ten
+times more records than others under the same budget; per the ⚠ note above that is a budget and representative-selection effect (a branch and its bit-reversal image can differ by far more), not a statement that those branches contain more orderings. ⚠ *(Reworded 2026-09-25, Q-763: this said "contain ten times more orderings".)*
 
 **KW's first-level branch.** King Wen begins (after pair 0) with a
 specific (pair, orientation) at position 2. We can ask: is THIS branch
@@ -710,8 +710,8 @@ actually proven, and for why truncated yields cannot decide it.
 "random pair-constrained sequences" with the same C1 structure but
 randomly chosen positions, and measure how often they match KW's
 extremity. If KW is extreme even within its own constraint family,
-that's strong evidence that the order is structured beyond what C1-C5
-alone explain.
+that's evidence that the order is structured beyond what C1 alone
+explains (a C1-only null cannot speak to C2–C5; for position within the C1–C5 canonical population see that document's percentiles). ⚠ *(Narrowed 2026-09-25, Q-763: this read "beyond what C1-C5 alone explain".)*
 
 ---
 

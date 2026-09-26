@@ -1,0 +1,285 @@
+# Provenance: measured 2026-09-25 (backlog Q-759; Codex v3 review, V3B-02#21) on a 16-core Linux x86-64 host. verify.c as published at 47f432c2 (sha256 826a5314d466eaaae13781c8369885caa243f9664b0378961aeba34a0ab02742), built with: cc -O2 -o verify verify.c -lz -lpthread -lm (gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0). Each block is the command line, then its unedited stdout and stderr, then its exit code. Expected values are the published counts of TR-11 section 4a/4b.
+
+$ ./verify --ie-count --ie-spec 3.0,3.1,3.2@0 --ie-expect 26112 --ie-threads 4
+======================================================================
+verify.c --ie-count : Route B — independent IE transfer-walk recount
+(signed inclusion-exclusion over free-pair subsets; DP state = (last,
+ budget) with NO mask; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : rung B0 via TR-11 SS5 Step-1 DFS = (2,5,0,2,0)
+instance: n=9 start=0 spec=3.0,3.1,3.2@0  pairs=3,7,11,4,6,21,13,14,30
+lattice : R=54 vectors, max coexisting per layer = 9
+quotient: ON (canonical subsets x orbit size) (geff=6 restricted pair-perms)
+primes  : p0=9223372036854775783 p1=9223372036854775643 p2=9223372036854775549 (Miller-Rabin-proven at startup)
+----------------------------------------------------------------------
+[ie] pass mod=wrap  subsets=120  weightsum=512  transitions=66866
+     acc=26112  wall=0.00s  cpu=0.0 core-s  (11.7 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p0    subsets=120  weightsum=512  transitions=66866
+     acc=26112  wall=0.00s  cpu=0.0 core-s  (11.6 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p1    subsets=120  weightsum=512  transitions=66866
+     acc=26112  wall=0.00s  cpu=0.0 core-s  (11.3 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p2    subsets=120  weightsum=512  transitions=66866
+     acc=26112  wall=0.01s  cpu=0.0 core-s  (11.3 ns/transition/core)
+----------------------------------------------------------------------
+CRT     : N = 26112
+          N mod 24 = 0
+          wrap cross-check (N < 2^64): 26112  MATCH
+          vs expected 26112 : MATCH
+IE_COMPARED=1
+======================================================================
+RESULT: pass complete; all in-run gates hold
+======================================================================
+exit=0
+
+$ ./verify --ie-count --ie-spec 3.0,3.1,3.2@0 --ie-expect 26112 --ie-no-quotient --ie-threads 4
+======================================================================
+verify.c --ie-count : Route B — independent IE transfer-walk recount
+(signed inclusion-exclusion over free-pair subsets; DP state = (last,
+ budget) with NO mask; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : rung B0 via TR-11 SS5 Step-1 DFS = (2,5,0,2,0)
+instance: n=9 start=0 spec=3.0,3.1,3.2@0  pairs=3,7,11,4,6,21,13,14,30
+lattice : R=54 vectors, max coexisting per layer = 9
+quotient: OFF (full 2^n) (geff=6 restricted pair-perms)
+primes  : p0=9223372036854775783 p1=9223372036854775643 p2=9223372036854775549 (Miller-Rabin-proven at startup)
+----------------------------------------------------------------------
+[ie] pass mod=wrap  subsets=512  weightsum=512  transitions=279492
+     acc=26112  wall=0.00s  cpu=0.0 core-s  (11.5 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p0    subsets=512  weightsum=512  transitions=279492
+     acc=26112  wall=0.00s  cpu=0.0 core-s  (11.3 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p1    subsets=512  weightsum=512  transitions=279492
+     acc=26112  wall=0.00s  cpu=0.0 core-s  (11.5 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p2    subsets=512  weightsum=512  transitions=279492
+     acc=26112  wall=0.00s  cpu=0.0 core-s  (11.6 ns/transition/core)
+----------------------------------------------------------------------
+CRT     : N = 26112
+          N mod 24 = 0
+          wrap cross-check (N < 2^64): 26112  MATCH
+          vs expected 26112 : MATCH
+IE_COMPARED=1
+======================================================================
+RESULT: pass complete; all in-run gates hold
+======================================================================
+exit=0
+
+$ ./verify --ie-count --ie-spec 3.0,3.1,3.2@0 --ie-expect 26112 --ie-brute --ie-threads 4
+======================================================================
+verify.c --ie-count : Route B — independent IE transfer-walk recount
+(signed inclusion-exclusion over free-pair subsets; DP state = (last,
+ budget) with NO mask; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : rung B0 via TR-11 SS5 Step-1 DFS = (2,5,0,2,0)
+BRUTE   : N = 26112 (explicit permutation DFS)
+          vs expected 26112 : MATCH
+exit=0
+
+$ ./verify --ie-count --ie-spec 3.0,4.0,6.2@0 --ie-expect 2063395607040 --ie-threads 4
+======================================================================
+verify.c --ie-count : Route B — independent IE transfer-walk recount
+(signed inclusion-exclusion over free-pair subsets; DP state = (last,
+ budget) with NO mask; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : rung B0 via TR-11 SS5 Step-1 DFS = (1,6,0,6,0)
+instance: n=13 start=0 spec=3.0,4.0,6.2@0  pairs=3,7,11,5,8,26,31,10,15,20,23,27,29
+lattice : R=98 vectors, max coexisting per layer = 13
+quotient: ON (canonical subsets x orbit size) (geff=24 restricted pair-perms)
+primes  : p0=9223372036854775783 p1=9223372036854775643 p2=9223372036854775549 (Miller-Rabin-proven at startup)
+----------------------------------------------------------------------
+[ie] pass mod=wrap  subsets=688  weightsum=8192  transitions=4239594
+     acc=2063395607040  wall=0.03s  cpu=0.0 core-s  (2.9 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p0    subsets=688  weightsum=8192  transitions=4239594
+     acc=2063395607040  wall=0.01s  cpu=0.0 core-s  (3.1 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p1    subsets=688  weightsum=8192  transitions=4239594
+     acc=2063395607040  wall=0.00s  cpu=0.0 core-s  (3.8 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p2    subsets=688  weightsum=8192  transitions=4239594
+     acc=2063395607040  wall=0.03s  cpu=0.0 core-s  (3.4 ns/transition/core)
+----------------------------------------------------------------------
+CRT     : N = 2063395607040
+          N mod 24 = 0
+          wrap cross-check (N < 2^64): 2063395607040  MATCH
+          vs expected 2063395607040 : MATCH
+IE_COMPARED=1
+======================================================================
+RESULT: pass complete; all in-run gates hold
+======================================================================
+exit=0
+
+$ ./verify --ie-count --ie-spec 3.0,4.0,6.2@0 --ie-expect 2063395607040 --ie-no-quotient --ie-threads 4
+======================================================================
+verify.c --ie-count : Route B — independent IE transfer-walk recount
+(signed inclusion-exclusion over free-pair subsets; DP state = (last,
+ budget) with NO mask; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : rung B0 via TR-11 SS5 Step-1 DFS = (1,6,0,6,0)
+instance: n=13 start=0 spec=3.0,4.0,6.2@0  pairs=3,7,11,5,8,26,31,10,15,20,23,27,29
+lattice : R=98 vectors, max coexisting per layer = 13
+quotient: OFF (full 2^n) (geff=24 restricted pair-perms)
+primes  : p0=9223372036854775783 p1=9223372036854775643 p2=9223372036854775549 (Miller-Rabin-proven at startup)
+----------------------------------------------------------------------
+[ie] pass mod=wrap  subsets=8192  weightsum=8192  transitions=50337180
+     acc=2063395607040  wall=0.09s  cpu=0.2 core-s  (3.3 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p0    subsets=8192  weightsum=8192  transitions=50337180
+     acc=2063395607040  wall=0.05s  cpu=0.2 core-s  (3.4 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p1    subsets=8192  weightsum=8192  transitions=50337180
+     acc=2063395607040  wall=0.06s  cpu=0.2 core-s  (3.3 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p2    subsets=8192  weightsum=8192  transitions=50337180
+     acc=2063395607040  wall=0.06s  cpu=0.2 core-s  (3.5 ns/transition/core)
+----------------------------------------------------------------------
+CRT     : N = 2063395607040
+          N mod 24 = 0
+          wrap cross-check (N < 2^64): 2063395607040  MATCH
+          vs expected 2063395607040 : MATCH
+IE_COMPARED=1
+======================================================================
+RESULT: pass complete; all in-run gates hold
+======================================================================
+exit=0
+
+$ ./verify --ie-count --ie-spec 4.0,6.0,6.1@0 --ie-expect 267765117419520 --ie-threads 4
+======================================================================
+verify.c --ie-count : Route B — independent IE transfer-walk recount
+(signed inclusion-exclusion over free-pair subsets; DP state = (last,
+ budget) with NO mask; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : rung B0 via TR-11 SS5 Step-1 DFS = (1,8,1,6,0)
+instance: n=16 start=0 spec=4.0,6.0,6.1@0  pairs=5,8,26,31,1,9,17,19,22,25,2,12,16,18,24,28
+lattice : R=252 vectors, max coexisting per layer = 28
+quotient: ON (canonical subsets x orbit size) (geff=24 restricted pair-perms)
+primes  : p0=9223372036854775783 p1=9223372036854775643 p2=9223372036854775549 (Miller-Rabin-proven at startup)
+----------------------------------------------------------------------
+[ie] pass mod=wrap  subsets=3400  weightsum=65536  transitions=68594142
+     acc=267765117419520  wall=0.09s  cpu=0.2 core-s  (3.4 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p0    subsets=3400  weightsum=65536  transitions=68594142
+     acc=267765117419520  wall=0.08s  cpu=0.2 core-s  (3.6 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p1    subsets=3400  weightsum=65536  transitions=68594142
+     acc=267765117419520  wall=0.13s  cpu=0.2 core-s  (3.6 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p2    subsets=3400  weightsum=65536  transitions=68594142
+     acc=267765117419520  wall=0.09s  cpu=0.2 core-s  (3.5 ns/transition/core)
+----------------------------------------------------------------------
+CRT     : N = 267765117419520
+          N mod 24 = 0
+          wrap cross-check (N < 2^64): 267765117419520  MATCH
+          vs expected 267765117419520 : MATCH
+IE_COMPARED=1
+======================================================================
+RESULT: pass complete; all in-run gates hold
+======================================================================
+exit=0
+
+$ ./verify --ie-count --ie-spec 3.0,3.1,3.2@0 --ie-no-budget --ie-expect 63366144 --ie-threads 4
+======================================================================
+verify.c --ie-count --ie-no-budget : independent IE recount of
+|C1 cap C2 cap C4| (C5/budget layer dropped; DP state = (last)
+ alone, no mask, no lattice; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : NONE (--ie-no-budget: counting |C1 cap C2 cap C4| — the
+          C5 boundary-multiset constraint is dropped entirely)
+instance: n=9 start=0 spec=3.0,3.1,3.2@0  pairs=3,7,11,4,6,21,13,14,30
+lattice : none (no budget; walk state = last hexagram, 64 slots)
+quotient: ON (canonical subsets x orbit size) (geff=6 restricted pair-perms)
+primes  : p0=9223372036854775783 p1=9223372036854775643 p2=9223372036854775549 (Miller-Rabin-proven at startup)
+----------------------------------------------------------------------
+[ie] pass mod=wrap  subsets=120  weightsum=512  transitions=71192
+     acc=63366144  wall=0.00s  cpu=0.0 core-s  (2.5 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p0    subsets=120  weightsum=512  transitions=71192
+     acc=63366144  wall=0.00s  cpu=0.0 core-s  (2.4 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p1    subsets=120  weightsum=512  transitions=71192
+     acc=63366144  wall=0.00s  cpu=0.0 core-s  (2.1 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p2    subsets=120  weightsum=512  transitions=71192
+     acc=63366144  wall=0.00s  cpu=0.0 core-s  (2.2 ns/transition/core)
+----------------------------------------------------------------------
+CRT     : N = 63366144
+          N mod 24 = 0
+          wrap cross-check (N < 2^64): 63366144  MATCH
+          vs expected 63366144 : MATCH
+IE_COMPARED=1
+======================================================================
+RESULT: pass complete; all in-run gates hold
+======================================================================
+exit=0
+
+$ ./verify --ie-count --ie-spec 3.0,3.1,3.2@0 --ie-negctl --ie-expect 26112 --ie-threads 4
+======================================================================
+verify.c --ie-count : Route B — independent IE transfer-walk recount
+(signed inclusion-exclusion over free-pair subsets; DP state = (last,
+ budget) with NO mask; no code or state shared with solve.c;
+ one lemma shared: orbit-stabilizer weighting under the 24-group)
+======================================================================
+group   : 24 induced pair-perms; every witness bit-perm re-verified
+          elementwise (bijection, fixes 0/63/start, Hamming isometry on
+          all 64x64, maps pair j to pair sigma(j)) => W(gS)=W(S) holds
+budget  : rung B0 via TR-11 SS5 Step-1 DFS = (2,5,0,2,0)
+budget  : *** NEGATIVE CONTROL: d2/d4 budgets swapped -> (2,2,0,5,0);
+          the count MUST differ from the published value ***
+instance: n=9 start=0 spec=3.0,3.1,3.2@0  pairs=3,7,11,4,6,21,13,14,30
+lattice : R=54 vectors, max coexisting per layer = 9
+quotient: ON (canonical subsets x orbit size) (geff=6 restricted pair-perms)
+primes  : p0=9223372036854775783 p1=9223372036854775643 p2=9223372036854775549 (Miller-Rabin-proven at startup)
+----------------------------------------------------------------------
+[ie] pass mod=wrap  subsets=120  weightsum=512  transitions=65348
+     acc=38400  wall=0.00s  cpu=0.0 core-s  (10.6 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p0    subsets=120  weightsum=512  transitions=65348
+     acc=38400  wall=0.00s  cpu=0.0 core-s  (9.8 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p1    subsets=120  weightsum=512  transitions=65348
+     acc=38400  wall=0.00s  cpu=0.0 core-s  (9.5 ns/transition/core)
+----------------------------------------------------------------------
+[ie] pass mod=p2    subsets=120  weightsum=512  transitions=65348
+     acc=38400  wall=0.00s  cpu=0.0 core-s  (9.2 ns/transition/core)
+----------------------------------------------------------------------
+CRT     : N = 38400
+          N mod 24 = 0
+          wrap cross-check (N < 2^64): 38400  MATCH
+          vs published 26112 : DIFFERS (negative control passed)
+IE_COMPARED=1
+======================================================================
+RESULT: pass complete; all in-run gates hold
+======================================================================
+exit=0

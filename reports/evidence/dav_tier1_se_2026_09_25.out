@@ -1,0 +1,22 @@
+# Provenance: measured 2026-09-25 (backlog Q-759; Codex v3 review, V3B-01#8) on a 16-core Linux x86-64 host, wall 1,768 s. Command: ulimit -s unlimited; SOLVE_THREADS=32 SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_DAV_HIST=1 ./solve --estimate-knuth 2000000000. Binary built with gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz (gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0) from solve.c sha256 950525812ffb9af71806c4d46ee02ec9553b0e03f4918f61414dccaeeaf5e7fe: the published 47f432c2 source plus unpublished candidate changes that do not touch the estimator.
+# Below: the two stderr lines, then stdout, unedited except that its 37 dav_hist histogram rows are omitted. They are byte-identical to the dav_hist rows of reports/evidence/dav_tier1.out, which carries them.
+# Stripping the per-row error fields and the KNUTH-PROBES, KNUTH_PROBES, KNUTH-PROVENANCE and [diag] lines (added to the estimator after 2026-07-04) leaves the full stdout byte-identical to reports/evidence/dav_tier1.out: this run is the published draw.
+[knuth] Davis-2012 composite scoring ACTIVE (9 candidates, CRITIQUE.md Davis registration; ground truth solve.py dav_*)
+[knuth] 2000000000 probes, 32 threads, 0 prefix level(s)
+KNUTH-PROBES planned=2000000000 executed=2000000000
+KNUTH_PROBES=EXECUTED-EQ-PLANNED
+KNUTH-ESTIMATE probes=2000000000 threads=32 start_step=1 prefix_levels=0
+KNUTH-PROVENANCE seed_base=0x243f6a8885a308d3 moore_strict=0 gender_strict=0 score=0 r11_hist=0 wall_s=1768
+  tree_nodes            : est=2.087365e+40  95%CI=[2.0871e+40, 2.0876e+40]  relerr=0.01%  hitrate=1
+  leaves_C1C2C4C5       : est=1.096517e+39  95%CI=[1.0959e+39, 1.0972e+39]  relerr=0.03%  hitrate=0.0144
+  leaves_canonical_C1C5 : est=1.327511e+38  95%CI=[1.3252e+38, 1.3298e+38]  relerr=0.09%  hitrate=0.0018
+  [diag] canonical top single-probe share : max_w=1.470505e+42 = 0.0006% of estimate mass (skew/ESS audit; lower=better)
+  [dav 1 termruns    ] mean=5.162448 min=1 max=6 kw=3 below=0.00181462 at=0.02517824 above=0.97300714 se=3.900e-05/1.388e-04/1.439e-04
+  [dav 2 compmirror  ] mean=0.011253 min=0 max=2 kw=1 below=0.98879171 at=0.01116315 above=0.00004514 se=9.531e-05/9.516e-05/5.348e-06
+  [dav 3 trigarray   ] mean=0.000679 min=0 max=1 kw=1 below=0.99932104 at=0.00067896 above=0.00000000 se=2.339e-05/2.339e-05/0.000e+00
+  [dav 4 parallel3040] mean=0.000000 min=0 max=0 kw=1 below=1.00000000 at=0.00000000 above=0.00000000 se=0.000e+00/0.000e+00/0.000e+00
+  [dav 5 palnbr      ] mean=4.923239 min=0 max=20 kw=10 below=0.92133285 at=0.05816653 above=0.02050062 se=2.263e-04/1.967e-04/1.184e-04
+  [dav 6 rotinv      ] mean=0.000065 min=0 max=1 kw=1 below=0.99993469 at=0.00006531 above=0.00000000 se=6.125e-06/6.125e-06/0.000e+00
+  [dav 7 pureplace   ] mean=0.005562 min=0 max=1 kw=1 below=0.99443848 at=0.00556152 above=0.00000000 se=6.558e-05/6.558e-05/0.000e+00
+  [dav 8 eccplace    ] mean=0.000000 min=0 max=0 kw=1 below=1.00000000 at=0.00000000 above=0.00000000 se=0.000e+00/0.000e+00/0.000e+00
+  [dav 9 asymhalf    ] mean=7.335240 min=0 max=16 kw=4 below=0.04980830 at=0.14540542 above=0.80478628 se=1.862e-04/3.076e-04/3.449e-04

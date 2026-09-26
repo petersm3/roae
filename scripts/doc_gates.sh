@@ -1247,7 +1247,7 @@ if [ "${1:-}" = "--selftest" ]; then
   # (it is the harness's own precondition and no mutation has run yet), so the dirty-tree
   # branch cannot be what answers.
   _a3_out=$(bash "$0" --selftest 2>&1); _a3_rc=$?
-  if [ "$_a3_rc" -eq 2 ] && printf '%s' "$_a3_out" | grep -q 'another --selftest is running'; then
+  if [ "$_a3_rc" -eq 2 ] && grep -q 'another --selftest is running' <<<"$_a3_out"; then
     echo "  [ok]   A3 lock — a concurrent --selftest is refused, and the refusal names the lock"
   else
     echo "  [FAIL] A3 lock — a concurrent --selftest was not refused for the LOCK reason (rc=$_a3_rc)"
@@ -1282,24 +1282,24 @@ if [ "${1:-}" = "--selftest" ]; then
   _r15_gate=regdupes
   _r15_indep=$(env -u DOC_GATES_SELFTEST_DEPTH bash "$0" "$_r15_gate" 2>&1)
   _r15_desc=$(bash "$0" "$_r15_gate" 2>&1)
-  if printf '%s' "$_r15_indep" | grep -q 'DO NOT TRUST THIS VERDICT' \
-     && printf '%s' "$_r15_indep" | grep -q "pid $$" \
-     && ! printf '%s' "$_r15_desc" | grep -q 'DO NOT TRUST THIS VERDICT'; then
+  if grep -q 'DO NOT TRUST THIS VERDICT' <<<"$_r15_indep" \
+     && grep -q "pid $$" <<<"$_r15_indep" \
+     && ! grep -q 'DO NOT TRUST THIS VERDICT' <<<"$_r15_desc"; then
     echo "  [ok]   R15 concurrency advisory — an independent '$_r15_gate' run started against"
     echo "         this live lock is warned and names the holder (pid $$); the same run as a"
     echo "         descendant of the lock holder stays silent, so the harness's own captured"
     echo "         gate output is unaffected"
   else
     echo "  [FAIL] R15 concurrency advisory — the advisory did not behave in BOTH directions."
-    printf '%s' "$_r15_indep" | grep -q 'DO NOT TRUST THIS VERDICT' \
+    grep -q 'DO NOT TRUST THIS VERDICT' <<<"$_r15_indep" \
       || echo "         independent run: NOT warned — the concurrency hole is open again"
-    printf '%s' "$_r15_indep" | grep -q "pid $$" \
+    grep -q "pid $$" <<<"$_r15_indep" \
       || echo "         independent run: warned, but never named the holder pid $$ — so this"
-    printf '%s' "$_r15_indep" | grep -q "pid $$" \
+    grep -q "pid $$" <<<"$_r15_indep" \
       || echo "         assertion could not tell the advisory from any other note"
-    printf '%s' "$_r15_desc" | grep -q 'DO NOT TRUST THIS VERDICT' \
+    grep -q 'DO NOT TRUST THIS VERDICT' <<<"$_r15_desc" \
       && echo "         descendant run: WARNED — suppression is OFF. DOC_GATES_SELFTEST_DEPTH"
-    printf '%s' "$_r15_desc" | grep -q 'DO NOT TRUST THIS VERDICT' \
+    grep -q 'DO NOT TRUST THIS VERDICT' <<<"$_r15_desc" \
       && echo "         is the key; it stopped being exported by --selftest or inherited here."
     PASS=1
   fi
@@ -1326,7 +1326,7 @@ chr(10)+'<!-- A1 snapshot probe: this line is discarded and must stay recoverabl
     _selftest_revert documentation/GUIDE.md
     _a1_after=$(git reflog "$_A1_REF" 2>/dev/null | wc -l)
     if [ "$_a1_after" -gt "$_a1_before" ] \
-       && git show "$_A1_REF@{0}:documentation/GUIDE.md" 2>/dev/null | grep -q 'A1 snapshot probe'; then
+       && git show "$_A1_REF@{0}:documentation/GUIDE.md" 2>/dev/null | grep -c 'A1 snapshot probe' >/dev/null; then
       echo "  [ok]   A1 snapshot — a reverted edit is read back from $_A1_REF@{0}, and the"
       echo "         reflog grew ($_a1_before -> $_a1_after), so earlier reverts survive too"
     else
@@ -1513,8 +1513,8 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
   # is the defect), and the helper's callers=N is pinned in DOC_GATE_SELFTEST_INSTRUMENTS.txt.
   _Q748_OUT=$(TMPDIR=/dev/null bash "$0" cli 2>&1); _Q748_RC=$?
   if [ "$_Q748_RC" -ne 0 ] \
-     && printf '%s\n' "$_Q748_OUT" | grep -qF '[FAIL] GATE 2: mktemp failed, so NOTHING was checked.' \
-     && ! printf '%s\n' "$_Q748_OUT" | grep -qE '^DOC GATES: PASS'; then
+     && grep -qF '[FAIL] GATE 2: mktemp failed, so NOTHING was checked.' <<<"$_Q748_OUT" \
+     && ! grep -qE '^DOC GATES: PASS' <<<"$_Q748_OUT"; then
     echo "  [ok]   GATE 2 (Q-748a) mktemp failure under TMPDIR=/dev/null is a FAIL (rc=$_Q748_RC), not a PASS"
   else
     echo "  [FAIL] GATE 2 (Q-748a) — with mktemp failing, GATE 2 compared NOTHING and returned rc=$_Q748_RC"
@@ -2052,11 +2052,11 @@ open('reports/README.md','w').write(s.replace(a,'interpretation are sound.',1))"
   # midpoint happens to fall is the "fails for the wrong reason" shape; it is pinned now.
   # 🔴 Q-702 (2026-09-24, Fable K): THE PIN ABOVE WAS NOT ENOUGH. At 5c296837 the first non-blank
   # line at the midpoint was the one-word wrap `this.`, whose collapsed text is a substring of
-  # the rest of the ledger — so 10a fired (rc 1) and classified it, correctly by its own rule,
-  # as a RE-WRAP, and this leg was RED for "never names ... LOST". The fixture's premise is that
-  # the deleted line carries text found nowhere else; it now SELECTS such a line (>= 40 chars,
-  # collapsed text absent from the rest of the file) instead of assuming the midpoint is one.
-  # The rule's weakness on short lines is filed separately; it is a classification, not a miss.
+  # the rest of the ledger, and the substring rule of the day labelled its deletion a RE-WRAP.
+  # Q-718 (2026-09-25) replaced that rule with word alignment inside the diff hunk, and this leg
+  # now SELECTS exactly that shape on purpose: a short line (<= 20 chars) whose collapsed text
+  # still occurs elsewhere in the file. The substring rule labels its deletion a re-wrap, so
+  # this leg is red under it; the alignment rule labels it LOST.
   assert_fires_why "GATE 10a append-only vs HEAD (committed line deleted)" appendonly-head \
     'missing committed line\(s\) are LOST' \
 "import re
@@ -2065,9 +2065,9 @@ assert len(L) > 60, 'ledger too short to mutate meaningfully'
 i=len(L)//2
 while i < len(L):
     t=re.sub(r'\s+',' ',L[i]).strip()
-    if len(t) >= 40 and t not in re.sub(r'\s+',' ',chr(10).join(L[:i]+L[i+1:])): break
+    if t and len(t) <= 20 and t in re.sub(r'\s+',' ',chr(10).join(L[:i]+L[i+1:])): break
     i+=1
-assert i < len(L), 'no line at or after the midpoint whose text is unique in the ledger'
+assert i < len(L), 'no short line at or after the midpoint whose text also occurs elsewhere in the ledger'
 del L[i]
 open('documentation/CORRECTIONS.md','w').write(chr(10).join(L))"
 
@@ -2252,9 +2252,9 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
     else
       _g10c_out=$(cd "$_g10c_d" && bash scripts/doc_gates.sh appendonly-history 2>&1); _g10c_rc=$?
       if [ "$_g10c_rc" -eq 0 ] \
-         && printf '%s' "$_g10c_out" | grep -qF 'published lineage of this branch: refs/remotes/origin/main' \
-         && printf '%s' "$_g10c_out" | grep -qF 'MERGE GAP, not a lost line' \
-         && printf '%s' "$_g10c_out" | grep -qF 'CX-4 topic-only entry.'; then
+         && grep -qF 'published lineage of this branch: refs/remotes/origin/main' <<<"$_g10c_out" \
+         && grep -qF 'MERGE GAP, not a lost line' <<<"$_g10c_out" \
+         && grep -qF 'CX-4 topic-only entry.' <<<"$_g10c_out"; then
         echo "  [ok]   GATE 10b (Q-702) merge-gap control — a line published only on ANOTHER remote branch"
         echo "         stays a [note] (rc 0) while main's lineage is named as the hard baseline"
       else
@@ -2316,12 +2316,12 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
     else
       _g10d_out=$(cd "$_g10d_d" && bash scripts/doc_gates.sh appendonly-history 2>&1); _g10d_rc=$?
       if [ "$_g10d_rc" -eq 0 ] \
-         && printf '%s' "$_g10d_out" | grep -qF "branch 'feat' has no @{push}, no same-named remote branch and no" \
-         && printf '%s' "$_g10d_out" | grep -qF 'NO baseline here' \
-         && printf '%s' "$_g10d_out" | grep -qF 'MERGE GAP, not a lost line' \
-         && printf '%s' "$_g10d_out" | grep -qF 'CX-9 main-later.' \
-         && ! printf '%s' "$_g10d_out" | grep -qF 'published lineage of this branch:' \
-         && ! printf '%s' "$_g10d_out" | grep -qF '[FAIL]'; then
+         && grep -qF "branch 'feat' has no @{push}, no same-named remote branch and no" <<<"$_g10d_out" \
+         && grep -qF 'NO baseline here' <<<"$_g10d_out" \
+         && grep -qF 'MERGE GAP, not a lost line' <<<"$_g10d_out" \
+         && grep -qF 'CX-9 main-later.' <<<"$_g10d_out" \
+         && ! grep -qF 'published lineage of this branch:' <<<"$_g10d_out" \
+         && ! grep -qF '[FAIL]' <<<"$_g10d_out"; then
         echo "  [ok]   GATE 10b (S3) feature branch tracking origin/main — no baseline is claimed, the"
         echo "         later main line is a MERGE GAP [note], rc 0 (the amend leg above still fires)"
       else
@@ -2782,7 +2782,7 @@ open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
 s=open(f,encoding='utf-8').read()
 open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no revision row.'+chr(10))" 2>/dev/null; then
     G13OUT=$(_g13 'HEAD..HEAD')
-    if printf '%s' "$G13OUT" | grep -qE 'WORKTREE reports/TR6_PARITY_SKELETON\.md — 1 body line'; then
+    if grep -qE 'WORKTREE reports/TR6_PARITY_SKELETON\.md — 1 body line' <<<"$G13OUT"; then
       echo "  [ok]   GATE 13 worktree — an uncommitted TR body edit with no revision row is noted"
     else
       echo "  [FAIL] GATE 13 worktree — a body edit with no revision row was NOT noted."
@@ -2804,11 +2804,11 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded 
     # prints when the injection never reached the tree — the gate would then say
     # "working tree: no uncommitted TR edit" and this assertion would pass having tested
     # nothing. Requiring that line to be ABSENT is what makes the silence mean something.
-    if printf '%s' "$G13OUT" | grep -qE 'no uncommitted TR edit'; then
+    if grep -qE 'no uncommitted TR edit' <<<"$G13OUT"; then
       echo "  [FAIL] GATE 13 worktree negative control — the gate saw a CLEAN tree, so the"
       echo "         injection never landed and the silence proves nothing (vacuous pass)."
       PASS=1
-    elif printf '%s' "$G13OUT" | grep -qE 'WORKTREE'; then
+    elif grep -qE 'WORKTREE' <<<"$G13OUT"; then
       echo "  [FAIL] GATE 13 worktree negative control — a body edit that DID get a row was noted."
       printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -5
       PASS=1
@@ -2821,7 +2821,7 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded 
   _selftest_revert
 
   G13OUT=$(_g13 'b5bcff7c^..b5bcff7c')
-  if printf '%s' "$G13OUT" | grep -qE 'b5bcff7c reports/TR4_SIZE_OF_THE_SPACE\.md'; then
+  if grep -qE 'b5bcff7c reports/TR4_SIZE_OF_THE_SPACE\.md' <<<"$G13OUT"; then
     echo "  [ok]   GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records"
   else
     echo "  [FAIL] GATE 13 batch — b5bcff7c is the commit this gate was written for (TR-4 §3"
@@ -2836,13 +2836,13 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded 
   # returns nothing, the gate reports zero commits examined, and "no note was printed"
   # becomes true for a reason that has nothing to do with the gate working. Assert the
   # commit was actually READ before reading anything into its silence.
-  if ! printf '%s' "$G13OUT" | grep -qE '1 non-merge commit\(s\) examined'; then
+  if ! grep -qE '1 non-merge commit\(s\) examined' <<<"$G13OUT"; then
     echo "  [FAIL] GATE 13 batch negative control — the range 00c0db0^..00c0db0 resolved to no"
     echo "         commit, so the absence of a note proves nothing (vacuous pass). Re-anchor"
     echo "         on a reachable commit that gives every TR it touches a revision row."
     printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -4
     PASS=1
-  elif printf '%s' "$G13OUT" | grep -qE '\[note\] 00c0db0'; then
+  elif grep -qE '\[note\] 00c0db0' <<<"$G13OUT"; then
     echo "  [FAIL] GATE 13 batch negative control — 00c0db0 gave BOTH TRs it touched a revision"
     echo "         row and must be silent. A gate that notes a compliant commit is noise."
     printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -6
@@ -2863,7 +2863,7 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded 
   python3 -c "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^31 is a proven count.'+chr(10))" 2>/dev/null \
     && { G5OUT=$(bash "$0" status 2>&1)
-         if printf '%s' "$G5OUT" | grep -q "carries exact/proven token(s)"; then
+         if grep -q "carries exact/proven token(s)" <<<"$G5OUT"; then
            echo "  [ok]   GATE 5 epistemic status — WARNs and names the tokens it matched"
          else
            echo "  [FAIL] GATE 5 did not fire, or fired without naming what it matched"
@@ -2899,8 +2899,8 @@ i=s.index(a); j=s.rindex(chr(10), 0, i)
 open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest: a line inserted above the anchored row -->'+s[j:])" 2>/dev/null \
     && { A8OUT=$(bash "$0" status 2>&1)
          if [ -n "$A8BASE" ] \
-            && printf '%s' "$A8OUT" | grep -q "TR4_SIZE_OF_THE_SPACE.md:$((A8BASE+1)) exemption live" \
-            && ! printf '%s' "$A8OUT" | grep -q '\[note\] allowlist'; then
+            && grep -q "TR4_SIZE_OF_THE_SPACE.md:$((A8BASE+1)) exemption live" <<<"$A8OUT" \
+            && ! grep -q '\[note\] allowlist' <<<"$A8OUT"; then
            echo "  [ok]   GATE 5 allowlist drift immunity — anchor moved :$A8BASE -> :$((A8BASE+1)), still live, no [note]"
          else
            echo "  [FAIL] GATE 5 allowlist did not survive an insertion above its anchor"
@@ -2915,7 +2915,7 @@ open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest:
   python3 -c "open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write(
 'documentation/HISTORY.md'+chr(9)+'a sentence that appears nowhere in the corpus'+chr(10))" 2>/dev/null \
     && { A8OUT=$(bash "$0" status 2>&1)
-         if printf '%s' "$A8OUT" | grep -q 'anchor no longer appears in the file'; then
+         if grep -q 'anchor no longer appears in the file' <<<"$A8OUT"; then
            echo "  [ok]   GATE 5 allowlist dead-anchor audit — fires, and says prune it"
          else
            echo "  [FAIL] GATE 5 allowlist accepted an anchor matching nothing, silently"
@@ -2933,8 +2933,8 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
 n=len(open('documentation/GUIDE.md').read().split(chr(10)))-1
 open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUIDE.md:%d'%n+chr(10))" 2>/dev/null \
     && { A8OUT=$(bash "$0" status 2>&1)
-         if printf '%s' "$A8OUT" | grep -q 'SUPPRESSES NOTHING' \
-            && printf '%s' "$A8OUT" | grep -q "carries exact/proven token(s)"; then
+         if grep -q 'SUPPRESSES NOTHING' <<<"$A8OUT" \
+            && grep -q "carries exact/proven token(s)" <<<"$A8OUT"; then
            echo "  [ok]   GATE 5 unanchored allowlist entry — reported AND inert"
          else
            echo "  [FAIL] GATE 5 unanchored entry suppressed a WARN, or was not reported"
@@ -2994,7 +2994,7 @@ G5BPY
   if G5BLINEF="$G5BLINEF" python3 "$G5BMUT" 2>&1; then
     G5BLINE=$(cat "$G5BLINEF")
     G5BOUT=$(bash "$0" status 2>&1)
-    if [ -n "$G5BLINE" ] && printf '%s' "$G5BOUT" | grep -q "TR9_PRICING_THE_CONSTRAINTS.md:$G5BLINE .* carries NO status marker"; then
+    if [ -n "$G5BLINE" ] && grep -q "TR9_PRICING_THE_CONSTRAINTS.md:$G5BLINE .* carries NO status marker" <<<"$G5BOUT"; then
       echo "  [ok]   GATE 5b unmarked-among-marked — fires on the pre-#23 TR-9 ledger cell"
     else
       echo "  [FAIL] GATE 5b did not fire on the defect it was written for"
@@ -3603,7 +3603,7 @@ os.remove(p)"
        "$_DG_SRC" > "$_G15_COPY" \
      && grep -qE '^  _fireproof_undeclared_instrument\(\) \{ :; \}$' "$_G15_COPY"; then
     G15OUT=$(_gsrc "$_G15_COPY" instruments)
-    if printf '%s' "$G15OUT" | grep -qF '_fireproof_undeclared_instrument() is defined at'; then
+    if grep -qF '_fireproof_undeclared_instrument() is defined at' <<<"$G15OUT"; then
       echo "  [ok]   GATE 15 an undeclared instrument in the --selftest region — fires, and names it"
     else
       echo "  [FAIL] GATE 15 — a new function in the --selftest region declared in NO row was"
@@ -3650,7 +3650,7 @@ open('$_G15B_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
         unanchored)  _g15bwhy='this guard'"'"'s ERE is not anchored at line start' ;;
         fixedstring) _g15bwhy='with a FIXED string' ;;
       esac
-      if printf '%s' "$G15BOUT" | grep -qF "$_g15bwhy"; then
+      if grep -qF "$_g15bwhy" <<<"$G15BOUT"; then
         echo "  [ok]   GATE 15 LEG 2 a copy-confirmation guard satisfiable by its own source ($_g15b) — fires, and says why"
       else
         echo "  [FAIL] GATE 15 LEG 2 — a $_g15b copy guard was NOT reported. That guard passes"
@@ -3937,7 +3937,7 @@ open(p,'w',encoding='utf-8').write(s.replace(
   _g15d() {  # <label> <expected-substring> <python-mutation>
     if _G15D_COPY="$_G15D_COPY" python3 -c "$3" 2>/dev/null; then
       _G15DOUT=$(_gsrc "$_G15D_COPY" instruments)
-      if printf '%s' "$_G15DOUT" | grep -qF "$2"; then
+      if grep -qF "$2" <<<"$_G15DOUT"; then
         echo "  [ok]   GATE 15 LEG 4 $1 — fires"
       else
         echo "  [FAIL] GATE 15 LEG 4 $1 — NOT reported, so an unconfirmed copy would ship"
@@ -4021,7 +4021,7 @@ assert len(t)==2, 'anchor moved: %d (GATE 3 and GATE 6 share this ERE)' % len(t)
 L[t[0]]='    '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'is satisfied by a PREFLIGHT line'; then
+    if grep -qF 'is satisfied by a PREFLIGHT line' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 an assertion reworded onto the preflight's wording — fires (the A6 near-miss)"
     else
       echo "  [FAIL] GATE 16 — a per-gate assertion whose ERE the corpus preflight emits was"
@@ -4043,7 +4043,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 del L[t[0]]
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'no evidence-ERE could be extracted'; then
+    if grep -qF 'no evidence-ERE could be extracted' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 an assert_fires_why whose ERE cannot be extracted — fires, not skipped"
     else
       echo "  [FAIL] GATE 16 — an invocation with no extractable ERE was passed over in"
@@ -4075,7 +4075,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]='    retract-figures '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'an anchored narration is exempt" is satisfied by a PREFLIGHT line'; then
+    if grep -qF 'an anchored narration is exempt" is satisfied by a PREFLIGHT line' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (7) a NEGATIVE CONTROL reworded onto a preflight line — fires"
     else
       echo "  [FAIL] GATE 16 guard (7) — a negative control whose evidence-ERE the corpus"
@@ -4110,7 +4110,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace('assert_fires_why','eval assert_fires_why',1)
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'invocation(s) of assert_fires_why; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt declares callers='; then
+    if grep -qF 'invocation(s) of assert_fires_why; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt declares callers=' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (7) an invocation the scan cannot reach — FAIL, not a smaller count"
     else
       echo "  [FAIL] GATE 16 guard (7) — the collision scan lost an invocation and still"
@@ -4140,7 +4140,7 @@ for l in L:
 assert n>0, 'no echo lines found in preflight_support_newlines'
 open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'preflight_support_newlines() contributed ZERO message templates'; then
+    if grep -qF 'preflight_support_newlines() contributed ZERO message templates' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 one preflight going quiet is a FAIL, not a smaller count"
     else
       echo "  [FAIL] GATE 16 — a preflight whose messages the extractor can no longer read was"
@@ -4174,7 +4174,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L.insert(t[0]+1,'preflight_fireproof_fourth_emitter || RC=1'+chr(10))
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'preflight_fireproof_fourth_emitter() before EVERY mode'; then
+    if grep -qF 'preflight_fireproof_fourth_emitter() before EVERY mode' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 a fourth pre-dispatch emitter — refused, not absorbed"
     else
       echo "  [FAIL] GATE 16 guard (4) — a function added before the dispatch was neither"
@@ -4195,7 +4195,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]='  '+L[t[0]]
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'preflight_tracked_docs() is declared to this gate but is not called'; then
+    if grep -qF 'preflight_tracked_docs() is declared to this gate but is not called' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 a scanned emitter the region scan can no longer see — FAIL, not [ok]"
     else
       echo "  [FAIL] GATE 16 guard (4) — a declared emitter that the dispatch no longer calls"
@@ -4235,7 +4235,7 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L.insert(t[0]+1,'    require_tracked notes.md || missing=1'+chr(10))
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'preflight_tracked_docs() calls require_tracked() one level down'; then
+    if grep -qF 'preflight_tracked_docs() calls require_tracked() one level down' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (5) an undeclared callee one level down — refused"
     else
       echo "  [FAIL] GATE 16 guard (5) leg A — a function called from INSIDE a pre-dispatch"
@@ -4257,7 +4257,7 @@ L[t[0]]=L[t[0]].replace(' quiet ',' ',1)
 assert 'quiet' not in L[t[0]], 'the suppressing argument survived the substitution'
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'and the ONLY thing keeping that callee out of this'; then
+    if grep -qF 'and the ONLY thing keeping that callee out of this' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (5) the suppression its exemption rests on, deleted — refused"
     else
       echo "  [FAIL] GATE 16 guard (5) leg B — the argument that keeps a nested callee's"
@@ -4281,7 +4281,7 @@ L[t[0]]=L[t[0]].replace('require_final_newline','true',1)
 assert 'require_final_newline' not in L[t[0]], 'the call survived the substitution'
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'require_final_newline() is declared to guard (5) but is not called'; then
+    if grep -qF 'require_final_newline() is declared to guard (5) but is not called' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (5) a declared callee the scan can no longer see — FAIL, not [ok]"
     else
       echo "  [FAIL] GATE 16 guard (5) leg C — a declared nested callee that is no longer"
@@ -4311,7 +4311,7 @@ L.insert(t[0]+2,'}'+chr(10))
 L.insert(t[0]+3,'XEOF'+chr(10))
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
     G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if printf '%s' "$G16OUT" | grep -qF 'body() cannot be trusted on preflight_support_newlines()'; then
+    if grep -qF 'body() cannot be trusted on preflight_support_newlines()' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (6) a heredoc brace truncating the shared reader — refused"
     else
       echo "  [FAIL] GATE 16 guard (6) — a column-0 '}' inside a heredoc silently truncated"
@@ -4353,7 +4353,7 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
   _g16b() {  # <label> <expected-substring> <python-mutation>
     if _G16B_COPY="$_G16B_COPY" python3 -c "$3" 2>/dev/null; then
       _G16BOUT=$(_gsrc "$_G16B_COPY" collisions)
-      if printf '%s' "$_G16BOUT" | grep -qF "$2"; then
+      if grep -qF "$2" <<<"$_G16BOUT"; then
         echo "  [ok]   GATE 16 $1 — fires"
       else
         echo "  [FAIL] GATE 16 $1 — NOT reported, so the leg would stay green on it"
@@ -4541,8 +4541,8 @@ assert s.count(a)==1, 'ccn4 inline-verdict anchor moved: %d' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(a,'',1))" 2>/dev/null; then
     G17OUT=$(bash "$0" scoreboard 2>&1); G17RC=$?
     if [ "$G17RC" -eq 0 ] \
-       && printf '%s' "$G17OUT" | grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 1/31 rule(s) carry a verdict at the id (d7)' \
-       && printf '%s' "$G17OUT" | grep -qE 'TR1_EIGHT_CENTURIES_MEASURED\.md: 22 row\(s\) carry NO verdict at the id \(rs1, rs2, ccn1, ccn2, ccn3, ccn4,'; then
+       && grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 1/31 rule(s) carry a verdict at the id (d7)' <<<"$G17OUT" \
+       && grep -qE 'TR1_EIGHT_CENTURIES_MEASURED\.md: 22 row\(s\) carry NO verdict at the id \(rs1, rs2, ccn1, ccn2, ccn3, ccn4,' <<<"$G17OUT"; then
       echo "  [ok]   GATE 17 LEG 1: ccn4's verdict stripped from the id — 2/31 becomes 1/31 and ccn4 joins the silent bucket (the pre-v1.23 corpus)"
     else
       echo "  [FAIL] GATE 17 LEG 1 — the ccn4 row kept its verdict after the verdict was deleted"
@@ -4607,7 +4607,7 @@ assert s.count(a)==1, 'close anchor moved: %d' % s.count(a)
 open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like rows. '+a,1))" 2>/dev/null; then
     G17OUT=$(bash "$0" scoreboard 2>&1); G17RC=$?
     if [ "$G17RC" -eq 0 ] \
-       && printf '%s' "$G17OUT" | grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 2/31 rule(s) carry a verdict at the id (ccn4, d7)'; then
+       && grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 2/31 rule(s) carry a verdict at the id (ccn4, d7)' <<<"$G17OUT"; then
       echo "  [ok]   GATE 17 LEG 5: a verdict word OUTSIDE the close anchor changes no count — the region bounds the scan"
     else
       echo "  [FAIL] GATE 17 LEG 5 — text outside the board moved the verdict ledger (rc=$G17RC),"
@@ -4647,7 +4647,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
      && ! grep -qE '^    "documentation/LITERATURE_RULES_POPULATION_TESTS\.md",$' "$_G17_COPY"; then
     G17OUT=$(bash "$_G17_COPY" scoreboard 2>&1); G17RC=$?
     if [ "$G17RC" -ne 0 ] \
-       && printf '%s' "$G17OUT" | grep -qF 'the board list holds 1 file(s)'; then
+       && grep -qF 'the board list holds 1 file(s)' <<<"$G17OUT"; then
       echo "  [ok]   GATE 17 LEG 6: one of the two published boards dropped from the list is a FAIL, not a smaller count"
     else
       echo "  [FAIL] GATE 17 LEG 6 — the gate ran against ONE board and reported success"
@@ -4799,10 +4799,10 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
     else
       _g25p_out=$(cd "$_g25p_d" && bash scripts/doc_gates.sh repro-reach 2>&1); _g25p_rc=$?
       if [ "$_g25p_rc" -ne 0 ] \
-         && printf '%s' "$_g25p_out" | grep -qx 'GATE25_POPULATION_FROM_DOCS=2' \
-         && printf '%s' "$_g25p_out" | grep -qF '[FAIL] solve --no-such-flag-fablek — not a flag of solve.c' \
-         && printf '%s' "$_g25p_out" | grep -qF 'cited in viz/README.md' \
-         && ! printf '%s' "$_g25p_out" | grep -qF 'solve --selftest'; then
+         && grep -qx 'GATE25_POPULATION_FROM_DOCS=2' <<<"$_g25p_out" \
+         && grep -qF '[FAIL] solve --no-such-flag-fablek — not a flag of solve.c' <<<"$_g25p_out" \
+         && grep -qF 'cited in viz/README.md' <<<"$_g25p_out" \
+         && ! grep -qF 'solve --selftest' <<<"$_g25p_out"; then
         echo "  [ok]   GATE 25 (Q-703) population from \$DOCS — a bad flag in viz/README.md fires the gate"
         echo "         (the old glob list never read viz/), the population token counts both tracked"
         echo "         docs, and the real flag in documentation/ is not named"
@@ -4850,15 +4850,15 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
     else
       _g25q_out=$(cd "$_g25q_d" && bash scripts/doc_gates.sh repro-reach 2>&1); _g25q_rc=$?
       if [ "$_g25q_rc" -ne 0 ] \
-         && printf '%s' "$_g25q_out" | grep -qF '[FAIL] solve --kc-scann — not a flag of solve.c' \
-         && printf '%s' "$_g25q_out" | grep -qF '[FAIL] solve --verifyy — not a flag of solve.c' \
-         && printf '%s' "$_g25q_out" | grep -qF "[prop] solve --kc-nonesuch-fablep — viz/PROP.md:" \
-         && printf '%s' "$_g25q_out" | grep -qF "('pending flag' in the fence caption)" \
-         && printf '%s' "$_g25q_out" | grep -qF "[prop] solve --kc-nonesuch-fablep2 — viz/PROP.md:" \
-         && printf '%s' "$_g25q_out" | grep -qF "('pending --' in the sentence)" \
-         && ! printf '%s' "$_g25q_out" | grep -qF '[prop] solve --kc-scann' \
-         && ! printf '%s' "$_g25q_out" | grep -qF '[prop] solve --verifyy' \
-         && ! printf '%s' "$_g25q_out" | grep -qF '[FAIL] solve --kc-nonesuch-fablep'; then
+         && grep -qF '[FAIL] solve --kc-scann — not a flag of solve.c' <<<"$_g25q_out" \
+         && grep -qF '[FAIL] solve --verifyy — not a flag of solve.c' <<<"$_g25q_out" \
+         && grep -qF "[prop] solve --kc-nonesuch-fablep — viz/PROP.md:" <<<"$_g25q_out" \
+         && grep -qF "('pending flag' in the fence caption)" <<<"$_g25q_out" \
+         && grep -qF "[prop] solve --kc-nonesuch-fablep2 — viz/PROP.md:" <<<"$_g25q_out" \
+         && grep -qF "('pending --' in the sentence)" <<<"$_g25q_out" \
+         && ! grep -qF '[prop] solve --kc-scann' <<<"$_g25q_out" \
+         && ! grep -qF '[prop] solve --verifyy' <<<"$_g25q_out" \
+         && ! grep -qF '[FAIL] solve --kc-nonesuch-fablep' <<<"$_g25q_out"; then
         echo "  [ok]   GATE 25 (S2) ordinary 'pending' prose does not waive — both probe flags FAIL while"
         echo "         the two real marker forms still waive as [prop], each naming its marker and scope"
       else
@@ -4939,7 +4939,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
       _selftest_revert documentation/GT_LADDER_FORMAT.md
       _G25_FN=$(printf '%s' "$_G25_F" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
       if [ "$_G25_FN" = "$_G25_FEXP" ] \
-         && printf '%s' "$_G25_F" | grep -qF "documentation/GT_LADDER_FORMAT.md — $((_G25_K + 1)) figure(s), largest 98,765,432,109,876" \
+         && grep -qF "documentation/GT_LADDER_FORMAT.md — $((_G25_K + 1)) figure(s), largest 98,765,432,109,876" <<<"$_G25_F" \
          && [ "$_G25_FRC" -eq "$_G25_BASERC" ]; then
         echo "  [ok]   GATE 25 LEG 2 fires: a grouped figure in a file with no reproduction"
         echo "         command is reported (file count $_G25_N -> $_G25_FN; the file's figures"
@@ -4972,7 +4972,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
       _selftest_revert documentation/GT_LADDER_FORMAT.md
       _G25_CN=$(printf '%s' "$_G25_C" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
       if [ "$_G25_CN" = "$_G25_CEXP" ] \
-         && ! printf '%s' "$_G25_C" | grep -qF 'documentation/GT_LADDER_FORMAT.md — ' \
+         && ! grep -qF 'documentation/GT_LADDER_FORMAT.md — ' <<<"$_G25_C" \
          && [ "$_G25_CRC" -eq "$_G25_BASERC" ]; then
         echo "  [ok]   GATE 25 LEG 2 negative control: the SAME figure in the SAME file, beside a"
         echo "         reproduction command, is not reported (file count $_G25_N -> $_G25_CN, the"
@@ -5298,12 +5298,12 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   # by GATE 18's main leg), then adjudicate it away with a new `open` row. Under the shipped
   # gate that pair exits 0. The ratchet must refuse it.
   #
-  # THE EVIDENCE ERE NAMES THE SITE HALF, `3 adjudicated-open SITE\(s\), budget 2`, and not
+  # THE EVIDENCE ERE NAMES THE SITE HALF, `2 adjudicated-open SITE\(s\), budget 1`, and not
   # the whole message: this injection moves BOTH counters (a new row that matches is also a
   # new site), so an ERE on the joint text could be satisfied by the row half alone and case 2
   # below would then be proving something case 1 had already covered. MEASURED, one line:
-  #   [FAIL] the adjudicated-open backlog GREW: 3 adjudicated-open SITE(s), budget 2;
-  #          3 `open` registry ROW(s), budget 2                                      rc=1
+  #   [FAIL] the adjudicated-open backlog GREW: 2 adjudicated-open SITE(s), budget 1;
+  #          2 `open` registry ROW(s), budget 1   (budgets 2 -> 1, Q-763)          rc=1
   #
   # ANCHOR-FREE ON THE REGISTRY SIDE: the row is APPENDED, and the planted sentence is its own
   # anchor, so neither half can go stale when the registry gains or loses rows. The planted
@@ -5311,7 +5311,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   # (an inline glossary token and an `allow literal` row) — so this case also shows the
   # ratchet firing in a file where the alias is NOT globally forbidden.
   assert_fires_why "GATE 18 ratchet: a new defect silenced by a new open row (the escalation)" \
-    alias-reach '3 adjudicated-open SITE\(s\), budget 2' \
+    alias-reach '2 adjudicated-open SITE\(s\), budget 1' \
 "p='documentation/GUIDE.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+chr(10)+'Self-test line: the C1+C2+C3 canonical, stated with no path to its ruling.'+chr(10))
@@ -5328,7 +5328,7 @@ open(r,'w',encoding='utf-8').write(t+chr(10)+chr(9).join(['open','documentation/
   # anchors matching a line into `used_open` but appends to `openhits` ONCE per line. So a
   # SECOND anchor keyed to an ALREADY-open line raises the row count while leaving the site
   # count exactly where it was. MEASURED, and note the message carries only one clause:
-  #   [FAIL] the adjudicated-open backlog GREW: 3 `open` registry ROW(s), budget 2     rc=1
+  #   [FAIL] the adjudicated-open backlog GREW: 2 `open` registry ROW(s), budget 1     rc=1
   #
   # WHY THE ROW HALF IS WORTH ITS OWN CASE: a speculative pre-emptive hatch — a row planted
   # against a defect that has not been written yet — is invisible to the site counter by
@@ -5364,7 +5364,7 @@ for row in rows:
         tried.append('%s: %d line(s) carry the anchor' % (f,len(hits))); continue
     line=hits[0]; i=line.find(anchor)
     rest=(line[:i]+line[i+len(anchor):]).strip()
-    alt=rest[-40:] if len(rest)>=12 else ''
+    post=line[i+len(anchor):].strip(); pre=line[:i].strip(); alt=post[:40] if len(post)>=12 else (pre[-40:] if len(pre)>=12 else '')  # a CONTIGUOUS substring either side of the anchor (Q-763: the rest[-40:] splice was not one when the anchor sits mid-line)
     if alt and alt in line and anchor not in alt and alt!=anchor:
         pick=(f,alias,alt); break
     tried.append('%s: no distinct second substring on the line' % f)
@@ -5411,7 +5411,7 @@ open(r,'w',encoding='utf-8').write(t+chr(10)+chr(9).join(['open',f,alias,alt,'Se
   if [ -n "$_G20_MODE" ] && [ -r "$_G20_VICTIM" ] && chmod 000 "$_G20_VICTIM" 2>/dev/null; then
     G20OUT=$(bash "$0" publication-state 2>&1); G20RC=$?
     chmod "$_G20_MODE" "$_G20_VICTIM"
-    if [ "$G20RC" -ne 0 ] && printf '%s' "$G20OUT" | grep -qF "GATE 20's per-file scanner FAILED on"; then
+    if [ "$G20RC" -ne 0 ] && grep -qF "GATE 20's per-file scanner FAILED on" <<<"$G20OUT"; then
       echo "  [ok]   GATE 20 receipts — a corpus file the scanner could not read is a FAIL, not a clean scan"
     else
       echo "  [FAIL] GATE 20 receipts — an unreadable corpus file did NOT stop the gate reporting"

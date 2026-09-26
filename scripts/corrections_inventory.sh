@@ -176,6 +176,7 @@ classify() {
       src = $1
       if (src == "git") { doc = $2; ln = "-"; dt = $3; text = $4 }
       else              { doc = $2; ln = $3;  dt = "";  text = $4 }
+      cdt = dt   # the commit date on a git row, "" otherwise (Q-763, below)
 
       low = tolower(text)
 
@@ -214,6 +215,12 @@ classify() {
         }
       }
       else if (dt == "") dt = "-"
+      # 2026-09-25 (Q-763, V3A-014#1): a date that OPENS a range ("wrong (2026-04-06..2026-07-05)",
+      # "from 2026-04-06 to 2026-07-05") is the start of the period described, not the date of the
+      # correction. When the chosen date is such a range start, a git row takes its commit date
+      # and any other row the END date of the range.
+      if (match(text, /20[0-9][0-9]-[0-9][0-9]-[0-9][0-9](\.\.| to )20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) && dt == substr(text, RSTART, 10))
+        dt = (cdt != "") ? cdt : substr(text, RSTART + RLENGTH - 10, 10)
 
       # Truncation marker is explicit. `matched` above already carries the evidence for
       # the verdict, which is the whole reason truncation is survivable here.
@@ -416,6 +423,20 @@ selftest() {
     echo "  [ok]   date bound to the marker (2026-08-24), not the first date on the line"
   else
     echo "  [FAIL] date binding: got '$dout', expected 2026-08-24"
+    rc=1
+  fi
+
+  # (14) Q-763: a date opening a RANGE is not the correction date (the Mawangdui git row was dated
+  #      2026-04-06, the first day the array was wrong). git row -> commit date; inline -> range end.
+  local gdt idt
+  gdt=$(printf 'git\tabc12345\t2026-07-05\t%s\n' 'ERRATUM: the array was wrong (2026-04-06..2026-07-05); claim withdrawn' \
+    | classify | tail -n +2 | cut -f2)
+  idt=$(printf 'inline\tX.md\t1\t%s\n' 'The array was wrong from 2026-04-06 to 2026-07-05; the claim is withdrawn.' \
+    | classify | tail -n +2 | cut -f2)
+  if [ "$gdt" = "2026-07-05" ] && [ "$idt" = "2026-07-05" ]; then
+    echo "  [ok]   a range-opening date is not the correction date (git -> commit date, inline -> range end)"
+  else
+    echo "  [FAIL] range dating: git got '$gdt', inline got '$idt', expected 2026-07-05 for both"
     rc=1
   fi
 

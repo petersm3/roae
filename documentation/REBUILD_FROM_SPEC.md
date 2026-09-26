@@ -75,11 +75,11 @@ with opener(path, 'rb') as f:
     record_count = int.from_bytes(hdr[8:16], 'little')
     if hdr[16:32] != b'\x00' * 16:
         raise ValueError("header reserved bytes must be zero")
-    records_blob = f.read()
-    if len(records_blob) != record_count * 32:
+    nbytes = 0   # STREAM it (a 100T file is ~102 GiB); do the per-record checks of steps 3-6 inside this loop
+    for chunk in iter(lambda: f.read(32 << 20), b''): nbytes += len(chunk)
+    if nbytes != record_count * 32:   # (this block read the whole file with f.read() until 2026-09-25, Q-763)
         raise ValueError(
-            f"file has {len(records_blob)} bytes of records, "
-            f"header declares {record_count * 32}")
+            f"file has {nbytes} bytes of records, header declares {record_count * 32}")
 ```
 
 ## Step 2. Build the pair table
@@ -328,7 +328,7 @@ Exit 0 on pass, nonzero on any failure.
 
 ## A complete reference implementation exists
 
-[`verify.py`](../verify.py) in this repository implements the above in a ~130-line record-verification core (the file as a whole is now ~1,500 lines — it has since grown independent recount/certificate/null-law instruments, see [VERIFY.md](VERIFY.md)). You can read it as a worked example — but its existence does NOT let you skip steps. The spirit of this exercise is that you could discard `solve.c` AND `verify.py` and rebuild a verifier from `SPECIFICATION.md` + `SOLUTIONS_FORMAT.md` + this document alone. If your implementation passes a canonical `solutions.bin` and `verify.py` also passes the same file, you have cross-validated two independent implementations against the same spec.
+[`verify.py`](../verify.py) in this repository implements the above in a ~130-line record-verification core (the file as a whole is several thousand lines — `wc -l verify.py`; the ~1,500 this sentence gave was stale, corrected 2026-09-25, Q-763 — having grown independent recount/certificate/null-law instruments, see [VERIFY.md](VERIFY.md)). You can read it as a worked example — but its existence does NOT let you skip steps. The spirit of this exercise is that you could discard `solve.c` AND `verify.py` and rebuild a verifier from `SPECIFICATION.md` + `SOLUTIONS_FORMAT.md` + this document alone. If your implementation passes a canonical `solutions.bin` and `verify.py` also passes the same file, you have cross-validated two independent implementations against the same spec.
 
 ## A note on partition invariance
 

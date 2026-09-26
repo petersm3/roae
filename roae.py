@@ -427,8 +427,8 @@ def print_trigrams():
     print("There are 8 possible trigrams. This section counts how often each trigram appears")
     print("in each position, checks how often the upper or lower trigram changes between")
     print("consecutive hexagrams, and shows the full 8x8 transition matrix (which trigram")
-    print("follows which). A uniform distribution (8 of each) confirms that all 64 possible")
-    print("upper/lower combinations are used exactly once.")
+    print("follows which). Every trigram appears 8 times in each position, as it must when all 64")
+    print("upper/lower combinations are used once (uniform marginals do not by themselves prove that).")
     print("---")
 
     # Count how often each trigram appears in upper and lower positions
@@ -523,8 +523,8 @@ def print_trigrams():
     print(f"KW lower changes {kw_l}/63: percentile {le_l/TRIALS*100:.1f}")
 
     print("\n--- Pure (doubled-trigram) hexagram placement ---")
-    print("The 8 pure hexagrams (upper == lower trigram). Lai Zhide (1525-1604, via Schulz 1982)")
-    print("observed kan/li doubles closing both Classics; measured here against the same null.")
+    print("The 8 pure hexagrams (upper == lower trigram). Lai Zhide (1525-1604, via Schulz 1982) observed Kan and Li")
+    print("closing both Classics: doubled at 29-30, but 63-64 are Kan/Li MIXED, not pure, so this pure-hexagram count is a proxy, not his observation.")
     pure = [h for h in binary_hexagrams if upper_trigram(h) == lower_trigram(h)]
     pos = {h: i for i, h in enumerate(binary_hexagrams)}
     pure_pos = sorted(pos[h] + 1 for h in pure)
@@ -542,8 +542,8 @@ def print_trigrams():
         p2 = {h: i for i, h in enumerate(seq)}
         st = sum(1 for h in pure if p2[h] + 1 in (1, 2, 29, 30, 63, 64))
         if st >= kw_stat: ge += 1
-    print(f"Null P(>= KW's {kw_stat}) = {ge/TRIALS:.4f}  (pair-preserving null; note KW's C4 fixes 1,2 by")
-    print("definition, so interpret against the constrained baseline)")
+    _pp = [upper_trigram(a) == lower_trigram(a) for a, _b in pairs_list]; _m, _need = sum(_pp[1:]), -(-(kw_stat - 2 * _pp[0]) // 2); _num, _den = sum(math.comb(_m, j) * math.comb(31 - _m, 2 - j) for j in range(max(_need, 0), 3)), math.comb(31, 2); _g = math.gcd(_num, _den)  # exact, slot 1-2 held fixed (C4): the other 31 pairs fill slots 29-30 and 63-64 uniformly
+    print(f"Null P(>= KW's {kw_stat}) = {ge/TRIALS:.4f}  (pair-preserving null, unconditioned)\nExact P(>= KW's {kw_stat} | C4) = {_num // _g}/{_den // _g} = {_num / _den:.4f}  (the operative value: KW's C4 fixes the pure pair at positions 1-2 by definition, so it is held fixed)")
 
     print("\n--- Nuclear trigram structure ---")
     print("Nuclear hexagram = lines 2-4 (lower nuclear) + 3-5 (upper nuclear). Classical fact")
@@ -753,16 +753,10 @@ def print_complements():
     print("may serve as bookends for larger structural sections.")
     print("---")
 
-
     distances = []
     for i in range(64):
-        complement = binary_hexagrams[i] ^ 0b111111
-        comp_pos = VAL_TO_POS[complement]
-        dist = abs(comp_pos - i)
-        distances.append(dist)
-        print(f"{i+1:02} {unicode_hexagrams[i]} <-> "
-              f"{comp_pos+1:02} {unicode_hexagrams[comp_pos]}  "
-              f"distance: {dist:2}  {hexagram_names[i]} <-> {hexagram_names[comp_pos]}")
+        comp_pos = VAL_TO_POS[binary_hexagrams[i] ^ 0b111111]; dist = abs(comp_pos - i); distances.append(dist)
+        print(f"{i+1:02} {unicode_hexagrams[i]} <-> {comp_pos+1:02} {unicode_hexagrams[comp_pos]}  distance: {dist:2}  {hexagram_names[i]} <-> {hexagram_names[comp_pos]}")
 
     print(f"\n--- Complement distance statistics ---")
     kw_mean = sum(distances) / len(distances)
@@ -770,30 +764,36 @@ def print_complements():
     print(f"Median distance: {sorted(distances)[32]}")
     print(f"Min distance:    {min(distances)} (adjacent = pair is an inverse pair)")
     print(f"Max distance:    {max(distances)}")
-
-    # --- Monte Carlo null model ---
+    # --- Monte Carlo null models: unrestricted shuffles, then the pair-preserving control ---
     print(f"\n--- Complement distance null model ---")
     n_trials = 10000
     values = list(binary_hexagrams)
     random_means = []
     for _ in range(n_trials):
         random.shuffle(values)
-        val_to_pos = {}
-        for pos, val in enumerate(values):
-            val_to_pos[val] = pos
-        trial_dists = []
-        for pos, val in enumerate(values):
-            comp = val ^ 0b111111
-            trial_dists.append(abs(val_to_pos[comp] - pos))
-        random_means.append(sum(trial_dists) / len(trial_dists))
+        val_to_pos = {val: pos for pos, val in enumerate(values)}
+        random_means.append(sum(abs(val_to_pos[val ^ 0b111111] - pos) for pos, val in enumerate(values)) / 64)
     percentile = 100.0 * sum(1 for m in random_means if m <= kw_mean) / n_trials
     rand_grand_mean = sum(random_means) / len(random_means)
     print(f"Random mean complement distance (over {n_trials} shuffles): {rand_grand_mean:.1f}")
     print(f"King Wen mean complement distance: {kw_mean:.1f}")
     print(f"King Wen percentile vs random: {percentile:.1f}%")
-    if percentile <= 5:
-        print("Complements are significantly closer together than chance would predict:")
-        print("the ordering keeps complements unusually near one another.")
+    # Q-751 / V3A-098#3: the pair-preserving control the trigram sections use. 64 x mean distance is C3 (= 16 + 8G),
+    # so its exact tail is verify.py --check-null-g --unpinned's P(G <= 95); tests.py pins 6.4211% to that fraction.
+    kw_pairs, pp_le = [(binary_hexagrams[2*i], binary_hexagrams[2*i+1]) for i in range(32)], 0
+    for _ in range(n_trials):
+        random.shuffle(kw_pairs)
+        seq = [h for a, b in kw_pairs for h in ((a, b) if random.random() < 0.5 else (b, a))]
+        p2 = {val: pos for pos, val in enumerate(seq)}
+        pp_le += sum(abs(p2[val ^ 0b111111] - pos) for pos, val in enumerate(seq)) <= 64 * kw_mean
+    pp_pct = 100.0 * pp_le / n_trials
+    print(f"King Wen percentile vs the pair-preserving null (KW's 32 pairs shuffled, orientations flipped): {pp_pct:.1f}%")
+    print("  exact value under that null: 6.4211% = P(C3 <= 776 | C1)  (python3 verify.py --check-null-g --unpinned)")
+    if percentile <= 5 and pp_pct <= 5:
+        print("Complements are significantly closer together than chance would predict, under both nulls.")
+    elif percentile <= 5:
+        print("Complements sit closer than in unrestricted shuffles, but not significantly (5% level) once King")
+        print("Wen's pair structure is held fixed: the unrestricted null is not the baseline for a C1 ordering.")
     elif percentile >= 95:
         print("Complements are significantly farther apart than chance would predict:")
         print("the ordering separates complements into distant structural sections.")
@@ -993,9 +993,9 @@ def print_canons():
 
     # Permutation test: is the mean-difference gap between canons significant?
     print(f"\n--- Canon split null model ---")
-    print("Permutation test: is the King Wen split at position 30 special, or would")
-    print("any random split of the 64-hexagram sequence show a similar gap in mean")
-    print("line-change differences between the two halves?")
+    print("Permutation test: shuffle the whole 64-hexagram sequence and keep the cut after")
+    print("position 30 -- how often does a random ORDERING show as large a gap in mean line-change")
+    print("differences between the halves? (The cut point itself is not varied.)")
 
     kw_gap = abs(upper_stats["mean_diff"] - lower_stats["mean_diff"])
 
@@ -1181,7 +1181,7 @@ def print_entropy():
         return entropy
 
     kw_entropy = shannon_entropy(diffs)
-    max_entropy_all = math.log2(7)  # 7 possible values (0–6)
+    max_entropy_all = math.log2(6)  # 6 possible values (1-6): 0 is impossible between distinct hexagrams
     distinct_values = len(set(diffs))
     max_entropy_obs = math.log2(distinct_values)  # only values actually observed
 
@@ -1202,7 +1202,7 @@ def print_entropy():
     percentile = below / len(random_entropies) * 100
 
     print(f"King Wen difference wave entropy: {kw_entropy:.4f} bits")
-    print(f"Maximum entropy (all 7 values): {max_entropy_all:.4f} bits")
+    print(f"Maximum entropy (all 6 possible values, 1-6): {max_entropy_all:.4f} bits")
     print(f"Maximum entropy ({distinct_values} observed values): {max_entropy_obs:.4f} bits")
     print(f"Mean entropy of random permutations: {mean_random:.4f} bits")
     print(f"Min random entropy observed: {random_entropies[0]:.4f} bits")
@@ -1422,8 +1422,8 @@ def print_stats(trials=100000):
     print("---")
     print(f"Monte Carlo analysis ({trials:,} random permutations)")
     print("The King Wen sequence has a striking property: no two consecutive hexagrams")
-    print("differ by exactly 5 lines. With 6 lines per hexagram and 7 possible difference")
-    print("values (0-6), is avoiding 5 remarkable or just a coincidence? To find out, we")
+    print("differ by exactly 5 lines. With 6 lines per hexagram and 6 possible difference")
+    print("values (1-6; 0 cannot occur between distinct hexagrams), is avoiding 5 remarkable? We")
     print("randomly shuffle the 64 hexagrams thousands of times and check how often a")
     print("random ordering also avoids 5-line transitions. The rarer it is, the less")
     print("plausible chance becomes as an explanation for the avoidance.")
@@ -1456,7 +1456,7 @@ def print_stats(trials=100000):
         ratio = trials // no_five_count
         odds = (trials - no_five_count) / max(no_five_count, 1)
         print(f"Approximately 1 in {ratio:,} random orderings share this property.")
-        print(f"Odds ratio against random: {odds:.0f}:1")
+        print(f"Odds against the property under unconstrained shuffling: {odds:.0f}:1 (within this shuffle model -- not odds against the sequence being random; among pair-constrained orderings the property is far commoner, see the pair-constrained comparison)")
 
 def print_fft():
     """Spectral analysis of the difference wave using Discrete Fourier Transform."""
@@ -1678,7 +1678,7 @@ def print_symmetry():
     development located is Ouyang Weicheng (欧阳维诚) 1992, which sets out the
     (Z/2)^6 structure together with the subgroup/coset analysis; Suenaga 2012
     carries the associated counting. See documentation/CITATIONS.md. What is new
-    here is the completed C1-C7 enumeration, the ceiling result, and the Lean
+    here is the budgeted (not exhaustive) C1-C7 enumeration, the ceiling result, and the Lean
     formalization — not the group-theoretic framing this function prints.
     """
     print("---")
@@ -1757,8 +1757,8 @@ def print_sequences():
     print("---")
     print("Alternative sequence comparison")
     print("The King Wen ordering is not the only way to arrange 64 hexagrams. The Fu Xi")
-    print("(binary) sequence orders them by numerical value (0-63), which is mathematically")
-    print("natural but has no traditional significance. The Mawangdui sequence was found on")
+    print("(binary) sequence orders them by numerical value (0-63), which is mathematically natural")
+    print("and is itself traditional: Shao Yong's (1011-1077) xiantian arrangement. The Mawangdui sequence was found on")
     print("silk manuscripts in a 168 BCE tomb and may represent an independent tradition.")
     print("Comparing the same analyses across orderings reveals what is unique to King Wen.")
     print("---")
@@ -1932,8 +1932,8 @@ def print_constraints(trials=CONSTRAINTS_TRIALS,
     print("The pair structure constrains transitions within pairs (always even or 6),")
     print("so 5-line transitions can only occur at the 31 between-pair boundaries.")
     print("How often do pair-constrained orderings also avoid 5-line transitions?")
-
-    # Build the 32 natural reverse/inverse pairs from the hexagram values
+    print("Sampled population: the 32 C1 pairs (reverse partner, else complement), orientations free --")
+    print("one fixed pairing, a strict subset of the orderings test 1 above accepts (reverse OR complement at every pair).")
     paired = set()
     pairs = []
     for v in range(64):
@@ -1986,13 +1986,13 @@ def print_constraints(trials=CONSTRAINTS_TRIALS,
         print(f"  The no-5 property remains rare even among pair-constrained orderings.")
 
     # --- Sensitivity analysis: reversed bit convention ---
-    # What if bit 0 = top line instead of bottom? This reverses all 6-bit values,
-    # changing pair classifications, trigram assignments, and the difference wave.
+    # What if bit 0 = top line instead of bottom? This reverses all 6-bit values. Bit reversal
+    # preserves Hamming distance and commutes with reversal and complement, so the wave and pair types cannot change.
     # We test whether the key properties still hold under the alternative convention.
     print()
     print("--- Sensitivity analysis: reversed bit convention ---")
-    print("What if bit 0 = top line instead of bottom? All binary values reverse,")
-    print("changing pair types and the difference wave. Key properties tested:")
+    print("What if bit 0 = top line instead of bottom? All binary values reverse; bit reversal")
+    print("preserves Hamming distance and pair types, so these are checks of the code. Key properties tested:")
     rev_hexagrams = [reverse_6bit(b) for b in binary_hexagrams]
 
     # Check pair structure under reversed convention
@@ -2565,7 +2565,7 @@ def print_windowed_entropy():
         e = shannon_entropy(chunk)
         entropies.append(e)
         center = i + window // 2 + 1
-        bar_len = int(e / math.log2(7) * 40)
+        bar_len = int(e / math.log2(6) * 40)
         bar = "#" * bar_len
         print(f"{center:>6} {e:>8.4f}   {bar}")
 
@@ -2581,7 +2581,7 @@ def print_windowed_entropy():
 
     spark = ""
     for e in entropies:
-        level = int(e / math.log2(7) * 6)
+        level = int(e / math.log2(6) * 6)
         spark += SPARK[min(level, 6)]
     print(f"\nEntropy spark: {spark}")
 
@@ -2761,8 +2761,8 @@ def print_bootstrap(trials=100000):
     print(f"Base trials: {trials:,}")
     print(f"Bootstrap resamples: {n_bootstrap}")
     print(f"\nNo-5-line-transition rate: {base_rate:.3f}%")
-    print(f"95% confidence interval: [{ci_lower:.3f}%, {ci_upper:.3f}%]")
-    print(f"Interval width: {ci_upper - ci_lower:.3f} percentage points")
+    _hits = sum(results)  # Q-751 / V3A-098#2: resampling an all-0 (or all-1) vector gives a zero-width interval; use the rule of three
+    print(f"95% confidence interval: [{ci_lower:.3f}%, {ci_upper:.3f}%]\nInterval width: {ci_upper - ci_lower:.3f} percentage points" if 0 < _hits < trials else f"95% bound (rule of three, {_hits:,}/{trials:,} hits; the bootstrap cannot resample a constant vector): " + (f"< {300.0 / trials:.3f}%" if _hits == 0 else f"> {100 - 300.0 / trials:.3f}%"))
 
     if base_rate > 0:
         approx_ratio = 100 / base_rate
@@ -3096,16 +3096,16 @@ def print_recurrence():
     # Null model comparison
     print(f"\n--- Recurrence rate null model ---")
 
-    # Theoretical expected recurrence rate: sum(p_i^2) where p_i is the
-    # proportion of each distinct value in the difference wave.
-    # For N=63 values, if value v appears c_v times, p_v = c_v / 63.
-    # The expected recurrence rate (fraction of off-diagonal matches) for
-    # a sequence drawn from this distribution is sum(p_i^2).
+    # Two baselines (Q-763). (a) sum(p_i^2) over KING WEN's OWN value frequencies p_v = c_v/63:
+    # the rate for an i.i.d. sequence drawn from KW's distribution -- not a random-ordering null.
+    # (b) the random-hexagram-pair null: P(d) = C(6,d)/63 for d = 1..6, so sum P(d)^2 = 923/3969.
+    _null_rate = sum(math.comb(6, d) ** 2 for d in range(1, 7)) / 63 ** 2
+    # The shuffle test below is the null the percentile is taken against.
     counts = {}
     for d in diffs:
         counts[d] = counts.get(d, 0) + 1
     expected_rate = sum((c / n) ** 2 for c in counts.values())
-    print(f"Theoretical expected recurrence rate (sum of p_i^2): {expected_rate*100:.1f}%")
+    print(f"Expected rate from King Wen's own value frequencies (sum of p_i^2): {expected_rate*100:.1f}%\nExpected rate for random pairs of distinct hexagrams (sum of C(6,d)^2/63^2 = 923/3969): {_null_rate*100:.2f}%")
 
     # Permutation test: shuffle binary_hexagrams 10000 times, compute
     # difference wave and recurrence rate for each
@@ -3907,7 +3907,7 @@ def export_csv(filename="hexagrams.csv"):
 # A circularity-safe, MDL-charged search for candidate structural constraints
 # that the King Wen sequence satisfies but that are NOT implied by the
 # published constraint set (C1-C5). The search enumerates every predicate of a
-# fixed, PRE-REGISTERED grammar of KW-independent structural terminals (depth
+# fixed grammar -- frozen in code and self-attested, with no escrow row (RP-b0f4f882) -- of KW-independent structural terminals (depth
 # <= 2), then tests each against the uniform C1^C2^C4^C5 reference population:
 #
 #   1. KW satisfies the predicate?          (necessary; else discard)
@@ -3959,7 +3959,7 @@ def _gs_t_atoms():
             atoms.append((f"d{op}{c}", ("d", op, c)))
     # d mod k restricted to k in {2,3}: for d in 0..6, d mod 8 = d (identity,
     # duplicates the equality family) and d mod 4 / d mod 6 classes are unions
-    # of at most two equality atoms (d2-expressible); pre-registered restriction.
+    # of at most two equality atoms (d2-expressible); a restriction frozen in code.
     for k in (2, 3):
         for r in range(k):
             atoms.append((f"d%{k}=={r}", ("dmod", k, r)))
@@ -4327,14 +4327,14 @@ _SEED_STREAM_OFFSETS = {"probe": 100, "rarity": 10000,
 _SEED_STREAM_GAP = 10000
 
 
-def _guard_seed_stream_disjointness(batches, workers):
-    """Refuse a batch/worker count that would make two seed streams overlap.
-
+def _guard_seed_stream_disjointness(batches, workers, seed=None):
+    """Refuse a batch/worker count, or a negative seed, that would make two seed streams overlap.
     Raises SystemExit(2) rather than returning a flag: this runs before any
     sampling, and a caller that ignored a return value would produce a report
     that looks exactly like a valid one. Not an `assert` -- guards must survive
     `python3 -O` (tests.py TestNoBareAsserts pins that convention).
     """
+    if seed is not None and seed < 0: raise SystemExit(f"roae.py: --seed {seed} refused: CPython seeds random.Random(n) by |n|, so a negative base seed mirrors the streams across zero (--seed -5050 makes the probe stream seed+100 and the rarity stream seed+10000 both |4950|). Use a seed >= 0.")
     if batches is None or batches < 1:
         raise SystemExit(f"roae.py: --gs-batches must be >= 1, got {batches!r}")
     if workers is None or workers < 1:
@@ -4378,11 +4378,11 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
                        json_path, ckpt_path):
     """U2 grammar search over the declared depth<=2 grammar (see the section
     banner above for the design and the circularity firewall)."""
-    _guard_seed_stream_disjointness(batches, workers)
+    _guard_seed_stream_disjointness(batches, workers, seed)
     from multiprocessing import Pool
     report = {}
     print("U2 grammar search (--grammar-search)")
-    print(f"  pre-registered: nsamp={nsamp} nprobe={nprobe} seed={seed} "
+    print(f"  run parameters: nsamp={nsamp} nprobe={nprobe} seed={seed} "
           f"workers={workers} batches={batches}")
 
     # ---- frozen grammar ----
@@ -5004,7 +5004,7 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
                     json_path, ckpt_path):
     """Pre-registered H1/H3 K=4 test (see the section banner above; the
     frozen 2026-07-26 pre-registration document is authoritative)."""
-    _guard_seed_stream_disjointness(batches, workers)
+    _guard_seed_stream_disjointness(batches, workers, seed)
     report = {}
     print("Pre-registered H1/H3 test (--prereg-h1h3), K=4")
     print(f"  frozen params: n_eval={n_eval} n_thr={n_thr} seed={seed} "
@@ -5359,7 +5359,7 @@ def main():
     # Interactive / special modes
     parser.add_argument("--grammar-search", action="store_true",
                         help="U2: circularity-safe, MDL-charged search over a "
-                             "pre-registered grammar of KW-independent "
+                             "code-frozen (self-attested, not escrowed) grammar of KW-independent "
                              "structural predicates (depth <= 2) for candidate "
                              "constraints beyond C1-C5 (see the section banner "
                              "in the source for the full design)")

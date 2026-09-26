@@ -66,15 +66,15 @@ for f in $FILES; do
   RANGE_MARK='(^|[^0-9.])~?(10[5-9]|1[12][0-9]|13[0-9])(\.[0-9]+)?(-bits?)? ?(-|–|—|to) ?~?(10[5-9]|1[12][0-9]|13[0-9])(\.[0-9]+)?([^0-9]|$)'
   SCOPE_MARK='(^|[^[:alnum:]])(ranges?|depends on which layers|C1.C5.layer|C1.C5 reading)([^[:alnum:]]|$)|\|C1(–|—|-|∩)C[0-9]'
   while IFS= read -r line; do
-    printf '%s' "$line" | grep -qE "$PT" || continue
-    if printf '%s' "$line" | grep -qE '^\| *v[0-9]'; then
-      printf '%s' "$line" | grep -qE "$PT_REVROW" || continue
+    grep -qE "$PT" <<<"$line" || continue
+    if grep -qE '^\| *v[0-9]' <<<"$line"; then
+      grep -qE "$PT_REVROW" <<<"$line" || continue
     fi
     # a point estimate WITH its scope named is fine -- "~126-bit (C1-C5-layer)" is honest.
     # Only a BARE point estimate, with neither the range nor the layer scope, is the defect.
-    printf '%s' "$line" | grep -qE "$RANGE_MARK" && continue
-    printf '%s' "$line" | grep -qiE "$SCOPE_MARK" && continue
-    printf '%s' "$line" | grep -qiE 'residual|unexplained' || continue
+    grep -qE "$RANGE_MARK" <<<"$line" && continue
+    grep -qiE "$SCOPE_MARK" <<<"$line" && continue
+    grep -qiE 'residual|unexplained' <<<"$line" || continue
     echo "  POINT-ESTIMATE RESIDUAL without its range: $f"
     echo "    $(printf '%s' "$line" | cut -c1-120)"
     bad=$((bad+1))

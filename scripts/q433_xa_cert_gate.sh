@@ -213,7 +213,7 @@ PY
     echo "  [FAIL] mutant $name SURVIVED -- the gate cannot see this fault"; return 1 ;; esac
   # Killed is not enough: it must die on the leg NAMED for it, or the leg has stopped testing
   # what its comment says.
-  printf '%s\n' "$out" | grep -q "^$must=BAD" \
+  grep -q "^$must=BAD" <<<"$out" \
     || { echo "  [FAIL] mutant $name was killed, but not by $must -- that leg no longer sees it:"; \
          printf '%s\n' "$out" | grep '=BAD' | sed 's/^/         /'; return 1; }
   echo "  [gate] mutant $name killed by $must (BAD legs: $(printf '%s\n' "$out" | grep '=BAD' | cut -d= -f1 | tr '\n' ' '))"

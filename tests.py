@@ -9620,5 +9620,1038 @@ class TestQ716MintAtOtherNNeedsExpect(unittest.TestCase):
         self.assertFalse(os.path.exists(scratch))
 
 
+class TestQ732SidecarReaderHardenings(unittest.TestCase):
+    """Q-732: the two #167 resume-sidecar reader hardenings in solve.c's dfs_state_read_v2.
+
+    (1) The reader tested `reserved2[0] & FLAG`, so a sidecar whose flags byte carries bits this
+    reader does not know read as attested; it now requires the byte to EQUAL
+    DFS_V2_FLAG_YIELD_ATTESTED. (2) It dispatched on format_version alone and accepted any file of
+    at least sizeof(st) bytes; a v2-stamped file of any other size is now rejected. Both were
+    demonstrated resumed by the D11 discriminator attack (0xFF flags; a 576 B file stamped v2).
+
+    One real PHASE_A in the #167 gate's shape writes fixed-era sidecars. Three zero-yield ones
+    (sidecar present, no shard) are picked: A gets flags 0xFF, B is padded to 576 B with its
+    version left at 2, C is untouched. PHASE_B resumes at a higher budget and its stderr is read
+    per cell. RED on the pre-fix reader, measured: A and B both print `ATTESTS zero yield —
+    resuming`. C is the positive control and resumes on both readers; every other fixed-era
+    sidecar must read without a reader WARN, which is the sha-neutrality side.
+
+    Built at -O1 from the tracked solve.c; ROAE_TESTS_SOLVE_SRC overrides the source for
+    mutation runs only. A build or run failure is a FAILURE, never a skip."""
+
+    ENV = {"SOLVE_THREADS": "2", "SOLVE_DFS_ITERATIVE": "1", "SOLVE_DFS_CHECKPOINT": "1",
+           "SOLVE_ALLOW_SUB_CANONICAL": "1", "SOLVE_SKIP_CANONICAL_LOCK": "1",
+           "SOLVE_SKIP_AUTO_SELFTEST": "1", "SOLVE_SKIP_AUTO_MANIFEST": "1"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q732_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q732")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.err = None if r.returncode == 0 else f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        if cls.err:
+            return
+        d = cls.wd = os.path.join(cls.tmp, "wd")
+        os.mkdir(d)
+        env = {k: v for k, v in os.environ.items() if k != "SOLVE_DEPTH"}
+        env.update(cls.ENV)
+        a = subprocess.run([cls.sbin, "0"], cwd=d, capture_output=True, text=True,
+                           env=dict(env, SOLVE_NODE_LIMIT="10000000"), timeout=1200)
+        if a.returncode != 0:
+            cls.err = f"PHASE_A rc {a.returncode}: " + a.stderr[-2000:]
+            return
+        names = os.listdir(d)
+        stems = sorted(n[:-len(".dfs_state")] for n in names if n.endswith(".dfs_state"))
+        cls.zero = [t for t in stems if t + ".bin" not in names]
+        if len(cls.zero) < 3:
+            cls.err = f"PHASE_A left {len(cls.zero)} zero-yield sidecars; need 3"
+            return
+        cls.sizes = {os.path.getsize(os.path.join(d, t + ".dfs_state")) for t in stems}
+        cls.flags = set()
+        for t in stems:
+            with open(os.path.join(d, t + ".dfs_state"), "rb") as fh:
+                b = fh.read()
+            cls.flags.add(b[len(b) - 16])
+        cls.a, cls.b, cls.c = cls.zero[:3]
+        with open(os.path.join(d, cls.a + ".dfs_state"), "r+b") as fh:
+            fh.seek(os.path.getsize(fh.name) - 16)
+            fh.write(b"\xff")
+        with open(os.path.join(d, cls.b + ".dfs_state"), "ab") as fh:
+            fh.write(b"\0" * (576 - 440))
+        b_ = subprocess.run([cls.sbin, "0"], cwd=d, capture_output=True, text=True,
+                            env=dict(env, SOLVE_NODE_LIMIT="20000000"), timeout=1200)
+        if b_.returncode != 0:
+            cls.err = f"PHASE_B rc {b_.returncode}: " + b_.stderr[-2000:]
+            return
+        cls.log = (b_.stdout + "\n" + b_.stderr).splitlines()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        if self.err:
+            self.fail("the Q-732 fixture could not run, so nothing was verified: " + self.err)
+
+    def _cell(self, stem):
+        return [l for l in self.log if stem + ".bin" in l or stem + ".dfs_state" in l]
+
+    def _resumed(self, stem):
+        return any(stem + ".bin" in l and "ATTESTS zero yield" in l and "resuming" in l
+                   for l in self.log)
+
+    def test_fixture_is_fixed_era(self):
+        # Precondition: the sidecars PHASE_A wrote are the shape the hardenings assume.
+        self.assertEqual(self.sizes, {440})
+        self.assertEqual(self.flags, {1})
+
+    def test_unknown_flag_bits_are_not_attested(self):
+        cell = self._cell(self.a)
+        self.assertFalse(self._resumed(self.a), "flags 0xFF resumed as attested:\n" + "\n".join(cell))
+        self.assertTrue(any(l.startswith("[dfs-v2] READ") and "unknown flag bits, yield NOT attested" in l
+                            for l in cell), "\n".join(cell))
+        self.assertTrue(any(self.a + ".bin" in l and "discarding resume, walking cell fresh" in l
+                            for l in cell), "\n".join(cell))
+
+    def test_v2_stamped_576_byte_sidecar_is_rejected(self):
+        cell = self._cell(self.b)
+        self.assertFalse(self._resumed(self.b), "576 B v2 file resumed:\n" + "\n".join(cell))
+        self.assertTrue(any("stamped v2 but longer than 440 bytes" in l for l in cell), "\n".join(cell))
+        self.assertFalse(any(self.b + ".dfs_state" in l and l.startswith("[dfs-v2] READ")
+                             for l in cell), "\n".join(cell))
+
+    def test_real_440_byte_sidecar_still_resumes(self):
+        self.assertTrue(self._resumed(self.c), "\n".join(self._cell(self.c)))
+        others = [l for l in self.log if (l.startswith("WARN: dfs_state_read") or
+                  (l.startswith("[dfs-v2] READ") and "WARN" in l)) and self.a not in l and self.b not in l]
+        self.assertEqual(others, [], "a reader WARN fired on an unmutated fixed-era sidecar")
+        resumed = sum(1 for t in self.zero if self._resumed(t))
+        self.assertEqual(resumed, len(self.zero) - 2)
+
+
+class TestAtlasResidualRank(unittest.TestCase):
+    """Q-755 (2026-09-25): `solve.py --atlas-residual-rank`, the public reproduction of the rank
+    of the kernel perturbations `--atlas-probe` cannot see (G48-invariant at every layer, every
+    exit-row, entry-column and class sum kept, on the atlas's own support), first measured
+    privately by Fable T (Q-738): 11 at n = 9 and 3,788 at n = 31.  Also the probe's
+    impossible-cell gate, KERNEL_MASS_ONLY_AT_POSSIBLE_CELLS_EVERY_LAYER, with the one mutant
+    only it can see.  The n = 9 atlas is built exactly as TestAtlasProbe builds it; a build
+    failure is a FAILURE, never a skip."""
+
+    @classmethod
+    def setUpClass(cls):
+        TestAtlasProbe.setUpClass.__func__(cls)
+
+    @classmethod
+    def tearDownClass(cls):
+        TestAtlasProbe.tearDownClass.__func__(cls)
+
+    def _run(self, flag, path):
+        r = subprocess.run([sys.executable, "solve.py", flag, path], capture_output=True, text=True)
+        out = r.stdout + r.stderr
+        self.assertNotIn("Traceback (most recent call last)", out, out)
+        return r.returncode, r.stdout.splitlines(), out
+
+    def _write(self, name, a):
+        import json, os
+        p = os.path.join(self.tmp, name)
+        with open(p, "w") as fh:
+            json.dump(a, fh)
+        return p
+
+    def _load(self):
+        import json
+        with open(self.atlas) as fh:
+            return json.load(fh)
+
+    @staticmethod
+    def _cells(layer):
+        return {tuple(int(s) for s in key[1:].split("_")): int(v)
+                for key, v in layer["kernel"].items() if int(v)}
+
+    @staticmethod
+    def _orbit(c):
+        return sorted({(solve._tg_apply_perm(p, c[0]), solve._tg_apply_perm(p, c[1]))
+                       for p in solve._tg_g48()})
+
+    def test_the_n9_rank_is_exactly_11_and_certified(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        rc, lines, out = self._run("--atlas-residual-rank", self.atlas)
+        self.assertEqual(rc, 0, out)
+        for want in ("ATLAS_RESIDUAL_N=9", "ATLAS_RESIDUAL_SUPPORT_IS_G48_CLOSED_EVERY_LAYER=PASS",
+                     "ATLAS_RESIDUAL_RANK_MINOR_CERT_EVERY_LAYER=PASS",
+                     "ATLAS_RESIDUAL_RANK_NULL_VECTOR_CERT_EVERY_LAYER=PASS",
+                     "ATLAS_RESIDUAL_RANK_BY_LAYER=0,1,2,2,2,2,1,1,0",
+                     "ATLAS_RESIDUAL_RANK=11", "ATLAS_RESIDUAL_RANK_VERDICT=PASS"):
+            self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
+        # the verdict is the LAST line, and appears once
+        self.assertEqual(lines[-1], "ATLAS_RESIDUAL_RANK_VERDICT=PASS", out)
+
+    def test_the_published_n31_rank_is_exactly_3788(self):
+        """The figure SOLVE_PY_CLI.md states, on the atlas TR-12 pins by digest."""
+        import hashlib, os, re
+        path = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+        self.assertTrue(os.path.isfile(path), "the published n=31 atlas is missing: %s" % path)
+        with open(os.path.join("reports", "TR12_QUERY_PROGRAM.md"), encoding="utf-8") as fh:
+            pins = re.findall(r"The atlas every §12 figure is read from \|[^|\n]*sha256 `([0-9a-f]{64})`",
+                              fh.read())
+        self.assertEqual(len(pins), 1, "precondition: TR-12 must pin exactly one atlas digest: %r" % pins)
+        with open(path, "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), pins[0])
+        rc, lines, out = self._run("--atlas-residual-rank", path)
+        self.assertEqual(rc, 0, out)
+        for want in ("ATLAS_RESIDUAL_N=31", "ATLAS_RESIDUAL_RANK=3788",
+                     "ATLAS_RESIDUAL_RANK_BY_LAYER=0,112" + ",129" * 28 + ",64",
+                     "ATLAS_RESIDUAL_RANK_MINOR_CERT_EVERY_LAYER=PASS",
+                     "ATLAS_RESIDUAL_RANK_NULL_VECTOR_CERT_EVERY_LAYER=PASS",
+                     "ATLAS_RESIDUAL_RANK_VERDICT=PASS"):
+            self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
+
+    def test_dropping_one_whole_g48_orbit_changes_the_rank(self):
+        """Mutant atlases: one whole G48-orbit of layer-3 kernel cells removed.  The support stays
+        a union of orbits, so the premise holds and the verdict stays PASS, but the rank is
+        computed from the atlas, not remembered.  Dropping the 24-cell orbit of (1, 47) removes a
+        free direction (rank 11 -> 10, layer 3: 2 -> 1); dropping the 24-cell orbit of (1, 2)
+        removes a constraint direction with it, and the rank stays 11 (measured 2026-09-25) --
+        so the figure is not simply a count of orbits."""
+        self.assertTrue(self.build_ok, self.build_err)
+        for seed, want, by_layer in (((1, 47), "10", "0,1,2,1,2,2,1,1,0"),
+                                     ((1, 2), "11", "0,1,2,2,2,2,1,1,0")):
+            a = self._load()
+            K = a["layers"][3]["kernel"]
+            o = self._orbit(seed)
+            self.assertEqual(len(o), 24)
+            self.assertTrue(all(c in self._cells(a["layers"][3]) for c in o),
+                            "precondition: the orbit of %r is not in the layer-3 support" % (seed,))
+            for (x, y) in o:
+                del K["m%d_%d" % (x, y)]
+            rc, lines, out = self._run("--atlas-residual-rank",
+                                       self._write("atlas9_rr_orbit_%d_%d.json" % seed, a))
+            self.assertEqual(rc, 0, out)
+            for tok in ("ATLAS_RESIDUAL_RANK_VERDICT=PASS", "ATLAS_RESIDUAL_RANK=" + want,
+                        "ATLAS_RESIDUAL_RANK_BY_LAYER=" + by_layer):
+                self.assertIn(tok, lines, out)
+
+    def test_a_support_that_is_not_a_union_of_orbits_is_red(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        a = self._load()
+        K = a["layers"][3]["kernel"]
+        x, y = min(self._cells(a["layers"][3]))
+        del K["m%d_%d" % (x, y)]
+        rc, lines, out = self._run("--atlas-residual-rank", self._write("atlas9_rr_open.json", a))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("ATLAS_RESIDUAL_SUPPORT_IS_G48_CLOSED_EVERY_LAYER=FAIL", lines, out)
+        self.assertIn("ATLAS_RESIDUAL_RANK_VERDICT=FAIL", lines, out)
+
+    def test_unreadable_and_kernel_less_atlases_are_errors(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        rc, lines, out = self._run("--atlas-residual-rank", "/nonexistent/atlas.json")
+        self.assertEqual(rc, 2, out)
+        self.assertIn("ATLAS_RESIDUAL_RANK_VERDICT=ERROR:cannot-read-atlas", lines, out)
+        a = self._load()
+        del a["layers"][2]["kernel"]
+        rc, lines, out = self._run("--atlas-residual-rank", self._write("atlas9_rr_nokern.json", a))
+        self.assertEqual(rc, 2, out)
+        self.assertIn("ATLAS_RESIDUAL_RANK_VERDICT=ERROR:malformed-atlas", lines, out)
+
+    def test_the_certified_rank_agrees_with_an_independent_rational_rank(self):
+        """`_int_matrix_rank_certified` against a plain Fraction Gauss-Jordan written here, on
+        deterministic integer matrices of known deficiency (the last rows are combinations of
+        the first ones), plus the empty-kernel and all-zero edge cases."""
+        import random
+        from fractions import Fraction
+
+        def qrank(rows):
+            M = [[Fraction(v) for v in r] for r in rows]
+            r = 0
+            for c in range(len(M[0]) if M else 0):
+                p = next((i for i in range(r, len(M)) if M[i][c]), None)
+                if p is None:
+                    continue
+                M[r], M[p] = M[p], M[r]
+                for i in range(len(M)):
+                    if i != r and M[i][c]:
+                        f = M[i][c] / M[r][c]
+                        M[i] = [a - f * b for a, b in zip(M[i], M[r])]
+                r += 1
+            return r
+        rng = random.Random(755)
+        for trial in range(40):
+            m, nc, k = rng.randint(2, 9), rng.randint(2, 9), rng.randint(1, 5)
+            base = [[rng.randint(-4, 4) for _ in range(nc)] for _ in range(k)]
+            rows = base + [[sum(rng.randint(-3, 3) * b[j] for b in base) for j in range(nc)]
+                           for _ in range(m)]
+            r, lo, up = solve._int_matrix_rank_certified(rows)
+            self.assertEqual(r, qrank(rows), rows)
+            self.assertTrue(lo and up, rows)
+        self.assertEqual(solve._int_matrix_rank_certified([[0, 0], [0, 0]]), (0, True, True))
+        self.assertEqual(solve._int_matrix_rank_certified([[1, 0], [0, 1]]), (2, True, True))
+
+    def test_mass_at_an_impossible_cell_is_caught_only_by_the_pattern_gate(self):
+        """Q-755 (Fable T's issue 3 of Q-738): the producer refuses kernel mass at an impossible
+        (exit, entry) cell; the probe never re-derived that.  The one impossible pattern no other
+        probe gate can see is (x, mate(x)) at a layer k >= 1 -- a transition from a pair to
+        ITSELF -- because it can be added with every row, column and class sum kept: put D units
+        on each cell of that cell's G48 orbit and take them back from present-cell orbits with
+        the same row/column/class counts (an exact rational solve, scaled to integers).  The
+        result is G48-invariant and every re-sum balances; the exact FAIL set is the pattern gate
+        alone, and the producer's own self-reports are left untouched."""
+        self.assertTrue(self.build_ok, self.build_err)
+        from fractions import Fraction
+        from math import lcm
+        a = self._load()
+        n = int(a["n"])
+        mate = {}
+        for e, x in solve.king_wen_pairs():
+            mate[e], mate[x] = x, e
+        pc = lambda v: bin(v).count("1")
+
+        def sums(o):
+            d = {}
+            for (u, w) in o:
+                for key in (("row", u), ("col", w), ("cls", pc(u ^ w))):
+                    d[key] = d.get(key, 0) + 1
+            return d
+
+        def exact_solve(cols, target):
+            keys = sorted(set(target).union(*cols))
+            M = [[Fraction(c.get(key, 0)) for c in cols] + [Fraction(target.get(key, 0))]
+                 for key in keys]
+            r, piv = 0, []
+            for c in range(len(cols)):
+                p = next((i for i in range(r, len(M)) if M[i][c]), None)
+                if p is None:
+                    continue
+                M[r], M[p] = M[p], M[r]
+                M[r] = [v / M[r][c] for v in M[r]]
+                for i in range(len(M)):
+                    if i != r and M[i][c]:
+                        f = M[i][c]
+                        M[i] = [x - f * y for x, y in zip(M[i], M[r])]
+                piv.append(c)
+                r += 1
+            if any(M[i][-1] for i in range(r, len(M))):
+                return None
+            z = [Fraction(0)] * len(cols)
+            for i, c in enumerate(piv):
+                z[c] = M[i][-1]
+            return z
+        hit = None
+        for k in range(1, n):
+            cells = self._cells(a["layers"][k])
+            orbits, seen = [], set()
+            for c in sorted(cells):
+                if c not in seen:
+                    o = self._orbit(c)
+                    seen |= set(o)
+                    orbits.append(o)
+            for x in sorted({x for x, _ in cells}):
+                imp = self._orbit((x, mate[x]))
+                if any(c in cells for c in imp):
+                    continue
+                z = exact_solve([sums(o) for o in orbits], {kk: -v for kk, v in sums(imp).items()})
+                if z is None:
+                    continue
+                D = lcm(*[v.denominator for v in z])
+                if min(cells[c] + int(z[j] * D) for j, o in enumerate(orbits) for c in o) >= 1:
+                    hit = (k, imp, D, [(o, int(z[j] * D)) for j, o in enumerate(orbits) if z[j]])
+                    break
+            if hit:
+                break
+        self.assertIsNotNone(hit, "precondition: no balanced impossible-cell mutant in the fixture")
+        k, imp, D, trade = hit
+        K = a["layers"][k]["kernel"]
+        for (x, y) in imp:
+            K["m%d_%d" % (x, y)] = str(D)
+        for o, dz in trade:
+            for (x, y) in o:
+                K["m%d_%d" % (x, y)] = str(int(K["m%d_%d" % (x, y)]) + dz)
+        self.assertEqual(a["tail_checks"]["kernel_g_invariance"], "PASS")   # self-report untouched
+        rc0, lines0, out0 = self._run("--atlas-probe", self.atlas)
+        self.assertEqual(rc0, 0, out0)
+        self.assertIn("KERNEL_MASS_ONLY_AT_POSSIBLE_CELLS_EVERY_LAYER=PASS", lines0, out0)
+        rc, lines, out = self._run("--atlas-probe", self._write("atlas9_impossible_cell.json", a))
+        self.assertEqual(rc, 1, out)
+        self.assertEqual(sorted(l for l in lines if l.endswith("=FAIL")),
+                         ["ATLAS_PROBE=FAIL", "KERNEL_MASS_ONLY_AT_POSSIBLE_CELLS_EVERY_LAYER=FAIL"], out)
+
+
+class TestQ763RoaeGeneratorFixes(unittest.TestCase):
+    """Q-763 (Codex v3 E3 batch 6: V3A-049#1, V3A-064..067): roae.py generator defects that
+    every regenerated example/ report re-published. Each test is red on the pre-Q-763 roae.py."""
+
+    def _out(self, fn, *a, **k):
+        import io, contextlib
+        buf = io.StringIO()
+        saved = roae._global_seed
+        roae._global_seed = 20260904
+        try:
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                fn(*a, **k)
+        finally:
+            roae._global_seed = saved
+        return buf.getvalue()
+
+    def test_negative_seed_is_refused_because_cpython_mirrors_it(self):
+        # The premise, measured rather than assumed: CPython seeds an int by its absolute value.
+        self.assertEqual([random.Random(-4950).random() for _ in range(3)],
+                         [random.Random(4950).random() for _ in range(3)])
+        with self.assertRaises(SystemExit):
+            roae._guard_seed_stream_disjointness(1, 1, -5050)
+        roae._guard_seed_stream_disjointness(1, 1, 0)          # control: 0 and positive seeds pass
+        roae._guard_seed_stream_disjointness(1, 1, 20260726)
+
+    def test_entropy_ceiling_is_log2_6_not_log2_7(self):
+        out = self._out(roae.print_entropy)
+        self.assertIn("Maximum entropy (all 6 possible values, 1-6): 2.5850 bits", out)
+        self.assertNotIn("2.8074", out)
+
+    def test_c4_conditioned_pure_hexagram_value_is_printed_exactly(self):
+        # Independent derivation: hold KW's pair 1 (slot 0) fixed and place the other 31 pairs;
+        # count the ordered fillings of the two remaining end slots (positions 29-30, 63-64)
+        # that bring KW's statistic (pure hexagrams at 1,2,29,30,63,64) up to KW's own value.
+        pairs = [(KW[2 * i], KW[2 * i + 1]) for i in range(32)]
+        pure = lambda h: (h >> 3) == (h & 7)
+        kw_stat = sum(1 for p in (0, 1, 28, 29, 62, 63) if pure(KW[p]))
+        rest = pairs[1:]
+        hit = tot = 0
+        for i, a in enumerate(rest):
+            for j, b in enumerate(rest):
+                if i == j:
+                    continue
+                tot += 1
+                st = 2 * pure(pairs[0][0]) + 2 * pure(a[0]) + 2 * pure(b[0])
+                hit += st >= kw_stat
+        from fractions import Fraction
+        want = Fraction(hit, tot)
+        self.assertEqual(want, Fraction(29, 155))
+        out = self._out(roae.print_trigrams)
+        self.assertIn("Exact P(>= KW's %d | C4) = %d/%d = %.4f" % (kw_stat, want.numerator,
+                      want.denominator, float(want)), out)
+
+    def test_report_wording_fixes(self):
+        stats = self._out(roae.print_stats, trials=2000)
+        self.assertNotIn("Odds ratio against random", stats)
+        self.assertIn("not odds against the sequence being random", stats)
+        self.assertNotIn("7 possible difference", stats)
+        self.assertNotIn("no traditional significance", self._out(roae.print_sequences))
+        canons = self._out(roae.print_canons)
+        self.assertNotIn("any random split", canons)
+        self.assertIn("The cut point itself is not varied", canons)
+        cons = self._out(roae.print_constraints, trials=2000, cond_trials=2000)
+        self.assertNotIn("changing pair types and the difference wave", cons)
+        self.assertIn("Difference wave identical: Yes", cons)   # the invariance the wording now states
+        self.assertNotIn("confirms that all 64", self._out(roae.print_trigrams))
+
+    def test_recurrence_names_both_baselines(self):
+        import inspect, math
+        src = inspect.getsource(roae.print_recurrence)
+        self.assertNotIn("Theoretical expected recurrence rate", src)
+        self.assertIn("923/3969", src)
+        self.assertEqual(sum(math.comb(6, d) ** 2 for d in range(1, 7)), 923)
+
+
+class TestQ751RoaeWordingFixes(unittest.TestCase):
+    """Q-751 (Codex v3 E3 batch 3 V3A-098#2-#7 and batch 6 V3A-049#2, V3A-064..067 #2-#4): roae.py
+    wording and a missing control, plus scripts/c2c3_joint_null.py's zero-hit crash (V3A-103#1).
+    Each test is red on the pre-Q-751 tree."""
+
+    def _out(self, fn, *a, seed=20260904, **k):
+        import io, contextlib
+        buf = io.StringIO()
+        saved = roae._global_seed
+        roae._global_seed = seed
+        try:
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                fn(*a, **k)
+        finally:
+            roae._global_seed = saved
+        return buf.getvalue()
+
+    def test_complement_verdict_carries_the_pair_preserving_control(self):
+        import verify
+        from fractions import Fraction
+        # Premise: 64 x KW's mean complement distance is C3 = 776, the ceiling verify.py's G <= 95 encodes.
+        pos = {h: i for i, h in enumerate(KW)}
+        self.assertEqual(sum(abs(pos[h ^ 63] - pos[h]) for h in KW), 776)
+        e = verify._NULL_G_UNPINNED_EXPECT
+        exact = Fraction(e['p_le_95_num'], e['p_le_95_den'])
+        out = self._out(roae.print_complements)
+        self.assertIn("pair-preserving null (KW's 32 pairs shuffled, orientations flipped)", out)
+        self.assertIn("exact value under that null: %.4f%% = P(C3 <= 776 | C1)" % (100 * float(exact)), out)
+        m = re.search(r"pair-preserving null .*: ([0-9.]+)%", out)
+        self.assertTrue(m and abs(float(m.group(1)) - 100 * float(exact)) < 1.0, m and m.group(1))
+        self.assertNotIn("significantly closer together than chance would predict", out)
+        self.assertIn("not significantly (5% level) once King", out)
+
+    def test_lai_zhide_wording_names_the_mixed_endings(self):
+        pure = lambda h: (h >> 3) == (h & 7)
+        self.assertTrue(pure(KW[28]) and pure(KW[29]))            # 29-30: doubled Kan, doubled Li
+        self.assertFalse(pure(KW[62]) or pure(KW[63]))            # 63-64: Kan/Li mixed, not doubles
+        self.assertEqual({KW[62] >> 3, KW[62] & 7}, {0b010, 0b101})
+        out = self._out(roae.print_trigrams)
+        self.assertNotIn("kan/li doubles", out)
+        self.assertIn("63-64 are Kan/Li MIXED, not pure", out)
+
+    def test_constraints_names_the_sampled_pair_population(self):
+        out = self._out(roae.print_constraints, trials=500, cond_trials=500)
+        self.assertIn("Sampled population: the 32 C1 pairs (reverse partner, else complement)", out)
+        self.assertIn("a strict subset of the orderings test 1 above accepts", out)
+
+    def test_bootstrap_zero_hits_prints_a_bound_not_a_zero_width_interval(self):
+        out = self._out(roae.print_bootstrap, trials=100, seed=42)
+        self.assertIn("No-5-line-transition rate: 0.000%", out)      # the precondition: zero hits
+        self.assertNotIn("[0.000%, 0.000%]", out)
+        self.assertIn("95% bound (rule of three, 0/100 hits", out)
+
+    def test_source_wording(self):
+        src = open("roae.py", encoding="utf-8").read()
+        self.assertNotIn("completed C1-C7 enumeration", src)
+        self.assertNotIn("PRE-REGISTERED grammar", src)
+        self.assertNotIn("pre-registered grammar", src)
+        self.assertNotIn("pre-registered: nsamp", src)
+
+    def test_c2c3_zero_joint_hits_fail_with_a_token_not_a_traceback(self):
+        env = dict(os.environ, C2C3_FORCE_STDLIB="1")
+        r = subprocess.run([sys.executable, "scripts/c2c3_joint_null.py", "1000", "20260828"],
+                           capture_output=True, text=True, env=env, timeout=120)
+        self.assertIn("P(C2^C3|C1) = 0.00000%", r.stdout)             # the precondition: zero joint hits
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "C2C3_JOINT_NULL=FAIL")
+
+
+class TestBranchModeOutputHoldsTheShards(unittest.TestCase):
+    """Q-825 (2026-09-25). `--branch` and single-threaded `--sub-branch` write a per-branch
+    `solutions_<p1>_<o1>.bin`. Every sub-branch flush clears the in-memory table, and the file was
+    built from that table, so it always held 0 records (and the report said `Unique pair orderings: 0`)
+    while the shards held the solutions. The file must hold exactly what `--merge` makes of the shards."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q825_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q825")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _check(self, args, env_extra):
+        import gzip
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        env = dict(os.environ, SOLVE_ALLOW_SUB_CANONICAL="1", **env_extra)
+        r = subprocess.run([self.sbin, *args], capture_output=True, text=True, cwd=d,
+                           env=env, timeout=900)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+        shards = sorted(f for f in os.listdir(d) if f.startswith("sub_") and f.endswith(".bin"))
+        # Precondition: the run really produced records, so an empty per-branch file is a defect.
+        self.assertGreater(sum(len(gzip.open(os.path.join(d, f)).read()) for f in shards), 0)
+        m = os.path.join(d, "m")
+        os.mkdir(m)
+        for f in shards:
+            shutil.copy(os.path.join(d, f), m)
+        rm = subprocess.run([self.sbin, "--merge"], capture_output=True, text=True, cwd=m,
+                            env=env, timeout=900)
+        self.assertEqual(rm.returncode, 0, rm.stdout[-400:] + rm.stderr[-400:])
+        got = gzip.open(os.path.join(d, "solutions_1_0.bin")).read()
+        want = gzip.open(os.path.join(m, "solutions.bin")).read()
+        self.assertGreater(len(want), 32, "--merge of the shards produced no records")
+        self.assertEqual(got, want, "solutions_1_0.bin is not the merge of its own shards")
+        n = (len(want) - 32) // 32
+        self.assertIn("Unique pair orderings: %d" % n, [" ".join(l.split()) for l in r.stdout.splitlines()])
+
+    def test_sub_branch_kw_leaf(self):
+        self._check(["--sub-branch", "1", "0", "2", "0", "3", "0", "0", "1"],
+                    {"SOLVE_PER_SUB_BRANCH_LIMIT": "30"})
+
+    def test_branch_depth2(self):
+        self._check(["--branch", "1", "0", "0", "2"],
+                    {"SOLVE_DEPTH": "2", "SOLVE_NODE_LIMIT": "20000000"})
+
+
+class TestRcq04F1ArithGatesRunAtFull31(unittest.TestCase):
+    """RCQ04 F1 / Q-581 (2026-09-25). The 22 n-independent consumer gates lived only in
+    atlas_selftest, behind its n > 13 refusal, so at n=31 TR12_V1/V2/V5/Q6 were assigned PASS on
+    emission. They now run from atlas_queries (atlas_arith_gates) at every n. These tests run them
+    on the COMMITTED n=31 atlas and show, on mutated copies of it, that a token turns FAIL only
+    because a lifted gate read the numbers."""
+
+    ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    Q3_TSV = os.path.join("tr12", "q3_profile_kw.tsv")
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        cls.S = _load("solve")
+        with open(cls.ATLAS, encoding="utf-8") as fh:
+            cls.A0 = json.load(fh)
+
+    def _dir(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        return d
+
+    def _atlas(self, A):
+        import json
+        p = os.path.join(self._dir(), "atlas.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(A, fh)
+        return p
+
+    def _q3_trace(self):
+        # TEST FIXTURE, NOT AN ATTESTATION. No --kc-profile table for n=31 is committed; the
+        # consumer's own output tr12/q3_profile_kw.tsv carries the same columns but no producer
+        # trailer, and atlas_parse_q3_trace refuses a table without one. The trailer is appended
+        # here only so the three Q3 legs can be exercised at n=31.
+        p = os.path.join(self._dir(), "q3_31.tsv")
+        with open(self.Q3_TSV, encoding="utf-8") as src, open(p, "w", encoding="utf-8") as fh:
+            fh.write(src.read())
+            fh.write("KC_PROFILE=OK\n")
+        return p
+
+    def _run(self, path, select=None, trace=None):
+        import contextlib, io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            R = self.S.atlas_queries(path, os.path.join(self._dir(), "out"), select=select,
+                                     q3_trace=trace, quiet=False)
+        return R, buf.getvalue().splitlines()
+
+    def _mutant(self):
+        import copy
+        return copy.deepcopy(self.A0)
+
+    def test_all_22_gates_run_and_pass_on_the_committed_n31_atlas(self):
+        S = self.S
+        self.assertEqual(31, self.A0["n"], "precondition: the committed atlas is the n=31 one")
+        R, lines = self._run(self.ATLAS, trace=self._q3_trace())
+        arith = R["arith"]
+        self.assertEqual(22, len(S._ATLAS_ARITH_IDS))
+        self.assertEqual(list(S._ATLAS_ARITH_IDS), [e[0] for e in arith])
+        self.assertEqual([], [e[0] for e in arith if e[3] is not True], arith)
+        for gid, _sec, name, ok, _det, _own in arith:
+            want = "[atlas-arith] %-62s PASS" % name
+            self.assertIn(want, lines, "per-gate line for %s missing" % gid)
+        self.assertIn("[atlas-arith] 22 gate(s) run, 0 failure(s), 0 not run", lines)
+        self.assertIn("ATLAS_ARITH=PASS", lines)
+        # the four tokens the gates vouch for are what the published receipt says
+        with open(os.path.join("tr12", "VERDICTS.txt"), encoding="utf-8") as fh:
+            pub = dict(l.split("=", 1) for l in fh.read().splitlines() if "=" in l)
+        for k in ("TR12_V1", "TR12_V2", "TR12_V5", "TR12_Q6"):
+            self.assertEqual(pub[k], R["verdicts"][k], k)
+        self.assertEqual("PASS", R["verdicts"]["TR12_Q3_KW"])
+
+    def test_without_a_trace_19_run_and_the_3_q3_legs_say_so(self):
+        R, lines = self._run(self.ATLAS)
+        self.assertEqual(["Q3-prod", "Q3-tokens", "Q3-ptext"],
+                         [e[0] for e in R["arith"] if e[3] is None])
+        self.assertIn("[atlas-arith] 19 gate(s) run, 0 failure(s), 3 not run", lines)
+        self.assertIn("ATLAS_ARITH=PASS", lines)
+
+    def test_v1_row_mutant_turns_tr12_v1_red(self):
+        # Move 16 between two raw marginals of layer 0: every layer still sums to N and every cell
+        # stays divisible by 16, so the emitter's own column-sum gate is blind to it (asserted).
+        # Only the lifted V1 row-sum gate reads it.
+        A = self._mutant()
+        mr = A["layers"][0]["marginal_raw"]
+        mr["pair1"] = str(int(mr["pair1"]) + 16)
+        mr["pair2"] = str(int(mr["pair2"]) - 16)
+        _p, v1fails = self.S.atlas_emit_v1(A, self._dir())
+        self.assertEqual([], v1fails, "precondition: the emitter's own gate must not see this")
+        R, lines = self._run(self._atlas(A), select=["v1"])
+        self.assertEqual(["V1-row"], [e[0] for e in R["arith"] if e[3] is False])
+        self.assertEqual("FAIL:arith-gate:V1-row", R["verdicts"]["TR12_V1"])
+        self.assertEqual(1, self.S.atlas_verdicts_rc(R["verdicts"]))
+        self.assertIn("ATLAS_ARITH=FAIL", lines)
+        R, _ = self._run(self.ATLAS, select=["v1"])          # green: the unmutated atlas
+        self.assertEqual("PASS", R["verdicts"]["TR12_V1"])
+
+    def test_v2_class_move_turns_tr12_v2_red(self):
+        # 48 moved between two distance classes of layer 0: every horizontal gate stays green and
+        # every cell stays divisible by 48; the vertical V2-B0 legs read it.
+        A = self._mutant()
+        bc = A["layers"][0]["by_class"]
+        bc["d1"] = str(int(bc["d1"]) - 48)
+        bc["d2"] = str(int(bc["d2"]) + 48)
+        R, _ = self._run(self._atlas(A), select=["v2"])
+        self.assertEqual(["V2-B0-col", "V2-B0-budget"], [e[0] for e in R["arith"] if e[3] is False])
+        self.assertEqual("FAIL:arith-gate:V2-B0-col+V2-B0-budget", R["verdicts"]["TR12_V2"])
+        R, _ = self._run(self.ATLAS, select=["v2"])
+        self.assertEqual("PASS:REDUCED-NO-BRANCH-CLASS-RIVER", R["verdicts"]["TR12_V2"])
+
+    def test_q6_layer_mutant_turns_tr12_q6_red(self):
+        A = self._mutant()
+        bc = A["layers"][0]["by_class"]
+        bc["d1"] = str(int(bc["d1"]) + 48)
+        R, _ = self._run(self._atlas(A), select=["q6"])
+        self.assertEqual(["Q6-layer", "flow"], [e[0] for e in R["arith"] if e[3] is False])
+        self.assertEqual("FAIL:arith-gate:Q6-layer+flow", R["verdicts"]["TR12_Q6"])
+        R, _ = self._run(self.ATLAS, select=["q6"])
+        self.assertEqual("PASS:REDUCED-DISTANCE-CLASS", R["verdicts"]["TR12_Q6"])
+
+    def test_branch_move_turns_tr12_xa_a_red(self):
+        # 48 solutions moved between two branches whose entries differ in popcount: the total, the
+        # t-units and XA's own gates are unchanged; only layer-0-vs-branch-table sees it.
+        A = self._mutant()
+        B = A["branch_atlas"]
+        j = next(t for t, b in enumerate(B)
+                 if bin(b["entry"]).count("1") != bin(B[0]["entry"]).count("1"))
+        B[0]["solutions"] = str(int(B[0]["solutions"]) - 48)
+        B[j]["solutions"] = str(int(B[j]["solutions"]) + 48)
+        R, _ = self._run(self._atlas(A), select=["xa"])
+        self.assertEqual(["L0-branch"], [e[0] for e in R["arith"] if e[3] is False])
+        self.assertEqual("FAIL:arith-gate:L0-branch", R["verdicts"]["TR12_XA_A"])
+        R, _ = self._run(self.ATLAS, select=["xa"])
+        self.assertEqual("PASS", R["verdicts"]["TR12_XA_A"])
+
+    def test_a_partial_select_never_reads_a_table_it_did_not_write(self):
+        # A stale, corrupted v1_field.tsv left in --atlas-out by an earlier run must not be read
+        # by a later --atlas-select q6 run: the V1 gates report not-run instead.
+        out = os.path.join(self._dir(), "out")
+        self.S.atlas_queries(self.ATLAS, out, quiet=True)
+        with open(os.path.join(out, "scan", "v1_field.tsv"), "a", encoding="utf-8") as fh:
+            fh.write("0\t2\t1\t8\t0\t0\n")
+        R = self.S.atlas_queries(self.ATLAS, out, select=["q6"], quiet=True)
+        st = {e[0]: e[3] for e in R["arith"]}
+        for gid in ("V1-col", "V1-row", "V1-pair0", "V1-16"):
+            self.assertIsNone(st[gid], gid)
+        self.assertTrue(st["Q6-layer"] and st["flow"] and st["float"])
+        self.assertEqual(0, self.S.atlas_verdicts_rc(R["verdicts"]))
+
+
+@unittest.skipUnless(os.path.isdir("/proc/self") and shutil.which("setsid") and shutil.which("git"),
+                     "needs Linux /proc, setsid and git")
+class TestQ457ExecLaneSigtermLeavesNothingBehind(unittest.TestCase):
+    """Q-457: scripts/exec_lane.sh runs each command under setsid, in its own process group. With no
+    trap, a SIGTERM to the lane never reached that group: on 2026-09-08 the child `./verify --ie-count`
+    was reparented to init and ran for forty minutes, and its workspace was left in /tmp. These tests
+    run the REAL lane (via --tree) on a one-command fixture tree, with TMPDIR set to a private
+    directory, so any leftover process or file is easy to find by its cwd or its path."""
+    LANE = os.path.abspath("scripts/exec_lane.sh")
+
+    def _fixture(self, root, cmd):
+        tree = os.path.join(root, "tree")
+        os.makedirs(os.path.join(tree, "reports"))
+        with open(os.path.join(tree, "README.md"), "w") as f:
+            f.write("# fixture\n\n```\n%s\n```\n" % cmd)
+        with open(os.path.join(tree, "reports", "TR1_X.md"), "w") as f:
+            f.write("# TR1\n\nEvery MEASURED result carries a reproduction command.\n")
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.invalid",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.invalid")
+        for a in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "fixture"]):
+            subprocess.run(["git", "-C", tree] + a, check=True, env=env, capture_output=True)
+        tmp = os.path.join(root, "tmp")
+        os.mkdir(tmp)
+        return tree, tmp
+
+    @staticmethod
+    def _procs_under(tmp):
+        pids = []
+        for d in os.listdir("/proc"):
+            if not d.isdigit():
+                continue
+            try:
+                cwd = os.readlink("/proc/%s/cwd" % d)
+            except OSError:
+                continue
+            if cwd == tmp or cwd.startswith(tmp + "/"):
+                pids.append(int(d))
+        return pids
+
+    @staticmethod
+    def _comm(pid):
+        try:
+            with open("/proc/%d/comm" % pid) as f:
+                return f.read().strip()
+        except OSError:
+            return ""
+
+    def _left_in(self, tmp):
+        return sorted(n for n in os.listdir(tmp) if not n.startswith("exec_lane_logs."))
+
+    def test_sigterm_kills_the_child_removes_the_workspace_and_exits_nonzero(self):
+        import time
+        with tempfile.TemporaryDirectory() as root:
+            tree, tmp = self._fixture(root, "sleep 300")
+            env = dict(os.environ, TMPDIR=tmp, EXEC_LANE_BUDGET="600")
+            p = subprocess.Popen(["bash", self.LANE, "--tree", tree], env=env, text=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            child = []
+            try:
+                deadline = time.time() + 120
+                while time.time() < deadline and not child and p.poll() is None:
+                    child = [q for q in self._procs_under(tmp) if self._comm(q) == "sleep"]
+                    time.sleep(0.2)
+                # Precondition: the lane really had a live child in its workspace when signalled.
+                self.assertTrue(child, "no `sleep` child appeared in the lane workspace")
+                p.send_signal(signal.SIGTERM)                  # the LANE's PID only, as on 2026-09-08
+                out, _ = p.communicate(timeout=60)
+                deadline = time.time() + 10
+                while time.time() < deadline and self._procs_under(tmp):
+                    time.sleep(0.2)
+                self.assertEqual(self._procs_under(tmp), [], out)
+                self.assertEqual(p.returncode, 143, out)
+                self.assertEqual(out.strip().splitlines()[-1], "EXEC_LANE=INTERRUPTED", out)
+                self.assertIn("EXEC_LANE_ERROR=interrupted-by-SIGTERM", out.splitlines())
+                self.assertEqual(self._left_in(tmp), [], out)   # workspace and temp files gone
+            finally:
+                if p.poll() is None:
+                    p.kill()
+                    p.wait()
+                for q in set(child) | set(self._procs_under(tmp)):   # explicit PIDs only
+                    try:
+                        os.kill(q, signal.SIGKILL)
+                    except OSError:
+                        pass
+
+    def test_an_uninterrupted_run_still_exits_zero_and_cleans_up(self):
+        with tempfile.TemporaryDirectory() as root:
+            tree, tmp = self._fixture(root, "true")
+            env = dict(os.environ, TMPDIR=tmp, EXEC_LANE_BUDGET="60")
+            r = subprocess.run(["bash", self.LANE, "--tree", tree], env=env, text=True,
+                               capture_output=True, timeout=300)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(r.stdout.strip().splitlines()[-1], "EXEC_LANE=PASS", r.stdout)
+            self.assertIn("EXEC_LANE_PASS=1", r.stdout.splitlines())    # the command really ran
+            self.assertNotIn("EXEC_LANE=INTERRUPTED", r.stdout)
+            self.assertEqual(self._left_in(tmp), [], r.stdout)
+            self.assertEqual(self._procs_under(tmp), [])
+
+
+class TestQ520RecordPairIndexBounds(unittest.TestCase):
+    """Q-520: a solution-record byte is (pair_index<<2)|(orient<<1), so byte>>2 is SIX bits
+    (0..63) and indexes the 32-entry pairs[] table. --verify/--validate/--show already refuse a
+    byte with bit 7 set; --c3-min, --verify-rule2, --verify-9th-six, --verify-wrap-parity and the
+    --analyze/--c3-dist block decoded it and read (and in --analyze, INCREMENTED) past the end of
+    32-entry tables. RED, measured 2026-09-25 on the pre-fix solve.c via ROAE_TESTS_SOLVE_SRC:
+    every mode below exits 0 on the corrupt fixture (--verify-9th-six and --verify-wrap-parity
+    print =PASS), and an -fsanitize=undefined build reports "index 63 out of bounds for type
+    'Pair [32]'". The clean KW fixture is the positive control: it must still pass, so the
+    refusal is caused by the bad byte and not by the harness."""
+
+    MODES = [("--c3-min", 20, None), ("--verify-rule2", 20, "RULE2"),
+             ("--verify-9th-six", 20, "NINTH_SIX"), ("--verify-wrap-parity", 20, "WRAP_PARITY"),
+             ("--c3-dist", 1, None), ("--analyze", 1, None)]
+
+    @classmethod
+    def setUpClass(cls):
+        import struct
+        cls.tmp = tempfile.mkdtemp(prefix="q520_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q520")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        kw = bytes(i << 2 for i in range(32))          # KW = pairs 0..31 in order, orient 0
+        bad = bytearray(kw); bad[5] = 0xFC               # pair index 63
+        hdr = lambda n: b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", n) + b"\0" * 16
+        cls.good = os.path.join(cls.tmp, "kw.bin")
+        cls.bad = os.path.join(cls.tmp, "bad.bin")
+        with open(cls.good, "wb") as f: f.write(hdr(1) + kw)
+        with open(cls.bad, "wb") as f: f.write(hdr(2) + kw + bytes(bad))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, mode, path):
+        return subprocess.run([self.sbin, mode, path], capture_output=True, text=True,
+                              cwd=self.tmp, env=dict(os.environ, OMP_NUM_THREADS="2"), timeout=600)
+
+    def test_clean_record_is_accepted_by_every_mode(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode, _, _ in self.MODES:
+            with self.subTest(mode=mode):
+                r = self._run(mode, self.good)
+                self.assertEqual(r.returncode, 0, r.stderr[-600:])
+                self.assertNotIn("PAIR_INDEX_OUT_OF_RANGE", r.stderr)
+
+    def test_out_of_range_pair_index_is_refused_by_every_mode(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode, rc, token in self.MODES:
+            with self.subTest(mode=mode):
+                r = self._run(mode, self.bad)
+                self.assertEqual(r.returncode, rc, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("ERROR: PAIR_INDEX_OUT_OF_RANGE: " + self.bad + " record 1 byte 5 = 0xFC", r.stderr)
+                if token:
+                    self.assertIn(token + "=ERROR", r.stdout.splitlines())
+                    self.assertFalse([l for l in r.stdout.splitlines()
+                                      if l.startswith(token + "=") and l != token + "=ERROR"])
+
+
+class TestSolvePyStdoutSweepAndTr8BankSchemaQ625Q450Q451(unittest.TestCase):
+    """Q-625 (Codex V3A-135, ruled all seven ACCEPTED), Q-450 and Q-451, 2026-09-25.
+
+    Q-625: four of the seven were "doc corrected, code never swept" -- the docs had withdrawn a
+    claim that solve.py still PRINTED. Each test here reads what the program prints (or returns),
+    not its source. RED BEFORE, measured on the worker against the pre-fix solve.py: every test
+    below except the sklearn-gated #7 fails there (that one was run red on a host with sklearn);
+    GREEN after. No published number moves: every mode touched is an argparse-dispatched analysis
+    mode, off the solve.c KC path and out of every canonical enumeration.
+
+    Q-450: bank.json had two writers with two schemas; the sampler overwrote an emit-bank
+    bank.json and silently lost calibration_seed, h_a_kw_satisfies_all and per-instance hits.
+    Now one writer. Q-451: results.json's H-a gate key named a scope (every drawn predicate) it
+    never measured; renamed to what it measures (every RAW template), shown by a mutant that
+    fails only a non-admitted raw template."""
+
+    SEED = "q450-q451-test"
+
+    @staticmethod
+    def _json(path):
+        import json
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    def _out(self, fn, *a, **kw):
+        import contextlib, io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            ret = fn(*a, **kw)
+        return buf.getvalue(), ret
+
+    # --- Q-625 / V3A-135 -------------------------------------------------------------------
+    def test_1_fingerprint_says_its_search_was_partial(self):
+        # #1: the closing line claimed uniqueness after ANY search, complete or not.
+        sols, exhausted = solve.generate_rule7a_solutions(max_nodes=20000, time_limit=60)
+        self.assertFalse(exhausted, "a 20k-node budget cannot exhaust the Rule 7a search")
+        out, _ = self._out(solve.print_fingerprint, max_nodes=20000, time_limit=60)
+        flat = " ".join(out.split())
+        self.assertIn("PARTIAL search (budget exhausted; not exhaustive)", flat)
+        self.assertIn("not a proof of uniqueness", flat)
+        self.assertNotIn("combined with Rules 1-7a, uniquely", flat)
+
+    def test_2_each_heuristic_has_its_own_tie_aware_null(self):
+        # #2: one "~1%" figure (a COUNT, 1.071, formatted as a percent) was every row's baseline.
+        out, _ = self._out(solve.print_sequential_construction)
+        rows = {m.group(1): (float(m.group(2)), float(m.group(3)))
+                for m in re.finditer(r"^(min_distance|max_distance|trigram_link)\s+\d+\s+of\s+31"
+                                     r"\s+([\d.]+)%\s+([\d.]+)%$", out, re.M)}
+        self.assertEqual(rows, {"min_distance": (9.68, 14.90), "max_distance": (19.35, 20.21),
+                                "trigram_link": (38.71, 43.03)}, out[-900:])
+        self.assertNotIn("Random choice expected", out)
+
+    def test_3_rules_banner_states_three_complement_nulls(self):
+        # #3: the DEFAULT no-flag invocation called the unconstrained 65/3 a pair-constrained mean.
+        out, _ = self._out(solve.print_rules)
+        self.assertNotIn("pair-constrained orderings average", out)
+        line = next(l for l in out.splitlines() if "Null means" in l)
+        for want in ("21.7 unconstrained (65/3)", "16.75 pair-only (C1)", "16.25"):
+            self.assertIn(want, line)
+        # 16.75 is (8 within-pair couples at distance 1 + 24 cross-pair couples at mean 22)/32.
+        self.assertEqual((8 * 1 + 24 * 22) / 32, 16.75)
+
+    def test_4_constant_feature_is_never_extremal(self):
+        # #4: rank = sum(v <= kw) equals n_sol for a constant feature, so C5 identities such as
+        # total_path = 211 and line_autocorr_mean = -44/384 printed as "*** EXTREMAL" / MAXIMUM.
+        out, _ = self._out(solve.print_differential_analysis, max_nodes=20000, time_limit=60)
+        rows = [l for l in out.splitlines() if l.startswith(("total_path ", "line_autocorr_mean "))]
+        self.assertEqual(len(rows), 2, out[:1500])
+        for r in rows:
+            self.assertTrue(r.rstrip().endswith("constant"), r)
+        self.assertNotIn("total_path:", out)       # never listed in the EXTREMAL summary
+        out7, _ = self._out(solve.print_rule7_test, max_nodes=2000, time_limit=30)
+        r7b = next(l for l in out7.splitlines() if l.startswith("Rule 7b:"))
+        self.assertNotIn("exact maximum", r7b)
+        self.assertIn("C5 identity", r7b)
+
+    def test_5_path_freedom_is_a_logarithm(self):
+        # #5: summed decimal DIGIT counts (53) instead of log10 of the product (31! -> 33.9).
+        import math
+        out, _ = self._out(solve.print_adjacency_graph, None)
+        opts = [int(m.group(1)) for m in re.finditer(r"^\s*\d+\s+\d+\s+(\d+)\s", out, re.M)]
+        self.assertEqual(len(opts), 31, out[:800])
+        got = float(re.search(r"product of options\): ~10\^([\d.]+)", out).group(1))
+        self.assertAlmostEqual(got, round(math.log10(math.prod(opts)), 1), places=6)
+        self.assertAlmostEqual(got, round(math.log10(math.factorial(31)), 1), places=6)
+
+    def test_6_cp_primary_is_stated_conditional_on_the_pool(self):
+        doc = " ".join(solve.tr8_statistics.__doc__.split())
+        self.assertIn("conditional on the shared pool", doc)
+        self.assertNotIn("immune to censoring", doc)
+        self.assertNotIn("CERTAINLY", doc)
+
+    @unittest.skipUnless(all(importlib.util.find_spec(m) for m in ("numpy", "pyarrow", "sklearn")),
+                         "needs numpy + pyarrow + sklearn (the stratified KDE path)")
+    def test_7_stratified_exhaustive_survives_a_dropped_column(self):
+        # #7: mu/sigma were fit on the variance-FILTERED columns while both exhaustive scoring
+        # arms read the unfiltered ones -> a broadcast error after the fit. One constant column
+        # (c6_c7_count) makes the filter drop a dim; the sklearn arm must now complete.
+        import numpy as np, pyarrow as pa, pyarrow.parquet as pq
+        rng = np.random.default_rng(7)
+        n = 400
+        cols = {"position_2_pair": np.full(n, 1, dtype=np.int64)}
+        for c in solve._P2_JD_DIMS:
+            cols[c] = (np.full(n, 2, dtype=np.int64) if c == "c6_c7_count"
+                       else rng.integers(0, 50, n).astype(np.int64))
+        with tempfile.TemporaryDirectory() as td:
+            pq.write_table(pa.table(cols), os.path.join(td, "chunk_0000.parquet"))
+            out_md = os.path.join(td, "strat.md")
+            self._out(solve.p2_stratified_p2pair, td, out_md, samples_per_chunk=n,
+                      exhaustive=True)
+            self.assertTrue(os.path.exists(out_md))
+
+    # --- Q-450: one bank.json writer --------------------------------------------------------
+    def test_q450_sampler_does_not_strip_an_emit_bank_bank_json(self):
+        import json
+        with tempfile.TemporaryDirectory() as td:
+            self._out(solve.tr8_emit_bank, seed_root=self.SEED, calib_draws=1500, out_dir=td)
+            p = os.path.join(td, "bank.json")
+            with open(p, "rb") as f:
+                before = f.read()
+            eb = json.loads(before)
+            for k in ("calibration_seed", "h_a_kw_satisfies_all"):
+                self.assertIn(k, eb)
+            self.assertTrue(all("hits" in e for e in eb["bank"]))
+            solve.tr8_dof_sampler(td, seed_root=self.SEED, n_pool=1024, n_pred=10, klist=(4,),
+                                  n_shards=2, calib_draws=1500, quiet=True)
+            with open(p, "rb") as f:
+                after = f.read()
+            self.assertEqual(after, before,
+                             "the sampler rewrote the emit-bank bank.json with different bytes")
+
+    # --- Q-451: the H-a gate key names what it measures ---------------------------------------
+    def test_q451_h_a_gate_measures_the_raw_template_bank(self):
+        import json
+        with tempfile.TemporaryDirectory() as td:
+            for i in range(2):
+                solve.tr8_dof_sampler(td, seed_root=self.SEED, n_pool=1024, n_pred=10,
+                                      klist=(4,), n_shards=2, shard=i, calib_draws=1500,
+                                      quiet=True)
+            solve.tr8_dof_merge(td, quiet=True)
+            g = self._json(os.path.join(td, "results.json"))["gates"]
+            self.assertNotIn("h_a_kw_satisfies_every_predicate", g)
+            self.assertIs(g["h_a_kw_satisfies_every_raw_template"], True)
+            bank = self._json(os.path.join(td, "bank.json"))["bank"]
+            dropped = [i for i, e in enumerate(bank) if not e["admitted"]]
+            self.assertTrue(dropped, "no template outside the band; the mutant needs one")
+            # MUTANT: King Wen fails ONE raw template the band did NOT admit, so no drawn
+            # predicate can contain it. A gate over drawn predicates would stay True; this one
+            # must go False, which is what its name now says.
+            real = solve.tr8_clause_values
+            def mutant(seq, kw=None):
+                v = list(real(seq, kw))
+                if kw is None and list(seq) == list(solve.binary_hexagrams):
+                    v[dropped[0]] = False
+                return v
+            solve.tr8_clause_values = mutant
+            try:
+                self._out(solve.tr8_dof_merge, td, quiet=True)
+            finally:
+                solve.tr8_clause_values = real
+            g = self._json(os.path.join(td, "results.json"))["gates"]
+            self.assertIs(g["h_a_kw_satisfies_every_raw_template"], False)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

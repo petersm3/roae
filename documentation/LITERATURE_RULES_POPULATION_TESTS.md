@@ -311,7 +311,7 @@ data-like/principled verdict, here or anywhere in the suite.
 
 **2. Eight literature rules are consequences of the constraint system — proven, not sampled (upgraded
 2026-07-21).** All eight rules that measure at 1.0 of canonical mass (mmt4, p1c4, s1, s6, r3, r4, r5,
-c2 — including three consequences of [Radisic's](CITATIONS.md#radisic2026) optimality structure),
+c2 — including three consequences of [Radisic's](CITATIONS.md#radisic2026) optimality structure; `c2` is this suite's deterministic proxy for Chan's within-vs-between asymmetry, the within-pair distance histogram (`solve.py` `reg_c2`), so the proxy is the theorem and Chan's own statistic is not),
 asserted in the literature as design features, are now **theorems** (two of the eight, r3 (Radisic 2026) and p1c4 (Schulz 1982, citing Lai Zhide 1599), formalize to extensionally the **same** function of the ordering, so the eight literature rules state **seven distinct** ordering facts — one fact under two separately-published citations; both attributions stand. See TR-1 §3(2)): each depends only on the unordered
 pair-partition, which C1 fixes, so each is constant on the *entire C1 space* — a superset of the C1–C5
 population, hence a fortiori equal to King Wen's value on every C1–C5 ordering. Machine-checked in Lean 4

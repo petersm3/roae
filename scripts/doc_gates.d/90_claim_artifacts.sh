@@ -835,10 +835,10 @@ for f in files:
 for s in skipped: print("SKIP\t%s\t%d\t%s\t%s"%s)
 print("POP\t%d\t%d\t%d"%(tables,judged,len(skipped)))
 ') || { echo "  [FAIL] GATE 45 scanner failed — NOTHING was checked."; return 1; }
-  printf '%s\n' "$out" | grep -qx 'EMPTY' && { echo "  [FAIL] corpus reached GATE 45 empty."; return 1; }
+  grep -qx 'EMPTY' <<<"$out" && { echo "  [FAIL] corpus reached GATE 45 empty."; return 1; }
   local pt pj ps
   IFS=$'\t' read -r pt pj ps < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
-  if ! printf '%s\n' "${pj:-}" | grep -qxE '[0-9]+'; then
+  if ! grep -qxE '[0-9]+' <<<"${pj:-}"; then
     echo "  [FAIL] GATE 45 printed no population census — the scan did not complete."; return 1
   fi
   if [ "$pj" -lt "$FLOOR" ]; then
@@ -944,7 +944,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 46 could not measure its subject: $err"; return 1; fi
   local pr ps pe pc tok
   IFS=$'\t' read -r pr ps pe pc tok < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5"\t"$6; exit}')
-  if ! printf '%s\n' "${pr:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 46 printed no population census — the scan did not complete."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pr:-}"; then echo "  [FAIL] GATE 46 printed no population census — the scan did not complete."; return 1; fi
   if [ "$pr" -lt 10 ] || [ "$ps" -lt 1 ]; then
     echo "  [FAIL] GATE 46 parsed $pr row(s), $ps with Evidence naming {$tok}. The table holds >= 10 rows"
     echo "         and at least two 31.6M-evidenced rows; a smaller population is a parse failure, not a pass."
@@ -1135,7 +1135,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 47 could not judge its corpus: $err"; return 1; fi
   local pf pp pa pu
   IFS=$'\t' read -r pf pp pa pu < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
-  if ! printf '%s\n' "${pf:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 47 printed no population census — the scan did not complete."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pf:-}"; then echo "  [FAIL] GATE 47 printed no population census — the scan did not complete."; return 1; fi
   if [ "$pf" -lt 30 ] || [ "$pp" -lt 1 ]; then
     echo "  [FAIL] GATE 47 judged $pf file(s) against $pp phrase(s) (floors 30 / 1) — population collapsed."; return 1
   fi
@@ -1201,7 +1201,7 @@ for f in files:
     except OSError as e: print("ERROR\t%s unreadable: %s"%(f,e)); sys.exit(0)
     flat=" ".join(t.replace("*","").split())
     for s in re.split(r"(?<=[.!?])\s+(?=[A-Z(\[⚠\"])",flat):
-        if s.startswith("| v"): continue          # revision rows quote superseded wording
+        if re.match(r"\| *v\d", s): continue  # revision rows quote superseded wording (a version, Q-763)
         if not SUBJ(s): continue
         n+=1
         if HEDGE.search(s): continue
@@ -1213,7 +1213,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 48 could not read its corpus: $err"; return 1; fi
   local pn pf
   IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
-  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 48 printed no population census."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 48 printed no population census."; return 1; fi
   if [ "$pn" -lt 2 ]; then
     echo "  [FAIL] GATE 48 found only $pn prune-sha-change sentence(s) across $pf files (floor 2): PARITY_ALTERNATION"
     echo "         and CIRCULAR_KING_WEN both carry one today, so a smaller count is a broken splitter, not a pass."
@@ -1263,7 +1263,7 @@ gate_parity_figures() {
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
   [ -f verify.py ] || { echo "  [FAIL] verify.py is missing — the reproducer this gate runs is absent."; return 1; }
   cpa=$(python3 verify.py --check-parity-alternation 2>&1 | tr -d '\r')
-  if ! printf '%s\n' "$cpa" | grep -qx 'PARITY_ALTERNATION=PASS'; then
+  if ! grep -qx 'PARITY_ALTERNATION=PASS' <<<"$cpa"; then
     echo "  [FAIL] verify.py --check-parity-alternation did not print PARITY_ALTERNATION=PASS — the output this gate"
     echo "         compares figures against is not trustworthy, so NOTHING was judged."
     return 1
@@ -1297,7 +1297,7 @@ PY
 ) || { echo "  [FAIL] GATE 49 scanner failed — NOTHING was checked."; return 1; }
   local pn po
   IFS=$'\t' read -r pn po < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
-  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 49 printed no population census."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 49 printed no population census."; return 1; fi
   if [ "$pn" -lt 5 ] || [ "$po" -lt 5 ]; then
     echo "  [FAIL] GATE 49 judged $pn figure(s) against $po checker integers (floors 5 / 5) — the page or the"
     echo "         checker output shrank past recognition; a collapsed population is not a pass."
@@ -1415,7 +1415,7 @@ for f in files:
     bases={seeds[e] for e in resolved}
     flat=" ".join(t.replace("*","").split())
     for s in re.split(r"(?<=[.!?])\s+(?=[A-Z(\[⚠\"])",flat):
-        if s.startswith("| v"): continue
+        if re.match(r"\| *v\d", s): continue  # a version row only (Q-763)
         for m in CLAIM.finditer(s):
             if NEG.search(s[max(0,m.start()-40):m.start()]): continue
             n+=1
@@ -1429,7 +1429,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 51 could not judge its subject: $err"; return 1; fi
   local pn pf ps
   IFS=$'\t' read -r pn pf ps < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
-  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 51 printed no population census."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 51 printed no population census."; return 1; fi
   local rc=0 tag f s nres cites
   while IFS=$'\t' read -r tag f s nres cites; do
     [ "$tag" = HIT ] || continue
@@ -1503,7 +1503,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 52 could not judge its subject: $err"; return 1; fi
   local pn pf anchors
   IFS=$'\t' read -r pn pf anchors < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
-  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 52 printed no population census."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 52 printed no population census."; return 1; fi
   local rc=0 tag f a p
   while IFS=$'\t' read -r tag f a p; do
     [ "$tag" = HIT ] || continue
@@ -1567,7 +1567,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 53 could not find its subject: $err"; return 1; fi
   local pl pt ps pp
   IFS=$'\t' read -r pl pt ps pp < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
-  if ! printf '%s\n' "${pl:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 53 printed no population census."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pl:-}"; then echo "  [FAIL] GATE 53 printed no population census."; return 1; fi
   local rc=0 tag kind msg
   while IFS=$'\t' read -r tag kind msg; do
     [ "$tag" = HIT ] || continue
@@ -1639,7 +1639,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 54 could not judge its subject: $err"; return 1; fi
   local pd pt pm pr
   IFS=$'\t' read -r pd pt pm pr < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5; exit}')
-  if ! printf '%s\n' "${pd:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 54 printed no population census."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pd:-}"; then echo "  [FAIL] GATE 54 printed no population census."; return 1; fi
   if [ "$pr" -lt 1 ]; then echo "  [FAIL] GATE 54 found no reading-time entry in $F (floor 1) — the section moved or its shape changed; LEG 2 judged nothing."; return 1; fi
   local rc=0 tag kind where msg
   while IFS=$'\t' read -r tag kind where msg; do
@@ -1720,7 +1720,7 @@ PY
   if [ -n "$err" ]; then echo "  [FAIL] GATE 55 could not judge its subject: $err"; return 1; fi
   local pn pf
   IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
-  if ! printf '%s\n' "${pn:-}" | grep -qxE '[0-9]+'; then echo "  [FAIL] GATE 55 printed no population census."; return 1; fi
+  if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 55 printed no population census."; return 1; fi
   if [ "$pn" -lt 1 ]; then echo "  [FAIL] GATE 55 found no 'function of (...)' enumeration across $pf docs (floor 1) — the grammar moved; nothing judged."; return 1; fi
   local rc=0 tag f tup msg
   while IFS=$'\t' read -r tag f tup msg; do

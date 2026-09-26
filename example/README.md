@@ -251,8 +251,8 @@ Each hexagram is built from two trigrams (3-line figures): an upper and a lower.
 There are 8 possible trigrams. This section counts how often each trigram appears
 in each position, checks how often the upper or lower trigram changes between
 consecutive hexagrams, and shows the full 8x8 transition matrix (which trigram
-follows which). A uniform distribution (8 of each) confirms that all 64 possible
-upper/lower combinations are used exactly once.
+follows which). Every trigram appears 8 times in each position, as it must when all 64
+upper/lower combinations are used once (uniform marginals do not by themselves prove that).
 
 ```
 Trigram              Upper  Lower  Total
@@ -315,12 +315,12 @@ KW lower changes 58/63: percentile 27.3
 ### Pure (doubled-trigram) hexagram placement
 
 ```
-The 8 pure hexagrams (upper == lower trigram). Lai Zhide (1525-1604, via Schulz 1982)
-observed kan/li doubles closing both Classics; measured here against the same null.
+The 8 pure hexagrams (upper == lower trigram). Lai Zhide (1525-1604, via Schulz 1982) observed Kan and Li
+closing both Classics: doubled at 29-30, but 63-64 are Kan/Li MIXED, not pure, so this pure-hexagram count is a proxy, not his observation.
 Pure hexagram positions (1-based): [1, 2, 29, 30, 51, 52, 57, 58]
 Pure hexagrams at Classic ends (positions 1,2,29,30,63,64): 4 of a possible 6
-Null P(>= KW's 4) = 0.0336  (pair-preserving null; note KW's C4 fixes 1,2 by
-definition, so interpret against the constrained baseline)
+Null P(>= KW's 4) = 0.0336  (pair-preserving null, unconditioned)
+Exact P(>= KW's 4 | C4) = 29/155 = 0.1871  (the operative value: KW's C4 fixes the pure pair at positions 1-2 by definition, so it is held fixed)
 ```
 
 ### Nuclear trigram structure
@@ -595,8 +595,10 @@ Max distance:    47
 Random mean complement distance (over 10000 shuffles): 21.7
 King Wen mean complement distance: 12.1
 King Wen percentile vs random: 0.0%
-Complements are significantly closer together than chance would predict:
-the ordering keeps complements unusually near one another.
+King Wen percentile vs the pair-preserving null (KW's 32 pairs shuffled, orientations flipped): 6.5%
+  exact value under that null: 6.4211% = P(C3 <= 776 | C1)  (python3 verify.py --check-null-g --unpinned)
+Complements sit closer than in unrestricted shuffles, but not significantly (5% level) once King
+Wen's pair structure is held fixed: the unrestricted null is not the baseline for a C1 ordering.
 ```
 
 ## Palindrome analysis of the difference wave
@@ -698,9 +700,9 @@ Lower Canon wave: ▂▃▅▅▅▂▅█▅▃▂▅▂▃▅▃▂▃▅▅�
 ### Canon split null model
 
 ```
-Permutation test: is the King Wen split at position 30 special, or would
-any random split of the 64-hexagram sequence show a similar gap in mean
-line-change differences between the two halves?
+Permutation test: shuffle the whole 64-hexagram sequence and keep the cut after
+position 30 -- how often does a random ORDERING show as large a gap in mean line-change
+differences between the halves? (The cut point itself is not varied.)
 King Wen |upper_mean - lower_mean|: 0.0460
 Random permutations with gap >= King Wen: 8695/10000
 King Wen gap percentile: 13.0%
@@ -942,8 +944,8 @@ Closed under XOR: Yes — forms a subgroup
 ## Alternative sequence comparison
 
 The King Wen ordering is not the only way to arrange 64 hexagrams. The Fu Xi
-(binary) sequence orders them by numerical value (0-63), which is mathematically
-natural but has no traditional significance. The Mawangdui sequence was found on
+(binary) sequence orders them by numerical value (0-63), which is mathematically natural
+and is itself traditional: Shao Yong's (1011-1077) xiantian arrangement. The Mawangdui sequence was found on
 silk manuscripts in a 168 BCE tomb and may represent an independent tradition.
 Comparing the same analyses across orderings reveals what is unique to King Wen.
 
@@ -983,61 +985,61 @@ Dips in the curve mark regions with repetitive transition patterns.
 Window size: 15
 Center  Entropy    Visualization
 ------  -------    -------------
-     8   1.7056   ########################
-     9   1.5628   ######################
-    10   1.7056   ########################
-    11   1.8323   ##########################
-    12   1.8323   ##########################
-    13   1.8892   ##########################
-    14   1.7968   #########################
-    15   1.7968   #########################
-    16   1.7232   ########################
-    17   1.8295   ##########################
-    18   1.8295   ##########################
-    19   1.6729   #######################
-    20   1.8295   ##########################
-    21   1.8295   ##########################
-    22   1.8295   ##########################
-    23   1.8892   ##########################
-    24   1.8892   ##########################
-    25   1.8323   ##########################
-    26   1.8892   ##########################
-    27   1.8892   ##########################
-    28   1.8892   ##########################
-    29   1.8892   ##########################
-    30   1.9086   ###########################
-    31   1.9656   ############################
-    32   1.8892   ##########################
-    33   1.9656   ############################
-    34   1.9656   ############################
-    35   1.8892   ##########################
-    36   1.8892   ##########################
-    37   1.8062   #########################
-    38   1.7465   ########################
-    39   1.7465   ########################
-    40   1.7465   ########################
-    41   1.8062   #########################
-    42   1.8062   #########################
-    43   1.8062   #########################
-    44   1.7465   ########################
-    45   2.0226   ############################
-    46   2.0226   ############################
-    47   2.0662   #############################
-    48   2.0419   #############################
-    49   2.0662   #############################
-    50   2.0662   #############################
-    51   2.0419   #############################
-    52   2.0662   #############################
-    53   2.1736   ##############################
-    54   2.2566   ################################
-    55   2.2566   ################################
-    56   2.2892   ################################
+     8   1.7056   ##########################
+     9   1.5628   ########################
+    10   1.7056   ##########################
+    11   1.8323   ############################
+    12   1.8323   ############################
+    13   1.8892   #############################
+    14   1.7968   ###########################
+    15   1.7968   ###########################
+    16   1.7232   ##########################
+    17   1.8295   ############################
+    18   1.8295   ############################
+    19   1.6729   #########################
+    20   1.8295   ############################
+    21   1.8295   ############################
+    22   1.8295   ############################
+    23   1.8892   #############################
+    24   1.8892   #############################
+    25   1.8323   ############################
+    26   1.8892   #############################
+    27   1.8892   #############################
+    28   1.8892   #############################
+    29   1.8892   #############################
+    30   1.9086   #############################
+    31   1.9656   ##############################
+    32   1.8892   #############################
+    33   1.9656   ##############################
+    34   1.9656   ##############################
+    35   1.8892   #############################
+    36   1.8892   #############################
+    37   1.8062   ###########################
+    38   1.7465   ###########################
+    39   1.7465   ###########################
+    40   1.7465   ###########################
+    41   1.8062   ###########################
+    42   1.8062   ###########################
+    43   1.8062   ###########################
+    44   1.7465   ###########################
+    45   2.0226   ###############################
+    46   2.0226   ###############################
+    47   2.0662   ###############################
+    48   2.0419   ###############################
+    49   2.0662   ###############################
+    50   2.0662   ###############################
+    51   2.0419   ###############################
+    52   2.0662   ###############################
+    53   2.1736   #################################
+    54   2.2566   ##################################
+    55   2.2566   ##################################
+    56   2.2892   ###################################
 
 Mean windowed entropy: 1.8956
 Min entropy: 1.5628 at position 9 (most structured)
 Max entropy: 2.2892 at position 56 (most varied)
 
-Entropy spark: ▃▃▃▃▃▅▃▃▃▃▃▃▃▃▃▅▅▃▅▅▅▅▅▅▅▅▅▅▅▃▃▃▃▃▃▃▃▅▅▅▅▅▅▅▅▅▅▅▅
+Entropy spark: ▃▃▃▅▅▅▅▅▃▅▅▃▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▆▆▆▆
 ```
 
 ### Methodological note
@@ -1413,7 +1415,8 @@ Recurrence rate: 952/3906 (24.4%)
 ### Recurrence rate null model
 
 ```
-Theoretical expected recurrence rate (sum of p_i^2): 25.6%
+Expected rate from King Wen's own value frequencies (sum of p_i^2): 25.6%
+Expected rate for random pairs of distinct hexagrams (sum of C(6,d)^2/63^2 = 923/3969): 23.26%
 
 King Wen recurrence rate:       24.4%
 Mean random recurrence rate:    23.3%
@@ -1531,7 +1534,7 @@ unusually low, the sequence is more structured than random chance would produce.
 
 ```
 King Wen difference wave entropy: 2.0759 bits
-Maximum entropy (all 7 values): 2.8074 bits
+Maximum entropy (all 6 possible values, 1-6): 2.5850 bits
 Maximum entropy (5 observed values): 2.3219 bits
 Mean entropy of random permutations: 2.1915 bits
 Min random entropy observed: 1.7861 bits
@@ -1635,6 +1638,8 @@ Results from 10,000 random permutations:
 The pair structure constrains transitions within pairs (always even or 6),
 so 5-line transitions can only occur at the 31 between-pair boundaries.
 How often do pair-constrained orderings also avoid 5-line transitions?
+Sampled population: the 32 C1 pairs (reverse partner, else complement), orientations free --
+one fixed pairing, a strict subset of the orderings test 1 above accepts (reverse OR complement at every pair).
   Pair-constrained trials: 100,000
   Also satisfy no-5:       4,315 (4.32%)
   Approximately 1 in 23 pair-constrained orderings avoid 5-line transitions.
@@ -1644,8 +1649,8 @@ How often do pair-constrained orderings also avoid 5-line transitions?
 ### Sensitivity analysis: reversed bit convention
 
 ```
-What if bit 0 = top line instead of bottom? All binary values reverse,
-changing pair types and the difference wave. Key properties tested:
+What if bit 0 = top line instead of bottom? All binary values reverse; bit reversal
+preserves Hamming distance and pair types, so these are checks of the code. Key properties tested:
   Pair structure preserved:  Yes
   No-5 property preserved:   Yes
   Difference wave identical: Yes
@@ -1681,8 +1686,8 @@ Increasing --trials narrows these CIs because the estimate becomes more precise.
 ## Monte Carlo analysis
 
 The King Wen sequence has a striking property: no two consecutive hexagrams
-differ by exactly 5 lines. With 6 lines per hexagram and 7 possible difference
-values (0-6), is avoiding 5 remarkable or just a coincidence? To find out, we
+differ by exactly 5 lines. With 6 lines per hexagram and 6 possible difference
+values (1-6; 0 cannot occur between distinct hexagrams), is avoiding 5 remarkable? We
 randomly shuffle the 64 hexagrams thousands of times and check how often a
 random ordering also avoids 5-line transitions. The rarer it is, the less
 plausible chance becomes as an explanation for the avoidance.
@@ -1690,6 +1695,6 @@ plausible chance becomes as an explanation for the avoidance.
 ```
 Permutations with no 5-line transitions: 20/10,000 (0.20%)
 Approximately 1 in 500 random orderings share this property.
-Odds ratio against random: 499:1
+Odds against the property under unconstrained shuffling: 499:1 (within this shuffle model -- not odds against the sequence being random; among pair-constrained orderings the property is far commoner, see the pair-constrained comparison)
 ```
 

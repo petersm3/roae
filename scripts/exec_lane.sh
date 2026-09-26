@@ -8,7 +8,7 @@
 #   prefix-depth trilemma — existed because documentation was checked and EXECUTION never
 #   was. No review pass and no repo gate had ever executed a published reproduction command.
 #   Four named blind spots (roae-private/PRECODEX_GAP_ANALYSIS_2026_08_21.md §2):
-#     (a) no execution lane at all — a text sweep cannot see a 7.23 MB stack frame;
+#     (a) no execution lane at all — a text sweep cannot see a 7.23 MB stack frame (≈7.24 MiB as re-measured 2026-09-25, Q-826);
 #     (b) doc-vs-code auditing covered flags and env vars, never BUILD/LINK lines or arity;
 #     (c) the counted-number sweep was LIST-driven, so anything off the list was invisible;
 #     (d) report-only gate legs were never invoked.
@@ -69,8 +69,8 @@
 #      outside the leg (their figures resolve through the bundle's `Reproduce:` directive,
 #      not a per-figure window) and are COUNTED, not silently dropped. Runs in --list too.
 #   4. VERDICT: EXEC_LANE=PASS only if no gating FAIL. Machine-checkable tokens
-#      (grep -qx): EXEC_LANE=PASS|FAIL|ERROR, plus EXEC_LANE_{EXTRACTED,RUN,PASS,FAIL,SKIP}=N,
-#      plus EXEC_LANE_ERROR=<cause> alongside an ERROR verdict. 🔴 2026-09-08: the four
+#      (grep -qx): EXEC_LANE=PASS|FAIL|ERROR|INTERRUPTED, plus EXEC_LANE_{EXTRACTED,RUN,PASS,FAIL,SKIP}=N,
+#      plus EXEC_LANE_ERROR=<cause> alongside ERROR or INTERRUPTED. 🔴 2026-09-08: the four
 #      ERROR forms carried their cause on the verdict line AND went to stderr, so a consumer
 #      reading stdout with `grep -qx` could not see them at all. Verdict tokens now go to
 #      STDOUT, whole-line; the cause is its own token and the prose stays on its own lines.
@@ -373,7 +373,7 @@ def unbounded_branch(c):
     could-not-fail shape it exists to refuse. Measured 2026-09-07 on --list, both gating,
     both fence-origin, both published as recipes a reader is meant to paste:
         documentation/SOLVE_C_CLI.md:519   SOLVE_THREADS=128 ./solve 0 128
-        documentation/DEVELOPMENT.md:944   SOLVE_RESUME_HISTORY="..." ./solve 0 64
+        documentation/DEVELOPMENT.md:988   SOLVE_RESUME_HISTORY="..." ./solve 0 64
     time_limit ALSO defaults to 0 (SOLVE_C_CLI.md:199-200, "`0` means run to completion.
     Default 0"), so a MISSING time_limit is the same unbounded run as an explicit `0`.
     Matched on the strip_opt output, before run_one's `./` prefixing, with leading `VAR=...`
@@ -601,6 +601,42 @@ if [ "$MODE" = "list" ]; then
 fi
 
 # ---------------------------------------------------------------- 2. WORKSPACE
+# Q-457: A LANE KILLED MID-RUN MUST NOT LEAVE ITS CHILD OR ITS WORKSPACE BEHIND. Measured
+# 2026-09-08: this script was SIGTERMed at a 500 s bound and had no trap. Each command runs under
+# `setsid` (its own session and process group, below), so a signal to the lane never reached it:
+# `./verify --ie-count` was reparented to init and ran at 171% CPU for forty minutes on a 2-core
+# box, holding a 287 MB /tmp/exec_lane_ws.* workspace. The trap kills ONLY the process group this
+# script recorded when it started the command (CUR_PGID, a PID it holds -- never a pattern match,
+# never pkill -f), removes the scratch files it made, and exits non-zero. The last point matters:
+# solve.c checkpoints and exits 0 on SIGTERM, so the child's status cannot report the interrupt.
+# The lane records the signal itself and exits 128+N with EXEC_LANE=INTERRUPTED.
+# Proven by killing a live run (it leaves no child and no workspace, and exits 143).
+WS=""; LOGDIR=""; CUR_PGID=""; LANE_SIG=""; PRE_BG=""; LAUNCHING=0
+lane_kill_and_cleanup() {
+  local rc=$?
+  trap - EXIT; trap '' INT TERM HUP   # a second signal must not abort the cleanup half-done
+  # A signal can land between `setsid ... &` and the line that records its PID; $! then differs
+  # from the PID saved just before the launch, and it is that child.
+  if [ -z "$CUR_PGID" ] && [ "$LAUNCHING" = 1 ] && [ -n "${!:-}" ] && [ "${!}" != "$PRE_BG" ]; then CUR_PGID=$!; fi
+  if [ -n "$CUR_PGID" ]; then
+    kill -TERM -- -"$CUR_PGID" 2>/dev/null
+    local j=0; while [ $j -lt 20 ] && kill -0 -- -"$CUR_PGID" 2>/dev/null; do sleep 0.1; j=$((j+1)); done
+    kill -KILL -- -"$CUR_PGID" 2>/dev/null; CUR_PGID=""
+  fi
+  if [ -n "$WS" ] && [ -d "$WS" ]; then
+    if [ "${EXEC_LANE_KEEP:-0}" != "1" ]; then rm -rf "$WS"; elif [ -n "$LANE_SIG" ]; then echo "workspace kept: $WS"; fi
+  fi
+  rm -f "$INV" "$HELP" "$MEAS_OUT"
+  if [ -n "$LANE_SIG" ]; then
+    [ -n "$LOGDIR" ] && echo "logs kept: $LOGDIR"
+    echo "EXEC_LANE_ERROR=interrupted-by-SIG$LANE_SIG"; echo "EXEC_LANE=INTERRUPTED"
+    [ "$rc" -eq 0 ] && rc=1
+  fi
+  exit "$rc"
+}
+lane_on_signal() { LANE_SIG=$1; trap '' INT TERM HUP; exit "$2"; }
+trap lane_kill_and_cleanup EXIT
+trap 'lane_on_signal INT 130' INT; trap 'lane_on_signal TERM 143' TERM; trap 'lane_on_signal HUP 129' HUP
 WS="$(mktemp -d "${TMPDIR:-/tmp}/exec_lane_ws.XXXXXX")"
 LOGDIR="$(mktemp -d "${TMPDIR:-/tmp}/exec_lane_logs.XXXXXX")"
 ( cd "$ROOT" && git ls-files -z | tar --null -T - -cf - ) | tar -xf - -C "$WS"
@@ -712,7 +748,7 @@ doc_states_prereq() {   # $1 = sources, $2 = name; true iff SOME source doc name
     f="${s%%:*}"
     [ -f "$ROOT/$f" ] || continue
     awk '/^[[:space:]]*```/ { inf = !inf; next } !inf { print }' "$ROOT/$f" \
-      | sed -E 's/`[^`]*`//g' | grep -qiw -- "$2" && return 0
+      | sed -E 's/`[^`]*`//g' | grep -ciw -- "$2" >/dev/null && return 0
   done
   return 1
 }
@@ -802,9 +838,10 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   # | sha256sum` returned rc 0 and was recorded PASS -- a crashing producer was invisible.
   # pipefail is PAIRED with the rc-141 rule in the outcome ladder below; on its own it would
   # manufacture FAILs on every published row that pipes into an early-closing consumer.
+  PRE_BG=${!:-}; LAUNCHING=1   # Q-457: lets the trap find a child whose PID was not yet recorded
   setsid bash -c "set -o pipefail; ulimit -S -s 8192 2>/dev/null; cd '$WS/$cwd' || exit 97; $execmd" \
     </dev/null >>"$log" 2>&1 &
-  local pid=$!
+  local pid=$!; CUR_PGID=$pid; LAUNCHING=0   # setsid made $pid its own process-group leader (Q-457)
   local i=0 killed=0
   while [ $i -lt $((budget*10)) ]; do
     kill -0 "$pid" 2>/dev/null || break
@@ -813,7 +850,7 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   if kill -0 "$pid" 2>/dev/null; then
     kill -TERM -- -"$pid" 2>/dev/null; sleep 2; kill -KILL -- -"$pid" 2>/dev/null; killed=1
   fi
-  wait "$pid" 2>/dev/null; local rc=$?
+  wait "$pid" 2>/dev/null; local rc=$?; CUR_PGID=""
   [ $killed -eq 1 ] && rc=124
   local dt=$((SECONDS-t0))
   if [ -n "$bkeep" ] && [ $rc -ne 0 ] && [ ! -e "$WS/$cwd/$bout" ]; then

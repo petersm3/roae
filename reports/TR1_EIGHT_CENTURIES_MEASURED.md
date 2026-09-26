@@ -31,7 +31,7 @@ about the arranger. Others are **typical** — common enough to be unremarkable.
 stated** (down
 to roughly one in fifty million — an order-of-magnitude figure at that sampling depth, with the most
 specific configurations rare largely by specification rather than principle; see §3's data-like caveat), and King Wen has them. The report culminates in the conflict theorem: the
-literature's four strongest rules **cannot all be satisfied by any C1∩C2∩C4∩C5-valid ordering**, and King Wen sits
+literature's four strongest rules (the four named-author rules of [TR-2](TR2_THE_RULES_CONFLICT.md), two by Moore and two traced through Schulz; "strongest" is not a scoreboard ranking, on which `ccn8`'s ×3.8M cut outranks Moore parity's ×1,362) **cannot all be satisfied by any C1∩C2∩C4∩C5-valid ordering**, and King Wen sits
 exactly where that conflict forces a choice. A follow-up battery (§7) turns the same measurement on the
 sequence's most-ignored layer — which member of each pair comes first — where the one rule the literature
 ever offered ([Van den Berghe's](../documentation/CITATIONS.md#vandenberghe1999) hand-derived nuclear
@@ -62,7 +62,7 @@ anomaly loci. And then the ceiling: **the four strongest rules are jointly unsat
 theorem, drat-trim-verified). Perfection was never available; King Wen's profile reads as a trade-off
 position — exact on one strong rule, missing the other three by 2 each (measured margins; no
 extremal check exists). (All four rules are
-KW-descriptive, so sitting near their joint Pareto frontier is expected rather than an efficiency
+KW-descriptive, so scoring well on all four at once is expected rather than an efficiency
 result — see §5.)
 
 ## Sections
@@ -74,7 +74,7 @@ result — see §5.)
    mass; fractions are ratios of canonical-leaf masses. Consistency check: the instrument reproduced the
    previously-published total space size estimate to 0.03% (agreement within the same estimator family,
    since that figure is itself a Knuth estimate — the
-   absolute validation of the estimator is TR-11's exact anchors). Every formalization was verified to reproduce its
+   absolute validation of the estimator is TR-11's exact anchors; that run's own total is not archived, see the Verification Guide). Every formalization was verified to reproduce its
    source's stated King Wen values exactly before measurement (Moore's 16/18 with violations at pair
    positions 22–23; rhythm breaks at (7,8) and (22,23)); rule predicates are two-language verified
    (independent C and Python implementations). Caveats stated up front:
@@ -102,7 +102,7 @@ result — see §5.)
    undisputed null — it is conservative in the sense [TR-8](TR8_REORDERING_REVISITED.md) §2 states
    plainly, and the same firewall METHODS builds for constraints-as-evidence is not applied to
    constraints-as-denominator. **(d)** strict-form masses near 10⁻⁶ carry ~±10-15% relative sampling
-   error at this probe count.
+   error at this probe count. ⚠ *(Labelled 2026-09-25, Codex v3 review, V3B-04#7: ±10–15% is an estimate, not a printed error. The run predates the estimator's `se=` field and none of its output is archived, so no per-row error or hit count is on record.)*
 2. **The first-wave scoreboard (2026-07-02).**
 
    | Rule (source) | Fraction of C1–C5 mass | Cut factor | King Wen |
@@ -291,7 +291,7 @@ result — see §5.)
    earlier in this paragraph; "minimally imperfect" asserted the same unsupported extremal property and is withdrawn here
    too). All four rules are KW-derived — selected because King Wen exhibits them, even
    where their form is general — so King Wen
-   sitting near their joint Pareto frontier is expected rather than an efficiency result; the
+   scoring well on all four at once is expected rather than an efficiency result (nearness to their joint Pareto frontier is unverified: no extremal check exists); the
    ~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
    rules, and is not a measure of design efficiency (no arbitrary-rule-bundle baseline exists to read it
    against). *(Sourcing flag, added 2026-08-01: the ~1-in-25-million figure (≈4×10⁻⁸) is carried from the
@@ -318,7 +318,7 @@ result — see §5.)
    pass (the prior credit was unsupported by Li's treatment; see CITATIONS.md §Classical sources) —
    modern treatment **[Hacker & Moore 2003](../documentation/CITATIONS.md#hacker-moore2003)**; the
    pair-positioning parity rule and rhythm rule to **Moore ([2005](../documentation/CITATIONS.md#moore2005), [1989](../documentation/CITATIONS.md#moore1989))**, building on the *Dazhuan*
-   odd=Heaven/yang attribution; the gender/position-parity rule (measured at ×11,364 in the companion
+   odd=Heaven/yang attribution; the gender/position-parity rule (measured at ×11,364 — under this project's "≤2 violations anywhere" relaxation, [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) §2 fn⁸ — in the companion
    registry) originates with **Schulz 1990** — attribution corrected 2026-07-03 upon first-hand reading
    (Cook had been credited as primary) — elaborated by **Cook 2006**, its single exception first
    recognized by **Zhu Yuansheng (13th c.)** per [Schulz 2018](../documentation/CITATIONS.md#schulz2018) fn. 42; the trigram configuration to
@@ -329,7 +329,7 @@ result — see §5.)
    measurement of this inventory — corrections welcome via CITATIONS.md. Honest closing caveats: rule
    classes differ in kind — forced rules explain nothing beyond C1–C5; data-like rules (exact
    positions/configurations, e.g. ccn4, Cook's level-3 positions, and d7 — classified 2026-08-02, §3
-   headline 3) carry rarity that is partly specification, not principle; none of these rules, singly or jointly, approaches uniqueness (the full
+   headline 3) carry rarity that is partly specification, not principle; none of these rules, singly or jointly, approaches uniqueness (§4's joint-strict population, `SOLVE_KNUTH_MOORE_STRICT`, still holds ≈1.13×10²⁹ canonical orderings; for scale, the full
    C1–C7 space holds ≈5.2×10³¹ orderings). Accordingly **none is promoted into the formal constraint
    system**; they are measured properties of King Wen's position in the population, with
    description-length and attestation recorded for each (see [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)).
@@ -402,7 +402,7 @@ result — see §5.)
    C4-oriented fiber)*. Rows 1–7: seven literature-anchored orientation ideas,
    from Cook's correct-line stage (the one explicit within-pair orientation rule in the modern academic
    literature) through Moore's rising/falling system (our count reproduces his published 10R/8F exactly)
-   to the classical yang-precedence reading, are all **null** — dead-typical of the choices actually
+   to the classical yang-precedence reading, are all **null** — typical of the choices actually (two-sided exact-fiber p ≥ 0.09 on both fibers, table above; ⚠ 2026-09-25, Codex v3 review, V3B-04#28: this read "dead-typical", which was not defined)
    available. The orientation layer is not decorated with weak echoes of the ordering rules; it is silent
    on every axis but one.
 
@@ -416,7 +416,7 @@ result — see §5.)
    attained anywhere on the C4-oriented fiber**: exactly **12 of 1,720,320** vectors reach 29 (King Wen
    among them; exact P(X ≥ 29) = 6.9754×10⁻⁶ one-sided), and **none reaches 30** — given the received
    opening orientation, which C4 fixes by definition, perfect agreement is
-   unattainable, so his declared exception is not a blemish his rule tolerates but a **forced** feature:
+   unattainable, so an exception is **forced** — though not his particular one ⚠ *(corrected 2026-09-25: with pairs 3/4 and 5/6 both orientation-reversed the ordering stays C1–C5-valid at C3 = 776 and still scores 29, the miss moved off 3/4; `sat.verify_seq` and `solve.vdb_nucorient`; CITATIONS.md's Van den Berghe entry was corrected the same way on 2026-09-07. Codex v3 review, V3B-04#29)*:
    no valid orientation of King Wen's pair sequence *keeping the (63, 0) opening* satisfies all 30
    predictions. The 2026-07-26 pair-only re-check locates where the impossibility lives: on the
    **pair-only-C4 fiber** (2,703,360 vectors, both opening orientations) exactly **2 vectors attain
@@ -428,18 +428,18 @@ result — see §5.)
    That clarifies the
    rule's standing — under the received opening it is not "almost perfect"; it is **perfect up to
    impossibility**. The unconditional
-   population concurs: zero mass at ≥ 29 in ≈3.6×10⁶ weighted **canonical** (C1–C5) leaves
+   population is silent rather than corroborating (zero hits is sampling starvation, not a bound — METHODS; ⚠ corrected 2026-09-25, this read "concurs"): zero mass at ≥ 29 in ≈3.6×10⁶ weighted **canonical** (C1–C5) leaves
    (2×10⁹-probe run, `leaves_canonical_C1C5` hit rate 0.0018 in `reports/evidence/f5/f5_tier1.out`).
    *(Corrected 2026-08-01: this read "≈2.9×10⁷ weighted valid-sequence leaves", which is the C3-free
    `leaves_C1C2C4C5` count — an 8× overstatement of the sample the F5 scorer actually saw. `score_f5`
    runs inside the C3 gate and its masses are normalised by canonical mass, so the canonical count is the
    right depth. Note also that a raw leaf count is not the effective sample size for a weighted estimator:
-   METHODS defines n_eff = 1/relerr², which is far smaller.)*
+   METHODS defines n_eff,rel = 1/relerr², which is far smaller.)*
    Credit where it is due: Van den Berghe **found** this regularity, a quarter-century ago and without
    any of this machinery; ROAE's contribution is to operationalize it, enumerate its null exactly, and
    locate it in the population — the finding is his, the measurement is ours. It is of a piece with his
    work overall: our audit of his web-published reconstruction verified 17 of 19 checkable claim-groups
-   exactly, with his two self-declared exceptions falling precisely where computation finds the misfits.
+   exactly, with his two self-declared exceptions falling precisely where computation finds the misfits. ⚠ *(2026-09-25, Codex v3 review, V3B-04#31: that audit is a private working record. Its 19 claim-groups are not listed in this repository, so the 17-of-19 count cannot be checked from the tree.)*
 
    The honest scoping travels with the result — and it is decisive about how the number may be read.
    Van den Berghe derived the rule *from* King Wen, so King Wen's placement on the rule's own scale is a
@@ -472,7 +472,7 @@ result — see §5.)
    one-sided is 6.9754×10⁻⁶; on the pair-only fiber, 2.2195×10⁻⁵ and 1.1097×10⁻⁵ respectively; these
    are recorded for completeness but are **not** graded against the family
    or global bars, because the functional was fitted to the sequence being scored. The gauge-control
-   flag — the statistic inverts, ~50× attenuated, under direction-reversing relabelings — is likewise
+   flag — the statistic inverts, ~50× attenuated, under direction-reversing relabelings — ⚠ *(sourced 2026-09-25, Codex v3 review, V3B-04#33: the upside-down relabeling scores 4 and back-to-front scores 5 ([evidence/f5/f5_corpus_gate.out](evidence/f5/f5_corpus_gate.out)). Read against King Wen's own fiber histogram, `awk '$1=="modec_hist" && $2=="vdb_nuc" && $3<=4 {s+=$4} END {print s, s/12}' reports/evidence/f5/f5_modec_fiber.out` prints `598 49.8333`: 598 vectors score 4 or less against 12 at 29, which reproduces ~50×. Back-to-front's 5 gives 2,264 vectors, ×189. Neither relabeled sequence's own fiber is enumerated, so this is a reading of the histogram, not a p-value)* is likewise
    reported as frozen, not adjudicated.) The corpus gate runs clean but carries little weight:
    Mawangdui scores 1 — below the whole 2×10⁹-probe sampled range [2, 28] of `vdb_nuc` over C1–C5-valid
    leaves — and [Jing Fang](../documentation/CITATIONS.md#jingfang) scores 6, near that range's bottom;
@@ -521,7 +521,7 @@ All values are the reports' stated numbers; generated by
 
 ## Verification Guide
 
-⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, Codex V2-F08 #4, prose batch P37: `ulimit -s unlimited` is a **sufficient** setting that had been published as a **necessary** one — and one that a host or container with a hard stack cap cannot even apply, so the published requirement was a false blocker there. `solve.c`'s `--estimate-knuth` preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED under TR-9 v1.24 on a locally built binary: `ulimit -s 8192` refuses and exits 1, `ulimit -s 16384` runs the estimator to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. This is the sibling propagation of the narrowing TR-9 made on 2026-09-02 and reported but did not sweep.)*
+⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.24 MiB frame and `estimate_tree_knuth` a further ~1.48 MiB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, Codex V2-F08 #4, prose batch P37: `ulimit -s unlimited` is a **sufficient** setting that had been published as a **necessary** one — and one that a host or container with a hard stack cap cannot even apply, so the published requirement was a false blocker there. `solve.c`'s `--estimate-knuth` preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED under TR-9 v1.24 on a locally built binary: `ulimit -s 8192` refuses and exits 1, `ulimit -s 16384` runs the estimator to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. This is the sibling propagation of the narrowing TR-9 made on 2026-09-02 and reported but did not sweep.)* ⚠ *(Frame sizes corrected 2026-09-25, Q-826: this note gave `main` as ~7.23 MB and the estimator as about one megabyte (1.02), figures from an earlier tree. `gcc -O3 -pthread -fopenmp -fstack-usage -c solve.c` writes each function's frame size to `solve.su`; on this tree, with gcc 13.3.0, it reports `main` at 7,590,976 bytes (≈7.24 MiB) and `estimate_tree_knuth` at 1,553,296 bytes (≈1.48 MiB). The sum, ≈8.72 MiB, still exceeds 8 MiB and fits in 16 MB, so the requirement stands.)*
 
 - Population fractions, both waves: `SOLVE_KNUTH_SCORE=1 SOLVE_KNUTH_SCORE_REG=1 ./solve --estimate-knuth 20000000000`
   ⚠ **[COMMAND CORRECTED 2026-09-24 (v1.34; Codex V3A-087#5, Q-742) — this command lacked the second flag. The 31-rule registry scorer is a separate flag (`SOLVE_KNUTH_SCORE_REG`,
@@ -531,7 +531,7 @@ All values are the reports' stated numbers; generated by
   fractions or its thread count. No `SOLVE_THREADS` value is added, because one would be a guess. Any
   thread count gives an estimate of the same quantity; none is claimed to reproduce the published digits.]**
   (consistency check vs the total-space size *estimate* in documentation/SEARCH_SPACE_SIZE.md, agreement
-  0.03% — same estimator family, so this is consistency, not independent validation; cf. v1.18)
+  0.03% — same estimator family, so this is consistency, not independent validation; cf. v1.18) ⚠ **[2026-09-25, Codex v3 review, V3B-04#4: the run's own total estimate is not printed in this report or archived, so this 0.03% cannot be recomputed from the tree. It is the figure as recorded at the time.]**
 - Per-rule registry, formalizations, attributions, KW-value reproduction: `solve.py --registry-verify`;
   [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md); documentation/CITATIONS.md §Attributed candidate
   rules
@@ -606,4 +606,5 @@ All values are the reports' stated numbers; generated by
 | v1.32 | 2026-09-02 | **§2(d)'s Cook-anchor split re-priced against the measured class average — the un-swept sibling of TR-7 v2.3 (prose lane, backlog item 104; GATE 59's first live run).** From v1.21 this entry split the anchor's apparent ×2.4 as "×1.9 parity-forced · ×1.25 contingent residual" off the counting baseline 1/16 = 6.25%, and said "16 of the 31 non-initial pairs ineligible" — whose own arithmetic gives 1/15. [TR-7](TR7_CIRCULAR_READING.md) v2.3 withdrew the split on 2026-09-02 (the 16-element eligibility *support* is a theorem; 1/16 as a *probability* assumes an exchangeability the report does not prove and that its measured class masses 65.2 / 17.5 / 17.4% against the counting 62.5 / 18.75 / 18.75% contradict) and named this entry as still outstanding; [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) corrected the 16 → 15 miscount on 2026-09-01 without reaching this copy. Both are fixed here: 15 of 31 ineligible, 1/16 a reference not a null, and the split re-derived from figures TR-7 prints — the class average 6.52% is the 65.2% d = 3 wrap mass spread over its ten closers, 6.52 / 3.2258 = ×2.02 tracks class structure, 7.84 / 6.52 = ×1.20 is the A₂-specific residual, and they compose to 7.84 / 3.2258 = ×2.43. The "holds for every C4+C5 ordering" clause was true of the support, not of the ×1.9, and is dropped; "mostly forced" becomes "mostly class structure". The v1.21 row above retains the superseded split as an append-only historical record, per the v1.24 precedent. GATE 59's adjudicated-open row for this site is deleted in the same change, and TR-7's marker naming the two siblings outstanding is updated at TR-7 v2.5. **No measurement, count, p-value, theorem, certificate or verdict changed**: 7.84% and every scoreboard entry stand; two derived ratios move |
 | v1.33 | 2026-09-04 | **The 2026-07-26 two-opening instrument and its raw output are published; §7's follow-up commit promise is discharged after six weeks.** §7's pair-only-C4 re-check sentence has said since v1.16 that *"its instrument and raw output join evidence/f5 in a follow-up commit after operator review of this retraction"* — a promise [CLAIMS_DECIDED.md](../documentation/CLAIMS_DECIDED.md) then propagated as *"the two-opening instrument and its raw output are not in this repository"*, so a reader was pointed at an absence twice. Four files now ship in [evidence/f5/](evidence/f5/README.md): `f5_pair_only_fiber.py` / `.out` (the enlarged-fiber scan — both slot-0 orientations, 1,720,320 + 983,040 = 2,703,360 vectors, all 11 frozen functionals scored exactly, carrying the 400-sample cross-implementation + C5 + C3 = 776 gate of which 200 are slot-0-reversed) and `f5_pair_only_verify30.py` / `.out` (the two X = 30 vectors re-scored by reconstructing each full 64-hexagram sequence and calling `solve.py` `vdb_nucorient` on it directly, rather than through the per-slot decomposition the scan uses). Both published copies were **rerun from the public tree before publication and reproduce their archived outputs byte-for-byte** (~21 s and ~56 s; commands in that directory's README). Provenance is stated rather than implied: the sole executable change from the private originals is the machine-absolute `solve.py` import path becoming relative to the bundle directory, exactly the edit the July f5 files carry; the comment-only changes (an added module docstring, and the removal of a "not a repo file" line that publication would have made false) are itemised in the README. **No number, fiber size, p-value, verdict or certificate changes** — every figure these files carry was already published in §7 and in CLAIMS_DECIDED; what changes is that a reader can now regenerate them |
 | v1.34 | 2026-09-24 | **Four corrections from the Codex v3 E3 batch-2 adjudication (Q-742).** **(i) The grand-precursor recipe (§5(e)) was one edit short of what it claims (V3A-087#3, executed).** "An orientation flip at slot 7 and an adjacent-pair swap at slots 21/22" scores (0, 1, 0) under the archived scorers. The archived k = 3 hits also reverse the pair the swap moves into slot 22, which gives (0, 0, 0). That reversal is now in the recipe. Minimality (3 slot-edits) is unchanged, and [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) result 7 already carried the full recipe. **(ii) The theorem's scope (V3A-087#7).** "the literature's rules exactly as its authors stated them" is now "the strict, zero-exception forms as implemented". LITERATURE_RULES_POPULATION_TESTS.md made the same scoping on 2026-09-01, and this sibling was missed. **(iii) F5 row 3 (V3A-087#2).** It scores `f5_ground_truth.py`'s adaptation of Moore's rhythm rule, which differs from the `f11_events.py` scorer behind TR-2. The adaptation is now stated under the table. **(iv) The "both waves" command (V3A-087#5, V3B-14#13)** lacked `SOLVE_KNUTH_SCORE_REG=1`, so it printed no registry rows; the flag is added. Its thread count is recorded nowhere in the repository, so the command carries a scoping note instead of an invented pin. No measurement, theorem, certificate or verdict changed. V3A-087#4 (the forced exception) stays with Q-438 CD-A2 |
-| v1.35 *(current)* | 2026-09-25 | **The orientation-battery population run gets its thread pin (Q-758; Codex v3 E3 batch 5, the F1 thread-pin class).** The Verification Guide's `SOLVE_KNUTH_SCORE_F5=1 … --estimate-knuth 2000000000` command now carries `SOLVE_THREADS=64`, read from the first line of the archived reports/evidence/f5/f5_tier1.out. No figure changes. |
+| v1.35 | 2026-09-25 | **The orientation-battery population run gets its thread pin (Q-758; Codex v3 E3 batch 5, the F1 thread-pin class).** The Verification Guide's `SOLVE_KNUTH_SCORE_F5=1 … --estimate-knuth 2000000000` command now carries `SOLVE_THREADS=64`, read from the first line of the archived reports/evidence/f5/f5_tier1.out. No figure changes. |
+| v1.36 *(current)* | 2026-09-25 | **Wording sweep from the Codex v3 E3 batch-5 adjudication, and five figures sourced or labelled (Q-759; Codex V3B-04).** (i) "The four strongest rules" is defined at first use: the four named-author rules of TR-2, not a scoreboard ranking (#18). (ii) "Near their joint Pareto frontier" becomes "scoring well on all four at once", with the frontier stated as unverified (#19). (iii) The Schulz gender rule's ×11,364 carries the "≤2 violations anywhere" relaxation (#22). (iv) The closing caveat's scale note cites §4's joint-strict population, not only the C1–C7 count (#23). (v) Van den Berghe: an exception is forced, but not his particular one. With pairs 3/4 and 5/6 both reversed the ordering stays C1–C5-valid at C3 = 776 and still scores 29, with the miss moved (#29, executed with `sat.verify_seq` and `solve.vdb_nucorient`). (vi) Zero population hits at X ≥ 29 are called silent, not corroborating (#30). (vii) Figures without a runnable source are labelled: the 0.03% (the run's own total is not archived, #4), the ±10–15% (an estimate; no `se=` is on record, #7), and the 17 of 19 (a private audit, #31). "Dead-typical" becomes "typical", with the exact-fiber p-values (#28). The ~50× gauge attenuation is sourced to the archived fiber histogram, with the awk line that gives ×49.8 and the caveat that it is not a p-value (#33). ⚠ notes in place. (viii) Also, the stack-frame sizes in the `--estimate-knuth` stack note are re-measured with `gcc -fstack-usage` (`main` ≈7.24 MiB, `estimate_tree_knuth` ≈1.48 MiB; the note had ~7.23 MB and about one megabyte), with a ⚠ note in place; the 16 MB requirement stands (Q-826). No other figure changes. **The effective-sample-size symbol is subscripted to match METHODS (Q-713).** §7's note on the F5 sample size cites METHODS' n_eff = 1/relerr². METHODS now writes that quantity as n_eff,rel, because TR-12 uses the bare symbol for a different one, the Kish n_eff,Kish = (Σw)²/Σw². The note is updated to the subscripted name. No number changes |

@@ -116,11 +116,11 @@ gate_branch_registry() {
       src=remote; echo "  BRANCH_REGISTRY_SOURCE=remote"
       local _c
       for _c in $cache; do
-        printf '%s\n' "$remotes" | grep -qxF "$_c" \
+        grep -qxF "$_c" <<<"$remotes" \
           || echo "  [note] local cache ref origin/$_c is NOT on the remote — a stale remote-tracking ref (git fetch --prune); it is NOT counted"
       done
       for _c in $remotes; do
-        printf '%s\n' "$cache" | grep -qxF "$_c" \
+        grep -qxF "$_c" <<<"$cache" \
           || echo "  [note] remote branch '$_c' is absent from the local cache (git fetch); it IS counted"
       done
     elif [ "${DOC_GATES_ALLOW_STALE_REMOTE:-0}" = "1" ]; then
@@ -150,7 +150,7 @@ gate_branch_registry() {
       # a false "registry row 'v4-query-program' matches no published branch" note, because the
       # appended names shared one line with the last real one. The per-branch verdict loop
       # word-splits and was unaffected; the printed population was wrong by 2x.
-      if ! printf '%s\n' "$remotes" | grep -qxF "$_p"; then
+      if ! grep -qxF "$_p" <<<"$remotes"; then
         remotes="${remotes:+$remotes
 }$_p"; echo "  [pending] also checking branch about to be published: $_p"
       fi
@@ -178,7 +178,7 @@ gate_branch_registry() {
   fi
   n=0
   for b in $remotes; do
-    if ! echo "$declared" | grep -qxF "$b"; then
+    if ! grep -qxF "$b" <<<"$declared"; then
       echo "  [FAIL] published branch '$b' is NOT declared in $REG."
       echo "         Add it as 'authoritative' or 'snapshot'. An undeclared public branch is"
       echo "         exactly how CX-30 stayed visible on five refs after main had retracted it."
@@ -189,7 +189,7 @@ gate_branch_registry() {
   done
   # A registry row for a branch that no longer exists is stale, not dangerous — report, do not fail.
   for b in $declared; do
-    echo "$remotes" | grep -qxF "$b" || echo "  [note] registry row '$b' matches no published branch (deleted?) — prune it."
+    grep -qxF "$b" <<<"$remotes" || awk -F'\t' -v b="$b" '$1 == b && $2 == "retired" {f = 1} END {exit !f}' "$REG" || echo "  [note] registry row '$b' matches no published branch (deleted?) — mark it 'retired' (the file keeps retired rows; Q-763)."
   done
   # The snapshot declaration is worthless if the reader is never pointed at it.
   if ! grep -qF 'BRANCH_REGISTRY.tsv' README.md 2>/dev/null; then
@@ -314,7 +314,7 @@ gate_publication_state() {
     rm -f "$_G20_OUT"
     return 1
   fi
-  if grep -v '^##' "$_G20_OUT" | grep -q .; then
+  if grep -v '^##' "$_G20_OUT" | grep -c . >/dev/null; then
     grep -v '^##' "$_G20_OUT"
     echo "         An unchecked box in published prose is an obligation the document has not met."
     echo "         Reader-facing checklists are exempt — put them under a heading containing 'checklist'."
@@ -797,7 +797,7 @@ gate_viz_shape() {
   fi
   local out rc
   out=$(python3 "$G" --selftest 2>&1); rc=$?
-  if ! printf '%s\n' "$out" | grep -qx 'VIZ_SHAPE_SELFTEST=PASS'; then
+  if ! grep -qx 'VIZ_SHAPE_SELFTEST=PASS' <<<"$out"; then
     printf '%s\n' "$out" | sed 's/^/     /'
     echo "  [FAIL] $G --selftest did not print VIZ_SHAPE_SELFTEST=PASS (rc $rc)"
     return 1
@@ -1660,7 +1660,7 @@ ESPY
 
   local pk pt pf pb po pn pd pw pys pyk pyo pyn pyu
   IFS=$'\t' read -r pk pt pf pb po pn pd pw pys pyk pyo pyn pyu < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$12"\t"$13"\t"$14; exit}')
-  if ! printf '%s\n' "${pk-}" | grep -qxE '[0-9]+'; then
+  if ! grep -qxE '[0-9]+' <<<"${pk-}"; then
     echo "  [FAIL] GATE 89 printed no population census — nothing was measured."
     echo "DOC_GATE_EMITTED_SURFACE_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_TOKENS=-1"
     echo "DOC_GATE_EMITTED_SURFACE_NEW=-1"; echo "DOC_GATE_EMITTED_SURFACE_OPEN=-1"
@@ -1754,10 +1754,10 @@ gate_completion_semantics() {
   if [ ! -r documentation/SOLUTIONS_FORMAT.md ]; then
     echo "  [FAIL] documentation/SOLUTIONS_FORMAT.md unreadable — cannot confirm the budget scope"
     rc=1
-  elif ! printf '%s' "$_sf" | grep -qF 'within its node budget'; then
+  elif ! grep -qF 'within its node budget' <<<"$_sf"; then
     echo "  [FAIL] SOLUTIONS_FORMAT.md lost its budget qualifier — the 2026-08-28 correction."
     rc=1
-  elif ! printf '%s' "$_sf" | grep -qF 'lower bound'; then
+  elif ! grep -qF 'lower bound' <<<"$_sf"; then
     echo "  [FAIL] SOLUTIONS_FORMAT.md no longer calls the record count a lower bound."
     rc=1
   else
@@ -1965,7 +1965,7 @@ gate_quotient_frame_isolation() {
   if [ -z "$v1_feed" ]; then
     echo "  [FAIL] could not locate V1's feeder line in $f (block renamed or restructured?)"
     rc=1
-  elif printf '%s' "$v1_feed" | grep -q 'marginal_raw'; then
+  elif grep -q 'marginal_raw' <<<"$v1_feed"; then
     echo "  [ok]   V1 positional-marginal field is fed from marginal_raw"
   else
     echo "  [FAIL] V1's feeder is NOT marginal_raw:"

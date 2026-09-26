@@ -23,7 +23,7 @@
 #	                  the branch is redundant. Declared here because this file records what is
 #	                  PUBLISHED, not what is unmerged: the ref still exists on the remote and a
 #	                  reader can still open it. The row retires when the ref is deleted, and
-#	                  deletion is gated on tag-before-delete.
+#	                  deletion follows a tag-before-delete POLICY, checked by hand (scripts/pre_push_gate.sh runs no gate on a deletion push; Q-763).
 #	  retired       — the ref is DELETED from the remote. The row stays because this file is how a
 #	                  reader learns where the work went: column 4 names the tag that still pins the
 #	                  exact commit, so `git branch <name> <tag>` restores it byte-for-byte. A row

@@ -36,13 +36,13 @@ subcommand printed the docstring and exited 0).
 ## EXTERNAL-BINARY REQUIREMENTS (all optional)
 
 `sat.py` itself is stdlib-only Python: `--emit-cnf` and `--decode` need
-**no** third-party binaries. Two subcommands invoke optional external
+**no** third-party binaries. Three subcommand forms invoke optional external
 tools and **exit gracefully with a clear install message** (never a
 traceback) if the tool is not on `PATH`:
 
 | Subcommand | Requires on `PATH` | Role |
 |---|---|---|
-| `--witness` | [`kissat`](https://github.com/arminbiere/kissat) | external SAT solver for the witness-search loop |
+| `--witness`; `--rigidity-cnf OUT.cnf --run` | [`kissat`](https://github.com/arminbiere/kissat) (`--run` also uses `drat-trim` when present) | external SAT solver for the witness-search loop; deciding the rigidity CNF |
 | `--certify-count` | [`d4`](https://github.com/crillab/d4) **and** `cpog-gen` + `cpog-check` ([CPOG](https://github.com/rebryant/cpog)) **and**, transitively via `cpog-gen`, `cadical` + `drat-trim` — five binaries | d-DNNF compilation + certified model counting |
 
 No other part of `sat.py` (or of the project's Python layer) needs any

@@ -248,6 +248,12 @@ def xa_atlas(perturb_flow=False, perturb_sol=False, perturb_t=False, n=9,
     # off-by-one t(root) identity the leg exists to test. A fixture that omits a field the
     # producer always writes cannot tell those two failures apart.
     # Producer reference: solve.c kc_h_scan writes "t_source": "t-ladder" and nothing else.
+    # 🔴 THE FIXTURE MUST ALSO BE ARITHMETICALLY CONSISTENT (RCQ04 F1 / Q-581, 2026-09-25). Its
+    # layer 0 used to carry an all-zero by_class beside a branch holding all NX solutions. Nothing
+    # on this path compared the two until the n-independent gates moved into atlas_queries; the
+    # layer-0-vs-branch-table gate now does, and it read the clean fixture as FAIL. The single
+    # branch enters at hexagram 63, popcount 6, so layer 0's d6 class holds all NX.
+    layers[0]["by_class"]["d6"] = str(NX)
     br = {"global_pair": 1, "entry": 63, "exit": 0,
           "solutions": str(NX + (1 if perturb_sol else 0)),
           "walks": NX, "prefixes_t_units": str(NX), "t_source": "t-ladder"}

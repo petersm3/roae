@@ -284,7 +284,7 @@ applicable.
      in groups of consecutive hexagrams, this finding should be
      attributed to augchan42.
   4. **Within-pair vs between-pair Hamming-distance asymmetry:
-     0.63 coefficient** (99.2nd percentile). ROAE's C1 (pair
+     0.63 coefficient** (99.2nd percentile) — Chan's figure, not reproduced here ⚠ *(noted 2026-09-25, Codex v3 review V3A-010#3: on `verify.py`'s `KW` the within-pair mean Hamming distance is 120/32 = 3.75 and the between-pair mean 91/31 ≈ 2.935, a difference of ≈0.8145, not 0.63; Chan's own definition of the coefficient is not restated in this entry, so this is a flag, not a refutation)*. ROAE's C1 (pair
      structure) STRUCTURALLY forces within-pair distances into
      `{2, 4, 6}` via the reverse/complement construction — in every
      C1-valid ordering they form exactly the multiset

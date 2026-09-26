@@ -227,8 +227,8 @@ $SSH "$ADMIN@$VM_IP" "
         # The selftest is a sanity gate, NOT training data: clear its .gcda so the count below
         # can only be satisfied by the workload (Q-749; it used to satisfy it on its own).
         rm -rf profdir && mkdir profdir
-        # PGO workload: representative hot paths. Its status is READ, not swallowed: a refused
-        # or failed workload leaves a profile of nothing, and Pass 2 must not build from it.
+        # PGO workload: a short training run, not canonical-scale (V3A-102#4). Its status is READ,
+        # not swallowed: a refused or failed workload leaves a profile of nothing, and Pass 2 must not build from it.
         PGO_RC=0
         $PGO_WORKLOAD > /tmp/pgo_workload.log 2>&1 || PGO_RC=\$?
         if [ \"\$PGO_RC\" -ne 0 ]; then

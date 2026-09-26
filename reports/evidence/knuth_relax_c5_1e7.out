@@ -1,0 +1,11 @@
+# Provenance: measured 2026-09-25 (backlog Q-759; Codex v3 review, V3B-02#7 and #8) on a 16-core Linux x86-64 host. solve.c as published at 47f432c2 (sha256 e71b2c98d4a645765d69861ed673cab7850e8880810ca518f2e1be7785a4942b), built with: gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz (gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0). Command: ulimit -s unlimited; SOLVE_THREADS=32 SOLVE_KNUTH_RELAX_C5=1 ./solve --estimate-knuth 10000000. Below: its unedited stdout and stderr. A re-run reproduces every line except wall_s at the same (probes, threads).
+[knuth] 10000000 probes, 32 threads, 0 prefix level(s)
+[knuth] C5 RELAXED to C2-only (counting |C1 C2 C4|; MDL marginal pricing)
+KNUTH-PROBES planned=10000000 executed=10000000
+KNUTH_PROBES=EXECUTED-EQ-PLANNED
+KNUTH-ESTIMATE probes=10000000 threads=32 start_step=1 prefix_levels=0
+KNUTH-PROVENANCE seed_base=0x243f6a8885a308d3 moore_strict=0 gender_strict=0 score=0 r11_hist=0 wall_s=17
+  tree_nodes            : est=1.315683e+42  95%CI=[1.3155e+42, 1.3159e+42]  relerr=0.01%  hitrate=1
+  leaves_C1C2C4C5       : est=7.571405e+41  95%CI=[7.5700e+41, 7.5728e+41]  relerr=0.01%  hitrate=0.991
+  leaves_canonical_C1C5 : est=6.811964e+40  95%CI=[6.7976e+40, 6.8263e+40]  relerr=0.11%  hitrate=0.0863
+  [diag] canonical top single-probe share : max_w=1.986571e+42 = 0.0003% of estimate mass (skew/ESS audit; lower=better)

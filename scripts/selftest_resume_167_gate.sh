@@ -81,6 +81,8 @@
 #   M4  write prior_solutions_found=5 on ONE         expect FAIL   R==Z-1, D==1
 #   M5  rm ONE productive shard                      expect FAIL   D==1, sha still equal
 #   M6  strip the guard lines from phase_b.log       expect VACUOUS (R+D==0 rule)
+#   M7  flags byte 0xFF on ONE zero-yield sidecar    expect FAIL   R==Z-1, D==1, W==1, sha equal
+#   M8  ONE zero-yield sidecar padded to 576 B, v2   expect FAIL   R==Z-1, D==0, W==1, sha equal
 #
 # PINNED, from the first green run (2026-09-05, c284-staget, 128 cores, depth-2 default shape,
 # threads=4, PHASE_A 50M -> budget_A 16,501/cell, PHASE_B/single 200M -> budget_B 66,006/cell,
@@ -98,6 +100,17 @@
 # M2 and M6 are the two that matter: they are the "passed means never looked" cases, and the
 # unaugmented `--selftest-resume` passes both.
 #
+# M7/M8 (Q-818, 2026-09-25) are the two Q-732 reader hardenings, which until then only tests.py
+# covered. M7 sets reserved2[0] to 0xFF: the reader must require the flags byte to EQUAL
+# DFS_V2_FLAG_YIELD_ATTESTED, not merely contain it, so the cell is unattested and the guard
+# discards it (D==1). M8 appends 136 NUL bytes (440 -> 576 B on main) and leaves the v2 stamp: the
+# reader must refuse a v2 file of any size but sizeof(st), which falls through to the v1 reader,
+# which also refuses it, so there is no resume at all and no guard line (R==Z-1, D==0). In both
+# the cell is walked fresh and the sha must still equal single-shot's. W counts the reader's own
+# WARN line for that input ("unknown flag bits" / "stamped v2 but longer than"), exactly 1.
+# A pre-Q-732 reader resumes both cells as attested (R==Z, D==0, W==0 -> PASS), so both SURVIVE
+# against it. They run under --battery only; pre-push's single-run legs stay M0, M3, M4.
+#
 # M3/M4 mutate bytes inside a sidecar. The offsets are DERIVED, never hardcoded: reserved2[16]
 # is the last member of DFSCheckpointState_v2 and the writer fwrite()s exactly sizeof(st)
 # bytes, so from the file size alone
@@ -114,13 +127,13 @@
 # ============================================================================================
 # USAGE
 # ============================================================================================
-#   scripts/selftest_resume_167_gate.sh --solve ./solve [--mutant M0..M6]
+#   scripts/selftest_resume_167_gate.sh --solve ./solve [--mutant M0..M8]
 #                                       [--solve-phase-b ./solve_baseline]
 #                                       [--workdir DIR] [--threads N]
 #                                       [--nodes-a N] [--nodes-b N] [--keep]
 #   scripts/selftest_resume_167_gate.sh --battery --solve ./solve --solve-phase-b ./solve_base
 #
-# Wall: ~1 min per run on a many-core box at the default 50M/200M shape; the battery is 7 of
+# Wall: ~1 min per run on a many-core box at the default 50M/200M shape; the battery is 9 of
 # those. Runs `solve` three times per invocation — heavy; not for the orchestrator.
 #
 # Authored by Claude (ROAE lane, 2026-09-05). The specification it implements is Fable's
@@ -139,7 +152,7 @@ SOLVE_A=""; SOLVE_B=""; MUTANT="M0"; WORKDIR=""
 _nproc=$(nproc 2>/dev/null || echo 4); THREADS=$(( _nproc < 4 ? _nproc : 4 ))
 NODES_A=50000000; NODES_B=200000000; KEEP=0; BATTERY=0
 
-usage() { sed -n '2,120p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,142p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -200,11 +213,12 @@ command -v sha256sum >/dev/null 2>&1 && SHA_TOOL="sha256sum"
 
 # ---------------------------------------------------------------------------- one gate run
 # Globals set by run_gate(): G_S G_Z G_R G_D G_NA G_NB G_NS G_EXCESS G_VERDICT G_RC G_DIR G_MSG
+#   and, for the battery's M7/M8 kill criteria only (no token): G_W G_SHAEQ
 run_gate() {
   local mutant="$1" solve_a="$2" solve_b="$3" wd="$4"
   local tA="$wd/tdir_A" tB="$wd/tdir_B"
   G_S=-1; G_Z=-1; G_R=-1; G_D=-1; G_NA=-1; G_NB=-1; G_NS=-1; G_EXCESS=-1
-  G_VERDICT=""; G_RC=0; G_DIR="$wd"; G_MSG=""
+  G_VERDICT=""; G_RC=0; G_DIR="$wd"; G_MSG=""; G_W=-1; G_SHAEQ=-1
   mkdir -p "$tA" "$tB" || { G_VERDICT=ERROR; G_RC=43; G_MSG="mkdir failed"; return; }
 
   local common="SOLVE_THREADS=$THREADS SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 \
@@ -246,7 +260,7 @@ SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1"
         local n=0
         while IFS= read -r stem; do [ -n "$stem" ] && rm -f "$stem.dfs_state" && n=$((n+1)); done < "$pre_zero"
         echo "[gate] M2: removed $n shard-less sidecars" ;;
-    M3|M4)
+    M3|M4|M7|M8)
         local target; target=$(head -n1 "$pre_zero")
         [ -n "$target" ] || { G_VERDICT=ERROR; G_RC=43; G_MSG="$mutant: no zero-yield sidecar to mutate"; return; }
         local f="$target.dfs_state" sz
@@ -267,6 +281,12 @@ SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1"
         if [ "$mutant" = "M3" ]; then
           printf '\000' | dd of="$f" bs=1 seek="$off_res" conv=notrunc status=none
           echo "[gate] M3: cleared the attestation flag on $f"
+        elif [ "$mutant" = "M7" ]; then
+          printf '\377' | dd of="$f" bs=1 seek="$off_res" conv=notrunc status=none
+          echo "[gate] M7: set the flags byte to 0xFF on $f — unknown bits, NOT an attestation"
+        elif [ "$mutant" = "M8" ]; then
+          head -c 136 /dev/zero >> "$f"
+          echo "[gate] M8: padded $f from $sz to $(stat -c %s "$f") bytes, still stamped v2"
         else
           printf '\005\000\000\000\000\000\000\000' | dd of="$f" bs=1 seek="$off_sol" conv=notrunc status=none
           printf '\001' | dd of="$f" bs=1 seek="$off_res" conv=notrunc status=none
@@ -311,6 +331,8 @@ SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1"
   G_R=$(grep -c -F 'checkpoint ATTESTS zero yield' "$tA/phase_b.log")
   G_D=$(grep -c -F 'discarding resume, walking cell fresh' "$tA/phase_b.log")
   echo "[gate] guard resumed R=$G_R  guard discarded D=$G_D"
+  # The reader's own WARN for M7's / M8's input (0 on any other run of a correct binary).
+  G_W=$(grep -c -F -e 'WARN: unknown flag bits, yield NOT attested' -e 'is stamped v2 but longer than' "$tA/phase_b.log")
 
   # ---- single-shot at the final budget, fresh dir ---------------------------------------
   ( cd "$tB" && unset SOLVE_DEPTH && \
@@ -347,6 +369,7 @@ SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1"
   sha_s=$($SHA_TOOL "$tB/solutions.bin" 2>/dev/null | cut -d' ' -f1)
   echo "[gate] sha resume      = ${sha_r:-<none>}"
   echo "[gate] sha single-shot = ${sha_s:-<none>}"
+  G_SHAEQ=0; [ -n "$sha_r" ] && [ "$sha_r" = "$sha_s" ] && G_SHAEQ=1
 
   # ---- verdict, in order ----------------------------------------------------------------
   local thresh=$(( G_Z * bA / 2 ))
@@ -425,7 +448,7 @@ mkdir -p "$BROOT"
 echo "[battery] root=$BROOT  fixed=$SOLVE_A  baseline=$SOLVE_B"
 
 killed=0; total=0; battery_ok=1
-for m in M0 M1 M2 M3 M4 M5 M6; do
+for m in M0 M1 M2 M3 M4 M5 M6 M7 M8; do
   total=$((total+1))
   wd="$BROOT/$m"; mkdir -p "$wd"
   echo ""
@@ -443,13 +466,16 @@ for m in M0 M1 M2 M3 M4 M5 M6; do
     M4) exp=FAIL;    [ "$G_R" -eq $((G_Z-1)) ] && [ "$G_D" -eq 1 ] && why=ok ;;
     M5) exp=FAIL;    [ "$G_D" -eq 1 ] && [ "$G_R" -eq $((G_Z-1)) ] && why=ok ;;
     M6) exp=VACUOUS; [ $((G_R+G_D)) -eq 0 ] && why=ok ;;
+    M7) exp=FAIL;    [ "$G_R" -eq $((G_Z-1)) ] && [ "$G_D" -eq 1 ] && [ "$G_W" -eq 1 ] && [ "$G_SHAEQ" -eq 1 ] && why=ok ;;
+    M8) exp=FAIL;    [ "$G_R" -eq $((G_Z-1)) ] && [ "$G_D" -eq 0 ] && [ "$G_W" -eq 1 ] && [ "$G_SHAEQ" -eq 1 ] && why=ok ;;
   esac
+  xtra=""; case "$m" in M7|M8) xtra=" W=$G_W SHA_EQ=$G_SHAEQ";; esac
   if [ "$G_VERDICT" = "$exp" ] && [ "$why" = "ok" ]; then
     killed=$((killed+1))
-    echo "RESUME_167_MUTANT_$m=KILLED expected=$exp got=$G_VERDICT S=$G_S Z=$G_Z R=$G_R D=$G_D EXCESS=$G_EXCESS"
+    echo "RESUME_167_MUTANT_$m=KILLED expected=$exp got=$G_VERDICT S=$G_S Z=$G_Z R=$G_R D=$G_D EXCESS=$G_EXCESS$xtra"
   else
     battery_ok=0
-    echo "RESUME_167_MUTANT_$m=SURVIVED expected=$exp got=$G_VERDICT S=$G_S Z=$G_Z R=$G_R D=$G_D EXCESS=$G_EXCESS"
+    echo "RESUME_167_MUTANT_$m=SURVIVED expected=$exp got=$G_VERDICT S=$G_S Z=$G_Z R=$G_R D=$G_D EXCESS=$G_EXCESS$xtra"
   fi
   # M0 is the positive control: its tree is the one that should be clean, so only it is
   # cleaned up. Every other mutant's tree is evidence of a kill and is kept.

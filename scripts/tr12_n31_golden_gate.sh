@@ -352,7 +352,7 @@ for st in F:a1_fsha G:a2_gsha T:b_tsha; do
     base=$(basename "${rname:-}")
     # both on the SAME line: a golden listing 32 digests and 32 basenames in unrelated places
     # would otherwise satisfy a pair of independent greps while binding neither to the other.
-    if grep -F -- "$rsha" "$f" | grep -qF -- "$base"; then nhit=$((nhit+1)); else nmiss=$((nmiss+1)); fi
+    if grep -F -- "$rsha" "$f" | grep -cF -- "$base" >/dev/null; then nhit=$((nhit+1)); else nmiss=$((nmiss+1)); fi
   done <<< "$(grep -vE '^[[:space:]]*#' "$reg" | awk 'NF>=2{print $1, $2}')"
   if [ "$nreg" -eq 0 ]; then
     err "Tier 2 $row: $reg parsed to ZERO digest rows -- the registry format changed under this gate"

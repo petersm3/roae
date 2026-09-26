@@ -775,11 +775,11 @@ of budget-vs-tree-size ratio**.
 
 At very small budgets (e.g., 1 T = 6.3 M nodes per cell), the per-cell tree
 is so big that the budget cuts off in the middle of a sub-tree, and the exact
-set of records that "fit" before the cutoff is sensitive to subtle host
-environment factors (gcc minor-version code generation, glibc allocator
-behavior, kernel scheduler quanta, CPU microcode patch level). At 1 T scale,
-moving from one Azure host to another in the same SKU class can produce a
-*different* sha for the same source code.
+set of records that "fit" before the cutoff is sensitive to the per-cell
+budget itself: a change of a few hundred nodes per cell moves records at the
+cutoff. At 1 T scale two budgets that differ by 892 nodes per cell give two
+*different* shas for the same source code (first bullet below). ⚠ *(Corrected 2026-09-25, Q-763: this paragraph attributed 1 T sha
+differences to host factors — compiler version, allocator, scheduler, microcode, moving between hosts — the evidence the marker below withdraws.)*
 
 At canonical scales used by the project (11.2 T and above), the per-cell
 budget is large enough that the budget-cutoff happens at a deeper, more
@@ -798,13 +798,13 @@ moves proportionally fewer records. Empirically:
   sensitivity in the record to drop away: see
   [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
   per-cell budgets". Second correction of this fact.]**
-- **11.2 T canonical: host-stable across our current host class.** Seven
-  independent witnesses (Build A May 14, Build B May 14, cold-storage
-  re-checksum May 15, v3 sha-equivalence May 24, c72eada+#108 witness May
+- **11.2 T canonical: host-stable across our current host class.** Six
+  independent derivations (Build A May 14 and Build B May 14, both on D64als_v7
+  hosts per CANONICAL_HASHES.md, v3 sha-equivalence May 24, c72eada+#108 witness May
   27, t62 dress May 28, and the Tier-1 post-hardening dress May 31 — "Tier-1" being the
   *determinism-hardening* level, not a campaign budget and not the
-  warm/Archive **storage** tiers this document uses elsewhere) all
-  produce the same sha on D128als_v7 Spot westus3. See the 11.2T row in
+  warm/Archive **storage** tiers this document uses elsewhere) all produce the same sha, the later ones on D128als_v7 Spot westus3; a May 15 cold-storage re-checksum of the stored bytes also matched, which is preservation evidence, not a further derivation.
+  ⚠ **[CORRECTED 2026-09-25 (Q-763) — this read "Seven independent witnesses … on D128als_v7"; Build A and Build B ran on D64als_v7, and a re-checksum is not a derivation.]** See the 11.2T row in
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current
   main lineage; reproduces the historical sha byte-identically.
@@ -1427,8 +1427,8 @@ a third party can reproduce any canonical as follows:
 
 1. Clone the source repository, checkout the git ref named in the canonical's
    row in [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
-2. Build with the canonical flags (`gcc -O3 -g -march=native -flto -pthread
-   -fopenmp -o solve solve.c -lm -lz`).
+2. Build with the canonical flags, recording the source identity in the binary (`gcc -O3 -g -march=native -flto -pthread
+   -fopenmp -DGIT_HASH=\"$(git rev-parse HEAD)\" -o solve solve.c -lm -lz`; without `-DGIT_HASH` the provenance records "unknown").
 3. Confirm the built binary's selftest sha matches the published selftest
    anchor (`./solve --selftest` should emit `403f7202...` — see
    [DEVELOPMENT.md](DEVELOPMENT.md)).
@@ -1436,8 +1436,8 @@ a third party can reproduce any canonical as follows:
    ```bash
    SOLVE_DEPTH=<published_DEPTH> \
    SOLVE_NODE_LIMIT=<published_NL> SOLVE_PER_SUB_BRANCH_LIMIT=<published_PSB> \
-   SOLVE_THREADS=<your_thread_count> SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 \
-     ./solve 0 <your_thread_count>
+   SOLVE_THREADS=<your_thread_count> SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_SKIP_AUTOMERGE=1 \
+     ./solve 0 <your_thread_count>   # SKIP_AUTOMERGE: step 5 merges; without it the run merges too (Q-763)
    ```
    `SOLVE_DEPTH` is **sha-determining and must be copied from the canonical's row**
    ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters"): every d3
@@ -1455,8 +1455,8 @@ a third party can reproduce any canonical as follows:
 6. Compute `gzip -dc solutions.bin | sha256sum` and compare to the published sha. (Since #169
    `solutions.bin` is written **gzip-framed by default**; every canonical sha is computed on the
    DECOMPRESSED stream, so a plain `sha256sum solutions.bin` hashes the container and yields a
-   false mismatch. Under `SOLVE_COMPRESS=0` the file is raw and plain `sha256sum` is correct. The
-   `solutions.sha256` sidecar already carries the logical sha either way.)
+   false mismatch. Under `SOLVE_COMPRESS=0`, **and on any build from a ref older than #169 (2026-06-17) — the 560T ref among them —** the file is raw and plain `sha256sum` is correct; check the first two bytes (`1f 8b` = gzip) before choosing, as §3's lineage test does. The
+   `solutions.sha256` sidecar already carries the logical sha either way. ⚠ *(Corrected 2026-09-25, Q-763: the pre-#169 case was missing, so step 6 hashed an empty stream there.)*)
 
 On a host in the same SKU class as the original campaign (D128als_v7 Spot
 westus3 for our 11.2T+ canonicals), the sha should match byte-identically.
@@ -1505,8 +1505,8 @@ on 2026-08-08 found no such subsumption. The two documents are **complementary**
 Material that exists **only** in `LARGE_SCALE_CAMPAIGNS.md`, with no counterpart here: §2 sizing
 (the phrase "per-thread rate" occurs 8× there and 0× here), §6 runner/orchestrator pseudocode,
 §9b/9c external and tiered merge, §13a gotchas, and — the one that mattered most in deciding not to
-delete — **§13.0 "Scale honesty," the disclosure that `solve.c` is not empirically validated above
-the 100T pilot.** Deleting the file per the old plan would have removed a candid limitation
+delete — **§13.0 "Scale honesty," the disclosure that `solve.c` was not then empirically validated above
+the 100T pilot** (that file now also records the 560T canonical of 2026-06-08 as validated, and §6 above is its record; Q-763). Deleting the file per the old plan would have removed a candid limitation
 statement from the public record. It is retained.
 
 **Status of that file:** deprecated as the *entry point* (new readers start here), retained as the

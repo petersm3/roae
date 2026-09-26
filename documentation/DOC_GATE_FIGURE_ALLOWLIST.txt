@@ -67,7 +67,7 @@ reports/evidence/r11/PHASE2_README.md	1.4σ	This sentence read	meta-mention	The 
 reports/evidence/r11/PHASE2_README.md	1.4σ	and at 0.57σ alike	meta-mention	Same note, stating that the qualitative reading is unchanged at either value.
 reports/evidence/r11/README.md	1.4σ	this figure read 1.4σ until	meta-mention	Evidence-bundle index carrying the same dated supersession note.
 documentation/CORRECTIONS.md	2.0σ	with no marker. **v1.19** (2026-08-01) recorded	meta-mention	CX-20 BEFORE line: the ledger must quote the superseded figure to record what changed.
-documentation/CORRECTIONS.md	2.0σ	reads as sitting *at* the gate and 1.9σ as inside it	meta-mention	CX-20: states why the 0.1 sigma distance is not cosmetic, quoting both values side by side.
+documentation/CORRECTIONS.md	2.0σ	reads as sitting *at* the gate and 1.9σ as inside it	meta-mention	CX-20: states why the 0.1 sigma distance is not cosmetic, quoting both values side by side. (Its 2-sigma framing is itself wrong: the derived-CI gate is 2.5 sigma, PHASE2_README gate 3, so both values are inside; noted 2026-09-25, Q-763.)
 documentation/DESCRIPTION_LENGTH.md	marginal 21.2	marginal 21.2 → 21.3. No conclusion moves	meta-mention	The 2026-07-10 correction note itself, stating old -> new on one line.
 documentation/CORRECTIONS.md	palnbr 16	non-flagged values did move	meta-mention	CX-07: the ledger must quote the superseded value to record what changed.
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	palnbr 16	Non-flagged Mawangdui values shifted	meta-mention	TR-10 v1.2: the revision row that performed the supersession.
@@ -77,7 +77,7 @@ documentation/CORRECTIONS.md	2.0σ	RF-8d74e1c4	meta-mention	CX-21's key table. T
 documentation/CORRECTIONS.md	marginal 4.6	RF-df361ebc	meta-mention	CX-21's key table, pointing at CX-19.
 documentation/CORRECTIONS.md	net +1.6	RF-c1721127	meta-mention	CX-21's key table, pointing at CX-19.
 documentation/CORRECTIONS.md	palnbr 16	RF-1813e230	meta-mention	CX-21's key table, pointing at CX-07.
-reports/METHODS.md	~52×	look-elsewhere factor for TR-8 was examined and	meta-mention	METHODS review-record paragraph: names the figure in order to record that it was DECLINED (d73-margin), stating the supported floor of >=~10x.
+reports/METHODS.md	~52×	look-elsewhere factor for TR-8 was examined and	meta-mention	METHODS review-record paragraph: names the figure in order to record that it was DECLINED (d73-margin), stating the supported floor of >=~10x, which TR-8 holds CONDITIONAL on reading the rarity as a ledger member (the ~5x Bonferroni margin is the firmer figure; Q-763).
 reports/evidence/dav_tier1.out	palnbr 16	4.1690976127e-04	literal	Population histogram bin row P(palnbr=16) in the archived tier-1 run, NOT the retracted Mawangdui corpus-control value (16 -> 13, TR-10 v1.2): a fixed-string collision, adjudicated at the 2026-08-07 evidence-corpus extension, where it was the ONLY hit across 54 non-md evidence files. The anchor is the bin's own population mass, unique in the file.
 documentation/DESCRIPTION_LENGTH.md	102.7	undocumented corner picks) restated as the full envelope	meta-mention	DESCRIPTION_LENGTH.md's own revision note for the v1.22 mirror must quote the figure it recorded adopting.
 reports/TR9_PRICING_THE_CONSTRAINTS.md	102.7	was published as	meta-mention	§4's dated correction marker states what the low corner read until 2026-09-02; a correction that cannot name the figure it replaces records nothing.

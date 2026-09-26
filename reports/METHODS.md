@@ -208,12 +208,12 @@ which is what produced every published figure — with the divergence disclosed:
   same-run ratios ΣWX/ΣW; for fractions ≪ 1 the delta-method variance reduces exactly to the numerator's
   own relative variance, so a fraction's honest relerr equals the relerr of its numerator. *That is a
   statement about **variance only**.* ΣWX/ΣW is a ratio of correlated random sums, so it also carries a
-  **bias** of order 1/n_eff that this suite does not quantify; at the deep-tail rows (n_eff of order 10²,
+  **bias** of order 1/n_eff,rel that this suite does not quantify; at the deep-tail rows (n_eff,rel of order 10²,
   see just below) that is percent-scale. No published verdict turns on a few percent, but the population
   fractions should not be read as bias-corrected. S(k)-style
   ratios of separate runs add relative variances (the whole-space denominator's 0.02% is negligible).
-  Caveats: weights are right-skewed, so CIs at low effective sample size (n_eff = 1/relerr²; e.g. relerr
-  10% → n_eff ≈ 100) are approximate and skew toward underestimation — **a figure at ≥10% relerr is read
+  Caveats: weights are right-skewed, so CIs at low effective sample size (n_eff,rel = 1/relerr²; e.g. relerr
+  10% → n_eff,rel ≈ 100 — ⚠ **[SYMBOL DISAMBIGUATED 2026-09-25 (Q-713) — written as a bare n_eff until this date.** [TR-12](TR12_QUERY_PROGRAM.md) §Q4 uses the same bare symbol for a different quantity, the Kish effective sample size n_eff,Kish = (Σw)²/Σw² of a weighted draw set, at which its Wilson interval is computed. Each definition is correct for its own estimator; the subscripts keep them apart, and no number changed.]**) are approximate and skew toward underestimation — **a figure at ≥10% relerr is read
   as its printed interval, est·(1 ± 1.96·relerr), i.e. est ± 1.96·SE (measured coverage ≈94%, not 95%,
   with 85% of the misses on the low side — the true value sits ABOVE the interval), or as the log-normal interval
   est·exp(±1.96·relerr) when that low-side tail matters; never as a fixed-width band.** ⚠ **[RULE
@@ -245,7 +245,7 @@ which is what produced every published figure — with the divergence disclosed:
   figure beyond 30% relerr — e.g. the ±65% derived-path cross-check in
   [evidence/r11/PHASE2_README.md](evidence/r11/PHASE2_README.md) — is uncalibrated and read as
   order-of-magnitude only; the delta-method `se=` on the mass lines is validated in scale by the
-  12-seed replicates above, but its coverage is not measured here; the ~1/n_eff ratio bias two
+  12-seed replicates above, but its coverage is not measured here; the ~1/n_eff,rel ratio bias two
   sentences above is untouched. The table predates the seed override (`SOLVE_KNUTH_SEED`, 2026-07-11),
   so its cells drew from the fixed base seed: their walks differ where the subtrees differ, and the
   1.031 SE/SD ratio is what independent draws predict, but independence is measured, not proved — and

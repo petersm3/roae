@@ -10,7 +10,7 @@
 #   retraction in the project unguarded (Q-342).
 #
 # THE RULE HERE IS WEAKER AND CHEAPER, ON PURPOSE: a line that states a withdrawn figure
-# must also carry a supersession marker ON THAT LINE. It cannot judge whether the marker is
+# must also carry a supersession marker ON THAT LINE — for a TABLE ROW; for prose the gate joins the paragraph and accepts a marker anywhere in it (scope stated 2026-09-25, Q-763). It cannot judge whether the marker is
 # apt — GATE 3b does that for the figures it covers — but it catches the case that matters
 # for a merge: a line reintroducing a withdrawn figure with NO marker at all.
 #
@@ -22,12 +22,12 @@
 # figure <TAB> why it is withdrawn
 3×10³⁷	2026-08-24: the distinct-canonical whole-space figure exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×
 3.3×10³⁷	2026-08-24: same figure, one-decimal form
-1 part in 10²⁷	2026-08-24: the coverage denominator built on the withdrawn 3×10³⁷; corrected to ≈1 part in 7.81×10²³ (distinct-vs-distinct) / 3.03×10²⁷ (raw-vs-raw)
+1 part in 10²⁷	2026-08-24: the coverage denominator built on the withdrawn 3×10³⁷; corrected to at least 1 part in 7.81×10²³ (distinct-vs-distinct) / 3.03×10²⁷ (raw-vs-raw) — a bound, not an estimate (the "≈" was corrected 2026-09-25, Q-763)
 1.26×10³⁶	2026-08-28: published as "canonical orderings per branch"; they are RAW oriented masses — labelled canonical they exceed the 30! ≈ 2.65×10³² per-branch ceiling by ~4,750×
 2.26×10³⁶	2026-08-28: same per-branch family, median
 3.46×10³⁶	2026-08-28: same per-branch family, max
 minimum across 10⁵ samples	2026-08-28: a sample minimum is an upper bound on the true minimum, never a lower bound; the item is a RATE bound scoped to a non-uniform sampler
 null P = 0.034	2026-08-28: the unconstrained null; the constrained value its own caveat named is 87/465 = 0.187, and the verdict reverses
 plus seven others	2026-08-28: "KW plus seven others" inverts the finding — within the 22-pair KW-prefix subtree, all 8 C6/C7 survivors share King Wen's pair ordering; C6/C7 kill 898 of the 899 distinct pair orderings in that subtree (scope restored 2026-09-24, Q-762, CX-82: outside it the claim is false: exchanging King Wen's pair-slots 2 and 14 (positions 3-4 and 27-28) gives an ordering that sat.verify_seq accepts under C1-C5 with C3 = 680, leaves the C6/C7 slots untouched, and has a different pair ordering)
-48–85 h	2026-09-05: the full-31 `--kc-scan` wall. It divided the two ladders' FOOTPRINT by a measured sequential rate; the f-by-g join makes ~1.577e13 random point lookups into g rather than streaming it, so the read volume is not the footprint. WITHDRAWN with no public replacement figure (the re-derived ~669 TB rests on private run logs and a locality model at MEDIUM confidence). documentation/CORRECTIONS.md, 2026-09-05.
+48–85 h	2026-09-05: the full-31 `--kc-scan` wall. It divided the two ladders' FOOTPRINT by a measured sequential rate; the f-by-g join makes random point lookups into g rather than streaming it (an earlier count here, ~1.577e13, has no derivation on file and its counting rule of 2·(31−k) per candidate is only an upper bound, since candidates failing a class or digit bound are skipped before the lookup; Q-763), so the read volume is not the footprint. WITHDRAWN with no public replacement figure (the re-derived ~669 TB rests on private run logs and a locality model at MEDIUM confidence). documentation/CORRECTIONS.md, 2026-09-05.
 48-85 h	2026-09-05: same figure, ASCII-hyphen form. GATE 27 matches figures as PLAIN substrings with no character fold, so the en-dash and the hyphen spellings are two rows here — the same shape "3×10³⁷" / "3.3×10³⁷" already uses.

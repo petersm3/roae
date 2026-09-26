@@ -1,0 +1,189 @@
+Single-sub-branch mode: p1=1 o1=0 p2=2 o2=0 p3=3 o3=0
+No time limit — running to completion.
+Per-sub-branch override: 29 nodes (overrides auto-divide)
+Build: src unknown (git: unknown)
+King Wen complement distance (x64): 776 (= 12.1250)
+Difference distribution: 1:2 2:20 3:13 4:19 6:9 
+Super-pairs: 20
+Hash table: 16777216 slots (2^24) x 32 bytes = 512 MB per thread
+Sub-branches for pair 1 orient 0: 1 remaining
+Threads: 1, Sub-branches per thread: 1-1
+Initial hash memory: 512 MB (512 MB/thread, auto-resize at 75%)
+
+Starting single-branch enumeration...
+
+  *** Sub-branch 1/1 BUDGETED (pair1 1 orient1 0 pair2 2 orient2 0): 0B nodes, 0M C3, 0 solutions, 0s ***
+Merging 0 stored solutions from 1 threads...
+Sorting 0 solutions...
+Writing 0 unique solutions to solutions_1_0.bin...
+Computing sha256...
+
+======================================================================
+*** SEARCH COMPLETE in 1s (0 hours 0 minutes) ***
+Mode: single-branch (pair 1 orient 0)
+Start: 2026-09-25 16:01:22 UTC
+End:   2026-09-25 16:01:23 UTC
+Sub-branches: 0/1 completed
+======================================================================
+
+--- Counts ---
+Nodes explored:                733
+Node rate:                     0.0 M/sec
+Total solutions (C1+C2+C4+C5): 0
+C3-valid solutions:            0
+Unique pair orderings:         0
+King Wen found:                No
+Hash de-dup collisions:        0
+Hash table:                    initial 2^24, max 2^24, 0 resize(s)
+Hash-table silent drops:       0  (0 expected with auto-resize)
+
+--- Position match rates ---
+  Position  1: 0/0 (0.0000%) 
+  Position  2: 0/0 (0.0000%) 
+  Position  3: 0/0 (0.0000%) 
+  Position  4: 0/0 (0.0000%) 
+  Position  5: 0/0 (0.0000%) 
+  Position  6: 0/0 (0.0000%) 
+  Position  7: 0/0 (0.0000%) 
+  Position  8: 0/0 (0.0000%) 
+  Position  9: 0/0 (0.0000%) 
+  Position 10: 0/0 (0.0000%) 
+  Position 11: 0/0 (0.0000%) 
+  Position 12: 0/0 (0.0000%) 
+  Position 13: 0/0 (0.0000%) 
+  Position 14: 0/0 (0.0000%) 
+  Position 15: 0/0 (0.0000%) 
+  Position 16: 0/0 (0.0000%) 
+  Position 17: 0/0 (0.0000%) 
+  Position 18: 0/0 (0.0000%) 
+  Position 19: 0/0 (0.0000%) 
+  Position 20: 0/0 (0.0000%) 
+  Position 21: 0/0 (0.0000%) 
+  Position 22: 0/0 (0.0000%) 
+  Position 23: 0/0 (0.0000%) 
+  Position 24: 0/0 (0.0000%) 
+  Position 25: 0/0 (0.0000%) 
+  Position 26: 0/0 (0.0000%) 
+  Position 27: 0/0 (0.0000%) 
+  Position 28: 0/0 (0.0000%) 
+  Position 29: 0/0 (0.0000%) 
+  Position 30: 0/0 (0.0000%) 
+  Position 31: 0/0 (0.0000%) 
+  Position 32: 0/0 (0.0000%) 
+Locked positions: 0/32
+
+--- Super-pair match rates ---
+  Position  1: 0/0 (0.0000%) 
+  Position  2: 0/0 (0.0000%) 
+  Position  3: 0/0 (0.0000%) 
+  Position  4: 0/0 (0.0000%) 
+  Position  5: 0/0 (0.0000%) 
+  Position  6: 0/0 (0.0000%) 
+  Position  7: 0/0 (0.0000%) 
+  Position  8: 0/0 (0.0000%) 
+  Position  9: 0/0 (0.0000%) 
+  Position 10: 0/0 (0.0000%) 
+  Position 11: 0/0 (0.0000%) 
+  Position 12: 0/0 (0.0000%) 
+  Position 13: 0/0 (0.0000%) 
+  Position 14: 0/0 (0.0000%) 
+  Position 15: 0/0 (0.0000%) 
+  Position 16: 0/0 (0.0000%) 
+  Position 17: 0/0 (0.0000%) 
+  Position 18: 0/0 (0.0000%) 
+  Position 19: 0/0 (0.0000%) 
+  Position 20: 0/0 (0.0000%) 
+  Position 21: 0/0 (0.0000%) 
+  Position 22: 0/0 (0.0000%) 
+  Position 23: 0/0 (0.0000%) 
+  Position 24: 0/0 (0.0000%) 
+  Position 25: 0/0 (0.0000%) 
+  Position 26: 0/0 (0.0000%) 
+  Position 27: 0/0 (0.0000%) 
+  Position 28: 0/0 (0.0000%) 
+  Position 29: 0/0 (0.0000%) 
+  Position 30: 0/0 (0.0000%) 
+  Position 31: 0/0 (0.0000%) 
+  Position 32: 0/0 (0.0000%) 
+
+--- Edit distance from King Wen ---
+
+--- Top 0 closest non-King-Wen solutions ---
+
+--- Adjacency constraints (generalized) ---
+  Boundary  1 (pos 1-2): 0 (0.0000%)
+  Boundary  2 (pos 2-3): 0 (0.0000%)
+  Boundary  3 (pos 3-4): 0 (0.0000%)
+  Boundary  4 (pos 4-5): 0 (0.0000%)
+  Boundary  5 (pos 5-6): 0 (0.0000%)
+  Boundary  6 (pos 6-7): 0 (0.0000%)
+  Boundary  7 (pos 7-8): 0 (0.0000%)
+  Boundary  8 (pos 8-9): 0 (0.0000%)
+  Boundary  9 (pos 9-10): 0 (0.0000%)
+  Boundary 10 (pos 10-11): 0 (0.0000%)
+  Boundary 11 (pos 11-12): 0 (0.0000%)
+  Boundary 12 (pos 12-13): 0 (0.0000%)
+  Boundary 13 (pos 13-14): 0 (0.0000%)
+  Boundary 14 (pos 14-15): 0 (0.0000%)
+  Boundary 15 (pos 15-16): 0 (0.0000%)
+  Boundary 16 (pos 16-17): 0 (0.0000%)
+  Boundary 17 (pos 17-18): 0 (0.0000%)
+  Boundary 18 (pos 18-19): 0 (0.0000%)
+  Boundary 19 (pos 19-20): 0 (0.0000%)
+  Boundary 20 (pos 20-21): 0 (0.0000%)
+  Boundary 21 (pos 21-22): 0 (0.0000%)
+  Boundary 22 (pos 22-23): 0 (0.0000%)
+  Boundary 23 (pos 23-24): 0 (0.0000%)
+  Boundary 24 (pos 24-25): 0 (0.0000%)
+  Boundary 25 (pos 25-26): 0 (0.0000%)
+  Boundary 26 (pos 26-27): 0 (0.0000%)
+  Boundary 27 (pos 27-28): 0 (0.0000%)
+  Boundary 28 (pos 28-29): 0 (0.0000%)
+  Boundary 29 (pos 29-30): 0 (0.0000%)
+  Boundary 30 (pos 30-31): 0 (0.0000%)
+  Boundary 31 (pos 31-32): 0 (0.0000%)
+  Match histogram:
+
+--- Complement distance distribution ---
+  KW cd (x64): 776 (= 12.1250)
+
+--- Per-position pair frequency ---
+  Position  1: 0 different, top=0 (0.0%)
+  Position  2: 0 different, top=0 (0.0%)
+  Position  3: 0 different, top=0 (0.0%)
+  Position  4: 0 different, top=0 (0.0%)
+  Position  5: 0 different, top=0 (0.0%)
+  Position  6: 0 different, top=0 (0.0%)
+  Position  7: 0 different, top=0 (0.0%)
+  Position  8: 0 different, top=0 (0.0%)
+  Position  9: 0 different, top=0 (0.0%)
+  Position 10: 0 different, top=0 (0.0%)
+  Position 11: 0 different, top=0 (0.0%)
+  Position 12: 0 different, top=0 (0.0%)
+  Position 13: 0 different, top=0 (0.0%)
+  Position 14: 0 different, top=0 (0.0%)
+  Position 15: 0 different, top=0 (0.0%)
+  Position 16: 0 different, top=0 (0.0%)
+  Position 17: 0 different, top=0 (0.0%)
+  Position 18: 0 different, top=0 (0.0%)
+  Position 19: 0 different, top=0 (0.0%)
+  Position 20: 0 different, top=0 (0.0%)
+  Position 21: 0 different, top=0 (0.0%)
+  Position 22: 0 different, top=0 (0.0%)
+  Position 23: 0 different, top=0 (0.0%)
+  Position 24: 0 different, top=0 (0.0%)
+  Position 25: 0 different, top=0 (0.0%)
+  Position 26: 0 different, top=0 (0.0%)
+  Position 27: 0 different, top=0 (0.0%)
+  Position 28: 0 different, top=0 (0.0%)
+  Position 29: 0 different, top=0 (0.0%)
+  Position 30: 0 different, top=0 (0.0%)
+  Position 31: 0 different, top=0 (0.0%)
+  Position 32: 0 different, top=0 (0.0%)
+
+--- Output files ---
+  solutions_1_0.bin:  0 records x 32 B + 32 B header = 32 logical bytes (container on disk: 27 B)
+  solutions_1_0.sha256:  4cd43b2b389dde48a64b153b3cf611274e13fab013ac05f1ba64b11b532ef287  solutions_1_0.bin
+  results_1_0.json:  machine-readable results
+
+JSON results written to results_1_0.json

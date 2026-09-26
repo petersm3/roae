@@ -209,7 +209,7 @@ is always ≤ the cap, typically less. Two structural reasons:
 For `--branch X Y` mode, solve doesn't enforce the global node
 limit directly during enumeration. Instead it computes (or accepts
 override of) a **per-sub-branch budget**, and stops each cell when
-it hits that. The global cap only acts as a coarse safety ceiling.
+it hits that. The global cap is not checked during `--branch` enumeration, so it is not a safety ceiling there; the per-sub-branch budget is what bounds the walk.
 
 ⚠ **[CORRECTED 2026-09-01 — this subsection published a wrong divisor story
 and, worse, a `SOLVE_PER_SUB_BRANCH_LIMIT` table that does not reproduce any
@@ -306,11 +306,11 @@ canonical pre-flight gate. It exercises:
 2. v2 mid-walk resume invariance (50M → 200M)
 3. v1 resume invariance (50M → 200M)
 4. `--branch + depth-3 + SOLVE_THREADS=128` stack-array sizing
-5. `--branch` multi-budget resume gate
+5. `--branch` multi-budget resume gate ⚠ *(see the CX-134 note on item 9)*
 6. Combined partition + resume invariance
 7. Distributed-merge equivalence (multi-VM shard collection)
-8. Single-branch eviction-resume invariance (SIGTERM mid-walk)
-9. Idempotent re-launch of completed `--branch`
+8. Single-branch eviction-resume invariance (SIGTERM mid-walk) ⚠ *(see the CX-134 note on item 9)*
+9. Idempotent re-launch of completed `--branch` ⚠ **[Scoped 2026-09-25 (CX-134): until that fix the per-branch file these three items hash held 0 records, so the sha comparisons of items 5 and 8 compared two copies of one header-only sha (`4cd43b2b…`) and could fail only on an exit code. Item 9's shard filename-and-size check was real; its sha check was not. On the CX-134 binary all three compare real content and PASS. See documentation/CORRECTIONS.md CX-134.]**
 
 Run on the **exact campaign binary**, on each campaign VM, before
 launch. Wall: ~17 min on a 4-core VM, ~5 min on a 64-core VM.
@@ -463,7 +463,7 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
     IF rc == 0 AND sha_file exists AND status == "SEARCH_COMPLETE":
       sha = first_field(read(sha_file))
       atomic_touch(DONE_MARKER)              # only NOW mark complete
-      log "DONE $p1/$o1 sha=$sha"
+      log "DONE $p1/$o1 sha=$sha"   # ⚠ 2026-09-25 (CX-134): before that fix this sha was the same header-only 4cd43b2b… for every branch
     ELSE IF rc == 0 AND status == "TIMED_OUT":
       # SIGTERM or wall-clock stop. solve WRITES ITS SHA AND RETURNS 0 here,
       # so an rc-plus-sha test alone marks this branch done forever with as
@@ -523,7 +523,7 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
   "it was stopped", and it does **NOT** assert that the search space was
   exhausted. Every budgeted run reports it; see
   [DEPLOYMENT.md](DEPLOYMENT.md) §"Completion and archival". See
-  documentation/CORRECTIONS.md CX-52.]**
+  documentation/CORRECTIONS.md CX-52.]** ⚠ **[Scoped 2026-09-25 (CX-134): before that fix the per-branch file behind this sha held 0 records, so the sha the runner logs was the same header-only `4cd43b2b…` for every branch and attested no records. The lifecycle point above stands. A campaign's data went through the `sub_*` shards and `--merge`, never through this sha.]**
 
 ### 6c. Cross-VM orchestrator — pseudocode
 
@@ -801,9 +801,9 @@ or is forced to with `SOLVE_MERGE_MODE=external`, when it would not —
 
 ### 9a. In-memory merge (the default)
 
-`solve --merge` builds a hash table of unique solutions in RAM,
-streams shards through it, then writes the deduped output. RAM
-usage is roughly proportional to unique-solution count:
+`solve --merge` reads every shard record into one RAM buffer, heapsorts it in place and drops adjacent duplicates (`solve.c`'s in-memory merge path; `heapsort_records`),
+then writes the deduped output. ⚠ *(corrected 2026-09-25: this said the merge builds a hash table of unique solutions. Codex v3 review, V3A-032#6)* RAM
+usage therefore scales with the **pre-dedup** shard record count (32 bytes each, auto-switching to external above 80% of RAM), not the unique count; the table below is keyed on unique count, so read it as a lower bound where cross-sub-branch rediscovery is high:
 
 ⚠ **[RAM figures corrected 2026-09-01.** Every `Dals_v7` size in this table was
 doubled: it recommended "D32als_v7 (128 GB)", "D64 (256 GB)" and "D64als_v7
@@ -1123,11 +1123,11 @@ reasons:
 1. **Cache-line-friendly storage matters.** 32-byte records pack
    exactly two per 64-byte cache line. Going to 48 bytes/record
    means every other record straddles a cache line, hurting
-   in-memory hash-table dedup at merge time by ~5–15%. Going to
+   in-memory sort-and-dedup at merge time by an estimated (not benchmarked) ~5–15%. Going to
    64 bytes/record doubles storage. Neither is a great trade.
 
 2. **On-demand recomputation is fast.** cd (mean complement
-   distance) for a single 32-byte record is ~100 cycles. For a
+   distance) for a single 32-byte record is an estimated (not benchmarked) ~100 cycles. For a
    billion-record canonical, that's ~30 seconds on one core, a
    few seconds parallelized. Pre-baking saves seconds, not hours.
 
@@ -1146,7 +1146,7 @@ finishes without a full re-enumeration:
 |---|---|---|
 | Constraint set used during the walk | Walk pruning eliminated orderings excluded by the original constraints; you cannot recover them from solutions.bin. | Full re-enumeration with the new constraint set. |
 | Per-sub-branch budget | Cells that hit BUDGETED status weren't fully explored. | Asymmetric extension on those cells with higher budget. |
-| Whether near-miss orderings (failed C5 by ≤ N swaps) were captured | Failed-C5 orderings reach depth 32, get rejected by C5's final check, and are discarded if not captured. | Full re-enumeration with a "drop C5 final check" mode (~$200-500 at moderate scale). |
+| Whether near-miss orderings (failed C5 by ≤ N swaps) were captured | C5 is a running transition budget, not a final check: an ordering is pruned at the first transition that exceeds it, so no failed-C5 ordering reaches depth 32, and none is captured. | Full re-enumeration with a "drop C5 final check" mode (~$200-500 at moderate scale). |
 
 Decide these before launch — cost of wrong decisions is full
 re-runs, not incremental fixes.

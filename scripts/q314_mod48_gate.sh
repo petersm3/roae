@@ -83,7 +83,7 @@ cp "$WORK/last.out" "$WORK/clean.out"      # reused by legs 3 and 4 instead of r
 if [ "$rc" != 0 ] || ! grep -qx 'ATLAS_CONSUMER=PASS' "$WORK/last.out"; then
   echo "  [FAIL] leg 1: clean run did not pass (rc=$rc)"; bad=1
 fi
-if ! line48 | grep -q 'PASS'; then
+if ! line48 | grep -c 'PASS' >/dev/null; then
   echo "  [FAIL] leg 1: the XA-48 gate is absent or not passing on a clean atlas"
   echo "         $(line48)"; bad=1
 else
@@ -95,7 +95,7 @@ rc=$(run --atlas-fault q10-mod48)
 if [ "$rc" = 0 ] || ! grep -q '^ATLAS_CONSUMER=FAIL' "$WORK/last.out"; then
   echo "  [FAIL] leg 2: +24 on the layer-0 flow did NOT fail the consumer (rc=$rc)"; bad=1
 fi
-if ! line48 | grep -q 'FAIL'; then
+if ! line48 | grep -c 'FAIL' >/dev/null; then
   echo "  [FAIL] leg 2: XA-48 did not fire on a flow that is 24-divisible but not 48-divisible"
   echo "         $(line48)"; bad=1
 else
@@ -125,16 +125,16 @@ grep -q 'V1-16.*PASS' "$WORK/clean.out" && echo "  [ok]   leg 4: V1-16 present a
   || { echo "  [FAIL] leg 4: V1-16 absent or failing on a clean atlas: $(grep -m1 'V1-16' "$WORK/clean.out")"; bad=1; }
 
 rc=$(run --atlas-fault v2-mod48)
-if line2 | grep -q 'FAIL'; then echo "  [ok]   leg 3: V2-48 fired on the mod-48-only class fault"
+if line2 | grep -c 'FAIL' >/dev/null; then echo "  [ok]   leg 3: V2-48 fired on the mod-48-only class fault"
 else echo "  [FAIL] leg 3: V2-48 did not fire on +24 to a class cell: $(line2)"; bad=1; fi
-if line1 | grep -q 'FAIL'; then
+if line1 | grep -c 'FAIL' >/dev/null; then
   echo "  [FAIL] leg 3: V1-16 ALSO fired -- the fault does not isolate V2-48"; bad=1
 else echo "  [ok]   leg 3: V1-16 did NOT fire -- the fault isolates V2-48"; fi
 
 rc=$(run --atlas-fault v1-mod16)
-if line1 | grep -q 'FAIL'; then echo "  [ok]   leg 4: V1-16 fired on the mod-16-only raw fault"
+if line1 | grep -c 'FAIL' >/dev/null; then echo "  [ok]   leg 4: V1-16 fired on the mod-16-only raw fault"
 else echo "  [FAIL] leg 4: V1-16 did not fire on +8 to a raw cell: $(line1)"; bad=1; fi
-if line2 | grep -q 'FAIL'; then
+if line2 | grep -c 'FAIL' >/dev/null; then
   echo "  [FAIL] leg 4: V2-48 ALSO fired -- the fault does not isolate V1-16"; bad=1
 else echo "  [ok]   leg 4: V2-48 did NOT fire -- the fault isolates V1-16"; fi
 

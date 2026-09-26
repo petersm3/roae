@@ -15,7 +15,7 @@
 #
 #   Round 14 (2026-08-02) landed THREE commits with a red floor, all in that hole:
 #     316c6581  GATE 11 red — registry rows with no ledger entry
-#     8f2f292c  GATE 11 red — five more of the same, from a different unit, 59 min later
+#     8f2f292c  GATE 11 red — five more of the same, from a different unit, 64 min 32 s later (22:04:47Z -> 23:09:19Z)
 #     bed707db  GATE 3  red — the fix for the above quoted all five retracted phrasings
 #                             VERBATIM into the append-only ledger
 #   A fourth, 728778e7, turned GATE 10b red by rewriting a committed CORRECTIONS.md
@@ -191,7 +191,7 @@ HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/nu
 #
 #   The 3-file WATCHED set above misses the commits that INTRODUCE a retracted
 #   phrasing into the corpus without touching a registry file. Measured against
-#   the 120 doc-touching commits since this gate's birth: only 26 staged one of
+#   the 120 doc-touching commits since this gate's birth (working history at the time; not reproducible from the published history, where d9d5d30^..05a8d81^ holds 23 commits): only 26 staged one of
 #   the 3 watched files, and the commit that shipped the 2.5-day-open GATE-3
 #   defect (task #149 replay) touched NONE of them — so the author first heard
 #   about it from a push-point gate days later. This path runs GATE 3's two

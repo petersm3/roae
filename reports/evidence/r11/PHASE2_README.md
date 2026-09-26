@@ -68,7 +68,7 @@ low draws, so the equal-probe unweighted mean is the principled primary.
 |---|---|---|---|
 | 1 — seed consistency | χ² across the 4 seeds, reject at p < 0.01 | χ²₃ = 1.36, p ≈ 0.71 (max pairwise ≈ 1.06σ) | **PASS** |
 | 2 — repaired stratified | pooled stratified within 2σ (combined) of the pooled direct | 4.34×10²⁵, **0.12σ** from direct | **PASS** |
-| 3 — derived-CI cross-path | CI'd derived path within 2.5σ | DERIVED-N_gs = 1.977×10²⁵ (±65%, 14 hits), **1.9σ** below | **PASS** |
+| 3 — derived-CI cross-path | CI'd derived path within 2.5σ | DERIVED-N_gs = 1.977×10²⁵ (±65%, 14 hits), **1.9σ** below ⚠ *[scope note 2026-09-25 (Q-713): the 1.9σ is the Wald distance (4.503 − 1.977)×10²⁵ / √(1.285² + 0.277²)×10²⁵ = 1.92 on the two printed SEs. At 65% relerr the printed interval is outside the 5–30% range in which METHODS §"Statistics conventions" calibrates it (the derived 95% CI reaches below zero), so the figure is order-of-magnitude only; on a log scale the distance is 1.26–1.38σ, and the gate passes on either reading.]* | **PASS** |
 
 With all three gates green, the pre-registered "all three gates pass" convergence
 criterion is literally satisfied.

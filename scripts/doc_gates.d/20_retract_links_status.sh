@@ -82,7 +82,7 @@ gate_retract() {
       case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
       [ -f "$folddir/$f" ] || continue
       # normalise the FOLDED file to one whitespace-collapsed line, then fixed-string match
-      if tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -qF -- "$np"; then
+      if tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -cF -- "$np" >/dev/null; then
         # changelog rows legitimately quote superseded wording; only exempt if EVERY
         # line-level hit is a revision row.
         # RECORD WHERE, not just WHICH FILE (2026-08-02, #65). A bare filename makes the
@@ -447,14 +447,14 @@ gate_links() {
   # A dangling CITATIONS.md#anchor is the specific failure this protects against:
   # attribution that silently stops resolving when a citation entry is renamed.
   python3 - <<'PY'
-import os, re, sys, subprocess, collections
+import os, re, sys, subprocess, collections, unicodedata
 LINK = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
 HEAD = re.compile(r'^(#{1,6})\s+(.*?)\s*$', re.M)
-def slug(t):
+def slug(t):  # Q-816: GitHub's rule. Keep letters, marks, Nd/Nl digits, '_', ' ', '-'; each space -> '-'.
     t = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', t)
-    t = re.sub(r'[`*_~]', '', t).strip().lower()
-    t = re.sub(r'[^\w\s-]', '', t)
-    return re.sub(r'\s+', '-', t)
+    t = re.sub(r'[`*~]', '', t).strip().lower()  # literal '_' survives rendering and stays in the slug
+    t = ''.join(c for c in t if c in ' -' or unicodedata.category(c)[0] in 'LM' or unicodedata.category(c) in ('Nd', 'Nl', 'Pc'))
+    return t.replace(' ', '-')  # no collapsing: 'A — B' -> 'a--b'; superscripts (No) and emoji (So) drop out
 mds = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
        .stdout.split()]
 anchors = {}
@@ -1106,7 +1106,7 @@ for f in sorted(unmarked):
             # records what was said at a date and quotes figures in passing; demanding an
             # epistemic marker there would fire on every historical entry forever. Both of
             # 5b's remaining initial findings were changelog rows.
-            if line.lstrip().startswith('| v'):
+            if re.match(r'\|\s*\**v\d', line.lstrip()):  # Q-763: a version row (| v1.2 |), not any cell starting 'v' ("valid")
                 continue
             if header_labels(header, line, val, want):
                 continue

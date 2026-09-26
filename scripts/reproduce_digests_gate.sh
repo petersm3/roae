@@ -184,12 +184,12 @@ check_page(){
   RES=""; CAUSE=""; NRUNG=0
   [ -r "$page" ] || { RES=ERROR; CAUSE=page-unreadable; echo "  [ERROR] cannot read $page"; return; }
   if ! x=$(extract "$page"); then RES=ERROR; CAUSE=extractor-failed; echo "  [ERROR] the extractor did not run (python3 failed)"; return; fi
-  if printf '%s\n' "$x" | grep -q '^ERROR'; then
+  if grep -q '^ERROR' <<<"$x"; then
     RES=ERROR; CAUSE=$(printf '%s\n' "$x" | awk -F'\t' '/^ERROR/{print $2; exit}')
     printf '%s\n' "$x" | awk -F'\t' '/^ERROR/{print "  [ERROR] " $3}'; return
   fi
-  printf '%s\n' "$x" | grep -q '^ROW' || { RES=ERROR; CAUSE=extractor-failed; echo "  [ERROR] the extractor printed no rows and no error"; return; }
-  if printf '%s\n' "$x" | grep -q '^FAIL'; then
+  grep -q '^ROW' <<<"$x" || { RES=ERROR; CAUSE=extractor-failed; echo "  [ERROR] the extractor printed no rows and no error"; return; }
+  if grep -q '^FAIL' <<<"$x"; then
     printf '%s\n' "$x" | awk -F'\t' '/^FAIL/{print "  [FAIL]  " $2}'; fail=1
   fi
   local cmd_t dig_t
@@ -295,7 +295,7 @@ build_from(){  # $1 page -> sets BIN, or exits ERROR
   b=$(printf '%s\n' "$x" | awk -F'\t' '/^BUILD/{print $2; exit}')
   if [ -z "$b" ]; then
     printf '%s\n' "$x" | awk -F'\t' '/^ERROR/{print "  [ERROR] " $3}'
-    err "$(printf '%s\n' "$x" | awk -F'\t' '/^ERROR/{print $2; exit}' | grep . || echo page-unparsed)"
+    err "$(printf '%s\n' "$x" | awk -F'\t' '/^ERROR/ && !n++{print $2}' | grep . || echo page-unparsed)"
   fi
   case "$b" in *[\;\$\<\>\`\\\|\&]*) echo "  [ERROR] the build line contains a shell metacharacter: $b"; err unsafe-command ;; esac
   case "$b" in "gcc "*|"cc "*) ;; *) echo "  [ERROR] the build line does not invoke gcc/cc: $b"; err unsafe-command ;; esac

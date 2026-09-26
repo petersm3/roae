@@ -1,0 +1,193 @@
+Single-sub-branch mode: p1=1 o1=0 p2=2 o2=0 p3=3 o3=0
+No time limit — running to completion.
+Per-sub-branch override: 30 nodes (overrides auto-divide)
+Build: src unknown (git: unknown)
+King Wen complement distance (x64): 776 (= 12.1250)
+Difference distribution: 1:2 2:20 3:13 4:19 6:9 
+Super-pairs: 20
+Hash table: 16777216 slots (2^24) x 32 bytes = 512 MB per thread
+Sub-branches for pair 1 orient 0: 1 remaining
+Threads: 1, Sub-branches per thread: 1-1
+Initial hash memory: 512 MB (512 MB/thread, auto-resize at 75%)
+
+Starting single-branch enumeration...
+
+  Wrote 1 solutions to sub_1_0_2_0_3_0.bin
+  *** Sub-branch 1/1 BUDGETED (pair1 1 orient1 0 pair2 2 orient2 0): 0B nodes, 0M C3, 1 solutions, 0s ***
+Merging 0 stored solutions from 1 threads...
+Sorting 0 solutions...
+Writing 0 unique solutions to solutions_1_0.bin...
+Computing sha256...
+
+======================================================================
+*** SEARCH COMPLETE in 1s (0 hours 0 minutes) ***
+Mode: single-branch (pair 1 orient 0)
+Start: 2026-09-25 16:01:23 UTC
+End:   2026-09-25 16:01:24 UTC
+Sub-branches: 0/1 completed
+======================================================================
+
+--- Counts ---
+Nodes explored:                733
+Node rate:                     0.0 M/sec
+Total solutions (C1+C2+C4+C5): 1
+C3-valid solutions:            1
+Unique pair orderings:         0
+King Wen found:                YES
+Hash de-dup collisions:        0
+Hash table:                    initial 2^24, max 2^24, 0 resize(s)
+Hash-table silent drops:       0  (0 expected with auto-resize)
+
+--- Position match rates ---
+  Position  1: 1/1 (100.0000%) LOCKED
+  Position  2: 1/1 (100.0000%) LOCKED
+  Position  3: 1/1 (100.0000%) LOCKED
+  Position  4: 1/1 (100.0000%) LOCKED
+  Position  5: 1/1 (100.0000%) LOCKED
+  Position  6: 1/1 (100.0000%) LOCKED
+  Position  7: 1/1 (100.0000%) LOCKED
+  Position  8: 1/1 (100.0000%) LOCKED
+  Position  9: 1/1 (100.0000%) LOCKED
+  Position 10: 1/1 (100.0000%) LOCKED
+  Position 11: 1/1 (100.0000%) LOCKED
+  Position 12: 1/1 (100.0000%) LOCKED
+  Position 13: 1/1 (100.0000%) LOCKED
+  Position 14: 1/1 (100.0000%) LOCKED
+  Position 15: 1/1 (100.0000%) LOCKED
+  Position 16: 1/1 (100.0000%) LOCKED
+  Position 17: 1/1 (100.0000%) LOCKED
+  Position 18: 1/1 (100.0000%) LOCKED
+  Position 19: 1/1 (100.0000%) LOCKED
+  Position 20: 1/1 (100.0000%) LOCKED
+  Position 21: 1/1 (100.0000%) LOCKED
+  Position 22: 1/1 (100.0000%) LOCKED
+  Position 23: 1/1 (100.0000%) LOCKED
+  Position 24: 1/1 (100.0000%) LOCKED
+  Position 25: 1/1 (100.0000%) LOCKED
+  Position 26: 1/1 (100.0000%) LOCKED
+  Position 27: 1/1 (100.0000%) LOCKED
+  Position 28: 1/1 (100.0000%) LOCKED
+  Position 29: 1/1 (100.0000%) LOCKED
+  Position 30: 1/1 (100.0000%) LOCKED
+  Position 31: 1/1 (100.0000%) LOCKED
+  Position 32: 1/1 (100.0000%) LOCKED
+Locked positions: 32/32
+
+--- Super-pair match rates ---
+  Position  1: 1/1 (100.0000%) LOCKED
+  Position  2: 1/1 (100.0000%) LOCKED
+  Position  3: 1/1 (100.0000%) LOCKED
+  Position  4: 1/1 (100.0000%) LOCKED
+  Position  5: 1/1 (100.0000%) LOCKED
+  Position  6: 1/1 (100.0000%) LOCKED
+  Position  7: 1/1 (100.0000%) LOCKED
+  Position  8: 1/1 (100.0000%) LOCKED
+  Position  9: 1/1 (100.0000%) LOCKED
+  Position 10: 1/1 (100.0000%) LOCKED
+  Position 11: 1/1 (100.0000%) LOCKED
+  Position 12: 1/1 (100.0000%) LOCKED
+  Position 13: 1/1 (100.0000%) LOCKED
+  Position 14: 1/1 (100.0000%) LOCKED
+  Position 15: 1/1 (100.0000%) LOCKED
+  Position 16: 1/1 (100.0000%) LOCKED
+  Position 17: 1/1 (100.0000%) LOCKED
+  Position 18: 1/1 (100.0000%) LOCKED
+  Position 19: 1/1 (100.0000%) LOCKED
+  Position 20: 1/1 (100.0000%) LOCKED
+  Position 21: 1/1 (100.0000%) LOCKED
+  Position 22: 1/1 (100.0000%) LOCKED
+  Position 23: 1/1 (100.0000%) LOCKED
+  Position 24: 1/1 (100.0000%) LOCKED
+  Position 25: 1/1 (100.0000%) LOCKED
+  Position 26: 1/1 (100.0000%) LOCKED
+  Position 27: 1/1 (100.0000%) LOCKED
+  Position 28: 1/1 (100.0000%) LOCKED
+  Position 29: 1/1 (100.0000%) LOCKED
+  Position 30: 1/1 (100.0000%) LOCKED
+  Position 31: 1/1 (100.0000%) LOCKED
+  Position 32: 1/1 (100.0000%) LOCKED
+
+--- Edit distance from King Wen ---
+   0 differences: 1 solutions
+
+--- Top 0 closest non-King-Wen solutions ---
+
+--- Adjacency constraints (generalized) ---
+  Boundary  1 (pos 1-2): 1 (100.0000%)
+  Boundary  2 (pos 2-3): 1 (100.0000%)
+  Boundary  3 (pos 3-4): 1 (100.0000%)
+  Boundary  4 (pos 4-5): 1 (100.0000%)
+  Boundary  5 (pos 5-6): 1 (100.0000%)
+  Boundary  6 (pos 6-7): 1 (100.0000%)
+  Boundary  7 (pos 7-8): 1 (100.0000%)
+  Boundary  8 (pos 8-9): 1 (100.0000%)
+  Boundary  9 (pos 9-10): 1 (100.0000%)
+  Boundary 10 (pos 10-11): 1 (100.0000%)
+  Boundary 11 (pos 11-12): 1 (100.0000%)
+  Boundary 12 (pos 12-13): 1 (100.0000%)
+  Boundary 13 (pos 13-14): 1 (100.0000%)
+  Boundary 14 (pos 14-15): 1 (100.0000%)
+  Boundary 15 (pos 15-16): 1 (100.0000%)
+  Boundary 16 (pos 16-17): 1 (100.0000%)
+  Boundary 17 (pos 17-18): 1 (100.0000%)
+  Boundary 18 (pos 18-19): 1 (100.0000%)
+  Boundary 19 (pos 19-20): 1 (100.0000%)
+  Boundary 20 (pos 20-21): 1 (100.0000%)
+  Boundary 21 (pos 21-22): 1 (100.0000%)
+  Boundary 22 (pos 22-23): 1 (100.0000%)
+  Boundary 23 (pos 23-24): 1 (100.0000%)
+  Boundary 24 (pos 24-25): 1 (100.0000%)
+  Boundary 25 (pos 25-26): 1 (100.0000%)
+  Boundary 26 (pos 26-27): 1 (100.0000%)
+  Boundary 27 (pos 27-28): 1 (100.0000%)
+  Boundary 28 (pos 28-29): 1 (100.0000%)
+  Boundary 29 (pos 29-30): 1 (100.0000%)
+  Boundary 30 (pos 30-31): 1 (100.0000%)
+  Boundary 31 (pos 31-32): 1 (100.0000%)
+  Match histogram:
+    31 boundaries: 1 solutions
+
+--- Complement distance distribution ---
+  KW cd (x64): 776 (= 12.1250)
+  cd x64 [ 760- 779]: 1
+
+--- Per-position pair frequency ---
+  Position  1: 1 different, top=1 (100.0%) = KW
+  Position  2: 1 different, top=2 (100.0%) = KW
+  Position  3: 1 different, top=3 (100.0%) = KW
+  Position  4: 1 different, top=4 (100.0%) = KW
+  Position  5: 1 different, top=5 (100.0%) = KW
+  Position  6: 1 different, top=6 (100.0%) = KW
+  Position  7: 1 different, top=7 (100.0%) = KW
+  Position  8: 1 different, top=8 (100.0%) = KW
+  Position  9: 1 different, top=9 (100.0%) = KW
+  Position 10: 1 different, top=10 (100.0%) = KW
+  Position 11: 1 different, top=11 (100.0%) = KW
+  Position 12: 1 different, top=12 (100.0%) = KW
+  Position 13: 1 different, top=13 (100.0%) = KW
+  Position 14: 1 different, top=14 (100.0%) = KW
+  Position 15: 1 different, top=15 (100.0%) = KW
+  Position 16: 1 different, top=16 (100.0%) = KW
+  Position 17: 1 different, top=17 (100.0%) = KW
+  Position 18: 1 different, top=18 (100.0%) = KW
+  Position 19: 1 different, top=19 (100.0%) = KW
+  Position 20: 1 different, top=20 (100.0%) = KW
+  Position 21: 1 different, top=21 (100.0%) = KW
+  Position 22: 1 different, top=22 (100.0%) = KW
+  Position 23: 1 different, top=23 (100.0%) = KW
+  Position 24: 1 different, top=24 (100.0%) = KW
+  Position 25: 1 different, top=25 (100.0%) = KW
+  Position 26: 1 different, top=26 (100.0%) = KW
+  Position 27: 1 different, top=27 (100.0%) = KW
+  Position 28: 1 different, top=28 (100.0%) = KW
+  Position 29: 1 different, top=29 (100.0%) = KW
+  Position 30: 1 different, top=30 (100.0%) = KW
+  Position 31: 1 different, top=31 (100.0%) = KW
+  Position 32: 1 different, top=32 (100.0%) = KW
+
+--- Output files ---
+  solutions_1_0.bin:  0 records x 32 B + 32 B header = 32 logical bytes (container on disk: 27 B)
+  solutions_1_0.sha256:  4cd43b2b389dde48a64b153b3cf611274e13fab013ac05f1ba64b11b532ef287  solutions_1_0.bin
+  results_1_0.json:  machine-readable results
+
+JSON results written to results_1_0.json

@@ -1,11 +1,11 @@
 # path<TAB>approved-by<TAB>date<TAB>the operator's words
 #
-# Files >= 1 MiB that the operator has explicitly OK'd for first-time tracking, per the standing
+# Files at or over the size gate's threshold (pre_commit_size_gate.sh LIMIT: 1,310,720 B = 1.25 MiB since 2026-09-04, not 1 MiB) that the operator has explicitly OK'd for first-time tracking, per the standing
 # rule ("ANY file >=1 MB needs OK before `git add`"). scripts/pre_commit_size_gate.sh reads column 1.
 #
 # A row here is a RECORD OF AN APPROVAL, not a way to get past the gate. If you are adding a row
 # because the gate refused you, stop: the row needs the operator's actual words in column 4.
 #
 # `solve.c` is NOT listed — it is exempt in the gate itself by operator ruling 2026-08-06.
-reports/evidence/knuth195_percell_100000.csv.gz	operator	2026-09-04	"4. ok" — asked whether to publish the per-cell table given it cannot be brought under 1 MiB losslessly (measured gzip -9 floor 1,112,677 B)
+reports/evidence/knuth195_percell_100000.csv.gz	operator	2026-09-04	"4. ok" — asked whether to publish the per-cell table given it cannot be brought under 1 MiB losslessly (measured gzip -9 floor 1,112,677 B) [corrected 2026-09-25, Codex V3A-117#1: "losslessly" holds only under gzip -9, the one compressor this project ships (re-measured 1,117,668 B); bzip2 -9 gives 834,956 B and xz -9e 610,868 B, both lossless and under 1 MiB]
 runs/20260906_kc_ladders_n31/atlas_n31.json	operator	2026-09-23	"4. publish" — asked whether to publish the 5,978,126 B n=31 atlas, the input every §12 figure and --atlas-probe token is computed from; its sha256 9d6ba3d2… is the digest TR-12 §12 already pins, and CX-72 turned on six figures a reader could not otherwise recompute

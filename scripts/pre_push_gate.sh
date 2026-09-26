@@ -21,7 +21,7 @@
 #   failure modes follow, both real:
 #     - a defect present in the pushed commit but already fixed in
 #       uncommitted local edits PASSES the hook and ships broken — the
-#       218-commit history replay (task #149) found 12 commits whose
+#       218-commit history replay (task #149, an internal replay whose record is not in this repository) found 12 commits whose
 #       committed trees failed their own gates, four of them pushed and red
 #       in public for ~2.5 days, and at the moment this semantics fix was
 #       written, HEAD itself was exactly this case (a retracted figure
@@ -95,7 +95,7 @@
 #
 # THE `generated` LEG IS CONDITIONAL (2026-08-07, gate-blind-spot closure #1;
 # it was previously absent entirely). `doc_gates.sh generated` costs ~67 s
-# measured 2026-08-07 (~107 s on the 2026-08-06 measurement — three roae.py
+# measured 2026-08-07 (~107 s on the 2026-08-06 measurement — three roae.py report
 # runs either way, unseeded then, seeded since 2026-09-04, ≥4x the ~17 s the rest of the doc gates take), so
 # running it on EVERY push would roughly double this hook for artifacts most
 # pushes cannot have touched — and a hook that slow is a hook that gets
@@ -124,7 +124,7 @@
 # reshipped under `--seed 20260904`, GATE 8 regenerates under the same seed, and
 # all ELEVEN tracked example/ artifacts are compared BYTE-EXACT, digits
 # included. No file in this hook's scope is digit-blind any more.
-#   The cost figures above are unchanged in kind: still three roae.py runs, now
+#   The cost figures above are unchanged in kind: still three roae.py report runs (plus LEG 7's five ~0.6 s data exports, eight invocations in all), now
 # SEEDED rather than unseeded. See pre_commit_generated_gate.sh's header.
 #
 # NO PRIVATE BYPASS (same contract as both underlying gates): there is
@@ -453,8 +453,8 @@ fi
 # ---- temp-worktree lifecycle: removed on EVERY exit path ------------------
 # A leaked worktree pollutes `git worktree list` until pruned; clean up on
 # normal exit, gate failure, and interrupt alike. The pinned worktrees
-# (e.g. roae-v4compiler) are never touched: this only ever removes the
-# mktemp directory it created itself.
+# (e.g. roae-v4compiler) are never touched: this removes only the mktemp directory it created itself,
+# then runs a REPOSITORY-WIDE `git worktree prune`, which drops the record of any unlocked worktree whose directory is gone.
 WTBASE=""
 STBASE=""   # the Q-720 selftest leg's own clone (see its header below)
 cleanup() {
@@ -531,7 +531,7 @@ for sha in $SHAS; do
       if [ -f "$WT/scripts/doc_gates.sh" ]; then
         echo
         echo "pre-push: pushed range touches roae.py/example/ (or has no base to diff) —"
-        echo "          running its generated-artifact gate (GATE 8, ~67-107 s: 3 roae.py runs)"
+        echo "          running its generated-artifact gate (GATE 8, ~67-107 s: 3 roae.py report runs + 5 data exports)"
         ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
             bash scripts/doc_gates.sh generated ); _grc=$?
         if [ "$_grc" -gt 1 ]; then

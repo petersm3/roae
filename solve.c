@@ -471,7 +471,7 @@ typedef struct {
     int8_t  reserved;
 } DFSStackFrame_v2;
 static Pair pairs[32];
-static int n_pairs = 0;
+static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */
 
 /* ---------- Bitmask domain representation (task #72, Phase A) ----------
  * Compact representation of the "remaining pair pool" used by the DFS hot
@@ -9513,7 +9513,7 @@ static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
 
 /* v2 read: load full-stack capture into ts->dfs_v2_resume_*.
  * Returns 0 if v2 read OK; 1 if no file or wrong version (caller should fall
- * back to v1 read); -1 on read/format error. */
+ * back to v1 read); -1 on read/format error, including a v2 file of any size but sizeof(st). */
 static int dfs_state_read_v2(int p1, int o1, int p2, int o2, int p3, int o3,
                              ThreadState *ts) {
     char fname[96];
@@ -9522,10 +9522,13 @@ static int dfs_state_read_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     if (!f) return 1;
     DFSCheckpointState_v2 st;
     size_t n = fread(&st, 1, sizeof(st), f);
+    int longer = (n == sizeof(st) && fgetc(f) != EOF);  /* any byte past sizeof(st) */
     fclose(f);
-    if (n != sizeof(st)) return -1;
-    if (st.magic != DFS_STATE_MAGIC) return -1;
+    if (n != sizeof(st) || st.magic != DFS_STATE_MAGIC) return -1;
     if (st.format_version != DFS_STATE_VERSION_V2) return 1;  /* not v2 */
+    if (longer) {  /* Q-732: every v2 sidecar is exactly sizeof(st) bytes; dispatch on version alone is not enough */
+        fprintf(stderr, "WARN: dfs_state_read_v2: %s is stamped v2 but longer than %zu bytes\n", fname, sizeof(st)); return -1;
+    }
     if (st.prefix_p1 != p1 || st.prefix_o1 != o1
         || st.prefix_p2 != p2 || st.prefix_o2 != o2
         || st.prefix_p3 != (int8_t)p3 || st.prefix_o3 != (int8_t)o3) return -1;
@@ -9540,12 +9543,12 @@ static int dfs_state_read_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     for (int i = 0; i < 32; i++) if (st.used[i]) PAIR_MASK_SET(ts->dfs_v2_resume_used, i);
     memcpy(ts->dfs_v2_resume_budget, st.budget, 7);
     ts->dfs_resume_prior_nodes = st.prior_nodes_walked;
-    /* Q-414: carry the attestation forward. A 0 here means "genuinely zero yield" ONLY when the
-     * writer set the flag; on every pre-fix sidecar the flag is clear and the 0 means nothing. */
-    ts->dfs_resume_yield_attested = (st.reserved2[0] & DFS_V2_FLAG_YIELD_ATTESTED) ? 1 : 0;
+    /* Q-414: carry the attestation forward. A 0 here means "genuinely zero yield" ONLY when the writer
+     * set the flag. Q-732: EQUALITY, not a mask; unflagged (every pre-fix sidecar) or any unknown bit is NOT attested. */
+    ts->dfs_resume_yield_attested = (st.reserved2[0] == DFS_V2_FLAG_YIELD_ATTESTED) ? 1 : 0;
     ts->dfs_resume_prior_solutions = st.prior_solutions_found;
-    fprintf(stderr, "[dfs-v2] READ  %s (sp=%d, prior nodes=%lld)\n",
-            fname, (int)st.sp, (long long)st.prior_nodes_walked);
+    fprintf(stderr, "[dfs-v2] READ  %s (sp=%d, prior nodes=%lld)%s\n", fname, (int)st.sp, (long long)st.prior_nodes_walked,
+            st.reserved2[0] > DFS_V2_FLAG_YIELD_ATTESTED ? " WARN: unknown flag bits, yield NOT attested" : "");
     return 0;
 }
 
@@ -9891,13 +9894,10 @@ static void *thread_func_single(void *arg) {
         if (dfs_checkpoint_enabled) {
             int p3_arg = (sb->pair3 >= 0) ? sb->pair3 : -1;
             int o3_arg = (sb->pair3 >= 0) ? sb->orient3 : -1;
-            /* Try v2 first (full-state capture, used by iterative path);
-             * fall back to v1 (iter-only, used by recursive path). */
-            int v2_rc = dfs_state_read_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts);
-            if (v2_rc != 0) {
-                /* v2 not present or wrong version; try v1 */
+            /* Try v2 first (full-state capture, used by iterative path); fall back to v1 (iter-only,
+             * used by recursive path) when v2 is absent, another version, or rejected. */
+            if (dfs_state_read_v2(p1, o1, p2, o2, p3_arg, o3_arg, ts) != 0)
                 (void)dfs_state_read(p1, o1, p2, o2, p3_arg, o3_arg, ts);
-            }
             /* Restore the per-sub-branch node counter:
              *   v2 (iterative+full-state-capture): the saved frame is restored
              *     EXACTLY at the captured stack position, so PHASE_B's walk
@@ -13607,7 +13607,7 @@ static void run_c3_min(const char *filename) {
         if (gzfread(rec, SOL_RECORD_SIZE, 1, f) != 1) {
             fprintf(stderr, "ERROR: short read at record %lld\n", r);
             gzclose(f); exit(20);
-        }
+        } if (sol_pidx_scan(rec, 1, r, filename, NULL)) { gzclose(f); exit(20); }  /* Q-520 */
         int seq[64];
         for (int i = 0; i < 32; i++) {
             int pidx = (rec[i] >> 2) & 0x3F;
@@ -40379,7 +40379,7 @@ int main(int argc, char *argv[]) {
                  "cd %s && "
                  "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
                  /* \U0001f534 SOLVE_HASH_LOG2=20 (32 MB/thread) instead of the 2^24 default
-                  * (512 MB/thread, and MEMSET-RESIDENT -- solve.c:9712 touches every page, so it
+                  * (512 MB/thread, and MEMSET-RESIDENT -- solve.c:9718 touches every page, so it
                   * is real RSS, not virtual). MEASURED 2026-09-08: the selftest child was carrying
                   * ~2.1 GB at the old hardcoded 4 threads, on a 7 GB box, concurrently with a
                   * gcc -O3 -march=native in the same gate. That is the MEMORY half of the crash;
@@ -40487,7 +40487,7 @@ int main(int argc, char *argv[]) {
             long long want = n_records - done; if (want > VBLK) want = VBLK;
             if (gzfread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
                 fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); gzclose(vf); return 20;
-            }
+            } if (sol_pidx_scan(vbuf, want, done, vpath, "RULE2")) { free(vbuf); gzclose(vf); return 20; }  /* Q-520 */
             unsigned long long b_viol = 0, b_ones = 0, b_forced = 0, b_waste = 0;
             unsigned long long lw[32] = {0}, lf[32] = {0};
             #pragma omp parallel for schedule(static) \
@@ -40599,7 +40599,7 @@ int main(int argc, char *argv[]) {
             long long want = n_records - done; if (want > VBLK) want = VBLK;
             if (gzfread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
                 fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); gzclose(vf); return 20;
-            }
+            } if (sol_pidx_scan(vbuf, want, done, vpath, "NINTH_SIX")) { free(vbuf); gzclose(vf); return 20; }  /* Q-520 */
             unsigned long long cdist[16] = {0}, bbnd[32] = {0};
             #pragma omp parallel for schedule(static) reduction(+:cdist[:16],bbnd[:32])
             for (long long k = 0; k < want; k++) {
@@ -40703,7 +40703,7 @@ int main(int argc, char *argv[]) {
             long long want = n_records - done; if (want > VBLK) want = VBLK;
             if (gzfread(vbuf, SOL_RECORD_SIZE, (size_t)want, vf) != (size_t)want) {
                 fprintf(stderr, "ERROR: short read near record %lld\n", done); free(vbuf); gzclose(vf); return 20;
-            }
+            } if (sol_pidx_scan(vbuf, want, done, vpath, "WRAP_PARITY")) { free(vbuf); gzclose(vf); return 20; }  /* Q-520 */
             unsigned long long wd[7] = {0};
             #pragma omp parallel for schedule(static) reduction(+:wd[:7])
             for (long long k = 0; k < want; k++) {
@@ -41680,8 +41680,8 @@ int main(int argc, char *argv[]) {
         }
         int nlev = rest / 2, lp[28] = {0}, lo[28] = {0};
         for (int i = 0; i < nlev; i++) { lp[i] = atoi(argv[3+2*i]); lo[i] = atoi(argv[4+2*i]); }
-        /* Stack preflight (2026-08-21). main's frame is ~7.23 MB and estimate_tree_knuth adds
-         * ~1.02 MB, so the common 8 MB default stack is exceeded the moment the estimator is
+        /* Stack preflight (2026-08-21). main's frame is ~7.24 MiB and estimate_tree_knuth adds ~1.48 MiB
+         * (gcc -fstack-usage, re-measured 2026-09-25, Q-826), so an 8 MB default stack is exceeded the moment the estimator is
          * entered -- previously a bare SIGSEGV after the banner, with no indication of cause.
          * A cold external-reviewer pass concluded from this that the instrument was broken.
          * Fail with an actionable message instead. Estimator path only; sha-neutral. */
@@ -41691,7 +41691,7 @@ int main(int argc, char *argv[]) {
                 && _rl.rlim_cur < 16UL * 1024 * 1024) {
                 fprintf(stderr,
                     "solve: stack limit is %lu MB, but --estimate-knuth needs >= 16 MB\n"
-                    "       (main ~7.2 MB frame + estimator ~1.0 MB frame).\n"
+                    "       (main ~7.2 MiB frame + estimator ~1.5 MiB frame).\n"
                     "       Re-run with:  ulimit -s unlimited\n",
                     (unsigned long)(_rl.rlim_cur / (1024UL * 1024UL)));
                 return 1;
@@ -44561,7 +44561,7 @@ int main(int argc, char *argv[]) {
      *   6. Greedy minimum-boundary search to uniquely identify KW
      *   7. Exhaustive 3-subset disproof (all C(31,3)=4,495 triples)
      *   8. All 4-subsets uniquely identifying KW (C(31,4)=31,465)
-     *   9. Boundary redundancy (top-redundant + most-independent pairs)
+     *   9. Boundary redundancy (top-redundant + lowest-overlap pairs; joint/min(single))
      *  10. Pairwise mutual information (top-N pairs)
      *  11. Per-first-level-branch distinct configurations at positions 3-19
      *  12. Null-model: greedy boundary search relative to a non-KW reference
@@ -44611,7 +44611,7 @@ int main(int argc, char *argv[]) {
         }
         long long n_sols = file_size / SOL_RECORD_SIZE;
         madvise(mmap_base, full_size, MADV_SEQUENTIAL);
-        unsigned char *all = mmap_base + SOL_HEADER_SIZE;   /* record-stream view */
+        unsigned char *all = mmap_base + SOL_HEADER_SIZE;   /* record-stream view */ if (sol_pidx_scan(all, n_sols, 0, analyze_file, NULL)) { gz_mmap_close(mmap_base, full_size, gz_tmp); return 1; }  /* Q-520 */
 
         printf("[1] File metadata\n");
         fprintf(stderr, "[1] START\n"); fflush(stderr);
@@ -45094,7 +45094,7 @@ int main(int argc, char *argv[]) {
             printf("      b=%d, b'=%d  joint=%lld  min_single=%lld  ratio=%.3f\n",
                    re[i].b1, re[i].b2, re[i].jc, re[i].ms, re[i].ratio);
         int bot = re_n < 10 ? 0 : re_n - 10;
-        printf("    Top 10 most-INDEPENDENT boundary pairs:\n");
+        printf("    Top 10 lowest-OVERLAP boundary pairs (joint/min(single), descending):\n");
         for (int i = bot; i < re_n; i++)
             printf("      b=%d, b'=%d  joint=%lld  min_single=%lld  ratio=%.3f\n",
                    re[i].b1, re[i].b2, re[i].jc, re[i].ms, re[i].ratio);
@@ -49146,10 +49146,10 @@ sub_enum_done:
                     }
                 }
             }
-            free(threads[i].sol_table);
-            free(threads[i].sol_occupied);
+            free(threads[i].sol_table); free(threads[i].sol_occupied);
         }
-        total_stored = sol_offset;
+        total_stored = sol_offset;   /* Q-825: every sub-branch flush clears these tables, so the records are the shards */
+        { int q825_load_branch_shards(int, int, int, int, int, int, int, unsigned char **, long long *); if (q825_load_branch_shards(single_sub_branch_mode, sb_pair, sb_orient, ssb_pair2, ssb_orient2, ssb_pair3, ssb_orient3, &all_solutions, &total_stored) != 0) return 20; }
         printf("Sorting %lld solutions...\n", total_stored);
         fflush(stdout);
         if (all_solutions && total_stored > 0)
@@ -50581,5 +50581,81 @@ sub_enum_done:
                pair_freq_m, super_match, hash_only, "solutions.bin");
     printf("JSON results written to solve_results.json\n");
 
+    return 0;
+}
+
+/* Q-825 (2026-09-25). `--branch` and single-threaded `--sub-branch` write a per-branch
+ * solutions_<p1>_<o1>.bin from the threads' in-memory tables, but every sub-branch flush
+ * (flush_sub_solutions[_d3]) CLEARS those tables, so that file was always written with 0 records
+ * and the report said "Unique pair orderings: 0" while the shards held the solutions. This appends
+ * the records of the run's on-disk shards to *buf (*n records so far): the one d3 shard for
+ * --sub-branch, or every sub_<p1>_<o1>_*.bin for --branch (so shards completed by an earlier run in
+ * the same directory count too). The caller sorts and de-duplicates, so the file equals what
+ * `--merge` makes of the same shards. Defined after main() so no line above moves. Returns 0, or -1
+ * with *buf freed and NULL. */
+int q825_load_branch_shards(int one_sub, int p1, int o1, int p2, int o2, int p3, int o3,
+                            unsigned char **buf, long long *n) {
+    char pfx[64];
+    if (one_sub) snprintf(pfx, sizeof(pfx), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3, o3);
+    else snprintf(pfx, sizeof(pfx), "sub_%d_%d_", p1, o1);
+    size_t pl = strlen(pfx);
+    DIR *d = opendir(".");
+    if (!d) { fprintf(stderr, "ERROR: opendir(.) failed: %s\n", strerror(errno)); free(*buf); *buf = NULL; return -1; }
+    struct dirent *de;
+    while ((de = readdir(d)) != NULL) {
+        size_t nl = strlen(de->d_name);
+        if (strncmp(de->d_name, pfx, pl) != 0 || nl < 4 || strcmp(de->d_name + nl - 4, ".bin") != 0) continue;
+        long long sz = gz_logical_size(de->d_name);   /* #169: logical (decompressed) size */
+        if (sz == 0) continue;
+        long long nr = sz / SOL_RECORD_SIZE;
+        unsigned char *nb = (sz > 0 && sz % SOL_RECORD_SIZE == 0)
+                            ? realloc(*buf, (size_t)(*n + nr) * SOL_RECORD_SIZE) : NULL;
+        if (!nb) {
+            fprintf(stderr, "ERROR: cannot load shard %s (logical size %lld)\n", de->d_name, sz);
+            closedir(d); free(*buf); *buf = NULL; return -1;
+        }
+        *buf = nb;
+        gzFile gr = gzr_open(de->d_name);
+        if (!gr || (long long)gzfread(*buf + (size_t)*n * SOL_RECORD_SIZE, SOL_RECORD_SIZE, (size_t)nr, gr) != nr) {
+            fprintf(stderr, "ERROR: short read on shard %s\n", de->d_name);
+            if (gr) gzclose(gr);
+            closedir(d); free(*buf); *buf = NULL; return -1;
+        }
+        gzclose(gr);
+        *n += nr;
+    }
+    closedir(d);
+    return 0;
+}
+
+/* 🔴 Q-520 — pair-index bounds for every reader of the 32-byte solution record that did not
+ * already check it. A record byte is (pair_index<<2)|(orient<<1), so byte>>2 is SIX bits, 0..63,
+ * and it indexes the 32-entry pairs[] table: any byte with bit 7 set reads past the end of it.
+ * The file had ALREADY decided what to do with such a byte -- --verify, --validate, --show and
+ * the kc-oracle decoder all refuse it -- and five readers did not follow that decision:
+ * --c3-min, --verify-rule2, --verify-9th-six, --verify-wrap-parity, and the --analyze/--c3-dist
+ * mmap block (every section of which decodes byte>>2 under a name other than pidx). Each now
+ * scans the records it is about to decode, BEFORE decoding, and the caller exits with its
+ * existing corrupt-format code. Never clamps, never skips. The enumeration hot path is not
+ * involved: analyze_solution() builds its pair index from pair_index_of() on a DFS-built seq,
+ * not from a record byte. Returns 0 clean, 1 after reporting the FIRST offending byte;
+ * token (may be NULL) is the caller's verdict key, printed as KEY=ERROR for grep -qx harnesses. */
+static int sol_pidx_scan(const unsigned char *buf, long long n, long long first,
+                         const char *path, const char *token) {
+    const size_t len = (size_t)n * SOL_RECORD_SIZE;
+    size_t k = 0;
+    for (; k + 8 <= len; k += 8) {   /* 8 bytes per test: pidx >= 32 <=> bit 7 set */
+        uint64_t w; memcpy(&w, buf + k, 8);
+        if (w & 0x8080808080808080ULL) break;
+    }
+    for (; k < len; k++) {
+        if ((buf[k] >> 2) < 32) continue;
+        if (token) printf("%s=ERROR\n", token);
+        fprintf(stderr, "ERROR: PAIR_INDEX_OUT_OF_RANGE: %s record %lld byte %d = 0x%02X decodes "
+                "pair index %d, outside the 32-entry pair table (SOLUTIONS_FORMAT.md: byte = "
+                "(pair_index<<2)|(orient<<1)); refusing to decode\n", path,
+                first + (long long)(k / SOL_RECORD_SIZE), (int)(k % SOL_RECORD_SIZE), buf[k], buf[k] >> 2);
+        return 1;
+    }
     return 0;
 }

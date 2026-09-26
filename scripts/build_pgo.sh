@@ -26,10 +26,22 @@
 #   source_file        Source filename relative to build_dir.
 #                      Default: solve.c
 #   pgo_workload_cmd   Command to run the instrumented binary for
-#                      profile collection. Default: a tight 1B-node
-#                      enum workload (representative of canonical hot
-#                      paths). The string is eval'd; use $INSTR_BIN
-#                      to refer to the instrumented binary path.
+#                      profile collection. Default: a short 1B-node
+#                      enum workload at SOLVE_PER_SUB_BRANCH_LIMIT=6315.
+#                      It is NOT representative of a canonical run:
+#                      PERFORMANCE_HISTORY.md ("Workload mismatch")
+#                      records that it trains the budget-bound exit
+#                      code, not the DFS hot path the 1T canonical run
+#                      (1000x the per-branch limit) spends its time in
+#                      (V3A-102#4).
+#                      The string is eval'd; use $INSTR_BIN to refer
+#                      to the instrumented binary path. It runs with
+#                      its working directory set to a FRESH
+#                      subdirectory of build_dir (pgo_work.XXXXXX), so
+#                      a later build never resumes the checkpoints an
+#                      earlier one left (V3A-102#2); a workload that
+#                      needs a file from build_dir must name it by
+#                      absolute path.
 #                      It MUST exit 0: a non-zero workload is an ERROR
 #                      (2026-09-24, Q-749). A sub-canonical node limit
 #                      needs SOLVE_PER_SUB_BRANCH_LIMIT (as the default
@@ -115,11 +127,20 @@ rm -rf "$PROFILE_DIR"
 mkdir -p "$PROFILE_DIR"
 
 # ===== Profile-gen workload =====
-# Run the instrumented binary on a representative workload so it
-# writes .gcda profile data files.
-echo "[$(date -u +%FT%TZ)] PGO profile-gen workload"
+# Run the instrumented binary on the training workload so it writes
+# .gcda profile data files.
+# 🔴 2026-09-25 (Q-756, Codex v3 E3 V3A-102#2). The default workload sets
+# SOLVE_DFS_CHECKPOINT=1 and used to run in $BUILD_DIR itself, which the
+# clean-state step above does not clear of sub_*.dfs_state files: a second
+# build in the same directory resumed the first one's checkpoints and
+# trained on whatever work was left. The workload now runs in a new
+# directory made by mktemp, so it always starts from nothing. (.gcda files
+# go to the absolute $PROFILE_DIR, so the working directory does not move them.)
+WORK_DIR=$(mktemp -d "$BUILD_DIR/pgo_work.XXXXXX") || {
+    echo "ERROR: could not create a fresh workload directory under $BUILD_DIR" >&2; exit 1; }
+echo "[$(date -u +%FT%TZ)] PGO profile-gen workload (in $WORK_DIR)"
 export INSTR_BIN
-eval "$PGO_WORKLOAD" > /tmp/pgo_workload.log 2>&1
+( cd "$WORK_DIR" && eval "$PGO_WORKLOAD" ) > /tmp/pgo_workload.log 2>&1
 WORKLOAD_RC=$?
 if [ "$WORKLOAD_RC" -ne 0 ]; then
     echo "ERROR: PGO workload exited rc=$WORKLOAD_RC; refusing to build a PGO binary from it" >&2
@@ -172,6 +193,7 @@ echo "  binary:        $FINAL_BIN"
 sha256sum "$FINAL_BIN"
 echo "  gcda files:    $GCDA_COUNT (in $PROFILE_DIR)"
 echo "  instrumented:  $INSTR_BIN (kept for forensics; rm to free space)"
+echo "  workload dir:  $WORK_DIR (its checkpoints; kept for forensics, rm to free space)"
 
-# Don't auto-cleanup — caller decides whether to remove $PROFILE_DIR
-# and $INSTR_BIN. They're useful for reproducibility forensics.
+# Don't auto-cleanup — caller decides whether to remove $PROFILE_DIR,
+# $WORK_DIR and $INSTR_BIN. They're useful for reproducibility forensics.

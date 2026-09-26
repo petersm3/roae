@@ -14,7 +14,8 @@
 #            only the file named as the reason for it.]
 #           (lean/README.md SS"Verify yourself" carries the measured per-file table).
 #   STACK : ulimit -s unlimited, if you also run --estimate-knuth by hand. main's frame is
-#           ~7.23 MB and the estimator adds ~1.02 MB, so an 8 MB default stack SIGSEGVs.
+#           ~7.24 MiB and the estimator adds ~1.48 MiB (gcc -fstack-usage, re-measured 2026-09-25, Q-826;
+#           this read ~7.23 MB and ~1.0 MB), so an 8 MB default stack is too small.
 #           This script does not invoke the estimator; the binary now refuses with a clear
 #           message rather than segfaulting.
 #   DISK  : ~2 GB scratch. CPU: any; the checks are not core-hungry and do not need a big VM.

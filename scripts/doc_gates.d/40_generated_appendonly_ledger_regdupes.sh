@@ -622,37 +622,37 @@ gate_appendonly_head() {
   # word has gone. MEASURED, on this file, in a scratch worktree: re-wrapping THREE
   # consecutive committed prose lines at width 72 — no word changed — produced
   # `[FAIL] 3 committed line(s) no longer present` here and SEVENTY-THREE `[FAIL]` blocks in
-  # GATE 10b, one per historical blob.
-  #
-  # The hazard is the REMEDY, not the report: a maintainer reading that goes looking for
-  # deleted content that does not exist, or restores old line breaks, or concludes a
-  # published append-only ledger has been tampered with.
+  # GATE 10b, one per historical blob. The hazard is the REMEDY: a maintainer goes looking
+  # for deleted content that does not exist, or concludes the ledger was tampered with.
   #
   # THE VERDICT IS UNCHANGED AND DELIBERATELY SO. A reflow of published text really does
-  # rewrite bytes of an append-only file, and this gate's own success sentence is "no
-  # committed line removed or reworded" — the lines DID change. What changes is that the two
-  # classes are now named separately, so the reader is told which remedy applies. NOTHING
-  # NEWLY PASSES: both classes still set the exit code, so this cannot be a false clear, and
-  # a real deletion INSIDE a re-wrapped paragraph is still LOST because its flattened text is
-  # no longer a substring of the flattened file.
+  # rewrite bytes of an append-only file; the lines DID change. What changes is that the two
+  # classes are named separately, so the reader is told which remedy applies. NOTHING NEWLY
+  # PASSES: both classes still set the exit code, so this cannot be a false clear.
   #
-  # CAVEAT, stated rather than implied: classification is by flattened-substring, so a very
-  # short missing line (`---`, a lone `|`) can be labelled a re-wrap on weak evidence. That
-  # affects the LABEL only, never the verdict — both classes fail — which is why the cheap
-  # test is acceptable here and would not be if one class were exempt.
+  # Q-718 (2026-09-25) — HOW A MISSING LINE IS CLASSIFIED. The first rule asked whether its
+  # whitespace-collapsed text occurred ANYWHERE in the collapsed file, so deleting the one-word
+  # line `this.` read as a re-wrap. Each `diff` hunk is now compared word by word: a missing
+  # line is a RE-WRAP only when every one of its words is aligned, in order, with a word of the
+  # text that replaced it in the SAME hunk. A deleted line (a hunk with no replacement), a
+  # dropped word or duplicate, and a hyphen split (`machine-` then `enforced` is two words, not
+  # `machine-enforced`) are LOST. A missing blank line has no words and stays a re-wrap.
   local missf
   missf=$(mktemp) || { echo "  [FAIL] GATE 10a: mktemp failed, so the finding could not be classified."; rm -f "$tmp"; return 1; }
-  diff "$tmp" "$f" | sed -n 's/^< //p' > "$missf"
-  DG_MISS="$missf" DG_CUR="$f" DG_N="$gone" python3 - <<'PY'
-import os, re, sys
-cur  = open(os.environ["DG_CUR"], encoding="utf-8", errors="replace").read()
-flat = re.sub(r"\s+", " ", cur)
-miss = [l.rstrip("\n") for l in open(os.environ["DG_MISS"], encoding="utf-8", errors="replace")]
-rew, lost = [], []
-for l in miss:
-    t = re.sub(r"\s+", " ", l).strip()
-    (rew if (not t or t in flat) else lost).append(l)
-n = os.environ["DG_N"]
+  diff "$tmp" "$f" > "$missf"
+  DG_MISS="$missf" DG_N="$gone" python3 - <<'PY'
+import os, re, sys, difflib
+def classify(dt):  # Q-718: a normal-format diff -> (re-wrapped, lost) removed lines, judged hunk by hunk
+    rew, lost = [], []
+    for h in (h.split("\n") for h in re.split(r"(?m)^\d+(?:,\d+)?[acd]\d+(?:,\d+)?$", dt)):
+        old = [d[2:] for d in h if d[:1] == "<"]; b = " ".join(d[2:] for d in h if d[:1] == ">").split()
+        a = [(x, i) for i, l in enumerate(old) for x in l.split()]; m = min(len(a), len(b))
+        p = next((k for k in range(m) if a[k][0] != b[k]), m); s = next((k for k in range(m - p) if a[-1 - k][0] != b[-1 - k]), m - p)
+        ok = set(range(p)) | set(range(len(a) - s, len(a))) | {p + i + k for i, j, n in difflib.SequenceMatcher(None, [x for x, _ in a[p:len(a) - s]], b[p:len(b) - s], autojunk=False).get_matching_blocks() for k in range(n)}
+        bad = {a[k][1] for k in range(len(a)) if k not in ok}
+        for i, l in enumerate(old): (lost if i in bad else rew).append(l)
+    return rew, lost
+rew, lost = classify(open(os.environ["DG_MISS"], encoding="utf-8", errors="replace").read()); n = os.environ["DG_N"]
 if lost:
     print("  [FAIL] %d of %s missing committed line(s) are LOST — their text is not in the file"
           % (len(lost), n))
@@ -710,20 +710,20 @@ PY
 #     re-ordering passes it. 10a is the order-sensitive half (diff is an LCS); the two
 #     are complementary and both run.
 #
-# COST (stated as a formula first, per the box-safety rule): B distinct blob versions
-# x L lines, where B = commits-touching-the-file + remote-tracking-refs, deduplicated by
-# blob id.
-# NEITHER NUMBER IS QUOTED HERE, and that is a correction rather than a house style. This
-# comment shipped `B = 5, L = 525` under a "Measured 2026-08-02" stamp, and BOTH had moved
-# before that same day was out — L with every append to the ledger, B with every commit that
-# touches it and every remote-tracking ref that appears. A reader who re-derived either got a
-# number that disagreed — B by a multiple, L by a smaller margin — with nothing beside it to
-# say which side was broken. That is the same failure the stale self-pointer count shipped in
-# this file earlier the same day, and the same remedy: put the measurement next to the count,
-# or do not write the count. B is printed by this gate on its green [ok] line, as the count of
-# distinct historical/published versions compared — so quoting it here could only ever go
-# stale against a number the run itself states. L is one command:
-#   wc -l < documentation/CORRECTIONS.md
+# COST: B distinct blob versions x L lines; B = commits touching the file + remote-tracking refs,
+# deduplicated by blob id. Neither is quoted here: a "Measured 2026-08-02" `B = 5, L = 525` was
+# stale the same day. B is printed on the green [ok] line; L is `wc -l < documentation/CORRECTIONS.md`.
+#
+# BEHIND VERSUS DIVERGED (Q-702; documented under Q-719). The branch's published lineage is
+# @{push}, else a same-named remote branch, else a same-named @{upstream}, and the gate prints
+# which. A baseline commit on that lineage that is not an ancestor of HEAD is judged by HEAD:
+#   - HEAD is an ancestor of the lineage ref (purely BEHIND): a [note]. The lines arrive with a
+#     fast-forward, and a push from here is refused as non-fast-forward.
+#   - HEAD is not (DIVERGED, which includes an amend, rebase or squash of a published commit):
+#     a [FAIL] until the branch merges or rebases onto that ref. This holds mid-lane too: a local
+#     commit made while behind a remote ledger append makes the checkout diverged, and it fails.
+# A commit only on OTHER remote branches is a merge-gap [note]. A detached HEAD has no lineage,
+# so this arm is off there (the pre-push hook's per-sha worktree is one), and the gate says so.
 gate_appendonly_history() {
   echo "== GATE 10b: CORRECTIONS.md has lost no line from ANY committed or published version =="
   local f="documentation/CORRECTIONS.md"
@@ -734,15 +734,15 @@ gate_appendonly_history() {
   local cur tmp bad=0 n=0 blob src seen=""
   cur=$(mktemp) || return 1
   tmp=$(mktemp) || { rm -f "$cur"; return 1; }
-  # Q-251: the flattened working copy, computed ONCE, and the accumulator for re-wrapped
-  # lines seen across every baseline. A three-line reflow produced SEVENTY-THREE identical
-  # [FAIL] blocks here (one per historical blob) before this change; they are now collected
-  # and reported once, because seventy-three repetitions of the same fact is a report nobody
-  # reads to the end of.
-  local g10b_flat g10b_rew
-  g10b_flat=$(mktemp) || { rm -f "$cur" "$tmp"; return 1; }
-  g10b_rew=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_flat"; return 1; }
-  tr -s '[:space:]' ' ' < "$f" > "$g10b_flat"
+  # Q-251: the accumulator for re-wrapped lines seen across every baseline. A three-line reflow
+  # produced SEVENTY-THREE identical [FAIL] blocks here (one per historical blob); they are now
+  # collected and reported once. Nothing newly passes: the accumulator sets `bad` too. Q-718:
+  # $g10b_diff holds ONE baseline's `diff` against the working copy at a time, written in the
+  # loop, and a missing line is classified by the 10a rule (word alignment within its hunk) on
+  # that diff. When one text is removed in both classes, LOST is counted first.
+  local g10b_diff g10b_rew
+  g10b_diff=$(mktemp) || { rm -f "$cur" "$tmp"; return 1; }
+  g10b_rew=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_diff"; return 1; }
   grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
   # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
   # remote ref pointing at a commit already walked, contribute nothing.
@@ -865,25 +865,25 @@ gate_appendonly_history() {
     local lost
     lost=$(comm -23 "$tmp" "$cur" | wc -l)
     if [ "${lost:-0}" -ne 0 ]; then
-      # Q-251: split the missing lines into RE-WRAPS (every word still in the file, at
-      # different line breaks) and genuine LOSSES, before any verdict is printed. A line whose
-      # whitespace-collapsed text is still a substring of the whitespace-collapsed working copy
-      # was not deleted. Re-wraps are accumulated and reported once, after the loop; only real
-      # losses print a per-baseline [FAIL]. Nothing newly passes: the accumulator sets `bad`
-      # too, so a reflow is still a finding — it is a DIFFERENT finding, with a different fix.
+      # Q-251 / Q-718: split into RE-WRAPS (accumulated, reported once below) and LOST lines.
       local g10b_lostf
-      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_flat" "$g10b_rew"; return 1; }
-      comm -23 "$tmp" "$cur" | DG_FLAT="$g10b_flat" DG_REW="$g10b_rew" python3 -c '
-import os, re, sys
-flat = re.sub(r"\s+", " ", open(os.environ["DG_FLAT"], encoding="utf-8", errors="replace").read())
-rew  = open(os.environ["DG_REW"], "a", encoding="utf-8")
-for line in sys.stdin:
-    l = line.rstrip("\n")
-    t = re.sub(r"\s+", " ", l).strip()
-    if not t or t in flat:
-        rew.write(l + "\n")
-    else:
-        sys.stdout.write(l + "\n")
+      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew"; return 1; }
+      git cat-file -p "$blob" | diff - "$f" > "$g10b_diff"; comm -23 "$tmp" "$cur" | DG_DIFF="$g10b_diff" DG_REW="$g10b_rew" python3 -c '
+import os, re, sys, difflib, collections
+def classify(dt):  # Q-718: a normal-format diff -> (re-wrapped, lost) removed lines, judged hunk by hunk
+    rew, lost = [], []
+    for h in (h.split("\n") for h in re.split(r"(?m)^\d+(?:,\d+)?[acd]\d+(?:,\d+)?$", dt)):
+        old = [d[2:] for d in h if d[:1] == "<"]; b = " ".join(d[2:] for d in h if d[:1] == ">").split()
+        a = [(x, i) for i, l in enumerate(old) for x in l.split()]; m = min(len(a), len(b))
+        p = next((k for k in range(m) if a[k][0] != b[k]), m); s = next((k for k in range(m - p) if a[-1 - k][0] != b[-1 - k]), m - p)
+        ok = set(range(p)) | set(range(len(a) - s, len(a))) | {p + i + k for i, j, n in difflib.SequenceMatcher(None, [x for x, _ in a[p:len(a) - s]], b[p:len(b) - s], autojunk=False).get_matching_blocks() for k in range(n)}
+        bad = {a[k][1] for k in range(len(a)) if k not in ok}
+        for i, l in enumerate(old): (lost if i in bad else rew).append(l)
+    return rew, lost
+R, L = map(collections.Counter, classify(open(os.environ["DG_DIFF"], encoding="utf-8", errors="replace").read())); rew = open(os.environ["DG_REW"], "a", encoding="utf-8")
+for l in (x.rstrip("\n") for x in sys.stdin):
+    if L[l] > 0 or R[l] == 0: L[l] -= 1; sys.stdout.write(l + "\n")
+    else: R[l] -= 1; rew.write(l + "\n")
 ' > "$g10b_lostf"
       lost=$(wc -l < "$g10b_lostf")
     fi
@@ -944,7 +944,7 @@ for line in sys.stdin:
   elif [ "$bad" -eq 0 ]; then
     echo "  [ok] every line of all $n distinct historical/published version(s) survives in the working copy"
   fi
-  rm -f "$cur" "$tmp" "$g10b_flat" "$g10b_rew"
+  rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew"
   return $bad
 }
 

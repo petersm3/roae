@@ -750,7 +750,7 @@ for f in files:
 print("SCI\t%d\t%d\t%d" % (sci_cand,sci_hex,sci_span))
 print("CEIL\t%.6f" % CEIL)
 ') || { echo "  [FAIL] GATE 26 could not run its scanner — NOTHING was checked."; return 1; }
-  if printf '%s\n' "$out" | grep -qx 'EMPTY'; then
+  if grep -qx 'EMPTY' <<<"$out"; then
     echo "  [FAIL] the markdown corpus reached this gate EMPTY — nothing was checked."
     return 1
   fi
@@ -760,7 +760,7 @@ print("CEIL\t%.6f" % CEIL)
   sci_cand=$(printf '%s\n' "$out" | awk -F'\t' '$1=="SCI"{print $2}')
   sci_hex=$(printf '%s\n' "$out" | awk -F'\t' '$1=="SCI"{print $3}')
   sci_span=$(printf '%s\n' "$out" | awk -F'\t' '$1=="SCI"{print $4}')
-  if ! printf '%s\n' "$sci_cand" | grep -qxE '[0-9]+'; then
+  if ! grep -qxE '[0-9]+' <<<"$sci_cand"; then
     echo "  [FAIL] GATE 26 LEG 2 printed no census line — the ASCII scientific-notation leg did not"
     echo "         run, so nothing it is responsible for was checked."
     return 1
@@ -892,11 +892,11 @@ for f in files:
 print("POP\t%d\t%d\t%d"%(nfiles,pop_rows,pop_blocks))
 print("COUNT\t%d"%n)
 ') || { echo "  [FAIL] GATE 27 scanner failed — NOTHING was checked."; return 1; }
-  printf '%s\n' "$out" | grep -qx 'EMPTY' && { echo "  [FAIL] corpus reached GATE 27 empty."; return 1; }
-  printf '%s\n' "$out" | grep -qx 'NOFIGS' && { echo "  [FAIL] $REG parsed to zero figures."; return 1; }
+  grep -qx 'EMPTY' <<<"$out" && { echo "  [FAIL] corpus reached GATE 27 empty."; return 1; }
+  grep -qx 'NOFIGS' <<<"$out" && { echo "  [FAIL] $REG parsed to zero figures."; return 1; }
   local pf pr pb
   IFS=$'\t' read -r pf pr pb < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
-  if ! printf '%s\n' "${pr:-}" | grep -qxE '[0-9]+' || ! printf '%s\n' "${pb:-}" | grep -qxE '[0-9]+'; then
+  if ! grep -qxE '[0-9]+' <<<"${pr:-}" || ! grep -qxE '[0-9]+' <<<"${pb:-}"; then
     echo "  [FAIL] GATE 27 printed no population census — the scan did not complete, so nothing it"
     echo "         is responsible for was checked."
     return 1

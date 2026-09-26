@@ -1,0 +1,9 @@
+[knuth] 10000000 probes, 16 threads, 26 prefix level(s)
+KNUTH-PROBES planned=10000000 executed=10000000
+KNUTH_PROBES=EXECUTED-EQ-PLANNED
+KNUTH-ESTIMATE probes=10000000 threads=16 start_step=27 prefix_levels=26
+KNUTH-PROVENANCE seed_base=0x243f6a8885a308d3 moore_strict=0 gender_strict=0 score=0 r11_hist=0 wall_s=0
+  tree_nodes            : est=4.431618e+02  95%CI=[4.4290e+02, 4.4342e+02]  relerr=0.03%  hitrate=1
+  leaves_C1C2C4C5       : est=5.205899e+01  95%CI=[5.1947e+01, 5.2171e+01]  relerr=0.11%  hitrate=0.0863
+  leaves_canonical_C1C5 : est=3.996922e+00  95%CI=[3.9687e+00, 4.0251e+00]  relerr=0.36%  hitrate=0.00767
+  [diag] canonical top single-probe share : max_w=5.400000e+02 = 0.0014% of estimate mass (skew/ESS audit; lower=better)

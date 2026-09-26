@@ -37,7 +37,7 @@
 # exits 0 with warnings, so warnings passed in silence (observed live: a
 # -Wstringop-truncation warning sailed through a green run). The claim now
 # matches the check: stderr is captured and censused per warning class.
-#   - solve.c currently emits 12 warnings in 7 classes (measured 2026-08-06,
+#   - solve.c emitted 12 warnings in 7 classes (10 in 5 since 2026-09-04, re-measured 2026-09-25) (measured 2026-08-06,
 #     gcc 13.3.0, the orchestrator's stock toolchain — the same toolchain
 #     this hook runs on). solve.c is sha-anchored; silencing those 12 goes
 #     through its own build/verify pipeline, not through this gate. Until
@@ -51,7 +51,7 @@
 #     update the table DELIBERATELY (with the gcc version) — never widen it
 #     to make a red run green.
 
-set -e
+set -e; export LC_ALL=C  # V3A-123#1: the census greps gcc's C-locale 'warning:'; a translated catalog would hide every warning
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SOLVE_C="$REPO_ROOT/solve.c"
@@ -73,7 +73,7 @@ if ! gcc -O3 -Wall -Wextra -pthread -fopenmp -march=native "$SOLVE_C" -lm -lz -o
 fi
 
 # ---- warning ratchet: census this compile's warnings against the baseline ----
-# Baseline: 12 warnings / 7 classes, solve.c @ 2026-08-06, gcc 13.3.0 (see header).
+# Baseline: 10 warnings / 5 classes since 2026-09-04 (12 / 7 at 2026-08-06), gcc 13.3.0 (see header).
 # Format: "<max-count> <class-tag>". The (untagged) row is for warning lines gcc
 # emits without a [-W...] tag; none exist today, so any is a new warning.
 WARN_BASELINE='3 [-Wmisleading-indentation]
@@ -215,7 +215,7 @@ if ! SOLVE="$TMP_BIN" bash "$REPO_ROOT/scripts/atlas_path_portability_gate.sh"; 
 fi
 
 echo "PASS: solve.c compiles under -Wall -Wextra with $WARN_TOTAL warning(s), all inside"
-echo "      the inventoried baseline (12 across 7 classes, 2026-08-06 — no new warnings);"
+echo "      the inventoried baseline (10 across 5 classes since 2026-09-04 — no new warnings);"
 echo "      verify.c compiles warning-free; selftest produces (binary-internal) canonical sha $ACTUAL;"
 echo "      the --kc-scan atlas is byte-identical across directories (path-portable)"
 exit 0

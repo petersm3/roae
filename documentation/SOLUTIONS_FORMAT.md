@@ -89,7 +89,7 @@ still applies.]**
 
 ## Sidecar metadata (`solutions.meta.json`)
 
-Written alongside `solutions.bin` on every successful merge. Contains
+Written alongside `solutions.bin` on every successful merge, best-effort: the writer's return value is not checked at any of its three call sites in `solve.c`, so a failed sidecar write does not fail the merge. Contains
 provenance and self-describing context — **not** the canonical artifact,
 just a human-readable breadcrumb. Example:
 
@@ -286,8 +286,8 @@ Each record in solutions.bin satisfies:
   (= 64 × 12.125, King Wen's own value). C3 is an **independently enforced
   filter, not a consequence of C1+C2+C5**: the enumerator tests it at every
   complete leaf and `--verify` reports C3 failures on their own line. On this
-  repository's own 100M-node run (`solve_results.json`) 30,906,944
-  C1+C2+C4+C5 leaves reduce to 273,808 C3-passing leaves, so a
+  repository's published 10T-node d2 run (`runs/20260418_10T_d2_fresh/solve_results.json`, `counts`) 623,960,468,511
+  C1+C2+C4+C5 leaves (`total_solutions`) reduce to 45,186,592,891 C3-passing leaves (`c3_valid`) ⚠ *(example replaced 2026-09-25: it cited a 100M-node run's 30,906,944 → 273,808 from a `solve_results.json` that is not in the repository. Codex v3 review, V3A-052#3)*, so a
   re-implementation that omits C3 produces a strict **superset** of
   `solutions.bin` and will not reproduce any canonical sha.
   *(Corrected 2026-08-01, solve.c sweep: this line read "implied by C1+C2+C5

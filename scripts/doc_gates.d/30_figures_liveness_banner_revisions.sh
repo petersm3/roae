@@ -113,7 +113,7 @@ gate_figures() {
     local np hits=""
     np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
     for f in $gens; do
-      if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -qF -- "$np"; then
+      if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -cF -- "$np" >/dev/null; then
         # RECORD WHERE (2026-08-02, item A5 / #65). This printed a bare filename, so a
         # maintainer given a 900-line generator had to re-run the search by hand to find
         # the annotation string — the same debugging cost #65 removed from GATE 3 and
@@ -151,7 +151,7 @@ gate_figures() {
         local nf fighits=""
         nf=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
         for f in $gens; do
-          if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -qF -- "$nf"; then
+          if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -cF -- "$nf" >/dev/null; then
             local fgln
             fgln=$(fold_variants < "$f" 2>/dev/null | grep -nF -- "$nf" | head -1 | cut -d: -f1)
             if [ -n "$fgln" ]; then fighits="$fighits $f:$fgln"; else fighits="$fighits $f(spans-lines)"; fi
@@ -242,7 +242,7 @@ gate_figures() {
       reg_row_kind quiet "$phrase" "$allow" "$note"; [ $? -eq 1 ] || continue   # Q-761
       local np3
       np3=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
-      if printf '%s' "$nx" | grep -qF -- "$np3"; then
+      if grep -qF -- "$np3" <<<"$nx"; then
         xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$np3" | head -1 | cut -d: -f1)
         echo "  [FAIL] retracted phrasing RENDERED in a published figure: \"$phrase\""
         echo "         matched as the fixed string: \"$np3\"   ($note)"
@@ -256,7 +256,7 @@ gate_figures() {
         reg_row_kind quiet "$figure" "$fignote"; [ $? -eq 1 ] || continue   # Q-761
         local nf3
         nf3=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
-        if printf '%s' "$nx" | grep -qF -- "$nf3"; then
+        if grep -qF -- "$nf3" <<<"$nx"; then
           xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$nf3" | head -1 | cut -d: -f1)
           echo "  [FAIL] retracted FIGURE rendered in a published figure: \"$figure\""
           echo "         matched as the fixed string: \"$nf3\"   ($fignote)"

@@ -9756,3 +9756,25 @@ review.
   - `--stamp` refuses a skip pin its own compare would reject, and minting expected blocks at any n other than 9 needs a named directory;
   - floors under the evidence and certificate populations, so an emptied corpus fails;
   - a gate holding the `--atlas-probe` token list to what the probe prints.
+
+**Batch 15 (CX-119..CX-140) cleared the same review and is the commit that carries this addition; batch 16 still waits.**
+
+- **Batch 15 (CX-119..CX-140)** is the day's largest, and most of it is corrections by measurement:
+  - the links gate slugs headings the way GitHub does, and the append-only gate's re-wrap check needs each word to line up in its own hunk, so a deleted short line no longer passes as a re-wrap (CX-119, CX-120);
+  - a warn-only pre-commit leg names a commit whose reproduction stamp does not describe the staged tree (CX-121);
+  - the `#167` resume-sidecar reader attests only on the exact flags byte and refuses a version-2 sidecar that is not 440 bytes, and the gate's battery gained the two mutants that would have let either reversion through (CX-122, CX-126); the 100B sha `f1709ab0` still reproduces;
+  - the per-branch solutions file of `--branch` and `--sub-branch` had been written empty since 2026-04-12; it now holds the run's shards, and an audit found no published count or sha had come from it (CX-134, CX-136);
+  - five readers of the solution record decoded a pair index past the 32-entry table; they now refuse the byte instead (CX-139);
+  - the 22 n-independent atlas-consumer gates run on the full-31 path, so `TR12_V1`, `TR12_V2`, `TR12_V5` and `TR12_Q6` are read off checks that ran (CX-137), and the atlas probe publishes its residual lattice rank, 3788 at n=31, with the command and certificates behind it (CX-124);
+  - 185 pipelines that pipefail could turn from a match into a failure were converted one for one (CX-132), and `exec_lane.sh` killed mid-run no longer leaves its child or its workspace behind (CX-138);
+  - the Codex v3 review's batch-5 and batch-6 findings were adjudicated line by line: one forced-trade-off sentence the earlier narrowing missed, two arithmetic slips, recipe gaps in all eleven technical reports closed with commands and archived output or labelled not reproducible, the example report regenerated from its corrected generator, and the §[9] overlap ratio no longer called independence anywhere it is printed or described (CX-123, CX-125, CX-127 to CX-131, CX-133, CX-135, CX-140).
+
+**Two of the day's mistakes were mine, and one reached a lane.** I briefed a lane to build a pre-commit leg that *refused* commits. That contradicts a standing ruling: a hook that refuses a commit also stops a unit from committing to protect its work, which is how uncommitted work has been lost before. The leg was rewired to warn by default, with an opt-in to refuse, and the change was re-verified before integration. Separately, lane drafts of ledger entries described gate results measured on their own lane trees, naming whatever was broken there: a path that does not exist, or an unpublished tree id. The documentation gates caught each one, and each was reworded before it reached a checked tree.
+
+**The ladder disks were read one last time.** Their contents had already been archived to cold storage and checked by upload-time MD5 on every file, without reading anything back. Before the disks can be released, one question had to be answered: does anything still need them? A sweep of every open item said which items do. The disks were then attached read-only for a short window:
+- **Nothing is lost by releasing them.** Every file on them other than the 96 ladder layers is in the archive, and there are no ledgers or in-flight records.
+- **The new identity check has what it needs.** All 96 layer sidecars carry the fields it reads; each stage has one genesis layer and 31 layers whose input hash is the named layer's own hash.
+- **What was run there** — the reference rows the reports had listed as pending at n=31 — is recorded with the batch that carries its receipts, not this one.
+- **Released only on the operator's word.** Everything else that would need the ladders was either declined with a reason or left for the operator.
+
+**What did not move.** No canonical sha, canonical record count or reproduction parameter moved; `403f7202` and `f1709ab0` reproduce on this batch's binary. What moved was in the prose, each with a dated note: McKenna's "1 in 1,769" is ≈1 in 1,491; CRITIQUE.md's F4′ percentile had been read from the wrong tail and is the 3.4th–4.8th, not ~96.6th; the example report's entropy ceiling is log₂6 = 2.5850 bits, not log₂7, and its complement test now carries a pair-preserving control at 6.5%; the `--estimate-knuth` stack note's frames are 7,590,976 and 1,553,296 bytes; TR-9's single per-decoy error figure became a median of 5.30% with a 95th percentile near 21%; TR-11's cover reads v1.31; and a HISTORY.md claim that 41,129 cells were new at 560T is superseded by a bound of at most 8,407.
