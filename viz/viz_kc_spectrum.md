@@ -63,7 +63,7 @@ as a finding**. The `dclass:*` observables are C5-forced in the same way.
 | The join: grid → battery → spectrum TSV | `python3 solve.py --v3-spectrum GRID_TSV OUT_TSV [--v3-spectrum-order REL\|O3]` | **EXISTS (2026-09-23)** → committed `tr12/v3_spectrum.tsv`, `V3_SPECTRUM=PASS` |
 | The figure | `viz/report_figures.py` `fig_tr12_kc_spectrum` | **RENDERED** → `reports/figures/fig_tr12_kc_spectrum.{png,svg}`, embedded in TR-12 §2 |
 | Full-31 f / g ladders | Stage F / Stage G | **BUILT** (the grid above was unranked from them) |
-| Battery driver runs the join | `scripts/tr12_repro.sh` | ⚠ **NOT WIRED** — no row invokes `--v3-spectrum`, so inside the battery `TR12_V3_FIG` stays `PENDING:viz-v3-spectrum` even though the committed figure exists |
+| Battery driver runs the join | `scripts/tr12_repro.sh` row `c_v3_join` | **WIRED (2026-09-25, Q-430)** at n=31 only: the row runs `--v3-spectrum` on the `a1_v3` grid into `<consumer>/spectrum/v3_spectrum.tsv` before `c_viz` renders. At n<31 `TR12_V3_FIG` is `SKIP:reduced-universe`, because the battery is defined on 64-hexagram records. No full-31 run has executed the row yet, so the n=31 receipt still reads `PENDING:viz-v3-spectrum`. ⚠ *Corrected 2026-09-25: this cell read **NOT WIRED**, which was true until the row landed.* |
 
 🔴 **RESOLVED 2026-09-23 — and the "missing instrument" was forty lines, not a flag.** This
 paragraph read *"This figure is the one V-family member with a real missing instrument… nothing
@@ -256,18 +256,18 @@ python3 solve.py --v3-spectrum tr12/v3_rel_grid.tsv tr12/v3_spectrum.tsv    # V3
 python3 -c "import sys; sys.path.insert(0,'../../viz'); import report_figures as R; R.fig_tr12_kc_spectrum('../../tr12/v3_spectrum.tsv')"
 ```
 
-**The originally specified route (PENDING `--kc-unrank-grid`; needed for an O3-order spectrum at
-scale, not for the shipped REL figure):**
+**An O3-order spectrum, with the instruments that exist.** The proposed `--kc-unrank-grid` above is
+unbuilt. The same grid comes from the `--kc-o3-unrank` K-loop, and the join takes `O3` as its order:
 
 ```bash
-# 1. the grid  (PENDING --kc-unrank-grid)
-solve --kc-unrank-grid FDIR GDIR 10000 tr12/spectrum/grid_o3.bin --kc-order O3
+# 1. the grid -- row a1_v3's K-loop with `solve --kc-o3-unrank FDIR GDIR R` in place of
+#    `solve --kc-unrank FDIR R` (needs both ladders) -> tr12/spectrum/grid_o3.tsv (i, r, walk)
 
-# 2. the battery (EXISTS)
-python3 solve.py --compute-stats tr12/spectrum/grid_o3.bin tr12/spectrum/stats_o3/
+# 2+3. the battery and the join; first_position_deviation is held out on this axis
+python3 solve.py --v3-spectrum tr12/spectrum/grid_o3.tsv tr12/spectrum/v3_spectrum_o3.tsv --v3-spectrum-order O3
 
-# 3. join by row index into the evidence TSV (pure paste; PENDING the emitter's sidecar)
-#    tr12/spectrum/grid_o3.ranks.tsv  ⋈  tr12/spectrum/stats_o3/*  →  v3_spectrum.tsv
+# The originally specified route (grid emitter -> --compute-stats -> paste by row index) waits on
+# the proposed emitter. What it would add is one cold descent for the whole grid, not a new result.
 ```
 
 **Rehearsal at n=9 (once `--kc-unrank-grid` exists; sub-second, $0):** build the n=9 f and g

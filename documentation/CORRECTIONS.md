@@ -13459,3 +13459,582 @@ appended to its ledger, because GATE 11 needs the five keys in CORRECTIONS.md.
 **Published figures move: NO.** No count, sha, verdict or pinned token changes. SOLVE_SUMMARY.md
 gains a scope note and TR-11 gains a revision pin. The self-test's verdict on an unchanged tree is
 now stable.
+
+## CX-102 — `--kc-profile` gains a batch input, `--kc-walks WALKS.tsv`, that opens the f/g ladders once and emits the N single-call blocks byte for byte (solve.c KC-P batch module + `--kc-walks-selftest`; documentation/SOLVE_C_CLI.md; tests.py; 117 line citations repinned by the gate's own map, 4 by content)
+
+**2026-09-25.** Origin: backlog row Q-785 (found 2026-09-25 by Fable CC): atlas query 1b runs 1,000
+separate `solve --kc-profile FDIR GDIR "walk" --kc-tsv` calls and every one pays a ladder open, about
+2.5 GB of f+g index at full-31, so the query costs about an hour at n=31 and its parallelism is capped
+by memory. Landed by Fable II. Every gate claim below was run on the worker VM (D16), on a fresh clone
+at 5c296837 with batches 1–11 and this change overlaid, then the four-citation fix on top.
+
+**1. What was added.** One option and one gate, both in `solve.c` (the single-C-file rule), inserted
+as one block after `kc_profile_selftest` at the end of the KC-P module.
+- `solve --kc-profile FDIR GDIR --kc-walks WALKS.tsv [--kc-tsv OUT.tsv] [--kc-alts] [--kc-ooc]
+  [--kc-cache-mb MB]`. `kc_profile_entry` routes to `kc_profile_walks_main` when `--kc-walks` is
+  present and to the unchanged `kc_profile_main` otherwise. The batch opens the pair once, then for
+  each walk re-resolves E from the line's own text through `kc_h_resolve_walk` (the single call's
+  path) and runs the same `kc_profile_compute`, `kc_prof_write_table` and `kc_prof_write_alts`. Per
+  walk it emits `#walk<TAB>index=i<TAB>name=NAME<TAB>line=L<TAB>walk=SPEC` and then exactly the single
+  call's stdout block; after the last walk `#batch-summary<TAB>walks=N<TAB>ok=K<TAB>fail=N-K` and
+  `KC_PROFILE_WALKS=OK|FAIL`. `--kc-tsv` is the N single `--kc-tsv` files concatenated, each block
+  preceded by its `#walk` line, through the same writer.
+- WALKS.tsv: `NAME<TAB>SPEC` or `SPEC` per line; SPEC is `KW` or exactly 2n one- or two-digit
+  integers; blank and `#` lines skipped. A malformed line rejects the whole file before anything is
+  emitted (exit 2, the line named on stderr, a `--kc-tsv` target removed). A non-member is reported by
+  name and line on stderr, its block is the single call's `KC_PROFILE=FAIL`, the batch continues, exit
+  1, and the `--kc-tsv` is removed as a single failed call removes it. A positional walk beside
+  `--kc-walks`, `--kc-walks` twice and `--kc-c3-max` are refused (exit 2).
+- `solve --kc-walks-selftest`: the n=9 byte-identity gate (W1–W5 in §3). Emits
+  `KC_WALKS_SELFTEST=PASS|FAIL`. Argv-dispatched only; never inside `--selftest`.
+
+**2. Files changed.**
+- `solve.c`: the KC-P batch block, 662 lines, inserted after line 32980 (after `kc_profile_selftest`,
+  before the AR-2 module); in place, the CLI header comment lines for `--kc-profile` and its selftest
+  (19419, 19445), the `Usage:` string and the accepted-options message of `kc_profile_main` (32451,
+  32466, 32493), the `--kc-profile` dispatch line (now `kc_profile_entry`) plus one new dispatch line
+  for `--kc-walks-selftest`. No hot path is touched. The `step\tpair\tentry\texit\t` header literal
+  still occurs exactly twice (tests.py pins that count).
+- `documentation/SOLVE_C_CLI.md`: the summary-table lines for `--kc-profile` and its selftest widened
+  in place; the `### --kc-profile` usage block gains `|--kc-walks WALKS.tsv` and
+  `solve --kc-walks-selftest`; a "Batch mode" paragraph (42 lines); `--kc-walks-selftest` added to
+  the H-tier selftest list. The backlog row's check, `grep -q 'kc-walks' documentation/SOLVE_C_CLI.md`,
+  is satisfied.
+- `tests.py`: `TestSolveCliHardeningTokens.test_kc_walks_batch_gate_passes_on_the_tracked_binary`
+  runs `--kc-walks-selftest` on the class's stock -O1 binary and matches `KC_WALKS_SELFTEST=PASS`
+  whole-line (13 lines, appended at the end of the class).
+- **Citations moved by the insertion.** `scripts/citation_line_gate.sh --all-files --all-targets
+  --base 5c296837` on the first overlay printed 133 `REPIN` lines (leg A2) and the doc-mode count
+  86. A script applied each line's own `-> map` number to the citing token (117 citing lines in 21
+  files: SOLVE_C_CLI.md 80, SOLUTIONS_FORMAT.md 5, exec_lane.sh 4, solve.py 4, QUERY_INVENTORY.md 3,
+  tr12_repro.sh 3, LEADERBOARD.md 2, TR12_QUERY_PROGRAM.md 2, tests.py 2, and one each in CRITIQUE.md,
+  PROJECT_OVERVIEW.md, RETRACTED_PHRASES.tsv, SOLVE_PY_CLI.md, TR3, TR4, the 100T run README,
+  exec_lane_verdict_gate.sh, gate_published_consistency.sh, lib_binary_currency.sh,
+  resume_budget_infinity_gate.sh, viz/report_figures.py). Revision-pinned citations (`at <sha>`,
+  `@<sha>`) are excluded by the gate and were not touched. The re-run left four, fixed by content:
+  `SOLVE_C_CLI.md:873` `n_records` `:39823 -> :40486` (the `while (done < n_records)` loop bound);
+  `SOLVE_C_CLI.md:884` the `--verify-rule2` scan loop `:39793-39823 -> :40456-40486`;
+  `SOLVE_C_CLI.md:2599` `witness_status` `:36975-36980 -> :37636-37642` (the two `witness_status`
+  fprintf sites); `scripts/citation_line_gate.sh:649` `int fail_c1` `:43263-43264 -> :43925-43926`.
+
+**3. The gate, measured (n=9, worker).** 224 walks: the six `--kc-profile-selftest` witnesses, all 54
+single-slot orientation flips of them (the Q8-style flip neighbours; 37 of the 54 are members), a
+duplicate, and seeded brute-list walks: 207 members, 17 non-members.
+- W1 (all walks, `--kc-alts`, `--kc-tsv`): batch stdout minus its three batch line kinds == the 224
+  single stdouts, **776,181 bytes, IDENTICAL**; exit 1; `KC_PROFILE_WALKS=FAIL`; one `#walk` line per
+  walk; the batch TSV removed.
+- W2 (the 207 members, no `--kc-alts`): exit 0, `KC_PROFILE_WALKS=OK`; stdout **207,847 bytes
+  IDENTICAL**; `--kc-tsv` minus `#walk` lines == the 207 single TSVs, **135,190 bytes IDENTICAL**.
+- W3: every non-member named with its file line on stderr; its block is the bare `KC_PROFILE=FAIL`.
+- W4: four malformed shapes (a non-digit, the wrong count, three columns, an empty name): each exit
+  2, nothing emitted, the defective line named, the pre-existing `--kc-tsv` target gone.
+- W5: a positional walk beside `--kc-walks`, `--kc-walks` twice, `--kc-c3-max`: exit 2.
+  Runtime 1.3 s. (Byte counts depend on the `#provenance` line's branch/hash strings, so they are
+  quoted here, not in the public doc; the gate prints them on every run.)
+
+**4. n=13, worker.** 319 walks (240 `--kc-sample` draws at seed 20260925, the 13 single-slot flips
+of each of the first six, one duplicate; 275 members, 44 non-members): batch stdout minus batch lines
+== the 319 single stdouts, **3,495,006 bytes IDENTICAL**, exit 1, all 44 non-members named, batch TSV
+removed; the 275-member subset: stdout **425,614 bytes IDENTICAL**, `--kc-tsv` **325,789 bytes
+IDENTICAL**, exit 0. Wall: 2.34 s for 318 single calls vs 0.03 s for the batch. The n=13 ladders are
+1.6 MB + 1.7 MB, so this measures process-plus-open overhead (about 7 ms per call) against about
+0.1 ms per walk inside the batch; it does not measure the out-of-core cost at n=31 (§6).
+
+**5. Red and green, executed (worker).**
+- Mutant 1, the per-walk reset skipped (`memset(P, 0, …)` removed from `kc_profile_compute`):
+  `KC_WALKS_SELFTEST=FAIL` with W1b, W2a–W2d red. It also turns `--kc-profile-selftest` red (that gate
+  reuses one profile across its six witnesses), so this mutant is caught twice.
+- Mutant 2, stale state (the batch keeps walk 1's E for every later walk): `KC_WALKS_SELFTEST=FAIL`
+  with W1b, W1c, W1e, W3a, W3b, W2b, W2c red; `--kc-profile-selftest` stays PASS, so only the new gate
+  sees it.
+- Green: `./solve --selftest` rc 0, expected == actual sha256
+  `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. `--kc-profile-selftest` PASS.
+  `--kc-walks-selftest` PASS. Build: 58 pre-existing warning lines, none in the new block (the block
+  is warning-free at `-O1 -Wall -Wextra`). `python3 tests.py`: 386 tests, OK (1 skipped), 202 s,
+  including the new test. `scripts/citation_line_gate.sh` on the final tree: `--selftest` PASS, doc mode PASS
+  (stale count 0 within budget 0), `--all-files --base 5c296837` PASS, `--all-files --all-targets
+  --base 5c296837` PASS, `--all-files --all-targets` (default base) PASS; the three `[inhunk]` lines
+  it prints (CRITIQUE.md:324, RETRACTED_PHRASES.tsv:147-148) are informational and predate this
+  change.
+- `scripts/doc_gates.sh`: on the lane tree it failed only on three findings (two GATE 3, one GATE 25)
+  that were in the integrated base and that `git diff` of this change does not touch; those were
+  corrected with CX-98..CX-101 before this entry, and on the integrated tree every gate is green.
+
+**6. Estimated n=31 effect on query 1b.** The row's own figures: 20.1 s per single call and 5.6 h
+serial for the 1,000 gallery walks (FABLE_ATLAS_GENERATION row 1b), the per-call cost being one f+g
+open of about 2.5 GB. In batch the open is paid once (about 20 s) and each walk then costs 31 f
+lookups plus about 31·62 g point lookups; on the out-of-core ladders those are cache-served reads
+whose per-walk cost has not been measured at n=31. Bounding it at 0.1–2 s per walk (the n=13
+per-walk cost is 0.1 ms and is entirely CPU; the n=31 cost is I/O) gives about 2–35 min for the
+whole query on one process against 5.6 h serial, i.e. roughly 10–150x, and it removes the
+per-process memory cap that limited the parallel variant to 15–30 min on 32 cores. Labelled an
+ESTIMATE; the first n=31 batch run should print its wall time next to this paragraph.
+
+**Residual, stated.** The gate pins identity against the single call as it is today; a later change
+to the single call's block is carried into the batch automatically only where the two share a writer
+(`kc_prof_write_table`, `kc_prof_write_alts`, `kc_profile_compute`). The `#profile-summary` and
+`#provenance` lines are two printf sites, in `kc_profile_main` and `kc_profile_walks_main`; the gate
+is what keeps them equal. `--kc-walks-selftest` is not added to `scripts/tr12_repro.sh`'s a0 gate
+list (doing so moves that script's line citations); tests.py carries it instead.
+
+**Published figures move: NO.** No count, sha, verdict or pinned token moves. Line citations into
+`solve.c` past line 32980 and into `documentation/SOLVE_C_CLI.md` past the `--kc-profile` section are
+renumbered, each still pointing at the text it describes.
+
+## CX-103 — no public gate re-derived the five small-rung f-ladder digests that REPRODUCE.md publishes (scripts/reproduce_digests_gate.sh, new; tests.py; DEVELOPMENT.md; REPRODUCE.md; four DEVELOPMENT.md line citations repinned in PERFORMANCE_HISTORY.md, RETRACTED_PHRASES.tsv, SOLVE_C_CLI.md and citation_line_gate.sh)
+
+**2026-09-25.** Origin: backlog row Q-727 (filed by Opus K, 2026-09-24). Landed by Opus AH. Every
+gate claim below was run on the worker VM, on a fresh clone at 5c296837 with batches 1–11 and this
+change overlaid.
+
+**1. The gap.** `documentation/REPRODUCE.md` publishes five `*.bin` directory digests, for
+n = 9, 13, 16, 18 and 19. It tells a reader that matching them shows their build wrote
+byte-identical layer files. The digests were measured by hand on 2026-08-25 and again on
+2026-09-24. Nothing public re-derived them. A private gate did, but it ran its own copy of the
+recipe, not the page's, and nothing ran it. So two things could fail with every instrument green:
+- a `solve.c` change could move a layer byte;
+- a page edit could break the recipe. The page's own failure mode 3 is an example: hashing from
+  outside the directory puts the path into the digest.
+
+**2. What the gate does.** `scripts/reproduce_digests_gate.sh` takes every command from the page
+and runs nothing of its own.
+- **Build.** It builds `solve.c` in a scratch directory with the page's build line. The page prints
+  that line twice, once in "The short version" and once in the environment table. If the two
+  differ, the gate FAILs.
+- **Rows.** At each row's n it runs the ledger's "Command for every row" and "The digest is"
+  recipe. It compares the row's digest, `*.bin` byte count, `*.bin` file count and printed
+  `orbit-quotient C5-DP total`. Wall time and peak RSS are not compared. The short-version block
+  must equal the ledger command at n = 13, or the gate FAILs.
+- **Three properties.** The page says the recipe is deterministic, tamper-evident and sensitive to
+  the settings. The gate re-checks each one at n = 13:
+  - the same digest from a directory with a different name (this is what failure mode 3 breaks);
+  - a different digest after one layer byte is flipped;
+  - a different digest, and fewer files, when `SOLVE_F1_KEEP_LAYERS=1` is left out (failure mode 1).
+- **Population.** The set of rows is pinned to the five. A deleted row FAILs. A page with no rows
+  is an ERROR, never a PASS.
+- **Environment.** Inherited `SOLVE_*` variables are cleared, so only the page's command sets any.
+  Command text containing `;`, `$`, `<`, `>`, a backtick or a backslash is refused as ERROR
+  (`unsafe-command`).
+- **Verdict.** It prints `REPRODUCE_DIGESTS=PASS|FAIL|ERROR` as a whole line, with exit 0, 1 or 2.
+  `REPRODUCE_DIGESTS_ERROR=<cause>` and `REPRODUCE_DIGESTS_RUNGS=<n>` are printed beside it.
+
+**3. Where it runs.** `tests.py` has a new class, `TestQ727ReproduceDigestsGate`. It runs the gate
+and requires `REPRODUCE_DIGESTS=PASS` and `REPRODUCE_DIGESTS_RUNGS=5`. It also runs `--selftest` and
+requires each of the six planted pages to get its expected verdict. The rungs are fast (under 1.5 s
+each), so n = 18 and n = 19 are not behind a flag. The four tokens are added to DEVELOPMENT.md's
+standalone-gate table. REPRODUCE.md gets one paragraph that names the script and says what it checks.
+
+**4. Measured on the D16 worker.**
+- **Build.** 15–17 s with the page's build line.
+- **Rows.** n = 9: 541 ms; n = 13: 743 ms; n = 16: 1006 ms; n = 18: 1090 ms; n = 19: 1333 ms.
+  All five digests, byte counts, file counts and totals match the page.
+- **Whole gate.** 24.4 s, of which the build is 17 s.
+- **`--selftest`.** 45.5 s, including one build (16 s).
+
+**5. Red and green, executed.**
+- **Green.** On the real page: `REPRODUCE_DIGESTS=PASS`, rc 0.
+- **A planted wrong digest in the page.** The last hex digit of the n = 16 row was changed from 3
+  to 4. Result: `REPRODUCE_DIGESTS=FAIL`, rc 1. Only n = 16 is red, and the line shows the real
+  digest next to the page's.
+- **A mutated command in the page.** `SOLVE_F1_KEEP_LAYERS=1` was removed in both places the page
+  prints it, so the page still agreed with itself. Result: FAIL, rc 1. All five rows are red, each
+  with 2 files instead of 10–20. P3 FAILs because the command no longer sets the variable.
+- **A mutated recipe in the page.** `(cd outN && find . …)` was changed to `(find outN …)` in both
+  places, which is failure mode 3. Result: FAIL, rc 1. All five rows are red. P1 FAILs: `out13/` and
+  `rep_out13/` give different digests for identical bytes.
+- **`--selftest`.** It plants six pages: the real one, a wrong digest, the command without
+  `SOLVE_F1_KEEP_LAYERS=1`, the recipe hashing from outside the directory, a deleted n = 18 row,
+  and all rows deleted. The expected verdicts are PASS, FAIL, FAIL, FAIL, FAIL and ERROR. All six
+  got their expected verdict: `REPRODUCE_DIGESTS_SELFTEST=PASS`, rc 0.
+- **Empty tree.** The script was copied alone into an empty directory and run there.
+  Result: `REPRODUCE_DIGESTS_ERROR=page-unreadable`, `REPRODUCE_DIGESTS=ERROR`, rc 2. An unknown
+  argument also gives ERROR (`bad-args`), rc 2.
+
+**Residual, stated.** The gate checks the n ≤ 19 ledger only. It does not check the page's g/t
+table (`--kc-g-build`, `--kc-t-build`, `--kc-count` at n = 13), its n = 21 size, or the
+`verify.py` rows. Those rows are covered elsewhere or not at all, as the page itself says.
+
+**6. Citations repinned.** The four new DEVELOPMENT.md table rows shift every later line of that
+file down by 4. The citation gate found four citations that this moved. Each was repinned by
+content, and the target text is byte-identical at the new line:
+- `PERFORMANCE_HISTORY.md:1578`: `DEVELOPMENT.md:1068` becomes `:1072` (the #46 AVX-512 bullet).
+- `RETRACTED_PHRASES.tsv:270`: `DEVELOPMENT.md:2459-2461` becomes `:2463-2465` (the Xugua
+  sentence). The pin's content hash is unchanged. Only the line number in its note moves.
+- `SOLVE_C_CLI.md:208` and `:3460`: `DEVELOPMENT.md:1579` becomes `:1583` (the cross-host
+  reproducibility caveat). The attested pin's note is updated to match.
+
+The following DEVELOPMENT.md citations were left unchanged:
+- the dated `DEVELOPMENT.md:914` in `scripts/exec_lane.sh` and `scripts/exec_lane_verdict_gate.sh`
+  ("Measured 2026-09-07");
+- `CORRECTIONS.md`'s `:1894` and `:1103`, which are append-only and stated "as of" a past HEAD;
+- `CORRECTIONS_INVENTORY.tsv`'s historical row.
+
+**Published figures move: NO.** No digest, count, total or sha changes. REPRODUCE.md gains one
+paragraph that names the gate. Four citation line numbers move by +4, and each now points at the
+text it describes.
+
+## CX-104 — the battery never ran the V3 join, and a V3 generation block named an unbuilt flag as its first command (scripts/tr12_repro.sh; scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt; tests.py; viz/viz_kc_spectrum.md; viz/README.md; viz/report_figures.py; documentation/QUERY_INVENTORY.md; documentation/SOLVE_PY_CLI.md; reports/TR12_QUERY_PROGRAM.md; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/citation_line_gate.sh)
+
+**1. Q-430: the V3 join now runs inside the battery.** `solve.py --v3-spectrum` has existed since
+2026-09-23, and row `a1_v3` has always written its input (`v3_rel_grid.tsv`). No row of
+`scripts/tr12_repro.sh` ran the join, so `<consumer>/spectrum/v3_spectrum.tsv` was never written
+inside the battery, the render step never drew `fig_tr12_kc_spectrum`, and `TR12_V3_FIG` could only
+read `PENDING:viz-v3-spectrum`. The backlog row's own premise was stale in one respect: it still
+described the join as absent. What was absent was the battery row.
+
+- **New row `c_v3_join`** (function `v3_join_row`). At n = 31 it runs `--v3-spectrum` on the
+  `a1_v3` grid and writes `<consumer>/spectrum/v3_spectrum.tsv`, before `c_viz` renders. That is the
+  path `viz/report_figures.py::tr12_figures` reads. The row fails when the tool exits non-zero, when
+  its output has no bare `V3_SPECTRUM=PASS` line, or when the TSV is empty. Its verdict is the first
+  leg of `TR12_V3_FIG`. The rendered figure is the second.
+- **Preconditions.** The row runs only when row `a1_v3` passed, the consumer's output directory
+  exists, and python3 with numpy is present. It never creates `<consumer>/`, because `c_viz` treats
+  that directory as proof that the consumer ran.
+- **n < 31.** The join evaluates the 64-hexagram `--compute-stats` battery and checks every rank
+  against the n = 31 superspace size, so a reduced-universe walk has no image in it. At n = 9 the
+  row does not run, and `TR12_V3_FIG` is `SKIP:reduced-universe`, the code `TR12_Q7_RANKS` already
+  uses there. The n = 9 pin in `_EXPECTED_SKIPS.txt` moves from
+  `PENDING:viz-v3-spectrum` to `SKIP:reduced-universe`. `TR12_V3=SKIP:leg-TR12_V3_FIG` is
+  unchanged.
+- **The render leg now matches the saved-file line.** The check was `grep -q
+  'fig_tr12_kc_spectrum'` over `c_viz.txt`, which a refusal message naming the function would also
+  satisfy. It is now `^Saved fig_tr12_kc_spectrum\.png `, the line `save()` prints.
+- **Not yet measured at n = 31.** No full-31 battery run has executed row `c_v3_join`. The
+  2026-09-22 receipt keeps `PENDING:viz-v3-spectrum`, because that was true when it ran.
+
+**2. Q-703: GATE 25's population was already `$DOCS`; one waived site was a runnable block.** The
+backlog row was stale as written. The population, the proposal-marker waiver and the fire-proof
+landed 2026-09-24 (`GATE25_POPULATION_FROM_DOCS`, 114 docs). The gate was green because it waived
+both `viz/viz_kc_spectrum.md` sites of the proposed, unbuilt `--kc-unrank-grid` as proposals. The
+site at line 94 is the proposal's own synopsis under a "PENDING flag" caption, and it stays waived.
+The site in §Generation was a `bash` block that a reader would run, and its first command did not
+exist. That block now gives the route that exists today. It runs the `a1_v3` K-loop with
+`--kc-o3-unrank FDIR GDIR R` in place of `--kc-unrank FDIR R`, then
+`python3 solve.py --v3-spectrum GRID OUT --v3-spectrum-order O3`. The gate now reports 1 proposal
+waiver, not 2.
+
+**3. Red and green, executed on the worker.**
+- **Q-430 test** (`tests.py::TestQ430V3JoinRunsInTheBattery`, 5 tests). It extracts the battery's
+  own guard, `v3_join_row` and `v3_fig_verdict`, and runs them with only `row_begin`, `row_end`,
+  `row_skip` and `tok_record` stubbed. The input is the committed full-31 grid.
+  - Green: 5 of 5 pass.
+  - Red on the pre-change `tr12_repro.sh`: 5 of 5 fail.
+  - Red on four mutants, each on the case it breaks:
+    - Writing `<consumer>/v3_spectrum.tsv` fails the path test.
+    - Restoring the loose render grep fails the mention test.
+    - Dropping the consumer-directory guard fails the no-consumer test.
+    - Guarding on `-ge 1` in place of `-ge 31` fails the reduced-universe test.
+- **The n = 9 battery** (`scripts/tr12_repro_gate.sh`, no stamp): `TR12_REPRO_GATE=PASS`, 57 pass,
+  0 fail, 16 skip. The skip set matches the moved pin.
+- **GATE 25** (`doc_gates.sh repro-reach`):
+  - Fixed tree: PASS, 1 proposal waiver.
+  - The pre-fix command back in §Generation: rc 1, with a `[FAIL]` line for that flag.
+  - That mutant with the old population (no `viz/`, `lean/`, `example/`, `scripts/`): rc 0 on 100
+    docs, so the widening is what catches it.
+
+**4. A reproducibility caveat found on the way.** The join recomputed on the worker (numpy 1.26.4)
+does not match the committed `tr12/v3_spectrum.tsv` byte for byte. Every column matches except
+`fft_peak_amplitude`, a float32 FFT, which differs in its 7th decimal on 356 of 1000 rows, by at
+most 6.1e-05. The test compares that column within 1e-4 and all other cells exactly. The committed
+table is therefore reproducible to 1e-4 in that column, not byte for byte across numpy builds.
+
+**5. Citations repinned.** The new row moves the `agg` block of `tr12_repro.sh` down by 41 lines.
+The citation gate found three citations that this moved, all on one line of `QUERY_INVENTORY.md`.
+Each was repinned by content, and the target text is byte-identical at the new line:
+- `:3640` becomes `:3681` (the `agg TR12_Q7` call).
+- `:3645` becomes `:3686` (the `agg TR12_V3` call).
+- `:3626` becomes `:3667` (the `agg(){` definition).
+
+The attested pin in `citation_line_gate.sh` keeps its content hash. Only the line numbers in its note
+move. `CITATION_LINE_GATE=PASS` against 47f432c2.
+
+**Published figures move: NO.** No count, digest or sha changes. The n = 9 skip pin moves one value,
+and `scripts/tr12_expected/_GATE_STAMP.txt` needs a re-stamp because `tr12_repro.sh` changed.
+
+## CX-105 — TR-12 output names that no run writes, a placeholder root defined nowhere, and a third V4 refusal left out (reports/TR12_QUERY_PROGRAM.md; viz/viz_kc_shells.md; viz/README.md; documentation/SOLVE_C_CLI.md; documentation/SOLVE_PY_CLI.md; scripts/tr12_output_paths_gate.sh, new; scripts/pre_push_gate.sh; documentation/DEVELOPMENT.md; four DEVELOPMENT.md line citations repinned in PERFORMANCE_HISTORY.md, RETRACTED_PHRASES.tsv, SOLVE_C_CLI.md and citation_line_gate.sh)
+
+**2026-09-25.** Origin: backlog rows Q-684 (filed 2026-09-22) and Q-776 (follow-ups from Opus II,
+2026-09-24). Landed by Opus AS. Every gate claim below was run on the worker VM, on a fresh clone
+at 47f432c2 with the batch-13 candidate and this change overlaid.
+
+**1. What was still live.** Q-684 recorded six names under a `tr12/` directory that was not
+tracked. Most of that row is stale. v1.10 tracked the directory, and thirteen files are in it. Two
+of the six names now resolve (`q10_orbit_census.tsv`, `q3_profile_kw.tsv`). Three were already
+flagged in §0 as names with no file: the Q10(b) coset census, the Q9 negatives file (CX-73) and the
+XA convention pin. The viz docs now read the tracked atlas, `runs/20260906_kc_ladders_n31/atlas_n31.json`.
+One of the six was still live. Q1's rank file had moved to a placeholder form,
+`<artifact-root>/<file>`, and the same defect had spread under that form:
+- `<artifact-root>` was used four times in TR-12 and defined nowhere.
+- Q1 named a rank file that nothing writes. Row `a2_q1` writes the `--kc-o3-cert` certificate as
+  `q1_rank.json`, and the Q1(c) row writes the C15 estimate as `q1_c15_estimate.tsv`.
+- Q8 named a `gallery/` directory that nothing writes. The galleries are `q8_super.tsv` and
+  `q8_c15.tsv`, and the chi² line is `q8_chi2.txt`.
+- Q3 put `q3_profile_kw.tsv` at the artifact root. The consumer writes it under
+  `<artifact-root>/consumer/`. viz/viz_kc_shells.md (twice) and viz/README.md repeated that path.
+  viz_kc_shells.md also named a trace file at the root that the battery writes as `q3_profile.txt`.
+- documentation/SOLVE_C_CLI.md said the `--kc-profile --kc-tsv` output is the file TR-12 publishes
+  as `q3_profile_kw.tsv`. The battery writes that output as `q3_profile_exact.tsv`. The consumer's
+  `q3_profile_kw.tsv` is a different table, with different columns.
+- §0 said three of the 2026-07-17 names match nothing at HEAD. With the Q1 and Q8 names it is five.
+
+**2. The fix.** §0 defines `<artifact-root>` as the `artifacts/` directory of one
+`scripts/tr12_repro.sh` run, with the consumer's outputs in `consumer/` under it. Each site above
+names the path the script writes, with a dated ⚠ note giving the old name. TR-12 gains revision row
+v1.13. No measured number, definition, query specification or figure changes.
+
+**3. The gate.** `scripts/tr12_output_paths_gate.sh` reads every inline code span in every
+tracked `*.md`. It skips CORRECTIONS.md, HISTORY.md and `## Revision history` sections, which must
+be able to quote a withdrawn name.
+- A `tr12/` path must be tracked. doc_gates.sh GATE 21 checks paths only under a top-level
+  directory that exists at run time, so it could not see this class while `tr12/` was untracked.
+- An `<artifact-root>/` path must appear as a `$ARTDIR/` literal in the battery, or, under
+  `consumer/`, as a string literal in solve.py.
+- Two names are published as specifications with no producer: the Q10(b) coset census and the
+  per-order spectrum path in viz/viz_kc_spectrum.md. They sit on a no-producer list, one reason per
+  row. A row FAILs when the battery starts writing its name, and when no doc names it any more.
+- No span at all, or a battery with no `$ARTDIR/` literal, is an ERROR, never a PASS.
+- Verdict tokens: `TR12_OUTPUT_PATHS=PASS|FAIL|ERROR` (exit 0/1/2), `TR12_OUTPUT_PATHS_CHECKED=<n>`,
+  `TR12_OUTPUT_PATHS_ERROR=<cause>`, `TR12_OUTPUT_PATHS_SELFTEST=PASS|FAIL`. They are documented
+  in DEVELOPMENT.md.
+- The pre-push hook runs it on every pushed sha, next to the atlas probe gate. A missing script is
+  a FAIL.
+
+**4. Red and green.**
+- On the batch-13 tree before this change: `TR12_OUTPUT_PATHS=FAIL`, 8 findings: the Q1, Q3 and
+  Q8 sites in TR-12, the SOLVE_C_CLI.md sentence, viz/README.md, and three spans in
+  viz_kc_shells.md.
+- On the 2026-09-22 tree (b6d2d7d0, TR-12 v1.9, no `tr12/` tracked): `FAIL`, with every one of
+  Q-684's six names among the findings.
+- On this change: `TR12_OUTPUT_PATHS=PASS`, 83 spans on the lane tree (88 on the integrated batch-13 tree).
+- `--selftest`: eleven planted repositories, each with its expected verdict,
+  `TR12_OUTPUT_PATHS_SELFTEST=PASS`.
+
+**5. Q-776.** Item (1) was already landed. SOLVE_PY_CLI.md's file column and viz_kc_shells.md
+both cover the n = 31 NOT-KW case, the emitter removing the other name, and the choice by sidecar.
+Checked against `_tr12_q3_table`, both docs listed two of the renderer's three V4 refusals. The
+third is a KW table with no sidecar next to a `q3_profile.tsv.provenance.txt`, which marks the KW
+table as a leftover of an earlier run. Both docs now list all three. viz_kc_shells.md's "both
+`.provenance.txt` sidecars" now names the two it means. Item (2) is optional and not taken: a
+sidecar for the committed `tr12/q3_profile_kw.tsv` would fail its positive-control test on purpose,
+and that test lives in tests.py. Item (3) is still live and is not a doc change: a lane directory on
+the worker still carries the `ff-*` heads. This lane cloned from GitHub.
+
+**6. Line citations.** Three new token rows in DEVELOPMENT.md move its later lines by 3. Four
+citations were repinned by content and checked line for line: PERFORMANCE_HISTORY.md:1578
+(`:1074` → `:1077`), RETRACTED_PHRASES.tsv:270 (`:2465-2467` → `:2468-2470`), and SOLVE_C_CLI.md:208
+and `:3503` (`:1585` → `:1588`). The two citation_line_gate.sh pin rows that name those lines were
+updated in their reason text only. Their content hashes are unchanged. The SOLVE_C_CLI.md edit
+keeps that file's line count, so nothing that cites it moves.
+
+## CX-106 — the V3 missing-input message named the battery, not the join, and the V3 table's FFT column depended on the numpy build (viz/report_figures.py; scripts/tr12_expected/n9/c_viz.txt; scripts/tr12_expected/n9/_MANIFEST.txt; solve.py; tests.py; tr12/v3_spectrum.tsv; reports/figures/fig_tr12_kc_spectrum.png; reports/figures/fig_tr12_kc_spectrum.svg)
+
+**1. Q-808: the V3 missing-input message now names `--v3-spectrum`.** When the V3 input is absent,
+`viz/report_figures.py::fig_tr12_kc_spectrum` prints a `SKIP` line that says how to produce it. That
+line described the route as a rank grid joined to `--compute-stats`. `--compute-stats` is the
+battery that the join evaluates. It is not the join, and it does not read a rank grid. The join is
+`python3 solve.py --v3-spectrum GRID_TSV OUT_TSV` (2026-09-23), which row `c_v3_join` runs at
+n = 31 (CX-104). The message now reads:
+
+`python3 solve.py --v3-spectrum GRID_TSV OUT_TSV, where GRID_TSV is the rank grid of row a1_v3 (v3_rel_grid.tsv); see viz/viz_kc_spectrum.md`
+
+The comment above it named the grid emitter as a pending flag. It now names the `--kc-unrank`
+K-loop of row `a1_v3`, which is what produces the grid.
+
+- **Sibling sweep.** Every other description of the V3 route in the tree already names
+  `--v3-spectrum`: `documentation/SOLVE_PY_CLI.md`, `documentation/QUERY_INVENTORY.md`,
+  `viz/viz_kc_spectrum.md`, `viz/README.md`, the `tr12_figures` docstring, the `--v3-spectrum` help
+  text and the `TR12_V3_FIG` skip reason in `scripts/tr12_repro.sh`. The 2026-09-22 n = 31 receipt
+  under `reports/evidence/` keeps its wording, because it records what that run printed.
+- **The n = 9 golden.** The message is captured in `scripts/tr12_expected/n9/c_viz.txt`. It was
+  re-minted with `scripts/tr12_repro.sh --n9 --regen`, the route `scripts/tr12_expected/README.md`
+  documents. The run wrote 57 blocks, and the diff was read: `c_viz.txt` changes on this one line,
+  `_MANIFEST.txt` changes on that block's sha256, and no other block changes.
+
+**2. Q-807: `tr12/v3_spectrum.tsv` is now byte-reproducible across numpy builds.** CX-104 §4
+recorded that the committed table matched a recomputation only to 1e-4 in `fft_peak_amplitude`, and
+that `TestQ430V3JoinRunsInTheBattery` compared that column with a tolerance. The cause is in the
+battery, `solve.py::_p2_compute_all_stats`. It passed a float32 array to `np.fft.fft`. numpy 1.x
+converts a float32 input to complex128 before the transform. numpy 2.x transforms float32 in
+complex64, so its amplitudes carry single-precision rounding. The committed table was written under
+numpy 2.4.4.
+
+- **Measured on the worker, on the committed 1000-row grid.**
+  - Before the fix, numpy 1.26.4 and numpy 2.4.4 disagree on 356 of 1000 rows, by at most 6.1e-05.
+    The numpy 2.4.4 output matched the committed table byte for byte.
+  - Rounding the column would not have cured this. The two builds still disagree on 93 rows at 4
+    decimals and on 8 rows at 3 decimals. They agree on every row only at 2 decimals, and that
+    agreement is a property of this grid, not a guarantee for any other.
+  - With the transform cast to float64, the two builds write byte-identical tables, and their
+    progress lines are identical as well. The table is also byte-identical to what numpy 1.26.4
+    wrote before the fix, so the change restores the numpy 1.x values and does not introduce new
+    ones.
+- **The fix.** `np.fft.fft(seq_zm.astype(np.float64), axis=1)`. The line count of `solve.py` does
+  not change, so no line citation moves.
+- **The committed table moves.** `tr12/v3_spectrum.tsv` is regenerated with
+  `python3 solve.py --v3-spectrum tr12/v3_rel_grid.tsv tr12/v3_spectrum.tsv`. Only
+  `fft_peak_amplitude` changes, on 356 rows. Every other cell of all 1000 rows is unchanged. The
+  observed span stays 202.73…448.70 to the two decimals that `viz/viz_kc_spectrum.md` and CX-94
+  publish. `V3_SPECTRUM=PASS`.
+- **The V3 figure is re-rendered.** Its footer binds it to the table's sha256, so the old footer
+  named a table that no longer exists. `fig_tr12_kc_spectrum.png` and `.svg` were re-rendered with
+  matplotlib 3.11.0, the version the committed SVG names. Before re-rendering, the committed table
+  was rendered on the same setup and gave a PNG byte-identical to the committed one, so the renderer
+  matches. After the change, the new PNG differs from the old one only inside the footer's bounding
+  box. The plotted data is pixel-identical at 150 dpi. The SVG differs line by line, as every SVG
+  re-render does (Q-667).
+- **The test is exact.** `TestQ430V3JoinRunsInTheBattery.test_full31_writes_the_path_c_viz_reads`
+  now compares the joined table with the committed one byte for byte. The 1e-4 tolerance is removed.
+
+**3. Red and green, executed on the worker.**
+- **New test** `tests.py::TestQ807FftRunsInFloat64OnEveryNumpy`. It records the dtype that
+  `_p2_compute_all_stats` passes to `np.fft.fft`. The observation does not depend on the numpy build.
+  - Green: float64, under numpy 1.26.4 and under numpy 2.4.4.
+  - Red on the pre-fix `solve.py`: float32.
+- **The exact Q-430 comparison.**
+  - Green under both numpy builds.
+  - Red on the pre-fix `solve.py` under numpy 2.4.4: the first differing cell is on row 0.
+- **The n = 9 battery** (`scripts/tr12_repro_gate.sh`): `TR12_REPRO_GATE=PASS`, 57 pass, 0 fail,
+  16 skip, against the re-minted goldens.
+- **Whole tree.** `python3 tests.py`: 398 tests, OK. `scripts/doc_gates.sh`: rc 0, no `[FAIL]` line.
+  `CITATION_LINE_GATE=PASS` against 47f432c2, with no shifted citation.
+
+**Published figures move: YES, one column.** `tr12/v3_spectrum.tsv`'s `fft_peak_amplitude` changes
+in its 7th decimal on 356 rows, and the V3 figure's footer sha moves with it. No count, span,
+verdict or plotted point changes. `scripts/tr12_expected/_GATE_STAMP.txt` needs a re-stamp, because
+`viz/report_figures.py` and the n = 9 goldens changed.
+
+## CX-107 — TR-12 Q3 listed columns the consumer does not write, and the V4 table chooser returned a path to a file that does not exist (reports/TR12_QUERY_PROGRAM.md; viz/report_figures.py; tests.py)
+
+**2026-09-25.** Origin: backlog rows Q-809 and Q-810, both found by Opus AS during Q-684 (CX-105).
+Landed by Opus AU. Every gate claim below was run on the worker VM, on a fresh clone at 47f432c2
+with the batch-13 candidate and this change overlaid.
+
+**1. Q3's column list (Q-809).** TR-12 §Q3 said the published profile has "31 rows: choice,
+#alternatives, g of each alternative, p_i, −log₂ p_i" plus "the product self-check line". The
+header was measured two ways: on the committed `tr12/q3_profile_kw.tsv`, and by running solve.py's
+`atlas_emit_q3` on the n=9 trace the battery records (`scripts/tr12_expected/n9/a2_q3.txt`). Both
+read `step pair entry exit orient alts mass_below f g g_parent p_num p_den p bits`. No column is per
+alternative. The alternatives' g-masses appear only through their sum, `g_parent`. The file holds
+no self-check line. The product check Π p_i = 1/N is the consumer's `TR12_Q3_READER` verdict,
+recomputed from `p_num` and `p_den` by `atlas_q3_reader_check`. The emitter was right and the
+report was wrong. §Q3 now lists the 14 columns with a dated ⚠ note, and the correction is added to
+TR-12's v1.13 revision row, which is part of the same batch. The optional min/max band columns
+(`g_alt_min`, `g_alt_max`) exist only when the consumer is given a `--kc-profile --kc-tsv` table.
+The battery gives it the `--kc-trace` transcript, so its table never carries them.
+
+**2. The table chooser (Q-810).** The backlog row placed `_tr12_q3_table` in solve.py. It is in
+viz/report_figures.py. Its docstring promises `(path | None, why)`. For a directory holding neither
+`q3_profile_kw.tsv` nor `q3_profile.tsv` it returned `(<root>/q3_profile.tsv, "")`: a path to a
+file that does not exist, with no reason. Its one caller, `tr12_figures`, passed that path to the
+V4 renderer. The renderer's missing-file branch printed a generic SKIP naming the plain file and
+refused, so V4 still failed, but the cause was reported one call away from where it arose. The
+function now returns `None` with a reason that names both files and the directory, and V4 refuses
+through the caller's existing `[tr12_figures] V4 refused:` branch. No battery output moves: every
+battery run writes one of the two tables, so the branch is not reached at n=9 or n=31.
+
+**3. The test.** `tests.py` class `TestQ810Q3TableRefusesWhenNeitherTableExists` lifts the real
+function by AST, as the Q-766 tests do. It asserts that an empty directory yields `None` and a
+reason naming both files, and that `tr12_figures` under stub renderers draws no V4 and raises. A
+positive control keeps a lone `q3_profile.tsv` selected. Against the unfixed file, two of its four
+tests fail (the path returned was the nonexistent `q3_profile.tsv`). With the fix, all four pass,
+and the seven Q-766 tests still pass.
+
+**4. What does not change.** No measured number, definition, figure or battery golden.
+
+## CX-108 — DISTRIBUTIONAL_ANALYSIS.md's FFT snippets printed numpy-2-only amplitudes, and the published 100 T FFT figures carry no float32 scope (documentation/DISTRIBUTIONAL_ANALYSIS.md; documentation/CRITIQUE.md; documentation/CLAIM_TO_ARTIFACT.md)
+
+**2026-09-25.** Origin: backlog rows Q-812 and Q-813, both found by Opus AV during the Q-811 audit
+of committed outputs of the float32 FFT (follow-up to Q-807, CX-106). Landed by Opus AX. Every run
+and gate claim below was made on the worker VM, on a fresh clone at 47f432c2 with the batch-13
+candidate and this change overlaid.
+
+**1. Q-812: the snippets' amplitudes depended on the numpy build.** Three `python3 -c` snippets in
+DISTRIBUTIONAL_ANALYSIS.md passed a float32 array to `np.fft.fft`, the defect CX-106 fixed in
+`solve.py`. numpy 2.x transforms that input in complex64 and numpy 1.x in complex128, so the
+6-decimal amplitudes the doc printed were numpy 2.x outputs. Each snippet now casts its input with
+`.astype(np.float64)` before the transform, as `_p2_compute_all_stats` does. Measured, running each
+snippet as published:
+
+| site | before, numpy 2.4.4 (published) | before, numpy 1.26.4 | after, numpy 1.26.4 and 2.4.4 |
+|---|---|---|---|
+| orientation-flip snippet, King Wen | the float32 value | 374.766594 | **374.766594** |
+| orientation-flip snippet, slot 17 = pair (40, 5) | the float32 value | 403.112887 | **403.112887** |
+| orientation-flip snippet, lowest of the 9 | the float32 value | 343.237527 | **343.237527** |
+| Nyquist snippet, both slices | the float32 value | 374.766594 | **374.766594** |
+| σ(KW) snippet (4 decimals) | 374.7666 / 264.9626 | 374.7666 / 264.9626 | **374.7666 / 264.9626** |
+
+The float32 and float64 values differ in the 5th or 6th decimal place. The prose (the flip
+paragraph and the Nyquist bullet) and both expected-output comments now give the float64 values,
+with a dated ⚠ note after the convention caveat on the two FFT dimensions and a pointer at the
+Nyquist bullet. The +7.6%, the dominant frequency 16, the 9 valid flips, C3 = 776 and the Nyquist
+magnitude 58.0 do not change. The σ(KW) snippet is cast for consistency. Its output is the same on
+both builds before and after. The note also records that the snippets print the float64 amplitude,
+while the `--compute-stats` column stores float32: King Wen's stored value under the fixed
+extractor is 374.7666015625 on both builds (measured by calling `_p2_compute_all_stats` on King
+Wen's record).
+
+- **Sibling sweep.** `git grep` over the tree for `np.fft` and for the printed amplitudes finds no
+  other snippet or printed FFT value. The remaining `np.fft` sites are `solve.py` (already float64)
+  and `tests.py` (a Parseval inequality and the Q-807 dtype test, no pinned amplitude).
+
+**2. Q-813: scope notes on the published 100 T FFT figures.** The marginals table's two FFT rows,
+the joint-density re-analysis, the exact 2-D histogram and the Nyquist re-measurement were computed
+by numpy 2.x runs of the pre-fix extractor. No figure was recomputed and no figure was changed. A
+revision note at the end of DISTRIBUTIONAL_ANALYSIS.md states what was measured and what is
+predicted:
+- Observed on a synthetic sample of random pair orderings (not the 100 T population; the sample's
+  command and seed were not recorded, so no figure from it is published): the float64 cast moved the stored amplitude on roughly a third of records by at most one float32 step and moved the dominant frequency on a handful.
+- Predicted to hold at the printed precision: 95.476th percentile (p ≈ 0.045), 0.757%, ~95.48%,
+  and the 2-decimal dominant-frequency percentages.
+- May move by one in the last printed digit: 29.32 / 31.01 / 33.85% and 29.41 / 31.10 / 33.84%.
+- Exact counts not re-verified: the dominant-frequency counts, the `~`-marked amplitude counts and
+  3,496,831.
+- Not assessed: the KDE seed range 28.6–32.1%.
+
+Short dated pointers sit beside the figures: the convention caveat's list of percentiles, the
+marginals intro, the joint-density paragraph (95.476th, 0.757%), the encoding-scope paragraph, the
+Nyquist-impact list, CRITIQUE.md's 95.476th sentence, and CLAIM_TO_ARTIFACT.md row 17 (29.32 /
+31.01 / 33.85%). Every note is appended to an existing line and the revision note is added at the
+end of the file, so no line above it moves and no line citation into the three files shifts.
+
+**3. Gates.** `scripts/doc_gates.sh`: rc 0, no `[FAIL]` line. `python3 tests.py`: 402 tests, OK (1 skipped).
+`CITATION_LINE_GATE=PASS` against 47f432c2, 0 shifted. `PUBLISHED_CONSISTENCY=PASS-AT-PIN`.
+
+**4. What does not change.** No measured 100 T number, definition, table, figure or battery golden.
+The settling step for Q-813 is an exact `--compute-stats` recompute of the 100 T canonical under the
+float64 extractor, which needs a VM and is an operator decision.
+
+## CX-109 — the doc-gates self-test ran a word of its own message as a command (scripts/doc_gates.sh)
+
+**2026-09-25.** Origin: backlog row Q-806, found by Opus AQ during the Q-797 split. Landed by
+Opus AW. Every gate claim below was run on the worker VM, on a fresh clone at 47f432c2 with the
+batch-13 candidate and this change overlaid.
+
+**1. The defect.** The `--selftest` summary prints a note on GATE 18's partial mutation coverage.
+One of its lines was an `echo` whose double-quoted text contained a backticked word, `attrib`.
+Inside double quotes bash treats backticks as command substitution, so the self-test ran `attrib`
+as a command. The run printed `scripts/doc_gates.sh: line 5478: attrib: command not found` on
+stderr and the note itself read "the  kind", with the word missing. The verdict was not affected:
+the failed substitution expands to an empty string and the `echo` still succeeds. The hazard is
+that a message can execute whatever word it quotes.
+
+**2. The fix.** The two backticks on that line are escaped (`\``), so the note prints the word
+literally. The edit stays on its one line, so the file keeps its line count and the logical source
+of the split suite keeps the pre-split line numbering.
+
+**3. Before and after.** `bash scripts/doc_gates.sh --selftest` was run on the candidate tree
+without and with the fix. Without it, the output holds the `command not found` line and the note
+reads "the  kind". With it, the note reads "the `attrib` kind" and no `command not found` line
+appears. The rest of the output is identical except for two run-specific values: the PID named by
+the lock-holder leg and the reflog counts of the revert-survival leg. Both runs end
+`DOC_GATES_SELFTEST=PASS`.
+
+**4. The sweep.** Every non-comment line of `scripts/doc_gates.sh` and `scripts/doc_gates.d/*.sh`
+that holds an unescaped backtick was listed. Apart from the fixed line, each one sits in a
+single-quoted string, a quoted heredoc or embedded Python, where bash does not substitute. The one
+unquoted heredoc (`scripts/doc_gates.d/70_publication_surfaces.sh`, the census loop) carries only
+`$census`. Neither the full `bash scripts/doc_gates.sh` run nor the self-test prints
+`command not found` after the fix.
+
+**5. What does not change.** No gate verdict, measured number, definition, figure or battery
+golden.

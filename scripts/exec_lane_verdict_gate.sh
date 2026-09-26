@@ -8,7 +8,7 @@
 #
 #   D1  a RED that should be a SKIP.  solve.c's disk_iops_pre_check refuses with
 #       "ERROR: projected fsync-wait ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh."
-#       (solve.c:4119) and main returns 31 (solve.c:48769). NO branch of run_one's classifier
+#       (solve.c:4119) and main returns 31 (solve.c:49432). NO branch of run_one's classifier
 #       matched that shape, so it fell through to the terminal `else outcome="FAIL(rc=$rc)"`.
 #       `solve --preflight` is a gating row (documentation/SOLVE_C_CLI.md:58/:385) and bare
 #       --preflight defaults to 560T, so the IOPS probe really runs: this host's slow disk was
@@ -189,7 +189,7 @@ CASES = [
   (True,  './solve 0 128',                             'bare with threads'),
   (True,  'SOLVE_THREADS=128 ./solve 0 128',           'ISOLATING CASE (SOLVE_C_CLI.md:519)'),
   (True,  'SOLVE_RESUME_HISTORY="2026-05-14T18:23:00Z=spot-eviction-at-90%" ./solve 0 64',
-                                                       'ISOLATING CASE (DEVELOPMENT.md:916): the'
+                                                       'ISOLATING CASE (DEVELOPMENT.md:920): the'
                                                        ' assignment value holds an = and must be'
                                                        ' stripped quote-aware'),
   (True,  'SOLVE_A="x y z" ./solve 0',                 'assignment value with SPACES'),

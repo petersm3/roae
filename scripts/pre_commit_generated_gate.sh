@@ -149,7 +149,7 @@ fi
 # never looked at an artifact. A blocking gate can still misattribute, and misattribution costs a
 # regeneration cycle chasing a defect that is not there. `bash -n` first: 11 ms against ~62 s for
 # the gate itself. THE BLOCKING BEHAVIOUR IS UNCHANGED — only which failure it names.
-if ! DG_PARSE_ERR=$(bash -n scripts/doc_gates.sh 2>&1); then
+if ! DG_PARSE_ERR=$(for _dg in scripts/doc_gates.sh scripts/doc_gates.d/*.sh; do bash -n "$_dg" || exit 1; done 2>&1); then  # Q-797: the entry AND its sourced modules
   echo "pre-commit: 🔴 BLOCKED — COULD NOT RUN. scripts/doc_gates.sh does not parse, so the"
   echo "  generated-artifact gate never executed and NOTHING about example/ was checked."
   echo "  ${DG_PARSE_ERR:-bash -n returned non-zero with no message}"

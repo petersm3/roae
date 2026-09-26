@@ -76,9 +76,9 @@ King Wen's own record: of the 31 candidate single-slot orientation flips
 (slot 1 is pinned by C4), **9 remain C1-C5-valid**, all with C3 = 776 and King
 Wen's exact C5 transition histogram. Those 9 carry *different* amplitudes:
 flipping the slot holding the pair (40, 5) moves `fft_peak_amplitude` from
-374.766571 to **403.112885** (+7.6%) while changing nothing the constraints can
-see. Across the 9, the amplitude spans **343.237549-403.112885**;
-`fft_dominant_freq` stays 16 in all of them.
+374.766594 to **403.112887** (+7.6%) while changing nothing the constraints can
+see. Across the 9, the amplitude spans **343.237527-403.112887**;
+`fft_dominant_freq` stays 16 in all of them. ⚠ **[CORRECTED 2026-09-25 — the amplitudes in this paragraph, in the snippet below and in the Nyquist snippet of §"Marginal-distribution comparison" were the float32 values. The snippets passed a float32 array to `np.fft.fft`. numpy 2.x transforms a float32 input in complex64, and numpy 1.x converts it to complex128 first, so the printed amplitudes depended on the numpy build and differed in the 5th or 6th decimal place (the float32 values were the numpy 2.x outputs). The snippets now cast the input to float64 before the transform, as `solve.py`'s `--compute-stats` extractor does from the same date, and print identical values under numpy 1.26.4 and numpy 2.4.4, which are the values given here. The +7.6% and the dominant frequency 16 are unchanged. The snippets print the float64 amplitude rounded to 6 decimals. The `--compute-stats` column stores it as float32, so King Wen's stored value is 374.7666015625. The σ(KW) snippet in §"Marginal-distribution comparison" now casts to float64 as well. Its 4-decimal output was the same on both builds and has not changed.]**
 
 ```bash
 python3 -c "
@@ -92,13 +92,13 @@ def valid(s):
             and sorted(solve.bit_diff(s[i], s[i+1]) for i in range(63)) == kw_trans)
 def feat(q):
     x = np.array(q, dtype=np.float32); x = x - x.mean()
-    a = np.abs(np.fft.fft(x)[1:32]); return int(a.argmax()) + 1, round(float(a.max()), 6)
+    a = np.abs(np.fft.fft(x.astype(np.float64))[1:32]); return int(a.argmax()) + 1, round(float(a.max()), 6)
 print('KW', feat(KW))
 for i in range(32):
     s = list(KW); s[2*i], s[2*i+1] = s[2*i+1], s[2*i]
     if valid(s): print(i, (KW[2*i], KW[2*i+1]), feat(s), solve.total_complement_distance_c3(s))
 "
-# KW (16, 374.766571) ... slot 17 = pair (40, 5) -> (16, 403.112885), C3 776
+# KW (16, 374.766594) ... slot 17 = pair (40, 5) -> (16, 403.112887), C3 776
 ```
 
 A canonical class retains **one** representative (`solve.c`: *"Lex-smallest
@@ -109,7 +109,7 @@ predates any *declared* representative convention, and King Wen is anchored here
 at its **received** orientation, which is not shown to be its class's lex-least.
 Every percentile below that consumes `fft_peak_amplitude` — the 95.476th
 percentile, the one-sided p ≈ 0.045, the 0.757% joint tail and the ≈ 30%
-headline — is therefore **scoped to the retained representatives under that
+headline (all computed with a float32 FFT; see the 2026-09-25 revision note at the end of this document) — is therefore **scoped to the retained representatives under that
 undeclared retention convention**. Making the statistic well-defined requires
 either recomputing both columns under a key-determined normalization (for the
 population *and* for King Wen) or replacing them with fiber-averaged
@@ -122,7 +122,7 @@ down.
 For each of the 9 non-stratifier dimensions, KW's exact percentile in the
 marginal was computed by streaming histogram aggregation across all 3.43B
 records. (Subcommand: `solve.py --marginals`; full table in
-`roae-private/P2_MARGINALS.md`.) *(private staging repo — not publicly accessible)*
+`roae-private/P2_MARGINALS.md`.) *(private staging repo — not publicly accessible)* ⚠ **[Scope 2026-09-25: the two FFT rows of this table come from a float32 FFT and have not been recomputed under the float64 extractor; see the 2026-09-25 revision note at the end of this document.]**
 
 | Dim | KW value | Records < KW | Records == KW | **KW percentile** |
 |---|---|---|---|---|
@@ -225,7 +225,7 @@ KW is **distributionally unremarkable on the non-circular dimensions**. Its only
 deviation is `fft_peak_amplitude` at the exact 95.476th percentile (one-sided
 p ≈ 0.045), which does not survive the project's look-elsewhere correction
 (battery bars 1.8×10⁻³ / 5.5×10⁻⁴). Exact joint tail:
-P(freq = 16 ∧ amp ≥ KW's) = 0.757% — ~26 million valid orderings sit at or beyond KW.
+P(freq = 16 ∧ amp ≥ KW's) = 0.757% — ~26 million valid orderings sit at or beyond KW. ⚠ **[Scope 2026-09-25: these figures, and the 29.32 / 31.01 / 33.85% below, come from a float32 FFT. See the 2026-09-25 revision note at the end of this document: 95.476th and 0.757% are predicted to hold at their printed precision, the 2-decimal histogram percentages may move by one in the last digit, and none has been recomputed.]**
 (Both dimensions carry the two scope caveats recorded above: they are computed on
 the orientation-bearing sequence under an undeclared retention convention, and on
 `k ∈ [1,31]` with the Nyquist bin excluded — see the schema-table caveat and
@@ -436,7 +436,7 @@ P = (2, 0, 4, 1, 5, 3)                 # a member of TR-5's order-48 group
 sig = lambda h: sum(((h >> b) & 1) << i for i, b in enumerate(P))
 for nm, q in (('KW', KW), ('sigma(KW)', [sig(h) for h in KW])):
     x = np.array(q, dtype=np.float32); x = x - x.mean()
-    a = np.abs(np.fft.fft(x)[1:32])
+    a = np.abs(np.fft.fft(x.astype(np.float64))[1:32])
     print(nm, int(a.argmax()) + 1, round(float(a.max()), 4),
           'C3', solve.total_complement_distance_c3(q))
 "
@@ -445,7 +445,7 @@ for nm, q in (('KW', KW), ('sigma(KW)', [sig(h) for h in KW])):
 
 The percentile *arithmetic* is unaffected — the C1-C5 population is closed under
 the group, so KW's position within a **fixed** encoding is well defined, and the
-≈ 30% / 0.757% / 95.476th-percentile figures stand as encoding-scoped statements.
+≈ 30% / 0.757% / 95.476th-percentile figures stand as encoding-scoped statements (and as float32-FFT figures; see the 2026-09-25 revision note at the end of this document).
 What does not survive is the mechanistic reading: the period-4 interpretation
 below is scoped to the received binary encoding and is **not** a structural
 property of the sequence. The invariant alternatives — line-channel spectra with
@@ -503,13 +503,13 @@ columns compared cell-by-cell against the published ones:
   other record moves. The truncation therefore **re-ranked** those records; it
   was not a uniform relabeling.
 - **King Wen is not among them.** KW's Nyquist magnitude is **58.0** against a
-  peak of 374.77, so bin 32 never wins for KW and its `(16, 374.766571)` is
-  identical under both slices.
+  peak of 374.77, so bin 32 never wins for KW and its `(16, 374.766594)` is
+  identical under both slices. ⚠ **[CORRECTED 2026-09-25 — this amplitude and the snippet's output below were the float32 values of a numpy 2.x run; see the correction after the convention caveat on the two FFT dimensions.]**
 - **The published headline does not move:** ≤ **0.10 pp** at every amplitude bin
   width tested (29.32 → 29.41% at width 0.20; 31.01 → 31.10% at 0.50;
   33.85 → 33.84% at 0.10), an order of magnitude inside the published 28.6-32.1%
   seed spread — and the exact joint tail `P(freq = 16 ∧ amp ≥ KW's) = 0.757%` is
-  unchanged.
+  unchanged. ⚠ **[Scope 2026-09-25: the counts and percentages in this list, and the dominant-frequency counts above, come from a float32 FFT. See the 2026-09-25 revision note at the end of this document. The 3,496,831 and the dominant-frequency counts are not re-verified under the float64 extractor, the 2-decimal percentages may move by one in the last digit, and 0.757% is predicted to hold. None has been recomputed.]**
 
 **No published figure in this document requires revision on this account.** The
 `k ∈ [1,31]` scope label is kept because the histogram above was computed under
@@ -523,12 +523,12 @@ staging repo — not publicly accessible)*.
 python3 -c "
 import solve, numpy as np
 x = np.array(solve.binary_hexagrams, dtype=np.float32); x = x - x.mean()
-F = np.abs(np.fft.fft(x))
+F = np.abs(np.fft.fft(x.astype(np.float64)))
 print('published slice k in [1,31]:', int(F[1:32].argmax()) + 1, round(float(F[1:32].max()), 6))
 print('fixed slice     k in [1,32]:', int(F[1:33].argmax()) + 1, round(float(F[1:33].max()), 6))
 print('KW Nyquist magnitude |F[32]| =', round(float(F[32]), 1))
 "
-# published slice 16 374.766571 | fixed slice 16 374.766571 | Nyquist 58.0
+# published slice 16 374.766594 | fixed slice 16 374.766594 | Nyquist 58.0
 ```
 
 **The scientific refinement:** the earlier marginal writeup overstated
@@ -617,3 +617,5 @@ noted without a significance claim (it is a property of the hexagram set, not of
 *Revision 2026-08-30 (prose-correction batch P08 — scoping and null labels; **no measured value in any table changed**): (1) the opening framing no longer describes the partial-enumeration data as a random sample of the constraint space — every cell contributes a deterministic budget-limited DFS prefix, so the figures are exact-for-the-100 T-slice and scoped to it; (2) the "560 T shifts will be small because the CIs are tight" argument is withdrawn — CI width bounds resampling variation inside the algorithm-selected slice, not selection, and TR-5 §5 measures the selection effect directly (KW present at 560 T, all 23 twins absent); (3) the invariant transition-Hamming distribution is re-attributed from "C1+C2" to **C5**, matching Appendix A's own proof, with C1/C2 credited only for the support restrictions (two sites); (4) the two FFT dimensions are labelled with the two scope caveats they carry — an **undeclared orientation-retention convention** (9 of KW's 31 single-slot orientation flips are C1-C5-valid and span `fft_peak_amplitude` 343.24-403.11) and an **encoding dependence** (the order-48 relabeling group carries KW's (16, 374.7666) to a valid twin's (21, 264.9626), so Appendix B's period-4 mechanism is encoding-scoped, not structural); (5) the Nyquist bin k = 32 is documented as **excluded by construction** by `amp = np.abs(F[:, 1:32])`, the "half-Nyquist" mislabel is corrected, and the malformed "why not exactly k = 32?" question is retired — with the 2026-08-30 exact full-population recompute recorded: 3,496,831 records (0.1019%) change cell, KW is not among them (Nyquist magnitude 58.0 vs peak 374.77), the headline moves ≤ 0.10 pp and the 0.757% joint tail is unchanged; (6) the ≈ 30% headline is flagged as **published ahead of its public reproduction command** — `solve.py --joint-density` runs the withdrawn 7-dim analysis, and `--joint-density-dims`/`--joint-density-seed` are not wired to the CLI; (7) the trigram addendum's figures are relabelled with the nulls actually used (**C1-only** shuffle; **C1+C4** analytic for 87/465), not "the same framework used throughout this document"; (8) "KW is statistically independent of Jing Fang's palace ordering" is corrected to "no significant monotonic rank correlation was detected" (P = 0.12 is a failure to reject). Reproduction commands for the FFT figures in (4) and (5) are inline in the document.*
 
 *Revision 2026-07-26 (de-circularization): the joint-KDE headline ("rank < 10⁻⁵", "log-density −128,260, ~12,800× lower") is **withdrawn as evidence** — an adversarial circularity audit found five of the seven KDE dimensions KW-referencing (two tautological, two KW-extracted, one extreme by population construction). The section is replaced by the honest re-analysis on the two KW-independent FFT dimensions (KW joint-density percentile ≈ 30%, distributionally unremarkable); the schema table's Family column is reclassified accordingly; Appendix B's "k = 16 is the mode" is corrected (the mode is k = 30 at 14.39%; k = 16 is the second-largest bin at 12.62%); and the queued 560 T re-run is descoped. Marginal counts, the invariance theorem, and all shas are unchanged.*
+
+*Revision 2026-09-25 (float32 FFT; **no 100 T figure changed**; the snippet amplitudes corrected the same day are recorded after the convention caveat on the two FFT dimensions): ⚠ the 100 T FFT figures in this document come from a float32 FFT. The runs behind the two FFT rows of the marginals table, the joint-density re-analysis, the exact 2-D histogram and the Nyquist re-measurement used `solve.py`'s `--compute-stats` extractor on numpy 2.x while it passed a float32 array to `np.fft.fft`, so the transform ran in complex64. The runs' own records of King Wen's amplitude carry the numpy 2.x float32 value, and a numpy 2.x run reproduced the marginals table's FFT counts exactly. `solve.py` now casts that array to float64, which reproduces what numpy 1.x computed. King Wen's stored `fft_peak_amplitude` moves up by one float32 step, to 374.7666015625. On a synthetic sample of random pair orderings (not the 100 T population; its command and seed were not recorded, so no figure from it is published), the cast moved the stored amplitude on roughly a third of records by at most one float32 step and moved `fft_dominant_freq` on a handful. No figure in this document has been recomputed under the float64 extractor. The expected effect below is a prediction from those rates, not a measurement. (1) Predicted to hold at the printed precision: the 95.476th percentile and its one-sided p ≈ 0.045, the 0.757% joint tail, ~95.48%, and the 2-decimal dominant-frequency percentages (28.94%, 12.62%, 14.39%). (2) May move by one in the last printed digit: the 2-decimal exact-histogram percentages 29.32 / 31.01 / 33.85% and 29.41 / 31.10 / 33.84%; one histogram cell crossing King Wen's count moves the percentile by about 0.0055 pp at width 0.20. (3) Exact counts, not re-verified: the dominant-frequency counts, the `~`-marked amplitude counts of the marginals table (expected to differ by about 10²), and the 3,496,831 records that change cell under the Nyquist fix. (4) Not assessed: the KDE seed range 28.6–32.1%. Settling these needs a `--compute-stats` recompute of the 100 T canonical with the float64 extractor; that recompute has not been run.*

@@ -511,7 +511,7 @@ for sha in $SHAS; do
       echo "pre-push: 🔴 COULD NOT RUN — 'doc_gates.sh all' in pushed sha $short exited $_arc"
       echo "         (neither clean(0) nor findings(1)). NOTHING in that tree was checked; this is"
       echo "         not a documentation finding. bash -n on that tree's copy says:"
-      ( cd "$WT" && bash -n scripts/doc_gates.sh 2>&1 | sed 's/^/           /' ) || true
+      ( cd "$WT" && for _dg in scripts/doc_gates.sh scripts/doc_gates.d/*.sh; do bash -n "$_dg"; done 2>&1 | sed 's/^/           /' ) || true  # Q-797: entry + modules
       SHARC=1
     elif [ "$_arc" -ne 0 ]; then SHARC=1; fi
   else
@@ -732,6 +732,32 @@ for sha in $SHAS; do
   else
     echo "pre-push: FAIL — pushed sha $short has no scripts/atlas_n31_probe_gate.sh."
     echo "  Deleting the gate that runs TR-12 §12's reproduction command is the regression it"
+    echo "  exists to prevent; --no-verify is the visible bypass."
+    SHARC=1
+  fi
+
+  # ---- BLOCKING: TR-12's published output paths exist (Q-684, 2026-09-25) --------
+  # TR-12 named six files under a `tr12/` directory that had never been tracked, and named
+  # `<artifact-root>/` outputs that scripts/tr12_repro.sh never writes. doc_gates.sh GATE 21
+  # cannot see a path under a top-level directory that does not exist, and no gate read the
+  # placeholder form. scripts/tr12_output_paths_gate.sh checks both forms in every tracked
+  # *.md. UNCONDITIONAL because it is LIGHT: no build, ~1 s. Its red test is `--selftest`
+  # (eleven planted repositories, each with its expected verdict). PASS is the only accepted
+  # value, and a missing script is a FAIL, the same rule as the atlas gate above.
+  if [ -f "$WT/scripts/tr12_output_paths_gate.sh" ]; then
+    _op_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+                 bash scripts/tr12_output_paths_gate.sh 2>&1 ); _oprc=$?
+    if one_token TR12_OUTPUT_PATHS "$_op_out" && tok_is 'TR12_OUTPUT_PATHS=PASS' && [ "$_oprc" -eq 0 ]; then
+      echo "pre-push: TR-12 output paths PASS — every tr12/ name tracked, every <artifact-root>/ name written by the battery"
+    else
+      echo "pre-push: FAIL — TR-12's output paths did not PASS on pushed sha $short (rc=$_oprc, '${TOK:-<no single TR12_OUTPUT_PATHS= line>}')."
+      printf '%s\n' "$_op_out" | grep -E '^ *\[FAIL\]|^TR12_OUTPUT_PATHS_ERROR=' | head -12 | sed 's/^/         /'
+      echo "         Reproduce: bash scripts/tr12_output_paths_gate.sh"
+      SHARC=1
+    fi
+  else
+    echo "pre-push: FAIL — pushed sha $short has no scripts/tr12_output_paths_gate.sh."
+    echo "  Deleting the gate that checks TR-12's published output paths is the regression it"
     echo "  exists to prevent; --no-verify is the visible bypass."
     SHARC=1
   fi

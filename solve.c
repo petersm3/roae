@@ -19416,7 +19416,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       Emits KC_LAYERS_SELFTEST=PASS|FAIL.
  *                                       Sha-neutral; never inside --selftest.
  *   --kc-ar2 FDIR GDIR [WALK|KW]        AR-2 emission-witness battery
- *   --kc-profile FDIR GDIR WALK|KW [--kc-tsv OUT.tsv] [--kc-alts]
+ *   --kc-profile FDIR GDIR WALK|KW|--kc-walks WALKS.tsv [--kc-tsv OUT.tsv] [--kc-alts]
  *                                       TR-12 Q3 / EW-1 / V4 rarity-surprise
  *                                       profile of ONE walk (KC-P module
  *                                       header below): per prefix step k the
@@ -19442,7 +19442,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  *                                       block to a file verbatim. Emits
  *                                       KC_PROFILE_PRODUCT=EXACT|MISMATCH
  *                                       and KC_PROFILE=OK|FAIL.
- *   --kc-profile-selftest               its n=9 exhaustive brute-force gate
+ *   --kc-profile-selftest               its n=9 exhaustive brute-force gate (--kc-walks-selftest: the batch mode's n=9 byte-identity gate, KC-P batch header below)
  *                                       (P1..P10: the flow identity and every
  *                                       alternative's g vs brute prefix
  *                                       counts, the g column, orbit(cm)*f vs
@@ -32448,7 +32448,7 @@ static void kc_prof_write_alts(FILE *out, const KcProfile *P) {
 static int kc_profile_main(int argc, char *argv[]) {
     if (argc < 5) {
         fprintf(stderr,
-            "Usage: solve --kc-profile FDIR GDIR \"e,x,...\"|KW [--kc-tsv OUT.tsv]\n"
+            "Usage: solve --kc-profile FDIR GDIR \"e,x,...\"|KW|--kc-walks WALKS.tsv [--kc-tsv OUT.tsv]\n"
             "                          [--kc-alts] [--kc-ooc] [--kc-cache-mb MB]\n"
             "  The TR-12 Q3 / EW-1 / V4 rarity-surprise profile of ONE walk: per\n"
             "  prefix step, f and g at the node reached, the completions still\n"
@@ -32463,7 +32463,7 @@ static int kc_profile_main(int argc, char *argv[]) {
             "  companion is a sampled correction and rides --kc-sample.\n"
             "  --kc-alts: also emit one #alt row per admissible successor per step.\n"
             "  --kc-tsv: write the label+header+row block to a file as well.\n"
-            "  Unknown options are REJECTED (exit 2), never ignored.\n"
+            "  --kc-walks WALKS.tsv: BATCH mode (Q-785) - one walk per line (NAME<TAB>SPEC), ladders opened ONCE,\n  each block byte-identical to the single call (gate: --kc-walks-selftest).\n  Unknown options are REJECTED (exit 2), never ignored.\n"
             "  Gate: --kc-profile-selftest (n=9 exhaustive brute force). Exit 0/1/2.\n");
         return 2;
     }
@@ -32490,7 +32490,7 @@ static int kc_profile_main(int argc, char *argv[]) {
             /* fail CLOSED: "--kc-alt" used to run with 0 #alt rows and KC_PROFILE=OK
              * (KCQ03 #4) */
             fprintf(stderr, "ERROR: [kc-profile] unknown or incomplete option '%s' "
-                    "(accepted: --kc-tsv OUT --kc-alts --kc-ooc --kc-cache-mb MB)\n", argv[ai]);
+                    "(accepted: --kc-tsv OUT --kc-alts --kc-ooc --kc-cache-mb MB; --kc-walks WALKS.tsv selects batch mode)\n", argv[ai]);
             return 2;
         }
     }
@@ -32975,6 +32975,668 @@ static int kc_profile_selftest(void) {
     printf("[kc-profile-selftest] %s (%d failure%s)\n",
            fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
     printf("KC_PROFILE_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
+    return fails ? 1 : 0;
+}
+
+/* ===================== KC-P batch — --kc-profile FDIR GDIR --kc-walks WALKS.tsv (Q-785) =====================
+ *
+ * WHY. Atlas query 1b profiles the 1,000 Q8 gallery walks and row 8 the King Wen flip
+ * neighbours (FABLE_ATLAS_GENERATION rows 1b/8). As N separate --kc-profile calls that is N
+ * ladder opens -- at full-31 about 2.5 GB of f+g index per open, ~20 s per call, ~5.6 h serial
+ * for 1b -- and the per-process footprint caps how many run at once. Batch mode opens the pair
+ * ONCE and profiles every walk of WALKS.tsv in input order, off the same kc_profile_compute
+ * and the same writers, so nothing here recomputes or re-formats anything.
+ *
+ * CONTRACT (what --kc-walks-selftest pins byte for byte). For walk i (1-based, input order)
+ * the batch emits one label line
+ *     #walk<TAB>index=i<TAB>name=NAME<TAB>line=L<TAB>walk=SPEC
+ * followed by EXACTLY the stdout block one `--kc-profile FDIR GDIR SPEC [--kc-alts]` call
+ * emits for that walk: label + header + rows, the #alt rows, #profile-summary, #provenance,
+ * KC_PROFILE_PRODUCT= and KC_PROFILE= -- or the bare KC_PROFILE=FAIL of a non-member. After
+ * the last walk come `#batch-summary<TAB>walks=N<TAB>ok=K<TAB>fail=N-K` and
+ * KC_PROFILE_WALKS=OK|FAIL. So
+ *     grep -v -e '^#walk<TAB>' -e '^#batch-summary<TAB>' -e '^KC_PROFILE_WALKS='
+ * of the batch stdout is the N single stdouts concatenated, byte for byte, and any consumer
+ * of the single-call block reads each batch block unchanged (the #walk line has 5 columns, so
+ * the 16-column table grammar skips it as it skips every trailer). --kc-tsv OUT.tsv is the
+ * same concatenation of the per-walk TSV blocks -- each preceded by its #walk line, each
+ * carrying its own two trailers -- through the same writer the single call uses.
+ *
+ * WALKS.tsv GRAMMAR. One walk per line: `NAME<TAB>SPEC`, or `SPEC` alone (NAME then defaults
+ * to `line<L>`). SPEC is the literal KW or exactly 2n comma-separated decimal integers of one
+ * or two digits, nothing else. Blank lines and lines whose first byte is `#` are skipped. ANY
+ * other shape -- a third column, an empty field, a non-digit, a wrong count of integers, a
+ * value over 63, a NAME of 64+ bytes, a line of 4096+ bytes -- is MALFORMED: the whole file is
+ * parsed and rejected BEFORE anything is emitted, exit 2, and a --kc-tsv target is removed,
+ * so nothing half-written is left behind. A well-formed SPEC that is not a walk over this
+ * pair subset is a NON-MEMBER: it is reported BY NAME (and file line) on stderr, its block is
+ * the single-call KC_PROFILE=FAIL, the batch goes on to the next walk, and the run exits 1
+ * and, exactly as a single call does, removes its --kc-tsv rather than leave a table it does
+ * not stand behind.
+ *
+ * PER-WALK STATE. Nothing carries over between walks: E is re-resolved from the line's own
+ * text through kc_h_resolve_walk (the single call's path), and kc_profile_compute zeroes the
+ * profile before every walk. flow_n and sum_bits are ACCUMULATED inside it, so a skipped
+ * reset surfaces as KC_PROFILE_PRODUCT=MISMATCH from the second walk on -- one of the two
+ * mutants the gate was checked against (the other reuses the previous walk's E).
+ *
+ * GATE. --kc-walks-selftest, n=9 in a scratch dir: >= 200 walks -- the six kc-profile-selftest
+ * witnesses, every single-slot orientation flip of each (the Q8-style flip neighbours, members
+ * AND non-members), a duplicate, and seeded walks from the brute list. W1: batch stdout minus
+ * its three batch line kinds == the N single stdouts, byte for byte, with --kc-alts, non-
+ * members included, exit 1, KC_PROFILE_WALKS=FAIL, and the batch --kc-tsv removed. W2: the
+ * member subset, no --kc-alts, exit 0, KC_PROFILE_WALKS=OK, and the batch --kc-tsv minus its
+ * #walk lines == the N single --kc-tsv files concatenated. W3: every non-member is named on
+ * stderr with its line and its block is the bare KC_PROFILE=FAIL. W4: four malformed files,
+ * each exit 2, nothing emitted, the pre-existing --kc-tsv target gone. W5: a positional walk
+ * beside --kc-walks, --kc-walks twice, and --kc-c3-max are refused (exit 2). Emits
+ * KC_WALKS_SELFTEST=PASS|FAIL. Argv-dispatched, sha-neutral, NEVER inside --selftest.
+ */
+
+#define KC_WALKS_LINE_MAX 4096
+#define KC_WALKS_NAME_MAX 64
+#define KC_WALKS_SPEC_MAX 256
+
+typedef struct {
+    char name[KC_WALKS_NAME_MAX];
+    char spec[KC_WALKS_SPEC_MAX];
+    int line;                      /* 1-based line of WALKS.tsv */
+} KcWalkRow;
+
+/* one line of WALKS.tsv (newline already stripped). 0 = a walk row filled into W;
+ * 1 = skip (blank or #-comment); -1 = malformed, *why names the defect. */
+static int kc_walks_parse_line(const char *line, int n, KcWalkRow *W, const char **why) {
+    if (line[0] == '\0' || line[0] == '#') return 1;
+    const char *tab = strchr(line, '\t');
+    const char *spec = line;
+    if (tab) {
+        size_t nl = (size_t)(tab - line);
+        if (nl == 0) { *why = "empty NAME before the tab"; return -1; }
+        if (nl >= KC_WALKS_NAME_MAX) { *why = "NAME is 64 bytes or longer"; return -1; }
+        if (strchr(tab + 1, '\t')) { *why = "more than two tab-separated columns"; return -1; }
+        memcpy(W->name, line, nl);
+        W->name[nl] = '\0';
+        spec = tab + 1;
+    }
+    if (*spec == '\0') { *why = "empty SPEC"; return -1; }
+    if (strlen(spec) >= KC_WALKS_SPEC_MAX) { *why = "SPEC is 256 bytes or longer"; return -1; }
+    if (strcmp(spec, "KW") != 0) {
+        /* exactly 2n tokens of 1-2 decimal digits, single commas, no other byte */
+        int nv = 0;
+        const char *p = spec;
+        for (;;) {
+            int nd = 0, v = 0;
+            while (p[nd] >= '0' && p[nd] <= '9' && nd < 3) { v = v * 10 + (p[nd] - '0'); nd++; }
+            if (nd == 0) { *why = "expected a decimal hexagram number"; return -1; }
+            if (nd > 2 || v > 63) { *why = "hexagram number out of 0..63"; return -1; }
+            nv++;
+            p += nd;
+            if (*p == '\0') break;
+            if (*p != ',') { *why = "unexpected byte in SPEC (only digits and commas)"; return -1; }
+            p++;
+            if (nv > 2 * n) break;
+        }
+        if (nv != 2 * n) { *why = "SPEC does not carry exactly 2n hexagrams (entry,exit per pair)"; return -1; }
+    }
+    memcpy(W->spec, spec, strlen(spec) + 1);   /* bounded by the length check above */
+    return 0;
+}
+
+/* read the whole WALKS.tsv; 0 = ok (*out, *count), -1 = malformed / unreadable / empty, already
+ * reported on stderr. Nothing is emitted on stdout by this function. */
+static int kc_walks_load(const char *path, int n, KcWalkRow **out, int *count) {
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        fprintf(stderr, "ERROR: [kc-profile] --kc-walks: cannot read %s: %s\n", path, strerror(errno));
+        return -1;
+    }
+    KcWalkRow *rows = NULL;
+    int nr = 0, cap = 0, lineno = 0, bad = 0;
+    char buf[KC_WALKS_LINE_MAX + 1];
+    while (fgets(buf, sizeof(buf), f)) {
+        lineno++;
+        size_t L = strlen(buf);
+        if (L > 0 && buf[L - 1] != '\n' && !feof(f)) {
+            fprintf(stderr, "ERROR: [kc-profile] --kc-walks %s line %d: line is %d bytes or longer\n",
+                    path, lineno, KC_WALKS_LINE_MAX);
+            bad = 1;
+            break;
+        }
+        while (L > 0 && (buf[L - 1] == '\n' || buf[L - 1] == '\r')) buf[--L] = '\0';
+        if (nr == cap) {
+            cap = cap ? cap * 2 : 64;
+            KcWalkRow *nrows = (KcWalkRow *)realloc(rows, (size_t)cap * sizeof(KcWalkRow));
+            F1_CHECK(nrows != NULL, "[kc-profile] --kc-walks alloc");
+            rows = nrows;
+        }
+        KcWalkRow *W = &rows[nr];
+        memset(W, 0, sizeof(*W));
+        W->line = lineno;
+        snprintf(W->name, sizeof(W->name), "line%d", lineno);
+        const char *why = "malformed";
+        int prc = kc_walks_parse_line(buf, n, W, &why);
+        if (prc < 0) {
+            fprintf(stderr, "ERROR: [kc-profile] --kc-walks %s line %d: %s -- the file is REJECTED, "
+                            "nothing was profiled\n", path, lineno, why);
+            bad = 1;
+            break;
+        }
+        if (prc == 0) nr++;
+    }
+    if (!bad && ferror(f)) {
+        fprintf(stderr, "ERROR: [kc-profile] --kc-walks: read error on %s\n", path);
+        bad = 1;
+    }
+    fclose(f);
+    if (!bad && nr == 0) {
+        fprintf(stderr, "ERROR: [kc-profile] --kc-walks %s: no walk rows (only blank/# lines)\n", path);
+        bad = 1;
+    }
+    if (bad) { free(rows); return -1; }
+    *out = rows;
+    *count = nr;
+    return 0;
+}
+
+/* --kc-profile FDIR GDIR --kc-walks WALKS.tsv [--kc-tsv OUT.tsv] [--kc-alts] [--kc-ooc] [--kc-cache-mb MB] */
+static int kc_profile_walks_main(int argc, char *argv[]) {
+    const char *fdir = argv[2], *gdir = argv[3], *walks = NULL, *tsv = NULL;
+    int force_ooc = 0, cache_mb = 0, want_alts = 0;
+    for (int ai = 4; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-c3-max") == 0) {
+            fprintf(stderr,
+                "ERROR: [kc-profile] --kc-c3-max is not accepted here. p_i is the\n"
+                "       conditional probability under the UNIFORM MEASURE ON SUPER and g\n"
+                "       counts SUPER completions; the exact C3-conditioned count was\n"
+                "       PRICED AND DECLINED (~$3-5K; TR-12 s9), not 'not computable'.\n"
+                "       Q3's C15 companion is a SAMPLED correction -- use --kc-sample.\n");
+            return 2;
+        }
+        if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
+        else if (strcmp(argv[ai], "--kc-alts") == 0) want_alts = 1;
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
+            cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tsv") == 0)
+            tsv = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-walks") == 0) {
+            if (walks) {
+                fprintf(stderr, "ERROR: [kc-profile] --kc-walks given twice\n");
+                return 2;
+            }
+            walks = argv[++ai];
+        } else if (argv[ai][0] != '-') {
+            fprintf(stderr, "ERROR: [kc-profile] batch mode takes its walks from WALKS.tsv; a "
+                            "positional walk '%s' is not accepted beside --kc-walks\n", argv[ai]);
+            return 2;
+        } else {
+            fprintf(stderr, "ERROR: [kc-profile] unknown or incomplete option '%s' "
+                    "(accepted: --kc-walks WALKS.tsv --kc-tsv OUT --kc-alts --kc-ooc --kc-cache-mb MB)\n",
+                    argv[ai]);
+            return 2;
+        }
+    }
+    if (!walks) {
+        fprintf(stderr, "ERROR: [kc-profile] --kc-walks needs a file operand\n");
+        return 2;
+    }
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    KC *gkc = (KC *)calloc(1, sizeof(KC));
+    KcProfile *P = (KcProfile *)calloc(1, sizeof(KcProfile));
+    F1_CHECK(fkc && gkc && P, "[kc-profile] alloc");
+    if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); free(P); return 2; }
+    if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
+        kc_free(fkc); free(fkc); free(gkc); free(P);
+        return 2;
+    }
+    F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+             "[kc-profile] f and g ladders disagree on n or on the total -- "
+             "they are not a matching pair");
+    KcWalkRow *rows = NULL;
+    int nw = 0;
+    if (kc_walks_load(walks, fkc->n, &rows, &nw) != 0) {
+        /* rejected BEFORE any output: no block was emitted and the TSV was never opened.
+         * A stale table at the target path must not be mistaken for this run's output. */
+        if (tsv) kc_h_unlink_regular(tsv);
+        kc_free(fkc); kc_free(gkc); free(fkc); free(gkc); free(P);
+        return 2;
+    }
+    int rc = 0, nok = 0;
+    FILE *tf = NULL;
+    if (tsv) {
+        tf = fopen(tsv, "w");
+        if (!tf) {
+            fprintf(stderr, "ERROR: [kc-profile] cannot write %s\n", tsv);
+            rc = 1;
+        }
+    }
+    uint8_t E[KC_MAX_PAIRS];
+    for (int i = 0; i < nw; i++) {
+        const KcWalkRow *W = &rows[i];
+        printf("#walk\tindex=%d\tname=%s\tline=%d\twalk=%s\n", i + 1, W->name, W->line, W->spec);
+        if (tf) fprintf(tf, "#walk\tindex=%d\tname=%s\tline=%d\twalk=%s\n", i + 1, W->name, W->line, W->spec);
+        /* the single call's path, per walk: resolve from the line's own text, then a profile
+         * that kc_profile_compute zeroes before it starts */
+        if (kc_h_resolve_walk(fkc, W->spec, E) != 0 ||
+            kc_profile_compute(fkc, gkc, E, P) != 0) {
+            fprintf(stderr, "ERROR: [kc-profile] walk '%s' (%s line %d) is not a valid walk over "
+                            "this pair subset\n", W->name, walks, W->line);
+            printf("KC_PROFILE=FAIL\n");
+            rc = 1;
+            continue;
+        }
+        int wrc = 0;
+        kc_prof_write_table(stdout, P);
+        if (want_alts) kc_prof_write_alts(stdout, P);
+        {
+            char nd[64];
+            f1_dec(P->N, nd);
+            printf("#profile-summary\tn=%d\tN=%s\tg(s_0)=N %s\tg(s_n)=1 %s\t"
+                   "flow_identities=%d/%d\tsum_bits=%.6f\tlog2N=%.6f\n",
+                   P->n, nd, P->g0_ok ? "VERIFIED" : "FAILED",
+                   P->gn_ok ? "VERIFIED" : "FAILED", P->flow_n, P->n,
+                   P->sum_bits, log2(kc_u192_to_d(&P->N)));
+        }
+        printf("#provenance\tengine=solve.c/kc-profile\tbranch=%s\tgit=%s\t"
+               "source_sha=%s\tn=%d\torder=NATIVE-WALK-PATH\tobject=WALK\t"
+               "space=C1C2C4C5-SUPERSPACE\tp_i=exact-rational(p_num/p_den);"
+               "bits=display-only\tsemantics=certificate-not-proof\n",
+               GIT_BRANCH, GIT_HASH, SOURCE_SHA, P->n);
+        printf("KC_PROFILE_PRODUCT=%s\n", P->product_exact ? "EXACT" : "MISMATCH");
+        if (!P->product_exact) wrc = 1;
+        printf("KC_PROFILE=%s\n", wrc == 0 ? "OK" : "FAIL");
+        if (wrc == 0) {
+            nok++;
+            if (tf) {   /* the single call's surviving TSV: table, then its two trailers */
+                kc_prof_write_table(tf, P);
+                fprintf(tf, "KC_PROFILE_PRODUCT=%s\n", "EXACT");
+                fprintf(tf, "KC_PROFILE=%s\n", "OK");
+            }
+        } else rc = 1;
+    }
+    if (tf && kc_h_close_artifact(tf, tsv, "kc-profile") != 0) rc = 1;
+    printf("#batch-summary\twalks=%d\tok=%d\tfail=%d\n", nw, nok, nw - nok);
+    printf("KC_PROFILE_WALKS=%s\n", rc == 0 ? "OK" : "FAIL");
+    if (tsv && rc != 0) {
+        kc_h_unlink_regular(tsv);
+        fprintf(stderr, "ERROR: [kc-profile] batch verdict is FAIL (%d of %d walks failed); removed %s "
+                        "rather than leave a table this run does not stand behind\n", nw - nok, nw, tsv);
+    }
+    free(rows);
+    kc_free(fkc);
+    kc_free(gkc);
+    free(fkc);
+    free(gkc);
+    free(P);
+    return rc;
+}
+
+/* the --kc-profile dispatcher: --kc-walks anywhere after GDIR selects batch mode; otherwise the
+ * single-walk main above, byte for byte as before. */
+static int kc_profile_entry(int argc, char *argv[]) {
+    for (int ai = 4; ai < argc; ai++)
+        if (strcmp(argv[ai], "--kc-walks") == 0) return kc_profile_walks_main(argc, argv);
+    return kc_profile_main(argc, argv);
+}
+
+/* ---------- --kc-walks-selftest (n=9 byte-identity gate for the batch mode) ---------- */
+#define KC_WALKS_GATE(name, cond) do { \
+    int ok_ = (cond); \
+    printf("[kc-walks-selftest] %-62s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* run a kc_* main with stdout captured to `out` and stderr to `err` (either may be NULL) */
+static int kc_walks_capture(int (*fn)(int, char **), int ac, char **av,
+                            const char *out, const char *err) {
+    fflush(stdout); fflush(stderr);
+    int s1 = dup(1), s2 = dup(2);
+    if (s1 < 0 || s2 < 0) return -1;
+    FILE *fo = out ? fopen(out, "w") : NULL, *fe = err ? fopen(err, "w") : NULL;
+    if ((out && !fo) || (err && !fe)) { close(s1); close(s2); if (fo) fclose(fo); if (fe) fclose(fe); return -1; }
+    if (fo) dup2(fileno(fo), 1);
+    if (fe) dup2(fileno(fe), 2);
+    int rc = fn(ac, av);
+    fflush(stdout); fflush(stderr);
+    dup2(s1, 1); dup2(s2, 2);
+    close(s1); close(s2);
+    if (fo) fclose(fo);
+    if (fe) fclose(fe);
+    return rc;
+}
+
+/* append the bytes of src to dst; 0 = ok */
+static int kc_walks_append(const char *dst, const char *src) {
+    FILE *d = fopen(dst, "ab"), *s = fopen(src, "rb");
+    if (!d || !s) { if (d) fclose(d); if (s) fclose(s); return -1; }
+    char buf[65536];
+    size_t k;
+    while ((k = fread(buf, 1, sizeof(buf), s)) > 0)
+        if (fwrite(buf, 1, k, d) != k) { fclose(d); fclose(s); return -1; }
+    fclose(s);
+    return fclose(d) == 0 ? 0 : -1;
+}
+
+/* copy src to dst dropping the batch's own line kinds (#walk, #batch-summary, KC_PROFILE_WALKS=),
+ * so what remains is claimed to be the single calls' output verbatim; 0 = ok */
+static int kc_walks_strip(const char *dst, const char *src) {
+    FILE *d = fopen(dst, "wb"), *s = fopen(src, "rb");
+    if (!d || !s) { if (d) fclose(d); if (s) fclose(s); return -1; }
+    char line[16384];
+    int mid = 0;   /* inside a line longer than the buffer: never a batch line */
+    while (fgets(line, sizeof(line), s)) {
+        size_t L = strlen(line);
+        int batch = !mid && (strncmp(line, "#walk\t", 6) == 0 ||
+                             strncmp(line, "#batch-summary\t", 15) == 0 ||
+                             strncmp(line, "KC_PROFILE_WALKS=", 17) == 0);
+        if (!batch && fwrite(line, 1, L, d) != L) { fclose(d); fclose(s); return -1; }
+        mid = (L > 0 && line[L - 1] != '\n');
+    }
+    fclose(s);
+    return fclose(d) == 0 ? 0 : -1;
+}
+
+/* 1 if the two files have identical bytes (and both exist), else 0; *bytes = size of a */
+static int kc_walks_files_eq(const char *a, const char *b, long *bytes) {
+    FILE *fa = fopen(a, "rb"), *fb = fopen(b, "rb");
+    if (bytes) *bytes = 0;
+    if (!fa || !fb) { if (fa) fclose(fa); if (fb) fclose(fb); return 0; }
+    char x[65536], y[65536];
+    int eq = 1;
+    for (;;) {
+        size_t ka = fread(x, 1, sizeof(x), fa), kb = fread(y, 1, sizeof(y), fb);
+        if (bytes) *bytes += (long)ka;
+        if (ka != kb || memcmp(x, y, ka) != 0) { eq = 0; break; }
+        if (ka == 0) break;
+    }
+    fclose(fa); fclose(fb);
+    return eq;
+}
+
+static int kc_walks_file_count_prefix(const char *path, const char *prefix) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char line[16384];
+    int c = 0;
+    size_t pl = strlen(prefix);
+    while (fgets(line, sizeof(line), f)) if (strncmp(line, prefix, pl) == 0) c++;
+    fclose(f);
+    return c;
+}
+
+static int kc_walks_file_exists(const char *path) {
+    struct stat st;
+    return stat(path, &st) == 0;
+}
+
+static int kc_walks_selftest(void) {
+    int fails = 0;
+    printf("[kc-walks-selftest] --kc-profile --kc-walks batch == N single calls, byte for byte (n=9)\n");
+    char dir[4096];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-walks-selftest] FAIL (no scratch dir)\n");
+        printf("KC_WALKS_SELFTEST=FAIL\n");
+        return 1;
+    }
+    char fdir[4200], gdir[4200], p_all[4300], p_mem[4300], p_bad[4300], p_out[4300], p_err[4300],
+         p_exp[4300], p_got[4300], p_one[4300], p_tsv[4300], p_tsv1[4300], p_tsvx[4300], p_tsvg[4300];
+    snprintf(fdir, sizeof(fdir), "%s/f", dir);
+    snprintf(gdir, sizeof(gdir), "%s/g", dir);
+    snprintf(p_all, sizeof(p_all), "%s/walks_all.tsv", dir);
+    snprintf(p_mem, sizeof(p_mem), "%s/walks_members.tsv", dir);
+    snprintf(p_bad, sizeof(p_bad), "%s/walks_bad.tsv", dir);
+    snprintf(p_out, sizeof(p_out), "%s/batch.out", dir);
+    snprintf(p_err, sizeof(p_err), "%s/batch.err", dir);
+    snprintf(p_exp, sizeof(p_exp), "%s/expect.bin", dir);
+    snprintf(p_got, sizeof(p_got), "%s/got.bin", dir);
+    snprintf(p_one, sizeof(p_one), "%s/one.out", dir);
+    snprintf(p_tsv, sizeof(p_tsv), "%s/batch.tsv", dir);
+    snprintf(p_tsv1, sizeof(p_tsv1), "%s/one.tsv", dir);
+    snprintf(p_tsvx, sizeof(p_tsvx), "%s/expect.tsv", dir);
+    snprintf(p_tsvg, sizeof(p_tsvg), "%s/got.tsv", dir);
+    {
+        KC *kc = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(kc != NULL, "[kc-walks-selftest] alloc");
+        F1_CHECK(kc_init(kc, 9) == 0, "[kc-walks-selftest] init");
+        kc_build(kc, 0);
+        kc_write(kc, fdir);
+        kc_free(kc);
+        free(kc);
+    }
+    KC_WALKS_GATE("n=9 g ladder build", kc_g_build_main(gdir, 9, 0) == 0);
+    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    F1_CHECK(fkc != NULL, "[kc-walks-selftest] alloc");
+    F1_CHECK(kc_open(fkc, fdir, 0, 0) == 0, "[kc-walks-selftest] f open");
+    const int n = fkc->n;
+
+    /* the walk set: 6 witnesses (same REL ranks + seed as --kc-profile-selftest), their 54
+     * single-slot orientation flips, a duplicate of witness 0, then seeded brute walks to 224 */
+    KcList BR;
+    kc_brute(fkc, &BR);
+    const uint64_t NW = BR.cnt;
+    uint8_t *sorted = (uint8_t *)malloc((size_t)NW * (size_t)n);
+    F1_CHECK(sorted != NULL, "[kc-walks-selftest] OOM");
+    memcpy(sorted, BR.walks, (size_t)NW * (size_t)n);
+    kc_n_for_cmp = n;
+    qsort(sorted, (size_t)NW, (size_t)n, kc_walk_cmp);
+    enum { NWALK = 224 };
+    uint8_t (*WL)[KC_MAX_PAIRS] = (uint8_t (*)[KC_MAX_PAIRS])calloc(NWALK, KC_MAX_PAIRS);
+    int *is_mem = (int *)calloc(NWALK, sizeof(int));
+    F1_CHECK(WL && is_mem, "[kc-walks-selftest] alloc");
+    int nwl = 0;
+    {
+        uint64_t widx[6];
+        widx[0] = 0; widx[1] = NW - 1; widx[2] = NW / 2;
+        uint64_t s = 0x9276183659154465ULL;
+        for (int i = 3; i < 6; i++) { s ^= s << 13; s ^= s >> 7; s ^= s << 17; widx[i] = s % NW; }
+        for (int wi = 0; wi < 6; wi++) memcpy(WL[nwl++], sorted + widx[wi] * (size_t)n, (size_t)n);
+        for (int wi = 0; wi < 6; wi++)
+            for (int j = 0; j < n; j++) {
+                memcpy(WL[nwl], WL[wi], (size_t)n);
+                WL[nwl][j] = (uint8_t)fkc->partner[WL[wi][j]];   /* flip slot j's orientation */
+                nwl++;
+            }
+        memcpy(WL[nwl++], WL[0], (size_t)n);                     /* the duplicate */
+        s = 0x5eedf00dcafe1234ULL;
+        while (nwl < NWALK) {
+            s ^= s << 13; s ^= s >> 7; s ^= s << 17;
+            memcpy(WL[nwl++], sorted + (s % NW) * (size_t)n, (size_t)n);
+        }
+    }
+    int n_mem = 0, n_non = 0, n_flip_mem = 0;
+    for (int i = 0; i < nwl; i++) {
+        is_mem[i] = (kc_validate(fkc, WL[i], NULL, NULL) == 0);
+        if (is_mem[i]) n_mem++; else n_non++;
+        if (i >= 6 && i < 60 && is_mem[i]) n_flip_mem++;
+    }
+    if (n_non == 0) {   /* positive control for the non-member path: force one, P8-style */
+        for (int v = 0; v < 64; v++) {
+            if (v == (int)WL[0][n - 1] || fkc->pair_of_sub[v] < 0) continue;
+            WL[0][n - 1] = (uint8_t)v;
+            if (kc_validate(fkc, WL[0], NULL, NULL) != 0) { is_mem[0] = 0; n_mem--; n_non++; break; }
+        }
+    }
+    KC_WALKS_GATE("walk set: >= 200 walks, members and non-members both present",
+                  nwl >= 200 && n_mem >= 100 && n_non >= 1);
+    printf("[kc-walks-selftest] walks=%d members=%d non-members=%d flip-neighbours-that-are-members=%d\n",
+           nwl, n_mem, n_non, n_flip_mem);
+    {
+        FILE *fa = fopen(p_all, "w"), *fm = fopen(p_mem, "w");
+        F1_CHECK(fa && fm, "[kc-walks-selftest] cannot write the walk files");
+        fprintf(fa, "# %d walks; NAME<TAB>SPEC\n\n", nwl);
+        for (int i = 0; i < nwl; i++) {
+            char ws[512];
+            kc_h_walk_str(fkc, WL[i], ws, sizeof(ws));
+            fprintf(fa, "w%d\t%s\n", i + 1, ws);
+            if (is_mem[i]) fprintf(fm, "w%d\t%s\n", i + 1, ws);
+        }
+        fclose(fa); fclose(fm);
+    }
+
+    /* W1: all walks, --kc-alts, --kc-tsv: stdout identity, exit 1, WALKS=FAIL, TSV removed */
+    {
+        remove(p_exp);
+        int ok = 1;
+        for (int i = 0; i < nwl && ok; i++) {
+            char ws[512];
+            kc_h_walk_str(fkc, WL[i], ws, sizeof(ws));
+            char *av[7] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, ws, (char *)"--kc-alts", NULL };
+            int rc1 = kc_walks_capture(kc_profile_main, 6, av, p_one, p_err);
+            if (rc1 != (is_mem[i] ? 0 : 1)) ok = 0;
+            if (kc_walks_append(p_exp, p_one) != 0) ok = 0;
+        }
+        KC_WALKS_GATE("W1a every single call: exit 0 for a member, 1 for a non-member", ok);
+        FILE *junk = fopen(p_tsv, "w"); if (junk) { fputs("stale\n", junk); fclose(junk); }
+        char *av[10] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, (char *)"--kc-walks", p_all,
+                         (char *)"--kc-alts", (char *)"--kc-tsv", p_tsv, NULL };
+        int rc = kc_walks_capture(kc_profile_entry, 9, av, p_out, p_err);
+        long nb = 0;
+        int eq = (kc_walks_strip(p_got, p_out) == 0) && kc_walks_files_eq(p_exp, p_got, &nb);
+        printf("[kc-walks-selftest] W1 stdout identity: %ld bytes expected, %s\n", nb, eq ? "IDENTICAL" : "DIFFER");
+        KC_WALKS_GATE("W1b batch stdout minus batch lines == N single stdouts (bytes)", eq && nb > 0);
+        KC_WALKS_GATE("W1c batch exit 1 + KC_PROFILE_WALKS=FAIL when a non-member is present",
+                      rc == 1 && kc_prof_file_has(p_out, "KC_PROFILE_WALKS=FAIL"));
+        KC_WALKS_GATE("W1d one #walk line per input walk, in order",
+                      kc_walks_file_count_prefix(p_out, "#walk\t") == nwl);
+        KC_WALKS_GATE("W1e the batch --kc-tsv is removed on a FAIL verdict", !kc_walks_file_exists(p_tsv));
+        /* W3: every non-member named on stderr with its file line; its block is the bare FAIL */
+        int named = 1, bare = 1;
+        {
+            char need[4600];
+            for (int i = 0; i < nwl; i++) {
+                if (is_mem[i]) continue;
+                FILE *e = fopen(p_err, "r");
+                int hit = 0;
+                if (e) {
+                    char line[16384];
+                    snprintf(need, sizeof(need), "ERROR: [kc-profile] walk 'w%d' (%s line %d) is not a valid walk",
+                             i + 1, p_all, i + 3);   /* 2 header lines precede walk 1 */
+                    while (fgets(line, sizeof(line), e)) if (strncmp(line, need, strlen(need)) == 0) { hit = 1; break; }
+                    fclose(e);
+                }
+                if (!hit) named = 0;
+            }
+            /* the block after a non-member's #walk line must be exactly KC_PROFILE=FAIL */
+            FILE *o = fopen(p_out, "r");
+            if (!o) bare = 0;
+            else {
+                char line[16384];
+                int expect_fail = 0;
+                while (fgets(line, sizeof(line), o)) {
+                    if (strncmp(line, "#walk\tindex=", 12) == 0) {
+                        int idx = atoi(line + 12);
+                        if (expect_fail) bare = 0;           /* previous non-member emitted nothing */
+                        expect_fail = (idx >= 1 && idx <= nwl && !is_mem[idx - 1]);
+                        continue;
+                    }
+                    if (expect_fail) {
+                        if (strcmp(line, "KC_PROFILE=FAIL\n") != 0) bare = 0;
+                        expect_fail = 0;
+                    }
+                }
+                fclose(o);
+            }
+        }
+        KC_WALKS_GATE("W3a every non-member is reported BY NAME and file line on stderr", named);
+        KC_WALKS_GATE("W3b a non-member's block is the single call's bare KC_PROFILE=FAIL", bare);
+    }
+
+    /* W2: the member subset, no --kc-alts: exit 0, WALKS=OK, stdout AND --kc-tsv identity */
+    {
+        remove(p_exp); remove(p_tsvx);
+        int ok = 1, nm = 0;
+        for (int i = 0; i < nwl && ok; i++) {
+            if (!is_mem[i]) continue;
+            nm++;
+            char ws[512];
+            kc_h_walk_str(fkc, WL[i], ws, sizeof(ws));
+            char *av[8] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, ws, (char *)"--kc-tsv", p_tsv1, NULL };
+            if (kc_walks_capture(kc_profile_main, 7, av, p_one, p_err) != 0) ok = 0;
+            if (kc_walks_append(p_exp, p_one) != 0 || kc_walks_append(p_tsvx, p_tsv1) != 0) ok = 0;
+        }
+        char *av[9] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, (char *)"--kc-walks", p_mem,
+                        (char *)"--kc-tsv", p_tsv, NULL };
+        int rc = kc_walks_capture(kc_profile_entry, 8, av, p_out, p_err);
+        long nb = 0, tb = 0;
+        int eq = ok && (kc_walks_strip(p_got, p_out) == 0) && kc_walks_files_eq(p_exp, p_got, &nb);
+        int teq = (kc_walks_strip(p_tsvg, p_tsv) == 0) && kc_walks_files_eq(p_tsvx, p_tsvg, &tb);
+        printf("[kc-walks-selftest] W2 members=%d stdout: %ld bytes %s; tsv: %ld bytes %s\n",
+               nm, nb, eq ? "IDENTICAL" : "DIFFER", tb, teq ? "IDENTICAL" : "DIFFER");
+        KC_WALKS_GATE("W2a member batch: exit 0 + KC_PROFILE_WALKS=OK",
+                      rc == 0 && kc_prof_file_has(p_out, "KC_PROFILE_WALKS=OK"));
+        KC_WALKS_GATE("W2b member batch stdout minus batch lines == N single stdouts (bytes)", eq && nb > 0);
+        KC_WALKS_GATE("W2c batch --kc-tsv minus #walk lines == N single --kc-tsv files (bytes)", teq && tb > 0);
+        KC_WALKS_GATE("W2d #batch-summary counts every walk as ok",
+                      kc_walks_file_count_prefix(p_out, "KC_PROFILE=OK") == nm &&
+                      kc_walks_file_count_prefix(p_out, "#batch-summary\t") == 1);
+    }
+
+    /* W4: malformed files are rejected before anything is emitted; the stale TSV target goes */
+    {
+        static const char *bad[4] = {
+            "wbad\t1,2,x,4",                     /* a non-digit */
+            "wbad\t1,2,3",                        /* the wrong count */
+            "wbad\tspec\tthird",                  /* three columns */
+            "\t1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18"   /* an empty NAME */
+        };
+        int all = 1;
+        for (int b = 0; b < 4; b++) {
+            FILE *f = fopen(p_bad, "w");
+            F1_CHECK(f != NULL, "[kc-walks-selftest] cannot write the bad file");
+            {   /* members first, so the defect sits AFTER walks that would otherwise emit */
+                FILE *m = fopen(p_mem, "r"); char line[16384];
+                if (m) { while (fgets(line, sizeof(line), m)) fputs(line, f); fclose(m); }
+            }
+            fprintf(f, "%s\n", bad[b]);
+            fclose(f);
+            FILE *junk = fopen(p_tsv, "w"); if (junk) { fputs("stale\n", junk); fclose(junk); }
+            char *av[9] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, (char *)"--kc-walks", p_bad,
+                            (char *)"--kc-tsv", p_tsv, NULL };
+            int rc = kc_walks_capture(kc_profile_entry, 8, av, p_out, p_err);
+            int silent = kc_walks_file_count_prefix(p_out, "KC_PROFILE") == 0 &&
+                         kc_walks_file_count_prefix(p_out, "#walk\t") == 0;
+            char need[64];
+            snprintf(need, sizeof(need), "line %d:", n_mem + 1);
+            int loud = 0;
+            { FILE *e = fopen(p_err, "r"); char line[16384];
+              if (e) { while (fgets(line, sizeof(line), e)) if (strstr(line, need) && strstr(line, "REJECTED")) loud = 1; fclose(e); } }
+            int gone = !kc_walks_file_exists(p_tsv);
+            printf("[kc-walks-selftest] W4 case %d: rc=%d emitted=%s named-line=%s tsv-removed=%s\n",
+                   b + 1, rc, silent ? "nothing" : "SOMETHING", loud ? "yes" : "NO", gone ? "yes" : "NO");
+            if (!(rc == 2 && silent && loud && gone)) all = 0;
+        }
+        KC_WALKS_GATE("W4 malformed line: exit 2, nothing emitted, defect line named, TSV gone", all);
+    }
+
+    /* W5: argument refusals */
+    {
+        char ws[512];
+        kc_h_walk_str(fkc, WL[0], ws, sizeof(ws));
+        char *a1[8] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, ws, (char *)"--kc-walks", p_mem, NULL };
+        char *a2[9] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, (char *)"--kc-walks", p_mem,
+                        (char *)"--kc-walks", p_mem, NULL };
+        char *a3[9] = { (char *)"solve", (char *)"--kc-profile", fdir, gdir, (char *)"--kc-walks", p_mem,
+                        (char *)"--kc-c3-max", (char *)"387", NULL };
+        int r1 = kc_walks_capture(kc_profile_entry, 7, a1, p_out, p_err);
+        int e1 = kc_walks_file_count_prefix(p_out, "KC_PROFILE") == 0;
+        int r2 = kc_walks_capture(kc_profile_entry, 8, a2, p_out, p_err);
+        int e2 = kc_walks_file_count_prefix(p_out, "KC_PROFILE") == 0;
+        int r3 = kc_walks_capture(kc_profile_entry, 8, a3, p_out, p_err);
+        int e3 = kc_walks_file_count_prefix(p_out, "KC_PROFILE") == 0;
+        KC_WALKS_GATE("W5 positional walk beside --kc-walks / --kc-walks twice / --kc-c3-max: exit 2",
+                      r1 == 2 && e1 && r2 == 2 && e2 && r3 == 2 && e3);
+    }
+
+    free(WL);
+    free(is_mem);
+    free(sorted);
+    free(BR.walks);
+    free(BR.cds);
+    kc_free(fkc);
+    free(fkc);
+    kc_h_rm_rf(dir);
+    printf("[kc-walks-selftest] %s (%d failure%s)\n",
+           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    printf("KC_WALKS_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;
 }
 
@@ -38057,7 +38719,8 @@ static int kc_cli(int argc, char *argv[]) {
      * header above). argv[2]=FDIR argv[3]=GDIR argv[4]=WALK, so it belongs in
      * this explicit-argv block, not the DIR-based chain. */
     if (strcmp(cmd, "--kc-profile-selftest") == 0) return kc_profile_selftest();
-    if (strcmp(cmd, "--kc-profile") == 0) return kc_profile_main(argc, argv);
+    if (strcmp(cmd, "--kc-profile") == 0) return kc_profile_entry(argc, argv);
+    if (strcmp(cmd, "--kc-walks-selftest") == 0) return kc_walks_selftest();
     /* KC-D / KC-W: atlas queries 7 and 9 (module headers above). argv[2]=FDIR
      * argv[3]=GDIR, so they belong in this explicit-argv block too. */
     if (strcmp(cmd, "--kc-dead-census-selftest") == 0) return kc_dead_census_selftest();

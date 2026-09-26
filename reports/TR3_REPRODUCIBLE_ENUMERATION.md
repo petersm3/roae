@@ -368,7 +368,7 @@ gzip -dc solutions.bin | sha256sum   # -> 9a968fa21f74e36ad1d57b53453c867e1324ef
 perform.** It read `# C1-C5 + sorted + no duplicates + King Wen present`, listing King Wen's presence
 alongside the constraints that gate the verdict. It does not gate it: `--verify` computes `kw_found_v`,
 prints `King Wen found: YES|No` and the machine-readable `KW_PRESENT=YES|NO`, and omits it from
-`total_fail` (`solve.c:43423`, which sums C1-C5 + decode + sort + dup + the opt-in `fail_kw` only) — so an
+`total_fail` (`solve.c:44086`, which sums C1-C5 + decode + sort + dup + the opt-in `fail_kw` only) — so an
 artifact with the King Wen record removed returns `VERIFY=PASS`, rc 0. That behaviour is deliberate,
 not a defect: the "one canonical King Wen record per file" rule was **retracted 2026-09-02**
 (corrections registry `RP-60347080`) because a shard or a budgeted slice legitimately lacks the record,

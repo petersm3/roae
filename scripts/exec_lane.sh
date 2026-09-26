@@ -100,7 +100,7 @@
 #   - A command a source line QUOTES AS FAILING (the verb right after the closing backtick:
 #     "fails", "does not link", ...) is held to failing — PASS if rc != 0, FAIL if it exits 0 (a
 #     stale correction note). Counting cannot tell a defect from its own withdrawal quote; the
-#     verb can (2026-09-02, SOLVE_C_CLI.md:3545).
+#     verb can (2026-09-02, SOLVE_C_CLI.md:3588).
 #   - A failed BUILD line's `-o` target is restored from the previous successful build: ld
 #     unlinks its output on a failed link, and on 2026-09-02 one quoted-as-failing build line
 #     took `solve` with it, so 167 RUN commands reported SKIP-MISSING-INPUT and no `./solve`
@@ -373,7 +373,7 @@ def unbounded_branch(c):
     could-not-fail shape it exists to refuse. Measured 2026-09-07 on --list, both gating,
     both fence-origin, both published as recipes a reader is meant to paste:
         documentation/SOLVE_C_CLI.md:519   SOLVE_THREADS=128 ./solve 0 128
-        documentation/DEVELOPMENT.md:916   SOLVE_RESUME_HISTORY="..." ./solve 0 64
+        documentation/DEVELOPMENT.md:920   SOLVE_RESUME_HISTORY="..." ./solve 0 64
     time_limit ALSO defaults to 0 (SOLVE_C_CLI.md:199-200, "`0` means run to completion.
     Default 0"), so a MISSING time_limit is the same unbounded run as an explicit `0`.
     Matched on the strip_opt output, before run_one's `./` prefixing, with leading `VAR=...`
@@ -731,7 +731,7 @@ corpus_publishes_complete_form() {   # $1 = command; true iff the inventory hold
 
 doc_says_fails() {   # $1 = sources, $2 = command; true iff a source LINE (joined with the line
   # after it -- the verb is often hard-wrapped) quotes the command and says, right after the
-  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:3545 quotes the
+  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:3588 quotes the
   # pre-correction build line `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` and line 3546
   # begins "fails with 13 undefined references" -- a correction note DOCUMENTING the defect it
   # withdrew, and the lane reported the quote as a live FAIL. Counting cannot tell a defect from
@@ -787,7 +787,7 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
                           # `solve --extended-selftest` vs the doc's span, missed on the first run)
   case "$execmd" in solve\ *|solve) execmd="./$execmd" ;; verify\ *|verify) execmd="./$execmd" ;; esac
   # A failed link UNLINKS its output (ld's default). Measured 2026-09-02 on the full lane: BUILD
-  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3545, a quoted pre-fix line)
+  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3588, a quoted pre-fix line)
   # failed as documented and took the `solve` that BUILD 17 had just built with it; 167 RUN
   # commands then reported SKIP-MISSING-INPUT and `./solve --selftest` never ran. Keep the
   # previous output of a build line's `-o` target and put it back if the failed build removed it.
@@ -887,7 +887,7 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
     outcome="SKIP-RESOURCE(allocation/disk failure — host, not claim)"
   # solve.c's disk_iops_pre_check (solve.c:4119) refuses with "ERROR: projected fsync-wait
-  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:48769).
+  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49432).
   # That is a HOST verdict — this box's disk is too slow — not a verdict on the documented
   # claim, so it is a SKIP-RESOURCE exactly as an allocation failure is. Measured 2026-09-07:
   # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:385 — a gating row,

@@ -9722,3 +9722,26 @@ proven envelope; and a fiber-size mean, restated on its own population. `solve.c
 refusal, with no net change in lines, and the selftest still reproduces `403f7202`. The TR-12
 fingerprint moves, so the reproduction stamp has to be re-minted with the batch. The medium is still
 validated and unminted, and its cloud copy is not yet post-checked.
+
+## 2026-09-25 (later) — the day's batches from the twelfth onward, as each clears review
+
+**Batch 12 went out as `47f432c2`, carrying CX-98 through CX-101.** CX-98 corrects ten findings from Codex's v3
+review by measurement, among them TR-9's CRT modulus product, which had been printed one decade high. CX-99 makes
+the n=31 atlas probe a pre-push gate. CX-100 gives `--check-arrangement` a `--label`. CX-101 fixes a self-test
+matcher that could read a real match as a miss. The remote's `main` was read back with `git ls-remote` after the
+push, and it matched. The selftest still reproduces `403f7202`.
+
+**Batch 13 (CX-102..CX-109) is the commit that carries this entry.** Before the push it went through the step
+every batch now takes: an adversarial pre-publication review by a second model, which reads the integrated batch
+and must return a ship verdict. Batches 14 and 15 are built, checked green on a clean clone, and wait for the same
+review.
+
+- **Batch 13 (CX-102..CX-109)** adds a batch input for `--kc-profile` (`--kc-walks`), a gate that re-derives the
+  small-rung digests `REPRODUCE.md` publishes, and a battery row that runs the V3 join. It corrects TR-12's
+  output paths, backed by a new gate that fails on a path no run writes, and its Q3 column list; the V4 table
+  chooser now refuses with a named reason (CX-107), and a self-test message that ran one of its own words as a
+  command is fixed (CX-109). It fixes the V3 table's FFT, which ran in float32 under numpy 2.x and float64 under
+  numpy 1.x: 356 of 1000 rows differed, by at most 6.1e-05. It now runs in float64 on every build, the table is
+  regenerated, and the published span is unchanged. Scope notes now sit beside the published 100 T FFT figures,
+  which came from the float32 path; no figure changed. `scripts/doc_gates.sh` passed 1 MB and was split into
+  modules with no change in behaviour.

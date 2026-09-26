@@ -4140,9 +4140,9 @@ def _p2_compute_all_stats(records):
     mean_trans = hammings.mean(axis=1).astype(np.float32)
     max_trans = hammings.max(axis=1).astype(np.uint8)
 
-    # FFT
+    # FFT.  Q-807: float64 on every numpy (1.x upcast float32 input; 2.x ran it in complex64).
     seq_zm = seq.astype(np.float32) - seq.astype(np.float32).mean(axis=1, keepdims=True)
-    F = np.fft.fft(seq_zm, axis=1)
+    F = np.fft.fft(seq_zm.astype(np.float64), axis=1)
     amp = np.abs(F[:, 1:32])
     dom_k = (np.argmax(amp, axis=1) + 1).astype(np.uint8)
     peak_amp = amp.max(axis=1).astype(np.float32)
@@ -6945,7 +6945,7 @@ def extended_selftest(solve_binary):
     def _run(env_extra, dir_, args_=("0", "4")):
         env = os.environ.copy()
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
-        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:42948) refuses to start
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43611) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
         # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
         # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
@@ -12551,8 +12551,8 @@ def atlas_load(path):
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30130) is ALSO an un-run gate,
     # but VERIFY.md:1159 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6227,
-    # :6564; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6240,
+    # :6583; a2_slot_verdict_gate.sh:121, :263) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
         raise AtlasError(
@@ -12591,7 +12591,7 @@ def atlas_load(path):
     # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29316), while KC_SCAN (:30409) and KC_SCAN_MERGE
     # (:31325) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
     # beside `tail_checks.fails >= 1` in the SAME file and still prints KC_SCAN=OK, exit 0.
-    # SOLVE_C_CLI.md:2142 states that honestly; :2249 then claimed THIS loader closed it,
+    # SOLVE_C_CLI.md:2185 states that honestly; :2292 then claimed THIS loader closed it,
     # and it did not -- `tail_check` and `tail_report` appeared ZERO times in this file
     # (positive control: `atlas_emit_v1` = 2). Codex demonstrated the consequence rather
     # than asserting it: moving 48 units between two raw pair marginals produced vertical
@@ -16833,7 +16833,7 @@ def t3_encode_solutions(out_bin, input_paths):
                     # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
                     # legitimate line. Refusing it would have broken the tool on real
                     # --kc-sample/--kc-unrank output. Checked by reading the emitters
-                    # (solve.c:38239, :38314 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    # (solve.c:38902, :38977 and the `%s\tcd=%d\t` form beside them), not assumed.
                     #
                     # What is safe, and is done, is to COUNT what the skip discards, so a changed
                     # input shape is visible instead of silent.

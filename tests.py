@@ -3705,7 +3705,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     CORRECTED 2026-09-04, twice, because this docstring's own premises expired under it.
     (1) It said "solve.c has no --expect-kw; verify.py's flag is the only instrument that
     promotes absence to a failure". solve.c GAINED --expect-kw on 2026-09-04 (g_expect_kw,
-    folded into the verdict at solve.c:43410 for --verify and :43845 for --validate), so
+    folded into the verdict at solve.c:44073 for --verify and :44508 for --validate), so
     both instruments now answer the question and the tests below pin BOTH halves: the
     default is still reported-not-enforced, and --expect-kw makes absence fatal.
     (2) It said "solve.c is behind the MASTER GATE and is not edited". That gate is Q-77,
@@ -4614,7 +4614,7 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
             self.fail("solve.c did not build: " + self.build_err)
         # START A NEW SESSION AND KILL THE GROUP, NOT THE PID (Q-656, 2026-09-19).
         # --validate-canonical system()-launches a 1T enumeration at SOLVE_THREADS=128
-        # (solve.c:40618-40632) microseconds after the token this test reads, and solve.c
+        # (solve.c:41281-41295) microseconds after the token this test reads, and solve.c
         # calls no setsid/setpgid/setpgrp -- so pr.kill(), which signals the driver's PID
         # alone, left that enumeration running and reparented on a 2-core box. Measured
         # against a stub reproducing solve.c's stdout order: driver-only kill orphaned the
@@ -4660,6 +4660,19 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
                 shutil.rmtree(tdir, ignore_errors=True)   # solve.c mkdtemp's and never removes it
         self.assertTrue(echo, "EXPECTED_SHA_ECHO=lowercase not emitted; saw: " +
                         " | ".join(seen[-8:]))
+
+    # ---- Q-785 (2026-09-25) -- --kc-profile --kc-walks: the batch mode's own n=9 gate
+    def test_kc_walks_batch_gate_passes_on_the_tracked_binary(self):
+        # The gate builds n=9 f/g ladders in a scratch dir, profiles 224 walks once through
+        # the batch and once each as single calls, and requires the two outputs byte-identical
+        # after the batch's own line kinds are dropped (W1/W2), every non-member named (W3),
+        # every malformed line refused before any output (W4) and the argument refusals (W5).
+        # Matched WHOLE-LINE on the verdict token; a build failure is a FAILURE (setUpClass).
+        r = self._run(["--kc-walks-selftest"])
+        self.assertEqual(r.returncode, 0, "--kc-walks-selftest rc " + str(r.returncode) +
+                         ": " + r.stdout[-800:] + r.stderr[-400:])
+        self.assertIn("KC_WALKS_SELFTEST=PASS", self._lines(r))
+        self.assertNotIn("KC_WALKS_SELFTEST=FAIL", self._lines(r))
 
 
 class TestKnuthEstimatorOutputHonesty(unittest.TestCase):
@@ -8229,6 +8242,67 @@ class TestQ766StaleQ3ProfileIsNeverPublished(unittest.TestCase):
         self.assertEqual(v4, os.path.join(d, "q3_profile_kw.tsv"))
 
 
+class TestQ810Q3TableRefusesWhenNeitherTableExists(unittest.TestCase):
+    """Q-810 (found 2026-09-25 by Opus AS). viz/report_figures.py `_tr12_q3_table` promises
+    `(path | None, why)`, and returned `(<root>/q3_profile.tsv, "")` for a directory holding
+    NEITHER Q3 table: a path to a file that does not exist, with no reason attached. The one
+    caller then handed it to the V4 renderer, whose missing-file branch printed a generic SKIP
+    naming the plain file -- a name nothing had claimed exists. Red before the fix: the empty
+    directory yields a path and an empty reason, and V4 is drawn from that path under stubs."""
+
+    @staticmethod
+    def _q3_table():
+        # Lifted by AST, as _tr12_figures_under_stubs does: report_figures imports numpy and
+        # matplotlib at module level, and tests.py is stdlib-only.
+        import ast
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "viz", "report_figures.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        keep = [n for n in tree.body
+                if isinstance(n, ast.FunctionDef) and n.name == "_tr12_q3_table"]
+        if not keep:
+            raise AssertionError("viz/report_figures.py has no _tr12_q3_table")
+        ns = {"os": os}
+        exec(compile(ast.Module(body=keep, type_ignores=[]), "report_figures.py", "exec"), ns)
+        return ns["_tr12_q3_table"]
+
+    def _dir(self):
+        d = tempfile.mkdtemp(prefix="q810_")
+        self.addCleanup(shutil.rmtree, d, True)
+        return d
+
+    def test_precondition_the_directory_holds_neither_table(self):
+        d = self._dir()
+        for name in ("q3_profile_kw.tsv", "q3_profile.tsv"):
+            self.assertFalse(os.path.exists(os.path.join(d, name)))
+
+    def test_neither_table_returns_none_with_a_named_reason(self):
+        d = self._dir()
+        path, why = self._q3_table()(d)
+        self.assertIsNone(path, "returned %r, which does not exist" % (path,))
+        self.assertIn("q3_profile_kw.tsv", why)
+        self.assertIn("q3_profile.tsv", why)
+        self.assertIn(d, why)
+
+    def test_neither_table_refuses_v4_and_draws_nothing(self):
+        d = self._dir()
+        with open(os.devnull, "w") as dn:
+            old, sys.stdout = sys.stdout, dn
+            try:
+                v4, exc = _tr12_figures_under_stubs(d)
+            finally:
+                sys.stdout = old
+        self.assertIsNone(v4, "V4 was drawn from %r" % (v4,))
+        self.assertIsInstance(exc, RuntimeError)
+        self.assertIn("V4", str(exc))
+
+    def test_positive_control_a_lone_plain_table_is_still_taken(self):
+        d = self._dir()
+        with open(os.path.join(d, "q3_profile.tsv"), "w", encoding="utf-8") as fh:
+            fh.write("step\tg\tbits\talts\n")
+        self.assertEqual(self._q3_table()(d), (os.path.join(d, "q3_profile.tsv"), ""))
+
+
 class TestQ767XaCertAndAnchorHardening(unittest.TestCase):
     """Q-767 items (2) and (3), RCQ04 P3 (2026-09-10), fixed 2026-09-24."""
 
@@ -8734,6 +8808,30 @@ class TestQ698FftPeakAmplitudeIsNotBoundedBy500(unittest.TestCase):
         self.assertTrue(lo <= a.min() and a.max() <= hi, (a.min(), a.max()))
 
 
+class TestQ807FftRunsInFloat64OnEveryNumpy(unittest.TestCase):
+    """Q-807: `_p2_compute_all_stats` handed np.fft.fft a float32 array. numpy 1.x upcast it to
+    complex128; numpy 2.x transforms it in complex64, so tr12/v3_spectrum.tsv's fft_peak_amplitude
+    differed between builds on 356 of 1000 rows. The fix casts to float64 before the transform. This
+    test watches the dtype the battery passes, which is the same observation on either numpy build.
+    RED before: the recorded input dtype is float32."""
+
+    def test_the_battery_transforms_float64(self):
+        import numpy as np
+        from unittest import mock
+        S = _load("solve")
+        rng = np.random.default_rng(807)
+        recs = rng.integers(0, 128, size=(4, 32)).astype(np.uint8) & 0x7E
+        seen = []
+        real = np.fft.fft
+        def spy(a, *args, **kw):
+            seen.append(np.asarray(a).dtype)
+            return real(a, *args, **kw)
+        with mock.patch.object(np.fft, "fft", spy):
+            got = S._p2_compute_all_stats(recs)["fft_peak_amplitude"]
+        self.assertEqual([np.dtype(np.float64)], seen)
+        self.assertEqual(np.float32, got.dtype)
+
+
 class TestQ699VisualizeRefusesGzipAndReadsLegacy(unittest.TestCase):
     """Q-699 (V3A-139#4): viz/README.md called visualize.py "gz-aware"; it has no gzip path, and a
     .gz (like every headerless legacy file) died with NameError on the never-assigned `data`.
@@ -8839,6 +8937,105 @@ def _doc_row_awk(doc, row_prefix):
         return None, rows[0]
     cmd = spans[-1].replace("\\|", "|")
     return re.sub(r"\s+\S+\.tsv$", "", cmd), rows[0]
+
+
+class TestQ430V3JoinRunsInTheBattery(unittest.TestCase):
+    """Q-430: `solve.py --v3-spectrum` existed from 2026-09-23, but no row of scripts/tr12_repro.sh
+    ran it, so the V3 figure's input `<consumer>/spectrum/v3_spectrum.tsv` was never written inside
+    the battery and TR12_V3_FIG could only read PENDING. Row c_v3_join now runs the join at n=31,
+    before c_viz. The battery's OWN guard and functions are extracted and executed (never a copy),
+    with only row_begin, row_end, row_skip and tok_record stubbed, on the committed full-31 grid.
+    RED before: the functions do not exist, so nothing writes the file c_viz reads."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    GRID = os.path.join(HERE, "tr12", "v3_rel_grid.tsv")
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(cls.HERE, "scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        parts = [re.search(r"(?ms)^v3_join_row\(\)\{.*?^\}$", src),
+                 re.search(r'(?m)^if \[ "\$N_PAIRS" -ge [0-9]+ \].*\n(?:.*\n){0,3}?    v3_join_row .*\nfi$', src),
+                 re.search(r"(?ms)^v3_fig_verdict\(\)\{.*?^\}$", src)]
+        cls.fn = "\n".join(m.group(0) for m in parts) if all(parts) else None
+        with open(os.path.join(cls.HERE, "viz", "report_figures.py"), encoding="utf-8") as fh:
+            cls.reader = fh.read()
+
+    def setUp(self):
+        self.assertIsNotNone(self.fn, "scripts/tr12_repro.sh has no v3_join_row / join guard / "
+                             "v3_fig_verdict; the V3 join is not run by the battery")
+
+    def _run(self, n_pairs, consumer=True, v3_tsv="PASS", c_viz=None):
+        d = tempfile.mkdtemp(prefix="q430_")
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        art, raw = os.path.join(d, "art"), os.path.join(d, "raw")
+        os.makedirs(art); os.makedirs(raw)
+        shutil.copy(self.GRID, os.path.join(art, "v3_rel_grid.tsv"))
+        if consumer:
+            os.makedirs(os.path.join(art, "consumer"))
+        if c_viz is not None:
+            with open(os.path.join(raw, "c_viz.txt"), "w") as fh:
+                fh.write(c_viz)
+        script = ('declare -A TOKSTATE=([TR12_V3_TSV]="$V3TSV")\n'
+                  'row_begin(){ RAW="$RAWDIR/$1.txt"; : > "$RAW"; echo "ROW_BEGIN $1"; }\n'
+                  'row_end(){ TOKSTATE[$1]="rc$2"; echo "ROW_END $1 $2"; }\n'
+                  'row_skip(){ echo "ROW_SKIP $1 $2 $3"; }\n'
+                  'tok_record(){ echo "TOK $1 $2 $3"; }\n'
+                  'eval "$FN"\n'
+                  'v3_fig_verdict\n')
+        env = dict(os.environ, FN=self.fn, N_PAIRS=str(n_pairs), ARTDIR=art, RAWDIR=raw,
+                   REPO_ROOT=self.HERE, V3TSV=v3_tsv)
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env,
+                           cwd=self.HERE)
+        return r, art, raw
+
+    def test_full31_writes_the_path_c_viz_reads(self):
+        r, art, raw = self._run(31)
+        out = r.stdout + r.stderr
+        self.assertIn("ROW_END TR12_V3_FIG 0", r.stdout.splitlines(), out)
+        with open(os.path.join(raw, "c_v3_join.txt")) as fh:
+            self.assertIn("V3_SPECTRUM=PASS", fh.read().splitlines())
+        # the path the renderer reads, taken from the renderer, not restated here
+        self.assertIn('os.path.join(root, "spectrum", "v3_spectrum.tsv")', self.reader)
+        got = os.path.join(art, "consumer", "spectrum", "v3_spectrum.tsv")
+        self.assertTrue(os.path.isfile(got), out)
+        # Same table as the committed one, byte for byte. Until Q-807 the fft_peak_amplitude
+        # column was compared within 1e-4, because numpy 2.x transformed the float32 input in
+        # complex64 and moved its 7th decimal on 356 of 1000 rows. The battery now casts to
+        # float64 before the FFT, and numpy 1.26.4 and 2.4.4 write identical bytes (measured
+        # 2026-09-25), so no column needs a tolerance.
+        with open(got, "rb") as a, open(os.path.join(self.HERE, "tr12", "v3_spectrum.tsv"), "rb") as b:
+            self.assertEqual(b.read(), a.read())
+        # no figure yet: the join passed and the render leg is a named skip, never a PASS
+        self.assertIn("ROW_SKIP c_v3_fig TR12_V3_FIG SKIP:figure-not-rendered", r.stdout.splitlines(), out)
+
+    def test_reduced_universe_does_not_run_the_join_and_names_the_skip(self):
+        r, art, _ = self._run(9)
+        self.assertNotIn("ROW_BEGIN c_v3_join", r.stdout.splitlines(), r.stdout + r.stderr)
+        self.assertIn("ROW_SKIP c_v3_fig TR12_V3_FIG SKIP:reduced-universe", r.stdout.splitlines())
+        self.assertFalse(os.path.exists(os.path.join(art, "consumer", "spectrum")))
+        with open(os.path.join(self.HERE, "scripts", "tr12_expected", "n9", "_EXPECTED_SKIPS.txt")) as fh:
+            self.assertIn("TR12_V3_FIG=SKIP:reduced-universe", fh.read().splitlines())
+
+    def test_no_consumer_directory_is_never_created(self):
+        r, art, _ = self._run(31, consumer=False)
+        self.assertNotIn("ROW_BEGIN c_v3_join", r.stdout.splitlines(), r.stdout + r.stderr)
+        self.assertFalse(os.path.exists(os.path.join(art, "consumer")), "c_viz would think the consumer ran")
+        self.assertIn("ROW_SKIP c_v3_fig TR12_V3_FIG SKIP:no-v3-join", r.stdout.splitlines())
+
+    def test_a_failed_grid_row_does_not_feed_the_join(self):
+        r, _, _ = self._run(31, v3_tsv="FAIL:output-mismatch")
+        self.assertNotIn("ROW_BEGIN c_v3_join", r.stdout.splitlines(), r.stdout + r.stderr)
+        self.assertIn("ROW_SKIP c_v3_fig TR12_V3_FIG SKIP:no-v3-join", r.stdout.splitlines())
+
+    def test_render_leg_needs_the_saved_line_not_a_mention(self):
+        mention = "SKIP V3 spectrum: fig_tr12_kc_spectrum refused the table\n"
+        r, _, _ = self._run(9, c_viz=mention)
+        self.assertNotIn("TOK TR12_V3_FIG PASS c_viz", r.stdout.splitlines(), r.stdout)
+        saved = ("Saved fig_tr12_kc_spectrum.png and fig_tr12_kc_spectrum.svg  src=source: "
+                 "v3_spectrum.tsv@000000000000   (viz/report_figures.py)\n")
+        r, _, _ = self._run(9, c_viz=saved)
+        self.assertIn("TOK TR12_V3_FIG PASS c_viz", r.stdout.splitlines(), r.stdout)
 
 
 class TestQ698SpectrumReaderGateReadsRank(unittest.TestCase):
@@ -9003,6 +9200,37 @@ class TestQ699Q3ReaderRefusesZeroAndChecksTerminal(unittest.TestCase):
         self.assertEqual(0, r.returncode)
 
 
+class TestQ727ReproduceDigestsGate(unittest.TestCase):
+    """Q-727: documentation/REPRODUCE.md publishes five small-rung f-ladder `*.bin` digests
+    (n = 9/13/16/18/19) that nothing public re-derived. scripts/reproduce_digests_gate.sh builds
+    solve.c with the page's own build line, runs the page's own ledger command and digest recipe
+    at every row, and compares digest, byte count, file count and printed total with the row.
+    Its --selftest grades planted pages (a wrong digest, the command without
+    SOLVE_F1_KEEP_LAYERS=1, the recipe hashing from outside the directory, a deleted row, no rows)
+    and requires each to get its expected verdict, so the gate is shown red as well as green.
+    Each run builds solve.c once (~12 s on 8+ cores); the rungs themselves take ~5 s."""
+
+    def _gate(self, *args):
+        here = os.path.dirname(os.path.abspath(__file__))
+        r = subprocess.run(["bash", os.path.join(here, "scripts", "reproduce_digests_gate.sh"),
+                            *args], capture_output=True, text=True, cwd=here, timeout=1800)
+        return r, r.stdout.splitlines()
+
+    def test_the_published_digests_reproduce(self):
+        r, lines = self._gate()
+        self.assertIn("REPRODUCE_DIGESTS=PASS", lines, r.stdout[-3000:] + r.stderr[-2000:])
+        self.assertIn("REPRODUCE_DIGESTS_RUNGS=5", lines, r.stdout[-3000:])
+        self.assertEqual(0, r.returncode)
+
+    def test_the_gate_discriminates(self):
+        r, lines = self._gate("--selftest")
+        self.assertIn("REPRODUCE_DIGESTS_SELFTEST=PASS", lines, r.stdout[-4000:] + r.stderr[-2000:])
+        for leg, verdict in (("real-page", "PASS"), ("wrong-digest", "FAIL"),
+                             ("cmd-no-keep", "FAIL"), ("recipe-path", "FAIL"),
+                             ("row-deleted", "FAIL"), ("rows-gone", "ERROR")):
+            self.assertIn("  [ok]    %s -> %s (expected %s)" % (leg, verdict, verdict), lines,
+                          "selftest leg %s did not get %s" % (leg, verdict))
+        self.assertEqual(0, r.returncode)
 def _sat_c4_unit_clauses(include_c4):
     """Q-700 (2026-09-25): run solve.p3_sat_encode into a temp dir and return the set of
     literals that appear as UNIT clauses in the emitted DIMACS. The C4 pin test inspects

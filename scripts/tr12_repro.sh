@@ -1822,7 +1822,7 @@ row_begin a1_q2b
   # walk three times -- passed. The REL rank/unrank pair has an inverse that costs one extra ladder
   # descent per probe: `--kc-rank FDIR <walk>` must return the r that was unranked. That is the
   # same certificate `--kc-bracket` supplies for O3 in row a2_q2 (--kc-bracket is O3-ONLY,
-  # solve.c:37906, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
+  # solve.c:38568, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
   # not the `record` line: measured 2026-09-11 at n=9, r=0 -> the plain line ranks 0 and the
   # `record m=32` line ranks 21, because the record form is a different representative of the
   # orbit. The solver's output is captured and cat'd rather than written straight to the row
@@ -2035,13 +2035,13 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
     # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
     # (solve.c:20692, reached via the kc_open wrapper at :20697), and kc_extremal_main refuses an out-of-core f ladder immediately
-    # (solve.c:37077) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
+    # (solve.c:37739) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
     # witness and the certificate: "v1 is IN-MEMORY ONLY ... the streaming, eviction-resumable OOC
     # extremal builder is a SEPARATE, UNBUILT item ... it is the full-31 enabler". So --wave3 at
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
     # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
     # ships. Budget is an operator decision; an unbuilt builder is not.
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:37077) and an n=31 f ladder always opens out-of-core (:20692), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:37739) and an n=31 f ladder always opens out-of-core (:20692), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -3578,6 +3578,37 @@ if [ -d "$ARTDIR/consumer" ]; then
 else
     row_skip c_consumer_verdicts TR12_CONSUMER_VERDICTS "SKIP:no-consumer" "the consumer wrote no output directory, so it published no verdicts to check"
 fi
+# ---- C.V3  the V3 join: rank grid (row a1_v3) -> <consumer>/spectrum/v3_spectrum.tsv ---------
+# Q-430, 2026-09-25. The join has existed since 2026-09-23 as `solve.py --v3-spectrum`, and row
+# a1_v3 has always produced its input, but no row ran it, so TR12_V3_FIG could only read PENDING.
+# It runs here, BEFORE c_viz, because c_viz renders V3 from exactly this path
+# (report_figures.tr12_figures reads <root>/spectrum/v3_spectrum.tsv). The join's verdict is the
+# first leg of TR12_V3_FIG; the rendered figure is the second (after c_viz, below).
+#
+# FULL-31 ONLY. --v3-spectrum evaluates the frozen --compute-stats battery, which is defined on
+# 64-hexagram records (a 62-integer walk plus the C4-pinned pair), and it checks every grid rank
+# against the n=31 superspace size. A reduced-universe walk has neither, so at n<31 the join is
+# not attempted and the figure leg is a named SKIP, not a FAIL.
+#
+# It writes under <consumer>/ only when the consumer already made that directory. Creating the
+# directory here would make c_viz believe the consumer ran.
+v3_join_row(){   # v3_join_row GRID_TSV CONSUMER_DIR
+    local grid="$1" out="$2/spectrum/v3_spectrum.tsv" rc
+    row_begin c_v3_join
+    python3 "$REPO_ROOT/solve.py" --v3-spectrum "$grid" "$out" >>"$RAW" 2>&1; rc=$?
+    if [ "$rc" -eq 0 ] && ! grep -qx 'V3_SPECTRUM=PASS' "$RAW"; then
+        echo "V3 join: rc 0 without a bare V3_SPECTRUM=PASS line" >>"$RAW"; rc=1
+    fi
+    if [ "$rc" -eq 0 ] && [ ! -s "$out" ]; then
+        echo "V3 join: V3_SPECTRUM=PASS but the spectrum TSV is empty or absent" >>"$RAW"; rc=1
+    fi
+    row_end TR12_V3_FIG "$rc"
+}
+if [ "$N_PAIRS" -ge 31 ] && [ -d "$ARTDIR/consumer" ] && [ "${TOKSTATE[TR12_V3_TSV]:-MISSING}" = PASS ] \
+   && command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
+   && python3 -c "import numpy" >/dev/null 2>&1; then
+    v3_join_row "$ARTDIR/v3_rel_grid.tsv" "$ARTDIR/consumer"
+fi
 # The V1/V2/V4/V5 generators landed in viz/report_figures.py (TSV -> figure, no analysis logic).
 # They need matplotlib + numpy, which are deliberately NOT project dependencies, so a box without
 # them skips the row rather than failing it.
@@ -3597,15 +3628,25 @@ else
     row_skip c_viz TR12_VIZ "SKIP:no-consumer-output" "the atlas consumer did not run, so there is no TSV tree to render from"
 fi
 
-# The V3 spectrum figure has its own input (a rank grid joined to per-walk functionals) that the
-# consumer does not emit. If it did not render, that is a SKIP with a name — not a silent hole
-# inside c_viz's PASS.
-if [ -s "$RAWDIR/c_viz.txt" ] && grep -q 'fig_tr12_kc_spectrum' "$RAWDIR/c_viz.txt"; then
-    tok_record TR12_V3_FIG PASS c_viz
-else
-    row_skip c_v3_fig TR12_V3_FIG "PENDING:viz-v3-spectrum" \
-      "the V3 spectrum figure needs <consumer>/spectrum/v3_spectrum.tsv — a rank grid joined to per-walk functionals, which neither this driver nor the atlas consumer emits. The rank grid itself IS produced (row a1_v3 -> v3_rel_grid.tsv); only the join is missing."
-fi
+# The V3 spectrum figure has its own input, <consumer>/spectrum/v3_spectrum.tsv, which row
+# c_v3_join writes (above) and the consumer does not. If it did not render, that is a SKIP with a
+# name, not a silent hole inside c_viz's PASS. The match is on the line save() prints for the
+# rendered file. A bare mention of the function name also appears in refusal messages.
+v3_fig_verdict(){
+    if [ -s "$RAWDIR/c_viz.txt" ] && grep -q '^Saved fig_tr12_kc_spectrum\.png ' "$RAWDIR/c_viz.txt"; then
+        tok_record TR12_V3_FIG PASS c_viz
+    elif [ "$N_PAIRS" -lt 31 ]; then
+        row_skip c_v3_fig TR12_V3_FIG "SKIP:reduced-universe" \
+          "the V3 join (solve.py --v3-spectrum) evaluates the 64-hexagram --compute-stats battery and checks every rank against the n=31 superspace size; a reduced n=$N_PAIRS walk has no image in it. The rank grid itself IS produced (row a1_v3 -> v3_rel_grid.tsv)"
+    elif [ -z "${TOKSTATE[TR12_V3_FIG]+x}" ]; then
+        row_skip c_v3_fig TR12_V3_FIG "SKIP:no-v3-join" \
+          "row c_v3_join did not run: it needs row a1_v3 to PASS (TR12_V3_TSV=${TOKSTATE[TR12_V3_TSV]:-MISSING}), the consumer's output directory, and python3 with numpy"
+    else
+        row_skip c_v3_fig TR12_V3_FIG "SKIP:figure-not-rendered" \
+          "row c_v3_join ran (its verdict is the first leg of this token); c_viz did not render fig_tr12_kc_spectrum from <consumer>/spectrum/v3_spectrum.tsv"
+    fi
+}
+v3_fig_verdict
 
 # ================================================================================================
 # AGGREGATION + VERDICTS

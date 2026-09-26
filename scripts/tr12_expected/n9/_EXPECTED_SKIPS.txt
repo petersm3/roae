@@ -17,5 +17,5 @@ TR12_Q7_RESOLVE=SKIP:opt-in
 TR12_Q9=SKIP:doc-only
 TR12_TIDENT=SKIP:full-pass-ran
 TR12_V3=SKIP:leg-TR12_V3_FIG
-TR12_V3_FIG=PENDING:viz-v3-spectrum
+TR12_V3_FIG=SKIP:reduced-universe
 TR12_XA_CD=SKIP:xa-throughput-anchors

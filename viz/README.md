@@ -71,7 +71,8 @@ What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured d–w de
 🔴 **V4 IS RENDERED as of 2026-09-23, and the reason it was missing was not the one this file
 used to give.** This paragraph read *"V3 and V4 are NOT rendered and cannot be from the atlas
 alone"*, attributing both to a read of the cold 15.05 TB f/g ladders. **That was wrong for V4.**
-Its input `<artifact-root>/q3_profile_kw.tsv` was produced by the full-31 run of 2026-09-22 **while
+Its input `<artifact-root>/consumer/q3_profile_kw.tsv` (committed as `tr12/q3_profile_kw.tsv`; ⚠ *corrected
+2026-09-25, Q-684: this read `<artifact-root>/` without the `consumer/` level*) was produced by the full-31 run of 2026-09-22 **while
 the ladders were mounted on NVMe** — the receipt records `TR12_V4_TSV=PASS` — and the figure failed
 to appear for one reason only: `TR12_VIZ=SKIP:matplotlib-absent`, i.e. matplotlib and numpy were not
 installed on the query host, which has since been torn down. The TSV was banked, so the figure
@@ -89,7 +90,8 @@ flips on the next full-31 run, by measurement rather than by assertion.~~ *Corre
 will not flip on its own.* The battery records `PASS` only when its own render step draws the
 figure, which needs `<consumer>/spectrum/v3_spectrum.tsv` — and no row of `scripts/tr12_repro.sh`
 runs `solve.py --v3-spectrum` to write it (row `a1_v3` stops at the grid). The token clears by
-measurement once a battery row runs the join. The n=31 receipt
+measurement once a battery row runs the join. ⚠ *Updated 2026-09-25 (Q-430): row `c_v3_join` now
+runs it at n=31, before `c_viz`; at n<31 the token is `SKIP:reduced-universe`.* The n=31 receipt
 (`reports/evidence/tr12/`) keeps `PENDING` because that is what was true when that run executed.
 
 **Scope warning that applies to all five: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5 — C3 is NOT

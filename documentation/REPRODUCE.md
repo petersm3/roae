@@ -69,6 +69,12 @@ run also confirmed three properties of the recipe:
 - **Sensitive to the settings.** Leaving out `SOLVE_F1_KEEP_LAYERS=1` gave a different digest (see
   failure mode 1 below).
 
+**This ledger is checked by a script.** `bash scripts/reproduce_digests_gate.sh` reads the build
+line, the command and the digest recipe from this page. It runs them for every row and compares
+each digest, byte count, file count and total with the row. It also re-checks the three properties
+above. It prints `REPRODUCE_DIGESTS=PASS` when everything matches. `python3 tests.py` runs it, and
+its `--selftest` shows that it fails on a wrong digest and on a broken command.
+
 **A second, independent instrument.** `verify.py` does not share code with `solve.c`. It recounts
 these rungs by a different derivation (see [VERIFY.md](VERIFY.md)):
 

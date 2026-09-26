@@ -96,17 +96,24 @@ verifications, `flow_identities=31/31`, `sum_bits` and `log2N`.
 
 ## Input TSV
 
-`<artifact-root>/q3_profile_kw.tsv` — one row per free placement, 31 data rows at full-31:
+`q3_profile_kw.tsv` in the consumer's `--atlas-out` directory — `<artifact-root>/consumer/q3_profile_kw.tsv`
+in a `scripts/tr12_repro.sh` run, committed as `tr12/q3_profile_kw.tsv` — one row per free placement,
+31 data rows at full-31. ⚠ *(corrected 2026-09-25, Q-684: this put the table at the artifact root,
+where the battery writes no file of that name.)*
 
 ⚠ *Added 2026-09-24 (Q-776).* **Which file is read.** The consumer (`solve.py atlas_emit_q3`) names
 the table `q3_profile_kw.tsv` only when the trace has been checked to be King Wen's walk at n = 31.
 Every other trace, including a full-31 trace that is not King Wen's (`TR12_Q3_KW=NOT-KW`), is
-written as `q3_profile.tsv`. Before it writes, the emitter removes the other name and both
-`.provenance.txt` sidecars, so one directory never holds both names from two runs. The renderer
+written as `q3_profile.tsv`. Before it writes, the emitter removes the other name, the other name's
+`.provenance.txt` sidecar and the old sidecar of the name it is about to write, so one directory
+never holds both names from two runs. The renderer
 (`viz/report_figures.py` `tr12_figures`, via `_tr12_q3_table`) chooses by the sidecar, not by
 which name exists. It draws `q3_profile_kw.tsv` only when that table's own
 `q3_profile_kw.tsv.provenance.txt` reads `q3_is_king_wen=PASS` and `q3_table=q3_profile_kw.tsv`.
-It refuses V4 when both names are present, or when the KW table's sidecar says anything else.
+It refuses V4 in three cases: both names are present; the KW table's sidecar says anything else;
+or the KW table has no sidecar while `q3_profile.tsv.provenance.txt` sits beside it, which marks
+the KW table as a leftover of an earlier run. ⚠ *(corrected 2026-09-25, Q-776: this listed the
+first two cases only.)*
 One exception: a directory with no sidecar for either name, such as the committed `tr12/` tree,
 has its KW table taken as written. A consumer run always writes a sidecar, so a reused
 `--atlas-out` never reaches that branch.
@@ -264,7 +271,11 @@ out; **no analysis logic in `viz/`**.
 
 - **This doc:** `viz/viz_kc_shells.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
-- **Evidence:** `<artifact-root>/q3_trace_kw.txt` (raw engine output) and `<artifact-root>/q3_profile_kw.tsv`
+- **Evidence:** `<artifact-root>/q3_profile.txt` (raw engine output, row `a2_q3`: the Generation
+  block's `--kc-o3-rank --kc-trace` run, with `--kc-bracket` added) and
+  `<artifact-root>/consumer/q3_profile_kw.tsv`, committed as `tr12/q3_profile_kw.tsv`. ⚠ *(corrected
+  2026-09-25, Q-684: this named a trace file and a table at the artifact root that the battery does
+  not write there.)*
 - **Figures:** `runs/<run-id>/viz/viz_kc_shells.{png,svg}` → mirrored to
   `reports/figures/fig_tr12_kc_shells.{png,svg}`
 

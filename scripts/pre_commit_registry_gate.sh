@@ -137,7 +137,7 @@ leg_verdict(){ case "$1" in 0) echo clean;; 1) echo findings;; *) echo cantrun;;
 DG_PARSE_ERR=""
 doc_gates_runnable(){
   if [ ! -f scripts/doc_gates.sh ]; then DG_PARSE_ERR="scripts/doc_gates.sh is missing"; return 1; fi
-  if ! DG_PARSE_ERR=$(bash -n scripts/doc_gates.sh 2>&1); then
+  if ! DG_PARSE_ERR=$(for _dg in scripts/doc_gates.sh scripts/doc_gates.d/*.sh; do bash -n "$_dg" || exit 1; done 2>&1); then  # Q-797: entry + modules
     [ -n "$DG_PARSE_ERR" ] || DG_PARSE_ERR="bash -n returned non-zero with no message"
     return 1
   fi

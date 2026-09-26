@@ -313,7 +313,7 @@ def fig_tr4_boundary_information():
     # from assertion — the same reason the 2026-08-01 note above paraphrases rather than quotes. A
     # boundary constraint pins PAIR IDENTITY ONLY — solve.c:7899 constrains the pair index chosen
     # at a step and leaves the orientation loop untouched, and SOLVE_KNUTH_PIN_SLOTS accepts steps
-    # 1-31 (solve.c:41140) — so pinning is blind to the orientation layer by construction. Pin all
+    # 1-31 (solve.c:41803) — so pinning is blind to the orientation layer by construction. Pin all
     # 31 and 1,720,320 orderings remain: King Wen's C4-oriented orientation fibre (TR-1 §7, gated
     # by doc_gates.sh GATE 32, recomputed with `python3 verify.py --recount-fiber`). The reachable
     # floor is therefore 1,720,320/N_total = 1.29e-32, and 1/N_total = 7.53e-39 sits
@@ -1242,11 +1242,15 @@ def fig_tr12_kc_shells(tsv):
 @_shape_guarded("V3 spectrum")
 def fig_tr12_kc_spectrum(tsv):
     if not os.path.exists(tsv):
-        # V3 does NOT ride the atlas: its rows come from a rank grid
-        # (--kc-unrank / PENDING --kc-unrank-grid) joined to the frozen
-        # --compute-stats battery.  See viz/viz_kc_spectrum.md.
+        # V3 does NOT ride the atlas: its rows come from a rank grid (the
+        # solve --kc-unrank K-loop, row a1_v3 -> v3_rel_grid.tsv) joined to the
+        # frozen --compute-stats battery by `solve.py --v3-spectrum`, which
+        # scripts/tr12_repro.sh runs at n=31 only (row c_v3_join).  Q-808: this
+        # message named the battery as the route; the join is --v3-spectrum.
+        # See viz/viz_kc_spectrum.md.
         return _missing(tsv, "V3 spectrum",
-                        how="a rank grid joined to python3 solve.py --compute-stats; "
+                        how="python3 solve.py --v3-spectrum GRID_TSV OUT_TSV, where GRID_TSV "
+                            "is the rank grid of row a1_v3 (v3_rel_grid.tsv); "
                             "see viz/viz_kc_spectrum.md")
     # viz/viz_kc_spectrum.md: `order` is mandatory and never dropped; `i` is the
     # contiguous grid index.
@@ -1487,6 +1491,12 @@ def _tr12_q3_table(root):
                       "directory, and which one is current cannot be told from the names -- "
                       "re-run the consumer into a clean directory" % root)
     if not have_kw:
+        # Q-810 (2026-09-25): this returned `plain` whether or not it existed, so a directory
+        # with neither table got a path to a nonexistent file and an empty reason.
+        if not have_plain:
+            return None, ("neither q3_profile_kw.tsv nor q3_profile.tsv is in %s: there is no "
+                          "Q3 profile to draw -- produce it with `solve.py --atlas-queries "
+                          "ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE`" % root)
         return plain, ""
     side = kw + ".provenance.txt"
     if os.path.exists(side):
@@ -1525,9 +1535,9 @@ def tr12_figures(root="tr12"):
 
     V3 (spectrum) stays OPTIONAL and is reported, never fatal: its input is a rank
     grid joined to per-walk functionals by `solve.py --v3-spectrum` (2026-09-23),
-    which the atlas consumer does not run and scripts/tr12_repro.sh does not yet
-    invoke -- so inside the battery the input is still absent and
-    TR12_V3_FIG=PENDING:viz-v3-spectrum.  Making it required here would be a gate
+    which scripts/tr12_repro.sh runs at n=31 only (row c_v3_join, Q-430, 2026-09-25)
+    and the atlas consumer never runs -- so at n<31 the input is absent by design and
+    TR12_V3_FIG=SKIP:reduced-universe.  Making it required here would be a gate
     that cannot be satisfied.
 
     PATH (2026-09-24).  The spec path is <root>/spectrum/v3_spectrum.tsv, but the
