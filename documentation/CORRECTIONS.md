@@ -18381,3 +18381,487 @@ rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targ
 citation gate asked for eight `perf_bench.sh` line citations in documentation/DEVELOPMENT.md to be
 re-pinned, and each was re-pinned on its own line. solve.c did not change. tests.py is in the
 TR-12 reproduction fingerprint, so the stamp was re-stamped.
+
+## CX-186 — `build.sha` has one reader, a malformed `build.sha` is refused instead of overwritten, and `--merge` reports it as `MALFORMED` (solve.c; tests.py; documentation/DEVELOPMENT.md; documentation/SOLVE_C_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-848, filed by Opus FE in CX-182 item 2, which measured that the
+two `build.sha` readers disagree. It also closes the pending code fix that DEVELOPMENT.md's fail-open
+list has carried since 2026-08-30 ("malformed-but-present `build.sha` should hard-error (exit 26) and
+leave the file untouched"), which CX-182 extended to `--branch` and `--sub-branch`. Landed by Opus FI.
+Measured on the worker VM on a fresh clone of the batch-19 base with this change overlaid.
+
+**No published number moves.** The change is to a startup check, a stderr verdict line and one
+sidecar field. No shard, `solutions.bin`, `solutions.sha256` or `solutions.meta.json` changes.
+`./solve --selftest` prints `403f7202…` PASS. In the new test, merges with a malformed, an absent, an
+empty, a matching and a foreign `build.sha` all write the same `solutions.bin` sha.
+
+**1. The two readers.** `read_build_sha_for_provenance()` (behind `--merge`'s `MERGE_BUILD_SHA` line
+and `merge_dir_build_sha256`) took an `fscanf` `%64s` token, and `check_build_sha_invariant()` (the
+guard on the full enumeration, `--branch` and `--sub-branch`) took `%79s` and accepted exactly 64
+characters. Neither checked for hex. Measured on the pre-fix binary: with the binary's own digest
+plus one extra `a` in `build.sha`, `--merge` printed `MERGE_BUILD_SHA=MATCH`, because the token was
+cut to its first 64 characters, while the guard on the same file treated it as no prior value and
+overwrote it. A 64-character token with a non-hex or uppercase character was compared by both and
+read as a mismatch.
+
+**2. One reader.** Both now call `build_sha_read()`, which returns one of three verdicts. VALID: the
+file starts with exactly 64 lowercase hex digits, followed by end of file, a newline (LF or CRLF),
+or a space or tab and the rest of that one line. That covers what the guard writes (`<hex>\n`) and
+what `sha256sum FILE`, `sha256sum < FILE` and `printf %s` write; the test runs the host's real
+`sha256sum` both ways. ABSENT: no file, or a file with only whitespace; it records no build, so
+writing one destroys nothing, and this is the first-run case as before. MALFORMED: anything else,
+including a token of 63 or 65 or more characters, a non-hex or uppercase character, leading
+whitespace, a second line, more than 4096 bytes, or a file that exists but cannot be opened or read.
+Uppercase is refused rather than folded: no writer produces it, so it means a hand edit. The legacy
+`sha256sum`-digest recognition (CX-147 item 4, CX-162) runs on a VALID value as before; every legacy
+value is 64 lowercase hex, so it is unaffected. `read_build_sha_for_provenance()` is now a wrapper
+that returns the digest only when the verdict is VALID.
+
+**3. What the guard does with MALFORMED: it refuses.** It exits 26 with `ERROR: build.sha is
+malformed (Outlier #4, Q-848)`, says why (for example "it has 63 lowercase hex digits and then a
+byte that is not one"), shows the first 48 bytes with non-printing bytes escaped, and leaves the file
+and the directory untouched. Before, it fell through to the first-run write, logged `build.sha
+CREATED` and replaced the file, in exactly the abnormal directory the guard exists for, and the
+evidence was gone. Refusal was chosen because a malformed value names no build: the guard cannot
+tell a resume by the same binary from one by another, and proceeding is the reading that can pass a
+mismatch silently. Each recovery is one step, and the message lists them: restore the file from the
+run's archive, remove it once the build is known from the sidecars' `git_hash`, or set
+`SOLVE_ALLOW_BUILD_MISMATCH=1`. The override applies here as it does to a well-formed foreign digest,
+which is the stronger evidence of a different binary: it logs a WARN and rewrites the file.
+
+**4. What `--merge` reports: a fifth verdict.** `MERGE_BUILD_SHA=MALFORMED`, followed by a WARN
+saying why. The merge proceeds and never writes `build.sha`, for CX-180's reasons: a merge writes no
+shard and its output is checked by the `solutions.bin` sha. `merge_dir_build_sha256` is empty for a
+malformed file, as it already was for a missing one. `ABSENT` now means no `build.sha` or an empty
+one. CX-180 item 1 and CX-182 item 2 describe the verdict set as it was when they were written and
+are not edited. The new token set is documented in same-line notes in SOLVE_C_CLI.md (the `--merge`
+entry) and DEVELOPMENT.md (the `merge_binary_sha256` row).
+
+**5. Documentation, each note on the same line (no line moved).** DEVELOPMENT.md §build.sha
+invariant: the "three states bypass it" lead-in, fail-open state 1 (now closed, with the reader's
+rules), and the "Pending code fix" sentence, which gets a dated "done" note. SOLVE_C_CLI.md: the
+`--merge` entry, the `SOLVE_ALLOW_BUILD_MISMATCH` row, the exit-26 row and the `build.sha` entry under
+Reads.
+
+**6. Sibling sweep.** Every `fopen` of `build.sha` in `solve.c`: after the change there is one read
+(in `build_sha_read`) and one write (`build.sha.tmp`, renamed). `solve.py`, `sat.py`, `verify.py`,
+`verify.c` and `scripts/` do not read it; `scripts/perf_bench.sh` names it in a comment only.
+
+**7. Tests and gates**, on the lane tree. A new `tests.py` class, `TestQ848BuildShaOneReader`, holds
+six tests. Twelve malformed contents on `--sub-branch` each exit 26, print the malformed error, leave
+the file byte-identical and write nothing else. One witness each on `--branch` (a 65-character token)
+and on the full enumeration (the binary's own digest in uppercase). The override rewrites a malformed
+file and the run writes its shard. `--merge` prints `MALFORMED` for four of them, leaves the file
+untouched and records an empty `merge_dir_build_sha256`. Positive controls, green on the pre-fix and
+the fixed source: seven VALID spellings of the binary's own digest (including the real `sha256sum`
+output with a file name and from stdin) each log `build.sha PASS` and leave the file unchanged; a
+well-formed foreign digest with a name field exits 26 as a mismatch naming it; an empty and a
+whitespace-only file each log `build.sha CREATED`, and the file the guard wrote then reads VALID on
+the next run; and `--merge`'s `ABSENT`, `MATCH` and `MISMATCH` are unchanged. A source test requires
+a single read-open of `build.sha`, inside `build_sha_read`, and neither old `fscanf` read. On the
+pre-fix `solve.c` five of the six tests fail, 19 failures in all; the sixth, the VALID-spelling positive controls, passes on both. Fifteen mutants were each killed:
+the reader accepting uppercase; accepting a token longer than 64; accepting a short token at end of
+file; accepting a non-hex byte; accepting a second line; accepting a file over 4096 bytes; treating
+a whitespace-only file as malformed; rejecting CRLF; rejecting the `sha256sum` name field; treating
+a missing file as malformed; the guard overwriting a malformed file; the guard skipping the
+malformed check; the override ignored; `--merge` reporting a malformed file as `ABSENT`; and the
+provenance reader restored to its `%64s` read. `solve.c`'s `-Wall` warnings are the same set before and after (8).
+
+## CX-187 — fourteen more modes ignored arguments they did not read, and `--verify` and `--validate` took an unknown option as the file name (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-849, the follow-up CX-183 item 5 filed. Landed by Opus FJ.
+Measured on the worker VM on a fresh clone of the batch-19 base with this change overlaid.
+
+**No published number moves.** Each change is in the argv dispatch, before any mode runs, and none
+is on the enumeration path. `./solve --selftest` prints `403f7202…`.
+
+**1. The fourteen modes, read one by one.** CX-183 found them by a text search: their dispatch
+branches mention no `argc` and no `argv[2]` or later. Each branch was read here. None sets
+`arg_offset`, and none reaches the general argument parser: every path through each branch
+returns. Nothing before the dispatch reads `argv` beyond `argv[1]`. So in every one of them an
+argument after the mode was accepted and silently dropped, and the mode ran as if it were absent.
+- `--selftest`, `--selftest-resume` and `--selftest-resume-d3` take their settings from the
+  environment only.
+- The six KW gates, `--f4p-verify`, `--dav-verify`, `--dav2-verify`, `--db1-verify`,
+  `--f5-verify` and `--f6-verify`, check the built-in King Wen sequence only.
+- `--f1-dec-selftest` reads stdin only.
+- `--f1c5-gzip-selftest` and `--check-arrangement-selftest` call a function that takes no
+  arguments.
+- `--print-config` and `--cpu-features` only print.
+
+Each now exits 2 with a `<MODE>_ARGS=REFUSED` line (`SELFTEST`, `SELFTEST_RESUME`,
+`SELFTEST_RESUME_D3`, `F4P_VERIFY`, `DAV_VERIFY`, `DAV2_VERIFY`, `DB1_VERIFY`, `F5_VERIFY`,
+`F6_VERIFY`, `F1_DEC_SELFTEST`, `F1C5_GZIP_SELFTEST`, `CHECK_ARRANGEMENT_SELFTEST`,
+`PRINT_CONFIG`, `CPU_FEATURES`) and a stderr line naming the first extra argument, as the
+CX-179 and CX-183 modes do. The refusal is the first statement of each branch, so a refused
+selftest makes no temp directory and forks nothing.
+
+**2. `--verify` and `--validate`.** Their argument loop knew one option, `--expect-kw`, and took
+any other argument as the file. Given an unknown option, `--bogus` here, `--verify` tried to
+open a file named `--bogus` and exited 10, and `--validate` did the same and exited 1. Given the
+misspelt option `--expect-kws` and then a file, each refused the file as a second one and named
+the misspelt option as the first. An argument that begins with `-` and is not
+`--expect-kw` is now refused with exit 2 and a `VERIFY_ARGS=REFUSED` or `VALIDATE_ARGS=REFUSED`
+line that names it. Neither mode reads stdin, so `-` never meant stdin. A file whose name begins
+with `-` can still be named as `./-name`.
+
+**3. No caller passes an extra argument.** Every invocation of the sixteen modes in `solve.c`,
+`solve.py`, `verify.py`, `tests.py`, `scripts/`, `reports/` (including
+`reports/certificates/verify_all.sh`) and `documentation/` was listed. HISTORY.md and
+CORRECTIONS.md were left out as records.
+- `--selftest` has 380 matching lines in 67 files on the base tree. Every one that invokes the binary calls it
+  bare. That includes the auto-selftest that the enumeration forks before a canonical-scale
+  launch and `scripts/tr12_repro.sh`'s build anchor. The rest are prose,
+  printed messages, or the `--selftest` of another script.
+- `--selftest-resume` and `--selftest-resume-d3` are called bare in SOLVE_C_CLI.md,
+  DEVELOPMENT.md and TR-3.
+- The six KW gates are called bare in `verify_all.sh` (`--f4p-verify`), TR-1, TR-9 and TR-10, and
+  in SOLVE_C_CLI.md.
+- `--f1-dec-selftest` is called bare with stdin by `verify.py --f1-dec-roundtrip`.
+- `--f1c5-gzip-selftest` and `--check-arrangement-selftest` are called bare, one name per call,
+  in `scripts/tr12_repro.sh`'s gate loop, VERIFY.md's gate loop and QUERY_INVENTORY.md's A0.1
+  chain.
+- `--print-config` and `--cpu-features` are called bare in CANONICAL_HASHES.md and SOLVE_C_CLI.md.
+- No caller passes `--verify` or `--validate` an option other than `--expect-kw` (CX-183 item 1
+  listed those callers).
+
+Each edit replaces one existing line, so no line of `solve.c` moved. SOLVE_C_CLI.md has a dated
+same-line note in each of the sixteen entries.
+
+**4. Tests**, on the lane tree. A new `tests.py` class, `TestQ849ArgRefusalOuterModes`, runs each
+of the fourteen modes with one extra argument and with two. It requires exit 2, the mode's
+`_ARGS=REFUSED` line, the stderr line naming the first extra argument, and nothing on stdout.
+`--verify` and `--validate` are run with `--bogus` before and after the file, alone, with `-x`,
+and with `--expect-kws` after `--expect-kw`. Each must exit 2 with its token and name the option.
+Each run has its own process group. On the pre-fix binary a timed-out selftest is killed with its
+children, so no enumeration is left running. On the pre-fix `solve.c` 38 of the 38 refusal
+cases fail. The fast modes run and exit 0. `--selftest` exits 0 after its full run. The two
+resume selftests hit the 30 s test timeout. `--verify` and `--validate` try to open `--bogus` or
+`-x`, or refuse the file as a second one without naming the option. The positive control passes
+on both trees. It runs the eleven fast modes bare, requires their old exit code and the PASS
+line of each KW gate, and feeds `--f1-dec-selftest` one triple on stdin. It also runs `--verify`
+and `--validate` on a file, with `--expect-kw` before or after it, and on a file named `-k.bin`
+given as `./-k.bin`. The three slow selftests are not run bare in the class. Their refusal is
+the same `argc > 2` line as the rest, and the gates that run them bare were not changed.
+Twenty-three mutants are killed:
+- each of the sixteen refusal branches disabled in turn;
+- the limit of `--f4p-verify`, `--print-config` and `--f1c5-gzip-selftest` lowered by one, which
+  refuses the bare mode;
+- the `--verify` and `--validate` test narrowed to arguments that begin with `--`, which lets
+  `-x` through;
+- the same test narrowed to arguments that begin with a single `-`, which lets `--bogus`
+  through.
+
+**5. Not changed.** A sweep of every dispatch branch in `main()` for how it reads `argv` found
+another class. Several modes read one optional argument, `argv[2]`, and never look at `argv[3]`,
+so a second argument is dropped. By the same text search they include `--verify-rule2`,
+`--verify-9th-six`, `--verify-wrap-parity`, `--rc1c-verify`, `--r11-verify`, `--rc4b-verify`,
+`--cpu-freq`, `--emit-shard-manifest`, `--verify-shard-manifest`, `--regression-test` and
+`--double-regression-test`. This is the `--c3-min` defect CX-183 fixed. It was not read branch by
+branch here and is filed as a follow-up. The modes that pass `argc` and `argv` to a function of
+their own (`--check-arrangement`, `--verify-certificate` and the `--kc-*` family) were not read
+either.
+
+**6. Gates**, on the lane tree. `python3 tests.py` 613 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS. solve.c and
+tests.py are in the TR-12 reproduction fingerprint, so the stamp needs re-stamping.
+
+## CX-188 — three solve.py readers named the temp file a gzipped input is inflated to, left a refused run's chunks in OUT_DIR, and decoded a record byte with reserved bit 0 set (solve.py; tests.py; documentation/SOLVE_PY_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-850, the three follow-ups CX-184 filed. Landed by Opus FK.
+Measured on the worker VM on a fresh clone of the batch-19 base with this change overlaid.
+
+**No published number moves.** The three modes are `--branch-yield-report`, `--keystone-analysis`
+and `--compute-stats`. None of them is on the enumeration path, and on valid input none of their
+data output changes (item 5). solve.c did not change.
+
+**1. The input as named.** For a gzipped input these modes inflate the file to an `mkstemp`
+file, `/tmp/roae_gz_py_….bin`, and read that. The Q-410 sweep fixed the sidecar and the JSON
+report, which record provenance. Eight user-visible strings still showed the temp file, six names and two refusal details:
+- `--branch-yield-report` printed `Reading <temp> ...`, `Source: <temp>`, and for a gzipped
+  baseline `Reading baseline <temp> ...` and `Baseline: <temp>`.
+- Its torn-body and zero-record refusals put the temp path inside the error detail.
+- `--compute-stats`'s zero-record refusal, `COMPUTE_STATS=FAIL <temp> declares 0 records`.
+- The `--keystone-analysis` report heading, `` on `roae_gz_py_….bin` ``.
+
+Each now names the input as the user gave it. Each fix is a same-line edit. The sweep covered
+every solve.py mode that inflates a `.gz` to a temp file. Only these three call
+`_gz_resolved_path`, and every print, refusal and report line after the call in each mode was
+read. `--compare-depth-profile` and `--encode-solutions` read `.gz` files through `gzip.open` and
+make no temp file. One line still describes the inflated file and was left: the keystone
+progress line prints the size of the decompressed input in GB. It is a size, not a name.
+
+**2. A refused `--compute-stats` run leaves no chunks.** Until now, when a run was refused
+mid-way, the chunks that had finished stayed in `OUT_DIR`. The refusals are a pair index of
+32..63, a reserved bit (item 3), a torn body, and any worker error or ^C. Measured on the old
+solve.py: on the selftest artifact with pair index 63 in record 130,000, in 4,096-record
+chunks, 28 `chunk_*.parquet` files were left behind. The next run refuses a populated
+`OUT_DIR`, so the leftover chunks were not silent, but they were not cleaned up either.
+
+Two options were considered. The run could remove the chunks it wrote, or it could leave them
+with a marker file. Removal was chosen. Twelve downstream readers take
+`glob(chunk_*.parquet)` as one population, and none of them reads a marker file, so a marker
+would protect only a reader that knew to look for it. Removal puts `OUT_DIR` back in the state
+it was in before the run. A new wrapper, `_p2_cs_clean_on_fail`, is appended at the end of
+solve.py. It lists the `chunk_NNNNN.parquet` names present before the run. If the run does not
+return 0, whether it returned 1 or raised, it removes only the names of that form that were not
+there before. It prints `[compute-stats] failed run: removed the N chunk_*.parquet it wrote to
+OUT_DIR; files that were already there are untouched`, and then passes the result or exception
+on unchanged. Every other file, and `OUT_DIR` itself, is left. The pool has already been
+terminated and joined when the wrapper runs, so no worker is still writing. With the same
+input, the new code removed 31 chunks and left none.
+
+**3. Reserved bit 0.** SOLUTIONS_FORMAT.md is normative here: "bit 0: reserved — MUST be zero;
+reject a record with it set." Measured on the selftest artifact with bit 0 set on record 5 byte
+7 (`0x1D`), with the unchanged record as the control:
+- `./solve --verify` exits 30 with `ERROR: record 5 byte 7 = 0x1D has reserved bit 0 set; MUST
+  be zero per SOLUTIONS_FORMAT.md`.
+- `./solve --validate` exits 1.
+- `python3 verify.py` exits 1 with `Format errors: 1 (records with reserved bit 0 set)`.
+- The unchanged artifact passes all three.
+
+The solve.py readers masked the bit away. On the old code, `--compute-stats` printed
+`COMPUTE_STATS=PASS` over that record, and the other two modes reported on it.
+
+The verifiers refuse the bit, so the solve.py readers now match them. `_pidx_scan`, the Q-846
+scan that every one of these readers already calls, tests `byte & 0x81` instead of `byte &
+0x80`. On a set bit 0 it raises `ReservedBitSet`, a `ValueError` appended at the end of solve.py.
+The text is `--verify`'s, prefixed with the input as named: `RESERVED_BIT_SET: PATH record R
+byte B = 0xVV has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md`. `--verify` checks
+bit 0 over the whole record before it decodes any pair index, and the scan reports in the same
+order. It reports the first record that holds either defect, and within that record a set bit 0
+before a bad pair index. Each mode refuses in the shape it uses for a bad pair index:
+- `--branch-yield-report`: `ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN|BASELINE_BIN
+  PATH: RESERVED_BIT_SET: ...`, exit 2.
+- `--keystone-analysis`: `KEYSTONE_ANALYSIS=FAIL RESERVED_BIT_SET: ...` on stdout and `ERROR:
+  ...` on stderr, exit 1, and no report is written.
+- `--compute-stats`: `COMPUTE_STATS=FAIL RESERVED_BIT_SET: ...`, exit 1, and no chunks are left.
+
+`_pidx_guard` now catches both errors.
+
+The scan's lines grew by twelve, but they are among the functions appended after the last
+function, so no line of solve.py above them moved. SOLVE_PY_CLI.md has same-line additions in
+its EXIT STATUS rows for the three modes and in the `compute_stats.json` warning.
+
+**4. Not changed: solve.c's analysis readers.** solve.c's own record readers outside
+`--verify` and `--validate` do not refuse bit 0. Measured on the same artifact, `./solve
+--c3-min` and `./solve --analyze` exit 0. By reading the code, `sol_pidx_scan` (Q-520) tests
+bit 7 only, so `--verify-rule2`, `--verify-9th-six` and `--verify-wrap-parity` also accept the
+record. So solve.py's analysis readers are now stricter than solve.c's. This lane does not
+edit solve.c, so this is filed as a follow-up.
+
+**5. Valid input is unchanged.** Each mode was run before and after the change on the selftest
+artifact, rebuilt on the worker (decompressed sha256 `403f7202…`, 135,780 records), both raw and
+gzipped: `--compute-stats` in 4,096-record chunks, `--keystone-analysis` with its dump, and
+`--branch-yield-report` at depths 1, 2 and 3 and with a baseline. All 110 output files were
+compared, and 96 are byte-identical. They include all 96 data files: 68 parquet chunks, 2
+sidecars, 10 keystone dump files, and 8 CSV and 8 JSON reports. The other 14 are 12 console
+logs and the 2 keystone reports. Nine of them are identical once output-directory names and
+timing figures are masked. The other five are the gzipped runs, and each differs from before
+only in the lines item 1 changes: the keystone heading, and the `Reading`, `Source` and
+`Baseline` lines, which now show the input's own path.
+
+**6. The test.** `TestQ850SolvePyGzNamesChunkCleanupReservedBit` in tests.py has 12 tests:
+- Item 1 is covered by each of the six names and both refusal details, for gzipped inputs.
+- Item 2 is covered for three refusals (a bad pair index, a torn body, and a reserved bit), each
+  run in 1-record chunks. Each run must leave no chunk and must leave a `notes.txt` that was
+  there before. The next run into the same `OUT_DIR` must pass. The wrapper is also called
+  directly, with a chunk that was there before the run and two names a worker does not write.
+- Item 3 is covered in every mode, including the baseline, for bytes 0, 1 and 31 of record 1.
+  Further tests cover a gzipped input read in 1-record chunks, the report order when a record
+  holds both defects, and the three decoders called directly. One test pins the wording against
+  solve.c's source.
+
+The positive controls are a raw input, a successful run that keeps its chunks, and clean
+records passed through the scan unchanged. On the old solve.py, 9 of the 12 tests fail, with 20
+failing and 16 erroring subtests. The three that pass are the two positive controls and the
+wording test. All 12 pass on the new solve.py. Eighteen mutants each turn the class red:
+- each of the eight name fixes reverted in turn;
+- the cleanup disabled, run only on a returned failure and not on a raised one, removing chunks
+  that were there before, matching any `chunk_*.parquet` name, and bypassing the wrapper;
+- the scan mask put back to `0x80`;
+- the first bad byte reported instead of bit 0 first;
+- `_pidx_guard` missing `ReservedBitSet`;
+- the record number off by one;
+- the wording changed.
+
+**7. Gates**, on the lane tree. `python3 tests.py` 622 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS. solve.py,
+tests.py and SOLVE_PY_CLI.md are in the TR-12 reproduction fingerprint, so the stamp needs
+re-stamping.
+
+## CX-189 — five solve.c readers of the solution record decoded a byte with reserved bit 0 set; the shared pair-index scan now refuses it with `--verify`'s text (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-853, filed by the solve.py reserved-bit fix (Q-850). Landed
+by Opus FM. Measured on the worker VM on a fresh clone of the batch-19 base with this change
+overlaid.
+
+**1. The defect.** SOLUTIONS_FORMAT.md says bit 0 of a record byte is reserved: "MUST be zero;
+reject a record with it set." `./solve --verify` refuses such a byte with exit 30 and `ERROR:
+record R byte B = 0xVV has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md`.
+`--validate` and verify.py refuse it too. solve.c's analysis readers do not decode a record
+themselves before checking it. They first call `sol_pidx_scan`, the CX-139 scan. That scan tested
+bit 7 only, which catches a pair index of 32..63, and the decode masks bit 0 away. So
+`--c3-min`, `--verify-rule2`, `--verify-9th-six`, `--verify-wrap-parity` and the
+`--analyze`/`--c3-dist` block read such a record as a valid one. Measured on the selftest artifact
+(decompressed sha256 `403f7202…`) with bit 0 set on record 5 byte 7 (`0x1C` to `0x1D`), the old
+build exits 0 in all six modes. `--verify` exits 30 on the same file.
+
+**2. The fix.** The scan's 8-byte fast test now masks `0x81` in each byte instead of `0x80`.
+From the first record that the fast test flags, the scan works record by record. It checks bit 0
+across the whole record first, then the pair indices, as `--verify` does. It reports the first
+record that holds either defect. Within that record, a set bit 0 is reported before a bad pair
+index. The new message carries `--verify`'s text under a stable token: `ERROR: RESERVED_BIT_SET:
+PATH record R byte B = 0xVV has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md; refusing
+to decode`. The token and wording match the solve.py scan from Q-850. The `PAIR_INDEX_OUT_OF_RANGE`
+message did not change. Callers that print a verdict token still print `RULE2=ERROR`,
+`NINTH_SIX=ERROR` or `WRAP_PARITY=ERROR`.
+
+Each caller keeps its existing exit code for a malformed record: 20 for `--c3-min`,
+`--verify-rule2`, `--verify-9th-six` and `--verify-wrap-parity`, and 1 for the
+`--analyze`/`--c3-dist` block. `--verify` uses 30, but that is its own code. Here one scan
+reports both defects, so the callers keep one code for a record they refuse to decode. Changing
+it would change the documented exit status of six modes.
+
+The edit replaced lines within the function body, so the line count of solve.c did not change and
+no line citation moved. The Q-520 pair-index row in SOLVE_C_CLI.md has a same-line addition.
+
+**3. Valid input is unchanged.** The selftest artifact was rebuilt on the worker with the
+selftest's own settings (135,780 records, decompressed sha256 `403f7202…`). Each of the six modes
+was run on it with the old and new builds. In every mode the exit code was 0 for both builds, and
+stdout and stderr were byte-identical. `./solve --selftest` prints the `403f7202…` sha and PASS.
+On the bit-0 copy, the new build exits 20 in the four modes that use 20 and 1 in `--c3-dist` and
+`--analyze`. Every mode prints `ERROR: RESERVED_BIT_SET: … record 5 byte 7 = 0x1D has reserved
+bit 0 set; …`, and the three token modes print their `=ERROR` line.
+
+**4. The test.** `TestQ853SolPidxScanReservedBit0` in tests.py runs all six modes. The fixtures
+put a record with bit 0 set in one byte (bytes 0, 7, 8 and 31) after a clean King Wen record. The
+pair index stays valid. Each mode must exit with its code and print the exact line. Modes with a
+verdict token must print only `=ERROR`. There must be no histogram output. Three more tests check
+the rest. `--verify` on the same file exits 30, and its line is a substring of the scan's line.
+A record with a bad pair index at byte 3 and bit 0 at byte 20 must report bit 0. A file whose
+first bad record has only a bad pair index, followed by a record with only bit 0 set, must report
+the pair index. The clean King Wen file is the positive control: every mode exits 0 with no
+refusal. Measured via `ROAE_TESTS_SOLVE_SRC`:
+- the old solve.c: 31 subtest failures (every bit-0 case, the precedence case, and the text
+  check);
+- with the fast-test mask set back to `0x80`: 25 failures (every bit-0 case and the text check);
+- with bit 0 checked after the pair index: 6 failures (the precedence case in every mode).
+The new solve.c passes all five tests.
+
+**5. The sweep.** Every other solve.c reader of the record format was checked for bit 0.
+- `--verify`: refuses it, exit 30 (Q-350). Measured on the bit-0 copy.
+- `--validate`: refuses it, `ERROR: solution R byte B has RESERVED bit 0 set`, exit 1. Measured.
+- `kc_h_rec_decode`, the kc-oracle decoder: refuses it in both branches (`b & 1u`). In the v1
+  branch, byte 0 must be exactly 0.
+- `--show`: does not check it. Measured: `--show 6 --from` the bit-0 copy exits 0, and with
+  `--format raw` record 5 prints the same line as in the clean file. `--show` only prints records.
+  It makes no verdict, but it shows a non-canonical record as a canonical one. This is filed as a
+  follow-up and was not changed here.
+- The enumeration, sort, merge and shard-load paths (`external_merge_sort`, `merge_fill_chunk`,
+  `q825_load_branch_shards`, `--merge`, `--merge-layers`): they sort, copy and write whole
+  records and never decode a pair index. Their comparators `compare_solutions` and
+  `compare_canonical` compare `byte & 0xFC`, so bit 0 is not part of the sort key or of the dedup
+  key. The records they handle are written from a DFS-built sequence, whose bytes have bit 0
+  clear. Found by reading the code, not measured.
+- Outside solve.c: verify.c's artifact reader counts a set bit 0 as a format error, and verify.py
+  refuses it.
+
+**6. Gates**, on the lane tree. `./solve --selftest` sha256 `403f7202…` PASS; `python3 tests.py`
+615 tests OK (2 skipped); `scripts/doc_gates.sh` rc 0, no `[FAIL]` finding;
+`scripts/citation_line_gate.sh --all-files --all-targets` PASS, with no line shifted. solve.c and
+tests.py are in the TR-12 reproduction fingerprint, so the stamp needs re-stamping.
+
+## CX-190 — `scripts/selftest_resume_167_gate.sh` reran into an earlier run's checkpoints under a reused `--workdir`, and `scripts/perf_bench.sh` kept its source copies and results under fixed `/tmp` names; the gate now refuses a non-empty directory and the bench uses `mktemp` (scripts/selftest_resume_167_gate.sh, scripts/perf_bench.sh, tests.py, documentation/DEVELOPMENT.md)
+
+**2026-09-26.** Origin: backlog row Q-851, found by Opus FH during Q-847 (CX-185 §4). Landed by
+Opus FL. Measured on the worker VM on a fresh clone of the batch-19 base with this change
+overlaid. No VM was provisioned for perf_bench.sh: it was run end to end against PATH stubs.
+
+**1. The gate defect, measured.** With a caller-supplied `--workdir`, `run_gate` only ran
+`mkdir -p` on `tdir_A` and `tdir_B`. The script keeps both directories after any non-PASS and
+after `--keep`, and solve resumes the `sub_*.dfs_state` sidecars it finds in its working
+directory and appends to `checkpoint_t*.txt`. Every count the gate decides on is read off those
+two directories. So a second run into the same `--workdir` measured the earlier run too. On the
+real binary at the default shape (threads 4, 50M/200M nodes, 3,030 cells, 1,933 of them
+zero-yield):
+- A `--keep` run passed. A rerun into the same directory walked nothing: phase A reported every
+  cell as already complete. It overwrote the kept `phase_a.log` and ended ERROR for an unrelated
+  reason ("PHASE_A produced 2 distinct per-cell budgets").
+- With that run's `tdir_B` copied into an otherwise new `--workdir`, the single-shot control
+  reported "0 remaining (3030 completed from checkpoint)". It walked nothing. The gate still
+  printed PASS, with the earlier run's control node count and sha, which this binary never
+  produced.
+
+**2. The gate fix.** `run_gate` now refuses a `tdir_A` or `tdir_B` that already holds anything. It
+prints `SELFTEST_RESUME_167=ERROR` with rc 43, names the directory and one entry in it, and deletes
+nothing. The directory belongs to the caller and holds the earlier run's evidence, so clearing it
+was not an option. Fresh subdirectories were rejected too: they would move the evidence paths
+that `scripts/pre_push_gate.sh` and the docs print, and let stale trees pile up without anyone
+seeing them. An empty `tdir_A` or `tdir_B` made in advance is still accepted. `--battery` keeps
+M1 to M8's trees by design, so a second battery into the same `--workdir` would be refused mutant
+by mutant and scored as SURVIVED, which reads as a FAIL of the fix. The battery therefore checks
+all nine mutant directories first and exits with `SELFTEST_RESUME_167_BATTERY=ERROR` (rc 43)
+before it runs anything. The header and the token row in DEVELOPMENT.md list the new `ERROR`
+value. A run with no `--workdir` makes its own `mktemp -d` directory and behaves as before.
+`scripts/pre_push_gate.sh` passes a new `--workdir` under its own temporary base on each push, so
+it is not affected.
+
+**3. The perf_bench.sh fix.** The two source copies were `/tmp/solve_ctl_<commit>.c` and
+`/tmp/solve_trt_<commit>.c`. Two benches of the same commit shared those names, and the files were
+removed only on the success path, so every exit 4 left them behind. They now go into
+`mktemp -d /tmp/perf_bench_src.XXXXXX`, and an `EXIT` trap removes that directory on every exit
+path. The directory is made before anything is provisioned, so a `mktemp` failure has no VM to
+tear down, and the four explicit `teardown` sites stay four. DEVELOPMENT.md's note that teardown
+has no `trap` now says that the new `EXIT` trap removes only the source copies. The results directory was `/tmp/perf_bench_<HHMM>_results`, keyed on the launch minute, so
+two benches launched in the same minute shared it. It is now
+`mktemp -d /tmp/perf_bench_<HHMM>_results.XXXXXX`. It is kept as output, its path is printed as
+`results dir:`, and it is still in the JSON `artifacts` field. `/tmp/claude_session_vms.txt` is
+unchanged, because CLAUDE.md names it as the session VM log that every VM launch appends to.
+
+**4. The tests.** `TestQ851ScriptWorkdirTmpReuse` in tests.py has 12 tests. The gate is driven by a
+stub solve: four cells, two productive and two zero-yield, with sidecars, shards and checkpoint
+lines in the real format. `STUB_LIE=1` makes the stub log the zero-yield resume but walk the cell
+again, a defect that only `EXCESS` can catch. The positive controls: a new `--workdir` gives PASS
+with `EXCESS_NODES=4`; the lying stub gives FAIL (rc 40) with R=Z and D=0; and empty `tdir_A` and
+`tdir_B` made in advance give PASS. The defect cases:
+- One stale checkpoint line at budget_B in `tdir_B`. On the old script the lying stub PASSES
+  (`EXCESS_NODES=-999798`).
+- A stale checkpoint and sidecar in `tdir_A`.
+- A rerun after `--keep`.
+- A stale mutant directory under `--battery`.
+Each must end ERROR with rc 43, and the caller's directory must be byte-identical afterwards.
+perf_bench.sh is run three times against the PATH stubs from `TestQ847PerfBenchFreshWorkdir`, two
+successes and one exit 4 from a failing build. A `date` stub fixes the launch minute at the
+impossible `9999`, and an `scp` stub logs each local source it copies. Every source must be gone
+after the script exits, on both paths. The two successful runs must use different source paths and
+different results directories. The old scripts fail 7 of the 12 tests, and the new ones pass all
+12. Seven mutants were each killed: no refusal; refusing `tdir_A` only; clearing the directory
+instead of refusing; no battery pre-check; no `EXIT` trap; a fixed source directory; a fixed
+results directory. `TestQ847PerfBenchFreshWorkdir`'s results-path regex was widened to match the
+new `.XXXXXX` suffix, so its teardown still finds the directory.
+
+**5. The sweep.** Every tracked `.sh` and `.py` file except tests.py (107 files) was searched for a
+fixed `/tmp` path, commented lines and `mktemp` lines excluded.
+- `scripts/perf_bench.sh`: the `/tmp/perf_bench_$$.log` transcript and the
+  `/tmp/perf_bench_<HHMM>_$$_raw` directory are keyed on the PID, which no two live runs share.
+  The VM-side `/tmp/pgo_workload.log` is on a VM that each bench provisions for itself. All three
+  are left as they are.
+- `scripts/build_pgo.sh`: `/tmp/pgo_pass1_selftest.log`, `/tmp/pgo_workload.log` and
+  `/tmp/pgo_pass2_selftest.log` are fixed names. Two concurrent builds would overwrite each other's
+  log, and the failure path `tail`s that log. The build itself is not affected. Filed as a
+  follow-up.
+- `reports/certificates/verify_all.sh`: the `solve` build (`/tmp/roae_verify_solve`), the CNF,
+  DRAT and LRAT files (`/tmp/roae_<target>.{cnf,drat,lrat}`) and the default log
+  (`/tmp/roae_verify_all.log`, which `ROAE_VERIFY_LOG` can override) all use fixed names. Two
+  concurrent runs would overwrite the binary or a proof file while the other run reads it. Filed
+  as a follow-up and not changed here: the script is the published certificate check.
+- `scripts/f1c5_adopt_digest_gate.sh` names `/tmp/solve` only in its usage text, and
+  `scripts/tr12_repro.sh` names `/tmp` only in sed patterns that normalise output. Neither writes
+  there.
+
+**6. Gates**, on the lane tree. `python3 tests.py` 622 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS. The
+citation gate asked for seven `perf_bench.sh` line citations in documentation/DEVELOPMENT.md to be
+re-pinned, and each was re-pinned on its own line. solve.c did not change. tests.py is in the
+TR-12 reproduction fingerprint, so the stamp was re-stamped.

@@ -280,7 +280,7 @@ compares it to the canonical baseline `403f7202…`. Prints PASS or
 FAIL.
 
 Runs in ~5 seconds. Every commit to solve.c MUST preserve this sha;
-divergence is a regression.
+divergence is a regression. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `SELFTEST_ARGS=REFUSED` line, before the child enumeration starts. Before that it was accepted and silently ignored.)*
 
 Exits 0 on PASS and **40** on a sha mismatch (`solve.c:40333-40341`, "validation
 mismatch"). *(Corrected 2026-09-01: this line previously gave 1 and the EXIT STATUS table
@@ -297,7 +297,7 @@ enumeration to completion, **extends the budget** by re-running the same
 directory at 200M so the second pass resumes from the `.dfs_state`
 checkpoint, and compares the result against a clean single-shot 200M run in a
 fresh directory. Guards the budget-upgrade-resume / asymmetric-extension code
-path that canonical extensions (e.g. 560T → 1120T) rely on.
+path that canonical extensions (e.g. 560T → 1120T) rely on. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `SELFTEST_RESUME_ARGS=REFUSED` line, before any phase starts. Before that it was accepted and silently ignored.)*
 
 > ⚠️ **It sends no signal.** All three phases are `system()` calls allowed to
 > exit normally at their node limit, each checked with `if (rc != 0) return
@@ -329,7 +329,7 @@ resume. Runs two legs at a pinned deterministic shape (depth 3, 4 threads,
 iterative+checkpoint, fsync batch 16, `SOLVE_SKIP_AUTOMERGE=1` + explicit
 `--merge` per leg): leg A uninterrupted; leg B interrupted mid-run by the
 `SOLVE_KILL_AFTER_NODES` (#165) SIGKILL hook (default twice), then resumed
-to completion. PASS iff both merged `solutions.bin` gz-aware shas match.
+to completion. PASS iff both merged `solutions.bin` gz-aware shas match. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `SELFTEST_RESUME_D3_ARGS=REFUSED` line, before either leg starts. Before that it was accepted and silently ignored.)*
 
 Knobs (defaults in parentheses): `SOLVE_D3_GATE_ENGINE` (self — path of the
 solve binary to drive, enabling cross-build regression discrimination),
@@ -469,7 +469,7 @@ Config introspection (2026-05-28). Dumps build provenance — `git_hash`,
 variables with each one's effective value (its value, or `(unset)` = built-in
 default in effect). Purpose: when a future change drifts the canonical sha,
 the config delta for the covered variables is **explicit** rather than
-reverse-engineered.
+reverse-engineered. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `PRINT_CONFIG_ARGS=REFUSED` line, before anything is printed. Before that it was accepted and silently ignored.)*
 
 > ⚠️ **Coverage is partial, and the omissions are sha-relevant.** Measured on
 > this tree by diffing the printed rows against every `getenv("SOLVE_*")` in
@@ -688,7 +688,7 @@ Diagnostic. Prints `__builtin_cpu_supports` results for all AVX-512
 sub-extensions (f / bw / dq / vl / vpopcntdq / vnni / bitalg / vbmi /
 vbmi2) plus avx2, bmi2, popcnt, fma. Concludes with the composite
 verdict `v2 AVX-512 dispatch ready: YES/NO` based on the
-foundation+bw+vpopcntdq triple that a **future** v2 dispatcher would require.
+foundation+bw+vpopcntdq triple that a **future** v2 dispatcher would require. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `CPU_FEATURES_ARGS=REFUSED` line, before anything is printed. Before that it was accepted and silently ignored.)*
 
 > ⚠️ **This build has no vectorised path.** The subcommand's own header says
 > it reports capability "used by *future* AVX-512 runtime dispatch" with "no
@@ -775,7 +775,7 @@ Auto-detects ROAE-header (full canonical solutions.bin) vs raw
 shard mode (sub_*.bin file with no header).
 
 Reports PASS or per-record failure counts. Fast — the constraint
-checks are pure-arithmetic per record. *(2026-09-26, Q-845: it checks ONE file, plus the optional `--expect-kw`. A second file name is refused with exit 2 and a `VERIFY_ARGS=REFUSED` line, before any file is read. Before that the argument loop let the last file name win, so `./solve --verify a.bin b.bin` verified `b.bin` alone and said nothing about `a.bin`.)*
+checks are pure-arithmetic per record. *(2026-09-26, Q-845: it checks ONE file, plus the optional `--expect-kw`. A second file name is refused with exit 2 and a `VERIFY_ARGS=REFUSED` line, before any file is read. Before that the argument loop let the last file name win, so `./solve --verify a.bin b.bin` verified `b.bin` alone and said nothing about `a.bin`.)* *(2026-09-26, Q-849: an argument that begins with `-` and is not `--expect-kw` is refused with exit 2 and a `VERIFY_ARGS=REFUSED` line; name such a file as `./-name`. Before that an unknown option was taken as the file name.)*
 
 ### --validate
 
@@ -786,7 +786,7 @@ solve --validate [solutions.bin]
 Parallel (OpenMP + mmap) whole-file checker: per-record C1-C5,
 strict-ascending sort order, and King Wen presence. Unlike
 `--verify` it has no headerless-shard fallback — it requires a
-valid `ROAE` header and aborts on bad magic or unknown version. *(2026-09-26, Q-845: it checks ONE file, plus the optional `--expect-kw`. A second file name is refused with exit 2 and a `VALIDATE_ARGS=REFUSED` line, before any file is read. Before that the last file name won and the others were silently skipped.)*
+valid `ROAE` header and aborts on bad magic or unknown version. *(2026-09-26, Q-845: it checks ONE file, plus the optional `--expect-kw`. A second file name is refused with exit 2 and a `VALIDATE_ARGS=REFUSED` line, before any file is read. Before that the last file name won and the others were silently skipped.)* *(2026-09-26, Q-849: an argument that begins with `-` and is not `--expect-kw` is refused with exit 2 and a `VALIDATE_ARGS=REFUSED` line; name such a file as `./-name`. Before that an unknown option was taken as the file name.)*
 
 > ⚠️ **King Wen presence is reported, not enforced — in *both* checkers.**
 > `kw_found_v` is printed (`solve.c:44506` for `--validate`, `:44058` for
@@ -886,7 +886,7 @@ analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) 
 >   entries. Before the fix there was no guard: a record byte of `0x80` (pidx 32) read past
 >   the array and still printed a normal `RULE2=TABULATED` at exit 0. Each block is now
 >   scanned by `sol_pidx_scan` before decoding; a bad byte prints `RULE2=ERROR` (`NINTH_SIX=`,
->   `WRAP_PARITY=`) and `ERROR: PAIR_INDEX_OUT_OF_RANGE: …` and exits 20.
+>   `WRAP_PARITY=`) and `ERROR: PAIR_INDEX_OUT_OF_RANGE: …` and exits 20. Since 2026-09-26 (Q-853) the same scan also refuses a record byte with reserved bit 0 set, checked across the record before its pair indices as `--verify` does: `ERROR: RESERVED_BIT_SET: PATH record R byte B = 0xVV has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md; refusing to decode`, the same `*=ERROR` token, exit 20 (`--c3-min` also exits 20; `--analyze`/`--c3-dist` exit 1).
 >
 > So run these on artifacts `--verify` has already accepted; on a
 > hand-crafted or corrupt file their verdicts are not trustworthy.
@@ -936,7 +936,7 @@ and checks against the embedded KW expected values. Ground truth is
 `solve.py --f4p-verify`; the two outputs must match line-for-line (verify_all.sh
 diffs them). Exit 0 iff all 13 match. Sha-neutral (argv-dispatched, never on the
 enumeration path). Population scoring of the same functionals:
-`SOLVE_KNUTH_SCORE_F4P` below.
+`SOLVE_KNUTH_SCORE_F4P` below. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `F4P_VERIFY_ARGS=REFUSED` line, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --dav-verify
 
@@ -948,7 +948,7 @@ Two-language gate for the 9 [Davis (2012)](CITATIONS.md#davis2012) composite can
 documentation/CRITIQUE.md §Davis): computes each on the King Wen sequence and checks
 against the embedded KW expected values. Ground truth is `solve.py --dav-verify`;
 outputs must match byte-for-byte. Exit 0 iff all 9 match. Sha-neutral. Population
-scoring: `SOLVE_KNUTH_SCORE_DAV` below.
+scoring: `SOLVE_KNUTH_SCORE_DAV` below. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `DAV_VERIFY_ARGS=REFUSED` line, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --dav2-verify
 
@@ -963,7 +963,7 @@ pre-registered in `roae-private/R8_DAVIS_PREREG_2026_07_10.md` §3.1/§3.2): com
 on the King Wen sequence and checks against the embedded KW expected values. Ground truth
 is `solve.py --dav2-verify`; outputs must match byte-for-byte. Exit 0 iff both match.
 Sha-neutral. Population scoring: `SOLVE_KNUTH_SCORE_DAV2` below. (C-D5 `namedsize` is
-operator-declined — prereg §3.3 — and is deliberately not implemented.)
+operator-declined — prereg §3.3 — and is deliberately not implemented.) *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `DAV2_VERIFY_ARGS=REFUSED` line, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --db1-verify
 
@@ -987,7 +987,7 @@ the enum/selftest path). Population scoring (Null B): `SOLVE_KNUTH_SCORE_DB1` be
 Attribution: József Drasny (*The Yi-globe*, 2007/2011); the classifier reduction and
 conformity operationalization are ROAE's. **Name-collision note:** unrelated to Scott
 Davis's (2012, p. 126) separately-named "rule of ten" (#18/#27 ten ordinals apart,
-registry C-D14).
+registry C-D14). *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `DB1_VERIFY_ARGS=REFUSED` line, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --rc4b-verify
 
@@ -1069,7 +1069,7 @@ the embedded frozen-spec KW values (computed against `solve.py`
 `binary_hexagrams`; #11 `f5_vdb_nuc` is a port of `solve.py vdb_nucorient` —
 `solve.py --vdb-verify`, KW=29). Exit 0 iff all 11 match. Sha-neutral.
 Population scoring: `SOLVE_KNUTH_SCORE_F5` below; explicit-sequence hook:
-`SOLVE_F5_TESTVEC`.
+`SOLVE_F5_TESTVEC`. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `F5_VERIFY_ARGS=REFUSED` line, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --f6-verify
 
@@ -1086,7 +1086,7 @@ sequence and checks against the embedded frozen-spec KW values (KW =
 `solve.py --f6-verify`; the two outputs must match. Exit 0 iff all 7 match.
 Sha-neutral (argv-dispatched, never on the enumeration path). Population
 scoring: `SOLVE_KNUTH_SCORE_F6` below; `=2` + `SOLVE_F6_TESTVEC`:
-explicit-sequence cross-verification hook.
+explicit-sequence cross-verification hook. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `F6_VERIFY_ARGS=REFUSED` line, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --vdb-verify (solve.py only)
 
@@ -1509,7 +1509,7 @@ solve --f1-dec-selftest        # reads "l2 l1 l0" triples on stdin
 Renders 192-bit limb triples through the real `f1_dec()` and prints
 `l2 l1 l0 <decimal>` for each. It carries **no expected values of its own** — the
 battery and the arithmetic live in `verify.py --f1-dec-roundtrip`, so this mode
-cannot pass by containing the answer.
+cannot pass by containing the answer. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `F1_DEC_SELFTEST_ARGS=REFUSED` line, before stdin is read. Before that it was accepted and silently ignored.)*
 
 Why it exists: `f1_dec()` renders every exact count this project publishes, up to
 the 40-digit `|C1∩C2∩C4∩C5|`, but its only end-to-end exercise was the n=9 rung
@@ -1529,7 +1529,7 @@ round-trips the per-block zlib compress/decompress path across compression
 levels and asserts byte-identical recovery of the key/value block payload. Exit
 0 on PASS, non-zero on any round-trip mismatch or allocation failure. Verifies
 the on-disk layer-file format layer in isolation; sha-neutral (argv-dispatched,
-never on the enumeration path).
+never on the enumeration path). *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `F1C5_GZIP_SELFTEST_ARGS=REFUSED` line, before the round-trip runs. Before that it was accepted and silently ignored.)*
 
 ### --f1c5-verify-layer
 
@@ -1680,7 +1680,7 @@ KW (IN, C3=776 exactly), a distinct IN member (orientation-flip variant),
 single-constraint violations (reversed KW = C4 only), and the three
 historical arrangements (Fu Xi, Jing Fang, Mawangdui — all OUT with pinned
 expected profiles incl. Mawangdui's single d=5 seam and C3=2048). Exit
-**0** = IN (C15), **1** = OUT, **2** = parse/usage. Sha-neutral.
+**0** = IN (C15), **1** = OUT, **2** = parse/usage. Sha-neutral. *(2026-09-26, Q-849: `--check-arrangement-selftest` takes no arguments; any argument is refused with exit 2 and a `CHECK_ARRANGEMENT_SELFTEST_ARGS=REFUSED` line, before the battery runs. Before that it was accepted and silently ignored.)*
 
 **The `roae-arrangement-certificate` object, key by key.** `--cert-out FILE`
 writes it; `--verify-certificate` recomputes every field from the arrangement
@@ -2754,7 +2754,7 @@ scale — so the old rule under-provisions and the merge aborts before starting.
 
 Skip files matching `*.tmp` (in-progress writes). Refuses to run
 if any sub_*.bin file size is not a multiple of 32 bytes
-(SOL_RECORD_SIZE). ⚠ *(Added 2026-09-26, Q-840: at startup it prints one stderr line comparing the directory's `build.sha` with its own digest: `MERGE_BUILD_SHA=MATCH`, `=MISMATCH` (followed by a WARN naming both), `=ABSENT` or `=UNKNOWN`. A mismatch is a warning, not a refusal. The shards' builds and the merging build are both recorded in `solutions.provenance.json`. `--merge` never writes `build.sha`.)*
+(SOL_RECORD_SIZE). ⚠ *(Added 2026-09-26, Q-840: at startup it prints one stderr line comparing the directory's `build.sha` with its own digest: `MERGE_BUILD_SHA=MATCH`, `=MISMATCH` (followed by a WARN naming both), `=ABSENT` or `=UNKNOWN`. A mismatch is a warning, not a refusal. The shards' builds and the merging build are both recorded in `solutions.provenance.json`. `--merge` never writes `build.sha`.)* ⚠ *(2026-09-26, Q-848: a fifth verdict, `MERGE_BUILD_SHA=MALFORMED`, followed by a WARN saying why, when `build.sha` is present but not exactly 64 lowercase hex; the merge proceeds and leaves it untouched, and `merge_dir_build_sha256` is empty. `=ABSENT` now means no `build.sha` or an empty one; before this date it also covered a token under 64 characters, while a longer token was cut to 64 characters and compared.)*
 
 ### --merge-layers
 
@@ -3227,7 +3227,7 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 |---|---|---|
 | `SOLVE_ALLOW_SUB_CANONICAL` | 0 | Sub-canonical hard-gate (exit 25): allows `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set. Output sha will be code-specific (see [HISTORY.md](HISTORY.md) "100B canonical drift" 2026-05-25). |
 | `SOLVE_SKIP_CANONICAL_LOCK` | 0 | LOCK file (exit 27): allows concurrent `solve` invocations on the same cwd. Risk: interleaved shard writes / checkpoint corruption. |
-| `SOLVE_ALLOW_BUILD_MISMATCH` | 0 | `build.sha` check (exit 26): allows resuming with a binary that differs from the one that last wrote `build.sha`. Risk: cross-lineage merge contamination. Canonical launchers (LAUNCH_*) handle legitimate rebuild scenarios by deleting stale `build.sha` post-rebuild (preserved as `parent_build.sha.<timestamp>` for archival), so the override is no longer required for normal campaign flow as of 2026-06-13. Override remains available for ad-hoc operator-authorized resumes after a manual mid-campaign rebuild. See [DEVELOPMENT.md §build.sha invariant](DEVELOPMENT.md#buildsha-invariant-outlier-4). |
+| `SOLVE_ALLOW_BUILD_MISMATCH` | 0 | `build.sha` check (exit 26): allows resuming with a binary that differs from the one that last wrote `build.sha`. Risk: cross-lineage merge contamination. Canonical launchers (LAUNCH_*) handle legitimate rebuild scenarios by deleting stale `build.sha` post-rebuild (preserved as `parent_build.sha.<timestamp>` for archival), so the override is no longer required for normal campaign flow as of 2026-06-13. Override remains available for ad-hoc operator-authorized resumes after a manual mid-campaign rebuild. See [DEVELOPMENT.md §build.sha invariant](DEVELOPMENT.md#buildsha-invariant-outlier-4). ⚠ *(2026-09-26, Q-848: it also lets a run proceed past a malformed `build.sha`, with a WARN, and rewrites it.)* |
 | `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` | 0 | `.budget` sidecar strict-default (orphan refuse): allows promotion of legacy shards without sidecars (pre-2026-05-25 runs). Risk: Outlier #5 budget-mismatch. |
 | `SOLVE_SKIP_AUTO_MANIFEST` | 0 | Auto-emit + auto-verify `shard_manifest.txt` (exit 22): disables both startup verify and post-promote emit. |
 | `SOLVE_SKIP_AUTO_SELFTEST` | 0 | Auto-selftest before canonical launch (exit 24): skips the smoke test that confirms binary produces canonical selftest sha. |
@@ -3323,7 +3323,7 @@ completeness and honesty, not as knobs to set.
 | **22** | **Shard-manifest verify failed** — MISSING / SHRUNK / DIVERGED shard detected by `--verify-shard-manifest` or by the auto-verify at canonical-enum startup. Recovery: investigate the named shard. For **DIVERGED**, do NOT trust the new content. For **MISSING / SHRUNK**, removing the manifest row is **NOT sufficient, and on its own it silently loses results**: the loader marks a cell complete from `checkpoint.txt` / `checkpoint_t*.txt` lines ALONE — `load_sub_checkpoint_file` sets `completed_sub_bitmap` from those lines and issues no `stat`, `access` or `fopen` at all — and the scheduler then skips that cell via `is_sub_branch_completed` with no existence test — so the cell is never re-walked. You must ALSO delete that cell's completion line(s) from `checkpoint.txt` **and** the per-thread `checkpoint_t*.txt`, then confirm on restart that the run reports **`N remaining > 0`**. ⚠ **[CORRECTED 2026-09-19 — this row read "for MISSING / SHRUNK delete from manifest and let LOAD path re-walk", and it never re-walks. Measured across five runs: baseline 1,097 shards, merge 135,780 records, sha `403f7202…`; the recipe **as written** returned **rc 0**, printed `auto-verify-manifest PASS` and `0 remaining`, never recreated the shard, and on a second victim merged **135,581 records — 199 canonical classes silently lost — and reported PASS**. The recipe PLUS dropping the checkpoint line recreated the shard and reproduced the baseline sha **byte-identically**. Deleting a shard while KEEPING its manifest row correctly exits 22 — so **the gate works, and the documented recipe defeated it**. Note the asymmetry that makes shard-absence alone unusable as the trigger: a zero-solution cell legitimately has no shard (1,933 of 3,030 cells in the measured fixture), so the precise re-walk condition is a completed checkpoint line with solutions > 0 and no shard on disk. The binary repeats the same advice in its own `auto-verify-manifest FAIL` error text; that is a code change, is **not** cured here, and is tracked as Q-641 *(cured 2026-09-26: the error text now says not to delete shards or manifest rows, and points to this row)*. (Both sites are cited by symbol rather than line number, because `solve.c` line numbers drift — the convention this file's other markers already follow.) See documentation/CORRECTIONS.md CX-52.]** |
 | **24** | **Auto-selftest failed** — binary does not reproduce canonical selftest sha `403f7202…`. Compile toolchain regression. Recovery: rebuild with verified flags, investigate compiler/libc/optimizer differences. Override: `SOLVE_SKIP_AUTO_SELFTEST=1` only after investigation. |
 | **25** | **Sub-canonical scale gate** — `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set (canonical-grade reproducibility requires ≥1T). Recovery: either raise `SOLVE_NODE_LIMIT` to ≥1T, OR set `SOLVE_PER_SUB_BRANCH_LIMIT` (partition-invariance use case), OR set `SOLVE_ALLOW_SUB_CANONICAL=1` (acknowledged sub-canonical run). |
-| **26** | **Build provenance mismatch** — `build.sha` in cwd was written by a different binary than the current one. Recovery: restore the prior binary (continue cleanly), OR `SOLVE_ALLOW_BUILD_MISMATCH=1` + accept lineage-mix risk, OR `rm build.sha` and restart from scratch. ⚠ *(2026-09-26, Q-837: a `build.sha` equal to the digest of the host's current `sha256sum`, which is what binaries built before 2026-09-26 wrote, is not exit 26: it is reported with a WARN and rewritten with this binary's sha, and the run proceeds. A legacy digest of a different `sha256sum` build (coreutils upgraded since, or another host) is not recognised and does exit 26. It names no solve build, so establish the build from the provenance sidecars' `git_hash` before choosing a recovery.)* ⚠ *(2026-09-26, follow-up to the note above: "not recognised" is now narrower. When the live digest misses, the binary also checks a committed table of the `/usr/bin/sha256sum` digests from every Ubuntu coreutils 8.32, 9.4 and 9.5 package (amd64 and arm64, 30 builds, recomputed from the published .deb files), so a directory written under an older package, such as the 9.4-3ubuntu6.2 amd64 digest read on a 6.3 host, is reported with a WARN naming the package and rewritten instead of exiting 26. A digest in neither place (another distro, a `shasum` host, whose legacy value is perl's digest) still exits 26, and the message now says that a prior sha equal to `sha256sum $(command -v sha256sum)` on the host that wrote it names no build: take the build from the sidecars' `git_hash`, then `rm build.sha`. The digest of any other solve build still exits 26.)* ⚠ *(2026-09-26, Q-844: the paths that exit 26 are the full enumeration, `--branch` and `--sub-branch`; the last two ran no check before this date. `--merge` never exits 26 on this account: it prints `MERGE_BUILD_SHA=MISMATCH` and proceeds.)* |
+| **26** | **Build provenance mismatch** — `build.sha` in cwd was written by a different binary than the current one. Recovery: restore the prior binary (continue cleanly), OR `SOLVE_ALLOW_BUILD_MISMATCH=1` + accept lineage-mix risk, OR `rm build.sha` and restart from scratch. ⚠ *(2026-09-26, Q-837: a `build.sha` equal to the digest of the host's current `sha256sum`, which is what binaries built before 2026-09-26 wrote, is not exit 26: it is reported with a WARN and rewritten with this binary's sha, and the run proceeds. A legacy digest of a different `sha256sum` build (coreutils upgraded since, or another host) is not recognised and does exit 26. It names no solve build, so establish the build from the provenance sidecars' `git_hash` before choosing a recovery.)* ⚠ *(2026-09-26, follow-up to the note above: "not recognised" is now narrower. When the live digest misses, the binary also checks a committed table of the `/usr/bin/sha256sum` digests from every Ubuntu coreutils 8.32, 9.4 and 9.5 package (amd64 and arm64, 30 builds, recomputed from the published .deb files), so a directory written under an older package, such as the 9.4-3ubuntu6.2 amd64 digest read on a 6.3 host, is reported with a WARN naming the package and rewritten instead of exiting 26. A digest in neither place (another distro, a `shasum` host, whose legacy value is perl's digest) still exits 26, and the message now says that a prior sha equal to `sha256sum $(command -v sha256sum)` on the host that wrote it names no build: take the build from the sidecars' `git_hash`, then `rm build.sha`. The digest of any other solve build still exits 26.)* ⚠ *(2026-09-26, Q-844: the paths that exit 26 are the full enumeration, `--branch` and `--sub-branch`; the last two ran no check before this date. `--merge` never exits 26 on this account: it prints `MERGE_BUILD_SHA=MISMATCH` and proceeds.)* ⚠ *(2026-09-26, Q-848: those three paths also exit 26, with `ERROR: build.sha is malformed`, when `build.sha` is present but not exactly 64 lowercase hex digits (optionally followed by a newline, or by a space or tab and the rest of that line as `sha256sum` writes it), and leave it untouched; before this date they overwrote it as on a first run. An empty `build.sha` is still treated as a first run. Recovery: restore it from the run's archive, OR `rm build.sha` once the build is known from the sidecars' `git_hash`, OR `SOLVE_ALLOW_BUILD_MISMATCH=1`, which rewrites it.)* |
 | **27** | **LOCK file held by live process** — concurrent `solve` invocation on same cwd refused. Recovery: kill the conflicting process OR use a different cwd. Stale locks (dead PID or different hostname) auto-reclaimed. |
 | **28** | **`--merge` cannot raise RLIMIT_STACK** — `setrlimit` could not raise to unlimited or to ≥64MB hard cap. External-merge spill would silently SIGSEGV. Recovery: run `ulimit -s unlimited` in shell before `solve --merge`. |
 | **29** | **Disk-space pre-check failed** — projected required bytes for `SOLVE_NODE_LIMIT` exceed free bytes in cwd's filesystem. Recovery: move to a larger filesystem (`solver-data-westus3` has 2 TB free), OR `SOLVE_SKIP_DISK_CHECK=1` if you're confident the projection is wrong. |
@@ -3430,7 +3430,7 @@ solve --double-regression-test 5600000000000    # argv is a node BUDGET, not a d
 - `checkpoint.txt` (resume state for interrupted runs).
 - `*.dfs_state` (per-sub-branch DFS-frame sidecars when
   `SOLVE_DFS_CHECKPOINT=1`). **v2 sidecar layout, and the zero-yield flag (added 2026-09-25, Q-730).** A v2 sidecar is one `DFSCheckpointState_v2`, 440 bytes: magic `DFSS`, `format_version` 2, the 34 stack frames and state arrays, then `prior_budget` (int64, byte offset 400), `prior_nodes_walked` (408), `prior_solutions_found` (416), and `reserved2[16]` (424–439). Since `075931f4` (2026-09-05, Q-414), `reserved2[0]` is a **flags byte**. Bit 0, `DFS_V2_FLAG_YIELD_ATTESTED` (0x01), means that `prior_solutions_found` holds the cell's solution count captured before the shard flush, so a 0 there really means zero yield. Bits 1–7 are undefined. **Reader rules (since 2026-09-25, Q-732):** the flags byte at offset 424 attests only when the whole byte equals `DFS_V2_FLAG_YIELD_ATTESTED` (0x01); any other non-zero value, 0xFF included, is read as not attested and the `[dfs-v2] READ` line ends in `WARN: unknown flag bits, yield NOT attested`. (Before Q-732 the reader masked bit 0 and ignored the rest, so such a byte read as attested.) A file stamped `format_version` 2 must be exactly 440 bytes: a longer one is refused with `WARN: dfs_state_read_v2: <file> is stamped v2 but longer than 440 bytes`, falls through to the v1 reader, which refuses it too, and its cell is walked from node 0. The `#167` resume guard resumes a cell whose `sub_*.bin` is absent only when all three hold: the v2 resume is active, the flags byte equals `DFS_V2_FLAG_YIELD_ATTESTED`, and the count is 0. Any other shard-less sidecar is discarded and its cell walked from node 0. `sizeof`, magic and `format_version` did not change, so a pre-fix binary reads a new sidecar exactly as before (it ignores `reserved2`). **Scope:** v1 sidecars and v2 sidecars written before `075931f4` have the flag clear. A fixed binary therefore still re-walks their zero-yield cells, and Q-732's equality rule does not change that: a clear byte is never an attestation, and nothing in an unflagged sidecar can be upgraded to one after the fact. That includes every sidecar in the June-8 560 T archive, so any resume or extension of it at a higher budget re-walks its zero-yield cells by design (58.8 % of its cells; [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7 rule 9). Gate: `scripts/selftest_resume_167_gate.sh` (`RESUME_167_*` tokens; its `--battery` mutants M7 and M8 plant a 0xFF flags byte and a 576-byte v2 sidecar and require the refusal; [DEVELOPMENT.md](DEVELOPMENT.md)).
-- `build.sha` — sha256 of the binary that last touched this cwd. ⚠ *(2026-09-26, Q-837: only a `build.sha` written from 2026-09-26 on; an older one holds the `sha256sum` tool's digest, see the exit-26 row.)*
+- `build.sha` — sha256 of the binary that last touched this cwd. ⚠ *(2026-09-26, Q-837: only a `build.sha` written from 2026-09-26 on; an older one holds the `sha256sum` tool's digest, see the exit-26 row.)* ⚠ *(2026-09-26, Q-848: read as exactly 64 lowercase hex; a present file that is not is refused, see the exit-26 row.)*
   Read on canonical-enum dispatch; mismatch exits 26 unless
   `SOLVE_ALLOW_BUILD_MISMATCH=1`.
 - `shard_manifest.txt` — auto-verified at canonical-enum startup

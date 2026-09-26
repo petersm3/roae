@@ -150,6 +150,14 @@ teardown() {
     az group delete -n "$RG" --yes --no-wait 2>&1 | sed 's/^/  /' || true
 }
 
+# Q-851: the two solve.c copies sent to the VM used to be /tmp/solve_ctl_<commit>.c and
+# /tmp/solve_trt_<commit>.c, names two concurrent benches of the same commit share, and they were
+# removed only on the success path (STEP 6), so every exit 4 left them behind. They now live in a
+# mktemp directory that this EXIT trap removes on every exit path; it is always ours, never a
+# caller's. Made here, before anything is provisioned, so a mktemp failure has no VM to tear down.
+SRC_TMP=$(mktemp -d /tmp/perf_bench_src.XXXXXX) || { echo "FATAL: mktemp failed for the source copies"; exit 1; }
+trap 'rm -rf "${SRC_TMP:?}"' EXIT
+
 emit "==================================="
 emit "perf_bench.sh — paired solve.c perf bench"
 emit "  control:   $CONTROL_COMMIT"
@@ -196,10 +204,10 @@ rm -rf "$RAW_DIR"; mkdir -p "$RAW_DIR"
 
 $SSH "$ADMIN@$VM_IP" 'sudo apt-get update -qq && sudo apt-get install -y -qq build-essential zlib1g-dev' 2>&1 | tail -1 | sed 's/^/  /'
 
-git -C "$REPO" show "${CONTROL_COMMIT}:solve.c"   > /tmp/solve_ctl_${CONTROL_COMMIT}.c
-git -C "$REPO" show "${TREATMENT_COMMIT}:solve.c" > /tmp/solve_trt_${TREATMENT_COMMIT}.c
-$SCP /tmp/solve_ctl_${CONTROL_COMMIT}.c   "$ADMIN@$VM_IP:solve_ctl.c" >/dev/null
-$SCP /tmp/solve_trt_${TREATMENT_COMMIT}.c "$ADMIN@$VM_IP:solve_trt.c" >/dev/null
+git -C "$REPO" show "${CONTROL_COMMIT}:solve.c"   > "$SRC_TMP/solve_ctl.c"
+git -C "$REPO" show "${TREATMENT_COMMIT}:solve.c" > "$SRC_TMP/solve_trt.c"
+$SCP "$SRC_TMP/solve_ctl.c" "$ADMIN@$VM_IP:solve_ctl.c" >/dev/null
+$SCP "$SRC_TMP/solve_trt.c" "$ADMIN@$VM_IP:solve_trt.c" >/dev/null
 
 $SSH "$ADMIN@$VM_IP" "
     set -e
@@ -549,9 +557,13 @@ fi
 SPEEDUP_PCT=$(awk -v n="$ENUM_N_NS" -v u="$ENUM_U_NS" 'BEGIN{ if (u>0 && n>0) printf "%.2f", (n-u)*100.0/n; else print "TBD" }')
 
 emit "STEP 5: Pull artifacts to claude"
-RESULTS_DIR=/tmp/perf_bench_${LAUNCH_ID}_results
-mkdir -p "$RESULTS_DIR"
-for B in N U; do
+# Q-851: this was /tmp/perf_bench_<HHMM>_results, which two benches launched in the same minute
+# shared (and a later bench in that minute of another day wrote into). mktemp -d gives each bench
+# its own; the path is printed here and in the JSON "artifacts" field. Kept on exit: it is output.
+RESULTS_DIR=$(mktemp -d "/tmp/perf_bench_${LAUNCH_ID}_results.XXXXXX") || RESULTS_DIR=""
+[ -n "$RESULTS_DIR" ] || emit "🔴 mktemp failed for the results directory; logs NOT pulled"
+emit "  results dir: ${RESULTS_DIR:-<none>}"
+[ -n "$RESULTS_DIR" ] && for B in N U; do
     RUN_DIR_B=$(bench_field "$B" run_dir)   # Q-847: each run's own mktemp directory
     [ -n "$RUN_DIR_B" ] || continue
     for f in solve.log merge.log; do
@@ -561,7 +573,6 @@ done
 
 emit "STEP 6: Teardown"
 teardown
-rm -f /tmp/solve_ctl_${CONTROL_COMMIT}.c /tmp/solve_trt_${TREATMENT_COMMIT}.c
 
 # ---------- emit JSON ----------
 cat <<EOF
@@ -604,7 +615,7 @@ cat <<EOF
   },
   "speedup_enum_pct": "${SPEEDUP_PCT}",
   "sha_preserved": $([ -n "${SHA_N:-}" ] && [ "${SHA_N}" = "${SHA_U:-}" ] && [ "${SHA_N}" != ABSENT ] && [ "${SHA_N}" != DECOMPRESS-FAILED ] && echo true || echo false),
-  "artifacts": "$RESULTS_DIR/",
+  "artifacts": "${RESULTS_DIR:-NONE}/",
   "raw_transcripts": "$RAW_DIR/"
 }
 ==== /PERF_BENCH_RESULT ====

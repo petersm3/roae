@@ -15099,7 +15099,7 @@ chmod +x "$out"
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, _ = p.communicate(timeout=300)
         cls.pids.append(p.pid)
-        m = re.search(r'"artifacts": "(/tmp/perf_bench_[0-9]+_results)/"', out)
+        m = re.search(r'"artifacts": "(/tmp/perf_bench_[0-9]+_results[^"/]*)/"', out)
         if m:
             cls.results_dirs.append(m.group(1))
         return p.returncode, out
@@ -15168,6 +15168,1065 @@ chmod +x "$out"
         with open(self.az_log) as fh:
             self.assertEqual(fh.read(), "", "az was called before the refusal")
 # end class TestQ847PerfBenchFreshWorkdir (lane FH)
+
+
+class TestQ848BuildShaOneReader(unittest.TestCase):
+    """Lane FI: Q-848.
+
+    The two build.sha readers disagreed: read_build_sha_for_provenance() took an fscanf %64s token
+    (a longer one was cut to 64 characters and compared, so --merge said MISMATCH), and
+    check_build_sha_invariant() took %79s and accepted exactly 64 characters; neither checked for
+    hex, and the guard overwrote any value it could not parse as if it were a first run. Now one
+    reader, build_sha_read(): exactly 64 lowercase hex (optionally followed by LF, CRLF, or a
+    space/tab and the rest of that line, as sha256sum writes) is VALID; no file or an all-whitespace
+    one is ABSENT; anything else is MALFORMED. The guard (full enumeration, --branch, --sub-branch)
+    refuses MALFORMED with exit 26 and leaves the file untouched; SOLVE_ALLOW_BUILD_MISMATCH=1
+    overrides and rewrites it. --merge prints MERGE_BUILD_SHA=MALFORMED with a WARN and proceeds.
+    ROAE_TESTS_SOLVE_SRC builds a different source (used to show the tests red on the pre-fix
+    solve.c and on mutants); nothing in the harness sets it."""
+
+    ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30",
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+    SUB = ["--sub-branch", "1", "0", "2", "0", "3", "0", "0", "1"]
+    BRANCH = ["--branch", "1", "0"]
+    SHARD = "sub_1_0_2_0_3_0.bin"
+    HEX = "0123456789abcdef" * 4          # a well-formed digest that is no build's
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q848fi_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q848fi")
+        cls.src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, cls.src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.self_sha = ""
+        if cls.build_ok:
+            with open(cls.sbin, "rb") as fh:
+                cls.self_sha = hashlib.sha256(fh.read()).hexdigest()
+        # Malformed values: name -> exact file bytes.
+        s = cls.self_sha or "0" * 64
+        cls.MALFORMED = {
+            "long_65": (s + "a\n").encode(),                  # was cut to 64 and compared
+            "long_128": (s + s + "\n").encode(),
+            "short_63": (s[:63] + "\n").encode(),
+            "short_63_no_newline": s[:63].encode(),
+            "nonhex_64": ("g" + s[1:] + "\n").encode(),
+            "upper_64": (s.upper() + "\n").encode(),
+            "leading_space": (" " + s + "\n").encode(),
+            "second_line": (s + "\n" + s + "\n").encode(),
+            "cr_only": (s + "\r").encode(),
+            "legacy_text": b"deadbeef-truncated-not-a-sha\n",   # DEVELOPMENT.md's 2026-08-30 case
+            "binary_junk": b"\x00\xff" * 40,
+            "huge": (s + " " + "x" * 5000 + "\n").encode(),
+        }
+        # Fixture shard for --merge, written with no build.sha.
+        cls.fixture = os.path.join(cls.tmp, "fixture")
+        os.makedirs(cls.fixture)
+        cls.fixture_ok, cls.fixture_err = False, "not built"
+        if cls.build_ok:
+            r = subprocess.run([cls.sbin] + cls.SUB, cwd=cls.fixture, env=cls._env(),
+                               capture_output=True, text=True, timeout=600)
+            cls.fixture_ok = (r.returncode == 0 and
+                              os.path.exists(os.path.join(cls.fixture, cls.SHARD)))
+            cls.fixture_err = f"--sub-branch rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        tmp = getattr(cls, "tmp", None)
+        if tmp and os.path.isdir(tmp) and os.path.basename(tmp).startswith("q848fi_"):
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls, **extra):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.ENV)
+        env.update(extra)
+        return env
+
+    def _need(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        self.assertRegex(self.self_sha, r"^[0-9a-f]{64}$")
+
+    def _dir(self, name, content):
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        if content is not None:
+            with open(os.path.join(d, "build.sha"), "wb") as fh:
+                fh.write(content)
+        return d
+
+    def _bs(self, d):
+        p = os.path.join(d, "build.sha")
+        if not os.path.exists(p):
+            return None
+        with open(p, "rb") as fh:
+            return fh.read()
+
+    def _guard(self, name, argv, content, **extra):
+        d = self._dir(name, content)
+        r = subprocess.run([self.sbin] + argv, cwd=d, env=self._env(**extra),
+                           capture_output=True, text=True, timeout=600)
+        return d, r
+
+    def _merge(self, name, content):
+        if not self.fixture_ok:
+            self.fail("fixture failed: " + self.fixture_err)
+        d = self._dir(name, content)
+        for f in (self.SHARD, self.SHARD + ".provenance.json"):
+            shutil.copy2(os.path.join(self.fixture, f), d)
+        r = subprocess.run([self.sbin, "--merge"], cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=600)
+        verdicts = [ln for ln in r.stderr.splitlines() if ln.startswith("MERGE_BUILD_SHA=")]
+        return d, r, verdicts
+
+    def test_malformed_build_sha_is_refused_and_left_untouched(self):
+        # Pre-fix: every one of these was either overwritten ("build.sha CREATED", rc 0) or, for
+        # the 64-character non-hex and uppercase cases, read as a mismatch.
+        self._need()
+        for name, content in sorted(self.MALFORMED.items()):
+            with self.subTest(case=name):
+                d, r = self._guard("sub_" + name, self.SUB, content)
+                self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+                self.assertIn("ERROR: build.sha is malformed (Outlier #4, Q-848)", r.stderr)
+                self.assertNotIn("build.sha CREATED", r.stderr)
+                self.assertEqual(self._bs(d), content, "a refused run changed build.sha")
+                self.assertEqual(sorted(os.listdir(d)), ["build.sha"], "a refused run wrote something")
+
+    def test_malformed_refusal_on_branch_and_full_enumeration_paths(self):
+        # The same function guards all three paths; one witness each for --branch and the
+        # full enumeration (the enum stops at exit 26 before any enumeration).
+        self._need()
+        content = self.MALFORMED["long_65"]
+        d, r = self._guard("branch_long65", self.BRANCH, content)
+        self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+        self.assertIn("ERROR: build.sha is malformed", r.stderr)
+        self.assertEqual(self._bs(d), content)
+        d, r = self._guard("enum_upper", ["0"], self.MALFORMED["upper_64"],
+                           SOLVE_NODE_LIMIT="3030000")
+        self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+        self.assertIn("ERROR: build.sha is malformed", r.stderr)
+        self.assertEqual(self._bs(d), self.MALFORMED["upper_64"])
+
+    def test_override_rewrites_a_malformed_build_sha(self):
+        self._need()
+        d, r = self._guard("override_short", self.SUB, self.MALFORMED["short_63"],
+                           SOLVE_ALLOW_BUILD_MISMATCH="1")
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        self.assertIn("[hardening] WARN: build.sha is malformed", r.stderr)
+        self.assertIn("SOLVE_ALLOW_BUILD_MISMATCH=1", r.stderr)
+        self.assertEqual(self._bs(d), (self.self_sha + "\n").encode())
+        self.assertTrue(os.path.exists(os.path.join(d, self.SHARD)))
+
+    def test_valid_spellings_still_read_valid(self):
+        # POSITIVE CONTROLS: what the guard itself writes, and what real sha256sum / printf
+        # invocations produce, must still read VALID (PASS on a match; exit 26 as a well-formed
+        # MISMATCH otherwise), and an empty or all-whitespace file is ABSENT (CREATED).
+        self._need()
+        s = self.self_sha
+        tool = shutil.which("sha256sum")
+        real = None
+        if tool:
+            real = subprocess.run([tool, self.sbin], capture_output=True, check=True).stdout
+            self.assertTrue(real.startswith(s.encode() + b"  "), real)
+            with open(self.sbin, "rb") as fin:
+                real_stdin = subprocess.run([tool], stdin=fin, capture_output=True, check=True).stdout
+            self.assertEqual(real_stdin, (s + "  -\n").encode())
+        spellings = {"guard_lf": (s + "\n").encode(), "no_newline": s.encode(),
+                     "crlf": (s + "\r\n").encode(), "sha256sum_name": (s + "  solve\n").encode(),
+                     "tab_name": (s + "\tsolve\n").encode()}
+        if real is not None:
+            spellings["sha256sum_real"] = real
+            spellings["sha256sum_stdin"] = real_stdin
+        for name, content in sorted(spellings.items()):
+            with self.subTest(case=name, want="PASS"):
+                d, r = self._guard("valid_" + name, self.SUB, content)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertIn("[hardening] build.sha PASS (binary sha " + s, r.stderr)
+                self.assertEqual(self._bs(d), content, "a PASS rewrote build.sha")
+        with self.subTest(case="foreign_valid_hex", want="MISMATCH"):
+            d, r = self._guard("valid_foreign", self.SUB, (self.HEX + "  other\n").encode())
+            self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+            self.assertIn("ERROR: build.sha mismatch", r.stderr)
+            self.assertIn("binary sha256 " + self.HEX + "\n", r.stderr)
+        for name, content in (("empty", b""), ("whitespace", b" \n\n")):
+            with self.subTest(case=name, want="CREATED"):
+                d, r = self._guard("absent_" + name, self.SUB, content)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertIn("[hardening] build.sha CREATED (binary sha " + s, r.stderr)
+                self.assertEqual(self._bs(d), (s + "\n").encode())
+        with self.subTest(case="written_by_guard_reads_valid"):
+            # A build.sha the guard itself wrote (the CREATED case above) reads VALID next run.
+            d = os.path.join(self.tmp, "absent_empty")
+            r = subprocess.run([self.sbin] + self.SUB, cwd=d, env=self._env(),
+                               capture_output=True, text=True, timeout=600)
+            self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+            self.assertIn("[hardening] build.sha PASS (binary sha " + s, r.stderr)
+
+    def test_merge_reports_malformed_and_proceeds(self):
+        import json
+        self._need()
+        cases = {"long_65": "MERGE_BUILD_SHA=MALFORMED", "short_63": "MERGE_BUILD_SHA=MALFORMED",
+                 "upper_64": "MERGE_BUILD_SHA=MALFORMED", "nonhex_64": "MERGE_BUILD_SHA=MALFORMED"}
+        out = {}
+        for name, want in sorted(cases.items()):
+            with self.subTest(case=name):
+                content = self.MALFORMED[name]
+                d, r, verdicts = self._merge("merge_" + name, content)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertEqual(verdicts, [want], r.stderr[-2000:])
+                self.assertIn("[merge] WARN: build.sha here is malformed", r.stderr)
+                self.assertEqual(self._bs(d), content, "--merge changed build.sha")
+                with open(os.path.join(d, "solutions.provenance.json")) as fh:
+                    mi = json.load(fh)["merge_invocation"]
+                self.assertEqual(mi["merge_dir_build_sha256"], "")
+                self.assertEqual(mi["merge_binary_sha256"], self.self_sha)
+                with open(os.path.join(d, "solutions.bin"), "rb") as fh:
+                    out[name] = hashlib.sha256(fh.read()).hexdigest()
+        # POSITIVE CONTROLS: the other verdicts are unchanged, and no verdict moves the output.
+        for name, content, want in (("absent", None, "MERGE_BUILD_SHA=ABSENT"),
+                                    ("empty", b"", "MERGE_BUILD_SHA=ABSENT"),
+                                    ("match_real", (self.self_sha + "  solve\n").encode(),
+                                     "MERGE_BUILD_SHA=MATCH"),
+                                    ("mismatch", (self.HEX + "\n").encode(),
+                                     "MERGE_BUILD_SHA=MISMATCH")):
+            with self.subTest(case=name):
+                d, r, verdicts = self._merge("merge_" + name, content)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertEqual(verdicts, [want], r.stderr[-2000:])
+                self.assertNotIn("is malformed", r.stderr)
+                with open(os.path.join(d, "solutions.bin"), "rb") as fh:
+                    out[name] = hashlib.sha256(fh.read()).hexdigest()
+        self.assertEqual(len(set(out.values())), 1, out)
+
+    def test_one_reader_in_source(self):
+        # Neither old fscanf token read of build.sha survives, and every build.sha open is in
+        # build_sha_read (the guard's write goes to build.sha.tmp).
+        with open(self.src) as fh:
+            src = fh.read()
+        self.assertEqual(len(re.findall(r'fopen\("build\.sha", "r"\)', src)), 1)
+        body = src.split("static int build_sha_read(char out_hex[65]) {", 1)
+        self.assertEqual(len(body), 2, "build_sha_read definition not found")
+        self.assertIn('fopen("build.sha", "r")', body[1].split("\n}\n", 1)[0])
+        self.assertNotIn('fscanf(f, "%64s", out_hex)', src)
+        self.assertNotIn('fscanf(fr, "%79s", prior_sha)', src)
+# end class TestQ848BuildShaOneReader (lane FI)
+
+
+class TestQ849ArgRefusalOuterModes(unittest.TestCase):
+    """Lane FJ: Q-849.
+
+    Fourteen more dispatch branches return without reading argv[2] or later, so any argument
+    after the mode was accepted and silently dropped: --selftest, --selftest-resume,
+    --selftest-resume-d3, the six KW gates (--f4p-verify, --dav-verify, --dav2-verify,
+    --db1-verify, --f5-verify, --f6-verify), --f1-dec-selftest, --f1c5-gzip-selftest,
+    --check-arrangement-selftest, --print-config and --cpu-features. None reaches a general
+    parser. Each now exits 2 with a `<MODE>_ARGS=REFUSED` line before its body runs, so the
+    refusal of the three slow selftests is tested here and their bodies are not. --verify and
+    --validate took an unknown option such as `--bogus` as the file name; any argument that
+    begins with '-' and is not --expect-kw is now refused with VERIFY_ARGS/VALIDATE_ARGS=REFUSED.
+    RED on the pre-fix solve.c (via ROAE_TESTS_SOLVE_SRC): the modes run and exit 0, the slow
+    ones hit the timeout, and --verify/--validate try to open '--bogus' or refuse a second
+    file without naming the option. Positive control: every fast mode still runs bare with its
+    old exit code, and a file whose name begins with '-' is still read as ./-name.
+    ROAE_TESTS_SOLVE_SRC is never set by the harness."""
+
+    NOARG = ["--selftest", "--selftest-resume", "--selftest-resume-d3", "--f4p-verify",
+             "--dav-verify", "--dav2-verify", "--db1-verify", "--f5-verify", "--f6-verify",
+             "--f1-dec-selftest", "--f1c5-gzip-selftest", "--check-arrangement-selftest",
+             "--print-config", "--cpu-features"]
+
+    @staticmethod
+    def _tok(mode):
+        return mode[2:].upper().replace("-", "_") + "_ARGS=REFUSED"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q849_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q849")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        rec = bytes(i << 2 for i in range(32))           # KW = pairs 0..31 in order, orient 0
+        hdr = b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16
+        cls.kw = os.path.join(cls.tmp, "kw.bin")
+        for name in ("kw.bin", "-k.bin"):
+            with open(os.path.join(cls.tmp, name), "wb") as fh:
+                fh.write(hdr + rec)
+
+    @classmethod
+    def tearDownClass(cls):
+        tmp = getattr(cls, "tmp", None)
+        if tmp and os.path.isdir(tmp):
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def _run(self, argv, timeout=30, cwd=None, stdin_text=None):
+        # Own process group: on the pre-fix binary the slow selftests fork enumerations
+        # through system(), and a timeout must not leave them running.
+        argv = [self.kw if a == "KW" else a for a in argv]
+        d = cwd or tempfile.mkdtemp(dir=self.tmp)
+        p = subprocess.Popen([self.sbin] + argv, cwd=d, text=True, start_new_session=True,
+                             stdin=subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             env=dict(os.environ, OMP_NUM_THREADS="2"))
+        try:
+            out, err = p.communicate(input=stdin_text, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+            p.communicate()
+            return None
+        return subprocess.CompletedProcess(p.args, p.returncode, out, err)
+
+    def test_argument_free_modes_refuse_any_argument(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode in self.NOARG:
+            for extra in (["x"], ["KW", "--foo"]):
+                with self.subTest(argv=[mode] + extra):
+                    r = self._run([mode] + extra)
+                    self.assertIsNotNone(r, mode + " ran past the timeout instead of refusing")
+                    self.assertEqual(r.returncode, 2, mode + ": " + r.stdout[-300:] + r.stderr[-300:])
+                    self.assertIn(self._tok(mode), r.stderr.splitlines())
+                    self.assertIn("ERROR: %s takes NO arguments; got %d extra (first: '%s')."
+                                  % (mode, len(extra), self.kw if extra[0] == "KW" else extra[0]),
+                                  r.stderr)
+                    self.assertEqual(r.stdout, "", mode + " must refuse before doing any work")
+
+    def test_verify_and_validate_refuse_an_unknown_option(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode in ("--verify", "--validate"):
+            tok = mode[2:].upper() + "_ARGS=REFUSED"
+            for extra, bad in ((["--bogus"], "--bogus"), (["--bogus", "KW"], "--bogus"),
+                               (["KW", "--bogus"], "--bogus"), (["-x"], "-x"),
+                               (["--expect-kw", "--expect-kws", "KW"], "--expect-kws")):
+                with self.subTest(argv=[mode] + extra):
+                    r = self._run([mode] + extra)
+                    self.assertIsNotNone(r, "timeout")
+                    self.assertEqual(r.returncode, 2, r.stdout[-300:] + r.stderr[-300:])
+                    self.assertIn(tok, r.stderr.splitlines())
+                    self.assertIn("ERROR: %s does not accept '%s'" % (mode, bad), r.stderr)
+                    self.assertEqual(r.stdout, "")
+
+    def test_documented_invocations_are_not_refused(self):
+        # Positive control: every fast mode, bare, as SOLVE_C_CLI.md, tr12_repro.sh,
+        # verify_all.sh and VERIFY.md call it. --selftest, --selftest-resume and
+        # --selftest-resume-d3 are slow and are not run here: their refusal is the same
+        # `argc > 2` line as the rest, and the harness runs --selftest bare elsewhere.
+        self.assertTrue(self.build_ok, self.build_err)
+        ok = [(["--f4p-verify"], 0, "F4P VERIFY: PASS"), (["--dav-verify"], 0, "DAV VERIFY: PASS"),
+              (["--dav2-verify"], 0, "DAV2 VERIFY: PASS"), (["--db1-verify"], 0, "DB1 VERIFY: PASS"),
+              (["--f5-verify"], 0, "F5 VERIFY: PASS"), (["--f6-verify"], 0, "F6 VERIFY: PASS"),
+              (["--print-config"], 0, "=== solve --print-config ==="),
+              (["--cpu-features"], 0, "[--cpu-features] CPU feature detection"),
+              (["--f1c5-gzip-selftest"], 0, None), (["--check-arrangement-selftest"], 0, None),
+              (["--verify", "KW"], 0, None), (["--verify", "--expect-kw", "KW"], 0, None),
+              (["--validate", "KW", "--expect-kw"], 0, None)]
+        for argv, want_rc, want_out in ok:
+            with self.subTest(argv=argv):
+                r = self._run(argv, timeout=300)
+                self.assertIsNotNone(r, "timeout")
+                self.assertNotIn("_ARGS=REFUSED", r.stdout + r.stderr)
+                self.assertEqual(r.returncode, want_rc, (r.stdout + r.stderr)[-500:])
+                if want_out:
+                    self.assertIn(want_out, r.stdout)
+        r = self._run(["--f1-dec-selftest"], stdin_text="0 0 26112\n")
+        self.assertIsNotNone(r, "timeout")
+        self.assertEqual((r.returncode, r.stdout), (0, "0 0 26112 26112\n"), r.stderr[-300:])
+        for mode in ("--verify", "--validate"):
+            with self.subTest(argv=[mode, "./-k.bin"]):
+                r = self._run([mode, "./-k.bin"], cwd=self.tmp)
+                self.assertIsNotNone(r, "timeout")
+                self.assertNotIn("_ARGS=REFUSED", r.stdout + r.stderr)
+                self.assertEqual(r.returncode, 0, (r.stdout + r.stderr)[-500:])
+                self.assertIn("-k.bin", r.stdout)
+
+# end class TestQ849ArgRefusalOuterModes (lane FJ)
+
+
+class TestQ850SolvePyGzNamesChunkCleanupReservedBit(unittest.TestCase):
+    """Lane FK: Q-850.
+
+    Three defects in the solve.py readers of solutions.bin that CX-184 (Q-846) left.
+    (a) For a gzipped input `--branch-yield-report` printed `Reading /tmp/roae_gz_py_....bin`,
+        `Source: ...` and `Baseline: ...`, its torn/zero-record refusals named the temp file,
+        `--compute-stats`'s zero-record refusal named it, and the `--keystone-analysis` report
+        heading named its basename. Every one now names the input as the user gave it.
+    (b) A `--compute-stats` run refused mid-way left the chunks that had finished in OUT_DIR. A
+        failed run now removes the `chunk_NNNNN.parquet` files it wrote, and nothing else.
+    (c) SOLUTIONS_FORMAT.md says a record byte with reserved bit 0 set MUST be rejected, and
+        `./solve --verify`, `--validate` and verify.py reject it. The solve.py readers masked it
+        away. They now refuse it with `--verify`'s text: `RESERVED_BIT_SET: PATH record R byte B
+        = 0xVV has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md`."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest("numpy absent: the readers under test need it")
+        try:
+            import pyarrow  # noqa: F401
+            cls.have_pyarrow = True
+        except ImportError:
+            cls.have_pyarrow = False
+        cls.tmp = tempfile.mkdtemp(prefix="q850_")
+        cls.kw = bytes(i << 2 for i in range(32))
+
+    @classmethod
+    def tearDownClass(cls):
+        tmp = getattr(cls, "tmp", None)
+        if tmp and os.path.isdir(tmp):
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    @classmethod
+    def _write(cls, name, recs, gz=False, declared=None):
+        path = os.path.join(cls.tmp, name)
+        n = len(recs) if declared is None else declared
+        body = b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", n) + b"\0" * 16 + b"".join(recs)
+        with (gzip.open(path, "wb") if gz else open(path, "wb")) as f:
+            f.write(body)
+        return path
+
+    def _py(self, *args):
+        return subprocess.run([sys.executable, "solve.py"] + list(args), capture_output=True,
+                              text=True, timeout=600)
+
+    def _rsv(self, path, rec, byte, val):
+        return ("RESERVED_BIT_SET: %s record %d byte %d = 0x%02X has reserved bit 0 set; MUST be "
+                "zero per SOLUTIONS_FORMAT.md" % (path, rec, byte, val))
+
+    def _bit0(self, name, byte, gz=False, extra=None):
+        rec = bytearray(self.kw)
+        rec[byte] |= 0x01
+        if extra is not None:
+            rec[extra[0]] = extra[1]
+        return self._write(name, [self.kw, bytes(rec), self.kw], gz), rec[byte]
+
+    # ---- (a) the input as named ------------------------------------------------------------
+    def test_a_branch_yield_report_names_the_gz_input(self):
+        good = self._write("a_good.bin.gz", [self.kw, self.kw], gz=True)
+        base = self._write("a_base.bin.gz", [self.kw], gz=True)
+        r = self._py("--branch-yield-report", good, "--branch-yield-baseline", base)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-600:])
+        lines = r.stdout.splitlines()
+        for want in ("Reading %s ..." % good, "Source: %s" % good,
+                     "Reading baseline %s ..." % base, "Baseline: %s" % base):
+            self.assertIn(want, lines)
+        self.assertNotIn("roae_gz_py_", r.stdout + r.stderr)
+        # refusals raised inside the reader: torn body, zero records
+        torn = self._write("a_torn.bin.gz", [self.kw], gz=True, declared=2)
+        zero = self._write("a_zero.bin.gz", [], gz=True)
+        for path, frag in ((torn, "header says 2 records but the body holds 1"),
+                           (zero, "zero records -- nothing to bucket")):
+            with self.subTest(path=path):
+                r = self._py("--branch-yield-report", path)
+                self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("cannot read SOLUTIONS_BIN %s: %s: %s" % (path, path, frag), r.stdout)
+                self.assertNotIn("roae_gz_py_", r.stdout + r.stderr)
+
+    def test_a_positive_control_raw_input_is_named_as_before(self):
+        good = self._write("a_raw.bin", [self.kw, self.kw])
+        r = self._py("--branch-yield-report", good)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-600:])
+        self.assertIn("Reading %s ..." % good, r.stdout.splitlines())
+        self.assertIn("Source: %s" % good, r.stdout.splitlines())
+
+    def test_a_keystone_report_heading_names_the_gz_input(self):
+        good = self._write("a_ks.bin.gz", [self.kw, self.kw], gz=True)
+        md = os.path.join(self.tmp, "a_ks.md")
+        r = self._py("--keystone-analysis", good, md)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-600:])
+        with open(md) as fh:
+            head = fh.readline()
+        self.assertIn("on `a_ks.bin.gz`", head)
+        self.assertNotIn("roae_gz_py_", head + r.stdout + r.stderr)
+
+    def test_a_compute_stats_zero_record_refusal_names_the_gz_input(self):
+        if not self.have_pyarrow:
+            self.skipTest("pyarrow absent: --compute-stats needs it")
+        zero = self._write("a_cs_zero.bin.gz", [], gz=True)
+        r = self._py("--compute-stats", zero, os.path.join(self.tmp, "a_cs_zero"))
+        self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+        self.assertIn("COMPUTE_STATS=FAIL %s declares 0 records" % zero, r.stdout)
+        self.assertNotIn("roae_gz_py_", r.stdout + r.stderr)
+
+    # ---- (b) partial chunks ------------------------------------------------------------------
+    def _chunks(self, out):
+        return sorted(f for f in os.listdir(out) if f.startswith("chunk_")) \
+            if os.path.isdir(out) else []
+
+    def test_b_refused_run_removes_its_chunks_and_nothing_else(self):
+        if not self.have_pyarrow:
+            self.skipTest("pyarrow absent: --compute-stats needs it")
+        bad = bytearray(self.kw)
+        bad[5] = 0xFC                                   # pair index 63 in record 3
+        cases = (("pidx", self._write("b_pidx.bin", [self.kw] * 3 + [bytes(bad)]), "PAIR_INDEX"),
+                 ("torn", self._write("b_torn.bin", [self.kw] * 3, declared=4), "torn"),
+                 ("rsv", self._write("b_rsv.bin", [self.kw] * 3 + [bytes([1]) + self.kw[1:]]),
+                  "RESERVED_BIT_SET"))
+        for label, path, frag in cases:
+            with self.subTest(case=label):
+                out = os.path.join(self.tmp, "b_out_" + label)
+                os.makedirs(out)
+                keep = os.path.join(out, "notes.txt")          # a file that was already there
+                with open(keep, "w") as fh:
+                    fh.write("keep\n")
+                r = self._py("--compute-stats", path, out, "--compute-stats-workers", "1",
+                             "--compute-stats-chunk-size", "1")
+                self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("COMPUTE_STATS=FAIL", r.stdout)
+                self.assertIn(frag, r.stdout)
+                self.assertEqual(self._chunks(out), [], r.stdout[-600:])
+                self.assertIn("[compute-stats] failed run: removed the ", r.stdout)
+                self.assertEqual(sorted(os.listdir(out)), ["notes.txt"])
+                # the next run into the same OUT_DIR is not refused as populated
+                good = self._write("b_good_%s.bin" % label, [self.kw] * 2)
+                r2 = self._py("--compute-stats", good, out, "--compute-stats-workers", "1",
+                              "--compute-stats-chunk-size", "1")
+                self.assertEqual(r2.returncode, 0, r2.stdout[-400:] + r2.stderr[-600:])
+
+    def test_b_positive_control_success_keeps_its_chunks(self):
+        if not self.have_pyarrow:
+            self.skipTest("pyarrow absent: --compute-stats needs it")
+        good = self._write("b_ok.bin", [self.kw] * 3)
+        out = os.path.join(self.tmp, "b_ok")
+        r = self._py("--compute-stats", good, out, "--compute-stats-workers", "1",
+                     "--compute-stats-chunk-size", "1")
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-600:])
+        self.assertEqual(self._chunks(out), ["chunk_00000.parquet", "chunk_00001.parquet",
+                                             "chunk_00002.parquet"])
+        self.assertNotIn("removed the", r.stdout)
+
+    def test_b_cleanup_spares_preexisting_chunks(self):
+        # The CLI refuses an OUT_DIR that already holds chunks, so this is the helper called
+        # directly: a chunk that was there before the run must survive the run's failure.
+        import contextlib, io
+        S = _load("solve")
+        out = os.path.join(self.tmp, "b_direct")
+        os.makedirs(out)
+        old = os.path.join(out, "chunk_00000.parquet")
+        open(old, "w").close()
+
+        def impl(sb, od, fail):
+            open(os.path.join(od, "chunk_00001.parquet"), "w").close()
+            open(os.path.join(od, "chunk_00002.parquet.tmp"), "w").close()
+            open(os.path.join(od, "chunk_x.parquet"), "w").close()   # not a name a worker writes
+            if fail == "raise":
+                raise SystemExit(1)
+            return 1 if fail else 0
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            with self.assertRaises(SystemExit):
+                S._p2_cs_clean_on_fail(impl, "x.bin", out, "raise")
+        self.assertEqual(sorted(os.listdir(out)), ["chunk_00000.parquet",
+                                                   "chunk_00002.parquet.tmp", "chunk_x.parquet"])
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(S._p2_cs_clean_on_fail(impl, "x.bin", out, True), 1)
+        self.assertEqual(sorted(os.listdir(out)), ["chunk_00000.parquet",
+                                                   "chunk_00002.parquet.tmp", "chunk_x.parquet"])
+        with contextlib.redirect_stdout(buf):                         # control: success keeps
+            self.assertEqual(S._p2_cs_clean_on_fail(impl, "x.bin", out, False), 0)
+        self.assertIn("chunk_00001.parquet", os.listdir(out))
+
+    # ---- (c) reserved bit 0 ------------------------------------------------------------------
+    def test_c_every_reader_refuses_reserved_bit_0(self):
+        for byte in (0, 1, 31):
+            path, val = self._bit0("c_b%d.bin" % byte, byte)
+            msg = self._rsv(path, 1, byte, val)
+            with self.subTest(mode="branch-yield-report", byte=byte):
+                r = self._py("--branch-yield-report", path)
+                self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN %s: %s"
+                              % (path, msg), r.stdout)
+                self.assertNotIn("records bucketed", r.stdout)
+            with self.subTest(mode="branch-yield-baseline", byte=byte):
+                good = self._write("c_good.bin", [self.kw])
+                r = self._py("--branch-yield-report", good, "--branch-yield-baseline", path)
+                self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("cannot read BASELINE_BIN %s: %s" % (path, msg), r.stdout)
+            with self.subTest(mode="keystone-analysis", byte=byte):
+                md = os.path.join(self.tmp, "c_ks_%d.md" % byte)
+                r = self._py("--keystone-analysis", path, md)
+                self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+                self.assertIn("KEYSTONE_ANALYSIS=FAIL " + msg, r.stdout.splitlines())
+                self.assertIn("ERROR: " + msg, r.stderr.splitlines())
+                self.assertFalse(os.path.exists(md))
+            if self.have_pyarrow:
+                with self.subTest(mode="compute-stats", byte=byte):
+                    out = os.path.join(self.tmp, "c_cs_%d" % byte)
+                    r = self._py("--compute-stats", path, out, "--compute-stats-workers", "1")
+                    self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+                    self.assertIn("COMPUTE_STATS=FAIL " + msg, r.stdout.splitlines())
+                    self.assertNotIn("COMPUTE_STATS=PASS", r.stdout)
+                    self.assertEqual(self._chunks(out), [])
+
+    def test_c_gz_input_is_named_and_record_counted_across_chunks(self):
+        path, val = self._bit0("c_gz.bin.gz", 7, gz=True)
+        msg = self._rsv(path, 1, 7, val)
+        r = self._py("--branch-yield-report", path)
+        self.assertIn("SOLUTIONS_BIN %s: %s" % (path, msg), r.stdout)
+        if self.have_pyarrow:
+            r = self._py("--compute-stats", path, os.path.join(self.tmp, "c_gz_cs"),
+                         "--compute-stats-workers", "2", "--compute-stats-chunk-size", "1")
+            self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+            self.assertIn("COMPUTE_STATS=FAIL " + msg, r.stdout.splitlines())
+
+    def test_c_bit0_is_reported_before_a_pair_index_in_the_same_record(self):
+        # `./solve --verify` checks bit 0 over the whole record before it decodes any pair index,
+        # so a record with 0x80 at byte 3 and bit 0 at byte 5 is refused for byte 5.
+        path, val = self._bit0("c_both.bin", 5, extra=(3, 0x80))
+        r = self._py("--branch-yield-report", path)
+        self.assertIn(self._rsv(path, 1, 5, val), r.stdout)
+        # ... and an earlier record with only a bad pair index is reported first.
+        rec = bytearray(self.kw); rec[9] = 0xFC
+        p2 = self._write("c_order.bin", [bytes(rec), bytes([1]) + self.kw[1:]])
+        r = self._py("--branch-yield-report", p2)
+        self.assertIn("PAIR_INDEX_OUT_OF_RANGE: %s record 0 byte 9 = 0xFC" % p2, r.stdout)
+
+    def test_c_direct_decoders_raise_reserved_bit_set(self):
+        import numpy as np
+        S = _load("solve")
+        good = np.frombuffer(self.kw * 2, dtype=np.uint8).reshape(2, 32)
+        self.assertEqual(S._keystone_decode_pair_positions(good)[1].tolist(), list(range(32)))
+        clean = self.kw * 2
+        self.assertIs(S._pidx_scan(clean), clean)             # control: clean bytes pass through
+        for byte in (0, 13, 31):
+            recs = good.copy()
+            recs[1, byte] |= 1
+            for fn in (S._p2_compute_all_stats, S._p2_build_hexagram_sequence,
+                       S._keystone_decode_pair_positions, S._pidx_scan):
+                with self.subTest(fn=fn.__name__, byte=byte):
+                    with self.assertRaises(S.ReservedBitSet) as cm:
+                        fn(recs)
+                    self.assertEqual(str(cm.exception),
+                                     self._rsv("<records>", 1, byte, int(recs[1, byte])))
+            with self.subTest(fn="_pidx_scan(bytes)", byte=byte):
+                with self.assertRaises(S.ReservedBitSet):
+                    S._pidx_scan(recs.tobytes())
+
+    def test_c_wording_is_the_solve_c_verify_text(self):
+        with open("solve.c") as fh:
+            src = fh.read()
+        # solve.c splits the format string over two literals; both halves are pinned.
+        self.assertIn('"ERROR: record %lld byte %d = 0x%02X has reserved bit 0 set; "', src)
+        self.assertIn('"MUST be zero per SOLUTIONS_FORMAT.md\\n"', src)
+        with open("documentation/SOLUTIONS_FORMAT.md") as fh:
+            self.assertIn("MUST be zero; reject a record with it set.", fh.read())
+# end class TestQ850SolvePyGzNamesChunkCleanupReservedBit (lane FK)
+
+
+class TestQ853SolPidxScanReservedBit0(unittest.TestCase):
+    """Lane FM: Q-853.
+
+    SOLUTIONS_FORMAT.md: bit 0 of a record byte is reserved -- "MUST be zero; reject a record with
+    it set". --verify refuses it (exit 30, "ERROR: record R byte B = 0xVV has reserved bit 0 set;
+    MUST be zero per SOLUTIONS_FORMAT.md"), --validate and verify.py too, but solve.c's analysis
+    readers go through sol_pidx_scan (Q-520 / CX-139), which tested bit 7 only. So --c3-min,
+    --verify-rule2, --verify-9th-six, --verify-wrap-parity and the --analyze/--c3-dist block decoded
+    a byte with bit 0 set (the decode masks it away) and reported normally. The scan now masks 0x81
+    and refuses bit 0 with --verify's text under the token RESERVED_BIT_SET; like --verify, it checks
+    bit 0 across a record BEFORE that record's pair indices, and reports the first record that holds
+    either defect. Each caller keeps its existing corrupt-format exit code (20, or 1 for the
+    --analyze block). RED, measured 2026-09-26 via ROAE_TESTS_SOLVE_SRC: on the pre-fix solve.c
+    every mode exits 0 on the bit-0 fixture; mutant "word mask back to 0x80" is red on the refusal
+    tests; mutant "bit 0 checked after the pair index" is red on the precedence test. The clean King
+    Wen file is the positive control."""
+
+    MODES = [("--c3-min", 20, None), ("--verify-rule2", 20, "RULE2"),
+             ("--verify-9th-six", 20, "NINTH_SIX"), ("--verify-wrap-parity", 20, "WRAP_PARITY"),
+             ("--c3-dist", 1, None), ("--analyze", 1, None)]
+
+    @classmethod
+    def setUpClass(cls):
+        import struct
+        cls.tmp = tempfile.mkdtemp(prefix="q853_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q853")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.kw = bytes(i << 2 for i in range(32))       # KW = pairs 0..31 in order, orient 0
+        cls.hdr = staticmethod(lambda n: b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", n)
+                               + b"\0" * 16)
+        cls.good = os.path.join(cls.tmp, "kw.bin")
+        with open(cls.good, "wb") as f:
+            f.write(cls.hdr(1) + cls.kw)
+
+    @classmethod
+    def tearDownClass(cls):
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _file(self, name, *recs):
+        path = os.path.join(self.tmp, name)
+        with open(path, "wb") as f:
+            f.write(self.hdr(len(recs)) + b"".join(bytes(r) for r in recs))
+        return path
+
+    def _bit0(self, byte):
+        rec = bytearray(self.kw); rec[byte] |= 0x01       # pair index stays valid
+        return rec
+
+    def _run(self, mode, path):
+        return subprocess.run([self.sbin, mode, path], capture_output=True, text=True,
+                              cwd=self.tmp, env=dict(os.environ, OMP_NUM_THREADS="2"), timeout=600)
+
+    @staticmethod
+    def _msg(path, rec, byte, val):
+        return ("ERROR: RESERVED_BIT_SET: %s record %d byte %d = 0x%02X has reserved bit 0 set; "
+                "MUST be zero per SOLUTIONS_FORMAT.md; refusing to decode" % (path, rec, byte, val))
+
+    def _assert_refused(self, mode, rc, token, r):
+        self.assertEqual(r.returncode, rc, r.stdout[-400:] + r.stderr[-600:])
+        if token:
+            self.assertIn(token + "=ERROR", r.stdout.splitlines())
+            self.assertFalse([l for l in r.stdout.splitlines()
+                              if l.startswith(token + "=") and l != token + "=ERROR"])
+        self.assertNotIn("[c3-dist]", r.stdout)
+        self.assertNotIn("C3 range in dataset", r.stdout)
+
+    def test_positive_control_clean_record_is_accepted_by_every_mode(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode, _, token in self.MODES:
+            with self.subTest(mode=mode):
+                r = self._run(mode, self.good)
+                self.assertEqual(r.returncode, 0, r.stderr[-600:])
+                self.assertNotIn("RESERVED_BIT_SET", r.stdout + r.stderr)
+                if token:
+                    self.assertNotIn(token + "=ERROR", r.stdout.splitlines())
+
+    def test_bit0_with_valid_pair_index_is_refused_by_every_mode(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for byte in (0, 7, 8, 31):                      # word-aligned and not, first and last byte
+            rec = self._bit0(byte)
+            path = self._file("bit0_b%d.bin" % byte, self.kw, rec)   # the bad record is record 1
+            for mode, rc, token in self.MODES:
+                with self.subTest(mode=mode, byte=byte):
+                    r = self._run(mode, path)
+                    self._assert_refused(mode, rc, token, r)
+                    self.assertIn(self._msg(path, 1, byte, rec[byte]), r.stderr.splitlines())
+                    self.assertNotIn("PAIR_INDEX_OUT_OF_RANGE", r.stderr)
+
+    def test_text_is_verify_text(self):
+        # --verify on the same file refuses with exit 30; the scan's line carries its text verbatim.
+        self.assertTrue(self.build_ok, self.build_err)
+        rec = self._bit0(7)
+        path = self._file("bit0_verify.bin", self.kw, rec)
+        v = subprocess.run([self.sbin, "--verify", path], capture_output=True, text=True,
+                           cwd=self.tmp, env=dict(os.environ, OMP_NUM_THREADS="2"), timeout=600)
+        self.assertEqual(v.returncode, 30, v.stdout[-400:] + v.stderr[-600:])
+        vline = "ERROR: record 1 byte 7 = 0x1D has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md"
+        self.assertIn(vline, v.stderr.splitlines())
+        r = self._run("--c3-min", path)
+        self.assertIn(vline[len("ERROR: "):], r.stderr)
+
+    def test_bit0_is_checked_across_the_record_before_its_pair_indices(self):
+        # One record: bad pair index at byte 3, bit 0 at byte 20. --verify reports bit 0 first.
+        self.assertTrue(self.build_ok, self.build_err)
+        rec = self._bit0(20); rec[3] = 0x80             # pair index 32
+        path = self._file("both.bin", self.kw, rec)
+        for mode, rc, token in self.MODES:
+            with self.subTest(mode=mode):
+                r = self._run(mode, path)
+                self._assert_refused(mode, rc, token, r)
+                self.assertIn(self._msg(path, 1, 20, rec[20]), r.stderr.splitlines())
+                self.assertNotIn("PAIR_INDEX_OUT_OF_RANGE", r.stderr)
+
+    def test_first_bad_record_wins_whichever_defect_it_holds(self):
+        # Record 1 has a bad pair index only; record 2 has bit 0 only: record 1 is reported.
+        self.assertTrue(self.build_ok, self.build_err)
+        r1 = bytearray(self.kw); r1[9] = 0xFC
+        path = self._file("order.bin", self.kw, r1, self._bit0(2))
+        for mode, rc, token in self.MODES:
+            with self.subTest(mode=mode):
+                r = self._run(mode, path)
+                self._assert_refused(mode, rc, token, r)
+                self.assertIn("ERROR: PAIR_INDEX_OUT_OF_RANGE: %s record 1 byte 9 = 0xFC" % path, r.stderr)
+                self.assertNotIn("RESERVED_BIT_SET", r.stderr)
+# end class TestQ853SolPidxScanReservedBit0 (lane FM)
+
+
+class TestQ851ScriptWorkdirTmpReuse(unittest.TestCase):
+    """Lane FL: Q-851.
+
+    (a) scripts/selftest_resume_167_gate.sh with a caller-supplied --workdir only did
+    `mkdir -p tdir_A tdir_B`, so a rerun started beside an earlier run's checkpoints: solve
+    resumes the sub_*.dfs_state it finds and APPENDS to checkpoint_t*.txt, and every count the
+    gate decides on is read off those directories. A non-empty tdir is now REFUSED (ERROR, rc 43,
+    nothing deleted); the battery refuses up front. (b) scripts/perf_bench.sh kept its two source
+    copies at /tmp/solve_{ctl,trt}_<commit>.c (removed only on the success path) and its results
+    at /tmp/perf_bench_<HHMM>_results (shared by two benches in one minute); both are now mktemp,
+    the sources under an EXIT trap.
+
+    The gate is driven by a stub solve (a bash script; RESUME_167_ALLOW_STALE=1 skips the
+    binary-currency check, which a stub cannot satisfy). It walks four cells, two productive and
+    two zero-yield, writes sidecars, shards and `... N nodes, budget B` checkpoint lines, and
+    resumes attested zero-yield cells. STUB_LIE=1 is an EXCESS-only defect: it logs the resume but
+    re-walks the cell, so R=Z and D=0 and only EXCESS can catch it. perf_bench runs against the
+    PATH stubs of TestQ847PerfBenchFreshWorkdir (no VM, no az, no spend), plus a `date` that pins
+    the launch minute to the impossible 9999 and an `scp` that logs every local source it copies.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    GATE = os.path.join(ROOT, "scripts", "selftest_resume_167_gate.sh")
+    BENCH = os.path.join(ROOT, "scripts", "perf_bench.sh")
+    SESSION_LOG = "/tmp/claude_session_vms.txt"   # perf_bench appends to it; restored below
+
+    STUB_SOLVE = r"""#!/bin/bash
+b=$(( ${SOLVE_NODE_LIMIT:?} / 10 ))
+for c in 0 1 2 3; do
+  st=sub_$c.dfs_state
+  if [ -e "$st" ]; then
+    prev=$(cat "$st")
+    if [ $c -lt 2 ]; then
+      echo "[#167-guard] cell $c: checkpoint ATTESTS zero yield"
+      if [ "${STUB_LIE:-0}" = 1 ]; then n=$b; else n=$(( b - prev + 1 )); fi
+    else
+      n=$(( b - prev + 1 ))
+    fi
+  else
+    n=$b
+  fi
+  echo "$b" > "$st"
+  [ $c -ge 2 ] && printf 'cell%s' "$c" > "sub_$c.bin"
+  echo "t0 cell $c $n nodes, budget $b" >> checkpoint_t0.txt
+done
+cat sub_2.bin sub_3.bin > solutions.bin
+exit 0
+"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q851_")
+        cls.solve = os.path.join(cls.tmp, "solve_stub")
+        with open(cls.solve, "w") as fh:
+            fh.write(cls.STUB_SOLVE)
+        os.chmod(cls.solve, 0o755)
+        cls.genv = dict(os.environ, RESUME_167_ALLOW_STALE="1")
+        cls.genv.pop("STUB_LIE", None)
+        # perf_bench fixtures
+        cls.bin = os.path.join(cls.tmp, "bin")
+        cls.home = os.path.join(cls.tmp, "fakehost")
+        os.makedirs(cls.bin); os.makedirs(cls.home)
+        stubs = dict(TestQ847PerfBenchFreshWorkdir.STUBS)
+        stubs["scp"] = r"""#!/bin/bash
+src="${@: -2:1}"; dst="${@: -1}"
+case "$src" in *@*:*) src="${src#*:}"; case "$src" in /*) ;; *) src="$PB_FAKE_HOME/$src";; esac;;
+  *) echo "$src" >> "$PB_SCP_LOG" ;; esac
+case "$dst" in *@*:*) dst="${dst#*:}"; case "$dst" in /*) ;; *) dst="$PB_FAKE_HOME/$dst";; esac;; esac
+exec cp "$src" "$dst"
+"""
+        stubs["gcc"] = "#!/bin/bash\n[ -n \"${PB_GCC_FAIL:-}\" ] && exit 1\n" + \
+            TestQ847PerfBenchFreshWorkdir.STUBS["gcc"].split("\n", 1)[1]
+        real_date = shutil.which("date")
+        stubs["date"] = "#!/bin/bash\n[ \"$*\" = \"-u +%%H%%M\" ] && { echo 9999; exit 0; }\nexec %s \"$@\"\n" % real_date
+        for name, body in stubs.items():
+            path = os.path.join(cls.bin, name)
+            with open(path, "w") as fh:
+                fh.write(body)
+            os.chmod(path, 0o755)
+        cls.scp_log = os.path.join(cls.tmp, "scp.log")
+        cls.benv = dict(os.environ, PATH=cls.bin + os.pathsep + os.environ["PATH"],
+                        PB_FAKE_HOME=cls.home, PB_PROBE_LOG=os.path.join(cls.tmp, "probe.log"),
+                        PB_AZ_LOG=os.path.join(cls.tmp, "az.log"), PB_SCP_LOG=cls.scp_log)
+        cls.benv.pop("PB_GCC_FAIL", None)
+        try:
+            cls.session_log_size = os.path.getsize(cls.SESSION_LOG)
+        except OSError:
+            cls.session_log_size = None
+        cls.pids, cls.results_dirs, cls.bench = [], [], {}
+        for key, extra in (("ok1", {}), ("ok2", {}), ("fail", {"PB_GCC_FAIL": "1"})):
+            open(cls.scp_log, "w").close()
+            rc, out = cls._run_bench(extra)
+            with open(cls.scp_log) as fh:
+                srcs = fh.read().split()
+            cls.bench[key] = (rc, out, srcs, {p: os.path.exists(p) for p in srcs})
+
+    @classmethod
+    def _run_bench(cls, extra):
+        argv = ["bash", cls.BENCH, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
+                "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"]
+        p = subprocess.Popen(argv, cwd=cls.ROOT, env=dict(cls.benv, **extra), text=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, _ = p.communicate(timeout=300)
+        cls.pids.append(p.pid)
+        m = re.search(r'"artifacts": "(/tmp/perf_bench_9999_results[^"/]*)/"', out)
+        if m:
+            cls.results_dirs.append(m.group(1))
+        return p.returncode, out
+
+    @classmethod
+    def tearDownClass(cls):
+        for pid in getattr(cls, "pids", []):
+            for path in [f"/tmp/perf_bench_{pid}.log"] + \
+                    [os.path.join("/tmp", d) for d in os.listdir("/tmp")
+                     if d.startswith("perf_bench_9999_") and d.endswith(f"_{pid}_raw")]:
+                if os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                elif os.path.exists(path):
+                    os.remove(path)
+        for d in set(getattr(cls, "results_dirs", [])):
+            shutil.rmtree(d, ignore_errors=True)
+        # Only against a pre-fix or mutated script: the source copies it leaves behind.
+        for _, _, srcs, _ in getattr(cls, "bench", {}).values():
+            for pth in srcs:
+                if re.fullmatch(r"/tmp/solve_(ctl|trt)_HEAD\.c", pth) and os.path.isfile(pth):
+                    os.remove(pth)
+                elif re.fullmatch(r"/tmp/perf_bench_src\.[^/]+/solve_(ctl|trt)\.c", pth):
+                    shutil.rmtree(os.path.dirname(pth), ignore_errors=True)
+        size = getattr(cls, "session_log_size", None)
+        if size is None:
+            if os.path.exists(cls.SESSION_LOG):
+                os.remove(cls.SESSION_LOG)
+        elif os.path.exists(cls.SESSION_LOG):
+            os.truncate(cls.SESSION_LOG, size)
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ------------------------------------------------------------------ helpers (gate)
+    def _gate(self, wd, *extra, lie=False):
+        env = dict(self.genv, STUB_LIE="1") if lie else self.genv
+        argv = ["bash", self.GATE, "--solve", self.solve, "--threads", "1",
+                "--nodes-a", "1000", "--nodes-b", "4000"]
+        if wd is not None:
+            argv += ["--workdir", wd]
+        p = subprocess.run(argv + list(extra), env=env, text=True, timeout=120,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        return p.returncode, p.stdout
+
+    @staticmethod
+    def _snapshot(root):
+        snap = {}
+        for dp, dns, fns in os.walk(root):
+            for n in dns:
+                snap[os.path.relpath(os.path.join(dp, n), root)] = "<dir>"
+            for n in fns:
+                fp = os.path.join(dp, n)
+                with open(fp, "rb") as fh:
+                    snap[os.path.relpath(fp, root)] = fh.read()
+        return snap
+
+    def _wd(self):
+        return tempfile.mkdtemp(dir=self.tmp)
+
+    # ------------------------------------------------------------------ (a) positive controls
+    def test_gate_positive_control_fresh_workdir_passes(self):
+        wd = self._wd()
+        rc, out = self._gate(wd)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("SELFTEST_RESUME_167=PASS", out.splitlines())
+        self.assertIn("RESUME_167_EXCESS_NODES=4", out.splitlines())
+
+    def test_gate_positive_control_lie_stub_fails_on_a_fresh_workdir(self):
+        # The defect the stale-tdir_B case below would mask is caught when nothing is stale.
+        rc, out = self._gate(self._wd(), lie=True)
+        self.assertEqual(rc, 40, out)
+        self.assertIn("SELFTEST_RESUME_167=FAIL", out.splitlines())
+        self.assertIn("RESUME_167_RESUMED=2", out.splitlines())
+        self.assertIn("RESUME_167_DISCARDED=0", out.splitlines())
+
+    def test_gate_empty_precreated_tdirs_are_allowed(self):
+        wd = self._wd()
+        os.makedirs(os.path.join(wd, "tdir_A")); os.makedirs(os.path.join(wd, "tdir_B"))
+        rc, out = self._gate(wd)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("SELFTEST_RESUME_167=PASS", out.splitlines())
+
+    # ------------------------------------------------------------------ (a) the defect
+    def test_gate_stale_tdir_B_checkpoint_cannot_turn_a_fail_into_pass(self):
+        # One line an earlier single-shot at the same budget_B would have left. Pre-fix, the
+        # single-shot run appended to it, NODES_SINGLE absorbed it, EXCESS went negative and the
+        # lying binary PASSED. Now the gate refuses before running anything.
+        wd = self._wd()
+        tb = os.path.join(wd, "tdir_B"); os.makedirs(tb)
+        with open(os.path.join(tb, "checkpoint_t0.txt"), "w") as fh:
+            fh.write("t0 cell 0 1000000 nodes, budget 400\n")
+        before = self._snapshot(wd)
+        rc, out = self._gate(wd, lie=True)
+        self.assertNotIn("SELFTEST_RESUME_167=PASS", out.splitlines(), out)
+        self.assertEqual(rc, 43, out)
+        self.assertIn("SELFTEST_RESUME_167=ERROR", out.splitlines())
+        self.assertIn(tb + " is not empty", out)
+        self.assertEqual(self._snapshot(wd), before, "the refusal changed the caller's workdir")
+
+    def test_gate_stale_tdir_A_is_refused_and_left_untouched(self):
+        wd = self._wd()
+        ta = os.path.join(wd, "tdir_A"); os.makedirs(ta)
+        with open(os.path.join(ta, "checkpoint_t0.txt"), "w") as fh:
+            fh.write("t0 cell 0 70 nodes, budget 70\n")
+        with open(os.path.join(ta, "sub_9.dfs_state"), "w") as fh:
+            fh.write("70\n")
+        before = self._snapshot(wd)
+        rc, out = self._gate(wd)
+        self.assertEqual(rc, 43, out)
+        self.assertIn("SELFTEST_RESUME_167=ERROR", out.splitlines())
+        self.assertIn(ta + " is not empty", out)
+        self.assertEqual(self._snapshot(wd), before, "the refusal changed the caller's workdir")
+
+    def test_gate_rerun_after_keep_is_refused_and_evidence_kept(self):
+        wd = self._wd()
+        rc, out = self._gate(wd, "--keep")
+        self.assertEqual(rc, 0, out)
+        self.assertTrue(os.listdir(os.path.join(wd, "tdir_A")), "--keep kept nothing")
+        kept = self._snapshot(wd)
+        rc, out = self._gate(wd)
+        self.assertEqual(rc, 43, out)
+        self.assertIn("SELFTEST_RESUME_167=ERROR", out.splitlines())
+        self.assertEqual(self._snapshot(wd), kept, "the rerun wrote into the kept evidence")
+
+    def test_battery_refuses_a_stale_mutant_dir_up_front(self):
+        wd = self._wd()
+        stale = os.path.join(wd, "M3", "tdir_A"); os.makedirs(stale)
+        with open(os.path.join(stale, "checkpoint_t0.txt"), "w") as fh:
+            fh.write("t0 cell 0 100 nodes, budget 100\n")
+        before = self._snapshot(wd)
+        rc, out = self._gate(wd, "--battery", "--solve-phase-b", self.solve)
+        self.assertEqual(rc, 43, out)
+        self.assertIn("SELFTEST_RESUME_167_BATTERY=ERROR", out.splitlines())
+        self.assertIn(stale, out)
+        self.assertEqual(self._snapshot(wd), before, "the battery ran or deleted before refusing")
+
+    # ------------------------------------------------------------------ (b) perf_bench
+    def test_bench_positive_controls(self):
+        self.assertEqual(self.bench["ok1"][0], 0, self.bench["ok1"][1][-2000:])
+        self.assertEqual(self.bench["ok2"][0], 0, self.bench["ok2"][1][-2000:])
+        self.assertEqual(self.bench["fail"][0], 4, self.bench["fail"][1][-2000:])
+        for key in ("ok1", "ok2", "fail"):
+            with self.subTest(run=key):
+                # the absence checks below can only mean something if the sources were seen
+                self.assertEqual(len(self.bench[key][2]), 2, self.bench[key][2])
+
+    def test_bench_source_copies_are_removed_on_every_exit_path(self):
+        for key in ("ok1", "fail"):
+            with self.subTest(run=key):
+                left = [p for p, alive in self.bench[key][3].items() if alive]
+                self.assertEqual(left, [], "source copies survived the bench's exit")
+
+    def test_bench_source_copies_are_not_shared_between_runs(self):
+        a, b = set(self.bench["ok1"][2]), set(self.bench["ok2"][2])
+        self.assertFalse(a & b, "two benches of the same commit used the same source path")
+        for p in a | b:
+            self.assertFalse(re.search(r"/solve_(ctl|trt)_HEAD\.c$", p), p)
+
+    def test_bench_results_dirs_are_distinct_within_one_minute(self):
+        dirs = []
+        for key in ("ok1", "ok2"):
+            m = re.search(r'"artifacts": "([^"]*)/"', self.bench[key][1])
+            self.assertIsNotNone(m, self.bench[key][1][-1500:])
+            dirs.append(m.group(1))
+        self.assertNotEqual(dirs[0], dirs[1], "two benches in one launch minute shared a results dir")
+        for key, d in zip(("ok1", "ok2"), dirs):
+            self.assertIn("results dir: " + d, self.bench[key][1])
+            self.assertTrue(os.path.isdir(d), d)
+
+    def test_bench_session_vm_log_path_is_still_the_documented_one(self):
+        # CLAUDE.md names /tmp/claude_session_vms.txt as the session VM log; Q-851 keeps it.
+        with open(self.BENCH) as fh:
+            self.assertIn(">> /tmp/claude_session_vms.txt", fh.read())
+# end class TestQ851ScriptWorkdirTmpReuse (lane FL)
 
 
 if __name__ == "__main__":

@@ -67,9 +67,10 @@
 #   SELFTEST_RESUME_167=PASS|FAIL|VACUOUS|ERROR
 # In --battery mode, additionally one line per mutant plus:
 #   RESUME_167_MUTANTS_KILLED=<n>/<total>
-#   SELFTEST_RESUME_167_BATTERY=PASS|FAIL
+#   SELFTEST_RESUME_167_BATTERY=PASS|FAIL|ERROR   (ERROR, rc 43: a mutant's tdir was not empty)
 #
-# The two tempdirs are KEPT on any non-PASS. The evidence is the directory.
+# The two tempdirs are KEPT on any non-PASS. The evidence is the directory. A non-empty
+# tdir_A or tdir_B under --workdir is REFUSED (ERROR, rc 43, nothing deleted; Q-851).
 #
 # ============================================================================================
 # MUTANTS  (--battery) — "a comparator that has never been SEEN to fail is not evidence"
@@ -152,7 +153,7 @@ SOLVE_A=""; SOLVE_B=""; MUTANT="M0"; WORKDIR=""
 _nproc=$(nproc 2>/dev/null || echo 4); THREADS=$(( _nproc < 4 ? _nproc : 4 ))
 NODES_A=50000000; NODES_B=200000000; KEEP=0; BATTERY=0
 
-usage() { sed -n '2,142p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,143p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -218,7 +219,26 @@ run_gate() {
   local mutant="$1" solve_a="$2" solve_b="$3" wd="$4"
   local tA="$wd/tdir_A" tB="$wd/tdir_B"
   G_S=-1; G_Z=-1; G_R=-1; G_D=-1; G_NA=-1; G_NB=-1; G_NS=-1; G_EXCESS=-1
-  G_VERDICT=""; G_RC=0; G_DIR="$wd"; G_MSG=""; G_W=-1; G_SHAEQ=-1
+  G_VERDICT=""; G_RC=0; G_DIR="$wd"; G_MSG=""; G_W=-1; G_SHAEQ=-1; G_REFUSED=0
+  # Q-851: REFUSE a non-empty tdir_A / tdir_B. solve resumes whatever sub_*.dfs_state it finds
+  # in its working directory and APPENDS to checkpoint_t*.txt, and every count below is read off
+  # those two directories, so a rerun into a --workdir that still holds an earlier run's
+  # checkpoints (a FAIL keeps them, and so does --keep) measures the earlier run as well as this
+  # one. Measured 2026-09-26 on the real binary, default shape: with an earlier run's tdir_B in
+  # place, the single-shot CONTROL resumed all 3,030 cells as complete, walked none, and the gate
+  # printed PASS on the earlier run's control counts and sha; with its tdir_A in place, the rerun
+  # walked nothing, overwrote the kept phase_a.log, and ended ERROR for an unrelated reason (two
+  # budgets). Refused rather than cleared, because the directory is the caller's and the earlier
+  # run's evidence is in it: nothing is deleted here.
+  local _t _first
+  for _t in "$tA" "$tB"; do
+    _first=$(find "$_t" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)
+    if [ -n "$_first" ]; then
+      G_VERDICT=ERROR; G_RC=43; G_REFUSED=1
+      G_MSG="$_t is not empty (it holds $(basename "$_first"), left by an earlier run?): a rerun would resume or count that run's checkpoints. Pass a fresh --workdir, or remove $_t yourself; nothing was deleted"
+      return
+    fi
+  done
   mkdir -p "$tA" "$tB" || { G_VERDICT=ERROR; G_RC=43; G_MSG="mkdir failed"; return; }
 
   local common="SOLVE_THREADS=$THREADS SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 \
@@ -431,6 +451,8 @@ if [ "$BATTERY" -eq 0 ]; then
       rm -f "$wd/pre_zero.txt" "$wd/pre_prod.txt" "$wd/_s.txt" "$wd/_b.txt" \
             "$wd/s.txt" "$wd/b.txt"
     fi
+  elif [ "$G_REFUSED" -eq 1 ]; then
+    echo "[gate] refused before running anything; $wd was left exactly as it was found"
   else
     echo "[gate] evidence KEPT: $wd/tdir_A  $wd/tdir_B"
   fi
@@ -446,6 +468,21 @@ BROOT="$WORKDIR"
 [ -n "$BROOT" ] || BROOT=$(mktemp -d /tmp/resume167_battery_XXXXXX)
 mkdir -p "$BROOT"
 echo "[battery] root=$BROOT  fixed=$SOLVE_A  baseline=$SOLVE_B"
+# Q-851: the battery KEEPS M1..M8's trees by design, so a second battery into the same --workdir
+# would run every mutant beside the first battery's checkpoints. run_gate() refuses each such
+# directory, but that would be scored mutant by mutant as SURVIVED, i.e. a FAIL of the fix. Refuse
+# the whole battery up front instead, as ERROR (rc 43): the subject was never measured.
+_stale=""
+for m in M0 M1 M2 M3 M4 M5 M6 M7 M8; do
+  for _t in "$BROOT/$m/tdir_A" "$BROOT/$m/tdir_B"; do
+    [ -n "$(find "$_t" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ] && _stale="$_stale $_t"
+  done
+done
+if [ -n "$_stale" ]; then
+  echo "[battery] ERROR: not empty, left by an earlier run?:$_stale" >&2
+  echo "[battery] a rerun would resume or count those checkpoints. Pass a fresh --workdir; nothing was deleted." >&2
+  echo 'SELFTEST_RESUME_167_BATTERY=ERROR'; exit 43
+fi
 
 killed=0; total=0; battery_ok=1
 for m in M0 M1 M2 M3 M4 M5 M6 M7 M8; do

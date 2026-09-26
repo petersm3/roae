@@ -4270,7 +4270,7 @@ def p2_compute_stats(solutions_bin, out_dir, workers=None,
     # artifact -- the default form -- the sidecar recorded `/tmp/roae_gz_py_XXXX.bin`,
     # a name that exists on no host after the run (measured: Q-410 sweep). Keep both.
     with _gz_resolved_path(solutions_bin) as resolved:
-        return _p2_compute_stats_impl(resolved, out_dir, workers,
+        return _p2_cs_clean_on_fail(_p2_compute_stats_impl, resolved, out_dir, workers,  # Q-850
                                       chunk_size, max_records, schema,
                                       source_path=solutions_bin)
 
@@ -4294,7 +4294,7 @@ def _p2_compute_stats_impl(solutions_bin, out_dir, workers,
     if total_records == 0:
         # A zero-record run would drain an empty pool and report PASS over
         # nothing. A check that cannot run must ERROR, never PASS.
-        print(f"COMPUTE_STATS=FAIL {solutions_bin} declares 0 records "
+        print(f"COMPUTE_STATS=FAIL {source_path or solutions_bin} declares 0 records "
               f"(max_records={max_records}); nothing to compute", flush=True)
         return 1
 
@@ -6366,11 +6366,11 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
                 # sibling of Codex V2-F60 #2): a header/body mismatch is a
                 # torn artifact and no report over it is a report.
                 raise ValueError(
-                    f"{path}: header says {record_count_hdr} records but the "
+                    f"{label or path}: header says {record_count_hdr} records but the "
                     f"body holds {record_count_actual} (torn or truncated "
                     f"artifact; refusing to bucket it)")
             if record_count_actual == 0:
-                raise ValueError(f"{path}: zero records -- nothing to bucket")
+                raise ValueError(f"{label or path}: zero records -- nothing to bucket")
             buckets = defaultdict(int)
             CHUNK = 1 << 20  # 1M records per chunk = 32 MB
             while True:
@@ -6397,7 +6397,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
                     buckets[key] += 1
             return record_count_actual, dict(buckets)
 
-    print(f"Reading {solutions_bin} ...")
+    print(f"Reading {source_bin or solutions_bin} ...")  # Q-850: the input as named, not its gz temp
     try:
         # OSError: the open inside _bucket_counts. ValueError: _read_header's and
         # _bucket_counts' own deliberate refusals (bad magic, torn body, zero records).
@@ -6409,7 +6409,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
     baseline_total = None
     baseline_buckets = None
     if baseline_bin:
-        print(f"Reading baseline {baseline_bin} ...")
+        print(f"Reading baseline {source_baseline or baseline_bin} ...")
         try:
             baseline_total, baseline_buckets = _bucket_counts(baseline_bin, depth, source_baseline)
         except (OSError, ValueError) as e:
@@ -6498,9 +6498,9 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
                   "depth-3 (p1, o1, p2, o2, p3, o3)")[depth - 1]
     print()
     print(f"=== Branch Yield Report — depth {depth} ({depth_name}) ===")
-    print(f"Source: {solutions_bin}")
+    print(f"Source: {source_bin or solutions_bin}")
     if baseline_bin:
-        print(f"Baseline: {baseline_bin}")
+        print(f"Baseline: {source_baseline or baseline_bin}")
     print(f"Total records: {total:,}")
     print(f"Distinct buckets with non-zero count: {len(buckets):,}")
     if baseline_buckets is not None:
@@ -6820,7 +6820,7 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
     # Write markdown report
     with open(out_md, "w") as fmd:
         fmd.write("# Keystone analysis — boundary minimum-set "
-                  f"{{1,4,21,25,27}} on `{os.path.basename(solutions_bin)}`\n\n")
+                  f"{{1,4,21,25,27}} on `{os.path.basename(source_path or solutions_bin)}`\n\n")
         fmd.write(f"- Total records: **{total_records:,}**\n")
         fmd.write(f"- Minimum 5-set (1-indexed): "
                   f"{_KEYSTONE_BDRYS_1IDX}\n")
@@ -19029,16 +19029,28 @@ def _pidx_scan(records, path="<records>", first=0, token=None):
     stderr, then exit 1. It never clamps or skips a record. Scanning every byte rather than just the
     bytes a reader decodes is deliberate: a record with any bad byte is not a valid record."""
     import numpy as np
-    if isinstance(records, (bytes, bytearray)):
-        if records.isascii():                  # every byte < 0x80 <=> every pair index < 32
-            return records
-        flat = np.frombuffer(bytes(records), dtype=np.uint8)
-    else:
-        flat = np.asarray(records).reshape(-1)
-        if flat.size == 0 or int(flat.max()) < 0x80:
-            return records
-    k = int(np.flatnonzero(flat >= 0x80)[0])
+    # Q-850 (2026-09-26): the scan also refuses reserved bit 0 (mask 0x81, not 0x80).
+    # SOLUTIONS_FORMAT.md makes a set bit 0 a MUST-reject, and `./solve --verify` (rc 30),
+    # `--validate` and verify.py all refuse it; these readers masked it away and decoded the
+    # record. The first record holding either defect is reported. Within it, bit 0 is checked
+    # across the whole record first, as `--verify` does, and the text is `--verify`'s.
+    flat = np.frombuffer(bytes(records), dtype=np.uint8) if isinstance(
+        records, (bytes, bytearray)) else np.asarray(records).reshape(-1)
+    hit = np.flatnonzero(flat & 0x81) if flat.size else flat[:0]
+    if hit.size == 0:
+        return records
+    r = int(hit[0]) // 32
+    rec = flat[r * 32:(r + 1) * 32]
+    b0 = np.flatnonzero(rec & 0x01)
+    k = r * 32 + int(b0[0] if b0.size else np.flatnonzero(rec >= 0x80)[0])
     v = int(flat[k])
+    if b0.size:
+        exc = ReservedBitSet(
+            "RESERVED_BIT_SET: %s record %d byte %d = 0x%02X has reserved bit 0 set; MUST be "
+            "zero per SOLUTIONS_FORMAT.md" % (path, first + r, k % 32, v))
+        if token is None:
+            raise exc
+        _pidx_refuse(exc, token)
     exc = PairIndexOutOfRange(
         "PAIR_INDEX_OUT_OF_RANGE: %s record %d byte %d = 0x%02X decodes pair index %d, outside "
         "the 32-entry pair table (SOLUTIONS_FORMAT.md: byte = (pair_index<<2)|(orient<<1)); "
@@ -19060,8 +19072,58 @@ def _pidx_guard(results, token):
     becomes `_pidx_refuse(exc, token)` in the parent."""
     try:
         yield from results
-    except PairIndexOutOfRange as exc:
+    except (PairIndexOutOfRange, ReservedBitSet) as exc:
         _pidx_refuse(exc, token)
+
+
+class ReservedBitSet(ValueError):
+    """Q-850 (2026-09-26): a solutions.bin record byte with reserved bit 0 set.
+
+    SOLUTIONS_FORMAT.md: "bit 0: reserved -- MUST be zero; reject a record with it set." `./solve
+    --verify` refuses it (rc 30, `ERROR: record R byte B = 0xVV has reserved bit 0 set; MUST be zero
+    per SOLUTIONS_FORMAT.md`), and so do `--validate` and verify.py. `_pidx_scan` raises this with
+    the same text, prefixed `RESERVED_BIT_SET: PATH`. A ValueError, like PairIndexOutOfRange, so
+    `--branch-yield-report` carries it into its own refusal line."""
+
+
+def _p2_cs_clean_on_fail(impl, solutions_bin, out_dir, *args, **kwargs):
+    """Q-850 (2026-09-26): run `_p2_compute_stats_impl`; if it does not return 0, remove the
+    chunk files THIS run wrote to OUT_DIR, then pass the result or exception on unchanged.
+
+    A refused run (PAIR_INDEX_OUT_OF_RANGE, RESERVED_BIT_SET, a torn body, a worker error, ^C)
+    used to leave the chunks that finished before the refusal. The twelve downstream
+    `glob(chunk_*.parquet)` readers take whatever is there as one population and none of them
+    reads a marker file, so a marker would not have protected them; removing the chunks returns
+    OUT_DIR to the state it was in before the run. Only names of the form `chunk_NNNNN.parquet`
+    that were absent when the run started are removed, and `p2_compute_stats` has already refused
+    an OUT_DIR holding any `chunk_*.parquet`. Every other file, and OUT_DIR itself, is left."""
+    import glob
+    import os
+    import re
+    pat = re.compile(r"chunk_\d{5,}\.parquet\Z")
+
+    def _chunks():
+        return {p for p in glob.glob(os.path.join(glob.escape(out_dir), "chunk_*.parquet"))
+                if pat.match(os.path.basename(p))}
+    before = _chunks()
+    rc = 1
+    try:
+        rc = impl(solutions_bin, out_dir, *args, **kwargs)
+        return rc
+    finally:
+        if rc != 0:
+            removed = 0
+            for p in sorted(_chunks() - before):
+                try:
+                    os.remove(p)
+                    removed += 1
+                except OSError as e:
+                    print(f"[compute-stats] could not remove partial chunk {p}: "
+                          f"{e.strerror or e}", flush=True)
+            if removed:
+                print(f"[compute-stats] failed run: removed the {removed} chunk_*.parquet "
+                      f"it wrote to {out_dir}; files that were already there are untouched",
+                      flush=True)
 
 
 if __name__ == "__main__":

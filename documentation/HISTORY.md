@@ -9831,3 +9831,15 @@ The selftest still reproduces `403f7202`, and no canonical sha, count or reprodu
 - `scripts/perf_bench.sh` ran its PGO training workload in the VM's login directory, so a second bench on one host resumed the first bench's checkpoint. Every workload and bench run now gets a fresh directory. No timed figure in PERFORMANCE_HISTORY.md was a resume (CX-185).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-26 (late night) — batch 20: one build.sha reader, reserved bits refused everywhere, and the last silent arguments
+
+**Batch 20 (CX-186..CX-190) cleared the same review and is the commit that carries this addition.** It finishes the sweeps the previous three batches started:
+
+- `build.sha` has one reader. A 65-character file had been cut to 64 and read as a match, `--sub-branch` silently overwrote a malformed file, and an uppercase copy of the binary's own digest was refused as a mismatch. A value is now VALID (64 lowercase hex digits, as `sha256sum` writes it), ABSENT, or MALFORMED; enumeration, `--branch` and `--sub-branch` refuse a malformed file with exit 26 and leave it untouched, and `--merge` reports `MERGE_BUILD_SHA=MALFORMED` and proceeds (CX-186);
+- fourteen more modes, among them the `--selftest` family and the `--*-verify` checks, refuse arguments they do not read, and `--verify`/`--validate` no longer open an unknown `--flag` as a file. Every caller was listed first; all call these modes bare (CX-187);
+- the `solve.py` readers name a gzipped input as the user gave it rather than its temporary copy, a failed `--compute-stats` removes only the chunk files it wrote, and a record byte with reserved bit 0 set is refused, as SOLUTIONS_FORMAT.md requires (CX-188);
+- the `solve.c` analysis readers (`--c3-min`, `--analyze`, `--c3-dist`, `--verify-rule2`, `--verify-9th-six`, `--verify-wrap-parity`) refuse that bit too, as `--verify` already did; on valid input their output is byte-identical (CX-189);
+- `scripts/selftest_resume_167_gate.sh` refuses a non-empty working directory instead of rerunning into an earlier run's checkpoints, which had let it print PASS from the earlier run's numbers, and `scripts/perf_bench.sh` keeps its source copies and results in fresh directories (CX-190).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.

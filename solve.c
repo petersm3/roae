@@ -2419,14 +2419,14 @@ static int compute_host_fingerprint(char out_hex[65]) {
 }
 
 /* Read build.sha (written by check_build_sha_invariant at startup) into out_hex.
- * Returns 0 on success, -1 if file missing/unreadable. */
+ * Returns 0 only when build.sha is VALID (Q-848: exactly 64 lowercase hex; see build_sha_read), else -1 and out_hex "". */
+enum { BUILD_SHA_ABSENT = 0, BUILD_SHA_VALID = 1, BUILD_SHA_MALFORMED = 2 }; static int build_sha_read(char out_hex[65]); static int build_sha_malformed_refused(void);  /* Q-848; defined after merge_build_sha_report */
 static int read_build_sha_for_provenance(char out_hex[65]) {
-    out_hex[0] = '\0';
-    FILE *f = fopen("build.sha", "r");
-    if (!f) return -1;
-    if (fscanf(f, "%64s", out_hex) != 1) { fclose(f); return -1; }
-    fclose(f);
-    return (strlen(out_hex) == 64) ? 0 : -1;
+    /* Q-848 (2026-09-26): this used to take an fscanf %64s token, so a longer token was cut to its
+     * first 64 characters and compared, while the guard read %79s; neither checked for hex. Both
+     * now go through build_sha_read(), the one reader. */
+    return (build_sha_read(out_hex) == BUILD_SHA_VALID) ? 0 : -1;
+    /* (a MALFORMED build.sha is not a value: --merge reports it as MERGE_BUILD_SHA=MALFORMED) */
 } static const char *merge_self_exe_sha256(void); static const char *run_binary_sha256(void); static void merge_build_sha_report(void);  /* Q-840; defined at end of file */
 
 /* JSON string escaping for fprintf — handles backslash, quote, control chars.
@@ -4539,13 +4539,13 @@ static int check_build_sha_invariant(void) {
                 (int)strlen(current_sha));
         return 0;
     }
-    /* Read existing build.sha if present. */
-    FILE *fr = fopen("build.sha", "r");
-    if (fr) {
-        char prior_sha[80] = {0};
-        int rn = fscanf(fr, "%79s", prior_sha);
-        fclose(fr); if (rn == 1 && build_sha_is_legacy_tool_digest(tool, prior_sha, current_sha)) rn = 0;  /* Q-619 #4 */
-        if (rn == 1 && strlen(prior_sha) == 64) {
+    /* Read existing build.sha if present. Q-848 (2026-09-26): through the one reader; a MALFORMED file is refused (exit 26), not overwritten. */
+    char prior_sha[80] = {0}; int prior_st = build_sha_read(prior_sha);
+    if (prior_st == BUILD_SHA_MALFORMED) { if (build_sha_malformed_refused()) return -1; } else if (prior_st == BUILD_SHA_VALID) {
+        int rn = 1;  /* VALID: exactly 64 lowercase hex, so the comparison below always runs unless the value is a legacy tool digest */
+        /* (ABSENT -- no file, or an empty one -- falls through to the first-run write, as before) */
+        if (build_sha_is_legacy_tool_digest(tool, prior_sha, current_sha)) rn = 0;  /* Q-619 #4 */
+        if (rn == 1) {
             if (strcmp(prior_sha, current_sha) != 0) {
                 if (getenv("SOLVE_ALLOW_BUILD_MISMATCH") && atoi(getenv("SOLVE_ALLOW_BUILD_MISMATCH")) == 1) {
                     fprintf(stderr, "[hardening] WARN: build.sha mismatch (prior=%s, current=%s); "
@@ -4568,7 +4568,7 @@ static int check_build_sha_invariant(void) {
             }
         }
     }
-    /* First run (or unreadable prior) — write current sha atomically. */
+    /* First run (ABSENT), a legacy tool digest, or an override (mismatch or MALFORMED) — write current sha atomically. */
     FILE *fw = fopen("build.sha.tmp", "w");
     if (!fw) {
         fprintf(stderr, "[hardening] WARN: cannot write build.sha.tmp: %s; Outlier #4 unguarded\n", strerror(errno));
@@ -40222,7 +40222,7 @@ int main(int argc, char *argv[]) {
         validate_mode = 1;
         validate_file = "solutions.bin";
         for (int ai = 2, nfile = 0; ai < argc; ai++) {
-            if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1;
+            if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1; else if (argv[ai][0] == '-') { fprintf(stderr, "ERROR: --validate does not accept '%s': its only option is --expect-kw (name a file that begins with '-' as ./%s).\n       An unknown option here was previously taken as the file name.\nVALIDATE_ARGS=REFUSED\n", argv[ai], argv[ai]); return 2; } /* Q-849 */
             else if (nfile++) { fprintf(stderr, "ERROR: --validate checks ONE file; got a second ('%s') after '%s'.\n       Before 2026-09-26 the last file named was checked and the others were silently skipped.\nVALIDATE_ARGS=REFUSED\n", argv[ai], validate_file); return 2; } else validate_file = argv[ai]; /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         }
         arg_offset = argc;
@@ -40290,7 +40290,7 @@ int main(int argc, char *argv[]) {
         verify_mode = 1;
         verify_file = "solutions.bin";
         for (int ai = 2, nfile = 0; ai < argc; ai++) {
-            if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1;
+            if (strcmp(argv[ai], "--expect-kw") == 0) g_expect_kw = 1; else if (argv[ai][0] == '-') { fprintf(stderr, "ERROR: --verify does not accept '%s': its only option is --expect-kw (name a file that begins with '-' as ./%s).\n       An unknown option here was previously taken as the file name.\nVERIFY_ARGS=REFUSED\n", argv[ai], argv[ai]); return 2; } /* Q-849 */
             else if (nfile++) { fprintf(stderr, "ERROR: --verify checks ONE file; got a second ('%s') after '%s'.\n       Before 2026-09-26 the last file named was verified and the others were silently skipped.\nVERIFY_ARGS=REFUSED\n", argv[ai], verify_file); return 2; } else verify_file = argv[ai]; /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         }
         arg_offset = argc;
@@ -40329,7 +40329,7 @@ int main(int argc, char *argv[]) {
          * content — 135,780 canonical pair orderings — is unchanged; only the
          * file bytes differ because the 32-byte header is now prepended.)
          */
-        const char *expected_sha = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e";
+        if (argc > 2) { fprintf(stderr, "ERROR: --selftest takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nSELFTEST_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } const char *expected_sha = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e"; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         char solve_path[4096];
         if (readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1) <= 0) {
             fprintf(stderr, "ERROR: cannot resolve self path for --selftest\n");
@@ -40773,7 +40773,7 @@ int main(int argc, char *argv[]) {
          * hook alongside --selftest to catch resume regressions at
          * commit time. The load-bearing CI gate per
          * `feedback_checkpoint_format_merge_gate`. */
-        char solve_path[4096] = {0};
+        if (argc > 2) { fprintf(stderr, "ERROR: --selftest-resume takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nSELFTEST_RESUME_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } char solve_path[4096] = {0}; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
         if (sn <= 0) {
             fprintf(stderr, "ERROR: readlink failed for --selftest-resume\n");
@@ -40934,7 +40934,7 @@ int main(int argc, char *argv[]) {
          * (CANONICAL_HASHES.md "100B and sub-canonical"), so shas compare
          * WITHIN one engine build only — leg A vs leg B of the SAME binary.
          * Cross-build sha equality is neither expected nor checked here. */
-        char solve_path[4096] = {0};
+        if (argc > 2) { fprintf(stderr, "ERROR: --selftest-resume-d3 takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nSELFTEST_RESUME_D3_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } char solve_path[4096] = {0}; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
         if (sn <= 0) {
             fprintf(stderr, "ERROR: readlink failed for --selftest-resume-d3\n");
@@ -41931,7 +41931,7 @@ int main(int argc, char *argv[]) {
          * expected values (ground truth solve.py f4p_verify; output format
          * matches solve.py --f4p-verify line-for-line). Exit 0 iff all match.
          * Sha-neutral (argv-dispatched, never on the enum path). */
-        f4p_pal_init();
+        if (argc > 2) { fprintf(stderr, "ERROR: --f4p-verify takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nF4P_VERIFY_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } f4p_pal_init(); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         int v[13], failures = 0;
         f4p_compute(KW, v);
         for (int k = 0; k < 13; k++){
@@ -41951,7 +41951,7 @@ int main(int argc, char *argv[]) {
          * expected values (ground truth solve.py dav_verify; output format
          * matches solve.py --dav-verify byte-for-byte). Exit 0 iff all match.
          * Sha-neutral (argv-dispatched, never on the enum path). */
-        int v[9], failures = 0;
+        if (argc > 2) { fprintf(stderr, "ERROR: --dav-verify takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nDAV_VERIFY_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } int v[9], failures = 0; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         dav_compute(KW, v);
         for (int k = 0; k < 9; k++){
             if (v[k] == dav_kw[k])
@@ -41971,7 +41971,7 @@ int main(int argc, char *argv[]) {
          * matches solve.py --dav2-verify byte-for-byte). Exit 0 iff all match.
          * Sha-neutral (argv-dispatched, never on the enum path). C-D5
          * (namedsize) is operator-declined and not part of this bank. */
-        int v[2], failures = 0;
+        if (argc > 2) { fprintf(stderr, "ERROR: --dav2-verify takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nDAV2_VERIFY_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } int v[2], failures = 0; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         dav2_compute(KW, v);
         for (int k = 0; k < 2; k++){
             if (v[k] == dav2_kw[k])
@@ -41989,7 +41989,7 @@ int main(int argc, char *argv[]) {
          * bit-structural classifier reproduces Table 4.1 (all 64 hexagrams) and
          * the KW conformity count X=22. Output format matches solve.py db1_verify
          * byte-for-byte. Sha-neutral (argv-dispatched, never on the enum path). */
-        int failures = 0;
+        if (argc > 2) { fprintf(stderr, "ERROR: --db1-verify takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nDB1_VERIFY_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } int failures = 0; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
 
         /* (1) classifier == Drasny Table 4.1 (both members of every KW pair) */
         int bad = 0;
@@ -42065,7 +42065,7 @@ int main(int argc, char *argv[]) {
          * binary_hexagrams; #11 == solve.py vdb_nucorient / --vdb-verify,
          * KW=29). Exit 0 iff all 11 match. Sha-neutral (argv-dispatched,
          * never on the enum path). */
-        int v[11], failures = 0;
+        if (argc > 2) { fprintf(stderr, "ERROR: --f5-verify takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nF5_VERIFY_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } int v[11], failures = 0; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         f5_compute(KW, v);
         for (int k = 0; k < 11; k++){
             if (v[k] == f5_kw[k])
@@ -42084,7 +42084,7 @@ int main(int argc, char *argv[]) {
          * Wen sequence and check against the embedded frozen-spec KW values
          * (ground truth: solve.py f6_* / --f6-verify). Exit 0 iff all 7
          * match. Sha-neutral (argv-dispatched, never on the enum path). */
-        f4p_pal_init();
+        if (argc > 2) { fprintf(stderr, "ERROR: --f6-verify takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nF6_VERIFY_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } f4p_pal_init(); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         int v[7], failures = 0;
         f6_compute(KW, v);
         for (int k = 0; k < 7; k++){
@@ -42239,7 +42239,7 @@ int main(int argc, char *argv[]) {
          * REAL f1_dec(). The battery and the expectations live in the checker, so
          * this code cannot pass by containing the answer. Sha-neutral (argv-
          * dispatched, never on the enum path). */
-        char line[256];
+        if (argc > 2) { fprintf(stderr, "ERROR: --f1-dec-selftest takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nF1_DEC_SELFTEST_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } char line[256]; /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         while (fgets(line, sizeof line, stdin)) {
             unsigned long long a, b, c;
             if (sscanf(line, "%llu %llu %llu", &a, &b, &c) != 3) continue;
@@ -42251,7 +42251,7 @@ int main(int argc, char *argv[]) {
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
         /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */
-        return f1c5_gzip_selftest();
+        if (argc > 2) { fprintf(stderr, "ERROR: --f1c5-gzip-selftest takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nF1C5_GZIP_SELFTEST_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } return f1c5_gzip_selftest(); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-verify-layer") == 0) {
         /* retool: byte-identical content check of a v1 raw vs v2 gzip layer file. */
         if (argc < 4) { fprintf(stderr, "usage: --f1c5-verify-layer <v1_raw> <v2_gzip>\n"); return 2; }
@@ -42435,7 +42435,7 @@ int main(int argc, char *argv[]) {
          * argv-dispatched, independent reimplementation of the checks). */
         return kc_check_arrangement_main(argc, argv);
     } else if (argc > 1 && strcmp(argv[1], "--check-arrangement-selftest") == 0) {
-        return kc_check_arrangement_selftest();
+        if (argc > 2) { fprintf(stderr, "ERROR: --check-arrangement-selftest takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nCHECK_ARRANGEMENT_SELFTEST_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } return kc_check_arrangement_selftest(); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
     } else if (argc > 1 && strcmp(argv[1], "--verify-certificate") == 0) {
         /* H6: one-command certificate re-verifier + mutation battery
          * (KC-H module header; sha-neutral, argv-dispatched). */
@@ -42533,7 +42533,7 @@ int main(int argc, char *argv[]) {
          * reverse-engineered. Complements the #110 host-fingerprint sidecar
          * (host env) and --cpu-features (ISA). Sha-neutral (argv-dispatched,
          * never on the enum path; prints only). Exits 0. */
-        printf("=== solve --print-config ===\n");
+        if (argc > 2) { fprintf(stderr, "ERROR: --print-config takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nPRINT_CONFIG_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } printf("=== solve --print-config ===\n"); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         printf("build:\n");
         printf("  git_hash       : %s\n", GIT_HASH);
         printf("  build_source_sha : %s\n", SOURCE_SHA);
@@ -42707,7 +42707,7 @@ int main(int argc, char *argv[]) {
          * the operator can confirm what features the running binary
          * detects on the current host. Used by bench fingerprint capture
          * and pre-flight checks before AVX-512 benchmarking. */
-        printf("[--cpu-features] CPU feature detection via __builtin_cpu_supports\n");
+        if (argc > 2) { fprintf(stderr, "ERROR: --cpu-features takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nCPU_FEATURES_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } printf("[--cpu-features] CPU feature detection via __builtin_cpu_supports\n"); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
         printf("  avx2             : %s\n", __builtin_cpu_supports("avx2") ? "yes" : "no");
         printf("  avx512f          : %s\n", __builtin_cpu_supports("avx512f") ? "yes" : "no");
         printf("  avx512bw         : %s\n", __builtin_cpu_supports("avx512bw") ? "yes" : "no");
@@ -50800,7 +50800,7 @@ FILE *q623_ckpt_open(const char *ckpt_path) {
 
 /* 🔴 Q-520 — pair-index bounds for every reader of the 32-byte solution record that did not
  * already check it. A record byte is (pair_index<<2)|(orient<<1), so byte>>2 is SIX bits, 0..63,
- * and it indexes the 32-entry pairs[] table: any byte with bit 7 set reads past the end of it.
+ * and it indexes the 32-entry pairs[] table: any byte with bit 7 set reads past the end of it. Q-853 (2026-09-26): bit 0 is RESERVED (SOLUTIONS_FORMAT.md: MUST be zero; reject a record with it set) -- the scan refuses it too, with --verify's text, checked across a record BEFORE its pair indices, as --verify does.
  * The file had ALREADY decided what to do with such a byte -- --verify, --validate, --show and
  * the kc-oracle decoder all refuse it -- and five readers did not follow that decision:
  * --c3-min, --verify-rule2, --verify-9th-six, --verify-wrap-parity, and the --analyze/--c3-dist
@@ -50814,17 +50814,17 @@ static int sol_pidx_scan(const unsigned char *buf, long long n, long long first,
                          const char *path, const char *token) {
     const size_t len = (size_t)n * SOL_RECORD_SIZE;
     size_t k = 0;
-    for (; k + 8 <= len; k += 8) {   /* 8 bytes per test: pidx >= 32 <=> bit 7 set */
+    for (; k + 8 <= len; k += 8) {   /* 8 bytes per test: pidx >= 32 <=> bit 7 set; reserved bit 0 (Q-853) */
         uint64_t w; memcpy(&w, buf + k, 8);
-        if (w & 0x8080808080808080ULL) break;
+        if (w & 0x8181818181818181ULL) break;
     }
-    for (; k < len; k++) {
-        if ((buf[k] >> 2) < 32) continue;
-        if (token) printf("%s=ERROR\n", token);
+    for (k -= k % SOL_RECORD_SIZE; k < len; k += SOL_RECORD_SIZE) {   /* from the first record with a hit */
+        int j = 0, b0 = 0; while (j < SOL_RECORD_SIZE && !(buf[k + j] & 0x01)) j++; if (j < SOL_RECORD_SIZE) b0 = 1; else { for (j = 0; j < SOL_RECORD_SIZE && (buf[k + j] >> 2) < 32; j++) ; if (j == SOL_RECORD_SIZE) continue; }
+        if (token) printf("%s=ERROR\n", token); if (b0) fprintf(stderr, "ERROR: RESERVED_BIT_SET: %s record %lld byte %d = 0x%02X has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md; refusing to decode\n", path, first + (long long)(k / SOL_RECORD_SIZE), j, buf[k + j]); else
         fprintf(stderr, "ERROR: PAIR_INDEX_OUT_OF_RANGE: %s record %lld byte %d = 0x%02X decodes "
                 "pair index %d, outside the 32-entry pair table (SOLUTIONS_FORMAT.md: byte = "
                 "(pair_index<<2)|(orient<<1)); refusing to decode\n", path,
-                first + (long long)(k / SOL_RECORD_SIZE), (int)(k % SOL_RECORD_SIZE), buf[k], buf[k] >> 2);
+                first + (long long)(k / SOL_RECORD_SIZE), j, buf[k + j], buf[k + j] >> 2);
         return 1;
     }
     return 0;
@@ -51065,6 +51065,7 @@ static const char *run_binary_sha256(void) {
     return run_binary_sha256_val;
 }
 
+static char build_sha_malformed_desc[320];  /* Q-848: why build_sha_read() last said MALFORMED */
 /* Q-840 (2026-09-26): what --merge does when the merge directory's build.sha disagrees with the
  * merging binary. It WARNS and proceeds; it never refuses and never writes build.sha. The enum
  * path refuses (exit 26) because a resume that mixes binaries can write shards from two prune
@@ -51077,17 +51078,26 @@ static const char *run_binary_sha256(void) {
  * Verdict line on stderr, exactly one of:
  *   MERGE_BUILD_SHA=MATCH     build.sha equals this binary's digest
  *   MERGE_BUILD_SHA=MISMATCH  it differs (a WARN follows naming both)
- *   MERGE_BUILD_SHA=ABSENT    no well-formed build.sha in the directory
+ *   MERGE_BUILD_SHA=ABSENT    no build.sha in the directory, or an empty one (Q-848: before
+ *                             2026-09-26 also any token under 64 characters)
+ *   MERGE_BUILD_SHA=MALFORMED build.sha is present but not exactly 64 lowercase hex (Q-848; a WARN
+ *                             follows naming what is there). The merge still proceeds.
  *   MERGE_BUILD_SHA=UNKNOWN   this binary's digest is unavailable (no sha256 tool)
  * Both values are also recorded in solutions.provenance.json (merge_binary_sha256,
- * merge_dir_build_sha256). */
+ * merge_dir_build_sha256; "" when build.sha is ABSENT or MALFORMED). */
 static void merge_build_sha_report(void) {
     char dir_sha[80] = {0};
-    int have_dir = (read_build_sha_for_provenance(dir_sha) == 0);
+    int dir_st = build_sha_read(dir_sha);
     const char *self = run_binary_sha256();
     if (!self[0]) {
         fprintf(stderr, "MERGE_BUILD_SHA=UNKNOWN\n");
-    } else if (!have_dir) {
+    } else if (dir_st == BUILD_SHA_MALFORMED) {
+        fprintf(stderr, "MERGE_BUILD_SHA=MALFORMED\n"
+                        "[merge] WARN: build.sha here is malformed (%s),\n"
+                        "              so it names no build and is not compared. Proceeding: a merge is attested\n"
+                        "              by the solutions.bin sha. build.sha is left untouched; an enumeration resume\n"
+                        "              in this directory will refuse it (exit 26).\n", build_sha_malformed_desc);
+    } else if (dir_st != BUILD_SHA_VALID) {
         fprintf(stderr, "MERGE_BUILD_SHA=ABSENT\n");
     } else if (strcmp(dir_sha, self) == 0) {
         fprintf(stderr, "MERGE_BUILD_SHA=MATCH\n");
@@ -51101,6 +51111,127 @@ static void merge_build_sha_report(void) {
                         "              (A build.sha written before 2026-09-26 holds the host's sha256sum digest.)\n",
                 dir_sha, self);
     }
+}
+
+/* Q-848 (2026-09-26): the one build.sha reader, used by the startup guard (check_build_sha_invariant:
+ * the full enumeration, --branch, --sub-branch), by --merge's MERGE_BUILD_SHA line and by
+ * merge_dir_build_sha256. Before this, the provenance reader took an fscanf %64s token (a longer
+ * token was cut to 64 characters and compared) and the guard took %79s and accepted exactly 64
+ * characters; neither checked for hex, and the guard overwrote anything it could not parse as if
+ * it were a first run, destroying the evidence of an abnormal directory. Verdicts:
+ *   BUILD_SHA_ABSENT     no build.sha (ENOENT), or a file with no non-whitespace byte. It records
+ *                        no build, so writing one destroys nothing.
+ *   BUILD_SHA_VALID      exactly 64 lowercase hex digits at the start of the file, then end of
+ *                        file, or a newline (optionally CRLF) and end of file, or a space or tab
+ *                        and the rest of that one line (sha256sum's "  name" field). This covers
+ *                        what the guard writes ("<hex>\n") and what `sha256sum FILE > build.sha`,
+ *                        `sha256sum < FILE` and `printf %s` write. out_hex gets the digest.
+ *   BUILD_SHA_MALFORMED  anything else: a token shorter or longer than 64, a non-hex or uppercase
+ *                        character, leading whitespace, a second line, more than 4096 bytes, or a
+ *                        file that cannot be opened or read (other than ENOENT). Uppercase is
+ *                        refused because no writer produces it and a hand-edited value is exactly
+ *                        what the guard must not trust silently. build_sha_malformed_desc says why.
+ * The legacy sha256sum-digest recognition (Q-619 #4, build_sha_is_legacy_tool_digest) runs on a
+ * VALID value only; every legacy value is 64 lowercase hex, so it is unaffected. */
+static void build_sha_escape(char *dst, size_t dsz, const unsigned char *src, size_t n) {
+    size_t o = 0;
+    for (size_t i = 0; i < n && o + 5 < dsz; i++) {
+        unsigned char c = src[i];
+        if (c >= 0x20 && c < 0x7f && c != '"' && c != '\\') dst[o++] = (char)c;
+        else o += (size_t)snprintf(dst + o, dsz - o, "\\x%02x", c);
+    }
+    dst[o < dsz ? o : dsz - 1] = '\0';
+}
+static int build_sha_read(char out_hex[65]) {
+    out_hex[0] = '\0';
+    build_sha_malformed_desc[0] = '\0';
+    FILE *f = fopen("build.sha", "r");
+    if (!f) {
+        if (errno == ENOENT) return BUILD_SHA_ABSENT;
+        snprintf(build_sha_malformed_desc, sizeof(build_sha_malformed_desc),
+                 "it cannot be opened: %s", strerror(errno));
+        return BUILD_SHA_MALFORMED;
+    }
+    static unsigned char buf[4097];
+    size_t n = fread(buf, 1, sizeof(buf), f);
+    int rerr = ferror(f), rerrno = errno;
+    fclose(f);
+    if (rerr) {
+        snprintf(build_sha_malformed_desc, sizeof(build_sha_malformed_desc),
+                 "it cannot be read: %s", strerror(rerrno));
+        return BUILD_SHA_MALFORMED;
+    }
+    size_t nonws = 0;
+    for (size_t i = 0; i < n; i++)
+        if (buf[i] != ' ' && buf[i] != '\t' && buf[i] != '\n' && buf[i] != '\r' && buf[i] != '\v' && buf[i] != '\f') nonws++;
+    if (nonws == 0 && n < sizeof(buf)) return BUILD_SHA_ABSENT;
+    char shown[200];
+    build_sha_escape(shown, sizeof(shown), buf, n < 48 ? n : 48);
+    const char *more = n > 48 ? "..." : "";
+    if (n == sizeof(buf)) {
+        snprintf(build_sha_malformed_desc, sizeof(build_sha_malformed_desc),
+                 "it is longer than %zu bytes; it starts \"%s%s\"", sizeof(buf) - 1, shown, more);
+        return BUILD_SHA_MALFORMED;
+    }
+    size_t h = 0;
+    while (h < n && h < 64 && ((buf[h] >= '0' && buf[h] <= '9') || (buf[h] >= 'a' && buf[h] <= 'f'))) h++;
+    char reason[160];
+    reason[0] = '\0';
+    size_t j = 64;                                   /* end of the digest's line */
+    if (h < 64 && h == n) {
+        snprintf(reason, sizeof(reason), "it ends after %zu lowercase hex digits; exactly 64 are required", h);
+    } else if (h < 64) {
+        snprintf(reason, sizeof(reason), "it has %zu lowercase hex digits and then a byte that is not one; "
+                                         "exactly 64 are required", h);
+    } else if (n > 64 && (buf[64] == ' ' || buf[64] == '\t')) {
+        j = 65;                                      /* sha256sum's "  name" field: the rest of the line */
+        while (j < n && buf[j] != '\n') j++;
+        if (j < n) j++;
+    } else if (n > 64 && buf[64] == '\n') {
+        j = 65;
+    } else if (n > 65 && buf[64] == '\r' && buf[65] == '\n') {
+        j = 66;
+    } else if (n > 64) {
+        snprintf(reason, sizeof(reason), "its first 64 bytes are lowercase hex but byte 65 is not a space, "
+                                         "tab, LF or CRLF (a longer token, or a stray byte)");
+    }
+    if (!reason[0] && j < n)
+        snprintf(reason, sizeof(reason), "it has content after the digest's line");
+    if (reason[0]) {
+        snprintf(build_sha_malformed_desc, sizeof(build_sha_malformed_desc),
+                 "%s; it holds %zu bytes starting \"%s%s\"", reason, n, shown, more);
+        return BUILD_SHA_MALFORMED;
+    }
+    memcpy(out_hex, buf, 64);
+    out_hex[64] = '\0';
+    return BUILD_SHA_VALID;
+}
+
+/* Q-848 (2026-09-26): what the startup guard does with a MALFORMED build.sha. It REFUSES (exit 26)
+ * and leaves the file untouched. It used to fall through to the first-run write and replace the
+ * file with this binary's digest, which reported "build.sha CREATED" in exactly the abnormal
+ * directory the guard exists for (a full disk, a hand edit, an interrupted copy or recovery) and
+ * destroyed the evidence. A malformed value names no build, so the guard cannot tell a resume by
+ * the same binary from one by another; refusing is the reading that cannot pass a mismatch
+ * silently, and every recovery is one command. SOLVE_ALLOW_BUILD_MISMATCH=1 overrides it as it
+ * overrides a well-formed foreign digest (the stronger evidence of a different binary), with a
+ * WARN, and the file is then rewritten. Returns 1 to refuse, 0 to proceed and rewrite. */
+static int build_sha_malformed_refused(void) {
+    if (getenv("SOLVE_ALLOW_BUILD_MISMATCH") && atoi(getenv("SOLVE_ALLOW_BUILD_MISMATCH")) == 1) {
+        fprintf(stderr, "[hardening] WARN: build.sha is malformed (%s); proceeding because\n"
+                        "           SOLVE_ALLOW_BUILD_MISMATCH=1 and overwriting it with this binary's sha.\n"
+                        "           Outlier #4 risk acknowledged.\n", build_sha_malformed_desc);
+        return 0;
+    }
+    fprintf(stderr, "ERROR: build.sha is malformed (Outlier #4, Q-848): %s.\n"
+                    "       A build.sha holds exactly 64 lowercase hex digits (the sha256 of the binary that\n"
+                    "       first ran here), so this one names no build and cannot be compared. It is left\n"
+                    "       untouched. Inspect it first: a full disk, a hand edit or an interrupted copy.\n"
+                    "       Recovery: restore build.sha from the run's archive, OR rm build.sha if you know\n"
+                    "       which binary wrote this directory (the provenance sidecars' git_hash names it),\n"
+                    "       OR SOLVE_ALLOW_BUILD_MISMATCH=1 to overwrite it and accept the lineage-mix risk.\n",
+            build_sha_malformed_desc);
+    return 1;
 }
 
 /* 2026-09-26 (CX-165 follow-up). append_shard_provenance runs only in the per-sub-branch flush
