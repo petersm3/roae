@@ -14280,5 +14280,304 @@ class TestW0DCertLoaderHardeningQ841(unittest.TestCase):
                     self.assertNotIn("nodes (= t-units", md)
 
 
+class TestQ839SiblingArgRefusal(unittest.TestCase):
+    """Lane FA: Q-839 (sibling sweep of the `arg_offset = argc` dispatch pattern).
+
+    Q-839 made --list-branches refuse extra arguments, as --merge already did. Seven sibling
+    subcommands had the same defect and consumed and silently ignored arguments:
+    --prove-cascade, --prove-self-comp and --prove-shift (which take none), --merge-layers
+    (exactly one: the layer root), --analyze and --c3-dist (at most one: the solutions file),
+    and --show, which dropped any argument it did not recognise, so `--show FILE` showed the
+    CWD's solutions.bin. Each now exits 2 with a `<MODE>_ARGS=REFUSED` line. RED on the
+    pre-fix solve.c (via ROAE_TESTS_SOLVE_SRC): the prove modes run the proof (exit 0, or the
+    timeout), --merge-layers opens the root and fails for another reason (exit 1), --analyze
+    and --c3-dist analyse the file (exit 0), and --show reads the CWD's solutions.bin.
+    Positive controls: the accepted forms are NOT refused -- one solutions file for
+    --analyze/--c3-dist, one root for --merge-layers, a bare --prove-shift, and --show with
+    every flag it takes. ROAE_TESTS_SOLVE_SRC is never set by the harness."""
+
+    REFUSE = [("--prove-cascade", ["x"], "PROVE_CASCADE"),
+              ("--prove-self-comp", ["x"], "PROVE_SELF_COMP"),
+              ("--prove-shift", ["x"], "PROVE_SHIFT"),
+              ("--merge-layers", ["ROOT", "extra"], "MERGE_LAYERS"),
+              ("--analyze", ["KW", "extra"], "ANALYZE"),
+              ("--c3-dist", ["KW", "extra"], "C3_DIST"),
+              ("--show", ["KW"], "SHOW"),               # a file name, not --from FILE
+              ("--show", ["1", "--mode"], "SHOW")]      # a flag missing its value
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q839sib_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q839sib")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        kw = bytes(i << 2 for i in range(32))          # KW = pairs 0..31 in order, orient 0
+        hdr = b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16
+        cls.kw = os.path.join(cls.tmp, "kw.bin")
+        with open(cls.kw, "wb") as fh:
+            fh.write(hdr + kw)
+        cls.root = os.path.join(cls.tmp, "layers")      # empty layer root
+        os.makedirs(cls.root)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, argv):
+        argv = [{"KW": self.kw, "ROOT": self.root}.get(a, a) for a in argv]
+        d = tempfile.mkdtemp(dir=self.tmp)
+        return subprocess.run([self.sbin] + argv, cwd=d, capture_output=True, text=True,
+                              env=dict(os.environ, OMP_NUM_THREADS="2"), timeout=300)
+
+    def test_extra_arguments_are_refused(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode, extra, tok in self.REFUSE:
+            with self.subTest(argv=[mode] + extra):
+                r = self._run([mode] + extra)
+                self.assertEqual(r.returncode, 2, mode + ": " + r.stdout[-300:] + r.stderr[-300:])
+                self.assertIn(tok + "_ARGS=REFUSED", r.stderr.splitlines())
+                self.assertEqual(r.stdout, "", mode + " must refuse before doing any work")
+
+    def test_accepted_argument_counts_are_not_refused(self):
+        # Positive control: the refusal is scoped to EXTRA arguments.
+        self.assertTrue(self.build_ok, self.build_err)
+        for argv, want_rc in ((["--analyze", "KW"], 0), (["--c3-dist", "KW"], 0),
+                              (["--merge-layers", "ROOT"], 1), (["--prove-shift"], 0),
+                              (["--show", "1", "--mode", "last", "--format", "raw", "--from", "KW"], 0)):
+            with self.subTest(argv=argv):
+                r = self._run(argv)
+                out = r.stdout + r.stderr
+                self.assertNotIn("_ARGS=REFUSED", out)
+                self.assertEqual(r.returncode, want_rc, out[-500:])
+        # --merge-layers with one empty root reaches the layer scan (rc 1 for THAT reason).
+        r = self._run(["--merge-layers", "ROOT"])
+        self.assertIn("no layer subdirs found", r.stderr)
+
+# end class TestQ839SiblingArgRefusal (lane FA)
+
+
+class TestQ840MergeBuildShaVerdictAndWriterIdentity(unittest.TestCase):
+    """Lane FB: Q-840.
+
+    Q-840 follow-through (2026-09-26). (1) --merge compares the directory's build.sha with its
+    own digest and prints exactly one MERGE_BUILD_SHA=MATCH|MISMATCH|ABSENT|UNKNOWN line on
+    stderr; a mismatch WARNS and the merge proceeds with unchanged output bytes and build.sha
+    untouched (the enum path refuses; a merge writes no shard). (2) Siblings: the per-shard
+    sidecar's writes[].binary_sha256 and resume_contract.txt's build_sha= copied build.sha, which
+    --sub-branch and --branch never check or write, so a planted value was recorded verbatim; both
+    now carry the writing binary's own digest. ROAE_TESTS_SOLVE_SRC builds a different source
+    (used to show each test red on the pre-fix solve.c); nothing in the harness sets it."""
+
+    FOREIGN = "ab" * 32
+    ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30",
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+    SUB = ["--sub-branch", "1", "0", "2", "0", "3", "0", "0", "1"]
+    SHARD = "sub_1_0_2_0_3_0.bin"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q840fb_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q840fb")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.self_sha = ""
+        if cls.build_ok:
+            with open(cls.sbin, "rb") as fh:
+                cls.self_sha = hashlib.sha256(fh.read()).hexdigest()
+        # Fixture: one --sub-branch shard + sidecar, written in a dir holding a FOREIGN build.sha.
+        cls.fixture = os.path.join(cls.tmp, "fixture")
+        os.makedirs(cls.fixture)
+        with open(os.path.join(cls.fixture, "build.sha"), "w") as fh:
+            fh.write(cls.FOREIGN + "\n")
+        cls.fixture_ok, cls.fixture_err = False, "not built"
+        if cls.build_ok:
+            r = subprocess.run([cls.sbin] + cls.SUB, cwd=cls.fixture, env=cls._env(),
+                               capture_output=True, text=True, timeout=600)
+            cls.fixture_ok = (r.returncode == 0 and
+                              os.path.exists(os.path.join(cls.fixture, cls.SHARD)))
+            cls.fixture_err = f"--sub-branch rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        if getattr(cls, "tmp", None):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls, **extra):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.ENV)
+        env.update(extra)
+        return env
+
+    def _need(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        if not self.fixture_ok:
+            self.fail("fixture failed: " + self.fixture_err)
+        self.assertRegex(self.self_sha, r"^[0-9a-f]{64}$")
+        self.assertNotEqual(self.self_sha, self.FOREIGN)
+
+    def _merge(self, name, build_sha):
+        """Copy the shard + sidecar into a fresh dir, set build.sha (None = absent), --merge."""
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        for f in (self.SHARD, self.SHARD + ".provenance.json"):
+            shutil.copy2(os.path.join(self.fixture, f), d)
+        if build_sha is not None:
+            with open(os.path.join(d, "build.sha"), "w") as fh:
+                fh.write(build_sha + "\n")
+        r = subprocess.run([self.sbin, "--merge"], cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=600)
+        verdicts = [ln for ln in r.stderr.splitlines() if ln.startswith("MERGE_BUILD_SHA=")]
+        return d, r, verdicts
+
+    def _sha(self, path):
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+
+    def test_merge_verdict_line_and_mismatch_is_a_warning(self):
+        import json
+        self._need()
+        cases = {"mismatch": (self.FOREIGN, "MERGE_BUILD_SHA=MISMATCH"),
+                 "match": (self.self_sha, "MERGE_BUILD_SHA=MATCH"),
+                 "absent": (None, "MERGE_BUILD_SHA=ABSENT")}
+        out_sha = {}
+        for name, (planted, want) in sorted(cases.items()):
+            with self.subTest(case=name):
+                d, r, verdicts = self._merge("merge_" + name, planted)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                self.assertEqual(verdicts, [want], r.stderr[-2000:])
+                out_sha[name] = self._sha(os.path.join(d, "solutions.bin"))
+                bs = os.path.join(d, "build.sha")
+                if planted is None:
+                    self.assertFalse(os.path.exists(bs), "--merge wrote build.sha")
+                else:
+                    with open(bs) as fh:
+                        self.assertEqual(fh.read().strip(), planted, "--merge rewrote build.sha")
+                with open(os.path.join(d, "solutions.provenance.json")) as fh:
+                    mi = json.load(fh)["merge_invocation"]
+                self.assertEqual(mi["merge_binary_sha256"], self.self_sha)
+                self.assertEqual(mi["merge_dir_build_sha256"], planted or "")
+                if name == "mismatch":
+                    self.assertIn("[merge] WARN: build.sha here is " + self.FOREIGN, r.stderr)
+                    self.assertIn(self.self_sha, r.stderr)
+                else:
+                    self.assertNotIn("[merge] WARN: build.sha", r.stderr)
+        # The verdict never changes the merged bytes.
+        self.assertEqual(len(set(out_sha.values())), 1, out_sha)
+
+    def test_sub_branch_sidecar_names_the_writing_binary(self):
+        import json
+        self._need()
+        # Premise: --sub-branch never checks or writes build.sha, so the planted value survives.
+        with open(os.path.join(self.fixture, "build.sha")) as fh:
+            self.assertEqual(fh.read().strip(), self.FOREIGN)
+        with open(os.path.join(self.fixture, self.SHARD + ".provenance.json")) as fh:
+            writes = json.load(fh)["writes"]
+        self.assertTrue(writes)
+        self.assertEqual([w["binary_sha256"] for w in writes], [self.self_sha] * len(writes))
+
+    def test_branch_resume_contract_names_the_running_binary(self):
+        self._need()
+        d = os.path.join(self.tmp, "branch_rc")
+        os.makedirs(d)
+        with open(os.path.join(d, "build.sha"), "w") as fh:
+            fh.write(self.FOREIGN + "\n")
+        r = subprocess.run([self.sbin, "--branch", "1", "0"], cwd=d,
+                           env=self._env(SOLVE_DFS_CHECKPOINT="1"), capture_output=True,
+                           text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        with open(os.path.join(d, "resume_contract.txt")) as fh:
+            lines = [ln.strip() for ln in fh if ln.startswith("build_sha=")]
+        self.assertEqual(lines, ["build_sha=" + self.self_sha])
+        with open(os.path.join(d, "build.sha")) as fh:   # premise: --branch never rewrote it
+            self.assertEqual(fh.read().strip(), self.FOREIGN)
+# end class TestQ840MergeBuildShaVerdictAndWriterIdentity (lane FB)
+
+
+class TestQ843C3DistPairIndexBoundary(unittest.TestCase):
+    """Lane FD: Q-843.
+
+    Q-843 reported that --c3-dist (solve.c's C3 histogram fast path inside the --analyze block)
+    decodes pi = rec[p] >> 2 and reads pairs[pi] with no pi < 32 check. The decode has no check of
+    its own, but it cannot see a bad byte: the Q-520 (CX-139) scan sol_pidx_scan runs over the
+    whole mmap'd record stream on the line that defines `all`, before the --c3-dist branch and
+    before every other decode in the block, and exits 1. So the path was already safe; this class
+    pins that, and adds what TestQ520RecordPairIndexBounds does not cover: the lowest bad index
+    (32, byte 0x80) as well as the highest (63), at the first and the last byte of a record, in a
+    record that is not the first. RED, measured 2026-09-26 on two mutants via ROAE_TESTS_SOLVE_SRC:
+    (1) the scan call deleted -- --c3-dist on a byte-31 = 0x80 record exits 139 (SIGSEGV), and an
+    -fsanitize=address,undefined build reports "index 32 out of bounds for type 'Pair [32]'" at
+    the --c3-dist decode; (2) the scan's bound loosened from < 32 to < 33 -- index 32 goes
+    through, which TestQ520RecordPairIndexBounds (0xFC only) does not notice. The clean King Wen
+    file is the positive control: it prints the histogram and exits 0."""
+
+    CASES = [(0, 32), (31, 32), (0, 63), (31, 63), (17, 40)]   # (byte, pair index 32..63)
+    MODES = ("--c3-dist", "--analyze")
+
+    @classmethod
+    def setUpClass(cls):
+        import struct
+        cls.tmp = tempfile.mkdtemp(prefix="q843_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q843")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.kw = bytes(i << 2 for i in range(32))       # KW = pairs 0..31 in order, orient 0
+        cls.hdr = staticmethod(lambda n: b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", n)
+                               + b"\0" * 16)
+        cls.good = os.path.join(cls.tmp, "kw.bin")
+        with open(cls.good, "wb") as f:
+            f.write(cls.hdr(1) + cls.kw)
+
+    @classmethod
+    def tearDownClass(cls):
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _bad(self, byte, pidx):
+        rec = bytearray(self.kw)
+        rec[byte] = (pidx << 2) & 0xFF
+        path = os.path.join(self.tmp, "bad_b%d_p%d.bin" % (byte, pidx))
+        with open(path, "wb") as f:
+            f.write(self.hdr(2) + self.kw + bytes(rec))  # the bad record is record 1
+        return path, rec[byte]
+
+    def _run(self, mode, path):
+        return subprocess.run([self.sbin, mode, path], capture_output=True, text=True,
+                              cwd=self.tmp, env=dict(os.environ, OMP_NUM_THREADS="2"), timeout=600)
+
+    def test_positive_control_clean_file_is_histogrammed(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        r = self._run("--c3-dist", self.good)
+        self.assertEqual(r.returncode, 0, r.stderr[-600:])
+        self.assertIn("[c3-dist] complement-distance", r.stdout)
+        self.assertIn("       776: 1", r.stdout.splitlines())
+        self.assertNotIn("PAIR_INDEX_OUT_OF_RANGE", r.stderr)
+
+    def test_every_bad_pair_index_is_refused_before_any_decode(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for byte, pidx in self.CASES:
+            path, val = self._bad(byte, pidx)
+            for mode in self.MODES:
+                with self.subTest(mode=mode, byte=byte, pidx=pidx):
+                    r = self._run(mode, path)
+                    self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-600:])
+                    self.assertIn("ERROR: PAIR_INDEX_OUT_OF_RANGE: %s record 1 byte %d = 0x%02X "
+                                  "decodes pair index %d," % (path, byte, val, pidx), r.stderr)
+                    # refused before the C3 pass: no histogram line was printed
+                    self.assertNotIn("[c3-dist]", r.stdout)
+                    self.assertNotIn("C3 range in dataset", r.stdout)
+# end class TestQ843C3DistPairIndexBoundary (lane FD)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -2754,7 +2754,7 @@ scale — so the old rule under-provisions and the merge aborts before starting.
 
 Skip files matching `*.tmp` (in-progress writes). Refuses to run
 if any sub_*.bin file size is not a multiple of 32 bytes
-(SOL_RECORD_SIZE).
+(SOL_RECORD_SIZE). ⚠ *(Added 2026-09-26, Q-840: at startup it prints one stderr line comparing the directory's `build.sha` with its own digest: `MERGE_BUILD_SHA=MATCH`, `=MISMATCH` (followed by a WARN naming both), `=ABSENT` or `=UNKNOWN`. A mismatch is a warning, not a refusal. The shards' builds and the merging build are both recorded in `solutions.provenance.json`. `--merge` never writes `build.sha`.)*
 
 ### --merge-layers
 
@@ -2766,7 +2766,7 @@ Walks subdirs of `<run_root>` in lexical order ("layers"), and
 for each sub-branch tuple produces the LAST layer's shard as the
 canonical version (last-writer-wins). Symlinks the winning shards
 into `<run_root>/_merged_/` along with a `MANIFEST.txt` recording
-provenance, then runs the standard merge in that directory.
+provenance, then runs the standard merge in that directory. *(2026-09-26, Q-839 sibling sweep: it takes exactly one argument, the layer root; any further argument is refused with exit 2 and a `MERGE_LAYERS_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 > 🔴 **`<run_root>` must be an ABSOLUTE path.** The symlink target is built as
 > `<run_root>/<layer>/<shard>` with `<run_root>` taken verbatim from `argv[2]`
@@ -2796,7 +2796,7 @@ solve --analyze [solutions.bin]
 Computes statistics across the entire solution set: complement-
 distance distribution, position-2 marginal distribution, line-
 autocorrelation per position, K-N pair-frequency tables,
-boundary-uniqueness exhaustive search, and more.
+boundary-uniqueness exhaustive search, and more. *(2026-09-26, Q-839 sibling sweep: it takes at most one argument, the solutions file; any further argument is refused with exit 2 and a `ANALYZE_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 Outputs a long human-readable report to stdout. Used during
 research to characterize where King Wen sits in the
@@ -2811,7 +2811,7 @@ solve --show [N] [--mode first|last|random] [--format kw|binary|glyph|raw]
             [--from FILE] [--from-first M] [--seed S]
 ```
 
-Visual-inspection sample of solutions.bin records.
+Visual-inspection sample of solutions.bin records. *(2026-09-26, Q-839 sibling sweep: an argument that is not one of the forms above, such as a bare file name or a flag missing its value, is refused with exit 2 and a `SHOW_ARGS=REFUSED` line. Before that it was silently ignored, so `solve --show FILE` showed `solutions.bin` in the CWD; name a file with `--from FILE`.)*
 
 Default: first 10 records of `solutions.bin` in CWD, in `kw` format
 (King Wen pair numbers like `[1,2] [3,4] ...`).
@@ -2921,7 +2921,7 @@ histogram over the solution set (sibling of `--c3-min`; the same C3
 observable, tabulated across the whole population rather than reduced to
 the minimum). Runs the analyze reader with the `c3dist_only` flag set, so
 it skips the other analyze passes. `SOLUTIONS_BIN` defaults to
-`solutions.bin`. Read-only; sha-neutral.
+`solutions.bin`. Read-only; sha-neutral. *(2026-09-26, Q-839 sibling sweep: it takes at most one argument, the solutions file; any further argument is refused with exit 2 and a `C3_DIST_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 ### --yield-report
 
@@ -2995,7 +2995,7 @@ enumerates all 2^17 = 131,072 binary paths across positions 3-19 — at each
 position the two candidates being pair *i* (KW) and pair *i-1* (shifted) —
 and checks budget feasibility of every path; the cascade is deterministic
 iff exactly one survives per branch. Finishes in seconds at small
-N; exponential at deeper N. Each config is capped at `PROVE_CONFIG_TIMEOUT` seconds (default 300; `0` = no cap).
+N; exponential at deeper N. Each config is capped at `PROVE_CONFIG_TIMEOUT` seconds (default 300; `0` = no cap). *(2026-09-26, Q-839 sibling sweep: it takes no arguments, and any argument is refused with exit 2 and a `PROVE_CASCADE_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 ### --prove-self-comp
 
@@ -3009,7 +3009,7 @@ for each self-complementary pair at position 2 it runs a
 bounded backtracking search and reports that at least one C1-C5-valid
 ordering exists. C3 enters only as a constraint on that walk; nothing here
 bounds self-complementary configurations by the C3 ceiling.
-*(Corrected 2026-09-01, against the printed banner.)*
+*(Corrected 2026-09-01, against the printed banner.)* *(2026-09-26, Q-839 sibling sweep: it takes no arguments, and any argument is refused with exit 2 and a `PROVE_SELF_COMP_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 ### --prove-shift
 
@@ -3021,7 +3021,7 @@ Per-position candidate count, not a distributional invariance. The binary's
 own banner is
 `PROOF: Positions 3-19 have exactly 2 budget-feasible candidates` (solve.c:47531): at each position 3-19 it tests all 30 unused
 pairs and reports how many are budget-feasible.
-*(Corrected 2026-09-01, against the printed banner.)*
+*(Corrected 2026-09-01, against the printed banner.)* *(2026-09-26, Q-839 sibling sweep: it takes no arguments, and any argument is refused with exit 2 and a `PROVE_SHIFT_ARGS=REFUSED` line. Before that it was accepted and silently ignored.)*
 
 ### --regression-test
 

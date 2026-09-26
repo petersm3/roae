@@ -9810,3 +9810,13 @@ The selftest still reproduces `403f7202`, and no canonical sha, count or reprodu
 - the Codex LDQ1 review of the query program found no gap that needs the ladders, and its wording follow-ups are made: stale passages in TR-12 and QUERY_INVENTORY.md are corrected, and the Q10(a) census column is renamed from `orbits` to `flow_div_24`, because `flow/24` is not an orbit count (CX-176).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-26 (evening) — batch 18: arguments refused rather than ignored, and a merge that names its own binary
+
+**Batch 18 (CX-179..CX-181) cleared the same review and is the commit that carries this addition.** Most rows sent to it had already been fixed by batches 15 and 16; what it adds is the sweep around them:
+
+- seven subcommands ignored arguments they did not read, the defect `--list-branches` had: `--prove-cascade`, `--prove-self-comp`, `--prove-shift`, `--merge-layers`, `--analyze`, `--c3-dist` and `--show`. `--show FILE` showed the `solutions.bin` in the current directory instead. Each now exits 2 with `<MODE>_ARGS=REFUSED` (CX-179);
+- `--merge` prints one line, `MERGE_BUILD_SHA=MATCH|MISMATCH|ABSENT|UNKNOWN`, and warns when the directory's `build.sha` does not name the merging binary; it never refuses and never rewrites `build.sha`, because a merge's output is attested by its own sha. The per-shard provenance sidecar and the resume contract, which copied `build.sha`, now record the running binary. No `solutions.bin` byte changes (CX-180);
+- `--c3-dist` was already guarded against a pair index of 32..63 by the batch-15 scan; a boundary test now pins the bound at exactly 32, which the earlier test (index 63 only) could not see move (CX-181).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.

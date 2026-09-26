@@ -17904,3 +17904,170 @@ documents, and recomputes k = 14 and k = 17 from the gains.
 marks where extrapolation reaches one surviving pair-ordering class". Its caption and alt-text now
 describe the k = 14 line. The review before commit also corrected two TR-4 sentences that attached
 the log-linear ×0.853 figure, k ≈ 24, to the oriented level. It is a floor count, as item 2 says.
+
+## CX-179 — seven more subcommands ignored arguments they did not read, the `--list-branches` defect in its siblings (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-839, which asked for a sweep of the sibling subcommands once
+`--list-branches` was fixed (CX-163). Landed by Opus FA. Measured on the worker VM on a fresh clone
+with the batch-17 base and this change overlaid.
+
+**No published number moves.** Each change is in the argv dispatch, before any mode runs, and none
+is on the enumeration path. `./solve --selftest` prints `403f7202…`.
+
+**1. The sweep.** In `main()`'s dispatch, a subcommand that sets `arg_offset = argc` stops the
+general argument parser from seeing what follows it. If it does not read those arguments itself, it
+accepts them and silently drops them, which is what `--merge` (fixed 2026-09-04) and
+`--list-branches` (CX-163) did. Eleven subcommands set it. `--merge` and `--list-branches` already
+refused. Seven more had the defect:
+
+- `--prove-cascade`, `--prove-self-comp` and `--prove-shift` take no arguments and ran their proof
+  with any number of them.
+- `--merge-layers` reads one argument, the layer root, and ignored any after it.
+- `--analyze` and `--c3-dist` read at most one, the solutions file, and ignored any after it. So
+  `./solve --analyze a.bin b.bin` analysed `a.bin` alone and exited 0.
+- `--show` reads its flags in a loop and dropped any argument it did not recognise. A file name
+  given without `--from` was one of them, so `./solve --show a.bin` showed the `solutions.bin` in
+  the current directory, not `a.bin`. A flag given without its value was dropped the same way.
+
+Each now exits 2 with a `<MODE>_ARGS=REFUSED` line (`PROVE_CASCADE`, `PROVE_SELF_COMP`,
+`PROVE_SHIFT`, `MERGE_LAYERS`, `ANALYZE`, `C3_DIST`, `SHOW`) and a stderr line naming the argument,
+as `--merge` does. The accepted forms are unchanged. Each edit replaces one existing line, so no line
+of `solve.c` moved. SOLVE_C_CLI.md's entry for each of the seven has a dated same-line note.
+
+**2. Not changed, and why.** `--validate` and `--verify` are the other two. They read every
+argument, so none is dropped unread, but a second file name replaces the first without a word:
+`./solve --verify a.bin b.bin` verifies `b.bin` alone. That is a different defect and is filed as a
+follow-up. Outside the `arg_offset` pattern, the `--null-*` modes, `--c3-min` and
+`--symmetry-search` return straight from the dispatch and also ignore arguments they do not read.
+They are filed as a follow-up too.
+
+**3. Tests**, on the lane tree. A new `tests.py` class, `TestQ839SiblingArgRefusal`, runs each of
+the seven with an argument it does not take (for `--show`, a bare file name, and `--mode` with no
+value). It requires exit 2, the mode's `_ARGS=REFUSED` line, and nothing on stdout, so the refusal
+comes before any work. On the pre-fix `solve.c` all eight cases fail: the prove modes run (exit 0,
+and `--prove-cascade` hits the 300 s test timeout), `--merge-layers` exits 1 on an empty root,
+`--analyze` and `--c3-dist` exit 0, and `--show` goes looking for `solutions.bin`. The positive
+control runs the accepted forms (one file for `--analyze` and `--c3-dist`, one root for
+`--merge-layers`, a bare `--prove-shift`, and `--show` with its count and every value flag) and
+requires no refusal. Three mutants are killed: `--analyze`'s limit raised by one, which lets an extra
+argument through; `--merge-layers`' limit lowered by one, which refuses the root itself; and
+`--show`'s refusal branch disabled.
+
+## CX-180 — `--merge` states whether `build.sha` names the merging binary, and the shard sidecar and resume contract record the running binary (solve.c; tests.py; documentation/DEVELOPMENT.md; documentation/SOLVE_C_CLI.md)
+
+**2026-09-26.** Origin: backlog row Q-840, which CX-163 item 3 answered for `merge_binary_sha256`
+alone. This entry finishes the row. It records what `--merge` does when the directory's `build.sha`
+disagrees with the merging binary, and it fixes the two other places that copied `build.sha` into
+provenance. Landed by Opus FB. Measured on the worker VM on a fresh clone with the batch-17 base and
+this change overlaid.
+
+**No published number moves.** Every change is to a sidecar or to stderr: the per-shard
+`.provenance.json`, `resume_contract.txt` and `solutions.provenance.json`. No shard, `solutions.bin`,
+`solutions.sha256` or `solutions.meta.json` changes. `./solve --selftest` prints `403f7202…`. In the
+new test, a merge with a foreign `build.sha`, one with a matching `build.sha` and one with none
+all write the same `solutions.bin` sha.
+
+**1. What `--merge` does on a mismatch: it warns.** At startup `--merge` now prints one stderr line:
+`MERGE_BUILD_SHA=MATCH`, `=MISMATCH`, `=ABSENT` (no well-formed `build.sha`) or `=UNKNOWN` (the
+binary cannot digest itself). A mismatch also prints a WARN that names both digests, and the merge
+then proceeds. It never refuses and never writes `build.sha`. The enumeration path refuses a mismatch
+(exit 26), and the merge deliberately does not follow it. The enumeration refuses because a resume
+across binaries writes shards from two builds into one run. A merge writes no shard. It reads
+finished ones, and its output is checked by the `solutions.bin` sha against the published value, not
+by binary identity. The merge is also routinely run by a different build than the enumeration's: on
+a separate merge host, `-march=native` alone gives different bytes. So a refusal would stop correct
+merges. Writing `build.sha` would disarm the enumeration guard for a later resume in that directory.
+Both digests were already recorded in `solutions.provenance.json` (`merge_binary_sha256`,
+`merge_dir_build_sha256`, CX-163). `UNKNOWN` is defensive only: `--merge` exits 10 before this point
+when no sha256 tool is installed (measured).
+
+**2. Siblings: the shard sidecar and the resume contract.** A sweep of `solve.c` for every writer of
+a `*_binary_sha256`, `*_exe_sha` or `build_sha` field found two more copies of `build.sha`. They were
+the per-shard sidecar's `writes[].binary_sha256` (`append_shard_provenance`) and the `build_sha=`
+line of `resume_contract.txt`. The full-enumeration path rewrites `build.sha` to its own digest at
+startup, so there the copy was right unless that check was skipped. `--sub-branch` and `--branch`
+never run the check and never write `build.sha`. Measured on the pre-fix binary: with 64 `ab`
+characters planted in `build.sha`, a `--sub-branch` shard's sidecar and a `--branch` run's
+`resume_contract.txt` both recorded the planted value. Both now take the running binary's digest,
+the same `kc_h_exe_sha()` value as `merge_binary_sha256`. The first call goes through
+`pthread_once`, because that helper caches in unguarded statics and the sidecar is written from
+worker threads. The other identity writers read the executable themselves and were already right:
+the KC scan chunk's `engine_exe_sha` and the merger's `tm_merger_exe_sha`. `build_source_sha` is the
+compile-time source hash, not a binary digest. No script or `solve.py` reads or writes `build.sha`.
+DEVELOPMENT.md's rows for `writes[].binary_sha256`, `binary_sha256_set` and `merge_binary_sha256`
+and SOLVE_C_CLI.md's `--merge` entry have dated same-line notes.
+
+**3. Tests and gates**, on the lane tree. A new `tests.py` class,
+`TestQ840MergeBuildShaVerdictAndWriterIdentity`, holds three tests over one `--sub-branch` shard
+written with a foreign `build.sha`. The merge test covers the foreign, matching and absent cases. In
+each it requires exit 0, exactly the expected `MERGE_BUILD_SHA=` line, `build.sha` unchanged (or
+still absent), both provenance fields, the WARN only on a mismatch, and one `solutions.bin` sha
+across all three. The sidecar test and the `--branch` resume-contract test each require the test
+binary's own digest. Both first check their premise: that the path left the planted `build.sha` in
+place. On the pre-fix `solve.c` all three fail. Seven mutants are each killed: never reporting a
+mismatch, never reporting absence, the sidecar or the contract reading `build.sha` again, refusing
+on a mismatch, rewriting `build.sha` on a mismatch, and not calling the report. solve.c's edits
+above the appended functions each change one existing line, so no line above them moved.
+
+**4. Not changed.** `--sub-branch` and `--branch` still run no build-identity check, so a resume in
+such a directory with a different binary is not refused. That is an enumeration-path guard, outside
+this row, and is filed as a follow-up.
+
+## CX-181 — `--c3-dist` was already guarded against a pair index of 32..63; a boundary test pins it, and the sweep of every other decode found no unguarded reader (tests.py)
+
+**2026-09-26.** Origin: backlog row Q-843. Landed by Opus FD. Measured on the worker VM on a fresh
+clone of the batch-18 base with this change overlaid. No code changed.
+
+**1. The report.** Q-843 said that `--c3-dist`, the C3 histogram fast path inside the `--analyze`
+block of solve.c, decodes `pi = rec[p] >> 2` and reads `pairs[pi]` with no `pi < 32` check. A
+record byte is `(pair_index<<2)|(orient<<1)`, so `byte >> 2` is 0..63 and the table has 32
+entries. That is the CX-139 class.
+
+**2. The finding: already safe.** The decode has no check of its own, but it never sees a bad
+byte. CX-139 put a `sol_pidx_scan` call on the line that defines the block's record-stream view
+`all`. It scans every record of the mapped file and returns 1 on a bad byte. That line runs
+before the `--c3-dist` branch and before every other decode in the block. The block opens no
+other input file, so every record it decodes has passed the scan. Q-843 read the decode without
+that line. The existing `TestQ520RecordPairIndexBounds` already runs `--c3-dist` on a byte of
+`0xFC` (pair index 63) and expects exit 1 with the refusal message.
+
+The guard is the only thing that makes the path safe. With the scan call deleted, `--c3-dist` on
+a record whose byte 31 is `0x80` (pair index 32) exits 139 (SIGSEGV). An
+`-fsanitize=address,undefined` build of that mutant reports `index 32 out of bounds for type
+'Pair [32]'` and a global-buffer-overflow at the `--c3-dist` decode. The unmodified solve.c, built
+the same way, exits 1 with `ERROR: PAIR_INDEX_OUT_OF_RANGE:` and no sanitizer report. On the clean
+King Wen record it exits 0 with no report.
+
+**3. The test.** `TestQ843C3DistPairIndexBoundary` in tests.py covers what the CX-139 test did
+not. It uses the lowest bad index, 32, as well as 63 and 40, at the first and last byte of a
+record, in a record that is not the first. For `--c3-dist` and `--analyze` it requires exit 1,
+the exact refusal line with the file, record, byte, value and index, and no histogram output. The
+clean King Wen file is the positive control: it prints the histogram with `776: 1` and exits 0.
+It is green on the unmodified solve.c and red on two mutants. With the scan call deleted, all ten
+cases fail. With the scan's bound loosened from `< 32` to `< 33`, the four index-32 cases fail,
+and `TestQ520RecordPairIndexBounds` stays green on that mutant.
+
+**4. The sweep.** Every `>> 2` pair-index decode of a record byte was listed, with its guard.
+- solve.c, `--c3-min`, `--verify-rule2`, `--verify-9th-six` and `--verify-wrap-parity`: guarded
+  by the CX-139 `sol_pidx_scan` call before the decode.
+- solve.c, `--verify`, `--validate` and `--show`: an explicit `pidx >= 32` check in the decode
+  loop. The `--show` raw printer and the `--verify` C4 head check only print or compare the value.
+- solve.c, the kc-oracle decoder `kc_h_rec_decode`: checks the range in both of its branches.
+- solve.c, the whole `--analyze`/`--c3-dist` block, and the section-25 helper it calls: guarded
+  by the scan in item 2. The complement records built in section 20 index 32-entry tables with
+  indices already scanned.
+- verify.c, the artifact and `CHECK_REPR` readers: `key >= 32` check.
+- verify.py, `decode`, the `CHECK_REPR`, artifact and flip-census readers: an explicit `p >= 32`
+  check. `c3_of_ordering` and `_fiber_count_raw`: raise `ValueError` unless the record is a
+  permutation of 0..31.
+- solve.py: no reader can read out of bounds. Python raises `IndexError` on an index past a
+  32-entry list or array. That is loud, but it is not the refusal the C readers give. The P2
+  statistics raise it in the sequence build, before their `position_2_pair` column is made. Two
+  sites accept a bad index without any error: the keystone boundary mask (a comparison, so a bad
+  byte counts as a non-match) and the prefix-bucket reader, which makes a bucket keyed on the bad
+  index. These two are reported as a follow-up, not changed here.
+
+**5. Gates**, on the lane tree. `python3 tests.py` 587 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS.
+solve.c did not change, so `--selftest` output cannot move. tests.py is in the TR-12 reproduction
+fingerprint, so the stamp needs re-stamping.

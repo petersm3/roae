@@ -2427,7 +2427,7 @@ static int read_build_sha_for_provenance(char out_hex[65]) {
     if (fscanf(f, "%64s", out_hex) != 1) { fclose(f); return -1; }
     fclose(f);
     return (strlen(out_hex) == 64) ? 0 : -1;
-} static const char *merge_self_exe_sha256(void);  /* Q-840; defined at end of file */
+} static const char *merge_self_exe_sha256(void); static const char *run_binary_sha256(void); static void merge_build_sha_report(void);  /* Q-840; defined at end of file */
 
 /* JSON string escaping for fprintf — handles backslash, quote, control chars.
  * Output buffer must be ≥ 2*strlen(in)+1. */
@@ -2547,7 +2547,7 @@ static void append_shard_provenance(const char *bin_fname,
         return;
     }
     char build_sha[80] = {0};
-    (void)read_build_sha_for_provenance(build_sha);  /* OK if empty */
+    snprintf(build_sha, sizeof(build_sha), "%s", run_binary_sha256());  /* Q-840 sibling: the WRITING binary's own digest ("" if unavailable), not build.sha, which --sub-branch/--branch never check or write */
     char host_fp[80] = {0};
     (void)compute_host_fingerprint(host_fp);
     char tbuf[64];
@@ -3810,7 +3810,7 @@ static int resume_contract_check_and_stamp(int n_threads, int depth,
         return 0;   /* stamp is best-effort; never abort a run for it */
     }
     char build_sha[80] = {0};
-    (void)read_build_sha_for_provenance(build_sha);  /* OK if empty */
+    snprintf(build_sha, sizeof(build_sha), "%s", run_binary_sha256());  /* Q-840 sibling: this binary's own digest, not build.sha (the --branch path never checks or writes build.sha) */
     char tbuf[64];
     time_t now = time(NULL); struct tm tm_b;
     strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tm_b));
@@ -40017,13 +40017,13 @@ int main(int argc, char *argv[]) {
 
     if (argc > 1 && strcmp(argv[1], "--prove-cascade") == 0) {
         prove_cascade_mode = 1;
-        arg_offset = argc;
+        if (argc > 2) { fprintf(stderr, "ERROR: --prove-cascade takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nPROVE_CASCADE_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } arg_offset = argc;  /* Q-839 sibling sweep: refuse, as --merge and --list-branches do, rather than consume and ignore */
     } else if (argc > 1 && strcmp(argv[1], "--prove-self-comp") == 0) {
         prove_self_comp_mode = 1;
-        arg_offset = argc;
+        if (argc > 2) { fprintf(stderr, "ERROR: --prove-self-comp takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nPROVE_SELF_COMP_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } arg_offset = argc;  /* Q-839 sibling sweep: refuse, as --merge and --list-branches do, rather than consume and ignore */
     } else if (argc > 1 && strcmp(argv[1], "--prove-shift") == 0) {
         prove_shift_mode = 1;
-        arg_offset = argc;
+        if (argc > 2) { fprintf(stderr, "ERROR: --prove-shift takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nPROVE_SHIFT_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } arg_offset = argc;  /* Q-839 sibling sweep: refuse, as --merge and --list-branches do, rather than consume and ignore */
     } else if (argc > 1 && strcmp(argv[1], "--merge") == 0) {
         /* 🔴 Codex v2 `solve.c:17514`, fixed 2026-09-04. `arg_offset = argc` consumed every
            following argument and silently discarded it, so `./solve --merge /data/solutions.bin`
@@ -40061,7 +40061,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Usage: solve --merge-layers <root>\n");
             return 1;
         }
-        const char *layer_root = argv[2];
+        const char *layer_root = argv[2]; if (argc > 3) { fprintf(stderr, "ERROR: --merge-layers takes exactly ONE argument (the layer root); got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nMERGE_LAYERS_ARGS=REFUSED\n", argc - 3, argv[3]); return 2; }  /* Q-839 sibling sweep: argv[3..] was silently ignored */
         DIR *rd = opendir(layer_root);
         if (!rd) {
             fprintf(stderr, "ERROR: opendir(%s): %s\n", layer_root, strerror(errno));
@@ -40281,11 +40281,11 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
         analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
-        arg_offset = argc;
+        if (argc > 3) { fprintf(stderr, "ERROR: --analyze takes at most ONE argument (the solutions file); got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nANALYZE_ARGS=REFUSED\n", argc - 3, argv[3]); return 2; } arg_offset = argc;  /* Q-839 sibling sweep: refuse, as --merge and --list-branches do, rather than consume and ignore */
     } else if (argc > 1 && strcmp(argv[1], "--c3-dist") == 0) {
         analyze_mode = 1; c3dist_only = 1;   /* only the C3 (complement-distance) histogram */
         analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
-        arg_offset = argc;
+        if (argc > 3) { fprintf(stderr, "ERROR: --c3-dist takes at most ONE argument (the solutions file); got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nC3_DIST_ARGS=REFUSED\n", argc - 3, argv[3]); return 2; } arg_offset = argc;  /* Q-839 sibling sweep: refuse, as --merge and --list-branches do, rather than consume and ignore */
     } else if (argc > 1 && strcmp(argv[1], "--verify") == 0) {
         verify_mode = 1;
         verify_file = "solutions.bin";
@@ -40314,7 +40314,7 @@ int main(int argc, char *argv[]) {
             else if (argv[ai][0] != '-' && argv[ai][0] >= '0' && argv[ai][0] <= '9') {
                 /* fallback positional: e.g. "solve --show --mode random 20" */
                 show_count = atoll(argv[ai]);
-            }
+            } else { fprintf(stderr, "ERROR: --show does not accept '%s' (an unknown option, a flag missing its value, or a file name: use --from FILE).\n       An argument here was previously accepted and silently ignored.\nSHOW_ARGS=REFUSED\n", argv[ai]); return 2; }  /* Q-839 sibling sweep */
         }
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--selftest") == 0) {
@@ -47019,7 +47019,7 @@ int main(int argc, char *argv[]) {
          * `ulimit -s unlimited` before --merge. */
         if (raise_stack_limit_for_merge() != 0) return 28;
         raise_nofile_limit_for_merge();
-        printf("\nMerge mode: combining sub_*.bin files...\n");
+        printf("\nMerge mode: combining sub_*.bin files...\n"); merge_build_sha_report();  /* Q-840: warn, never refuse */
 
         /* Scan current directory for any sub_*.bin file — handles both
          * depth-2 naming (sub_P1_O1_P2_O2.bin) and depth-3 naming
@@ -51041,8 +51041,66 @@ static const char *build_sha_known_tool_digest(const char *prior) {
  * in-process (the running inode, never the hashing tool's -- the Q-619 #4 trap) and streamed through
  * sha256_tool(). "" when unavailable, the field's previous empty-on-missing convention. Sha-neutral. */
 static const char *merge_self_exe_sha256(void) {
+    return run_binary_sha256();
+}
+
+/* Q-840 sibling sweep (2026-09-26). The per-shard sidecar's writes[].binary_sha256 and
+ * resume_contract.txt's build_sha= line also copied build.sha from the working directory. The
+ * full-enum path rewrites build.sha to its own digest at startup (check_build_sha_invariant), but
+ * --sub-branch and --branch never call that check, so a shard written there carried whatever
+ * build.sha an earlier binary left (measured: a planted value was recorded verbatim), and a
+ * skipped check (no sha256 tool, popen failure) left a stale value on the full-enum path too.
+ * Both now take the running binary's digest from here. kc_h_exe_sha() caches in unguarded
+ * statics and append_shard_provenance runs on worker threads, so the first call goes through
+ * pthread_once. "" when unavailable, the fields' empty-on-missing convention. Sha-neutral:
+ * sidecars only, never solutions.bin or a shard. */
+static pthread_once_t run_binary_sha256_once = PTHREAD_ONCE_INIT;
+static const char *run_binary_sha256_val = "";
+static void run_binary_sha256_init(void) {
     const char *h = kc_h_exe_sha();
-    return kc_h_sha_wellformed(h) ? h : "";
+    run_binary_sha256_val = kc_h_sha_wellformed(h) ? h : "";
+}
+static const char *run_binary_sha256(void) {
+    pthread_once(&run_binary_sha256_once, run_binary_sha256_init);
+    return run_binary_sha256_val;
+}
+
+/* Q-840 (2026-09-26): what --merge does when the merge directory's build.sha disagrees with the
+ * merging binary. It WARNS and proceeds; it never refuses and never writes build.sha. The enum
+ * path refuses (exit 26) because a resume that mixes binaries can write shards from two prune
+ * lineages into one run. A merge writes no shard: it reads finished shards, and its output is
+ * attested by the solutions.bin sha against the published value, not by binary identity. The
+ * merge is routinely run by a different build from the enumeration's (a separate merge host;
+ * -march=native alone makes the bytes differ), so refusing would stop legitimate merges, and
+ * build.sha names the enumerating binary, which the merge cannot check against anything.
+ * Rewriting build.sha would disarm the enum guard for a later resume in that directory.
+ * Verdict line on stderr, exactly one of:
+ *   MERGE_BUILD_SHA=MATCH     build.sha equals this binary's digest
+ *   MERGE_BUILD_SHA=MISMATCH  it differs (a WARN follows naming both)
+ *   MERGE_BUILD_SHA=ABSENT    no well-formed build.sha in the directory
+ *   MERGE_BUILD_SHA=UNKNOWN   this binary's digest is unavailable (no sha256 tool)
+ * Both values are also recorded in solutions.provenance.json (merge_binary_sha256,
+ * merge_dir_build_sha256). */
+static void merge_build_sha_report(void) {
+    char dir_sha[80] = {0};
+    int have_dir = (read_build_sha_for_provenance(dir_sha) == 0);
+    const char *self = run_binary_sha256();
+    if (!self[0]) {
+        fprintf(stderr, "MERGE_BUILD_SHA=UNKNOWN\n");
+    } else if (!have_dir) {
+        fprintf(stderr, "MERGE_BUILD_SHA=ABSENT\n");
+    } else if (strcmp(dir_sha, self) == 0) {
+        fprintf(stderr, "MERGE_BUILD_SHA=MATCH\n");
+    } else {
+        fprintf(stderr, "MERGE_BUILD_SHA=MISMATCH\n"
+                        "[merge] WARN: build.sha here is %s,\n"
+                        "              this merging binary is %s.\n"
+                        "              The shards were enumerated by a different build than the one merging them.\n"
+                        "              Proceeding: a merge is attested by the solutions.bin sha, and both values\n"
+                        "              are recorded in solutions.provenance.json. build.sha is left untouched.\n"
+                        "              (A build.sha written before 2026-09-26 holds the host's sha256sum digest.)\n",
+                dir_sha, self);
+    }
 }
 
 /* 2026-09-26 (CX-165 follow-up). append_shard_provenance runs only in the per-sub-branch flush
