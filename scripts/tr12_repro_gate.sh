@@ -34,7 +34,7 @@
 # when a newer stamp appeared meanwhile: TR12_STAMP_REFUSED=INPUT-CHANGED-MID-RUN |
 # NEWER-STAMP-PRESENT | ERROR-CANNOT-MEASURE, whole-line, beside TR12_REPRO_GATE=FAIL|ERROR.
 # It also refuses when ANOTHER --stamp already holds the writer lock (Q-544, below):
-# TR12_STAMP_REFUSED=LOCKED | ERROR-NO-LOCK, beside TR12_REPRO_GATE=ERROR.
+# TR12_STAMP_REFUSED=LOCKED | ERROR-NO-LOCK, beside TR12_REPRO_GATE=ERROR. Skip pin (Q-712): EMPTY-SKIP-SET | ERROR-PIN-WRITE.
 #
 # --check is the cheap leg (milliseconds, no build) that other checks call on every run. The full
 # gate is ~2 minutes on two cores and needs no ladder data, no disk and no network.
@@ -756,17 +756,49 @@ if grep -q '^TR12_REPRO=PASS:MINTED-' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   echo "         means the golden set was not read — that is not a reproduction."
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
+# 🔴 Q-712 (2026-09-25). --stamp used to write the skip pin inline and unchecked: the header, then
+# observed_skips. On a run with ZERO skips that is a header-only pin, and skip_pin_compare rejects a
+# pin with zero rows (rc 2), so the next plain run FAILED against the pin its own --stamp had just
+# written. The writer and the reader disagreed about one input. Now the writer refuses that input by
+# name and writes nothing, TR12_STAMP_REFUSED=EMPTY-SKIP-SET beside FAIL, and every pin it does write
+# is read back through skip_pin_compare against the same VERDICTS before it replaces $SKIPPIN, so a
+# pin the compare would reject never reaches disk. A write that fails, or a pin that does not read
+# back, is TR12_STAMP_REFUSED=ERROR-PIN-WRITE beside ERROR; the write used to be unchecked. Defined
+# here, beside its one caller, rather than with skip_pin_compare above, so no line above moves.
+skip_pin_write(){ # $1 = VERDICTS.txt  $2 = pin file ; rc 0 written / 1 refused (empty set) / 2 cannot
+  local v="$1" pin="$2" obs tmp
+  [ -r "$v" ] || { echo "  [FAIL] skip pin: VERDICTS file unreadable: $v"; return 2; }
+  obs=$(observed_skips "$v")
+  if [ -z "$obs" ]; then
+    echo "  [FAIL] skip pin: this run skipped ZERO rows; a zero-row pin is one skip_pin_compare rejects,"
+    echo "         so none is written and $pin is left as it was."
+    return 1
+  fi
+  tmp=$(mktemp "${TMPDIR:-/tmp}/tr12_skippin.XXXXXX") || { echo "  [FAIL] skip pin: mktemp failed"; return 2; }
+  if ! { echo "# Pinned skip/pending rows of the n=9 battery, recorded by scripts/tr12_repro_gate.sh --stamp."
+         echo "# A run whose skip set differs from this list FAILS the gate (see the gate header). Re-stamp"
+         echo "# in the SAME commit as any change that legitimately adds or removes a skip."
+         printf '%s\n' "$obs"
+       } > "$tmp"; then
+    rm -f "$tmp"; echo "  [FAIL] skip pin: could not write the candidate pin"; return 2
+  fi
+  if ! skip_pin_compare "$v" "$tmp" >/dev/null; then
+    rm -f "$tmp"; echo "  [FAIL] skip pin: the candidate pin does not read back as this run's skip set"; return 2
+  fi
+  if ! cat "$tmp" > "$pin"; then
+    rm -f "$tmp"; echo "  [FAIL] skip pin: could not write $pin"; return 2
+  fi
+  rm -f "$tmp"
+  echo "  [ok] pinned $(printf '%s\n' "$obs" | grep -c .) skip/pending rows into $pin"
+}
 if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   sed -n 's/^rows=/  /p' "$WORK/repro.log" | tail -1
   echo "  [ok] TR12_REPRO=PASS"
   grep -E '^TR12_REPRO_(ROWS|SKIPPED|COMPLETE)=' "$WORK/out/VERDICTS.txt" | sed 's/^/  /'
   if [ "$MODE" = "--stamp" ]; then
-    { echo "# Pinned skip/pending rows of the n=9 battery, recorded by scripts/tr12_repro_gate.sh --stamp."
-      echo "# A run whose skip set differs from this list FAILS the gate (see the gate header). Re-stamp"
-      echo "# in the SAME commit as any change that legitimately adds or removes a skip."
-      observed_skips "$WORK/out/VERDICTS.txt"
-    } > "$SKIPPIN"
-    echo "  [ok] pinned $(observed_skips "$WORK/out/VERDICTS.txt" | grep -c .) skip/pending rows into $SKIPPIN"
+    skip_pin_write "$WORK/out/VERDICTS.txt" "$SKIPPIN"; _swrc=$?
+    if [ "$_swrc" -eq 1 ]; then echo "TR12_STAMP_REFUSED=EMPTY-SKIP-SET"; echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
+    if [ "$_swrc" -ne 0 ]; then echo "TR12_STAMP_REFUSED=ERROR-PIN-WRITE"; echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
   elif ! skip_pin_compare "$WORK/out/VERDICTS.txt" "$SKIPPIN"; then
     echo "  [FAIL] the battery PASSED its executed rows, but its SKIP set is not the pinned one (above)"
     echo "TR12_REPRO_GATE=FAIL"; exit 1

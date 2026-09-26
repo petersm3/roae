@@ -1845,35 +1845,35 @@ if not drivers:
           % src)
     bad = 1
 
-# --- VARIABLE-CARRIED ASSERTIONS (round 11 drain-2, 2026-08-02, from drain-1's could-not-see
-# column). A fire-proof does not have to put its expected substring at the call site. GATE 15
-# LEG 2's pair selects its substring in a `case` arm and asserts on the variable, and those
-# substrings are fire-proof substrings by every property this leg cares about. They were
-# outside it in BOTH directions, which is why nothing said so: not a driver positional, so
-# never parsed; and not matched by guard 2's QF_ARG either, so not an orphan. A population
-# that is invisible to both the scan and the scan's own vacuity guard is the exact state this
-# leg exists to refuse, one level up from the drivers it already reads.
-#
-# THE SORT IS EXHAUSTIVE ON PURPOSE. Every fixed-string assertion whose pattern is an
-# expansion must land in one of two bins — a driver's positional, handled by guard 2 above,
-# or a named variable, resolved below. A third form is a FAIL, not a shrug: an assertion this
-# leg cannot classify is one it stops resolving while still printing [ok].
-QF_ANY = re.compile(r"grep[ \t]+-qF[ \t]+\"\$")
-QF_VAR = re.compile(r"grep[ \t]+-qF[ \t]+\"\$([A-Za-z_][A-Za-z0-9_]*)\"")
-varsites = {}
+# --- VARIABLE-CARRIED AND MIXED ASSERTIONS (round 11 drain-2, 2026-08-02; Q-773, 2026-09-25). GATE 15
+# LEG 2's pair asserts on a `case`-selected variable: no driver positional, no guard-2 orphan. THE SORT
+# IS EXHAUSTIVE: a -qF pattern with an expansion is a driver's `$2` (guard 2), exactly "$NAME" (below),
+# or MIXED, literal text around an expansion ("[FAIL] $k has NO entry"). QF_ANY once matched only a
+# LEADING `$`, so a mixed one was never checked. An expansion this leg cannot parse is a FAIL. A MIXED
+# pattern is matched against each template: an expansion (or a digit run) fills exactly ONE template
+# field (a %-spec, `$..`, `{..}`); every other asserted character is template text, except that at
+# either END of the pattern a field may absorb one whitespace-free token (a path, a number) it printed.
+# Interior absorption is refused: it let `[OPEN] {m}:{i} "{fig}"` fit any quoted-needle assertion.
+QF_ANY = re.compile(r"grep[ \t]+-qF[ \t]+\"((?:[^\"\\]|\\.)*)\"")
+QF_VAR = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)")
+EXPN = r"\$(?:[A-Za-z_][A-Za-z0-9_\x00]*|[0-9?#@*!$-]|\{[^{}\"]*\}|\(\([^()\"]*\)\)|\([^()\"]*\))"
+AEXP, TFLD = re.compile(r"\\.|" + EXPN + r"|\$"), re.compile("\x00|(?<!\\\\)" + EXPN + r"|\{[^{}]*\}")
+def prx(P):  # P: normed pattern text, "\x03" = an expansion; matched against TFLD-rewritten templates
+    x = ["\x02" if c in "\x03\x00" else re.escape(c) for c in P]; alt = lambda r: "(?:" + "|".join(r) + ")"
+    a, b = len(re.match(r"[^ \x03]*", P).group(0)), len(re.search(r"[^ \x03]*$", P).group(0))
+    return re.compile(alt(("\x02" if k else "") + "".join(x[k:a]) for k in range(a + 1)) + "".join(x[a:len(x) - b])
+                      + alt("".join(x[len(x) - b:len(x) - k]) + ("\x02" if k else "") for k in range(b + 1)))
+varsites, mixed, TT = {}, 0, None
 for i, ln in enumerate(lines):
-    if ln.lstrip().startswith("#") or not QF_ANY.search(ln) or QF_ARG.search(ln):
-        continue
-    m = QF_VAR.search(ln)
-    if m:
-        varsites.setdefault(m.group(1), i + 1)
-        continue
-    print("  [FAIL] LEG 3: %s:%d — a fixed-string assertion reads an expansion this leg sorts"
-          " into neither a driver's positional nor a named variable:" % (src, i + 1))
-    print("           %s" % ln.strip())
-    print("         Its substring is a fire-proof substring and is now outside the")
-    print("         exactly-one-template rule, with nothing but this line to say so.")
-    bad = 1
+    for q in ([] if ln.lstrip().startswith("#") or QF_ARG.search(ln) else QF_ANY.finditer(ln)):
+        m, P = QF_VAR.fullmatch(q.group(1)), norm(AEXP.sub(lambda e: e.group(0) if e.group(0)[0] == "\\" else "\x03" if len(e.group(0)) > 1 else "\x04", q.group(1)), False)
+        if m: varsites.setdefault(m.group(1), i + 1)
+        elif "\x03" in P or "\x04" in P:
+            TT = TT or [(t, TFLD.sub("\x02", t[2])) for t in templates]; hits = [] if "\x04" in P else [t for R in [prx(P)] for t, T in TT if R.search(T)]; mixed += 1
+            if len(hits) != 1:
+                print("  [FAIL] LEG 3: %s:%d — a fixed-string assertion carries an expansion%s and fits %d message"
+                      " template(s); exactly one is required:\n           %s" % (src, i + 1, " this leg cannot parse" if "\x04" in P else "", len(hits), ln.strip()))
+                print("".join("           -> %s:%d (%s)\n" % (src, t[0], t[1]) for t in hits[:6]), end=""); bad = 1
 
 varfound = []
 for v, site in sorted(varsites.items()):
@@ -2019,9 +2019,9 @@ for v, sub, n in varfound:
 
 if not bad:
     print("  [ok] LEG 3: %d fire-proof substring(s) across %d driver(s) (%s), plus %d carried"
-          " by %d asserted variable(s), each produced by exactly ONE of %d message template(s)"
-          % (len(found), len(drivers), ", ".join(sorted(drivers)), len(varfound),
-             len(varsites), len(templates)))
+          " by %d asserted variable(s) and %d mixed assertion(s), each produced by exactly ONE of %d"
+          " message template(s)" % (len(found), len(drivers), ", ".join(sorted(drivers)),
+             len(varfound), len(varsites), mixed, len(templates)))
     print("       caveat (g): ONE template is not one INSTANTIATION — a substring spanning a"
           " %-field still cannot say which call printed it")
 sys.exit(bad)

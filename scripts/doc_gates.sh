@@ -152,6 +152,7 @@
 #   scripts/doc_gates.sh boundary-scope   # GATE 75: a mandatoriness claim over boundary SETS is scoped to the subset size actually exhausted (C(31,4)), not to depth
 #   scripts/doc_gates.sh merge-semantics  # GATE 76: prose may not deny a merge capability solve.c's env surface (SOLVE_MERGE_MODE/CHUNK_GB) provides
 #   scripts/doc_gates.sh cert-inventory   # GATE 77: certificates/README.md's "Full inventory: N certificates" equals the archived .drat corpus, and verify_all.sh's CERT_FLOOR equals it too
+#   scripts/doc_gates.sh atlas-probe-tokens # GATE 90: SOLVE_PY_CLI.md's --atlas-probe token list equals atlas_probe()'s tok()/gate() names in print order (verdict ATLAS_PROBE_TOKEN_LIST)
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
 #                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
 #                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
@@ -349,9 +350,9 @@ require_rows() { # $1=registry  $2=why it matters
     [ "$_rt" -eq 2 ] && return 1
     # _rt = 1: never tracked, [skip] already printed — fall through to the ZERO-rows verdict.
   fi
-  # NOTE: `grep -c` PRINTS 0 and EXITS 1 when nothing matches, so an appended `|| echo 0` would
-  # emit a SECOND zero and make the test an integer-expression error rather than a verdict.
-  n=$(grep -cvE '^[[:space:]]*(#|$)' "$f" 2>/dev/null); n=${n:-0}
+  # A row is what reg_row_kind calls one (Q-773 follow-up): not blank, and column 1 (leading tabs dropped, as
+  # `read` drops them) is neither exactly `#` nor starts `# `. A row starting `#7` counts; the old `grep -cvE` count dropped it.
+  n=$(awk -F'\t' '{ s = $0; sub(/^\t+/, "", s); split(s, c, "\t") } s ~ /^[[:space:]]*$/ { next } c[1] == "#" || c[1] ~ /^# / { next } { n++ } END { print n + 0 }' "$f" 2>/dev/null); n=${n:-0}
   if [ "${n:-0}" -eq 0 ]; then
     echo "  [FAIL] $f has ZERO rows. A registry with no rows SILENCES its gate rather than"
     echo "         passing it: the loop iterates nothing and returns clean. $2"
@@ -1111,7 +1112,7 @@ if [ "${1:-}" = "--selftest" ]; then
     # 300 here-string runs failed. Neither the gate's message nor this ERE had drifted. The same
     # construct was replaced at every site where the match can land before the end of a multi-line,
     # multi-KB string. A string flattened to ONE line (tr '\n' ' ') is immune and was left alone:
-    # grep cannot match a line before reading all of it, so the writer always finishes first.
+    # grep cannot match a line before reading all of it, so the writer always finishes first. MEASURED 2026-09-25 (Opus AY, every site's string length logged over one full --selftest): seven more pipe sites carried 3.7-20.9 KB and are here-strings now (G1OUT, _Q761_OUT x3, A7OUT x2, B1OUT); every other `printf | grep -q` in this file carried at most 2.8 KB, below one 4 KiB stdio write, so its writer finishes before grep reads.
     if grep -qE -- "$want" <<<"$out"; then
       echo "  [ok]   $label — $gate fires, and WHY names: $want"
     else
@@ -1361,7 +1362,7 @@ a='1,097,051,278,789,181,790,036,112,071,176,579,186,688'
 assert a in s, 'anchor moved'
 open('README.md','w').write(s.replace(a, a[:-1]+'9', 1))" 2>/dev/null \
     && { G1OUT=$(bash "$0" numbers 2>&1)
-         if printf '%s' "$G1OUT" | grep -q 'WARN'; then
+         if grep -q 'WARN' <<<"$G1OUT"; then
            echo "  [ok]   GATE 1 cross-file numbers — emits a WARN (report-only gate)"
          else
            echo "  [FAIL] GATE 1 cross-file numbers — no WARN on an injected near-twin"
@@ -1545,7 +1546,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>
   _Q761_OUT=$(bash "$0" retract 2>&1); _Q761_RC=$?
   git checkout -- documentation/RETRACTED_PHRASES.tsv documentation/GUIDE.md 2>/dev/null
   if [ "$_Q761_RC" -ne 0 ] \
-     && printf '%s\n' "$_Q761_OUT" | grep -qF "retracted phrasing still present: \"$_Q761_N\""; then
+     && grep -qF "retracted phrasing still present: \"$_Q761_N\"" <<<"$_Q761_OUT"; then
     echo "  [ok]   GATE 3 (Q-761) a registered needle starting with '#' is searched for, and FIRES when planted"
   else
     echo "  [FAIL] GATE 3 (Q-761) — a needle starting with '#' planted in GUIDE.md was not reported"
@@ -1558,7 +1559,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>
     >> documentation/RETRACTED_PHRASES.tsv
   _Q761_OUT=$(bash "$0" ledger-phrases 2>&1); _Q761_RC=$?
   git checkout -- documentation/RETRACTED_PHRASES.tsv 2>/dev/null
-  if [ "$_Q761_RC" -ne 0 ] && printf '%s\n' "$_Q761_OUT" | grep -qF "[FAIL] $_Q761_K has NO entry"; then
+  if [ "$_Q761_RC" -ne 0 ] && grep -qF "[FAIL] $_Q761_K has NO entry" <<<"$_Q761_OUT"; then
     echo "  [ok]   GATE 11 (Q-761) a registered needle starting with '#' is ledger-checked ($_Q761_K)"
   else
     echo "  [FAIL] GATE 11 (Q-761) — a registered needle starting with '#' got no $_Q761_K verdict"
@@ -1571,7 +1572,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>
   _Q761_OUT=$(bash "$0" ledger-phrases 2>&1); _Q761_RC=$?
   git checkout -- documentation/RETRACTED_PHRASES.tsv 2>/dev/null
   if [ "$_Q761_RC" -ne 0 ] \
-     && printf '%s\n' "$_Q761_OUT" | grep -qF 'Q-761: a registry line is comment-shaped'; then
+     && grep -qF 'Q-761: a registry line is comment-shaped' <<<"$_Q761_OUT"; then
     echo "  [ok]   GATE 11 (Q-761) a comment-shaped line carrying data columns is a FAIL, not a skip"
   else
     echo "  [FAIL] GATE 11 (Q-761) — a '# '-shaped row with data columns was silently skipped (rc=$_Q761_RC)"
@@ -1735,8 +1736,8 @@ assert len(h)==1, 'anchor moved: %d headings contain \"Rule 2\", expected exactl
 open(p,'w',encoding='utf-8').write(s+chr(10)+chr(10)+'## McKenna Rule 25 (self-test heading)'+chr(10))" 2>/dev/null \
     && { A7OUT=$(bash "$0" secrefs 2>&1); A7RC=$?
          if [ "$A7RC" -eq 0 ] \
-            && printf '%s' "$A7OUT" | grep -q 'resolves against 2 headings, so it does' \
-            && printf '%s' "$A7OUT" | grep -q 'mckenna rule 25 (self-test heading)'; then
+            && grep -q 'resolves against 2 headings, so it does' <<<"$A7OUT" \
+            && grep -q 'mckenna rule 25 (self-test heading)' <<<"$A7OUT"; then
            echo "  [ok]   GATE 4b ambiguity note — a second matching heading is reported, and named"
          else
            echo "  [FAIL] GATE 4b did not note an ambiguous resolution (rc=$A7RC). A reference that"
@@ -1843,7 +1844,7 @@ s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md) '+chr(167)+'\"Per-branch yield labels in the canonical\" for that.'+chr(10))" 2>/dev/null \
     && { B1OUT=$(bash "$0" secrefs 2>&1); B1RC=$?
          if [ "$B1RC" -eq 0 ] \
-            && printf '%s' "$B1OUT" | grep -qE '\[bold-anchor\] documentation/GUIDE\.md:[0-9]+ -> documentation/CRITIQUE\.md'; then
+            && grep -qE '\[bold-anchor\] documentation/GUIDE\.md:[0-9]+ -> documentation/CRITIQUE\.md' <<<"$B1OUT"; then
            echo "  [ok]   GATE 4b LEG 6: a bold-anchor resolution is REPORTED, not cleared"
          else
            echo "  [FAIL] GATE 4b LEG 6 — a reference resolving only via the weaker anchor form was"
@@ -4349,7 +4350,6 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
   # as python string literals; whole-line matching is what keeps a fire-proof from being
   # satisfied by its own source text, which this file has now recorded three times.
   _G16B_COPY=$(git rev-parse --git-dir)/doc_gates_g16b_copy.sh
-
   _g16b() {  # <label> <expected-substring> <python-mutation>
     if _G16B_COPY="$_G16B_COPY" python3 -c "$3" 2>/dev/null; then
       _G16BOUT=$(_gsrc "$_G16B_COPY" collisions)
@@ -4366,7 +4366,6 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
       PASS=1
     fi
   }
-
   _g16b "LEG 2: the historical ledger dispatch on GATE 11's (A1) fire-proof" \
         'is 2 gates behind one exit code' "
 import os
@@ -4376,7 +4375,6 @@ t=[i for i,l in enumerate(L) if l.strip()==A]
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace(' ledger-phrases ',' ledger ')
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
-
   _g16b "LEG 2: the historical links dispatch on GATE 4's fire-proof" \
         'is 2 gates behind one exit code' "
 import os
@@ -4386,7 +4384,6 @@ t=[i for i,l in enumerate(L) if l.strip()==A]
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace(' links-internal ',' links ')
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
-
   _g16b "LEG 2: an invocation the extractor can no longer see" \
         'One of the two extractors is wrong' "
 import os
@@ -4396,7 +4393,6 @@ t=[i for i,l in enumerate(L) if l.strip()==A]
 assert len(t)==1, 'anchor moved: %d' % len(t)
 del L[t[0]]
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
-
   _g16b "LEG 2: a call graph that can no longer see one gate calling another" \
         'the call graph is' "
 import os,re
@@ -4441,7 +4437,6 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace(A, 'and no anchored '+'sentinel within %d line(s)')
 assert A not in L[t[0]], 'the wording survived the substitution'
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
-
   _g16b "LEG 3: a second message able to produce the same substring" \
         'message templates can produce' "
 import os
@@ -4486,7 +4481,6 @@ assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace(A, 'grep '+'-qF '+chr(34)+'\$_g15b'+'whyZZ'+chr(34))
 assert A not in L[t[0]], 'the asserted name survived the substitution'
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
-
   _g16b "LEG 3: a message reworded out from under a variable-carried substring" \
         'carries a fire-proof literal' "
 import os
@@ -4498,8 +4492,15 @@ L[t[0]]=L[t[0]].replace(A, 'this guard'+chr(39)+'s ERE is not anchored '+'at the
 assert A not in L[t[0]], 'the wording survived the substitution'
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
-  rm -f "$_G16B_COPY"
+  # LEG 3's MIXED BIN (Q-773 follow-up): a planted -qF pattern with text around an expansion fits ZERO templates alone, TWO beside two decoy echoes (item A2 fragments).
+  _g16b "LEG 3: a mixed assertion that fits no message template" 'and fits 0 message template(s)' "
+assert (L:=open('$_DG_SRC',encoding='utf-8').read().splitlines(True)) and len(t:=[i for i,l in enumerate(L) if l.lstrip().startswith('echo '+chr(34)+'-- GATE 16 LEG 3: ')])==1, 'anchor moved'; L.insert(t[0], '  grep '+'-qF '+chr(34)+'zqmix \$zq planted'+chr(34)+' /dev/null'+chr(10))
+import os; open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
+  _g16b "LEG 3: a mixed assertion that fits two message templates" 'and fits 2 message template(s)' "
+assert (L:=open('$_DG_SRC',encoding='utf-8').read().splitlines(True)) and len(t:=[i for i,l in enumerate(L) if l.lstrip().startswith('echo '+chr(34)+'-- GATE 16 LEG 3: ')])==1, 'anchor moved'; L[t[0]:t[0]]=['  grep '+'-qF '+chr(34)+'zqmix \$zq planted'+chr(34)+' /dev/null'+chr(10)]+2*['  echo '+chr(34)+'  [note] zqmix \$zq planted'+chr(34)+chr(10)]
+import os; open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
+  rm -f "$_G16B_COPY"
   # ------------------------------------------------------------------------------
   # GATE 17 FIRE-PROOFS (round-7 brief item 6, 2026-08-02). NO COUNT IS WRITTEN HERE, on
   # purpose (round 14 ledger, item R14 continued). The population is the assertions below
@@ -5565,6 +5566,7 @@ preflight_support_newlines || RC=1
 . scripts/doc_gates.d/80_repro_reach_claim_shapes.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/80_repro_reach_claim_shapes.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/90_claim_artifacts.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/90_claim_artifacts.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/95_derived_figures_scope.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/95_derived_figures_scope.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
+. scripts/doc_gates.d/97_atlas_probe_tokens.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/97_atlas_probe_tokens.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
   npath) gate_npath || RC=1 ;;
@@ -5676,6 +5678,7 @@ case "$MODE" in
   viz-shape) gate_viz_shape || RC=1 ;;
   separates-census) gate_separates_census || RC=1 ;;
   cert-inventory) gate_cert_inventory || RC=1 ;;
+  atlas-probe-tokens) gate_atlas_probe_tokens || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1
            echo; gate_citation_lines || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
@@ -5761,6 +5764,7 @@ case "$MODE" in
            echo; gate_merge_semantics || RC=1
            echo; gate_rec_scope || RC=1
            echo; gate_cert_inventory || RC=1
+           echo; gate_atlas_probe_tokens || RC=1
            # 🔴 GATE 89, added to `all` 2026-09-08. It was deliberately held OUT while its
            # allowance table (documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv) was untracked:
            # `all` runs in a detached worktree of the PUSHED sha, and the gate ERRORs without
@@ -5769,7 +5773,7 @@ case "$MODE" in
            # that outlives its reason is the defect this repo spent 2026-09-08 removing.
            # Cost measured: ~2.5 s against a suite that already runs ~35 min.
            echo; gate_emitted_surface || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|cert-inventory|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|cert-inventory|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|atlas-probe-tokens|all}"; exit 2 ;;
 esac
 
 echo

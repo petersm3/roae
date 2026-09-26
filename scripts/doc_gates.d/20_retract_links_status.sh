@@ -30,10 +30,10 @@ gate_retract() {
   # same fold+normalise+fixed-string pipeline. MEASURED at extension time: 54 files, 5.7 MB
   # (five ~940 KB r5 subtree logs dominate), 0 hits across all 21 registered phrases.
   # Filtered with a bash case, not a pattern — zero regex, per the SAFETY rule above.
-  local evid="" ef
+  local evid="" ef evn efloor=120   # Q-708 (2026-09-25): the non-md evidence population gets a receipt and a floor below. Measured 155 files that day; 120 leaves room to retire ~35 without an edit here. Before this, a git mv of reports/evidence emptied $evid and the half ran on nothing at rc 0.
   for ef in $(git ls-files 'reports/evidence/*' || true); do
     case "$ef" in *.md) ;; *) evid="$evid $ef";; esac
-  done
+  done; evn=$(printf '%s\n' $evid | grep -c .); echo "GATE3_EVIDENCE_COUNT=$evn"; [ "$evn" -ge "$efloor" ] || { echo "  [FAIL] GATE 3 evidence half: $evn non-md file(s) tracked under reports/evidence/, floor $efloor. A moved, renamed or emptied evidence tree leaves this half checking nothing."; bad=1; }
   # Pre-fold every doc ONCE (fold_variants above), then run the same normalise+match
   # pipeline against the folded copies. Folding per (phrase, file) pair would spawn
   # |phrases| x |DOCS| ~ 2,700 extra sed processes; folding per file is |DOCS| ~ 130.
@@ -207,13 +207,13 @@ if not os.path.exists(REG):
     # for a gate that had inspected nothing.
     print(f'  [FAIL] {REG} is absent, so this gate checked nothing'); sys.exit(1)
 
-figs = []
+figs, hashrow = [], []
 for ln in open(REG, encoding='utf-8'):
-    # Q-761: comment = column 1 exactly '#' or starting '# ' (reg_row_kind's rule); a figure
-    # starting '#7' is DATA. ln.startswith('#') skipped it.
-    if not ln.strip() or ln.split('\t')[0].rstrip('\n') == '#' or ln.startswith('# '):
-        continue
+    # Q-761: reg_row_kind's rule: comment = column 1 exactly '#' or starting '# '; '#7' is DATA; '# ' + data column FAILS.
     f = ln.rstrip('\n').split('\t')
+    if not ln.strip() or f[0] == '#' or f[0].startswith('# '):
+        if any(c and not (c.startswith('<') and c.endswith('>')) for c in f[1:]): hashrow.append(f[0]); print(f'  [FAIL] Q-761: {REG} line "{f[0]}" is comment-shaped ("# ...") but carries data column(s), so it is not checked.\n         Register the figure without the leading "# ", or drop the tab-separated columns.')
+        continue
     if len(f) >= 2 and f[0].strip():
         figs.append((f[0], f[1]))
 
@@ -318,7 +318,7 @@ mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True
 # this extension; see the allowlist header.
 evid = [f for f in subprocess.run(['git', 'ls-files', 'reports/evidence/*'],
                                   capture_output=True, text=True).stdout.split()
-        if not f.endswith('.md')]
+        if not f.endswith('.md')]; EVID_FLOOR = 120; print(f'GATE3B_EVIDENCE_COUNT={len(evid)}')  # Q-708 sibling: same population and floor as GATE 3's evidence half
 # COST, evaluated before writing it (box-safety rule): canonicalisation is |mds| ~ 130
 # files x ~500 lines x 2 star-readings of canon() (a translate + one linear scan each),
 # then |figs| = 11 fixed-string `in`/`count` tests per line per reading ~ 1.5e6 linear
@@ -422,7 +422,7 @@ for k in dead:
     print(f'  [note] allowlist row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
     print(f'         Either the text was fixed (delete the row) or the anchor drifted.')
 
-nbad = len(bad) + len(spans) + len(missing)
+nbad = len(bad) + len(spans) + len(missing) + len(hashrow) + (len(evid) < EVID_FLOOR); _ = len(evid) < EVID_FLOOR and print(f'  [FAIL] GATE 3b evidence corpus: {len(evid)} non-md file(s) tracked under reports/evidence/, floor {EVID_FLOOR}. A moved, renamed or emptied evidence tree leaves it checking nothing.')
 if not nbad:
     byclass = {}
     for _, _, _, cls, _ in exempt:

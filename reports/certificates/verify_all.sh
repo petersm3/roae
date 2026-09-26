@@ -425,6 +425,16 @@ declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
 # the full proofs" -- the archived alt-le-14 core contains 356 of them (cores are proof-relative).
 # The pair's joint verdict is emitted below as ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN.
 CERT_FLOOR=24        # archived certificates as of 2026-09-02; a corpus that silently shrinks must not pass
+# FILE POPULATION, counted with no tool (Q-709, 2026-09-25). The population check below counts the
+# CERTS map entries that drat-trim ran, so on a host without drat-trim or python3 it is a SKIP, and
+# a missing .drat.gz reads exactly like a present one. And with no file matching, the completeness
+# loop's glob stays literal: b becomes `*`, `${CERTS[*]+x}` is non-empty, and the check PASSes
+# having examined nothing. This counts the files themselves and runs on every host. Measured
+# 2026-09-25: 24 files. The floor is CERT_FLOOR with no margin: the corpus is archived, and every
+# file in it is named in the CERTS map, so any shortfall is a lost certificate.
+cert_files(){ local n=0 f; for f in reports/certificates/*.drat.gz; do [ -f "$f" ] && n=$((n+1)); done; echo "certificate files: $n found"; }
+check "cert files on disk >= $CERT_FLOOR" \
+  "require_floor DRAT_CERTS $CERT_FLOOR 'certificate files: ' ' found' cert_files"
 # Completeness gate: every archived .drat.gz must be in the CERTS map above.
 for f in reports/certificates/*.drat.gz; do b=$(basename "$f" .drat.gz)
   check "cert inventory covers $b" "[ -n \"\${CERTS[$b]+x}\" ]"

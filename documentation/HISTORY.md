@@ -9745,3 +9745,14 @@ review.
   regenerated, and the published span is unchanged. Scope notes now sit beside the published 100 T FFT figures,
   which came from the float32 path; no figure changed. `scripts/doc_gates.sh` passed 1 MB and was split into
   modules with no change in behaviour.
+
+**Batch 14 (CX-110..CX-118) cleared the same review and is the commit that carries this addition; batch 15 still waits.**
+
+- **Batch 14 (CX-110..CX-118)** is mostly gates checking gates:
+  - one wrong `solve.c` citation repinned, and the pinned citations the citation gate could not check now name a symbol on the cited line, so it checks them;
+  - the ladder row checks each layer's slot and input chain, so two whole layers swapped between slots no longer pass;
+  - seven self-test matches no longer lose a race with their own writer;
+  - registry readers accept a data row that starts with `#`, and two of them fail loudly on a comment-shaped row that carries data;
+  - `--stamp` refuses a skip pin its own compare would reject, and minting expected blocks at any n other than 9 needs a named directory;
+  - floors under the evidence and certificate populations, so an emptied corpus fails;
+  - a gate holding the `--atlas-probe` token list to what the probe prints.

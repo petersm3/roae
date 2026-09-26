@@ -252,32 +252,26 @@ PYEOF
 # HISTORICAL/SELF-ANNOTATED (the citation means a past tree, by its own words) or LANDS by
 # inspection with no anchor the miner can see -- the gate's false positives, listed rather than
 # hidden. None is a known-wrong live citation.
+# DRAINED 18 -> 2, 2026-09-25 (Opus BA, batch 14), each citation read against its cited line.
+# One was WRONG and repinned by content (VERIFY.md, f5_nuc 6269 -> 6816: the self-annotated row).
+# Four name a PAST tree and now carry the revision pin this gate's grammar reads (DEVELOPMENT.md
+# at d6837944; QUERY_INVENTORY.md x2 at 7b1f7c06; doc_gates.d/90 at ff804bb0^). Eleven LANDED
+# with no mineable anchor and now name the symbol on the cited span (`want_raw`, `knuth_pin_mask`,
+# `sqrt(var / dn)`, `if (ok[i] == 0)`, `record\tm=%llu\t`, two fprintf formats), so they are CHECKED.
+# The gate's matching is unchanged: no anchor rule or window was widened. The two rows left were
+# tr12_repro.sh row_skip text (the a1_q5 wave-3 reason).
+# DRAINED 2 -> 0, 2026-09-25 (Opus BC, batch 14). That reason now names `kc_open` on the cited span
+# solve.c:37738-37739 (the call, then the `fkc->ooc != NULL` refusal) and `KC_MEM_MAX_PAIRS` on
+# :20692, so both citations are CHECKED. The row_skip branch runs only at n>=31, so the n=9
+# expected blocks do not carry the text. Only the ATTESTED rows below remain in this table.
 # A LANDS row still has leg A behind it: a shift under it fails leg A regardless of this pin.
 ALL_PINS_DEFAULT=$(cat <<'PINS'
 # file	key	hash	reason
-documentation/DEVELOPMENT.md	update_progress	ca1fe793f568	HISTORICAL by its own words: the callsite 'in the 2026-05-15 tree', a line of a named past tree, not of HEAD
-documentation/QUERY_INVENTORY.md	--kc-profile	1a998633977c	QUOTES the retired wrong citation 16664ff (Q-540) to explain its re-anchoring; the live usage-block citation on the same row lands
-documentation/QUERY_INVENTORY.md	--kc-profile	1a998633977c	the second number of that same quotation (16664 is a sidecar-write comment, which is the row's point)
-documentation/QUERY_INVENTORY.md	(d, w)	29da842d5d58	LANDS: line 28002 opens the `"kernel"` object of raw cells (Opus UU repin, content-checked 2026-09-25); the placeholder m<a>_<b> is not source text and `kernel` is a plain word
-documentation/SEARCH_SPACE_SIZE.md	E[W at a reached depth-32 leaf]	1aa64b021593	LANDS: line 8344 is `double se = sqrt(var / dn)`, the SE the sentence says is computed correctly; the sentence names no symbol of it
-documentation/VERIFY.md	--help	35f11ed31bdd	SELF-ANNOTATED: the sentence itself says this number is stale and names f5_nuc's current line (dated 2026-09-21); keeping the retired number visible is an editorial choice
-reports/TR12_QUERY_PROGRAM.md	(d, w)	29da842d5d58	LANDS: the same `"kernel"` emitter as QUERY_INVENTORY.md row V5 (line 28002)
-reports/TR4_SIZE_OF_THE_SPACE.md	SOLVE_KNUTH_PIN_SLOTS	89f91885326d	LANDS: line 7899 is the knuth_pin_mask pair-index test; the env var that fills the mask is parsed elsewhere
-scripts/doc_gates.d/90_claim_artifacts.sh	This read	71cca2890d80	HISTORICAL: names the header sentence at line 19 that carried a retracted phrase before ff804bb0; line 19 still holds that sentence, corrected, and the anchors on the line are that gate's own vocabulary [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
-scripts/exec_lane.sh	--preflight	79a53af2bda3	LANDS: line 4112 is the disk-IOPS pre-check PASS fprintf; the comment paraphrases its words with '...', so nothing is verbatim
-scripts/exec_lane_verdict_gate.sh	disk_iops_pre_check	9d2869f3b948	LANDS: line 4119 is the 'ERROR: projected fsync-wait' format string; the fixture below it is rendered output, not the format
-scripts/tr12_repro.sh	$SOLVE	26292c76c925	LANDS: line 37077 is the in-memory-only refusal `if (fkc->ooc != NULL)` (Opus UU repin, content-checked); the row describes it in prose only
-scripts/tr12_repro.sh	$SOLVE	b2335c01d0c4	LANDS: line 20692 is the `n > KC_MEM_MAX_PAIRS` out-of-core switch (Opus UU repin, content-checked); same row
-solve.py	KC_SCAN	8641105daf4a	LANDS: line 29314 is `if (ok[i] == 0)`, the unconditional tail-failure count; gate_fails is bumped under `if (strict)` just outside the +-2 window
-solve.py	%s\tcd=%d\t	10a6b42ea6c7	LANDS: line 38239 is the record-line emitter the comment cites; the cd= form it also names is the sibling at 38314
-viz/report_figures.py	SOLVE_KNUTH_PIN_SLOTS	89f91885326d	LANDS: the same knuth_pin_mask test as TR4 (line 7899)
-viz/report_figures.py	N_total	7c6ea7c736be	LANDS: line 41140 is `if (v >= 1 && v <= 31) knuth_pin_mask |= ...`; the env name is read 4 lines above, outside +-2
-viz/viz_kc_grammar.md	--kc-raw	5ea7506691f6	LANDS: 28001-28010 is the `if (want_raw)` raw kernel-cell loop (Opus UU repin, content-checked); the flag itself is parsed elsewhere
 # ATTESTED (key -): unanchored citations leg A2 met edited in the batch 1-10 range and a person checked by content
 documentation/GT_LADDER_FORMAT.md	-	b766f36ff4eb	ATTESTED: line 21175 opens the 'independent forward brute force (the verification oracle)' block the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72)
 documentation/GT_LADDER_FORMAT.md	-	3344cd723ce8	ATTESTED: line 21221 is `static void kc_brute(`, the brute-force list builder the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72)
-solve.c	-	c68b08ebf7c7	ATTESTED: line 23342 is `if (k < 0 || k > fkc->n) {` in kc_g_check_layer_main (CX-89) (content-checked 2026-09-25, Opus AF; cited from line 37980)
-solve.py	-	1e842b067951	ATTESTED: line 42948 is the sub-canonical gate `if (node_limit > 0 && node_limit < 1000000000000LL ...` (content-checked 2026-09-25, Opus AF; cited from line 6948)
+solve.c	-	c68b08ebf7c7	ATTESTED: line 23342 is `if (k < 0 || k > fkc->n) {` in kc_g_check_layer_main (CX-89) (content-checked 2026-09-25, Opus AF; cited from line 38642)
+solve.py	-	1e842b067951	ATTESTED: line 43611 is the sub-canonical gate `if (node_limit > 0 && node_limit < 1000000000000LL ...` (content-checked 2026-09-25, Opus AF; cited from line 6948)
 solve.py	-	c41ad0b2c3ec	ATTESTED: line 23990 is the comment defining alts, the admissible oriented successors with g > 0 (content-checked 2026-09-25, Opus AF; cited from line 14167)
 verify.py	-	0224b4f4cc0a	ATTESTED: line 6816 is `static inline int f5_nuc(int h)`, the encoding restated (content-checked 2026-09-25, Opus AF; cited from line 1977)
 PINS
@@ -301,7 +295,7 @@ documentation/QUERY_INVENTORY.md	solve.py	PENDING	ae4bda73379b	LANDS: solve.py l
 documentation/QUERY_INVENTORY.md	solve.py	extrema	57492d7cc487	LANDS: the Q6 'per-distance-class mass, not per-(state,choice)' comment in solve.py (re-pinned 2026-09-25, Q-791); the anchors mined are the row's other words
 documentation/QUERY_INVENTORY.md	solve.py	extrema	7bef2b9d6798	LANDS: the Q6 'per-distance-class mass, not per-(state,choice)' comment in solve.py (re-pinned 2026-09-25, Q-791); the anchors mined are the row's other words
 documentation/QUERY_INVENTORY.md	viz/viz_kc_grammar.md	(d, w)	fa49f1697728	LANDS: viz_kc_grammar.md line 61-62 is where the new-pair category is stated to be undefined in TR-12 section 2 (re-pinned from line 44, Q-791)
-documentation/QUERY_INVENTORY.md	scripts/tr12_repro.sh	TR12_Q7	8cc56d7454e8	LANDS: tr12_repro.sh line 3667 is `agg(){`, the helper definition the sentence names; the row's anchors are the two agg call sites (line 3681/line 3686, which land; re-pinned by content 2026-09-25, Q-430)
+documentation/QUERY_INVENTORY.md	scripts/tr12_repro.sh	TR12_Q7	8cc56d7454e8	LANDS: tr12_repro.sh line 3696 is `agg(){`, the helper definition the sentence names; the row's anchors are the two agg call sites (line 3710/line 3715, which land; re-pinned by content 2026-09-25, Q-430)
 documentation/SOLUTIONS_FORMAT.md	runs/20260419_100T_d3_d128westus3/README.md	_10T_d3_d128westus3	5883f38a672d	LANDS: the run README's line 10 is 'Solver commit at enumeration launch'; the only mined anchor is a directory-name fragment
 documentation/SOLVE_C_CLI.md	solve.py	--books-verify	b91ac445daea	LANDS: solve.py line 10496-10499 is the Goldenberg attribution block (re-pinned from line 9682-9685, Q-791)
 documentation/SOLVE_C_CLI.md	documentation/CITATIONS.md	--books-verify	2b094b79c0be	LANDS: CITATIONS.md line 2646 is the goldenberg1975 ledger anchor (re-pinned from line 1855, Q-791)
@@ -321,23 +315,23 @@ scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	reports/TR4_SIZE_OF_THE_SPACE
 scripts/doc_gates.d/90_claim_artifacts.sh	documentation/CLAIM_TO_ARTIFACT.md	canonical	f37fef14dbf6	LANDS: CLAIM_TO_ARTIFACT.md line 45 is the n=9 26,112 row (row 14; re-pinned from line 41, Q-791); 'canonical' is the word the defect removed [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
 scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/PROJECT_OVERVIEW.md	_10T_d3_fresh	19b739cabf35	LANDS: PROJECT_OVERVIEW.md line 102 attributes 21,794,755 / 152,468,987 to d3 10T; the anchor is the log path, named elsewhere [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
 scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/LARGE_SCALE_CAMPAIGNS.md	sort + dedup	07cecd264fdd	LANDS: LARGE_SCALE_CAMPAIGNS.md line 1026 is 'There is no S at which you need code that does not exist' (re-pinned from line 995, Q-791) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
-scripts/exec_lane.sh	documentation/SOLVE_C_CLI.md	./solve	f7fa3e543185	LANDS: SOLVE_C_CLI.md line 3545 quotes the pre-correction build line (re-pinned from line 2061, Q-791)
+scripts/exec_lane.sh	documentation/SOLVE_C_CLI.md	./solve	f7fa3e543185	LANDS: SOLVE_C_CLI.md line 3588 quotes the pre-correction build line (re-pinned from line 2061, Q-791)
 scripts/exec_lane.sh	documentation/CORRECTIONS.md	--follow	025e532dcecf	LANDS: CORRECTIONS.md line 3189 carries the bare `git log -S` fragment (re-pinned from line 3164, Q-791)
 scripts/exec_lane_verdict_gate.sh	documentation/BRANCHES_EXPLAINED.md	--branch	a4a6e06c28ce	LANDS: BRANCHES_EXPLAINED.md line 382 is '**All-branch enumeration** (`solve 0 64`)' (re-pinned from line 383, Q-791)
 scripts/pre_commit_generated_gate.sh	roae.py	--seed	9cd17968a666	LANDS: roae.py line 23 is `_global_seed = None`, i.e. seeds nothing by default (re-pinned from line 22, Q-791)
 scripts/tr12_repro.sh	documentation/GT_LADDER_FORMAT.md	--kc-t-check	cb9ac715fe11	LANDS: GT_LADDER_FORMAT.md line 297 is 'integrity checks: they constrain the FILES, not the shared'; this text is a row_skip REASON emitted into the goldens, so it is pinned, not reworded
 scripts/tr12_repro.sh	documentation/GT_LADDER_FORMAT.md	--kc-t-check	cb9ac715fe11	LANDS: the same GT_LADDER_FORMAT.md line 297 sentence, in the sibling row_skip reason (goldens text)
-scripts/tr12_repro.sh	scripts/tr12_repro.sh	by_class	d0a7ac7a7790	LANDS: line 2978 is the F-5 D11 fix in row c_v1 (self-reference, re-pinned from line 2260, Q-791)
-scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	00d251fa549e	LANDS: line 225/line 229 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
-scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	b923394391cb	LANDS: line 225/line 229 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
-solve.py	tests.py	--kc-tdir	85890e4eebc6	LANDS: tests.py line 6211 is a minimal `"gates": {"fails": 0}` fixture (re-pinned from line 5655, Q-791)
-solve.py	documentation/SOLVE_C_CLI.md	KC_SCAN	11173c521dec	LANDS: SOLVE_C_CLI.md line 2249-2250 is the corrected paragraph quoting the claim that this loader closed it (re-pinned from line 2238, Q-791)
+scripts/tr12_repro.sh	scripts/tr12_repro.sh	by_class	d0a7ac7a7790	LANDS: line 3176 is the F-5 D11 fix in row c_v1 (self-reference, cited from line 3205; re-pinned from line 2260, Q-791)
+scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	00d251fa549e	LANDS: line 228/line 232 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
+scripts/tr12_repro_gate.sh	scripts/tr12_repro_gate.sh	, which is pre_push_gate.sh's variable and is unset here --	b923394391cb	LANDS: line 228/line 232 are the q2_witness leg's `./scripts/...` repo-relative paths, the idiom named (self-reference, re-pinned from line 306/line 318, Q-791)
+solve.py	tests.py	--kc-tdir	85890e4eebc6	LANDS: tests.py line 6240 is a minimal `"gates": {"fails": 0}` fixture (re-pinned from line 5655, Q-791)
+solve.py	documentation/SOLVE_C_CLI.md	KC_SCAN	11173c521dec	LANDS: SOLVE_C_CLI.md line 2292 opens the corrected paragraph whose next line quotes the claim that this loader closed it (re-pinned from line 2238, Q-791)
 solve.py	viz/viz_kc_field.md	layers	77a7b41c3bc3	LANDS: viz_kc_field.md line 34 is 'Index the ordering by its 32 pair-slots', the published convention the comment quotes
 tests.py	sat.py	--keep	ac0e6d6eba88	LANDS: sat.py line 1854 is the `_run_tool(["d4", ...])` call (re-pinned from line 1823, Q-791); 'd4' is too short to mine
 tests.py	solve.py	--rules	2e018c376311	LANDS: solve.py line 1649-1657 is print_rules' docstring withdrawal plus the retired-banner comment (re-pinned from line 1581, Q-791)
-documentation/DEVELOPMENT.md	scripts/tr12_repro.sh	--kc-o3-rank	a3c7ef14609e	LANDS (rarity rule): line 2629 is the n>=31 rank3 awk the row names; `--kc-o3-rank` occurs on 11 lines of tr12_repro.sh and sits on the comment above the awk, not on it
+documentation/DEVELOPMENT.md	scripts/tr12_repro.sh	--kc-o3-rank	a3c7ef14609e	LANDS (rarity rule): line 2658 is the n>=31 rank3 awk the row names; `--kc-o3-rank` occurs on 11 lines of tr12_repro.sh and sits on the comment above the awk, not on it
 documentation/DEVELOPMENT.md	scripts/tr12_repro.sh	--kc-o3-rank	941b26ee7499	LANDS (rarity rule): line 653 is the q1c rank3 awk, the first sibling the row names (re-pinned from line 642 by content, 2026-09-25: 642 was one line of CX-93's shift behind); same common anchor
-documentation/RETRACTED_PHRASES.tsv	documentation/DEVELOPMENT.md	Constraint set	a1e7684b2f3b	LANDS: DEVELOPMENT.md line 2468-2470 is the Xugua sentence the note describes (review S3 re-pin by content, 2026-09-25; +2 for the Q-737 token rows, Opus AJ; +3 for the Q-684 token rows, Opus AS); the mined anchor is the METHODS.md section name the note also quotes
+documentation/RETRACTED_PHRASES.tsv	documentation/DEVELOPMENT.md	Constraint set	a1e7684b2f3b	LANDS: DEVELOPMENT.md line 2488-2490 is the Xugua sentence the note describes (review S3 re-pin by content, 2026-09-25; +2 for the Q-737 token rows, Opus AJ; +3 for the Q-684 token rows, Opus AS; +20 for the Q-739 GATE 90 section, Opus BH); the mined anchor is the METHODS.md section name the note also quotes
 documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	be32b4e7bc0b	HISTORICAL by its own words: solve.py line 1581 'at the 2026-09-02 HEAD', the run-time banner title; print_rules is at solve.py line 1646 today
 documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	dcdccd4d30ac	HISTORICAL by its own words: the print_rules() comment GATE 6 fired on at the row's 2026-09-02 build
 documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	e849e24fe9f9	HISTORICAL by its own words: the 'B2 MEASURED' negation sites at the row's 2026-09-02 build
@@ -345,23 +339,23 @@ documentation/RETRACTED_PHRASES.tsv	documentation/SOLVE_PY_CLI.md	--rules	3f83ae
 # ATTESTED (key -): unanchored citations leg A2 met edited in the batch 1-10 range and a person checked by content
 documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv	scripts/tr12_repro_gate.sh	-	1e178531ce02	ATTESTED: line 503 is the `printf 'TR12_A=PASS\n...'` fixture literal the row names (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 50)
 documentation/ROAE_PY_CLI.md	roae.py	-	5dd6051f8a32	ATTESTED: line 5077 is `gate_ok = abs(p_le_648 - 0.04789) <= 0.005`, the constant the sentence names (content-checked 2026-09-25, Opus AF; cited from line 428 and line 436; reason re-pinned from line 4994, Fable HH N2)
-documentation/SOLVE_C_CLI.md	documentation/DEVELOPMENT.md	-	fdde236ba43a	ATTESTED: DEVELOPMENT.md line 1588 (1579 before the Q-737, Q-727 and Q-684 token rows) is the 'Caveat — cross-host reproducibility' paragraph that bounds the tested toolchain class (content-checked 2026-09-25, Opus AF; cited from line 208)
+documentation/SOLVE_C_CLI.md	documentation/DEVELOPMENT.md	-	fdde236ba43a	ATTESTED: DEVELOPMENT.md line 1608 (1579 before the Q-737, Q-727 and Q-684 token rows; 1588 before the Q-739 GATE 90 section) is the 'Caveat — cross-host reproducibility' paragraph that bounds the tested toolchain class (content-checked 2026-09-25, Opus AF; cited from line 208)
 documentation/VERIFY.md	documentation/CLAIM_TO_ARTIFACT.md	-	8a71d7b9b18c	ATTESTED: CLAIM_TO_ARTIFACT.md line 34 is row 3, |C1∩C2∩C4∩C5| EXACT, the qualification the sentence means (content-checked 2026-09-25, Opus AF; cited from line 1054)
-scripts/doc_gates.d/20_retract_links_status.sh	reports/TR2_THE_RULES_CONFLICT.md	-	75d1d558ef44	ATTESTED: TR2 line 587 is the bold label 'Stop-flag resolution (v1.12, 2026-07-13)' the comment quotes (content-checked 2026-09-25, Opus AF; cited from line 1775) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
-scripts/doc_gates.d/70_publication_surfaces.sh	documentation/DESCRIPTION_LENGTH.md	-	01dd010f3e03	ATTESTED: DESCRIPTION_LENGTH.md line 74 carries the decimal ×23.325025987… the fixture names (content-checked 2026-09-25, Opus AF; cited from line 12402) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
-scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/CITATIONS.md	-	91ee7e608492	ATTESTED: CITATIONS.md line 1976-1977 is the gender/position-parity bullet with the 'at the time of the SAT work' qualifier (content-checked 2026-09-25, Opus AF; cited from line 15807) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
-scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/DEPLOYMENT.md	-	5738628c0c1a	ATTESTED: DEPLOYMENT.md line 166 is the d3 100T merge bullet, 'external merge streams in chunks' (an affirmation) (content-checked 2026-09-25, Opus AF; cited from line 19835) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
+scripts/doc_gates.d/20_retract_links_status.sh	reports/TR2_THE_RULES_CONFLICT.md	-	75d1d558ef44	ATTESTED: TR2 line 587 is the bold label 'Stop-flag resolution (v1.12, 2026-07-13)' the comment quotes (content-checked 2026-09-25, Opus AF; cited from line 569) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
+scripts/doc_gates.d/70_publication_surfaces.sh	documentation/DESCRIPTION_LENGTH.md	-	01dd010f3e03	ATTESTED: DESCRIPTION_LENGTH.md line 74 carries the decimal ×23.325025987… the fixture names (content-checked 2026-09-25, Opus AF; cited from line 523) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/CITATIONS.md	-	91ee7e608492	ATTESTED: CITATIONS.md line 1976-1977 is the gender/position-parity bullet with the 'at the time of the SAT work' qualifier (content-checked 2026-09-25, Opus AF; cited from line 1566 and line 1580) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/DEPLOYMENT.md	-	5738628c0c1a	ATTESTED: DEPLOYMENT.md line 166 is the d3 100T merge bullet, 'external merge streams in chunks' (an affirmation) (content-checked 2026-09-25, Opus AF; cited from line 1708) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
 scripts/exec_lane.sh	documentation/SOLUTIONS_FORMAT.md	-	1a3f74ef552c	ATTESTED: SOLUTIONS_FORMAT.md line 437 is `env | grep -c '^SOLVE_DEPTH='` returning 0 (content-checked 2026-09-25, Opus AF; cited from line 770)
-scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2629 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 95)
-scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2629 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 103)
-scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	941b26ee7499	ATTESTED: line 653 is the q1c rank3 awk, the first sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 103)
-scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	1dbdb132ab0c	ATTESTED: line 2700 is the a2_q3 `--kc-o3-rank ... | awk` rank3 parse, the second sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 103)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2658 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 101)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2658 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	941b26ee7499	ATTESTED: line 653 is the q1c rank3 awk, the first sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	1dbdb132ab0c	ATTESTED: line 2729 is the a2_q3 `--kc-o3-rank ... | awk` rank3 parse, the second sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
 scripts/tr12_repro_gate.sh	scripts/tr12_repro.sh	-	37b8c4bff44f	ATTESTED: line 1202 is `row_begin a0_q4b` (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 148)
-solve.c	solve.py	-	a2eec7945003	ATTESTED: solve.py line 7111 is `"SOLVE_HASH_LOG2": "16",  # keep RAM use modest on tiny VMs`, quoted (content-checked 2026-09-25, Opus AF; cited from line 39724)
-solve.c	documentation/SOLVE_C_CLI.md	-	13caa29fe0ed	ATTESTED: SOLVE_C_CLI.md line 518 is `set -a; eval "$(./solve --canonical-config 100T)"; set +a` (content-checked 2026-09-25, Opus AF; cited from line 41952)
-solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 43415)
-solve.c	documentation/SOLVE_C_CLI.md	-	fc6e90f7a78a	ATTESTED: SOLVE_C_CLI.md line 791 is 'King Wen presence is reported, not enforced' (content-checked 2026-09-25, Opus AF; cited from line 43649)
-solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 43850)
+solve.c	solve.py	-	a2eec7945003	ATTESTED: solve.py line 7111 is `"SOLVE_HASH_LOG2": "16",  # keep RAM use modest on tiny VMs`, quoted (content-checked 2026-09-25, Opus AF; cited from line 40387)
+solve.c	documentation/SOLVE_C_CLI.md	-	13caa29fe0ed	ATTESTED: SOLVE_C_CLI.md line 518 is `set -a; eval "$(./solve --canonical-config 100T)"; set +a` (content-checked 2026-09-25, Opus AF; cited from line 42615)
+solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44078)
+solve.c	documentation/SOLVE_C_CLI.md	-	fc6e90f7a78a	ATTESTED: SOLVE_C_CLI.md line 791 is 'King Wen presence is reported, not enforced' (content-checked 2026-09-25, Opus AF; cited from line 44312)
+solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44513)
 PINS
 )
 TARGET_PINS="${CITGATE_TARGET_PINS-$TARGET_PINS_DEFAULT}"

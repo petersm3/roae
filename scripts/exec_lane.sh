@@ -373,7 +373,7 @@ def unbounded_branch(c):
     could-not-fail shape it exists to refuse. Measured 2026-09-07 on --list, both gating,
     both fence-origin, both published as recipes a reader is meant to paste:
         documentation/SOLVE_C_CLI.md:519   SOLVE_THREADS=128 ./solve 0 128
-        documentation/DEVELOPMENT.md:920   SOLVE_RESUME_HISTORY="..." ./solve 0 64
+        documentation/DEVELOPMENT.md:944   SOLVE_RESUME_HISTORY="..." ./solve 0 64
     time_limit ALSO defaults to 0 (SOLVE_C_CLI.md:199-200, "`0` means run to completion.
     Default 0"), so a MISSING time_limit is the same unbounded run as an explicit `0`.
     Matched on the strip_opt output, before run_one's `./` prefixing, with leading `VAR=...`
@@ -893,7 +893,7 @@ $(tail -c 2000 "$ref")"; fi
   # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:385 — a gating row,
   # and bare --preflight defaults to 560T so the IOPS probe really runs) fell through to the
   # terminal `else` and was reported FAIL(rc=31): a host refusal published as a doc defect.
-  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4112)
+  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4112, `disk-IOPS pre-check PASS`)
   # also says "fsync ~x% of est enum wall ... fsync-wait vs ... est wall". SOLVE_ALLOW_SLOW_IOPS
   # is the second anchor because `out` is only the last 4000 bytes: the ERROR's first line can
   # fall outside that window while its override hint survives.

@@ -65,7 +65,7 @@
 #   --fdir/--gdir/--tdir named ladder directories (TDIR is optional; without it the t-legs SKIP)
 #   --solve PATH         the solve binary (default: build solve.c into a temp dir)
 #   --out DIR            artifact root (default: a temp dir; printed at the end)
-#   --expect DIR         expected-block directory (default: scripts/tr12_expected/n<N>)
+#   --expect DIR         expected-block directory (default: scripts/tr12_expected/n<N>); REQUIRED with --regen or --mint-missing at n!=9 (Q-716)
 #   --regen              write the expected blocks from this run instead of diffing against them
 #   --wave3              also run the wave-3 rows that are cost-gated at full-31 (Q5 extremals)
 #   --with-gcheck        run --kc-g-check at full-31 (a ~24 h single-threaded full ladder pass)
@@ -282,9 +282,9 @@ N_MINUS_1="$(echo "$N_TOTAL - 1" | bc)"
 N_HALF="$(echo "$N_TOTAL / 2" | bc)"
 N_MOD24="$(echo "$N_TOTAL % 24" | bc)"
 N_DIV24="$(echo "$N_TOTAL / 24" | bc)"
-
+# Q-716: a WRITING run at n!=9 names --expect; the default below is the source tree, where only n9/ is committed.
+if [ -z "$EXPECTDIR" ] && { [ "$MINT_MISSING" -eq 1 ] || [ "$REGEN" -eq 1 ]; } && [ "$N_PAIRS" != 9 ]; then say "REFUSED: --mint-missing/--regen at n=$N_PAIRS without --expect would write into the source tree ($SCRIPT_DIR/tr12_expected/n$N_PAIRS); name a directory with --expect DIR (Q-716)"; printf 'TR12_REPRO=ERROR\nTR12_REPRO_REASON=mint-without-expect-n%s\n' "$N_PAIRS" | tee -a "$VERD"; exit 2; fi
 [ -n "$EXPECTDIR" ] || EXPECTDIR="$SCRIPT_DIR/tr12_expected/n${N_PAIRS}"
-
 # knobs — reduced universes get reduced batch sizes so the whole battery stays under a minute
 if [ "$N_PAIRS" -ge 31 ]; then
     C3MAX_DEF=387;  Q8K_DEF=1000; Q4ACM_DEF=1000000; Q1CM_DEF=10000; V3K_DEF=1000
@@ -1404,15 +1404,44 @@ ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR LAYER_PREFIX
       done < "$WORK/lsha.$id"
       want=$((N_PAIRS+1))
       # Q-782: layer IDENTITY -- exactly <LAYER_PREFIX>_00..NN, each present, readable and MATCHED.
-      idbad=0; k=0
+      # Q-782 (2026-09-25, Opus AY): a MATCHED slot must also be the RIGHT layer. Renaming the
+      # 03 and 04 pairs (bin + sidecar) into each other's slots leaves the count right, every index
+      # present and every layer matching the sidecar beside it, so the loop above passed it. Each
+      # sidecar names its slot ("k", "layer_file") and the layer it was built from
+      # ("input_layer_k", "input_sha256_decompressed"), so the slot must be named and every link
+      # must land on the own_sha256_decompressed at the index it names. Editing the slot fields of
+      # a moved sidecar does not survive the chain: its neighbour's link still points at the bytes
+      # that used to be there.
+      idbad=0; k=0; own_at=(); ink_at=(); in_at=()
       while [ "$k" -lt "$want" ]; do
-          lp="$dir/${pfx}_$(printf '%02d' "$k").bin"
+          kk=$(printf '%02d' "$k"); lp="$dir/${pfx}_$kk.bin"; sc="$dir/${pfx%_layer}_layer_stats_$kk.json"
           if   [ ! -e "$lp" ]; then echo "layer ${lp##*/}  MISSING"; idbad=$((idbad+1))
           elif [ ! -r "$lp" ]; then echo "layer ${lp##*/}  UNREADABLE"; idbad=$((idbad+1))
-          else case $'\n'"$matched" in *$'\n'"$lp"$'\n'*) : ;;
+          else case $'\n'"$matched" in
+                   *$'\n'"$lp"$'\n'*)
+                       sk=$(sed -n 's/^ *"k": *\(-\{0,1\}[0-9]\{1,\}\),.*/\1/p' "$sc" | head -1)
+                       sf=$(sed -n 's/^ *"layer_file": *"\([^"]*\)".*/\1/p' "$sc" | head -1)
+                       if [ "$sk" != "$k" ] || [ "$sf" != "${lp##*/}" ]; then
+                           echo "layer ${lp##*/}  WRONG-SLOT sidecar k=${sk:-none} layer_file=${sf:-none}"; idbad=$((idbad+1))
+                       fi
+                       own_at[$k]=$(sed -n 's/^ *"own_sha256_decompressed": *"\([0-9a-f]\{64\}\)".*/\1/p' "$sc" | head -1)
+                       ink_at[$k]=$(sed -n 's/^ *"input_layer_k": *\(-\{0,1\}[0-9]\{1,\}\),.*/\1/p' "$sc" | head -1)
+                       in_at[$k]=$(sed -n 's/^ *"input_sha256_decompressed": *"\([0-9a-f]\{64\}\|genesis\)".*/\1/p' "$sc" | head -1) ;;
                    *) echo "layer ${lp##*/}  NOT-MATCHED"; idbad=$((idbad+1)) ;; esac
           fi
           k=$((k+1))
+      done
+      for k in "${!own_at[@]}"; do
+          kk=$(printf '%02d' "$k"); j=${ink_at[$k]}; in=${in_at[$k]}
+          if [ -z "$j" ] || [ -z "$in" ]; then
+              echo "layer ${pfx}_$kk.bin  NO-FIELD input_layer_k/input_sha256_decompressed"; idbad=$((idbad+1))
+          elif [ "$j" = "-1" ]; then
+              [ "$in" = genesis ] || { echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=-1 input=$in"; idbad=$((idbad+1)); }
+          elif [ "$j" -lt 0 ] || [ "$j" -ge "$want" ] || [ "$j" -eq "$k" ]; then
+              echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=$j (not another index in 00..$(printf '%02d' "$N_PAIRS"))"; idbad=$((idbad+1))
+          elif [ -n "${own_at[$j]+x}" ] && [ "${own_at[$j]}" != "$in" ]; then
+              echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=$j input=$in own[$j]=${own_at[$j]}"; idbad=$((idbad+1))
+          fi   # an unset own_at[j] is a slot that already failed above, and is counted there
       done
       for lp in "$dir"/*_layer_[0-9][0-9].bin; do
           [ -e "$lp" ] || continue
@@ -2041,7 +2070,7 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
     # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
     # ships. Budget is an operator decision; an unbuilt builder is not.
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:37739) and an n=31 f ladder always opens out-of-core (:20692), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37738-37739) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20692), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -2476,7 +2505,7 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
       #  (1) the emitted table must carry one data row per source data row, and n of them, in
       #      step order 1..n -- that is what kills the header-only table;
       #  (2) THE TIE TO a2_q3_reader: that row asserts g == p_num and g_parent == p_den on the
-      #      source columns (:2270) after proving them canonical decimals and telescoping. This
+      #      source columns (:2299) after proving them canonical decimals and telescoping. This
       #      row therefore checks its OWN published cells against those same source columns, so a
       #      projection that read the wrong column cannot publish a plausible table. String
       #      comparison of canonical decimals is exact integer equality, which is why both sides
@@ -3173,7 +3202,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3147) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3176) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.

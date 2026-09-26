@@ -14038,3 +14038,414 @@ unquoted heredoc (`scripts/doc_gates.d/70_publication_surfaces.sh`, the census l
 
 **5. What does not change.** No gate verdict, measured number, definition, figure or battery
 golden.
+
+## CX-110 — one wrong `solve.c` citation repinned, fifteen pinned citations made checkable, and a line map beside three dated measurements (documentation/VERIFY.md; documentation/DEVELOPMENT.md; documentation/QUERY_INVENTORY.md; documentation/SEARCH_SPACE_SIZE.md; documentation/RETRACTED_PHRASES.tsv; reports/TR4_SIZE_OF_THE_SPACE.md; reports/TR12_QUERY_PROGRAM.md; viz/viz_kc_grammar.md; viz/report_figures.py; solve.py; scripts/exec_lane.sh; scripts/exec_lane_verdict_gate.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/citation_line_gate.sh)
+
+**2026-09-25.** Origin: the citation gate's `--all-files` pin table held 18 `solve.c` citations
+that its anchor leg reported stale and a person had excused one by one. A stale-row sweep found
+that at least one of them pointed at the right line. Landed by Opus BA. Every gate claim below was
+run on the worker VM, on a fresh clone at 47f432c2 with the batch-13 candidate and this change
+overlaid.
+
+**1. What each of the 18 was.** Each citation was read against the `solve.c` line it names.
+- **One was wrong.** VERIFY.md's `--nuclear-selftest` row cited line 6269 for `f5_nuc`, and the
+  row itself said the number was stale. `f5_nuc` is defined at line 6816. The row now cites 6816.
+- **Four name a past tree.** The number was right for the tree the sentence describes. Each now
+  carries the revision pin the gate reads for that case: DEVELOPMENT.md's `update_progress`
+  callsite at d6837944, the 2026-05-15 tree; the two retired `--kc-profile` locators in
+  QUERY_INVENTORY.md row 8.7 at 7b1f7c06, the commit that retired them; and the pre-fix header line
+  in `doc_gates.d/90_claim_artifacts.sh` at ff804bb0^. Each number was checked at its revision.
+- **Eleven were on the right line.** Their sentences name no symbol that sits on the cited span.
+  Each now names one that does: `want_raw` (three citations of the raw kernel emitter),
+  `knuth_pin_mask` (TR-4 and two in `report_figures.py`), `sqrt(var / dn)` (SEARCH_SPACE_SIZE.md),
+  `if (ok[i] == 0)` and `record\tm=%llu\t` (two `solve.py` comments), and the two fprintf formats
+  cited by `exec_lane.sh` and `exec_lane_verdict_gate.sh`. The gate now checks these eleven.
+  Before this change it did not.
+- **Two stay pinned.** The two `tr12_repro.sh` citations sit in the `row_skip` reason of row a1_q5
+  (printed at n=31 as `TR12_Q5_REASON`), in a file another lane was editing, so they are not reworded here. Both land on the right line. Their pin
+  reasons had carried line numbers from before a shift and now give the current lines (37739,
+  20692).
+
+**2. The gate.** Only the pin table in `scripts/citation_line_gate.sh` changed. It drops from 18
+rows to 2, and the table's header comment records the drain. No anchor rule, window or exclusion
+was changed. Leg B goes from 72 stale citations to 56, all pinned exactly, and the revision-pin
+exclusion count goes from 29 to 33. Mutants, each run alone on the candidate tree: moving any one of
+eight of the eleven newly anchored citations by 10 to 40 lines, restoring the old 6269, or removing
+the DEVELOPMENT.md or `90_claim_artifacts.sh` revision pin gives `CITATION_LINE_GATE=FAIL`. One mutant is stated rather than hidden:
+`exec_lane.sh`'s PASS-line citation moved to 4119, the ERROR line, still passes. Its comment
+paragraph also names the ERROR line's text, so both lines satisfy an anchor. That was true before
+this change as well.
+
+**3. RETRACTED_PHRASES.tsv rows for three dated measurements.** The notes of the three rows
+retracted 2026-09-02 from F1C5_LAYER_FORMAT.md give `solve.c` numbers from the tree the rows were
+registered at (c67737d2). Those numbers are kept as measured. Each note now ends with a line map as
+of 47f432c2. The map was built by content: every cited block is byte-identical at its new line.
+
+**4. Gates.** `scripts/doc_gates.sh`: rc 0, no `[FAIL]` line. `scripts/citation_line_gate.sh --selftest`: `CITATION_LINE_GATE=PASS`. `--all-files --all-targets`, and the same with `--base 47f432c2`: `CITATION_LINE_GATE=PASS`, 0 shifted, 0 repin, 56 stale all pinned exactly. `python3 tests.py`: 402 tests, OK (1 skipped). The TR-12 gate stamp must be
+re-stamped: solve.py, viz/report_figures.py and documentation/VERIFY.md are fingerprinted inputs.
+
+**5. What does not change.** No measured number, definition, figure or battery golden. No citation
+into any target other than `solve.c` was touched, apart from the three line maps.
+
+## CX-111 — the TR-12 ladder row passed two whole layers swapped between slots (scripts/tr12_repro.sh; tests.py; documentation/QUERY_INVENTORY.md)
+
+**2026-09-25.** Origin: backlog row Q-782, taken further by Opus AY after the batch-13 fix. Every
+run and gate claim below was made on the worker VM, on a fresh clone at 47f432c2 with the batch-13
+candidate and this change overlaid.
+
+**1. What the batch-13 fix left open.** The Q-782 fix made `ladder_sha_row` require
+`<prefix>_layer_kk.bin` present, readable and matched for k = 0..n, and reject any other
+`*_layer_NN.bin`. It still did not ask whether the layer in slot k is layer k. Rename the 03 and 04
+pairs of an n=9 g ladder into each other's slots, bytes and sidecar together: the count is 10, every
+index 00..09 is present, and every layer matches the sidecar beside it. The row printed
+`LADDER_SHA_CHECK=OK`.
+
+**2. Fixed.** Each sidecar names its slot (`"k"`, `"layer_file"`) and the layer it was built from
+(`"input_layer_k"`, `"input_sha256_decompressed"`). For every matched slot the row now requires:
+- the sidecar's `k` equal to the slot index and its `layer_file` equal to the file's name, else
+  `layer <file>  WRONG-SLOT sidecar k=<k> layer_file=<name>`;
+- `input_layer_k` either -1 with input `genesis`, or another index in 00..n whose sidecar's
+  `own_sha256_decompressed` equals this sidecar's `input_sha256_decompressed`, else
+  `layer <file>  CHAIN-BROKEN ...`; a sidecar without the two fields is `NO-FIELD`.
+
+The chain check is what holds if the moved sidecars' slot fields are rewritten to match their new
+slots: the neighbour's link still names the bytes that used to be there (slot 02 of the swapped g
+ladder). The new lines print only on a failure, so a healthy ladder's transcript and the committed
+n=9 goldens do not change. Measured on n=9 f, g and t ladders built by `solve.c`: all three
+intact ladders give `LADDER_SHA_CHECK=OK`. The f chain runs 0 → n and the g and t chains n → 0; the
+check reads the direction from the sidecar and assumes neither. `documentation/QUERY_INVENTORY.md`'s LADDER_SHA_CHECK note names the three new verdict words.
+
+**3. Tests.** Two cases added to `TestQ782LadderShaRowChecksLayerIdentity`, on the row's own
+extracted function and a real n=9 g ladder: the whole-pair swap of 03 and 04 must FAIL with both
+`WRONG-SLOT` lines, and the same swap with the slot fields rewritten must FAIL with slot 02
+`CHAIN-BROKEN`. Against the batch-13 row both print `LADDER_SHA_CHECK=OK` (2 failures of 7). With
+the fix, 7 of 7 pass. Mutants: with the slot comparison replaced by `false`, the first test fails;
+with the chain comparison replaced by `false`, the second fails.
+
+**4. Citations.** The row gained 29 lines, so every citation into `scripts/tr12_repro.sh` below
+line 1407 moved by 29. Repinned by content from `citation_line_gate.sh`'s SHIFT/REPIN map:
+DEVELOPMENT.md line 675 (2629, 2700 to 2658, 2729), QUERY_INVENTORY.md lines 379 (3097 to 3126),
+886 (2695–2702 to 2724–2731) and 923 (3681, 3686, 3667 to 3710, 3715, 3696),
+`scripts/q7ranks_parse_gate.sh` lines 101 and 109, and two self-citations in `tr12_repro.sh`
+(2270 to 2299, 3147 to 3176). The line numbers in the matching pin notes of
+`citation_line_gate.sh` (lines 304, 338, 355, 356, 358) were updated the same way. The pinned
+content hashes did not change.
+
+**5. Gates.** `scripts/doc_gates.sh`: rc 0, no `[FAIL]` line. `--selftest`: DOC_GATES_SELFTEST=PASS.
+`python3 tests.py`: 404 tests, OK (1 skipped). `CITATION_LINE_GATE=PASS` against 47f432c2, 0
+shifted. `scripts/tr12_repro_gate.sh` at n=9: TR12_REPRO_GATE=PASS. `--check` gives
+TR12_REPRO_GATE_CURRENT=NO, as it must after a `tr12_repro.sh` change, so the stamp is re-recorded
+in the same commit.
+
+**6. What does not change.** No battery golden, measured number or published digest. At n>=31 the
+row runs only under `--with-laddersha`. The n=31 sidecars are schema v2 (written after
+2026-07-18), which writes all four fields for every layer; that was not re-read here. A sidecar
+missing a field now fails the row loudly rather than passing it.
+
+## CX-112 — seven more self-test matches could lose a race with their own writer (scripts/doc_gates.sh)
+
+**2026-09-25.** Origin: backlog row Q-799 (the GATE 10b 'vs history' leg read FAIL on 6d0694c4).
+Every run below was made on the worker VM, on a fresh clone at 47f432c2 with the batch-13 candidate
+and this change overlaid.
+
+**1. Q-799 is fixed in the candidate. The cause is confirmed.** The gate's message had not drifted.
+On the planted deletion, `appendonly-history` exits 1 and prints 53,350 bytes, and the expected
+line `1 line(s) present in ... are absent from the working copy` is on line 5. Under the file's
+`set -o pipefail`, `printf '%s' "$out" | grep -qE` loses a race: grep exits at the first match,
+bash's `printf` takes SIGPIPE on its next 4,096-byte write (the chunk size was measured with strace),
+and the pipeline returns 141. Measured on one pinned CPU over that output: 16 of 300 pipe matches
+missed, and 0 of 300 here-string matches. The candidate's `assert_fires_why` uses a here-string.
+- The leg run alone, with the real function and mutation taken from the logical source: green on
+  the candidate tree, 40 of 40 runs. With the pre-fix pipe matcher: 1 of 40 runs FAIL.
+- The leg discriminates. With 10b's lost-line count forced to 0, it reads `did NOT fire`. With the
+  gate's message changed to `are missing from`, it reads `never names`. Both set the self-test's
+  PASS to 1.
+
+**2. The sibling sweep.** The candidate's note says every site where a match can land before the
+end of a multi-KB string was converted. Measured by logging each `printf ... | grep -q` site's
+string length over one full `--selftest`, 70 of the 75 sites ran. The five that did not are
+failure-branch diagnostics on variables measured at other sites. Seven sites carried more than
+3.6 KB: `A7OUT` 20,870 bytes (two sites), `B1OUT` 20,818, `_Q761_OUT` 15,811, 7,792 and 7,677,
+and `G1OUT` 3,677. All seven are now here-strings, each edited on its own line, and the note beside
+`assert_fires_why` records the measurement on its existing line. Every other site carried at most
+2,798 bytes. That is less than one 4 KiB write, so its writer finishes before grep reads. No line
+moved.
+
+**3. Gates.** The same as the companion entry. DOC_GATES_SELFTEST=PASS on the final tree.
+
+**4. What does not change.** No gate's verdict, and no expected message.
+
+## CX-113 — the last two pinned `solve.c` citations made checkable, and pin notes that gave old line numbers (scripts/tr12_repro.sh; scripts/citation_line_gate.sh)
+
+**2026-09-25.** Origin: CX-110 left two `solve.c` citations pinned in the citation gate's
+`--all-files` table, and several pin notes still gave line numbers from before a shift. Landed by
+Opus BC. Every gate claim below was run on the worker VM, on a fresh clone at 47f432c2 with the
+batch-13 candidate, the batch-14 staged change and this change overlaid.
+
+**1. The two `tr12_repro.sh` citations.** Both sit in the `row_skip` reason of row a1_q5, the
+wave-3 skip at n>=31, and both were on the right line. The sentence named no symbol on either
+cited span, so the gate could not check them. The reason now names one for each:
+- `solve.c:37739` became `solve.c:37738-37739`, "the kc_open call and its out-of-core refusal".
+  Line 37738 is the `kc_open` call and line 37739 is the `fkc->ooc != NULL` refusal.
+- `:20692` now names `n > KC_MEM_MAX_PAIRS`, the test on that line.
+Both pin rows are removed. The reason is not in the n=9 goldens: the branch runs only when the
+universe has 31 or more pairs. At n=31 the reason is printed as `TR12_Q5_REASON` in the verdicts file. The frozen record
+`reports/evidence/tr12/VERDICTS_n31_20260922.txt` keeps the old wording, as a dated record should.
+
+**2. Pin notes.** The pinned content hashes did not change. Only the prose changed. It now gives the
+line where each citation is today, found by matching every pin's hash against the citing file:
+- The tables' self-citations and targets: `tr12_repro.sh` line 3176 (was 2978), cited from line 3205;
+  `tr12_repro_gate.sh` lines 228 and 232 (were 225 and 229); `tests.py` line 6240 (was 6211);
+  `SOLVE_C_CLI.md` line 3588 (was 3545) and line 2292 (was 2249-2250); `solve.c` line 43611 (was
+  42948).
+- "Cited from" lines: `q7ranks_parse_gate.sh` 101 and 109 (were 95 and 103). Six `solve.c`
+  comments are now at 38642, 40387, 42615, 44078, 44312 and 44513. In the `doc_gates.d` modules the
+  lines are 569 (module 20), 523 (module 70), 1566 and 1580 (module 80) and 1708 (module 95). Their
+  old numbers were `scripts/doc_gates.sh` line numbers from before the Q-797 module split.
+Notes that record a past tree on purpose are unchanged. These are the "re-pinned from line N"
+notes, the RETRACTED_PHRASES.tsv rows marked HISTORICAL, and the DEVELOPMENT.md "1579 before the
+... token rows" note. The line numbers they give for the current tree were checked and are right.
+
+**3. The gate.** No anchor rule, window or exclusion changed. `--all-files --all-targets`: leg B
+goes from 56 stale citations to 54 and from 81 pinned to 79, and the checked count goes up by one. The table's header comment records the drain.
+Mutants, each run alone: moving `37738-37739` to `37748-37749`, or `:20692` to `:20702`, gives
+`CITATION_LINE_GATE=FAIL`. Each is reported as REPIN in leg A2 and NEW in leg B.
+
+**4. Goldens.** `scripts/tr12_repro.sh --n9 --regen`: `TR12_REPRO=PASS:MINTED-57`. The expected blocks and
+their `_MANIFEST.txt` came out byte-identical.
+
+**5. Gates.** `scripts/citation_line_gate.sh --selftest`: `CITATION_LINE_GATE=PASS`.
+`--all-files --all-targets`, and the same with `--base 47f432c2`: `CITATION_LINE_GATE=PASS`, 0
+shifted, 0 repin, 54 stale all pinned exactly. `scripts/doc_gates.sh`: rc 0, no `[FAIL]` verdict
+line. `python3 tests.py`: 404 tests, OK (1 skipped). `scripts/tr12_repro_gate.sh` at n=9:
+TR12_REPRO_GATE=PASS. `--check` gives TR12_REPRO_GATE_CURRENT=NO, as it must after a
+`tr12_repro.sh` change, so the stamp is re-recorded in the same commit.
+
+**6. What does not change.** No measured number, verdict, battery golden or published digest.
+No citation into any target other than `solve.c` changed, and no citation moved, apart from the
+a1_q5 reason.
+
+## CX-114 — two more registry readers skipped a row starting '#' (two others audited), and GATE 16 LEG 3 never checked a mixed assertion (tests.py; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/50_instruments_collisions.sh)
+
+**2026-09-25.** Origin: backlog row Q-773, the part of Q-761's class that Q-761's fix did not
+cover. Every run below was made on the worker VM, on a fresh clone at 47f432c2 with the batch-13
+candidate, the batch-14 work and this change overlaid. No line moved in any file.
+
+**1. The run-time emitter test ignored a needle starting with '#'.** `tests.py`'s
+`_registered_retracted_phrases` skipped every line starting with `#`. It now uses `reg_row_kind`'s
+rule: a line is a comment only when its column 1 is exactly `#` or starts with `# `. With a
+planted row `#7/#8 synthetic Q-773 needle`, the old reader leaves the needle out and the new one
+returns it. On the real registry both readers return the same 263 needles.
+
+**2. GATE 27 skipped a withdrawn figure starting with '#'.** Its `WITHDRAWN_FIGURES.tsv` reader
+used the same `startswith("#")` test. Column 1 there is a figure string, which can start with a
+hexagram number, so the reader now uses the same rule. All 22 comment lines in the file are `#` or
+start with `# `. A planted row `#9/#10 synthetic stale figure Q773`, stated in GUIDE.md with no
+marker: rc 0 and no finding before, rc 1 naming `GUIDE.md` after. The real tree is unchanged.
+- **Audited, not changed.** In GATE 18's `DOC_GATE_ALIAS_REACH.tsv`, column 1 is a closed `kind`
+  vocabulary, and an unknown kind is already a loud config error. In GATE 5's
+  `CANONICAL_VALUE_STATUS.tsv`, column 1 is a numeric value. A data row in either file cannot
+  start with `#`.
+
+**3. GATE 16 LEG 3 never checked a mixed assertion.** `QF_ANY` matched only a `grep -qF` pattern
+that begins with `$`. So a pattern with literal text around an expansion, such as
+`"[FAIL] $_Q761_K has NO entry"`, was neither checked nor reported. The leg now puts every `-qF`
+pattern that carries an expansion into one of three bins: a driver's `$2`, exactly `"$NAME"`, or
+mixed. A mixed pattern must fit exactly one message template. Each expansion, or digit run, fills
+one template field (a %-spec, `$..` or `{..}`). All other asserted text must be template text, but a
+field at either end of the pattern may absorb one token with no whitespace, such as a path or a
+number. A mixed pattern has no second reader, so this tolerance is a choice, stated in the leg's
+comment. An expansion the leg cannot parse is a FAIL.
+- **Real tree.** Three mixed assertions exist. Each fits exactly one template, and it is the right
+  one: logical source lines 3944 to 1338, 3957 to 8975 and 7337 to 14784. The leg prints `[ok]` and
+  counts them.
+- **Mutants,** made on a copy of the logical source and run with the old and new leg. The 3957
+  assertion reworded to `has NO ledger entry`: old `[ok]`, new FAIL, fits 0. A decoy
+  `echo "  [note] decoy: [FAIL] $x has NO entry here"`: old `[ok]`, new FAIL, fits 2. An
+  expansion the leg cannot parse, `$((1 + (2)))`: old `[ok]`, new FAIL naming it.
+- An interior field may not absorb asserted text. When it could, a quoted-needle assertion also
+  fit `[OPEN] {m}:{i} "{fig}"` and 13 other templates.
+
+**4. Gates.** `scripts/doc_gates.sh`: rc 0, no `[FAIL]` finding. `--selftest`:
+DOC_GATES_SELFTEST=PASS. `python3 tests.py`: 404 tests, OK (1 skipped). `CITATION_LINE_GATE=PASS`, 0 shifted, against
+47f432c2. `tests.py` is a member of the TR-12 gate fingerprint, so the stamp is re-recorded in the
+same commit.
+
+**5. What does not change.** No verdict on the current tree, no registry row, and no line number.
+No self-test leg was added for LEG 3's mixed bin, because a new leg would move lines. The mutants
+above are the proof.
+
+## CX-115 — GATE 16 LEG 3's mixed bin gets a fire-proof, three more registry readers use the comment rule (two made loud), and the branch registry audited and changed (scripts/doc_gates.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt)
+
+**2026-09-25.** Origin: the four follow-ups CX-114 left open. Every run below was made on the worker
+VM, on a fresh clone at 47f432c2 with the batch-13 candidate, the batch-14 work and this change
+overlaid. No file changed its line count. The comment rule is `reg_row_kind`'s: a line is a comment
+only when its column 1 is exactly `#` or starts with `# `.
+
+**1. GATE 16 LEG 3's mixed bin now has a `--selftest` fire-proof.** Two new `_g16b` legs each plant
+`grep -qF "zqmix $zq planted"` in a copy of the logical source. Alone, it fits no template, and the
+leg must print `and fits 0 message template(s)`. With two matching decoy `echo` lines beside it, it
+fits two, and the leg must print `and fits 2 message template(s)`. With LEG 3's `len(hits) != 1`
+test disabled, both legs report NOT reported. With the real leg, both report fires. `_g16b`'s
+`callers=` goes from 8 to 10 in DOC_GATE_SELFTEST_INSTRUMENTS.txt. To keep line numbers fixed, the
+two legs replace seven blank lines in the same `--selftest` block. So logical source lines 6748 to
+6898 move. Item 3's GATE 3b edit also moves
+logical source lines 1418 to 1422. No other line moves, and the citation gate reports 0 shifted.
+- A first draft put each leg's python on one line. GATE 15 LEG 4 failed it, because the anchor
+  `assert` must be on its own line before the write. Each leg is now three lines.
+
+**2. `require_rows` counted rows with a different rule.** Its `grep -cvE '^[[:space:]]*(#|$)'` did
+not count a row starting with `#`. A registry whose only row was such a row read as ZERO rows. It
+now counts with the comment rule. Planted: WITHDRAWN_FIGURES.tsv with one data row,
+`#9/#10 synthetic QBF figure`, stated in GUIDE.md with a marker. Before, `withdrawn-markers` gave rc 1
+`has ZERO rows`. After, it gives rc 0 `[ok]`. On the four real registries it guards, the old and new
+counts agree: 263, 19, 22 and 11.
+
+**3. GATE 3b and GATE 27 now fail on a comment-shaped row that carries data.** Both readers already
+used the comment rule, but they skipped a `# `-shaped line that carries data columns without saying
+so. GATE 3 and GATE 11 fail on that line. Both now print a `[FAIL] Q-761: ... is comment-shaped` line
+and exit 1. A column in `<placeholder>` form is still read as a comment, as in `reg_row_kind`.
+Planted `# 9.99sigma QBF synthetic<TAB>note` in RETRACTED_FIGURES.tsv: `retract-figures` gave rc 0
+`[ok]` before and rc 1 naming the line after. The same shape in WITHDRAWN_FIGURES.tsv:
+`withdrawn-markers` gave rc 0 before and rc 1 after. The real tree is unchanged for both gates.
+
+**4. GATE 19's two BRANCH_REGISTRY.tsv readers.** Audited: git accepts a branch name that starts with
+`#` (`git check-ref-format --branch '#7/#8'` succeeds), so a data row can start with `#`. Both readers
+used `^#`, so both now use the comment rule. A branch name cannot contain a space, so no branch can
+start with `# `. All 33 comment lines in the file have `#` as column 1. Those lines carry prose in
+later columns, so the loud check is not applied here. Planted: a declared branch `#7/#8-qbf-probe`
+named through `DOC_GATES_PENDING_BRANCHES` gave rc 1 `is NOT declared` before and rc 0 after. An
+unpublished row `#qbf-gone` with status `nonsense` gave rc 0 before, because the row was skipped. It
+gives rc 1 `not one of` after.
+- **Still open.** A branch named exactly `#` would still read as a comment. If published, GATE 19
+  fails it as undeclared. If only registered, its row is not checked.
+
+**5. Gates.** `scripts/doc_gates.sh`: rc 0, no `[FAIL]` finding. `--selftest`: DOC_GATES_SELFTEST=PASS.
+`python3 tests.py`: 404 tests, OK (1 skipped). `CITATION_LINE_GATE=PASS`, 0 shifted, against 47f432c2. None of
+the five files is a TR-12 fingerprint input, so the stamp is not re-recorded.
+
+## CX-116 — `--stamp` refuses a zero-skip pin its own compare rejects, and a mint at n≠9 needs `--expect` (scripts/tr12_repro_gate.sh; scripts/tr12_repro.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**1. The skip pin (Q-712).** `scripts/tr12_repro_gate.sh --stamp` wrote `_EXPECTED_SKIPS.txt` inline:
+a header, then the observed skip rows. A battery run with zero skips gave a header-only pin, and
+`skip_pin_compare` rejects a pin with zero rows (rc 2). So the next plain run would FAIL against the
+pin `--stamp` had just written. Not live: the n=9 pin holds 18 skip/pending rows. The write now goes through
+`skip_pin_write`. A zero-skip run is refused by name, `TR12_STAMP_REFUSED=EMPTY-SKIP-SET` beside
+`TR12_REPRO_GATE=FAIL`, and the existing pin is left unchanged. Any other pin is read back through
+`skip_pin_compare` against the same VERDICTS file before it replaces the pin. A write that fails, or
+a pin that does not read back, gives `TR12_STAMP_REFUSED=ERROR-PIN-WRITE` beside `ERROR`. Before this,
+the write was unchecked. DEVELOPMENT.md's `TR12_STAMP_REFUSED=` row names both values. The function
+sits beside its one caller, below every line other files cite, so no citation moves.
+Measured: `TestQ712StampSkipPinAgreesWithCompare` runs the gate's own `--stamp` pin block and its
+functions on fixture VERDICTS files. Before: on a zero-skip run the block exited 0 and replaced the old
+pin, and the compare gave rc 2. After: refused by name, pin unchanged. Positive control, a run with
+skips: the block writes the pin and the compare gives rc 0, before and after.
+
+**2. Minting into the source tree (Q-716).** `scripts/tr12_repro.sh` with `--mint-missing` and no
+`--expect` defaulted to `scripts/tr12_expected/n<N>` and ran `mkdir -p` on it. At any n other than 9
+that directory is not committed, so the run created it in the source tree and filled it with blocks
+nobody had reviewed. `--regen` writes to the same default by another code path and is covered too.
+Both are now refused at n≠9 without `--expect`: `TR12_REPRO=ERROR`,
+`TR12_REPRO_REASON=mint-without-expect-n<N>`, exit 2. The check runs before anything is created.
+n=9 keeps the default, because re-minting its committed set in place is the documented path. The
+full-31 production driver already passes `--expect`. The `--expect` help line says so. The edit takes
+the place of two blank lines, so no line of the file moves.
+Measured (worker, scratch copies of the script, real binary): `--n9 --pairs 7 --mint-missing`. Before:
+rc 1, and an n7 directory was created under `scripts/tr12_expected/`, holding 46 minted files. After: rc 2,
+`TR12_REPRO_REASON=mint-without-expect-n7`, and no `tr12_expected/` exists. `TestQ716MintAtOtherNNeedsExpect`
+drives a scratch copy of the script with a stub `solve` that answers only `--kc-count`. Before: the
+n=7 `--mint-missing` run created the directory, and neither n=7 run was refused. After: both
+are refused and nothing is created. Controls, `--expect` given at n=7 and no `--expect` at n=9: neither
+is refused, both stop at the N mod 24 check, and nothing is created.
+
+**3. Gates.** `scripts/doc_gates.sh`: rc 0, no `[FAIL]` finding. `python3 tests.py`: 409 tests, OK (1 skipped).
+`CITATION_LINE_GATE=PASS`, 0 shifted, against 47f432c2. n=9 `scripts/tr12_repro_gate.sh`: `TR12_REPRO_GATE=PASS`.
+Both scripts are TR-12 fingerprint inputs, so `--check` reports `TR12_REPRO_GATE_CURRENT=NO` and the stamp must be
+re-recorded with this change.
+
+## CX-117 — two corpus populations that could be emptied with no FAIL: GATE 3's evidence half and verify_all.sh's certificate files (scripts/doc_gates.d/20_retract_links_status.sh; reports/certificates/verify_all.sh)
+
+**2026-09-25.** Origin: backlog rows Q-708 and Q-709. Every run below was made on the worker VM,
+on a fresh clone at 47f432c2 with the batch-13 candidate, the batch-14 staged change and this
+change overlaid.
+
+**1. GATE 3's evidence half had no count (Q-708).** The non-markdown half of GATE 3's corpus is
+`git ls-files 'reports/evidence/*'` with the `.md` files filtered out. Nothing counted it. Measured
+before this change: after `git mv reports/evidence reports/evidence_moved`, `doc_gates.sh retract`
+printed `DOC GATES: PASS (retract)` at rc 0. The gate now prints `GATE3_EVIDENCE_COUNT=<n>` and
+FAILs below a floor of 120. The count on the real tree is 155. The floor leaves room to retire 35
+files before it must be edited. Checked at the boundary: with 35 files dropped from the index the
+gate passes at 120, and with 36 dropped it FAILs at 119.
+- The same mutant now FAILs: `GATE3_EVIDENCE_COUNT=0`, rc 1.
+- The sibling, GATE 3b, reads the same population through its own `git ls-files` call. It prints
+  `GATE3B_EVIDENCE_COUNT=<n>` and has the same floor. The whole-tree `git mv` already failed 3b,
+  but only because its allowlist is keyed to evidence `.md` paths. With only the non-markdown
+  files moved, 3b passed before this change, reading `114 markdown + 0 evidence files`. It now
+  FAILs at 0.
+- Both edits change existing lines only. The module's line count and the logical source's line
+  numbering are unchanged.
+
+**2. verify_all.sh counted certificates only when drat-trim ran (Q-709).** `CERT_FLOOR=24` already
+existed. It floors `DRAT_CERTS_CHECKED`, the number of CERTS-map entries that drat-trim checked, so
+on a host without drat-trim or python3 it is a SKIP. The row's statement that there is no count
+floor was therefore only partly right. Two gaps were real:
+- With one `.drat.gz` removed, on a host without drat-trim, the run reported 0 certificate FAILs.
+  Its exit status was nonzero only because of the SKIPs, which a complete tree also produces.
+- With every `.drat.gz` removed, the completeness loop's glob stays literal. `b` becomes `*`, the
+  test `${CERTS[*]+x}` is non-empty, and the run printed `PASS  cert inventory covers *`.
+A new check counts the files with no tool and calls `require_floor DRAT_CERTS $CERT_FLOOR`. The
+count on the real tree is 24. The floor has no margin, because the corpus is archived and every
+file is in the CERTS map. Mutants, each run on a copy: one file removed gives `DRAT_CERTS=23` and
+`COUNT BELOW FLOOR: 23 < 24`, in a git work tree and in a `git archive` export. Every file removed
+gives `DRAT_CERTS=0`.
+
+**3. Q-306 needs no change here.** Row c_v3_join, added in batch 13, runs the V3 join, and
+TR12_V3_TSV already made the REL grid's absence a FAIL. The O3-order dump the row also asks for is
+not built. That is a scope decision, not a silent absence.
+
+**4. Gates.** `scripts/doc_gates.sh`: rc 0, no `[FAIL]` verdict line,
+`GATE3_EVIDENCE_COUNT=155` and `GATE3B_EVIDENCE_COUNT=155`. `--selftest`: DOC_GATES_SELFTEST=PASS, tree
+clean afterwards. `python3 tests.py`: 404 tests, OK (1 skipped). `citation_line_gate.sh
+--all-files --all-targets --base 47f432c2`: CITATION_LINE_GATE=PASS, 0 shifted, 0 repin.
+`verify_all.sh`: 51 PASS, 0 FAIL, `DRAT_CERTS=24`; the 25 SKIPs are the drat-trim leg, absent on
+that host.
+
+**5. What does not change.** No measured number, verdict, battery golden or published digest. No
+file in the TR-12 reproduction fingerprint changed.
+
+## CX-118 — a gate holds SOLVE_PY_CLI.md's `--atlas-probe` token list to the tokens the probe prints, and DEVELOPMENT.md's VM-family note cites DEPLOYMENT.md (scripts/doc_gates.sh; scripts/doc_gates.d/97_atlas_probe_tokens.sh; documentation/DEVELOPMENT.md; six citations re-pinned in documentation/PERFORMANCE_HISTORY.md, documentation/RETRACTED_PHRASES.tsv, documentation/SOLVE_C_CLI.md, scripts/citation_line_gate.sh, scripts/exec_lane.sh, scripts/exec_lane_verdict_gate.sh)
+
+**1. The `--atlas-probe` token list (Q-739).** SOLVE_PY_CLI.md lists every token `solve.py --atlas-probe`
+prints, "in print order". On 2026-09-24 that list lacked 10 printed tokens and had 2 out of order, and
+it was corrected by hand. Nothing compared it with the code, so the next token added to `atlas_probe()`
+could drift the same way. GATE 90 (`doc_gates.sh atlas-probe-tokens`, in `all`) now compares them. It
+reads `atlas_probe()` with `ast`: every `tok()`/`gate()` name in source order, format strings expanded
+over their literal loops, the nested V5 helper followed, exception handlers skipped. The documented list
+must be the same names in the same order. A name the pass cannot resolve is a FAIL naming its line.
+Each run first proves that the comparison reports a dropped token and a swapped pair. The verdict token
+`ATLAS_PROBE_TOKEN_LIST` is documented in a new DEVELOPMENT.md section. The documented list was already
+correct, so SOLVE_PY_CLI.md is unchanged.
+Measured (worker): the probe on the n=31 atlas printed 130 distinct keys, and they equal the gate's
+static extraction line for line. Real tree: `ATLAS_PROBE_TOKEN_LIST=PASS`, 130 tokens. Red, each on a
+scratch copy: one documented token dropped, two adjacent tokens swapped, a `{,_AT}` suffix dropped, a
+new `tok()` added to the code, and a name built at run time each give `=FAIL` and name the token or
+line. The list's anchor sentence reworded gives `=FAIL` and says nothing was compared.
+The new section adds 20 lines to DEVELOPMENT.md. Six citations below it moved by 20 and were re-pinned
+by content: DEVELOPMENT.md:1077 → :1097 (PERFORMANCE_HISTORY.md), :2468-2470 → :2488-2490
+(RETRACTED_PHRASES.tsv and its pin note), :1588 → :1608 (SOLVE_C_CLI.md twice, and its pin note), and
+the `SOLVE_RESUME_HISTORY="..." ./solve 0 64` recipe, :920 → :944 (exec_lane.sh and
+exec_lane_verdict_gate.sh; the block moved by 20, from :923-925, so the old number was already three lines behind).
+
+**2. DEVELOPMENT.md's VM-family note (Q-779).** The resource paragraph already recommends D-als-v7 VMs
+only; its correction note gave `CLAUDE.md` as the authority for retiring F-series. It now points to
+DEPLOYMENT.md §Ad-hoc VM lifecycle rules, rule 1, the public rule that says so. Same line count.
+Checked and unchanged: PERFORMANCE_HISTORY.md's task #71 heading already reads 2026-05-16, matching
+both commits' dates and HISTORY.md. SOLVE_C_CLI.md's build line without `-lz` is quoted inside a
+correction note as a command measured to fail with 13 undefined references, so it does not read as a
+build instruction.
+
+**3. Gates.** `scripts/doc_gates.sh`: no `[FAIL]` finding on the integrated tree (the lane tree's one
+GATE 21 finding came from another entry's wording, since fixed); GATE 90 and GATE 83 pass (97
+usage names, dispatcher cases and gate functions agree). `python3 tests.py`: 409 tests, OK (1 skipped).
+`CITATION_LINE_GATE=PASS`, 0 re-pins outstanding, against 47f432c2. No changed file is a TR-12
+fingerprint input, so this change needs no re-stamp.

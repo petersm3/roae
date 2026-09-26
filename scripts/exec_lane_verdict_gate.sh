@@ -121,7 +121,7 @@ else
     if ! bash -n "$TMP/harness.sh" 2>"$TMP/harness.err"; then
       err "leg A: extracted chain does not parse: $(head -1 "$TMP/harness.err")"
     else
-      # The exact bytes solve.c:4119 prints when disk_iops_pre_check refuses.
+      # The exact bytes solve.c:4119 (`ERROR: projected fsync-wait`) prints when disk_iops_pre_check refuses.
       REFUSAL='ERROR: projected fsync-wait ~55.1h is 402% of the estimated enum wall ~13.7h.
        Aggregate 210 fsync/sec over 8 concurrent threads (batch=1; ~40000000 fsyncs
        at this 560000000000000-node scale). The disk is likely too slow — fsync would
@@ -189,7 +189,7 @@ CASES = [
   (True,  './solve 0 128',                             'bare with threads'),
   (True,  'SOLVE_THREADS=128 ./solve 0 128',           'ISOLATING CASE (SOLVE_C_CLI.md:519)'),
   (True,  'SOLVE_RESUME_HISTORY="2026-05-14T18:23:00Z=spot-eviction-at-90%" ./solve 0 64',
-                                                       'ISOLATING CASE (DEVELOPMENT.md:920): the'
+                                                       'ISOLATING CASE (DEVELOPMENT.md:944): the'
                                                        ' assignment value holds an = and must be'
                                                        ' stripped quote-aware'),
   (True,  'SOLVE_A="x y z" ./solve 0',                 'assignment value with SPACES'),

@@ -3632,9 +3632,9 @@ def _registered_retracted_phrases(path=None):
     phrases = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
-            if not line.strip() or line.startswith("#"):
+            cols = line.rstrip("\n").split("\t")  # Q-773: reg_row_kind's rule, so a '#7...' needle is DATA
+            if not line.strip() or cols[0] == "#" or line.startswith("# "):
                 continue
-            cols = line.rstrip("\n").split("\t")
             if len(cols) >= 2 and cols[0]:
                 phrases.append(cols[0])
     return phrases
@@ -8589,7 +8589,11 @@ class TestQ782LadderShaRowChecksLayerIdentity(unittest.TestCase):
 
     The battery's OWN function is extracted and executed (never a copy), with only row_begin and
     row_end stubbed, on a real n=9 g ladder built by solve.c. Red before the fix: the three
-    tampered ladders print OK and the DIR form exits 0. A build failure is a test FAILURE."""
+    tampered ladders print OK and the DIR form exits 0. A build failure is a test FAILURE.
+    Added the same day (Opus AY): two whole layers swapped between slots, bytes and sidecars
+    together, keep the count, the indices and every sidecar match, and printed OK until the row
+    read each sidecar's slot fields and chain link; the swap with the slot fields rewritten is
+    the second case, caught by the neighbour's link."""
 
     HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -8687,6 +8691,40 @@ class TestQ782LadderShaRowChecksLayerIdentity(unittest.TestCase):
             os.chmod(p, 0o644)
         self.assertEqual("LADDER_SHA_CHECK=FAIL", v, out)       # RED before: OK
         self.assertIn("layer g_layer_05.bin  UNREADABLE", lines, out)
+
+    def _swap(self, d, a, b):
+        # move the WHOLE pair (bytes + sidecar) of slot a into slot b and back: the count stays
+        # n+1, every index 00..n is present, and every layer still matches the sidecar beside it
+        for pat in ("g_layer_%02d.bin", "g_layer_stats_%02d.json"):
+            pa, pb, t = (os.path.join(d, pat % a), os.path.join(d, pat % b),
+                         os.path.join(d, "swap.tmp"))
+            os.rename(pa, t); os.rename(pb, pa); os.rename(t, pb)
+
+    def test_two_whole_layers_swapped_between_slots_fails(self):
+        d = self._ladder("swap0304")
+        self._swap(d, 3, 4)
+        v, lines, out = self._row(d)
+        self.assertEqual("LADDER_SHA_CHECK=FAIL", v, out)       # RED before: OK
+        self.assertIn("layer g_layer_03.bin  WRONG-SLOT sidecar k=4 layer_file=g_layer_04.bin",
+                      lines, out)
+        self.assertIn("layer g_layer_04.bin  WRONG-SLOT sidecar k=3 layer_file=g_layer_03.bin",
+                      lines, out)
+
+    def test_swap_with_the_slot_fields_rewritten_still_fails_on_the_chain(self):
+        d = self._ladder("swap0304fix")
+        self._swap(d, 3, 4)
+        for k in (3, 4):        # make each moved sidecar NAME the slot it now sits in
+            p = os.path.join(d, "g_layer_stats_%02d.json" % k)
+            with open(p, encoding="utf-8") as fh:
+                s = fh.read()
+            s = re.sub(r'(?m)^(\s*"k": )-?\d+,', r"\g<1>%d," % k, s, count=1)
+            s = re.sub(r'(?m)^(\s*"layer_file": )"[^"]*"', r'\1"g_layer_%02d.bin"' % k, s, count=1)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(s)
+        v, lines, out = self._row(d)
+        self.assertEqual("LADDER_SHA_CHECK=FAIL", v, out)       # RED before: OK
+        self.assertFalse([l for l in lines if "WRONG-SLOT" in l], out)   # precondition: slots now named
+        self.assertTrue([l for l in lines if l.startswith("layer g_layer_02.bin  CHAIN-BROKEN")], out)
 
     def test_dir_form_exits_2_on_an_unreadable_layer_and_prints_the_rest_unchanged(self):
         d = self._ladder("chmoddir")
@@ -9436,6 +9474,150 @@ class TestCheckArrangementLabel(unittest.TestCase):
         diff = [(x, y) for x, y in zip(self._cert_lines(a), self._cert_lines(b)) if x != y]
         self.assertEqual(diff, [('  "label": "explicit",', '  "label": "q7-probe",')])
         self.assertEqual(len(self._cert_lines(a)), len(self._cert_lines(b)))
+
+
+
+class TestQ712StampSkipPinAgreesWithCompare(unittest.TestCase):
+    """Q-712 (Opus H, 2026-09-24; fixed 2026-09-25).
+
+    scripts/tr12_repro_gate.sh --stamp wrote the skip pin inline: a header, then observed_skips. On a
+    battery run with ZERO skips that is a header-only pin, and skip_pin_compare rejects a pin with
+    zero rows (rc 2), so the next plain run FAILED against the pin --stamp had just written.
+
+    The gate's OWN --stamp pin block (the text between the `--stamp` test after TR12_REPRO=PASS and
+    `elif ! skip_pin_compare`) and its own functions are extracted and executed on fixture VERDICTS
+    files; no battery runs. The property: whatever the stamp block does, the compare agrees with
+    it. Either the block refuses by name and leaves the pin as it was, or the pin it wrote compares
+    equal (rc 0) against the run it was written from. Red before the fix: the zero-skip run writes a
+    header-only pin (rc 0) that compares rc 2, and the old pin is gone."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(cls.HERE, "scripts", "tr12_repro_gate.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        fns = [re.search(r"(?ms)^%s\(\)\{.*?^\}$" % n, src)
+               for n in ("observed_skips", "skip_pin_compare", "skip_pin_write")]
+        cls.fns = "\n".join(m.group(0) for m in fns if m)
+        cls.have_core = all(fns[:2])
+        m = re.search(r'(?ms)^  if \[ "\$MODE" = "--stamp" \]; then\n(.*?)^  elif ! skip_pin_compare', src)
+        cls.block = m.group(1) if m else None
+
+    def setUp(self):
+        self.assertTrue(self.have_core, "observed_skips / skip_pin_compare not found in the gate")
+        self.assertIsNotNone(self.block, "the --stamp skip-pin block was not found in the gate")
+        self.tmp = tempfile.mkdtemp(prefix="q712_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def _stamp_then_compare(self, verdicts):
+        work = os.path.join(self.tmp, "work")
+        os.makedirs(os.path.join(work, "out"), exist_ok=True)
+        with open(os.path.join(work, "out", "VERDICTS.txt"), "w") as fh:
+            fh.write(verdicts)
+        pin = os.path.join(self.tmp, "pin.txt")
+        with open(pin, "w") as fh:
+            fh.write("# old pin\nTR12_OLD=SKIP:kept\n")
+        script = ('eval "$FNS"\n'
+                  '( eval "$BLOCK" ); echo "STAMP_RC=$?"\n'
+                  'skip_pin_compare "$WORK/out/VERDICTS.txt" "$SKIPPIN" >/dev/null; echo "COMPARE_RC=$?"\n')
+        env = dict(os.environ, FNS=self.fns, BLOCK=self.block, WORK=work, SKIPPIN=pin, MODE="--stamp")
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env, timeout=60)
+        out = r.stdout.splitlines()
+        rc = dict(l.split("=", 1) for l in out if l.startswith(("STAMP_RC=", "COMPARE_RC=")))
+        with open(pin) as fh:
+            return rc, out, fh.read(), r.stdout + r.stderr
+
+    def test_positive_control_a_run_with_skips_pins_and_compares_equal(self):
+        rc, out, pin, log = self._stamp_then_compare(
+            "TR12_A=PASS\nTR12_B=SKIP:doc-only\nTR12_C=PENDING:--kc-x\nTR12_REPRO=PASS\n")
+        self.assertEqual(rc.get("STAMP_RC"), "0", log)
+        self.assertEqual(rc.get("COMPARE_RC"), "0", log)
+        self.assertIn("TR12_B=SKIP:doc-only\n", pin)
+        self.assertNotIn("TR12_OLD", pin)
+
+    def test_zero_skip_run_is_refused_and_the_pin_is_left_alone(self):
+        rc, out, pin, log = self._stamp_then_compare("TR12_A=PASS\nTR12_B=PASS\nTR12_REPRO=PASS\n")
+        self.assertNotEqual(rc.get("STAMP_RC"), "0",
+                            "a zero-skip --stamp wrote a pin (compare rc %s):\n%s"
+                            % (rc.get("COMPARE_RC"), log))
+        self.assertIn("TR12_STAMP_REFUSED=EMPTY-SKIP-SET", out, log)
+        self.assertIn("TR12_REPRO_GATE=FAIL", out, log)
+        self.assertEqual(pin, "# old pin\nTR12_OLD=SKIP:kept\n", "the refused stamp changed the pin")
+
+
+class TestQ716MintAtOtherNNeedsExpect(unittest.TestCase):
+    """Q-716 (Opus G, 2026-09-24; fixed 2026-09-25).
+
+    scripts/tr12_repro.sh --mint-missing (and --regen) at n != 9 with no --expect ran
+    `mkdir -p scripts/tr12_expected/n<N>` and minted into the source tree. The driver is copied into
+    a scratch tree (so its SCRIPT_DIR is scratch) and run against a stub `solve` that answers only
+    --kc-count with a chosen n and N; no ladder, no build. Red before the fix: the n=7 run creates
+    scripts/tr12_expected/n7 in that tree and goes on into the rows. After: refused by name, exit 2,
+    nothing created. Controls: with --expect, and at n=9, the run is not refused and stops at the
+    later N mod 24 check (N=49), creating nothing."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="q716_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        os.makedirs(os.path.join(self.tmp, "scripts"))
+        shutil.copy(os.path.join(self.HERE, "scripts", "tr12_repro.sh"),
+                    os.path.join(self.tmp, "scripts", "tr12_repro.sh"))
+        self.stub = os.path.join(self.tmp, "solve_stub")
+        with open(self.stub, "w") as fh:
+            fh.write('#!/bin/sh\n[ "$1" = --kc-count ] && { echo "KC COUNT n=$STUB_N = $STUB_TOTAL"; exit 0; }\nexit 1\n')
+        os.chmod(self.stub, 0o755)
+        for d in ("f", "g"):
+            os.makedirs(os.path.join(self.tmp, d))
+
+    def _run(self, n, total, extra):
+        out = os.path.join(self.tmp, "out_%s_%s" % (n, "_".join(a.strip("-") for a in extra if a.startswith("--"))))
+        argv = ["bash", os.path.join(self.tmp, "scripts", "tr12_repro.sh"), "--fdir", os.path.join(self.tmp, "f"),
+                "--gdir", os.path.join(self.tmp, "g"), "--solve", self.stub, "--out", out] + extra
+        env = dict(os.environ, STUB_N=str(n), STUB_TOTAL=str(total), TR12_REPRO_ALLOW_STALE="1",
+                   TMPDIR=self.tmp)
+        p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
+                             start_new_session=True)
+        try:
+            log, _ = p.communicate(timeout=120)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+            log, _ = p.communicate()
+        try:
+            with open(os.path.join(out, "VERDICTS.txt")) as fh:
+                verd = fh.read().splitlines()
+        except OSError:
+            verd = []
+        return p.returncode, verd, log
+
+    def _created(self):
+        return os.path.exists(os.path.join(self.tmp, "scripts", "tr12_expected"))
+
+    def test_mint_missing_at_n7_without_expect_is_refused(self):
+        rc, verd, log = self._run(7, 48, ["--mint-missing"])
+        self.assertFalse(self._created(), "--mint-missing at n=7 created scripts/tr12_expected:\n" + log[-1500:])
+        self.assertEqual(rc, 2, log[-1500:])
+        self.assertIn("TR12_REPRO=ERROR", verd)
+        self.assertIn("TR12_REPRO_REASON=mint-without-expect-n7", verd)
+
+    def test_regen_at_n7_without_expect_is_refused(self):
+        rc, verd, log = self._run(7, 48, ["--regen"])
+        self.assertFalse(self._created(), "--regen at n=7 created scripts/tr12_expected:\n" + log[-1500:])
+        self.assertEqual(rc, 2, log[-1500:])
+        self.assertIn("TR12_REPRO_REASON=mint-without-expect-n7", verd)
+
+    def test_controls_expect_given_or_n9_are_not_refused(self):
+        scratch = os.path.join(self.tmp, "scratch_expect")
+        for n, extra in ((7, ["--mint-missing", "--expect", scratch]), (9, ["--mint-missing"])):
+            rc, verd, log = self._run(n, 49, extra)
+            self.assertEqual(rc, 1, "n=%d %s: %s" % (n, extra, log[-1500:]))
+            self.assertIn("TR12_REPRO=FAIL", verd)
+            self.assertFalse(any(v.startswith("TR12_REPRO_REASON=mint-without-expect") for v in verd), verd)
+            self.assertIn("N mod 24 = 1", log)
+        self.assertFalse(self._created())
+        self.assertFalse(os.path.exists(scratch))
 
 
 if __name__ == "__main__":

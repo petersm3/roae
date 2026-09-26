@@ -12587,7 +12587,7 @@ def atlas_load(path):
                    ",".join(sorted(have - want)) or "-", ",".join(sorted(want - have)) or "-"))
     # 🔴 THE TAIL VERDICT WAS EMITTED AND NEVER READ (Codex KCP5 #1, adjudicated by Fable
     # 2026-09-12: ACCEPTED, and BROADER than charged). The five F3-rule tail checks count
-    # failures unconditionally (solve.c:29314) but increment `gate_fails` only under
+    # failures unconditionally (solve.c:29314, `if (ok[i] == 0)`) but increment `gate_fails` only under
     # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29316), while KC_SCAN (:30409) and KC_SCAN_MERGE
     # (:31325) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
     # beside `tail_checks.fails >= 1` in the SAME file and still prints KC_SCAN=OK, exit 0.
@@ -16833,7 +16833,7 @@ def t3_encode_solutions(out_bin, input_paths):
                     # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
                     # legitimate line. Refusing it would have broken the tool on real
                     # --kc-sample/--kc-unrank output. Checked by reading the emitters
-                    # (solve.c:38902, :38977 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    # (solve.c:38902 `record\tm=%llu\t`, :38977 and the `%s\tcd=%d\t` form beside them), not assumed.
                     #
                     # What is safe, and is done, is to COUNT what the skip discards, so a changed
                     # input shape is visible instead of silent.

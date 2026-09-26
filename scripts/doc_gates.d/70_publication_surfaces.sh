@@ -47,7 +47,7 @@ gate_branch_registry() {
     return 1
   fi
   local declared remotes b st n
-  declared=$(grep -v '^#' "$REG" | awk -F'\t' 'NF && $1 != "" {print $1}')
+  declared=$(awk -F'\t' '$1 == "#" || $1 ~ /^# / {next} NF && $1 != "" {print $1}' "$REG")  # Q-773: git allows a branch "#7"; a comment is col 1 "#" or "# ..."
   # CODEX N10 FINDING 10, adjudicated 2026-09-03: THE CLAIM EXCEEDED THE CHECK. The header
   # thirty lines above promises "every published branch must appear in
   # documentation/BRANCH_REGISTRY.tsv WITH A STATUS", and the extraction above reads column 1
@@ -80,7 +80,7 @@ gate_branch_registry() {
   fi
   _g19bad=$(awk -F'\t' -v vocab="$G19_VOCAB" '
       BEGIN { n = split(vocab, v, " "); for (i = 1; i <= n; i++) ok[v[i]] = 1 }
-      /^#/ { next } !NF { next } $1 == "" { next }
+      $1 == "#" || $1 ~ /^# / { next } !NF { next } $1 == "" { next }
       (NF < 2 || !($2 in ok)) {
         printf "%d\t%s\t%s\n", FNR, $1, (NF < 2 ? "(no status column at all)" : "\"" $2 "\"")
       }' "$REG")

@@ -102,7 +102,7 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    roughly 15–20 boundary constraints under the observed per-boundary cut rate (§5; an extrapolation,
    not a bound). ⚠ **[TARGET CORRECTED 2026-09-19 (Q-643) — "closing the remaining ≈105 bits" names a
    target these boundaries cannot reach.** A boundary is measured with `SOLVE_KNUTH_PIN_SLOTS`, which pins
-   **pair identity only** (`solve.c:7899` constrains the pair index at a step and leaves the orientation
+   **pair identity only** (the `knuth_pin_mask` test at `solve.c:7899` constrains the pair index at a step and leaves the orientation
    loop untouched), so pinning is blind to the orientation layer by construction. log₂(1,720,320) = **20.71
    bits** of King Wen's orientation fibre survive *every* pair-level pin — see §5's marker and
    [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7. Against this bullet's own C1–C7 space, log₂(5.21×10³¹) =

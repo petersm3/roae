@@ -1002,7 +1002,7 @@ PY
 #     MAXIMUM occurrence count, and an ANCHOR — one or more fixed strings, one of which must
 #     precede EVERY allowed occurrence within 170 chars of the flattened file. The anchor is the
 #     withdrawal CONSTRUCTION (`This read`, `once gave`, `WHAT WAS WRONG`, the gate's own
-#     `fixed string` fixtures). A file-level allow would have hidden solve.c:19 behind the header
+#     `fixed string` fixtures). A file-level allow would have hidden solve.c:19 (at ff804bb0^) behind the header
 #     block that quotes the same phrase to withdraw it — and so would a COUNT: measured before
 #     landing, the count-only first cut passed the pre-fix solve.c, because ff804bb0^ holds the
 #     Q-353 phrase exactly once (the live :19 site) and the fixed file holds it exactly once too

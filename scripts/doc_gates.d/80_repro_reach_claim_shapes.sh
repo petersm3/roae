@@ -831,8 +831,8 @@ EXEMPT={"documentation/CORRECTIONS.md"}
 MARK=re.compile(r"withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract|run\s+description\s+corrected", re.I)  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
 figs=[]
 for ln in io.open(REG,encoding="utf-8"):
-    if not ln.strip() or ln.startswith("#"): continue
-    c=ln.rstrip("\n").split("\t")
+    c=ln.rstrip("\n").split("\t")  # Q-773: comment = col 1 exactly "#" or "# ..." (reg_row_kind); a figure "#7..." is DATA
+    if not ln.strip() or c[0]=="#" or c[0].startswith("# "): print("HASHROW\t%s"%c[0]) if any(x and not (x[:1]=="<" and x[-1:]==">") for x in c[1:]) else None; continue  # Q-761: a "# " line with data columns is LOUD, as in GATE 3/11
     if len(c)>=2 and c[0].strip(): figs.append((c[0],c[1]))
 if not figs: print("NOFIGS"); sys.exit(0)
 files=[l.strip() for l in sys.stdin if l.strip()]
@@ -907,9 +907,9 @@ print("COUNT\t%d"%n)
     echo "         so a scan that matched none of them is a broken scan, not a clean corpus."
     return 1
   fi
-  local rc=0
+  local rc=0 hrc=0
   while IFS=$'\t' read -r tag f ln fig line; do
-    [ "$tag" = HIT ] || continue
+    [ "$tag" = HASHROW ] && { echo "  [FAIL] Q-761: $REG line \"$f\" is comment-shaped (\"# ...\") but carries data column(s), so it is not checked. Register the figure without the leading \"# \"."; hrc=1; continue; }; [ "$tag" = HIT ] || continue
     echo "  [FAIL] $f:$ln restates withdrawn figure '$fig' with NO supersession marker"
     echo "         $line"
     rc=1
@@ -918,7 +918,7 @@ print("COUNT\t%d"%n)
     echo "         A merge or edit that reintroduces a withdrawn figure unmarked is the exact"
     echo "         regression this gate exists for. Add the marker, or withdraw the line."
     return 1
-  fi
+  fi; [ "$hrc" -eq 0 ] || return 1
   echo "  [ok] every TABLE ROW (judged per row) and every PROSE PARAGRAPH (judged as a block, so a"
   echo "       marker on the wrapped next line counts) that states a registered withdrawn figure"
   echo "       carries a supersession marker — population: $pf files scanned, $pr figure-bearing"
