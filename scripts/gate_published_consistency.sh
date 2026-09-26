@@ -265,7 +265,7 @@ fi
 # 🔴 LB-A6/LB-A7, 2026-09-07. LEADERBOARD published `./solve --branch 24 0 0` with no budget: run as
 # printed it prints "No time limit - running to completion" and does not return (measured -- killed
 # at 20 s). And `--validate solutions_merged.bin` named a file --merge has NEVER written; the merge
-# output is <layer_root>/_merged_/solutions.bin (solve.c:40110, :43278). A reader who pastes the
+# output is <layer_root>/_merged_/solutions.bin (solve.c:40111, :43279). A reader who pastes the
 # block gets a hang and then a missing file. exec_lane runs commands but checks neither, so this is
 # a static leg over the published text.
 G9=0
@@ -585,7 +585,7 @@ fi
 # |C1-C7| at 5.21e31 as bare **estimate** rows with confidence intervals and no explanation. A
 # reader could reasonably infer that no exact method exists. The opposite is true: an exact
 # instrument for C3 is BUILT (the Lean theorem c3_slot_decomposition, C3 = 16 + 8*G) and the run
-# was priced at ~$3-5K and DELIBERATELY DECLINED. The intervals are there because the computation
+# was priced and DELIBERATELY DECLINED. The intervals are there because the computation
 # was costed and rejected, not because the answer is unknown -- and saying so is the stronger
 # claim. Conflating cost with capability is the exact defect the Q-159 sweep found twice.
 #
@@ -593,23 +593,51 @@ fi
 # never published; it is tagged recovered/q153-priced-and-declined. This leg is why it cannot go
 # missing again. It is deliberately shaped so no arithmetic check could substitute for it: every
 # number in those rows is correct, and what was absent was a sentence.
+#
+# \U0001f534 REWORDED 2026-09-26, and the leg now also guards the other direction. Until then it REQUIRED
+# the METHODS phrase "priced at roughly", which carried a dollar band for the run. TR-12 s9 redacts
+# that band rather than restating it, on its own rule that a correction which requotes a number
+# publishes it, and the engine string and n=9 goldens had already dropped it (CX-148). So the gate
+# was demanding the very figure s9 suppresses. It now requires the redacted wording, "PRICED AND
+# DECLINED", in METHODS and in TR-12 s"Open Problems" row 1 (the other published site of the band),
+# and it fails if a dollar figure comes back: on any METHODS line that says "price", or on that row.
+# The decision stays required; only the number is barred. G19_DOC and G19_TR12 override the two
+# paths so the mutants in tests.py can point the leg at a doctored copy.
 G19=0
 _M=${G19_DOC:-reports/METHODS.md}
-if [ -r "$_M" ]; then
+_T12=${G19_TR12:-reports/TR12_QUERY_PROGRAM.md}
+if [ -r "$_M" ] && [ -r "$_T12" ]; then
   # grep -c, never grep -q on a pipe -- see the note in G18.
   _est=$(grep -c '95% CI' "$_M" 2>/dev/null)
+  # Lines that talk about a price AND carry a dollar figure. awk counts, so nothing is piped into grep.
+  _m_usd=$(awk 'tolower($0) ~ /price/ && /[$] ?[0-9]/ {n++} END {print n+0}' "$_M" 2>/dev/null)
+  _row=$(grep -c '^| 1 | \*\*Exact `\\|C15\\|`\*\*' "$_T12" 2>/dev/null)
+  _row_ok=$(awk '/^\| 1 \| \*\*Exact `\\\|C15\\\|`\*\*/ && /PRICED AND DECLINED/ && !/[$] ?[0-9]/ {n++} END {print n+0}' "$_T12" 2>/dev/null)
   if [ "$_est" -eq 0 ]; then
     echo "  [FAIL] G19: no confidence-interval row found in $_M -- this leg measured NOTHING"; G19=1
   elif [ "$(grep -c 'costed and rejected' "$_M" 2>/dev/null)" -eq 0 ] \
-       || [ "$(grep -c 'priced at roughly' "$_M" 2>/dev/null)" -eq 0 ]; then
+       || [ "$(grep -c 'PRICED AND DECLINED' "$_M" 2>/dev/null)" -eq 0 ]; then
     echo "  [FAIL] G19: $_M reports $_est interval-bearing estimate(s) without saying the exact"
-    echo "         computation was priced and declined -- a reader is left to infer no method exists"
+    echo "         computation was PRICED AND DECLINED -- a reader is left to infer no method exists"
+    G19=1
+  elif [ "$_m_usd" -ne 0 ]; then
+    echo "  [FAIL] G19: $_M has $_m_usd line(s) that speak of a price and carry a dollar figure;"
+    echo "         TR-12 s9 redacts the exact-run price rather than restating it"
+    G19=1
+  elif [ "$_row" -ne 1 ]; then
+    echo "  [FAIL] G19: expected exactly one Open Problems row 1 (Exact |C15|) in $_T12, found $_row"
+    echo "         -- this leg measured NOTHING there"
+    G19=1
+  elif [ "$_row_ok" -ne 1 ]; then
+    echo "  [FAIL] G19: $_T12 Open Problems row 1 must say PRICED AND DECLINED and carry no dollar"
+    echo "         figure -- TR-12 s9 redacts the exact-run price rather than restating it"
     G19=1
   else
-    echo "  [ok]   G19: the interval-bearing estimates ($_est) say the exact run was costed and declined"
+    echo "  [ok]   G19: the interval-bearing estimates ($_est) say the exact run was PRICED AND DECLINED,"
+    echo "         with no dollar figure in METHODS or in TR-12 Open Problems row 1"
   fi
 else
-  echo "  [FAIL] G19: cannot read $_M -- this leg measured NOTHING"; G19=1
+  echo "  [FAIL] G19: cannot read $_M or $_T12 -- this leg measured NOTHING"; G19=1
 fi
 
 # shellcheck disable=SC1090

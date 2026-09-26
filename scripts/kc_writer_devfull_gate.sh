@@ -107,7 +107,7 @@ probe arr_cert     ''                   -- "$SOLVE" --check-arrangement KW --cer
 # 🔴 F-5 round 3 §5 E (2026-09-11): the two KC certificate writers this list did NOT cover.
 # The header above says "every KC writer"; measured on 2026-09-09 the probe list attested seven of
 # nine, and the claim was wider than the evidence. --kc-oracle routes through the shared helper and
-# --kc-extremal keeps its own copy of the close-and-unlink logic (kc_x_write_cert), so the SECOND is
+# --kc-extremal kept its own copy of the close-and-unlink logic (kc_x_write_cert; routed through the helper by Q-553), so the SECOND was
 # exactly the one a shared-helper argument does not cover -- it is the site most able to regress
 # without anybody noticing. Both were correct by execution when this was written; neither was
 # guarded. That is what a gate is for.

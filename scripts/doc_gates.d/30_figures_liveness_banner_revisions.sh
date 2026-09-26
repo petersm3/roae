@@ -373,12 +373,12 @@ for m in re.finditer(r'\b([0-9.]+T)\b', reg):
     if re.search(r'\b[0-9a-f]{16,64}\b', window):     # a sha256 (or its prefix) attests completion
         REACHED.add(m.group(1))
 files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') + ['README.md']
-         if os.path.basename(f) != 'HISTORY.md']   # dated narrative is exempt by design
+         if os.path.basename(f) not in ('HISTORY.md', 'HISTORY_INDEX.md')]   # dated narrative is exempt by design; HISTORY_INDEX.md only quotes its headings, and GATE 91 proves it is a fresh generation from it (Q-686)
 # Codex N10 finding 1: the exemption was `'HISTORY.md' not in f`, a SUBSTRING test, so it
 # also exempted documentation/PERFORMANCE_HISTORY.md -- and anything else ending in the same
 # eleven characters. That file said a 1T enumeration was "in flight" at line 352 while the
 # same entry gave its FINAL ACCOUNTING at line 362, and this gate printed ok. The exemption
-# is for ONE named file and is now written that way.
+# is for ONE named file and is now written that way. (A second exact name since Q-686, 2026-09-26: the generated HISTORY_INDEX.md.)
 for f in files:
     text = open(f, errors='replace').read()
     lines = text.split('\n')

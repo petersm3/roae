@@ -31,7 +31,7 @@ Out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-o
 | n (free pairs) | 31 |
 | n_eff (symmetry quotient) | 24 |
 | Threads | 128 |
-| Layer format | out-of-core v2 (zlib-blocked — per-block RFC-1950 zlib, not gzip-framed `.gz`; see [F1C5_LAYER_FORMAT.md](../../documentation/F1C5_LAYER_FORMAT.md)) |
+| Layer format | out-of-core v2 (zlib-blocked — per-block RFC-1950 zlib, not gzip-framed `.gz`; see [F1C5_LAYER_FORMAT.md](../../documentation/F1C5_LAYER_FORMAT.md)). *(Note 2026-09-26: `count_result.json` records this field as `out-of-core v2 (per-block gzip)`, and every `layer format:` line in `run.out` says `v2 (per-block gzip)`, the label `solve.c`'s log line prints. That label is a misnomer for these same zlib blocks; both files are kept as written.)* |
 | B0 boundary budget (d=1,2,3,4,6) | (2, 8, 13, 7, 1), sum = 31 [KW-derived] |
 | Pair-list hash | da2d4756d0535d0e |
 | Solver | `main` commit `14db3f5` (v2 zlib-blocked layers + intra-layer checkpointing) |

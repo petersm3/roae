@@ -1915,6 +1915,121 @@ if bad:
 print("  [ok]   %d usage names, %d dispatcher cases, %d gate functions — all three agree"
       % (len(set(listed)) - 1, len(cases), len(fns)))
 DISPATCH_PY
+  # LEG 4 (2026-09-26): the `all` PASS banner names every gate `all` runs. MEASURED that day: its
+  # hard list stopped at 77 while `all` also ran 79-91, and it omitted 2c and 24 (24's own
+  # promotion note below the banner said it was "in the hard list above"; it was not). A green
+  # banner that names less than ran under-reports; one that names a gate `all` never runs (8,
+  # or the unused number 78) over-attests. So the list is checked against the dispatcher:
+  #   (a) every GATE id reached from the `all` arm (each called gate_* function's `== GATE <id>`
+  #       header lines; a wrapper with no header resolves through the gate_* functions it calls)
+  #       is named in the banner, as hard or as report-only;
+  #   (b) every id the banner names is reached (a lettered id such as 5b counts when its base is
+  #       reached; a base such as 10 counts when a lettered child such as 10a is);
+  #   (c) no id is named both hard and report-only; every list item parses.
+  # Then four in-memory mutants of the logical source must each be caught: the last id dropped from the
+  # hard list, a new headed gate added to `all`, 78 added to the hard list, 13 added to it.
+  python3 - <(bash scripts/doc_gates.d/logical_source.sh) <<'BANNER_PY' || return 1
+import re, sys
+real = open(sys.argv[1], encoding='utf-8', errors='surrogateescape').read()
+# Pieces, never whole: the whole strings must not occur in this file, or the search finds THIS
+# code instead of the dispatcher (the self-reference trap recorded at LEG 1-3 above).
+ALL_ARM = re.compile(r'^\s*' + 'all' + r'\)\s+gate_\w+', re.M)
+USAGE = '*) echo "usage: $' + '0 {'
+LIST = 'hard gates' + ' only: '
+def ids_of(seg, where, bad):
+    out = set()
+    for item in [x.strip() for x in seg.split(',') if x.strip()]:
+        m = re.fullmatch(r'(\d+[a-z]?)(?:\s*\((.*)\))?', item)
+        if not m:
+            bad.append("banner %s item %r does not parse as `<id>` or `<id> (<note>)`" % (where, item)); continue
+        out.add(m.group(1)); note = (m.group(2) or '').strip()
+        if note.startswith('incl.'):
+            out |= set(re.findall(r'\b\d+[a-z]\b', note))
+        elif re.fullmatch(r'[a-z](?:\+[a-z])+', note):
+            out |= {m.group(1) + c for c in note.split('+')}
+    return out
+def check(src):
+    bad = []
+    arms = list(ALL_ARM.finditer(src))
+    if len(arms) != 1:
+        return ["found %d `all` dispatcher arm(s) where exactly 1 is expected" % len(arms)], None
+    try:
+        arm = src[arms[0].start():src.index(USAGE, arms[0].start())]
+    except ValueError:
+        return ["the `all` arm has no usage arm after it; cannot bound it"], None
+    defs = [(m.group(1), m.start()) for m in re.finditer(r'^(gate_\w+)\(\)\s*\{', src, re.M)]
+    body = {n: src[s:(defs[k + 1][1] if k + 1 < len(defs) else len(src))] for k, (n, s) in enumerate(defs)}
+    def reach(fn, seen):
+        if fn in seen or fn not in body:
+            return set()
+        seen.add(fn)
+        own = set(re.findall(r'echo "== GATE (\d+[a-z]?)\b', body[fn]))
+        if own:
+            return own
+        r = set()
+        for c in re.findall(r'(gate_\w+)\s+\|\|', body[fn]):
+            r |= reach(c, seen)
+        return r
+    reached = set()
+    for fn in re.findall(r'(gate_\w+)\s+\|\|\s+RC=1', arm):
+        got = reach(fn, set())
+        if not got:
+            bad.append("`all` calls %s, which has no `== GATE <id>` header, directly or through what it calls" % fn)
+        reached |= got
+    lines = [l for l in src.split('\n') if LIST in l and 'DOC GATES: PASS' in l]
+    if len(lines) != 1:
+        return bad + ["found %d PASS banner line(s) naming the hard list where exactly 1 is expected" % len(lines)], None
+    head, _, tail = lines[0].partition(LIST)
+    hard_seg, sep, ro_seg = tail.partition('. Gates ')
+    if not sep:
+        return bad + ["the banner's hard list is not followed by `. Gates <report-only list>`"], None
+    hard = ids_of(hard_seg, 'hard-list', bad)
+    ro = ids_of(ro_seg.rstrip('"').strip(), 'report-only', bad)
+    if not reached or not hard:
+        return bad + ["reached %d gate id(s), banner names %d hard: a zero is a broken parse, not agreement"
+                      % (len(reached), len(hard))], None
+    base = lambda x: re.match(r'\d+', x).group(0)
+    named = hard | ro
+    for x in sorted(reached, key=lambda v: (int(base(v)), v)):
+        if x not in named and not (x != base(x) and base(x) in named and base(x) not in reached):
+            bad.append("GATE %s runs in `all` but the PASS banner names it neither hard nor report-only" % x)
+    for x in sorted(named, key=lambda v: (int(base(v)), v)):
+        if x not in reached and base(x) not in reached and not any(base(r) == x for r in reached):
+            bad.append("the PASS banner names GATE %s, which `all` does not run" % x)
+    for x in sorted(hard & ro):
+        bad.append("the PASS banner names GATE %s as hard AND as report-only" % x)
+    return bad, (len(reached), len(hard), len(ro))
+bad, n = check(real)
+for b in bad:
+    print("  [FAIL] LEG 4: " + b)
+if bad:
+    print("  [FAIL] LEG 4: %d disagreement(s) between the `all` arm and its PASS banner" % len(bad)); sys.exit(1)
+print("  [ok]   LEG 4: `all` reaches %d gate id(s); the PASS banner names %d hard + %d report-only, and they agree" % n)
+arm_at = ALL_ARM.search(real).start()
+call = 'echo; gate_zz' + '_mutant || ' + 'RC=1\n           '
+fn = '\ngate_zz' + '_mutant() {\n  echo "== GATE ' + '99: mutant =="\n}\n'
+cut = real.index('\n', arm_at) + 1
+line = [l for l in real.split('\n') if LIST in l and 'DOC GATES: PASS' in l][0]
+# The anchor is the LAST id of the hard list, read from the line, not a literal: until 2026-09-26 it
+# was ', 91. Gates', so adding GATE 92 to the banner made M1, M3 and M4 report "did not apply".
+_last = re.search(r', (\d+)\. Gates', line)
+_tail = ', %s. Gates' % _last.group(1) if _last else '\0no-anchor'
+MUTANTS = [
+    ("M1 the last hard gate (%s) dropped from the hard list" % (_last.group(1) if _last else '?'), real.replace(line, line.replace(_tail, '. Gates'))),
+    ("M2 a new headed gate added to `all`", real[:cut] + '           ' + call + real[cut:] + fn),
+    ("M3 78 added to the hard list", real.replace(line, line.replace(_tail, _tail[:-len('. Gates')] + ', 78. Gates'))),
+    ("M4 report-only 13 added to the hard list", real.replace(line, line.replace(_tail, _tail[:-len('. Gates')] + ', 13. Gates'))),
+]
+miss = 0
+for label, src in MUTANTS:
+    if src == real:
+        print("  [FAIL] LEG 4 %s: the mutation did not apply (its anchor moved); the mutant proves nothing" % label); miss += 1
+    elif check(src)[0]:
+        print("  [ok]   LEG 4 %s: caught" % label)
+    else:
+        print("  [FAIL] LEG 4 %s: NOT caught" % label); miss += 1
+sys.exit(1 if miss else 0)
+BANNER_PY
 }
 
 # ---------------------------------------------------------------------------

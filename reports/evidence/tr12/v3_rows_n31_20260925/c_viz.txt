@@ -1,0 +1,6 @@
+Saved fig_tr12_kc_field.png and fig_tr12_kc_field.svg  src=source: v1_field.tsv@67514134add5   (viz/report_figures.py)
+Saved fig_tr12_kc_river.png and fig_tr12_kc_river.svg  src=source: v2_river.tsv@380111eb002e  v2_branches.tsv@3d75e6d619ba   (viz/report_figures.py)
+Saved fig_tr12_kc_grammar.png and fig_tr12_kc_grammar.svg  src=source: v5_grammar.tsv@c5e50083ae91   (viz/report_figures.py)
+Saved fig_tr12_kc_shells.png and fig_tr12_kc_shells.svg  src=source: q3_profile_kw.tsv@bbe62f3bc6a3   (viz/report_figures.py)
+V3 spectrum: dropped CONSTANT observable(s) max_transition_hamming=6, mean_transition_hamming=3.3492064 (viz_kc_spectrum.md rule 1 -- a flat panel would be read as a statement about the rank index, and it is not one)
+Saved fig_tr12_kc_spectrum.png and fig_tr12_kc_spectrum.svg  src=source: v3_spectrum.tsv@22ac482fe8f2   (viz/report_figures.py)

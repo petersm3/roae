@@ -1,0 +1,32 @@
+# Registry of REDACTED FIGURES — consumed by scripts/corrections_inventory.sh (2026-09-26).
+#
+# WHY THIS IS NOT A ROW IN WITHDRAWN_FIGURES.tsv OR RETRACTED_FIGURES.tsv
+#   Those registries list a withdrawn figure as a FIXED string, and the published text may keep
+#   it next to a supersession marker. The figures here are a different class: a report withdrew
+#   them AND redacted them, on TR-12 §9's rule that a correction which requotes a number
+#   publishes it (TR-11 v1.10 did the same to its own changelog row). Listing one here as a
+#   fixed string would restate it. So each row is the sha256 of the figure, not the figure.
+#   This hides nothing: the figures stand in public commit messages, and a short dollar string
+#   can be recovered from its digest by trial. The point is only that no current file restates
+#   them.
+#
+# WHAT READS IT
+#   scripts/corrections_inventory.sh takes every dollar-figure token from the text it sweeps
+#   (a dollar sign, a number, an optional K or M, an optional dash and second number; trailing
+#   full stops and commas dropped), hashes it, and writes "[withdrawn figure redacted]" in the
+#   text column of documentation/CORRECTIONS_INVENTORY.tsv wherever the digest is listed here.
+#   The row id is computed before the redaction, so no published id changes.
+#
+# SCOPE: only cost figures a report has withdrawn and redacted. A figure that was withdrawn but
+# may still be quoted beside a marker belongs in WITHDRAWN_FIGURES.tsv, not here.
+#
+# FORMAT (tab-separated, 2 columns). Each dash spelling is its own row.
+#   <sha256 of the figure, UTF-8, no newline>	<what it was and where it was withdrawn>
+64c06996736bf584a6dea0537c576e2c800c73d5cd07c8aa51fcfb10c22ae189	TR-11 v1.9's exact-C3 cost band, hyphen form. Withdrawn by TR-11 v1.10 (2026-07-22), which redacted the dollar figures from its own v1.9 row; TR-12 §9 redacts rather than restates it. Carried by the message of commit 4059fd5d (and 3c9db955).
+b25c4a6decad1ef534c752ad6e9f3b18953f0fa9302754563f992ba279882b78	Same band, en-dash form.
+7af0b0c1d95385bf87cc6569af0a7d8d4bdc1e5d130adaa8e8687e117b1e4bc0	Central value of the same TR-11 v1.9 band, hyphen form. Same withdrawal (TR-11 v1.10) and redaction (TR-12 §9); carried by commit 4059fd5d's message.
+5622ab6db74e8fd8150ae5727052ca9d6fe569677283b8f656ec3e9aa47f05d1	Same central value, en-dash form.
+fb954b13319ff59555be43b0b39e0f30f566ecbfd91b11a690b3baac582367cc	The exact-C15 run price that TR-12 §9 redacts and that CX-157 removed from TR-12 §Open Problems row 1 and METHODS, hyphen form.
+f795448022f3e89ceb256d53764df276b61564167e5d18eaa4a779cba5946fe8	Same price, en-dash form (the form those two sites printed).
+b0e5872fccf71ad825ec1752a2956590a8f98b0c9998c6f77ef518d75c836b68	The earlier exact-C3 cost band that TR-11 v1.9 replaced; commit 3c9db955's message records it retracted and confirmed absent repo-wide. Hyphen form.
+a7e2ae8077073397b3369e67939cfdf305d7d08aeb785c3e87759a962ff28949	Same earlier band, en-dash form.

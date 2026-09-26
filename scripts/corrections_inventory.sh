@@ -39,20 +39,38 @@
 #
 # ERRORS: every refusal prints one `CORRECTIONS_INVENTORY=ERROR <cause> ...` line and exits 2
 # without touching the published TSV. Causes: source-failed:markdown | source-failed:git |
-# shallow-repository | mktemp-failed | sweep-failed (incl. id-collision) | population-collapsed.
+# shallow-repository | mktemp-failed | sweep-failed (incl. id-collision) | population-collapsed |
+# redact-registry-unreadable | redact-list-failed (2026-09-26, see REDACTED FIGURES below).
 # (Same one-line shape as the pre-existing population-collapsed line; splitting the cause onto a
 # separate whole-line cause token needs a DEVELOPMENT.md token-table row first.)
 #
 # SAFETY (2-core orchestrator)
 #   Index-based `git grep` / `git log` only. No `find` over trees. NO bounded-repetition
 #   regex (`.{0,N}`) anywhere — a pathological one hung this box on a 381-byte input.
-#   Exactly one pass per source and exactly one awk process does all classification.
+#   Exactly one pass per source and exactly one awk process does all classification. The
+#   redaction list (redact_list) adds one grep, one sort, one sha256sum and two awks per sweep.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 
 OUT="documentation/CORRECTIONS_INVENTORY.tsv"
 LEDGER="documentation/CORRECTIONS.md"
+
+# ---------------------------------------------------------------------------
+# REDACTED FIGURES (2026-09-26). Some cost figures were withdrawn AND redacted by the report that
+# published them: TR-12 s9 redacts the exact-C15 price rather than restating it, on its rule that a
+# correction which requotes a number publishes it, and TR-11 v1.10 redacted its own withdrawn band.
+# A commit message that withdrew such a figure quotes it, and this inventory copied that message
+# into its text column, so the published TSV restated a band the reports had removed (row
+# GIT-2eebef43). documentation/REDACTED_FIGURES.tsv lists those figures by sha256, never as text.
+# redact_list() hashes every dollar-figure token in the swept text and returns the literal tokens
+# whose digest is registered; classify() replaces them in the TEXT column only. The id is computed
+# from the unredacted text first, so no published id moves. The rule is narrow on purpose: a
+# dollar figure that is not registered is printed as before.
+REDACT_REG="documentation/REDACTED_FIGURES.tsv"   # CORRECTIONS_REDACT_REGISTRY overrides it (tests)
+REDACT_MARK='[withdrawn figure redacted]'
+# a dollar sign, a number, an optional K/M, an optional dash (hyphen or en-dash) and second number
+TOK_RE='\$[0-9][0-9.,]*[KkMm]?((-|–)\$?[0-9][0-9.,]*[KkMm]?)?'
 
 # ---------------------------------------------------------------------------
 # CLASS TOKEN TABLES.
@@ -145,6 +163,34 @@ src_git() {
 }
 
 # ---------------------------------------------------------------------------
+# redact_list FILE... — print, longest first, the literal dollar-figure tokens in FILE... whose
+#   sha256 is listed in $REDACT_REG. Trailing full stops and commas are dropped before hashing
+#   ("$X," at the end of a clause is the figure $X). One grep, one sha256sum over a directory of
+#   token files, one awk join: no per-token subprocess. A registry that cannot be read, or has no
+#   rows, is an ERROR: an empty list would silently publish every registered figure.
+redact_list() {
+  local t g reg="${CORRECTIONS_REDACT_REGISTRY:-$REDACT_REG}"   # read at CALL time: the selftest overrides it
+  if [ ! -r "$reg" ] || [ "$(grep -c -v -E '^(#|$)' "$reg")" -eq 0 ]; then
+    echo "CORRECTIONS_INVENTORY=ERROR redact-registry-unreadable $reg" >&2; return 2
+  fi
+  t=$(mktemp -d) || return 2
+  LC_ALL=C grep -o -h -E "$TOK_RE" "$@" > "$t/raw"; g=$?
+  if [ "$g" -gt 1 ]; then echo "CORRECTIONS_INVENTORY=ERROR redact-list-failed grep rc=$g" >&2; rm -rf "$t"; return 2; fi
+  LC_ALL=C sed 's/[.,]*$//' "$t/raw" | LC_ALL=C sort -u \
+    | awk -v D="$t/tok" 'BEGIN { system("mkdir -p \"" D "\"") }
+        { f = D "/" NR; printf "%s", $0 > f; close(f); print NR "\t" $0 }' > "$t/index"
+  if [ -s "$t/index" ]; then
+    ( cd "$t/tok" && sha256sum -- * ) > "$t/sums" \
+      || { echo "CORRECTIONS_INVENTORY=ERROR redact-list-failed sha256sum" >&2; rm -rf "$t"; return 2; }
+    awk -F'\t' 'FILENAME == ARGV[1] { if ($0 !~ /^#/ && NF >= 1 && $1 != "") reg[$1] = 1; next }
+                FILENAME == ARGV[2] { split($0, p, "  "); dig[p[2]] = p[1]; next }
+                ($1 in dig) && (dig[$1] in reg) { print length($2) "\t" $2 }' \
+      "$reg" "$t/sums" "$t/index" | sort -t "$(printf '\t')" -k1,1nr | cut -f2-
+  fi
+  rm -rf "$t"
+}
+
+# ---------------------------------------------------------------------------
 # CLASSIFIER — one awk process for every record from every source.
 #   Emits: id  date  class  matched  source  document  line  text
 #
@@ -156,7 +202,12 @@ src_git() {
 classify() {
   awk -F'\t' \
     -v C1RE="$C1_RE" -v C2RE="$C2_RE" -v C3RE="$C3_RE" -v C4RE="$C4_RE" \
-    -v MAXTEXT=400 '
+    -v MAXTEXT=400 -v REDACT_FILE="${REDACT_FILE:-}" -v REDMARK="$REDACT_MARK" '
+    function repl(s, t, r,   o, i) {   # literal (not regex) replace-all: tokens carry "$" and "."
+      o = ""
+      while ((i = index(s, t)) > 0) { o = o substr(s, 1, i - 1) r; s = substr(s, i + length(t)) }
+      return o s
+    }
     function hash(s,   i, h, n) {
       h = 0; n = length(s)
       for (i = 1; i <= n; i++) h = (h * 131 + index(CHARS, substr(s, i, 1))) % 1000000007
@@ -171,6 +222,8 @@ classify() {
       OFS = "\t"
       tokre["C1"] = C1RE; tokre["C2"] = C2RE; tokre["C3"] = C3RE; tokre["C4"] = C4RE
       print "id", "date", "class", "matched", "source", "document", "line", "text"
+      nred = 0
+      if (REDACT_FILE != "") while ((getline r < REDACT_FILE) > 0) if (r != "") red[++nred] = r
     }
     {
       src = $1
@@ -243,6 +296,18 @@ classify() {
         collided = 1
       }
       seen[id] = fkey
+      # REDACTED FIGURES (see redact_list): the id above hashes the unredacted text, so it is stable;
+      # only the published text column changes. Redact BEFORE truncating, so a figure that
+      # straddled the old cut cannot survive as a fragment.
+      if (nred > 0) {
+        pub = text
+        for (k = 1; k <= nred; k++) pub = repl(pub, red[k], REDMARK)
+        if (pub != text) {
+          if (length(pub) > MAXTEXT) pub = substr(pub, 1, MAXTEXT) "  [...truncated]"
+          gsub(/[[:space:]]+/, " ", pub); sub(/^ /, "", pub)
+          out = pub
+        }
+      }
       print id, dt, cls, tok, src, doc, ln, out
     }
     END { if (collided) exit 3 }'
@@ -269,7 +334,8 @@ sweep() {
     echo "CORRECTIONS_INVENTORY=ERROR source-failed:git rc=$rc_git rows=$(grep -c . "$d/git")" >&2
     rm -rf "$d"; return 2
   fi
-  cat "$d/md" "$d/git" | classify; rc=$?
+  redact_list "$d/md" "$d/git" > "$d/redact" || { rm -rf "$d"; return 2; }   # it printed its ERROR
+  cat "$d/md" "$d/git" | REDACT_FILE="$d/redact" classify; rc=$?
   rm -rf "$d"; return "$rc"
 }
 
@@ -454,6 +520,64 @@ selftest() {
       rc=1
     fi
   }
+
+  # (15) 2026-09-26: REDACTED FIGURES, on a synthetic registry, so this test restates no real figure.
+  #      A registered dollar figure is replaced in the text column. Every occurrence is followed by
+  #      a comma or a full stop, which the token pattern swallows, so this also proves the trailing-
+  #      punctuation strip: without it no token hashes to the registered digest. The id is the one
+  #      the unredacted text gets, and an UNREGISTERED dollar figure on the same line is printed
+  #      unchanged (the rule is narrow, and this is its positive control).
+  local rreg rin rl rrow rtxt rid0 rid1
+  rreg=$(mktemp) && rin=$(mktemp) && rl=$(mktemp) && {
+    printf '# synthetic\n%s\tsynthetic test figure\n' \
+      "$(printf '%s' '$900-9,900' | sha256sum | cut -c1-64)" > "$rreg"
+    printf 'git\tdeadbeef\t2026-01-01\t%s\n' \
+      "Withdraw the band \$900-9,900, and its centre \$900-9,900. Keep the \$7.25 figure; band \$900-9,900, gone." > "$rin"
+    CORRECTIONS_REDACT_REGISTRY="$rreg" redact_list "$rin" > "$rl"
+    rrow=$(REDACT_FILE="$rl" classify < "$rin" | tail -n +2)
+    rtxt=$(printf '%s' "$rrow" | cut -f8); rid1=$(printf '%s' "$rrow" | cut -f1)
+    rid0=$(classify < "$rin" | tail -n +2 | cut -f1)
+    if [ "$(grep -c . "$rl")" -eq 1 ] && [ "${rtxt#*900-9}" = "$rtxt" ] \
+       && [ "$(grep -o -F "$REDACT_MARK" <<< "$rtxt" | grep -c .)" -eq 3 ] \
+       && [ "${rtxt#*\$7.25}" != "$rtxt" ] && [ -n "$rid0" ] && [ "$rid0" = "$rid1" ]; then
+      echo "  [ok]   a registered figure is redacted (3 of 3, each punctuation-trailed), id unchanged ($rid1), unregistered \$ kept"
+    else
+      echo "  [FAIL] redaction: list=$(grep -c . "$rl") id $rid0 -> $rid1 text: $rtxt"
+      rc=1
+    fi
+    rm -f "$rreg" "$rin" "$rl"
+  }
+
+  # (16) the REAL registry on REAL bytes, through sweep() itself, so the wiring is tested and not a
+  #      copy of it. Precondition: the real git source carries a registered figure (else this leg
+  #      proves nothing). Verdict: none survives in sweep's output -- re-running redact_list on the
+  #      rows it would publish finds nothing. The known carrier is commit 4059fd5d's message, which
+  #      quoted TR-11 v1.9's withdrawn band (published row GIT-2eebef43 until 2026-09-26).
+  local gsrc glist gout gleft
+  gsrc=$(mktemp) && glist=$(mktemp) && gout=$(mktemp) && {
+    src_git > "$gsrc"
+    redact_list "$gsrc" > "$glist"
+    sweep > "$gout" 2>/dev/null
+    gleft=$(redact_list "$gout" | grep -c .)
+    if [ "$(grep -c . "$glist")" -gt 0 ] && [ "${gleft:-1}" -eq 0 ] \
+       && [ "$(grep -c -F "$REDACT_MARK" "$gout")" -gt 0 ]; then
+      echo "  [ok]   real registry, real git log: $(grep -c . "$glist") registered token(s) found, 0 survive the sweep"
+    else
+      echo "  [FAIL] real registry, real git log: found=$(grep -c . "$glist") surviving=$gleft"
+      rc=1
+    fi
+    rm -f "$gsrc" "$glist" "$gout"
+  }
+
+  # (17) a registry that cannot be read fails the sweep; it does not publish unredacted rows.
+  local nrc
+  CORRECTIONS_REDACT_REGISTRY=/nonexistent/REDACTED_FIGURES.tsv sweep >/dev/null 2>&1; nrc=$?
+  if [ "$nrc" -ne 0 ]; then
+    echo "  [ok]   an unreadable redaction registry fails the sweep (rc $nrc)"
+  else
+    echo "  [FAIL] an unreadable redaction registry still returned rc 0 from sweep"
+    rc=1
+  fi
 
   rm -f "$tmp"
   echo

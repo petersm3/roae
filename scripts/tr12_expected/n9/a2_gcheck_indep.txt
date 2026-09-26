@@ -1,0 +1,32 @@
+### independent g-ladder verifier: verify.c --check-g-ladder (build: cc -O2 -o verify verify.c -lz -lpthread -lm)
+======================================================================
+verify.c --check-g-ladder : spec-driven independent g-ladder verifier
+written against documentation/GT_LADDER_FORMAT.md; shares no code with solve.c
+======================================================================
+manifests: n=9 start_exit=0 b0=(2,5,0,2,0)  g last_complete_k=0 (0=complete; layers 0..9 present)
+group    : 48 -> 24 induced pair-perms -> 6 distinct on this run's 9 pairs
+expect N : Σ f(layer 9) = 26112  (from the f ladder's value bytes)
+----------------------------------------------------------------------
+  k= 0  g nm=1       ne=1          v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 1  g nm=3       ne=18         v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 2  g nm=9       ne=168        v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 3  g nm=20      ne=496        v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 4  g nm=27      ne=716        v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 5  g nm=27      ne=566        v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 6  g nm=20      ne=276        v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 7  g nm=9       ne=110        v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 8  g nm=3       ne=34         v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+  k= 9  g nm=1       ne=18         v1  Σ orbit·f·g = 26112 (expect N = 26112)  OK
+----------------------------------------------------------------------
+g(0) = 26112  MATCHES the f-ladder total (whole-space count from the suffix side)
+census   : range k=0..9: 10 layer(s) evaluated, 0 absent per manifest (last_complete_k=0);
+           f·g cut identity EVALUATED at 10 and SKIPPED at 0 of the 10 evaluated
+RESULT: 10 g layer(s) verified — headers, layout, canonicity, stored domain,
+        sum invariant, seed/anchor content — and the f·g cut identity
+        EVALUATED at 10 of 10 checked layer(s) (0 skipped).
+IDENTITIES_CHECKED=10
+IDENTITIES_SKIPPED=0
+GLADDER_RESULT=PASS
+======================================================================
+verify_rc=0 identities_wanted=10
+INDEP_LADDER_CHECK=OK

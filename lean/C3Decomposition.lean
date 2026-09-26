@@ -647,10 +647,10 @@ def fact : Nat → Nat
     pinned by C4 with the eighth self pair {63, 0}). -/
 def NullHist : List Nat := nullHist 12 7 31
 
-/-- the full exact law, bin by bin: entry g (for g = 12..228) is the number of
-    the 31! pair-orderings with couple slot-distance sum exactly g. Cross-checked
-    bin-for-bin against verify.py --check-null-g (an independent Python
-    implementation of the DP with a different G-accumulator phrasing). -/
+/-- the full exact law of the DP, bin by bin: entry g (g = 12..228) is bin g of `nullHist 12 7 31`, read as
+    the count of the 31! pair-orderings with slot-distance sum g via the small-size bridge. verify.py
+    --check-null-g matches it bin-for-bin, but re-implements the SAME (o, c) recurrence in Python, so it
+    is not independent; the independent checks are `null_mean_linearity` and `nullHist_matches_brute_*`. -/
 def NullLawLiteral : List Nat :=
   List.replicate 12 0 ++
     [

@@ -18,9 +18,9 @@ bar. The failure is **concentrated in one stratum**: at **V=0** the models are p
 confusable (**0/277**, upper bound 1.4%), because a V=0 tendency draw lands inside the grand-strict
 set that is M_corr's own support; nine further failures sit at V=1–4 (56/63, 59/61); at **V≥5** there
 are none (**599/599**). The received sequence has **V=6**, in the V=5–7 stratum, where self-recovery
-is 51/51. ⚠ **[CORRECTED 2026-09-24 (Codex V3A-152#6, Q-742) — this called the failure a step function
-limited to V=0 and gave 51/51 as V=6's own rate (registered as RP-dd3c5c35); [RESULTS.md](RESULTS.md) §"by V" shows nine
-failures outside V=0, and its 51/51 is the pooled V=5–7 stratum. No count or verdict moved.]**
+is 51/51.
+
+
 
 **What this changes**: the published BF and the ≈0.9998 posterior are **not calibrated in the pooled
 sense**. They are unchanged and not withdrawn; their *calibration support* is. See

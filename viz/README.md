@@ -92,7 +92,7 @@ figure, which needs `<consumer>/spectrum/v3_spectrum.tsv` — and no row of `scr
 runs `solve.py --v3-spectrum` to write it (row `a1_v3` stops at the grid). The token clears by
 measurement once a battery row runs the join. ⚠ *Updated 2026-09-25 (Q-430): row `c_v3_join` now
 runs it at n=31, before `c_viz`; at n<31 the token is `SKIP:reduced-universe`.* The n=31 receipt
-(`reports/evidence/tr12/`) keeps `PENDING` because that is what was true when that run executed.
+(`reports/evidence/tr12/`) keeps `PENDING` because that is what was true when that run executed. ⚠ *Updated 2026-09-26: the battery's V3 rows were run standalone at n=31 on 2026-09-25, and they gave `TR12_V3_FIG=PASS` with the grid and spectrum byte-identical to the committed tables (`reports/evidence/tr12/v3_rows_n31_20260925/`). This was not a full battery run.*
 
 **Scope warning that applies to all five: the compiled space is C1 ∩ C2 ∩ C4 ∩ C5 — C3 is NOT
 applied.** Every caption must carry the space label `C1C2C4C5-SUPERSPACE`. Specified by TR-12 §2
@@ -177,3 +177,28 @@ python3 ../../../../viz/growth_curve.py                         # the growth cur
 instant; the bottleneck is reading `solutions.bin` from disk. The input must be **uncompressed**: run `gzip -dk solutions.bin.gz` first, since a `.gz` is refused with a `ValueError` that says so. ⚠ *Corrected 2026-09-25 (Q-699, V3A-139#4): this said "(gz-aware)", but `visualize.py` has no gzip path. A `.gz` input, and every headerless legacy file, used to crash with `NameError`.* Outputs are 4 PNG + 4 SVG
 (~10-15 MB total) plus the growth curve. Per-run directories may carry their own brief, dataset-specific
 `README.md`; this file is the stable index across all runs.
+
+## Every committed figure, and where it is shown
+
+*(Added 2026-09-26.)* This table lists every committed figure image and the pages that show or link
+it, so that none is orphaned. Captions live on the linked pages; this is an index. The landing
+[README](../README.md#figures) shows the report figures in its §Figures.
+
+| Figure (PNG + SVG unless noted) | What it is | Shown in |
+|---|---|---|
+| [`fig_tr12_kc_field`](../reports/figures/fig_tr12_kc_field.svg) | V1, positional-marginal field (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_field.md](viz_kc_field.md) |
+| [`fig_tr12_kc_river`](../reports/figures/fig_tr12_kc_river.svg) | V2, mass river and branch panel; the REDUCED form (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_river.md](viz_kc_river.md) |
+| [`fig_tr12_kc_spectrum`](../reports/figures/fig_tr12_kc_spectrum.svg) | V3, rank spectrum; `TR12_V3_FIG=PENDING:viz-v3-spectrum` stays pinned (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_spectrum.md](viz_kc_spectrum.md) |
+| [`fig_tr12_kc_shells`](../reports/figures/fig_tr12_kc_shells.svg) | V4, King Wen's neighbourhood shells; one walk, not a population (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_shells.md](viz_kc_shells.md) |
+| [`fig_tr12_kc_grammar`](../reports/figures/fig_tr12_kc_grammar.svg) | V5, transition grammar (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_grammar.md](viz_kc_grammar.md) |
+| [`viz_scale`](../reports/figures/viz_scale.svg) | The scale figure: budgeted slices and the compiled superspace, which count different spaces | [TR-12 §"What this document is, and what it is not"](../reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not), [viz_scale.md](viz_scale.md) |
+| [`fig_tr1_rules_tradeoff`](../reports/figures/fig_tr1_rules_tradeoff.svg) | The conflict theorem's trade-off | [TR-1 §Figure](../reports/TR1_EIGHT_CENTURIES_MEASURED.md#figure), [TR-2 §Figure](../reports/TR2_THE_RULES_CONFLICT.md#figure) |
+| [`fig_tr3_campaign_timeline`](../reports/figures/fig_tr3_campaign_timeline.svg) | The first 560T campaign timeline | [TR-3 §Figure](../reports/TR3_REPRODUCIBLE_ENUMERATION.md#figure) |
+| [`fig_tr4_boundary_information`](../reports/figures/fig_tr4_boundary_information.svg) | The boundary-information curve S(k) | [TR-4 §Figure](../reports/TR4_SIZE_OF_THE_SPACE.md#figure) |
+| [`fig_tr5_orbit_collapse`](../reports/figures/fig_tr5_orbit_collapse.svg) | The symmetry collapse and one 24-element orbit | [TR-5 §Figure: the symmetry collapse](../reports/TR5_SYMMETRY.md#figure-the-symmetry-collapse) |
+| [`fig_tr6_parity_alternations`](../reports/figures/fig_tr6_parity_alternations.svg) | King Wen's parity-class string | [TR-6 §Figure](../reports/TR6_PARITY_SKELETON.md#figure) |
+| [`fig_tr7_circular_cycle`](../reports/figures/fig_tr7_circular_cycle.svg) | The King Wen cycle with the wrap edge | [TR-7 §Figure: the cycle](../reports/TR7_CIRCULAR_READING.md#figure-the-cycle) |
+| [`viz_growth_curve`](../runs/20260608_560T_9a968fa2/viz/viz_growth_curve.svg) | Growth curve across the canonicals | [viz_graphs.md](viz_graphs.md) |
+| `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency` in [`../runs/20260608_560T_9a968fa2/viz/`](../runs/20260608_560T_9a968fa2/viz/) | The four PCA projections of the d3 560T canonical | [viz_pca.md](viz_pca.md) |
+| `tc_compute`, `tc_io_system`, `per_resume_whiskers`, `eta_projection`, `throughput_vs_cpufreq`, `eviction_recovery` (PNG only) in [`../runs/20260608_560T_9a968fa2/viz/`](../runs/20260608_560T_9a968fa2/viz/index.html) | Telemetry of the 560T re-run | [viz_graphs.md](viz_graphs.md), [`index.html`](../runs/20260608_560T_9a968fa2/viz/index.html) |
+| `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency` in [`../runs/20260419_100T_d3_d128westus3/viz/`](../runs/20260419_100T_d3_d128westus3/viz/) | The same four PCA projections, drawn from the d3 100T canonical | not embedded in any page; described, with their sampling method, in [the 100T run README](../runs/20260419_100T_d3_d128westus3/README.md#visualization) |

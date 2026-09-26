@@ -1,0 +1,33 @@
+### independent t-ladder verifier: verify.c --check-t-ladder (build: cc -O2 -o verify verify.c -lz -lpthread -lm)
+======================================================================
+verify.c --check-t-ladder : spec-driven independent t-ladder verifier
+written against documentation/GT_LADDER_FORMAT.md; shares no code with solve.c
+======================================================================
+manifests: n=9 start_exit=0 b0=(2,5,0,2,0)  t last_complete_k=0 (0=complete; layers 0..9 present)
+group    : 48 -> 24 induced pair-perms -> 6 distinct on this run's 9 pairs
+M pass   : all 10 f masses re-derived; total search-tree size S_0 = 229861
+----------------------------------------------------------------------
+  k= 0  t nm=1       ne=1          v1  Σ orbit·f·t = 229861 (expect nodes at depth ≥0 = 229861)  OK
+  k= 1  t nm=3       ne=4          v1  Σ orbit·f·t = 229860 (expect nodes at depth ≥1 = 229860)  OK
+  k= 2  t nm=9       ne=19         v1  Σ orbit·f·t = 229848 (expect nodes at depth ≥2 = 229848)  OK
+  k= 3  t nm=20      ne=58         v1  Σ orbit·f·t = 229752 (expect nodes at depth ≥3 = 229752)  OK
+  k= 4  t nm=27      ne=139        v1  Σ orbit·f·t = 229092 (expect nodes at depth ≥4 = 229092)  OK
+  k= 5  t nm=27      ne=244        v1  Σ orbit·f·t = 225468 (expect nodes at depth ≥5 = 225468)  OK
+  k= 6  t nm=20      ne=271        v1  Σ orbit·f·t = 211512 (expect nodes at depth ≥6 = 211512)  OK
+  k= 7  t nm=9       ne=160        v1  Σ orbit·f·t = 174624 (expect nodes at depth ≥7 = 174624)  OK
+  k= 8  t nm=3       ne=48         v1  Σ orbit·f·t = 106272 (expect nodes at depth ≥8 = 106272)  OK
+  k= 9  t nm=1       ne=6          v1  Σ orbit·f·t = 26112 (expect nodes at depth ≥9 = 26112)  OK
+----------------------------------------------------------------------
+t(root) = 229861  MATCHES Σ M_j (the whole search-tree size, re-derived from f)
+census   : range k=0..9: 10 layer(s) evaluated, 0 absent per manifest (last_complete_k=0);
+           f·t node identity EVALUATED at 10 and SKIPPED at 0 of the 10 evaluated
+RESULT: 10 t layer(s) verified — headers, byte-exact f-geometry mirror,
+        values >= 1, seed/anchor content — and the f·t node identity
+        (recurrence unfolded, S_k = S_{k+1} + M_k) EVALUATED at 10 of 10
+        checked layer(s) (0 skipped).
+IDENTITIES_CHECKED=10
+IDENTITIES_SKIPPED=0
+TLADDER_RESULT=PASS
+======================================================================
+verify_rc=0 identities_wanted=10
+INDEP_LADDER_CHECK=OK

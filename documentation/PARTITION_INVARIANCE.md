@@ -81,15 +81,15 @@ the backtracking search in `solve.c`:
   equality check on probe — see [`SPECIFICATION.md`](SPECIFICATION.md)
   Definitions and the `compare_canonical` comment block in `solve.c`).
 - Flushes the hash-table contents to `sub_P1_O1_P2_O2.bin` at end of
-  sub-branch in a deterministic record order (atomic write via
+  sub-branch in hash-table **slot** order — a deterministic record *set*, not a fixed sequence (atomic write via
   `.tmp` + `rename`; see [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md)).
 
 **Consequence**: two invocations that enumerate the same `(P1, O1, P2, O2)`
 prefix to exhaustion produce `sub_P1_O1_P2_O2.bin` shards with **identical
-decompressed record streams** (identical logical sha256), regardless of
+decompressed record sets** (identical logical sha256 of the *sorted* records), regardless of
 thread count, time of day, machine architecture (for byte-addressable
 8-bit-byte hosts), or invocation mode (full-parallel vs. single-branch via
-`--branch P O`).
+`--branch P O`). ⚠ **[CORRECTED 2026-09-26, Q-831 — this read "identical decompressed record streams (identical logical sha256)", and the bullet above read "a deterministic record order". The flush writes records in hash-table slot order, and slot order depends on the table's size: `SOLVE_HASH_LOG2` sets it, and auto-resize grows it without shrinking it between cells, so on a thread whose table has resized, the thread count and the order in which cells reach that thread can change it too (that path is read from the source, not measured). **Measured** on one depth-3 run pair, single-threaded, `SOLVE_PER_SUB_BRANCH_LIMIT=10000`, `SOLVE_HASH_LOG2=16` against `22`, both stopped after about 3,700 common shards: 3,726 of 3,731 common shards differ in logical sha256 (`gzip -dc | sha256sum`), 0 differ as sorted record sets, and one shard merged alone with `solve --merge` gives the same `solutions.bin` sha from either run. The theorem is unaffected: the merge sorts (§2.3), so it needs equal record sets, not equal streams.]**
 
 Physical container bytes match *additionally* only under a fixed compression
 profile: since #169 shards are gzip-framed by default (`SOLVE_COMPRESS`, at
@@ -138,7 +138,7 @@ stream, hence the same canonical sha256.
 (2.1) and (2.2) imply that the union of shards from 56 single-branch
 invocations and the union of shards from one full-parallel invocation
 are **the same set of shard names carrying the same logical record
-streams** — that is, `E_full = E_branch` pointwise. (2.3) implies the
+sets** (sets, not streams: §2.1) — that is, `E_full = E_branch` pointwise. (2.3) implies the
 merge produces the same logical `solutions.bin` stream given equal input
 sets. Therefore the two paths produce the same canonical sha256. ∎
 
@@ -321,11 +321,11 @@ This theorem underpins several project workflows:
 - **Distributed / pooled enumeration** (speculative, long horizon):
   if the project ever extends to a "many contributors enumerate
   different branches" model, the merge-from-any-subset property is
-  what makes it work. Each contributor produces a shard with the same
-  logical record stream for their assigned prefix; the coordinator merges
-  all contributions. Acceptance must compare **logical** (decompressed)
-  shard sha256s, never container bytes — contributors will not share a
-  zlib version or compression level (§2.1).
+  what makes it work. Each contributor's shard for an assigned prefix holds the same
+  logical record **set** as any other correct run's; the coordinator merges
+  all contributions. Acceptance must compare the **sorted** logical (decompressed) record set, or the shard merged alone with `solve --merge`,
+  never a shard's logical sha256 as written and never container bytes — record order is hash-slot order (§2.1), and contributors will not share a
+  zlib version or compression level (§2.1). *(Narrowed 2026-09-26, Q-831: this compared logical shard sha256s, which would reject valid shards — measured, 3,726 of 3,731 shards from a run with a different `SOLVE_HASH_LOG2`; see the §2.1 note.)*
 - **Layered enumeration extension**: the `--merge-layers` mode
   (added 2026-04-29, see [`DEVELOPMENT.md`](DEVELOPMENT.md)
   §"Layered enumeration") composes invariance across multiple

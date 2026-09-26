@@ -261,20 +261,20 @@ PYEOF
 # The gate's matching is unchanged: no anchor rule or window was widened. The two rows left were
 # tr12_repro.sh row_skip text (the a1_q5 wave-3 reason).
 # DRAINED 2 -> 0, 2026-09-25 (Opus BC, batch 14). That reason now names `kc_open` on the cited span
-# solve.c:37738-37739 (the call, then the `fkc->ooc != NULL` refusal) and `KC_MEM_MAX_PAIRS` on
+# solve.c:37739-37740 (the call, then the `fkc->ooc != NULL` refusal) and `KC_MEM_MAX_PAIRS` on
 # :20692, so both citations are CHECKED. The row_skip branch runs only at n>=31, so the n=9
 # expected blocks do not carry the text. Only the ATTESTED rows below remain in this table.
 # A LANDS row still has leg A behind it: a shift under it fails leg A regardless of this pin.
 ALL_PINS_DEFAULT=$(cat <<'PINS'
 # file	key	hash	reason
 # ATTESTED (key -): unanchored citations leg A2 met edited in the batch 1-10 range and a person checked by content
-documentation/GT_LADDER_FORMAT.md	-	b766f36ff4eb	ATTESTED: line 21175 opens the 'independent forward brute force (the verification oracle)' block the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72)
-documentation/GT_LADDER_FORMAT.md	-	3344cd723ce8	ATTESTED: line 21221 is `static void kc_brute(`, the brute-force list builder the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72)
-solve.c	-	c68b08ebf7c7	ATTESTED: line 23342 is `if (k < 0 || k > fkc->n) {` in kc_g_check_layer_main (CX-89) (content-checked 2026-09-25, Opus AF; cited from line 38642)
-solve.c	-	4a1c17af8436	ATTESTED: line 9718 is `memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);`, the per-thread hash-table memset the comment cites (content-checked 2026-09-25, Opus BM; cited from line 40382)
-solve.py	-	1e842b067951	ATTESTED: line 43611 is the sub-canonical gate `if (node_limit > 0 && node_limit < 1000000000000LL ...` (content-checked 2026-09-25, Opus AF; cited from line 6948)
-solve.py	-	c41ad0b2c3ec	ATTESTED: line 23990 is the comment defining alts, the admissible oriented successors with g > 0 (content-checked 2026-09-25, Opus AF; cited from line 14167)
-verify.py	-	0224b4f4cc0a	ATTESTED: line 6816 is `static inline int f5_nuc(int h)`, the encoding restated (content-checked 2026-09-25, Opus AF; cited from line 1977)
+documentation/GT_LADDER_FORMAT.md	-	b766f36ff4eb	ATTESTED: line 21176 opens the 'independent forward brute force (the verification oracle)' block the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+documentation/GT_LADDER_FORMAT.md	-	3344cd723ce8	ATTESTED: line 21222 is `static void kc_brute(`, the brute-force list builder the sentence cites (content-checked 2026-09-25, Opus AF; cited from line 72) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.c	-	c68b08ebf7c7	ATTESTED: line 23343 is `if (k < 0 || k > fkc->n) {` in kc_g_check_layer_main (CX-89) (content-checked 2026-09-25, Opus AF; cited from line 38643) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.c	-	4a1c17af8436	ATTESTED: line 9719 is `memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);`, the per-thread hash-table memset the comment cites (content-checked 2026-09-25, Opus BM; cited from line 40383) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.py	-	1e842b067951	ATTESTED: line 43612 is the sub-canonical gate `if (node_limit > 0 && node_limit < 1000000000000LL ...` (content-checked 2026-09-25, Opus AF; cited from line 6948) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.py	-	c41ad0b2c3ec	ATTESTED: line 23991 is the comment defining alts, the admissible oriented successors with g > 0 (content-checked 2026-09-25, Opus AF; cited from line 14167) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+verify.py	-	0224b4f4cc0a	ATTESTED: line 6817 is `static inline int f5_nuc(int h)`, the encoding restated (content-checked 2026-09-25, Opus AF; cited from line 1977) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
 PINS
 )
 ALL_PINS="${CITGATE_ALL_PINS-$ALL_PINS_DEFAULT}"
@@ -283,7 +283,7 @@ ALL_PINS="${CITGATE_ALL_PINS-$ALL_PINS_DEFAULT}"
 # citations into files OTHER than solve.c (solve.c's rows are the table above, reused as-is).
 TARGET_PINS_DEFAULT=$(cat <<'PINS'
 # file	target	key	hash	reason
-documentation/CRITIQUE.md	documentation/CRITIQUE.md	a few hours	ece79aa85b24	LANDS: line 60 is the Gray-code C3 rate bound 'scoped to its sampler', the over-reach correction the note refers back to (self-reference)
+documentation/CRITIQUE.md	documentation/CRITIQUE.md	a few hours	f8ba3b65a9cf	LANDS: line 60 is the Gray-code C3 rate bound 'scoped to its sampler', the over-reach correction the note refers back to (self-reference; re-hashed 2026-09-26, Opus EU: only line 60's two solve.c citations moved, +1 for batch 16's solve.c)
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	76d247e90143	LANDS: HISTORY.md line 4158 is the line carrying the 8-hex UUID prefix `3620ba16-…` the sentence describes
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	0a6a430f95ad	LANDS: HISTORY.md line 1907 carries the `d63bb25c…` UUID token the sentence describes
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	9a968fa2	db73f707cca7	LANDS: HISTORY.md line 5146-5147 carry the old/new pre-merge shard totals (43,876,464,466) the cell names
@@ -332,7 +332,7 @@ tests.py	sat.py	--keep	ac0e6d6eba88	LANDS: sat.py line 1854 is the `_run_tool(["
 tests.py	solve.py	--rules	2e018c376311	LANDS: solve.py line 1649-1657 is print_rules' docstring withdrawal plus the retired-banner comment (re-pinned from line 1581, Q-791)
 documentation/DEVELOPMENT.md	scripts/tr12_repro.sh	--kc-o3-rank	a3c7ef14609e	LANDS (rarity rule): line 2658 is the n>=31 rank3 awk the row names; `--kc-o3-rank` occurs on 11 lines of tr12_repro.sh and sits on the comment above the awk, not on it
 documentation/DEVELOPMENT.md	scripts/tr12_repro.sh	--kc-o3-rank	941b26ee7499	LANDS (rarity rule): line 653 is the q1c rank3 awk, the first sibling the row names (re-pinned from line 642 by content, 2026-09-25: 642 was one line of CX-93's shift behind); same common anchor
-documentation/RETRACTED_PHRASES.tsv	documentation/DEVELOPMENT.md	Constraint set	a1e7684b2f3b	LANDS: DEVELOPMENT.md line 2532-2534 is the Xugua sentence the note describes (review S3 re-pin by content, 2026-09-25; +2 for the Q-737 token rows, Opus AJ; +3 for the Q-684 token rows, Opus AS; +20 for the Q-739 GATE 90 section, Opus BH; +38 for the Q-719 GATE 10 section, Opus BJ; +2 for the Q-694 token rows, Opus BK; +4 for the Q-755 token rows, Opus BW); the mined anchor is the METHODS.md section name the note also quotes
+documentation/RETRACTED_PHRASES.tsv	documentation/DEVELOPMENT.md	Constraint set	a1e7684b2f3b	LANDS: DEVELOPMENT.md line 2544-2546 is the Xugua sentence the note describes (review S3 re-pin by content, 2026-09-25; +2 for the Q-737 token rows, Opus AJ; +3 for the Q-684 token rows, Opus AS; +20 for the Q-739 GATE 90 section, Opus BH; +38 for the Q-719 GATE 10 section, Opus BJ; +2 for the Q-694 token rows, Opus BK; +4 for the Q-755 token rows, Opus BW; +12 for the 2026-09-26 provenance field-reference rows, Opus EA); the mined anchor is the METHODS.md section name the note also quotes
 documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	be32b4e7bc0b	HISTORICAL by its own words: solve.py line 1581 'at the 2026-09-02 HEAD', the run-time banner title; print_rules is at solve.py line 1646 today
 documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	dcdccd4d30ac	HISTORICAL by its own words: the print_rules() comment GATE 6 fired on at the row's 2026-09-02 build
 documentation/RETRACTED_PHRASES.tsv	solve.py	--rules	e849e24fe9f9	HISTORICAL by its own words: the 'B2 MEASURED' negation sites at the row's 2026-09-02 build
@@ -340,7 +340,7 @@ documentation/RETRACTED_PHRASES.tsv	documentation/SOLVE_PY_CLI.md	--rules	3f83ae
 # ATTESTED (key -): unanchored citations leg A2 met edited in the batch 1-10 range and a person checked by content
 documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv	scripts/tr12_repro_gate.sh	-	1e178531ce02	ATTESTED: line 503 is the `printf 'TR12_A=PASS\n...'` fixture literal the row names (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 50)
 documentation/ROAE_PY_CLI.md	roae.py	-	5dd6051f8a32	ATTESTED: line 5077 is `gate_ok = abs(p_le_648 - 0.04789) <= 0.005`, the constant the sentence names (content-checked 2026-09-25, Opus AF; cited from line 428 and line 436; reason re-pinned from line 4994, Fable HH N2)
-documentation/SOLVE_C_CLI.md	documentation/DEVELOPMENT.md	-	fdde236ba43a	ATTESTED: DEVELOPMENT.md line 1652 (1579 before the Q-737, Q-727 and Q-684 token rows; 1588 before the Q-739 GATE 90 section; 1608 before the Q-719 GATE 10 section; 1646 before the Q-694 token rows; 1648 before the Q-755 token rows) is the 'Caveat — cross-host reproducibility' paragraph that bounds the tested toolchain class (content-checked 2026-09-25, Opus AF; cited from line 208)
+documentation/SOLVE_C_CLI.md	documentation/DEVELOPMENT.md	-	fdde236ba43a	ATTESTED: DEVELOPMENT.md line 1664 (1652 before the 2026-09-26 provenance field-reference rows, Opus EA; 1579 before the Q-737, Q-727 and Q-684 token rows; 1588 before the Q-739 GATE 90 section; 1608 before the Q-719 GATE 10 section; 1646 before the Q-694 token rows; 1648 before the Q-755 token rows) is the 'Caveat — cross-host reproducibility' paragraph that bounds the tested toolchain class (content-checked 2026-09-25, Opus AF; cited from line 208)
 documentation/VERIFY.md	documentation/CLAIM_TO_ARTIFACT.md	-	8a71d7b9b18c	ATTESTED: CLAIM_TO_ARTIFACT.md line 34 is row 3, |C1∩C2∩C4∩C5| EXACT, the qualification the sentence means (content-checked 2026-09-25, Opus AF; cited from line 1054)
 scripts/doc_gates.d/20_retract_links_status.sh	reports/TR2_THE_RULES_CONFLICT.md	-	75d1d558ef44	ATTESTED: TR2 line 587 is the bold label 'Stop-flag resolution (v1.12, 2026-07-13)' the comment quotes (content-checked 2026-09-25, Opus AF; cited from line 569) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
 scripts/doc_gates.d/70_publication_surfaces.sh	documentation/DESCRIPTION_LENGTH.md	-	01dd010f3e03	ATTESTED: DESCRIPTION_LENGTH.md line 74 carries the decimal ×23.325025987… the fixture names (content-checked 2026-09-25, Opus AF; cited from line 523) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
@@ -352,11 +352,11 @@ scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: lin
 scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	941b26ee7499	ATTESTED: line 653 is the q1c rank3 awk, the first sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
 scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	1dbdb132ab0c	ATTESTED: line 2729 is the a2_q3 `--kc-o3-rank ... | awk` rank3 parse, the second sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
 scripts/tr12_repro_gate.sh	scripts/tr12_repro.sh	-	37b8c4bff44f	ATTESTED: line 1202 is `row_begin a0_q4b` (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 148)
-solve.c	solve.py	-	a2eec7945003	ATTESTED: solve.py line 7111 is `"SOLVE_HASH_LOG2": "16",  # keep RAM use modest on tiny VMs`, quoted (content-checked 2026-09-25, Opus AF; cited from line 40387)
-solve.c	documentation/SOLVE_C_CLI.md	-	13caa29fe0ed	ATTESTED: SOLVE_C_CLI.md line 518 is `set -a; eval "$(./solve --canonical-config 100T)"; set +a` (content-checked 2026-09-25, Opus AF; cited from line 42615)
-solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44078)
-solve.c	documentation/SOLVE_C_CLI.md	-	fc6e90f7a78a	ATTESTED: SOLVE_C_CLI.md line 791 is 'King Wen presence is reported, not enforced' (content-checked 2026-09-25, Opus AF; cited from line 44312)
-solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44513)
+solve.c	solve.py	-	a2eec7945003	ATTESTED: solve.py line 7111 is `"SOLVE_HASH_LOG2": "16",  # keep RAM use modest on tiny VMs`, quoted (content-checked 2026-09-25, Opus AF; cited from line 40388) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.c	documentation/SOLVE_C_CLI.md	-	13caa29fe0ed	ATTESTED: SOLVE_C_CLI.md line 518 is `set -a; eval "$(./solve --canonical-config 100T)"; set +a` (content-checked 2026-09-25, Opus AF; cited from line 42616) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44079) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.c	documentation/SOLVE_C_CLI.md	-	fc6e90f7a78a	ATTESTED: SOLVE_C_CLI.md line 791 is 'King Wen presence is reported, not enforced' (content-checked 2026-09-25, Opus AF; cited from line 44313) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44514) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
 PINS
 )
 TARGET_PINS="${CITGATE_TARGET_PINS-$TARGET_PINS_DEFAULT}"
@@ -439,9 +439,9 @@ def tsrc(t):
     return _tsrc[t]
 
 # ---- the citation grammar -------------------------------------------------------------------
-# `solve.c:N`, `solve.c:N-M` (en dash too, and the abbreviated `:18858-76`), and a bare `:N`
+# `solve.c:N`, `solve.c:N-M` (en dash too, and the abbreviated `:18859-77`), and a bare `:N`
 # continuation, which belongs to the most recent `<name>.<ext>:N` citation on the same line and
-# counts only when that one is solve.c ("(solve.c:38917, :42085)", "solve.c:23844/:24475").
+# counts only when that one is solve.c ("(solve.c:38918, :42086)", "solve.c:23845/:24476").
 TOK = re.compile(
     r'(?P<file>(?<![\w.\-])[\w\-./]*[\w\-]\.[A-Za-z]{1,5}):(?P<a>\d+)(?:\s?[-–]\s?(?P<b>\d+))?(?!\d|\.\d)'
     r'|(?:(?<=[\s(`,/;])|^):(?P<ca>\d+)(?:\s?[-–]\s?(?P<cb>\d+))?(?!\d|\.\d|:)')
@@ -529,6 +529,10 @@ def cites(line, citer, prev=(), quiet=False):
                 continue
             if re.search(SHA + r':$', line[:m.start()]):
                 excluded["git-show"] += 1; pinned = True; continue
+            # A compiler diagnostic quoted verbatim (`solve.c:13150:1: warning: ...`) names the line in
+            # the tree THAT build compiled, not HEAD: a record like CORRECTIONS.md, never re-pinned.
+            if re.match(r':\d+:\s?(?:fatal error|error|warning|note):', line[m.end():]):
+                excluded["compiler-diag"] += 1; continue
             lo, hi = span(m.group("a"), m.group("b"))
         else:
             if not is_target(cur):
@@ -1039,6 +1043,13 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   x=$(verdict_all "$R" no-such-ref-q786 1 "")   # an explicit base that does not resolve -> ERROR
   printf 'No citations.\n' >"$R/doc.md"
   y=$(verdict_all "$R" HEAD "" "")            # nothing to measure -> ERROR
+  # A quoted compiler diagnostic COMMITTED at base, then solve.c +3 under it: leg A must not read
+  # `solve.c:10:1: warning:` as a citation of line 10 (it names the tree that build compiled).
+  # (mk_src in a subshell: its loop variable is `i`, which holds leg I's verdict.)
+  (mk_src); printf "$L1"'solve.c:%d:1: warning: quoted build log\n' 8 10 >"$R/doc.md"; G add -A; G commit -q -m diag
+  { head -8 "$R/solve.c"; printf 'int ins_1;\nint ins_2;\nint ins_3;\n'; tail -n +9 "$R/solve.c"; } >"$R/s2"
+  mv "$R/s2" "$R/solve.c"
+  kd=$(verdict_all "$R" HEAD "" "")
   [ "$e" = PASS ]  || { echo "  [gate] leg E (--all-files, clean tree) gave $e, want PASS"; rc=1; }
   [ "$f" = FAIL ]  || { echo "  [gate] leg F (--all-files, solve.c +3 under an unmoved citation) gave $f, want FAIL"; rc=1; }
   grep -qx 'SHIFT doc.md:3 solve.c:10 -> map 13' <<<"$fo" \
@@ -1046,12 +1057,13 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   grep -q '^NEW ' <<<"$fo" && { echo "  [gate] leg F: leg B fired too, so F does not isolate leg A"; rc=1; }
   [ "$g" = PASS ]  || { echo "  [gate] leg G (--all-files, citation moved in the same change) gave $g, want PASS"; rc=1; }
   [ "$k" = PASS ]  || { echo "  [gate] leg K (--all-files, 'at <sha>' revision pin) gave $k, want PASS"; rc=1; }
+  [ "$kd" = PASS ] || { echo "  [gate] leg KD (--all-files, quoted 'solve.c:N:1: warning:' under a shift) gave $kd, want PASS"; rc=1; }
   [ "$h" = FAIL ]  || { echo "  [gate] leg H (--all-files, one mutated anchor) gave $h, want FAIL"; rc=1; }
   [ "$i" = PASS ]  || { echo "  [gate] leg I (--all-files, the same defect pinned) gave $i, want PASS"; rc=1; }
   [ "$j" = FAIL ]  || { echo "  [gate] leg J (--all-files, pin outlived its defect) gave $j, want FAIL"; rc=1; }
   [ "$x" = ERROR ] || { echo "  [gate] leg X (--all-files, unresolvable --base) gave $x, want ERROR"; rc=1; }
   [ "$y" = ERROR ] || { echo "  [gate] leg Y (--all-files, no citation) gave $y, want ERROR"; rc=1; }
-  [ "$rc" = 0 ] && echo "  [ok] red-test --all-files: E=PASS F=FAIL(shift, leg A alone) G=PASS K=PASS H=FAIL I=PASS J=FAIL X=ERROR Y=ERROR"
+  [ "$rc" = 0 ] && echo "  [ok] red-test --all-files: E=PASS F=FAIL(shift, leg A alone) G=PASS K=PASS KD=PASS H=FAIL I=PASS J=FAIL X=ERROR Y=ERROR"
 
   # --all-targets legs (Q-791), on a second throwaway repo whose cited TARGET is a script, not
   # solve.c. helper.sh: `widget_total() {` on line 3, `}` on line 5, and on line 6 a SELF-reference

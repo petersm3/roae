@@ -6945,7 +6945,7 @@ def extended_selftest(solve_binary):
     def _run(env_extra, dir_, args_=("0", "4")):
         env = os.environ.copy()
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
-        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43611) refuses to start
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43612) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
         # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
         # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
@@ -6974,11 +6974,11 @@ def extended_selftest(solve_binary):
     def _read_sha_branch(dir_, p1, o1):
         """--branch mode writes solutions_<p1>_<o1>.sha256."""
         path = os.path.join(dir_, f"solutions_{p1}_{o1}.sha256")
-        if not os.path.isfile(path):
-            return None
-        with open(path) as f:
-            line = f.readline().strip()
+        if not os.path.isfile(path): return None
+        with open(path) as f: line = f.readline().strip()
         return line.split()[0] if line else None
+    def _branch_sha_fault(a, b):  # V3A-134#7 / Q-623: subtests 5, 8 and 9 skipped a missing sidecar and passed two 0-record (header-only) shas
+        return "sidecar MISSING" if not (a and b) else "0-RECORD per-branch file (header-only sha)" if "4cd43b2b389dde48a64b153b3cf611274e13fab013ac05f1ba64b11b532ef287" in (a, b) else "MISMATCH" if a != b else ""
 
     base_env_d2_100m = {
         "SOLVE_DEPTH": "2",
@@ -7177,9 +7177,9 @@ def extended_selftest(solve_binary):
             failures.append(
                 f"subtest 5: solve exit codes ref={rc_ref} pa={rc_pa} pb={rc_pb}"
             )
-        elif sha_b_ref and sha_b_resumed and sha_b_ref != sha_b_resumed:
+        elif _branch_sha_fault(sha_b_ref, sha_b_resumed):
             failures.append(
-                f"subtest 5: --branch multi-budget resume MISMATCH — "
+                f"subtest 5: --branch multi-budget resume {_branch_sha_fault(sha_b_ref, sha_b_resumed)} — "
                 f"ref={sha_b_ref}, resumed={sha_b_resumed}. "
                 f"Likely current_per_branch_budget gate regression."
             )
@@ -7328,9 +7328,9 @@ def extended_selftest(solve_binary):
             failures.append(
                 f"subtest 8: resume run exit={rc_t8_resume} — "
                 f"single-branch eviction-resume path broken")
-        elif sha_t8_ref and sha_t8_int and sha_t8_ref != sha_t8_int:
+        elif _branch_sha_fault(sha_t8_ref, sha_t8_int):
             failures.append(
-                f"subtest 8: single-branch eviction-resume MISMATCH — "
+                f"subtest 8: single-branch eviction-resume {_branch_sha_fault(sha_t8_ref, sha_t8_int)} — "
                 f"clean={sha_t8_ref}, SIGTERM-resumed={sha_t8_int}. "
                 f"560T distributed campaign would corrupt under eviction.")
 
@@ -7374,9 +7374,9 @@ def extended_selftest(solve_binary):
             failures.append(
                 f"subtest 9: solve exit codes first={rc_t9_first} "
                 f"again={rc_t9_again}")
-        elif sha_t9_first and sha_t9_again and sha_t9_first != sha_t9_again:
+        elif _branch_sha_fault(sha_t9_first, sha_t9_again):
             failures.append(
-                f"subtest 9: idempotent re-launch MISMATCH — "
+                f"subtest 9: idempotent re-launch {_branch_sha_fault(sha_t9_first, sha_t9_again)} — "
                 f"first={sha_t9_first}, re-launch={sha_t9_again}. "
                 f"Re-launching a completed --branch corrupts shards.")
         elif fp_first != fp_again:
@@ -12389,15 +12389,15 @@ def _atlas_int(v, where, json_int=False):
         raise AtlasError("%s: boolean where a count was expected" % where)
     if isinstance(v, int):
         if json_int:
-            return v
+            return _atlas_nonneg(v, where)          # Q-502: a bare -5 was returned too
         raise AtlasError(
             "%s: %r is a bare JSON integer. Atlas counts are decimal STRINGS (PRECISION "
             "CONTRACT); a bare integer is refused rather than trusted, because a reader "
             "other than this one would round it above 2**53 without a word." % (where, v))
     if isinstance(v, str):
-        s = v.strip()
-        if s and (s.lstrip("-")).isdigit():
-            return int(s)
+        s = _atlas_count_text(v, where)             # no strip: " 5" is refused, as --atlas-probe does
+        if s and s.lstrip("-").isascii() and s.lstrip("-").isdigit():
+            return _atlas_nonneg(s, where)          # Q-502: "-48" loaded and was published
         raise AtlasError("%s: %r is not a decimal integer string" % (where, v))
     raise AtlasError(
         "%s: %r is a non-integer JSON literal (type %s). Counts must be decimal "
@@ -12544,11 +12544,11 @@ def atlas_load(path):
     if isinstance(fails, bool) or not isinstance(fails, int):
         raise AtlasError("%s: gates.fails=%r is not an integer" % (path, fails))
     # 🔴 Q-560, FIXED 2026-09-12. "see fails" was the ONLY value read as a failure, so the
-    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30120, emitted
+    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30121, emitted
     # for raw_marginal_sums_eq_N and kernel_marginals_eq_cls_raw whenever want_raw is 0 -- was
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
-    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30130) is ALSO an un-run gate,
+    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30131) is ALSO an un-run gate,
     # but VERIFY.md:1159 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6240,
@@ -12587,9 +12587,9 @@ def atlas_load(path):
                    ",".join(sorted(have - want)) or "-", ",".join(sorted(want - have)) or "-"))
     # 🔴 THE TAIL VERDICT WAS EMITTED AND NEVER READ (Codex KCP5 #1, adjudicated by Fable
     # 2026-09-12: ACCEPTED, and BROADER than charged). The five F3-rule tail checks count
-    # failures unconditionally (solve.c:29314, `if (ok[i] == 0)`) but increment `gate_fails` only under
-    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29316), while KC_SCAN (:30409) and KC_SCAN_MERGE
-    # (:31325) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
+    # failures unconditionally (solve.c:29315, `if (ok[i] == 0)`) but increment `gate_fails` only under
+    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29317), while KC_SCAN (:30410) and KC_SCAN_MERGE
+    # (:31326) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
     # beside `tail_checks.fails >= 1` in the SAME file and still prints KC_SCAN=OK, exit 0.
     # SOLVE_C_CLI.md:2185 states that honestly; :2292 then claimed THIS loader closed it,
     # and it did not -- `tail_check` and `tail_report` appeared ZERO times in this file
@@ -12636,7 +12636,7 @@ def atlas_load(path):
             % (path, tf, len(bad), ", ".join(bad) or "-"))
     # 🔴 Q-561, FIXED 2026-09-12. The guard that stood here fired only when "n/a" verdicts
     # were present AND some layer carried marginal_raw. But "n/a" was produced precisely when
-    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29989
+    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29990
     # asserts it appears exactly want_raw times. So the guard was conditioned on the data that
     # vanishes in the only case it had to catch: it could fire on a forged atlas and never on a
     # real one. Removed, not repaired. Every un-run verdict now lands in the notrun arm above,
@@ -12647,7 +12647,7 @@ def atlas_load(path):
             "from a table whose emitter recorded a failed identity -- re-run under "
             "SOLVE_KC_SCAN_TAIL_STRICT=1 and fix the input, do not query this file."
             % (path, ", ".join(bad)))
-    _atlas_validate_counts(A, path)
+    _atlas_validate_strict(A, path)   # counts, then the key grammar and every leaf, as the probe
     return A
 
 
@@ -12896,7 +12896,7 @@ def atlas_emit_v5(A, outdir):
             continue
         G = collections.defaultdict(int)
         for key, v in L["kernel"].items():
-            a, b = (int(s) for s in key[1:].split("_"))
+            a, b = _atlas_kernel_key(key, "layers[%d].kernel" % k)
             G[(pc(a ^ b), pc(b ^ mate[b]))] += _atlas_int(
                 v, "layers[%d].kernel.%s" % (k, key))
         # GATES, NOT ADJUSTMENTS.  The refinement must marginalise back to the table it
@@ -13030,12 +13030,12 @@ def atlas_q6_extremes_check(A, scandir):
     kw_d, _, _ = _atlas_kw_overlay(n)
     layers = {int(L["k"]): L for L in A["layers"]}
     fails = []
-    want, got = sorted(layers), sorted(int(r["k"]) for r in rows)
+    want, got = sorted(layers), sorted(_tsv_int(r["k"]) for r in rows)
     if got != want:
         fails.append("the table's layers %s are not the atlas's %s" % (got[:12], want[:12]))
     for r in rows:
         try:
-            k = int(r["k"])
+            k = _tsv_int(r["k"])
             if k not in layers or not 0 <= k < n:
                 continue                       # already reported by the layer-set check above
             L = layers[k]
@@ -13045,21 +13045,21 @@ def atlas_q6_extremes_check(A, scandir):
             lo = min(nz, key=lambda d: (by[d], d)) if nz else -1
             lo_mass = by[lo] if lo >= 0 else 0
             bad = []
-            if int(r["slot"]) != k + 2:
+            if _tsv_int(r["slot"]) != k + 2:
                 bad.append("slot=%s, want %d" % (r["slot"], k + 2))
-            if int(r["argmax_d"]) != hi or int(r["argmax_mass"]) != by[hi]:
+            if _tsv_int(r["argmax_d"]) != hi or _tsv_int(r["argmax_mass"]) != by[hi]:
                 bad.append("argmax=(d%s,%s), the atlas says (d%d,%d)"
                            % (r["argmax_d"], r["argmax_mass"], hi, by[hi]))
-            if int(r["argmin_nonzero_d"]) != lo or int(r["argmin_mass"]) != lo_mass:
+            if _tsv_int(r["argmin_nonzero_d"]) != lo or _tsv_int(r["argmin_mass"]) != lo_mass:
                 bad.append("argmin=(d%s,%s), the atlas says (d%d,%d)"
                            % (r["argmin_nonzero_d"], r["argmin_mass"], lo, lo_mass))
             if not _atlas_ratio_text_ok(r["ratio"], by[hi], lo_mass):
                 bad.append("ratio=%s, the atlas says %d/%d" % (r["ratio"], by[hi], lo_mass))
-            if int(r["kw_d"]) != kw_d[k]:
+            if _tsv_int(r["kw_d"]) != kw_d[k]:
                 bad.append("kw_d=%s, the King Wen overlay says %d" % (r["kw_d"], kw_d[k]))
             elif kw_d[k] < 0:
                 # reduced n: KW is absent, so all three overlay cells must SAY so.
-                if (int(r["kw_class_mass"]) != -1 or Fraction(r["kw_p"]) != -1
+                if (_tsv_int(r["kw_class_mass"]) != -1 or Fraction(r["kw_p"]) != -1
                         or Fraction(r["kw_class_pct"]) != -1):
                     bad.append("KW is absent at n=%d but the row publishes "
                                "kw_class_mass=%s kw_p=%s kw_class_pct=%s instead of the -1 "
@@ -13070,7 +13070,7 @@ def atlas_q6_extremes_check(A, scandir):
                            "class set %s" % (kw_d[k], k, list(_ATLAS_CLASSES)))
             else:
                 km = by[kw_d[k]]
-                if int(r["kw_class_mass"]) != km:
+                if _tsv_int(r["kw_class_mass"]) != km:
                     bad.append("kw_class_mass=%s, the atlas says %d" % (r["kw_class_mass"], km))
                 if not _atlas_ratio_text_ok(r["kw_p"], km, N):
                     bad.append("kw_p=%s, the atlas says %d/%d" % (r["kw_p"], km, N))
@@ -13576,10 +13576,10 @@ def xa_w0d_lower_bound_cert(out_path, atlas_path=None, prod_uses_b0=False):
     tok("W0D_LB_X_SEARCH_DEPTH_MAX", max(depths) if depths and None not in depths else "NONE")
     if atlas_path is not None:
         try:
-            fm = [int(x) for x in A.get("fmass", [])[:4]]
-            aset = sorted((int(r["entry"]), int(r["exit"])) for r in A.get("branch_atlas", []))
-        except (TypeError, ValueError, KeyError, AttributeError) as exc:
-            tok("XA_W0D_LB_CERT", "ERROR:atlas-malformed:%s" % type(exc).__name__)
+            fm = [_atlas_int(x, "fmass[%d]" % i) for i, x in enumerate(A.get("fmass", [])[:4])]
+            aset = sorted((_atlas_json_index(r["entry"], "branch_atlas[].entry", 64), _atlas_json_index(r["exit"], "branch_atlas[].exit", 64)) for r in A.get("branch_atlas", []))
+        except (TypeError, ValueError, KeyError, AttributeError, AtlasError) as exc:
+            tok("XA_W0D_LB_CERT", "ERROR:atlas-malformed:%s" % _atlas_named_refusal("xa-w0d-lb-cert", exc))
             return 2
         ok_fm = fm[1:4] == E["totals"]["K"][1:4]
         tok("W0D_LB_ATLAS_FMASS_1_2_3_EQ_K", "PASS" if ok_fm else "FAIL:%s" % fm[1:4])
@@ -13686,7 +13686,7 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
     # N = 26,112; the table said FAIL and the token said PASS.
     gates = {}
     srcs = sorted(set(str(r[8]) for r in rows))
-    t_have = all(str(r[7]).lstrip("-").isdigit() for r in rows)
+    t_have = all(str(r[7]).isdigit() for r in rows)     # Q-502: no leading minus
     t_sum = sum(int(r[7]) for r in rows) if t_have else None
     t_root = (_atlas_int(A["t_root_t_units"], "t_root_t_units", json_int=True)   # %llu when no t ladder
               if "t_root_t_units" in A else None)
@@ -14129,7 +14129,7 @@ def atlas_q3_reader_check(tsv_path, N):
     # check below stays: it constrains the PARENT column, this constrains the CHILD.
     prev_g = N
     for r in rows:
-        prod *= Fraction(int(r["p_num"]), int(r["p_den"]))
+        prod *= Fraction(_tsv_int(r["p_num"]), _tsv_int(r["p_den"]))
         # 🔴 `bits` WAS THE ONE PUBLISHED COLUMN THIS READER NEVER LOOKED AT (Codex KCQ02 #4,
         # 2026-09-02; still holding at the 2026-09-08 mutant battery: a bits cell overwritten
         # with 0.000000 came back []).  The producer computes it as
@@ -14142,7 +14142,7 @@ def atlas_q3_reader_check(tsv_path, N):
         # (worst case ~1e-13 at 192-bit magnitudes).  A missing column is not checked: it is
         # then not published from this TSV either.
         if r.get("bits", "") != "":
-            num, den = int(r["p_num"]), int(r["p_den"])
+            num, den = _tsv_int(r["p_num"]), _tsv_int(r["p_den"])
             try:
                 got = float(r["bits"])
             except ValueError:
@@ -14164,7 +14164,7 @@ def atlas_q3_reader_check(tsv_path, N):
         # profile traces rather than about the universe:
         #   f(s_i) counts the prefixes that reach s_i, and this walk's own prefix is one of
         #     them, so f >= 1 on every visited step;
-        #   alts counts the admissible oriented successors with g > 0 (solve.c:23990) and the
+        #   alts counts the admissible oriented successors with g > 0 (solve.c:23991) and the
         #     step actually taken is one of them, so alts >= 1.
         # >= 1 is the TIGHT bound, not a loose one: the committed golden
         # scripts/tr12_expected/n9/a2_q3_profile.txt bottoms out at f = 1 (step 1) and at
@@ -14191,7 +14191,7 @@ def atlas_q3_reader_check(tsv_path, N):
                              % (r.get("step", "?"), _col))
             else:
                 try:
-                    _v = int(r[_col])
+                    _v = _tsv_int(r[_col])
                 except ValueError:
                     fails.append("step %s: %s=%r is not an integer" % (r["step"], _col, r[_col]))
                 else:
@@ -14215,11 +14215,11 @@ def atlas_q3_reader_check(tsv_path, N):
         # It is written as a cross-multiplication on purpose -- an unreduced-but-equal ratio
         # (2368/26112 vs 74/816) is still accepted, because the claim is that p IS the ratio of
         # the shells, not that the producer chose to print it in lowest terms.
-        if int(r["p_num"]) * int(r["g_parent"]) != int(r["p_den"]) * int(r["g"]):
+        if _tsv_int(r["p_num"]) * _tsv_int(r["g_parent"]) != _tsv_int(r["p_den"]) * _tsv_int(r["g"]):
             fails.append("step %s: p = %s/%s but g/g_parent = %s/%s -- the probability does not "
                          "equal the ratio of the shell sizes published beside it"
                          % (r["step"], r["p_num"], r["p_den"], r["g"], r["g_parent"]))
-        if prev_g is not None and int(r["g_parent"]) != prev_g:
+        if prev_g is not None and _tsv_int(r["g_parent"]) != prev_g:
             fails.append("step %s: g_parent != previous g" % r["step"])
         # 🔴 NON-INCREASING, NOT STRICTLY DECREASING (Q-316 item 4, 2026-09-04).
         # `viz/viz_kc_shells.md` names this leg as one of the reader-side checks and
@@ -14228,15 +14228,15 @@ def atlas_q3_reader_check(tsv_path, N):
         # `scripts/tr12_expected/n9/a2_q3_profile.txt` is FLAT at steps 6->7 and 8->9
         # (g = 4, 4 and 1, 1), because a forced placement has p_i = 1 and shrinks
         # nothing. A `>` here would gate correctly; a `>=` would fail the artifact.
-        if prev_g is not None and int(r["g"]) > prev_g:
+        if prev_g is not None and _tsv_int(r["g"]) > prev_g:
             fails.append("step %s: g grew from %d to %s -- the shells are nested, "
                          "so their sizes cannot increase" % (r["step"], prev_g, r["g"]))
-        prev_g = int(r["g"])
+        prev_g = _tsv_int(r["g"])
     if prod != Fraction(1, N):
         fails.append("prod(p_i) = %s, expected 1/%d" % (prod, N))
-    if rows and int(rows[0]["g_parent"]) != N:
+    if rows and _tsv_int(rows[0]["g_parent"]) != N:
         fails.append("g(s_0) != N")
-    if rows and int(rows[-1]["g"]) != 1:
+    if rows and _tsv_int(rows[-1]["g"]) != 1:
         fails.append("g(s_n) != 1")
     return fails
 
@@ -14480,10 +14480,10 @@ def load_atlas(path):
     except (OSError, ValueError) as exc:
         raise DetectorError("cannot read atlas %s: %s" % (path, exc))
     try:
-        n = int(a["n"])
-        total = int(a["N_total"])
+        n = _atlas_json_index(a["n"], "n")
+        total = _atlas_int(a["N_total"], "N_total")
         layers = a["layers"]
-    except (KeyError, TypeError, ValueError) as exc:
+    except (KeyError, TypeError, ValueError, AtlasError) as exc:
         raise DetectorError("atlas %s missing n / N_total / layers (%s)"
                             % (path, exc))
     if total <= 0:
@@ -14491,9 +14491,9 @@ def load_atlas(path):
     table = {}
     for layer in layers:
         try:
-            k = int(layer["k"])
+            k = _atlas_json_index(layer["k"], "layers[].k")
             by = layer["by_class"]
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError, AtlasError) as exc:
             raise DetectorError("atlas %s: malformed layer (%s)" % (path, exc))
         row = {}
         for key, val in by.items():
@@ -14501,10 +14501,10 @@ def load_atlas(path):
                 raise DetectorError("atlas %s layer %d: bad class key %r"
                                     % (path, k, key))
             try:
-                row[int(key[1:])] = int(val)
-            except ValueError:
+                row[_atlas_key_int(key, "d", "by_class", 7)] = _atlas_int(val, "by_class.%s" % key)
+            except (ValueError, AtlasError) as exc:
                 raise DetectorError("atlas %s layer %d: bad class key/value "
-                                    "%r=%r" % (path, k, key, val))
+                                    "%r=%r (%s)" % (path, k, key, val, exc))
         if k in table:
             raise DetectorError("atlas %s: duplicate layer k=%d" % (path, k))
         table[k] = row
@@ -14564,10 +14564,10 @@ def tally(paths, n):
                     records += 1
                     continue
                 try:
-                    w = [int(x) for x in field.split(",")]
-                except ValueError:
-                    raise DetectorError("%s:%d: not a walk CSV: %r"
-                                        % (path, lineno, field[:60]))
+                    w = [_atlas_json_index(_tsv_int(x, "walk field"), "walk hexagram", 64) for x in field.split(",")]
+                except (ValueError, AtlasError) as exc:
+                    raise DetectorError("%s:%d: not a walk CSV: %r (%s)"
+                                        % (path, lineno, field[:60], exc))
                 if len(w) != 2 * n:
                     raise DetectorError(
                         "%s:%d: walk of %d hexagrams, atlas expects %d "
@@ -14951,7 +14951,7 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
     # 🔴 RCQ04 F1 (Q-581, 2026-09-25): the n-independent arithmetic gates run HERE, at every n.
     # They lived only in atlas_selftest, behind its n > 13 refusal, so at full-31 TR12_V1/V2/V5/Q6
     # were assigned PASS on emission and no gate had read the numbers. See atlas_arith_gates.
-    arith = atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace)
+    arith = atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace); _atlas_ratio_verdict(A, outdir, scandir, sel, verdicts, quiet)  # Q-615
     _atlas_arith_apply(arith, verdicts, n, quiet)
 
     if verdicts_path is None:
@@ -15224,7 +15224,7 @@ def atlas_a3_external_check(atlas, tol=2e-3):
     if not last:
         return ("SKIP:no-raw", "marginal_raw absent -- was --kc-raw passed? (see A-1)")
     N = int(atlas["N_total"])
-    got = {int(k[4:]): int(v) for k, v in last.items()}
+    got = {_atlas_key_int(k, "pair", "marginal_raw", _ATLAS_PAIRS): int(v) for k, v in last.items()}
     total = sum(got.values())
     if total != N:
         return ("FAIL", "final-layer raw marginal sums to %d, not N=%d" % (total, N))
@@ -15334,7 +15334,7 @@ def atlas_orbit_columns(atlas):
     layers = atlas.get("layers") or []
     raw = [{k: int(v) for k, v in (L.get("marginal_raw") or {}).items()}
            for L in layers]
-    pairs = sorted({p for r in raw for p in r}, key=lambda t: int(t[4:]))
+    pairs = sorted({p for r in raw for p in r}, key=lambda t: _atlas_key_int(t, "pair", "marginal_raw", _ATLAS_PAIRS))
     if not pairs:
         return (0, [], None, "marginal_raw not emitted (--kc-raw absent?)")
     col = {p: tuple(r.get(p, 0) for r in raw) for p in pairs}
@@ -15417,7 +15417,7 @@ def atlas_orbit_membership(atlas):
     layers = atlas.get("layers") or []
     raw = [{k: int(v) for k, v in (L.get("marginal_raw") or {}).items()}
            for L in layers]
-    present = sorted({p for r in raw for p in r}, key=lambda t: int(t[4:]))
+    present = sorted({p for r in raw for p in r}, key=lambda t: _atlas_key_int(t, "pair", "marginal_raw", _ATLAS_PAIRS))
     if not present:
         return (None, "marginal_raw not emitted (--kc-raw absent?)")
     col = {p: tuple(r.get(p, 0) for r in raw) for p in present}
@@ -15617,7 +15617,7 @@ def atlas_probe(atlas_path):
         tok("ATLAS_PROBE", "ERROR:cannot-read-atlas")
         return 2
     try:
-        n = int(a["n"])
+        n = int(_atlas_probe_keys(_atlas_probe_counts(a))["n"])   # malformed counts, then keys, refused by name first
         N = int(a["N_total"])
         L = a["layers"]
         T_ROOT = int(a["t_root_t_units"])
@@ -15713,11 +15713,11 @@ def atlas_probe(atlas_path):
              all(int(l["by_class"][c]) % 48 == 0 for l in L for c in CLS))
         _orb = {p: len(o) for o in pair_orbit_partition() for p in o}
         _bad_key = [key for l in L for key in l["marginal_raw"]
-                    if not (key.startswith("pair") and key[4:].isdigit()
-                            and int(key[4:]) in _orb)]
+                    if not (_atlas_key_int(key, "pair", "marginal_raw", _ATLAS_PAIRS)
+                            in _orb)]
         gate("MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0",
              not _bad_key and
-             all(int(v) % (48 // _orb[int(key[4:])]) == 0
+             all(int(v) % (48 // _orb[_atlas_key_int(key, "pair", "marginal_raw", _ATLAS_PAIRS)]) == 0
                  for l in L for key, v in l["marginal_raw"].items()))
         # ⚠ EMPIRICAL AT n = 31 -- MEASURED, NOT PROVEN.  At n = 9 every placed pair lies in a
         # size-3 orbit, so |Stab| = 16 and this is the stabiliser gate above (a theorem there).  At
@@ -15781,7 +15781,7 @@ def atlas_probe(atlas_path):
         rm_by_k = []
         sums_ok = digit_ok = True
         for k in range(n):
-            rm = {int(kk[1:]): int(v) for kk, v in L[k]["rid_mass"].items()}
+            rm = {_atlas_key_int(kk, "r", "rid_mass", None): int(v) for kk, v in L[k]["rid_mass"].items()}
             rm_by_k.append(rm)
             sums_ok = sums_ok and sum(rm.values()) == N
             digit_ok = digit_ok and all(sum(digs(r)) == k for r in rm)
@@ -15930,7 +15930,7 @@ def atlas_probe(atlas_path):
             tok("REF_WALK_IS_KING_WEN", "SKIP:n=%d" % n)
 
         def kern(k):
-            return {tuple(int(s) for s in key[1:].split("_")): int(v) for key, v in L[k]["kernel"].items()}
+            return {_atlas_kernel_key(key, "kernel"): int(v) for key, v in L[k]["kernel"].items()}
         Ms = [kern(k) for k in range(n)]
         gate("KERNEL_EVERY_LAYER_SUMS_TO_N", all(sum(M.values()) == N for M in Ms))
         # Cross-table: the kernel re-summed by distance class must reproduce `by_class`. A
@@ -15999,7 +15999,7 @@ def atlas_probe(atlas_path):
         # ---------------------------------------------------------------- 5. positional field (marginal_raw)
         universe = set()
         for l in L:
-            universe |= {int(x[4:]) for x in l["marginal_raw"]}
+            universe |= {_atlas_key_int(x, "pair", "marginal_raw", _ATLAS_PAIRS) for x in l["marginal_raw"]}
         tok("PAIR_UNIVERSE_SIZE", len(universe))
         gate("PAIR_UNIVERSE_SIZE_EQ_N", len(universe) == n)
         pairs = king_wen_pairs()
@@ -16018,7 +16018,7 @@ def atlas_probe(atlas_path):
             for (x, y), v in Ms[k].items():
                 bypair[pair_of[y]] = bypair.get(pair_of[y], 0) + v
             mr_ok = mr_ok and ({p: v for p, v in bypair.items() if v}
-                               == {int(x[4:]): int(v) for x, v in L[k]["marginal_raw"].items()})
+                               == {_atlas_key_int(x, "pair", "marginal_raw", _ATLAS_PAIRS): int(v) for x, v in L[k]["marginal_raw"].items()})
         gate("KERNEL_ENTRY_PAIR_MARGINALS_EQ_MARGINAL_RAW_EVERY_LAYER", mr_ok)
         # Q-734 (2026-09-24): the producer's `kernel_cross_layer_eq` was TRUSTED here, never
         # re-summed, although the docstring says the kernel is re-summed HERE.  MEASURED (Opus Q,
@@ -16081,7 +16081,7 @@ def atlas_probe(atlas_path):
         _vert = {}
         for l in L:
             for key, v in l["marginal_raw"].items():
-                _vert[int(key[4:])] = _vert.get(int(key[4:]), 0) + int(v)
+                _vert[_atlas_key_int(key, "pair", "marginal_raw", _ATLAS_PAIRS)] = _vert.get(_atlas_key_int(key, "pair", "marginal_raw", _ATLAS_PAIRS), 0) + int(v)
         gate("MARGINAL_RAW_COLUMN_SUMS_EQ_N_EVERY_PAIR",
              set(_vert) == universe and all(v == N for v in _vert.values()))
         # digits[k][d][j] is the mass of walks with j class-d transitions among their first k, so
@@ -16093,17 +16093,17 @@ def atlas_probe(atlas_path):
             for k in range(n):
                 dg = L[k]["digits"]["dg" + c[1:]]
                 dig_ok = dig_ok and sum(int(v) for v in dg.values()) == N \
-                    and sum(int(j[1:]) * int(v) for j, v in dg.items()) == pre
+                    and sum(_atlas_key_int(j, "j", "digits", None) * int(v) for j, v in dg.items()) == pre
                 marg = {}
                 for r, v in rm_by_k[k].items():
                     j = digs(r)[di]
                     marg[j] = marg.get(j, 0) + v
-                rid_ok = rid_ok and marg == {int(j[1:]): int(v) for j, v in dg.items() if int(v)}
+                rid_ok = rid_ok and marg == {_atlas_key_int(j, "j", "digits", None): int(v) for j, v in dg.items() if int(v)}
                 pre += int(L[k]["by_class"][c])
         gate("DIGITS_WEIGHTED_SUM_EQ_CLASS_PREFIX_EVERY_LAYER", dig_ok)
         gate("RID_MASS_DIGIT_MARGINALS_EQ_DIGITS_EVERY_LAYER", rid_ok)
-        k0 ={int(x[4:]) for x in L[0]["marginal_raw"]}
-        kl = {int(x[4:]) for x in L[n - 1]["marginal_raw"]}
+        k0 ={_atlas_key_int(x, "pair", "marginal_raw", _ATLAS_PAIRS) for x in L[0]["marginal_raw"]}
+        kl = {_atlas_key_int(x, "pair", "marginal_raw", _ATLAS_PAIRS) for x in L[n - 1]["marginal_raw"]}
         absent0 = sorted(universe - k0)
         tok("PAIRS_NEVER_FIRST", ",".join(map(str, absent0)) or "NONE")
         tok("PAIRS_NEVER_FIRST_HEX_POPCOUNTS",
@@ -16123,7 +16123,7 @@ def atlas_probe(atlas_path):
         tok("MARGINAL_RAW_NONZERO_CELL_MIN_MAX_INTERIOR", "%.4f,%.4f" % (min(cells_i), max(cells_i)))
         tvu = []
         for k in range(lo_w, hi_w + 1):
-            mr = {int(x[4:]): int(v) / N for x, v in L[k]["marginal_raw"].items()}
+            mr = {_atlas_key_int(x, "pair", "marginal_raw", _ATLAS_PAIRS): int(v) / N for x, v in L[k]["marginal_raw"].items()}
             tvu.append(0.5 * sum(abs(mr.get(p, 0.0) - 1.0 / n) for p in universe))
         tok("POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR", "%.4f" % max(tvu))
         if n == 31:
@@ -16206,7 +16206,7 @@ def atlas_probe(atlas_path):
         bf = []
         od_ok = True
         for k in range(n):
-            od = {int(kk[2:]): v for kk, v in L[k]["outdeg"].items()}
+            od = {_atlas_key_int(kk, "od", "outdeg", None): v for kk, v in L[k]["outdeg"].items()}
             E = sum(int(v["dc"]) for v in od.values())
             W = sum(int(v["dw"]) for v in od.values())
             od_ok = od_ok and W == N
@@ -16221,7 +16221,7 @@ def atlas_probe(atlas_path):
             buckets = {}
             for d, h in L[k]["hist"].items():
                 for lg, v in h.items():
-                    b = int(lg[2:])
+                    b = _atlas_key_int(lg, "lg", "hist", None)
                     buckets.setdefault(b, [0, 0])
                     buckets[b][0] += int(v["ho"])
                     buckets[b][1] += int(v["hwo"])
@@ -16247,7 +16247,7 @@ def atlas_probe(atlas_path):
                     share.setdefault((k, e["x_cm"]), []).append(d)
         all5 = sorted(k for (k, cm), ds in share.items() if len(ds) == 5)
         tok("LAYERS_WHERE_ONE_MASK_IS_MAX_WITNESS_FOR_ALL_5_CLASSES", ",".join(map(str, all5)) or "NONE")
-    except (KeyError, TypeError, ValueError, IndexError, ZeroDivisionError) as exc:
+    except (KeyError, TypeError, ValueError, IndexError, ZeroDivisionError, AtlasError) as exc:
         print("ERROR: [atlas-probe] malformed or incomplete atlas %s: %s: %s"
               % (atlas_path, type(exc).__name__, exc), file=sys.stderr)
         tok("ATLAS_PROBE", "ERROR:malformed-atlas")
@@ -16315,7 +16315,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                 gate(e[2], e[3], e[4])
         rk = {}
         for r in v2:
-            rk[r["k"]] = rk.get(r["k"], 0) + int(r["mass"])
+            rk[r["k"]] = rk.get(r["k"], 0) + _tsv_int(r["mass"])
 
         # ---- the brute-force recount --------------------------------------
         if walks_path is None:
@@ -16333,7 +16333,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                  "%d vs %d" % (B["N"], N))
             ok = all(B["flow"][k] == int(rk[str(k)]) for k in range(n))
             gate("brute force: per-layer flow == emitted flow", ok)
-            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v2)
+            ok = all(B["byclass"][_tsv_int(r["k"])][_tsv_int(r["d"])] == _tsv_int(r["mass"]) for r in v2)
             gate("brute force: V2 river cell-by-cell", ok)
             # V5 carries the pinned (d, w) cross-tab when the atlas ships a kernel to refine
             # by, and the honest w = -1 reduced table when it does not.  The gate follows the
@@ -16341,12 +16341,12 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
             # case, against by_class in the second.  Shown able to fail:
             # `--atlas-fault v5-cross-swap`, which moves mass between two w cells inside one
             # (k, d) and is invisible to every horizontal gate in this program.
-            if all(int(r["w"]) < 0 for r in v5):
-                ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in v5)
+            if all(_tsv_int(r["w"]) < 0 for r in v5):
+                ok = all(B["byclass"][_tsv_int(r["k"])][_tsv_int(r["d"])] == _tsv_int(r["mass"]) for r in v5)
                 gate("brute force: V5 grammar cell-by-cell (reduced form, w = -1)", ok)
             else:
                 bad5 = [(r["k"], r["d"], r["w"], r["mass"]) for r in v5
-                        if B["cross"][int(r["k"])][(int(r["d"]), int(r["w"]))] != int(r["mass"])]
+                        if B["cross"][_tsv_int(r["k"])][(_tsv_int(r["d"]), _tsv_int(r["w"]))] != _tsv_int(r["mass"])]
                 gate("brute force: V5 grammar (d, w) cross-tab cell-by-cell", not bad5,
                      "%d bad cell(s); first %s" % (len(bad5), bad5[0]) if bad5 else "")
                 # The refinement must marginalise back to the table it refines, on the
@@ -16362,12 +16362,12 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                 gate("brute force: V5 cross-tab w support is C1's {2, 4, 6}",
                      all(ww in _ATLAS_W_CLASSES
                          for kk in range(n) for (_dd, ww) in B["cross"][kk]))
-            ok = all(B["byclass"][int(r["k"])][int(r["d"])] == int(r["mass"]) for r in q6)
+            ok = all(B["byclass"][_tsv_int(r["k"])][_tsv_int(r["d"])] == _tsv_int(r["mass"]) for r in q6)
             gate("brute force: Q6 layer-mass cell-by-cell", ok)
-            ok = all(B["marg"][int(r["k"])][int(r["pair"])] == int(r["mass"]) for r in v1)
+            ok = all(B["marg"][_tsv_int(r["k"])][_tsv_int(r["pair"])] == _tsv_int(r["mass"]) for r in v1)
             gate("brute force: V1 field cell-by-cell (32 pairs x %d layers)" % n, ok)
-            ok = all(B["branch"][(int(r["pair"]), int(r["entry"]), int(r["exit"]))]
-                     == int(r["solutions"]) for r in xa)
+            ok = all(B["branch"][(_tsv_int(r["pair"]), _tsv_int(r["entry"]), _tsv_int(r["exit"]))]
+                     == _tsv_int(r["solutions"]) for r in xa)
             gate("brute force: XA branch solutions cell-by-cell", ok)
             gate("brute force: branch table covers every enumerated branch",
                  len(xa) == len(B["branch"]),
@@ -16385,41 +16385,41 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                 return "%d bad cell(s); first %s" % (len(bad), bad[0]) if bad else ""
             bad = [("v1", r["k"], r["pair"], r["p"]) for r in v1
                    if not _atlas_ratio_text_ok(
-                       r["p"], B["marg"][int(r["k"])][int(r["pair"])], B["N"])]
+                       r["p"], B["marg"][_tsv_int(r["k"])][_tsv_int(r["pair"])], B["N"])]
             gate("brute force: V1 p == marginal/N to %d correct digits (the column V1 plots)"
                  % _ATLAS_SIG, not bad, _first(bad))
             bad = ([("v2", r["k"], r["d"], r["p"]) for r in v2
                     if not _atlas_ratio_text_ok(
-                        r["p"], B["byclass"][int(r["k"])][int(r["d"])], B["N"])] +
+                        r["p"], B["byclass"][_tsv_int(r["k"])][_tsv_int(r["d"])], B["N"])] +
                    [("v5", r["k"], r["d"], r["p_cond"]) for r in v5
                     if not _atlas_ratio_text_ok(
                         r["p_cond"],
-                        (B["byclass"][int(r["k"])][int(r["d"])] if int(r["w"]) < 0 else
-                         B["cross"][int(r["k"])][(int(r["d"]), int(r["w"]))]),
-                        B["flow"][int(r["k"])])] +
+                        (B["byclass"][_tsv_int(r["k"])][_tsv_int(r["d"])] if _tsv_int(r["w"]) < 0 else
+                         B["cross"][_tsv_int(r["k"])][(_tsv_int(r["d"]), _tsv_int(r["w"]))]),
+                        B["flow"][_tsv_int(r["k"])])] +
                    [("q6", r["k"], r["d"], r["p"]) for r in q6
                     if not _atlas_ratio_text_ok(
-                        r["p"], B["byclass"][int(r["k"])][int(r["d"])], B["N"])])
+                        r["p"], B["byclass"][_tsv_int(r["k"])][_tsv_int(r["d"])], B["N"])])
             gate("brute force: V2 p, V5 p_cond, Q6 p re-rendered from the recount",
                  not bad, _first(bad))
             q6x = _atlas_read_tsv(os.path.join(scan, "q6_layer_extremes.tsv"))
             bad = []
             for r in q6x:
-                k = int(r["k"])
+                k = _tsv_int(r["k"])
                 by = {d: B["byclass"][k][d] for d in _ATLAS_CLASSES}
                 hi = max(by, key=lambda d: (by[d], -d))
                 nz = [d for d in _ATLAS_CLASSES if by[d] > 0]
                 lo = min(nz, key=lambda d: (by[d], d)) if nz else -1
-                ok = (int(r["argmax_d"]) == hi and int(r["argmax_mass"]) == by[hi] and
-                      int(r["argmin_nonzero_d"]) == lo and
-                      int(r["argmin_mass"]) == (by[lo] if lo >= 0 else 0) and
+                ok = (_tsv_int(r["argmax_d"]) == hi and _tsv_int(r["argmax_mass"]) == by[hi] and
+                      _tsv_int(r["argmin_nonzero_d"]) == lo and
+                      _tsv_int(r["argmin_mass"]) == (by[lo] if lo >= 0 else 0) and
                       _atlas_ratio_text_ok(r["ratio"], by[hi], by[lo] if lo >= 0 else 0))
-                if int(r["kw_d"]) < 0:        # reduced n: KW absent -> the placeholders must say so
+                if _tsv_int(r["kw_d"]) < 0:        # reduced n: KW absent -> the placeholders must say so
                     ok = ok and (r["kw_class_mass"] == "-1" and Fraction(r["kw_p"]) == -1 and
                                  Fraction(r["kw_class_pct"]) == -1)
                 else:                         # full-31 only; unreachable while n <= 13 here
-                    km = by[int(r["kw_d"])]
-                    ok = ok and (int(r["kw_class_mass"]) == km and
+                    km = by[_tsv_int(r["kw_d"])]
+                    ok = ok and (_tsv_int(r["kw_class_mass"]) == km and
                                  _atlas_ratio_text_ok(r["kw_p"], km, B["N"]) and
                                  _atlas_ratio_text_ok(r["kw_class_pct"],
                                                       sum(v for v in by.values() if v <= km),
@@ -16432,7 +16432,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                    for r in tbl
                    if not _atlas_ratio_text_ok(
                        r["share"],
-                       B["branch"].get((int(r["pair"]), int(r["entry"]), int(r["exit"])), 0),
+                       B["branch"].get((_tsv_int(r["pair"]), _tsv_int(r["entry"]), _tsv_int(r["exit"])), 0),
                        B["N"])]
             gate("brute force: XA and V2-branch share == solutions/N re-rendered from the recount",
                  not bad, _first(bad))
@@ -16545,13 +16545,13 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     if needs(v1):
         col = {}
         for r in v1:
-            col[r["k"]] = col.get(r["k"], 0) + int(r["mass"])
+            col[r["k"]] = col.get(r["k"], 0) + _tsv_int(r["mass"])
         gate("V1-col", "pre", "V1: every layer's pair marginals sum to N_total",
              all(v == N for v in col.values()) and len(col) == n,
              str(sorted(set(col.values()))), owners=["TR12_V1"])
         row = {}
         for r in v1:
-            row[r["pair"]] = row.get(r["pair"], 0) + int(r["mass"])
+            row[r["pair"]] = row.get(r["pair"], 0) + _tsv_int(r["mass"])
         used = {p: m for p, m in row.items() if m}
         gate("V1-row", "pre",
              "V1: every placed pair's row sums to N_total (each walk places it once)",
@@ -16566,7 +16566,7 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     if needs(v2):
         rk = {}
         for r in v2:
-            rk[r["k"]] = rk.get(r["k"], 0) + int(r["mass"])
+            rk[r["k"]] = rk.get(r["k"], 0) + _tsv_int(r["mass"])
         gate("V2-layer", "pre", "V2: every layer's distance-class masses sum to N_total",
              all(v == N for v in rk.values()) and len(rk) == n, owners=["TR12_V2"])
         # 🔴 Q-314 item (3), 2026-09-07. EVERY V2/V1/V5/Q6 gate above is HORIZONTAL: it
@@ -16586,7 +16586,7 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
         # are read back from the emitted data instead of being re-typed.
         colsum = {}
         for r in v2:
-            colsum[int(r["d"])] = colsum.get(int(r["d"]), 0) + int(r["mass"])
+            colsum[_tsv_int(r["d"])] = colsum.get(_tsv_int(r["d"]), 0) + _tsv_int(r["mass"])
         gate("V2-B0-col", "pre",
              "V2-B0: every distance class's column sums to a whole multiple of N_total",
              bool(colsum) and all(m % N == 0 for m in colsum.values()),
@@ -16610,7 +16610,7 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     if needs(v5):
         gk = {}
         for r in v5:
-            gk[r["k"]] = gk.get(r["k"], 0) + int(r["mass"])
+            gk[r["k"]] = gk.get(r["k"], 0) + _tsv_int(r["mass"])
         gate("V5-dist", "pre", "V5: p_cond is a distribution -- class masses sum to the layer flow",
              all(v == N for v in gk.values()) and len(gk) == n, owners=["TR12_V5"])
     else:
@@ -16619,15 +16619,15 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     if needs(q6):
         qk = {}
         for r in q6:
-            qk[r["k"]] = qk.get(r["k"], 0) + int(r["mass"])
+            qk[r["k"]] = qk.get(r["k"], 0) + _tsv_int(r["mass"])
         gate("Q6-layer", "pre", "Q6: every layer's class masses sum to N_total",
              all(v == N for v in qk.values()) and len(qk) == n, owners=["TR12_Q6"])
     else:
         notrun("Q6-layer", "pre", "Q6: every layer's class masses sum to N_total", "q6 not selected")
     if needs(xa):
         gate("XA-sum", "pre", "XA: sum_b solutions(b) == N_total",
-             sum(int(r["solutions"]) for r in xa) == N,
-             "%d vs %d" % (sum(int(r["solutions"]) for r in xa), N), owners=["TR12_XA_A"])
+             sum(_tsv_int(r["solutions"]) for r in xa) == N,
+             "%d vs %d" % (sum(_tsv_int(r["solutions"]) for r in xa), N), owners=["TR12_XA_A"])
     else:
         notrun("XA-sum", "pre", "XA: sum_b solutions(b) == N_total", "xa not selected")
     if needs(v2b, xa):
@@ -16653,9 +16653,9 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     # ---- t-units ------------------------------------------------------
     if not needs(xa):
         notrun("XA-t", "pre", "XA: 1 + sum_b prefixes_t_units(b) == t(root)", "xa not selected")
-    elif all(r["prefixes_t_units"].isdigit() for r in xa) and "t_root_t_units" in A:
+    elif all(_ascii_digits(r["prefixes_t_units"]) for r in xa) and "t_root_t_units" in A:
         troot = _atlas_int(A["t_root_t_units"], "t_root_t_units", json_int=True)
-        tsum = sum(int(r["prefixes_t_units"]) for r in xa)
+        tsum = sum(_tsv_int(r["prefixes_t_units"]) for r in xa)
         gate("XA-t", "pre", "XA: 1 + sum_b prefixes_t_units(b) == t(root)", 1 + tsum == troot,
              "%d vs %d" % (1 + tsum, troot), owners=["TR12_XA_B"])
     else:
@@ -16666,7 +16666,7 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     if needs(q10):
         gate("XA-24", "pre", "Q10a/XA-24: N_total and every layer flow divisible by 24",
              all(r["mod24_ok"] == "1" for r in q10) and
-             all(int(r["flow"]) == int(r["orbits"]) * _ATLAS_ORBIT for r in q10),
+             all(_tsv_int(r["flow"]) == _tsv_int(r["orbits"]) * _ATLAS_ORBIT for r in q10),
              owners=["TR12_Q10A", "TR12_XA_MOD24"])
         # ---- mod 48 (Q-314 item 1) ----------------------------------------
         # 🔴 The gate above reads a PRECOMPUTED column, `mod24_ok`, so it checks that the
@@ -16678,10 +16678,10 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
         # arrival the correct response would have been to doubt the CLAIM, not raise it.
         gate("XA-48", "pre",
              "XA-48: N_total and every layer flow divisible by 48 (re-derived, not a column)",
-             N % 48 == 0 and all(int(r["flow"]) % 48 == 0 for r in q10),
+             N % 48 == 0 and all(_tsv_int(r["flow"]) % 48 == 0 for r in q10),
              "N%%48=%d, offending layer flows: %s" % (
                  N % 48,
-                 [r.get("k", "?") for r in q10 if int(r["flow"]) % 48][:5]),
+                 [r.get("k", "?") for r in q10 if _tsv_int(r["flow"]) % 48][:5]),
              owners=["TR12_Q10A", "TR12_XA_MOD24"])
     else:
         notrun("XA-24", "pre", "Q10a/XA-24: N_total and every layer flow divisible by 24",
@@ -16697,16 +16697,16 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     # red on arrival should make you doubt the CLAIM, not weaken the gate.
     if needs(v2):
         gate("V2-48", "pre", "V2-48: every distance-class cell divisible by 48",
-             all(int(r["mass"]) % 48 == 0 for r in v2),
+             all(_tsv_int(r["mass"]) % 48 == 0 for r in v2),
              "offending (k,d): %s" % [(r.get("k"), r.get("d")) for r in v2
-                                      if int(r["mass"]) % 48][:5], owners=["TR12_V2"])
+                                      if _tsv_int(r["mass"]) % 48][:5], owners=["TR12_V2"])
     else:
         notrun("V2-48", "pre", "V2-48: every distance-class cell divisible by 48", "v2 not selected")
     if needs(v1):
         gate("V1-16", "pre", "V1-16: every RAW per-pair cell divisible by 16",
-             all(int(r["mass"]) % 16 == 0 for r in v1),
+             all(_tsv_int(r["mass"]) % 16 == 0 for r in v1),
              "offending rows: %s" % [(r.get("k"), r.get("pair")) for r in v1
-                                     if int(r["mass"]) % 16][:5], owners=["TR12_V1"])
+                                     if _tsv_int(r["mass"]) % 16][:5], owners=["TR12_V1"])
     else:
         notrun("V1-16", "pre", "V1-16: every RAW per-pair cell divisible by 16", "v1 not selected")
 
@@ -16714,8 +16714,8 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
     if needs(xa):
         l0 = {}
         for r in xa:
-            d = bin(int(r["entry"])).count("1")
-            l0[d] = l0.get(d, 0) + int(r["solutions"])
+            d = bin(_tsv_int(r["entry"])).count("1")
+            l0[d] = l0.get(d, 0) + _tsv_int(r["solutions"])
         a0 = {d: _atlas_layer_class(A["layers"][0], d, 0) for d in _ATLAS_CLASSES}
         gate("L0-branch", "pre", "layer-0 class masses == branch table aggregated by popcount(entry)",
              all(l0.get(d, 0) == a0[d] for d in _ATLAS_CLASSES), str(l0),
@@ -16752,7 +16752,7 @@ def atlas_arith_gates(A, outdir, scandir, sel, verdicts, trace=None):
              % (verdicts.get("TR12_Q3"), verdicts.get("TR12_Q3_READER"),
                 verdicts.get("TR12_Q3_KW"), want_kw), owners=["TR12_Q3"])
         bad = [(r["step"], r["p_num"], r["p_den"], r["p"]) for r in _atlas_read_tsv(p)
-               if not _atlas_ratio_text_ok(r["p"], int(r["p_num"]), int(r["p_den"]))]
+               if not _atlas_ratio_text_ok(r["p"], _tsv_int(r["p_num"]), _tsv_int(r["p_den"]))]
         gate("Q3-ptext", "q3", "Q3: p column == p_num/p_den to %d correct digits (Q-422)" % _ATLAS_SIG,
              not bad, "%d bad row(s); first %s" % (len(bad), bad[0]) if bad else "",
              owners=["TR12_Q3"])
@@ -17056,7 +17056,7 @@ def t3_encode_solutions(out_bin, input_paths):
                     # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
                     # legitimate line. Refusing it would have broken the tool on real
                     # --kc-sample/--kc-unrank output. Checked by reading the emitters
-                    # (solve.c:38902 `record\tm=%llu\t`, :38977 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    # (solve.c:38903 `record\tm=%llu\t`, :38978 and the `%s\tcd=%d\t` form beside them), not assumed.
                     #
                     # What is safe, and is done, is to COUNT what the skip discards, so a changed
                     # input shape is visible instead of silent.
@@ -17330,7 +17330,7 @@ def kc_x_parse_witness(text, n=None):
                          "entry,exit values" % len(fields))
     vals = []
     for f in fields:
-        if not f.isdigit():
+        if not _ascii_digits(f):                  # ASCII only: "\u0665" is isdigit() and int() takes it
             raise ValueError("witness field %r is not a non-negative integer" % f)
         v = int(f)
         if not 0 <= v <= 63:
@@ -17408,7 +17408,7 @@ def kc_x_phi(functional, walk, start_exit):
     must not wave through, so the absence is a refusal and not a skip."""
     if functional.startswith("dclass:"):
         tail = functional[len("dclass:"):]
-        if not tail.isdigit():
+        if not _ascii_digits(tail):               # ASCII only, as the witness fields above
             raise ValueError("malformed dclass functional %r" % functional)
         d = int(tail)
         if d not in KC_X_DVALS:
@@ -17709,21 +17709,21 @@ def atlas_residual_rank(atlas_path):
         tok("ATLAS_RESIDUAL_RANK_VERDICT", "ERROR:cannot-read-atlas")
         return 2
     try:
-        n = int(a["n"])
+        n = _atlas_json_index(a["n"], "n")
         L = a["layers"]
         if len(L) != n:
             raise ValueError("%d layers for n=%d" % (len(L), n))
         supp = []
         for l in L:
             cells = set()
-            for key, v in l["kernel"].items():
-                if int(v):
-                    x, y = (int(s) for s in key[1:].split("_"))
-                    if key[0] != "m" or not (0 <= x < 64 and 0 <= y < 64):
-                        raise ValueError("bad kernel key %r" % key)
+            for (x, y), v in _atlas_kernel_cells(l["kernel"], "layers[%d].kernel" % len(supp)):
+                # Every key and value is checked by _atlas_kernel_cells, zero cells included; the
+                # old `key[0] != "m" or not 0 <= x, y < 64` test is _atlas_kernel_key's own grammar
+                # and bound, and a respelled key (`m01_2`, `m1_0_2`, `m+1_2`) is now refused by name.
+                if v:
                     cells.add((x, y))
             supp.append(cells)
-    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+    except (KeyError, TypeError, ValueError, AttributeError, AtlasError) as exc:
         print("ERROR: [atlas-residual-rank] malformed atlas %s: %s: %s"
               % (atlas_path, type(exc).__name__, exc), file=sys.stderr)
         tok("ATLAS_RESIDUAL_RANK_VERDICT", "ERROR:malformed-atlas")
@@ -18535,6 +18535,404 @@ def main():
     if args.null_debruijn:
         print_null_debruijn(trials=args.trials, seed=args.seed)
         print()
+
+# ===========================================================================
+# Q-502 and Q-615 helpers, appended at the END of the file so that no line cited elsewhere moves.
+# ===========================================================================
+def _atlas_nonneg(v, where):
+    """Q-502 (KCP3 F6): refuse a NEGATIVE atlas count, by name.
+
+    `_atlas_int`'s string arm tested `s.lstrip("-").isdigit()`, so "-48" loaded and the consumer
+    published a negative class mass; the `%llu` (json_int) arm returned a bare -5 the same way.
+    Every field that parser reads -- counts, masses, flows, t-units and the Q3 trace's
+    step/pair/orient/alts columns -- is non-negative by construction; the -1 placeholders are
+    supplied by callers, never parsed.  The string arm also now requires ASCII digits:
+    str.isdigit() accepts "\u00b2", which int() then rejected with a ValueError that escaped as
+    a traceback instead of an AtlasError.  "-0" is refused too: a minus sign is not a count.
+    """
+    if (isinstance(v, str) and v.strip().startswith("-")) or (isinstance(v, int) and v < 0):
+        raise AtlasError("%s: %r is negative -- a count cannot be negative; refusing rather "
+                         "than publishing it" % (where, v))
+    return int(v)
+
+
+def _atlas_ratio_verdict(A, outdir, scandir, sel, verdicts, quiet):
+    """Q-615: set TR12_RATIO_COLUMNS from `atlas_ratio_columns_check`.  Called from
+    `atlas_queries` at every n; written only when one of the ratio tables was selected.  The
+    only other checker of these columns is atlas_selftest, which refuses n > 13."""
+    if not sel & {"v1", "v2", "v5", "q6", "xa"}:
+        return
+    rfails, rcells = atlas_ratio_columns_check(A, outdir, scandir, sel)
+    verdicts["TR12_RATIO_COLUMNS"] = ("FAIL:%d-bad-cell(s)" % len(rfails) if rfails
+                                      else "PASS" if rcells else "FAIL:no-cell-judged")
+    if rfails and not quiet:
+        for f in rfails[:8]:
+            print("[atlas] ratio-column check: %s" % f)
+
+
+def atlas_ratio_columns_check(A, outdir, scandir, sel):
+    """ATLAS-SOURCED check of every derived ratio column the consumer writes -- at EVERY n.
+
+    🔴 Q-615 (ruled by Fable 2026-09-19).  The R5 item 1b fix built an atlas-sourced twin for
+    ONE table (`atlas_q6_extremes_check`, verdict TR12_Q6_EXTREMES) and left its siblings: every
+    other ratio checker -- V1 `p`, V2 `p`, V5 `p_cond`, Q6-mass `p`, and the `share` column of
+    both branch tables -- lives in `atlas_selftest`, which REFUSES n > 13.  Row c_xcheck in
+    scripts/tr12_repro.sh compares masses only.  So at n=31 those six columns were checked by
+    nothing.  This is the twin for all six, wired into `atlas_queries` (verdict
+    TR12_RATIO_COLUMNS), so it runs at 9, 13 and 31 alike.
+
+    Each cell is judged against its INTEGER numerator and denominator read from the ATLAS, not
+    from the row being judged: V1 mass = layers[k].marginal_raw.pair<p>; V2 and Q6 mass =
+    layers[k].by_class.d<d>; V5 mass = the (d, w) aggregation of layers[k].kernel (or by_class
+    when the atlas has no kernel), over layers[k].flow; branch share = branch_atlas[i].solutions
+    over N_total.  The published mass cell must equal that integer, and the ratio cell must be
+    its correctly-rounded _ATLAS_SIG-digit rendering, judged by `_atlas_ratio_text_ok`, which
+    shares no code with `_atlas_f`.  The row set must be exactly the atlas's: a dropped or an
+    extra row fails, and so does a selected table that is absent from disk.
+
+    Only tables THIS call wrote are read (their selector is in `sel`), so a stale table from an
+    earlier run in the same --atlas-out is never judged.  q6_layer_extremes.tsv is left to
+    TR12_Q6_EXTREMES and the Q3 `p` column to the Q3-ptext gate; neither is re-checked here.
+
+    What it CANNOT see: a defect in the atlas itself.  Both sides read the same atlas.
+
+    -> (fails, cells): per-cell failure strings (empty means every ratio follows from the
+       atlas) and the number of ratio cells judged.
+    """
+    import collections
+    import re
+    N = _atlas_int(A["N_total"], "N_total")
+    layers = {int(L["k"]): L for L in A["layers"]}
+    fails, cells = [], [0]
+
+    def table(key, path):
+        if key not in sel:
+            return None
+        if not os.path.exists(path):
+            fails.append("%s: the published table is absent -- a checker that cannot read its "
+                         "subject FAILS rather than skips" % path)
+            return None
+        return _atlas_read_tsv(path)
+
+    def judge(tag, r, mcol, pcol, want_m, den):
+        cells[0] += 1
+        m = r.get(mcol, "")
+        if not re.fullmatch(r"0|[1-9][0-9]*", m) or int(m) != want_m:   # no leading zero: `%d`
+            fails.append("%s: %s=%r, the atlas says %d" % (tag, mcol, m, want_m))
+        if not _atlas_ratio_text_ok(r.get(pcol, ""), want_m, den):
+            fails.append("%s: %s=%r, the atlas says %d/%d" % (tag, pcol, r.get(pcol), want_m, den))
+
+    def rowset(name, rows, keyf, want):
+        try:
+            got = [keyf(r) for r in rows]
+        except (KeyError, ValueError) as e:
+            fails.append("%s: a row is unreadable (%s: %s)" % (name, type(e).__name__, e))
+            return False
+        if sorted(got) != sorted(want) or len(set(got)) != len(got):
+            fails.append("%s: %d row(s), the atlas implies %d distinct ones (missing %s, extra %s)"
+                         % (name, len(got), len(want), sorted(set(want) - set(got))[:4],
+                            sorted(set(got) - set(want))[:4]))
+            return False
+        return True
+
+    def byc(k, d):
+        return _atlas_layer_class(layers[k], d, k)
+
+    v1 = table("v1", os.path.join(scandir, "v1_field.tsv"))
+    if v1 is not None:
+        want = [(k, p) for k in layers for p in range(_ATLAS_PAIRS)]
+        if rowset("v1_field.tsv", v1, lambda r: (_tsv_int(r["k"]), _tsv_int(r["pair"])), want):
+            for r in v1:
+                k, p = _tsv_int(r["k"]), _tsv_int(r["pair"])
+                m = _atlas_int(layers[k]["marginal_raw"].get("pair%d" % p, "0"),
+                               "layers[%d].marginal_raw.pair%d" % (k, p))
+                judge("v1_field k=%d pair=%d" % (k, p), r, "mass", "p", m, N)
+    v2 = table("v2", os.path.join(scandir, "v2_river.tsv"))
+    if v2 is not None:
+        want = [(k, d) for k in layers for d in _ATLAS_CLASSES]
+        if rowset("v2_river.tsv", v2, lambda r: (_tsv_int(r["k"]), _tsv_int(r["d"])), want):
+            for r in v2:
+                k, d = _tsv_int(r["k"]), _tsv_int(r["d"])
+                judge("v2_river k=%d d=%d" % (k, d), r, "mass", "p", byc(k, d), N)
+    q6 = table("q6", os.path.join(scandir, "q6_layer_mass.tsv"))
+    if q6 is not None:
+        want = [(k, d) for k in layers for d in _ATLAS_CLASSES]
+        if rowset("q6_layer_mass.tsv", q6, lambda r: (_tsv_int(r["k"]), _tsv_int(r["d"])), want):
+            for r in q6:
+                k, d = _tsv_int(r["k"]), _tsv_int(r["d"])
+                judge("q6_layer_mass k=%d d=%d" % (k, d), r, "mass", "p", byc(k, d), N)
+    v5 = table("v5", os.path.join(scandir, "v5_grammar.tsv"))
+    if v5 is not None:
+        # The (d, w) masses re-aggregated from the kernel here, not read from the row: d is the
+        # boundary distance popcount(a ^ b), w the within-pair distance of the new pair.
+        pc = lambda x: bin(x).count("1")
+        mate = {}
+        for _e, _x in king_wen_pairs():
+            mate[_e], mate[_x] = _x, _e
+        have_kernel = all("kernel" in L for L in A["layers"])
+        G = {}
+        for k, L in layers.items():
+            g = collections.defaultdict(int)
+            if have_kernel:
+                for key, v in L["kernel"].items():
+                    a, b = _atlas_kernel_key(key, "layers[%d].kernel" % k)
+                    g[(pc(a ^ b), pc(b ^ mate[b]))] += _atlas_int(
+                        v, "layers[%d].kernel.%s" % (k, key))
+            else:
+                for d in _ATLAS_CLASSES:
+                    g[(d, -1)] = byc(k, d)
+            G[k] = g
+        ws = _ATLAS_W_CLASSES if have_kernel else (-1,)
+        want = [(k, d, w) for k in layers for d in _ATLAS_CLASSES for w in ws]
+        if rowset("v5_grammar.tsv", v5, lambda r: (_tsv_int(r["k"]), _tsv_int(r["d"]), _tsv_int(r["w"])), want):
+            for r in v5:
+                k, d, w = _tsv_int(r["k"]), _tsv_int(r["d"]), _tsv_int(r["w"])
+                judge("v5_grammar k=%d d=%d w=%d" % (k, d, w), r, "mass", "p_cond",
+                      G[k][(d, w)], _atlas_int(layers[k]["flow"], "layers[%d].flow" % k))
+    for key, path in (("v2", os.path.join(scandir, "v2_branches.tsv")),
+                      ("xa", os.path.join(outdir, "xa_branches.tsv"))):
+        rows = table(key, path)
+        if rows is None:
+            continue
+        name = os.path.basename(path)
+        B = A["branch_atlas"]
+        if rowset(name, rows, lambda r: _tsv_int(r["branch"]), list(range(len(B)))):
+            for r in rows:
+                i = _tsv_int(r["branch"])
+                judge("%s branch=%d" % (name[:-4], i), r, "solutions", "share",
+                      _atlas_int(B[i]["solutions"], "branch_atlas[%d].solutions" % i), N)
+    return fails, cells[0]
+
+
+def _atlas_probe_counts(a):
+    """`--atlas-probe` input validation: refuse a malformed count BY NAME before any figure.
+
+    The probe parses every count with bare int(), which accepts "-48", "+5", " 5" and "1_000".
+    A negative `by_class` cell on the n=31 atlas therefore reached the gates, which scored FAIL
+    (rc 1) without ever naming the negative value.  This walks the whole atlas once and puts
+    every leaf the probe could read as a number through the consumer's own validation
+    (`_atlas_int` / `_atlas_nonneg`, Q-502): a string int() would accept must be a plain ASCII
+    decimal (no sign, no surrounding whitespace, no digit separator), a JSON integer must be
+    non-negative, and a float is refused.  Strings int() rejects ("PASS", hex digests, notes)
+    are not counts and are left alone; booleans and nulls are left to the gates.  Every key
+    must be `[A-Za-z0-9_]+`, because the probe also parses key suffixes (`pair5`, `m3_5`) with
+    int().  Raises AtlasError naming the field; the probe reports it as ERROR:malformed-atlas
+    (rc 2).  Returns `a` unchanged, so a valid atlas prints byte-identical tokens.  Checks
+    input only -- no verdict logic lives here.
+    """
+    stack = [(a, "")]
+    while stack:
+        x, where = stack.pop()
+        if isinstance(x, dict):
+            for k, v in x.items():
+                if not (isinstance(k, str) and k.isascii()
+                        and k.replace("_", "").isalnum()):
+                    raise AtlasError("%s: key %r is not [A-Za-z0-9_]+ -- refusing rather "
+                                     "than parsing a count out of it" % (where or "<root>", k))
+                stack.append((v, "%s.%s" % (where, k) if where else k))
+        elif isinstance(x, list):
+            stack.extend((v, "%s[%d]" % (where, i)) for i, v in enumerate(x))
+        elif isinstance(x, bool) or x is None:
+            continue
+        elif isinstance(x, int):
+            _atlas_nonneg(x, where)
+        elif isinstance(x, str):
+            try:
+                int(x)
+            except ValueError:
+                continue                      # not a number at all: not a count
+            if x != x.strip():
+                raise AtlasError("%s: %r carries surrounding whitespace -- a count is a plain "
+                                 "decimal string; refusing rather than stripping it" % (where, x))
+            _atlas_int(x, where)              # names "-48"; refuses "+5", "1_000", non-ASCII
+        else:
+            _atlas_int(x, where)              # float: a rounded count, refused by name
+    return a
+
+
+# ===========================================================================
+# The atlas CONSUMER made as strict as `--atlas-probe` (2026-09-26).  Appended at the END of the
+# file so that no line cited elsewhere moves.  After `_atlas_probe_counts` landed, the probe
+# refused spellings the consumer still took: `_atlas_int` stripped a count before parsing it, so
+# `atlas_load` read " 5" as 5, and every key suffix was read with bare int() (`int(k[4:])`,
+# `int(s) for s in key[1:].split("_")`), which ignores the prefix and accepts "+5", " 5",
+# "1_0" (= 10), "05" and non-ASCII digits -- two different keys could then name one pair, and a
+# dict built from them keeps whichever came last.
+# ===========================================================================
+_ATLAS_KEY_INDEX = "(0|[1-9][0-9]*)"      # the producer's `%d`: ASCII, no sign, no leading zero
+_ATLAS_HEX = 64                           # kernel keys name two hexagrams, 0..63
+
+
+def _atlas_count_text(v, where):
+    """`_atlas_int`'s string arm: a count carries no surrounding whitespace.  Returns `v`.
+
+    The string was `v.strip()`ped before the digit test, so " 5" and "5\\n" loaded as 5 while
+    the probe refused them; a respelling is refused by name rather than normalised."""
+    if v != v.strip():
+        raise AtlasError("%s: %r carries surrounding whitespace -- a count is a plain decimal "
+                         "string; refusing rather than stripping it" % (where, v))
+    return v
+
+
+def _atlas_key_int(key, prefix, where, bound):
+    """The index in an atlas key such as `pair5`: exactly `prefix`, then the producer's `%d`
+    spelling of an integer below `bound` (any size when `bound` is None).  Anything else is an AtlasError naming the key."""
+    import re
+    m = re.fullmatch(re.escape(prefix) + _ATLAS_KEY_INDEX, key) if isinstance(key, str) else None
+    if m is None or (bound is not None and int(m.group(1)) >= bound):   # None: grammar only
+        raise AtlasError("%s: key %r is not %s<%s> as the producer spells it (ASCII digits, "
+                         "no sign, space, separator or leading zero) -- refusing rather than "
+                         "parsing an index out of it" % (where, key, prefix, "index" if bound is None else "0..%d" % (bound - 1)))
+    return int(m.group(1))
+
+
+def _atlas_kernel_key(key, where):
+    """(a, b) from a kernel key `m<a>_<b>` (two hexagrams, 0..63), spelled as the producer
+    spells it.  Replaces `(int(s) for s in key[1:].split("_"))`, which also took "m+1_2",
+    "m 1_2", "m01_2" and "m1_0_2" (a 3-way split, a ValueError traceback)."""
+    import re
+    m = (re.fullmatch("m" + _ATLAS_KEY_INDEX + "_" + _ATLAS_KEY_INDEX, key)
+         if isinstance(key, str) else None)
+    if m is None or int(m.group(1)) >= _ATLAS_HEX or int(m.group(2)) >= _ATLAS_HEX:
+        raise AtlasError("%s: key %r is not m<a>_<b> with a, b in 0..%d as the producer spells "
+                         "it -- refusing rather than parsing hexagrams out of it"
+                         % (where, key, _ATLAS_HEX - 1))
+    return int(m.group(1)), int(m.group(2))
+
+
+def _atlas_validate_strict(A, path):
+    """`atlas_load`'s last step: the documented counts (`_atlas_validate_counts`, unchanged),
+    then what the consumer reads besides them, at the strictness `--atlas-probe` applies.
+
+      * `layers[i].k` must be the JSON integer i -- the emitters format it with %d and
+        atlas_q6_extremes_check keys on it, so a string "3" was a TypeError traceback and a
+        duplicated k a duplicated table row;
+      * every `marginal_raw` key is `pair<0..31>` and every `kernel` key `m<a>_<b>`, spelled
+        exactly as the producer writes them (the consumer parses both);
+      * the whole document through `_atlas_probe_counts`, the probe's own leaf walk and key
+        check: no numeric string with a sign, space, separator or non-ASCII digit anywhere,
+        no negative JSON integer, no float.
+
+    A real atlas passes all three unchanged, so every emitted table stays byte-identical.
+    """
+    _atlas_validate_counts(A, path)
+    for i, L in enumerate(A["layers"]):
+        k = L.get("k")
+        if isinstance(k, bool) or not isinstance(k, int) or k != i:
+            raise AtlasError("%s: layers[%d].k is %r, not the JSON integer %d -- the layer "
+                             "index is positional; refusing rather than guessing which layer "
+                             "this is" % (path, i, k, i))
+        for key in (L.get("marginal_raw") or {}):
+            _atlas_key_int(key, "pair", "%s: layers[%d].marginal_raw" % (path, i), _ATLAS_PAIRS)
+        for key in (L.get("kernel") or {}):
+            _atlas_kernel_key(key, "%s: layers[%d].kernel" % (path, i))
+    try:
+        _atlas_probe_counts(A)
+    except AtlasError as e:
+        raise AtlasError("%s: %s" % (path, e))
+
+
+
+# ===========================================================================
+# Follow-ups to CX-159 (lane EI, 2026-09-26).  Appended at the END of the file, like the block
+# above, so that no line cited elsewhere moves.  CX-159 made `atlas_load` refuse respelled keys
+# and counts; four other readers still took them:
+#   * `--atlas-probe` parsed its key suffixes with bare int() (`int(key[4:])`, `kk[1:]`, `j[1:]`,
+#     `kk[2:]`, `lg[2:]`, `key[1:].split("_")`), so `pair05`, `pair1_0` and a wrong prefix
+#     loaded -- `_atlas_probe_keys` now checks every key it parses before any token is printed,
+#     and the parse sites call `_atlas_key_int` / `_atlas_kernel_key` themselves;
+#   * three loaders that bypass `atlas_load` (`load_atlas`, `atlas_residual_rank`,
+#     `xa_w0d_lower_bound_cert`) read counts, keys, `n`, `k` and hexagram fields with int(),
+#     which accepts "+5", " 5", "1_0", "05" (keys) and 3.9 (a float, truncated);
+#   * the readers that parse this program's OWN TSVs back off disk (and viz/report_figures.py)
+#     read every integer cell with int(), so "+5", " 5", "1_0" and non-ASCII digits were read as
+#     the number they respell.  `_tsv_int` is the one strict TSV-integer parser they now share.
+# ===========================================================================
+class TsvIntError(AtlasError, ValueError):
+    """A TSV cell that is not an integer as this program writes one.  An AtlasError, so the
+    consumer's CLI answers `ERROR: [atlas] ...` (rc 2) rather than a traceback; also a
+    ValueError, so every reader that already caught int()'s ValueError still catches it."""
+
+
+_TSV_INT_RE = "-?(0|[1-9][0-9]*)"         # `%d` / str(int): ASCII, optional minus, no leading zero
+
+
+def _tsv_int(s, where="TSV cell"):
+    """Parse one integer cell of a TSV this program (or solve.c) wrote.  Replaces int(), which
+    also takes "+5", " 5", "5\\n", "1_0" (= 10), "05" and non-ASCII digits ("\\u0665") -- each a
+    respelling a writer using `%d` or str() never produces.  "-0" is refused too.  The minus
+    sign stays legal: the -1 placeholders (kw_d, kw_w, kw_class_mass, w) are written that way."""
+    import re
+    if not isinstance(s, str) or s == "-0" or re.fullmatch(_TSV_INT_RE, s) is None:
+        raise TsvIntError("%s: %r is not an integer as this program writes one (ASCII digits, "
+                          "an optional leading minus; no plus sign, surrounding space, digit "
+                          "separator or leading zero) -- refusing rather than normalising it"
+                          % (where, s))
+    return int(s)
+
+
+def _ascii_digits(s):
+    """str.isdigit() restricted to ASCII: "\\u00b2" and "\\u0665" are isdigit() but not decimal
+    text a writer here produces (int() takes the second and refuses the first)."""
+    return isinstance(s, str) and s.isascii() and s.isdigit()
+
+
+def _atlas_json_index(v, where, bound=None):
+    """A field the producer writes as a bare JSON integer (`n`, `layers[].k`, a hexagram in
+    `branch_atlas[].entry` / `.exit`): an int that is not a bool, non-negative and below `bound`.
+    int() also took "31", " 31", "+31" and 31.9 (truncated to 31)."""
+    if isinstance(v, bool) or not isinstance(v, int) or v < 0 or (bound is not None and v >= bound):
+        raise AtlasError("%s is %r, not a JSON integer in 0..%s -- refusing rather than "
+                         "converting it" % (where, v, "" if bound is None else bound - 1))
+    return v
+
+
+def _atlas_probe_keys(a):
+    """`--atlas-probe`: every key the probe parses an integer out of, checked before any figure.
+
+    The probe's own leaf walk (`_atlas_probe_counts`) checks keys only against
+    `[A-Za-z0-9_]+`, which admits `pair05`, `pair1_0` and a wrong prefix; the parse sites then
+    read the suffix with int().  Here each table's keys must be spelled as the producer writes
+    them: `marginal_raw` pair<0..31>, `kernel` m<a>_<b> (a, b in 0..63), `rid_mass` r<id>,
+    `digits.dg*` j<count>, `outdeg` od<degree> and `hist.hb*` lg<bucket>.  The last four carry no
+    bound here: their ranges are the probe's own gates (a rid past the radix top, a digit count
+    past the layer, ...), which score them rather than refuse them.  Absent or non-dict tables
+    are left to the probe's own `need` check, so its existing error names them.  Returns `a`."""
+    L = a.get("layers") if isinstance(a, dict) else None
+    for i, l in enumerate(L if isinstance(L, list) else []):
+        if not isinstance(l, dict):
+            continue
+        for tab, pre, bound in (("marginal_raw", "pair", _ATLAS_PAIRS), ("rid_mass", "r", None),
+                                ("outdeg", "od", None)):
+            if isinstance(l.get(tab), dict):
+                for key in l[tab]:
+                    _atlas_key_int(key, pre, "layers[%d].%s" % (i, tab), bound)
+        if isinstance(l.get("kernel"), dict):
+            for key in l["kernel"]:
+                _atlas_kernel_key(key, "layers[%d].kernel" % i)
+        for tab, pre in (("digits", "j"), ("hist", "lg")):
+            for sub, d in (l.get(tab).items() if isinstance(l.get(tab), dict) else ()):
+                for key in (d if isinstance(d, dict) else ()):
+                    _atlas_key_int(key, pre, "layers[%d].%s.%s" % (i, tab, sub), None)
+    return a
+
+
+def _atlas_named_refusal(tool, exc):
+    """Print a loader's refusal to stderr with its reason; return the exception's type name for
+    the stdout token (whose existing format carries only that)."""
+    print("ERROR: [%s] %s: %s" % (tool, type(exc).__name__, exc), file=sys.stderr)
+    return type(exc).__name__
+
+
+
+def _atlas_kernel_cells(kern, where):
+    """[((a, b), count), ...] for one layer's `kernel` table, every key through
+    `_atlas_kernel_key` and every value through `_atlas_int` -- zero cells included, so a
+    respelled key is refused even where its count is 0 (`atlas_residual_rank` used to parse the
+    key only when int(v) was non-zero, and then with int() on a split)."""
+    return [(_atlas_kernel_key(key, where), _atlas_int(v, "%s.%s" % (where, key)))
+            for key, v in kern.items()]
+
 
 if __name__ == "__main__":
     main()

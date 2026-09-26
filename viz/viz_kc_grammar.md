@@ -67,7 +67,7 @@ quotient DP — is the **within-pair Hamming distance of the newly placed pair**
 [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean)). `w` is a function of the chosen pair
 alone and is invariant under the order-24 canonicalisation group. It needs **no scan-side change at
 all**: with `--kc-raw` the scan already persists every nonzero raw kernel cell `m<a>_<b>`
-(`solve.c:28001-28010`, the `want_raw` branch), where `a` is the raw exit hexagram of the previous pair and `b` the raw
+(`solve.c:28002-28011`, the `want_raw` branch), where `a` is the raw exit hexagram of the previous pair and `b` the raw
 entry hexagram of the new one. Both coordinates are therefore functions of the key alone —
 `d = popcount(a ^ b)` and `w = popcount(b ^ partner(b))` — so the cross-tab is a **consumer-side
 derivation over a frame that already ships, not a flag and not a re-scan**. ⚠ *Corrected 2026-09-12:

@@ -46,7 +46,7 @@ import matplotlib.dates as mdates
 
 # Import solve.py (repo root) for the King Wen sequence — single source of truth.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from solve import binary_hexagrams, reverse_6bit  # noqa: E402
+from solve import binary_hexagrams, reverse_6bit, _tsv_int  # noqa: E402
 
 
 # 🔴 Q-668, 2026-09-20. TEXT BAKED INTO A RENDERED FIGURE IS OUTSIDE EVERY GREP-BASED
@@ -311,9 +311,9 @@ def fig_tr4_boundary_information():
     # uniqueness across the whole space. Neither retired string is repeated verbatim here: this
     # row's closure gate greps this file for the old phrasing, and GATE 6 cannot tell narration
     # from assertion — the same reason the 2026-08-01 note above paraphrases rather than quotes. A
-    # boundary constraint pins PAIR IDENTITY ONLY — solve.c:7899 (knuth_pin_mask) constrains the pair index chosen
+    # boundary constraint pins PAIR IDENTITY ONLY — solve.c:7900 (knuth_pin_mask) constrains the pair index chosen
     # at a step and leaves the orientation loop untouched, and SOLVE_KNUTH_PIN_SLOTS accepts steps
-    # 1-31 (solve.c:41803) — so pinning is blind to the orientation layer by construction. Pin all
+    # 1-31 (solve.c:41804) — so pinning is blind to the orientation layer by construction. Pin all
     # 31 and 1,720,320 orderings remain: King Wen's C4-oriented orientation fibre (TR-1 §7, gated
     # by doc_gates.sh GATE 32, recomputed with `python3 verify.py --recount-fiber`). The reachable
     # floor is therefore 1,720,320/N_total = 1.29e-32, and 1/N_total = 7.53e-39 sits
@@ -874,7 +874,7 @@ def _check_grid(rows, cols, path):
         v = []
         for r in rows:
             try:
-                v.append(int(r[c]))
+                v.append(_tsv_int(r[c], "column %r" % c))   # strict: no "+5", " 5", "1_0", "05"
             except (KeyError, ValueError):
                 raise TsvShapeError(f"{path}: column {c!r} is not an integer index "
                                     f"in every row (offending value {r.get(c)!r})")
@@ -931,7 +931,7 @@ def _log10_bigint(s):
     the digit count and only the leading digits are floated.  Axis placement
     only -- the exact value is the TSV column, never this.
     """
-    s = s.strip()
+    s = str(_tsv_cell_int({"count": s}, "count"))   # was s.strip(): " 5", "+5", "05" refused
     head = s[:15]
     return (len(s) - 1) + math.log10(float(head) / 10 ** (len(head) - 1))
 
@@ -974,7 +974,7 @@ def fig_tr12_kc_field(tsv):
     M = np.zeros((len(ps), len(ks)))
     kw = []
     for r in rows:
-        i, j = ps.index(int(r["pair"])), ks.index(int(r["k"]))
+        i, j = ps.index(_tsv_cell_int(r, "pair")), ks.index(_tsv_cell_int(r, "k"))
         M[i, j] = float(r["p"])
         if r["kw"] == "1":
             kw.append((i, j))
@@ -1020,17 +1020,17 @@ def fig_tr12_kc_river(river_tsv, branches_tsv):
     # on d's absolute values -- see the remap below, which is why d is passed as
     # its own rank and not as its label.
     rows = _read_tsv(river_tsv, required=("k", "d", "p", "kw_d"))
-    _dr = {v: i for i, v in enumerate(sorted({int(r["d"]) for r in rows}))}
+    _dr = {v: i for i, v in enumerate(sorted({_tsv_cell_int(r, "d") for r in rows}))}
     for r in rows:
-        r["_drank"] = str(_dr[int(r["d"])])
+        r["_drank"] = str(_dr[_tsv_cell_int(r, "d")])
     _check_grid(rows, ("k", "_drank"), river_tsv)
-    ks = sorted({int(r["k"]) for r in rows})
-    ds = sorted({int(r["d"]) for r in rows})
+    ks = sorted({_tsv_cell_int(r, "k") for r in rows})
+    ds = sorted({_tsv_cell_int(r, "d") for r in rows})
     band = {d: [0.0] * len(ks) for d in ds}
     kw_d = [None] * len(ks)
     for r in rows:
-        band[int(r["d"])][ks.index(int(r["k"]))] = float(r["p"])
-        kw_d[ks.index(int(r["k"]))] = int(r["kw_d"])
+        band[_tsv_cell_int(r, "d")][ks.index(_tsv_cell_int(r, "k"))] = float(r["p"])
+        kw_d[ks.index(_tsv_cell_int(r, "k"))] = _tsv_cell_int(r, "kw_d")
     have_b = os.path.exists(branches_tsv)
     fig, axes = plt.subplots(2 if have_b else 1, 1, figsize=(13, 9 if have_b else 5),
                              dpi=150, gridspec_kw={"height_ratios": [3, 2]} if have_b else None)
@@ -1079,7 +1079,7 @@ def fig_tr12_kc_river(river_tsv, branches_tsv):
         ax2.set_ylabel("branch share of N", fontsize=9)
         ax2.set_xlabel("branch (pair : entry hexagram), sorted by mass", fontsize=9)
         tvals = [r["prefixes_t_units"] for r in br]
-        if all(t.isdigit() for t in tvals):
+        if all(t.isascii() and t.isdigit() for t in tvals):
             ax3 = ax2.twinx()
             ax3.plot(list(x), [_log10_bigint(t) for t in tvals],
                      color="#d32f2f", marker="o", ms=3, lw=1.2,
@@ -1107,9 +1107,9 @@ def fig_tr12_kc_grammar(tsv):
     # viz/viz_kc_grammar.md: tidy (k, class) grid, class = (d, w).  d and w are
     # both non-contiguous label sets, so the grid is checked on the CLASS RANK.
     rows = _read_tsv(tsv, required=("k", "d", "w", "p_cond", "kw_d", "kw_w"))
-    _cr = {v: i for i, v in enumerate(sorted({(int(r["d"]), int(r["w"])) for r in rows}))}
+    _cr = {v: i for i, v in enumerate(sorted({(_tsv_cell_int(r, "d"), _tsv_cell_int(r, "w")) for r in rows}))}
     for r in rows:
-        r["_crank"] = str(_cr[(int(r["d"]), int(r["w"]))])
+        r["_crank"] = str(_cr[(_tsv_cell_int(r, "d"), _tsv_cell_int(r, "w"))])
     _check_grid(rows, ("k", "_crank"), tsv)
     # 🔴 Q-316 item (4).  A table WITHOUT the `w` axis (an atlas with no kernel -- the emitter
     # then writes the honest placeholder w=-1 on every row; the committed full-31 table HAS
@@ -1120,15 +1120,15 @@ def fig_tr12_kc_grammar(tsv):
     # cannot contain is worse than no caption: the reader concludes King Wen's class is
     # absent from the plot.  When the axis is absent the rows ARE the classes, so the match
     # is on d alone, and the caption below says which of the two happened.
-    reduced = all(int(r["w"]) < 0 for r in rows)
-    ks = sorted({int(r["k"]) for r in rows})
-    cls = sorted({(int(r["d"]), int(r["w"])) for r in rows})
+    reduced = all(_tsv_cell_int(r, "w") < 0 for r in rows)
+    ks = sorted({_tsv_cell_int(r, "k") for r in rows})
+    cls = sorted({(_tsv_cell_int(r, "d"), _tsv_cell_int(r, "w")) for r in rows})
     M = np.zeros((len(cls), len(ks)))
     marks = []
     for r in rows:
-        i, j = cls.index((int(r["d"]), int(r["w"]))), ks.index(int(r["k"]))
+        i, j = cls.index((_tsv_cell_int(r, "d"), _tsv_cell_int(r, "w"))), ks.index(_tsv_cell_int(r, "k"))
         M[i, j] = float(r["p_cond"])
-        if int(r["kw_d"]) == int(r["d"]) and (reduced or int(r["kw_w"]) == int(r["w"])):
+        if _tsv_cell_int(r, "kw_d") == _tsv_cell_int(r, "d") and (reduced or _tsv_cell_int(r, "kw_w") == _tsv_cell_int(r, "w")):
             marks.append((i, j))
     fig, ax = plt.subplots(figsize=(13, 3.6 + 0.25 * len(cls)), dpi=150)
     im = ax.imshow(M, aspect="auto", origin="lower", cmap="viridis",
@@ -1194,12 +1194,12 @@ def fig_tr12_kc_shells(tsv):
     # viz/viz_kc_shells.md: one row per free placement, `step` a contiguous run
     rows = _read_tsv(tsv, required=("step", "g", "bits", "alts"))
     _check_grid(rows, ("step",), tsv)
-    steps = [int(r["step"]) for r in rows]
+    steps = [_tsv_cell_int(r, "step") for r in rows]
     # g is a 192-bit decimal string: plotted on a log axis via its digit count,
     # never by float()-ing the exact value.
     logg = [_log10_bigint(r["g"]) for r in rows]
     bits = [float(r["bits"]) for r in rows]
-    alts = [int(r["alts"]) for r in rows]
+    alts = [_tsv_cell_int(r, "alts") for r in rows]
     fig, (ax, ax2) = plt.subplots(2, 1, figsize=(12, 8), dpi=150, sharex=True,
                                   gridspec_kw={"height_ratios": [3, 2]})
     # optional band: min/max g over the ALTERNATIVES at each step, present only
@@ -1373,7 +1373,7 @@ def fig_viz_narrative_n2_fg_mechanism(tsv=None):
     # placed on a log axis by digit count (_log10_bigint), as in V4.
     rows = _read_tsv(tsv, required=("step", "f", "g"))
     _check_grid(rows, ("step",), tsv)
-    steps = [int(r["step"]) for r in rows]
+    steps = [_tsv_cell_int(r, "step") for r in rows]
     lf = [_log10_bigint(r["f"]) for r in rows]
     lg = [_log10_bigint(r["g"]) for r in rows]
 
@@ -1686,6 +1686,20 @@ def _selftest():
         os.chdir(cwd)
     print(f"VIZ_SHAPE_SELFTEST={'FAIL' if fails else 'PASS'}")
     return 1 if fails else 0
+
+
+
+def _tsv_cell_int(r, c):
+    """One integer cell of an atlas-consumer TSV, read with solve.py's strict `_tsv_int`.
+
+    int() also read "+5", " 5", "5\\n", "1_0" (= 10), "05" and non-ASCII digits as the number
+    they respell, so a hand-edited or corrupted table drew a plausible figure.  A cell that is
+    not an integer as the writer spells one is a TsvShapeError: the figure is refused with
+    FIGURE_SHAPE=FAIL (`_shape_guarded`), not drawn.  Follow-up to CX-159 (lane EI, 2026-09-26)."""
+    try:
+        return _tsv_int(r[c], "column %r" % c)
+    except ValueError as e:
+        raise TsvShapeError(str(e))
 
 
 if __name__ == "__main__":

@@ -41,7 +41,7 @@ KC-G BUILD n=9 dir=<SELFTEST_TMP>/g g0=26112 layers=0.068804 MB elapsed=<T>s
 KC_SCAN_TAILCHECK=PASS
 [kc-scan-selftest] scan core runs (raw expansion ON)                            PASS
 [kc-scan-selftest] scan internal ==N gates all PASS                             PASS
-[kc-scan-selftest] t-units computed at n=9                                      PASS
+[kc-scan-selftest] t-units: t(root) == brute prefix DFS, leaves == brute        PASS
 [kc-scan-selftest] per-layer distance-class masses == brute (all layers)        PASS
 [kc-scan-selftest] RAW positional marginals (G-expansion) == brute (all slots)  PASS
 [kc-scan-selftest] branch atlas solutions == brute first-placement census       PASS

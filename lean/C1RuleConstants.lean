@@ -24,7 +24,7 @@
     terms with permutation-invariant aggregators (all/len/sum/histogram —
     read from solve.py's `reg_*` bodies and solve.c's `score_registry`; ⚠ the
     line ranges this header used to cite, solve.py:5680-5952 and
-    solve.c:5225-5404, were stale by 2026-09-24 and are not repeated), so each
+    solve.c:5225-5404 at 9225098f, were stale by 2026-09-24 and are not repeated), so each
     rule is a Boolean combination of even-slot counts of slot predicates
     g(h) := f(h, partner h). Orientation invariance g(partner h) = g(h) is
     decided over all 64 hexagrams (NOT sampled) — this is the "factors

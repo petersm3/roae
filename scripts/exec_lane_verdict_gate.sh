@@ -8,7 +8,7 @@
 #
 #   D1  a RED that should be a SKIP.  solve.c's disk_iops_pre_check refuses with
 #       "ERROR: projected fsync-wait ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh."
-#       (solve.c:4119) and main returns 31 (solve.c:49432). NO branch of run_one's classifier
+#       (solve.c:4120) and main returns 31 (solve.c:49433). NO branch of run_one's classifier
 #       matched that shape, so it fell through to the terminal `else outcome="FAIL(rc=$rc)"`.
 #       `solve --preflight` is a gating row (documentation/SOLVE_C_CLI.md:58/:385) and bare
 #       --preflight defaults to 560T, so the IOPS probe really runs: this host's slow disk was
@@ -121,13 +121,13 @@ else
     if ! bash -n "$TMP/harness.sh" 2>"$TMP/harness.err"; then
       err "leg A: extracted chain does not parse: $(head -1 "$TMP/harness.err")"
     else
-      # The exact bytes solve.c:4119 (`ERROR: projected fsync-wait`) prints when disk_iops_pre_check refuses.
+      # The exact bytes solve.c:4120 (`ERROR: projected fsync-wait`) prints when disk_iops_pre_check refuses.
       REFUSAL='ERROR: projected fsync-wait ~55.1h is 402% of the estimated enum wall ~13.7h.
        Aggregate 210 fsync/sec over 8 concurrent threads (batch=1; ~40000000 fsyncs
        at this 560000000000000-node scale). The disk is likely too slow — fsync would
        dominate. Use Premium SSD, raise SOLVE_FSYNC_BATCH_SIZE (sha-neutral),
        or override with SOLVE_ALLOW_SLOW_IOPS=1 to proceed anyway.'
-      # The exact bytes solve.c:4112 prints when it PASSES. Note it contains BOTH "fsync" and
+      # The exact bytes solve.c:4113 prints when it PASSES. Note it contains BOTH "fsync" and
       # the substring "fsync-wait" — which is why the fix anchors on "projected fsync-wait".
       PASSLINE='[hardening] disk-IOPS pre-check PASS: fsync ~3.1% of est enum wall (agg 9800 fsync/sec x8 threads, batch=1; ~0.02h fsync-wait vs ~13.7h est wall)'
 

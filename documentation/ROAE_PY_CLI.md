@@ -415,8 +415,8 @@ and issues no verdicts.
 ⚠ **[SCOPED 2026-09-19 — the two sides of this gate are not drawn from the same
 population, and the gate has already fired for that reason.** `0.04789` is a
 **C3-conditioned** figure: in `solve.c` the F4′ scorer runs inside the
-`compute_comp_dist_x64(seq) <= kw_comp_dist_x64` branch (`solve.c:7995`, with
-`score_f4p` called at `:8168` inside that block), so it is measured over
+`compute_comp_dist_x64(seq) <= kw_comp_dist_x64` branch (`solve.c:7996`, with
+`score_f4p` called at `:8169` inside that block), so it is measured over
 C1∩C2∩C4∩C5 **∩ C3**. The sampler this gate tests is **not** C3-conditioned:
 `_gs_one_sample` (`roae.py:4051-4083`) accepts on the exact C5 transition
 multiset only. Paired-instrument measurement on one 2×10⁷ probe stream: the
@@ -433,8 +433,8 @@ itself is escrow-frozen (`documentation/PREREGISTRATION_ESCROW.md:67`). Read a
 FAIL here as "these two instruments condition differently", not as "the sampler
 is wrong". See documentation/CORRECTIONS.md CX-52.]**
 *(Line citations measured stale 2026-09-21, two days after the note was written, and re-pinned 2026-09-25 (Q-791), and again the same day (Q-758, after the zero-hit grader helpers were inserted above it, and once more when the Fable zero-hit ruling widened that grader): the `0.04789`
-gate constant is at `roae.py:5077`, `_gs_one_sample` is defined at `:4060`; the `solve.c:7995` /
-`:8168` citations still hold. Anchor on the symbol names.)*
+gate constant is at `roae.py:5077`, `_gs_one_sample` is defined at `:4060`; the `solve.c:7996` /
+`:8169` citations still hold. Anchor on the symbol names.)*
 
 Flags: reuses `--gs-samples` (as N_eval), `--gs-workers`,
 `--gs-batches`, `--gs-json`, `--gs-checkpoint`, and `--seed` (same

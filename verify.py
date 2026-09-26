@@ -1943,7 +1943,7 @@ def q6_extremes_oracle(path):
 def nuclear_selftest():
     """Independent gate on the nuclear-hexagram (互卦) operation.
 
-    WHY THIS EXISTS. solve.c:6816 defines `f5_nuc` and calls it "a port of solve.py _vdb_nuc".
+    WHY THIS EXISTS. solve.c:6817 defines `f5_nuc` and calls it "a port of solve.py _vdb_nuc".
     A port shares its source's bugs, so a port cannot gate the thing it was ported from. This
     implementation is derived from the CLASSICAL DEFINITION instead:
 
@@ -1974,7 +1974,7 @@ def nuclear_selftest():
         return out
 
     def nuc_engine(h):
-        # the encoding solve.c:6816 uses, restated for comparison only
+        # the encoding solve.c:6817 uses, restated for comparison only
         return ((h >> 1) & 7) | (((h >> 2) & 7) << 3)
 
     bad = []

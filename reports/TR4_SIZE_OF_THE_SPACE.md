@@ -102,7 +102,7 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    roughly 15–20 boundary constraints under the observed per-boundary cut rate (§5; an extrapolation,
    not a bound). ⚠ *2026-09-25, Codex v3 review, V3B-07#23: no continuation rule for ~15–20 is recorded, so read it as a judgment band, not a computed range. It counts boundaries from k = 1. For scale: holding the last measured gain (6.14 bits at k = 8, §Update) constant from N(8) = 1.093×10¹⁶ reaches the pair-ordering floor (105.93 bits) at k ≈ 14, below the band, and one oriented ordering (126.64 bits) at k ≈ 17. A straight-line fit to the k = 5–8 gains reaches neither. The ~12 is 126.6 / 11.10 = 11.4 rounded up, also counted from k = 1.* ⚠ **[TARGET CORRECTED 2026-09-19 (Q-643) — "closing the remaining ≈105 bits" names a
    target these boundaries cannot reach.** A boundary is measured with `SOLVE_KNUTH_PIN_SLOTS`, which pins
-   **pair identity only** (the `knuth_pin_mask` test at `solve.c:7899` constrains the pair index at a step and leaves the orientation
+   **pair identity only** (the `knuth_pin_mask` test at `solve.c:7900` constrains the pair index at a step and leaves the orientation
    loop untouched), so pinning is blind to the orientation layer by construction. log₂(1,720,320) = **20.71
    bits** of King Wen's orientation fibre survive *every* pair-level pin — see §5's marker and
    [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7. Against this bullet's own C1–C7 space, log₂(5.21×10³¹) =
@@ -147,9 +147,9 @@ The conclusion is untouched by all of this: **8** survivors in every variant, al
 
    ⚠ **[ENDPOINT CORRECTED 2026-09-19 (Q-643) — "full-space uniqueness" is not reachable by boundary pins,
    at any k.** This section's boundaries are measured with `SOLVE_KNUTH_PIN_SLOTS`, which pins **pair
-   identity only**: `solve.c:7899` applies the pin to the pair index chosen at a step
+   identity only**: `solve.c:7900` applies the pin to the pair index chosen at a step
    (`(knuth_pin_mask >> step) & 1u) && p != step`) and the orientation loop is untouched, and the flag
-   accepts steps 1–31 (`solve.c:41803`), so there are 31 pinnable boundaries in total. Pin **all 31** and
+   accepts steps 1–31 (`solve.c:41804`), so there are 31 pinnable boundaries in total. Pin **all 31** and
    what remains is not one ordering but **1,720,320** of them — King Wen's C4-oriented orientation fibre,
    a constant this project has published since [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7 (v1.7,
    2026-07-05), gates in `scripts/doc_gates.sh` GATE 32 (`fiber-anchor`), and which

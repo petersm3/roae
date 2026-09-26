@@ -41,7 +41,7 @@
 #   ./solve dated 2026-09-05         0 hits for the current sha                          -> 0 hits
 #
 # 🔴 A 64-HEX STRING IN THE BINARY IS NOT AUTOMATICALLY A SOURCE_SHA. solve.c carries four 64-hex
-# literals of its own — the canonical selftest sha 403f7202... (solve.c:4319, :40331, :42539) and
+# literals of its own — the canonical selftest sha 403f7202... (solve.c:4320, :40332, :42540) and
 # three all-one-digit placeholders. An early draft of this library read 403f7202... out of the
 # stale ./solve and concluded it was that binary's SOURCE_SHA, i.e. that the binary came from some
 # uncommitted tree. WRONG: it is a constant present in EVERY build, current ones included. The
@@ -65,8 +65,8 @@
 # consumes all input, never `head -1`, which would not.
 #
 # A THIRD, STRONGER SIGNAL EXISTS where the binary can be cheaply run: solve.c emits SOURCE_SHA at
-# runtime (`source_sha=` in the --kc-record provenance trailer, solve.c:23879/:24510; also
-# "build_source_sha" in solve_results.json, solve.c:11925). scripts/q326_kc_unrank_m0_gate.sh:63-66
+# runtime (`source_sha=` in the --kc-record provenance trailer, solve.c:23880/:24511; also
+# "build_source_sha" in solve_results.json, solve.c:11926). scripts/q326_kc_unrank_m0_gate.sh:63-66
 # already compares that against `sha256sum solve.c`. Asking the binary is better than reading its
 # image, but it costs a run and needs a subcommand the gate is not otherwise using; the image grep
 # is universal and free, so that is what this library does.
@@ -89,7 +89,7 @@
 #       binaries are current BY CONSTRUCTION. Erroring on them would be a false ERROR, which is
 #       the same disease in the other direction. This arm is exactly as strong as the mtime guard
 #       it replaces — no weaker — and the sha arm above is a strict addition to it.
-#       🔴 It is NOT proof. solve.c:25724 records the matching fail-open on the engine side:
+#       🔴 It is NOT proof. solve.c:25725 records the matching fail-open on the engine side:
 #       a build passing neither -DGIT_HASH nor -DSOURCE_SHA leaves both "unknown", and
 #       "unknown" == "unknown" compares EQUAL. Callers should say "not established", not "verified".
 #

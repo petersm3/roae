@@ -58,16 +58,16 @@ were caught. Deleting them would erase the forensic audit trail.
   memo on the minimum-constraints question that predates the
   solve.c-based enumeration. Historical; superseded by [SOLVE.md](../documentation/SOLVE.md)'s
   boundary-minimum treatment (4 at 10T, 5 at canonical depth).
-- **`SOLUTIONS_BIN_LOCATION.txt`** — pointer to where the canonical
-  solutions.bin actually lives (Azure managed disk, not committed
-  to git). Cross-references from other docs point readers here for
-  operational questions about physical data location.
+- **`SOLUTIONS_BIN_LOCATION.txt`** — historical pointer to the superseded
+  742M (`aa1415…`) solutions.bin, an undercount per the file's own NOTE; it
+  locates no current canonical. For where canonical bytes are archived, see
+  [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md); the bytes are not in git.
 
 ## What's NOT in this directory
 
 - `solutions.bin` itself. Too large to commit (22.6 GB for d3 10T;
-  will grow with 100T). Lives on Azure managed disks; see
-  `SOLUTIONS_BIN_LOCATION.txt` + the per-run README under
+  will grow with 100T). Held off-repo (warm disk mirror + cold blob); see
+  [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) + the per-run README under
   `../runs/<run-id>/` for access instructions.
 - Current-canonical analyze outputs for d2 10T and d3 10T. Those
   live at `../runs/20260418_10T_d2_fresh/analyze_output.log.gz`

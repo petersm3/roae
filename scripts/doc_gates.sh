@@ -153,6 +153,8 @@
 #   scripts/doc_gates.sh merge-semantics  # GATE 76: prose may not deny a merge capability solve.c's env surface (SOLVE_MERGE_MODE/CHUNK_GB) provides
 #   scripts/doc_gates.sh cert-inventory   # GATE 77: certificates/README.md's "Full inventory: N certificates" equals the archived .drat corpus, and verify_all.sh's CERT_FLOOR equals it too
 #   scripts/doc_gates.sh atlas-probe-tokens # GATE 90: SOLVE_PY_CLI.md's --atlas-probe token list equals atlas_probe()'s tok()/gate() names in print order (verdict ATLAS_PROBE_TOKEN_LIST)
+#   scripts/doc_gates.sh history-index # GATE 91: documentation/HISTORY_INDEX.md is a fresh output of scripts/history_index.sh, and that script's --selftest mutants fire, as do history_currency_gate.sh --selftest's (verdicts HISTORY_INDEX, HISTORY_CURRENCY_SELFTEST)
+#   scripts/doc_gates.sh claim-ledger # GATE 92: every row of documentation/CLAIMS.tsv (the typed claim ledger, Q-296; TR-12's headline figures) is on its cited line and re-derived by its evidence, a conditional-on figure carries its premise in the same sentence, and scripts/claim_ledger.sh --selftest's mutants fire (verdicts CLAIM_LEDGER, CLAIM_LEDGER_SELFTEST)
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
 #                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
 #                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
@@ -2874,6 +2876,88 @@ open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^3
     || { echo "  [FAIL] GATE 5 — could not append to GUIDE.md, so the assertion did NOT run"
          echo "         (item A5)."; PASS=1; }
 
+  # GATE 5 TOKENISER (Q-604, 2026-09-26) — TWO ASSERTIONS FROM ONE INJECTION. The EX
+  # alternation used to anchor only the START of each word, so "exactly" read as "exact" and
+  # "provenance" as "proven" anywhere on a registry-value line. It is now boundaried at both
+  # ends, and "exactly" counts only when ADJACENT to the figure (see exly_near in GATE 5).
+  # Lines B and C are the positive half, one per word order: "exactly 5.21 x 10^31" IS an
+  # exactness claim, and a blanket trailing boundary would silently drop it — that is the
+  # mutant this half is for; C also needs the value's own x10^k tail skipped. Line A is
+  # the negative half and carries every loose form at once ("exactly" far from the figure,
+  # "provenance", "exactness"); the prefix tokeniser WARNs on it. Line A is asserted only in a
+  # run where line C DID warn, so its silence cannot be the silence of a line never scanned.
+  python3 -c "p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+s=s+chr(10)+'Self-test Q-604 line A: the figure 5.21 x 10^31 sits beside a sort that matches King Wen exactly; its provenance and exactness are recorded elsewhere.'+chr(10)
+s=s+'Self-test Q-604 line B: the count is exactly 5.21 x 10^31 here.'+chr(10)
+s=s+'Self-test Q-604 line C: the count 5.21 x 10^31 exactly, the other word order.'+chr(10)
+open(p,'w',encoding='utf-8').write(s)" 2>/dev/null \
+    && { _q604_n=$(wc -l < documentation/GUIDE.md)
+         G5QOUT=$(bash "$0" status 2>&1)
+         if grep -qE "GUIDE\.md:$_q604_n — quantity 5\.21 .*token\(s\) \"exactly\"" <<<"$G5QOUT" \
+            && grep -qE "GUIDE\.md:$((_q604_n-1)) — quantity 5\.21 .*token\(s\) \"exactly\"" <<<"$G5QOUT"; then
+           echo "  [ok]   GATE 5 (Q-604) an 'exactly' ADJACENT to the figure still counts — WARNs, naming \"exactly\""
+         else
+           echo "  [FAIL] GATE 5 (Q-604) 'exactly 5.21 x 10^31' or '5.21 x 10^31 exactly' was not reported as an exactness claim"
+           printf '%s\n' "$G5QOUT" | grep -F 'GUIDE.md' | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         if grep -qE "GUIDE\.md:$_q604_n — " <<<"$G5QOUT" \
+            && ! grep -qE "GUIDE\.md:$((_q604_n-2)) — " <<<"$G5QOUT"; then
+           echo "  [ok]   GATE 5 (Q-604) a non-adjacent 'exactly', 'provenance' and 'exactness' carry no status"
+         else
+           echo "  [FAIL] GATE 5 (Q-604) line A warned (a prefix match read as a status token), or"
+           echo "         line C did not, so line A's silence proves nothing"
+           printf '%s\n' "$G5QOUT" | grep -F 'GUIDE.md' | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         _selftest_revert documentation/GUIDE.md; } \
+    || { echo "  [FAIL] GATE 5 (Q-604) — could not append to GUIDE.md, so the assertions did NOT run"
+         PASS=1; }
+
+  # GATE 5 EST TOKENISER (2026-09-26, the sibling of Q-604) — TWO ASSERTIONS FROM ONE
+  # INJECTION. EST anchored neither end of four of its words, so an identifier or a longer
+  # word that merely CONTAINED one (knuth_whole_tree, SOLVE_KNUTH_*, underestimate, Montel)
+  # read as an estimate marker, and on a line that also says "exact" about an ESTIMATE-status
+  # figure it SUPPRESSED the WARN. Line A (the last line appended) carries an exactness token
+  # and ONLY loose forms, one per boundary the regex has -- leading and trailing for estimate,
+  # Knuth, confidence and Monte -- so loosening ANY single boundary silences it: that is the
+  # negative half, and it must WARN naming "exact". Lines B-G are the positive half, one
+  # genuine marker form each (Knuth's, estimates, Monte Carlo, 95% CI, confidence, estimated):
+  # an over-tightened EST that dropped a real form would WARN on its line. The positive half is
+  # asserted only in a run where line A DID warn, so its silence cannot be the silence of a
+  # file never scanned.
+  python3 -c "p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()+chr(10)
+for w in (\"against Knuth's value\",'and two estimates of it','beside a Monte Carlo run','inside its 95% CI','reported with confidence','as it was estimated'):
+    s=s+'Self-test EST line B-G: the exact figure 5.21 x 10^31 '+w+'.'+chr(10)
+s=s+'Self-test EST line A: the exact figure 5.21 x 10^31 per underestimate, estimate_total, SOLVE_KNUTH_MODE, knuth_whole_tree, noconfidence, confidence_level, Piemonte, Montel.'+chr(10)
+open(p,'w',encoding='utf-8').write(s)" 2>/dev/null \
+    && { _est_n=$(wc -l < documentation/GUIDE.md)
+         G5EOUT=$(bash "$0" status 2>&1)
+         if grep -qE "GUIDE\.md:$_est_n — quantity 5\.21 .*token\(s\) \"exact\"" <<<"$G5EOUT"; then
+           echo "  [ok]   GATE 5 (EST) an identifier or longer word containing an estimate word is no marker — WARNs"
+           _est_bad=0
+           for _k in 1 2 3 4 5 6; do
+             grep -qE "GUIDE\.md:$((_est_n-_k)) — " <<<"$G5EOUT" && _est_bad=1
+           done
+           if [ "$_est_bad" -eq 0 ]; then
+             echo "  [ok]   GATE 5 (EST) Knuth's, estimates, Monte Carlo, CI, confidence and estimated still mark an estimate"
+           else
+             echo "  [FAIL] GATE 5 (EST) a genuine estimate marker (lines B-G) no longer counts"
+             printf '%s\n' "$G5EOUT" | grep -F 'GUIDE.md' | sed 's/^/           > /' | head -6
+             PASS=1
+           fi
+         else
+           echo "  [FAIL] GATE 5 (EST) line A did not WARN: a loose form (identifier or longer word)"
+           echo "         read as an estimate marker, so lines B-G were NOT asserted"
+           printf '%s\n' "$G5EOUT" | grep -F 'GUIDE.md' | sed 's/^/           > /' | head -4
+           PASS=1
+         fi
+         _selftest_revert documentation/GUIDE.md; } \
+    || { echo "  [FAIL] GATE 5 (EST) — could not append to GUIDE.md, so the assertions did NOT run"
+         PASS=1; }
+
   # -----------------------------------------------------------------------
   # GATE 5's ALLOWLIST — three assertions (2026-08-02, item A8). Re-keying the allowlist on
   # (file, anchor) alone deleted the drift branch that had a live negative control (an
@@ -4998,9 +5082,34 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   # 2026-08-02 this note named only one gap at a time -- it said "GATE 2 + GATE 5" and
   # silently omitted GATE 8. A self-test that under-reports its own gap is the defect it
   # tests for, so the list is enumerated against the assertion calls above:
-  #   covered: 1 (output), 3, 3b x3 (+negative control), 4, 4b, 5 (output) + its
-  #            ALLOWLIST x3 (drift immunity, dead anchor, unanchored-and-inert),
-  #            5b (output), 6 x3 (2 phrase + 1 FIGURE, item A8), 7 x2,
+  #   THE COUNTING UNIT (Q-473, 2026-09-26), established from the assertion code and not from
+  #            the labels: ONE ASSERTION = ONE `[ok]` VERDICT LINE ON A GREEN RUN. Each of the
+  #            five shared helpers, the gate-local helpers (`_g16b`, GATE 15 LEG 4's) and
+  #            every inline leg prints exactly ONE line beginning `  [ok]   ` on its passing
+  #            path, in an if/else with the `[FAIL]` path, and any second line of the message
+  #            is indented, not a second `[ok]`. A helper called N times is N assertions. A
+  #            negative control, an A1 leg, a probe and a Q-604 pair are assertions like any
+  #            other and count INLINE in the gate their label names. So a gate's multiplicity
+  #            is the number of `[ok]` lines labelled `GATE <n>` in a green --selftest, and it
+  #            is DERIVED, never written into this list:
+  #              bash scripts/doc_gates.sh --selftest 2>&1 \
+  #                | sed -nE 's/^  \[ok\]   GATE ([0-9]+[a-z]?)[ :(].*/\1/p' | sort -V | uniq -c
+  #            A leg whose label names no gate (the A3 lock, R15's advisory, the A1 snapshot,
+  #            the assert_stays_clean_why probe, the A6 preflight legs) is in the total
+  #            `grep -c '^  \[ok\]   '` and in no gate's figure.
+  #            THE `xN` MULTIPLICITIES THIS LIST CARRIED WERE REMOVED, NOT CORRECTED (all but
+  #            GATE 8's x7, which alone was derived; see its entry). MEASURED 2026-09-26 on the
+  #            batch-15 tree, before the Q-604 legs landed, reading each entry's "xN +
+  #            controls" as legs and a bare number as one: 9 of the 20 comparable entries
+  #            agreed with the census and 11 did not (3, 4b, 5b, 6, 7, 10a, 10b, 11, 14, 15,
+  #            25), and the census named a gate this list omitted outright, GATE 59, now
+  #            added. An entry that named some legs and wrote "x3" beside them could not be
+  #            checked by anyone, because it never said which legs it counted. What follows
+  #            each gate number now NAMES what its legs prove; it is not a census, and a gate
+  #            named here with one description may have many legs.
+  #   covered: 1 (output), 3, 3b (+negative control), 4, 4b, 5 (output) + its
+  #            ALLOWLIST (drift immunity, dead anchor, unanchored-and-inert) + its Q-604
+  #            tokeniser pair and its EST tokeniser pair, 5b (output), 6 (phrase legs + the FIGURE leg, item A8), 7,
   #            8 x7 — the four assert_gen_fires legs, the assert_gen_clean NEGATIVE
   #            control (rebuilt 2026-09-04; it was x6 for part of that day, between LEG 5's
   #            retirement taking two assert_gen_fires callers and the seeded reshipping
@@ -5009,7 +5118,9 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   #            and it is recorded rather than quietly corrected, because the immunity is
   #            real for the THREE FIELDS and not for this prose that sums them),
   #            control, and the TWO assert_gen_fires_only legs the one-directional-comparison
-  #            fix added. This entry read "8 x5 (4 fire + 1 NEGATIVE control)" until round 14
+  #            fix added. [The x7 on this entry is kept, not removed with the others under
+  #            Q-473, because it is the one multiplicity that was DERIVED; see next.] This
+  #            entry read "8 x5 (4 fire + 1 NEGATIVE control)" until round 14
   #            (item R14): the two gen_fires_only legs use a THIRD helper in the same GATE 8
   #            bucket, and a census bucketed by gate could not see them. x7 is the one
   #            multiplicity in this list that is not a hand count — it is the sum of three
@@ -5020,16 +5131,16 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   #            GATE 8's count only because every caller of all three helpers is a GATE 8 leg
   #            today. A call to any of them from another gate would break the identity
   #            silently, and nothing checks the identity — only the three fields.
-  #            9 x2,
-  #            10a (+negative control), 10b x3, 11, 12 x5 (+1 NEGATIVE control),
-  #            13 x2 (worktree + batch) each with its own NEGATIVE control, and the batch
+  #            9,
+  #            10a (+negative control), 10b, 11, 12 (+ a NEGATIVE control),
+  #            13 (worktree + batch) each with its own NEGATIVE control, and the batch
   #            one anchored on a REAL commit (b5bcff7c) rather than on an injection,
-  #            14 x4 (the motivating r3/p1c4 pair, a NEW pair the allowlist has never seen,
-  #            the uncomparable-rule refusal, and the A1 missing-input leg) + 1 negative
-  #            control, 15 x5 (undeclared instrument, a row naming an assertion nobody
+  #            14 (the motivating r3/p1c4 pair, a NEW pair the allowlist has never seen,
+  #            the uncomparable-rule refusal, and the A1 missing-input leg) + a negative
+  #            control, 15 (undeclared instrument, a row naming an assertion nobody
   #            wrote, a row for a function that no longer exists, and LEG 2's two clauses —
   #            a copy-confirmation guard written as an unanchored ERE and as the fixed
-  #            string that was LIVE here until item A2) + its A1 leg + 1 negative
+  #            string that was LIVE here until item A2) + its A1 leg + a negative
   #            control,
   #            16 — NO NUMBER IS WRITTEN HERE, and that is not shorthand: the two available
   #            counts DIFFER BY SEVEN. GATE 16 WAS ABSENT FROM THIS LIST ENTIRELY until
@@ -5070,20 +5181,25 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   #            control` written here. That is NOT reported as a defect, because this list's
   #            counting UNIT was never stated and a printed [ok] label is not obviously the
   #            unit it counts. Settling that requires establishing the unit first; it is
-  #            filed for round 18 rather than fixed by guess.
-  #            17 x4 (LEG B's motivating ccn4 case, a registry rule deleted from the board,
+  #            filed for round 18 rather than fixed by guess. [SETTLED 2026-09-26 by Q-473:
+  #            the unit is LEGS, the `[ok]` census; see THE COUNTING UNIT at the head of this
+  #            list. EMITTERS count source lines and are not the unit.]
+  #            17 (LEG B's motivating ccn4 case, a registry rule deleted from the board,
   #            the moved-anchor vacuity guard, and a NEW registry rule proving the id list is
-  #            derived from solve.py rather than transcribed) + 1 NEGATIVE control that puts a
+  #            derived from solve.py rather than transcribed) + a NEGATIVE control that puts a
   #            verdict word OUTSIDE the close anchor and requires the counts not to move
-  #            + 1 PHASE-4 leg (one of the two published boards dropped from the list must be
+  #            + a PHASE-4 leg (one of the two published boards dropped from the list must be
   #            a FAIL, not a smaller count)
-  #            25 — LEG 1 x1 (a doc citing a flag that does not exist) + 1 NEGATIVE control
+  #            25 — LEG 1 (a doc citing a flag that does not exist) + a NEGATIVE control
   #            (the same sentence citing a flag that DOES exist stays silent, pinned on the
-  #            census the injection moves), and LEG 2 x1 + 1 NEGATIVE control, both written
+  #            census the injection moves), and LEG 2 + a NEGATIVE control, both written
   #            INLINE because LEG 2 is report-only and assert_fires_why requires a non-zero
   #            exit — the same reason GATES 1 and 13 are inline. Added 2026-08-11, the day
   #            after the gate landed with no assertion at all; every leg dispatches the LEAF
   #            name `repro-reach`.
+  #            59 (baseline-arithmetic: 59a, a seeded open row HOLDS its seeded defect, and
+  #            59b, deleting one open row fails only that figure) — absent from this list
+  #            until Q-473's census found it (2026-09-26).
   #   plus the MISSING-INPUT class (item A1, 2026-08-02): every assertion whose LABEL
   #            carries the `A1)` marker, each asserting WHY. NO PER-GATE TALLY AND NO
   #            TOTAL ARE WRITTEN HERE, on purpose. The population is derivable from the
@@ -5116,8 +5232,14 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   #            Every assertion helper in this harness takes an evidence argument and greps
   #            for it: assert_fires_why, assert_stays_clean_why, assert_gen_fires,
   #            assert_gen_clean and assert_gen_fires_only are the five, and the inline legs
-  #            (the A3 lock, the A1 snapshot, R15's advisory) assert on message content
-  #            rather than on rc. So this bullet's population IS the `covered` list above
+  #            assert on message content rather than on rc (the one rc-only inline leg, GATE
+  #            10's append control, is a structural gate's, excluded below). WHICH LEGS ARE
+  #            INLINE IS A RULE, NOT A LIST (Q-475): an `[ok]` emitter in the --selftest
+  #            region whose label is a LITERAL, not a helper's `$label` or `$1`. Derive them:
+  #              sed -n '/^if \[ "\${1:-}" = "--selftest" \]; then$/,/^  exit "\$PASS"$/p' \
+  #                scripts/doc_gates.sh | grep -E '^ +echo "  \[ok\]   ' | grep -vE '\$label|\$1 '
+  #            (a hand-list, "the A3 lock, the A1 snapshot, R15's advisory", stood here and
+  #            named only the members whose labels name no gate). So this bullet's population IS the `covered` list above
   #            minus the exclusions named next. It is not a second census and must not be
   #            rewritten as one.
   #            IT WAS A SECOND CENSUS UNTIL NOW, AND IT HAD ROTTED THE WAY A SECOND CENSUS
@@ -5174,11 +5296,13 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   #            WHAT THIS DOES NOT SETTLE, stated rather than left to be discovered. The
   #            derivation keys on a label spelled "GATE <n> " at an assert_ call, so a helper
   #            leg labelled any other way would read as inline and be wrongly admitted here.
-  #            And the inline-leg parenthetical above is STILL A HAND-LIST: gates that mix
+  #            And the inline-leg parenthetical above was STILL A HAND-LIST: gates that mix
   #            helper and inline legs — 4b, 10, 15 and 17 among those named in `covered` —
   #            contribute gate-labelled inline legs that it does not name, so adding 13
-  #            corrects the membership of THIS group only and does not make that
-  #            parenthetical derived. NO GATE ENFORCES ANY OF THIS; it is documentation.
+  #            corrected the membership of THIS group only. [Q-475, 2026-09-26: the
+  #            parenthetical is now the literal-label RULE and its derivation command, which
+  #            returns the gate-labelled inline legs as well.] NO GATE ENFORCES ANY OF THIS; it
+  #            is documentation.
   #            AS OF 2026-08-02 (item A1's residue, round 8) THIS LIST IS EVERY ASSERTION IN
   #            THE HARNESS: the last exit-code-only helper, assert_stays_clean, became
   #            assert_stays_clean_why and its negative controls each carry an evidence-ERE
@@ -5567,6 +5691,8 @@ preflight_support_newlines || RC=1
 . scripts/doc_gates.d/90_claim_artifacts.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/90_claim_artifacts.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/95_derived_figures_scope.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/95_derived_figures_scope.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/97_atlas_probe_tokens.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/97_atlas_probe_tokens.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
+. scripts/doc_gates.d/98_history_index.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/98_history_index.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
+. scripts/doc_gates.d/99_claim_ledger.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/99_claim_ledger.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
   npath) gate_npath || RC=1 ;;
@@ -5679,6 +5805,8 @@ case "$MODE" in
   separates-census) gate_separates_census || RC=1 ;;
   cert-inventory) gate_cert_inventory || RC=1 ;;
   atlas-probe-tokens) gate_atlas_probe_tokens || RC=1 ;;
+  history-index) gate_history_index || RC=1 ;;
+  claim-ledger) gate_claim_ledger || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1
            echo; gate_citation_lines || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
@@ -5765,6 +5893,8 @@ case "$MODE" in
            echo; gate_rec_scope || RC=1
            echo; gate_cert_inventory || RC=1
            echo; gate_atlas_probe_tokens || RC=1
+           echo; gate_history_index || RC=1
+           echo; gate_claim_ledger || RC=1
            # 🔴 GATE 89, added to `all` 2026-09-08. It was deliberately held OUT while its
            # allowance table (documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv) was untracked:
            # `all` runs in a detached worktree of the PUSHED sha, and the gate ERRORs without
@@ -5773,7 +5903,7 @@ case "$MODE" in
            # that outlives its reason is the defect this repo spent 2026-09-08 removing.
            # Cost measured: ~2.5 s against a suite that already runs ~35 min.
            echo; gate_emitted_surface || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|cert-inventory|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|atlas-probe-tokens|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|cert-inventory|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|atlas-probe-tokens|history-index|claim-ledger|all}"; exit 2 ;;
 esac
 
 echo
@@ -5820,7 +5950,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 2c, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 24, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 18's CARVE-OUT, made explicit 2026-09-02 (Codex v2 charge 4). Naming 18 as hard

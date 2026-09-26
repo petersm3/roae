@@ -391,7 +391,7 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    - `<cell>.dfs_state` — the DFS state at the source-budget boundary
    - `<cell>.budget` — the source per-cell budget value (Outlier #5 protection)
 3. **Build the C enumerator from the source campaign's git ref** (recorded in
-   the archive's `build.sha` / provenance sidecars) — or a sha-equivalent
+   the archive's `build.sha` / provenance sidecars ⚠ *[2026-09-26, Q-837: the ref is the `git_hash` recorded in the provenance sidecars; `build.sha` never held a git ref, and before 2026-09-26 it held the `sha256sum` tool's digest]*) — or a sha-equivalent
    descendant verifiable via `./solve --validate-canonical <source-sha> <source-scale>`.
    ⚠ **[SCOPED 2026-08-28 — `--validate-canonical` accepts `<scale>` only in `{1T, 11.2T, 100T}`;
    its own usage line says so, and it refuses anything else. This recipe is titled for extending
@@ -669,7 +669,7 @@ addition to the merged `solutions.bin`:
 | `dfs_state.tar.gz` | Per-cell DFS resume state at the source-budget boundary. Without these, the resume would have to re-walk each cell's search from scratch — defeating the point of extension. |
 | `budget.tar.gz` | Per-cell `.budget` sidecars recording the source per-cell budget. Extension reads these to confirm the new budget is strictly larger. |
 | `solutions.bin.gz` (or `.sha256`) | The merged canonical artifact. Used by the verification step that confirms extension was byte-faithful. |
-| `solutions.provenance.json` + `canonical-host-fingerprint.json` + `build.sha` | Build provenance — what source ref + compiler + host configuration produced the archived bytes. Needed to identify what to rebuild on the extension VM. |
+| `solutions.provenance.json` + `canonical-host-fingerprint.json` + `build.sha` | Build provenance — what source ref + compiler + host configuration produced the archived bytes. Needed to identify what to rebuild on the extension VM. ⚠ *(2026-09-26, Q-837: in archives written before 2026-09-26, `build.sha`, the sidecars' `binary_sha256` fields and the fingerprint's `binary_full_sha256` / `binary_text_sha256` identify the coreutils `sha256sum` and `readlink` tools, not solve. The source ref is `git_hash` (`git_hash_set`, and `git_hash_macro` with `build_source_sha` in the fingerprint). A solve binary digest exists only as the sha256 of `solve.binary.snapshot`, where the run directory kept one; this table does not list that file.)* ⚠ *(2026-09-26: it is not listed because the shared canonical archive routine does not carry it today. That routine copies `solutions.provenance.json`, `shard_manifest.txt`, `build.sha`, `canonical-host-fingerprint.json` and `metadata.json` when present, and never `solve.binary.snapshot`. One campaign-specific archive step, for the 560 T campaign, copied it when the run directory held one. The archive scripts are not in this repository, so this is operator-attested. Until the shared routine carries it, a pre-2026-09-26 archive holds a solve-binary digest only if it happens to contain that file; otherwise `git_hash` is the only build identity it keeps.)* |
 | `EXTENSION_RECIPE.txt` | The operational version of section 3 of this doc, written by the archive supervisor. Pin to the archive bytes; not maintained over time. |
 
 Crucially: the live "working" Premium SSD from the source campaign is
@@ -1147,7 +1147,7 @@ specific symptom that motivated it.
    `\( -name 'sub_*.bin' -o -name 'sub_*.dfs_state' -o
    -name 'sub_*.bin.budget' -o -name 'sub_*.bin.provenance.json' \)`.
    Pre-script: count files of each pattern on source, compare to expected
-   total; hard-fail on mismatch.
+   total; hard-fail on mismatch. ⚠ *(2026-09-26: the expected `sub_*.bin.provenance.json` total is the count measured on the source, not the `sub_*.bin` count. The two legitimately differ for a legacy shard written before per-shard sidecars existed (2026-05-26), a shard whose best-effort sidecar write failed, and an orphan shard adopted after a crash between its flush and its sidecar write by a binary older than 2026-09-26 (newer binaries write a minimal `PROMOTED` sidecar for it). Hard-fail when a pattern's archived count differs from its own source count, not when the sidecar count differs from the `.bin` count.)*
 
 7. **`.azcopy/plans` directory permission must be writable BEFORE the first
    `azcopy copy`.**

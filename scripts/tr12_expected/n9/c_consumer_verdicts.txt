@@ -1,4 +1,4 @@
-consumer_verdict_count	17
+consumer_verdict_count	18
 consumer_verdict	TR12_A2_SLOT
 consumer_verdict	TR12_A3_EXTERNAL
 consumer_verdict	TR12_A5_ORBIT_COLUMNS
@@ -9,6 +9,7 @@ consumer_verdict	TR12_Q3_KW
 consumer_verdict	TR12_Q3_READER
 consumer_verdict	TR12_Q6
 consumer_verdict	TR12_Q6_EXTREMES
+consumer_verdict	TR12_RATIO_COLUMNS
 consumer_verdict	TR12_V1
 consumer_verdict	TR12_V2
 consumer_verdict	TR12_V5

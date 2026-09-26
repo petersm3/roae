@@ -440,7 +440,7 @@ Per-first-level-branch direct count on the current canonical d2 dataset (`analyz
 The best 3-subset minimum survivor count differs between datasets:
 
 - **d3 10T** (`analyze_d3.log` section [7]): best triple `{4, 25, 27}` leaves **2 survivors** (1 KW + 1 non-KW). Adding boundary 1, 2 or 3 completes uniqueness. ⚠ **[CORRECTED 2026-09-25 (Q-758, Codex V3A-053#6) — this read "Adding any 4th boundary completes uniqueness."** §[8] of the same log lists all eight 4-sets that reach ≤ 1 survivor, and exactly three of them contain {4, 25, 27}: {1, 4, 25, 27}, {2, 4, 25, 27} and {3, 4, 25, 27}. The other 25 candidate fourth boundaries leave the non-KW survivor in place.]**
-- **d2 10T** (`analyze_d2.log` section [7]): best triple `{3, 25, 27}` leaves **7 survivors** (1 KW + 6 non-KW). The 6 non-KW records at d2 are permutations of {20, 21, 22, 23} at positions 21-24:
+- **d2 10T** (`analyze_d2.log` section [7]): best triple `{3, 25, 27}` leaves **7 survivors** (1 KW + 6 non-KW). *(Note 2026-09-26: the binary that wrote this log named, among triples tied at the minimum, whichever its threads reached first, so another tied triple may print on a rerun; the count does not change. Two archived 742M logs show it: one 742,043,303-record file printed `{2, 25, 27}` in `enumeration/analyze_c_742M.txt` and `{3, 25, 27}` in `enumeration/analyze_sec25fix_742M.txt`, both at 24. A current binary prints the lexicographically smallest tied triple.)* The 6 non-KW records at d2 are permutations of {20, 21, 22, 23} at positions 21-24:
 
 | Permutation at pos 21-24 | Type |
 |:---:|:---|

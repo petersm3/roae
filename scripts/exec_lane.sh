@@ -923,14 +923,14 @@ $(tail -c 2000 "$ref")"; fi
     else outcome="FAIL(refusal names a prereq the source doc does NOT state)"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
     outcome="SKIP-RESOURCE(allocation/disk failure — host, not claim)"
-  # solve.c's disk_iops_pre_check (solve.c:4119) refuses with "ERROR: projected fsync-wait
-  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49432).
+  # solve.c's disk_iops_pre_check (solve.c:4120) refuses with "ERROR: projected fsync-wait
+  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49433).
   # That is a HOST verdict — this box's disk is too slow — not a verdict on the documented
   # claim, so it is a SKIP-RESOURCE exactly as an allocation failure is. Measured 2026-09-07:
   # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:385 — a gating row,
   # and bare --preflight defaults to 560T so the IOPS probe really runs) fell through to the
   # terminal `else` and was reported FAIL(rc=31): a host refusal published as a doc defect.
-  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4112, `disk-IOPS pre-check PASS`)
+  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4113, `disk-IOPS pre-check PASS`)
   # also says "fsync ~x% of est enum wall ... fsync-wait vs ... est wall". SOLVE_ALLOW_SLOW_IOPS
   # is the second anchor because `out` is only the last 4000 bytes: the ERROR's first line can
   # fall outside that window while its override hint survives.

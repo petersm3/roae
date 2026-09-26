@@ -85,7 +85,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 
 ### Narrative & meta
 
-- **[HISTORY.md](HISTORY.md)** — Day-by-day project narrative. The honest record of how the analysis evolved, including bugs found, claims invalidated, and corrections made. Largest single document; the canonical source of "how did we get here."
+- **[HISTORY.md](HISTORY.md)** — Day-by-day project narrative. The honest record of how the analysis evolved, including bugs found, claims invalidated, and corrections made. Largest single document; the canonical source of "how did we get here." Append-only, so not in date order everywhere: [HISTORY_INDEX.md](HISTORY_INDEX.md) is its generated date-order index.
 - **[CITATIONS.md](CITATIONS.md)** — Prior literature, what is classical vs. prior vs. novel vs. methodological in this work.
 - **[KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md)** — Where the received sequence comes from, and which orderings this project does **not** study. Orientation, not a finding; written for a reader who has never opened an *I Ching*.
 - **[MCKENNA.md](MCKENNA.md)** — Relationship to [Terence McKenna's](CITATIONS.md#mckenna-mckenna1975) Timewave Zero theory, where the data does and does not support related claims.
@@ -103,7 +103,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 
 For a first-time read of the project (times are `wc -w` ÷ 250 words/minute, measured 2026-09-01):
 
-1. Root [README.md](../README.md) (~17 min; 4,202 words)
+1. Root [README.md](../README.md) (~24 min; 6,059 words, re-measured 2026-09-26 after its §Figures was added)
 2. [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) (~41 min; 10,282 words, re-measured 2026-09-25 — gives you the scientific shape)
 3. [CRITIQUE.md](CRITIQUE.md) (~58 min; 14,527 words — sets the honest framing)
 4. Skim [HISTORY.md](HISTORY.md) (long — read the recent dated sections to see where things currently stand)

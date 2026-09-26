@@ -202,7 +202,7 @@
  *   ./solve --branch <pair> <orient> [time_limit] [threads]
  *       Limit enumeration to a single first-level (pair, orient) prefix.
  *
- *   ./solve --list-branches [solve_results.json]
+ *   ./solve --list-branches          (no arguments; reads solve_output.txt / solve_results.json in the CWD)
  *       Show all valid branches and completion status from checkpoint.txt
  *
  *   ./solve --validate [solutions.bin]
@@ -681,7 +681,7 @@ static int pair_index_of(int x, int y) {
  * {0, 21, 42, 63}, but `comp` is not used as their partner in this sum —
  * they still contribute normally. The correct divisor is 64. */
 static int compute_comp_dist_x64(const int seq[64]) {
-    int pos[64];
+    int pos[64] = {0};  /* Q-836: was uninitialised; a record that repeats a hexagram leaves pos[v] unset for every v it omits, so --verify read stack garbage and its C3 count drifted run to run (3843/2722/... on one 4,000-record witness). 0 = verify.py compute_comp_dist, so the two verifiers now agree on invalid records; permutations are unaffected */
     for (int i = 0; i < 64; i++) pos[seq[i]] = i;
     int total = 0;
     for (int v = 0; v < 64; v++) {
@@ -911,7 +911,7 @@ static int sol_write_meta_json(const char *meta_path, const char *bin_path,
     fprintf(mf, "  \"generator\": \"solve.c git %s\",\n", GIT_HASH);
     fprintf(mf, "  \"generated_utc\": \"%s\"\n", tbuf);
     fprintf(mf, "}\n");
-    if (fflush(mf) != 0 || fsync(fileno(mf)) != 0 || fclose(mf) != 0) {
+    int cl_bad = (fflush(mf) != 0 || fsync(fileno(mf)) != 0), cl_errno = errno; if (fclose(mf) != 0 && !cl_bad) { cl_bad = 1; cl_errno = errno; } errno = cl_errno; if (cl_bad) {  /* 2026-09-26 (CX-171 follow-up): fclose always runs, so a failed flush or fsync no longer leaks the FILE; errno is the first failure's */
         fprintf(stderr, "WARNING: %s write/flush/close failed: %s\n", meta_path, strerror(errno));
         return -1;
     }
@@ -1308,10 +1308,10 @@ static int file_is_gzip(const char *path) {
 /* Logical (decompressed) size of a file. For gz, reads the 4-byte ISIZE trailer,
  * which the gzip format stores MODULO 2^32 — so for gz files whose decompressed
  * size is ≥ 4 GiB this returns (true_size mod 2^32), NOT the true size (#185).
- * SAFE for all current callers: shards are headerless and < 4 GiB; solutions.bin
- * uses its embedded header record-count, not this. A caller that needs the true
- * size of a ≥ 4 GiB gz file must decompress-and-count (or compare modulo 2^32,
- * as write_sorted_chunk's post-write check does for the up-to-4 GiB sort chunks). */
+ * [CORRECTED 2026-09-26, Q-619 #1 / Q-641: this said "SAFE for all current callers"; --verify's framing test and
+ * the in-memory merge's post-write check compared it EXACTLY, failing every gz solutions.bin >= 4 GiB.] Never compare
+ * it exactly with an expected size: use gz_framing_matches() (mod 2^32 for gz) plus an exact check by another route.
+ * Headerless per-cell shards (< 4 GiB by construction) may use the value directly. */
 static long long gz_logical_size(const char *path) {
     if (!file_is_gzip(path)) {
         struct stat st;
@@ -1327,7 +1327,7 @@ static long long gz_logical_size(const char *path) {
     if (n != 4) return -1;
     return (long long)((uint32_t)b[0] | ((uint32_t)b[1] << 8) |
                        ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24));
-}
+} static int gz_framing_matches(int is_gz, long long observed, long long want); static int verify_stream_ends_here(gzFile vf, const char *path, long long n_records);  /* Q-619 #1; both defined at end of file */
 /* Native `gzip -t`: fully inflate the file (discarding output), relying on zlib's
  * built-in CRC-32 + ISIZE trailer check at end-of-stream. Returns 0 if the gz is
  * intact, -1 if corrupt/truncated. O(decompressed size) — the CRC is in the
@@ -1890,7 +1890,7 @@ static inline int completed_sub_key_d3(int p1, int o1, int p2, int o2, int p3, i
 }
 
 /* Current run's per-sub-branch node budget, for budget-aware BUDGETED resume.
- * Set once per run from node_limit / total_branches after total_branches is known. */
+ * Set before the checkpoint loads: the override, else node_limit / the partition's exact size. */
 static long long current_per_branch_budget = 0;
 
 /* Helper: parse one checkpoint file (legacy checkpoint.txt OR per-thread
@@ -2050,7 +2050,7 @@ static int is_sub_branch_completed_d3(int p1, int o1, int p2, int o2, int p3, in
 /* Forward declaration — read_budget_sidecar is defined below v3.1's
  * orphan-promotion code but is called inside promote_orphaned_shards
  * for the Outlier #5 budget-mismatch check. */
-static long long read_budget_sidecar(const char *bin_fname);
+static long long read_budget_sidecar(const char *bin_fname); static void write_promoted_shard_provenance(const char *bin_fname, int p1, int o1, int p2, int o2, int p3, int o3, long long budget, long long records); static int promote_commit_batch(FILE *ckpt, int (*pend)[6], int npend, int *dir_synced);  /* both defined at the end of the file (CX-163 / CX-165 follow-ups) */
 
 /* ---------- v3.1: fast-skip elimination via orphaned-shard promotion ---------- */
 
@@ -2124,17 +2124,17 @@ static void cleanup_orphaned_tmp_files(void) {
  * for next-time durability. The final merge reads .bin files independently
  * of how they got there.
  *
- * Integrity check: file_size % SOL_RECORD_SIZE == 0 and size > 0. Files
+ * Integrity check: LOGICAL (decompressed; Q-838) size % SOL_RECORD_SIZE == 0 and size > 0. Files
  * failing this check are left untouched (the existing LOAD path will see
  * them, which preserves backward compatibility for malformed leftovers).
  *
- * Speedup at canonical scale: 49k orphaned shards × ~30 sec LOAD each /
- * 128 threads ≈ 3-4h fast-skip → 1-3 min directory scan. ~60-200×. */
+ * Speedup at canonical scale: 49k orphaned shards × ~30 sec LOAD each / 128 threads ≈ 3-4h fast-skip. Promotion
+ * itself, measured 2026-09-26 on a loaded 16-core VM: 43,366 d3 gz shards in 18 s (325 s with the old per-line fsync). */
 static int promote_orphaned_shards(void) {
     DIR *d = opendir(".");
     if (!d) return -1;
     struct dirent *entry;
-    int promoted = 0, integrity_fail = 0;
+    enum { PROMOTE_BATCH = 4096 }; static int pend[PROMOTE_BATCH][6]; int promoted = 0, integrity_fail = 0, npend = 0, dir_synced = 0;
     FILE *ckpt = fopen("checkpoint.txt", "a");
     while ((entry = readdir(d)) != NULL) {
         const char *n = entry->d_name;
@@ -2159,16 +2159,16 @@ static int promote_orphaned_shards(void) {
             : is_sub_branch_completed(p1, o1, p2, o2);
         if (is_done) continue;
 
-        /* Integrity check: size must be a positive multiple of SOL_RECORD_SIZE */
-        struct stat st;
-        if (stat(n, &st) != 0 || st.st_size <= 0 || st.st_size % SOL_RECORD_SIZE != 0) {
+        /* Integrity check: the LOGICAL size must be a positive multiple of SOL_RECORD_SIZE. Q-838 (2026-09-26): this read st_size, the COMPRESSED size of a gz shard, so ~31 of every 32 gz shards were refused */
+        long long lsz = gz_logical_size(n);  /* gz: ISIZE trailer (per-cell shards are < 4 GiB, so exact); raw: stat size; -1 on error */
+        if (lsz <= 0 || lsz % SOL_RECORD_SIZE != 0) {
             fprintf(stderr,
-                    "WARN: orphaned shard %s failed integrity check (size=%lld); leaving for LOAD path\n",
-                    n, (long long)(stat(n, &st) == 0 ? st.st_size : -1));
+                    "WARN: orphaned shard %s failed integrity check (logical size=%lld); leaving for LOAD path\n",
+                    n, lsz);
             integrity_fail++;
             continue;
         }
-        long long records = st.st_size / SOL_RECORD_SIZE;
+        long long records = lsz / SOL_RECORD_SIZE;
 
         /* Outlier #5 (per-sub-branch budget mismatch on resume): read the
          * `.budget` sidecar (written by flush_sub_solutions[_d3] at the
@@ -2219,13 +2219,25 @@ static int promote_orphaned_shards(void) {
          * Use thread -1 as a "promoted" sentinel so the entry is distinguishable
          * from real walk-completion entries in post-hoc analysis.
          *
-         * Hardening audit 2026-05-25 (Outliers #3 + #7): fflush+fsync per
-         * fprintf so a Spot eviction mid-promotion can't leave a torn last
-         * line in checkpoint.txt, AND the durability ordering puts the
-         * checkpoint entry on disk before the in-memory bitmap update below
-         * (so a crash here means next-startup re-promotes idempotently from
-         * a clean checkpoint.txt). Cost: ~ms per fsync × shard count;
-         * negligible vs the LOAD-path cost this whole function replaces. */
+         * Durability is BATCHED (CX-163 follow-up, 2026-09-26). Hardening audit
+         * 2026-05-25 (Outliers #3 + #7) fsynced after every line; once Q-838 made
+         * gz shards promotable that fsync ran per shard: 43,366 d3 shards took 325 s
+         * on a loaded 16-core VM, 18 s batched. Now each line is fflushed on its own (one
+         * write(2) per line, so a SIGKILL cannot tear a line mid-way), and the
+         * shard is only QUEUED. promote_commit_batch() (end of file) runs every
+         * PROMOTE_BATCH lines and once before return: fsync(checkpoint.txt), then
+         * fsync(".") once, and ONLY THEN sets the skip-list bits and unlinks each
+         * shard's .dfs_state. The invariants are unchanged:
+         *   - a line only ever names a shard already renamed into place, since the
+         *     shard is found by readdir;
+         *   - no in-memory bit is set and no .dfs_state is removed before the line
+         *     claiming that shard is durable; if the fsync fails, the whole batch
+         *     stays unpromoted and the next resume retries it (LOAD path or
+         *     re-promotion), as a failed per-line fsync did before;
+         *   - a crash before a batch's fsync can lose that batch's lines or tear one;
+         *     load_sub_checkpoint_file() does not trust a torn line (no budget field,
+         *     or a truncated, smaller budget, so the cell re-walks: Q-368's fail-safe),
+         *     and the batch's shards are re-promoted idempotently on the next start. */
         if (ckpt) {
             int wrote;
             if (p3 >= 0) {
@@ -2239,41 +2251,30 @@ static int promote_orphaned_shards(void) {
                     "0 nodes, 0 C3-valid, %lld solutions, 0s elapsed, budget %lld\n",
                     p1, o1, p2, o2, records, current_per_branch_budget);
             }
-            if (wrote < 0 || fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0) {
-                fprintf(stderr, "WARN: promote_orphaned_shards: per-line fsync failed (sub_%d_%d_%d_%d_%d_%d.bin, errno=%d); leaving for LOAD path on next resume\n",
+            if (wrote < 0 || fflush(ckpt) != 0) {
+                fprintf(stderr, "WARN: promote_orphaned_shards: checkpoint line write failed (sub_%d_%d_%d_%d_%d_%d.bin, errno=%d); leaving for LOAD path on next resume\n",
                         p1, o1, p2, o2, p3, o3, errno);
-                /* Skip the bitmap update so next-startup will retry this shard via the LOAD path. */
+                /* Not queued, so no bitmap bit: next startup retries this shard via the LOAD path. */
                 continue;
             }
         }
-        /* Update in-memory skip-list */
-        if (p3 >= 0) {
-            int key = completed_sub_key_d3(p1, o1, p2, o2, p3, o3);
-            completed_sub_bitmap_d3[key >> 3] |= (unsigned char)(1 << (key & 7));
-        } else {
-            int key = completed_sub_key(p1, o1, p2, o2);
-            completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
+        write_promoted_shard_provenance(n, p1, o1, p2, o2, p3, o3, shard_budget > 0 ? shard_budget : current_per_branch_budget, records);  /* CX-165 follow-up: a promoted shard with no sidecar gets a minimal PROMOTED one (never overwrites an existing sidecar); written before the batch fsync, idempotent on re-promotion */
+        /* Queue the shard; its bit and .dfs_state unlink wait for the batch fsync. */
+        pend[npend][0] = p1; pend[npend][1] = o1; pend[npend][2] = p2;
+        pend[npend][3] = o2; pend[npend][4] = p3; pend[npend][5] = o3;
+        if (++npend == PROMOTE_BATCH) {
+            promoted += promote_commit_batch(ckpt, pend, npend, &dir_synced);
+            npend = 0;
         }
-        /* Delete the corresponding .dfs_state file if present — no longer
-         * needed since the sub-branch is now in the skip-list and won't
-         * be re-walked. Reduces directory clutter (~150k files per
-         * canonical campaign). */
-        char dfsname[96];
-        if (p3 >= 0)
-            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d_%d_%d.dfs_state",
-                     p1, o1, p2, o2, p3, o3);
-        else
-            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d.dfs_state",
-                     p1, o1, p2, o2);
-        unlink(dfsname);
-        promoted++;
+        /* The skip-list bit and the .dfs_state unlink (~150k files per campaign)
+         * are done by promote_commit_batch(), after the batch's fsync. */
     }
-    if (ckpt) {
-        if (fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0)
-            fprintf(stderr, "WARN: promote_orphaned_shards: checkpoint.txt fsync failed (promoted=%d)\n",
-                    promoted);
+    promoted += promote_commit_batch(ckpt, pend, npend, &dir_synced);  /* final batch: fsync precedes return */
+    if (ckpt)
         fclose(ckpt);
-    }
+    /* A failed batch fsync is reported inside promote_commit_batch(); that
+     * batch's shards are left unpromoted: not counted in `promoted`, no bit
+     * set, no .dfs_state removed. */
     closedir(d);
     if (promoted > 0 || integrity_fail > 0)
         fprintf(stderr, "[v3.1] Orphaned-shard promotion: promoted=%d, integrity_failed=%d\n",
@@ -2322,7 +2323,7 @@ static void write_budget_sidecar(const char *bin_fname, long long budget) {
         fprintf(stderr, "WARN: cannot open %s for write: %s\n", tmp, strerror(errno));
         return;
     }
-    if (fprintf(f, "%lld\n", budget) < 0 || fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0 || fclose(f) != 0) {
+    int cl_bad = (fprintf(f, "%lld\n", budget) < 0 || fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0), cl_errno = errno; if (fclose(f) != 0 && !cl_bad) { cl_bad = 1; cl_errno = errno; } errno = cl_errno; if (cl_bad) {  /* 2026-09-26 (CX-171 follow-up): fclose always runs, so a failed flush or fsync no longer leaks the FILE; errno is the first failure's */
         fprintf(stderr, "WARN: budget-sidecar write/fsync failed for %s: %s\n", tmp, strerror(errno));
         unlink(tmp);
         return;
@@ -2426,7 +2427,7 @@ static int read_build_sha_for_provenance(char out_hex[65]) {
     if (fscanf(f, "%64s", out_hex) != 1) { fclose(f); return -1; }
     fclose(f);
     return (strlen(out_hex) == 64) ? 0 : -1;
-}
+} static const char *merge_self_exe_sha256(void);  /* Q-840; defined at end of file */
 
 /* JSON string escaping for fprintf — handles backslash, quote, control chars.
  * Output buffer must be ≥ 2*strlen(in)+1. */
@@ -2507,19 +2508,19 @@ static char *read_provenance_writes_array(const char *prov_path) {
 static long long read_prior_final_budget(const char *prov_path) {
     FILE *f = fopen(prov_path, "r");
     if (!f) return -1;
-    char buf[8192]; size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+    char *buf = NULL; size_t got = 0; long sz = (fseek(f, 0, SEEK_END) == 0) ? ftell(f) : -1; if (sz > 0 && fseek(f, 0, SEEK_SET) == 0 && (buf = malloc((size_t)sz + 1)) != NULL) got = fread(buf, 1, (size_t)sz, f);  /* 2026-09-26 (CX-171 follow-up): the whole file. The field sits after writes[], so the old 8,192-byte read lost it after ~15 appended writes and every later extension was recorded as extends_prior_budget null */
     fclose(f);
-    if (got == 0) return -1;
+    if (got == 0) { free(buf); return -1; }
     buf[got] = '\0';
     char *p = strstr(buf, "\"final_per_sub_branch_limit\"");
-    if (!p) return -1;
+    if (!p) { free(buf); return -1; }
     p = strchr(p, ':');
-    if (!p) return -1;
+    if (!p) { free(buf); return -1; }
     p++;
     while (*p == ' ' || *p == '\t') p++;
     long long v = -1;
-    if (sscanf(p, "%lld", &v) != 1) return -1;
-    return v;
+    if (sscanf(p, "%lld", &v) != 1) v = -1;
+    free(buf); return v;
 }
 
 /* Append a write record to the per-shard .provenance.json.
@@ -2620,11 +2621,11 @@ static void append_shard_provenance(const char *bin_fname,
     /* cumulative_nodes_explored and cumulative_records_emitted are simplified
      * rollups; for first write they equal this write's values. For appended
      * writes we'd need to sum across prior records — done at merge-time
-     * aggregation. Here record THIS write's values; aggregator does sums. */
+     * aggregation. Here record THIS write's values; aggregator does sums. [2026-09-26 (CX-171 follow-up): records_emitted is already the whole shard's count, so the aggregator takes the last write's, not a sum] */
     fprintf(fw, "  \"cumulative_nodes_explored\": %lld,\n", nodes_explored);
     fprintf(fw, "  \"cumulative_records_emitted\": %lld\n", records_emitted);
     fprintf(fw, "}\n");
-    if (fflush(fw) != 0 || maybe_fsync_fd(fileno(fw)) != 0 || fclose(fw) != 0) {
+    int cl_bad = (fflush(fw) != 0 || maybe_fsync_fd(fileno(fw)) != 0), cl_errno = errno; if (fclose(fw) != 0 && !cl_bad) { cl_bad = 1; cl_errno = errno; } errno = cl_errno; if (cl_bad) {  /* 2026-09-26 (CX-171 follow-up): fclose always runs, so a failed flush or fsync no longer leaks the FILE; errno is the first failure's */
         fprintf(stderr, "WARN: provenance fwrite/fsync failed for %s: %s\n", tmp_path, strerror(errno));
         unlink(tmp_path);
         free(prior);
@@ -2653,14 +2654,14 @@ static void append_shard_provenance(const char *bin_fname,
  * fingerprints across many Spot evictions). */
 typedef struct {
     char items[64][72];
-    int count;
+    int count; long long dropped;  /* 2026-09-26: values refused at capacity -- counted, warned and emitted under capacity_overflow, never silent */
 } ProvStringSet;
 
 static void prov_set_add(ProvStringSet *s, const char *v) {
     if (!v || !*v) return;
     for (int i = 0; i < s->count; i++)
         if (strcmp(s->items[i], v) == 0) return;
-    if (s->count >= 64) return;
+    if (s->count >= 64) { if (s->dropped++ == 0) fprintf(stderr, "WARN: provenance string set full (64 distinct values); further distinct values are counted in capacity_overflow, not listed\n"); return; }
     snprintf(s->items[s->count], sizeof(s->items[0]), "%s", v);
     s->count++;
 }
@@ -2671,15 +2672,15 @@ typedef struct {
     long long count;
 } ProvBudgetCount;
 typedef struct {
-    ProvBudgetCount entries[16];
-    int count;
+    ProvBudgetCount entries[64];  /* 16 until 2026-09-26; overflow is now counted, not silent */
+    int count; long long dropped;  /* 2026-09-26: budgets refused at capacity (counted per refused write/shard) */
 } ProvBudgetMap;
 
 static void prov_budget_inc(ProvBudgetMap *m, long long b) {
     if (b <= 0) return;
     for (int i = 0; i < m->count; i++)
         if (m->entries[i].budget == b) { m->entries[i].count++; return; }
-    if (m->count >= 16) return;
+    if (m->count >= 64) { if (m->dropped++ == 0) fprintf(stderr, "WARN: provenance budget map full (64 distinct budgets); further budgets are counted in capacity_overflow, not listed\n"); return; }
     m->entries[m->count].budget = b;
     m->entries[m->count].count = 1;
     m->count++;
@@ -2694,8 +2695,8 @@ typedef struct {
     char latest_utc[32];
 } ProvExtRec;
 typedef struct {
-    ProvExtRec entries[16];
-    int count;
+    ProvExtRec entries[64];  /* 16 until 2026-09-26; overflow is now counted, not silent */
+    int count; long long dropped;  /* 2026-09-26: extension records refused at capacity */
 } ProvExtMap;
 
 static void prov_ext_record(ProvExtMap *m, long long from_b, long long to_b, const char *utc) {
@@ -2711,7 +2712,7 @@ static void prov_ext_record(ProvExtMap *m, long long from_b, long long to_b, con
             return;
         }
     }
-    if (m->count >= 16) return;
+    if (m->count >= 64) { if (m->dropped++ == 0) fprintf(stderr, "WARN: provenance extension list full (64 distinct from->to pairs); further extensions are counted in capacity_overflow, not listed\n"); return; }
     m->entries[m->count].from_budget = from_b;
     m->entries[m->count].to_budget = to_b;
     m->entries[m->count].shard_count = 1;
@@ -2730,7 +2731,7 @@ typedef struct {
     ProvBudgetMap budgets_seen;  /* across all writes, not just final */
     ProvExtMap extensions;
     long long total_nodes_explored;
-    long long total_records_emitted;
+    long long total_records_emitted; long long shard_last_records;  /* 2026-09-26 (CX-171 follow-up): shard_last_records = records_emitted of the current sidecar's LAST write, added to total_records_emitted once per shard */
     char earliest_write_utc[32];
     char latest_write_utc[32];
     ProvStringSet binary_shas;
@@ -2817,7 +2818,7 @@ static void prov_iterate_writes(const char *json_buf, ProvWriteCallback cb, void
 /* Callback applied per write record in each shard's provenance file. */
 static void prov_aggregate_write_cb(const char *write_rec, void *ud) {
     ProvAggregate *agg = (ProvAggregate *)ud;
-    char binary_sha[80], git_hash[64], host_fp[80], status[32], utc[32];
+    char binary_sha[80] = {0}, git_hash[64] = {0}, host_fp[80] = {0}, status[32] = {0}, utc[32] = {0};  /* 2026-09-26 (CX-165 follow-up): prov_extract_string leaves out untouched when a key is absent or not a string; these were uninitialised, so a sidecar missing binary_sha256/git_hash/host_fingerprint/write_utc put stack bytes (read past the unterminated buffer) into solutions.provenance.json. Absent now = empty = not added (prov_set_add skips "") */
     long long budget = 0, nodes = 0, records = 0, ext_prior = -1;
     prov_extract_string(write_rec, "binary_sha256", binary_sha, sizeof(binary_sha));
     prov_extract_string(write_rec, "git_hash", git_hash, sizeof(git_hash));
@@ -2834,7 +2835,7 @@ static void prov_aggregate_write_cb(const char *write_rec, void *ud) {
     prov_set_add(&agg->host_fingerprints, host_fp);
     prov_budget_inc(&agg->budgets_seen, budget);
     agg->total_nodes_explored += nodes;
-    agg->total_records_emitted += records;
+    agg->shard_last_records = records;  /* 2026-09-26 (CX-171 follow-up): last write wins. writes[] is in write order and each records_emitted is the whole shard's count (a resume or extension reloads the prior records first), so summing over writes counted an extended or resumed shard once per write */
     if (utc[0]) {
         if (!agg->earliest_write_utc[0] || strcmp(utc, agg->earliest_write_utc) < 0)
             snprintf(agg->earliest_write_utc, sizeof(agg->earliest_write_utc), "%s", utc);
@@ -2882,7 +2883,7 @@ static int aggregate_shard_provenance(ProvAggregate *out) {
         prov_budget_inc(&out->final_budget, final_budget);
 
         /* Iterate write records — each contributes to budgets_seen, extensions, sets. */
-        prov_iterate_writes(buf, prov_aggregate_write_cb, out);
+        out->shard_last_records = 0; prov_iterate_writes(buf, prov_aggregate_write_cb, out); out->total_records_emitted += out->shard_last_records;  /* each shard's records counted once (2026-09-26 (CX-171 follow-up)) */
         free(buf);
     }
     closedir(d);
@@ -2999,9 +3000,9 @@ static void write_solutions_provenance_json(const char *path,
     fprintf(fw, "]\n");
     fprintf(fw, "  },\n");
 
-    fprintf(fw, "  \"merge_invocation\": {\n");
+    fprintf(fw, "  \"capacity_overflow\": {\"final_budget_distribution_dropped\": %lld, \"branches_seen_at_budget_dropped\": %lld, \"extensions_observed_dropped\": %lld, \"binary_sha256_set_dropped\": %lld, \"git_hash_set_dropped\": %lld, \"host_fingerprint_set_dropped\": %lld},\n  \"merge_invocation\": {\n", agg->final_budget.dropped, agg->budgets_seen.dropped, agg->extensions.dropped, agg->binary_shas.dropped, agg->git_hashes.dropped, agg->host_fingerprints.dropped);  /* capacity_overflow added 2026-09-26: all zero unless a bounded map filled */
     fprintf(fw, "    \"merge_utc\": \"%s\",\n", merge_utc);
-    fprintf(fw, "    \"merge_binary_sha256\": \"%s\",\n", merge_build_sha[0] ? merge_build_sha : "");
+    fprintf(fw, "    \"merge_binary_sha256\": \"%s\",\n", merge_self_exe_sha256()); fprintf(fw, "    \"merge_dir_build_sha256\": \"%s\",\n", merge_build_sha[0] ? merge_build_sha : "");  /* Q-840: merge_binary_sha256 = THIS binary; the build.sha found in the merge dir (the old value) moves to merge_dir_build_sha256 */
     fprintf(fw, "    \"merge_git_hash\": \"%s\",\n", GIT_HASH);
     fprintf(fw, "    \"merge_host_fingerprint\": \"%s\",\n", merge_host_fp[0] ? merge_host_fp : "unknown");
     fprintf(fw, "    \"input_shard_manifest_sha256\": \"%s\",\n", shard_manifest_sha ? shard_manifest_sha : "");
@@ -3010,7 +3011,7 @@ static void write_solutions_provenance_json(const char *path,
     fprintf(fw, "  }\n");
     fprintf(fw, "}\n");
 
-    if (fflush(fw) != 0 || fsync(fileno(fw)) != 0 || fclose(fw) != 0) {
+    int cl_bad = (fflush(fw) != 0 || fsync(fileno(fw)) != 0), cl_errno = errno; if (fclose(fw) != 0 && !cl_bad) { cl_bad = 1; cl_errno = errno; } errno = cl_errno; if (cl_bad) {  /* 2026-09-26 (CX-171 follow-up): fclose always runs, so a failed flush or fsync no longer leaks the FILE; errno is the first failure's */
         fprintf(stderr, "WARN: solutions.provenance.json write/fsync failed: %s\n", strerror(errno));
         unlink(tmp);
         return;
@@ -3892,11 +3893,11 @@ static int auto_verify_shard_manifest_if_exists(void) {
         "       FRESH start (no *.dfs_state present) — shards were expected to be\n"
         "       byte-identical to the prior clean manifest. Causes: silent file\n"
         "       corruption between runs, foreign shard injection, manual file edits.\n"
-        "       The .budget sidecar mechanism + LOAD-path re-walk can recover from\n"
-        "       MISSING / SHRUNK by refusing those shards' promotion (Outlier #5) —\n"
-        "       but DIVERGED shards have new content that should not be trusted. To\n"
-        "       proceed: investigate the diverged files, delete them (forcing re-walk),\n"
-        "       then retry. Or override with SOLVE_SKIP_AUTO_MANIFEST=1.\n",
+        "       Do NOT delete shards or manifest rows to get past this (Q-641): a cell\n"
+        "       whose checkpoint line marks it complete is never re-walked, so its\n"
+        "       results would be lost silently. Keep every file (move suspect shards\n"
+        "       aside, never trust DIVERGED content), then follow the exit-22 recovery\n"
+        "       in documentation/SOLVE_C_CLI.md. Or override with SOLVE_SKIP_AUTO_MANIFEST=1.\n",
         total, missing, shrunk, diverged);
     return 22;
 }
@@ -4180,7 +4181,7 @@ static void capture_host_fingerprint(long long node_limit) {
         "echo '  \"azure_vm_sku\": \"'\"${AZURE_SKU:-unknown}\"'\",'; "
         "echo '  \"azure_location\": \"'\"${AZURE_LOC:-unknown}\"'\",'; "
         "echo '  \"azure_host_id\": \"'\"${AZURE_HOST:-unknown}\"'\",'; "
-        "SELF=$(readlink /proc/self/exe 2>/dev/null); "
+        "SELF=/proc/%d/exe; "  /* Q-619 #4 sibling: /proc/self/exe here named readlink's own binary */
         "BIN_SHA=$(sha256sum \"$SELF\" 2>/dev/null | cut -d' ' -f1); "
         "echo '  \"binary_full_sha256\": \"'\"${BIN_SHA:-unknown}\"'\",'; "
         "TEXT_SHA=$(objcopy -O binary --only-section=.text \"$SELF\" /tmp/_text_$$.bin 2>/dev/null && sha256sum /tmp/_text_$$.bin 2>/dev/null | cut -d' ' -f1; rm -f /tmp/_text_$$.bin); "
@@ -4190,7 +4191,7 @@ static void capture_host_fingerprint(long long node_limit) {
         "echo '  \"build_source_sha\": \"'\"%s\"'\"'; "
         "echo '}'; "
         "} > canonical-host-fingerprint.json.tmp 2>/dev/null && mv canonical-host-fingerprint.json.tmp canonical-host-fingerprint.json",
-        g_iops_agg_fsync_per_sec, g_iops_probe_threads, g_iops_batch,
+        (int)getpid(), g_iops_agg_fsync_per_sec, g_iops_probe_threads, g_iops_batch,
         g_iops_fsync_wait_h, g_iops_wall_frac_pct, g_iops_verdict,
         GIT_HASH, SOURCE_SHA);
     if (n < 0 || (size_t)n >= sizeof(cmd)) {
@@ -4253,7 +4254,7 @@ static void snapshot_solve_binary(void) {
         total += r;
     }
     fclose(src);
-    if (fflush(dst) != 0 || fsync(fileno(dst)) != 0 || fclose(dst) != 0) {
+    int cl_bad = (fflush(dst) != 0 || fsync(fileno(dst)) != 0), cl_errno = errno; if (fclose(dst) != 0 && !cl_bad) { cl_bad = 1; cl_errno = errno; } errno = cl_errno; if (cl_bad) {  /* 2026-09-26 (CX-171 follow-up): fclose always runs, so a failed flush or fsync no longer leaks the FILE; errno is the first failure's */
         fprintf(stderr, "[hardening] WARN: snapshot copy flush/fsync failed: %s\n", strerror(errno));
         unlink("solve.binary.snapshot.tmp");
         return;
@@ -4513,7 +4514,7 @@ static void auto_run_analyze_to_text(const char *bin_path) {
  * /proc/self/exe and compare to build.sha in cwd. First run writes
  * build.sha; subsequent runs MUST match unless SOLVE_ALLOW_BUILD_MISMATCH=1.
  * Returns 0 on success / clean first-run, -1 on mismatch without override.
- * Tolerates missing sha256 tool (logs a warning, proceeds). */
+ * Tolerates missing sha256 tool (logs a warning, proceeds). */ static int build_sha_is_legacy_tool_digest(const char *tool, const char *prior, const char *current);
 static int check_build_sha_invariant(void) {
     const char *tool = sha256_tool();
     if (!tool) {
@@ -4521,9 +4522,9 @@ static int check_build_sha_invariant(void) {
                         "Outlier #4 unguarded; do not resume across different binaries.\n");
         return 0;
     }
-    /* Compute current binary sha. */
+    /* Compute current binary sha. Q-619 #4: by PID -- "/proc/self/exe" inside the popen child named the HASHING TOOL. */
     char cmd[256];
-    snprintf(cmd, sizeof(cmd), "%s /proc/self/exe 2>/dev/null", tool);
+    snprintf(cmd, sizeof(cmd), "%s /proc/%d/exe 2>/dev/null", tool, (int)getpid());
     FILE *p = popen(cmd, "r");
     if (!p) {
         fprintf(stderr, "[hardening] WARN: popen(%s) failed: %s; build-sha invariant SKIPPED\n",
@@ -4543,7 +4544,7 @@ static int check_build_sha_invariant(void) {
     if (fr) {
         char prior_sha[80] = {0};
         int rn = fscanf(fr, "%79s", prior_sha);
-        fclose(fr);
+        fclose(fr); if (rn == 1 && build_sha_is_legacy_tool_digest(tool, prior_sha, current_sha)) rn = 0;  /* Q-619 #4 */
         if (rn == 1 && strlen(prior_sha) == 64) {
             if (strcmp(prior_sha, current_sha) != 0) {
                 if (getenv("SOLVE_ALLOW_BUILD_MISMATCH") && atoi(getenv("SOLVE_ALLOW_BUILD_MISMATCH")) == 1) {
@@ -4557,7 +4558,7 @@ static int check_build_sha_invariant(void) {
                                     "       Current binary sha256 %s\n"
                                     "       Resuming across different binaries can mix prune-stack lineages\n"
                                     "       and produce wrong-but-deterministic canonical bytes.\n"
-                                    "       Override with SOLVE_ALLOW_BUILD_MISMATCH=1 only if you have audited the diff.\n",
+                                    "       Override with SOLVE_ALLOW_BUILD_MISMATCH=1 only if you have audited the diff.\n       A binary built before 2026-09-26 wrote the digest of the host's sha256sum here, not its own, and\n       that names no build: if the prior sha equals `sha256sum $(command -v sha256sum)` on the host that\n       wrote it, take the build from the provenance sidecars' git_hash, then rm build.sha (Q-619 #4).\n",
                             prior_sha, current_sha);
                     return -1;
                 }
@@ -6196,7 +6197,7 @@ static void f4p_compute(const int seq[64], int v[13]){
     }
     /* 7. comp_adj: complement pair-couples at adjacent pair positions */
     {
-        int ppos[64];
+        int ppos[64] = {0};  /* EK (CX-161 follow-up): 0 for a slot no value fills, so a non-permutation reads 0, never stack garbage; a permutation fills all 64 and is unaffected */
         for (int i = 0; i < 32; i++){ ppos[seq[2*i]] = i; ppos[seq[2*i+1]] = i; }
         int n = 0;
         for (int i = 0; i < 32; i++){
@@ -6320,7 +6321,7 @@ static inline int dav_symtri(int t){ return (0xA5 >> t) & 1; }  /* t==rev3(t): {
 
 /* Compute all 9 Davis candidates on one ordering (spec: solve.py dav_*). */
 static void dav_compute(const int seq[64], int v[9]){
-    int pos[64];
+    int pos[64] = {0};  /* EK (CX-161 follow-up): 0 for a slot no value fills, so a non-permutation reads 0, never stack garbage; a permutation fills all 64 and is unaffected */
     for (int i = 0; i < 64; i++) pos[seq[i]] = i;
     /* 1. termruns: maximal contiguous position-runs of the 12 one-line
      * modifications of the final two hexagrams */
@@ -6865,7 +6866,7 @@ static void f5_compute(const int seq[64], int v[11]){
      * (universal given C1 pairing); a 2-cycle (j,k) is order-true iff
      * comp(first_j) == first_k (symmetric; count each cycle once) */
     {
-        int pos[64];
+        int pos[64] = {0};  /* EK (CX-161 follow-up): 0 for a slot no value fills, so a non-permutation reads 0, never stack garbage; a permutation fills all 64 and is unaffected */
         for (int i = 0; i < 64; i++) pos[seq[i]] = i;
         int n = 0;
         for (int k = 0; k < 32; k++){
@@ -7198,7 +7199,7 @@ static void perm_cycle_stats(const int p[64], int *pncyc, int *plcyc, int *pfix,
 /* Compute the 13 R3 functionals + 2 template-match indicators on one
  * orientation-bearing ordering seq[64] (spec: solve.py perm_*). */
 static void perm_compute(const int seq[64], int v[13], int tm[2]){
-    int pi_bot[64], pi_top[64];
+    int pi_bot[64] = {0}, pi_top[64];  /* EK (CX-161 follow-up): pi_bot is filled by scattering; 0 for a slot no value fills, so a non-permutation reads 0, never stack garbage; a permutation fills all 64 and is unaffected. pi_top is copied from all 64 pi_bot slots */
     for (int i = 0; i < 64; i++) pi_bot[seq[i]] = i;      /* position-of-value */
     for (int val = 0; val < 64; val++) pi_top[val] = pi_bot[reverse6(val)];
     int nb, lb, fb, cb, ob, tb[64], ntb;
@@ -9365,7 +9366,7 @@ static int dfs_state_write(int p1, int o1, int p2, int o2, int p3, int o3,
         unlink(tmpname);
         return -1;
     }
-    if (fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0 || fclose(f) != 0) {
+    int cl_bad = (fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0), cl_errno = errno; if (fclose(f) != 0 && !cl_bad) { cl_bad = 1; cl_errno = errno; } errno = cl_errno; if (cl_bad) {  /* 2026-09-26 (CX-171 follow-up): fclose always runs, so a failed flush or fsync no longer leaks the FILE; errno is the first failure's */
         fprintf(stderr, "WARN: dfs_state_write: fsync/close(%s) failed\n", tmpname);
         unlink(tmpname);
         return -1;
@@ -9500,7 +9501,7 @@ static int dfs_state_write_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     if (fwrite(&st, sizeof(st), 1, f) != 1) {
         fclose(f); unlink(tmpname); return -1;
     }
-    if (fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0 || fclose(f) != 0) {
+    int cl_bad = (fflush(f) != 0 || maybe_fsync_fd(fileno(f)) != 0), cl_errno = errno; if (fclose(f) != 0 && !cl_bad) { cl_bad = 1; cl_errno = errno; } errno = cl_errno; if (cl_bad) {  /* 2026-09-26 (CX-171 follow-up): fclose always runs, so a failed flush or fsync no longer leaks the FILE; errno is the first failure's */
         unlink(tmpname); return -1;
     }
     if (rename(tmpname, fname) != 0) {
@@ -10574,7 +10575,7 @@ static void sub_flush_chunk_to_disk(ThreadState *ts) {
     snprintf(fname,   sizeof(fname),   "sub_flush_chunk_%06d_wrk%d.bin",     seq, ts->thread_id);
     snprintf(tmpname, sizeof(tmpname), "sub_flush_chunk_%06d_wrk%d.bin.tmp", seq, ts->thread_id);
     /* #169: gz (or raw under SOLVE_COMPRESS=0). These chunk files are read back
-     * by the `--merge sub_flush_chunk_*.bin` path, whose shard readers already
+     * by `./solve --merge` (no arguments; it reads every sub_*.bin in the CWD), whose shard readers already
      * auto-detect raw/gz via gzr_open. Logical content (32-byte records) is
      * unchanged → merge result is sha-identical. */
     gzFile f = gzw_open(tmpname);
@@ -12127,7 +12128,7 @@ static int null_c2_count_5line(const uint8_t *seq) {
 
 /* C3 total complement distance. KW's value is 776. */
 static int null_c3_total_comp_dist(const uint8_t *seq) {
-    int pos[64];
+    int pos[64] = {0};  /* EK (CX-161 follow-up): 0 = verify.py compute_comp_dist's pos = [0] * 64 (as compute_comp_dist_x64 since Q-836), so a non-permutation reads 0, never stack garbage; a permutation fills all 64 and is unaffected */
     for (int i = 0; i < 64; i++) pos[seq[i]] = i;
     int total = 0;
     for (int v = 0; v < 64; v++) {
@@ -13834,7 +13835,7 @@ static F1U192 f1_shr(F1U192 a, int s) {
 }
 
 /* a << s as a GATE primitive: returns 0 when the result does not fit in 192 bits,
- * instead of aborting. f1_mul_small aborts (:13882), which is right for an accumulator
+ * instead of aborting. f1_mul_small aborts (:13883), which is right for an accumulator
  * and wrong for a check -- a gate must be able to report "this does not fit" and FAIL
  * the table, never take the process down. (KCP5 #3, Fable adjudication 2026-09-12.) */
 static int f1_shl_fits(F1U192 a, int s, F1U192 *out) {
@@ -18699,7 +18700,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                 "(SOLVE_F1_KEEP_LAYERS)\n", dir);
     int gzip_level = f1c5_ooc_gzip_level();
     if (ooc)
-        fprintf(stderr, "[f1c5-ooc] layer format: %s%s\n", use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
+        fprintf(stderr, "[f1c5-ooc] layer format: %s%s\n", use_v2 ? "v2 (zlib-blocked)" : "v1 (raw)",
                 use_v2 ? "" : " [reference]");
 
     F1Ctx *c = (F1Ctx *)calloc(1, sizeof(F1Ctx));
@@ -21995,7 +21996,7 @@ static int kc_midn(int npairs, int R, int M) {
 
 /* ---------- OOC == in-memory verification (--kc-oocverify; Stage Q gate) ----------
  * Builds the compiled structure in memory at mid-n, writes it as BOTH v1 (raw)
- * and v2 (per-block gzip — the full-31 production format), reopens each
+ * and v2 (zlib-blocked — the full-31 production format), reopens each
  * OUT-OF-CORE, and requires count/unrank/rank/member/sample to be byte-equal
  * to the in-memory engine. This is the worker gate for "OOC == in-memory at
  * n <= 22"; the full-n rungs (V1 at n=24/27/28 and full-31) are COMPUTE-GATED
@@ -23267,7 +23268,7 @@ static int kc_g_build_main(const char *gdir, int npairs, int force_ooc_build) {
           if (fe && (strcmp(fe, "v1") == 0 || strcmp(fe, "1") == 0)) use_v2 = 0; }
         fprintf(stderr, "[kc-g] out-of-core backward build: n=%d dir=%s format=%s "
                 "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d\n",
-                kc->n, gdir, use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
+                kc->n, gdir, use_v2 ? "v2 (zlib-blocked)" : "v1 (raw)",
                 (unsigned long long)cfg.read_mb, (unsigned long long)cfg.scratch_mb,
                 (unsigned long long)cfg.gap_kb, omp_get_max_threads());
         kc_g_build_ooc(kc, gdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1, "g", 1, NULL);
@@ -23960,7 +23961,7 @@ static void kc_provenance_trailer(const KC *kc, long long c3max) {
  *
  * SPACE (H3b superspace ruling, TR12 §0): exact O3 ranks exist ONLY in the
  * compiled C1&C2&C4&C5 SUPERSPACE. The exact C1-C5 (C15) rank was PRICED AND
- * DECLINED (~$3-5K; TR-12 §9 -- the TR-11 §10(ii) "C3 obstruction" wording is
+ * DECLINED (TR-12 §9 -- the TR-11 §10(ii) "C3 obstruction" wording is
  * RETRACTED: C3 = 16 + 8*G is a Lean theorem, lean/C3Decomposition.lean) and
  * is published only as a labeled sampling ESTIMATE (rides --kc-sample; not
  * implemented here).
@@ -25305,15 +25306,15 @@ static void kc_h_arr_cert_write(FILE *f, const int *s, const KcArrRes *r,
  * routed through it or visibly is not.
  *
  * A short write is a FAILED artifact and must not be left behind for a consumer to open, so the
- * partial file is removed. Returns 0 on a clean close, -1 otherwise. */
-static int kc_h_unlink_regular(const char *path);
+ * partial file is removed. Returns 0 on a clean (and, since Q-553, DURABLE) close, -1 otherwise. */
+static int kc_h_unlink_regular(const char *path); static int kc_h_close_durable(FILE *f, const char *path, const char *tag);
 static int kc_h_close_artifact(FILE *f, const char *path, const char *tag) {
-    int bad = ferror(f);
-    if (fclose(f) != 0) bad = 1;
-    if (!bad) return 0;
-    fprintf(stderr, "ERROR: [%s] write to %s failed: %s\n", tag, path, strerror(errno));
-    kc_h_unlink_regular(path);
-    return -1;
+    /* 🔴 Q-553 (2026-09-26): this used to be ferror + fclose, so rc 0 meant "in the page cache"
+     * and the driver renamed CHUNK.part onto CHUNK on it. kc_h_close_durable (after the last
+     * function in this file, so no line above it moved) adds fflush + fsync of the file and an
+     * fsync of its directory; any failure is reported and unlinked as a short write always was.
+     * Every KC artifact writer routes through here (kc_x_write_cert since Q-553 as well). */
+    return kc_h_close_durable(f, path, tag);
 }
 
 static int kc_check_arrangement_main(int argc, char *argv[]) {
@@ -27191,7 +27192,7 @@ static int kc_o3_cert_main(const char *fdir, const char *gdir, const char *arg,
                 fprintf(f, "  \"gdir\": \"%s\",\n", esc);
                 fprintf(f, "  \"pl_hash\": \"%s\",\n", c.plhash);
                 fprintf(f, "  \"class_rank_note\": \"WALK rank (class-rank = distinct records preceding, NOT computed); class block = [class_first_rank3, +m)\",\n");
-                fprintf(f, "  \"c15_note\": \"the exact C15 (C1-C5) rank/count was PRICED AND DECLINED (~$3-5K; TR-12 s9), NOT 'not computable': the C3 obstruction of TR-11 s10(ii) is dissolved by the Lean theorem c3_slot_decomposition (lean/C3Decomposition.lean); every rank here is over the C1&C2&C4&C5 superspace and any C15 figure in this corpus is a labeled estimate\",\n");
+                fprintf(f, "  \"c15_note\": \"the exact C15 (C1-C5) rank/count was PRICED AND DECLINED (TR-12 s9), NOT 'not computable': the C3 obstruction of TR-11 s10(ii) is dissolved by the Lean theorem c3_slot_decomposition (lean/C3Decomposition.lean); every rank here is over the C1&C2&C4&C5 superspace and any C15 figure in this corpus is a labeled estimate\",\n");
                 fprintf(f, "  \"engine_git\": \"%s\",\n  \"engine_source_sha\": \"%s\",\n",
                         GIT_HASH, SOURCE_SHA);
                 fprintf(f, "  \"semantics\": \"certificate, not proof\"\n}\n");
@@ -28625,7 +28626,7 @@ static void kc_h_scan_range(const KC *fkc, const KC *gv, int k, const uint32_t *
  * then is the verbose per-layer line printed, so stdout is unchanged.
  * P == NULL => controls from the environment (SOLVE_KC_SCAN_THREADS, default 1);
  * the measurement knobs are refused there -- only --kc-scan honours them. */
-static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
+static int kc_h_scan_grant_refused(int granted, int nth, int k); static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
                             int want_raw, KcScanTab *T, int k_lo, int k_hi,
                             int verbose, const KcScanPar *Pin) {
     const int n = fkc->n;
@@ -28839,7 +28840,7 @@ static int kc_h_scan_layers(const KC *fkc, const KC *gkc, const char *fdir,
         const double lwall = omp_get_wtime() - lw0;
         free(masks);
         free(off);
-        if (bad) { rc = -1; break; }
+        if (bad || kc_h_scan_grant_refused(granted, nth, k)) { rc = -1; break; }   /* Q-563: a short OpenMP grant is refused, never absorbed */
         /* the reduction, after the join, in thread order (order is irrelevant: s2.1) */
         const double rw0 = omp_get_wtime();
         for (int t = 0; t < nth; t++) {
@@ -29304,7 +29305,7 @@ static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
      * not help: its arm below sits inside the ok[i]==0 branch, so an un-run check never reaches
      * it. The consumer ALREADY refuses "not-run" (solve.py atlas_load), so the fix is not a new
      * mechanism -- it is to stop laundering the un-run state through a word nothing checks.
-     * Unreachable at n<=13 (want_raw is forced at :30241 and :30975), so no golden moves. */
+     * Unreachable at n<=13 (want_raw is forced at :30242 and :30976), so no golden moves. */
     int tail_notrun = 0;
     for (int i = 0; i < KC_SCAN_NTC; i++) {
         strcpy(T->tail_report[i], ok[i] < 0 ? "not-run" : (ok[i] ? "PASS" : "FAIL"));
@@ -29432,7 +29433,7 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
     }
     {   /* VERTICAL: sum over layers of the class-d mass == b0[d] * N.
          * PROOF. kc_finish_init asserts sum_d b0[d] == n on EVERY ladder-open
-         * path (solve.c:19393-19395) -- derived by f1c5_derive_b0 or parsed from
+         * path (solve.c:19394-19396) -- derived by f1c5_derive_b0 or parsed from
          * the manifest, the assertion runs either way. A walk makes exactly n
          * transitions, and kc_h_scan_layers refuses one once dig[cls] >= b0[cls],
          * so each walk uses AT MOST b0[d] of class d and n in total. Caps summing
@@ -30379,7 +30380,7 @@ static int kc_scan_main(int argc, char *argv[]) {
     if (rc0 == 0) {
         FILE *f = fopen(outp, "w");
         if (!f) {
-            fprintf(stderr, "ERROR: [kc-scan] cannot write %s\n", outp);
+            fprintf(stderr, "ERROR: [kc-scan] cannot write %s\n", outp); printf("KC_SCAN=FAIL\n");   /* same class: exit 2, no token */
         } else {
             kc_h_scan_write_atlas(f, &T, fkc, fdir, gdir, tdir, want_raw);
             /* kc_h_scan_write_atlas is void; check the stream where it was written. */
@@ -30411,7 +30412,7 @@ static int kc_scan_main(int argc, char *argv[]) {
             }
         }
     } else {
-        fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n");
+        fprintf(stderr, "ERROR: [kc-scan] layer streaming failed\n"); printf("KC_SCAN=FAIL\n");   /* Q-563 sibling: this exit, which the grant refusal reaches, printed no verdict token */
     }
     kc_scan_free(&T);
     kc_free(fkc);
@@ -31493,7 +31494,7 @@ static void kc_h_brute_prefixes(const KC *kc, int depth, uint32_t m, int last, u
     if (!ok_) fails++; \
 } while (0)
 
-static int kc_scan_selftest(void) {
+static int kc_h_selftest_tunits_ok(const KC *fkc, const KcScanTab *T); static int kc_scan_selftest(void) {
     int fails = 0;
     printf("[kc-scan-selftest] atlas extractor vs exhaustive brute force (n=9)\n");
     char dir[4096], fdir[4200], gdir[4200], outp[4300];
@@ -31526,7 +31527,7 @@ static int kc_scan_selftest(void) {
     KC_SCAN_GATE("scan core runs (raw expansion ON)",
                  kc_h_scan_core(fkc, gkc, NULL, fdir, 1, &T, 0, NULL) == 0);
     KC_SCAN_GATE("scan internal ==N gates all PASS", T.gate_fails == 0);
-    KC_SCAN_GATE("t-units computed at n=9", T.t_done == 1);
+    KC_SCAN_GATE("t-units: t(root) == brute prefix DFS, leaves == brute", kc_h_selftest_tunits_ok(fkc, &T));   /* Q-42 (c): was the vacuous T.t_done == 1 */
 
     /* brute cross-check: every table recomputed from the raw walk list */
     KcList BR;
@@ -31989,12 +31990,12 @@ static int kc_h_par_tab_eq(const KcScanTab *A, const KcScanTab *B, int n) {
             !f1_eq(&A->hist[i].mw, &B->hist[i].mw) || !f1_eq(&A->hist[i].mworb, &B->hist[i].mworb))
             return 0;
     /* 🔴 L6a `kw` AND L7' `rid_mass` (Codex KCP5 #2, adjudicated by Fable 2026-09-12).
-     * Both are per-thread accumulators reduced at :28328-28332 and both are PERSISTED --
-     * `kwrank` at :27973/:27979, `rid_mass` at :27989/:27993 -- yet neither appeared in this
+     * Both are per-thread accumulators reduced at :28329-28333 and both are PERSISTED --
+     * `kwrank` at :27974/:27980, `rid_mass` at :27990/:27994 -- yet neither appeared in this
      * comparator, so a difference confined to either could not fail the thread-count or
      * in-core/OOC equality it backs. The gates do not close the gap: L6a's bins are
-     * invariant under an lt/gt swap (:29143), and L7' checks only 1-D marginals of the rid
-     * joint (:29167), so a 2x2 marginal-preserving move also passes. */
+     * invariant under an lt/gt swap (:29144), and L7' checks only 1-D marginals of the rid
+     * joint (:29168), so a 2x2 marginal-preserving move also passes. */
     if (A->kw_ok != B->kw_ok || A->R != B->R) return 0;
     for (int i = 0; i < n * 15; i++)
         if (A->kw[i].cnt != B->kw[i].cnt || A->kw[i].orb != B->kw[i].orb ||
@@ -32241,7 +32242,7 @@ static int kc_scan_par_selftest(void) {
  * conditional probability under the UNIFORM MEASURE ON SUPER.
  *
  * NO --kc-c3-max AXIS, DELIBERATELY. The exact C3-conditioned count was
- * PRICED AND DECLINED (~$3-5K; TR-12 §9; the older "not computable / C3
+ * PRICED AND DECLINED (TR-12 §9; the older "not computable / C3
  * obstruction" wording is RETRACTED); Q3's C15 companion is a SAMPLED
  * correction and rides --kc-sample. --kc-c3-max is therefore REJECTED with an
  * explicit error rather than silently ignored.
@@ -32476,7 +32477,7 @@ static int kc_profile_main(int argc, char *argv[]) {
                 "ERROR: [kc-profile] --kc-c3-max is not accepted here. p_i is the\n"
                 "       conditional probability under the UNIFORM MEASURE ON SUPER and g\n"
                 "       counts SUPER completions; the exact C3-conditioned count was\n"
-                "       PRICED AND DECLINED (~$3-5K; TR-12 s9), not 'not computable'.\n"
+                "       PRICED AND DECLINED (TR-12 s9), not 'not computable'.\n"
                 "       Q3's C15 companion is a SAMPLED correction -- use --kc-sample.\n");
             return 2;
         }
@@ -33148,7 +33149,7 @@ static int kc_profile_walks_main(int argc, char *argv[]) {
                 "ERROR: [kc-profile] --kc-c3-max is not accepted here. p_i is the\n"
                 "       conditional probability under the UNIFORM MEASURE ON SUPER and g\n"
                 "       counts SUPER completions; the exact C3-conditioned count was\n"
-                "       PRICED AND DECLINED (~$3-5K; TR-12 s9), not 'not computable'.\n"
+                "       PRICED AND DECLINED (TR-12 s9), not 'not computable'.\n"
                 "       Q3's C15 companion is a SAMPLED correction -- use --kc-sample.\n");
             return 2;
         }
@@ -34184,7 +34185,7 @@ static int kc_t_build_main(const char *fdir, const char *tdir, int force_ooc, in
           if (fe && (strcmp(fe, "v1") == 0 || strcmp(fe, "1") == 0)) use_v2 = 0; }
         fprintf(stderr, "[kc-t] out-of-core t build: n=%d fdir=%s tdir=%s format=%s "
                 "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d\n",
-                fkc->n, fdir, tdir, use_v2 ? "v2 (per-block gzip)" : "v1 (raw)",
+                fkc->n, fdir, tdir, use_v2 ? "v2 (zlib-blocked)" : "v1 (raw)",
                 (unsigned long long)cfg.read_mb, (unsigned long long)cfg.scratch_mb,
                 (unsigned long long)cfg.gap_kb, omp_get_max_threads());
         kc_g_build_ooc(fkc, tdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1,
@@ -35587,7 +35588,7 @@ static int kc_layers_selftest(void) {
                        "exit 2, no atlas); then re-minted for the gate legs",
                        kc_h_tamper_refused_then_remint(fdir, gdir, tdir, c1, bad, c3, out, log, 3,
                                                        a, KC_LAY_ABUF));
-        unlink(out);
+        unlink(out); kc_h_plant_decoy(out, whole); KC_LAYERS_GATE("L9 decoy atlas planted at OUT before the merge (test is armed)", kc_h_exists(out) && kc_h_bytes_identical(whole, out));   /* Q-42 (e): OUT was unlinked, so the byte-identity leg below compared against NO file; a VALID decoy lets it fire */
         snprintf_a("--kc-scan-merge '%s' '%s' '%s' '%s' '%s' '%s' --kc-tdir '%s'",
                  fdir, gdir, out, c1, bad, c3, tdir);
         const int rc = kc_h_self_run(a, log);
@@ -35597,8 +35598,8 @@ static int kc_layers_selftest(void) {
                        kc_h_log_sub(log, "GATE FAIL: layer 03 flow != N"));
         KC_LAYERS_GATE("L9 tampered flow: KC_SCAN_MERGE=FAIL",
                        kc_h_log_line(log, "KC_SCAN_MERGE=FAIL"));
-        KC_LAYERS_GATE("L9 tampered flow: merged atlas is NOT byte-identical",
-                       !kc_h_bytes_identical(whole, out));
+        KC_LAYERS_GATE("L9 tampered flow: the planted valid atlas is NOT left at OUT",
+                       !kc_h_bytes_identical(whole, out)); KC_LAYERS_GATE("L9 tampered flow: NO atlas left (decoy REMOVED)", !kc_h_exists(out));
     }
 
     /* --- R1 (2026-09-08): a tampered CLASS cell must fail the class ROW gate, and
@@ -37648,15 +37649,15 @@ static int kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
     fprintf(f, "  \"two_language_obligation\": \"witness must be re-evaluated in "
                "solve.py by the run harness before any Q5 number ships\"\n");
     fprintf(f, "}\n");
-    const int werr = ferror(f);
-    const int cerr = fclose(f) != 0;
-    if (werr || cerr) {
-        fprintf(stderr, "ERROR: [kc-extremal] writing %s failed (%s); partial file removed\n",
-                path, strerror(errno));
-        unlink(path);
-        return -1;
-    }
-    return 0;
+    /* Q-553 (2026-09-26): this writer kept its own copy of the close-and-unlink logic (ferror +
+     * fclose + unlink, printing "writing %s failed ... partial file removed"), so the durability
+     * fix in kc_h_close_artifact would not have reached it. Routed through the shared helper:
+     * a short write, a failed fsync (file or directory) and a failed close all report and remove
+     * the partial file. A non-regular destination such as /dev/full is not unlinked, as the old
+     * copy's bare unlink() would have tried to. KC_EXTREMAL_CERT=FAILED and exit 2 are the
+     * caller's, unchanged.  */
+    const int cw = kc_h_close_artifact(f, path, "kc-extremal");
+    return cw != 0 ? -1 : 0;
 }
 
 static int kc_extremal_main(int argc, char *argv[]) {
@@ -38639,7 +38640,7 @@ static int kc_cli(int argc, char *argv[]) {
             kval = strtol(ks, &kend, 10);
             /* SYNTAX only. The RANGE check belongs to kc_g_check_layer_main, which
              * already tests k against the REAL ladder (`k < 0 || k > fkc->n`,
-             * solve.c:23342) and so knows the bound this dispatch does not. Duplicating
+             * solve.c:23343) and so knows the bound this dispatch does not. Duplicating
              * it here with a constant would be a second source of truth that drifts. */
             if (ks[0] == '\0' || kend == ks || *kend != '\0' ||
                 errno == ERANGE || kval < INT_MIN || kval > INT_MAX) {
@@ -38817,7 +38818,7 @@ static int kc_cli(int argc, char *argv[]) {
     {   /* Per-command admissibility. Accept-and-ignore is a wrong answer with no error; refuse
          * instead, computing nothing. --kc-count / --kc-rank / --kc-member accept NONE of these:
          * a count or a rank conditioned on C3 is not what any of them computes, and the exact
-         * C15 count was PRICED AND DECLINED (~$3-5K; TR-12 §9 -- not "not computable") -- the
+         * C15 count was PRICED AND DECLINED (TR-12 §9 -- not "not computable") -- the
          * C15 companion is a SAMPLED correction, which is --kc-sample. */
         int allowed = 0;
         if (strcmp(cmd, "--kc-build") == 0)                                allowed = KO_PAIRS;
@@ -39900,7 +39901,7 @@ int main(int argc, char *argv[]) {
               if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
               else p++;
           }
-          if (n != 64) { fprintf(stderr, "SOLVE_REG_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_REG_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           KnuthArg ta; memset(&ta, 0, sizeof(ta));
           ta.min_rm2 = -1; ta.reg_min_mmt3 = -1; ta.reg_min_c1 = -1;
           score_registry(tseq, 1.0, &ta);
@@ -39925,7 +39926,7 @@ int main(int argc, char *argv[]) {
               if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
               else p++;
           }
-          if (n != 64) { fprintf(stderr, "SOLVE_F5_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F5_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           int v[11];
           f5_compute(tseq, v);
           for (int i = 0; i < 11; i++)
@@ -39947,7 +39948,7 @@ int main(int argc, char *argv[]) {
               if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
               else p++;
           }
-          if (n != 64) { fprintf(stderr, "SOLVE_F6_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F6_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           f4p_pal_init();
           int v[7];
           f6_compute(tseq, v);
@@ -39972,7 +39973,7 @@ int main(int argc, char *argv[]) {
               if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
               else p++;
           }
-          if (n != 64) { fprintf(stderr, "SOLVE_PERM_TESTVEC: need 64 ints, got %d\n", n); return 1; }
+          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_PERM_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           int v[13], tm[2];
           perm_compute(tseq, v, tm);
           for (int i = 0; i < 13; i++) printf("%d,", v[i]);
@@ -40379,7 +40380,7 @@ int main(int argc, char *argv[]) {
                  "cd %s && "
                  "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
                  /* \U0001f534 SOLVE_HASH_LOG2=20 (32 MB/thread) instead of the 2^24 default
-                  * (512 MB/thread, and MEMSET-RESIDENT -- solve.c:9718 touches every page, so it
+                  * (512 MB/thread, and MEMSET-RESIDENT -- solve.c:9719 touches every page, so it
                   * is real RSS, not virtual). MEASURED 2026-09-08: the selftest child was carrying
                   * ~2.1 GB at the old hardcoded 4 threads, on a 7 GB box, concurrently with a
                   * gcc -O3 -march=native in the same gate. That is the MEMORY half of the crash;
@@ -43443,11 +43444,11 @@ int main(int argc, char *argv[]) {
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--list-branches") == 0) {
         list_branches_mode = 1;
-        arg_offset = argc;  /* consume all args */
+        if (argc > 2) { fprintf(stderr, "ERROR: --list-branches takes NO arguments; got %d extra (first: '%s').\n       It reads solve_output.txt or solve_results.json in the CURRENT directory; an argument here was previously accepted and silently ignored.\nLIST_BRANCHES_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } arg_offset = argc;  /* Q-839: refuse, as --merge does, rather than consume and ignore */
     } else if (argc > 1 && strcmp(argv[1], "--branch") == 0) {
         if (argc < 4) {
             printf("Usage: ./solve --branch <pair> <orient> [time_limit] [threads]\n");
-            printf("       ./solve --list-branches [solve_results.json]\n");
+            printf("       ./solve --list-branches   (no arguments; reads solve_output.txt or solve_results.json in the CWD)\n");
             printf("  pair:   pair index (0-31)\n");
             printf("  orient: 0 or 1\n");
             return 1;
@@ -43535,7 +43536,7 @@ int main(int argc, char *argv[]) {
             printf("Time limit: %d seconds\n", time_limit);
         else
             printf("No time limit — running to completion.\n");
-    } else if (!show_mode && !verify_mode && !validate_mode && !analyze_mode) {
+    } else if (!show_mode && !verify_mode && !validate_mode && !analyze_mode && !list_branches_mode) {  /* Q-839: --list-branches printed "No time limit" and the enum usage */
         printf("No time limit — running to completion.\n");
         if (!single_branch_mode)
             printf("Usage: ./solve [time_limit] [threads]  (0 = no limit)\n"
@@ -43907,7 +43908,7 @@ int main(int argc, char *argv[]) {
              * is the direction an interrupted write or a truncated copy actually produces.
              * The invariant is exact and total: logical size == header + 32 bytes per record. */
             long long want = (long long)SOL_HEADER_SIZE + (long long)SOL_RECORD_SIZE * n_records;
-            if (vsize != want) {
+            if (!gz_framing_matches(file_is_gzip(verify_file), vsize, want)) {  /* Q-619 #1 / Q-641: was `vsize != want`; ISIZE is mod 2^32, exactness is restored by verify_stream_ends_here() after the loop */
                 fprintf(stderr, "ERROR: %s framing mismatch — header declares %lld record(s), so the\n"
                                 "       file should be %lld logical bytes, but it is %lld (%+lld).\n"
                                 "       The declared count and the file disagree; nothing was verified.\n",
@@ -43923,8 +43924,8 @@ int main(int argc, char *argv[]) {
         unsigned char rec[SOL_RECORD_SIZE];
         unsigned char prev[SOL_RECORD_SIZE];
         memset(prev, 0, SOL_RECORD_SIZE);
-        int fail_c1 = 0, fail_c2 = 0, fail_c3 = 0, fail_c4 = 0, fail_c5 = 0;
-        int fail_dup = 0, fail_sort = 0, fail_decode = 0;
+        long long fail_c1 = 0, fail_c2 = 0, fail_c3 = 0, fail_c4 = 0, fail_c5 = 0;  /* Q-641: were int */
+        long long fail_dup = 0, fail_sort = 0, fail_decode = 0;  /* and wrapped past 2^31 failures */
         int kw_found_v = 0;
 
         for (long long r = 0; r < n_records; r++) {
@@ -44042,18 +44043,18 @@ int main(int argc, char *argv[]) {
             if (r > 0 && r % 10000000 == 0)
                 printf("  ... verified %lld / %lld records\n", r, n_records);
         }
-        gzclose(vf);
+        if (verify_stream_ends_here(vf, verify_file, n_records) != 0) { return 30; }  /* Q-619 #1 / Q-641: exact half of the framing test */ gzclose(vf);
 
         printf("\n--- Verification Results ---\n");
         printf("Records checked:        %lld\n", n_records);
-        printf("C1 failures (pairs):    %d\n", fail_c1);
-        printf("C2 failures (hamming5): %d\n", fail_c2);
-        printf("C3 failures (cd>776):   %d\n", fail_c3);
-        printf("C4 failures (first pair): %d\n", fail_c4);
-        printf("C5 failures (dist):     %d\n", fail_c5);
-        printf("Decode failures:        %d\n", fail_decode);
-        printf("Sort order violations:  %d\n", fail_sort);
-        printf("Duplicate records:      %d\n", fail_dup);
+        printf("C1 failures (pairs):    %lld\n", fail_c1);
+        printf("C2 failures (hamming5): %lld\n", fail_c2);
+        printf("C3 failures (cd>776):   %lld\n", fail_c3);
+        printf("C4 failures (first pair): %lld\n", fail_c4);
+        printf("C5 failures (dist):     %lld\n", fail_c5);
+        printf("Decode failures:        %lld\n", fail_decode);
+        printf("Sort order violations:  %lld\n", fail_sort);
+        printf("Duplicate records:      %lld\n", fail_dup);
         printf("King Wen found:         %s\n", kw_found_v ? "YES" : "No");
 
         /* 🔴 Codex v2 `solve.c:21051/:21439`, disposed 2026-09-04 — the charge is REAL but its
@@ -44083,7 +44084,7 @@ int main(int argc, char *argv[]) {
         printf("KW_PRESENT=%s\n", kw_found_v ? "YES" : "NO");
         printf("KW_REQUIRED=%s\n", g_expect_kw ? "YES" : "NO");
 
-        int total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup + fail_kw;
+        long long total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup + fail_kw;
         /* Q-285 (Codex R12b, ranked false accept #1). The verdict below is the SUM OF OBSERVED
          * FAILURES, and a file with no records produces no observations — so a 32-byte
          * header-only artifact, exactly what an interrupted --encode-solutions leaves behind
@@ -44103,7 +44104,7 @@ int main(int argc, char *argv[]) {
             printf("VERIFY=PASS\n");
             return 0;
         } else {
-            printf("\n*** VERIFY FAIL: %d issues found ***\n", total_fail);
+            printf("\n*** VERIFY FAIL: %lld issues found ***\n", total_fail);
             printf("VERIFY=FAIL\n");
             return 1;
         }
@@ -44711,10 +44712,10 @@ int main(int argc, char *argv[]) {
         long long branch_count[32][2]; memset(branch_count, 0, sizeof(branch_count));
         /* Section [28] input: edit-distance-to-KW histogram */
         long long edit_dist_hist[33]; memset(edit_dist_hist, 0, sizeof(edit_dist_hist));
-        /* Section [25] input: per-sub-branch solution counts keyed on (p1, o1, p2, o2).
-         * Derived from solutions.bin (not checkpoint.txt, whose solutions field is
-         * always 0 — flush_sub_solutions zeroes ts->solution_count before the
-         * checkpoint line is written). 32*2*32*2 = 4096 bins × 8 bytes = 32 KB. */
+        /* Section [25] input: per-sub-branch solution counts keyed on (p1, o1, p2, o2), plus
+         * the (p1..o3) depth-3 bins kept by q623_sec25_bin_d3 (V3A-134#9). Derived from
+         * solutions.bin, not checkpoint.txt (whose solutions field was 0 before 2026-04-16
+         * and is a pre-flush count since). 32*2*32*2 = 4096 bins × 8 bytes = 32 KB. */
         long long (*sub_solution_count)[2][32][2] = calloc(32, sizeof(*sub_solution_count));
         if (!sub_solution_count) { printf("ERROR: sub_solution_count alloc failed\n"); return 1; }
 
@@ -44790,8 +44791,8 @@ int main(int argc, char *argv[]) {
             if (has_shift_exc) rows_with_exc++;
             /* Section [26]: per-first-level-branch counts (byte 1 = position 2 pair + orient) */
             branch_count[rec[1] >> 2][(rec[1] >> 1) & 1]++;
-            /* Section [25]: per-sub-branch solution count (byte 1 = p1/o1, byte 2 = p2/o2) */
-            sub_solution_count[rec[1] >> 2][(rec[1] >> 1) & 1][rec[2] >> 2][(rec[2] >> 1) & 1]++;
+            /* Section [25]: per-sub-branch solution count (byte 1 = p1/o1, byte 2 = p2/o2, byte 3 = p3/o3) */
+            sub_solution_count[rec[1] >> 2][(rec[1] >> 1) & 1][rec[2] >> 2][(rec[2] >> 1) & 1]++; { void q623_sec25_bin_d3(const unsigned char *); q623_sec25_bin_d3(rec); }
             /* Section [28]: edit-distance-to-KW (count positions where pair differs) */
             {
                 int dist = 0;
@@ -44930,13 +44931,13 @@ int main(int argc, char *argv[]) {
                         long long s = 0;
                         for (long long w = 0; w < n_words; w++)
                             s += __builtin_popcountll(bmask[b1][w] & bmask[b2][w] & bmask[b3][w]);
-                        if (s < local_min) { local_min = s; local_t1 = b1+1; local_t2 = b2+1; local_t3 = b3+1; }
+                        if (s < local_min || (s == local_min && (b1+1)*1024 + (b2+1)*32 + (b3+1) < local_t1*1024 + local_t2*32 + local_t3)) { local_min = s; local_t1 = b1+1; local_t2 = b2+1; local_t3 = b3+1; }  /* EK: ties go to the lexicographically smallest triple (base-32 key; boundaries are 1..31), not to loop order */
                         if (s <= kw_count) local_below++;
                     }
                 }
             #pragma omp critical
             {
-                if (local_min < min_t_surv) {
+                if (local_min < min_t_surv || (local_min == min_t_surv && local_t1*1024 + local_t2*32 + local_t3 < min_t1*1024 + min_t2*32 + min_t3)) {  /* EK: was local_min < min_t_surv alone, so among tied threads the FIRST to reach this critical section named the best triple; now the lexicographically smallest does, as at one thread */
                     min_t_surv = local_min;
                     min_t1 = local_t1; min_t2 = local_t2; min_t3 = local_t3;
                 }
@@ -44968,7 +44969,7 @@ int main(int argc, char *argv[]) {
         {
             int local_freq[31] = {0};
             int local_n_working = 0;
-            int local_cap = 64;
+            int local_cap = 200;  /* EE: was 64, but the print loop below shows min(n_working, 200) rows from the malloc'd (uninitialised) report[]; one thread (or <4 threads with hits) filled only 64, so rows 65..200 printed heap garbage like { 0, 0, 1264350032, 23898} survivors=95969. 200 per thread guarantees the first 200 are all written */
             QuadEntry *local_report = malloc(local_cap * sizeof(QuadEntry));
             if (!local_report) {
                 fprintf(stderr, "ERROR: malloc failed for local_report in thread\n");
@@ -44987,9 +44988,9 @@ int main(int argc, char *argv[]) {
                         if (s <= kw_count) {
                             local_n_working++;
                             local_freq[b1]++; local_freq[b2]++; local_freq[b3]++; local_freq[b4]++;
-                            if (local_report_n < local_cap) {
-                                local_report[local_report_n++] = (QuadEntry){b1+1, b2+1, b3+1, b4+1, s};
-                            }
+                            { QuadEntry q = {b1+1, b2+1, b3+1, b4+1, s}; int qk = q.b1*32768 + q.b2*1024 + q.b3*32 + q.b4, pos = local_report_n;  /* EK: keep this thread's local_cap lexicographically smallest rows, sorted (was: its first local_cap rows in the order its chunks ran) */
+                                while (pos > 0 && local_report[pos-1].b1*32768 + local_report[pos-1].b2*1024 + local_report[pos-1].b3*32 + local_report[pos-1].b4 > qk) pos--;
+                                if (pos < local_cap) { int keep = local_report_n < local_cap ? local_report_n : local_cap - 1; memmove(&local_report[pos+1], &local_report[pos], (size_t)(keep - pos) * sizeof(QuadEntry)); local_report[pos] = q; if (local_report_n < local_cap) local_report_n++; } }
                         }
                     }
                 }
@@ -45015,9 +45016,9 @@ int main(int argc, char *argv[]) {
                 }
                 /* Simpler: always add up to first 200 across all threads */
                 for (int i = 0; i < local_report_n; i++) {
-                    static int rep_so_far = 0;
-                    if (rep_so_far < 200) {
-                        report[rep_so_far++] = local_report[i];
+                    static int rep_so_far = 0;  /* EK: report[] now holds the 200 lexicographically smallest rows over all threads, sorted; it was the first 200 in thread-finish order, so the [8] list varied run to run */
+                    { QuadEntry q = local_report[i]; int qk = q.b1*32768 + q.b2*1024 + q.b3*32 + q.b4, pos = rep_so_far; while (pos > 0 && report[pos-1].b1*32768 + report[pos-1].b2*1024 + report[pos-1].b3*32 + report[pos-1].b4 > qk) pos--;
+                        if (pos < 200) { int keep = rep_so_far < 200 ? rep_so_far : 199; memmove(&report[pos+1], &report[pos], (size_t)(keep - pos) * sizeof(QuadEntry)); report[pos] = q; if (rep_so_far < 200) rep_so_far++; }
                     }
                 }
             }
@@ -45894,13 +45895,13 @@ int main(int argc, char *argv[]) {
                                 long long s2 = 0;
                                 for (long long w = 0; w < n_words_r; w++)
                                     s2 += __builtin_popcountll(rbm[b1][w] & rbm[b2][w] & rbm[b3][w]);
-                                if (s2 < lmin) { lmin = s2; lt1 = b1+1; lt2 = b2+1; lt3 = b3+1; }
+                                if (s2 < lmin || (s2 == lmin && (b1+1)*1024 + (b2+1)*32 + (b3+1) < lt1*1024 + lt2*32 + lt3)) { lmin = s2; lt1 = b1+1; lt2 = b2+1; lt3 = b3+1; }  /* EK: lexicographic tie-break, as in [7] */
                                 if (s2 <= 1) lb++;
                             }
                         }
                     #pragma omp critical
                     {
-                        if (lmin < r_min_t) { r_min_t = lmin; r_t1 = lt1; r_t2 = lt2; r_t3 = lt3; }
+                        if (lmin < r_min_t || (lmin == r_min_t && lt1*1024 + lt2*32 + lt3 < r_t1*1024 + r_t2*32 + r_t3)) { r_min_t = lmin; r_t1 = lt1; r_t2 = lt2; r_t3 = lt3; }  /* EK: was lmin < r_min_t alone, so the same binary printed best {1,2,27} on one run and {2,3,27} on the next (CX-161); ties now go to the lexicographically smallest triple */
                         r_t_below += lb;
                     }
                 }
@@ -45928,10 +45929,10 @@ int main(int argc, char *argv[]) {
                                     lfreq[b1]++; lfreq[b2]++; lfreq[b3]++; lfreq[b4]++;
                                     #pragma omp critical
                                     {
-                                        if (r_report_len < (int)sizeof(r_report) - 64) {
-                                            r_report_len += snprintf(r_report + r_report_len,
-                                                sizeof(r_report) - r_report_len,
-                                                "       {%2d,%2d,%2d,%2d} surv=%lld\n", b1+1, b2+1, b3+1, b4+1, s2);
+                                        { char ln[128]; int w = snprintf(ln, sizeof ln, "       {%2d,%2d,%2d,%2d} surv=%lld\n", b1+1, b2+1, b3+1, b4+1, s2);  /* EK: every row is w = 28 bytes (b <= 31, 0 <= s2 <= 1), so r_report is an array of fixed rows. It is now kept sorted (memcmp order = lexicographic, %2d pads with a space) and, once full, keeps the smallest rows. It was appended in thread-finish order, so the list, and past the buffer the SET of rows shown, varied run to run */
+                                            int lim = (int)sizeof(r_report) - 64, cap_rows = (lim + w - 1) / w, rows = r_report_len / w, lo = 0, hi = rows;  /* cap_rows = where the old append stopped (it appended while len < lim) */
+                                            while (lo < hi) { int mid = (lo + hi) / 2; if (memcmp(r_report + (size_t)mid * w, ln, (size_t)w) > 0) hi = mid; else lo = mid + 1; }
+                                            if (lo < cap_rows) { int keep = rows < cap_rows ? rows : cap_rows - 1; memmove(r_report + (size_t)(lo + 1) * w, r_report + (size_t)lo * w, (size_t)(keep - lo) * w); memcpy(r_report + (size_t)lo * w, ln, (size_t)w); if (rows < cap_rows) r_report_len += w; }
                                         }
                                     }
                                 }
@@ -46515,7 +46516,7 @@ int main(int argc, char *argv[]) {
 
             printf("    KW complement distance (x64): %d  (= %.4f per hex)\n",
                    kw_comp_dist_x64, kw_comp_dist_x64 / 64.0);
-            printf("    KW percentile within C1-C5 dataset: %.2f%%\n", kw_pct);
+            printf("    Share of records with cd <= KW's cd (at-or-below CDF, not a null percentile): %.2f%%\n", kw_pct);
             printf("    NOTE: KW at %.0f%% is tautological — C3 enforces cd <= %d.\n",
                    kw_pct, kw_comp_dist_x64);
             printf("    The formerly-published '3.9th percentile' is WITHDRAWN (CORRECTIONS.md\n");
@@ -46699,20 +46700,20 @@ int main(int argc, char *argv[]) {
                 snprintf(ckpt_path, sizeof(ckpt_path), "checkpoint.txt");
             }
             printf("    Reading: %s\n", ckpt_path);
-            FILE *ckpt = fopen(ckpt_path, "r");
+            FILE *ckpt; { FILE *q623_ckpt_open(const char *); ckpt = q623_ckpt_open(ckpt_path); }  /* + checkpoint_t<N>.txt (V3A-134#9 sibling) */
             if (!ckpt) {
-                printf("    (checkpoint.txt not found — skipping)\n");
+                printf("    (no checkpoint.txt or checkpoint_t<N>.txt found — skipping)\n");
             } else {
-                /* Allocate per-sub-branch records: up to 3030+; use 4096 cap */
+                /* One row per checkpoint cell: 3030 at depth 2, 158,364 at depth 3; grown on demand (V3A-134#9) */
                 #define MAX_SUB 4096
                 typedef struct {
-                    int p1, o1, p2, o2;
+                    int p1, o1, p2, o2, p3, o3;   /* p3 = o3 = -1 on a depth-2 row */
                     long long nodes, c3, sols;
                     int elapsed;
                     /* Status codes: 0 = INTERRUPTED, 1 = BUDGETED, 2 = EXHAUSTED/COMPLETE */
                     int status_code;
                 } SBEntry;
-                SBEntry *entries = calloc(MAX_SUB, sizeof(SBEntry));
+                int sb_cap = MAX_SUB, n_dup_lines = 0, n_bad_lines = 0; void q623_sec25_reset(void); int q623_sec25_slot(int, int, int, int, int, int, int); long long q623_sec25_d3_count(int, int, int, int, int, int); q623_sec25_reset(); SBEntry *entries = calloc(sb_cap, sizeof(SBEntry));
                 if (!entries) {
                     fprintf(stderr, "ERROR: calloc failed for entries (section 25)\n");
                     printf("    SKIPPED: section 25 (alloc failed)\n");
@@ -46738,20 +46739,20 @@ int main(int argc, char *argv[]) {
                     int p3v_tmp, o3v_tmp;
                     int depth3_match = sscanf(p, "Sub-branch %31s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): %lld nodes, %lld C3-valid, %d solutions, %ds elapsed",
                                status, &thr, &p1v, &o1v, &p2v, &o2v, &p3v_tmp, &o3v_tmp, &nv, &cv, &sv, &ev);
-                    if (depth3_match != 12) {
+                    if (depth3_match != 12) { p3v_tmp = -1; o3v_tmp = -1;
                         if (sscanf(p, "Sub-branch %31s (thread %d, pair1 %d orient1 %d pair2 %d orient2 %d): %lld nodes, %lld C3-valid, %d solutions, %ds elapsed",
                                    status, &thr, &p1v, &o1v, &p2v, &o2v, &nv, &cv, &sv, &ev) != 10)
                             continue;
                     }
-                    if (n_entries >= MAX_SUB) continue;
-                    SBEntry *e = &entries[n_entries++];
-                    e->p1 = p1v; e->o1 = o1v; e->p2 = p2v; e->o2 = o2v;
+                    int slot = q623_sec25_slot(p1v, o1v, p2v, o2v, p3v_tmp, o3v_tmp, n_entries); if (slot < 0) { n_bad_lines++; continue; } if (slot == n_entries && n_entries >= sb_cap) { SBEntry *g = realloc(entries, (size_t)(sb_cap * 2) * sizeof(SBEntry)); if (!g) { fprintf(stderr, "ERROR: realloc failed for entries (section 25)\n"); printf("    SKIPPED: section 25 (alloc failed)\n"); free(entries); fclose(ckpt); goto skip_section25; } entries = g; sb_cap *= 2; }
+                    SBEntry *e = &entries[slot]; if (slot == n_entries) n_entries++; else { n_dup_lines++; tot_nodes -= e->nodes; tot_sols -= e->sols; if (e->status_code == 2) n_exhausted--; else if (e->status_code == 1) n_budgeted--; else n_interrupted--; }
+                    e->p1 = p1v; e->o1 = o1v; e->p2 = p2v; e->o2 = o2v; e->p3 = p3v_tmp; e->o3 = o3v_tmp;
                     e->nodes = nv; e->c3 = cv;
-                    /* Override checkpoint's solution count with the actual count
-                     * from solutions.bin — checkpoint.txt's value was always 0 in
-                     * pre-2026-04-16 runs (flush_sub_solutions zeroed solution_count
-                     * before the line was written; fixed in hardening pass). */
-                    e->sols = sub_solution_count[p1v][o1v][p2v][o2v];
+                    /* Solutions = solutions.bin records binned by THIS row's cell: the d3 bin for a
+                     * depth-3 row, never the d2 aggregate of its prefix (V3A-134#9). checkpoint.txt's
+                     * own field was 0 in pre-2026-04-16 runs and since then is the count written
+                     * before the flush, which need not equal the cell's records in solutions.bin. */
+                    e->sols = (p3v_tmp >= 0) ? q623_sec25_d3_count(p1v, o1v, p2v, o2v, p3v_tmp, o3v_tmp) : sub_solution_count[p1v][o1v][p2v][o2v];
                     e->elapsed = ev;
                     if (strncmp(status, "EXHAUSTED", 9) == 0 || strncmp(status, "COMPLETE", 8) == 0) {
                         e->status_code = 2; n_exhausted++;
@@ -46765,12 +46766,12 @@ int main(int argc, char *argv[]) {
                 fclose(ckpt);
 
                 printf("    Total entries: %d (EXHAUSTED/COMPLETE: %d, BUDGETED: %d, INTERRUPTED: %d)\n",
-                       n_entries, n_exhausted, n_budgeted, n_interrupted);
+                       n_entries, n_exhausted, n_budgeted, n_interrupted); printf("    (one row per cell: %d later line(s) replaced an earlier line for the same cell; %d line(s) with an out-of-range index skipped)\n", n_dup_lines, n_bad_lines);
                 printf("    Total nodes across all sub-branches: %lld\n", tot_nodes);
-                printf("    Total solutions (from solutions.bin binning): %lld\n", tot_sols);
-                printf("    (NOTE: checkpoint.txt's solutions field is always 0 —\n");
-                printf("     flush_sub_solutions zeroes ts->solution_count before the\n");
-                printf("     checkpoint line is written. We use solutions.bin binning instead.)\n");
+                printf("    Total solutions (solutions.bin records binned by each row's cell): %lld of %lld records\n", tot_sols, n_sols);
+                printf("    (NOTE: the solutions column is solutions.bin records binned by cell, not\n");
+                printf("     checkpoint.txt's solutions field: that field was 0 before 2026-04-16 and\n");
+                printf("     since then is the count written before the flush.)\n");
 
                 /* Yield distribution */
                 long long y0 = 0, y_small = 0, y_mid = 0, y_high = 0;
@@ -46790,9 +46791,9 @@ int main(int argc, char *argv[]) {
                 printf("      1,000 to 99,999:          %lld\n", y_mid);
                 printf("      100,000+:                 %lld\n", y_high);
                 if (max_sb >= 0) {
-                    printf("    Highest-yield sub-branch: (p1=%d, o1=%d, p2=%d, o2=%d) with %lld solutions\n",
+                    printf("    Highest-yield sub-branch: (p1=%d, o1=%d, p2=%d, o2=%d, p3=%d, o3=%d) with %lld solutions (p3=o3=-1: depth-2 row)\n",
                            entries[max_sb].p1, entries[max_sb].o1,
-                           entries[max_sb].p2, entries[max_sb].o2,
+                           entries[max_sb].p2, entries[max_sb].o2, entries[max_sb].p3, entries[max_sb].o3,
                            max_yield);
                 }
 
@@ -46822,14 +46823,14 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 printf("    Top %d highest-yield sub-branches:\n", topN);
-                printf("      rank  (p1,o1,p2,o2)         nodes       solutions   status\n");
+                printf("      rank  (p1,o1,p2,o2,p3,o3)   nodes       solutions   status\n");
                 for (int k = 0; k < topN && top_idx[k] >= 0; k++) {
                     SBEntry *e = &entries[top_idx[k]];
                     const char *st = (e->status_code == 2) ? "EXHAUSTED"
                                    : (e->status_code == 1) ? "BUDGETED"
                                    : "INTERRUPTED";
-                    printf("      %4d  (%2d,%d,%2d,%d)   %13lld   %10lld   %s\n",
-                           k + 1, e->p1, e->o1, e->p2, e->o2,
+                    printf("      %4d  (%2d,%d,%2d,%d,%2d,%2d)   %13lld   %10lld   %s\n",
+                           k + 1, e->p1, e->o1, e->p2, e->o2, e->p3, e->o3,
                            e->nodes, e->sols, st);
                 }
 
@@ -46904,9 +46905,9 @@ int main(int argc, char *argv[]) {
             } else {
                 snprintf(ckpt_path, sizeof(ckpt_path), "checkpoint.txt");
             }
-            FILE *ckpt = fopen(ckpt_path, "r");
+            FILE *ckpt; { FILE *q623_ckpt_open(const char *); ckpt = q623_ckpt_open(ckpt_path); }  /* + checkpoint_t<N>.txt (V3A-134#9 sibling) */
             if (!ckpt) {
-                printf("    (checkpoint.txt not found — skipping)\n");
+                printf("    (no checkpoint.txt or checkpoint_t<N>.txt found — skipping)\n");
             } else {
                 /* Counts for 3-way taxonomy plus legacy COMPLETE */
                 int n_exhausted = 0, n_budgeted = 0, n_interrupted = 0, n_other = 0;
@@ -48227,7 +48228,7 @@ int main(int argc, char *argv[]) {
             if (per_sub_branch_override > 0)
                 current_per_branch_budget = per_sub_branch_override;
             else if (node_limit > 0)
-                current_per_branch_budget = node_limit / 3030;
+                { int q623_branch_partition(const int *, const int *, int); int nt = q623_branch_partition(budget_prefix, used_prefix, seq_prefix[3]); current_per_branch_budget = node_limit / (nt > 0 ? nt : 1); }  /* V3A-134#8: the allocator's divisor (this branch's partition), not 3030 */
             load_sub_checkpoint();
             if (n_completed_subs > 0) {
                 printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
@@ -48416,7 +48417,7 @@ sub_enum_done:
         printf("Sub-branches for pair %d orient %d: %d remaining", sb_pair, sb_orient, n_sub);
         if (n_skipped > 0) printf(" (%d completed from checkpoint)", n_skipped);
         printf("\n");
-        total_branches = n_sub + n_skipped;
+        total_branches = n_sub + n_skipped; { extern int q623_partition_total; if (q623_partition_total >= 0 && q623_partition_total != total_branches) { fprintf(stderr, "FATAL (V3A-134#8): the resume gate's partition count %d != the %d sub-branches enumerated\n", q623_partition_total, total_branches); return 10; } }
 
         /* Per-branch node limit.
          *
@@ -48772,7 +48773,7 @@ sub_enum_done:
                 }
                 fprintf(stderr,
                     "[tier2] complete: %d chunks written, %lld total records flushed.\n"
-                    "[tier2] NEXT STEP: run `./solve --merge sub_flush_chunk_*.bin` to\n"
+                    "[tier2] NEXT STEP: in this directory run `./solve --merge` (NO arguments; it merges every sub_*.bin here) to\n"
                     "[tier2] produce the final dedup'd solutions.bin. Skipping in-line\n"
                     "[tier2] write because workers[0] contains only post-last-flush data.\n",
                     tier2_total_chunks_written, tier2_total_records_flushed);
@@ -49087,7 +49088,7 @@ sub_enum_done:
         long long total_hash_drops = 0;
         long long total_stored = 0;
         int branches_done = 0;
-        ClosestEntry all_top[64 * TOP_N];
+        ClosestEntry all_top[256 * TOP_N];  /* Q-619 #6: was 64*TOP_N while n_threads clamps at 256 */
         int all_top_count = 0;
 
         for (int i = 0; i < n_threads; i++) {
@@ -49112,7 +49113,7 @@ sub_enum_done:
                     pair_freq_m[j][k] += threads[i].pair_freq[j][k];
                 super_match[j] += threads[i].super_pair_match[j];
             }
-            for (int j = 0; j < threads[i].top_count; j++)
+            for (int j = 0; j < threads[i].top_count && all_top_count < (int)(sizeof(all_top) / sizeof(all_top[0])); j++)
                 all_top[all_top_count++] = threads[i].top_closest[j];
         }
 
@@ -49208,8 +49209,8 @@ sub_enum_done:
         {
             long long expected = (long long)SOL_HEADER_SIZE + (long long)unique_count * SOL_RECORD_SIZE;
             long long actual_logical = gz_logical_size(bin_name);
-            if (actual_logical != expected) {
-                fprintf(stderr, "ERROR: post-write logical-size mismatch on %s: got %lld, expected %lld\n",
+            if (!gz_framing_matches(file_is_gzip(bin_name), actual_logical, expected)) {  /* Q-619 #1 sibling: was `!= expected`; gz_test() below inflates it all */
+                fprintf(stderr, "ERROR: post-write logical-size mismatch on %s: got %lld, expected %lld (gz ISIZE is mod 2^32)\n",
                         bin_name, actual_logical, expected);
                 free(all_solutions);
                 return 30;
@@ -49412,16 +49413,16 @@ sub_enum_done:
 
     /* Resume from checkpoint — first set the expected per-branch budget so
      * BUDGETED entries can be skipped only when the stored budget >= current.
-     * Use 3030 as the canonical denominator (standard 3030-sub-branch mode);
-     * this is the expected total_branches before checkpoint skipping.
-     * Approximation error is irrelevant: the budget-aware resume just needs
-     * a rough threshold, not an exact match. SOLVE_PER_SUB_BRANCH_LIMIT
+     * The divisor is the partition's exact size (3030 at depth 2, 158,364 at
+     * depth 3), the one the allocator divides by; checkpoint lines record that budget.
+     * Until V3A-134#8 (2026-09-26) it was 3030 at every depth, so a d3 BUDGETED line never
+     * matched and skipping rested on orphan promotion alone. SOLVE_PER_SUB_BRANCH_LIMIT
      * takes precedence — it sets the per-sub-branch budget directly,
      * regardless of node_limit. */
     if (per_sub_branch_override > 0)
         current_per_branch_budget = per_sub_branch_override;
     else if (node_limit > 0)
-        current_per_branch_budget = node_limit / 3030;
+        { int q623_main_partition(int); int nt = q623_main_partition(start_pair); current_per_branch_budget = node_limit / (nt > 0 ? nt : 1); }  /* V3A-134#8: the allocator's divisor, not 3030 */
     /* Hardening audit 2026-05-25/26 — pre-flight gates BEFORE any shard-file
      * I/O. Order: disk-space (fail-fast on insufficient storage) -> auto-
      * selftest (smoke test: binary produces canonical sha) -> binary-
@@ -49566,7 +49567,7 @@ sub_enum_done:
         }
     }
 
-    total_branches = n_all_subs + n_skipped_subs;
+    total_branches = n_all_subs + n_skipped_subs; { extern int q623_partition_total; if (q623_partition_total >= 0 && q623_partition_total != total_branches) { fprintf(stderr, "FATAL (V3A-134#8): the resume gate's partition count %d != the %d sub-branches enumerated\n", q623_partition_total, total_branches); return 10; } }
     printf("Sub-branches: %d remaining", n_all_subs);
     if (n_skipped_subs > 0) printf(" (%d completed from checkpoint)", n_skipped_subs);
     printf(" of %d total\n", total_branches);
@@ -49824,7 +49825,7 @@ sub_enum_done:
             super_match[j] += threads[i].super_pair_match[j];
         }
 
-        for (int j = 0; j < threads[i].top_count; j++)
+        for (int j = 0; j < threads[i].top_count && all_top_count < (int)(sizeof(all_top) / sizeof(all_top[0])); j++)
             all_top[all_top_count++] = threads[i].top_closest[j];
     }
 
@@ -50584,7 +50585,7 @@ sub_enum_done:
     return 0;
 }
 
-/* Q-825 (2026-09-25). `--branch` and single-threaded `--sub-branch` write a per-branch
+/* Q-825 / V3A-134#7 (2026-09-25). `--branch` and single-threaded `--sub-branch` write a per-branch
  * solutions_<p1>_<o1>.bin from the threads' in-memory tables, but every sub-branch flush
  * (flush_sub_solutions[_d3]) CLEARS those tables, so that file was always written with 0 records
  * and the report said "Unique pair orderings: 0" while the shards held the solutions. This appends
@@ -50628,6 +50629,175 @@ int q825_load_branch_shards(int one_sub, int p1, int o1, int p2, int o2, int p3,
     return 0;
 }
 
+/* V3A-134#8 / Q-623 (2026-09-26). The BUDGETED-resume gate compares a checkpoint line's stored
+ * budget with current_per_branch_budget, and the line stores per_branch_node_limit, which the
+ * allocator sets to node_limit / (the partition's size). The gate used node_limit / 3030 at every
+ * depth and in --branch too, so the two only agreed for a depth-2 full enumeration: a depth-2
+ * --branch run (54 or 55 cells) under SOLVE_NODE_LIMIT alone skipped every cell on a resume with
+ * up to about 56 times the budget, and a depth-3 full enumeration rejected every BUDGETED line.
+ * These count the partition exactly as the enumeration loops in main() build it (same pruning, in
+ * the same order), before the checkpoint loads; main() checks the count against the enumerated
+ * total and exits 10 if they differ, so a drift between this copy and the loops cannot pass
+ * silently. SOLVE_PER_SUB_BRANCH_LIMIT still sets both variables to one value, as every canonical
+ * recipe does. Sha-neutral: the budget a shard is walked at is per_branch_node_limit, unchanged. */
+int q623_partition_total = -1;
+static int q623_count_levels(int levels, const int *budget, const int *used, int last) {
+    if (levels == 0) return 1;
+    int n = 0;
+    for (int p = 0; p < 32; p++) {
+        if (used[p]) continue;
+        for (int o = 0; o < 2; o++) {
+            int f = o ? pairs[p].b : pairs[p].a;
+            int s = o ? pairs[p].a : pairs[p].b;
+            int bd = hamming(last, f);
+            if (bd == 5 || budget[bd] <= 0) continue;
+            int b2[7];
+            memcpy(b2, budget, sizeof(b2));
+            b2[bd]--;
+            int wd = hamming(f, s);
+            if (b2[wd] <= 0) continue;
+            b2[wd]--;
+            int u2[32];
+            memcpy(u2, used, sizeof(u2));
+            u2[p] = 1;
+            n += q623_count_levels(levels - 1, b2, u2, s);
+        }
+    }
+    return n;
+}
+/* --branch: the prefix already holds pair 0 and the branch's own pair; solve_depth - 1 levels remain. */
+int q623_branch_partition(const int *budget_prefix, const int *used_prefix, int last_hex) {
+    q623_partition_total = q623_count_levels(solve_depth - 1, budget_prefix, used_prefix, last_hex);
+    return q623_partition_total;
+}
+/* Full enumeration: pair 0 is (63, 0), so the walk continues from hexagram 0 with pair 0's
+ * within-pair distance already spent; solve_depth levels remain. */
+int q623_main_partition(int start_pair) {
+    int budget[7], used[32];
+    memcpy(budget, kw_dist, sizeof(budget));
+    budget[hamming(63, 0)]--;
+    memset(used, 0, sizeof(used));
+    used[start_pair] = 1;
+    q623_partition_total = q623_count_levels(solve_depth, budget, used, 0);
+    return q623_partition_total;
+}
+
+/* V3A-134#9 / Q-623 (2026-09-26). `--analyze` section [25] kept at most 4096 checkpoint lines
+ * (a depth-3 run has 158,364 cells), dropped pair3/orient3, gave every depth-3 row the solutions
+ * of its whole depth-2 prefix, and counted a cell once per checkpoint line (a resumed cell has
+ * several). On runs/20260418_10T_d3_fresh it listed 4096 of 158,364 cells whose solutions summed
+ * to 151% of the file's records. Rows are now keyed by cell (the later line wins), a depth-3 row
+ * takes its own depth-3 bin, and an index outside the pair table is skipped and counted, never
+ * used as an array index. Section [25] only; --analyze's other sections are unchanged. */
+static int *q623_sec25_idx = NULL;                 /* cell key -> row, or -1 */
+static long long *q623_sec25_d3 = NULL;            /* records per depth-3 cell */
+#define Q623_SEC25_KEYS (32 * 2 * 32 * 2 * 33 * 2)
+static int q623_sec25_key(int p1, int o1, int p2, int o2, int p3, int o3) {
+    if (p1 < 0 || p1 >= 32 || p2 < 0 || p2 >= 32 || (o1 & ~1) || (o2 & ~1)) return -1;
+    if (!((p3 == -1 && o3 == -1) || (p3 >= 0 && p3 < 32 && !(o3 & ~1)))) return -1;
+    return ((((p1 * 2 + o1) * 32 + p2) * 2 + o2) * 33 + (p3 + 1)) * 2 + (o3 < 0 ? 0 : o3);
+}
+void q623_sec25_reset(void) {
+    if (!q623_sec25_idx) q623_sec25_idx = malloc(sizeof(int) * Q623_SEC25_KEYS);
+    if (q623_sec25_idx) memset(q623_sec25_idx, 0xff, sizeof(int) * Q623_SEC25_KEYS);
+}
+/* The row for this cell: an existing one, else next_row (recorded). -1 = index out of range
+ * (or no memory, reported). */
+int q623_sec25_slot(int p1, int o1, int p2, int o2, int p3, int o3, int next_row) {
+    int k = q623_sec25_key(p1, o1, p2, o2, p3, o3);
+    if (k < 0) return -1;
+    if (!q623_sec25_idx) { fprintf(stderr, "ERROR: section 25 cell index not allocated\n"); return -1; }
+    if (q623_sec25_idx[k] < 0) q623_sec25_idx[k] = next_row;
+    return q623_sec25_idx[k];
+}
+void q623_sec25_bin_d3(const unsigned char *rec) {
+    if (!q623_sec25_d3) {
+        q623_sec25_d3 = calloc(Q623_SEC25_KEYS, sizeof(long long));
+        if (!q623_sec25_d3) return;   /* the counts then read as 0; q623_sec25_d3_count says so */
+    }
+    int k = q623_sec25_key(rec[1] >> 2, (rec[1] >> 1) & 1, rec[2] >> 2, (rec[2] >> 1) & 1,
+                           rec[3] >> 2, (rec[3] >> 1) & 1);
+    if (k >= 0) q623_sec25_d3[k]++;
+}
+long long q623_sec25_d3_count(int p1, int o1, int p2, int o2, int p3, int o3) {
+    int k = q623_sec25_key(p1, o1, p2, o2, p3, o3);
+    if (!q623_sec25_d3) { fprintf(stderr, "ERROR: section 25 depth-3 bins not allocated; row counts are 0\n"); return 0; }
+    return k >= 0 ? q623_sec25_d3[k] : 0;
+}
+
+/* V3A-134#9 sibling (2026-09-26). --analyze sections [25] and [27] read only the checkpoint.txt
+ * beside the input file. Since task #106 each worker writes its lines to its own
+ * checkpoint_t<N>.txt, and checkpoint.txt holds only the lines promote_orphaned_shards writes at
+ * startup, so on a current full enumeration both sections saw none of the workers' lines. Section
+ * [25]'s parser also skipped the promoted lines, "(thread -1 [v3.1 promoted], ...", and the parallel
+ * --sub-branch lines, "(parallel, ...". This returns one stream of checkpoint.txt followed by every
+ * checkpoint_t<N>.txt in that directory in ascending N, as load_sub_checkpoint() reads them, with
+ * those two prefixes rewritten to "(thread -1, ". NULL if no file was found. Section [25] keeps the
+ * later line for a cell, so a cell recorded in two files takes the one from the later file. */
+static int q623_cmp_int(const void *a, const void *b) {
+    int x = *(const int *)a, y = *(const int *)b;
+    return (x > y) - (x < y);
+}
+static int q623_ckpt_append(FILE *out, const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    char line[1024];
+    static const char *const from[2] = { "(thread -1 [v3.1 promoted], ", "(parallel, " };
+    while (fgets(line, sizeof(line), f)) {
+        for (int k = 0; k < 2; k++) {
+            char *m = strstr(line, from[k]);
+            if (!m) continue;
+            const char *to = "(thread -1, ";
+            size_t fl = strlen(from[k]), tl = strlen(to);
+            memmove(m + tl, m + fl, strlen(m + fl) + 1);
+            memcpy(m, to, tl);
+        }
+        fputs(line, out);
+    }
+    fclose(f);
+    return 1;
+}
+FILE *q623_ckpt_open(const char *ckpt_path) {
+    char dir[1024];
+    const char *slash = strrchr(ckpt_path, '/');
+    if (slash) snprintf(dir, sizeof(dir), "%.*s", (int)(slash - ckpt_path), ckpt_path);
+    else snprintf(dir, sizeof(dir), ".");
+    FILE *out = tmpfile();
+    if (!out) { fprintf(stderr, "WARNING: tmpfile() failed; reading %s only\n", ckpt_path); return fopen(ckpt_path, "r"); }
+    int n_files = q623_ckpt_append(out, ckpt_path);
+    int *ids = NULL, n_ids = 0, cap = 0;
+    DIR *d = opendir(dir);
+    struct dirent *de;
+    while (d && (de = readdir(d)) != NULL) {
+        const char *n = de->d_name;
+        size_t len = strlen(n);
+        if (len < 17 || strncmp(n, "checkpoint_t", 12) != 0 || strcmp(n + len - 4, ".txt") != 0) continue;
+        int ok = 1;
+        for (size_t i = 12; i < len - 4; i++) if (n[i] < '0' || n[i] > '9') { ok = 0; break; }
+        if (!ok || len - 16 > 9) continue;
+        if (n_ids == cap) {
+            int *g = realloc(ids, sizeof(int) * (size_t)(cap = cap ? cap * 2 : 64));
+            if (!g) { fprintf(stderr, "ERROR: realloc failed listing checkpoint_t*.txt\n"); break; }
+            ids = g;
+        }
+        ids[n_ids++] = atoi(n + 12);
+    }
+    if (d) closedir(d);
+    qsort(ids, (size_t)n_ids, sizeof(int), q623_cmp_int);
+    int n_thread = 0;
+    for (int i = 0; i < n_ids; i++) {
+        char path[1100];
+        snprintf(path, sizeof(path), "%s/checkpoint_t%d.txt", dir, ids[i]);
+        n_thread += q623_ckpt_append(out, path);
+    }
+    free(ids);
+    if (n_files + n_thread == 0) { fclose(out); return NULL; }
+    printf("    Read: %s%s and %d per-thread checkpoint_t<N>.txt file(s)\n",
+           ckpt_path, n_files ? "" : " (absent)", n_thread);
+    rewind(out);
+    return out;
+}
+
 /* 🔴 Q-520 — pair-index bounds for every reader of the 32-byte solution record that did not
  * already check it. A record byte is (pair_index<<2)|(orient<<1), so byte>>2 is SIX bits, 0..63,
  * and it indexes the 32-entry pairs[] table: any byte with bit 7 set reads past the end of it.
@@ -50658,4 +50828,338 @@ static int sol_pidx_scan(const unsigned char *buf, long long n, long long first,
         return 1;
     }
     return 0;
+}
+
+/* 🔴 Q-553 (2026-09-26) — the KC artifact close, made DURABLE. kc_h_close_artifact (the one close
+ * every KC writer routes through) used to be ferror + fclose, so rc 0 proved only that the bytes
+ * had reached the page cache. The chunk writer's caller renames CHUNK.part onto CHUNK the moment
+ * rc is 0, so a host power loss after that rename could publish a short chunk under its final
+ * name. The other durable writers in this file (f1_write_layer, f1c5_write_layer_as, the build
+ * checkpoints) all do fflush + fsync + rename + directory fsync; the KC artifacts did none of it.
+ * Now a regular-file artifact is fflush'd and fsync'd BEFORE the close and its directory is
+ * fsync'd after it, so the bytes and the name are on disk before rc 0 is returned. A failed fsync
+ * is a failed artifact, reported and unlinked exactly like a short write. A non-regular
+ * destination (/dev/full, /dev/stdout, a pipe) is not fsync'd: there is no file to make durable,
+ * and fsync on it is EINVAL. EINVAL from the DIRECTORY fsync means the filesystem does not support
+ * it and is not a failure. The body lives here, after the last function, so that no line of this
+ * file above it moved (line citations into solve.c stay valid). */
+static int kc_h_fsync_parent_dir(const char *path) {
+    char dir[4608];
+    const char *sl = strrchr(path, '/');
+    if (!sl) snprintf(dir, sizeof(dir), ".");
+    else if (sl == path) snprintf(dir, sizeof(dir), "/");
+    else snprintf(dir, sizeof(dir), "%.*s", (int)(sl - path), path);
+    const int dfd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dfd < 0) return -1;
+    int rc = fsync(dfd);
+    if (rc != 0 && errno == EINVAL) rc = 0;
+    const int e = errno;
+    close(dfd);
+    errno = e;
+    return rc;
+}
+static int kc_h_close_durable(FILE *f, const char *path, const char *tag) {
+    int bad = ferror(f), reg = 0;
+    const char *what = "write to";
+    struct stat st;
+    if (!bad && fflush(f) != 0) bad = 1;
+    if (!bad && fstat(fileno(f), &st) == 0 && S_ISREG(st.st_mode)) {
+        reg = 1;
+        if (fsync(fileno(f)) != 0) { bad = 1; what = "fsync of"; }
+    }
+    int e = errno;
+    if (fclose(f) != 0 && !bad) { bad = 1; e = errno; }
+    if (!bad && reg && kc_h_fsync_parent_dir(path) != 0) {
+        bad = 1; what = "fsync of the directory holding"; e = errno;
+    }
+    if (!bad) return 0;
+    fprintf(stderr, "ERROR: [%s] %s %s failed: %s\n", tag, what, path, strerror(e));
+    kc_h_unlink_regular(path);
+    return -1;
+}
+
+/* 🔴 Q-563 (2026-09-26) — kc_h_scan_layers asks for num_threads(nth), and that is a REQUEST.
+ * The work list is shared through `omp for`, so a smaller grant still covers every unit and the
+ * table stays exact; the cost is wall, silently: OMP_THREAD_LIMIT or OMP_DYNAMIC can halve the
+ * team on a multi-day run and the only symptom is a slower chunk, indistinguishable from a high
+ * miss rate. `granted` was recorded and printed (KC_SCAN_LAYER_STAT) and compared with nothing.
+ * The --analyze enumerators refuse a short grant through F1_ASSERT_THREADS, which exits; the
+ * scan refuses it through its own failure path instead (rc -1 -> the caller's KC_SCAN=FAIL or
+ * KC_SCAN_CHUNK=FAIL and a nonzero exit, and no chunk left on disk). Returns 1 = refuse. */
+static int kc_h_scan_grant_refused(int granted, int nth, int k) {
+    if (granted == nth) return 0;
+    fprintf(stderr, "ERROR: [kc-scan] OpenMP granted %d of %d requested threads at layer %02d "
+            "(KC_SCAN_THREADS_GRANTED=%d/%d). The table would still be exact, but the run would "
+            "be silently slower than it was sized for; refusing. Unset OMP_THREAD_LIMIT / "
+            "OMP_DYNAMIC, or lower --kc-scan-threads.\n", granted, nth, k, granted, nth);
+    return 1;
+}
+
+/* 🔴 Q-42 (c) (2026-09-26) — the --kc-scan-selftest t-units gate. It used to be
+ * `T.t_done == 1`, which is true whenever N fits the small-n size test -- always, at n=9 -- so it
+ * attested that the t-units were COMPUTED and nothing about their values: a wrong t(root), a
+ * skipped branch or a miscounted leaf all printed PASS. It now checks the values against the
+ * exhaustive walk enumerator kc_brute, which touches no ladder and no scan table:
+ *   t(root)            == the number of valid prefixes kc_brute visits, the root included;
+ *   t(root)            == 1 + the sum of the branch prefix counts;
+ *   leaves(branch b)   == the number of brute walks whose first placement is b.
+ * t_done == 1 is kept as the precondition, not as the verdict. Returns 1 = PASS. */
+static int kc_h_selftest_tunits_ok(const KC *fkc, const KcScanTab *T) {
+    if (T->t_done != 1 || T->nbranch < 1) return 0;
+    KcList BR;
+    kc_brute(fkc, &BR);
+    const int n = fkc->n;
+    int ok = BR.nodes > 1 && T->t_root == BR.nodes;
+    uint64_t bsum = 1, lsum = 0;
+    for (int bi = 0; bi < T->nbranch; bi++) {
+        uint64_t walks = 0;
+        for (uint64_t i = 0; i < BR.cnt; i++) {
+            const uint8_t e0 = BR.walks[i * (size_t)n];
+            if (T->br[bi].gpair == fkc->c.pl[fkc->pair_of_sub[e0]] && T->br[bi].exitx == (int)e0)
+                walks++;
+        }
+        ok = ok && T->br[bi].leaves == walks;
+        bsum += T->br[bi].prefixes;
+        lsum += walks;
+    }
+    ok = ok && bsum == T->t_root && lsum == BR.cnt;
+    free(BR.walks);
+    free(BR.cds);
+    return ok;
+}
+
+/* Q-619 #1 / Q-641 (2026-09-26). Does a gz_logical_size() result `observed` agree with an expected
+ * logical size `want`? For gz the ISIZE trailer holds the size MODULO 2^32, so compare modulo 2^32;
+ * raw files report their true size, so compare exactly. A mod-2^32 match is NECESSARY, not
+ * sufficient: the caller must also prove exactness another way (verify_stream_ends_here, gz_test). */
+static int gz_framing_matches(int is_gz, long long observed, long long want) {
+    if (observed < 0 || want < 0) return 0;
+    if (!is_gz) return observed == want;
+    return (uint64_t)observed == ((uint64_t)want & 0xFFFFFFFFULL);
+}
+
+/* Q-619 #1 / Q-641: the exact half of --verify's framing test. The pre-loop check is only mod 2^32
+ * for gz, and a gz shard's record count is DERIVED from that ISIZE, so a file carrying 4 GiB more
+ * than declared would otherwise have its surplus never examined. The stream must end right after
+ * the declared records; reading past the last one also makes zlib check the CRC-32 + ISIZE
+ * trailer, which the record loop alone never reaches on a large file. Returns 0 at a clean end;
+ * otherwise reports, prints VERIFY=ERROR, closes vf and returns 1. */
+static int verify_stream_ends_here(gzFile vf, const char *path, long long n_records) {
+    unsigned char extra;
+    int xn = gzread(vf, &extra, 1);
+    if (xn == 0 && gzeof(vf)) return 0;
+    fprintf(stderr, "ERROR: %s framing mismatch — %s after the %lld declared record(s).\n"
+                    "       The declared count and the file disagree; no verdict is issued.\n",
+            path, xn > 0 ? "the file carries MORE data" : "the stream fails its gz trailer check",
+            n_records);
+    printf("VERIFY=ERROR\n");
+    gzclose(vf);
+    return 1;
+}
+
+/* Q-619 #4 (2026-09-26). check_build_sha_invariant() used to run "<tool> /proc/self/exe" through
+ * popen, and inside that child /proc/self/exe is the HASHING TOOL, so build.sha recorded the digest
+ * of sha256sum: identical for every solve build on a host, guarding nothing. A build.sha equal to
+ * that legacy value was written by a pre-fix binary and names no solve build, so it is reported and
+ * rewritten (return 1) rather than read as a mismatch; the guard is live from the next run. */
+static const char *build_sha_known_tool_digest(const char *prior);
+static int build_sha_is_legacy_tool_digest(const char *tool, const char *prior, const char *current) {
+    if (strlen(prior) != 64 || strcmp(prior, current) == 0) return 0;
+    char lcmd[256], legacy[80] = {0};
+    snprintf(lcmd, sizeof(lcmd), "%s /proc/self/exe 2>/dev/null", tool);
+    FILE *lp = popen(lcmd, "r");
+    if (!lp) return build_sha_known_tool_digest(prior) != NULL;
+    int ln = fscanf(lp, "%79s", legacy);
+    pclose(lp);
+    if (ln != 1 || strlen(legacy) != 64 || strcmp(prior, legacy) != 0) return build_sha_known_tool_digest(prior) != NULL;
+    fprintf(stderr, "[hardening] WARN: build.sha holds %s, the digest of the hashing tool's own executable\n"
+                    "           (written by a pre-Q-619 binary, which hashed the wrong executable), so it\n"
+                    "           identifies no solve build and cannot be checked. Rewriting it with this\n"
+                    "           binary's sha; the guard is live from the next run.\n", prior);
+    return 1;
+}
+
+/* Q-619 #4 follow-up (2026-09-26). The live check above recognises a legacy build.sha only when it
+ * equals the digest of the sha256sum installed NOW, so a run directory written before a coreutils
+ * upgrade (or on another host) was refused with exit 26 even though its build.sha names no build.
+ * This table holds the sha256 of /usr/bin/sha256sum from each Ubuntu coreutils package of the
+ * 8.32, 9.4 and 9.5 series (amd64 and arm64), recomputed from the published .deb files, and is
+ * consulted only when the live check misses (a shasum host hashes perl, so only the live check
+ * covers it). A match
+ * cannot hide a real mismatch: a solve binary whose digest equals a packaged sha256sum's would be
+ * a SHA-256 collision. A value not in the table and not the live tool's still exits 26. */
+static const char *build_sha_known_tool_digest(const char *prior) {
+    static const char *const known[][2] = {
+        {"5730f0e6112870ca638a21167e670502ef7fd0fffc2d438c0420e5ac63ac4c6e", "8.32-4.1ubuntu1 amd64"},
+        {"dd651bdf3c84d923d7384e8238cc7035c83ca20ff7f3c2e226bc978d7bcadb9e", "8.32-4.1ubuntu1 arm64"},
+        {"825cae03367cb130094a0ccfa4e1bab049a706038023ad4c7e5a0021045cb33d", "8.32-4.1ubuntu1.1 amd64"},
+        {"a70e8af12ad706f8009896d9bd9226ac04b9d881e6251bd20e9ad134db137912", "8.32-4.1ubuntu1.1 arm64"},
+        {"7645c8e76d75515ccb75c9086bdcf0d4071f2985f380f249253ead7d7c6810b3", "8.32-4.1ubuntu1.2 amd64"},
+        {"8a66772028f3ba221f7f702eefd59356a716fa4d3966cacf0c708ad3b3b168cb", "8.32-4.1ubuntu1.2 arm64"},
+        {"b88ea413571562a591268213d736121fada5ba14330bfcc74b8d9f14e4018ddf", "8.32-4.1ubuntu1.3 amd64"},
+        {"b78b14670985bbeb8675e15600389266b5c66c43e8522612c70cbda033228c9c", "8.32-4.1ubuntu1.3 arm64"},
+        {"987f2eaf8283237448e0d8a1599cb42412f2a687a75a74ebe1aca384bcfaba49", "9.4-2ubuntu1 amd64"},
+        {"5f47b4efc07a7d794f3acc5fe40435d89a8ea6052b86181b72326637ca9f5283", "9.4-2ubuntu1 arm64"},
+        {"52da6f11e954d6f0eaef105508c4054b02f14fdc6721b6d3bf222baa76429809", "9.4-2ubuntu2 amd64"},
+        {"aae3d44b84f821faa65ef4791d293637b50cadbcd048e21f98bece84871e0150", "9.4-2ubuntu2 arm64"},
+        {"b65371d0143f6e717d331912c1db4fda67fa703e624f65d6b9ec0e70f364f5df", "9.4-2ubuntu4 amd64"},
+        {"b2851d976fad47ac2ab99e4ad98a32e0a0e92151c17654a0e9c8f47f2ef30e9c", "9.4-2ubuntu4 arm64"},
+        {"1ab71d74f2ad2a8481567439c377cf86cd81dadc9d23f7658a6daff4c9bab1b9", "9.4-3ubuntu2 amd64"},
+        {"35bed60e7314912cd7bba2ff6637a9e2a9c54ef992959fe7cdccf00890371c30", "9.4-3ubuntu2 arm64"},
+        {"44ad7dd25693e8b340e9d8ee8ba872adea8d7ffdc1da6e514d51a40023e5140e", "9.4-3ubuntu3 amd64"},
+        {"003990210feef1411ae8444610ec8f3061e2bef420e1b313a5edb69a69fa1a80", "9.4-3ubuntu3 arm64"},
+        {"babd35df2dd5a542ca58e76323f57f4bee2edaa8390e67501d907d1b0d981415", "9.4-3ubuntu5 amd64"},
+        {"c72060bc4cfa0c4631df940182748128c17536c4ed3c5ec700a04287a5b3e1ed", "9.4-3ubuntu5 arm64"},
+        {"f293048f656688883ee919eb3f4b12926aaa13362de0eb6e3b5716b915b18b35", "9.4-3ubuntu6 amd64"},
+        {"ffb52ec22da029403b8e2a2ee4e07bc4f111f1ec3c6d8fac2f2b5788891dd825", "9.4-3ubuntu6 arm64"},
+        {"e484c36c0613879fbd11058f7a2e194783bced59d4805d64c3d4b0d7f664094d", "9.4-3ubuntu6.1 amd64"},
+        {"0d7b5c0cc4132d6a17b3a005f2949d0e2b16bbd7f43c35c9de251ef673742f19", "9.4-3ubuntu6.1 arm64"},
+        {"9992e1f1feb6f0f396bc8d6691ebc1adbfc269fd628bce84eda1d4ba5c3995c7", "9.4-3ubuntu6.2 amd64"},
+        {"f3d040161f5c29e4c7cd4e3d6bb513ce9a43b9d1bd06f456a6aab3d34d0f1e33", "9.4-3ubuntu6.2 arm64"},
+        {"4d2db56c867e5324e0084c9e897f6360d37517de77ac96f2bd31494223d69a60", "9.4-3ubuntu6.3 amd64"},
+        {"a077f232a92c082920430659ec57b49a388b3564c4f4f512698d9cbd6e7512a9", "9.4-3ubuntu6.3 arm64"},
+        {"5c56ad8c36cd741801eccbd14109eb3eccab9a4464d1a305129750758b46ecab", "9.5-1ubuntu1 amd64"},
+        {"b92817fdc43f532c9acffc7bcd0fc89d86d3ad9ebc61d258519b72cc83ed8e2c", "9.5-1ubuntu1 arm64"},
+    };
+    for (size_t i = 0; i < sizeof(known) / sizeof(known[0]); i++) {
+        if (strcmp(prior, known[i][0]) != 0) continue;
+        fprintf(stderr, "[hardening] WARN: build.sha holds %s, the digest of sha256sum from Ubuntu\n"
+                        "           coreutils %s (written by a pre-Q-619 binary, which hashed the tool,\n"
+                        "           not itself), so it identifies no solve build and cannot be checked.\n"
+                        "           Rewriting it with this binary's sha; the guard is live from the next\n"
+                        "           run. The provenance sidecars' git_hash names the build that wrote the data.\n",
+                prior, known[i][1]);
+        return known[i][1];
+    }
+    return NULL;
+}
+
+/* Q-840 (2026-09-26): sha256 of the binary PERFORMING the merge, for merge_invocation.merge_binary_sha256.
+ * That field used to copy build.sha from the merge directory, which names the binary of the last ENUM
+ * dispatch there (--merge never calls check_build_sha_invariant), not necessarily the merging binary;
+ * that value is still recorded, as merge_dir_build_sha256. Reuses kc_h_exe_sha(): /proc/self/exe opened
+ * in-process (the running inode, never the hashing tool's -- the Q-619 #4 trap) and streamed through
+ * sha256_tool(). "" when unavailable, the field's previous empty-on-missing convention. Sha-neutral. */
+static const char *merge_self_exe_sha256(void) {
+    const char *h = kc_h_exe_sha();
+    return kc_h_sha_wellformed(h) ? h : "";
+}
+
+/* 2026-09-26 (CX-165 follow-up). append_shard_provenance runs only in the per-sub-branch flush
+ * block, AFTER the shard's atomic rename, so a crash between that rename and the sidecar write
+ * leaves a .bin with no sidecar. promote_orphaned_shards then adopts the shard without re-walking
+ * it, so no sidecar was ever written and solutions.provenance.json's shard_count and
+ * shards_by_final_status undercounted -- a campaign that was evicted in that window reported
+ * fewer shards than an identical uninterrupted one, and --compare-provenance (shard_count is
+ * must-match) failed on two runs with identical solutions.bin.
+ *
+ * This writes a minimal sidecar ONLY when none exists (a shard that already has one -- the usual
+ * case, a crash after the sidecar write -- keeps its real history untouched). The one write
+ * record says what is known and nothing more: the budget from the .budget sidecar, the shard's
+ * logical record count, status and final_status "PROMOTED" (counted under OTHER, never passed off
+ * as EXHAUSTED or BUDGETED, which the shard alone cannot tell apart), and nodes 0 because the walk
+ * that produced it is not recorded anywhere. The writer identity (binary_sha256, git_hash,
+ * host_fingerprint) is deliberately ABSENT: the promoting process did not write this shard, and
+ * the aggregator skips absent keys. A later extension appends to this sidecar as to any other.
+ * Best-effort like append_shard_provenance: an IO failure warns and returns. */
+static void write_promoted_shard_provenance(const char *bin_fname,
+                                            int p1, int o1, int p2, int o2, int p3, int o3,
+                                            long long budget, long long records) {
+    if (budget <= 0) return;  /* same rule as append_shard_provenance */
+    char prov_path[160], tmp_path[160];
+    int n1 = snprintf(prov_path, sizeof(prov_path), "%s.provenance.json", bin_fname);
+    int n2 = snprintf(tmp_path, sizeof(tmp_path), "%s.provenance.json.tmp", bin_fname);
+    if (n1 < 0 || n2 < 0 || (size_t)n1 >= sizeof(prov_path) || (size_t)n2 >= sizeof(tmp_path)) return;
+    if (access(prov_path, F_OK) == 0) return;  /* the shard's real history exists: never touch it */
+    char tbuf[64];
+    time_t now = time(NULL); struct tm tm_b;
+    strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tm_b));
+    char sub_branch_json[128];
+    if (p3 >= 0)
+        snprintf(sub_branch_json, sizeof(sub_branch_json),
+                 "{\"p1\": %d, \"o1\": %d, \"p2\": %d, \"o2\": %d, \"p3\": %d, \"o3\": %d}",
+                 p1, o1, p2, o2, p3, o3);
+    else
+        snprintf(sub_branch_json, sizeof(sub_branch_json),
+                 "{\"p1\": %d, \"o1\": %d, \"p2\": %d, \"o2\": %d}", p1, o1, p2, o2);
+    FILE *fw = fopen(tmp_path, "w");
+    if (!fw) {
+        fprintf(stderr, "WARN: cannot open %s for write: %s\n", tmp_path, strerror(errno));
+        return;
+    }
+    fprintf(fw, "{\n");
+    fprintf(fw, "  \"schema_version\": 1,\n");
+    fprintf(fw, "  \"shard_filename\": \"%s\",\n", bin_fname);
+    fprintf(fw, "  \"sub_branch\": %s,\n", sub_branch_json);
+    fprintf(fw, "  \"writes\": [\n");
+    fprintf(fw, "    {\n"
+                "      \"write_utc\": \"%s\",\n"
+                "      \"per_sub_branch_limit\": %lld,\n"
+                "      \"nodes_explored_in_this_shard\": 0,\n"
+                "      \"records_emitted\": %lld,\n"
+                "      \"status\": \"PROMOTED\",\n"
+                "      \"promoted_orphan\": true,\n"
+                "      \"resume_history\": \"(orphan promoted at startup; the writing walk left no sidecar, so its identity and node count are unknown)\",\n"
+                "      \"extends_prior_budget\": null\n"
+                "    }\n", tbuf, budget, records);
+    fprintf(fw, "  ],\n");
+    fprintf(fw, "  \"final_status\": \"PROMOTED\",\n");
+    fprintf(fw, "  \"final_per_sub_branch_limit\": %lld,\n", budget);
+    fprintf(fw, "  \"cumulative_nodes_explored\": 0,\n");
+    fprintf(fw, "  \"cumulative_records_emitted\": %lld\n", records);
+    fprintf(fw, "}\n");
+    int bad = (fflush(fw) != 0 || maybe_fsync_fd(fileno(fw)) != 0);
+    if (fclose(fw) != 0) bad = 1;  /* always closed, even when the flush or fsync failed */
+    if (bad) {
+        fprintf(stderr, "WARN: provenance fwrite/fsync failed for %s: %s\n", tmp_path, strerror(errno));
+        unlink(tmp_path);
+        return;
+    }
+    if (rename(tmp_path, prov_path) != 0) {
+        fprintf(stderr, "WARN: provenance rename %s -> %s failed: %s\n", tmp_path, prov_path, strerror(errno));
+        unlink(tmp_path);
+    }
+}
+
+/* CX-163 follow-up (2026-09-26): the durability step of promote_orphaned_shards(), batched.
+ * Order, per batch: (1) fflush + fsync(checkpoint.txt), (2) fsync(".") once per call, so a
+ * checkpoint.txt created by this call has a durable directory entry, (3) only then set each
+ * queued shard's skip-list bit and unlink its .dfs_state. If (1) fails, NOTHING in the batch is
+ * marked or unlinked and 0 is returned: the next resume retries those shards (re-promotion or
+ * the LOAD path), exactly what a failed per-line fsync did before. A failed (2) only warns: a
+ * lost directory entry drops the lines, which re-promotion re-writes, and loses no data.
+ * ckpt == NULL (checkpoint.txt could not be opened) keeps the old behaviour: mark without a line.
+ * Returns the number of shards committed. Single-threaded (startup only). Sha-neutral. */
+static int promote_commit_batch(FILE *ckpt, int (*pend)[6], int npend, int *dir_synced) {
+    if (npend <= 0) return 0;
+    if (ckpt) {
+        if (fflush(ckpt) != 0 || fsync(fileno(ckpt)) != 0) {
+            fprintf(stderr, "WARN: promote_orphaned_shards: checkpoint.txt fsync failed (errno=%d); "
+                            "%d queued shard(s) NOT promoted, left for the next resume\n", errno, npend);
+            return 0;
+        }
+        if (!*dir_synced) {
+            int dfd = open(".", O_RDONLY | O_DIRECTORY);
+            if (dfd < 0 || fsync(dfd) != 0)
+                fprintf(stderr, "WARN: promote_orphaned_shards: directory fsync failed (errno=%d)\n", errno);
+            if (dfd >= 0) close(dfd);
+            *dir_synced = 1;
+        }
+    }
+    for (int i = 0; i < npend; i++) {
+        int p1 = pend[i][0], o1 = pend[i][1], p2 = pend[i][2], o2 = pend[i][3], p3 = pend[i][4], o3 = pend[i][5];
+        char dfsname[96];
+        if (p3 >= 0) {
+            int key = completed_sub_key_d3(p1, o1, p2, o2, p3, o3);
+            completed_sub_bitmap_d3[key >> 3] |= (unsigned char)(1 << (key & 7));
+            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d_%d_%d.dfs_state", p1, o1, p2, o2, p3, o3);
+        } else {
+            int key = completed_sub_key(p1, o1, p2, o2);
+            completed_sub_bitmap[key >> 3] |= (unsigned char)(1 << (key & 7));
+            snprintf(dfsname, sizeof(dfsname), "sub_%d_%d_%d_%d.dfs_state", p1, o1, p2, o2);
+        }
+        /* The sub-branch is now in the skip-list and will not be re-walked. */
+        unlink(dfsname);
+    }
+    return npend;
 }

@@ -3705,7 +3705,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     CORRECTED 2026-09-04, twice, because this docstring's own premises expired under it.
     (1) It said "solve.c has no --expect-kw; verify.py's flag is the only instrument that
     promotes absence to a failure". solve.c GAINED --expect-kw on 2026-09-04 (g_expect_kw,
-    folded into the verdict at solve.c:44073 for --verify and :44508 for --validate), so
+    folded into the verdict at solve.c:44074 for --verify and :44509 for --validate), so
     both instruments now answer the question and the tests below pin BOTH halves: the
     default is still reported-not-enforced, and --expect-kw makes absence fatal.
     (2) It said "solve.c is behind the MASTER GATE and is not edited". That gate is Q-77,
@@ -4614,7 +4614,7 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
             self.fail("solve.c did not build: " + self.build_err)
         # START A NEW SESSION AND KILL THE GROUP, NOT THE PID (Q-656, 2026-09-19).
         # --validate-canonical system()-launches a 1T enumeration at SOLVE_THREADS=128
-        # (solve.c:41281-41295) microseconds after the token this test reads, and solve.c
+        # (solve.c:41282-41296) microseconds after the token this test reads, and solve.c
         # calls no setsid/setpgid/setpgrp -- so pr.kill(), which signals the driver's PID
         # alone, left that enumeration running and reparented on a 2-core box. Measured
         # against a stub reproducing solve.c's stdout order: driver-only kill orphaned the
@@ -7702,7 +7702,7 @@ class TestAtlasProbe(unittest.TestCase):
         self.assertNotIn("ATLAS_PROBE_FAILS=0", lines, out)
 
     def test_a_broken_by_class_row_sum_is_caught_by_its_own_gate(self):
-        """Adversarial review 2026-09-21: move N units of class d2 from one layer to another,
+        """Adversarial review 2026-09-21: move 48 units of class d2 from one layer to another,
         choosing two layers whose reference-walk class is NOT d2.  The column sums (b0) and the
         kwrank bin identity are untouched, so every gate that existed before the review stays
         green -- the test asserts that, so the new row-sum gate is proven load-bearing rather
@@ -7712,12 +7712,12 @@ class TestAtlasProbe(unittest.TestCase):
         with open(self.atlas) as fh:
             a = json.load(fh)
         N = int(a["N_total"])
-        ks = [k for k, l in enumerate(a["layers"]) if int(l["kwrank"]["kw_cls"]) != 2]
+        ks = [k for k, l in enumerate(a["layers"]) if int(l["kwrank"]["kw_cls"]) != 2 and int(l["by_class"]["d2"]) >= 48]
         self.assertGreaterEqual(len(ks), 2, "need two layers whose kw_cls is not d2: %r" % ks)
-        for k, sgn in ((ks[0], 1), (ks[1], -1)):
+        for k, sgn in ((ks[0], 1), (ks[1], -1)):   # 48, not N: no n=9 cell holds N, and a negative cell is refused before any gate
             cell = a["layers"][k]["by_class"]
             old = cell["d2"]
-            cell["d2"] = (str if isinstance(old, str) else int)(int(old) + sgn * N)
+            cell["d2"] = (str if isinstance(old, str) else int)(int(old) + sgn * 48)
         mutant = os.path.join(self.tmp, "atlas9_rowsum.json")
         with open(mutant, "w") as fh:
             json.dump(a, fh)
@@ -8578,6 +8578,256 @@ class TestQ767Q3TokenGateAndChunkFailLine(unittest.TestCase):
                           and l != "KC_SCAN_CHUNK=OK"], out)
 
 
+class TestQ553Q563KcArtifactDurabilityAndThreadGrant(unittest.TestCase):
+    """Q-553 and Q-563, on real n=9 ladders built by solve.c.
+
+    Q-553: every KC artifact writer closed its file with fclose alone, so rc 0 meant "in the page
+    cache", and the driver renames CHUNK.part onto CHUNK on rc 0. kc_h_close_artifact now fflushes,
+    fsyncs the file and fsyncs its directory before returning 0. RED before: strace shows no fsync
+    of the destination, and an fsync forced to fail (strace fault injection) still printed
+    KC_SCAN_CHUNK=OK at rc 0 with the file left on disk.
+    Q-563: kc_h_scan_layers recorded the granted team size and compared it with nothing, so an
+    OMP_THREAD_LIMIT below --kc-scan-threads ran silently slower. RED before: rc 0, chunk written.
+    strace absent is a SKIP of the Q-553 legs only, stated in the skip reason; a build failure is
+    a test FAILURE."""
+
+    W = "1,32,16,2,8,4,55,59,62,31,47,61,45,18,51,12,33,30"   # an explicit n=9 walk
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = os.path.realpath(tempfile.mkdtemp(prefix="q553_"))
+        cls.sbin = os.path.join(cls.tmp, "solve_q553")
+        cls.fdir, cls.gdir, cls.tdir = (os.path.join(cls.tmp, x) for x in ("f", "g", "t"))
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        if not cls.build_ok:
+            return
+        for argv in ([cls.sbin, "--kc-build", cls.fdir, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-g-build", cls.gdir, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-t-build", cls.fdir, cls.tdir]):
+            r = subprocess.run(argv, capture_output=True, text=True)
+            if r.returncode != 0:
+                cls.build_ok = False
+                cls.build_err = "%s: rc %d\n%s" % (" ".join(argv[1:3]), r.returncode,
+                                                   r.stdout[-1500:])
+                return
+        # a 32-byte TEST container with count 0, as in scripts/kc_writer_devfull_gate.sh
+        cls.obin = os.path.join(cls.tmp, "oracle_empty.bin")
+        with open(cls.obin, "wb") as fh:
+            fh.write(b"ROAE" + struct.pack("<I", 0x7E570001) + b"\0" * 24)
+        cls.c0, cls.c1 = os.path.join(cls.tmp, "c0.json"), os.path.join(cls.tmp, "c1.json")
+        for c, lo, hi in ((cls.c0, "0", "4"), (cls.c1, "4", "9")):
+            r = subprocess.run([cls.sbin, "--kc-scan", cls.fdir, cls.gdir, c, "--kc-tdir",
+                                cls.tdir, "--kc-layers", lo, hi], capture_output=True, text=True)
+            if r.returncode != 0:
+                cls.build_ok = False
+                cls.build_err = "chunk %s-%s: rc %d\n%s" % (lo, hi, r.returncode, r.stdout[-1500:])
+                return
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.build_ok, self.build_err)
+
+    def _writers(self, sub):
+        """The nine KC destinations kc_writer_devfull_gate.sh probes, each writing into SUB."""
+        S, F, G, T = self.sbin, self.fdir, self.gdir, self.tdir
+        o = lambda name: os.path.join(sub, name)
+        return [
+            ("scan_atlas", o("atlas.json"), [S, "--kc-scan", F, G, o("atlas.json"), "--kc-tdir", T, "--kc-raw"]),
+            ("scan_chunk", o("chunk.json"), [S, "--kc-scan", F, G, o("chunk.json"), "--kc-tdir", T,
+                                             "--kc-raw", "--kc-layers", "0", "4"]),
+            ("profile_tsv", o("p.tsv"), [S, "--kc-profile", F, G, self.W, "--kc-tsv", o("p.tsv")]),
+            ("t_cert", o("t.json"), [S, "--kc-t-cert", o("t.json")]),
+            ("o3_cert", o("o3.json"), [S, "--kc-o3-cert", F, G, self.W, "--kc-cert-out", o("o3.json")]),
+            ("arr_cert", o("arr.json"), [S, "--check-arrangement", "KW", "--cert-out", o("arr.json")]),
+            ("oracle_cert", o("or.json"), [S, "--kc-oracle", F, self.obin, "--kc-cert-out", o("or.json")]),
+            ("extremal_json", o("x.json"), [S, "--kc-extremal", "dclass:1", F, "max", "--kc-json", o("x.json")]),
+            ("scan_merge", o("m.json"), [S, "--kc-scan-merge", F, G, o("m.json"), self.c0, self.c1,
+                                         "--kc-tdir", T]),
+        ]
+
+    def _need_strace(self):
+        if not shutil.which("strace"):
+            self.skipTest("strace is not installed; the Q-553 durability legs need it to observe fsync")
+
+    def test_q553_every_kc_writer_fsyncs_its_file_and_its_directory(self):
+        self._need_strace()
+        sub = os.path.join(self.tmp, "dur")
+        os.makedirs(sub, exist_ok=True)
+        writers = self._writers(sub)
+        self.assertEqual(9, len(writers))
+        for name, dst, argv in writers:
+            log = os.path.join(self.tmp, "strace_%s.txt" % name)
+            r = subprocess.run(["strace", "-f", "-y", "-qq", "-e", "signal=none",
+                                "-e", "trace=fsync", "-o", log] + argv,
+                               capture_output=True, text=True, timeout=600)
+            self.assertEqual(0, r.returncode, "%s: rc %d\n%s" % (name, r.returncode, r.stdout[-1500:]))
+            self.assertTrue(os.path.getsize(dst) > 0, name)
+            with open(log, encoding="utf-8", errors="replace") as fh:
+                trace = fh.read()
+            self.assertRegex(trace, r"fsync\(\d+<%s>\) = 0" % re.escape(dst),
+                             "%s: the artifact itself was never fsync'd" % name)
+            self.assertRegex(trace, r"fsync\(\d+<%s>\) = 0" % re.escape(sub),
+                             "%s: the directory holding the artifact was never fsync'd" % name)
+
+    def test_q553_an_fsync_failure_fails_the_chunk_and_leaves_no_file(self):
+        self._need_strace()
+        inj = ["strace", "-f", "-qq", "-o", os.devnull, "-e", "trace=fsync",
+               "-e", "inject=fsync:error=EIO"]
+        # POSITIVE CONTROL: the injection really makes fsync fail on this host
+        probe = os.path.join(self.tmp, "probe")
+        open(probe, "w").close()
+        r = subprocess.run(inj + ["sync", probe], capture_output=True, text=True)
+        self.assertNotEqual(0, r.returncode, "fault injection had no effect; the leg below proves nothing")
+        dst = os.path.join(self.tmp, "chunk_eio.json")
+        r = subprocess.run(inj + [self.sbin, "--kc-scan", self.fdir, self.gdir, dst, "--kc-tdir",
+                                  self.tdir, "--kc-raw", "--kc-layers", "0", "4"],
+                           capture_output=True, text=True, timeout=600)
+        out = r.stdout + r.stderr
+        self.assertNotEqual(0, r.returncode, out)
+        self.assertEqual(1, r.stdout.splitlines().count("KC_SCAN_CHUNK=FAIL"), out)
+        self.assertNotIn("KC_SCAN_CHUNK=OK", r.stdout.splitlines(), out)
+        self.assertIn("fsync of %s failed" % dst, r.stderr, out)
+        self.assertFalse(os.path.exists(dst), "a chunk whose fsync failed was left on disk")
+
+    def _chunk_env(self, dst, threads, env_extra):
+        env = dict(os.environ)
+        for k in ("OMP_THREAD_LIMIT", "OMP_DYNAMIC", "OMP_NUM_THREADS", "SOLVE_KC_SCAN_THREADS"):
+            env.pop(k, None)
+        env.update(env_extra)
+        return subprocess.run([self.sbin, "--kc-scan", self.fdir, self.gdir, dst, "--kc-tdir",
+                               self.tdir, "--kc-raw", "--kc-layers", "0", "4",
+                               "--kc-scan-threads", str(threads)],
+                              capture_output=True, text=True, env=env, timeout=600)
+
+    def test_q563_a_short_thread_grant_fails_the_chunk_loudly(self):
+        dst = os.path.join(self.tmp, "chunk_short.json")
+        r = self._chunk_env(dst, 2, {"OMP_THREAD_LIMIT": "1"})
+        out = r.stdout + r.stderr
+        self.assertNotEqual(0, r.returncode, out)
+        self.assertEqual(1, r.stdout.splitlines().count("KC_SCAN_CHUNK=FAIL"), out)
+        self.assertIn("KC_SCAN_THREADS_GRANTED=1/2", r.stderr, out)
+        self.assertFalse(os.path.exists(dst), "a chunk scanned on a short team was left on disk")
+
+    def test_q563_the_whole_atlas_path_refuses_with_its_token(self):
+        # the whole-atlas exit a refusal reaches ("layer streaming failed") printed NO KC_SCAN= line
+        dst = os.path.join(self.tmp, "atlas_short.json")
+        env = dict(os.environ, OMP_THREAD_LIMIT="1")
+        env.pop("OMP_DYNAMIC", None)
+        r = subprocess.run([self.sbin, "--kc-scan", self.fdir, self.gdir, dst, "--kc-tdir", self.tdir,
+                            "--kc-raw", "--kc-scan-threads", "3"],
+                           capture_output=True, text=True, env=env, timeout=600)
+        out = r.stdout + r.stderr
+        self.assertEqual(2, r.returncode, out)
+        self.assertEqual(["KC_SCAN=FAIL"], [l for l in r.stdout.splitlines() if l.startswith("KC_SCAN=")], out)
+        self.assertIn("KC_SCAN_THREADS_GRANTED=1/3", r.stderr, out)
+        self.assertFalse(os.path.exists(dst), out)
+
+    def test_q563_positive_controls_full_grant_and_matching_limit_pass(self):
+        for tag, threads, extra in (("t2", 2, {}), ("t1lim1", 1, {"OMP_THREAD_LIMIT": "1"})):
+            dst = os.path.join(self.tmp, "chunk_%s.json" % tag)
+            r = self._chunk_env(dst, threads, extra)
+            self.assertEqual(0, r.returncode, tag + "\n" + r.stdout[-1500:] + r.stderr[-1500:])
+            self.assertEqual(1, r.stdout.splitlines().count("KC_SCAN_CHUNK=OK"), tag)
+            self.assertTrue(os.path.getsize(dst) > 0, tag)
+
+
+class TestQ42KcSelftestGatesCanFail(unittest.TestCase):
+    """Q-42 (c) and (e): two n=9 KC selftest gates that could not fail, each shown able to.
+
+    (c) --kc-scan-selftest's t-units gate was `T.t_done == 1`, true at every n=9 run whatever the
+    values. MUTANT: t(root) seeded at 2 instead of 1. RED before: that gate line printed PASS.
+    (e) --kc-layers-selftest's L9 byte-identity leg ran against an OUT it had just unlinked, so it
+    compared against no file. MUTANT: the merge leaves OUT untouched on a failed gate (no entry
+    removal, no write). RED before: that line printed PASS. The unmutated tree is the positive
+    control. A build failure is a test FAILURE, never a skip."""
+
+    CGATE = "[kc-scan-selftest] t-units: t(root) == brute prefix DFS, leaves == brute"
+    EGATES = ("[kc-layers-selftest] L9 decoy atlas planted at OUT before the merge (test is armed)",
+              "[kc-layers-selftest] L9 tampered flow: the planted valid atlas is NOT left at OUT",
+              "[kc-layers-selftest] L9 tampered flow: NO atlas left (decoy REMOVED)")
+    MUTANTS = {
+        "c_troot": [("        T->t_root = 1;\n", "        T->t_root = 2;\n")],
+        "e_untouched": [
+            ("    if (kc_h_unlink_regular(outp) != 0) {\n        fprintf(stderr, \"ERROR: [kc-scan-merge] "
+             "cannot remove pre-existing",
+             "    if (0 && kc_h_unlink_regular(outp) != 0) {\n        fprintf(stderr, \"ERROR: "
+             "[kc-scan-merge] cannot remove pre-existing"),
+            ("pass --kc-tdir for a production atlas.\\n\");\n            FILE *f = fopen(outp, \"w\");",
+             "pass --kc-tdir for a production atlas.\\n\");\n            FILE *f = T.gate_fails ? NULL "
+             ": fopen(outp, \"w\");")],
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q42ce_")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        with open(src, encoding="utf-8") as fh:
+            base = fh.read()
+        cls.bins, cls.err = {}, ""
+        for name, reps in [("clean", [])] + sorted(cls.MUTANTS.items()):
+            s = base
+            for old, new in reps:
+                if s.count(old) != 1:
+                    cls.err += "%s: anchor found %d times, expected 1\n" % (name, s.count(old))
+                s = s.replace(old, new)
+            c = os.path.join(cls.tmp, name + ".c")
+            with open(c, "w", encoding="utf-8") as fh:
+                fh.write(s)
+            b = os.path.join(cls.tmp, name)
+            r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", b, c, "-lm", "-lz"],
+                               capture_output=True, text=True)
+            if r.returncode != 0:
+                cls.err += "%s: gcc rc %d: %s\n" % (name, r.returncode, r.stderr[-1500:])
+            cls.bins[name] = b
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertEqual("", self.err, self.err)
+
+    _runs = {}
+
+    def _gate(self, name, flag, gate):
+        key = (name, flag)
+        if key not in self._runs:   # one selftest run per (binary, flag), shared by its gates
+            self._runs[key] = subprocess.run([self.bins[name], flag], capture_output=True,
+                                             text=True, timeout=900)
+        r = self._runs[key]
+        hits = [l for l in r.stdout.splitlines() if l.startswith(gate + " ")]
+        self.assertEqual(1, len(hits), "%s %s: gate line %r not printed once\n%s"
+                         % (name, flag, gate, r.stdout[-2000:]))
+        return hits[0].split()[-1], r
+
+    def test_positive_control_both_gates_pass_on_the_clean_tree(self):
+        v, r = self._gate("clean", "--kc-scan-selftest", self.CGATE)
+        self.assertEqual("PASS", v)
+        self.assertIn("KC_SCAN_SELFTEST=PASS", r.stdout.splitlines())
+        for g in self.EGATES:
+            v, r = self._gate("clean", "--kc-layers-selftest", g)
+            self.assertEqual("PASS", v, g)
+        self.assertIn("KC_LAYERS_SELFTEST=PASS", r.stdout.splitlines())
+
+    def test_c_a_wrong_t_root_turns_the_t_units_gate_red(self):
+        v, r = self._gate("c_troot", "--kc-scan-selftest", self.CGATE)
+        self.assertEqual("FAIL", v, r.stdout[-2000:])
+
+    def test_e_a_merge_that_leaves_out_untouched_turns_l9_red(self):
+        v, _ = self._gate("e_untouched", "--kc-layers-selftest", self.EGATES[0])
+        self.assertEqual("PASS", v, "the decoy was not planted, so the legs below are unarmed")
+        for g in self.EGATES[1:]:
+            v, r = self._gate("e_untouched", "--kc-layers-selftest", g)
+            self.assertEqual("FAIL", v, g + "\n" + r.stdout[-2000:])
+
+
 class TestQ782LadderShaRowChecksLayerIdentity(unittest.TestCase):
     """Q-782 (found and reproduced by Opus RR, 2026-09-24).
 
@@ -8742,6 +8992,197 @@ class TestQ782LadderShaRowChecksLayerIdentity(unittest.TestCase):
         want = [l for l in ok.stdout.splitlines() if "/g_layer_05.bin " not in l]
         self.assertEqual(want, r.stdout.splitlines())
 
+
+
+class TestEGIndependentLadderVerifierRowsWired(unittest.TestCase):
+    """EG (2026-09-26, follow-up from lane ED): verify.c --check-g-ladder / --check-t-ladder, the
+    independent g/t ladder verifiers, were shipped but NO script ran them; the TR-12 battery's
+    only g/t identity rows were solve.c checking its own ladders (--kc-g-check / --kc-t-check).
+
+    Wiring (static): scripts/tr12_repro.sh calls indep_ladder_row for a2_gcheck_indep
+    (TR12_GCHECK_INDEP, g) and b_tcheck_indep (TR12_TCHECK_INDEP, t); the row reads the
+    verifier's verdict with whole-line `grep -qx`; the committed n=9 goldens exist, are in the
+    manifest, and carry the whole-line verdicts.
+    Behaviour (dynamic): the battery's OWN function is extracted and executed (never a copy),
+    with only row_begin/row_end/die stubbed, against a real n=9 f/g/t ladder set built by
+    solve.c: green on the intact ladders, red on one flipped byte in a g layer and on a removed
+    t layer; and red on two stub verifiers (PASS lines with a nonzero exit; exit 0 with the
+    verdict only inside a longer line). Red before the wiring: the function does not exist."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    SRC = None
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(cls.HERE, "scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
+            cls.SRC = fh.read()
+        m = re.search(r"(?ms)^indep_ladder_row\(\)\{.*?^\}$", cls.SRC)
+        cls.fn = m.group(0) if m else None
+        cls.tmp = tempfile.mkdtemp(prefix="eg_indep_")
+        cls.sbin = os.path.join(cls.tmp, "solve_eg")
+        cls.fdir, cls.gdir, cls.tdir = (os.path.join(cls.tmp, x) for x in ("f", "g", "t"))
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        if not cls.build_ok:
+            return
+        for argv in ([cls.sbin, "--kc-build", cls.fdir, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-g-build", cls.gdir, "--f1-pairs", "9"],
+                     [cls.sbin, "--kc-t-build", cls.fdir, cls.tdir]):
+            r = subprocess.run(argv, capture_output=True, text=True)
+            if r.returncode != 0:
+                cls.build_ok = False
+                cls.build_err = "%s rc %d\n%s" % (argv[1], r.returncode, (r.stdout + r.stderr)[-1500:])
+                return
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- wiring --------------------------------------------------------------------------
+    def test_both_rows_are_wired(self):
+        self.assertIn('indep_ladder_row a2_gcheck_indep TR12_GCHECK_INDEP g "$GDIR"\n', self.SRC)
+        self.assertIn('indep_ladder_row b_tcheck_indep TR12_TCHECK_INDEP t "$TDIR"\n', self.SRC)
+
+    def test_verdict_is_read_whole_line(self):
+        self.assertIsNotNone(self.fn, "scripts/tr12_repro.sh has no indep_ladder_row")
+        for pat in ('grep -qx "$rkey=PASS" <<<"$out"',
+                    'grep -qx "IDENTITIES_CHECKED=$want" <<<"$out"',
+                    "grep -qx 'IDENTITIES_SKIPPED=0' <<<\"$out\""):
+            self.assertIn(pat, self.fn)
+        self.assertNotRegex(self.fn, r"grep -q[^x]", "a substring grep in the verdict path")
+        # the documented verify.c build line, verbatim (no -fopenmp: verify.c has no OpenMP)
+        self.assertIn('cc -O2 -o "$WORK/verify" "$REPO_ROOT/verify.c" -lz -lpthread -lm', self.fn)
+
+    def test_n9_goldens_carry_whole_line_verdicts(self):
+        d = os.path.join(self.HERE, "scripts", "tr12_expected", "n9")
+        with open(os.path.join(d, "_MANIFEST.txt"), encoding="utf-8") as fh:
+            man = fh.read()
+        for row, key in (("a2_gcheck_indep", "GLADDER_RESULT"), ("b_tcheck_indep", "TLADDER_RESULT")):
+            with open(os.path.join(d, row + ".txt"), encoding="utf-8") as fh:
+                lines = fh.read().splitlines()
+            for want in (key + "=PASS", "IDENTITIES_CHECKED=10", "IDENTITIES_SKIPPED=0",
+                         "INDEP_LADDER_CHECK=OK"):
+                self.assertIn(want, lines, "%s.txt lacks the whole line %s" % (row, want))
+            self.assertRegex(man, r"(?m)^  [0-9a-f]{64}  %s\.txt$" % row)
+
+    # ---- behaviour -----------------------------------------------------------------------
+    def _row(self, kind, fdir, ldir, vbin=""):
+        self.assertTrue(self.build_ok, self.build_err)
+        self.assertIsNotNone(self.fn, "scripts/tr12_repro.sh has no indep_ladder_row")
+        work = tempfile.mkdtemp(dir=self.tmp)
+        script = ('row_begin(){ RAW="$WORK/raw.txt"; : > "$RAW"; }\n'
+                  'row_end(){ echo "ROW_TOKEN=$1" >> "$RAW"; echo "ROW_RC=$2" >> "$RAW"; }\n'
+                  'die(){ echo "DIE $*"; exit 2; }\n'
+                  'VERIFY_C_BIN="$VBIN"\n'
+                  'eval "$FN"\n'
+                  'indep_ladder_row ROW TOK "$KIND" "$LDIR"\n'
+                  'cat "$RAW"\n')
+        env = dict(os.environ, FN=self.fn, WORK=work, REPO_ROOT=self.HERE, N_PAIRS="9",
+                   FDIR=fdir, LDIR=ldir, KIND=kind, VBIN=vbin)
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env,
+                           cwd=self.HERE)
+        lines = r.stdout.splitlines()
+        verdict = [l for l in lines if l.startswith("INDEP_LADDER_CHECK=")]
+        self.assertEqual(1, len(verdict), r.stdout + r.stderr)
+        return verdict[0], lines, r.stdout + r.stderr
+
+    def _stub(self, name, body):
+        p = os.path.join(self.tmp, name)
+        with open(p, "w") as fh:
+            fh.write("#!/bin/sh\n" + body)
+        os.chmod(p, 0o755)
+        return p
+
+    def test_pass_tokens_with_nonzero_exit_are_red(self):
+        # a verifier that prints every PASS line but exits nonzero is not a pass
+        vb = self._stub("v_rc3", "printf 'GLADDER_RESULT=PASS\\nIDENTITIES_CHECKED=10\\n"
+                                 "IDENTITIES_SKIPPED=0\\n'; exit 3\n")
+        v, lines, out = self._row("g", self.fdir, self.gdir, vbin=vb)
+        self.assertIn("GLADDER_RESULT=PASS", lines, out)    # precondition: the stub printed it
+        self.assertEqual("INDEP_LADDER_CHECK=FAIL", v, out)
+        self.assertIn("ROW_RC=1", lines, out)
+
+    def test_exit_zero_without_a_verdict_is_red(self):
+        # exit 0 with no whole-line verdict (here: the token only inside a longer line) is not a pass
+        vb = self._stub("v_noverdict", "echo 'note: GLADDER_RESULT=PASS IDENTITIES_CHECKED=10'; exit 0\n")
+        v, lines, out = self._row("g", self.fdir, self.gdir, vbin=vb)
+        self.assertEqual("INDEP_LADDER_CHECK=FAIL", v, out)
+        self.assertIn("ROW_RC=1", lines, out)
+
+    def _copy(self, src, name):
+        d = os.path.join(self.tmp, name)
+        shutil.copytree(src, d)
+        return d
+
+    def test_intact_g_ladder_is_green(self):
+        v, lines, out = self._row("g", self.fdir, self.gdir)
+        self.assertEqual("INDEP_LADDER_CHECK=OK", v, out)
+        self.assertIn("GLADDER_RESULT=PASS", lines, out)
+        self.assertIn("ROW_RC=0", lines, out)
+
+    def test_intact_t_ladder_is_green(self):
+        v, lines, out = self._row("t", self.fdir, self.tdir)
+        self.assertEqual("INDEP_LADDER_CHECK=OK", v, out)
+        self.assertIn("TLADDER_RESULT=PASS", lines, out)
+        self.assertIn("ROW_RC=0", lines, out)
+
+    @staticmethod
+    def _v1_entries(path):
+        # F1C5_LAYER_FORMAT.md v1: 72-byte header, masks nm*u32, off (nm+1)*u64, keys ne*u32,
+        # vals ne*24 B (three u64 LE limbs, low first). Returns {(mask, key): value byte offset}.
+        with open(path, "rb") as fh:
+            b = fh.read()
+        ver, = struct.unpack_from("<I", b, 8)
+        nm, ne = struct.unpack_from("<2Q", b, 32)
+        if ver != 1:
+            raise AssertionError("n=9 layers are expected to be v1 (raw); got version %d" % ver)
+        o = 72
+        masks = struct.unpack_from("<%dI" % nm, b, o); o += 4 * nm
+        off = struct.unpack_from("<%dQ" % (nm + 1), b, o); o += 8 * (nm + 1)
+        keys = struct.unpack_from("<%dI" % ne, b, o); o += 4 * ne
+        if len(b) != o + 24 * ne:
+            raise AssertionError("%s: v1 size formula does not hold" % path)
+        return {(m, keys[e]): o + 24 * e
+                for i, m in enumerate(masks) for e in range(off[i], off[i + 1])}
+
+    def test_one_flipped_byte_in_a_g_layer_is_red(self):
+        # The plant is the LOW byte of a g value at a state the f ladder also stores (f > 0), so
+        # the flip changes that state's term of the f.g cut identity. A g value at a state with
+        # no f partner meets f = 0 in every identity (GT_LADDER_FORMAT.md, stored-key rule) and a
+        # flip there is invisible to verify.c AND to --kc-g-check by design -- MEASURED on this
+        # ladder: the last byte of g_layer_05.bin is such a state, and both report PASS.
+        self.assertTrue(self.build_ok, self.build_err)
+        fe = self._v1_entries(os.path.join(self.fdir, "f1c5_layer_05.bin"))
+        ge = self._v1_entries(os.path.join(self.gdir, "g_layer_05.bin"))
+        shared = sorted(k for k in ge if k in fe)
+        self.assertTrue(shared, "no g entry at layer 5 has an f partner; the plant has no target")
+        d = self._copy(self.gdir, "g_flip")
+        p = os.path.join(d, "g_layer_05.bin")
+        with open(p, "rb") as fh:
+            b = bytearray(fh.read())
+        orig = bytes(b)
+        b[ge[shared[len(shared) // 2]]] ^= 0x01
+        with open(p, "wb") as fh:
+            fh.write(b)
+        self.assertEqual(1, sum(x != y for x, y in zip(orig, b)))  # precondition: one byte moved
+        v, lines, out = self._row("g", self.fdir, d)
+        self.assertEqual("INDEP_LADDER_CHECK=FAIL", v, out)
+        self.assertIn("ROW_RC=1", lines, out)
+        self.assertIn("GLADDER_RESULT=FAIL", lines, out)
+
+    def test_removed_t_layer_is_red(self):
+        d = self._copy(self.tdir, "t_drop")
+        p = os.path.join(d, "t_layer_05.bin")
+        self.assertTrue(os.path.exists(p))   # precondition: the layer existed
+        os.remove(p)
+        v, lines, out = self._row("t", self.fdir, d)
+        self.assertEqual("INDEP_LADDER_CHECK=FAIL", v, out)
+        self.assertIn("ROW_RC=1", lines, out)
+        self.assertIn("TLADDER_RESULT=FAIL", lines, out)
+        self.assertTrue([l for l in lines if "k= 5" in l and "t layer missing" in l], out)
 
 
 class TestQ690V3SpectrumVerdictIsABareLine(unittest.TestCase):
@@ -10178,6 +10619,203 @@ class TestBranchModeOutputHoldsTheShards(unittest.TestCase):
                     {"SOLVE_DEPTH": "2", "SOLVE_NODE_LIMIT": "20000000"})
 
 
+
+class TestV3A134BranchSelftestIsNotBlind(unittest.TestCase):
+    """Q-623 / V3A-134#7, second half (2026-09-26). CX-134 made the per-branch file hold records,
+    but `solve.py --extended-selftest` subtests 5, 8 and 9 still compared the two per-branch shas
+    only when BOTH were present, and passed two copies of the 0-record header-only sha. A stub
+    `solve` that writes that sha (or no sidecar) must now fail all three; a stub that writes one
+    real-looking sha must not trip them (positive control)."""
+
+    EMPTY = "4cd43b2b389dde48a64b153b3cf611274e13fab013ac05f1ba64b11b532ef287"
+
+    def _run(self, mode):
+        import contextlib, io
+        S = _load("solve")
+        d = tempfile.mkdtemp(prefix="q623_stub_")
+        self.addCleanup(shutil.rmtree, d, True)
+        stub = os.path.join(d, "solve_stub")
+        sha = {"empty": self.EMPTY, "real": "ab" * 32}.get(mode, "")
+        with open(stub, "w") as f:
+            f.write("#!/bin/sh\n")
+            if sha:
+                f.write('[ "$1" = "--branch" ] && echo "%s  solutions_$2_$3.bin" > "solutions_$2_$3.sha256"\n' % sha)
+            f.write("exit 0\n")
+        os.chmod(stub, 0o755)
+        old_tmp, tempfile.tempdir = tempfile.tempdir, d
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                rc = S.extended_selftest(stub)
+        finally:
+            tempfile.tempdir = old_tmp
+        return rc, buf.getvalue()
+
+    def test_zero_record_sha_fails_subtests_5_8_9(self):
+        rc, out = self._run("empty")
+        self.assertEqual(rc, 1)
+        for n in (5, 8, 9):
+            self.assertIn("  - subtest %d: " % n, out)
+            self.assertRegex(out, r"  - subtest %d: [^\n]*0-RECORD per-branch file" % n)
+
+    def test_missing_sidecar_fails_subtests_5_8_9(self):
+        rc, out = self._run("missing")
+        self.assertEqual(rc, 1)
+        for n in (5, 8, 9):
+            self.assertRegex(out, r"  - subtest %d: [^\n]*sidecar MISSING" % n)
+
+    def test_positive_control_equal_real_shas_pass_5_8_9(self):
+        rc, out = self._run("real")
+        self.assertIn("ab" * 32, out)                      # precondition: the stub's sha was read
+        for n in (5, 8, 9):
+            self.assertNotIn("  - subtest %d: " % n, out)
+
+
+class TestV3A134BudgetGateAndSection25(unittest.TestCase):
+    """Q-623 / V3A-134#8 and #9 (2026-09-26).
+    #8: the BUDGETED-resume gate divided SOLVE_NODE_LIMIT by 3030 while the allocator (and the
+    checkpoint line) divided by the branch's partition (54 for --branch 1 0 at depth 2), so a
+    resume at twice the budget skipped every cell and silently kept the smaller result.
+    #9: --analyze section [25] kept 4096 checkpoint lines, gave a depth-3 row its depth-2 prefix's
+    solutions, and counted a resumed cell once per line."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q623_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q623")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _solve(self, d, args, **env_extra):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        env = dict(os.environ, SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_DEPTH="2", **env_extra)
+        r = subprocess.run([self.sbin, *args], capture_output=True, text=True, cwd=d, env=env,
+                           timeout=900)
+        self.assertEqual(r.returncode, 0, r.stdout[-600:] + r.stderr[-600:])
+        self.assertNotIn("FATAL", r.stderr)
+        return r.stdout
+
+    def _branch(self, d, limit):
+        return self._solve(d, ["--branch", "1", "0", "0", "2"], SOLVE_NODE_LIMIT=str(limit))
+
+    def test_resume_at_twice_the_budget_rewalks_and_matches_a_fresh_run(self):
+        d = tempfile.mkdtemp(dir=self.tmp)
+        self._branch(d, 20000000)
+        out = self._branch(d, 40000000)
+        self.assertIn("Sub-branches for pair 1 orient 0: 54 remaining", out)
+        self.assertNotIn("already completed", out)
+        f = tempfile.mkdtemp(dir=self.tmp)
+        self._branch(f, 40000000)
+        got = gzip.open(os.path.join(d, "solutions_1_0.bin")).read()
+        want = gzip.open(os.path.join(f, "solutions_1_0.bin")).read()
+        self.assertGreater(len(want), 32)
+        self.assertEqual(got, want, "a 20M->40M resume is not the fresh 40M result")
+
+    def test_positive_control_same_budget_resume_still_skips(self):
+        d = tempfile.mkdtemp(dir=self.tmp)
+        self._branch(d, 20000000)
+        out = self._branch(d, 20000000)
+        self.assertIn("All 54 sub-branches already completed", out)
+
+    def _section25(self, extra_lines=(), split=False):
+        d = tempfile.mkdtemp(dir=self.tmp)
+        self._branch(d, 20000000)
+        a = tempfile.mkdtemp(dir=self.tmp)
+        shutil.copy(os.path.join(d, "solutions_1_0.bin"), os.path.join(a, "solutions.bin"))
+        recs = gzip.open(os.path.join(a, "solutions.bin")).read()[32:]
+        self.assertGreater(len(recs), 0)                   # precondition: records to bin
+        bins = {}
+        for i in range(0, len(recs), 32):
+            k = tuple(v for b in recs[i + 1:i + 4] for v in (b >> 2, (b >> 1) & 1))
+            bins[k] = bins.get(k, 0) + 1
+        fmt = ("Sub-branch %s (thread 0, pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d): "
+               "%d nodes, 0 C3-valid, 7 solutions, 1s elapsed, budget 100\n")
+        cells = [(1, o1, p2, o2, p3, o3) for o1 in (0, 1) for p2 in range(32) for o2 in (0, 1)
+                 for p3 in range(32) for o3 in (0, 1)]
+        lines = [fmt % (("INTERRUPTED",) + c + (999,)) for c in cells[:10]]   # resumed: superseded
+        lines += [fmt % (("BUDGETED",) + c + (10,)) for c in cells]
+        if not split:
+            files = {"checkpoint.txt": lines + list(extra_lines)}
+        else:   # as a current run leaves them: promoted lines in checkpoint.txt, the rest per thread
+            prom = [l.replace("(thread 0, ", "(thread -1 [v3.1 promoted], ") for l in lines[10:110]]
+            par = [l.replace("(thread 0, ", "(parallel, ") for l in lines[110:120]]
+            files = {"checkpoint.txt": lines[:10] + prom + par, "checkpoint_t0.txt": lines[120:5000],
+                     "checkpoint_t11.txt": lines[5000:]}
+        for name, body in files.items():
+            with open(os.path.join(a, name), "w") as f:
+                f.writelines(body)
+        out = self._solve(a, ["--analyze", "solutions.bin"])
+        self.sec27 = out[out.index("[27] Budget-exhaustion"):out.index("[27] elapsed")]
+        sec = out[out.index("[25] Per-sub-branch yield"):out.index("[25] elapsed")]
+        want = sum(bins.get(c, 0) for c in cells)
+        return sec, cells, want, len(recs) // 32
+
+    def test_section25_one_row_per_cell_with_its_own_depth3_bin(self):
+        sec, cells, want, n = self._section25()
+        self.assertGreater(len(cells), 4096)               # precondition: past the old cap
+        self.assertIn("Total entries: %d (EXHAUSTED/COMPLETE: 0, BUDGETED: %d, INTERRUPTED: 0)"
+                      % (len(cells), len(cells)), sec)
+        self.assertIn("Total nodes across all sub-branches: %d" % (10 * len(cells)), sec)
+        self.assertIn("(one row per cell: 10 later line(s) replaced an earlier line for the same cell; "
+                      "0 line(s) with an out-of-range index skipped)", sec)
+        self.assertIn("binned by each row's cell): %d of %d records" % (want, n), sec)
+
+    def test_q444_tier2_next_step_command_runs_and_merges_the_chunks(self):
+        """Q-444: the tier-2 flush printed `./solve --merge sub_flush_chunk_*.bin`, which --merge
+        refuses (MERGE_ARGS=REFUSED). Run the printed command verbatim (./solve = this build) and
+        require the merge of a no-flush run of the same deterministic sub-branch."""
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        shas = {}
+        for mode in ("noflush", "flush"):
+            d = tempfile.mkdtemp(dir=self.tmp)
+            os.symlink(self.sbin, os.path.join(d, "solve"))
+            env = dict(os.environ, SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_TASK_NODE_LIMIT="100000")
+            if mode == "flush":
+                env["SOLVE_MEMORY_FLUSH_COUNT"] = "20000"
+            r = subprocess.run(["./solve", "--sub-branch", "1", "0", "2", "0", "3", "0", "0", "4"],
+                               capture_output=True, text=True, cwd=d, env=env, timeout=900)
+            self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+            if mode == "flush":
+                m = re.search(r"\[tier2\] NEXT STEP: [^`]*`([^`]+)`", r.stderr)
+                self.assertIsNotNone(m, "no NEXT STEP advice printed: " + r.stderr[-800:])
+                cmd = m.group(1)
+                for f in os.listdir(d):                    # the run's own shard, if any, is not the chunks
+                    self.assertFalse(re.fullmatch(r"sub_\d+_\d+_\d+_\d+_\d+_\d+\.bin", f), f)
+                self.assertTrue(any(f.startswith("sub_flush_chunk_") for f in os.listdir(d)))
+            else:
+                cmd = "./solve --merge"
+            rm = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, cwd=d, env=env,
+                                timeout=900)
+            self.assertEqual(rm.returncode, 0, "`%s` failed: %s" % (cmd, (rm.stdout + rm.stderr)[-600:]))
+            with open(os.path.join(d, "solutions.sha256")) as fh:
+                shas[mode] = fh.readline().split()[0]
+        self.assertEqual(shas["flush"], shas["noflush"])
+
+    def test_section25_and_27_read_the_per_thread_files_and_promoted_lines(self):
+        sec, cells, want, n = self._section25(split=True)
+        self.assertIn("Read: checkpoint.txt and 2 per-thread checkpoint_t<N>.txt file(s)", sec)
+        self.assertIn("Total entries: %d (EXHAUSTED/COMPLETE: 0, BUDGETED: %d, INTERRUPTED: 0)"
+                      % (len(cells), len(cells)), sec)
+        self.assertIn("binned by each row's cell): %d of %d records" % (want, n), sec)
+        self.assertIn("Sub-branch commit lines parsed: %d" % (len(cells) + 10), self.sec27)
+
+    def test_section25_skips_an_out_of_range_index(self):
+        bad = ("Sub-branch BUDGETED (thread 0, pair1 40 orient1 0 pair2 2 orient2 0 pair3 3 orient3 0): "
+               "10 nodes, 0 C3-valid, 7 solutions, 1s elapsed, budget 100\n")
+        sec, cells, want, n = self._section25([bad])
+        self.assertIn("Total entries: %d (" % len(cells), sec)
+        self.assertIn("1 line(s) with an out-of-range index skipped", sec)
+
+
 class TestRcq04F1ArithGatesRunAtFull31(unittest.TestCase):
     """RCQ04 F1 / Q-581 (2026-09-25). The 22 n-independent consumer gates lived only in
     atlas_selftest, behind its n > 13 refusal, so at n=31 TR12_V1/V2/V5/Q6 were assigned PASS on
@@ -10326,6 +10964,446 @@ class TestRcq04F1ArithGatesRunAtFull31(unittest.TestCase):
             self.assertIsNone(st[gid], gid)
         self.assertTrue(st["Q6-layer"] and st["flow"] and st["float"])
         self.assertEqual(0, self.S.atlas_verdicts_rc(R["verdicts"]))
+
+
+class TestQ615RatioColumnsAtEveryN(unittest.TestCase):
+    """Q-615 (ruled by Fable 2026-09-19). The ratio columns V1 p, V2 p, V5 p_cond, Q6-mass p and
+    the share column of both branch tables were re-derived only by atlas_selftest, which refuses
+    n > 13. atlas_ratio_columns_check (verdict TR12_RATIO_COLUMNS) re-derives each one from the
+    atlas's integers at every n. These tests run it on the COMMITTED n=31 atlas and on a REAL n=9
+    atlas built by the tracked solve.c, green on both, and red on a planted fault in each of the
+    six column families: a ratio one digit off with its mass right, a mass off with its ratio
+    re-rendered to match it, a dropped row and an absent table."""
+
+    ATLAS31 = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    FAMILIES = (("scan", "v1_field.tsv", "mass", "p"), ("scan", "v2_river.tsv", "mass", "p"),
+                ("scan", "v5_grammar.tsv", "mass", "p_cond"),
+                ("scan", "q6_layer_mass.tsv", "mass", "p"),
+                ("scan", "v2_branches.tsv", "solutions", "share"),
+                ("", "xa_branches.tsv", "solutions", "share"))
+
+    @classmethod
+    def setUpClass(cls):
+        import tempfile
+        cls.S = _load("solve")
+        cls.tmp = tempfile.mkdtemp(prefix="q615_")
+        cls.atlas9 = os.path.join(cls.tmp, "atlas9.json")
+        sbin = os.path.join(cls.tmp, "solve_q615")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.build_ok = r.returncode == 0
+        if not cls.build_ok:
+            return
+        f, g, t = (os.path.join(cls.tmp, d) for d in ("f", "g", "t"))
+        for argv in ([sbin, "--kc-build", f, "--f1-pairs", "9"],
+                     [sbin, "--kc-g-build", g, "--f1-pairs", "9"],
+                     [sbin, "--kc-t-build", f, t],
+                     [sbin, "--kc-scan", f, g, cls.atlas9, "--kc-tdir", t, "--kc-raw"]):
+            r = subprocess.run(argv, capture_output=True, text=True)
+            if r.returncode != 0:
+                cls.build_ok = False
+                cls.build_err = "%s: rc %d" % (" ".join(argv[1:3]), r.returncode)
+                return
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _atlases(self):
+        # A build failure is a test FAILURE, never a skip.
+        self.assertTrue(self.build_ok, self.build_err)
+        return (self.ATLAS31, self.atlas9)
+
+    def _query(self, path, fault=None):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        old = self.S._ATLAS_FAULT
+        self.S._ATLAS_FAULT = fault
+        try:
+            R = self.S.atlas_queries(path, d, quiet=True)
+        finally:
+            self.S._ATLAS_FAULT = old
+        return R, d
+
+    def _check(self, path, out):
+        A = self.S.atlas_load(path)
+        return self.S.atlas_ratio_columns_check(A, out, os.path.join(out, "scan"),
+                                                set(self.S._ATLAS_SELECTORS))
+
+    @staticmethod
+    def _rw(path, fn):
+        with open(path, encoding="utf-8") as fh:
+            rows = fh.read().splitlines()
+        hdr = rows[0].split("\t")
+        rows = fn(hdr, rows)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(rows) + "\n")
+
+    def _nonzero_row(self, hdr, rows, mcol):
+        for i in range(1, len(rows)):
+            if rows[i].split("\t")[hdr.index(mcol)] not in ("0", ""):
+                return i
+        self.fail("no nonzero %s row" % mcol)
+
+    def test_green_on_the_committed_n31_atlas_and_a_real_n9_atlas(self):
+        # POSITIVE CONTROL, and the cell count is the atlas's own row structure, not a constant.
+        for path in self._atlases():
+            A = self.S.atlas_load(path)
+            n, nb = A["n"], len(A["branch_atlas"])
+            nw = 3 if all("kernel" in L for L in A["layers"]) else 1
+            R, out = self._query(path)
+            self.assertEqual("PASS", R["verdicts"]["TR12_RATIO_COLUMNS"], path)
+            fails, cells = self._check(path, out)
+            self.assertEqual([], fails, path)
+            self.assertEqual(n * 32 + n * 5 + n * 5 * nw + n * 5 + 2 * nb, cells, path)
+        self.assertEqual(31, self.S.atlas_load(self.ATLAS31)["n"])
+        self.assertEqual(9, self.S.atlas_load(self.atlas9)["n"])
+
+    def test_ratio_zero_turns_the_verdict_and_the_exit_code_red(self):
+        for path in self._atlases():
+            R, _ = self._query(path, fault="ratio-zero")
+            self.assertTrue(R["verdicts"]["TR12_RATIO_COLUMNS"].startswith("FAIL:"), path)
+            self.assertEqual(1, self.S.atlas_verdicts_rc(R["verdicts"]))
+
+    def test_one_ratio_digit_off_with_its_mass_right_is_caught_in_every_family(self):
+        # The fault the ruling names: masses right, a ratio wrong. The last printed digit of ONE
+        # cell is changed, which is a one-unit error in the 17th significant digit.
+        for path in self._atlases():
+            for sub, name, mcol, pcol in self.FAMILIES:
+                _R, out = self._query(path)
+                tsv = os.path.join(out, sub, name)
+
+                def plant(hdr, rows):
+                    i = self._nonzero_row(hdr, rows, mcol)
+                    c = rows[i].split("\t")
+                    mant, e, ex = c[hdr.index(pcol)].partition("e")
+                    mant = mant[:-1] + str((int(mant[-1]) + 1) % 10)
+                    c[hdr.index(pcol)] = mant + e + ex
+                    rows[i] = "\t".join(c)
+                    return rows
+                self._rw(tsv, plant)
+                fails, _ = self._check(path, out)
+                self.assertEqual(1, len(fails), (path, name, fails))
+                self.assertIn(pcol + "=", fails[0])
+                self.assertIn(name[:-4], fails[0])
+
+    def test_a_mass_off_with_a_matching_ratio_is_caught_because_the_oracle_reads_the_atlas(self):
+        # A checker that re-derived the ratio from the ROW's own mass would pass this cell.
+        from fractions import Fraction
+        for path in self._atlases():
+            for sub, name, mcol, pcol in self.FAMILIES:
+                _R, out = self._query(path)
+                tsv = os.path.join(out, sub, name)
+                A = self.S.atlas_load(path)
+                N = int(A["N_total"])
+
+                def plant(hdr, rows):
+                    i = self._nonzero_row(hdr, rows, mcol)
+                    c = rows[i].split("\t")
+                    m = int(c[hdr.index(mcol)]) + 48
+                    c[hdr.index(mcol)] = str(m)
+                    c[hdr.index(pcol)] = self.S._atlas_f(Fraction(m, N))
+                    rows[i] = "\t".join(c)
+                    return rows
+                self._rw(tsv, plant)
+                fails, _ = self._check(path, out)
+                self.assertTrue(any(mcol + "=" in f for f in fails), (path, name, fails))
+
+    def test_a_dropped_row_and_an_absent_table_fail_rather_than_skip(self):
+        for path in self._atlases():
+            for sub, name, _m, _p in self.FAMILIES:
+                _R, out = self._query(path)
+                tsv = os.path.join(out, sub, name)
+                self._rw(tsv, lambda hdr, rows: rows[:1] + rows[2:])
+                fails, _ = self._check(path, out)
+                self.assertTrue(any("row(s)" in f for f in fails), (path, name, fails))
+                os.unlink(tsv)
+                fails, _ = self._check(path, out)
+                self.assertTrue(any("absent" in f for f in fails), (path, name, fails))
+
+    def test_a_binary64_formatter_is_caught_at_n31(self):
+        # The formatter-fault half of the ruling: at 39-digit magnitudes a ratio rendered through
+        # a double differs from the exact one in the last digits. Shown red at n=31.
+        old = self.S._atlas_f
+        self.S._atlas_f = lambda x: "%.17g" % float(x)
+        try:
+            R, _ = self._query(self.ATLAS31)
+        finally:
+            self.S._atlas_f = old
+        self.assertTrue(R["verdicts"]["TR12_RATIO_COLUMNS"].startswith("FAIL:"),
+                        R["verdicts"]["TR12_RATIO_COLUMNS"])
+
+    def test_the_token_is_written_only_when_a_ratio_table_is_selected(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        R = self.S.atlas_queries(self.ATLAS31, d, select=["q10a"], quiet=True)
+        self.assertNotIn("TR12_RATIO_COLUMNS", R["verdicts"])
+        R = self.S.atlas_queries(self.ATLAS31, d, select=["q6"], quiet=True)
+        self.assertEqual("PASS", R["verdicts"]["TR12_RATIO_COLUMNS"])
+
+    # ---- the shell leg: scripts/tr12_repro.sh xcheck_shell_ratios, called from row c_xcheck ----
+    @staticmethod
+    def _shell_fn():
+        with open(os.path.join("scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        a = src.index("\nxcheck_shell_ratios(){") + 1
+        body = src[a:src.index("\n}\n", a) + 3]
+        row = src[src.index("    row_begin c_xcheck\n"):src.index("    row_end TR12_XCHECK $rc\n")]
+        return body, row
+
+    def _shell(self, q6, v5, q6x, N):
+        body, _ = self._shell_fn()
+        r = subprocess.run(["bash", "-c", body + '\nxcheck_shell_ratios "$@"', "x", q6, v5, q6x,
+                            str(N)], capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    @staticmethod
+    def _ratio9(n, d):
+        # the shell's published shape: half-up to 9 places, a bare 0 for zero
+        r = (2 * n * 10 ** 9 + d) // (2 * d)
+        return "0" if r == 0 else "%d.%09d" % divmod(r, 10 ** 9)
+
+    def _shell31(self):
+        """n=31 shell tables. SYNTHETIC IN FORM: the rows are the committed atlas's integers and
+        King Wen's class per step recomputed from tr12/q3_profile_kw.tsv's entry column; the shell
+        rows themselves were never run at n=31 in this tree (no ladders). The consumer side is
+        the real consumer run on the committed atlas."""
+        S = self.S
+        A = S.atlas_load(self.ATLAS31)
+        N = int(A["N_total"])
+        prev = S.binary_hexagrams[1]
+        ad = []
+        for r in S._atlas_read_tsv(os.path.join("tr12", "q3_profile_kw.tsv")):
+            ad.append(bin(prev ^ int(r["entry"])).count("1"))
+            prev = int(r["exit"])
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        q6 = ["# synthetic n=31 shell Q6 table",
+              "k\tflow\td1\td2\td3\td4\td6\tanchor_d\tanchor_class_mass\tanchor_p\tanchor_class_pct"]
+        v5 = ["k\tclass\tmass\tp"]
+        for L in A["layers"]:
+            k = int(L["k"])
+            by = {c: int(L["by_class"]["d%d" % c]) for c in (1, 2, 3, 4, 6)}
+            am = by[ad[k]]
+            le = sum(v for v in by.values() if v <= am)
+            q6.append("\t".join([str(k), L["flow"]] + [str(by[c]) for c in (1, 2, 3, 4, 6)]
+                                + [str(ad[k]), str(am), self._ratio9(am, N), self._ratio9(le, N)]))
+            for c in (1, 2, 3, 4, 6):
+                v5.append("%d\td%d\t%d\t%s" % (k, c, by[c], self._ratio9(by[c], int(L["flow"]))))
+        paths = []
+        for name, rows in (("q6.tsv", q6), ("v5.tsv", v5)):
+            paths.append(os.path.join(d, name))
+            with open(paths[-1], "w", encoding="utf-8") as fh:
+                fh.write("\n".join(rows) + "\n")
+        _R, out = self._query(self.ATLAS31)
+        return paths[0], paths[1], os.path.join(out, "scan", "q6_layer_extremes.tsv"), N, d
+
+    def test_shell_leg_is_wired_into_row_c_xcheck(self):
+        _body, row = self._shell_fn()
+        # the call must be a COMMAND at the start of a line, not text inside one (`: xcheck...` or
+        # a comment would otherwise satisfy a substring test)
+        self.assertEqual(1, len(re.findall(
+            r'^ +xcheck_shell_ratios "\$ARTDIR/q6_layer_mass\.tsv" "\$ARTDIR/v5_grammar\.tsv" \\\n'
+            r' +"\$ARTDIR/consumer/scan/q6_layer_extremes\.tsv" "\$N_TOTAL" \|\| erc=1$', row, re.M)), row[-800:])
+
+    def test_shell_leg_green_on_the_n9_goldens_and_red_on_a_planted_ratio(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        G = os.path.join("scripts", "tr12_expected", "n9")
+        _R, out = self._query(self.atlas9)
+        q6x = os.path.join(out, "scan", "q6_layer_extremes.tsv")
+        rc, msg = self._shell(os.path.join(G, "c_q6.txt"), os.path.join(G, "c_v5.txt"), q6x, 26112)
+        self.assertEqual((0, ""), (rc, msg))
+        for src, old, new, needle in (("c_q6.txt", "0.419117647\t0.419117647", "0.419117648\t0.419117647", "anchor_p"),
+                                      ("c_q6.txt", "0.419117647\t0.419117647", "0.419117647\t1.000000000", "anchor_class_pct"),
+                                      ("c_v5.txt", "\t0.352941176\n", "\t0.352941177\n", "d2 p")):
+            with open(os.path.join(G, src), encoding="utf-8") as fh:
+                txt = fh.read()
+            self.assertIn(old, txt, "precondition: the golden carries the cell being planted")
+            bad = os.path.join(out, "bad_" + src)
+            with open(bad, "w", encoding="utf-8") as fh:
+                fh.write(txt.replace(old, new, 1))
+            args = ([bad, os.path.join(G, "c_v5.txt")] if src == "c_q6.txt"
+                    else [os.path.join(G, "c_q6.txt"), bad])
+            rc, msg = self._shell(args[0], args[1], q6x, 26112)
+            self.assertEqual(1, rc, (src, needle))
+            self.assertIn("XCHECK_FAIL\t", msg)
+            self.assertIn(needle, msg)
+        rc, msg = self._shell(os.path.join(out, "nope.tsv"), os.path.join(G, "c_v5.txt"), q6x, 26112)
+        self.assertEqual(1, rc)
+        self.assertIn("absent", msg)
+
+    def test_shell_anchor_is_compared_with_the_consumers_king_wen_at_n31(self):
+        q6, v5, q6x, N, d = self._shell31()
+        self.assertEqual((0, ""), self._shell(q6, v5, q6x, N))        # positive control
+        with open(q6, encoding="utf-8") as fh:
+            rows = fh.read().splitlines()
+        # a shell anchor mass 48 off, with its ratios re-rendered to MATCH it: (1) is blind to it
+        # by construction, so only the comparison with the consumer can fail it.
+        c = rows[5].split("\t")
+        am = int(c[8]) + 48
+        c[2 + (1, 2, 3, 4, 6).index(int(c[7]))] = str(am)
+        c[8], c[9] = str(am), self._ratio9(am, N)
+        c[10] = self._ratio9(sum(int(x) for x in c[2:7] if int(x) <= am), N)
+        bad = os.path.join(d, "bad.tsv")
+        with open(bad, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(rows[:5] + ["\t".join(c)] + rows[6:]) + "\n")
+        rc, msg = self._shell(bad, v5, q6x, N)
+        self.assertEqual(1, rc, msg)
+        self.assertIn("!= consumer King Wen", msg)
+        self.assertEqual(1, msg.count("XCHECK_FAIL"), msg)
+        # a 39-digit ratio one unit of 10^-9 off
+        c = rows[5].split("\t")
+        u = int(c[9].replace(".", "")) + 1
+        c[9] = "%d.%09d" % divmod(u, 10 ** 9)
+        with open(bad, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(rows[:5] + ["\t".join(c)] + rows[6:]) + "\n")
+        rc, msg = self._shell(bad, v5, q6x, N)
+        self.assertEqual(1, rc)
+        self.assertIn("anchor_p", msg)
+
+
+class TestQ502AtlasIntRefusesNegative(unittest.TestCase):
+    """Q-502 (KCP3 F6). `_atlas_int` accepted a leading minus (`s.lstrip("-").isdigit()`), so
+    atlas_load took a negative class mass and the consumer published it. It now refuses a
+    negative with a named reason, on the string arm and on the three `%llu` json_int sites."""
+
+    def setUp(self):
+        self.S = _load("solve")
+
+    def test_negative_string_and_json_int_are_refused_by_name(self):
+        S = self.S
+        for v, kw in (("-48", {}), ("-0", {}), (-5, {"json_int": True})):   # " -48 ": whitespace
+            with self.assertRaises(S.AtlasError) as cm:
+                S._atlas_int(v, "x", **kw)
+            self.assertIn("negative", str(cm.exception), v)
+
+    def test_non_ascii_digits_are_an_atlas_error_not_a_traceback(self):
+        for v in ("²", "٣", "1_000", "+5", ""):
+            with self.assertRaises(self.S.AtlasError):
+                self.S._atlas_int(v, "x")
+
+    def test_positive_control_valid_counts_still_parse(self):
+        S = self.S
+        self.assertEqual(0, S._atlas_int("0", "x"))
+        self.assertEqual(10 ** 39 + 7, S._atlas_int(str(10 ** 39 + 7), "x"))
+        self.assertEqual(5, S._atlas_int(5, "x", json_int=True))
+
+    def test_atlas_load_refuses_a_negative_class_mass_and_a_negative_t_unit(self):
+        import copy, json
+        with open(os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json"),
+                  encoding="utf-8") as fh:
+            A0 = json.load(fh)
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        p = os.path.join(d, "a.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(A0, fh)
+        self.S.atlas_load(p)                     # positive control: the real atlas loads
+        for mut in ("class", "t"):
+            A = copy.deepcopy(A0)
+            if mut == "class":
+                A["layers"][3]["by_class"]["d2"] = "-" + A["layers"][3]["by_class"]["d2"]
+            else:
+                A["branch_atlas"][0]["prefixes_t_units"] = "-7"
+            with open(p, "w", encoding="utf-8") as fh:
+                json.dump(A, fh)
+            with self.assertRaises(self.S.AtlasError) as cm:
+                self.S.atlas_load(p)
+            self.assertIn("negative", str(cm.exception), mut)
+
+
+class TestQ3AttestedTraceRunsTheQ3LegsAtFull31(unittest.TestCase):
+    """CX-137 follow-up (2026-09-26). The three Q3 legs of the 22 n-independent consumer gates
+    could not run at n=31: no attested trace was committed, and tr12/q3_profile_kw.tsv (the
+    consumer's OUTPUT) carries no producer trailer. tr12/q3_trace_kw.txt is now the producer's
+    unmodified output: the full-31 battery's row a2_q3 of 2026-09-22 (solve --kc-o3-rank ...
+    --kc-trace --kc-bracket), the trace behind the published receipt's TR12_Q3=PASS. With it all
+    22 gates run on the committed atlas, the consumer re-emits the committed Q3 table byte for
+    byte, and the committed tr12/VERDICTS.txt is exactly what the consumer writes."""
+
+    ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    TRACE = os.path.join("tr12", "q3_trace_kw.txt")
+    TRACE_SHA256 = "8797729ab2c7016a5904e3216725e1dd43b334d35a46fa4d1d0ae8f8ee29df5c"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.S = _load("solve")
+
+    def _dir(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        return d
+
+    def _run(self, trace):
+        import contextlib, io
+        out = os.path.join(self._dir(), "out")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            R = self.S.atlas_queries(self.ATLAS, out, q3_trace=trace, quiet=False)
+        return R, buf.getvalue().splitlines(), out
+
+    def _text(self):
+        with open(self.TRACE, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _variant(self, text):
+        p = os.path.join(self._dir(), "q3_trace_variant.txt")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return p
+
+    def test_the_committed_trace_is_the_attested_producer_output(self):
+        with open(self.TRACE, "rb") as fh:
+            self.assertEqual(self.TRACE_SHA256, hashlib.sha256(fh.read()).hexdigest())
+        lines = self._text().splitlines()
+        self.assertEqual(31, sum(1 for l in lines if l.startswith("#o3-trace\t")))
+        self.assertEqual(["KC_O3_TRACE=OK"], [l for l in lines if l.startswith("KC_O3_TRACE=")])
+        self.assertIn("[kc-o3-bracket] rank3 roundtrips + strict order: CERTIFICATE PASS", lines)
+        prov = [l for l in lines if l.startswith("#provenance\t")]
+        self.assertEqual(1, len(prov))
+        self.assertIn("\tgit=8af5e55c8eed\t", prov[0])
+        self.assertIn("\tsource_sha=ed9c65b24e9f2ff9cab05eef9f817dca9453ea2edf25b9186fc1f667abe063c9\t",
+                      prov[0])
+
+    def test_all_22_gates_run_and_pass_and_the_committed_outputs_are_reproduced(self):
+        S = self.S
+        R, lines, out = self._run(self.TRACE)
+        self.assertEqual(22, len(S._ATLAS_ARITH_IDS))
+        self.assertEqual([], [e[0] for e in R["arith"] if e[3] is not True], R["arith"])
+        self.assertIn("[atlas-arith] 22 gate(s) run, 0 failure(s), 0 not run", lines)
+        self.assertIn("ATLAS_ARITH=PASS", lines)
+        for tok in ("TR12_Q3", "TR12_Q3_KW", "TR12_Q3_READER"):
+            self.assertEqual("PASS", R["verdicts"][tok], tok)
+        with open(os.path.join(out, "q3_profile_kw.tsv"), "rb") as a, \
+                open(os.path.join("tr12", "q3_profile_kw.tsv"), "rb") as b:
+            self.assertEqual(b.read(), a.read(), "the committed Q3 table is not what the trace gives")
+        with open(os.path.join(out, "VERDICTS.txt"), "rb") as a, \
+                open(os.path.join("tr12", "VERDICTS.txt"), "rb") as b:
+            self.assertEqual(b.read(), a.read(),
+                             "tr12/VERDICTS.txt is not what the consumer writes from the committed trace")
+
+    def test_one_step_probability_mutated_turns_q3_red(self):
+        # Step 31 is the last free placement: g_parent=2, g=1, p=1/2. Quartering its p breaks the
+        # telescoping product; Q3-prod and Q3-tokens must see it. Q3-ptext still passes, because
+        # the float column is re-rendered from the (mutated) fraction.
+        row = [l for l in self._text().splitlines() if l.startswith("#o3-trace\tstep=31\t")]
+        self.assertEqual(1, len(row))
+        self.assertIn("\tp=1/2\t", row[0], "precondition: the unmutated step-31 row")
+        R, lines, _out = self._run(self._variant(self._text().replace(
+            row[0], row[0].replace("\tp=1/2\t", "\tp=1/4\t"))))
+        self.assertEqual(["Q3-prod", "Q3-tokens"], [e[0] for e in R["arith"] if e[3] is False])
+        self.assertEqual("FAIL", R["verdicts"]["TR12_Q3_READER"])
+        self.assertTrue(R["verdicts"]["TR12_Q3"].startswith("FAIL"), R["verdicts"]["TR12_Q3"])
+        self.assertIn("ATLAS_ARITH=FAIL", lines)
+
+    def test_the_trace_without_its_attestation_line_is_refused(self):
+        text = self._text()
+        self.assertIn("\nKC_O3_TRACE=OK\n", text, "precondition: the attestation line is present")
+        with self.assertRaises(self.S.AtlasError) as cm:
+            self.S.atlas_parse_q3_trace(self._variant(text.replace("\nKC_O3_TRACE=OK\n", "\n")))
+        self.assertIn("KC_O3_TRACE=", str(cm.exception))
 
 
 @unittest.skipUnless(os.path.isdir("/proc/self") and shutil.which("setsid") and shutil.which("git"),
@@ -10651,6 +11729,2229 @@ class TestSolvePyStdoutSweepAndTr8BankSchemaQ625Q450Q451(unittest.TestCase):
                 solve.tr8_clause_values = real
             g = self._json(os.path.join(td, "results.json"))["gates"]
             self.assertIs(g["h_a_kw_satisfies_every_raw_template"], False)
+
+
+class TestSolveVerifyFramingCountersAndIdentityQ619Q641(unittest.TestCase):
+    """Q-619 items #1, #4, #6 and Q-641's three code items (2026-09-26).
+
+    #1 / Q-641: gz_logical_size() returns the gzip ISIZE trailer, which is the logical size
+    MODULO 2^32, and --verify compared it EXACTLY with the header-derived size, so every gz
+    solutions.bin of 4 GiB or more (560T: 337 GB) was refused as "framing mismatch". The cure
+    compares modulo 2^32 (gz_framing_matches) and restores exactness by requiring the stream
+    to END right after the declared records. None of these tests needs a 4 GiB file: a header
+    that declares 2^27 + 1 records over ONE real record has a logical size congruent mod 2^32
+    to the real 64 bytes, which is exactly what a >= 4 GiB file looks like to the old check.
+
+    Q-641: --verify's fail_* counters and total_fail were int. The runtime proof needs 2^31
+    failures (a 34 GB sparse witness, ~70 s) so it is recorded in the CORRECTIONS entry, not
+    run here; test_verify_counters_are_64_bit pins the type at source level.
+
+    #4: check_build_sha_invariant() hashed "/proc/self/exe" through popen, so build.sha held
+    the digest of the hashing tool. #6: the --branch all_top buffer was 64*TOP_N while
+    n_threads clamps at 256 (ASan stack-buffer-overflow at 128 threads, SOLVE_DEPTH=3,
+    measured 2026-09-26; recorded in the CORRECTIONS entry).
+
+    The same #4 defect sat in capture_host_fingerprint(), whose shell ran `readlink
+    /proc/self/exe`, so binary_full_sha256 was readlink's digest.
+
+    ROAE_TESTS_SOLVE_SRC builds a mutant instead of the tracked solve.c (used to show each
+    test red on the pre-fix source); nothing in the harness sets it."""
+
+    KW_HDR = b"ROAE" + struct.pack("<I", 1)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q619_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q619")
+        cls.src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, cls.src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.V = _load("verify")
+        cls.PIDX = {frozenset(p): i for i, p in enumerate(cls.V.PAIRS)}
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _encode(self, seq):
+        out = bytearray()
+        for i in range(32):
+            a, b = seq[2 * i], seq[2 * i + 1]
+            p = self.PIDX[frozenset((a, b))]
+            out.append((p << 2) | ((0 if self.V.PAIRS[p] == (a, b) else 1) << 1))
+        return bytes(out)
+
+    def _header(self, n):
+        return self.KW_HDR + struct.pack("<Q", n) + b"\0" * 16
+
+    def _write(self, name, blob):
+        path = os.path.join(self.tmp, name)
+        with open(path, "wb") as fh:
+            fh.write(blob)
+        return path
+
+    def _verify(self, path):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        r = subprocess.run([self.sbin, "--verify", path], capture_output=True, text=True,
+                           timeout=300)
+        return r.returncode, r.stdout.splitlines(), r.stderr
+
+    # ---- #1 / Q-641: gz framing -------------------------------------------------------
+
+    def test_gz_count_congruent_mod_2_32_passes_the_framing_check(self):
+        declared = 1 + (1 << 27)
+        raw = self._header(declared) + self._encode(self.V.KW)
+        # PRECONDITION: the declared size is 4 GiB larger than the real one and congruent to
+        # it mod 2^32 -- the shape every gz file of >= 4 GiB presents to the framing check.
+        want = 32 + 32 * declared
+        self.assertEqual(want - len(raw), 1 << 32)
+        self.assertEqual(want % (1 << 32), len(raw))
+        rc, out, err = self._verify(self._write("cong.bin.gz", gzip.compress(raw)))
+        self.assertNotIn("framing mismatch", err)          # red on the pre-fix exact compare
+        self.assertEqual(rc, 20, err)                      # it got INTO the record loop ...
+        self.assertIn("short read at record 1", err)       # ... and ran out of real records
+
+    def test_control_raw_file_with_the_same_header_is_refused(self):
+        # A raw file reports its TRUE size, so the relaxation must not reach it.
+        raw = self._header(1 + (1 << 27)) + self._encode(self.V.KW)
+        rc, out, err = self._verify(self._write("cong_raw.bin", raw))
+        self.assertEqual(rc, 30)
+        self.assertIn("framing mismatch", err)
+        self.assertIn("VERIFY=ERROR", out)
+
+    def test_control_gz_count_not_congruent_is_refused(self):
+        raw = self._header(2) + self._encode(self.V.KW)
+        rc, out, err = self._verify(self._write("noncong.bin.gz", gzip.compress(raw)))
+        self.assertEqual(rc, 30)
+        self.assertIn("framing mismatch", err)
+        self.assertIn("VERIFY=ERROR", out)
+
+    def test_honest_gz_file_still_passes(self):
+        # Positive control for the end-of-stream check: it must not reject a good file.
+        raw = self._header(1) + self._encode(self.V.KW)
+        rc, out, err = self._verify(self._write("honest.bin.gz", gzip.compress(raw)))
+        self.assertEqual(rc, 0, err)
+        self.assertIn("VERIFY=PASS", out)
+
+    def test_gz_data_past_the_declared_records_is_refused(self):
+        # The exact half. Header says 1 record, the stream carries 200,001, and the ISIZE
+        # trailer is forged to 64 so the mod-2^32 check agrees -- the only way to model "4 GiB
+        # more than declared" without writing 4 GiB. The surplus is kept > 2 MiB logical so
+        # zlib cannot reach (and reject) the forged trailer on its first buffered inflate: a
+        # real >= 4 GiB file never does either. Pre-fix binary: VERIFY=PASS rc 0.
+        kw = self._encode(self.V.KW)
+        body = self._header(1) + kw + kw * 200000
+        self.assertGreater(len(body), 4 << 20)
+        gz = bytearray(gzip.compress(body))
+        # PRECONDITION: unforged, the pre-loop check already refuses it, so the forgery is what
+        # carries the fixture past that check and into the loop.
+        rc0, _, err0 = self._verify(self._write("surplus_honest.bin.gz", bytes(gz)))
+        self.assertEqual(rc0, 30)
+        self.assertIn("framing mismatch", err0)
+        gz[-4:] = struct.pack("<I", 64)
+        rc, out, err = self._verify(self._write("surplus.bin.gz", bytes(gz)))
+        self.assertEqual(rc, 30, err)
+        self.assertIn("the file carries MORE data", err)
+        self.assertIn("VERIFY=ERROR", out)
+        self.assertNotIn("VERIFY=PASS", out)
+
+    # ---- Q-641: counter width ------------------------------------------------------------
+
+    def _verify_block(self):
+        with open(self.src, encoding="utf-8") as fh:
+            s = fh.read()
+        a = s.index("    if (verify_mode) {")
+        b = s.index("/* --- Show mode ---", a)
+        return s[a:b]
+
+    def test_verify_counters_are_64_bit(self):
+        blk = self._verify_block()
+        pat = re.compile(r"\bint\s+(?:fail_(?:c[1-5]|dup|sort|decode)|total_fail)\b")
+        # POSITIVE CONTROL: the pattern finds the pre-fix declaration shape.
+        self.assertTrue(pat.search("        int fail_dup = 0, fail_sort = 0;"))
+        self.assertTrue(pat.search("        int total_fail = fail_c1 + fail_kw;"))
+        self.assertIn("fail_c1", blk)   # the block really is the --verify body
+        self.assertIsNone(pat.search(blk), "a --verify failure counter is 32-bit again")
+        self.assertIn("VERIFY FAIL: %lld issues found", blk)
+
+    # ---- #6: all_top sizing and bound -----------------------------------------------------
+
+    def test_all_top_buffers_cover_the_thread_clamp_and_are_bounded(self):
+        with open(self.src, encoding="utf-8") as fh:
+            s = fh.read()
+        sizes = [int(m) for m in re.findall(r"ClosestEntry all_top\[(\d+) \* TOP_N\]", s)]
+        clamps = [int(m) for m in re.findall(r"if \(n_threads > (\d+)\) \{", s)]
+        self.assertGreaterEqual(len(sizes), 2, "all_top declarations not found; parser stale")
+        self.assertTrue(clamps, "n_threads clamp not found; parser stale")
+        for n in sizes:
+            self.assertGreaterEqual(n, max(clamps), f"all_top[{n} * TOP_N] < thread clamp")
+        copies = re.findall(r"for \(int j = 0; j < threads\[i\]\.top_count([^;]*);[^\n]*\n\s*"
+                            r"all_top\[all_top_count\+\+\]", s)
+        self.assertEqual(len(copies), len(sizes))
+        for cond in copies:
+            self.assertIn("all_top_count <", cond, "unbounded all_top copy")
+
+    # ---- #4: build.sha identity, and the Q-641 exit-22 advice ------------------------------
+
+    def _run_dir(self, name, build_sha=None, manifest_missing=False, extra_env=None):
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        if build_sha is not None:
+            with open(os.path.join(d, "build.sha"), "w") as fh:
+                fh.write(build_sha + "\n")
+        if manifest_missing:
+            with open(os.path.join(d, "shard_manifest.txt"), "w") as fh:
+                fh.write("sub_1_0_2_0.bin\t32\t" + "0" * 64 + "\n")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(SOLVE_NODE_LIMIT="3030000", SOLVE_ALLOW_SUB_CANONICAL="1",
+                   SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1",
+                   SOLVE_THREADS="2")
+        env.update(extra_env or {})
+        r = subprocess.run([self.sbin, "0"], cwd=d, env=env, capture_output=True,
+                           text=True, timeout=300)
+        return d, r
+
+    @staticmethod
+    def _sha_file(path):
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+
+    def _tool_digest(self):
+        tool = shutil.which("sha256sum")
+        if not tool:
+            self.skipTest("sha256sum not on PATH; the legacy digest cannot be derived")
+        return self._sha_file(os.path.realpath(tool))
+
+    def test_build_sha_guard_digests_the_solve_binary(self):
+        # A planted foreign build.sha must be refused (the guard is live), and the "Current"
+        # digest it reports must be the solve binary's own. Pre-fix: it was sha256sum's.
+        d, r = self._run_dir("bsha_mismatch", build_sha="ab" * 32)
+        self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+        m = re.search(r"Current binary sha256 ([0-9a-f]{64})", r.stderr)
+        self.assertIsNotNone(m, r.stderr[-2000:])
+        self.assertEqual(m.group(1), self._sha_file(self.sbin))
+        self.assertNotEqual(m.group(1), self._tool_digest())
+
+    def test_host_fingerprint_digests_the_solve_binary(self):
+        # Sibling of #4: capture_host_fingerprint() ran `readlink /proc/self/exe` inside its
+        # shell, which names readlink, so binary_full_sha256 was readlink's digest for every
+        # build. It fires only at SOLVE_NODE_LIMIT >= 1T; the planted foreign build.sha stops
+        # the run (exit 26) right after the capture, so nothing is enumerated.
+        d, r = self._run_dir("fprint", build_sha="ab" * 32,
+                             extra_env=dict(SOLVE_NODE_LIMIT="1000000000000",
+                                            SOLVE_SKIP_DISK_CHECK="1",
+                                            SOLVE_SKIP_IOPS_CHECK="1"))
+        self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+        self.assertIn("host-fingerprint captured", r.stderr)
+        with open(os.path.join(d, "canonical-host-fingerprint.json")) as fh:
+            m = re.search(r'"binary_full_sha256": "([0-9a-f]{64})"', fh.read())
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), self._sha_file(self.sbin))
+
+    def test_legacy_tool_digest_is_upgraded_and_exit_22_does_not_advise_deletion(self):
+        # A build.sha written by a pre-fix binary holds the hashing tool's digest: it names no
+        # solve build, so it is rewritten (with a WARN) rather than trusted or read as a
+        # mismatch. The planted manifest row for an absent shard stops the run at the
+        # auto-verify gate (exit 22) straight after the build.sha step, and its advice text
+        # must not tell the operator to delete data (Q-641 / V3A-054).
+        d, r = self._run_dir("bsha_legacy", build_sha=self._tool_digest(), manifest_missing=True)
+        self.assertEqual(r.returncode, 22, r.stderr[-2000:])
+        self.assertIn("digest of the hashing tool's own executable", r.stderr)
+        with open(os.path.join(d, "build.sha")) as fh:
+            self.assertEqual(fh.read().strip(), self._sha_file(self.sbin))
+        self.assertIn("auto-verify-manifest FAIL", r.stderr)
+        self.assertNotIn("delete them", r.stderr)
+        self.assertNotIn("forcing re-walk", r.stderr)
+        self.assertIn("Do NOT delete shards or manifest rows", r.stderr)
+
+    # Q-619 #4 follow-up (2026-09-26): the live check above recognised only the digest of the
+    # sha256sum installed NOW, so a run directory written before a coreutils upgrade exited 26.
+    _KNOWN_62_AMD64 = "9992e1f1feb6f0f396bc8d6691ebc1adbfc269fd628bce84eda1d4ba5c3995c7"
+    _KNOWN_832_ARM64 = "dd651bdf3c84d923d7384e8238cc7035c83ca20ff7f3c2e226bc978d7bcadb9e"
+
+    def _known_table(self):
+        with open(self.src) as fh:
+            src = fh.read()
+        body = (src.split("static const char *build_sha_known_tool_digest(const char *prior) {", 1)
+                + [""])[1].split("\n}\n", 1)[0]                          # "" = no table (pre-fix)
+        return re.findall(r'\{"([0-9a-f]{64})", "([^"]+)"\}', body)
+
+    def test_known_tool_digest_of_an_older_sha256sum_is_upgraded_not_exit_26(self):
+        # A legacy build.sha from a sha256sum that is NOT the one installed now (DV's case:
+        # 9.4-3ubuntu6.2 amd64 read on a 6.3 host) is recognised from the committed table.
+        planted, label = self._KNOWN_62_AMD64, "9.4-3ubuntu6.2 amd64"
+        if planted == self._tool_digest():
+            planted, label = self._KNOWN_832_ARM64, "8.32-4.1ubuntu1 arm64"
+        self.assertNotEqual(planted, self._tool_digest())                  # precondition: not live
+        d, r = self._run_dir("bsha_known", build_sha=planted, manifest_missing=True)
+        self.assertEqual(r.returncode, 22, r.stderr[-2000:])
+        self.assertNotIn("build.sha mismatch", r.stderr)
+        self.assertIn("sha256sum from Ubuntu\n           coreutils " + label, r.stderr)
+        with open(os.path.join(d, "build.sha")) as fh:
+            self.assertEqual(fh.read().strip(), self._sha_file(self.sbin))
+
+    def test_a_different_solve_build_still_exits_26_with_the_legacy_hint(self):
+        # The real guard is not weakened: the digest of another solve build (this binary with
+        # one byte changed) is neither the live tool's nor in the table, so it exits 26, keeps
+        # build.sha, and the message says how to tell a legacy tool digest apart.
+        with open(self.sbin, "rb") as fh:
+            b = bytearray(fh.read())
+        b[-1] ^= 1
+        other = hashlib.sha256(bytes(b)).hexdigest()
+        self.assertNotIn(other, [k for k, _ in self._known_table()])     # precondition
+        self.assertNotEqual(other, self._tool_digest())
+        d, r = self._run_dir("bsha_other_build", build_sha=other)
+        self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+        self.assertIn("build.sha mismatch", r.stderr)
+        for part in ("A binary built before 2026-09-26 wrote the digest of the host's sha256sum here",
+                     "names no build: if the prior sha equals `sha256sum $(command -v sha256sum)`",
+                     "take the build from the provenance sidecars' git_hash, then rm build.sha"):
+            self.assertIn(part, r.stderr)
+        with open(os.path.join(d, "build.sha")) as fh:
+            self.assertEqual(fh.read().strip(), other)
+
+    def test_known_tool_digest_table_is_well_formed(self):
+        t = self._known_table()
+        self.assertEqual(len(t), 30, t)
+        self.assertEqual(len({k for k, _ in t}), len(t))                  # distinct digests
+        self.assertEqual(len({v for _, v in t}), len(t))                  # distinct packages
+        self.assertIn((self._KNOWN_62_AMD64, "9.4-3ubuntu6.2 amd64"), t)
+        self.assertNotIn(self._sha_file(self.sbin), [k for k, _ in t])
+
+
+class TestAtlasProbeRefusesMalformedCounts(unittest.TestCase):
+    """`--atlas-probe` parsed every count with bare int(), which accepts "-48", "+5", " 5" and
+    "1_000".  A negative `by_class.d2` on the n=31 atlas scored FAIL (rc 1) without the value ever
+    being named, and "+N", " N" and "N_NNN" spellings of the right value scored PASS.  The probe
+    now puts the whole atlas through the consumer's own validation (`_atlas_int` /
+    `_atlas_nonneg`, Q-502) first, so each is refused as ERROR:malformed-atlas (rc 2) with the
+    field and the value named.  The committed n=31 atlas is the fixture; the CLI mutants keep the
+    cell's VALUE and change only its spelling (except the negation), so on the old code three of
+    them passed outright."""
+
+    ATLAS31 = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    @classmethod
+    def setUpClass(cls):
+        import json
+        cls.S = _load("solve")
+        with open(cls.ATLAS31, encoding="utf-8") as fh:
+            cls.A0 = json.load(fh)
+        cls.tmp = tempfile.mkdtemp(prefix="probecounts_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _mutant(self, value):
+        import copy
+        A = copy.deepcopy(self.A0)
+        A["layers"][3]["by_class"]["d2"] = value
+        return A
+
+    def test_positive_control_the_committed_atlas_passes_validation_unchanged(self):
+        import copy
+        A = copy.deepcopy(self.A0)
+        self.assertIs(self.S._atlas_probe_counts(A), A)
+        self.assertEqual(A, self.A0)
+        self.assertTrue(self.A0["layers"][3]["by_class"]["d2"].isdigit())   # precondition
+
+    def test_planted_counts_are_refused_by_name_in_process(self):
+        S = self.S
+        for v in ("-48", "+5", " 5", "1_000", "5 ", "-0", "٣", -1, 4.0):
+            with self.assertRaises(S.AtlasError, msg=repr(v)) as cm:
+                S._atlas_probe_counts(self._mutant(v))
+            self.assertIn("by_class.d2", str(cm.exception), v)
+            self.assertIn(repr(v), str(cm.exception), v)
+        with self.assertRaises(S.AtlasError) as cm:
+            S._atlas_probe_counts(self._mutant("-48"))
+        self.assertIn("negative", str(cm.exception))
+        import copy
+        A = copy.deepcopy(self.A0)
+        mr = A["layers"][3]["marginal_raw"]
+        k0 = next(iter(mr))
+        mr["pair-" + k0[4:]] = mr.pop(k0)                # a key int() would read as negative
+        with self.assertRaises(S.AtlasError) as cm:
+            S._atlas_probe_counts(A)
+        self.assertIn("pair-", str(cm.exception))
+
+    def test_the_probe_cli_refuses_each_spelling_and_names_it(self):
+        import json
+        orig = self.A0["layers"][3]["by_class"]["d2"]
+        self.assertGreater(len(orig), 3)                 # precondition: room for a separator
+        plants = (("-48", "negative"), ("+" + orig, "not a decimal integer string"),
+                  (" " + orig, "surrounding whitespace"),
+                  (orig[:-3] + "_" + orig[-3:], "not a decimal integer string"))
+        for v, why in plants:
+            p = os.path.join(self.tmp, "a.json")
+            with open(p, "w", encoding="utf-8") as fh:
+                json.dump(self._mutant(v), fh)
+            r = subprocess.run([sys.executable, "solve.py", "--atlas-probe", p],
+                               capture_output=True, text=True)
+            self.assertNotIn("Traceback", r.stderr, r.stderr)
+            self.assertEqual(2, r.returncode, (v, r.stdout[-500:], r.stderr))
+            self.assertIn("ATLAS_PROBE=ERROR:malformed-atlas", r.stdout.splitlines(), v)
+            self.assertIn("AtlasError", r.stderr, v)
+            self.assertIn(repr(v), r.stderr, v)
+            self.assertIn(why, r.stderr, v)
+
+
+class TestSolveVerifyC3CountDeterministic(unittest.TestCase):
+    """Q-836 (2026-09-26): `solve --verify` printed a DIFFERENT `C3 failures` count on two
+    runs of the same bytes. Root cause: compute_comp_dist_x64() declared `int pos[64]` with
+    no initialiser and filled it from the record, so a record that repeats a hexagram (a C1
+    failure) left pos[v] unset for every hexagram it omits and the C3 sum read stack garbage.
+    Nothing is threaded here (the --verify loop is serial); SOLVE_THREADS is varied only to
+    show that. Measured on the old code, 4,000-record witness, 40 runs: counts 2721-2723 and
+    3843-3845 at both SOLVE_THREADS=1 and 16; gcc -ftrivial-auto-var-init=zero pinned it to
+    3823, which is verify.py's count (its pos list starts at 0). The fix initialises pos to 0.
+
+    THE ASSERTION is stronger than "two runs agree": every run must print exactly the count
+    verify.py's own decode() + compute_comp_dist() give for the same bytes, so a fix that is
+    deterministic but disagrees with the independent verifier (a different fill value) is
+    also red. PRECONDITIONS asserted first: the witness holds C1-invalid records with
+    repeated hexagrams, and its expected count is SENSITIVE to the fill value (a fill of 63
+    gives a different count), so a green here cannot come from a witness that never reads
+    an unset slot. MUTANTS (built via ROAE_TESTS_SOLVE_SRC, the sibling class's hook):
+    the unfixed `int pos[64];` and a deterministic `int pos[64] = {[0 ... 63] = 63};`."""
+
+    RUNS = (1, 16, 1, 16)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q836_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q836")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.V = _load("verify")
+        import random
+        rng = random.Random(836)
+        recs = []
+        for k in range(3000):
+            p = list(range(32))
+            if k % 4 == 3:
+                rng.shuffle(p)                                  # C1-valid permutation
+            else:
+                p = [rng.randrange(32) for _ in range(32)]      # repeats -> unset pos[v]
+            recs.append(bytes((p[i] << 2) | (rng.randrange(2) << 1) for i in range(32)))
+        cls.recs = recs
+        cls.path = os.path.join(cls.tmp, "q836_witness.bin")   # headerless shard
+        with open(cls.path, "wb") as fh:
+            fh.write(b"".join(recs))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _c3_count(self, fill):
+        n = 0
+        for rec in self.recs:
+            seq = self.V.decode(rec)[0]
+            if fill == 0:
+                cd = self.V.compute_comp_dist(seq)
+            else:
+                pos = [fill] * 64
+                for i, v in enumerate(seq):
+                    pos[v] = i
+                cd = sum(abs(pos[v] - pos[v ^ 63]) for v in range(64))
+            n += cd > self.V.KW_COMP_DIST
+        return n
+
+    def test_verify_c3_count_is_deterministic_and_matches_verify_py(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        repeats = sum(len(set(self.V.decode(r)[0])) < 64 for r in self.recs)
+        self.assertGreaterEqual(repeats, 2000, "precondition: witness must repeat hexagrams")
+        self.assertLess(len(set(self.V.decode(self.recs[0])[0])), 64,
+                        "precondition: record 0 repeats a hexagram (reads pre-first-call stack)")
+        want = self._c3_count(0)
+        self.assertNotEqual(want, self._c3_count(63),
+                            "precondition: witness is insensitive to the unset-slot value")
+        got = []
+        for t in self.RUNS:
+            env = dict(os.environ, SOLVE_THREADS=str(t))
+            r = subprocess.run([self.sbin, "--verify", self.path], capture_output=True,
+                               text=True, env=env, timeout=300)
+            lines = [" ".join(x.split()) for x in r.stdout.splitlines()]
+            self.assertIn("VERIFY=FAIL", lines, r.stdout[-2000:] + r.stderr[-2000:])
+            hit = [x for x in lines if x.startswith("C3 failures (cd>776): ")]
+            self.assertEqual(len(hit), 1, r.stdout[-2000:])
+            got.append((t, int(hit[0].rsplit(" ", 1)[1])))
+        self.assertEqual(got, [(t, want) for t in self.RUNS],
+                         "Q-836: --verify C3 count differs across runs / from verify.py")
+
+
+class TestG19RequiresRedactedPriceWording(unittest.TestCase):
+    """G19 of scripts/gate_published_consistency.sh, reworded 2026-09-26.
+
+    It had REQUIRED the METHODS phrase "priced at roughly", which carried the dollar band that TR-12
+    s9 redacts (CX-148 cleared the same band from the engine and the n=9 goldens). It now requires
+    "PRICED AND DECLINED" in METHODS and in TR-12 s"Open Problems" row 1, and fails when a dollar
+    figure returns to a METHODS line that speaks of a price or to that row. The unmutated tree is
+    the positive control; each mutant must turn the leg red. Fixture dollar figures are the
+    synthetic "$123", so the test itself republishes no price."""
+
+    GATE = os.path.join("scripts", "gate_published_consistency.sh")
+    METHODS = os.path.join("reports", "METHODS.md")
+    TR12 = os.path.join("reports", "TR12_QUERY_PROGRAM.md")
+    ROW1 = re.compile(r"^\| 1 \| \*\*Exact `\\\|C15\\\|`\*\*.*$", re.M)
+
+    def setUp(self):
+        self.root = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(self.root, self.METHODS), encoding="utf-8") as fh:
+            self.m = fh.read()
+        with open(os.path.join(self.root, self.TR12), encoding="utf-8") as fh:
+            self.t = fh.read()
+        self.tmp = tempfile.mkdtemp(prefix="g19_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def _g19(self, methods, tr12):
+        mp, tp = os.path.join(self.tmp, "M.md"), os.path.join(self.tmp, "T.md")
+        with open(mp, "w", encoding="utf-8") as fh:
+            fh.write(methods)
+        with open(tp, "w", encoding="utf-8") as fh:
+            fh.write(tr12)
+        env = dict(os.environ, G19_DOC=mp, G19_TR12=tp)
+        r = subprocess.run(["bash", os.path.join(self.root, self.GATE)], capture_output=True,
+                           text=True, env=env, cwd=self.root, timeout=600)
+        red = re.search(r"^\s*\[FAIL\] G19:", r.stdout, re.M) is not None
+        green = re.search(r"^\s*\[ok\]\s+G19: the interval-bearing estimates", r.stdout, re.M) is not None
+        self.assertNotEqual(red, green, "G19 printed neither or both verdicts:\n" + r.stdout[-3000:])
+        self.last_out = r.stdout
+        return "RED" if red else "GREEN"
+
+    def test_tree_is_green(self):
+        # Preconditions: the row the leg reads exists once, and both redacted phrases are present.
+        self.assertEqual(len(self.ROW1.findall(self.t)), 1)
+        self.assertIn("PRICED AND DECLINED", self.ROW1.search(self.t).group(0))
+        self.assertIn("PRICED AND DECLINED", self.m)
+        self.assertEqual(self._g19(self.m, self.t), "GREEN")
+
+    def _mutate(self, text, old, new):
+        self.assertEqual(text.count(old), 1, "mutant anchor not unique: %r" % old)
+        out = text.replace(old, new)
+        self.assertNotEqual(out, text)
+        return out
+
+    def test_methods_without_redacted_wording_is_red(self):
+        m = self._mutate(self.m, "It was PRICED AND DECLINED", "It was priced and declined")
+        self.assertNotIn("PRICED AND DECLINED", m)
+        self.assertEqual(self._g19(m, self.t), "RED")
+
+    def test_methods_dollar_figure_on_price_line_is_red(self):
+        m = self._mutate(self.m, "It was PRICED AND DECLINED", "It was PRICED AND DECLINED at $123")
+        self.assertEqual(self._g19(m, self.t), "RED")
+
+    def test_methods_without_costed_and_rejected_is_red(self):
+        self.assertEqual(self.m.count("costed and rejected"), 1)
+        m = self.m.replace("costed and rejected", "costed and set aside")
+        self.assertEqual(self._g19(m, self.t), "RED")
+
+    def test_tr12_row1_old_shape_is_red(self):
+        row = self.ROW1.search(self.t).group(0)
+        bad = row.replace("**PRICED AND DECLINED (\u00a79)**", "Priced \u2248 $123")
+        self.assertNotEqual(bad, row)
+        self.assertEqual(self._g19(self.m, self.t.replace(row, bad)), "RED")
+
+    def test_tr12_row1_dollar_figure_is_red(self):
+        row = self.ROW1.search(self.t).group(0)
+        bad = row.replace("**PRICED AND DECLINED (\u00a79)**", "**PRICED AND DECLINED (\u00a79)** at $123")
+        self.assertNotEqual(bad, row)
+        self.assertEqual(self._g19(self.m, self.t.replace(row, bad)), "RED")
+
+    def test_tr12_row1_absent_or_duplicated_is_red(self):
+        # The leg says it measured nothing there, rather than blaming the row's wording.
+        row = self.ROW1.search(self.t).group(0)
+        self.assertEqual(self._g19(self.m, self.t.replace(row + "\n", "")), "RED")
+        self.assertIn("Open Problems row 1 (Exact |C15|)", self.last_out)
+        self.assertIn("found 0", self.last_out)
+        self.assertEqual(self._g19(self.m, self.t.replace(row, row + "\n" + row)), "RED")
+        self.assertIn("found 2", self.last_out)
+
+
+class TestAtlasConsumerIsAsStrictAsTheProbe(unittest.TestCase):
+    """After `_atlas_probe_counts` landed, `--atlas-probe` refused spellings the atlas CONSUMER
+    still took. `_atlas_int` stripped a count before parsing it, so `atlas_load` read " 5" as 5;
+    and every key suffix was parsed with bare int() -- `int(k[4:])` for `pair<p>`,
+    `int(s) for s in key[1:].split("_")` for kernel `m<a>_<b>` -- which ignores the prefix and
+    accepts "+5", " 5", "1_0" (= 10), "05" and non-ASCII digits, so two keys could name one pair.
+    `atlas_load` now ends in `_atlas_validate_strict`: the probe's own leaf walk and key check,
+    `layers[i].k` == i as a JSON integer, and the producer's exact key spelling for the two tables
+    the consumer parses keys out of. Every plant below loaded on the old code; the committed n=31
+    atlas is the fixture and the positive control. The consumer was then STRICTER than the probe on
+    key suffixes; the probe now checks them too (TestAtlasReadersAreAsStrictAsTheConsumer)."""
+
+    ATLAS31 = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        cls.S = _load("solve")
+        with open(cls.ATLAS31, encoding="utf-8") as fh:
+            cls.A0 = json.load(fh)
+        cls.tmp = tempfile.mkdtemp()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, True)
+
+    def _mut(self, f):
+        import copy
+        A = copy.deepcopy(self.A0)
+        f(A)
+        return A
+
+    def _write(self, A):
+        import json
+        p = os.path.join(self.tmp, "a.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(A, fh)
+        return p
+
+    def _refused(self, A, *needles):
+        with self.assertRaises(self.S.AtlasError) as cm:
+            self.S.atlas_load(self._write(A))
+        msg = str(cm.exception)
+        for s in needles:
+            self.assertIn(s, msg)
+        return msg
+
+    @staticmethod
+    def _rekey(tab, old, new):
+        tab[new] = tab.pop(old)                      # same VALUE, only the key's spelling moves
+
+    def _raw_key(self):
+        """A layer-3 `pair<p>` key with p >= 10, so it has two digits to separate."""
+        ks = [k for k in self.A0["layers"][3]["marginal_raw"] if int(k[4:]) >= 10]
+        self.assertTrue(ks)                          # precondition
+        return ks[0], int(ks[0][4:])
+
+    def _kern_key(self):
+        """A layer-3 kernel key m<a>_<b> with a, b >= 10."""
+        for k in self.A0["layers"][3]["kernel"]:
+            a, b = (int(s) for s in k[1:].split("_"))
+            if a >= 10 and b >= 10:
+                return k, a, b
+        self.fail("precondition: no two-digit kernel key on layer 3")
+
+    def test_positive_control_the_committed_atlas_loads_and_canonical_keys_parse(self):
+        S = self.S
+        A = S.atlas_load(self.ATLAS31)
+        self.assertEqual(31, A["n"])
+        self.assertEqual(0, S._atlas_key_int("pair0", "pair", "x", 32))
+        self.assertEqual(31, S._atlas_key_int("pair31", "pair", "x", 32))
+        self.assertEqual((0, 63), S._atlas_kernel_key("m0_63", "x"))
+        self.assertEqual((10, 7), S._atlas_kernel_key("m10_7", "x"))
+        self.assertEqual("5", S._atlas_count_text("5", "x"))
+        self.assertEqual(5, S._atlas_int("5", "x"))
+
+    def test_a_count_with_surrounding_whitespace_is_refused_at_load(self):
+        S = self.S
+        for v in (" 5", "5 ", "5\n", "\t5", " -48 "):
+            with self.assertRaises(S.AtlasError, msg=repr(v)) as cm:
+                S._atlas_int(v, "x")
+            self.assertIn("surrounding whitespace", str(cm.exception), repr(v))
+        orig = self.A0["layers"][3]["by_class"]["d2"]
+        self.assertTrue(orig.isdigit())              # precondition
+        for v in (" " + orig, orig + " ", orig + "\n"):
+            def f(A, v=v):
+                A["layers"][3]["by_class"]["d2"] = v
+            msg = self._refused(self._mut(f), "by_class", repr(v), "surrounding whitespace")
+            self.assertIn("a.json", msg)            # the refusal names the file
+
+    def test_a_respelled_marginal_raw_key_is_refused_at_load(self):
+        key, p = self._raw_key()
+        s = str(p)
+        arabic = s.translate(str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩"))
+        for bad in ("pair+" + s, "pair " + s, "pair0" + s, "pair" + s[0] + "_" + s[1:],
+                    "pair" + arabic, "xxxx" + s, "pair32"):
+            def f(A, bad=bad):
+                self._rekey(A["layers"][3]["marginal_raw"], key, bad)
+            self._refused(self._mut(f), "marginal_raw", repr(bad))
+
+    def test_a_respelled_kernel_key_is_refused_at_load(self):
+        key, a, b = self._kern_key()
+        for bad in ("m+%d_%d" % (a, b), "m0%d_%d" % (a, b), "m%d_0%d" % (a, b),
+                    "m%d__%d" % (a, b), "m%s_%s_%s" % (str(a)[0], str(a)[1:], b),
+                    "m %d_%d" % (a, b), "m64_%d" % b, "x%d_%d" % (a, b)):
+            def f(A, bad=bad):
+                self._rekey(A["layers"][3]["kernel"], key, bad)
+            self._refused(self._mut(f), "kernel", repr(bad))
+
+    def test_a_leaf_outside_the_documented_count_fields_is_refused_at_load(self):
+        # `_atlas_validate_counts` walks the documented count fields only; the kernel VALUES and
+        # the other per-layer tables were first parsed (if at all) at emission. The probe's leaf
+        # walk now runs at load, so a respelled or float leaf anywhere is refused before any table.
+        key, a, b = self._kern_key()
+        kv = self.A0["layers"][3]["kernel"][key]
+        c0 = sorted(self.A0["layers"][3]["counts"])[0]
+        self.assertTrue(kv.isdigit())                # precondition
+        for f, where, v in (
+                (lambda A: A["layers"][3]["kernel"].__setitem__(key, "+" + kv), key, "+" + kv),
+                (lambda A: A["layers"][3]["kernel"].__setitem__(key, kv + " "), key, kv + " "),
+                (lambda A: A["layers"][3]["counts"].__setitem__(c0, 7.5), c0, "Decimal")):
+            self._refused(self._mut(f), where, v)
+
+    def test_a_layer_index_that_is_not_its_json_integer_position_is_refused(self):
+        for bad, why in (("3", "'3'"), (4, "is 4"), (True, "True"), (3.0, "Decimal")):
+            def f(A, bad=bad):
+                A["layers"][3]["k"] = bad
+            self._refused(self._mut(f), "layers[3].k", why)
+
+    def test_the_key_parsing_sites_refuse_in_process_too(self):
+        # The emitters and the A-3 / A-5 checks are also called on dicts that never went through
+        # atlas_load (tests, --atlas-select paths), so each site parses strictly on its own.
+        S = self.S
+        key, a, b = self._kern_key()
+        bad = "m0%d_%d" % (a, b)
+        A = self._mut(lambda A: self._rekey(A["layers"][3]["kernel"], key, bad))
+        with self.assertRaises(S.AtlasError) as cm:
+            S.atlas_emit_v5(A, self.tmp)
+        self.assertIn(repr(bad), str(cm.exception))
+        scan = os.path.join(self.tmp, "scan")        # the ratio check re-derives V5 from the kernel
+        os.makedirs(scan, exist_ok=True)
+        with open(os.path.join(scan, "v5_grammar.tsv"), "w", encoding="utf-8") as fh:
+            fh.write("k\td\tw\tmass\tp_cond\tkw_d\tkw_w\n")
+        with self.assertRaises(S.AtlasError) as cm:
+            S.atlas_ratio_columns_check(A, self.tmp, scan, {"v5"})
+        self.assertIn(repr(bad), str(cm.exception))
+        fails, _ = S.atlas_ratio_columns_check(self.A0, self.tmp, scan, {"v5"})
+        self.assertTrue(fails)                       # positive control: the empty table is judged
+        last = self.A0["layers"][-1]["marginal_raw"]
+        k31 = sorted(last, key=lambda t: int(t[4:]))[-1]
+        self.assertGreaterEqual(int(k31[4:]), 10)    # precondition: a two-digit closer
+        bad = "pair0" + k31[4:]
+        A = self._mut(lambda A: self._rekey(A["layers"][-1]["marginal_raw"], k31, bad))
+        for fn in (S.atlas_a3_external_check, S.atlas_orbit_columns,
+                   S.atlas_orbit_membership):
+            with self.assertRaises(S.AtlasError, msg=fn.__name__) as cm:
+                fn(A)
+            self.assertIn(repr(bad), str(cm.exception), fn.__name__)
+        # positive control: the unmodified atlas gives the committed verdicts' readings
+        self.assertEqual("FAIL", S.atlas_a3_external_check(self.A0)[0])
+        self.assertIs(True, S.atlas_orbit_membership(self.A0)[0])
+
+    def test_the_cli_refuses_with_its_documented_error_not_a_traceback(self):
+        key, p = self._raw_key()
+        orig = self.A0["layers"][3]["by_class"]["d2"]
+        plants = (
+            (lambda A: A["layers"][3]["by_class"].__setitem__("d2", " " + orig),
+             "surrounding whitespace"),
+            (lambda A: self._rekey(A["layers"][3]["marginal_raw"], key,
+                                   "pair%s_%s" % (str(p)[0], str(p)[1:])),
+             "as the producer spells it"))
+        for f, why in plants:
+            path = self._write(self._mut(f))
+            r = subprocess.run([sys.executable, "solve.py", "--atlas-queries", path,
+                                "--atlas-out", os.path.join(self.tmp, "out")],
+                               capture_output=True, text=True)
+            self.assertNotIn("Traceback", r.stderr, r.stderr)
+            self.assertEqual(2, r.returncode, (why, r.stdout[-500:], r.stderr[-500:]))
+            self.assertIn("ERROR: [atlas]", r.stderr, why)
+            self.assertIn(why, r.stderr)
+
+
+class TestCorrectionsInventoryRedactsWithdrawnFigures(unittest.TestCase):
+    """scripts/corrections_inventory.sh redacts registered withdrawn figures (2026-09-26).
+
+    The generated documentation/CORRECTIONS_INVENTORY.tsv copied commit 4059fd5d's message into row
+    GIT-2eebef43, and that message quotes TR-11 v1.9's withdrawn exact-C3 cost band, which TR-11
+    v1.10 and TR-12 s9 redact. The generator now hashes every dollar-figure token and replaces the
+    ones listed by sha256 in documentation/REDACTED_FIGURES.tsv. The script's own --selftest holds
+    the checks: anchor 15 on a synthetic registry (redaction, trailing-punctuation strip, id
+    unchanged, an unregistered figure kept), anchor 16 on the real registry and the real git log
+    through sweep() (a registered figure is present in the source and none survives), anchor 17 an
+    unreadable registry failing the sweep. Five mutants of the generator each turned it red when it
+    was written. This test runs it, so the harness fails when the generator regresses. It quotes no
+    real figure."""
+
+    SCRIPT = os.path.join("scripts", "corrections_inventory.sh")
+    REG = os.path.join("documentation", "REDACTED_FIGURES.tsv")
+    WANT = (
+        re.compile(r"^\s*\[ok\]\s+a registered figure is redacted \(3 of 3", re.M),
+        re.compile(r"^\s*\[ok\]\s+real registry, real git log: [1-9][0-9]* registered token\(s\) found, 0 survive the sweep$", re.M),
+        re.compile(r"^\s*\[ok\]\s+an unreadable redaction registry fails the sweep", re.M),
+    )
+
+    def test_selftest_passes_with_redaction_anchors(self):
+        root = os.path.dirname(os.path.abspath(__file__))
+        # Precondition: the registry has data rows, and each is a sha256, never a figure.
+        with open(os.path.join(root, self.REG), encoding="utf-8") as fh:
+            rows = [ln.rstrip("\n").split("\t") for ln in fh if ln.strip() and not ln.startswith("#")]
+        self.assertGreater(len(rows), 0)
+        for r in rows:
+            self.assertRegex(r[0], r"^[0-9a-f]{64}$")
+            self.assertNotIn("$", r[1])
+        if subprocess.run(["git", "rev-parse", "--is-shallow-repository"], capture_output=True,
+                          text=True, cwd=root).stdout.strip() != "false":
+            self.skipTest("shallow clone: anchor 16 needs the full git log")
+        r = subprocess.run(["bash", os.path.join(root, self.SCRIPT), "--selftest"],
+                           capture_output=True, text=True, cwd=root, timeout=900)
+        for rx in self.WANT:
+            self.assertRegex(r.stdout, rx)
+        self.assertIn("CORRECTIONS INVENTORY SELF-TEST: PASS", r.stdout.splitlines()[-1:])
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:])
+
+
+class TestUninitialisedReadsTestvecHooksAndAnalyzeQuadListEE(unittest.TestCase):
+    """Lane EE uninitialised-read sweep (zero-vs-pattern differential, DEVELOPMENT.md).
+
+    (1) The four SOLVE_*_TESTVEC hooks (REG, F5, F6, PERM) accepted any 64 ints. A repeated
+    value left pos[]/pi_bot[] slots unset, so perm_compute read stack garbage (the
+    -ftrivial-auto-var-init=pattern build SEGFAULTED on SOLVE_PERM_TESTVEC=0,0,2,3,...,63 while
+    the default build printed 63,2,62,... with rc 0); a value >= 64 wrote past the array. They
+    must now refuse a non-permutation with rc 1, as solve.py perm_verify does (it raises).
+    Pre-fix: rc 0 (or a crash) with no refusal -- RED. Control: KW itself still scores, and
+    PERM's KW values are the frozen 7,33,1,1,1320,31,1,3,52,0,1,260,30.
+    (2) --analyze section [8] printed min(n_working, 200) rows from a malloc'd report[] that each
+    thread could fill with at most 64 rows, so with one thread rows 65..200 were heap garbage
+    ({ 0, 0, 1264350032, 23898} survivors=95969 on a one-record KW artifact). Every printed row
+    must now be a real 4-subset: 1 <= b1 < b2 < b3 < b4 <= 31, survivors <= 1, rows distinct.
+    Pre-fix: RED at row 65. A build failure is a test FAILURE, never a skip."""
+
+    HOOKS = (("REG", "SOLVE_KNUTH_SCORE_REG"), ("F5", "SOLVE_KNUTH_SCORE_F5"),
+             ("F6", "SOLVE_KNUTH_SCORE_F6"), ("PERM", "SOLVE_KNUTH_SCORE_PERM"))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="ee_uninit_")
+        cls.sbin = os.path.join(cls.tmp, "solve_ee")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.KW = list(_load("verify").KW)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.build_ok, self.build_err)
+
+    def _hook(self, tag, knob, seq):
+        env = dict(os.environ, **{knob: "2", "SOLVE_%s_TESTVEC" % tag: ",".join(map(str, seq))})
+        return subprocess.run([self.sbin], capture_output=True, text=True, env=env,
+                              cwd=self.tmp, timeout=120)
+
+    def test_positive_control_kw_still_scores_on_every_hook(self):
+        self.assertEqual(64, len(set(self.KW)))
+        for tag, knob in self.HOOKS:
+            r = self._hook(tag, knob, self.KW)
+            self.assertEqual(0, r.returncode, tag + ": " + r.stderr[-500:])
+            self.assertNotIn("TESTVEC", r.stderr, tag)
+        r = self._hook("PERM", "SOLVE_KNUTH_SCORE_PERM", self.KW)
+        self.assertEqual("7,33,1,1,1320,31,1,3,52,0,1,260,30",
+                         ",".join(r.stdout.strip().split(",")[:13]))
+
+    def test_every_hook_refuses_a_non_permutation(self):
+        dup = [0, 0] + list(range(2, 64))            # 1 missing, 0 twice
+        big = list(range(63)) + [99]                  # 63 missing, 99 out of range
+        for tag, knob in self.HOOKS:
+            for name, seq in (("dup", dup), ("big", big)):
+                r = self._hook(tag, knob, seq)
+                self.assertEqual(1, r.returncode, "%s %s: rc %d, stdout %r"
+                                 % (tag, name, r.returncode, r.stdout[-300:]))
+                self.assertIn("SOLVE_%s_TESTVEC: need 64 distinct ints 0..63 (a permutation)" % tag,
+                              r.stderr, "%s %s" % (tag, name))
+                self.assertEqual("", r.stdout.strip(), "%s %s printed values" % (tag, name))
+
+    def test_analyze_section8_rows_are_all_real_quads_single_thread(self):
+        path = os.path.join(self.tmp, "kw1.bin")
+        with open(path, "wb") as fh:   # one KW record: every 4-subset works (31,465 of them)
+            fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16
+                     + bytes(p << 2 for p in range(32)))
+        env = dict(os.environ, OMP_NUM_THREADS="1")
+        r = subprocess.run([self.sbin, "--analyze", path], capture_output=True, text=True,
+                           env=env, cwd=self.tmp, timeout=600)
+        self.assertEqual(0, r.returncode, r.stderr[-500:])
+        lines = r.stdout.splitlines()
+        self.assertIn("    total working 4-subsets: 31465", lines)
+        rows = [l for l in lines if re.fullmatch(r"    \{.*\}  survivors=-?\d+", l)]
+        self.assertEqual(200, len(rows), "section [8] must print exactly min(31465, 200) rows")
+        quads = []
+        for i, l in enumerate(rows):
+            m = re.fullmatch(r"    \{\s*(-?\d+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\}  survivors=(-?\d+)", l)
+            self.assertIsNotNone(m, "row %d unparseable: %r" % (i + 1, l))
+            b = [int(x) for x in m.groups()[:4]]
+            self.assertTrue(1 <= b[0] < b[1] < b[2] < b[3] <= 31 and 0 <= int(m.group(5)) <= 1,
+                            "row %d is not a real 4-subset (uninitialised report[] slot?): %r"
+                            % (i + 1, l))
+            quads.append(tuple(b))
+        self.assertEqual(200, len(set(quads)), "duplicate rows")
+
+
+
+
+class TestQ838Q839Q840PromotionListBranchesMergeIdentity(unittest.TestCase):
+    """Q-838, Q-839, Q-840 (2026-09-26), three solve.c engine defects.
+
+    Q-838: promote_orphaned_shards() tested st_size % 32 on the ON-DISK size, which for a gz
+    shard is the COMPRESSED size, so about 31 of every 32 gz shards were refused promotion
+    (and the ones that passed recorded a wrong solution count). The cure reads the logical
+    size (gz_logical_size). Q-839: --list-branches consumed and ignored any argument and
+    printed "No time limit" plus the enumeration usage. Q-840: merge_binary_sha256 copied
+    whatever build.sha sat in the merge directory (written by the last ENUM dispatch there),
+    not the merging binary's digest; that value now goes to merge_dir_build_sha256.
+
+    One tiny depth-2 enumeration (SOLVE_NODE_LIMIT=3030000, 2 threads, ~40 s) is the shared
+    fixture. ROAE_TESTS_SOLVE_SRC builds a different source (used to show each test red on
+    the pre-fix solve.c); nothing in the harness sets it."""
+
+    ENV = dict(SOLVE_NODE_LIMIT="3030000", SOLVE_ALLOW_SUB_CANONICAL="1",
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q838_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q838")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O2", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.fixture = os.path.join(cls.tmp, "fixture")
+        cls.fixture_err = ""
+        if cls.build_ok:
+            os.makedirs(cls.fixture)
+            r = subprocess.run([cls.sbin, "0"], cwd=cls.fixture, env=cls._env(),
+                               capture_output=True, text=True, timeout=900)
+            cls.fixture_err = f"fixture enum rc {r.returncode}: " + r.stderr[-2000:]
+            cls.fixture_ok = (r.returncode == 0)
+        else:
+            cls.fixture_ok = False
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.ENV)
+        return env
+
+    def _need_fixture(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        if not self.fixture_ok:
+            self.fail("fixture enumeration failed: " + self.fixture_err)
+
+    def _copy(self, name):
+        d = os.path.join(self.tmp, name)
+        shutil.copytree(self.fixture, d, symlinks=True)
+        return d
+
+    def _shards(self, d):
+        return sorted(f for f in os.listdir(d)
+                      if re.fullmatch(r"sub_\d+_\d+_\d+_\d+(_\d+_\d+)?\.bin", f))
+
+    @staticmethod
+    def _sha_file(path):
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+
+    # ---- Q-838 --------------------------------------------------------------------------------
+    def test_q838_gz_orphans_are_promoted_by_logical_size(self):
+        self._need_fixture()
+        d = self._copy("orphans")
+        shards = self._shards(d)
+        # Precondition: the fixture's shards are gz and most compressed sizes are NOT record
+        # multiples -- exactly the files the old on-disk-size check refused.
+        self.assertGreater(len(shards), 100)
+        with open(os.path.join(d, shards[0]), "rb") as fh:
+            self.assertEqual(fh.read(2), b"\x1f\x8b", "fixture shards are not gz")
+        unaligned = [s for s in shards if os.path.getsize(os.path.join(d, s)) % 32 != 0]
+        self.assertGreater(len(unaligned), len(shards) // 2,
+                           "precondition: gz compressed sizes should mostly not be multiples of 32")
+        # Negative control: one shard replaced by a gz whose LOGICAL size (33 bytes) is not a
+        # record multiple. It must still be refused (the check is live, not removed).
+        bad = shards[len(shards) // 2]
+        blob = gzip.compress(b"\x00" * 33, mtime=0)
+        with open(os.path.join(d, bad), "wb") as fh:
+            fh.write(blob)
+        # Orphan every shard: drop the checkpoint lines and the merged output.
+        for f in os.listdir(d):
+            if f.startswith("checkpoint") and f.endswith(".txt") or f in (
+                    "solutions.bin", "solutions.meta.json", "solutions.sha256",
+                    "shard_manifest.txt"):
+                os.remove(os.path.join(d, f))
+        r = subprocess.run([self.sbin, "0"], cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=900)
+        m = re.search(r"Orphaned-shard promotion: promoted=(\d+), integrity_failed=(\d+)",
+                      r.stderr)
+        self.assertIsNotNone(m, r.stderr[-2000:])
+        self.assertEqual((int(m.group(1)), int(m.group(2))), (len(shards) - 1, 1),
+                         "every well-formed gz shard must be promoted; only the planted one refused")
+        self.assertIn(f"WARN: orphaned shard {bad} failed integrity check (logical size=33)",
+                      r.stderr)
+        # The promoted count line in checkpoint.txt carries the LOGICAL record count.
+        good = shards[0]
+        with open(os.path.join(d, good), "rb") as fh:
+            n_rec = len(gzip.decompress(fh.read())) // 32
+        p = [int(x) for x in re.findall(r"\d+", good)]
+        with open(os.path.join(d, "checkpoint.txt")) as fh:
+            ck = fh.read()
+        want = ("Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 %d orient1 %d pair2 %d "
+                "orient2 %d): 0 nodes, 0 C3-valid, %d solutions," % (p[0], p[1], p[2], p[3], n_rec))
+        self.assertIn(want, ck)
+
+    # ---- Q-839 --------------------------------------------------------------------------------
+    def test_q839_list_branches_refuses_arguments(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        r = subprocess.run([self.sbin, "--list-branches", "0", "16"], cwd=d, capture_output=True,
+                           text=True, timeout=120)
+        self.assertEqual(r.returncode, 2, r.stdout[-500:] + r.stderr[-500:])
+        self.assertIn("LIST_BRANCHES_ARGS=REFUSED", r.stderr.splitlines())
+        self.assertNotIn("Valid first-level branches", r.stdout)
+
+    def test_q839_bare_list_branches_lists_without_the_enum_banner(self):
+        # Control: the refusal is scoped to EXTRA arguments; a bare call still lists, and no
+        # longer prints the enumeration's "No time limit" line or its usage block.
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        r = subprocess.run([self.sbin, "--list-branches"], cwd=d, capture_output=True,
+                           text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        out = r.stdout + r.stderr
+        self.assertIn("Valid first-level branches", out)
+        self.assertNotIn("LIST_BRANCHES_ARGS=REFUSED", out)
+        self.assertNotIn("No time limit", out)
+        self.assertNotIn("Usage: ./solve [time_limit] [threads]", out)
+
+    # ---- Q-840 --------------------------------------------------------------------------------
+    def test_q840_merge_records_the_merging_binary(self):
+        self._need_fixture()
+        d = self._copy("merge")
+        foreign = "ab" * 32   # build.sha left by some OTHER binary's enum dispatch
+        with open(os.path.join(d, "build.sha"), "w") as fh:
+            fh.write(foreign + "\n")
+        for f in ("solutions.bin", "solutions.sha256", "solutions.meta.json",
+                  "solutions.provenance.json"):
+            if os.path.exists(os.path.join(d, f)):
+                os.remove(os.path.join(d, f))
+        r = subprocess.run([self.sbin, "--merge"], cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        import json
+        with open(os.path.join(d, "solutions.provenance.json")) as fh:
+            prov = json.load(fh)
+        mi = prov["merge_invocation"]
+        self.assertEqual(mi["merge_binary_sha256"], self._sha_file(self.sbin))
+        self.assertEqual(mi["merge_dir_build_sha256"], foreign)
+        with open(os.path.join(d, "build.sha")) as fh:   # --merge still never writes build.sha
+            self.assertEqual(fh.read().strip(), foreign)
+
+
+class TestProvenanceAggregateCapacityIsLoud(unittest.TestCase):
+    """2026-09-26 (lane EH). The merge-time provenance aggregator kept its extension list, its two
+    budget maps and its three string sets in fixed arrays and returned silently when one was full, so
+    `solutions.provenance.json` listed the first 16 extensions / budgets (64 strings) and said nothing
+    about the rest. Capacity is now 64 everywhere and every refusal is counted in a
+    `capacity_overflow` object and warned on stderr once per map. Fixture sidecars are planted next to
+    one real shard and its real sidecar, then `--merge` runs the real aggregator."""
+
+    CAP = 64
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="provcap_")
+        cls.sbin = os.path.join(cls.tmp, "solve_provcap")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.env = dict(os.environ, SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30")
+        cls.run_dir = os.path.join(cls.tmp, "run")
+        os.mkdir(cls.run_dir)
+        if cls.build_ok:
+            cls.real_run = subprocess.run([cls.sbin, "--sub-branch", "1", "0", "2", "0", "3", "0", "0", "1"],
+                                     capture_output=True, text=True, cwd=cls.run_dir, env=cls.env,
+                                     timeout=900)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _merge(self, n):
+        import json
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        self.assertEqual(self.real_run.returncode, 0, self.real_run.stderr[-400:])
+        real = sorted(f for f in os.listdir(self.run_dir)
+                      if f.startswith("sub_") and (f.endswith(".bin") or f.endswith(".bin.provenance.json")))
+        # Precondition: the real run left at least one shard and its sidecar.
+        self.assertTrue(any(f.endswith(".bin.provenance.json") for f in real), real)
+        m = tempfile.mkdtemp(dir=self.tmp)
+        for f in real:
+            shutil.copy(os.path.join(self.run_dir, f), m)
+        for i in range(n):
+            rec = {"schema_version": 1, "shard_filename": "sub_40_0_41_%d_0_0.bin" % i,
+                   "sub_branch": {"p1": 40, "o1": 0, "p2": 41, "o2": i},
+                   "writes": [{"write_utc": "2026-01-01T00:00:%02dZ" % (i % 60),
+                               "binary_sha256": "%064x" % (i + 1), "git_hash": "fixture%d" % i,
+                               "host_fingerprint": "hostfp%d" % i,
+                               "per_sub_branch_limit": 100000 + i, "nodes_explored_in_this_shard": 1,
+                               "records_emitted": 1, "status": "BUDGETED", "dfs_iterative": 1,
+                               "dfs_checkpoint": 1, "resume_history": "fixture",
+                               "extends_prior_budget": 500 + i}],
+                   "final_status": "BUDGETED", "final_per_sub_branch_limit": 100000 + i,
+                   "cumulative_nodes_explored": 1, "cumulative_records_emitted": 1}
+            with open(os.path.join(m, "sub_40_0_41_%d_0_0.bin.provenance.json" % i), "w") as fh:
+                json.dump(rec, fh, indent=2)
+        r = subprocess.run([self.sbin, "--merge"], capture_output=True, text=True, cwd=m,
+                           env=self.env, timeout=900)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+        with open(os.path.join(m, "solutions.provenance.json")) as fh:
+            prov = json.load(fh)                      # must stay valid JSON
+        # Distinct values the aggregator was offered, measured from the sidecars on disk.
+        offered = {"budgets": set(), "final": set(), "bin": set(), "git": set(), "host": set()}
+        for f in os.listdir(m):
+            if f.startswith("sub_") and f.endswith(".bin.provenance.json"):
+                with open(os.path.join(m, f)) as fh:
+                    sc = json.load(fh)
+                offered["final"].add(sc["final_per_sub_branch_limit"])
+                for w in sc["writes"]:
+                    offered["budgets"].add(w["per_sub_branch_limit"])
+                    for k, key in (("bin", "binary_sha256"), ("git", "git_hash"), ("host", "host_fingerprint")):
+                        if w[key]:
+                            offered[k].add(w[key])
+        return prov, r.stderr, offered
+
+    def test_positive_control_small_campaign_lists_everything(self):
+        prov, err, _ = self._merge(3)
+        ext = prov["budget_history"]["extensions_observed"]
+        self.assertEqual(sorted((e["from_budget"], e["to_budget"]) for e in ext),
+                         [(500 + i, 100000 + i) for i in range(3)])
+        self.assertNotIn("WARN: provenance", err)
+
+    def test_seventeen_extensions_are_all_listed(self):
+        # Red on the 16-entry list: the 17th planted extension vanished without a word.
+        prov, _, _ = self._merge(17)
+        ext = prov["budget_history"]["extensions_observed"]
+        self.assertEqual(len(ext), 17)
+        self.assertEqual(prov["capacity_overflow"]["extensions_observed_dropped"], 0)
+
+    def test_overflow_is_counted_and_warned(self):
+        n = 70
+        prov, err, offered = self._merge(n)
+        ov = prov["capacity_overflow"]
+        ext = prov["budget_history"]["extensions_observed"]
+        self.assertEqual(len(ext), self.CAP)
+        self.assertEqual(ov["extensions_observed_dropped"], n - self.CAP)
+        self.assertEqual(sum(e["shard_count"] for e in ext) + ov["extensions_observed_dropped"], n)
+        self.assertEqual(len(prov["budget_history"]["branches_seen_at_budget"]), self.CAP)
+        self.assertEqual(ov["branches_seen_at_budget_dropped"], len(offered["budgets"]) - self.CAP)
+        self.assertEqual(len(prov["final_budget_distribution"]), self.CAP)
+        self.assertEqual(ov["final_budget_distribution_dropped"], len(offered["final"]) - self.CAP)
+        for key, k in (("binary_sha256_set", "bin"), ("git_hash_set", "git"), ("host_fingerprint_set", "host")):
+            self.assertEqual(len(prov["binary_provenance"][key]), self.CAP, key)
+            self.assertEqual(ov[key + "_dropped"], len(offered[k]) - self.CAP, key)
+        for what in ("extension list full", "budget map full", "string set full"):
+            self.assertIn("WARN: provenance " + what, err)
+
+
+class TestAtlasReadersAreAsStrictAsTheConsumer(unittest.TestCase):
+    """Follow-ups to CX-159 (lane EI, 2026-09-26). CX-159 made `atlas_load` refuse respelled keys
+    and counts; four other readers still took them, each by a bare int() or str.isdigit():
+      1. `--atlas-probe` parsed key suffixes with int() (`int(key[4:])`, `kk[1:]`, `j[1:]`,
+         `kk[2:]`, `lg[2:]`, `key[1:].split("_")`), so `pair05`, `pair1_0`, `m01_2` loaded;
+      2. `load_atlas` (`--kc-class-swap-detect`, and its walk parse), `atlas_residual_rank` and
+         `xa_w0d_lower_bound_cert` bypass `atlas_load` and read keys, counts, `n`, `k` and
+         hexagrams with int(), which takes "+5", " 5", "1_0", "05" (keys) and 3.0;
+      3. the readers of the consumer's own TSVs (and viz/report_figures.py) read every integer
+         cell with int(), so "+5", " 5", "1_0", "05" and non-ASCII digits were the number they
+         respell -- now one strict parser, `_tsv_int`;
+      4. two str.isdigit() guards (`kc_x_parse_witness`, `kc_x_phi`'s `dclass:`) took non-ASCII
+         digits, which int() then read.
+    Every plant below is a SEMANTICS-PRESERVING respelling of a real input (the committed n=31
+    atlas and tr12/ tables), so on the old code each one loaded and scored as the original did.
+    The unplanted inputs are the positive controls."""
+
+    ATLAS31 = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        cls.S = _load("solve")
+        with open(cls.ATLAS31, encoding="utf-8") as fh:
+            cls.A0 = json.load(fh)
+        cls.tmp = tempfile.mkdtemp()
+        cls._E = None
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, True)
+
+    # ------------------------------------------------------------------ helpers
+    def _plant(self, f, name):
+        import copy, json
+        A = copy.deepcopy(self.A0)
+        f(A)
+        p = os.path.join(self.tmp, name + ".json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(A, fh)
+        return p
+
+    def _call(self, fn, *a, **kw):
+        import contextlib, io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = fn(*a, **kw)
+        return rc, out.getvalue(), err.getvalue()
+
+    @staticmethod
+    def _rename(d, old, new):
+        if old not in d or new in d:
+            raise AssertionError("fixture precondition: %r present and %r absent" % (old, new))
+        d[new] = d.pop(old)
+
+    # ------------------------------------------------------------------ 1. the probe's key suffixes
+    PROBE_PLANTS = (
+        ("marginal_raw", None, "pair5", "pair05"),
+        ("marginal_raw", None, "pair10", "pair1_0"),
+        ("marginal_raw", None, "pair5", "qair5"),
+        ("kernel", None, "m1_2", "m01_2"),
+        ("rid_mass", None, "r5", "r05"),
+        ("digits", "dg1", "j1", "j01"),
+        ("outdeg", None, "od44", "od044"),
+        ("hist", "hb1", "lg103", "lg1_03"),
+    )
+
+    def test_positive_control_the_probe_key_check_passes_the_committed_atlas(self):
+        self.assertIs(self.S._atlas_probe_keys(self.A0), self.A0)
+        self.assertEqual(self.S._atlas_key_int("pair5", "pair", "w", 32), 5)
+        self.assertEqual(self.S._atlas_key_int("lg103", "lg", "w", None), 103)
+
+    def test_the_probe_refuses_a_respelled_key_before_any_token(self):
+        for tab, sub, old, new in self.PROBE_PLANTS:
+            with self.subTest(table=tab, key=new):
+                def f(A, tab=tab, sub=sub, old=old, new=new):
+                    d = A["layers"][3][tab]
+                    self._rename(d[sub] if sub else d, old, new)
+                p = self._plant(f, "probe_" + new)
+                rc, out, err = self._call(self.S.atlas_probe, p)
+                self.assertEqual(rc, 2, "rc %r for %s; stdout tail %r" % (rc, new, out[-300:]))
+                self.assertEqual(out.splitlines(), ["ATLAS_PROBE=ERROR:malformed-atlas"],
+                                 "the refusal must come before any figure is printed")
+                self.assertIn(repr(new), err)
+
+    # ------------------------------------------------------------------ 2a. load_atlas + its walks
+    def test_load_atlas_positive_control(self):
+        n, total, table = self.S.load_atlas(self.ATLAS31)
+        self.assertEqual(n, 31)
+        self.assertTrue(all(sum(table[k].values()) == total for k in range(n)))
+
+    def test_load_atlas_refuses_respelled_fields(self):
+        L3 = self.A0["layers"][3]["by_class"]
+        plants = (
+            ("d02", lambda A: self._rename(A["layers"][3]["by_class"], "d2", "d02")),
+            ("+" + L3["d2"], lambda A: A["layers"][3]["by_class"].update(d2="+" + L3["d2"])),
+            (" " + L3["d2"], lambda A: A["layers"][3]["by_class"].update(d2=" " + L3["d2"])),
+            ("'31'", lambda A: A.update(n="31")),
+            ("3.0", lambda A: A["layers"][3].update(k=3.0)),
+            ("+" + self.A0["N_total"], lambda A: A.update(N_total="+" + self.A0["N_total"])),
+        )
+        for i, (named, f) in enumerate(plants):
+            with self.subTest(plant=named):
+                p = self._plant(f, "load_atlas_%d" % i)
+                with self.assertRaises(self.S.DetectorError) as cm:
+                    self.S.load_atlas(p)
+                self.assertIn(named.strip("'"), str(cm.exception))
+
+    def test_the_detector_walk_parse_is_strict(self):
+        p = os.path.join(self.tmp, "walk_ok.txt")
+        with open(p, "w") as fh:
+            fh.write("1,2,3,4\n")
+        counts, draws, _ = self.S.tally([p], 2)
+        self.assertEqual((draws, counts[0], counts[1]), (1, {1: 1}, {1: 1}))
+        for i, bad in enumerate(("1,+2,3,4", "1, 2,3,4", "1,2_0,3,4", "1,02,3,4",
+                                 "1,٢,3,4", "1,64,3,4")):
+            with self.subTest(walk=bad):
+                q = os.path.join(self.tmp, "walk_bad%d.txt" % i)
+                with open(q, "w", encoding="utf-8") as fh:
+                    fh.write(bad + "\n")
+                with self.assertRaises(self.S.DetectorError) as cm:
+                    self.S.tally([q], 2)
+                self.assertIn("not a walk CSV", str(cm.exception))
+
+    # ------------------------------------------------------------------ 2b. atlas_residual_rank
+    def test_residual_rank_refuses_respelled_kernel_cells(self):
+        rc, out, _ = self._call(self.S.atlas_residual_rank, self.ATLAS31)
+        self.assertEqual(rc, 0)
+        self.assertIn("ATLAS_RESIDUAL_RANK_VERDICT=PASS", out.splitlines())
+        v = self.A0["layers"][3]["kernel"]["m1_2"]
+        self.assertNotEqual(v, "0")
+        for i, (named, f) in enumerate((
+                ("m01_2", lambda A: self._rename(A["layers"][3]["kernel"], "m1_2", "m01_2")),
+                (" " + v, lambda A: A["layers"][3]["kernel"].update(m1_2=" " + v)),
+                ("+" + v, lambda A: A["layers"][3]["kernel"].update(m1_2="+" + v)),
+                ("'31'", lambda A: A.update(n="31")))):
+            with self.subTest(plant=named):
+                rc, out, err = self._call(self.S.atlas_residual_rank, self._plant(f, "rr%d" % i))
+                self.assertEqual(rc, 2, out[-300:])
+                self.assertIn("ATLAS_RESIDUAL_RANK_VERDICT=ERROR:malformed-atlas", out.splitlines())
+                self.assertIn(named.strip("'"), err)
+
+    # ------------------------------------------------------------------ 2c. xa_w0d_lower_bound_cert
+    def _xa(self, atlas):
+        import copy
+        S = self.S
+        if TestAtlasReadersAreAsStrictAsTheConsumer._E is None:
+            TestAtlasReadersAreAsStrictAsTheConsumer._E = S.xa_w0d_lower_bound_enumerate(
+                prod_uses_b0=False)
+        real, E = S.xa_w0d_lower_bound_enumerate, TestAtlasReadersAreAsStrictAsTheConsumer._E
+        S.xa_w0d_lower_bound_enumerate = lambda **kw: copy.deepcopy(E)
+        try:
+            return self._call(S.xa_w0d_lower_bound_cert, os.path.join(self.tmp, "xa.json"), atlas)
+        finally:
+            S.xa_w0d_lower_bound_enumerate = real
+
+    def test_xa_cert_refuses_respelled_atlas_fields(self):
+        rc, out, _ = self._xa(self.ATLAS31)
+        self.assertEqual(rc, 0, out[-400:])
+        self.assertIn("W0D_LB_ATLAS_FMASS_1_2_3_EQ_K=PASS", out.splitlines())
+        self.assertIn("W0D_LB_ATLAS_BRANCH_SET_EQ=PASS", out.splitlines())
+        fm = self.A0["fmass"]
+        e0 = self.A0["branch_atlas"][0]["entry"]
+        for i, (named, f) in enumerate((
+                (" " + fm[1], lambda A: A["fmass"].__setitem__(1, " " + fm[1])),
+                ("+" + fm[2], lambda A: A["fmass"].__setitem__(2, "+" + fm[2])),
+                ("'%d'" % e0, lambda A: A["branch_atlas"][0].update(entry=str(e0))),
+                ("%r" % float(e0), lambda A: A["branch_atlas"][0].update(entry=float(e0))))):
+            with self.subTest(plant=named):
+                rc, out, err = self._xa(self._plant(f, "xa%d" % i))
+                self.assertEqual(rc, 2, out[-400:])
+                self.assertIn("XA_W0D_LB_CERT=ERROR:atlas-malformed:AtlasError", out.splitlines())
+                self.assertIn(named, err)
+
+    # ------------------------------------------------------------------ 3. the TSV readers
+    BAD_SPELLINGS = ("+{}", " {}", "{} ", "0{}", "{}_0", "٥")
+
+    def test_tsv_int_accepts_the_writer_spelling_and_nothing_else(self):
+        S = self.S
+        for s, v in (("0", 0), ("5", 5), ("-1", -1), ("1234567890123456789012345678901234567890",
+                                                        1234567890123456789012345678901234567890)):
+            self.assertEqual(S._tsv_int(s), v)
+        for bad in ("+5", " 5", "5 ", "5\n", "1_0", "05", "00", "-0", "-05", "٥", "²",
+                    "", "5.0", "0x5", None, 5):
+            with self.subTest(bad=bad):
+                with self.assertRaises(S.TsvIntError):
+                    S._tsv_int(bad)
+        self.assertTrue(issubclass(S.TsvIntError, S.AtlasError))
+        self.assertTrue(issubclass(S.TsvIntError, ValueError))
+
+    def _tr12_copy(self, name, edit=None):
+        """A copy of the committed tr12/ tables with one cell rewritten by `edit(rows)`."""
+        d = os.path.join(self.tmp, name)
+        shutil.rmtree(d, True)
+        shutil.copytree("tr12", d)
+        if edit:
+            rel, col, fmt = edit
+            p = os.path.join(d, rel)
+            with open(p, encoding="utf-8") as fh:
+                lines = fh.read().split("\n")
+            head = lines[0].split("\t")
+            cells = lines[1].split("\t")
+            cells[head.index(col)] = fmt.format(cells[head.index(col)])
+            lines[1] = "\t".join(cells)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(lines))
+        return d
+
+    def _A(self):
+        if not hasattr(TestAtlasReadersAreAsStrictAsTheConsumer, "_A31"):
+            TestAtlasReadersAreAsStrictAsTheConsumer._A31 = self.S.atlas_load(self.ATLAS31)
+        return TestAtlasReadersAreAsStrictAsTheConsumer._A31
+
+    def _refused(self, fn):
+        """True when a checker refuses: raises an AtlasError, or returns failure strings."""
+        try:
+            r = fn()
+        except self.S.AtlasError:
+            return True
+        if isinstance(r, tuple):
+            r = r[0]
+        return bool(r)
+
+    def test_consumer_tsv_readers_refuse_a_respelled_cell(self):
+        S, A = self.S, self._A()
+        sel = set(S._ATLAS_SELECTORS)
+        N = S._atlas_int(A["N_total"], "N_total")
+        checks = (
+            ("q6_extremes", os.path.join("scan", "q6_layer_extremes.tsv"), "slot",
+             lambda d: S.atlas_q6_extremes_check(A, os.path.join(d, "scan"))),
+            ("ratio_rowkey", os.path.join("scan", "v1_field.tsv"), "k",
+             lambda d: S.atlas_ratio_columns_check(A, d, os.path.join(d, "scan"), sel)),
+            ("ratio_mass", os.path.join("scan", "v2_river.tsv"), "mass",
+             lambda d: S.atlas_ratio_columns_check(A, d, os.path.join(d, "scan"), sel)),
+            ("q3_reader_alts", "q3_profile_kw.tsv", "alts",
+             lambda d: S.atlas_q3_reader_check(os.path.join(d, "q3_profile_kw.tsv"), N)),
+            ("q3_reader_pnum", "q3_profile_kw.tsv", "p_num",
+             lambda d: S.atlas_q3_reader_check(os.path.join(d, "q3_profile_kw.tsv"), N)),
+        )
+        for tag, rel, col, run in checks:
+            with self.subTest(check=tag, control=True):
+                self.assertFalse(self._refused(lambda: run(self._tr12_copy("ctl_" + tag))),
+                                 "%s: the committed tables must pass" % tag)
+            for j, fmt in enumerate(self.BAD_SPELLINGS[:5]):
+                with self.subTest(check=tag, spelling=fmt):
+                    d = self._tr12_copy("%s_%d" % (tag, j), (rel, col, fmt))
+                    self.assertTrue(self._refused(lambda: run(d)),
+                                    "%s: %r accepted" % (tag, fmt.format("<cell>")))
+                    if tag == "ratio_rowkey":
+                        # the row-set check reports an unreadable key as a FAILURE LINE; the
+                        # per-row loop behind it would only raise, and never names the table
+                        fails, _ = run(d)
+                        self.assertTrue(any("a row is unreadable" in f for f in fails), fails[:3])
+
+    def test_arith_gates_refuse_a_respelled_mass(self):
+        S, A = self.S, self._A()
+        sel = set(S._ATLAS_SELECTORS)
+
+        def run(d):
+            return S.atlas_arith_gates(A, d, os.path.join(d, "scan"), sel, {}, None)
+        res = run(self._tr12_copy("arith_ctl"))
+        self.assertEqual(tuple(e[0] for e in res), S._ATLAS_ARITH_IDS)
+        for j, fmt in enumerate(self.BAD_SPELLINGS[:5]):
+            with self.subTest(spelling=fmt):
+                d = self._tr12_copy("arith_%d" % j, (os.path.join("scan", "v2_river.tsv"),
+                                                     "mass", fmt))
+                with self.assertRaises(S.AtlasError):
+                    run(d)
+
+    def _viz(self):
+        """`_check_grid`, `_tsv_cell_int` and `_log10_bigint` lifted out of viz/report_figures.py by
+        AST (tests.py is stdlib-only; the module imports numpy and matplotlib)."""
+        import ast, math
+        with open(os.path.join("viz", "report_figures.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        want = ("TsvShapeError", "_check_grid", "_tsv_cell_int", "_log10_bigint")
+        keep = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))
+                and n.name in want]
+        ns = {"os": os, "math": math, "_tsv_int": self.S._tsv_int}
+        exec(compile(ast.Module(body=keep, type_ignores=[]), "report_figures.py", "exec"), ns)
+        missing = [w for w in want if w not in ns]
+        self.assertEqual(missing, [], "viz/report_figures.py lacks %s" % missing)
+        return ns
+
+    def test_viz_reads_integer_cells_strictly(self):
+        ns = self._viz()
+        rows = [{"k": str(k), "pair": str(p)} for k in range(3) for p in range(1, 3)]
+        self.assertEqual(ns["_check_grid"](rows, ("k", "pair"), "ctl.tsv"), [[0, 1, 2], [1, 2]])
+        self.assertEqual(ns["_tsv_cell_int"]({"d": "6"}, "d"), 6)
+        self.assertAlmostEqual(ns["_log10_bigint"]("1000"), 3.0)
+        for fmt in self.BAD_SPELLINGS:
+            with self.subTest(spelling=fmt):
+                bad = [dict(r) for r in rows]
+                bad[1]["pair"] = fmt.format(bad[1]["pair"]) if "{}" in fmt else fmt
+                with self.assertRaises(ns["TsvShapeError"]):
+                    ns["_check_grid"](bad, ("k", "pair"), "bad.tsv")
+                with self.assertRaises(ns["TsvShapeError"]):
+                    ns["_tsv_cell_int"](bad[1], "pair")
+                with self.assertRaises(ns["TsvShapeError"]):
+                    ns["_log10_bigint"](fmt.format("1000") if "{}" in fmt else fmt)
+
+    # ------------------------------------------------------------------ 4. the isdigit guards
+    def test_witness_and_dclass_guards_are_ascii_only(self):
+        S = self.S
+        hx = S.binary_hexagrams
+        vals = [str(h) for h in hx[2:]]
+        walk = S.kc_x_parse_witness(",".join(vals))
+        self.assertEqual(len(walk), 31)
+        self.assertEqual(S.kc_x_phi("dclass:2", walk, hx[1]), 8)
+        arabic = str.maketrans("0123456789", "٠١٢٣٤"
+                                             "٥٦٧٨٩")
+        with self.assertRaises(ValueError) as cm:
+            S.kc_x_parse_witness(",".join([vals[0].translate(arabic)] + vals[1:]))
+        self.assertIn("not a non-negative integer", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            S.kc_x_phi("dclass:" + "2".translate(arabic), walk, hx[1])
+        self.assertIn("malformed dclass functional", str(cm.exception))
+
+
+class TestAnalyzeListsDeterministicAndScatterTablesInitialisedEK(unittest.TestCase):
+    """Lane EK, follow-ups to CX-161 (2026-09-26).
+
+    (1) With several threads, `solve --analyze` printed different output from run to run on one
+    binary. The [8] 4-subset rows and the [15] 4-subset list came out in thread-finish order,
+    and the [7] and [15] 'best' triples were chosen among tied minima by whichever thread
+    reached the critical section first (on one artifact the same binary printed best {1,2,27}
+    and {2,3,27}). The lists now hold the lexicographically smallest rows in sorted order and
+    ties go to the lexicographically smallest triple, which is what one thread always printed.
+    The test runs a one-record King Wen artifact (every subset ties at 1 survivor, so every
+    tie-break and the [15] buffer limit are exercised) at 1 thread and 3 times at 16 threads.
+    Pre-fix: the 16-thread runs differ from each other and from the 1-thread run -- RED.
+    (2) f4p_compute (ppos), dav_compute, f5_compute, perm_compute (pi_bot) and
+    null_c3_total_comp_dist fill their position table by scattering, so a non-permutation left
+    slots unset. Every caller passes a permutation (the test-vector hooks refuse anything else
+    since CX-161), so the fix is hardening: the tables start at 0, as verify.py
+    compute_comp_dist does. A harness that #includes solve.c calls each function on two
+    non-permutations ([0, 0, 2, ..., 63] and all zeros) after painting the stack with 0, 1, 32
+    or 100000, in a default, a -ftrivial-auto-var-init=zero and a =pattern build. All twelve
+    runs must print the same values with rc 0. Pre-fix: every function varies or crashes with
+    the paint or the build (f4p only in the default build with a paint of 1 or 32, since its
+    unset slot is read only as a candidate position) -- RED. A build failure is a test
+    FAILURE, never a skip. ROAE_TESTS_SOLVE_SRC builds a different source (used to show each
+    test red on the pre-fix solve.c); nothing in the harness sets it."""
+
+    FNS = ("f4p", "dav", "f5", "perm", "c3")
+    INITS = ("default", "zero", "pattern")
+    PAINTS = ("0", "1", "32", "100000")
+    HARNESS = r'''
+#define main solve_main
+#include SOLVE_SRC
+#undef main
+static __attribute__((noinline)) void ek_paint(int val) {
+    volatile int big[16384];
+    for (int i = 0; i < 16384; i++) big[i] = val;
+}
+static __attribute__((noinline)) int ek_run(const char *fn, const char *vec) {
+    int seq[64], v[16], tm[2]; uint8_t s8[64];
+    for (int i = 0; i < 64; i++) seq[i] = !strcmp(vec, "kw") ? KW[i] : !strcmp(vec, "zeros") ? 0 : i;
+    if (!strcmp(vec, "dup")) seq[1] = 0;
+    for (int i = 0; i < 64; i++) s8[i] = (uint8_t)seq[i];
+    memset(v, 0, sizeof v);
+    int n = 0;
+    if (!strcmp(fn, "f4p")) { f4p_compute(seq, v); n = 13; }
+    else if (!strcmp(fn, "dav")) { dav_compute(seq, v); n = 9; }
+    else if (!strcmp(fn, "f5")) { f5_compute(seq, v); n = 11; }
+    else if (!strcmp(fn, "perm")) { perm_compute(seq, v, tm); n = 13; }
+    else if (!strcmp(fn, "c3")) { v[0] = null_c3_total_comp_dist(s8); n = 1; }
+    else return 2;
+    for (int i = 0; i < n; i++) printf(i ? ",%d" : "%d", v[i]);
+    printf("\n");
+    return 0;
+}
+int main(int argc, char **argv) {
+    if (argc != 4) return 2;
+    f4p_pal_init();
+    ek_paint(atoi(argv[3]));
+    return ek_run(argv[1], argv[2]);
+}
+'''
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="ek_det_")
+        src = os.path.abspath(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"))
+        cls.sbin = os.path.join(cls.tmp, "solve_ek")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        hsrc = os.path.join(cls.tmp, "harness.c")
+        with open(hsrc, "w") as fh:
+            fh.write(cls.HARNESS)
+        cls.hbin, cls.hbuild_err = {}, ""
+        procs = {}
+        for init in cls.INITS:
+            flag = [] if init == "default" else ["-ftrivial-auto-var-init=" + init]
+            out = os.path.join(cls.tmp, "h_" + init)
+            procs[init] = (out, subprocess.Popen(
+                ["gcc", "-O1", "-pthread", "-fopenmp"] + flag + ['-DSOLVE_SRC="%s"' % src,
+                 "-o", out, hsrc, "-lm", "-lz"], stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE, text=True))
+        for init, (out, p) in procs.items():
+            err = p.communicate()[1]
+            if p.returncode == 0 and os.path.exists(out):
+                cls.hbin[init] = out
+            else:
+                cls.hbuild_err += "%s: gcc rc %d: %s\n" % (init, p.returncode, err[-2000:])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _analyze(self, path, threads):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(OMP_NUM_THREADS=str(threads), SOLVE_THREADS=str(threads))
+        r = subprocess.run([self.sbin, "--analyze", path], capture_output=True, text=True,
+                           env=env, cwd=self.tmp, timeout=900)
+        self.assertEqual(0, r.returncode, r.stderr[-500:])
+        return re.sub(r"\b\d+(\.\d+)?s\b", "Ns", r.stdout)   # timings only
+
+    def test_analyze_lists_and_best_triples_do_not_depend_on_threads(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        path = os.path.join(self.tmp, "kw1.bin")
+        with open(path, "wb") as fh:   # one KW record: every subset keeps 1 survivor (all tie)
+            fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16
+                     + bytes(p << 2 for p in range(32)))
+        one = self._analyze(path, 1)
+        quads = list(itertools.combinations(range(1, 32), 4))
+        lines = one.splitlines()
+        # Positive controls: the counts, and one thread's lists, are what they always were.
+        self.assertIn("    total working 4-subsets: 31465", lines)
+        self.assertIn("     All 4-subsets uniquely identifying KW (<=1 survivor): 31465", lines)
+        self.assertIn("    Triples reaching <=1 survivors: 4495", lines)
+        self.assertTrue(any("Minimum 3-subset survivors: 1 (best triple: {1, 2, 3})" in l
+                            for l in lines), "[7] best triple")
+        self.assertTrue(any("3-subset disproof: min survivors 1 (best {1,2,3}); triples <=1 "
+                            "survivor: 4495" in l for l in lines), "[15] best triple")
+        rows8 = [l for l in lines if re.fullmatch(r"    \{.*\}  survivors=\d+", l)]
+        self.assertEqual(["    {%2d, %2d, %2d, %2d}  survivors=1" % q for q in quads[:200]], rows8)
+        rows15 = [l for l in lines if re.fullmatch(r"       \{.*\} surv=\d+", l)]
+        self.assertEqual(9360, len(rows15), "[15] buffer holds 9,360 fixed 28-byte rows")
+        self.assertEqual(["       {%2d,%2d,%2d,%2d} surv=1" % q for q in quads[:9360]], rows15)
+        # The fix: 16 threads print exactly what one thread prints, every time.
+        for i in range(3):
+            many = self._analyze(path, 16)
+            if many != one:
+                diff = [(a, b) for a, b in zip(one.splitlines(), many.splitlines()) if a != b]
+                self.fail("16-thread run %d differs from the 1-thread run (%d lines differ; first %r)"
+                          % (i + 1, len(diff), diff[:1]))
+
+    def _h(self, init, fn, vec, paint):
+        self.assertIn(init, self.hbin, self.hbuild_err)
+        r = subprocess.run([self.hbin[init], fn, vec, paint], capture_output=True, text=True,
+                           timeout=60)
+        return "rc=%d %s" % (r.returncode, r.stdout.strip())
+
+    def _all(self, fn, vec):
+        return {(i, p): self._h(i, fn, vec, p) for i in self.INITS for p in self.PAINTS}
+
+    def test_scatter_tables_read_zero_not_garbage_on_a_non_permutation(self):
+        for vec, seq in (("dup", [0, 0] + list(range(2, 64))), ("zeros", [0] * 64)):
+            self.assertLess(len(set(seq)), 64, "precondition: %s is not a permutation" % vec)
+            for fn in self.FNS:
+                outs = self._all(fn, vec)
+                self.assertEqual(1, len(set(outs.values())),
+                                 "%s on %s depends on stack contents or the init flag "
+                                 "(uninitialised slot read): %r" % (fn, vec, outs))
+                self.assertTrue(outs[("default", "0")].startswith("rc=0 "), outs)
+            # 0 is verify.py's value for an unfilled slot, so the two C3 values agree.
+            self.assertEqual("rc=0 %d" % _load("verify").compute_comp_dist(seq),
+                             self._h("pattern", "c3", vec, "32"))
+
+    def test_positive_control_permutations_are_unchanged(self):
+        kw = list(_load("verify").KW)
+        self.assertEqual(64, len(set(kw)))
+        for fn in self.FNS:
+            self.assertEqual(1, len(set(self._all(fn, "kw").values())), fn)
+        self.assertEqual("rc=0 776", self._h("pattern", "c3", "kw", "32"))
+        self.assertEqual("rc=0 7,33,1,1,1320,31,1,3,52,0,1,260,30",
+                         self._h("pattern", "perm", "kw", "32"))
+
+
+class TestProvenanceAbsentKeysAndPromotedOrphansEO(unittest.TestCase):
+    """2026-09-26 (lane EO, follow-ups to lane EH's provenance entry). Two solve.c provenance defects.
+
+    (1) prov_aggregate_write_cb declared its five string buffers without initialisers, and
+    prov_extract_string leaves its output untouched when a key is absent. A sidecar write record
+    missing binary_sha256, git_hash, host_fingerprint or write_utc therefore put stack bytes into
+    solutions.provenance.json (read past the unterminated buffer). This class builds solve.c with
+    -ftrivial-auto-var-init=pattern so that read is deterministic: on the pre-fix source every
+    uninitialised byte is 0xFE and the aggregate is not even valid UTF-8. The cure initialises the
+    buffers, so an absent key is empty and prov_set_add skips it.
+
+    (2) promote_orphaned_shards adopted a .bin that had no sidecar (crash between the shard's
+    rename and its sidecar write) and never wrote one, so shard_count / shards_by_final_status
+    undercounted. The cure writes a minimal sidecar with final_status PROMOTED when, and only
+    when, none exists.
+
+    One tiny depth-2 enumeration (SOLVE_NODE_LIMIT=3030000, 2 threads) is the shared fixture.
+    ROAE_TESTS_SOLVE_SRC builds a different source (mutation and pre-fix runs only). A build or
+    fixture failure is a FAILURE, never a skip."""
+
+    ENV = dict(SOLVE_NODE_LIMIT="3030000", SOLVE_ALLOW_SUB_CANONICAL="1",
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+    KEYS = ("binary_sha256", "git_hash", "host_fingerprint", "write_utc")
+    OUTPUTS = ("solutions.bin", "solutions.sha256", "solutions.meta.json",
+               "solutions.provenance.json", "shard_manifest.txt")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="eo_prov_")
+        cls.sbin = os.path.join(cls.tmp, "solve_eo")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-ftrivial-auto-var-init=pattern",
+                            "-o", cls.sbin, src, "-lm", "-lz"], capture_output=True, text=True)
+        cls.err = None if r.returncode == 0 and os.path.exists(cls.sbin) else \
+            f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        if cls.err:
+            return
+        cls.fixture = os.path.join(cls.tmp, "fixture")
+        os.makedirs(cls.fixture)
+        r = subprocess.run([cls.sbin, "0"], cwd=cls.fixture, env=cls._env(),
+                           capture_output=True, text=True, timeout=900)
+        if r.returncode != 0:
+            cls.err = f"fixture enum rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.ENV)
+        return env
+
+    def setUp(self):
+        if self.err:
+            self.fail("the fixture could not be built or run, so nothing was verified: " + self.err)
+
+    def _copy(self, name):
+        d = os.path.join(self.tmp, name)
+        shutil.copytree(self.fixture, d, symlinks=True)
+        for f in self.OUTPUTS:
+            if os.path.exists(os.path.join(d, f)):
+                os.remove(os.path.join(d, f))
+        return d
+
+    def _shards(self, d):
+        return sorted(f for f in os.listdir(d) if re.fullmatch(r"sub_\d+_\d+_\d+_\d+\.bin", f))
+
+    def _merge(self, d):
+        import json
+        r = subprocess.run([self.sbin, "--merge"], cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        with open(os.path.join(d, "solutions.provenance.json"), "rb") as fh:
+            raw = fh.read()
+        self.assertNotIn(b"\xfe", raw, "uninitialised (pattern) bytes reached solutions.provenance.json")
+        return json.loads(raw.decode("utf-8"))
+
+    def _offered(self, d):
+        import json
+        out = {k: set() for k in self.KEYS}
+        for f in os.listdir(d):
+            if f.startswith("sub_") and f.endswith(".bin.provenance.json"):
+                with open(os.path.join(d, f)) as fh:
+                    for w in json.load(fh)["writes"]:
+                        for k in self.KEYS:
+                            if w.get(k):
+                                out[k].add(w[k])
+        return out
+
+    def _plant(self, d, drop):
+        import json
+        for i, key in enumerate(self.KEYS):
+            w = {"write_utc": "2026-01-0%dT00:00:00Z" % (i + 1), "binary_sha256": "%064x" % (i + 7),
+                 "git_hash": "plantedgit%d" % i, "host_fingerprint": "plantedhost%d" % i,
+                 "per_sub_branch_limit": 1000, "nodes_explored_in_this_shard": 1,
+                 "records_emitted": 1, "status": "BUDGETED", "extends_prior_budget": None}
+            if drop:
+                del w[key]
+            rec = {"schema_version": 1, "shard_filename": "sub_40_0_41_%d.bin" % i,
+                   "sub_branch": {"p1": 40, "o1": 0, "p2": 41, "o2": i}, "writes": [w],
+                   "final_status": "BUDGETED", "final_per_sub_branch_limit": 1000,
+                   "cumulative_nodes_explored": 1, "cumulative_records_emitted": 1}
+            with open(os.path.join(d, "sub_40_0_41_%d.bin.provenance.json" % i), "w") as fh:
+                json.dump(rec, fh, indent=2)
+
+    def _check_sets(self, prov, offered):
+        bp = prov["binary_provenance"]
+        self.assertEqual(set(bp["binary_sha256_set"]), offered["binary_sha256"])
+        self.assertEqual(set(bp["git_hash_set"]), offered["git_hash"])
+        self.assertEqual(set(bp["host_fingerprint_set"]), offered["host_fingerprint"])
+        self.assertEqual(prov["earliest_shard_write_utc"], min(offered["write_utc"]))
+        self.assertEqual(prov["latest_shard_write_utc"], max(offered["write_utc"]))
+
+    # ---- (1) absent writer keys ----------------------------------------------------------------
+    def test_absent_keys_are_skipped_not_garbage(self):
+        d = self._copy("absent")
+        self._plant(d, drop=True)
+        offered = self._offered(d)
+        # Precondition: each planted record really lacks exactly its key.
+        for i, key in enumerate(self.KEYS):
+            with open(os.path.join(d, "sub_40_0_41_%d.bin.provenance.json" % i)) as fh:
+                self.assertNotIn('"%s"' % key, fh.read())
+        self._check_sets(self._merge(d), offered)
+
+    def test_positive_control_full_planted_records_are_listed(self):
+        d = self._copy("full")
+        self._plant(d, drop=False)
+        offered = self._offered(d)
+        prov = self._merge(d)
+        self._check_sets(prov, offered)
+        self.assertIn("plantedgit3", prov["binary_provenance"]["git_hash_set"])
+        self.assertEqual(prov["earliest_shard_write_utc"], "2026-01-01T00:00:00Z")
+
+    # ---- (2) promoted orphans ------------------------------------------------------------------
+    def _orphan(self, name, drop_sidecar):
+        """Copy the fixture, strip one shard's checkpoint line(s) (and optionally its sidecar),
+        re-run the enumeration so promote_orphaned_shards adopts it, then merge."""
+        import json
+        d = self._copy(name)
+        shards = self._shards(d)
+        self.assertGreater(len(shards), 100)
+        s = shards[len(shards) // 3]
+        p = [int(x) for x in re.findall(r"\d+", s)]
+        tag = "pair1 %d orient1 %d pair2 %d orient2 %d)" % tuple(p)
+        hits = 0
+        for f in os.listdir(d):
+            if f.startswith("checkpoint") and f.endswith(".txt"):
+                with open(os.path.join(d, f)) as fh:
+                    lines = fh.readlines()
+                keep = [l for l in lines if tag not in l]
+                hits += len(lines) - len(keep)
+                with open(os.path.join(d, f), "w") as fh:
+                    fh.writelines(keep)
+        self.assertGreaterEqual(hits, 1, "precondition: the shard had a checkpoint line")
+        side = os.path.join(d, s + ".provenance.json")
+        self.assertTrue(os.path.exists(side), "precondition: the fixture wrote a sidecar")
+        other = os.path.join(d, shards[0] + ".provenance.json")
+        with open(other, "rb") as fh:
+            other_before = fh.read()
+        with open(side, "rb") as fh:
+            side_before = fh.read()
+        if drop_sidecar:
+            os.remove(side)
+        r = subprocess.run([self.sbin, "0"], cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=900)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        m = re.search(r"Orphaned-shard promotion: promoted=(\d+), integrity_failed=(\d+)", r.stderr)
+        self.assertIsNotNone(m, r.stderr[-2000:])
+        self.assertEqual((int(m.group(1)), int(m.group(2))), (1, 0))
+        for f in self.OUTPUTS:
+            if os.path.exists(os.path.join(d, f)):
+                os.remove(os.path.join(d, f))
+        prov = self._merge(d)
+        with open(other, "rb") as fh:
+            self.assertEqual(fh.read(), other_before, "an unrelated sidecar was rewritten")
+        with open(os.path.join(d, s), "rb") as fh:
+            n_rec = len(gzip.decompress(fh.read())) // 32
+        return d, s, side, side_before, prov, n_rec
+
+    def test_promoted_orphan_without_sidecar_is_counted(self):
+        import json
+        d, s, side, _, prov, n_rec = self._orphan("orphan_nosidecar", drop_sidecar=True)
+        n_bin = len(self._shards(d))
+        self.assertTrue(os.path.exists(side), "the promoted shard still has no sidecar")
+        with open(side) as fh:
+            sc = json.load(fh)
+        self.assertEqual(sc["shard_filename"], s)
+        self.assertEqual(sc["final_status"], "PROMOTED")
+        self.assertEqual(len(sc["writes"]), 1)
+        w = sc["writes"][0]
+        self.assertEqual((w["status"], w["records_emitted"], w["nodes_explored_in_this_shard"]),
+                         ("PROMOTED", n_rec, 0))
+        self.assertEqual(w["per_sub_branch_limit"], sc["final_per_sub_branch_limit"])
+        for key in ("binary_sha256", "git_hash", "host_fingerprint"):   # writer unknown: absent
+            self.assertNotIn(key, w)
+        self.assertEqual(prov["shard_count"], n_bin)
+        by = prov["shards_by_final_status"]
+        self.assertEqual(by["OTHER"], 1)
+        self.assertEqual(sum(by.values()), n_bin)
+
+    def test_positive_control_promoted_orphan_with_sidecar_is_untouched(self):
+        d, s, side, side_before, prov, _ = self._orphan("orphan_withsidecar", drop_sidecar=False)
+        with open(side, "rb") as fh:
+            self.assertEqual(fh.read(), side_before, "an existing sidecar was overwritten")
+        self.assertEqual(prov["shard_count"], len(self._shards(d)))
+        self.assertEqual(prov["shards_by_final_status"]["OTHER"], 0)
+
+
+class TestCX163FollowupPromotionBatchedDurability(unittest.TestCase):
+    """CX-163 follow-up (2026-09-26): promote_orphaned_shards() batches its durability.
+
+    Once Q-838 made gz shards promotable, its fsync-per-checkpoint-line ran on every shard (~100
+    lines/s on a loaded worker). The cure writes each line with its own write(2) (fflush, no
+    fsync) and fsyncs checkpoint.txt once per 4096 lines and before returning, plus the directory
+    once; only after that fsync does it set the skip-list bits and unlink the shards' .dfs_state.
+
+    Observed under strace (-y names each fd's file), on a resume of a tiny depth-2 enumeration
+    (SOLVE_NODE_LIMIT=3030000, 2 threads) whose checkpoint lines are all removed and which has an
+    empty sub_*.dfs_state planted beside every shard:
+      - one write per promoted line, each holding exactly one whole line (no torn line on SIGKILL);
+      - at most ceil(n/4096) fsyncs of checkpoint.txt during promotion (RED on the per-line code,
+        which made n);
+      - every line is followed by a checkpoint.txt fsync before promotion's summary line, i.e.
+        before the function returns, and the directory is fsynced after it;
+      - every planted .dfs_state is unlinked (positive control), and each unlink comes after the
+        checkpoint.txt fsync that covers the line claiming that shard;
+      - the resume promotes every shard and ends on the fixture's solutions sha.
+    strace absent is a SKIP, stated in the reason. ROAE_TESTS_SOLVE_SRC builds a different source
+    (used to show the test red on the pre-change solve.c and on mutants); nothing sets it."""
+
+    ENV = dict(SOLVE_NODE_LIMIT="3030000", SOLVE_ALLOW_SUB_CANONICAL="1",
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+    BATCH = 4096
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="cx163b_")
+        cls.sbin = os.path.join(cls.tmp, "solve_cx163b")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O2", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.fixture = os.path.join(cls.tmp, "fixture")
+        cls.fixture_ok, cls.fixture_err = False, ""
+        if cls.build_ok:
+            os.makedirs(cls.fixture)
+            r = subprocess.run([cls.sbin, "0"], cwd=cls.fixture, env=cls._env(),
+                               capture_output=True, text=True, timeout=900)
+            cls.fixture_err = f"fixture enum rc {r.returncode}: " + r.stderr[-2000:]
+            cls.fixture_ok = (r.returncode == 0)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.ENV)
+        return env
+
+    @staticmethod
+    def _sha_line(d):
+        with open(os.path.join(d, "solutions.sha256")) as fh:
+            return fh.read().split()[0]
+
+    def test_promotion_fsyncs_per_batch_and_claims_precede_side_effects(self):
+        if not shutil.which("strace"):
+            self.skipTest("strace is not installed; this test observes fsync/unlink order with it")
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        if not self.fixture_ok:
+            self.fail("fixture enumeration failed: " + self.fixture_err)
+        want_sha = self._sha_line(self.fixture)
+        d = os.path.join(self.tmp, "resume")
+        shutil.copytree(self.fixture, d, symlinks=True)
+        shards = sorted(f for f in os.listdir(d) if re.fullmatch(r"sub_\d+_\d+_\d+_\d+\.bin", f))
+        self.assertGreater(len(shards), 100, "precondition: the fixture has shards to promote")
+        for f in os.listdir(d):
+            if f.startswith("checkpoint") and f.endswith(".txt") or f in (
+                    "solutions.bin", "solutions.sha256", "solutions.meta.json",
+                    "solutions.provenance.json", "shard_manifest.txt"):
+                os.remove(os.path.join(d, f))
+        planted = set()
+        for s in shards:
+            name = s[:-len(".bin")] + ".dfs_state"
+            open(os.path.join(d, name), "wb").close()
+            planted.add(name)
+        log = os.path.join(self.tmp, "strace_promote.txt")
+        r = subprocess.run(["strace", "-f", "-y", "-qq", "-s", "512", "-e", "signal=none",
+                            "-e", "trace=write,fsync,fdatasync,unlink,unlinkat", "-o", log,
+                            self.sbin, "0"], cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=1200)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        m = re.search(r"Orphaned-shard promotion: promoted=(\d+), integrity_failed=(\d+)", r.stderr)
+        self.assertIsNotNone(m, r.stderr[-2000:])
+        self.assertEqual((int(m.group(1)), int(m.group(2))), (len(shards), 0))
+        self.assertEqual(self._sha_line(d), want_sha, "resume must end on the fixture's sha")
+
+        ck = os.path.realpath(os.path.join(d, "checkpoint.txt"))
+        dd = os.path.realpath(d)
+        ev = []   # (kind, payload) in trace order
+        with open(log, errors="replace") as fh:
+            for ln in fh:
+                mm = re.match(r"\s*\d+\s+(write|fsync|fdatasync)\(\d+<([^>]*)>(.*)", ln)
+                if mm:
+                    kind, path, rest = mm.groups()
+                    if kind == "write" and path == ck and "[v3.1 promoted]" in rest:
+                        body = re.match(r', "(.*)", \d+\)\s+=', rest)
+                        ev.append(("line", body.group(1) if body else rest))
+                    elif kind == "write" and "Orphaned-shard promotion" in rest:
+                        ev.append(("summary", None))
+                    elif kind in ("fsync", "fdatasync") and path == ck:
+                        ev.append(("ckfsync", None))
+                    elif kind in ("fsync", "fdatasync") and path == dd:
+                        ev.append(("dirfsync", None))
+                    continue
+                mu = re.match(r'\s*\d+\s+unlink(?:at)?\((?:[^,]*, )?"([^"]*\.dfs_state)"', ln)
+                if mu:
+                    ev.append(("unlink", os.path.basename(mu.group(1))))
+        kinds = [k for k, _ in ev]
+        self.assertTrue("summary" in kinds, "strace did not capture promotion's summary line")
+        end = kinds.index("summary")
+        win = ev[:end]
+        lines = [p for k, p in win if k == "line"]
+        self.assertEqual(len(lines), len(shards), "one write(2) per promoted line")
+        for p in lines:   # strace renders the newline as the two characters \n
+            self.assertTrue(p.endswith("\\n") and p.count("\\n") == 1, "torn or merged line: " + p)
+        n_fs = kinds[:end].count("ckfsync")
+        self.assertGreaterEqual(n_fs, 1)
+        self.assertLessEqual(n_fs, -(-len(shards) // self.BATCH),
+                             "checkpoint.txt fsynced %d times for %d lines: per-line fsync"
+                             % (n_fs, len(shards)))
+        last_line = max(i for i, (k, _) in enumerate(win) if k == "line")
+        self.assertTrue("ckfsync" in kinds[last_line:end], "no checkpoint fsync after the last line")
+        first_fs_after_last = kinds.index("ckfsync", last_line)
+        self.assertTrue("dirfsync" in kinds[first_fs_after_last:end], "directory never fsynced")
+        # Each unlink must follow a checkpoint fsync that follows the line claiming that shard.
+        claim_at = {}
+        for i, (k, p) in enumerate(win):
+            if k == "line":
+                mm = re.search(r"pair1 (\d+) orient1 (\d+) pair2 (\d+) orient2 (\d+)\)", p)
+                self.assertIsNotNone(mm, p)
+                claim_at["sub_%s_%s_%s_%s.dfs_state" % mm.groups()] = i
+        unlinked = {}
+        for i, (k, p) in enumerate(ev):
+            if k == "unlink" and p in planted and p not in unlinked:
+                unlinked[p] = i
+        self.assertEqual(set(unlinked), planted, "positive control: every planted .dfs_state "
+                         "must be unlinked by promotion")
+        for name, ui in unlinked.items():
+            ci = claim_at[name]
+            self.assertTrue("ckfsync" in kinds[ci:ui],
+                            "%s unlinked before the fsync of the line that claims it" % name)
+
+
+
+
+
+
+
+
+class TestProvenanceExtensionTotalsLongSidecarCloseEP(unittest.TestCase):
+    """2026-09-26 (lane EP, follow-ups to the provenance entry that added promoted-orphan sidecars).
+
+    (1) Each sidecar write's records_emitted is the whole shard's count (a resume or extension
+    reloads the prior records first), so summing it over every write, as the aggregator did,
+    counted an extended shard once per write. cumulative.total_records_emitted is now the sum of
+    each sidecar's LAST write, and must equal the records actually in the shards.
+    (2) read_prior_final_budget read only the first 8,192 bytes of a sidecar, and
+    final_per_sub_branch_limit sits after writes[], so a long sidecar lost extension detection
+    (extends_prior_budget silently null). It now reads the whole file.
+    (3) append_shard_provenance and write_solutions_provenance_json skipped fclose when
+    fflush/fsync failed (a FILE leak per failed write), as did the sibling write_budget_sidecar.
+    An LD_PRELOAD shim fails fsync on the matching temp files and reports every such FILE still
+    open at exit; pre-fix, a long run died with "Too many open files".
+
+    Fixture: one depth-2 run at SOLVE_NODE_LIMIT=3030000, one sidecar padded to 21 writes (past
+    8,192 bytes), then an extension to 6060000 in the same directory and a merge.
+    ROAE_TESTS_SOLVE_SRC builds a different source (pre-fix runs only). A build or fixture failure
+    is a FAILURE, never a skip."""
+
+    ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_SKIP_CANONICAL_LOCK="1",
+               SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+    OUTPUTS = ("solutions.bin", "solutions.sha256", "solutions.meta.json",
+               "solutions.provenance.json", "shard_manifest.txt")
+    SHIM = r'''
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+static pthread_mutex_t mu = PTHREAD_MUTEX_INITIALIZER;
+static FILE *trk[65536]; static int ntrk, opened, fsfail; static pid_t mainpid;
+__attribute__((constructor)) static void ini(void) { mainpid = getpid(); }
+static int want(const char *p) { const char *m = getenv("EP_SHIM_MATCH"); return p && m && *m && strstr(p, m) != NULL; }
+static FILE *track(FILE *f, const char *p) {
+    if (f && want(p)) { pthread_mutex_lock(&mu); opened++; if (ntrk < 65536) trk[ntrk++] = f; pthread_mutex_unlock(&mu); }
+    return f;
+}
+FILE *fopen(const char *p, const char *m) {
+    static FILE *(*r)(const char *, const char *); if (!r) r = dlsym(RTLD_NEXT, "fopen");
+    return track(r(p, m), p);
+}
+FILE *fopen64(const char *p, const char *m) {
+    static FILE *(*r)(const char *, const char *); if (!r) r = dlsym(RTLD_NEXT, "fopen64");
+    return track(r(p, m), p);
+}
+int fclose(FILE *f) {
+    static int (*r)(FILE *); if (!r) r = dlsym(RTLD_NEXT, "fclose");
+    pthread_mutex_lock(&mu);
+    for (int i = 0; i < ntrk; i++) if (trk[i] == f) { trk[i] = trk[--ntrk]; break; }
+    pthread_mutex_unlock(&mu);
+    return r(f);
+}
+int fsync(int fd) {
+    static int (*r)(int); if (!r) r = dlsym(RTLD_NEXT, "fsync");
+    char l[64], t[4096]; snprintf(l, sizeof l, "/proc/self/fd/%d", fd);
+    ssize_t n = readlink(l, t, sizeof t - 1);
+    if (n > 0) { t[n] = 0; if (want(t)) { pthread_mutex_lock(&mu); fsfail++; pthread_mutex_unlock(&mu); errno = EIO; return -1; } }
+    return r(fd);
+}
+__attribute__((destructor)) static void fin(void) {
+    const char *o = getenv("EP_SHIM_OUT");
+    if (!o || getpid() != mainpid) return;
+    int fd = open(o, O_WRONLY | O_CREAT | O_APPEND, 0644); if (fd < 0) return;
+    char b[160]; int k = snprintf(b, sizeof b, "OPENED=%d FSYNC_FAILED=%d LEAKED=%d\n", opened, fsfail, ntrk);
+    if (write(fd, b, k) < 0) {} close(fd);
+}
+'''
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        cls.tmp = tempfile.mkdtemp(prefix="ep_prov_")
+        cls.sbin = os.path.join(cls.tmp, "solve_ep")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True)
+        cls.err = None if r.returncode == 0 and os.path.exists(cls.sbin) else \
+            f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        if cls.err:
+            return
+        cls.fixture = os.path.join(cls.tmp, "fixture")
+        os.makedirs(cls.fixture)
+        r = cls._run([cls.sbin, "0"], cls.fixture, "3030000")
+        if r.returncode != 0:
+            cls.err = f"fixture enum rc {r.returncode}: " + r.stderr[-2000:]
+            return
+        # Positive control: the un-extended fixture merged as is (one write per sidecar).
+        cls.base = cls._copy("base")
+        r = cls._run([cls.sbin, "--merge"], cls.base, "3030000")
+        if r.returncode != 0:
+            cls.err = f"base merge rc {r.returncode}: " + r.stderr[-2000:]
+            return
+        # Extension: pad one sidecar past 8,192 bytes, extend, merge.
+        cls.ext = cls._copy("ext")
+        shards = cls._shards(cls.ext)
+        cls.padded, cls.ctrl = shards[len(shards) // 2], shards[len(shards) // 3]
+        side = os.path.join(cls.ext, cls.padded + ".provenance.json")
+        with open(side) as fh:
+            d = json.load(fh)
+        cls.prior_final = d["final_per_sub_branch_limit"]
+        d["writes"] = d["writes"] * 21
+        with open(side, "w") as fh:
+            json.dump(d, fh, indent=2)
+        with open(side) as fh:
+            cls.padded_offset = fh.read().index('"final_per_sub_branch_limit"')
+        r = cls._run([cls.sbin, "0"], cls.ext, "6060000")
+        if r.returncode != 0:
+            cls.err = f"extension enum rc {r.returncode}: " + r.stderr[-2000:]
+            return
+        cls._strip(cls.ext)
+        r = cls._run([cls.sbin, "--merge"], cls.ext, "6060000")
+        if r.returncode != 0:
+            cls.err = f"extension merge rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _run(cls, argv, cwd, limit, extra=None):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.ENV)
+        env["SOLVE_NODE_LIMIT"] = limit
+        env.update(extra or {})
+        return subprocess.run(argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=900)
+
+    @classmethod
+    def _strip(cls, d):
+        for f in cls.OUTPUTS:
+            if os.path.exists(os.path.join(d, f)):
+                os.remove(os.path.join(d, f))
+
+    @classmethod
+    def _copy(cls, name):
+        d = os.path.join(cls.tmp, name)
+        shutil.copytree(cls.fixture, d, symlinks=True)
+        cls._strip(d)
+        return d
+
+    @staticmethod
+    def _shards(d):
+        return sorted(f for f in os.listdir(d) if re.fullmatch(r"sub_\d+_\d+_\d+_\d+\.bin", f))
+
+    def setUp(self):
+        if self.err:
+            self.fail("the fixture could not be built or run, so nothing was verified: " + self.err)
+
+    def _prov(self, d):
+        import json
+        with open(os.path.join(d, "solutions.provenance.json")) as fh:
+            return json.load(fh)
+
+    def _sidecar(self, d, s):
+        import json
+        with open(os.path.join(d, s + ".provenance.json")) as fh:
+            return json.load(fh)
+
+    def _logical(self, d):
+        n = 0
+        for s in self._shards(d):
+            with open(os.path.join(d, s), "rb") as fh:
+                n += len(gzip.decompress(fh.read())) // 32
+        return n
+
+    # ---- (1) each shard's records counted once --------------------------------------------------
+    def test_extension_total_records_counts_each_shard_once(self):
+        shards = self._shards(self.ext)
+        multi = sum(1 for s in shards if len(self._sidecar(self.ext, s)["writes"]) >= 2)
+        self.assertGreater(multi, 100, "precondition: the extension appended to the prior sidecars")
+        summed = sum(w["records_emitted"] for s in shards for w in self._sidecar(self.ext, s)["writes"])
+        logical = self._logical(self.ext)
+        self.assertGreater(summed, logical, "precondition: summing over writes would over-count")
+        self.assertEqual(self._prov(self.ext)["cumulative"]["total_records_emitted"], logical)
+
+    def test_positive_control_unextended_total_equals_shard_records(self):
+        shards = self._shards(self.base)
+        self.assertGreater(len(shards), 100)
+        self.assertTrue(all(len(self._sidecar(self.base, s)["writes"]) == 1 for s in shards))
+        self.assertEqual(self._prov(self.base)["cumulative"]["total_records_emitted"],
+                         self._logical(self.base))
+
+    # ---- (2) a long sidecar keeps extension detection ------------------------------------------
+    def test_long_sidecar_extension_is_detected(self):
+        self.assertGreater(self.padded_offset, 8192, "precondition: the field sits past 8,192 bytes")
+        w = self._sidecar(self.ext, self.padded)["writes"]
+        self.assertEqual(len(w), 22, "precondition: the extension appended one write to the padded sidecar")
+        self.assertGreater(w[-1]["per_sub_branch_limit"], self.prior_final)
+        self.assertEqual(w[-1]["extends_prior_budget"], self.prior_final)
+
+    def test_positive_control_short_sidecar_extension_is_detected(self):
+        c = self._sidecar(self.ext, self.ctrl)
+        self.assertEqual(len(c["writes"]), 2)
+        self.assertEqual(c["writes"][-1]["extends_prior_budget"], self.prior_final)
+
+    # ---- (3) no FILE leak when fsync fails ------------------------------------------------------
+    def _shimmed(self, name, argv, limit, match="provenance.json.tmp"):
+        so = os.path.join(self.tmp, "ep_shim.so")
+        if not os.path.exists(so):
+            c = os.path.join(self.tmp, "ep_shim.c")
+            with open(c, "w") as fh:
+                fh.write(self.SHIM)
+            r = subprocess.run(["gcc", "-shared", "-fPIC", "-O1", "-o", so, c, "-ldl", "-lpthread"],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        d = self._copy(name)
+        out = os.path.join(self.tmp, name + ".shim")
+        r = self._run(argv(d), d, limit, {"LD_PRELOAD": so, "EP_SHIM_OUT": out, "EP_SHIM_MATCH": match})
+        # Pre-fix, every failed sidecar write leaked one FILE, so a long run hit the fd limit and
+        # died with "Too many open files" (measured: rc 1 after about 1,018 leaked handles).
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        with open(out) as fh:   # one line per process that loaded the shim (children too): sum them
+            lines = [l for l in fh.read().splitlines() if l.startswith("OPENED=")]
+        self.assertGreaterEqual(len(lines), 1, "the shim reported nothing, so nothing was measured")
+        tot = {"OPENED": 0, "FSYNC_FAILED": 0, "LEAKED": 0}
+        for l in lines:
+            for kv in l.split():
+                k, v = kv.split("=")
+                tot[k] += int(v)
+        return tot
+
+    def test_no_file_leak_when_sidecar_fsync_fails(self):
+        v = self._shimmed("leak_enum", lambda d: [self.sbin, "0"], "6060000")
+        self.assertGreater(v["OPENED"], 100, "precondition: the extension opened sidecar temp files")
+        self.assertEqual(v["FSYNC_FAILED"], v["OPENED"], "precondition: every sidecar fsync failed")
+        self.assertEqual(v["LEAKED"], 0)
+
+    def test_no_file_leak_when_rollup_fsync_fails(self):
+        v = self._shimmed("leak_merge", lambda d: [self.sbin, "--merge"], "3030000")
+        self.assertEqual((v["OPENED"], v["FSYNC_FAILED"]), (1, 1),
+                         "precondition: the merge opened, and failed to fsync, the rollup temp file")
+        self.assertEqual(v["LEAKED"], 0)
+
+    def test_no_file_leak_when_budget_sidecar_fsync_fails(self):
+        # Sibling of the same class: write_budget_sidecar had the identical skip-fclose chain.
+        v = self._shimmed("leak_budget", lambda d: [self.sbin, "0"], "6060000", match=".budget.tmp")
+        self.assertGreater(v["OPENED"], 100, "precondition: the extension opened budget temp files")
+        self.assertEqual(v["FSYNC_FAILED"], v["OPENED"], "precondition: every budget fsync failed")
+        self.assertEqual(v["LEAKED"], 0)
 
 
 if __name__ == "__main__":

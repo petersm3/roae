@@ -88,7 +88,7 @@ Lean theorem (`lean/C3Decomposition.lean`, `c3_slot_decomposition`, kernel-`deci
 it turns C3 from a global positional sum — the thing that makes it hostile to a layer DP — into a
 bounded scalar the DP can carry. `solve --f1-c3-hist --with-c5` is the run.
 
-🔴 **It was priced at roughly $3–5K (≈36 TB, weeks) and deliberately declined.** These two figures are
+🔴 **It was PRICED AND DECLINED ([TR-12](TR12_QUERY_PROGRAM.md) §9), deliberately and permanently.** *(Corrected 2026-09-26: this sentence quoted a price for the run, with a footprint and a duration. TR-12 §9 withdraws the price and redacts it rather than restating it, because a correction that requotes a number publishes it, so it is removed here too. The footprint and duration go with it: they were a single point with no caveat, and the provisional sizing, which on current evidence is more likely low than high, is stated in [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(ii). The decision is unchanged.)* These two figures are
 therefore reported with confidence intervals **because the exact computation was costed and rejected,
 not because one is unknown.** Stating that plainly is more useful than a hedge: it tells a reader
 exactly what would change the number, and what it would take.

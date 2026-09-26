@@ -347,6 +347,122 @@ Every published branch, with its status and freeze date, is declared in
 fails if a branch is published without being declared there — a hole this suite could not previously
 see, because every other gate reads the working tree and none reads another branch's content.
 
+## Figures
+
+The project's committed figures, each shown as PNG with its SVG source linked. The short caption under
+each one is an excerpt; **the report section it links to carries the full caption and is the
+authority.** All of them are drawn by [`viz/report_figures.py`](viz/report_figures.py). The complete
+index, including the enumeration-slice plots (growth curve, PCA projections, campaign telemetry), is
+[viz/README.md](viz/README.md).
+
+### The compiled superspace: TR-12's five figures (V1–V5)
+
+Drawn from the n=31 outputs TR-12 cites: V1, V2 and V5 from the n=31 atlas, V4 from King Wen's
+profile, V3 from the rank grid. Space label **C1C2C4C5-SUPERSPACE**: C3 is **not** among the
+constraints. V1, V2 and V5 are computed over the whole superspace; V4 is **one walk** (King Wen's),
+and V3 is a 1000-point **lattice** on the index, not a sample of the space.
+
+![Heat matrix of the exact positional-marginal field over the C1C2C4C5 superspace: 32 global pair-index rows against pair-slots 2 to 32, with King Wen's own 31 placements outlined in blue along the diagonal.](reports/figures/fig_tr12_kc_field.png)
+
+**V1, the positional-marginal field.** P(pair j at slot k), exact over SUPER. The reading is
+negative: the interior is flat to about 3 %, and King Wen's own pair at its own slot is
+indistinguishable from any other pair.
+[TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
+[SVG](reports/figures/fig_tr12_kc_field.svg) · [spec](viz/viz_kc_field.md)
+
+![Two-panel figure. Upper panel: a stacked mass river across layers 0 to 30 showing the exact share of the superspace in each boundary-distance class d = 1, 2, 3, 4 and 6, with King Wen's own class at each layer drawn as a white step line. Lower panel: a bar chart of the 56 top-level branches sorted by solution mass, with log10 exhaustion cost in t-units overlaid as a red line.](reports/figures/fig_tr12_kc_river.png)
+
+**V2, the mass river, and the branch panel.** Upper: exact per-layer mass by boundary-distance
+class; only the shape across k carries information; it is nearly flat. Lower: each top-level
+branch's exact solution mass against its exact exhaustion cost; no branch is small-but-expensive at
+n=31. ⚠ This is the **REDUCED** form (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is
+split by distance class, not by top-level branch class. The EXHAUSTIBLE/INFEASIBLE verdict is not
+drawn from this panel and remains withheld.
+[TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
+[SVG](reports/figures/fig_tr12_kc_river.svg) · [spec](viz/viz_kc_river.md)
+
+![Heat map of the exact transition grammar: fifteen rows, one per pair of boundary-distance class d = 1, 2, 3, 4, 6 and within-pair distance w = 2, 4, 6, against layers 0 to 30, each column summing to 1. King Wen's own (d, w) cell at each layer is marked by a white outline, one per column.](reports/figures/fig_tr12_kc_grammar.png)
+
+**V5, the transition grammar.** P(d, w | layer k), exact over SUPER, read down each column;
+`TR12_V5` reads `PASS`. What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured
+dependence. `w` is constant on each of the seven pair-orbits and takes only three distinct values
+across them, so a row is a statement about 3 orbit-classes, never about an individual pair.
+[TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
+[SVG](reports/figures/fig_tr12_kc_grammar.svg) · [spec](viz/viz_kc_grammar.md)
+
+![Two-panel figure of King Wen's own trajectory. Upper panel: log10 of g(prefix), the exact number of completions remaining after each of King Wen's 31 free placements, each step annotated with the number of admissible alternatives at that point. Lower panel: the surprise spectrum, bars of minus log2 p_i in bits per step, the bars summing to log2 N.](reports/figures/fig_tr12_kc_shells.png)
+
+**V4, King Wen's neighbourhood shells** — Q3's rarity profile drawn as a figure. Unlike V1, V2 and
+V5 this figure plots one walk, not a population: every point is King Wen's own. Its input was
+produced by the full-31 run of 2026-09-22 and is committed as `tr12/q3_profile_kw.tsv`.
+[TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
+[SVG](reports/figures/fig_tr12_kc_shells.svg) · [spec](viz/viz_kc_shells.md)
+
+![Seven scatter panels of observable values against normalised rank from 0 to 1 in REL order, each one showing no trend across the index. Three panels carry a dashed red King Wen reference line; four deliberately carry none because those observables measure similarity to King Wen.](reports/figures/fig_tr12_kc_spectrum.png)
+
+**V3, the rank spectrum — and the reading is negative.** 1000 grid points on the REL rank axis. No
+drawn observable tracks the index, so the rank index is not a structural coordinate for these
+observables. ⚠ The figure is delivered, but its verdict token `TR12_V3_FIG=PENDING:viz-v3-spectrum`
+remains pinned (TR-12 §Open Problems, item 5).
+[TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
+[SVG](reports/figures/fig_tr12_kc_spectrum.svg) · [spec](viz/viz_kc_spectrum.md)
+
+### Why a compiled space: the scale figure
+
+![Log-log plot of count against per-cell node budget: three red points near the bottom for the 11.2T, 100T and 560T canonical record counts on a shallow blue power-law fit, and a purple horizontal line near the top marking N, the exact count of the C1C2C4C5 superspace. The legend and the vertical-axis label both state that the points and the line count different spaces.](reports/figures/viz_scale.png)
+
+**The scale figure.** The two series count **different spaces**, and neither is a fraction of the
+other: each point is a node-budgeted slice of C1–C5 whose record count is a lower bound, and the line
+is the exact cardinality of the C1C2C4C5-SUPERSPACE. The two series also count in different units.
+What the figure does show is that more node budget is not a route to the space.
+[TR-12 §"What this document is, and what it is not"](reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not) ·
+[SVG](reports/figures/viz_scale.svg) · [spec](viz/viz_scale.md)
+
+### Other report figures
+
+![Grouped bar chart of the four conflicting rules: King Wen misses Moore's 2005 parity rule, Moore's 1989 rhythm rule and Schulz's 1990 gender rule by 2 each while satisfying the Schulz S25–28 trigram configuration exactly; the grand unified precursor is perfect (0) on the first three and violates the trigram configuration.](reports/figures/fig_tr1_rules_tradeoff.png)
+
+**The conflict theorem's trade-off.** The jointly UNSAT result (drat-trim-verified) says no
+C1∩C2∩C4∩C5-valid ordering can reach zero on all four axes at once.
+[TR-1 §Figure](reports/TR1_EIGHT_CENTURIES_MEASURED.md#figure) ·
+[SVG](reports/figures/fig_tr1_rules_tradeoff.svg)
+
+![King Wen's 32-pair parity-class string: 32 colored squares (blue E = even popcount parity, orange O = odd), 16 of each class, with red marks at each of the exactly 15 class alternations across the 31 pair boundaries.](reports/figures/fig_tr6_parity_alternations.png)
+
+**King Wen's parity-class string.** The red marks count exactly 15 alternations — the theorem's
+forced value, which every C1–C5-valid ordering shares.
+[TR-6 §Figure](reports/TR6_PARITY_SKELETON.md#figure) ·
+[SVG](reports/figures/fig_tr6_parity_alternations.svg)
+
+![The King Wen cycle with the wrap edge](reports/figures/fig_tr7_circular_cycle.png)
+
+**The cycle.** The 64 hexagrams as a cycle in King Wen order; the highlighted wrap edge 64→1 jumps
+d = 3 — odd, as the wrap-parity theorem forces. The circular reading has 16 odd transitions where
+the linear reading has 15: the wrap adds exactly one, always, for an ordering that satisfies C1–C5 as
+written.
+[TR-7 §Figure: the cycle](reports/TR7_CIRCULAR_READING.md#figure-the-cycle) ·
+[SVG](reports/figures/fig_tr7_circular_cycle.svg)
+
+![The symmetry collapse and one 24-element orbit](reports/figures/fig_tr5_orbit_collapse.png)
+
+**The symmetry collapse.** The order-48 group B₃ of C1–C5-preserving signed line-permutations
+collapses to a faithful S₄ (order 24) on solution records; every valid ordering, King Wen included,
+sits in an orbit of exactly 24 mutually indistinguishable orderings.
+[TR-5 §Figure: the symmetry collapse](reports/TR5_SYMMETRY.md#figure-the-symmetry-collapse) ·
+[SVG](reports/figures/fig_tr5_orbit_collapse.svg)
+
+![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points, a dashed extrapolation, an orange illustrative bracket, a green dash-dot line marking the reachable floor of one surviving pair-ordering class, and a grey dotted line below it marking one oriented ordering that pair-level pins never reach.](reports/figures/fig_tr4_boundary_information.png)
+
+**The boundary-information curve S(k).** Red points are measured; the dashed line extrapolates and
+is NOT measured, and the orange band is **illustrative** and not reproducible from published
+material. The boundaries pin pair identity only, so the green band marks where extrapolation reaches
+one surviving pair-ordering class, never a unique ordering.
+[TR-4 §Figure](reports/TR4_SIZE_OF_THE_SPACE.md#figure) ·
+[SVG](reports/figures/fig_tr4_boundary_information.svg)
+
+The first 560T campaign's timeline is in [TR-3 §Figure](reports/TR3_REPRODUCIBLE_ENUMERATION.md#figure)
+([SVG](reports/figures/fig_tr3_campaign_timeline.svg)).
+
 ## References
 
 > **All scholarly attribution lives in [CITATIONS.md](documentation/CITATIONS.md)** and is deliberately

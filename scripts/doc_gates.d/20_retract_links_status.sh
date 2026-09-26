@@ -913,8 +913,46 @@ if os.path.exists(allow):
             anchorless.append(key)
         else:
             anchored.setdefault(key, []).append(anc)
-EST = r'estimate|estimated|Knuth|\bCI\b|confidence|Monte'
-EX  = r'\bexact|\bproven|\bproved'
+EST = r'\b(?:estimate(?=[sd]?\b)|Knuth\b|CI\b|confidence\b|Monte\b)'
+# EST, BOTH ENDS BOUNDARIED (2026-09-26, the sibling of Q-604 below). The old alternation
+# `estimate|estimated|Knuth|\bCI\b|confidence|Monte` anchored neither end of four of its
+# words, so on a registry-value line it read identifiers -- knuth_whole_tree_5e10,
+# SOLVE_KNUTH_* -- and "underestimate", "Montel", "unconfidenced" as estimate markers. Now each
+# word needs a word boundary on both sides; "_" is a word character, so an identifier that
+# merely CONTAINS knuth no longer counts, while "Knuth's", "Knuth-style" and "--knuth" still
+# do. The plural/participle forms "estimates" and "estimated" are kept, and they still report
+# as the token "estimate" (the old `estimated` alternative was unreachable behind `estimate`),
+# so a WARN names the same token it did. Words the old pattern never matched (estimation,
+# estimator) are NOT added. header_labels (5b) uses EST too and gets the same boundaries.
+# Q-604 (2026-09-26): BOTH ENDS ARE WORD-BOUNDARIED NOW. The old alternation anchored only
+# the START of each word, so it also matched "exactly", "exactness", "provenance" and
+# identifiers such as exact_count; on a registry-value line that made a manner adverb or a
+# word about sources read as a status claim (the live case: documentation/SOLVE.md, "matches
+# King Wen exactly", reported as token "exact" beside 5.21e31). A BLANKET trailing boundary
+# is not the whole fix, as the row filing this said: "gives EXACTLY as 1,097,..." IS an
+# exactness claim about the figure. So "exactly" is admitted by ADJACENCY (exly_near): it
+# counts only when the text between it and an occurrence of the registry value is nothing
+# but spaces, markup (* _), the separators : = , and at most one of as/at/is/of/to -- after
+# the value's own x10^k / e+k tail when the value comes first. "provenance", "exactness" and
+# a non-adjacent "exactly" never count. EX alone is still what 5b's header_labels uses.
+EX  = r'\b(?:exact|proven|proved)\b'
+EXLY = r'\bexactly\b'
+_EXLY_TAIL = r'^(?:\s*[×x]\s*10\S*|[eE]\+?\d+)'
+_EXLY_GLUE = r'[\s*_:=,]*(?:(?:as|at|is|of|to)\s[\s*_]*)?'
+def exly_near(line, val):
+    """{'exactly'} if an 'exactly' is ADJACENT (glue only) to an occurrence of val."""
+    vs = [(m.start(), m.end()) for m in re.finditer(re.escape(val), line)]
+    for m in re.finditer(EXLY, line, re.I):
+        for a, b in vs:
+            if m.start() >= b:
+                gap = re.sub(_EXLY_TAIL, '', line[b:m.start()])
+            elif m.end() <= a:
+                gap = line[m.end():a]
+            else:
+                continue
+            if re.fullmatch(_EXLY_GLUE, gap, re.I):
+                return {'exactly'}
+    return set()
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
          .stdout.split()]
 seen = 0; bad = 0; hits = set()   # hits: which registry rows actually occur in the corpus
@@ -956,7 +994,7 @@ for f in files:
             hits.add(val)
             TEXT[f] = _lines
             etoks = sorted(set(t.lower() for t in re.findall(EST, line, re.I)))
-            xtoks = sorted(set(t.lower() for t in re.findall(EX, line, re.I)))
+            xtoks = sorted(set(t.lower() for t in re.findall(EX, line, re.I)) | exly_near(line, val))
             he, hx = bool(etoks), bool(xtoks)
             if not he and not hx:
                 unmarked.setdefault(f, []).append((ln, val, want, line))

@@ -1506,7 +1506,7 @@ The f1c5 exact-count out-of-core DP (`--f1-exact-c1c2c4c5 --f1-out-of-core`) wro
 dominate disk (~8 TB at n=31) and could not survive a Spot eviction mid-layer. Adding (a) a **per-block gzip
 layer format (v2)** with a kidx/vidx seek index and (b) an **intra-layer chunk-boundary checkpoint**
 (`f1c5_build.ckpt`, CRC32-guarded, ~5-min cadence) should shrink disk + I/O and make the multi-day count
-eviction-resilient — **without changing the computed count** (the DP is deterministic).
+eviction-resilient — **without changing the computed count** (the DP is deterministic). *[Note 2026-09-26: "per-block gzip" above is this entry's original wording and is kept as written. The v2 blocks are RFC-1950 zlib streams written by `compress2`, not gzip-framed `.gz` members ([F1C5_LAYER_FORMAT.md](F1C5_LAYER_FORMAT.md)), and `solve.c`'s layer-format log lines now print `v2 (zlib-blocked)` (Q-833).]*
 
 ### Methodology
 - Workload: f1c5 exact count at n=24/27/28 (byte-identical v1-raw vs v2-gzip) + the live n=31 canonical run.

@@ -569,7 +569,7 @@ phase transitions, not on the age of this file.
 | key | what it is |
 |---|---|
 | `run_params` | the four knobs the run was launched with, as one object: `n`, `ooc` (out-of-core, boolean), `v2_gz` and `keep_layers`. It is a record of the invocation, not of progress, and it does not change during a run |
-| `v2_gz` | inside `run_params`: the v2 per-block gzip level in force for this build. It is the number that makes `bin_bytes` comparable — two runs at different levels produce different compressed sizes from identical layer content |
+| `v2_gz` | inside `run_params`: the v2 per-block zlib compression level in force for this build (the `gz` in the name is historical; the blocks are RFC-1950 zlib, not gzip). It is the number that makes `bin_bytes` comparable — two runs at different levels produce different compressed sizes from identical layer content |
 | `keep_layers` | inside `run_params`: `true` when intermediate layers are retained rather than deleted after the layer that consumes them. This is what decides whether the run leaves a ladder behind or only its final layer |
 | `total_layers` | how many layers this run intends to build — the denominator for `current_layer`. It comes from the invocation, so it does not shrink when a run is resumed part-way |
 | `current_layer` | the layer index being worked on now; also repeated as `layer.k`, and the two are always the same variable |

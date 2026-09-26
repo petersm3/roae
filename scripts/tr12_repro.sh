@@ -68,7 +68,7 @@
 #   --expect DIR         expected-block directory (default: scripts/tr12_expected/n<N>); REQUIRED with --regen or --mint-missing at n!=9 (Q-716)
 #   --regen              write the expected blocks from this run instead of diffing against them
 #   --wave3              also run the wave-3 rows that are cost-gated at full-31 (Q5 extremals)
-#   --with-gcheck        run --kc-g-check at full-31 (a ~24 h single-threaded full ladder pass)
+#   --with-gcheck        run --kc-g-check at full-31 (a ~24 h single-threaded full ladder pass), and verify.c --check-g-ladder beside it
 #   --with-laddersha     run the FULL --f1c5-layer-sha passes (a1_fsha/a2_gsha/b_tsha) at n>=31.
 #                        MEASURED 2026-09-14 on an L64s_v4 over the real n=31 ladders: 24-61 MB/s
 #                        at ~34% of ONE core of 64 -- f 38 h, g 94 h, t 40 h, and the post-scan
@@ -861,8 +861,8 @@ row_begin a0_gates
 row_end TR12_GATES $rc
 
 # ---- A0.x  the OUT-OF-CORE reader, which is the ONLY read path at n=31 ------------------------
-# 🔴 Q-492. `KC_MEM_MAX_PAIRS` is 22 (solve.c:19619) and `kc_resolve_pairs` sends anything larger
-# down the out-of-core loader -- a DIFFERENT loader, a v2 gzip layer format and an LRU block cache.
+# 🔴 Q-492. `KC_MEM_MAX_PAIRS` is 22 (solve.c:19620) and `kc_resolve_pairs` sends anything larger
+# down the out-of-core loader -- a DIFFERENT loader, a v2 zlib-blocked layer format and an LRU block cache.
 # So EVERY `--kc-*` query at n=31 reads through code that no n<=13 execution touches: measured, the
 # n=9 `--kc-build` writes `F1C5LAY1` magic, so the in-memory path is taken and the OOC reader is
 # never entered. The battery had no row for it and `--kc-ooc` appears nowhere in scripts/.
@@ -1694,7 +1694,7 @@ row_begin a1_q8_midn13
 row_end TR12_Q8_MIDN13 $rc
 
 # ---- A1.3  Q4(a,c) the C3 census — histogram of the walk-functional cd over exact-uniform draws.
-#            ESTIMATE with CI; the exact C15 count is priced and declined (~$3-5K; the C3 counting
+#            ESTIMATE with CI; the exact C15 count is priced and declined (the C3 counting
 #            obstruction itself was dissolved 2026-07-21, lean/C3Decomposition.lean) -- D5-16. ----
 row_begin a1_q4ac
 (
@@ -1851,7 +1851,7 @@ row_begin a1_q2b
   # walk three times -- passed. The REL rank/unrank pair has an inverse that costs one extra ladder
   # descent per probe: `--kc-rank FDIR <walk>` must return the r that was unranked. That is the
   # same certificate `--kc-bracket` supplies for O3 in row a2_q2 (--kc-bracket is O3-ONLY,
-  # solve.c:38568, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
+  # solve.c:38569, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
   # not the `record` line: measured 2026-09-11 at n=9, r=0 -> the plain line ranks 0 and the
   # `record m=32` line ranks 21, because the record form is a different representative of the
   # orbit. The solver's output is captured and cat'd rather than written straight to the row
@@ -1958,7 +1958,7 @@ kc_first_last_witness() {
 #   * 36 random ranks below 10^18 gave ZERO with cd<=387 (per-bin minima 767 / 739 / 599).
 #     The first passing sample appears near rank 5.1e29 (cd=355).
 #   * At the measured emission rate, reaching rank 10^18 is ~2.5e5 years; 10^29 is ~1e17 years.
-#     No budget reaches it, and neither does more parallelism: kc_enum_rec (solve.c:21113) is a
+#     No budget reaches it, and neither does more parallelism: kc_enum_rec (solve.c:21114) is a
 #     plain recursive DFS with no OpenMP, so 64 idle cores buy exactly nothing.
 # ⚠ THIS IS A BOUND, NOT A PROOF OF NON-EXISTENCE, and the row must not be recorded as one.
 #   Walks with cd<=387 are COMMON: 30 uniform-random ranks gave 4 (13.3%, min cd 355), agreeing
@@ -2063,14 +2063,14 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # 🔴 CODEX R5 FINDING 5 (2026-09-11). This said "Pass --wave3 to run it anyway", which is an
     # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
     # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
-    # (solve.c:20692, reached via the kc_open wrapper at :20697), and kc_extremal_main refuses an out-of-core f ladder immediately
-    # (solve.c:37739) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
+    # (solve.c:20693, reached via the kc_open wrapper at :20698), and kc_extremal_main refuses an out-of-core f ladder immediately
+    # (solve.c:37740) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
     # witness and the certificate: "v1 is IN-MEMORY ONLY ... the streaming, eviction-resumable OOC
     # extremal builder is a SEPARATE, UNBUILT item ... it is the full-31 enabler". So --wave3 at
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
     # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
     # ships. Budget is an operator decision; an unbuilt builder is not.
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37738-37739) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20692), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37739-37740) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20693), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -2718,7 +2718,7 @@ case "${Q1C_VAL:-}" in
       # lean/C3Decomposition.lean (TR-11 §10(ii)); what stands is a PRICE, not an impossibility, and
       # a2_q1.txt:24,53 already say so. Not run-published at n=31 (the EMPTY:* branch takes over
       # there), but it is published at every reduced n and it is frozen at launch.
-      echo "# Q1(c) — labelled ESTIMATE with binomial CI over the C1&C2&C4&C5 superspace; the exact C15 rank was PRICED AND DECLINED (~\$3-5K; TR-12 s9), not 'not computable' (TR-11 s10(ii) obstruction dissolved by lean/C3Decomposition.lean)."
+      echo "# Q1(c) — labelled ESTIMATE with binomial CI over the C1&C2&C4&C5 superspace; the exact C15 rank was PRICED AND DECLINED (TR-12 s9), not 'not computable' (TR-11 s10(ii) obstruction dissolved by lean/C3Decomposition.lean)."
       echo "rank_O3_anchor	$RANCH"
       echo "requested_M	$Q1CM"
       "$SOLVE" --kc-sample "$FDIR" "$Q1CM" "$SEED" 2>/dev/null > "$WORK/q1c.raw" || exit 1
@@ -2757,6 +2757,50 @@ esac
 cp "$RAW" "$ARTDIR/q1_c15_estimate.tsv"
 row_end_val TR12_Q1C $rc "$Q1C_VAL"
 
+# ---- the INDEPENDENT g/t ladder verifier: verify.c --check-g-ladder / --check-t-ladder ---------
+# Added 2026-09-26 (lane EG). verify.c is one of the project's two independent verifiers (with
+# verify.py): it reads the g and t layer files against documentation/GT_LADDER_FORMAT.md and
+# re-derives the f.g cut identity and the f.t node identity with no solve.c code. Both modes existed,
+# and both already fail on a missing layer, but NO shipped script ran either one: the battery's only
+# g/t identity rows were solve.c's own --kc-g-check / --kc-t-check, i.e. the engine checking itself.
+# These rows run the second instrument on the SAME ladders the battery built (n=9) or was handed.
+# Built with verify.c's documented line (its header; documentation/VERIFY.md), no -fopenmp: verify.c
+# uses no OpenMP. The verdict is whole-line: rc 0 AND <MODE>_RESULT=PASS AND IDENTITIES_CHECKED=n+1
+# (one identity per layer k=0..n) AND IDENTITIES_SKIPPED=0 -> INDEP_LADDER_CHECK=OK; the full output is
+# also golden-diffed like every other row.
+VERIFY_C_BIN=""
+indep_ladder_row(){ # indep_ladder_row ROWID TOKEN g|t LADDERDIR
+    local id="$1" token="$2" kind="$3" ldir="$4" mode rkey want
+    case "$kind" in
+        g) mode=--check-g-ladder; rkey=GLADDER_RESULT ;;
+        t) mode=--check-t-ladder; rkey=TLADDER_RESULT ;;
+        *) die "indep_ladder_row: kind '$kind' is neither g nor t" ;;
+    esac
+    if [ -z "$VERIFY_C_BIN" ] && [ -f "$REPO_ROOT/verify.c" ] \
+       && cc -O2 -o "$WORK/verify" "$REPO_ROOT/verify.c" -lz -lpthread -lm 2>"$WORK/verify_build.err"; then
+        VERIFY_C_BIN="$WORK/verify"
+    fi
+    want=$((N_PAIRS+1))
+    row_begin "$id"
+    (
+      echo "### independent $kind-ladder verifier: verify.c $mode (build: cc -O2 -o verify verify.c -lz -lpthread -lm)"
+      if [ -z "$VERIFY_C_BIN" ]; then
+          echo "verify.c did not build:"; cat "$WORK/verify_build.err" 2>/dev/null
+          echo "INDEP_LADDER_CHECK=FAIL"; exit 1
+      fi
+      out="$("$VERIFY_C_BIN" "$mode" "$FDIR" "$ldir" 2>&1)"; vrc=$?
+      printf '%s\n' "$out"
+      echo "verify_rc=$vrc identities_wanted=$want"
+      if [ "$vrc" -eq 0 ] && grep -qx "$rkey=PASS" <<<"$out" \
+         && grep -qx "IDENTITIES_CHECKED=$want" <<<"$out" && grep -qx 'IDENTITIES_SKIPPED=0' <<<"$out"; then
+          echo "INDEP_LADDER_CHECK=OK"
+      else
+          echo "INDEP_LADDER_CHECK=FAIL"; exit 1
+      fi
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end "$token" $rc
+}
+
 # ---- A2.10 the f.g cut identity at every layer.  At full-31 this is a ~24 h single-threaded
 #            FULL LADDER PASS, not a point query — it stays behind --with-gcheck. --------------
 if [ "$N_PAIRS" -ge 31 ] && [ "$WITH_GCHECK" -eq 0 ]; then
@@ -2765,6 +2809,13 @@ else
     row_begin a2_gcheck
     ( "$SOLVE" --kc-g-check "$FDIR" "$GDIR" ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_GCHECK $rc
+fi
+# ---- A2.10b the SAME identity by the independent verifier (verify.c --check-g-ladder). Same cost
+#             class as A2.10 at full-31, so the same --with-gcheck opt-in. -------------------------
+if [ "$N_PAIRS" -ge 31 ] && [ "$WITH_GCHECK" -eq 0 ]; then
+    row_skip a2_gcheck_indep TR12_GCHECK_INDEP "SKIP:cost-gated" "verify.c --check-g-ladder at n=31 streams every f and g layer, a full ladder pass in the same class as --kc-g-check; pass --with-gcheck to run it here. A standalone n=31 run of it is recorded in documentation/HISTORY.md (GLADDER_RESULT=PASS, IDENTITIES_CHECKED=32, IDENTITIES_SKIPPED=0); this battery did not produce that verdict."
+else
+    indep_ladder_row a2_gcheck_indep TR12_GCHECK_INDEP g "$GDIR"
 fi
 
 # ================================================================================================
@@ -2811,9 +2862,16 @@ if [ "$HAVE_T" -eq 1 ]; then
         ( "$SOLVE" --kc-t-check "$FDIR" "$TDIR" ) >>"$RAW" 2>&1; rc=$?
         row_end TR12_TCHECK $rc
     fi
+    # the SAME identity by the independent verifier (verify.c --check-t-ladder); --with-tcheck opts in at n=31
+    if [ "$N_PAIRS" -ge 31 ] && [ "$WITH_TCHECK" -eq 0 ]; then
+        row_skip b_tcheck_indep TR12_TCHECK_INDEP "SKIP:cost-gated" "verify.c --check-t-ladder at n=31 streams every f and t layer, a full ladder pass in the same class as --kc-t-check, and has not been run at n=31 by this battery; pass --with-tcheck to run it here."
+    else
+        indep_ladder_row b_tcheck_indep TR12_TCHECK_INDEP t "$TDIR"
+    fi
 else
     row_skip b_tsha TR12_TSHA "SKIP:no-tdir" "no TDIR given — the t-ladder's per-layer shas cannot be taken"
     row_skip b_tcheck TR12_TCHECK "SKIP:no-tdir" "no TDIR given — the t-ladder is REQUIRED for the Exhaustion Atlas and every per-branch number (TR-12 §R.0)"
+    row_skip b_tcheck_indep TR12_TCHECK_INDEP "SKIP:no-tdir" "no TDIR given — the independent t-ladder verifier has no t ladder to read"
 fi
 
 if [ -n "$ATLAS_IN" ]; then
@@ -2881,7 +2939,7 @@ else
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk0.json" --kc-tdir "$TDIR" --kc-raw --kc-layers 0 "$half" || exit 1
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk1.json" --kc-tdir "$TDIR" --kc-raw --kc-layers "$half" "$N_PAIRS" || exit 1
       # 🔴 CODEX KCP1 FINDING 6 (2026-09-11). Both --kc-scan calls above carry --kc-raw; this
-      # merge did not. solve.c:30975 auto-enables want_raw ONLY when n <= 13, and :31088 then
+      # merge did not. solve.c:30976 auto-enables want_raw ONLY when n <= 13, and :31089 then
       # REQUIRES the merge's want_raw to agree with each chunk's. So at n=31 the chunks are raw=1
       # and the merge is raw=0, the identity check fails, and the battery REJECTS CORRECT CHUNKS
       # after paying for a second full scan. Invisible at n<=13, where the auto-enable makes them
@@ -3202,7 +3260,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3176) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3234) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.
@@ -3311,7 +3369,7 @@ row_skip c_q10b   TR12_Q10B   "PENDING:--kc-coset-census" "PENDING:--kc-coset-ce
 # It does now, but only over the part that is genuinely comparable: row c_xcheck below compares
 # per-layer per-distance-class MASS, as integers, across all six emitted tables. The `p` columns
 # and every table without a (k, d, mass) shape are still NOT cross-checked, so do not read this
-# paragraph as covering "every atlas-derived number" either.
+# paragraph as covering "every atlas-derived number" either. (Q-615, 2026-09-26: each side's `p` cells are now re-derived from its own integers -- xcheck_shell_ratios, TR12_RATIO_COLUMNS -- and the shell anchor is compared with the consumer's King Wen at n=31; the two sides' `p` TEXTS are still never compared.)
 if [ "$SCAN_OK" -eq 0 ] || [ ! -s "$ATLAS" ]; then
     row_skip c_consumer TR12_ATLAS_CONSUMER "SKIP:no-atlas" "no atlas.json — Group B did not produce one, so there is nothing for the consumer to read"
 elif PYTHONPATH="$REPO_ROOT" python3 -c 'import sys, solve; sys.exit(0 if hasattr(solve, "atlas_queries") else 1)' >/dev/null 2>&1; then
@@ -3380,6 +3438,75 @@ fi
 # ~30 s for the ladder-only gates. The row itself DOES run at n=9 on every battery run, so the
 # PASS direction is exercised continuously; only the FAIL direction rests on the measurement above.
 # Backlog Q-488.
+# ---- the shell's own ratio columns (Q-615, ruled by Fable 2026-09-19) --------------------------
+# Row c_xcheck below compares MASSES. Nothing checked the shell's ratio cells -- c_q6's anchor_p
+# and anchor_class_pct, c_v5's p -- at n=31; only the n=9 goldens pinned them. And at n=31 the
+# anchor IS King Wen, so the shell's anchor_p and the consumer's kw_p are the SAME quantity, yet
+# the two were never compared. This function does both, in bc, on the published tables:
+#   (1) every shell ratio cell must be its integers' ratio rounded to 9 places, judged by the
+#       inequality 2*|T*den - num*10^9| <= den (T = the cell in units of 10^-9). That is not
+#       ratio9's formula re-run, so a wrong ratio9 cannot vouch for itself;
+#   (2) where the consumer publishes King Wen's class (kw_d >= 0: n=31 only), the shell's anchor
+#       class and anchor class mass must equal the consumer's kw_d and kw_class_mass as strings.
+#       With (1) here and TR12_Q6_EXTREMES on the consumer side, equal integers mean equal ratios.
+# Integer cells are compared as STRINGS ("" concatenation): an awk field that looks numeric is
+# compared as a double, blind to a difference of 48 at 39 digits (the KCP2 section 2.1 class).
+# Silent on success; every failure is an XCHECK_FAIL line and rc 1. bc output of any kind,
+# including a bc error, is a failure. Pinned by tests.py TestQ615ShellRatioLeg.
+xcheck_shell_ratios(){  # xcheck_shell_ratios SHELL_Q6 SHELL_V5 CONS_Q6_EXTREMES N_TOTAL
+    local q6="$1" v5="$2" q6x="$3" nt="$4" f prog out
+    for f in "$q6" "$v5" "$q6x"; do
+        [ -r "$f" ] || { echo "XCHECK_FAIL	ratio re-derivation: $f is absent -- a check that cannot read its subject FAILS"; return 1; }
+    done
+    [[ "$nt" =~ ^[0-9]+$ ]] || { echo "XCHECK_FAIL	ratio re-derivation: N_total '$nt' is not an integer"; return 1; }
+    prog=$(awk -F'\t' -v Q6="$q6" -v V5="$v5" -v N="$nt" '
+      function units(t,  a, fp, u) {
+          if (t !~ /^[0-9]+(\.[0-9]+)?$/) return ""
+          split(t, a, "."); fp = a[2]
+          if (length(fp) > 9) return ""
+          while (length(fp) < 9) fp = fp "0"
+          u = a[1] fp; sub(/^0+/, "", u); return (u == "") ? "0" : u }
+      function bad(msg) { gsub(/["\\]/, "", msg); printf "print \"BAD %s\\n\"\n", msg }
+      function chk(lab, t, num, den,  u) {
+          u = units(t)
+          if (u == "") { bad(lab " = " t " is not a ratio of at most 9 places"); return }
+          printf "s=%s; x=%s*%s-s*1000000000; if (x<0) x=-x; if (2*x>%s) print \"BAD %s = %s is not its integers rounded to 9 places\\n\"\n", num, u, den, den, lab, t }
+      FNR == 1 { split("", h); hdr = 0 }
+      /^#/ || /^[[:space:]]*$/ { next }
+      !hdr { hdr = 1; for (i = 1; i <= NF; i++) h[$i] = i; next }
+      $1 !~ /^[0-9]+$/ { next }
+      FILENAME == Q6 {
+          k = $h["k"]; nq6++; flow[k] = $h["flow"]; ad = $h["anchor_d"]; am = $h["anchor_class_mass"]
+          anc[k] = ad SUBSEP am
+          if (ad == "NA") {
+              if ($h["anchor_p"] != "NA" || $h["anchor_class_pct"] != "NA") bad("q6 k=" k ": no anchor class but anchor_p/anchor_class_pct are not NA")
+              next }
+          if (!(("d" ad) in h) || ($h["d" ad] "") != (am "")) { bad("q6 k=" k ": anchor_class_mass " am " is not the d" ad " column"); next }
+          chk("q6 k=" k " anchor_p", $h["anchor_p"], am, N)
+          s = "0"; for (c = 1; c <= 6; c++) if (("d" c) in h) s = s "+(" $h["d" c] "<=" am ")*" $h["d" c]
+          chk("q6 k=" k " anchor_class_pct", $h["anchor_class_pct"], s, N)
+          next }
+      FILENAME == V5 {
+          k = $h["k"]; nv5++
+          if (!(k in flow)) { bad("v5 k=" k ": the shell Q6 table has no flow for this layer"); next }
+          chk("v5 k=" k " " $h["class"] " p", $h["p"], $h["mass"], flow[k])
+          next }
+      {   k = $h["k"]; kd = $h["kw_d"]
+          if (kd == "-1") next
+          nkw++
+          if (!(k in anc)) { bad("layer " k ": the consumer publishes King Wen class d" kd " but the shell Q6 table has no such layer"); next }
+          split(anc[k], sa, SUBSEP)
+          if ((sa[1] "") != (kd "") || (sa[2] "") != ($h["kw_class_mass"] "")) bad("layer " k ": shell anchor (d" sa[1] ", " sa[2] ") != consumer King Wen (d" kd ", " $h["kw_class_mass"] ")") }
+      END { if (!nq6) bad("the shell Q6 table contributed no rows")
+            if (!nv5) bad("the shell V5 table contributed no rows") }
+    ' "$q6" "$v5" "$q6x") || { echo "XCHECK_FAIL	ratio re-derivation: the program generator failed"; return 1; }
+    out=$(printf '%s\n' "$prog" | BC_LINE_LENGTH=0 bc 2>&1) || out="${out}
+bc exited non-zero"
+    [ -z "$out" ] && return 0
+    printf '%s\n' "$out" | sed -e 's/^BAD /XCHECK_FAIL	/' -e '/^XCHECK_FAIL	/!s/^/XCHECK_FAIL	bc: /'
+    return 1
+}
+
 if [ -d "$ARTDIR/consumer/scan" ]; then
     row_begin c_xcheck
     (
@@ -3550,6 +3677,9 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
                 if (ns != nc) { printf "XCHECK_FAIL\tthe consumer Q3 table has %d step(s), the validated profile has %d\n", nc, ns; f=1 }
                 exit f?1:0 }' "$ARTDIR/q3_profile_exact.tsv" "$CQ3" || erc=1
       fi
+      # ---- the shell's own ratio cells, and its anchor against the consumer's King Wen (Q-615) --
+      xcheck_shell_ratios "$ARTDIR/q6_layer_mass.tsv" "$ARTDIR/v5_grammar.tsv" \
+          "$ARTDIR/consumer/scan/q6_layer_extremes.tsv" "$N_TOTAL" || erc=1
       exit $erc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_XCHECK $rc

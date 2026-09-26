@@ -111,3 +111,12 @@ half of the contract outside the battery. The layer-digest half is covered only 
 The laptop-scale rehearsal of the same battery — no ladder, no cluster — is
 `scripts/tr12_repro.sh --n9`, diffed verbatim against the committed goldens in
 `scripts/tr12_expected/n9/`.
+
+## Added after the run
+
+- **The V3 rows at n=31, standalone (2026-09-25).** [`v3_rows_n31_20260925/`](v3_rows_n31_20260925/README.md)
+  holds a later, smaller run of the battery's four V3 rows only: `TR12_V3_FIG=PASS` and `TR12_V3=PASS`, with
+  the grid and spectrum byte-identical to the committed `tr12/` tables. It is not a full battery run, and
+  this receipt's `TR12_V3_FIG=PENDING:viz-v3-spectrum` is left as that run printed it.
+- **The Q3 trace (2026-09-26).** This run's own `a2_q3` output is committed unmodified as
+  `tr12/q3_trace_kw.txt`, the trace behind this receipt's `TR12_Q3=PASS`.

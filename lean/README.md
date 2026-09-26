@@ -99,7 +99,7 @@ trust-base note below for what that means and how it came to hold). What that bu
   the trust note below — not on a production-size semantic theorem. That is a real constraint on any
   undetected recurrence error (it would have to preserve the total, both endpoints with their
   closed forms, and the exact mean), but it is not the same thing as a proof. `verify.py
-  --check-null-g` agreeing is independent corroboration, not the missing theorem. Queued as a Lean
+  --check-null-g` agreeing is a re-implementation check (the same recurrence in Python), not the missing theorem. Queued as a Lean
   backlog item: a generic `nullHist = bruteHist` structural-invariant proof, which would close the
   gap at all sizes. This still upgrades the exact-null leg previously carried by `verify.py
   --check-null-g` from exact-by-computation to machine-checked — at the DP-law layer.
@@ -609,7 +609,7 @@ agreement with brute-force enumeration at small parameters. **Two** steps sit ou
 not one — the second was omitted from this note until 2026-08-30:
 (i) the **modeling** step — reading the C1∩C4 null as "uniform over the 31! free pair-orders" — is
 stated in the file header and is the same reading `verify.py --check-null-g` implements
-independently (with a differently-phrased G accumulator); and
+with the same recurrence (same (o, c) state, weights and G increments; not an independent phrasing); and
 (ii) the **semantic** step at production size — that bin g of `NullHist` counts exactly the
 pair-orders whose slot-distance sum is g. That equivalence is kernel-proved only at (2,1,5),
 (2,3,7) and (3,1,7) by `nullHist_matches_brute_*`; at 12 couples / 31 slots it is carried by the

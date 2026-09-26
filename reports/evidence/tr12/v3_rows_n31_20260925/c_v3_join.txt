@@ -1,0 +1,12 @@
+[v3-spectrum] 1000 grid points, order=REL, N=1097051278789181790036112071176579186688, step=1097051278789181790036112071176579186
+[v3-spectrum]   edit_dist_kw               observed 26..31  documented 0..32
+[v3-spectrum]   c3_total                   observed 464..1576  documented identity C3=16+8G, floor 112, UNBOUNDED ABOVE
+[v3-spectrum]   c6_c7_count                observed 0..1  documented 0..2
+[v3-spectrum]   max_transition_hamming     observed 6..6  documented 1..6
+[v3-spectrum]   fft_dominant_freq          observed 1..31  documented 1..31
+[v3-spectrum]   shift_conformant_count     observed 0..5  documented 0..17
+[v3-spectrum]   first_position_deviation   observed 2..3  documented 1..33
+[v3-spectrum]   mean_transition_hamming    observed 3.3492064..3.3492064  documented 2.0..4.0
+[v3-spectrum]   fft_peak_amplitude         observed 202.7255096..448.7047729  documented 75.0..836.0
+V3_SPECTRUM=PASS
+[v3-spectrum] 1000 rows, 9 observable(s) + 5 kw_* reference column(s) (4 suppressed as KW-anchored: c6_c7_count, edit_dist_kw, first_position_deviation, shift_conformant_count) -> <OUT>/artifacts/consumer/spectrum/v3_spectrum.tsv
