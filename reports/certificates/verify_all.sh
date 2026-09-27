@@ -31,14 +31,26 @@
 #   wasted work for a replicator (lens-sweep item T4-9). It is still what PRODUCED the archived
 #   proofs (METHODS.md pins the version); reproducing the proofs themselves, rather than
 #   verifying them, is the only step that needs it.
+# LOG AND SCRATCH (changed 2026-09-27, Q-856): the full command output goes to $ROAE_VERIFY_LOG when
+#   that is set, and otherwise to a NEW file ${TMPDIR:-/tmp}/roae_verify_all.XXXXXX whose path is
+#   printed at the start and at the end of the run; it is kept. The solve build and the CNF, DRAT and
+#   LRAT files (the ~2 GB of scratch above) go to a NEW directory ${TMPDIR:-/tmp}/roae_verify.XXXXXX,
+#   removed when the script exits. Until 2026-09-27 all of these were fixed names
+#   (/tmp/roae_verify_all.log, /tmp/roae_verify_solve, /tmp/roae_<target>.{cnf,drat,lrat}), so two
+#   runs on one host overwrote a binary or a proof file while the other run was reading it.
 # https://github.com/petersm3/roae — Developed with AI assistance (Claude, Anthropic)
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 PASS=0; FAIL=0
 SKIP=0
 RESOURCE=0
-LOG=${ROAE_VERIFY_LOG:-/tmp/roae_verify_all.log}
+LOG=${ROAE_VERIFY_LOG:-}
+if [ -z "$LOG" ]; then
+  LOG=$(mktemp "${TMPDIR:-/tmp}/roae_verify_all.XXXXXX") || { echo "VERIFY_ALL_LOG=MKTEMP_FAILED"; exit 2; }
+fi
 : > "$LOG"
+SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/roae_verify.XXXXXX") || { echo "VERIFY_ALL_SCRATCH=MKTEMP_FAILED"; exit 2; }
+trap 'rm -rf "${SCRATCH:?}"' EXIT
 
 # A MISSING TOOL AND A FAILED PROOF ARE DIFFERENT OUTCOMES (lens-sweep item T3-15).
 # Until 2026-08-01 check() discarded stdout+stderr and printed a bare "FAIL", so a replicator
@@ -315,8 +327,8 @@ if [ "$HAVE_GCC" = "0" ]; then
   skip "solve.c build" "needs gcc"
   skip "--selftest" "needs gcc"
 else
-  check "solve.c build" "gcc -O2 -pthread -fopenmp -o /tmp/roae_verify_solve solve.c -lm -lz"
-  check "--selftest" "require_match PASS /tmp/roae_verify_solve --selftest"
+  check "solve.c build" "gcc -O2 -pthread -fopenmp -o \"\$SCRATCH/solve\" solve.c -lm -lz"
+  check "--selftest" "require_match PASS \"\$SCRATCH/solve\" --selftest"
 fi
 
 echo "== 2. Two-language gates =="
@@ -331,7 +343,7 @@ else
   # 14 = the line count each side emits, measured 2026-09-02. A floor, not an equality, for the
   # same reason as sections 5 and 6: the table may grow, but it must never silently empty.
   check "f4p two-language match" \
-    "require_agree F4P_AGREE 14 '/tmp/roae_verify_solve --f4p-verify' 'python3 solve.py --f4p-verify'"
+    "require_agree F4P_AGREE 14 '\"\$SCRATCH/solve\" --f4p-verify' 'python3 solve.py --f4p-verify'"
 fi
 # The exact-subtree recount is the ONLY independent instrument that exercises the C3
 # predicate in both directions (false-positive AND false-negative) — the full-scale
@@ -447,23 +459,23 @@ for cert in "${!CERTS[@]}"; do
   # The TR-5 rigidity kernel has its own emitter flag (--rigidity-cnf, self-validating);
   # every other certificate regenerates through the --emit-cnf target table.
   if [ "$cert" = "rigidity_sc4_unsat" ]; then
-    GEN="python3 sat.py --rigidity-cnf /tmp/roae_$t.cnf"
+    GEN="python3 sat.py --rigidity-cnf \"\$SCRATCH/$t.cnf\""
   elif [ "$cert" = "c3_kwpin_ge777_unsat" ]; then
-    GEN="python3 sat.py --emit-cnf kw-pin /tmp/roae_$t.cnf --c3-min 777"
+    GEN="python3 sat.py --emit-cnf kw-pin \"\$SCRATCH/$t.cnf\" --c3-min 777"
   else
-    GEN="python3 sat.py --emit-cnf $t /tmp/roae_$t.cnf"
+    GEN="python3 sat.py --emit-cnf $t \"\$SCRATCH/$t.cnf\""
   fi
   if [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_PY" = "0" ]; then
     skip "cert $cert ($t)" "needs python3 + drat-trim"
     continue
   fi
   # With the opt-in cake_lpr leg requested (section 3c), drat-trim also elaborates the LRAT that
-  # cake_lpr checks; a stale LRAT from an earlier run is removed first so 3c can never read one
-  # this run did not write.
+  # cake_lpr checks; a stale LRAT is removed first so 3c can never read one this run did not write
+  # (the per-run $SCRATCH already rules out another run's; the rm is kept as a second guard).
   LRAT_OPT=""
-  if [ -n "${CAKE_LPR:-}" ]; then rm -f "/tmp/roae_$t.lrat"; LRAT_OPT="-L /tmp/roae_$t.lrat"; fi
+  if [ -n "${CAKE_LPR:-}" ]; then rm -f "$SCRATCH/$t.lrat"; LRAT_OPT="-L \"\$SCRATCH/$t.lrat\""; fi
   check "cert $cert ($t)" \
-    "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > /tmp/roae_$t.drat && require_verdict_line DRAT_VERIFIED_$cert 's VERIFIED' \"$DRAT\" /tmp/roae_$t.cnf /tmp/roae_$t.drat $LRAT_OPT"
+    "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > \"\$SCRATCH/$t.drat\" && require_verdict_line DRAT_VERIFIED_$cert 's VERIFIED' \"$DRAT\" \"\$SCRATCH/$t.cnf\" \"\$SCRATCH/$t.drat\" $LRAT_OPT"
   CERT_RC[$cert]=$LAST_RC
   CERTS_CHECKED=$((CERTS_CHECKED+1))
 done
@@ -531,7 +543,7 @@ else
       fi
       # ${CAKE_LPR_OPTS:-} is deliberately unquoted: it is a word list of runtime sizing flags.
       check "cake_lpr $cert ($t)" \
-        "{ [ -s /tmp/roae_$t.lrat ] || { echo 'LRAT ABSENT OR EMPTY: /tmp/roae_$t.lrat'; false; }; } && require_verdict_line CAKE_LPR_VERIFIED_$cert 's VERIFIED UNSAT' \"$CAKE_PATH\" \${CAKE_LPR_OPTS:-} /tmp/roae_$t.cnf /tmp/roae_$t.lrat"
+        "{ [ -s \"\$SCRATCH/$t.lrat\" ] || { echo \"LRAT ABSENT OR EMPTY: \$SCRATCH/$t.lrat\"; false; }; } && require_verdict_line CAKE_LPR_VERIFIED_$cert 's VERIFIED UNSAT' \"$CAKE_PATH\" \${CAKE_LPR_OPTS:-} \"\$SCRATCH/$t.cnf\" \"\$SCRATCH/$t.lrat\""
     done
   fi
 fi
@@ -781,6 +793,7 @@ else
 fi
 
 echo; echo "RESULT: $PASS passed, $FAIL failed, $RESOURCE host-resource errors, $SKIP skipped"
+echo "  full command output: $LOG"
 if [ "$SKIP" -gt 0 ]; then
   echo "NOTE: $SKIP check(s) did not run because a required tool is absent — a SKIP is NOT a"
   echo "      verification failure and NOT a pass. Exit status is nonzero until every check runs."

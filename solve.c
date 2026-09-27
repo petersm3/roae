@@ -471,7 +471,7 @@ typedef struct {
     int8_t  reserved;
 } DFSStackFrame_v2;
 static Pair pairs[32];
-static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */
+static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */
 
 /* ---------- Bitmask domain representation (task #72, Phase A) ----------
  * Compact representation of the "remaining pair pool" used by the DFS hot
@@ -25327,10 +25327,10 @@ static int kc_check_arrangement_main(int argc, char *argv[]) {
         return 2;
     }
     const char *cert_out = NULL, *label = NULL;  /* Q-795: --label NAME = the certificate's "label" (default KW/explicit) */
-    for (int ai = 3; ai + 1 < argc; ai++)
-        if (strcmp(argv[ai], "--cert-out") == 0) cert_out = argv[ai + 1];
-        else if (strcmp(argv[ai], "--label") == 0) label = argv[ai + 1];
-    if (argc > 3 && strcmp(argv[argc - 1], "--label") == 0) label = "";  /* a value-less --label is refused, never ignored */
+    for (int ai = 3; ai < argc; ai++)  /* Q-852: every argument is read; an unknown one, or --cert-out with no value, is refused */
+        if (ai + 1 < argc && strcmp(argv[ai], "--cert-out") == 0) cert_out = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--label") == 0) label = argv[++ai];
+        else if (strcmp(argv[ai], "--label") == 0) label = "";  /* a value-less --label is refused, never ignored */ else { argv_refuse_arg(argv[1], argv[ai], "an arrangement, then --cert-out FILE and --label NAME"); return 2; }
     if (label && (!*label || strlen(label) > 64 || strchr("._-", *label) || label[strspn(label, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")]))
         { fprintf(stderr, "ERROR: [check-arrangement] --label must be 1..64 chars of [A-Za-z0-9._-], starting alphanumeric\n"); return 2; }
     int s[64];
@@ -26768,7 +26768,7 @@ static int kc_ladder_verify_main(int argc, char *argv[]) {
     for (int ai = 3; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
-        else if (argv[ai][0] != '-' && !gdir) gdir = argv[ai];
+        else if (argv[ai][0] != '-' && !gdir) gdir = argv[ai]; else { argv_refuse_arg(argv[1], argv[ai], "FDIR, an optional GDIR, --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
     }
     const int r = kc_h_ladder_verify(fdir, gdir, force_ooc, cache_mb, 0);
     if (r < 0) return 2;
@@ -27422,7 +27422,7 @@ static int kc_verify_certificate_main(int argc, char *argv[]) {
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-fdir") == 0) fdir_ov = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-gdir") == 0) gdir_ov = argv[++ai];
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]); else { argv_refuse_arg(argv[1], argv[ai], "CERT.json, then --kc-mutate, --kc-ooc, --kc-fdir F, --kc-gdir G and --kc-cache-mb MB"); return 2; } /* Q-852 */
     }
     FILE *f = fopen(path, "r");
     if (!f) { fprintf(stderr, "ERROR: [verify-certificate] cannot read %s\n", path); return 2; }
@@ -30215,7 +30215,7 @@ static int kc_scan_main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR: [kc-scan] --kc-layers needs two arguments A B "
                     "(HALF-OPEN range [A, B))\n");
             return 2;
-        }
+        } else { argv_refuse_arg(argv[1], argv[ai], "FDIR GDIR OUT, then --kc-raw, --kc-ooc, --kc-scan-threads N, --kc-gcache-mb-per-thread MB, --kc-cache-mb MB, --kc-tdir T and --kc-layers A B"); printf("KC_SCAN=FAIL\n"); return 2; } /* Q-852 */
     }
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = (KC *)calloc(1, sizeof(KC));
@@ -37661,7 +37661,7 @@ static int kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
 }
 
 static int kc_extremal_main(int argc, char *argv[]) {
-    if (argc >= 3 && strcmp(argv[2], "list") == 0) { kc_x_list_print(); return 0; }
+    if (argc >= 3 && strcmp(argv[2], "list") == 0) { if (argv_refuse_extra(argc, argv, 3, "NO argument after list")) return 2; kc_x_list_print(); return 0; }  /* Q-852 */
     if (argc < 5) {
         fprintf(stderr,
             "Usage: solve --kc-extremal FUNC DIR max|min [--kc-witness]\n"
@@ -38473,7 +38473,7 @@ static int kc_extremal_selftest(void) {
 }
 
 static int kc_cli(int argc, char *argv[]) {
-    const char *cmd = argv[1];
+    const char *cmd = argv[1]; { const size_t cl = strlen(cmd); if (cl > 9 && strcmp(cmd + cl - 9, "-selftest") == 0 && argv_refuse_extra(argc, argv, 2, "NO arguments")) return 2; }  /* Q-852: every --kc-*-selftest takes none */
     if (strcmp(cmd, "--kc-selftest") == 0) return kc_selftest();
     if (strcmp(cmd, "--kc-enum-desc-selftest") == 0) return kc_enum_desc_selftest();
     if (strcmp(cmd, "--kc-midn") == 0) {
@@ -38483,10 +38483,10 @@ static int kc_cli(int argc, char *argv[]) {
             return 2;
         }
         int npairs = atoi(argv[2]), R = 4000, M = 20000;
-        for (int ai = 3; ai + 1 < argc; ai++) {
-            if (strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[ai + 1]);
-            else if (strcmp(argv[ai], "--kc-chi2-samples") == 0) M = atoi(argv[ai + 1]);
-        }
+        for (int ai = 3; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
+            if (ai + 1 < argc && strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[++ai]);
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-chi2-samples") == 0) M = atoi(argv[++ai]);
+            else { argv_refuse_arg(cmd, argv[ai], "N, then --kc-roundtrips R and --kc-chi2-samples M"); return 2; } }
         if (R < 2) R = 2;
         if (M < 16) M = 16;
         return kc_midn(npairs, R, M);
@@ -38499,10 +38499,10 @@ static int kc_cli(int argc, char *argv[]) {
         }
         int npairs = atoi(argv[2]), R = 2000;
         const char *scratch = "/tmp";
-        for (int ai = 3; ai + 1 < argc; ai++) {
-            if (strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[ai + 1]);
-            else if (strcmp(argv[ai], "--kc-scratch") == 0) scratch = argv[ai + 1];
-        }
+        for (int ai = 3; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
+            if (ai + 1 < argc && strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[++ai]);
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-scratch") == 0) scratch = argv[++ai];
+            else { argv_refuse_arg(cmd, argv[ai], "N, then --kc-roundtrips R and --kc-scratch DIR"); return 2; } }
         if (R < 8) R = 8;
         return kc_oocverify(npairs, R, scratch);
     }
@@ -38524,7 +38524,7 @@ static int kc_cli(int argc, char *argv[]) {
         int npairs = 9, gooc = 0;
         for (int ai = 3; ai < argc; ai++) {
             if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[++ai]);
-            else if (strcmp(argv[ai], "--kc-g-ooc") == 0) gooc = 1;
+            else if (strcmp(argv[ai], "--kc-g-ooc") == 0) gooc = 1; else { argv_refuse_arg(cmd, argv[ai], "GDIR, then --f1-pairs N and --kc-g-ooc"); return 2; } /* Q-852 */
         }
         return kc_g_build_main(argv[2], npairs, gooc);
     }
@@ -38540,7 +38540,7 @@ static int kc_cli(int argc, char *argv[]) {
                     "  Exit 0 = at least one ladder found; 2 = none.\n");
             return 2;
         }
-        return kc_g_status_main(argv[2]);
+        if (argv_refuse_extra(argc, argv, 3, "exactly ONE argument (GDIR)")) { return 2; } return kc_g_status_main(argv[2]); /* Q-852 */
     }
     if (strcmp(cmd, "--kc-o3-selftest") == 0) return kc_o3_selftest();
     if (strcmp(cmd, "--kc-o3-rank") == 0 || strcmp(cmd, "--kc-o3-unrank") == 0) {
@@ -38595,7 +38595,7 @@ static int kc_cli(int argc, char *argv[]) {
         for (int ai = 4; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) gfooc = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-                gcache = atoi(argv[++ai]);
+                gcache = atoi(argv[++ai]); else { argv_refuse_arg(cmd, argv[ai], "FDIR GDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         return kc_g_check_main(argv[2], argv[3], gfooc, gcache);
     }
@@ -38616,7 +38616,7 @@ static int kc_cli(int argc, char *argv[]) {
         for (int ai = 5; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) glooc = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-                glcache = atoi(argv[++ai]);
+                glcache = atoi(argv[++ai]); else { argv_refuse_arg(cmd, argv[ai], "K GDIR FDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         /* 🔴 STRICT PARSE, 2026-09-10 (RCQ03 F3, ACCEPTED by execution). This was
          * atoi(argv[2]), and atoi() maps EVERY non-numeric string to 0 with no way to
@@ -38669,7 +38669,7 @@ static int kc_cli(int argc, char *argv[]) {
                     "  mapping is NOT claimed here (W0-D worker run). Exit 0/1/2.\n");
             return 2;
         }
-        return kc_t_cert_main(argv[2]);
+        if (argv_refuse_extra(argc, argv, 3, "exactly ONE argument (OUT.json)")) { return 2; } return kc_t_cert_main(argv[2]); /* Q-852 */
     }
     if (strcmp(cmd, "--kc-t-build") == 0 || strcmp(cmd, "--kc-t-check") == 0) {
         /* Stage T: the t (search-tree-size) ladder — build + identity gate.
@@ -38699,7 +38699,7 @@ static int kc_cli(int argc, char *argv[]) {
         for (int ai = 4; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) tooc = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-                tcache = atoi(argv[++ai]);
+                tcache = atoi(argv[++ai]); else { argv_refuse_arg(cmd, argv[ai], "FDIR TDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         return is_build ? kc_t_build_main(argv[2], argv[3], tooc, tcache)
                         : kc_t_check_main(argv[2], argv[3], tooc, tcache);
@@ -38750,7 +38750,7 @@ static int kc_cli(int argc, char *argv[]) {
         for (int ai = 4; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) hooc = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) hcache = atoi(argv[++ai]);
-            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai];
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai]; else if (ai != 4 || argv[4][0] == '-') { argv_refuse_arg(cmd, argv[ai], is_cert ? "FDIR GDIR WALK, then --kc-cert-out FILE, --kc-ooc and --kc-cache-mb MB" : "FDIR GDIR, an optional WALK, then --kc-cert-out FILE, --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         if (argc > 4 && argv[4][0] != '-') warg = argv[4];
         if (is_cert) return kc_o3_cert_main(argv[2], argv[3], argv[4], cert_out, hooc, hcache);
@@ -38782,7 +38782,7 @@ static int kc_cli(int argc, char *argv[]) {
      * King Wen included. The literal placeholder `--kc-c3-max T`, copy-pasted from the usage
      * line above, is the plausible way in. */
     enum { KO_C3 = 1, KO_LIMIT = 2, KO_UNIFORM = 4, KO_RECORD = 8, KO_PAIRS = 16 };
-    int saw = 0;
+    int saw = 0; int kc_npos = 0;  /* Q-852: positional arguments seen (DIR included) */
     for (int ai = 2; ai < argc; ai++) {
         if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) {
             npairs = atoi(argv[++ai]); saw |= KO_PAIRS;
@@ -38813,7 +38813,7 @@ static int kc_cli(int argc, char *argv[]) {
                     "--kc-class-uniform, --kc-record. An unknown option used to be SILENTLY "
                     "IGNORED, so a typo returned the unfiltered answer.\n", cmd, argv[ai]);
             return 2;
-        }
+        } else if (++kc_npos > kc_cli_positionals(cmd)) { argv_refuse_arg(cmd, argv[ai], "only the positional arguments its usage line names, then the options above"); return 2; }  /* Q-852: an extra positional used to be ignored */
     }
     {   /* Per-command admissibility. Accept-and-ignore is a wrong answer with no error; refuse
          * instead, computing nothing. --kc-count / --kc-rank / --kc-member accept NONE of these:
@@ -39864,7 +39864,7 @@ int main(int argc, char *argv[]) {
        This list is deliberately NOT exhaustive -- an inline catalogue of ~100 modes would rot,
        which is the doc-vs-reality failure this project keeps correcting. It points at the file
        that is maintained instead. */
-    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) { if (argv_refuse_extra(argc, argv, 2, "NO arguments")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         printf("solve -- ROAE enumeration / estimation / verification engine\n\n");
         printf("Build:  gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz\n");
         printf("Check:  ./solve --selftest      (must print the canonical sha256)\n\n");
@@ -40429,7 +40429,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
             return 40;  /* validation mismatch */
         }
-    } else if (argc > 1 && strcmp(argv[1], "--verify-rule2") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--verify-rule2") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the solutions file)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* McKenna Rule 2 audit (The Invisible Landscape, Ch 9): "absolutely
          * exclude transition situations with a value of one, except in cases
          * where this would interfere with rule (1)."  For each record, find the
@@ -40555,7 +40555,7 @@ int main(int argc, char *argv[]) {
         printf("RULE2=TABULATED scanned=%llu records_with_violation=%llu ones=%llu forced=%llu wasteful=%llu\n",
                records_total, records_with_violation, total_ones, ones_c2_forced, ones_wasteful);
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--verify-9th-six") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--verify-9th-six") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the solutions file)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* McKenna "9th six" audit (The Invisible Landscape, Ch 9): every C1-C5
          * record has 9 value-6 transitions — 8 within-pair (the WPD=6 pairs) plus
          * exactly 1 between-pair (the "synthetic" six, at boundary 38<->39 in KW).
@@ -40660,7 +40660,7 @@ int main(int argc, char *argv[]) {
             printf("NINTH_SIX=PASS\n");
         }
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--verify-wrap-parity") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--verify-wrap-parity") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the solutions file)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* McKenna wrap-around parity audit (SPECIFICATION.md Theorem "Wrap-around parity is
          * odd"; The Invisible Landscape Ch 9). For each C1-C5 record compute the circular
          * transition d(s63,s0) = hamming(last hexagram, first hexagram). The theorem proves
@@ -41160,7 +41160,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "[--selftest-resume-d3]   A: %s\n", tdir_A);
         fprintf(stderr, "[--selftest-resume-d3]   B: %s\n", tdir_B);
         return 41;
-    } else if (argc > 1 && strcmp(argv[1], "--validate-canonical") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--validate-canonical") == 0) { if (argv_refuse_extra(argc, argv, 4, "exactly TWO arguments (the expected sha256 and the scale)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Pre-campaign drift detection gate (task #110, 2026-05-27).
          *
          * Usage: ./solve --validate-canonical <expected-sha256> <scale>
@@ -41374,7 +41374,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "          record as of 2026-09-04 -- treat it as a finding to characterise,\n");
         fprintf(stderr, "          not as a tolerance to grant.\n");
         return 33;
-    } else if (argc > 1 && strcmp(argv[1], "--preflight") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--preflight") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the node limit)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* In-process pre-flight aggregator (task #63/#64 follow-up, 2026-05-28).
          * Runs every gate solve.c can check from inside its own process, in
          * report mode, WITHOUT running the enum — one command to confirm a
@@ -41465,7 +41465,7 @@ int main(int argc, char *argv[]) {
         printf("[--preflight] Still confirm externally: --disk-precheck identity, "
                "disk_health_precheck.sh SMART/fsck, #55 monitor running, Spot quota.\n");
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--disk-precheck") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--disk-precheck") == 0) { if (argv_refuse_extra(argc, argv, 5, "at most THREE arguments (mountpoint, required_gb, expected_uuid)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Native local disk pre-check (task #63 follow-up, 2026-05-28).
          * The in-binary subset of disk_health_precheck.sh: capacity (statvfs),
          * writability (write+fsync+read+unlink smoke test), identity (marker
@@ -41622,7 +41622,7 @@ int main(int argc, char *argv[]) {
         if (warn) { printf("[--disk-precheck] DONE: WARNING (exit 1)\n"); return 1; }
         printf("[--disk-precheck] DONE: PASS (exit 0)\n");
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--knuth-dump-prefix") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--knuth-dump-prefix") == 0) { if (argv_refuse_extra(argc, argv, 4, "exactly TWO arguments (depth and seed)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* R11 Phase-2 §5.1(4): emit a random VALID (C1-C5) deep prefix as a
          * "<pair> <orient> ..." list, for the exact-count calibration audit
          * (feed the output back to `--estimate-knuth 0 <prefix>` for the exact
@@ -42098,7 +42098,7 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("F6 VERIFY: PASS\n");
         else printf("F6 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
-    } else if (argc > 1 && strcmp(argv[1], "--rc1c-verify") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--rc1c-verify") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the sequence \"h0,...,h63\")")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* R6 two-language gate — circular anchor-adjacency (R-C1c). Compute slot2 / slot32 /
          * adjacent for the alternating pair A2={21,42} on King Wen (or on an explicit
          * "h0,...,h63" argument) and check the KW expected values (slot2=0, slot32=1,
@@ -42125,7 +42125,7 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("RC1C VERIFY: PASS\n");
         else printf("RC1C VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
-    } else if (argc > 1 && strcmp(argv[1], "--r11-verify") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--r11-verify") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the sequence \"h0,...,h63\")")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* R11 two-language gate — the 8-axis frozen violation bundle (g1..g6 T1, g7,g8 T2).
          * Compute on King Wen (or on an explicit "h0,...,h63" argument) and check the KW
          * expected vector (2,2,2,0,0,0,0,0). Ground truth twin: solve.py --r11-verify. This is
@@ -42156,7 +42156,7 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("R11 VERIFY: PASS\n");
         else printf("R11 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
-    } else if (argc > 1 && strcmp(argv[1], "--rc4b-verify") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--rc4b-verify") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the sequence \"h0,...,h63\")")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* R13 two-language gate — HEC two-convention parity predicates (frozen design
          * 2026-07-11 §4 KW gates). Computes, on King Wen (or on an explicit "h0,...,h63"
          * argument), the gender/parity violation count + first two violating class
@@ -42252,7 +42252,7 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
         /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */
         if (argc > 2) { fprintf(stderr, "ERROR: --f1c5-gzip-selftest takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nF1C5_GZIP_SELFTEST_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } return f1c5_gzip_selftest(); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
-    } else if (argc > 1 && strcmp(argv[1], "--f1c5-verify-layer") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--f1c5-verify-layer") == 0) { if (argv_refuse_extra(argc, argv, 4, "exactly TWO arguments (the v1 raw and the v2 gzip layer file)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* retool: byte-identical content check of a v1 raw vs v2 gzip layer file. */
         if (argc < 4) { fprintf(stderr, "usage: --f1c5-verify-layer <v1_raw> <v2_gzip>\n"); return 2; }
         return f1c5_verify_layer(argv[2], argv[3]);
@@ -42568,7 +42568,7 @@ int main(int argc, char *argv[]) {
         printf("AVX-512) are NOT runtime-introspectable here — record them at build time\n");
         printf("(see documentation/DEVELOPMENT.md reproducible-build recipe + build.sha).\n");
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--canonical-config") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--canonical-config") == 0) { if (argc > 3 && (argc > 4 || strcmp(argv[3], "--full") != 0) && argv_refuse_arg(argv[1], argv[strcmp(argv[3], "--full") != 0 ? 3 : 4], "SCALE and an optional --full")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* PSB calculator (added 2026-06-13 after the LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR
          * incident where Claude re-derived PSB from a floor formula and got it wrong).
          *
@@ -42636,7 +42636,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "(if you need a scale not in this list, add it to CANONICAL_HASHES.md\n");
         fprintf(stderr," recipe table + this solve.c table; do not invent PSBs.)\n");
         return 25;
-    } else if (argc > 1 && strcmp(argv[1], "--validate-launcher-config") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--validate-launcher-config") == 0) { if (argv_refuse_extra(argc, argv, 4, "exactly TWO arguments (SCALE and PSB)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Pre-launch sanity gate (added 2026-06-13 alongside --canonical-config).
          * Launchers that hardcode SOLVE_PER_SUB_BRANCH_LIMIT for clarity can assert
          * their value matches the canonical recipe before any compute is spent:
@@ -42728,7 +42728,7 @@ int main(int argc, char *argv[]) {
                avx512_ready ? "YES - vectorized path will be selected" :
                               "NO - scalar fallback will be used");
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--cpu-freq") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--cpu-freq") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the threshold in MHz)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Re-landed 2026-05-27 (was lost in 9f10f05 v3 reset; originally
          * landed in 324318b 2026-05-16). Sample per-core MHz from
          * /proc/cpuinfo. Diagnostic for thermal-throttle detection during
@@ -42784,7 +42784,7 @@ int main(int argc, char *argv[]) {
         }
         printf("  HEALTHY - all %ld cores at or above %ld MHz\n", count, threshold_mhz);
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--emit-shard-manifest") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--emit-shard-manifest") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the manifest path)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Phase E.2 follow-up item 5 (re-landed 2026-05-25; refactored
          * 2026-05-26 to call shared do_emit_shard_manifest() helper).
          * Manual invocation; the canonical-enum dispatch also calls the
@@ -42822,7 +42822,7 @@ int main(int argc, char *argv[]) {
             printf("[--emit-shard-manifest] Wrote %s\n", manifest_path);
         }
         return 0;
-    } else if (argc > 1 && strcmp(argv[1], "--verify-shard-manifest") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--verify-shard-manifest") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the manifest path)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Phase E.2 follow-up item 5 (re-landed 2026-05-25; refactored
          * 2026-05-26 to call shared do_verify_shard_manifest() helper).
          * The canonical-enum dispatch also calls verify automatically at
@@ -42840,7 +42840,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "[--verify-shard-manifest] FAIL - resume path corrupted shards.\n");
         fprintf(stderr, "             See documentation/DEVELOPMENT.md \"Resume-path defense in depth\" item 5.\n");
         return rc;
-    } else if (argc > 1 && strcmp(argv[1], "--compare-provenance") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--compare-provenance") == 0) { if (argv_refuse_extra(argc, argv, 4, "exactly TWO arguments (the two provenance JSON files)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Metadata-equivalence retool 2026-05-26 (task #102, Phase 6).
          * Compares two solutions.provenance.json files for must-match
          * field equivalence (normalizes timestamps + host fingerprints +
@@ -42852,7 +42852,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         return do_compare_provenance(argv[2], argv[3]);
-    } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--regression-test") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the node budget)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* --regression-test (2026-04-29): partition-invariance check.
          *
          * Verifies that:
@@ -43053,7 +43053,7 @@ int main(int argc, char *argv[]) {
                     dir_full, dir_56);
             return 60;
         }
-    } else if (argc > 1 && strcmp(argv[1], "--double-regression-test") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--double-regression-test") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the node budget)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* --double-regression-test (2026-04-29): layered partition-invariance
          * check that exercises the --merge-layers infrastructure.
          *
@@ -43346,14 +43346,14 @@ int main(int argc, char *argv[]) {
         const char *fit_file = NULL;
         int kde_d = 0;
         double kde_bw = 0.0;
-        double kde_threshold = 0.0;
-        for (int ai = 2; ai < argc - 1; ai++) {
-            if (strcmp(argv[ai], "--fit-file") == 0) fit_file = argv[++ai];
-            else if (strcmp(argv[ai], "--d") == 0) kde_d = atoi(argv[++ai]);
-            else if (strcmp(argv[ai], "--bandwidth") == 0) kde_bw = atof(argv[++ai]);
-            else if (strcmp(argv[ai], "--threshold") == 0) kde_threshold = atof(argv[++ai]);
+        double kde_threshold = 0.0; int kde_saw_t = 0;  /* Q-852: --threshold is required; a missing one was read as 0.0 */
+        for (int ai = 2; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
+            if (ai + 1 < argc && strcmp(argv[ai], "--fit-file") == 0) fit_file = argv[++ai];
+            else if (ai + 1 < argc && strcmp(argv[ai], "--d") == 0) kde_d = atoi(argv[++ai]);
+            else if (ai + 1 < argc && strcmp(argv[ai], "--bandwidth") == 0) kde_bw = atof(argv[++ai]);
+            else if (ai + 1 < argc && strcmp(argv[ai], "--threshold") == 0) { kde_threshold = atof(argv[++ai]); kde_saw_t = 1; } else { argv_refuse_arg(argv[1], argv[ai], "--fit-file PATH --d N --bandwidth BW --threshold T"); return 2; }
         }
-        if (!fit_file || kde_d <= 0 || kde_bw <= 0.0) {
+        if (!fit_file || kde_d <= 0 || kde_bw <= 0.0 || !kde_saw_t) {
             fprintf(stderr, "Usage: --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T\n");
             return 2;
         }
@@ -44219,16 +44219,16 @@ int main(int argc, char *argv[]) {
         printf("Format:     %s\n", show_format_str);
         printf("Showing:    %lld record(s)\n\n", n_to_show);
 
-        unsigned char rec[SOL_RECORD_SIZE]; long long show_bad = 0; char show_flag[96];  /* Q-855: records flagged malformed (reserved bit 0, pair index >= 32) */
+        unsigned char rec[SOL_RECORD_SIZE]; long long show_bad = 0; char show_flag[96];  /* Q-855: records flagged malformed (reserved bit 0, pair index >= 32) */ long long show_io = 0;  /* batch-21 follow-up: records that could not be read (gzseek/gzfread failed) */
         for (long long si = 0; si < n_to_show; si++) {
             long long idx = indices[si];
             z_off_t off = (z_off_t)header_offset + (z_off_t)(idx * SOL_RECORD_SIZE);
             if (gzseek(sf, off, SEEK_SET) < 0) {
-                fprintf(stderr, "[%lld]: <gzseek failed>\n", idx);
+                fprintf(stderr, "[%lld]: <gzseek failed>\n", idx); show_io++;
                 continue;
             }
             if (gzfread(rec, 1, SOL_RECORD_SIZE, sf) != SOL_RECORD_SIZE) {
-                fprintf(stderr, "[%lld]: <gzfread truncated>\n", idx);
+                fprintf(stderr, "[%lld]: <gzfread truncated>\n", idx); show_io++;
                 continue;
             }
 
@@ -44296,7 +44296,7 @@ int main(int argc, char *argv[]) {
 
         free(indices);
         gzclose(sf);
-        if (show_bad) { printf("SHOW_RECORDS=MALFORMED\n"); fprintf(stderr, "ERROR: --show: %lld of the %lld record(s) shown are malformed (flagged above); they are NOT valid records (SOLUTIONS_FORMAT.md). Exit 20.\n", show_bad, n_to_show); return 20; } return 0;  /* Q-855 */
+        if (show_io) { printf("SHOW_RECORDS=IO_ERROR\n"); fprintf(stderr, "ERROR: --show: %lld of the %lld record(s) asked for could not be read (gzseek or gzfread failed; flagged above), so the sample is incomplete%s. Exit 10.\n", show_io, n_to_show, show_bad ? ", and some records read are malformed" : ""); return 10; }  /* batch-21 follow-up: a read failure used to be a stderr line and exit 0 */ if (show_bad) { printf("SHOW_RECORDS=MALFORMED\n"); fprintf(stderr, "ERROR: --show: %lld of the %lld record(s) shown are malformed (flagged above); they are NOT valid records (SOLUTIONS_FORMAT.md). Exit 20.\n", show_bad, n_to_show); return 20; } return 0;  /* Q-855 */
     }
 
     /* --- Validate mode ---
@@ -49425,22 +49425,22 @@ sub_enum_done:
         { int q623_main_partition(int); int nt = q623_main_partition(start_pair); current_per_branch_budget = node_limit / (nt > 0 ? nt : 1); }  /* V3A-134#8: the allocator's divisor, not 3030 */
     /* Hardening audit 2026-05-25/26 — pre-flight gates BEFORE any shard-file
      * I/O. Order: disk-space (fail-fast on insufficient storage) -> auto-
-     * selftest (smoke test: binary produces canonical sha) -> binary-
-     * snapshot (forensic continuity) -> lock (prevent concurrent enums) ->
-     * build-sha (cross-binary resume detection) -> auto-verify manifest ->
+     * selftest (smoke test: binary produces canonical sha) -> host fingerprint -> lock (prevent
+     * concurrent enums) -> build-sha (cross-binary resume detection) -> auto-
+     * verify manifest -> binary snapshot (forensic continuity) ->
      * load_sub_checkpoint + orphan-promotion -> auto-emit fresh manifest. */
     if (disk_space_pre_check(node_limit) != 0) return 29;
     if (disk_iops_pre_check(node_limit) != 0) return 31;
     if (auto_selftest_check(node_limit) != 0) return 24;
-    snapshot_solve_binary();
     capture_host_fingerprint(node_limit);
     if (acquire_canonical_lock() != 0) return 27;
     if (check_build_sha_invariant() != 0) return 26;
+    /* 2026-09-27 (batch-21 follow-up): solve.binary.snapshot is now written AFTER the lock, build-sha and manifest refusals, on the manifest line below, so a run refused with exit 27, 26 or 22 leaves none. It used to be written first, which left a snapshot of a binary that never enumerated here, and two processes racing for the lock shared its .tmp name. canonical-host-fingerprint.json (>= 1T only) still precedes them: a test stops a 1T run with the exit-26 refusal right after the capture, so moving it needs another stop point (filed as a follow-up). */
 
     /* Auto-verify-manifest if shard_manifest.txt exists from a prior run.
      * Catches shard-level corruption between runs (Phase E.2 item 5,
      * automated 2026-05-26 per operator directive "dummy-proof default"). */
-    if (auto_verify_shard_manifest_if_exists() != 0) return 22;
+    if (auto_verify_shard_manifest_if_exists() != 0) { return 22; } snapshot_solve_binary();  /* after every startup refusal (see above) */
 
     load_sub_checkpoint();
     /* v3.1: orphaned-shard promotion eliminates the costly fast-skip LOAD phase
@@ -50801,8 +50801,8 @@ FILE *q623_ckpt_open(const char *ckpt_path) {
 /* 🔴 Q-520 — pair-index bounds for every reader of the 32-byte solution record that did not
  * already check it. A record byte is (pair_index<<2)|(orient<<1), so byte>>2 is SIX bits, 0..63,
  * and it indexes the 32-entry pairs[] table: any byte with bit 7 set reads past the end of it. Q-853 (2026-09-26): bit 0 is RESERVED (SOLUTIONS_FORMAT.md: MUST be zero; reject a record with it set) -- the scan refuses it too, with --verify's text, checked across a record BEFORE its pair indices, as --verify does.
- * The file had ALREADY decided what to do with such a byte -- --verify, --validate, --show and
- * the kc-oracle decoder all refuse it -- and five readers did not follow that decision:
+ * The file had ALREADY decided what to do with such a byte -- --verify, --validate and
+ * the kc-oracle decoder refuse it (--show, a viewer, prints it flagged and exits 20: Q-855) -- and five readers did not follow that decision:
  * --c3-min, --verify-rule2, --verify-9th-six, --verify-wrap-parity, and the --analyze/--c3-dist
  * mmap block (every section of which decodes byte>>2 under a name other than pidx). Each now
  * scans the records it is about to decode, BEFORE decoding, and the caller exits with its
@@ -51384,4 +51384,48 @@ static int show_record_flag(const unsigned char *rec, long long idx, const char 
         return 1;
     }
     return 0;
+}
+
+/* Q-852 (2026-09-27) — the last ring of the argument refusals (CX-179, CX-183, CX-187). Modes
+ * that read an optional argv[2] and never looked at argv[3], modes with a fixed argument count
+ * that never looked past it, and option loops with no final `else` all accepted an argument they
+ * did not read and ran as if it were absent. These two helpers print the house refusal (the
+ * `<MODE>_ARGS=REFUSED` line and the first argument refused, on stderr) and return 1, so the
+ * caller returns 2 before doing anything else. The token is the mode with its leading dashes
+ * dropped, upper-cased, '-' -> '_' (--verify-9th-six -> VERIFY_9TH_SIX_ARGS); -h is HELP. They
+ * live here, after the last function, so that no line of this file above them moved. */
+static void q852_args_token(const char *mode, char *tok, size_t n) {
+    size_t k = 0;
+    if (strcmp(mode, "-h") == 0) mode = "--help";
+    while (*mode == '-') mode++;
+    for (; *mode && k + 1 < n; mode++) tok[k++] = (*mode == '-') ? '_' : ((*mode >= 'a' && *mode <= 'z') ? (char)(*mode - 'a' + 'A') : *mode);
+    tok[k] = '\0';
+}
+static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes) {
+    if (argc <= maxc) return 0;
+    char tok[96];
+    q852_args_token(argv[1], tok, sizeof(tok));
+    fprintf(stderr, "ERROR: %s takes %s; got %d extra (first: '%s').\n"
+                    "       An argument here was previously accepted and silently ignored.\n"
+                    "%s_ARGS=REFUSED\n", argv[1], takes, argc - maxc, argv[maxc], tok);
+    return 1;
+}
+static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted) {
+    char tok[96];
+    q852_args_token(mode, tok, sizeof(tok));
+    fprintf(stderr, "ERROR: %s does not accept '%s' (an unknown option, an option missing its value, "
+                    "or an extra argument); it accepts %s.\n"
+                    "       An argument here was previously accepted and silently ignored.\n"
+                    "%s_ARGS=REFUSED\n", mode, arg, accepted, tok);
+    return 1;
+}
+/* Q-852: the positional arguments each common-scan --kc-* command reads (DIR included); an
+ * unknown command gets no limit here, so the "unknown subcommand" error below still decides. */
+static int kc_cli_positionals(const char *cmd) {
+    if (!strcmp(cmd, "--kc-build") || !strcmp(cmd, "--kc-count") || !strcmp(cmd, "--kc-enum") ||
+        !strcmp(cmd, "--kc-enum-desc")) return 1;
+    if (!strcmp(cmd, "--kc-unrank") || !strcmp(cmd, "--kc-rank") || !strcmp(cmd, "--kc-member") ||
+        !strcmp(cmd, "--kc-repr")) return 2;
+    if (!strcmp(cmd, "--kc-sample")) return 3;
+    return INT_MAX;
 }

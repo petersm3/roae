@@ -120,3 +120,8 @@ The laptop-scale rehearsal of the same battery — no ladder, no cluster — is
   this receipt's `TR12_V3_FIG=PENDING:viz-v3-spectrum` is left as that run printed it.
 - **The Q3 trace (2026-09-26).** This run's own `a2_q3` output is committed unmodified as
   `tr12/q3_trace_kw.txt`, the trace behind this receipt's `TR12_Q3=PASS`.
+- **This run's answer rows (published 2026-09-27, Q-857).** [`banked_n31_20260922/`](banked_n31_20260922/README.md)
+  holds this run's own receipts for the Q1b, Q1, Q2, Q2b, Q3-profile, Q4 and Q8 rows and both Q10 rows, as
+  attested, plus `check_receipts.sh`, which re-derives from those bytes every number that needs no ladder.
+  Its `c_q10a.txt` is the Q10 census re-derived from the published layer sidecars; the as-run
+  transcript sits beside it unchanged.

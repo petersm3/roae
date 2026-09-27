@@ -9,7 +9,7 @@ from every member at once via the compiled f·g ladders. King Wen's own 31 place
 
 ← Back to [README.md](README.md) (index) · V-family: **V1** · [V2 river](viz_kc_river.md) ·
 [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md) ·
-See also [viz_pca.md](viz_pca.md) (the enumerated-slice projections this figure contrasts with)
+See also [viz_pca.md](archive/viz_pca.md) (the enumerated-slice projections this figure contrasts with)
 
 ## Status (2026-08-22)
 
@@ -216,7 +216,7 @@ Outputs follow the TR pattern: `runs/<run-id>/viz/viz_kc_field.{png,svg}`, mirro
 
 1. **Exact positional marginals over the whole superspace.** Every number is an exact integer
    divided by an exact integer — no sampling, no enumeration slice, no estimator. This is precisely
-   what the [PCA figures](viz_pca.md) *cannot* do: those project an enumerated budget-limited slice
+   what the [PCA figures](archive/viz_pca.md) *cannot* do: those project an enumerated budget-limited slice
    (the d3 560T canonical), this one is the population.
 2. **Per-slot and per-pair positional freedom** under C1 ∩ C2 ∩ C4 ∩ C5, stated as exact
    probabilities.

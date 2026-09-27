@@ -19158,3 +19158,605 @@ stamp needs re-stamping.
 statements on one line, and gcc's `-Wmisleading-indentation` class grew from its baselined 3 to 4, so
 the push gate refused the batch. The first `if` now braces its statement on the same line; behaviour
 is unchanged and the selftest still reproduces `403f7202`.
+
+## CX-194 — `scripts/build_pgo.sh` and `reports/certificates/verify_all.sh` used fixed `/tmp` names that two runs share, and `scripts/perf_bench.sh` named its resource group and VM after the launch minute; each run now gets its own names (scripts/build_pgo.sh, reports/certificates/verify_all.sh, scripts/perf_bench.sh, tests.py)
+
+**2026-09-27.** Origin: backlog row Q-856, filed by Opus FL in the CX-190 sweep (§5). Landed by
+Opus GB. Measured on the worker VM on a fresh clone of the staged batch-21 base with this change
+overlaid. No VM was provisioned and no real `az` command ran: perf_bench.sh was run against PATH
+stubs.
+
+**1. The defects.**
+- `scripts/build_pgo.sh` wrote its two selftest logs and its workload log to
+  `/tmp/pgo_pass1_selftest.log`, `/tmp/pgo_workload.log` and `/tmp/pgo_pass2_selftest.log`. A
+  failed build prints the last 20 lines of that log. Measured with a stub `gcc`: build A's
+  workload prints `MARK-A`, runs a whole second build B whose workload prints `MARK-B` and fails,
+  and then fails itself. On the old script A's error output showed `MARK-B` and not `MARK-A`: the
+  failing build reported another build's log.
+- `reports/certificates/verify_all.sh` built solve at `/tmp/roae_verify_solve`, wrote each
+  regenerated CNF, decompressed DRAT proof and LRAT file to `/tmp/roae_<target>.{cnf,drat,lrat}`,
+  and logged to `/tmp/roae_verify_all.log` unless `ROAE_VERIFY_LOG` was set. Two runs on one host
+  therefore overwrote a binary or a proof file while the other run was reading it, and appended to
+  one log. The scratch files were also never removed.
+- `scripts/perf_bench.sh` named its resource group `RG-PERFBENCH-<HHMM>` and its VM
+  `perfbench-<HHMM>`, where `<HHMM>` is the launch minute. Two benches launched in the same minute
+  would share one resource group, and the first teardown's `az group delete` would remove the
+  other bench's VM. Shown on the stubs: two benches with the minute pinned to `9999` both created
+  and deleted `RG-PERFBENCH-9999`.
+
+**2. The fixes.**
+- build_pgo.sh makes `build_dir/pgo_logs.XXXXXX` with `mktemp -d` before anything runs, writes
+  the three logs there, and prints the directory as `logs:` at the end. The directory is kept for
+  forensics, like the workload directory. The header has a new "Logs" paragraph.
+- verify_all.sh makes a scratch directory `${TMPDIR:-/tmp}/roae_verify.XXXXXX` with `mktemp -d`
+  and removes it with an `EXIT` trap. The solve build and every CNF, DRAT and LRAT file go there.
+  The command strings that `check` evaluates name `"$SCRATCH/…"` in quotes, so a `TMPDIR` with a
+  space in it still works. When `ROAE_VERIFY_LOG` is unset or empty, the log is a new file
+  `${TMPDIR:-/tmp}/roae_verify_all.XXXXXX`. It is kept, and its path is printed at the start of
+  the run, as before, and now also after the `RESULT:` line. `ROAE_VERIFY_LOG` still sets the log
+  path. The old default was documented only in the script, so the new default is documented in a
+  "LOG AND SCRATCH" paragraph in its header. A `mktemp` failure exits 2 with
+  `VERIFY_ALL_LOG=MKTEMP_FAILED` or `VERIFY_ALL_SCRATCH=MKTEMP_FAILED`.
+- perf_bench.sh names both resources after `<YYYYMMDD>-<HHMM>-<PID>-<8 hex>`. The last part is 4
+  bytes from `/dev/urandom`, and the script exits 1 before it provisions anything if it cannot
+  read them. The PID keeps two benches on one host apart, and the random part keeps two hosts
+  apart. The longest VM name is 40 characters, within Azure's limits of 64 for a Linux VM name
+  and 90 for a resource group. The three changed lines replace three lines, so no line citation of
+  the script moved.
+
+**3. The tests.** `TestQ856PerRunTmpAndCloudNames` in tests.py has 13 tests. build_pgo.sh runs
+against a stub `gcc`. verify_all.sh runs against stub `gcc`, `python3`, `drat-trim`, `cake_lpr`,
+`gunzip`, `lean` and `git` that record every binary and proof path they are given; `CAKE_LPR` is
+set so the LRAT paths are exercised too. It runs twice with the default log and once with
+`ROAE_VERIFY_LOG`. perf_bench.sh runs twice against the stubs of
+`TestQ847PerfBenchFreshWorkdir`, with an `ssh` that never connects, so each bench provisions and
+then tears down at once. The `date` stub of `TestQ851ScriptWorkdirTmpReuse` pins the launch minute
+to `9999`. The positive controls: every verify_all.sh run saw one solve build and at least 24
+CNF, 24 drat-trim and 24 cake_lpr calls, and printed PASS for the build, the selftest, the f4p
+match and three certificates; each bench created one resource group, created one VM and deleted
+one resource group; and the `ROAE_VERIFY_LOG` override is honoured. The defect cases check that
+the failed PGO build shows its own log, that the two verify_all.sh runs share no scratch path,
+that the scratch is gone after exit, that each default log is a different kept file, that the two
+benches use different names, that each teardown deletes the group it created, and that the names
+match their pattern and length limits. Two static checks find no `/tmp` path in the code lines of
+build_pgo.sh or verify_all.sh, apart from the `${TMPDIR:-/tmp}` defaults. The old scripts fail 9
+of the 13 tests, and the new ones pass all 13. Seven mutants were each killed: a fixed build_pgo.sh
+log directory; a fixed verify_all.sh scratch directory; no `EXIT` trap; a fixed default log; the
+solve build back at `/tmp/roae_verify_solve`; perf_bench.sh names keyed on the minute only; and
+names without the random part. The test's teardown removes fixed-name files in `/tmp` only when a
+stub wrote them, which happens only against the old scripts or a mutant.
+
+**4. The sweep.** Every tracked `.sh` and `.py` file except tests.py (107 files) was searched for
+a fixed `/tmp` path (commented and `mktemp` lines excluded), for a `mktemp` with no template, and
+for a cloud resource name built from `date` or from a time field.
+- Changed: the three scripts above.
+- `scripts/perf_bench.sh`: `/tmp/perf_bench_$$.log` and `/tmp/perf_bench_<HHMM>_$$_raw` are keyed
+  on the PID, which no two live runs on one host share, and the VM-side `/tmp/pgo_workload.log`
+  is on the VM that each bench provisions for itself. `/tmp/claude_session_vms.txt` is the shared
+  session VM log by design. All are left as they are, as CX-190 §5 also found.
+- `scripts/spot_health_precheck.sh` names its probe VM `spot-health-probe-$$` in a shared resource
+  group. A PID is unique on one host but not across hosts that share a subscription. It is not
+  keyed on the minute and is outside this row, so it is filed as a follow-up and not changed.
+- Every `mktemp` call without a template makes a unique name, so none of them is in this class.
+- `scripts/f1c5_adopt_digest_gate.sh` names `/tmp/solve` only in its usage text, and
+  `scripts/tr12_repro.sh` names `/tmp` only in sed patterns that normalise output. Neither writes
+  there.
+
+**5. Gates**, on the lane tree. `python3 tests.py` 677 tests OK (2 skipped); `scripts/doc_gates.sh` rc 0, no
+`[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targets` PASS, with no line shifted.
+solve.c did not change. tests.py is in the TR-12 reproduction fingerprint, so the stamp needs
+re-stamping.
+
+## CX-195 — the 2026-09-22 n=31 battery's answer receipts are published, TR-12 §Q2's "O3-`LAST^C15` remains uncommanded" is corrected, and row `c_q10a` fills its census column from the t sidecars (Q-857; scripts/tr12_repro.sh, scripts/d5_08_q6_q10a_shell_gate.sh, tests.py, reports/TR12_QUERY_PROGRAM.md, documentation/QUERY_INVENTORY.md, runs/20260906_kc_ladders_n31/README.md, reports/evidence/tr12/README.md, reports/evidence/tr12/banked_n31_20260922/, runs/20260906_kc_ladders_n31/sidecars/)
+
+**What was wrong.** The TR-12 battery's full-31 run of 2026-09-22 wrote answer rows whose values the
+public tree either did not carry at all or carried without their receipt. King Wen's REL rank (row
+`a1_q1b`), the n=31 delivery of the O3 endpoint and midpoint probes (`a2_q2`), the REL endpoints
+(`a1_q2b`), the 880 per-alternative `#alt` rows of King Wen's profile (`a2_q3_profile`), the Q4
+C3-census estimates (`a1_q4ac`) and the two Q8 galleries were not published. TR-12 §Q4 published
+the estimands and no value. TR-12 §Q2 said "O3-`LAST^C15` remains uncommanded", which is true of
+the command and was read as saying the value is unknown. It is not unknown: the O3-greatest walk
+of SUPER, `unrank_O3(N−1)` from row `a2_q2`, has C3 = 688 ≤ 776, so it lies in C15 and is the
+O3-greatest walk of C15. Separately, row `c_q10a` printed `NA:schema-v1-sidecar` in its census
+column on all 32 layers at n=31, because the f ladder's sidecars are schema v1. The t ladder's
+sidecars are schema v2, carry the census, and describe exactly f's state set, and the row did not
+read them. TR-12 §Q10 and QUERY_INVENTORY rows 9.5 and 10.5 said the census was "transcribed from
+the f-ladder sidecars". TR-12 §12.7 and §Open Problems row 9 said the three atlas follow-ups were
+not authorised or scheduled. All three were run on 2026-09-25, before the ladders were deleted.
+
+**1. The receipts.** `reports/evidence/tr12/banked_n31_20260922/` holds the run's own transcripts of
+rows `a1_q1b`, `a2_q1`, `a2_q1_labeling`, `a2_q1c`, `a2_q2`, `a1_q2b`, `a2_q3_profile` (with the
+run's 16-column exact TSV), `a1_q4ac`, `a1_q8_super`, `a1_q8_c15`, `a1_q8_chi2`, `a1_q8_subset`,
+`a1_q8_member` and `c_q10a_kwrank`. They are byte-identical to the run's copies with one
+exception: `a2_q1.txt` carried a price estimate twice in the engine's note on the exact C15 count,
+and both now read `<PRICE-REDACTED>`, as TR-12 §9 redacts that figure. The battery's `norm()` had
+already replaced run-host paths and pins with placeholders, and the README maps each
+placeholder to a public pin: engine commit `8af5e55c8eed` (the TR-12 §12 pin; `solve.c` is the same file at tag `tr12-v1.10`) and battery script
+`scripts/tr12_repro.sh` at `c633504e`. Every value that reads a ladder is labelled attested. The
+README states that the run's whole-run token is `TR12_REPRO=FAIL`, and that its `TR12_Q2=PASS`
+does not meet TR-12's Q2 completion contract. The raw artifact copies with run-host paths, the Q4
+per-draw file (439 MB) and the 2026-09-25 follow-up outputs are not published.
+
+**2. What a reader can re-derive.** `check_receipts.sh` in that directory needs only the tree and
+`python3`, and ends in `CHECK_RECEIPTS=PASS`. It checks:
+- C3 of the three O3 walks and of the REL-greatest walk (688, 904 and 1568), with King Wen's 776 as
+  the control, and that `unrank_O3(0)` is King Wen.
+- Q3's flow identity at every step: the alternatives' g sum to `g_parent`, and their min and max
+  are the TSV's `g_alt_min` and `g_alt_max`. The same checks run on the n=9 golden.
+- Q4's `p̂`, `μ_walk^C15`, their Wilson intervals and all 175 per-bin intervals, from the counts.
+- Q8's C1/C2/C4/C5 membership of all 2,000 walks, the 16 bucket counts, the chi² 20.224 and the
+  110/1000 subset count.
+- Row `c_q10a`, cut verbatim from `scripts/tr12_repro.sh` and run on the published atlas and
+  sidecars.
+
+`μ_rec^C15` needs the per-draw record sizes, and uniformity at n=31 needs the ladder. Both are stated
+as not re-derivable.
+
+**3. The Q10 fallback.** In row `c_q10a`, when an f sidecar is tagged schema v1 and `--tdir` names a
+t ladder, the census column comes from `t_layer_stats_XX.json` of the same layer. Every other
+column stays f's, because t's `mass_total` is in t-units, not N. The fallback is taken only when
+four things hold:
+- the t sidecar is tagged v2;
+- its `n_masks` equals f's;
+- its `n_entries` equals f's;
+- the census's `n_masks` and `n_entries` columns sum to those counts.
+
+Any miss prints `k<TAB>T-CENSUS-MISMATCH` and fails the row. A `Q10A_CENSUS_SOURCE` line names the
+source. Without `--tdir`, or with no t sidecar, the row prints NA as before. The n=9 golden does not
+move, because n=9 f sidecars are v2. The 32 f and 32 t sidecars are published under
+`runs/20260906_kc_ladders_n31/sidecars/`. Each is a row of the published `STAGE_F_SHA256.txt` or
+`STAGE_T_SHA256.txt`, and 64/64 check. Run on them with no t sidecars, the row reproduces the
+2026-09-22 transcript byte for byte (`c_q10a_20260922_asrun.txt`). With them, it gives
+`c_q10a.txt`: columns 1–4 and 6 are unchanged on all 32 rows, and column 5 equals each t sidecar's
+`orbit_size_census`. The g sidecars are not published, because g's `n_entries` covers a different
+entry set on every layer but the first. The record-orbit census is still not emitted.
+
+**4. The text.** TR-12 gets revision row v1.17. It adds the n=31 values in §Q1, §Q2, §Q2's
+mechanism bullet, §Q3, §Q4 and §Q8 as dated in-place notes, and corrects §Q2's sentence, §Q10's
+"from the f-ladder sidecars", §(c)'s NA sentence, §12.7 and §Open Problems row 9. QUERY_INVENTORY
+rows Q1b, Q2, Q2b, 9.5 and 10.5, the runs README (a new section on the sidecars) and the TR-12
+evidence README are updated to match. Every doc edit to an existing line is same-line; the runs
+README's new section is inserted above its closing "Rights" section. The row change adds 22 lines to
+`scripts/tr12_repro.sh` above row `c_q10a`'s end, so five citations of later lines moved with it
+and were re-pinned on their own lines: four in QUERY_INVENTORY (3184, 3826, 3840 and 3845, each +22)
+and one self-citation in the script (3234 to 3256).
+
+**5. The tests and the gate.** `scripts/d5_08_q6_q10a_shell_gate.sh` gains four legs:
+- leg 7: v1 f sidecars with matching t sidecars, census filled from t and f's mass kept;
+- leg 8: t's `n_entries` off by one while the census still sums to f's;
+- leg 9: the census sums disagree while the headers match;
+- leg 10: a t sidecar tagged v1.
+
+It also gains five mutants, each killed: the state-set clause dropped, t's mass leaking into
+column 4, the sum clause dropped, the fallback never taken, and t's schema tag unchecked. On the
+unmodified row the gate is red at leg 7. `TestQ857BankedN31ReceiptsAndQ10CensusFromTSidecars` in
+tests.py has 6 tests:
+- a precondition that the 64 sidecars are the registry's bytes and the bundle's `SHA256SUMS`
+  checks;
+- the shell gate and its five new mutants;
+- `check_receipts.sh` with every expected token;
+- a positive control on an untampered mirror;
+- three tampered mirrors, each of which must end `CHECK_RECEIPTS=FAIL`;
+- the census's column-by-column agreement with the as-run transcript and the t sidecars.
+
+**6. Not done here.** `viz/viz_kc_shells.md` still says the per-alternative rows are unpublished,
+and `documentation/HISTORY.md` quotes `p̂ = 0.12093700` without pointing at its receipt. Both are
+filed as follow-ups: viz/ was outside this change's scope, and HISTORY.md is append-only.
+
+**7. Gates**, on the lane tree: `python3 tests.py` 670 tests OK (2 skipped); `scripts/doc_gates.sh`
+rc 0 with this entry appended; `scripts/citation_line_gate.sh --all-files --all-targets` PASS;
+`scripts/d5_08_q6_q10a_shell_gate.sh` PASS with 15/15 mutants killed. `scripts/tr12_repro_gate.sh` (no
+stamp) printed `TR12_REPRO_GATE=FAIL` with a single failing row, `TR12_VIZ=FAIL:output-mismatch`, and
+an unmodified copy of the same base tree printed the same result, so that failure is not from this
+change. Row `c_q10a` passed at n=9 there, and the n=9 golden did not move. The TR-12 fingerprint
+inputs changed (`scripts/tr12_repro.sh`, `scripts/d5_08_q6_q10a_shell_gate.sh`, tests.py), so the
+stamp needs re-minting at integration.
+
+## CX-196 — the last ring of the argument refusals: sixty-three more modes accepted an argument they did not read; `--show` exited 0 on a record it could not read; a refused enumeration left `solve.binary.snapshot` behind (solve.c; tests.py; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md)
+
+**2026-09-27.** Origin: backlog row Q-852, the follow-up CX-187 item 5 filed, and three follow-ups
+the batch-21 `--show` reserved-bit lane (Q-855) filed. Landed by Opus GA. Measured on the worker
+VM on a fresh clone of the batch-21 staged base with this change overlaid.
+
+**No published number moves.** Every argument change is in an argv parse, before the mode does any
+work, and none is on the enumeration path. The snapshot change moves one sidecar write later in
+the enumeration's startup; it is not part of `solutions.bin`. `./solve --selftest` prints
+`403f7202…` PASS.
+
+**1. Q-852, read branch by branch.** CX-187 found this class by a text search and did not read it.
+Each dispatch branch and each handler it names was read here. A mode is in scope when an argument
+it does not read was accepted and the mode ran as if the argument were absent.
+- *Eleven modes read an optional `argv[2]` and never looked at `argv[3]`*: `--verify-rule2`,
+  `--verify-9th-six`, `--verify-wrap-parity`, `--rc1c-verify`, `--r11-verify`, `--rc4b-verify`,
+  `--cpu-freq`, `--emit-shard-manifest`, `--verify-shard-manifest`, `--regression-test` and
+  `--double-regression-test`. This is the `--c3-min` defect CX-183 fixed.
+- *Seven modes with a fixed or bounded count never looked past it*: `--validate-canonical` (2),
+  `--preflight` (at most 1), `--disk-precheck` (at most 3), `--knuth-dump-prefix` (2),
+  `--f1c5-verify-layer` (2), `--validate-launcher-config` (2) and `--compare-provenance` (2).
+- `--canonical-config SCALE [--full]` ignored any third argument that was not `--full`, and
+  anything after it. A misspelt `--ful` printed the short form.
+- `--help` and `-h` ignored any argument.
+- *Three option loops skipped what they did not know.* `--check-arrangement` scanned argument
+  pairs, so `--cert-out` as the last argument wrote no certificate and the check exited 0.
+  `--verify-certificate` had no final `else`. `--kde-score-stream` stopped one short of the end,
+  so a value-less option in last place was dropped, and a missing `--threshold` was read as 0.0.
+- *The `--kc-*` family.* The seventeen `--kc-*-selftest` commands ignored any argument.
+  `--kc-midn` and `--kc-oocverify` scanned pairs like `--check-arrangement`. `--kc-g-build`,
+  `--kc-g-check`, `--kc-g-check-layer`, `--kc-t-build`, `--kc-t-check`, `--kc-o3-cert`,
+  `--kc-ar2`, `--kc-ladder-verify` and `--kc-scan` had no final `else`. `--kc-g-status`,
+  `--kc-t-cert` and `--kc-extremal list` ignored an argument after their last one. The common
+  scan behind `--kc-build`, `--kc-count`, `--kc-enum`, `--kc-enum-desc`, `--kc-unrank`,
+  `--kc-rank`, `--kc-member`, `--kc-repr` and `--kc-sample` refused an unknown option (Q-326) but
+  ignored a positional argument beyond the ones each command reads.
+
+Each is now refused with exit 2, a `<MODE>_ARGS=REFUSED` line on stderr (for example
+`VERIFY_9TH_SIX_ARGS=REFUSED`, `KC_SELFTEST_ARGS=REFUSED`; `-h` prints `HELP_ARGS=REFUSED`) and a
+stderr line naming the first argument refused, as the CX-179, CX-183 and CX-187 modes do. Nothing
+goes to stdout, except that `--kc-scan` still prints its `KC_SCAN=FAIL`. The refusal comes before
+any work: before a file is opened, a gate runs or an enumeration starts. `--kde-score-stream` now
+requires `--threshold` like its other three options (its usage line, exit 2). `--canonical-config`
+and `--validate-launcher-config` refuse with exit 2, not their usage code 25.
+
+Two helpers print the refusal. They are defined after the last function of `solve.c`, with their
+prototypes on the existing prototype line, and every call site is an addition to an existing
+line, so no line of `solve.c` moved.
+
+**Read and left alone**, because each already refuses what it does not read: `--f1c5-layer-cmp`
+(`argc != 4`); `--f1c5-layer-sha` and `--f1c5-sidecar-retrofit`, which read every argument as a
+path or a layer index; `--f1-exact-c1c2`, `--f1-exact-c1c2c4`, `--f1-exact-c1c2c4c5` and
+`--f1-c3-hist`, which print their usage on an unknown argument; `--kc-o3-rank`, `--kc-o3-unrank`,
+`--kc-oracle`, `--kc-scan-merge`, `--kc-profile`, `--kc-dead-census`, `--kc-witness-walks` and
+`--kc-extremal` (other than `list`), which each end their option loop with a refusal.
+
+**2. No caller passes an extra argument.** Every invocation of the changed modes in `solve.c`,
+`solve.py`, `verify.py`, `tests.py`, `scripts/`, `reports/` and `documentation/` was listed
+(HISTORY.md and CORRECTIONS.md left out as records). A scan of every tracked `.sh`, `.py`, `.md`
+and `.c` file took each occurrence of a changed mode and the options after it on the same line,
+and found no option the new parse refuses except in prose, such as a list of mode names. The
+optional-argument modes are called with at most their one argument: the `--r11-verify` gates in
+`reports/evidence/r11/` bare, `--emit-shard-manifest` bare in
+`scripts/test_eviction_resume_manifest.sh`, `--cpu-freq` with one threshold, and
+`--verify-shard-manifest` with one path in DEVELOPMENT.md and LARGE_SCALE_CAMPAIGNS.md.
+`solve.py` calls `--kde-score-stream` with all four options. `solve.c` calls itself with
+`--kc-scan` and `--kc-scan-merge` using only `--kc-tdir` and `--kc-layers`. The full `tests.py`
+run below exercises the rest.
+
+**3. FP follow-up (a): `--show` exits 10 on a record it cannot read.** A failed `gzseek` or a
+short `gzfread` printed `[R]: <gzseek failed>` or `[R]: <gzfread truncated>` on stderr, skipped
+the record and exited 0. Measured on the base build: a headed file that declares 3 records and
+holds 2 exits 0 with `--mode first` and `--mode last`, and so does a gzipped file cut in half with
+`--mode last`. Such a run now ends with a `SHOW_RECORDS=IO_ERROR` line on stdout and exit 10, the
+documented I/O-error code (`--show` already used 10 when it could not open the file). Stderr says
+how many of the records asked for could not be read. This takes precedence over
+`SHOW_RECORDS=MALFORMED`, because the sample is incomplete, and the stderr line says so when some
+records read were also malformed. A complete file is unchanged: exit 0 and no token.
+
+**4. FP follow-up (b): a refused enumeration no longer leaves `solve.binary.snapshot`.** The
+enumeration wrote `solve.binary.snapshot` before three of its startup refusals: the lock (exit 27),
+`build.sha` (26) and the shard-manifest auto-verify (22). So a refused run left a snapshot of a
+binary that never enumerated in that directory. Measured on the base build: a malformed
+`build.sha` (a directory by that name) leaves `solve.binary.snapshot` beside it at exit 26, and a
+`shard_manifest.txt` that names a missing shard leaves it at exit 22. Two processes racing for the
+lock also shared the name `solve.binary.snapshot.tmp`. The snapshot is now written after the
+manifest check, so a run refused at any of the three leaves none. A clean run still writes it.
+The order comment in `solve.c` and the snapshot entries in SOLVE_C_CLI.md (FILES) and
+DEVELOPMENT.md say so.
+
+Three writes still precede a refusal, and were left as they are. At `SOLVE_NODE_LIMIT` of 1T or
+more, `canonical-host-fingerprint.json` is written before the lock; measured on the base build, a
+1T run refused with exit 26 leaves it. It was moved with the snapshot at first, but
+`TestSolveVerifyFramingCountersAndIdentityQ619Q641.test_host_fingerprint_digests_the_solve_binary`
+uses that exit-26 refusal to stop a 1T run straight after the capture, and it failed. Moving the
+capture needs another stop point for that test, so it is filed as a follow-up. `build.sha` is
+written, when absent, before the manifest check, so a run refused with exit 22 in a directory with
+a manifest but no `build.sha` leaves one; a directory with a manifest has almost always had a run,
+so it normally exists already. The resume-shape contract (exit 34) is checked later, after the
+snapshot. It fires only where a live `*.dfs_state` frontier exists, that is, in a directory where
+an earlier run normally wrote its snapshot already, and the snapshot write leaves an existing
+snapshot unchanged.
+
+**5. FP follow-up (c): the `sol_pidx_scan` comment.** The Q-520 comment in `solve.c` said
+`--verify`, `--validate`, `--show` and the kc-oracle decoder "all refuse" a byte with bit 7 set.
+`--show` never refused it: before Q-855 it printed `<decode failed>` and exited 0, and since then
+it prints the record flagged and exits 20. The comment now says that. Swept: SOLUTIONS_FORMAT.md
+and SOLVE_C_CLI.md already describe `--show` correctly, and no other comment in `solve.c` says
+`--show` refuses a record.
+
+**6. Q-853 was already fixed.** Lane FM (batch 20, CX-189) made `sol_pidx_scan` mask `0x81`, and
+`TestQ853SolPidxScanReservedBit0` covers every reader the row names. Nothing was changed for it.
+
+**7. Tests**, on the lane tree. A new `tests.py` class,
+`TestQ852ArgRefusalLastRingAndShowIoSnapshot`, has 10 tests. It runs each changed mode with one
+extra argument and with two, or with an unknown option, a value-less option or an extra
+positional, and requires exit 2, the mode's token, the line naming the argument and nothing on
+stdout. It runs the seventeen `--kc-*-selftest` commands with one argument. It runs `--show` on a
+short headed file, a truncated `.gz` and a file with both a malformed record and a missing one. It
+runs the enumeration, at a 3,030,000-node limit, refused with exit 26 and with exit 22, and
+requires that no snapshot exists. Each run has its own process group, so a pre-fix run
+that times out is killed with its children. The positive controls pass on both trees. They run
+the documented forms: the three McKenna audits on a King Wen file; the three R-gates bare;
+`--cpu-freq 1`; `--help`; `--canonical-config 560T --full`; `--knuth-dump-prefix 3 1`;
+`--check-arrangement KW --cert-out FILE --label L1`, which must write the certificate; and the
+n = 9 f and g ladders, built once, under `--kc-count`, `--kc-rank`, `--kc-member`, `--kc-sample`,
+`--kc-enum --kc-limit 1`, `--kc-unrank … --kc-record`, `--kc-g-status`, `--kc-g-check`,
+`--kc-ladder-verify`, `--kc-extremal list` and `--kc-midn 9`. A value-less `--label` keeps its own
+refusal. A complete file under `--show` exits 0, and a clean enumeration writes the snapshot.
+Measured via `ROAE_TESTS_SOLVE_SRC`:
+- the pre-fix solve.c: 102 failures across 7 of the 10 tests (every refusal case, the
+  `--threshold` case, every `--show` read-failure case, both snapshot cases and the comment
+  check); the three positive-control tests pass;
+- fourteen mutants, each killed: the extra-argument helper made a no-op (63 failures); the
+  `--kc-*` positional limit removed (9); the `--verify-rule2` limit lowered by one, which refuses
+  the bare file (3); the snapshot written before the lock again (2); a short `gzfread` not counted
+  (4); the read-failure exit set back to 0 (4); `--threshold` made optional again (1); the
+  `--kc-*-selftest` check disabled (17); the `--check-arrangement` final `else` removed (3);
+  `--cert-out` read without its value check (1); `--canonical-config` accepting an argument after
+  `--full` (1); the `--help` refusal removed (4); the `--kc-scan` final `else` removed (1); and
+  `--kc-ar2` accepting a positional in any place (1).
+The new solve.c passes all 10 tests.
+
+**8. Not changed**, filed as follow-ups. A repeated option still lets the last one win, in the
+option loops of `--show` (`--show 5 7`, two `--from`), the `--f1-*` and `--kc-*` families and the
+others above; CX-183 fixed this for the file names of `--verify` and `--validate` only. Several
+numeric arguments are still read with `atoi`, `atol` or `atoll`, which map garbage to 0 or to a
+prefix: the `--cpu-freq` threshold, the `--regression-test` and `--double-regression-test`
+budgets, `--disk-precheck`'s `required_gb`, `--knuth-dump-prefix`'s depth, `--kc-midn N`, every
+`--kc-cache-mb` and `--f1-pairs`, and `--kc-sample`'s COUNT. `--null-random` and its siblings
+already validate theirs (Q-845). `canonical-host-fingerprint.json` is still written before the
+lock, `build.sha` and manifest refusals (item 4).
+
+**9. Gates**, on the lane tree. `./solve --selftest` sha256 `403f7202…` PASS; `python3 tests.py`
+674 tests OK (2 skipped); `scripts/doc_gates.sh` rc 0, no `[FAIL]` finding;
+`scripts/citation_line_gate.sh --all-files --all-targets` PASS, with no line shifted. solve.c and tests.py are in the TR-12 reproduction
+fingerprint, so the stamp needs re-stamping.
+
+**Compile-gate note (integration, 2026-09-27).** Three of the call sites above put a second
+statement after an unbraced `if (…) return N;` on one line (38543, 38672 and the snapshot line
+49443), which gcc 13.3.0 reports as `-Wmisleading-indentation`; `scripts/pre_push_compile_gate.sh`
+ratchets that class at 3 and refused the tree at 6. Each is now `if (…) { return N; }` on the same
+line; the gate passes at 8 warnings inside the baseline, and no line moved.
+
+## CX-197 — `viz/README.md` opened with the 560T canonical banner and three dated status narratives, and its PCA regeneration recipe climbed one directory too many; it is now the TR-12 figure entry point, and the three enumerated-slice pages move to `viz/archive/` (viz/README.md; viz/archive/; documentation/CANONICAL_HASHES.md; runs/20260419_100T_d3_d128westus3/README.md; viz/viz_kc_field.md; viz/viz_kc_spectrum.md; reports/METHODS.md)
+
+**2026-09-27.** Origin: Lane B of the visualization review that followed the VIZ1 figure review
+(CX-191, CX-192). Operator decisions: archive the three historical pages rather than delete them;
+the TR-5 and TR-7 renderers come later, in their own batch; the TR-4 legend placement is left as
+it is. Landed by Opus VB. Measured on the worker VM on a fresh clone of the batch-21 base with this
+change overlaid.
+
+**1. What was wrong with `viz/README.md`.** The directory's index opened with the d3 560T canonical
+banner and the two enumerated-slice pages, so a reader arriving from TR-12 met the historical
+material first. The V-family section was a dated status narrative. It had three paragraphs that
+each recorded a blocker it used to name, struck-through status lines, and a status table from
+2026-09-04. None of that described the tree as it stands. The status history is kept in this
+ledger and in git history. One instruction was also wrong. The "Regenerating from a fresh
+solutions.bin" recipe ran `python3 ../../../../viz/visualize.py` from `runs/<run-id>/viz/`. That
+climbs four levels, one past the repository root, so both commands in the block named files that
+do not exist. From `runs/<run-id>/viz/` the right prefix is `../../../`. That was checked in the
+tree: `ls ../../../viz/visualize.py` resolves from `runs/20260608_560T_9a968fa2/viz/`, and the
+four-level path does not. No other tracked file carries either path.
+
+**2. The rewrite.** `viz/README.md` keeps its path and has six parts. The first says what the
+directory is. The second is the TR-12 figures: one row each for V1–V5 and the scale figure, with
+the committed input table and the provenance-footer digest prefix it prints, the spec page, and
+where the figure is embedded. The space label (C1C2C4C5-SUPERSPACE; C3 not imposed) is stated
+once, with the VIZ1 F21 scope sentence. The third is the reproduction command,
+`cd reports/figures && python3 ../../viz/report_figures.py`. It states that PNG byte-identity
+requires matplotlib 3.11.0, measured 2026-09-27 with numpy 2.4.4 (10 of 10 committed PNGs
+identical; none under 3.6.3, CX-192). It also covers the SVG metadata stamp, why SVGs compare
+line-wise, the 12-px text floor, the provenance footer, the shape guards and the `viz-shape` gate.
+It says that the TR-5 and TR-7 figures have no renderer. The fourth says how the tables are
+produced. The fifth is the index of every committed figure, kept from the old file, because the
+landing README calls this file the complete index. The sixth is the historical tools with the
+corrected recipe. The file went from 204 lines to 129. The definition of SUPERSPACE that
+PREREG_CLASSA_QUERY_SET.md attributes to this file is kept.
+
+**3. The archive.** `viz_pca.md`, `viz_graphs.md` and `viz_narrative.md` moved to `viz/archive/`
+with `git mv`. Nothing was deleted. `viz_narrative.md` moved unchanged, with its HELD status. It
+has no relative links. In the other two pages every relative link was rebased one level up, and
+"alongside this doc" beside `viz/visualize.py` now reads "one directory up from this archived
+page". A one-paragraph `viz/archive/README.md` says what the pages describe and why they are
+kept. Inbound links were updated at every citing site: `documentation/CANONICAL_HASHES.md` (line
+80), the 100T run README (line 117), and the nav lines of `viz/viz_kc_field.md` (line 12) and
+`viz/viz_kc_spectrum.md` (line 11). A second link in `viz/viz_kc_field.md` (line 219, "PCA
+figures") also named `viz_pca.md`. The review's link map did not list it. It was updated with the
+same same-line edit. Neither CORRECTIONS.md nor HISTORY.md links any of the three moved pages, so
+no append-only text names a dead path. Comments and two figure-footer strings in `viz/report_figures.py` still give the narrative page's
+old path. They move with the generator change that follows this one.
+`documentation/CORRECTIONS_INVENTORY.tsv` still lists the old paths in five rows. It is generated,
+and no gate consumes it.
+
+**4. The matplotlib pin in METHODS.md.** The Python row of the environment table claims
+stdlib-only on every reproduction path. It now also says that figure regeneration is optional and
+outside that claim, that it needs matplotlib 3.11.0 + numpy for byte-identical PNGs, and that the
+SVGs record the version. The review asked for a new table row. A new row would have shifted five
+line citations into `reports/METHODS.md` held by gate scripts (`citation_line_gate.sh` leg A
+failed with "5 citation(s) left behind"). So the sentence went into the existing row as a
+same-line edit instead.
+
+**5. Line citations.** Every edit to a file with pinned lines was a same-line edit.
+`viz/viz_kc_field.md:34` and `viz/viz_kc_grammar.md:61` did not move. Apart from the new
+`viz/archive/README.md`, only `viz/README.md` changed length, and none of its lines is cited. `viz/viz_kc_field.md` is in the TR-12 reproduction fingerprint, so the stamp needs
+re-stamping.
+
+**6. Gates**, on the lane tree: `python3 tests.py` 664 tests OK (2 skipped);
+`scripts/citation_line_gate.sh --all-files --all-targets` PASS, with no line shifted;
+`scripts/doc_gates.sh` `links`, `figures` and `liveness` PASS; `scripts/a2_slot_verdict_gate.sh`
+and `scripts/a5_orbit_membership_gate.sh` PASS. The full `scripts/doc_gates.sh` run had one
+finding, GATE 91 (`documentation/HISTORY_INDEX.md` stale). That finding is not from this change:
+the base tree without it gives the same finding, and this change touches neither file.
+`git ls-files viz/` lists the three pages under `viz/archive/`, and no tracked Markdown file
+outside `viz/archive/` names their old paths.
+
+## CX-198 — the documented figure command wrote two uncommitted figures into reports/figures/, and nothing recorded which matplotlib version the committed PNGs need; the narrative figures are now opt-in and the version is pinned (viz/report_figures.py; tests.py)
+
+**2026-09-27.** Origin: backlog row Q-862, which is Lane C of the visualization review's reorganization
+plan. Landed by Opus VC. Measured on the worker VM on a fresh clone of the batch-21 base with this
+change applied.
+
+**1. The uncommitted files.** The command in the generator's own Usage line is
+`cd reports/figures/ && python3 ../../viz/report_figures.py`. It rendered the ten committed figures,
+and it also rendered `viz_narrative_n1_object` and `viz_narrative_n2_fg_mechanism`. Those two figures
+belong to a document with no public counterpart, their spec marks them HELD, and they are not
+committed. So every documented run left four untracked files in `reports/figures/`, and a careless
+`git add` there would have published them. The two calls now run only under `--narrative`. The
+default run writes exactly the ten committed stems, which is 20 files. That was measured by rendering
+into an empty directory. The code and comments that named the narrative spec now point at its new
+location, where the companion reorganization moves it (viz/archive/). The two narrative
+provenance footers were updated the same way. They are drawn only under `--narrative`, and neither
+figure is committed.
+
+The command line is now parsed in one place, `_parse_cli`. An unknown `--option` is a usage error
+with exit 2. Before, the option was read as the TR-12 artifact root, so a mistyped `--narrative`
+was taken as a directory name. More than one positional argument is also a usage error.
+`--selftest` behaves as before.
+
+**2. The version pin.** Byte-identical PNGs depend on the matplotlib version. Under matplotlib 3.11.0
+a re-render reproduced all ten committed PNGs, and under 3.6.3 none of them matched (CX-192). Before
+this change, the version was recorded only in the metadata of the committed SVGs. The generator now
+carries `EXPECTED_MATPLOTLIB = "3.11.0"`. When the version differs, the command-line entry point
+prints one line to stderr:
+`MPL_VERSION=MISMATCH have=<v> expected=3.11.0 -- PNG bytes will not match the committed figures`.
+It then renders as before, with stdout unchanged. With the matching version it prints nothing.
+
+The line is printed only by `main()`. `tr12_figures()` and `save()` do not print it. The n=9
+reproduction battery calls `tr12_figures()` directly and captures stdout and stderr together into
+row c_viz, and that row is golden-diffed. The battery also runs under the host's own matplotlib,
+which is 3.6.3 on the worker. If the line came from `save()`, the golden would change on any host
+that is not on 3.11.0. For the same reason, `--selftest` exits before the check.
+
+**3. The tests.** `TestQ862VizGeneratorHygieneVC` in tests.py has 8 tests:
+- `EXPECTED_MATPLOTLIB`, read by AST, must equal the `Matplotlib v…` stamp in every committed
+  `reports/figures/*.svg`, exactly once per file. All 12 SVGs carry `Matplotlib v3.11.0`. The
+  positive control shows the comparator catches a wrong version, a missing stamp and a doubled stamp.
+- The mismatch note must be a single line, and it must be `None` on a match.
+- Only `main` may read the version or call the note.
+- `main` is run with stub renderers, first with no arguments, then with `--narrative ROOT`, then
+  with `--selftest`. It must call the right renderers in each case and pass the right root, and a
+  mismatch must go to stderr once, with nothing on stdout.
+- `_parse_cli` must refuse an unknown option and a second root with exit 2.
+- The documented command runs in a subprocess in an empty directory and must write exactly the 20
+  committed files. This test is skipped when matplotlib or numpy is absent.
+
+One assertion in `TestViz1FigureFixesFO` looked for the default-root expression in the
+`__main__` block. That expression now lives in `_parse_cli`, so the assertion reads it there. This
+is a one-line change.
+
+With the old generator, 7 of the 8 tests fail. The positive control passes on both versions, as it
+should. Seven mutants were each killed:
+- never warn;
+- warn on stdout;
+- call the note from `save()`;
+- pin 3.6.3;
+- render the narrative figures unconditionally;
+- make `--narrative` the default;
+- take an unknown option as the root.
+
+**4. Regression gate: byte identity.** No rendering code path changed. Rendering into an empty
+directory under matplotlib 3.11.0 and numpy 2.4.4 wrote 20 files, and all 10 PNGs are byte-identical
+to the committed ones. After the `<dc:date>` value and the element ids are normalized away, all 10
+SVGs are equal. No image was re-committed. Under the worker's default matplotlib 3.6.3, the
+`--narrative` run printed the mismatch line once on stderr, and its stdout, apart from the two
+narrative lines, was identical to the 3.11.0 run's stdout.
+
+**5. Gates.** `python3 viz/report_figures.py --selftest` prints `VIZ_SHAPE_SELFTEST=PASS` under
+both matplotlib versions. The n=9 battery: row c_viz passes with no `diff/c_viz.diff`. The lane
+did not record its `tests.py`, `doc_gates.sh` and citation-gate results; on the integrated
+batch-22 tree the pre-push check ran `python3 tests.py` 711 tests OK (2 skipped), `scripts/doc_gates.sh`
+rc 0 and `scripts/citation_line_gate.sh --all-files --all-targets` PASS. `viz/report_figures.py`
+and tests.py are in the TR-12 reproduction fingerprint, so the stamp needs re-stamping.
+
+## CX-199 — the Spot precheck named its probe VM by PID alone, so one run's cleanup could delete another run's probe; GATE 21 carried the operator's private checkout path in a public script (scripts/spot_health_precheck.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/pre_push_gate.sh; scripts/exec_lane.sh; scripts/failopen_closure_gate.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-09-27.** Origin: backlog rows Q-860 (filed by the Q-856 sweep) and Q-861 (filed at a
+pre-push review checkpoint). Landed by Opus GD. Measured on the worker VM on a fresh clone of the
+batch-21 base with this change overlaid.
+
+**1. The probe name.** `scripts/spot_health_precheck.sh` launches a small Spot VM as its third
+signal. It named the VM `spot-health-probe-$$` in a resource group that other runs share, and its
+EXIT trap deletes the VM and its NIC by that name. A PID is unique only on one host, and only
+while the process is alive. Two prechecks on different hosts can draw the same PID, and then the
+first one to exit deletes the other's probe while the other is still polling it. The name is now
+`spot-health-probe-<pid>-<8 hex>`, with the 8 hex characters read from `/dev/urandom`. If that read
+fails or returns anything other than 8 hex characters, the script prints `SPOT_PRECHECK=ERROR` and
+exits 4 before its first `az` call. It does not fall back to the old name. The longest name is 34
+characters, and the derived NIC name is 39, inside Azure's limits of 64 and 80. The header's list of
+what exit 4 means now includes this case.
+
+**2. The private path.** GATE 21 (`doc_gates.sh script-paths`) resolves backticked prefixed paths.
+Two of its legs, COLLISION and STALE-PRIVATE, check against the operator's private checkout. The
+function set that location to an absolute path on the operator's machine, so a public script
+carried a private path. The location now comes only from `ROAE_PRIVATE_DIR`, which has no default.
+When the variable is unset, empty or not a directory, the two legs are skipped, the gate prints a
+`[SKIP]` line naming the reason, and it prints the whole line
+`DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-unset` or
+`DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-not-a-directory`. When the legs run, it prints
+`DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN`. Their PASS and FAIL behaviour is unchanged. The dangle leg runs
+either way. Before this change, a missing checkout printed a `[note]` and no token. The token and
+the variable are documented in a new DEVELOPMENT.md section on GATE 21.
+
+On the operator's machine, the gate now runs its private legs only if `ROAE_PRIVATE_DIR` is set in
+the environment of the process that runs `doc_gates.sh`. That includes the pre-push hook and any
+scheduled job.
+
+**3. The sweep.** Every tracked `*.sh` and `*.py` file was searched for non-comment lines that hold
+an absolute home-directory path or a path to the private checkout next to the public one. Three
+more sites were found and fixed:
+- `scripts/pre_push_gate.sh` looked for two operator-side scripts at a path two directories above
+  the public repo: the scale-distinguishability gate and the review-loop queue. Both are advisory
+  and stay silent when absent. Both are now found under `ROAE_PRIVATE_DIR`, and are silent when it
+  is unset. `ROAE_REVIEW_QUEUE` still overrides the review-loop path.
+- A docstring in `scripts/exec_lane.sh` gave a measurement's working directory as an absolute path
+  on the operator's machine. It now says "the repo root". This is a same-line edit.
+- The `plant_abs.sh` fixture in `scripts/failopen_closure_gate.sh`'s self-test used the operator's
+  path as its example of a hard-coded absolute path. It now uses a made-up user name, which the
+  detector matches the same way. This is a same-line edit.
+
+Every tracked script that calls `az` to create or delete a resource was also searched for a name
+built from a PID or the time alone. Apart from the probe, one was found: `scripts/perf_bench.sh`
+names its resource group and VM from the launch hour and minute. That file belongs to another lane
+in this batch, so it was not changed here, and it is filed as a follow-up. An archived launch log
+under `reports/evidence/` also holds an operator path. It is a recorded artifact, so it was left
+as is.
+
+**4. The test.** `TestQ860Q861PrivateNamesAndPaths` in tests.py has 10 tests. The precheck runs end
+to end against PATH stubs only: `az` logs its arguments and answers as a healthy region would,
+`sleep` returns at once, and for the fail-closed case `od` exits 1. No VM is created and nothing is
+spent. The tests check that the created name matches `spot-health-probe-<pid>-<8 hex>` and is not
+the PID-only name. They check that every `vm show`, `vm delete` and `nic delete` uses the name this
+run created, that two runs draw different suffixes, and that a failed read gives
+`SPOT_PRECHECK=ERROR`, exit 4 and no `az` call at all. The same stubs without the failing `od` do
+reach `vm create`, which is the positive control for the last test. GATE 21 is driven through the
+real `doc_gates.sh` entry and its modules, copied into a scratch git repo with planted documents
+and a fake private checkout:
+- unset or empty: exit 0 and the `SKIP:ROAE_PRIVATE_DIR-unset` line;
+- a directory that does not exist: exit 0 and the `SKIP:ROAE_PRIVATE_DIR-not-a-directory` line;
+- set, with a planted `scripts/` path that exists only in the private checkout: exit 1, COLLISION;
+- set, with a `roae-private/` pointer whose target is absent: exit 1, STALE-PRIVATE;
+- set, with a pointer that resolves: exit 0, `RAN`, no `[FAIL]` (positive control).
+
+A last test scans the tracked scripts for the path shapes this change removed. The pattern is
+generic, so the test does not itself contain the path it forbids. Its positive control shows that
+the pattern matches both of the removed lines.
+
+On the old code, 8 of the 10 tests fail. The two that pass are the positive control and the
+two-run test: on the old code two runs differ by PID, which is not what the test is for. Each of
+nine mutants was killed:
+- the failed read falling back to the PID-only name;
+- a constant suffix;
+- the suffix removed;
+- cleanup deleting by the PID-only name;
+- a hard-coded default directory restored;
+- the SKIP token dropped;
+- the private legs never running;
+- a set but absent directory treated as present;
+- the unset case passing without a SKIP line.
+
+**5. Gates**, on the lane tree. `python3 tests.py` 674 tests OK (2 skipped); `scripts/doc_gates.sh` rc 1, with one `[FAIL]`:
+GATE 91 (HISTORY_INDEX.md is not a fresh generation). That finding is present on the batch-21 base
+without this change and is not touched here. GATE 21 prints
+`DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-unset` on the worker, and GATE 89 finds no new
+undocumented token. `scripts/citation_line_gate.sh --all-files --all-targets` PASS, with no line
+shifted: the new DEVELOPMENT.md section is at the end of the file, and no tracked text cites a
+line of the three scripts that grew. solve.c is not changed. tests.py is in the TR-12
+reproduction fingerprint, so the stamp needs re-stamping.

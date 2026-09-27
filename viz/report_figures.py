@@ -28,10 +28,10 @@ The five TR-12 figures are TSV-in/figure-out, no analysis logic here: V1/V2/V5 r
 V4 needs `--atlas-q3-trace TRACE` added to that call, V3 needs the separate `solve.py --v3-spectrum GRID OUT` join (Q-699, V3A-140#3,
 2026-09-25: this said all five came from the bare --atlas-queries call). V3 is optional; the other four refuse, with a message, if absent.
 
-Requires: matplotlib, numpy (external — not a dependency of roae.py / solve.c).
+Requires: matplotlib (3.11.0 = EXPECTED_MATPLOTLIB for byte-identical PNGs), numpy (external — not a dependency of roae.py / solve.c).
 
 Usage:
-    cd reports/figures/ && python3 ../../viz/report_figures.py [TR12_ARTIFACT_ROOT]
+    cd reports/figures/ && python3 ../../viz/report_figures.py [--narrative] [TR12_ARTIFACT_ROOT]   (--narrative: also the two HELD, uncommitted narrative figures -- Q-862)
 
 TR12_ARTIFACT_ROOT defaults to the repository's own tr12/ directory, resolved from THIS FILE's
 location rather than from the working directory, so the invocation above works as written. It read
@@ -812,7 +812,7 @@ def fig_viz_scale():
 
 
 # ---------------------------------------------------------------------------
-# N-1 — THE OBJECT (spec: viz/viz_narrative.md §"Figure N-1"), narrative §1.
+# N-1 — THE OBJECT (spec: viz/archive/viz_narrative.md §"Figure N-1"), narrative §1.
 #
 # Job: show what a King Wen ordering IS, before any claim is made about it —
 # 64 hexagrams, 32 pairs, the pairing rule visible, the sequence running
@@ -938,7 +938,7 @@ def fig_viz_narrative_n1_object():
     save(fig, "viz_narrative_n1_object",
          "source: solve.py binary_hexagrams (King Wen sequence, OEIS A102241)  "
          "pairing rule: documentation/SPECIFICATION.md §C1  "
-         "spec: viz/viz_narrative.md §N-1   (viz/report_figures.py)")
+         "spec: viz/archive/viz_narrative.md §N-1   (viz/report_figures.py)")
 
 
 # ===========================================================================
@@ -1561,7 +1561,7 @@ def fig_tr12_kc_spectrum(tsv):
 
 
 # ---------------------------------------------------------------------------
-# N-2 — THE f·g MECHANISM (spec: viz/viz_narrative.md §"Figure N-2"), §§4-5.
+# N-2 — THE f·g MECHANISM (spec: viz/archive/viz_narrative.md §"Figure N-2"), §§4-5.
 #
 # Job: show how the forward and backward ladders meet — that a count at layer k
 # is a product of what ARRIVES from one end and what DEPARTS from the other,
@@ -1687,7 +1687,7 @@ def fig_viz_narrative_n2_fg_mechanism(tsv=None):
     fig.tight_layout(rect=(0, 0, 1, 0.93))
     save(fig, "viz_narrative_n2_fg_mechanism",
          _prov(tsv) + "  identity: reports/KC_G_CHECK_n31.txt  "
-         "semantics: documentation/GT_LADDER_FORMAT.md  spec: viz/viz_narrative.md §N-2")
+         "semantics: documentation/GT_LADDER_FORMAT.md  spec: viz/archive/viz_narrative.md §N-2")
     return True
 
 
@@ -1934,20 +1934,78 @@ def _tsv_cell_int(r, c):
         raise TsvShapeError(str(e))
 
 
-if __name__ == "__main__":
-    if "--selftest" in sys.argv[1:]:
-        sys.exit(_selftest())
+# Q-862 (2026-09-27). The matplotlib version the committed figures were rendered with. Every
+# reports/figures/*.svg records it (`Matplotlib v3.11.0` in its metadata), and a test in tests.py
+# holds this constant equal to that stamp, so the pin cannot drift from the artefacts. Under
+# 3.11.0 a re-render reproduced all ten committed PNGs byte-identically; under 3.6.3 none matched
+# (CX-192). A mismatch is REPORTED, never fatal, and only by the command-line entry point, on
+# stderr: tr12_figures() and save() stay silent about it, because the n=9 reproduction battery
+# (scripts/tr12_repro.sh row c_viz) calls tr12_figures() directly with stdout AND stderr captured
+# into a golden-diffed file, and runs under whatever matplotlib the host has.
+EXPECTED_MATPLOTLIB = "3.11.0"
+
+
+def _mpl_version_note(have):
+    """None when `have` is EXPECTED_MATPLOTLIB, else the one stderr line the CLI prints."""
+    if have == EXPECTED_MATPLOTLIB:
+        return None
+    return ("MPL_VERSION=MISMATCH have=%s expected=%s -- PNG bytes will not match the "
+            "committed figures" % (have, EXPECTED_MATPLOTLIB))
+
+
+USAGE = "usage: report_figures.py [--selftest] [--narrative] [TR12_ARTIFACT_ROOT]"
+
+
+def _usage_error(why):
+    print("%s\n%s" % (USAGE, why), file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _parse_cli(argv):
+    """(selftest, narrative, root) from argv[1:]. An unknown --option is a usage error (exit 2),
+    not a TR-12 root: a mistyped --narrative used to be read as the artifact directory."""
+    selftest = narrative = False
+    pos = []
+    for a in argv:
+        if a == "--selftest":
+            selftest = True
+        elif a == "--narrative":
+            narrative = True
+        elif a.startswith("--"):
+            _usage_error("unknown option %r" % a)
+        else:
+            pos.append(a)
+    if len(pos) > 1:
+        _usage_error("at most one TR12_ARTIFACT_ROOT, got %d" % len(pos))
+    return selftest, narrative, (pos[0] if pos else None)
+
+
+def main(argv):
+    selftest, narrative, root = _parse_cli(argv)
+    if selftest:
+        return _selftest()
+    # Q-862: stderr only, once, and only here -- see EXPECTED_MATPLOTLIB.
+    note = _mpl_version_note(matplotlib.__version__)
+    if note:
+        print(note, file=sys.stderr)
     fig_tr6_parity_alternations()
     fig_tr4_boundary_information()
     fig_tr1_rules_tradeoff()
     fig_tr3_campaign_timeline()
-    # The scale figure (viz/viz_scale.md) and the narrative document's two figures
-    # (viz/viz_narrative.md). The first two need no data file at all; N-2 reads the
-    # published King Wen walk profile and SKIPs cleanly when that TSV is absent.
+    # The scale figure (viz/viz_scale.md) needs no data file at all.
     fig_viz_scale()
-    fig_viz_narrative_n1_object()
-    fig_viz_narrative_n2_fg_mechanism()
+    # The narrative document's two figures (viz/archive/viz_narrative.md) are HELD and not
+    # committed, so they are opt-in (Q-862). N-1 needs no data file; N-2 reads the published
+    # King Wen walk profile and SKIPs cleanly when that TSV is absent.
+    if narrative:
+        fig_viz_narrative_n1_object()
+        fig_viz_narrative_n2_fg_mechanism()
     # TR-12 V1..V5: rendered from the atlas-consumer TSVs when they are present.
     # Root defaults to the repository's tr12/ (resolved from this file, not the CWD -- VIZ1 F20);
-    # override with argv[1].
-    tr12_figures(sys.argv[1] if len(sys.argv) > 1 else None)
+    # override with the positional argument.
+    tr12_figures(root)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

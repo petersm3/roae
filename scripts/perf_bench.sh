@@ -136,9 +136,9 @@ fi
 case "$PGO_WORKLOAD" in *./solve_inst*)
     echo '--pgo-workload runs in a fresh directory; name the instrumented binary "$INSTR_BIN", not ./solve_inst'; exit 2 ;; esac
 
-LAUNCH_ID=$(date -u +%H%M)
-RG="RG-PERFBENCH-${LAUNCH_ID}"
-VM="perfbench-${LAUNCH_ID}"
+LAUNCH_ID=$(date -u +%H%M)   # Q-856: the minute alone named the RG and VM below, so two benches in one minute shared an RG and one's `az group delete` took the other's VM
+RUN_RAND=$(od -An -N4 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n'); [ "${#RUN_RAND}" -eq 8 ] || { echo "FATAL: could not read 4 random bytes for a unique RG/VM name"; exit 1; }
+RUN_TAG="$(date -u +%Y%m%d)-${LAUNCH_ID}-$$-${RUN_RAND}"; RG="RG-PERFBENCH-${RUN_TAG}"; VM="perfbench-${RUN_TAG}"   # date, minute, PID, 32 random bits: <= 40 chars (Azure caps a Linux VM name at 64, an RG at 90); each teardown deletes only its own RG
 LOC=westus3
 ADMIN=azureuser
 REPO=$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)

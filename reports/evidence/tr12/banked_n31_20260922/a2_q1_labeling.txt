@@ -1,0 +1,9 @@
+n	31
+rank3	0
+class_first_rank3	0
+orient_idx	0
+expected	0/0/0	(the labeling theorem: anchor-derived labels force rank 0)
+decomposition	OK	rank3 == class_first_rank3 + orient_idx
+neighbor_prev_rank	NONE
+vacuity	unrank_O3(0) = King Wen by the labeling theorem: the O3 order is built from KW's own pair table, so rank 0 says nothing about KW's rarity
+Q1_LABELING	OK

@@ -1,0 +1,15 @@
+# Q1(c) — the conditioning interval [0, rank_O3(anchor)) is MEASURED, not assumed.
+# Sources: A = --kc-o3-cert JSON (row a2_q1); B = --kc-o3-rank transcript (row a2_q3);
+# C = the certificate's own predecessor witness. Disagreement is an ERROR, never an EMPTY.
+q1c_rank_A_kc_o3_cert	0
+q1c_rank_B_kc_o3_rank	0
+q1c_sources_agree	YES
+q1c_predecessor_witness	NONE	(expected NONE)
+q1c_universe_N	1097051278789181790036112071176579186688
+q1c_interval	[0, 0)
+Q1C_CARD	0
+q1c_verdict	EMPTY
+# The interval is degenerate: the anchor IS the O3-least object, so there is nothing
+# below it to draw from and P(C3 <= T | rank < rank(anchor)) has no conditioning set.
+# This is a RESULT, not a skip; the estimate that would consume the interval is not run
+# because it has been MEASURED to have no input, not because it was descoped.

@@ -37,7 +37,15 @@
 #          leg 6  a genuine v1 world (tag f1c5_layer_stats_v1, no orbit_size_census anywhere, as the n=31 f
 #                 ladder's sidecars are: it was built at befd4e1b, the day before the census entered the schema)
 #                 -> every census column NA:schema-v1-sidecar, one Q10A_SIDECAR_SCHEMA line, exit 0
-# plus four mutants per row, each of which must turn a leg red.
+#          leg 7  (Q-857(b)) the v1 world PLUS 32 t sidecars (t_layer_stats_XX.json, tag v2, "kind": "t", mass_total
+#                 in t-units, NOT N) over the same state set -> census column equals the json-module reading of
+#                 the t census on all 32 rows, every other column still f's (t's mass must not leak), exactly one
+#                 Q10A_CENSUS_SOURCE line "on 32 layer(s)", no NA and no Q10A_SIDECAR_SCHEMA line, exit 0
+#          leg 8  as leg 7, t sidecar k=11's header n_entries off by one (census still sums to f's) ->
+#                 "11<TAB>T-CENSUS-MISMATCH", Q10A_SIDECARS_MISSING 1, the other 31 rows filled, exit 1
+#          leg 9  as leg 7, t sidecar k=5's census sums disagree with its own n_masks -> "5<TAB>T-CENSUS-MISMATCH", exit 1
+#          leg 10 as leg 7, t sidecar k=20 tagged v1 -> "20<TAB>T-CENSUS-MISMATCH", exit 1
+# plus mutants per row (4 for c_q6, 10 for c_q10a), each of which must turn a leg red.
 #
 # KNOWN LIMITATION, stated rather than papered over. (i) Extraction anchors on the literal lines
 # `ratio9(){`, `row_begin c_q6` ... `row_end TR12_Q6 $rc`, `row_begin c_q10a` ... `row_end TR12_Q10A
@@ -78,13 +86,13 @@ open(sys.argv[2],'w').write(r9); open(sys.argv[3],'w').write(q6); open(sys.argv[
 PY
 
 N=1097051278789181790036112071176579186688
-mk(){ # mk <out> <row> ; harness: $1=ATLAS $2=FDIR $3=ARTDIR $4=N_PAIRS $5=N_TOTAL
+mk(){ # mk <out> <row> ; harness: $1=ATLAS $2=FDIR $3=ARTDIR $4=N_PAIRS $5=N_TOTAL $6=TDIR (optional, Q-857)
   { echo '#!/usr/bin/env bash'; echo 'set -u'; echo 'row_begin(){ :; }'
     echo 'WORK=$(mktemp -d); trap '"'"'rm -rf "$WORK"'"'"' EXIT; RAW="$WORK/raw.txt"; : > "$RAW"'
-    echo 'ATLAS="$1"; FDIR="$2"; ARTDIR="$3"; N_PAIRS="$4"; N_TOTAL="$5"; N_DIV24=$(echo "$N_TOTAL / 24" | bc)'
+    echo 'ATLAS="$1"; FDIR="$2"; ARTDIR="$3"; N_PAIRS="$4"; N_TOTAL="$5"; N_DIV24=$(echo "$N_TOTAL / 24" | bc); TDIR="${6:-}"'
     cat "$WORK/ratio9.sh" "$2"; echo 'cat "$RAW"; exit $rc'; } > "$1"
 }
-run(){ bash "$1" "$2" "$3" "$4" "$5" "$6" > "$WORK/last.out" 2>"$WORK/last.err"; echo $?; }
+run(){ bash "$1" "$2" "$3" "$4" "$5" "$6" "${7:-}" > "$WORK/last.out" 2>"$WORK/last.err"; echo $?; }
 
 # ---------------------------------------------------------------- synthetic worlds (Python builds them
 # and computes the EXPECTED transcripts independently: Fraction arithmetic and the json module)
@@ -168,6 +176,30 @@ def q10_world(name, badflow=False, drop=None, badlast=False, ver=2, nocensus=Non
     open(d+'/expect.tsv','w').write('\n'.join(exp)+'\n')
 q10_world('q10L1'); q10_world('q10L2',badflow=True); q10_world('q10L3',drop=17); q10_world('q10L4',badlast=True)
 q10_world('q10L5',nocensus=3); q10_world('q10L6',ver=1)
+# ---- Q-857(b) worlds: the v1 f world plus t sidecars in the MEASURED n=31 t byte shape (tag
+# f1c5_layer_stats_v2, "kind": "t", mass_total a small t-unit number -- NOT N -- census on the last line)
+def t_sidecar(path,k,nm,ne,census,ver=2):
+    with open(path,'w') as f:
+        f.write('{\n  "sidecar": "f1c5_layer_stats_v%d",\n  "kind": "t",\n  "layer_file": "t_layer_%02d.bin",\n  "n": 31,\n  "k": %d,\n' % (ver,k,k))
+        f.write('  "n_masks": %d,\n  "n_empty_masks": 0,\n  "n_entries": %d,\n' % (nm,ne))
+        f.write('  "mass_total": "%d",\n  "frame": "canonical-quotient(orbit-unweighted;G-equivariant)",\n' % (1000+k))
+        f.write('  "branching": {"min": 0, "max": 9, "mean": 1.5, "hist": [[0,1]]},\n')
+        f.write('  "orbit_size_census": %s\n}\n' % json.dumps(census,separators=(',',':')))
+def q10_tworld(name, bad_ne=None, bad_sum=None, v1t=None):
+    q10_world(name, ver=1); d=W+'/'+name; os.makedirs(d+'/t',exist_ok=True)
+    exp=[]
+    for k in range(32):
+        nm=k*3+1; ne=k*7+2; mt=(N if k==31 else (7**k) % N); hist=[[0,k],[2,3*k+1]]
+        census=[[1,1,2],[4,nm-1,ne-2]]      # sums to (nm, ne); DIFFERENT from the v2 f world's census
+        tne = ne+1 if bad_ne==k else ne
+        # bad_ne: t's header n_entries differs from f's while its census still sums to f's counts, so ONLY
+        # the state-set equality clause can catch it (mutant M7); bad_sum: headers equal f's, census does
+        # not sum to them, so ONLY the census-sum clause can catch it (mutant M9)
+        if bad_sum==k: census=[[1,1,2],[4,nm,ne-2]]    # n_masks column sums to nm+1
+        t_sidecar('%s/t/t_layer_stats_%02d.json' % (d,k),k,nm,tne,census,1 if v1t==k else 2)
+        exp.append('%d\t%d\t%d\t%d\t%s\t%s' % (k,nm,ne,mt,json.dumps(census,separators=(',',':')),json.dumps(hist,separators=(',',':'))))
+    open(d+'/expect.tsv','w').write('\n'.join(exp)+'\n')
+q10_tworld('q10L7'); q10_tworld('q10L8',bad_ne=11); q10_tworld('q10L9',bad_sum=5); q10_tworld('q10L10',v1t=20)
 PY
 
 verdict_q6(){ # verdict_q6 <harness>
@@ -203,6 +235,22 @@ verdict_q10(){ # verdict_q10 <harness>
   rc=$(run "$h" "$WORK/q10L6/atlas.json" "$WORK/q10L6/f" "$WORK/q10L6/art" 31 "$N")
   [ "$rc" = 0 ] && [ "$(grep -c 'NA:schema-v1-sidecar' "$WORK/last.out")" = 32 ] && grep -q '^Q10A_SIDECAR_SCHEMA	v1 on 32 layer' "$WORK/last.out" \
     || { echo "    c_q10a leg 6 (genuine v1 world, the n=31 f ladder's schema) rc=$rc or NA/schema line wrong"; return 1; }
+  rc=$(run "$h" "$WORK/q10L7/atlas.json" "$WORK/q10L7/f" "$WORK/q10L7/art" 31 "$N" "$WORK/q10L7/t")
+  [ "$rc" = 0 ] && grep -E '^[0-9]+	[0-9]+	[0-9]+	[0-9]+	\[' "$WORK/last.out" | cmp -s - "$WORK/q10L7/expect.tsv" \
+    && [ "$(grep -c 'NA:schema-v1-sidecar' "$WORK/last.out")" = 0 ] && ! grep -q '^Q10A_SIDECAR_SCHEMA' "$WORK/last.out" \
+    && [ "$(grep -c '^Q10A_CENSUS_SOURCE	t_layer_stats_XX.json (kind=t, schema v2) on 32 layer(s):' "$WORK/last.out")" = 1 ] \
+    && grep -qx $'Q10A_SIDECARS_MISSING\t0' "$WORK/last.out" \
+    || { echo "    c_q10a leg 7 (v1 f + matching t sidecars) rc=$rc or the census/other columns differ from the json-module reading"; return 1; }
+  rc=$(run "$h" "$WORK/q10L8/atlas.json" "$WORK/q10L8/f" "$WORK/q10L8/art" 31 "$N" "$WORK/q10L8/t")
+  [ "$rc" = 1 ] && grep -q $'^11\tT-CENSUS-MISMATCH\t' "$WORK/last.out" && grep -qx $'Q10A_SIDECARS_MISSING\t1' "$WORK/last.out" \
+    && [ "$(grep -cE '^[0-9]+	[0-9]+	[0-9]+	[0-9]+	\[' "$WORK/last.out")" = 31 ] \
+    || { echo "    c_q10a leg 8 (t n_entries != f n_entries at k=11) rc=$rc: a census over a different state set was accepted"; return 1; }
+  rc=$(run "$h" "$WORK/q10L9/atlas.json" "$WORK/q10L9/f" "$WORK/q10L9/art" 31 "$N" "$WORK/q10L9/t")
+  [ "$rc" = 1 ] && grep -q $'^5\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
+    || { echo "    c_q10a leg 9 (t census sums != its n_masks at k=5) rc=$rc: an inconsistent census was accepted"; return 1; }
+  rc=$(run "$h" "$WORK/q10L10/atlas.json" "$WORK/q10L10/f" "$WORK/q10L10/art" 31 "$N" "$WORK/q10L10/t")
+  [ "$rc" = 1 ] && grep -q $'^20\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
+    || { echo "    c_q10a leg 10 (t sidecar k=20 tagged v1) rc=$rc: a t sidecar of the wrong schema was accepted"; return 1; }
   return 0
 }
 
@@ -229,5 +277,10 @@ mutant q10 M3_mod24_gate_disabled             's/\[ "\$m" = "0" \] || fails=1/:/
 mutant q10 M4_last_mass_check_disabled        's/\[ "\$last_mt" = "\$N_TOTAL" \]/[ -n "$last_mt" ]/'
 mutant q10 M5_v1_inferred_from_missing_field  's/if \[ "\$sv" = 1 \]; then/if true; then/'
 mutant q10 M6_v1_tag_not_honoured             's/if \[ "\$sv" = 1 \]; then/if [ "$sv" = 9 ]; then/'
-echo "  [gate] baseline PASS on 4+6 legs; 10/10 mutants killed"
+mutant q10 M7_state_set_equality_dropped      's/ \&\& \[ "\$tnm" = "\$nm" \] \&\& \[ "\$tne" = "\$ne" \]//'
+mutant q10 M8_t_mass_leaks_into_mass_column   's#oc="\$toc"; nt=#oc="$toc"; mt=$(sed -n "/mass_total/s/[^0-9]//gp" "$tc"); nt=#'
+mutant q10 M9_census_sums_not_checked         's/ \&\& \[ "\$csm" = "\$nm \$ne" \]//'
+mutant q10 M10_t_fallback_never_taken         's/\[ -n "\$TDIR" \] \&\& tc=/false \&\& tc=/'
+mutant q10 M11_t_schema_not_checked           's/\[ "\$tsv" = 2 \] \&\& //'
+echo "  [gate] baseline PASS on 4+10 legs; 15/15 mutants killed"
 echo "D5_08_Q6_Q10A_SHELL_GATE=PASS"

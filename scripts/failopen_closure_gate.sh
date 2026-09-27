@@ -212,7 +212,7 @@ if [ "$SELFTEST" -eq 1 ]; then
   mk plant_comment.sh   '# az vm delete in a COMMENT must not make this unrun
 [ -r target.txt ] || { echo "PLANT_COMMENT=ERROR"; exit 2; }; echo "PLANT_COMMENT=OK"'
   mk plant_notoken.sh   'echo hello; exit 0'
-  mk plant_abs.sh       'touch "$HOME/RAN_ABS"; [ -d /home/claude/github/roae ] && echo "PLANT_ABS=OK"'
+  mk plant_abs.sh       'touch "$HOME/RAN_ABS"; [ -d /home/someone/github/roae ] && echo "PLANT_ABS=OK"'
   mk plant_closed2.sh   '[ -r x.tsv ] || { echo "PLANT_CLOSED2=ERROR unreadable"; exit 2; }; echo "PLANT_CLOSED2=OK"'
   mk plant_closed3.py   'import sys, os\nif not os.path.exists("x.json"): print("PLANT_CLOSED3=ERROR"); sys.exit(2)\nprint("PLANT_CLOSED3=PASS")'
   printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\n' > "$T/allow"

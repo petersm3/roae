@@ -16385,7 +16385,7 @@ class TestViz1FigureFixesFO(unittest.TestCase):
         self.assertEqual(len(got), 1)
         self.assertTrue(os.path.samefile(got[0], os.path.join(self.HERE, "tr12",
                                                               "q3_profile_kw.tsv")))
-        self.assertIn("else None)", self.src.split('if __name__ == "__main__":', 1)[1])
+        self.assertIn("else None)", self._body("_parse_cli"))   # Q-862 moved argv parsing out of __main__
 
     # --- F06 / F21 / F13 / F11 / F12: rendered wording --------------------------------------
     def test_rendered_wording(self):
@@ -16660,6 +16660,1109 @@ class TestQ855Q854ShowReservedBitAndUnreadableBuildSha(unittest.TestCase):
                 self._intact(d, kind)
                 self.assertTrue(os.path.exists(os.path.join(d, "solutions.bin")))
 # end class TestQ855Q854ShowReservedBitAndUnreadableBuildSha (lane FP)
+
+
+class TestQ856PerRunTmpAndCloudNames(unittest.TestCase):
+    """Lane GB: Q-856.
+
+    Three scripts used names that two concurrent runs share. (1) scripts/build_pgo.sh wrote its
+    selftest and workload logs to fixed /tmp/pgo_*.log names, and a failed build tails that log,
+    so it could print another build's output. (2) reports/certificates/verify_all.sh built solve
+    at /tmp/roae_verify_solve, wrote each CNF, DRAT and LRAT to /tmp/roae_<target>.<ext>, and
+    logged to /tmp/roae_verify_all.log by default, so two runs overwrote a binary or proof the
+    other was reading. (3) scripts/perf_bench.sh named its resource group and VM after the launch
+    minute alone, so two benches in one minute shared an RG and one teardown's `az group delete`
+    removed the other's VM.
+
+    All three run against PATH stubs: no real compile, proof check, Lean, git or az. perf_bench
+    uses the az/ssh/sleep stubs of TestQ847PerfBenchFreshWorkdir, with an ssh that never
+    connects (so each bench provisions and tears down at once) and the `date` of
+    TestQ851ScriptWorkdirTmpReuse that pins the launch minute to the impossible 9999.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PGO = os.path.join(ROOT, "scripts", "build_pgo.sh")
+    VERIFY = os.path.join(ROOT, "reports", "certificates", "verify_all.sh")
+    BENCH = os.path.join(ROOT, "scripts", "perf_bench.sh")
+    SESSION_LOG = "/tmp/claude_session_vms.txt"   # perf_bench appends to it; restored below
+    MARK = "q856-stub"
+
+    PGO_GCC = r"""#!/bin/bash
+out=""; gdir=""
+while [ $# -gt 0 ]; do
+  case "$1" in -o) out="$2"; shift 2; continue ;; -fprofile-generate=*) gdir="${1#*=}" ;; esac
+  shift
+done
+cat > "$out" <<EOF
+#!/bin/sh
+case "\$1" in --selftest) echo "selftest: PASS q856-stub"; exit 0 ;; esac
+[ -n "$gdir" ] && touch "$gdir/solve.gcda"
+exit 0
+EOF
+chmod +x "$out"
+"""
+
+    VA_STUBS = {
+        "gcc": r"""#!/bin/bash
+out=""
+while [ $# -gt 0 ]; do [ "$1" = -o ] && { out="$2"; shift; }; shift; done
+echo "BIN $out" >> "$VA_REC"
+printf '#!/bin/sh\n# q856-stub\ncase "$1" in --selftest) echo PASS ;; --f4p-verify) seq 1 14 ;; esac\n' > "$out"
+chmod +x "$out"
+""",
+        "python3": r"""#!/bin/bash
+case "$*" in
+  *--f4p-verify*) seq 1 14 ;;
+  *--emit-cnf*|*--rigidity-cnf*)
+    for a in "$@"; do case "$a" in *.cnf) echo "CNF $a" >> "$VA_REC"; echo "p cnf 1 1 q856-stub" > "$a" ;; esac; done ;;
+  -) cat > /dev/null ;;
+esac
+exit 0
+""",
+        "drat-trim": r"""#!/bin/bash
+echo "DRAT $*" >> "$VA_REC"
+prev=""
+for a in "$@"; do [ "$prev" = -L ] && echo q856-stub > "$a"; prev="$a"; done
+echo "s VERIFIED"
+""",
+        "cake_lpr": "#!/bin/bash\necho \"CAKE $*\" >> \"$VA_REC\"\necho \"s VERIFIED UNSAT\"\n",
+        "gunzip": "#!/bin/sh\necho q856-stub\n",
+        "lean": "#!/bin/sh\n[ \"$1\" = --version ] && echo 'Lean (version 0.0.0, q856-stub)'\nexit 0\n",
+        "git": "#!/bin/sh\nexit 1\n",
+    }
+
+    @classmethod
+    def _write_stubs(cls, d, stubs):
+        os.makedirs(d)
+        for name, body in stubs.items():
+            path = os.path.join(d, name)
+            with open(path, "w") as fh:
+                fh.write(body)
+            os.chmod(path, 0o755)
+
+    @classmethod
+    def setUpClass(cls):
+        import shlex
+        cls.tmp = tempfile.mkdtemp(prefix="q856_")
+        cls.old_fixed = []            # fixed /tmp paths a pre-fix script wrote; removed below
+        # ---- (1) build_pgo.sh
+        cls.pgo_bin = os.path.join(cls.tmp, "pgo_bin")
+        cls._write_stubs(cls.pgo_bin, {"gcc": cls.PGO_GCC})
+        cls.pgo_env = dict(os.environ, PATH=cls.pgo_bin + os.pathsep + os.environ["PATH"])
+        cls.pgo_dirs = {}
+        for k in ("ok", "a", "b"):
+            d = os.path.join(cls.tmp, "pgo_" + k)
+            os.makedirs(d)
+            with open(os.path.join(d, "solve.c"), "w") as fh:
+                fh.write("int main(void){return 0;}\n")
+            cls.pgo_dirs[k] = d
+        cls.pgo_ok = cls._pgo("ok", 'echo q856-stub; "$INSTR_BIN" 0 1')
+        # Build A's workload prints its marker and then runs a WHOLE second build (B), whose
+        # workload prints B's marker and fails. A then fails too; its error path must tail A's log.
+        inner = "bash %s solve_pgo %s solve.c 'echo MARK-B q856-stub; false' >/dev/null 2>&1" % (
+            shlex.quote(cls.PGO), shlex.quote(cls.pgo_dirs["b"]))
+        cls.pgo_a = cls._pgo("a", "echo MARK-A; %s; false" % inner)
+        # ---- (2) verify_all.sh
+        cls.va_bin = os.path.join(cls.tmp, "va_bin")
+        cls._write_stubs(cls.va_bin, cls.VA_STUBS)
+        cls.va_tmpdir = os.path.join(cls.tmp, "va_tmpdir")
+        cls.va_home = os.path.join(cls.tmp, "va_home")
+        os.makedirs(cls.va_tmpdir); os.makedirs(cls.va_home)
+        cls.va_override = os.path.join(cls.tmp, "override.log")
+        cls.va = {}
+        for k in ("r1", "r2", "r3"):
+            cls.va[k] = cls._verify(k, cls.va_override if k == "r3" else None)
+        # ---- (3) perf_bench.sh
+        cls.pb_bin = os.path.join(cls.tmp, "pb_bin")
+        stubs = dict(TestQ847PerfBenchFreshWorkdir.STUBS)
+        stubs["ssh"] = "#!/bin/sh\nexit 255\n"
+        real_date = shutil.which("date")
+        stubs["date"] = "#!/bin/bash\n[ \"$*\" = \"-u +%%H%%M\" ] && { echo 9999; exit 0; }\nexec %s \"$@\"\n" % real_date
+        cls._write_stubs(cls.pb_bin, stubs)
+        try:
+            cls.session_log_size = os.path.getsize(cls.SESSION_LOG)
+        except OSError:
+            cls.session_log_size = None
+        cls.pb_pids, cls.pb = [], {}
+        for k in ("b1", "b2"):
+            cls.pb[k] = cls._bench(k)
+
+    @classmethod
+    def _pgo(cls, key, workload):
+        p = subprocess.run(["bash", cls.PGO, "solve_pgo", cls.pgo_dirs[key], "solve.c", workload],
+                           env=cls.pgo_env, text=True, timeout=300,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return p.returncode, p.stdout, p.stderr
+
+    @classmethod
+    def _verify(cls, key, override):
+        rec = os.path.join(cls.tmp, "va_%s.rec" % key)
+        open(rec, "w").close()
+        env = dict(os.environ, PATH=cls.va_bin + os.pathsep + os.environ["PATH"], VA_REC=rec,
+                   TMPDIR=cls.va_tmpdir, HOME=cls.va_home, CAKE_LPR="cake_lpr")
+        for v in ("ROAE_VERIFY_LOG", "LEAN", "DRAT", "CAKE_LPR_OPTS", "LEAN_MIN_GB", "LEAN_FILES_MIN"):
+            env.pop(v, None)
+        if override:
+            env["ROAE_VERIFY_LOG"] = override
+        p = subprocess.run(["bash", cls.VERIFY], cwd=cls.ROOT, env=env, text=True, timeout=600,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        with open(rec) as fh:
+            lines = fh.read().splitlines()
+        paths = []
+        for ln in lines:
+            kind, _, rest = ln.partition(" ")
+            if kind in ("BIN", "CNF"):
+                paths.append(rest)
+            else:
+                paths += [w for w in rest.split() if re.search(r"\.(cnf|drat|lrat)$", w)]
+        for pth in paths:
+            if re.fullmatch(r"/tmp/roae_(verify_solve|[^/]+\.(cnf|drat|lrat))", pth):
+                cls.old_fixed.append(pth)
+        logs = re.findall(r"^  full command output: (.*)$", p.stdout, re.M)
+        return {"rc": p.returncode, "out": p.stdout, "rec": lines, "paths": paths, "logs": logs,
+                "gone": {pth: not os.path.exists(pth) for pth in paths}}
+
+    @classmethod
+    def _bench(cls, key):
+        az_log = os.path.join(cls.tmp, "az_%s.log" % key)
+        env = dict(os.environ, PATH=cls.pb_bin + os.pathsep + os.environ["PATH"], PB_AZ_LOG=az_log,
+                   PB_FAKE_HOME=os.path.join(cls.tmp, "fakehost"),
+                   PB_PROBE_LOG=os.path.join(cls.tmp, "probe.log"))
+        argv = ["bash", cls.BENCH, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
+                "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"]
+        p = subprocess.Popen(argv, cwd=cls.ROOT, env=env, text=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, _ = p.communicate(timeout=300)
+        cls.pb_pids.append(p.pid)
+        try:
+            with open(az_log) as fh:
+                az = fh.read().splitlines()
+        except OSError:
+            az = []
+        return p.returncode, out, az
+
+    @classmethod
+    def tearDownClass(cls):
+        # Only against a pre-fix or mutated verify_all.sh: the fixed-name files it left in /tmp.
+        for pth in set(getattr(cls, "old_fixed", [])):
+            if os.path.isfile(pth):
+                os.remove(pth)
+        # Pre-fix fixed-name logs (verify_all.sh, build_pgo.sh): removed only when a stub wrote them.
+        for old_log in ("/tmp/roae_verify_all.log", "/tmp/pgo_pass1_selftest.log",
+                        "/tmp/pgo_workload.log", "/tmp/pgo_pass2_selftest.log"):
+            try:
+                with open(old_log, errors="replace") as fh:
+                    if cls.MARK in fh.read():
+                        os.remove(old_log)
+            except OSError:
+                pass
+        for pid in getattr(cls, "pb_pids", []):
+            pth = "/tmp/perf_bench_%d.log" % pid
+            if os.path.exists(pth):
+                os.remove(pth)
+        if hasattr(cls, "session_log_size"):
+            if cls.session_log_size is None:
+                if os.path.exists(cls.SESSION_LOG):
+                    os.remove(cls.SESSION_LOG)
+            elif os.path.exists(cls.SESSION_LOG):
+                os.truncate(cls.SESSION_LOG, cls.session_log_size)
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @staticmethod
+    def _code_lines(path):
+        with open(path) as fh:
+            return [ln for ln in fh.read().splitlines() if not ln.lstrip().startswith("#")]
+
+    # ------------------------------------------------------------------ (1) build_pgo.sh
+    def test_pgo_success_logs_go_to_a_fresh_per_build_directory(self):
+        rc, out, err = self.pgo_ok
+        self.assertEqual(rc, 0, err[-2000:])
+        m = re.search(r"^  logs: +(\S+)", out, re.M)
+        self.assertIsNotNone(m, out[-2000:])
+        d = m.group(1)
+        self.assertEqual(os.path.dirname(d), self.pgo_dirs["ok"])
+        self.assertTrue(os.path.basename(d).startswith("pgo_logs."), d)
+        for name in ("pass1_selftest.log", "workload.log", "pass2_selftest.log"):
+            self.assertTrue(os.path.isfile(os.path.join(d, name)), name)
+        with open(os.path.join(d, "pass1_selftest.log")) as fh:
+            self.assertIn("selftest: PASS", fh.read())
+
+    def test_pgo_failed_build_tails_its_own_workload_log(self):
+        rc, out, err = self.pgo_a
+        self.assertEqual(rc, 1, err[-2000:])
+        self.assertIn("PGO workload exited rc=1", err)
+        self.assertIn("MARK-A", err, "the failing build's error path did not show its own log")
+        self.assertNotIn("MARK-B", err, "the failing build printed ANOTHER build's workload log")
+
+    def test_pgo_has_no_fixed_tmp_path(self):
+        with open(self.PGO) as fh:
+            self.assertIn("/tmp/pgo_", fh.read())   # positive control: the scan can see the name
+        self.assertEqual([ln for ln in self._code_lines(self.PGO) if "/tmp" in ln], [])
+
+    # ------------------------------------------------------------------ (2) verify_all.sh
+    def test_verify_positive_controls(self):
+        for k, r in self.va.items():
+            with self.subTest(run=k):
+                kinds = [ln.split(" ", 1)[0] for ln in r["rec"]]
+                self.assertEqual(kinds.count("BIN"), 1, r["out"][-2000:])
+                self.assertGreaterEqual(kinds.count("CNF"), 24)
+                self.assertGreaterEqual(kinds.count("DRAT"), 24)
+                self.assertGreaterEqual(kinds.count("CAKE"), 24)
+                for label in ("PASS  solve.c build", "PASS  --selftest", "PASS  f4p two-language match",
+                              "PASS  cert alt-le-14 (alt-le-14)", "PASS  cake_lpr alt-le-14 (alt-le-14)",
+                              "PASS  cert rigidity_sc4_unsat (rigidity)",
+                              "PASS  cert c3_kwpin_ge777_unsat (kwpin-ge777)"):
+                    self.assertIn(label, r["out"].splitlines(), label)
+
+    def test_verify_scratch_paths_are_per_run(self):
+        a, b = set(self.va["r1"]["paths"]), set(self.va["r2"]["paths"])
+        self.assertTrue(a and b)
+        self.assertEqual(a & b, set(), "two runs used the same binary or proof path")
+        for p in a | b:
+            self.assertFalse(re.fullmatch(r"/tmp/roae_[^/]*", p), p)
+            self.assertTrue(p.startswith(self.va_tmpdir + os.sep + "roae_verify."), p)
+
+    def test_verify_scratch_is_removed_on_exit(self):
+        for k in ("r1", "r2"):
+            with self.subTest(run=k):
+                left = [p for p, gone in self.va[k]["gone"].items() if not gone]
+                self.assertEqual(left, [], "scratch files survived the run")
+        self.assertEqual([d for d in os.listdir(self.va_tmpdir) if d.startswith("roae_verify.")], [])
+
+    def test_verify_default_log_is_per_run_and_kept(self):
+        logs = []
+        for k in ("r1", "r2"):
+            with self.subTest(run=k):
+                seen = self.va[k]["logs"]
+                self.assertEqual(len(seen), 2, self.va[k]["out"][-2000:])   # start and end
+                self.assertEqual(seen[0], seen[1])
+                self.assertNotEqual(seen[0], "/tmp/roae_verify_all.log")
+                self.assertTrue(seen[0].startswith(self.va_tmpdir + os.sep + "roae_verify_all."), seen[0])
+                with open(seen[0]) as fh:
+                    self.assertIn("### solve.c build", fh.read())
+                logs.append(seen[0])
+        self.assertNotEqual(logs[0], logs[1], "two runs shared the default log")
+
+    def test_verify_log_override_still_honoured(self):
+        logs = self.va["r3"]["logs"]
+        self.assertTrue(logs, self.va["r3"]["out"][-2000:])
+        self.assertEqual(set(logs), {self.va_override})
+        with open(self.va_override) as fh:
+            self.assertIn("### solve.c build", fh.read())
+
+    def test_verify_has_no_fixed_tmp_scratch(self):
+        with open(self.VERIFY) as fh:
+            self.assertIn("/tmp/roae_verify_solve", fh.read())   # positive control: header history
+        bad = [ln for ln in self._code_lines(self.VERIFY)
+               if "/tmp/" in ln and "${TMPDIR:-/tmp}/" not in ln]
+        self.assertEqual(bad, [])
+
+    # ------------------------------------------------------------------ (3) perf_bench.sh
+    def _names(self, key):
+        rc, out, az = self.pb[key]
+        create = [ln.split()[3] for ln in az if ln.startswith("group create -n ")]
+        delete = [ln.split()[3] for ln in az if ln.startswith("group delete -n ")]
+        vm = [re.search(r" -n (\S+)", ln).group(1) for ln in az if ln.startswith("vm create ")]
+        return create, delete, vm
+
+    def test_bench_positive_controls(self):
+        for k in ("b1", "b2"):
+            with self.subTest(run=k):
+                rc, out, az = self.pb[k]
+                self.assertEqual(rc, 1, out[-2000:])
+                self.assertIn("FATAL: ssh never came up", out)
+                create, delete, vm = self._names(k)
+                self.assertEqual((len(create), len(delete), len(vm)), (1, 1, 1), az)
+
+    def test_bench_names_are_unique_within_one_launch_minute(self):
+        c1, _, v1 = self._names("b1")
+        c2, _, v2 = self._names("b2")
+        self.assertNotEqual(c1, c2, "two benches in one minute shared a resource group")
+        self.assertNotEqual(v1, v2, "two benches in one minute shared a VM name")
+
+    def test_bench_teardown_deletes_only_its_own_group(self):
+        for k in ("b1", "b2"):
+            with self.subTest(run=k):
+                create, delete, _ = self._names(k)
+                self.assertEqual(delete, create)
+
+    def test_bench_names_fit_azure_limits(self):
+        for k in ("b1", "b2"):
+            with self.subTest(run=k):
+                create, _, vm = self._names(k)
+                self.assertRegex(create[0], r"^RG-PERFBENCH-[0-9]{8}-9999-[0-9]+-[0-9a-f]{8}$")
+                self.assertLessEqual(len(create[0]), 90)
+                self.assertRegex(vm[0], r"^perfbench-[0-9]{8}-9999-[0-9]+-[0-9a-f]{8}$")
+                self.assertLessEqual(len(vm[0]), 64)
+# end class TestQ856PerRunTmpAndCloudNames (lane GB)
+
+
+class TestQ857BankedN31ReceiptsAndQ10CensusFromTSidecars(unittest.TestCase):
+    """Lane GC: Q-857.
+
+    (a) The 2026-09-22 n=31 battery's answer receipts are published at
+    reports/evidence/tr12/banked_n31_20260922/ with check_receipts.sh, which re-derives every
+    number in them that needs no ladder. (b) Row c_q10a takes the census column from the t sidecar
+    when the f sidecar is schema v1 (column-scoped, same-state-set gate); the 64 f+t sidecars are
+    published, so the n=31 census reproduces from the tree.
+    """
+    BUNDLE = os.path.join("reports", "evidence", "tr12", "banked_n31_20260922")
+    RUNS = os.path.join("runs", "20260906_kc_ladders_n31")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.tmp = tempfile.mkdtemp(prefix="q857_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, argv, cwd=None):
+        return subprocess.run(argv, cwd=cwd or self.root, capture_output=True, text=True, timeout=600)
+
+    def _tokens(self, out):
+        return set(l for l in out.splitlines() if re.fullmatch(r"[A-Z0-9_]+=\S*", l))
+
+    def test_precondition_sidecars_are_the_registry_bytes(self):
+        # the reproduction below is only meaningful if the committed sidecars ARE the registered ones
+        rows = []
+        for reg in ("STAGE_F_SHA256.txt", "STAGE_T_SHA256.txt"):
+            with open(os.path.join(self.root, self.RUNS, reg)) as f:
+                rows += [l.split() for l in f if "layer_stats_" in l]
+        self.assertEqual(len(rows), 64)
+        for digest, rel in rows:
+            with open(os.path.join(self.root, self.RUNS, "sidecars", rel), "rb") as f:
+                self.assertEqual(hashlib.sha256(f.read()).hexdigest(), digest, rel)
+        r = self._run(["sha256sum", "-c", "--quiet", "SHA256SUMS"], cwd=os.path.join(self.root, self.BUNDLE))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_shell_gate_covers_the_t_fallback(self):
+        r = self._run(["bash", "scripts/d5_08_q6_q10a_shell_gate.sh"])
+        self.assertIn("D5_08_Q6_Q10A_SHELL_GATE=PASS", r.stdout.splitlines(), r.stdout[-3000:])
+        self.assertEqual(r.returncode, 0)
+        for m in ("M7_state_set_equality_dropped", "M8_t_mass_leaks_into_mass_column",
+                  "M9_census_sums_not_checked", "M10_t_fallback_never_taken", "M11_t_schema_not_checked"):
+            self.assertIn("  [gate] mutant q10/%s killed" % m, r.stdout.splitlines())
+
+    def test_receipts_recheck_and_n31_census_reproduce_from_the_tree(self):
+        r = self._run(["bash", os.path.join(self.BUNDLE, "check_receipts.sh")])
+        t = self._tokens(r.stdout)
+        for tok in ("CHECK_RECEIPTS=PASS", "KW_CONTROL_C3=776", "Q2_R0_EQ_KW=YES", "Q2_LAST_C3=688",
+                    "Q2_MID_C3=904", "O3_LAST_C15_IS_UNRANK_O3_N_MINUS_1=YES", "Q2B_REL_LAST_C3=1568",
+                    "Q3_N31_ALT_ROWS=880", "Q3_N31_ALTS_CONSISTENT=YES", "Q3_N9_ALTS_CONSISTENT=YES",
+                    "Q4_REDERIVED=MATCH", "Q8_REDERIVED=MATCH", "Q8_SUPER_SUBSET_CD_LE_T=110",
+                    "C_Q10A_ASRUN_REPRODUCED=YES", "C_Q10A_REPRODUCED=YES", "C_Q10A_NA_CELLS=0"):
+            self.assertIn(tok, t, r.stdout[-3000:])
+        self.assertEqual(r.returncode, 0)
+
+    def _mirror(self, name):
+        # a throwaway tree: real code and sidecars by symlink, the bundle by copy (so it can be tampered)
+        d = os.path.join(self.tmp, name)
+        os.makedirs(os.path.join(d, "reports", "evidence", "tr12"))
+        for rel in ("solve.py", "scripts", "runs"):
+            os.symlink(os.path.join(self.root, rel), os.path.join(d, rel))
+        shutil.copytree(os.path.join(self.root, self.BUNDLE), os.path.join(d, self.BUNDLE))
+        return d
+
+    def test_positive_control_untampered_mirror_passes(self):
+        d = self._mirror("clean")
+        r = self._run(["bash", os.path.join(self.BUNDLE, "check_receipts.sh")], cwd=d)
+        self.assertIn("CHECK_RECEIPTS=PASS", r.stdout.splitlines(), r.stdout[-3000:])
+
+    def test_checker_can_fail(self):
+        cases = (("a1_q8_subset.txt", "q8_super_subset_cd_le_T\t110\n", "q8_super_subset_cd_le_T\t111\n",
+                  "Q8_REDERIVED=DIFFER"),
+                 ("a1_q4ac.txt", "p_hat_cd_le_T\t0.12093700\n", "p_hat_cd_le_T\t0.12093701\n",
+                  "Q4_REDERIVED=DIFFER"),
+                 ("c_q10a.txt", "[[1,1,32]]", "[[1,1,31]]", "C_Q10A_REPRODUCED=NO"))
+        for i, (fn, old, new, tok) in enumerate(cases):
+            with self.subTest(file=fn):
+                d = self._mirror("tamper%d" % i)
+                p = os.path.join(d, self.BUNDLE, fn)
+                with open(p) as f:
+                    body = f.read()
+                self.assertEqual(body.count(old), 1, "tamper precondition: %r must occur once" % old)
+                with open(p, "w") as f:
+                    f.write(body.replace(old, new))
+                r = self._run(["bash", os.path.join(self.BUNDLE, "check_receipts.sh")], cwd=d)
+                lines = r.stdout.splitlines()
+                self.assertIn(tok, lines, r.stdout[-3000:])
+                self.assertIn("CHECK_RECEIPTS=FAIL", lines)
+                self.assertNotEqual(r.returncode, 0)
+
+    def test_published_census_fills_every_layer_from_t_and_keeps_f_columns(self):
+        import json
+        with open(os.path.join(self.root, self.BUNDLE, "c_q10a.txt")) as f:
+            new = [l.rstrip("\n").split("\t") for l in f if re.match(r"[0-9]+\t[0-9]+\t", l) and l.count("\t") == 5]
+        with open(os.path.join(self.root, self.BUNDLE, "c_q10a_20260922_asrun.txt")) as f:
+            old = [l.rstrip("\n").split("\t") for l in f if re.match(r"[0-9]+\t[0-9]+\t", l) and l.count("\t") == 5]
+        self.assertEqual(len(new), 32)
+        self.assertEqual(len(old), 32)
+        for o, n in zip(old, new):
+            k = int(n[0])
+            with open(os.path.join(self.root, self.RUNS, "sidecars", "run_t", "t_layer_stats_%02d.json" % k)) as f:
+                t = json.load(f)
+            self.assertEqual(o[:4] + o[5:], n[:4] + n[5:], "a non-census column moved at k=%d" % k)
+            self.assertEqual(o[4], "NA:schema-v1-sidecar")
+            self.assertEqual(json.loads(n[4]), t["orbit_size_census"])
+        self.assertEqual(new[31][3], "1097051278789181790036112071176579186688")
+# end class TestQ857BankedN31ReceiptsAndQ10CensusFromTSidecars (lane GC)
+
+
+class TestQ852ArgRefusalLastRingAndShowIoSnapshot(unittest.TestCase):
+    """Lane GA: Q-852, Q-853, FP-followups.
+
+    Q-852: the last ring of the argument refusals (CX-179, CX-183, CX-187). Eleven modes read an
+    optional argv[2] and never looked at argv[3] (--verify-rule2, --verify-9th-six,
+    --verify-wrap-parity, --rc1c-verify, --r11-verify, --rc4b-verify, --cpu-freq,
+    --emit-shard-manifest, --verify-shard-manifest, --regression-test, --double-regression-test);
+    seven fixed-arity modes never looked past their last argument (--validate-canonical,
+    --preflight, --disk-precheck, --knuth-dump-prefix, --f1c5-verify-layer,
+    --validate-launcher-config, --compare-provenance); --canonical-config ignored anything after
+    SCALE that was not --full; --help ignored any argument; and the option loops of
+    --check-arrangement, --verify-certificate, --kde-score-stream and the --kc-* family skipped an
+    unknown option, a value-less option or an extra positional. Each now exits 2 with a
+    `<MODE>_ARGS=REFUSED` line on stderr and nothing on stdout (--kc-scan also prints its
+    KC_SCAN=FAIL). --kde-score-stream now requires --threshold (a missing one was read as 0.0).
+    Q-853 was already fixed by lane FM (TestQ853SolPidxScanReservedBit0); nothing here re-tests it.
+    FP follow-ups: `--show` exits 10 with SHOW_RECORDS=IO_ERROR when a record cannot be read (it
+    printed `<gzfread truncated>` and exited 0); the enumeration writes solve.binary.snapshot only
+    after the lock, build-sha and manifest refusals, so a refused run leaves none. RED on the
+    pre-fix solve.c via ROAE_TESTS_SOLVE_SRC (never set by the harness); each run has its own
+    process group, killed with its children on timeout."""
+
+    SEL = ["--kc-selftest", "--kc-enum-desc-selftest", "--kc-g-selftest", "--kc-o3-selftest",
+           "--kc-t-selftest", "--kc-oracle-selftest", "--kc-ladder-selftest", "--kc-cert-selftest",
+           "--kc-scan-selftest", "--kc-scan-par-selftest", "--kc-layers-selftest",
+           "--kc-profile-selftest", "--kc-walks-selftest", "--kc-dead-census-selftest",
+           "--kc-witness-walks-selftest", "--kc-extremal-selftest", "--kc-ar2-selftest"]
+    ENUM_ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30",
+                    SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2",
+                    SOLVE_NODE_LIMIT="3030000")
+
+    @staticmethod
+    def _tok(mode):
+        return ("HELP" if mode == "-h" else mode.lstrip("-").upper().replace("-", "_")) + "_ARGS=REFUSED"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q852ga_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q852ga")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.rec = bytes(i << 2 for i in range(32))       # King Wen: pairs 0..31 in order, orient 0
+        cls.kwf = cls._file("kw.bin", 1, cls.rec)
+        cls.kc_ok, cls.kc_err = False, "not built"
+        if cls.build_ok:                                  # n=9 f and g ladders for the kc controls
+            cls.fdir, cls.gdir = os.path.join(cls.tmp, "F"), os.path.join(cls.tmp, "G")
+            a = subprocess.run([cls.sbin, "--kc-build", cls.fdir, "--f1-pairs", "9"], cwd=cls.tmp,
+                               capture_output=True, text=True, timeout=300)
+            b = subprocess.run([cls.sbin, "--kc-g-build", cls.gdir, "--f1-pairs", "9"], cwd=cls.tmp,
+                               capture_output=True, text=True, timeout=300)
+            cls.kc_ok = (a.returncode, b.returncode) == (0, 0)
+            cls.kc_err = f"kc-build rc {a.returncode}, kc-g-build rc {b.returncode}: " + (a.stderr + b.stderr)[-1500:]
+
+    @classmethod
+    def tearDownClass(cls):
+        tmp = getattr(cls, "tmp", None)
+        if tmp and os.path.isdir(tmp) and os.path.basename(tmp).startswith("q852ga_"):
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    @classmethod
+    def _file(cls, name, declared, body):
+        path = os.path.join(cls.tmp, name)
+        with open(path, "wb") as fh:
+            fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", declared) + b"\0" * 16 + body)
+        return path
+
+    def _run(self, argv, timeout=20, env=None, cwd=None):
+        d = cwd or tempfile.mkdtemp(dir=self.tmp)
+        e = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        e.update(OMP_NUM_THREADS="2", SOLVE_REGRESS_DIR=os.path.join(d, "regress"))
+        e.update(env or {})
+        p = subprocess.Popen([self.sbin] + argv, cwd=d, text=True, start_new_session=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=e)
+        try:
+            out, err = p.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+            p.communicate()
+            return None
+        return subprocess.CompletedProcess(p.args, p.returncode, out, err)
+
+    def _refused(self, argv, bad, extra_text, stdout=""):
+        r = self._run(argv)
+        self.assertIsNotNone(r, "ran past the timeout instead of refusing")
+        self.assertEqual(r.returncode, 2, (r.stdout[-300:], r.stderr[-400:]))
+        self.assertIn(self._tok(argv[0]), r.stderr.splitlines())
+        self.assertIn(extra_text % bad, r.stderr)
+        self.assertEqual(r.stdout, stdout, "must refuse before doing any work")
+
+    def test_optional_and_fixed_arity_modes_refuse_an_extra_argument(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        cases = [(["--verify-rule2", self.kwf]), (["--verify-9th-six", self.kwf]),
+                 (["--verify-wrap-parity", self.kwf]), (["--rc1c-verify", "KW"]), (["--r11-verify", "KW"]),
+                 (["--rc4b-verify", "KW"]), (["--cpu-freq", "1"]), (["--emit-shard-manifest", "m.txt"]),
+                 (["--verify-shard-manifest", "m.txt"]), (["--regression-test", "100"]),
+                 (["--double-regression-test", "100"]), (["--validate-canonical", "a" * 64, "1T"]),
+                 (["--preflight", "1000"]), (["--disk-precheck", d, "0", "u"]),
+                 (["--knuth-dump-prefix", "3", "1"]), (["--f1c5-verify-layer", "a", "b"]),
+                 (["--validate-launcher-config", "560T", "1"]), (["--compare-provenance", "a", "b"]),
+                 (["--help"]), (["-h"]), (["--kc-g-status", self.tmp]), (["--kc-t-cert", "t.json"]),
+                 (["--kc-extremal", "list"])]
+        for argv in cases:
+            for extra in (["EXTRA1"], ["EXTRA1", "EXTRA2"]):
+                with self.subTest(argv=argv + extra):
+                    self._refused(argv + extra, "EXTRA1", "got %d extra (first: '%%s')." % len(extra))
+        for argv, bad in ((["--canonical-config", "560T", "EXTRA1"], "EXTRA1"),
+                          (["--canonical-config", "560T", "--full", "EXTRA1"], "EXTRA1")):
+            with self.subTest(argv=argv):
+                self._refused(argv, bad, "ERROR: --canonical-config does not accept '%s'")
+
+    def test_kc_selftests_refuse_any_argument(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for mode in self.SEL:
+            with self.subTest(mode=mode):
+                self._refused([mode, "x"], "x", "ERROR: " + mode + " takes NO arguments; got 1 extra (first: '%s').")
+
+    def test_option_loops_refuse_unknown_valueless_and_extra_arguments(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        F, G = os.path.join(self.tmp, "nf"), os.path.join(self.tmp, "ng")
+        cases = [(["--check-arrangement", "KW", "--bogus"], "--bogus"),
+                 (["--check-arrangement", "KW", "extra"], "extra"),
+                 (["--check-arrangement", "KW", "--cert-out"], "--cert-out"),
+                 (["--verify-certificate", "c.json", "--bogus"], "--bogus"),
+                 (["--verify-certificate", "c.json", "--kc-fdir"], "--kc-fdir"),
+                 (["--kde-score-stream", "--fit-file", "f", "--d", "2", "--bandwidth", "1", "--threshold", "0", "--bogus"], "--bogus"),
+                 (["--kde-score-stream", "--fit-file", "f", "--d", "2", "--bandwidth", "1", "--threshold"], "--threshold"),
+                 (["--kc-ladder-verify", F, G, "extra"], "extra"), (["--kc-ladder-verify", F, "--bogus"], "--bogus"),
+                 (["--kc-midn", "9", "--bogus"], "--bogus"), (["--kc-midn", "9", "--kc-roundtrips"], "--kc-roundtrips"),
+                 (["--kc-oocverify", "9", "extra"], "extra"), (["--kc-g-build", G, "--bogus"], "--bogus"),
+                 (["--kc-g-check", F, G, "--bogus"], "--bogus"), (["--kc-g-check-layer", "3", G, F, "extra"], "extra"),
+                 (["--kc-t-build", F, G, "--bogus"], "--bogus"), (["--kc-t-check", F, G, "extra"], "extra"),
+                 (["--kc-o3-cert", F, G, "KW", "--bogus"], "--bogus"), (["--kc-ar2", F, G, "KW", "extra"], "extra"),
+                 (["--kc-build", F, "extra"], "extra"), (["--kc-count", F, "extra"], "extra"),
+                 (["--kc-enum", F, "extra"], "extra"), (["--kc-enum-desc", F, "extra"], "extra"),
+                 (["--kc-rank", F, "1,2", "extra"], "extra"), (["--kc-unrank", F, "0", "extra"], "extra"),
+                 (["--kc-member", F, "1,2", "extra"], "extra"), (["--kc-repr", F, "1,2", "extra"], "extra"),
+                 (["--kc-sample", F, "1", "7", "extra"], "extra")]
+        for argv, bad in cases:
+            with self.subTest(argv=argv):
+                self._refused(argv, bad, "ERROR: " + argv[0] + " does not accept '%s'")
+        self._refused(["--kc-scan", F, G, "o.tsv", "--bogus"], "--bogus",
+                      "ERROR: --kc-scan does not accept '%s'", stdout="KC_SCAN=FAIL\n")
+
+    def test_kde_score_stream_requires_threshold(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        r = self._run(["--kde-score-stream", "--fit-file", "f", "--d", "2", "--bandwidth", "1"])
+        self.assertIsNotNone(r, "timeout")
+        self.assertEqual(r.returncode, 2, r.stderr[-400:])
+        self.assertIn("Usage: --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T", r.stderr)
+        # positive control: all four given, the parse passes and the fit file is opened
+        r = self._run(["--kde-score-stream", "--fit-file", "nofile", "--d", "2", "--bandwidth", "1", "--threshold", "0"])
+        self.assertEqual((r.returncode, r.stderr.strip()), (10, "ERROR: cannot open nofile"))
+
+    def test_positive_controls_documented_invocations_run(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        self.assertTrue(self.kc_ok, self.kc_err)
+        F, G = self.fdir, self.gdir
+        u = self._run(["--kc-unrank", F, "0"])
+        walk = u.stdout.strip().splitlines()[-1]
+        d = tempfile.mkdtemp(dir=self.tmp)
+        cert = os.path.join(d, "a.json")
+        ok = [(["--verify-rule2", self.kwf], 0, None), (["--verify-9th-six", self.kwf], 0, None),
+              (["--verify-wrap-parity", self.kwf], 0, None), (["--rc1c-verify"], 0, "RC1C VERIFY: PASS"),
+              (["--r11-verify"], 0, "R11 VERIFY: PASS"), (["--rc4b-verify"], 0, "RC4B VERIFY: PASS"),
+              (["--cpu-freq", "1"], 0, None), (["--help"], 0, "solve -- ROAE enumeration"),
+              (["--canonical-config", "560T", "--full"], 0, None), (["--knuth-dump-prefix", "3", "1"], 0, None),
+              (["--check-arrangement", "KW", "--cert-out", cert, "--label", "L1"], 0, None),
+              (["--kc-count", F], 0, "KC COUNT n=9 = 26112"), (["--kc-rank", F, walk], 0, None),
+              (["--kc-member", F, walk], 0, "MEMBER"), (["--kc-sample", F, "1", "7"], 0, None),
+              (["--kc-enum", F, "--kc-limit", "1"], 0, None), (["--kc-unrank", F, "0", "--kc-record"], 0, None),
+              (["--kc-g-status", G], 0, None), (["--kc-g-check", F, G], 0, "PASS"),
+              (["--kc-ladder-verify", F, G], 0, None), (["--kc-extremal", "list"], 0, None),
+              (["--kc-midn", "9", "--kc-roundtrips", "2", "--kc-chi2-samples", "16"], 0, "result=PASS")]
+        for argv, rc, want in ok:
+            with self.subTest(argv=argv):
+                r = self._run(argv, timeout=300)
+                self.assertIsNotNone(r, "timeout")
+                self.assertNotIn("_ARGS=REFUSED", r.stdout + r.stderr)
+                self.assertEqual(r.returncode, rc, (r.stdout[-300:], r.stderr[-500:]))
+                if want:
+                    self.assertIn(want, r.stdout)
+        self.assertTrue(os.path.isfile(cert))
+        r = self._run(["--check-arrangement", "KW", "--label"])  # a value-less --label keeps its own refusal
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("--label must be 1..64 chars", r.stderr)
+        for argv in (["--emit-shard-manifest", "m.txt"], ["--verify-shard-manifest", "m.txt"],
+                     ["--disk-precheck", d, "0", "wrong-uuid"], ["--f1c5-verify-layer", "a", "b"],
+                     ["--compare-provenance", "a", "b"], ["--validate-launcher-config", "560T", "1"]):
+            with self.subTest(argv=argv):            # their own verdicts differ; the parse must pass
+                r = self._run(argv, cwd=d, timeout=120)
+                self.assertIsNotNone(r, "timeout")
+                self.assertNotIn("_ARGS=REFUSED", r.stdout + r.stderr)
+
+    # ---- FP follow-up (a): --show read failures ----
+    def _show(self, path, mode="first"):
+        return self._run(["--show", "5", "--mode", mode, "--format", "raw", "--from", path], timeout=60)
+
+    def test_show_read_failure_exits_10_with_io_error_token(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        short = self._file("short.bin", 3, self.rec * 2)            # header says 3, file holds 2
+        gzp = os.path.join(self.tmp, "trunc.gz")
+        g = gzip.compress(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 200) + b"\0" * 16 + self.rec * 200)
+        with open(gzp, "wb") as fh:
+            fh.write(g[:len(g) // 2])
+        for path, mode in ((short, "first"), (short, "last"), (gzp, "last")):
+            with self.subTest(path=os.path.basename(path), mode=mode):
+                r = self._show(path, mode)
+                self.assertIsNotNone(r, "timeout")
+                self.assertEqual(r.returncode, 10, r.stderr[-400:])
+                self.assertEqual(r.stdout.splitlines()[-1], "SHOW_RECORDS=IO_ERROR")
+                self.assertRegex(r.stderr, r"ERROR: --show: \d+ of the \d+ record\(s\) asked for could not be read")
+        bad = bytearray(self.rec); bad[4] |= 1
+        both = self._file("both.bin", 3, self.rec + bytes(bad))   # one malformed record AND a missing one
+        r = self._show(both)
+        self.assertEqual(r.returncode, 10, r.stderr[-400:])
+        self.assertIn("and some records read are malformed", r.stderr)
+        self.assertNotIn("SHOW_RECORDS=MALFORMED", r.stdout)
+
+    def test_show_positive_control_complete_file_exits_0(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        full = self._file("full.bin", 3, self.rec * 3)
+        for mode in ("first", "last"):
+            r = self._show(full, mode)
+            self.assertEqual(r.returncode, 0, r.stderr[-400:])
+            self.assertNotIn("IO_ERROR", r.stdout + r.stderr)
+            self.assertEqual(len([l for l in r.stdout.splitlines() if l.startswith("[")]), 3)
+
+    # ---- FP follow-up (b): a refused enumeration leaves no snapshot ----
+    def test_refused_enumeration_leaves_no_snapshot(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        d26 = tempfile.mkdtemp(dir=self.tmp)
+        os.makedirs(os.path.join(d26, "build.sha"))              # malformed build.sha -> exit 26
+        d22 = tempfile.mkdtemp(dir=self.tmp)
+        with open(os.path.join(d22, "shard_manifest.txt"), "w") as fh:   # names a missing shard -> 22
+            fh.write("sub_1_0_2_0.bin\t32\t" + "0" * 64 + "\n")
+        # canonical-host-fingerprint.json (>= 1T only) still precedes the refusals: the Q-619
+        # fingerprint test stops a 1T run with exit 26 right after the capture (a follow-up).
+        for d, rc in ((d26, 26), (d22, 22)):
+            with self.subTest(rc=rc):
+                r = self._run(["0"], cwd=d, env=self.ENUM_ENV, timeout=300)
+                self.assertIsNotNone(r, "timeout")
+                self.assertEqual(r.returncode, rc, r.stderr[-1500:])
+                self.assertNotIn("solve.binary.snapshot", os.listdir(d))
+                self.assertNotIn("wrote solve.binary.snapshot", r.stderr)
+
+    def test_snapshot_positive_control_clean_run_writes_it(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        r = self._run(["0"], cwd=d, env=self.ENUM_ENV, timeout=600)
+        self.assertIsNotNone(r, "timeout")
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        self.assertIn("wrote solve.binary.snapshot", r.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(d, "solve.binary.snapshot")))
+
+    # ---- FP follow-up (c): the sol_pidx_scan comment ----
+    def test_sol_pidx_scan_comment_no_longer_says_show_refuses(self):
+        with open(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotIn("--verify, --validate, --show and\n * the kc-oracle decoder all refuse it", src)
+        self.assertIn("--show, a viewer, prints it flagged and exits 20: Q-855", src)
+# end class TestQ852ArgRefusalLastRingAndShowIoSnapshot (lane GA)
+
+
+class TestQ862VizGeneratorHygieneVC(unittest.TestCase):
+    """Lane VC: Q-862.
+
+    viz/report_figures.py generator hygiene (Fable VIZ plan Lane C, 2026-09-27):
+      * the two HELD narrative figures render only under --narrative, so the documented command
+        writes exactly the ten committed stems (it used to leave two uncommitted stems behind);
+      * EXPECTED_MATPLOTLIB pins the renderer version, and must equal the `Matplotlib v...` stamp
+        in every committed SVG;
+      * a version mismatch is one stderr line from the CLI only -- never from tr12_figures() or
+        save(), whose output the n=9 battery golden-diffs (row c_viz, stdout AND stderr).
+    Everything but the last test is stdlib-only (AST lifts with stubs); the last renders for real
+    and is skipped where matplotlib/numpy are absent."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    GEN = os.path.join(HERE, "viz", "report_figures.py")
+    FIGS = os.path.join(HERE, "reports", "figures")
+    TEN = ("fig_tr12_kc_field", "fig_tr12_kc_grammar", "fig_tr12_kc_river", "fig_tr12_kc_shells",
+           "fig_tr12_kc_spectrum", "fig_tr1_rules_tradeoff", "fig_tr3_campaign_timeline",
+           "fig_tr4_boundary_information", "fig_tr6_parity_alternations", "viz_scale")
+    STAMP = re.compile(r"Matplotlib v([0-9][0-9A-Za-z.+-]*)")
+
+    @classmethod
+    def setUpClass(cls):
+        import ast
+        with open(cls.GEN, encoding="utf-8") as fh:
+            cls.tree = ast.parse(fh.read())
+        cls.tmp = tempfile.mkdtemp(prefix="q862_vc_")
+
+    @classmethod
+    def tearDownClass(cls):
+        if os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp)
+
+    def _lift(self, names, extra=None):
+        import ast
+        keep = [n for n in self.tree.body
+                if (isinstance(n, ast.FunctionDef) and n.name in names)
+                or (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id in names
+                                                      for t in n.targets))]
+        got = {n.name if isinstance(n, ast.FunctionDef) else n.targets[0].id for n in keep}
+        missing = sorted(set(names) - got)
+        if missing:
+            raise AssertionError("viz/report_figures.py lacks %s" % missing)
+        ns = dict(extra or {})
+        exec(compile(ast.Module(body=keep, type_ignores=[]), "report_figures.py", "exec"), ns)
+        return ns
+
+    @classmethod
+    def _stamp_mismatches(cls, expected, svgs):
+        """{name: problem} for every SVG text whose matplotlib stamp is absent, repeated or != expected."""
+        bad = {}
+        for name, text in svgs.items():
+            got = cls.STAMP.findall(text)
+            if got != [expected]:
+                bad[name] = got
+        return bad
+
+    # --- the pin equals the artefacts ---------------------------------------------------------
+    def test_expected_matplotlib_equals_the_stamp_in_every_committed_svg(self):
+        want = self._lift(["EXPECTED_MATPLOTLIB"])["EXPECTED_MATPLOTLIB"]
+        svgs = {}
+        for f in sorted(os.listdir(self.FIGS)):
+            if f.endswith(".svg"):
+                with open(os.path.join(self.FIGS, f), encoding="utf-8") as fh:
+                    svgs[f] = fh.read()
+        # precondition: every generator-rendered stem is committed as an SVG
+        self.assertEqual([s for s in self.TEN if s + ".svg" not in svgs], [])
+        self.assertEqual(self._stamp_mismatches(want, svgs), {},
+                         "EXPECTED_MATPLOTLIB=%r disagrees with a committed SVG's stamp" % want)
+
+    def test_stamp_comparison_can_fail(self):
+        # positive control: the comparator sees a wrong version, a missing stamp and a double stamp
+        bad = self._stamp_mismatches("3.11.0", {
+            "ok.svg": "<dc:title>Matplotlib v3.11.0, https://matplotlib.org/</dc:title>",
+            "old.svg": "<dc:title>Matplotlib v3.6.3, https://matplotlib.org/</dc:title>",
+            "none.svg": "<svg></svg>",
+            "two.svg": "Matplotlib v3.11.0, Matplotlib v3.11.0,"})
+        self.assertEqual(sorted(bad), ["none.svg", "old.svg", "two.svg"])
+
+    # --- the mismatch line -------------------------------------------------------------------
+    def test_mismatch_note_is_one_line_and_silent_on_match(self):
+        ns = self._lift(["EXPECTED_MATPLOTLIB", "_mpl_version_note"])
+        note = ns["_mpl_version_note"]
+        self.assertEqual(ns["EXPECTED_MATPLOTLIB"], "3.11.0")
+        self.assertIsNone(note("3.11.0"))
+        self.assertEqual(note("3.6.3"), "MPL_VERSION=MISMATCH have=3.6.3 expected=3.11.0 -- "
+                                        "PNG bytes will not match the committed figures")
+        self.assertNotIn("\n", note("3.6.3"))
+
+    def test_only_main_consults_the_version(self):
+        # tr12_figures() and save() run inside the n=9 battery, whose c_viz golden captures
+        # stdout AND stderr under the host's matplotlib; neither may emit the note.
+        import ast
+        where = []
+        for fn in [n for n in self.tree.body if isinstance(n, ast.FunctionDef)]:
+            for c in ast.walk(fn):
+                if ((isinstance(c, ast.Name) and c.id in ("_mpl_version_note", "EXPECTED_MATPLOTLIB")
+                     and fn.name != "_mpl_version_note")
+                        or (isinstance(c, ast.Attribute) and c.attr == "__version__")):
+                    where.append(fn.name)
+        self.assertTrue(where, "precondition: something consults the version")
+        self.assertEqual(sorted(set(where)), ["main"])
+
+    def _run_main(self, argv, version):
+        import contextlib, io, types
+        calls, err = [], io.StringIO()
+        stub = lambda name: (lambda *a, **k: calls.append((name, a)) or True)
+        extra = {n: stub(n) for n in ("fig_tr6_parity_alternations", "fig_tr4_boundary_information",
+                                      "fig_tr1_rules_tradeoff", "fig_tr3_campaign_timeline",
+                                      "fig_viz_scale", "fig_viz_narrative_n1_object",
+                                      "fig_viz_narrative_n2_fg_mechanism", "tr12_figures",
+                                      "_selftest")}
+        extra["matplotlib"] = types.SimpleNamespace(__version__=version)
+        extra["sys"] = types.SimpleNamespace(stderr=err)
+        ns = self._lift(["USAGE", "_usage_error", "EXPECTED_MATPLOTLIB", "_mpl_version_note",
+                         "_parse_cli", "main"],
+                        extra)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = ns["main"](argv)
+        return rc, calls, out.getvalue(), err.getvalue()
+
+    def test_default_run_renders_no_narrative_figure_and_opt_in_does(self):
+        rc, calls, out, err = self._run_main([], "3.11.0")
+        names = [c[0] for c in calls]
+        self.assertEqual(rc, 0)
+        self.assertEqual(names, ["fig_tr6_parity_alternations", "fig_tr4_boundary_information",
+                                 "fig_tr1_rules_tradeoff", "fig_tr3_campaign_timeline",
+                                 "fig_viz_scale", "tr12_figures"])
+        self.assertEqual(calls[-1][1], (None,))
+        self.assertEqual((out, err), ("", ""))
+        _, calls, _, _ = self._run_main(["--narrative", "/some/root"], "3.11.0")
+        names = [c[0] for c in calls]
+        self.assertIn("fig_viz_narrative_n1_object", names)
+        self.assertIn("fig_viz_narrative_n2_fg_mechanism", names)
+        self.assertEqual(calls[-1], ("tr12_figures", ("/some/root",)))
+        _, calls, _, _ = self._run_main(["--selftest"], "3.6.3")
+        self.assertEqual([c[0] for c in calls], ["_selftest"])
+
+    def test_mismatch_goes_to_stderr_once_and_stdout_is_untouched(self):
+        _, _, out, err = self._run_main([], "3.6.3")
+        self.assertEqual(out, "")
+        self.assertEqual(err.splitlines(), ["MPL_VERSION=MISMATCH have=3.6.3 expected=3.11.0 -- "
+                                            "PNG bytes will not match the committed figures"])
+
+    def test_cli_rejects_unknown_options_and_extra_roots(self):
+        import io, types
+        err = io.StringIO()
+        p = self._lift(["USAGE", "_usage_error", "_parse_cli"],
+                       {"sys": types.SimpleNamespace(stderr=err)})["_parse_cli"]
+        self.assertEqual(p([]), (False, False, None))
+        self.assertEqual(p(["tr12"]), (False, False, "tr12"))
+        self.assertEqual(p(["tr12", "--narrative"]), (False, True, "tr12"))
+        for bad in (["--narative"], ["a", "b"]):
+            with self.assertRaises(SystemExit) as cm:
+                p(bad)
+            self.assertEqual(cm.exception.code, 2)
+        self.assertEqual(err.getvalue().count("usage: report_figures.py"), 2)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_documented_command_writes_exactly_the_ten_committed_stems(self):
+        import matplotlib
+        out_dir = os.path.join(self.tmp, "render")
+        os.mkdir(out_dir)
+        r = subprocess.run([sys.executable, self.GEN], cwd=out_dir, capture_output=True,
+                           text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        want = sorted(s + e for s in self.TEN for e in (".png", ".svg"))
+        self.assertEqual(sorted(os.listdir(out_dir)), want)
+        self.assertEqual(len([l for l in r.stdout.splitlines() if l.startswith("Saved ")]), 10)
+        self.assertNotIn("MPL_VERSION", r.stdout)
+        n_note = len([l for l in r.stderr.splitlines() if l.startswith("MPL_VERSION=")])
+        self.assertEqual(n_note, 0 if matplotlib.__version__ == "3.11.0" else 1)
+
+# end class TestQ862VizGeneratorHygieneVC (lane VC)
+
+
+class TestQ860Q861PrivateNamesAndPaths(unittest.TestCase):
+    """Lane GD: Q-860, Q-861.
+
+    Q-860: scripts/spot_health_precheck.sh named its probe VM `spot-health-probe-$$` in a shared
+    resource group, and its EXIT trap deletes by that name, so a PID collision across hosts let one
+    run delete another's probe. The name now carries 8 hex chars read from /dev/urandom, and a
+    failed read is SPOT_PRECHECK=ERROR (rc 4) before any `az` call. Driven end to end with PATH
+    stubs only (`az`, `sleep`, and a failing `od` for the fail-closed case): no VM, no spend.
+
+    Q-861: GATE 21 (doc_gates.sh script-paths) hardcoded the operator's private checkout path.
+    It now reads ROAE_PRIVATE_DIR (no default); unset or not a directory, the two private legs
+    SKIP with the whole line DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:<reason>. Driven through the real
+    doc_gates.sh entry, copied with its modules into a scratch git repo holding planted docs.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PRECHECK = os.path.join(ROOT, "scripts", "spot_health_precheck.sh")
+
+    AZ_STUB = r"""#!/bin/sh
+echo "$*" >> "$GD_AZ_LOG"
+case "$*" in
+  "vm list-skus"*) echo '[[]]' ;;
+  "vm list-usage"*) echo '{"currentValue": "0", "limit": "128"}' ;;
+  "vm show"*provisioningState*) echo Succeeded ;;
+  "vm show"*powerState*) echo "VM running" ;;
+esac
+exit 0
+"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q860q861_")
+        cls.bin = os.path.join(cls.tmp, "bin")
+        cls.badbin = os.path.join(cls.tmp, "badbin")
+        os.makedirs(cls.bin); os.makedirs(cls.badbin)
+        for d, name, body in ((cls.bin, "az", cls.AZ_STUB), (cls.bin, "sleep", "#!/bin/sh\nexit 0\n"),
+                              (cls.badbin, "od", "#!/bin/sh\nexit 1\n")):
+            path = os.path.join(d, name)
+            with open(path, "w") as fh:
+                fh.write(body)
+            os.chmod(path, 0o755)
+        # GATE 21 fixture: the real doc_gates.sh + modules, committed into a scratch repo with
+        # planted docs; a fake private checkout beside it.
+        cls.repo = os.path.join(cls.tmp, "repo")
+        os.makedirs(os.path.join(cls.repo, "docs"))
+        shutil.copytree(os.path.join(cls.ROOT, "scripts", "doc_gates.d"),
+                        os.path.join(cls.repo, "scripts", "doc_gates.d"))
+        shutil.copy2(os.path.join(cls.ROOT, "scripts", "doc_gates.sh"),
+                     os.path.join(cls.repo, "scripts", "doc_gates.sh"))
+        cls.priv = os.path.join(cls.tmp, "privcheckout")
+        os.makedirs(os.path.join(cls.priv, "scripts"))
+        for rel in ("scripts/private_only_tool.sh", "present_note.md"):
+            open(os.path.join(cls.priv, rel), "w").close()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---------------------------------------------------------------- Q-860 helpers
+    def _precheck(self, extra_path=None):
+        log = os.path.join(self.tmp, "az_%d.log" % random.getrandbits(32))
+        path = self.bin + os.pathsep + os.environ["PATH"]
+        if extra_path:
+            path = extra_path + os.pathsep + path
+        env = dict(os.environ, PATH=path, GD_AZ_LOG=log, RG="RG-STUB")
+        p = subprocess.Popen(["bash", self.PRECHECK, "westus3", "Standard_D128als_v7", "128"],
+                             env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate(timeout=120)
+        calls = []
+        if os.path.exists(log):
+            with open(log) as fh:
+                calls = fh.read().splitlines()
+        return p.pid, p.returncode, out, err, calls
+
+    @staticmethod
+    def _names(calls, verb):
+        return [m.group(1) for c in calls if c.startswith(verb)
+                for m in [re.search(r"(?:--name|-n) (\S+)", c)] if m]
+
+    def test_q860_probe_name_has_random_suffix_and_cleanup_keys_on_it(self):
+        pid, rc, out, err, calls = self._precheck()
+        self.assertEqual(rc, 0, out + err)
+        self.assertIn("SPOT_PRECHECK=OK", out.splitlines())
+        created = self._names(calls, "vm create")
+        self.assertEqual(len(created), 1, calls)
+        name = created[0]
+        # the PID alone is what collided; the name must carry more than it
+        self.assertNotEqual(name, "spot-health-probe-%d" % pid)
+        self.assertRegex(name, r"^spot-health-probe-%d-[0-9a-f]{8}$" % pid)
+        self.assertLessEqual(len(name + "VMNic"), 64)   # VM name limit 64; NIC name limit 80
+        # every show/delete in this run addresses exactly the probe this run created
+        for verb in ("vm show", "vm delete"):
+            used = self._names(calls, verb)
+            self.assertTrue(used, (verb, calls))
+            self.assertEqual(set(used), {name}, verb)
+        self.assertEqual(set(self._names(calls, "network nic delete")), {name + "VMNic"})
+
+    def test_q860_two_runs_draw_different_suffixes(self):
+        suffixes = []
+        for _ in range(2):
+            pid, rc, out, err, calls = self._precheck()
+            name = self._names(calls, "vm create")[0]
+            suffixes.append(name.rsplit("-", 1)[1])
+        self.assertNotEqual(suffixes[0], suffixes[1])
+
+    def test_q860_unreadable_urandom_fails_before_any_az_call(self):
+        pid, rc, out, err, calls = self._precheck(extra_path=self.badbin)
+        self.assertEqual(rc, 4, out + err)
+        self.assertEqual([l for l in out.splitlines() if l.startswith("SPOT_PRECHECK=")],
+                         ["SPOT_PRECHECK=ERROR"])
+        self.assertEqual(calls, [])       # nothing measured, nothing provisioned
+        self.assertIn("random probe-name suffix", err)
+
+    def test_q860_positive_control_stub_drives_the_create_path(self):
+        # the fail-closed assertion above (no az calls) means something only if the SAME stubs,
+        # without the failing od, do reach `az vm create`
+        pid, rc, out, err, calls = self._precheck()
+        self.assertTrue(any(c.startswith("vm create") for c in calls), calls)
+
+    # ---------------------------------------------------------------- Q-861 helpers
+    def _gate21(self, doc_text, privdir):
+        with open(os.path.join(self.repo, "docs", "NOTE.md"), "w") as fh:
+            fh.write(doc_text)
+        g = ["git", "-C", self.repo]
+        if not os.path.isdir(os.path.join(self.repo, ".git")):
+            subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
+                            "--allow-empty", "-m", "fixture"], check=True)
+        env = dict(os.environ)
+        env.pop("ROAE_PRIVATE_DIR", None)
+        if privdir is not None:
+            env["ROAE_PRIVATE_DIR"] = privdir
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "script-paths"], cwd=self.repo,
+                           env=env, capture_output=True, text=True, timeout=300)
+        return r.returncode, r.stdout, r.stderr
+
+    CLEAN = "A pointer: `roae-private/moved_away.md` and `scripts/doc_gates.sh`.\n"
+    LEAK = "Use `scripts/private_only_tool.sh` here.\n"
+
+    def _tok(self, out):
+        return [l for l in out.splitlines() if l.startswith("DOC_GATE_SCRIPT_PATHS_PRIVATE=")]
+
+    def test_q861_unset_skips_private_legs_with_named_line(self):
+        rc, out, err = self._gate21(self.CLEAN, None)
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self._tok(out), ["DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-unset"])
+        self.assertIn("[SKIP]", out)
+        rc, out, err = self._gate21(self.CLEAN, "")
+        self.assertEqual(self._tok(out), ["DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-unset"])
+
+    def test_q861_absent_dir_skips_with_named_line(self):
+        rc, out, err = self._gate21(self.CLEAN, os.path.join(self.tmp, "no_such_dir"))
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self._tok(out),
+                         ["DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-not-a-directory"])
+
+    def test_q861_set_goes_red_on_stale_private_pointer(self):
+        rc, out, err = self._gate21(self.CLEAN, self.priv)
+        self.assertEqual(rc, 1, out + err)
+        self.assertEqual(self._tok(out), ["DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"])
+        self.assertIn("STALE-PRIVATE: `roae-private/moved_away.md`", out)
+
+    def test_q861_set_goes_red_on_planted_private_path_leak(self):
+        rc, out, err = self._gate21(self.LEAK, self.priv)
+        self.assertEqual(rc, 1, out + err)
+        self.assertIn("COLLISION: `scripts/private_only_tool.sh`", out)
+        self.assertEqual(self._tok(out), ["DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"])
+
+    def test_q861_set_is_green_when_private_pointer_resolves(self):
+        # positive control: the RAN leg is not red on everything
+        rc, out, err = self._gate21("See `roae-private/present_note.md`.\n", self.priv)
+        self.assertEqual(rc, 0, out + err)
+        self.assertEqual(self._tok(out), ["DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"])
+        self.assertNotIn("[FAIL]", out)
+
+    def test_q861_no_private_path_in_public_scripts(self):
+        # A filesystem path to the operator's private checkout (absolute, or as a sibling of
+        # the public repo) must not appear in the CODE of any tracked script. Comments that
+        # name the private repo as provenance are not paths and are not matched.
+        # (The absolute shape is matched generically, as failopen_closure_gate.sh's ABSRE does,
+        # so this test does not itself publish the path it forbids.)
+        pat = re.compile(r"/home/[a-z][a-z0-9_-]*/github/|(?:\.\.|\$\{?[A-Za-z_]+\}?)/roae-private")
+        # the ABSPATH detector's own planted fixture: a fake absolute path, on purpose
+        allow = {("scripts/failopen_closure_gate.sh", "mk plant_abs.sh")}
+        # positive control: the pattern catches both shapes this lane removed (each built by
+        # concatenation so that this file's own line does not match the scan below)
+        for old in ('  local rc=0 t priv=/home/someone' + '/github/private-checkout',
+                    'RLQ="${ROAE_REVIEW_QUEUE:-$ROOT/../..' + '/roae-private/scripts/review_loop.sh}"'):
+            self.assertRegex(old, pat)
+        files = subprocess.run(["git", "ls-files", "--", "*.sh", "*.py"], cwd=self.ROOT,
+                               capture_output=True, text=True, check=True).stdout.split()
+        self.assertGreater(len(files), 50)
+        hits = []
+        for f in files:
+            if f.startswith("reports/evidence/"):
+                continue   # archived run evidence, not live code
+            try:
+                with open(os.path.join(self.ROOT, f), encoding="utf-8", errors="replace") as fh:
+                    lines = fh.read().splitlines()
+            except OSError:
+                continue
+            for i, ln in enumerate(lines, 1):
+                if ln.lstrip().startswith("#"):
+                    continue
+                if pat.search(ln) and not any(f == af and a in ln for af, a in allow):
+                    hits.append("%s:%d: %s" % (f, i, ln.strip()[:120]))
+        self.assertEqual(hits, [])
+# end class TestQ860Q861PrivateNamesAndPaths (lane GD)
 
 
 if __name__ == "__main__":

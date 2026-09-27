@@ -8,7 +8,7 @@ is the informative answer, and it is the one this figure most likely gives.
 
 ← Back to [README.md](README.md) (index) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · **V3** · [V4 shells](viz_kc_shells.md) ·
-[V5 grammar](viz_kc_grammar.md) · See also [viz_pca.md](viz_pca.md)
+[V5 grammar](viz_kc_grammar.md) · See also [viz_pca.md](archive/viz_pca.md)
 
 
 ### 🔴 A flat spectrum may mean the OBSERVABLE is constant, not that the index is arbitrary

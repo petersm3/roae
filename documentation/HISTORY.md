@@ -9903,3 +9903,16 @@ The selftest still reproduces `403f7202`, and no canonical sha, count or reprodu
 - `./solve --show` flags a record whose reserved bit is set, or whose pair index is out of range, instead of printing it like a valid one, and exits 20; an unreadable `build.sha` has a test, and three comments on its reader are corrected (CX-193).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-27 (later) — batch 22: the banked n=31 answers published, the visualization directory reorganized around TR-12, and the last silent arguments refused
+
+**Batch 22 (CX-194..CX-199) cleared the same review and is the commit that carries this addition.** It publishes answers that had been computed but kept private, streamlines the figures' home, and closes the remaining hardening rows:
+
+- scripts that shared fixed temporary names or minute-keyed cloud names with concurrent runs now make their own: the PGO build keeps its logs in a fresh directory, the certificate verifier builds and writes its proofs in a scratch directory it removes, and the benchmark names its resource group and machine uniquely per run (CX-194);
+- the answer receipts of the 2026-09-22 n=31 battery are published with a small reproducer that re-derives every number that needs no ladder, and the Q10 orbit-size census, which had printed as unavailable because the f-ladder layer summaries predate that field, is filled from the t-ladder summaries that count the same states; the 32 f and 32 t layer summaries are published beside the ladder run (CX-195);
+- sixty-three more `solve` modes refuse arguments they do not read, `--show` reports a read error with the I/O exit code instead of exiting 0, and a refused enumeration no longer leaves a binary snapshot behind (CX-196);
+- `viz/README.md` is rewritten as the entry point for the TR-12 figures — what each shows, the exact reproduction command and the matplotlib version it needs — and three historical pages move to `viz/archive/` (CX-197);
+- the documented figure command writes only the committed figures, the two held narrative figures render only on request, and the generator names the matplotlib version its images were drawn with (CX-198);
+- the Spot precheck names its probe machine uniquely across hosts, and a public gate no longer carries a private directory path; it reads it from the environment and says so when it is absent (CX-199).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.

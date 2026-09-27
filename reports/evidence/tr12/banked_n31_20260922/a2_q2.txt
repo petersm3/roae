@@ -1,0 +1,46 @@
+### O3 unrank r=0 (two endpoints + midpoint)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-ooc] opened <FDIR>: n=31 layers=0..31 kind=f format=v2 index=1255.8 MB cache=2048 MB (1170 blocks of 65536 entries)
+[kc-ooc] opened <GDIR>: n=31 layers=0..31 kind=g format=v2 index=1381.6 MB cache=2048 MB (1170 blocks of 65536 entries)
+order=O3	object=WALK	space=C1C2C4C5-SUPERSPACE
+17,34,23,58,2,16,55,59,7,56,61,47,4,8,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,31,62,24,6,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42
+class	m=1720320	orient_idx=0	class_first_rank3=0
+[kc-o3-bracket] r-1: NONE (r=0 is the O3-least walk)
+[kc-o3-bracket] r  =0	17,34,23,58,2,16,55,59,7,56,61,47,4,8,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,31,62,24,6,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42
+[kc-o3-bracket] r+1=1	17,34,23,58,2,16,55,59,7,56,61,47,4,8,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,31,62,24,6,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,42,21
+[kc-o3-bracket] O3(w[r]) < O3(w[r+1]): STRICT OK (first divergence: slot 31 (orient tiebreak 0 vs 1; SAME class))
+[kc-o3-bracket] rank3 roundtrips + strict order: CERTIFICATE PASS
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=31	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
+# unrank_O3(0) = King Wen is a THEOREM about the labels (QUERY_INVENTORY 9.1), not a finding about KW;
+# it is also the only external anchor for the O3 rank/unrank pair at full-31, checked byte-for-byte here.
+Q2_R0_IS_ANCHOR	YES
+### O3 unrank r=1097051278789181790036112071176579186687 (two endpoints + midpoint)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-ooc] opened <FDIR>: n=31 layers=0..31 kind=f format=v2 index=1255.8 MB cache=2048 MB (1170 blocks of 65536 entries)
+[kc-ooc] opened <GDIR>: n=31 layers=0..31 kind=g format=v2 index=1381.6 MB cache=2048 MB (1170 blocks of 65536 entries)
+order=O3	object=WALK	space=C1C2C4C5-SUPERSPACE
+42,21,12,51,19,50,27,54,44,13,11,52,36,9,46,29,22,26,6,24,62,31,49,35,10,20,43,53,5,40,15,60,14,28,45,18,30,33,39,57,1,32,37,41,48,3,58,23,34,17,8,4,38,25,47,61,56,7,55,59,16,2
+class	m=1622016	orient_idx=1622015	class_first_rank3=1097051278789181790036112071176577564672
+[kc-o3-bracket] r-1=1097051278789181790036112071176579186686	42,21,12,51,19,50,27,54,44,13,11,52,36,9,46,29,22,26,6,24,62,31,49,35,10,20,43,53,5,40,15,60,14,28,45,18,30,33,39,57,1,32,37,41,48,3,58,23,34,17,8,4,38,25,47,61,56,7,55,59,2,16
+[kc-o3-bracket] r  =1097051278789181790036112071176579186687	42,21,12,51,19,50,27,54,44,13,11,52,36,9,46,29,22,26,6,24,62,31,49,35,10,20,43,53,5,40,15,60,14,28,45,18,30,33,39,57,1,32,37,41,48,3,58,23,34,17,8,4,38,25,47,61,56,7,55,59,16,2
+[kc-o3-bracket] r+1: NONE (r=N-1 is the O3-greatest walk)
+[kc-o3-bracket] O3(w[r-1]) < O3(w[r]): STRICT OK (first divergence: slot 31 (orient tiebreak 0 vs 1; SAME class))
+[kc-o3-bracket] rank3 roundtrips + strict order: CERTIFICATE PASS
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=31	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)
+### O3 unrank r=548525639394590895018056035588289593344 (two endpoints + midpoint)
+[f1] group self-checks PASS: |G48|=48 verified elementwise (Hamming isometry 64x64, 32-pair closure, pair-0 fixed, rev-commutation); quotient = 24 pair-perms, closed under composition, kernel {id,rev}
+[f1] pair-orbits of the 31 free pairs: 3:[3,7,11] 3:[4,6,21] 3:[13,14,30] 4:[5,8,26,31] 6:[1,9,17,19,22,25] 6:[2,12,16,18,24,28] 6:[10,15,20,23,27,29]
+[kc-ooc] opened <FDIR>: n=31 layers=0..31 kind=f format=v2 index=1255.8 MB cache=2048 MB (1170 blocks of 65536 entries)
+[kc-ooc] opened <GDIR>: n=31 layers=0..31 kind=g format=v2 index=1381.6 MB cache=2048 MB (1170 blocks of 65536 entries)
+order=O3	object=WALK	space=C1C2C4C5-SUPERSPACE
+40,5,36,9,31,62,58,23,24,6,57,39,43,53,27,54,7,56,61,47,28,14,26,22,13,44,2,16,50,19,18,45,4,8,21,42,51,12,3,48,55,59,11,52,29,46,35,49,60,15,25,38,30,33,17,34,1,32,20,10,41,37
+class	m=3670016	orient_idx=1581056	class_first_rank3=548525639394590895018056035588288012288
+[kc-o3-bracket] r-1=548525639394590895018056035588289593343	40,5,36,9,31,62,58,23,24,6,57,39,43,53,54,27,56,7,47,61,14,28,22,26,44,13,16,2,19,50,18,45,8,4,42,21,12,51,48,3,59,55,11,52,46,29,49,35,15,60,38,25,33,30,34,17,32,1,10,20,37,41
+[kc-o3-bracket] r  =548525639394590895018056035588289593344	40,5,36,9,31,62,58,23,24,6,57,39,43,53,27,54,7,56,61,47,28,14,26,22,13,44,2,16,50,19,18,45,4,8,21,42,51,12,3,48,55,59,11,52,29,46,35,49,60,15,25,38,30,33,17,34,1,32,20,10,41,37
+[kc-o3-bracket] r+1=548525639394590895018056035588289593345	40,5,36,9,31,62,58,23,24,6,57,39,43,53,27,54,7,56,61,47,28,14,26,22,13,44,2,16,50,19,18,45,4,8,21,42,51,12,3,48,55,59,11,52,29,46,35,49,60,15,25,38,30,33,17,34,1,32,10,20,37,41
+[kc-o3-bracket] O3(w[r-1]) < O3(w[r]): STRICT OK (first divergence: slot 8 (orient tiebreak 0 vs 1; SAME class))
+[kc-o3-bracket] O3(w[r]) < O3(w[r+1]): STRICT OK (first divergence: slot 30 (orient tiebreak 0 vs 1; SAME class))
+[kc-o3-bracket] rank3 roundtrips + strict order: CERTIFICATE PASS
+#provenance	engine=solve.c/kc-o3	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	n=31	order=O3(=compare_solutions:pair-vector-lex,then-orient-lex)	object=WALK-rank(class-rank=distinct-records-preceding,NOT-computed;class-block=[class_first_rank3,+m))	space=C1C2C4C5-SUPERSPACE(exact;C15-rank=labeled-estimate-only,H3b)

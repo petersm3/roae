@@ -1479,7 +1479,7 @@ Beyond the LOCK / `build.sha` / `.budget` gates above, six more dummy-proof gate
 |---|---|---|---|
 | Auto-selftest | Binary reproduces `--selftest` sha `403f7202…` | 24 | `SOLVE_SKIP_AUTO_SELFTEST=1` |
 | Disk-space pre-check | `cwd` filesystem has projected required bytes free | 29 | `SOLVE_SKIP_DISK_CHECK=1` |
-| Binary snapshot | Copies running binary to `solve.binary.snapshot` for forensics | (warn) | `SOLVE_SKIP_BINARY_SNAPSHOT=1` |
+| Binary snapshot | Copies running binary to `solve.binary.snapshot` for forensics, after the lock, `build.sha` and manifest checks (since 2026-09-27; a refused run leaves none) | (warn) | `SOLVE_SKIP_BINARY_SNAPSHOT=1` |
 | Sub-canonical hard-gate | Refuses `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` | 25 | `SOLVE_ALLOW_SUB_CANONICAL=1` |
 | Shard manifest auto-verify | Existing `shard_manifest.txt` matches current shards | 22 | `SOLVE_SKIP_AUTO_MANIFEST=1` |
 | Auto-emit shard manifest | Writes `shard_manifest.txt` after each flush + promote | — | `SOLVE_SKIP_AUTO_MANIFEST=1` |
@@ -2631,3 +2631,22 @@ that were previously in this list and are now complete:
 - Hash-table silent-drop fix → commit `585880f` (auto-resizing hash table, zero silent drops).
 - Status-label taxonomy → commit `3f0167f` (EXHAUSTED/BUDGETED/INTERRUPTED).
 - Option B depth-3 work units → commit `ac5a9ba`; 10T d3 enumeration completed 2026-04-17 with all 158,364 sub-branches processed.
+
+## `doc_gates.sh script-paths` (GATE 21) — the private-checkout legs
+
+GATE 21 resolves every backticked prefixed path in the markdown corpus. Two of its
+legs, COLLISION and STALE-PRIVATE, resolve against the operator's private checkout,
+which is not published. Its location comes only from the environment, with no
+default (Q-861; until 2026-09-27 the script carried the operator's absolute path):
+
+```sh
+ROAE_PRIVATE_DIR=/path/to/private/checkout bash scripts/doc_gates.sh script-paths
+```
+
+Unset, empty or not a directory, those two legs are skipped with a named line and
+the dangle leg still runs, so a fresh clone gets the checks it can run and is told
+which ones it cannot.
+
+| token | meaning |
+|---|---|
+| `DOC_GATE_SCRIPT_PATHS_PRIVATE` | `RAN` \| `SKIP:ROAE_PRIVATE_DIR-unset` \| `SKIP:ROAE_PRIVATE_DIR-not-a-directory`, whole line. It says whether the two private-checkout legs ran. It is not a verdict on the tree: GATE 21's exit code is. A `SKIP` exit 0 means only that the dangle leg found nothing |

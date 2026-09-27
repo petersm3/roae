@@ -5,7 +5,7 @@ The four PCA scatter plots project the complete d3 **560T** canonical solution s
 different structural property. They answer **"where does each valid ordering sit, and
 where is King Wen?"**
 
-← Back to [README.md](README.md) (index) · See also [viz_graphs.md](viz_graphs.md) (growth + campaign telemetry)
+← Back to [README.md](../README.md) (index) · See also [viz_graphs.md](viz_graphs.md) (growth + campaign telemetry)
 
 ## What you're looking at
 
@@ -50,11 +50,11 @@ so you can find its location on each plot.
 
 ## The four plots
 
-*Images below are from the **d3 560T canonical** (sha `9a968fa2…`, 10,525,271,997 records — the current deepest enumeration). Full-resolution PNG + SVG are committed under [`../runs/20260608_560T_9a968fa2/viz/`](../runs/20260608_560T_9a968fa2/viz/). Axis labels show the % of total variance each PC captures.*
+*Images below are from the **d3 560T canonical** (sha `9a968fa2…`, 10,525,271,997 records — the current deepest enumeration). Full-resolution PNG + SVG are committed under [`../../runs/20260608_560T_9a968fa2/viz/`](../../runs/20260608_560T_9a968fa2/viz/). Axis labels show the % of total variance each PC captures.*
 
 ### 1. `viz_edit_distance.png/.svg` — colored by edit distance to King Wen
 
-![2-D PCA scatter (PC1 vs PC2) of the 560T d3 canonical solution space, each dot a valid King Wen ordering colored by edit distance to King Wen (0 = KW itself, up to 32 positions differing); King Wen sits in a dense, well-populated central region rather than as an isolated outlier.](../runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
+![2-D PCA scatter (PC1 vs PC2) of the 560T d3 canonical solution space, each dot a valid King Wen ordering colored by edit distance to King Wen (0 = KW itself, up to 32 positions differing); King Wen sits in a dense, well-populated central region rather than as an isolated outlier.](../../runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
 
 **What's colored:** each solution's "edit distance" to King Wen,
 defined as the number of positions where this solution's pair
@@ -90,7 +90,7 @@ position differs).
   among valid orderings.
 - **Canonical d2 10T, d3 10T, and d3 100T all show KW sitting in a
   well-populated central region of PCA space**, not an isolated outlier.
-  This is consistent with (a) [CRITIQUE.md](../documentation/CRITIQUE.md)'s note that KW's specific
+  This is consistent with (a) [CRITIQUE.md](../../documentation/CRITIQUE.md)'s note that KW's specific
   C4-C7 properties aren't distinguishing beyond the robust C1-C3
   findings, and (b) the d3 100T C3-ceiling result (KW ties ~340M
   other canonical orderings at C3=776; KW is the *mode* of the C3
@@ -103,14 +103,14 @@ position differs).
   seven KDE dimensions were KW-referencing, and the de-circularized re-run
   on the two KW-independent FFT dimensions places KW at ≈ the 30th
   percentile of joint density (see
-  [`../documentation/DISTRIBUTIONAL_ANALYSIS.md`](../documentation/DISTRIBUTIONAL_ANALYSIS.md)).
+  [`../../documentation/DISTRIBUTIONAL_ANALYSIS.md`](../../documentation/DISTRIBUTIONAL_ANALYSIS.md)).
   The PCA centrality shown here and the corrected distributional result now
   agree: KW is typical both in raw pair-placement space and in the
   KW-independent observable space.
 
 ### 2. `viz_complement_dist.png/.svg` — colored by complement distance (C3 value)
 
-![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by total complement distance (the C3 value, summed |pos[v]−pos[v^63]|, ranging 392–776 where C3 caps at King Wen's 776); the color distribution shows how selectively C3 filters the pair-constrained space.](../runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by total complement distance (the C3 value, summed |pos[v]−pos[v^63]|, ranging 392–776 where C3 caps at King Wen's 776); the color distribution shows how selectively C3 filters the pair-constrained space.](../../runs/20260608_560T_9a968fa2/viz/viz_complement_dist.png)
 
 **What's colored:** each solution's total complement distance
 (the sum of `|pos[v] - pos[v^63]|` across all 64 hexagrams).
@@ -141,7 +141,7 @@ previously carried the 10T/100T minimum 424 under the 560T figure; the
   KW is tautologically at 100th percentile. **That figure was flagged
   2026-08-01** as unsupported by the population it is labelled with
   (the ledger gives ≈12% at that scope) — see
-  [SOLVE.md](../documentation/SOLVE.md) §Rule 3.
+  [SOLVE.md](../../documentation/SOLVE.md) §Rule 3.
 - The distribution shape in this plot tells you HOW selective C3 is
   as a filter. A heavily skewed distribution (most points near 776,
   few near the minimum) means C3 is a strong filter that eliminates most
@@ -149,7 +149,7 @@ previously carried the 10T/100T minimum 424 under the 560T figure; the
 
 ### 3. `viz_position2_cluster.png/.svg` — colored by which pair is at position 2
 
-![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by which pair index (0–31) occupies sequence position 2 — the first variable position / first-level branch; reveals whether the position-2 choice partitions the space into visually distinct clusters or interleaves.](../runs/20260608_560T_9a968fa2/viz/viz_position2_cluster.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored by which pair index (0–31) occupies sequence position 2 — the first variable position / first-level branch; reveals whether the position-2 choice partitions the space into visually distinct clusters or interleaves.](../../runs/20260608_560T_9a968fa2/viz/viz_position2_cluster.png)
 
 **What's colored:** the first-level branch identity. Position 2 is
 the first "variable" position in the sequence (position 1 is locked
@@ -179,7 +179,7 @@ at position 2.
 
 ### 4. `viz_adjacency.png/.svg` — colored by C6/C7 adjacency satisfaction
 
-![2-D PCA scatter of the 560T d3 canonical solution space, dots colored 0/1/2 by how many of the two mandatory King Wen adjacency constraints (C6 at positions 27–28, C7 at positions 25–26) the solution satisfies; 2-colored points mark the structural King Wen neighborhood.](../runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
+![2-D PCA scatter of the 560T d3 canonical solution space, dots colored 0/1/2 by how many of the two mandatory King Wen adjacency constraints (C6 at positions 27–28, C7 at positions 25–26) the solution satisfies; 2-colored points mark the structural King Wen neighborhood.](../../runs/20260608_560T_9a968fa2/viz/viz_adjacency.png)
 
 **What's colored:** how many of the two "mandatory" KW-adjacency
 constraints (C6 at positions 27-28, C7 at positions 25-26) this
@@ -250,7 +250,7 @@ can overlay them mentally:
 
 ## Where the files live
 
-- **Generator script**: `viz/visualize.py` (alongside this doc)
+- **Generator script**: `viz/visualize.py` (one directory up from this archived page)
 - **Per-run plot outputs**: `runs/<run-id>/viz/` containing:
   - `viz_edit_distance.png` and `.svg`
   - `viz_complement_dist.png` and `.svg`
@@ -260,6 +260,6 @@ can overlay them mentally:
 PNGs are raster (good for quick viewing). SVGs are vector (better
 for zooming, publication, embedding in LaTeX). Choose per use case.
 
-See [README.md](README.md) for data provenance and the regeneration recipe.
+See [README.md](../README.md) for data provenance and the regeneration recipe.
 
-*Correction 2026-08-20: plot 4's caption and image alt text had **C6 and C7 swapped** — they read "C6 at positions 25–26, C7 at positions 27–28". `solve.c` is the authority here (it prints `Legacy C6 (boundary 27)` and `Legacy C7 (boundary 25)`), and [SPECIFICATION.md](../documentation/SPECIFICATION.md) and [DISTRIBUTIONAL_ANALYSIS.md](../documentation/DISTRIBUTIONAL_ANALYSIS.md) agree with it. **The figure itself is unaffected and was not regenerated**: the plot colors each point by `c6_c7_count`, how many of the two constraints hold (0/1/2), which is symmetric in C6 and C7 — only the naming was wrong. Found while answering a question about where C6 and C7 come from.*
+*Correction 2026-08-20: plot 4's caption and image alt text had **C6 and C7 swapped** — they read "C6 at positions 25–26, C7 at positions 27–28". `solve.c` is the authority here (it prints `Legacy C6 (boundary 27)` and `Legacy C7 (boundary 25)`), and [SPECIFICATION.md](../../documentation/SPECIFICATION.md) and [DISTRIBUTIONAL_ANALYSIS.md](../../documentation/DISTRIBUTIONAL_ANALYSIS.md) agree with it. **The figure itself is unaffected and was not regenerated**: the plot colors each point by `c6_c7_count`, how many of the two constraints hold (0/1/2), which is symmetric in C6 and C7 — only the naming was wrong. Found while answering a question about where C6 and C7 come from.*

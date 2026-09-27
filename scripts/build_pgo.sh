@@ -48,6 +48,12 @@
 #                      sets) or SOLVE_ALLOW_SUB_CANONICAL=1, or solve.c
 #                      refuses it with rc 25.
 #
+# Logs: the two selftest logs and the workload log go to a fresh
+#   mktemp directory, build_dir/pgo_logs.XXXXXX, printed at the end and
+#   kept for forensics like the workload directory. They were fixed
+#   /tmp/pgo_*.log names until 2026-09-27 (Q-856): two concurrent builds
+#   overwrote each other's log, and the failure path tails that log.
+#
 # Example (560T-class build):
 #   cd /home/solver/src
 #   scripts/build_pgo.sh solve_v3 /home/solver/build_dir
@@ -91,6 +97,11 @@ mkdir -p "$PROFILE_DIR"
 
 cd "$BUILD_DIR"
 
+# Q-856: per-build log directory (see "Logs" in the header). Made before
+# anything runs, so a mktemp failure has nothing to clean up.
+LOG_DIR=$(mktemp -d "$BUILD_DIR/pgo_logs.XXXXXX") || {
+    echo "ERROR: could not create a fresh log directory under $BUILD_DIR" >&2; exit 1; }
+
 # ===== Pass 1: instrumented build =====
 # Build to the SAME output name as Pass 2 will use, then rename to
 # .instr. This makes the .gcda lookup key under -flto identical
@@ -108,9 +119,9 @@ fi
 
 # Quick selftest gate on the instrumented binary
 echo "[$(date -u +%FT%TZ)] PGO Pass 1: instrumented selftest"
-if ! "$INSTR_BIN" --selftest > /tmp/pgo_pass1_selftest.log 2>&1; then
+if ! "$INSTR_BIN" --selftest > "$LOG_DIR/pass1_selftest.log" 2>&1; then
     echo "ERROR: instrumented binary failed selftest" >&2
-    tail -20 /tmp/pgo_pass1_selftest.log >&2
+    tail -20 "$LOG_DIR/pass1_selftest.log" >&2
     exit 1
 fi
 
@@ -140,12 +151,12 @@ WORK_DIR=$(mktemp -d "$BUILD_DIR/pgo_work.XXXXXX") || {
     echo "ERROR: could not create a fresh workload directory under $BUILD_DIR" >&2; exit 1; }
 echo "[$(date -u +%FT%TZ)] PGO profile-gen workload (in $WORK_DIR)"
 export INSTR_BIN
-( cd "$WORK_DIR" && eval "$PGO_WORKLOAD" ) > /tmp/pgo_workload.log 2>&1
+( cd "$WORK_DIR" && eval "$PGO_WORKLOAD" ) > "$LOG_DIR/workload.log" 2>&1
 WORKLOAD_RC=$?
 if [ "$WORKLOAD_RC" -ne 0 ]; then
     echo "ERROR: PGO workload exited rc=$WORKLOAD_RC; refusing to build a PGO binary from it" >&2
     echo "       workload log:" >&2
-    tail -20 /tmp/pgo_workload.log >&2
+    tail -20 "$LOG_DIR/workload.log" >&2
     exit 1
 fi
 
@@ -156,7 +167,7 @@ GCDA_COUNT=$(find "$PROFILE_DIR" -name '*.gcda' | wc -l)
 if [ "$GCDA_COUNT" -eq 0 ]; then
     echo "ERROR: PGO profile-gen produced no .gcda files in $PROFILE_DIR" >&2
     echo "       workload log:" >&2
-    tail -20 /tmp/pgo_workload.log >&2
+    tail -20 "$LOG_DIR/workload.log" >&2
     exit 1
 fi
 echo "  PGO Pass 1: $GCDA_COUNT .gcda files in $PROFILE_DIR"
@@ -182,9 +193,9 @@ fi
 
 # Final selftest gate
 echo "[$(date -u +%FT%TZ)] PGO Pass 2: optimized selftest"
-if ! "$FINAL_BIN" --selftest > /tmp/pgo_pass2_selftest.log 2>&1; then
+if ! "$FINAL_BIN" --selftest > "$LOG_DIR/pass2_selftest.log" 2>&1; then
     echo "ERROR: PGO-built binary failed selftest" >&2
-    tail -20 /tmp/pgo_pass2_selftest.log >&2
+    tail -20 "$LOG_DIR/pass2_selftest.log" >&2
     exit 1
 fi
 
@@ -194,6 +205,7 @@ sha256sum "$FINAL_BIN"
 echo "  gcda files:    $GCDA_COUNT (in $PROFILE_DIR)"
 echo "  instrumented:  $INSTR_BIN (kept for forensics; rm to free space)"
 echo "  workload dir:  $WORK_DIR (its checkpoints; kept for forensics, rm to free space)"
+echo "  logs:          $LOG_DIR (selftest + workload logs; kept for forensics)"
 
 # Don't auto-cleanup — caller decides whether to remove $PROFILE_DIR,
-# $WORK_DIR and $INSTR_BIN. They're useful for reproducibility forensics.
+# $WORK_DIR, $LOG_DIR and $INSTR_BIN. They're useful for reproducibility forensics.

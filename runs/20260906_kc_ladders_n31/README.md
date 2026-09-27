@@ -5,7 +5,7 @@ The f, g and t ladders are 15.05 TB; they are **not** distributed here and nothi
 conditional on obtaining them. What ships for *those* is the *recipe plus a fingerprint* — rebuild
 by TR-12's Tier A, then check your bytes against these files.
 
-**`atlas_n31.json` is different, and is the one piece of DATA here.** It is 5,978,126 bytes,
+**`atlas_n31.json` is different, and is the one piece of DATA here.** ⚠ *(2026-09-27, Q-857: no longer the only one — the 64 f and t layer sidecars are published under `sidecars/`; see §"The layer sidecars" below.)* It is 5,978,126 bytes,
 sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558` — the digest TR-12 §12
 pins — and it is the *input* every figure in §12 and every token from
 `python3 solve.py --atlas-probe` is computed from. It is published because §12's corrections of
@@ -134,6 +134,34 @@ and t with zero mismatches. Reproduce with `./solve --f1c5-layer-sha DIR` and co
 matching `STAGE_{F,G,T}_LAYERSHA.txt`. The ~40 h figure this note previously carried was a
 *per-process serial* estimate; because `--f1c5-layer-sha` accepts FILE arguments, the work runs
 concurrently and the real cost is set by the largest single layer, not by the sum.
+
+## The layer sidecars (added 2026-09-27)
+
+`sidecars/run_f/f1c5_layer_stats_00.json` … `_31.json` (32 files) and
+`sidecars/run_t/t_layer_stats_00.json` … `_31.json` (32 files) are the per-layer JSON sidecars the
+f and t builds wrote beside each layer, byte for byte: every one of the 64 is a row of
+`STAGE_F_SHA256.txt` or `STAGE_T_SHA256.txt` above, so the registry checks them.
+
+```bash
+cd runs/20260906_kc_ladders_n31/sidecars
+grep -h layer_stats ../STAGE_F_SHA256.txt ../STAGE_T_SHA256.txt | sha256sum -c --quiet && echo SIDECARS_OK
+```
+
+The sidecars are plain JSON, hashed as raw bytes; none is gz-framed, so the #169 framing era does
+not apply to these rows.
+
+They are here because TR-12 row `c_q10a` (the Q10 per-layer state census) reads nothing but them and
+the atlas, so with them the n=31 census reproduces from the tree:
+`bash reports/evidence/tr12/banked_n31_20260922/check_receipts.sh` runs the battery's own row on
+them and compares the result with the committed transcript. The f sidecars are schema v1 (the f
+ladder was built before `orbit_size_census` entered the schema), so the census column comes from
+the t sidecar of the same layer. The t sidecars cover exactly f's state set — equal `n_masks`,
+`n_entries` and branching histogram on all 32 layers — but their `mass_total` is in t-units, not
+N, so every other column stays f's. The g sidecars are **not** published here: g stores every
+admissible entry, so its `n_entries` differs from f's on every layer but the first, and a second
+census over a different entry set would read as a disagreement.
+
+The sidecars are per-layer summaries written by the builds, not ladder layers.
 
 ## Rights
 

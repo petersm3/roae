@@ -114,7 +114,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 
 ## Visualization
 
-- 8 files in `viz/` (4 PNG + 4 SVG): `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency`. **Correction 2026-08-01: all 8 ARE committed** (`git ls-files viz/`, run in this directory, lists them); the "NOT committed" clause here was stale. ⚠ *(corrected 2026-09-26: this parenthetical also read "and `viz/README.md` says so". Whether the top-level [viz/README.md](../../viz/README.md) lists these eight files depends on the revision; its PCA page, [viz_pca.md](../../viz/viz_pca.md), draws the 560T canonical's copies, not these. The evidence for this directory is the `git ls-files` listing.)*
+- 8 files in `viz/` (4 PNG + 4 SVG): `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency`. **Correction 2026-08-01: all 8 ARE committed** (`git ls-files viz/`, run in this directory, lists them); the "NOT committed" clause here was stale. ⚠ *(corrected 2026-09-26: this parenthetical also read "and `viz/README.md` says so". Whether the top-level [viz/README.md](../../viz/README.md) lists these eight files depends on the revision; its PCA page, [viz_pca.md](../../viz/archive/viz_pca.md), draws the 560T canonical's copies, not these. The evidence for this directory is the `git ls-files` listing.)*
 - Generated 2026-04-20 on d128-westus3 after MERGEDONE.
 - **Sampling methodology (fully deterministic, seed=42):**
   - Uniformly-random 1M-record subsample from the 3.43B canonical via one-pass vectorized reservoir sampling (Algorithm R) — produces identical output on every re-run with the same file + seed.

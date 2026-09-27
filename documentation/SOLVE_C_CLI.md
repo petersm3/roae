@@ -154,7 +154,7 @@ and `SOLVE_KNUTH_FIBER_PERM` (solve.c:41866-41925). They are named here now, but
 they still have no row in the ENVIRONMENT tables below; read them out of
 `solve.c` directly. Every other `SOLVE_*` variable `solve.c` reads is
 documented in this file (measured 2026-09-01 by diffing every
-`getenv("SOLVE_*")` against the names appearing here). Exits 0.
+`getenv("SOLVE_*")` against the names appearing here). Exits 0. *(2026-09-27, Q-852: `--help` and `-h` take no arguments; any argument is refused with exit 2 and a `HELP_ARGS=REFUSED` line, and nothing is printed. Before that it was accepted and silently ignored.)*
 
 `SOLVE_KNUTH_FIBER=1` announces itself on stdout with a whole-line
 `FIBER_MODE=` token, and all three of its values are worth knowing because two
@@ -364,7 +364,7 @@ way to catch host-environment drift (gcc/glibc/kernel/CPU-microcode patch
 deltas)". No host-environment drift event is on the project's record; the
 event once cited as one was a per-cell-budget difference. See
 [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
-per-cell budgets".]
+per-cell budgets".] *(2026-09-27, Q-852: it takes exactly two arguments; any further argument is refused with exit 2 and a `VALIDATE_CANONICAL_ARGS=REFUSED` line naming the first one, before anything runs. Before that it was accepted and silently ignored.)*
 
 Early in the run — before the enum starts, and flushed immediately so it
 survives a kill — it prints the whole-line token `EXPECTED_SHA_ECHO=lowercase`
@@ -389,7 +389,7 @@ In-process pre-flight aggregator (2026-05-28). Runs every gate solve.c
 can check from inside its own process — auto-selftest (sha
 `403f7202…`), disk-space projection, disk-IOPS probe — in report mode,
 **without running the enum**. One command to confirm a campaign VM is
-ready. Run it FROM the campaign run-dir (the gates check the cwd).
+ready. Run it FROM the campaign run-dir (the gates check the cwd). *(2026-09-27, Q-852: it takes at most one argument; any further argument is refused with exit 2 and a `PREFLIGHT_ARGS=REFUSED` line naming the first one, before any gate runs. Before that it was accepted and silently ignored.)*
 
 `node_limit` is a **bare node count**, not a scale token. It is parsed with
 `strtoll` under an endptr-must-be-NUL check (`--preflight`, solve.c:41392-41407),
@@ -448,7 +448,7 @@ Native local disk pre-check (2026-05-28) — the in-binary subset of
 (write+fsync+read smoke test), and identity (marker file +
 filesystem UUID via `findmnt`). SMART + fsck stay in the bash script
 (they shell out to `smartctl`/`fsck` regardless); this is the fast,
-no-extra-deps check runnable from the solve binary already on the VM.
+no-extra-deps check runnable from the solve binary already on the VM. *(2026-09-27, Q-852: it takes at most three arguments; any further argument is refused with exit 2 and a `DISK_PRECHECK_ARGS=REFUSED` line naming the first one, before the disk is touched. Before that it was accepted and silently ignored.)*
 
 `required_gb` default 1200 (560T placeholder — calibrate from the #62
 11.2T dry-run footprint). Marker file: `$SOLVE_DISK_MARKER` (default
@@ -504,7 +504,7 @@ PSB calculator (2026-06-13). Hardcoded recipe table inside `solve.c` is
 the authoritative source for `SOLVE_PER_SUB_BRANCH_LIMIT` per canonical
 scale — the same values published in
 [CANONICAL_HASHES.md §Reproducibility parameters](CANONICAL_HASHES.md#reproducibility-parameters).
-Known scales: `1T 5.6T 10T 11.2T 100T 560T d2-10T`.
+Known scales: `1T 5.6T 10T 11.2T 100T 560T d2-10T`. *(2026-09-27, Q-852: after SCALE it accepts only `--full`; any other argument, or one after `--full`, is refused with exit 2 (not 25) and a `CANONICAL_CONFIG_ARGS=REFUSED` line naming it. Before that it was accepted and silently ignored, so a misspelt `--ful` printed the short form.)*
 
 Output is sha-determining only — `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT`,
 `SOLVE_PER_SUB_BRANCH_LIMIT`. Deliberately does NOT emit `SOLVE_THREADS`
@@ -632,7 +632,7 @@ list on stdout — the input format the `--estimate-knuth` prefix argument consu
 Used to generate the deep prefixes for the exact-count calibration audit that
 validates the Knuth random-probe estimator against ground truth. `<seed>` seeds the
 walk so a prefix is reproducible. Sha-neutral: argv-dispatched, off the
-enumeration/estimator hot path — never touches `--selftest` or the enum. Exits 0.
+enumeration/estimator hot path — never touches `--selftest` or the enum. Exits 0. *(2026-09-27, Q-852: it takes exactly two arguments; any further argument is refused with exit 2 and a `KNUTH_DUMP_PREFIX_ARGS=REFUSED` line naming the first one, before the descent runs. Before that it was accepted and silently ignored.)*
 
 ### --validate-launcher-config
 
@@ -657,7 +657,7 @@ Exit codes:
   exit 25 is also used elsewhere by the sub-canonical hard-gate —
   `SOLVE_NODE_LIMIT < 1T` without `SOLVE_PER_SUB_BRANCH_LIMIT` set and without
   `SOLVE_ALLOW_SUB_CANONICAL=1`; see the Hardening overrides table. The two uses
-  are distinguished by the stderr message and by which subcommand was invoked.)
+  are distinguished by the stderr message and by which subcommand was invoked.) *(2026-09-27, Q-852: it takes exactly two arguments; any further argument is refused with exit 2 and a `VALIDATE_LAUNCHER_CONFIG_ARGS=REFUSED` line naming the first one, with exit 2, not 25,. Before that it was accepted and silently ignored.)*
 - `34` — **known scale, nothing to validate.** The scale is real and
   `--canonical-config` resolves it, but it publishes no per-sub-branch budget, so
   there is no PSB to check. Currently only `d2-10T`: depth-2 mechanics do not use
@@ -723,7 +723,7 @@ running at ~600 MHz instead of the expected 2596 MHz base / 3700 MHz
 boost. This subcommand IS the pre-flight probe; the project's campaign launcher
 calls it directly and logs `[--cpu-freq] cores=... below=N`. (This line
 previously named a companion script that does not exist in this repository.
-Corrected 2026-08-09.)
+Corrected 2026-08-09.) *(2026-09-27, Q-852: it takes at most one argument; any further argument is refused with exit 2 and a `CPU_FREQ_ARGS=REFUSED` line naming the first one, before /proc/cpuinfo is read. Before that it was accepted and silently ignored.)*
 
 No enumeration; instantaneous. Exits 0 if HEALTHY, 1 if any core is
 below threshold, 2 on I/O error.
@@ -863,7 +863,7 @@ the surrounding pair would have produced a value-5 transition. King
 Wen's two value-1 transitions occur only at such C2-forced positions
 per McKenna; this subcommand measures the violation rate across the
 records a `solutions.bin` **declares**. Sha-preserving (post-enumeration
-analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) for context.
+analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) for context. *(2026-09-27, Q-852: it takes at most one argument; any further argument is refused with exit 2 and a `VERIFY_RULE2_ARGS=REFUSED` line naming the first one, before the file is opened. Before that it was accepted and silently ignored.)*
 
 > ⚠️ **Input-trust limits — these apply equally to `--verify-9th-six`
 > and `--verify-wrap-parity`.** The three audit readers are tabulators,
@@ -909,7 +909,7 @@ at. In King Wen, it lands at boundary 19 (the transition between
 hexagrams 38 and 39, the unique "synthetic" value-6 noted by McKenna
 in Chapter 9). Sha-preserving. Subject to the input-trust limits noted
 under `--verify-rule2` above — unchecked framing, unchecked
-`pidx` bound.
+`pidx` bound. *(2026-09-27, Q-852: it takes at most one argument; any further argument is refused with exit 2 and a `VERIFY_9TH_SIX_ARGS=REFUSED` line naming the first one, before the file is opened. Before that it was accepted and silently ignored.)*
 
 ### --verify-wrap-parity
 
@@ -922,7 +922,7 @@ last and first hexagram is odd (d=1/3 split) — and reports the odd/even fracti
 and the d=1 vs d=3 breakdown. At the 560T canonical, 100% of records are odd-wrap
 (91.83% d=3, 8.17% d=1). gz-aware (#169), sha-preserving (post-enumeration analysis).
 Subject to the input-trust limits noted under
-`--verify-rule2` above — unchecked framing, unchecked `pidx` bound.
+`--verify-rule2` above — unchecked framing, unchecked `pidx` bound. *(2026-09-27, Q-852: it takes at most one argument; any further argument is refused with exit 2 and a `VERIFY_WRAP_PARITY_ARGS=REFUSED` line naming the first one, before the file is opened. Before that it was accepted and silently ignored.)*
 
 ### --f4p-verify
 
@@ -1017,7 +1017,7 @@ anchors:
 With a 64-int `SEQ` argument, instead prints
 `viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w` for cross-language / corpus-control gating.
 Ground truth is `solve.py --rc4b-verify`; outputs must match byte-for-byte. Exit 0 iff
-all anchors pass. Sha-neutral (argv-dispatched, never on the enum/selftest path).
+all anchors pass. Sha-neutral (argv-dispatched, never on the enum/selftest path). *(2026-09-27, Q-852: it takes at most one argument (SEQ); any further argument is refused with exit 2 and a `RC4B_VERIFY_ARGS=REFUSED` line naming the first one, before anything is computed. Before that it was accepted and silently ignored.)*
 Population scoring: the R-C4-B/R-C4-C mass lines ride `SOLVE_KNUTH_SCORE=1` (paired with
 the published R-C4 line on identical probes); optional per-leaf T1 assertion:
 `SOLVE_RC4B_ASSERT_T1` below.
@@ -1035,7 +1035,7 @@ computes on the King Wen sequence and asserts the analytic KW anchors — `slot2
 `slot32 = 1`, `adjacent = 1`. With a 64-int `SEQ` argument, instead prints
 `slot2,slot32,adjacent` for cross-language / corpus-control gating. Ground truth is
 `solve.py --rc1c-verify`; outputs must match byte-for-byte. Exit 0 iff all anchors
-pass. Sha-neutral (argv-dispatched, never on the enum/selftest path).
+pass. Sha-neutral (argv-dispatched, never on the enum/selftest path). *(2026-09-27, Q-852: it takes at most one argument (SEQ); any further argument is refused with exit 2 and a `RC1C_VERIFY_ARGS=REFUSED` line naming the first one, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --r11-verify
 
@@ -1054,7 +1054,7 @@ With a 64-int `SEQ` argument, instead prints the 8 values for cross-language /
 corpus-control gating. This is the KW-reproduction gate for the `SOLVE_KNUTH_R11_HIST`
 instrument. Ground truth is `solve.py --r11-verify`; outputs must match byte-for-byte.
 Exit 0 iff the vector matches. Sha-neutral (argv-dispatched, never on the enum/selftest
-path).
+path). *(2026-09-27, Q-852: it takes at most one argument (SEQ); any further argument is refused with exit 2 and a `R11_VERIFY_ARGS=REFUSED` line naming the first one, before anything is computed. Before that it was accepted and silently ignored.)*
 
 ### --f5-verify
 
@@ -1544,7 +1544,7 @@ codec is RFC-1950 zlib), asserting they decode to byte-identical mask/entry
 content (#223). Both path arguments are required (exit 2 on usage error or read
 error); exit 1 on a content mismatch, 0 on match. This is the format-invariance
 check that backs the "count is format-invariant" claim for the OOC DP.
-Sha-neutral.
+Sha-neutral. *(2026-09-27, Q-852: it takes exactly two arguments; any further argument is refused with exit 2 and a `F1C5_VERIFY_LAYER_ARGS=REFUSED` line naming the first one, before either file is opened. Before that it was accepted and silently ignored.)*
 
 ### --f1c5-layer-sha
 
@@ -1680,7 +1680,7 @@ KW (IN, C3=776 exactly), a distinct IN member (orientation-flip variant),
 single-constraint violations (reversed KW = C4 only), and the three
 historical arrangements (Fu Xi, Jing Fang, Mawangdui — all OUT with pinned
 expected profiles incl. Mawangdui's single d=5 seam and C3=2048). Exit
-**0** = IN (C15), **1** = OUT, **2** = parse/usage. Sha-neutral. *(2026-09-26, Q-849: `--check-arrangement-selftest` takes no arguments; any argument is refused with exit 2 and a `CHECK_ARRANGEMENT_SELFTEST_ARGS=REFUSED` line, before the battery runs. Before that it was accepted and silently ignored.)*
+**0** = IN (C15), **1** = OUT, **2** = parse/usage. Sha-neutral. *(2026-09-26, Q-849: `--check-arrangement-selftest` takes no arguments; any argument is refused with exit 2 and a `CHECK_ARRANGEMENT_SELFTEST_ARGS=REFUSED` line, before the battery runs. Before that it was accepted and silently ignored.)* *(2026-09-27, Q-852: `--check-arrangement` itself reads every argument after the arrangement: `--cert-out` with no value, an unknown option or an extra positional is refused with exit 2 and a `CHECK_ARRANGEMENT_ARGS=REFUSED` line naming it. Before that the loop scanned argument pairs and skipped anything it did not know, so `--cert-out` as the last argument wrote no certificate and exited 0. A value-less `--label` keeps its own `--label must be 1..64 chars` refusal.)*
 
 **The `roae-arrangement-certificate` object, key by key.** `--cert-out FILE`
 writes it; `--verify-certificate` recomputes every field from the arrangement
@@ -1732,7 +1732,7 @@ including `--kc-enum-desc-selftest`, `--kc-profile-selftest`, `--kc-walks-selfte
 and `--kc-witness-walks-selftest`, and the modifiers `--kc-tsv` / `--kc-alts` /
 `--kc-layers` / `--kc-witness` / `--kc-json` / `--kc-gdir` / `--kc-out` /
 `--kc-local-max`) is documented in-source in the KC/KC-H/KC-P/KC-X/KC-D/KC-W
-module headers in `solve.c`, per the `--kc-*` convention.
+module headers in `solve.c`, per the `--kc-*` convention. *(2026-09-27, Q-852: an unknown option, or `--kc-fdir`/`--kc-gdir`/`--kc-cache-mb` with no value, is refused with exit 2 and a `VERIFY_CERTIFICATE_ARGS=REFUSED` line naming it, before the certificate is read. Before that it was skipped.)*
 
 #### Verdict tokens of the H-tier verifiers
 
@@ -2811,7 +2811,7 @@ solve --show [N] [--mode first|last|random] [--format kw|binary|glyph|raw]
             [--from FILE] [--from-first M] [--seed S]
 ```
 
-Visual-inspection sample of solutions.bin records. *(2026-09-26, Q-839 sibling sweep: an argument that is not one of the forms above, such as a bare file name or a flag missing its value, is refused with exit 2 and a `SHOW_ARGS=REFUSED` line. Before that it was silently ignored, so `solve --show FILE` showed `solutions.bin` in the CWD; name a file with `--from FILE`.)* *(2026-09-26, Q-855: a shown record that is not a valid record is flagged, not hidden. A record byte with reserved bit 0 set used to print exactly like the canonical record, in every format including `raw`, with exit 0; a pair index of 32..63 printed `<decode failed>` with exit 0. Such a record is still printed, with `  <-- RESERVED_BIT_SET: byte B = 0xVV; NOT a valid record` or `  <-- PAIR_INDEX_OUT_OF_RANGE: …` appended to its line, an `ERROR: RESERVED_BIT_SET: PATH record R byte B = 0xVV has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md; shown for inspection only` (or the `PAIR_INDEX_OUT_OF_RANGE` text) line on stderr, and the run ends with a `SHOW_RECORDS=MALFORMED` line on stdout and exit 20. Bit 0 is checked across the record before its pair indices, as `--verify` does. `--show` is a viewer, so it prints the record rather than refusing it; the exit code is what a script checks. A well-formed record prints exactly as before.)*
+Visual-inspection sample of solutions.bin records. *(2026-09-26, Q-839 sibling sweep: an argument that is not one of the forms above, such as a bare file name or a flag missing its value, is refused with exit 2 and a `SHOW_ARGS=REFUSED` line. Before that it was silently ignored, so `solve --show FILE` showed `solutions.bin` in the CWD; name a file with `--from FILE`.)* *(2026-09-26, Q-855: a shown record that is not a valid record is flagged, not hidden. A record byte with reserved bit 0 set used to print exactly like the canonical record, in every format including `raw`, with exit 0; a pair index of 32..63 printed `<decode failed>` with exit 0. Such a record is still printed, with `  <-- RESERVED_BIT_SET: byte B = 0xVV; NOT a valid record` or `  <-- PAIR_INDEX_OUT_OF_RANGE: …` appended to its line, an `ERROR: RESERVED_BIT_SET: PATH record R byte B = 0xVV has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md; shown for inspection only` (or the `PAIR_INDEX_OUT_OF_RANGE` text) line on stderr, and the run ends with a `SHOW_RECORDS=MALFORMED` line on stdout and exit 20. Bit 0 is checked across the record before its pair indices, as `--verify` does. `--show` is a viewer, so it prints the record rather than refusing it; the exit code is what a script checks. A well-formed record prints exactly as before.)* *(2026-09-27, batch-21 follow-up: a record that cannot be read — a failed `gzseek`, or a short `gzfread`, as when a header declares more records than the file holds or a `.gz` is truncated — was a `[R]: <gzfread truncated>` line on stderr with exit 0. The run now ends with a `SHOW_RECORDS=IO_ERROR` line on stdout and exit 10 (the I/O-error code), and stderr says how many of the records asked for could not be read. It takes precedence over `SHOW_RECORDS=MALFORMED`: the sample is incomplete.)*
 
 Default: first 10 records of `solutions.bin` in CWD, in `kw` format
 (King Wen pair numbers like `[1,2] [3,4] ...`).
@@ -3038,7 +3038,7 @@ and compares the two **freshly produced** hashes
 subcommand's own header comment states the property it checks
 (solve.c:42841-42858). Note the practical consequence: it cannot catch a
 common-mode regression that moves both paths identically. Exits 50 on any
-phase failure or sha mismatch.
+phase failure or sha mismatch. *(2026-09-27, Q-852: it takes at most one argument (the budget); any further argument is refused with exit 2 and a `REGRESSION_TEST_ARGS=REFUSED` line naming the first one, before any enumeration starts. Before that it was accepted and silently ignored.)*
 
 *(Corrected 2026-09-01. The argument is a budget, not a scope name: measured,
 `solve --regression-test 100B` parses as **100 nodes** — it does
@@ -3058,7 +3058,7 @@ solve --double-regression-test [budget]   # node budget, per layer
 Two-path regression: full-enum at depth-3 vs 56-branch
 reconstruction at the same per-sub-branch budget, both merged
 globally. Both paths must produce byte-identical sha256. Used to
-verify the partition invariance theorem at empirical scales.
+verify the partition invariance theorem at empirical scales. *(2026-09-27, Q-852: it takes at most one argument (the budget); any further argument is refused with exit 2 and a `DOUBLE_REGRESSION_TEST_ARGS=REFUSED` line naming the first one, before any enumeration starts. Before that it was accepted and silently ignored.)*
 
 Reads/writes test artifacts under a base directory taken **only** from
 `SOLVE_REGRESS_DIR`; when that is unset the default is `/mnt/work` if it
@@ -3079,7 +3079,7 @@ per line. There is **no header**: the writer is a single
 `LC_ALL=C find … | xargs … printf | sort` pipeline (solve.c:3348-3362) that emits
 sorted data lines and nothing else — no manifest version, no build sha, no
 emission timestamp. *(Corrected 2026-09-01; measured by running
-`--emit-shard-manifest` on a 996-shard tree and reading line 1.)* **Scope (2026-09-26, Q-831):** each sha is of the shard's stream **as written**, which is hash-table slot order, so a manifest pins one run's shards against themselves (its purpose) and is **not** an acceptance test across runs: a run with a different `SOLVE_HASH_LOG2`, or a different table-resize history, writes the same records in a different order. Measured, 3,726 of 3,731 common shards differ between `SOLVE_HASH_LOG2=16` and `22` while every sorted record set matches; compare sorted record sets across runs ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §2.1).
+`--emit-shard-manifest` on a 996-shard tree and reading line 1.)* **Scope (2026-09-26, Q-831):** each sha is of the shard's stream **as written**, which is hash-table slot order, so a manifest pins one run's shards against themselves (its purpose) and is **not** an acceptance test across runs: a run with a different `SOLVE_HASH_LOG2`, or a different table-resize history, writes the same records in a different order. Measured, 3,726 of 3,731 common shards differ between `SOLVE_HASH_LOG2=16` and `22` while every sorted record set matches; compare sorted record sets across runs ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §2.1). *(2026-09-27, Q-852: it takes at most one argument (the manifest path); any further argument is refused with exit 2 and a `EMIT_SHARD_MANIFEST_ARGS=REFUSED` line naming the first one, before any shard is read. Before that it was accepted and silently ignored.)*
 
 The optional argument is the manifest's **output path**, not a directory
 to walk (`manifest_path`, solve.c:42793). The scan target is hard-coded `.`
@@ -3119,7 +3119,7 @@ every shard named in it **relative to the current working directory**,
 and reports MISSING / SHRUNK / DIVERGED / EXTRA entries. Exits 22 on any anomaly. Run at every canonical-enum
 startup as the auto-verify gate — catches cross-run shard-set
 contamination before the new enumeration begins building on top of
-ambiguous prior state.
+ambiguous prior state. *(2026-09-27, Q-852: it takes at most one argument (the manifest path); any further argument is refused with exit 2 and a `VERIFY_SHARD_MANIFEST_ARGS=REFUSED` line naming the first one, before the manifest is read. Before that it was accepted and silently ignored.)*
 
 An unlisted shard (present in the directory but not named in the manifest)
 is **fatal**, like MISSING / SHRUNK / DIVERGED: `dir_shards > total` prints
@@ -3144,7 +3144,7 @@ same canonical set, even if via different execution paths
 (single-shot vs branch-merged vs extension-merged). Normalizes away
 fields that legitimately differ across paths: timestamps, host
 fingerprints, merge-invocation metadata, sum_compute_seconds,
-campaign_wall_seconds, extensions_observed timestamps.
+campaign_wall_seconds, extensions_observed timestamps. *(2026-09-27, Q-852: it takes exactly two arguments; any further argument is refused with exit 2 and a `COMPARE_PROVENANCE_ARGS=REFUSED` line naming the first one, before either file is read. Before that it was accepted and silently ignored.)*
 
 Must-match fields:
 - `solutions_bin_sha256`
@@ -3174,7 +3174,7 @@ carries the **query** points, `d` float64 values per record
 `--threshold` and the number scored (`solve.c:43354`) — not a per-record
 stream. Driven by `solve.py`; piping a packed 32-byte-record artifact into it
 reinterprets record bytes as IEEE doubles. Used by
-[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).
+[DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md). *(2026-09-27, Q-852: every argument is read. An unknown option, or one of the four with no value, is refused with exit 2 and a `KDE_SCORE_STREAM_ARGS=REFUSED` line naming it; before that the loop skipped it, and a value-less option in last place was dropped. `--threshold` is now required like the other three (usage, exit 2): a missing one was read as 0.0.)*
 
 *(Corrected 2026-09-01: this section previously named the packed record
 artifact as the stdin format and a per-record index/score stream as the
@@ -3317,7 +3317,7 @@ completeness and honesty, not as knobs to set.
 |---|---|
 | 0 | Success |
 | 1 | General failure (invalid args, constraint check failed, regression test FAIL) |
-| 10 | I/O error (file not found, opendir failed, malloc failed) |
+| 10 | I/O error (file not found, opendir failed, malloc failed; since 2026-09-27 also a record `--show` could not read, with `SHOW_RECORDS=IO_ERROR`) |
 | 20 | Format error (file size not a multiple of 32 bytes; corrupted header; truncated record) |
 | **21** | **Resume-state invariant violation** — `backtrack()` detected malformed `dfs_resume_partition_prefix_len` or `(pair_idx, orient)` frame out of `[0,31]×[0,1]`. Indicates checkpoint or `.dfs_state` is corrupted. Recovery: clear affected sub-branches' `.dfs_state` + `.bin` files and let LOAD path re-walk. (Phase E.2 defense, re-landed 2026-05-25.) ⚠ *Scoped 2026-09-26 (Q-837, the exit-21 sibling of V3A-054 #1, whose exit-22 recipe was cured in CX-52):* "let LOAD path re-walk" holds only for a cell with **no completion line**. The loader marks a cell complete from its `checkpoint.txt` / `checkpoint_t*.txt` line alone (see exit 22), so if an affected cell also has a completion line, deleting its `.dfs_state` and `.bin` **silently loses its results** — delete that cell's completion line(s) too, or it is never re-walked. |
 | **22** | **Shard-manifest verify failed** — MISSING / SHRUNK / DIVERGED shard detected by `--verify-shard-manifest` or by the auto-verify at canonical-enum startup. Recovery: investigate the named shard. For **DIVERGED**, do NOT trust the new content. For **MISSING / SHRUNK**, removing the manifest row is **NOT sufficient, and on its own it silently loses results**: the loader marks a cell complete from `checkpoint.txt` / `checkpoint_t*.txt` lines ALONE — `load_sub_checkpoint_file` sets `completed_sub_bitmap` from those lines and issues no `stat`, `access` or `fopen` at all — and the scheduler then skips that cell via `is_sub_branch_completed` with no existence test — so the cell is never re-walked. You must ALSO delete that cell's completion line(s) from `checkpoint.txt` **and** the per-thread `checkpoint_t*.txt`, then confirm on restart that the run reports **`N remaining > 0`**. ⚠ **[CORRECTED 2026-09-19 — this row read "for MISSING / SHRUNK delete from manifest and let LOAD path re-walk", and it never re-walks. Measured across five runs: baseline 1,097 shards, merge 135,780 records, sha `403f7202…`; the recipe **as written** returned **rc 0**, printed `auto-verify-manifest PASS` and `0 remaining`, never recreated the shard, and on a second victim merged **135,581 records — 199 canonical classes silently lost — and reported PASS**. The recipe PLUS dropping the checkpoint line recreated the shard and reproduced the baseline sha **byte-identically**. Deleting a shard while KEEPING its manifest row correctly exits 22 — so **the gate works, and the documented recipe defeated it**. Note the asymmetry that makes shard-absence alone unusable as the trigger: a zero-solution cell legitimately has no shard (1,933 of 3,030 cells in the measured fixture), so the precise re-walk condition is a completed checkpoint line with solutions > 0 and no shard on disk. The binary repeats the same advice in its own `auto-verify-manifest FAIL` error text; that is a code change, is **not** cured here, and is tracked as Q-641 *(cured 2026-09-26: the error text now says not to delete shards or manifest rows, and points to this row)*. (Both sites are cited by symbol rather than line number, because `solve.c` line numbers drift — the convention this file's other markers already follow.) See documentation/CORRECTIONS.md CX-52.]** |
@@ -3479,7 +3479,7 @@ solve --double-regression-test 5600000000000    # argv is a node BUDGET, not a d
   only, not after every flush (`auto_emit_shard_manifest_default`, solve.c:49465 and solve.c:49908) — unless
   `SOLVE_SKIP_AUTO_MANIFEST=1`.
 - `solve.binary.snapshot` — copy of the running solve binary, captured
-  at canonical-enum startup (unless `SOLVE_SKIP_BINARY_SNAPSHOT=1`).
+  at canonical-enum startup (unless `SOLVE_SKIP_BINARY_SNAPSHOT=1`). *(Since 2026-09-27 it is written after the lock, `build.sha` and shard-manifest checks, so a run refused with exit 27, 26 or 22 leaves no snapshot. Before that it was written first, and a refused run left a snapshot of a binary that never enumerated there.)*
   Forensic artifact for cross-build reproduction.
 - `temp_sorted_*.bin` — external-sort chunks in `SOLVE_TEMP_DIR`
   during `--merge`.
@@ -3641,7 +3641,7 @@ line number given so a reader can check it. Where `solve.c` carries its own `Usa
 that string is reproduced verbatim and is authoritative; where it does not, the entry states
 only what the parse site establishes — kind, arity and value type — and says nothing about
 semantics it cannot support. **A confident wrong sentence in a CLI doc is worse than a
-missing one**, so unknowns are left explicitly unknown.
+missing one**, so unknowns are left explicitly unknown. *(2026-09-27, Q-852: every `--kc-*-selftest` refuses any argument with exit 2 and a `<MODE>_ARGS=REFUSED` line (for example `KC_SELFTEST_ARGS=REFUSED`). `--kc-midn`, `--kc-oocverify`, `--kc-g-build`, `--kc-g-check`, `--kc-g-check-layer`, `--kc-t-build`, `--kc-t-check`, `--kc-o3-cert`, `--kc-ar2`, `--kc-ladder-verify` and `--kc-scan` refuse an unknown option, a value-less option or an extra positional the same way; `--kc-g-status`, `--kc-t-cert` and `--kc-extremal list` refuse an argument after their last one; and `--kc-build`, `--kc-count`, `--kc-enum`, `--kc-enum-desc` (DIR), `--kc-unrank`, `--kc-rank`, `--kc-member`, `--kc-repr` (DIR and one more) and `--kc-sample` (DIR COUNT SEED) refuse a positional beyond those. Before that each was accepted and silently ignored.)*
 
 ### Subcommands
 

@@ -376,6 +376,15 @@ gate_publication_state() {
 # they are SKIPPED-WITH-NOTICE when absent: a fresh clone or third-party
 # replicator still gets the dangle leg, and is told plainly which legs did not
 # run rather than shown a bare green.
+# WHERE THE PRIVATE CHECKOUT IS (Q-861, 2026-09-27). Until then this function
+# hardcoded the operator's absolute checkout path, a private path in a public
+# script. It now comes ONLY from the environment, with no default:
+#   ROAE_PRIVATE_DIR=<dir>   the private checkout the two legs resolve against.
+# Unset, empty, or not a directory: the two legs are SKIPPED and the gate prints
+# the whole line DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:<reason>, <reason> one of
+# ROAE_PRIVATE_DIR-unset | ROAE_PRIVATE_DIR-not-a-directory. When they run it
+# prints DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN. The token says which legs RAN; the
+# exit code alone cannot, since a skipped leg finds nothing to fail on.
 #
 # ALLOWLIST = NARRATION, and every row must say why. Most rows are CORRECT prose
 # describing files deliberately removed (the 2026-04-21 consolidation into
@@ -385,7 +394,10 @@ gate_publication_state() {
 # TEMPORARY and loudly says so: a green does not bless that pointer.
 gate_script_paths() {
   echo "== GATE 21: backticked repo paths (top-level dirs, roae-private/, roae/) resolve, or are declared narration =="
-  local rc=0 t priv=/home/claude/github/roae-private
+  local rc=0 t priv="${ROAE_PRIVATE_DIR:-}" privrun=0 privwhy=""
+  if [ -z "$priv" ]; then privwhy="ROAE_PRIVATE_DIR-unset"
+  elif [ ! -d "$priv" ]; then privwhy="ROAE_PRIVATE_DIR-not-a-directory"
+  else privrun=1; fi
   # (token, why-it-is-narration) — extend ONLY with a reason.
   allow() { case "$1" in
     scripts/compute_stats.py|scripts/p2_marginals.py|scripts/p2_bivariate.py|scripts/p2_joint_density.py)
@@ -410,7 +422,7 @@ gate_script_paths() {
     seen=$((seen+1))
     case "$t" in
       roae-private/*)  # private-qualified pointer: must exist in the private checkout
-        if [ -d "$priv" ]; then [ -e "$priv/${t#roae-private/}" ] && continue
+        if [ "$privrun" = 1 ]; then [ -e "$priv/${t#roae-private/}" ] && continue
         else continue; fi ;;  # covered by the skip-with-notice line below
       roae/*)          # repo-name-prefixed: resolve after stripping the prefix
         git ls-files --error-unmatch "${t#roae/}" >/dev/null 2>&1 && continue ;;
@@ -427,7 +439,7 @@ gate_script_paths() {
         echo "         pointer; do not rewrite the prose."
         stale=$((stale+1)); rc=1 ;;
       *)
-        if [ -d "$priv" ] && [ -e "$priv/$t" ]; then
+        if [ "$privrun" = 1 ] && [ -e "$priv/$t" ]; then
           echo "  [FAIL] COLLISION: \`$t\` resolves in roae-private but NOT here."
           echo "         Its prefix is a real published directory, so a reader follows this into"
           echo "         a directory that exists and lacks the file. Prefix it: \`roae-private/$t\`."
@@ -439,7 +451,13 @@ gate_script_paths() {
         fi ;;
     esac
   done < <(git grep -ohE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
-  [ -d "$priv" ] || echo "  [note] roae-private not present: the COLLISION leg and the roae-private/ pointer leg did NOT run. Dangle leg did."
+  if [ "$privrun" = 1 ]; then
+    echo "DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"
+  else
+    echo "  [SKIP] private checkout not available ($privwhy): the COLLISION leg and the roae-private/"
+    echo "         pointer leg did NOT run. Dangle leg did. Set ROAE_PRIVATE_DIR to run them."
+    echo "DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:$privwhy"
+  fi
   if [ "$rc" -eq 0 ]; then
     echo "  [ok] $seen distinct prefixed path token(s); all resolve or are declared narration"
     echo "       (scope: prefix-matched tokens only — NOT all slash tokens, and unprefixed strays"

@@ -1,0 +1,26 @@
+# Q8 chi-square uniformity over the GALLERY ranks: 16 equal rank buckets, 15 dof (PREREG_F_CATALOG_T1_T4 §4)
+bucket_rule	floor(16*rank/N), exact integer arithmetic (bc)
+gallery_draws	1000
+requested_k	1000
+bucket	count
+0	71
+1	55
+2	64
+3	59
+4	75
+5	58
+6	53
+7	74
+8	51
+9	49
+10	64
+11	60
+12	58
+13	81
+14	60
+15	68
+sum_sq_counts	63764
+chi2_exact	20224/1000
+chi2	20.224
+chi2_crit	37.70 (chi-square 15 dof, 99.9%; the pre-registered bar)
+Q8_CHI2_GALLERY	PASS

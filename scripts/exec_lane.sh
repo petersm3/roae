@@ -238,7 +238,7 @@ def cmd_shaped(c, need_args):
     DIRECTORY. So `scripts/doc_gates.sh` -- a repo-relative command the docs publish -- was
     command-shaped when the operator happened to be standing in the repo root and not command-
     shaped anywhere else, and EXEC_LANE_EXTRACTED silently became a function of an input nobody
-    could see. MEASURED at 2026-09-08 on --list: 1137 from /home/claude/github/roae/roae, 1119
+    could see. MEASURED at 2026-09-08 on --list: 1137 from the repo root, 1119
     from /tmp; the 18-row delta is exactly the `scripts/doc_gates.sh`, `scripts/tr12_repro.sh`
     and `scripts/corrections_inventory.sh` commands, all three of which are tracked, executable
     files in the tree, so 1137 is the correct answer and 1119 was the lane failing to see 18

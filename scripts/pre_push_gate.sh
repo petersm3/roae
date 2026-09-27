@@ -839,10 +839,11 @@ for sha in $SHAS; do
           # (~40 s saved; its header says it must not go in a periodic tick for
           # exactly that reason). Silent when absent, like the review-loop leg
           # below: a fresh clone, a third-party replicator and CI see nothing.
-          if [ -x "$ROOT/../../roae-private/scripts/canonical_scale_distinguishable_gate.sh" ]; then
+          # Q-861 sweep: located via ROAE_PRIVATE_DIR (no default), not a sibling-checkout path.
+          if [ -n "${ROAE_PRIVATE_DIR:-}" ] && [ -x "$ROAE_PRIVATE_DIR/scripts/canonical_scale_distinguishable_gate.sh" ]; then
             _q479_leg "every CANONICAL_RECIPES label is distinguishable from a typo" SCALE_DISTINGUISHABLE \
                       env ROAE_DIR="$WT" SOLVE_BIN="$_q479_bin" \
-                      bash "$ROOT/../../roae-private/scripts/canonical_scale_distinguishable_gate.sh"
+                      bash "$ROAE_PRIVATE_DIR/scripts/canonical_scale_distinguishable_gate.sh"
           fi
           rm -f "$_q479_bin"
         else
@@ -1183,8 +1184,10 @@ fi
 # The queue is operator-side (roae-private) and NOT part of this repo, so this
 # leg stays silent when absent: a fresh clone, a third-party replicator, and CI
 # all see nothing. Host-agnostic; no network; costs one file read.
-RLQ="${ROAE_REVIEW_QUEUE:-$ROOT/../../roae-private/scripts/review_loop.sh}"
-if [ -x "$RLQ" ]; then
+# Q-861 sweep: the default is derived from ROAE_PRIVATE_DIR (no default of its own), not a
+# sibling-checkout path; with neither variable set RLQ is empty and the leg stays silent.
+RLQ="${ROAE_REVIEW_QUEUE:-${ROAE_PRIVATE_DIR:+$ROAE_PRIVATE_DIR/scripts/review_loop.sh}}"
+if [ -n "$RLQ" ] && [ -x "$RLQ" ]; then
   RL_OUT=$(bash "$RLQ" 2>/dev/null | grep -E '^  items:|^  NEXT:' || true)
   if [ -n "$RL_OUT" ]; then
     echo

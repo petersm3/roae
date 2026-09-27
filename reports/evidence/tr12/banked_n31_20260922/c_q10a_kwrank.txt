@@ -1,0 +1,14 @@
+# Q10(a) KW-orbit-rank — the DROPPED leg, MEASURED. Two reasons were asserted in prose
+# (no commanded source; 0 under KW-derived labels); both are checked here, and EMPTY needs both.
+q10a_class_rank_note	present, says NOT computed
+q10a_rank_fields_searched	class_rank orbit_rank orbit_index orbit_rank3 class_rank3 kw_orbit_rank record_rank
+q10a_rank_fields_present	NONE
+q10a_rank3	0
+q10a_class_first_rank3	0
+q10a_orient_idx	0
+q10a_decomposition	OK	(rank3 == class_first_rank3 + orient_idx)
+q10a_neighbor_prev_rank	NONE
+q10a_forced_zero_under_kw_labels	YES
+# The anchor is the O3-least object, so its 24-orbit contains the global minimum and no
+# orbit precedes it: the orbit rank is 0 by construction of the labels, and a producer
+# for it could only recover the same 0. The quantity is not missing; it is vacuous.

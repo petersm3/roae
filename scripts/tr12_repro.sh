@@ -3064,7 +3064,8 @@ else
     #              histogram, transcribed from the f-ladder sidecars f1c5_layer_stats_XX.json that
     #              --kc-build already wrote (orbit_size_census = [orbit_size, n_masks, n_entries] triples;
     #              branching.hist = [children, n_states] pairs; sidecar schema v2). Read, not computed:
-    #              this is a transcription of Stage F's own sidecars (D5-15). A missing or unparseable
+    #              this is a transcription of Stage F's own sidecars (D5-15; where an f sidecar is schema v1, the
+    #              census column alone comes from the same layer's t sidecar, Q-857 -- see the fallback below). A missing or unparseable
     #              sidecar FAILS the row, and the last layer's mass_total must equal N (the f-ladder's own
     #              count agreeing with --kc-count), so a transcription cannot silently skip a layer;
     #        (iv)  the KW-orbit-rank leg is NOT dropped any more: row c_q10a_kwrank below MEASURES it
@@ -3090,7 +3091,7 @@ else
       echo "Q10A_LAYER_MOD24_FAILS	$fails"
       echo "## per-layer state census, transcribed from f1c5_layer_stats_XX.json (frame: canonical quotient, orbit-unweighted; mass_total = f-prefix mass)"
       echo -e "k\tn_masks\tn_entries\tmass_total\torbit_size_census[size,n_masks,n_entries]\tbranching_hist[children,n_states]"
-      k=0; miss=0; last_mt=""; nv1=0
+      k=0; miss=0; last_mt=""; nv1=0; nt=0
       while [ "$k" -le "$N_PAIRS" ]; do
           sc=$(printf '%s/f1c5_layer_stats_%02d.json' "$FDIR" "$k")
           if [ ! -s "$sc" ]; then printf '%d\tMISSING-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue; fi
@@ -3111,7 +3112,27 @@ else
           # otherwise a v2 sidecar with a truncated or deleted census line would be labelled v1 and pass.
           sv=$(sed -n 's/^  "sidecar": "f1c5_layer_stats_v\([0-9]*\)",*$/\1/p' "$sc" | head -1)
           if [ -z "$oc" ]; then
-              if [ "$sv" = 1 ]; then oc="NA:schema-v1-sidecar"; nv1=$((nv1+1))
+              if [ "$sv" = 1 ]; then
+                  # Q-857(b): a schema-v1 f sidecar has no census. The t sidecar of the same layer (schema v2,
+                  # written by --kc-t-build over f's state set) carries one. COLUMN-SCOPED fallback: only the
+                  # census column comes from t; n_masks/n_entries/mass_total/branching stay f's (t's mass_total
+                  # is in t-units, not N). Preconditions MEASURED per layer, never assumed: t tagged v2, same
+                  # n_masks, same n_entries, and the census's own column sums equal them. Any miss is a row FAIL
+                  # (T-CENSUS-MISMATCH), never a silent NA. Without $TDIR or a t sidecar: NA, as before.
+                  tc=""; [ -n "$TDIR" ] && tc=$(printf '%s/t_layer_stats_%02d.json' "$TDIR" "$k")
+                  if [ -n "$tc" ] && [ -s "$tc" ]; then
+                      tnm=$(sed -n 's/^  "n_masks": \([0-9]*\),*$/\1/p' "$tc" | head -1)
+                      tne=$(sed -n 's/^  "n_entries": \([0-9]*\),*$/\1/p' "$tc" | head -1)
+                      toc=$(sed -n 's/^  "orbit_size_census": \(\[.*\]\),*$/\1/p' "$tc" | head -1)
+                      tsv=$(sed -n 's/^  "sidecar": "f1c5_layer_stats_v\([0-9]*\)",*$/\1/p' "$tc" | head -1)
+                      csm=$(printf '%s' "$toc" | tr -d '[]' | tr ',' '\n' | awk 'NR%3==2{a+=$1} NR%3==0{b+=$1} END{printf "%d %d", a, b}')
+                      if [ "$tsv" = 2 ] && [ -n "$toc" ] && [ "$tnm" = "$nm" ] && [ "$tne" = "$ne" ] && [ "$csm" = "$nm $ne" ]; then
+                          oc="$toc"; nt=$((nt+1))
+                      else
+                          printf '%d\tT-CENSUS-MISMATCH\tf(n_masks=%s,n_entries=%s) t(v%s,n_masks=%s,n_entries=%s,census_sums=%s)\n' "$k" "$nm" "$ne" "${tsv:-?}" "${tnm:-?}" "${tne:-?}" "${csm:-?}"
+                          miss=$((miss+1)); k=$((k+1)); continue
+                      fi
+                  else oc="NA:schema-v1-sidecar"; nv1=$((nv1+1)); fi
               else printf '%d\tUNPARSED-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue; fi
           fi
           printf '%d\t%s\t%s\t%s\t%s\t%s\n' "$k" "$nm" "$ne" "$mt" "$oc" "$bh"
@@ -3120,6 +3141,7 @@ else
       done
       # silent when every sidecar is schema v2, so the n=9 golden does not move
       [ "$nv1" -gt 0 ] && echo "Q10A_SIDECAR_SCHEMA	v1 on $nv1 layer(s): no orbit_size_census (built before sidecar schema v2, 317dda34); that column is NA there, every other field is read and gated"
+      [ "$nt" -gt 0 ] && echo "Q10A_CENSUS_SOURCE	t_layer_stats_XX.json (kind=t, schema v2) on $nt layer(s): the f sidecar is schema v1 there; the t sidecar's n_masks and n_entries equal f's on each such layer and its census sums to them, so the census is over exactly f's state set. All other columns are f's (Q-857)"
       echo "Q10A_SIDECARS_MISSING	$miss"
       if [ "$last_mt" = "$N_TOTAL" ]; then echo "Q10A_LAST_LAYER_MASS_EQ_N	YES ($last_mt)"
       else echo "Q10A_LAST_LAYER_MASS_EQ_N	NO (sidecar k=$N_PAIRS mass_total='$last_mt', N=$N_TOTAL)"; fails=1; fi
@@ -3260,7 +3282,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3234) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3256) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.

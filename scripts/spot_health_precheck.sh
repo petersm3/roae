@@ -19,7 +19,8 @@
 #       suggesting persistent issue — operator escalation needed)
 #   4 = ERROR — THIS CHECK COULD NOT RUN. Not a verdict about capacity:
 #       a malformed argument, or an `az` call that failed or returned
-#       something unparseable. Treat it exactly as a HARD-FAIL for the
+#       something unparseable, or (Q-860) no random probe-name suffix
+#       could be read from /dev/urandom. Treat it exactly as a HARD-FAIL for the
 #       purposes of launching (do not launch), but escalate it as a
 #       BROKEN PRECHECK rather than as an Azure capacity signal.
 #       (Code 4 existed and was undocumented here until 2026-09-02 —
@@ -70,7 +71,22 @@ case "$NEED_VCPU" in
 esac
 
 PROBE_SKU="Standard_D2als_v7"
-PROBE_NAME="spot-health-probe-$$"
+# Q-860: the probe's name is the ONLY thing cleanup_probe() keys its `az vm delete` on, and RG
+# is shared. It was `spot-health-probe-$$`: PIDs collide across hosts (and recycle on one), so
+# two concurrent prechecks could create the same name and one run's delete could remove the
+# other's probe mid-measurement. The name now carries 8 hex chars (32 bits) read from
+# /dev/urandom beside the PID. If that read fails we stop here, before anything is provisioned,
+# rather than fall back to the colliding name. Length: 18 + PID (<= 7) + 1 + 8 = at most 34
+# chars, inside Azure's 64-char Linux VM name limit, and the derived NIC name (+5) inside 80.
+PROBE_RAND=$(od -An -N4 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')
+case "$PROBE_RAND" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+    *)
+        echo "could not read a random probe-name suffix from /dev/urandom (got: '${PROBE_RAND}'); refusing to provision a probe whose name could collide" >&2
+        echo "SPOT_PRECHECK=ERROR"
+        exit 4 ;;
+esac
+PROBE_NAME="spot-health-probe-$$-${PROBE_RAND}"
 PROBE_TIMEOUT_SEC=90
 RG="${RG:-RG-CLAUDE}"
 

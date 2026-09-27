@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 154 dated sections, 2 of them among the 78 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 155 dated sections, 2 of them among the 79 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -172,6 +172,7 @@
 | 152 | 2026-09-26 | iso | 9835 | [open](HISTORY.md#2026-09-26-late-night--batch-20-one-buildsha-reader-reserved-bits-refused-everywhere-and-the-last-silent-arguments) 2026-09-26 (late night) — batch 20: one build.sha reader, reserved bits refused everywhere, and the last silent arguments |
 | 153 | 2026-09-26 | iso | 9847 | [open](HISTORY.md#2026-09-26-retirement--the-n31-ladder-disks-are-retired-and-the-figures-are-reviewed-before-they-are-published) 2026-09-26 (retirement) — the n=31 ladder disks are retired, and the figures are reviewed before they are published |
 | 154 | 2026-09-27 | iso | 9897 | [open](HISTORY.md#2026-09-27--batch-21-the-figures-corrected-before-they-are-published) 2026-09-27 — batch 21: the figures corrected before they are published |
+| 155 | 2026-09-27 | iso | 9907 | [open](HISTORY.md#2026-09-27-later--batch-22-the-banked-n31-answers-published-the-visualization-directory-reorganized-around-tr-12-and-the-last-silent-arguments-refused) 2026-09-27 (later) — batch 22: the banked n=31 answers published, the visualization directory reorganized around TR-12, and the last silent arguments refused |
 
 ## Sections with no date in the heading, in file order
 
