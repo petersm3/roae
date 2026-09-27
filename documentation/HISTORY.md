@@ -9843,3 +9843,63 @@ The selftest still reproduces `403f7202`, and no canonical sha, count or reprodu
 - `scripts/selftest_resume_167_gate.sh` refuses a non-empty working directory instead of rerunning into an earlier run's checkpoints, which had let it print PASS from the earlier run's numbers, and `scripts/perf_bench.sh` keeps its source copies and results in fresh directories (CX-190).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-26 (retirement) — the n=31 ladder disks are retired, and the figures are reviewed before they are published
+
+**The live copies of the n=31 f, g and t ladders were deleted on 2026-09-26, after three independent checks that
+no question still needed them.** The ladders are 15.05 TB (the stage table in
+`runs/20260906_kc_ladders_n31/README.md`); what remains are two verified cloud copies, one in archival storage and
+one prepared for shipment to a physical drive, each checked against the published per-layer registries by stored
+checksum and byte count, without reading the data back. The per-layer sidecars and the root documents are kept
+beside them.
+
+- **What the ladders had to answer first.** A Codex review asked the question narrowly: which n=31 questions do
+  TR-12 and the Knowledge Compiler documents commit to, and which of them only the ladder bytes can answer? Of the
+  rows it listed as promised but unanswered, most were already answered by evidence banked from the n=31 runs,
+  the rest had been deferred or declined on the record, and one was not a ladder question. None was a gap. Its wording
+  findings are CX-176.
+- **A final adversarial pass, asked the wider question.** Because the next realistic chance to query the ladders
+  is years away, a separate review was charged with finding any query worth running before
+  deletion — committed, deferred, declined, or simply valuable — and with re-deciding each earlier deferral
+  against that gap. It found none to run now. Every query the existing code can answer at n=31 had already been
+  run and its output kept; every remaining candidate (the mid-ladder join, the extremal functionals, the
+  entry-level recurrence check, the second Q6 reading) needs new engine code and a design first, and runs from
+  the retained copies later at the same value. One question it surfaced needs no ladder at all: the per-layer
+  state census by orbit size, which printed as unavailable in the battery because the f-ladder sidecars predate
+  that field, is carried exactly by the t-ladder sidecars, which count the same states.
+- **What deleting gives up.** Convenience, not capability: a query after today reads a retained copy rather than
+  a mounted disk. The retained copies are in one storage account, now protected against deletion.
+
+**The figures were reviewed on an unpublished snapshot.** Codex read a tarball of the next state of this
+repository — the new README Figures section, every report figure, the generator and the data each figure is
+drawn from — without anything being pushed, so that a correction would not mean re-publishing the images. It
+confirmed that the data behind the figures is right: every source-digest footer matches its table, and the V1,
+V2 and V5 tables match the n=31 atlas exactly. It found 21 problems in what a reader sees: captions and
+alt-text that count or claim more than the figure shows, a stacked river whose drawn band areas do not equal the
+class sums the caption states, a TR-4 extrapolation line drawn past the premise of the marker beside it, labels
+too small to read, and two figures whose renderers were never committed. A second review confirmed each finding
+and that none needs the ladders; the corrections are batch 21's.
+
+**Mistakes, mine, and what each cost.** A background step that tears down the review machine when its work
+queue is empty shut the machine down minutes after I started it for the figure review, because I had not
+registered the review in that queue; I registered it and restarted. A launch command I believed had been
+refused had in fact started the review, so I checked for a running job before starting a second one. While
+clearing old working copies I deleted one that two other copies borrowed their history from; neither was still
+needed, and the copy the batches are committed in did not depend on it, which I checked before going on. The
+first run of the disk-deletion script stopped three times on bugs in its own checks — a list printed one value
+per line, a missing final newline, and a null printed as nothing — each before any action it should not have
+taken; the disks were deleted one at a time only after each check passed. And the helper that merged the lanes'
+test classes could silently drop an edit a lane made to an existing test; it dropped one, which I restored and
+then checked every other lane patch for.
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-27 — batch 21: the figures corrected before they are published
+
+**Batch 21 (CX-191..CX-193) cleared the same review and is the commit that carries this addition.** It answers the figure review described above, before any of the figures has been published:
+
+- the captions, alt-texts and figure specifications now claim only what the committed tables show: V1's "indistinguishable" pair, V2's band areas and its first-branch split, V5's "3 orbit-classes", V3's unscoped negative, the scale figure's missing premise, TR-5's orbit wording and the TR-4 dashed line are each reworded, and each TR whose caption changed carries a revision row (CX-191);
+- ten committed figures are redrawn from the committed inputs: V2 is a stepped stack whose band areas equal the class sums its caption states, with each band labelled; TR-4's early-rate line stops at k = 8 and is labelled as superseded; TR-1's legend sits outside the data and its binary rule is a text row rather than a bar with no count behind it; and the generator refuses to save a figure with any text smaller than 12 px at a 900-px display (CX-192);
+- `./solve --show` flags a record whose reserved bit is set, or whose pair index is out of range, instead of printing it like a valid one, and exits 20; an unreadable `build.sha` has a test, and three comments on its reader are corrected (CX-193).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.

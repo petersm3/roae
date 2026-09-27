@@ -1,7 +1,7 @@
 # Visualization — V1, the positional-marginal field (where every pair can sit, exactly)
 
-**The 32×31 heat matrix of exact placement probabilities.** ⚠ 32 rows **wide**, but only
-**seven distinct** — see *"The field has SEVEN distinct rows"* below before reading structure into it.
+**The 32×31 heat matrix of exact placement probabilities.** ⚠ The 32 rows contain seven distinct non-pinned marginal profiles plus the identically zero pinned row
+— see *"The field has SEVEN distinct non-pinned rows"* below before reading structure into it. ⚠ *(corrected 2026-09-26, Codex VIZ1 F01: this read "only seven distinct", which left out the zero row 0; exact row comparison gives 8.)*
  For every King Wen pair *j* and every
 pair-slot in the ordering, the field gives the **exact fraction of the whole compiled superspace**
 that places pair *j* in that slot — not a sample, not a projection: a population marginal computed
@@ -63,7 +63,7 @@ index, and its zero row is itself a reader-side gate.
 layer) and every non-pinned row of a pair in the space sums to 1 (each walk places each such pair exactly once; at reduced n the pairs outside the subset are all-zero rows). Both are
 checkable from the TSV; the per-column identity is additionally gated inside the engine.
 
-### 🔴 The field has SEVEN distinct rows, not 32 — read the shape accordingly
+### 🔴 The field has SEVEN distinct non-pinned rows, not 32 — read the shape accordingly
 
 A 32×31 heat map invites the reading that there are 32 independently-behaving pairs. There are not.
 **SUPER is G-closed**, so two pairs in the same orbit are exchanged by a group element that maps
@@ -76,7 +76,7 @@ pair-orbits of the 31 free pairs:  3:[3,7,11]  3:[4,6,21]  3:[13,14,30]  4:[5,8,
 ```
 
 **Seven orbits, sizes {3,3,3,4,6,6,6}.** So the field's 992 cells carry **7 rows** of population
-information, replicated into 32. Measured on real atlases: **n=9 → 3 distinct rows** (sizes
+information, replicated into 31, plus the identically zero row of the C4-pinned pair 0 (8 distinct rows in all). Measured on real atlases: **n=9 → 3 distinct rows** (sizes
 `[3,3,3]`), **n=13 → 3** (`[3,4,6]`), each a union of whole orbits.
 
 ⚠ **Two consequences for how this figure is read and captioned.**

@@ -138,7 +138,7 @@ encodes the pair at position `i` of the sequence:
 - **bit 0**: reserved — **MUST be zero; reject a record with it set.** ⚠ **[NORMATIVE
   STRENGTH ALIGNED 2026-09-03 — this read "unused, always 0", which describes the writer and
   says nothing to a reader. Both shipped readers already REJECT a nonzero bit 0 (`verify.py`
-  rc=1, "Format errors: 1 (records with reserved bit 0 set)"; `./solve --verify` rc=30), and
+  rc=1, "Format errors: 1 (records with reserved bit 0 set)"; `./solve --verify` rc=30; measured 2026-09-26, the other readers refuse it too: `verify.c`'s artifact check counts it as a format error, `./solve --validate` exits 1, the solve.c readers that decode through the shared scan `sol_pidx_scan` refuse it with a `RESERVED_BIT_SET` line (`--c3-min`, `--verify-rule2`, `--verify-9th-six` and `--verify-wrap-parity` exit 20, `--analyze` and `--c3-dist` exit 1; Q-853), the solve.py readers `--branch-yield-report`, `--keystone-analysis` and `--compute-stats` refuse it (Q-850), and `./solve --show`, a viewer, still prints the record but flags it `RESERVED_BIT_SET` and exits 20 (Q-855)), and
   [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) §"Step 3. Decode one record to a 64-hexagram
   sequence" has said "MUST be zero — validate" since 2026-09-01. This file is the normative
   format spec and was the weakest statement of the three. The header's own reserved field

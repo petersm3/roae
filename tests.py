@@ -16229,5 +16229,438 @@ exec cp "$src" "$dst"
 # end class TestQ851ScriptWorkdirTmpReuse (lane FL)
 
 
+class TestViz1FigureFixesFO(unittest.TestCase):
+    """Lane FO: VIZ1 F03, F06, F11, F12 (embedded caption), F13, F17, F18, F19, F20, F21.
+
+    The generator needs matplotlib, and tests.py is stdlib-only, so every check below either
+    lifts a pure helper out of viz/report_figures.py by AST or reads the COMMITTED figure bytes
+    (reports/figures/*.svg). The text-floor check reads the real SVGs, and its positive control
+    is a real committed SVG that no renderer draws and that is known to fall below the floor."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    GEN = os.path.join(HERE, "viz", "report_figures.py")
+    FIGS = os.path.join(HERE, "reports", "figures")
+
+    @classmethod
+    def setUpClass(cls):
+        import ast
+        with open(cls.GEN, encoding="utf-8") as fh:
+            cls.src = fh.read()
+        cls.tree = ast.parse(cls.src)
+        cls.tmp = tempfile.mkdtemp(prefix="viz1_fo_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _lift(self, names, extra=None):
+        import ast
+        keep = [n for n in self.tree.body
+                if (isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in names)
+                or (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id in names
+                                                      for t in n.targets))]
+        for n in keep:
+            if isinstance(n, ast.FunctionDef):
+                n.decorator_list = []
+        got = {n.name if not isinstance(n, ast.Assign) else n.targets[0].id for n in keep}
+        missing = sorted(set(names) - got)
+        if missing:
+            raise AssertionError("viz/report_figures.py lacks %s" % missing)
+        ns = {"os": os, "re": re, "math": __import__("math")}
+        ns.update(extra or {})
+        exec(compile(ast.Module(body=keep, type_ignores=[]), "report_figures.py", "exec"), ns)
+        return ns
+
+    def _body(self, fn):
+        body = self.src.split("def %s(" % fn, 1)[1].split("\ndef ", 1)[0]
+        return "\n".join(l for l in body.splitlines() if not l.lstrip().startswith("#"))
+
+    @staticmethod
+    def _svg_floor(path):
+        """Independent of the generator's own parser: (width_pt, min font pt, px at 900)."""
+        with open(path, encoding="utf-8") as fh:
+            s = fh.read()
+        w = float(re.search(r'<svg\b[^>]*\swidth="([0-9.]+)pt"', s).group(1))
+        sizes = []
+        for chunk in s.split('<g id="text_')[1:]:
+            m = re.search(r'scale\(([0-9.]+) -\1\)', chunk)
+            if m:
+                sizes.append(100.0 * float(m.group(1)))
+        return w, min(sizes), min(sizes) * 900.0 / w
+
+    # --- F03: V2's band areas are the class budgets ---------------------------------------
+    def _river(self):
+        rows = [l.rstrip("\n").split("\t") for l in
+                open(os.path.join(self.HERE, "tr12", "scan", "v2_river.tsv"), encoding="utf-8")]
+        head, rows = rows[0], rows[1:]
+        ki, di, pi = head.index("k"), head.index("d"), head.index("p")
+        ks = sorted({int(r[ki]) for r in rows})
+        ds = sorted({int(r[di]) for r in rows})
+        band = {d: [0.0] * len(ks) for d in ds}
+        for r in rows:
+            band[int(r[di])][ks.index(int(r[ki]))] = float(r[pi])
+        return ks, ds, band
+
+    def test_v2_stepped_band_areas_equal_the_tsv_class_sums(self):
+        ks, ds, band = self._river()
+        edges, stepped = self._lift(["_river_steps"])["_river_steps"](ks, [band[d] for d in ds])
+        self.assertEqual(len(edges), len(ks) + 1)
+        for d, st in zip(ds, stepped):
+            area = sum((edges[i + 1] - edges[i]) * st[i] for i in range(len(edges) - 1))
+            self.assertAlmostEqual(area, sum(band[d]), places=9, msg="d=%d" % d)
+        self.assertEqual([round(sum(band[d])) for d in ds], [2, 8, 13, 7, 1])
+        # positive control: the old linear interpolation over k = 0..30 does NOT give the budgets
+        trap = [sum((band[d][i] + band[d][i + 1]) / 2.0 for i in range(len(ks) - 1)) for d in ds]
+        self.assertAlmostEqual(sum(trap), 30.0, places=6)
+        self.assertGreater(max(abs(t - sum(band[d])) for t, d in zip(trap, ds)), 0.01)
+
+    def test_v2_draws_the_stepped_stack_and_labels_each_band(self):
+        body = self._body("fig_tr12_kc_river")
+        self.assertIn("_river_steps(ks,", body)
+        self.assertRegex(body, r'stackplot\(edges, \*stepped, step="post"')
+        self.assertIn('f"d={d}"', body)                       # F19: direct band labels
+        self.assertIn('where="post"', body)                    # KW overlay on the same bins
+
+    # --- F17: TR-4's dashed segment ends at k = 8 ------------------------------------------
+    def test_tr4_dashed_segment_has_no_point_beyond_k8(self):
+        body = self._body("fig_tr4_boundary_information")
+        m = re.search(r"k_ext = np\.arange\((\d+), (\d+)\)", body)
+        self.assertIsNotNone(m, "the dashed early-rate segment must still be drawn")
+        self.assertEqual(int(m.group(2)) - 1, 8, "np.arange stop is exclusive: last k must be 8")
+        self.assertIn("Early-rate illustration from k=1–4; superseded by the later measured "
+                      "decline.", body)
+        self.assertNotIn("greedy cut (NOT measured)", body)
+        self.assertIn("ax.axvline(14,", body)                  # the k = 14 marker is untouched
+
+    # --- F18: minimum legible text, on the committed bytes ---------------------------------
+    def test_committed_generator_figures_meet_the_text_floor(self):
+        stems = sorted(set(re.findall(r'save\(fig, "([a-z0-9_]+)"', self.src)))
+        present = [s for s in stems if os.path.exists(os.path.join(self.FIGS, s + ".svg"))]
+        self.assertGreaterEqual(len(present), 10, "the committed generator figures must be found")
+        bad = []
+        for s in present:
+            w, mn, px = self._svg_floor(os.path.join(self.FIGS, s + ".svg"))
+            if px < 12.0 - 1e-6:
+                bad.append("%s: %.2f pt on %.1f pt = %.2f px at 900" % (s, mn, w, px))
+        self.assertEqual(bad, [], "text below 12 px at a 900-px display width")
+
+    def test_text_floor_check_can_fail_on_real_bytes(self):
+        # Positive control: TR-5's committed artwork has no renderer here (VIZ1 F15) and was not
+        # redrawn; its smallest text is 8.5 pt on a 686-pt canvas, 11.1 px at 900.
+        w, mn, px = self._svg_floor(os.path.join(self.FIGS, "fig_tr5_orbit_collapse.svg"))
+        self.assertLess(px, 12.0)
+
+    def test_save_measures_the_svg_and_refuses_before_writing(self):
+        ns = self._lift(["INLINE_PX", "MIN_TEXT_PX", "FigureTextFloorError", "_svg_text_sizes",
+                         "_text_floor_violations"])
+        self.assertEqual((ns["INLINE_PX"], ns["MIN_TEXT_PX"]), (900, 12))
+        mk = lambda w, s: ('<svg xmlns="x" width="%spt" height="10pt">'
+                           '<g id="text_1"><g transform="translate(1 2) scale(%s -%s)"/></g></svg>'
+                           % (w, s, s))
+        w, sizes = ns["_svg_text_sizes"](mk(936.0, 0.06))
+        self.assertEqual((w, sizes), (936.0, [6.0]))
+        self.assertEqual(ns["_text_floor_violations"](w, sizes)[1], [6.0])     # 5.8 px: refused
+        w, sizes = ns["_svg_text_sizes"](mk(720.0, 0.096))
+        self.assertEqual(ns["_text_floor_violations"](w, sizes)[1], [])        # 12.0 px: kept
+        body = self.src.split("def save(", 1)[1].split("\ndef ", 1)[0]
+        self.assertLess(body.index("_text_floor_violations("), body.index('f"{stem}.png"'),
+                        "the floor must be checked before either file is written")
+
+    # --- F20: the documented invocation finds the committed inputs --------------------------
+    def test_default_root_is_resolved_from_the_generator_not_the_cwd(self):
+        got = []
+        ns = self._lift(["tr12_figures", "_tr12_q3_table"], extra={
+            "__file__": self.GEN,
+            "fig_tr12_kc_field": lambda *a, **k: True,
+            "fig_tr12_kc_river": lambda *a, **k: True,
+            "fig_tr12_kc_grammar": lambda *a, **k: True,
+            "fig_tr12_kc_spectrum": lambda *a, **k: True,
+            "fig_tr12_kc_shells": lambda path, *a, **k: got.append(path) or True})
+        cwd = os.getcwd()
+        try:
+            os.chdir(self.tmp)                      # a directory with no tr12/ beneath it
+            ns["tr12_figures"]()
+        finally:
+            os.chdir(cwd)
+        self.assertEqual(len(got), 1)
+        self.assertTrue(os.path.samefile(got[0], os.path.join(self.HERE, "tr12",
+                                                              "q3_profile_kw.tsv")))
+        self.assertIn("else None)", self.src.split('if __name__ == "__main__":', 1)[1])
+
+    # --- F06 / F21 / F13 / F11 / F12: rendered wording --------------------------------------
+    def test_rendered_wording(self):
+        man = self._lift(["FIGURE_LABEL_MANIFEST"])["FIGURE_LABEL_MANIFEST"]
+        flat = lambda stem: "\n".join(man[stem]).replace("\n", " ")
+        self.assertIn("The seven pair-orbits are grouped into three within-pair-distance "
+                      "categories; each row fixes one (d,w) combination and does not identify "
+                      "an individual pair.", flat("fig_tr12_kc_grammar"))
+        self.assertNotIn("orbit-classes", self.src)
+        self.assertIn("C1C2C4C5-SUPERSPACE; C3 not imposed", flat("fig_tr12_kc_shells"))
+        self.assertIn("C1C2C4C5-SUPERSPACE; C3 not imposed", self._body("fig_tr12_kc_spectrum"))
+        self.assertIn("KW: satisfied / precursor: violated", man["fig_tr1_rules_tradeoff"])
+        tr1 = self._body("fig_tr1_rules_tradeoff")
+        self.assertNotIn("hatch", tr1)
+        self.assertIn("bbox_to_anchor=(0.5, 1.0)", tr1)       # legend outside the data axes
+        cap = flat("viz_scale")
+        for s in ("Points count canonical pair orderings with orientation masked; N counts "
+                  "orientation-explicit sequences.", "The plotted ratio is 29.0 decades",
+                  "19.7–23.9 decades", "If the power law fitted to these three runs continues",
+                  "6.4×10³⁸–1.1×10⁴⁵ nodes per cell"):
+            self.assertIn(s, cap)
+        self.assertNotIn("more budget is not a route", cap)
+
+# end class TestViz1FigureFixesFO (lane FO)
+
+
+class TestQ855Q854ShowReservedBitAndUnreadableBuildSha(unittest.TestCase):
+    """Lane FP: Q-855, Q-854.
+
+    Q-855: `./solve --show` masked reserved bit 0 of a record byte away and printed the record
+    exactly as the canonical one, exit 0, in every format including raw; a pair index of 32..63
+    printed `<decode failed>`, also exit 0. --show is a viewer, so it still prints the record, but
+    it now appends a `<-- RESERVED_BIT_SET` / `<-- PAIR_INDEX_OUT_OF_RANGE` flag to the record's
+    line, prints the --verify text on stderr, and ends with `SHOW_RECORDS=MALFORMED` and exit 20.
+    Bit 0 is checked across the record before its pair indices. The clean King Wen file is the
+    positive control: its lines are unchanged and it exits 0 with no token.
+    Q-854: an unreadable build.sha is MALFORMED (Q-848, exit 26) but had no test, since root ignores
+    chmod. A DIRECTORY named build.sha (fopen succeeds, the read fails EISDIR) and a self-referencing
+    symlink (the open fails ELOOP) are unreadable for any user. The guard (enum, --branch,
+    --sub-branch) must exit 26 with the MALFORMED text and leave the entry as it was; --merge must
+    print MERGE_BUILD_SHA=MALFORMED and proceed. A directory with no build.sha is the positive
+    control (CREATED). ROAE_TESTS_SOLVE_SRC builds a different source (for the pre-fix and mutant
+    runs); nothing in the harness sets it."""
+
+    ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30",
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+    SUB = ["--sub-branch", "1", "0", "2", "0", "3", "0", "0", "1"]
+    BRANCH = ["--branch", "1", "0"]
+    SHARD = "sub_1_0_2_0_3_0.bin"
+    FORMATS = ("kw", "binary", "glyph", "raw")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q855fp_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q855fp")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.kw = bytes(i << 2 for i in range(32))        # King Wen: pairs 0..31 in order, orient 0
+        cls.fixture = os.path.join(cls.tmp, "fixture")
+        os.makedirs(cls.fixture)
+        cls.fixture_ok, cls.fixture_err = False, "not built"
+        if cls.build_ok:
+            r = subprocess.run([cls.sbin] + cls.SUB, cwd=cls.fixture, env=cls._env(),
+                               capture_output=True, text=True, timeout=600)
+            cls.fixture_ok = (r.returncode == 0 and
+                              os.path.exists(os.path.join(cls.fixture, cls.SHARD)))
+            cls.fixture_err = f"--sub-branch rc {r.returncode}: " + r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        tmp = getattr(cls, "tmp", None)
+        if tmp and os.path.isdir(tmp) and os.path.basename(tmp).startswith("q855fp_"):
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls, **extra):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.ENV)
+        env.update(extra)
+        return env
+
+    def _need(self):
+        self.assertTrue(self.build_ok, self.build_err)
+
+    # ---- Q-855: --show ----
+    def _file(self, name, *recs, header=True):
+        path = os.path.join(self.tmp, name)
+        body = b"".join(bytes(r) for r in recs)
+        hdr = (b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", len(recs)) + b"\0" * 16) if header else b""
+        with open(path, "wb") as f:
+            f.write(hdr + body)
+        return path
+
+    def _bit0(self, byte):
+        rec = bytearray(self.kw); rec[byte] |= 0x01        # pair index stays valid
+        return rec
+
+    def _show(self, path, fmt, n=10):
+        return subprocess.run([self.sbin, "--show", str(n), "--format", fmt, "--from", path],
+                              capture_output=True, cwd=self.tmp, timeout=600)
+
+    @staticmethod
+    def _raw(rec):
+        return " ".join("%d/%d" % ((b >> 2) & 0x3F, (b >> 1) & 1) for b in rec)
+
+    @staticmethod
+    def _lines(b):
+        return b.decode("utf-8").splitlines()
+
+    def test_positive_control_clean_file_prints_unchanged_and_exits_0(self):
+        self._need()
+        path = self._file("kw.bin", self.kw, self.kw)
+        for fmt in self.FORMATS:
+            with self.subTest(fmt=fmt):
+                r = self._show(path, fmt)
+                self.assertEqual(r.returncode, 0, r.stderr[-600:])
+                out = self._lines(r.stdout)
+                self.assertNotIn("SHOW_RECORDS=MALFORMED", out)
+                self.assertNotIn(b"<--", r.stdout)
+                self.assertNotIn(b"RESERVED_BIT_SET", r.stdout + r.stderr)
+                self.assertEqual(len([l for l in out if l.startswith("[")]), 2)
+        r = self._show(path, "raw")
+        self.assertIn("[1]: " + self._raw(self.kw), self._lines(r.stdout))
+        r = self._show(path, "kw")
+        self.assertIn("[0]: " + " ".join("[%d,%d]" % (2 * i + 1, 2 * i + 2) for i in range(32)),
+                      self._lines(r.stdout))
+
+    def test_bit0_record_is_shown_flagged_and_exits_20(self):
+        # Pre-fix: rc 0 and, in raw, record 1's line equals record 0's (measured by lane FM).
+        self._need()
+        for byte in (0, 7, 8, 31):
+            rec = self._bit0(byte)
+            path = self._file("bit0_b%d.bin" % byte, self.kw, rec)
+            flag = "  <-- RESERVED_BIT_SET: byte %d = 0x%02X; NOT a valid record" % (byte, rec[byte])
+            err = ("ERROR: RESERVED_BIT_SET: %s record 1 byte %d = 0x%02X has reserved bit 0 set; "
+                   "MUST be zero per SOLUTIONS_FORMAT.md; shown for inspection only" % (path, byte, rec[byte]))
+            for fmt in self.FORMATS:
+                with self.subTest(byte=byte, fmt=fmt):
+                    r = self._show(path, fmt)
+                    self.assertEqual(r.returncode, 20, r.stderr[-600:])
+                    out = self._lines(r.stdout)
+                    self.assertEqual(out[-1], "SHOW_RECORDS=MALFORMED")
+                    rows = [l for l in out if l.startswith("[")]
+                    self.assertEqual(len(rows), 2, out)
+                    self.assertNotIn("<--", rows[0])                            # record 0 is clean
+                    self.assertTrue(rows[1].endswith(flag), rows[1])
+                    # The record itself is still printed: its line is record 0's plus the flag.
+                    self.assertEqual(rows[1], rows[0].replace("[0]: ", "[1]: ", 1) + flag)
+                    self.assertIn(err, self._lines(r.stderr))
+                    self.assertIn("ERROR: --show: 1 of the 2 record(s) shown are malformed", r.stderr.decode())
+                    self.assertNotIn(b"PAIR_INDEX_OUT_OF_RANGE", r.stderr)
+        # The --verify text is a substring of --show's line.
+        path = self._file("bit0_verify.bin", self.kw, self._bit0(7))
+        v = subprocess.run([self.sbin, "--verify", path], capture_output=True, text=True,
+                           cwd=self.tmp, timeout=600)
+        self.assertEqual(v.returncode, 30, v.stderr[-600:])
+        vline = "record 1 byte 7 = 0x1D has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md"
+        self.assertIn("ERROR: " + vline, v.stderr.splitlines())
+        self.assertIn(vline, self._show(path, "raw").stderr.decode())
+
+    def test_bad_pair_index_is_flagged_and_exits_20(self):
+        # Pre-fix: "<decode failed>" and rc 0.
+        self._need()
+        rec = bytearray(self.kw); rec[9] = 0xFC
+        path = self._file("pidx.bin", self.kw, rec)
+        for fmt in self.FORMATS:
+            with self.subTest(fmt=fmt):
+                r = self._show(path, fmt)
+                self.assertEqual(r.returncode, 20, r.stderr[-600:])
+                out = self._lines(r.stdout)
+                self.assertIn("[1]: <decode failed>  <-- PAIR_INDEX_OUT_OF_RANGE: byte 9 = 0xFC; "
+                              "NOT a valid record", out)
+                self.assertEqual(out[-1], "SHOW_RECORDS=MALFORMED")
+                self.assertIn("ERROR: PAIR_INDEX_OUT_OF_RANGE: %s record 1 byte 9 = 0xFC decodes "
+                              "pair index 63" % path, r.stderr.decode())
+                self.assertNotIn(b"RESERVED_BIT_SET", r.stderr)
+
+    def test_bit0_is_checked_before_the_pair_indices(self):
+        self._need()
+        rec = self._bit0(20); rec[3] = 0x80                # pair index 32 at byte 3, bit 0 at byte 20
+        path = self._file("both.bin", self.kw, rec)
+        r = self._show(path, "raw")
+        self.assertEqual(r.returncode, 20, r.stderr[-600:])
+        self.assertIn("[1]: <decode failed>  <-- RESERVED_BIT_SET: byte 20 = 0x51; NOT a valid record",
+                      self._lines(r.stdout))
+        self.assertNotIn(b"PAIR_INDEX_OUT_OF_RANGE", r.stdout + r.stderr)
+
+    def test_shard_and_gz_inputs_are_flagged_too(self):
+        self._need()
+        rec = self._bit0(5)
+        shard = self._file("bit0_shard.bin", self.kw, rec, self.kw, header=False)
+        gzp = os.path.join(self.tmp, "bit0_gz.bin")
+        with open(self._file("bit0_plain.bin", rec, self.kw), "rb") as fi, gzip.open(gzp, "wb") as fo:
+            fo.write(fi.read())
+        for path, idx, total in ((shard, 1, 3), (gzp, 0, 2)):
+            with self.subTest(path=os.path.basename(path)):
+                r = self._show(path, "raw")
+                self.assertEqual(r.returncode, 20, r.stderr[-600:])
+                out = self._lines(r.stdout)
+                self.assertIn("[%d]: %s  <-- RESERVED_BIT_SET: byte 5 = 0x%02X; NOT a valid record"
+                              % (idx, self._raw(rec), rec[5]), out)
+                self.assertEqual(out[-1], "SHOW_RECORDS=MALFORMED")
+                self.assertIn("1 of the %d record(s) shown are malformed" % total, r.stderr.decode())
+
+    # ---- Q-854: unreadable build.sha ----
+    def _dir(self, name, kind):
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        p = os.path.join(d, "build.sha")
+        if kind == "dir":
+            os.makedirs(p)
+        elif kind == "loop":
+            os.symlink("build.sha", p)                     # ELOOP on open, for root too
+        return d
+
+    def _intact(self, d, kind):
+        p = os.path.join(d, "build.sha")
+        if kind == "dir":
+            self.assertTrue(os.path.isdir(p) and not os.path.islink(p), "build.sha dir replaced")
+            self.assertEqual(os.listdir(p), [])
+        else:
+            self.assertTrue(os.path.islink(p), "build.sha symlink replaced")
+            self.assertEqual(os.readlink(p), "build.sha")
+
+    WHY = {"dir": "it cannot be read: Is a directory.",
+           "loop": "it cannot be opened: Too many levels of symbolic links."}
+
+    def test_unreadable_build_sha_is_refused_on_every_guard_path(self):
+        self._need()
+        paths = (("sub", self.SUB, {}), ("branch", self.BRANCH, {}),
+                 ("enum", ["0"], {"SOLVE_NODE_LIMIT": "3030000",
+                                          "SOLVE_SKIP_BINARY_SNAPSHOT": "1"}))  # the snapshot precedes the guard
+        for kind in ("dir", "loop"):
+            for name, argv, extra in paths:
+                with self.subTest(kind=kind, path=name):
+                    d = self._dir("guard_%s_%s" % (kind, name), kind)
+                    r = subprocess.run([self.sbin] + argv, cwd=d, env=self._env(**extra),
+                                       capture_output=True, text=True, timeout=600)
+                    self.assertEqual(r.returncode, 26, r.stderr[-2000:])
+                    self.assertIn("ERROR: build.sha is malformed (Outlier #4, Q-848): " + self.WHY[kind],
+                                  r.stderr.splitlines())
+                    self.assertNotIn("build.sha CREATED", r.stderr)
+                    self._intact(d, kind)
+                    self.assertEqual(sorted(os.listdir(d)), ["build.sha"], "a refused run wrote something")
+
+    def test_positive_control_absent_build_sha_is_created(self):
+        self._need()
+        d = self._dir("guard_absent", None)
+        r = subprocess.run([self.sbin] + self.SUB, cwd=d, env=self._env(), capture_output=True,
+                           text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        self.assertIn("[hardening] build.sha CREATED", r.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(d, "build.sha")))
+
+    def test_merge_reports_unreadable_build_sha_as_malformed(self):
+        self._need()
+        self.assertTrue(self.fixture_ok, self.fixture_err)
+        for kind in ("dir", "loop"):
+            with self.subTest(kind=kind):
+                d = self._dir("merge_" + kind, kind)
+                for f in (self.SHARD, self.SHARD + ".provenance.json"):
+                    shutil.copy2(os.path.join(self.fixture, f), d)
+                r = subprocess.run([self.sbin, "--merge"], cwd=d, env=self._env(),
+                                   capture_output=True, text=True, timeout=600)
+                self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                verdicts = [l for l in r.stderr.splitlines() if l.startswith("MERGE_BUILD_SHA=")]
+                self.assertEqual(verdicts, ["MERGE_BUILD_SHA=MALFORMED"], r.stderr[-2000:])
+                self.assertIn("[merge] WARN: build.sha here is malformed", r.stderr)
+                self._intact(d, kind)
+                self.assertTrue(os.path.exists(os.path.join(d, "solutions.bin")))
+# end class TestQ855Q854ShowReservedBitAndUnreadableBuildSha (lane FP)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

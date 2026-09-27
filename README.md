@@ -351,7 +351,7 @@ see, because every other gate reads the working tree and none reads another bran
 
 The project's committed figures, each shown as PNG with its SVG source linked. The short caption under
 each one is an excerpt; **the report section it links to carries the full caption and is the
-authority.** All of them are drawn by [`viz/report_figures.py`](viz/report_figures.py). The complete
+authority.** Nine of the eleven figures shown below, and the TR-3 timeline linked at the end, are drawn by [`viz/report_figures.py`](viz/report_figures.py); the committed TR-5 and TR-7 artwork currently has no committed regeneration command. The complete
 index, including the enumeration-slice plots (growth curve, PCA projections, campaign telemetry), is
 [viz/README.md](viz/README.md).
 
@@ -364,20 +364,20 @@ and V3 is a 1000-point **lattice** on the index, not a sample of the space.
 
 ![Heat matrix of the exact positional-marginal field over the C1C2C4C5 superspace: 32 global pair-index rows against pair-slots 2 to 32, with King Wen's own 31 placements outlined in blue along the diagonal.](reports/figures/fig_tr12_kc_field.png)
 
-**V1, the positional-marginal field.** P(pair j at slot k), exact over SUPER. The reading is
-negative: the interior is flat to about 3 %, and King Wen's own pair at its own slot is
-indistinguishable from any other pair.
+**V1, the positional-marginal field.** P(pair j at slot k), exact over SUPER. At interior slots 3–31, the distribution over the 31 non-pinned pairs is within 0.0329 total-variation distance of uniform.
+King Wen's own interior placement probabilities range from 0.02985 to 0.03371. The outlined
+diagonal follows from the pair labels.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_field.svg) · [spec](viz/viz_kc_field.md)
 
-![Two-panel figure. Upper panel: a stacked mass river across layers 0 to 30 showing the exact share of the superspace in each boundary-distance class d = 1, 2, 3, 4 and 6, with King Wen's own class at each layer drawn as a white step line. Lower panel: a bar chart of the 56 top-level branches sorted by solution mass, with log10 exhaustion cost in t-units overlaid as a red line.](reports/figures/fig_tr12_kc_river.png)
+![Two-panel figure. Upper panel: a stepped stacked mass river of 31 unit-width layer bins, 0 to 30, showing the exact share of the superspace in each boundary-distance class d = 1, 2, 3, 4 and 6, each band labelled with its class, with King Wen's own class at each layer drawn as a black step line with a white halo. Lower panel: a bar chart of the 56 top-level branches sorted by solution mass, with log10 exhaustion cost in t-units overlaid as a red line.](reports/figures/fig_tr12_kc_river.png)
 
 **V2, the mass river, and the branch panel.** Upper: exact per-layer mass by boundary-distance
 class; only the shape across k carries information; it is nearly flat. Lower: each top-level
 branch's exact solution mass against its exact exhaustion cost; no branch is small-but-expensive at
 n=31. ⚠ This is the **REDUCED** form (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is
 split by distance class, not by top-level branch class. The EXHAUSTIBLE/INFEASIBLE verdict is not
-drawn from this panel and remains withheld.
+drawn from this panel and remains withheld. This figure draws distance classes. A completed-solution river split by first branch would be flat across layers — each branch's band is its `solutions(b)` from the lower panel at every k — so it adds nothing. A joint split by first branch and current distance class is carried neither by the atlas nor by the f/g/t ladders: it would need a branch-tagged forward ladder, a new build of order 10² TB, which is not proposed.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_river.svg) · [spec](viz/viz_kc_river.md)
 
@@ -385,8 +385,8 @@ drawn from this panel and remains withheld.
 
 **V5, the transition grammar.** P(d, w | layer k), exact over SUPER, read down each column;
 `TR12_V5` reads `PASS`. What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured
-dependence. `w` is constant on each of the seven pair-orbits and takes only three distinct values
-across them, so a row is a statement about 3 orbit-classes, never about an individual pair.
+dependence. The seven pair-orbits are grouped into three within-pair-distance categories; each row
+fixes one (d,w) combination and does not identify an individual pair.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_grammar.svg) · [spec](viz/viz_kc_grammar.md)
 
@@ -398,23 +398,23 @@ produced by the full-31 run of 2026-09-22 and is committed as `tr12/q3_profile_k
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_shells.svg) · [spec](viz/viz_kc_shells.md)
 
-![Seven scatter panels of observable values against normalised rank from 0 to 1 in REL order, each one showing no trend across the index. Three panels carry a dashed red King Wen reference line; four deliberately carry none because those observables measure similarity to King Wen.](reports/figures/fig_tr12_kc_spectrum.png)
+![Seven scatter panels of observable values against normalised rank from 0 to 1 in REL order, evaluated on a 1,000-point systematic REL lattice, none showing a clear monotone trend across it. Three panels carry a dashed red King Wen reference line; four deliberately carry none because those observables measure similarity to King Wen.](reports/figures/fig_tr12_kc_spectrum.png)
 
-**V3, the rank spectrum — and the reading is negative.** 1000 grid points on the REL rank axis. No
-drawn observable tracks the index, so the rank index is not a structural coordinate for these
-observables. ⚠ The figure is delivered, but its verdict token `TR12_V3_FIG=PENDING:viz-v3-spectrum`
-remains pinned (TR-12 §Open Problems, item 5).
+**V3, the rank spectrum — and the reading is negative.** On this 1,000-point REL lattice, none of the seven plotted observables shows a clear monotone trend; all absolute Pearson correlations are below 0.073.
+This does not exclude nonlinear structure or structure missed by the lattice. The standalone n=31 V3
+rows passed on 2026-09-25 (`TR12_V3_FIG=PASS`); the archived 2026-09-22 full-run receipt retains its
+original PENDING token (TR-12 §Open Problems, item 5).
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_spectrum.svg) · [spec](viz/viz_kc_spectrum.md)
 
 ### Why a compiled space: the scale figure
 
-![Log-log plot of count against per-cell node budget: three red points near the bottom for the 11.2T, 100T and 560T canonical record counts on a shallow blue power-law fit, and a purple horizontal line near the top marking N, the exact count of the C1C2C4C5 superspace. The legend and the vertical-axis label both state that the points and the line count different spaces.](reports/figures/viz_scale.png)
+![Log-log plot of count against per-cell node budget: three red points near the bottom for the 11.2T, 100T and 560T canonical record counts on a shallow blue power-law fit, and a purple horizontal line near the top marking N, the exact count of the C1C2C4C5 superspace. The legend and the vertical-axis label both state that the points and the line count different spaces. Points count canonical pair orderings with orientation masked; N counts orientation-explicit sequences. The plotted ratio is 29.0 decades; comparing pair orderings with pair orderings gives a gap of 19.7–23.9 decades.](reports/figures/viz_scale.png)
 
 **The scale figure.** The two series count **different spaces**, and neither is a fraction of the
 other: each point is a node-budgeted slice of C1–C5 whose record count is a lower bound, and the line
-is the exact cardinality of the C1C2C4C5-SUPERSPACE. The two series also count in different units.
-What the figure does show is that more node budget is not a route to the space.
+is the exact cardinality of the C1C2C4C5-SUPERSPACE. Points count canonical pair orderings with orientation masked; N counts orientation-explicit sequences. The plotted ratio is 29.0 decades; comparing pair orderings with pair orderings gives a gap of 19.7–23.9 decades.
+If the power law fitted to these three runs continues, reaching even the like-unit bracket would require approximately 6.4×10³⁸–1.1×10⁴⁵ nodes per cell, making enumeration infeasible under that extrapolation.
 [TR-12 §"What this document is, and what it is not"](reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not) ·
 [SVG](reports/figures/viz_scale.svg) · [spec](viz/viz_scale.md)
 
@@ -434,7 +434,7 @@ forced value, which every C1–C5-valid ordering shares.
 [TR-6 §Figure](reports/TR6_PARITY_SKELETON.md#figure) ·
 [SVG](reports/figures/fig_tr6_parity_alternations.svg)
 
-![The King Wen cycle with the wrap edge](reports/figures/fig_tr7_circular_cycle.png)
+![64 nodes in King Wen order, arranged as a cycle. Red edges mark odd Hamming-distance transitions: 15 internally, plus the highlighted 64→1 wrap of distance 3, giving 16 around the cycle.](reports/figures/fig_tr7_circular_cycle.png)
 
 **The cycle.** The 64 hexagrams as a cycle in King Wen order; the highlighted wrap edge 64→1 jumps
 d = 3 — odd, as the wrap-parity theorem forces. The circular reading has 16 odd transitions where
@@ -443,20 +443,20 @@ written.
 [TR-7 §Figure: the cycle](reports/TR7_CIRCULAR_READING.md#figure-the-cycle) ·
 [SVG](reports/figures/fig_tr7_circular_cycle.svg)
 
-![The symmetry collapse and one 24-element orbit](reports/figures/fig_tr5_orbit_collapse.png)
+![Diagram of B₃, order 48, quotienting by {±I} to a free S₄ action of order 24 on canonical pair-order records. A ring shows King Wen's record and 23 other records in its orbit.](reports/figures/fig_tr5_orbit_collapse.png)
 
 **The symmetry collapse.** The order-48 group B₃ of C1–C5-preserving signed line-permutations
-collapses to a faithful S₄ (order 24) on solution records; every valid ordering, King Wen included,
-sits in an orbit of exactly 24 mutually indistinguishable orderings.
+collapses to a faithful S₄ (order 24) on solution records. Every valid canonical pair-order record,
+King Wen's included, has an orbit of 24 records, indistinguishable by any criterion invariant under S₄.
 [TR-5 §Figure: the symmetry collapse](reports/TR5_SYMMETRY.md#figure-the-symmetry-collapse) ·
 [SVG](reports/figures/fig_tr5_orbit_collapse.svg)
 
-![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points, a dashed extrapolation, an orange illustrative bracket, a green dash-dot line marking the reachable floor of one surviving pair-ordering class, a grey dotted line below it marking one oriented ordering that pair-level pins never reach, and a green vertical line at k = 14 marking the earliest the floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits.](reports/figures/fig_tr4_boundary_information.png)
+![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four measured points, a dashed early-rate illustration from k = 1–4 that ends at k = 8 and is labelled as superseded by the later measured decline, an orange illustrative bracket, a green dash-dot line marking the reachable floor of one surviving pair-ordering class, a grey dotted line below it marking one oriented ordering that pair-level pins never reach, and a green vertical line at k = 14 marking the earliest the floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits.](reports/figures/fig_tr4_boundary_information.png)
 
-**The boundary-information curve S(k).** Red points are measured; the dashed line extrapolates and
-is NOT measured, and the orange band is **illustrative** and not reproducible from published
+**The boundary-information curve S(k).** Red points are measured. The blue dashed segment illustrates the rate inferred from k=1–4 only and ends at k = 8; it is NOT measured,
+and the orange band is **illustrative** and not reproducible from published
 material. The boundaries pin pair identity only, so the floor is one surviving pair-ordering class, never a unique ordering; the green line at k = 14 is the earliest
-that floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits — a scale marker, not a bound.
+that floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits — a scale marker, not a bound. The k=14 marker uses the reported eight-step total and assumes that no subsequent gain exceeds 6.14 bits; it is an earliest possible count under that assumption, with no unconditional bound asserted.
 [TR-4 §Figure](reports/TR4_SIZE_OF_THE_SPACE.md#figure) ·
 [SVG](reports/figures/fig_tr4_boundary_information.svg)
 

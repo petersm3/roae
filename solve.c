@@ -471,7 +471,7 @@ typedef struct {
     int8_t  reserved;
 } DFSStackFrame_v2;
 static Pair pairs[32];
-static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */
+static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */
 
 /* ---------- Bitmask domain representation (task #72, Phase A) ----------
  * Compact representation of the "remaining pair pool" used by the DFS hot
@@ -4513,7 +4513,7 @@ static void auto_run_analyze_to_text(const char *bin_path) {
 /* Outlier #4 (build provenance mismatch on resume). Compute sha256 of
  * /proc/self/exe and compare to build.sha in cwd. First run writes
  * build.sha; subsequent runs MUST match unless SOLVE_ALLOW_BUILD_MISMATCH=1.
- * Returns 0 on success / clean first-run, -1 on mismatch without override.
+ * Returns 0 on success / clean first-run / override, -1 on mismatch or a MALFORMED build.sha (Q-848: exit 26, file left untouched) without override.
  * Tolerates missing sha256 tool (logs a warning, proceeds). */ static int build_sha_is_legacy_tool_digest(const char *tool, const char *prior, const char *current);
 static int check_build_sha_invariant(void) {
     const char *tool = sha256_tool();
@@ -4543,7 +4543,7 @@ static int check_build_sha_invariant(void) {
     char prior_sha[80] = {0}; int prior_st = build_sha_read(prior_sha);
     if (prior_st == BUILD_SHA_MALFORMED) { if (build_sha_malformed_refused()) return -1; } else if (prior_st == BUILD_SHA_VALID) {
         int rn = 1;  /* VALID: exactly 64 lowercase hex, so the comparison below always runs unless the value is a legacy tool digest */
-        /* (ABSENT -- no file, or an empty one -- falls through to the first-run write, as before) */
+        /* (ABSENT -- no file, an empty one, or one of whitespace only -- falls through to the first-run write, as before) */
         if (build_sha_is_legacy_tool_digest(tool, prior_sha, current_sha)) rn = 0;  /* Q-619 #4 */
         if (rn == 1) {
             if (strcmp(prior_sha, current_sha) != 0) {
@@ -44219,7 +44219,7 @@ int main(int argc, char *argv[]) {
         printf("Format:     %s\n", show_format_str);
         printf("Showing:    %lld record(s)\n\n", n_to_show);
 
-        unsigned char rec[SOL_RECORD_SIZE];
+        unsigned char rec[SOL_RECORD_SIZE]; long long show_bad = 0; char show_flag[96];  /* Q-855: records flagged malformed (reserved bit 0, pair index >= 32) */
         for (long long si = 0; si < n_to_show; si++) {
             long long idx = indices[si];
             z_off_t off = (z_off_t)header_offset + (z_off_t)(idx * SOL_RECORD_SIZE);
@@ -44232,7 +44232,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            /* Decode 32 bytes -> sequence of 64 hexagram values */
+            show_bad += show_record_flag(rec, idx, show_file, show_flag, sizeof(show_flag));  /* Q-855: flag BEFORE decoding; shown anyway (a viewer), exit 20 at the end */ /* Decode 32 bytes -> sequence of 64 hexagram values */
             int seq[64];
             int decode_ok = 1;
             for (int i = 0; i < 32; i++) {
@@ -44250,7 +44250,7 @@ int main(int argc, char *argv[]) {
 
             printf("[%lld]: ", idx);
             if (!decode_ok) {
-                printf("<decode failed>\n");
+                printf("<decode failed>%s\n", show_flag);
                 continue;
             }
 
@@ -44291,12 +44291,12 @@ int main(int argc, char *argv[]) {
                 gzclose(sf);
                 return 1;
             }
-            putchar('\n');
+            printf("%s\n", show_flag);  /* "" for a well-formed record: its line is unchanged */
         }
 
         free(indices);
         gzclose(sf);
-        return 0;
+        if (show_bad) { printf("SHOW_RECORDS=MALFORMED\n"); fprintf(stderr, "ERROR: --show: %lld of the %lld record(s) shown are malformed (flagged above); they are NOT valid records (SOLUTIONS_FORMAT.md). Exit 20.\n", show_bad, n_to_show); return 20; } return 0;  /* Q-855 */
     }
 
     /* --- Validate mode ---
@@ -50820,7 +50820,7 @@ static int sol_pidx_scan(const unsigned char *buf, long long n, long long first,
     }
     for (k -= k % SOL_RECORD_SIZE; k < len; k += SOL_RECORD_SIZE) {   /* from the first record with a hit */
         int j = 0, b0 = 0; while (j < SOL_RECORD_SIZE && !(buf[k + j] & 0x01)) j++; if (j < SOL_RECORD_SIZE) b0 = 1; else { for (j = 0; j < SOL_RECORD_SIZE && (buf[k + j] >> 2) < 32; j++) ; if (j == SOL_RECORD_SIZE) continue; }
-        if (token) printf("%s=ERROR\n", token); if (b0) fprintf(stderr, "ERROR: RESERVED_BIT_SET: %s record %lld byte %d = 0x%02X has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md; refusing to decode\n", path, first + (long long)(k / SOL_RECORD_SIZE), j, buf[k + j]); else
+        if (token) { printf("%s=ERROR\n", token); } if (b0) fprintf(stderr, "ERROR: RESERVED_BIT_SET: %s record %lld byte %d = 0x%02X has reserved bit 0 set; MUST be zero per SOLUTIONS_FORMAT.md; refusing to decode\n", path, first + (long long)(k / SOL_RECORD_SIZE), j, buf[k + j]); else
         fprintf(stderr, "ERROR: PAIR_INDEX_OUT_OF_RANGE: %s record %lld byte %d = 0x%02X decodes "
                 "pair index %d, outside the 32-entry pair table (SOLUTIONS_FORMAT.md: byte = "
                 "(pair_index<<2)|(orient<<1)); refusing to decode\n", path,
@@ -51078,7 +51078,7 @@ static char build_sha_malformed_desc[320];  /* Q-848: why build_sha_read() last 
  * Verdict line on stderr, exactly one of:
  *   MERGE_BUILD_SHA=MATCH     build.sha equals this binary's digest
  *   MERGE_BUILD_SHA=MISMATCH  it differs (a WARN follows naming both)
- *   MERGE_BUILD_SHA=ABSENT    no build.sha in the directory, or an empty one (Q-848: before
+ *   MERGE_BUILD_SHA=ABSENT    no build.sha in the directory, or an empty or whitespace-only one (Q-848: before
  *                             2026-09-26 also any token under 64 characters)
  *   MERGE_BUILD_SHA=MALFORMED build.sha is present but not exactly 64 lowercase hex (Q-848; a WARN
  *                             follows naming what is there). The merge still proceeds.
@@ -51351,4 +51351,37 @@ static int promote_commit_batch(FILE *ckpt, int (*pend)[6], int npend, int *dir_
         unlink(dfsname);
     }
     return npend;
+}
+
+/* Q-855 (2026-09-26): --show's record check. SOLUTIONS_FORMAT.md says bit 0 of a record byte is
+ * reserved: "MUST be zero; reject a record with it set". --verify, --validate, verify.py, the
+ * solve.py readers and every solve.c reader that decodes through sol_pidx_scan refuse such a
+ * record. --show masked the bit away and printed the record exactly as the canonical one, exit 0,
+ * in every format including raw. --show is a viewer, not a verdict: it still PRINTS a malformed
+ * record (the raw format is the tool for looking at one), but it now flags it on the record's line,
+ * prints the verify text on stderr, and the run ends SHOW_RECORDS=MALFORMED with exit 20 (the
+ * corrupt-record code of the sol_pidx_scan callers, and --show's own code for a corrupt file
+ * size). A pair index of 32..63 was already shown as "<decode failed>" but also exited 0; it is
+ * flagged the same way. As in --verify and sol_pidx_scan, bit 0 is checked across the whole record
+ * BEFORE its pair indices. Returns 1 for a flagged record (flag gets the suffix), else 0 (flag ""). */
+static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz) {
+    int j = 0;
+    flag[0] = '\0';
+    while (j < SOL_RECORD_SIZE && !(rec[j] & 0x01)) j++;
+    if (j < SOL_RECORD_SIZE) {
+        snprintf(flag, fsz, "  <-- RESERVED_BIT_SET: byte %d = 0x%02X; NOT a valid record", j, rec[j]);
+        fprintf(stderr, "ERROR: RESERVED_BIT_SET: %s record %lld byte %d = 0x%02X has reserved bit 0 set; "
+                        "MUST be zero per SOLUTIONS_FORMAT.md; shown for inspection only\n",
+                path, idx, j, rec[j]);
+        return 1;
+    }
+    for (j = 0; j < SOL_RECORD_SIZE && (rec[j] >> 2) < 32; j++) ;
+    if (j < SOL_RECORD_SIZE) {
+        snprintf(flag, fsz, "  <-- PAIR_INDEX_OUT_OF_RANGE: byte %d = 0x%02X; NOT a valid record", j, rec[j]);
+        fprintf(stderr, "ERROR: PAIR_INDEX_OUT_OF_RANGE: %s record %lld byte %d = 0x%02X decodes "
+                        "pair index %d, outside the 32-entry pair table (SOLUTIONS_FORMAT.md: byte = "
+                        "(pair_index<<2)|(orient<<1)); refusing to decode\n", path, idx, j, rec[j], rec[j] >> 2);
+        return 1;
+    }
+    return 0;
 }

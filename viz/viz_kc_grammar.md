@@ -25,8 +25,8 @@ as a heat map over `class × k`, with King Wen's own 31 choices marked on it.
 > `w` is constant on every orbit and takes only three values across the seven
 > (`w=2`: orbits [3,7,11], [4,6,21], [10,15,20,23,27,29]; `w=4`: [1,9,17,19,22,25],
 > [2,12,16,18,24,28]; `w=6`: [5,8,26,31], [13,14,30] — checked 2026-09-24 against
-> `solve.py king_wen_pairs()` and the orbit list in [V1](viz_kc_field.md)), so a `w` row is a
-> statement about **3 orbit-classes, never about an individual pair**.
+> `solve.py king_wen_pairs()` and the orbit list in [V1](viz_kc_field.md)): the seven pair-orbits are grouped into three within-pair-distance
+> categories; each row fixes one (d,w) combination and does not identify an individual pair. ⚠ *(corrected 2026-09-26, Codex VIZ1 F06: this read "a `w` row is a statement about 3 orbit-classes"; by `w` the orbits split 3, 2 and 2.)*
 
 ### Read this before treating V5 as a separate figure from V2
 
@@ -36,7 +36,7 @@ correct while the `w` axis was absent: the layer flow is N at every layer, so th
 joint coincided. With the `(d,w)` cross-tab built, they do not. **What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured dependence.** On layers
 1–30 the joint `P(d,w|k)` is within **0.0097** of `P(d|k)·P(w|k)` (maximum at k=1, d=3, w=4;
 `V5_FACTORISATION_MAX_DEV_K_GE_1=0.0097`), so the cross-tab is reconstructible from its two marginals
-to within 1 %. The all-layer maximum **0.173** (`V5_FACTORISATION_MAX_DEV_ALL=0.1732`) is a layer-0
+with maximum absolute cell error about 0.00972, or 0.972 percentage points, on layers 1–30 (6.4 % relative to the joint at that cell; ⚠ *corrected 2026-09-26, Codex VIZ1 F07: this read "to within 1 %"*). The all-layer maximum **0.173** (`V5_FACTORISATION_MAX_DEV_ALL=0.1732`) is a layer-0
 artefact: C4 pins the exit to hexagram 0, so only 7 of the 15 `(d,w)` cells are admissible
 (`V5_K0_ADMISSIBLE_DW_CELLS=7,15`), and 0.173 is the product of the marginals at a cell whose joint is
 identically zero (`V5_K0_MAX_DEV_CELL_JOINT_AND_PRODUCT=0.0000,0.1732`). All four tokens are printed by
@@ -236,7 +236,7 @@ figure out; **no analysis logic in `viz/`**.
   the factorisation was measured: 0.0097 on layers 1–30, and 0.173 only at the C4-forced layer 0.**
   Nonzero cells 154 → 422. The figure may be presented as carrying `P(w|k)` in addition to V2's
   `P(d|k)`, **not** as evidence of d–w dependence, and it must carry the orbit caveat — `w` is constant on each of the seven pair-orbits and takes three
-  distinct values across them, so a row resolves **3 orbit-classes, never an individual pair**.
+  distinct values across them: the seven pair-orbits are grouped into three within-pair-distance categories; each row fixes one (d,w) combination and does not identify an individual pair.
 - **Row totals are theorems, not measurements.** `Σ_k P[k][d]` is the C1 + C5 forced multiset
   (2, 8, 13, 7, 1), and `Σ_k P[k][·][w]` is C1's within-pair multiset less the pinned first pair
   (12, 12, 7); quoting either from this figure quotes a theorem back at itself.

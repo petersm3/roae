@@ -479,8 +479,8 @@ REV  = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
 # 🔴 CONTIGUOUS-BLOCK SCOPE, AND A LINE-SCOPE DRAFT WAS MEASURED FAILING BOTH ITS OWN
 # SITES. The marker sits on the NEXT physical line at both places it matters:
 # TR-4:174 ends "…reported roughly ×15–17 per boundary — but ⚠ **that" and :175 opens
-# "band is not reproducible from published material"; report_figures.py:351 is the bracket
-# comment and :352 the "ILLUSTRATIVE, not measured" one. A line-scope needle reports two
+# "band is not reproducible from published material"; report_figures.py:450 is the bracket
+# comment and :451 the "ILLUSTRATIVE, not measured" one. A line-scope needle reports two
 # [FAIL]s on correct prose — the hard-wrap blindness this suite has already been bitten by.
 # The unit is the maximal run of non-blank lines: a paragraph, or a comment block and the
 # call it annotates. That is a real syntactic unit, not a +-N line window.

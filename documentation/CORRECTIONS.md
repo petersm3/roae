@@ -18865,3 +18865,296 @@ rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files --all-targ
 citation gate asked for seven `perf_bench.sh` line citations in documentation/DEVELOPMENT.md to be
 re-pinned, and each was re-pinned on its own line. solve.c did not change. tests.py is in the
 TR-12 reproduction fingerprint, so the stamp was re-stamped.
+
+## CX-191 — figure captions, alt-texts and figure specs said more than the committed tables show: V1's "indistinguishable" pair, V2's band areas and branch split, V5's "3 orbit-classes", V3's unscoped negative, the scale figure's missing premise, the TR-5 orbit wording and the TR-4 dashed line (README.md; reports/TR12_QUERY_PROGRAM.md; reports/TR4_SIZE_OF_THE_SPACE.md; reports/TR5_SYMMETRY.md; reports/TR7_CIRCULAR_READING.md; viz/README.md; viz/viz_kc_field.md; viz/viz_kc_river.md; viz/viz_kc_grammar.md)
+
+**2026-09-26.** Origin: the Codex figure review, target VIZ1 (findings F01–F21), each finding
+checked against the committed files in a Fable review, which also corrected four of them (F05's
+wording, F09's citation, F12's severity, F17's caption). This entry covers the text half (lane
+Opus FN). The generator and image half is a separate lane, and the text below assumes its
+rendering in two places: the V2 river drawn as 31 unit-width steps (F03), and the TR-4 dashed
+line ending at k = 8 with its new label (F17). Every premise was re-checked against the committed
+tables before the edit. Edits are on the same lines, so no line citation moved. Each TR whose
+caption or alt-text changed has a revision row, and each changed claim has a dated ⚠ note in place.
+
+**1. V1, the positional-marginal field (F01, F02).** The spec said the 32 rows hold "only seven
+distinct" rows. Exact row comparison of `tr12/scan/v1_field.tsv` gives 8: seven non-pinned
+profiles plus the zero row of the C4-pinned pair 0. The TR-12 alt-text's 0.0297–0.0345 range holds
+for non-pinned interior cells only, and now says so. The captions called the interior "flat to
+about 3 %" and King Wen's own pair "indistinguishable from any other pair". The 0.0329 behind the
+3 % is a total-variation distance from uniform, measured over slots 3–31. King Wen's exact
+interior probabilities run 0.02985–0.03371, and they differ from other cells (0.02985 against
+0.03453 at slot 30). The README excerpt, the TR-12 caption, §12.5 and the TR-12 abstract now name
+the measure. The TR-12 caption keeps the rounded `0.0299–0.0337` on its line and adds the unrounded values
+beside it, because `documentation/CLAIMS.tsv` row `TR12_V1_KW_OWN_SLOT` pins that string to that line
+and `scripts/claim_ledger.sh` fails when it moves. §12.5's heading keeps its wording, because the measure is defined in the sentence
+that follows it.
+
+**2. V2, the mass river (F03, F04, F05).** The caption said the band areas equal the class budget
+(2, 8, 13, 7, 1). Linear interpolation over k = 0…30 gives trapezoid areas that sum to 30, not 31.
+The generator lane redraws the river as 31 unit-width steps. The TR-12 caption, both alt-texts
+and the spec now describe that drawing, under which each area is exactly its sum. The spec's
+reading guide said "a class's band must go to zero once its budget is spent". Every band stays
+positive at k = 30. The bands are population marginals, and one walk's budget running out does
+not show in them. The TR-12 caption attached the 10² TB branch-tagged ladder to the split by
+first branch. That split needs no ladder: a walk keeps its first branch, so each band is
+`solutions(b)` at every layer. Only the joint split by first branch and current distance class
+would need the ladder, and it is not proposed. The TR-12 caption and the README now say this in
+Fable's wording.
+
+**3. V5, the transition grammar (F06, F07).** Four sites said a row is "a statement about 3
+orbit-classes". By `w` the seven pair-orbits split 3, 2 and 2. A row fixes one `(d,w)` combination
+and does not identify an individual pair. "Reconstructible … to within 1 %" left the unit open.
+Recomputed from `tr12/scan/v5_grammar.tsv`, the maximum on layers 1–30 is an absolute cell error of
+0.00972 at (k, d, w) = (1, 3, 4), which is 0.972 percentage points and 6.4 % of that cell's joint.
+Both the TR-12 caption and the spec now give the absolute figure.
+
+**4. V4 and V3 (F08, F09, F10).** V4's alt-text gave a starting ordinate of "about 37.2". The
+first `g` in `tr12/q3_profile_kw.tsv` has log₁₀ 37.305, so it now reads 37.31. V3's caption
+concluded that "the rank index is not a structural coordinate" and called the two near-constant
+panels "a property of SUPER". The figure is a 1,000-point systematic REL lattice, and
+`viz_kc_spectrum.md` §"What it may NOT claim" rules out distributional statements from it. The
+negative is now scoped to the lattice, where every absolute Pearson correlation is below 0.073.
+The caption adds that this does not exclude nonlinear structure or structure the lattice misses.
+The 995/1000 and 955/45 counts are called frequencies on the grid. The README and the
+viz/README.md figure index still printed `TR12_V3_FIG=PENDING` without the 2026-09-25 standalone
+PASS. They now give both.
+
+**5. The scale figure (F11, F12).** The README caption and alt-text now name both counting units
+and give both gaps: 29.0 decades as plotted, and 19.7–23.9 decades in pair-ordering units. The
+caption's conclusion, "more node budget is not a route to the space", dropped the premise that
+TR-12 states. It is now conditional: if the three-point power law (α = 0.6727) continues, reaching
+the like-unit bracket would take about 6.4×10³⁸–1.1×10⁴⁵ nodes per cell. Both ends were recomputed
+from the generator's constants.
+
+**6. TR-5, TR-7 and the README's generator claim (F14, F15, F16).** TR-5's caption and the README
+said every valid ordering sits in an orbit of "24 mutually indistinguishable orderings". The 24
+are canonical pair-order records, and they are indistinguishable only by criteria invariant under
+S₄. The record-orbit count is R/24. The TR-5 and TR-7 alt-texts only named their pictures, and
+now describe them. The README said "All of them are drawn by" `viz/report_figures.py`. That
+file has no TR-5 or TR-7 renderer, so the README now says which figures it draws and that the TR-5
+and TR-7 artwork has no committed regeneration command. Committing those two renderers is left as
+a follow-up.
+
+**7. TR-4's dashed line (F17).** The dashed continuation ran to k = 20 at ×10³ per boundary, about
+9.97 bits. It crosses the reachable floor at k ≈ 10.6 and the oriented level at k ≈ 12.6. That
+contradicts the k = 14 marker's premise of no later gain above 6.14 bits, and at k = 8 the line is
+about 130× below the S(8) reported in §Update. The caption, the README excerpt and both alt-texts
+now describe a segment that ends at k = 8, labelled as the early-rate illustration from k = 1–4
+and superseded by the later measured decline. The caption now states the k = 14 marker's premise
+in full. No S(k) value, gain, floor or marker position changed.
+
+**8. viz/README.md (F20, F21).** The family introduction said all five V figures show the whole
+superspace and that every plotted value is an exact integer ratio. Only V1, V2 and V5 are
+population quantities: V4 follows one walk, and V3 is a lattice with floating-point FFT
+observables. The generator invocation now passes `../../tr12` explicitly, because the default
+root does not resolve from `reports/figures/`.
+
+**9. Gates**, on the lane tree with this entry appended. `scripts/citation_line_gate.sh
+--all-files --all-targets` PASS with no re-pin. On the batch tree, `scripts/doc_gates.sh` exits 0
+and `python3 tests.py` runs 664 tests OK. No test pins any of the changed strings; the Q-842 band
+test still passes.
+
+**10. Found in the pre-publication review.** Both V2 alt texts (README.md and TR-12 §2) said King
+Wen's class is drawn as a white step line. The generator draws a black 1-pt line over a white 2-pt
+halo, and the legend shows a black line. Both now say "a black step line with a white halo".
+
+## CX-192 — ten committed figures redrawn: V2's band areas now equal the class budgets, TR-4's early-rate line stops at k = 8, TR-1's binary rule leaves the misses scale, and no figure text renders below 12 px at a 900-px display (VIZ1 review, generator and images)
+
+**What was wrong.** A review of the rendered figures (VIZ1) found defects in the images themselves,
+where no text gate can see them, because matplotlib writes labels as glyph paths.
+
+1. **V2 (`fig_tr12_kc_river`).** The title says the band AREAS are fixed by the C1+C5 theorem. The
+   stack was a linear interpolation between the 31 layer points. Its band areas were 1.939, 7.731,
+   12.588, 6.758 and 0.984, which sum to 30. The class sums in `tr12/scan/v2_river.tsv` are
+   2, 8, 13, 7 and 1, which sum to 31 (VIZ1 F03). The five bands were identified by colour only
+   (F19).
+2. **TR-4 (`fig_tr4_boundary_information`).** The dashed line at the ~×10³-per-boundary rate from
+   k = 1–4 ran to k = 20. It crossed the reachable floor at k ≈ 10.56 and the oriented level at
+   k ≈ 12.64, and stood at 6.34×10⁻⁴³ at k = 14, below both. Its rate, about 9.97 bits per
+   boundary, contradicts the premise of the k = 14 marker (no later gain above 6.14 bits) (F17).
+3. **TR-1 (`fig_tr1_rules_tradeoff`).** The legend sat inside the data axes and covered King Wen's
+   first "2". The binary trigram rule was drawn as a hatched 2.6-unit bar on the misses axis. That
+   is a length with no count behind it, and its label ran through the hatch (F13).
+4. **V5, V4, V3.** V5's subtitle said that a row "is 3 orbit-classes". The seven free-pair orbits
+   split by w as {2: 3, 4: 2, 6: 2}, and a row fixes one (d, w) combination (F06). The V4 and V3
+   titles did not name the space or define N (F21).
+5. **The scale figure (`viz_scale`).** Its embedded caption did not name the two counting units
+   (F11). Its last sentence drew the conclusion of the three-point extrapolation without stating
+   the premise. This is the in-image copy of the sentence F12 corrects in the README.
+6. **Every generator figure (F18).** At a 900-px display width, V2's branch labels rendered at
+   5.8 px, TR-6's pair positions at 5.9 px, V4's alternative counts at 6.8 px, the heat-map ticks
+   at 6.7 px, and every provenance footer at 4.8–5.2 px.
+7. **The documented invocation (F20).** `cd reports/figures/ && python3 ../../viz/report_figures.py`
+   used the relative default root `tr12`. From that directory it names a directory that does not
+   exist, so all four required V-figures failed.
+
+**What changed** (`viz/report_figures.py` and the committed PNG/SVG pairs; the figure captions in
+the reports are a separate entry).
+
+- **A text floor, enforced on the rendered bytes.** Every glyph must be at least 12 px when the
+  saved figure's full width is shown at 900 px, i.e. `fontsize_pt ≥ 12 × width_pt / 900`. 900 px
+  is about the width a rendered Markdown column gives an image on a desktop screen, and it is the
+  width the review measured at. `save()` renders the SVG to memory and reads each text element's
+  size back from it. If any size is below the floor, it raises `FigureTextFloorError` and writes
+  neither file. The figures reach the floor by being narrower (about 10 in, a 9.6-pt floor), not
+  by using bigger fonts on the old 13–16-in canvases. TR-6 is now two rows of 16 pairs. The
+  unpublished narrative figures N-1 and N-2 were re-laid out to pass the same gate. The footer is
+  set at the floor, wrapped only between sources, and placed below everything else; the line
+  `save()` prints is unchanged.
+- **V2.** Each layer is a unit-width bin (edges −0.5 … 30.5, a `step="post"` stack, with King Wen's
+  overlay on the same bins). Each band's area now equals its class total. Each band is labelled
+  `d=1` … `d=6` in the right margin, with a leader line.
+- **TR-4.** The dashed segment ends at k = 8. Its legend entry reads "Early-rate illustration from
+  k=1–4; superseded by the later measured decline." The k = 14 marker, the floor, the oriented
+  level and every S(k) value are unchanged.
+- **TR-1.** The binary rule has its own row below the quantitative panel. The row is text only
+  ("KW: satisfied / precursor: violated"), with no bar and no scale. The legend sits between the
+  title and the plot area.
+- **V5** carries the reviewers' wording: "The seven pair-orbits are grouped into three
+  within-pair-distance categories; each row fixes one (d,w) combination and does not identify an
+  individual pair." **V4** and **V3** name "C1C2C4C5-SUPERSPACE; C3 not imposed" and define
+  N = |C1∩C2∩C4∩C5|. V3 also states its grid size.
+- **The scale figure's caption** adds: "Points count canonical pair orderings with orientation
+  masked; N counts orientation-explicit sequences. The plotted ratio is 29.0 decades; comparing pair
+  orderings with pair orderings gives a gap of 19.7–23.9 decades." It now ends: "If the power law
+  fitted to these three runs continues, reaching even the like-unit bracket would require
+  approximately 6.4×10³⁸–1.1×10⁴⁵ nodes per cell, making enumeration infeasible under that
+  extrapolation." Each of these numbers is recomputed from the generator's constants and asserted,
+  so the static caption cannot drift from them.
+- **The default root** is the repository's `tr12/`, resolved from the generator's own location, so
+  the documented command works as written.
+- `FIGURE_LABEL_MANIFEST` was regenerated for the ten stems whose static labels moved.
+  `FIGURE_LABEL_UNCOVERED` for `fig_tr12_kc_river` goes from 0 to 1, for the computed `d=…` band
+  labels.
+
+**Method.** Before any edit, the unmodified generator was re-run and reproduced all ten committed
+PNGs byte-identically under the matplotlib version recorded in the committed SVGs (3.11.0). The
+SVGs differed only in their creation date and element ids, as `save()`'s docstring states. So the
+image changes are the edits and not renderer drift. The same re-run under an older matplotlib
+(3.6.3) matched none of the ten. After the edit, a second render of the edited generator reproduced
+every new PNG byte-identically. `fig_tr5_orbit_collapse` and `fig_tr7_circular_cycle` have no
+renderer and were not touched.
+
+**Tests.** `TestViz1FigureFixesFO` in tests.py has 8 tests:
+- the stepped V2 band areas equal the TSV class sums, with a positive control showing that the
+  old interpolation's areas do not;
+- the V2 generator draws the stepped stack and labels each band;
+- the TR-4 dashed segment has no point beyond k = 8;
+- every committed generator SVG meets the floor on its real bytes;
+- a positive control that the floor check fails on a real committed SVG (TR-5's 8.5-pt text on a
+  686-pt canvas, 11.1 px);
+- `save()` measures before writing either file;
+- the default root resolves from the generator and not from the working directory;
+- the rendered wording.
+
+Seven of the 8 fail on the tree before this change (6 failures, 1 error), and the positive control
+passes on both. `TestTr4BoundaryBandWithdrawn` and `TestFigureLabelsAreVisibleToTextGates` pass
+unchanged.
+
+Found by the batch check: with the bands labelled in place, King Wen's step is V2's only legend
+entry. The n=9 reproduction battery has no King Wen class, so `legend()` had nothing to show and
+matplotlib printed its "No artists with labels" warning into the battery output, which is compared
+against a committed copy; the reproduction gate failed on that one line. The legend is now drawn
+only when it has an entry. At n=31 it has one: the five TR-12 figures and the scale figure re-render
+to byte-identical PNGs with matplotlib 3.11.0, and the other four are drawn by functions this change does not touch.
+
+**Published figures move: all ten generator-drawn figures in reports/figures/ are redrawn. V2's band
+geometry, TR-4's dashed segment and TR-1's binary row change what is drawn; the rest change layout,
+type size and wording. No count, probability, verdict or data table moves.**
+
+## CX-193 — `./solve --show` printed a record with reserved bit 0 set exactly like the canonical one and exited 0; it now flags the record and exits 20. An unreadable `build.sha` now has a test, and three comments on its reader are corrected (solve.c; tests.py; documentation/SOLUTIONS_FORMAT.md; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md)
+
+**2026-09-26.** Origin: backlog rows Q-855 (filed by CX-189 §5) and Q-854 (filed after CX-186).
+Landed by Opus FP. Measured on the worker VM on a fresh clone of the batch-20 base with this change
+overlaid.
+
+**1. The `--show` defect.** SOLUTIONS_FORMAT.md says bit 0 of a record byte is reserved: "MUST be
+zero; reject a record with it set." `./solve --verify` refuses such a record with exit 30.
+`--validate`, `verify.py`, `verify.c`, the solve.c readers that decode through `sol_pidx_scan`
+(CX-189) and the three solve.py readers (CX-188) refuse it too. `./solve --show` did not check
+the bit. Its decode masks the bit away, so it printed the record exactly like the canonical one, in
+every format including `raw`, and exited 0. A record with a pair index of 32..63 printed
+`<decode failed>`, which is visible, but that run also exited 0.
+
+**2. Refuse or flag.** `--show` makes no verdict and computes nothing. It prints records so a
+person can look at them, and `--format raw` is documented as the debugging view. The readers that
+refuse the record do so because they would otherwise compute a result or certify a file from it.
+If `--show` refused, nobody could inspect a malformed record with it. So `--show` still prints the
+record, and it now meets the MUST in two ways: it never presents the record as a valid one, and the
+exit code says the output contains an invalid record.
+- The record's line gets `  <-- RESERVED_BIT_SET: byte B = 0xVV; NOT a valid record` appended, or
+  `  <-- PAIR_INDEX_OUT_OF_RANGE: byte B = 0xVV; NOT a valid record` for a pair index of 32..63.
+- stderr gets `ERROR: RESERVED_BIT_SET: PATH record R byte B = 0xVV has reserved bit 0 set; MUST be
+  zero per SOLUTIONS_FORMAT.md; shown for inspection only`. This carries `--verify`'s text. For a
+  bad pair index, the line is `sol_pidx_scan`'s `PAIR_INDEX_OUT_OF_RANGE` text.
+- After the last record, stdout gets `SHOW_RECORDS=MALFORMED` and stderr gets a count. The exit
+  code is 20. That is the corrupt-record code of the `sol_pidx_scan` callers and `--show`'s own
+  code for a file whose size is not a multiple of 32.
+
+As in `--verify` and `sol_pidx_scan`, bit 0 is checked across the whole record before its pair
+indices. A well-formed record's line is unchanged, and a clean run prints no new line and exits 0.
+The check is a new function, `show_record_flag`, placed at the end of solve.c. The edits inside
+`main` are same-line edits, so no line citation above the end of the file moved.
+
+**3. The format doc.** SOLUTIONS_FORMAT.md's bit-0 note named `verify.py` and `./solve --verify` as
+the readers that reject the record. It now also names `verify.c`, `./solve --validate`, the six
+`sol_pidx_scan` modes with their exit codes, the three solve.py modes and `--show`'s flag. This is a
+same-line edit. SOLVE_C_CLI.md §--show has a same-line dated note describing the flag, the token and
+the exit code.
+
+**4. `build.sha`.** CX-186 made a `build.sha` that cannot be opened or read MALFORMED, so the guard
+exits 26. No test covered this, because root ignores `chmod`. The new tests use two entries that
+no user can read as a file:
+- a directory named `build.sha`. `fopen` succeeds, and the read fails with EISDIR.
+- a symlink named `build.sha` that points to itself. The open fails with ELOOP.
+
+On the full enumeration, `--branch` and `--sub-branch`, each must exit 26. Each must print `ERROR:
+build.sha is malformed (Outlier #4, Q-848): it cannot be read: Is a directory.` or `…: it cannot be
+opened: Too many levels of symbolic links.` Each must leave the entry as it was and write nothing
+else. On `--merge`, each must print `MERGE_BUILD_SHA=MALFORMED` and the merge must proceed. A
+directory with no `build.sha` is the positive control: CREATED, exit 0.
+
+Three comments were corrected. The comment above `check_build_sha_invariant` said it returns -1
+only on a mismatch without override. It now names the MALFORMED refusal. The inline comment and the
+`merge_build_sha_report` header said ABSENT is "no file, or an empty one". `build_sha_read` also
+reads a file of whitespace only as ABSENT, and both comments now say so. The same omission was
+fixed with same-line edits in the Q-848 notes of SOLVE_C_CLI.md §--merge and DEVELOPMENT.md's
+`merge_binary_sha256` row.
+
+**5. The test.** `TestQ855Q854ShowReservedBitAndUnreadableBuildSha` in tests.py has 8 tests. The
+`--show` fixtures are headed files with King Wen as record 0 and a malformed record 1. Bit 0 is set
+at bytes 0, 7, 8 and 31, with the pair index still valid. The tests also cover a pair index of 63,
+a record with both defects, a headerless shard and a gzipped file. All four formats are tested. In
+each case the flagged line must be record 0's line with the flag appended, which shows that the
+record is still printed. The `--verify` text must be a substring of `--show`'s stderr. The clean
+file is the positive control: its `raw` and `kw` lines are checked exactly, and it exits 0 with no
+flag and no token. Measured via `ROAE_TESTS_SOLVE_SRC`:
+- the pre-fix solve.c: 24 subtest failures (every `--show` case; the `build.sha` tests pass,
+  because CX-186 already refuses);
+- `show_record_flag` with its bit-0 check removed: 20 failures;
+- the exit code left at 0: 23 failures;
+- the pair index checked before bit 0: 1 failure (the precedence test);
+- the flag not printed: 18 failures;
+- `build_sha_read` treating an open failure as ABSENT: 4 failures (the symlink case on each of the three guard paths and on `--merge`);
+- `build_sha_read` treating a read failure as ABSENT: 4 failures (the directory case on each of the three guard paths and on `--merge`).
+The new solve.c passes all 8 tests. A directory named `build.sha` exercises the read-failure branch,
+not the open-failure branch. The self-referencing symlink is what kills the open-failure mutant.
+
+**6. The sweep.** `--show`'s other exits were read. A failed `gzseek` or a short `gzfread` prints
+`<gzseek failed>` or `<gzfread truncated>` on stderr, skips the record and still exits 0. That is an
+I/O failure, not a record defect. It is filed as a follow-up and was not changed here. On the full
+enumeration path, `solve.binary.snapshot` is written before the `build.sha` guard runs, so a run
+refused with exit 26 still leaves that file. The enumeration case of the new test sets
+`SOLVE_SKIP_BINARY_SNAPSHOT=1` for that reason. This is also filed as a follow-up. The other
+record readers were swept in CX-188 and CX-189.
+
+**7. Gates**, on the lane tree. `./solve --selftest` sha256 `403f7202…` PASS; `python3 tests.py`
+656 tests OK (2 skipped); `scripts/doc_gates.sh` rc 0, no `[FAIL]` finding; `scripts/citation_line_gate.sh --all-files
+--all-targets` PASS, with no line shifted. solve.c and tests.py are in the TR-12 reproduction fingerprint, so the
+stamp needs re-stamping.
+
+**Found by the pre-publication compile gate.** Line 50823 of solve.c, added by CX-189, put two `if`
+statements on one line, and gcc's `-Wmisleading-indentation` class grew from its baselined 3 to 4, so
+the push gate refused the batch. The first `if` now braces its statement on the same line; behaviour
+is unchanged and the selftest still reproduces `403f7202`.

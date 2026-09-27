@@ -106,7 +106,7 @@ checked in [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean), see
 ```
 
 for **every** stream — the areas under the five bands are fixed by theorem, identically for King Wen
-and for the population. **Only the shape across k is informative**, never the totals.
+and for the population (the river is drawn as 31 unit-width steps, edges −0.5…30.5, so each band's area is exactly this sum). **Only the shape across k is informative**, never the totals.
 
 ## Input TSV
 
@@ -182,7 +182,7 @@ mounted, `PENDING_T_LADDER(...)` when it was not. Gated at n=9 by
 which additionally checks `Σ_b solutions(b) == N` and `1 + Σ_b prefixes_t_units(b) == t(root)`.
 
 
-**TSV → figure:** `viz/report_figures.py` (`fig_tr12_kc_river`) — a `matplotlib` `stackplot` of the
+**TSV → figure:** `viz/report_figures.py` (`fig_tr12_kc_river`) — a stepped `matplotlib` stack (31 unit-width layer bins) of the
 five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorted bar panel of
 `v2_branches.tsv`. TSV in, figure out; **no analysis logic in `viz/`**.
 
@@ -191,9 +191,9 @@ five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorte
 - **Band height at column k** = the exact fraction of the superspace whose *k*-th boundary has that
   distance. The total height is 1 at every column, by construction.
 - **Band migration** is the content: which distances the constraint system spends early and which it
-  is forced to hold in reserve. The C5 budget (2, 8, 13, 7, 1 boundaries of each class) is consumed
-  as the walk proceeds, so a class's band must go to zero once its budget is spent — look for where
-  each band's *last* mass sits.
+  is forced to hold in reserve. Each band is a population marginal at that layer. Walks spend their
+  budgets at different positions, so these bands do not show an individual walk's budget running out.
+  ⚠ *(corrected 2026-09-26, Codex VIZ1 F04: this read "a class's band must go to zero once its budget is spent"; all five bands stay positive at k = 30.)*
 - **The d = 6 band is the sharpest signal**: exactly one d = 6 boundary exists in every valid
   ordering (the "9th six" of [MCKENNA.md](../documentation/MCKENNA.md)), so its band across *k* is
   the exact positional distribution of a single forced event. King Wen puts it at k = 18.

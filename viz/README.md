@@ -47,10 +47,10 @@ conflation it was drawn to prevent.
 
 A separate family with a **different data source and a different scope**. The pages above visualize
 an *enumerated slice* (the 560T canonical, budget-limited, from `solutions.bin`); the five pages
-below visualize the **whole compiled walk superspace** — every member of C1 ∩ C2 ∩ C4 ∩ C5, i.e.
+below draw on the **compiled walk superspace** — C1 ∩ C2 ∩ C4 ∩ C5, i.e.
 the space [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) sizes, taken *before* C3 is applied — via the
-f/g/t counting ladders and the `--kc-scan` atlas. Nothing is sampled and nothing is projected: every
-plotted value is an exact integer ratio. Its exact cardinality `N` is whatever `solve --kc-count`
+f/g/t counting ladders and the `--kc-scan` atlas. V1, V2 and V5 plot population quantities over C1C2C4C5-SUPERSPACE. V4 follows King Wen's single oriented walk; V3 evaluates a systematic 1,000-point REL lattice. ⚠ *(corrected 2026-09-26, Codex VIZ1 F21: this said all five visualize the whole superspace and that every
+plotted value is an exact integer ratio; that holds for V1, V2 and V5 only, and V3 includes floating-point FFT observables.)* Its exact cardinality `N` is whatever `solve --kc-count`
 reports; no figure quotes a number ahead of the command that produces it.
 
 **Status at 2026-09-23 — three of the five are rendered, and the other two are blocked on data, not
@@ -64,7 +64,7 @@ for which branch a prefix descended from. 🔴 **V5 is NO LONGER reduced as of 2
 `w = popcount(entry XOR exit) ∈ {2,4,6}` and the `(d,w)` cross-tab is derived **consumer-side from
 `layers[k].kernel`, which already ships in the published atlas** — no re-scan, no ladder, no VM. The
 table went from 155 rows to 465. ⚠ `w` is CONSTANT on each of the seven pair-orbits and takes only
-three distinct values across them, so a row is **3 orbit-classes, never an individual pair**.
+three distinct values across them: the seven pair-orbits are grouped into three within-pair-distance categories; each row fixes one (d,w) combination and does not identify an individual pair.
 What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured d–w dependence: on layers
 1–30 the joint is within 0.0097 of the product of its marginals (`V5_FACTORISATION_MAX_DEV_K_GE_1`,
 `solve.py --atlas-probe`), and the all-layer 0.173 is the C4-forced layer 0 ([viz_kc_grammar.md](viz_kc_grammar.md)).
@@ -137,7 +137,7 @@ committed alongside the figure and the plotting step performs no analysis.
   `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` (documented in
   [`../documentation/SOLVE_PY_CLI.md`](../documentation/SOLVE_PY_CLI.md), gated at n=9 by
   `--atlas-selftest` → `ATLAS_CONSUMER=PASS`). Run it as
-  `cd reports/figures/ && python3 ../../viz/report_figures.py <tr12-artifact-root>`; each V figure
+  `cd reports/figures/ && python3 ../../viz/report_figures.py ../../tr12` for the committed tables (pass the root explicitly: a relative root is read from the working directory, and from `reports/figures/` the committed tables are at `../../tr12`); each V figure
   is skipped with a message when its TSV is absent.
 
   **A TSV that is present but INCOMPLETE is refused, not drawn** (Q-307). Until 2026-09-04 the
@@ -188,7 +188,7 @@ it, so that none is orphaned. Captions live on the linked pages; this is an inde
 |---|---|---|
 | [`fig_tr12_kc_field`](../reports/figures/fig_tr12_kc_field.svg) | V1, positional-marginal field (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_field.md](viz_kc_field.md) |
 | [`fig_tr12_kc_river`](../reports/figures/fig_tr12_kc_river.svg) | V2, mass river and branch panel; the REDUCED form (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_river.md](viz_kc_river.md) |
-| [`fig_tr12_kc_spectrum`](../reports/figures/fig_tr12_kc_spectrum.svg) | V3, rank spectrum; `TR12_V3_FIG=PENDING:viz-v3-spectrum` stays pinned (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_spectrum.md](viz_kc_spectrum.md) |
+| [`fig_tr12_kc_spectrum`](../reports/figures/fig_tr12_kc_spectrum.svg) | V3, rank spectrum; the standalone n=31 V3 rows passed on 2026-09-25 (`TR12_V3_FIG=PASS`), and the archived 2026-09-22 full-run receipt retains its original PENDING token (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_spectrum.md](viz_kc_spectrum.md) |
 | [`fig_tr12_kc_shells`](../reports/figures/fig_tr12_kc_shells.svg) | V4, King Wen's neighbourhood shells; one walk, not a population (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_shells.md](viz_kc_shells.md) |
 | [`fig_tr12_kc_grammar`](../reports/figures/fig_tr12_kc_grammar.svg) | V5, transition grammar (C1C2C4C5-SUPERSPACE) | [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), [viz_kc_grammar.md](viz_kc_grammar.md) |
 | [`viz_scale`](../reports/figures/viz_scale.svg) | The scale figure: budgeted slices and the compiled superspace, which count different spaces | [TR-12 §"What this document is, and what it is not"](../reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not), [viz_scale.md](viz_scale.md) |
