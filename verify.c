@@ -6770,6 +6770,448 @@ static int vc_rev_partner_main(void) {
     return rc;
 }
 
+/* ==========================================================================
+ * BRUTE-FORCE PREFIX CHECKS  (--brute-masses RUN.OUT [K] [THREADS],
+ *                             --brute-g TSV [KMIN] [FMAX] [THREADS])
+ * KCV R2 and the brute half of KCV R1 (Fable review of the Codex KCV findings,
+ * 2026-09-27; landed 2026-09-28).
+ *
+ * WHAT THEY ARE. Enumerations, one prefix at a time, with no state merging at
+ * all: no layered DP, no memo table, no symmetry quotient, no orbit weight. A
+ * valid prefix is counted by walking to it. This is a different algorithm class
+ * from BOTH the engine's orbit-quotient layered DP and this file's own plain DP
+ * (the default `./verify run.out` mode, which merges prefixes into
+ * (mask, last, budget) states). What is shared with the rest of this file is
+ * the instance, derived here from the published definitions: the KW table,
+ * build_pairs() (the 32 KW pairs, partner-checked), C2 (d != 5), and the C5
+ * budget, which is re-derived below from KW's 31 between-pair boundaries.
+ * Nothing is read from solve.c or from any ladder file.
+ *
+ * --brute-masses RUN.OUT [K] [THREADS]. Counts every valid length-k prefix from
+ *   the C4-pinned root (last = 0, Kun's exit) for k = 1..K and compares the
+ *   count with the `mass=` of RUN.OUT's `[f1c5] layer k=` line. That mass is the
+ *   `mass` column of reports/FULL31_EXACT_AGGREGATES.md §1 (its §3 records the
+ *   public runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out reproducing the
+ *   column). K defaults to 6 and is at most 10 (M_10 ~ 5.4e16 fits 64 bits; the
+ *   work grows ~40x per layer, so K = 7 is minutes on 16 cores and K = 8 hours).
+ *   A layer in 1..K with no mass line FAILS; so does a zero census.
+ *   Tokens: BRUTE_MASSES_COMPARED=, BRUTE_MASSES_MISMATCHED=,
+ *   BRUTE_MASSES_RESULT=PASS|FAIL.
+ *
+ * --brute-g TSV [KMIN] [FMAX] [THREADS]. TSV is a `--kc-profile`-shaped trace
+ *   along King Wen's own path (reports/evidence/tr12/banked_n31_20260922/
+ *   q3_profile_exact.tsv): one row per step s = 1..31 carrying the ladder's
+ *   f and g for KW's depth-s state, and `#alt` rows carrying g for every
+ *   alternative child at step s. For every row with s >= KMIN (default 24,
+ *   at least 18) the state is rebuilt from THIS file's KW table (pairs 1..s-1
+ *   in KW orientation; the TSV's own main rows are checked to BE that path),
+ *   the row's placement is applied and validated, and the completions are
+ *   counted by exhaustive DFS. For every main row with s <= FMAX (default 8,
+ *   at most 12) f is counted by enumerating every ordering and orientation of
+ *   KW's first s pairs that is a valid prefix ending in the same exit with the
+ *   same budget use. Values are per state, so they are compared as they stand:
+ *   the ladders store per-representative values that are G-equivariant, so the
+ *   canonical representative carries the value of this concrete state.
+ *   Tokens: BRUTE_G_ROWS_CHECKED=, BRUTE_G_MISMATCHED=, BRUTE_F_ROWS_CHECKED=,
+ *   BRUTE_F_MISMATCHED=, BRUTE_G_RESULT=PASS|FAIL. Zero g rows checked FAILS.
+ *
+ * WHAT A PASS DOES AND DOES NOT ESTABLISH. It pins the published prefix masses
+ * M_1..M_K and the named individual ladder entries to a count made without the
+ * engine. It says nothing about M_k for k > K, or about any entry not named in
+ * the TSV: the KCV R1/R2 residuals shrink, they do not close.
+ * ========================================================================== */
+
+static int bf_b0[5];
+static signed char bf_cls[64][64];            /* class index of l -> e, or -1 (C2 / d = 0) */
+
+static int bf_init(void) {
+    if (!build_pairs()) return 0;
+    if (NPAIR != 32) { fprintf(stderr, "ERROR: brute: expected 32 KW pairs, derived %d\n", NPAIR); return 0; }
+    for (int c = 0; c < 5; c++) bf_b0[c] = 0;
+    for (int i = 0; i < 31; i++) {            /* the 31 between-pair boundaries of KW */
+        int c = cls_ix(hamming(KW[2 * i + 1], KW[2 * i + 2]));
+        if (c < 0) { fprintf(stderr, "ERROR: brute: KW boundary %d outside the C5 classes\n", i); return 0; }
+        bf_b0[c]++;
+    }
+    for (int l = 0; l < 64; l++)
+        for (int e = 0; e < 64; e++) {
+            int d = hamming(l, e);
+            bf_cls[l][e] = (signed char)((d == 5 || d == 0) ? -1 : cls_ix(d));
+        }
+    return 1;
+}
+
+/* Free pair q (0..30) is KW pair q+1; orientation o = 0 enters PA, exits PB. */
+static inline int bf_ent(int q, int o) { return o ? PB[q + 1] : PA[q + 1]; }
+static inline int bf_ext(int q, int o) { return o ? PA[q + 1] : PB[q + 1]; }
+
+/* ---- --brute-masses ---- */
+typedef struct { uint32_t mask; uint8_t last; uint8_t p[5]; } BfPre;
+typedef struct {
+    const BfPre *tasks; int ntask, depth0, K;
+    int *next;                                 /* shared task counter */
+    uint64_t cnt[33];                          /* per-thread prefix counts by depth */
+} BfMassW;
+
+static void bf_mass_dfs(int depth, uint32_t mask, int last, uint8_t *p, int K, uint64_t *cnt) {
+    for (int q = 0; q < 31; q++) {
+        if (mask & (1u << q)) continue;
+        for (int o = 0; o < 2; o++) {
+            int c = bf_cls[last][bf_ent(q, o)];
+            if (c < 0 || p[c] >= bf_b0[c]) continue;
+            cnt[depth + 1]++;
+            if (depth + 1 < K) {
+                p[c]++;
+                bf_mass_dfs(depth + 1, mask | (1u << q), bf_ext(q, o), p, K, cnt);
+                p[c]--;
+            }
+        }
+    }
+}
+
+static void *bf_mass_worker(void *arg) {
+    BfMassW *w = arg;
+    for (;;) {
+        int t = __atomic_fetch_add(w->next, 1, __ATOMIC_RELAXED);
+        if (t >= w->ntask) break;
+        BfPre s = w->tasks[t];
+        bf_mass_dfs(w->depth0, s.mask, s.last, s.p, w->K, w->cnt);
+    }
+    return NULL;
+}
+
+/* Serial expansion to depth `upto`, counting every prefix on the way and
+ * collecting the depth-`upto` prefixes as the parallel tasks. */
+static void bf_mass_seed(int depth, uint32_t mask, int last, uint8_t *p, int upto,
+                         uint64_t *cnt, BfPre *out, int *nout) {
+    if (depth == upto) {
+        BfPre s; s.mask = mask; s.last = (uint8_t)last; memcpy(s.p, p, 5);
+        out[(*nout)++] = s; return;
+    }
+    for (int q = 0; q < 31; q++) {
+        if (mask & (1u << q)) continue;
+        for (int o = 0; o < 2; o++) {
+            int c = bf_cls[last][bf_ent(q, o)];
+            if (c < 0 || p[c] >= bf_b0[c]) continue;
+            cnt[depth + 1]++;
+            p[c]++;
+            bf_mass_seed(depth + 1, mask | (1u << q), bf_ext(q, o), p, upto, cnt, out, nout);
+            p[c]--;
+        }
+    }
+}
+
+static int bf_threads_arg(const char *s, const char *mode) {
+    char *end; long v = strtol(s, &end, 10);
+    if (*s == 0 || *end != 0 || v < 1 || v > 1024) {
+        fprintf(stderr, "ERROR: %s: THREADS must be an integer in 1..1024, got '%s'\n", mode, s);
+        return -1;
+    }
+    return (int)v;
+}
+static int bf_default_threads(void) {
+    long n = sysconf(_SC_NPROCESSORS_ONLN);
+    return n < 1 ? 1 : (n > 1024 ? 1024 : (int)n);
+}
+
+static int bf_masses_main(int argc, char **argv) {
+    if (argc < 3 || argc > 5) {
+        fprintf(stderr, "BRUTE_MASSES_ARGS=REFUSED\n");
+        fprintf(stderr, "ERROR: usage: %s --brute-masses RUN.OUT [K] [THREADS]  (K in 1..10, default 6)%s%s\n",
+                argv[0], argc > 5 ? "; first refused argument: " : "", argc > 5 ? argv[5] : "");
+        return 2;
+    }
+    int K = 6;
+    if (argc > 3) {
+        char *end; long v = strtol(argv[3], &end, 10);
+        if (*argv[3] == 0 || *end != 0 || v < 1 || v > 10) {
+            fprintf(stderr, "BRUTE_MASSES_ARGS=REFUSED\n");
+            fprintf(stderr, "ERROR: --brute-masses: K must be an integer in 1..10, got '%s'\n", argv[3]);
+            return 2;
+        }
+        K = (int)v;
+    }
+    int T = bf_default_threads();
+    if (argc > 4 && (T = bf_threads_arg(argv[4], "--brute-masses")) < 0) {
+        fprintf(stderr, "BRUTE_MASSES_ARGS=REFUSED\n"); return 2;
+    }
+    if (!bf_init()) return 1;
+    char masses[32][48];
+    int nm = parse_masses(argv[2], masses);
+    if (nm < 0) { fprintf(stderr, "ERROR: --brute-masses: cannot read %s\n", argv[2]); return 1; }
+
+    printf("verify.c --brute-masses — valid k-prefixes counted one by one (no DP, no quotient)\n");
+    printf("B0 from KW boundary multiset (d1,d2,d3,d4,d6) = (%d,%d,%d,%d,%d); root last = 0 (Kun)\n",
+           bf_b0[0], bf_b0[1], bf_b0[2], bf_b0[3], bf_b0[4]);
+    time_t t0 = time(NULL);
+    uint64_t cnt[33]; memset(cnt, 0, sizeof cnt);
+    int depth0 = K >= 3 ? 2 : K;              /* tasks = the depth-2 prefixes */
+    BfPre *tasks = malloc(sizeof(BfPre) * 4096);
+    if (!tasks) { fprintf(stderr, "ERROR: --brute-masses: out of memory\n"); return 1; }
+    int ntask = 0; uint8_t p0[5] = {0, 0, 0, 0, 0};
+    bf_mass_seed(0, 0u, 0, p0, depth0, cnt, tasks, &ntask);
+    if (K > depth0) {
+        if (T > ntask) T = ntask;
+        BfMassW *W = calloc((size_t)T, sizeof *W);
+        pthread_t *th = calloc((size_t)T, sizeof *th);
+        int next = 0;
+        if (!W || !th) { fprintf(stderr, "ERROR: --brute-masses: out of memory\n"); return 1; }
+        for (int i = 0; i < T; i++) {
+            W[i].tasks = tasks; W[i].ntask = ntask; W[i].depth0 = depth0; W[i].K = K; W[i].next = &next;
+            if (pthread_create(&th[i], NULL, bf_mass_worker, &W[i]) != 0) {
+                fprintf(stderr, "ERROR: --brute-masses: pthread_create failed\n"); return 1;
+            }
+        }
+        for (int i = 0; i < T; i++) {
+            pthread_join(th[i], NULL);
+            for (int k = 0; k <= 32; k++) cnt[k] += W[i].cnt[k];
+        }
+        free(W); free(th);
+    }
+    free(tasks);
+    int compared = 0, bad = 0, absent = 0;
+    printf("  k | brute-force count      | run log mass           | match\n");
+    for (int k = 1; k <= K; k++) {
+        char got[32]; snprintf(got, sizeof got, "%llu", (unsigned long long)cnt[k]);
+        int have = masses[k][0] != 0, ok = have && strcmp(got, masses[k]) == 0;
+        if (have) { compared++; if (!ok) bad++; } else absent++;
+        printf(" %2d | %-22s | %-22s | %s\n", k, got, have ? masses[k] : "(absent)",
+               !have ? "ABSENT" : (ok ? "ok" : "*MISMATCH*"));
+    }
+    printf("threads=%d tasks=%d wall=%lds\n", T, ntask, (long)(time(NULL) - t0));
+    int fail = bad > 0 || absent > 0 || compared == 0;
+    if (absent) printf("*** FAIL: %d layer(s) in 1..%d have no mass line in %s\n", absent, K, argv[2]);
+    if (compared == 0) printf("*** FAIL: zero comparisons\n");
+    printf("BRUTE_MASSES_COMPARED=%d\n", compared);
+    printf("BRUTE_MASSES_MISMATCHED=%d\n", bad);
+    printf("BRUTE_MASSES_RESULT=%s\n", fail ? "FAIL" : "PASS");
+    return fail ? 1 : 0;
+}
+
+/* ---- --brute-g ---- */
+typedef struct {
+    int step, pair, ent, ext, is_alt;
+    char f[48], g[48];                         /* decimal as published */
+    uint64_t gb, fb; int did_g, did_f;
+} BfRow;
+
+/* Completions of the remaining free pairs from (depth, mask, last, p). */
+static uint64_t bf_complete(int depth, uint32_t mask, int last, uint8_t *p) {
+    if (depth == 31) return 1;
+    uint64_t s = 0;
+    for (int q = 0; q < 31; q++) {
+        if (mask & (1u << q)) continue;
+        for (int o = 0; o < 2; o++) {
+            int c = bf_cls[last][bf_ent(q, o)];
+            if (c < 0 || p[c] >= bf_b0[c]) continue;
+            if (depth + 1 == 31) { s++; continue; }
+            p[c]++;
+            s += bf_complete(depth + 1, mask | (1u << q), bf_ext(q, o), p);
+            p[c]--;
+        }
+    }
+    return s;
+}
+
+/* Orderings/orientations of exactly the pairs in `set` that are valid prefixes
+ * from the root and end at exit X with budget use P. */
+static uint64_t bf_forward(int depth, int target, uint32_t set, uint32_t mask, int last,
+                           uint8_t *p, int X, const uint8_t *P) {
+    if (depth == target) return (last == X && memcmp(p, P, 5) == 0) ? 1 : 0;
+    uint64_t s = 0;
+    for (int q = 0; q < 31; q++) {
+        if (!(set & (1u << q)) || (mask & (1u << q))) continue;
+        for (int o = 0; o < 2; o++) {
+            int c = bf_cls[last][bf_ent(q, o)];
+            if (c < 0 || p[c] >= bf_b0[c]) continue;
+            p[c]++;
+            s += bf_forward(depth + 1, target, set, mask | (1u << q), bf_ext(q, o), p, X, P);
+            p[c]--;
+        }
+    }
+    return s;
+}
+
+typedef struct { BfRow *rows; int nrow, kmin, fmax; int *next; } BfGW;
+
+/* KW's own depth-s state: pairs 1..s in orientation 0, from root last 0. */
+static void bf_kw_state(int s, uint32_t *mask, int *last, uint8_t *p) {
+    *mask = 0; *last = 0; memset(p, 0, 5);
+    for (int q = 0; q < s; q++) {
+        p[bf_cls[*last][bf_ent(q, 0)]]++;
+        *mask |= 1u << q; *last = bf_ext(q, 0);
+    }
+}
+
+static void *bf_g_worker(void *arg) {
+    BfGW *w = arg;
+    for (;;) {
+        int t = __atomic_fetch_add(w->next, 1, __ATOMIC_RELAXED);
+        if (t >= w->nrow) break;
+        BfRow *r = &w->rows[t];
+        if (r->step >= w->kmin) {
+            uint32_t mask; int last; uint8_t p[5];
+            bf_kw_state(r->step - 1, &mask, &last, p);
+            int q = r->pair - 1, o = (r->ent == PA[r->pair]) ? 0 : 1;
+            int c = bf_cls[last][bf_ent(q, o)];
+            p[c]++;
+            r->gb = bf_complete(r->step, mask | (1u << q), bf_ext(q, o), p);
+            r->did_g = 1;
+        }
+        if (!r->is_alt && r->step <= w->fmax) {
+            uint32_t mask; int last; uint8_t P[5], p[5] = {0, 0, 0, 0, 0};
+            bf_kw_state(r->step, &mask, &last, P);
+            r->fb = bf_forward(0, r->step, mask, 0u, 0, p, last, P);
+            r->did_f = 1;
+        }
+    }
+    return NULL;
+}
+
+static const char *bf_kv(const char *line, const char *key) {   /* "\tkey=" field start */
+    size_t n = strlen(key);
+    for (const char *s = strchr(line, '\t'); s; s = strchr(s + 1, '\t'))
+        if (strncmp(s + 1, key, n) == 0 && s[1 + n] == '=') return s + 2 + n;
+    return NULL;
+}
+static int bf_dec(const char *s, char *out) {                    /* copy a decimal field */
+    int j = 0;
+    while (s && *s >= '0' && *s <= '9' && j < 46) out[j++] = *s++;
+    out[j] = 0;
+    return j > 0 && (!s || *s == 0 || *s == '\t' || *s == '\n' || *s == '\r');
+}
+
+static int bf_g_main(int argc, char **argv) {
+    if (argc < 3 || argc > 6) {
+        fprintf(stderr, "BRUTE_G_ARGS=REFUSED\n");
+        fprintf(stderr, "ERROR: usage: %s --brute-g TSV [KMIN] [FMAX] [THREADS]  (KMIN 18..31, default 24; FMAX 0..12, default 8)%s%s\n",
+                argv[0], argc > 6 ? "; first refused argument: " : "", argc > 6 ? argv[6] : "");
+        return 2;
+    }
+    int kmin = 24, fmax = 8, T = bf_default_threads();
+    for (int a = 3; a < argc && a < 5; a++) {
+        char *end; long v = strtol(argv[a], &end, 10);
+        int lo = a == 3 ? 18 : 0, hi = a == 3 ? 31 : 12;
+        if (*argv[a] == 0 || *end != 0 || v < lo || v > hi) {
+            fprintf(stderr, "BRUTE_G_ARGS=REFUSED\n");
+            fprintf(stderr, "ERROR: --brute-g: %s must be an integer in %d..%d, got '%s'\n",
+                    a == 3 ? "KMIN" : "FMAX", lo, hi, argv[a]);
+            return 2;
+        }
+        if (a == 3) kmin = (int)v; else fmax = (int)v;
+    }
+    if (argc > 5 && (T = bf_threads_arg(argv[5], "--brute-g")) < 0) {
+        fprintf(stderr, "BRUTE_G_ARGS=REFUSED\n"); return 2;
+    }
+    if (!bf_init()) return 1;
+    FILE *fh = fopen(argv[2], "r");
+    if (!fh) { fprintf(stderr, "ERROR: --brute-g: cannot open %s\n", argv[2]); return 1; }
+    BfRow *rows = calloc(2048, sizeof *rows);
+    if (!rows) { fclose(fh); fprintf(stderr, "ERROR: --brute-g: out of memory\n"); return 1; }
+    int nrow = 0, seen_main[32] = {0}, bad_input = 0;
+    char line[16384];
+    while (fgets(line, sizeof line, fh)) {
+        BfRow r; memset(&r, 0, sizeof r);
+        if (strncmp(line, "#alt\t", 5) == 0) {
+            const char *s = bf_kv(line, "step"), *pr = bf_kv(line, "pair"),
+                       *e = bf_kv(line, "entry"), *x = bf_kv(line, "exit"), *g = bf_kv(line, "g");
+            if (!s || !pr || !e || !x || !bf_dec(g, r.g)) {
+                fprintf(stderr, "ERROR: --brute-g: unparsable #alt row: %s", line); bad_input++; continue;
+            }
+            r.step = atoi(s); r.pair = atoi(pr); r.ent = atoi(e); r.ext = atoi(x); r.is_alt = 1;
+        } else if (line[0] >= '0' && line[0] <= '9') {
+            char *fld[9]; int nf = 0; char *save = NULL;
+            for (char *tok = strtok_r(line, "\t\n", &save); tok && nf < 9; tok = strtok_r(NULL, "\t\n", &save))
+                fld[nf++] = tok;
+            if (nf < 9 || !bf_dec(fld[7], r.f) || !bf_dec(fld[8], r.g)) {
+                fprintf(stderr, "ERROR: --brute-g: unparsable step row (%d fields)\n", nf); bad_input++; continue;
+            }
+            r.step = atoi(fld[0]); r.pair = atoi(fld[1]); r.ent = atoi(fld[2]); r.ext = atoi(fld[3]);
+            if (r.step < 1 || r.step > 31 || r.pair != r.step || r.ent != PA[r.step] || r.ext != PB[r.step]
+                || atoi(fld[4]) != 0) {
+                fprintf(stderr, "ERROR: --brute-g: step row %d is not King Wen's pair %d in KW orientation "
+                                "(pair=%d entry=%d exit=%d; KW has %d->%d)\n",
+                        r.step, r.step, r.pair, r.ent, r.ext,
+                        (r.step >= 1 && r.step <= 31) ? PA[r.step] : -1,
+                        (r.step >= 1 && r.step <= 31) ? PB[r.step] : -1);
+                bad_input++; continue;
+            }
+            if (seen_main[r.step]++) {
+                fprintf(stderr, "ERROR: --brute-g: step row %d appears twice\n", r.step); bad_input++; continue;
+            }
+        } else continue;
+        if (r.step < 1 || r.step > 31 || r.pair < 1 || r.pair > 31) {
+            fprintf(stderr, "ERROR: --brute-g: row step=%d pair=%d out of range\n", r.step, r.pair); bad_input++; continue;
+        }
+        /* the placement must be a valid child of KW's depth-(step-1) state */
+        uint32_t mask; int last; uint8_t p[5];
+        bf_kw_state(r.step - 1, &mask, &last, p);
+        int q = r.pair - 1;
+        int orient = (r.ent == PA[r.pair] && r.ext == PB[r.pair]) ? 0
+                   : (r.ent == PB[r.pair] && r.ext == PA[r.pair]) ? 1 : -1;
+        int c = orient < 0 ? -1 : bf_cls[last][r.ent];
+        if (orient < 0 || (mask & (1u << q)) || c < 0 || p[c] >= bf_b0[c]) {
+            fprintf(stderr, "ERROR: --brute-g: step %d row (pair %d, %d->%d) is not a valid child of "
+                            "King Wen's depth-%d state\n", r.step, r.pair, r.ent, r.ext, r.step - 1);
+            bad_input++; continue;
+        }
+        if (nrow >= 2048) { fprintf(stderr, "ERROR: --brute-g: more than 2048 rows\n"); bad_input++; break; }
+        rows[nrow++] = r;
+    }
+    fclose(fh);
+    int missing = 0;
+    for (int s = kmin; s <= 31; s++) if (!seen_main[s]) missing++;
+
+    printf("verify.c --brute-g — ladder f/g entries along King Wen's path, counted by exhaustive DFS\n");
+    printf("B0 = (%d,%d,%d,%d,%d); g rows: step >= %d; f rows: step <= %d\n",
+           bf_b0[0], bf_b0[1], bf_b0[2], bf_b0[3], bf_b0[4], kmin, fmax);
+    time_t t0 = time(NULL);
+    if (T > nrow && nrow > 0) T = nrow;
+    BfGW *W = calloc((size_t)T, sizeof *W);
+    pthread_t *th = calloc((size_t)T, sizeof *th);
+    int next = 0;
+    if (!W || !th) { fprintf(stderr, "ERROR: --brute-g: out of memory\n"); return 1; }
+    for (int i = 0; i < T; i++) {
+        W[i].rows = rows; W[i].nrow = nrow; W[i].kmin = kmin; W[i].fmax = fmax; W[i].next = &next;
+        if (pthread_create(&th[i], NULL, bf_g_worker, &W[i]) != 0) {
+            fprintf(stderr, "ERROR: --brute-g: pthread_create failed\n"); return 1;
+        }
+    }
+    for (int i = 0; i < T; i++) pthread_join(th[i], NULL);
+    free(W); free(th);
+
+    int gchk = 0, gbad = 0, fchk = 0, fbad = 0;
+    for (int i = 0; i < nrow; i++) {
+        BfRow *r = &rows[i];
+        char b[32];
+        if (r->did_f) {
+            snprintf(b, sizeof b, "%llu", (unsigned long long)r->fb);
+            int ok = strcmp(b, r->f) == 0; fchk++; if (!ok) fbad++;
+            printf("f step=%2d pair=%2d %2d->%2d  ladder=%s  brute=%s  %s\n",
+                   r->step, r->pair, r->ent, r->ext, r->f, b, ok ? "ok" : "*MISMATCH*");
+        }
+        if (r->did_g) {
+            snprintf(b, sizeof b, "%llu", (unsigned long long)r->gb);
+            int ok = strcmp(b, r->g) == 0; gchk++; if (!ok) gbad++;
+            printf("g step=%2d %s pair=%2d %2d->%2d  ladder=%s  brute=%s  %s\n",
+                   r->step, r->is_alt ? "alt " : "KW  ", r->pair, r->ent, r->ext, r->g, b,
+                   ok ? "ok" : "*MISMATCH*");
+        }
+    }
+    printf("threads=%d rows=%d wall=%lds\n", T, nrow, (long)(time(NULL) - t0));
+    int fail = gbad || fbad || bad_input || missing || gchk == 0;
+    if (bad_input) printf("*** FAIL: %d input row(s) rejected (see ERROR lines)\n", bad_input);
+    if (missing) printf("*** FAIL: %d King Wen step row(s) in %d..31 absent from %s\n", missing, kmin, argv[2]);
+    if (gchk == 0) printf("*** FAIL: zero g rows checked\n");
+    printf("BRUTE_G_ROWS_CHECKED=%d\n", gchk);
+    printf("BRUTE_G_MISMATCHED=%d\n", gbad);
+    printf("BRUTE_F_ROWS_CHECKED=%d\n", fchk);
+    printf("BRUTE_F_MISMATCHED=%d\n", fbad);
+    printf("BRUTE_G_RESULT=%s\n", fail ? "FAIL" : "PASS");
+    free(rows);
+    return fail ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
@@ -6781,6 +7223,8 @@ int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--rev-partner") == 0) return vc_rev_partner_main();
     if (argc >= 2 && strcmp(argv[1], "--knuth-anchors") == 0) return kn_anchors_main();
     if (argc >= 2 && strcmp(argv[1], "--knuth-probe") == 0) return kn_probe_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--brute-masses") == 0) return bf_masses_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--brute-g") == 0) return bf_g_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--check-layers") == 0) {
         if (argc < 3) { fprintf(stderr, "usage: %s --check-layers DIR [max_k] [run.out]\n", argv[0]); return 2; }
         return lc_check_layers(argv[2], argc > 3 ? atoi(argv[3]) : 31,
@@ -6825,9 +7269,13 @@ int main(int argc, char **argv) {
                                     "                                  --recount-finite's rev/partner leg)\n"
                                     "       %s --knuth-probe N [--knuth-seed S] [--knuth-threads T]\n"
                                     "                     [--knuth-no-c67] [--knuth-free F]\n"
-                                    "                                  (#194 clean-room Knuth random-probe estimator)\n",
+                                    "                                  (#194 clean-room Knuth random-probe estimator)\n"
+                                    "       %s --brute-masses RUN.OUT [K] [THREADS]   (valid k-prefixes counted\n"
+                                    "                                  one by one vs the run log's masses, k<=K)\n"
+                                    "       %s --brute-g TSV [KMIN] [FMAX] [THREADS]   (ladder f/g entries along\n"
+                                    "                                  King Wen's path vs exhaustive DFS)\n",
                                     argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
-                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
+                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
     if (maxk > 31) maxk = 31;

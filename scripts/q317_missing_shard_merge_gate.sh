@@ -2,10 +2,10 @@
 # Q-317 (4) — a shard that is ENTIRELY ABSENT must not pass the end-of-enum merge.
 #
 # ############################################################################
-# # THIS GATE IS EXPECTED TO REPORT **FAIL** ON TODAY'S TREE.                #
-# # The fix is NOT landed. A FAIL here is the gate WORKING: it is the RED    #
-# # that the fix must turn green. Do not "repair" the gate, and do not add   #
-# # it to any blocking hook until solve.c is fixed. If it reports ERROR,     #
+# # 2026-09-27 (lane HAC): Q-317 (4) LANDED. THIS GATE NOW EXPECTS **PASS**. #
+# # The merge cross-reference reads checkpoint_t<N>.txt and refuses an       #
+# # absent shard (exit 20, MERGE_SHARD=MISSING). A FAIL is now a REGRESSION. #
+# # (Until then this box said FAIL was expected.) If it reports ERROR,       #
 # # that IS a broken gate (or a changed binary) — see the ERROR list below.  #
 # ############################################################################
 #
@@ -262,7 +262,7 @@ if [ "$del_rc" -eq 0 ]; then
   echo "          Cause: solve.c's cross-reference has no else arm for a missing file,"
   echo "          AND it reads only checkpoint.txt, which a real enum leaves EMPTY —"
   echo "          so the loop never iterates and the arm would be dead even if added."
-  echo "          THIS FAIL IS EXPECTED until Q-317 item (4) lands. See the header."
+  echo "          Q-317 item (4) landed 2026-09-27: THIS FAIL IS A REGRESSION."
   echo "MISSING_SHARD_MERGE=FAIL"
   exit 1
 fi

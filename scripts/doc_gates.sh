@@ -5417,7 +5417,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
   #            byte-identical (sha-checked) after each mutation. Same clean-tree debt:
   #            in-harness legs for (a)-(c) plus a negative control that the five
   #            resolution-note/historical allow rows stay silent.
-  #   NOT covered YET, THE REST OF THE TAIL — GATES 19, 21, 22, 23 and 24. This bullet
+  #   NOT covered YET, THE REST OF THE TAIL — GATES 19, 21, 23 and 24 (GATE 22 left 2026-09-27, Q-883, PARTLY: its producer rc and population floor only). This bullet
   #            named GATE 18 ALONE until 2026-08-11, which read as "18 is the gap" when it was
   #            only the gap that had been WRITTEN DOWN; six more gates had landed behind it and
   #            joined nothing. MEASURED that day, two ways, because one of them keys on a
@@ -5623,6 +5623,89 @@ open(r,'w',encoding='utf-8').write(t+chr(10)+chr(9).join(['open',f,alias,alt,'Se
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+chr(10)+'## Self-test reader checklist'+chr(10)+chr(10)+'- [ ] a reader-facing unchecked box, which is exempt by heading.'+chr(10))"
 
+  # GATE 22 PRODUCER RECEIPT AND FLOOR (Q-883, 2026-09-27, lane HAG; Fable E4 FIX-1).
+  #
+  # THE DEFECT. GATE 22's token population came from `git grep ... 2>/dev/null > hits || true`.
+  # Fable E4 put a `git` on PATH that passed every subcommand through except `grep` (exit 2):
+  # the gate printed `[ok] 0 truncated hex token(s)` and DOC GATES: PASS, rc 0, while the 129
+  # truncated sha citations it exists to check went unexamined. The fix captures the producer's
+  # rc (>= 2 is a FAIL naming the producer), prints GATE22_HEX_TOKENS=N, and fails below a floor.
+  #
+  # HAND-ROLLED, NOT assert_fires_why, because the injection is a PATH shim, not a file
+  # mutation: nothing in the tree changes, so there is nothing for _selftest_revert to undo.
+  # THE SHIM REFUSES ONLY THE POPULATION GREP, keyed on its exact pattern argument. A shim that
+  # refused every `git grep` would also empty GATE 22's UNIVERSE, whose own empty-universe
+  # [FAIL] would then answer instead — the assertion could not tell which check fired. The
+  # shim touches a marker file when it acts, and each case first asserts the marker exists:
+  # a shim that PATH never reached proves nothing (precondition, not assumption).
+  #   CASE 1 (baseline): unshimmed, rc 0, a GATE22_HEX_TOKENS receipt at or above the floor
+  #          and the [ok] line carrying the same count.
+  #   CASE 2 (producer fails): the population grep exits 2 -> rc non-zero and the [FAIL] names
+  #          the producer. Kills the mutant that restores `|| true`.
+  #   CASE 3 (population collapses): the population grep succeeds but returns 3 lines -> rc
+  #          non-zero, the receipt reads below the floor, and the floor [FAIL] is printed.
+  #          Kills the mutant that drops the floor.
+  _G22_GIT=$(command -v git); _G22_D=$(mktemp -d 2>/dev/null)
+  if [ -n "$_G22_GIT" ] && [ -n "$_G22_D" ] && [ -d "$_G22_D" ]; then
+    cat > "$_G22_D/git" <<G22SHIM
+#!/usr/bin/env bash
+for a in "\$@"; do
+  if [ "\$a" = '[0-9a-f]+(…|\\.\\.\\.)' ]; then
+    touch "$_G22_D/acted"
+    if [ "\${G22_SHIM_MODE:-}" = fail ]; then echo "g22 shim: git grep refused" >&2; exit 2; fi
+    "$_G22_GIT" "\$@" | head -n 3; exit 0
+  fi
+done
+exec "$_G22_GIT" "\$@"
+G22SHIM
+    chmod +x "$_G22_D/git"
+    _G22_OUT=$(bash "$0" hex-prefix 2>&1); _G22_RC=$?
+    _G22_N=$(grep -oxE 'GATE22_HEX_TOKENS=[0-9]+' <<<"$_G22_OUT" | cut -d= -f2)
+    if [ "$_G22_RC" -eq 0 ] && [ -n "$_G22_N" ] && [ "$_G22_N" -ge 100 ] \
+       && grep -qE "\[ok\] $_G22_N truncated hex token\(s\)" <<<"$_G22_OUT"; then
+      echo "  [ok]   GATE 22 producer baseline — rc 0, GATE22_HEX_TOKENS=$_G22_N at or above the floor 100"
+    else
+      echo "  [FAIL] GATE 22 producer baseline — the unshimmed run did not give rc 0 with a receipt"
+      echo "         at or above 100 and a matching [ok] line (rc=$_G22_RC, receipt='$_G22_N'). Every"
+      echo "         case below compares against this one, so none of them can run."
+      PASS=1
+    fi
+    rm -f "$_G22_D/acted"
+    _G22_OUT=$(G22_SHIM_MODE=fail PATH="$_G22_D:$PATH" bash "$0" hex-prefix 2>&1); _G22_RC=$?
+    if [ ! -e "$_G22_D/acted" ]; then
+      echo "  [FAIL] GATE 22 producer fails — the PATH shim was never reached, so nothing was injected."
+      PASS=1
+    elif [ "$_G22_RC" -ne 0 ] && grep -qE 'GATE 22: the token producer \(git grep over tracked \*\.md\) failed rc 2' <<<"$_G22_OUT"; then
+      echo "  [ok]   GATE 22 producer fails — a population grep exiting 2 is a FAIL naming the producer"
+    else
+      echo "  [FAIL] GATE 22 producer fails — a population grep that exited 2 did not produce a"
+      echo "         FAIL naming the producer (rc=$_G22_RC). That is the Q-883 fail-open shape."
+      printf '%s\n' "$_G22_OUT" | grep -E 'GATE 22|GATE22_' | head -3 | sed 's/^/           > /'
+      PASS=1
+    fi
+    rm -f "$_G22_D/acted"
+    _G22_OUT=$(G22_SHIM_MODE=short PATH="$_G22_D:$PATH" bash "$0" hex-prefix 2>&1); _G22_RC=$?
+    _G22_M=$(grep -oxE 'GATE22_HEX_TOKENS=[0-9]+' <<<"$_G22_OUT" | cut -d= -f2)
+    if [ ! -e "$_G22_D/acted" ]; then
+      echo "  [FAIL] GATE 22 population floor — the PATH shim was never reached, so nothing was injected."
+      PASS=1
+    elif [ "$_G22_RC" -ne 0 ] && [ -n "$_G22_M" ] && [ "$_G22_M" -lt 100 ] \
+         && grep -qE "GATE 22: only $_G22_M truncated hex token\(s\) measured, below the population floor 100" <<<"$_G22_OUT"; then
+      echo "  [ok]   GATE 22 population floor — a population of $_G22_M token(s) is a FAIL below the floor 100"
+    else
+      echo "  [FAIL] GATE 22 population floor — a population collapsed to 3 grep lines did not"
+      echo "         FAIL at the floor (rc=$_G22_RC, receipt='$_G22_M')."
+      printf '%s\n' "$_G22_OUT" | grep -E 'GATE 22|GATE22_' | head -3 | sed 's/^/           > /'
+      PASS=1
+    fi
+    rm -rf "$_G22_D"
+  else
+    [ -n "$_G22_D" ] && rm -rf "$_G22_D"
+    echo "  [FAIL] GATE 22 producer — could not build the git shim (no git on PATH or mktemp failed),"
+    echo "         so the assertion did NOT run. A skipped fire-proof is not a proof."
+    PASS=1
+  fi
+
   # The old note said GATE 8 was excluded because ~90s regeneration "exceeds the
   # orchestrator's budget". MEASURED 2026-08-02 on the orchestrator: 45 s and 31 MB peak
   # RSS per run. The budget claim was inherited, not measured, and it was wrong; the
@@ -5636,7 +5719,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'## Self-test reader checklist'+chr
   # PRINTED, not only commented, for the reason the PASS banner's own exclusions are printed:
   # a gap recorded in a comment is invisible to the person reading a green run. GATE 25 LEFT
   # this line on 2026-08-11 when its two legs landed; the rest of the tail is still on it.
-  echo "  [note] no mutation-test leg AT ALL: GATES 19, 21, 22, 23, 24. A green"
+  echo "  [note] no mutation-test leg AT ALL: GATES 19, 21, 23, 24. A green"
   echo "         SELF-TEST attests nothing about them — they are dispatched and run, but"
   echo "         nothing here has ever proven any of them CAN fail."
   # GATES 18 and 20 came off the line above on 2026-09-03 (item 2477) and are printed
@@ -5646,7 +5729,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'## Self-test reader checklist'+chr
   echo "  [note] PARTIALLY mutation-tested: GATE 18 (the escalation RATCHET only — both"
   echo "         counters; its main alias-reach leg, its hard-wrap leg and the \`attrib\` kind"
   echo "         are proven only by by-hand transcripts) and GATE 20 (the per-file RECEIPTS"
-  echo "         only; neither of its two SCANNING legs has ever been shown to fire)."
+  echo "         only; neither of its two SCANNING legs has ever been shown to fire) and GATE 22 (its token PRODUCER's rc and population FLOOR only, Q-883; its NEAR and UNRESOLVABLE legs have never been shown to fire)."
 
   _selftest_revert
   echo

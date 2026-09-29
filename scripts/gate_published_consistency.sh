@@ -17,16 +17,16 @@ fail=0
 
 # ---- G1: unfilled placeholder tokens in PUBLISHED text -----------------------------------------
 # A reader following `[REPRO-TAG]` gets nothing: the document's own resolver command returns no
-# match against any of the repository's tags. Three lens-B findings collapsed to this one grep.
+# match against any of the repository's tags. Three lens-B findings collapsed to this one grep. Q-883 (2026-09-27, Fable E4 FIX-2): the grep ran as `2>/dev/null || true`, so with reports/ absent it printed `[ok] no unfilled placeholders` over nothing; it now branches on grep's rc (0 hits, 1 none, >= 2 FAIL), checks both roots exist, prints G1_FILES_SCANNED=N and fails below G1_FLOOR (200 against 290 measured 2026-09-27: 289 files under reports/ plus README.md), and any of those failures forces PUBLISHED_CONSISTENCY=FAIL through G1_ERR at the ratchet. G1_ROOT overrides the directory scanned (default the repo root), for the red tests, the way G19_DOC does for G19.
 echo "== G1: unfilled placeholders in published reports =="
-G1=$(grep -rnoE "\[(REPRO-TAG|EXPECTED-[A-Z0-9]+|STAGE-[FGT]-SHA-REGISTRY)\]" reports/ README.md 2>/dev/null || true)
+_G1R=${G1_ROOT:-.}; G1_ERR=0; G1_FLOOR=200; G1_SCANNED=0; G1=""; _g1rc=0; [ "$_G1R" = . ] || echo "   [note] G1: G1_ROOT overrides the scanned root to $_G1R"; if [ -d "$_G1R/reports" ] && [ -r "$_G1R/README.md" ]; then G1_SCANNED=$(( $(find "$_G1R/reports" -type f | wc -l) + 1 )); G1=$(cd "$_G1R" || exit 2; grep -rnoE "\[(REPRO-TAG|EXPECTED-[A-Z0-9]+|STAGE-[FGT]-SHA-REGISTRY)\]" reports/ README.md); _g1rc=$?; else echo "   [FAIL] G1: $_G1R/reports/ or $_G1R/README.md is missing or unreadable -- this leg measured NOTHING"; G1_ERR=1; fi; echo "G1_FILES_SCANNED=$G1_SCANNED"; [ "$_g1rc" -le 1 ] || { echo "   [FAIL] G1: the placeholder grep failed (rc $_g1rc) -- its population is UNMEASURED, so no [ok] can be printed"; G1_ERR=1; }; [ "$G1_SCANNED" -ge "$G1_FLOOR" ] || { echo "   [FAIL] G1: $G1_SCANNED file(s) scanned, below the floor $G1_FLOOR -- a moved, emptied or narrowed reports/ tree is a broken scan, not a clean one"; G1_ERR=1; }
 G1_N=$( [ -n "$G1" ] && echo "$G1" | grep -c . || echo 0 )
 if [ -n "$G1" ]; then
   echo "$G1" | sed 's/^/   [FAIL] /'
   echo "   $G1_N unfilled placeholder(s) in published text"
   fail=1
 else
-  echo "   [ok]   no unfilled placeholders"
+  [ "$G1_ERR" -eq 0 ] && echo "   [ok]   no unfilled placeholders"
 fi
 
 # ---- G2: sampled-figure commands with no thread pin --------------------------------------------
@@ -671,7 +671,7 @@ for _g in 1 2 3 4 $GLEGS; do
 done
 echo
 echo "== RATCHET vs $PIN =="
-ratchet=0; tighten=0; outstanding=0; open_legs=""
+ratchet=$G1_ERR; tighten=0; outstanding=0; open_legs=""; [ "$G1_ERR" -eq 0 ] || echo "  [FAIL] G1 measured nothing trustworthy (missing root, grep rc >= 2, or below its file floor; see its [FAIL] above) -- the verdict cannot be PASS or PASS-AT-PIN"  # Q-883: G1_ERR has no default; unset aborts under set -u
 # G1..G4 carry their counts in G<n>_N; G5 onward carry them in G<n>. Built from GLEGS so the
 # ratchet cannot fall behind the legs that exist.
 # 🔴 NO `${…:-0}` DEFAULTS HERE, DELIBERATELY, AND THIS IS THE STRUCTURAL HALF OF THE G3 FIX.

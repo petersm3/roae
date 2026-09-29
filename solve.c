@@ -243,7 +243,7 @@
  *                              for the merge, while shards and final
  *                              solutions.bin stay on Standard-tier archival
  *                              storage. See DEPLOYMENT.md §Disk tier matters.
- *   SOLVE_CONCENTRATE_BUDGET=1
+ *   SOLVE_CONCENTRATE_BUDGET=1 (strictly 0 or 1 since lane HAJ, 2026-09-27; anything else exits 2)
  *                            — opt-in: when resuming from checkpoint, divide
  *                              SOLVE_NODE_LIMIT by the REMAINING sub-branch
  *                              count instead of the full partition. Concentrates
@@ -610,7 +610,7 @@ static SubSubCounter sub_sub_counters[N_SUB_SUB_COUNTERS] __attribute__((aligned
  * add, so reads are monotone and the sum is a valid lower bound). */
 static inline long long sub_sub_sum_counters(void) {
     long long s = 0;
-    for (int i = 0; i < N_SUB_SUB_COUNTERS; i++) s += sub_sub_counters[i].nodes;
+    for (int i = 0; i < N_SUB_SUB_COUNTERS; i++) s += __atomic_load_n(&sub_sub_counters[i].nodes, __ATOMIC_RELAXED);   /* Q-627 F2: relaxed atomic load; the writers are atomic adds */
     return s;
 }
 
@@ -1888,11 +1888,11 @@ static inline int completed_sub_key_d3(int p1, int o1, int p2, int o2, int p3, i
     return ((p1 & 31) << 13) | ((o1 & 1) << 12) | ((p2 & 31) << 7) | ((o2 & 1) << 6) |
            ((p3 & 31) << 1) | (o3 & 1);
 }
-
+static void q619_note_interrupted(const char *line); static int q619_was_interrupted(int p1, int o1, int p2, int o2, int p3, int o3); static int q881_mark_incomplete(void); static void q881_clear_incomplete(void); static int q881_allow_incomplete(void); static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_out, int *n_bud_out, int *n_int_out); static int q881_override_at_start(void); static int q881_override_for_dir(const char *dir, const char *ctx); static long long q881_launch_budget(void);  /* Q-881, Q-317 (4), Q-619 #2: defined at the end of the file; the last two are the Q-881 follow-up (lane HAJ) */
 /* Current run's per-sub-branch node budget, for budget-aware BUDGETED resume.
  * Set before the checkpoint loads: the override, else node_limit / the partition's exact size. */
 static long long current_per_branch_budget = 0;
-
+#define Q881_MARKER "enum_incomplete.txt"   /* Q-881: present from worker start until every sub-branch is walked; --merge refuses a directory holding it */
 /* Helper: parse one checkpoint file (legacy checkpoint.txt OR per-thread
  * checkpoint_t<N>.txt). Both formats are identical line-by-line; the per-
  * thread file split is only for write-side mutex elimination (task #106). */
@@ -1913,7 +1913,7 @@ static void load_sub_checkpoint_file(FILE *f) {
          * as EXHAUSTED here. That's conservative — in the worst case, a
          * legacy run whose labels were meaningful will skip some sub-branches
          * on resume, which is the same behavior as old solve.c. */
-        if (strstr(line, "INTERRUPTED")) continue;
+        if (strstr(line, "INTERRUPTED")) { q619_note_interrupted(line); continue; }  /* Q-619 #2: remembered, so promote_orphaned_shards() never adopts this cell's partial shard */
         /* Parse the budget field (new format: "...budget N" at line end;
          * old format: no budget field). If this is a BUDGETED entry and
          * the stored budget < current budget, DO NOT skip — force re-run. */
@@ -2157,7 +2157,7 @@ static int promote_orphaned_shards(void) {
         int is_done = (p3 >= 0)
             ? is_sub_branch_completed_d3(p1, o1, p2, o2, p3, o3)
             : is_sub_branch_completed(p1, o1, p2, o2);
-        if (is_done) continue;
+        if (is_done) { continue; } if (q619_was_interrupted(p1, o1, p2, o2, p3, o3)) { fprintf(stderr, "WARN: orphaned shard %s belongs to a sub-branch the checkpoint records as INTERRUPTED, so it holds only the records found before the stop (Q-619 #2); refusing promotion, the sub-branch will be walked again\n", n); integrity_fail++; continue; }  /* Q-619 #2: the .budget sidecar alone used to promote it */
 
         /* Integrity check: the LOGICAL size must be a positive multiple of SOL_RECORD_SIZE. Q-838 (2026-09-26): this read st_size, the COMPRESSED size of a gz shard, so ~31 of every 32 gz shards were refused */
         long long lsz = gz_logical_size(n);  /* gz: ISIZE trailer (per-cell shards are < 4 GiB, so exact); raw: stat size; -1 on error */
@@ -9533,7 +9533,7 @@ static int dfs_state_read_v2(int p1, int o1, int p2, int o2, int p3, int o3,
     if (st.prefix_p1 != p1 || st.prefix_o1 != o1
         || st.prefix_p2 != p2 || st.prefix_o2 != o2
         || st.prefix_p3 != (int8_t)p3 || st.prefix_o3 != (int8_t)o3) return -1;
-    if (st.sp < -1 || st.sp >= 34) return -1;
+    if (st.sp < -1 || st.sp >= 34) { return -1; } { const char *dv = NULL; int bad = -1; for (int i = 0; i <= st.sp && !dv; i++) { const DFSStackFrame_v2 *fr = &st.frames[i]; bad = i; if (fr->step != st.frames[0].step + i || fr->step < 1 || fr->step > 32) dv = "frame step"; else if (fr->p < 0 || fr->p > 31) dv = "frame p"; else if (fr->orient < 0 || fr->orient > 1) dv = "frame orient"; else if (fr->prev_tail < 0 || fr->prev_tail > 63) dv = "frame prev_tail"; else if (i < st.sp && (fr->bd < 0 || fr->bd > 6 || fr->wd < 0 || fr->wd > 6)) dv = "frame bd/wd"; else if (i == st.sp && fr->phase != DFSITER_PHASE_ENTER) dv = "frame phase"; } for (int i = 0; !dv && st.sp >= 0 && i < 2 * st.frames[st.sp].step; i++) if (st.seq[i] < 0 || st.seq[i] > 63) { dv = "seq"; bad = i; } if (dv) { fprintf(stderr, "WARN: dfs_state_read_v2: %s: %s out of domain at index %d; refusing to resume from a corrupted or foreign sidecar\n", fname, dv, bad); return -1; } }   /* Q-627 F9: the live frames are consumed as array indices (nodes_at_depth[step], seq[2*step], budget[bd], pairs[p]); validate them at load, as the Gate-A reader does. Only positions the walk has filled are checked: the top frame's bd/wd and seq above 2*step are never read on resume and may hold unset bytes (Q-627 F3) */
 
     ts->dfs_v2_resume_active = 1;
     ts->dfs_v2_resume_sp = st.sp;
@@ -9707,14 +9707,14 @@ static void flush_sub_solutions_d3(ThreadState *ts, int p1, int o1, int p2, int 
             exit(1);
         }
     }
-    if (rename(tmpname, fname) != 0) {
+    int q619_stopped = global_timed_out; if (q619_stopped) { char q619_b[112]; snprintf(q619_b, sizeof(q619_b), "%s.budget", fname); if (unlink(q619_b) != 0 && errno != ENOENT) fprintf(stderr, "WARN: cannot remove %s before writing a stopped cell's shard: %s\n", q619_b, strerror(errno)); } if (rename(tmpname, fname) != 0) {  /* Q-619 #2: a flush after the stop is partial: no .budget sidecar, and an older one goes first */
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
         exit(1);
     }
     /* Outlier #5 mitigation: record per-sub-branch budget alongside the
      * shard so a future resume can detect budget mismatch. Sha-neutral
      * (sidecar, not embedded in .bin). */
-    write_budget_sidecar(fname, current_per_branch_budget);
+    if (!q619_stopped) write_budget_sidecar(fname, current_per_branch_budget);  /* Q-619 #2: without the sidecar promote_orphaned_shards() refuses the partial shard */
     fprintf(stderr, "  Wrote %lld solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
@@ -9772,12 +9772,12 @@ static void flush_sub_solutions(ThreadState *ts, int p1, int o1, int p2, int o2)
             exit(1);
         }
     }
-    if (rename(tmpname, fname) != 0) {
+    int q619_stopped = global_timed_out; if (q619_stopped) { char q619_b[112]; snprintf(q619_b, sizeof(q619_b), "%s.budget", fname); if (unlink(q619_b) != 0 && errno != ENOENT) fprintf(stderr, "WARN: cannot remove %s before writing a stopped cell's shard: %s\n", q619_b, strerror(errno)); } if (rename(tmpname, fname) != 0) {  /* Q-619 #2: a flush after the stop is partial: no .budget sidecar, and an older one goes first */
         fprintf(stderr, "FATAL: rename %s → %s failed: %s\n", tmpname, fname, strerror(errno));
         exit(1);
     }
     /* Outlier #5 mitigation: see flush_sub_solutions_d3 comment for rationale. */
-    write_budget_sidecar(fname, current_per_branch_budget);
+    if (!q619_stopped) write_budget_sidecar(fname, current_per_branch_budget);  /* Q-619 #2: without the sidecar promote_orphaned_shards() refuses the partial shard */
     fprintf(stderr, "  Wrote %lld solutions to %s\n", written, fname);
     memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
     memset(ts->sol_occupied, 0, ts->ht_size);
@@ -13780,7 +13780,7 @@ static void run_c3_min(const char *filename) {
  */
 
 /* ---------- 192-bit unsigned counters (add-only) ---------- */
-typedef struct { uint64_t l0, l1, l2; } F1U192;   /* little-endian limbs */
+typedef struct { uint64_t l0, l1, l2; } F1U192;   /* little-endian limbs */ _Static_assert(sizeof(F1U192) == 24, "Q-627 F5: F1U192 must be exactly three packed uint64_t limbs (24 bytes)"); _Static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "Q-627 F5: solve.c writes F1U192 and its checkpoints in native byte order and assumes a little-endian host");
 
 static void f1_overflow_abort(void) {
     fprintf(stderr, "ERROR: [f1] 192-bit counter overflow (carry out of high limb)\n");
@@ -19631,7 +19631,7 @@ static inline int kc_u192_cmp(const F1U192 *a, const F1U192 *b) {
     if (a->l1 != b->l1) return a->l1 < b->l1 ? -1 : 1;
     if (a->l0 != b->l0) return a->l0 < b->l0 ? -1 : 1;
     return 0;
-}
+} static int kc_u192_qcmp(const void *a, const void *b) { return kc_u192_cmp((const F1U192 *)a, (const F1U192 *)b); }   /* Q-627 F10: qsort's comparator type; calling kc_u192_cmp through a cast function pointer was UB (C11 6.3.2.3p8) */
 
 static inline void kc_u192_sub(F1U192 *a, const F1U192 *b) {   /* a -= b; caller ensures a >= b */
     uint64_t bor0 = (a->l0 < b->l0);
@@ -19650,18 +19650,18 @@ static inline void kc_u192_sub(F1U192 *a, const F1U192 *b) {   /* a -= b; caller
 static F1U192 kc_u192_mul(const F1U192 *a, const F1U192 *b) {
     /* partial products with limb weight i+j >= 3 must vanish */
     if ((a->l2 && (b->l1 | b->l2)) || (a->l1 && b->l2)) f1_overflow_abort();
-    F1U192 r = {0, 0, 0};
+    F1U192 r = {0, 0, 0}; const uint64_t al[3] = {a->l0, a->l1, a->l2}, bl[3] = {b->l0, b->l1, b->l2};   /* Q-627 F1: real arrays; indexing from the address of the l0 member ran past a single uint64_t (C11 6.5.6p8) */
     for (int i = 0; i < 3; i++)
         for (int j = 0; j + i < 3; j++) {
-            const uint64_t x = (&a->l0)[i], y = (&b->l0)[j];
+            const uint64_t x = al[i], y = bl[j];
             if (!x || !y) continue;
             unsigned __int128 p = (unsigned __int128)x * y;
-            F1U192 t = {0, 0, 0};
-            (&t.l0)[i + j] = (uint64_t)p;
+            uint64_t limb[3] = {0, 0, 0};
+            limb[i + j] = (uint64_t)p;
             uint64_t hi = (uint64_t)(p >> 64);
-            if (i + j + 1 < 3) (&t.l0)[i + j + 1] = hi;
+            if (i + j + 1 < 3) limb[i + j + 1] = hi;
             else if (hi) f1_overflow_abort();
-            f1_add(&r, &t);   /* aborts on carry out of the high limb */
+            F1U192 t = {limb[0], limb[1], limb[2]}; f1_add(&r, &t);   /* aborts on carry out of the high limb */
         }
     return r;
 }
@@ -21737,7 +21737,7 @@ static int kc_selftest(void) {
         t0 = omp_get_wtime();
         for (int s = 0; s < R; s++) kc_rand_rank(kc, &seed, &rs[s]);
         /* sort ranks ascending (insertion into order via qsort on 192-bit LE) */
-        qsort(rs, R, sizeof(F1U192), (int (*)(const void *, const void *))kc_u192_cmp);
+        qsort(rs, R, sizeof(F1U192), kc_u192_qcmp);
         kc_n_for_cmp = kc->n;
         for (int s = 0; s < R && ok; s++) {
             if (kc_unrank(kc, rs[s], E) != 0) { ok = 0; break; }
@@ -21864,7 +21864,7 @@ static int kc_midn(int npairs, int R, int M) {
     rs[1] = kc->total;                                        /* rank N-1 */
     { F1U192 one = {1, 0, 0}; kc_u192_sub(&rs[1], &one); }
     for (int s = 2; s < NR; s++) kc_rand_rank(kc, &seed, &rs[s]);
-    qsort(rs, NR, sizeof(F1U192), (int (*)(const void *, const void *))kc_u192_cmp);
+    qsort(rs, NR, sizeof(F1U192), kc_u192_qcmp);
     kc_n_for_cmp = kc->n;
     t0 = omp_get_wtime();
     for (int s = 0; s < NR && ok; s++) {
@@ -22044,7 +22044,7 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
         rs[1] = kc->total;
         { F1U192 one = {1, 0, 0}; kc_u192_sub(&rs[1], &one); }
         for (int s = 2; s < R; s++) kc_rand_rank(kc, &seed, &rs[s]);
-        qsort(rs, R, sizeof(F1U192), (int (*)(const void *, const void *))kc_u192_cmp);
+        qsort(rs, R, sizeof(F1U192), kc_u192_qcmp);
         int aok = 1, mono_ok = 1;
         uint8_t E0[KC_MAX_PAIRS], E1[KC_MAX_PAIRS], E2[KC_MAX_PAIRS], Ep[KC_MAX_PAIRS];
         t0 = omp_get_wtime();
@@ -40105,7 +40105,7 @@ int main(int argc, char *argv[]) {
         }
         printf("[merge-layers] %d layers (in sort order):\n", n_layers);
         for (int i = 0; i < n_layers; i++)
-            printf("  %d. %s\n", i, layer_names[i]);
+            { printf("  %d. %s\n", i, layer_names[i]); char q881_l[PATH_MAX]; snprintf(q881_l, sizeof(q881_l), "%s/%s", layer_root, layer_names[i]); int q881 = q881_merge_input_gate(q881_l, "--merge-layers", NULL, NULL, NULL); if (q881 != 0) return q881; }  /* Q-881, Q-317 (4): each layer is an enumeration directory */
 
         char merged_dir[PATH_MAX];
         snprintf(merged_dir, sizeof(merged_dir), "%s/_merged_", layer_root);
@@ -47084,7 +47084,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR: total_records %lld out of range\n", total_records);
             return 20;
         }
-        printf("  Total records before dedup: %lld\n", total_records);
+        printf("  Total records before dedup: %lld\n", total_records); { int q881 = q881_merge_input_gate(".", "--merge", NULL, NULL, NULL); if (q881 != 0) return q881; }  /* Q-881, Q-317 (4): after the scan (Q-875 names an unreadable shard first), before any record is read: refuse an unfinished enumeration, an absent shard, a short one */
 
         /* Preflight resource check (item 7e):
          * In-memory merge needs total_records × 32 bytes for the sort buffer,
@@ -48437,7 +48437,7 @@ sub_enum_done:
          * — per-sub-branch budget depends on how many branches were
          * pre-completed. Operator opts in knowingly. */
         if (node_limit > 0 && total_branches > 0) {
-            int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") != NULL;
+            int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") && strcmp(getenv("SOLVE_CONCENTRATE_BUDGET"), "1") == 0;  /* lane HAJ: 1 = on, 0 or unset = off; the preflight refuses any other value, empty included */
             int divisor = (concentrate && n_sub > 0) ? n_sub : total_branches;
             per_branch_node_limit = node_limit / divisor;
             if (concentrate && n_skipped > 0) {
@@ -48460,7 +48460,7 @@ sub_enum_done:
         }
 
         if (n_sub == 0 && n_skipped > 0) {
-            printf("All %d sub-branches already completed (from checkpoint.txt).\n", n_skipped);
+            printf("All %d sub-branches already completed (from checkpoint.txt).\n", n_skipped); q881_clear_incomplete();  /* Q-881: nothing left to walk, so the directory is complete */
             printf("Delete checkpoint.txt to re-run from scratch.\n");
             return 0;
         }
@@ -48660,7 +48660,7 @@ sub_enum_done:
             /* Monitor with progress lines every 10s, plus on-demand SIGUSR1
              * state dumps (poked via `kill -USR1 <pid>`). */
             int report_counter_p = 0;
-            while (threads_completed < n_threads_p && !global_timed_out) {
+            while (__atomic_load_n(&threads_completed, __ATOMIC_RELAXED) < n_threads_p && !global_timed_out) {
                 sleep(1);
                 int want_snapshot = sigusr1_requested;
                 report_counter_p++;
@@ -48671,18 +48671,18 @@ sub_enum_done:
                 long long tn = 0, tsval = 0, tc3 = 0;
                 long long tu = 0, thc = 0;
                 for (int i = 0; i < n_threads_p; i++) {
-                    tn += workers[i].nodes;
-                    tsval += workers[i].solutions_total;
-                    tc3 += workers[i].solutions_c3;
-                    tu += workers[i].solution_count;
-                    thc += workers[i].hash_collisions;
+                    tn += __atomic_load_n(&workers[i].nodes, __ATOMIC_RELAXED);   /* Q-627 F2: monitor reads of worker-owned counters are relaxed atomic loads (progress lines only) */
+                    tsval += __atomic_load_n(&workers[i].solutions_total, __ATOMIC_RELAXED);
+                    tc3 += __atomic_load_n(&workers[i].solutions_c3, __ATOMIC_RELAXED);
+                    tu += __atomic_load_n(&workers[i].solution_count, __ATOMIC_RELAXED);
+                    thc += __atomic_load_n(&workers[i].hash_collisions, __ATOMIC_RELAXED);
                 }
                 long elapsed_now_p = (long)(time(NULL) - start_time);
-                int claimed = sub_sub_next_idx;
+                int claimed = __atomic_load_n(&sub_sub_next_idx, __ATOMIC_RELAXED);
                 if (claimed > n_sub_sub_tasks) claimed = n_sub_sub_tasks;
                 int done_tasks = 0;
                 for (int i = 0; i < n_sub_sub_tasks; i++)
-                    if (sub_sub_task_done[i]) done_tasks++;
+                    if (__atomic_load_n(&sub_sub_task_done[i], __ATOMIC_RELAXED)) done_tasks++;
                 int busy_tasks = claimed - done_tasks;
                 if (busy_tasks < 0) busy_tasks = 0;
                 int pending_tasks = n_sub_sub_tasks - claimed;
@@ -48719,7 +48719,7 @@ sub_enum_done:
                     long long depth_totals[33] = {0};
                     for (int i = 0; i < n_threads_p; i++)
                         for (int d = 0; d <= 32; d++)
-                            depth_totals[d] += workers[i].nodes_at_depth[d];
+                            depth_totals[d] += __atomic_load_n(&workers[i].nodes_at_depth[d], __ATOMIC_RELAXED);
                     fprintf(stderr, "  --- SIGUSR1 snapshot ---\n");
                     fprintf(stderr, "    budget_fill=%.2f%% (%lld / %lld)\n",
                             per_branch_node_limit > 0 ?
@@ -49005,7 +49005,7 @@ sub_enum_done:
         sigaction(SIGTERM, &sa, NULL);
         sigaction(SIGINT, &sa, NULL);
 
-        start_time = time(NULL);
+        { int q881m = q881_mark_incomplete(); if (q881m != 0) { return q881m > 0 ? q881m : 10; } } start_time = time(NULL);  /* Q-881: the marker stays until every sub-branch is walked; lane HAJ: 35 = SOLVE_MERGE_ALLOW_INCOMPLETE refused at canonical scale */
 
         pthread_t tids[256];
         int n_started = 0;
@@ -49023,7 +49023,7 @@ sub_enum_done:
 
         /* Monitor */
         int report_counter = 0;
-        while (threads_completed < n_threads && !global_timed_out) {
+        while (__atomic_load_n(&threads_completed, __ATOMIC_RELAXED) < n_threads && !global_timed_out) {
             sleep(1);
             report_counter++;
             if (report_counter < 10) continue;
@@ -49033,12 +49033,12 @@ sub_enum_done:
             int tu = 0, tbd = 0;
             long long thc = 0;
             for (int i = 0; i < n_threads; i++) {
-                tn += threads[i].nodes;
-                ts_val += threads[i].solutions_total;
-                tc3 += threads[i].solutions_c3;
-                tu += threads[i].solution_count;
-                tbd += threads[i].branches_completed;
-                thc += threads[i].hash_collisions;
+                tn += __atomic_load_n(&threads[i].nodes, __ATOMIC_RELAXED);   /* Q-627 F2: relaxed atomic loads (progress lines only) */
+                ts_val += __atomic_load_n(&threads[i].solutions_total, __ATOMIC_RELAXED);
+                tc3 += __atomic_load_n(&threads[i].solutions_c3, __ATOMIC_RELAXED);
+                tu += __atomic_load_n(&threads[i].solution_count, __ATOMIC_RELAXED);
+                tbd += __atomic_load_n(&threads[i].branches_completed, __ATOMIC_RELAXED);
+                thc += __atomic_load_n(&threads[i].hash_collisions, __ATOMIC_RELAXED);
             }
             long elapsed_now = (long)(time(NULL) - start_time);
             double pct = n_sub > 0 ? (double)tbd / n_sub * 100 : 0;
@@ -49070,7 +49070,7 @@ sub_enum_done:
 
         /* Jump to output section (reuse same code via goto) */
         /* Fall through to shared output code below */
-        time_t end_time = time(NULL);
+        time_t end_time = time(NULL); if (!global_timed_out) q881_clear_incomplete();  /* Q-881: all workers joined and the run was not stopped */
         long elapsed = (long)(end_time - start_time);
 
         /* Merge results */
@@ -49578,7 +49578,7 @@ sub_enum_done:
      * deeper coverage on not-yet-completed branches, at the cost of
      * reproducibility. See detailed comment at the single-branch site. */
     if (node_limit > 0 && total_branches > 0) {
-        int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") != NULL;
+        int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") && strcmp(getenv("SOLVE_CONCENTRATE_BUDGET"), "1") == 0;  /* lane HAJ: 1 = on, 0 or unset = off; the preflight refuses any other value, empty included */
         int divisor = (concentrate && n_all_subs > 0) ? n_all_subs : total_branches;
         per_branch_node_limit = node_limit / divisor;
         if (concentrate && n_skipped_subs > 0) {
@@ -49601,7 +49601,7 @@ sub_enum_done:
     }
 
     if (n_all_subs == 0) {
-        printf("All %d sub-branches already completed.\n", total_branches);
+        printf("All %d sub-branches already completed.\n", total_branches); q881_clear_incomplete();  /* Q-881: nothing left to walk, so the directory is complete */
         free(all_subs);
         return 0;
     }
@@ -49693,7 +49693,7 @@ sub_enum_done:
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
 
-    start_time = time(NULL);
+    { int q881m = q881_mark_incomplete(); if (q881m != 0) { return q881m > 0 ? q881m : 10; } } start_time = time(NULL);  /* Q-881: the marker stays until every sub-branch is walked; lane HAJ: 35 = SOLVE_MERGE_ALLOW_INCOMPLETE refused at canonical scale */
 
     /* Launch threads — use thread_func_single which handles SubBranch work units */
     pthread_t tids[256];
@@ -49715,7 +49715,7 @@ sub_enum_done:
     int prev_branches_done = n_completed_from_checkpoint;
     time_t first_branch_time = 0;
 
-    while (threads_completed < n_threads && !global_timed_out) {
+    while (__atomic_load_n(&threads_completed, __ATOMIC_RELAXED) < n_threads && !global_timed_out) {
         sleep(1);
         report_counter++;
         if (report_counter < 10) continue;
@@ -49725,12 +49725,12 @@ sub_enum_done:
         int tu = 0, tbd = 0;
         long long thc = 0;
         for (int i = 0; i < n_threads; i++) {
-            tn += threads[i].nodes;
-            ts_val += threads[i].solutions_total;
-            tc3 += threads[i].solutions_c3;
-            tu += threads[i].solution_count;
-            tbd += threads[i].branches_completed;
-            thc += threads[i].hash_collisions;
+            tn += __atomic_load_n(&threads[i].nodes, __ATOMIC_RELAXED);   /* Q-627 F2: relaxed atomic loads (progress lines only) */
+            ts_val += __atomic_load_n(&threads[i].solutions_total, __ATOMIC_RELAXED);
+            tc3 += __atomic_load_n(&threads[i].solutions_c3, __ATOMIC_RELAXED);
+            tu += __atomic_load_n(&threads[i].solution_count, __ATOMIC_RELAXED);
+            tbd += __atomic_load_n(&threads[i].branches_completed, __ATOMIC_RELAXED);
+            thc += __atomic_load_n(&threads[i].hash_collisions, __ATOMIC_RELAXED);
         }
         int total_done = tbd + n_completed_subs;
         long elapsed_now = (long)(time(NULL) - start_time);
@@ -49773,7 +49773,7 @@ sub_enum_done:
     for (int i = 0; i < n_threads; i++)
         pthread_join(tids[i], NULL);
 
-    time_t end_time = time(NULL);
+    time_t end_time = time(NULL); if (!global_timed_out) q881_clear_incomplete();  /* Q-881: all workers joined and the run was not stopped */
     long elapsed = (long)(end_time - start_time);
 
     /* === Merge results === */
@@ -49913,7 +49913,7 @@ sub_enum_done:
     char hash_only[65] = {0};
     int total_done_final = 0;
     int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
-
+    if (global_timed_out && !getenv("SOLVE_SKIP_AUTOMERGE") && !q881_allow_incomplete()) { fprintf(stderr, "WARNING: this run was STOPPED before every sub-branch was walked (signal or time limit), so its shards are an incomplete set:\n         the bundled merge is SKIPPED and no solutions.bin is written (Q-881). Relaunch the same command to resume; the merge runs when the run finishes\n         (SOLVE_MERGE_ALLOW_INCOMPLETE=1 merges the partial set instead).\n"); printf("ENUM_AUTOMERGE=SKIPPED\n"); total_done_final = branches_done + n_completed_subs; }  /* Q-881: this merge used to write a partial solutions.bin and exit 0 */
     /* SOLVE_SKIP_AUTOMERGE (re-landed 2026-05-27 — was lost in 9f10f05 v3 reset,
      * originally landed in 52cac4a 2026-05-13): exit cleanly after enum,
      * leaving shards on disk for a separate merge VM. Use case: canonical
@@ -49945,7 +49945,7 @@ sub_enum_done:
      * proving the corruption is in the in-process state interaction,
      * not the shard content. We isolate by exec'ing the merge in a
      * child process. */
-    if (dfs_iterative_enabled) {
+    if (dfs_iterative_enabled && (!global_timed_out || q881_allow_incomplete())) {  /* Q-881: never merge a stopped run, unless SOLVE_MERGE_ALLOW_INCOMPLETE=1 */
         fflush(stdout);
         printf("Iterative+v2 path: forking subprocess for merge "
                "(heap isolation; see Test A 2026-04-30)\n");
@@ -50026,7 +50026,7 @@ sub_enum_done:
         fflush(stdout);
     }
 
-  if (!fork_merge_done) {
+  if (!fork_merge_done && (!global_timed_out || q881_allow_incomplete())) {  /* Q-881: never merge a stopped run, unless SOLVE_MERGE_ALLOW_INCOMPLETE=1 */
     /* === Merge from sub_*.bin files (thread-count independent) === */
     /* Each sub-branch wrote its solutions to sub_P2_O2.bin and cleared the
      * hash table. The final merge reads all files, concatenates, sorts, deduplicates.
@@ -50091,7 +50091,7 @@ sub_enum_done:
      * A truncated file (disk-full during flush) passes the "multiple of 32"
      * check but contains fewer records than the checkpoint claims. */
     {
-        FILE *ckf = fopen("checkpoint.txt", "r");
+        { int q881 = q881_merge_input_gate(".", "end-of-enumeration merge", &ckpt_exhausted, &ckpt_budgeted, &ckpt_interrupted); if (q881 != 0) { free(merge_filenames); return q881; } } FILE *ckf = NULL;  /* Q-881, Q-317 (4): the gate reads checkpoint.txt AND checkpoint_t<N>.txt, refuses an absent or short shard, and replaces the block below, which read only checkpoint.txt (empty on a current run) and had no arm for an absent shard */
         if (ckf) {
             char ckline[1024];
             while (fgets(ckline, sizeof(ckline), ckf)) {
@@ -50150,7 +50150,7 @@ sub_enum_done:
             printf("  Checkpoint cross-ref: %d EXHAUSTED, %d BUDGETED, %d INTERRUPTED\n",
                    ckpt_exhausted, ckpt_budgeted, ckpt_interrupted);
         } else {
-            printf("  No checkpoint.txt found — skipping cross-reference\n");
+            /* Q-881: the gate above printed the cross-reference line */
         }
     }
 
@@ -51585,8 +51585,8 @@ static void build_sha_write_pending(void) {
  * SOLVE_F1_OOC_FORMAT: an unknown word there used to fall back to the default silently (auto, the
  * threads-driven choice, v2); it is now refused the same way. Their accepted words are exactly the
  * strcmp()s at the use sites, so an accepted word behaves as before. Empty is unset, as above.
- * Not in the tables: presence-only flags (SOLVE_SKIP_AUTOMERGE, SOLVE_CONCENTRATE_BUDGET: any
- * value, including 0, turns them on, as documented), strings and paths, the list
+ * Not in the tables: the presence-only flag SOLVE_SKIP_AUTOMERGE (any value, including 0, turns it on,
+ * as documented; SOLVE_CONCENTRATE_BUDGET was the other until lane HAJ, and is now checked below the tables), strings and paths, the list
  * parsers (SOLVE_KNUTH_PIN_SLOTS, _C5_BUDGET, _FIBER_PERM, the *_TESTVEC vectors), and the
  * SOLVE_KC_SCAN_* knobs, which kc_h_env_u64() already parses strictly. */
 enum { SENV_BOOL, SENV_INT, SENV_LL, SENV_U64, SENV_DBL };
@@ -51678,7 +51678,7 @@ static int solve_env_preflight(void) {
         {"SOLVE_SKIP_STACK_RAISE", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_NOFILE_RAISE", SENV_BOOL, 0, 1},
         {"SOLVE_SKIP_AUTO_VERIFY", SENV_BOOL, 0, 1}, {"SOLVE_ALLOW_BUILD_MISMATCH", SENV_BOOL, 0, 1},
         {"SOLVE_ALLOW_SUB_CANONICAL", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_TEMP_SPACE_CHECK", SENV_BOOL, 0, 1},
-        {"SOLVE_ALLOW_MISSING_BUDGET_SIDECAR", SENV_BOOL, 0, 1}, {"SOLVE_RESUME_SHAPE_OVERRIDE", SENV_BOOL, 0, 1},
+        {"SOLVE_ALLOW_MISSING_BUDGET_SIDECAR", SENV_BOOL, 0, 1}, {"SOLVE_RESUME_SHAPE_OVERRIDE", SENV_BOOL, 0, 1}, {"SOLVE_MERGE_ALLOW_INCOMPLETE", SENV_BOOL, 0, 1},  /* Q-881 */
         /* (b) test and diagnostic knobs */
         {"SOLVE_KILL_AFTER_NODES", SENV_LL, 0, LM},
         {"SOLVE_D3_GATE_THREADS", SENV_INT, 0, IM}, {"SOLVE_D3_GATE_PSB", SENV_LL, 0, LM},
@@ -51736,5 +51736,357 @@ static int solve_env_preflight(void) {
         if (!*v) { unsetenv(word_specs[i].name); continue; }   /* empty = unset */
         bad += solve_env_check_word(word_specs[i].name, word_specs[i].words, v);
     }
-    return bad != 0;
+    { const char *v = getenv("SOLVE_CONCENTRATE_BUDGET"); if (v && strcmp(v, "0") != 0 && strcmp(v, "1") != 0) bad += solve_env_refused_why("SOLVE_CONCENTRATE_BUDGET", v, "0 or 1", "It was presence-only: any value, 0 and an empty one included, turned it on. An empty value is refused, not read as unset, so a launch that relied on it cannot silently turn it off (lane HAJ)."); } return bad != 0;  /* lane HAJ: strict 0/1, empty refused */
+}
+
+/* ---------- Q-881, Q-317 (4), Q-619 #2 (lane HAC, 2026-09-27): an incomplete enumeration must not look complete ----------
+ *
+ * Q-881. `solve --merge` over the directory of a SIGTERM-stopped enumeration exited 0 and wrote a
+ * partial solutions.bin with no warning. A cell no worker reached leaves no shard and no checkpoint
+ * line, so nothing counted on disk can tell a stopped directory from a finished one. The
+ * enumeration (full run and --branch) now writes Q881_MARKER, durably, just before its workers
+ * start, and removes it, durably, only when every sub-branch has been walked: after the worker join
+ * of a run that was not stopped, or when a relaunch finds every sub-branch already complete. A stop,
+ * an eviction, a crash, or a run still in progress leaves it in place. The marker is not a shard,
+ * is never read by a merge except as below, and is absent after every finished run, so no output
+ * sha depends on it. Directories written before this change have no marker; for them the checkpoint
+ * lines are the evidence (check 2).
+ *
+ * q881_merge_input_gate() runs before `--merge` reads a shard (so also in the fork-merge child), in
+ * the in-process end-of-enumeration merge, and on each layer of `--merge-layers`. It refuses:
+ *   1. the marker is present                                      -> MERGE_INPUT=INCOMPLETE, exit 35
+ *   2. a sub-branch the checkpoint records as INTERRUPTED at budget B has no EXHAUSTED/COMPLETE line
+ *      and no BUDGETED line at a budget >= B (budget 0 = uncapped = infinite, Q-317 (1)): the rule by
+ *      which load_sub_checkpoint_file() decides a resume must walk it again
+ *                                                                 -> MERGE_INPUT=INCOMPLETE, exit 35
+ *   3. Q-317 (4): a line claims N > 0 solutions for a sub-branch whose shard is absent
+ *      (MERGE_SHARD=MISSING) or holds fewer than N records, an empty file included
+ *      (MERGE_SHARD=SHORT)                                        -> exit 20
+ * SOLVE_MERGE_ALLOW_INCOMPLETE=1 turns 1 and 2 into a WARNING and a MERGE_INPUT=INCOMPLETE_ALLOWED line
+ * and lets the merge, and a stopped run's bundled merge, go ahead, for the one documented workflow that
+ * takes a stopped run's output: DEVELOPMENT.md's "run N minutes, take what we got" time_limit runs.
+ * Check 3 has no override: an absent or short shard is damage, not a choice.
+ * It reads checkpoint.txt and every checkpoint_t<N>.txt, the files the resume reads; the
+ * cross-reference it replaces read only checkpoint.txt, which a current run leaves empty, and had
+ * no arm for an absent shard. It writes nothing and does not change which shards a merge reads, so
+ * a merge it lets through writes the same bytes as before.
+ *
+ * Q-619 #2. An INTERRUPTED sub-branch's walk stops part-way; its partial hash table was flushed to
+ * its shard with a matching .budget sidecar, and the relaunch's promote_orphaned_shards() adopted
+ * that shard on the sidecar alone, wrote a BUDGETED line for it and never walked the cell again.
+ * Now (a) a flush made after the stop writes no .budget sidecar and first removes any older one,
+ * so the strict default refuses the shard, and (b) promote_orphaned_shards() refuses any shard whose
+ * sub-branch has an INTERRUPTED line and no completing one, which also covers shards written by an
+ * earlier binary and the SOLVE_ALLOW_MISSING_BUDGET_SIDECAR escape. The refused cell is walked again
+ * from its start and its flush replaces the partial shard. */
+static unsigned char q619_interrupted_bits[(Q623_SEC25_KEYS + 7) / 8];
+static int q881_parse_cell(const char *line, int *p1, int *o1, int *p2, int *o2, int *p3, int *o3) {
+    const char *p = strstr(line, "pair1 ");
+    if (!p) return -1;
+    *p3 = -1; *o3 = -1;
+    if (sscanf(p, "pair1 %d orient1 %d pair2 %d orient2 %d pair3 %d orient3 %d", p1, o1, p2, o2, p3, o3) != 6) {
+        *p3 = -1; *o3 = -1;
+        if (sscanf(p, "pair1 %d orient1 %d pair2 %d orient2 %d", p1, o1, p2, o2) != 4) return -1;
+    }
+    return q623_sec25_key(*p1, *o1, *p2, *o2, *p3, *o3);   /* -1 on an out-of-range index (Q-368) */
+}
+static void q619_note_interrupted(const char *line) {
+    int p1, o1, p2, o2, p3, o3;
+    int k = q881_parse_cell(line, &p1, &o1, &p2, &o2, &p3, &o3);
+    if (k >= 0) q619_interrupted_bits[k >> 3] |= (unsigned char)(1u << (k & 7));
+}
+static int q619_was_interrupted(int p1, int o1, int p2, int o2, int p3, int o3) {
+    int k = q623_sec25_key(p1, o1, p2, o2, p3, o3);
+    return k >= 0 && ((q619_interrupted_bits[k >> 3] >> (k & 7)) & 1);
+}
+static int q881_fsync_dir(const char *dir) {
+    int fd = open(dir, O_RDONLY | O_DIRECTORY);
+    if (fd < 0) return -1;
+    int r = fsync(fd);
+    int e = errno;
+    close(fd);
+    errno = e;
+    return r;
+}
+static int q881_mark_incomplete(void) {
+    char tmp[64]; { int q881o = q881_override_at_start(); if (q881o != 0) return q881o; }  /* lane HAJ: before the marker, the workers and any merge */
+    snprintf(tmp, sizeof(tmp), "%s.tmp", Q881_MARKER);
+    FILE *f = fopen(tmp, "w");
+    int bad = (f == NULL);
+    if (f) {
+        bad = fprintf(f, "An enumeration started in this directory (pid %d) and has not finished.\n"
+                         "solve removes this file when every sub-branch has been walked. Until then\n"
+                         "solve --merge refuses this directory (Q-881): relaunch the same command to resume.\nrun_node_budget=%lld\ntime_limit_seconds=%d\n",
+                      (int)getpid(), q881_launch_budget(), time_limit) < 0;  /* lane HAJ: the budget SOLVE_MERGE_ALLOW_INCOMPLETE is judged by */
+        bad |= (fflush(f) != 0 || fsync(fileno(f)) != 0);
+        bad |= (fclose(f) != 0);
+    }
+    if (bad || rename(tmp, Q881_MARKER) != 0 || q881_fsync_dir(".") != 0) {
+        fprintf(stderr, "ERROR: cannot write the run-in-progress marker %s: %s -- refusing to start, because without it a\n"
+                        "       merge could not tell this run's shards from a finished set (Q-881)\nENUM_MARKER=UNWRITABLE\n",
+                Q881_MARKER, strerror(errno));
+        unlink(tmp);
+        return -1;
+    }
+    return 0;
+}
+static void q881_clear_incomplete(void) {
+    if (unlink(Q881_MARKER) != 0) {
+        if (errno != ENOENT)
+            fprintf(stderr, "ERROR: cannot remove the run-in-progress marker %s: %s -- every sub-branch is done, but\n"
+                            "       solve --merge will refuse this directory until the file is gone (Q-881)\n",
+                    Q881_MARKER, strerror(errno));
+        return;
+    }
+    if (q881_fsync_dir(".") != 0)
+        fprintf(stderr, "WARN: directory fsync after removing %s failed: %s; after a crash the marker can reappear, and a\n"
+                        "      merge then refuses until the run is relaunched (Q-881)\n", Q881_MARKER, strerror(errno));
+}
+/* One checkpoint file into the per-cell tables. fl bits: 1 EXHAUSTED/COMPLETE line, 2 INTERRUPTED
+ * line, 4 BUDGETED line with no budget field (old format), 8 any line. Returns 1 read, 0 absent, -1 error. */
+static int q881_gate_file(const char *path, unsigned char *fl, long long *cov, long long *intr, long long *claim, int *n_lines) {
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        if (errno == ENOENT) return 0;
+        fprintf(stderr, "ERROR: cannot read checkpoint file %s: %s\n", path, strerror(errno));
+        return -1;
+    }
+    char line[1024];
+    while (fgets(line, sizeof(line), f)) {
+        if (!strstr(line, "Sub-branch")) continue;
+        int p1, o1, p2, o2, p3, o3;
+        int k = q881_parse_cell(line, &p1, &o1, &p2, &o2, &p3, &o3);
+        if (k < 0) continue;   /* an out-of-range or torn line names no cell (Q-368) */
+        (*n_lines)++;
+        long long b = -1;
+        const char *bp = strstr(line, "budget ");
+        if (!bp || sscanf(bp, "budget %lld", &b) != 1 || b < 0) b = -1;
+        long long bn = (b == 0) ? LLONG_MAX : b;   /* 0 = uncapped = infinite (Q-317 (1)); -1 = no field */
+        if (strstr(line, "INTERRUPTED")) {
+            fl[k] |= 2;
+            long long ib = (bn < 0) ? 1 : bn;       /* no field: any completing line covers it */
+            if (ib > intr[k]) intr[k] = ib;
+        } else if (strstr(line, "BUDGETED")) {
+            if (bn < 0) fl[k] |= 4; else if (bn > cov[k]) cov[k] = bn;
+        } else {
+            fl[k] |= 1;   /* EXHAUSTED, or legacy COMPLETE: done at every budget, as the resume treats it */
+        }
+        const char *sp = strstr(line, " solutions,");
+        if (sp) {
+            const char *q = sp;
+            while (q > line && q[-1] >= '0' && q[-1] <= '9') q--;
+            if (q < sp) { long long c = atoll(q); if (c > claim[k]) claim[k] = c; }
+        }
+        fl[k] |= 8;
+    }
+    int rerr = ferror(f);
+    fclose(f);
+    if (rerr) { fprintf(stderr, "ERROR: read error on checkpoint file %s\n", path); return -1; }
+    return 1;
+}
+static int q881_allow_incomplete(void) {
+    const char *v = getenv("SOLVE_MERGE_ALLOW_INCOMPLETE");
+    return v && atoi(v) == 1;
+}
+static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_out, int *n_bud_out, int *n_int_out) {
+    char path[PATH_MAX];
+    struct stat st;
+    const int allow = q881_allow_incomplete();
+    const char *lvl = allow ? "WARNING" : "ERROR";
+    int marker = 0;
+    snprintf(path, sizeof(path), "%s/%s", dir, Q881_MARKER);
+    if (lstat(path, &st) == 0 || errno != ENOENT) {
+        marker = 1;
+        fprintf(stderr, "%s: %s: %s is present%s%s: an enumeration in %s started and has not finished (it was\n"
+                        "       stopped, evicted or crashed, or it is still running), so its shards are not a complete set (Q-881).\n"
+                        "       Relaunch the same enumeration command in that directory to resume it; the run removes the\n"
+                        "       marker when every sub-branch is done.\n",
+                lvl, ctx, path, errno == ENOENT ? "" : " or cannot be checked: ", errno == ENOENT ? "" : strerror(errno), dir);
+        if (allow) { int q881o = q881_override_for_dir(dir, ctx); if (q881o != 0) return q881o; } if (!allow) {  /* lane HAJ: the override is refused at canonical scale */
+            fprintf(stderr, "ERROR: %s: refusing to merge an incomplete enumeration (SOLVE_MERGE_ALLOW_INCOMPLETE=1 merges it as a partial set)\nMERGE_INPUT=INCOMPLETE\n", ctx);
+            return 35;
+        }
+    }
+    unsigned char *fl = calloc(Q623_SEC25_KEYS, 1);
+    long long *cov = calloc(Q623_SEC25_KEYS, sizeof(long long));
+    long long *intr = calloc(Q623_SEC25_KEYS, sizeof(long long));
+    long long *claim = calloc(Q623_SEC25_KEYS, sizeof(long long));
+    int rc = 0, n_files = 0, n_lines = 0, n_exh = 0, n_bud = 0, n_incomplete = 0, n_missing = 0, n_short = 0;
+    if (!fl || !cov || !intr || !claim) { fprintf(stderr, "ERROR: %s: cannot allocate the checkpoint cross-reference tables\n", ctx); rc = 10; goto done; }
+    snprintf(path, sizeof(path), "%s/checkpoint.txt", dir);
+    int r = q881_gate_file(path, fl, cov, intr, claim, &n_lines);
+    if (r < 0) { rc = 10; goto done; }
+    n_files += r;
+    DIR *d = opendir(dir);
+    if (!d) { fprintf(stderr, "ERROR: %s: opendir(%s): %s\n", ctx, dir, strerror(errno)); rc = 10; goto done; }
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        const char *n = e->d_name;
+        size_t len = strlen(n), i;
+        if (len < 17 || strncmp(n, "checkpoint_t", 12) != 0 || strcmp(n + len - 4, ".txt") != 0) continue;
+        for (i = 12; i < len - 4 && n[i] >= '0' && n[i] <= '9'; i++) ;
+        if (i != len - 4) continue;   /* checkpoint_t<digits>.txt only, as load_sub_checkpoint() */
+        snprintf(path, sizeof(path), "%s/%s", dir, n);
+        r = q881_gate_file(path, fl, cov, intr, claim, &n_lines);
+        if (r < 0) { closedir(d); rc = 10; goto done; }
+        n_files += r;
+    }
+    closedir(d);
+    if (n_files == 0) {
+        printf("  Checkpoint cross-ref: no checkpoint files in %s -- nothing to cross-check (Q-881)\n", dir);
+        goto done;
+    }
+    for (int k = 0; k < Q623_SEC25_KEYS; k++) {
+        if (!fl[k]) continue;
+        int t = k, o3 = t % 2; t /= 2; int p3 = t % 33 - 1; t /= 33;
+        int o2 = t % 2; t /= 2; int p2 = t % 32; t /= 32; int o1 = t % 2, p1 = t / 2;
+        char cell[64];
+        if (p3 >= 0) snprintf(cell, sizeof(cell), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3, o3);
+        else snprintf(cell, sizeof(cell), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
+        if ((fl[k] & 2) && !(fl[k] & 1) && !(fl[k] & 4) && cov[k] < intr[k]) {
+            if (++n_incomplete <= 10) {
+                if (intr[k] == LLONG_MAX) fprintf(stderr, "%s: %s: sub-branch %s was INTERRUPTED (uncapped) and no line records that it finished\n", lvl, ctx, cell);
+                else fprintf(stderr, "%s: %s: sub-branch %s was INTERRUPTED at budget %lld and no line records that it finished at that budget or above\n", lvl, ctx, cell, intr[k]);
+            }
+        } else if (fl[k] & 1) n_exh++;
+        else n_bud++;
+        if (claim[k] > 0) {
+            snprintf(path, sizeof(path), "%s/%s", dir, cell);
+            long long lsz = gz_logical_size(path);
+            if (lsz < 0 && access(path, F_OK) != 0) {
+                if (++n_missing <= 10) fprintf(stderr, "ERROR: %s: shard %s is ABSENT, but its checkpoint line claims %lld solution(s): its records would be missing from the merge (Q-317 (4))\n", ctx, path, claim[k]);
+            } else if (lsz < 0 || lsz / SOL_RECORD_SIZE < claim[k]) {
+                if (++n_short <= 10) fprintf(stderr, "ERROR: %s: shard %s holds %lld record(s), but its checkpoint line claims %lld: it is truncated or was emptied (Q-317 (4))\n", ctx, path, lsz < 0 ? 0LL : lsz / SOL_RECORD_SIZE, claim[k]);
+            }
+        }
+    }
+    if (n_exh_out) *n_exh_out = n_exh;
+    if (n_bud_out) *n_bud_out = n_bud;
+    if (n_int_out) *n_int_out = n_incomplete;
+    if (n_incomplete > 0 && !allow)
+        fprintf(stderr, "ERROR: %s: %d sub-branch(es) in %s were INTERRUPTED and never finished, so the shard set is incomplete --\n"
+                        "       refusing to merge it (Q-881). Relaunch the enumeration there to resume, then merge (or set\n"
+                        "       SOLVE_MERGE_ALLOW_INCOMPLETE=1 to merge it as a partial set).\nMERGE_INPUT=INCOMPLETE\n",
+                ctx, n_incomplete, dir);
+    if (n_missing + n_short > 0)
+        fprintf(stderr, "ERROR: %s: %d shard(s) absent and %d holding fewer records than their checkpoint line claims -- refusing\n"
+                        "       to merge without them (Q-317 (4))\nMERGE_SHARD=%s\n", ctx, n_missing, n_short, n_missing ? "MISSING" : "SHORT");
+    if (n_incomplete > 0 && (!allow || (!marker && q881_override_for_dir(dir, ctx) != 0))) rc = 35;  /* lane HAJ: with the marker, the override was judged above */
+    else if (n_missing + n_short > 0) rc = 20;
+    else
+        printf("  Checkpoint cross-ref: %d EXHAUSTED, %d BUDGETED, 0 INTERRUPTED sub-branch(es) (%d line(s) in %d checkpoint file(s));\n"
+               "  every INTERRUPTED sub-branch was finished later and every shard a line claims is present (Q-881, Q-317 (4))\n",
+               n_exh, n_bud, n_lines, n_files);
+done:
+    if (rc == 0 && allow && (marker || n_incomplete > 0))
+        fprintf(stderr, "WARNING: %s: merging an INCOMPLETE enumeration because SOLVE_MERGE_ALLOW_INCOMPLETE=1: the output holds a\n"
+                        "         partial set, is not a reproducible result, and must not be published or archived as one (Q-881)\n"
+                        "MERGE_INPUT=INCOMPLETE_ALLOWED\n", ctx);
+    free(fl); free(cov); free(intr); free(claim);
+    return rc;
+}
+
+/* ---------- Q-881 follow-up (lane HAJ, 2026-09-27): SOLVE_MERGE_ALLOW_INCOMPLETE never applies at canonical scale ----------
+ *
+ * Lane HAC (batch 25) added SOLVE_MERGE_ALLOW_INCOMPLETE=1 so that the documented "run N minutes, take
+ * what we got" time-limit workflow (DEVELOPMENT.md) can still merge a stopped run's partial set. The
+ * operator kept it, on one condition: it must never apply to a canonical-scale run. A canonical run is
+ * resumed to completion; a partial merge of one is never a result.
+ *
+ * THE RULE. The override is refused (an ERROR line, MERGE_OVERRIDE=REFUSED, exit 35) when the run's node
+ * budget is at or above 1T (1,000,000,000,000 nodes, the threshold of the sub-canonical gate), when the
+ * run has no node budget and no time limit (uncapped, which the resume already treats as infinite,
+ * Q-317 (1)), and whenever the budget cannot be determined (fail closed). A run with no node budget and a
+ * time limit is the documented workflow the override exists for, and is allowed.
+ *
+ * THE BUDGET. For a launch it is max(SOLVE_NODE_LIMIT, SOLVE_PER_SUB_BRANCH_LIMIT x the partition's
+ * sub-branch count): with the per-sub-branch override every cell walks that many nodes whatever
+ * SOLVE_NODE_LIMIT says, so the product bounds the run. The enumeration judges it in memory before it
+ * writes its run-in-progress marker, so a canonical launch with the variable set stops before any work,
+ * and writes it into the marker (run_node_budget=, time_limit_seconds=). A merge reads the budget from
+ * the directory, most authoritative first:
+ *   1. the marker's two lines, written by the launch whose shards these are;
+ *   2. otherwise resume_contract.txt (written when SOLVE_DFS_CHECKPOINT=1): node_limit= when
+ *      per_sub_branch_limit= is 0; with a per-sub-branch limit the partition size is not recorded
+ *      there, so the budget is unknown unless one of the two is already >= 1T.
+ * Any source at or above 1T refuses, whichever source is read first. A marker written before this
+ * change carries neither line, and a directory with neither file has an unknown budget: refused.
+ * Nothing here runs unless SOLVE_MERGE_ALLOW_INCOMPLETE=1; on the default path the only change is the
+ * marker's two added lines, and the marker is removed when the run finishes. */
+#define Q881_CANONICAL_NODES 1000000000000LL
+static long long q881_launch_budget(void) {
+    long long b = node_limit > 0 ? node_limit : 0, p;
+    if (per_sub_branch_override > 0) {
+        long long n = total_branches > 0 ? total_branches : 1;
+        if (__builtin_mul_overflow(per_sub_branch_override, n, &p)) p = LLONG_MAX;
+        if (p > b) b = p;
+    }
+    return b;
+}
+/* budget: -1 unknown, 0 no node budget. Returns 0 (allowed) or 35 after printing the refusal. */
+static int q881_override_verdict(long long budget, int tl_known, int tl, const char *ctx, const char *src, int merging) {
+    char why[256];
+    if (budget < 0)
+        snprintf(why, sizeof(why), "the run's node budget cannot be determined");
+    else if (budget >= Q881_CANONICAL_NODES)
+        snprintf(why, sizeof(why), "the run's node budget is %lld nodes, at or above the canonical scale of 1T (1,000,000,000,000 nodes)", budget);
+    else if (budget == 0 && !tl_known)
+        snprintf(why, sizeof(why), "the run has no node budget, and whether it had a time limit cannot be determined");
+    else if (budget == 0 && tl <= 0)
+        snprintf(why, sizeof(why), "the run has no node budget and no time limit (uncapped, which counts as infinite)");
+    else
+        return 0;
+    fprintf(stderr, "ERROR: %s: SOLVE_MERGE_ALLOW_INCOMPLETE=1 is refused: %s (read from %s).\n"
+                    "       The override takes a partial set only from a run whose node budget is below 1T, or from a\n"
+                    "       time-limited run with no node budget. A canonical-scale run is resumed to completion (relaunch\n"
+                    "       the same command) and never merged partial. Unset SOLVE_MERGE_ALLOW_INCOMPLETE.\n"
+                    "MERGE_OVERRIDE=REFUSED\n%s", ctx, why, src, merging ? "MERGE_INPUT=INCOMPLETE\n" : "");
+    return 35;
+}
+static int q881_override_at_start(void) {
+    if (!q881_allow_incomplete()) return 0;
+    return q881_override_verdict(q881_launch_budget(), 1, time_limit, "enumeration start",
+                                 "this launch's SOLVE_NODE_LIMIT, SOLVE_PER_SUB_BRANCH_LIMIT and time limit", 0);
+}
+/* The value of a whole `key=<decimal digits>` line of path, or -1 when the file, the line or its value is
+ * absent or malformed, or the key appears twice. */
+static long long q881_read_count(const char *path, const char *key) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char line[256];
+    size_t kl = strlen(key);
+    long long v = -1;
+    int seen = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, key, kl) != 0 || line[kl] != '=') continue;
+        const char *d = line + kl + 1;
+        size_t nd = strspn(d, "0123456789");
+        seen++;
+        v = -1;
+        if (nd == 0 || nd > 18 || (d[nd] != '\n' && d[nd] != '\0')) continue;
+        v = strtoll(d, NULL, 10);
+    }
+    fclose(f);
+    return seen == 1 ? v : -1;
+}
+static int q881_override_for_dir(const char *dir, const char *ctx) {
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "%s/%s", dir, Q881_MARKER);
+    const long long mb = q881_read_count(path, "run_node_budget");
+    const long long mt = q881_read_count(path, "time_limit_seconds");
+    snprintf(path, sizeof(path), "%s/resume_contract.txt", dir);
+    const long long cn = q881_read_count(path, "node_limit");
+    const long long cp = q881_read_count(path, "per_sub_branch_limit");
+    long long budget = -1;
+    int tl_known = 0, tl = 0;
+    const char *src = "the directory (no run_node_budget= line in " Q881_MARKER " and no usable resume_contract.txt)";
+    if (mb >= 0 && mt >= 0 && mt <= INT_MAX) { budget = mb; tl_known = 1; tl = (int)mt; src = Q881_MARKER; }
+    if (cn >= Q881_CANONICAL_NODES || cp >= Q881_CANONICAL_NODES) {
+        if (cn > budget) budget = cn;
+        if (cp > budget) budget = cp;
+        src = "resume_contract.txt";
+    } else if (budget < 0 && cn > 0 && cp == 0) {
+        budget = cn; src = "resume_contract.txt";
+    }
+    return q881_override_verdict(budget, tl_known, tl, ctx, src, 1);
 }

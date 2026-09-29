@@ -1,0 +1,78 @@
+# verify --check-g-ladder, n=31 -- the independent reader's f.g cut identity at every layer
+#
+# Verdict:   GLADDER_RESULT=PASS, IDENTITIES_CHECKED=32, IDENTITIES_SKIPPED=0, all k = 0..31
+# Produced:  started 2026-09-20 03:53 UTC; the process had exited when the verdict guard captured
+#            the log at 2026-09-21 10:33:51 UTC (single core, about 30 h; it read f + g, 11.57 TB).
+# Command:   nice -n 19 ./verify --check-g-ladder <FDIR> <GDIR> 31
+#            The manifests it read hash to the registry rows: f1c5_manifest.txt sha256
+#            05751744c22a58d7c2e2db8ef555f45e1f1e612d9c57db47b444b8d94238c5a8 (STAGE_F_SHA256.txt)
+#            and g_manifest.txt sha256
+#            d54ae239f84b1aec006109f1815a606b151efbff7ca857b1a355e4afc96e9e97 (STAGE_G_SHA256.txt).
+# Binary:    sha256 530d70c2dac0c16175235ed66a586b54cb393ec02bacc3629fd1ec64dd2ad4dd (231,800 bytes),
+#            built on the check host with  gcc -O3 -pthread -o verify verify.c -lm -lz  from verify.c
+#            at public commit 7832aad7 (2026-09-19; file sha256
+#            4bf89df90c8575416bf5e59ce4a37bf36a8925dd964b8d1d08cf3a30fc491c60).
+#
+# What it checks (verify.c, written against documentation/GT_LADDER_FORMAT.md, no solve.c code):
+# N from the f ladder's layer-31 value bytes against the published count, then per layer the
+# headers, layout, canonicity, the stored domain, the sum invariant, the seed/anchor content and
+#     sum over layer-k states of orbit(cm) * f(s) * g(s)  =  N.
+# The solve.c reading of the same identity is reports/KC_G_CHECK_n31.txt.
+#
+# SCOPE: the cut identity is a sum over each layer. It constrains the values collectively; a
+# compensating pair of errors in one layer satisfies it. It does not pin individual entries.
+#
+# The lines below are byte-identical to the captured log (6,383 bytes, sha256
+# d6a31bfae634f45f29f809a342ea21c003ede9fcd2c80f1a98c2856efadb3398).
+======================================================================
+verify.c --check-g-ladder : spec-driven independent g-ladder verifier
+written against documentation/GT_LADDER_FORMAT.md; shares no code with solve.c
+======================================================================
+manifests: n=31 start_exit=0 b0=(2,8,13,7,1)  g last_complete_k=0 (0=complete; layers 0..31 present)
+group    : 48 -> 24 induced pair-perms -> 24 distinct on this run's 31 pairs
+expect N : Σ f(layer 31) = 1097051278789181790036112071176579186688  (from the f ladder's value bytes)
+           vs published |C1∩C2∩C4∩C5| MATCH
+----------------------------------------------------------------------
+  k= 0  g nm=1       ne=1          v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 1  g nm=7       ne=70         v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 2  g nm=56      ne=3136       v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 3  g nm=378     ne=65772      v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 4  g nm=2087    ne=834800     v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 5  g nm=9707    ne=7474390    v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 6  g nm=38262   ne=50505840   v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 7  g nm=128414  ne=267871604  v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 8  g nm=369823  ne=1142013424 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k= 9  g nm=919819  ne=3956674776 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=10  g nm=1986807 ne=11238500020 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=11  g nm=3746013 ne=26481109842 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=12  g nm=6191140 ne=52468996134 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=13  g nm=8998676 ne=88405216814 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=14  g nm=11530906 ne=127329251020 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=15  g nm=13047760 ne=156553739812 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=16  g nm=13047760 ne=164328423050 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=17  g nm=11530906 ne=147820883932 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=18  g nm=8998676 ne=114050382082 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=19  g nm=6191140 ne=75217552808 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=20  g nm=3746013 ne=42035052832 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=21  g nm=1986807 ne=19625521004 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=22  g nm=919819  ne=7520125264 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=23  g nm=369823  ne=2338743798 v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=24  g nm=128414  ne=587795786  v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=25  g nm=38262   ne=117008484  v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=26  g nm=9707    ne=17637848   v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=27  g nm=2087    ne=1922156    v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=28  g nm=378     ne=149656     v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=29  g nm=56      ne=9124       v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=30  g nm=7       ne=592        v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+  k=31  g nm=1       ne=62         v2  Σ orbit·f·g = 1097051278789181790036112071176579186688 (expect N = 1097051278789181790036112071176579186688)  OK
+----------------------------------------------------------------------
+g(0) = 1097051278789181790036112071176579186688  MATCHES the f-ladder total (whole-space count from the suffix side)
+census   : range k=0..31: 32 layer(s) evaluated, 0 absent per manifest (last_complete_k=0);
+           f·g cut identity EVALUATED at 32 and SKIPPED at 0 of the 32 evaluated
+RESULT: 32 g layer(s) verified — headers, layout, canonicity, stored domain,
+        sum invariant, seed/anchor content — and the f·g cut identity
+        EVALUATED at 32 of 32 checked layer(s) (0 skipped).
+IDENTITIES_CHECKED=32
+IDENTITIES_SKIPPED=0
+GLADDER_RESULT=PASS
+======================================================================

@@ -163,6 +163,32 @@ census over a different entry set would read as a disagreement.
 
 The sidecars are per-layer summaries written by the builds, not ladder layers.
 
+## The same identities, read by the independent verifier (added 2026-09-28)
+
+`KC_T_CHECK_n31.txt` above and `reports/KC_G_CHECK_n31.txt` are `solve.c` reading its own ladders.
+Two further runs read the same n=31 ladders with `verify.c`, which is written against
+`documentation/GT_LADDER_FORMAT.md` and shares no code with `solve.c`. Until now their transcripts
+were kept only in the project's private records. They are published here, each behind a comment
+header that gives the command, the binary and the dates:
+
+| file | command | verdict | finished |
+|---|---|---|---|
+| `VERIFY_CHECK_T_LADDER_n31.txt` | `verify --check-t-ladder FDIR TDIR 31` | `TLADDER_RESULT=PASS`, `IDENTITIES_CHECKED=32`, `IDENTITIES_SKIPPED=0` | 2026-09-05 13:24 UTC |
+| `VERIFY_CHECK_G_LADDER_n31.txt` | `verify --check-g-ladder FDIR GDIR 31` | `GLADDER_RESULT=PASS`, `IDENTITIES_CHECKED=32`, `IDENTITIES_SKIPPED=0` | by 2026-09-21 10:33 UTC |
+
+Below each header the transcript is the captured log, byte for byte. Its sha256 is in the header.
+The header removes nothing from the log; the logs name no host or path. What was left out is
+operational detail: host names, disk names and costs. The binary for the t run was not hashed
+at the time, and its header says so rather than filling the gap.
+
+The t transcript's per-layer sums give the f ladder's layer masses as read from the f bytes:
+`S_k − S_{k+1} = M_k`. For all 31 layers these equal the `mass` column of
+`reports/FULL31_EXACT_AGGREGATES.md` §1. `verify --brute-masses` counts M_1 … M_7 one prefix at a
+time, with no DP, and matches that column (see `documentation/VERIFY.md`).
+
+The scope is the one stated for `KC_T_CHECK_n31.txt` above. These identities are sums over each
+layer. They constrain the files collectively and do not pin individual entries.
+
 ## Rights
 
 The **code** in this repository is public domain. The **ladder data these fingerprint is not** — see

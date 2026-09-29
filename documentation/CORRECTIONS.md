@@ -23502,3 +23502,1061 @@ the registered retracted phrases was allowed on `README.md`: no row of `RETRACTE
 generated inventories `CORRECTIONS_INVENTORY.tsv` and `CORRECTION_MARKER_INVENTORY.tsv` are
 regenerated from the tree, and their `README.md` rows for these notes drop out when that happens.
 The removed inline rows are recorded here, in the ledger, so nothing about them is lost.
+
+## CX-235 — a stopped, evicted or crashed enumeration merged to a partial solutions.bin with exit 0, the merge cross-reference read no per-thread checkpoint file and let an absent shard through, and a relaunch promoted a stopped cell's partial shard as finished; an unfinished directory, an absent or short shard, and a stopped cell's shard are now refused by name (solve.c; tests.py; scripts/q317_missing_shard_merge_gate.sh; scripts/pre_push_gate.sh; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md)
+
+**2026-09-27.** Origin: backlog rows Q-881 (filed by lane HAA, batch 24), Q-317 item (4) (Codex A04
+residue, 2026-08-28) and Q-619 item #2 (V3A-134, ruled 2026-09-19; CX-147 said it belonged to Q-317,
+which never listed it). Landed by Opus HAC. Measured on the worker VM on a fresh clone of the
+batch-24 work-in-progress base with this change overlaid. CX-239, in this batch, narrows the
+override described in part 1.
+
+**No published number moves.** A merge this change lets through reads the same shards in the same
+order and writes the same bytes. On a finished depth-2 directory (1,115 shards, 4,796,619 records
+before dedup) the base and changed binaries wrote the same `solutions.bin`, byte for byte, in the
+in-memory mode, the external mode, and the external mode with two Phase-1 workers.
+`./solve --selftest` prints `403f7202…` PASS, `--selftest-resume` passes, and the n=9 battery
+passes with no golden changed. Part 3 says why the published canonicals are not affected by the
+defect it cures.
+
+**1. Q-881: a merge could not tell a stopped enumeration from a finished one.**
+
+*What was wrong.* `solve` answers SIGTERM, SIGINT and its time limit by finishing the cells in
+flight and exiting 0 (Q-828). The directory it leaves looks like a finished one: a cell no worker
+reached has no shard and no checkpoint line, and a cell cut short writes its partial set to its
+shard and an `INTERRUPTED` line. Nothing on disk said the run had not finished. Measured on the
+base binary (depth 2, `SOLVE_PER_SUB_BRANCH_LIMIT=20000`, 4 threads, SIGTERM one second after the
+handler was installed): `solve --merge` merged the stopped run's 83 shards, 14,023 records before
+dedup, and exited 0. A stopped run without `SOLVE_SKIP_AUTOMERGE` did the same itself: its bundled
+merge wrote a `solutions.bin` from the partial set and exited 0, in-process and through the
+fork-merge child alike. A stopped `--branch` directory merged the same way, and so did a stopped
+layer under `--merge-layers`. Counting what is on disk cannot fix this, because the missing cells
+leave nothing to count.
+
+*The change.*
+- *A marker the enumeration removes only when it has finished.* The full enumeration and `--branch`
+  write `enum_incomplete.txt` just before their workers start (after every startup refusal):
+  written to a `.tmp`, fsynced, renamed, and the directory fsynced. They remove it, and fsync the
+  directory, only when every sub-branch has been walked: after the worker join when the run was not
+  stopped, or when a relaunch finds every sub-branch already complete (`All N sub-branches already
+  completed`). A stop, an eviction, a crash, a worker's fatal exit, or a run still in progress
+  leaves it. If it cannot be written the run refuses to start with `ENUM_MARKER=UNWRITABLE`, exit 10.
+  A finished run leaves no marker, and the marker is never part of a shard, the shard manifest or
+  `solutions.bin`, so no sha depends on it.
+- *The merge gate.* `q881_merge_input_gate()` (end of solve.c) runs in `--merge` after its shard scan
+  and before any record is read (so also in the fork-merge child), in the in-process
+  end-of-enumeration merge in place of the old cross-reference, and on each layer of
+  `--merge-layers` before any link is made. It reads `checkpoint.txt` and every
+  `checkpoint_t<N>.txt`, the files the resume reads, and refuses when the marker is present, or when
+  a sub-branch has an `INTERRUPTED` line at budget B and no `EXHAUSTED`/`COMPLETE` line and no
+  `BUDGETED` line at B or above. That second rule is the one `load_sub_checkpoint_file()` applies to
+  decide that a resume must walk a cell again, with budget 0 meaning uncapped and so infinite, as
+  Q-317 (1) settled. It is the evidence for a directory an earlier binary stopped, which has no
+  marker. Either refusal prints `ERROR:` lines naming the marker or up to ten sub-branches, a whole
+  line `MERGE_INPUT=INCOMPLETE`, and exits **35**, a code no other path used. Nothing is written.
+- *The bundled merge of a stopped run is skipped.* A run stopped by a signal or the time limit
+  prints a WARNING and a whole line `ENUM_AUTOMERGE=SKIPPED`, writes no `solutions.bin`, prints its
+  report, and still exits 0 with `ENUM_RUN=STOPPED`, so the Q-828 contract (a stop exits 0) holds.
+- *One override.* DEVELOPMENT.md documents one workflow that takes a stopped run's output: a
+  `time_limit` run used for "run N minutes, take what we got" exploration. For it,
+  `SOLVE_MERGE_ALLOW_INCOMPLETE=1` (validated as 0 or 1 by the environment preflight) turns the two
+  `MERGE_INPUT=INCOMPLETE` refusals into `WARNING:` lines and a whole line
+  `MERGE_INPUT=INCOMPLETE_ALLOWED`, and lets a stopped run's bundled merge go ahead as before. It does
+  not cover an absent or short shard (part 2). CX-239 refuses the override at canonical scale and
+  wherever the run's budget cannot be read.
+
+Measured with the changed binary on the same shapes: the stopped directory's `--merge` exits 35 with
+`MERGE_INPUT=INCOMPLETE` and writes nothing; the same directory with its marker deleted, when the
+stop cut cells short, exits 35 naming `sub-branch … was INTERRUPTED at budget 200000000`; the
+stopped bundled merge prints `ENUM_AUTOMERGE=SKIPPED` and exits 0 with no `solutions.bin`, in-process
+and fork alike; the stopped `--branch` directory and the stopped layer exit 35. The stopped
+directory relaunched to its end removes the marker and merges to the same logical sha as an
+uninterrupted run, with either binary.
+
+A detail found on the way: at a small per-cell budget a SIGTERM often leaves no `INTERRUPTED` line
+at all. Measured at `SOLVE_PER_SUB_BRANCH_LIMIT=20000`: 151 checkpoint lines, none `INTERRUPTED`,
+because every worker was past its cell's walk and in the shard flush and fsync when the signal
+arrived. The provenance summary lane HAA recorded for its stopped run (`INTERRUPTED=0`) is the same
+effect. Only the marker catches that directory.
+
+**2. Q-317 item (4): the merge cross-reference read no per-thread file and had no arm for an absent shard.**
+
+*What was wrong.* The end-of-enumeration merge cross-referenced each checkpoint line's claimed
+solution count against the shard's logical size, but read only `checkpoint.txt`, which a current run
+leaves empty (the workers write `checkpoint_t<N>.txt`), and its `if (lsz_xref >= 0)` had no `else`,
+so an absent shard passed. `solve --merge` had no cross-reference at all. Lane HX (Q-875, CX-221)
+made an unsizable shard fatal and left two cases open: an empty (0-byte) shard is skipped as empty,
+and a deleted shard is not missed. Measured on the base binary over a finished directory: a shard its
+line says holds records, deleted, emptied, or cut to one whole record, merged with exit 0 each time.
+`scripts/q317_missing_shard_merge_gate.sh`, deliberately red since 2026-09-07, reported
+`MISSING_SHARD_MERGE=FAIL`.
+
+*The change.* The gate in part 1 also takes each sub-branch's largest claimed count over all its
+lines and requires its shard to hold at least that many records. An absent shard prints an `ERROR:`
+line naming it and `MERGE_SHARD=MISSING`; a shard that holds fewer records, an empty file included,
+prints one and `MERGE_SHARD=SHORT`. Either exits 20, the code the old truncation arm used; up to ten
+shards are named. "At least" keeps the old arm's rule: a resumed or extended cell's shard can hold
+more records than an earlier line claimed. The old block's loop is left in place behind a `NULL`
+file pointer, so no line of solve.c moved; its summary line is printed by the gate. The report's
+`Enumeration:` line now counts sub-branches from every checkpoint file, where it used to count the
+lines of `checkpoint.txt`.
+
+Measured with the changed binary: the deleted shard exits 20 with `MERGE_SHARD=MISSING`, the emptied
+and the one-record shard exit 20 with `MERGE_SHARD=SHORT`, each naming the shard. The
+end-of-enumeration path (a relaunch with one cell left to walk and a finished cell's shard deleted)
+exits 20 with `MERGE_SHARD=MISSING`. `q317_missing_shard_merge_gate.sh` now reports
+`MISSING_SHARD_MERGE=PASS` (delete leg RC=20); its banner, its FAIL message, the `pre_push_gate.sh`
+advisory label and the `MISSING_SHARD_MERGE` row of DEVELOPMENT.md now say PASS is expected, each
+edited on its own lines. The leg stays advisory.
+
+**3. Q-619 #2: a relaunch promoted a stopped cell's partial shard as finished.**
+
+*What was wrong.* A cell cut short by a stop flushes the solutions it has found to its shard
+through the normal `.tmp` → fsync → rename path, with a `.budget` sidecar recording the current
+budget, and writes an `INTERRUPTED` line; its `.dfs_state` is deleted, because no budget capture
+happened. The rename protocol never exposes a torn shard; the shard is whole, and partial in
+content. On the relaunch, `load_sub_checkpoint_file()` skips the `INTERRUPTED` line, so the cell is
+not marked done, and `promote_orphaned_shards()` then adopted the shard because its `.budget`
+matched. It never looked at the cell's status. It wrote a `BUDGETED … [v3.1 promoted]` line, and the
+cell was never walked again. Measured on the base binary (depth 2,
+`SOLVE_PER_SUB_BRANCH_LIMIT=2000000`, 8 threads, SIGTERM one second after the handler): the
+relaunch printed `Orphaned-shard promotion: promoted=2` and ran to its end. `sub_1_1_16_1.bin` kept
+1,219 of the 3,458 records an uninterrupted run writes there, and `sub_1_1_14_0.bin` 3,203 of 3,365:
+2,401 records lost before dedup (4,794,218 against 4,796,619). In this run every lost record was
+also found by another cell, so the unique count (1,894,929) and the logical sha came out equal to
+the uninterrupted run's. That is a property of these two cells, not of the defect.
+
+*The change.*
+- A flush made after the stop (`global_timed_out` read once, before the rename) removes any older
+  `.budget` for that shard before the rename and writes none after it. Under the strict default,
+  `promote_orphaned_shards()` refuses a shard with no sidecar. A signal arriving between a finished
+  cell's status and its flush only costs a re-walk.
+- `load_sub_checkpoint_file()` records every sub-branch it sees an `INTERRUPTED` line for, and
+  `promote_orphaned_shards()` refuses a shard whose sub-branch is recorded that way and not already
+  done: `WARN: orphaned shard … belongs to a sub-branch the checkpoint records as INTERRUPTED …;
+  refusing promotion, the sub-branch will be walked again`. This check comes before the sidecar
+  check, so it also covers a shard an earlier binary wrote with a sidecar, and the
+  `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` escape. The refused cell is walked from its start, and its
+  flush replaces the partial shard.
+- Re-promoting was never a torn-write problem: `cleanup_orphaned_tmp_files()` deletes every `.tmp`
+  and zero-byte canonical shard first, and the rename is atomic. Not addressed here: under
+  `SOLVE_FSYNC_BATCH_SIZE > 1` a crash could lose a renamed gz shard's data after its rename. Then
+  a garbage ISIZE trailer passes the record-size check about one time in 32. That case was not
+  measured, and verifying every orphan's gzip stream at promotion would inflate every shard of an
+  eviction resume.
+
+Measured with the changed binary on the same shape: the stopped cells' shards carry no `.budget`
+sidecar; the relaunch printed `promoted=0, integrity_failed=2` and two `Q-619 #2` WARN lines, walked
+both cells again, and wrote 3,458 and 3,365 records, the uninterrupted run's counts. 4,796,619
+records before dedup, and the same sha.
+
+*Could a published run have been affected?* The mechanism needs a graceful stop (a signal the
+solver catches, or the time limit) followed by a relaunch in the same directory. A Spot deallocation
+that kills the process without the handler leaves no partial shard. `git log -S` on solve.c dates
+the exposure: `promote_orphaned_shards()` and the strict `.budget` default arrived with the v3 reset
+on 2026-05-25. Shards were raw until #169 made them gz on 2026-06-17. From then until Q-838
+(2026-09-26) the promotion check compared a gz shard's compressed size with the record size, and
+refused all but about one shard in 32. So promotion was at full strength from 2026-05-25 to
+2026-06-17 and again from 2026-09-26. The only published canonical produced with evictions in the
+first window is the original d3 560T (June 1-8, 5 Spot evictions). CANONICAL_HASHES.md records that
+a from-scratch re-run on 2026-06-30 (gz shards, 7 evictions) reproduced `9a968fa2…` byte for byte,
+from records found in the same 65,281 cells. For both runs to have lost records to this defect and
+still agree, each would have to have lost exactly the same records not found by any other cell,
+which needs the same cell cut short in both runs at compatible points; with different eviction
+histories that is not credible, so the published 560T sha stands on that evidence, not on a proof
+that no cell was cut short. No
+canonical enumeration has run since 2026-09-26. Whether any of the 560T evictions was a graceful
+stop is not established here.
+
+**4. Callers.**
+- `q881_merge_input_gate()`: `--merge`, the fork-merge child, the in-process end-of-enumeration
+  merge, and `--merge-layers`. In scripts/, `q317_missing_shard_merge_gate.sh` runs the
+  end-of-enumeration merge (now PASS, part 2) and `perf_bench.sh` runs `--merge` over finished
+  `--branch` directories (its tests use a stub `--merge`); the other scripts that name `--merge`
+  only mention it. In tests.py, every class that runs `--merge` does so over a finished enumeration
+  or a fixture with no marker, and the full run passes.
+- `TestLaneHXQ875MergeAndSidecarSilentSkips`: its Phase-1 size test refuses the Nth `fopen()` of the
+  victim shard through an `LD_PRELOAD` shim, and the gate sizes the victim once more (two
+  `fopen()`s), so the shim's pass count moves from 4 to 6 and the refused call from #5 to #7
+  (same-line edits). The gate runs after the scan, so HX's unreadable- and unsizable-shard refusals
+  still come first.
+- The marker: the full enumeration and `--branch`. The parallel `--sub-branch` path writes none; a
+  stop there leaves an `INTERRUPTED` line, which the gate reads.
+- The stopped-run merge skip: `TestQ828PgoWorkloadMustFinish` requires a stopped run's full report
+  (`TIMED OUT after`), exit 0 and one `ENUM_RUN=STOPPED` line; all three still hold, and the class
+  passes unchanged.
+- The flush and promotion changes: the enumeration's own flush (two functions) and the parallel
+  `--sub-branch` flush, whose resume does not use `.budget`; `promote_orphaned_shards()` is called
+  once, at full-enumeration startup.
+- Documentation: SOLVE_C_CLI.md (default mode, `--merge`, `--merge-layers`, the
+  `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR` row, the exit-code list) and DEVELOPMENT.md (the
+  run-directory list, the `time_limit` bullet, the `MISSING_SHARD_MERGE` row) carry dated notes on
+  existing lines.
+
+Every edit to an existing line of solve.c is on the line it changes (22 lines, three of them blank
+before); the new functions are appended at the end of the file. No line of any file moved.
+
+**5. Tests.** `TestLaneHACIncompleteMergeInputs` in tests.py, 17 tests. Every fixture is a real
+enumeration of a -O1 build at `SOLVE_HASH_LOG2=16 SOLVE_DEPTH=2`, 4 threads. A SIGTERM is sent only
+once `/proc/<pid>/status` shows the handler installed, and every stopped case first asserts the
+handler's line and `ENUM_RUN=STOPPED`. Each refusal test asserts that its damage or stop happened
+before it asserts the verdict.
+- Positive controls (pass on the base too): finished full, bundled-merge and `--branch` runs leave no
+  marker, and `--merge` of the finished directory writes the bundled merge's logical sha in the
+  in-memory, external, and two-worker external modes; a stopped run relaunched to its end merges to
+  the uninterrupted sha.
+- Q-881: `--merge` of a stopped directory (35); the marker alone, with every `INTERRUPTED` line
+  removed (35); `INTERRUPTED` lines with the marker removed (35, naming the cell); the coverage rule
+  on synthetic lines added to a finished directory (covered at the same budget and at a larger one:
+  0; only a smaller budget finished: 35; uncapped: 35; ended by `EXHAUSTED`: 0; an `INTERRUPTED`
+  line in `checkpoint.txt`: 35); a stopped run's bundled merge skipped in-process and through the
+  fork (exit 0, `ENUM_AUTOMERGE=SKIPPED`, no `solutions.bin`, marker kept); `--branch` keeps its
+  marker until it finishes; a relaunch that finds every cell done clears a marker; a stopped layer
+  under `--merge-layers` (35) beside a finished one (0, the bundled sha); the override merges a
+  stopped directory with `MERGE_INPUT=INCOMPLETE_ALLOWED` but still refuses an absent shard; a
+  stopped run under the override runs its bundled merge. (As landed by this lane, the override test
+  also merged a stopped directory with its marker deleted. CX-239 refuses that case, because such a
+  directory has no readable budget, and its class asserts the refusal; the loop here now merges the
+  larger stopped directory with its marker.)
+- Q-317 (4): an absent, an emptied and a one-record shard under `--merge` (20, `MISSING`/`SHORT`,
+  named); the end-of-enumeration merge with an absent shard (20, `MISSING`).
+- Q-619 #2: a stopped cell's partial shard carries no `.budget`; a relaunch does not promote it;
+  neither the sidecar escape nor a sidecar written as an earlier binary would write it promotes it,
+  and a relaunch stopped inside that cell again removes the older sidecar.
+
+On the base solve.c 15 of the 17 fail, each on its verdict; the two positive controls pass.
+Twenty-eight mutants of the change, each built and run against the class; all twenty-eight are
+killed:
+
+| mutant | killed by |
+|---|---|
+| gate: marker check removed | `…refuses_a_sigterm_stopped_enumeration`, `…marker_alone…`, `…override_lets_a_stopped_run…` |
+| gate: INTERRUPTED check removed | `…covered_only_by_a_completion…`, `…interrupted_cells_in_a_directory_without_a_marker`, `…override_merges…` |
+| gate: budgets not compared | `…covered_only_by_a_completion…` |
+| gate: budget 0 not infinite | `…covered_only_by_a_completion…` |
+| gate: EXHAUSTED does not cover | `…covered_only_by_a_completion…` |
+| gate: absent-shard arm removed | `…absent_empty_or_short_shard…`, `…end_of_enumeration_merge…`, `…override_merges…` |
+| gate: short-shard arm removed | `…absent_empty_or_short_shard…` |
+| gate: `checkpoint_t<N>.txt` not read | nine failures across five tests |
+| gate: `checkpoint.txt` not read | `…covered_only_by_a_completion…` |
+| `--merge` gate call removed | thirteen failures |
+| in-process gate result ignored | `test_the_end_of_enumeration_merge_refuses_an_absent_shard` |
+| marker never written (helper) | eight failures across six tests |
+| full run: marker not written | five failures across four tests |
+| full run: marker not cleared after the join | thirteen failures |
+| full run: "all done" relaunch does not clear it | `test_a_relaunch_that_finds_every_cell_done_clears_the_marker` |
+| `--branch`: marker not written | `test_branch_mode_keeps_the_marker_until_it_finishes` |
+| `--branch`: marker not cleared | `…branch_mode…`, `…finished_runs_leave_no_marker…` |
+| fork merge not skipped on a stop | `test_a_stopped_run_skips_its_bundled_merge` |
+| in-process merge not skipped on a stop | `test_a_stopped_run_skips_its_bundled_merge` |
+| `--merge-layers` gate removed | `test_merge_layers_refuses_a_stopped_layer` |
+| override always on | ten failures |
+| override never on | both override tests |
+| override also covers an absent shard | `…override_merges…never_without_a_shard` |
+| bundled merge ignores the override | `test_the_override_lets_a_stopped_run_merge_its_partial_set` |
+| stopped flush writes `.budget` | `…flush_writes_no_budget_sidecar`, `…sidecar_escape_and_a_legacy_sidecar…` |
+| older `.budget` not removed | `…sidecar_escape_and_a_legacy_sidecar…` |
+| promotion INTERRUPTED check removed | `…relaunch_does_not_promote…`, `…sidecar_escape_and_a_legacy_sidecar…` |
+| load does not record INTERRUPTED | `…relaunch_does_not_promote…`, `…sidecar_escape_and_a_legacy_sidecar…` |
+
+**6. Gates**, on the lane tree (the batch-24 base plus this change), with PYTHONPATH unset:
+`./solve --selftest` prints sha256 `403f7202…` PASS and `--selftest-resume` passes; `python3
+tests.py` is OK; `scripts/pre_push_compile_gate.sh` passes with the 8 baseline warnings and none
+new; `scripts/tr12_repro.sh --n9` prints `TR12_REPRO=PASS` (`rows=75 pass=59 fail=0 skip=16`) with
+no golden changed; `scripts/q317_missing_shard_merge_gate.sh` prints `MISSING_SHARD_MERGE=PASS` and
+`scripts/resume_budget_infinity_gate.sh` `RESUME_BUDGET_INFINITY=PASS`.
+`scripts/citation_line_gate.sh --all-files --all-targets` reported 0 shifted citations (leg A) and
+one leg-B finding that the unmodified base gave too, a stale citation of `documentation/HISTORY.md`
+in `documentation/CAMPAIGN_METHODOLOGY.md`; this change touches neither file. solve.c and tests.py
+are in the TR-12 reproduction fingerprint, so the batch re-stamps it.
+
+**7. Not fixed here.**
+- `--branch`'s own end-of-run merge still writes `solutions_<p1>_<o1>.bin` and its `.sha256` from a
+  stopped run's partial shards, with exit 0 and `TIMED OUT` in the report (the per-branch write,
+  solve.c:49128 to the sha sidecar at :49227). The marker now stops a later `--merge` of that
+  directory. Skipping the per-branch write on a stop needs a new block around about ninety lines, so
+  it is left for a change that can re-pin citations.
+- The parallel `--sub-branch` path writes no marker; a hard kill there leaves no `INTERRUPTED` line
+  (its end-of-run flush and checkpoint line, solve.c:48851-48865).
+- A deleted shard that no checkpoint line claims (a zero-solution line, or a lost promoted line) is
+  still not missed; only a cross-check against `shard_manifest.txt` would see it (Q-875's follow-up).
+- A directory an earlier binary stopped, relaunched and finished, where a partial shard was promoted,
+  carries an `INTERRUPTED` line covered by a `[v3.1 promoted]` line at the same budget, and passes
+  the gate. Flagging that pattern would also flag a finished cell whose own line was lost before its
+  promotion, so it is left as a signature to look for, not a refusal.
+
+## CX-236 — five hardening cures from Codex review R01 (undefined behaviour in solve.c): a resumed v2 sidecar's stack frames were used as array indices without a domain check, 192-bit limbs were indexed through a member address, a comparator was called through a cast pointer, progress monitors read worker counters with plain loads, and nothing refused a host the counters' byte order does not fit; no number or canonical sha moves (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-09-27.** Origin: backlog row Q-627, the six cures the 2026-09-19 adjudication of Codex review
+R01 accepted (its findings F1, F2, F3, F5, F9 and F10). Landed by Opus HAD. Five are cured here.
+The sixth, F3, is not: its cure changes bytes in `.dfs_state` files, and the ruling holds it for a
+rider on the checkpoint comparator first (part 7). Each finding was re-located by content on the
+lane's tree and checked before it was changed; none was already fixed. The row's closure proof greps
+for one string that a comment could supply, so each cure is checked here on its own terms.
+
+**No published number, no canonical sha and no golden changes.** `./solve --selftest` prints
+sha256 `403f7202…` PASS, and `scripts/tr12_repro.sh --n9` prints `TR12_REPRO=PASS` with no
+golden changed. This change adds no line to solve.c: every edit is on an existing line. The line
+numbers below are those of the tree this entry is published with.
+
+**1. F9 — a v2 sidecar's stack frames were used as array indices unchecked.** `dfs_state_read_v2`
+(solve.c:9536) checked size, magic, version, prefix and the `sp` range, then copied all 34 frames.
+`backtrack_iterative` uses them as indices: `nodes_at_depth[step]` (solve.c:4920),
+`seq[2*step]`, `budget[bd]` and `budget[wd]` (solve.c:5010-5011), and `pairs[p]`. A corrupted or
+foreign sidecar therefore read and wrote outside those arrays. Shown on the worker, with ASan and
+UBSan builds (`-O1 -fsanitize=undefined,address`) of the old and new solve.c. PHASE_A ran at
+`SOLVE_NODE_LIMIT=10000000` with 2 threads and wrote 3,030 sidecars. One byte was changed in
+`sub_10_0_14_1.dfs_state` (sp = 29), and PHASE_B ran at 20,000,000:
+- top frame `step` set to −1: the old code printed `runtime error: index -1 out of bounds for type
+  'long long int [33]'` at solve.c:4920. The new code refused the file (`frame step out of domain
+  at index 29`), exited 0, and printed no sanitizer diagnostic;
+- frame 28 `bd` set to 40: the old code stopped with `AddressSanitizer: stack-use-after-scope` in
+  `backtrack_iterative` at solve.c:5011, exit 1. The new code refused the file (`frame bd/wd out
+  of domain at index 28`), exited 0, and printed no diagnostic;
+- frame 0 `bd` set to 9: the old code printed nothing, because frame 0 never reaches its retry
+  step within that budget. The new code refuses the file anyway.
+
+The cure is a check at load on the fields the walk reads before it writes them. For every live
+frame, `step` must run consecutively from frame 0 and lie in [1, 32], `p` must be in [0, 31],
+`orient` in {0, 1} and `prev_tail` in [0, 63]. `bd` and `wd` must be in [0, 6] on every frame below
+the top one. The top frame's `phase` must be ENTER, since that is the only phase the writer
+captures in. `seq[0 .. 2·step_top − 1]` must be in [0, 63]. A failure prints `WARN:
+dfs_state_read_v2: <file>: <field> out of domain at index <i>; refusing to resume from a corrupted
+or foreign sidecar` and returns −1, as the Q-732 size check above it does.
+
+The file then falls through to the v1 reader, which refuses it, and the cell is walked from node 0.
+That is correct, only slower. Measured with the -O3 build: the refused cell ended with the same
+shard, the same `solutions.bin` and the same final sidecar as a run that resumed it.
+
+The top frame's `bd`/`wd` and `seq` from `2·step_top` on are deliberately not checked. The walk
+writes them before it reads them, and they carry stale or unset bytes (part 7). Over the 3,030 real
+sidecars, the top frame's (`bd`, `wd`) pair took 15 distinct values, which are leftovers from deeper
+frames. Every checked field was in domain in all 3,030.
+
+The Gate-A comparator design specifies `seq` in [0, 63] over all 64 positions, which is stricter
+than this check. That rule could refuse a real sidecar whose unfilled positions hold unset bytes.
+
+**2. F1 — 192-bit limbs indexed through a member address.** `kc_u192_mul` (solve.c:19650-19667)
+read and wrote limbs as `(&a->l0)[i]` across the three-field `F1U192` struct. By C11 6.5.6p8 this is
+undefined for i ≥ 1, because `&a->l0` points to a single `uint64_t`. The limbs are now copied into
+`const uint64_t al[3]`, `bl[3]`, and each partial product is built in a real `uint64_t limb[3]`.
+The arithmetic is unchanged.
+
+gcc 13.3 at `-O3 -march=native -Wall -Wextra` gave no `-Warray-bounds` warning here before, and no
+sanitizer flags this form. No run-time test can therefore observe the cure. The multiplier's
+seven callers, and the three `qsort` calls in part 3, are all run by `scripts/tr12_repro.sh --n9`.
+It runs `--kc-g-check`, `--kc-t-check`, `--kc-scan`, `--kc-selftest`, `--kc-midn` and
+`--kc-oocverify`, and passes unchanged.
+
+**3. F10 — a comparator called through a cast function pointer.** Three `qsort` calls
+(solve.c:21740, 21867, 22047, in `kc_selftest`, `kc_midn` and `kc_oocverify`) passed
+`kc_u192_cmp`, whose parameters are `const F1U192 *`, cast to `int (*)(const void *, const void
+*)`. By C11 6.3.2.3p8, calling a function through an incompatible pointer type is undefined. A
+wrapper, `kc_u192_qcmp(const void *, const void *)` (solve.c:19634), now takes qsort's own
+comparator type, and the three calls use it.
+
+gcc has no sanitizer for this (Clang's `-fsanitize=function` does, but the worker has no Clang), so
+the cure is pinned in source. solve.c now has no function-pointer cast of any kind.
+
+**4. F2 — progress monitors read worker counters with plain loads.** Three monitor loops read
+counters that worker threads write while they run: the `--sub-branch` parallel monitor
+(solve.c:48663-48722), the multi-branch monitor (solve.c:49026-49041) and the single-branch monitor
+(solve.c:49718-49733). The counters are `nodes`, `solutions_total`, `solutions_c3`,
+`solution_count`, `branches_completed`, `hash_collisions` and `nodes_at_depth[]`, plus
+`threads_completed`, `sub_sub_next_idx` and `sub_sub_task_done[]`. The budget aggregator
+`sub_sub_sum_counters` (solve.c:613) also read the per-CCD counters with plain loads, although
+their writers use atomic adds. All of these reads are now `__atomic_load_n(…, __ATOMIC_RELAXED)`,
+which compiles to the same plain load on x86-64. The loads after `pthread_join` were already
+synchronised and are unchanged.
+
+`sub_sub_sum_counters` is now race-free, because its writers were already atomic. The monitor
+reads are not: the worker-side increments (`ts->nodes++` and the like) are still plain stores, so by
+the letter of C11 5.1.2.4 those pairs are still a data race. Making the hot-path increments atomic
+needs a throughput benchmark first, and that is filed as a follow-up. The monitors feed progress
+lines only. No test can observe this cure, so it is pinned in source.
+
+**5. F5 — no compile-time check on `F1U192`'s size or the host's byte order.** `F1U192` arrays and
+their checkpoints are written with raw `fwrite` in native byte order. The typedef line
+(solve.c:13783) now carries `_Static_assert(sizeof(F1U192) == 24, …)` and
+`_Static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, …)`. On the supported hosts both hold,
+so the build does not change. SOLVE_C_CLI.md (NOTES) records the requirement.
+
+**6. Callers and documentation.** The only caller of `dfs_state_read_v2` is the sub-branch resume
+at solve.c:9900, which falls back to the v1 reader when it returns non-zero. `kc_u192_mul` has
+seven callers, and none sees a change. The three `qsort` sites are the only users of the old cast.
+Scripts that resume sidecars (`scripts/selftest_resume_167_gate.sh` and the 167-guard tests) read
+only sidecars this writer produced, and those pass the new check. `documentation/SOLVE_C_CLI.md`:
+the `*.dfs_state` entry under FILES now states the frame-domain rule and its WARN line, and NOTES
+states the host byte-order requirement. Both are same-line additions dated
+`(Q-627, 2026-09-27)`.
+
+**7. Not cured here: F3.** In `backtrack_iterative`, a pushed frame's `bd`/`wd` are set only when
+the frame finds a child, and `seq` above the fill depth keeps whatever an earlier subtree or an
+earlier sub-branch left there. Both are serialised into the v2 sidecar. By C11 6.3.2.1p2 these are
+indeterminate values, not undefined behaviour, because the objects' addresses are taken.
+
+The cure would be to zero-initialise the stack and `seq`. That changes on-disk bytes in exactly
+those positions, and the Gate-A checkpoint comparator compares them. The adjudication therefore
+holds F3 until the comparator carries a rider for it. The F9 check above is built so that it never
+depends on those bytes.
+
+**8. Tests.** A new class, `TestQ627UBCures`, 10 tests. One real PHASE_A at
+`SOLVE_NODE_LIMIT=2000000` writes fixed-era sidecars. Ten get one out-of-domain byte each:
+- a gap in the step sequence;
+- steps shifted so frame 0 is 0;
+- steps shifted so the top frame is 33;
+- `p` = 32;
+- `orient` = 2;
+- `prev_tail` = 64;
+- `bd` = 7;
+- `wd` = 7;
+- top-frame `phase` = 1;
+- the last filled `seq` byte = −1.
+
+Two get a byte the walk never reads: the top frame's `bd` = 100, and the first unfilled `seq` byte
+= −1. PHASE_B runs at 4,000,000. The tests check that:
+- each of the ten is refused with its exact WARN line and is not resumed;
+- the two are resumed;
+- every other sidecar resumes with no refusal;
+- PHASE_B exits 0 and its auto-verify passes.
+
+A compile test forces `__BYTE_ORDER__` to big-endian and requires the build to fail on the F5
+assert. Its precondition is that a probe file shows the override took effect. Source pins over
+comment-stripped code cover F1, F2, F10 and the F5 size assert. Each pin has a positive control on
+the old line, and each checks that a copy of the pattern inside a comment does not count.
+
+On the old solve.c (`ROAE_TESTS_SOLVE_SRC`), 8 of the 10 tests fail: all ten refusal subtests, the
+count of reads (3,030 against the expected 3,020), PHASE_B, the compile test and the four source
+pins. On the old reader the resumed frames produced records that failed the C1–C5 check, and the
+merge exited 30. The two that pass on both are the fixture preconditions and the never-read bytes
+test.
+
+Twenty-one mutants were each run against the whole class, and all 21 were killed:
+- the F9 check: each clause removed in turn (step sequence, step < 1, step > 32, `p`, `orient`,
+  `prev_tail`, `bd`, `wd`, top-frame `phase`, the `seq` loop, the refusal itself). Each is killed
+  by its refusal subtest (the last one by all ten) and by the read-count test. Removing step > 32 or
+  the phase check also makes PHASE_B's merge fail its C1–C5 verify (exit 30), and so does removing
+  the refusal;
+- the check weakened to `p` ≤ 32 or to a `seq` loop one short: killed the same way;
+- the check tightened to test the top frame's `bd`/`wd`, or to test one `seq` byte past the
+  filled prefix: killed by the never-read bytes test;
+- the old code restored at one site for F1, at a monitor line and at `sub_sub_sum_counters` for F2,
+  and at one `qsort` site for F10: killed by that finding's source pin;
+- the endianness assert made vacuous: killed by the compile test;
+- the size assert weakened to ≥ 24: killed by its source pin.
+
+**9. Gates**, on the lane tree (the batch-24 base plus this change) with PYTHONPATH unset.
+`python3 tests.py`: OK. `scripts/pre_push_compile_gate.sh`: PASS, with 8 warnings, all in the
+baseline; the -Wall -Wextra warning set is identical before and after.
+`scripts/citation_line_gate.sh --all-files --all-targets`: 0 citations shifted; its one `[FAIL]`
+(leg B, the stale `CAMPAIGN_METHODOLOGY.md`→`HISTORY.md` pin) failed identically on the unchanged
+base. `scripts/doc_gates.sh` with this entry appended gave, line for line, the findings of the
+unchanged base. `scripts/tr12_repro.sh --n9 --solve ./solve`: `TR12_REPRO=PASS`, no golden changed.
+
+`./solve --selftest` was also run from a `-fsanitize=undefined` build, before and after, with
+`UBSAN_OPTIONS=log_path` set so the child enumeration it starts would log too. A positive control
+showed that a child's diagnostic is captured that way. There were 0 diagnostics before and 0 after.
+The selftest runs the recursive walk, so it reaches none of the code these cures touch. solve.c and
+tests.py are in the TR-12 reproduction fingerprint, so the batch re-stamps it.
+
+## CX-237 — no test ran `solve.py --sat-c3 adder`, so a return to its pre-`3d8dd79f` output (786,432 unused Tseitin clauses and no C3 status entry) would have passed the suite; a test now pins adder's clause stream to none's and its sidecar entry to zero aux variables and zero linking clauses (tests.py)
+
+**2026-09-27.** Origin: backlog row Q-882. Landed by Opus HAF. solve.py is not changed.
+
+**1. What was wrong.** `p3_sat_encode()` in solve.py, the legacy position-hexagram encoder behind
+`--sat-encode OUT.cnf --sat-c3 none|pb|adder`, treats `adder` as deferred: it writes a status
+entry to the `.meta.json` sidecar and adds no variable and no clause. Until public commit
+`3d8dd79f` (2026-09-02) the pb guard read `if include_c3 in ("pb", "adder"):`, so `adder` emitted
+pb's 262,144 pair aux variables and their 786,432 linking clauses, which nothing read (266,240
+variables and 1,058,560 clauses, the same clause set as `pb`), and never wrote its status entry.
+That commit fixed the encoder, but no test ran `include_c3="adder"`. The only mention in tests.py
+was a docstring sentence in `TestSatEncodeHeaderNamesTheFileContents`. Reverting the guard would
+have passed the whole suite.
+
+**2. The change.** One new class, `TestLaneHAFQ882SatC3AdderEmitsNoClause`, is added to tests.py
+(3 tests). It encodes `none`, `adder` and `pb` once each (C4 and C5 off). For each output it takes
+the SHA-256 of the clause lines, meaning every line that is neither a `c` comment nor the `p cnf`
+header. The whole files are not compared, because the `c generated` timestamp and adder's extra
+`c NOT in this file: C3` line differ legitimately.
+- Preconditions, checked for each mode used: at least one clause was written; the test's digest
+  equals the sidecar's own `sha256_clauses_only`; the sidecar's `clauses` equals the counted lines;
+  the sidecar's `include_c3` names the mode. The none stream must also have the size the encoding
+  implies. That size is computed in the test as 128 × (1 + 2,016) + 32 × 64 + 31 × 64 × 6 =
+  272,128 (one-hot rows and columns, C1, C2), and the header must read `p cnf 4096 272128`.
+- `adder` must have the same clause count, the same `p cnf` line and the same clause digest as
+  `none`.
+- `adder`'s sidecar must record 4,096 variables and exactly one `pb_constraints` entry. That entry
+  must have form `abs_sum_complement_distance`, status `deferred_superseded_by_pairslot_model`,
+  `n_aux_vars` 0 and `n_link_clauses` 0.
+- Positive control: `pb`'s clause digest differs from `none`'s. It has exactly 786,432 more
+  clauses and header `p cnf 266240 1058560`, and its sidecar reports `n_aux_vars` 262,144 and
+  `n_link_clauses` 786,432. So the equality and the zeros above are measured against an encoder
+  that produces something else when the scaffolding is present.
+
+The class takes about 5 s. It deletes pb's .cnf and .opb (about 50 MB together) as soon as they
+have been digested.
+
+**3. Callers.** `p3_sat_encode` is called by `solve.py --sat-encode` and by
+`TestSatEncodeHeaderNamesTheFileContents` and this class in tests.py.
+
+**4. Tests.** tests.py has no switch that loads a different solve.py (`ROAE_TESTS_SOLVE_SRC`
+covers solve.c only). So the red run and the mutants used a one-off harness that loads tests.py
+as a module, swaps the module's `solve` for a scratch copy, and runs the class.
+- Red: solve.py with only the pb guard reverted to `in ("pb", "adder")`. Both adder tests fail
+  (1,058,560 clauses against 272,128; 266,240 variables against 4,096). The pb control passes.
+- Green: the unmodified solve.py passes all 3 tests.
+
+| mutant | on | failing tests |
+|---|---|---|
+| pb guard reverted (the pre-`3d8dd79f` encoder) | encoder | the clause-stream test and the sidecar test |
+| adder sidecar `n_aux_vars` set to 1 | encoder | the sidecar test |
+| adder appends one clause | encoder | the clause-stream test |
+| adder reverses the literals of its first clause (count unchanged) | encoder | the clause-stream test (digest leg only) |
+| pb emits no aux linking | encoder | the positive control |
+| digest equality assertion removed, run on the reverted encoder | test | still red: the count leg and the sidecar test |
+| whole clause-stream leg removed, run on the reverted encoder | test | still red: the sidecar test |
+| sidecar test emptied, run on the reverted encoder | test | still red: the clause-stream test |
+| digest fed no bytes | test | all 3 tests (the sidecar-digest precondition) |
+| `pb != none` assertion made vacuous, run on the pb-no-op encoder | test | still red: the positive control's count leg |
+
+Removing the digest equality lets the reordered-clause mutant pass, so that assertion is the only
+check that catches a same-count change to the stream, and it is kept.
+
+**5. Gates**, on the lane tree (the batch-24 base plus this change). solve.c is not changed, and
+`./solve --selftest` prints the unchanged sha. `python3 tests.py` passes.
+`scripts/pre_push_compile_gate.sh`: PASS. `scripts/tr12_repro.sh --n9`: `TR12_REPRO=PASS`, and no
+golden file changed. `scripts/citation_line_gate.sh --all-files --all-targets` and GATE 2c of
+`scripts/doc_gates.sh` reported one failure, the stale pin from
+documentation/CAMPAIGN_METHODOLOGY.md into documentation/HISTORY.md that the base tree has without
+this change. No line citation shifted, and doc_gates reported no other failure. tests.py is in the
+TR-12 reproduction fingerprint, so the batch re-stamps it.
+
+## CX-238 — two published-surface gates printed `[ok]` over a population they never measured: GATE 22's token grep and G1's placeholder grep both ran as `2>/dev/null … || true`; each now checks its producer's exit status, prints a count receipt, and fails below a floor (scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.sh; scripts/gate_published_consistency.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-09-27.** Origin: backlog row Q-883, filed from Fable's E4 inventory of the Q-634 Part 2 defect
+classes (FIX-1 and FIX-2 there). Landed by Opus HAG. Measured on the worker VM on a fresh clone of
+the batch-24 base with this change overlaid. The script line numbers below are those of the tree
+this entry is published with.
+
+**No published number moves.** Both changes are in gate scripts. No golden, no canonical sha and no
+`solve.c` line changes. On the real tree both gates give the same verdict as before (GATE 22 `[ok]`,
+rc 0; `PUBLISHED_CONSISTENCY=PASS-AT-PIN` with G1 at its pinned 4). Each also prints one new
+receipt line.
+
+**1. What was wrong.**
+- *GATE 22 (`hex-prefix`, in the blocking `all` set).* This gate checks that every truncated sha
+  cited in the Markdown corpus with an ellipsis is a prefix of a 64-nibble string in the tree. It
+  got that list of tokens from `git grep -nHE … -- '*.md' 2>/dev/null > "$d/hits" || true`. The
+  exit status was thrown away. An empty hits file then flowed through the tokeniser and the
+  resolver as "nothing to check". Fable E4 showed this by putting a `git` on PATH that passed every
+  subcommand through except `grep`, which exited 2. The gate printed `[ok] 0 truncated hex
+  token(s); all resolve or are declared (0 declared)` and `DOC GATES: PASS (hex-prefix)`, rc 0.
+  Reproduced here on the base: same output, rc 0. That was the only check on the published claim
+  that the corpus's truncated sha citations resolve to a full string (129 tokens on the lane's
+  base).
+- *G1 of `gate_published_consistency.sh`.* It ran `grep -rnoE … reports/ README.md 2>/dev/null ||
+  true`. That hid grep's rc 2 for a missing `reports/`, an unreadable file, or a regex broken by a
+  later edit, and it printed an empty result as `[ok] no unfilled placeholders`. Reproduced here in
+  a scratch worktree with `reports/` moved away. The base printed `[ok] no unfilled
+  placeholders`, then `G1 fell to 0 from a pinned 4 — TIGHTEN THE PIN in this same commit`.
+  The gate asked for the pin to be lowered to zero on the strength of a scan that read nothing.
+  (Other legs failed on that same tree because they read files under `reports/`, so the overall
+  verdict there was FAIL for other reasons. G1's own output was a false clean.)
+
+**2. The change.**
+- *GATE 22* (`70_publication_surfaces.sh`, two lines edited in place, no line added). The token
+  grep's stderr goes to a temporary file and its rc is captured. rc 1 means no match and is
+  allowed, but the floor below still fails it. rc 2 or higher prints `[FAIL] GATE 22: the token
+  producer (git grep over tracked *.md) failed rc N, so the population is UNMEASURED and nothing
+  was checked: <its stderr>` and the gate returns 1. After the tokens are classified, the gate
+  prints `GATE22_HEX_TOKENS=N` on a line of its own. If N is below `G22_FLOOR=100` it prints
+  `[FAIL] GATE 22: only N truncated hex token(s) measured, below the population floor 100` and
+  fails. Why 100: the base had 129. That leaves room to retire about 29 citations without editing
+  the gate, while a producer that returns nothing, or only a handful of lines, reads FAIL.
+- *G1* (`gate_published_consistency.sh`, three lines edited in place, no line added). G1 first
+  checks that `reports/` is a directory and `README.md` is readable. If either check fails it
+  prints `[FAIL] G1: <root>/reports/ or <root>/README.md is missing or unreadable -- this leg
+  measured NOTHING`. It then runs the grep without `|| true` and branches on the rc: 0 means
+  placeholders were found, and the existing per-hit FAIL lines and the ratchet count apply as
+  before. 1 means none. 2 or higher prints `[FAIL] G1: the placeholder grep failed (rc N)`. G1 prints
+  `G1_FILES_SCANNED=N`, the number of regular files under `reports/` plus `README.md`, and fails
+  below `G1_FLOOR=200`. Why 200: the base had 290 (289 files under `reports/` plus `README.md`),
+  which leaves room to retire about 90. Any of these failures sets `G1_ERR=1`. The ratchet
+  starts from `ratchet=$G1_ERR`, so the verdict is `PUBLISHED_CONSISTENCY=FAIL` and the ratchet
+  prints a line saying why. `G1_ERR` gets no default, so under `set -u` a path that never sets it
+  aborts instead of reading as clean. G1 no longer prints `[ok] no unfilled placeholders` when
+  `G1_ERR` is set. `G1_ROOT` redirects G1 alone to another directory, with a `[note]` line naming
+  it. This follows the precedent of `G19_DOC`. It exists so the tests can move G1's verdict while
+  every other leg still reads the real tree at its pin.
+- *doc_gates.sh `--selftest`.* A new hand-written leg runs three cases, using the PATH-shim recipe
+  from Fable E4. The shim refuses only the population grep, which it recognises by its exact
+  pattern argument. A shim that refused every `git grep` would also empty GATE 22's universe, and
+  that leg's own empty-universe `[FAIL]` would answer instead. The shim touches a marker file when
+  it acts, and each case checks that the marker exists before trusting the result. Case 1: the
+  unshimmed run gives rc 0, a receipt of at least 100, and an `[ok]` line with the same count.
+  Case 2: the population grep exits 2, and the run must give a non-zero rc and the FAIL line naming
+  the producer. Case 3: the population grep succeeds but returns 3 lines, and the run must give a
+  non-zero rc, a receipt below 100 and the floor FAIL line. The printed note that listed GATE 22
+  among the gates with no mutation-test leg at all now lists it as partly tested: its producer rc
+  and population floor only. Its NEAR and UNRESOLVABLE legs have still never been shown to fire.
+  The same edit was made to the matching comment bullet. No function was added inside the
+  self-test region, so GATE 15's instrument census does not move.
+- *documentation/DEVELOPMENT.md*: the `PUBLISHED_CONSISTENCY=FAIL` row of the verdict table now
+  names the three G1 failures and the receipt (same-line edit).
+
+**3. Callers.** `gate_hex_prefix` is called only by `doc_gates.sh` (`hex-prefix` and `all`).
+`doc_gates.sh all` is run by `scripts/pre_push_gate.sh`. `gate_published_consistency.sh` is run by
+`scripts/pre_push_gate.sh`, which reads its verdict with `grep -qx`, and by two existing tests.py
+classes (G19, and the Q-842 G14 class), which match only their own legs' lines. No test, golden or
+script matched the GATE 22 `[ok]` line or the G1 `[ok]` line. Both are unchanged, and neither new
+receipt line can match an existing pattern.
+
+**4. Tests.** A new tests.py class, `TestQ883G1PlaceholderPopulation` (6 tests), runs the real
+script with `G1_ROOT` pointed at a scratch root:
+- the real tree gives a receipt of at least 200 and no G1 FAIL, with the verdict PASS or
+  PASS-AT-PIN;
+- no `reports/` gives the missing-root FAIL, a receipt of 0, no `[ok]`, and verdict FAIL;
+- 5 report files plus `README.md` give a receipt of 6, the floor FAIL, and verdict FAIL;
+- a mode-000 file among 210 clean ones gives `grep failed (rc 2)`, no `[ok]`, and verdict FAIL.
+  This case is skipped as uid 0, where chmod denies nothing;
+- 210 clean files give `[ok]` and no G1 FAIL;
+- a planted `[REPRO-TAG]` gives a FAIL naming `reports/ZZ_PLANT.md:1`.
+
+Each override case first checks that the override was honoured. Red → green: all 6 fail on the
+base script and pass after. The three `--selftest` cases fail on the base GATE 22 (the leg,
+extracted and run against the base module, printed three `[FAIL]` lines) and pass after.
+
+Mutants. Each was applied in turn, run, and reverted:
+
+| mutant | killed by |
+|---|---|
+| GATE 22 producer back to `2>/dev/null … \|\| true` | `--selftest` case 2 (the floor also fails that run, with rc 1) |
+| `G22_FLOOR=0` | `--selftest` case 3 |
+| G1 grep back to `2>/dev/null \|\| true` | `test_grep_error_is_fail_not_ok` |
+| `G1_FLOOR=0` | `test_below_floor_is_fail` |
+| `ratchet=0` (`G1_ERR` not wired to the verdict) | `test_missing_reports_dir_is_fail`, `test_below_floor_is_fail`, `test_grep_error_is_fail_not_ok` |
+| G1 existence check removed | `test_missing_reports_dir_is_fail` (grep's rc 2 still fails the run; the test pins the named missing-root line) |
+
+**5. The class sweep.** Fable E4 counted three sites in public gate scripts where `|| true`
+guarded a population producer. GATE 3's evidence enumeration in `20_retract_links_status.sh` (line
+34) had been closed by CX-117's `GATE3_EVIDENCE_COUNT` floor, and this entry closes the other two.
+The sweep was re-run on the lane's base with `grep -nE "(grep|git (grep|ls-files)|find|awk)[^#]*\|\|
+*true"` over the `scripts/*gate*.sh`, `scripts/doc_gates.sh` and `scripts/doc_gates.d/*.sh` files
+(64 of them there), and each hit was read in context. **One more live site of the same shape was
+found, and it is listed here, not fixed:** `gate_published_consistency.sh:47-49` (G2). Its
+population producer is `grep -rnE … reports/ documentation/ 2>/dev/null` at the head of a pipeline,
+and the `|| true` that ends the pipeline on line 49 hides that grep's rc 2 under `set -o pipefail`.
+Fable screened that line as a filter. Shown here with a PATH `grep` shim that refuses only that
+pattern: G2 printed nothing against itself, the ratchet printed `G2 fell to 0 from a pinned 9 —
+TIGHTEN THE PIN`, and the verdict stayed `PUBLISHED_CONSISTENCY=PASS-AT-PIN`. It is not fixed here
+because the fix spans a three-line pipeline and needs a floor on G2's own population, which is a
+separate decision. The rest were screened, not charged:
+- G9 `:274-275` and G10 `:320-321` read one named, readability-checked file;
+- `20_retract_links_status.sh:142` greps a temporary directory the function has just built from the
+  floored evidence list;
+- GATE 79 (`70_publication_surfaces.sh:710-713`) already fails on zero;
+- `group_c_n9_rehearsal_gate.sh:140-141` fails on zero invokers;
+- `sidecar_sha_gate.sh:51-52` is preceded by a readability check on `solve.c`;
+- `pre_push_gate.sh:1358` is advisory;
+- `exec_lane_verdict_gate.sh:291` filters the gate's own output file.
+
+**6. Gates.** `GATE22_HEX_TOKENS` is documented by this entry, as `GATE3_EVIDENCE_COUNT` is by
+CX-117; without the entry, GATE 89 (`emitted-surface`) names it as an undocumented verdict token.
+`G1_FILES_SCANNED` is also named in documentation/DEVELOPMENT.md. Measured on the worker:
+`python3 tests.py` (PYTHONPATH unset) run before this entry was appended failed exactly one test,
+`TestQ867DocPointersAfterQ857.test_gate89_does_not_read_generated_inventories_as_documentation`,
+which is the GATE 89 finding just described. `bash scripts/pre_push_compile_gate.sh` PASS;
+`bash scripts/citation_line_gate.sh --all-files --all-targets` `CITATION_LINE_GATE=PASS`;
+`bash scripts/doc_gates.sh --selftest` `DOC_GATES_SELFTEST=PASS`; `bash scripts/doc_gates.sh`
+reported only the base's known finding; `scripts/tr12_repro.sh --n9` `TR12_REPRO=PASS` with no
+golden changed.
+
+## CX-239 — SOLVE_MERGE_ALLOW_INCOMPLETE applied at any scale, SOLVE_CONCENTRATE_BUDGET was on for `=0` and for an empty value, the pre-push verdict record left every advisory leg to run again, five public evidence files pointed into the private repository, and nine public commits carried a placeholder author; the override is now refused at canonical scale, the switch is strictly 0 or 1, the record carries the tree-only advisory legs, the pointers are plain descriptions, and a .mailmap names the author (solve.c; tests.py; scripts/pre_push_gate.sh; scripts/prepush_verdict_record.sh; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md; reports/evidence/; runs/; .mailmap)
+
+**2026-09-27.** Origin: operator decisions of 2026-09-27 on the open items of this batch and older
+ones: the SOLVE_MERGE_ALLOW_INCOMPLETE follow-up to Q-881 (CX-235), the SOLVE_CONCENTRATE_BUDGET
+question lane HE's entries left open (CX-202, CX-207), the Q-798 advisory legs, the private pointers
+CX-203 listed and left, and the placeholder author of batches 13 to 21. Written by Opus HAJ;
+measured, with three test fixes, by Opus HAJ2 after HAJ's worker was evicted before its first build.
+
+**No published number moves.** Parts 1 and 2 change only what a launch or a merge refuses; a run
+they let through takes the same path as before. Part 3 changes the push hook. Parts 4 and 5 change
+no figure. The selftest sha and the n=9 battery are unchanged (part 8).
+
+**1. SOLVE_MERGE_ALLOW_INCOMPLETE is refused at canonical scale.**
+
+*What was wrong.* CX-235 added `SOLVE_MERGE_ALLOW_INCOMPLETE=1`, which lets `--merge`,
+`--merge-layers` and the end-of-enumeration merge go ahead over an enumeration that did not finish
+(`MERGE_INPUT=INCOMPLETE_ALLOWED`). It exists for the "run N minutes, take what we got" time-limit
+workflow in DEVELOPMENT.md. Nothing stopped it on a canonical-scale run, where a partial merge is
+never a result.
+
+*The change.* With the variable set to 1, solve refuses (an `ERROR:` line naming the variable, a
+whole line `MERGE_OVERRIDE=REFUSED`, exit 35) when the run's node budget is 1T (1,000,000,000,000
+nodes) or more, when the run has no node budget and no time limit, and when the budget cannot be
+determined. A run with no node budget and a time limit, the documented workflow, is allowed.
+- The budget of a launch is the larger of `SOLVE_NODE_LIMIT` and `SOLVE_PER_SUB_BRANCH_LIMIT` times
+  the number of sub-branches in the partition, since with the per-sub-branch limit every cell walks
+  that many nodes whatever `SOLVE_NODE_LIMIT` says.
+- An enumeration (full run and `--branch`) judges it in memory in `q881_mark_incomplete()`, before
+  it writes its run-in-progress marker and before any worker starts, so a canonical launch with the
+  variable set stops with no shard written. It then writes the budget and its time limit into the
+  marker, `enum_incomplete.txt`, as `run_node_budget=` and `time_limit_seconds=`.
+- A merge judges it in `q881_merge_input_gate()`, only when the override would be used (the marker
+  is present, or a sub-branch is INTERRUPTED and never finished), before any output is written. It
+  reads the marker's two lines. Failing that it reads `resume_contract.txt` (written when
+  `SOLVE_DFS_CHECKPOINT=1`), whose `node_limit=` is the budget when `per_sub_branch_limit=` is 0.
+  Either file at 1T or more refuses. A marker written before this change, and a directory with no
+  marker and no usable `resume_contract.txt`, have no readable budget and are refused.
+- Nothing new runs unless the variable is 1. On the default path the only change is the marker's
+  two added lines, and the marker is removed when the run finishes.
+
+Code: solve.c:1891 (declarations), :49008 and :49696 (the two launch sites), :51812-51820 (the
+launch check and the marker's lines), :51905 and :51974 (the two merge arms), and the new functions
+at the end of the file. The launch sites and the merge arms are same-line edits.
+
+**2. SOLVE_CONCENTRATE_BUDGET is strictly 0 or 1.**
+
+*What was wrong.* The two use sites tested `getenv("SOLVE_CONCENTRATE_BUDGET") != NULL`, so `=0`
+and an empty value turned it on. SOLVE_C_CLI.md said so and told the reader not to write `=0`.
+CX-207 left it open for the operator.
+
+*The change.* `1` is on; `0` or unset is off. Any other value exits 2 from the environment
+preflight with lane HE's `ERROR: environment variable … must be 0 or 1` line and
+`SOLVE_ENV=REFUSED name=SOLVE_CONCENTRATE_BUDGET value=<v>`. Unlike the variables in lane HE's
+tables, an empty value is refused and not read as unset: a launch that set it empty was running
+with it on, and reading empty as off would change that run's budget without a word. solve.c:48440
+and :49581 (use sites) and :51739 (the check, on the preflight's `return` line), all same-line.
+
+**3. The pre-push verdict record carries the tree-only advisory legs.**
+
+*What was wrong.* Q-798's record let the hook reuse nine blocking legs on an exact tree match,
+but every advisory leg still ran on the pushing machine.
+
+*The change.* The record may now carry `ADV_<NAME>` for the advisory legs whose answer depends on
+nothing but the tree and the toolchain: the Q-479 battery's three public gates
+(`f1c5_adopt_digest_gate.sh`, `resume_budget_infinity_gate.sh`, `q317_missing_shard_merge_gate.sh`),
+`reproduce_digests_gate.sh` and `failopen_closure_gate.sh`. The hook prints `PREPUSH_ADV_<NAME>=`
+per pushed sha (`PASS`, `FAIL`, `NOT-RUN`, or `REUSED`), the writer copies those lines into the
+record, and `check` prints `PREPUSH_RECORD_ADV_<NAME>=` on MATCH for each one held as PASS or FAIL.
+On a match the hook skips a leg the record holds as PASS or FAIL and prints `[reused]`; a recorded
+FAIL is printed and never touches the exit status. A record without the leg, or with any other
+value, runs it as before. The keys are optional and never decide MATCH, so a record written before
+this change still matches. The Q-479 build runs only if one of its gates, or the private scale gate,
+is left to run.
+
+Excluded, and why, per the helper's header rule: `doc_gates.sh --selftest` (its fire-proofs read
+`git rev-list HEAD -- documentation/CORRECTIONS.md` and the named commits b5bcff7c and 00c0db0, in
+a clone that fetches the remote-tracking refs, so its answer depends on history); the
+scale-distinguishable gate (a private script found through `ROAE_PRIVATE_DIR`); the Group C
+rehearsal and the review loop (they read the pushing clone's working tree and private state); and
+the reproduction stamp with its skip pin and the row-assertion sweep (tree-only, but under a second
+each, and the stamp stays a local cross-check of the record's `LEG_TR12_STAMP_CURRENT`).
+
+The worker's check runs the hook in producer shape (a `refs/tags/` ref with an all-zero remote sha),
+so every conditional leg runs and prints its `PREPUSH_ADV_` line.
+
+**4. Private-repository pointers in public evidence.**
+
+*What was wrong.* Five files named a path in the private repository: three under
+`reports/evidence/` (`f1/f1_orbit_dp.py:4`, `r11/r11_calibration.py:2`, `r7/r7_run_20260712.log:2`)
+and two under `runs/` (`20260422_passA_10T_d64_laggard/README.md:126`,
+`20260906_kc_ladders_n31/STAGE_T_RAW_VERIFY.md:71`). These are the five CX-203 listed and left.
+The same README's line 128 also named the private file and repository.
+
+*The change.* Each path is now a plain description, with no private path: the F1 pointer names
+`F1_ORBIT_QUOTIENT_2026_07.md`, which is published in the same directory; the R11 and the two `runs/`
+pointers say "private working notes, not published". The R7 log is the record of a past run, so it was
+redacted in place as Q-868 did: the path alone is now `<private design record>`, no other byte
+changed, and a new `reports/evidence/r7/README.md` records the redaction and the log's sha256 before
+the edit (`f741e33d…`). No manifest or registry pins any of the five files' digests.
+
+Not changed: bare private file names with no path, which are not the same kind of pointer, remain
+in `reports/evidence/` (for example `r11/r11_calibration.py:1094`, which prints the design's name
+into `r11/calibration_report.txt:1`, so changing it would change a published output).
+
+**5. .mailmap.** The public commits for batches 13 to 21 (nine commits) carry the placeholder
+author `queue <q@local>`; the committer is correct. A top-level `.mailmap` maps that identity to the
+operator's. On the lane's base, `git shortlog -se` listed 9 commits under `queue <q@local>` without
+the file and none with it. History is unchanged.
+
+**6. Callers.**
+- `SOLVE_MERGE_ALLOW_INCOMPLETE`: set only by `tests.py` (CX-235's class and this one). One of
+  CX-235's assertions merged a stopped directory with its marker deleted, which now has no readable
+  budget; that loop now merges the larger stopped directory with its marker instead, and this
+  entry's class asserts the marker-less refusal.
+- `SOLVE_CONCENTRATE_BUDGET`: no script sets it. `tests.py` lane HE's positive control set it empty,
+  now `0`. DEVELOPMENT.md and PARTITION_INVARIANCE.md describe `=1`, unchanged.
+- The verdict record: `scripts/pre_push_gate.sh` and the worker's check procedure.
+
+**7. Tests.** `TestLaneHAJ` in `tests.py`, 17 tests. On the base (the same `tests.py` over the base
+`solve.c`, scripts and evidence) all 17 fail (27 failures counting subtests); on the change all 17
+pass, in 58 s on the worker. The `solve.c` fixtures are real depth-2 runs of a `-O1` build, stopped
+by their own 1 s time limit; every test first asserts that the thing it probes happened (a marker
+was written, the divisor line was printed, the producer run ran each advisory leg, the key is
+duplicated). The five script mutants live inside the tests (the hook never reads the record's
+advisory verdicts; the writer never reads `PREPUSH_ADV_*`; an absent verdict counts as PASS; the
+advisory keys are required; an advisory FAIL joins the all-PASS rule; a reused FAIL blocks), and
+each is killed by the test that holds it. Fifteen `solve.c` mutants, each built through
+`ROAE_TESTS_SOLVE_SRC` and run against the class's ten `solve.c` tests:
+
+| Mutant | Killed by |
+|---|---|
+| no launch-time check | `test_launch_at_1T…`, `test_launch_with_no_node_budget…` |
+| threshold `>` in place of `>=` | `test_launch_at_1T…`, `test_merge_reads_the_budget…`, `test_merge_without_a_marker…` |
+| the launch budget ignores `SOLVE_PER_SUB_BRANCH_LIMIT` | `test_launch_budget_counts…`, `test_merge_reads_the_budget…` |
+| no budget and no time limit allowed | `test_launch_with_no_node_budget…`, `test_merge_refuses_when…` |
+| an unknown budget allowed | `test_merge_refuses_when…`, `test_merge_without_a_marker…` |
+| the marker arm of the merge gate not judged | `test_merge_layers…`, `test_merge_reads_the_budget…`, `test_merge_refuses_when…` |
+| the marker-less arm not judged | `test_merge_without_a_marker…` |
+| `resume_contract.txt` at 1T ignored | `test_merge_without_a_marker…` |
+| `resume_contract.txt`'s `per_sub_branch_limit=` ignored | `test_merge_without_a_marker…` |
+| the marker's two lines not written | five tests, `test_launch_just_below_1T…` among them |
+| the marker's time limit read as 0 | `test_launch_with_no_node_budget…`, `test_merge_refuses_when…` |
+| a duplicated marker key accepted | `test_merge_refuses_when…` |
+| no `SOLVE_CONCENTRATE_BUDGET` check | `test_concentrate_budget_is_refused…` |
+| an empty `SOLVE_CONCENTRATE_BUDGET` read as unset | `test_concentrate_budget_is_refused…` |
+| the two use sites presence-only again | `test_concentrate_budget_0_is_off…` |
+
+Lane HAJ2's fixes to the class: the "absent verdict counts as PASS" mutant also skips the advisory
+legs in the producer run, so the test's own precondition failed on the correct code; that one
+producer call now skips the precondition and the test asserts that the mutant's record matched. The
+uncapped launch runs with a 120 s timeout, so on a tree without the refusal the test fails in two
+minutes and does not wait 900 s. Two mutants first survived (`resume_contract.txt` at 1T ignored; a
+duplicated marker key accepted): the contract cases now assert the reason for each refusal, a new
+case pairs a marker below 1T with a `resume_contract.txt` at 1T, and a marker with its budget line
+twice must be refused.
+
+**8. Gates**, measured on the worker on the lane's base (batch 24 with CX-235..CX-238) plus this
+change:
+- `./solve --selftest`, built with `SOURCE_SHA`: sha256
+  `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, unchanged.
+- `python3 tests.py`, `PYTHONPATH` unset: every test passed but one,
+  `TestQ867DocPointersAfterQ857.test_gate89_does_not_read_generated_inventories_as_documentation`,
+  which failed the same way on the base: GATE 89 named `GATE22_HEX_TOKENS` as undocumented until
+  CX-238 was appended.
+- `pre_push_compile_gate.sh`: PASS (8 warnings, all inside the inventoried baseline).
+- `citation_line_gate.sh --all-files --all-targets`: `CITATION_LINE_GATE=PASS`, 0 shifted.
+- `doc_gates.sh` with this entry appended: one finding, the base's own (GATE 89 on
+  `GATE22_HEX_TOKENS`); no token this entry adds is flagged.
+- `tr12_repro.sh --n9 --solve ./solve`: `TR12_REPRO=PASS`, no golden changed.
+
+solve.c, tests.py and scripts/ are in the TR-12 reproduction fingerprint, so the batch re-stamps it.
+
+**9. Not fixed here.**
+- The parallel `--sub-branch` path writes no marker (Q-888 (2)), so it has no launch-time check;
+  a later `--merge` of its directory finds no budget and refuses the override.
+- `SOLVE_SKIP_AUTOMERGE` is still presence-only (`=0` turns it on).
+
+## CX-240 — the n=31 prefix masses and King Wen's ladder entries had no count made without the engine, and the independent readers' n=31 ladder verdicts were private and credited to `solve --kc-t-check` in the Class-A pre-registration; two brute-force modes now recount them, the transcripts are published, and the pre-registration's Stage T date and instrument are corrected (verify.c; tests.py; documentation/VERIFY.md; documentation/PREREG_CLASSA_QUERY_SET.md; documentation/PREREGISTRATION_ESCROW.md; runs/20260906_kc_ladders_n31/)
+
+**2026-09-28.** Origin: residuals R1, R2 and R3 of the Fable review of the Codex KCV findings (could
+the n=31 f/g/t ladders be invalid? verdict NO-BUT), run on the operator's instruction of
+2026-09-28. Landed by Opus HAM. Everything was measured on the worker VM, on a fresh clone of the
+batch-25 work-in-progress base with this change overlaid. No ladder bytes were read: every input is
+a file already in the public tree.
+
+**No published number moves.** Every count made here agrees with the published value.
+`solve.c` is not touched, so `./solve --selftest` still prints `403f7202…`. The one wrong
+statement found is a date and an attribution in the pre-registration, part 3 below.
+
+**Prior work, checked first.** `verify.c`'s default mode (`./verify run.out [max_layer]`) already
+recomputes the layer masses at full 31 with a plain DP that shares no code with `solve.c`
+(VERIFY.md "Per-layer mass agreement at full 31, within memory reach"). That DP merges prefixes into
+`(mask, last, budget)` states. A brute-force count, one prefix at a time, had not been run: the
+review names it as the closing check for R2, and no record of one was found in the project's public
+or private records. For R1 the ladder's g along King Wen's path is already public, in the TR-12
+banked receipt `reports/evidence/tr12/banked_n31_20260922/a2_q3_profile.txt` (31 step rows and 880
+`#alt` rows), so the comparison could run with no ladder access. `verify --knuth-anchors` already
+runs an exhaustive DFS below the 5-, 7- and 9-free KW prefixes, but it gates node and C3 counts, not
+g, and it does not read the ladder's values.
+
+**1. R2 — the prefix masses M_1..M_7.**
+
+*What was wrong.* At n=31 the `mass` column of `reports/FULL31_EXACT_AGGREGATES.md` §1 came from the
+engine alone for k < 31. The plain DP covers small k but is also a layered DP. No count had been
+made by enumeration.
+
+*The change.* `verify --brute-masses RUN.OUT [K] [THREADS]` counts every valid length-k prefix from
+the C4-pinned root, for k = 1..K with K ≤ 10. It follows each prefix by recursion. The only state is
+the running prefix, and nothing is merged. It is written in `verify.c`, not `solve.c`, because
+`verify.c` is the project's independent-instrument file: it shares no code with the builder, and
+the review asks that the check not reuse the builder's DP. The instance comes from `verify.c`'s KW
+table (`build_pairs()`, C2, and C5 budget `(2,8,13,7,1)` re-derived from KW's boundaries). It
+compares each count with the run log's `mass=` line. A layer missing from the log fails, and so
+does a log with no mass lines.
+
+*Measured.* On `runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out`, 16 threads:
+
+| k | brute-force count | FULL31 §1 `mass` | |
+|---|---|---|---|
+| 1 | 56 | 56 | MATCH |
+| 2 | 3,030 | 3,030 | MATCH |
+| 3 | 158,364 | 158,364 | MATCH |
+| 4 | 7,975,320 | 7,975,320 | MATCH |
+| 5 | 386,225,352 | 386,225,352 | MATCH |
+| 6 | 17,953,712,064 | 17,953,712,064 | MATCH |
+| 7 | 799,742,878,656 | 799,742,878,656 | MATCH |
+
+`BRUTE_MASSES_COMPARED=7`, `BRUTE_MASSES_MISMATCHED=0`, `BRUTE_MASSES_RESULT=PASS`; 163 s wall and
+2,606 s CPU for K = 7, 3.4 s for K = 6. K = 8 would take about two hours and was not run. The same
+seven values are the f ladder's own layer masses, as `verify --check-t-ladder` read them from the
+f bytes (part 3: `S_k − S_{k+1} = M_k`). That transcript gives all 31 layers, and all 31 equal
+the §1 column. So the brute count ties the published column to the ladder bytes for k ≤ 7, and
+the independent reader ties it for every k. The review's R2 closing check asked for k ≤ 6; this
+goes one layer further.
+
+*What it does not establish.* M_8..M_30 still rest on the engine's DP, corroborated by the
+independent reader's sums over the f bytes, not by an enumeration.
+
+**2. R1, brute half — f and g along King Wen's path.**
+
+*The change.* `verify --brute-g TSV [KMIN] [FMAX] [THREADS]` reads a `--kc-profile` trace. For
+every step row and every `#alt` row with step s ≥ KMIN (18..31) it does four things. It rebuilds
+KW's depth-(s−1) state from `verify.c`'s own KW table, after checking that the trace's step rows
+are King Wen's path in KW orientation. It checks that the row's placement is a valid child. It
+counts the completions by exhaustive DFS. It compares the count with the row's g. For every step
+row with s ≤ FMAX (0..12) it also counts f, by enumerating every ordering and orientation of KW's
+first s pairs that is a valid prefix ending at the same exit with the same budget use.
+
+*Measured,* on `a2_q3_profile.txt`:
+
+| run | g entries checked (KW path + alternatives) | f entries checked | mismatches | wall |
+|---|---|---|---|---|
+| `--brute-g … 24 10` | 54 (8 + 46) | 10 (steps 1–10) | 0 | 15 s |
+| `--brute-g … 20 11` | 135 (12 + 123) | 11 (steps 1–11) | 0 | 343 s |
+| `--brute-g … 18 0` | stopped unfinished after 44 min 45 s wall (39,798 s CPU); no result | — | — | — |
+
+King Wen's own g(KW_k), brute force against ladder, k = 24..31: 5,624; 320; 52; 10; 6; 2; 2; 1. All
+equal. From k = 20: 227,745,800; 8,889,000; 690,176; 51,280, all equal. f(KW_k) for k = 1..11: 1;
+1; 3; 6; 18; 75; 378; 4,128; 85,184; 2,059,040; 38,593,744, all equal. The ladder values are the
+trace's; the trace was produced by `solve --kc-profile` reading the n=31 f and g ladders
+(2026-09-22 banked run). So these are comparisons against ladder entries, not against the engine
+re-deriving them.
+
+*Not run here, because they need the ladder bytes themselves:* R1's sampled-recurrence check and its
+stabiliser-invariance scan.
+
+*What it does not establish.* It pins the named entries only. The balanced-error subspace R1
+describes is untouched away from King Wen's path.
+
+**3. R3 — the independent readers' n=31 verdicts, published; the pre-registration corrected.**
+
+*What was wrong.* The two `verify.c` reader runs on the n=31 ladders were recorded only in private
+evidence. PREREG_CLASSA_QUERY_SET.md:235 credited the tokens `32 identities checked, 0 skipped,
+TLADDER_RESULT=PASS` to `--kc-t-check`, and :261 did the same. `solve --kc-t-check` prints
+`KC-T CHECK n=31 PASS` and none of those tokens; they are `verify --check-t-ladder`'s.
+
+A second defect turned up when the transcripts were matched to their runs, and the review repeats
+it. :235 gave the date as 2026-09-04, and :530 gave "2026-09-04 at 06:48:28 UTC" and described that
+PASS as the 32-identity one. It was not. The 06:48:28 UTC PASS was `verify --check-t-ladder … 4`,
+a `max_k = 4` run covering layers 0–4 (`IDENTITIES_CHECKED=5`). That is recorded in the run's
+private evidence log and in a private note taken from the running process's command line. The
+32-identity run, `verify --check-t-ladder … 31`, finished on 2026-09-05 at 13:24 UTC. So the
+2026-09-06 edit that moved these dates from 09-05 to 09-04 was wrong, and so is its account of the
+error. :500 already gave 2026-09-05 and is right.
+
+*The change.* `runs/20260906_kc_ladders_n31/VERIFY_CHECK_T_LADDER_n31.txt` and
+`VERIFY_CHECK_G_LADDER_n31.txt` are the two captured logs, byte for byte, each behind a comment
+header. The t log is 7,025 B, sha256
+`083658fdb765af162a28fe15f5d657ee366968e23edd2918999a758a4bb9583f`, and ends with the wrapper's
+`DONE_RC=0`. The g log is 6,383 B, sha256
+`d6a31bfae634f45f29f809a342ea21c003ede9fcd2c80f1a98c2856efadb3398`. The headers give the command
+with the ladder paths replaced by `FDIR`/`TDIR`/`GDIR`, the verdict, the dates and the binary.
+- The g binary: sha256 `530d70c2dac0c16175235ed66a586b54cb393ec02bacc3629fd1ec64dd2ad4dd`
+  (231,800 B), built from `verify.c` at public commit `7832aad7`. The manifests it read hash to the
+  `STAGE_F`/`STAGE_G` registry rows.
+- The t run's binary was not hashed at the time, and the header says so. The `verify.c` kept from
+  the Stage T host is byte-identical to the one at public commit `02288d83`.
+
+The logs contain no host, path, disk or account name. Nothing was removed from them.
+
+The directory README gains a section that lists both files and states their provenance and
+scope, and VERIFY.md gains two sections: one for the two new modes, and one for the n=31 identities
+as the independent verifier read them. The pre-registration's :235, :261 and :530 get same-line
+corrections: :235 and :261 now name the instrument that printed each token, and :530 records that
+the 06:48:28 UTC PASS covered 5 identities. Each edit keeps the old wording in a ⚠ CORRECTED note.
+No line number moves. :235 and :261 also say that `solve --kc-t-check` passed the same identity at
+all 32 layers on 2026-09-15; that run's transcript was already published as
+`runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt` (`KC-T CHECK n=31 PASS`, 0 failing layers,
+2026-09-14 19:31:13 UTC to 2026-09-15 21:17:51 UTC).
+
+The pre-registration is published but not yet frozen, so its digest on PREREGISTRATION_ESCROW.md
+moves, as that page says it will. The lane recorded its change as the seventh revision, applied to
+the 51,794-byte sixth. Batch 26 had meanwhile recorded its own seventh revision (CX-232, row R4,
+2026-09-29), and the file now holds both changes. The escrow page therefore records this one as the
+EIGHTH revision, applied after the seventh: its headline and digest history give the file's actual
+digest, `e73993f602861fddfeb8e6c7d2d88e88b4689bbd0bb764a2d7da6c34055c4b1e` (53,768 bytes), after
+`cbd4905d…` (52,022 bytes, the seventh). The seventh's dated paragraph now says what that revision
+hashed to, not what the current file hashes to. GATE 86 checks the digest.
+
+**4. Callers.** The two new modes have no callers apart from the new tests. Nothing else in
+`verify.c` changes, apart from two dispatch lines and the usage text. The new code sits just
+above `main()`, and no document cites a `verify.c` line at or below that point. `verify.c` is in
+the `tr12_repro_gate.sh` fingerprint, so the batch re-stamps it.
+
+**5. Tests.** One new class, `TestLaneHAM`, 11 tests. It builds the `verify.c` under test at `-O2`
+(`ROAE_TESTS_VERIFY_SRC` swaps the source). The tests cover:
+- the brute masses k ≤ 5 against the FULL31 §1 column, as parsed from the document;
+- a wrong k=4 mass, an absent k=3 line and an empty log, each of which must FAIL;
+- `--brute-g … 24 6` on the banked trace (54 g rows, 6 f rows) and on the alt-free TSV (8 rows);
+- a tampered step-row g, a tampered alt g and a tampered f, each of which must FAIL on its own row;
+- a trace that leaves King Wen's path, an alt that places an already-placed pair, and a missing
+  step row, each of which must FAIL with a named `ERROR:`;
+- argument refusals (rc 2, `BRUTE_*_ARGS=REFUSED`, nothing on stdout);
+- the two transcripts, whose body sha256 must equal the header's and which must carry the whole-line
+  tokens, 32 OK layer lines and no private strings;
+- the t transcript's `S_k − S_{k+1}`, which must equal all 31 FULL31 masses;
+- the pre-registration's lines 235, 261 and 530, which must name the right instrument and date.
+
+On the base tree all 11 are red: 9 FAIL, and 2 ERROR because the transcripts are absent. After the
+change all 11 pass, in 4.4 s. The last test reads those three lines by index. Batch 26 edited the
+same file after the lane ran, with same-line edits only, so on this tree the three lines are still
+235, 261 and 530, and the test's indices are unchanged.
+
+Mutants, each built into `verify.c` and run against the class (`ROAE_TESTS_VERIFY_SRC`):
+
+| mutant | killed by |
+|---|---|
+| distance 5 counted as class 4 (C2 dropped) | the masses test, the wrong-mass and absent-layer tests, the KW-trace test, the wrong-entry test |
+| cap `p >= B0` weakened to `>` in the mass DFS | the masses test, the wrong-mass and absent-layer tests |
+| the same in the completion DFS | the KW-trace test, the wrong-entry test |
+| mass comparison always "ok" | the wrong-mass test |
+| an absent layer not counted as a failure | the absent-layer test |
+| g comparison always "ok" | the wrong-entry test |
+| f comparison always "ok" | the wrong-entry test |
+| trace step rows not checked against KW's path | the not-King-Wen's-path test |
+| a missing step row not counted as a failure | the not-King-Wen's-path test |
+| an already-placed pair accepted as a child | the not-King-Wen's-path test |
+| completion DFS stops one layer early | the KW-trace test, the wrong-entry test |
+| f count ignores the budget match | the KW-trace test, the wrong-entry test |
+| K = 11, KMIN = 17, FMAX = 13 or THREADS = 0 accepted | the two refusal tests |
+
+Two mutants survive, and both are equivalent. (i) Weakening the cap inside the f DFS changes
+nothing, because the f count also requires the final budget use to equal KW's, which is within
+B0, and budget use only grows along a prefix. (ii) Dropping the `compared == 0` clause in
+`--brute-masses` changes nothing, because a log with no mass lines has every layer in 1..K
+absent, and the absent count already fails it. The `gchk == 0` clause in `--brute-g` is
+redundant with the missing-step-row census in the same way. Each is kept as a defensive guard.
+
+**6. Gates**, on the lane tree with PYTHONPATH unset: the full `python3 tests.py` run had two
+failures, and both also failed on the base without this change
+(`TestLaneVGVizCommandsAndQ3Columns.test_tr12_q3_column_notes_match_the_committed_headers`
+and `TestQ867DocPointersAfterQ857.test_gate89_does_not_read_generated_inventories_as_documentation`).
+`scripts/pre_push_compile_gate.sh` PASS: `verify.c` compiles warning-free, and the selftest gives
+`403f7202…`. `scripts/citation_line_gate.sh --all-files --all-targets` gives
+`CITATION_LINE_GATE=PASS`, with 0 shifted. `scripts/doc_gates.sh` with this entry appended: its only
+`[FAIL]` was GATE 89's `GATE22_HEX_TOKENS`, which the base showed as well and which CX-238 resolves.
+`scripts/tr12_repro.sh --n9` gives `TR12_REPRO=PASS`, and no golden changes.
+
+**Follow-ups, not fixed here.**
+- The review's own R3 row repeats the conflation corrected in part 3: it gives
+  `verify --check-t-ladder` "PASS 32/32 2026-09-04T06:48:28Z". The 32/32 run finished 2026-09-05.
+  The 09-04 time is the k ≤ 4 run.
+- `reports/FULL31_EXACT_AGGREGATES.md` §1's per-column provenance table still says `mass` is gated
+  only by the n=9/13/16 rungs. The brute counts for k ≤ 7 and the reader's `S_k − S_{k+1}` for all
+  31 layers could be added there as a same-line edit.
+- `verify --check-t-ladder` computes M_k from the f bytes but prints only the partial sums S_k.
+  Printing M_k per layer would make part 1's tie direct.
+- `--brute-g` with KMIN = 18 is hours on 16 cores. A per-row progress line would let a long run
+  report partial results; today it prints only at the end.

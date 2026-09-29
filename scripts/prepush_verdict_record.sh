@@ -12,8 +12,21 @@
 # non-PASS, or for any other tree / citation base / toolchain: the hook runs the FULL battery,
 # exactly as before. Legs whose answer depends on the pushing clone's refs, history, network or git
 # config (branch registry, append-only ledger, revision rows, tracked-but-ignored files, new-ref
-# declaration) and every advisory leg ALWAYS run locally; see "Q-798: TREE-KEYED REUSE" in
-# scripts/pre_push_gate.sh and DEVELOPMENT.md section "Pre-push verdict record".
+# declaration) ALWAYS run locally; see "Q-798: TREE-KEYED REUSE" in scripts/pre_push_gate.sh and
+# DEVELOPMENT.md section "Pre-push verdict record".
+#
+# ADVISORY LEGS (lane HAJ, 2026-09-27). The record also carries the verdicts of the hook's ADVISORY
+# legs whose answer depends on nothing but the tree and the toolchain (ADV_LEGS below), under the same
+# exact-tree binding. They stay advisory: an ADV_ verdict never decides MATCH (a record with an ADV_
+# FAIL still matches, and the hook reports that FAIL without blocking), and a record that lacks one, or
+# carries NOT-RUN, MISSING, REUSED or UNREADABLE for it, only means the hook runs that leg itself.
+# EXCLUDED, and why (they always run locally): doc_gates.sh --selftest (its fire-proofs read history:
+# `git rev-list HEAD -- documentation/CORRECTIONS.md` and the named commits b5bcff7c and 00c0db0, in a
+# clone that fetches refs/remotes/origin/*); the scale-distinguishable gate (a private script, located
+# by ROAE_PRIVATE_DIR); the review-loop and Group C legs (they read $ROOT, the pushing clone's working
+# tree and private state, not the pushed tree); the reproduction stamp and the row-assertion sweep
+# (tree-only, but under a second each: nothing to save, and the stamp stays a local cross-check of the
+# record's own LEG_TR12_STAMP_CURRENT).
 #
 # MODES
 #   write --out FILE --hook-log F --tests-log F --citation-log F --stamp-log F [--repo DIR]
@@ -39,6 +52,7 @@
 #   CITGATE_BASE=<commit the citation gate's shift leg diffed against, or NONE>
 #   TOOLCHAIN=gcc-<ver>,python-<ver>
 #   LEG_<NAME>=PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE   (one per name in REQ_LEGS below)
+#   ADV_<NAME>=PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE   (OPTIONAL; one per name in ADV_LEGS below)
 #   LOG_<NAME>_SHA256=<64 hex>                                (one per name in REQ_LOGS below)
 #   RECORD_SHA256=<sha256 of every byte above this line>      (LAST line; catches truncation)
 # The record is an ATTESTATION by whoever wrote it, not a proof: the operator who can hand the hook
@@ -56,6 +70,9 @@ HOOK_LEGS="DOC_GATES_ALL GENERATED COMPILE_GATE PUBLISHED_CONSISTENCY R167 R167_
 # regression harness, the citation gate over every target, and the reproduction stamp.
 REQ_LEGS="$HOOK_LEGS HOOK TESTS CITATION TR12_STAMP_CURRENT"
 REQ_LOGS="HOOK TESTS CITATION STAMP"
+# Advisory hook legs the record MAY carry (the hook prints PREPUSH_ADV_<NAME>= for each, per pushed sha).
+# Optional keys: a record without them is a valid record, and the hook runs those legs itself.
+ADV_LEGS="Q479_F1C5_ADOPT Q479_RESUME_BUDGET Q479_MISSING_SHARD REPRODUCE_DIGESTS FAILOPEN_CLOSURE"
 
 err() {   # $1 = ERROR cause (log line), exit 2
   echo "  [ERROR] $1"
@@ -152,6 +169,12 @@ if [ "$MODE" = write ]; then
       case "$TOKV" in PASS|FAIL|NOT-RUN|REUSED) V[$leg]=$TOKV ;; *) V[$leg]=UNREADABLE ;; esac
     else V[$leg]=MISSING; fi
   done
+  declare -A A=()
+  for leg in $ADV_LEGS; do
+    if one_val "PREPUSH_ADV_$leg" "$HL"; then
+      case "$TOKV" in PASS|FAIL|NOT-RUN|REUSED) A[$leg]=$TOKV ;; *) A[$leg]=UNREADABLE ;; esac
+    else A[$leg]=MISSING; fi
+  done
   if one_val PREPUSH_VERDICT "$HL"; then
     case "$TOKV" in PASS) V[HOOK]=PASS ;; FAIL) V[HOOK]=FAIL ;; *) V[HOOK]=UNREADABLE ;; esac
   else V[HOOK]=MISSING; fi
@@ -175,6 +198,7 @@ if [ "$MODE" = write ]; then
     printf '%s=%s\n' CITGATE_BASE "$cb"
     printf '%s=%s\n' TOOLCHAIN "$(toolchain_id)"
     for leg in $REQ_LEGS; do printf '%s=%s\n' "LEG_$leg" "${V[$leg]}"; done
+    for leg in $ADV_LEGS; do printf '%s=%s\n' "ADV_$leg" "${A[$leg]}"; done
     printf '%s=%s\n' LOG_HOOK_SHA256     "$(sha256sum < "$HL" | cut -c1-64)"
     printf '%s=%s\n' LOG_TESTS_SHA256    "$(sha256sum < "$TL" | cut -c1-64)"
     printf '%s=%s\n' LOG_CITATION_SHA256 "$(sha256sum < "$CL" | cut -c1-64)"
@@ -188,6 +212,9 @@ if [ "$MODE" = write ]; then
   allpass=YES
   for leg in $REQ_LEGS; do
     [ "${V[$leg]}" = PASS ] || { allpass=NO; echo "  [not-pass] LEG_$leg=${V[$leg]}"; }
+  done
+  for leg in $ADV_LEGS; do
+    [ "${A[$leg]}" = PASS ] || echo "  [advisory] ADV_$leg=${A[$leg]} (advisory: does not affect ALL_PASS)"
   done
   echo "  record for tree $headtree written to $OUT"
   echo "PREPUSH_RECORD=WRITTEN"
@@ -238,8 +265,10 @@ if [ "$MODE" = check ]; then
   allowed=" ROAE_PREPUSH_RECORD TREE CITGATE_BASE TOOLCHAIN RECORD_SHA256 "
   for leg in $REQ_LEGS; do allowed="$allowed LEG_$leg "; done
   for lg in $REQ_LOGS;  do allowed="$allowed LOG_${lg}_SHA256 "; done
+  optional=" "
+  for leg in $ADV_LEGS; do optional="$optional ADV_$leg "; done
   while IFS= read -r k; do
-    case "$allowed" in *" $k "*) ;; *) nomatch unknown-key "key $k is not in record format v$REC_VERSION" ;; esac
+    case "$allowed$optional" in *" $k "*) ;; *) nomatch unknown-key "key $k is not in record format v$REC_VERSION" ;; esac
   done < <(cut -d= -f1 "$REC")
   for k in $allowed; do
     grep -aqE "^$k=" "$REC" || nomatch missing-key "key $k is missing"
@@ -251,6 +280,10 @@ if [ "$MODE" = check ]; then
   for lg in $REQ_LOGS; do
     one_val "LOG_${lg}_SHA256" "$REC"
     [[ "$TOKV" =~ ^[0-9a-f]{64}$ ]] || nomatch bad-value "LOG_${lg}_SHA256 is not a sha256"
+  done
+  for leg in $ADV_LEGS; do
+    one_val "ADV_$leg" "$REC" || continue
+    case "$TOKV" in PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE) ;; *) nomatch bad-value "ADV_$leg=$TOKV" ;; esac
   done
   # Every result must be PASS. NOT-RUN, MISSING, REUSED (a record distilled from a hook run that
   # itself reused a record) and FAIL all refuse the whole record: a partial record is no record.
@@ -264,6 +297,11 @@ if [ "$MODE" = check ]; then
   [ "$TOKV" = "$(toolchain_id)" ] || nomatch toolchain-mismatch "record was measured with $TOKV, this host has $(toolchain_id)"
   echo "  record $(sha256sum < "$REC" | cut -c1-16) covers tree $rtree (citation base $rcb, $TOKV)"
   for lg in $REQ_LOGS; do one_val "LOG_${lg}_SHA256" "$REC"; echo "    log ${lg}: sha256 $TOKV"; done
+  # Advisory verdicts the hook may reuse: only PASS and FAIL are measurements; the rest are omitted.
+  for leg in $ADV_LEGS; do
+    one_val "ADV_$leg" "$REC" || continue
+    case "$TOKV" in PASS|FAIL) printf '%s=%s\n' "PREPUSH_RECORD_ADV_$leg" "$TOKV" ;; esac
+  done
   echo "PREPUSH_RECORD=MATCH"
   exit 0
 fi

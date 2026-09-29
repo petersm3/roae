@@ -1375,3 +1375,61 @@ is not normalised before a diff.
 driver is a certificate of what the binary does on a named universe, not a proof. Errors are
 Claude's; corrections invited.*
 
+## Brute-force prefix checks: `--brute-masses` and `--brute-g` (added 2026-09-28)
+
+Two `verify.c` modes count prefixes by walking to each one. They use no layered DP, no memo table,
+no symmetry quotient and no orbit weight. That is a different algorithm class from the engine's
+orbit-quotient DP and from this file's own plain DP (`./verify run.out`), which merges prefixes
+into `(mask, last, budget)` states. The instance comes from this file's KW table: `build_pairs()`
+gives the 32 pairs, C2 excludes distance 5, and the C5 budget `(2,8,13,7,1)` is re-derived from
+KW's 31 between-pair boundaries. They answer residuals R2 and R1 of the 2026-09-27 review of the
+n=31 f/g/t ladders.
+
+```
+./verify --brute-masses RUN.OUT [K] [THREADS]      # K in 1..10, default 6
+./verify --brute-g TSV [KMIN] [FMAX] [THREADS]     # KMIN in 18..31 (default 24), FMAX in 0..12 (default 8)
+```
+
+**`--brute-masses`** counts every valid length-k prefix from the C4-pinned root (last exit 0) for
+k = 1..K. It compares each count with the `mass=` on RUN.OUT's `[f1c5] layer k=` line. For
+`runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out` that is the `mass` column of
+[FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md) §1. A layer in 1..K with no
+mass line fails, and so does a log with none. The tokens are `BRUTE_MASSES_COMPARED=`,
+`BRUTE_MASSES_MISMATCHED=` and `BRUTE_MASSES_RESULT=PASS|FAIL`.
+
+Measured 2026-09-28 on a 16-core worker: K = 7 gave 56; 3,030; 158,364; 7,975,320; 386,225,352;
+17,953,712,064; 799,742,878,656. All seven match, in 163 s wall (2,606 s CPU). K = 6 takes 3.4 s.
+The work grows with the number of prefixes counted: 3.4 s to 163 s from K = 6 to 7, and
+M_8/M_7 ≈ 43, so K = 8 would take about two hours on the same machine. It was not run. The same seven values are the layer masses that
+`verify --check-t-ladder` re-derived from the n=31 f ladder's own bytes
+([transcript](../runs/20260906_kc_ladders_n31/VERIFY_CHECK_T_LADDER_n31.txt),
+`S_k − S_{k+1} = M_k`). So the brute count ties the published column to the ladder for k ≤ 7.
+
+**`--brute-g`** reads a `--kc-profile` trace along King Wen's path, such as
+`reports/evidence/tr12/banked_n31_20260922/a2_q3_profile.txt`. That trace has a row per step
+s = 1..31, with the f and g ladder values for KW's depth-s state, and an `#alt` row with g for
+every alternative child. For every row with s ≥ KMIN the mode rebuilds the state from this file's
+KW table and checks that the trace's step rows are that path. It then checks that the row's
+placement is a valid child and counts the completions by exhaustive DFS. For every step row with
+s ≤ FMAX it counts f instead: every ordering and orientation of KW's first s pairs that is a valid
+prefix ending at the same exit with the same budget use. The ladders store per-representative
+values that are G-equivariant, so they are compared as they stand. The tokens are
+`BRUTE_G_ROWS_CHECKED=`, `BRUTE_G_MISMATCHED=`, `BRUTE_F_ROWS_CHECKED=`, `BRUTE_F_MISMATCHED=` and
+`BRUTE_G_RESULT=PASS|FAIL`. A zero g census fails. So does a trace whose step rows leave King
+Wen's path, a row that is not a valid child, or a missing step row in KMIN..31.
+
+Measured 2026-09-28 on the same worker, on `a2_q3_profile.txt`:
+- `--brute-g … 24 10`: 54 g entries (8 on KW's path, 46 alternatives) and 10 f entries match, in 15 s.
+- `--brute-g … 20 11`: 135 g entries (12 + 123) and 11 f entries match, in 343 s wall. KW's own g
+  from step 20 to 31 is 227,745,800; 8,889,000; 690,176; 51,280; 5,624; 320; 52; 10; 6; 2; 2; 1.
+  f from step 1 to 11 is 1; 1; 3; 6; 18; 75; 378; 4,128; 85,184; 2,059,040; 38,593,744.
+- `--brute-g … 18 0` was stopped, unfinished, after 44 min 45 s wall (39,798 s CPU). The 47 g
+  entries at steps 18 and 19 sum to about 5.3×10¹¹ completions, and the search visits many dead
+  ends besides. KMIN = 18 is therefore a job of hours, not minutes.
+
+**What a PASS does and does not establish.** It pins M_1..M_K and the named individual ladder
+entries to counts made without the engine. It says nothing about M_k for k > K, or about any entry
+the trace does not name. The review's residuals R1 and R2 get smaller; they are not closed.
+
+*Section by Claude (Opus 5.5), 2026-09-28. Developed with AI assistance (Claude, Anthropic).
+Errors are Claude's; corrections invited.*

@@ -139,6 +139,7 @@ documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marke
 documentation/DESCRIPTION_LENGTH.md	263	ledger-link	CORRECTION	n/a	-	not-a-marker	f272fca47fba
 documentation/DEVELOPMENT.md	62	narration	now reads	1|2	-	unreviewed	1b52abae68a7
 documentation/DEVELOPMENT.md	735	narration	now reads	1|2	-	unreviewed	ff1b7fd00155
+documentation/DEVELOPMENT.md	755	narration	now reads	1|2	-	unreviewed	2a05129bdf4b
 documentation/DEVELOPMENT.md	1042	marker	CORRECTED	1|2	-	unreviewed	8c79421519c1
 documentation/DEVELOPMENT.md	1285	marker	CORRECTED	1|2	-	unreviewed	e86fe599a9fc
 documentation/DEVELOPMENT.md	1294	ledger-link	RETRACTED	n/a	-	not-a-marker	77367344ffda
@@ -224,7 +225,10 @@ documentation/PERFORMANCE_HISTORY.md	230	marker	CORRECTED	1|2	-	unreviewed	7b250
 documentation/PREREGISTRATION_ESCROW.md	352	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
 documentation/PREREG_CLASSA_QUERY_SET.md	58	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ee4dfed3e343
 documentation/PREREG_CLASSA_QUERY_SET.md	166	marker	CORRECTED	3	GATE 86(file)	gate-anchored	21fdbd99b0b4
+documentation/PREREG_CLASSA_QUERY_SET.md	235	marker	CORRECTED	3	GATE 86(file)	gate-anchored	05d0f5c9b0a2
+documentation/PREREG_CLASSA_QUERY_SET.md	261	marker	CORRECTED	3	GATE 86(file)	gate-anchored	e41107c9d8fe
 documentation/PREREG_CLASSA_QUERY_SET.md	364	marker	CORRECTED	3	GATE 86(file)	gate-anchored	beda1f29488e
+documentation/PREREG_CLASSA_QUERY_SET.md	530	marker	CORRECTED	3	GATE 86(file)	gate-anchored	6076641c1da2
 documentation/PREREG_CLASSA_QUERY_SET.md	613	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ac89ca1c4b99
 documentation/PROJECT_OVERVIEW.md	14	ledger-link	CORRECTION	n/a	-	not-a-marker	3a7d8baee073
 documentation/PROJECT_OVERVIEW.md	53	ledger-link	CORRECTION	n/a	-	not-a-marker	92255bf4c636

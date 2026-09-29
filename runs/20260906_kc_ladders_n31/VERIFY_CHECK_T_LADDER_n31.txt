@@ -1,0 +1,85 @@
+# verify --check-t-ladder, n=31 -- the independent reader's f.t node identity at every layer
+#
+# Verdict:   TLADDER_RESULT=PASS, IDENTITIES_CHECKED=32, IDENTITIES_SKIPPED=0, all k = 0..31
+# Produced:  launched 2026-09-04 UTC; finished 2026-09-05 13:24 UTC (single core, about 20 h).
+#            The verdict was captured off the check host at 2026-09-05 13:30:09 UTC.
+# Command:   verify --check-t-ladder <FDIR> <TDIR> 31
+#            FDIR and TDIR were the Stage F f ladder and the Stage T t ladder on their build
+#            disks -- the ladders STAGE_F_*.txt and STAGE_T_*.txt in this directory fingerprint.
+# Binary:    NOT RECORDED. The executed binary was not hashed at the time. The verify.c copy
+#            archived from the Stage T build host is byte-identical to verify.c at public commit
+#            02288d83 (2026-09-03), the last change to verify.c before the launch, and the banner
+#            and RESULT lines below are that revision's text. Build line (documentation/VERIFY.md):
+#            cc -O2 -o verify verify.c -lz -lpthread -lm
+#
+# NOT THE 2026-09-04 06:48:28 UTC RUN. An earlier run of the same command with max_k = 4 printed
+# TLADDER_RESULT=PASS at that time with IDENTITIES_CHECKED=5 (layers 0..4 only). This file is the
+# full-depth run: 32 identities, 0 skipped.
+#
+# What it checks (verify.c, written against documentation/GT_LADDER_FORMAT.md, no solve.c code):
+# all 32 f-layer masses M_k re-derived from the f ladder's bytes, M_31 against the published count,
+# then per layer the headers, the byte-exact f-geometry mirror, values >= 1, the seed/anchor
+# content and  sum over layer-k states of orbit(cm) * f(s) * t(s)  =  S_k  =  sum_{j>=k} M_j.
+# S_k - S_{k+1} is therefore this reader's M_k for the f ladder: S_1 - S_2 = 56, S_6 - S_7 =
+# 17953712064, the reports/FULL31_EXACT_AGGREGATES.md column.
+#
+# SCOPE -- the same as KC_T_CHECK_n31.txt: these identities constrain the FILES collectively; they
+# do not pin individual entries, and the k = 0 and k = n endpoints degenerate.
+#
+# The lines below are byte-identical to the captured log (7,025 bytes, sha256
+# 083658fdb765af162a28fe15f5d657ee366968e23edd2918999a758a4bb9583f); the last line, DONE_RC=0, is
+# the exit status the launch wrapper appended.
+======================================================================
+verify.c --check-t-ladder : spec-driven independent t-ladder verifier
+written against documentation/GT_LADDER_FORMAT.md; shares no code with solve.c
+======================================================================
+manifests: n=31 start_exit=0 b0=(2,8,13,7,1)  t last_complete_k=0 (0=complete; layers 0..31 present)
+group    : 48 -> 24 induced pair-perms -> 24 distinct on this run's 31 pairs
+M pass   : M_31 vs published count MATCH
+M pass   : all 32 f masses re-derived; total search-tree size S_0 = 8690552978660778147480075615137911218123
+----------------------------------------------------------------------
+  k= 0  t nm=1       ne=1          v2  Σ orbit·f·t = 8690552978660778147480075615137911218123 (expect nodes at depth ≥0 = 8690552978660778147480075615137911218123)  OK
+  k= 1  t nm=7       ne=12         v2  Σ orbit·f·t = 8690552978660778147480075615137911218122 (expect nodes at depth ≥1 = 8690552978660778147480075615137911218122)  OK
+  k= 2  t nm=56      ne=263        v2  Σ orbit·f·t = 8690552978660778147480075615137911218066 (expect nodes at depth ≥2 = 8690552978660778147480075615137911218066)  OK
+  k= 3  t nm=378     ne=6012       v2  Σ orbit·f·t = 8690552978660778147480075615137911215036 (expect nodes at depth ≥3 = 8690552978660778147480075615137911215036)  OK
+  k= 4  t nm=2087    ne=110732     v2  Σ orbit·f·t = 8690552978660778147480075615137911056672 (expect nodes at depth ≥4 = 8690552978660778147480075615137911056672)  OK
+  k= 5  t nm=9707    ne=1418864    v2  Σ orbit·f·t = 8690552978660778147480075615137903081352 (expect nodes at depth ≥5 = 8690552978660778147480075615137903081352)  OK
+  k= 6  t nm=38262   ne=12465946   v2  Σ orbit·f·t = 8690552978660778147480075615137516856000 (expect nodes at depth ≥6 = 8690552978660778147480075615137516856000)  OK
+  k= 7  t nm=128414  ne=78990559   v2  Σ orbit·f·t = 8690552978660778147480075615119563143936 (expect nodes at depth ≥7 = 8690552978660778147480075615119563143936)  OK
+  k= 8  t nm=369823  ne=383080548  v2  Σ orbit·f·t = 8690552978660778147480075614319820265280 (expect nodes at depth ≥8 = 8690552978660778147480075614319820265280)  OK
+  k= 9  t nm=919819  ne=1470651410 v2  Σ orbit·f·t = 8690552978660778147480075580240080065280 (expect nodes at depth ≥9 = 8690552978660778147480075580240080065280)  OK
+  k=10  t nm=1986807 ne=4522319129 v2  Σ orbit·f·t = 8690552978660778147480074193461358423360 (expect nodes at depth ≥10 = 8690552978660778147480074193461358423360)  OK
+  k=11  t nm=3746013 ne=11297381503 v2  Σ orbit·f·t = 8690552978660778147480020415282192756864 (expect nodes at depth ≥11 = 8690552978660778147480020415282192756864)  OK
+  k=12  t nm=6191140 ne=23398431312 v2  Σ orbit·f·t = 8690552978660778147478037729649531070080 (expect nodes at depth ≥12 = 8690552978660778147478037729649531070080)  OK
+  k=13  t nm=8998676 ne=40833342233 v2  Σ orbit·f·t = 8690552978660778147408740656594918815744 (expect nodes at depth ≥13 = 8690552978660778147408740656594918815744)  OK
+  k=14  t nm=11530906 ne=60643413855 v2  Σ orbit·f·t = 8690552978660778145120379057920818697728 (expect nodes at depth ≥14 = 8690552978660778145120379057920818697728)  OK
+  k=15  t nm=13047760 ne=76987817848 v2  Σ orbit·f·t = 8690552978660778074002130519610905362944 (expect nodes at depth ≥15 = 8690552978660778074002130519610905362944)  OK
+  k=16  t nm=13047760 ne=83585570784 v2  Σ orbit·f·t = 8690552978660776003177742432279471984640 (expect nodes at depth ≥16 = 8690552978660776003177742432279471984640)  OK
+  k=17  t nm=11530906 ne=77425711716 v2  Σ orbit·f·t = 8690552978660719791412679019609348188160 (expect nodes at depth ≥17 = 8690552978660719791412679019609348188160)  OK
+  k=18  t nm=8998676 ne=61293906654 v2  Σ orbit·f·t = 8690552978659305358760180374733357813760 (expect nodes at depth ≥18 = 8690552978659305358760180374733357813760)  OK
+  k=19  t nm=6191140 ne=41584984170 v2  Σ orbit·f·t = 8690552978626522546255652506297236676608 (expect nodes at depth ≥19 = 8690552978626522546255652506297236676608)  OK
+  k=20  t nm=3746013 ne=24094948608 v2  Σ orbit·f·t = 8690552977931737991391278466142370070528 (expect nodes at depth ≥20 = 8690552977931737991391278466142370070528)  OK
+  k=21  t nm=1986807 ne=11810354354 v2  Σ orbit·f·t = 8690552964578952500773461911811858972672 (expect nodes at depth ≥21 = 8690552964578952500773461911811858972672)  OK
+  k=22  t nm=919819  ne=4840233152 v2  Σ orbit·f·t = 8690552734204406920551890579374396735488 (expect nodes at depth ≥22 = 8690552734204406920551890579374396735488)  OK
+  k=23  t nm=369823  ne=1643386030 v2  Σ orbit·f·t = 8690549207102814897258372849326177550336 (expect nodes at depth ≥23 = 8690549207102814897258372849326177550336)  OK
+  k=24  t nm=128414  ne=459819732  v2  Σ orbit·f·t = 8690502018006859526589568954681130090496 (expect nodes at depth ≥24 = 8690502018006859526589568954681130090496)  OK
+  k=25  t nm=38262   ne=105376944  v2  Σ orbit·f·t = 8689960116691820860633740586132643119104 (expect nodes at depth ≥25 = 8689960116691820860633740586132643119104)  OK
+  k=26  t nm=9707    ne=19466384   v2  Σ orbit·f·t = 8684758610647261359768201790731625955328 (expect nodes at depth ≥26 = 8684758610647261359768201790731625955328)  OK
+  k=27  t nm=2087    ne=2823150    v2  Σ orbit·f·t = 8644352653188268191775986611660435226624 (expect nodes at depth ≥27 = 8644352653188268191775986611660435226624)  OK
+  k=28  t nm=378     ne=307746     v2  Σ orbit·f·t = 8403262739689237297408651443112202207232 (expect nodes at depth ≥28 = 8403262739689237297408651443112202207232)  OK
+  k=29  t nm=56      ne=22824      v2  Σ orbit·f·t = 7375108087147891416517625038286245330944 (expect nodes at depth ≥29 = 7375108087147891416517625038286245330944)  OK
+  k=30  t nm=7       ne=1056       v2  Σ orbit·f·t = 4639970839325403966545311638266100842496 (expect nodes at depth ≥30 = 4639970839325403966545311638266100842496)  OK
+  k=31  t nm=1       ne=32         v2  Σ orbit·f·t = 1097051278789181790036112071176579186688 (expect nodes at depth ≥31 = 1097051278789181790036112071176579186688)  OK
+----------------------------------------------------------------------
+t(root) = 8690552978660778147480075615137911218123  MATCHES Σ M_j (the whole search-tree size, re-derived from f)
+census   : range k=0..31: 32 layer(s) evaluated, 0 absent per manifest (last_complete_k=0);
+           f·t node identity EVALUATED at 32 and SKIPPED at 0 of the 32 evaluated
+RESULT: 32 t layer(s) verified — headers, byte-exact f-geometry mirror,
+        values >= 1, seed/anchor content — and the f·t node identity
+        (recurrence unfolded, S_k = S_{k+1} + M_k) EVALUATED at 32 of 32
+        checked layer(s) (0 skipped).
+IDENTITIES_CHECKED=32
+IDENTITIES_SKIPPED=0
+TLADDER_RESULT=PASS
+======================================================================
+DONE_RC=0

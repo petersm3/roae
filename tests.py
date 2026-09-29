@@ -18352,7 +18352,7 @@ class TestLaneHESolveEnvValidation(unittest.TestCase):
     ]
     # SOLVE_* names a getenv reads that are NOT numeric, so not in the table (lane HE's classes):
     NOT_NUMERIC = {
-        # (c) presence only: any value, including 0, turns them on (documented)
+        # (c) presence only: any value, including 0, turns it on (documented); CONCENTRATE is strict 0/1 outside the table (lane HAJ)
         "SOLVE_SKIP_AUTOMERGE", "SOLVE_CONCENTRATE_BUDGET",
         # strings and paths
         "SOLVE_TEMP_DIR", "SOLVE_RESUME_HISTORY", "SOLVE_REGRESS_DIR", "SOLVE_DISK_MARKER",
@@ -18519,7 +18519,7 @@ class TestLaneHESolveEnvValidation(unittest.TestCase):
         self.assertTrue(self.build_ok, self.build_err)
         env = {"SOLVE_THREADS": "2", "SOLVE_DEPTH": "2", "SOLVE_DFS_ITERATIVE": "1", "SOLVE_DFS_CHECKPOINT": "1",
                "SOLVE_HASH_LOG2": "16", "SOLVE_COMPRESS": "1", "SOLVE_GZIP_LEVEL": "9",
-               "SOLVE_SKIP_AUTOMERGE": "0", "SOLVE_CONCENTRATE_BUDGET": ""}
+               "SOLVE_SKIP_AUTOMERGE": "0", "SOLVE_CONCENTRATE_BUDGET": "0"}  # lane HAJ: an empty CONCENTRATE is now refused
         r, _ = self._run(["--selftest"], env, timeout=600)
         self.assertIsNotNone(r, "timeout")
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
@@ -22381,17 +22381,17 @@ int fclose(FILE *s) { static int (*r)(FILE *); if (!r) r = dlsym(RTLD_NEXT, "fcl
                 self.assertFalse(os.path.exists(os.path.join(d, "solutions.sha256")))
 
     def test_phase1_names_a_shard_whose_size_changed_after_the_scan(self):
-        # The scan and the record total size the victim twice each (two fopen() per call);
-        # the fifth fopen is Phase 1's size read. Refusing it makes the unreadable gz look raw,
+        # The scan, the record total and the Q-881 cross-reference size the victim twice each (two fopen()
+        # per call; lane HAC added the third); the seventh fopen is Phase 1's size read. Refusing it makes the unreadable gz look raw,
         # with a misaligned compressed size.
         for label, env in self.MODES[:2]:
             with self.subTest(mode=label):
                 d = self._merge_dir("p1size")
                 v = self._victim(d, aligned=False)
                 env = dict(env, LD_PRELOAD=os.path.join(self.tmp, "shim_fopen.so"), HX_FAIL_FOPEN=v,
-                           HX_FOPEN_PASS="4")
+                           HX_FOPEN_PASS="6")
                 r = self._merge(d, env)
-                self.assertIn("HXSHIM REFUSED fopen #5 of " + v, r.stderr, "the shim never fired")
+                self.assertIn("HXSHIM REFUSED fopen #7 of " + v, r.stderr, "the shim never fired")
                 self.assertNotIn("cannot be read or sized", r.stderr, "refused at the scan, not Phase 1")
                 self.assertEqual(1, r.returncode, r.stderr[-1500:])
                 self.assertIn("ERROR: merge input %s has no usable logical size" % v, r.stderr)
@@ -25530,6 +25530,1750 @@ class TestTr12TablesMovedUnderReports(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         self.assertIn("DANGLE: `tr12/b.tsv`", out)
 # end lane MV27
+
+
+class TestQ883G1PlaceholderPopulation(unittest.TestCase):
+    """Lane HAG: Q-883. G1 of scripts/gate_published_consistency.sh measured nothing and said [ok].
+
+    Its grep ran as `grep -rnoE ... reports/ README.md 2>/dev/null || true`, so with reports/ absent
+    (grep rc 2) it printed `[ok] no unfilled placeholders` and the verdict stayed PASS-AT-PIN. It now
+    checks both roots exist, branches on grep's rc, prints G1_FILES_SCANNED=N, fails below a floor
+    of 200 files, and any of those forces PUBLISHED_CONSISTENCY=FAIL. G1_ROOT points G1 alone at a
+    scratch root, so every other leg still reads the real tree and stays at its pin: the verdict
+    therefore moves ONLY because of G1. Each case asserts the override was honoured (the [note]
+    line) before it trusts anything else."""
+
+    GATE = os.path.join("scripts", "gate_published_consistency.sh")
+    FLOOR = 200
+    RECEIPT = re.compile(r"^G1_FILES_SCANNED=(\d+)$", re.M)
+    VERDICT = re.compile(r"^PUBLISHED_CONSISTENCY=(PASS|PASS-AT-PIN|FAIL)$", re.M)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.tmp = tempfile.mkdtemp(prefix="q883_g1_")
+
+    @classmethod
+    def tearDownClass(cls):
+        for dp, dn, fn in os.walk(cls.tmp):
+            for n in fn:
+                try:
+                    os.chmod(os.path.join(dp, n), 0o644)
+                except OSError:
+                    pass
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, g1_root=None):
+        env = dict(os.environ)
+        env.pop("G1_ROOT", None)
+        if g1_root is not None:
+            env["G1_ROOT"] = g1_root
+        r = subprocess.run(["bash", os.path.join(self.root, self.GATE)], capture_output=True,
+                           text=True, env=env, cwd=self.root, timeout=900)
+        out = r.stdout
+        if g1_root is not None:
+            self.assertIn("G1: G1_ROOT overrides the scanned root to %s" % g1_root, out,
+                          "precondition: the G1_ROOT override was not honoured:\n" + out[:2000])
+        v = self.VERDICT.findall(out)
+        self.assertEqual(len(v), 1, "exactly one verdict token expected:\n" + out[-2000:])
+        m = self.RECEIPT.findall(out)
+        self.assertEqual(len(m), 1, "exactly one G1_FILES_SCANNED receipt expected:\n" + out[:2000])
+        g1 = out.split("== G2:")[0]
+        return out, g1, v[0], int(m[0])
+
+    def _synthetic(self, name, n_files, plant=None, unreadable=False):
+        d = os.path.join(self.tmp, name)
+        os.makedirs(os.path.join(d, "reports"))
+        with open(os.path.join(d, "README.md"), "w", encoding="utf-8") as fh:
+            fh.write("# readme\n")
+        for i in range(n_files):
+            with open(os.path.join(d, "reports", "R%03d.md" % i), "w", encoding="utf-8") as fh:
+                fh.write("clean report %d\n" % i)
+        if plant:
+            with open(os.path.join(d, "reports", "ZZ_PLANT.md"), "w", encoding="utf-8") as fh:
+                fh.write("resolve %s here\n" % plant)
+        if unreadable:
+            p = os.path.join(d, "reports", "ZZ_UNREADABLE.md")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write("[REPRO-TAG]\n")
+            os.chmod(p, 0)
+        return d
+
+    def test_real_tree_receipt_at_or_above_floor(self):
+        self.assertTrue(os.path.isdir(os.path.join(self.root, "reports")))
+        out, g1, verdict, n = self._run()
+        self.assertGreaterEqual(n, self.FLOOR, "the real tree is below the G1 floor:\n" + g1)
+        self.assertNotIn("G1 measured nothing trustworthy", out)
+        self.assertNotIn("[FAIL] G1:", g1)
+        self.assertIn(verdict, ("PASS", "PASS-AT-PIN"))
+
+    def test_missing_reports_dir_is_fail(self):
+        d = os.path.join(self.tmp, "noreports")
+        os.makedirs(d)
+        with open(os.path.join(d, "README.md"), "w", encoding="utf-8") as fh:
+            fh.write("# readme\n")
+        self.assertFalse(os.path.isdir(os.path.join(d, "reports")))
+        out, g1, verdict, n = self._run(d)
+        self.assertEqual(n, 0)
+        self.assertIn("[FAIL] G1: %s/reports/ or %s/README.md is missing or unreadable" % (d, d), g1)
+        self.assertNotIn("[ok]   no unfilled placeholders", g1)
+        self.assertEqual(verdict, "FAIL")
+
+    def test_below_floor_is_fail(self):
+        d = self._synthetic("small", 5)
+        out, g1, verdict, n = self._run(d)
+        self.assertEqual(n, 6, "precondition: 5 report files + README.md")
+        self.assertIn("[FAIL] G1: 6 file(s) scanned, below the floor %d" % self.FLOOR, g1)
+        self.assertNotIn("[ok]   no unfilled placeholders", g1)
+        self.assertEqual(verdict, "FAIL")
+
+    def test_grep_error_is_fail_not_ok(self):
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            self.skipTest("uid 0 reads a mode-000 file, so grep cannot be made to fail this way")
+        d = self._synthetic("unreadable", self.FLOOR + 10, unreadable=True)
+        self.assertFalse(os.access(os.path.join(d, "reports", "ZZ_UNREADABLE.md"), os.R_OK),
+                         "precondition: the planted file must be unreadable")
+        out, g1, verdict, n = self._run(d)
+        self.assertGreaterEqual(n, self.FLOOR, "precondition: the root is above the floor")
+        self.assertIn("[FAIL] G1: the placeholder grep failed (rc 2)", g1)
+        self.assertNotIn("[ok]   no unfilled placeholders", g1)
+        self.assertEqual(verdict, "FAIL")
+
+    def test_clean_synthetic_root_is_ok(self):
+        d = self._synthetic("clean", self.FLOOR + 10)
+        out, g1, verdict, n = self._run(d)
+        self.assertEqual(n, self.FLOOR + 11)
+        self.assertIn("[ok]   no unfilled placeholders", g1)
+        self.assertNotIn("[FAIL] G1:", g1)
+        self.assertNotIn("G1 measured nothing trustworthy", out)
+        self.assertIn(verdict, ("PASS", "PASS-AT-PIN"))
+
+    def test_planted_placeholder_names_the_file(self):
+        d = self._synthetic("planted", self.FLOOR + 10, plant="[REPRO-TAG]")
+        out, g1, verdict, n = self._run(d)
+        self.assertGreaterEqual(n, self.FLOOR)
+        self.assertIn("[FAIL] reports/ZZ_PLANT.md:1:[REPRO-TAG]", g1)
+        self.assertIn("1 unfilled placeholder(s) in published text", g1)
+        self.assertNotIn("[ok]   no unfilled placeholders", g1)
+# end class TestQ883G1PlaceholderPopulation (lane HAG)
+
+class TestLaneHAFQ882SatC3AdderEmitsNoClause(unittest.TestCase):
+    """Lane HAF: Q-882. `--sat-c3 adder` must emit exactly the `none` clause stream.
+
+    WHAT IS PINNED. solve.py's legacy position-hexagram encoder p3_sat_encode() takes
+    include_c3 in {"none", "pb", "adder"}. The adder encoder is deferred/superseded: it
+    records a status entry in the .meta.json sidecar and adds no variable and no clause.
+    Before public commit 3d8dd79f (2026-09-02) the pb guard read
+    `if include_c3 in ("pb", "adder"):`, so adder silently emitted pb's 262,144 pair aux
+    variables and their 786,432 Tseitin linking clauses (266,240 vars / 1,058,560 clauses,
+    pb's clause set) that nothing read, and its sidecar status entry was never written.
+    The only earlier test that names adder does so in a docstring; nothing ran it.
+
+    THE LEGS. (1) adder's clause lines -- every line that is not a `c` comment or the
+    `p cnf` header, digested here and cross-checked against the sidecar's own
+    sha256_clauses_only -- equal none's, and the `p cnf` header is the same. Whole-file
+    bytes legitimately differ (a `c generated` timestamp, and adder's extra `c NOT in this
+    file: C3` line), so the file itself is not compared. (2) adder's sidecar carries
+    exactly one C3 entry with n_aux_vars == 0 and n_link_clauses == 0. (3) positive
+    control: pb's clause stream differs from none's by the aux-linking clauses, and pb's
+    sidecar reports those same keys NON-zero -- so the equality in (1) and the zeros in
+    (2) are measured against an encoder that can produce something else.
+
+    PRECONDITIONS. The none stream must be non-empty and of the size the encoding
+    implies (one-hot rows+columns, C1, C2 -- computed below, not pasted), and our digest
+    must equal the sidecar's, so a stub encoder or a digest that saw nothing cannot pass.
+
+    RED, measured 2026-09-27 on a scratch solve.py with only the pb guard reverted to
+    `in ("pb", "adder")`: both adder tests fail (1,058,560 clauses vs 272,128; 266,240
+    vars vs 4,096) while the pb control passes. A same-count adder stream with one clause
+    reordered is caught only by the digest equality, which is why it is kept."""
+
+    AUX = 64 * 64 * 64                       # pair[v][i][j] aux vars under pb
+    LINK = 3 * AUX                           # 3 Tseitin AND-definition clauses per aux
+    # one-hot: 128 families x (1 ALO + C(64,2) AMO); C1: 32 pairs x 64; C2: 31 boundaries
+    # x 64 hexagrams x C(6,5) distance-5 neighbours
+    BASE = 128 * (1 + 64 * 63 // 2) + 32 * 64 + 31 * 64 * 6
+
+    @classmethod
+    def setUpClass(cls):
+        import contextlib, io, json
+        cls.tmp = tempfile.mkdtemp(prefix="q882_")
+        cls.enc = {}
+        for mode in ("none", "adder", "pb"):
+            path = os.path.join(cls.tmp, mode + ".cnf")
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = solve.p3_sat_encode(path, include_c3=mode, include_c4=False,
+                                         include_c5=False)
+            if rc is not None:
+                raise RuntimeError(f"precondition: p3_sat_encode({mode}) refused: rc={rc}")
+            h, n, pline = hashlib.sha256(), 0, None
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("c "):
+                        continue
+                    if line.startswith("p "):
+                        pline = line.strip()
+                        continue
+                    h.update(line.encode())
+                    n += 1
+            with open(path + ".meta.json", encoding="utf-8") as fh:
+                meta = json.load(fh)
+            cls.enc[mode] = {"digest": h.hexdigest(), "n": n, "p": pline, "meta": meta}
+            for extra in ("", ".opb"):       # pb's .cnf + .opb are ~50 MB; drop them now
+                if os.path.exists(path + extra):
+                    os.remove(path + extra)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _sound(self, mode):
+        e = self.enc[mode]
+        self.assertGreater(e["n"], 0, f"precondition: {mode} wrote no clause")
+        self.assertEqual(e["meta"]["sha256_clauses_only"], e["digest"],
+                         f"precondition: our {mode} clause digest must equal the sidecar's")
+        self.assertEqual(e["meta"]["clauses"], e["n"])
+        self.assertEqual(e["meta"]["include_c3"], mode)
+        return e
+
+    def test_adder_clause_stream_equals_none(self):
+        none, adder = self._sound("none"), self._sound("adder")
+        self.assertEqual(none["n"], self.BASE,
+                         "precondition: the none stream is not C1+C2 over one-hot rows/columns")
+        self.assertEqual(none["p"], f"p cnf 4096 {self.BASE}")
+        self.assertEqual(adder["n"], none["n"],
+                         "--sat-c3 adder added clauses; the pre-3d8dd79f regression emitted "
+                         f"{self.LINK} unused Tseitin linking clauses")
+        self.assertEqual(adder["p"], none["p"], "adder's `p cnf` header differs from none's")
+        self.assertEqual(adder["digest"], none["digest"],
+                         "adder's clause stream must be byte-identical to none's")
+
+    def test_adder_sidecar_records_c3_with_zero_aux_and_zero_links(self):
+        adder = self._sound("adder")
+        self.assertEqual(adder["meta"]["vars"], 64 * 64, "adder must add no variable")
+        pbc = adder["meta"]["pb_constraints"]
+        self.assertEqual(len(pbc), 1,
+                         "adder must record exactly one C3 status entry in the sidecar; "
+                         f"got {pbc!r}")
+        c3 = pbc[0]
+        self.assertEqual(c3.get("form"), "abs_sum_complement_distance")
+        self.assertEqual(c3.get("status"), "deferred_superseded_by_pairslot_model")
+        self.assertIn("n_aux_vars", c3)
+        self.assertIn("n_link_clauses", c3)
+        self.assertEqual(c3["n_aux_vars"], 0)
+        self.assertEqual(c3["n_link_clauses"], 0)
+
+    def test_positive_control_pb_differs_from_none(self):
+        none, pb = self._sound("none"), self._sound("pb")
+        self.assertNotEqual(pb["digest"], none["digest"],
+                            "positive control: pb must differ from none, else the equality "
+                            "leg above cannot fail")
+        self.assertEqual(pb["n"] - none["n"], self.LINK)
+        self.assertEqual(pb["p"], f"p cnf {64 * 64 + self.AUX} {self.BASE + self.LINK}")
+        c3 = pb["meta"]["pb_constraints"]
+        self.assertEqual(len(c3), 1)
+        self.assertEqual(c3[0]["n_aux_vars"], self.AUX,
+                         "positive control: the sidecar key the adder leg reads as 0 must "
+                         "report the aux count when aux vars exist")
+        self.assertEqual(c3[0]["n_link_clauses"], self.LINK)
+# end class TestLaneHAFQ882SatC3AdderEmitsNoClause (lane HAF)
+
+
+class TestQ627UBCures(unittest.TestCase):
+    """Lane HAD: Q-627. Hardening cures from Codex review R01 (undefined behaviour in solve.c,
+    adjudicated 2026-09-19). None moves a number.
+
+    F9 (behavioural): dfs_state_read_v2 copied the 34 stack frames of a v2 sidecar unvalidated,
+    and backtrack_iterative uses them as indices (nodes_at_depth[step], seq[2*step],
+    budget[bd], budget[wd], pairs[p]). It now refuses a sidecar whose live frames or filled seq
+    prefix are out of domain, with a named WARN, and the cell is walked from node 0. One real
+    PHASE_A writes fixed-era sidecars; ten get one violation each, two get a byte the walk never
+    reads (they must still resume), and PHASE_B reads them all. RED on the pre-fix reader: every
+    mutated cell prints `[dfs-v2] READ` and no refusal.
+    F5 (behavioural): compiling with __BYTE_ORDER__ forced big-endian must fail on the new
+    _Static_assert; the sizeof(F1U192) == 24 assert is pinned in code.
+    F1, F2, F10 are not observable at run time (gcc's sanitizers do not flag them and the values
+    are unchanged), so they are pinned in comment-stripped code, each pin with a positive control
+    that fires on the old line. Built at -O1 from the tracked solve.c; ROAE_TESTS_SOLVE_SRC
+    overrides the source for mutation runs only. A build or run failure is a FAILURE, never a skip."""
+
+    ENV = {"SOLVE_THREADS": "2", "SOLVE_DFS_ITERATIVE": "1", "SOLVE_DFS_CHECKPOINT": "1",
+           "SOLVE_ALLOW_SUB_CANONICAL": "1", "SOLVE_SKIP_CANONICAL_LOCK": "1",
+           "SOLVE_SKIP_AUTO_SELFTEST": "1", "SOLVE_SKIP_AUTO_MANIFEST": "1"}
+    FR = {"step": 0, "p": 1, "orient": 2, "bd": 3, "wd": 4, "prev_tail": 5, "phase": 6}
+    SEQ = 290                                   # offsetof(DFSCheckpointState_v2, seq)
+
+    @staticmethod
+    def _code(src):
+        """C source with comments removed; string and char literals kept verbatim."""
+        out, i, n = [], 0, len(src)
+        while i < n:
+            c = src[i]
+            if c in "\"'":
+                j = i + 1
+                while j < n and src[j] != c:
+                    j += 2 if src[j] == "\\" else 1
+                out.append(src[i:j + 1]); i = j + 1
+            elif src.startswith("/*", i):
+                j = src.find("*/", i + 2); i = n if j < 0 else j + 2; out.append(" ")
+            elif src.startswith("//", i):
+                j = src.find("\n", i); i = n if j < 0 else j
+            else:
+                out.append(c); i += 1
+        return "".join(out)
+
+    @classmethod
+    def _frames(cls, b):
+        sp = struct.unpack_from("<h", b, 14)[0]
+        return sp, [struct.unpack_from("<8b", b, 18 + 8 * i) for i in range(sp + 1)]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q627_")
+        cls.src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        with open(cls.src) as fh:
+            cls.code = cls._code(fh.read())
+        cls.sbin = os.path.join(cls.tmp, "solve_q627")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, cls.src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.err = None if r.returncode == 0 else f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        if cls.err:
+            return
+        d = cls.wd = os.path.join(cls.tmp, "wd")
+        os.mkdir(d)
+        env = {k: v for k, v in os.environ.items() if k != "SOLVE_DEPTH"}
+        env.update(cls.ENV)
+        a = subprocess.run([cls.sbin, "0"], cwd=d, capture_output=True, text=True,
+                           env=dict(env, SOLVE_NODE_LIMIT="2000000"), timeout=1200)
+        if a.returncode != 0:
+            cls.err = f"PHASE_A rc {a.returncode}: " + a.stderr[-2000:]
+            return
+        names = set(os.listdir(d))
+        stems = sorted(n[:-len(".dfs_state")] for n in names if n.endswith(".dfs_state"))
+        cls.nside = len(stems)
+        cls.sizes = {os.path.getsize(os.path.join(d, t + ".dfs_state")) for t in stems}
+        pool = []
+        for t in stems:
+            with open(os.path.join(d, t + ".dfs_state"), "rb") as fh:
+                b = fh.read()
+            sp, fr = cls._frames(b)
+            if len(b) == 440 and sp >= 2 and t + ".bin" in names and fr[sp][0] <= 30:
+                pool.append((t, bytearray(b), sp, fr))
+        if len(pool) < 12:
+            cls.err = f"PHASE_A left {len(pool)} usable sidecars; need 12"
+            return
+        F, pick = cls.FR, iter(pool)
+        cls.cases = {}                      # name -> (stem, expected refusal or None)
+
+        def put(name, edit, expect):
+            t, b, sp, fr = next(pick)
+            before = bytes(b)
+            idx = edit(b, sp, fr)
+            with open(os.path.join(d, t + ".dfs_state"), "wb") as fh:
+                fh.write(bytes(b))
+            cls.cases[name] = (t, None if expect is None else "%s out of domain at index %d" % (expect, idx),
+                               before != bytes(b))
+
+        def frame(i, fld, val):
+            def e(b, sp, fr):
+                j = sp if i == "top" else i
+                b[18 + 8 * j + F[fld]] = val & 0xFF
+                return j
+            return e
+
+        def shift(to_first):
+            def e(b, sp, fr):
+                k = to_first(fr) - fr[0][0]
+                for j in range(sp + 1):
+                    b[18 + 8 * j] = (fr[j][0] + k) & 0xFF
+                return 0 if to_first(fr) < 1 else sp
+            return e
+
+        def seq(where, val):
+            def e(b, sp, fr):
+                j = 2 * fr[sp][0] + where
+                b[cls.SEQ + j] = val & 0xFF
+                return j
+            return e
+
+        def bump_step1(b, sp, fr):
+            b[18 + 8 * 1] = (fr[1][0] + 1) & 0xFF
+            return 1
+
+        put("step_gap", bump_step1, "frame step")
+        put("step_zero", shift(lambda fr: 0), "frame step")
+        put("step_33", shift(lambda fr: fr[0][0] + 33 - fr[-1][0]), "frame step")
+        put("p_32", frame(0, "p", 32), "frame p")
+        put("orient_2", frame(0, "orient", 2), "frame orient")
+        put("prev_tail_64", frame(0, "prev_tail", 64), "frame prev_tail")
+        put("bd_7", frame(0, "bd", 7), "frame bd/wd")
+        put("wd_7", frame(0, "wd", 7), "frame bd/wd")
+        put("top_phase_1", frame("top", "phase", 1), "frame phase")
+        put("seq_last_filled", seq(-1, -1), "seq")
+        put("top_bd_unread", frame("top", "bd", 100), None)
+        put("seq_first_unfilled", seq(0, -1), None)
+        b_ = subprocess.run([cls.sbin, "0"], cwd=d, capture_output=True, text=True,
+                            env=dict(env, SOLVE_NODE_LIMIT="4000000"), timeout=1200)
+        cls.b_rc, cls.log = b_.returncode, b_.stderr.splitlines()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _fixture(self):
+        if self.err:
+            self.fail("the Q-627 fixture could not run, so nothing was verified: " + self.err)
+
+    def _read(self, stem):
+        return any(l.startswith("[dfs-v2] READ  " + stem + ".dfs_state ") for l in self.log)
+
+    def _refusals(self, stem):
+        return [l for l in self.log if l.startswith("WARN: dfs_state_read_v2: " + stem + ".dfs_state: ")]
+
+    def test_fixture_preconditions(self):
+        self._fixture()
+        self.assertEqual(self.sizes, {440})
+        self.assertGreaterEqual(self.nside, 100)
+        for name, (stem, _, changed) in self.cases.items():
+            self.assertTrue(changed, "%s: the mutation did not change %s" % (name, stem))
+        self.assertEqual(len({s for s, _, _ in self.cases.values()}), 12)
+
+    def test_out_of_domain_frames_and_seq_are_refused(self):
+        self._fixture()
+        for name, (stem, expect, _) in self.cases.items():
+            if expect is None:
+                continue
+            with self.subTest(case=name):
+                self.assertFalse(self._read(stem), "%s: %s was resumed" % (name, stem))
+                self.assertEqual([l.split(": ", 3)[3] for l in self._refusals(stem)],
+                                 [expect + "; refusing to resume from a corrupted or foreign sidecar"])
+
+    def test_bytes_the_walk_never_reads_still_resume(self):
+        self._fixture()
+        for name in ("top_bd_unread", "seq_first_unfilled"):
+            stem = self.cases[name][0]
+            with self.subTest(case=name):
+                self.assertTrue(self._read(stem), "%s: %s was not resumed" % (name, stem))
+                self.assertEqual(self._refusals(stem), [])
+
+    def test_phase_b_finishes_and_its_output_verifies(self):
+        # On the pre-fix reader the resumed out-of-domain frames produced records that failed the
+        # C1-C5 check, and the merge exited 30; a refused cell is walked from node 0 instead.
+        self._fixture()
+        self.assertEqual(self.b_rc, 0, "\n".join(self.log[-15:]))
+        self.assertIn("[hardening] auto-verify-solutions PASS", self.log)
+
+    def test_unmutated_sidecars_resume_without_a_refusal(self):
+        self._fixture()
+        mutated = {s for s, _, _ in self.cases.values()}
+        self.assertEqual([l for l in self.log if "out of domain" in l
+                          and not any(s + ".dfs_state:" in l for s in mutated)], [])
+        reads = [l for l in self.log if l.startswith("[dfs-v2] READ  ")]
+        self.assertEqual(len(reads), self.nside - 10)
+
+    def test_f5_big_endian_host_is_refused_at_compile_time(self):
+        probe = os.path.join(self.tmp, "be_probe.c")
+        with open(probe, "w") as fh:
+            fh.write("_Static_assert(__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__, \"probe\");\n")
+        fl = ["gcc", "-fsyntax-only", "-w", "-D__BYTE_ORDER__=__ORDER_BIG_ENDIAN__"]
+        p = subprocess.run(fl + [probe], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, "precondition: the -D override did not take: " + p.stderr)
+        r = subprocess.run(fl + [self.src], capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("Q-627 F5: solve.c writes F1U192 and its checkpoints in native byte order", r.stderr)
+
+    def test_f5_f1u192_size_is_asserted_in_code(self):
+        rx = r"_Static_assert\s*\(\s*sizeof\s*\(\s*F1U192\s*\)\s*==\s*24\s*,"
+        self.assertIsNone(re.search(rx, self._code("/* _Static_assert(sizeof(F1U192) == 24, \"\"); */")))
+        self.assertEqual(len(re.findall(rx, self.code)), 1)
+
+    def test_f1_no_limb_indexing_through_a_member_address(self):
+        rx = r"\(\s*&\s*[A-Za-z_]\w*\s*(?:->|\.)\s*l[012]\s*\)\s*\["
+        for old in ("const uint64_t x = (&a->l0)[i], y = (&b->l0)[j];", "(&t.l0)[i + j] = (uint64_t)p;"):
+            self.assertIsNotNone(re.search(rx, old), "positive control: " + old)
+        self.assertIsNone(re.search(rx, self._code("int x; /* (&a->l0)[i] */")))
+        self.assertEqual(re.findall(rx, self.code), [])
+        body = re.search(r"static F1U192 kc_u192_mul\(.*?\n}\n", self.code, re.S)
+        self.assertIsNotNone(body)
+        self.assertIn("uint64_t limb[3]", body.group(0))
+
+    def test_f2_monitor_reads_are_relaxed_atomic_loads(self):
+        plain = r"\b(?:tn|tsval|ts_val|tc3|tu|tbd|thc)\s*\+=\s*(?:threads|workers)\[i\]\."
+        for old in ("tn += threads[i].nodes;", "thc += workers[i].hash_collisions;"):
+            self.assertIsNotNone(re.search(plain, old), "positive control: " + old)
+        self.assertEqual(re.findall(plain, self.code), [])
+        atom = (r"\b(?:tn|tsval|ts_val|tc3|tu|tbd|thc)\s*\+=\s*__atomic_load_n\(&(?:threads|workers)"
+                r"\[i\]\.\w+, __ATOMIC_RELAXED\);")
+        self.assertEqual(len(re.findall(atom, self.code)), 17)
+        body = re.search(r"static inline long long sub_sub_sum_counters\(void\) \{.*?\n}\n", self.code, re.S)
+        self.assertIsNotNone(body)
+        self.assertIn("__atomic_load_n(&sub_sub_counters[i].nodes, __ATOMIC_RELAXED)", body.group(0))
+
+    def test_f10_no_comparator_called_through_a_cast_pointer(self):
+        rx = r"\(\s*int\s*\(\s*\*\s*\)\s*\(\s*const\s+void\s*\*"
+        old = "qsort(rs, NR, sizeof(F1U192), (int (*)(const void *, const void *))kc_u192_cmp);"
+        self.assertIsNotNone(re.search(rx, old), "positive control")
+        self.assertEqual(re.findall(rx, self.code), [])
+        self.assertEqual(len(re.findall(r"qsort\([^;]*,\s*kc_u192_qcmp\);", self.code)), 3)
+        self.assertEqual(re.findall(r"qsort\([^;]*kc_u192_cmp\b", self.code), [])
+# end class TestQ627UBCures (lane HAD)
+
+
+class TestLaneHACIncompleteMergeInputs(unittest.TestCase):
+    """Lane HAC: Q-881, Q-317 (4), Q-619 #2 (2026-09-27). A merge or resume of an incomplete
+    enumeration must not look complete.
+
+    Q-881: `solve --merge` over the directory of a SIGTERM-stopped enumeration exited 0 with a
+    partial solutions.bin, and so did the bundled merge at the end of a stopped run. The
+    enumeration (full run and --branch) now keeps enum_incomplete.txt from worker start until every
+    sub-branch is walked; --merge, the end-of-enumeration merge and each --merge-layers layer refuse
+    a directory holding it, or holding an INTERRUPTED cell no later line finished (exit 35,
+    MERGE_INPUT=INCOMPLETE). A stopped run skips its bundled merge (ENUM_AUTOMERGE=SKIPPED, exit 0).
+    Q-317 (4): the merge cross-reference now reads checkpoint_t<N>.txt as well as checkpoint.txt and
+    refuses a shard that is absent or holds fewer records than its line claims (exit 20,
+    MERGE_SHARD=MISSING|SHORT). Q-619 #2: a flush made after the stop writes no .budget sidecar,
+    and promote_orphaned_shards() refuses a shard whose cell the checkpoint records as INTERRUPTED.
+
+    Every fixture is a real enumeration of a -O1 build of ROAE_TESTS_SOLVE_SRC (default solve.c) at
+    SOLVE_HASH_LOG2=16 SOLVE_DEPTH=2. A SIGTERM is sent only once /proc/<pid>/status shows the
+    handler installed, and every stopped case first asserts the handler's line.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    MARKER = "enum_incomplete.txt"
+    SIG_LINE = "*** Signal received"
+    SMALL = {"SOLVE_HASH_LOG2": "16", "SOLVE_DEPTH": "2", "SOLVE_THREADS": "4"}
+    STOPPER = r"""#!/bin/bash
+"$@" & p=$!
+for i in $(seq 600); do
+  m=$(awk '/^SigCgt/{print $2}' /proc/$p/status 2>/dev/null)
+  [ -n "$m" ] && [ $(( 0x$m & 0x4000 )) -ne 0 ] && break
+  sleep 0.1
+done
+sleep "${HAC_STOP_AFTER:-0.5}"; kill -TERM $p; wait $p
+"""
+    LINE_RE = re.compile(r"Sub-branch (\w+) \([^)]*pair1 (\d+) orient1 (\d+) pair2 (\d+) orient2 (\d+)\): "
+                         r".*?, (\d+) solutions, .*budget (\d+)")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="hac_")
+        cls.stopper = os.path.join(cls.tmp, "stopper.sh")
+        with open(cls.stopper, "w") as fh:
+            fh.write(cls.STOPPER)
+        os.chmod(cls.stopper, 0o755)
+        cls.sbin = os.path.join(cls.tmp, "solve_hac")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           cwd=cls.ROOT, capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        if not cls.build_ok:
+            return
+        small = {"SOLVE_PER_SUB_BRANCH_LIMIT": "20000"}
+        big = {"SOLVE_PER_SUB_BRANCH_LIMIT": "200000000"}
+        skip = {"SOLVE_SKIP_AUTOMERGE": "1"}
+        cls.fin = cls._enum("fin", ["0", "4"], dict(small, **skip))
+        cls.auto = cls._enum("auto", ["0", "4"], small)
+        cls.stop_small = cls._enum("stop_small", ["0", "4"], dict(small, **skip), stop=True)
+        cls.stop_big = cls._enum("stop_big", ["0", "4"], dict(big, **skip), stop=True, after="1.0")
+        cls.stop_auto = {"inproc": cls._enum("stop_auto_inproc", ["0", "4"], small, stop=True),
+                         "fork": cls._enum("stop_auto_fork", ["0", "4"], dict(small, SOLVE_DFS_ITERATIVE="1"),
+                                           stop=True)}
+        cls.stop_auto_allow = cls._enum("stop_auto_allow", ["0", "4"], dict(small, SOLVE_MERGE_ALLOW_INCOMPLETE="1"), stop=True)
+        cls.branch_fin = cls._enum("branch_fin", ["--branch", "1", "0", "0", "2"], {"SOLVE_PER_SUB_BRANCH_LIMIT": "2000"})
+        cls.branch_stop = cls._enum("branch_stop", ["--branch", "1", "0", "0", "2"], big, stop=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls, extra):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.SMALL)
+        env.update(extra)
+        return env
+
+    @classmethod
+    def _run(cls, d, argv, extra, stop=False, after="0.5"):
+        env = cls._env(extra)
+        env["HAC_STOP_AFTER"] = after
+        cmd = ([cls.stopper] if stop else []) + [cls.sbin] + argv
+        p = subprocess.run(cmd, cwd=d, env=env, text=True, timeout=900,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return {"rc": p.returncode, "out": p.stdout, "err": p.stderr, "dir": d, "argv": argv, "extra": extra}
+
+    @classmethod
+    def _enum(cls, name, argv, extra, stop=False, after="0.5"):
+        d = os.path.join(cls.tmp, name)
+        os.makedirs(d)
+        return cls._run(d, argv, extra, stop=stop, after=after)
+
+    def setUp(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+
+    # ------------------------------------------------------------------ helpers
+    def _copy(self, run, name):
+        d = tempfile.mkdtemp(prefix=name + "_", dir=self.tmp)
+        shutil.rmtree(d)
+        shutil.copytree(run["dir"], d, symlinks=True)
+        for f in os.listdir(d):
+            if f.startswith("solutions."):
+                os.remove(os.path.join(d, f))
+        return d
+
+    def _merge(self, d, extra=None, argv=("--merge",)):
+        p = subprocess.run([self.sbin] + list(argv), cwd=d, env=self._env(extra or {}), text=True,
+                           timeout=900, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return p.returncode, p.stdout, p.stderr
+
+    @staticmethod
+    def _logical_sha(path):
+        with open(path, "rb") as fh:
+            raw = fh.read()
+        if raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+        return hashlib.sha256(raw).hexdigest()
+
+    def _ckpt_files(self, d):
+        return sorted(f for f in os.listdir(d) if re.fullmatch(r"checkpoint(_t\d+)?\.txt", f))
+
+    def _lines(self, d):
+        out = []
+        for f in self._ckpt_files(d):
+            with open(os.path.join(d, f)) as fh:
+                for line in fh:
+                    m = self.LINE_RE.search(line)
+                    if m:
+                        st, p1, o1, p2, o2, n, b = m.groups()
+                        out.append((f, st, "sub_%s_%s_%s_%s.bin" % (p1, o1, p2, o2), int(n), int(b), line))
+        return out
+
+    def _records(self, path):
+        with open(path, "rb") as fh:
+            raw = fh.read()
+        if raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+        return len(raw) // 32
+
+    def _stopped(self, run):
+        self.assertIn(self.SIG_LINE, run["err"], "precondition: the SIGTERM did not reach the handler")
+        self.assertIn("ENUM_RUN=STOPPED", run["out"].splitlines(), run["out"][-800:])
+
+    def _refused(self, rc, out, err, code, token):
+        self.assertEqual(rc, code, (out + err)[-1500:])
+        self.assertIn(token, err.splitlines(), err[-1500:])
+
+    def _partial_cells(self, d):
+        """INTERRUPTED lines that claim solutions and whose shard holds exactly that partial set."""
+        cells = []
+        for f, st, shard, n, b, line in self._lines(d):
+            p = os.path.join(d, shard)
+            if st == "INTERRUPTED" and n > 0 and os.path.exists(p) and self._records(p) == n:
+                cells.append((shard, n, b))
+        return cells
+
+    def _append(self, d, fname, line):
+        with open(os.path.join(d, fname), "a") as fh:
+            fh.write(line)
+
+    # ------------------------------------------------------------------ positive controls
+    def test_finished_runs_leave_no_marker_and_every_merge_mode_writes_the_bundled_sha(self):
+        for run in (self.fin, self.auto, self.branch_fin):
+            self.assertEqual(run["rc"], 0, run["err"][-1500:])
+            self.assertIn("ENUM_RUN=FINISHED", run["out"].splitlines())
+            self.assertFalse(os.path.exists(os.path.join(run["dir"], self.MARKER)), run["dir"])
+        want = self._logical_sha(os.path.join(self.auto["dir"], "solutions.bin"))
+        self.assertGreater(len(self._lines(self.fin["dir"])), 0)
+        for mode in ({"SOLVE_MERGE_MODE": "memory"}, {"SOLVE_MERGE_MODE": "external"},
+                     {"SOLVE_MERGE_MODE": "external", "SOLVE_MERGE_THREADS": "2"}):
+            with self.subTest(mode=mode):
+                d = self._copy(self.fin, "fin_merge")
+                rc, out, err = self._merge(d, mode)
+                self.assertEqual(rc, 0, (out + err)[-1500:])
+                self.assertNotIn("MERGE_INPUT=INCOMPLETE", err)
+                self.assertEqual(self._logical_sha(os.path.join(d, "solutions.bin")), want)
+
+    def test_a_resumed_run_merges_the_uninterrupted_sha(self):
+        self._stopped(self.stop_small)
+        d = self._copy(self.stop_small, "resumed")
+        r = self._run(d, self.stop_small["argv"], self.stop_small["extra"])
+        self.assertEqual(r["rc"], 0, r["err"][-1500:])
+        self.assertIn("ENUM_RUN=FINISHED", r["out"].splitlines())
+        self.assertFalse(os.path.exists(os.path.join(d, self.MARKER)))
+        rc, out, err = self._merge(d)
+        self.assertEqual(rc, 0, (out + err)[-1500:])
+        self.assertEqual(self._logical_sha(os.path.join(d, "solutions.bin")),
+                         self._logical_sha(os.path.join(self.auto["dir"], "solutions.bin")))
+
+    # ------------------------------------------------------------------ Q-881
+    def test_merge_refuses_a_sigterm_stopped_enumeration(self):
+        self._stopped(self.stop_small)
+        d = self._copy(self.stop_small, "stopped")
+        self.assertTrue(any(f.startswith("sub_") and f.endswith(".bin") for f in os.listdir(d)),
+                        "precondition: the stopped run wrote no shard, so there is nothing to merge")
+        rc, out, err = self._merge(d)
+        self._refused(rc, out, err, 35, "MERGE_INPUT=INCOMPLETE")
+        self.assertIn(self.MARKER, err)
+        self.assertFalse(os.path.exists(os.path.join(d, "solutions.bin")))
+
+    def test_the_marker_alone_refuses_when_no_line_records_the_stop(self):
+        # cells a worker never reached leave no line at all; only the marker says the run is unfinished
+        self._stopped(self.stop_big)
+        d = self._copy(self.stop_big, "marker_only")
+        n_int = 0
+        for f in self._ckpt_files(d):
+            p = os.path.join(d, f)
+            with open(p) as fh:
+                keep = [l for l in fh if "INTERRUPTED" not in l]
+            with open(p) as fh:
+                n_int += sum("INTERRUPTED" in l for l in fh)
+            with open(p, "w") as fh:
+                fh.writelines(keep)
+        self.assertGreater(n_int, 0, "precondition: the stopped run recorded no INTERRUPTED cell")
+        self.assertFalse(any(st == "INTERRUPTED" for _, st, *_ in self._lines(d)))
+        rc, out, err = self._merge(d)
+        self._refused(rc, out, err, 35, "MERGE_INPUT=INCOMPLETE")
+        self.assertIn(self.MARKER + " is present", err)
+
+    def test_merge_refuses_interrupted_cells_in_a_directory_without_a_marker(self):
+        # a directory an earlier binary stopped: no marker, but INTERRUPTED lines no later line finished
+        self._stopped(self.stop_big)
+        d = self._copy(self.stop_big, "legacy")
+        if os.path.exists(os.path.join(d, self.MARKER)):
+            os.remove(os.path.join(d, self.MARKER))
+        intr = [s for _, st, s, *_ in self._lines(d) if st == "INTERRUPTED"]
+        self.assertGreater(len(intr), 0, "precondition: the stopped run recorded no INTERRUPTED cell")
+        rc, out, err = self._merge(d)
+        self._refused(rc, out, err, 35, "MERGE_INPUT=INCOMPLETE")
+        self.assertIn("sub-branch %s was INTERRUPTED at budget 200000000" % intr[0], err)
+        self.assertFalse(os.path.exists(os.path.join(d, "solutions.bin")))
+
+    def test_an_interrupted_line_is_covered_only_by_a_completion_at_its_budget_or_above(self):
+        lines = self._lines(self.fin["dir"])
+        self.assertTrue(lines and all(st == "BUDGETED" and b == 20000 for _, st, _, _, b, _ in lines),
+                        "precondition: every line of the finished run is BUDGETED at 20000")
+        f0, _, shard, _, _, line = lines[0]
+        cell = re.search(r"pair1 \d+ orient1 \d+ pair2 \d+ orient2 \d+", line).group(0)
+        tpl = "Sub-branch %s (thread 0, " + cell + "): 5 nodes, 0 C3-valid, 0 solutions, 1s elapsed, budget %d\n"
+        cases = [  # (file, extra lines, expected rc)
+            ("checkpoint_t0.txt", [tpl % ("INTERRUPTED", 20000)], 0),                 # finished later at 20000
+            ("checkpoint_t0.txt", [tpl % ("INTERRUPTED", 10000)], 0),                 # finished above it
+            ("checkpoint_t0.txt", [tpl % ("INTERRUPTED", 40000)], 35),                # only a smaller budget finished
+            ("checkpoint_t0.txt", [tpl % ("INTERRUPTED", 0)], 35),                    # uncapped = infinite (Q-317 (1))
+            ("checkpoint_t0.txt", [tpl % ("INTERRUPTED", 40000), tpl % ("EXHAUSTED", 40)], 0),  # EXHAUSTED ends it
+            ("checkpoint.txt", [tpl % ("INTERRUPTED", 40000)], 35),                   # the legacy file is read too
+        ]
+        for fname, extra, want in cases:
+            with self.subTest(extra=extra, file=fname):
+                d = self._copy(self.fin, "cover")
+                for l in extra:
+                    self._append(d, fname, l)
+                rc, out, err = self._merge(d)
+                self.assertEqual(rc, want, (out + err)[-1500:])
+                if want == 35:
+                    self.assertIn("MERGE_INPUT=INCOMPLETE", err.splitlines())
+                    self.assertIn(shard, err)
+                else:
+                    self.assertTrue(os.path.exists(os.path.join(d, "solutions.bin")))
+
+    def test_a_stopped_run_skips_its_bundled_merge(self):
+        for path, run in sorted(self.stop_auto.items()):
+            with self.subTest(path=path):
+                self._stopped(run)
+                self.assertIn("TIMED OUT after ", run["out"], "precondition: the run did not reach its report")
+                if path == "fork":
+                    self.assertIn("SOLVE_DFS_ITERATIVE", run["extra"])
+                self.assertEqual(run["rc"], 0, run["err"][-1500:])
+                self.assertIn("ENUM_AUTOMERGE=SKIPPED", run["out"].splitlines(), run["out"][-1500:])
+                self.assertFalse(os.path.exists(os.path.join(run["dir"], "solutions.bin")))
+                self.assertTrue(os.path.exists(os.path.join(run["dir"], self.MARKER)))
+
+    def test_branch_mode_keeps_the_marker_until_it_finishes(self):
+        self._stopped(self.branch_stop)
+        self.assertTrue(os.path.exists(os.path.join(self.branch_stop["dir"], self.MARKER)))
+        d = self._copy(self.branch_stop, "branch_stopped")
+        rc, out, err = self._merge(d)
+        self._refused(rc, out, err, 35, "MERGE_INPUT=INCOMPLETE")
+        self.assertFalse(os.path.exists(os.path.join(self.branch_fin["dir"], self.MARKER)))
+
+    def test_a_relaunch_that_finds_every_cell_done_clears_the_marker(self):
+        d = self._copy(self.fin, "all_done")
+        with open(os.path.join(d, self.MARKER), "w") as fh:
+            fh.write("left by a run stopped after its last cell\n")
+        r = self._run(d, self.fin["argv"], self.fin["extra"])
+        self.assertEqual(r["rc"], 0, r["err"][-1500:])
+        self.assertIn("All 3030 sub-branches already completed.", r["out"], "precondition: nothing was left to walk")
+        self.assertFalse(os.path.exists(os.path.join(d, self.MARKER)))
+        rc, out, err = self._merge(d)
+        self.assertEqual(rc, 0, (out + err)[-1500:])
+
+    def test_merge_layers_refuses_a_stopped_layer(self):
+        self._stopped(self.stop_small)
+        for src, want in ((self.stop_small, 35), (self.fin, 0)):
+            with self.subTest(layer=os.path.basename(src["dir"])):
+                root = tempfile.mkdtemp(prefix="layers_", dir=self.tmp)   # absolute: the merged dir symlinks by this path
+                shutil.copytree(src["dir"], os.path.join(root, "01_layer"), symlinks=True)
+                rc, out, err = self._merge(self.tmp, argv=("--merge-layers", root))
+                self.assertEqual(rc, want, (out + err)[-1500:])
+                if want == 35:
+                    self.assertIn("MERGE_INPUT=INCOMPLETE", err.splitlines())
+                else:
+                    self.assertEqual(self._logical_sha(os.path.join(root, "_merged_", "solutions.bin")),
+                                     self._logical_sha(os.path.join(self.auto["dir"], "solutions.bin")))
+
+    def test_the_override_merges_an_unfinished_run_as_a_partial_set_but_never_without_a_shard(self):
+        allow = {"SOLVE_MERGE_ALLOW_INCOMPLETE": "1"}
+        self._stopped(self.stop_small)
+        self._stopped(self.stop_big)
+        legacy = self._copy(self.stop_big, "allowed_legacy")
+        if os.path.exists(os.path.join(legacy, self.MARKER)):
+            os.remove(os.path.join(legacy, self.MARKER))
+        self.assertTrue(any(st == "INTERRUPTED" for _, st, *_ in self._lines(legacy)))
+        for d in (self._copy(self.stop_small, "allowed"), self._copy(self.stop_big, "allowed_big")):  # lane HAJ: `legacy` has no budget on disk, so the override is refused there (TestLaneHAJ)
+            with self.subTest(d=os.path.basename(d)):
+                rc, out, err = self._merge(d, allow)
+                self.assertEqual(rc, 0, (out + err)[-1500:])
+                self.assertIn("MERGE_INPUT=INCOMPLETE_ALLOWED", err.splitlines(), err[-1500:])
+                self.assertNotIn("MERGE_INPUT=INCOMPLETE", err.splitlines())
+                self.assertTrue(os.path.exists(os.path.join(d, "solutions.bin")))
+        d = self._copy(self.fin, "allowed_absent")
+        shard, n = self._victim(d)
+        os.remove(os.path.join(d, shard))
+        rc, out, err = self._merge(d, allow)
+        self._refused(rc, out, err, 20, "MERGE_SHARD=MISSING")
+
+    def test_the_override_lets_a_stopped_run_merge_its_partial_set(self):
+        run = self.stop_auto_allow
+        self._stopped(run)
+        self.assertEqual(run["rc"], 0, run["err"][-1500:])
+        self.assertNotIn("ENUM_AUTOMERGE=SKIPPED", run["out"].splitlines())
+        self.assertIn("MERGE_INPUT=INCOMPLETE_ALLOWED", run["err"].splitlines(), run["err"][-1500:])
+        self.assertTrue(os.path.exists(os.path.join(run["dir"], "solutions.bin")))
+
+    # ------------------------------------------------------------------ Q-317 (4)
+    def _victim(self, d):
+        for _, st, shard, n, _, _ in self._lines(d):
+            if n > 0 and os.path.exists(os.path.join(d, shard)):
+                return shard, n
+        self.fail("precondition: no line claims records for a shard on disk")
+
+    def test_merge_refuses_an_absent_empty_or_short_shard_its_line_claims(self):
+        for how in ("delete", "empty", "short"):
+            with self.subTest(how=how):
+                d = self._copy(self.fin, "damaged_" + how)
+                shard, n = self._victim(d)
+                p = os.path.join(d, shard)
+                self.assertGreater(n, 1)
+                if how == "delete":
+                    os.remove(p)
+                elif how == "empty":
+                    open(p, "wb").close()
+                else:
+                    with open(p, "rb") as fh:
+                        first = gzip.decompress(fh.read())[:32]
+                    with open(p, "wb") as fh:
+                        fh.write(gzip.compress(first))
+                    self.assertEqual(self._records(p), 1)   # a whole record: the scan's size check passes it
+                rc, out, err = self._merge(d)
+                self._refused(rc, out, err, 20, "MERGE_SHARD=%s" % ("MISSING" if how == "delete" else "SHORT"))
+                self.assertIn(shard, err)
+                self.assertFalse(os.path.exists(os.path.join(d, "solutions.bin")))
+
+    def test_the_end_of_enumeration_merge_refuses_an_absent_shard(self):
+        # the in-process merge: a relaunch with one cell left to walk, a finished cell's shard deleted
+        d = self._copy(self.auto, "inproc_absent")
+        lines = self._lines(d)
+        pend = next((l for l in lines if l[3] == 0 and not os.path.exists(os.path.join(d, l[2]))), None)
+        self.assertIsNotNone(pend, "precondition: no 0-solution cell to leave pending")
+        cell = re.search(r"pair1 \d+ orient1 \d+ pair2 \d+ orient2 \d+\)", pend[5]).group(0)
+        for f in self._ckpt_files(d):
+            p = os.path.join(d, f)
+            with open(p) as fh:
+                keep = [l for l in fh if cell not in l]
+            with open(p, "w") as fh:
+                fh.writelines(keep)
+        for f in ("shard_manifest.txt",):
+            if os.path.exists(os.path.join(d, f)):
+                os.remove(os.path.join(d, f))
+        shard, n = self._victim(d)
+        os.remove(os.path.join(d, shard))
+        r = self._run(d, self.auto["argv"], self.auto["extra"])
+        self.assertIn("Sub-branches: 1 remaining", r["out"], "precondition: the relaunch had one cell to walk")
+        self.assertIn("sub-branch files with", r["out"], "precondition: the relaunch did not reach its merge")
+        self._refused(r["rc"], r["out"], r["err"], 20, "MERGE_SHARD=MISSING")
+        self.assertIn(shard, r["err"])
+
+    # ------------------------------------------------------------------ Q-619 #2
+    def test_a_stopped_cells_flush_writes_no_budget_sidecar(self):
+        self._stopped(self.stop_big)
+        cells = self._partial_cells(self.stop_big["dir"])
+        self.assertGreater(len(cells), 0, "precondition: no INTERRUPTED cell left a partial shard")
+        for shard, n, b in cells:
+            self.assertFalse(os.path.exists(os.path.join(self.stop_big["dir"], shard + ".budget")),
+                             "%s holds the %d records found before the stop, but carries a .budget sidecar" % (shard, n))
+
+    def _relaunch_promotes(self, extra_env=None, legacy_sidecar=False):
+        self._stopped(self.stop_big)
+        d = self._copy(self.stop_big, "relaunch")
+        cells = self._partial_cells(d)
+        self.assertGreater(len(cells), 0, "precondition: no INTERRUPTED cell left a partial shard")
+        if legacy_sidecar:   # what an earlier binary wrote beside the partial shard
+            for shard, n, b in cells:
+                with open(os.path.join(d, shard + ".budget"), "w") as fh:
+                    fh.write("%d\n" % b)
+        r = self._run(d, self.stop_big["argv"], dict(self.stop_big["extra"], **(extra_env or {})), stop=True)
+        self._stopped(r)
+        with open(os.path.join(d, "checkpoint.txt")) as fh:
+            promoted = [l for l in fh if "v3.1 promoted" in l]
+        return d, cells, r, promoted
+
+    def test_a_relaunch_does_not_promote_an_interrupted_cells_partial_shard(self):
+        d, cells, r, promoted = self._relaunch_promotes()
+        for shard, n, b in cells:
+            key = "pair1 %s orient1 %s pair2 %s orient2 %s)" % tuple(shard[4:-4].split("_"))
+            self.assertEqual([l for l in promoted if key in l], [], "%s (%d partial records) was promoted" % (shard, n))
+            self.assertIn("orphaned shard %s belongs to a sub-branch the checkpoint records as INTERRUPTED" % shard, r["err"])
+
+    def test_the_sidecar_escape_and_a_legacy_sidecar_do_not_promote_it_either(self):
+        for extra, legacy in (({"SOLVE_ALLOW_MISSING_BUDGET_SIDECAR": "1"}, False), ({}, True)):
+            with self.subTest(escape=bool(extra), legacy_sidecar=legacy):
+                d, cells, r, promoted = self._relaunch_promotes(extra, legacy)
+                for shard, n, b in cells:
+                    key = "pair1 %s orient1 %s pair2 %s orient2 %s)" % tuple(shard[4:-4].split("_"))
+                    self.assertEqual([l for l in promoted if key in l], [], "%s (%d partial records) was promoted" % (shard, n))
+                    self.assertIn("orphaned shard %s belongs to a sub-branch the checkpoint records as INTERRUPTED" % shard, r["err"])
+                    if legacy:   # the relaunch walked the cell again and was stopped in it: the older sidecar is gone
+                        again = [l for l in self._lines(d) if l[2] == shard and l[1] == "INTERRUPTED"]
+                        self.assertGreater(len(again), 1, "precondition: the relaunch did not stop inside %s" % shard)
+                        self.assertFalse(os.path.exists(os.path.join(d, shard + ".budget")))
+# end class TestLaneHACIncompleteMergeInputs (lane HAC)
+
+
+class TestLaneHAJ(unittest.TestCase):
+    """Lane HAJ: Q-881 follow-up, SOLVE_CONCENTRATE_BUDGET, Q-798 follow-up, Q-868 follow-up, .mailmap (2026-09-27).
+
+    (1) Q-881 follow-up. SOLVE_MERGE_ALLOW_INCOMPLETE=1 (lane HAC) merged a stopped run's partial set
+        at any scale. It is now refused (ERROR, MERGE_OVERRIDE=REFUSED, exit 35) when the run's node
+        budget is >= 1T, when the run had neither a node budget nor a time limit, and when the budget
+        cannot be read: at enumeration start (from this launch's settings, before the marker and the
+        workers) and at merge time (from enum_incomplete.txt's run_node_budget= / time_limit_seconds=,
+        else resume_contract.txt). Fixtures are real depth-2 runs of a -O1 build of ROAE_TESTS_SOLVE_SRC,
+        stopped by their own 1 s time limit.
+    (2) SOLVE_CONCENTRATE_BUDGET was presence-only (=0 and an empty value turned it ON). It is now
+        strictly 0 or 1; anything else, empty included, exits 2 with SOLVE_ENV=REFUSED.
+    (3) Q-798 follow-up. The pre-push verdict record now carries the advisory legs whose answer depends
+        only on the tree and the toolchain (ADV_*); a matching record's PASS or FAIL skips them, a record
+        without one runs it, and an advisory FAIL never blocks. Driven through the REAL hook and helper
+        on TestQ798PrepushTreeKeyedReuse's throwaway-repository fixture.
+    (4) Q-868 follow-up. The five roae-private/ pointers in public evidence (three under reports/evidence/,
+        two under runs/) are gone; the archived R7 log was redacted in place and its README records the
+        pre-redaction sha256.
+    (5) .mailmap maps the placeholder author of batches 13-21 to the operator.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    MARKER = "enum_incomplete.txt"
+    T1 = 1000000000000
+    SKIPS = {"SOLVE_SKIP_AUTO_SELFTEST": "1", "SOLVE_SKIP_DISK_CHECK": "1", "SOLVE_SKIP_IOPS_CHECK": "1",
+             "SOLVE_SKIP_HOST_FINGERPRINT": "1", "SOLVE_SKIP_BINARY_SNAPSHOT": "1",
+             "SOLVE_SKIP_CANONICAL_LOCK": "1", "SOLVE_SKIP_AUTO_MANIFEST": "1"}
+    SMALL = {"SOLVE_HASH_LOG2": "16", "SOLVE_DEPTH": "2", "SOLVE_THREADS": "4"}
+    ALLOW = {"SOLVE_MERGE_ALLOW_INCOMPLETE": "1"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="haj_")
+        cls.sbin = os.path.join(cls.tmp, "solve_haj")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           cwd=cls.ROOT, capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.stopped = None
+        if cls.build_ok:
+            # One run stopped by its own 1 s time limit mid-walk: a marker, INTERRUPTED lines, no merge.
+            cls.stopped = cls._launch("stopped", ["1", "4"], {"SOLVE_PER_SUB_BRANCH_LIMIT": "200000000",
+                                                              "SOLVE_SKIP_AUTOMERGE": "1"})
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls, extra):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env.update(cls.SMALL)
+        env.update(cls.SKIPS)
+        env.update(extra)
+        return env
+
+    @classmethod
+    def _launch(cls, name, argv, extra, timeout=900):
+        d = tempfile.mkdtemp(prefix=name + "_", dir=cls.tmp)
+        try:
+            p = subprocess.run([cls.sbin] + argv, cwd=d, env=cls._env(extra), text=True, timeout=timeout,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.TimeoutExpired:   # killed by subprocess.run; an uncapped launch that was not refused
+            return {"rc": "timeout after %d s" % timeout, "out": "", "err": "", "dir": d}
+        return {"rc": p.returncode, "out": p.stdout, "err": p.stderr, "dir": d}
+
+    def _need_build(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+
+    def _shards(self, d):
+        return [f for f in os.listdir(d) if f.startswith("sub_") and ".bin" in f]
+
+    def _copy_stopped(self, name):
+        run = self.stopped
+        self.assertEqual(run["rc"], 0, run["err"][-1500:])
+        self.assertTrue(os.path.exists(os.path.join(run["dir"], self.MARKER)),
+                        "precondition: the time-limited run left its run-in-progress marker")
+        d = tempfile.mkdtemp(prefix=name + "_", dir=self.tmp)
+        shutil.rmtree(d)
+        shutil.copytree(run["dir"], d, symlinks=True)
+        for f in os.listdir(d):
+            if f.startswith("solutions."):
+                os.remove(os.path.join(d, f))
+        return d
+
+    def _marker(self, d):
+        with open(os.path.join(d, self.MARKER), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _set_marker(self, d, budget=None, tl=None, drop=False):
+        lines = self._marker(d).split("\n")
+        out = []
+        for ln in lines:
+            if ln.startswith("run_node_budget="):
+                if drop:
+                    continue
+                if budget is not None:
+                    ln = "run_node_budget=%d" % budget
+            if ln.startswith("time_limit_seconds="):
+                if drop:
+                    continue
+                if tl is not None:
+                    ln = "time_limit_seconds=%d" % tl
+            out.append(ln)
+        with open(os.path.join(d, self.MARKER), "w", encoding="utf-8") as fh:
+            fh.write("\n".join(out))
+
+    def _merge(self, d, extra=None, argv=("--merge",), cwd=None):
+        p = subprocess.run([self.sbin] + list(argv), cwd=cwd or d, env=self._env(extra or {}), text=True,
+                           timeout=900, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return p.returncode, p.stdout, p.stderr
+
+    def _refused(self, rc, out, err):
+        self.assertEqual(rc, 35, (out + err)[-2000:])
+        lines = err.splitlines()
+        self.assertIn("MERGE_OVERRIDE=REFUSED", lines, err[-2000:])
+        self.assertTrue(any(l.startswith("ERROR:") and "SOLVE_MERGE_ALLOW_INCOMPLETE=1 is refused" in l for l in lines))
+
+    def _allowed(self, rc, out, err, d):
+        self.assertEqual(rc, 0, (out + err)[-2000:])
+        self.assertIn("MERGE_INPUT=INCOMPLETE_ALLOWED", err.splitlines(), err[-2000:])
+        self.assertNotIn("MERGE_OVERRIDE=REFUSED", err.splitlines())
+        self.assertTrue(os.path.exists(os.path.join(d, "solutions.bin")))
+
+    # ============================================================== (1) Q-881 follow-up: at launch
+    def test_launch_at_1T_with_the_override_is_refused_before_any_work(self):
+        self._need_build()
+        at = {"SOLVE_NODE_LIMIT": str(self.T1)}
+        # Control: the same 1T launch without the override starts its workers (stopped by its time limit).
+        ctl = self._launch("t1_ctl", ["1", "4"], at)
+        self.assertEqual(ctl["rc"], 0, ctl["err"][-1500:])
+        self.assertTrue(self._shards(ctl["dir"]) or os.path.exists(os.path.join(ctl["dir"], self.MARKER)),
+                        "precondition: the 1T launch reaches its workers")
+        run = self._launch("t1_allow", ["1", "4"], dict(at, **self.ALLOW))
+        self.assertEqual(run["rc"], 35, (run["out"] + run["err"])[-2000:])
+        self.assertIn("MERGE_OVERRIDE=REFUSED", run["err"].splitlines())
+        self.assertNotIn("MERGE_INPUT=INCOMPLETE", run["err"].splitlines(), "a launch is not a merge")
+        self.assertIn("at or above the canonical scale of 1T", run["err"])
+        self.assertEqual(self._shards(run["dir"]), [])
+        self.assertFalse(os.path.exists(os.path.join(run["dir"], self.MARKER)), "refused before the marker")
+
+    def test_launch_just_below_1T_with_the_override_still_merges_its_partial_set(self):
+        self._need_build()
+        run = self._launch("below", ["1", "4"], dict(self.ALLOW, SOLVE_NODE_LIMIT=str(self.T1 - 1),
+                                                      SOLVE_ALLOW_SUB_CANONICAL="1"))
+        self.assertEqual(run["rc"], 0, (run["out"] + run["err"])[-2000:])
+        self.assertIn("MERGE_INPUT=INCOMPLETE_ALLOWED", run["err"].splitlines(), run["err"][-2000:])
+        self.assertIn("run_node_budget=%d" % (self.T1 - 1), self._marker(run["dir"]).split("\n"))
+        self.assertTrue(os.path.exists(os.path.join(run["dir"], "solutions.bin")))
+
+    def test_launch_budget_counts_the_per_sub_branch_limit_times_the_partition(self):
+        self._need_build()
+        # 1e9 per cell over a depth-2 partition of more than 1,000 cells is > 1T with no SOLVE_NODE_LIMIT.
+        run = self._launch("psb", ["1", "4"], dict(self.ALLOW, SOLVE_PER_SUB_BRANCH_LIMIT="1000000000"))
+        self.assertEqual(run["rc"], 35, (run["out"] + run["err"])[-2000:])
+        self.assertIn("MERGE_OVERRIDE=REFUSED", run["err"].splitlines())
+        m = re.search(r"node budget is (\d+) nodes", run["err"])
+        self.assertIsNotNone(m, run["err"][-1500:])
+        self.assertEqual(int(m.group(1)) % 1000000000, 0)
+        self.assertGreaterEqual(int(m.group(1)), self.T1)
+
+    def test_launch_with_no_node_budget_needs_a_time_limit(self):
+        self._need_build()
+        # Uncapped and no time limit: refused (the run could only end by a signal).
+        run = self._launch("uncapped", ["0", "4"], self.ALLOW, timeout=120)   # unrefused, it would never end
+        self.assertEqual(run["rc"], 35, (run["out"] + run["err"])[-2000:])
+        self.assertIn("no node budget and no time limit", run["err"])
+        # Uncapped with a time limit: the documented "run N minutes, take what we got" use, allowed.
+        run = self._launch("timed", ["1", "4"], self.ALLOW)
+        self.assertEqual(run["rc"], 0, (run["out"] + run["err"])[-2000:])
+        self.assertIn("MERGE_INPUT=INCOMPLETE_ALLOWED", run["err"].splitlines(), run["err"][-2000:])
+        mk = self._marker(run["dir"]).split("\n")
+        self.assertIn("run_node_budget=0", mk)
+        self.assertIn("time_limit_seconds=1", mk)
+
+    # ============================================================== (1) Q-881 follow-up: at merge
+    def test_merge_reads_the_budget_from_the_marker(self):
+        self._need_build()
+        d = self._copy_stopped("m_pos")
+        mk = self._marker(d).split("\n")
+        b = [int(l.split("=", 1)[1]) for l in mk if l.startswith("run_node_budget=")]
+        self.assertEqual(len(b), 1, "precondition: the marker records the launch's budget")
+        self.assertTrue(0 < b[0] < self.T1 and b[0] % 200000000 == 0, b)
+        self.assertIn("time_limit_seconds=1", mk)
+        # Positive control: below 1T the override still merges the partial set.
+        self._allowed(*self._merge(d, self.ALLOW), d)
+        # Without the override: refused as incomplete, exactly as before, and no MERGE_OVERRIDE line.
+        d = self._copy_stopped("m_plain")
+        rc, out, err = self._merge(d)
+        self.assertEqual(rc, 35)
+        self.assertIn("MERGE_INPUT=INCOMPLETE", err.splitlines())
+        self.assertNotIn("MERGE_OVERRIDE=REFUSED", err.splitlines())
+        # At 1T exactly: refused. One below: allowed.
+        d = self._copy_stopped("m_1t")
+        self._set_marker(d, budget=self.T1)
+        self._refused(*self._merge(d, self.ALLOW))
+        self.assertFalse(os.path.exists(os.path.join(d, "solutions.bin")), "refused before any merge output")
+        d = self._copy_stopped("m_below")
+        self._set_marker(d, budget=self.T1 - 1)
+        self._allowed(*self._merge(d, self.ALLOW), d)
+
+    def test_merge_refuses_when_the_budget_is_unknown_or_uncapped_untimed(self):
+        self._need_build()
+        d = self._copy_stopped("m_old_marker")          # a marker written before this change
+        self._set_marker(d, drop=True)
+        self.assertNotIn("run_node_budget=", self._marker(d))
+        rc, out, err = self._merge(d, self.ALLOW)
+        self._refused(rc, out, err)
+        self.assertIn("cannot be determined", err)
+        d = self._copy_stopped("m_uncapped")
+        self._set_marker(d, budget=0, tl=0)
+        rc, out, err = self._merge(d, self.ALLOW)
+        self._refused(rc, out, err)
+        self.assertIn("no node budget and no time limit", err)
+        d = self._copy_stopped("m_timed")
+        self._set_marker(d, budget=0, tl=60)
+        self._allowed(*self._merge(d, self.ALLOW), d)
+        # A marker with the budget line twice is ambiguous: no readable budget, refused.
+        d = self._copy_stopped("m_dup")
+        with open(os.path.join(d, self.MARKER), "a", encoding="utf-8") as fh:
+            fh.write("run_node_budget=5\n")
+        self.assertEqual(self._marker(d).count("run_node_budget="), 2, "precondition: the key is duplicated")
+        rc, out, err = self._merge(d, self.ALLOW)
+        self._refused(rc, out, err)
+        self.assertIn("cannot be determined", err)
+
+    def test_merge_without_a_marker_falls_back_to_resume_contract_or_refuses(self):
+        self._need_build()
+        d = self._copy_stopped("m_legacy")
+        os.remove(os.path.join(d, self.MARKER))
+        lines = []
+        for f in os.listdir(d):
+            if f.startswith("checkpoint"):
+                with open(os.path.join(d, f), encoding="utf-8") as fh:
+                    lines += [l for l in fh if "INTERRUPTED" in l]
+        self.assertTrue(lines, "precondition: the stopped run left INTERRUPTED lines")
+        self.assertFalse(os.path.exists(os.path.join(d, "resume_contract.txt")))
+        rc, out, err = self._merge(d, self.ALLOW)
+        self._refused(rc, out, err)
+        self.assertIn("cannot be determined", err)
+        for nl, psb, ok in ((5000000, 0, True), (self.T1, 0, False), (5000000, 20000, False), (0, self.T1, False)):
+            with self.subTest(node_limit=nl, psb=psb):
+                why = "at or above the canonical scale of 1T" if max(nl, psb) >= self.T1 else "cannot be determined"
+                d2 = tempfile.mkdtemp(prefix="m_contract_", dir=self.tmp)
+                shutil.rmtree(d2)
+                shutil.copytree(d, d2)
+                with open(os.path.join(d2, "resume_contract.txt"), "w", encoding="utf-8") as fh:
+                    fh.write("schema=1\nthreads=4\ndepth=2\nnode_limit=%d\nper_sub_branch_limit=%d\n" % (nl, psb))
+                rc, out, err = self._merge(d2, self.ALLOW)
+                if ok:
+                    self._allowed(rc, out, err, d2)
+                else:
+                    self._refused(rc, out, err)
+                    self.assertIn(why, err)   # the reason, not only the refusal (a per-sub-branch limit of 1T alone is canonical)
+        # A marker below 1T does not outvote a resume_contract.txt at 1T: either source at or above 1T refuses.
+        d3 = self._copy_stopped("m_marker_and_contract")
+        with open(os.path.join(d3, "resume_contract.txt"), "w", encoding="utf-8") as fh:
+            fh.write("schema=1\nthreads=4\ndepth=2\nnode_limit=%d\nper_sub_branch_limit=0\n" % self.T1)
+        rc, out, err = self._merge(d3, self.ALLOW)
+        self._refused(rc, out, err)
+        self.assertIn("read from resume_contract.txt", err)
+
+    def test_merge_layers_judges_each_layer_by_its_own_marker(self):
+        self._need_build()
+        root = tempfile.mkdtemp(prefix="layers_", dir=self.tmp)
+        d = self._copy_stopped("layer_src")
+        self._set_marker(d, budget=5 * self.T1)
+        shutil.copytree(d, os.path.join(root, "01_layer"), symlinks=True)
+        rc, out, err = self._merge(None, self.ALLOW, argv=("--merge-layers", root), cwd=self.tmp)
+        self._refused(rc, out, err)
+        self.assertIn("5000000000000 nodes", err)
+
+    # ============================================================== (2) SOLVE_CONCENTRATE_BUDGET strict 0/1
+    def _cfg(self, value):
+        env = self._env({})
+        if value is not None:
+            env["SOLVE_CONCENTRATE_BUDGET"] = value
+        return subprocess.run([self.sbin, "--print-config"], cwd=self.tmp, env=env, text=True,
+                              capture_output=True, timeout=120)
+
+    def test_concentrate_budget_is_refused_unless_0_or_1(self):
+        self._need_build()
+        for v in (None, "0", "1"):
+            with self.subTest(accepted=v):
+                r = self._cfg(v)
+                self.assertEqual(r.returncode, 0, r.stderr[-800:])
+                self.assertFalse([l for l in r.stderr.splitlines() if l.startswith("SOLVE_ENV=REFUSED")])
+        for v in ("", "yes", "2", " 1", "1 ", "01", "true"):
+            with self.subTest(refused=v):
+                r = self._cfg(v)
+                self.assertEqual(r.returncode, 2, (v, r.stdout[-400:], r.stderr[-800:]))
+                self.assertIn("SOLVE_ENV=REFUSED name=SOLVE_CONCENTRATE_BUDGET value=%s" % v, r.stderr.splitlines())
+
+    def test_concentrate_budget_0_is_off_and_1_is_on(self):
+        self._need_build()
+        base = {"SOLVE_NODE_LIMIT": "200000", "SOLVE_ALLOW_SUB_CANONICAL": "1", "SOLVE_SKIP_AUTOMERGE": "1"}
+        seen = {}
+        for v in ("0", "1", None):
+            extra = dict(base)
+            if v is not None:
+                extra["SOLVE_CONCENTRATE_BUDGET"] = v
+            run = self._launch("conc_%s" % v, ["0", "4"], extra)
+            self.assertEqual(run["rc"], 0, run["err"][-1500:])
+            line = [l for l in run["out"].splitlines() if l.startswith("Per-sub-branch node limit:")]
+            self.assertEqual(len(line), 1, "precondition: the divisor line is printed\n" + run["out"][-1500:])
+            seen[v] = line[0]
+        self.assertNotIn("[CONCENTRATED]", seen["0"])
+        self.assertNotIn("[CONCENTRATED]", seen[None])
+        self.assertIn("[CONCENTRATED]", seen["1"])
+
+    # ============================================================== (3) Q-798 follow-up: advisory legs
+    ADV = ("Q479_F1C5_ADOPT", "Q479_RESUME_BUDGET", "Q479_MISSING_SHARD", "REPRODUCE_DIGESTS", "FAILOPEN_CLOSURE")
+    ADV_MARKS = {"Q479_F1C5_ADOPT": "adv f1c5", "Q479_RESUME_BUDGET": "adv resume_budget",
+                 "Q479_MISSING_SHARD": "adv q317", "REPRODUCE_DIGESTS": "adv reprodig",
+                 "FAILOPEN_CLOSURE": "adv failopen"}
+
+    def _q798(self):
+        q = TestQ798PrepushTreeKeyedReuse
+        stubs = dict(q.STUBS)
+        stubs.update({
+            "doc_gates.sh": 'echo "doc_gates ${1:-all}" >> "$HK_MARK"\n'
+                            '[ "${1:-}" = --selftest ] && echo "DOC_GATES_SELFTEST=PASS"\nexit 0\n',
+            "f1c5_adopt_digest_gate.sh": 'echo "adv f1c5" >> "$HK_MARK"\necho "F1C5_ADOPT_DIGEST_GATE=${HAJ_F1C5:-PASS}"\n',
+            "resume_budget_infinity_gate.sh": 'echo "adv resume_budget" >> "$HK_MARK"\necho "RESUME_BUDGET_INFINITY=PASS"\n',
+            "q317_missing_shard_merge_gate.sh": 'echo "adv q317" >> "$HK_MARK"\necho "MISSING_SHARD_MERGE=PASS"\n',
+            "reproduce_digests_gate.sh": 'echo "adv reprodig" >> "$HK_MARK"\necho "REPRODUCE_DIGESTS=PASS"\n',
+            "failopen_closure_gate.sh": 'echo "adv failopen" >> "$HK_MARK"\necho "FAILOPEN_CLOSURE=${HAJ_FO:-OK}"\n',
+        })
+        return q, stubs
+
+    def _fx(self, hook_src=None, helper_src=None, env=None):
+        """TestQ798's fixture (base A published, candidate B) with the advisory gates stubbed, a fake
+        `dot` on PATH so the doc_gates --selftest leg runs, and the hook/helper sources overridable."""
+        q, stubs = self._q798()
+        type(self).n += 1
+        d = os.path.join(self.tmp, "q%d" % self.n)
+        repo, bare = os.path.join(d, "repo"), os.path.join(d, "origin.git")
+        os.makedirs(repo)
+        bindir = os.path.join(d, "bin")
+        os.makedirs(bindir)
+        with open(os.path.join(bindir, "dot"), "w") as fh:
+            fh.write("#!/bin/sh\nexit 0\n")
+        os.chmod(os.path.join(bindir, "dot"), 0o755)
+        g = lambda *a: q._git(self, repo, *a)
+        with open(q.HOOK, encoding="utf-8") as fh:
+            hsrc = fh.read()
+        with open(q.HELPER, encoding="utf-8") as fh:
+            psrc = fh.read()
+        g("init", "-q")
+        q._write(self, os.path.join(repo, q.HOOK), hook_src or hsrc, 0o755)
+        q._write(self, os.path.join(repo, q.HELPER), helper_src or psrc, 0o755)
+        for name, body in stubs.items():
+            q._write(self, os.path.join(repo, "scripts", name), "#!/bin/bash\n" + body, 0o755)
+        q._write(self, os.path.join(repo, "solve.c"), "int main(void) { return 0; }\n")
+        q._write(self, os.path.join(repo, "roae.py"), "print(1)\n")
+        g("add", "-A")
+        g("commit", "-qm", "A")
+        subprocess.run(["git", "clone", "-q", "--bare", repo, bare], check=True, capture_output=True)
+        g("remote", "add", "origin", bare)
+        g("fetch", "-q", "origin")
+        a = g("rev-parse", "HEAD")
+        q._write(self, os.path.join(repo, "solve.c"), "int main(void) { return 1 - 1; }\n")
+        q._write(self, os.path.join(repo, "scripts", "NOTE.sh"), "true\n")
+        g("add", "-A")
+        g("commit", "-qm", "B")
+        b = g("rev-parse", "HEAD")
+        extra = {"PATH": bindir + os.pathsep + os.environ.get("PATH", "")}
+        extra.update(env or {})
+        return {"d": d, "repo": repo, "a": a, "b": b, "env": extra, "hsrc": hsrc, "psrc": psrc}
+
+    def _run_hook(self, fx, stdin, record=None, env=None):
+        mark = os.path.join(fx["d"], "mark_%d.log" % random.randrange(1 << 30))
+        e = dict(os.environ, HK_MARK=mark, TMPDIR=fx["d"])
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE",
+                  "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "HAJ_FO", "HAJ_F1C5"):
+            e.pop(k, None)
+        e.update(fx["env"])
+        e.update(env or {})
+        if record is not None:
+            e["ROAE_PREPUSH_RECORD"] = record
+        r = subprocess.run(["bash", os.path.join(fx["repo"], "scripts", "pre_push_gate.sh")], cwd=fx["repo"],
+                           input=stdin, capture_output=True, text=True, env=e, timeout=600)
+        marks = []
+        if os.path.exists(mark):
+            with open(mark, encoding="utf-8") as fh:
+                marks = [l.strip() for l in fh if l.strip()]
+        return r, marks
+
+    def _produce(self, fx, env=None, pre=True):
+        r, marks = self._run_hook(fx, "refs/heads/x %s refs/tags/prepush-record %s\n" % (fx["b"], "0" * 40), env=env)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-1500:])
+        for leg in (self.ADV if pre else ()):   # pre=False: a mutant hook that skips advisory legs in the producer run too
+            self.assertIn(self.ADV_MARKS[leg], marks, "precondition: the producer run ran advisory leg %s" % leg)
+        logs = {}
+        for name, body in (("hook", r.stdout), ("tests", "Ran 3 tests in 0.1s\n\nOK\n"),
+                           ("citation", "CITATION_LINE_GATE=PASS\n"), ("stamp", "TR12_REPRO_GATE_CURRENT=YES\n")):
+            logs[name] = os.path.join(fx["d"], "%s.log" % name)
+            with open(logs[name], "w", encoding="utf-8") as fh:
+                fh.write(body)
+        rec = os.path.join(fx["d"], "record.txt")
+        w = subprocess.run(["bash", os.path.join(fx["repo"], "scripts", "prepush_verdict_record.sh"), "write",
+                            "--out", rec, "--hook-log", logs["hook"], "--tests-log", logs["tests"],
+                            "--citation-log", logs["citation"], "--stamp-log", logs["stamp"], "--repo", fx["repo"]],
+                           capture_output=True, text=True)
+        return rec, w
+
+    def _reseal(self, rec, edit):
+        return TestQ798PrepushTreeKeyedReuse._reseal(self, rec, edit)
+
+    def _write(self, path, text, mode=0o644):
+        TestQ798PrepushTreeKeyedReuse._write(self, path, text, mode)
+
+    def _push(self, fx):
+        return "refs/heads/main %s refs/heads/main %s\n" % (fx["b"], fx["a"])
+
+    def _covered_reused(self, r):
+        out = r.stdout.splitlines()
+        for leg in TestQ798PrepushTreeKeyedReuse.LEGS:
+            self.assertIn("PREPUSH_LEG_%s=REUSED" % leg, out, "the record did not MATCH\n" + r.stdout[-2500:])
+
+    def test_adv_names_agree_and_exclude_the_history_dependent_legs(self):
+        with open("scripts/pre_push_gate.sh", encoding="utf-8") as fh:
+            hook = re.findall(r'^ADV_LEGS="([^"]*)"$', fh.read(), re.M)
+        with open("scripts/prepush_verdict_record.sh", encoding="utf-8") as fh:
+            helper = re.findall(r'^ADV_LEGS="([^"]*)"$', fh.read(), re.M)
+        self.assertEqual(len(hook), 1)
+        self.assertEqual(hook, helper)
+        self.assertEqual(tuple(hook[0].split()), self.ADV)
+        for excluded in ("SELFTEST", "SCALE", "STAMP", "ROW", "GROUP", "REVIEW"):
+            self.assertNotIn(excluded, hook[0])
+
+    def test_producer_records_advisory_verdicts_and_a_match_reuses_them(self):
+        fx = self._fx()
+        rec, w = self._produce(fx)
+        self.assertEqual(w.returncode, 0, w.stdout + w.stderr)
+        self.assertIn("PREPUSH_RECORD_ALL_PASS=YES", w.stdout.splitlines())
+        with open(rec, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+        for leg in self.ADV:
+            self.assertIn("ADV_%s=PASS" % leg, lines)
+        r, marks = self._run_hook(fx, self._push(fx), record=rec)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:])
+        self._covered_reused(r)
+        out = r.stdout.splitlines()
+        for leg in self.ADV:
+            self.assertNotIn(self.ADV_MARKS[leg], marks, "advisory leg %s ran although the record covers it" % leg)
+            self.assertIn("PREPUSH_ADV_%s=REUSED" % leg, out)
+        self.assertEqual(r.stdout.count("[reused]"), len(self.ADV))
+        # The excluded advisory legs still run here.
+        self.assertIn("doc_gates --selftest", marks, "doc_gates.sh --selftest must stay local")
+        self.assertIn("tr12 --check", marks, "the reproduction stamp must stay local")
+        # Without a record, every advisory leg runs and reports its own verdict.
+        r0, m0 = self._run_hook(fx, self._push(fx))
+        for leg in self.ADV:
+            self.assertIn(self.ADV_MARKS[leg], m0)
+            self.assertIn("PREPUSH_ADV_%s=PASS" % leg, r0.stdout.splitlines())
+        # MUTANT (hook never reads the record's advisory verdicts): every advisory leg runs again.
+        mut = self._fx(hook_src=TestQ798PrepushTreeKeyedReuse._mutate(
+            self, fx["hsrc"], '          [ "${_n:-0}" = 1 ] || continue\n', '          continue\n'))
+        rec2, _ = self._produce(mut)
+        r2, m2 = self._run_hook(mut, self._push(mut), record=rec2)
+        self.assertIn("adv reprodig", m2, "mutant killed: reuse needs the record's verdicts to be read")
+        # MUTANT (writer does not read PREPUSH_ADV_*): the record carries MISSING and nothing is reused.
+        mut = self._fx(helper_src=TestQ798PrepushTreeKeyedReuse._mutate(
+            self, fx["psrc"], '    if one_val "PREPUSH_ADV_$leg" "$HL"; then', '    if false; then'))
+        rec3, _ = self._produce(mut)
+        r3, m3 = self._run_hook(mut, self._push(mut), record=rec3)
+        self._covered_reused(r3)
+        self.assertIn("adv failopen", m3, "mutant killed: the writer must record the advisory verdicts")
+
+    def test_a_record_that_lacks_an_advisory_leg_runs_that_leg(self):
+        fx = self._fx()
+        rec, w = self._produce(fx)
+        self.assertEqual(w.returncode, 0, w.stdout)
+        cases = {"absent": lambda L: [l for l in L if not l.startswith("ADV_REPRODUCE_DIGESTS=")],
+                 "NOT-RUN": lambda L: [("ADV_REPRODUCE_DIGESTS=NOT-RUN" if l.startswith("ADV_REPRODUCE_DIGESTS=") else l) for l in L],
+                 "REUSED": lambda L: [("ADV_REPRODUCE_DIGESTS=REUSED" if l.startswith("ADV_REPRODUCE_DIGESTS=") else l) for l in L],
+                 "MISSING": lambda L: [("ADV_REPRODUCE_DIGESTS=MISSING" if l.startswith("ADV_REPRODUCE_DIGESTS=") else l) for l in L]}
+        for name, edit in cases.items():
+            with self.subTest(case=name):
+                r, marks = self._run_hook(fx, self._push(fx), record=self._reseal(rec, edit))
+                self.assertEqual(r.returncode, 0, r.stdout[-2500:])
+                self._covered_reused(r)
+                self.assertIn("adv reprodig", marks, "the uncovered advisory leg did not run")
+                self.assertIn("PREPUSH_ADV_REPRODUCE_DIGESTS=PASS", r.stdout.splitlines())
+                self.assertNotIn("adv failopen", marks, "a covered advisory leg ran")
+        # A v1 record with no ADV_ key at all still matches, and every advisory leg runs here.
+        r, marks = self._run_hook(fx, self._push(fx), record=self._reseal(rec, lambda L: [l for l in L if not l.startswith("ADV_")]))
+        self._covered_reused(r)
+        for leg in self.ADV:
+            self.assertIn(self.ADV_MARKS[leg], marks)
+        # MUTANT (a missing advisory verdict counts as PASS): the absent leg is skipped.
+        mut = self._fx(hook_src=TestQ798PrepushTreeKeyedReuse._mutate(
+            self, fx["hsrc"], '    *) return 1 ;;\n  esac\n  printf -v "_A_$1"', '    *) : ;;\n  esac\n  printf -v "_A_$1"'))
+        rec2, _ = self._produce(mut, pre=False)   # this mutant "reuses" an absent verdict in the producer run as well
+        r2, m2 = self._run_hook(mut, self._push(mut), record=self._reseal(rec2, cases["absent"]))
+        self._covered_reused(r2)
+        self.assertNotIn("adv reprodig", m2, "mutant killed: an absent verdict must run the leg")
+        # MUTANT (advisory keys are required, as the LEG_ keys are): a record without one no longer matches.
+        mut = self._fx(helper_src=TestQ798PrepushTreeKeyedReuse._mutate(
+            self, fx["psrc"], '  for k in $allowed; do\n', '  for k in $allowed$optional; do\n'))
+        rec3, _ = self._produce(mut)
+        r3, m3 = self._run_hook(mut, self._push(mut), record=self._reseal(rec3, cases["absent"]))
+        self.assertIn("compile", m3, "mutant killed: an advisory key must stay optional")
+
+    def test_an_advisory_fail_in_the_record_is_reported_and_never_blocks(self):
+        fx = self._fx()
+        rec, w = self._produce(fx, env={"HAJ_FO": "FAIL"})
+        self.assertEqual(w.returncode, 0, w.stdout)
+        self.assertIn("PREPUSH_RECORD_ALL_PASS=YES", w.stdout.splitlines(), "an advisory FAIL must not make the record not-all-PASS")
+        with open(rec, encoding="utf-8") as fh:
+            self.assertIn("ADV_FAILOPEN_CLOSURE=FAIL", fh.read().splitlines())
+        r, marks = self._run_hook(fx, self._push(fx), record=rec)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:])
+        self.assertIn("PREPUSH_VERDICT=PASS", r.stdout.splitlines())
+        self._covered_reused(r)
+        self.assertIn("FAIL in the verdict record", r.stdout)
+        self.assertIn("PREPUSH_ADV_FAILOPEN_CLOSURE=REUSED", r.stdout.splitlines())
+        self.assertNotIn("adv failopen", marks)
+        # A resealed advisory FAIL on another leg: same outcome.
+        bad = self._reseal(rec, lambda L: [("ADV_Q479_F1C5_ADOPT=FAIL" if l.startswith("ADV_Q479_F1C5_ADOPT=") else l) for l in L])
+        r, marks = self._run_hook(fx, self._push(fx), record=bad)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:])
+        self._covered_reused(r)
+        self.assertNotIn("adv f1c5", marks)
+        # An unknown value is a malformed record: NOMATCH, full battery.
+        odd = self._reseal(rec, lambda L: [("ADV_FAILOPEN_CLOSURE=MAYBE" if l.startswith("ADV_FAILOPEN_CLOSURE=") else l) for l in L])
+        r, marks = self._run_hook(fx, self._push(fx), record=odd)
+        self.assertIn("PREPUSH_RECORD_WHY=bad-value", r.stdout)
+        self.assertIn("compile", marks)
+        # MUTANT (advisory legs join the all-PASS rule): the FAIL record stops matching.
+        mut = self._fx(helper_src=TestQ798PrepushTreeKeyedReuse._mutate(
+            self, fx["psrc"], '    case "$TOKV" in PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE) ;; *) nomatch bad-value "ADV_$leg=$TOKV" ;; esac',
+            '    case "$TOKV" in PASS|NOT-RUN|MISSING|REUSED|UNREADABLE) ;; *) nomatch "not-pass:$leg" "ADV_$leg=$TOKV" ;; esac'))
+        rec2, w2 = self._produce(mut, env={"HAJ_FO": "FAIL"})
+        self.assertTrue(os.path.exists(rec2), "precondition: the mutant still writes its record\n" + w2.stdout)
+        r2, m2 = self._run_hook(mut, self._push(mut), record=rec2)
+        self.assertIn("PREPUSH_RECORD_WHY=not-pass:FAILOPEN_CLOSURE", r2.stdout)
+        self.assertIn("compile", m2, "mutant killed: an advisory FAIL must not refuse the record")
+        # MUTANT (a reused FAIL blocks): the push fails.
+        mut = self._fx(hook_src=TestQ798PrepushTreeKeyedReuse._mutate(
+            self, fx["hsrc"], '    *) return 1 ;;\n  esac\n', '    *) return 1 ;;\n  esac\n  [ "${!rv:-}" = FAIL ] && SHARC=1\n'))
+        rec3, _ = self._produce(mut, env={"HAJ_FO": "FAIL"})
+        r3, _ = self._run_hook(mut, self._push(mut), record=rec3)
+        self.assertNotEqual(r3.returncode, 0, "mutant killed: an advisory FAIL must never block")
+
+    # ============================================================== (4) Q-868 follow-up
+    POINTERS = ("reports/evidence/f1/f1_orbit_dp.py", "reports/evidence/r11/r11_calibration.py",
+                "reports/evidence/r7/r7_run_20260712.log", "runs/20260422_passA_10T_d64_laggard/README.md",
+                "runs/20260906_kc_ladders_n31/STAGE_T_RAW_VERIFY.md")
+    R7_ORIG_SHA = "f741e33db4a18ba191995dbe157bbf10b35c2f56bfe6056cac7ddcc8a37b3a9c"
+
+    def test_no_private_repository_pointer_in_public_evidence(self):
+        r = subprocess.run(["git", "ls-files", "-z", "--", "reports/evidence", "runs"], cwd=self.ROOT, capture_output=True)
+        files = [p for p in r.stdout.decode().split("\0") if p] if r.returncode == 0 else []
+        if not files:
+            for top in ("reports/evidence", "runs"):
+                for base, _, fs in os.walk(os.path.join(self.ROOT, top)):
+                    files += [os.path.relpath(os.path.join(base, f), self.ROOT) for f in fs]
+        self.assertGreater(len(files), 100, "precondition: the sweep sees the evidence tree")
+        for p in self.POINTERS:
+            self.assertIn(p, files)
+        pat = re.compile(rb"roae-private")
+        self.assertTrue(pat.search(b"Frozen design: roae-private/X.md"), "positive control")
+        hits = []
+        for rel in files:
+            with open(os.path.join(self.ROOT, rel), "rb") as fh:
+                b = fh.read()
+            if b"\0" in b:
+                continue
+            hits += ["%s:%d" % (rel, i) for i, ln in enumerate(b.split(b"\n"), 1) if pat.search(ln)]
+        self.assertEqual(hits, [])
+
+    def test_r7_log_redacted_in_place_and_readme_records_the_original(self):
+        with open(os.path.join(self.ROOT, "reports/evidence/r7/r7_run_20260712.log"), "rb") as fh:
+            raw = fh.read()
+        lines = raw.split(b"\n")
+        self.assertEqual(len(lines), 202, "precondition: the archived log is 201 lines")
+        self.assertEqual(lines[1], b"# Frozen design: <private design record> (b00911b)")
+        orig = b"\n".join(lines[:1] + [b"# Frozen design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)"] + lines[2:])
+        self.assertEqual(hashlib.sha256(orig).hexdigest(), self.R7_ORIG_SHA, "only line 2 changed")
+        with open(os.path.join(self.ROOT, "reports/evidence/r7/README.md"), encoding="utf-8") as fh:
+            row = [l for l in fh.read().split("\n") if l.startswith("| `r7_run_20260712.log` |")]
+        self.assertEqual(len(row), 1)
+        self.assertIn(self.R7_ORIG_SHA, row[0])
+        self.assertIn("<private design record>", row[0])
+        self.assertIn("2026-09-27", row[0])
+
+    # ============================================================== (5) .mailmap
+    def test_mailmap_maps_the_placeholder_author(self):
+        def cm(ident):
+            r = subprocess.run(["git", "check-mailmap", ident], cwd=self.ROOT, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            return r.stdout.strip()
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, ".mailmap")))
+        self.assertEqual(cm("queue <q@local>"), "Matthew Peterson <mrpeterson2@gmail.com>")
+        self.assertEqual(cm("Someone Else <x@example.org>"), "Someone Else <x@example.org>", "negative control")
+# end class TestLaneHAJ (lane HAJ)
+
+
+class TestLaneHAM(unittest.TestCase):
+    """Lane HAM: KCV R2, R1 (brute half) and R3 (Fable review of the Codex KCV findings, 2026-09-27).
+
+    R2: `verify --brute-masses RUN.OUT K` counts every valid k-prefix one by one (no DP, no
+    quotient) and must reproduce the published FULL31 `mass` column. R1: `verify --brute-g TSV
+    KMIN FMAX` recounts the ladder's g (k >= KMIN) and f (k <= FMAX) entries along King Wen's
+    path by exhaustive DFS. Each mode must also FAIL on a tampered copy of its input. R3: the two
+    independent-reader n=31 transcripts are published, and PREREG no longer gives their tokens to
+    `solve --kc-t-check`. The verify.c under test can be swapped with ROAE_TESTS_VERIFY_SRC."""
+
+    RUNOUT = "runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out"
+    TRACE = "reports/evidence/tr12/banked_n31_20260922/a2_q3_profile.txt"
+    TRACE_NOALT = "reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv"
+    RUNDIR = "runs/20260906_kc_ladders_n31"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="lane_ham_")
+        cls.vbin = os.path.join(cls.tmp, "verify_ham")
+        src = os.environ.get("ROAE_TESTS_VERIFY_SRC", "verify.c")
+        r = subprocess.run(["gcc", "-O2", "-o", cls.vbin, src, "-lz", "-lpthread", "-lm"],
+                           capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.vbin)
+        cls.build_err = r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, *args):
+        self.assertTrue(self.build_ok, self.build_err)
+        return subprocess.run([self.vbin] + list(args), capture_output=True, text=True, timeout=600)
+
+    def _copy_edit(self, rel, old, new, name):
+        with open(rel, encoding="utf-8") as fh:
+            s = fh.read()
+        self.assertEqual(s.count(old), 1, "precondition: %r occurs once in %s" % (old, rel))
+        p = os.path.join(self.tmp, name)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(s.replace(old, new))
+        return p
+
+    @staticmethod
+    def _full31_masses():
+        pub, sec = {}, False
+        with open("reports/FULL31_EXACT_AGGREGATES.md", encoding="utf-8") as fh:
+            for l in fh:
+                if l.startswith("## "):
+                    sec = l.startswith("## 1.")
+                    continue
+                m = re.match(r"\| (\d+) \|", l) if sec else None
+                if m:
+                    c = [x.strip() for x in l.strip().strip("|").split("|")]
+                    pub[int(c[0])] = int(c[7].replace(",", ""))
+        return pub
+
+    # ---- R2 ---------------------------------------------------------------------------
+    def test_brute_masses_reproduce_the_full31_column(self):
+        r = self._run("--brute-masses", self.RUNOUT, "5", "2")
+        lines = r.stdout.splitlines()
+        rows = {int(m.group(1)): int(m.group(2)) for m in
+                (re.match(r"\s*(\d+) \| (\d+)\s+\| (\d+)\s+\| ok$", l) for l in lines) if m}
+        self.assertEqual(sorted(rows), [1, 2, 3, 4, 5], "precondition: five counted rows\n" + r.stdout + r.stderr)
+        pub = self._full31_masses()
+        self.assertEqual(len(pub), 31, "precondition: FULL31 section 1 parsed")
+        for k in range(1, 6):
+            self.assertEqual(rows[k], pub[k], "k=%d" % k)
+        for want in ("BRUTE_MASSES_COMPARED=5", "BRUTE_MASSES_MISMATCHED=0", "BRUTE_MASSES_RESULT=PASS"):
+            self.assertIn(want, lines)
+        self.assertEqual(r.returncode, 0)
+
+    def test_brute_masses_fail_on_a_wrong_mass(self):
+        p = self._copy_edit(self.RUNOUT, "mass=7975320 ", "mass=7975321 ", "runout_k4")
+        r = self._run("--brute-masses", p, "5", "2")
+        lines = r.stdout.splitlines()
+        self.assertTrue(any(re.match(r"\s*4 \| 7975320\s+\| 7975321\s+\| \*MISMATCH\*$", l) for l in lines), r.stdout)
+        for want in ("BRUTE_MASSES_MISMATCHED=1", "BRUTE_MASSES_RESULT=FAIL"):
+            self.assertIn(want, lines)
+        self.assertEqual(r.returncode, 1)
+
+    def test_brute_masses_fail_on_an_absent_layer_or_empty_log(self):
+        with open(self.RUNOUT, encoding="utf-8") as fh:
+            src = fh.read()
+        drop = [l for l in src.split("\n") if l.startswith("[f1c5] layer k= 3/31:")]
+        self.assertEqual(len(drop), 1, "precondition: one k=3 line")
+        p = self._copy_edit(self.RUNOUT, drop[0] + "\n", "", "runout_nok3")
+        r = self._run("--brute-masses", p, "4", "2")
+        lines = r.stdout.splitlines()
+        self.assertTrue(any(re.match(r"\s*3 \| 158364\s+\| \(absent\)\s+\| ABSENT$", l) for l in lines), r.stdout)
+        self.assertIn("BRUTE_MASSES_COMPARED=3", lines)
+        self.assertIn("BRUTE_MASSES_RESULT=FAIL", lines)
+        self.assertEqual(r.returncode, 1)
+        empty = os.path.join(self.tmp, "empty.out")
+        open(empty, "w").close()
+        r = self._run("--brute-masses", empty, "2", "1")
+        self.assertIn("BRUTE_MASSES_COMPARED=0", r.stdout.splitlines())
+        self.assertIn("BRUTE_MASSES_RESULT=FAIL", r.stdout.splitlines())
+        self.assertEqual(r.returncode, 1)
+
+    def test_brute_masses_refuse_bad_arguments(self):
+        # A path that does not exist: the refusal must come before the file is opened, and a
+        # mutant that accepts the argument stops at the missing file instead of computing K = 11.
+        missing = os.path.join(self.tmp, "no_such_run.out")
+        self.assertFalse(os.path.exists(missing), "precondition: the path is absent")
+        for args in (["11"], ["0"], ["x"], ["3", "0"], ["3", "2", "extra"]):
+            r = self._run("--brute-masses", missing, *args)
+            self.assertEqual(r.returncode, 2, args)
+            self.assertIn("BRUTE_MASSES_ARGS=REFUSED", r.stderr.splitlines(), args)
+            self.assertTrue(any(l.startswith("ERROR: ") for l in r.stderr.splitlines()), args)
+            self.assertEqual(r.stdout, "", args)
+
+    # ---- R1 (brute half) --------------------------------------------------------------
+    def test_brute_g_reproduces_the_published_kw_trace(self):
+        r = self._run("--brute-g", self.TRACE, "24", "6", "2")
+        lines = r.stdout.splitlines()
+        self.assertIn("g step=24 KW   pair=24 29->46  ladder=5624  brute=5624  ok", lines, r.stdout + r.stderr)
+        self.assertIn("f step= 6 pair= 6 61->47  ladder=75  brute=75  ok", lines)
+        self.assertEqual(sum(1 for l in lines if l.startswith("g step=") and l.endswith("  ok")), 54)
+        for want in ("BRUTE_G_ROWS_CHECKED=54", "BRUTE_G_MISMATCHED=0", "BRUTE_F_ROWS_CHECKED=6",
+                     "BRUTE_F_MISMATCHED=0", "BRUTE_G_RESULT=PASS"):
+            self.assertIn(want, lines)
+        self.assertEqual(r.returncode, 0)
+        r = self._run("--brute-g", self.TRACE_NOALT, "24", "0", "1")
+        self.assertIn("BRUTE_G_ROWS_CHECKED=8", r.stdout.splitlines(), r.stdout + r.stderr)
+        self.assertIn("BRUTE_G_RESULT=PASS", r.stdout.splitlines())
+        self.assertEqual(r.returncode, 0)
+
+    def test_brute_g_fails_on_a_wrong_entry(self):
+        cases = (("\t905589585272067490740305920\t320\t", "\t905589585272067490740305920\t321\t", "g step=25 KW ", "BRUTE_G_MISMATCHED=1"),
+                 ("step=25\tpair=27\tentry=44\texit=13\torient=1\tdclass=1\tg=656", "step=25\tpair=27\tentry=44\texit=13\torient=1\tdclass=1\tg=657", "g step=25 alt ", "BRUTE_G_MISMATCHED=1"),
+                 ("5\t5\t7\t56\t0\t4\t49\t18\t", "5\t5\t7\t56\t0\t4\t49\t19\t", "f step= 5 ", "BRUTE_F_MISMATCHED=1"))
+        for i, (old, new, rowpfx, tok) in enumerate(cases):
+            p = self._copy_edit(self.TRACE, old, new, "trace_bad%d" % i)
+            r = self._run("--brute-g", p, "24", "6", "2")
+            lines = r.stdout.splitlines()
+            self.assertTrue(any(l.startswith(rowpfx) and l.endswith("*MISMATCH*") for l in lines), r.stdout)
+            self.assertIn(tok, lines)
+            self.assertIn("BRUTE_G_RESULT=FAIL", lines)
+            self.assertEqual(r.returncode, 1)
+
+    def test_brute_g_rejects_a_trace_that_is_not_king_wens_path(self):
+        cases = (("10\t10\t41\t37\t0\t3\t40\t", "10\t10\t41\t36\t0\t3\t40\t", "step row 10 is not King Wen's pair 10"),
+                 ("step=25\tpair=27\tentry=44\texit=13", "step=25\tpair=3\tentry=2\texit=16", "is not a valid child"))
+        for i, (old, new, err) in enumerate(cases):
+            p = self._copy_edit(self.TRACE, old, new, "trace_path%d" % i)
+            r = self._run("--brute-g", p, "24", "0", "2")
+            self.assertTrue(any(l.startswith("ERROR: ") and err in l for l in r.stderr.splitlines()), r.stderr)
+            self.assertIn("BRUTE_G_RESULT=FAIL", r.stdout.splitlines())
+            self.assertEqual(r.returncode, 1)
+        with open(self.TRACE, encoding="utf-8") as fh:
+            row28 = [l for l in fh.read().split("\n") if l.startswith("28\t28\t")]
+        self.assertEqual(len(row28), 1, "precondition: one step-28 row")
+        p = self._copy_edit(self.TRACE, row28[0] + "\n", "", "trace_no28")
+        r = self._run("--brute-g", p, "24", "0", "2")
+        self.assertIn("*** FAIL: 1 King Wen step row(s) in 24..31 absent from %s" % p, r.stdout.splitlines())
+        self.assertIn("BRUTE_G_RESULT=FAIL", r.stdout.splitlines())
+        self.assertEqual(r.returncode, 1)
+
+    def test_brute_g_refuses_bad_arguments(self):
+        missing = os.path.join(self.tmp, "no_such_trace.tsv")
+        self.assertFalse(os.path.exists(missing), "precondition: the path is absent")
+        for args in (["17"], ["32"], ["24", "13"], ["24", "6", "0"], ["24", "6", "2", "extra"]):
+            r = self._run("--brute-g", missing, *args)
+            self.assertEqual(r.returncode, 2, args)
+            self.assertIn("BRUTE_G_ARGS=REFUSED", r.stderr.splitlines(), args)
+            self.assertTrue(any(l.startswith("ERROR: ") for l in r.stderr.splitlines()), args)
+            self.assertEqual(r.stdout, "", args)
+
+    # ---- R3 -----------------------------------------------------------------------------
+    def _transcript(self, name):
+        with open(os.path.join(self.RUNDIR, name), "rb") as fh:
+            b = fh.read()
+        lines = b.split(b"\n")
+        n = next(i for i, l in enumerate(lines) if not l.startswith(b"#"))
+        head, body = b"\n".join(lines[:n]).decode(), b"\n".join(lines[n:])
+        return head, body
+
+    def test_r3_transcripts_are_published_whole(self):
+        for name, key, sha, size in (
+                ("VERIFY_CHECK_T_LADDER_n31.txt", "TLADDER_RESULT", "083658fdb765af162a28fe15f5d657ee366968e23edd2918999a758a4bb9583f", 7025),
+                ("VERIFY_CHECK_G_LADDER_n31.txt", "GLADDER_RESULT", "d6a31bfae634f45f29f809a342ea21c003ede9fcd2c80f1a98c2856efadb3398", 6383)):
+            head, body = self._transcript(name)
+            self.assertIn(sha, head, name)
+            self.assertEqual(len(body), size, name)
+            self.assertEqual(hashlib.sha256(body).hexdigest(), sha, name)
+            blines = body.decode().splitlines()
+            for want in (key + "=PASS", "IDENTITIES_CHECKED=32", "IDENTITIES_SKIPPED=0"):
+                self.assertIn(want, blines, name)
+            oks = [l for l in blines if re.match(r"\s+k=\s*\d+\s+[tg] nm=.*\s+OK$", l)]
+            self.assertEqual(len(oks), 32, name)
+            for bad in ("/mnt", "/home", "azureuser", "roae-private", "westus", "10.0.0."):
+                self.assertNotIn(bad, head + body.decode(), name)
+
+    def test_r3_t_transcript_masses_equal_the_full31_column(self):
+        _, body = self._transcript("VERIFY_CHECK_T_LADDER_n31.txt")
+        S = {int(m.group(1)): int(m.group(2)) for m in
+             (re.match(r"\s+k=\s*(\d+)\s+t .* = (\d+) \(expect", l) for l in body.decode().splitlines()) if m}
+        self.assertEqual(sorted(S), list(range(32)), "precondition: 32 per-layer sums")
+        S[32] = 0
+        pub = self._full31_masses()
+        self.assertEqual([S[k] - S[k + 1] for k in range(1, 32)], [pub[k] for k in range(1, 32)])
+        self.assertEqual(S[0] - S[1], 1, "the root node")
+
+    def test_r3_prereg_names_the_instrument_that_printed_the_tokens(self):
+        with open("documentation/PREREG_CLASSA_QUERY_SET.md", encoding="utf-8") as fh:
+            L = fh.read().split("\n")
+        self.assertTrue(L[234].startswith("| Stage T — the t-ladder at n=31 |"), "precondition: line 235")
+        self.assertTrue(L[260].startswith("| **XA-b** |"), "precondition: line 261")
+        self.assertIn("**gate passed 2026-09-05** (`verify --check-t-ladder … 31`: 32 identities checked", L[234])
+        self.assertIn("[CORRECTED 2026-09-28 (KCV R3)", L[234])
+        self.assertIn("under two readers: `verify --check-t-ladder … 31` (`IDENTITIES_CHECKED=32`", L[260])
+        self.assertIn("[CORRECTED 2026-09-28 (KCV R3)", L[260])
+        self.assertIn("`IDENTITIES_CHECKED=5`", L[529])
+        for i in (234, 260):
+            live = re.sub(r"⚠ \*\*\[CORRECTED 2026-09-28.*", "", L[i])
+            self.assertNotRegex(live, r"`--kc-t-check`[^|]{0,40}(IDENTITIES_CHECKED|32 identities)")
+        for name in ("VERIFY_CHECK_T_LADDER_n31.txt", "VERIFY_CHECK_G_LADDER_n31.txt"):
+            self.assertTrue(os.path.isfile(os.path.join(self.RUNDIR, name)), name)
+# end class TestLaneHAM (lane HAM)
 
 
 if __name__ == "__main__":

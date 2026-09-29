@@ -1,7 +1,7 @@
 """
 f1_orbit_dp.py -- S4-orbit-quotient DP prototype for the F1 exact-count route (#215).
 
-Plan + equivariance argument: roae-private/F1_ORBIT_QUOTIENT_2026_07.md
+Plan + equivariance argument: F1_ORBIT_QUOTIENT_2026_07.md, the working log published beside this script
 Validated plain DP it must reproduce: F1_PHASE3_RECONSTRUCTION.md / f1_phase3.py
 Group source: roae/documentation/SYMMETRY_SEARCH.md (TR-5): the 48 bit-position
 permutations commuting with rev = (0 5)(1 4)(2 3), i.e. C_{S6}(rev) ~= B3;

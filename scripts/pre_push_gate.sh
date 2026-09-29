@@ -178,6 +178,28 @@ one_token() {
 # or prefix test ("PASS" is a prefix of "PASS-AT-PIN").
 tok_is() { grep -qxF -- "$1" <<<"$TOK"; }
 
+# ---- ADVISORY LEGS A MATCHING VERDICT RECORD MAY COVER (lane HAJ, 2026-09-27) ------------------
+# The advisory legs whose answer depends on nothing but the pushed tree and the toolchain. The
+# names must equal ADV_LEGS in scripts/prepush_verdict_record.sh (tests.py checks it). Each pushed
+# sha prints PREPUSH_ADV_<NAME>= for each: PASS or FAIL (it ran and gave a verdict), NOT-RUN (not due,
+# or no single verdict), or REUSED (taken from a matching record). A reused leg stays ADVISORY: a
+# recorded FAIL is printed loudly and never touches $SHARC/$RC. Every other advisory leg always runs
+# here; prepush_verdict_record.sh's header says which are excluded and why.
+ADV_LEGS="Q479_F1C5_ADOPT Q479_RESUME_BUDGET Q479_MISSING_SHARD REPRODUCE_DIGESTS FAILOPEN_CLOSURE"
+# adv_reuse <NAME> <label> [reproduce-command]: 0 = the matching record's verdict was used (printed,
+# and _A_<NAME>=REUSED); 1 = the record holds no PASS/FAIL for it, so the caller runs the leg.
+adv_reuse() {
+  local rv="_RA_$1"
+  case "${!rv:-}" in
+    PASS) echo "    [reused]   $2 — PASS in the verdict record for this tree (not re-run)" ;;
+    FAIL) echo "    ⚠ [reused] $2 — FAIL in the verdict record for this tree (not re-run)."
+          echo "               ADVISORY: the push continues.${3:+ Reproduce with: $3}" ;;
+    *) return 1 ;;
+  esac
+  printf -v "_A_$1" '%s' REUSED
+  return 0
+}
+
 # ---- does this pushed sha need the `generated` leg? -----------------------
 # $1 = pushed sha, $2 = remote sha ('' or all-zeros when there is no base).
 # Returns 0 (leg required) when roae.py or example/ differs between base and
@@ -547,12 +569,16 @@ for sha in $SHAS; do
   #   refs, history, network or git config rather than on the tree -- GATE 19 branch-registry
   #   (ls-remote), GATE 10a/10b appendonly (HEAD and every published CORRECTIONS.md), revrows (the
   #   pushed range), GATE 23 tracked-ignored (.git/info/exclude and core.excludesFile) -- plus the
-  #   new-ref declaration leg above and EVERY advisory leg below, unchanged.
+  #   new-ref declaration leg above and every advisory leg below that is not in ADV_LEGS.
+  # ADVISORY, REUSABLE (lane HAJ, 2026-09-27): the ADV_LEGS above (the Q-479 battery's three public
+  #   gates, the REPRODUCE.md digests, the fail-open sweep) take a PASS or FAIL from a matching record
+  #   and stay advisory either way; with no such verdict in the record they run here as before.
   # Each pushed sha prints PREPUSH_TREE=, PREPUSH_CITGATE_BASE= and one PREPUSH_LEG_<NAME>= per
   # covered leg (PASS|FAIL|NOT-RUN, or REUSED on MATCH), and the push ends with PREPUSH_VERDICT=;
   # a record is distilled from exactly those lines, so a REUSED run can never seed a new record.
   _cb=${CITBASE[$sha]:-}
   _reuse=0
+  for _v in $ADV_LEGS; do printf -v "_RA_$_v" '%s' ""; printf -v "_A_$_v" '%s' NOT-RUN; done   # lane HAJ
   _tree=$(git -C "$ROOT" rev-parse -q --verify "${sha}^{tree}" 2>/dev/null) || _tree=""
   echo "PREPUSH_TREE=${_tree:-UNKNOWN}"
   echo "PREPUSH_CITGATE_BASE=${_cb:-NONE}"
@@ -570,6 +596,13 @@ for sha in $SHAS; do
         _reuse=1
         echo "pre-push: verdict record MATCHES pushed tree ${_tree:0:12} — reusing its covered legs; local legs still run:"
         printf '%s\n' "$_rec_out" | grep -E '^  ' | sed 's/^/         /'
+        # lane HAJ: the advisory verdicts the record carries (PASS or FAIL only; exactly one line each).
+        for _v in $ADV_LEGS; do
+          _n=$(printf '%s\n' "$_rec_out" | grep -cE "^PREPUSH_RECORD_ADV_${_v}=(PASS|FAIL)\$") || true
+          [ "${_n:-0}" = 1 ] || continue
+          _av=$(printf '%s\n' "$_rec_out" | grep -E "^PREPUSH_RECORD_ADV_${_v}=")
+          printf -v "_RA_$_v" '%s' "${_av#*=}"
+        done
       else
         _why=$(printf '%s\n' "$_rec_out" | grep -m1 -E '^PREPUSH_RECORD_WHY=' || true)
         echo "pre-push: verdict record NOT used for $short (${_why:-${TOK:-no single PREPUSH_RECORD= line}}, rc=$_recrc) — full battery"
@@ -905,8 +938,8 @@ for sha in $SHAS; do
   # exact build line: F1C5_ADOPT_DIGEST_GATE=PASS, all five legs, 6.7 s.
   #
   # ADVISORY, NEVER BLOCKING -- and the reason is per-gate, not blanket:
-  #   * q317_missing_shard_merge_gate.sh is EXPECTED RED. Its own banner says so:
-  #     Q-317 item (4) is not landed, "do not add it to any blocking hook until
+  #   * q317_missing_shard_merge_gate.sh WAS EXPECTED RED; Q-317 (4) landed 2026-09-27 (lane HAC) and it now expects PASS:
+  #     until then its banner said Q-317 item (4) was not landed, "do not add it to any blocking hook until
   #     solve.c is fixed". MEASURED today: MISSING_SHARD_MERGE=FAIL in 103 s,
   #     which is the gate WORKING. Blocking on it would stop every solve.c push.
   #   * the other three are GREEN today (measured below), but they judge the
@@ -930,14 +963,23 @@ for sha in $SHAS; do
         echo "pre-push: [advisory] Q-479 solve.c battery on pushed sha $short — NEVER blocking (~160 s)"
         _q479_src=$(sha256sum "$WT/solve.c" 2>/dev/null | cut -d' ' -f1)
         _q479_bin="$WT/solve_q479"
-        if ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+        # lane HAJ: a matching verdict record may cover the three public gates; build only if one is left.
+        _q479_need=0
+        adv_reuse Q479_F1C5_ADOPT "f1c5 finalized-layer ADOPT compares its digest" "bash scripts/f1c5_adopt_digest_gate.sh <solve binary>" || _q479_need=1
+        adv_reuse Q479_RESUME_BUDGET "an uncapped resume must not inherit budget-truncated cells" "BIN=<solve binary> bash scripts/resume_budget_infinity_gate.sh" || _q479_need=1
+        adv_reuse Q479_MISSING_SHARD "an absent shard must not pass the merge" "BIN=<solve binary> bash scripts/q317_missing_shard_merge_gate.sh" || _q479_need=1
+        [ -n "${ROAE_PRIVATE_DIR:-}" ] && [ -x "$ROAE_PRIVATE_DIR/scripts/canonical_scale_distinguishable_gate.sh" ] && _q479_need=1
+        if [ "$_q479_need" = 0 ]; then
+          :
+        elif ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
                gcc -O2 -pthread -fopenmp -DSOURCE_SHA="\"$_q479_src\"" \
                    -o solve_q479 solve.c -lm -lz ) >/dev/null 2>&1; then
           # Report a gate by its OWN whole-line KEY=value token, never by output
           # shape or exit code: an absent token is [ERROR], not a pass.
-          _q479_leg() {  # $1 label, $2 verdict key, $3.. the command
-            local lbl=$1 key=$2; shift 2
-            local out
+          _q479_leg() {  # $1 ADV_LEGS name (or - for none), $2 label, $3 verdict key, $4.. the command
+            local adv=$1 lbl=$2 key=$3; shift 3
+            local out av="_A_$adv"
+            [ "$adv" != - ] && [ "${!av:-}" = REUSED ] && return 0   # lane HAJ: covered by the record
             out=$( "$@" 2>&1 )
             # Q-523: exactly one ${key}= line, or [ERROR] -- never the positional last one.
             if ! one_token "$key" "$out"; then
@@ -945,16 +987,18 @@ for sha in $SHAS; do
               echo "               A gate that cannot report is not a gate that passed."
             elif tok_is "$key=PASS" || tok_is "$key=OK"; then
               echo "    [ok]       $lbl — $TOK"
+              [ "$adv" = - ] || printf -v "$av" '%s' PASS
             else
               echo "    [advisory] $lbl — $TOK"
               printf '%s\n' "$out" | grep -E '^ *\[(FAIL|ERROR)' | head -4 | sed 's/^/               /'
+              [ "$adv" != - ] && tok_is "$key=FAIL" && printf -v "$av" '%s' FAIL   # ERROR stays NOT-RUN
             fi
           }
-          _q479_leg "f1c5 finalized-layer ADOPT compares its digest" F1C5_ADOPT_DIGEST_GATE \
+          _q479_leg Q479_F1C5_ADOPT "f1c5 finalized-layer ADOPT compares its digest" F1C5_ADOPT_DIGEST_GATE \
                     bash "$WT/scripts/f1c5_adopt_digest_gate.sh" "$_q479_bin"
-          _q479_leg "an uncapped resume must not inherit budget-truncated cells" RESUME_BUDGET_INFINITY \
+          _q479_leg Q479_RESUME_BUDGET "an uncapped resume must not inherit budget-truncated cells" RESUME_BUDGET_INFINITY \
                     env BIN="$_q479_bin" bash "$WT/scripts/resume_budget_infinity_gate.sh"
-          _q479_leg "an absent shard must not pass the merge (Q-317 (4) — EXPECTED RED until the fix lands)" MISSING_SHARD_MERGE \
+          _q479_leg Q479_MISSING_SHARD "an absent shard must not pass the merge (Q-317 (4), landed 2026-09-27: PASS expected)" MISSING_SHARD_MERGE \
                     env BIN="$_q479_bin" bash "$WT/scripts/q317_missing_shard_merge_gate.sh"
           # The scale gate is an OPERATOR-SIDE artifact (roae-private) whose
           # subject is PUBLIC: the CANONICAL_RECIPES table inside solve.c. It is
@@ -965,7 +1009,7 @@ for sha in $SHAS; do
           # below: a fresh clone, a third-party replicator and CI see nothing.
           # Q-861 sweep: located via ROAE_PRIVATE_DIR (no default), not a sibling-checkout path.
           if [ -n "${ROAE_PRIVATE_DIR:-}" ] && [ -x "$ROAE_PRIVATE_DIR/scripts/canonical_scale_distinguishable_gate.sh" ]; then
-            _q479_leg "every CANONICAL_RECIPES label is distinguishable from a typo" SCALE_DISTINGUISHABLE \
+            _q479_leg - "every CANONICAL_RECIPES label is distinguishable from a typo" SCALE_DISTINGUISHABLE \
                       env ROAE_DIR="$WT" SOLVE_BIN="$_q479_bin" \
                       bash "$ROAE_PRIVATE_DIR/scripts/canonical_scale_distinguishable_gate.sh"
           fi
@@ -999,7 +1043,9 @@ for sha in $SHAS; do
   if [ -n "$REPRODIG_SHA" ] && [ "$sha" = "$REPRODIG_SHA" ]; then
     echo
     echo "pre-push: [advisory] REPRODUCE.md digests on pushed sha $short (once per push) — NEVER blocking (~30-45 s)"
-    if [ -f "$WT/scripts/reproduce_digests_gate.sh" ]; then
+    if adv_reuse REPRODUCE_DIGESTS "REPRODUCE.md digests" "bash scripts/reproduce_digests_gate.sh"; then
+      :   # lane HAJ: covered by a matching verdict record
+    elif [ -f "$WT/scripts/reproduce_digests_gate.sh" ]; then
       _rd_to=""; command -v timeout >/dev/null 2>&1 && _rd_to="timeout 1800"
       _rd_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
                    $_rd_to bash scripts/reproduce_digests_gate.sh 2>&1 ); _rdrc=$?
@@ -1008,7 +1054,9 @@ for sha in $SHAS; do
         echo "    A gate that cannot report is not a gate that passed."
       elif tok_is 'REPRODUCE_DIGESTS=PASS' && [ "$_rdrc" -eq 0 ]; then
         echo "  [ok]   the page's own build line, command and recipe reproduce every published digest — $TOK"
+        _A_REPRODUCE_DIGESTS=PASS
       else
+        tok_is 'REPRODUCE_DIGESTS=FAIL' && _A_REPRODUCE_DIGESTS=FAIL   # ERROR or a non-zero PASS stays NOT-RUN
         echo "  ⚠ $TOK (rc=$_rdrc) on $short — REPRODUCE.md promises a digest this tree does not produce:"
         printf '%s\n' "$_rd_out" | grep -E '^ *\[(FAIL|ERROR)\]|^REPRODUCE_DIGESTS_ERROR=' | head -8 | sed 's/^/      /'
         echo "    ADVISORY: the push continues. Reproduce with: bash scripts/reproduce_digests_gate.sh"
@@ -1063,14 +1111,21 @@ for sha in $SHAS; do
       if [ -x "$WT/scripts/failopen_closure_gate.sh" ]; then
         echo
         echo "pre-push: [advisory] fail-open closure sweep on pushed sha $short — NEVER blocking (~61 s)"
+        if adv_reuse FAILOPEN_CLOSURE "fail-open closure sweep" "./scripts/failopen_closure_gate.sh"; then
+          _fo_out=""; _fo=REUSED   # lane HAJ: covered by a matching verdict record
+        else
         _fo_out=$( bash "$WT/scripts/failopen_closure_gate.sh" 2>&1 )
         # Q-523: exactly one FAILOPEN_CLOSURE= line, or the *) arm below -- never the last one.
         one_token FAILOPEN_CLOSURE "$_fo_out"; _fo=$TOK
+        fi
         case "$_fo" in
+          REUSED) ;;
           FAILOPEN_CLOSURE=OK)
+            _A_FAILOPEN_CLOSURE=PASS
             echo "    [ok]       every runnable gate in the pushed tree refuses an empty world"
             printf '%s\n' "$_fo_out" | grep -E '^FAILOPEN_CLOSURE_(POP|RUN|OPEN|RC0|ALLOWED|UNRUN)=' | sed 's/^/               /' ;;
           FAILOPEN_CLOSURE=FAIL)
+            _A_FAILOPEN_CLOSURE=FAIL
             echo "    ⚠ $_fo — a gate in the pushed tree reports success from an EMPTY WORLD."
             printf '%s\n' "$_fo_out" | grep -E '^ *\[(OPEN|RC0|FAIL)' | head -6 | sed 's/^/               /'
             echo "               ADVISORY: the push continues. Reproduce with:"
@@ -1221,6 +1276,11 @@ for sha in $SHAS; do
       echo "  ⚠ row-assertion sweep of $short: $TOK — not the same as PASS"
     fi
   fi
+
+  # lane HAJ: the advisory legs' verdicts, for scripts/prepush_verdict_record.sh (never blocking).
+  for _v in $ADV_LEGS; do
+    _vn="_A_$_v"; echo "PREPUSH_ADV_$_v=${!_vn}"
+  done
 
   cleanup
   if [ "$SHARC" -ne 0 ]; then

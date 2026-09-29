@@ -67,7 +67,7 @@ layer, which is the point of a per-layer registry.
 ## Provenance
 
 Run on the Path C host while the managed disk `v4-staget-data-westus3` was mounted read-only at
-`/mnt/staget/run_t`. Measured digests preserved at
-`roae-private/scripts/v4_query_evidence/run1_prescan/T_SHA256_MEASURED.txt`. The comparison
+`/mnt/staget/run_t`. Measured digests preserved in
+the operator's private working notes (not published). The comparison
 normalises path prefixes: the registry stores `run_t/t_layer_NN.bin`, the measurement stores the
 bare filename.

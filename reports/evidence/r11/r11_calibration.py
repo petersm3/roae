@@ -1,5 +1,5 @@
 # R11 four-class Bayes v2 — §7.2 SYNTHETIC-DRAW CALIBRATION ONLY (confusability gate).
-# Frozen design: roae-private/R11_BAYES_V2_DESIGN_2026_07_10.md (§2 models, §4 priors,
+# Frozen design: the R11 Bayes v2 design record (private working notes, not published) (§2 models, §4 priors,
 # §7.2 calibration, §7.3 ordering). This script computes NO King-Wen-facing verdict:
 # KW enters only as (a) the substrate definition (C5 budget, slot-0 gauge), (b) the
 # archived-ingredient gates (KW-value reproduction, f11_events.json reproduction).

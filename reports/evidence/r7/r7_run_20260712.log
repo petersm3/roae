@@ -1,5 +1,5 @@
 # R7 -- Cross-tradition corpus-control battery
-# Frozen design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)
+# Frozen design: <private design record> (b00911b)
 # + Amendment 1 (2026-07-12, 53e088a): corrected FC-4 anchor (comp-sum 1024 is NOT extreme under the exact J1 null).
 # L0 uniform N=1,000,000, seed 42; Jing Fang L1 EXACT (8!=40,320); MD L1 x2 + MD L2 sampled N=1,000,000; report-only.
 # Developed with AI assistance (Claude, Anthropic). Classical orderings

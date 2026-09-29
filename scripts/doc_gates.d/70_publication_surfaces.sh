@@ -587,7 +587,7 @@ gate_hex_prefix() {
   # 🔴 THE EXEMPTION IS PER-TOKEN AND UNANIMOUS, NOT PER-LINE. A token is narration ONLY if EVERY
   # one of its occurrences sits in a marker; one loose occurrence in plain prose and it is PROSE
   # again and still fails. A per-line waiver would let a real typo hide behind one tidy citation.
-  git grep -nHE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>/dev/null > "$d/hits" || true
+  local g22rc=0 G22_FLOOR=100; git grep -nHE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>"$d/hits.err" > "$d/hits" || g22rc=$?; if [ "$g22rc" -ge 2 ]; then echo "  [FAIL] GATE 22: the token producer (git grep over tracked *.md) failed rc $g22rc, so the population is UNMEASURED and nothing was checked: $(head -c 300 "$d/hits.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi  # Q-883 (2026-09-27): git grep rc 1 = no match (legitimate, and then the floor below fails it); rc >= 2 = the producer failed. This line read `2>/dev/null > hits || true` until Q-883, and a PATH git shim failing only this grep printed `[ok] 0 truncated hex token(s)` and DOC GATES: PASS (Fable E4).
   python3 - "$d/hits" "$d/tok" "$d/narr" <<'PYTOK'
 import re, sys
 hits, tokf, narrf = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -655,7 +655,7 @@ PYTOK
     esac
   done < "$d/class"
   rm -rf "$d"
-  [ "$rc" -eq 0 ] && echo "  [ok] $seen truncated hex token(s); all resolve or are declared ($declared declared)"
+  echo "GATE22_HEX_TOKENS=$seen"; if [ "$seen" -lt "$G22_FLOOR" ]; then echo "  [FAIL] GATE 22: only $seen truncated hex token(s) measured, below the population floor $G22_FLOOR. A lost, renamed or narrowed population is a broken scan, not a clean corpus."; rc=1; fi; [ "$rc" -eq 0 ] && echo "  [ok] $seen truncated hex token(s); all resolve or are declared ($declared declared)"  # Q-883 (2026-09-27): the receipt and the floor. Floor 100 against 129 measured on 2026-09-27 (37 declared): room to retire ~29 citations without an edit here, while a producer that returns nothing or a handful reads FAIL, not ok.
   return $rc
 }
 
