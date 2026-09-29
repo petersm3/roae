@@ -4464,7 +4464,7 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     """Handler for --v3-spectrum.  Rank grid (i/r/walk) -> v3_spectrum.tsv.
 
     Reads the `i`, `r`, `walk` grid emitted by the `--kc-unrank` K-loop
-    (scripts/tr12_repro.sh row a1_v3 -> tr12/v3_rel_grid.tsv), evaluates the
+    (scripts/tr12_repro.sh row a1_v3 -> reports/tr12/v3_rel_grid.tsv), evaluates the
     FROZEN `--compute-stats` battery on each walk, and writes the one-row-per-
     grid-point evidence TSV that `viz/report_figures.py fig_tr12_kc_spectrum`
     consumes.  Emits `V3_SPECTRUM=PASS` or `V3_SPECTRUM=FAIL` as a bare line
@@ -13850,7 +13850,7 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             # (reports/evidence/w0d_lower_bound/README.md). The Q-768 ruling (R8)
             # had kept this wording byte-identical so the goldens would not move; measured, no
             # golden carries it (n9 c_consumer.txt records only that xa_verdict.md was written).
-            # Its copies are tests.py PENDING_TEXT and the tracked tr12/xa_verdict.md.
+            # Its copies are tests.py PENDING_TEXT and the tracked reports/tr12/xa_verdict.md.
             # The extra line fires only in the NEW case -- a certificate was supplied and
             # REJECTED -- which no golden has ever exercised, because until the Q-768 fix
             # supplying anything at all was accepted.
@@ -15010,7 +15010,7 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
         # 🔴 Codex MQ1 §2b, second half, wired into the ARTIFACT 2026-09-07. The check above
         # compares only the MULTISET of equal-column group sizes, so swapping two pairs between
         # different orbits leaves its output byte-identical -- it cannot see the thing
-        # viz_kc_field.md:88 says it gates. atlas_orbit_membership() DOES see it, but until now it
+        # viz_kc_field.md:170 says it gates. atlas_orbit_membership() DOES see it, but until now it
         # was reachable only from scripts/a5_orbit_membership_gate.sh, so the emitted verdict a
         # reader actually sees was still the weak one. A strong check that the artifact does not
         # carry is a check the artifact does not have.
@@ -15227,7 +15227,7 @@ def atlas_a2_slot_check(atlas, tol=2e-3):
     if n != 31:
         return ("SKIP:n=%s" % n, "A2's published slot histogram is a full-31 measurement")
     layers = atlas.get("layers") or []
-    # THE INDEX -> SLOT MAP IS THE PUBLISHED CONVENTION, NOT A GUESS.  viz/viz_kc_field.md:34:
+    # THE INDEX -> SLOT MAP IS THE PUBLISHED CONVENTION, NOT A GUESS.  viz/viz_kc_field.md:116:
     # "layer k is the transition from depth k to depth k+1 and fills pair-slot k+2".  So
     # slot 2 is layers[0] and slot 32 is layers[30] == layers[-1].
     #
@@ -16219,7 +16219,7 @@ def atlas_probe(atlas_path):
         # window the neighbouring tokens use), with the k = 0 value printed beside it under its
         # own name and its cause gated rather than narrated: every k = 0 kernel key must carry
         # exit 0, and the argmax cell's joint mass is printed with the product it is compared
-        # to.  Same derivation as atlas_emit_v5 (the tracked tr12/scan/v5_grammar.tsv), over the
+        # to.  Same derivation as atlas_emit_v5 (the tracked reports/tr12/scan/v5_grammar.tsv), over the
         # FULL 5 x 3 product including zero cells -- a zero cell with a nonzero product IS a
         # deviation, and dropping it would hide exactly the layer-0 mechanism described above.
         # Exact rationals throughout; only the printed value is rounded.  Fable C, 2026-09-24.
@@ -17915,7 +17915,7 @@ def main():
                         help="P2: Per-dimension marginal percentiles with KW's position marked")
     parser.add_argument("--v3-spectrum", nargs=2, metavar=("GRID_TSV", "OUT_TSV"),
                         help="V3: join a rank grid (i/r/walk, as emitted by the --kc-unrank "
-                             "K-loop into tr12/v3_rel_grid.tsv) to the FROZEN --compute-stats "
+                             "K-loop into reports/tr12/v3_rel_grid.tsv) to the FROZEN --compute-stats "
                              "observable battery and write the spectrum/v3_spectrum.tsv that "
                              "viz/report_figures.py fig_tr12_kc_spectrum consumes: one row per "
                              "grid point, exact decimal `rank`, `x` = rank/N, the mandatory "

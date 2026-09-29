@@ -60,7 +60,7 @@ derivation.
 | `a2_q2.txt` | Q2: `unrank_O3` at 0, N−1 and ⌊N/2⌋ under `--kc-bracket`, each `CERTIFICATE PASS` | 6,416 |
 | `a1_q2b.txt` | Q2b: `--kc-unrank` at the same three ranks, with records | 3,383 |
 | `a2_q3_profile.txt` | Q3: `--kc-profile --kc-tsv --kc-alts` transcript, 880 `#alt` rows | 83,415 |
-| `q3_profile_exact.tsv` | Q3: the 16-column exact table that transcript's run wrote (`g_alt_min`, `g_alt_max`, `choice_rank` are not in the committed `tr12/q3_profile_kw.tsv`) | 4,820 |
+| `q3_profile_exact.tsv` | Q3: the 16-column exact table that transcript's run wrote (`g_alt_min`, `g_alt_max`, `choice_rank` are not in the committed `reports/tr12/q3_profile_kw.tsv`) | 4,820 |
 | `a1_q4ac.txt` | Q4(a,c): C3 census over M = 10⁶ SUPER draws, estimates and per-bin Wilson intervals | 9,432 |
 | `a1_q8_super.txt` | Q8: 1,000 SUPER draws (`rank cd walk` + `record` lines) | 419,138 |
 | `a1_q8_c15.txt` | Q8: 1,000 C15-accepted draws | 419,124 |

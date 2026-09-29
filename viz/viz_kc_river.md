@@ -5,8 +5,95 @@ space splits into streams; the river plots the exact width of each stream as it 
 right across the ordering, with King Wen's own path drawn on top. A companion panel gives the exact
 mass — and the exact exhaustion cost — of each of the 56 first-level branches.
 
-← Back to [README.md](README.md) (index) · V-family: [V1 field](viz_kc_field.md) · **V2** ·
+← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) · **V2** ·
 [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md)
+
+[![Two-panel figure. Upper: a stacked mass river over layers 0 to 30 showing the exact share of the superspace in each boundary-distance class d = 1, 2, 3, 4 and 6, with King Wen's own class at each layer drawn as a black step line. Lower: the 56 top-level branches sorted by solution mass, with log10 exhaustion cost in t-units overlaid as a red line.](../reports/figures/fig_tr12_kc_river.png)](../reports/figures/fig_tr12_kc_river.svg)
+
+*V2 as committed, **C1C2C4C5-SUPERSPACE; C3 not imposed**. Click the image for the SVG; the full caption is in [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), and this page is the figure's spec.*
+
+## In plain terms
+
+This picture follows every allowed ordering at once as the sequence is built, one pair at a time.
+The top panel shows, at each step, what share of orderings make each size of jump into the next
+pair, where a jump's size is how many of the six lines change; the shares stay nearly level from
+start to finish, and a black line traces King Wen's own jump at each step. The bottom panel splits
+the orderings by their first free choice, 56 possibilities, and shows that a bigger group always
+costs at least as much to search in full as a smaller one. "Allowed" here means obeying four of the
+five core rules (all but the one called C3).
+
+## What it shows
+
+- **Upper panel, the river.** 31 unit-width layer bins, 0 to 30. Each band is one boundary-distance
+  class d = 1, 2, 3, 4 or 6 (the number of lines that differ across the boundary into the new pair),
+  and its height is that class's exact share of the superspace at that layer; each column sums to 1.
+  King Wen's own class at each layer is the black step line with a white halo. Summed across the 31
+  layers, each band's area is that class's budget, `2,8,13,7,1`, which the C1+C5 theorem fixes, so
+  only the shape across layers carries information.
+- **Lower panel, the branches.** The 56 top-level branches sorted by exact solution mass, each
+  labelled pair : entry (the entry hexagram's six-bit code), with log₁₀ exhaustion cost in t-units
+  (one t-unit is one valid oriented prefix) as a red line.
+
+The full reading guide is [How to read it](#how-to-read-it) below.
+
+## What it establishes, and what it does not
+
+- **Establishes.** The per-layer class shares stay within 0.18 percentage points of their budget
+  share on layers 1–29 ([TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5),
+  V2 caption; §12.6). The 56 branches fall into 7 mass levels that map one-to-one onto 7 cost levels,
+  and 0 of the 1,540 branch pairs has the smaller mass with the larger cost: no branch is
+  small-but-expensive at n=31.
+- **Does not establish.** The Exhaustion Atlas's EXHAUSTIBLE/INFEASIBLE verdict, which is withheld
+  (TR-12 §3); t-units price no production-search node. This is the **reduced form**
+  (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is split by distance class, not by
+  top-level branch class as §2 first specified, and the joint split by first branch and distance
+  class is carried neither by the atlas nor by the ladders. See
+  [What this figure is allowed to claim](#what-this-figure-is-allowed-to-claim) and
+  [What it may NOT claim](#what-it-may-not-claim).
+
+## Provenance
+
+- **Data.** [`reports/tr12/scan/v2_river.tsv`](../reports/tr12/scan/v2_river.tsv) (sha256 prefix
+  `380111eb002e`) and [`reports/tr12/scan/v2_branches.tsv`](../reports/tr12/scan/v2_branches.tsv)
+  (`3d75e6d619ba`), both printed in the figure's footer, written by the atlas consumer from
+  `runs/20260906_kc_ladders_n31/atlas_n31.json`; the command is under [Generation](#generation).
+- **Generator.** `fig_tr12_kc_river()` in [`viz/report_figures.py`](report_figures.py), called by
+  `tr12_figures()`. Table in, figure out; it refuses an incomplete grid, and at n = 31 requires the
+  branch table.
+- **Regenerate.** The whole set, `cd reports/figures && python3 ../../viz/report_figures.py`, or
+  this figure alone:
+
+  ```bash
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_river('../tr12/scan/v2_river.tsv', '../tr12/scan/v2_branches.tsv')"
+  ```
+
+- **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
+  the committed PNG byte for byte on 2026-09-29, with all twelve report figures (CX-233); see
+  [Reproduce the figures](README.md#reproduce-the-figures).
+- **Tokens.** `TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER` in
+  [`reports/tr12/VERDICTS.txt`](../reports/tr12/VERDICTS.txt); `B0_FROM_COLUMN_SUMS=2,8,13,7,1`,
+  printed by `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json`
+  (TR-12 §12.9).
+
+## Review history
+
+- **2026-09-23.** First rendered at n=31 (TR-12 §2).
+- **2026-09-24.** The caption and the panel's subtitle said a small-but-expensive branch was the
+  atlas's point, over a table that contradicts it; corrected (CX-75).
+- **2026-09-26, Codex figure review VIZ1, checked by Fable.** The river was drawn as a linear
+  interpolation whose band areas summed to 30, not 31 (F03), and the bands were told apart by colour
+  only (F19). It is now 31 unit-width steps with labelled bands. CX-191, CX-192.
+- **2026-09-27.** The caption said the column sums recover the budget; the band areas do (CX-224,
+  item 5). A retracted limitation on the branch split was still asserted at three sites (item 11).
+- **2026-09-28, Codex visualization review, triaged by Fable.** The branch cost column is checked
+  (Q-894), CX-226. The band labels were set in their band colours at 2.2–2.4:1 on white; they are now
+  dark text beside a swatch, and a key defines d, King Wen's line, the branch label and the t-unit,
+  CX-227. The caption's correction history moved out of the reading text (Q-901), CX-228.
+- **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
+  as part of the [visual capstone](README.md) (CX-233).
+
+*The rest of this page is the figure's specification and drafting record, kept as written, with its
+dated corrections in place.*
 
 ## Status (2026-08-22)
 
@@ -15,7 +102,7 @@ mass — and the exact exhaustion cost — of each of the 56 first-level branche
 | (a) distance-class river | layer-k mass split by the k-th transition's distance class d ∈ {1,2,3,4,6} | `solve --kc-scan` → `layers[].by_class` | **EXISTS** |
 | (b) branch mass + exhaustion cost | per-branch total solutions and valid-prefix count | `solve --kc-scan … --kc-tdir TDIR` → `branch_atlas[]` | **EXISTS** (t-units need a `--kc-t-build` ladder) |
 | (c) branch-class river | layer-k mass split by *top-level branch* | — | **PENDING, and not a flag** — see below |
-| Full-31 f / g / t ladders | — | Stage F / G / T | **BUILT** — the committed `tr12/scan/v2_river.tsv` / `v2_branches.tsv` came from the n=31 atlas, with `t_source = t-ladder` on the branch rows. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT".* |
+| Full-31 f / g / t ladders | — | Stage F / G / T | **BUILT** — the committed `reports/tr12/scan/v2_river.tsv` / `v2_branches.tsv` came from the n=31 atlas, with `t_source = t-ladder` on the branch rows. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT".* |
 | Atlas JSON → figure TSV | — | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` | **EXISTS** (n=9 brute-force gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
 ### Why panel (c) is not simply a missing flag
@@ -110,7 +197,7 @@ and for the population (the river is drawn as 31 unit-width steps, edges −0.5�
 
 ## Input TSV
 
-`tr12/scan/v2_river.tsv` — tidy format, `31 × 5 = 155` data rows at full-31:
+`reports/tr12/scan/v2_river.tsv` — tidy format, `31 × 5 = 155` data rows at full-31:
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -120,7 +207,7 @@ and for the population (the river is drawn as 31 unit-width steps, edges −0.5�
 | `p` | float | `R[k][d] / N`, the plotted band height |
 | `kw_d` | int | King Wen's own class at layer *k* (`-1` when n ≠ 31) |
 
-`tr12/scan/v2_branches.tsv` — one row per branch, 56 rows at full-31:
+`reports/tr12/scan/v2_branches.tsv` — one row per branch, 56 rows at full-31:
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -154,7 +241,7 @@ $B/solve --kc-scan-selftest                              # expect: PASS (0 failu
 **Full-31 (run once, 2026-09; repeating it needs the f/g/t ladders mounted — re-rendering does not):**
 
 ```bash
-solve --kc-scan FDIR GDIR tr12/scan/atlas.json --kc-tdir TDIR [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-scan FDIR GDIR reports/tr12/scan/atlas.json --kc-tdir TDIR [--kc-ooc] [--kc-cache-mb MB]
 ```
 
 Panel (a) needs **no** `--kc-raw` (the class stream is G-invariant); panel (b)'s
@@ -165,13 +252,13 @@ exhaustion series.
 **Atlas JSON → TSV** — the atlas consumer:
 
 ```bash
-python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 --atlas-select v2
-#   writes tr12/scan/v2_river.tsv + tr12/scan/v2_branches.tsv and TR12_V2= in tr12/VERDICTS.txt
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out reports/tr12 --atlas-select v2
+#   writes reports/tr12/scan/v2_river.tsv + reports/tr12/scan/v2_branches.tsv and TR12_V2= in reports/tr12/VERDICTS.txt
 ```
 
 **The full-31 atlas is in this repository:** `runs/20260906_kc_ladders_n31/atlas_n31.json`
 (5,978,126 B, 31 layers, raw sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`),
-and the command above reads it. It re-derives `tr12/scan/v2_river.tsv` and `v2_branches.tsv` with no ladder mounted;
+and the command above reads it. It re-derives `reports/tr12/scan/v2_river.tsv` and `v2_branches.tsv` with no ladder mounted;
 `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` checks the file first
 (`ATLAS_PROBE=PASS`). The output path in the `--kc-scan` line above is where a **rebuild** from the
 ladders would write a fresh atlas; the ladders themselves are not distributed.
@@ -242,9 +329,9 @@ five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorte
 | branch masses sum == N | `gates.branch_masses_sum_eq_N` |
 | `1 + Σ_b prefixes_t_units == t(root)` | gated inside `--kc-scan` when `--kc-tdir` is given |
 | t-ladder vs direct recursion at small n | `solve --kc-t-selftest`, `solve --kc-scan-selftest` |
-| **reader-side:** each column of `p` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$4} END{for (k in s) print k, s[k]}' tr12/scan/v2_river.tsv` |
-| **reader-side:** `Σ_k p[k][d]` == (2, 8, 13, 7, 1) | `awk -F'\t' 'NR>1{t[$2]+=$4} END{for (d in t) print d, t[d]}' tr12/scan/v2_river.tsv` |
-| **reader-side:** `share` column of the branch TSV sums to 1.0 | `awk -F'\t' 'NR>1{s+=$7} END{print s}' tr12/scan/v2_branches.tsv` |
+| **reader-side:** each column of `p` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$4} END{for (k in s) print k, s[k]}' reports/tr12/scan/v2_river.tsv` |
+| **reader-side:** `Σ_k p[k][d]` == (2, 8, 13, 7, 1) | `awk -F'\t' 'NR>1{t[$2]+=$4} END{for (d in t) print d, t[d]}' reports/tr12/scan/v2_river.tsv` |
+| **reader-side:** `share` column of the branch TSV sums to 1.0 | `awk -F'\t' 'NR>1{s+=$7} END{print s}' reports/tr12/scan/v2_branches.tsv` |
 
 Both reader-side identities were exercised against the committed n=9 reference atlas
 (`{1:2, 2:5, 4:2}`, per-layer sums 1.0) before this doc was written.
@@ -263,7 +350,7 @@ form and must not be asserted. Full accounting in
 
 - **This doc:** `viz/viz_kc_river.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
-- **Evidence TSVs:** `tr12/scan/v2_river.tsv`, `tr12/scan/v2_branches.tsv`
+- **Evidence TSVs:** `reports/tr12/scan/v2_river.tsv`, `reports/tr12/scan/v2_branches.tsv`
 - **Figures:** `reports/figures/fig_tr12_kc_river.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
   mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 

@@ -8,9 +8,91 @@ table as a picture. *(Corrected 2026-09-04, Q-316 item 4: this read "the 32 shel
 shells counting `Shell_0 = SUPER`, but the TSV has one row per free PLACEMENT — 31 at full-31 — and
 `Shell_0` appears only as step 1's `g_parent`. `fig_tr12_kc_shells` plots the rows.)*
 
-← Back to [README.md](README.md) (index) · V-family: [V1 field](viz_kc_field.md) ·
+← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · **V4** ·
 [V5 grammar](viz_kc_grammar.md)
+
+[![Two-panel figure of King Wen's own walk. Upper: log10 of the exact number of completions remaining after each of its 31 free placements, with a shaded bar at each step for the attested range over the admissible alternatives. Lower: the surprisal of each of King Wen's choices, in bits.](../reports/figures/fig_tr12_kc_shells.png)](../reports/figures/fig_tr12_kc_shells.svg)
+
+*V4 as committed, **C1C2C4C5-SUPERSPACE; C3 not imposed**. Click the image for the SVG; the full caption is in [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), and this page is the figure's spec.*
+
+## In plain terms
+
+This picture follows only King Wen's own ordering, not the whole population. After each of its 31
+free choices, the top panel shows how many allowed orderings (those obeying four of the five core
+rules, all but the one called C3) still begin the same way, a count that falls from a 38-digit number
+to exactly one; the shaded bars show the range for the other choices that were open at that step. The
+bottom panel shows how surprising each of King Wen's choices is, measured in bits, where one bit is
+the surprise of a fair coin toss.
+
+## What it shows
+
+- **Upper panel.** log₁₀ of `g(prefix)`, the exact number of completions remaining after each of King
+  Wen's 31 free placements, annotated with the number of admissible alternatives at that step. The
+  shaded bar at each step spans the least to greatest `g` over every admissible alternative there,
+  King Wen's own included; it is attested from the 2026-09-22 n=31 battery receipts.
+- **Lower panel.** The surprisal of each choice, −log₂ p_i in bits, where p_i = g_i / g_(i−1) is the
+  share of the previous shell that makes King Wen's choice. A short black tick at each step marks
+  log₂ of the number of alternatives, the cost if they all had equal completion counts, so a bar above
+  its tick is a choice with fewer completions than the average alternative. The bars sum to log₂ N.
+
+Two checks are visible in the image: `g` reaches exactly 1 at the last placement, and the step with a
+single admissible alternative costs 0 bits. The full reading guide is
+[How to read it](#how-to-read-it) below.
+
+## What it establishes, and what it does not
+
+- **Establishes.** King Wen's exact rarity profile, TR-12's Q3 table drawn as a figure: the
+  completions remaining after each of its placements, and what each choice costs in bits
+  ([TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), V4 caption;
+  [§Q3](../reports/TR12_QUERY_PROGRAM.md#q3-kws-rarity-profile--fg-at-each-of-kws-31-prefix-steps)).
+- **Does not establish.** Anything about the population. The line is one walk, King Wen's, and unlike
+  V1, V2 and V5 it is not an overlay on a population field. The bars are attested, not reproducible
+  without the f and g ladders. See
+  [What this figure is allowed to claim](#what-this-figure-is-allowed-to-claim) and
+  [What it may NOT claim](#what-it-may-not-claim).
+
+## Provenance
+
+- **Data.** [`reports/tr12/q3_profile_kw.tsv`](../reports/tr12/q3_profile_kw.tsv), sha256 prefix
+  `bbe62f3bc6a3`, the curve, written by the atlas consumer with `--atlas-q3-trace` from the published
+  trace `reports/tr12/q3_trace_kw.txt`; and for the alternatives band
+  [`reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv`](../reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv),
+  `ee0b99fde78a`. Both digests are printed in the figure's footer. The band is drawn only because every
+  step's placement, alternatives count, `g` and `g_parent` match the curve's table exactly. The
+  commands are under [Generation](#generation).
+- **Generator.** `fig_tr12_kc_shells()` in [`viz/report_figures.py`](report_figures.py), called by
+  `tr12_figures()`; it reads the band through `_read_q3_alts()` and `_v4_band()`.
+- **Regenerate.** The whole set, `cd reports/figures && python3 ../../viz/report_figures.py`, or
+  this figure alone (the band's receipt is found from the generator's own location):
+
+  ```bash
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_shells('../tr12/q3_profile_kw.tsv')"
+  ```
+
+- **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
+  the committed PNG byte for byte on 2026-09-29, with all twelve report figures (CX-233); see
+  [Reproduce the figures](README.md#reproduce-the-figures).
+- **Tokens.** `TR12_Q3=PASS`, `TR12_Q3_KW=PASS` and `TR12_Q3_READER=PASS` in
+  [`reports/tr12/VERDICTS.txt`](../reports/tr12/VERDICTS.txt); the 2026-09-22 receipt records
+  `TR12_V4_TSV=PASS` ([`VERDICTS_n31_20260922.txt`](../reports/evidence/tr12/VERDICTS_n31_20260922.txt)).
+
+## Review history
+
+- **2026-09-23.** Rendered. TR-12 had reported V4 as blocked on the ladders; its input already
+  existed, and only matplotlib was missing on the query host (TR-12 §2).
+- **2026-09-26, Codex figure review VIZ1, checked by Fable.** The title did not name the space or
+  define N (F21), and the alternative counts rendered at 6.8 px (F18); redrawn, CX-191, CX-192.
+- **2026-09-27.** The figure now draws the alternatives band, read from the published attested
+  receipt, and its title no longer says the whole figure is one walk (CX-204).
+- **2026-09-28, Codex visualization review, triaged by Fable.** The band reader and the titles
+  accepted tables they should have refused (Q-891), CX-226. p_i was never defined on the figure; the
+  subtitle now defines it, and the log₂ ticks and a boxed key were added, CX-227.
+- **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
+  as part of the [visual capstone](README.md) (CX-233).
+
+*The rest of this page is the figure's specification and drafting record, kept as written, with its
+dated corrections in place.*
 
 ## Status (2026-08-22)
 
@@ -19,7 +101,7 @@ shells counting `Shell_0 = SUPER`, but the TSV has one row per free PLACEMENT �
 | The 31-row f·g descent trace along King Wen's own path | `solve --kc-o3-rank FDIR GDIR "<walk>" --kc-trace` | **EXISTS** (source + binary, verified) |
 | Per-step flow identity, endpoint checks, `Π p_i = 1/N` self-check | printed by the same command as `#o3-trace-summary` | **EXISTS** |
 | Optional band: min/max `g` over the *alternatives* at each step | `solve --kc-profile FDIR GDIR "<walk>" --kc-tsv FILE --kc-alts` | **EXISTS** (`g_alt_min` / `g_alt_max`; the consumer carries them through, and `fig_tr12_kc_shells` draws the band from a table's own columns when present and its sidecar reads `q3_alts_status=REPRODUCED` (Q-891; no emitter writes that key yet, so today a table's own columns are never drawn), else from the published attested n=31 receipt; **DRAWN** 2026-09-27, see below) |
-| Full-31 f and g ladders | Stage F / Stage G | **BUILT** — the full-31 run of 2026-09-22 produced `tr12/q3_profile_kw.tsv` with them mounted. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT".* |
+| Full-31 f and g ladders | Stage F / Stage G | **BUILT** — the full-31 run of 2026-09-22 produced `reports/tr12/q3_profile_kw.tsv` with them mounted. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT".* |
 | Trace text → figure TSV | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE.txt` | **EXISTS** (n=9 gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
 Unlike the other four, V4 needs **no new engine work at all**: the main curve and the alternatives band both render from published tables, and
@@ -97,7 +179,7 @@ verifications, `flow_identities=31/31`, `sum_bits` and `log2N`.
 ## Input TSV
 
 `q3_profile_kw.tsv` in the consumer's `--atlas-out` directory — `<artifact-root>/consumer/q3_profile_kw.tsv`
-in a `scripts/tr12_repro.sh` run, committed as `tr12/q3_profile_kw.tsv` — one row per free placement,
+in a `scripts/tr12_repro.sh` run, committed as `reports/tr12/q3_profile_kw.tsv` — one row per free placement,
 31 data rows at full-31. ⚠ *(corrected 2026-09-25, Q-684: this put the table at the artifact root,
 where the battery writes no file of that name.)*
 
@@ -114,7 +196,7 @@ It refuses V4 in three cases: both names are present; the KW table's sidecar say
 or the KW table has no sidecar while `q3_profile.tsv.provenance.txt` sits beside it, which marks
 the KW table as a leftover of an earlier run. ⚠ *(corrected 2026-09-25, Q-776: this listed the
 first two cases only.)*
-One exception: a directory with no sidecar for either name, such as the committed `tr12/` tree,
+One exception: a directory with no sidecar for either name, such as the committed `reports/tr12/` tree,
 has its KW table taken as written. A consumer run always writes a sidecar, so a reused
 `--atlas-out` never reaches that branch.
 
@@ -142,7 +224,7 @@ columns exist for the axes and must never be the quoted value.
 **Full-31 — RUN, and the figure is rendered (2026-09-23).** ⚠ *This heading read "PENDING the
 ladders" until 2026-09-23, which was stale rather than cautious: the command below was executed on
 2026-09-22 with the ladders mounted, the receipt records `TR12_V4_TSV=PASS`, and the resulting
-profile is committed at `tr12/q3_profile_kw.tsv`. The figure did not appear at the time only
+profile is committed at `reports/tr12/q3_profile_kw.tsv`. The figure did not appear at the time only
 because matplotlib was absent on the query host (`TR12_VIZ=SKIP:matplotlib-absent`); it renders
 from the banked TSV with no ladder. Re-running the command below needs the ladders; re-rendering
 the figure does not.* `--kc-o3-rank` takes an explicit walk — it does **not** accept
@@ -154,19 +236,19 @@ KWWALK=$(python3 -c 'from solve import binary_hexagrams as K; print(",".join(str
 #   62 integers: entry,exit for each of the 31 FREE pairs; the C4-pinned pair 0 is not part of a walk.
 
 solve --kc-o3-rank FDIR GDIR "$KWWALK" --kc-trace [--kc-ooc] [--kc-cache-mb MB] \
-      > tr12/q3_trace_kw.txt
+      > reports/tr12/q3_trace_kw.txt
 ```
 
 **Trace text → TSV** — the atlas consumer. Pure re-shaping; the only arithmetic is the float
 rendering of an exact fraction the engine already printed:
 
 ```bash
-python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 \
-                 --atlas-q3-trace tr12/q3_trace_kw.txt --atlas-select q3
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out reports/tr12 \
+                 --atlas-q3-trace reports/tr12/q3_trace_kw.txt --atlas-select q3
 #   --atlas-q3-trace also accepts a `--kc-profile ... --kc-tsv` table (auto-detected); that
 #   source additionally carries dclass / g_alt_min / g_alt_max / choice_rank, and carries no
 #   mass_below (an O3-rank quantity), which the consumer writes as -1 rather than guessing.
-#   writes tr12/q3_profile_kw.tsv (tr12/q3_profile.tsv at n != 31 or for a NOT-KW trace) and, in tr12/VERDICTS.txt,
+#   writes reports/tr12/q3_profile_kw.tsv (reports/tr12/q3_profile.tsv at n != 31 or for a NOT-KW trace) and, in reports/tr12/VERDICTS.txt,
 #   BOTH TR12_Q3= and TR12_Q3_READER=.
 ```
 
@@ -213,7 +295,7 @@ out; **no analysis logic in `viz/`**. The one other input is the attested altern
   **1.000 bit** (two admissible completions of equal mass, `p = 1/2`). Only step 30 is forced
   (`alts = 1`, `p = 1`, `bits = 0`), and it is the only forced step in the whole trace. Read the
   tail against `log₂ alts`, not against zero: steps 29 and 31 cost exactly `log₂ 3` and `log₂ 2`.
-  Numbers from the committed `tr12/q3_profile_kw.tsv`, recomputed from its exact `p_num`/`p_den`
+  Numbers from the committed `reports/tr12/q3_profile_kw.tsv`, recomputed from its exact `p_num`/`p_den`
   columns (the 31 surprisals sum to `log₂N` = 129.689).
   ⚠ **Corrected 2026-09-24 (Q-697; Codex V3A-144#2, adjudicated by Fable).** This bullet
   predicted that, as the C5 boundary budget ran out and `alts` collapsed, the late steps would be
@@ -273,7 +355,7 @@ out; **no analysis logic in `viz/`**. The one other input is the attested altern
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence:** `<artifact-root>/q3_profile.txt` (raw engine output, row `a2_q3`: the Generation
   block's `--kc-o3-rank --kc-trace` run, with `--kc-bracket` added) and
-  `<artifact-root>/consumer/q3_profile_kw.tsv`, committed as `tr12/q3_profile_kw.tsv`; the band reads `reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv` (attested, 2026-09-22). ⚠ *(corrected
+  `<artifact-root>/consumer/q3_profile_kw.tsv`, committed as `reports/tr12/q3_profile_kw.tsv`; the band reads `reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv` (attested, 2026-09-22). ⚠ *(corrected
   2026-09-25, Q-684: this named a trace file and a table at the artifact root that the battery does
   not write there.)*
 - **Figures:** `reports/figures/fig_tr12_kc_shells.{png,svg}` (committed). The renderer writes to its working directory, and nothing is

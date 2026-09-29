@@ -7,9 +7,91 @@ pair-slot in the ordering, the field gives the **exact fraction of the whole com
 that places pair *j* in that slot — not a sample, not a projection: a population marginal computed
 from every member at once via the compiled f·g ladders. King Wen's own 31 placements are overlaid.
 
-← Back to [README.md](README.md) (index) · V-family: **V1** · [V2 river](viz_kc_river.md) ·
+← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: **V1** · [V2 river](viz_kc_river.md) ·
 [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md) ·
 See also [viz_pca.md](archive/viz_pca.md) (the enumerated-slice projections this figure contrasts with)
+
+[![Heat matrix of the exact positional-marginal field over the C1C2C4C5 superspace: 32 rows, one per pair, against pair-slots 2 to 32, with King Wen's own 31 placements outlined along the diagonal.](../reports/figures/fig_tr12_kc_field.png)](../reports/figures/fig_tr12_kc_field.svg)
+
+*V1 as committed, **C1C2C4C5-SUPERSPACE; C3 not imposed**. Click the image for the SVG; the full caption is in [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), and this page is the figure's spec.*
+
+## In plain terms
+
+This grid has one row for each of the 32 pairs of hexagrams and one column for each place in the
+sequence where a pair can go. Each square's shade is the exact share of all allowed orderings that
+put that pair in that place, where "allowed" means obeying four of the project's five core rules
+(every rule except the one called C3), a 40-digit number of orderings. Away from the two ends the
+shades are close to even, and King Wen's own placements (outlined) carry close to the even share.
+TR-12 reports this as a negative result: where a pair sits, taken one place at a time, says almost
+nothing about whether an ordering is allowed (§12.5).
+
+## What it shows
+
+Rows are pairs j = 0…31 (pair j is King Wen's hexagrams 2j+1 and 2j+2); columns are pair-slots
+s = 2…32, since C4 fixes pair 0 in slot 1. The colour of a cell is P(pair j in slot s), exact over
+the superspace. Every column sums to 1 and every non-pinned row sums to 1. King Wen's own cell in each
+column is outlined, cyan over a black under-stroke; because the rows are numbered by King Wen's own
+pairs, the outline runs down the diagonal by construction, and the cell values are the content, not
+the outline's shape. The structure you can see is forced: row 0 is zero (C4), three cells in the
+slot-2 column are zero (pairs 4, 6 and 21, by C2), only 16 pairs can close the sequence in slot 32,
+and the 31 free pairs share seven distinct rows, their symmetry orbits. The full reading guide is
+[How to read it](#how-to-read-it) below.
+
+## What it establishes, and what it does not
+
+- **Establishes.** At the interior slots 3–31 the distribution over the 31 non-pinned pairs is within
+  total-variation distance 0.0329 of uniform, and King Wen's own pair at its own slot carries
+  0.0299–0.0337 at every interior slot: close to uniform, though the exact cells differ
+  ([TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), V1 caption;
+  [§12.5](../reports/TR12_QUERY_PROGRAM.md#125-the-positional-pair-field-is-flat-to-about-3---the-reading-of-v1-and-it-is-negative)).
+- **Does not establish.** Anything about the joint placement pattern, which pairs sit where
+  together: flat marginals do not test it, and §12.5 says it is not asked. The space is the
+  C1C2C4C5 superspace, so C3 is not imposed and this is not the C1–C5 population. Bands of equal
+  rows are forced by symmetry, not discovered. The spec's own limits are in
+  [What this figure is allowed to claim](#what-this-figure-is-allowed-to-claim) and
+  [What it may NOT claim](#what-it-may-not-claim).
+
+## Provenance
+
+- **Data.** [`reports/tr12/scan/v1_field.tsv`](../reports/tr12/scan/v1_field.tsv), sha256 prefix
+  `67514134add5`, which the figure prints in its footer. It was written by the atlas consumer from the
+  published n=31 atlas, `runs/20260906_kc_ladders_n31/atlas_n31.json`; the command is under
+  [Generation](#generation).
+- **Generator.** `fig_tr12_kc_field()` in [`viz/report_figures.py`](report_figures.py), called by
+  `tr12_figures()`. It reads the table and draws it, with no analysis, and refuses a table that is
+  not the complete 32×31 grid of probabilities the spec names (`FIGURE_SHAPE=FAIL`).
+- **Regenerate.** The whole set, `cd reports/figures && python3 ../../viz/report_figures.py`, or
+  this figure alone:
+
+  ```bash
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_field('../tr12/scan/v1_field.tsv')"
+  ```
+
+- **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
+  the committed PNG byte for byte on 2026-09-29, with all twelve report figures (CX-233); see
+  [Reproduce the figures](README.md#reproduce-the-figures).
+- **Tokens.** `TR12_V1=PASS` in [`reports/tr12/VERDICTS.txt`](../reports/tr12/VERDICTS.txt);
+  `POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR=0.0329` and
+  `KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR=0.0299,0.0337`, printed by
+  `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` (TR-12 §12.9).
+
+## Review history
+
+- **2026-09-23.** First rendered at n=31 (TR-12 §2).
+- **2026-09-26, Codex figure review VIZ1, checked by Fable.** The spec said the rows held "only
+  seven" profiles, leaving out the zero row, and a caption called King Wen's pair "indistinguishable"
+  from the others (F01, F02); both corrected, CX-191. Text below the 12-px floor redrawn (F18),
+  CX-192.
+- **2026-09-28, Codex visualization review, triaged by Fable.** The grid checks took their
+  dimensions from the rows they checked (Q-892), CX-226. The title used k for both slot and layer, the
+  row axis gave no way to find a row's hexagrams, and the cyan outline measured 1.89:1 on the
+  brightest cell; the axes now name slot and pair, the outline is two-tone, and a note states the
+  seven rows, CX-227. The probability column is checked as probabilities, CX-228.
+- **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
+  as part of the [visual capstone](README.md) (CX-233).
+
+*The rest of this page is the figure's specification and drafting record, kept as written, with its
+dated corrections in place.*
 
 ## Status (2026-08-22)
 
@@ -18,7 +100,7 @@ See also [viz_pca.md](archive/viz_pca.md) (the enumerated-slice projections this
 | Layer-by-layer RAW positional marginals | `solve --kc-scan FDIR GDIR OUT.json --kc-raw` | **EXISTS** (source + binary, verified) |
 | Internal gates (per-layer flow = N, raw row sums = N) | inside `--kc-scan` | **EXISTS**, printed as `gates` in the atlas |
 | n=9 brute-force cross-check | `solve --kc-scan-selftest` | **EXISTS** (`PASS (0 failures)`) |
-| Full-31 f and g ladders | Stage F / Stage G | **BUILT** — the n=31 atlas exists and the committed `tr12/scan/v1_field.tsv` was emitted from it; re-rendering needs no ladder. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT — no full-31 atlas exists".* |
+| Full-31 f and g ladders | Stage F / Stage G | **BUILT** — the n=31 atlas exists and the committed `reports/tr12/scan/v1_field.tsv` was emitted from it; re-rendering needs no ladder. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT — no full-31 atlas exists".* |
 | Atlas JSON → figure TSV | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` | **EXISTS** (n=9 brute-force gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
 The full-31 figure cannot be rendered until Stage F **and** Stage G have landed and a
@@ -121,7 +203,7 @@ the superspace agrees with King Wen at each slot — read against the rest of th
 
 ## Input TSV
 
-`tr12/scan/v1_field.tsv` — tidy (long) format, `31 × 32 = 992` data rows at full-31, tab-separated:
+`reports/tr12/scan/v1_field.tsv` — tidy (long) format, `31 × 32 = 992` data rows at full-31, tab-separated:
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -153,7 +235,7 @@ $B/solve --kc-scan-selftest                           # expect: PASS (0 failures
 **Full-31 (run once, 2026-09; repeating it needs the f/g ladders mounted — re-rendering does not):**
 
 ```bash
-solve --kc-scan FDIR GDIR tr12/scan/atlas.json --kc-raw --kc-tdir TDIR [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-scan FDIR GDIR reports/tr12/scan/atlas.json --kc-raw --kc-tdir TDIR [--kc-ooc] [--kc-cache-mb MB]
 ```
 
 `--kc-raw` is **required at full-31** — RAW-frame marginals are emitted automatically only at
@@ -165,9 +247,9 @@ Pure re-shaping; the only arithmetic is the division by `N` that the figure plot
 on exact 192-bit integers, never on floats:
 
 ```bash
-python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 --atlas-select v1,a5
-#   writes tr12/scan/v1_field.tsv and the TR12_V1=, TR12_A5_ORBIT_COLUMNS= and
-#   TR12_A5_ORBIT_MEMBERSHIP= lines in tr12/VERDICTS.txt
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out reports/tr12 --atlas-select v1,a5
+#   writes reports/tr12/scan/v1_field.tsv and the TR12_V1=, TR12_A5_ORBIT_COLUMNS= and
+#   TR12_A5_ORBIT_MEMBERSHIP= lines in reports/tr12/VERDICTS.txt
 ```
 
 ⚠ *Corrected 2026-09-25 (Q-699, V3A-141#1): this command read `--atlas-select v1`. Selectors are
@@ -175,11 +257,11 @@ independent, and the A-5 orbit gates run only when `a5` is selected, so `v1` alo
 orbit structure this page says the field shows. Executed on the committed atlas: `v1` alone writes
 only `TR12_V1=PASS`. `v1,a5` adds `TR12_A5_ORBIT_COLUMNS=PASS` (31 pairs → 7 columns, group sizes
 [3, 3, 3, 4, 6, 6, 6]) and `TR12_A5_ORBIT_MEMBERSHIP=PASS`. Both runs write a `v1_field.tsv` that is
-byte-identical to the committed `tr12/scan/v1_field.tsv`.*
+byte-identical to the committed `reports/tr12/scan/v1_field.tsv`.*
 
 **The full-31 atlas is in this repository:** `runs/20260906_kc_ladders_n31/atlas_n31.json`
 (5,978,126 B, 31 layers, raw sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`),
-and the command above reads it. It re-derives `tr12/scan/v1_field.tsv` with no ladder mounted;
+and the command above reads it. It re-derives `reports/tr12/scan/v1_field.tsv` with no ladder mounted;
 `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` checks the file first
 (`ATLAS_PROBE=PASS`). The output path in the `--kc-scan` line above is where a **rebuild** from the
 ladders would write a fresh atlas; the ladders themselves are not distributed.
@@ -259,9 +341,9 @@ Printed by the engine into `gates` in the atlas, and re-checkable from the TSV:
 | `Σ_k cls[k][d]` == `b0[d] · N` | `gates.class_column_sums_eq_b0_N` (2026-09-08) — the only gate in the set that sees a mass-preserving rearrangement, and it does so in the CLASS frame only; the raw pair frame this figure plots has no such column gate |
 | branch masses sum == N | `gates.branch_masses_sum_eq_N` |
 | n=9 exhaustive brute-force cross-check of the whole extractor | `solve --kc-scan-selftest` |
-| **reader-side:** every column of `p` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$5} END{for (k in s) print k, s[k]}' tr12/scan/v1_field.tsv` |
-| **reader-side:** every row with any nonzero mass sums to 1.0, and there are exactly as many of them as layers; every other row (pair 0, and at reduced n each pair outside the subset) is all-zero (⚠ *corrected 2026-09-25, Q-699, V3A-141#2: this read "every non-pinned row of `p` sums to 1.0 — same with `$3` as the key", which rejects a correct reduced-n table. Executed at n=9 (`--kc-scan` → `--atlas-queries --atlas-select v1,v5`): 32 rows, 23 all-zero, 9 summing to 1 over 9 layers, so the old gate flagged 23 rows on a correct artefact*) | `awk -F'\t' 'NR>1{s[$3]+=$5; nz[$3]+=($4!="0"); K[$1]=1} END{nk=0; for (k in K) nk++; one=0; bad=0; for (j in s) {if (!nz[j]) continue; if (s[j]>1-1e-9 && s[j]<1+1e-9) one++; else {print "ROW_SUM", j, s[j]; bad=1}} if (one!=nk) {print "ROWS_EQ_1", one, "LAYERS", nk; bad=1} print (bad ? "ROW_GATE=FAIL" : "ROW_GATE=PASS")}' tr12/scan/v1_field.tsv` (must print exactly `ROW_GATE=PASS`) |
-| **reader-side:** row `pair == 0` is identically zero | `awk -F'\t' '$3==0 && $4!="0"' tr12/scan/v1_field.tsv` (must print nothing) |
+| **reader-side:** every column of `p` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$5} END{for (k in s) print k, s[k]}' reports/tr12/scan/v1_field.tsv` |
+| **reader-side:** every row with any nonzero mass sums to 1.0, and there are exactly as many of them as layers; every other row (pair 0, and at reduced n each pair outside the subset) is all-zero (⚠ *corrected 2026-09-25, Q-699, V3A-141#2: this read "every non-pinned row of `p` sums to 1.0 — same with `$3` as the key", which rejects a correct reduced-n table. Executed at n=9 (`--kc-scan` → `--atlas-queries --atlas-select v1,v5`): 32 rows, 23 all-zero, 9 summing to 1 over 9 layers, so the old gate flagged 23 rows on a correct artefact*) | `awk -F'\t' 'NR>1{s[$3]+=$5; nz[$3]+=($4!="0"); K[$1]=1} END{nk=0; for (k in K) nk++; one=0; bad=0; for (j in s) {if (!nz[j]) continue; if (s[j]>1-1e-9 && s[j]<1+1e-9) one++; else {print "ROW_SUM", j, s[j]; bad=1}} if (one!=nk) {print "ROWS_EQ_1", one, "LAYERS", nk; bad=1} print (bad ? "ROW_GATE=FAIL" : "ROW_GATE=PASS")}' reports/tr12/scan/v1_field.tsv` (must print exactly `ROW_GATE=PASS`) |
+| **reader-side:** row `pair == 0` is identically zero | `awk -F'\t' '$3==0 && $4!="0"' reports/tr12/scan/v1_field.tsv` (must print nothing) |
 
 A figure whose TSV fails any of these is not publishable — the gate failure, not the picture, is
 the result.
@@ -280,7 +362,7 @@ form and must not be asserted. Full accounting in
 
 - **This doc:** `viz/viz_kc_field.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
-- **Evidence TSV:** `tr12/scan/v1_field.tsv` (committed with the figure)
+- **Evidence TSV:** `reports/tr12/scan/v1_field.tsv` (committed with the figure)
 - **Atlas JSON:** `runs/20260906_kc_ladders_n31/atlas_n31.json`, schema `roae-kc-scan-atlas` version 2 (Q-901: this read v1)
 - **Figures:** `reports/figures/fig_tr12_kc_field.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
   mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).

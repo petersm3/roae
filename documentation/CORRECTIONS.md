@@ -23232,3 +23232,273 @@ the row still fails, and `c_q10a.txt` (the current-code reproduction) was regene
 now also gets one OUT companion certificate, as the real battery does (KW plus the historical OUT arrangements), and
 a new leg 9 feeds exactly one certificate and requires `Q7RANKS_FAIL … witnesses_processed=1<2`
 (`Q7RANKS_PARSE_LEGS=9`).
+
+## CX-233 — the TR-12 atlas tables moved to reports/tr12/, and the viz pages show their figures
+
+**2026-09-29.**
+
+**The decision.** The operator asked for three layout changes: move the top-level `tr12` directory
+and update the links to it; show the figures on the `viz/` pages instead of only linking to them;
+and make `viz/README.md` the project's visual capstone, with one page per report figure. None of
+them is a correction of content. No number, digest, verdict token or image changed.
+
+**The move.** The fourteen tracked files of that directory now live under `reports/tr12/`. They are
+the n=31 atlas-consumer tables TR-12 cites: `VERDICTS.txt`, `q10_orbit_census.tsv`,
+`q3_profile_kw.tsv`, `q3_trace_kw.txt`, `v3_rel_grid.tsv`, `v3_spectrum.tsv`, `xa_branches.tsv`,
+`xa_verdict.md`, and six tables under `scan/`. They were moved with `git mv` and no byte changed, so
+every published digest of them still holds. The figure footers name their inputs by basename, so no
+image changes either. The live references were updated, 231 in 19 files:
+- **Code.** `viz/report_figures.py` (the default artifact root and N-2's default input),
+  `scripts/claim_ledger.sh` (four evidence readers), `tests.py` (fixture paths and comments), and
+  comments in `solve.py`.
+- **Ledgers and docs.** The artifact column of `documentation/CLAIMS.tsv`, and the paths and commands
+  in TR-12, `documentation/QUERY_INVENTORY.md`, `documentation/SOLVE_PY_CLI.md`,
+  `documentation/DEVELOPMENT.md`, `README.md`, `viz/README.md`, the five V-figure pages,
+  `reports/evidence/tr12/README.md` and the banked run's README, where it describes the committed
+  table.
+
+**What keeps the old path, and why.** Files that record where the tables were when something
+happened are unchanged:
+- this file and [HISTORY.md](HISTORY.md), which are append-only;
+- the generated `documentation/CORRECTIONS_INVENTORY.tsv`, and the dated note of one
+  RETRACTED_PHRASES.tsv row;
+- TR-12's revision history, and the 2026-09-22 receipt `reports/evidence/tr12/VERDICTS_n31_20260922.txt`;
+- everything under `reports/evidence/tr12/v3_rows_n31_20260925/`, which its `SHA256SUMS` covers.
+
+That last directory's `run_v3_rows.sh` reads `SRC/tr12/...` at run time. It is the as-run driver of
+the 2026-09-25 V3 run, and it refuses any battery other than the one it pins by sha, so a re-run
+already needs a tree of that date, and that tree has the old layout. It is left as it ran. Three
+quotations also keep the old prefix, because each quotes earlier text: TR-12 §0's correction of
+2026-09-24, the Q-684 narration in the `TR12_OUTPUT_PATHS` row of DEVELOPMENT.md, and the battery's
+Q9 skip reason, which names the never-created `q9_negatives.md` in order to withdraw it.
+
+**The gates.** `scripts/tr12_output_paths_gate.sh` now checks `reports/tr12/` names against the
+tracked tree (LEG T). A new LEG L handles the old prefix. A `tr12/` name in a live document fails.
+Under `reports/evidence/`, and on two listed quotations (HISTORICAL_SPANS), it is read as historical:
+it is mapped to `reports/tr12/`, the mapped path must be tracked, and a listed quotation that matches
+nothing fails as a dead row. The gate's `--selftest` grows from eleven planted repositories to
+fourteen, one for each new failure. GATE 21 (`doc_gates.sh script-paths`) reads a `tr12/<path>`
+token as narration only while `reports/tr12/<path>` is tracked. `TestTr12TablesMovedUnderReports`
+in `tests.py` runs the selftest and checks that its three new cases ran. It also drives GATE 21 in a
+scratch repository and checks a mapped name, the same name with nothing to map to, and a name that
+never existed. The test fails when the GATE 21 case is disabled.
+
+**The figure pages.** The five V-figure pages and `viz/viz_scale.md` now show their figure near the
+top, as a PNG linked to its SVG, with alt text that says what the image shows and a one-line caption
+that points to the full caption in TR-12. `viz/README.md` gained a Gallery section with all twelve
+report figures, before its tables; the next paragraph describes what replaced it. No file under `reports/figures/` changed. The four added lines at
+the top of each page moved eight line citations into those pages. Each now cites the same text at
+its new line, and the citation gate's pins were updated. The comment in
+`scripts/doc_gates.d/80_repro_reach_claim_shapes.sh` that records a measurement at `5c296837` now
+cites that tree's line in the gate's historical `:N@<sha>` form.
+
+**The visual capstone.** The operator named two capstones: TR-12 is the written one, and
+`viz/README.md` is the visual one, TR-12's companion. The Gallery became a showcase in five
+sections: the space and its scale (TR-4, TR-5), the rules and the conflict (TR-1), King Wen's place
+in the space (TR-12), the structure of the sequence (TR-6, TR-7), and how the computation was run
+(TR-3). The TR-12 section follows TR-12's own order, the scale figure from its scope section and
+then V1 to V5 from §2, and each statement in it cites the TR-12 section it comes from. Each figure
+is shown inline with an "In plain terms" summary for a general reader, the same text as on its
+page, and links to its page and its report. Short sections say how the figures are made and
+checked, and link the earlier, historical visualizations. The index tables, the reproduction recipe
+and the historical material are unchanged in substance and now sit under a Reference heading. The
+`#reproduce-the-figures` anchor that METHODS.md links still resolves. Two stale cells were fixed on
+the way: the scale figure's input is now named as `viz/viz_scale_inputs.tsv` with its digest
+(CX-225 moved it into that table), and the index of committed figures lists each figure's page.
+
+**One page per figure.** Every report figure now has a page with the same parts: the figure, linked
+to its SVG; "In plain terms"; "What it shows"; "What it establishes, and what it does not", with
+the report's own scope and a citation of the section; "Provenance" (the data file and digest, the
+generator function, the command, the toolchain, the tokens); and "Review history" (the Codex
+reviews, the Fable triage, the redraws and their CX entries). Six pages are new:
+`viz/viz_tr1_rules_tradeoff.md`, `viz/viz_tr3_campaign_timeline.md`,
+`viz/viz_tr4_boundary_information.md`, `viz/viz_tr5_orbit_collapse.md`,
+`viz/viz_tr6_parity_alternations.md` and `viz/viz_tr7_circular_cycle.md`. The five V pages and
+`viz/viz_scale.md` gained the same sections between the figure and the spec, which is kept as
+written. No report was edited for this, apart from line citations.
+
+**Measured.** With matplotlib 3.11.0 and numpy 2.4.4, the documented command
+`cd reports/figures && python3 ../../viz/report_figures.py`, run in a scratch directory on this
+tree, reproduced all twelve committed PNGs byte for byte, and each single-figure command the pages
+give reproduced its PNG. The figure pages cite this run.
+
+**Line citations moved again.** The new sections moved the lines they are inserted above. Each
+citation now names the same text at its new line: `viz/viz_kc_field.md:38` became `:116`, in
+`solve.py`, `tests.py` and `scripts/a2_slot_verdict_gate.sh` (twice); `viz_kc_field.md:92` became
+`:170` in `solve.py`; and `viz_kc_grammar.md:65-66` became `:140-141` in TR-12's §2 table and
+`documentation/QUERY_INVENTORY.md`. The reason text of the citation gate's three pins for them
+names the new lines, and their hashes are unchanged.
+
+## CX-234 — the front page's inline correction notes moved to this ledger
+
+**2026-09-29.**
+
+**The decision.** The operator asked that `README.md` carry no inline correction notes and no
+descriptions of past corrections, and that their content move to this ledger. The front page now
+states each result as it currently stands, and a pointer near its top says that corrections to
+anything on the page are recorded here. Its other general pointers to this file are unchanged. No
+number, digest, verdict or claim changes in this entry. Twelve notes were removed. Seven were the
+bracketed `⚠ [CORRECTED …]` / `[WITHDRAWN …]` notes, and five were sentences or clauses whose only
+job was to narrate an earlier error on the page.
+
+Each note is quoted below exactly as it stood on the page, with one change. The links inside
+notes 1 and 4 were relative to the repository root, and they are rebased here (`../`) so that they
+resolve from this file. For each note the entry gives the ledger record that already covers the
+correction and says what the front page now says in its place. Two notes had no record in this
+ledger, and each is marked **only record** below.
+
+**1. "The finding, precisely" — the C6–C7 survivors inside King Wen's prefix.**
+
+> ⚠ **[CORRECTED 2026-09-01 — this passage previously glossed the eight
+> survivors as King Wen accompanied by seven further members of its neighbourhood, which invites a
+> pair-ordering reading that is the opposite of what the enumeration shows. Ruled 2026-08-28; the
+> verifying runs are published at [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4 and
+> [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md). Both counts, 16,504 and 8, are unchanged
+> and correct — only the gloss was wrong. This front page was missed by the 2026-08-28 sweep because
+> the retracted phrase wrapped a line break, which a line-based grep cannot see.]**
+
+Already recorded in the entries "2026-08-28 — a published P-value that never computed its own
+caveat, and 'seven others' that are all King Wen" (item 2, the ruling) and "2026-09-01 — the front
+page carried the retracted 'seven others' gloss for four days" (the front-page fix and why it was
+missed). The results themselves are in [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) §"The C1–C7
+space" and TR-4 §4. **Now:** the passage keeps its sentence that, read as pair orderings, C6–C7
+leave King Wen's alone among the 899 distinct pair orderings those 16,504 oriented leaves
+represent, and goes straight on to "King Wen is unique only within budgeted enumerated slices".
+
+**2. "What was found", first bullet — the size of the C1–C5 space.**
+
+> ⚠ **[WITHDRAWN 2026-08-24 — the ≈3.3×10³⁷ orientation-dedup figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; the raw 1.33×10³⁸ estimate and the ~5×10³¹ C1–C7 figure are not affected; see documentation/CORRECTIONS.md]**
+
+Already recorded in the entries
+"2026-08-24 — the '≈3×10³⁷ distinct canonical orderings' figure is WITHDRAWN" and "2026-08-28 —
+the withdrawal markers were attached to the wrong words, and on the front page to the wrong figure". [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) and the canonical
+quantities table in `reports/METHODS.md` carry the figure's own withdrawal record. **Now:** the
+sentence above the note printed the withdrawn figure, so removing only the note would have left it
+standing without its warning. The figure is removed from the sentence. It now gives only the raw,
+orientation-explicit estimate, 1.33×10³⁸, with its CI, and "adding C6–C7 still leaves ~5×10³¹".
+The front page no longer states the withdrawn figure anywhere, so GATE 27 has nothing to check there.
+
+**3. "What was found", the rules-conflict bullet — King Wen's margins.**
+
+> ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]**
+
+Already recorded in the entry "2026-08-28 — 'the smallest measured margins' was refuted by our own
+evidence file", and for the figure in the entry "2026-09-02 — TR-2: a withdrawn result reinstated
+…" (item 5). **Now:** "King Wen keeps one exactly and misses the others by two each, so its famous
+anomalies are consistent with a forced trade-off". The sentence had already lost the superlative, so
+it is true without the note.
+
+**4. "What was found", the same bullet — the 1979 reordering proposal.**
+
+> ⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#11,
+> Q-742) — this sentence said the proposal was settled in passing (registered as RP-3001bc5f). [TR-8](../reports/TR8_REORDERING_REVISITED.md) says of
+> that proposal, "It does not refute their construction", and names it hybrid by design.]**
+
+Already recorded in CX-81, item 5, and the retracted wording is registered by key `RP-3001bc5f`.
+**Now:** "The hybrid ordering its authors actually published is feasible, and nothing here refutes
+it", followed by the TR-1, TR-2 and TR-8 links.
+
+**5. "What was found", the forced-rules bullet — the transcription step.**
+
+> ⚠ **[CORRECTED 2026-09-24 — this called the transcription numerically validated, twice, which a
+> check no reader can re-run does not support; the attested-not-
+> reproducible status stated below under "The enumeration record is reproducible" now applies here too.
+> Codex V3B-14#4 / V3B-13#12, Q-778.]**
+
+Already recorded in CX-84, item 4. **Now:** the scope note ends "Re-deriving it as a tracked
+artifact is an open item." It already said that the 5,449-sequence check is attested, not
+reproducible, and that the eight rules are Lean-proven modulo a transcription step whose only
+numerical check is attested.
+
+**6. "What was found", the circular-reading bullet — the second archived run.**
+
+> ⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#18, Q-742) — this called the second run an independent
+> reproduction (registered as RP-6cae8396); TR-7 calls the same run "a partially overlapping replicate, not an
+> independent draw".]**
+
+Already recorded in CX-81, item 6, and registered by key `RP-6cae8396`. **Now:** the bullet already
+says that the run "is a partially overlapping replicate that shares half its probes, not an
+independent draw — TR-7 §5", then links TR-7.
+
+**7. "What was found", the description-length bullet — the precision of the 105.4-bit reading.**
+
+> ⚠ **[CORRECTED 2026-09-02 — this bullet converted a relative standard error into a ± band,
+> understating the interval by 1.96×; completing here the 2026-08-28 ruling already applied in
+> documentation/DESCRIPTION_LENGTH.md and TR-9 §1]**
+
+Already recorded in the entry "2026-09-02 — README.md's residual bullet published a relative
+standard error as a ± precision band (routed from prose batch B9)", and on its own page in the
+entry "2026-09-02 — DESCRIPTION_LENGTH.md's four inherited defects …" (item 4). The more specific
+home of the accounting is [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md). **Now:** the bullet
+gives the 95% interval, ±1.96·SE ≈ ±0.022 bits, and "the published [5.13, 5.29]×10³¹ bracket
+independently gives as −0.0223/+0.0220", and goes on to the 139.1-bit reading.
+
+**8. "Check it yourself" — which Lean toolchain the 2026-08-04 fresh-clone run used.**
+
+> NOTE 2026-09-03: that command was run from the repo root, where elan selects its *default* toolchain rather than `lean/lean-toolchain`, so this record attests a kernel check under the host's default Lean of that day, not specifically 4.31.0. Use `cd lean && lean KingWen.lean`; `verify_all.sh` §4 now runs from `lean/` and prints the kernel it used as `LEAN_ID=`
+
+**Only record** in this ledger. No entry here records the scope. The same dated note stands in
+[DEVELOPMENT.md](DEVELOPMENT.md) §"Build prerequisites", which is its more specific home, and the
+`verify_all.sh` change it mentions was made on 2026-09-04. This entry is now the ledger's record: the
+2026-08-04 fresh-clone record of `lean lean/KingWen.lean` attests a kernel check under the host's
+default Lean of that day, not specifically the pinned 4.31.0. **Now:** the paragraph states this
+scope as a present fact, with no dated note. Run from the repository root, the command uses elan's
+default toolchain rather than `lean/lean-toolchain`. `cd lean && lean KingWen.lean` checks under the
+pinned toolchain, and `verify_all.sh` §4 runs from `lean/` and prints the kernel it used as
+`LEAN_ID=`. The disclosure that the recipe had never been run before 2026-08-04 is kept. The
+paragraph used to say "before that date", and it now names the date.
+
+**9. The component table, `verify_all.sh` row — what section 6 runs.**
+
+> Scope, stated because the earlier wording over-claimed:
+
+**Only record** in this ledger. The clause was added to the front page on 2026-09-02, when the
+row was widened to list `roae.py`'s ground-truth self-check and the regression harness. Before that,
+the row said that `verify_all.sh` ran neither `roae.py` nor `tests.py`. The clause does not say which
+earlier wording over-claimed, and no entry in this ledger names it. This entry is now the ledger's
+record that the scope was stated as a correction. **Now:**
+"Scope: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the
+28 analyses."
+
+**10. "Figures" — when the TR-5 and TR-7 figures got renderers.**
+
+> the TR-5 and TR-7 figures got their renderers on 2026-09-27, and before that were artwork that nothing in the repository could redraw.
+
+Already recorded in CX-205. **Now:** "All eleven figures shown below, and the TR-3 timeline linked
+at the end, are drawn by `viz/report_figures.py`."
+
+**11. References — the Wilhelm/Baynes translation.**
+
+> its hexagram names were shipped here until 2026-08-27, then removed rather than replaced — labels are now trigram-derived
+
+Already recorded in the entry "2026-08-28 — two stale front-page statements: the Wilhelm '(hexagram
+names)' annotation, and a test count frozen at 67". `documentation/CRITIQUE.md` also states the
+removal. **Now:** "(the standard English translation; its hexagram names are not used here — labels
+are trigram-derived; see CRITIQUE)".
+
+**12. References — the Mawangdui ordering array.**
+
+> (corrected 2026-07-05 — see CITATIONS.md errata)
+
+Already recorded in CX-07 (2026-07-05, the Mawangdui corpus control) and in the "ERRATUM (2026-07-05)" paragraph of
+[CITATIONS.md](CITATIONS.md). **Now:** the reference ends "…Brill, 2022, Table 11.2".
+
+**What was kept.** The front page's general pointers to this file are kept. So are its current
+summary lines that mention corrections in general without narrating one: "one uniqueness claim is
+corrected" (the TR-10 bullet), "the corrected published results" and "a retracted theorem" (the
+honesty apparatus), and the branch section's warning that frozen branches can contain claims since
+corrected, "including figures later found to be wrong". The branch section's "a hole this suite
+could not previously see" describes what GATE 19 adds. It is not a correction of a published claim,
+and it is kept. The dated test counts in "Check it yourself" ("64 tests at that date; 76 as of
+2026-08-28") record what was measured on those dates, and they are kept too.
+
+**The gates.** Six of the removed notes had been gate-anchored. Each was listed as class 3 for
+GATE 27 in `documentation/CORRECTION_MARKER_INVENTORY.tsv`, because the "What was found" list is a
+single paragraph and those notes supplied the supersession marker that its withdrawn figure
+≈3.3×10³⁷ needed. The figure is gone from the page, so GATE 27 now has nothing to check on the front
+page. The gate still fails any line or paragraph that restates the figure without a marker. None of
+the registered retracted phrases was allowed on `README.md`: no row of `RETRACTED_PHRASES.tsv` or
+`WITHDRAWN_FIGURES.tsv` names that file as an exception, so no allowance had to be removed. The
+generated inventories `CORRECTIONS_INVENTORY.tsv` and `CORRECTION_MARKER_INVENTORY.tsv` are
+regenerated from the tree, and their `README.md` rows for these notes drop out when that happens.
+The removed inline rows are recorded here, in the ledger, so nothing about them is lost.

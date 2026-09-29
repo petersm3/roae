@@ -5,7 +5,7 @@
 # raw positional-marginal field against numbers published in TR-7 before the scan existed.
 # It had two independent defects, and either one alone was enough to make it useless:
 #
-#   (1) IT READ THE WRONG PAIR-SLOT.  The published convention (viz/viz_kc_field.md:34) is
+#   (1) IT READ THE WRONG PAIR-SLOT.  The published convention (viz/viz_kc_field.md:116) is
 #       "layer k ... fills pair-slot k+2", so slot 2 is layers[0].  The check read
 #       `frac(layers[1])` — pair-slot THREE — and compared it against slot 2's published
 #       reference.  The two are DISTINGUISHABLE in published output: TR-7 gives slot 2 =
@@ -147,7 +147,7 @@ def grade(label, A, want, hint):
 # FIXTURE 1 -- the published values on their published slots.  Slot 2 = 5.20%, slot 3 = 3.84%.
 # Reading layers[1] here grades 3.84% against slot 2's 5.20% reference: a 1.36e-2 deviation.
 grade("fixture 1 (slot 2 = 5.20%, slot 3 = 3.84%)", atlas(0.0520, 0.0384), "PASS",
-      "The check is reading a slot other than 2 for `slot2`. viz/viz_kc_field.md:34 makes "
+      "The check is reading a slot other than 2 for `slot2`. viz/viz_kc_field.md:116 makes "
       "slot 2 = layers[0]; layers[1] is slot 3.")
 
 # FIXTURE 2 -- the MIRROR.  The published slot-2 value is moved onto slot 3 and vice versa.

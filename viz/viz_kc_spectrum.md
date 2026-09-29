@@ -6,9 +6,91 @@ a fixed battery of structural observables on it, and plot each observable agains
 is blunt: **is the rank index a structural coordinate, or is it arbitrary?** A flat, noisy spectrum
 is the informative answer, and it is the one this figure most likely gives.
 
-← Back to [README.md](README.md) (index) · V-family: [V1 field](viz_kc_field.md) ·
+← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · **V3** · [V4 shells](viz_kc_shells.md) ·
 [V5 grammar](viz_kc_grammar.md) · See also [viz_pca.md](archive/viz_pca.md)
+
+[![Seven scatter panels of observable values against normalised REL rank from 0 to 1 on a 1,000-point systematic lattice, none showing a clear monotone trend across it.](../reports/figures/fig_tr12_kc_spectrum.png)](../reports/figures/fig_tr12_kc_spectrum.svg)
+
+*V3 as committed, **C1C2C4C5-SUPERSPACE; C3 not imposed**. Click the image for the SVG; the full caption is in [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), and this page is the figure's spec.*
+
+## In plain terms
+
+Every allowed ordering (one that obeys four of the five core rules, all but the one called C3) has
+a numbered place in one fixed list. This picture checks 1,000 evenly spaced places in that list and
+asks whether seven measured properties of an ordering rise or fall as you move down it. None shows a
+clear trend, so at these 1,000 points the place in the list does not track these properties. That
+does not rule out more complicated patterns, or patterns that fall between the points.
+
+## What it shows
+
+Seven scatter panels. The horizontal axis of each is the normalised REL rank, from 0 to 1, over a
+systematic lattice of 1,000 ranks (rank i·⌊N/K⌋, K = 1,000); the vertical axis is one observable of
+the walk at that rank, from the frozen `--compute-stats` battery, with a plain-language title over
+its column name. Three panels carry a dashed red King Wen reference line; the other four
+deliberately carry none, because they measure similarity to King Wen, so King Wen takes the extreme
+value by arithmetic. Two constant observables are dropped and named in the key rather than drawn as
+flat lines. The full reading guide is [How to read it](#how-to-read-it) below.
+
+## What it establishes, and what it does not
+
+- **Establishes.** On this 1,000-point REL lattice none of the seven plotted observables shows a
+  clear monotone trend: every absolute Pearson correlation is below 0.073, and no panel's ten decile
+  means show a trend ([TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5),
+  V3 caption).
+- **Does not establish.** The absence of nonlinear structure, or of structure the lattice misses.
+  Anything about the citable O3 order, which is not tested here. Distributions over the superspace:
+  the panel frequencies are counts on a lattice, not an exact-uniform sample. Two panels are nearly
+  flat on this grid for their own reasons and say nothing about the index. See
+  [What this figure is allowed to claim](#what-this-figure-is-allowed-to-claim) and
+  [What it may NOT claim](#what-it-may-not-claim).
+
+## Provenance
+
+- **Data.** [`reports/tr12/v3_spectrum.tsv`](../reports/tr12/v3_spectrum.tsv), sha256 prefix
+  `22ac482fe8f2`, printed in the figure's footer. It is the join `python3 solve.py --v3-spectrum
+  GRID_TSV OUT_TSV` of the REL rank grid
+  [`reports/tr12/v3_rel_grid.tsv`](../reports/tr12/v3_rel_grid.tsv) (1,000 points, unranked from the
+  f ladder by the `--kc-unrank` loop) with the observable battery; the commands are under
+  [Generation](#generation).
+- **Generator.** `fig_tr12_kc_spectrum()` in [`viz/report_figures.py`](report_figures.py), called by
+  `tr12_figures()`. It checks the lattice's rows and numbers, drops constant columns and names them,
+  and a present table it refuses fails the run.
+- **Regenerate.** The whole set, `cd reports/figures && python3 ../../viz/report_figures.py`, or
+  this figure alone:
+
+  ```bash
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_spectrum('../tr12/v3_spectrum.tsv')"
+  ```
+
+- **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
+  the committed PNG byte for byte on 2026-09-29, with all twelve report figures (CX-233); see
+  [Reproduce the figures](README.md#reproduce-the-figures).
+- **Tokens.** The standalone n=31 V3 rows passed on 2026-09-25, `TR12_V3_FIG=PASS`
+  ([evidence](../reports/evidence/tr12/v3_rows_n31_20260925/README.md)); the archived 2026-09-22
+  full-run receipt keeps its original `PENDING` token.
+
+## Review history
+
+- **2026-09-23.** The join was written as `solve.py --v3-spectrum` and the figure rendered; the
+  figure had been reported as blocked on an instrument, which was not the blocker (TR-12 §2).
+- **2026-09-24.** The panel summary called every panel a flat band for any battery observable, which
+  overstated the two near-constant panels and went past the seven drawn; corrected (TR-12 §2).
+- **2026-09-25.** The n=31 V3 rows run and pass, with their evidence published (CX-146).
+- **2026-09-26, Codex figure review VIZ1, checked by Fable.** The reading was stated as "the rank
+  index is not a structural coordinate" (F09), and the title did not name the space (F21); scoped to
+  this REL lattice, CX-191, CX-192.
+- **2026-09-27.** The index row called the grid the citable rank index; it is REL, not O3 (CX-224,
+  item 9).
+- **2026-09-28, Codex visualization review, triaged by Fable.** V3's numbers were not checked and a
+  refused table was discarded (Q-893), CX-226. Panels were titled with column names and integer counts
+  ticked at 0.2 steps; they now carry display labels, integer ticks and a key, CX-227. The caption's
+  correction history moved out of the reading text, CX-228.
+- **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
+  as part of the [visual capstone](README.md) (CX-233).
+
+*The rest of this page is the figure's specification and drafting record, kept as written, with its
+dated corrections in place.*
 
 
 ### 🔴 A flat spectrum may mean the OBSERVABLE is constant, not that the index is arbitrary
@@ -40,7 +122,7 @@ as a finding**. The `dclass:*` observables are C5-forced in the same way.
    space by construction and must be labelled CONSTANT. `max_transition_hamming` is 6 because C5
    allots exactly one d = 6 boundary. `mean_transition_hamming` is 211/63 ≈ 3.3492064, because pair
    identity fixes every within-pair distance and C5 fixes the between-pair multiset. Both hold on all
-   1,000 rows of `tr12/v3_spectrum.tsv`.
+   1,000 rows of `reports/tr12/v3_spectrum.tsv`.
    ⚠ *Corrected 2026-09-25 (Q-698, V3A-145#4): this rule read "(`--kc-extremal FUNC DIR max` and
    `min`; `constant_on_space=yes` is printed for exactly the forced ones)", a step no command could
    perform for this figure. Executed at n=9: `--kc-extremal fft_peak_amplitude|c3_total|edit_dist_kw|mean_transition_hamming DIR max`
@@ -59,17 +141,17 @@ as a finding**. The `dclass:*` observables are C5-forced in the same way.
 | Unrank at an arbitrary rank, **O3 citable order** | `solve --kc-o3-unrank FDIR GDIR RANK` (both ladders) | **EXISTS** |
 | The observable battery over a record file | `python3 solve.py --compute-stats SOLUTIONS_BIN OUT_DIR` | **EXISTS** |
 | Grid emitter: unranked walks → a `solutions.bin` the battery can read | — | **PENDING** — proposed `--kc-unrank-grid` (below); **no longer on the critical path** |
-| The REL rank grid, K = 1000 | the `--kc-unrank` K-loop, row `a1_v3` of `scripts/tr12_repro.sh` → `tr12/v3_rel_grid.tsv` | **EXISTS** (31.4 min measured) |
-| The join: grid → battery → spectrum TSV | `python3 solve.py --v3-spectrum GRID_TSV OUT_TSV [--v3-spectrum-order REL\|O3]` | **EXISTS (2026-09-23)** → committed `tr12/v3_spectrum.tsv`, `V3_SPECTRUM=PASS` |
+| The REL rank grid, K = 1000 | the `--kc-unrank` K-loop, row `a1_v3` of `scripts/tr12_repro.sh` → `reports/tr12/v3_rel_grid.tsv` | **EXISTS** (31.4 min measured) |
+| The join: grid → battery → spectrum TSV | `python3 solve.py --v3-spectrum GRID_TSV OUT_TSV [--v3-spectrum-order REL\|O3]` | **EXISTS (2026-09-23)** → committed `reports/tr12/v3_spectrum.tsv`, `V3_SPECTRUM=PASS` |
 | The figure | `viz/report_figures.py` `fig_tr12_kc_spectrum` | **RENDERED** → `reports/figures/fig_tr12_kc_spectrum.{png,svg}`, embedded in TR-12 §2 |
 | Full-31 f / g ladders | Stage F / Stage G | **BUILT** (the grid above was unranked from them) |
-| Battery driver runs the join | `scripts/tr12_repro.sh` row `c_v3_join` | **WIRED (2026-09-25, Q-430)** at n=31 only: the row runs `--v3-spectrum` on the `a1_v3` grid into `<consumer>/spectrum/v3_spectrum.tsv` before `c_viz` renders. At n<31 `TR12_V3_FIG` is `SKIP:reduced-universe`, because the battery is defined on 64-hexagram records. No full-31 run has executed the row yet, so the n=31 receipt still reads `PENDING:viz-v3-spectrum`. ⚠ *Updated 2026-09-26: **MEASURED at n=31, standalone.** On 2026-09-25 the battery's V3 rows alone were run on the full-31 f ladder, read-only. They gave `TR12_V3_FIG=PASS` and `TR12_V3=PASS`, with the grid and spectrum byte-identical to the committed `tr12/` tables ([evidence](../reports/evidence/tr12/v3_rows_n31_20260925/README.md)). This was not a full battery run.* ⚠ *Corrected 2026-09-25: this cell read **NOT WIRED**, which was true until the row landed.* |
+| Battery driver runs the join | `scripts/tr12_repro.sh` row `c_v3_join` | **WIRED (2026-09-25, Q-430)** at n=31 only: the row runs `--v3-spectrum` on the `a1_v3` grid into `<consumer>/spectrum/v3_spectrum.tsv` before `c_viz` renders. At n<31 `TR12_V3_FIG` is `SKIP:reduced-universe`, because the battery is defined on 64-hexagram records. No full-31 run has executed the row yet, so the n=31 receipt still reads `PENDING:viz-v3-spectrum`. ⚠ *Updated 2026-09-26: **MEASURED at n=31, standalone.** On 2026-09-25 the battery's V3 rows alone were run on the full-31 f ladder, read-only. They gave `TR12_V3_FIG=PASS` and `TR12_V3=PASS`, with the grid and spectrum byte-identical to the committed `reports/tr12/` tables ([evidence](../reports/evidence/tr12/v3_rows_n31_20260925/README.md)). This was not a full battery run.* ⚠ *Corrected 2026-09-25: this cell read **NOT WIRED**, which was true until the row landed.* |
 
 🔴 **RESOLVED 2026-09-23 — and the "missing instrument" was forty lines, not a flag.** This
 paragraph read *"This figure is the one V-family member with a real missing instrument… nothing
 joins them"*, and that sentence outlived its truth: it described a gap between two components that
 both already existed. The join now exists as `solve.py --v3-spectrum GRID_TSV OUT_TSV`, it reads the
-grid the `--kc-unrank` K-loop already produced (`tr12/v3_rel_grid.tsv`), it evaluates the frozen
+grid the `--kc-unrank` K-loop already produced (`reports/tr12/v3_rel_grid.tsv`), it evaluates the frozen
 battery per walk, and the figure renders from its output. **No ladder, no VM, no new figure code.**
 ⚠ The proposed `--kc-unrank-grid` below is still UNBUILT and was never the blocker — the row below
 stands as written. What follows is kept for the record of what was believed at the time:
@@ -186,7 +268,7 @@ counterexample:** take the `G = 17` witness in
 every slot pair is a King Wen pair, it has no distance-5 or distance-0 transition, and its
 difference wave is exactly `{1:2, 2:20, 3:13, 4:19, 6:9}`. Under the battery's own formula (zero-mean,
 `max |F[1:32]|`, float32) it scores **517.53, at frequency 13**. The witness itself scores 312.84.
-On the committed full-31 REL grid `tr12/v3_spectrum.tsv`, the observed span is **202.73…448.70**
+On the committed full-31 REL grid `reports/tr12/v3_spectrum.tsv`, the observed span is **202.73…448.70**
 over 1,000 points. **The proven envelope, for every permutation of 0…63:** Parseval gives
 Σ_{k=1..63} |F_k|² = 64 · 21,840 = 1,397,760. Since |F_k| = |F_{64−k}|, the maximum over k = 1…31 is at
 most √698,880 = **835.99**. Since |F_32| ≤ 1024, it is at least √((1,397,760 − 1024²)/62) = **75.05**.
@@ -198,7 +280,7 @@ limit, which applies to its own enumerated scope.
 ## Input TSV
 
 `<artifact-root>/spectrum/v3_spectrum.tsv` — one row per grid point, `K` data rows. **The committed
-full-31 REL table is `tr12/v3_spectrum.tsv`** (K = 1000, no `spectrum/` level;
+full-31 REL table is `reports/tr12/v3_spectrum.tsv`** (K = 1000, no `spectrum/` level;
 `report_figures.tr12_figures` falls back to that flat path when the spec path is absent):
 
 | Column | Type | Meaning |
@@ -249,11 +331,11 @@ multiset V2 and V5 quote.)
 
 ```bash
 # 1. the grid -- the --kc-unrank K-loop, row a1_v3 of scripts/tr12_repro.sh (needs the f ladder)
-#    -> tr12/v3_rel_grid.tsv   (columns i, r, walk; K = 1000)
+#    -> reports/tr12/v3_rel_grid.tsv   (columns i, r, walk; K = 1000)
 # 2+3. the battery and the join, in one instrument
-python3 solve.py --v3-spectrum tr12/v3_rel_grid.tsv tr12/v3_spectrum.tsv    # V3_SPECTRUM=PASS
+python3 solve.py --v3-spectrum reports/tr12/v3_rel_grid.tsv reports/tr12/v3_spectrum.tsv    # V3_SPECTRUM=PASS
 # 4. the figure (from reports/figures/, where save() writes)
-python3 -c "import sys; sys.path.insert(0,'../../viz'); import report_figures as R; R.fig_tr12_kc_spectrum('../../tr12/v3_spectrum.tsv')"
+python3 -c "import sys; sys.path.insert(0,'../../viz'); import report_figures as R; R.fig_tr12_kc_spectrum('../tr12/v3_spectrum.tsv')"
 ```
 
 **An O3-order spectrum, with the instruments that exist.** The proposed `--kc-unrank-grid` above is
@@ -261,10 +343,10 @@ unbuilt. The same grid comes from the `--kc-o3-unrank` K-loop, and the join take
 
 ```bash
 # 1. the grid -- row a1_v3's K-loop with `solve --kc-o3-unrank FDIR GDIR R` in place of
-#    `solve --kc-unrank FDIR R` (needs both ladders) -> tr12/spectrum/grid_o3.tsv (i, r, walk)
+#    `solve --kc-unrank FDIR R` (needs both ladders) -> reports/tr12/spectrum/grid_o3.tsv (i, r, walk)
 
 # 2+3. the battery and the join; first_position_deviation is held out on this axis
-python3 solve.py --v3-spectrum tr12/spectrum/grid_o3.tsv tr12/spectrum/v3_spectrum_o3.tsv --v3-spectrum-order O3
+python3 solve.py --v3-spectrum reports/tr12/spectrum/grid_o3.tsv reports/tr12/spectrum/v3_spectrum_o3.tsv --v3-spectrum-order O3
 
 # The originally specified route (grid emitter -> --compute-stats -> paste by row index) waits on
 # the proposed emitter. What it would add is one cold descent for the whole grid, not a new result.
@@ -289,7 +371,7 @@ column is absent the panel has no reference line: the renderer will not invent o
   negative. ⚠ *(noted 2026-09-24: "flat" is only informative for an observable that varies. On the
   rendered n=31 REL grid, `c6_c7_count` is 0 at 995 of 1000 points and `first_position_deviation`
   takes only 2 or 3, so their flat panels say nothing about the index (rule 1). The other five are
-  broad bands, and on all seven |r(x)| < 0.073 (`tr12/v3_spectrum.tsv`).)*
+  broad bands, and on all seven |r(x)| < 0.073 (`reports/tr12/v3_spectrum.tsv`).)*
 - **A monotone drift** = the order's leading coordinate correlates with that observable. For O3
   (pair-vector lex) a drift in `edit_dist_kw` would be nearly tautological — the order sorts on the
   pair vector, and King Wen's pair vector is the identity — so read that panel with suspicion.
@@ -341,7 +423,7 @@ column is absent the panel has no reference line: the renderer will not invent o
 | **grid emitter, n=9 exhaustive** (PENDING with the flag — the O3 route only; the shipped REL figure does not use it) | must be shown able to FAIL before any full-31 use |
 | **the shipped join** | `--v3-spectrum` re-derives C1/C2/C4/C5 membership from every emitted record through the battery's own decoder and packs King Wen as a positive control that must reproduce every frozen `_P2_KW_VALUES` entry; any failure refuses the run (`V3_SPECTRUM=FAIL`) |
 | **reader-side:** re-rank every walk in the TSV with the ranker of the row's `order`; `rank` must come back byte-identical (⚠ *corrected 2026-09-25, Q-698, V3A-145#2: this named `--kc-o3-rank` for every row, but the shipped table is REL. Executed at n=9: the REL rank-0 walk has O3 rank 16244, and `--kc-rank` returns 0*) | `order = REL`: `solve --kc-rank FDIR "$walk"`; `order = O3`: `solve --kc-o3-rank FDIR GDIR "$walk"` |
-| **reader-side:** `rank` a canonical integer, strictly increasing; `x` in [0,1), strictly increasing; one `order` per table (⚠ *corrected 2026-09-25, Q-698, V3A-145#3: the old one-liner compared only `$3`, which is `x`, and only for a decrease. It never read `rank`, and it never tested equality or [0,1). `rank` is compared as a string by length because awk compares numeric-looking fields through a binary64*) | `awk -F'\t' 'NR==1{next} {r=$2 ""; if (r !~ /^(0\|[1-9][0-9]*)$/) print "BADRANK", NR; else if (NR>2 && (length(r)<length(p) \|\| (length(r)==length(p) && r<=p))) print "NONMONOTONE", NR; if (!($3+0>=0 && $3+0<1)) print "X_RANGE", NR; if (NR>2 && $3+0<=px) print "X_NONMONOTONE", NR; if (NR>2 && $4!=o) print "MIXED_ORDER", NR; p=r; px=$3+0; o=$4}' tr12/v3_spectrum.tsv` (must print nothing) |
+| **reader-side:** `rank` a canonical integer, strictly increasing; `x` in [0,1), strictly increasing; one `order` per table (⚠ *corrected 2026-09-25, Q-698, V3A-145#3: the old one-liner compared only `$3`, which is `x`, and only for a decrease. It never read `rank`, and it never tested equality or [0,1). `rank` is compared as a string by length because awk compares numeric-looking fields through a binary64*) | `awk -F'\t' 'NR==1{next} {r=$2 ""; if (r !~ /^(0\|[1-9][0-9]*)$/) print "BADRANK", NR; else if (NR>2 && (length(r)<length(p) \|\| (length(r)==length(p) && r<=p))) print "NONMONOTONE", NR; if (!($3+0>=0 && $3+0<1)) print "X_RANGE", NR; if (NR>2 && $3+0<=px) print "X_NONMONOTONE", NR; if (NR>2 && $4!=o) print "MIXED_ORDER", NR; p=r; px=$3+0; o=$4}' reports/tr12/v3_spectrum.tsv` (must print nothing) |
 | **reader-side:** every observable within its documented range | the table above |
 
 ## Where the files live
@@ -349,7 +431,7 @@ column is absent the panel has no reference line: the renderer will not invent o
 - **This doc:** `viz/viz_kc_spectrum.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence TSV:** `<artifact-root>/spectrum/v3_spectrum.tsv` (one per order); committed REL table
-  `tr12/v3_spectrum.tsv`, from the grid `tr12/v3_rel_grid.tsv`
+  `reports/tr12/v3_spectrum.tsv`, from the grid `reports/tr12/v3_rel_grid.tsv`
 - **Figures:** `reports/figures/fig_tr12_kc_spectrum.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
   mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 

@@ -137,8 +137,8 @@ def d_a_anchors():
 
 
 def d_v2_branches():
-    """V2's branch panel, from tr12/scan/v2_branches.tsv."""
-    b = _tsv("tr12/scan/v2_branches.tsv")
+    """V2's branch panel, from reports/tr12/scan/v2_branches.tsv."""
+    b = _tsv("reports/tr12/scan/v2_branches.tsv")
     sol = [int(r["solutions"]) for r in b]
     cost = [int(r["prefixes_t_units"]) for r in b]
     print("V2_BRANCHES=%d" % len(b))
@@ -156,8 +156,8 @@ def d_v2_branches():
 
 
 def d_v3_spectrum():
-    """V3's rank spectrum, from tr12/v3_spectrum.tsv (x = normalised REL rank)."""
-    s = _tsv("tr12/v3_spectrum.tsv")
+    """V3's rank spectrum, from reports/tr12/v3_spectrum.tsv (x = normalised REL rank)."""
+    s = _tsv("reports/tr12/v3_spectrum.tsv")
     meta = {"i", "rank", "x", "order", "walk"}
     obs = [c for c in s[0] if c not in meta and not c.startswith("kw_")]
     x = [float(r["x"]) for r in s]
@@ -183,16 +183,16 @@ def d_v3_spectrum():
 
 
 def d_v4_profile():
-    """V4's two visible checks, from tr12/q3_profile_kw.tsv."""
-    p = _tsv("tr12/q3_profile_kw.tsv")
+    """V4's two visible checks, from reports/tr12/q3_profile_kw.tsv."""
+    p = _tsv("reports/tr12/q3_profile_kw.tsv")
     print("V4_G_AT_LAST_PLACEMENT=%s" % p[-1]["g"])
     bits = {("%g" % float(r["bits"])) for r in p if r["alts"] == "1"}
     print("V4_BITS_AT_SINGLE_ALTERNATIVE=%s" % (",".join(sorted(bits)) or "NONE"))
 
 
 def d_v5_grammar():
-    """V5's cross-tab size, from tr12/scan/v5_grammar.tsv."""
-    g = _tsv("tr12/scan/v5_grammar.tsv")
+    """V5's cross-tab size, from reports/tr12/scan/v5_grammar.tsv."""
+    g = _tsv("reports/tr12/scan/v5_grammar.tsv")
     print("V5_ROWS=%d" % len(g))
     print("V5_NONZERO_CELLS=%d" % sum(1 for r in g if int(r["mass"]) != 0))
 

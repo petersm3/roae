@@ -1,5 +1,87 @@
 # The scale figure (`viz_scale.png/.svg`) — spec and drafting record
 
+← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · Report: [TR-12 §"What this document is, and what it is not"](../reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not) · V-family: [V1 field](viz_kc_field.md) · [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md)
+
+[![Log-log plot of count against per-cell node budget: three red points for the 11.2T, 100T and 560T canonical record counts on a power-law fit, and a horizontal line near the top at N, the exact count of the C1C2C4C5 superspace; the points and the line count different spaces.](../reports/figures/viz_scale.png)](../reports/figures/viz_scale.svg)
+
+*The scale figure as committed; the two series count **different spaces**. Click the image for the SVG. Its authoritative caption is in [TR-12 §"What this document is, and what it is not"](../reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not); it is also shown on this page since 2026-09-29 (CX-233).*
+
+## In plain terms
+
+This picture puts two different counts on one scale. The three red points are how many orderings three
+of the project's large computer searches recorded; each search explored only a budgeted slice of the
+possibilities, so each count is a lower bound. The line near the top is the exact size of a larger
+space, computed by a counting method rather than by listing, which leaves out one rule (the one called
+C3). The two count different spaces in different units, so the gap of about 29 powers of ten is a
+distance between the plotted numbers, not a measure of how much the searches missed; what it does show
+is that, if the trend of the three searches continues, a bigger search budget is not a way to reach
+the whole space.
+
+## What it shows
+
+A log-log plot. The horizontal axis is the per-cell node budget of an enumeration; the vertical axis
+is a count. The three red points are the 11.2T, 100T and 560T canonical record counts, each labelled
+with its campaign, record count and sha prefix, on a blue three-run power-law fit (α ≈ 0.67). The
+purple horizontal line is N, the exact count of the C1C2C4C5 superspace. A vertical arrow marks the
+gap from the 560T point to the line. The embedded note has three lines: POINTS, LINE and UNITS. The
+axis runs the full 29 decades unbroken, on purpose ([Decided at drafting](#decided-at-drafting--axis-treatment)).
+
+## What it establishes, and what it does not
+
+- **Establishes.** If the power law fitted to these three runs continues, more node budget is not a
+  route to the space: the points grow sublinearly in the budget, and the fitted curve would need,
+  under that extrapolation, a per-cell budget of roughly 10³⁹ to 10⁴⁵ nodes to reach even the
+  like-unit bracket, against 3.5×10⁹ at 560T. That is why TR-12 queries a compiled catalog rather
+  than an enumeration ([TR-12 §"What this document is, and what it is not"](../reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not)).
+- **Does not establish.** How much of the space was found. A record is one canonical pair ordering
+  with orientation masked, and N counts orientation-explicit sequences, so between 5.1 and 9.3 of the
+  29 decades are a change of unit; in like units the gap is 19.7 to 23.9 decades. N leaves out C3,
+  so it does not count C1–C5 either. The negative rests on the three-point extrapolation. The caption
+  rules are in [The caption MUST carry BOTH space labels](#-the-caption-must-carry-both-space-labels--this-is-the-failure-mode).
+
+## Provenance
+
+- **Data.** [`viz/viz_scale_inputs.tsv`](viz_scale_inputs.tsv), sha256 prefix `fcd28d197a17`, printed
+  in the figure's footer: the budgets, record counts and sha prefixes of the three canonicals, each row
+  asserted at render time against
+  [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md), and N, asserted against
+  [METHODS.md](../reports/METHODS.md) (TR-11 §9). No new computation.
+- **Generator.** `fig_viz_scale()` in [`viz/report_figures.py`](report_figures.py), which reads the
+  table through `_scale_inputs()` and asserts `28.5 < decades < 29.5`, so a moved constant fails
+  loudly instead of redrawing a smaller gap.
+- **Regenerate.** The whole set, `cd reports/figures && python3 ../../viz/report_figures.py`, or
+  this figure alone:
+
+  ```bash
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_viz_scale()"
+  ```
+
+- **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
+  the committed PNG byte for byte on 2026-09-29, with all twelve report figures (CX-233); see
+  [Reproduce the figures](README.md#reproduce-the-figures).
+- **Checks.** Every constant is published, and the unit bracket is one line of Python; see
+  [Reader-verifiable without trusting us](#reader-verifiable-without-trusting-us).
+
+## Review history
+
+- **2026-09-04.** Accepted as a plan row (Q-308).
+- **2026-09-23 and 2026-09-24.** Drawn, then committed to `reports/figures/` and embedded once, in
+  TR-12's scope section. The Codex v3 review (V3A-147), adjudicated by Fable, found that the page
+  labelled the two spaces but not the two counting units, and that it called the campaigns
+  multi-week and the gap a shortfall; the unit note became mandatory in the caption.
+- **2026-09-26, Codex figure review VIZ1, checked by Fable.** The embedded caption did not name the
+  units (F11) and drew the extrapolation's conclusion without its premise (F12). CX-191, CX-192.
+- **2026-09-27.** The premise was added to TR-12 and to this spec (CX-224, item 6).
+- **2026-09-28, Codex visualization review, triaged by Fable.** 21 exponent glyphs rendered at
+  8.84 px, below the 12-px floor, and the constants moved into the committed table the footer now
+  hashes (Q-889, Q-890), CX-225. The legend entries ran 70–90 characters and the legend box covered
+  the arrow; they are short now, and the embedded note is three lines, CX-227.
+- **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
+  as part of the [visual capstone](README.md) (CX-233).
+
+*The rest of this page is the figure's specification and drafting record, kept as written, with its
+dated corrections in place.*
+
 > **Status: DRAWN 2026-09-23.** Accepted 2026-09-04 (Q-308); drafted by `viz/report_figures.py`
 > (`fig_viz_scale`). Every constant below is already published (the generator reads them from `viz/viz_scale_inputs.tsv` and asserts each against the registry it transcribes, Q-890, 2026-09-28); the figure required no new
 > computation, no ladder read, and no VM. This page is the spec, per the doc-per-figure convention —
@@ -117,3 +199,9 @@ whose single job is to show a gap should not compress the gap for legibility.
 The drafted figure asserts this rather than trusting it: `fig_viz_scale` carries
 `assert 28.5 < decades < 29.5`, so if a constant on this page ever moves far enough to change the
 story, the generator fails loudly instead of quietly redrawing a smaller gap.
+
+---
+
+*Specification per TR-12 §"What this document is, and what it is not" and Q-308. Nothing here is
+claimed novel: this is a log-log plot of published constants. Developed with AI assistance (Claude,
+Anthropic); corrections invited.*

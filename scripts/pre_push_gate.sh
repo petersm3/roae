@@ -859,15 +859,16 @@ for sha in $SHAS; do
   # `<artifact-root>/` outputs that scripts/tr12_repro.sh never writes. doc_gates.sh GATE 21
   # cannot see a path under a top-level directory that does not exist, and no gate read the
   # placeholder form. scripts/tr12_output_paths_gate.sh checks both forms in every tracked
-  # *.md. UNCONDITIONAL because it is LIGHT: no build, ~1 s. Its red test is `--selftest`
-  # (eleven planted repositories, each with its expected verdict). PASS is the only accepted
-  # value, and a missing script is a FAIL, the same rule as the atlas gate above.
+  # *.md (the tables moved from `tr12/` to `reports/tr12/` on 2026-09-29, CX-233; the gate now
+  # fails a live `tr12/` name). UNCONDITIONAL because it is LIGHT: no build, ~1 s. Its red test
+  # is `--selftest` (fourteen planted repositories, each with its expected verdict). PASS is the
+  # only accepted value, and a missing script is a FAIL, the same rule as the atlas gate above.
   if [ -f "$WT/scripts/tr12_output_paths_gate.sh" ]; then
     _op_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
                  bash scripts/tr12_output_paths_gate.sh 2>&1 ); _oprc=$?
     if one_token TR12_OUTPUT_PATHS "$_op_out" && tok_is 'TR12_OUTPUT_PATHS=PASS' && [ "$_oprc" -eq 0 ]; then
       _L_TR12_OUTPUT_PATHS=PASS
-      echo "pre-push: TR-12 output paths PASS — every tr12/ name tracked, every <artifact-root>/ name written by the battery"
+      echo "pre-push: TR-12 output paths PASS — every reports/tr12/ name tracked, every <artifact-root>/ name written by the battery"
     else
       echo "pre-push: FAIL — TR-12's output paths did not PASS on pushed sha $short (rc=$_oprc, '${TOK:-<no single TR12_OUTPUT_PATHS= line>}')."
       printf '%s\n' "$_op_out" | grep -E '^ *\[FAIL\]|^TR12_OUTPUT_PATHS_ERROR=' | head -12 | sed 's/^/         /'

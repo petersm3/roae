@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 162 dated sections, 2 of them among the 86 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 164 dated sections, 2 of them among the 88 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -180,6 +180,8 @@
 | 160 | 2026-09-28 | iso | 9968 | [open](HISTORY.md#2026-09-28--the-report-figures-redrawn-once-after-an-outside-review-of-every-one-of-them) 2026-09-28 — the report figures redrawn once, after an outside review of every one of them |
 | 161 | 2026-09-29 | iso | 9981 | [open](HISTORY.md#2026-09-29--dollar-figures-redacted-from-the-current-tree) 2026-09-29 — dollar figures redacted from the current tree |
 | 162 | 2026-09-29 | iso | 9985 | [open](HISTORY.md#2026-09-29--the-lean-sat-and-drat-layers-reviewed-adversarially-two-published-numbers-corrected-every-proof-claim-scoped-to-what-it-covers) 2026-09-29 — the Lean, SAT and DRAT layers reviewed adversarially: two published numbers corrected, every proof claim scoped to what it covers |
+| 163 | 2026-09-29 | iso | 9997 | [open](HISTORY.md#2026-09-29--the-tr-12-tables-moved-under-reports-and-the-figure-pages-show-their-figures) 2026-09-29 — the TR-12 tables moved under reports/, and the figure pages show their figures |
+| 164 | 2026-09-29 | iso | 10001 | [open](HISTORY.md#2026-09-29--the-front-pages-correction-notes-moved-to-the-corrections-ledger) 2026-09-29 — the front page's correction notes moved to the corrections ledger |
 
 ## Sections with no date in the heading, in file order
 

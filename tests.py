@@ -5201,7 +5201,7 @@ class TestAtlasExternalChecksAreReachableAndCanFail(unittest.TestCase):
         #     A 3-layer fixture therefore SKIPped, and a test that only observes a SKIP proves
         #     nothing -- which is the exact failure mode this class's docstring exists to prevent.
         #   * slot 2 is layers[0], NOT layers[1]: "layer k fills pair-slot k+2"
-        #     (viz/viz_kc_field.md:34). The check read layers[1] until Codex MQ1 §2a caught it on
+        #     (viz/viz_kc_field.md:116). The check read layers[1] until Codex MQ1 §2a caught it on
         #     2026-09-04; this fixture still encoded the superseded convention, so it would have
         #     gone on agreeing with the bug it was supposed to catch.
         layers = [{"k": i} for i in range(31)]
@@ -8181,7 +8181,7 @@ class TestQ766StaleQ3ProfileIsNeverPublished(unittest.TestCase):
 
     def _kw31(self):
         import csv
-        with open(os.path.join(self.HERE, "tr12", "q3_profile_kw.tsv"), encoding="utf-8") as fh:
+        with open(os.path.join(self.HERE, "reports", "tr12", "q3_profile_kw.tsv"), encoding="utf-8") as fh:
             rows = list(csv.DictReader(fh, delimiter="\t"))
         for r in rows:
             r["p_num"], r["p_den"] = int(r["p_num"]), int(r["p_den"])
@@ -8280,12 +8280,12 @@ class TestQ766StaleQ3ProfileIsNeverPublished(unittest.TestCase):
         self.assertIsNotNone(exc)
 
     def test_positive_controls_the_published_tree_and_a_clean_kw_directory(self):
-        # The committed tr12/ ships q3_profile_kw.tsv with NO sidecar and must still draw it.
-        self.assertFalse(os.path.exists(os.path.join(self.HERE, "tr12",
+        # The committed reports/tr12/ ships q3_profile_kw.tsv with NO sidecar and must still draw it.
+        self.assertFalse(os.path.exists(os.path.join(self.HERE, "reports", "tr12",
                                                      "q3_profile_kw.tsv.provenance.txt")),
-                         "tr12/ now carries a sidecar; this control no longer tests the "
+                         "reports/tr12/ now carries a sidecar; this control no longer tests the "
                          "no-sidecar branch")
-        v4, exc = _tr12_figures_under_stubs(os.path.join(self.HERE, "tr12"))
+        v4, exc = _tr12_figures_under_stubs(os.path.join(self.HERE, "reports", "tr12"))
         self.assertIsNone(exc, exc)
         self.assertEqual(os.path.basename(v4), "q3_profile_kw.tsv")
         d = self._dir()
@@ -9273,7 +9273,7 @@ class TestQ690V3SpectrumVerdictIsABareLine(unittest.TestCase):
         self.assertEqual(1, src.count('print("V3_SPECTRUM=FAIL")'))
 
     def test_pass_on_the_committed_grid_is_a_bare_line_with_detail_after(self):
-        rc, out = self._run(os.path.join(self.HERE, "tr12", "v3_rel_grid.tsv"))
+        rc, out = self._run(os.path.join(self.HERE, "reports", "tr12", "v3_rel_grid.tsv"))
         self.assertEqual(0, rc, out)
         lines = out.splitlines()
         self.assertEqual(["V3_SPECTRUM=PASS"], [l for l in lines if l.startswith("V3_SPECTRUM")])
@@ -9342,7 +9342,7 @@ class TestQ698FftPeakAmplitudeIsNotBoundedBy500(unittest.TestCase):
 
 class TestQ807FftRunsInFloat64OnEveryNumpy(unittest.TestCase):
     """Q-807: `_p2_compute_all_stats` handed np.fft.fft a float32 array. numpy 1.x upcast it to
-    complex128; numpy 2.x transforms it in complex64, so tr12/v3_spectrum.tsv's fft_peak_amplitude
+    complex128; numpy 2.x transforms it in complex64, so reports/tr12/v3_spectrum.tsv's fft_peak_amplitude
     differed between builds on 356 of 1000 rows. The fix casts to float64 before the transform. This
     test watches the dtype the battery passes, which is the same observation on either numpy build.
     RED before: the recorded input dtype is float32."""
@@ -9480,7 +9480,7 @@ class TestQ430V3JoinRunsInTheBattery(unittest.TestCase):
     RED before: the functions do not exist, so nothing writes the file c_viz reads."""
 
     HERE = os.path.dirname(os.path.abspath(__file__))
-    GRID = os.path.join(HERE, "tr12", "v3_rel_grid.tsv")
+    GRID = os.path.join(HERE, "reports", "tr12", "v3_rel_grid.tsv")
 
     @classmethod
     def setUpClass(cls):
@@ -9536,7 +9536,7 @@ class TestQ430V3JoinRunsInTheBattery(unittest.TestCase):
         # complex64 and moved its 7th decimal on 356 of 1000 rows. The battery now casts to
         # float64 before the FFT, and numpy 1.26.4 and 2.4.4 write identical bytes (measured
         # 2026-09-25), so no column needs a tolerance.
-        with open(got, "rb") as a, open(os.path.join(self.HERE, "tr12", "v3_spectrum.tsv"), "rb") as b:
+        with open(got, "rb") as a, open(os.path.join(self.HERE, "reports", "tr12", "v3_spectrum.tsv"), "rb") as b:
             self.assertEqual(b.read(), a.read())
         # no figure yet: the join passed and the render leg is a named skip, never a PASS
         self.assertIn("ROW_SKIP c_v3_fig TR12_V3_FIG SKIP:figure-not-rendered", r.stdout.splitlines(), out)
@@ -9578,7 +9578,7 @@ class TestQ698SpectrumReaderGateReadsRank(unittest.TestCase):
 
     HERE = os.path.dirname(os.path.abspath(__file__))
     DOC = os.path.join(HERE, "viz", "viz_kc_spectrum.md")
-    TSV = os.path.join(HERE, "tr12", "v3_spectrum.tsv")
+    TSV = os.path.join(HERE, "reports", "tr12", "v3_spectrum.tsv")
 
     def _run(self, rows):
         cmd, row = _doc_row_awk(self.DOC, "| **reader-side:** `rank`")
@@ -9636,7 +9636,7 @@ class TestQ699FieldRowGateAcceptsReducedN(unittest.TestCase):
 
     HERE = os.path.dirname(os.path.abspath(__file__))
     DOC = os.path.join(HERE, "viz", "viz_kc_field.md")
-    FULL = os.path.join(HERE, "tr12", "scan", "v1_field.tsv")
+    FULL = os.path.join(HERE, "reports", "tr12", "scan", "v1_field.tsv")
 
     @classmethod
     def setUpClass(cls):
@@ -10877,7 +10877,7 @@ class TestRcq04F1ArithGatesRunAtFull31(unittest.TestCase):
     because a lifted gate read the numbers."""
 
     ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
-    Q3_TSV = os.path.join("tr12", "q3_profile_kw.tsv")
+    Q3_TSV = os.path.join("reports", "tr12", "q3_profile_kw.tsv")
 
     @classmethod
     def setUpClass(cls):
@@ -10900,7 +10900,7 @@ class TestRcq04F1ArithGatesRunAtFull31(unittest.TestCase):
 
     def _q3_trace(self):
         # TEST FIXTURE, NOT AN ATTESTATION. No --kc-profile table for n=31 is committed; the
-        # consumer's own output tr12/q3_profile_kw.tsv carries the same columns but no producer
+        # consumer's own output reports/tr12/q3_profile_kw.tsv carries the same columns but no producer
         # trailer, and atlas_parse_q3_trace refuses a table without one. The trailer is appended
         # here only so the three Q3 legs can be exercised at n=31.
         p = os.path.join(self._dir(), "q3_31.tsv")
@@ -10935,7 +10935,7 @@ class TestRcq04F1ArithGatesRunAtFull31(unittest.TestCase):
         self.assertIn("[atlas-arith] 22 gate(s) run, 0 failure(s), 0 not run", lines)
         self.assertIn("ATLAS_ARITH=PASS", lines)
         # the four tokens the gates vouch for are what the published receipt says
-        with open(os.path.join("tr12", "VERDICTS.txt"), encoding="utf-8") as fh:
+        with open(os.path.join("reports", "tr12", "VERDICTS.txt"), encoding="utf-8") as fh:
             pub = dict(l.split("=", 1) for l in fh.read().splitlines() if "=" in l)
         for k in ("TR12_V1", "TR12_V2", "TR12_V5", "TR12_Q6"):
             self.assertEqual(pub[k], R["verdicts"][k], k)
@@ -11220,7 +11220,7 @@ class TestQ615RatioColumnsAtEveryN(unittest.TestCase):
 
     def _shell31(self):
         """n=31 shell tables. SYNTHETIC IN FORM: the rows are the committed atlas's integers and
-        King Wen's class per step recomputed from tr12/q3_profile_kw.tsv's entry column; the shell
+        King Wen's class per step recomputed from reports/tr12/q3_profile_kw.tsv's entry column; the shell
         rows themselves were never run at n=31 in this tree (no ladders). The consumer side is
         the real consumer run on the committed atlas."""
         S = self.S
@@ -11228,7 +11228,7 @@ class TestQ615RatioColumnsAtEveryN(unittest.TestCase):
         N = int(A["N_total"])
         prev = S.binary_hexagrams[1]
         ad = []
-        for r in S._atlas_read_tsv(os.path.join("tr12", "q3_profile_kw.tsv")):
+        for r in S._atlas_read_tsv(os.path.join("reports", "tr12", "q3_profile_kw.tsv")):
             ad.append(bin(prev ^ int(r["entry"])).count("1"))
             prev = int(r["exit"])
         d = tempfile.mkdtemp()
@@ -11369,15 +11369,15 @@ class TestQ502AtlasIntRefusesNegative(unittest.TestCase):
 
 class TestQ3AttestedTraceRunsTheQ3LegsAtFull31(unittest.TestCase):
     """CX-137 follow-up (2026-09-26). The three Q3 legs of the 22 n-independent consumer gates
-    could not run at n=31: no attested trace was committed, and tr12/q3_profile_kw.tsv (the
-    consumer's OUTPUT) carries no producer trailer. tr12/q3_trace_kw.txt is now the producer's
+    could not run at n=31: no attested trace was committed, and reports/tr12/q3_profile_kw.tsv (the
+    consumer's OUTPUT) carries no producer trailer. reports/tr12/q3_trace_kw.txt is now the producer's
     unmodified output: the full-31 battery's row a2_q3 of 2026-09-22 (solve --kc-o3-rank ...
     --kc-trace --kc-bracket), the trace behind the published receipt's TR12_Q3=PASS. With it all
     22 gates run on the committed atlas, the consumer re-emits the committed Q3 table byte for
-    byte, and the committed tr12/VERDICTS.txt is exactly what the consumer writes."""
+    byte, and the committed reports/tr12/VERDICTS.txt is exactly what the consumer writes."""
 
     ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
-    TRACE = os.path.join("tr12", "q3_trace_kw.txt")
+    TRACE = os.path.join("reports", "tr12", "q3_trace_kw.txt")
     TRACE_SHA256 = "8797729ab2c7016a5904e3216725e1dd43b334d35a46fa4d1d0ae8f8ee29df5c"
 
     @classmethod
@@ -11430,12 +11430,12 @@ class TestQ3AttestedTraceRunsTheQ3LegsAtFull31(unittest.TestCase):
         for tok in ("TR12_Q3", "TR12_Q3_KW", "TR12_Q3_READER"):
             self.assertEqual("PASS", R["verdicts"][tok], tok)
         with open(os.path.join(out, "q3_profile_kw.tsv"), "rb") as a, \
-                open(os.path.join("tr12", "q3_profile_kw.tsv"), "rb") as b:
+                open(os.path.join("reports", "tr12", "q3_profile_kw.tsv"), "rb") as b:
             self.assertEqual(b.read(), a.read(), "the committed Q3 table is not what the trace gives")
         with open(os.path.join(out, "VERDICTS.txt"), "rb") as a, \
-                open(os.path.join("tr12", "VERDICTS.txt"), "rb") as b:
+                open(os.path.join("reports", "tr12", "VERDICTS.txt"), "rb") as b:
             self.assertEqual(b.read(), a.read(),
-                             "tr12/VERDICTS.txt is not what the consumer writes from the committed trace")
+                             "reports/tr12/VERDICTS.txt is not what the consumer writes from the committed trace")
 
     def test_one_step_probability_mutated_turns_q3_red(self):
         # Step 31 is the last free placement: g_parent=2, g=1, p=1/2. Quartering its p breaks the
@@ -12938,7 +12938,7 @@ class TestAtlasReadersAreAsStrictAsTheConsumer(unittest.TestCase):
       4. two str.isdigit() guards (`kc_x_parse_witness`, `kc_x_phi`'s `dclass:`) took non-ASCII
          digits, which int() then read.
     Every plant below is a SEMANTICS-PRESERVING respelling of a real input (the committed n=31
-    atlas and tr12/ tables), so on the old code each one loaded and scored as the original did.
+    atlas and reports/tr12/ tables), so on the old code each one loaded and scored as the original did.
     The unplanted inputs are the positive controls."""
 
     ATLAS31 = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
@@ -13115,10 +13115,10 @@ class TestAtlasReadersAreAsStrictAsTheConsumer(unittest.TestCase):
         self.assertTrue(issubclass(S.TsvIntError, ValueError))
 
     def _tr12_copy(self, name, edit=None):
-        """A copy of the committed tr12/ tables with one cell rewritten by `edit(rows)`."""
+        """A copy of the committed reports/tr12/ tables with one cell rewritten by `edit(rows)`."""
         d = os.path.join(self.tmp, name)
         shutil.rmtree(d, True)
-        shutil.copytree("tr12", d)
+        shutil.copytree(os.path.join("reports", "tr12"), d)
         if edit:
             rel, col, fmt = edit
             p = os.path.join(d, rel)
@@ -14128,12 +14128,12 @@ class TestQ10aCensusColumnIsFlowDiv24NotOrbits(unittest.TestCase):
     """Codex LDQ1 follow-up (2026-09-26). q10_orbit_census.tsv headed its fourth column `orbits`,
     but the column is flow // 24 at every row and the header named no group; under G48, whose
     sequence orbits have size 48 (TR-11 s2), the orbit count is flow // 48. It is now `flow_div_24` in the emitter, in the
-    XA-24 reader, and in the tracked tr12/ copy. These tests pin the header, the arithmetic the
+    XA-24 reader, and in the tracked reports/tr12/ copy. These tests pin the header, the arithmetic the
     header now names, that the XA-24 gate still reads the column it gates, and that the consumer
     re-emits the tracked copy byte for byte from the distributed atlas."""
 
     ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
-    TRACKED = os.path.join("tr12", "q10_orbit_census.tsv")
+    TRACKED = os.path.join("reports", "tr12", "q10_orbit_census.tsv")
 
     @classmethod
     def setUpClass(cls):
@@ -14173,7 +14173,7 @@ class TestQ10aCensusColumnIsFlowDiv24NotOrbits(unittest.TestCase):
 
     def test_consumer_reemits_the_tracked_table_byte_for_byte(self):
         with open(self.OUT, "rb") as a, open(self.TRACKED, "rb") as b:
-            self.assertEqual(b.read(), a.read(), "tr12/q10_orbit_census.tsv is not what the consumer writes")
+            self.assertEqual(b.read(), a.read(), "reports/tr12/q10_orbit_census.tsv is not what the consumer writes")
 
 
 class TestW0DCertLoaderHardeningQ841(unittest.TestCase):
@@ -16344,7 +16344,7 @@ class TestViz1FigureFixesFO(unittest.TestCase):
     # --- F03: V2's band areas are the class budgets ---------------------------------------
     def _river(self):
         rows = [l.rstrip("\n").split("\t") for l in
-                open(os.path.join(self.HERE, "tr12", "scan", "v2_river.tsv"), encoding="utf-8")]
+                open(os.path.join(self.HERE, "reports", "tr12", "scan", "v2_river.tsv"), encoding="utf-8")]
         head, rows = rows[0], rows[1:]
         ki, di, pi = head.index("k"), head.index("d"), head.index("p")
         ks = sorted({int(r[ki]) for r in rows})
@@ -16445,12 +16445,12 @@ class TestViz1FigureFixesFO(unittest.TestCase):
             "fig_tr12_kc_shells": lambda path, *a, **k: got.append(path) or True})
         cwd = os.getcwd()
         try:
-            os.chdir(self.tmp)                      # a directory with no tr12/ beneath it
+            os.chdir(self.tmp)                      # a directory with no reports/tr12/ beneath it
             ns["tr12_figures"]()
         finally:
             os.chdir(cwd)
         self.assertEqual(len(got), 1)
-        self.assertTrue(os.path.samefile(got[0], os.path.join(self.HERE, "tr12",
+        self.assertTrue(os.path.samefile(got[0], os.path.join(self.HERE, "reports", "tr12",
                                                               "q3_profile_kw.tsv")))
         self.assertIn("else None)", self._body("_parse_cli"))   # Q-862 moved argv parsing out of __main__
 
@@ -18695,7 +18695,7 @@ class TestLaneVFV4AlternativesBand(unittest.TestCase):
 
     HERE = os.path.dirname(os.path.abspath(__file__))
     GEN = os.path.join(HERE, "viz", "report_figures.py")
-    KW = os.path.join(HERE, "tr12", "q3_profile_kw.tsv")
+    KW = os.path.join(HERE, "reports", "tr12", "q3_profile_kw.tsv")
     BANK = os.path.join(HERE, "reports", "evidence", "tr12", "banked_n31_20260922",
                         "q3_profile_exact.tsv")
     LABEL = ("shaded bars: least to greatest g over ALL admissible\n"
@@ -19301,7 +19301,7 @@ class TestLaneVGVizCommandsAndQ3Columns(unittest.TestCase):
     viz/report_figures.py and viz/*.md against the flags the two programs define, and the three
     V4/N-2 producer messages are run and read. Positive control: the scanner flags the old N-2
     wording and an invented flag.
-    Q-809: TR-12 §Q3's column notes must match the committed headers of tr12/q3_profile_kw.tsv and
+    Q-809: TR-12 §Q3's column notes must match the committed headers of reports/tr12/q3_profile_kw.tsv and
     reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv, and the `#alt` rows of the
     published transcript. Also: the dated "all ten" note beside EXPECTED_MATPLOTLIB, and the
     docstring of the FO text-floor positive control, which now runs on synthetic bytes."""
@@ -19309,7 +19309,7 @@ class TestLaneVGVizCommandsAndQ3Columns(unittest.TestCase):
     HERE = os.path.dirname(os.path.abspath(__file__))
     GEN = os.path.join(HERE, "viz", "report_figures.py")
     TR12 = os.path.join(HERE, "reports", "TR12_QUERY_PROGRAM.md")
-    KW = os.path.join(HERE, "tr12", "q3_profile_kw.tsv")
+    KW = os.path.join(HERE, "reports", "tr12", "q3_profile_kw.tsv")
     BANK = os.path.join(HERE, "reports", "evidence", "tr12", "banked_n31_20260922")
     # Named in viz/viz_kc_spectrum.md as PROPOSED and PENDING; asserted still absent from solve.c,
     # so the exemption expires on its own the day the flag is built.
@@ -19403,8 +19403,8 @@ class TestLaneVGVizCommandsAndQ3Columns(unittest.TestCase):
         path, why = ns["_tr12_q3_table"](empty)
         self.assertIsNone(path)
         self.assertIn("--atlas-q3-trace TRACE`, where TRACE is `solve --kc-o3-rank", why)
-        self.assertIn("tr12/q3_trace_kw.txt", why)
-        self.assertTrue(os.path.exists(os.path.join(self.HERE, "tr12", "q3_trace_kw.txt")))
+        self.assertIn("reports/tr12/q3_trace_kw.txt", why)
+        self.assertTrue(os.path.exists(os.path.join(self.HERE, "reports", "tr12", "q3_trace_kw.txt")))
 
     def test_default_producer_message_serves_only_atlas_tables(self):
         # `_missing`'s default names the bare --atlas-queries call, which is right for V1/V2/V5
@@ -23274,8 +23274,8 @@ class TestLaneVR2VizGuardsDiscriminate(unittest.TestCase):
     HERE = os.path.dirname(os.path.abspath(__file__))
     VIZ = os.path.join(HERE, "viz")
     GEN = os.path.join(HERE, "viz", "report_figures.py")
-    TR12 = os.path.join(HERE, "tr12")
-    KW = os.path.join(HERE, "tr12", "q3_profile_kw.tsv")
+    TR12 = os.path.join(HERE, "reports", "tr12")
+    KW = os.path.join(HERE, "reports", "tr12", "q3_profile_kw.tsv")
     BANK = os.path.join(HERE, "reports", "evidence", "tr12", "banked_n31_20260922",
                         "q3_profile_exact.tsv")
     HAVE_MPL = bool(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"))
@@ -24110,7 +24110,7 @@ print(json.dumps(rec))
             d = os.path.join(self.tmp, "render")
             os.makedirs(d, exist_ok=True)
             r = subprocess.run([sys.executable, "-c", self._RENDER, os.path.join(self.HERE, "viz"),
-                                os.path.join(self.HERE, "tr12"),
+                                os.path.join(self.HERE, "reports", "tr12"),
                                 "fig_tr6_parity_alternations", "fig_tr7_circular_cycle",
                                 "fig_tr5_orbit_collapse", "fig_tr1_rules_tradeoff", "fig_viz_scale",
                                 "tr12_figures"], cwd=d, capture_output=True, text=True, timeout=900)
@@ -24280,7 +24280,7 @@ print(json.dumps(rec))
         g = self._g("fig_tr12_kc_shells")
         ax2 = g["axes"][1]
         self.assertIn("p_i = g_i / g_(i−1)", ax2["title"])
-        rows = self._read("tr12", "q3_profile_kw.tsv").strip().split("\n")
+        rows = self._read("reports", "tr12", "q3_profile_kw.tsv").strip().split("\n")
         head = rows[0].split("\t")
         alts = [int(r.split("\t")[head.index("alts")]) for r in rows[1:]]
         self.assertEqual(len(alts), 31, "precondition: King Wen's 31 steps")
@@ -24720,8 +24720,8 @@ print(json.dumps(rec))
     def test_vr2_probability_columns_are_checked_as_probabilities(self):
         ns = self._prob_ns()
         E, err = ns["_expect_probabilities"], ns["TsvShapeError"]
-        for rel, col in ((("tr12", "scan", "v1_field.tsv"), "p"), (("tr12", "scan", "v2_river.tsv"), "p"),
-                         (("tr12", "scan", "v5_grammar.tsv"), "p_cond")):
+        for rel, col in ((("reports", "tr12", "scan", "v1_field.tsv"), "p"), (("reports", "tr12", "scan", "v2_river.tsv"), "p"),
+                         (("reports", "tr12", "scan", "v5_grammar.tsv"), "p_cond")):
             rows = ns["_read_tsv"](os.path.join(self.HERE, *rel))
             E(rel[-1], rows, col)                                   # precondition: the committed table passes
             k0 = [i for i, r in enumerate(rows) if r["k"] == "0"]
@@ -24756,7 +24756,7 @@ print(json.dumps(rec))
 
     @unittest.skipUnless(HAVE_MPL, "matplotlib/numpy absent (viz/ is an optional external surface)")
     def test_vr2_v1_renderer_refuses_a_bad_probability_and_a_bad_kw_flag(self):
-        head, rows = self._table(os.path.join(self.HERE, "tr12", "scan", "v1_field.tsv"))
+        head, rows = self._table(os.path.join(self.HERE, "reports", "tr12", "scan", "v1_field.tsv"))
         pi, ki = head.index("p"), head.index("kw")
         nanr = [list(r) for r in rows]; nanr[1][pi] = "nan"
         kwr = [list(r) for r in rows]; kwr[1][ki] = "2"
@@ -24772,14 +24772,14 @@ print(json.dumps(rec))
     # ================================================================== VR3 follow-up
     @unittest.skipUnless(HAVE_MPL, "matplotlib/numpy absent (viz/ is an optional external surface)")
     def test_vr3_v1_title_names_the_outline_only_when_one_is_drawn(self):
-        head, rows = self._table(os.path.join(self.HERE, "tr12", "scan", "v1_field.tsv"))
+        head, rows = self._table(os.path.join(self.HERE, "reports", "tr12", "scan", "v1_field.tsv"))
         ki = head.index("kw")
         self.assertTrue([r for r in rows if r[ki] == "1"], "precondition: the committed table marks KW")
         nokw = [list(r) for r in rows]
         for r in nokw:
             r[ki] = "0"
         p = self._w("nokw/v1_field.tsv", "\n".join("\t".join(r) for r in [head] + nokw) + "\n")
-        full, bare = self._render([["fig_tr12_kc_field", [os.path.join(self.HERE, "tr12", "scan", "v1_field.tsv")], {"n": 31}],
+        full, bare = self._render([["fig_tr12_kc_field", [os.path.join(self.HERE, "reports", "tr12", "scan", "v1_field.tsv")], {"n": 31}],
                                    ["fig_tr12_kc_field", [p], {"n": 31}]])
         self.assertIs(full["ok"], True, full["out"])
         self.assertIs(bare["ok"], True, bare["out"])
@@ -25450,6 +25450,86 @@ class TestLsdRetiredLeanAndSatPhrases(unittest.TestCase):
         self.assertNotIn("\n  CERTS_CHECKED=$((CERTS_CHECKED+1))\n", src,
                          "the unconditional attempt counter is back")
 # end lane LSF
+
+
+class TestTr12TablesMovedUnderReports(unittest.TestCase):
+    """CX-233 (2026-09-29): the TR-12 atlas tables moved from a top-level tr12/ to reports/tr12/.
+
+    Two gates learned the old prefix. scripts/tr12_output_paths_gate.sh's LEG L fails a live
+    `tr12/` span and reads one as historical (mapped to reports/tr12/) only under
+    reports/evidence/ or on its HISTORICAL_SPANS rows; its --selftest plants each case. GATE 21
+    (doc_gates.sh script-paths) treats a `tr12/<path>` token as narration only while
+    `reports/tr12/<path>` is tracked; that matters while HEAD still has a top-level tr12/, so the
+    fixture commits one. Each red case is paired with a green one that differs only in the
+    thing under test."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def test_tracked_tables_live_under_reports(self):
+        r = subprocess.run(["git", "-C", self.ROOT, "ls-files", "reports/tr12", "tr12"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        got = r.stdout.split()
+        self.assertEqual(len(got), 14, got)
+        self.assertTrue(all(p.startswith("reports/tr12/") for p in got), got)
+
+    def test_output_paths_selftest_runs_the_legacy_cases(self):
+        r = subprocess.run(["bash", os.path.join(self.ROOT, "scripts", "tr12_output_paths_gate.sh"),
+                            "--selftest"], capture_output=True, text=True, timeout=300)
+        out = r.stdout.splitlines()
+        # precondition: the three LEG L cases were planted and graded, not skipped
+        for label in ("a live doc naming the pre-2026-09-29 tr12/ location (LEG L) -> FAIL",
+                      "a historical tr12/ name in evidence that maps to no tracked file (LEG L) -> FAIL",
+                      "a HISTORICAL_SPANS row that matches no span (LEG L dead row) -> FAIL",
+                      "clean planted repository -> PASS"):
+            self.assertIn("  [ok] " + label, out, r.stdout + r.stderr)
+        self.assertIn("TR12_OUTPUT_PATHS_SELFTEST=PASS", out, r.stdout + r.stderr)
+        self.assertEqual(r.returncode, 0)
+
+    def test_output_paths_gate_passes_on_this_tree(self):
+        r = subprocess.run(["bash", os.path.join(self.ROOT, "scripts", "tr12_output_paths_gate.sh")],
+                           capture_output=True, text=True, timeout=300)
+        self.assertIn("TR12_OUTPUT_PATHS=PASS", r.stdout.splitlines(), r.stdout + r.stderr)
+
+    def _gate21(self, doc, reports_copy):
+        tmp = tempfile.mkdtemp(prefix="cx233_")
+        try:
+            shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"),
+                            os.path.join(tmp, "scripts", "doc_gates.d"))
+            shutil.copy2(os.path.join(self.ROOT, "scripts", "doc_gates.sh"),
+                         os.path.join(tmp, "scripts", "doc_gates.sh"))
+            os.makedirs(os.path.join(tmp, "tr12"))
+            os.makedirs(os.path.join(tmp, "docs"))
+            open(os.path.join(tmp, "tr12", "keep.txt"), "w").close()   # tr12/ is a HEAD top-level dir
+            if reports_copy:
+                os.makedirs(os.path.join(tmp, "reports", "tr12"))
+                open(os.path.join(tmp, "reports", "tr12", "a.tsv"), "w").close()
+            with open(os.path.join(tmp, "docs", "NOTE.md"), "w") as fh:
+                fh.write(doc)
+            g = ["git", "-C", tmp]
+            subprocess.run(g + ["init", "-q"], check=True)
+            subprocess.run(g + ["add", "-A"], check=True)
+            subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "f"],
+                           check=True)
+            env = dict(os.environ)
+            env.pop("ROAE_PRIVATE_DIR", None)
+            r = subprocess.run(["bash", "scripts/doc_gates.sh", "script-paths"], cwd=tmp, env=env,
+                               capture_output=True, text=True, timeout=300)
+            return r.returncode, r.stdout + r.stderr
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_gate21_reads_old_prefix_as_narration_only_when_the_moved_file_is_tracked(self):
+        rc, out = self._gate21("Historical: `tr12/a.tsv`.\n", reports_copy=True)
+        self.assertEqual(rc, 0, out)
+        # the same token with no reports/tr12/a.tsv: the mapping is what made it green
+        rc, out = self._gate21("Historical: `tr12/a.tsv`.\n", reports_copy=False)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("DANGLE: `tr12/a.tsv`", out)
+        # a name that never existed under either prefix stays red
+        rc, out = self._gate21("Historical: `tr12/b.tsv`.\n", reports_copy=True)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("DANGLE: `tr12/b.tsv`", out)
+# end lane MV27
 
 
 if __name__ == "__main__":

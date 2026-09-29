@@ -36,7 +36,7 @@ Requires: matplotlib (3.11.0 = EXPECTED_MATPLOTLIB for byte-identical PNGs), num
 Usage:
     cd reports/figures/ && python3 ../../viz/report_figures.py [--selftest] [--narrative] [TR12_ARTIFACT_ROOT]   (--narrative: also the two HELD, uncommitted narrative figures -- Q-862; a refusal of either exits 1, lane VR4)
 
-TR12_ARTIFACT_ROOT defaults to the repository's own tr12/ directory, resolved from THIS FILE's
+TR12_ARTIFACT_ROOT defaults to the repository's own reports/tr12/ directory, resolved from THIS FILE's
 location rather than from the working directory, so the invocation above works as written. It read
 the bare relative path "tr12" until 2026-09-26, which from reports/figures/ named the nonexistent
 reports/figures/tr12, so the documented command failed on all four required V-figures (VIZ1 F20).
@@ -1930,7 +1930,7 @@ def fig_tr12_kc_river(river_tsv, branches_tsv, n=None):
             ax3.tick_params(axis="y", labelcolor="#d32f2f", labelsize=10)
         # 🔴 2026-09-24: this title read "a small-but-expensive branch is the atlas's point",
         # and the panel it titles shows NO such branch.  Measured on the committed n=31
-        # tr12/scan/v2_branches.tsv: 0 of 1,540 branch pairs are discordant (a smaller mass
+        # reports/tr12/scan/v2_branches.tsv: 0 of 1,540 branch pairs are discordant (a smaller mass
         # with a larger cost); the 56 branches fall into 7 mass levels mapping one-to-one onto
         # 7 cost levels; cost/mass spans 7.65-8.20.  The title now states what is drawn.
         ax2.set_title("branch panel — solution mass (bars) vs exhaustion cost (line);\n"
@@ -2071,8 +2071,8 @@ def fig_tr12_kc_grammar(tsv, n=None):
 # King Wen's own choice among them -- i.e. g_alt_min / g_alt_max of `solve --kc-profile ... --kc-tsv FILE --kc-alts`.
 # At n = 31 those rows exist only as the ATTESTED receipts of the 2026-09-22 battery (the f/g ladders
 # are not distributed), published at the path below. The band is read WHERE IT IS PUBLISHED, not
-# copied into tr12/: a copy would be a second file whose agreement with the receipt nothing checks,
-# and routing it through the consumer would rewrite tr12/q3_profile_kw.tsv (a --kc-profile source
+# copied into reports/tr12/: a copy would be a second file whose agreement with the receipt nothing checks,
+# and routing it through the consumer would rewrite reports/tr12/q3_profile_kw.tsv (a --kc-profile source
 # carries no mass_below). The footer names this file and its sha beside the curve's own table.
 Q3_ALTS_BANKED = os.path.join(_REPO_ROOT, "reports", "evidence", "tr12", "banked_n31_20260922",
                               "q3_profile_exact.tsv")
@@ -2219,7 +2219,7 @@ def _v4_band(rows, alts_path, curve_path=None):
 @_shape_guarded("V4 shells")
 def fig_tr12_kc_shells(tsv, alts=Q3_ALTS_BANKED, n=None):
     if not os.path.exists(tsv):
-        return _missing(tsv, "V4 shells", how="python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE, where TRACE is solve --kc-o3-rank FDIR GDIR WALK --kc-trace text or a solve --kc-profile FDIR GDIR WALK --kc-tsv table; the published n=31 trace is tr12/q3_trace_kw.txt")
+        return _missing(tsv, "V4 shells", how="python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE, where TRACE is solve --kc-o3-rank FDIR GDIR WALK --kc-trace text or a solve --kc-profile FDIR GDIR WALK --kc-tsv table; the published n=31 trace is reports/tr12/q3_trace_kw.txt")
     # viz/viz_kc_shells.md: one row per free placement, `step` a contiguous run
     rows = _read_tsv(tsv, required=_V_SCHEMA["V4"])
     _check_grid(rows, ("step",), tsv)
@@ -2559,13 +2559,13 @@ def fig_tr12_kc_spectrum(tsv):
 # (ii) the evidence cited is reports/KC_G_CHECK_n31.txt, which checks the
 # identity at all 32 layers with 0 failing layers, so the claim is a receipt
 # rather than an assertion; (iii) the lower panel plots PUBLISHED EXACT
-# INTEGERS from tr12/q3_profile_kw.tsv -- no fit, no smoothing, no error band,
+# INTEGERS from reports/tr12/q3_profile_kw.tsv -- no fit, no smoothing, no error band,
 # because there is no error to band.
 #
 # TWO INDEX CONVENTIONS EXIST AND ARE DELIBERATELY NOT MIXED. The ladder
 # convention (documentation/GT_LADDER_FORMAT.md) has layers k = 0..31, layer k
 # holding states with popcount(mask) = k -- that is the top panel. The walk
-# convention (tr12/q3_profile_kw.tsv, viz/viz_kc_shells.md) indexes the 31 FREE
+# convention (reports/tr12/q3_profile_kw.tsv, viz/viz_kc_shells.md) indexes the 31 FREE
 # placements as step 1..31 -- that is the bottom panel. The bottom panel's
 # caption says which it is using.
 # ---------------------------------------------------------------------------
@@ -2573,11 +2573,11 @@ def fig_tr12_kc_spectrum(tsv):
 def fig_viz_narrative_n2_fg_mechanism(tsv=None):
     if tsv is None:
         tsv = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
-                           "tr12", "q3_profile_kw.tsv")
+                           "reports", "tr12", "q3_profile_kw.tsv")
     if not os.path.exists(tsv):
         return _missing(tsv, "N-2 f·g mechanism",
                         how="python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE; "
-                            "the published copy is tr12/q3_profile_kw.tsv")
+                            "the published copy is reports/tr12/q3_profile_kw.tsv")
     # f and g are exact 192-bit decimal STRINGS; they are never float()-ed, only
     # placed on a log axis by digit count (_log10_bigint), as in V4.
     rows = _read_tsv(tsv, required=("step", "f", "g"))
@@ -2689,7 +2689,7 @@ def _tr12_q3_table(root):
     by an older emitter: that is refused, never guessed.
 
     One exception, stated rather than hidden: a directory with NO sidecar at all -- neither name's
-    -- was not written by an atlas consumer that emits them. The committed `tr12/` tree is such a
+    -- was not written by an atlas consumer that emits them. The committed `reports/tr12/` tree is such a
     directory (it ships q3_profile_kw.tsv and no sidecar), so there the KW name is still taken as
     written. Any consumer run writes a sidecar, so a reused --atlas-out never reaches this branch.
 
@@ -2732,7 +2732,7 @@ def _tr12_q3_table(root):
         if not have_plain:
             return None, ("neither q3_profile_kw.tsv nor q3_profile.tsv is in %s: there is no "
                           "Q3 profile to draw -- produce it with `solve.py --atlas-queries "
-                          "ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE`, where TRACE is `solve --kc-o3-rank FDIR GDIR WALK --kc-trace` text or a `solve --kc-profile FDIR GDIR WALK --kc-tsv` table; the published n=31 trace is tr12/q3_trace_kw.txt" % root)
+                          "ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE`, where TRACE is `solve --kc-o3-rank FDIR GDIR WALK --kc-trace` text or a `solve --kc-profile FDIR GDIR WALK --kc-tsv` table; the published n=31 trace is reports/tr12/q3_trace_kw.txt" % root)
         pside = plain + ".provenance.txt"
         if os.path.exists(pside):
             pf = _fields(pside)
@@ -2762,7 +2762,7 @@ def _tr12_q3_table(root):
 def tr12_figures(root=None):
     """Render V1..V5 from the atlas-consumer TSVs rooted at `root`.
 
-    `root` defaults to the repository's own tr12/ directory, resolved from this file's location
+    `root` defaults to the repository's own reports/tr12/ directory, resolved from this file's location
     (VIZ1 F20, 2026-09-26: it defaulted to the CWD-relative "tr12", which from the documented
     working directory reports/figures/ named a directory that does not exist).
 
@@ -2788,14 +2788,14 @@ def tr12_figures(root=None):
     that cannot be satisfied.
 
     PATH (2026-09-24).  The spec path is <root>/spectrum/v3_spectrum.tsv, but the
-    COMMITTED table is tr12/v3_spectrum.tsv (no spectrum/ level), so
+    COMMITTED table is reports/tr12/v3_spectrum.tsv (no spectrum/ level), so
     tr12_figures("tr12") silently skipped the one V3 input the repo ships.  The
     flat path is now a FALLBACK, taken only when the spec path is absent and the
     flat file exists -- when neither exists the message still names the spec path,
     so the battery's c_viz output is unchanged.
     """
     if root is None:
-        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tr12")
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reports", "tr12")
     scan = os.path.join(root, "scan")
     q3, q3_why = _tr12_q3_table(root)
     # Q-892 (2026-09-28): the universe size n every layer inventory is checked against -- the Q3
@@ -3072,7 +3072,7 @@ def main(argv):
         if fig_viz_narrative_n2_fg_mechanism() is False:
             refused.append("N-2")
     # TR-12 V1..V5: rendered from the atlas-consumer TSVs when they are present.
-    # Root defaults to the repository's tr12/ (resolved from this file, not the CWD -- VIZ1 F20);
+    # Root defaults to the repository's reports/tr12/ (resolved from this file, not the CWD -- VIZ1 F20);
     # override with the positional argument.
     tr12_figures(root)
     if refused:

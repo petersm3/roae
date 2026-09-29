@@ -90,8 +90,9 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 # reported on stderr (the line changed, so its verdict must be re-read), never silently applied.
 # Values are (class, review) and the review is one token (no spaces, no tab): what was decided.
 REVIEWED = {
-    # tranche 1 (2026-09-26, the f11halfb evidence family). The README.md:21 marker was class 1 and
-    # has moved to the ledger, so it is no longer a row here.
+    # tranche 1 (2026-09-26, the f11halfb evidence family). The marker at
+    # reports/evidence/f11halfb/README.md:21@5a3b2917 was class 1 and has moved to the ledger, so it
+    # is no longer a row here.
     ('reports/evidence/f11halfb/RESULTS.md', 'fd712baff659'):
         ('2', 'stays:the-quoted-recommended-wording-above-it-is-kept-as-TR-2-published-it-and-is-still-inaccurate'),
     ('documentation/F1C5_LAYER_FORMAT.md', '801779b51687'):

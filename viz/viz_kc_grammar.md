@@ -5,16 +5,95 @@ has reached layer *k*, what is the exact probability — over the whole superspa
 that its next transition belongs to each choice class? The grammar is that conditional law rendered
 as a heat map over `class × k`, with King Wen's own 31 choices marked on it.
 
-← Back to [README.md](README.md) (index) · V-family: [V1 field](viz_kc_field.md) ·
+← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) ·
 **V5**
+
+[![Heat map of the exact transition grammar: fifteen rows, one per combination of boundary-distance class d and within-pair distance w, against layers 0 to 30, each column summing to 1, with King Wen's own (d, w) cell outlined in each column.](../reports/figures/fig_tr12_kc_grammar.png)](../reports/figures/fig_tr12_kc_grammar.svg)
+
+*V5 as committed, **C1C2C4C5-SUPERSPACE; C3 not imposed**. Click the image for the SVG; the full caption is in [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), and this page is the figure's spec.*
+
+## In plain terms
+
+At each step of building an ordering, this picture shows the exact odds of each kind of next move,
+taken over every allowed ordering at once (those obeying four of the five core rules, all but the one
+called C3). A kind of move is described by two counts: how many of the six lines change across the
+join into the new pair, and how many lines differ between the new pair's own two hexagrams. Joins
+that change three lines are the most common at every step, and King Wen's own move is outlined at each
+step. Each column is an average over all orderings; it is not the odds given King Wen's earlier moves.
+
+## What it shows
+
+Fifteen rows, one per combination of boundary-distance class d = 1, 2, 3, 4, 6 (lines that differ
+across the boundary into the new pair) and within-pair distance w = 2, 4, 6 (lines that differ between
+the new pair's two hexagrams). Columns are layers k = 0…30; layer k places the new pair in pair-slot
+k+2. The colour of a cell is P(d, w | layer k), exact, and each column sums to 1. King Wen's own
+(d, w) cell at each layer is outlined, white over a black under-stroke, one per column. The first and
+last columns differ visibly from the near-constant interior. The full reading guide is
+[How to read it](#how-to-read-it) below.
+
+## What it establishes, and what it does not
+
+- **Establishes.** Summed over w, d = 3 is the largest class at every layer (smallest share 0.40687),
+  and d = 6 is zero at layer 0 only
+  ([TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), V5 caption; §12.1).
+  What V5 adds over V2 is the per-layer marginal of w: on layers 1–30 the joint is within 0.0097 of
+  the product of its two marginals, so the cross-tab is reconstructible from them there.
+- **Does not establish.** A measured dependence between d and w: on layers 1–30 the joint is close
+  to the product of its marginals. The rows do not identify individual pairs, nor even separate the seven pair-orbits, since w
+  takes only three values across them. A column is not conditioned on King Wen's earlier choices. See
+  [What this figure is allowed to claim](#what-this-figure-is-allowed-to-claim) and
+  [What it may NOT claim](#what-it-may-not-claim).
+
+## Provenance
+
+- **Data.** [`reports/tr12/scan/v5_grammar.tsv`](../reports/tr12/scan/v5_grammar.tsv), sha256 prefix
+  `c5e50083ae91`, printed in the figure's footer, written by the atlas consumer from
+  `runs/20260906_kc_ladders_n31/atlas_n31.json`. The (d, w) cross-tab is derived from the raw kernel
+  that ships inside the atlas, with no re-scan. The command is under [Generation](#generation).
+- **Generator.** `fig_tr12_kc_grammar()` in [`viz/report_figures.py`](report_figures.py), called by
+  `tr12_figures()`. Table in, figure out; it refuses a table that is not the full 31 × 5 × 3 grid of
+  conditional probabilities.
+- **Regenerate.** The whole set, `cd reports/figures && python3 ../../viz/report_figures.py`, or
+  this figure alone:
+
+  ```bash
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_grammar('../tr12/scan/v5_grammar.tsv')"
+  ```
+
+- **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
+  the committed PNG byte for byte on 2026-09-29, with all twelve report figures (CX-233); see
+  [Reproduce the figures](README.md#reproduce-the-figures).
+- **Tokens.** `TR12_V5=PASS` in [`reports/tr12/VERDICTS.txt`](../reports/tr12/VERDICTS.txt);
+  `LARGEST_CLASS_SET_OVER_LAYERS=d3`, `D3_MIN_LAYER_SHARE=0.40687` and
+  `V5_FACTORISATION_MAX_DEV_K_GE_1=0.0097`, printed by
+  `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` (TR-12 §2, §12.9).
+
+## Review history
+
+- **2026-09-23.** The second axis was pinned by operator ruling as w, the within-pair distance, and
+  derived from data already in the atlas; until then V5 re-plotted V2's numbers (TR-12 §2).
+- **2026-09-26, Codex figure review VIZ1, checked by Fable.** The subtitle said a row "is 3
+  orbit-classes"; by w the seven orbits split 3, 2 and 2 (F06). The factorisation sentence left its
+  unit ambiguous (F07). CX-191, CX-192.
+- **2026-09-27.** The caption said the fault-injection control preserves every marginal, and the spec
+  said no row goes dark at the right; both corrected (CX-224, items 7 and 8).
+- **2026-09-28, Codex visualization review, triaged by Fable.** The axis did not name the slot a
+  layer fills, the white outline measured 2.22:1 on the green cells, and nothing said a column is a
+  layer marginal. The outline is two-tone, and the axis and a note say both, CX-227. The spec's
+  statements about `--kc-raw` were made consistent, CX-228.
+- **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
+  as part of the [visual capstone](README.md) (CX-233).
+
+*The rest of this page is the figure's specification and drafting record, kept as written, with its
+dated corrections in place.*
 
 ## Status (2026-08-22; `w` axis updated 2026-09-24)
 
 | Axis | Quantity | Instrument | State |
 |---|---|---|---|
 | distance class `d ∈ {1,2,3,4,6}` | `P(d \| layer k)` | `solve --kc-scan` → `layers[].by_class` | **EXISTS** |
-| × new-pair category, **pinned as `w` = within-pair distance** (below) | the cross-tab `P(d, w \| layer k)` | consumer-side from `layers[].kernel` (`solve.py` `atlas_emit_v5`); needs an atlas scanned with `--kc-raw` | **EXISTS (2026-09-23)** — `TR12_V5=PASS`; the committed full-31 `tr12/scan/v5_grammar.tsv` carries it (465 rows) |
+| × new-pair category, **pinned as `w` = within-pair distance** (below) | the cross-tab `P(d, w \| layer k)` | consumer-side from `layers[].kernel` (`solve.py` `atlas_emit_v5`); needs an atlas scanned with `--kc-raw` | **EXISTS (2026-09-23)** — `TR12_V5=PASS`; the committed full-31 `reports/tr12/scan/v5_grammar.tsv` carries it (465 rows) |
 | Full-31 f and g ladders | — | Stage F / Stage G | **BUILT** — the committed full-31 TSV was emitted from the n=31 atlas (TR-12 §2) |
 | Atlas JSON → figure TSV | — | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR` | **EXISTS** (n=9 brute-force gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
@@ -110,7 +189,7 @@ exit itself, a hexagram already placed.
 
 ## Input TSV
 
-`tr12/scan/v5_grammar.tsv` — tidy format, `31 × 15 = 465` data rows at full-31 with the cross-tab
+`reports/tr12/scan/v5_grammar.tsv` — tidy format, `31 × 15 = 465` data rows at full-31 with the cross-tab
 (the committed table; 422 of them nonzero), or `31 × 5 = 155` rows with `w = -1` from an atlas that
 carries no kernel:
 
@@ -150,7 +229,7 @@ the consumer writes the full `(d, w)` cross-tab: the committed golden
 **Full-31 (needs the full-31 f/g ladders; the committed TSV came from the published n=31 atlas, so re-rendering the figure needs neither):**
 
 ```bash
-solve --kc-scan FDIR GDIR tr12/scan/atlas.json --kc-raw [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-scan FDIR GDIR reports/tr12/scan/atlas.json --kc-raw [--kc-ooc] [--kc-cache-mb MB]
 #   --kc-tdir is NOT needed for this figure. --kc-raw is NOT needed for the
 #   distance-class-only form (by_class ships unconditionally), but IS REQUIRED for the
 #   (d, w) cross-tab, which derives from layers[].kernel and is absent without it.
@@ -161,13 +240,13 @@ solve --kc-scan FDIR GDIR tr12/scan/atlas.json --kc-raw [--kc-ooc] [--kc-cache-m
 honestly rather than guessed, and the verdict token says which form was written.
 
 ```bash
-python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out tr12 --atlas-select v5
-#   writes tr12/scan/v5_grammar.tsv and TR12_V5= in tr12/VERDICTS.txt
+python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out reports/tr12 --atlas-select v5
+#   writes reports/tr12/scan/v5_grammar.tsv and TR12_V5= in reports/tr12/VERDICTS.txt
 ```
 
 **The full-31 atlas is in this repository:** `runs/20260906_kc_ladders_n31/atlas_n31.json`
 (5,978,126 B, 31 layers, raw sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558`),
-and the command above reads it. It re-derives `tr12/scan/v5_grammar.tsv` with no ladder mounted;
+and the command above reads it. It re-derives `reports/tr12/scan/v5_grammar.tsv` with no ladder mounted;
 `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json` checks the file first
 (`ATLAS_PROBE=PASS`). The output path in the `--kc-scan` line above is where a **rebuild** from the
 ladders would write a fresh atlas; the ladders themselves are not distributed.
@@ -258,9 +337,9 @@ figure out; **no analysis logic in `viz/`**.
 | n=9 exhaustive brute-force cross-check of the extractor | `solve --kc-scan-selftest` |
 | f·g cut identity at every layer | `solve --kc-g-check FDIR GDIR` |
 | **cross-tab gate** (landed 2026-09-23) | `Σ_w G[k][d][w] == by_class[d]` at every `(k, d)` and `Σ G == flow` per layer — enforced by `atlas_emit_v5`, which **refuses** to write on a mismatch; plus the n=9 exhaustive brute-force leg in `--atlas-selftest --atlas-walks` (cell-by-cell `(d, w)` recount), **shown able to fail** by `--atlas-fault v5-cross-swap`, which moves mass between two `w` cells inside one `(k, d)` and is invisible to every horizontal gate |
-| **reader-side:** `Σ_k Σ_d p_cond[k][d][w]` == (12, 12, 7) for `w` = (2, 4, 6) | `awk -F'\t' 'NR>1{t[$3]+=$5} END{for (w in t) print w, t[w]}' tr12/scan/v5_grammar.tsv` — C1's `{2:12, 4:12, 6:8}` less the C4-pinned first pair (`w = 6`); measured 2026-09-24 on the committed full-31 table: 12, 12, 7 |
-| **reader-side:** every column of `p_cond` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$5} END{for (k in s) print k, s[k]}' tr12/scan/v5_grammar.tsv` |
-| **reader-side:** `Σ_k p_cond[k][d]` == (2, 8, 13, 7, 1) | `awk -F'\t' 'NR>1{t[$2]+=$5} END{for (d in t) print d, t[d]}' tr12/scan/v5_grammar.tsv` |
+| **reader-side:** `Σ_k Σ_d p_cond[k][d][w]` == (12, 12, 7) for `w` = (2, 4, 6) | `awk -F'\t' 'NR>1{t[$3]+=$5} END{for (w in t) print w, t[w]}' reports/tr12/scan/v5_grammar.tsv` — C1's `{2:12, 4:12, 6:8}` less the C4-pinned first pair (`w = 6`); measured 2026-09-24 on the committed full-31 table: 12, 12, 7 |
+| **reader-side:** every column of `p_cond` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$5} END{for (k in s) print k, s[k]}' reports/tr12/scan/v5_grammar.tsv` |
+| **reader-side:** `Σ_k p_cond[k][d]` == (2, 8, 13, 7, 1) | `awk -F'\t' 'NR>1{t[$2]+=$5} END{for (d in t) print d, t[d]}' reports/tr12/scan/v5_grammar.tsv` |
 
 Both reader-side identities were exercised against the committed n=9 reference atlas (per-layer sums
 1.0; class totals {1:2, 2:5, 4:2}, the reduced-world analogue of {1:2, 2:8, 3:13, 4:7, 6:1}) before
@@ -280,7 +359,7 @@ form and must not be asserted. Full accounting in
 
 - **This doc:** `viz/viz_kc_grammar.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
-- **Evidence TSV:** `tr12/scan/v5_grammar.tsv`
+- **Evidence TSV:** `reports/tr12/scan/v5_grammar.tsv`
 - **Figures:** `reports/figures/fig_tr12_kc_grammar.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
   mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 

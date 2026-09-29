@@ -2,6 +2,8 @@
 
 <mark>**[䷀䷁](documentation/SOLVE_SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
+Corrections to anything on this page are recorded in [CORRECTIONS.md](documentation/CORRECTIONS.md).
+
 **The question.** The I Ching is an ancient Chinese divination text — its roots go back roughly
 three thousand years — organized into 64 chapters, each marked by a hexagram: a stack of six broken
 or unbroken lines. In every received copy the 64 chapters appear in one particular order, the **King
@@ -69,13 +71,7 @@ counting finds **16,504** *oriented* C1–C5 completions of which exactly **8** 
 ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). So the exact corroboration is at the **oriented**
 level — the level the full-space estimate above also counts. Read as *pair orderings*, this one slice
 runs the other way: C6–C7 leave King Wen's alone among the 899 distinct pair orderings that those
-16,504 oriented leaves represent. ⚠ **[CORRECTED 2026-09-01 — this passage previously glossed the eight
-survivors as King Wen accompanied by seven further members of its neighbourhood, which invites a
-pair-ordering reading that is the opposite of what the enumeration shows. Ruled 2026-08-28; the
-verifying runs are published at [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4 and
-[SEARCH_SPACE_SIZE.md](documentation/SEARCH_SPACE_SIZE.md). Both counts, 16,504 and 8, are unchanged
-and correct — only the gloss was wrong. This front page was missed by the 2026-08-28 sweep because
-the retracted phrase wrapped a line break, which a line-based grep cannot see.]** King Wen is
+16,504 oriented leaves represent. King Wen is
 unique only within **budgeted enumerated slices**, never in the full space. Read against the
 literature, this is **a measured confirmation of prior under-determination claims, and the magnitude
 is a single-instrument estimate**: the direction was asserted qualitatively before this project
@@ -132,7 +128,10 @@ gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 It must print `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. A different digest
 is a finding — please report it. This recipe was executed end to end from a fresh clone on
 2026-08-04 and passed, together with `python3 tests.py` (64 tests at that date; 76 as of 2026-08-28) and `lean lean/KingWen.lean`
-(silent, i.e. all theorems check — as recorded; NOTE 2026-09-03: that command was run from the repo root, where elan selects its *default* toolchain rather than `lean/lean-toolchain`, so this record attests a kernel check under the host's default Lean of that day, not specifically 4.31.0. Use `cd lean && lean KingWen.lean`; `verify_all.sh` §4 now runs from `lean/` and prints the kernel it used as `LEAN_ID=`); before that date it had never actually been run, which is itself
+(silent, i.e. all theorems check). Run from the repo root, that command uses elan's *default* toolchain rather than
+`lean/lean-toolchain`, so the record attests a kernel check under the host's default Lean of that day, not
+specifically the pinned 4.31.0. `cd lean && lean KingWen.lean` checks under the pinned toolchain, and `verify_all.sh` §4 runs
+from `lean/` and prints the kernel it used as `LEAN_ID=`. Before 2026-08-04 the recipe had never actually been run, which is itself
 the kind of gap this disclosure exists to surface.
 
 **Where to start.** Four doors, by reader:
@@ -182,27 +181,25 @@ C1–C5, with C6–C7 added only where the text says so.
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 analyses of the sequence — most with null-model comparisons, several descriptive-only, and [CRITIQUE.md](documentation/CRITIQUE.md) names which are which ([example output](example/)). |
 | **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, four sequence-level theorems, the trigram-level structure ([TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)), and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
-| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate, the Lean proofs, the regression harness, `roae.py`'s ground-truth self-check and the documentation gates (`scripts/doc_gates.sh` in its `all` mode, whose PASS banner covers the hard gates only). Scope, stated because the earlier wording over-claimed: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the 28 analyses. |
+| **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate, the Lean proofs, the regression harness, `roae.py`'s ground-truth self-check and the documentation gates (`scripts/doc_gates.sh` in its `all` mode, whose PASS banner covers the hard gates only). Scope: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the 28 analyses. |
 
 ## What was found
 
 Headlines only — each links to its full treatment (technical reports in [reports/](reports/)):
 
-- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count; ≈3.3×10³⁷ after orientation-dedup ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
-  C6–C7 still leaves ~5×10³¹. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3.3×10³⁷ orientation-dedup figure in the sentence just above exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; the raw 1.33×10³⁸ estimate and the ~5×10³¹ C1–C7 figure are not affected; see documentation/CORRECTIONS.md]** So the hypothesis that the constraints pin down King Wen is false — that
+- **The constraints do not determine the sequence.** The C1–C5 space is **estimated** at 1.33×10³⁸ orderings — a raw, orientation-explicit count ([METHODS](reports/METHODS.md) §"Canonical quantities") — (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸ — a statistical estimate, not a proven cardinality); adding
+  C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
 - **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
-  jointly unsatisfiable — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four. King Wen keeps one exactly and misses the others by two each ⚠ **[CORRECTED 2026-08-28 — the superlative is UNSUPPORTED. TR-2's own evidence file `reports/evidence/f11/f11_runA.out` contains `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than King Wen's `2 2 2` with nonzero measured mass. That histogram is not CC-N4-conditioned, so whether any such ordering also satisfies the fourth rule has never been checked — which makes the claim unsupported rather than simply false. See CORRECTIONS.md]**, so its famous anomalies
+  jointly unsatisfiable — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four. King Wen keeps one exactly and misses the others by two each, so its famous anomalies
   are **consistent with** a forced trade-off. What the incompatibility establishes is narrower than it
   may read: it **rules out one explanation** — damage to an original that was perfect under all four —
   because **no such original could exist.** (A *three*-rule-perfect precursor does exist; whether the anomalies are an
   arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
   comparison.) A 47-year-old proposal to replace the sequence is re-examined along the way: its premise is
   measured, and a *fully smooth* variant is proven impossible. The hybrid ordering its authors actually
-  published is feasible, and nothing here refutes it. ⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#11,
-  Q-742) — this sentence said the proposal was settled in passing (registered as RP-3001bc5f). [TR-8](reports/TR8_REORDERING_REVISITED.md) says of
-  that proposal, "It does not refute their construction", and names it hybrid by design.]** [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
+  published is feasible, and nothing here refutes it. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
 - **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4
   ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space — a superset
   of the measured population, so every valid ordering inherits King Wen's value. They are consequences
@@ -215,10 +212,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   in [lean/README.md](lean/README.md). So the eight are Lean-proven **modulo a transcription step whose
   only numerical check is attested** — a bridge carried outside Lean, like those disclosed for
   PartitionInvariance and PruneExactness, but with its check unarchived. Re-deriving it as a tracked
-  artifact is an open item. ⚠ **[CORRECTED 2026-09-24 — this called the transcription numerically validated, twice, which a
-  check no reader can re-run does not support; the attested-not-
-  reproducible status stated below under "The enumeration record is reproducible" now applies here too.
-  Codex V3B-14#4 / V3B-13#12, Q-778.]**)* (A separate analytic theorem — the no-5 rule's implication chain, behind
+  artifact is an open item.)* (A separate analytic theorem — the no-5 rule's implication chain, behind
   McKenna's 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
   ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
@@ -246,9 +240,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   billion enumerated records — a stark demonstration that bounded search sees a biased sample. (The
   17.4% is a 2×10¹⁰-probe sampled estimate, which a second archived run matches to within 0.05 percentage
   points. That run is a partially overlapping replicate that shares half its probes, not an independent
-  draw — TR-7 §5.) ⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#18, Q-742) — this called the second run an independent
-  reproduction (registered as RP-6cae8396); TR-7 calls the same run "a partially overlapping replicate, not an
-  independent draw".]** [TR-7](reports/TR7_CIRCULAR_READING.md)
+  draw — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
 - **In bits, half the sequence's description length is accounted for by known structure; half is not.**
   *("Accounted for", not "explained": which layers are **granted** explanatory standing is a choice made
   below.)* The classical pairing carries
@@ -257,10 +249,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most
   conservative reading, resting on the C1–C7 estimate — whose published 0.78% is the estimator's
   relative **standard error**, not a 95% half-width, so the 95% interval is ±1.96·SE ≈ **±0.022
-  bits**, which the published [5.13, 5.29]×10³¹ bracket independently gives as −0.0223/+0.0220
-  ⚠ **[CORRECTED 2026-09-02 — this bullet converted a relative standard error into a ± band,
-  understating the interval by 1.96×; completing here the 2026-08-28 ruling already applied in
-  documentation/DESCRIPTION_LENGTH.md and TR-9 §1]**; 139.1 bits =
+  bits**, which the published [5.13, 5.29]×10³¹ bracket independently gives as −0.0223/+0.0220; 139.1 bits =
   log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an
   exact count; the intermediate C1–C5 reading ~126.6 rests on an estimate with a smaller relative
   standard error, 0.02%, i.e. ±1.96·SE ≈ ±0.0006 bits at 95% — a tighter *estimate*, which is a
@@ -351,7 +340,7 @@ see, because every other gate reads the working tree and none reads another bran
 
 The project's committed figures, each shown as PNG with its SVG source linked. The short caption under
 each one is an excerpt; **the report section it links to carries the full caption and is the
-authority.** All eleven figures shown below, and the TR-3 timeline linked at the end, are drawn by [`viz/report_figures.py`](viz/report_figures.py); the TR-5 and TR-7 figures got their renderers on 2026-09-27, and before that were artwork that nothing in the repository could redraw. The complete
+authority.** All eleven figures shown below, and the TR-3 timeline linked at the end, are drawn by [`viz/report_figures.py`](viz/report_figures.py). The complete
 index, including the enumeration-slice plots (growth curve, PCA projections, campaign telemetry), is
 [viz/README.md](viz/README.md).
 
@@ -394,7 +383,7 @@ fixes one (d,w) combination and does not identify an individual pair.
 
 **V4, King Wen's neighbourhood shells** — Q3's rarity profile drawn as a figure. **C1C2C4C5-SUPERSPACE; C3 not imposed.** The lower panel's `p_i = g_i / g_(i−1)`; a bar above its `log₂ a_i` tick is a choice with fewer completions than the average alternative. Unlike V1, V2 and
 V5 this figure's line plots one walk, not a population: every point is King Wen's own. Its input was
-produced by the full-31 run of 2026-09-22 and is committed as `tr12/q3_profile_kw.tsv`. The shaded bars (least to greatest `g` over the admissible alternatives at each step) are read from that run's published receipt [`q3_profile_exact.tsv`](reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv): **attested**, not reproducible without the f/g ladders.
+produced by the full-31 run of 2026-09-22 and is committed as `reports/tr12/q3_profile_kw.tsv`. The shaded bars (least to greatest `g` over the admissible alternatives at each step) are read from that run's published receipt [`q3_profile_exact.tsv`](reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv): **attested**, not reproducible without the f/g ladders.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_shells.svg) · [spec](viz/viz_kc_shells.md)
 
@@ -485,8 +474,8 @@ The links below are reader orientation only:
 * [Shao Yong](https://en.wikipedia.org/wiki/Shao_Yong) — Wikipedia (Fu Xi binary ordering)
 * [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (background on the silk manuscripts; the ordering itself is per Shaughnessy 2022 below, tested by `solve.c --null-historical`)
 * [Jing Fang](https://en.wikipedia.org/wiki/Jing_Fang) — Wikipedia (Eight Palaces ordering, also tested by `solve.c --null-historical`)
-* [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (the standard English translation; its hexagram names were shipped here until 2026-08-27, then removed rather than replaced — labels are now trigram-derived; see [CRITIQUE](documentation/CRITIQUE.md))
-* Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (translation of the Mawangdui manuscript); the project's Mawangdui ordering array follows Shaughnessy, *The Origin and Early Development of the Zhou Changes*, Brill, 2022, Table 11.2 (corrected 2026-07-05 — see CITATIONS.md errata)
+* [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (the standard English translation; its hexagram names are not used here — labels are trigram-derived; see [CRITIQUE](documentation/CRITIQUE.md))
+* Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (translation of the Mawangdui manuscript); the project's Mawangdui ordering array follows Shaughnessy, *The Origin and Early Development of the Zhou Changes*, Brill, 2022, Table 11.2
 * [Yijing Dao (biroco.com)](https://www.biroco.com/yijing/) — S. J. Marshall's (Joel Biroco) archive of Yijing structural-analysis literature, host of the Moore and Schulz papers (a different person from Steve Moore — see CITATIONS.md; source of several documents examined there)
 * [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)
 

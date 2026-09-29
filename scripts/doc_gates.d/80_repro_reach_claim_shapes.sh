@@ -204,7 +204,7 @@ PROPOSAL = ['queued', 'outstanding fix', 'not yet implemented', 'pending flag', 
 # line, rc 0 — 'pending' is on 317 lines of 51 files at 5c296837, and "a marker is consulted
 # only for a flag that failed to resolve" bounds how OFTEN it fires, not WHAT it waives. The
 # two-word forms are what the corpus actually writes for a proposal; at 5c296837 the real corpus
-# yielded exactly 2 [prop] waivers (`solve --kc-unrank-grid`, viz/viz_kc_spectrum.md:94 caption,
+# yielded exactly 2 [prop] waivers (`solve --kc-unrank-grid`, viz/viz_kc_spectrum.md:94@5c296837 caption,
 # :232 sentence; 1 since 2026-09-25, Q-703), and the two probes above now FAIL. Fire-proven in --selftest
 # ("GATE 25 (S2) ordinary 'pending' prose does not waive"). Every waiver granted is printed as
 # a [prop] line, never silently counted.
