@@ -175,7 +175,7 @@ into a new entry. Multi-scale: 1B / 1T
 `scripts/perf_bench.sh` `case "$SCALE"`), so a bench is comparable only to
 another bench at the same scale. *(This paragraph previously said "a single
 fresh D128als_v7 Spot" without qualification; corrected 2026-09-02 to match the
-script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)* Every workload on the VM (the `--treatment-pgo` training run and both paired runs) runs in its own fresh `mktemp -d` directory, as `scripts/build_pgo.sh` runs its own, so a second bench on a reused host cannot resume the first one's `checkpoint.txt`; a custom `--pgo-workload` therefore names the instrumented binary `"$INSTR_BIN"`, and one naming `./solve_inst` is refused before any VM is provisioned (Q-847, 2026-09-26).
+script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)* Every workload on the VM (the `--treatment-pgo` training run and both paired runs) runs in its own fresh `mktemp -d` directory, as `scripts/build_pgo.sh` runs its own, so a second bench on a reused host cannot resume the first one's `checkpoint.txt`; a custom `--pgo-workload` therefore names the instrumented binary `"$INSTR_BIN"`, and one naming `./solve_inst` is refused before any VM is provisioned (Q-847, 2026-09-26). Since `solve` exits 0 when SIGTERM stops it, exit status alone does not show that a run finished: the training run's log must hold `solve`'s whole-line `ENUM_RUN=FINISHED` and no `ENUM_RUN=STOPPED` or `*** Signal received` line, or the build fails with a named `ERROR:` and no Pass 2 (exit 4). Each paired run must also report `enum_run=FINISHED`, or the bench is `PERF_BENCH_METHODOLOGY=VIOLATED` (exit 3). A `solve.c` older than Q-828 prints no token, so neither arm can certify it (Q-877, 2026-09-27).
 
 > **Known harness defects — all cleared as of 2026-09-02.** The notes are kept
 > because the paragraphs above them once told operators to install zlib by hand
@@ -267,7 +267,7 @@ trade-off.
 
 | hook | dispatcher runs | blocks on |
 |---|---|---|
-| `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s; `CITGATE_BASE` set to the pushed range's base, Q-792), then its `pre_push_compile_gate.sh` (~56 s), then its `atlas_n31_probe_gate.sh` (Q-737: TR-12's pinned atlas digest plus `solve.py --atlas-probe` on the n=31 atlas, no build, ~7 s on the 2-core orchestrator), then its `tr12_output_paths_gate.sh` (Q-684: every published `tr12/` name tracked and every `<artifact-root>/` name written by `scripts/tr12_repro.sh`, no build, ~1 s), and — when `needs_generated()` says the pushed range touches `roae.py`/`example/`, or the base cannot be determined — `doc_gates.sh generated` (~67 s). All of these always run, findings aggregate; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, the n=31 atlas probe not `PASS` (`ATLAS_N31_GATE`), TR-12's output paths not `PASS` (`TR12_OUTPUT_PATHS`), or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
+| `pre-push` | for **each pushed sha**, in a temporary detached worktree of that sha: the pushed tree's own `doc_gates.sh all` (~12–20 s; `CITGATE_BASE` set to the pushed range's base, Q-792), then its `pre_push_compile_gate.sh` (~56 s), then its `atlas_n31_probe_gate.sh` (Q-737: TR-12's pinned atlas digest plus `solve.py --atlas-probe` on the n=31 atlas, no build, ~7 s on the 2-core orchestrator), then its `tr12_output_paths_gate.sh` (Q-684: every published `tr12/` name tracked and every `<artifact-root>/` name written by `scripts/tr12_repro.sh`, no build, ~1 s), and — when `needs_generated()` says the pushed range touches `roae.py`/`example/`, or the base cannot be determined — `doc_gates.sh generated` (~67 s). All of these always run, findings aggregate, except that a matching Q-798 verdict record (`ROAE_PREPUSH_RECORD`, §"Pre-push verdict record" at the end of this file) replaces them with four local doc gates; worktree add+remove ≈0.5 s; deletion pushes gate nothing | any hard doc gate red (the blocking set is the PASS banner in `doc_gates.sh`; its report-only gates print `[WARN]`/`[note]` without blocking), or `solve.c` missing/empty, gcc non-zero, `--selftest` not producing sha `403f7202…`, the n=31 atlas probe not `PASS` (`ATLAS_N31_GATE`), TR-12's output paths not `PASS` (`TR12_OUTPUT_PATHS`), or a pushed tree with **no gate scripts at all** (deliberate pushes of pre-gate history use `--no-verify`, visibly) |
 | `pre-commit` | `pre_commit_registry_gate.sh` (WARN-only; full 6-gate scan when a registry/ledger file is staged, the two cheap retraction scans when any `reports/*.md`, `documentation/*.md` or `README.md` is staged), then `pre_commit_stamp_gate.sh` (WARN-only, ~0.1 s; names any staged reproduction-closure input being committed without `scripts/tr12_expected/_GATE_STAMP.txt`), then `pre_commit_repro_current_gate.sh` (WARN-only per O-redfloor, ~1 s when it fires; `ROAE_REQUIRE_CURRENT_STAMP=1` makes it refuse; Q-694), then `pre_commit_size_gate.sh` (blocking), then `pre_commit_generated_gate.sh` (blocking) | only when `ROAE_REQUIRE_CURRENT_STAMP=1` is set, a commit staging a reproduction-fingerprint input whose **staged** stamp is not current for the **staged** tree (the staged gate's `tr12_repro_gate.sh --check`, run over the index's members in a scratch tree, does not print `TR12_REPRO_GATE_CURRENT=YES`; by default that leg only warns, per O-redfloor), a commit touching `roae.py` or any `example/` artifact whose `doc_gates.sh generated` check fails, or a **first-time** file at or above the size gate's limit with no recorded approval. The registry and stamp legs never block — see the rc contract below. ⚠ This row listed only two legs until 2026-09-21: the size gate landed 2026-09-04 and the stamp gate 2026-09-21, and a hook table that omits a **blocking** leg is the doc-versus-code drift these gates exist to catch |
 
 **Pre-commit rc contract (2026-09-02, route C6).** The dispatcher reads **three** verdicts from
@@ -1140,7 +1140,7 @@ sudo reboot
 
 - **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. ⚠ **[REFUTED 2026-05-16 — it was validated empirically, and the expectation did not survive. The definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected); #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits, so the scalar baseline was never scalar. The task description above is preserved as written; the AVX-512 host guidance earlier in this section remains accurate as a statement about instruction support, but no longer implies pending speedup work. This callout added 2026-09-02; it was the last of the three 1.4–2.0× sites left unmarked after prose batch P64 marked the two in HISTORY.md.]** Development + selftest-scale benchmarks happen on `claude` directly (full AVX-512 stack supported). Canonical-scale speedup measurement on D64als_v7 Spot in westus3 ($1.50, 1.5h). Scalar-fallback cross-arch validation on Cobalt ARM (Dpsv6) — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
 - **#47 LTO:** baseline `-O3 -march=native` vs `-O3 -flto -march=native`. Speedup expected 0–5% (LTO mostly helps cross-translation-unit optimization; single-file project gets modest gains from extra dead-code elimination + cross-function inlining beyond `-O3`'s defaults). On claude.
-- **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude. **Build invariant (added 2026-05-24 after the silent no-PGO incident):** use `scripts/build_pgo.sh` for all PGO builds. Under `-flto`, GCC keys the `.gcda` lookup on the output binary's name; if Pass 1 and Pass 2 use different output names (e.g., `solve_inst` vs `solve_U`), Pass 2 silently misses the profile data and falls back to no-PGO with a one-line warning. The helper enforces three rules: (1) same output name in both passes (rename after), (2) `-Werror=missing-profile` on Pass 2 so any future regression fails the build loud, (3) assert `.gcda` count > 0 between passes. Past incident: the v1-vs-v3 paired bench 2026-05-24 measured only +4.38% v3 advantage (vs predicted +9.2%) because PGO silently didn't apply. See `roae-private/V1_V3_PAIRED_BENCH_RESULTS_2026_05_24.md`.
+- **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude. **Build invariant (added 2026-05-24 after the silent no-PGO incident):** use `scripts/build_pgo.sh` for all PGO builds. Under `-flto`, GCC keys the `.gcda` lookup on the output binary's name; if Pass 1 and Pass 2 use different output names (e.g., `solve_inst` vs `solve_U`), Pass 2 silently misses the profile data and falls back to no-PGO with a one-line warning. The helper enforces three rules: (1) same output name in both passes (rename after), (2) `-Werror=missing-profile` on Pass 2 so any future regression fails the build loud, (3) assert `.gcda` count > 0 between passes. Past incident: the v1-vs-v3 paired bench 2026-05-24 measured only +4.38% v3 advantage (vs predicted +9.2%) because PGO silently didn't apply. See `roae-private/V1_V3_PAIRED_BENCH_RESULTS_2026_05_24.md`. *(2026-09-27, Q-828:)* the helper also refuses a training workload that did not finish. `solve` answers SIGTERM by checkpointing and exiting 0, so an exit status of 0 cannot tell a stopped workload from a finished one; and under the default workload's `SOLVE_SKIP_AUTOMERGE` no line of the log differed either. `solve` now ends every enumeration run with a whole-line `ENUM_RUN=FINISHED` or `ENUM_RUN=STOPPED` (`SOLVE_C_CLI.md`, default mode), and the workload log must carry `ENUM_RUN=FINISHED` and no `ENUM_RUN=STOPPED` or `*** Signal received` line, or the helper stops with an `ERROR:` line, exits 1 and builds no Pass 2. Bound a training workload with a node limit, not a time limit or a signal.
 - **#47 huge pages + NUMA:** runtime-environment changes (transparent huge pages, NUMA pinning); benchmarked on the host where they actually apply (D-series VM with NUMA-aware OS).
 
 #### Reporting template (one row per Phase 1 task)
@@ -1495,7 +1495,7 @@ Not in either table above, but armed on the same dispatch: the **disk-IOPS pre-f
 For 560T specifically, the rule is **launch-phase-dependent**:
 
 - **First launch:** set none of the skip-\* escapes. The whole point of these gates is to catch silent failures on the ~$50 single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
-- **Every eviction-resume / post-`az vm start` relaunch:** set `SOLVE_SKIP_IOPS_CHECK=1`, and nothing else. The #107/#115 IOPS pre-flight (exit 31) probes fsync rate against cold caches after a restart and mis-fires: the 11.2T dress rehearsal's resumed solve measured 223 fsync/s and exited 31 (HISTORY.md, dress-rehearsal bug 3). Over a 5-day campaign with ~5–10 expected evictions, leaving it armed deadlocks at the *first* eviction, so `SOLVE_SKIP_IOPS_CHECK=1` was baked into the real 560T `launch_enum` env (commits `86276eb`, `6d6539f`). This matches [SOLVE_C_CLI.md](SOLVE_C_CLI.md)'s ENVIRONMENT entry: "Recommended on every eviction-resume / post-`az vm start` launch (cold caches give noisy readings; the first-launch gate is authoritative)." The disk does not change between resumes, so the first-launch probe remains the authoritative measurement — this is a bypass of a known-noisy re-probe, not a relaxation of the gate. **All other gates stay armed on resume.**
+- **Every eviction-resume / post-`az vm start` relaunch:** set `SOLVE_SKIP_IOPS_CHECK=1`, and nothing else. The #107/#115 IOPS pre-flight (exit 31) probes fsync rate against cold caches after a restart and mis-fires: the 11.2T dress rehearsal's resumed solve measured 223 fsync/s and exited 31 (HISTORY.md, dress-rehearsal bug 3). Over a 5-day campaign with ~5–10 expected evictions, leaving it armed deadlocks at the *first* eviction, so `SOLVE_SKIP_IOPS_CHECK=1` was baked into the real 560T `launch_enum` env (commits `86276eb`, `6d6539f`). This matches [SOLVE_C_CLI.md](SOLVE_C_CLI.md)'s ENVIRONMENT entry: "Recommended on every eviction-resume / post-`az vm start` launch (cold caches give noisy readings; the first-launch gate is authoritative)." The disk does not change between resumes, so the first-launch probe remains the authoritative measurement — this is a bypass of a known-noisy re-probe, not a relaxation of the gate. **All other gates stay armed on resume.** *(2026-09-27, lane HE: the value must be exactly `1`. `SOLVE_SKIP_IOPS_CHECK=yes` used to leave the gate armed silently; it, and any other malformed numeric `SOLVE_*` value, now exits 2 with a `SOLVE_ENV=REFUSED name=<VAR> value=<v>` line before any work — see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §ENVIRONMENT.)*
 
 ### build.sha invariant (Outlier #4)
 
@@ -1570,7 +1570,7 @@ resumed or budget-extended shard keeps its whole history rather than the last st
 | key | what it holds |
 |---|---|
 | `schema_version` / `solutions_bin_sha256` / `solutions_bin_record_count` | `1`; the sha256 and record count of the merged `solutions.bin` this rollup describes (added 2026-09-26, with the other rows so marked, from `write_solutions_provenance_json` in `solve.c`) |
-| `shard_count` / `shards_by_final_status` | the number of sidecars read, and how many ended `EXHAUSTED`, `BUDGETED`, `INTERRUPTED` or `OTHER` (any other `final_status` string) (added 2026-09-26). Since 2026-09-26 a promoted orphan's minimal sidecar is read too and counts under `OTHER` (its `final_status` is `PROMOTED`) |
+| `shard_count` / `shards_by_final_status` | the number of sidecars read, and how many ended `EXHAUSTED`, `BUDGETED`, `INTERRUPTED` or `OTHER` (any other `final_status` string) (added 2026-09-26). Since 2026-09-26 a promoted orphan's minimal sidecar is read too and counts under `OTHER` (its `final_status` is `PROMOTED`) ⚠ *(Q-875, 2026-09-27: a new top-level key `sidecars_unusable` counts the `sub_*.bin.provenance.json` files that exist but could not be read or used; `shard_count` never includes them. Before this date they were skipped in silence; now each is named on stderr and a non-zero count makes the merge exit 2.)* |
 | `final_budget_distribution` | a map from `final_per_sub_branch_limit` to the number of shards that ended at it (added 2026-09-26) |
 | `cumulative.total_nodes_explored` / `cumulative.total_records_emitted` | sums of `nodes_explored_in_this_shard` and `records_emitted` over every write record of every sidecar: the real totals the per-shard `cumulative_*` fields are not (added 2026-09-26) ⚠ *[2026-09-26, later: wrong for `total_records_emitted`. Each write's `records_emitted` is the shard's whole count, so summing over writes counted an extended or resumed shard once per write (measured on a depth-2 extension: each of the 996 extended shards was counted once per write, 60,390 in all against 39,597 records in the 1,034 shards). It is now the sum over sidecars of the LAST write's `records_emitted`, so each shard counts once and the total equals the records in the shards. `total_nodes_explored` is unchanged: still the sum over every write. A rollup merged before this fix from extended or resumed shards over-counts, so `--compare-provenance` against it fails on this field]* |
 | `cumulative.campaign_wall_seconds` | `latest_shard_write_utc` minus `earliest_shard_write_utc`, in seconds; 0 when either is missing. A write window, not compute time (added 2026-09-26) |
@@ -1599,7 +1599,7 @@ an attribution check, and the fields above must be read directly for that.
 run directory by the hardening path via a shell pipeline. It is written **only if absent**: an
 existing non-empty file is left unchanged, so the fingerprint records the first run in that
 directory. Any field that fails to capture degrades to an empty string or `unknown` rather than
-failing the run.
+failing the run. *(Since 2026-09-27, Q-866: at `SOLVE_NODE_LIMIT` >= 1T it is captured after the lock, `build.sha` and shard-manifest refusals, next to `solve.binary.snapshot`, so a run refused with exit 27, 26 or 22 leaves none; a first `build.sha` is written at the same point.)*
 
 | key | what it holds |
 |---|---|
@@ -2180,7 +2180,7 @@ SOLVE_THREADS > 1"); set `SOLVE_SUB_BRANCH_PARALLELISM=single` to opt out, which
 is the regression-mode path. So size the VM **from measured scaling on your own
 workload**, not from a single-thread assumption — the old advice would leave a
 parallel run on two cores. See `DSERIES_ROI_REPORT.md` (outside repo) for SKU
-sizing rationale, and note it predates P1 on this same point.
+sizing rationale, and note it predates P1 on this same point. ⚠ *(2026-09-27, Q-871: a parallel run under a global `SOLVE_NODE_LIMIT` is not reproducible. Each in-flight task is cut wherever its worker stood when the shared node counter crossed the budget, which depends on thread scheduling, so two runs of one command can return different record sets, counts and shard shas. Treat a BUDGETED parallel count as a lower bound on the cell, never as a figure to reproduce, and see `SOLVE_C_CLI.md` §--sub-branch for what is deterministic.)*
 
 Validation guarantee: if you later exhaust a sub-branch via `--sub-branch`
 AND separately compute a full `--merge`'d canonical from independent
@@ -2269,7 +2269,7 @@ Mitigations, such as they are — key-only auth (`--ssh-key-values`), a Spot VM
 that exists for the length of one bench, and no secret on the box beyond
 public repo source and bench output. The residual is real, not zero. The
 teardown that closes the window is `az group delete` (`:147-151`), called
-explicitly at four sites (`:190`, `:284`, `:343`, `:575`) with **no teardown `trap`** (the one `EXIT` trap, Q-851, removes only the local source copies) — so an
+explicitly at four sites (`:190`, `:302`, `:361`, `:603`; re-cited after Q-877's insertions, 2026-09-27) with **no teardown `trap`** (the one `EXIT` trap, Q-851, removes only the local source copies) — so an
 interrupted or crashed run leaves the public-IP VM standing until someone
 removes the resource group by hand, and `--keep-vm` suppresses teardown by
 design. Check for orphans after any bench that did not print `TEARDOWN`.
@@ -2650,3 +2650,67 @@ which ones it cannot.
 | token | meaning |
 |---|---|
 | `DOC_GATE_SCRIPT_PATHS_PRIVATE` | `RAN` \| `SKIP:ROAE_PRIVATE_DIR-unset` \| `SKIP:ROAE_PRIVATE_DIR-not-a-directory`, whole line. It says whether the two private-checkout legs ran. It is not a verdict on the tree: GATE 21's exit code is. A `SKIP` exit 0 means only that the dangle leg found nothing |
+
+## Pre-push verdict record (Q-798): reuse a battery already run on the same tree
+
+`scripts/pre_push_gate.sh` runs its blocking battery on the machine that pushes. When a larger
+machine has already run that battery green on the **identical tree**, it can leave a record, and
+the hook reuses it instead of running the covered legs again. The design keys on the tree id and
+nothing weaker:
+
+- The check that ran the battery calls `scripts/prepush_verdict_record.sh write`. It reads every
+  verdict from the logs by token, never from its caller, and refuses (writes nothing) when the
+  repository has tracked changes against `HEAD` or when the hook log gated a tree other than `HEAD`'s.
+  The hook log must come from a run of the hook itself on that commit, in producer shape: one ref line
+  whose remote sha is all zeros on a `refs/tags/` name, so that every conditional leg runs.
+- The pusher sets `ROAE_PREPUSH_RECORD=/path/outside/the/tree` for the push. For each pushed sha the
+  hook computes that commit's tree id itself and asks the pushed tree's own copy of the helper
+  (`check`). Only on `PREPUSH_RECORD=MATCH` are the covered legs skipped.
+- `MATCH` needs all of the following: a record that parses completely (version header, only
+  known keys, each exactly once, `RECORD_SHA256` last and correct), every `LEG_*` equal to `PASS`,
+  and the pushed tree, the push's citation-gate base (Q-792) and this host's toolchain
+  (gcc and python3 versions) all equal to the record's. Anything else runs the full battery, as does
+  an unset variable, a missing file, or a record inside the repository or the temporary worktree.
+- The record is an attestation by whoever wrote it, not a proof. Anyone who can hand the hook a
+  record can equally run `git push --no-verify`. What the record adds is that the local legs still
+  run, a partial or stale record is refused, and the push log carries the record's log digests.
+
+| leg | with a matching record |
+|---|---|
+| `doc_gates.sh all`, `doc_gates.sh generated`, `pre_push_compile_gate.sh`, `gate_published_consistency.sh`, the #167 resume leg with its disk-precheck and `--mutant M3`/`M4` legs, `atlas_n31_probe_gate.sh`, `tr12_output_paths_gate.sh` | **covered**: skipped, printed as `PREPUSH_LEG_<NAME>=REUSED` |
+| `doc_gates.sh branch-registry` (GATE 19, reads the remote), `doc_gates.sh appendonly` (GATE 10a/10b, reads `HEAD` and every published ledger), `doc_gates.sh revrows` (reads the pushed range), `doc_gates.sh tracked-ignored` (GATE 23, reads this clone's `.git/info/exclude` and `core.excludesFile`) | **always local**: run in the pushed worktree, blocking |
+| the new-branch declaration leg, and every advisory leg (Q-479 battery, REPRODUCE.md digests, fail-open sweep, reproduction stamp and skip pin, row-assertion sweep, `doc_gates.sh --selftest`, Group C rehearsal, review loop) | **always local**, unchanged |
+
+Record format, version 1: one `KEY=value` per line, LF-terminated, in this order.
+
+| key | value |
+|---|---|
+| `ROAE_PREPUSH_RECORD` | `1` (the format version; first line) |
+| `TREE` | the checked tree id (40 or 64 hex) |
+| `CITGATE_BASE` | the commit the citation gate's shift leg diffed against, or `NONE` |
+| `TOOLCHAIN` | `gcc-<version>,python-<version>` (`prepush_verdict_record.sh toolchain`) |
+| `LEG_DOC_GATES_ALL` … `LEG_TR12_OUTPUT_PATHS` | one per covered hook leg: `PASS`, `FAIL`, `NOT-RUN`, `MISSING`, `REUSED` or `UNREADABLE` |
+| `LEG_HOOK` | the hook's own `PREPUSH_VERDICT` |
+| `LEG_TESTS` | `PASS` when the `tests.py` log has one `Ran N tests` line, one bare `OK` line and no `FAILED` line |
+| `LEG_CITATION` | `PASS` when the `citation_line_gate.sh --all-files --all-targets` log has `CITATION_LINE_GATE=PASS` exactly once |
+| `LEG_TR12_STAMP_CURRENT` | `PASS` when the `tr12_repro_gate.sh --check` log has `TR12_REPRO_GATE_CURRENT=YES` exactly once |
+| `LOG_HOOK_SHA256`, `LOG_TESTS_SHA256`, `LOG_CITATION_SHA256`, `LOG_STAMP_SHA256` | sha256 of each log the record was distilled from |
+| `RECORD_SHA256` | sha256 of every byte above it (last line) |
+
+Verdict tokens, all whole lines for `grep -qx`:
+
+| token | emitted by | values |
+|---|---|---|
+| `PREPUSH_RECORD` | `prepush_verdict_record.sh` | `WRITTEN` \| `MATCH` \| `NOMATCH` \| `ERROR`. `write` exits 0 all-PASS, 1 written with a non-PASS result, 2 nothing written; `check` exits 0 `MATCH`, 1 `NOMATCH`, 2 bad usage |
+| `PREPUSH_RECORD_ALL_PASS` | `write` | `YES` \| `NO` |
+| `PREPUSH_RECORD_WHY` | `check`, on `NOMATCH` | `absent` `unreadable` `inside-tree` `empty` `too-large` `truncated` `nul-byte` `bad-line` `bad-header` `checksum` `duplicate-key` `unknown-key` `missing-key` `bad-value` `not-pass:<LEG>` `tree-mismatch` `citbase-mismatch` `toolchain-mismatch` |
+| `PREPUSH_TREE` · `PREPUSH_CITGATE_BASE` | `pre_push_gate.sh`, per pushed sha | the tree id the hook computed (`UNKNOWN` if it could not) · the citation-gate base, or `NONE` |
+| `PREPUSH_LEG_<NAME>` | `pre_push_gate.sh`, per pushed sha, one per covered leg | `PASS` \| `FAIL` \| `NOT-RUN` \| `REUSED` |
+| `PREPUSH_VERDICT` | `pre_push_gate.sh`, last line of a push that gated a tree | `PASS` \| `FAIL` (the hook's exit status) |
+
+Tests: `TestQ798PrepushTreeKeyedReuse` in `tests.py` drives the real hook and helper against a
+throwaway repository with a throwaway bare remote (nothing is pushed). It covers a one-byte tree change,
+a non-PASS record, a record for another tree or citation base, and a missing, truncated, corrupted or
+unparseable record, each of which must run the full battery. Its positive control is an exact tree
+with an all-PASS record, which must skip exactly the covered legs. Each case also has a mutant that
+removes the refusal it relies on.

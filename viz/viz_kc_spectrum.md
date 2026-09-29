@@ -215,7 +215,7 @@ One TSV per order; a spectrum mixing O3 and REL rows in one panel is a labelling
 
 The `kw_*` columns are optional **and they are the only way a reference line gets drawn**.
 `viz/` holds no analysis, so the renderer will not look King Wen's value up: a panel whose
-`kw_<observable>` column is absent is drawn with no reference line, and the figure's subtitle says
+`kw_<observable>` column is absent is drawn with no reference line, and the figure's key says
 how many panels carry one. A `kw_*` column that is *not* constant down the grid is refused as a
 labelling error rather than averaged. The King Wen column of the observable table above is the
 source those values are emitted from.
@@ -228,7 +228,7 @@ literally `arange(32)`), so King Wen necessarily takes the extreme value (0, 33,
 table above), and a reference line would sit outside the cloud and read as a discovery.
 [DISTRIBUTIONAL_ANALYSIS.md](../documentation/DISTRIBUTIONAL_ANALYSIS.md)'s adversarial circularity
 audit (2026-07-26) names exactly these four and withdrew a published joint-KDE headline over the same
-inference. The decision is made in the **data**, not in `viz/`; the figure's subtitle names the
+inference. The decision is made in the **data**, not in `viz/`; the figure's key (in its empty panel cells since Q-899, 2026-09-28) names the
 unlined panels so a missing line cannot be read as a missing value. `c3_total` keeps its line — that
 audit's objection to it was the C3 ≤ 776 population filter, which this unfiltered SUPER grid does not
 apply.
@@ -236,7 +236,7 @@ apply.
 ### Two observables are dropped as CONSTANT, and both constants are theorems
 
 On the committed grid `max_transition_hamming = 6` and `mean_transition_hamming = 3.3492064` at
-every one of the 1000 points, so the renderer drops both (rule 1) and names them in the subtitle.
+every one of the 1000 points, so the renderer drops both (rule 1) and names them in the figure's key.
 Neither is a finding about the index: C5 forces exactly one `d = 6` boundary, so the maximum is 6
 for every member of SUPER; and the 63 transitions are the 32 within-pair steps (C1:
 `12·2 + 12·4 + 8·6 = 120`) plus the 31 boundaries (C5: `2·1 + 8·2 + 13·3 + 7·4 + 1·6 = 91`), so the
@@ -284,8 +284,8 @@ column is absent the panel has no reference line: the renderer will not invent o
 
 ## How to read it
 
-- **A flat, high-variance band** = the rank index carries no structural information for that
-  observable. This is the expected outcome for most of the battery and is a legitimate, reportable
+- **A flat, high-variance band** = on this lattice the rank index shows no clear monotone relation to that
+  observable; it does not exclude nonlinear structure or structure the lattice misses. This is the expected outcome for most of the battery and is a legitimate, reportable
   negative. ⚠ *(noted 2026-09-24: "flat" is only informative for an observable that varies. On the
   rendered n=31 REL grid, `c6_c7_count` is 0 at 995 of 1000 points and `first_position_deviation`
   takes only 2 or 3, so their flat panels say nothing about the index (rule 1). The other five are
@@ -307,10 +307,10 @@ column is absent the panel has no reference line: the renderer will not invent o
 ## What this figure is allowed to claim
 
 1. **Exact rank identities.** Each `rank` names one specific walk, exactly, and the walk can be
-   re-ranked to prove it (`--kc-o3-rank` round trip).
+   re-ranked to prove it (`--kc-rank` for REL rows, `--kc-o3-rank` for O3 rows — the row's `order` says which).
 2. **Property values at exactly those index positions**, with the order named.
-3. **The negative**, which is the likely and reportable result: that the citable index is not a
-   structural coordinate for these observables.
+3. **The negative**, which is the likely and reportable result: that, on this REL lattice, the index shows no monotone structural trend
+   for these observables (the citable O3 order is not tested here).
 
 ## What it may NOT claim
 
@@ -350,8 +350,8 @@ column is absent the panel has no reference line: the renderer will not invent o
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence TSV:** `<artifact-root>/spectrum/v3_spectrum.tsv` (one per order); committed REL table
   `tr12/v3_spectrum.tsv`, from the grid `tr12/v3_rel_grid.tsv`
-- **Figures:** `runs/<run-id>/viz/viz_kc_spectrum.{png,svg}` → mirrored to
-  `reports/figures/fig_tr12_kc_spectrum.{png,svg}`
+- **Figures:** `reports/figures/fig_tr12_kc_spectrum.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
+  mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 
 ## Related
 

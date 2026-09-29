@@ -153,7 +153,7 @@ out=$(run_row "$W0" "$W0"); rc=$?
 W16=$("$W/solve" --kc-o3-unrank "$W/f" "$W/g" 16244 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
 if [ -n "$W16" ]; then
   out=$(run_row "$W16" "$W16"); rc=$?
-  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'rank3=16244'; then
+  if [ "$rc" -ne 0 ] && grep -q 'rank3=16244' <<<"$out"; then
     r ok "leg 3: a walk of rank 16244 fails the row and the value is named"
   else
     r FAIL "leg 3: rank-16244 walk gave rc=$rc without naming the rank -- a wrong rank would ship"
@@ -181,7 +181,7 @@ fi
 # print it as a witness_serial line, with the engine's rank3, and return 0.
 if [ -n "$W16" ]; then
   out=$(run_row "$W16" "$W0" explicit q7_moore-strict.json); rc=$?
-  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^witness_serial	q7_moore-strict	rank3=16244	'; then
+  if [ "$rc" -eq 0 ] && grep -q '^witness_serial	q7_moore-strict	rank3=16244	' <<<"$out"; then
     r ok "leg 6: a non-KW IN certificate with a rank-16244 walk passes and prints witness_serial rank3=16244"
   else
     r FAIL "leg 6: a non-KW IN certificate gave rc=$rc without a witness_serial rank3=16244 line -- the witness serial number would not be produced"
@@ -193,7 +193,7 @@ fi
 
 # ---- LEG 7 (CX-93): a NON-KW input that ranks 0 is the anchor walk, not a witness ----
 out=$(run_row "$W0" "$W0" explicit q7_moore-strict.json); rc=$?
-if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'rank3=0 for a non-KW input'; then
+if [ "$rc" -ne 0 ] && grep -q 'rank3=0 for a non-KW input' <<<"$out"; then
   r ok "leg 7: a non-KW certificate whose walk ranks 0 fails the row by name"
 else
   r FAIL "leg 7: a non-KW certificate ranking 0 gave rc=$rc without naming it -- the anchor walk could ship as a witness serial number"
@@ -202,7 +202,7 @@ fi
 # ---- LEG 8 (Q-795): the witness is named by its LABEL, not its certificate filename ----
 if [ -n "$W16" ]; then
   out=$(run_row "$W16" "$W0" moore-strict q7_not-the-label.json); rc=$?
-  if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^witness_serial	moore-strict	rank3=16244	'; then
+  if [ "$rc" -eq 0 ] && grep -q '^witness_serial	moore-strict	rank3=16244	' <<<"$out"; then
     r ok "leg 8: a labelled certificate (label moore-strict, file q7_not-the-label.json) is named by its label"
   else
     r FAIL "leg 8: a labelled certificate gave rc=$rc without 'witness_serial moore-strict' -- the row still keys on the filename"

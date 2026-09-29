@@ -1,0 +1,5 @@
+series	per_cell_budget	count	sha256_prefix	source
+11.2T	70723196	759608573	0c0fe37c	documentation/CANONICAL_HASHES.md (Quick reference; Reproducibility parameters)
+100T	631456644	3432399297	915abf30	documentation/CANONICAL_HASHES.md (Quick reference; Reproducibility parameters)
+560T	3536157207	10525271997	9a968fa2	documentation/CANONICAL_HASHES.md (Quick reference; Reproducibility parameters)
+N	-	1097051278789181790036112071176579186688	-	reports/METHODS.md (Canonical quantities); TR-11 section 9

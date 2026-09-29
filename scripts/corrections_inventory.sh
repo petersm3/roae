@@ -148,8 +148,15 @@ src_markdown() {
 #   `--abbrev=8`: git lengthens an abbreviation that is ambiguous, and the length must not depend
 #   on the object store either. A shallow clone is refused in sweep(): it would publish a
 #   truncated history as the whole of it.
+#
+#   2026-09-28: a commit row PUBLISHES THE SUBJECT LINE, not the message. The full message ("%s %b",
+#   byte-for-byte what it was) is still what the row is found, classified, dated and id'd by, so no
+#   published id, date, class or token moves. The body is not copied into the text column: git log
+#   carries it whole, and a 400-character excerpt of it was a partial quote of a record that is
+#   complete one command away. src_git emits the subject as a fifth field for classify(); the
+#   \x02 separator survives the tr chain (it only rewrites \r, \t, \n and \x01).
 src_git() {
-  git log --date=short --format='%x01%H%x09%ad%x09%s %b' \
+  git log --date=short --format='%x01%H%x09%ad%x09%s%x02%s %b' \
     | tr -d '\r' | tr '\t' ' ' | tr '\n' ' ' | tr '\001' '\n' | awk -v RE="$ALL_RE" '
     NF == 0 { next }
     {
@@ -158,7 +165,8 @@ src_git() {
       sha = a[1]; dt = a[2]
       msg = substr($0, length(sha) + length(dt) + 3)
       sha = substr(sha, 1, 8)
-      if (tolower(msg) ~ RE) print "git\t" sha "\t" dt "\t" msg
+      j = index(msg, "\002"); subj = substr(msg, 1, j - 1); msg = substr(msg, j + 1)
+      if (tolower(msg) ~ RE) print "git\t" sha "\t" dt "\t" msg "\t" subj
     }'
 }
 
@@ -227,8 +235,8 @@ classify() {
     }
     {
       src = $1
-      if (src == "git") { doc = $2; ln = "-"; dt = $3; text = $4 }
-      else              { doc = $2; ln = $3;  dt = "";  text = $4 }
+      if (src == "git") { doc = $2; ln = "-"; dt = $3; text = $4; subj = $5 }
+      else              { doc = $2; ln = $3;  dt = "";  text = $4; subj = "" }
       cdt = dt   # the commit date on a git row, "" otherwise (Q-763, below)
 
       low = tolower(text)
@@ -307,6 +315,14 @@ classify() {
           gsub(/[[:space:]]+/, " ", pub); sub(/^ /, "", pub)
           out = pub
         }
+      }
+      # a commit row publishes its SUBJECT (see src_git); everything above used the full message.
+      if (src == "git" && subj != "") {
+        pub = subj
+        for (k = 1; k <= nred; k++) pub = repl(pub, red[k], REDMARK)
+        if (length(pub) > MAXTEXT) pub = substr(pub, 1, MAXTEXT) "  [...truncated]"
+        gsub(/[[:space:]]+/, " ", pub); sub(/^ /, "", pub)
+        out = pub
       }
       print id, dt, cls, tok, src, doc, ln, out
     }
@@ -559,8 +575,10 @@ selftest() {
     redact_list "$gsrc" > "$glist"
     sweep > "$gout" 2>/dev/null
     gleft=$(redact_list "$gout" | grep -c .)
-    if [ "$(grep -c . "$glist")" -gt 0 ] && [ "${gleft:-1}" -eq 0 ] \
-       && [ "$(grep -c -F "$REDACT_MARK" "$gout")" -gt 0 ]; then
+    # 2026-09-28: no longer also requires a marker in the output. The known carrier's figure sits in
+    # its commit BODY, which a commit row no longer publishes (src_git); anchor 15 holds the
+    # replacement itself, and anchor 18 below that every commit row is exactly its subject.
+    if [ "$(grep -c . "$glist")" -gt 0 ] && [ "${gleft:-1}" -eq 0 ]; then
       echo "  [ok]   real registry, real git log: $(grep -c . "$glist") registered token(s) found, 0 survive the sweep"
     else
       echo "  [FAIL] real registry, real git log: found=$(grep -c . "$glist") surviving=$gleft"
@@ -578,6 +596,30 @@ selftest() {
     echo "  [FAIL] an unreadable redaction registry still returned rc 0 from sweep"
     rc=1
   fi
+
+  # (18) a commit row publishes its SUBJECT, on the real git log through sweep(). Precondition: at
+  #      least 50 commit rows, and at least one of them has a non-empty body (else "text = subject"
+  #      and "text = message" cannot be told apart). Verdict: every commit row's text equals its
+  #      commit's subject, normalised as classify() normalises it; rows carrying the redaction
+  #      marker are skipped (anchor 15 covers the replacement).
+  local sout smap nrow nbody nbad
+  sout=$(mktemp) && smap=$(mktemp) && {
+    sweep > "$sout" 2>/dev/null
+    git log --format='%x01%H%x1f%s%x1f%b' | tr -d '\r' | tr '\t' ' ' | tr '\n' ' ' | tr '\001' '\n' | tr '\037' '\t' \
+      | awk -F'\t' 'NF >= 2 { b = $3; gsub(/[[:space:]]/, "", b); print substr($1, 1, 8) "\t" (b != "") "\t" $2 }' > "$smap"
+    read -r nrow nbody nbad < <(awk -F'\t' -v MAXTEXT=400 -v RM="$REDACT_MARK" '
+      FILENAME == ARGV[1] { hb[$1] = $2; s = $3; if (length(s) > MAXTEXT) s = substr(s, 1, MAXTEXT) "  [...truncated]"
+                            gsub(/[[:space:]]+/, " ", s); sub(/^ /, "", s); sj[$1] = s; next }
+      FNR > 1 && $5 == "git" { n++; if (hb[$6]) nb++; if (index($8, RM) == 0 && $8 != sj[$6]) bad++ }
+      END { print n + 0, nb + 0, bad + 0 }' "$smap" "$sout")
+    if [ "${nrow:-0}" -ge 50 ] && [ "${nbody:-0}" -gt 0 ] && [ "${nbad:-1}" -eq 0 ]; then
+      echo "  [ok]   every commit row publishes its subject: $nrow rows ($nbody with a body), 0 differ"
+    else
+      echo "  [FAIL] commit rows vs subjects: rows=$nrow with-body=$nbody differ=$nbad"
+      rc=1
+    fi
+    rm -f "$sout" "$smap"
+  }
 
   rm -f "$tmp"
   echo

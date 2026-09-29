@@ -2,7 +2,7 @@
 
 **The rarity profile of King Wen, drawn.** Fix King Wen's first *i* pair placements; count — exactly
 — how many members of the whole superspace still agree with it. That count is the *i*-th shell. The
-figure plots the **31 post-placement shells** on a log axis as they fall from the entire space to the
+figure plots the **31 post-placement shells** on a log axis, from the first shell after the root (the root `Shell_0 = N` is not plotted) down to the
 single ordering, together with the surprisal each individual choice contributes. It is TR-12's Q3
 table as a picture. *(Corrected 2026-09-04, Q-316 item 4: this read "the 32 shells". There are 32
 shells counting `Shell_0 = SUPER`, but the TSV has one row per free PLACEMENT — 31 at full-31 — and
@@ -18,12 +18,12 @@ shells counting `Shell_0 = SUPER`, but the TSV has one row per free PLACEMENT �
 |---|---|---|
 | The 31-row f·g descent trace along King Wen's own path | `solve --kc-o3-rank FDIR GDIR "<walk>" --kc-trace` | **EXISTS** (source + binary, verified) |
 | Per-step flow identity, endpoint checks, `Π p_i = 1/N` self-check | printed by the same command as `#o3-trace-summary` | **EXISTS** |
-| Optional band: min/max `g` over the *alternatives* at each step | `solve --kc-profile FDIR GDIR "<walk>" --kc-tsv FILE --kc-alts` | **EXISTS** (`g_alt_min` / `g_alt_max`; the consumer carries them through and `fig_tr12_kc_shells` shades the band) |
+| Optional band: min/max `g` over the *alternatives* at each step | `solve --kc-profile FDIR GDIR "<walk>" --kc-tsv FILE --kc-alts` | **EXISTS** (`g_alt_min` / `g_alt_max`; the consumer carries them through, and `fig_tr12_kc_shells` draws the band from a table's own columns when present and its sidecar reads `q3_alts_status=REPRODUCED` (Q-891; no emitter writes that key yet, so today a table's own columns are never drawn), else from the published attested n=31 receipt; **DRAWN** 2026-09-27, see below) |
 | Full-31 f and g ladders | Stage F / Stage G | **BUILT** — the full-31 run of 2026-09-22 produced `tr12/q3_profile_kw.tsv` with them mounted. ⚠ *Updated 2026-09-24: this read "NOT YET BUILT".* |
-| Trace text → figure TSV | `python3 solve.py --atlas-queries ATLAS.json --atlas-q3-trace TRACE.txt` | **EXISTS** (n=9 gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
+| Trace text → figure TSV | `python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR --atlas-q3-trace TRACE.txt` | **EXISTS** (n=9 gated: `--atlas-selftest`, `ATLAS_CONSUMER=PASS`) |
 
-Unlike the other four, V4's main curve needs **no new engine work at all** — only the ladders. The
-optional band does.
+Unlike the other four, V4 needs **no new engine work at all**: the main curve and the alternatives band both render from published tables, and
+recomputing their counts needs only the f/g ladders (the committed band is the attested n=31 receipt; Q-901, 2026-09-28: this said the band needed engine work).
 
 ## The quantity plotted
 
@@ -39,7 +39,7 @@ Shell_i = { w ∈ SUPER : w agrees with King Wen on free placements 1 … i }
 ```
 
 so `Shell_0 = SUPER` (`g(s_0) = N`) and `Shell_31 = {King Wen}` (`g(s_31) = 1`). The shells are
-strictly **nested**, and their sizes are **non-increasing** — *not* strictly decreasing.
+**nested** — not strictly: a forced placement leaves a shell equal to the one before it (Q-901: this read "strictly nested") — and their sizes are **non-increasing**, *not* strictly decreasing.
 
 ⚠ **Corrected 2026-09-04 (Q-316 item 4), and this repository's own committed trace is the
 counterexample.** `scripts/tr12_expected/n9/a2_q3_profile.txt` reads
@@ -73,11 +73,11 @@ Two exact self-checks follow by telescoping and are printed by the engine:
 Π_{i=1..31} p_i = 1/N            Σ_{i=1..31} bits_i = log₂ N
 ```
 
-**The alternatives band (data exists, not yet published).** At step *i* the trace reports `alts` — the number of admissible
+**The alternatives band (data published 2026-09-27, as attested; drawn 2026-09-27).** At step *i* the trace reports `alts` — the number of admissible
 oriented successors with `g > 0` — but not their individual masses. TR-12 §8 item 5 specifies
 `--kc-profile FDIR GDIR "e,x,…"|KW`, which prints the per-step `g_alt_min` / `g_alt_max` a min/max band around the
-shell curve requires; it has been run on King Wen at n = 31 and its output is held with the run's evidence, not in this tree (the tracked receipt `reports/evidence/tr12/VERDICTS_n31_20260922.txt` records `TR12_Q3_PROFILE=PASS` for that run). Until it is published the figure ships as the curve plus the `alts` count, and **must not
-draw a band**. ⚠ *(corrected 2026-09-26: the heading read "(PENDING)" and the text implied the per-alternative values had not been computed; they have, and are unpublished.)*
+shell curve requires; it has been run on King Wen at n = 31, and its output is published as attested (2026-09-22 battery; not reproducible without the f/g ladders): [`reports/evidence/tr12/banked_n31_20260922/a2_q3_profile.txt`](../reports/evidence/tr12/banked_n31_20260922/a2_q3_profile.txt) carries the per-step `g_alt_min` / `g_alt_max` and all 880 per-alternative `#alt` rows, and [`q3_profile_exact.tsv`](../reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv) beside it is the run's 16-column exact table (the tracked receipt `reports/evidence/tr12/VERDICTS_n31_20260922.txt` records `TR12_Q3_PROFILE=PASS` for that run). The figure may draw the band only from those rows, joined to the curve step by step, and only labelled as attested; without them it ships as the curve plus the `alts` count, and **must not
+draw a band**. **Satisfied 2026-09-27 (lane VF):** `fig_tr12_kc_shells` reads `q3_profile_exact.tsv` where it is published, draws one shaded bar per step from `g_alt_min` to `g_alt_max` only when every step's `pair`, `entry`, `exit`, `orient`, `alts`, `g` and `g_parent` equal the curve table's, keys the bars on the figure as ATTESTED from the 2026-09-22 n=31 battery receipts, and names the file and its sha prefix in the footer (`q3_profile_exact.tsv@ee0b99fde78a`). A receipt for another `n` (the n=9 battery) draws no band and prints nothing; a same-`n` receipt that disagrees prints one `V4 band omitted:` line and draws no band. *(Q-891, 2026-09-28: a receipt path that does not exist now also prints one `V4 band omitted: receipt absent …` line and puts `q3_profile_exact.tsv@ABSENT` in the footer; the receipt must also satisfy `g_alt_max ≤ g_parent`, and `g_alt_min = g_alt_max = g` at a one-alternative step; bounds carried in the curve's own table are drawn only when its sidecar reads `q3_alts_status=REPRODUCED` — no emitter writes that key yet, so such a table draws no band and says so.)* ⚠ *(corrected 2026-09-26: the heading read "(PENDING)" and the text implied the per-alternative values had not been computed; they have, and are unpublished.)* *(Updated 2026-09-27, Q-867: they are now published, at the paths above.)*
 
 ## Where the numbers come from
 
@@ -183,7 +183,7 @@ world has no King Wen, so the *figure* is full-31 only; the n=9 gate covers the 
 
 **TSV → figure:** `viz/report_figures.py` (`fig_tr12_kc_shells`) — a semilog-y step plot of `g`
 against `step` (main panel) with a `bits` bar panel beneath and `alts` annotated. TSV in, figure
-out; **no analysis logic in `viz/`**.
+out; **no analysis logic in `viz/`**. The one other input is the attested alternatives band, read from the published receipt named above and drawn only when it matches the curve step for step.
 
 ## How to read it
 
@@ -206,7 +206,7 @@ out; **no analysis logic in `viz/`**.
   mass, King Wen's choice would cost exactly `log₂ a` bits. The **signed gap**
   `bits_i − log₂ alts_i` is therefore the readable quantity: negative means King Wen took a
   heavier-than-average alternative, positive means a lighter-than-average one. Read the two series
-  together; neither is interpretable alone.
+  together; neither is interpretable alone. **The shaded bars** span the least to greatest `g` over the admissible alternatives at each step, King Wen's own included, so the point's place inside its bar shows where King Wen's choice falls among them by `g` (the receipt's `choice_rank` column is its exact 1-based rank by descending `g`). On this axis they are short: the tallest, at step 19, spans 1.36 decades, and at steps 29–31 every alternative leaves the same `g`, so the bar has zero height.
 - **Late steps have few alternatives, but they are not free.** `alts` does fall along the walk
   (56 at step 1; 6, 5, 2, 3, 1, 2 at steps 26–31), yet the last five steps still carry
   **5.700 bits** — 2.379, 0.737, 1.585, 0.000 and 1.000 at steps 27–31 — and step 31 alone carries
@@ -249,7 +249,7 @@ out; **no analysis logic in `viz/`**.
   King Wen on the first *i* placements; it is not a ball of radius *i* in any metric. Solutions at
   small edit distance from King Wen that differ early are in **no** shell but `Shell_0`.
 - **No band without `--kc-profile`.** The alternatives' individual masses are not in the trace; a
-  min/max envelope drawn from `alts` alone would be fabricated.
+  min/max envelope drawn from `alts` alone would be fabricated. The band that IS drawn is a **range**, not a distribution: it says nothing about how the alternatives' `g` spread inside it, and its values are attested from one run: a reader can check them against the 880 `#alt` rows (the receipt directory's `check_receipts.sh` does), but cannot recompute them without the f/g ladders.
 - **Circularity caveat carries over.** C3, C6 and C7 were extracted from King Wen; this figure's
   space excludes C3 entirely, but the standing caveats in
   [CRITIQUE.md](../documentation/CRITIQUE.md) apply to any claim that layers them back on.
@@ -273,11 +273,11 @@ out; **no analysis logic in `viz/`**.
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence:** `<artifact-root>/q3_profile.txt` (raw engine output, row `a2_q3`: the Generation
   block's `--kc-o3-rank --kc-trace` run, with `--kc-bracket` added) and
-  `<artifact-root>/consumer/q3_profile_kw.tsv`, committed as `tr12/q3_profile_kw.tsv`. ⚠ *(corrected
+  `<artifact-root>/consumer/q3_profile_kw.tsv`, committed as `tr12/q3_profile_kw.tsv`; the band reads `reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv` (attested, 2026-09-22). ⚠ *(corrected
   2026-09-25, Q-684: this named a trace file and a table at the artifact root that the battery does
   not write there.)*
-- **Figures:** `runs/<run-id>/viz/viz_kc_shells.{png,svg}` → mirrored to
-  `reports/figures/fig_tr12_kc_shells.{png,svg}`
+- **Figures:** `reports/figures/fig_tr12_kc_shells.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
+  mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 
 ## Related
 

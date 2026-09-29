@@ -1,6 +1,6 @@
 # Visualization — PCA scatter plots (where each solution sits)
 
-The four PCA scatter plots project the complete d3 **560T** canonical solution set
+The four PCA scatter plots project a 1,000,000-record reservoir sample (seed 42, King Wen inserted if absent) of the d3 **560T** canonical solution set
 (sha `9a968fa2…`, 10,525,271,997 records) onto two dimensions, each colored by a
 different structural property. They answer **"where does each valid ordering sit, and
 where is King Wen?"**
@@ -41,9 +41,9 @@ space's variance lives.
 
 Producing billions of dots on a PNG would be an unreadable blob,
 so the plotting step subsamples to at most 200,000 points (configurable
-via `MAX_PLOT_POINTS` in `visualize.py`). **PCA itself uses all data**
-— the axes are computed from the full record set, so the structure
-is faithful. Only the visible dot density is subsampled.
+via `MAX_PLOT_POINTS` in `visualize.py`). **PCA is fitted to that 1,000,000-record sample, not to all records**
+— the axes are not computed from the full record set, so rare structure
+may be missing from them. Plotting then subsamples the sample again.
 
 King Wen itself is always included in the subsample (never dropped)
 so you can find its location on each plot.
@@ -54,18 +54,18 @@ so you can find its location on each plot.
 
 ### 1. `viz_edit_distance.png/.svg` — colored by edit distance to King Wen
 
-![2-D PCA scatter (PC1 vs PC2) of the 560T d3 canonical solution space, each dot a valid King Wen ordering colored by edit distance to King Wen (0 = KW itself, up to 32 positions differing); King Wen sits in a dense, well-populated central region rather than as an isolated outlier.](../../runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
+![2-D PCA scatter (PC1 vs PC2) of the 560T d3 canonical solution space, each dot a valid King Wen ordering colored by edit distance to King Wen (0 = KW itself, 2 to 31 positions differing); King Wen is the gold star near the upper edge of this projection rather than as an isolated outlier.](../../runs/20260608_560T_9a968fa2/viz/viz_edit_distance.png)
 
 **What's colored:** each solution's "edit distance" to King Wen,
 defined as the number of positions where this solution's pair
-differs from KW's pair. Range: 0 (only KW itself) to 32 (every
-position differs).
+differs from KW's pair. Range: 0 (only KW itself) to 31 (C4 fixes slot 1; distinct pair orderings
+differ in at least 2 slots).
 
 **How to read it:**
 
 - King Wen is the single dot with edit distance 0. Look for a
   darkest / outlier-colored point; the script highlights it.
-- Neighbors (solutions at edit distance 1-2-3 from KW) cluster
+- Neighbors (solutions at edit distance 2-3 from KW) cluster
   around it in the PCA projection. **Expect KW to NOT be isolated** —
   the constraint system creates structural similarity, so solutions
   very close to KW in edit distance usually sit near KW in PCA
@@ -78,7 +78,7 @@ position differs).
 
 **What this implies:**
 
-- **If KW is near the center of a dense cluster:** KW lives in a
+- **If KW is near the center of a dense cluster:** (on these two sample principal components; not a claim about the original feature space) KW lives in a
   typical region of the solution space — its specific properties
   are shared with many other valid orderings. (Mechanically: PCA
   centers coordinates on the dataset mean, so "near (0,0)" means
@@ -104,7 +104,7 @@ position differs).
   on the two KW-independent FFT dimensions places KW at ≈ the 30th
   percentile of joint density (see
   [`../../documentation/DISTRIBUTIONAL_ANALYSIS.md`](../../documentation/DISTRIBUTIONAL_ANALYSIS.md)).
-  The PCA centrality shown here and the corrected distributional result now
+  The PCA centrality shown here (on these two sample principal components; not a claim about the original feature space) and the corrected distributional result now
   agree: KW is typical both in raw pair-placement space and in the
   KW-independent observable space.
 
@@ -142,10 +142,10 @@ previously carried the 10T/100T minimum 424 under the 560T figure; the
   2026-08-01** as unsupported by the population it is labelled with
   (the ledger gives ≈12% at that scope) — see
   [SOLVE.md](../../documentation/SOLVE.md) §Rule 3.
-- The distribution shape in this plot tells you HOW selective C3 is
-  as a filter. A heavily skewed distribution (most points near 776,
-  few near the minimum) means C3 is a strong filter that eliminates most
-  pair-constrained sequences.
+- The colours describe C3 among retained records; the plot cannot estimate C3's acceptance fraction (all records here passed it).
+  How selective C3 is needs the pre-filter population and its accepted/rejected counts, which this
+  dataset does not contain; a skewed shape here says nothing about how many
+  pair-constrained sequences C3 eliminates.
 
 ### 3. `viz_position2_cluster.png/.svg` — colored by which pair is at position 2
 
@@ -154,7 +154,7 @@ previously carried the 10T/100T minimum 424 under the 560T figure; the
 **What's colored:** the first-level branch identity. Position 2 is
 the first "variable" position in the sequence (position 1 is locked
 to KW's pair 0 by C4). The color is the pair index (0-31) placed
-at position 2.
+at position 2 — 28 pair identities (orientations merged; not the 56 oriented branches); the image title's "28 clusters" counts these.
 
 **How to read it:**
 
@@ -172,7 +172,7 @@ at position 2.
 - **Visible clusters by position-2 pair:** strong first-level-branch
   determinism. The branching structure in the search tree has real
   geometric consequences in the solution space.
-- **Mixed colors:** the solution space has multiple independent
+- **Mixed colors:** (on these two sample principal components; not a claim about the original feature space) the solution space has multiple independent
   degrees of freedom; first-level branch is one influence among many.
 - This plot is the most direct visualization of the "56 first-level
   branches" partition structure that the enumerator is built around.
@@ -257,8 +257,8 @@ can overlay them mentally:
   - `viz_position2_cluster.png` and `.svg`
   - `viz_adjacency.png` and `.svg`
 
-PNGs are raster (good for quick viewing). SVGs are vector (better
-for zooming, publication, embedding in LaTeX). Choose per use case.
+PNGs are raster (good for quick viewing). SVGs keep axes, labels and markers as vectors, but the
+dense scatter cloud is embedded raster content at the rendered resolution (`rasterized=True`; Q-897, 2026-09-28: this read "SVGs are vector"), so zooming sharpens text, not points.
 
 See [README.md](../README.md) for data provenance and the regeneration recipe.
 

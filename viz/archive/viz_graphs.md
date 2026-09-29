@@ -31,9 +31,9 @@ trajectory" for the full analysis, and [`../../documentation/CANONICAL_HASHES.md
 ## Campaign telemetry — 560T re-run (2026-06-22 → 06-29)
 
 Sampled at a 5-minute cadence across the from-scratch 560T re-run (1,254 samples, **7 real Spot
-evictions / 8 resume segments**). These are *how the run executed* — reproduced from the preserved
-`telemetry.csv`. Grey bands mark VM-off (eviction) intervals; boot-id keys each resume segment.
-Captions/axes carry **no cloud identifiers** — only physical quantities.
+evictions / 8 resume segments**). These are *how the run executed* — archived outputs of `telemetry.csv`, which is **not distributed**
+(neither are its `telemetry_meta.txt` / `VIZ_*` settings), so these panels cannot be regenerated from this repository (Q-897, 2026-09-28; this read "reproduced from the preserved `telemetry.csv`"). Grey bands mark VM-off (eviction) intervals; boot-id keys each resume segment.
+The archived titles include the historical host label (a VM size name, not a cloud identifier); axes report the physical quantities described below.
 
 ### Compute & progress
 ![Multi-panel time-course of throughput, CPU frequency, cells-scanned, and compute progress across the 560T re-run, eviction-resume boundaries marked.](../../runs/20260608_560T_9a968fa2/viz/tc_compute.png)
@@ -56,7 +56,7 @@ queue depth, 1-min load average, and available memory (GB) vs elapsed hours.
 ![Box-and-whisker plots of throughput, CPU-freq, IOPS-read, iowait and disk-util grouped by resume segment.](../../runs/20260608_560T_9a968fa2/viz/per_resume_whiskers.png)
 
 Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait, and disk-util grouped by resume segment (boot-id
-keyed; each Spot eviction-resume opens a segment). Reveals warmup/throttle per resume.
+keyed; each Spot eviction-resume opens a segment). Box = quartiles, line = median, triangle = mean, whiskers = the furthest points within 1.5 × IQR of the box (matplotlib's default, which the renderer used), circles = points beyond. Compares distributions across segments; the time-course panels above show warmup (Q-897: this read "Reveals warmup/throttle per resume", which a per-segment distribution cannot show).
 
 ### ETA projection
 ![Cells-scanned trajectory vs elapsed hours with a fitted rate line projecting to the 158,364-cell target.](../../runs/20260608_560T_9a968fa2/viz/eta_projection.png)
@@ -66,10 +66,10 @@ flat-held gap cannot deflate it; the green line projects from the latest sample 
 (red star). Grey = downtime; ETA assumes no further evictions.
 
 ### Throughput vs CPU-frequency
-![Scatter of throughput against CPU-frequency colored by elapsed time, showing the throttle-sensitivity slope.](../../runs/20260608_560T_9a968fa2/viz/throughput_vs_cpufreq.png)
+![Scatter of throughput against CPU-frequency colored by elapsed time, with a descriptive linear fit; r = 0.02.](../../runs/20260608_560T_9a968fa2/viz/throughput_vs_cpufreq.png)
 
-Scatter of throughput against CPU-freq, colored by elapsed time. A positive slope quantifies how host
-throttling (lower MHz) depresses throughput; clusters reveal per-host/per-resume regimes.
+Scatter of throughput against CPU-freq, colored by elapsed time. The dashed line is a descriptive linear fit; this archive has r ≈ 0.02, i.e. little linear association, and the plot does not isolate any causal effect of throttling. The arrowed point is the lowest observed CPU frequency, not an identified
+event: its "post-resume cold start" label came from the argmin alone (Q-897, 2026-09-28; this caption read "A positive slope quantifies how host throttling … depresses throughput").
 
 ### Eviction timeline
 ![Horizontal bars for each of the 7 Spot evictions on the elapsed-hours axis, colored by relaunch-policy regime, with weekend shading.](../../runs/20260608_560T_9a968fa2/viz/eviction_recovery.png)
@@ -89,7 +89,7 @@ A rendered viewer with all six panels + these captions is committed alongside as
 - **Growth curve:** produced by `viz/growth_curve.py` (the dedicated growth-curve generator;
   consolidating it into `visualize.py` as a `--growth` mode is a tracked follow-up, kept separate
   for now).
-- **Campaign telemetry (when present):** `python3 viz/visualize.py --telemetry <telemetry.csv>`
+- **Campaign telemetry (when present):** `python3 viz/visualize.py --telemetry <telemetry.csv>` (the 560T run's CSV is not distributed, so its panels above are archive-only)
   renders the `tc_*` time-course + whisker/ETA panels.
 
 Figures live under `runs/<run-id>/viz/` and are never inlined into `viz/` itself.

@@ -347,7 +347,7 @@ SCRIPT smoke_test():
   # Tiny budget; not a correctness test, just plumbing.
   ENV {
     SOLVE_DEPTH=2,
-    SOLVE_NODE_LIMIT=100M,
+    SOLVE_NODE_LIMIT=100000000,   # 100 M; a suffix such as 100M exits 2 (SOLVE_ENV=REFUSED)
     SOLVE_DFS_ITERATIVE=1,
     SOLVE_DFS_CHECKPOINT=1,
     SOLVE_THREADS=8,

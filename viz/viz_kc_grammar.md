@@ -71,10 +71,10 @@ all**: with `--kc-raw` the scan already persists every nonzero raw kernel cell `
 entry hexagram of the new one. Both coordinates are therefore functions of the key alone —
 `d = popcount(a ^ b)` and `w = popcount(b ^ partner(b))` — so the cross-tab is a **consumer-side
 derivation over a frame that already ships, not a flag and not a re-scan**. ⚠ *Corrected 2026-09-12:
-this read "a cheap flag, not a re-build" and named a proposed `--kc-scan … --kc-grammar-cross`.
+this read "a cheap flag, not a re-build" and proposed adding a `--kc-grammar-cross` option to `--kc-scan` — a proposal only, never built, so there is no such flag to run.
 That flag exists nowhere in solve.c or solve.py, and proposing a scan-side change to a pass paid
 exactly once — for something already persisted — is the expensive direction to be wrong in.*
-(Contrast [V2](viz_kc_river.md)'s branch split, which the DP state genuinely cannot support.) Other readings — pair orbit, trigram class — are possible and would need their own
+(Contrast [V2](viz_kc_river.md)'s joint branch × class split, which the DP state cannot support; the plain first-branch split needs no ladder.) Other readings — pair orbit, trigram class — are possible and would need their own
 G-invariance argument. ~~This doc does **not** pick one; it records the candidate and the reason.~~
 **PINNED 2026-09-23 by operator ruling:** the category is `w` as above, and `solve.py`
 `atlas_emit_v5` implements that reading and no other (it refuses to emit if the pairing in hand does
@@ -99,8 +99,8 @@ G[k][d] = Σ_{states s at layer k} Σ_{admissible c at s of class d}  orbit(mask
 P[k][d] = G[k][d] / N                                    ∈ [0,1],   Σ_d P[k][d] = 1 for every k
 ```
 
-`d` is G-invariant, so the orbit-weighted quotient sum is exactly the raw-frame total — no
-`--kc-raw` G-expansion is needed for this figure (the atlas's `frames.flow` field states this).
+`d` is G-invariant, so the orbit-weighted quotient sum is exactly the raw-frame total — the d-only marginal needs no
+`--kc-raw` G-expansion (the atlas's `frames.flow` field states this); the drawn `(d, w)` cross-tab does, see below (Q-901, 2026-09-28: this said the figure needs none).
 
 With the cross-tab (built 2026-09-23) the cell is `P[k][d][w] = G[k][d][w] / N`, and the heat map's
 row axis is the 15 `(d, w)` classes, all drawn, zero cells included. One row is **identically zero
@@ -138,19 +138,19 @@ gcc -O2 -pthread -fopenmp -o $B/solve solve.c -lm -lz
 A=$B/n9; mkdir -p $A/f $A/g
 $B/solve --kc-build   $A/f --f1-pairs 9
 $B/solve --kc-g-build $A/g --f1-pairs 9
-$B/solve --kc-scan    $A/f $A/g $A/atlas.json
+$B/solve --kc-scan    $A/f $A/g $A/atlas.json --kc-raw
 $B/solve --kc-scan-selftest                        # expect: PASS (0 failures)
 ```
 
 The battery's own n=9 rehearsal scans with `--kc-raw`, so its n=9 atlas carries `layers[].kernel` and
 the consumer writes the full `(d, w)` cross-tab: the committed golden
-`scripts/tr12_expected/n9/c_consumer.txt` reads `TR12_V5=PASS`, not the reduced form. Add `--kc-raw`
-to the `--kc-scan` line above to get the same. *(Added 2026-09-24.)*
+`scripts/tr12_expected/n9/c_consumer.txt` reads `TR12_V5=PASS`, not the reduced form. The `--kc-scan` line above carries `--kc-raw`
+(automatic at n ≤ 13 in `solve.c`, required at n = 31). *(Added 2026-09-24; the flag written into the line 2026-09-28, Q-901.)*
 
 **Full-31 (needs the full-31 f/g ladders; the committed TSV came from the published n=31 atlas, so re-rendering the figure needs neither):**
 
 ```bash
-solve --kc-scan FDIR GDIR tr12/scan/atlas.json [--kc-ooc] [--kc-cache-mb MB]
+solve --kc-scan FDIR GDIR tr12/scan/atlas.json --kc-raw [--kc-ooc] [--kc-cache-mb MB]
 #   --kc-tdir is NOT needed for this figure. --kc-raw is NOT needed for the
 #   distance-class-only form (by_class ships unconditionally), but IS REQUIRED for the
 #   (d, w) cross-tab, which derives from layers[].kernel and is absent without it.
@@ -192,7 +192,7 @@ figure out; **no analysis logic in `viz/`**.
   over `w` and over `k`, is exactly its allotment. On the committed table every class share sits
   within 0.020 of `b0[d]/31` at every layer (d = 1: 0.061…0.066 against 2/31 = 0.065), with one
   exception: d = 6 is 0 at k = 0, because d = 6 from hexagram 0 needs entry 63, which pair 0 holds.
-  No row goes dark from the right. A zero cell here is **positional**; it is not a budget running out.
+  All five distance marginals stay positive at k = 30; in the plotted (d, w) matrix every w = 4 row ends at zero. A zero cell here is **positional**; it is not a budget running out.
   ⚠ *Corrected 2026-09-25 (Q-699, V3A-142#1). This bullet read "The grammar tightens as the budget is
   spent … once a class's allotment is exhausted along a prefix its probability drops to zero for
   those walks, so late columns should concentrate on the classes with budget left. Rows going dark
@@ -200,7 +200,7 @@ figure out; **no analysis logic in `viz/`**.
   walk's residual budget. Measured by exhaustive enumeration at n=9 (all 26,112 walks, one class
   multiset {1,1,2,2,2,2,2,4,4}): d = 1 is 0 at k = 3, 4, 5 and back to 0.544 at k = 6, while 100% of
   walks still hold unspent d = 1 budget at k = 3…6, so those zeros are positional. At full-31 no
-  row goes dark (above).*
+  distance marginal goes dark (above); the w = 4 rows do, positionally.*
 - **The d = 6 rows are a single forced event.** Exactly one d = 6 boundary exists in every valid
   ordering, so those three rows, summed over `w`, *are* its exact positional distribution — the population version of the
   "9th six" ([MCKENNA.md](../documentation/MCKENNA.md)). King Wen puts it at k = 18.
@@ -266,10 +266,10 @@ Both reader-side identities were exercised against the committed n=9 reference a
 1.0; class totals {1:2, 2:5, 4:2}, the reduced-world analogue of {1:2, 2:8, 3:13, 4:7, 6:1}) before
 this doc was written.
 
-**Seven advertised keys are not twelve gate families.** `kc_h_scan_tail` runs twelve; the other
-five reach the JSON only through `fails`, and three of those five are guarded by a direct t
-recursion the tail attempts only when `N <= 2^27`, so they do not run at n=31 at all. Every
-advertised field collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
+**Named keys are not a count of gate families.** The published atlas is schema version 2: its
+`gates` object holds **14** named checks plus `fails`, and `tail_checks` holds **five** named checks
+plus `fails` (counted in `atlas_n31.json`; Q-901, 2026-09-28: this said "seven advertised keys"). Those are emitted-field counts, not the engine's internal gate families. A named
+`gates` value that ran collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
 a false positive. Read `fails` first. There is deliberately **no** vertical `quotient_marginal`
 gate: `kc_flookup` re-canonicalises with `f1_canon` on every lookup, so `q` indexes *this* layer's
 canonical mask and is not the same slot at `k+1`; the layer-summed quotient marginal has no closed
@@ -281,8 +281,8 @@ form and must not be asserted. Full accounting in
 - **This doc:** `viz/viz_kc_grammar.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence TSV:** `tr12/scan/v5_grammar.tsv`
-- **Figures:** `runs/<run-id>/viz/viz_kc_grammar.{png,svg}` → mirrored to
-  `reports/figures/fig_tr12_kc_grammar.{png,svg}`
+- **Figures:** `reports/figures/fig_tr12_kc_grammar.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
+  mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 
 ## Related
 

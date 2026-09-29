@@ -1434,7 +1434,8 @@ except SyntaxError as e:
                  " could not read" % (PYSRC, e.msg, e.lineno)); sys.exit(0)
 
 # ---- corpus, with the closure exclusion --------------------------------------------------------
-texts, nfiles, excluded = [], 0, []
+texts, nfiles, excluded, generated = [], 0, [], []
+GENERATED = ("CORRECTIONS_INVENTORY.tsv", "CORRECTION_MARKER_INVENTORY.tsv")
 if not os.path.isdir(DOCROOT):
     rec("ERROR", "%s/ is missing — NOTHING was checked" % DOCROOT); sys.exit(0)
 for root, _d, files in os.walk(DOCROOT):
@@ -1447,6 +1448,14 @@ for root, _d, files in os.walk(DOCROOT):
         # (which names every open finding) would absolve every one of them.
         if fn.startswith("DOC_GATE_"):
             excluded.append(p); continue
+        # GENERATED-EVIDENCE EXCLUSION (Q-867, 2026-09-27). scripts/corrections_inventory.sh and
+        # scripts/correction_marker_inventory.sh write these two tables by quoting lines verbatim
+        # from every public file, reports/ and commit messages included. A name they quote is not
+        # thereby documented under documentation/: regenerating the inventory quoted a
+        # reports/TR12_QUERY_PROGRAM.md line naming `TR12_A*`, and this gate then called the
+        # fixture-only token TR12_A "documented" and its adjudicated-open row stale.
+        if fn in GENERATED:
+            generated.append(p); continue
         try:
             texts.append(io.open(p, encoding="utf-8", errors="surrogateescape").read())
         except OSError as e:
@@ -1485,8 +1494,8 @@ if CANARY in docs:
     rec("SELF", "FAIL", "the canary literal appears in the documentation corpus — the corpus now"
                         " contains this gate's own text, so its witness is its own closure")
 else:
-    rec("SELF", "OK", "canary absent from %d corpus file(s); %d DOC_GATE_* file(s) excluded"
-                      % (nfiles, len(excluded)))
+    rec("SELF", "OK", "canary absent from %d corpus file(s); %d DOC_GATE_* file(s) excluded;"
+                      " %d generated inventory file(s) excluded" % (nfiles, len(excluded), len(generated)))
 
 # ---- SELF-2: the matcher must be able to come out FALSE and TRUE -------------------------------
 probe = sorted(keys)[:5] + sorted(toks)[:5] + sorted(pykeys)[:5]

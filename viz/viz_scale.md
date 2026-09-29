@@ -1,7 +1,7 @@
 # The scale figure (`viz_scale.png/.svg`) — spec and drafting record
 
 > **Status: DRAWN 2026-09-23.** Accepted 2026-09-04 (Q-308); drafted by `viz/report_figures.py`
-> (`fig_viz_scale`). Every constant below is already published; the figure required no new
+> (`fig_viz_scale`). Every constant below is already published (the generator reads them from `viz/viz_scale_inputs.tsv` and asserts each against the registry it transcribes, Q-890, 2026-09-28); the figure required no new
 > computation, no ladder read, and no VM. This page is the spec, per the doc-per-figure convention —
 > it exists so that drafting does not improvise the caption, which is where this particular figure
 > can most easily mislead. ⚠ *(corrected 2026-09-23: the title carried "PLAN ROW, not yet drawn" and
@@ -63,7 +63,7 @@ orderings. The figure's arrow label is a true ratio of the plotted numbers and i
    multi-week; "short" implied a like-unit shortfall the units do not support; and an unbounded
    power law crosses any finite line, so only a *feasible* extrapolation fails.)*
 2. **The compiler's justification.** The knowledge compiler exists precisely because the gap is not
-   closable by more budget; it computes `N` exactly in 10.3 s from a completed ladder.
+   closable by more budget under the three-point extrapolation; it computes `N` exactly in 10.3 s from a completed ladder.
 3. **The narrative document's N4 overclaim gate.** A reader who has seen this image cannot mistake a
    record count for a population count, which is the specific overclaim the gate guards.
 

@@ -59,6 +59,13 @@
 
 Both branches remained BUDGETED at 10T; neither EXHAUSTED. The per-branch node-count actually run (per checkpoint meta) was 10,000,002,145,312 / 10,000,002,204,300 — budget was enforced within ~0.00002% of the 10T target.
 
+> **Note added 2026-09-27 (Q-871); the table above is left as recorded.** Both runs used the parallel
+> `--sub-branch` path (64 threads) under a global node budget, and on that path the record set depends
+> on thread scheduling: each in-flight task is cut wherever its worker stood when the shared node counter
+> crossed 10T. The counts and sha256s above identify these two archived files. A re-run of the same
+> command should be expected to give a different sha and a somewhat different count; what reproduces is
+> the one-sided claim, at least ~16.4M canonical orderings in each branch.
+
 ## Growth analysis
 
 | Budget | Yield (branch 22_0_30_1_20_0) | Yield (branch 22_1_30_1_20_0) |

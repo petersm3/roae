@@ -45,7 +45,7 @@
 #                 "11<TAB>T-CENSUS-MISMATCH", Q10A_SIDECARS_MISSING 1, the other 31 rows filled, exit 1
 #          leg 9  as leg 7, t sidecar k=5's census sums disagree with its own n_masks -> "5<TAB>T-CENSUS-MISMATCH", exit 1
 #          leg 10 as leg 7, t sidecar k=20 tagged v1 -> "20<TAB>T-CENSUS-MISMATCH", exit 1
-# plus mutants per row (4 for c_q6, 10 for c_q10a), each of which must turn a leg red.
+# plus mutants per row (4 for c_q6, 11 for c_q10a), each of which must turn a leg red.
 #
 # KNOWN LIMITATION, stated rather than papered over. (i) Extraction anchors on the literal lines
 # `ratio9(){`, `row_begin c_q6` ... `row_end TR12_Q6 $rc`, `row_begin c_q10a` ... `row_end TR12_Q10A
@@ -255,7 +255,7 @@ verdict_q10(){ # verdict_q10 <harness>
 }
 
 mk "$WORK/q6.sh" "$WORK/q6.row";   verdict_q6 "$WORK/q6.sh"   || fail "baseline c_q6: the committed row does not behave on one of its four legs (see above)"
-mk "$WORK/q10.sh" "$WORK/q10a.row"; verdict_q10 "$WORK/q10.sh" || fail "baseline c_q10a: the committed row does not behave on one of its four legs (see above)"
+mk "$WORK/q10.sh" "$WORK/q10a.row"; verdict_q10 "$WORK/q10.sh" || fail "baseline c_q10a: the committed row does not behave on one of its ten legs (see above)"
 
 mutant(){ # mutant <q6|q10> <id> <sed-expr>
   local which="$1" id="$2" expr="$3" src m

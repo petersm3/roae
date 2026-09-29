@@ -44,6 +44,28 @@ KW = [
 ]
 
 TOTAL_RECORDS_IN_FILE = None   # populated by load_solutions() — used for plot titles
+SOL_FORMAT_VERSION = 1         # the only header version this reader understands (SOLUTIONS_FORMAT.md)
+
+
+def _check_packed(raw, filename, first=0):
+    """Refuse packed 32-byte records that are not valid records (Q-898, 2026-09-28; Codex VIZ A4-19).
+
+    SOLUTIONS_FORMAT.md: byte = (pair_index<<2)|(orient<<1), bit 0 reserved and MUST be zero, and a
+    record places each of the 32 pairs exactly once. This reader masked bit 0 away with `>> 2`, and a
+    pair index of 32..63 matched no pair and left that position zero-filled, so a malformed record
+    was plotted as a plausible one. Checked on every record read, as solve.py's _pidx_scan does."""
+    bad = np.flatnonzero(raw.reshape(-1) & 0x81)
+    if bad.size:
+        r, b = divmod(int(bad[0]), 32)
+        v = int(raw.reshape(-1)[bad[0]])
+        why = "has reserved bit 0 set" if v & 1 else "decodes pair index %d, outside the 32-entry pair table" % (v >> 2)
+        raise ValueError("%s record %d byte %d = 0x%02X %s (SOLUTIONS_FORMAT.md); refusing to decode"
+                         % (filename, first + r, b, v, why))
+    perm = np.sort(raw >> 2, axis=1) == np.arange(32, dtype=np.uint8)
+    if not perm.all():
+        r = int(np.flatnonzero(~perm.all(axis=1))[0])
+        raise ValueError("%s record %d does not place each of the 32 pairs exactly once "
+                         "(SOLUTIONS_FORMAT.md); refusing to decode" % (filename, first + r))
 
 def load_solutions(filename):
     """Load solutions.bin. Auto-detects format via magic-byte check (format v1)
@@ -73,6 +95,16 @@ def load_solutions(filename):
     # The legacy (headerless) branches below read `data`, which was never assigned (NameError).
     data = b''
     if not (file_size >= 32 and magic == b'ROAE'):
+        # Q-898 (Codex VIZ A4-20): the legacy headerless branches read the whole file, bypassing
+        # MAX_RECORDS -- the bounded-memory reservoir path is format-v1 only. Refuse, before the
+        # read, a legacy file holding more records than MAX_RECORDS instead of loading it whole.
+        _rec = (32 if file_size % 32 == 0 and file_size % 64 != 0 and file_size % 68 != 0
+                else 68 if file_size % 68 == 0 and file_size % 64 != 0
+                else 64 if file_size % 64 == 0 else None)   # the branch order below
+        if _rec and file_size // _rec > MAX_RECORDS:
+            raise ValueError("%s is a legacy headerless file of %d %d-byte records, more than "
+                             "MAX_RECORDS=%d; only format v1 is read with bounded memory -- convert it "
+                             "to format v1 first" % (filename, file_size // _rec, _rec, MAX_RECORDS))
         with open(filename, 'rb') as f:
             data = f.read()
 
@@ -84,6 +116,16 @@ def load_solutions(filename):
             f.seek(4)
             version = struct.unpack('<I', f.read(4))[0]
             record_count = struct.unpack('<Q', f.read(8))[0]
+            reserved = f.read(16)
+        # Q-898 (Codex VIZ A4-19): the version was read and printed but never checked, and the 16
+        # reserved header bytes were not read at all; solve.c's sol_read_header_mem refuses both.
+        if version != SOL_FORMAT_VERSION:
+            raise ValueError("%s: format version %d is not supported (this reader understands v%d; "
+                             "SOLUTIONS_FORMAT.md)" % (filename, version, SOL_FORMAT_VERSION))
+        nz = [i for i, c in enumerate(reserved) if c]
+        if nz:
+            raise ValueError("%s: header reserved byte %d is 0x%02X, must be zero (SOLUTIONS_FORMAT.md)"
+                             % (filename, 16 + nz[0], reserved[nz[0]]))
         record_bytes = file_size - 32
         if record_bytes % 32 != 0:
             raise ValueError(f"Format v1 record stream {record_bytes} bytes after header is not a multiple of 32")
@@ -121,6 +163,7 @@ def load_solutions(filename):
                         break
                     chunk = np.frombuffer(chunk_bytes, dtype=np.uint8).reshape(-1, 32)
                     n_chunk = chunk.shape[0]
+                    _check_packed(chunk, filename, records_seen)      # Q-898: every record, not the sample
                     # Vectorized Algorithm R reservoir update:
                     # For each record at absolute position i, draw j ~ Uniform{0..i},
                     # if j < k replace reservoir[j] <- chunk[record]. Equivalent to
@@ -168,7 +211,7 @@ def load_solutions(filename):
                   f"Rare structural outliers (e.g., C3-extremal records) may be missing from the sample.")
             # Always inject King Wen so plots can mark it as a reference point,
             # regardless of whether random sampling caught it (probability
-            # 1 - (1 - 1/N)^k which for N=3.43B, k=1M is ~0.003%). KW's raw
+            # 1 - (1 - 1/N)^k which for N=3.43B, k=1M is ≈0.029% = 1,000,000 / 3,432,399,297; Q-896: was ~0.003%). KW's raw
             # record is bytes [0, 4, 8, ..., 124] — (pair_index << 2) with
             # orient=0. Overwrites the last reservoir slot; one uniform sample
             # is displaced but the statistical distribution is unchanged at k>>1.
@@ -186,6 +229,7 @@ def load_solutions(filename):
             mm = np.memmap(filename, dtype=np.uint8, mode='r', offset=32,
                            shape=(actual_records, 32))
             raw = np.array(mm)
+            _check_packed(raw, filename)                              # Q-898
             n_solutions = actual_records
             print(f"  Loaded {n_solutions:,} solutions from {filename} (format v{version} — 32-byte header + 32-byte records)")
             del mm
@@ -203,6 +247,7 @@ def load_solutions(filename):
         # Pre-v1 packed 32-byte records, no header
         n_solutions = len(data) // 32
         raw = np.frombuffer(data, dtype=np.uint8).reshape(n_solutions, 32)
+        _check_packed(raw, filename)                                  # Q-898
         solutions = np.zeros((n_solutions, 64), dtype=np.uint8)
         for i in range(32):
             pidx = raw[:, i] >> 2
@@ -570,6 +615,25 @@ def plot_telemetry(csv_path, outdir='.'):
     sub_cpu = ' · '.join(x for x in [VM, (f'CPU {CPU}' if CPU else '')] if x)           # informs CPU-freq panel
     sub_vm  = VM
 
+    # Q-898 (2026-09-28; Codex VIZ F26): the CPU-frequency panel's note was one fixed string --
+    # "128 cores", "~2.6 GHz base clock", "~1 sample in 9 here", "NOT throttling" -- facts of one
+    # campaign's host typed into a generic renderer. The hardware facts now come from
+    # telemetry_meta.txt (cores=, cpu_base_mhz=; VIZ_CORES / VIZ_CPU_BASE_MHZ override), the sample
+    # fraction is counted from this CSV, and no cause is asserted: the plot does not establish one.
+    CORES, BASE = _m('cores'), _m('cpu_base_mhz')
+    _fmin = [v for v in col('cpu_freq_min_mhz') if v == v]
+    cpu_note = (f'avg = mean across all {CORES} cores (telemetry_meta.txt).' if CORES else
+                'avg = mean across all cores (core count not recorded: cores= in telemetry_meta.txt).')
+    cpu_note += '  "min core" = the single slowest core (raw),\none instantaneous reading per sample.'
+    if BASE and _fmin:
+        try:
+            _b = float(BASE)
+            cpu_note += (f'  {sum(1 for v in _fmin if v <= _b)} of {len(_fmin)} samples read a min core at or'
+                         f'\nbelow the {_b:,.0f} MHz base clock (cpu_base_mhz, telemetry_meta.txt).')
+        except ValueError:
+            cpu_note += f'\ncpu_base_mhz={BASE!r} in telemetry_meta.txt is not a number; no base-clock count.'
+    cpu_note += '\nLow-frequency readings; their cause is not established by this plot.'
+
     # Downtime gaps: consecutive samples separated by >> the 5-min sample cadence mean the VM was
     # OFF (Spot eviction / deallocation) — there is NO data in that interval. We must NOT connect a
     # straight line across it. Rate/activity metrics are drawn dropping to 0 (no work happened);
@@ -667,11 +731,16 @@ def plot_telemetry(csv_path, outdir='.'):
     # capturing the final sample. complete_hr stays None for an in-flight run → markers are no-ops.
     _csa = col('cells_scanned')
     _ci = next((i for i, c in enumerate(_csa) if c == c and c >= TOTAL), None)
+    # Q-898 (2026-09-28; Codex VIZ A4-22): VIZ_COMPLETE_HR alone used to print "✓ ENUMERATION
+    # COMPLETE / 158,364/158,364 cells" -- a cell count the telemetry never observed -- even over a
+    # CSV whose cells_scanned read 0. An operator-supplied time is now labelled as one, carries no
+    # cell count, and is recorded in index.html; the measured label needs a sample that reached TOTAL.
     _env_chr = os.environ.get('VIZ_COMPLETE_HR')
+    complete_src = None
     if _env_chr:
-        complete_hr = float(_env_chr)
+        complete_hr = float(_env_chr); complete_src = 'operator'
     elif _ci is not None:
-        complete_hr = hrs[_ci]
+        complete_hr = hrs[_ci]; complete_src = 'telemetry'
     else:
         complete_hr = None
     complete_dt = (t0 + timedelta(hours=complete_hr)) if complete_hr is not None else None
@@ -689,7 +758,9 @@ def plot_telemetry(csv_path, outdir='.'):
         ax.axvline(complete_hr, color='#2ca02c', lw=2.2, ls='-', zorder=6)
         if label:
             _wtxt = f' · wall {complete_wall:.1f}h' if complete_wall is not None else ''
-            ax.annotate(f'✓ ENUMERATION COMPLETE\n{TOTAL:,}/{TOTAL:,} cells{_wtxt}\n'
+            _head = (f'✓ ENUMERATION COMPLETE\n{TOTAL:,}/{TOTAL:,} cells' if complete_src == 'telemetry' else
+                     'COMPLETION TIME SUPPLIED BY OPERATOR (VIZ_COMPLETE_HR)\nfinal cell count not observed in telemetry')
+            ax.annotate(f'{_head}{_wtxt}\n'
                         f'{complete_dt:%Y-%m-%d %H:%MZ}',
                         xy=(complete_hr, 0.5), xycoords=('data', 'axes fraction'),
                         xytext=(-7, 0), textcoords='offset points', ha='right', va='center',
@@ -742,13 +813,7 @@ def plot_telemetry(csv_path, outdir='.'):
         [(('throughput_M_s',), 'Throughput (M nodes/s)', ('throughput',),
             [(mean_tp, f'mean {mean_tp:,.0f}')] if mean_tp else []),
          (('cpu_freq_avg_mhz', 'cpu_freq_min_mhz'), 'CPU freq (MHz)', ('avg (all cores)', 'min core'), [],
-            'avg = mean across all 128 cores.  "min core" = the single slowest core (raw).\n'
-            'Brief dips to ~2.6 GHz base clock = a core momentarily idle at a checkpoint/shard\n'
-            'fsync or sub-branch boundary (DVFS), NOT throttling — throughput stays flat through\n'
-            'them.  Each point is one instantaneous reading, so a coasting core is only caught\n'
-            'intermittently (~1 sample in 9 here).  Campaigns from 2026-06-24 report the\n'
-            '10th-percentile core instead, excluding such idle cores (a host-wide throttle still\n'
-            'shows in p10; momentary single-core idles no longer do).'),
+            cpu_note),
          (('cells_scanned', 'cells_with_solutions'), 'Cells (depth-3 sub-branches)', ('scanned', 'with-solutions'),
             [(TOTAL, f'target {TOTAL:,}')]),
          (('pct_complete',), 'Progress (% target)', ('pct',), [(100, 'target 100%')]),
@@ -779,7 +844,7 @@ def plot_telemetry(csv_path, outdir='.'):
         for s in segs:
             vals = [num(r, key) for r, rs in zip(rows, resume) if rs == s and num(r, key) == num(r, key)]
             data.append(vals if vals else [float('nan')])
-        ax.boxplot(data, showmeans=True)
+        ax.boxplot(data, showmeans=True, whis=1.5)            # Q-897: the whisker rule, stated (and captioned)
         _cnt = [sum(1 for rs in resume if rs == s) for s in segs]
         ax.set_xticks(range(1, len(segs) + 1))
         # single-line + vertical so the (n=…) counts never overwrite each other, even with many resume segments
@@ -792,7 +857,9 @@ def plot_telemetry(csv_path, outdir='.'):
     figw.savefig(os.path.join(outdir, 'per_resume_whiskers.png'), dpi=140, bbox_inches='tight'); plt.close(figw)
     manifest.append(('per_resume_whiskers.png', 'Per-resume distributions',
         'Box-and-whisker of throughput, CPU-freq, IOPS-read, iowait, and disk-util grouped by resume '
-        'segment (boot-id keyed; each Spot eviction-resume opens a segment). Reveals warmup/throttle per resume.'))
+        'segment (boot-id keyed; each Spot eviction-resume opens a segment). Box = quartiles, line = median, '
+        'triangle = mean, whiskers = the furthest points within 1.5 × IQR of the box (matplotlib default), '
+        'circles = points beyond. Compares distributions across segments; the time-course panels show warmup.'))
 
     # (4) ETA projection: cells_scanned vs time, rate fit over ACTIVE-ENUM hours (downtime excluded)
     # so an eviction's flat-hold doesn't deflate the rate. Projection drawn from the last sample
@@ -851,16 +918,16 @@ def plot_telemetry(csv_path, outdir='.'):
                       label=f'fit {mm:.2f} (M/s)/MHz')
             r = float(np.corrcoef(ax_, ay_)[0, 1]); corr_txt = f' · r={r:.2f}'
             axsc.legend(loc='lower right', fontsize=9)
-            imin = int(ax_.argmin())                        # lowest cpu-freq = the cold-start sample
-            axsc.annotate('post-resume cold start', (ax_[imin], ay_[imin]),
+            imin = int(ax_.argmin())                        # Q-897: the argmin is all this knows about the point
+            axsc.annotate('lowest observed CPU frequency', (ax_[imin], ay_[imin]),
                           textcoords='offset points', xytext=(12, -4), fontsize=8,
                           arrowprops=dict(arrowstyle='->', lw=0.7, color='0.4'))
     axsc.set_xlabel('CPU freq avg (MHz)'); axsc.set_ylabel('Throughput (M nodes/s)'); axsc.grid(alpha=0.3)
     axsc.set_title(f'Throughput vs CPU-freq (color = time){corr_txt}' + (f'\n{sub_cpu}' if sub_cpu else ''), fontsize=11)
     figs2.savefig(os.path.join(outdir, 'throughput_vs_cpufreq.png'), dpi=140, bbox_inches='tight'); plt.close(figs2)
     manifest.append(('throughput_vs_cpufreq.png', 'Throughput vs CPU-freq',
-        'Scatter of throughput against CPU-freq, colored by elapsed time. A positive slope quantifies how '
-        'host throttling (lower MHz) depresses throughput; clusters reveal per-host/per-resume regimes.'))
+        'Scatter of throughput against CPU-freq, colored by elapsed time. The line is a descriptive linear '
+        'fit and r its correlation; the plot does not identify the cause of any association.'))
 
     # (6) eviction timeline — one horizontal bar per eviction, placed at its real time on the
     # elapsed-hours axis, spanning the downtime (VM off); annotated "<Xh> off → recovered <Ym>".
@@ -943,6 +1010,8 @@ def plot_telemetry(csv_path, outdir='.'):
     # index.html — loads every figure in the manifest with its description; scp the whole outdir to view.
     last = rows[-1]
     gen = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    ovr = (f' with VIZ_COMPLETE_HR={_env_chr} (completion time supplied by operator; final cell count not '
+           f'observed in telemetry)' if complete_src == 'operator' else '')
     # Descriptive alt text per figure = title + first caption sentence, with any inline HTML
     # (e.g. the green ▶ span) stripped so it doesn't leak into the alt attribute.
     import re as _re
@@ -965,7 +1034,7 @@ code{{background:#f4f4f4;padding:1px 4px;border-radius:3px}}</style></head><body
 throughput={last.get('throughput_M_s','?')}M/s cpu_freq={last.get('cpu_freq_avg_mhz','?')}MHz
 &middot; generated {gen}</p>
 {cards}
-<p class="meta">Generated by <code>visualize.py --telemetry</code>. Transient — regenerated each run; not in git.</p>
+<p class="meta">Generated by <code>visualize.py --telemetry</code>{ovr}. Archived output, committed with its run; the source telemetry CSV is not distributed.</p>
 </body></html>"""
     with open(os.path.join(outdir, 'index.html'), 'w') as f:
         f.write(html)
@@ -984,7 +1053,11 @@ def main():
     filename = args[0] if args else 'solutions.bin'
 
     print("Loading solutions...")
-    solutions = load_solutions(filename)
+    try:
+        solutions = load_solutions(filename)
+    except ValueError as e:                     # Q-898: a refused input is a named ERROR and rc 1
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print("Computing features (pair index at each position)...")
     features = compute_features(solutions)

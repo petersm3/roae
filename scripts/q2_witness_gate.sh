@@ -124,7 +124,7 @@ else
   r FAIL "leg 3a: could not reproduce the zero-walk-at-rc-0 condition (rc=$erc); the rest of this leg is not meaningful"
 fi
 out=$(run_row q2c 0 600); rc=$?
-if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q2C_FAIL	no walk of 2n=18'; then
+if [ "$rc" -ne 0 ] && grep -q 'Q2C_FAIL	no walk of 2n=18' <<<"$out"; then
   r ok "leg 3b: the row FAILS on an empty enumeration and names the field count"
 else
   r FAIL "leg 3b: an enumeration that found NOTHING gave rc=$rc without naming it -- an empty FIRST^C15 would publish as PASS"
@@ -140,7 +140,7 @@ if [ -n "$GW" ] && [ "${CD:-0}" -ge 1 ]; then
          SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; N_PAIRS=9; C3MAX=$((CD - 1))
          . "$W/helper.sh"; kc_first_last_witness Q2C "$W/good.out" )
   wrc=$?
-  if [ "$wrc" -ne 0 ] && printf '%s\n' "$out" | grep -q "cd=$CD exceeds"; then
+  if [ "$wrc" -ne 0 ] && grep -q "cd=$CD exceeds" <<<"$out"; then
     r ok "leg 4: a real cd=$CD walk fails against C3MAX=$((CD - 1)) and cd is named"
   else
     r FAIL "leg 4: a walk violating the row's own C3 bound returned $wrc -- a mis-plumbed threshold would ship"
@@ -154,13 +154,13 @@ fi
 # Built by swapping the first two hexagrams of a real member walk. If the structure still calls
 # it a member the leg says so rather than asserting it does not.
 NM=$(printf '%s' "$GW" | awk -F',' '{t=$1; $1=$2; $2=t; s=$1; for(i=2;i<=NF;i++) s=s","$i; print s}')
-if [ -n "$NM" ] && ! "$W/solve" --kc-member "$W/f" "$NM" 2>/dev/null | grep -qx 'MEMBER'; then
+if [ -n "$NM" ] && ! grep -qx 'MEMBER' <<<"$("$W/solve" --kc-member "$W/f" "$NM" 2>/dev/null)"; then
   printf '%s\n' "$NM" > "$W/nonmember.out"
   out=$( set +u
          SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; N_PAIRS=9; C3MAX=31
          . "$W/helper.sh"; kc_first_last_witness Q2C "$W/nonmember.out" )
   wrc=$?
-  if [ "$wrc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'kc-member'; then
+  if [ "$wrc" -ne 0 ] && grep -q 'kc-member' <<<"$out"; then
     r ok "leg 5: a well-formed non-member walk fails and --kc-member is named"
   else
     r FAIL "leg 5: a non-member walk returned $wrc -- the membership check is not load-bearing"
@@ -172,7 +172,7 @@ fi
 
 # ---- LEG 6: a1_q2d carries the same requirement -------------------------
 out=$(run_row q2d 0 600); rc=$?
-if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q2D_FAIL	no walk of 2n=18'; then
+if [ "$rc" -ne 0 ] && grep -q 'Q2D_FAIL	no walk of 2n=18' <<<"$out"; then
   r ok "leg 6: a1_q2d also fails on an empty enumeration -- LAST^C15 carries the same witness requirement"
 else
   r FAIL "leg 6: a1_q2d returned $rc on an empty enumeration -- the fix reached Q2c and not Q2d"
@@ -183,7 +183,7 @@ fi
 # QUERY_INVENTORY promised "abort-and-report if >10^6 backtracks" and no such mechanism was ever
 # built. The wall-clock bound replaces it; this leg proves it fires and is not silent.
 out=$(run_row q2c 31 0.001); rc=$?
-if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'Q2C_FAIL	--kc-enum did not finish within'; then
+if [ "$rc" -ne 0 ] && grep -q 'Q2C_FAIL	--kc-enum did not finish within' <<<"$out"; then
   r ok "leg 7: the wall-clock bound fires and names TR12_Q2_ENUM_TIMEOUT"
 else
   r FAIL "leg 7: a 1 ms budget gave rc=$rc with no timeout token -- an unbounded enumeration would stall silently"

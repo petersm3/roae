@@ -37,7 +37,7 @@
 # exits 0 with warnings, so warnings passed in silence (observed live: a
 # -Wstringop-truncation warning sailed through a green run). The claim now
 # matches the check: stderr is captured and censused per warning class.
-#   - solve.c emitted 12 warnings in 7 classes (10 in 5 since 2026-09-04, re-measured 2026-09-25) (measured 2026-08-06,
+#   - solve.c emitted 12 warnings in 7 classes (10 in 5 since 2026-09-04, re-measured 2026-09-25; 8 in 5 since 2026-09-27) (measured 2026-08-06,
 #     gcc 13.3.0, the orchestrator's stock toolchain — the same toolchain
 #     this hook runs on). solve.c is sha-anchored; silencing those 12 goes
 #     through its own build/verify pipeline, not through this gate. Until
@@ -73,14 +73,14 @@ if ! gcc -O3 -Wall -Wextra -pthread -fopenmp -march=native "$SOLVE_C" -lm -lz -o
 fi
 
 # ---- warning ratchet: census this compile's warnings against the baseline ----
-# Baseline: 10 warnings / 5 classes since 2026-09-04 (12 / 7 at 2026-08-06), gcc 13.3.0 (see header).
+# Baseline: 8 warnings / 5 classes since 2026-09-27 (10 / 5 at 2026-09-04, 12 / 7 at 2026-08-06), gcc 13.3.0 (see header); 2026-09-27: [-Wformat-truncation=] ratcheted 3 -> 1, the count gcc 13.3.0 emits on this tree.
 # Format: "<max-count> <class-tag>". The (untagged) row is for warning lines gcc
 # emits without a [-W...] tag; none exist today, so any is a new warning.
 WARN_BASELINE='3 [-Wmisleading-indentation]
 1 [-Wcomment]
 1 [-Wunused-variable]
 2 [-Wunused-function]
-3 [-Wformat-truncation=]'
+1 [-Wformat-truncation=]'
 # [-Wstringop-truncation] REMOVED from the baseline 2026-09-04, in the same commit that fixed its
 # only instance. `strncpy(best_dev, dev, sizeof(best_dev)-1)` + an explicit NUL became
 # `snprintf(best_dev, sizeof(best_dev), "%s", dev)`, which gcc can see is safe. Removed rather than
@@ -164,7 +164,7 @@ if [ "$VWARN" -ne 0 ]; then
 fi
 
 # selftest is fast (~30s on a 2-core orchestrator) and exercises the full enum+merge
-# pipeline at depth-2, SOLVE_THREADS=4, SOLVE_NODE_LIMIT=100M. The binary's own
+# pipeline at depth-2, SOLVE_THREADS=4, SOLVE_NODE_LIMIT=100000000. The binary's own
 # hardcoded expected_sha is the authoritative target — branch-aware: v1 lineage
 # (main) expects 403f7202..., v2 lineage (v2-bundled) expects its current v2 sha.
 # We trust --selftest's internal comparison + exit code (0 = PASS, non-0 = FAIL).
@@ -215,7 +215,7 @@ if ! SOLVE="$TMP_BIN" bash "$REPO_ROOT/scripts/atlas_path_portability_gate.sh"; 
 fi
 
 echo "PASS: solve.c compiles under -Wall -Wextra with $WARN_TOTAL warning(s), all inside"
-echo "      the inventoried baseline (10 across 5 classes since 2026-09-04 — no new warnings);"
+echo "      the inventoried baseline (8 across 5 classes since 2026-09-27 — no new warnings);"
 echo "      verify.c compiles warning-free; selftest produces (binary-internal) canonical sha $ACTUAL;"
 echo "      the --kc-scan atlas is byte-identical across directories (path-portable)"
 exit 0

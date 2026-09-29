@@ -230,9 +230,9 @@
  * =====================
  *   SOLVE_THREADS=N          — override thread count
  *   SOLVE_HASH_LOG2=N        — initial hash table size as power of 2 (default: 24 = 16M slots; auto-resizes)
- *   SOLVE_NODE_LIMIT=N       — stop after N total nodes, distributed equally per
- *                              sub-branch. Deterministic, reproducible sha256
- *                              regardless of thread count.
+ *   SOLVE_NODE_LIMIT=N       — stop after N total nodes. Full enumeration: divided equally per sub-branch and
+ *                              checked per thread, so the sha256 is reproducible regardless of thread count.
+ *                              Parallel --sub-branch (threads > 1): one shared budget; the record set varies run to run (Q-871, see the P1 Determinism note below).
  *   SOLVE_MERGE_MODE={auto,memory,external}
  *                            — select merge strategy. auto picks external if
  *                              input would exceed 80% of physical RAM.
@@ -471,7 +471,7 @@ typedef struct {
     int8_t  reserved;
 } DFSStackFrame_v2;
 static Pair pairs[32];
-static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */
+static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */ static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec); static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out); static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out); static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out); static int argv_dbl(const char *mode, const char *what, const char *s, double *out); static const int kc_cache_mb_max = 4194304; /* Q-864, Q-865: defined at end of file; the --kc-cache-mb ceiling is --kc-gcache-mb-per-thread's */ static int g_build_sha_defer = 0; static char g_build_sha_pending[80]; static void build_sha_write_pending(void); /* Q-866: the enumeration defers a first-run build.sha until after its refusals */ static int solve_env_preflight(void); /* SOLVE_* numeric environment validation (lane HE); defined at end of file */
 
 /* ---------- Bitmask domain representation (task #72, Phase A) ----------
  * Compact representation of the "remaining pair pool" used by the DFS hot
@@ -529,12 +529,12 @@ static int sol_hash_mask;
  * hash table), then merge at end. See PARALLEL_SUB_BRANCH_DESIGN.md and
  * P1_IMPLEMENTATION_PLAN.md in the x/roae repo for the design.
  *
- * Determinism: output is byte-identical to legacy single-threaded
- * --sub-branch because (a) every task is processed (for EXHAUSTED) or
- * processed-in-lex-order-until-budget-hit (for BUDGETED), (b) within each
- * task the DFS is single-threaded + deterministic, (c) analyze_solution's
- * dedup is "lex-smallest-record wins" — so cross-task orient-variant
- * duplicates collapse to the same winner regardless of thread scheduling.
+ * Determinism (corrected 2026-09-27, Q-871): a complete (unbudgeted) run walks every task, and dedup keeps the lex-smallest record, so its record SET is the same at any thread count; the shard is
+ * written in hash-table slot order, so its BYTES can differ between runs — compare sets or the sorted --merge output. The legacy 1-thread path is byte-identical run to run.
+ * Under a global SOLVE_NODE_LIMIT with threads > 1 the SET itself varies run to run: the node total is held within about threads x 65,536, but each
+ * in-flight task is cut wherever its worker stood when the shared counter crossed the budget, and that depends on thread scheduling.
+ * A BUDGETED parallel count is a lower bound on the cell, not a reproducible figure. SOLVE_PER_TASK_NODE_LIMIT with no global budget cuts each
+ * task at a fixed node count, so its set is fixed by the inputs (a capped task is still counted as completed: Q-317, not yet fixed).
  */
 /* Depth-5 granularity (2026-04-21): each task is a (p4, o4, p5, o5)
  * tuple. Typical task count: 30-60 × 30-60 ≈ 900-3600, enough to keep
@@ -2725,7 +2725,7 @@ static void prov_ext_record(ProvExtMap *m, long long from_b, long long to_b, con
 
 /* Aggregated state. */
 typedef struct {
-    int shard_count;
+    int shard_count; int sidecars_unusable;  /* Q-875: sub_*.bin.provenance.json files that exist but could not be read/used -- each named on stderr, counted in solutions.provenance.json, and the merge exits 2 */
     int status_exhausted, status_budgeted, status_interrupted, status_other;
     ProvBudgetMap final_budget;
     ProvBudgetMap budgets_seen;  /* across all writes, not just final */
@@ -2847,7 +2847,7 @@ static void prov_aggregate_write_cb(const char *write_rec, void *ud) {
 }
 
 /* Scan cwd for sub_*.bin.provenance.json files, accumulate aggregate state. */
-static int aggregate_shard_provenance(ProvAggregate *out) {
+static int g_prov_sidecars_unusable = 0; static int aggregate_shard_provenance(ProvAggregate *out) {  /* Q-875: the global carries the last aggregation's unusable-sidecar count to the --merge / end-of-enum exit status */
     memset(out, 0, sizeof(*out));
     DIR *d = opendir(".");
     if (!d) return -1;
@@ -2859,15 +2859,15 @@ static int aggregate_shard_provenance(ProvAggregate *out) {
         if (strncmp(n, "sub_", 4) != 0) continue;
         if (strcmp(n + len - 20, ".bin.provenance.json") != 0) continue;
         FILE *f = fopen(n, "r");
-        if (!f) continue;
+        if (!f) { fprintf(stderr, "ERROR: shard provenance sidecar %s %s -- solutions.provenance.json will not count it\nMERGE_PROVENANCE_SIDECAR=%s\n", n, "cannot be opened", "UNREADABLE"); out->sidecars_unusable++; continue; }  /* Q-875: an absent sidecar is never listed by readdir; one that exists and cannot be opened was skipped in silence */
         fseek(f, 0, SEEK_END);
         long sz = ftell(f);
-        if (sz <= 0 || sz > 2097152L) { fclose(f); continue; }
+        if (sz <= 0 || sz > 2097152L) { fclose(f); fprintf(stderr, "ERROR: shard provenance sidecar %s %s -- solutions.provenance.json will not count it\nMERGE_PROVENANCE_SIDECAR=%s\n", n, sz <= 0 ? "is empty or cannot be sized" : "is over the 2 MiB aggregation cap", "UNUSABLE"); out->sidecars_unusable++; continue; }  /* Q-875 */
         fseek(f, 0, SEEK_SET);
         char *buf = malloc((size_t)sz + 1);
-        if (!buf) { fclose(f); continue; }
+        if (!buf) { fclose(f); fprintf(stderr, "ERROR: shard provenance sidecar %s %s -- solutions.provenance.json will not count it\nMERGE_PROVENANCE_SIDECAR=%s\n", n, "could not be buffered (malloc failed)", "UNUSABLE"); out->sidecars_unusable++; continue; }  /* Q-875 */
         size_t got = fread(buf, 1, (size_t)sz, f);
-        fclose(f);
+        fclose(f); if (got != (size_t)sz) { fprintf(stderr, "ERROR: shard provenance sidecar %s %s -- solutions.provenance.json will not count it\nMERGE_PROVENANCE_SIDECAR=%s\n", n, "was read short", "UNUSABLE"); free(buf); out->sidecars_unusable++; continue; }  /* Q-875 */
         buf[got] = '\0';
 
         out->shard_count++;
@@ -2886,7 +2886,7 @@ static int aggregate_shard_provenance(ProvAggregate *out) {
         out->shard_last_records = 0; prov_iterate_writes(buf, prov_aggregate_write_cb, out); out->total_records_emitted += out->shard_last_records;  /* each shard's records counted once (2026-09-26 (CX-171 follow-up)) */
         free(buf);
     }
-    closedir(d);
+    closedir(d); g_prov_sidecars_unusable = out->sidecars_unusable;
     return 0;
 }
 
@@ -3000,7 +3000,7 @@ static void write_solutions_provenance_json(const char *path,
     fprintf(fw, "]\n");
     fprintf(fw, "  },\n");
 
-    fprintf(fw, "  \"capacity_overflow\": {\"final_budget_distribution_dropped\": %lld, \"branches_seen_at_budget_dropped\": %lld, \"extensions_observed_dropped\": %lld, \"binary_sha256_set_dropped\": %lld, \"git_hash_set_dropped\": %lld, \"host_fingerprint_set_dropped\": %lld},\n  \"merge_invocation\": {\n", agg->final_budget.dropped, agg->budgets_seen.dropped, agg->extensions.dropped, agg->binary_shas.dropped, agg->git_hashes.dropped, agg->host_fingerprints.dropped);  /* capacity_overflow added 2026-09-26: all zero unless a bounded map filled */
+    fprintf(fw, "  \"sidecars_unusable\": %d,\n  \"capacity_overflow\": {\"final_budget_distribution_dropped\": %lld, \"branches_seen_at_budget_dropped\": %lld, \"extensions_observed_dropped\": %lld, \"binary_sha256_set_dropped\": %lld, \"git_hash_set_dropped\": %lld, \"host_fingerprint_set_dropped\": %lld},\n  \"merge_invocation\": {\n", agg->sidecars_unusable, agg->final_budget.dropped, agg->budgets_seen.dropped, agg->extensions.dropped, agg->binary_shas.dropped, agg->git_hashes.dropped, agg->host_fingerprints.dropped);  /* capacity_overflow added 2026-09-26: all zero unless a bounded map filled. sidecars_unusable (Q-875): sidecars that exist but were not aggregated */
     fprintf(fw, "    \"merge_utc\": \"%s\",\n", merge_utc);
     fprintf(fw, "    \"merge_binary_sha256\": \"%s\",\n", merge_self_exe_sha256()); fprintf(fw, "    \"merge_dir_build_sha256\": \"%s\",\n", merge_build_sha[0] ? merge_build_sha : "");  /* Q-840: merge_binary_sha256 = THIS binary; the build.sha found in the merge dir (the old value) moves to merge_dir_build_sha256 */
     fprintf(fw, "    \"merge_git_hash\": \"%s\",\n", GIT_HASH);
@@ -4568,7 +4568,7 @@ static int check_build_sha_invariant(void) {
             }
         }
     }
-    /* First run (ABSENT), a legacy tool digest, or an override (mismatch or MALFORMED) — write current sha atomically. */
+    /* First run (ABSENT), a legacy tool digest, or an override (mismatch or MALFORMED) — write current sha atomically. */ if (prior_st == BUILD_SHA_ABSENT && g_build_sha_defer) { snprintf(g_build_sha_pending, sizeof(g_build_sha_pending), "%s", current_sha); return 0; }  /* Q-866: the enumeration writes a FIRST build.sha after its manifest refusal (build_sha_write_pending); a legacy digest or an override still rewrites an existing file here */
     FILE *fw = fopen("build.sha.tmp", "w");
     if (!fw) {
         fprintf(stderr, "[hardening] WARN: cannot write build.sha.tmp: %s; Outlier #4 unguarded\n", strerror(errno));
@@ -11061,7 +11061,7 @@ static int write_sha256_with_metadata(const char *bin_name, const char *sha_name
 /* Exhaustive search for C3-valid completions at positions step..31.
  * Used by --prove-cascade to verify no non-KW config has valid completions. */
 /* Time limit for proof_search, set by caller. 0 = no limit. */
-static volatile time_t proof_search_deadline = 0;
+static volatile double proof_search_deadline = 0; /* Q-873: CLOCK_MONOTONIC seconds (was whole-second time()) */ static double proof_search_now(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (double)ts.tv_sec + ts.tv_nsec * 1e-9; }
 static volatile int proof_search_timed_out = 0;
 
 static void proof_search(int seq[64], int used[32], int budget[7],
@@ -11071,9 +11071,9 @@ static void proof_search(int seq[64], int used[32], int budget[7],
     if ((*nodes) % 50000000LL == 0) {
         if ((*nodes) % 1000000000LL == 0)
             fprintf(stderr, " %lldB...", (*nodes) / 1000000000LL);
-        if (proof_search_deadline > 0 && time(NULL) >= proof_search_deadline)
-            proof_search_timed_out = 1;
-    }
+    } /* Q-873: the deadline test below ran only inside this block, every 5e7 nodes (~1.5 s apart, measured), against whole-second time(), so a 1 s cap ran ~1.5 s per search */
+    if (proof_search_deadline > 0 && ((*nodes) & 0xFFFFF) == 0 && proof_search_now() >= proof_search_deadline)
+        proof_search_timed_out = 1;
     if (proof_search_timed_out) return;
 
     if (step == 32) {
@@ -11335,7 +11335,7 @@ static int write_sorted_chunk(const char *path, const unsigned char *chunk,
 typedef struct { int fi; gzFile f; long long file_remaining; } MergeReadCursor;
 
 /* Fill `buf` with up to max_per_chunk records from the shard list, advancing the
- * cursor across files (skipping empty/misaligned shards, as the serial path does).
+ * cursor across files (skipping only EMPTY shards, as the serial path does; Q-875: an unreadable one = -2).
  * Returns records filled (0 at end of all input), or -1 on a short read (treated
  * as corruption — fail fast; the serial path's silent break is caught instead by
  * the #176 total_merged==total_records completeness gate). */
@@ -11352,7 +11352,7 @@ static long long merge_fill_chunk(unsigned char *buf, long long max_per_chunk,
                 if (f && sz > 0 && sz % SOL_RECORD_SIZE == 0) {
                     cur->f = f; cur->file_remaining = sz / SOL_RECORD_SIZE; break;
                 }
-                if (f) gzclose(f);
+                { const int fe = errno; if (f) gzclose(f); if (!f || sz != 0) { if (!f) fprintf(stderr, "ERROR: cannot open merge input %s: %s\nMERGE_SHARD=UNREADABLE\n", filenames[cur->fi - 1], strerror(fe)); else fprintf(stderr, "ERROR: merge input %s has no usable logical size (%lld) at Phase 1 -- it changed or became unreadable after the scan\nMERGE_SHARD=UNREADABLE\n", filenames[cur->fi - 1], sz); return -2; } }  /* Q-875: only an EMPTY shard is skipped; unreadable/unsizable = -2, named here */
             }
             if (!cur->f) break;  /* all files consumed */
         }
@@ -11597,7 +11597,7 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
             int nb = 0;
             for (int w = 0; w < W; w++) {
                 long long c = merge_fill_chunk(bufs[w], max_per_chunk, filenames, n_files, &cur);
-                if (c < 0) { fprintf(stderr, "FATAL: short read filling sort chunk (shard corruption)\n"); abort_flag = 1; break; }
+                if (c < 0) { if (c == -1) fprintf(stderr, "FATAL: short read filling sort chunk (shard corruption)\n"); abort_flag = 1; break; }  /* Q-875: -2 = unreadable shard, already named by merge_fill_chunk */
                 if (c == 0) break;
                 counts[w] = c; nb++;
             }
@@ -11634,9 +11634,9 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
          * (decompressed bytes) via gz_logical_size, NOT the compressed on-disk
          * size, so record counting is correct for both. */
         gzFile f = gzr_open(filenames[fi]);
-        if (!f) continue;
+        if (!f) { fprintf(stderr, "ERROR: cannot open merge input %s: %s\nMERGE_SHARD=UNREADABLE\n", filenames[fi], strerror(errno)); free(chunk); return 1; }  /* Q-875: was a silent skip (the #176 completeness gate below caught it only as an unnamed count shortfall) */
         long long sz = gz_logical_size(filenames[fi]);
-        if (sz <= 0 || sz % SOL_RECORD_SIZE != 0) { gzclose(f); continue; }
+        if (sz == 0) { gzclose(f); continue; } if (sz < 0 || sz % SOL_RECORD_SIZE != 0) { fprintf(stderr, "ERROR: merge input %s has no usable logical size (%lld) at Phase 1 -- it changed or became unreadable after the scan\nMERGE_SHARD=UNREADABLE\n", filenames[fi], sz); gzclose(f); free(chunk); return 1; }  /* Q-875 */
         long long file_records = sz / SOL_RECORD_SIZE;
 
         while (file_records > 0) {
@@ -15193,7 +15193,7 @@ static void f1c5_derive_b0(const F1Ctx *c, int full31, int b0[5]) {
 
 /* ---------- ragged-sparse layer storage + checkpointing ---------- */
 #ifndef F1C5_OOC_BLK
-#define F1C5_OOC_BLK 65536u   /* v2 gzip: entries per compressed block (see codec below).
+#define F1C5_OOC_BLK 65536u   /* v2 (zlib-blocked): entries per compressed block (see codec below).
                                * Override at compile time (-DF1C5_OOC_BLK=7u) to stress-test the
                                * block-boundary / partial-block / multi-block-window logic. */
 #endif
@@ -15204,7 +15204,7 @@ typedef struct {
     uint64_t *off;     /* nm+1 entry offsets */
     uint32_t *keys;    /* ne keys: (last << 16) | rid, ascending per mask */
     F1U192 *vals;      /* ne 192-bit counts */
-    /* v2 (gzip) only: per-block compressed-byte seek index, carried in RAM so
+    /* v2 (zlib-blocked) only: per-block compressed-byte seek index, carried in RAM so
      * the next layer's build can read this layer's compressed entries. NULL for
      * v1 (raw). nblk = ceil(ne/F1C5_OOC_BLK). See f1c5_ooc_build_layer_v2. */
     uint64_t *kidx;    /* nblk+1 compressed offsets of keys blocks (0 if v1) */
@@ -16193,7 +16193,7 @@ static int f1c5_gzip_selftest(void) {
     return 0;
 }
 
-/* --f1c5-verify-layer <v1_raw> <v2_gzip>: read a v1 raw layer and a v2 gzip layer
+/* --f1c5-verify-layer <v1_raw> <v2_zlib>: read a v1 raw layer and a v2 zlib-blocked layer
  * (same k of the same run), decompress the v2 blocks, and assert masks/off/keys/
  * vals are BYTE-IDENTICAL. Proves the v2 format preserves exact content, not just
  * the aggregate count. Returns 0 on identical, 1 on mismatch. */
@@ -16862,11 +16862,11 @@ static int f1c5_sidecar_env_ok(const char *s) {
 } while (0)
 
 /* Emit the layer-stats sidecar for <dir>/<pfx>_layer_<k>.bin. force=1 skips
- * the env gate (the explicit retrofit subcommand). NON-FATAL by contract. */
-static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
+  * the env gate (the explicit retrofit subcommand). NON-FATAL by contract. Returns 0 = written/skipped by design, 1 = gave up or chain input unusable (Q-875; the builders ignore it, the retrofit exits 2). */
+static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
                                    const F1Ctx *c, const F1C5Budget *B,
                                    int k, int force) {
-    if (!force && !f1c5_sidecars_enabled()) return;
+    int emit_rc = 0; if (!force && !f1c5_sidecars_enabled()) return 0;
     /* g and t are both backward ladders: hash-chain input = layer k+1 */
     const int is_g = ((pfx[0] == 'g' || pfx[0] == 't') && pfx[1] == '\0');
     const int kind = (pfx[0] == 't' && pfx[1] == '\0') ? 2 : (is_g ? 1 : 0);
@@ -16897,7 +16897,7 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         fprintf(stderr, "[sidecar] EXISTS %s — left untouched (non-destructive "
                 "build path, #119; --f1c5-sidecar-retrofit regenerates "
                 "deliberately)\n", jfin);
-        return;
+        return 0;
     }
     /* #119 telemetry: bin size (recorded below) + announce the silent phases
      * for big layers (>= 64 MB compressed) so a supervisor can tell this
@@ -16918,13 +16918,13 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     }
     if (!sha256_tool()) {
         F1C5_SIDECAR_WARN("no sha256 tool on PATH — sidecar for %s skipped", lpath);
-        return;
+        return 1;
     }
     /* (4) own decompressed-stream sha — the registry digest, same code path */
     char own_sha[65];
     if (f1c5_layer_sha_hex(lpath, own_sha, NULL, NULL, NULL) != 0) {
         F1C5_SIDECAR_WARN("digest failed for %s — sidecar skipped", lpath);
-        return;
+        return 1;
     }
     /* input-layer sha (hash chain) */
     const int input_k = is_g ? k + 1 : k - 1;
@@ -16943,7 +16943,7 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
                    f1c5_layer_sha_hex(ilayer, ih, NULL, NULL, NULL) == 0) {
             snprintf(input_sha, sizeof(input_sha), "%s", ih);
         } else {
-            snprintf(input_sha, sizeof(input_sha), "unavailable");
+            snprintf(input_sha, sizeof(input_sha), "unavailable"); if (access(ilayer, F_OK) == 0 || access(ijson, F_OK) == 0) { F1C5_SIDECAR_WARN("chain input k=%d for %s exists but neither its sidecar nor its layer could be digested -- input_sha256_decompressed recorded as \"unavailable\"", input_k, lpath); emit_rc = 1; }  /* Q-875: an ABSENT input (pruned layer, no sidecar) is "unavailable" by design; one that exists and cannot be used is a failed link */
         }
     }
     /* (v2) rolling chain digest: chain_k = sha256(chain_input || own_sha_k);
@@ -16974,12 +16974,12 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     F1c5LayerStream SK, SV;
     if (f1c5_lstream_open(lpath, &SK) != 0) {
         F1C5_SIDECAR_WARN("stats open failed for %s", lpath);
-        return;
+        return 1;
     }
     if (f1c5_lstream_open(lpath, &SV) != 0) {
         f1c5_lstream_close(&SK);
         F1C5_SIDECAR_WARN("stats open (vals) failed for %s", lpath);
-        return;
+        return 1;
     }
     const uint64_t nm = SK.nm, ne = SK.ne;
     const uint32_t R = B->R;
@@ -16999,7 +16999,7 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         free(masks); free(off); free(marg_last); free(marg_rid); free(vh); free(bh);
         free(fullent);
         f1c5_lstream_close(&SK); f1c5_lstream_close(&SV);
-        return;
+        return 1;
     }
     const uint8_t *chunk;
     uint64_t len, have;
@@ -17138,7 +17138,7 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     /* atomic JSON write (tmp + fsync + rename + dir fsync; non-fatal) */
     FILE *jf = fopen(jtmp, "w");
     if (!jf) {
-        F1C5_SIDECAR_WARN("cannot open %s", jtmp);
+        emit_rc = 1; F1C5_SIDECAR_WARN("cannot open %s", jtmp);
         goto out;
     }
     {
@@ -17282,14 +17282,14 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         fprintf(jf, "}\n");
     }
     if (fflush(jf) != 0 || fsync(fileno(jf)) != 0) {
-        F1C5_SIDECAR_WARN("write/fsync failed for %s", jtmp);
+        emit_rc = 1; F1C5_SIDECAR_WARN("write/fsync failed for %s", jtmp);
         fclose(jf);
         unlink(jtmp);
         goto out;
     }
     fclose(jf);
     if (rename(jtmp, jfin) != 0) {
-        F1C5_SIDECAR_WARN("rename %s -> %s failed", jtmp, jfin);
+        emit_rc = 1; F1C5_SIDECAR_WARN("rename %s -> %s failed", jtmp, jfin);
         unlink(jtmp);
         goto out;
     }
@@ -17302,12 +17302,12 @@ static void f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
             genesis ? "genesis" : (input_sha[0] == 'u' ? "UNAVAILABLE" : "linked"));
 out:
     free(masks); free(off); free(marg_last); free(marg_rid); free(vh); free(bh);
-    free(fullent);
+    free(fullent); return emit_rc;
 }
 
 static void f1c5_sidecar_emit(const char *dir, const char *pfx,
                               const F1Ctx *c, const F1C5Budget *B, int k) {
-    f1c5_sidecar_emit_impl(dir, pfx, c, B, k, 0);
+    (void)f1c5_sidecar_emit_impl(dir, pfx, c, B, k, 0);  /* builders: non-fatal by contract (Q-875 status ignored here) */
 }
 
 /* --f1c5-sidecar-retrofit worker: regenerate sidecars for every retained
@@ -17334,7 +17334,7 @@ static int f1c5_sidecar_retrofit_dir(const char *dir, int only_k) {
         snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
         snprintf(expect1, sizeof(expect1), "%s_manifest_v1", pfx);
         FILE *f = fopen(path, "r");
-        if (!f) continue;
+        if (!f) { const int fe = errno; if (access(path, F_OK) == 0) { fprintf(stderr, "ERROR: [sidecar] cannot open %s: %s\nF1C5_SIDECAR_RETROFIT_MANIFEST=UNREADABLE\n", path, strerror(fe)); rc = 2; any = 1; } continue; }  /* Q-874: an absent manifest = no such ladder here; an existing unreadable one is a named error, rc 2 */
         int n = -1, start_exit = -1, b0v[5] = {-1, -1, -1, -1, -1};
         int pl[32], npl = 0, first = 1, hdr_ok = 0;
         while (fgets(line, sizeof(line), f)) {
@@ -17365,8 +17365,8 @@ static int f1c5_sidecar_retrofit_dir(const char *dir, int only_k) {
             if (only_k >= 0 && k != only_k) continue;
             char lpath[4300];
             snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
-            if (access(lpath, R_OK) != 0) continue;
-            f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1);
+            if (access(lpath, F_OK) != 0) continue; else if (access(lpath, R_OK) != 0) { fprintf(stderr, "ERROR: [sidecar] cannot open %s: %s\nF1C5_SIDECAR_RETROFIT_LAYER=UNREADABLE\n", lpath, strerror(errno)); rc = 2; continue; }  /* Q-874: absent = not retained, skip as documented; exists-but-unreadable = named error, rc 2, never a silent skip */
+            if (f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: sidecar not regenerated cleanly (see the WARN above)\nF1C5_SIDECAR_RETROFIT_LAYER=FAILED\n", lpath); rc = 2; continue; }  /* Q-875: was counted as regenerated, exit 0; now named, not counted, exit 2 */
             done++;
         }
         printf("[sidecar-retrofit] %s: %s ladder, %d layer sidecar(s) regenerated%s\n",
@@ -18678,7 +18678,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         if ((e = getenv("SOLVE_F1_OOC_GAP_KB")) && *e && atoll(e) >= 0)
             ooc_cfg.gap_kb = (uint64_t)atoll(e);
     }
-    /* retool 2026-07-07: v2 = per-block-gzip layer format (default). v1 = raw
+    /* retool 2026-07-07: v2 = per-block-zlib layer format (default). v1 = raw
      * (pristine reference; SOLVE_F1_OOC_FORMAT=v1). Count is format-invariant. */
     int use_v2 = 1;
     { const char *e = getenv("SOLVE_F1_OOC_FORMAT");
@@ -19291,7 +19291,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
  * (see scripts/kc_midn_validate.sh); the full-31 substrate is the production
  * engine's preserve-all-layers run (SOLVE_F1_KEEP_LAYERS=1, Stage F).
  * QUERIES are full-n-capable (Stage Q, 2026-07-14): any retained-layers dir —
- * v1 raw or v2 per-block-gzip, n up to 31 — is served OUT-OF-CORE (see the
+ * v1 raw or v2 per-block-zlib, n up to 31 — is served OUT-OF-CORE (see the
  * kc_ooc_* module below): per-layer mask/offset indexes in RAM + a bounded
  * LRU block cache (SOLVE_KC_CACHE_MB, default 2048); entries never resident
  * in full, working set layer-size-independent):
@@ -20085,7 +20085,7 @@ static void kc_write(const KC *kc, const char *dir) {
     f1c5_write_manifest(dir, &kc->c, &kc->B, NULL, kc->n);
 }
 
-/* write the SAME layers in the v2 per-block-gzip production format (used by
+/* write the SAME layers in the v2 per-block-zlib production format (used by
  * the OOC equivalence gates: v1 and v2 must serve byte-identical queries) */
 static void kc_write_v2(KC *kc, const char *dir) {
     if (mkdir(dir, 0755) != 0 && errno != EEXIST) f1_ckpt_io_abort("mkdir", dir);
@@ -20234,7 +20234,7 @@ static int kc_load(KC *kc, const char *dir) { return kc_load_as(kc, dir, "f1c5",
 /* ===================== KC out-of-core reader (Stage Q, 2026-07-14) =====================
  *
  * Serves every query primitive (count/rank/unrank/member/sample/enum) against
- * ON-DISK layer files — v1 raw (F1C5LAY1) or v2 per-block-gzip (F1C5LAY2, the
+ * ON-DISK layer files — v1 raw (F1C5LAY1) or v2 per-block-zlib (F1C5LAY2, the
  * format the full-31 production run lands, MEASURED 3.29 TB) — without ever holding
  * a layer's entries in RAM. Resident per layer: the mask/offset index only
  * (12 B/mask + 16 B/block of v2 seek index); entry access goes through a
@@ -22198,7 +22198,7 @@ static int kc_oocverify(int npairs, int R, const char *scratch) {
  *                                   files (mirrors --kc-build). n = 24..31
  *                                   (or --kc-g-ooc at any n): OUT-OF-CORE
  *                                   streaming build (kc_g_ooc_build_layer),
- *                                   v2 per-block-gzip by default
+ *                                   v2 per-block-zlib by default
  *                                   (SOLVE_F1_OOC_FORMAT=v1 override),
  *                                   layer-granular eviction resume via
  *                                   g_manifest + intra-layer chunk
@@ -25327,7 +25327,7 @@ static int kc_check_arrangement_main(int argc, char *argv[]) {
         return 2;
     }
     const char *cert_out = NULL, *label = NULL;  /* Q-795: --label NAME = the certificate's "label" (default KW/explicit) */
-    for (int ai = 3; ai < argc; ai++)  /* Q-852: every argument is read; an unknown one, or --cert-out with no value, is refused */
+    { if (argv_refuse_repeat(argc, argv, 3, "--cert-out --label")) return 2; } /* Q-864 */ for (int ai = 3; ai < argc; ai++)  /* Q-852: every argument is read; an unknown one, or --cert-out with no value, is refused */
         if (ai + 1 < argc && strcmp(argv[ai], "--cert-out") == 0) cert_out = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--label") == 0) label = argv[++ai];
         else if (strcmp(argv[ai], "--label") == 0) label = "";  /* a value-less --label is refused, never ignored */ else { argv_refuse_arg(argv[1], argv[ai], "an arrangement, then --cert-out FILE and --label NAME"); return 2; }
@@ -26023,12 +26023,12 @@ static int kc_oracle_main(int argc, char *argv[]) {
     int force_ooc = 0, cache_mb = 0;
     const char *paths[KC_H1_MAX_FILES];
     int nf = 0;
-    for (int ai = 3; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 3, "--kc-cache-mb --kc-c3-max --kc-dump --kc-cert-out --kc-expect-count")) { printf("KC_ORACLE=ERROR\n"); return 2; } } /* Q-864 */ for (int ai = 3; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (strcmp(argv[ai], "--kc-oracle-repr") == 0) o.check_repr = 1;
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) o.c3max = atoll(argv[++ai]);
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-dump") == 0) o.dump_max = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) { printf("KC_ORACLE=ERROR\n"); return 2; } }  /* Q-865 */
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) { if (argv_ll(argv[1], "--kc-c3-max", argv[++ai], -1, LLONG_MAX, &o.c3max)) { printf("KC_ORACLE=ERROR\n"); return 2; } }  /* Q-865 */
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-dump") == 0) { if (argv_int(argv[1], "--kc-dump", argv[++ai], 0, INT_MAX, &o.dump_max)) { printf("KC_ORACLE=ERROR\n"); return 2; } }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-expect-count") == 0) expect = argv[++ai];
         else if (argv[ai][0] == '-') {
@@ -26765,9 +26765,9 @@ static int kc_ladder_verify_main(int argc, char *argv[]) {
     }
     const char *fdir = argv[2], *gdir = NULL;
     int force_ooc = 0, cache_mb = 0;
-    for (int ai = 3; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 3, "--kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 3; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */
         else if (argv[ai][0] != '-' && !gdir) gdir = argv[ai]; else { argv_refuse_arg(argv[1], argv[ai], "FDIR, an optional GDIR, --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
     }
     const int r = kc_h_ladder_verify(fdir, gdir, force_ooc, cache_mb, 0);
@@ -27417,12 +27417,12 @@ static int kc_verify_certificate_main(int argc, char *argv[]) {
     }
     const char *path = argv[2], *fdir_ov = NULL, *gdir_ov = NULL;
     int mutate = 0, force_ooc = 0, cache_mb = 0;
-    for (int ai = 3; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 3, "--kc-fdir --kc-gdir --kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 3; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-mutate") == 0) mutate = 1;
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-fdir") == 0) fdir_ov = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-gdir") == 0) gdir_ov = argv[++ai];
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]); else { argv_refuse_arg(argv[1], argv[ai], "CERT.json, then --kc-mutate, --kc-ooc, --kc-fdir F, --kc-gdir G and --kc-cache-mb MB"); return 2; } /* Q-852 */
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */ else { argv_refuse_arg(argv[1], argv[ai], "CERT.json, then --kc-mutate, --kc-ooc, --kc-fdir F, --kc-gdir G and --kc-cache-mb MB"); return 2; } /* Q-852 */
     }
     FILE *f = fopen(path, "r");
     if (!f) { fprintf(stderr, "ERROR: [verify-certificate] cannot read %s\n", path); return 2; }
@@ -30185,7 +30185,7 @@ static int kc_scan_main(int argc, char *argv[]) {
         printf("KC_SCAN=FAIL\n");
         return 2;
     }
-    for (int ai = 5; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 5, "--kc-scan-threads --kc-gcache-mb-per-thread --kc-cache-mb --kc-tdir --kc-layers:2")) { printf("KC_SCAN=FAIL\n"); return 2; } } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-raw") == 0) want_raw = 1;
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (strcmp(argv[ai], "--kc-scan-threads") == 0 ||
@@ -30204,12 +30204,12 @@ static int kc_scan_main(int argc, char *argv[]) {
             if (is_t) P.threads = (int)v; else P.gcache_mb = (int)v;
             ai++;
         }
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) { printf("KC_SCAN=FAIL\n"); return 2; } }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tdir") == 0) tdir = argv[++ai];
         else if (ai + 2 < argc && strcmp(argv[ai], "--kc-layers") == 0) {
             chunk_mode = 1;
-            k_lo = atoi(argv[ai + 1]);
-            k_hi = atoi(argv[ai + 2]);
+            if (argv_int(argv[1], "--kc-layers A", argv[ai + 1], 0, KC_MAX_PAIRS, &k_lo)) { printf("KC_SCAN=FAIL\n"); return 2; }  /* Q-865 */
+            if (argv_int(argv[1], "--kc-layers B", argv[ai + 2], 0, KC_MAX_PAIRS, &k_hi)) { printf("KC_SCAN=FAIL\n"); return 2; }
             ai += 2;
         } else if (strcmp(argv[ai], "--kc-layers") == 0) {
             fprintf(stderr, "ERROR: [kc-scan] --kc-layers needs two arguments A B "
@@ -30898,10 +30898,10 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     int want_raw = 0, force_ooc = 0, cache_mb = 0;
     const char *chunks[4096];
     int nchunk = 0;
-    for (int ai = 5; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 5, "--kc-cache-mb --kc-tdir")) { printf("KC_SCAN_MERGE=FAIL\n"); return 2; } } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-raw") == 0) want_raw = 1;
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) { printf("KC_SCAN_MERGE=FAIL\n"); return 2; } }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tdir") == 0) tdir = argv[++ai];
         else if (argv[ai][0] == '-') {
             fprintf(stderr, "ERROR: [kc-scan-merge] unknown option %s\n", argv[ai]);
@@ -32471,7 +32471,7 @@ static int kc_profile_main(int argc, char *argv[]) {
     const char *fdir = argv[2], *gdir = argv[3], *warg = argv[4];
     const char *tsv = NULL;
     int force_ooc = 0, cache_mb = 0, want_alts = 0;
-    for (int ai = 5; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 5, "--kc-cache-mb --kc-tsv")) return 2; } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-c3-max") == 0) {
             fprintf(stderr,
                 "ERROR: [kc-profile] --kc-c3-max is not accepted here. p_i is the\n"
@@ -32484,7 +32484,7 @@ static int kc_profile_main(int argc, char *argv[]) {
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (strcmp(argv[ai], "--kc-alts") == 0) want_alts = 1;
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-            cache_mb = atoi(argv[++ai]);
+            { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tsv") == 0)
             tsv = argv[++ai];
         else {
@@ -33143,7 +33143,7 @@ static int kc_walks_load(const char *path, int n, KcWalkRow **out, int *count) {
 static int kc_profile_walks_main(int argc, char *argv[]) {
     const char *fdir = argv[2], *gdir = argv[3], *walks = NULL, *tsv = NULL;
     int force_ooc = 0, cache_mb = 0, want_alts = 0;
-    for (int ai = 4; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 4, "--kc-cache-mb --kc-tsv --kc-walks")) return 2; } /* Q-864 */ for (int ai = 4; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-c3-max") == 0) {
             fprintf(stderr,
                 "ERROR: [kc-profile] --kc-c3-max is not accepted here. p_i is the\n"
@@ -33156,7 +33156,7 @@ static int kc_profile_walks_main(int argc, char *argv[]) {
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (strcmp(argv[ai], "--kc-alts") == 0) want_alts = 1;
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-            cache_mb = atoi(argv[++ai]);
+            { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tsv") == 0)
             tsv = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-walks") == 0) {
@@ -36153,13 +36153,13 @@ static int kc_dead_census_main(int argc, char *argv[]) {
     }
     const char *fdir = argv[2], *gdir = argv[3], *outp = NULL;
     int force_ooc = 0, cache_mb = 0, k_lo = -1, k_hi = -1, local_max = KC_DEAD_LOCAL_MAX_DEFAULT;
-    for (int ai = 4; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 4, "--kc-cache-mb --kc-out --kc-local-max --kc-layers:2")) return 2; } /* Q-864 */ for (int ai = 4; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-out") == 0) outp = argv[++ai];
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-local-max") == 0) local_max = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-local-max") == 0) { if (argv_int(argv[1], "--kc-local-max", argv[++ai], 0, KC_MAX_PAIRS, &local_max)) return 2; }  /* Q-865 */
         else if (ai + 2 < argc && strcmp(argv[ai], "--kc-layers") == 0) {
-            k_lo = atoi(argv[ai + 1]); k_hi = atoi(argv[ai + 2]); ai += 2;
+            if (argv_int(argv[1], "--kc-layers A", argv[ai + 1], 0, KC_MAX_PAIRS, &k_lo) || argv_int(argv[1], "--kc-layers B", argv[ai + 2], 0, KC_MAX_PAIRS, &k_hi)) { return 2; } ai += 2;  /* Q-865 */
         } else {
             fprintf(stderr, "ERROR: [kc-dead] unknown or incomplete option '%s' (accepted: "
                     "--kc-layers A B --kc-out OUT --kc-local-max R --kc-ooc --kc-cache-mb MB)\n", argv[ai]);
@@ -36772,9 +36772,9 @@ static int kc_witness_walks_main(int argc, char *argv[]) {
     }
     const char *fdir = argv[2], *gdir = argv[3], *atlas = argv[4], *outp = NULL;
     int force_ooc = 0, cache_mb = 0;
-    for (int ai = 5; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 5, "--kc-cache-mb --kc-out")) return 2; } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) cache_mb = atoi(argv[++ai]);
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-out") == 0) outp = argv[++ai];
         else {
             fprintf(stderr, "ERROR: [kc-witness] unknown or incomplete option '%s' (accepted: "
@@ -37698,7 +37698,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
         return 2;
     }
     const int want_max = strcmp(dir, "max") == 0;
-    for (int ai = 5; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 5, "--kc-json --kc-gdir --kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-c3-max") == 0) {
             fprintf(stderr,
                 "ERROR: [kc-extremal] --kc-c3-max is not accepted here. The KC f/g/t\n"
@@ -37718,7 +37718,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-json") == 0) jout = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-gdir") == 0) gdir = argv[++ai];
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-            cache_mb = atoi(argv[++ai]);
+            { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */
         else {
             /* fail CLOSED: an unrecognised modifier used to be ignored, so
              * "--kc-witnes" produced KC_EXTREMAL=OK with no witness (KCQ03 #4) */
@@ -38482,10 +38482,10 @@ static int kc_cli(int argc, char *argv[]) {
                     "[--kc-chi2-samples M]\n");
             return 2;
         }
-        int npairs = atoi(argv[2]), R = 4000, M = 20000;
-        for (int ai = 3; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
-            if (ai + 1 < argc && strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[++ai]);
-            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-chi2-samples") == 0) M = atoi(argv[++ai]);
+        int npairs = 0, R = 4000, M = 20000; if (argv_int(cmd, "N", argv[2], 1, KC_MAX_PAIRS, &npairs)) return 2;  /* Q-865 */
+        { if (argv_refuse_repeat(argc, argv, 3, "--kc-roundtrips --kc-chi2-samples")) return 2; } /* Q-864 */ for (int ai = 3; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
+            if (ai + 1 < argc && strcmp(argv[ai], "--kc-roundtrips") == 0) { if (argv_int(cmd, "--kc-roundtrips", argv[++ai], 1, 100000000, &R)) return 2; }
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-chi2-samples") == 0) { if (argv_int(cmd, "--kc-chi2-samples", argv[++ai], 1, 1000000000, &M)) return 2; }
             else { argv_refuse_arg(cmd, argv[ai], "N, then --kc-roundtrips R and --kc-chi2-samples M"); return 2; } }
         if (R < 2) R = 2;
         if (M < 16) M = 16;
@@ -38497,10 +38497,10 @@ static int kc_cli(int argc, char *argv[]) {
                     "[--kc-scratch DIR]\n");
             return 2;
         }
-        int npairs = atoi(argv[2]), R = 2000;
+        int npairs = 0, R = 2000; if (argv_int(cmd, "N", argv[2], 1, KC_MAX_PAIRS, &npairs)) return 2;  /* Q-865 */
         const char *scratch = "/tmp";
-        for (int ai = 3; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
-            if (ai + 1 < argc && strcmp(argv[ai], "--kc-roundtrips") == 0) R = atoi(argv[++ai]);
+        { if (argv_refuse_repeat(argc, argv, 3, "--kc-roundtrips --kc-scratch")) return 2; } /* Q-864 */ for (int ai = 3; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
+            if (ai + 1 < argc && strcmp(argv[ai], "--kc-roundtrips") == 0) { if (argv_int(cmd, "--kc-roundtrips", argv[++ai], 1, 100000000, &R)) return 2; }
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-scratch") == 0) scratch = argv[++ai];
             else { argv_refuse_arg(cmd, argv[ai], "N, then --kc-roundtrips R and --kc-scratch DIR"); return 2; } }
         if (R < 8) R = 8;
@@ -38522,8 +38522,8 @@ static int kc_cli(int argc, char *argv[]) {
             return 2;
         }
         int npairs = 9, gooc = 0;
-        for (int ai = 3; ai < argc; ai++) {
-            if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) npairs = atoi(argv[++ai]);
+        { if (argv_refuse_repeat(argc, argv, 3, "--f1-pairs")) return 2; } /* Q-864 */ for (int ai = 3; ai < argc; ai++) {
+            if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) { if (argv_int(cmd, "--f1-pairs", argv[++ai], 1, KC_MAX_PAIRS, &npairs)) return 2; }  /* Q-865 */
             else if (strcmp(argv[ai], "--kc-g-ooc") == 0) gooc = 1; else { argv_refuse_arg(cmd, argv[ai], "GDIR, then --f1-pairs N and --kc-g-ooc"); return 2; } /* Q-852 */
         }
         return kc_g_build_main(argv[2], npairs, gooc);
@@ -38563,12 +38563,12 @@ static int kc_cli(int argc, char *argv[]) {
             return 2;
         }
         int o3ooc = 0, o3cache = 0, o3trace = 0, o3bracket = 0;
-        for (int ai = 5; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 5, "--kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) o3ooc = 1;
             else if (strcmp(argv[ai], "--kc-trace") == 0) o3trace = 1;
             else if (strcmp(argv[ai], "--kc-bracket") == 0) o3bracket = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-                o3cache = atoi(argv[++ai]);
+                { if (argv_int(cmd, "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &o3cache)) return 2; }  /* Q-865 */
             else {
                 /* fail CLOSED: "--kc-braket" used to run with 0 bracket lines and
                  * exit 0 (KCQ03 #4) */
@@ -38592,10 +38592,10 @@ static int kc_cli(int argc, char *argv[]) {
             return 2;
         }
         int gfooc = 0, gcache = 0;
-        for (int ai = 4; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 4, "--kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 4; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) gfooc = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-                gcache = atoi(argv[++ai]); else { argv_refuse_arg(cmd, argv[ai], "FDIR GDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
+                { if (argv_int(cmd, "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &gcache)) return 2; }  /* Q-865 */ else { argv_refuse_arg(cmd, argv[ai], "FDIR GDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         return kc_g_check_main(argv[2], argv[3], gfooc, gcache);
     }
@@ -38613,10 +38613,10 @@ static int kc_cli(int argc, char *argv[]) {
             return 2;
         }
         int glooc = 0, glcache = 0;
-        for (int ai = 5; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 5, "--kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) glooc = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-                glcache = atoi(argv[++ai]); else { argv_refuse_arg(cmd, argv[ai], "K GDIR FDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
+                { if (argv_int(cmd, "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &glcache)) return 2; }  /* Q-865 */ else { argv_refuse_arg(cmd, argv[ai], "K GDIR FDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         /* 🔴 STRICT PARSE, 2026-09-10 (RCQ03 F3, ACCEPTED by execution). This was
          * atoi(argv[2]), and atoi() maps EVERY non-numeric string to 0 with no way to
@@ -38696,10 +38696,10 @@ static int kc_cli(int argc, char *argv[]) {
             return 2;
         }
         int tooc = 0, tcache = 0;
-        for (int ai = 4; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 4, "--kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 4; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) tooc = 1;
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0)
-                tcache = atoi(argv[++ai]); else { argv_refuse_arg(cmd, argv[ai], "FDIR TDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
+                { if (argv_int(cmd, "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &tcache)) return 2; }  /* Q-865 */ else { argv_refuse_arg(cmd, argv[ai], "FDIR TDIR, then --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         return is_build ? kc_t_build_main(argv[2], argv[3], tooc, tcache)
                         : kc_t_check_main(argv[2], argv[3], tooc, tcache);
@@ -38747,9 +38747,9 @@ static int kc_cli(int argc, char *argv[]) {
         }
         int hooc = 0, hcache = 0;
         const char *cert_out = NULL, *warg = NULL;
-        for (int ai = 4; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 4, "--kc-cache-mb --kc-cert-out")) return 2; } /* Q-864 */ for (int ai = 4; ai < argc; ai++) {
             if (strcmp(argv[ai], "--kc-ooc") == 0) hooc = 1;
-            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) hcache = atoi(argv[++ai]);
+            else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(cmd, "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &hcache)) return 2; }  /* Q-865 */
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai]; else if (ai != 4 || argv[4][0] == '-') { argv_refuse_arg(cmd, argv[ai], is_cert ? "FDIR GDIR WALK, then --kc-cert-out FILE, --kc-ooc and --kc-cache-mb MB" : "FDIR GDIR, an optional WALK, then --kc-cert-out FILE, --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         if (argc > 4 && argv[4][0] != '-') warg = argv[4];
@@ -38783,9 +38783,9 @@ static int kc_cli(int argc, char *argv[]) {
      * line above, is the plausible way in. */
     enum { KO_C3 = 1, KO_LIMIT = 2, KO_UNIFORM = 4, KO_RECORD = 8, KO_PAIRS = 16 };
     int saw = 0; int kc_npos = 0;  /* Q-852: positional arguments seen (DIR included) */
-    for (int ai = 2; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 2, "--f1-pairs --kc-c3-max --kc-limit --kc-cache-mb")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {
         if (ai + 1 < argc && strcmp(argv[ai], "--f1-pairs") == 0) {
-            npairs = atoi(argv[++ai]); saw |= KO_PAIRS;
+            if (argv_int(cmd, "--f1-pairs", argv[++ai], 1, KC_MAX_PAIRS, &npairs)) { return 2; }  /* Q-865 */ saw |= KO_PAIRS;
         } else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) {
             const char *v = argv[++ai];
             char *end = NULL;
@@ -38801,9 +38801,9 @@ static int kc_cli(int argc, char *argv[]) {
             }
             saw |= KO_C3;
         } else if (ai + 1 < argc && strcmp(argv[ai], "--kc-limit") == 0) {
-            limit = atoll(argv[++ai]); saw |= KO_LIMIT;
+            if (argv_ll(cmd, "--kc-limit", argv[++ai], 0, LLONG_MAX, &limit)) { return 2; }  /* Q-865 */ saw |= KO_LIMIT;
         } else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) {
-            cache_mb = atoi(argv[++ai]);
+            { if (argv_int(cmd, "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) return 2; }  /* Q-865 */
         } else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
         else if (strcmp(argv[ai], "--kc-class-uniform") == 0) { class_uniform = 1; saw |= KO_UNIFORM; }
         else if (strcmp(argv[ai], "--kc-record") == 0) { want_record = 1; saw |= KO_RECORD; }
@@ -38951,9 +38951,9 @@ static int kc_cli(int argc, char *argv[]) {
     } else if (strcmp(cmd, "--kc-sample") == 0) {
         if (argc < 5) { fprintf(stderr, "Usage: solve --kc-sample DIR COUNT SEED "
                                 "[--kc-c3-max T] [--kc-class-uniform] [--kc-record]\n"); free(kc); return 2; }
-        if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
-        long long M = atoll(argv[3]);
-        uint64_t seed = (uint64_t)strtoull(argv[4], NULL, 10);
+        long long M_ = 0; uint64_t seed_ = 0; if (argv_ll(cmd, "COUNT", argv[3], 1, LLONG_MAX, &M_) || argv_u64(cmd, "SEED", argv[4], 10, &seed_)) { free(kc); return 2; }  /* Q-865 */ if (kc_open(kc, dir, force_ooc, cache_mb) != 0) { free(kc); return 2; }
+        long long M = M_;
+        uint64_t seed = seed_;
         uint8_t E[KC_MAX_PAIRS], repr[KC_MAX_PAIRS];
         for (long long s = 0, rej = 0; s < M; s++) {   /* Q-715: rej counts C3 rejections before the first draw; at 2^16, decide once whether C15 is empty */
             F1U192 r;
@@ -39886,7 +39886,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* #165 deterministic eviction-injection hook (test-only; see g_kill_after_nodes). */
-    { const char *e = getenv("SOLVE_KILL_AFTER_NODES"); if (e && *e) g_kill_after_nodes = atoll(e); }
+    { if (solve_env_preflight()) return 2; }  /* every numeric SOLVE_* variable is checked here, before any work (lane HE) */ { const char *e = getenv("SOLVE_KILL_AFTER_NODES"); if (e && *e) g_kill_after_nodes = atoll(e); }
     /* Candidate-registry cross-verification hook (test-only, estimator-independent):
      * SOLVE_KNUTH_SCORE_REG=2 + SOLVE_REG_TESTVEC="h0,h1,...,h63" -> evaluate
      * score_registry on the explicit sequence with W=1, print the 31 rule
@@ -39987,7 +39987,7 @@ int main(int argc, char *argv[]) {
     int parallel_sub_branch_enabled = 0;  /* P1: auto-on when SOLVE_THREADS > 1 in --sub-branch mode */
     int sb_pair = -1, sb_orient = -1;
     int ssb_pair2 = -1, ssb_orient2 = -1, ssb_pair3 = -1, ssb_orient3 = -1;
-    int arg_offset = 1;
+    int arg_offset = 1; int enum_argv_nt = 0;  /* Q-865 follow-up (lane HH): [threads], read whole at startup; an empty [time_limit] or [threads] stays 0, as atoi read it */
 
     int list_branches_mode = 0;
     int validate_mode = 0;
@@ -40296,24 +40296,24 @@ int main(int argc, char *argv[]) {
         arg_offset = argc;
     } else if (argc > 1 && strcmp(argv[1], "--show") == 0) {
         show_mode = 1;
-        int ai = 2;
+        int ai = 2, show_n_seen = 0;  /* Q-864: the count N may be given once */
         /* Optional positional N as first arg after --show */
         if (ai < argc && argv[ai][0] >= '0' && argv[ai][0] <= '9') {
-            show_count = atoll(argv[ai]);
+            if (argv_ll("--show", "N", argv[ai], 1, LLONG_MAX, &show_count)) { return 2; } show_n_seen = 1;  /* Q-865 */
             ai++;
         }
-        for (; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, ai, "--mode --format --from-first --from --seed")) return 2; } /* Q-864 */ for (; ai < argc; ai++) {
             if (strcmp(argv[ai], "--mode") == 0 && ai + 1 < argc) show_mode_str = argv[++ai];
             else if (strcmp(argv[ai], "--format") == 0 && ai + 1 < argc) show_format_str = argv[++ai];
-            else if (strcmp(argv[ai], "--from-first") == 0 && ai + 1 < argc) show_from_first = atoll(argv[++ai]);
+            else if (strcmp(argv[ai], "--from-first") == 0 && ai + 1 < argc) { if (argv_ll("--show", "--from-first", argv[++ai], 0, LLONG_MAX, &show_from_first)) return 2; }  /* Q-865 */
             else if (strcmp(argv[ai], "--from") == 0 && ai + 1 < argc) show_file = argv[++ai];
             else if (strcmp(argv[ai], "--seed") == 0 && ai + 1 < argc) {
-                show_seed = (unsigned int)atoll(argv[++ai]);
+                { long long v_ = 0; if (argv_ll("--show", "--seed", argv[++ai], 0, UINT_MAX, &v_)) return 2; show_seed = (unsigned int)v_; }  /* Q-865 */
                 show_seed_set = 1;
             }
             else if (argv[ai][0] != '-' && argv[ai][0] >= '0' && argv[ai][0] <= '9') {
                 /* fallback positional: e.g. "solve --show --mode random 20" */
-                show_count = atoll(argv[ai]);
+                if (show_n_seen++) { fprintf(stderr, "ERROR: --show takes ONE count N; got a second ('%s').\n       Before 2026-09-27 the last one silently won.\nSHOW_ARGS=REFUSED\n", argv[ai]); return 2; } if (argv_ll("--show", "N", argv[ai], 1, LLONG_MAX, &show_count)) return 2;  /* Q-864, Q-865 */
             } else { fprintf(stderr, "ERROR: --show does not accept '%s' (an unknown option, a flag missing its value, or a file name: use --from FILE).\n       An argument here was previously accepted and silently ignored.\nSHOW_ARGS=REFUSED\n", argv[ai]); return 2; }  /* Q-839 sibling sweep */
         }
         arg_offset = argc;
@@ -41483,7 +41483,7 @@ int main(int argc, char *argv[]) {
             return 2;
         }
         const char *mp = argv[2];
-        long long required_gb = (argc > 3) ? atoll(argv[3]) : 1200LL;
+        long long required_gb = 1200LL; if (argc > 3 && argv_ll(argv[1], "required_gb", argv[3], 0, 1LL << 40, &required_gb)) return 2;  /* Q-865 */
         const char *expected_uuid = (argc > 4) ? argv[4] : NULL;
         const char *marker = getenv("SOLVE_DISK_MARKER");
         if (!marker || !marker[0]) marker = "solutions.sha256";
@@ -41632,8 +41632,8 @@ int main(int argc, char *argv[]) {
          * touches the enumeration or estimator hot path. */
         if (argc < 4) { fprintf(stderr, "usage: solve --knuth-dump-prefix <depth> <seed>\n"); return 1; }
         init_pairs(); init_kw_dist();
-        int depth = atoi(argv[2]); if (depth < 1) depth = 1; if (depth > 30) depth = 30;
-        uint64_t rng = strtoull(argv[3], NULL, 0); if (!rng) rng = 0x9E3779B97F4A7C15ULL;
+        int depth = 0; if (argv_int(argv[1], "<depth>", argv[2], 1, 30, &depth)) return 2;  /* Q-865: was atoi, then clamped to 1..30 */
+        uint64_t rng = 0; if (argv_u64(argv[1], "<seed>", argv[3], 0, &rng)) return 2; if (!rng) rng = 0x9E3779B97F4A7C15ULL;
         int seq0[64]; memset(seq0, 0, sizeof(seq0)); pair_mask_t used0 = 0; int budget0[7];
         seq0[0] = 63; seq0[1] = 0; PAIR_MASK_SET(used0, pair_index_of(63, 0));
         memcpy(budget0, kw_dist, sizeof(budget0)); budget0[hamming(63, 0)]--;
@@ -41674,13 +41674,13 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         init_pairs(); init_kw_dist(); kw_comp_dist_x64 = compute_comp_dist_x64(KW);
-        uint64_t nprobe = strtoull(argv[2], NULL, 10);
+        uint64_t nprobe = 0; if (argv_u64(argv[1], "<N_probes>", argv[2], 10, &nprobe)) return 2;  /* Q-865 (0 = the exact mode) */
         int rest = argc - 3;
         if (rest < 0 || rest % 2 != 0 || rest > 56) {
             fprintf(stderr, "prefix must be up to 28 <pair> <orient> pairs\n"); return 1;
         }
         int nlev = rest / 2, lp[28] = {0}, lo[28] = {0};
-        for (int i = 0; i < nlev; i++) { lp[i] = atoi(argv[3+2*i]); lo[i] = atoi(argv[4+2*i]); }
+        for (int i = 0; i < nlev; i++) { if (argv_int(argv[1], "<pair>", argv[3+2*i], 0, 31, &lp[i]) || argv_int(argv[1], "<orient>", argv[4+2*i], 0, 1, &lo[i])) return 2; }  /* Q-865 */
         /* Stack preflight (2026-08-21). main's frame is ~7.24 MiB and estimate_tree_knuth adds ~1.48 MiB
          * (gcc -fstack-usage, re-measured 2026-09-25, Q-826), so an 8 MB default stack is exceeded the moment the estimator is
          * entered -- previously a bare SIGSEGV after the banner, with no indication of cause.
@@ -42252,9 +42252,9 @@ int main(int argc, char *argv[]) {
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-gzip-selftest") == 0) {
         /* retool 2026-07-07: round-trip test of the v2 per-block zlib codec. */
         if (argc > 2) { fprintf(stderr, "ERROR: --f1c5-gzip-selftest takes NO arguments; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nF1C5_GZIP_SELFTEST_ARGS=REFUSED\n", argc - 2, argv[2]); return 2; } return f1c5_gzip_selftest(); /* Q-849: refuse, as the Q-839/Q-845 siblings do, rather than ignore */
-    } else if (argc > 1 && strcmp(argv[1], "--f1c5-verify-layer") == 0) { if (argv_refuse_extra(argc, argv, 4, "exactly TWO arguments (the v1 raw and the v2 gzip layer file)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
-        /* retool: byte-identical content check of a v1 raw vs v2 gzip layer file. */
-        if (argc < 4) { fprintf(stderr, "usage: --f1c5-verify-layer <v1_raw> <v2_gzip>\n"); return 2; }
+    } else if (argc > 1 && strcmp(argv[1], "--f1c5-verify-layer") == 0) { if (argv_refuse_extra(argc, argv, 4, "exactly TWO arguments (the v1 raw and the v2 zlib-blocked layer file)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
+        /* retool: byte-identical content check of a v1 raw vs v2 zlib-blocked layer file. */
+        if (argc < 4) { fprintf(stderr, "usage: --f1c5-verify-layer <v1_raw> <v2_zlib>\n"); return 2; }
         return f1c5_verify_layer(argv[2], argv[3]);
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-layer-sha") == 0) {
         /* CR-3b (2026-07-16): sha256 over the DECOMPRESSED logical layer stream
@@ -42347,7 +42347,7 @@ int main(int argc, char *argv[]) {
             char *end = NULL;
             long v = strtol(argv[ai], &end, 10);
             if (end && *end == '\0' && argv[ai][0] != '\0' && v >= 0 && v <= 31)
-                sr_only_k = (int)v;
+                { if (sr_only_k >= 0) { fprintf(stderr, "ERROR: --f1c5-sidecar-retrofit takes ONE layer index K; got a second ('%s' after %d).\n       Before 2026-09-27 the last one silently won and the first named layer was never retrofitted.\nF1C5_SIDECAR_RETROFIT_ARGS=REFUSED\n", argv[ai], sr_only_k); return 2; } sr_only_k = (int)v; }  /* Q-864 */
         }
         for (int ai = 2; ai < argc; ai++) {
             char *end = NULL;
@@ -42363,7 +42363,7 @@ int main(int argc, char *argv[]) {
          * See the module header above f1_exact_main() for method, gates, and
          * attribution. Sha-neutral (argv-dispatched, never on the enum path). */
         const char *f1_layers_dir = NULL, *f1_subset = NULL;
-        for (int ai = 2; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 2, "--layers-dir --f1-subset")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {
             if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
                 f1_layers_dir = argv[++ai];
             else if (strcmp(argv[ai], "--f1-subset") == 0 && ai + 1 < argc)
@@ -42383,7 +42383,7 @@ int main(int argc, char *argv[]) {
         const char *f1c5_layers_dir = NULL, *f1c5_ooc_dir = NULL;
         int f1c5_npairs = 31;
         int f1c5_argerr = 0, f1c5_resume = 0;
-        for (int ai = 2; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 2, "--layers-dir --f1-out-of-core --f1-pairs")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {
             if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
                 f1c5_layers_dir = argv[++ai];
             else if (strcmp(argv[ai], "--f1-out-of-core") == 0 && ai + 1 < argc)
@@ -42391,7 +42391,7 @@ int main(int argc, char *argv[]) {
             else if (strcmp(argv[ai], "--resume-from-layers") == 0)
                 f1c5_resume = 1;
             else if (strcmp(argv[ai], "--f1-pairs") == 0 && ai + 1 < argc)
-                f1c5_npairs = atoi(argv[++ai]);
+                { if (argv_int(argv[1], "--f1-pairs", argv[++ai], 1, 31, &f1c5_npairs)) return 2; }  /* Q-865 */
             else
                 f1c5_argerr = 1;
         }
@@ -42448,7 +42448,7 @@ int main(int argc, char *argv[]) {
          * never on the enum path). */
         const char *f1u_subset = NULL, *f1u_orbit = "all", *f1u_mod = NULL;
         int f1u_argerr = 0;
-        for (int ai = 2; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 2, "--f1-subset --f1-start-orbit --f1-mod")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {
             if (strcmp(argv[ai], "--f1-subset") == 0 && ai + 1 < argc)
                 f1u_subset = argv[++ai];
             else if (strcmp(argv[ai], "--f1-start-orbit") == 0 && ai + 1 < argc)
@@ -42480,7 +42480,7 @@ int main(int argc, char *argv[]) {
          * Sha-neutral (argv-dispatched, never on the enum path). */
         const char *c3_layers_dir = NULL, *c3_ooc_dir = NULL;
         int c3_npairs = 31, c3_resume = 0, c3_with_c5 = 0, c3_no_c2 = 0, c3_argerr = 0;
-        for (int ai = 2; ai < argc; ai++) {
+        { if (argv_refuse_repeat(argc, argv, 2, "--layers-dir --f1-out-of-core --f1-pairs")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {
             if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
                 c3_layers_dir = argv[++ai];
             else if (strcmp(argv[ai], "--f1-out-of-core") == 0 && ai + 1 < argc)
@@ -42488,7 +42488,7 @@ int main(int argc, char *argv[]) {
             else if (strcmp(argv[ai], "--resume-from-layers") == 0)
                 c3_resume = 1;
             else if (strcmp(argv[ai], "--f1-pairs") == 0 && ai + 1 < argc)
-                c3_npairs = atoi(argv[++ai]);
+                { if (argv_int(argv[1], "--f1-pairs", argv[++ai], 1, 31, &c3_npairs)) return 2; }  /* Q-865 */
             else if (strcmp(argv[ai], "--with-c5") == 0)
                 c3_with_c5 = 1;
             else if (strcmp(argv[ai], "--no-c2") == 0)
@@ -42656,7 +42656,7 @@ int main(int argc, char *argv[]) {
             return 25;
         }
         const char *scale = argv[2];
-        long long psb = atoll(argv[3]);
+        long long psb = 0; if (argv_ll(argv[1], "<PSB>", argv[3], 1, LLONG_MAX, &psb)) return 2;  /* Q-865 */
         /* Uses the file-scope CANONICAL_RECIPES single source of truth (was a duplicate
          * local table — consolidated 2026-06-17 so launcher-config / canonical-config /
          * validate-canonical can never drift). */
@@ -42747,7 +42747,7 @@ int main(int argc, char *argv[]) {
          * this repository — nor anywhere else — so the pointer was removed
          * 2026-08-09 rather than left dangling.) */
         long threshold_mhz = 2000;
-        if (argc > 2) threshold_mhz = atol(argv[2]);
+        if (argc > 2) { long long v_ = 0; if (argv_ll(argv[1], "threshold (MHz)", argv[2], 1, 1000000, &v_)) return 2; threshold_mhz = (long)v_; }  /* Q-865 */
         FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
         if (!cpuinfo) {
             fprintf(stderr, "[--cpu-freq] cannot open /proc/cpuinfo: %s\n", strerror(errno));
@@ -42875,7 +42875,7 @@ int main(int argc, char *argv[]) {
          * pair_index_of to identify the start pair in the (p1, o1) loop. */
         init_pairs();
         long long total_budget = 5600000000000LL;
-        if (argc > 2) total_budget = atoll(argv[2]);
+        if (argc > 2 && argv_ll(argv[1], "budget", argv[2], 1, LLONG_MAX, &total_budget)) return 2;  /* Q-865 */
         if (total_budget <= 0) {
             fprintf(stderr, "ERROR: --regression-test budget must be positive\n");
             return 2;
@@ -43093,7 +43093,7 @@ int main(int argc, char *argv[]) {
          */
         init_pairs();
         long long total_budget = 5600000000000LL;
-        if (argc > 2) total_budget = atoll(argv[2]);
+        if (argc > 2 && argv_ll(argv[1], "budget", argv[2], 1, LLONG_MAX, &total_budget)) return 2;  /* Q-865 */
         if (total_budget <= 0) {
             fprintf(stderr, "ERROR: --double-regression-test budget must be positive\n");
             return 2;
@@ -43347,11 +43347,11 @@ int main(int argc, char *argv[]) {
         int kde_d = 0;
         double kde_bw = 0.0;
         double kde_threshold = 0.0; int kde_saw_t = 0;  /* Q-852: --threshold is required; a missing one was read as 0.0 */
-        for (int ai = 2; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
+        { if (argv_refuse_repeat(argc, argv, 2, "--fit-file --d --bandwidth --threshold")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {  /* Q-852: every argument is read; an unknown or value-less one is refused */
             if (ai + 1 < argc && strcmp(argv[ai], "--fit-file") == 0) fit_file = argv[++ai];
-            else if (ai + 1 < argc && strcmp(argv[ai], "--d") == 0) kde_d = atoi(argv[++ai]);
-            else if (ai + 1 < argc && strcmp(argv[ai], "--bandwidth") == 0) kde_bw = atof(argv[++ai]);
-            else if (ai + 1 < argc && strcmp(argv[ai], "--threshold") == 0) { kde_threshold = atof(argv[++ai]); kde_saw_t = 1; } else { argv_refuse_arg(argv[1], argv[ai], "--fit-file PATH --d N --bandwidth BW --threshold T"); return 2; }
+            else if (ai + 1 < argc && strcmp(argv[ai], "--d") == 0) { if (argv_int(argv[1], "--d", argv[++ai], 1, 4096, &kde_d)) return 2; }  /* Q-865 */
+            else if (ai + 1 < argc && strcmp(argv[ai], "--bandwidth") == 0) { if (argv_dbl(argv[1], "--bandwidth", argv[++ai], &kde_bw)) return 2; }
+            else if (ai + 1 < argc && strcmp(argv[ai], "--threshold") == 0) { if (argv_dbl(argv[1], "--threshold", argv[++ai], &kde_threshold)) return 2; kde_saw_t = 1; } else { argv_refuse_arg(argv[1], argv[ai], "--fit-file PATH --d N --bandwidth BW --threshold T"); return 2; }
         }
         if (!fit_file || kde_d <= 0 || kde_bw <= 0.0 || !kde_saw_t) {
             fprintf(stderr, "Usage: --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T\n");
@@ -43454,9 +43454,9 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         single_branch_mode = 1;
-        sb_pair = atoi(argv[2]);
-        sb_orient = atoi(argv[3]);
-        arg_offset = 4;
+        if (argv_int(argv[1], "<pair>", argv[2], 0, 31, &sb_pair)) return 2;  /* Q-865 follow-up (lane HH): was atoi */
+        if (argv_int(argv[1], "<orient>", argv[3], 0, 1, &sb_orient)) return 2;
+        arg_offset = 4; if (argv_refuse_extra(argc, argv, 6, "at most FOUR arguments: <pair> <orient> [time_limit] [threads]")) return 2; /* lane HR: `--branch 1 0 0 4 9` ignored the 9 */ if ((arg_offset < argc && argv[arg_offset][0] && argv_int(argv[1], "[time_limit]", argv[arg_offset], 0, INT_MAX, &time_limit)) || (arg_offset + 1 < argc && argv[arg_offset + 1][0] && argv_int(argv[1], "[threads]", argv[arg_offset + 1], 0, INT_MAX, &enum_argv_nt))) return 2;  /* Q-865 follow-up (lane HH): before the banner */
         printf("Single-branch mode: pair %d, orient %d\n", sb_pair, sb_orient);
     } else if (argc > 1 && strcmp(argv[1], "--sub-branch") == 0) {
         /* Run ONE depth-3 sub-branch to exhaustion (or budget). Intended for
@@ -43475,13 +43475,13 @@ int main(int argc, char *argv[]) {
         }
         single_branch_mode = 1;       /* reuse existing infra */
         single_sub_branch_mode = 1;   /* but enumerate only the one sub-branch */
-        sb_pair = atoi(argv[2]);
-        sb_orient = atoi(argv[3]);
-        ssb_pair2 = atoi(argv[4]);
-        ssb_orient2 = atoi(argv[5]);
-        ssb_pair3 = atoi(argv[6]);
-        ssb_orient3 = atoi(argv[7]);
-        arg_offset = 8;
+        if (argv_int(argv[1], "<p1>", argv[2], 0, 31, &sb_pair)) return 2;  /* Q-865 follow-up (lane HH): was atoi */
+        if (argv_int(argv[1], "<o1>", argv[3], 0, 1, &sb_orient)) return 2;
+        if (argv_int(argv[1], "<p2>", argv[4], 0, 31, &ssb_pair2)) return 2;
+        if (argv_int(argv[1], "<o2>", argv[5], 0, 1, &ssb_orient2)) return 2;
+        if (argv_int(argv[1], "<p3>", argv[6], 0, 31, &ssb_pair3)) return 2;
+        if (argv_int(argv[1], "<o3>", argv[7], 0, 1, &ssb_orient3)) return 2;
+        arg_offset = 8; if (argv_refuse_extra(argc, argv, 10, "at most EIGHT arguments: <p1> <o1> <p2> <o2> <p3> <o3> [time_limit] [threads]")) return 2; /* lane HR: extra positionals were ignored */ if ((arg_offset < argc && argv[arg_offset][0] && argv_int(argv[1], "[time_limit]", argv[arg_offset], 0, INT_MAX, &time_limit)) || (arg_offset + 1 < argc && argv[arg_offset + 1][0] && argv_int(argv[1], "[threads]", argv[arg_offset + 1], 0, INT_MAX, &enum_argv_nt))) return 2;  /* Q-865 follow-up (lane HH): before the banner and the thread switch below */
         /* P1 parallel-sub-branch: auto-enable when SOLVE_THREADS > 1.
          * Opt-out via SOLVE_SUB_BRANCH_PARALLELISM=single for regression
          * testing against the legacy single-threaded path. */
@@ -43489,7 +43489,7 @@ int main(int argc, char *argv[]) {
             char *env_threads_p1 = getenv("SOLVE_THREADS");
             int nt_req = env_threads_p1 ? atoi(env_threads_p1) : 1;
             if (arg_offset + 1 < argc) {
-                int nt_argv = atoi(argv[arg_offset + 1]);
+                int nt_argv = enum_argv_nt;  /* Q-865 follow-up (lane HH): was atoi */
                 if (nt_argv > 0) nt_req = nt_argv;
             }
             if (nt_req > 1) parallel_sub_branch_enabled = 1;
@@ -43531,7 +43531,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (arg_offset < argc) {
-        time_limit = atoi(argv[arg_offset]);
+        if (arg_offset == 1 && argc > 3) { fprintf(stderr, "ERROR: solve takes at most TWO arguments: [time_limit] [threads]; got %d extra (first: '%s').\n       An argument here was previously accepted and silently ignored.\nSOLVE_ARGS=REFUSED\n", argc - 3, argv[3]); return 2; }  /* lane HR: `solve 0 4 5` ignored the 5; --branch and --sub-branch refuse theirs above */ if ((arg_offset < argc && argv[arg_offset][0] && argv_int(arg_offset > 1 ? argv[1] : "solve", "[time_limit]", argv[arg_offset], 0, INT_MAX, &time_limit)) || (arg_offset + 1 < argc && argv[arg_offset + 1][0] && argv_int(arg_offset > 1 ? argv[1] : "solve", "[threads]", argv[arg_offset + 1], 0, INT_MAX, &enum_argv_nt))) return 2;  /* Q-865 follow-up (lane HH, 2026-09-27): these were atoi, so `solve foo` ran with no time limit, `solve 60s` with 60 s and `solve 0 -4` on one thread. [time_limit] and [threads] are whole decimals in 0..INT_MAX and 0 means what it meant; an EMPTY one stays 0, as atoi read it, so a launch line passing a quoted unset variable is unchanged. Anything else exits 2 with <MODE>_ARGS=REFUSED (MODE --branch, --sub-branch, or "solve") before the lock, snapshot, build.sha or manifest is written; --branch and --sub-branch check the same before their banner, and their pair (0..31) and orientation (0..1) above. A pair in range that names no valid branch is still the later exit 1. */
         if (time_limit > 0)
             printf("Time limit: %d seconds\n", time_limit);
         else
@@ -47037,7 +47037,7 @@ int main(int argc, char *argv[]) {
             if (nlen < 5 || strcmp(de->d_name + nlen - 4, ".bin") != 0) continue;
             if (strstr(de->d_name, ".tmp")) continue;  /* skip in-progress writes */
             long long sz = gz_logical_size(de->d_name);   /* #169: logical (decompressed) size */
-            if (sz <= 0) continue;
+            if (sz < 0 || access(de->d_name, R_OK) != 0) { fprintf(stderr, "ERROR: merge input %s exists but cannot be read or sized (%s) -- refusing to merge without it\nMERGE_SHARD=UNREADABLE\n", de->d_name, sz < 0 ? "no logical size" : strerror(errno)); closedir(dir); return 20; } if (sz == 0) continue;  /* Q-875: only an EMPTY shard is skipped; an unreadable or unsizable one was dropped here in silence, so the merge wrote a sha over fewer shards and exited 0 */
             if (sz % SOL_RECORD_SIZE != 0) {
                 fprintf(stderr, "ERROR: %s logical size %lld is not a multiple of %d — truncated file\n",
                         de->d_name, sz, SOL_RECORD_SIZE);
@@ -47451,7 +47451,7 @@ int main(int argc, char *argv[]) {
         int verify_rc = auto_verify_solutions_bin(outname);
         if (verify_rc != 0) return verify_rc;
 
-        return 0;
+        if (g_prov_sidecars_unusable > 0) { fprintf(stderr, "ERROR: %d shard provenance sidecar(s) could not be aggregated (named above); solutions.bin and its sha are complete, solutions.provenance.json is not\nMERGE_PROVENANCE=INCOMPLETE\n", g_prov_sidecars_unusable); return 2; } return 0;  /* Q-875: an incomplete provenance record is loud and non-zero, never exit 0 */
     }
 
     /* --- Prove cascade: position 2 determines positions 3-19 --- */
@@ -47828,17 +47828,17 @@ int main(int argc, char *argv[]) {
 
         printf("\n%d branches proved by budget alone. %d branches need C3 check.\n",
                proved_count, multi_count);
-        printf("Running full proof: for each extra configuration, exhaustively search\n");
-        printf("positions 20-32 and check if ANY completion satisfies C3.\n\n");
+        printf("Running C3 check: for each extra configuration, place its positions 3-19 in ONE\n");
+        printf("orientation per pair and search positions 20-32 for ANY completion satisfying C3.\n\n"); /* Q-873: 1-based, as in this block's \"positions 3-19\"; Phase 2 below prints the same range 0-based (19-31). Was \"Running full proof ... exhaustively search\" */
 
-        /* Full proof: for branches with multiple budget-feasible sequences,
+        /* Placed-orientation search (lane HV; was "Full proof"): for branches with multiple budget-feasible sequences,
          * check each non-KW sequence by exhaustively searching positions 20-32.
-         * If no C3-valid completion exists, that configuration is eliminated. */
+         * If no C3-valid completion exists for the placed prefix, that configuration is eliminated for that placement. */
 
         int full_proved = 1;
-        int configs_tested = 0, configs_eliminated = 0;
+        int configs_tested = 0, configs_eliminated = 0; int configs_found = 0, configs_inconclusive = 0; /* Q-873: the closing message tells found completions from inconclusive-only */
 
-        printf("\nPhase 2: Full proof with C3 check (exhaustive search of positions 19-31)\n");
+        printf("\nPhase 2: Placed-orientation search with C3 check (positions 19-31, for one placed prefix orientation per config)\n"); printf("Scope (0-based positions): positions 2-18 of each config are placed in ONE orientation per\npair -- the first whose two distances fit the budget -- once per orientation of the branch\npair; no other orientation of positions 2-18 is searched. \"Eliminated\" below means no C3-valid\ncompletion of positions 19-31 exists for THAT placement, not for every orientation. A config\nhas one time budget of PROVE_CONFIG_TIMEOUT seconds across its orientations.\n"); /* Q-873: states what an Eliminated verdict covers */
         printf("Testing %d branches with multiple configs...\n\n", multi_count);
 
         for (int bp = 0; bp < 32; bp++) {
@@ -47944,10 +47944,10 @@ int main(int argc, char *argv[]) {
 
                 /* Actually, the proof enumerated positions 2-18 (17 positions).
                  * Position 19 (pair position 19) is NOT covered by the binary path.
-                 * We need to search positions 19-31 (13 positions), not 20-32. */
+                 * We need to search positions 19-31 (13 positions), not 20-32. (Q-873: 0-based; 20-32 is the same range 1-based.) */
 
                 /* Reconstruct full state at position 19 */
-                int found_c3 = 0;
+                int found_c3 = 0; const int shown_time_limit = getenv("PROVE_CONFIG_TIMEOUT") ? atoi(getenv("PROVE_CONFIG_TIMEOUT")) : 300; /* the limit the TIMEOUT line prints: the per-config limit set below (was a literal 300) */ int cfg_timed_out = 0, cfg_prefix_unplaced = 0, cfg_banner = 0; double cfg_deadline = 0; int cfg_clock_started = 0; /* Q-873: one time budget per config */ /* Q-872: set at config start; cfg_timed_out is the OR of every orientation's timeout; proof_search_timed_out is reset per orientation, so testing it after the loop let orientation 0 time out, orientation 1 finish, and the config print Eliminated (and a config with no search read the previous config's flag) */
 
                 for (int orient1 = 0; orient1 < 2 && !found_c3; orient1++) {
                     int f1 = orient1 ? pairs[bp].b : pairs[bp].a;
@@ -47993,12 +47993,12 @@ int main(int argc, char *argv[]) {
                         }
                         if (!placed) { ok = 0; }
                     }
-                    if (!ok) continue;
+                    if (!ok) { cfg_prefix_unplaced = 1; continue; } /* Q-872: this orientation's prefix was not placed (greedy, no backtracking), so no search ran for it: not a proof */
 
                     /* Now search positions 19-31 (13 remaining pairs) exhaustively */
                     int step = 19;
 
-                    printf("    Config %d/%d: searching positions %d-31...",
+                    if (!cfg_banner++) printf("    Config %d/%d: searching positions %d-31...",
                            ci + 1, n_multi, step);
                     fflush(stdout);
                     long long cnodes = 0;
@@ -48006,22 +48006,22 @@ int main(int argc, char *argv[]) {
                     int config_time_limit = 300; /* default 5 min survey */
                     char *env_ctl = getenv("PROVE_CONFIG_TIMEOUT");
                     if (env_ctl) config_time_limit = atoi(env_ctl);
-                    proof_search_timed_out = 0;
-                    proof_search_deadline = config_time_limit > 0 ? time(NULL) + config_time_limit : 0;
+                    if (!cfg_clock_started) { cfg_clock_started = 1; cfg_deadline = config_time_limit > 0 ? proof_search_now() + config_time_limit : 0; } proof_search_timed_out = 0; /* Q-873: ONE budget per config, started at its first search; each orientation had a fresh cap, so a config could run twice the limit its TIMEOUT line prints */
+                    proof_search_deadline = cfg_deadline; if (cfg_deadline > 0 && proof_search_now() >= cfg_deadline) { cfg_timed_out = 1; continue; } /* Q-873: budget spent before this orientation: it is not searched, and the config is inconclusive */
                     proof_search(seq, used, budget, step, last_hex, &cnodes, &found_c3);
-                    total_nodes += cnodes;
+                    total_nodes += cnodes; if (proof_search_timed_out) cfg_timed_out = 1; /* Q-872: one timed-out orientation makes the config inconclusive */
                 }
 
                 if (found_c3) {
                     printf(" FOUND (%lld nodes). NOT eliminated.\n", total_nodes);
                     fflush(stdout);
-                    full_proved = 0;
-                } else if (proof_search_timed_out) {
+                    full_proved = 0; configs_found++;
+                } else if (cfg_timed_out) {
                     printf(" TIMEOUT (%lld nodes in %ds). Inconclusive.\n",
-                           total_nodes, 300);
+                           total_nodes, shown_time_limit);
                     fflush(stdout);
-                    full_proved = 0;  /* can't claim proved if timed out */
-                } else {
+                    full_proved = 0; configs_inconclusive++; /* can't claim proved if timed out */
+                } else if (cfg_prefix_unplaced) { if (!cfg_banner) printf("    Config %d/%d:", ci + 1, n_multi); printf(" prefix not placed in an orientation (%lld nodes). Inconclusive.\n", total_nodes); fflush(stdout); full_proved = 0; configs_inconclusive++; /* Q-872: Eliminated needs every orientation searched to completion */ } else {
                     printf(" exhausted (%lld nodes). Eliminated.\n", total_nodes);
                     fflush(stdout);
                     configs_eliminated++;
@@ -48030,18 +48030,18 @@ int main(int argc, char *argv[]) {
         }
 
         printf("\n======================================================================\n");
-        printf("Full proof: %d configs tested, %d eliminated\n", configs_tested, configs_eliminated);
+        printf("Placed-orientation search: %d configs tested, %d eliminated\n", configs_tested, configs_eliminated); printf("(%d found a C3-valid completion, %d inconclusive; eliminated = for the one prefix orientation placed)\n", configs_found, configs_inconclusive); /* Q-873 */
         if (full_proved && configs_tested > 0) {
-            printf("\nTHEOREM FULLY PROVED: For ALL branches, exactly one pair sequence\n");
-            printf("at positions 3-19 leads to any C3-valid completion.\n");
-            printf("16 branches proved by budget alone. %d configs in %d branches\n",
-                   configs_tested, multi_count);
-            printf("eliminated by exhaustive C3 search of positions 20-32. QED.\n");
-        } else if (!full_proved) {
+            printf("\nTHEOREM PROVED FOR THE PLACED ORIENTATIONS ONLY: within the shift-pattern subspace, for\n");
+            printf("every branch, no non-KW pair sequence at positions 3-19, placed in its one searched\nprefix orientation, has a C3-valid completion. Other orientations were not searched.\n");
+            printf("%d branches proved by budget alone. %d configs in %d branches\n",
+                   proved_count, configs_tested, multi_count); /* Q-873: was a literal 16 */
+            printf("eliminated by exhaustive C3 search of positions 20-32 (1-based; 19-31 0-based). QED.\n"); /* Q-873: the scope line above; \"THEOREM FULLY PROVED\" claimed every orientation */
+        } else if (configs_found > 0) { /* Q-873: was (!full_proved), which also printed this when every non-eliminated config was only inconclusive */
             printf("\nTHEOREM PARTIALLY PROVED: Some non-KW configurations have C3-valid\n");
             printf("completions. Position 2 does NOT fully determine positions 3-19\n");
-            printf("for all branches (C3 is necessary but not sufficient for uniqueness).\n");
-        }
+            printf("for all branches (C3 is necessary but not sufficient for uniqueness).\n"); if (configs_inconclusive > 0) printf("%d further configs are inconclusive (search capped or prefix not placed).\n", configs_inconclusive);
+        } else if (!full_proved) { printf("\nNOT PROVED: no non-KW configuration was found to have a C3-valid completion,\nbut %d of the %d configs tested are inconclusive (search capped or prefix not\nplaced). Nothing is proved or refuted for those configs.\n", configs_inconclusive, configs_tested); } /* Q-873 */
         printf("======================================================================\n");
         return 0;
     }
@@ -48476,7 +48476,7 @@ sub_enum_done:
          * and run N workers in parallel on the SAME sub-branch. Workers
          * share atomic task-dispense + node-counter state; each owns a
          * private hash table that's merged at end under "lex-smallest
-         * wins" dedup. Output is byte-identical to single-threaded.
+         * wins" dedup. NOT byte-identical to single-threaded (Q-871): shard bytes are slot order, and under a global budget the record set varies run to run; see the P1 Determinism note.
          *
          * Falls through to legacy path when:
          *   - not --sub-branch mode (parallel_sub_branch_enabled == 0)
@@ -48489,7 +48489,7 @@ sub_enum_done:
             char *env_threads_p = getenv("SOLVE_THREADS");
             if (env_threads_p) n_threads_p = atoi(env_threads_p);
             if (arg_offset + 1 < argc) {
-                int nt = atoi(argv[arg_offset + 1]);
+                int nt = enum_argv_nt;  /* Q-865 follow-up (lane HH): was atoi */
                 if (nt > 0) n_threads_p = nt;
             }
             if (n_threads_p < 1) n_threads_p = 1;
@@ -48864,7 +48864,7 @@ sub_enum_done:
                 fclose(ckpt_p);
             }
             pthread_mutex_unlock(&checkpoint_mutex);
-
+            printf("ENUM_RUN=%s\n", global_timed_out ? "STOPPED" : "FINISHED"); fflush(stdout);  /* Q-828: whole-line verdict; STOPPED = signal or time limit (global_timed_out), which also exits 0 */
             fprintf(stderr, "\n*** Parallel --sub-branch %s: %lldB nodes, %lldM C3, "
                     "%d solutions, %lds (%d threads, %d tasks, %lld dedup collisions) ***\n",
                     status_p, total_nodes_p/1000000000LL, total_c3_p/1000000LL,
@@ -48922,7 +48922,7 @@ sub_enum_done:
         if (n_threads < 1) n_threads = 8;
         char *env_threads = getenv("SOLVE_THREADS");
         if (env_threads) n_threads = atoi(env_threads);
-        if (arg_offset + 1 < argc) n_threads = atoi(argv[arg_offset + 1]);
+        if (arg_offset + 1 < argc) n_threads = enum_argv_nt;  /* Q-865 follow-up (lane HH): was atoi */
         if (n_threads > n_sub) n_threads = n_sub;
         if (n_threads < 1) n_threads = 1;
         if (n_threads > 256) {  /* restored from 52cac4a (lost in 9f10f05): thread arrays are sized [256]; this clamp prevents a >256-thread stack-buffer overflow (ASan-class bug, cf. task #54). Sha-neutral: no canonical run exceeds 256 threads. */
@@ -49254,7 +49254,7 @@ sub_enum_done:
             sol_write_meta_json(metafile, bin_name, (uint64_t)unique_count, unique_count, hash_only);
         }
 
-        /* Print report */
+        printf("ENUM_RUN=%s\n", global_timed_out ? "STOPPED" : "FINISHED");  /* Print report. Q-828: the ENUM_RUN verdict first, whole-line */
         printf("\n======================================================================\n");
         const char *status_str;
         if (global_timed_out) {
@@ -49425,22 +49425,22 @@ sub_enum_done:
         { int q623_main_partition(int); int nt = q623_main_partition(start_pair); current_per_branch_budget = node_limit / (nt > 0 ? nt : 1); }  /* V3A-134#8: the allocator's divisor, not 3030 */
     /* Hardening audit 2026-05-25/26 — pre-flight gates BEFORE any shard-file
      * I/O. Order: disk-space (fail-fast on insufficient storage) -> auto-
-     * selftest (smoke test: binary produces canonical sha) -> host fingerprint -> lock (prevent
-     * concurrent enums) -> build-sha (cross-binary resume detection) -> auto-
-     * verify manifest -> binary snapshot (forensic continuity) ->
+     * selftest (smoke test: binary produces canonical sha) -> lock (prevent
+     * concurrent enums) -> build-sha check (cross-binary resume detection) -> auto-
+     * verify manifest -> binary snapshot, first-run build.sha, host fingerprint (Q-866) ->
      * load_sub_checkpoint + orphan-promotion -> auto-emit fresh manifest. */
     if (disk_space_pre_check(node_limit) != 0) return 29;
     if (disk_iops_pre_check(node_limit) != 0) return 31;
     if (auto_selftest_check(node_limit) != 0) return 24;
-    capture_host_fingerprint(node_limit);
+    /* Q-866 (2026-09-27): canonical-host-fingerprint.json (>= 1T) is captured on the manifest line below, after every startup refusal. */
     if (acquire_canonical_lock() != 0) return 27;
-    if (check_build_sha_invariant() != 0) return 26;
-    /* 2026-09-27 (batch-21 follow-up): solve.binary.snapshot is now written AFTER the lock, build-sha and manifest refusals, on the manifest line below, so a run refused with exit 27, 26 or 22 leaves none. It used to be written first, which left a snapshot of a binary that never enumerated here, and two processes racing for the lock shared its .tmp name. canonical-host-fingerprint.json (>= 1T only) still precedes them: a test stops a 1T run with the exit-26 refusal right after the capture, so moving it needs another stop point (filed as a follow-up). */
+    g_build_sha_defer = 1; if (check_build_sha_invariant() != 0) return 26;  /* Q-866: a first-run build.sha is written on the manifest line below, not here */
+    /* 2026-09-27 (batch-21 follow-up): solve.binary.snapshot is now written AFTER the lock, build-sha and manifest refusals, on the manifest line below, so a run refused with exit 27, 26 or 22 leaves none. It used to be written first, which left a snapshot of a binary that never enumerated here, and two processes racing for the lock shared its .tmp name. canonical-host-fingerprint.json (>= 1T only) and a first-run build.sha followed them there on 2026-09-27 (Q-866); the fingerprint test now stops its 1T run with SOLVE_KILL_AFTER_NODES instead of a refusal. */
 
     /* Auto-verify-manifest if shard_manifest.txt exists from a prior run.
      * Catches shard-level corruption between runs (Phase E.2 item 5,
      * automated 2026-05-26 per operator directive "dummy-proof default"). */
-    if (auto_verify_shard_manifest_if_exists() != 0) { return 22; } snapshot_solve_binary();  /* after every startup refusal (see above) */
+    if (auto_verify_shard_manifest_if_exists() != 0) { return 22; } snapshot_solve_binary(); build_sha_write_pending(); capture_host_fingerprint(node_limit);  /* after every startup refusal (see above; Q-866) */
 
     load_sub_checkpoint();
     /* v3.1: orphaned-shard promotion eliminates the costly fast-skip LOAD phase
@@ -49611,7 +49611,7 @@ sub_enum_done:
     if (n_threads < 1) n_threads = 8;
     char *env_threads = getenv("SOLVE_THREADS");
     if (env_threads) n_threads = atoi(env_threads);
-    if (arg_offset < argc - 1) n_threads = atoi(argv[arg_offset + 1]);
+    if (arg_offset < argc - 1) n_threads = enum_argv_nt;  /* Q-865 follow-up (lane HH): was atoi */
     if (n_threads > n_all_subs) n_threads = n_all_subs;
     if (n_threads < 1) n_threads = 1;
     if (n_threads > 256) {  /* restored from 52cac4a (lost in 9f10f05): thread arrays are sized [256]; this clamp prevents a >256-thread stack-buffer overflow (ASan-class bug, cf. task #54). Sha-neutral: no canonical run exceeds 256 threads. */
@@ -49902,9 +49902,9 @@ sub_enum_done:
      * shards as DIVERGED and false-aborts (exit 22). That is the multi-hop /
      * milestone-ladder extension failure (#163); single-hop extension and
      * same-budget eviction-resume never hit it. Purely additive + sha-NEUTRAL:
-     * shard_manifest.txt is metadata, never part of solutions.bin; only runs
-     * on clean enum completion (an evicted-mid-run never reaches here, so the
-     * eviction-recovery path is unchanged). Honors SOLVE_SKIP_AUTO_MANIFEST. */
+     * shard_manifest.txt is metadata, never part of solutions.bin. Runs after the thread join, so a
+     * run STOPPED by SIGTERM/SIGINT or the time limit reaches it too (Q-877): it snapshots the shards
+     * then on disk, which the resume's auto-verify passes; only a SIGKILL or crash skips it. Honors SOLVE_SKIP_AUTO_MANIFEST. */
     auto_emit_shard_manifest_default();
 
     long long unique_count = 0;
@@ -49932,7 +49932,7 @@ sub_enum_done:
     if (getenv("SOLVE_SKIP_AUTOMERGE") != NULL) {
         printf("SOLVE_SKIP_AUTOMERGE set; skipping bundled merge. "
                "Shards remain on disk. Run `solve --merge` separately.\n");
-        fflush(stdout);
+        printf("ENUM_RUN=%s\n", global_timed_out ? "STOPPED" : "FINISHED"); fflush(stdout);  /* Q-828: this exit printed the same line finished or stopped */
         return 0;
     }
 
@@ -50056,7 +50056,7 @@ sub_enum_done:
             if (nlen < 5 || strcmp(de->d_name + nlen - 4, ".bin") != 0) continue;
             if (strstr(de->d_name, ".tmp")) continue;
             long long sz = gz_logical_size(de->d_name);   /* #169: logical (decompressed) size */
-            if (sz <= 0) continue;
+            if (sz < 0 || access(de->d_name, R_OK) != 0) { fprintf(stderr, "ERROR: merge input %s exists but cannot be read or sized (%s) -- refusing to merge without it\nMERGE_SHARD=UNREADABLE\n", de->d_name, sz < 0 ? "no logical size" : strerror(errno)); closedir(dir); free(merge_filenames); return 20; } if (sz == 0) continue;  /* Q-875: as the --merge scan */
             if (sz % SOL_RECORD_SIZE != 0) {
                 fprintf(stderr, "ERROR: %s logical size %lld is not a multiple of %d — truncated file\n",
                         de->d_name, sz, SOL_RECORD_SIZE);
@@ -50393,7 +50393,7 @@ sub_enum_done:
 
     /* === Final Report === */
 
-    printf("\n");
+    printf("\n"); printf("ENUM_RUN=%s\n", global_timed_out ? "STOPPED" : "FINISHED");  /* Q-828: whole-line verdict; a SIGTERM also reaches this report and exits 0 */
     printf("======================================================================\n");
     const char *status;
     if (global_timed_out) {
@@ -50582,7 +50582,7 @@ sub_enum_done:
                pair_freq_m, super_match, hash_only, "solutions.bin");
     printf("JSON results written to solve_results.json\n");
 
-    return 0;
+    if (g_prov_sidecars_unusable > 0) { fprintf(stderr, "ERROR: %d shard provenance sidecar(s) could not be aggregated (named above); solutions.bin and its sha are complete, solutions.provenance.json is not\nMERGE_PROVENANCE=INCOMPLETE\n", g_prov_sidecars_unusable); return 2; } return 0;  /* Q-875: as --merge (the fork-merge path gets the same through the child --merge exit) */
 }
 
 /* Q-825 / V3A-134#7 (2026-09-25). `--branch` and single-threaded `--sub-branch` write a per-branch
@@ -51428,4 +51428,313 @@ static int kc_cli_positionals(const char *cmd) {
         !strcmp(cmd, "--kc-repr")) return 2;
     if (!strcmp(cmd, "--kc-sample")) return 3;
     return INT_MAX;
+}
+
+/* Q-864 (2026-09-27) — a repeated single-valued option. Every option loop assigned each value
+ * as it came, so `--show --from A --from B` read B and `--kc-scan ... --kc-cache-mb 64
+ * --kc-cache-mb 8192` ran with 8192, and nothing said the first value was dropped. CX-183 fixed
+ * this for the file names of --verify and --validate only. argv_refuse_repeat() walks argv from
+ * `start` the way the caller's loop does: SPEC lists that loop's value-taking options, separated
+ * by spaces, each with ":2" when it takes two values (--kc-layers A B). A listed option skips its
+ * values; anything else advances by one. A listed option met a second time is refused with the
+ * house <MODE>_ARGS=REFUSED line and 1 is returned, so the caller returns 2 before its loop runs.
+ * A repeated FLAG (an option that takes no value) sets the same flag again and is not listed. */
+static int argv_spec_arity(const char *spec, const char *arg) {
+    const size_t al = strlen(arg);
+    for (const char *p = spec; *p; ) {
+        while (*p == ' ') p++;
+        const char *q = p;
+        while (*q && *q != ' ' && *q != ':') q++;
+        int ar = 1;
+        const size_t nl = (size_t)(q - p);
+        if (*q == ':') { ar = q[1] - '0'; q += 2; }
+        if (nl > 0 && nl == al && strncmp(p, arg, nl) == 0) return ar;
+        p = q;
+    }
+    return 0;
+}
+static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec) {
+    for (int i = start; i < argc; ) {
+        const int ar = argv_spec_arity(spec, argv[i]);
+        if (!ar) { i++; continue; }
+        for (int j = start; j < i; ) {
+            const int aj = argv_spec_arity(spec, argv[j]);
+            if (aj && strcmp(argv[j], argv[i]) == 0) {
+                char tok[96];
+                q852_args_token(argv[1], tok, sizeof(tok));
+                fprintf(stderr, "ERROR: %s takes %s once; it was given again ('%s %s' after '%s %s').\n"
+                                "       Before 2026-09-27 the last one silently won.\n"
+                                "%s_ARGS=REFUSED\n", argv[1], argv[i], argv[i],
+                        i + 1 < argc ? argv[i + 1] : "(no value)", argv[j],
+                        j + 1 < argc ? argv[j + 1] : "(no value)", tok);
+                return 1;
+            }
+            j += aj ? 1 + aj : 1;
+        }
+        i += 1 + ar;
+    }
+    return 0;
+}
+
+/* Q-865 (2026-09-27) — numeric arguments read with atoi/atol/atoll. Those map a non-numeric
+ * string to 0 and read a numeric prefix ("9x" -> 9, "1e6" -> 1) with no error, and an
+ * out-of-range value wraps or is clamped. These helpers parse the whole string (no sign unless
+ * the range admits a negative, no space, no trailing text, no overflow) and check the range;
+ * on failure they print the house refusal and return 1, so the caller returns 2, as
+ * --null-random and its siblings do (Q-845). MODE is the subcommand (for the token), WHAT the
+ * option or argument named in the message. */
+static int argv_num_refused(const char *mode, const char *what, const char *s, const char *want) {
+    char tok[96];
+    q852_args_token(mode, tok, sizeof(tok));
+    fprintf(stderr, "ERROR: %s %s must be %s; got '%s'.\n"
+                    "       A non-numeric or out-of-range value here was previously read as 0, as a numeric prefix, or wrapped.\n"
+                    "%s_ARGS=REFUSED\n", mode, what, want, s, tok);
+    return 1;
+}
+static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out) {
+    char want[96];
+    snprintf(want, sizeof(want), "a decimal integer in [%lld, %lld]", lo, hi);
+    const char *d = (s[0] == '-' && lo < 0) ? s + 1 : s;
+    if (!*d || d[strspn(d, "0123456789")] != '\0') return argv_num_refused(mode, what, s, want);
+    errno = 0;
+    char *end = NULL;
+    const long long v = strtoll(s, &end, 10);
+    if (errno == ERANGE || !end || *end != '\0' || v < lo || v > hi) return argv_num_refused(mode, what, s, want);
+    *out = v;
+    return 0;
+}
+static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out) {
+    long long v = 0;
+    if (argv_ll(mode, what, s, lo, hi, &v)) return 1;
+    *out = (int)v;
+    return 0;
+}
+/* BASE 10: decimal digits only. BASE 0: strtoull's own reading (0x.. hex, a leading 0 = octal),
+ * kept where the caller already parsed with base 0; a sign or a space is refused either way. */
+static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out) {
+    const char *want = base == 10 ? "an unsigned decimal integer below 2^64"
+                                  : "an unsigned integer below 2^64 (decimal, or 0x hex)";
+    if (!(s[0] >= '0' && s[0] <= '9')) return argv_num_refused(mode, what, s, want);
+    errno = 0;
+    char *end = NULL;
+    const unsigned long long v = strtoull(s, &end, base);
+    if (errno == ERANGE || !end || *end != '\0') return argv_num_refused(mode, what, s, want);
+    *out = (uint64_t)v;
+    return 0;
+}
+static int argv_dbl(const char *mode, const char *what, const char *s, double *out) {
+    const char *want = "a finite decimal number";
+    if (!*s || s[0] == ' ' || s[0] == '\t') return argv_num_refused(mode, what, s, want);
+    errno = 0;
+    char *end = NULL;
+    const double v = strtod(s, &end);
+    if (errno == ERANGE || !end || *end != '\0' || !isfinite(v)) return argv_num_refused(mode, what, s, want);
+    *out = v;
+    return 0;
+}
+
+/* Q-866 (2026-09-27): the enumeration's first-run build.sha. check_build_sha_invariant() wrote
+ * it, when absent, before the shard-manifest auto-verify, so a run refused with exit 22 left a
+ * build.sha naming a binary that never enumerated there. With g_build_sha_defer set (the
+ * enumeration path only) the digest is held in g_build_sha_pending and written here, after the
+ * last startup refusal, the same way (a .tmp, fsync, rename). --branch and --sub-branch do not
+ * defer. */
+static void build_sha_write_pending(void) {
+    if (!g_build_sha_pending[0]) return;
+    FILE *fw = fopen("build.sha.tmp", "w");
+    if (!fw) {
+        fprintf(stderr, "[hardening] WARN: cannot write build.sha.tmp: %s; Outlier #4 unguarded\n", strerror(errno));
+        return;
+    }
+    fprintf(fw, "%s\n", g_build_sha_pending);
+    fflush(fw); fsync(fileno(fw)); fclose(fw);
+    if (rename("build.sha.tmp", "build.sha") != 0) {
+        fprintf(stderr, "[hardening] WARN: cannot rename build.sha.tmp -> build.sha: %s\n", strerror(errno));
+        return;
+    }
+    fprintf(stderr, "[hardening] build.sha CREATED (binary sha %s)\n", g_build_sha_pending);
+}
+
+/* Lane HE (2026-09-27): SOLVE_* environment validation, the environment sibling of Q-865.
+ * The numeric SOLVE_* variables were read with atoi/atoll/atof/strtoull at their use sites, so
+ * `SOLVE_NODE_LIMIT=1e12` ran with a limit of 1, `SOLVE_THREADS=abc` fell back to the default,
+ * `SOLVE_COMPRESS=true` turned compression OFF and `SOLVE_GZIP_LEVEL=12` was silently level 9,
+ * all without a word. main() now calls solve_env_preflight() before it does anything else
+ * (only --help runs first), and every variable in the table below is parsed whole:
+ *   - BOOL: exactly "0" or "1".
+ *   - INT/LL: decimal digits only (a '-' only where the range admits a negative), no space, no
+ *     '+', no trailing text, no overflow, inside [lo, hi]. hi never exceeds the C type the use
+ *     site reads the value into, so a value that passes reads the SAME at the unchanged site.
+ *   - U64: SOLVE_KNUTH_SEED, strtoull base 0 as before (decimal, 0x hex); no sign or space.
+ *   - DBL: a finite decimal number; a '-' only where the range admits a negative.
+ * The ranges refuse only what the site could not use: a sign, text, an overflow of the C type,
+ * and values the site silently IGNORED in favour of its default (gzip levels outside 1..9,
+ * SOLVE_HASH_LOG2 outside 16..30). Values a site CLAMPS (SOLVE_FSYNC_BATCH_SIZE to 1..256,
+ * SOLVE_THREADS to 256, the *_MAX_LAYER / *_STOP_AT_K probes to the layer count) are still
+ * accepted and still clamped, and range checks a site already makes itself (SOLVE_DEPTH 2 or 3,
+ * exit 10; SOLVE_KNUTH_PURDOM_W 2..64 and _DEPTH 1..31, exit 1) stay where they are.
+ * UNSET means the site's default, as before. EMPTY is treated as UNSET, the convention of
+ * kc_h_env_u64() and of the `e && *e` sites: the preflight unsetenv()s an empty numeric variable
+ * so every site, and every child process, sees it unset. (Before, an empty value was 0 at the
+ * atoi sites: SOLVE_COMPRESS= wrote raw output, SOLVE_DFS_ITERATIVE= opted out of the 1T
+ * default, SOLVE_DEPTH= exited 10.)
+ * A refusal prints one ERROR line per bad variable and a
+ * `SOLVE_ENV=REFUSED name=<VAR> value=<v>` line, and main() returns 2.
+ * Lane HI (2026-09-27) added PROVE_CONFIG_TIMEOUT (atoi, seconds, 0 = no cap) to the table and a
+ * second table for the word-valued variables SOLVE_MERGE_MODE, SOLVE_SUB_BRANCH_PARALLELISM and
+ * SOLVE_F1_OOC_FORMAT: an unknown word there used to fall back to the default silently (auto, the
+ * threads-driven choice, v2); it is now refused the same way. Their accepted words are exactly the
+ * strcmp()s at the use sites, so an accepted word behaves as before. Empty is unset, as above.
+ * Not in the tables: presence-only flags (SOLVE_SKIP_AUTOMERGE, SOLVE_CONCENTRATE_BUDGET: any
+ * value, including 0, turns them on, as documented), strings and paths, the list
+ * parsers (SOLVE_KNUTH_PIN_SLOTS, _C5_BUDGET, _FIBER_PERM, the *_TESTVEC vectors), and the
+ * SOLVE_KC_SCAN_* knobs, which kc_h_env_u64() already parses strictly. */
+enum { SENV_BOOL, SENV_INT, SENV_LL, SENV_U64, SENV_DBL };
+typedef struct { const char *name; int kind; long long lo, hi; } SolveEnvSpec;
+static int solve_env_refused_why(const char *name, const char *v, const char *want, const char *why) {
+    char shown[160];
+    size_t j = 0;
+    for (const char *p = v; *p && j + 1 < sizeof(shown); p++)    /* keep the token one line */
+        shown[j++] = (*p == '\n' || *p == '\r') ? '?' : *p;
+    shown[j] = '\0';
+    fprintf(stderr, "ERROR: environment variable %s must be %s; got '%s'.\n"
+                    "       %s\n"
+                    "SOLVE_ENV=REFUSED name=%s value=%s\n", name, want, shown, why, name, shown);
+    return 1;
+}
+static int solve_env_refused(const char *name, const char *v, const char *want) {
+    return solve_env_refused_why(name, v, want,
+        "A non-numeric or out-of-range value here was previously read as 0, as a numeric prefix, or ignored.");
+}
+/* Lane HI: a word-valued variable. `words` is a '|'-separated list; the match is exact and
+ * case-sensitive, as the use sites' strcmp()s are. */
+static int solve_env_check_word(const char *name, const char *words, const char *v) {
+    const size_t n = strlen(v);
+    for (const char *w = words; *w; ) {
+        const char *bar = strchr(w, '|');
+        const size_t len = bar ? (size_t)(bar - w) : strlen(w);
+        if (len == n && strncmp(w, v, n) == 0) return 0;
+        if (!bar) break;
+        w = bar + 1;
+    }
+    char want[128];
+    snprintf(want, sizeof(want), "one of %s (exact, lower case)", words);
+    return solve_env_refused_why(name, v, want,
+        "An unknown word here was previously ignored, and the default was used without a warning.");
+}
+static int solve_env_check(const SolveEnvSpec *s, const char *v) {
+    char want[128];
+    if (s->kind == SENV_BOOL) {
+        if (strcmp(v, "0") == 0 || strcmp(v, "1") == 0) return 0;
+        return solve_env_refused(s->name, v, "0 or 1");
+    }
+    if (s->kind == SENV_U64) {
+        if (!(v[0] >= '0' && v[0] <= '9')) return solve_env_refused(s->name, v, "an unsigned integer below 2^64 (decimal, or 0x hex)");
+        errno = 0;
+        char *end = NULL;
+        (void)strtoull(v, &end, 0);
+        if (errno == ERANGE || !end || *end != '\0') return solve_env_refused(s->name, v, "an unsigned integer below 2^64 (decimal, or 0x hex)");
+        return 0;
+    }
+    if (s->kind == SENV_DBL) {
+        snprintf(want, sizeof(want), s->lo < 0 ? "a finite decimal number" : "a finite decimal number >= 0");
+        const char *d = (v[0] == '-' && s->lo < 0) ? v + 1 : v;
+        if (!((d[0] >= '0' && d[0] <= '9') || d[0] == '.')) return solve_env_refused(s->name, v, want);
+        errno = 0;
+        char *end = NULL;
+        const double x = strtod(v, &end);
+        if (errno == ERANGE || !end || *end != '\0' || !isfinite(x)) return solve_env_refused(s->name, v, want);
+        return 0;
+    }
+    snprintf(want, sizeof(want), "a decimal integer in [%lld, %lld]", s->lo, s->hi);
+    const char *d = (v[0] == '-' && s->lo < 0) ? v + 1 : v;
+    if (!*d || d[strspn(d, "0123456789")] != '\0') return solve_env_refused(s->name, v, want);
+    errno = 0;
+    char *end = NULL;
+    const long long x = strtoll(v, &end, 10);
+    if (errno == ERANGE || !end || *end != '\0' || x < s->lo || x > s->hi) return solve_env_refused(s->name, v, want);
+    return 0;
+}
+static int solve_env_preflight(void) {
+    const long long IM = INT_MAX, LM = LLONG_MAX, TB = 1LL << 40;
+    const SolveEnvSpec specs[] = {
+        /* (a) the enumeration / merge launch path */
+        {"SOLVE_NODE_LIMIT", SENV_LL, 0, LM}, {"SOLVE_PER_SUB_BRANCH_LIMIT", SENV_LL, 0, LM},
+        {"SOLVE_PER_TASK_NODE_LIMIT", SENV_LL, 0, LM}, {"SOLVE_DEAD_LIMIT", SENV_LL, 0, LM},
+        {"SOLVE_THREADS", SENV_INT, 0, IM}, {"SOLVE_DEPTH", SENV_INT, 0, IM},
+        {"SOLVE_HASH_LOG2", SENV_INT, 16, 30}, {"SOLVE_DFS_CHECKPOINT", SENV_BOOL, 0, 1},
+        {"SOLVE_DFS_ITERATIVE", SENV_BOOL, 0, 1}, {"SOLVE_FSYNC_BATCH_SIZE", SENV_INT, 0, IM},
+        {"SOLVE_CKPT_INTERVAL", SENV_INT, 0, IM}, {"SOLVE_MEMORY_FLUSH_COUNT", SENV_LL, 0, LM},
+        {"SOLVE_MANIFEST_THREADS", SENV_INT, 0, IM}, {"SOLVE_DEPTH_PROFILE", SENV_BOOL, 0, 1},
+        {"SOLVE_COMPRESS", SENV_BOOL, 0, 1}, {"SOLVE_GZIP_LEVEL", SENV_INT, 1, 9},
+        {"SOLVE_GZ_TEST_SHARDS", SENV_BOOL, 0, 1}, {"SOLVE_MERGE_TEMP_GZIP_LEVEL", SENV_INT, 1, 9},
+        {"SOLVE_MERGE_CHUNK_GB", SENV_LL, 1, 1048576}, {"SOLVE_MERGE_THREADS", SENV_INT, 0, IM},
+        {"SOLVE_MERGE_NOFILE", SENV_LL, 0, LM}, {"SOLVE_MERGE_RUN_ANALYZE", SENV_BOOL, 0, 1},
+        /* (a) the launch gates' escapes: read as `== 1`, so any other text meant "not set" */
+        {"SOLVE_SKIP_CANONICAL_LOCK", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_AUTO_MANIFEST", SENV_BOOL, 0, 1},
+        {"SOLVE_SKIP_DISK_CHECK", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_IOPS_CHECK", SENV_BOOL, 0, 1},
+        {"SOLVE_ALLOW_SLOW_IOPS", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_HOST_FINGERPRINT", SENV_BOOL, 0, 1},
+        {"SOLVE_SKIP_BINARY_SNAPSHOT", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_AUTO_SELFTEST", SENV_BOOL, 0, 1},
+        {"SOLVE_SKIP_STACK_RAISE", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_NOFILE_RAISE", SENV_BOOL, 0, 1},
+        {"SOLVE_SKIP_AUTO_VERIFY", SENV_BOOL, 0, 1}, {"SOLVE_ALLOW_BUILD_MISMATCH", SENV_BOOL, 0, 1},
+        {"SOLVE_ALLOW_SUB_CANONICAL", SENV_BOOL, 0, 1}, {"SOLVE_SKIP_TEMP_SPACE_CHECK", SENV_BOOL, 0, 1},
+        {"SOLVE_ALLOW_MISSING_BUDGET_SIDECAR", SENV_BOOL, 0, 1}, {"SOLVE_RESUME_SHAPE_OVERRIDE", SENV_BOOL, 0, 1},
+        /* (b) test and diagnostic knobs */
+        {"SOLVE_KILL_AFTER_NODES", SENV_LL, 0, LM},
+        {"SOLVE_D3_GATE_THREADS", SENV_INT, 0, IM}, {"SOLVE_D3_GATE_PSB", SENV_LL, 0, LM},
+        {"SOLVE_D3_GATE_NODE_LIMIT", SENV_LL, 0, LM}, {"SOLVE_D3_GATE_KILL_NODES", SENV_LL, 0, LM},
+        {"SOLVE_D3_GATE_KILLS", SENV_INT, 0, IM},
+        {"SOLVE_F1_MAX_LAYER", SENV_INT, 0, IM}, {"SOLVE_F1U_MAX_LAYER", SENV_INT, 0, IM},
+        {"SOLVE_F1_TEST_LAYER_DELAY_MS", SENV_INT, 0, IM}, {"SOLVE_F1_FINALIZE_SHA", SENV_BOOL, 0, 1},
+        {"SOLVE_F1_ADOPT_UNVERIFIED", SENV_BOOL, 0, 1}, {"SOLVE_F1_LAYER_SIDECARS", SENV_BOOL, 0, 1},
+        {"SOLVE_F1_PROGRESS_JSON", SENV_BOOL, 0, 1}, {"SOLVE_F1_KEEP_LAYERS", SENV_BOOL, 0, 1},
+        {"SOLVE_F1_OOC_GZIP_LEVEL", SENV_INT, 1, 9}, {"SOLVE_F1_CKPT_SEC", SENV_DBL, 0, 0},
+        {"SOLVE_F1_KILL_AFTER_CHUNK", SENV_LL, -1, LM}, {"SOLVE_F1_KILL_PRE_CONCAT", SENV_INT, 0, IM},
+        {"SOLVE_F1_KILL_IN_FINALIZE", SENV_INT, 0, IM}, {"SOLVE_F1_KILL_BEFORE_MANIFEST", SENV_INT, 0, IM},
+        {"SOLVE_KC_G_KILL_BEFORE_MANIFEST", SENV_INT, 0, IM},
+        {"SOLVE_F1_OOC_READ_MB", SENV_LL, 0, TB}, {"SOLVE_F1_OOC_SCRATCH_MB", SENV_LL, 0, TB},
+        {"SOLVE_F1_OOC_GAP_KB", SENV_LL, 0, TB},
+        {"SOLVE_KC_G_HEARTBEAT_SEC", SENV_DBL, -1, 0}, {"SOLVE_KC_CACHE_MB", SENV_INT, 0, kc_cache_mb_max},
+        {"SOLVE_KC_G_STOP_AT_K", SENV_INT, 0, IM}, {"SOLVE_KC_T_STOP_AT_K", SENV_INT, 0, IM},
+        {"SOLVE_KNUTH_RELAX_C5", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_GENDER_STRICT", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_MOORE_STRICT", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DEPTH_PROFILE", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_BOUNDARY_COND", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_C67", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_FIBER", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_H2", SENV_BOOL, 0, 1},
+        {"SOLVE_RC4B_ASSERT_T1", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_SCORE_F4P", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DAV", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_F4P_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DAV_HIST", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_DAV2_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DB1_HIST", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_F5_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_F6_HIST", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_PERM_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_F11_HIST", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_R11_HIST", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_SCORE_REG", SENV_INT, 0, IM},   /* documented ">= 1 enables"; 2 is the test-vector mode */
+        {"SOLVE_KNUTH_SCORE_F5", SENV_INT, 0, 2}, {"SOLVE_KNUTH_SCORE_F6", SENV_INT, 0, 2},
+        {"SOLVE_KNUTH_SCORE_PERM", SENV_INT, 0, 2}, {"SOLVE_KNUTH_SEED", SENV_U64, 0, 0},
+        {"SOLVE_KNUTH_SUBTREE_DEPTH", SENV_INT, 0, IM}, {"SOLVE_KNUTH_SUBTREE_ROOTS", SENV_INT, 0, IM},
+        {"SOLVE_KNUTH_SUBTREE_PROBES", SENV_INT, 0, IM}, {"SOLVE_KNUTH_PURDOM_W", SENV_INT, 0, IM},
+        {"SOLVE_KNUTH_PURDOM_DEPTH", SENV_INT, 0, IM}, {"SOLVE_KNUTH_FIBER_XCHECK", SENV_INT, 0, IM},
+        /* (c) lane HI: --prove-cascade's per-config cap, seconds; 0 = no cap (a negative was also no cap) */
+        {"PROVE_CONFIG_TIMEOUT", SENV_INT, 0, IM},
+    };
+    /* (d) lane HI: word-valued variables, exactly the words their use sites compare against */
+    static const struct { const char *name, *words; } word_specs[] = {
+        {"SOLVE_MERGE_MODE", "auto|memory|external"},              /* auto = the unset default */
+        {"SOLVE_SUB_BRANCH_PARALLELISM", "single|force-parallel"},  /* unset = parallel iff threads > 1 */
+        {"SOLVE_F1_OOC_FORMAT", "v1|1|v2"},                        /* v2 = the unset default */
+    };
+    int bad = 0;
+    for (size_t i = 0; i < sizeof(specs) / sizeof(specs[0]); i++) {
+        const char *v = getenv(specs[i].name);
+        if (!v) continue;
+        if (!*v) { unsetenv(specs[i].name); continue; }   /* empty = unset */
+        bad += solve_env_check(&specs[i], v);
+    }
+    for (size_t i = 0; i < sizeof(word_specs) / sizeof(word_specs[0]); i++) {
+        const char *v = getenv(word_specs[i].name);
+        if (!v) continue;
+        if (!*v) { unsetenv(word_specs[i].name); continue; }   /* empty = unset */
+        bad += solve_env_check_word(word_specs[i].name, word_specs[i].words, v);
+    }
+    return bad != 0;
 }

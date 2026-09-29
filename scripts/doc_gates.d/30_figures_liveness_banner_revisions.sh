@@ -179,23 +179,23 @@ gate_figures() {
   # calls no savefig, so it is not in `gens` either. A registry row for a phrase drawn into one
   # of those two files would have been present, ledgered, and checked against nothing.
   #
-  # 🔴 WHAT WAS PROPOSED AND WHY IT IS NOT WHAT SHIPPED. The finding that raised this asked for
-  # a scan of `viz/*.py` and `reports/figures/*.svg`. Measured before writing a line:
-  #   * `viz/` IS ALREADY COVERED — by the two legs above, for BOTH registries, since 2026-08-01
-  #     and widened past the directory key on 2026-08-27 (Q-283 / Codex N10 finding 9). The
-  #     premise that a viz/ row "could not have fired" is false.
-  #   * `reports/figures/*.svg` IS COVERED BY NOTHING AND SCANNING IT WOULD ATTEST NOTHING: all
-  #     six carry ZERO <text> elements (815/465/929/384/373/199 <use> refs instead). A needle
-  #     scan over them passes for every needle, always — the exact vacuous-population defect the
-  #     leg was asked to avoid. Scanning them and printing [ok] would have MANUFACTURED a
-  #     fail-open rather than closed one.
-  # So the population is keyed on the BEHAVIOUR that makes a scan meaningful — the asset carries
-  # renderable character data — and never on a directory. That is this file's own rule ("exempt
-  # a construction, never a directory") and the rule Q-283 was raised to enforce here.
+  # 🔴 WHAT WAS PROPOSED AND WHY IT IS NOT WHAT SHIPPED (batch C7). The finding asked for a scan of
+  # `viz/*.py` and `reports/figures/*.svg`. `viz/` was ALREADY COVERED by the two legs above (both
+  # registries since 2026-08-01; past the directory key since 2026-08-27, Q-283 / Codex N10 #9). The
+  # matplotlib SVGs carry ZERO <text> elements (glyph <use> refs instead), so a tag-stripped scan of
+  # them passes every needle, always -- a manufactured fail-open -- and LEG 3's population is keyed
+  # on the BEHAVIOUR that makes a scan meaningful (renderable character data), never on a directory.
+  # ⚠ Q-894 (2026-09-28, Codex VIZ A4-12): "would attest nothing" was wrong for those SVGs. matplotlib
+  # writes every rendered string, line by line, as an XML comment `<!-- label -->` inside its
+  # `<g id="text_N">` group, and a label COMPUTED at render time (a V3 panel title is a TSV header)
+  # is in no generator literal the legs above can read. LEG 4 therefore reads the comments of every
+  # glyph-path .svg and runs the same two registry scans over them, printing GATE6_SVG_LABELS=N
+  # (comments read; zero while a glyph-path .svg is present is a FAIL, never a pass). The tracked
+  # .png assets remain unreadable to every output leg; they rest on the generator legs above.
   #
   # THE UNSCANNABLE REMAINDER IS COUNTED AND PRINTED, not passed over in silence. An asset this
   # leg cannot read is not an asset it has cleared, and the census line below says so every run.
-  local svgs nsvg=0 ntext=0 nglyph=0 npng tbf="" ff xd nx xln
+  local svgs nsvg=0 ntext=0 nglyph=0 npng tbf="" ff xd nx xln gsv="" nlab=0
   npng=$(printf '%s\n' "$imgs" | grep -c '\.png$')
   svgs=$(printf '%s\n' "$imgs" | grep '\.svg$')
   if [ -z "$svgs" ]; then
@@ -217,25 +217,25 @@ gate_figures() {
     if grep -qE '<(text|tspan|title)[ />]' "$ff"; then
       ntext=$((ntext+1)); tbf="$tbf $ff"
     else
-      nglyph=$((nglyph+1))
+      nglyph=$((nglyph+1)); gsv="$gsv $ff"     # LEG 4 reads its label comments (Q-894)
     fi
   done
   echo "  [info] LEG 3 population: $nsvg tracked .svg — $ntext text-bearing (SCANNED),"
-  echo "         $nglyph glyph-path; plus $npng tracked .png. The $((nglyph + npng)) unscannable"
-  echo "         asset(s) are NOT cleared by this leg — they rest on the generator legs above."
+  echo "         $nglyph glyph-path (their label comments are SCANNED by LEG 4); plus $npng tracked"
+  echo "         .png, which NO output leg reads — those rest on the generator legs above."
   if [ "$ntext" -eq 0 ] && [ "$nsvg" -gt 0 ]; then
     echo "  [note] LEG 3 scanned ZERO files: no tracked .svg carries renderable character data."
     echo "         Stated, not silent — this leg attests nothing this run."
   fi
-  for ff in $tbf; do
+  for ff in $tbf $gsv; do
     # Strip tags and unescape the entities that can split or hide a needle. Deliberately a
     # SUPERSET of the rendered text (style/CDATA character data comes along): a superset can
     # only over-report, and an over-report here is loud and one edit away from fixed, whereas
     # an element type this leg forgot to name would be silent. &amp; is unescaped LAST.
-    xd=$(sed -e 's/<[^>]*>/ /g' \
-             -e 's/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#39;/'"'"'/g; s/&apos;/'"'"'/g; s/&amp;/\&/g' \
-             "$ff") || { echo "  [FAIL] LEG 3 could not extract text from $ff — NOTHING was scanned for it."; bad=1; continue; }
-    nx=$(printf '%s' "$xd" | fold_variants | tr '\n' ' ' | tr -s ' ')
+    case " $gsv " in *" $ff "*) xd=$(sed -n 's/^ *<!-- \(.*\) -->$/\1/p' "$ff" | sed -e 's/&lt;/</g; s/&gt;/>/g; s/&amp;/\&/g') ;;  # LEG 4: label comments, one per rendered line
+      *) xd=$(sed -e 's/<[^>]*>/ /g' -e 's/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#39;/'"'"'/g; s/&apos;/'"'"'/g; s/&amp;/\&/g' "$ff") ;; esac \
+      || { echo "  [FAIL] LEG 3/4 could not extract text from $ff — NOTHING was scanned for it."; bad=1; continue; }
+    nx=$(printf '%s' "$xd" | fold_variants | tr '\n' ' ' | tr -s ' '); case " $gsv " in *" $ff "*) nlab=$((nlab + $(printf '%s\n' "$xd" | grep -c .))) ;; esac
     # The allow column is ignored here for the same reason the generator leg ignores it: a
     # rendered figure carries no changelog row and no retraction narration to quote.
     while IFS=$'\t' read -r phrase allow note; do
@@ -267,12 +267,12 @@ gate_figures() {
       done < "$figreg"
     fi
   done
-
+  echo "GATE6_SVG_LABELS=$nlab"; if [ -n "$gsv" ] && [ "$nlab" -eq 0 ]; then echo "  [FAIL] LEG 4 read ZERO label comments from $nglyph glyph-path .svg — vacuous, treated as failure"; bad=1; fi
   if [ "$bad" -eq 0 ]; then
     echo "  [ok] $(echo $gens | wc -w) figure generator(s) — every tracked viz/*.py plus every"
     echo "       tracked .py that calls savefig — carry no registered retracted phrasing"
     echo "  [ok] ...and none of the $nfig registered retracted FIGURE(s) either (item A8)"
-    echo "  [ok] LEG 3: $ntext text-bearing published .svg carry neither a registered retracted"
+    echo "  [ok] LEG 3: $ntext text-bearing published .svg, and LEG 4: $nlab label comment(s) in $nglyph glyph-path .svg, carry neither a registered retracted"
     echo "       phrase nor a registered retracted FIGURE"
   fi
   return $bad

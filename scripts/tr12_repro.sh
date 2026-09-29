@@ -183,7 +183,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/tr12repro.XXXXXX")"
 _tr12_kill_tree(){ local c; for c in $(pgrep -P "$1" 2>/dev/null); do _tr12_kill_tree "$c"; kill -TERM "$c" 2>/dev/null; done; }
 [ "$KEEP" -eq 1 ] || trap '_tr12_kill_tree $$; rm -rf "$WORK"' EXIT
 [ -n "$OUTDIR" ] || OUTDIR="$WORK/out"
-mkdir -p "$OUTDIR"
+mkdir -p "$OUTDIR" && OUTDIR="$(cd -- "$OUTDIR" && pwd)" || { echo "FATAL: cannot create/resolve --out '$OUTDIR'" >&2; exit 2; }  # absolute, like REPO_ROOT (2026-09-27): c_viz and c_consumer use $OUTDIR paths after a cd, so a relative --out broke them
 
 RAWDIR="$OUTDIR/raw";  GOTDIR="$OUTDIR/got";  DIFFDIR="$OUTDIR/diff"; ARTDIR="$OUTDIR/artifacts"
 mkdir -p "$RAWDIR" "$GOTDIR" "$DIFFDIR" "$ARTDIR"
@@ -207,7 +207,7 @@ die(){ say "FATAL: $*"; exit 2; }
 # lets a developer measure a new n on purpose. That run is exploration, never a reproduction.
 TR12_PAIRS_SUPPORTED="7 9 10"
 if [ "$MODE_N9" -eq 1 ] && [ "${TR12_ALLOW_UNSUPPORTED_PAIRS-}" != 1 ] \
-   && ! printf ' %s ' $TR12_PAIRS_SUPPORTED | grep -qF " $PAIRS "; then
+   && ! grep -qF " $PAIRS " <<<"$(printf ' %s ' $TR12_PAIRS_SUPPORTED)"; then
     say "REFUSED: --pairs $PAIRS is outside the measured set {$TR12_PAIRS_SUPPORTED}; see the Q-461 note"
     say "         in this file. Set TR12_ALLOW_UNSUPPORTED_PAIRS=1 to explore it deliberately."
     printf 'TR12_REPRO=ERROR\nTR12_REPRO_REASON=unsupported-pairs-n%s\n' "$PAIRS" | tee -a "$VERD"
@@ -720,7 +720,7 @@ q10a_kwrank_measure(){    # CERT_JSON  VERDICT_FILE
     note=$(_n3_json_str "$cert" class_rank_note)
     keys=$(grep -o '^[[:space:]]*"[A-Za-z0-9_]*":' "$cert" | sed 's/[^"]*"//; s/"://' | sort -u)
     hit=""
-    for k in $forbidden; do printf '%s\n' "$keys" | grep -qx "$k" && hit="$hit $k"; done
+    for k in $forbidden; do grep -qx "$k" <<<"$keys" && hit="$hit $k"; done
     printf 'q10a_class_rank_note\t%s\n' "$(case "$note" in *"NOT computed"*) echo "present, says NOT computed" ;; "") echo "ABSENT" ;; *) echo "present, does NOT say NOT computed" ;; esac)"
     printf 'q10a_rank_fields_searched\t%s\n' "$forbidden"
     printf 'q10a_rank_fields_present\t%s\n' "$(printf '%s' "${hit:-NONE}" | sed 's/^ //')"
@@ -850,7 +850,7 @@ row_begin a0_gates
               "--kc-extremal-selftest:KC_EXTREMAL_SELFTEST=PASS"; do
       g="${pair%%:*}"; want="${pair#*:}"
       out=$("$SOLVE" "$g" 2>&1); grc=$?
-      if [ "$grc" -eq 0 ] && printf '%s\n' "$out" | grep -qx "$want"; then
+      if [ "$grc" -eq 0 ] && grep -qx "$want" <<<"$out"; then
           echo "GATE $g rc=0 token=$want"
       else
           echo "GATE $g rc=$grc token=MISSING($want)"; fails=1
@@ -1610,7 +1610,7 @@ row_begin a1_q8_member
   while IFS=$'\t' read -r _rank _cd walk; do
       case "$_rank" in ''|*[!0-9]*) continue ;; esac
       n=$((n+1))
-      if ! "$SOLVE" --kc-member "$FDIR" "$walk" 2>/dev/null | grep -qx 'MEMBER'; then
+      if ! grep -qx 'MEMBER' <<<"$("$SOLVE" --kc-member "$FDIR" "$walk" 2>/dev/null)"; then
           echo "NON-MEMBER draw rank=$_rank walk=$walk"; bad=$((bad+1))
       fi
   done < "$ARTDIR/q8_super.tsv"
@@ -1934,7 +1934,7 @@ kc_first_last_witness() {
         echo "${tok}_FAIL	no walk of 2n=$((2 * N_PAIRS)) hexagrams was emitted (got ${nf:-0} field(s)) -- this row cannot publish an extremal walk it did not find"
         return 1
     fi
-    "$SOLVE" --kc-member "$FDIR" "$w" 2>/dev/null | grep -qx 'MEMBER' \
+    grep -qx 'MEMBER' <<<"$("$SOLVE" --kc-member "$FDIR" "$w" 2>/dev/null)" \
       || { echo "${tok}_FAIL	--kc-member does not call the emitted walk a member of this f ladder"; erc=1; }
     cd=$("$SOLVE" --kc-profile "$FDIR" "$GDIR" "$w" 2>/dev/null \
            | sed -n 's/.*[[:space:]]cd=\([0-9][0-9]*\).*/\1/p' | head -1)
@@ -2930,7 +2930,7 @@ if [ "$SCAN_OK" -eq 0 ]; then
     row_skip b_chunked TR12_SCAN_CHUNKED "SKIP:no-atlas" "the whole-atlas scan did not run, so there is nothing to compare a chunked atlas against"
 elif [ "$N_PAIRS" -ge 31 ] && [ "$WITH_CHUNKED" -eq 0 ]; then
     row_skip b_chunked TR12_SCAN_CHUNKED "SKIP:cost-gated" "at n=31 the chunked==whole identity costs a second full scan; pass --with-chunked. The identity is gated at n=9 by --kc-layers-selftest (row a0_gates); it is NOT gated at n=31 in this run."
-elif ! "$SOLVE" --kc-scan-merge 2>&1 | grep -q 'Usage: solve --kc-scan-merge'; then
+elif ! grep -q 'Usage: solve --kc-scan-merge' <<<"$("$SOLVE" --kc-scan-merge 2>&1)"; then
     row_skip b_chunked TR12_SCAN_CHUNKED "PENDING:--kc-layers" "PENDING:--kc-layers/--kc-scan-merge — this binary does not accept them"
 else
     row_begin b_chunked
@@ -3814,7 +3814,7 @@ fi
 # name, not a silent hole inside c_viz's PASS. The match is on the line save() prints for the
 # rendered file. A bare mention of the function name also appears in refusal messages.
 v3_fig_verdict(){
-    if [ -s "$RAWDIR/c_viz.txt" ] && grep -q '^Saved fig_tr12_kc_spectrum\.png ' "$RAWDIR/c_viz.txt"; then
+    if [ -s "$RAWDIR/c_viz.txt" ] && _v3h=$(sha256sum "$ARTDIR/consumer/spectrum/v3_spectrum.tsv" 2>/dev/null | cut -c1-12) && [ -n "$_v3h" ] && grep -q "^Saved fig_tr12_kc_spectrum\.png .* v3_spectrum\.tsv@$_v3h " "$RAWDIR/c_viz.txt"; then  # Q-893: the Saved line must carry the digest of THIS run's joined table, not any v3_spectrum.tsv
         tok_record TR12_V3_FIG PASS c_viz
     elif [ "$N_PAIRS" -lt 31 ]; then
         row_skip c_v3_fig TR12_V3_FIG "SKIP:reduced-universe" \

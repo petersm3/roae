@@ -47,6 +47,13 @@
 #                      needs SOLVE_PER_SUB_BRANCH_LIMIT (as the default
 #                      sets) or SOLVE_ALLOW_SUB_CANONICAL=1, or solve.c
 #                      refuses it with rc 25.
+#                      It MUST also FINISH (2026-09-27, Q-828): solve.c
+#                      exits 0 after a SIGTERM too, so the workload log
+#                      must hold solve's whole-line ENUM_RUN=FINISHED and
+#                      no ENUM_RUN=STOPPED or "*** Signal received" line,
+#                      or the build is an ERROR with no Pass 2. Bound the
+#                      workload with a node limit, not a time limit or a
+#                      signal.
 #
 # Logs: the two selftest logs and the workload log go to a fresh
 #   mktemp directory, build_dir/pgo_logs.XXXXXX, printed at the end and
@@ -156,6 +163,37 @@ WORKLOAD_RC=$?
 if [ "$WORKLOAD_RC" -ne 0 ]; then
     echo "ERROR: PGO workload exited rc=$WORKLOAD_RC; refusing to build a PGO binary from it" >&2
     echo "       workload log:" >&2
+    tail -20 "$LOG_DIR/workload.log" >&2
+    exit 1
+fi
+
+# 🔴 2026-09-27 (Q-828). rc 0 does not mean the workload FINISHED. solve.c
+# answers SIGTERM/SIGINT (a spot eviction, a `timeout`, a Ctrl-C) by
+# checkpointing and exiting 0, so a workload stopped after a few seconds
+# passed the check above and Pass 2 built from a partial profile without a
+# word. The default workload sets SOLVE_SKIP_AUTOMERGE, whose exit printed
+# the same line either way ("SOLVE_SKIP_AUTOMERGE set; skipping bundled
+# merge", solve.c:49933) and no report, so no line of its log told the two
+# apart. solve.c now prints a whole-line verdict at every enumeration exit:
+#   ENUM_RUN=FINISHED   the run ended on its own (tree exhausted or node budget reached)
+#   ENUM_RUN=STOPPED    a signal or the time limit stopped it (global_timed_out)
+# (solve.c:49935, the SOLVE_SKIP_AUTOMERGE exit; solve.c:50396, the full
+# report, beside "*** SEARCH COMPLETE" / "TIMED OUT after"; solve.c:49257,
+# --branch; solve.c:48867, parallel --sub-branch). The signal handler also
+# writes "*** Signal received" (solve.c:1484) to stderr. The log must carry
+# ENUM_RUN=FINISHED and neither stop line; a workload of several runs thus
+# needs every run to finish. Bound a training workload with a node limit,
+# never with a time limit or a signal.
+PGO_STOP_RE='^(ENUM_RUN=STOPPED|\*\*\* Signal received)'
+if grep -Eq "$PGO_STOP_RE" "$LOG_DIR/workload.log"; then
+    echo "ERROR: PGO workload was STOPPED before it finished (Q-828); refusing to build a PGO binary from a partial profile" >&2
+    echo "       stop line(s) in $LOG_DIR/workload.log:" >&2
+    grep -E "$PGO_STOP_RE" "$LOG_DIR/workload.log" | head -5 >&2
+    exit 1
+fi
+if ! grep -qx 'ENUM_RUN=FINISHED' "$LOG_DIR/workload.log"; then
+    echo "ERROR: PGO workload log has no ENUM_RUN=FINISHED line (Q-828); refusing to build a PGO binary from it" >&2
+    echo "       workload log ($LOG_DIR/workload.log):" >&2
     tail -20 "$LOG_DIR/workload.log" >&2
     exit 1
 fi

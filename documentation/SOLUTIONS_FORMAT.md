@@ -206,7 +206,7 @@ treated as the same canonical ordering.
 deterministic choice is **the lexicographically smallest orient variant
 among those the run encountered** — `solve.c:4795-4806` keeps a running
 byte-wise minimum over the variants that are actually inserted, which is
-what makes parallel `--sub-branch` merges deterministic. **It is not the
+what makes parallel `--sub-branch` merges deterministic for a complete (unbudgeted) run (⚠ *2026-09-27, Q-871: under a global node budget with more than one thread the record set itself varies run to run, so there is nothing fixed to be deterministic about; see `SOLVE_C_CLI.md` §--sub-branch*). **It is not the
 class-global minimum**: every enumeration this project publishes is
 budgeted (§Overview), so no published run visits every valid orient
 variant of every class, and `solutions.bin` is a pre-normalization

@@ -76,4 +76,4 @@ GAUGE_BACKFRONT: 7,8,10,2,7,15,13,23,12,4,5
 === tier-1 run: 2e9 probes, SCORE_F5 + HIST, 64 threads Sun Jul  5 03:51:04 UTC 2026 ===
 --- teardown Sun Jul  5 03:55:05 UTC 2026
 c230-f5 deleted Sun Jul  5 03:55:18 UTC 2026
-=== c230 F5 TIER-1 COMPLETE Sun Jul  5 03:55:18 UTC 2026; results /tmp/f5_batch/ + /home/claude/github/roae-private/scripts/f5_evidence/ ===
+=== c230 F5 TIER-1 COMPLETE Sun Jul  5 03:55:18 UTC 2026; results /tmp/f5_batch/ + <private evidence dir> ===

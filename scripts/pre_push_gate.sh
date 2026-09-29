@@ -83,6 +83,9 @@
 #   ADVISORY, once per push: doc_gates.sh --selftest on the last pushed sha whose range
 #      touches scripts/, in a FRESH standalone clone of its own (Q-720). PASS only on the one
 #      whole-line token DOC_GATES_SELFTEST=PASS; a refusal or missing graphviz is NOT-RUN.
+#   ADVISORY, once per push: scripts/reproduce_digests_gate.sh (REPRODUCE.md's five published
+#      digests, re-derived) on the last pushed sha whose range touches solve.c, REPRODUCE.md or
+#      the gate (Q-869). PASS only on the whole-line token REPRODUCE_DIGESTS=PASS.
 #
 #   Both are executed FROM THE PUSHED TREE, so what is enforced is the
 #   contract that tree itself declares. A pushed sha whose tree has no
@@ -130,6 +133,11 @@
 # NO PRIVATE BYPASS (same contract as both underlying gates): there is
 # deliberately no SKIP env var. `git push --no-verify` already exists and
 # leaves the decision visible in shell history.
+#   The one env var that changes what runs is ROAE_PREPUSH_RECORD (Q-798, below), and it is not
+# a skip: it names a TREE-KEYED VERDICT RECORD that another machine wrote after running this same
+# battery on this same tree, and the hook reuses it ONLY when that record is complete, all-PASS,
+# and for the exact tree, citation base and toolchain being pushed. Anything else runs the full
+# battery. See "Q-798: TREE-KEYED REUSE" in the per-sha loop and scripts/prepush_verdict_record.sh.
 #
 # FAIL DIRECTION: CLOSED. A false stop costs one retry; a false pass ships a
 # doc-integrity defect or a compile error into the published record.
@@ -168,7 +176,7 @@ one_token() {
 }
 # Whole-line comparison of the one line one_token accepted: grep -qx, never a substring
 # or prefix test ("PASS" is a prefix of "PASS-AT-PIN").
-tok_is() { printf '%s\n' "$TOK" | grep -qxF -- "$1"; }
+tok_is() { grep -qxF -- "$1" <<<"$TOK"; }
 
 # ---- does this pushed sha need the `generated` leg? -----------------------
 # $1 = pushed sha, $2 = remote sha ('' or all-zeros when there is no base).
@@ -215,6 +223,24 @@ needs_scripts() {
   [ -n "$base" ] && [ "$base" != "$Z40" ] || return 0
   git cat-file -e "$base^{commit}" 2>/dev/null || return 0
   changed=$(git diff --name-only "$base" "$1" -- scripts/ 2>/dev/null) || return 0
+  [ -n "$changed" ]
+}
+
+# ---- does this pushed sha need the REPRODUCE.md digest leg? ----------------
+# $1 = pushed sha, $2 = remote sha ('' or all-zeros when there is no base).
+# Returns 0 (leg required) when the SUBJECT of scripts/reproduce_digests_gate.sh
+# differs between base and pushed sha -- solve.c (the bytes it writes),
+# documentation/REPRODUCE.md (the page whose build line, command, recipe and five
+# digest rows it executes) or the gate itself -- and on every path where that
+# cannot be established, the same fail-closed rule as the three above. A push
+# touching none of the three cannot change the gate's answer (Q-869).
+needs_reprodig() {
+  local base="$2" changed
+  [ -n "$base" ] && [ "$base" != "$Z40" ] || return 0
+  git cat-file -e "$base^{commit}" 2>/dev/null || return 0
+  # One line on purpose: a continuation line starting with the gate's path reads as an
+  # INVOCATION to the private gate-wiring census (its arm B keys on the line's first token).
+  changed=$(git diff --name-only "$base" "$1" -- solve.c documentation/REPRODUCE.md scripts/reproduce_digests_gate.sh 2>/dev/null) || return 0
   [ -n "$changed" ]
 }
 
@@ -287,6 +313,7 @@ SHAS=""
 GENSHAS=""
 R167SHAS=""
 SCRIPTSHAS=""
+REPRODIGSHAS=""
 NEWREFS=""
 if [ -t 0 ]; then
   SHAS=$(git rev-parse HEAD) || exit 1
@@ -297,6 +324,7 @@ if [ -t 0 ]; then
   if needs_generated "$SHAS" "$UPSTREAM"; then GENSHAS=$SHAS; fi
   if needs_resume167 "$SHAS" "$UPSTREAM"; then R167SHAS=$SHAS; fi
   if needs_scripts   "$SHAS" "$UPSTREAM"; then SCRIPTSHAS=$SHAS; fi
+  if needs_reprodig  "$SHAS" "$UPSTREAM"; then REPRODIGSHAS=$SHAS; fi
   note_citbase "$SHAS" "$UPSTREAM"
 else
   while read -r lref lsha rref rsha; do
@@ -384,6 +412,9 @@ else
     if needs_scripts "$lsha" "${rsha:-}"; then
       case " $SCRIPTSHAS " in *" $lsha "*) ;; *) SCRIPTSHAS="$SCRIPTSHAS $lsha";; esac
     fi
+    if needs_reprodig "$lsha" "${rsha:-}"; then
+      case " $REPRODIGSHAS " in *" $lsha "*) ;; *) REPRODIGSHAS="$REPRODIGSHAS $lsha";; esac
+    fi
     if needs_generated "$lsha" "${rsha:-}"; then
       case " $GENSHAS " in
         *" $lsha "*) ;;
@@ -395,6 +426,11 @@ fi
 SHAS=${SHAS# }
 R167SHAS=${R167SHAS# }
 SCRIPTSHAS=${SCRIPTSHAS# }
+REPRODIGSHAS=${REPRODIGSHAS# }
+# The REPRODUCE.md digest leg runs ONCE PER PUSH, on the last pushed sha whose range touches
+# its subject (same once-per-push rule as the doc_gates --selftest leg; see that leg's RESIDUAL).
+REPRODIG_SHA=""
+for _s in $REPRODIGSHAS; do REPRODIG_SHA=$_s; done
 NEWREFS=${NEWREFS# }
 # ---- DECLARATION LEG: unconditional, and it runs BEFORE the content legs -------
 # Codex v2 charge 5, RESIDUAL (2026-09-02). This leg used to live INSIDE the
@@ -491,6 +527,79 @@ for sha in $SHAS; do
 
   SHARC=0
   SHAFAIL_SEEN=${SHAFAIL_SEEN:-0}
+  # ---- Q-798: TREE-KEYED REUSE (2026-09-27) ------------------------------------------------
+  # WHY. The blocking legs below cost minutes of CPU and disk I/O per pushed sha, and the machine
+  # that pushes is often the smallest one in the loop: on 2026-09-25 and 2026-09-27 a push ran
+  # this battery for 16-20 minutes on a 2-core box after a 16-core machine had ALREADY run it green
+  # on the identical tree. ROAE_PREPUSH_RECORD names a record that such a run left behind
+  # (written by scripts/prepush_verdict_record.sh from a completed check: this hook's own output
+  # for that tree, tests.py, the citation gate over every target, and the reproduction stamp).
+  # THE RULE. The hook computes the pushed commit's tree id ITSELF and asks the PUSHED TREE's own
+  # copy of the helper (the same "its own committed gates" rule as every leg here) whether the
+  # record is complete, all-PASS, and for exactly this tree, this push's citation-gate base and
+  # this host's toolchain. ONLY on MATCH are the covered legs skipped. On anything else -- no env
+  # var, no file, a record inside $ROOT or the temp worktree, truncated, unparseable, any non-PASS,
+  # another tree, another base, another toolchain, a tree with no helper -- the FULL battery runs.
+  # COVERED (skipped on MATCH): doc_gates.sh all, doc_gates.sh generated, the compile gate, the
+  #   published-consistency ratchet, the #167 resume leg with its disk-precheck and M3/M4 mutant
+  #   legs, the n=31 atlas probe, and TR-12's output paths.
+  # ALWAYS LOCAL (run on MATCH too): the four doc gates whose answer depends on THIS clone's
+  #   refs, history, network or git config rather than on the tree -- GATE 19 branch-registry
+  #   (ls-remote), GATE 10a/10b appendonly (HEAD and every published CORRECTIONS.md), revrows (the
+  #   pushed range), GATE 23 tracked-ignored (.git/info/exclude and core.excludesFile) -- plus the
+  #   new-ref declaration leg above and EVERY advisory leg below, unchanged.
+  # Each pushed sha prints PREPUSH_TREE=, PREPUSH_CITGATE_BASE= and one PREPUSH_LEG_<NAME>= per
+  # covered leg (PASS|FAIL|NOT-RUN, or REUSED on MATCH), and the push ends with PREPUSH_VERDICT=;
+  # a record is distilled from exactly those lines, so a REUSED run can never seed a new record.
+  _cb=${CITBASE[$sha]:-}
+  _reuse=0
+  _tree=$(git -C "$ROOT" rev-parse -q --verify "${sha}^{tree}" 2>/dev/null) || _tree=""
+  echo "PREPUSH_TREE=${_tree:-UNKNOWN}"
+  echo "PREPUSH_CITGATE_BASE=${_cb:-NONE}"
+  if [ -n "${ROAE_PREPUSH_RECORD:-}" ]; then
+    _recpath=$(realpath -m -- "$ROAE_PREPUSH_RECORD" 2>/dev/null) || _recpath=""
+    if [ -z "$_tree" ] || [ -z "$_recpath" ]; then
+      echo "pre-push: verdict record NOT used for $short (could not resolve the tree or the record path) — full battery"
+    elif [ ! -f "$WT/scripts/prepush_verdict_record.sh" ]; then
+      echo "pre-push: verdict record NOT used for $short (the pushed tree has no scripts/prepush_verdict_record.sh) — full battery"
+    else
+      _rec_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+                    bash scripts/prepush_verdict_record.sh check --record "$_recpath" --tree "$_tree" \
+                      --citgate-base "${_cb:-NONE}" --forbid-under "$ROOT" --forbid-under "$WTBASE" 2>&1 ); _recrc=$?
+      if one_token PREPUSH_RECORD "$_rec_out" && tok_is 'PREPUSH_RECORD=MATCH' && [ "$_recrc" -eq 0 ]; then
+        _reuse=1
+        echo "pre-push: verdict record MATCHES pushed tree ${_tree:0:12} — reusing its covered legs; local legs still run:"
+        printf '%s\n' "$_rec_out" | grep -E '^  ' | sed 's/^/         /'
+      else
+        _why=$(printf '%s\n' "$_rec_out" | grep -m1 -E '^PREPUSH_RECORD_WHY=' || true)
+        echo "pre-push: verdict record NOT used for $short (${_why:-${TOK:-no single PREPUSH_RECORD= line}}, rc=$_recrc) — full battery"
+        printf '%s\n' "$_rec_out" | grep -E '^  \[' | head -3 | sed 's/^/         /'
+      fi
+    fi
+  fi
+  _L_DOC_GATES_ALL=NOT-RUN; _L_GENERATED=NOT-RUN; _L_COMPILE_GATE=NOT-RUN; _L_PUBLISHED_CONSISTENCY=NOT-RUN
+  _L_R167=NOT-RUN; _L_R167_M3=NOT-RUN; _L_R167_M4=NOT-RUN; _L_ATLAS_N31=NOT-RUN; _L_TR12_OUTPUT_PATHS=NOT-RUN
+  if [ "$_reuse" = 1 ]; then
+    for _v in DOC_GATES_ALL GENERATED COMPILE_GATE PUBLISHED_CONSISTENCY R167 R167_M3 R167_M4 ATLAS_N31 TR12_OUTPUT_PATHS; do
+      printf -v "_L_$_v" '%s' REUSED
+    done
+    # The ALWAYS-LOCAL doc gates, in the pushed tree, with the same CITGATE_BASE rule as `all`.
+    # Blocking with the same 0 / 1 / >1 classification as the `all` leg below.
+    for _lm in branch-registry appendonly revrows tracked-ignored; do
+      echo
+      ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
+          ${_cb:+CITGATE_BASE=$_cb} bash scripts/doc_gates.sh "$_lm" ); _lrc=$?
+      if [ "$_lrc" -gt 1 ]; then
+        echo "pre-push: 🔴 COULD NOT RUN — local leg 'doc_gates.sh $_lm' in pushed sha $short exited $_lrc."
+        SHARC=1
+      elif [ "$_lrc" -ne 0 ]; then
+        echo "pre-push: FAIL — local leg 'doc_gates.sh $_lm' on pushed sha $short."
+        SHARC=1
+      fi
+    done
+  else
+  # (Q-798: the covered legs, unchanged and deliberately NOT re-indented, run from here to the
+  #  matching "end of the covered legs" line below whenever no record MATCHed.)
   if [ -f "$WT/scripts/doc_gates.sh" ]; then
     # Q-792: leg A of the citation gate diffs solve.c against the pushed range's base. An
     # inherited CITGATE_BASE is dropped first, so the operator's shell cannot choose the base.
@@ -514,7 +623,9 @@ for sha in $SHAS; do
       ( cd "$WT" && for _dg in scripts/doc_gates.sh scripts/doc_gates.d/*.sh; do bash -n "$_dg"; done 2>&1 | sed 's/^/           /' ) || true  # Q-797: entry + modules
       SHARC=1
     elif [ "$_arc" -ne 0 ]; then SHARC=1; fi
+    [ "$_arc" -eq 0 ] && _L_DOC_GATES_ALL=PASS || _L_DOC_GATES_ALL=FAIL
   else
+    _L_DOC_GATES_ALL=FAIL
     echo "pre-push: FAIL — pushed sha $short has no scripts/doc_gates.sh."
     echo "  For a current tree that is a regression; for a deliberate push of"
     echo "  pre-gate history, 'git push --no-verify' is the visible bypass."
@@ -540,12 +651,13 @@ for sha in $SHAS; do
           echo "         do NOT regenerate example/ in response to this."
           SHARC=1
         elif [ "$_grc" -ne 0 ]; then SHARC=1; fi
+        [ "$_grc" -eq 0 ] && _L_GENERATED=PASS || _L_GENERATED=FAIL
       fi ;;
   esac
   echo
   if [ -f "$WT/scripts/pre_push_compile_gate.sh" ]; then
     ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-        bash scripts/pre_push_compile_gate.sh ) || SHARC=1
+        bash scripts/pre_push_compile_gate.sh ) && _L_COMPILE_GATE=PASS || { SHARC=1; _L_COMPILE_GATE=FAIL; }
 
       # ---- published-consistency ratchet (2026-09-06). THIS GATE HAD ZERO INVOKERS.
       # scripts/gate_published_consistency.sh was written to close the three classes that dominated
@@ -567,24 +679,26 @@ for sha in $SHAS; do
         if ! one_token PUBLISHED_CONSISTENCY "$_gpc"; then
           echo "pre-push: COULD NOT RUN the published-consistency gate (no single verdict token)."
           echo "         A gate that cannot report is not a gate that passed."
-          SHARC=1
+          SHARC=1; _L_PUBLISHED_CONSISTENCY=FAIL
         elif tok_is 'PUBLISHED_CONSISTENCY=FAIL'; then
           echo "pre-push: published-consistency RATCHET BROKEN -- a count rose above its pin:"
           printf '%s\n' "$_gpc" | grep -E 'rose to|no pin file|malformed' | sed 's/^/         /'
           echo "         Fix it, or re-pin in this same commit with the reason written down."
-          SHARC=1
+          SHARC=1; _L_PUBLISHED_CONSISTENCY=FAIL
         elif tok_is 'PUBLISHED_CONSISTENCY=PASS-AT-PIN'; then
+          _L_PUBLISHED_CONSISTENCY=PASS
           echo "pre-push: published consistency at pin (no regression; known-open items stand)"
           # Echo WHICH legs stand. "at pin" alone reads as "fine"; the gate knows the list, so the
           # push log should carry it rather than making the lane re-run the gate to find out.
           printf '%s\n' "$_gpc" | grep -E '^  OUTSTANDING:' | sed 's/^/         /'
         elif tok_is 'PUBLISHED_CONSISTENCY=PASS'; then
+          _L_PUBLISHED_CONSISTENCY=PASS
           echo "pre-push: published consistency CLEAN -- all 19 legs measured zero;"
           echo "         tighten any non-zero pin to 0 in this commit (repaired-defect budget is headroom)"
         else
           echo "pre-push: COULD NOT RUN the published-consistency gate (unrecognised verdict '$TOK')."
           echo "         A gate that cannot report is not a gate that passed."
-          SHARC=1
+          SHARC=1; _L_PUBLISHED_CONSISTENCY=FAIL
         fi
       fi
     # ---- CONDITIONAL #167 zero-yield resume leg (2026-09-05, PROSE_LANE_FOLLOWUPS row 542).
@@ -617,6 +731,7 @@ for sha in $SHAS; do
               # ship. Reuses ./solve_167 -- the mutants are rebuilt inside the gate, because a
               # handed-in binary cannot carry a mutation. ~33 s on top of the #167 leg.
               DISK_PRECHECK_SOLVE=./solve_167 bash scripts/disk_precheck_marker_gate.sh || exit 45' ); _r167=$?
+          [ "$_r167" -eq 0 ] && _L_R167=PASS || _L_R167=FAIL
           if [ "$_r167" -eq 44 ]; then
             echo "pre-push: 🔴 COULD NOT RUN — solve.c in pushed sha $short did not build for the"
             echo "         #167 gate. The compile gate above is the authority on WHY; this leg"
@@ -669,6 +784,7 @@ for sha in $SHAS; do
               case "$_mr$_mz" in ''|*[!0-9]*) ;; *) [ -n "$_mr" ] && [ -n "$_mz" ] && _mnum=1 ;; esac
               if [ "$_mrc" -eq 40 ] && [ "$_mv" = FAIL ] && [ "$_md" = 1 ] \
                  && [ "$_mnum" = 1 ] && [ "$_mr" -eq $(( _mz - 1 )) ]; then
+                printf -v "_L_R167_$_m" '%s' PASS
                 echo "pre-push: #167 --mutant $_m OK — the binary REFUSED $_m's sidecar"
                 echo "          (SELFTEST_RESUME_167=FAIL, D=1, R=$_mr=Z-1 of Z=$_mz: the expected verdict)"
               elif [ "$_mv" = PASS ]; then
@@ -676,14 +792,14 @@ for sha in $SHAS; do
                 echo "         $_mwhat."
                 echo "         SELFTEST_RESUME_167=PASS on a mutant that MUST fail means the discriminator is gone."
                 echo "         Reproduce: scripts/selftest_resume_167_gate.sh --solve ./solve --mutant $_m"
-                SHARC=1
+                SHARC=1; printf -v "_L_R167_$_m" '%s' FAIL
               else
                 echo "pre-push: FAIL — #167 --mutant $_m on pushed sha $short did not reach the required"
                 echo "         refusal (rc=$_mrc, SELFTEST_RESUME_167=${_mv:-<none>}, D=${_md:-<none>},"
                 echo "         R=${_mr:-<none>}, Z=${_mz:-<none>}; required rc 40, FAIL, D=1, R=Z-1)."
                 echo "         ERROR/VACUOUS is not a refusal: nothing was shown to be discarded."
                 printf '%s\n' "$_mo" | grep -E '^\[gate\] (ERROR|FAIL|VACUOUS)' | head -3 | sed 's/^/           /'
-                SHARC=1
+                SHARC=1; printf -v "_L_R167_$_m" '%s' FAIL
               fi
             done
           fi
@@ -691,13 +807,13 @@ for sha in $SHAS; do
           echo "pre-push: FAIL — pushed sha $short touches solve.c but has no"
           echo "  scripts/selftest_resume_167_gate.sh. Deleting the gate that covers the resume"
           echo "  path is the regression it exists to prevent; --no-verify is the visible bypass."
-          SHARC=1
+          SHARC=1; _L_R167=FAIL
         fi ;;
     esac
   else
     echo "pre-push: FAIL — pushed sha $short has no scripts/pre_push_compile_gate.sh."
     echo "  Same rule as above: blocked, and --no-verify is the visible bypass."
-    SHARC=1
+    SHARC=1; _L_COMPILE_GATE=FAIL
   fi
 
   # ---- BLOCKING: THE n=31 ATLAS PROBE (Q-737, 2026-09-25) ------------------
@@ -722,14 +838,16 @@ for sha in $SHAS; do
     _ap_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
                  bash scripts/atlas_n31_probe_gate.sh 2>&1 ); _aprc=$?
     if one_token ATLAS_N31_GATE "$_ap_out" && tok_is 'ATLAS_N31_GATE=PASS' && [ "$_aprc" -eq 0 ]; then
+      _L_ATLAS_N31=PASS
       echo "pre-push: n=31 atlas probe PASS — TR-12's pinned digest, and solve.py --atlas-probe = ATLAS_PROBE=PASS"
     else
       echo "pre-push: FAIL — the n=31 atlas probe did not PASS on pushed sha $short (rc=$_aprc, '${TOK:-<no single ATLAS_N31_GATE= line>}')."
       printf '%s\n' "$_ap_out" | grep -E '^ *\[(FAIL|ERROR)\]|^ATLAS_N31_(DIGEST|PROBE|GATE_ERROR)=|^ {11}' | head -12 | sed 's/^/         /'
       echo "         Reproduce: bash scripts/atlas_n31_probe_gate.sh"
-      SHARC=1
+      SHARC=1; _L_ATLAS_N31=FAIL
     fi
   else
+    _L_ATLAS_N31=FAIL
     echo "pre-push: FAIL — pushed sha $short has no scripts/atlas_n31_probe_gate.sh."
     echo "  Deleting the gate that runs TR-12 §12's reproduction command is the regression it"
     echo "  exists to prevent; --no-verify is the visible bypass."
@@ -748,19 +866,24 @@ for sha in $SHAS; do
     _op_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
                  bash scripts/tr12_output_paths_gate.sh 2>&1 ); _oprc=$?
     if one_token TR12_OUTPUT_PATHS "$_op_out" && tok_is 'TR12_OUTPUT_PATHS=PASS' && [ "$_oprc" -eq 0 ]; then
+      _L_TR12_OUTPUT_PATHS=PASS
       echo "pre-push: TR-12 output paths PASS — every tr12/ name tracked, every <artifact-root>/ name written by the battery"
     else
       echo "pre-push: FAIL — TR-12's output paths did not PASS on pushed sha $short (rc=$_oprc, '${TOK:-<no single TR12_OUTPUT_PATHS= line>}')."
       printf '%s\n' "$_op_out" | grep -E '^ *\[FAIL\]|^TR12_OUTPUT_PATHS_ERROR=' | head -12 | sed 's/^/         /'
       echo "         Reproduce: bash scripts/tr12_output_paths_gate.sh"
-      SHARC=1
+      SHARC=1; _L_TR12_OUTPUT_PATHS=FAIL
     fi
   else
     echo "pre-push: FAIL — pushed sha $short has no scripts/tr12_output_paths_gate.sh."
     echo "  Deleting the gate that checks TR-12's published output paths is the regression it"
     echo "  exists to prevent; --no-verify is the visible bypass."
-    SHARC=1
+    SHARC=1; _L_TR12_OUTPUT_PATHS=FAIL
   fi
+  fi   # Q-798: end of the covered legs (opened at "TREE-KEYED REUSE" above)
+  for _v in DOC_GATES_ALL GENERATED COMPILE_GATE PUBLISHED_CONSISTENCY R167 R167_M3 R167_M4 ATLAS_N31 TR12_OUTPUT_PATHS; do
+    _vn="_L_$_v"; echo "PREPUSH_LEG_$_v=${!_vn}"
+  done
 
   # ---- ADVISORY: the Q-479 solve.c battery (2026-09-11) --------------------
   # WHY THIS EXISTS. Four gates in this repository had NO INVOKER: nothing ran
@@ -852,6 +975,48 @@ for sha in $SHAS; do
         fi
       fi ;;
   esac
+
+  # ---- ADVISORY: THE REPRODUCE.md DIGESTS (Q-727 gate, wired by Q-869, 2026-09-27) ----
+  # documentation/REPRODUCE.md publishes five small-rung f-ladder `*.bin` digests (n = 9, 13,
+  # 16, 18, 19) and tells a stranger that matching them proves a byte-identical build.
+  # scripts/reproduce_digests_gate.sh executes the page's OWN build line, ledger command and
+  # digest recipe at every row and compares digest, bytes, files and total. Its only caller was
+  # tests.py (TestQ727ReproduceDigestsGate), and nothing on the push path runs tests.py -- the
+  # same gap the n=31 atlas leg above closes -- so a solve.c change that moved a layer byte, or a
+  # page edit that broke the recipe, reached the public record with the page still promising a
+  # match. The private gate-wiring census reported it `has NO invoker` (Q-869).
+  # CONDITIONAL AND ONCE PER PUSH because it BUILDS solve.c and runs `./solve --f1-exact-*`:
+  # MEASURED 2026-09-27 on the D16 worker at public ba922e29, REPRODUCE_DIGESTS=PASS, 5 rungs:
+  # 26-32 s wall on 16 cores; 24.5 s wall / 18 s user pinned to 2 cores (build ~17 s of it,
+  # single-threaded); peak RSS ~450 MB; ~120 MB of scratch under ${TMPDIR:-/tmp}, removed on
+  # exit. The Q-479 battery's build on the orchestrator took 27 s, so expect ~35-45 s there.
+  # It runs only when the pushed range touches solve.c, REPRODUCE.md or the gate itself
+  # (needs_reprodig, fail-closed), on the LAST such sha -- a markdown-only push pays nothing.
+  # --selftest is NOT run here (69 s wall, 6 builds' worth of rungs); tests.py runs it.
+  # ADVISORY: it never touches $SHARC/$RC. Promoting it to blocking is an OPERATOR decision.
+  # Read through one_token + tok_is: PASS is the ONLY accepted value; ERROR is not a pass.
+  if [ -n "$REPRODIG_SHA" ] && [ "$sha" = "$REPRODIG_SHA" ]; then
+    echo
+    echo "pre-push: [advisory] REPRODUCE.md digests on pushed sha $short (once per push) — NEVER blocking (~30-45 s)"
+    if [ -f "$WT/scripts/reproduce_digests_gate.sh" ]; then
+      _rd_to=""; command -v timeout >/dev/null 2>&1 && _rd_to="timeout 1800"
+      _rd_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+                   $_rd_to bash scripts/reproduce_digests_gate.sh 2>&1 ); _rdrc=$?
+      if ! one_token REPRODUCE_DIGESTS "$_rd_out"; then
+        echo "  ⚠ REPRODUCE.md digests NOT-RUN on $short — no single verdict line (rc=$_rdrc$( [ "$_rdrc" = 124 ] && echo ', timed out at 1800 s'))."
+        echo "    A gate that cannot report is not a gate that passed."
+      elif tok_is 'REPRODUCE_DIGESTS=PASS' && [ "$_rdrc" -eq 0 ]; then
+        echo "  [ok]   the page's own build line, command and recipe reproduce every published digest — $TOK"
+      else
+        echo "  ⚠ $TOK (rc=$_rdrc) on $short — REPRODUCE.md promises a digest this tree does not produce:"
+        printf '%s\n' "$_rd_out" | grep -E '^ *\[(FAIL|ERROR)\]|^REPRODUCE_DIGESTS_ERROR=' | head -8 | sed 's/^/      /'
+        echo "    ADVISORY: the push continues. Reproduce with: bash scripts/reproduce_digests_gate.sh"
+      fi
+    else
+      echo "  ⚠ pushed sha $short has no scripts/reproduce_digests_gate.sh — the REPRODUCE.md digests"
+      echo "    were NOT measured. For a current tree that is a deleted gate."
+    fi
+  fi
 
   # ---- ADVISORY: fail-open closure sweep (Q-479, 2026-09-11) ---------------
   # scripts/failopen_closure_gate.sh is the META-GATE for the fail-open class:
@@ -1130,7 +1295,7 @@ if [ -n "$DGST_SHA" ]; then
       _dso=$( cd "$STBASE/tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
                 $_to bash scripts/doc_gates.sh --selftest 2>&1 ); _dsrc=$?
       _dsn=$(printf '%s\n' "$_dso" | grep -cE '^DOC_GATES_SELFTEST=') || true
-      if [ "${_dsn:-0}" = 0 ] && printf '%s\n' "$_dso" | grep -q '^REFUSING:'; then
+      if [ "${_dsn:-0}" = 0 ] && grep -q '^REFUSING:' <<<"$_dso"; then
         echo "  ⚠ DOC_GATES_SELFTEST NOT-RUN on $_ds — the selftest REFUSED (rc=$_dsrc); nothing was tested:"
         printf '%s\n' "$_dso" | grep -m1 '^REFUSING:' | sed 's/^/      /'
         echo "    NOT-RUN is not PASS."
@@ -1223,4 +1388,6 @@ if [ -x "$ROOT/scripts/group_c_n9_rehearsal_gate.sh" ]; then
   esac
 fi
 
+# Q-798: the hook's own overall verdict, one whole line, for scripts/prepush_verdict_record.sh.
+if [ "$RC" -eq 0 ]; then echo "PREPUSH_VERDICT=PASS"; else echo "PREPUSH_VERDICT=FAIL"; fi
 exit $RC

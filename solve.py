@@ -14173,7 +14173,7 @@ def atlas_emit_q3(steps, outdir, n, A=None, quiet=False):
             fh.write("atlas_n=%s\n" % A.get("n"))
             fh.write("atlas_N_total=%s\n" % A.get("N_total"))
             fh.write("atlas_space=%s\n" % A.get("space"))
-            fh.write("atlas_pl_hash=%s\n" % A.get("pl_hash"))
+            fh.write("atlas_pl_hash=%s\n" % A.get("pl_hash")); fh.write("q3_table_sha256=%s\n" % _tr8_sha256_file(path))  # lane VR4 (Codex VIZ A4-01): bind the sidecar to the table's BYTES
     return path, status, why
 
 

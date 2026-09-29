@@ -227,7 +227,7 @@ five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorte
 - **Per-layer argmin trivia is not a finding.** TR-12 §9 declines "loneliest corridor" claims
   explicitly: a minimum-mass corridor is expected in any large DP and distinguishes nothing.
 - **Panel (a) is not the branch river.** Do not describe the class bands as branches; they are
-  transition classes. The branch river is PENDING and expensive (above).
+  transition classes. A completed-solution river by first branch is available from `v2_branches.tsv` and is flat (not drawn); the joint branch × class river is PENDING and expensive (above).
 - **King Wen's step line is not a percentile.** Per-layer percentile-of-mass is a
   [V5](viz_kc_grammar.md) / Q6 quantity; this figure only shows which band King Wen occupies.
 
@@ -249,10 +249,10 @@ five `p` bands against `k`, King Wen's `kw_d` drawn as a step line, plus a sorte
 Both reader-side identities were exercised against the committed n=9 reference atlas
 (`{1:2, 2:5, 4:2}`, per-layer sums 1.0) before this doc was written.
 
-**Seven advertised keys are not twelve gate families.** `kc_h_scan_tail` runs twelve; the other
-five reach the JSON only through `fails`, and three of those five are guarded by a direct t
-recursion the tail attempts only when `N <= 2^27`, so they do not run at n=31 at all. Every
-advertised field collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
+**Named keys are not a count of gate families.** The published atlas is schema version 2: its
+`gates` object holds **14** named checks plus `fails`, and `tail_checks` holds **five** named checks
+plus `fails` (counted in `atlas_n31.json`; Q-901, 2026-09-28: this said "seven advertised keys"). Those are emitted-field counts, not the engine's internal gate families. A named
+`gates` value that ran collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
 a false positive. Read `fails` first. There is deliberately **no** vertical `quotient_marginal`
 gate: `kc_flookup` re-canonicalises with `f1_canon` on every lookup, so `q` indexes *this* layer's
 canonical mask and is not the same slot at `k+1`; the layer-summed quotient marginal has no closed
@@ -264,8 +264,8 @@ form and must not be asserted. Full accounting in
 - **This doc:** `viz/viz_kc_river.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence TSVs:** `tr12/scan/v2_river.tsv`, `tr12/scan/v2_branches.tsv`
-- **Figures:** `runs/<run-id>/viz/viz_kc_river.{png,svg}` → mirrored to
-  `reports/figures/fig_tr12_kc_river.{png,svg}`
+- **Figures:** `reports/figures/fig_tr12_kc_river.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
+  mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 
 ## Related
 

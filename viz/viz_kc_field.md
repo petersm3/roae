@@ -107,9 +107,9 @@ leaves every layer summing to N exactly, and the orbit check still FAILs.
    union of whole published orbit sizes; *which* pairs sit in which group is not examined. A
    swap of two pairs drawn from two **different orbits of the same size** leaves that multiset
    unchanged and passes. So this is a guard against orbit-equality being *broken*, not against
-   pair identities being *permuted* among equal-sized orbits. Checking membership needs the
-   orbit partition itself, which lives in `solve.c` and is not re-derived on the consumer side;
-   it is owed.
+   pair identities being *permuted* among equal-sized orbits. Membership is checked by a second
+   consumer gate in `solve.py` derives the pair-orbit partition itself and requires two pairs to share a column exactly when they share an orbit,
+   so `--atlas-select v1,a5` emits both `TR12_A5_ORBIT_COLUMNS` and `TR12_A5_ORBIT_MEMBERSHIP=PASS` (below); `v1` alone runs neither. *(Q-901, 2026-09-28: this said membership "is owed".)*
 
 ### The King Wen overlay — and the labelling artifact it hides
 
@@ -193,8 +193,8 @@ cell of this TSV from the explicit 26,112-walk enumeration and prints `ATLAS_CON
 pivoted `p` column with the `kw == 1` cells marked. Per the standing rule the plotting step reads
 the TSV and does nothing else — **no analysis logic in `viz/`**.
 
-Outputs follow the TR pattern: `runs/<run-id>/viz/viz_kc_field.{png,svg}`, mirrored to
-`reports/figures/fig_tr12_kc_field.{png,svg}`; the TSV is committed alongside as evidence.
+Outputs: the committed image is `reports/figures/fig_tr12_kc_field.{png,svg}`; the renderer writes to its working directory and
+nothing is mirrored (Q-901, 2026-09-28: this named a per-run copy that does not exist); the TSV is committed alongside as evidence.
 
 ## How to read it
 
@@ -202,8 +202,8 @@ Outputs follow the TR pattern: `runs/<run-id>/viz/viz_kc_field.{png,svg}`, mirro
 - **Read down a column** (fixed slot): the distribution over which pair occupies that slot. A flat
   column means the slot is nearly unconstrained; a peaked column means the constraint system
   concentrates that slot on a few pairs.
-- **Read along a row** (fixed pair): where in the ordering that pair can live. Rows are also
-  probability distributions (they sum to 1), so a tight row means a pair is positionally pinned by
+- **Read along a row** (fixed pair): where in the ordering that pair can live. Every non-pinned row is also a
+  probability distribution (it sums to 1; pair 0's row is zero), so a tight row means a pair is positionally pinned by
   C1/C2/C5 alone.
 - **Read the King Wen diagonal against its own column**: is King Wen's choice at slot *k+2* a
   high-mass or a low-mass cell of that column? This is the only comparison the figure supports —
@@ -266,10 +266,10 @@ Printed by the engine into `gates` in the atlas, and re-checkable from the TSV:
 A figure whose TSV fails any of these is not publishable — the gate failure, not the picture, is
 the result.
 
-**Seven advertised keys are not twelve gate families.** `kc_h_scan_tail` runs twelve; the other
-five reach the JSON only through `fails`, and three of those five are guarded by a direct t
-recursion the tail attempts only when `N <= 2^27`, so they do not run at n=31 at all. Every
-advertised field collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
+**Named keys are not a count of gate families.** The published atlas is schema version 2: its
+`gates` object holds **14** named checks plus `fails`, and `tail_checks` holds **five** named checks
+plus `fails` (counted in `atlas_n31.json`; Q-901, 2026-09-28: this said "seven advertised keys"). Those are emitted-field counts, not the engine's internal gate families. A named
+`gates` value that ran collapses to `"see fails"` if *any* gate failed, named or not — coarse, but never
 a false positive. Read `fails` first. There is deliberately **no** vertical `quotient_marginal`
 gate: `kc_flookup` re-canonicalises with `f1_canon` on every lookup, so `q` indexes *this* layer's
 canonical mask and is not the same slot at `k+1`; the layer-summed quotient marginal has no closed
@@ -281,9 +281,9 @@ form and must not be asserted. Full accounting in
 - **This doc:** `viz/viz_kc_field.md`
 - **Generator (TSV → figure):** `viz/report_figures.py`
 - **Evidence TSV:** `tr12/scan/v1_field.tsv` (committed with the figure)
-- **Atlas JSON:** `runs/20260906_kc_ladders_n31/atlas_n31.json`, schema `roae-kc-scan-atlas` v1
-- **Figures:** `runs/<run-id>/viz/viz_kc_field.{png,svg}` → mirrored to
-  `reports/figures/fig_tr12_kc_field.{png,svg}`
+- **Atlas JSON:** `runs/20260906_kc_ladders_n31/atlas_n31.json`, schema `roae-kc-scan-atlas` version 2 (Q-901: this read v1)
+- **Figures:** `reports/figures/fig_tr12_kc_field.{png,svg}` (committed). The renderer writes to its working directory, and nothing is
+  mirrored: no per-run copy under `runs/<run-id>/viz/` exists; render into a scratch directory to compare (Q-901, 2026-09-28).
 
 Figures are never inlined into `viz/` itself — see [README.md](README.md).
 

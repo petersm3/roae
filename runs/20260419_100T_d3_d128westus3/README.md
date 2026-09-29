@@ -120,7 +120,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
   - Uniformly-random 1M-record subsample from the 3.43B canonical via one-pass vectorized reservoir sampling (Algorithm R) — produces identical output on every re-run with the same file + seed.
   - PCA projection to 2D on the full 1M sample.
   - Plot layer: further uniform subsample to 200k points for readability (also seed=42).
-- **King Wen injection (guaranteed marking):** Because KW is 1 in 3.43B, a random 1M sample catches it with probability ~0.003% (effectively never). To guarantee the reference point appears in every plot:
+- **King Wen injection (guaranteed marking):** Because KW is 1 in 3.43B, a random 1M sample catches it with probability ≈0.029% (1,000,000 / 3,432,399,297; effectively never; Q-896, 2026-09-28: this read ~0.003%). To guarantee the reference point appears in every plot:
   - If KW happens to be in the reservoir → no modification (leaves the random sample untouched).
   - If KW is NOT in the reservoir → the last reservoir slot (index k-1 = 999,999) is overwritten with KW's canonical record; one uniformly random sample is displaced. At k=1M the statistical distribution of the remaining 999,999 samples is preserved to six-plus decimal places.
   - This behavior is deterministic: same seed + same file → same inject-or-not decision → same plots.

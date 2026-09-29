@@ -222,7 +222,7 @@ mk_leg "$WORK/trunc" || fail_error "could not build the truncate leg"
 # non-multiple of 32. Rebuilding the stream raw and cutting 8 bytes is exact:
 # a record stream is a whole number of 32-byte records, so size-8 is congruent
 # to 24 mod 32 for every possible victim. Raw shards are read fine (gzr_open
-# auto-detects; SOLVE_GZIP_LEVEL=0 produces them in normal operation).
+# auto-detects; SOLVE_COMPRESS=0 produces them in normal operation).
 if [ "$(head -c 2 "$WORK/trunc/$vict" | od -An -tx1 | tr -d ' \n')" = "1f8b" ]; then
   gzip -dc "$WORK/trunc/$vict" > "$WORK/raw.tmp" || fail_error "gzip -dc failed on $vict"
 else

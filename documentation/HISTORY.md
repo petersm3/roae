@@ -9916,3 +9916,64 @@ The selftest still reproduces `403f7202`, and no canonical sha, count or reprodu
 - the Spot precheck names its probe machine uniquely across hosts, and a public gate no longer carries a private directory path; it reads it from the environment and says so when it is absent (CX-199).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-27 (evening) — batch 23: every report figure regenerated from committed code, arguments and environment values validated, and the proof-cascade wording made exact
+
+**Batch 23 (CX-200..CX-217) cleared the same review and is the commit that carries this addition.** It finishes the figure work and closes most of the remaining hardening rows:
+
+- the TR-5 and TR-7 figures now have committed renderers, so all twelve report figures regenerate from committed code and data; TR-5's drawing now says what its caption says (canonical pair-order records, a record-orbit count of R/24) and clears the text floor (CX-205);
+- the V4 figure draws the range of the alternatives at each of King Wen's steps, read from the published n=31 receipts and labelled as attested, with the title and footer reworded to say so; the curve itself is unchanged (CX-204);
+- a repeated single-valued option, a malformed numeric argument, an argument after `[threads]` and an unknown or malformed `SOLVE_*` value are refused with exit 2 before any work; every documented launch form and recipe value is still accepted, and valid runs are byte-identical (CX-200, CX-202, CX-207, CX-208, CX-216);
+- `--prove-cascade` no longer counts a configuration as eliminated after part of its search timed out, gives each configuration one time budget, and says that an elimination covers only the one prefix orientation it placed; no published result depended on the old behaviour (CX-213, CX-217);
+- three statements that called a budgeted parallel `--sub-branch` run byte-identical to a single-threaded one are corrected: under a shared node budget the record set varies from run to run, and only the full enumeration's sha is an anchor (CX-212);
+- the pre-push hook reuses a worker check's verdicts when the pushed tree is exactly the one checked, and still runs every local-only check itself (CX-214); the digest ledger's gate now runs on the push path (CX-206);
+- the rest tightens gates and tests: an archived log's private path redacted, the reproduction script's relative `--out`, pipe-fed checks, strace output split across lines, stale command names and pointers, and the v2 layer-format label (CX-201, CX-203, CX-209, CX-210, CX-211, CX-215).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-27 (pointer) — the receipt behind the 2026-09-16 entry's p̂
+
+The 2026-09-16 entry ("a row budgeted in minutes that ran past six hours…") quotes this run's own
+`p̂ = 0.12093700` and names no file for it. The identical value is now published, as attested, in
+the 2026-09-22 n=31 battery's receipt for row `a1_q4ac`:
+`reports/evidence/tr12/banked_n31_20260922/a1_q4ac.txt`, line `p_hat_cd_le_T 0.12093700` (M = 10⁶
+draws, 120,937 accepted, 95 % Wilson interval [0.12029940, 0.12157751]). That receipt comes from the
+2026-09-22 run, not the 2026-09-16 one, and it reproduces only with the f ladder, which is not
+distributed. The earlier entry is unchanged.
+
+## 2026-09-27 (night) — batch 24: no incomplete run is reported as complete, and the 560T over-emission figure withdrawn
+
+**Batch 24 (CX-218..CX-223) is the commit that carries this addition.** It closes the silent-skip family that batch 23's reviews kept finding beside each fix:
+
+- the merge no longer drops a shard it cannot size or open: the shard was left out of both the merge and the expected record total, so the completeness check could not see it and the merge exited 0 over a smaller set. A shard that exists but cannot be read is now a named error. Every active canonical anchor was checked, and none is affected (CX-221);
+- the provenance roll-up and the layer-sidecar retrofit no longer skip what they cannot read and still exit 0 (CX-219, CX-221);
+- `solve` now prints a whole-line `ENUM_RUN=FINISHED` or `ENUM_RUN=STOPPED` when an enumeration ends, and the PGO build and the benchmark refuse a training or timed run that a signal stopped, which used to exit 0 like a finished one (CX-220, CX-223);
+- `--prove-cascade`'s Phase 2 heading and summary now read "Placed-orientation search", matching the scope batch 23 gave its verdicts (CX-218);
+- the 560T registry's statement that the original run "over-emitted +3,841,927" pre-merge records is withdrawn. Both runs' merges counted 43,876,464,466 records; the larger figure was an archive manifest that summed sidecar bytes along with the shards (CX-222).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-27 (pointer, 560T) — the 560T "over-emitted +3,841,927" figure withdrawn
+
+The 2026-06-30 entry ("A **pre-merge shard comparison** makes this concrete…") says the original 2026-06-08 560T
+run's pre-merge shard total was 43,880,306,393 against the re-run's 43,876,464,466, and that the original
+over-emitted +3,841,927 duplicate records. The original run's own merge log and provenance sidecar, captured on
+the merge VM on 2026-06-08, count 43,876,464,466 records over its 65,281 shards — the same integer as the re-run.
+The larger figure came from an archive manifest written on 2026-07-01 that summed `size // 32` over every
+`sub_*` file in the cold shard prefix, sidecars included (354,207 files, 288,926 of them `.bin.budget`,
+`.bin.provenance.json` and `.dfs_state`); its surplus is the sum over those sidecar files of ⌊size / 32⌋, at least 122,941,664 sidecar bytes, not records. The two runs'
+shard totals are equal, and no over-emission was measured. The entry is annotated in place and otherwise
+unchanged; the sha, the count and the verified status do not move. Ledger: CX-222.
+
+## 2026-09-28 — the report figures redrawn once, after an outside review of every one of them
+
+**This batch (CX-224..CX-229) is published together with batches 23 and 24 as one commit, so that each report figure changes in the repository once.** Every figure and every page about the figures went to an outside review first: Codex read all of them twice, once asking how each could be clearer and once assuming each misleads, and Fable checked every finding against the data before anything was changed.
+
+- all twelve report figures are redrawn: the five TR-12 figures gain the keys needed to read them from the image alone (what each symbol and unit means, which space is plotted, King Wen's outline drawn so it stays visible on any colour), TR-1 becomes a small table, TR-5 states the premise its division by 24 needs, TR-6's letters and TR-7's annotation are made legible and exact, and TR-3, TR-4 and the scale figure are redrawn with every glyph at full size. No plotted value changed (CX-225, CX-227);
+- the check that every glyph is at least 12 px now reads nested scales, which is how two figures had shipped superscripts at under 9 px; every text line in every figure now meets a 4.5:1 contrast floor (CX-225, CX-227);
+- the figure generator now refuses a malformed or incomplete table, a band that exceeds its own parent, a probability column that is not one, and a verification result not bound to the table it verifies, instead of drawing it (CX-226, CX-228);
+- eight captions and specification statements that said more than their figures show are corrected, including two that were plainly false: TR-12's V2 columns sum to 1, not to the budget, and V5's cross-swap null preserves the d-marginal but not every marginal (CX-224);
+- two published numbers are corrected to their own arithmetic: the 1120T projection is ≈ 17.0 B by the plotted fit, and a 1 M-record sample contains King Wen with probability 0.029 %, not 0.003 % (CX-225); the historical run pages and their renderers now say what they are and what they know (CX-228).
+- the generated corrections inventory now shows a commit row's subject line rather than a 400-character excerpt of the message; each row's id, date and class are unchanged (CX-229).
+
+The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.

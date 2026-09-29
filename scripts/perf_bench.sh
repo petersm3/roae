@@ -51,7 +51,7 @@
 #   3  bench ran but the page-cache flush was NOT confirmed for both builds —
 #      the JSON is emitted with "methodology_valid": false and must NOT be
 #      pasted into PERFORMANCE_HISTORY.md (emits PERF_BENCH_METHODOLOGY=VIOLATED)
-#   4  build or --selftest failed on the VM; no bench produced
+#   4  build or --selftest failed on the VM, or the --treatment-pgo training run did not FINISH (Q-877); no bench produced
 #   5  preflight throttle probe did not read HEALTHY (THROTTLED, or UNVERIFIED
 #      because MHz could not be sampled / the burn was too short / no token
 #      came back) — VM torn down, no bench produced, PERF_BENCH_METHODOLOGY=VIOLATED.
@@ -253,10 +253,28 @@ $SSH "$ADMIN@$VM_IP" "
         PGO_WORK=\$(mktemp -d \"\$PWD/pgo_work.XXXXXX\") || { echo \"FATAL: could not create a fresh PGO workload directory\" >&2; exit 1; }
         echo \"  PGO workload dir: \$PGO_WORK\"
         PGO_RC=0
-        ( cd \"\$PGO_WORK\" && $PGO_WORKLOAD ) > /tmp/pgo_workload.log 2>&1 || PGO_RC=\$?
+        ( cd \"\$PGO_WORK\" && $PGO_WORKLOAD ) > \"\$PGO_WORK/workload.log\" 2>&1 || PGO_RC=\$?   # Q-877: its own directory, not a fixed /tmp name another bench on the host shares
         if [ \"\$PGO_RC\" -ne 0 ]; then
             echo \"FATAL: PGO workload exited rc=\$PGO_RC; refusing to build a PGO binary from it\" >&2
-            tail -5 /tmp/pgo_workload.log >&2
+            tail -5 \"\$PGO_WORK/workload.log\" >&2
+            exit 1
+        fi
+        # 🔴 2026-09-27 (Q-877, the Q-828 follow-up). rc 0 does not mean the training run FINISHED:
+        # solve.c answers SIGTERM/SIGINT (a Spot eviction, a \`timeout\`, a Ctrl-C) by checkpointing
+        # and exiting 0, so a run stopped after seconds passed the rc check above, wrote a .gcda, and
+        # Pass 2 trained on it. Gated exactly as scripts/build_pgo.sh is: the log must hold solve's
+        # whole-line ENUM_RUN=FINISHED and no ENUM_RUN=STOPPED or \"*** Signal received\" line (a
+        # workload of several runs needs every run to finish). A solve.c older than Q-828 prints no
+        # token, so its PGO arm is refused too. Bound --pgo-workload with a node limit, not a signal.
+        PGO_STOP_RE='^(ENUM_RUN=STOPPED|\\*\\*\\* Signal received)'
+        if grep -Eq \"\$PGO_STOP_RE\" \"\$PGO_WORK/workload.log\"; then
+            echo \"ERROR: PGO workload was STOPPED before it finished (Q-877); refusing to build a PGO binary from a partial profile\" >&2
+            grep -E \"\$PGO_STOP_RE\" \"\$PGO_WORK/workload.log\" | head -5 >&2
+            exit 1
+        fi
+        if ! grep -qx 'ENUM_RUN=FINISHED' \"\$PGO_WORK/workload.log\"; then
+            echo \"ERROR: PGO workload log has no ENUM_RUN=FINISHED line (Q-877); refusing to build a PGO binary from it\" >&2
+            tail -20 \"\$PGO_WORK/workload.log\" >&2
             exit 1
         fi
         # Assert profile data was produced before Pass 2
@@ -402,6 +420,12 @@ run_enum_only() {
         ENUM_WALL_NS=\$((END - START))
         echo \"BUILD $BUILD enum_wall_ns=\${ENUM_WALL_NS}\"
         echo \"BUILD $BUILD enum_rc=\${ENUM_RC}\"
+        # Q-877: rc 0 is also what a SIGTERM-stopped run returns (Q-828), and its partial shards still
+        # merge to a sha. FINISHED = solve's whole-line ENUM_RUN=FINISHED and no stop line; ABSENT
+        # (no token, e.g. a solve.c older than Q-828) is not a pass. The collector requires FINISHED.
+        if grep -Eq '^(ENUM_RUN=STOPPED|\\*\\*\\* Signal received)' solve.log; then ENUM_RUN=STOPPED
+        elif grep -qx 'ENUM_RUN=FINISHED' solve.log; then ENUM_RUN=FINISHED; else ENUM_RUN=ABSENT; fi
+        echo \"BUILD $BUILD enum_run=\${ENUM_RUN}\"
         # Merge separately (NOT counted toward speedup)
         if [ \$ENUM_RC -eq 0 ]; then
             MSTART=\$(date +%s%N)
@@ -512,6 +536,10 @@ for _rcpair in "control:enum_rc=${ENUM_RC_N:-ABSENT}"   "treatment:enum_rc=${ENU
     if [ "${_rcpair##*=}" != 0 ]; then
         RUN_COMPLETE=0; RUN_INCOMPLETE_WHY="$RUN_INCOMPLETE_WHY $_rcpair"
     fi
+done
+ENUM_RUN_N=$(bench_field N enum_run); ENUM_RUN_U=$(bench_field U enum_run)   # Q-877: rc 0 alone does not say the run finished
+for _runpair in "control:enum_run=${ENUM_RUN_N:-ABSENT}" "treatment:enum_run=${ENUM_RUN_U:-ABSENT}"; do
+    [ "${_runpair##*=}" = FINISHED ] || { RUN_COMPLETE=0; RUN_INCOMPLETE_WHY="$RUN_INCOMPLETE_WHY $_runpair"; }
 done
 for _shapair in "control:sha=${SHA_N:-ABSENT}" "treatment:sha=${SHA_U:-ABSENT}"; do
     case "${_shapair##*=}" in
