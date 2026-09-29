@@ -66,7 +66,7 @@ were caught. Deleting them would erase the forensic audit trail.
 ## What's NOT in this directory
 
 - `solutions.bin` itself. Too large to commit (22.6 GB for d3 10T;
-  will grow with 100T). Held off-repo (warm disk mirror + cold blob); see
+  will grow with 100T). Held off-repo as operator-held preserved copies; see
   [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) + the per-run README under
   `../runs/<run-id>/` for access instructions.
 - Current-canonical analyze outputs for d2 10T and d3 10T. Those

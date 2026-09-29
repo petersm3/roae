@@ -69,8 +69,8 @@ Before sizing anything, answer these questions:
    [`lean/README.md`](../lean/README.md); the **determinism-hardening** tiers in
    [DEVELOPMENT.md](DEVELOPMENT.md) and [CANONICAL_HASHES.md](CANONICAL_HASHES.md);
    the **scoring-axis** `tier-1`/`tier-2` of [CRITIQUE.md](CRITIQUE.md) and
-   [SOLVE_C_CLI.md](SOLVE_C_CLI.md); the Azure Hot/Cool/Archive and
-   Standard/Premium **storage** tiers used throughout
+   [SOLVE_C_CLI.md](SOLVE_C_CLI.md); the
+   Standard/Premium **disk** tiers used throughout
    [DEPLOYMENT.md](DEPLOYMENT.md) and later in this file; and the reduced-rung
    **"Tier-2 scope"** of [VERIFY.md](VERIFY.md). ⚠ *(This parenthesis named only
    two other senses until 2026-09-03; the corpus carries eight public ones.)*)
@@ -1279,7 +1279,7 @@ For any campaign producing a sha you intend to publish:
    is the strongest defense against the latter.
 6. **Archive `solutions.bin` + `solutions.sha256` + all side-
    metadata + all shards + all `dfs_state` files + the locked
-   binary** to cold storage (Azure Standard_LRS HDD is fine).
+   binary** to a preserved copy (Standard HDD is fine).
    Size it for a 200 GB shard pile + 50 GB output
    ≈ 250 GB in all.
 7. **Document the campaign** with a follow-up post-mortem (or

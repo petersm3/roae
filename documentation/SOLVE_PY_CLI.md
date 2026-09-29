@@ -153,7 +153,7 @@ points (`--compute-stats`, `--marginals`, `--bivariate`,
 **v2** analyses and the pipeline modifiers below have no other CLI home:
 
 **Stage 0 — `--encode-solutions OUT_BIN IN [IN ...]`.** The P2 entry points read a
-`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:38979` and `:38986` emit **repr(k)** on the record line, and `solve.py:17123` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
+`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:38979` and `:38986` emit **repr(k)** on the record line, and `solve.py:17133` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
 `record` lines into that binary (32-byte `ROAE` header; 32-byte records,
 `byte[i] = (pair_index << 2) | (orient << 1)`, KW-consecutive pair table). A
 **mandatory round-trip gate** re-reads the output with `verify.py`'s own decoder and
@@ -711,7 +711,7 @@ had been claiming.]
                              BY_CLASS_MAX_ABS_DEV_FROM_B0_OVER_N_INTERIOR,
                              D6_POSITION_LAW_MIN_MAX_INTERIOR;
                              FMASS_LENGTH_EQ_N_PLUS_1, FMASS_SUM_EQ_T_ROOT,
-                             DEAD_PLUS_LIVE_EQ_FMASS_EVERY_LAYER,
+                             DEAD_PLUS_LIVE_EQ_FMASS_EVERY_LAYER, PROBE_DEAD_OUTDEG_TIE,
                              FMASS_N_EQ_N_TOTAL, DOOMED_PREFIX_NODES,
                              DOOMED_FRACTION_OF_T_ROOT (share of the pruned-DFS
                              tree, in t-units, spent on prefixes with g = 0),
@@ -955,9 +955,14 @@ had been claiming.]
                              one, can. The EMPIRICAL mod-16 gate stays as a
                              labelled extra, never a proof. The dead/live split
                              inside `counts` is checked for additivity against
-                             `fmass` only (no second table carries it), so
-                             DOOMED_FRACTION_OF_T_ROOT rests on the atlas's own
-                             `count_identities` gate for that split; and a
+                             `fmass` and, since 2026-09-29, tied per layer to the
+                             out-degree census `outdeg` (PROBE_DEAD_OUTDEG_TIE: the
+                             c = 0 column's count and f-mass must equal the
+                             dead-end fields, and its walk mass must be 0), so
+                             DOOMED_FRACTION_OF_T_ROOT rests on two shipped tables
+                             agreeing. ⚠ CORRECTED 2026-09-29 (Codex KCV R9, CX-241):
+                             this said no other table carried the split; the
+                             `outdeg` table does; and a
                              PASS is an internal-consistency verdict, never a
                              statement that the figures match §12 -- match each
                              figure with `grep -Fqx` (-F required; see the

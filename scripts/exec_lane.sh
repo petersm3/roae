@@ -331,10 +331,10 @@ def placeholder(c):
 GIT_MUT = r'\bgit\s+(clone|push|commit|fetch|pull|reset|checkout|rebase|merge|tag|add|rm|mv|stash|init|remote)\b'
 OPS = r'(?:^|[\s|&;])(sudo|ssh|scp|sftp|az|azcopy|apt-get|apt|dpkg|pip3?|mkfs(\.\w+)?|mount|umount|dd|reboot|shutdown|poweroff|blkid|curl|wget|nc|ncat|setsid|nohup|kill|pkill|killall|crontab|systemctl|systemd-run|service|rm|chmod|chown|chgrp|resize2fs|fdisk|parted|mkswap|swapon|swapoff|fsck(\.\w+)?|e2fsck|tune2fs|losetup|elan|rustup)\b'
 DEVREF = r'(?:^|[\s="\'])/dev/(sd|nvme|xvd|loop)'   # block-device references are ops, full stop
-# Q-649: a command that names the CALLER'S HOME is an op whatever its verb. `azcopy` in the OPS
-# list requires a preceding ^/whitespace/|/&/; so it never matched inside `~/.azcopy`, and the
-# list carried no chmod/chown/chgrp at all -- so `chmod -R 755 ~/.azcopy`
-# (CAMPAIGN_METHODOLOGY.md:1158) and `mkdir -p ~/.azcopy/plans && chmod 755 ...` (:1160) both
+# Q-649: a command that names the CALLER'S HOME is an op whatever its verb. A tool name in the OPS
+# list requires a preceding ^/whitespace/|/&/; so it never matched inside `~/.<tool>`, and the
+# list carried no chmod/chown/chgrp at all -- so a published `chmod -R 755 ~/.<tool>` and a
+# `mkdir -p ~/.<tool>/plans && chmod 755 ...` (two runbook lines since removed, CX-242) both
 # classified RUN with gating=1, and :901 dispatches every non-SKIP class. Measured on the real
 # extractor over a `git archive origin/main` export. The trailing (?:/|\s|$) is what keeps
 # `echo homebrew` and `--homeless` out of the deny set.
@@ -473,7 +473,7 @@ for f in files:
             # A quoted program that spans lines (`python3 -c "` ... `"`) is ONE command: keep
             # joining, newline-separated and indentation kept, until the quotes balance or the
             # fence ends. Measured pre-fix: DISTRIBUTIONAL_ANALYSIS.md:84/432/523 and
-            # VERIFY.md:1072 were extracted as their opening line alone (`python3 -c "`) and each
+            # VERIFY.md:1102 were extracted as their opening line alone (`python3 -c "`) and each
             # ran as an unterminated-quote error, FAIL(rc=2). A block that never balances is
             # still emitted (it fails closed as before) -- a silent drop would hide a defect.
             while more(j) and not balanced(strip_comment(raw)):

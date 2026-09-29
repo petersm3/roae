@@ -850,6 +850,36 @@ which **every** present layer was replayed exits nonzero, because it re-derived 
 record with its mass edited to 999 replayed and the label still read `re-derived at every layer`,
 rc 0 — Codex V2-F59 #2.)
 
+**`LC_LAYERS_COMPLETE=1` and `LAYERS_ABSENT=`** *(2026-09-29, Codex KCV R5, triaged by Fable;
+CX-241)*: `--check-layers` skips a layer file that is not on disk, because a rolling-window build
+prunes old layers. So its rc 0 means "every **present** layer in `0..min(last_complete_k, max_k)`
+checked", not "every layer checked". It now always prints `LAYERS_ABSENT=<n>` after
+`LAYERS_REPLAYED=`. With `LC_LAYERS_COMPLETE=1` in the environment (strictly `1`) it also prints
+`LAYERS_COMPLETE_MODE=1` and fails on two further conditions: any layer in that range absent
+(each named `layer file absent`), and, when a run log is given, any checked layer `k ≥ 1` whose
+mass line is missing from it. A statement that the whole ladder was checked must rest on this mode
+together with `LAYERS_REDERIVED=` equal to the layer count and `LAYERS_ABSENT=0`, not on rc 0
+alone. `--scan-layers` shares the driver and prints the same lines.
+
+**Readers tightened on 2026-09-29** *(Codex KCV R10, R11, R14 and R17, triaged by Fable; CX-241)*.
+None of these changes a published ladder's verdict: they refuse malformed shapes that no published
+file has. They apply to `--check-layers`, `--scan-layers`, `--check-g-ladder` and
+`--check-t-ladder` alike.
+- **Mask lists must be complete.** GT_LADDER_FORMAT.md §"Mask lists" says every layer lists every
+  canonical mask, with an empty span for one whose states all vanished. The readers checked only
+  that each listed mask was canonical, so a list with a mask and its span removed passed. Each
+  layer's mask count must now equal the Burnside count
+  `(1/|G|) Σ_σ [x^k] Π_{cycles c of σ} (1 + x^{|c|})` over the run's restricted pair-permutations,
+  computed from the group alone (the count `verify.py --recount-orbit-widths` makes for the
+  published n = 31 column).
+- **A v2 block is exactly one zlib stream.** Block decoding used zlib's `uncompress()`, which stops
+  at the end of the first stream and ignores any bytes after it inside the block's indexed span.
+  Every block is now inflated with `inflate(Z_FINISH)` and must end the stream, fill the expected
+  size exactly and consume every byte of its span. `solve.c`'s block reader got the same change.
+- **The manifest tag must be line 1, exactly.** It was accepted as a prefix of any line.
+- **A full-31 ladder must be rooted at exit 0.** The headers were compared with the manifest's
+  `start_exit` only; at n = 31 the manifest itself must now say `start_exit=0` (King Wen's root).
+
 **Identity contract:** with `[scan] `-prefixed lines removed, its stdout and its return code are
 **byte-identical** to `--check-layers`. `--scan-selftest` proves that on fixtures — so the fast path
 is held to the slow path's output, not merely believed to agree with it.

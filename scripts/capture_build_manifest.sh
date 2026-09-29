@@ -1,5 +1,5 @@
 #!/bin/bash
-# capture_build_manifest.sh — emit a build-environment manifest for canonical-archive metadata.txt
+# capture_build_manifest.sh — emit a build-environment manifest for a canonical's metadata.txt
 #
 # Usage:
 #   cd <repo-root>

@@ -15484,7 +15484,7 @@ static int f1c5_sha_ledger_lookup(const char *dir, const char *pfx, int k, char 
         m += 7;
         size_t i = 0;
         while (i < 64 && ((m[i] >= '0' && m[i] <= '9') || (m[i] >= 'a' && m[i] <= 'f'))) i++;
-        if (i == 64) { memcpy(hex, m, 64); hex[64] = '\0'; found = 1; }   /* LAST wins */
+        if (i == 64) { memcpy(hex, m, 64); hex[64] = '\0'; found = 1; }   /* LAST wins: two lines for one k resolve to the last one; the sidecar's own digest re-reads the finalized file (f1c5_layer_sha_hex), it does not come from this ledger */
     }
     fclose(f);
     return found ? 0 : 1;
@@ -16146,12 +16146,12 @@ static void f1c5_deflate_block(const void *src, uLong srcLen,
 /* Decompress srcLen bytes into dst; the caller-supplied expected decompressed
  * size dstLen is verified exactly (torn/short data hard-fails). */
 static void f1c5_inflate_block(const void *src, uLong srcLen,
-                               Bytef *dst, uLongf dstLen) {
-    uLongf out = dstLen;
-    int rc = uncompress(dst, &out, (const Bytef *)src, srcLen);
-    F1_CHECK(rc == Z_OK && out == dstLen,
-             "f1c5 inflate block failed (zlib rc=%d, got=%lu want=%lu)",
-             rc, (unsigned long)out, (unsigned long)dstLen);
+                               Bytef *dst, uLongf dstLen) {   /* Codex KCV R14 (2026-09-29): ONE stream that fills dst exactly AND consumes every source byte; uncompress() stopped at the first stream end and ignored trailing bytes in the block's span */
+    z_stream zs; memset(&zs, 0, sizeof zs); int rc = inflateInit(&zs); zs.next_in = (Bytef *)src; zs.avail_in = (uInt)srcLen; zs.next_out = dst; zs.avail_out = (uInt)dstLen;
+    if (rc == Z_OK) { rc = inflate(&zs, Z_FINISH); } uLong out = zs.total_out; uInt left = zs.avail_in; inflateEnd(&zs);
+    F1_CHECK(rc == Z_STREAM_END && out == dstLen && left == 0,
+             "f1c5 inflate block failed (zlib rc=%d, got=%lu want=%lu, %u unread source byte(s))",
+             rc, (unsigned long)out, (unsigned long)dstLen, (unsigned)left);
 }
 
 /* Round-trip self-test of the block codec (called by --f1c5-gzip-selftest):
@@ -17366,7 +17366,7 @@ static int f1c5_sidecar_retrofit_dir(const char *dir, int only_k) {
             char lpath[4300];
             snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
             if (access(lpath, F_OK) != 0) continue; else if (access(lpath, R_OK) != 0) { fprintf(stderr, "ERROR: [sidecar] cannot open %s: %s\nF1C5_SIDECAR_RETROFIT_LAYER=UNREADABLE\n", lpath, strerror(errno)); rc = 2; continue; }  /* Q-874: absent = not retained, skip as documented; exists-but-unreadable = named error, rc 2, never a silent skip */
-            if (f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: sidecar not regenerated cleanly (see the WARN above)\nF1C5_SIDECAR_RETROFIT_LAYER=FAILED\n", lpath); rc = 2; continue; }  /* Q-875: was counted as regenerated, exit 0; now named, not counted, exit 2 */
+            { unsigned char hd_[72]; int hb_[5] = {0, 0, 0, 0, 0}, hok_ = 0; FILE *hf_ = fopen(lpath, "rb"); if (hf_) { hok_ = fread(hd_, 1, 72, hf_) == 72; fclose(hf_); } if (hok_) { for (int ci = 0; ci < 5; ci++) { uint32_t t_; memcpy(&t_, hd_ + 48 + 4 * ci, 4); hb_[ci] = (int)t_; } } if (!hok_ || memcmp(hb_, b0v, sizeof hb_) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: %s\nF1C5_SIDECAR_RETROFIT_LAYER=%s\n", lpath, hok_ ? "layer header b0 != manifest b0 (the sidecar would be computed under the wrong budget)" : "short layer header", hok_ ? "BUDGET-MISMATCH" : "UNREADABLE"); rc = 2; continue; } }  /* Codex KCV R13 (2026-09-29): the budget came from the manifest and was never compared with the layer header's b0 */ if (f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: sidecar not regenerated cleanly (see the WARN above)\nF1C5_SIDECAR_RETROFIT_LAYER=FAILED\n", lpath); rc = 2; continue; }  /* Q-875: was counted as regenerated, exit 0; now named, not counted, exit 2 */
             done++;
         }
         printf("[sidecar-retrofit] %s: %s ladder, %d layer sidecar(s) regenerated%s\n",
@@ -18628,15 +18628,15 @@ static void f1c5_fprint_unsupported_npairs(FILE *out, const char *tag, int npair
 /* ---------- stream-to-cold hook (sha-neutral operational hook) ----------
  * If SOLVE_F1_STREAM_COLD_CMD is set, run it on an about-to-be-deleted finalized
  * layer file BEFORE the rolling-window unlink — so a layer can be streamed to
- * cold storage as the DP advances without keeping the whole ladder on local disk
+ * other storage as the DP advances without keeping the whole ladder on local disk
  * (contrast SOLVE_F1_KEEP_LAYERS, which keeps ALL layers). The command is invoked
  * as `<cmd> <layer_path> <k>`; its exit status is logged but NON-FATAL (the DP
  * continues and the local delete proceeds either way). Purely off the arithmetic
  * path — it neither reads nor writes the count or the canonical layer bytes, so
  * it is sha-neutral. Fires only when the rolling window would delete the layer
  * (i.e. default behavior, not under KEEP_LAYERS). Note: the final two layers of
- * a run are never deleted by the window, so an operator wanting a complete cold
- * copy grabs those two directly at the end. */
+ * a run are never deleted by the window, so an operator wanting a complete
+ * off-disk copy grabs those two directly at the end. */
 static void f1c5_stream_cold_hook(const char *dir, int k_old) {
     const char *cmd = getenv("SOLVE_F1_STREAM_COLD_CMD");
     if (!cmd || !*cmd || !dir || k_old < 0) return;

@@ -24886,6 +24886,63 @@ class TestQ903AppendOnlyMoneyRedaction(unittest.TestCase):
             self.assertNotEqual(code, 0, "%s must fail when a unit is reworded beside a redaction:\n%s" % (g, out[-800:]))
 
 
+class TestCX242AppendOnlyStorageRedaction(unittest.TestCase):
+    """CX-242 (2026-09-29): operational detail about where data copies are kept left the current
+    tree, the append-only ledgers included, with git history unchanged. In a ledger a SPAN of it
+    becomes `[storage detail redacted]` and nothing else on the line moves; GATE 10 accepts exactly
+    that through the same _g10_money_align step CX-230 added (its CX-242 half).
+
+    Runs the REAL gate in the TestQ903AppendOnlyMoneyRedaction scratch repo, both halves of GATE 10:
+      GREEN  two spans replaced by the marker, the rest of the line byte-identical;
+      GREEN  a span replaced on a line that already carries a `[cost redacted]` marker;
+      RED    the same two-span replacement plus one reworded word outside the spans;
+      RED    a marker standing for an EMPTY span (text inserted, nothing removed);
+      RED    a whole line replaced by a bare marker (it anchors nothing).
+    PRECONDITION, asserted: with the alignment step replaced by `cat`, the first GREEN case goes
+    RED, so the green verdict is the alignment's doing. Every phrase is synthetic."""
+
+    R = "[storage detail redacted]"
+    BASE = ("CX-1 first entry.\n"
+            "CX-2 the bytes were copied to the far shelf in box nine, then re-verified by sha256 on Monday.\n"
+            "CX-3 the run took [cost redacted] and the copy went to the far shelf; sha matched.\n")
+    _scratch = TestQ903AppendOnlyMoneyRedaction._scratch
+
+    def _with(self, i, new):
+        lines = self.BASE.split("\n")
+        lines[i] = new
+        return "\n".join(lines)
+
+    def test_two_spans_replaced_is_green_and_needs_the_alignment(self):
+        work = self._with(1, "CX-2 the bytes were copied %s, then re-verified by sha256 %s." % (self.R, self.R))
+        self.assertNotIn(work.split("\n")[1], self.BASE, "precondition: the edited line is not a committed line")
+        for g, (code, out) in self._scratch(work).items():
+            self.assertEqual(code, 0, "%s must accept a pure span->marker edit:\n%s" % (g, out[-1500:]))
+        for g, (code, out) in self._scratch(work, mutate_align=True).items():
+            self.assertNotEqual(code, 0, "precondition: without the alignment step %s must report the "
+                                         "redacted line as lost (else the green verdict proves nothing)" % g)
+
+    def test_span_beside_a_cost_marker_is_green(self):
+        work = self._with(2, "CX-3 the run took [cost redacted] and the copy went %s; sha matched." % self.R)
+        for g, (code, out) in self._scratch(work).items():
+            self.assertEqual(code, 0, "%s must accept a span redaction beside a cost marker:\n%s" % (g, out[-1500:]))
+
+    def test_span_plus_a_reworded_word_is_red(self):
+        work = self._with(1, "CX-2 the bytes were moved %s, then re-verified by sha256 %s." % (self.R, self.R))
+        for g, (code, out) in self._scratch(work).items():
+            self.assertNotEqual(code, 0, "%s must still fail when a word outside the spans is reworded:\n%s" % (g, out[-800:]))
+
+    def test_a_line_that_is_only_a_marker_is_red(self):
+        # nothing outside the marker anchors it to the committed line it replaces
+        work = self._with(1, self.R)
+        for g, (code, out) in self._scratch(work).items():
+            self.assertNotEqual(code, 0, "%s must fail when a whole line becomes a bare marker:\n%s" % (g, out[-800:]))
+
+    def test_marker_for_an_empty_span_is_red(self):
+        work = self._with(1, "CX-2 the bytes were copied %s to the far shelf in box nine, then re-verified by sha256 on Monday." % self.R)
+        for g, (code, out) in self._scratch(work).items():
+            self.assertNotEqual(code, 0, "%s must fail when the marker replaces nothing:\n%s" % (g, out[-800:]))
+
+
 class TestQ903HashedRetractedNeedle(unittest.TestCase):
     """CX-230: a RETRACTED_PHRASES.tsv needle that carries a dollar figure is registered as
     `sha256:<hex>/<n>` (the phrase's digest and length), never as text. hashed_row_parse and
@@ -27274,6 +27331,399 @@ class TestLaneHAM(unittest.TestCase):
         for name in ("VERIFY_CHECK_T_LADDER_n31.txt", "VERIFY_CHECK_G_LADDER_n31.txt"):
             self.assertTrue(os.path.isfile(os.path.join(self.RUNDIR, name)), name)
 # end class TestLaneHAM (lane HAM)
+
+
+class TestK28KcvTriageFixes(unittest.TestCase):
+    """Batch 28 (CX-241): the TEXT and CODE rows of Fable's triage of the Codex KCV review
+    (could the published n=31 f/g/t ladders be invalid? NO-BUT). Each code row gets a red case
+    that the unfixed tree passes and the fixed tree must fail, plus a positive control on a
+    real n=9 ladder; each case asserts its precondition.
+      R5  --check-layers: LAYERS_ABSENT= always printed; LC_LAYERS_COMPLETE=1 fails on an absent
+          layer and on a checked layer whose mass line the run log lacks.
+      R10 every reader: a layer's mask count must equal the Burnside count (mask list complete).
+      R11 a full-31 manifest must say start_exit=0.     R17 the manifest tag is line 1, exactly.
+      R14 a v2 block is one zlib stream that consumes its whole span (verify.c and solve.c).
+      R13 --f1c5-sidecar-retrofit refuses a layer whose header b0 differs from the manifest's.
+      R12 tr12_repro.sh ladder_sha_row: genesis only at the chain's first layer; links k -> k+/-1.
+      R9  --atlas-probe: PROBE_DEAD_OUTDEG_TIE ties the dead/live split to outdeg.od0.
+      R7/R6 labels: the Q8 C15 gallery is the same seeded stream; TR-12 states splitmix64's reach.
+    ROAE_TESTS_VERIFY_SRC / ROAE_TESTS_SOLVE_SRC swap the sources under test (mutants)."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    ATLAS31 = "runs/20260906_kc_ladders_n31/atlas_n31.json"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="k28_")
+        cls.vbin = os.path.join(cls.tmp, "verify_k28")
+        cls.sbin = os.path.join(cls.tmp, "solve_k28")
+        cls.fdir, cls.gdir = os.path.join(cls.tmp, "f"), os.path.join(cls.tmp, "g")
+        cls.err = ""
+        r = subprocess.run(["gcc", "-O2", "-o", cls.vbin, os.environ.get("ROAE_TESTS_VERIFY_SRC", "verify.c"),
+                            "-lz", "-lpthread", "-lm"], capture_output=True, text=True)
+        cls.vok = r.returncode == 0 and os.path.exists(cls.vbin)
+        cls.err += r.stderr[-1500:]
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin,
+                            os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"), "-lm", "-lz"],
+                           capture_output=True, text=True)
+        cls.sok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.err += r.stderr[-1500:]
+        if cls.sok:
+            for argv in ([cls.sbin, "--kc-build", cls.fdir, "--f1-pairs", "9"],
+                         [cls.sbin, "--kc-g-build", cls.gdir, "--f1-pairs", "9"]):
+                r = subprocess.run(argv, capture_output=True, text=True)
+                if r.returncode != 0:
+                    cls.sok = False
+                    cls.err += "%s rc %d\n%s" % (argv[1], r.returncode, (r.stdout + r.stderr)[-1500:])
+                    break
+        with open(os.path.join(cls.HERE, "scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
+            cls.REPRO = fh.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- helpers ---------------------------------------------------------------------------
+    def _need(self, solve=True):
+        self.assertTrue(self.vok and (self.sok or not solve), self.err)
+
+    def _copy(self, src, name):
+        d = os.path.join(self.tmp, name)
+        shutil.copytree(src, d)
+        return d
+
+    def _verify(self, *args, env=None):
+        e = dict(os.environ)
+        e.pop("LC_LAYERS_COMPLETE", None)
+        e.pop("LC_RESUME", None)
+        e.update(env or {})
+        r = subprocess.run([self.vbin] + list(args), capture_output=True, text=True, env=e, timeout=600)
+        return r.returncode, r.stdout.splitlines(), r.stdout + r.stderr
+
+    def _layer_masses(self, lines):
+        out = {}
+        for l in lines:
+            m = re.match(r"\s+k=\s*(\d+)\s+nm=(\d+)\s+ne=(\d+)\s+v[12]\s+.*mass=(\d+)$", l)
+            if m:
+                out[int(m.group(1))] = (int(m.group(2)), int(m.group(3)), int(m.group(4)))
+        return out
+
+    @staticmethod
+    def _v1_read(path):
+        b = open(path, "rb").read()
+        nm, ne = struct.unpack_from("<QQ", b, 32)
+        masks = list(struct.unpack_from("<%dI" % nm, b, 72))
+        off = list(struct.unpack_from("<%dQ" % (nm + 1), b, 72 + 4 * nm))
+        kb = 72 + 4 * nm + 8 * (nm + 1)
+        keys = b[kb:kb + 4 * ne]
+        vals = b[kb + 4 * ne:kb + 28 * ne]
+        if len(b) != 80 + 12 * nm + 28 * ne:
+            raise AssertionError("precondition: v1 size formula")
+        return bytearray(b[:72]), masks, off, keys, vals
+
+    @staticmethod
+    def _v1_write(path, hd, masks, off, keys, vals):
+        nm, ne = len(masks), len(keys) // 4
+        hd = bytearray(hd)
+        struct.pack_into("<QQ", hd, 32, nm, ne)
+        with open(path, "wb") as fh:
+            fh.write(bytes(hd) + struct.pack("<%dI" % nm, *masks) + struct.pack("<%dQ" % (nm + 1), *off)
+                     + keys + vals)
+
+    @staticmethod
+    def _v2_bytes(hd, masks, off, keys, vals, BLK, tamper_key_block=None):
+        import zlib
+        nm, ne = len(masks), len(keys) // 4
+        nblk = (ne + BLK - 1) // BLK
+        kz = [zlib.compress(keys[4 * b * BLK:4 * min(ne, (b + 1) * BLK)], 6) for b in range(nblk)]
+        vz = [zlib.compress(vals[24 * b * BLK:24 * min(ne, (b + 1) * BLK)], 6) for b in range(nblk)]
+        if tamper_key_block is not None:
+            kz[tamper_key_block] += b"\x00\x00\x00\x00"      # trailing bytes INSIDE the indexed span
+        kidx, vidx = [0], [0]
+        for z in kz: kidx.append(kidx[-1] + len(z))
+        for z in vz: vidx.append(vidx[-1] + len(z))
+        h = bytearray(hd)
+        h[0:8] = b"F1C5LAY2"
+        struct.pack_into("<I", h, 8, 2)
+        struct.pack_into("<QQ", h, 32, nm, ne)
+        struct.pack_into("<I", h, 68, BLK)
+        return (bytes(h) + struct.pack("<%dI" % nm, *masks) + struct.pack("<%dQ" % (nm + 1), *off)
+                + struct.pack("<%dQ" % (nblk + 1), *kidx) + struct.pack("<%dQ" % (nblk + 1), *vidx)
+                + b"".join(kz) + b"".join(vz)), kz
+
+    # ---- R5 ------------------------------------------------------------------------------
+    def _runlog(self, masses, ks):
+        p = os.path.join(self.tmp, "runlog_%s.out" % "_".join(map(str, ks)))
+        with open(p, "w") as fh:
+            for k in ks:
+                fh.write("[f1c5] layer k=%2d/9: canonical_masks=%d mass=%d elapsed=0.0s\n"
+                         % (k, masses[k][0], masses[k][2]))
+        return p
+
+    def test_r5_intact_ladder_complete_mode_passes(self):
+        self._need()
+        rc, lines, out = self._verify("--check-layers", self.fdir, "31")
+        m = self._layer_masses(lines)
+        self.assertEqual(sorted(m), list(range(10)), "precondition: 10 layers read\n" + out)
+        log = self._runlog(m, range(1, 10))
+        rc, lines, out = self._verify("--check-layers", self.fdir, "31", log, env={"LC_LAYERS_COMPLETE": "1"})
+        self.assertEqual(rc, 0, out)
+        for tok in ("LAYERS_REDERIVED=10", "LAYERS_ABSENT=0", "LAYERS_COMPLETE_MODE=1", "MASSES_COMPARED=9"):
+            self.assertIn(tok, lines, out)
+
+    def test_r5_absent_layer_fails_only_in_complete_mode(self):
+        self._need()
+        d = self._copy(self.fdir, "r5_drop04")
+        os.remove(os.path.join(d, "f1c5_layer_04.bin"))
+        rc, lines, out = self._verify("--check-layers", d, "31")
+        self.assertEqual(rc, 0, "the rolling-window contract: an absent layer is skipped\n" + out)
+        self.assertIn("LAYERS_ABSENT=1", lines, out)
+        self.assertIn("LAYERS_REDERIVED=9", lines, out)
+        rc, lines, out = self._verify("--check-layers", d, "31", env={"LC_LAYERS_COMPLETE": "1"})
+        self.assertNotEqual(rc, 0, out)                                   # RED before: rc 0
+        self.assertIn("LAYERS_ABSENT=1", lines, out)
+        self.assertIn("  k= 4  *** FAIL: layer file absent (LC_LAYERS_COMPLETE=1)", lines, out)
+
+    def test_r5_run_log_missing_a_mass_line_fails_in_complete_mode(self):
+        self._need()
+        rc, lines, out = self._verify("--check-layers", self.fdir, "31")
+        m = self._layer_masses(lines)
+        self.assertEqual(sorted(m), list(range(10)), "precondition\n" + out)
+        log = self._runlog(m, [3])
+        rc, lines, out = self._verify("--check-layers", self.fdir, "31", log)
+        self.assertEqual(rc, 0, "precondition: one compared layer is enough without the flag\n" + out)
+        self.assertIn("MASSES_COMPARED=1", lines, out)
+        rc, lines, out = self._verify("--check-layers", self.fdir, "31", log, env={"LC_LAYERS_COMPLETE": "1"})
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue([l for l in lines if "have no mass line in it" in l], out)
+
+    # ---- R10 -----------------------------------------------------------------------------
+    def test_r10_n9_mask_counts_equal_burnside(self):
+        self._need()
+        import verify as V
+        rc, lines, out = self._verify("--check-layers", self.fdir, "31")
+        self.assertEqual(rc, 0, out)
+        m = self._layer_masses(lines)
+        with open(os.path.join(self.fdir, "f1c5_manifest.txt")) as fh:
+            pl = [int(x) for x in next(l for l in fh if l.startswith("pl="))[3:].strip().split(",")]
+        self.assertEqual(len(pl), 9, "precondition: the n=9 pair list")
+        inv = {p: i for i, p in enumerate(pl)}
+        G = set()
+        for img in V._induced_pair_perms():
+            r = [inv.get(img[p - 1]) for p in pl]
+            if None not in r:
+                G.add(tuple(r))
+        burn = [len({min(tuple(sorted(g[i] for i in S)) for g in G)
+                     for S in itertools.combinations(range(9), k)}) for k in range(10)]
+        self.assertEqual([m[k][0] for k in range(10)], burn)
+
+    def test_r10_a_removed_canonical_mask_fails_every_reader(self):
+        self._need()
+        d = self._copy(self.fdir, "r10_drop_mask")
+        p = os.path.join(d, "f1c5_layer_04.bin")
+        hd, masks, off, keys, vals = self._v1_read(p)
+        self.assertGreater(len(masks), 2, "precondition")
+        i = 1
+        a, b = off[i], off[i + 1]
+        del masks[i]
+        cnt = b - a
+        off = off[:i] + [x - cnt for x in off[i + 1:]]
+        self._v1_write(p, hd, masks, off, keys[:4 * a] + keys[4 * b:], vals[:24 * a] + vals[24 * b:])
+        for mode in ("--check-layers", "--scan-layers"):
+            rc, lines, out = self._verify(mode, d, "31")
+            self.assertNotEqual(rc, 0, out)                               # RED before: rc 0
+            fails = [l for l in lines if "*** FAIL" in l and not l.startswith("[scan]")]
+            self.assertEqual(len(fails), 1, out)
+            self.assertIn("k= 4  *** FAIL: mask list has %d canonical masks; Burnside" % len(masks), fails[0])
+
+    # ---- R11 / R17 -----------------------------------------------------------------------
+    def _manifest_dir(self, name, body):
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        with open(os.path.join(d, "f1c5_manifest.txt"), "w") as fh:
+            fh.write(body)
+        return d
+
+    def test_r11_full31_manifest_must_be_rooted_at_exit_0(self):
+        self._need(solve=False)
+        with open("runs/20260716_f1c5_c1c2c4c5_d128westus3/f1c5_manifest.txt") as fh:
+            real = fh.read()
+        self.assertIn("\nstart_exit=0\n", real, "precondition: the published full-31 manifest")
+        d = self._manifest_dir("r11_se1", real.replace("\nstart_exit=0\n", "\nstart_exit=1\n"))
+        rc, lines, out = self._verify("--check-layers", d, "31")
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue([l for l in lines if "must be rooted at exit 0" in l and "start_exit=1" in l], out)
+        d0 = self._manifest_dir("r11_se0", real)
+        rc, lines, out = self._verify("--check-layers", d0, "31")
+        self.assertFalse([l for l in lines if "must be rooted at exit 0" in l], out)
+        d9 = self._manifest_dir("r11_n9_se1", "f1c5_manifest_v1\nn=9\nstart_exit=1\n")
+        rc, lines, out = self._verify("--check-layers", d9, "31")
+        self.assertFalse([l for l in lines if "must be rooted at exit 0" in l], out)
+
+    def test_r17_manifest_tag_is_line_one_exactly(self):
+        self._need()
+        with open(os.path.join(self.fdir, "f1c5_manifest.txt")) as fh:
+            real = fh.read()
+        self.assertTrue(real.startswith("f1c5_manifest_v1\n"), "precondition")
+        body = real.split("\n", 1)[1]
+        for name, text in (("tag_line3", "# x\n# y\nf1c5_manifest_v1\n" + body),
+                           ("tag_suffix", "f1c5_manifest_v1x\n" + body)):
+            d = self._copy(self.fdir, "r17_" + name)
+            with open(os.path.join(d, "f1c5_manifest.txt"), "w") as fh:
+                fh.write(text)
+            rc, lines, out = self._verify("--check-layers", d, "31")
+            self.assertNotEqual(rc, 0, out)                               # RED before: rc 0
+            self.assertTrue([l for l in lines if "line 1 is" in l and "expected exactly f1c5_manifest_v1" in l], out)
+        rc, lines, out = self._verify("--check-layers", self.fdir, "31")
+        self.assertEqual(rc, 0, out)
+
+    # ---- R14 -----------------------------------------------------------------------------
+    def _v2_ladder(self, name, tamper, BLK=64):
+        # verify.c reads any block size; solve.c's reader requires F1C5_OOC_BLK = 65536
+        d = self._copy(self.fdir, name)
+        p = os.path.join(d, "f1c5_layer_05.bin")
+        hd, masks, off, keys, vals = self._v1_read(p)
+        if BLK == 64:
+            self.assertGreater(len(keys) // 4, BLK, "precondition: more than one block")
+        blob, kz = self._v2_bytes(hd, masks, off, keys, vals, BLK, 0 if tamper else None)
+        n = 4 * BLK
+        bound = n + (n >> 12) + (n >> 14) + (n >> 25) + 13
+        self.assertLessEqual(len(kz[0]), bound, "precondition: the span still fits compressBound")
+        with open(p, "wb") as fh:
+            fh.write(blob)
+        return d, p
+
+    def test_r14_trailing_bytes_in_a_block_fail_verify(self):
+        self._need()
+        d, _ = self._v2_ladder("r14_v2_ok", False)
+        for mode in ("--check-layers", "--scan-layers"):
+            rc, lines, out = self._verify(mode, d, "31")
+            self.assertEqual(rc, 0, "positive control: a clean v2 layer passes\n" + out)
+        d, _ = self._v2_ladder("r14_v2_tail", True)
+        for mode in ("--check-layers", "--scan-layers"):
+            rc, lines, out = self._verify(mode, d, "31")
+            self.assertNotEqual(rc, 0, out)                               # RED before: rc 0
+            self.assertIn("  k= 5  *** FAIL: key block 0 inflate/size", lines, out)
+
+    def test_r14_trailing_bytes_in_a_block_fail_solve(self):
+        self._need()
+        _, ok = self._v2_ladder("r14s_v2_ok", False, 65536)
+        r = subprocess.run([self.sbin, "--f1c5-layer-sha", ok], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, "positive control\n" + r.stdout + r.stderr)
+        _, bad = self._v2_ladder("r14s_v2_tail", True, 65536)
+        r = subprocess.run([self.sbin, "--f1c5-layer-sha", bad], capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)          # RED before: rc 0
+        self.assertIn("f1c5 inflate block failed", r.stdout + r.stderr)
+
+    # ---- R13 -----------------------------------------------------------------------------
+    def test_r13_retrofit_refuses_a_budget_mismatch(self):
+        self._need()
+        d = self._copy(self.fdir, "r13_ok")
+        r = subprocess.run([self.sbin, "--f1c5-sidecar-retrofit", d], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("10 layer sidecar(s) regenerated", r.stdout)
+        d = self._copy(self.fdir, "r13_bad")
+        mp = os.path.join(d, "f1c5_manifest.txt")
+        with open(mp) as fh:
+            s = fh.read()
+        m = re.search(r"(?m)^b0=(\d+),(\d+),(\d+),(\d+),(\d+)$", s)
+        self.assertIsNotNone(m, "precondition: a b0= line")
+        b = [int(x) for x in m.groups()]
+        j = next(i for i in range(5) if b[i] > 0)
+        b[j] -= 1; b[(j + 1) % 5] += 1                                    # same total, different budget
+        with open(mp, "w") as fh:
+            fh.write(s[:m.start()] + "b0=" + ",".join(map(str, b)) + s[m.end():])
+        r = subprocess.run([self.sbin, "--f1c5-sidecar-retrofit", d], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)             # RED before: 0
+        self.assertIn("F1C5_SIDECAR_RETROFIT_LAYER=BUDGET-MISMATCH", r.stderr.splitlines())
+        self.assertIn("0 layer sidecar(s) regenerated", r.stdout)
+
+    # ---- R12 -----------------------------------------------------------------------------
+    def _chain_row(self, d):
+        m = re.search(r"(?ms)^ladder_sha_row\(\)\{.*?^\}$", self.REPRO)
+        self.assertIsNotNone(m, "scripts/tr12_repro.sh has no ladder_sha_row")
+        work = tempfile.mkdtemp(dir=self.tmp)
+        script = ('row_begin(){ RAW="$WORK/raw.txt"; : > "$RAW"; }\n'
+                  'row_end(){ echo "ROW_RC=$2" >> "$RAW"; }\n'
+                  'eval "$FN"\n'
+                  'ladder_sha_row a2_gsha TR12_GSHA "$LDIR" g_layer\n'
+                  'cat "$RAW"\n')
+        env = dict(os.environ, FN=m.group(0), WORK=work, SOLVE=self.sbin, N_PAIRS="9", LDIR=d)
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env)
+        return r.stdout.splitlines(), r.stdout + r.stderr
+
+    def _sidecar_edit(self, d, k, ink, insha):
+        p = os.path.join(d, "g_layer_stats_%02d.json" % k)
+        with open(p) as fh:
+            s = fh.read()
+        s2 = re.sub(r'(?m)^(\s*"input_layer_k": )-?\d+,', r"\g<1>%d," % ink, s, count=1)
+        s2 = re.sub(r'(?m)^(\s*"input_sha256_decompressed": )"[^"]*"', r'\1"%s"' % insha, s2, count=1)
+        self.assertNotEqual(s, s2, "precondition: the sidecar edit changed something")
+        with open(p, "w") as fh:
+            fh.write(s2)
+
+    def _own(self, d, k):
+        with open(os.path.join(d, "g_layer_stats_%02d.json" % k)) as fh:
+            return re.search(r'"own_sha256_decompressed": "([0-9a-f]{64})"', fh.read()).group(1)
+
+    def test_r12_chain_direction_and_genesis(self):
+        self._need()
+        lines, out = self._chain_row(self._copy(self.gdir, "r12_ok"))
+        self.assertIn("LADDER_SHA_CHECK=OK", lines, out)
+        d = self._copy(self.gdir, "r12_skip")        # g layer 5 links to 7 (two slots), with 7's digest
+        self._sidecar_edit(d, 5, 7, self._own(d, 7))
+        lines, out = self._chain_row(d)
+        self.assertIn("LADDER_SHA_CHECK=FAIL", lines, out)                 # RED before: OK
+        self.assertTrue([l for l in lines if l.startswith("layer g_layer_05.bin  CHAIN-BROKEN input_layer_k=7")], out)
+        d = self._copy(self.gdir, "r12_genesis1")    # a second genesis, at k=1
+        self._sidecar_edit(d, 1, -1, "genesis")
+        lines, out = self._chain_row(d)
+        self.assertIn("LADDER_SHA_CHECK=FAIL", lines, out)                 # RED before: OK
+        self.assertTrue([l for l in lines if l.startswith("layer g_layer_01.bin  CHAIN-BROKEN input_layer_k=-1")], out)
+        self.assertTrue([l for l in lines if "genesis_count=2" in l], out)
+
+    # ---- R9 ------------------------------------------------------------------------------
+    def test_r9_dead_live_split_is_tied_to_outdeg(self):
+        import json
+        def probe(path):
+            r = subprocess.run([sys.executable, "solve.py", "--atlas-probe", path],
+                               capture_output=True, text=True, timeout=900)
+            return r.returncode, r.stdout.splitlines(), r.stdout + r.stderr
+        rc, lines, out = probe(self.ATLAS31)
+        self.assertEqual(rc, 0, out[-3000:])
+        self.assertIn("PROBE_DEAD_OUTDEG_TIE=PASS", lines)
+        with open(self.ATLAS31) as fh:
+            a = json.load(fh)
+        L = a["layers"]
+        k = next(k for k in range(len(L)) if int(L[k]["counts"]["st_dead_fmass"]) > 0
+                 and int(L[k]["counts"]["st_live_fmass"]) > 0)
+        c = L[k]["counts"]
+        c["st_dead_fmass"] = str(int(c["st_dead_fmass"]) - 1)   # additivity kept
+        c["st_live_fmass"] = str(int(c["st_live_fmass"]) + 1)
+        p = os.path.join(self.tmp, "atlas_r9.json")
+        with open(p, "w") as fh:
+            json.dump(a, fh)
+        rc, lines, out = probe(p)
+        self.assertEqual(rc, 1, out[-3000:])                               # RED before: rc 0, PASS
+        self.assertEqual(sorted(l for l in lines if l.endswith("=FAIL")),
+                         ["ATLAS_PROBE=FAIL", "PROBE_DEAD_OUTDEG_TIE=FAIL"], out[-3000:])
+
+    # ---- R7 / R6 labels ------------------------------------------------------------------
+    def test_r7_c15_gallery_labelled_same_stream(self):
+        pat = re.compile(r"independent-C15|an independent sample")
+        with open("reports/evidence/tr12/banked_n31_20260922/a1_q8_subset.txt") as fh:
+            self.assertTrue(pat.search(fh.read()), "positive control: the as-run receipt keeps the old label")
+        self.assertIsNone(pat.search(self.REPRO))
+        with open("scripts/tr12_expected/n9/a1_q8_subset.txt") as fh:
+            first = fh.readline().rstrip("\n").split("\t")
+        self.assertEqual(first[:2], ["q8_c15_label", "same-stream-C15-sample"])
+
+    def test_r6_tr12_states_the_generator_reach(self):
+        with open("reports/TR12_QUERY_PROGRAM.md", encoding="utf-8") as fh:
+            s = fh.read()
+        self.assertGreaterEqual(s.count("splitmix64"), 2)
+        self.assertIn("at most 2⁶⁴ of the ≈10³⁹ ranks", s)
+# end class TestK28KcvTriageFixes (batch 28)
 
 
 if __name__ == "__main__":

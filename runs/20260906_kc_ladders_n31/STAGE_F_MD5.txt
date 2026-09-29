@@ -1,4 +1,4 @@
-# STAGE_F_MD5 — the same 65 files, md5, for checking against cloud Content-MD5.
+# STAGE_F_MD5 — the same 65 files, md5, [storage detail redacted].
 #   md5sum -c STAGE_F_MD5.txt
 #
 ba68403705466198f3e4da472265d896  run_f/f1c5_layer_00.bin

@@ -12549,7 +12549,7 @@ def atlas_load(path):
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30131) is ALSO an un-run gate,
-    # but VERIFY.md:1159 states as POLICY that it "is not a failed run". Reversing a documented
+    # but VERIFY.md:1189 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6293,
     # :6636; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
@@ -15830,6 +15830,16 @@ def atlas_probe(atlas_path):
         gate("FMASS_LENGTH_EQ_N_PLUS_1", len(fm) == n + 1)
         gate("FMASS_SUM_EQ_T_ROOT", sum(fm) == T_ROOT)
         gate("DEAD_PLUS_LIVE_EQ_FMASS_EVERY_LAYER", all(fm[k] == dead[k] + live[k] for k in range(n)))
+        # A SECOND table carries the dead/live split (Codex KCV R9, triaged by Fable, 2026-09-29):
+        # the producer binds the out-degree census's c = 0 column to the dead-end fields (solve.c
+        # L13: od0.dc == st_dead, od0.df == st_dead_fmass, od0.dw == 0), and `outdeg.od0` is always
+        # written.  Until this gate the probe checked the split for additivity only, so f-mass moved
+        # from st_dead_fmass to st_live_fmass (additivity kept) passed.  Re-derived here from the
+        # two shipped tables, not read off the producer's own gate.
+        gate("PROBE_DEAD_OUTDEG_TIE",
+             all(int(L[k]["counts"]["st_dead"]) == int(L[k]["outdeg"]["od0"]["dc"])
+                 and dead[k] == int(L[k]["outdeg"]["od0"]["df"])
+                 and int(L[k]["outdeg"]["od0"]["dw"]) == 0 for k in range(n)))
         gate("FMASS_N_EQ_N_TOTAL", fm[n] == N)
         D = sum(dead)
         tok("DOOMED_PREFIX_NODES", D)

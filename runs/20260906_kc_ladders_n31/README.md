@@ -34,8 +34,8 @@ replaced.
 comparison fails on every layer, not one. `documentation/QUERY_INVENTORY.md` §C-04 records this.
 
 **The logical digests are not recomputed here.** Each is the `own_sha256_decompressed` field of that
-layer's shipped `*_layer_stats_NN.json` sidecar, written inline at build time during the finalize
-concat — `solve.c`: *"same bytes read once, no extra I/O"*. Verified equal to live
+layer's shipped `*_layer_stats_NN.json` sidecar, computed by re-reading each finalized layer file when its sidecar is written (`f1c5_layer_sha_hex`), and re-derived live on 2026-09-17 for all 96 layers ⚠ *(corrected 2026-09-29, Codex KCV R15, CX-241: this said the digest was taken inline while the
+layer was being finalized, and quoted a `solve.c` comment about a different digest; the sidecar re-reads the file)*. Verified equal to live
 `--f1c5-layer-sha` output on `f/00`, `g/31` and `t/30`. Sidecars and the manifest have no logical
 stream, which is why that registry has 32 rows and the raw-file one has 65.
 
@@ -58,7 +58,7 @@ outer wrapper, nothing is `.gz`, and nothing was re-compressed at archive time.*
 to uncompress before hashing. See `documentation/F1C5_LAYER_FORMAT.md` and
 `documentation/GT_LADDER_FORMAT.md` for the container specification.
 
-The md5 companion exists for one specific job: cloud object storage records a Content-MD5, and
+The md5 companion exists for one specific job: some transfer and storage tools record an md5, and
 sha256 cannot be checked against it. Neither file supersedes the other.
 
 ⚠ **`--f1c5-layer-sha` is a different attestation and is not this registry.** It digests the layer's
@@ -68,8 +68,8 @@ every layer, not one. `documentation/QUERY_INVENTORY.md` §C-04 records that cor
 
 ## Provenance
 
-Generated 2026-09-06 from the ladders as archived, and cross-checked in both directions against the
-Content-MD5 that cloud storage stored at upload time — 195/195 matching on byte count and digest.
+Generated 2026-09-06 from the ladders as archived, and cross-checked in both directions against an
+independently recorded md5 and byte count for each file — 195/195 matching on byte count and digest.
 
 | stage | files | bytes |
 |---|--:|--:|

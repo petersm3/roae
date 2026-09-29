@@ -1,4 +1,4 @@
-# STAGE_T_MD5 — the same 65 files, md5, for checking against cloud Content-MD5.
+# STAGE_T_MD5 — the same 65 files, md5, [storage detail redacted].
 #   md5sum -c STAGE_T_MD5.txt
 #
 7e232cafa0ceba5692982dc2d60a9f5f  run_t/t_layer_00.bin

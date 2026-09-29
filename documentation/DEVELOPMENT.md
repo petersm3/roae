@@ -844,7 +844,7 @@ echo "=== os image ==="
 [ -r /etc/cloud/build.info ] && cat /etc/cloud/build.info        # Azure image SKU + date
 ```
 
-The manifest is captured once at build time and embedded in the same `metadata.txt` shipped with `solutions.bin.gz` to cold storage.
+The manifest is captured once at build time and embedded in the same `metadata.txt` kept with the preserved `solutions.bin.gz`.
 
 #### Use `-march=x86-64-v3` for canonical builds — for PORTABILITY, not because the sha changes
 
@@ -886,7 +886,7 @@ Use 4-equivalence inside a single VM, then cross-build verify across VMs.
 
 #### Container-pinned toolchain (target state for any future deeper canonical; not used by 560T)
 
-The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. (**"Tier 1" and "Tier 2.1" in this subsection are *determinism-hardening levels*** — rungs of the Task #110 hardening programme in [HISTORY.md](HISTORY.md) — and are unrelated to the campaign-scale "Tier 1" of [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md), to the Lean proof tiers of [`lean/README.md`](../lean/README.md), and to the Hot/Cool/Archive **storage** tiers used later in this file.) For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
+The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. (**"Tier 1" and "Tier 2.1" in this subsection are *determinism-hardening levels*** — rungs of the Task #110 hardening programme in [HISTORY.md](HISTORY.md) — and are unrelated to the campaign-scale "Tier 1" of [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) and to the Lean proof tiers of [`lean/README.md`](../lean/README.md).) For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
 
 - An explicit gcc version (e.g., `gcc-13.2.0-23ubuntu4` — pinned by apt version pin or by base-image digest)
 - An explicit glibc version (frozen with the base image)
@@ -906,17 +906,17 @@ Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Statu
 
 #### Canonical pipeline runbook (added 2026-05-17, post-#81 v2 saga)
 
-For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-tier storage redundancy, the specific failure modes that have actually occurred in practice — see **`roae-private/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, four attempts vs one first-shot expected) — every failure mode it documents corresponds to a real overrun.
+For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-copy redundancy, the specific failure modes that have actually occurred in practice — see **`roae-private/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, four attempts vs one first-shot expected) — every failure mode it documents corresponds to a real overrun.
 
 The runbook's mandatory invariants for canonical runs:
 
 - Enum OS disk: explicit `--storage-sku StandardSSD_LRS` (Azure defaults `s`-suffix VMs to Premium_LRS otherwise)
 - Shards on attached managed disk (`solver-data-westus3`), not the enum VM's OS disk
 - ERR trap preserves the enum VM (never auto-`teardown_enum`); recovery from Phase 2 errors is then a Phase-2-only re-run instead of a full enum redo
-- Cold-archive upload via streaming `curl -T file` (NEVER `--data-binary @file` — OOMs at 2 GB+)
+- Large-file transfers via streaming `curl -T file` (NEVER `--data-binary @file` — OOMs at 2 GB+)
 - Mount logic handles existing-ext4 (operator data on solver-data); write canonical outputs to `$ARCHIVE_PREFIX/` subdirectory
 - Mandatory D2 pre-flight test of the critical-path commands before committing to a 4h+ canonical enum
-- Triple-redundancy archival: managed disk + cold archive + claude `/tmp` (size-permitting)
+- Triple-redundancy preservation: three independent copies of the output (size-permitting)
 
 The corresponding operator-memory entry at `feedback_canonical_pipeline_pattern.md` codifies the same rules for Claude.
 
@@ -1260,96 +1260,96 @@ earlier layer's shards remain authoritative for everything else.
 intact. Compared to in-place extension (which would overwrite the earlier
 shards), this is non-destructive.
 
-### Storage strategy: parallel redundancy and long-term archival
+### Preserved copies of canonical artifacts
 
-> **Status: DEPLOYED — this is current policy, not a proposal.**
-> Cold-blob archival has been in production since the June–July 2026
-> campaign. [CANONICAL_HASHES.md](CANONICAL_HASHES.md), not this section, is
-> the authority on what exists. Every active-lineage canonical scale has
-> `canonical-archive/…` entries there — d3 560T holds a warm gzip mirror plus a
-> cold blob for the original campaign **and** for the byte-identical 2026-06-30
-> re-run; d3 100T a cold blob whose presence was re-verified live 2026-07-17
-> (plus a known byte-redundant duplicate); d3 11.2T a build-A/build-B pair, a
-> witness-only v3 upload and the 2026-05-31 dress rehearsal; d3 10T, d3 5.6T
-> and d2 10T a build-A/build-B pair each. Read the counts off that file rather
-> than from here: it also lists the CLOSED v2-lineage archives and one path
-> (`canonical-archive/20260530_100T_revalidation_4e15885/`) that its own note
-> records as never populated, so a raw grep over-counts. Uploads run from **one** implementation —
-> `roae-private/scripts/lib/archive_canonical_lib.sh` in the private operator repo
-> (`~/github/roae-private/`, not committed here). Do not write a second
-> uploader; a divergent second path is how an archive stops matching its
-> catalogue. The flow written out below is the **original 2026-04 design**,
-> kept because its folder taxonomy and tier economics are still the ones in
-> use — read it as the design record, and read CANONICAL_HASHES.md for state.
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) names, for each canonical that has one, the run
+directory of its operator-held preserved copy, and records how those bytes were checked against the
+sha256 anchor; that file, not this section, is the authority on what exists. The copies
+exist so the operator can re-attest a canonical without re-deriving it; the public verification
+path never depends on them (it is the published sha256 plus the reproduction recipe). Where and
+how the copies are kept is operational detail outside the project's scope, and this section no
+longer describes it (removed 2026-09-29, [CORRECTIONS.md](CORRECTIONS.md) CX-242). Two standing
+rules survive from the removed text: a managed data disk is resized, never deleted, and a canonical
+that is to be extended keeps its per-cell shards and checkpoints with it.
 
-⚠ **[CORRECTED 2026-09-02 — the banner above previously carried a status of
-OPTIONAL / ASPIRATIONAL, described the Azure Blob Archive flow as a backup tier
-that had been designed but never stood up, and stated categorically that the
-working copy on the `solver-data` managed disk was the project's sole
-redundancy tier. Both statements were the exact inverse of the catalogue by the
-time anyone was likely to read them, and the cost of believing them is the
-reason this is a correction rather than a silent edit: an operator responding to
-an incident would have declared recoverable data lost, or re-paid to archive
-what was already archived. The retired phrasings are registered in
-[RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in
-[CORRECTIONS.md](CORRECTIONS.md) as `RP-456ed634` (the undeployed-status phrasing) and
-`RP-2e39a795` (the sole-redundancy-tier phrasing). Origin is
-stale-ledger residue, not a wrong measurement: the archival campaign ran June–
-July 2026 and never swept this May-era section — the same shape as the
-`needs_generated` staleness recorded under §"Git hooks". Found by Codex review
-V2-F15 #9. Note that one site of this defect was already repaired: the
-historical paragraph further down carries a *Superseded:* note added by an
-earlier pass, which fixed the sentence "No run has yet been archived" and left
-the banner — that sentence has zero matches corpus-wide today while the banner
-survived, which is why this correction exists at all.]**
 
-The managed disk is the *working* copy of large artifacts, not the *durable*
-copy. Two things would motivate a separate backup tier:
 
-1. **Accidental deletion or corruption.** A disk wipe, a rogue `az disk delete`,
-   or a mount-point bug can lose the primary copy in seconds. Managed disks
-   have Azure's 11-9s durability guarantee, but the operator (me or a future
-   session) is the real risk.
-2. **Cost during long pauses.** At 23.7 GB (10T) or 80-260 GB (1000T), keeping
-   a managed disk idle between sessions keeps billing per GB every month. For a
-   multi-month pause, that adds up fast. Blob Archive tier is ~40× cheaper
-   per GB.
 
-**Proposed parallel-backup policy (would run after any canonical run, once
-we establish a canonical run and choose an automation mechanism):**
 
-For every canonical enumeration (10T, 100T, 1000T, or any run that produces a
-sha256 referenced in committed docs):
 
-1. After sha256 verification of `solutions.bin` on the working disk,
-   upload to Azure Blob Storage with the Archive access tier:
-   ```
-   az storage blob upload \
-     --account-name <storage-account> \
-     --container-name roae-archives \
-     --name <run-id>/solutions.bin \
-     --file /data/solutions.bin \
-     --tier Archive
-   ```
-2. Alongside `solutions.bin`, upload (Archive tier for all):
-   - `solutions.sha256` — validates any future download
-   - `solve_results.json` — run metadata
-   - The compiled `solve` binary used for the run (~100 KB)
-   - `git rev-parse HEAD` written to a `git_hash.txt` (~50 bytes)
-   - `checkpoint.txt` — per-sub-branch yield data (needed for saturation
-     analysis at any future scale)
-   - A README documenting run date, `SOLVE_NODE_LIMIT`, VM SKU, total cost
-3. Sha-verify the upload by downloading the blob's sha256 file and comparing.
-4. Once verified: the managed disk remains authoritative for active work;
-   the blob is the durable backup.
 
-*(Historical, 2026-04:* the 10T run `aa1415174c...b719b` (23.7 GB) was the
-original archive candidate, but that sha is a hash-table-bug-era undercount —
-see HISTORY.md Day 8 and SPECIFICATION.md §"Partial enumeration". *Superseded:*
-runs at every canonical scale have since been archived to cold blob storage;
-[CANONICAL_HASHES.md](CANONICAL_HASHES.md) lists the `canonical-archive/…`
-container path for each.) At that per-GB pricing a 10T
-backup is essentially free insurance.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 **Validation-first approach for major solver refactors.** When significant
 enumeration-path refactoring occurs (e.g., the Option B depth-3 work-unit
@@ -1367,84 +1367,84 @@ infrastructure (checkpointing granularity, work-unit partitioning) without
 changing the enumeration output; the sha-identity check distinguishes these
 cases.
 
-**Archive folder taxonomy.** For auditability and retrieval:
-- Folder name: `<run-name>_<YYYYMMDD>_<sha8>/` where `sha8` is the first 8 hex
-  chars of solutions.bin's sha256. Example: `10T_20260513_b85c8871/` (the live
-  10T d3 anchor; see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
-- The sha8 in the folder name self-describes the run identity without opening
-  blobs. Multiple runs with identical sha8 (deterministic re-validation) are
-  distinguishable by date.
-- Inside each folder: `solutions.bin`, `solutions.sha256`, `solve_results.json`,
-  `checkpoint.txt`, `solve` binary, `git_hash.txt`, `README.txt`.
 
-**Long-term pause procedure (when stepping away for weeks-to-months):**
 
-1. Ensure the parallel backup above exists and has been sha-verified.
-2. Optionally download a local copy to operator-controlled hardware (external
-   SSD, home server) as a third tier of redundancy. Cost: one-time transfer.
-3. **Do NOT delete the managed disk.** ⚠ **[CORRECTED 2026-09-02 — this step
-   read "**Delete the managed disk** (only after both blob backup and, if
-   chosen, local backup are verified)", justified by dropping storage cost
-   from [cost redacted] to [cost redacted], [cost redacted] over 6 months for 260 GB.
-   That instruction contradicts the standing operator rule this repo states
-   three times elsewhere — [DEPLOYMENT.md](DEPLOYMENT.md) §"Teardown" ("never
-   delete data disks"), its retrospective ("Managed disks preserved = the win
-   condition for every class of failure"), and its teardown script comments
-   ("Never delete `solver-data`"). It was harmless while this section was
-   labelled aspirational and became executable the moment the banner above was
-   corrected to DEPLOYED, so it is corrected in the same pass. Found while
-   verifying the banner, not by the review that filed the banner.]** Shrink the
-   idle footprint by *resizing* the data disk down to what the retained
-   artifacts need, or by detaching it; the disk itself is preserved. Every
-   recovery this project has had — eviction, truncation, regex bug — was saved
-   by `solver-data` outliving a VM.
-4. Delete all VMs (their OS disks contain nothing campaign-related). Full idle
-   state, data disk retained and unattached.
 
-**Rehydration procedure (resuming work):**
 
-1. Request rehydration from Archive to Hot tier:
-   ```
-   az storage blob set-tier \
-     --account-name <storage-account> \
-     --container-name roae-archives \
-     --name <run-id>/solutions.bin \
-     --tier Hot --rehydrate-priority Standard
-   ```
-   Standard priority: 1-15 hour wait, cheapest. High priority: <1 hour, costs
-   more for multi-GB blobs.
-2. Poll rehydration status: `az storage blob show --query properties.rehydrationStatus`
-3. Create a new managed disk sized for the run (see "Running on cloud"
-   section for sizing), provision merge VM, attach disk.
-4. Download blob to disk inside the VM (free within-region egress, ~10-30 min
-   at spot VM network speeds for 260 GB).
-5. Sha-verify against the preserved `solutions.sha256`.
-6. Resume.
 
-**Cost-tier reference (westus2, April 2026 approximate):**
 
-| Tier | Min retention | Restore time |
-|---|---|---|
-| Managed Disk (Standard HDD) | none | instant (attach) |
-| Blob Hot | none | instant |
-| Blob Cool | 30 days | milliseconds (online tier) |
-| Blob Cold | 90 days | milliseconds (online tier; ⚠ read "hours" until 2026-09-25, Q-763 — only Archive needs rehydration) |
-| **Blob Archive** | **180 days** | **1-15 hours** |
 
-Archive tier's 180-day minimum retention matches the "several months pause"
-use case naturally. Shorter pauses may prefer Cold (90-day minimum) or even
-keeping the managed disk.
 
-**What we do NOT back up to archive:**
 
-- The `claude` orchestration VM's OS disk (trivially reproducible via
-  `git clone` and standard setup).
-- Intermediate `sub_*.bin` shards when a merged `solutions.bin` exists. The
-  merged bin is the canonical derived artifact; shards can be regenerated
-  only by re-running the enumeration, which the sha256 of `solutions.bin`
-  still anchors against.
-- Analysis output text files (`analyze_*_742M.txt`) — these are committed to
-  the git repo and live there.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ---
 

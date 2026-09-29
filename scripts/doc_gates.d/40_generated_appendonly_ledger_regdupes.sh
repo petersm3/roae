@@ -604,8 +604,15 @@ gate_generated() {
 # and the gate only ever ACCEPTS a replacement, so it needs no rule for them. $1 is the working copy.
 # Tested in tests.py (TestQ903AppendOnlyMoneyRedaction): green on a pure token->marker change, red on
 # the same change plus one reworded word, red on a changed amount.
+# CX-242 (2026-09-29) — THE SAME EDIT FOR STORAGE DETAIL. Operational detail about where data copies
+# are kept is outside the project's scope and left the current tree the same way: in a ledger, a
+# span of it becomes `[storage detail redacted]` and nothing else on the line moves. Such a span has
+# no fixed shape, so the rule is positional: the committed line must equal the working line with each
+# marker standing for a non-empty span, every other character unchanged. A reworded word outside
+# the spans still fails. A working line with fewer than 4 characters outside its markers anchors
+# nothing and is never used, and a committed line still present verbatim is never re-aligned. Tested in tests.py (TestCX242AppendOnlyStorageRedaction).
 _g10_money_align() {
-  if ! grep -qF '[cost redacted]' "$1" 2>/dev/null; then cat; return 0; fi
+  if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' "$1" 2>/dev/null; then cat; return 0; fi
   DG_WORK="$1" python3 -c '
 import os, re, sys
 M = "[cost redacted]"
@@ -631,6 +638,43 @@ for i, b in enumerate(data):
         if w != b and pat.fullmatch(w):
             data[i] = w
             break
+# CX-242: a span of storage detail replaced by S. Each working line holding S is split on S; the
+# committed line must be those literal pieces in order, the first a prefix and the last a suffix,
+# with each S standing for a NON-EMPTY span (and a cost marker in a piece still standing for a
+# token or itself). Every character outside the spans must match: a reworded word fails.
+S = "[storage detail redacted]"
+cands = {}
+wall = open(os.environ["DG_WORK"], encoding="utf-8", errors="surrogateescape").read().split("\n")
+wset = set(wall)
+for w in wall:
+    if S not in w:
+        continue
+    # a line that is nothing but markers would match ANY committed line: it anchors nothing
+    if len("".join(w.split(S)).strip()) < 4:
+        continue
+    rx = []
+    for k, piece in enumerate(w.split(S)):
+        if k:
+            rx.append("(?:.+?)")
+        sub = piece.split(M)
+        for j, q in enumerate(sub):
+            if j:
+                rx.append("(?:%s|%s)" % (re.escape(M), TOK.pattern))
+            rx.append(re.escape(q))
+    head = w.split(S, 1)[0][:12]
+    cands.setdefault(head, []).append((w, re.compile("".join(rx), re.S)))
+lens = sorted({len(h) for h in cands})
+for i, b in enumerate(data):
+    if S in b or b in wset:   # a committed line still present verbatim is never re-aligned
+        continue
+    for L in lens:
+        for w, pat in cands.get(b[:L], ()):
+            if w != b and pat.fullmatch(b):
+                data[i] = w
+                break
+        else:
+            continue
+        break
 sys.stdout.buffer.write("\n".join(data).encode("utf-8", "surrogateescape"))
 '
 }

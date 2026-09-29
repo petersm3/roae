@@ -1431,18 +1431,18 @@ ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR LAYER_PREFIX
           fi
           k=$((k+1))
       done
-      for k in "${!own_at[@]}"; do
+      case "$pfx" in f1c5_layer) gen_k=0; step=-1 ;; *) gen_k=$N_PAIRS; step=1 ;; esac; genesis_count=0; for k in "${!own_at[@]}"; do   # KCV R12 (2026-09-29): the builder links f's k to k-1 and g's/t's to k+1; genesis (-1) only at the chain's first layer (f 0; g, t n), exactly once
           kk=$(printf '%02d' "$k"); j=${ink_at[$k]}; in=${in_at[$k]}
           if [ -z "$j" ] || [ -z "$in" ]; then
               echo "layer ${pfx}_$kk.bin  NO-FIELD input_layer_k/input_sha256_decompressed"; idbad=$((idbad+1))
-          elif [ "$j" = "-1" ]; then
-              [ "$in" = genesis ] || { echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=-1 input=$in"; idbad=$((idbad+1)); }
-          elif [ "$j" -lt 0 ] || [ "$j" -ge "$want" ] || [ "$j" -eq "$k" ]; then
-              echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=$j (not another index in 00..$(printf '%02d' "$N_PAIRS"))"; idbad=$((idbad+1))
+          elif [ "$j" = "-1" ]; then genesis_count=$((genesis_count+1))
+              { [ "$in" = genesis ] && [ "$k" -eq "$gen_k" ]; } || { echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=-1 input=$in (genesis belongs at $(printf '%02d' "$gen_k") only)"; idbad=$((idbad+1)); }
+          elif [ "$j" -ne $((k+step)) ]; then
+              echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=$j (the builder links $kk to $(printf '%02d' $((k+step))))"; idbad=$((idbad+1))
           elif [ -n "${own_at[$j]+x}" ] && [ "${own_at[$j]}" != "$in" ]; then
               echo "layer ${pfx}_$kk.bin  CHAIN-BROKEN input_layer_k=$j input=$in own[$j]=${own_at[$j]}"; idbad=$((idbad+1))
           fi   # an unset own_at[j] is a slot that already failed above, and is counted there
-      done
+      done; if [ "$genesis_count" -gt 1 ] || { [ "$genesis_count" -eq 0 ] && [ -n "${own_at[$gen_k]+x}" ]; }; then echo "layer ${pfx}  CHAIN-BROKEN genesis_count=$genesis_count (exactly one layer, $(printf '%02d' "$gen_k"), starts the chain)"; idbad=$((idbad+1)); fi   # zero genesis with that slot already failed above is counted there
       for lp in "$dir"/*_layer_[0-9][0-9].bin; do
           [ -e "$lp" ] || continue
           case "${lp##*/}" in "${pfx}"_[0-9][0-9].bin)
@@ -1811,17 +1811,17 @@ say "  C3 filter at T=$C3MAX retains p_hat=${FRAC_LE:-?}  (degenerate: $DEGEN)"
 # ---- A1.3b Q8's C3-rejection SUBSET, derived -- and the C15 file labelled for what it is (F-5 D9,
 #            2026-09-08). QUERY_INVENTORY row Q8 (corrected 2026-09-05) records that q8_c15.tsv is NOT
 #            the "~121 subset" of gallery 1: --kc-sample --kc-c3-max T rejects until it has Q8K ACCEPTED
-#            draws, so it is a second, independent C15 gallery of exactly Q8K walks. TR-12 §Q8 still
+#            draws, so it is a second C15 gallery of exactly Q8K walks, from gallery 1's SAME seeded stream (KCV R7, 2026-09-29). TR-12 §Q8 still
 #            describes a subset. This row (i) checks the C15 file against that label (exactly Q8K draws,
 #            every one with cd <= T) and (ii) derives the ACTUAL subset for free -- the gallery-1 draws
-#            with cd <= T -- printing its size and Wilson interval beside Q4(a,c)'s p_hat. The two are
-#            independent samples of the same acceptance probability; they are printed, not gated. ----
+#            with cd <= T -- printing its size and Wilson interval beside Q4(a,c)'s p_hat. The two estimate
+#            the same acceptance probability from the same seeded stream (TR12_SEED), not independently; printed, not gated. ----
 row_begin a1_q8_subset
 (
   fails=0
   c15n=$(awk -F'\t' '$1 ~ /^[0-9]+$/ && $2 ~ /^cd=/ {n++} END{print n+0}' "$ARTDIR/q8_c15.tsv")
   c15bad=$(awk -F'\t' -v T="$C3MAX" '$1 ~ /^[0-9]+$/ && $2 ~ /^cd=/ {if (substr($2,4)+0 > T) b++} END{print b+0}' "$ARTDIR/q8_c15.tsv")
-  echo "q8_c15_label	independent-C15-sample	NOT a subset of q8_super.tsv: --kc-sample --kc-c3-max rejects until Q8K draws are ACCEPTED"
+  echo "q8_c15_label	same-stream-C15-sample	same seed and stream as q8_super.tsv, filtered by --kc-c3-max and extended until Q8K draws are ACCEPTED; its first accepted walks are q8_super's accepted walks, so the two are not independent"
   echo "q8_c15_accepted_draws	$c15n	(requested Q8K=$Q8K)"
   echo "q8_c15_draws_above_T	$c15bad"
   [ "$c15n" -eq "$Q8K" ] || { echo "Q8_SUBSET_FAIL	q8_c15.tsv holds $c15n draws, not Q8K=$Q8K"; fails=1; }
@@ -1836,7 +1836,7 @@ row_begin a1_q8_subset
       printf "q8_super_subset_fraction\t%.8f\n", p
       printf "q8_subset_wilson95_lo\t%.8f\nq8_subset_wilson95_hi\t%.8f\n", (c-hw<0?0:c-hw), (c+hw>1?1:c+hw)
     }' "$ARTDIR/q8_super.tsv" || fails=1
-  echo "q4ac_p_hat_cd_le_T	${FRAC_LE:-NA}	(row a1_q4ac, M=$Q4ACM draws: an independent sample of the same acceptance probability)"
+  echo "q4ac_p_hat_cd_le_T	${FRAC_LE:-NA}	(row a1_q4ac, M=$Q4ACM draws: a further run of the same seeded stream estimating the same acceptance probability; not independent of q8_super)"
   exit $fails
 ) >>"$RAW" 2>&1; rc=$?
 cp "$RAW" "$ARTDIR/q8_c15_subset.tsv"

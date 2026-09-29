@@ -991,6 +991,35 @@ static int lc_orbit_of(uint32_t m, uint8_t rp[24][32], int geff, int *canon) {
     return geff / stab;
 }
 
+/* Number of canonical popcount-k masks over the run's n pairs, by Burnside's lemma:
+ * (1/geff) * sum over the geff restricted pair-perms q of [x^k] prod over the cycles
+ * c of q of (1 + x^|c|) -- a mask fixed by q is a union of whole cycles of q. The
+ * same count `verify.py --recount-orbit-widths` makes for the published n=31 column.
+ * It reads no mask table, so a reader can check that a layer's mask list is COMPLETE
+ * (GT_LADDER_FORMAT.md "Mask lists": every canonical mask is listed, an empty span
+ * kept for one whose states all vanished). Until 2026-09-29 the readers checked only
+ * that each listed mask was canonical, so a list with a mask (and its span) removed
+ * passed (Codex KCV R10, triaged by Fable). Returns UINT64_MAX if the Burnside sum is
+ * not divisible by geff (impossible for a group action; guarded anyway). */
+static uint64_t lc_burnside_k(uint8_t rp[24][32], int geff, uint32_t n, int k) {
+    if (geff < 1 || n > 31 || k < 0 || (uint32_t)k > n) return UINT64_MAX;
+    uint64_t tot = 0;
+    for (int q = 0; q < geff; q++) {
+        uint64_t poly[33]; uint8_t seen[32];
+        memset(poly, 0, sizeof poly); memset(seen, 0, sizeof seen);
+        poly[0] = 1;
+        for (uint32_t i = 0; i < n; i++) {
+            if (seen[i]) continue;
+            int L = 0; uint32_t j = i;
+            while (j < n && !seen[j]) { seen[j] = 1; j = rp[q][j]; L++; }
+            for (int d = (int)n; d >= L; d--) poly[d] += poly[d - L];
+        }
+        tot += poly[k];
+    }
+    if (tot % (uint64_t)geff) return UINT64_MAX;
+    return tot / (uint64_t)geff;
+}
+
 /* =========================================================================
  * --scan-layers: multi-observable parallel scan driver (config + rider state)
  *
@@ -1061,6 +1090,23 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
 static int lc_pread(FILE *f, long off, void *buf, size_t n) {
     if (fseek(f, off, SEEK_SET) != 0) return 0;
     return fread(buf, 1, n, f) == n;
+}
+/* Inflate ONE zlib stream that fills dst to exactly `want` bytes AND consumes every
+ * source byte; 0 ok, 1 fail. Every v2 block read in this file goes through it.
+ * Until 2026-09-29 the readers called uncompress(), which stops at the end of the
+ * first stream and ignores anything after it, so a block whose indexed span carried
+ * trailing bytes decoded "cleanly" (Codex KCV R14, triaged by Fable). No published
+ * ladder is affected: all readers decode the same first stream and the files are
+ * pinned by their raw digests; this makes the reader refuse the malformed shape. */
+static int lc_inflate_exact(void *dst, uint64_t want, const void *src, uint64_t srclen) {
+    z_stream zs; memset(&zs, 0, sizeof zs);
+    if (inflateInit(&zs) != Z_OK) return 1;
+    zs.next_in = (Bytef *)src; zs.avail_in = (uInt)srclen;
+    zs.next_out = (Bytef *)dst; zs.avail_out = (uInt)want;
+    int r = inflate(&zs, Z_FINISH);
+    int ok = (r == Z_STREAM_END && zs.avail_in == 0 && (uint64_t)zs.total_out == want);
+    inflateEnd(&zs);
+    return ok ? 0 : 1;
 }
 /* FNV-1a over a record's text — the LC_RESUME row integrity token (V2, 2026-09-03).
  * Integrity against silent corruption (torn write, bad sector, hand edit landing as a
@@ -1182,6 +1228,9 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     LCF(bad_hibit==0, "%llu masks with bits >= n", (unsigned long long)bad_hibit);
     LCF(bad_canon==0, "%llu NON-CANONICAL masks (not the min of their orbit)", (unsigned long long)bad_canon);
     LCF(bad_orb==0,   "%llu masks where orbit-stabilizer failed (|stab| does not divide geff)", (unsigned long long)bad_orb);
+    { uint64_t bk_ = lc_burnside_k(rp, geff, exp_n, k);     /* KCV R10: mask list complete */
+      LCF(nm == bk_, "mask list has %llu canonical masks; Burnside over the %d restricted pair-perms gives %llu (spec: the list is complete)",
+          (unsigned long long)nm, geff, (unsigned long long)bk_); }
     if (is_final && nm==1 && !fail)
         LCF(orbits[0]==1, "final full mask has orbit %d != 1", orbits[0]);
     if (fail) goto cleanup;
@@ -1244,13 +1293,12 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
                 !lc_pread(f, vals_base + (long)bstart*24, vbuf, bn*24)) {
                 printf("  k=%2d  *** FAIL: short v1 entry read\n", k); fail=1; break; }
         } else {
-            uLongf kd = (uLongf)(bn*4), vd = (uLongf)(bn*24);
             uint64_t kc = kidx[b+1]-kidx[b], vc = vidx[b+1]-vidx[b];
             if (!lc_pread(f, kblk_base + (long)kidx[b], zbuf, kc) ||
-                uncompress((Bytef*)kbuf, &kd, zbuf, (uLong)kc) != Z_OK || kd != bn*4) {
+                lc_inflate_exact(kbuf, bn*4, zbuf, kc)) {
                 printf("  k=%2d  *** FAIL: key block %llu inflate/size\n", k,(unsigned long long)b); fail=1; break; }
             if (!lc_pread(f, vblk_base + (long)vidx[b], zbuf, vc) ||
-                uncompress((Bytef*)vbuf, &vd, zbuf, (uLong)vc) != Z_OK || vd != bn*24) {
+                lc_inflate_exact(vbuf, bn*24, zbuf, vc)) {
                 printf("  k=%2d  *** FAIL: val block %llu inflate/size\n", k,(unsigned long long)b); fail=1; break; }
         }
         for (uint64_t j = 0; j < bn; j++, e++) {
@@ -1308,17 +1356,32 @@ cleanup:
 }
 
 /* parse <pfx>_manifest.txt (spec §Manifest; first line must be
- * "<pfx>_manifest_v1" — GT_LADDER_FORMAT.md's per-kind tag). returns 0 ok. */
+ * "<pfx>_manifest_v1" — GT_LADDER_FORMAT.md's per-kind tag). returns 0 ok.
+ * ⚠ 2026-09-29 (Codex KCV R17 and R11, triaged by Fable): the tag used to be
+ * accepted as a PREFIX of ANY line, so a manifest whose tag sat on line 3, or whose
+ * line 1 was the tag plus a suffix, parsed as valid. The tag is now required to be
+ * line 1 exactly (a trailing newline / CR stripped). And a full-31 ladder must be
+ * rooted at exit 0 (King Wen's root, C4): the header check compared start_exit
+ * with the manifest only, so a ladder set built from another root with a matching
+ * manifest passed. Each refusal prints its own FAIL line before the caller's. */
 static int lc_manifest_pfx(const char *dir, const char *pfx,
                            uint32_t *n, uint32_t *se, uint64_t *plhash_hex,
                            uint32_t pl[64], int *npl, int b0[5], int *last_k) {
     char path[1024]; snprintf(path, sizeof path, "%s/%s_manifest.txt", dir, pfx);
     char tag[64];   snprintf(tag,  sizeof tag,  "%s_manifest_v1", pfx);
     FILE *f = fopen(path, "r"); if (!f) return 1;
-    char line[8192]; int have_tag=0; *n=0; *se=0; *last_k=-1; *plhash_hex=0; *npl=0;
+    char line[8192]; int have_tag=0, lineno=0; *n=0; *se=0; *last_k=-1; *plhash_hex=0; *npl=0;
     for (int c=0;c<5;c++) b0[c]=0;
     while (fgets(line, sizeof line, f)) {
-        if (!strncmp(line,tag,strlen(tag))) have_tag=1;
+        if (++lineno == 1) {
+            size_t ln = strlen(line);
+            while (ln && (line[ln-1] == '\n' || line[ln-1] == '\r')) line[--ln] = 0;
+            if (strcmp(line, tag) != 0) {
+                printf("*** FAIL: %s line 1 is \"%.80s\", expected exactly %s\n", path, line, tag);
+                fclose(f); return 1;
+            }
+            have_tag = 1;
+        }
         else if (!strncmp(line,"n=",2)) *n=(uint32_t)atoi(line+2);
         else if (!strncmp(line,"start_exit=",11)) *se=(uint32_t)atoi(line+11);
         else if (!strncmp(line,"pl=",3)) { int i=0; char *t=strtok(line+3,",\n");
@@ -1329,6 +1392,11 @@ static int lc_manifest_pfx(const char *dir, const char *pfx,
         else if (!strncmp(line,"last_complete_k=",16)) *last_k=atoi(line+16);
     }
     fclose(f);
+    if (have_tag && *n == 31 && *se != 0) {
+        printf("*** FAIL: %s: a full-31 ladder must be rooted at exit 0 (King Wen's root);"
+               " manifest start_exit=%u\n", path, *se);
+        return 1;
+    }
     return have_tag ? 0 : 1;
 }
 static int lc_manifest(const char *dir, uint32_t *n, uint32_t *se, uint64_t *plhash_hex,
@@ -1489,15 +1557,31 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     }
 
     int hi = last_k; if (maxk < hi) hi = maxk;
-    int fails = !plhash_ok + !kw_ok + !geff_ok, checked = 0, replayed = 0;
+    int fails = !plhash_ok + !kw_ok + !geff_ok, checked = 0, replayed = 0, absent = 0;
+    /* COMPLETENESS CONTRACT (Codex KCV R5, triaged by Fable, 2026-09-29). An absent
+     * layer file is skipped, because a rolling-window build prunes old layers, so
+     * without a flag rc 0 can mean "every PRESENT layer checked", not "every layer
+     * checked". LAYERS_ABSENT= is now always printed, and LC_LAYERS_COMPLETE=1 turns
+     * the skip into a failure: every layer 0..min(last_complete_k, max_layer) must be
+     * present, and, when a run log is given, every checked layer k >= 1 must have its
+     * mass line compared. A proof cell that says "every layer" must bind
+     * LAYERS_REDERIVED=, LAYERS_ABSENT=0 and this mode, not rc 0 alone. */
+    const char *lcc = getenv("LC_LAYERS_COMPLETE");
+    int want_complete = (lcc && strcmp(lcc, "1") == 0);
     u192 finalgrand = {{0,0,0}}; int saw_final = 0;
     u192 lmass[32]; int lgot[32];
     for (int k = 0; k < 32; k++) lgot[k] = 0;
     for (int k = 0; k <= hi && k < 32; k++) {
         char p[1024]; snprintf(p,sizeof p,"%s/f1c5_layer_%02d.bin",dir,k);
-        FILE *t = fopen(p,"rb"); if (!t) continue; fclose(t);   /* rolling window may have pruned it */
+        FILE *t = fopen(p,"rb");
+        if (!t) {                                         /* rolling window may have pruned it */
+            absent++;
+            if (want_complete) printf("  k=%2d  *** FAIL: layer file absent (LC_LAYERS_COMPLETE=1)\n", k);
+            continue;
+        }
+        fclose(t);
         int is_final = (k == (int)mn);
-        if (rk_got[k]) {                                  /* replay a recorded clean layer */
+        if (rk_got[k]) {   /* replay a recorded clean layer: REPLAYED, not re-derived (counted in LAYERS_REPLAYED=) */
             printf("  k=%2d  nm=%-9llu ne=%-13llu %s  Σval=%s  mass=%s\n", k,
                    (unsigned long long)rk_nm[k], (unsigned long long)rk_ne[k],
                    rk_codec[k], rk_grand[k], rk_mass[k]);
@@ -1599,6 +1683,24 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     }
     printf("LAYERS_REDERIVED=%d\n", checked - replayed);
     printf("LAYERS_REPLAYED=%d\n", replayed);
+    printf("LAYERS_ABSENT=%d\n", absent);
+    if (want_complete) {
+        int mass_missing = 0;                   /* checked layers k >= 1 with no mass compared */
+        if (rm) for (int k = 1; k < 32; k++) if (lgot[k] && !rm[k][0]) mass_missing++;
+        printf("LAYERS_COMPLETE_MODE=1\n");
+        if (absent != 0 || checked != hi + 1) {
+            printf("*** FAIL: LC_LAYERS_COMPLETE=1 but %d of the %d layer(s) in 0..%d are absent\n"
+                   "          (%d checked) — the ladder is not complete in the requested range\n",
+                   absent, hi + 1, hi, checked);
+            fails++;
+        }
+        if (rm && mass_missing) {
+            printf("*** FAIL: LC_LAYERS_COMPLETE=1 and a run log was given, but %d checked layer(s)\n"
+                   "          k >= 1 have no mass line in it — their masses were not compared\n",
+                   mass_missing);
+            fails++;
+        }
+    }
     if (rm) free(rm);
 
     printf("======================================================================\n");
@@ -2143,17 +2245,16 @@ static void *lcs_lane_worker(void *arg) {
         uint64_t bstart = b * BLKe;
         uint64_t bn = BLKe; if (bstart + bn > L->ne) bn = L->ne - bstart;
         if (L->is_v2) {
-            uLongf kd = (uLongf)(bn * 4), vd = (uLongf)(bn * 24);
             uint64_t kc = L->kidx[b+1] - L->kidx[b], vc = L->vidx[b+1] - L->vidx[b];
             if (!lcs_fill(&KS, kc) ||
-                uncompress((Bytef *)kbuf, &kd, KS.data + KS.pos, (uLong)kc) != Z_OK || kd != bn * 4) {
+                lc_inflate_exact(kbuf, bn * 4, KS.data + KS.pos, kc)) {
                 snprintf(L->msg, sizeof L->msg, "  k=%2d  *** FAIL: key block %llu inflate/size\n",
                          L->k, (unsigned long long)b);
                 L->fail = 1; *L->abort_flag = 1; break;
             }
             KS.pos += kc;
             if (!lcs_fill(&VS, vc) ||
-                uncompress((Bytef *)vbuf, &vd, VS.data + VS.pos, (uLong)vc) != Z_OK || vd != bn * 24) {
+                lc_inflate_exact(vbuf, bn * 24, VS.data + VS.pos, vc)) {
                 snprintf(L->msg, sizeof L->msg, "  k=%2d  *** FAIL: val block %llu inflate/size\n",
                          L->k, (unsigned long long)b);
                 L->fail = 1; *L->abort_flag = 1; break;
@@ -2292,6 +2393,9 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
         LCF(bad_hibit==0, "%llu masks with bits >= n", (unsigned long long)bad_hibit);
         LCF(bad_canon==0, "%llu NON-CANONICAL masks (not the min of their orbit)", (unsigned long long)bad_canon);
         LCF(bad_orb==0,   "%llu masks where orbit-stabilizer failed (|stab| does not divide geff)", (unsigned long long)bad_orb);
+        { uint64_t bk_ = lc_burnside_k(rp, geff, exp_n, k);     /* KCV R10: mask list complete */
+          LCF(nm == bk_, "mask list has %llu canonical masks; Burnside over the %d restricted pair-perms gives %llu (spec: the list is complete)",
+              (unsigned long long)nm, geff, (unsigned long long)bk_); }
         if (is_final && nm==1 && !fail)
             LCF(orbits[0]==1, "final full mask has orbit %d != 1", orbits[0]);
         if (fail) goto cleanup;
@@ -2926,14 +3030,13 @@ static int gt_next(GtCur *c, uint32_t *key, u192 *val) {
                 !lc_pread(c->f, c->vals_base + (long)c->bstart*24, c->vbuf, c->bn*24)) {
                 printf("  [%c] k=%2d  *** FAIL: short v1 entry read\n", c->lab, c->k); return -1; }
         } else {
-            uLongf kd = (uLongf)(c->bn*4), vd = (uLongf)(c->bn*24);
             uint64_t kcz = c->kidx[b+1]-c->kidx[b], vcz = c->vidx[b+1]-c->vidx[b];
             if (!lc_pread(c->f, c->kblk_base + (long)c->kidx[b], c->zbuf, kcz) ||
-                uncompress((Bytef*)c->kbuf, &kd, c->zbuf, (uLong)kcz) != Z_OK || kd != c->bn*4) {
+                lc_inflate_exact(c->kbuf, c->bn*4, c->zbuf, kcz)) {
                 printf("  [%c] k=%2d  *** FAIL: key block %llu inflate/size\n",
                        c->lab, c->k, (unsigned long long)b); return -1; }
             if (!lc_pread(c->f, c->vblk_base + (long)c->vidx[b], c->zbuf, vcz) ||
-                uncompress((Bytef*)c->vbuf, &vd, c->zbuf, (uLong)vcz) != Z_OK || vd != c->bn*24) {
+                lc_inflate_exact(c->vbuf, c->bn*24, c->zbuf, vcz)) {
                 printf("  [%c] k=%2d  *** FAIL: val block %llu inflate/size\n",
                        c->lab, c->k, (unsigned long long)b); return -1; }
         }
@@ -2995,6 +3098,12 @@ static uint64_t gt_mask_checks(GtCur *c, uint32_t n, uint8_t rp[24][32], int gef
     }
     if (bad) printf("  [%c] k=%2d  *** FAIL: %llu masks fail popcount/range/canonicity\n",
                     c->lab, c->k, (unsigned long long)bad);
+    uint64_t bk = lc_burnside_k(rp, geff, n, c->k);           /* KCV R10: mask list complete */
+    if (c->nm != bk) {
+        printf("  [%c] k=%2d  *** FAIL: mask list has %llu canonical masks; Burnside over the %d restricted pair-perms gives %llu (spec: the list is complete)\n",
+               c->lab, c->k, (unsigned long long)c->nm, geff, (unsigned long long)bk);
+        bad++;
+    }
     return bad;
 }
 
@@ -3250,7 +3359,12 @@ static int lc_check_g(const char *fdir, const char *gdir, int maxk) {
      * `fails`, and the RESULT line counted the skipped layers among the
      * verified. Census: EVALUATED is counted separately from ITERATED, the
      * verdict states the evaluated count, and the check goes RED when zero
-     * identities executed or any skip fell inside the requested range. */
+     * identities executed or any skip fell inside the requested range.
+     * SCOPE OF A PASS (Codex KCV R19, 2026-09-29): GLADDER_RESULT=PASS says the
+     * identity held at IDENTITIES_CHECKED= layers and no more. A seed-only
+     * ladder, or max_k = 0, passes with IDENTITIES_CHECKED=1. A caller that means
+     * "the whole ladder" must also require IDENTITIES_CHECKED=n+1 (32 at full
+     * 31), as the TR-12 reproduction battery's predicate does. */
     printf("census   : range k=0..%d: %d layer(s) evaluated, %d absent per manifest "
            "(last_complete_k=%d);\n"
            "           f·g cut identity EVALUATED at %d and SKIPPED at %d of the %d evaluated\n",

@@ -20,8 +20,8 @@ Four sha-anchored canonical enumerations:
 |---|---|---|---|---|
 | d2 | 10T | `a09280fb8…` | 286,357,503 | `runs/20260418_10T_d2_fresh/` (public) |
 | d3 | 10T | `f7b8c4fbf…` ¹ | 706,422,987 | `runs/20260418_10T_d3_fresh/` (public) |
-| d3 | 100T | `915abf30c…` | 3,432,399,297 | `canonical-archive/t9c1/` — **operator-held cold blob**, not a public URL (T9+c.1 recovery; cf. [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary") |
-| **d3** | **560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`canonical-archive/20260608_560T_9a968fa2/`** — **operator-held cold blob**, not a public URL (same access-boundary note) |
+| d3 | 100T | `915abf30c…` | 3,432,399,297 | `t9c1/` — **operator-held preserved copy**, not a public URL (T9+c.1 recovery; cf. [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary") |
+| **d3** | **560T** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** | **10,525,271,997** | **`20260608_560T_9a968fa2/`** — **operator-held preserved copy**, not a public URL (same access-boundary note) |
 
 Only the **budget** varies across 10T / 100T / 560T: `SOLVE_DEPTH=3` throughout, with `SOLVE_PER_SUB_BRANCH_LIMIT` — the per-cell budget the DFS actually enforces — stepping 63,146,557 → 631,456,644 → 3,536,157,207 ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility parameters"; the campaign names 10T/100T/560T are the nominal `SOLVE_NODE_LIMIT` values, which are not themselves sha-determining once an explicit per-cell budget is supplied). The only partition-depth comparison the project has ever run is d2 vs d3, both at 10T. *(Column split 2026-09-02: a single "Partition" column mixed the two axes, which is where this document's depth/budget conflation started — see [CORRECTIONS.md](CORRECTIONS.md).)*
 
@@ -78,7 +78,7 @@ The **greedy-ordered minimum is monotone non-decreasing with scale** (4 → 5 �
 
 Pre-computed analyze logs:
 - d2 10T, d3 10T, d3 100T: alongside the canonicals in `runs/{20260418_10T_d2_fresh, 20260418_10T_d3_fresh, 20260419_100T_d3_d128westus3}/analyze_output.log.gz` (the 100T run archive is the original; T9+c.1 recovery analyze log was not preserved separately)
-- **d3 560T: `canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log` — ⚠ NOT PUBLIC.** `canonical-archive/…` is operator-held cold blob storage, not a public URL ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary"); `runs/20260608_560T_9a968fa2/` in this repository holds only `viz/`. Every 560T §[6]–§[8] figure on this page is a **transcription** from that operator-held log, not a citation a reader can follow. (13,631 s wall on D128 with the algorithmic rewrites in `solve.c` commits 8ac5e8f, fe58e71, bf8d8a5, c0ec4c3; selftest sha `403f7202…`)
+- **d3 560T: `analyze_v3_560T.log` in the operator-held preserved copy `20260608_560T_9a968fa2/` — ⚠ NOT PUBLIC.** That copy is operator-held, not a public URL ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary"); `runs/20260608_560T_9a968fa2/` in this repository holds only `viz/`. Every 560T §[6]–§[8] figure on this page is a **transcription** from that operator-held log, not a citation a reader can follow. (13,631 s wall on D128 with the algorithmic rewrites in `solve.c` commits 8ac5e8f, fe58e71, bf8d8a5, c0ec4c3; selftest sha `403f7202…`)
 
 ## Limits and scope
 

@@ -3895,7 +3895,7 @@ as the reviewer's proposal and **neither proposed nor queued**. Both public site
 [`SOLVE_C_CLI.md`](SOLVE_C_CLI.md) `SOLVE_F1_KEEP_LAYERS`. A third site, the source comment at
 `solve.c:16130`, is queued to the code lane.
 
-**6. The cold-storage archival hook can lose the layer it was invoked to save.** Two properties are
+**6. The [storage detail redacted] hook can lose the layer it was invoked to save.** Two properties are
 now stated in §Rolling window that the one-line description did not carry. (i) The command string
 is passed to `system()`, i.e. to `/bin/sh`, with the layer path interpolated **unquoted** — the
 format is literally `"%s %s %d"` (`solve.c:16085`–`16088`) — so a run directory containing a space,
@@ -3906,7 +3906,7 @@ as many words. Together, a hook that fails *because of* (i) loses the only local
 repository already knows the class:** `solve.c:17481`–`17486` records that quoting alone is
 insufficient, validates `SOLVE_REGRESS_DIR` against an explicit safe alphabet at its source
 (`regress_dir_safe`), and notes that "guarding only the first is how this defect class survives a
-fix". The cold hook is an unguarded site of that same class. The code fix and a sibling sweep — two
+fix". The [storage detail redacted] is an unguarded site of that same class. The code fix and a sibling sweep — two
 further unquoted interpolations of an argv-supplied path at `solve.c:4131` and `solve.c:4181`,
 against the quoted-and-validated `rm -rf` at `solve.c:17745` — are queued to the code lane, not
 applied here. The doc now documents the hazard loudly, which is the other half of the prescribed
@@ -4347,12 +4347,12 @@ needle.
 **BEFORE.** The provenance parenthetical closed by asserting that the findings the document asks a
 reader to accept are stated and sourced publicly on the page.
 
-**NOW.** MEASURED: `canonical-archive/` does not exist in the tree,
+**NOW.** MEASURED: [storage detail redacted] does not exist in the tree,
 `runs/20260608_560T_9a968fa2/` holds only `viz/`, and
-[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary" defines `canonical-archive/…` as
-operator-held cold blob storage, "not public URLs". So `analyze_v3_560T.log` is not fetchable and
+[CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary" defines [storage detail redacted] as
+operator-held [storage detail redacted], "not public URLs". So `analyze_v3_560T.log` is not fetchable and
 every 560T §[6]–§[8] figure on the page is a **transcription**. The page now says so, marks the two
-`canonical-archive/` rows in its source table as operator-held, and distinguishes them from the d2
+[storage detail redacted] rows in its source table as operator-held, and distinguishes them from the d2
 10T / d3 10T / d3 100T figures, whose `analyze_output.log.gz` files **do** ship in `runs/`.
 
 **Correction to the charge as filed.** The review's title implied the 560T figures are unverified.
@@ -4381,7 +4381,7 @@ is split into depth and budget.
 roae-private; reviewers are acknowledged, not credited as authors. The measurements recorded above —
 the `solve.c` §[6]–§[8] source read (greedy tie-breaking, the absence of any C(31, 5) pass), the
 transcription of §[6] and §[8] from the three shipped `analyze_output.log.gz` files, the
-`c2c3_joint_null.py` predicate check, and the `runs/` / `canonical-archive/` tree audit — are this
+`c2c3_joint_null.py` predicate check, and the `runs/` / [storage detail redacted] tree audit — are this
 lane's (Claude) and every one of them is reproducible from files in this repository.
 
 ## 2026-09-02 — TR-6: a KW-derived premise sold as an unconstrained fact, a stale superlative, an unreproducible experiment, and a sufficient stack setting published as a necessary one
@@ -4838,13 +4838,13 @@ in half the corpus. The new bullet defines the idiom instead of banning it.
 ### 5. Sibling sweep no charge named: the 560T analyze log was listed as though a reader could open it
 
 `RP-96d7a817`, adjudicated earlier on this page on 2026-09-02, established that
-`canonical-archive/…` is operator-held cold blob storage, that `canonical-archive/` is not in this tree,
+[storage detail redacted] is operator-held [storage detail redacted], that [storage detail redacted] is not in this tree,
 and that `runs/20260608_560T_9a968fa2/` holds only `viz/`. That correction landed on
 [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) and **stopped there**.
 `BOUNDARY_MINIMUM.md` listed `analyze_v3_560T.log` under "Pre-computed analyze logs" in the same bullet
 list as the three `analyze_output.log.gz` files that **do** ship in `runs/`, and its source table marked
-neither cold-blob row. Since this pass makes the page lean harder on 560T-only §[24] and §[6] figures,
-leaving them looking fetchable was not an option. §Reproducibility and both cold-blob rows in the source
+neither [storage detail redacted]. Since this pass makes the page lean harder on 560T-only §[24] and §[6] figures,
+leaving them looking fetchable was not an option. §Reproducibility and both [storage detail redacted] in the source
 table now say what is operator-held, state that every 560T §[6]/§[8]/§[24] figure on the page is a
 **transcription**, name the 2026-07 primary-evidence sweep that attests them, and distinguish them from
 the 10T/100T figures a reader can read out of `runs/`. This is a **publication gap, not a computation
@@ -6473,14 +6473,14 @@ corrected here with the rest, marked as such.
 
 ### The archival banner (Codex V2-F15 #9) — `RP-2e39a795`, `RP-456ed634`
 
-The section head banner declared the Azure Blob Archive flow designed but never stood up, no
+The section head banner declared the [storage detail redacted] flow designed but never stood up, no
 automation chosen, and the `solver-data` managed disk the sole tier of redundancy the project had.
-`CANONICAL_HASHES.md` records archives at every active-lineage canonical scale: d3 560T with a warm
-gzip mirror and a cold blob for the original campaign and again for the byte-identical 2026-06-30
-re-run, d3 100T with a cold blob re-verified live 2026-07-17, d3 11.2T with a build-A/build-B pair
+`CANONICAL_HASHES.md` records archives at every active-lineage canonical scale: d3 560T with a [storage detail redacted]
+gzip mirror and a [storage detail redacted] for the original campaign and again for the byte-identical 2026-06-30
+re-run, d3 100T with a [storage detail redacted] re-verified live 2026-07-17, d3 11.2T with a build-A/build-B pair
 plus a witness-only v3 upload plus the dress rehearsal, and d3 10T, d3 5.6T and d2 10T with a
 build-A/build-B pair each. (The banner's replacement deliberately does not publish a total: a raw
-grep of `canonical-archive/` returns fourteen distinct paths in sixteen lines, and that population
+grep of [storage detail redacted] returns fourteen distinct paths in sixteen lines, and that population
 includes the CLOSED v2 lineage and one path CANONICAL_HASHES.md's own note records as never
 populated. A count that needs three caveats to be true is worse than the enumeration.) The banner was not imprecise; it was
 inverted. The incident cost of believing it is the reviewer's own scenario — an operator declares
@@ -9090,7 +9090,7 @@ they were right.
 
 **The measurement.** Summing the 32 completed g-layer files gives **8,274,431,592,051 B = 8.27 TB**,
 which agrees to within 1.8 MB with the Stage G archive manifest's independent total over its 77
-blobs. Against the f ladder's measured **3,293,894,951,830 B = 3.29 TB**, g is **2.5× f**.
+[storage detail redacted]. Against the f ladder's measured **3,293,894,951,830 B = 3.29 TB**, g is **2.5× f**.
 Reproduce on a completed ladder with `du -sb GDIR` and `du -sb FDIR`.
 
 **What was wrong, and where.** Four sites in `solve.c` and one in
@@ -10803,7 +10803,7 @@ ladders, not a lookup**. Costed from the atlas's own measured counts: naively **
 g-lookups against the first scan's **1.27×10¹³** (27.6×, ≈ 800 h at the measured 28.9 h per
 64-thread scan if lookup-bound), or ≈ 2.3× that scan (≈ 65 h) by recovering the previous exit per
 layer-(k+1) entry with ≤ 2k f-lookups and reusing the one-step g-lookups. Both need **warm**
-ladders; they are cold, and the 11.5 TB rehydration is not permitted by standing rule.
+ladders; they are [storage detail redacted], and [storage detail redacted] is not permitted by standing rule.
 
 **Why this matters beyond the wording.** §9 states that this document does not publish capability
 limits where cost limits are the truth. This was one, and it originated in a private analysis note
@@ -10934,7 +10934,7 @@ error: **a blocker was named from where the work stopped, not from what actually
 
 **1. V4 was never blocked on the ladders.** TR-12 §2 read *"V3 (rank spectrum) and V4 (neighborhood
 shells) are not rendered, and no full-31 version of either exists. Both need a read of the f/g
-ladders, which are cold and unmounted, and the 15 TB rehydration that would feed them is not
+ladders, which are [storage detail redacted] and unmounted, and [storage detail redacted] that would feed them is not
 permitted by standing rule."* `viz/README.md` and `viz/viz_kc_shells.md` ("Full-31 (PENDING the
 ladders)") carried the same attribution. **It is false for V4.** The n=31 battery receipt records
 `TR12_V4_TSV=PASS`: V4's input, the King Wen rarity profile, was produced by the run of 2026-09-22
@@ -10943,7 +10943,7 @@ the same receipt one line away: `TR12_VIZ=SKIP:matplotlib-absent` — matplotlib
 project dependencies and were not installed on the query host, which was then torn down. The TSV was
 banked. Rendered 2026-09-23 from that banked profile in seconds, with **no ladder and no VM**, and
 committed as `tr12/q3_profile_kw.tsv` beside `reports/figures/fig_tr12_kc_shells.{png,svg}`.
-**What the error cost a reader:** it priced a free figure at a 15 TB rehydration and filed it under
+**What the error cost a reader:** it priced a free figure at a [storage detail redacted] and filed it under
 a standing rule that forbids one. Nobody re-checked whether the input already existed, because the
 sentence explaining its absence was fluent and plausible. **V3 is genuinely unrendered and its
 blocker is also mis-stated:** the rank grid IS produced (`tr12/v3_rel_grid.tsv`, 1000 points,
@@ -14822,9 +14822,9 @@ now scoped to sizes with a local disk, and on Dalsv7 it says to create with
 publicIpAddress`, prints nothing; it is now `az vm show -d … --query publicIps`, the form
 `scripts/perf_bench.sh` already uses. The checklist wrote `run_id.txt` before the stale-state wipe;
 it now writes it after, as the worked example does. The SIGTERM paragraph is scoped to bundled-merge
-mode, and the CPU note no longer calls the "Turin" label wrong. DEVELOPMENT.md's storage table gave
-Blob Cold (and Cool) a restore time of hours and seconds; both are online tiers with millisecond
-access, and only Archive needs rehydration.
+mode, and the CPU note no longer calls the "Turin" label wrong. [storage detail redacted]
+[storage detail redacted] a restore time of hours and seconds; [storage detail redacted]
+access, [storage detail redacted].
 
 **Claims narrowed.** CAMPAIGN_METHODOLOGY.md §6 blamed 1T sha differences on hosts, compilers and
 microcode two paragraphs above the marker that withdraws that evidence; it now says budget. Its 11.2T
@@ -17505,7 +17505,7 @@ sidecar's `final_per_sub_branch_limit` when the new budget is larger, and `null`
 aggregator reads that number as `from_budget`. The row was corrected on the same line, with the
 old wording kept in a dated note.
 
-**5. The cold-archive count rule assumed one sidecar per shard.** CAMPAIGN_METHODOLOGY.md rule 6
+**5. The [storage detail redacted] count rule assumed one sidecar per shard.** CAMPAIGN_METHODOLOGY.md rule 6
 says to compare each pattern's count to the expected total and hard-fail on a mismatch. A same-line
 dated note now says the expected sidecar total is the count measured on the source, not the
 `.bin` count. It names the cases where the two legitimately differ: legacy shards from before
@@ -21922,7 +21922,7 @@ re-run's merge on 2026-07-01 printed the same three numbers. `--merge` counts `s
 each size to be a multiple of 32 and sums size / 32; it never opens a sidecar. The figure 43,880,306,393 was
 never printed by any merge. It is the `total_records_predefup` field of a `manifest.json` written on
 2026-07-01 by the Tier-B archival worker, whose manifest routine sums `size // 32` over every file matching
-the glob `sub_*` in the cold shard prefix, and which was called for 560T with exactly that glob. The 560T
+the glob `sub_*` in the [storage detail redacted], and which was called for 560T with exactly that glob. The 560T
 prefix holds 354,207 files: 65,281 shards, 65,281 `.bin.budget` sidecars (11 bytes each, 0 after `// 32`),
 65,281 `.bin.provenance.json` sidecars and 158,364 `.dfs_state` checkpoints. The surplus, 3,841,927, is the sum over
 those sidecar files of ⌊size / 32⌋ (the routine floors each file separately), so it stands for at least 3,841,927 × 32 =
@@ -24560,3 +24560,200 @@ and `TestQ867DocPointersAfterQ857.test_gate89_does_not_read_generated_inventorie
   Printing M_k per layer would make part 1's tie direct.
 - `--brute-g` with KMIN = 18 is hours on 16 cores. A per-row progress line would let a long run
   report partial results; today it prints only at the end.
+
+## CX-241 — the independent ladder readers accepted five malformed shapes they should have refused, a battery label called a same-stream sample independent, and four published sentences were wrong; the readers now refuse each shape by name and the sentences say what is true, and no published number read from the ladders changed (verify.c; solve.c; solve.py; tests.py; scripts/tr12_repro.sh; scripts/tr12_expected/n9/; documentation/VERIFY.md; documentation/SOLVE_C_CLI.md; documentation/SOLVE_PY_CLI.md; documentation/RETRACTED_PHRASES.tsv; reports/FULL31_EXACT_AGGREGATES.md; reports/TR12_QUERY_PROGRAM.md; runs/20260906_kc_ladders_n31/README.md; lean/README.md; reports/certificates/README.md)
+
+**2026-09-29.**
+
+**Source.** The Codex (gpt-6-astra) KCV review, triaged by Fable. The review asked whether the
+published n=31 f, g and t ladders could be invalid. Its answer was NO-BUT: no wrong ladder byte,
+entry, count, digest or verdict was found, and a set of checker gaps and wrong sentences was. This
+entry applies the rows the triage assigned to prose and to code. Each row was checked against the
+tree before it was changed.
+
+**No published number moves.** No count, digest, mass, verdict token or banked receipt changes. The
+published n=31 atlas still passes every `--atlas-probe` gate, including the new one, and
+`DOOMED_FRACTION_OF_T_ROOT=0.686725` is unchanged. No sampler seed changes and no gallery is
+re-drawn. `./solve --selftest` is not affected: the `solve.c` edits are in the layer-block reader,
+the sidecar retrofit and a comment, none on the enumeration path.
+
+**Prior work, checked first.** R3 (the pre-registration's Stage T instrument and date) landed in
+CX-240. R16 and R21 landed in CX-231 and CX-232. Two of R13's three sub-items were already cured by
+Q-874 and Q-875: an unreadable layer and a failed emitter each exit 2 by name. Of R19's sub-items,
+the three `solve.c` comment fixes landed in CX-231. The TR-11 sentence crediting a plain recount at
+n = 18 stays: that recount is on record (documentation/REPRODUCE.md lists
+`verify.py --recount-rung 18` with `[MATCH]`). The triage's queue note says R2 is closed; it is
+closed only for k ≤ 7 (CX-240), and M_8..M_30 still rest on the engine's DP.
+
+**1. Published sentences that were wrong, and what they say now.**
+
+- **reports/FULL31_EXACT_AGGREGATES.md §2** gave the number of intermediate rung rows as 27. The
+  same paragraph gives 38 layer masses (9 + 13 + 16), 3 of them rung totals, so 35 are
+  intermediate. It now says thirty-five, with a note. Key `RP-2952bbcb` (Codex KCV R19).
+- **runs/20260906_kc_ladders_n31/README.md**, the provenance of the logical layer digests. It said
+  each sidecar's `own_sha256_decompressed` was taken inline during the finalize concat, and it
+  quoted a `solve.c` comment that describes a different digest (the finalized marker's). The
+  sidecar digest is computed by re-reading the finalized layer file (`f1c5_layer_sha_hex`). The
+  README now says that, and that all 96 logical digests were re-derived live on 2026-09-17. Key
+  `RP-2009859b` (R15).
+- **documentation/SOLVE_PY_CLI.md, `--atlas-probe`**, said that no table other than `counts`
+  carries the dead/live split, so that `DOOMED_FRACTION_OF_T_ROOT` rested on the atlas's own
+  identity gate. The out-degree census `outdeg` does carry it: the producer binds its c = 0 column
+  to the dead-end fields. The page now says the split is tied to `outdeg` by a probe gate (part 2).
+  Key `RP-72f0f20f` (R9).
+- **reports/TR12_QUERY_PROGRAM.md §Q8 and §C, and documentation/SOLVE_C_CLI.md's `--kc-sample`
+  line**, called the walk sampler "exact-uniform" or "uniform" with no statement of what the
+  generator can reach. The candidate rank is built from three consecutive outputs of one
+  64-bit-state splitmix64 generator, so one seed can reach at most 2⁶⁴ of the ≈10³⁹ ranks. §Q8 and
+  §C now define the term (exact rejection sampling of ranks, uniform given the pseudo-random
+  stream) and state that limit; the CLI line says the same in short. TR-12 v1.24 (R6).
+
+A fifth wrong statement was in a battery transcript line rather than a document. `scripts/tr12_repro.sh`
+row `a1_q8_subset` labelled the Q8 C15 gallery `independent-C15-sample` and called Q4(a,c)'s draws
+an independent sample of the same acceptance probability. The Q8 SUPER gallery, the C15 gallery and
+Q4(a,c) share one seed, and the review found that SUPER's 110 accepted walks are exactly the C15
+gallery's first 110 (R7). The label is now `same-stream-C15-sample`, and both lines say the draws
+come from the same seeded stream and are not independent. The n=9 golden
+`scripts/tr12_expected/n9/a1_q8_subset.txt` is regenerated: it changes in exactly those two lines,
+and its row in `_MANIFEST.txt` carries the new digest. The banked n=31 receipt
+`reports/evidence/tr12/banked_n31_20260922/a1_q8_subset.txt` is **not** edited. It is the as-run
+record, bound by that directory's `SHA256SUMS`, and it keeps the old label; this entry is where its
+superseded label is recorded. No number in it depends on the label. Separate seeds for the three
+draws would change banked numbers and are not made.
+
+**2. Checker and reader changes.** None changes a published ladder's verdict. Each refuses a
+malformed shape that no published file has.
+
+- **`verify --check-layers` completeness (R5).** An absent layer file was skipped, because a
+  rolling-window build prunes old layers, so rc 0 meant "every present layer checked". The driver
+  now always prints `LAYERS_ABSENT=<n>`. With `LC_LAYERS_COMPLETE=1` it prints
+  `LAYERS_COMPLETE_MODE=1` and fails when any layer in the checked range is absent, or when a run
+  log is given and a checked layer k ≥ 1 has no mass line in it. The triage requires this before
+  the f ladder's per-entry pass (R4) is run, so that the result is backed by
+  `LAYERS_REDERIVED=32` and `LAYERS_ABSENT=0`, not by rc 0 alone. Documented in VERIFY.md.
+- **Mask lists must be complete (R10).** GT_LADDER_FORMAT.md says every layer lists every canonical
+  mask, keeping an empty span for one whose states vanished. The readers checked only that each
+  listed mask was canonical. `verify.c` now computes the Burnside count of canonical k-masks from
+  the run's restricted pair-permutations alone and requires the layer's mask count to equal it, in
+  `--check-layers`, `--scan-layers` and the g/t readers. The n=9 counts 1, 3, 9, 20, 27, 27, 20, 9,
+  3, 1 equal it, computed here from `verify.py`'s pair-permutations; at n=31 the published
+  `canonical_masks` column already equals it (`verify.py --recount-orbit-widths 31`).
+- **A full-31 ladder is rooted at exit 0 (R11)** and **the manifest tag is line 1, exactly (R17).**
+  The manifest parser shared by all three modes accepted the tag as a prefix of any line, and at
+  n=31 compared each header's `start_exit` only with the manifest's. It now refuses a line 1 that
+  is not exactly `<pfx>_manifest_v1`, and a full-31 manifest whose `start_exit` is not 0.
+- **A v2 block is one zlib stream (R14).** Block decoding used `uncompress()`, which stops at the end
+  of the first stream and ignores bytes after it inside the block's indexed span. Every block
+  decode in `verify.c` (the sequential reader, the parallel scan lanes and the g/t cursor, six
+  sites) and `solve.c`'s `f1c5_inflate_block` now use `inflate(Z_FINISH)` and require the stream to
+  end, fill the expected size exactly and consume the whole span. The published files are pinned by
+  their raw digests and every reader decoded the same first stream, so no published value could
+  have moved.
+- **`solve --f1c5-sidecar-retrofit` checks the budget (R13).** It took the budget from the manifest
+  and never compared it with the layer header's `b0`. A mismatch is now
+  `F1C5_SIDECAR_RETROFIT_LAYER=BUDGET-MISMATCH`, the layer is not counted, and the exit is 2; a
+  header shorter than 72 bytes is `UNREADABLE`. Documented in SOLVE_C_CLI.md.
+- **The battery's sidecar chain follows the builder's direction (R12).** `ladder_sha_row` in
+  `scripts/tr12_repro.sh` accepted a genesis marker at any layer, and any other in-range layer as a
+  predecessor. It now requires the builder's links (f: k to k−1; g and t: k to k+1), a genesis only
+  at the chain's first layer, and exactly one genesis per ladder. Each refusal is a `CHAIN-BROKEN`
+  line; these print only on a failure, so no golden changes. (The triage suggested `WRONG-SLOT` for
+  a misdirected link. That token already means a sidecar in the wrong file slot, and an existing
+  test requires it to be absent when only the links are wrong, so `CHAIN-BROKEN` is used.)
+- **The dead/live split has a second table (R9).** `solve.py --atlas-probe` gains the gate
+  `PROBE_DEAD_OUTDEG_TIE`: at every layer, `counts.st_dead` must equal `outdeg.od0.dc`,
+  `counts.st_dead_fmass` must equal `outdeg.od0.df`, and `outdeg.od0.dw` must be 0. It passes on
+  the published atlas. Measured here: an atlas with one unit of f-mass moved from `st_dead_fmass`
+  to `st_live_fmass` (additivity kept) passes the probe as it was before this change (rc 0, no
+  FAIL line) and fails after it on this gate alone. SOLVE_PY_CLI.md's token list and TR-12 §12.2
+  name the gate.
+- **Comments (R19).** `verify.c`'s g-ladder census now states that a PASS covers
+  `IDENTITIES_CHECKED=` layers and no more (a seed-only ladder passes with 1), and that a caller
+  meaning the whole ladder must require n+1. The LC_RESUME replay site says a replayed layer is not
+  re-derived. `solve.c`'s sha-ledger lookup says a ledger with two lines for one layer resolves to
+  the last, and that the sidecar digest does not come from the ledger.
+
+**3. Batch 26 follow-up (Q-906).** `reports/certificates/verify_all.sh` prints
+`WITNESS_G95_LAYOUT=`, `WITNESS_ANNOTATIONS_CHECKED=` and `LEAN_SOURCE_CENSUS=` inside `check()`,
+so they reach the run log and not the console. `lean/README.md` and
+`reports/certificates/README.md` now say so, and name the line that gives the log's path. The
+script's output is unchanged. `documentation/SAT_CLI.md` does not list these tokens.
+
+**4. Tests.** One new class, `TestK28KcvTriageFixes`, 14 tests, on a real n=9 f and g ladder built
+by the `solve.c` under test and on the published n=31 atlas. `ROAE_TESTS_VERIFY_SRC` and
+`ROAE_TESTS_SOLVE_SRC` swap the sources. Each red case is one the base tree passes: a deleted layer
+under `LC_LAYERS_COMPLETE=1`; a run log holding one mass line; a layer with one canonical mask and its
+span removed (every reader); a full-31 manifest with `start_exit=1`; a manifest tag on line 3 and one
+with a suffix; four trailing bytes inside a v2 key block (both `verify.c` readers and
+`solve --f1c5-layer-sha`); a manifest `b0` that differs from the headers; a g sidecar linking two
+slots away, and a second genesis at k=1; the moved f-mass atlas above. Each has a positive control,
+and each asserts its precondition. Two label tests pin the relabelled golden line and the stated
+generator reach, with the as-run receipt as the positive control for the retired label pattern.
+
+**5. Gates run in this lane**, which has no compiler: `citation_line_gate.sh --all-files
+--all-targets` gives `CITATION_LINE_GATE=PASS` after three citations of moved lines were re-pinned
+(`scripts/exec_lane.sh` and a `solve.py` comment to VERIFY.md, and SOLVE_PY_CLI.md to `solve.py`).
+`bash -n scripts/tr12_repro.sh` is clean, and the script's two relabelled lines, run on their own,
+are byte-identical to the regenerated golden. The atlas probe was run on the published atlas and
+on the mutant above. `verify.c`, `solve.c` and `tests.py` were not compiled or run here; the new
+class and the full suite run on the worker. `verify.c`, `solve.c`, `solve.py`, `tests.py` and
+`scripts/` are in the TR-12 reproduction fingerprint, so the batch re-stamps it.
+
+**Not done here.**
+- R18 (a `lean/CompilerCorrectness.lean` docstring) is a Lean change and waits for the Lean lane.
+- R1, R4 and R8 need the n=31 ladder bytes. R1: the stabiliser-invariance scan and the sampled
+  recurrence check. R4: `verify --check-layers` over all 32 f layers under the contract of part 2,
+  with the placed-pair membership check for the f and t modes added first. R8: an independent
+  second scan whose atlas must equal the published one byte for byte.
+- R20 (an optional paragraph deriving the full-31 budget) was rejected as a defect and is not
+  written. R22 was rejected.
+- In documentation/HISTORY.md's section of May 30-31, 2026 (the 560T pipeline dress rehearsal),
+  the first of the five supervisor bugs now reads oddly: CX-230 replaced the dollar figure it
+  quoted with a placeholder, and the sentence still explains how bash parsed that figure.
+  HISTORY.md is append-only, so the sentence stays as it is (batch 26 follow-up Q-907).
+
+## CX-242 — operational storage detail removed from the current tree
+
+**2026-09-29.**
+
+**The decision.** The operator decided that the public record carries no operational detail about
+where data copies are kept, which is outside the project's scope. The decision applies to the
+current tree only; git history is unchanged. What the mathematics rests on stays: every sha256,
+record count and verification statement is kept, and a preserved copy is still named by its run
+directory where a document cited one.
+
+**What changed.** No edit in a document added or removed a line, so no line citation moved; where a
+passage was removed, blank lines hold its place.
+
+- **Append-only ledgers.** In this file, 28 spans on 24 lines, and in [HISTORY.md](HISTORY.md), 176
+  spans on 149 lines, were each replaced by `[storage detail redacted]`, with nothing else on the
+  line changed. Two HISTORY.md section headings carried such a span, so two anchors changed; the only
+  links to either were in the generated [HISTORY_INDEX.md](HISTORY_INDEX.md), which was regenerated.
+- **Other documentation.** CANONICAL_HASHES.md, DEVELOPMENT.md, CAMPAIGN_METHODOLOGY.md,
+  BOUNDARY_MINIMUM.md, PARTITION_STABILITY_BOUNDARIES.md, PERFORMANCE_HISTORY.md,
+  LARGE_SCALE_CAMPAIGNS.md, DEPLOYMENT.md, SOLVE_C_CLI.md, RETRACTED_PHRASES.tsv (three notes; no
+  registered phrase changed), `enumeration/README.md` and TR-12 were reworded to keep their point
+  without the detail. DEVELOPMENT.md's section on keeping copies is reduced to a pointer at
+  CANONICAL_HASHES.md, and two of CAMPAIGN_METHODOLOGY.md's numbered close-out lessons are replaced
+  by a dated removal note, so the numbering of the rest is unchanged. Where a sentence quotes an
+  earlier wording, only the span was replaced, with the same marker.
+- **One run page and three digest files.** `runs/20260906_kc_ladders_n31/README.md` was reworded in
+  two sentences, and the first comment line of each `STAGE_{F,G,T}_MD5.txt` now ends with the same
+  marker. No digest row changed, and no SHA256SUMS file or escrow page covers these files.
+- **Code comments.** Three comments, in `solve.c`, `scripts/exec_lane.sh` and
+  `scripts/capture_build_manifest.sh`. No code changed. An environment variable name and its log
+  strings, and two scripts' deny-lists of operator commands, are code and are unchanged.
+- **Generated files.** [CORRECTIONS_INVENTORY.tsv](CORRECTIONS_INVENTORY.tsv) and HISTORY_INDEX.md
+  were regenerated; inventory rows whose Markdown source line changed get new ids, as any edited
+  line does. No commit subject in the inventory carried such detail, so its generator is unchanged.
+
+**The append-only gate.** GATE 10 (`appendonly-head` and `appendonly-history`) now also accepts a
+committed line that the working copy holds with one or more spans replaced by
+`[storage detail redacted]` and every other character unchanged, including a `[cost redacted]`
+marker beside it. Each marker must stand for a non-empty span; a working line with fewer than four
+characters outside its markers anchors nothing and is never used; and a committed line still
+present verbatim is never re-aligned. A reworded word outside the spans still fails.
+`TestCX242AppendOnlyStorageRedaction` in tests.py runs the real gate in a scratch repository: two
+green cases (two spans on one line; a span beside a cost marker) and three red cases (a reworded
+word, a marker that replaces nothing, a whole line replaced by a bare marker). It also checks its
+own precondition: with the alignment step disabled, the first green case fails.

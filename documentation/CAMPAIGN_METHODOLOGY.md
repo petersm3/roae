@@ -369,8 +369,8 @@ records found.
 
 ### Concrete extension recipe (560T → 1120T or any higher scale)
 
-Given the cold-archive directory `solver-data:/canonical-archive/<source-
-campaign>/` produced by the source campaign (which contains
+Given the preserved archive directory `<source-campaign>/` produced by the
+source campaign (which contains
 `shards.tar.gz`, `dfs_state.tar.gz`, `budget.tar.gz`, `solutions.bin.gz`,
 provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 
@@ -378,13 +378,13 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    for the source campaign) with a **new Premium SSD** sized for the larger
    shard set — roughly **2× the source archive's `shards.tar.gz` uncompressed
    size** plus a working margin. Mount both disks by UUID.
-2. **Gunzip the three preservation tarballs** from the cold archive onto
+2. **Gunzip the three preservation tarballs** from the preserved archive onto
    the new Premium's run directory, preserving the per-cell file layout:
    ```bash
    cd /mnt/premium/run_<new_scale>
-   tar -xzf /mnt/solver-data/canonical-archive/<source-campaign>/shards.tar.gz
-   tar -xzf /mnt/solver-data/canonical-archive/<source-campaign>/dfs_state.tar.gz
-   tar -xzf /mnt/solver-data/canonical-archive/<source-campaign>/budget.tar.gz
+   tar -xzf /mnt/solver-data/<source-campaign>/shards.tar.gz
+   tar -xzf /mnt/solver-data/<source-campaign>/dfs_state.tar.gz
+   tar -xzf /mnt/solver-data/<source-campaign>/budget.tar.gz
    ```
    These three sets are what makes extension possible:
    - `sub_<cell>.bin` — the records found within the source budget
@@ -660,7 +660,7 @@ This is a **partition-invariance witness** at a different scale — see
 
 ## 4. What must be preserved for extension
 
-For extension to work, the source campaign's cold archive must contain, in
+For extension to work, the source campaign's preserved archive must contain, in
 addition to the merged `solutions.bin`:
 
 | File | Purpose |
@@ -673,10 +673,10 @@ addition to the merged `solutions.bin`:
 | `EXTENSION_RECIPE.txt` | The operational version of section 3 of this doc, written by the archive supervisor. Pin to the archive bytes; not maintained over time. |
 
 Crucially: the live "working" Premium SSD from the source campaign is
-**redundant with the cold archive** for extension purposes. Either one works.
-The cold archive is the durable, infrastructure-failure-resistant path; the
+**redundant with the preserved archive** for extension purposes. Either one works.
+The preserved archive is the durable, infrastructure-failure-resistant path; the
 live Premium is a convenience (faster to re-attach + run than to gunzip from
-cold archive).
+the archive).
 
 ### 4.1 Post-merge artifact preservation: NOT automatic (SPOF caveat)
 
@@ -699,7 +699,7 @@ The fix is two-pronged:
    place for this is inside `phase_b_merge_supervise.sh` (or its
    replacement) — bake it in once and every future campaign inherits it.
 2. **Pre-launch disk-space gate** for solver-data: it must be sized to
-   hold uncompressed working copy + gzipped warm-tier mirror BEFORE
+   hold uncompressed working copy + gzipped preserved copy BEFORE
    launch, not after merge completes. The 560 T campaign's solver-data
    was 2 TB (≈ 800 GB free) at launch, insufficient for the 560 T uncompressed
    plus mirror (≈ 2.4 TB; see the ⚠ under the table below, which removes the checkpoint figures from this
@@ -709,7 +709,7 @@ The fix is two-pronged:
 Capacity planning table (rough, derived from the 560 T artifact sizes,
 power-law-projected for 1120 T):
 
-| Scale | `solutions.bin` | Shards (.bin) | Checkpoints (.dfs_state) | On-disk total (mixed framing; see ⚠) | Cold mirror (gzip-9 of binary subset) | Required solver-data free |
+| Scale | `solutions.bin` | Shards (.bin) | Checkpoints (.dfs_state) | On-disk total (mixed framing; see ⚠) | Preserved copy (gzip-9 of binary subset) | Required solver-data free |
 |---|---|---|---|---|---|---|
 | 11.2 T | ~5 GB | ~10 GB | ≈70 MB | ~15 GB | + ~30 GB | ~45 GB |
 | 100 T | ~115 GB | ~150 GB | ≈70 MB | ~265 GB | + ~250 GB | ~515 GB |
@@ -802,8 +802,8 @@ moves proportionally fewer records. Empirically:
   independent derivations (Build A May 14 and Build B May 14, both on D64als_v7
   hosts per CANONICAL_HASHES.md, v3 sha-equivalence May 24, c72eada+#108 witness May
   27, t62 dress May 28, and the Tier-1 post-hardening dress May 31 — "Tier-1" being the
-  *determinism-hardening* level, not a campaign budget and not the
-  warm/Archive **storage** tiers this document uses elsewhere) all produce the same sha, the later ones on D128als_v7 Spot westus3; a May 15 cold-storage re-checksum of the stored bytes also matched, which is preservation evidence, not a further derivation.
+  *determinism-hardening* level, not a campaign budget)
+  all produce the same sha, the later ones on D128als_v7 Spot westus3; a May 15 re-checksum of the preserved bytes also matched, which is preservation evidence, not a further derivation.
   ⚠ **[CORRECTED 2026-09-25 (Q-763) — this read "Seven independent witnesses … on D128als_v7"; Build A and Build B ran on D64als_v7, and a re-checksum is not a derivation.]** See the 11.2T row in
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current
@@ -896,7 +896,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | **Final sha256** | **`9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** |
 | Records | **10,525,271,997** unique canonical solutions |
 | Bytes | **336,808,703,936** on disk (32-byte header + records × 32; record-bytes = 336,808,703,904) |
-| Pre-merge shard records (per-sub-branch canonical) | **43,876,464,466** (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[CORRECTED 2026-09-19 — this cell read **43,876,464,466**, which is the **2026-06-30 re-run's** pre-merge total, not this campaign's. Campaign #49 is the ORIGINAL run launched 2026-06-01 — the 5 evictions two rows below are its own — and its pre-merge shard total is **43,880,306,393**. The original over-emitted exactly **+3,841,927** records (0.009%) relative to the re-run, every one a duplicate the canonical dedup erased, which is why both runs produce sha `9a968fa2…` byte-identically. Both figures are published and correct where they belong: [CANONICAL_HASHES.md](CANONICAL_HASHES.md):99-100 and [HISTORY.md](HISTORY.md):5146-5147 carry the pair, are correct, and are NOT changed by this correction. No sha, record count or verdict moves. See documentation/CORRECTIONS.md CX-52.]** ⚠ **[CORRECTED 2026-09-27 — the 2026-09-19 correction immediately before this one is withdrawn and the cell is restored to **43,876,464,466**, the value the closeout wrote on 2026-06-09. That is this campaign's own figure: its merge log (2026-06-08) reads "Total records before dedup: 43876464466" and its `solutions.provenance.json` reads "total_records_emitted": 43876464466. The 2026-06-30 re-run's merge counted the same integer. 43,880,306,393 is an archive-manifest field written on 2026-07-01 that summed `size // 32` over every `sub_*` file in the cold shard prefix, sidecars included; it is not a record count of either run, and the "+3,841,927 over-emission" was the sum over the sidecar files of ⌊size / 32⌋. The registry sites the 2026-09-19 note said carry the pair "correctly" are corrected the same day: CANONICAL_HASHES.md by an in-place annotation, and HISTORY.md, which is append-only, by an appended pointer entry. No sha, record count or verdict moves. See documentation/CORRECTIONS.md CX-222.]** ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch (cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift: `analyze_solution()` hashes and compares `canonical[]` — the record with the orient bit cleared, matched as `existing[ci] & 0xFC` — and `flush_sub_solutions()` / `flush_sub_solutions_d3()` each end by `memset`-ing `ts->sol_table` and zeroing `ts->solution_count`), so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** |
+| Pre-merge shard records (per-sub-branch canonical) | **43,876,464,466** (4.17× cross-sub-branch rediscovery ratio — NOT an orientation-dedup ratio) ⚠ **[CORRECTED 2026-09-19 — this cell read **43,876,464,466**, which is the **2026-06-30 re-run's** pre-merge total, not this campaign's. Campaign #49 is the ORIGINAL run launched 2026-06-01 — the 5 evictions two rows below are its own — and its pre-merge shard total is **43,880,306,393**. The original over-emitted exactly **+3,841,927** records (0.009%) relative to the re-run, every one a duplicate the canonical dedup erased, which is why both runs produce sha `9a968fa2…` byte-identically. Both figures are published and correct where they belong: [CANONICAL_HASHES.md](CANONICAL_HASHES.md):99-100 and [HISTORY.md](HISTORY.md):5146-5147 carry the pair, are correct, and are NOT changed by this correction. No sha, record count or verdict moves. See documentation/CORRECTIONS.md CX-52.]** ⚠ **[CORRECTED 2026-09-27 — the 2026-09-19 correction immediately before this one is withdrawn and the cell is restored to **43,876,464,466**, the value the closeout wrote on 2026-06-09. That is this campaign's own figure: its merge log (2026-06-08) reads "Total records before dedup: 43876464466" and its `solutions.provenance.json` reads "total_records_emitted": 43876464466. The 2026-06-30 re-run's merge counted the same integer. 43,880,306,393 is an archive-manifest field written on 2026-07-01 that summed `size // 32` over every `sub_*` file in the preserved shard directory, sidecars included; it is not a record count of either run, and the "+3,841,927 over-emission" was the sum over the sidecar files of ⌊size / 32⌋. The registry sites the 2026-09-19 note said carry the pair "correctly" are corrected the same day: CANONICAL_HASHES.md by an in-place annotation, and HISTORY.md, which is append-only, by an appended pointer entry. No sha, record count or verdict moves. See documentation/CORRECTIONS.md CX-222.]** ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch (cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift: `analyze_solution()` hashes and compares `canonical[]` — the record with the orient bit cleared, matched as `existing[ci] & 0xFC` — and `flush_sub_solutions()` / `flush_sub_solutions_d3()` each end by `memset`-ing `ts->sol_table` and zeroing `ts->solution_count`), so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** |
 | Final shard count | **65,281** cells with non-empty shards (41.2 % yield) |
 | Cells with zero solutions | 93,083 (58.8 %) — fully scanned, budget exhausted, no records emitted |
 | `.dfs_state` checkpoint count | 158,364 (100 % of cells scanned) |
@@ -907,7 +907,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | Total realized cost | **not published.** The pre-launch projection is not restated here; the realized total varied with eviction-defer wall-time and no itemized ledger has been published for it. ⚠ **[CORRECTED 2026-09-01 — this read "recorded in HISTORY.md campaign ledger". It is not: the 560 T entry in HISTORY.md records launch, wall, records, sha, dedup ratio, verify status and eviction count, and no cost total; that file's cost totals stop at earlier, smaller campaigns. The cross-reference pointed at a ledger that does not exist, and a `[cost redacted]` 560 T total elsewhere in this document was anchored to it — see §7 rule 9, where both are withdrawn.]** ⚠ **[AMENDED 2026-09-01, later the same day — "not published" is right about the public corpus but was read here as "not known", and that is wrong. A realized total **was measured** at campaign closeout and is recorded in the project's private closeout analysis (`petersm3/roae-private:560T_FINAL_ANALYSIS.md`, the "Cost (realized)" row, stated against the campaign's hard cap). So this is a **publication** gap, not a measurement gap. The figure is deliberately not restated here: a cost total carries no reproduction command, and §7 rule 9 has set the bar for putting one in this document at an **itemized** ledger — VM hours by SKU, disk-months, closeout — which the private one-line total does not supply. Withdrawing it as an estimation anchor (rule 9) and knowing it was measured are both true at once.]** |
 | Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:34, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
 | Throttled-host re-provisions | 0 (no host returned throttled state) |
-| Cold archive | `solver-data:/canonical-archive/20260608_560T_9a968fa2/` (gzip warm mirror) + `canonical-archive/20260608_560T_9a968fa2/` (cold blob); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
+| Preserved copies | `20260608_560T_9a968fa2/` (gzip, with sidecars); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
 | Post-merge SPOF discovered + remediated | Per §4.1: the merge supervisor does NOT auto-copy solutions.bin to solver-data; explicit copy was added mid-campaign before teardown. solver-data resized 2 TB → 4 TB online to fit uncompressed + gzip-mirror artifacts. |
 
 ### Operations design choices made for this campaign
@@ -1056,7 +1056,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   at canonical scale the glob hits `ARG_MAX` once the file count
   crosses ~ 30 K and silently fails (returns 0). The `find` invocation
   does its matching inside the find process and has no `argv` limit.
-- **Cold archive includes shards + dfs_state + budget tarballs.** Cold
+- **The preserved archive includes shards + dfs_state + budget tarballs.** The
   archive itself is extension-ready (you do not need the live Premium to
   extend).
 - **Extension recipe written into the archive directory** — see
@@ -1070,7 +1070,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 
 ### Close-out lessons learned (added 2026-06-10 — bake into the next extension's supervisors)
 
-The 560T close-out cascade (warm copy → cold archive → analyze → blob upload)
+The 560T close-out cascade (working copy → preserved archive → analyze)
 took ~2 days of operator-attended babysitting because of a chain of small
 failures that each required hand-correction. Any future extension (the 1120T step is not planned as of 2026-08-01; this recipe is retained so a
 later operator can extend at any scale) must not repeat these patterns. Each rule below ships with the
@@ -1078,36 +1078,36 @@ specific symptom that motivated it.
 
 1. **Separate VMs per disk source for post-merge workloads.**
    On 2026-06-09 we ran solve --analyze + verify.py (64 workers) +
-   sha256sum + gzip step 2 of the cold archive **all on a single D64 Spot
+   sha256sum + gzip step 2 of the archive **all on a single D64 Spot
    against one Standard SSD**. Aggregate IOPS budget ~5,000 split across
    130+ concurrent readers = ~38 IOPS each. solve --analyze ran 7+ h
    instead of expected ~2 h, the Spot eviction window caught it, and the
    D64 time + ~8 h of analyze work were lost.
-   **Rule:** post-merge workloads (verify.py, solve --analyze, cold-archive
-   gzip+azcopy, sha256sum) each get their own VM with their own attached
+   **Rule:** post-merge workloads (verify.py, solve --analyze, archive
+   gzip, sha256sum) each get their own VM with their own attached
    disk source. Snapshot the merged solver-data into N independent disks
    if true parallelism is needed. Within a single VM, serialize — never
    run two disk-heavy workloads concurrently against the same SSD.
 
-2. **Use account-key SAS tokens for blob writes; user-delegation SAS does
-   not have data-plane permissions on this account.**
-   The 2026-06-10 first cold-archive azcopy failed with
-   `AuthorizationPermissionMismatch` against 354,220 files. Root cause:
-   `az storage container generate-sas --as-user` produces a user-delegation
-   SAS bound to the caller's AD identity, which does not have
-   `Storage Blob Data Contributor` on the cold-archive storage account
-   (open task #87). Account-key SAS via
-   `az storage account keys list` + `az storage container generate-sas
-   --account-key <key>` worked first try.
-   **Rule:** all close-out azcopy scripts generate SAS via account-key,
-   never via `--as-user`. Document the SAS source inline.
+2. *(Removed 2026-09-29, CX-242: operational detail about where data
+   copies are kept, which is outside the project's scope.)*
+
+
+
+
+
+
+
+
+
+
 
 3. **Bash supervisor scripts must `set -o pipefail`.**
-   The original cold-archive script ran
-   `azcopy copy ... | tail -30` then checked `$?`. azcopy's non-zero exit
+   The original archive script ran
+   `<copy-tool> ... | tail -30` then checked `$?`. The copy tool's non-zero exit
    was masked by the pipeline (tail exits 0). The script proceeded to
-   touch `cold_archive.done` despite a 100%-failed upload. The fix used
-   `${PIPESTATUS[0]}` to read azcopy's actual exit code; that's correct
+   touch its done-marker despite a 100%-failed copy. The fix used
+   `${PIPESTATUS[0]}` to read the copy tool's actual exit code; that's correct
    but easy to forget — `set -o pipefail` makes failure detection
    default.
    **Rule:** every supervisor bash script starts with
@@ -1115,51 +1115,51 @@ specific symptom that motivated it.
    `if [ $? -eq 0 ]` of the last actual operation, never bare.
 
 4. **Done-markers must be post-condition-checked, not just post-command-fired.**
-   The cold-archive `.done` marker was touched even when the azcopy
-   upload reported 0 bytes transferred and `Final Job Status: Failed`.
+   The archive `.done` marker was touched even when the copy
+   reported 0 bytes transferred and a failed job status.
    The downstream watcher then fired, incorrectly indicating success.
    **Rule:** before `touch done.marker`, run a positive-verification probe
-   (count files in blob = count files in staging; or list one
-   representative file via `azcopy ls`). Touching the marker is the
+   (count files at the destination = count files in staging; or list one
+   representative file at the destination). Touching the marker is the
    absolute last step after verification PASSes.
 
-5. **Post-upload blob spot-check is mandatory.**
-   On the second 560T cold-archive upload (the working one),
+5. **Post-copy destination audit is mandatory.**
+   On the second 560T archive copy (the working one),
    `EXTENSION_RECIPE.txt` was silently skipped despite being in the
-   staging dir at upload time. Cause is still unclear — possibly a race
-   between the file's creation timestamp and azcopy's `--overwrite=ifSourceNewer`
-   logic. A blob audit (`azcopy ls | grep -v 'shards/' | sort`)
-   immediately after upload caught the omission within 60 seconds.
-   **Rule:** every close-out upload script runs a blob audit at end:
-   (a) count files in `<blob>/shards/` matches expected per-file-type;
-   (b) listing of `<blob>/` top-level files matches expected manifest.
+   staging dir at copy time. Cause is still unclear — possibly a race
+   between the file's creation timestamp and the copy tool's overwrite-if-newer
+   logic. A listing audit of the destination (`grep -v 'shards/' | sort`)
+   immediately after the copy caught the omission within 60 seconds.
+   **Rule:** every close-out copy script runs a destination audit at end:
+   (a) count files in `<dest>/shards/` matches expected per-file-type;
+   (b) listing of `<dest>/` top-level files matches expected manifest.
    Hard-fail the script if either diverges; do NOT touch the done-marker.
 
-6. **Cold-archive's `find` pattern must enumerate ALL sub_* file types
+6. **The archive's `find` pattern must enumerate ALL sub_* file types
    produced by solve.**
-   The original cold-archive script's pattern was
+   The original archive script's pattern was
    `\( -name 'sub_*.bin' -o -name 'sub_*.dfs_state' -o -name 'sub_*.budget' \)`.
    At canonical scale solve.c also produces `sub_*.bin.budget` and
    `sub_*.bin.provenance.json` per cell — 65,281 files each, 130,562
    total — silently excluded from the archive. The follow-up pass had to
    re-do them.
-   **Rule:** the canonical cold-archive find pattern is
+   **Rule:** the canonical archive find pattern is
    `\( -name 'sub_*.bin' -o -name 'sub_*.dfs_state' -o
    -name 'sub_*.bin.budget' -o -name 'sub_*.bin.provenance.json' \)`.
    Pre-script: count files of each pattern on source, compare to expected
    total; hard-fail on mismatch. ⚠ *(2026-09-26: the expected `sub_*.bin.provenance.json` total is the count measured on the source, not the `sub_*.bin` count. The two legitimately differ for a legacy shard written before per-shard sidecars existed (2026-05-26), a shard whose best-effort sidecar write failed, and an orphan shard adopted after a crash between its flush and its sidecar write by a binary older than 2026-09-26 (newer binaries write a minimal `PROMOTED` sidecar for it). Hard-fail when a pattern's archived count differs from its own source count, not when the sidecar count differs from the `.bin` count.)*
 
-7. **`.azcopy/plans` directory permission must be writable BEFORE the first
-   `azcopy copy`.**
-   On 2026-06-10 the cold-archive's first azcopy attempt failed with
-   `mkdir /home/azureuser/.azcopy/plans: permission denied`. The
-   `.azcopy/plans` dir was mode 000 (created by a prior session's
-   `sudo`-prefixed command). The script needed
-   `chmod -R 755 ~/.azcopy` to recover.
-   **Rule:** any VM that will run azcopy gets a pre-flight
-   `mkdir -p ~/.azcopy/plans && chmod 755 ~/.azcopy ~/.azcopy/plans`
-   AND/OR `export AZCOPY_JOB_PLAN_LOCATION=/tmp/azcopy_plans` in the
-   supervisor. Belt + suspenders.
+7. *(Removed 2026-09-29, CX-242: operational detail about where data
+   copies are kept, which is outside the project's scope.)*
+
+
+
+
+
+
+
+
+
 
 8. **`solve --analyze` at canonical scale: D128 Standard is right-sized.
    The bottleneck is page-cache fraction of `solutions.bin`, not cores
@@ -1302,8 +1302,8 @@ specific symptom that motivated it.
     correction. Note also that the `#167` redo hazard described in rule 9
     would add ~329 T nodes of repeated work to this wall until it is fixed.]** ⚠ **[FOLLOW-UP 2026-09-25 (Q-730): fixed in `075931f4` for new sidecars only. The ~329 T still applies to an extension of the June-8 560 T archive, whose sidecars are unflagged; see rule 9's follow-up.]**
 
-11. **Cold archive completeness — split into two categories.**
-    Original 560T cold archive shipped without `EXTENSION_RECIPE.txt`,
+11. **Archive completeness — split into two categories.**
+    Original 560T archive shipped without `EXTENSION_RECIPE.txt`,
     full analyze log, `merge.full.log`, `verify_c.log`, or per-thread
     checkpoints. Operator audit caught it. The followup pass had to
     re-do all of them.
@@ -1338,7 +1338,7 @@ specific symptom that motivated it.
       enum's #108 per-thread-state code path; ~27 MB compressed at
       canonical scale; useful for reconstructing per-thread interleaving
       across eviction-recovery cycles, NOT load-bearing for extension)
-    - `preserve_logs/cold_archive.log` + `preserve_logs/azcopy_logs/`
+    - `preserve_logs/` (the archive run's own logs)
       (supervisor logs from the archive run itself, preserved before VM
       deallocate per rule 12)
 
@@ -1347,29 +1347,29 @@ specific symptom that motivated it.
     timing, archive-supervisor failure modes) becomes guesswork.
 
     A pre-archive checklist that asserts each Category A file is present
-    in staging before azcopy fires is the right gate. Category B files
+    in staging before the copy starts is the right gate. Category B files
     can be missing without blocking, but the supervisor should log a
     WARN per missing file so it surfaces in the post-archive audit.
 
-12. **Pre-deallocate log preservation: copy /tmp/cold_archive*.log to
+12. **Pre-deallocate log preservation: copy the archive run's /tmp logs to
     solver-data first.**
-    The cold-archive VM's /tmp is tmpfs and is lost on `az vm deallocate`
-    (or even on reboot). Almost lost the upload-failure forensic logs
-    that caught the AuthorizationPermissionMismatch.
+    The archive VM's /tmp is tmpfs and is lost on `az vm deallocate`
+    (or even on reboot). Almost lost the copy-failure forensic logs
+    that diagnosed the first failed attempt.
     **Rule:** any VM that ran a supervisor script preserves /tmp/*.log
-    + /tmp/azcopy_logs to `solver-data:/canonical-archive/<archive_dir>/preserve_logs/`
+    to `solver-data:/<archive_dir>/preserve_logs/`
     before `az vm deallocate` is issued.
 
-13. **Analyze + cold-archive can run on separate VMs simultaneously
+13. **Analyze + archiving can run on separate VMs simultaneously
     (with separate disk sources) — and should.**
     On 2026-06-09 attempt 2 (after the Spot eviction): split into
-    c560-d64-coldarchive (on solver-data) + c560-d64-analyze2 (on Premium
+    an archive VM (on solver-data) + c560-d64-analyze2 (on Premium
     SSD). Analyze ran ~3× faster than the contended attempt 1 because no
     I/O competition for the same disk. Cost: one extra D64 hour
     in exchange, saved: 4-5 h of analyze wall on D64 + lower
     Spot-eviction risk.
     **Rule:** the canonical post-merge pattern is **two D64 Standard
-    VMs**, each with its own disk: cold-archive on solver-data,
+    VMs**, each with its own disk: archiving on solver-data,
     analyze on Premium SSD. Don't try to bundle both on one VM unless
     operator explicitly authorizes for cost reasons.
 

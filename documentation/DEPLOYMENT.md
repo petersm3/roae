@@ -700,7 +700,7 @@ mitigations are tested. Key non-obvious constraints captured there:
 - **Trap discipline: NEVER `teardown_enum` in the ERR trap.**
   Phase 2 errors should preserve the enum VM (with shards) so
   recovery is a Phase-2-only re-run, not a full enum redo.
-- **`curl -T file` streaming PUT for large blobs.** `curl --data-binary
+- **`curl -T file` streaming PUT for large files.** `curl --data-binary
   @file` OOMs at ~2 GB regardless of VM RAM.
 - **Mount logic must handle existing-ext4** (solver-data has empty
   ext4 from the 2026-05-06 incident wipe; subsequent re-population

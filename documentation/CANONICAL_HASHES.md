@@ -4,23 +4,23 @@ The reproducibility anchor for ROAE is the sha256 of `solutions.bin`, not the fi
 
 A mismatch means a bug was introduced (in the solver, the build toolchain, or the runtime environment), not that a new result was found.
 
-> **The word "Tier" on this page carries two unrelated senses; read the noun beside it.**
+> **The word "Tier" on this page has one sense, and other documents use it in others; read the noun beside it.**
 > **"Tier 1 / Tier-1 hardening"** is the *determinism-hardening level* (the host-fingerprint
 > sidecar and the build-pinning work of Task #110 — see [HISTORY.md](HISTORY.md)); it qualifies a
-> *witness row*, never a budget. **"Cool tier" / "warm tier" / "Archive tier"** is Azure storage
-> class and says only where bytes are retained. Neither is the campaign-scale "Tier 1" of
-> [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) (= the 11.2T canonical), the Lean
-> proof-strength tiers of [`lean/README.md`](../lean/README.md), or the `tier-1` scoring axes of
+> *witness row*, never a budget. It is not the campaign-scale "Tier 1" of
+> [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) (= the 11.2T canonical), nor the Lean
+> proof-strength tiers of [`lean/README.md`](../lean/README.md), nor the `tier-1` scoring axes of
 > [CRITIQUE.md](CRITIQUE.md). A misread here is expensive because these rows carry sha claims, so
 > the sense is spelled out at each use below rather than assumed.
+>
 
 > **Access boundary.** This registry cites two kinds of non-public material, and neither is required
 > to verify a canonical. (1) Files in `petersm3/roae-private` (incident writeups, audits, launcher
 > scripts) — a private staging repository; those citations are provenance for *how* a value was
 > established or a defect resolved, and are operator-attested: disclosable to an auditor, not
-> fetchable by a reader. (2) Archive locations of the form `solver-data-westus3:/…` (operator-held
-> warm disk mirror) and `canonical-archive/…` (operator-held cold blob storage) — these name where
-> the artifact *bytes* are retained, not public URLs. The public verification path for every
+> fetchable by a reader. (2) Preserved copies of the artifact bytes, held by the operator and named
+> below by run directory (e.g. `20260608_560T_9a968fa2/`) — these name which bytes are retained,
+> not public URLs. The public verification path for every
 > canonical is the one this document already states: the published sha256 plus the reproduction
 > recipe (solver commit, `SOLVE_NODE_LIMIT`, `SOLVE_PER_SUB_BRANCH_LIMIT`, partition depth). A
 > reader who re-derives and matches the sha needs nothing private; the archived bytes exist so the
@@ -30,9 +30,9 @@ A mismatch means a bug was introduced (in the solver, the build toolchain, or th
 > 2026-09-01). *Verifying* a canonical needs nothing private — that is the claim above and it is
 > unchanged. *Extending* one to a deeper budget does: the recipe in
 > [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §"Concrete extension recipe" consumes
-> `shards.tar.gz`, `dfs_state.tar.gz` and `budget.tar.gz` from exactly the operator-held
-> `solver-data-westus3:/…` and `canonical-archive/…` locations named above, and those are storage
-> locations rather than public URLs. A third party who wants a deeper canonical without operator
+> `shards.tar.gz`, `dfs_state.tar.gz` and `budget.tar.gz` from exactly the operator-held preserved
+> copies named above, and those are not public URLs.
+> A third party who wants a deeper canonical without operator
 > cooperation must therefore re-run the parent campaign from scratch at the deeper budget — which is
 > sound and fully specified here, but is not the incremental path the extension methodology
 > describes. The distinction between "not required to verify" and "required to extend" is one this
@@ -96,7 +96,7 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 > final merge is a projection onto that set, provably invariant to thread count, machine, branch-partition order,
 > **and eviction/resume provided the resume is correct.** Only two things can change the sha: a genuinely *lost*
 > unique solution or a *fabricated* one. The byte-match rules out both. A pre-merge shard comparison quantifies it:
-> both runs found solutions in the **same 65,281 cells**, and the old run's pre-merge shard total ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch (cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift: `analyze_solution()` hashes and compares `canonical[]` — the record with the orient bit cleared, matched as `existing[ci] & 0xFC` — and `flush_sub_solutions()` / `flush_sub_solutions_d3()` each end by `memset`-ing `ts->sol_table` and zeroing `ts->solution_count`), so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** (43,880,306,393) ⚠ **[CORRECTED 2026-09-27 — this figure and the two sentences that follow it (":100-101", "exceeded the new run's … by exactly +3,841,927 records (0.009%) — all duplicates the dedup erased. So the old run's 5 evictions caused over-emission, not loss or fabrication") are withdrawn. The original run's own merge counted **43,876,464,466** records over its 65,281 shards (`merge.full.log`, 2026-06-08, lines "Total records before dedup: 43876464466" and "Total records: 43876464466"; `solutions.provenance.json` "total_records_emitted": 43876464466), the same integer as the re-run's merge. 43,880,306,393 was read on 2026-07-01 from an archive `manifest.json` whose writer summed `size // 32` over every `sub_*` file in the cold shard prefix, 354,207 files of which 288,926 are `.bin.budget`, `.bin.provenance.json` and `.dfs_state` sidecars; the surplus of 3,841,927 is the sum over those sidecar files of ⌊size / 32⌋ — at least 122,941,664 sidecar bytes, the routine flooring each file separately — not records. The two runs' pre-merge shard totals are equal, and no over-emission was measured. The next sentence, on the #188 fix's eviction-resume determinism, rests on the re-run's 7 evictions reproducing the sha and is unchanged. See documentation/CORRECTIONS.md CX-222.]**
+> both runs found solutions in the **same 65,281 cells**, and the old run's pre-merge shard total ⚠ **[LABEL CORRECTED 2026-08-28 — these are per-sub-branch CANONICAL keys, not raw oriented leaves: `solve.c` deduplicates on pair identity with the orient bit masked and CLEARS the table after each sub-branch (cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift: `analyze_solution()` hashes and compares `canonical[]` — the record with the orient bit cleared, matched as `existing[ci] & 0xFC` — and `flush_sub_solutions()` / `flush_sub_solutions_d3()` each end by `memset`-ing `ts->sol_table` and zeroing `ts->solution_count`), so the total counts cross-sub-branch rediscovery. It is a LOWER BOUND on raw leaves visited. See documentation/CORRECTIONS.md 2026-08-28.]** (43,880,306,393) ⚠ **[CORRECTED 2026-09-27 — this figure and the two sentences that follow it (":100-101", "exceeded the new run's … by exactly +3,841,927 records (0.009%) — all duplicates the dedup erased. So the old run's 5 evictions caused over-emission, not loss or fabrication") are withdrawn. The original run's own merge counted **43,876,464,466** records over its 65,281 shards (`merge.full.log`, 2026-06-08, lines "Total records before dedup: 43876464466" and "Total records: 43876464466"; `solutions.provenance.json` "total_records_emitted": 43876464466), the same integer as the re-run's merge. 43,880,306,393 was read on 2026-07-01 from an archive `manifest.json` whose writer summed `size // 32` over every `sub_*` file in the preserved shard directory, 354,207 files of which 288,926 are `.bin.budget`, `.bin.provenance.json` and `.dfs_state` sidecars; the surplus of 3,841,927 is the sum over those sidecar files of ⌊size / 32⌋ — at least 122,941,664 sidecar bytes, the routine flooring each file separately — not records. The two runs' pre-merge shard totals are equal, and no over-emission was measured. The next sentence, on the #188 fix's eviction-resume determinism, rests on the re-run's 7 evictions reproducing the sha and is unchanged. See documentation/CORRECTIONS.md CX-222.]**
 > exceeded the new run's (43,876,464,466) by exactly **+3,841,927 records (0.009%)** — all duplicates the dedup
 > erased. So the old run's 5 evictions caused **over-emission, not loss or fabrication**. This also demonstrates
 > the #188 fix's eviction-resume determinism **at the deepest (560T) scale**, complementing the 11.2T proof.
@@ -121,16 +121,16 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 | Date | Path | Result |
 |---|---|---|
 | 2026-06-08 | [`solve --verify`](SOLVE_C_CLI.md#--verify) (C) on all 10,525,271,997 records | **PASS — C1-C5 + sorted + no duplicates.** Reported by the same run but NOT part of that verdict: **King Wen found: YES** (the observation this section's field list records above). ⚠ **[CORRECTED 2026-09-07 — this cell read "PASS — C1-C5 + sorted + no duplicates + King Wen found", appending the King Wen observation to the verdict as though `--verify` had gated on it. It does not.** `kw_found_v` is printed (`King Wen found:`, plus the machine-readable `KW_PRESENT=YES\|NO`) and reaches `total_fail` only through `fail_kw`, which is set only under the opt-in `--expect-kw` (in `solve.c`, inside the `--verify` handler's `if (g_expect_kw && !kw_found_v)` guard, `fail_kw` being the last term summed into `total_fail`; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift) — so on a default `--verify` an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0 (measured 2026-09-02; recorded in §"How to verify a `solutions.bin`" below). **The observation itself is unchanged and stands** — King Wen IS present in this canonical — and only its billing as a gated criterion is withdrawn. The enforcement was **deliberately** retracted 2026-09-02 (registry `RP-60347080`): a shard or a budgeted slice legitimately lacks the record, so gating on absence would be a false reject, and `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test that goes red on exactly the change this row implied. **The sharpest evidence is that this page already disagreed with itself:** §"How to verify a `solutions.bin`" has carried the ⚠ *printed, not enforced* note since 2026-09-02, ~458 lines below this row, so the registry published both readings at once and the one a reader meets first was the wrong one. Note further that `--expect-kw` did not exist on 2026-06-08 — it was added 2026-09-04 — so the binary that produced this PASS had no path by which King Wen's presence or absence could have moved the verdict. Same class and same date as the TR-3 v1.13 correction. No sha, record count, or witness outcome changes.]** |
-| 2026-06-09 | `verify.py --jobs 64` (Python second-language re-verify) on warm copy, D64als_v7 Spot, solve binary built from main HEAD `74e4140` | PASS — same record set, independent language witness |
+| 2026-06-09 | `verify.py --jobs 64` (Python second-language re-verify) on the working copy, D64als_v7 Spot, solve binary built from main HEAD `74e4140` | PASS — same record set, independent language witness |
 | 2026-06-30 | **from-scratch 560T re-run** on the #188 eviction-resume-fixed solver, D128als_v7 Spot westus3, 7 Spot evictions (all clean) | **PASS — reproduces `9a968fa2` byte-for-byte** (3 independent `gzip -dc \| sha256sum` passes; 10,525,271,997 records). Independent same-scale witness on a different binary + different eviction pattern → SUSPECT cleared |
 
 **Post-merge SPOF discovered + remediated mid-campaign** — see [HISTORY.md](HISTORY.md) entry and [CAMPAIGN_METHODOLOGY.md §4.1](CAMPAIGN_METHODOLOGY.md). No Build B cross-build at 560T (cost prohibitive).
 
-**Archive triple-storage:**
-- `solver-data-westus3:/canonical-archive/20260608_560T_9a968fa2/` — gzip warm mirror (original campaign)
-- `canonical-archive/20260608_560T_9a968fa2/` — cold blob (original campaign, Cool tier)
-- `solver-data-westus3:/canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — gzip warm mirror (2026-06-30 re-run; solutions.bin.gz + shards.tar.gz + checkpoints, byte-identical canonical)
-- `canonical-archive/20260630_560T_RERUN_fixedbinary_947d547/` — cold blob (2026-06-30 re-run; round-trip-verified `9a968fa2`, extendable shards+checkpoints retained per the 11.2T+ cold-shards rule)
+**Preserved copies:**
+- `20260608_560T_9a968fa2/` — the original campaign (solutions.bin.gz and its sidecars)
+- `20260630_560T_RERUN_fixedbinary_947d547/` — the 2026-06-30 re-run (solutions.bin.gz + shards.tar.gz + checkpoints; round-trip-verified `9a968fa2`, byte-identical canonical; extendable shards and checkpoints retained per the 11.2T+ preserve-shards rule)
+
+
 
 ---
 
@@ -152,13 +152,13 @@ The full reproducibility-parameters table (env vars per canonical) is at [§Repr
 | 2026-05-09 | T9+c.1 full-enum `solve 0 128` recovery | v1 modern | `915abf30…` byte-identical |
 | 2026-05-10 | T9+d 62-branch loop [`solve --branch p1 o1`](SOLVE_C_CLI.md#--branch) ×62 + [`solve --merge`](SOLVE_C_CLI.md#--merge) | v1 modern | `915abf30…` byte-identical (partition-invariance witness) |
 | 2026-05-30 (#114) | Re-validation on current main lineage `4e15885` | c72eada + #108 + Tier-1 hardening | `915abf30…` byte-identical (109,836,777,536 bytes); merge VM = D16als_v7 Standard, external-merge mode with Premium scratch |
-| 2026-06-12 | `sha256sum` on warm-tier `/mnt/solver-data/canonical_100T/solutions.bin` | (independent of solve.c) | `915abf30…` byte-identical — 4th witness |
+| 2026-06-12 | `sha256sum` on the preserved working copy `/mnt/solver-data/canonical_100T/solutions.bin` | (independent of solve.c) | `915abf30…` byte-identical — 4th witness |
 
 **Note:** v1 100T was NOT cross-built on two different physical hosts in the deliberate Build A + Build B pattern that v1 11.2T and v2 11.2T use; the May 9-10 re-derivations were forced by the wipe-incident recovery, with T9+d incidentally serving as the partition-invariance witness.
 
 **Archive disposition (current state, 2026-07-17):**
-- **Bytes preserved on warm tier:** `solver-data-westus3:/canonical_100T/solutions.bin` (109,836,777,536 bytes; sha-verified 2026-06-12). Originate from T9+c.1 recovery May 8-9.
-- **Cold blob:** `canonical-archive/20260619_100T_915abf30/` — uploaded 2026-06-19 from the fresh v3 100T re-derive (completed 2026-06-13; consumed by the 3-point trajectory analysis, HISTORY.md 2026-06-14), spec-v1 complete (solutions.bin.gz + sha sidecars + shards.tar + manifest + DONE marker; ~94 GiB). Presence re-verified live 2026-07-17 (blob present at Cool tier, 12,586,020,198 bytes) and by the cold-archive audit index of the same date. A second cold copy, `20260614_100T_v3_rederive_915abf30/` (same decompressed sha), is a known byte-redundant duplicate. *(Historical note: earlier revisions of this section said "NOT uploaded" and referenced `canonical-archive/20260530_100T_revalidation_4e15885/`, which was never populated — accurate as of 2026-06-12, superseded by the 2026-06-19 upload.)*
+- **Bytes preserved on the working disk:** `solver-data-westus3:/canonical_100T/solutions.bin` (109,836,777,536 bytes; sha-verified 2026-06-12). Originate from T9+c.1 recovery May 8-9.
+- **Preserved copy:** `20260619_100T_915abf30/` — made 2026-06-19 from the fresh v3 100T re-derive (completed 2026-06-13; consumed by the 3-point trajectory analysis, HISTORY.md 2026-06-14), spec-v1 complete (solutions.bin.gz + sha sidecars + shards.tar + manifest + DONE marker; ~94 GiB). Presence re-verified 2026-07-17 (12,586,020,198 bytes). A second copy, `20260614_100T_v3_rederive_915abf30/` (same decompressed sha), is a known byte-redundant duplicate. *(Historical note: earlier revisions of this section said the bytes were not preserved and named `20260530_100T_revalidation_4e15885/`, which was never populated — accurate as of 2026-06-12, superseded on 2026-06-19.)*
 
 **Record-count correction 2026-07-04 (reverses the erroneous 2026-05-30 note that previously stood here):** the canonical 100T record count is **3,432,399,297**. The 2026-05-30 revision "corrected" the original 3,432,399,297 to 3,432,399,298 by dividing the file size (109,836,777,536 bytes) by 32 — but that quotient **includes the 32-byte file header**. Correct arithmetic: (109,836,777,536 − 32) / 32 = 3,432,399,297, which matches every primary source: `--analyze` §[1] (`records: 3432399297` / `32 header + 109836777504 records`) and §[28], the solver-written `solutions.meta.json` (`"record_count": 3432399297`), and the independent verifier (`VERIFY PASS: all 3432399297 records satisfy C1-C5`). The original 2026-05-12 provenance count was right all along. **The sha256 anchors are UNAFFECTED — only this derived count field was wrong.** The v2/v1 100T delta is consequently +231,181,**617** records (+6.74%). Convention rule going forward: record counts come only from `solutions.meta.json` / analyze §[1] / verify output — never from raw file-size division; if size arithmetic is used as a cross-check, it is (size − 32) / 32.
 
@@ -192,10 +192,10 @@ awk '/^\*\*Cross-build \+ cross-architecture witnesses/,/^\*\*Independence crite
     documentation/CANONICAL_HASHES.md | grep -c '^| 2026'      # -> 8
 ```
 
-**Archives:**
-- `canonical-archive/20260514_modern_v1_11.2T_buildA/` + `…buildB/`
-- `canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` (witness-only; no solutions.bin re-upload per operator directive on sha-match)
-- `canonical-archive/20260531_dress_rehearsal_11_2T_7ca55e8/` (full archive including shards.tar.gz + dfs_state.tar.gz + budget.tar.gz per the 11.2T+ archive directive)
+**Preserved copies:**
+- `20260514_modern_v1_11.2T_buildA/` + `…buildB/`
+- `20260524_v3_buildA_11.2T_8b1658b/` (witness-only; solutions.bin not copied again, per operator directive on sha-match)
+- `20260531_dress_rehearsal_11_2T_7ca55e8/` (full copy including shards.tar.gz + dfs_state.tar.gz + budget.tar.gz per the 11.2T+ archive directive)
 
 **Tier 1 incident note:** the 2026-05-31 dress rehearsal supervisor surfaced a phantom drift report from a typo'd hardcoded anchor sha; resolved by independent empirical sha256 against archived bytes — see `petersm3/roae-private:PHANTOM_DRIFT_RESOLUTION_2026_05_31.md`.
 
@@ -217,7 +217,7 @@ A fresh v3 re-derive completed 2026-06-13 and was consumed by the 3-point trajec
 
 Both produced byte-identical sha. **+4,607 records vs deprecated `f7b8c4fb`** (pre-resume-fix code from 2026-04-18 undercount; deprecation context in §Deprecated below).
 
-**Archives:** `canonical-archive/20260513_modern_v1_10T_buildA/` + `…buildB/`.
+**Preserved copies:** `20260513_modern_v1_10T_buildA/` + `…buildB/`.
 
 ---
 
@@ -233,7 +233,7 @@ Both produced byte-identical sha. **+4,607 records vs deprecated `f7b8c4fb`** (p
 - Build A on Spot D128 host α, source commit `2cf8771` (2026-05-12)
 - Build B on Spot D128 host β, source commit `a2ead96` post-fix (2026-05-13)
 
-Both produced byte-identical sha. Archives at `canonical-archive/20260512_modern_v1_5.6T_buildA/` + `20260513_modern_v1_5.6T_buildB/`.
+Both produced byte-identical sha. Preserved copies: `20260512_modern_v1_5.6T_buildA/` + `20260513_modern_v1_5.6T_buildB/`.
 
 ---
 
@@ -251,7 +251,7 @@ Both produced byte-identical sha. Archives at `canonical-archive/20260512_modern
 
 Depth-2 enumeration's smaller sub-branch count (3030 vs depth-3's 158,364) makes interruption less likely; the resume-bug interactions that affected the deprecated `c34390c0`/`f7b8c4fb` did not affect this canonical.
 
-**Archives:** `canonical-archive/20260513_modern_v1_10T_d2_buildA/` + `…buildB/`.
+**Preserved copies:** `20260513_modern_v1_10T_d2_buildA/` + `…buildB/`.
 
 ---
 
@@ -301,7 +301,7 @@ Differs from the `5a0f0bc2…` v3-BRANCH-lineage 1T anchor (12,000 records fewer
 
 **Three measurements** (2026-05-27): drift control 1679s/1693s wall; pristine c72eada 3430s wall.
 
-**Not archived to cold storage** (validation-only run; the 2026-09-04 explicit-budget artifact is retained on the run host for the record-set subset test — `74d39760…`'s records are predicted to be a strict subset of `5a0f0bc2…`'s, untested).
+**No preserved copy** (validation-only run; the 2026-09-04 explicit-budget artifact is retained on the run host for the record-set subset test — `74d39760…`'s records are predicted to be a strict subset of `5a0f0bc2…`'s, untested).
 
 ---
 
@@ -337,7 +337,7 @@ ANCHOR_1T=$(awk '/^### d3 1T . published recipe/{f=1} f&&/^- \*\*sha256:\*\*/{gs
 > "**Historical — DOES NOT reproduce on current `main`; not a replication target**". Second correction of this
 > fact; [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]**
 
-**Archive:** `canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9 solutions.bin.gz 475 MB) + managed disk `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`.
+**Preserved copies:** `20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9 solutions.bin.gz 475 MB) + managed disk `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`.
 
 ---
 
@@ -355,16 +355,16 @@ Run via `solve --selftest`. The selftest is the project's universal build gate: 
 
 ### v2 lineage — CLOSED 2026-05-24
 
-Frozen by operator directive 2026-05-24 (`feedback_v2_closed_2026_05_24`). v2's prune stack (C5 #68 + mid-walk C3 #67 + C3 optimistic-completion #70) produces strictly more records than v1 at the same node budget — both are sound, v2 just converges faster per node. v3 was chosen over v2 because v3 sha-preserves on v1, simplifying canonical-chain validation. v2 canonicals are NOT deleted from cold storage; they stand as historical record + the empirical "v2 vs v1 uplift" data point at 11.2T (+4.83%) and 100T (+6.74%).
+Frozen by operator directive 2026-05-24 (`feedback_v2_closed_2026_05_24`). v2's prune stack (C5 #68 + mid-walk C3 #67 + C3 optimistic-completion #70) produces strictly more records than v1 at the same node budget — both are sound, v2 just converges faster per node. v3 was chosen over v2 because v3 sha-preserves on v1, simplifying canonical-chain validation. v2 canonicals' preserved copies are NOT deleted; they stand as historical record + the empirical "v2 vs v1 uplift" data point at 11.2T (+4.83%) and 100T (+6.74%).
 
 | Scale | sha256 | Records | Solver |
 |---|---|---:|---|
 | d3 11.2T (v2) | `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d` | 796,357,285 | v2 (commit `9d00c48`, tag `v2-merged-2026-05-21`) |
 | d3 100T (v2) | `cc4a5377199f0710c99406c6e82e44f311ef34b2e53b152d67f5d0fcd2ace091` | 3,663,580,914 | v2 (commit `3128942`, tag `v2-merged-2026-05-21`) |
 
-**v2 11.2T details:** established 2026-05-17. +36,748,712 records (+4.83%) vs v1 11.2T. Deterministic across two independent runs. Triple-storage archived: `solver-data-westus3:/20260516_v2bundled_11.2T_buildA_9d00c48/` + `canonical-archive/20260516_v2bundled_11.2T_buildA_9d00c48/` + claude `/tmp` fallback. solutions.bin.gz `4f1cd8b3…`. **Cross-architecture witness (2026-05-21):** ARM Cobalt Neoverse-N2 (D96ps_v6 + D32ps_v6, gcc 13.3.0 `-mcpu=native`, ARM binary sha `e5cfc6cd…`) produces byte-identical sha. G2 proof artifacts at `solver-data-westus3:/20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`.
+**v2 11.2T details:** established 2026-05-17. +36,748,712 records (+4.83%) vs v1 11.2T. Deterministic across two independent runs. Preserved in three copies, among them `solver-data-westus3:/20260516_v2bundled_11.2T_buildA_9d00c48/`. solutions.bin.gz `4f1cd8b3…`. **Cross-architecture witness (2026-05-21):** ARM Cobalt Neoverse-N2 (D96ps_v6 + D32ps_v6, gcc 13.3.0 `-mcpu=native`, ARM binary sha `e5cfc6cd…`) produces byte-identical sha. G2 proof artifacts at `solver-data-westus3:/20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`.
 
-**v2 100T details:** established 2026-05-23 (campaign `20260521_v2_100T_buildA`). Phase 1 enum ~40h across 3 Spot evictions on D128als_v7 westus3; 61,550 shards, 481 GB raw. Phase 3 merge: Standard D32als_v7 + 1.5 TB Premium SSD scratch, external chunked-sort. +231,181,617 records (+6.74%) vs v1 100T. `solve --verify` PASS. Binary sha `6fdb10da…`. Dual-storage: `solver-data-westus3:/20260521_v2_100T_buildA/final/` + `canonical-archive/20260521_v2_100T_buildA/`. No Build B cross-build (v2 100T was a comparison baseline, not load-bearing). v2 100T shards deleted from managed disk post-archive (~481 GB freed). solutions.bin.gz size 13,462,264,289 bytes (sha `f6b554ea…`, **8.708× compression**). ⚠ **[NOTE 2026-09-27 — merge completeness of this frozen canonical cannot be independently verified. Until batch 24 (CX-221), a shard the merge scan could not size (for example a gzip file under 4 bytes) was left out of both the merge and its expected record total, so the completeness check could not see it. For every active anchor the merge's `files to merge` count was checked against an independent shard count, or the sha was reproduced byte-identically by an independent run, and none is affected. This v2 100T run cannot be checked either way: its shards were deleted after archiving (operator, 2026-05-23), its merge log was not retained, and it has no Build B. Nothing published rests on it; it stays a frozen, non-load-bearing comparison baseline.]** ⚠ **[CORRECTED 2026-09-02 — the compression ratio published here was ~7% too high; the retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-9788f906`. **The mechanism was a unit mismatch, and it is exactly reconstructible:** 13,462,264,289 bytes is 12.54 **GiB**, while the logical artifact is 117 **GB** decimal — dividing the one by the other reproduces the retired figure to three digits. Both operands are published, so the true ratio is derivable on this page without any archive access: per the §Format size convention the logical size is `3,663,580,914 × 32 + 32 = 117,234,589,280` bytes, and `117,234,589,280 / 13,462,264,289 = 8.708`. Reproduce with:
+**v2 100T details:** established 2026-05-23 (campaign `20260521_v2_100T_buildA`). Phase 1 enum ~40h across 3 Spot evictions on D128als_v7 westus3; 61,550 shards, 481 GB raw. Phase 3 merge: Standard D32als_v7 + 1.5 TB Premium SSD scratch, external chunked-sort. +231,181,617 records (+6.74%) vs v1 100T. `solve --verify` PASS. Binary sha `6fdb10da…`. Preserved in two copies, among them `solver-data-westus3:/20260521_v2_100T_buildA/final/`. No Build B cross-build (v2 100T was a comparison baseline, not load-bearing). v2 100T shards deleted from managed disk post-archive (~481 GB freed). solutions.bin.gz size 13,462,264,289 bytes (sha `f6b554ea…`, **8.708× compression**). ⚠ **[NOTE 2026-09-27 — merge completeness of this frozen canonical cannot be independently verified. Until batch 24 (CX-221), a shard the merge scan could not size (for example a gzip file under 4 bytes) was left out of both the merge and its expected record total, so the completeness check could not see it. For every active anchor the merge's `files to merge` count was checked against an independent shard count, or the sha was reproduced byte-identically by an independent run, and none is affected. This v2 100T run cannot be checked either way: its shards were deleted after archiving (operator, 2026-05-23), its merge log was not retained, and it has no Build B. Nothing published rests on it; it stays a frozen, non-load-bearing comparison baseline.]** ⚠ **[CORRECTED 2026-09-02 — the compression ratio published here was ~7% too high; the retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-9788f906`. **The mechanism was a unit mismatch, and it is exactly reconstructible:** 13,462,264,289 bytes is 12.54 **GiB**, while the logical artifact is 117 **GB** decimal — dividing the one by the other reproduces the retired figure to three digits. Both operands are published, so the true ratio is derivable on this page without any archive access: per the §Format size convention the logical size is `3,663,580,914 × 32 + 32 = 117,234,589,280` bytes, and `117,234,589,280 / 13,462,264,289 = 8.708`. Reproduce with:
 
 ```
 python3 -c 'print(round((3663580914*32+32)/13462264289, 3))'   # -> 8.708

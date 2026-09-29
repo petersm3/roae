@@ -369,7 +369,7 @@ Both are reproducibly WRONG and must not be cited as canonical. The 706M d3 and 
 
 **D64als_v7 is both cheaper AND faster per-core than F64als_v6.** The "compute-optimized premium" Azure charges on F-series only pays off *within* the same generation. Across a generation boundary (v6 → v7, Genoa → Turin, Zen 4 → Zen 5), the newer general-purpose SKU wins on every axis — clock speed, IPC, price. Per unit of solve.c work, **D-series v7 delivers ~2.2× more compute per dollar than F-series v6** on spot. This wasn't a cost-optimization failure at project start; it was a temporal artifact. The SKU economics flipped when Dalsv7 went GA in March 2026, and the project hadn't reexamined its SKU choice until the quota denial forced it.
 
-**Region hunt succeeded.** A 128-vCPU Dalsv7 quota was granted in **westus3** on 2026-04-19. westus3 is a newer datacenter in the same US region pair as westus2, so cross-region egress is cheap (~[cost redacted]/GB) and latency is low. Managed disks are region-locked — `solver-data` and the two validation disks stay in westus2 as the canonical archive — but that's fine: partition invariance ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)) guarantees the same `solutions.bin` regardless of which region or SKU produced the shards. A fresh 10T enumeration on D128/westus3 reproducing canonical sha `f7b8c4fb…` would be an additional reproducibility proof, not a data migration problem.
+**Region hunt succeeded.** A 128-vCPU Dalsv7 quota was granted in **westus3** on 2026-04-19. westus3 is a newer datacenter in the same US region pair as westus2, so [storage detail redacted] is cheap (~[cost redacted]/GB) and latency is low. Managed disks are region-locked — `solver-data` and the two validation disks stay in westus2 as the canonical archive — but that's fine: partition invariance ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)) guarantees the same `solutions.bin` regardless of which region or SKU produced the shards. A fresh 10T enumeration on D128/westus3 reproducing canonical sha `f7b8c4fb…` would be an additional reproducibility proof, not a data migration problem.
 
 **Standing policy going forward:**
 
@@ -806,7 +806,7 @@ during the chunked base64 pull (53 KB → 3 KB), and base64 alignment or some
 adjacent-buffer collision crossed wires. Doesn't invalidate the verified
 drop-25 / drop-27 windows (those dumps are small and fully captured), but the
 "boundary 4 = volume workhorse" claim has count but no structural picture
-attached. Future re-runs should pull dumps via blob storage or chunked-with-
+attached. Future re-runs should pull dumps via [storage detail redacted] or chunked-with-
 verification to avoid the cap.
 
 **Working writeup:** `roae-private/KEYSTONE_FINDING_2026_04_25.md` + raw data at
@@ -2104,12 +2104,12 @@ The campaign exposed these because it stress-tested execution paths the original
 
 ### Outcomes
 
-**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to Azure Blob Archive tier (`canonical-archive/t9c1/`). Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
+**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to [storage detail redacted]. Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
 
 **T9+d — COMPLETED 2026-05-10 06:07:50 UTC.** Phase 5 (62-branch enum) on D64als_v7 Spot, 2 Spot evictions recovered cleanly. Phase 5→6 migration to D16als_v7 Regular at 17:27 UTC May 9, deploying the #84-patched solve binary and streaming verify.py. Phase 6 (`solve --merge`) wall time 8h 20min; **the patched solve --merge exited cleanly at 01:57 UTC May 10 — no hang**, validating the #84 fix at full 100T scale. Phase 6 produced byte-identical solutions.bin: sha256 = `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`. Phase 7 sha check PASS — **partition invariance theorem empirically confirmed at 100T scale** (T9+d's per-branch-loop execution path produces byte-identical bytes to T9+c.1's full-enum path). Phase 8 `solve --verify` PASS. Phase 9 `verify.py --jobs 128` migrated to D128als_v7 Regular for parallelism — completed 06:07 UTC; verify result: all 3,432,399,297 records satisfy C1-C5 + sorted + no duplicates + KW present. ⚠ **[CORRECTED 2026-09-07 — the Phase 9 result appends "+ KW present" to the list of things the `verify.py` run certified, so it reads as a fifth gated criterion. `verify.py` REPORTS King Wen; by default it does not gate on it, and the command published in this very sentence — `verify.py --jobs 128`, with no `--expect-kw` — is itself the proof that no gate was in force.** In `verify.py`, `fail_kw` is `1` only when `args.expect_kw` is set and King Wen is missing; without the flag it is `0` regardless, so King Wen never enters `total_fail`, while `fail_c1`…`fail_c5`, `fail_sort` and `fail_dup` always do. The source says so in its own comment: presence is *informational by default*, because a shard legitimately need not contain King Wen. **The observation stands — King Wen was present in this 100T output** — but it is a fact the run reported, not a criterion it gated on. Both the `--expect-kw` promotion and the whole-line `KW_PRESENT=` / `KW_REQUIRED=` tokens that now state the scope machine-readably were settled 2026-09-02, and the `solve.c` mirror shipped 2026-09-04 — all long after this 2026-05-10 run, which therefore had no code path by which King Wen could have moved its verdict. Default enforcement is **deliberately** not the behaviour (registry `RP-60347080`); `tests.py`'s `TestVerifyRecordsPath.test_records_verdict_and_kw_scope_are_whole_line_tokens` pins the reported-not-enforced contract by assertion. NOT a mutation test, and NOT `TestSolveVerifyKingWenScope` — that class pins the C binary and its own docstring calls itself the cross-language CONTROL for the Python one; citing it here would name the wrong instrument. There is no `ROAE_TESTS_VERIFY_SRC` hook, so the Python side has no recorded mutant proving its assertion would fire. The Phase 8 `solve --verify` PASS named just above this sentence is subject to the same reading. Same class and date as the 560 T campaign entry below in this file. No sha, record count or verdict changes.]** D128 deleted post-archive. t9d-data-westus3 disk preserved Unattached pending operator deletion decision.
 
 **The canonical 100T solutions.bin is now FULLY RECOVERED** with two independent witnesses:
-- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, cold backup in `canonical-archive/t9c1/`.
+- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, [storage detail redacted] in [storage detail redacted].
 - **T9+d (per-branch path, partition-invariance witness)** — also produces 915abf30 byte-identically. Operational logs + metadata in `petersm3/roae-private:canonical_runs/20260509_100T_t9d_partition_invariance/`. solutions.bin not separately archived (byte-identical to T9+c.1's; redundant).
 
 The v1 closure work (#51 + #44) is now unblocked. CANONICAL_HASHES.md updated with the partition-invariance attestation; the registry confirms this canonical's bytes are reproducible across both execution strategies.
@@ -2284,7 +2284,7 @@ Both records have identical canonical key (every byte differs only in the low 2 
 
 ## May 11–12, 2026 PDT — multi-scale v1/v2 pipeline, then canonical c34390c0 (d3 5.6T) found irreproducible from git history
 
-A planned v1-vs-v2 comparison pipeline at 1T + 5.6T + 11.2T scales (per operator request: "do a 1T v1, a 5.6T v1, archive both to cold storage, then a 1T v2 and compare it to the 1T v1, and the same at 5.6T … if these are interesting questions and observations to document, add 11.2T too") opened with a sha mismatch at 5.6T that turned into a multi-day bisect ending in a definitive finding: the canonical `c34390c0…` cannot be regenerated from any commit in `petersm3/roae` between cdd8575 (Apr 30) and 2cf8771 (May 10), on either DFS path, against any of 6 binary builds tested.
+A planned v1-vs-v2 comparison pipeline at 1T + 5.6T + 11.2T scales (per operator request: "do a 1T v1, a 5.6T v1, archive both to [storage detail redacted], then a 1T v2 and compare it to the 1T v1, and the same at 5.6T … if these are interesting questions and observations to document, add 11.2T too") opened with a sha mismatch at 5.6T that turned into a multi-day bisect ending in a definitive finding: the canonical `c34390c0…` cannot be regenerated from any commit in `petersm3/roae` between cdd8575 (Apr 30) and 2cf8771 (May 10), on either DFS path, against any of 6 binary builds tested.
 
 ### The pipeline (May 11)
 
@@ -2307,7 +2307,7 @@ reconstructing an expansion would be worse than the gap. Only the v1 5.6T sha
 three is a canonical value, and none is registered in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) —
 the canonical-sha invariant does not run on them. The underlying `solutions.bin` files are recorded
 in §"Files preserved" below as held on the `v1v2-compare-scratch` 256 GB StandardSSD managed disk
-(unattached, not yet archived to cold storage as of that date); that is this document's 2026-05-12 record of where
+(unattached, not yet archived to [storage detail redacted] as of that date); that is this document's 2026-05-12 record of where
 they were put, not a re-verified statement of present-day disk state. **Scope:** what this note
 fixes is the citation, not the gap — the record-count and superset findings below are unaffected,
 but they remain independently uncheckable from the published tree until (and unless) a full sha or
@@ -2401,13 +2401,13 @@ It does change:
 
 Three independent 5.6T runs archived (gzip -9, sha256, metadata.txt, run.log, merge.log) to two locations:
 
-- **Cold storage (Azure Blob `canonical-archive/`, Archive tier, westus3):**
+- **[storage detail redacted]:**
   - `20260512_recursive_5.6T/` — post-#72 recursive path; sha `f66920c1…`
   - `20260512_1267a8e_5.6T/` — pre-f42f2ae bisect; sha `f66920c1…`
   - `20260512_cdd8575_5.6T/` — pre-1d4dc6e bisect endpoint; sha `f66920c1…` (proves irreproducibility)
 - **Warm copies on managed disk `solver-data-westus3` (3 TB, unattached):** same three runs at `/canonical_runs/20260512_*/`.
 
-The original `v1v2-compare-scratch` 256 GB StandardSSD managed disk (Unattached, preserved) holds the original v1_1T (`e31ef86a…`), v2_1T (`c247b9f9…`), v2_5.6T (`467025fe…`) solutions.bin files (not yet archived to cold storage — candidates for follow-up archival before disk decommission).
+The original `v1v2-compare-scratch` 256 GB StandardSSD managed disk (Unattached, preserved) holds the original v1_1T (`e31ef86a…`), v2_1T (`c247b9f9…`), v2_5.6T (`467025fe…`) solutions.bin files (not yet archived to [storage detail redacted] — candidates for follow-up archival before disk decommission).
 
 Operator-facing detail and recommended cascade actions: `CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md` (private staging repo, not publicly accessible).
 
@@ -2422,7 +2422,7 @@ Operator-facing detail and recommended cascade actions: `CANONICAL_C34390C0_IRRE
 
 - May 11 pipeline (D128als_v7 Spot, ~6h compute + ~2h idle waiting for direction on sha mismatch): ~[cost redacted].
 - May 12 bisect (D128als_v7 Standard Regular, May 12 04:34–11:30 UTC ≈ 7h): ~[cost redacted].
-- Cold-storage Archive-tier blob: <[cost redacted]/month going forward.
+- [storage detail redacted]: <[cost redacted]/month going forward.
 - **Session total: ~[cost redacted]** (within ~[cost redacted] budget).
 
 ## Phase B cascade re-derivation completion (2026-05-13/14 PT)
@@ -2479,19 +2479,19 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 | d3 11.2T Build B (Spot D64 enum + Standard D64 merge) | D64/D64 | 232+62 min | ~[cost redacted] |
 | Throttled-host probes (3 × d3-10T Spot D128 hosts that landed at 600 MHz under load) | D128 | ~10 min each | ~[cost redacted] |
 | solver-data-westus3 shrink 3 TB → 256 GB | D2 Spot | ~30 min | ~[cost redacted] |
-| Cold-storage uploads (azcopy westus3 intra-region) | n/a | n/a | free intra-region |
+| [storage detail redacted] | n/a | n/a | [storage detail redacted] |
 | **Phase B total** | | | **~[cost redacted]** |
 
 ### What's next (post-2026-05-14)
 
-1. **Build B 11.2T cross-build completion — DONE 2026-05-14.** Build B enum on `d3-11-2T-buildb-westus3` Spot D64 (3.9 hr, SOLVE_THREADS=64, SOLVE_SKIP_AUTOMERGE=1) produced shards which were transferred over private vnet (13.5 min, 90 GB, 215,242 files) to a separate Standard D64als_v7 (`merge-d64-westus3`). In-memory `solve --merge` on the merge VM (62 min wall, 93 GB peak RSS) produced `solutions.bin` with sha `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — byte-identical to Build A and to the historical canonical. The 11.2T canonical now has the formal two-witness cross-build pair (Build A + Build B archived in cold storage). Both enum + merge VMs were deallocated post-archive.
+1. **Build B 11.2T cross-build completion — DONE 2026-05-14.** Build B enum on `d3-11-2T-buildb-westus3` Spot D64 (3.9 hr, SOLVE_THREADS=64, SOLVE_SKIP_AUTOMERGE=1) produced shards which were transferred over private vnet (13.5 min, 90 GB, 215,242 files) to a separate Standard D64als_v7 (`merge-d64-westus3`). In-memory `solve --merge` on the merge VM (62 min wall, 93 GB peak RSS) produced `solutions.bin` with sha `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — byte-identical to Build A and to the historical canonical. The 11.2T canonical now has the formal two-witness cross-build pair (Build A + Build B archived in [storage detail redacted]). Both enum + merge VMs were deallocated post-archive.
 2. **Steady-state managed disks: just `solver-data-westus3` (256 GB, [cost redacted]/mo) + the `claude` orchestrator OS disk ([cost redacted]/mo).** All scratch + orphan OS disks were cleaned up 2026-05-13/14 (~[cost redacted]/mo recovered).
-3. **Cold storage canonical-archive container holds 14 directories** as of 2026-05-14: 3 diagnostic runs, 5.6T Build A+B, 10T Build A+B, 10T-d2 Build A+B, 11.2T Build A+B, and t9c1 (100T).
+3. **[storage detail redacted] holds 14 directories** as of 2026-05-14: 3 diagnostic runs, 5.6T Build A+B, 10T Build A+B, 10T-d2 Build A+B, 11.2T Build A+B, and t9c1 (100T).
 4. **v2 work resumes** per CURRENT_PLAN.md once Build B 11.2T lands.
 
 ### Thursday 2026-05-14 morning — post-Build B teardown and mechanism-validation plan
 
-After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-westus3` and `merge-d64-westus3` VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.2T-buildb-scratch`, `d3-11.2T-scratch`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-westus2`, `merge-d32-westus3`, `shrink-tmp-westus3`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM (D2as_v6, westus2), its OS disk (Premium SSD P4, 32 GB), `solver-data-westus3` (Standard HDD, 256 GB), and the cold-archive storage account (canonical-archive container, 70 blobs, 34.4 GB across Cool + Archive tiers). Total monthly run-rate: ~[cost redacted] (~[cost redacted] claude VM + ~[cost redacted] disks + ~[cost redacted] cold storage).
+After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-westus3` and `merge-d64-westus3` VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.2T-buildb-scratch`, `d3-11.2T-scratch`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-westus2`, `merge-d32-westus3`, `shrink-tmp-westus3`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM (D2as_v6, westus2), its OS disk (Premium SSD P4, 32 GB), `solver-data-westus3` (Standard HDD, 256 GB), and [storage detail redacted]. Total monthly run-rate: ~[cost redacted] (~[cost redacted] claude VM + ~[cost redacted] disks + ~[cost redacted] [storage detail redacted]).
 
 The resume-bug hypothesis (this section's "Hypothesis update" above) is currently the best circumstantial fit for the c34390c0 and f7b8c4fb deltas, but it has not yet been demonstrated as a mechanism. The next planned work (operator-approved 2026-05-14 Thu) is a two-part validation:
 
@@ -2542,11 +2542,11 @@ All five ship in this commit; selftest sha `403f7202` verified unchanged. Phase 
 
 **Residual gap closed (added 2026-05-15):** the item-5 byte-prefix verifier was originally described as having a residual gap that "needs record-level checksums". On reflection, the framing was wrong — since canonical-ordering records are fixed 32 bytes, byte-prefix sha256 IS mathematically a record-level chain-hash for PHASE_A's recorded content. No stronger checksum scheme exists for that region. The real gap is *semantic*: validating that PHASE_B emits valid records (satisfying C1-C5) in the region beyond PHASE_A's boundary. That class is closed by the existing `solve --verify` C1-C5 structural check, NOT by a stronger checksum. The recommended post-resume integrity gate is the two-step sequence `solve --verify-shard-manifest && solve --verify solutions.bin` (see [DEVELOPMENT.md §"Resume-path defense in depth"](DEVELOPMENT.md) item 5). An earlier draft added a `--verify-resume` coordinator subcommand wrapping both; removed in this commit as redundant — the two-step recipe gives the same coverage without adding a maintained subcommand.
 
-**Independent re-verification — d3 11.2T (2026-05-15):** downloaded `canonical-archive/20260514_modern_v1_11.2T_buildB/solutions.bin.gz` via SAS, streamed through `gunzip -c | sha256sum` (no intermediate disk storage), computed sha256 over the 24,307,474,368-byte uncompressed `solutions.bin`. Result: `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — **exact match** to the documented canonical in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). Wall: 2 min 30 sec, cost: [cost redacted] (intra-region streaming). This is the third independent witness for `0c0fe37c` (Build A on May 14, Build B on May 14, and now independent re-checksum from cold storage on May 15).
+**Independent re-verification — d3 11.2T (2026-05-15):** downloaded [storage detail redacted], streamed through `gunzip -c | sha256sum` (no intermediate disk storage), computed sha256 over the 24,307,474,368-byte uncompressed `solutions.bin`. Result: `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — **exact match** to the documented canonical in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). Wall: 2 min 30 sec, cost: [cost redacted] (intra-region streaming). This is the third independent witness for `0c0fe37c` (Build A on May 14, Build B on May 14, and now independent re-checksum from [storage detail redacted] on May 15).
 
 ## End of v1 canonical campaign (2026-05-15)
 
-**This commit closes the v1 canonical campaign.** The v1 solver lineage is now in its final stable form. Five canonicals are the durable v1 record, all cross-build verified on post-`c3ad271` code, all archived in cold storage, all protected by the five defense-in-depth measures landed in Phase E follow-up:
+**This commit closes the v1 canonical campaign.** The v1 solver lineage is now in its final stable form. Five canonicals are the durable v1 record, all cross-build verified on post-`c3ad271` code, all archived in [storage detail redacted], all protected by the five defense-in-depth measures landed in Phase E follow-up:
 
 | Canonical | sha256 (v1, final) | Records | Witnesses |
 |---|---|---|---|
@@ -2554,7 +2554,7 @@ All five ship in this commit; selftest sha `403f7202` verified unchanged. Phase 
 | d3 5.6T | `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` | 467,484,167 | Cross-build verified Build A + Build B (May 12-13) |
 | d3 10T | `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` | 706,427,594 | Cross-build verified Build A + Build B (May 13) |
 | d2 10T | `a09280fb8caeb63defbcf4f8fd38d023bfff441d42fe2d0132003ee41c2d64e2` | 286,357,503 | Cross-build verified Build A + Build B (May 13) |
-| d3 11.2T | `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` | 759,608,573 | Cross-build verified Build A + Build B (May 14) + independent cold-storage re-checksum (May 15) — three witnesses |
+| d3 11.2T | `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` | 759,608,573 | Cross-build verified Build A + Build B (May 14) + independent [storage detail redacted] re-checksum (May 15) — three witnesses |
 | d3 100T | `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` | 3,432,399,297 | T9+c.1 + T9+d post-fix cross-build pair (May 9-10) |
 
 **Deprecated canonicals retired:** `c34390c0` (d3 5.6T, +1,030-record undercount via pre-fix resume bug class) and `f7b8c4fb` (d3 10T, +4,607-record undercount). Both have replacement pointers in CANONICAL_HASHES.md and full forensic narrative in HISTORY.md + the private investigation doc.
@@ -2575,7 +2575,7 @@ Operator greenlit v2 implementation start. Per the master plan in private `V2_IM
 3. **#69 MRV variable ordering:** deferred to optional Phase 7 (post-Phase-6, only if K from K-pilot underwhelming and re-baseline cost is amortized).
 4. **560T-on-v2 artifact storage:** lands on `solver-data-westus3` (256 GB Standard HDD, currently holds 100T canonical with ~154 GB free, mirrors v1 storage pattern).
 5. **HISTORY.md commit cadence:** per-phase entries during v2 work, with a final "v2 transition summary" capstone at completion.
-6. **560T launch is gated on operator review of ALL preceding v2 work + same Build A + Build B cross-build verification + cold-storage archive workflow as v1's Phase B** (operator directive 2026-05-15). No autonomous 560T provisioning even if the v2 chain ends with all green gates.
+6. **560T launch is gated on operator review of ALL preceding v2 work + same Build A + Build B cross-build verification + [storage detail redacted] as v1's Phase B** (operator directive 2026-05-15). No autonomous 560T provisioning even if the v2 chain ends with all green gates.
 
 **Branches created 2026-05-15:**
 - `v2-bundled` (off `main` at commit `72fdfdf`) — holds Phase 3 sha-changing work. Pushed to `origin/v2-bundled`. Currently identical to `main`; diverges once Phase 3 prune implementations land.
@@ -2798,15 +2798,15 @@ nodes to be converted into additional solution discovery).
 
 **Documentation discrepancy noted (separate cleanup item).** The
 v1 100B section above claims "Archived to
-`canonical-archive/20260515_modern_v1_100B_canonical_3258f4c/`"
-but `az storage blob list` against the canonical-archive container
-returns NO blobs matching that prefix as of 2026-05-16 17:25 UTC.
+[storage detail redacted]"
+but `[storage detail redacted]` against the [storage detail redacted]
+returns NO [storage detail redacted] matching that prefix as of 2026-05-16 17:25 UTC.
 The prior session's upload step appears to have silently failed
-during the SAS-token-RBAC blackout that affected all uploads
-between session-end on 2026-05-15 and the account-key recovery
+during the [storage detail redacted] that affected all uploads
+between session-end on 2026-05-15 and the [storage detail redacted]
 on 2026-05-16. The v1 100B sha `f1709ab0…` is recorded in
 `CANONICAL_HASHES.md` and HISTORY.md but the underlying
-`solutions.bin` is not currently retrievable from canonical-archive.
+`solutions.bin` is not currently retrievable from [storage detail redacted].
 Re-derivation cost ~[cost redacted] on D64 Spot, deferred to a separate
 cleanup task; v1 100B sha can be re-confirmed by re-running v1
 binary with the same recipe at any time.
@@ -2819,7 +2819,7 @@ v1 100B is re-derived; the 100M inclusion check (which already
 passed: 0 v1 records missing from v2) provides equivalent correctness
 evidence in the meantime.
 
-Archive: `canonical-archive/20260516_v2bundled_100B_check_bf58c65/`
+Archive: [storage detail redacted]
 holds `v2_100b_solutions.bin` (810 MB) and `v2_100b_solve.log`.
 
 ### v1 100B canonical re-archived + 100B inclusion check (2026-05-16, follow-up to #68)
@@ -2839,10 +2839,10 @@ D64als_v7 Spot host. Sha **reproduced byte-identically**:
 | Re-derivation wall | 114 s (D64 Spot westus3) |
 | Cost | ~[cost redacted] |
 
-Uploaded to canonical-archive (the prior session's silent-failure
+Uploaded to [storage detail redacted] (the prior session's silent-failure
 upload now corrected):
 
-  canonical-archive/20260515_modern_v1_100B_canonical_3258f4c/
+  [storage detail redacted]
     solutions.bin.gz             (48.7 MB)
     solutions.bin.gz.sha256
     solutions.sha256
@@ -2934,7 +2934,7 @@ no headroom to contribute; (b) design-doc speedup estimates need
 empirical validation before shipping. Saved ~[cost redacted] by aborting at
 pair 2 vs running the full 5 pairs.
 
-Archive: `canonical-archive/20260516_v2_71_c2lookahead_REGRESSED_2pairs/`
+Archive: [storage detail redacted]
 (trials.tsv + bench.log).
 
 **v2-bundled is now FROZEN at HEAD 457ba0c (C5 + #67 + #70)** until
@@ -2946,11 +2946,11 @@ adding #69 (variable ordering MRV) as the next prune candidate.
 First attempt to establish the v2 11.2T canonical sha on v2-bundled
 HEAD `9d00c48` (C5 + #67 + #70 stack). **Sha was successfully
 established, but the compressed bytes were lost to a curl OOM bug
-during the cold-archive upload step. Re-derivation required to put
-bytes in cold storage; the sha itself stands.**
+during the [storage detail redacted]. Re-derivation required to put
+bytes in [storage detail redacted]; the sha itself stands.**
 
-**Result — sha + record count established and persisted in cold
-storage (everything except the bin.gz file itself):**
+**Result — sha + record count established and persisted in [storage detail redacted]
+[storage detail redacted] except the bin.gz file itself):**
 
 | Field | Value |
 |---|---|
@@ -3014,7 +3014,7 @@ practical record yield at 100T-560T scales will be marginal.
 **Now the honest failure narrative.**
 
 **False start 1 (2026-05-16 ~20:30Z).** Launched the v2 11.2T
-pipeline. Then realized the cold-archive step used default-level
+pipeline. Then realized the [storage detail redacted] used default-level
 gzip (not `-9`) and didn't generate a `manifest.json`. Edited the
 running script via Claude Code's `Edit` tool to fix this. **`Edit`
 writes a new file and renames it over the original — it does NOT
@@ -3034,9 +3034,9 @@ renaming over it. Verified by `stat -c %i` before/after.
 completion: enum 3h54min, rsync 10min, merge 50min, verify PASS,
 gzip -9 produced `solutions.bin.gz` (2.93 GB) on the merge VM,
 metadata + solve binary all uploaded to
-`canonical-archive/20260516_v2bundled_11.2T_buildA_9d00c48/`. The
+[storage detail redacted]. The
 script's final step — upload `solutions.bin.gz` directly from the
-merge VM to cold storage via a SAS URL — used
+merge VM to [storage detail redacted] — used
 `curl -X PUT --data-binary @solutions.bin.gz`. **`--data-binary @file`
 loads the entire file into curl's memory buffer**; curl OOMed at
 2.93 GB on the 32 GB D16 VM with the error `curl: option
@@ -3057,7 +3057,7 @@ Detach before VM delete." If the script had written
 have survived the merge VM deletion. They did not, because the
 script did not attach the disk. **My error.**
 
-**What survived in cold storage:**
+**What survived in [storage detail redacted]:**
 - `manifest.json` (full provenance: git head, build recipe, params, VM SKUs, wall times, sizes, shas, v1 reference)
 - `solutions.sha256` (`2cc966e4…`)
 - `solutions.bin.gz.sha256`
@@ -3073,7 +3073,7 @@ attempt [cost redacted] + D16 Standard merge [cost redacted] + Premium SSD [cost
 Per CLAUDE.md the sha256 is the reproducibility anchor — the
 canonical sha is preserved and reproducible by anyone with
 v2-bundled and the documented params. But the operator's explicit
-ask was to put the bytes in cold storage; that part failed.
+ask was to put the bytes in [storage detail redacted]; that part failed.
 
 **Recovery plan (#81 attempt 2, queued 2026-05-17):** re-run the
 full pipeline (~[cost redacted], ~5h) with three concrete fixes:
@@ -3092,7 +3092,7 @@ deeply wrong with the infrastructure, not a single-point bug.
 
 The sha is expected to be byte-identical to `2cc966e4…` on re-run
 (deterministic). This is registered in `CANONICAL_HASHES.md` now,
-pending the bytes-in-cold-storage step.
+pending the bytes-in-[storage detail redacted].
 
 ### #81 — attempts 2 and 3 (2026-05-17, both failed in Phase 2)
 
@@ -3165,7 +3165,7 @@ The right design for attempt 4 (in flight at this writing):
 | Trap kills enum VM on Phase 2 error | Trap removed `teardown_enum`; enum VM survives Phase 2 failure → SSH in, save shards, fix bug, re-run Phase 2 only (~[cost redacted] cost instead of another [cost redacted] enum) |
 | Spot eviction during enum | Eviction policy `Deallocate` + `SOLVE_DFS_CHECKPOINT=1` → OS disk preserved on evict, 21k+ `.dfs_state` files allow resume; eviction monitor armed to detect + recover |
 | Upload failure | `curl -T` streaming (verified via 100B test path), HTTP 201 hard-check, abort + preserve managed-disk copy on failure |
-| Triple storage redundancy | `/mnt/solver-data/$ARCHIVE_PREFIX/` + cold archive + claude `/tmp` fallback (2.93GB fits in 4.6GB free) |
+| Triple storage redundancy | `/mnt/solver-data/$ARCHIVE_PREFIX/` + [storage detail redacted] + claude `/tmp` fallback (2.93GB fits in 4.6GB free) |
 
 **Why this took so many attempts (honest):** v2 11.2T should have
 been a 5-hour re-run on the first try. It became four-plus attempts
@@ -3192,7 +3192,7 @@ storage paths**:
 | Storage path | Location | Size |
 |---|---|---|
 | Managed disk (durable) | `solver-data-westus3:/20260516_v2bundled_11.2T_buildA_9d00c48/` | 25 GB bin + 2.93 GB gz + manifest + sha files |
-| Cold archive | `canonical-archive/20260516_v2bundled_11.2T_buildA_9d00c48/` | Same (2.93 GB gz uploaded via streaming `curl -T`, HTTP 201 verified) |
+| [storage detail redacted] | [storage detail redacted] | Same (2.93 GB gz uploaded via streaming `curl -T`, HTTP 201 verified) |
 | Claude `/tmp` fallback | `/tmp/v2_11.2T_results/solutions.bin.gz` | 2.93 GB gz, sha verified `4f1cd8b3…` |
 
 `solve --verify` PASS — all 796,357,285 records satisfy C1-C5, no
@@ -3220,7 +3220,7 @@ Per the runbook, this was the recovery path:
 4. Run Phase 2 only: provision new merge VM, attach solver-data,
    mount, rsync from enum (10 min), tear down enum, merge (50 min),
    verify, save outputs to `/mnt/solver-data/$ARCHIVE_PREFIX/`,
-   upload to cold archive, pull to claude fallback, detach disk,
+   upload to [storage detail redacted], pull to claude fallback, detach disk,
    tear down merge
 
 Wall: rsync 598s + merge 2968s + post-merge ~24min = ~1.5h
@@ -4012,7 +4012,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 **Phase 4 archive** (2026-05-23 20:33 → ~23:45 UTC):
 - Managed-disk copy verified byte-identical (sha256 recompute on `solver-data-westus3:/20260521_v2_100T_buildA/final/solutions.bin` matched `cc4a5377…`).
 - gzip -9 of solutions.bin: 117,234,589,280 B → 13,462,264,289 B (`f6b554ea…`, **8.708× compression** — marginally better than the ~8× v2 11.2T precedent; ~1.5h wall single-threaded gzip on the D32 merge VM). ⚠ **[CORRECTED 2026-09-02, prose batch P47 sibling sweep — this line published a compression ratio ~7% too high and was the SECOND live site of it; the charge (Codex V2-F25 #11) named only the registry. The retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-9788f906`. The two sizes were written as "117 GB" and "12.54 GB", mixing a decimal-GB numerator with a binary-GiB denominator — 13,462,264,289 B is 12.54 GiB, not 12.54 GB — and that quotient is where the retired figure came from. Both are restated in bytes above so the ratio is checkable as written: `(3,663,580,914 × 32 + 32) / 13,462,264,289 = 8.708`. No sha, record count or archive location changes. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Historical (frozen lineages)" for the registry-side correction and its reproduction command.]**
-- Cold-archive upload to `canonical-archive/20260521_v2_100T_buildA/`: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
+- [storage detail redacted] to [storage detail redacted]: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
 - **No Build B cross-build** — v2 100T is a comparison baseline against v1 (and a reference point for the v3 100T Phase 12 bench), not a load-bearing canonical for 560T extension.
 - **v2 shards deleted from managed disk** per operator directive 2026-05-23 (~481 GB freed). The v3 100T campaign (Phase 12) WILL preserve shards.
 - Merge VM (`v2-100t-merge`) + 1.5 TB Premium SSD scratch deleted post-archive. Solver-data managed disk preserved (NEVER deleted).
@@ -4021,7 +4021,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 
 **Net wall time:** ~57h (2026-05-21 → 2026-05-23 ~23:45 UTC), including 3 Spot evictions and a ~13h autonomous-halt for operator review on 2026-05-23 05:10 → ~12:48 UTC (safety system declined to delete the prior Spot enum VM `enum-100t-v2-recovery2` without explicit re-authorization — operator returned and clarified the deletion was authorized, then provisioned the Standard merge VM directly).
 
-**Operator role during campaign:** intermittent supervision with explicit autonomous-block authorization for the final ~5h (gzip + cold-archive + teardown + doc cascade + Phase 11 Build A launch).
+**Operator role during campaign:** intermittent supervision with explicit autonomous-block authorization for the final ~5h (gzip + [storage detail redacted] + teardown + doc cascade + Phase 11 Build A launch).
 
 **Next:** Phase 11 — v3+v3.1 11.2T cross-build (Build A on D128 Spot via `/tmp/v3_phase11_launch.sh`, then Build B on a separate Spot host). Phase 12 — v3 100T full bench. v3 lineage extracts v2's sha-preserving speed wins (LTO + PGO + bitset, ~+9.2% net) onto v1's prune stack to produce a cost-efficient canonical pipeline; 560T solver decision (v1 vs v2 vs v3) gates on the Phase 12 bench data.
 
@@ -4072,7 +4072,7 @@ actual (v3+v3.1 Build A):    0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8
 
 **Merge ran in 200 GB tmpfs** as a workaround for `solve.c:10709`'s disk-check heuristic, which demanded 178 GB of free disk for the 11.2T merge but couldn't be satisfied on the 30 GB OS disk of the enum VM. Pattern: mount 200 GB tmpfs, symlink all 56,874 sub-shards into it via `find ... -print0 | xargs -0 ln -st`, copy the solve binary in, run `--merge` from the tmpfs cwd. Single-threaded sort/dedup of 2.99 B pre-dedup records (→ 759.6 M unique) finished in ~50 min using 89 GB heap.
 
-**Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the cold archive): `canonical-archive/20260524_v3_buildA_11.2T_8b1658b/` contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
+**Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the [storage detail redacted]): [storage detail redacted] contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
 
 **Build B (same-SKU x86 cross-build) SKIPPED** per operator directive 2026-05-24: two D128als_v7 westus3 Spot instances differ only in physical-host selection — that witness isn't strong enough to justify ~[cost redacted] + ~5h wall.
 
@@ -4103,10 +4103,10 @@ Under `-flto`, GCC keys the `.gcda` profile data lookup on the **output binary's
 
 ### 1T canonical established as a byproduct (5a0f0bc2…)
 
-Before this bench, the cold archive's smallest scale was 100B; it jumped to 5.6T+ for the d3 lineage. The bench's rep-1 merge (on the v1 side) and the post-bench tmpfs re-merge (on the v3 side) both produced the same 4,289,250,624-byte solutions.bin with sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`. 134,039,081 unique canonical orderings.
+Before this bench, the [storage detail redacted]'s smallest scale was 100B; it jumped to 5.6T+ for the d3 lineage. The bench's rep-1 merge (on the v1 side) and the post-bench tmpfs re-merge (on the v3 side) both produced the same 4,289,250,624-byte solutions.bin with sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`. 134,039,081 unique canonical orderings.
 
 Archived to:
-- Cold: `canonical-archive/20260524_1T_paired_bench_a2ead96_8b1658b/` (gzip -9, 475 MB, 8.62× compression)
+- [storage detail redacted] (gzip -9, 475 MB, 8.62× compression)
 - Managed disk: `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`
 - Local mirror: `/home/claude/staging/`
 
@@ -4716,7 +4716,7 @@ D128als_v7 Spot (~7h55m wall, [cost redacted] cost, one real Spot eviction survi
 byte-clean from `.dfs_state` checkpoints, **60,533 final shards** — within
 the power-law-projected ~57–62k range from the scaling appendix), then
 Phase B merge on `c114-merge-100t` D16als_v7 Standard (~5h31m external-
-merge wall, Premium scratch), then recovery + cold-archive on
+merge wall, Premium scratch), then recovery + [storage detail redacted] on
 `c114-recover-100t` D4als_v7 Spot. **sha256 of the merged `solutions.bin`
 is `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` —
 byte-identical to the historical canonical.** The 100T canonical is
@@ -4743,14 +4743,14 @@ not +231,181,**617**. The percentage uplift is unchanged.
 
 *(Correction 2026-07-04: the "off-by-one correction" above is itself wrong — kept verbatim as historical record. The "divides cleanly by 32" quotient **includes the file's 32-byte header**; the correct arithmetic is (109,836,777,536 − 32) / 32 = **3,432,399,297**, which matches every primary source: analyze §[1] and §[28], the solver-written `solutions.meta.json`, and the independent verify log ("all 3432399297 records"). The 2026-05-12 count this entry "corrected" was right all along, and the merge supervisor's rc=22 described below was computing the same header-inclusive quotient. All docs were re-corrected to 3,432,399,297 on 2026-07-04; the v2/v1 delta reverts to +231,181,617. The sha256 anchors were never affected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.)*
 
-The cold archive landed at
-`solver-data-westus3:/canonical-archive/20260530_100T_revalidation_4e15885/`,
+The [storage detail redacted] landed at
+[storage detail redacted],
 containing `solutions.bin.gz` (12.6 GB at gzip -9, ~8.9× compression),
 `shards.tar.gz` (100 GB across all 60,533 cell shards), `dfs_state.tar.gz`
 (158,364 per-cell checkpoints), `budget.tar.gz`, and the full
 `solutions.provenance.json` + `canonical-host-fingerprint.json` +
 `shard_manifest.txt` + `build.sha` + `solve.binary.snapshot` set. This
-follows the directive (operator 2026-05-29) that 11.2T+ cold archives must
+follows the directive (operator 2026-05-29) that 11.2T+ [storage detail redacted] must
 always include the shards and checkpoints, so the archive itself is
 extendable to higher scales (e.g. 100T → 560T as +460T more compute, not
 a from-scratch +560T).
@@ -4799,9 +4799,9 @@ A two-pass dress rehearsal of the full 560T canonical pipeline (enum → merge �
 4. `phase_b_merge_supervise.sh` and `phase_b_recover_and_archive_supervise.sh` were `(TEMPLATE)` skeletons, not implementations. Both contained a `log "(TEMPLATE) az vm create ..."` placeholder where the actual VM provisioning + disk attach should have been; both expected the VM and disks to already exist when the supervisor ran. The 100T re-validation had used a separate, fully-implemented `roae-private/scripts/campaign_100T_reval/phase_b_merge_supervise.sh`; the 560T versions were partial copies that had never been end-to-end exercised. Had the 560T main run reached the merge stage after ~5 days of enum, both stages would have failed in <1 second. Ported the working VM-creation + disk-attach pattern from the 100T supervisor; switched to directory-scratch on the Premium (sufficient at both 11.2T and 560T scales, no separate scratch disk needed); added an `EXPECTED_SHA` env-var-gated mode so the same script can either record-the-new-sha (560T main, no prior anchor) or sha-equality-gate (dress rehearsal, against the canonical anchor). (Commit `62dc54d`.)
 5. `phase_b_merge_supervise.sh` had a duplicate hardcoded `VM=c560-merge` line *before* the env-var-overridable `VM=${VM:-c560-merge}` line. First assignment wins, so callers' `VM=dress-merge-11-2T` env overrides were silently ignored. On the first dress-resume attempt this briefly provisioned a real `c560-merge` VM with the 560T main run's reserved name; torn down within ~1 minute, cost ~[cost redacted]. (Commit `76f428e`.)
 
-**Dress rehearsal v2 stages 2 + 3 (2026-05-31 07:24 → 11:00 UTC, ≈[cost redacted]).** With the supervisors fixed, merge ran on a D16als_v7 Standard (merge is uncheckpointable; Spot eviction would lose work mid external-sort) with directory-scratch on the dress-premium (96 min wall). The merged `solutions.bin` was 24,307,474,368 bytes (= 759,608,574 records by `bytes / 32`) and sha256-hashed to **`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`** — byte-identical to the 11.2T canonical anchor. `solve --verify` PASS on all 759,608,573 records (the off-by-one between `bytes / 32` and the verify report is the same documentation-derived bookkeeping artifact as the 2026-05-30 100T off-by-one). `verify.py --jobs 16` independent two-language verify also PASS. Stage 3 archived to `solver-data:/canonical-archive/20260531_dress_rehearsal_11_2T_7ca55e8/` on a D4als_v7 Spot (73 min, [cost redacted]), including `shards.tar.gz` + `dfs_state.tar.gz` + `budget.tar.gz` per the firm 11.2T+ archive directive. **This is the first empirical confirmation that Tier 1 hardening (shipped 2026-05-28) is sha-neutral at canonical scale on the current main lineage** — the 2026-05-28 entry's "11.2T anchor remains drift-robust" claim was, at the time of writing, a transitive inference from the 2026-05-27 c72eada+#108 witness; it is now empirically verified at the head of the current main, `7ca55e8`.
+**Dress rehearsal v2 stages 2 + 3 (2026-05-31 07:24 → 11:00 UTC, ≈[cost redacted]).** With the supervisors fixed, merge ran on a D16als_v7 Standard (merge is uncheckpointable; Spot eviction would lose work mid external-sort) with directory-scratch on the dress-premium (96 min wall). The merged `solutions.bin` was 24,307,474,368 bytes (= 759,608,574 records by `bytes / 32`) and sha256-hashed to **`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`** — byte-identical to the 11.2T canonical anchor. `solve --verify` PASS on all 759,608,573 records (the off-by-one between `bytes / 32` and the verify report is the same documentation-derived bookkeeping artifact as the 2026-05-30 100T off-by-one). `verify.py --jobs 16` independent two-language verify also PASS. Stage 3 archived to [storage detail redacted] on a D4als_v7 Spot (73 min, [cost redacted]), including `shards.tar.gz` + `dfs_state.tar.gz` + `budget.tar.gz` per the firm 11.2T+ archive directive. **This is the first empirical confirmation that Tier 1 hardening (shipped 2026-05-28) is sha-neutral at canonical scale on the current main lineage** — the 2026-05-28 entry's "11.2T anchor remains drift-robust" claim was, at the time of writing, a transitive inference from the 2026-05-27 c72eada+#108 witness; it is now empirically verified at the head of the current main, `7ca55e8`.
 
-**Phantom 11.2T anchor-drift incident (2026-05-31 ~09:00 → ~13:30 UTC).** Stage 2's sha-gate exit code was rc=22 ("sha mismatch"), even though the produced sha matched the canonical. The cause was a hardcoded `ANCHOR_11_2T_SHA` value in the dress rehearsal scripts that does not correspond to any real artifact: `0c0fe37cdf3d92ba953b3c41a5e84d54c1f88b22e7d1e0e3e9a52deb8a3ef6c5`. Empirical sha256 of two independent archived `solutions.bin` files on solver-data both produced `0c0fe37cf449cbc6e275...` (the real canonical), and the trailing 56 hex characters of the wrong value (`df3d92ba…3ef6c5`) appear as a prefix or partial of zero known sha256 anywhere — they don't correspond to any real artifact in the codebase, on solver-data, or in cold storage. The wrong value originated 2026-05-28 in `roae-private:TASK_110_TIER1_SHIPPED_2026_05_28.md`, as the `<sha>` token in a `./solve --validate-canonical <sha> <scale>` usage example. The session writing that doc was the AI assistant working on this project (Claude Code); when the language model produced the example, it generated a 64-character hex string that began with the canonical's known abbreviated prefix `0c0fe37c…` (present in context) and continued with 56 hex characters that were **not retrieved from any source-of-truth** (`CANONICAL_HASHES.md`, a `.sha256` sidecar, or a `sha256sum` computation). The result looked like a valid sha256 — and looked correct to a casual reader, because the first 8 hex characters matched the convention used in every section header in the project — but the trailing characters were invented by the language model. This is a known LLM failure mode: hallucinating plausible-looking content (a sha-shaped token) without grounding in a retrieved value. The hallucinated string then copy-pasted from the example into the dress rehearsal scripts on 2026-05-30 and 2026-05-31, becoming a hardcoded constant in three executable files. No sha-equality gate had ever fired against the bad value until the dress rehearsal Stage 2 gate, because all earlier validation work (Tier 1 1T sha-gate, #100 11.2T sha-check, #114 100T sha-gate) sourced sha values directly from `solutions.sha256` sidecar files or `CANONICAL_HASHES.md`. The incident cost ~6 hours of investigation work (briefly declared a 560T launch blocker, drafted a 5-phase investigation plan), and was resolved when an empirical sha256 of `solver-data:/t62_dress_11p2T/solutions.bin` (an unrelated archive from the 2026-05-28 t62 dress rehearsal on 560T hardware) produced the real canonical sha. **Lesson, structural rather than procedural:** when an LLM is writing documentation, scripts, or any artifact that requires a specific real sha256 value (or any other long, opaque identifier), it must retrieve the value from a source-of-truth in the same action — not generate it inline. The retrieval action — `cat CANONICAL_HASHES.md`, `cat solutions.sha256`, `sha256sum solutions.bin` — should appear in the same session that produces the documenting artifact. A `roae-private/PHANTOM_DRIFT_RESOLUTION_2026_05_31.md` writeup records the full lifecycle and the language-model-hallucination root cause in more detail.
+**Phantom 11.2T anchor-drift incident (2026-05-31 ~09:00 → ~13:30 UTC).** Stage 2's sha-gate exit code was rc=22 ("sha mismatch"), even though the produced sha matched the canonical. The cause was a hardcoded `ANCHOR_11_2T_SHA` value in the dress rehearsal scripts that does not correspond to any real artifact: `0c0fe37cdf3d92ba953b3c41a5e84d54c1f88b22e7d1e0e3e9a52deb8a3ef6c5`. Empirical sha256 of two independent archived `solutions.bin` files on solver-data both produced `0c0fe37cf449cbc6e275...` (the real canonical), and the trailing 56 hex characters of the wrong value (`df3d92ba…3ef6c5`) appear as a prefix or partial of zero known sha256 anywhere — they don't correspond to any real artifact in the codebase, on solver-data, or in [storage detail redacted]. The wrong value originated 2026-05-28 in `roae-private:TASK_110_TIER1_SHIPPED_2026_05_28.md`, as the `<sha>` token in a `./solve --validate-canonical <sha> <scale>` usage example. The session writing that doc was the AI assistant working on this project (Claude Code); when the language model produced the example, it generated a 64-character hex string that began with the canonical's known abbreviated prefix `0c0fe37c…` (present in context) and continued with 56 hex characters that were **not retrieved from any source-of-truth** (`CANONICAL_HASHES.md`, a `.sha256` sidecar, or a `sha256sum` computation). The result looked like a valid sha256 — and looked correct to a casual reader, because the first 8 hex characters matched the convention used in every section header in the project — but the trailing characters were invented by the language model. This is a known LLM failure mode: hallucinating plausible-looking content (a sha-shaped token) without grounding in a retrieved value. The hallucinated string then copy-pasted from the example into the dress rehearsal scripts on 2026-05-30 and 2026-05-31, becoming a hardcoded constant in three executable files. No sha-equality gate had ever fired against the bad value until the dress rehearsal Stage 2 gate, because all earlier validation work (Tier 1 1T sha-gate, #100 11.2T sha-check, #114 100T sha-gate) sourced sha values directly from `solutions.sha256` sidecar files or `CANONICAL_HASHES.md`. The incident cost ~6 hours of investigation work (briefly declared a 560T launch blocker, drafted a 5-phase investigation plan), and was resolved when an empirical sha256 of `solver-data:/t62_dress_11p2T/solutions.bin` (an unrelated archive from the 2026-05-28 t62 dress rehearsal on 560T hardware) produced the real canonical sha. **Lesson, structural rather than procedural:** when an LLM is writing documentation, scripts, or any artifact that requires a specific real sha256 value (or any other long, opaque identifier), it must retrieve the value from a source-of-truth in the same action — not generate it inline. The retrieval action — `cat CANONICAL_HASHES.md`, `cat solutions.sha256`, `sha256sum solutions.bin` — should appear in the same session that produces the documenting artifact. A `roae-private/PHANTOM_DRIFT_RESOLUTION_2026_05_31.md` writeup records the full lifecycle and the language-model-hallucination root cause in more detail.
 
 **#116 (parallelize manifest sha256 sweep) — still NOT shipped.** A second attempt at the #116 sha-gate was made on 2026-05-30/31 with a paired-VM design (PARENT + PATCHED on the same D32als_v7 Spot at 1T scale, sha-equality-gate between them). The PATCHED side failed with bash rc=2 immediately at startup — `SOLVE_TEMP_DIR=/dev/shm/scratch_patched { time ./solve; } > log` is not valid bash (an env-var prefix is not legal before a compound `{ }`). The PARENT side ran clean and recorded the v3 BRANCH lineage 1T sha as `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52` on the test host — different from the Tier 1 anchor `74d39760…`, confirming the 1T host-environment drift class is still active on the v3 BRANCH lineage. ⚠ **[CORRECTED 2026-09-04: this sentence records the first refutation of the "does not reproduce on current `main`" claim and reads it as a confirmation.** The PARENT ran `main` `7ca55e8` with the published budget — `Per-sub-branch node limit: 6315458` in its own log — and produced exactly the published-recipe 1T anchor. Nothing about a drift class was confirmed. See [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]** (At 11.2T scale this drift class does not propagate — the dress rehearsal v2 at git `7ca55e8` produced the canonical `0c0fe37cf449cbc6e275...` byte-identical to the 2026-05-27 c72eada+#108 witness, consistent with the existing project memory that drift sensitivity is inversely proportional to budget-vs-tree-size ratio.) #116 remains deferred to post-560T.
 
@@ -4818,8 +4818,8 @@ The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a D128als_v7 Spot 
 **Post-merge SPOF discovery and remediation.** During the post-verify phase 2026-06-08, while `verify.py` was still running, the operator flagged that no plan existed for copying `solutions.bin` to solver-data before the supervisor's `teardown_vm` fired. A reading of `phase_b_merge_supervise.sh` confirmed: the supervisor copies only LOGS, sidecars (sha256, provenance.json), and the gzipped merge log; **it does NOT copy `solutions.bin`, shards, or `.dfs_state` checkpoints from Premium SSD to solver-data**. After teardown, the canonical exists only on the detached Premium SSD — a single point of failure, especially because Premium is by standing pattern the project's "transient external-merge scratch" (i.e., the kind of disk a future operator on muscle memory might delete). Remediation in flight:
 
 1. Explicit data copy from Premium → solver-data launched while verify.py was still running (read-only on source, no interference).
-2. solver-data disk resized 2 TB → 4 TB online (the uncompressed 560 T artifacts at ~1.6 TB plus a gzipped warm-tier mirror at ~800 GB don't fit in the prior 2 TB envelope). Per the standing rule, resize is allowed; delete is not.
-3. Cold-blob upload to the cold-archive storage account (the durable offsite tier) + warm canonical-archive mirror at `/mnt/solver-data/canonical-archive/20260608_560T_9a968fa2/` follow the established 100T pattern.
+2. solver-data disk resized 2 TB → 4 TB online (the uncompressed 560 T artifacts at ~1.6 TB plus a gzipped [storage detail redacted] mirror at ~800 GB don't fit in the prior 2 TB envelope). Per the standing rule, resize is allowed; delete is not.
+3. [storage detail redacted] to [storage detail redacted] (the durable offsite tier) + [storage detail redacted] at [storage detail redacted] follow the established 100T pattern.
 
 The structural fix for future campaigns is to bake the explicit copy step into `phase_b_merge_supervise.sh` so it runs before `teardown_vm` unconditionally — see [CAMPAIGN_METHODOLOGY.md §4.1](CAMPAIGN_METHODOLOGY.md) for the post-merge artifact-preservation rule. This is the third canonical campaign (11.2 T, 100 T, 560 T) where the gap existed but was caught manually each time; the supervisor-level fix is the durable answer.
 
@@ -4851,7 +4851,7 @@ Six solve.c commits, all selftest-sha-preserving: `8ac5e8f` (§[10] + progress m
 
 ### 560T `--analyze` scientific findings (D128 run, 2026-06-11)
 
-The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaigns/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + `canonical-archive/20260608_560T_9a968fa2/analyze_v3_560T.log`):
+The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaigns/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + [storage detail redacted]):
 
 - **§[1] file metadata**: 10,525,271,997 records, 336.81 GB
 - **§[2] per-position Shannon entropy**: pos 1 H = 0.000 (1 distinct pair — forced); pos 2 H = 4.272 (28 distinct pairs)
@@ -4894,15 +4894,15 @@ For the same v1 lineage, comparing 11.2T (sha `0c0fe37c…`, 759,608,573 records
 
 Implication for the 1120T extension projection: the simple power-law `records ∝ T^0.78` projects ~18.1 B records at 1120T *(corrected: α ≈ 0.67, ≈16.7 B — the 0.78 exponent was an arithmetic error; see the α refit correction in the June 1-8 entry above)*. The mechanism behind that projection is now better understood — a substantial fraction of the additional records will come from cells that produced 0 records at 560T, rather than from deeper trees in cells already yielding at 560T. Realistic 1120T range refined to ~14-22 B records.
 
-Methodology: 11.2T per-cell data extracted by streaming the merged `solutions.bin.gz` from cold blob and binning each 32-byte record by bytes 1-3 (= encoded sub-branch key for positions 2, 3, 4; byte 0 is C1-fixed position 1 = pair 0). 560T per-cell data extracted from the 65,281 `sub_*.bin.provenance.json.gz` files in cold blob via parallel curl + `cumulative_records_emitted` parse. Encoding alignment validated by p1-distinct-value cross-check (28 distinct values on both sides; identical set). Total compute cost: ~[cost redacted] (D2 Spot + cold blob egress).
+Methodology: 11.2T per-cell data extracted by streaming the merged `solutions.bin.gz` from [storage detail redacted] and binning each 32-byte record by bytes 1-3 (= encoded sub-branch key for positions 2, 3, 4; byte 0 is C1-fixed position 1 = pair 0). 560T per-cell data extracted from the 65,281 `sub_*.bin.provenance.json.gz` files in [storage detail redacted] via parallel curl + `cumulative_records_emitted` parse. Encoding alignment validated by p1-distinct-value cross-check (28 distinct values on both sides; identical set). Total compute cost: ~[cost redacted] (D2 Spot + [storage detail redacted]).
 
 Full report at `roae-private/PER_CELL_11_2T_VS_560T_COMPARISON_2026_06_11.md` (private; raw data archived to `roae-private/per_cell_comparison_2026_06_11/`).
 
 ### v3 100T re-derive launched (task #148) — initial framing corrected 2026-06-12
 
-The 100T canonical anchor `915abf30…` has multiple preserved-byte witnesses on the project's warm tier (`solver-data-westus3:/canonical_100T/solutions.bin`, originating from the 2026-05-09 T9+c.1 recovery; sha256-verified `915abf30…` byte-identically on 2026-06-12). The 2026-05-30 #114 100T re-validation on the current main lineage sha-PASSED but its bytes were not uploaded to cold blob (an earlier doc revision referenced an empty cold-blob path; corrected during today's restructure). **Today's v3 100T re-derive was initially framed as motivated partly by "restoring preserved bytes" — that framing was inaccurate; the bytes have been continuously preserved on warm tier since May 9.** The actual unique value of the v3 100T re-derive is preserving per-cell shards (the 2026-05-29 preserve-shards directive postdated the original 100T enum, so no 100T per-cell shards have ever been cold-archived), which unlocks the 3-point per-cell scaling trajectory (11.2T → 100T → 560T) with full BUDGETED/EXHAUSTED budget-status decomposition.
+The 100T canonical anchor `915abf30…` has multiple preserved-byte witnesses on the project's [storage detail redacted] (`solver-data-westus3:/canonical_100T/solutions.bin`, originating from the 2026-05-09 T9+c.1 recovery; sha256-verified `915abf30…` byte-identically on 2026-06-12). The 2026-05-30 #114 100T re-validation on the current main lineage sha-PASSED but its bytes were not uploaded to [storage detail redacted] (an earlier doc revision referenced an empty [storage detail redacted]; corrected during today's restructure). **Today's v3 100T re-derive was initially framed as motivated partly by "restoring preserved bytes" — that framing was inaccurate; the bytes have been continuously preserved on [storage detail redacted] since May 9.** The actual unique value of the v3 100T re-derive is preserving per-cell shards (the 2026-05-29 preserve-shards directive postdated the original 100T enum, so no 100T per-cell shards have ever been [storage detail redacted]), which unlocks the 3-point per-cell scaling trajectory (11.2T → 100T → 560T) with full BUDGETED/EXHAUSTED budget-status decomposition.
 
-See `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_CANONICAL_PRESERVATION_CHECK.md` for the incident detail (mistake: I checked only cold blob to determine "bytes preserved?", missed warm tier; fix: query BOTH tiers before declaring bytes lost).
+See `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_CANONICAL_PRESERVATION_CHECK.md` for the incident detail (mistake: I checked only [storage detail redacted] to determine "bytes preserved?", missed [storage detail redacted]; fix: query BOTH tiers before declaring bytes lost).
 
 Cost projection: ~[cost redacted] (D128 Spot ~16h × [cost redacted] + D16 Standard merge ~5h × [cost redacted] + 1 TB Premium SSD ~2 days + archive). Operator authorized "start it now on spot vms" at 2026-06-11 mid-afternoon PT; enum running since 23:22 UTC. Sha-gate: target `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (byte-identical to v1 anchor per v3 sha-preservation).
 
@@ -4914,11 +4914,11 @@ Two doc-shape changes landed today:
 
 1. **`findings/` → `documentation/` consolidation.** The three previously-staging findings docs (PARTITION_STABILITY_BOUNDARIES, SYMMETRY_SEARCH, PASS1_TRAJECTORY_DETERMINISM) were moved to `documentation/`, alongside a fourth new finding (`BOUNDARY_MINIMUM_NON_MONOTONE.md`; renamed `BOUNDARY_MINIMUM.md` on 2026-07-04 when the "4 → 5 → 4 non-monotone" headline was found to be a survivor-counting error — the corrected trajectory is monotone 4 → 5 → 5) documenting the greedy-ordered minimum trajectory across d3 10T → 100T → 560T. The motivation: a pre-Fable-review repo-wide MD sweep caught that the original `findings/` directory was being skipped by the partial `documentation/`-only review pass (#147). Consolidating into one tree eliminates the second-tier hierarchy that was easy to miss. A redirect stub remains at `findings/README.md` for incoming external links (then physically deleted 2026-06-11 PT evening after the redirect transition was confirmed). Commit: `bbf5348` consolidation; later commit deleting the stub.
 
-2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at `canonical-archive/20260530_100T_revalidation_4e15885/`. Verification via blob list against `canonical-archive/` returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
+2. **CANONICAL_HASHES.md 100T disposition correction.** The doc's `d3 100T` row claimed the #114 re-validation bytes were archived at [storage detail redacted]. Verification via [storage detail redacted] against [storage detail redacted] returned 0 entries for that prefix. The text was corrected to "sha-PASS verdict stands as the authoritative record; the bytes themselves are not currently available." Commit: `7a3c0d5`.
 
 ### Other 560T-derived hardening
 
-- `phase_b_recover_and_archive_supervise.sh` now auto-writes `parent_canonical.txt` per archive (operator directive 2026-06-11 mid-evening, before the 100T re-derive launch). Convention: `ROOT` for fresh enums; `<sha> <scale>` for extensions. The 560T cold blob was backfilled with this file (`ROOT` since 560T was a fresh full enum).
+- `phase_b_recover_and_archive_supervise.sh` now auto-writes `parent_canonical.txt` per archive (operator directive 2026-06-11 mid-evening, before the 100T re-derive launch). Convention: `ROOT` for fresh enums; `<sha> <scale>` for extensions. The 560T [storage detail redacted] was backfilled with this file (`ROOT` since 560T was a fresh full enum).
 - LAUNCH_560T_CAMPAIGN.sh was retrofitted with 8 env overrides (PSB / NL / VM / MERGE_VM / ARCHIVE_VM / RUN / LOGDIR / PREMIUM_GB / WALL_CAP / EXPECTED_SHA / EXPECTED_SCALE / ARCHIVE_NAME) so both the 1120T extension launcher and the 100T re-derive launcher are thin delegating wrappers rather than separate ~700-line copies. Backwards-compatible — defaults fall back to the 560T-campaign-specific values.
 - Tag `pre-1120T-analyze-fast-2026-06-11` shipped on the post-#141/#142/#143/#144/#145/#146 main HEAD. Today's commits add to this tag's lineage; a follow-on tag `560T-closed-2026-06-12` marks the campaign's official close.
 
@@ -4928,15 +4928,15 @@ Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` 
 
 Two consecutive 2026-06-12 incidents surfaced root-cause discipline failures around "consult the authoritative source before acting." Both got lessons-learned docs and going-forward rules; both fed into a clean CANONICAL_HASHES.md restructure that improves the doc's usability for any future re-derive author.
 
-### Incident 1 — Canonical preservation check missed warm tier
+### Incident 1 — Canonical preservation check missed [storage detail redacted]
 
-While discussing whether to launch a v3 100T re-derive, the user asked whether the 100T canonical bytes (`915abf30…`) were preserved. I checked cold blob, found no `20260530_100T_revalidation_4e15885/` archive, and concluded "bytes NOT preserved" — then "corrected" CANONICAL_HASHES.md to that effect (commit `7a3c0d5`).
+While discussing whether to launch a v3 100T re-derive, the user asked whether the 100T canonical bytes (`915abf30…`) were preserved. I checked [storage detail redacted], found no `20260530_100T_revalidation_4e15885/` archive, and concluded "bytes NOT preserved" — then "corrected" CANONICAL_HASHES.md to that effect (commit `7a3c0d5`).
 
-In reality the bytes were preserved on warm tier at `solver-data-westus3:/canonical_100T/solutions.bin` since 2026-05-09 (T9+c.1 recovery output). I missed this because I implicitly assumed "if it's not in cold blob, it's not preserved." Surface verification 2026-06-12 via `sha256sum` confirmed the warm-tier file is byte-identical to the canonical anchor.
+In reality the bytes were preserved on [storage detail redacted] at `solver-data-westus3:/canonical_100T/solutions.bin` since 2026-05-09 (T9+c.1 recovery output). I missed this because I implicitly assumed "if it's not in [storage detail redacted], it's not preserved." Surface verification 2026-06-12 via `sha256sum` confirmed the [storage detail redacted] file is byte-identical to the canonical anchor.
 
-**Going-forward rule** (`feedback_canonical_preservation_check_warm_and_cold`): query BOTH cold blob AND every attached managed data disk before declaring bytes lost. Never write "bytes NOT preserved" — be specific about which tier was checked.
+**Going-forward rule** (`feedback_canonical_preservation_check_warm_and_cold`): query BOTH [storage detail redacted] AND every attached managed data disk before declaring bytes lost. Never write "bytes NOT preserved" — be specific about which tier was checked.
 
-Cost: the v3 100T re-derive was authorized partly on the (incorrect) framing of "no preserved bytes." With the warm-tier copy understood, the re-derive's real motivation is preserving per-cell shards (still useful for the 3-point trajectory analysis) — the compute spend is justified, just for a slightly different reason than originally documented.
+Cost: the v3 100T re-derive was authorized partly on the (incorrect) framing of "no preserved bytes." With the [storage detail redacted] copy understood, the re-derive's real motivation is preserving per-cell shards (still useful for the 3-point trajectory analysis) — the compute spend is justified, just for a slightly different reason than originally documented.
 
 ### Incident 2 — PSB math error in v3 100T + 11.2T re-derive launchers
 
@@ -4969,12 +4969,12 @@ Full incident write-up: `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_PSB_MA
 
 Both incidents have the same root-cause shape: **I trusted local context (a partial check, an in-head calculation) instead of going to the authoritative source.**
 
-- Preservation check: I checked one tier (cold blob), declared "lost" — should have checked every tier.
+- Preservation check: I checked one tier ([storage detail redacted]), declared "lost" — should have checked every tier.
 - PSB derivation: I re-computed in my head, got it wrong — should have copied verbatim from the recipe table.
 
 Two earlier incidents this session shared the same shape:
 - `feedback_md_review_full_repo_scope` (2026-06-11): grepped only `documentation/*.md` during a "full repo MD review," missed `findings/`, `enumeration/`, root README, etc.
-- The session's 100T cold-blob-archive correction (commit `7a3c0d5`, now itself being re-corrected for warm-tier framing).
+- The session's 100T [storage detail redacted] correction (commit `7a3c0d5`, now itself being re-corrected for [storage detail redacted] framing).
 
 The general fix is going-forward discipline: **always go to the authoritative source for any reproducibility-affecting value, audit-relevant scope, or doc-level claim.** Trusting "what I remember" or "what's in front of me" instead of "what does the source doc say?" is the recurring failure mode.
 
@@ -4992,14 +4992,14 @@ The restructure:
 - **Each canonical's entry rebuilt** as: key facts (sha, records, lineage, status, established) + witness table (for canonicals with multiple cross-build / cross-architecture witnesses) + archives + scoping notes.
 - **Structured-metadata block removed** — the relevant 1T validation history is now in the d3 1T (current main) detailed entry's prose.
 - **New PSB-formula caveat section** under Reproducibility parameters explaining the recipe-vs-floor discrepancy + the going-forward rule of copying verbatim from the recipe.
-- **100T disposition framing corrected** — bytes preserved on warm tier (with full path + sha-verify timestamp), not "currently unavailable." Cold blob upload still pending the in-flight v3 re-derive.
+- **100T disposition framing corrected** — bytes preserved on [storage detail redacted] (with full path + sha-verify timestamp), not "currently unavailable." [storage detail redacted] still pending the in-flight v3 re-derive.
 
 Length went from 206 lines to 359 lines, but readability is much better: scanning for "what canonicals are there?" is now ~10 lines (the quick reference table) instead of 200; each detailed entry has consistent structure rather than wall-of-text prose.
 
 ### 3-point per-cell scaling trajectory (11.2T → 100T → 560T) — COMPLETE 2026-06-14
 
 The v3 100T (sha `915abf30…`) and 11.2T (sha `0c0fe37c…`) re-derives landed byte-identical to
-their anchors and were gzip-9 cold-archived with full per-cell shards. The per-cell yield
+their anchors and were gzip-9 [storage detail redacted] with full per-cell shards. The per-cell yield
 trajectory across the three canonical depths is the scientific capstone of the 560T campaign.
 All claims below are scoped to orderings satisfying the **formalized** constraints C1–C5 with
 position 1 forced to pair 0 (hexagrams 1–2); canonical = pair-identity-deduped (orientation collapsed).
@@ -5034,7 +5034,7 @@ position 1 forced to pair 0 (hexagrams 1–2); canonical = pair-identity-deduped
   reproducible *slice* at a fixed budget, and 560T deepens 100T rather than completing it. This
   reframes the 1120T extension as a *discriminating test of the growth asymptote*, not merely more data.
 
-Both re-derive archives are preserved-byte witnesses in cold blob with per-cell shards (enabling this
+Both re-derive archives are preserved-byte witnesses in [storage detail redacted] with per-cell shards (enabling this
 trajectory and future extension). Selftest sha `403f7202…` preserved throughout (sha-neutral).
 
 ### McKenna Rule-2 + 9th-six verified at the 560T canonical — 2026-06-15
@@ -5110,7 +5110,7 @@ rehearsal** that reproduced `0c0fe37c` byte-for-byte through 2 real Spot evictio
 the operator authorized a **from-scratch 560T re-run** (`LAUNCH_560T_RERUN.sh`: D128 Spot, 2 TB Premium, fixed
 binary, 5-min IOPS telemetry) to produce a clean, single-lineage 560T that either reproduces the SUSPECT
 `9a968fa2` or supersedes it. The run is in flight (~5 days). The original campaign's per-cell forensic shards
-were cold-archived (`canonical-archive/20260608_560T_9a968fa2_FORENSICS_buggy_shards/`) before the 4 TB Premium
+were [storage detail redacted]) before the 4 TB Premium
 holding them was retired.
 
 The launch itself surfaced — and we fixed — a series of bugs in the **telemetry sampler and its launch wiring**
@@ -5132,7 +5132,7 @@ The from-scratch 560T re-run completed: **158,364 cells enumerated across 7 real
 cleanly, 0 lost cells), then an external merge → `solutions.bin`.** The result **reproduces the original
 `9a968fa2…` byte-for-byte** — identical sha256, identical 10,525,271,997 records — verified by three independent
 `gzip -dc | sha256sum` passes (the merge supervisor's hash, a neutral third hash, and a round-trip through the
-cold-archive blob). **The original 560T was complete and correct; the eviction-resume defect did not corrupt it.
+[storage detail redacted]). **The original 560T was complete and correct; the eviction-resume defect did not corrupt it.
 SUSPECT clears → 560T is CANONICAL-verified at `9a968fa2`.**
 
 *Why byte-identical despite the original running on the buggy solver?* `solutions.bin` is a **path-independent
@@ -5156,10 +5156,10 @@ same-scale witness, the strongest validation short of an impossible exhaustive r
 the sha of the **compressed `.gz` container bytes**, which `sha256_of_logical` mislabeled as the logical
 (decompressed) sha. A premature "DIFFERENT/SUPERSEDED" read on that sidecar was **retracted** the moment two
 independent decompress-hashes both returned `9a968fa2`. Lesson: never issue a canonical verdict from a single sha
-source; independently recompute first. The sidecar bug is tracked privately. (2) The cold-archive upload completed
-(all blobs present at correct sizes) but its in-VM round-trip check spuriously failed on a transport-corrupted
-SAS token; re-running the round-trip from the orchestrator with a clean token confirmed the cold blob decompresses
-to `9a968fa2`. No data was ever at risk (warm copy intact + the original June cold blob byte-identical). The
+source; independently recompute first. The sidecar bug is tracked privately. (2) The [storage detail redacted] completed
+([storage detail redacted]) but its in-VM round-trip check spuriously failed on a transport-corrupted
+[storage detail redacted]; re-running the round-trip from the orchestrator with a clean token confirmed the [storage detail redacted] decompresses
+to `9a968fa2`. No data was ever at risk (warm copy intact + the original June [storage detail redacted] byte-identical). The
 re-run's artifact is archived 3-copy with extendable shards+checkpoints retained for the 1120T extension. The
 1120T extension remains held pending operator scoping.
 
@@ -6319,18 +6319,18 @@ seen; two came back clean for the surviving claim.
   **overtaken the same day** by the 吳澄 → 朱元昇 cession above, which is precisely that partition. It
   must not be carried forward, and it is recorded here so that it cannot be.
 - **A source-holdings audit, triggered by our own error.** A local directory was read as data loss, a
-  source reported gone, and re-purchase recommended — when the material had been moved to cold storage
+  source reported gone, and re-purchase recommended — when the material had been moved to [storage detail redacted]
   two weeks earlier with a manifest already beside it. The gap was that nothing in the working tree
   reflected the move, so "obtained" was unverifiable from inside the repository.
 
 ### Two correct rules that interacted badly
 
-`--put-md5` was specified so that every future *download* of an archived artifact would be
-auto-validated on arrival. Rehydration was then banned as a verification route on cost grounds. Each
+[storage detail redacted] would be
+[storage detail redacted]. Each
 rule is right on its own; together they removed the download, and with it the purpose. What remains
-is a **missing middle link**: disk bytes → sha256 registry ✅, blob `Content-MD5` ✅ (73 of 73 on the
-Stage F set), but **disk bytes → md5 ❌**. The stored Content-MD5 is self-consistent but *unanchored* —
-"whatever the upload tool computed", with nothing to check it against — and a sha256 registry cannot
+is a **missing middle link**: disk bytes → sha256 registry ✅, [storage detail redacted]
+[storage detail redacted] is self-consistent but *unanchored* —
+[storage detail redacted], with nothing to check it against — and a sha256 registry cannot
 close the gap, because they are different hash functions.
 
 ### Nobody had ever executed a published reproduction command
@@ -6695,21 +6695,21 @@ the project has ever seen, and two came back clean for the surviving claim.
   been lost since the Ming and only recently reconstructed.
 - **A source-holdings audit, triggered by our own error.** A local directory was read as data loss, a
   source was reported gone, and re-purchase was recommended — when the material had been moved to
-  cold storage two weeks earlier, with a manifest already sitting beside it. The gap was that nothing
+  [storage detail redacted] two weeks earlier, with a manifest already sitting beside it. The gap was that nothing
   in the working tree reflected the move, so "obtained" was unverifiable from inside the repo.
-  [CITATION NEEDED: source for the source-holdings audit and the cold-storage manifest it turned on]
+  [CITATION NEEDED: source for the source-holdings audit and the [storage detail redacted] manifest it turned on]
 - `16217a4e` **retracted** the "convention divergence" reading of `6f86d2cb` — a reading retracted
   within a day of being published.
 
 ## 2026-08-17/19: Stage G closeout, and a gap in the archive story
 
 - `STAGEG_MIRROR_ALARM_ANALYSIS_2026_08_17.md` (private), `STAGEF_ARCHIVE_RECONCILE_2026_08_18.md` (private).
-- **`ARCHIVE_VERIFICATION_GAP_2026_08_19.md` (private) — `--put-md5` lost its purpose when rehydrate was
-  banned.** Two individually correct rules interacted badly. `--put-md5` was specified so every
-  future *download* would be auto-validated; banning rehydrate as a verification route removed the
-  download, and with it the purpose. What remains is a **missing middle link**: disk bytes → sha256
-  registry ✅, blob `Content-MD5` ✅ (73/73 on Stage F), but **disk bytes → md5 ❌**. The stored
-  Content-MD5 is therefore *self-consistent but unanchored* — "whatever azcopy computed", with
+- **`ARCHIVE_VERIFICATION_GAP_2026_08_19.md` (private) — [storage detail redacted]
+  banned.** Two individually correct rules interacted badly. [storage detail redacted]
+  [storage detail redacted]
+  [storage detail redacted] What remains is a **missing middle link**: disk bytes → sha256
+  registry ✅, [storage detail redacted], but **disk bytes → md5 ❌**. The stored
+  [storage detail redacted] *self-consistent but unanchored* — "whatever [storage detail redacted] computed", with
   nothing to check it against. A sha256 registry cannot close it: different hash functions.
 - **李尚信 audited, and the audits refuted one of OUR premises.** `FABLE_LI_SHANGXIN_1999_AUDIT_20260819.md` (private) /
   `FABLE_LI_SHANGXIN_2002_AUDIT_20260819.md` (private) (read at 400 dpi from page images):
@@ -7067,34 +7067,34 @@ entry, and a gate that demands one gets trained away inside a month. It prints a
 `HISTORY_GAP=CURRENT|TRIPPED` token instead of a banner. The hole above is therefore *reported*, not
 closed, and the check stays red until it is narrated.
 
-### The storage record corrected itself, and the field nobody re-read was the wrong one
+### The [storage detail redacted] corrected itself, and the field nobody re-read was the wrong one
 
-Stage F's integrity manifest recorded its blobs as archived. Asked directly whether that was so, we
-queried the account instead of re-reading the manifest: **all 72 data blobs were Cool** — explicitly
-tiered, not inferred, with no rehydration in progress and no Archive period anywhere in their
-history. Their creation, modification and tier-change timestamps were identical, so they had been
-*written* Cool and never moved. The claim had been wrong the day it was written.
+Stage F's integrity manifest recorded [storage detail redacted]. Asked directly whether that was so, we
+queried [storage detail redacted]
+[storage detail redacted]
+[storage detail redacted]
+[storage detail redacted] The claim had been wrong the day it was written.
 
 The instrument was red-tested rather than trusted on one query: the same query against the Stage G
-prefix returns 77 Archive and 1 Cool, exactly as *that* manifest states. So the Stage F answer was
+[storage detail redacted], exactly as *that* manifest states. So the Stage F answer was
 not a query artifact.
 
 **The shape of the error is the point.** Every hard number on that manifest line — byte counts,
-digests, blob count — verified exactly. The one field that was asserted rather than measured was the
-one that was wrong, and a dependent analysis had inherited it and doubled its estimated rehydration
-scope. Stage F was subsequently archived for real, on the Stage G convention: data at Archive, one
-README kept Cool carrying the full inventory, so the archive stays describable and verifiable
-**without rehydrating anything**. Verified after the operation rather than assumed — 72 Archive + 1
-Cool, byte counts identical to the pre-move figure, `Content-MD5` present on all 72 and unchanged by
-the move. ⚠ The Cool 30-day minimum was met **by one day**; a day earlier and the move would have
-incurred an early-deletion charge on 3.29 TB. Recorded because the margin was luck rather than
+digests, [storage detail redacted] — verified exactly. The one field that was asserted rather than measured was the
+one that was wrong, and a dependent analysis had inherited it and doubled its estimated [storage detail redacted]
+scope. [storage detail redacted]
+[storage detail redacted]
+[storage detail redacted]
+[storage detail redacted]
+[storage detail redacted]
+[storage detail redacted]
 planning.
 
 **Attribution, and the usual caution.** The measurements above — the two-ref `rm -rf` census, the
 rotation reproduction, and the certificate replay — are this lane's (Claude, Opus 5) under operator
 direction, and each is reproducible from this repository with the command printed beside it. The
-gate red-tests and the blob-tier census are also this lane's, but they run against a build tree and a
-storage account that are **not** part of this repository, so they are reported as findings on our own
+gate red-tests and the [storage detail redacted] are also this lane's, but they run against a build tree and a
+[storage detail redacted] that are **not** part of this repository, so they are reported as findings on our own
 instruments rather than as results a reader can re-run here; the corrected manifest they produced is
 what ships. The
 independent merge re-derivation was a separate model pass (Fable); the review findings the prose
@@ -7257,16 +7257,16 @@ are the **wrong shape** — they constrain values collectively and a rank consum
 The only known pin is exhaustive entry-level verification, and it was **declined**, with this note
 published in its place and an instruction to revisit if any claim comes to depend on a specific rank.
 
-### The storage record corrected itself
-Stage F's integrity manifest recorded `tier(s): Archive`. Queried against the account, all 72 blobs
-were **Cool**, explicitly tiered, with no Archive period anywhere in their history — and the claim
+### The [storage detail redacted] corrected itself
+Stage F's integrity manifest [storage detail redacted]
+[storage detail redacted] — and the claim
 had been wrong the day it was written. Everything else on that line verified to the byte. **The hard
-numbers were measured; the one field nobody re-read was asserted.** The dependent export analysis had
-inherited it, doubling the estimated rehydration scope.
+numbers were measured; the one field nobody re-read was asserted.** The dependent [storage detail redacted] had
+inherited it, doubling the estimated [storage detail redacted] scope.
 
-Stage F was subsequently archived for real, on the Stage G convention — data at Archive, one README
-at Cool carrying the full inventory so the archive stays describable and verifiable **without
-rehydrating anything**.
+[storage detail redacted]
+[storage detail redacted]
+[storage detail redacted].
 
 ---
 
@@ -7668,16 +7668,16 @@ privately (`FABLE_CITATIONS_OWED_DRAFT_2026_09_05.md`, `FABLE_CITATIONS_LANDED_2
 the sixteen carry or merge earlier drafts of 2026-09-03 (`Q409_CITATION_DRAFTS_2026_09_03.md`) so that one
 entry lands per paper. The text in public files is Fable's; the operator directed the landing.
 
-## 2026-09-06 — the medium learns to check itself, and four gates that could not fail are made able to
+## 2026-09-06 — [storage detail redacted], and four gates that could not fail are made able to
 
-The disk-box archive was prepared for shipping, and preparing it turned into an audit of the checks
+[storage detail redacted] turned into an audit of the checks
 that were supposed to guard it.
 
 **The manifests were split into formats standard tools read.** Each stage had carried one
 `MANIFEST.sha256` in a combined `<sha256>  <md5>  <path>  bytes=<n>` layout that **no standard tool
-could parse**, so a recipient could only check the medium by running a script that shipped on the
-medium being checked. It is now three files — `MANIFEST.sha256`, `MANIFEST.md5`, `MANIFEST.sizes` —
-each in the native format of the standard checksum tool for that digest, so a recipient can check the medium with coreutils alone rather than with a script that shipped on it. (The exact invocation, and which framing era it assumes, is stated on the medium in `VERIFY.md` rather than here.) Verified by
+could parse**, so [storage detail redacted]
+[storage detail redacted]. It is now three files — `MANIFEST.sha256`, `MANIFEST.md5`, `MANIFEST.sizes` —
+each in the native format of the standard checksum tool for that digest, [storage detail redacted]. (The exact invocation, and which framing era it assumes, is stated [storage detail redacted] rather than here.) Verified by
 rebuilding the combined file from the three and diffing: 65/65 rows identical for all three stages.
 
 **`VERIFY.sh` was hardened against the ways a checker lies.** It counts first, because the standard per-file checksum verifier
@@ -7741,7 +7741,7 @@ from above — EXHAUSTIBLE sound, INFEASIBLE not.
 **Three alarms that were the instruments, not the archive.** A 15 TB verification returned FAIL on 32
 stage-G layers for a container magic mismatch; every file had matched sha256, md5 **and** byte count,
 and `solve.c` defines `F1C5GLY2` as the g-ladder's own magic — the checker was routing G through a
-catch-all carrying F's constant. A hash reconciliation reported 195 keep-set blobs missing from the
+catch-all carrying F's constant. A hash reconciliation reported 195 keep-set [storage detail redacted] missing from the
 registry; the morning's manifest split had left its parser matching 0 of 91 rows. And a bundle-provenance
 check compared against the first 40-hex string in a README rather than the one labelled `bundle HEAD`.
 **In all three the archive was intact and the instrument was wrong**, which is the failure mode a
@@ -7749,7 +7749,7 @@ verification system has to be designed against, because it looks exactly like th
 find.
 
 **`git bundle create` is not byte-deterministic** — two runs on one repository, same git, seconds apart,
-differ in content and length. Determinism returns with `pack.threads=1`. A frozen medium that pins a
+differ in content and length. Determinism returns with `pack.threads=1`. [storage detail redacted] that pins a
 bundle's sha therefore cannot regenerate it; it must archive the object.
 
 ## 2026-09-08 — the orchestrator ran out of memory, and the first account of why was wrong
@@ -9445,7 +9445,7 @@ leaderboard are untouched. One open question was closed in the negative, one nar
 closed, one correction was itself corrected, and one campaign-completion signal was shown to have
 never worked.
 
-## 2026-09-23/24 — a medium checked end to end as a recipient would check it, a queue run's cures, and three questions I never put in front of the operator
+## 2026-09-23/24 — [storage detail redacted], a queue run's cures, and three questions I never put in front of the operator
 
 **TR-12 closed out in the first hours of 09-23 (UTC).** v1.10 brought the report into the house format
 that TR-1 to TR-11 share. v1.11 wrote the two sections its own §10 had declared MUST since 2026-07-17
@@ -9456,27 +9456,27 @@ packages were not installed on the query host. It rendered in seconds from the b
 ladder and no VM. The lesson is recorded in CX-74: **a blocker was named from where the work stopped,
 not from what stopped it.**
 
-**The disk-box medium went green and was deliberately not minted.** On 09-23 its root check passed,
+**[storage detail redacted]** On 09-23 its root check passed,
 and the findings of successive review passes over its scripts were closed. A smoke test then ran on the real
 stage disks, with the unmodified `VERIFY.sh`, and found a real blocker: an **empty hidden directory**
-on one stage disk, residue of an earlier upload, listed in no manifest. It was caught only because a
+on one stage disk, [storage detail redacted], listed in no manifest. It was caught only because a
 hardening pass that same day had taught the curation check to see empty directories; a walk over
 regular files alone could not have found it. It was not deleted, because the source disks are mounted
 read-only and remounting a canonical disk read-write to remove one empty directory is
-disproportionate. Instead the ship list is now built from the manifests and checked both ways against
+disproportionate. Instead [storage detail redacted] is now built from the manifests and checked both ways against
 the assembled tree, so the stray is excluded at the copy step rather than by hand. The same day
-surfaced a second gap: the last full data pass over the medium, from 2026-09-07, had left only a PASS line. Its log was never
+surfaced a second gap: [storage detail redacted], from 2026-09-07, had left only a PASS line. Its log was never
 pulled off the machine before that machine was deallocated. A PASS nobody can re-read is a claim.
 
-**On 09-24 the medium was checked end to end on the real bytes, as a recipient would check it.**
-The full tree, about 15 TB, was assembled exactly as the single shipped disk will be. The stray was
+**[storage detail redacted]**
+The full tree, about 15 TB, was assembled [storage detail redacted]. The stray was
 masked out by a read-only overlay rather than removed. `VERIFY.sh` then ran over all of it,
 unmodified, as an ordinary user: root manifests, curation (nothing present that should not be),
 and each of the three stages on sha256, md5 and byte count, with each layer file's container magic
 checked. **It passed.** A second run as root exercised the one branch an ordinary user cannot reach, the
 filesystem's own `lost+found`, and passed too. The evidence was pulled off the machine before teardown,
-which is the step 09-07 skipped. The medium is now validated end to end. Minting and shipping it is
-the operator's call, and it has not been made.
+which is the step 09-07 skipped. [storage detail redacted]
+[storage detail redacted]
 
 **A queue run worked the backlog in parallel for the rest of 09-24, and a series of public batches came out of it.**
 Each lane worked in its own git worktree and owned whole files, never passages of one. Compiles, the test
@@ -9520,14 +9520,14 @@ from one instrument's outputs contains only what that instrument was asked. The 
 answerable, because the ladder disks hold the bytes. They are filed as Q-781, and the operator has since
 directed that they be run.
 
-**The upload runner for the medium's cloud copy was dry-run on the real disks, and the real disks
+**[storage detail redacted] was dry-run on the real disks, and the real disks
 found a bug a synthetic test could not.** Its test suite was already green on stub trees built from
 the manifests. On the real disks, the first live test stopped fail-closed on its very first file:
 the runner could not find a size for a manifest. The three root manifests cannot list their own
 sizes, and the stage-level documents are sized in the root manifest, not the stage one. A tree built
 from the manifests could never exhibit that, because building it is exactly where the assumption
-lives. Nothing wrong was uploaded. After the fix, a full dry run over every file on the real prefix passed, and a
-deliberate collision failed as designed. The live upload waits on the operator.
+lives. [storage detail redacted] After the fix, a full dry run over every file on the real prefix passed, and a
+deliberate collision failed as designed. [storage detail redacted]
 
 **The ladder-sha check counts layers; it does not identify them.** Preparing that same window, a lane found
 that the reproduction battery's ladder-digest row passes when the layer count is right and each
@@ -9548,7 +9548,7 @@ moved. No sha, count or parameter in `documentation/CANONICAL_HASHES.md` moved a
 it prints, refuses and self-checks: a line-neutral print for the circular census, a duplicated failure
 line removed, a flag refusal, and new certificate self-check legs. The selftest was re-run after those
 changes and still reproduces `403f7202`. Several published sentences were withdrawn, and each is registered. One census changed a
-published ratio. Several checks that could not fail can now fail. The medium is validated but unminted.
+published ratio. Several checks that could not fail can now fail. [storage detail redacted]
 Three questions that were never asked have been put in front of the operator, and nothing is
 running.
 
@@ -9680,17 +9680,17 @@ gate's history check fired on its planted deletion, but not with the message the
 expects. Either the message drifted or the expectation is stale. It is filed as Q-799, it was still
 being worked when this entry was written, and nothing here claims it fixed.
 
-**The medium's cloud copy was uploaded overnight, and I let a schedule I had forgotten stop it.**
-With the operator's go, the upload of the medium to a cloud archive tier started early on 09-25.
-Partway through, the upload VM was deallocated in the middle of the run. The cause was an
+**[storage detail redacted], and I let a schedule I had forgotten stop it.**
+With the operator's go, [storage detail redacted] started early on 09-25.
+Partway through, [storage detail redacted] was deallocated in the middle of the run. The cause was an
 auto-shutdown schedule on that VM, created weeks earlier by other tooling with its notifications off.
 I had not checked for schedules before opening the window. **That was my miss.** The runner writes
 a completion record only after each file is fully uploaded. After the restart, every uploaded file
 had its record and every record had its file, so nothing was half-committed. The upload resumed
 where it stopped. On the operator's instruction the schedule was then deleted, and read back as
-gone. The operator also ruled that the archive copy is not to be read back in full to verify it.
-Its verification rests on the upload's own acceptance, a metadata post-check, and a re-run of
-`VERIFY.sh` on the drive when it comes back. When this entry was written the upload was nearly
+gone. [storage detail redacted]
+Its verification rests on [storage detail redacted]
+[storage detail redacted] When this entry was written the upload was nearly
 done and the post-check was still ahead.
 
 **The build worker was evicted, and the check it was running had a flaw of mine in it.** The worker
@@ -9720,8 +9720,8 @@ base being chosen well.
 published figures that moved are the peak RSS, now 24,122.0 MB; one documented range, now the
 proven envelope; and a fiber-size mean, restated on its own population. `solve.c` changed in a comment and in one
 refusal, with no net change in lines, and the selftest still reproduces `403f7202`. The TR-12
-fingerprint moves, so the reproduction stamp has to be re-minted with the batch. The medium is still
-validated and unminted, and its cloud copy is not yet post-checked.
+fingerprint moves, so the reproduction stamp has to be re-minted with the batch. [storage detail redacted]
+[storage detail redacted]
 
 ## 2026-09-25 (later) — the day's batches from the twelfth onward, as each clears review
 
@@ -9771,7 +9771,7 @@ review.
 
 **Two of the day's mistakes were mine, and one reached a lane.** I briefed a lane to build a pre-commit leg that *refused* commits. That contradicts a standing ruling: a hook that refuses a commit also stops a unit from committing to protect its work, which is how uncommitted work has been lost before. The leg was rewired to warn by default, with an opt-in to refuse, and the change was re-verified before integration. Separately, lane drafts of ledger entries described gate results measured on their own lane trees, naming whatever was broken there: a path that does not exist, or an unpublished tree id. The documentation gates caught each one, and each was reworded before it reached a checked tree.
 
-**The ladder disks were read one last time.** Their contents had already been archived to cold storage and checked by upload-time MD5 on every file, without reading anything back. Before the disks can be released, one question had to be answered: does anything still need them? A sweep of every open item said which items do. The disks were then attached read-only for a short window:
+**The ladder disks were read one last time.** Their contents had already been archived to [storage detail redacted], without reading anything back. Before the disks can be released, one question had to be answered: does anything still need them? A sweep of every open item said which items do. The disks were then attached read-only for a short window:
 - **Nothing is lost by releasing them.** Every file on them other than the 96 ladder layers is in the archive, and there are no ledgers or in-flight records.
 - **The new identity check has what it needs.** All 96 layer sidecars carry the fields it reads; each stage has one genesis layer and 31 layers whose input hash is the named layer's own hash.
 - **What was run there** — the reference rows the reports had listed as pending at n=31 — is recorded with the batch that carries its receipts, not this one.
@@ -9848,8 +9848,8 @@ The selftest still reproduces `403f7202`, and no canonical sha, count or reprodu
 
 **The live copies of the n=31 f, g and t ladders were deleted on 2026-09-26, after three independent checks that
 no question still needed them.** The ladders are 15.05 TB (the stage table in
-`runs/20260906_kc_ladders_n31/README.md`); what remains are two verified cloud copies, one in archival storage and
-one prepared for shipment to a physical drive, each checked against the published per-layer registries by stored
+`runs/20260906_kc_ladders_n31/README.md`); what remains are [storage detail redacted]
+[storage detail redacted] each checked against the published per-layer registries by stored
 checksum and byte count, without reading the data back. The per-layer sidecars and the root documents are kept
 beside them.
 
@@ -9864,11 +9864,11 @@ beside them.
   against that gap. It found none to run now. Every query the existing code can answer at n=31 had already been
   run and its output kept; every remaining candidate (the mid-ladder join, the extremal functionals, the
   entry-level recurrence check, the second Q6 reading) needs new engine code and a design first, and runs from
-  the retained copies later at the same value. One question it surfaced needs no ladder at all: the per-layer
+  [storage detail redacted] later at the same value. One question it surfaced needs no ladder at all: the per-layer
   state census by orbit size, which printed as unavailable in the battery because the f-ladder sidecars predate
   that field, is carried exactly by the t-ladder sidecars, which count the same states.
-- **What deleting gives up.** Convenience, not capability: a query after today reads a retained copy rather than
-  a mounted disk. The retained copies are in one storage account, now protected against deletion.
+- **What deleting gives up.** Convenience, not capability: a query after today reads [storage detail redacted] rather than
+  a mounted disk. [storage detail redacted]
 
 **The figures were reviewed on an unpublished snapshot.** Codex read a tarball of the next state of this
 repository — the new README Figures section, every report figure, the generator and the data each figure is
@@ -9960,7 +9960,7 @@ run's pre-merge shard total was 43,880,306,393 against the re-run's 43,876,464,4
 over-emitted +3,841,927 duplicate records. The original run's own merge log and provenance sidecar, captured on
 the merge VM on 2026-06-08, count 43,876,464,466 records over its 65,281 shards — the same integer as the re-run.
 The larger figure came from an archive manifest written on 2026-07-01 that summed `size // 32` over every
-`sub_*` file in the cold shard prefix, sidecars included (354,207 files, 288,926 of them `.bin.budget`,
+`sub_*` file in the [storage detail redacted], sidecars included (354,207 files, 288,926 of them `.bin.budget`,
 `.bin.provenance.json` and `.dfs_state`); its surplus is the sum over those sidecar files of ⌊size / 32⌋, at least 122,941,664 sidecar bytes, not records. The two runs'
 shard totals are equal, and no over-emission was measured. The entry is annotated in place and otherwise
 unchanged; the sha, the count and the verified status do not move. Ledger: CX-222.
@@ -10015,3 +10015,25 @@ On the operator's request, `README.md` no longer carries inline correction notes
 - the escrow page records that pre-registration change as the file's eighth revision, after batch 26's seventh, with the digest of the file as it now stands (CX-240).
 
 The selftest still reproduces `403f7202`, and no canonical sha, count or reproduction parameter moved.
+
+## 2026-09-29 — batch 28: the independent ladder readers refuse five malformed shapes, and four published sentences about the n=31 ladders corrected
+
+**Batch 28 (CX-241) is the commit that carries this addition.** It applies the prose and code rows of Fable's triage of the Codex (gpt-6-astra) KCV review, which asked whether the published n=31 f, g and t ladders could be invalid and answered NO-BUT. No published number read from the ladders changed:
+
+- `verify --check-layers` always prints `LAYERS_ABSENT=`, and `LC_LAYERS_COMPLETE=1` makes an absent layer, or a checked layer the run log has no mass for, a failure;
+- every independent reader requires a layer's mask list to be complete (the Burnside count of canonical masks), a full-31 manifest to be rooted at exit 0, the manifest tag to be exactly line 1, and each v2 block to be exactly one zlib stream; `solve.c`'s block reader got the same stream check;
+- `solve --f1c5-sidecar-retrofit` refuses a layer whose header budget differs from the manifest's;
+- the TR-12 battery's sidecar-chain check follows the builder's direction and allows one genesis;
+- `solve.py --atlas-probe` ties the doomed-prefix split to the out-degree census (`PROBE_DEAD_OUTDEG_TIE`), which passes on the published atlas;
+- the FULL31 intermediate row count (35, not 27), the logical-digest provenance on the n=31 run page, the probe's "second table" sentence and the sampler's "exact-uniform" wording are corrected, and the Q8 C15 gallery is labelled a same-stream sample; the n=9 golden is regenerated and the banked n=31 receipt is left as run;
+- the run-log location of three `verify_all.sh` tokens is documented.
+
+The Lean docstring row and the three rows that need the ladder bytes are left for later.
+
+## 2026-09-29 — operational storage detail removed from the current tree
+
+The operator decided that the public record carries no operational detail about where data copies
+are kept, which is outside the project's scope. Documents were reworded to keep every sha256, count
+and verification statement without that detail, and the append-only ledgers mark each removed span
+in place; git history is unchanged. The entry is CX-242, which also extends the append-only gate to
+accept exactly that marker and nothing more.

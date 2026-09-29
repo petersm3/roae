@@ -132,8 +132,8 @@ python3 verify.py --recount-orbit-widths 31   # Burnside gate on canonical_masks
 | | | | | | | 16 | 267,765,117,419,520 |
 
 All 38 layer masses agree exactly (9 + 13 + 16). The terminal rows (26,112, 2,063,395,607,040
-and 267,765,117,419,520) are the rung totals already published in TR-11 §4b; the twenty-seven
-**intermediate** rows had never been cross-checked against anything before this artifact.
+and 267,765,117,419,520) are the rung totals already published in TR-11 §4b; the thirty-five
+**intermediate** rows (38 − 3) had never been cross-checked against anything before this artifact. ⚠ *(row count corrected 2026-09-29, Codex KCV R19, CX-241; the count of intermediate rows was wrong, the rows and their values are unchanged)*
 
 **The gate has been shown able to fail.** Weakening the budget cap from `p >= B0` to `p > B0` —
 a one-character off-by-one of exactly the kind that is otherwise silent — leaves k=1 *identical*

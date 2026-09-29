@@ -394,7 +394,7 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 > sound — it is the cross-reference that is missing. See the 2026-08-30 re-evaluation entry at the end of this file. Task #82 ("HARDWARE_CPU_COMPARISON.md doesn't exist") was marked stale because the AVX-512 numbers actually live across commits `b26cd9b` and `0783d52` rather than the conjectured doc.
 
 Bench wall: preflight + 5 paired trials on D128 Standard on-demand, ~80 min total.
-Archive: `canonical-archive/20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3258f4c/`.
+Preserved copy: `20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3258f4c/`.
 
 ---
 
@@ -1155,11 +1155,11 @@ So this bench's v3-vs-v1 delta of 4.38% ≈ LTO 2.53% + small residual gains fro
 ### Cost
 
 - Bench: Standard D128als_v7 × ~6.5h wall, including PGO Pass 1 instrumented run + Pass 2 build
-- 1T canonical archive bytes: 475 MB gzip -9 (cold + managed + local)
+- 1T canonical archive bytes: 475 MB gzip -9 (three copies)
 
 ### 1T canonical established as a byproduct (5a0f0bc2…)
 
-The bench produced the first 1T canonical entry in the cold archive (sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`, 134,039,081 records). Bridges the gap between the 100B and 5.6T entries that previously bracketed the d3 lineage. Reproducible from either v1 or v3 binary at `SOLVE_PER_SUB_BRANCH_LIMIT=6315458` (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
+The bench produced the first preserved 1T canonical (sha `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`, 134,039,081 records). Bridges the gap between the 100B and 5.6T entries that previously bracketed the d3 lineage. Reproducible from either v1 or v3 binary at `SOLVE_PER_SUB_BRANCH_LIMIT=6315458` (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
 
 ---
 

@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 165 dated sections, 2 of them among the 89 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 167 dated sections, 2 of them among the 91 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -141,7 +141,7 @@
 | 121 | 2026-09-04 | iso | 7500 | [open](HISTORY.md#2026-09-04--five-public-branches-become-one-the-v4-merge-and-why-four-refs-were-deleted) 2026-09-04 — five public branches become one: the v4 merge, and why four refs were deleted |
 | 122 | 2026-09-04 | iso | 7573 | [open](HISTORY.md#2026-09-04--the-1t-anchor-pair-resolves-to-two-per-cell-budgets-the-second-correction-of-one-fact) 2026-09-04 — the 1T anchor pair resolves to two per-cell budgets; the second correction of one fact |
 | 123 | 2026-09-05 | iso | 7642 | [open](HISTORY.md#2026-09-05--sixteen-citation-entries-land-and-a-sentence-in-this-file-pointed-at-six-of-them-before-they-existed) 2026-09-05 — sixteen citation entries land, and a sentence in this file pointed at six of them before they existed |
-| 124 | 2026-09-06 | iso | 7671 | [open](HISTORY.md#2026-09-06--the-medium-learns-to-check-itself-and-four-gates-that-could-not-fail-are-made-able-to) 2026-09-06 — the medium learns to check itself, and four gates that could not fail are made able to |
+| 124 | 2026-09-06 | iso | 7671 | [open](HISTORY.md#2026-09-06--storage-detail-redacted-and-four-gates-that-could-not-fail-are-made-able-to) 2026-09-06 — [storage detail redacted], and four gates that could not fail are made able to |
 | 125 | 2026-09-07 | iso | 7712 | [open](HISTORY.md#2026-09-07--thirteen-defects-in-the-query-program-and-three-alarms-that-were-the-instruments) 2026-09-07 — thirteen defects in the query program, and three alarms that were the instruments |
 | 126 | 2026-09-08 | iso | 7755 | [open](HISTORY.md#2026-09-08--the-orchestrator-ran-out-of-memory-and-the-first-account-of-why-was-wrong) 2026-09-08 — the orchestrator ran out of memory, and the first account of why was wrong |
 | 127 | 2026-09-09 | iso | 7864 | [open](HISTORY.md#2026-09-09--an-adversarial-review-of---kc-extremal-and-a-gate-that-could-not-see-a-wrong-number) 2026-09-09 — an adversarial review of `--kc-extremal`, and a gate that could not see a wrong number |
@@ -162,7 +162,7 @@
 | 142 | 2026-09-20 | iso | 9192 | [open](HISTORY.md#2026-09-20--an-eta-wrong-by-sixteen-hours-and-the-instrument-that-had-been-right-all-along) 2026-09-20 — an ETA wrong by sixteen hours, and the instrument that had been right all along |
 | 143 | 2026-09-21 | iso | 9237 | [open](HISTORY.md#2026-09-21--a-whole-space-count-confirmed-from-two-directions-and-a-work-list-that-published-finished-work) 2026-09-21 — a whole-space count confirmed from two directions, and a work-list that published finished work |
 | 144 | 2026-09-22 | iso | 9369 | [open](HISTORY.md#2026-09-22--the-first-full-31-run-and-a-published-law-that-did-not-survive-its-own-conditioning) 2026-09-22 — the first full-31 run, and a published law that did not survive its own conditioning |
-| 145 | 2026-09-23 to 2026-09-24 | iso | 9448 | [open](HISTORY.md#2026-09-2324--a-medium-checked-end-to-end-as-a-recipient-would-check-it-a-queue-runs-cures-and-three-questions-i-never-put-in-front-of-the-operator) 2026-09-23/24 — a medium checked end to end as a recipient would check it, a queue run's cures, and three questions I never put in front of the operator |
+| 145 | 2026-09-23 to 2026-09-24 | iso | 9448 | [open](HISTORY.md#2026-09-2324--storage-detail-redacted-a-queue-runs-cures-and-three-questions-i-never-put-in-front-of-the-operator) 2026-09-23/24 — [storage detail redacted], a queue run's cures, and three questions I never put in front of the operator |
 | 146 | 2026-09-25 | iso | 9619 | [open](HISTORY.md#2026-09-25--the-queue-runs-first-push-an-eleventh-batch-of-cures-and-a-night-of-operational-mistakes-most-of-them-mine) 2026-09-25 — the queue run's first push, an eleventh batch of cures, and a night of operational mistakes, most of them mine |
 | 147 | 2026-09-25 | iso | 9726 | [open](HISTORY.md#2026-09-25-later--the-days-batches-from-the-twelfth-onward-as-each-clears-review) 2026-09-25 (later) — the day's batches from the twelfth onward, as each clears review |
 | 148 | 2026-09-26 | iso | 9784 | [open](HISTORY.md#2026-09-26--batch-16-durability-and-provenance-in-the-engine-the-v3-verdict-at-n31-and-a-typed-claim-ledger) 2026-09-26 — batch 16: durability and provenance in the engine, the V3 verdict at n=31, and a typed claim ledger |
@@ -183,6 +183,8 @@
 | 163 | 2026-09-29 | iso | 9997 | [open](HISTORY.md#2026-09-29--the-tr-12-tables-moved-under-reports-and-the-figure-pages-show-their-figures) 2026-09-29 — the TR-12 tables moved under reports/, and the figure pages show their figures |
 | 164 | 2026-09-29 | iso | 10001 | [open](HISTORY.md#2026-09-29--the-front-pages-correction-notes-moved-to-the-corrections-ledger) 2026-09-29 — the front page's correction notes moved to the corrections ledger |
 | 165 | 2026-09-29 | iso | 10005 | [open](HISTORY.md#2026-09-29--batch-25-an-unfinished-enumeration-can-no-longer-be-merged-as-a-finished-one-and-the-n31-ladder-checks-recounted-without-the-engine) 2026-09-29 — batch 25: an unfinished enumeration can no longer be merged as a finished one, and the n=31 ladder checks recounted without the engine |
+| 166 | 2026-09-29 | iso | 10019 | [open](HISTORY.md#2026-09-29--batch-28-the-independent-ladder-readers-refuse-five-malformed-shapes-and-four-published-sentences-about-the-n31-ladders-corrected) 2026-09-29 — batch 28: the independent ladder readers refuse five malformed shapes, and four published sentences about the n=31 ladders corrected |
+| 167 | 2026-09-29 | iso | 10033 | [open](HISTORY.md#2026-09-29--operational-storage-detail-removed-from-the-current-tree) 2026-09-29 — operational storage detail removed from the current tree |
 
 ## Sections with no date in the heading, in file order
 
