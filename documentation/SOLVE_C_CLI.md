@@ -355,7 +355,7 @@ canonical enum at the requested scale in a temp dir with the canonical
 env vars, sha256s the resulting `solutions.bin`, and compares to
 `<expected-sha256>`. The cheapest way to confirm a build reproduces a
 published anchor **at the published per-cell budget** BEFORE committing a
-$100+ campaign — the budget is injected from `CANONICAL_RECIPES`, never
+full-scale campaign — the budget is injected from `CANONICAL_RECIPES`, never
 derived (the 2026-06-17 fix). Compare against the registry row for the
 published recipe: at 1T that is `5a0f0bc2…`, **not** `74d39760…`
 ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 1T). Prints the host
@@ -532,7 +532,7 @@ argv-dispatched, never on the enum path. No enumeration; exits immediately.
 Motivated by the 2026-06-12 PSB math error (see
 `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_PSB_MATH_ERROR.md`)
 where two re-derive launchers shipped with PSBs re-derived from a wrong
-floor formula, costing ~$15 of compute and ~16h of wall before being
+floor formula, costing ~16h of wall before being
 caught against the recipe table.
 
 ### --estimate-knuth

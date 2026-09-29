@@ -102,7 +102,7 @@ matter.
 ```
 ./solve --check-arrangement "$(sed -n 's/^SEQ=//p' reports/evidence/q7_witnesses/moore-strict.txt)"
 #   verdict SUPER (C1&C2&C4&C5): IN ; verdict C15 (C1-C5, C3<=776): IN ; C3 value 776
-python3 -c 'import sat; s=[int(x) for x in open("reports/evidence/q7_witnesses/grand-strict.txt").read().split("SEQ=")[1].split(",")]; print(sat.target_verdict(s,"grand-strict")["ok"], sat.rule_scores(s), s==sat.KW)'
+python3 -c 'import sat; s=[int(x) for x in open("reports/evidence/q7_witnesses/grand-strict.txt").read().split("SEQ=")[-1].split(",")]; print(sat.target_verdict(s,"grand-strict")["ok"], sat.rule_scores(s), s==sat.KW)'
 #   True {'parity': 0, 'rhythm': 0, 'gender': 0, 'ccn4': 1, 'ccn8': 1} False
 ```
 

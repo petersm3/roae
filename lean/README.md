@@ -140,7 +140,7 @@ trust-base note below for what that means and how it came to hold). What that bu
   Full measured per-file table and host guidance in §"Verify yourself" below — read it before
   running the suite on a small machine.
 
-In short: the deepest structural claims this project relies on do not depend on trusting us.
+In short: the deepest structural claims this project relies on do not depend on trusting our software to compute them — the Lean kernel checks them — though whether each formal statement says what its prose says (the transcription and encoding steps each section discloses) is not machine-checked.
 
 
 `KingWen.lean` contains machine-checked proofs of the ROAE constraint system's finite core lemmas —
@@ -156,9 +156,9 @@ finite facts under the suite's headline results were migrated to kernel `decide`
 and `C1RuleConstants.lean` carry **zero** `native_decide` since 2026-07-27, and `Automorphism.lean`
 since 2026-07-31 (its last obligation, the composition law `applyPerm_pcomp`, whose direct
 48·48·64 kernel `decide` exceeds kernel memory, is now proved structurally in its §3a — see the
-file header). So the DIV-24 gate, the equivariance
+file header). So the record-level DIV-24 theorem, the equivariance
 ceiling, the Theorem A trio, the TG-2 boundary-budget family, and the eight literature-rule
-constants are kernel-only end to end (`#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]`
+constants are kernel-only end to end (the DIV-24 *gate* on the published sequence counts rests on the paper layer — see the attribution note above) (`#print axioms` ⊆ `[propext, Classical.choice, Quot.sound]`
 — Lean's standard axioms; the compiler-trust axiom `Lean.ofReduceBool` no longer appears in any of
 these chains, and the finite facts report `[propext]` alone). ⚠ **The tell is the allowlist, not the
 absence of one name (measured 2026-09-04 on the pinned 4.31.0): a `native_decide` proof surfaces under
@@ -260,7 +260,7 @@ axioms` report; see §"Verify yourself".]** — but `#print axioms` then reports
 Evidence: `roae-private/lean_host7_evidence_2026_09_10/` (165 files).
 So: nothing in this section rests on the broken directives — a sweep of the markdown corpus
 on 2026-08-02 found no published sentence that cites them as its warrant — but nothing in it
-is re-confirmed by the directives either. The exposed claim, named rather than left for a
+was re-confirmed by the directives either (as of 2026-08-02; the 2026-09-10 re-run above made them a live witness). The exposed claim, named rather than left for a
 reader to locate, was the exhaustive negative one above — that `native_decide` remained
 **only** in those files (a sentence this section carried in the present tense until the
 2026-08-07 third tranche retired it). An executed audit is what would establish an *only*.
@@ -324,7 +324,7 @@ as one whole line — `LEAN_MODULE_<Module>=PASS` or `LEAN_MODULE_<Module>=FAIL 
 non_allowlisted_lines=<k>`. Until then the phase judged the exit status alone, which a `sorry` (rc 0,
 warning on stdout) and a `native_decide` (rc 0, an auxiliary axiom in the `#print axioms` line) both
 satisfy — measured that day: a shipped module with an appended `sorry` printed `PASS`. The exit-status
-leg catches `sorry`; the allowlist leg is what catches `native_decide`:
+leg catches `sorry`; the allowlist leg catches `native_decide` in a theorem that has a `#print axioms` directive; since 2026-09-29 a source-census leg (python3 only, so it runs on a host without Lean too) reads every module's source with comments stripped, directed or not, and fails on any `native_decide` (in either spelling, `decide +native` included), `ofReduceBool`, `trustCompiler`, `sorry`, `skipKernelTC`, `implemented_by`, `extern` or `unsafe`, or a declaration-head (modifiers allowed) `axiom`, `opaque` or `partial def`, printing the whole-line token `LEAN_SOURCE_CENSUS=PASS n=0` (or `=FAIL n=<hits>`, each hit named). It is a text screen, not a kernel check: an axiom reached through a term it does not name is caught only where a `#print axioms` directive reaches it:
 
 ```bash
 bash reports/certificates/verify_all.sh
@@ -512,7 +512,7 @@ statements:
 | `pairKey_mapP` | **Compatibility**: canonicalization commutes with the action — pairKey(σ·l) = σ·pairKey(l) (record-level action = relabel pair keys) |
 | `act_rho_solrec`, `act_fix_id_or_rho` | **Kernel + freeness**: bit-reversal acts trivially on every solution record; any element of G₄₈ fixing ANY solution record is the identity or bit-reversal — so the record-level S₄ (order 24) acts freely ("every solution has exactly 23 twins", now for all solutions) |
 | `twenty_four_dvd_count` | **Orbit partition** (generic engine): for any G-invariant constraint predicate containing C1, every duplicate-free complete listing of the record-level solution set has length divisible by 24 |
-| `twenty_four_dvd_solution_count` | **The corollary**: 24 ∣ number of canonical C1–C5 solution records — the theorem behind the DIV-24 integrity gate on exact counts |
+| `twenty_four_dvd_solution_count` | **The corollary**: 24 ∣ number of canonical C1–C5 solution records — the theorem behind the DIV-24 integrity gate on exact counts — at the record level; the gate on the published sequence counts rests on the paper-proved order-48 action |
 | `twenty_four_dvd_c1c2c4_count`, `twenty_four_dvd_c1c2c4c5_count` | The same divisibility for the exact-count constraint systems C1∩C2∩C4 and C1∩C2∩C4∩C5 (record level; see the file's scope note on record-level vs orientation-resolved counts) |
 | `kw_solution_record` | Sanity witness: King Wen's canonical record is a solution record (the count is a positive multiple of 24) |
 
@@ -589,7 +589,7 @@ Verified statements, by family:
 
 The exact finite probability law of the couple slot-distance sum G = `c3slot` under the C1∩C4
 null (all 31! orderings of the 31 free pair-slots, slot 0 pinned by C4; orientations are
-irrelevant by `slot_orientation_free`), machine-checked by the Lean **kernel** end to end —
+irrelevant by `slot_orientation_free`), machine-checked by the Lean **kernel** at the DP-law layer (the bridge from the DP to a count over the 31! pair-orders is kernel-proved at toy sizes only — see the 2026-08-30 note above) —
 `decide +kernel` only, **no `native_decide` anywhere in the section**, so nothing here trusts
 the compiler. The 31-layer DP (the same recurrence as `verify.py --check-null-g`) is restated
 over Nat-histograms and evaluated inside the kernel. Verified statements:
@@ -626,7 +626,7 @@ The first-principles optimality of the C1 pairing — previously resting on an e
 preprint ([Radisic 2026](../documentation/CITATIONS.md#radisic2026), arXiv:2601.07175) — is now
 machine-checked **in-repo**. The mathematical result is Radisic's; this file is an independent
 re-derivation in this repo's own encoding (core Lean 4, no mathlib, standalone file, the same
-`partner` definition as `KingWen.lean` / solve.c's `partner()`), written after his proof was read
+`partner` definition as `KingWen.lean` / solve.c's KW-derived pair table (`init_pairs`, solve.c:1708-1714) and inline partner check (:43779-43782)), written after his proof was read
 and his artifact independently rebuilt. Verified statements:
 
 | Theorem | Statement |
@@ -666,8 +666,8 @@ distance, popcount, complement, reversal, the distinguished values 0/63, slot in
 aggregates thereof) induces an output distribution taking equal values on King Wen's record and
 each of its 23 record-level twins — so the best such a generator can do is spread mass uniformly
 over KW's 24-element record orbit, never concentrate it on KW alone. Masses are unnormalized Nat
-weights (clear denominators of any rational-probability — in particular any computable —
-generator); `total` is the scaled total mass. Verified statements:
+weights (clear denominators of any generator with rational output probabilities; irrational output
+probabilities are outside the theorems as stated — `KingWen.lean` § Formalization note — and are covered only by the equal-orbit-mass argument in prose); `total` is the scaled total mass. Verified statements:
 
 | Theorem | Statement |
 |---|---|

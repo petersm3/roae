@@ -56,7 +56,7 @@ ground truth). It was operator-approved 2026-07-02 to add a
 SAT/certificate layer.
 
 **Header rule (enforced by the file's own docstring):** `sat.py` must
-contain **NO hand-written constraint semantics.** Every constraint it
+contain no hand-written constraint *predicates* — rule predicates are imported from `solve.py`; the clause arithmetic that positions them (station offsets `base = st2 + 2 + c`, the gender station list) is `sat.py`'s own and is covered by the King-Wen-pinned validation targets and, since 2026-09-29, by `tests.py` `TestSatEmittedClausesNonKW` (the emitted clauses evaluated on the 44 public non-King-Wen witnesses and one constructed sequence that separates an offset mutant) — tested, not derived or proved. Every constraint it
 encodes is derived from `solve.py` imports — the single source of
 truth for the King Wen ground truth and C1–C5 semantics. A clause that
 encodes a C-rule from scratch is "a bug by definition." Every encoding
@@ -149,7 +149,7 @@ whole line — `s VERIFIED` for drat-trim, `s VERIFIED UNSAT` for cake_lpr —
 must be present (`grep -Fqx` on the captured file, never `cmd | grep -q`).
 It writes one token per certificate, `DRAT_VERIFIED_<cert>=PASS` (or
 `=FAIL rc=<n> verdict_line=<present|absent>`), and after the loop the
-script prints `DRAT_CERTS_CHECKED=<n>` (floor 24, a shrunken corpus fails)
+script prints `DRAT_CERTS_CHECKED=<n>` (floor 24, a shrunken corpus fails; since 2026-09-29 `<n>` counts only certificates whose drat-trim run passed, where it had counted attempts, so a run in which every certificate failed could have printed 24)
 and `ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN` for the two cardinality-only
 certificates. Three measured facts explain the shape. drat-trim **exits 0
 on a run that checked nothing** — an empty CNF yields
@@ -257,8 +257,8 @@ exits **10** on `s SATISFIABLE` (the contract `--witness` itself checks), so
 the middle line needs `|| true` under `set -e`; and the `TARGET` and flags given
 to `--decode` must be the ones given to `--emit-cnf`, because `--decode`
 rebuilds that formula to recover the variable map — a model of a *different*
-formula is reported `MODEL_CHECK=FALSIFIED` and `DECODE_VERDICT=FAIL` (King
-Wen's `plain` model decoded as `grand-strict`), and a full-31 model decoded
+formula is not recognised as such: it is checked against the rebuilt formula only, and fails when it falsifies one of that formula's clauses, as King
+Wen's `plain` model decoded as `grand-strict` does (`MODEL_CHECK=FALSIFIED`, `DECODE_VERDICT=FAIL`), and a full-31 model decoded
 with `--f1-pairs N` is `verify=False`, `DECODE_VERDICT=FAIL`, exit 1 (until
 2026-09-21 that last case was an `IndexError` traceback: the literals hit some
 subset slots but not all, and the boundary walk ran past the partial sequence).
@@ -267,7 +267,7 @@ Rebuilds the CNF for `TARGET` (default `plain`, or the reduced subset when
 `--f1-pairs N` is given) to recover the variable map, parses the model
 (`v`-lines, or a bare whitespace/newline-separated list of signed integers),
 decodes the true position variables into a hexagram sequence, and re-verifies
-it against `solve.py`'s **base** ground truth — C1 (permutation), C2 (no
+it against `solve.py`'s **base** ground truth — C1 (a permutation of 0..63 in which every slot pair is a complement/reverse partner pair; until 2026-09-29 `verify_seq` checked only the permutation), C2 (no
 distance-5 step) and the C5 transition multiset, via `verify_seq`. For a
 full-31 target it prints the 64-hexagram sequence, `verify=…`, and the C3
 complement distance; for a `--f1-pairs N` subset it prints the 2N-hexagram

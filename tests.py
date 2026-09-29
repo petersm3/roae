@@ -596,7 +596,7 @@ class TestSatInputGuards(unittest.TestCase):
     raised: `certify_count` can also exit with the missing-tools message
     (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
     while proving nothing about the guard. Verified 2026-09-19 that the --keep
-    guard fires BEFORE any tool use (sat.py:1834 precedes the d4 call at :1854),
+    guard fires BEFORE any tool use (sat.py:1859 precedes the d4 call at :1887),
     so these are green on a host with no SAT toolchain installed."""
 
     def test_keep_dir_uncreatable_is_refused_before_the_work(self):
@@ -1848,6 +1848,14 @@ class TestCheckArtifactControls(unittest.TestCase):
         p = self._artifact("partial.bin", [bytes.fromhex(self.KWREC_HEX)],
                            tail=b"\x11" * 10)
         self._assert_agree(p, "--check-artifact", 2, {"ARTIFACT=FAIL_partial_record"})
+
+    def test_ctl_repr_partial_record_is_rejected_by_both(self):
+        # LSD R18j (CX-232, 2026-09-29). RED BEFORE, A TRUE DIVERGENCE of the same shape as the
+        # --check-artifact one above: verify.py --check-repr stopped at the torn tail and printed
+        # CHECK_REPR=PASS rc 0; verify.c already returned CHECK_REPR=FAIL_partial_record rc 2.
+        p = self._artifact("partial_repr.bin", [bytes.fromhex(self.KWREC_HEX)],
+                           tail=b"\x11" * 10)
+        self._assert_agree(p, "--check-repr", 2, {"CHECK_REPR=FAIL_partial_record"})
 
     def test_ctl_repr_c3_is_incomputable(self):
         # RED BEFORE: AGREE=1 INCOMPUTABLE=0 CHECK_REPR=PASS rc 0 — the
@@ -4032,6 +4040,41 @@ class TestPublishedMoorePrecursorWitness(unittest.TestCase):
                          f"witness slot-edit footprint moved: {slots}")
         self.assertEqual(len(slots), 3)
 
+    def test_published_witness_is_in_super_and_satisfies_the_three_rules(self):
+        """Codex LSD R18b (2026-09-29). The two tests above pin permutation, opening, C3 and the
+        slot set — none of which a C5-violating in-place orientation flip of one edited pair
+        disturbs, so that mutant passed (measured). TR-2 publishes this witness as a member of
+        C1∩C2∩C4∩C5 that satisfies Moore parity, Moore rhythm and Schulz gender; assert that."""
+        import roae, verify
+        w = self._witness()
+        self.assertTrue(solve.has_pair_structure_c1(w), "witness breaks C1 pairing")
+        self.assertTrue(solve.has_no_five(w), "witness breaks C2")
+        self.assertTrue(solve.h2_pop_valid(w), "witness breaks C5")
+        rs = sat.rule_scores(w)
+        self.assertEqual((rs["parity"], rs["rhythm"], rs["gender"]), (0, 0, 0), rs)
+        # The Codex mutant: reverse one edited pair in place. Every such mutant still passes
+        # the older asserts (precondition); at least one must fail the asserts above.
+        KW = roae.binary_hexagrams
+        edited = sorted({i // 2 for i in range(64) if w[i] != KW[i]})
+        self.assertEqual(edited, [7, 21, 22])
+        invisible, caught = [], []
+        for s in edited:
+            m = w[:]
+            m[2 * s], m[2 * s + 1] = w[2 * s + 1], w[2 * s]
+            if sorted({i // 2 for i in range(64) if m[i] != KW[i]}) != [7, 21, 22]:
+                continue          # this flip lands on KW's own pair: the slot-set pin sees it
+            self.assertEqual(sorted(m), list(range(64)))
+            self.assertEqual(m[:2], [63, 0])
+            self.assertEqual(verify.compute_comp_dist(m), 776)
+            invisible.append(s)
+            mrs = sat.rule_scores(m)
+            in_super = (solve.has_pair_structure_c1(m) and solve.has_no_five(m)
+                        and solve.h2_pop_valid(m))
+            if not (in_super and mrs["parity"] == mrs["rhythm"] == mrs["gender"] == 0):
+                caught.append(s)
+        self.assertTrue(invisible, "precondition: some in-place flip is invisible to the older pins")
+        self.assertTrue(caught, "no in-place flip of an edited pair is rejected by the new asserts")
+
 
 class TestOutOfRangePairIndexReportsNotRaises(unittest.TestCase):
     """V2-F48 #5: a record whose pair_index exceeds 31 must be REPORTED, never raised.
@@ -4473,7 +4516,7 @@ class TestSatLane12(unittest.TestCase):
 
     def test_emitted_cnf_bytes_pinned(self):
         # Regression guard, not a red test: the shipped .drat.gz certificates verify only against
-        # byte-identical formulas, and the 2026-09-03 clause-family marks must not move a byte.
+        # derivable (replayed) formulas, and the 2026-09-03 clause-family marks must not move a byte.
         # Pins measured 2026-09-03 on sat.py at 12bbb7ac (pre-change) == post-change.
         pins = {"plain": "5d5c3594607ad5c440ee60d42a28c7acc60f06c6a106489b1ab9517b81950c7c",
                 "alt-le-14": "0db4b905cc96b3e3c659b68cb170426bc64dc9afca094141b3e70292d4d7b579",
@@ -12475,14 +12518,16 @@ class TestCorrectionsInventoryRedactsWithdrawnFigures(unittest.TestCase):
     v1.10 and TR-12 s9 redact. The generator now hashes every dollar-figure token and replaces the
     ones listed by sha256 in documentation/REDACTED_FIGURES.tsv. The script's own --selftest holds
     the checks: anchor 15 on a synthetic registry (redaction, trailing-punctuation strip, id
-    unchanged, an unregistered figure kept), anchor 16 on the real registry and the real git log
+    unchanged; an unregistered figure was kept until CX-230), anchor 16 on the real registry and the real git log
     through sweep() (a registered figure is present in the source and none survives), anchor 17 an
     unreadable registry failing the sweep. Five mutants of the generator each turned it red when it
     was written. This test runs it, so the harness fails when the generator regresses. It quotes no
     real figure. 2026-09-28 (CX-229): a commit row now publishes its subject line only, so anchor 16
     no longer also demands a marker in the output (the known carrier's figure is in its body), and
     anchor 18 checks, on the real git log through sweep(), that every commit row's text is exactly
-    its commit's subject."""
+    its commit's subject. 2026-09-29 (CX-230): every other dollar figure in the text column now takes
+    `[cost redacted]`; anchor 19 checks that on a synthetic row (five money shapes redacted, two
+    quoted awk fields kept, the id computed from the unredacted message)."""
 
     SCRIPT = os.path.join("scripts", "corrections_inventory.sh")
     REG = os.path.join("documentation", "REDACTED_FIGURES.tsv")
@@ -12492,6 +12537,8 @@ class TestCorrectionsInventoryRedactsWithdrawnFigures(unittest.TestCase):
         re.compile(r"^\s*\[ok\]\s+an unreadable redaction registry fails the sweep", re.M),
         # 2026-09-28 (CX-229): a commit row publishes its subject line, anchor 18.
         re.compile(r"^\s*\[ok\]\s+every commit row publishes its subject: ([5-9][0-9]|[1-9][0-9]{2,}) rows \([1-9][0-9]* with a body\), 0 differ$", re.M),
+        # 2026-09-29 (CX-230): every unregistered dollar figure takes the general marker, anchor 19.
+        re.compile(r"^\s*\[ok\]\s+every unregistered dollar figure takes the general marker \(5 of 5\), awk fields kept \(2\)", re.M),
     )
 
     def test_selftest_passes_with_redaction_anchors(self):
@@ -21055,6 +21102,9 @@ int main(int argc, char **argv) {
          "if [ \"$rc\" -ne 0 ] && printf '%s\\n' \"$out\" | grep -q 'rank3=0 for a non-KW input'; then"),
         ("if [ \"$rc\" -eq 0 ] && grep -q '^witness_serial\tmoore-strict\trank3=16244\t' <<<\"$out\"; then",
          "if [ \"$rc\" -eq 0 ] && printf '%s\\n' \"$out\" | grep -q '^witness_serial\tmoore-strict\trank3=16244\t'; then"),
+        # 2026-09-29 (LSD R18c): q7ranks_parse_gate.sh leg 9, written as a here-string from the start
+        ("if [ \"$rc\" -ne 0 ] && grep -q 'Q7RANKS_FAIL.*witnesses_processed=1<2' <<<\"$out\"; then",
+         "if [ \"$rc\" -ne 0 ] && printf '%s\\n' \"$out\" | grep -q 'Q7RANKS_FAIL.*witnesses_processed=1<2'; then"),
     ]
     # files the sweep leaves as they are, with their pipe-fed grep -q count
     LEFT_AS_IS = {
@@ -21069,7 +21119,7 @@ int main(int argc, char **argv) {
         texts = {g: self._read(g) for g in self.GATES}
         for g, t in texts.items():
             self.assertEqual(scan(t), [], "pipe-fed grep -q in %s (Q-799 class)" % g)
-        self.assertEqual(len(self.HERE_TO_PIPE), 10)
+        self.assertEqual(len(self.HERE_TO_PIPE), 11)
         for new, old in self.HERE_TO_PIPE:
             owner = [g for g, t in texts.items() if new in t]
             with self.subTest(site=old[:60]):
@@ -21077,7 +21127,7 @@ int main(int argc, char **argv) {
                 self.assertEqual(texts[owner[0]].count(new), 1)
                 hits = scan(texts[owner[0]].replace(new, old, 1))
                 self.assertEqual([h[1] for h in hits], [old])
-        self.assertEqual(sum(t.count("<<<\"$out\"") for t in texts.values()), 9)
+        self.assertEqual(sum(t.count("<<<\"$out\"") for t in texts.values()), 10)
         for g in self.GATES:
             r = subprocess.run(["bash", "-n", os.path.join(self.ROOT, g)], capture_output=True, text=True, timeout=60)
             self.assertEqual(r.returncode, 0, "%s: %s" % (g, r.stderr))
@@ -21118,7 +21168,8 @@ int main(int argc, char **argv) {
                 "a\nwalk cd=31 exceeds C3MAX=30", "cd=3 exceeds", "needs --kc-member", "kc-membe",
                 "Q2C_FAIL\t--kc-enum did not finish within 0.001s", "rank3=16244", "rank3=1624",
                 "witness_serial\tq7_moore-strict\trank3=16244\tw", "pre\nwitness_serial\tmoore-strict\trank3=16244\tw",
-                " witness_serial\tmoore-strict\trank3=16244\tw", "rank3=0 for a non-KW input"]
+                " witness_serial\tmoore-strict\trank3=16244\tw", "rank3=0 for a non-KW input",
+                "Q7RANKS_FAIL\twitnesses_processed=1<2 -- x", "Q7RANKS_FAIL\twitnesses_processed=0<2"]
         for new, old in self.HERE_TO_PIPE:
             seen = set()
             for rc in (0, 1):
@@ -24736,6 +24787,669 @@ print(json.dumps(rec))
         self.assertFalse([t for t in bare["title"] if "outlined" in t], bare["title"])
         self.assertTrue([t for t in bare["title"] if "no King Wen placement is marked in this table" in t])
 # end class TestLaneVR4VizHonesty (lane VR4)
+
+
+
+class TestQ903AppendOnlyMoneyRedaction(unittest.TestCase):
+    """CX-230 (2026-09-29): the operator decided that dollar figures leave the current tree,
+    the append-only ledgers included, with git history unchanged. In documentation/CORRECTIONS.md
+    the edit is mechanical -- a dollar-figure token becomes `[cost redacted]` and nothing else on
+    the line moves -- and GATE 10 (appendonly-head, appendonly-history) accepts exactly that
+    through _g10_money_align in scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh.
+
+    Each case runs the REAL gate in a scratch repo built the way doc_gates.sh's own
+    scratch_appendonly fire-proofs build theirs (a copy of scripts/doc_gates.sh and
+    scripts/doc_gates.d, one committed ledger), and asserts both halves of GATE 10:
+      GREEN  a pure token->marker change (a range, a K figure and a price with a unit);
+      RED    the same change plus one reworded word;
+      RED    an amount changed instead of redacted;
+      RED    only SOME tokens redacted AND a word reworded elsewhere on the line.
+    PRECONDITION, asserted, not assumed: with the alignment step replaced by `cat` in the scratch
+    copy, the GREEN case goes RED -- so the ledger edit really is a line the unaligned gate
+    reports lost, and the green verdict is the alignment's doing. Every figure is synthetic."""
+
+    D = "\x24"   # the dollar sign, spelled so this source carries no literal figure
+    BASE = ("CX-1 first entry.\n"
+            "CX-2 the run cost ~{D}91.37 on Spot, the band was {D}17–83, the total ~{D}9.4K, at {D}7/h.\n"
+            "CX-3 third entry; awk '{D}3==\"x\"' stays as it is.\n").format(D=D)
+
+    def _scratch(self, working, mutate_align=False):
+        d = tempfile.mkdtemp(prefix="q903_g10_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "documentation"))
+        shutil.copy("scripts/doc_gates.sh", os.path.join(d, "doc_gates.sh.tmp"))
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.move(os.path.join(d, "doc_gates.sh.tmp"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree("scripts/doc_gates.d", os.path.join(d, "scripts", "doc_gates.d"))
+        if mutate_align:
+            m = os.path.join(d, "scripts", "doc_gates.d", "40_generated_appendonly_ledger_regdupes.sh")
+            src = _q903_read(m)
+            head = "_g10_money_align() {\n"
+            self.assertEqual(src.count(head), 1, "precondition: the alignment function exists once")
+            _q903_write(m, src.replace(head, head + "  cat; return 0\n"))
+        env = dict(os.environ, GIT_AUTHOR_NAME="selftest", GIT_AUTHOR_EMAIL="selftest@invalid",
+                   GIT_COMMITTER_NAME="selftest", GIT_COMMITTER_EMAIL="selftest@invalid")
+        led = os.path.join(d, "documentation", "CORRECTIONS.md")
+        def git(*a):
+            subprocess.run(["git", *a], cwd=d, env=env, check=True, capture_output=True)
+        git("init", "-q", ".")
+        git("symbolic-ref", "HEAD", "refs/heads/main")
+        _q903_write(led, self.BASE)
+        git("add", "-A")
+        git("commit", "-qm", "ledger")
+        _q903_write(led, working)
+        rc = {}
+        for g in ("appendonly-head", "appendonly-history"):
+            r = subprocess.run(["bash", "scripts/doc_gates.sh", g], cwd=d, env=env,
+                               capture_output=True, text=True, timeout=300)
+            rc[g] = (r.returncode, r.stdout + r.stderr)
+        return rc
+
+    def _line2(self, new):
+        lines = self.BASE.split("\n")
+        lines[1] = new
+        return "\n".join(lines)
+
+    def test_pure_token_to_marker_is_green_and_needs_the_alignment(self):
+        m = "[cost redacted]"
+        work = self._line2("CX-2 the run cost ~%s on Spot, the band was %s, the total ~%s, at %s/h." % (m, m, m, m))
+        self.assertNotIn(work.split("\n")[1], self.BASE, "precondition: the edited line is not a committed line")
+        rc = self._scratch(work)
+        for g, (code, out) in rc.items():
+            self.assertEqual(code, 0, "%s must accept a pure token->marker edit:\n%s" % (g, out[-1500:]))
+        rc = self._scratch(work, mutate_align=True)
+        for g, (code, out) in rc.items():
+            self.assertNotEqual(code, 0, "precondition: without the alignment step %s must report the "
+                                         "redacted line as lost (else the green verdict proves nothing)" % g)
+
+    def test_partial_redaction_is_green(self):
+        m = "[cost redacted]"
+        work = self._line2("CX-2 the run cost ~%s on Spot, the band was %s17–83, the total ~%s, at %s7/h." % (m, self.D, m, self.D))
+        for g, (code, out) in self._scratch(work).items():
+            self.assertEqual(code, 0, "%s must accept redacting some tokens only:\n%s" % (g, out[-1500:]))
+
+    def test_marker_plus_a_reworded_word_is_red(self):
+        m = "[cost redacted]"
+        work = self._line2("CX-2 the run cost ~%s on Spot, the band was %s, the sum ~%s, at %s/h." % (m, m, m, m))
+        for g, (code, out) in self._scratch(work).items():
+            self.assertNotEqual(code, 0, "%s must still fail when a word is reworded:\n%s" % (g, out[-800:]))
+
+    def test_changed_amount_is_red(self):
+        work = self._line2("CX-2 the run cost ~{D}91.38 on Spot, the band was {D}17–83, the total ~{D}9.4K, at {D}7/h.".format(D=self.D))
+        for g, (code, out) in self._scratch(work).items():
+            self.assertNotEqual(code, 0, "%s must fail when an amount is changed, not redacted:\n%s" % (g, out[-800:]))
+
+    def test_partial_redaction_plus_reword_is_red(self):
+        m = "[cost redacted]"
+        work = self._line2("CX-2 the run cost ~%s on Spot, the band was %s17–83, the total ~%s9.4K, at %s7/hr." % (m, self.D, self.D, self.D))
+        for g, (code, out) in self._scratch(work).items():
+            self.assertNotEqual(code, 0, "%s must fail when a unit is reworded beside a redaction:\n%s" % (g, out[-800:]))
+
+
+class TestQ903HashedRetractedNeedle(unittest.TestCase):
+    """CX-230: a RETRACTED_PHRASES.tsv needle that carries a dollar figure is registered as
+    `sha256:<hex>/<n>` (the phrase's digest and length), never as text. hashed_row_parse and
+    hashed_needle_hits in scripts/doc_gates.sh are what GATE 3 runs on such a row, and GATE 11
+    keys it as RP-<first 8 hex>, the key the text row had. Synthetic phrase only; the registered
+    row itself is checked for shape and for its unchanged RP key's ledger entry."""
+
+    def _fns(self):
+        src = _q903_read("scripts/doc_gates.sh")
+        out = []
+        for name in ("hashed_row_parse", "hashed_needle_hits"):
+            m = re.search(r"(?ms)^%s\(\) \{\n.*?^\}\n" % name, src)
+            self.assertIsNotNone(m, "%s() must exist in scripts/doc_gates.sh" % name)
+            out.append(m.group(0))
+        return "\n".join(out)
+
+    def _run(self, script):
+        r = subprocess.run(["bash", "-c", self._fns() + "\n" + script], capture_output=True, text=True, timeout=120)
+        return r.returncode, r.stdout
+
+    def test_hit_across_a_wrap_and_miss_on_a_changed_figure(self):
+        D = "\x24"   # no literal figure in this source
+        ph = "{D}123/h x 9h = {D}1,107".format(D=D)
+        h = hashlib.sha256(ph.encode()).hexdigest()
+        d = tempfile.mkdtemp(prefix="q903_hash_")
+        self.addCleanup(shutil.rmtree, d, True)
+        hit, miss = os.path.join(d, "hit.md"), os.path.join(d, "miss.md")
+        _q903_write(hit, "line one\nthe run was {D}123/h x\n9h  = {D}1,107 in all.\n".format(D=D))
+        _q903_write(miss, "line one\nthe run was {D}123/h x 9h = {D}1,108 in all.\n".format(D=D))
+        rc, out = self._run('hashed_row_parse "sha256:%s/%d" && hashed_needle_hits %s %d %s %s'
+                            % (h, len(ph), h, len(ph), hit, miss))
+        self.assertEqual(rc, 0, out)
+        lines = out.split("\n")
+        self.assertEqual(lines[0], "%s %d" % (h, len(ph)))
+        self.assertIn("%s:2" % hit, lines, "a wrapped, double-spaced restatement must be found at its first line")
+        self.assertFalse([l for l in lines if l.startswith(miss)], "a changed figure must not match")
+
+    def test_text_rows_are_not_hashed_rows(self):
+        for c1 in ("an ordinary text needle", "sha256:abc/3", "sha256:%s" % ("0" * 64), "sha256:%s/0" % ("0" * 64)):
+            rc, _ = self._run('hashed_row_parse %s' % shlex_quote(c1))
+            self.assertNotEqual(rc, 0, "%r must not parse as a hashed row" % c1)
+
+    def test_registered_row_is_hashed_and_keeps_its_key(self):
+        rows = [l.split("\t") for l in _q903_read("documentation/RETRACTED_PHRASES.tsv").split("\n")
+                if l.startswith("sha256:")]
+        self.assertTrue(rows, "precondition: at least one hashed row is registered")
+        led = _q903_read("documentation/CORRECTIONS.md")
+        for r in rows:
+            m = re.fullmatch(r"sha256:([0-9a-f]{64})/([1-9][0-9]*)", r[0])
+            self.assertIsNotNone(m, r[0])
+            self.assertIn("RP-" + m.group(1)[:8], led, "GATE 11's key for %s must have its ledger entry" % r[0][:20])
+            self.assertIsNone(re.search(r"\$[0-9]", "\t".join(r)), "a hashed row must not restate a dollar figure")
+
+
+def _q903_read(path):
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def _q903_write(path, text):
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
+def shlex_quote(s):
+    import shlex
+    return shlex.quote(s)
+
+
+class TestLsdTextFixes(unittest.TestCase):
+    """Guards for the TEXT fixes of the Codex (gpt-6-astra) Lean/SAT/DRAT adversarial review, as
+    triaged by Fable (CX-232, 2026-09-29). Each test pins a MEASURED fact that a corrected sentence
+    now states, so the sentence cannot drift back without a red test. Each asserts its own
+    precondition first, so a fixture that stopped reaching the code under test fails loudly."""
+
+    @staticmethod
+    def _sat():
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import sat
+        return sat
+
+    def test_k01_4_full31_port_b0_differs_from_between_multiset(self):
+        # sat.py's comment said the full-31 B0 this port would produce EQUALS BETWEEN_MULTISET.
+        # Measured: it does not. solve.c special-cases the full-31 rung from King Wen, so no
+        # published number moved. Red if someone "fixes" the comment by changing a table.
+        sat = self._sat()
+        port = sat.derive_b0(list(range(1, 32)), 0)
+        self.assertIsInstance(port, dict, "precondition: derive_b0 returns a distance->count map")
+        self.assertEqual(port, {1: 2, 2: 7, 3: 13, 4: 8, 6: 1})
+        self.assertEqual(dict(sat.BETWEEN_MULTISET), {1: 2, 2: 8, 3: 13, 4: 7, 6: 1})
+        self.assertNotEqual(port, dict(sat.BETWEEN_MULTISET))
+        src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "sat.py"), encoding="utf-8").read()
+        self.assertIn("differs from the KW-derived BETWEEN_MULTISET", src)
+
+    def test_r13_a_four_edit_compliant_ordering_exists(self):
+        # LITERATURE_RULES and TR-1 said the deviation from a compliant precursor WAS a 3-edit
+        # event. 3 is the minimum; the grand-strict witness with slot 5 reversed is also compliant
+        # with all three rules and sits 4 slots from King Wen.
+        sat = self._sat()
+        import solve
+        here = os.path.dirname(os.path.abspath(__file__))
+        txt = open(os.path.join(here, "reports/evidence/q7_witnesses/grand-strict.txt"), encoding="utf-8").read()
+        w = [int(x) for x in txt.split("SEQ=")[-1].split(",")]
+        kw = list(sat.KW)
+        dist = lambda s: sum(1 for k in range(32) if (s[2 * k], s[2 * k + 1]) != (kw[2 * k], kw[2 * k + 1]))
+        self.assertEqual(dist(w), 3, "precondition: the published grand-strict witness is 3 slot-edits from KW")
+        t = list(w)
+        t[10], t[11] = t[11], t[10]
+        ok, c3, scores = sat.verify_seq(t)
+        self.assertTrue(ok)
+        self.assertTrue(solve.has_pair_structure_c1(t))
+        self.assertLessEqual(c3, 776)
+        self.assertEqual(scores, (0, 0, 0))
+        self.assertEqual(dist(t), 4)
+
+    def test_r18j_check_repr_rejects_a_torn_record(self):
+        # verify.py --check-repr stopped at a short read and reported PASS on the records before
+        # it; verify.c already refused (CHECK_REPR=FAIL_partial_record, rc 2). Red before the fix:
+        # the torn artifact below gave CHECK_REPR=PASS rc 0.
+        here = os.path.dirname(os.path.abspath(__file__))
+        rec = bytes.fromhex("0004080c1014181c2024282c3034383c4044484c5054585c6064686c7074787c")
+        tmp = tempfile.mkdtemp(prefix="lsd_r18j_")
+        try:
+            def art(name, tail):
+                path = os.path.join(tmp, name)
+                with open(path, "wb") as fh:
+                    fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16 + rec + tail)
+                return path
+            run = lambda p: subprocess.run([sys.executable, "verify.py", p, "--check-repr"],
+                                           cwd=here, capture_output=True, text=True)
+            ok = run(art("whole.bin", b""))
+            self.assertEqual(ok.returncode, 0, "precondition: the untorn fixture passes --check-repr")
+            self.assertIn("CHECK_REPR=PASS", ok.stdout.splitlines())
+            torn = run(art("torn.bin", b"\x11" * 10))
+            self.assertEqual(torn.returncode, 2, torn.stdout)
+            self.assertIn("CHECK_REPR=FAIL_partial_record", torn.stdout.splitlines())
+            self.assertNotIn("CHECK_REPR=PASS", torn.stdout.splitlines())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+# ---------------------------------------------------------------------------------------------
+# Lane LSF (2026-09-29): the Lean/SAT/DRAT half of the Codex (gpt-6-astra) adversarial review,
+# triaged by Fable. Rows R7, R8, R18a, R18b, R18f, R18g, R18h, R18k, and the retired-phrase
+# guard for the .lean docstring rows (R6, K01-6, R11, R20a, R20b, R22). Every test asserts its
+# precondition first and was run red on the 5ad06afa tree (see CORRECTIONS.md CX-231).
+# ---------------------------------------------------------------------------------------------
+
+def _lsf_read(path):
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def _lsf_public_witnesses():
+    """[(label, seq)] for every public non-KW C1-C5-valid witness: the two Q7 pinned SAT
+    witnesses and the 42 C3 positional witnesses, plus King Wen itself as the control that
+    satisfies CC-N4 and CC-N8 (no non-KW witness does)."""
+    out = []
+    for f in ("reports/evidence/q7_witnesses/grand-strict.txt",
+              "reports/evidence/q7_witnesses/moore-strict.txt"):
+        for ln in _lsf_read(f).split("\n"):
+            if ln.startswith("SEQ="):
+                out.append((os.path.basename(f),
+                            [int(x) for x in re.split(r"[,\s]+", ln[4:].strip()) if x]))
+    for ln in _lsf_read("reports/certificates/c3_positional_witnesses.txt").split("\n"):
+        if ln.startswith("SEQ="):
+            out.append(("c3_positional_witnesses.txt#%d" % len(out), [int(x) for x in ln[4:].split()]))
+    out.append(("KW", list(sat.KW)))
+    if len(set(label for label, _ in out)) != len(out):
+        raise AssertionError("witness labels must be unique (they key the verdict dicts)")
+    return out
+
+
+def _lsf_y_literals(mod, seq, Y):
+    """The full Y assignment of a C1-valid sequence under `mod`'s (slot, orient) map: the
+    KW-pin mapping of build() generalised to an arbitrary sequence (Codex LSD R7)."""
+    lits = []
+    for s in mod.SLOTS:
+        a, b = seq[2 * s], seq[2 * s + 1]
+        js = [j for j in range(mod.NJ) if mod.ORIENTS[j][2] == a and mod.ORIENTS[j][3] == b]
+        if len(js) != 1:
+            raise AssertionError("slot %d (%d,%d) is not one (pair, orient) of the map" % (s, a, b))
+        lits += [Y[(s, j)] if j == js[0] else -Y[(s, j)] for j in range(mod.NJ)]
+    return lits
+
+
+def _lsf_family_subcnf(mod, cnf):
+    """The clauses of `cnf` that decide a rule on a FULL Y assignment: the one-(pair,orient)-
+    per-slot family, the inversion-class position counter (comp_slot / E / P / R chains) and
+    every `rule ...` family. The C1 pair-once, C2 and C5 families are dropped: every witness
+    here satisfies them, and they carry 95 % of the clauses."""
+    keep = set()
+    for _, name in cnf.marks:
+        if name == "C1 one (pair,orient) per slot" or name == "inversion-class position counter" \
+                or name.startswith("rule "):
+            keep.add(name)
+    sub = mod.CNF()
+    sub.n = cnf.n
+    sub.cl = [c for ci, c in enumerate(cnf.cl) if cnf.stage_of(ci) in keep]
+    sub.marks = [(0, "lsf-subcnf")]
+    return sub
+
+
+class TestSatEmittedClausesNonKW(unittest.TestCase):
+    """Codex LSD R7. The shipped encoding-fidelity battery checks a replica of the rule
+    predicates against solve.py at King Wen and 300 permutations, and the KW-pinned targets
+    exercise the EMITTED clauses at King Wen only. The clause arithmetic that positions the
+    gender/CC-N4/CC-N8 families (`base = st2 + 2 + c`) is hand-coded, and an offset mutant that
+    agrees with the correct formula at King Wen (where c = 2 at the stations) passed every
+    shipped gate. This test evaluates the emitted clauses of each rule family on every PUBLIC
+    non-KW witness and requires `(no clause falsified) == (solve.py violation count == 0)`,
+    then builds that mutant: it agrees on every public witness, so a CONSTRUCTED one separates it.
+    No solver: the verdict is unit propagation from the full Y assignment (sat.model_check)."""
+    RULE_TARGETS = {"parity": "five-sub-parity", "rhythm": "five-sub-rhythm",
+                    "gender": "five-sub-gender", "ccn4": "five-sub-ccn4", "ccn8": "five-sub-ccn8"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.W = _lsf_public_witnesses()
+
+    def _clause_verdicts(self, mod, rule):
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()):
+            cnf, Y = mod.build(self.RULE_TARGETS[rule])
+        fam = [n for _, n in cnf.marks if n.startswith("rule " + rule)]
+        self.assertEqual(len(fam), 1, "the %s family is not marked exactly once: %s" % (rule, fam))
+        sub = _lsf_family_subcnf(mod, cnf)
+        self.assertGreater(len(sub.cl), 0)
+        return {label: mod.model_check(sub, _lsf_y_literals(mod, seq, Y))["falsified"] == 0
+                for label, seq in self.W}
+
+    def test_precondition_witness_set_has_both_polarities_for_every_rule(self):
+        self.assertEqual(len(self.W), 45, "2 Q7 witnesses + 42 positional + KW")
+        for label, seq in self.W:
+            self.assertTrue(solve.has_pair_structure_c1(seq) and solve.h2_pop_valid(seq), label)
+        for rule in self.RULE_TARGETS:
+            sat_ = [label for label, seq in self.W if sat.rule_scores(seq)[rule] == 0]
+            viol = [label for label, seq in self.W if sat.rule_scores(seq)[rule] > 0]
+            self.assertTrue(sat_ and viol, "rule %s is one-sided on the witness set" % rule)
+
+    def test_emitted_rule_clauses_agree_with_solve_py_on_every_public_witness(self):
+        for rule in self.RULE_TARGETS:
+            got = self._clause_verdicts(sat, rule)
+            for label, seq in self.W:
+                self.assertEqual(got[label], sat.rule_scores(seq)[rule] == 0,
+                                 "rule %s: emitted clauses and solve.py disagree on %s" % (rule, label))
+
+    def test_ccn4_offset_mutant_that_agrees_at_kw_is_caught_on_a_constructed_sequence(self):
+        import importlib.util
+        src = _lsf_read("sat.py")
+        NEEDLE = "base = st2 + 2 + c"
+        self.assertEqual(src.count(NEEDLE), 1, "the CC-N4 station offset line moved; re-aim the mutant")
+        d = tempfile.mkdtemp()
+        try:
+            p = os.path.join(d, "sat_lsf_mutant.py")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(src.replace(NEEDLE, "base = st2 + 4"))
+            spec = importlib.util.spec_from_file_location("sat_lsf_mutant", p)
+            mut = importlib.util.module_from_spec(spec)
+            argv, sys.argv = sys.argv, ["sat.py"]
+            try:
+                spec.loader.exec_module(mut)   # the import-time battery must still pass: the mutant agrees at KW
+            finally:
+                sys.argv = argv
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        good = self._clause_verdicts(sat, "ccn4")
+        bad = self._clause_verdicts(mut, "ccn4")
+        self.assertEqual(bad["KW"], good["KW"], "the mutant was chosen to agree at King Wen")
+        self.assertTrue(bad["KW"], "KW satisfies CC-N4 under both encoders")
+        # MEASURED 2026-09-29: the mutant agrees with the correct encoder on all 44 public
+        # non-KW witnesses too — 43 of them violate CC-N4 under BOTH offsets, so the public
+        # witness set cannot separate the two (Codex's finding that the mutant passed every
+        # shipped gate holds for these witnesses as well). The separating sequence has to move
+        # a palindrome pair across the stations: King Wen with the pair at slot 30 (a
+        # palindrome pair, the only one after the stations) exchanged with the pair at slot 1.
+        # That raises the palindrome count c before the stations from 2 to 3, so the true
+        # class position of slots 21-24 becomes 26-29 and CC-N4 is violated (solve.reg_ccn4 is
+        # False), while the mutant still reads the KW faces at slot + 4 and ACCEPTS it. C1
+        # pairing holds; C2/C5 need not (those families are not in the sub-formula).
+        KW = list(sat.KW)
+        rev6 = solve.reverse_6bit
+        pal_slots = [s for s in range(1, 32) if rev6(KW[2 * s]) == KW[2 * s]]
+        self.assertEqual(pal_slots, [13, 14, 30], "precondition: KW's palindrome-pair slots")
+        seq = KW[:]
+        seq[2:4], seq[60:62] = KW[60:62], KW[2:4]
+        self.assertTrue(solve.has_pair_structure_c1(seq))
+        self.assertIsNot(solve.reg_ccn4(seq), True, "precondition: the moved palindrome breaks CC-N4")
+        import io, contextlib
+        verdict = {}
+        for name, mod in (("shipped", sat), ("mutant", mut)):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cnf, Y = mod.build("five-sub-ccn4")
+            sub = _lsf_family_subcnf(mod, cnf)
+            verdict[name] = mod.model_check(sub, _lsf_y_literals(mod, seq, Y))["falsified"] == 0
+        self.assertIs(verdict["shipped"], False, "the shipped CC-N4 clauses accept a sequence solve.py rejects")
+        self.assertIs(verdict["mutant"], True, "the offset mutant no longer separates here; re-aim it")
+
+
+class TestSatRigidityValidateReadsTheClauses(unittest.TestCase):
+    """Codex LSD R18f: rigidity_validate's negative control never read cnf.cl, so a rigidity
+    CNF with its seven anchor units deleted still validated. Now the bit-reversal assignment
+    is evaluated against the emitted clauses and must falsify >= 1 unit and nothing else."""
+
+    def test_anchor_units_stripped_fails_validation(self):
+        cnf, x = sat.build_rigidity()
+        self.assertTrue(sat.rigidity_validate(cnf, x), "the shipped rigidity CNF must validate")
+        anchors = [0] + [b for b in range(64) if solve.bit_diff(0, b) == 5]
+        units = {(x[v][v],) for v in anchors}
+        before = len(cnf.cl)
+        cnf.cl = [c for c in cnf.cl if not (len(c) == 1 and tuple(c) in units)]
+        self.assertEqual(before - len(cnf.cl), len(anchors), "precondition: the 7 anchor units were present")
+        self.assertFalse(sat.rigidity_validate(cnf, x),
+                         "a rigidity CNF without its anchor units validated (nothing read the clauses)")
+
+
+class TestSatVerifySeqChecksC1Pairing(unittest.TestCase):
+    """Codex LSD R18g: verify_seq's "C1" was permutation-ness only. King Wen with bits 0 and 1
+    swapped in every hexagram keeps C2, C5, C4 and C3 = 776 but breaks the partner pairing
+    (rev6 does not commute with that line swap): solve.has_pair_structure_c1 says False and
+    verify_seq said (True, 776, ...)."""
+
+    def test_bit_swapped_kw_is_rejected(self):
+        sw = [(h & ~3) | ((h & 1) << 1) | ((h >> 1) & 1) for h in sat.KW]
+        self.assertEqual(sorted(sw), list(range(64)))
+        self.assertEqual(sw[:2], [63, 0])
+        self.assertTrue(solve.has_no_five(sw) and solve.h2_pop_valid(sw), "precondition: C2 and C5 hold")
+        self.assertFalse(solve.has_pair_structure_c1(sw), "precondition: the pairing is broken")
+        ok, c3, scores = sat.verify_seq(sw)
+        self.assertEqual(c3, 776)
+        self.assertIs(ok, False, "verify_seq accepted a sequence whose C1 pairing is broken")
+        self.assertIsNone(scores)
+        self.assertIs(sat.verify_seq(list(sat.KW))[0], True)
+
+
+class TestSatKwExemptRescoreAgreesWithEncoder(unittest.TestCase):
+    """Codex LSD R18h: rc4-kwexempt exempts class positions 25/26 in the emitted clauses but
+    the re-score did not, so target_verdict(KW, 'rc4-kwexempt') rejected the formula's own
+    pinned model. The exemption is now one set (sat.RC4_KWEXEMPT_POS) read by both."""
+
+    def test_kw_is_ok_under_kwexempt_and_not_under_strict(self):
+        KW = list(sat.KW)
+        self.assertEqual(solve.rc4_violations(KW), (2, [25, 26]), "precondition: KW's gender locus")
+        self.assertEqual(sat.rule_scores(KW)["gender"], 2)
+        self.assertIs(sat.target_verdict(KW, "rc4-strict")["ok"], False)
+        self.assertEqual(sat.target_verdict(KW, "rc4-strict")["rule_viol"], {"gender": 2})
+        v = sat.target_verdict(KW, "rc4-kwexempt")
+        self.assertIs(v["ok"], True, "KW rejected under rc4-kwexempt: %r" % (v["rule_viol"],))
+        self.assertEqual(v["rule_viol"], {})
+        self.assertEqual(sat.RC4_KWEXEMPT_POS, frozenset({25, 26}))
+        self.assertEqual(sat.rule_scores(KW, "rc4-kwexempt")["gender"], 0)
+        self.assertEqual(sat.rule_scores(KW, "rc4-strict")["gender"], 2)
+
+
+class TestSatCertifyCountRefusesStaleDnnf(unittest.TestCase):
+    """Codex LSD R18k: with --keep, a d4 that exits non-zero having written nothing left an
+    earlier run's instance.nnf in place; the size test passed on it and cpog-gen was invoked
+    on the OLD d-DNNF under the NEW label. Now stale .nnf/.cpog are removed before d4 runs and
+    a non-zero d4 exit is refused before anything downstream is touched."""
+
+    def test_failed_d4_with_stale_nnf_is_refused_before_cpog_gen(self):
+        d = tempfile.mkdtemp()
+        try:
+            bindir = os.path.join(d, "bin"); os.mkdir(bindir)
+            keep = os.path.join(d, "keep"); os.mkdir(keep)
+            marker = os.path.join(d, "cpog_gen_invoked")
+            with open(os.path.join(bindir, "d4"), "w") as fh:
+                fh.write("#!/bin/sh\nexit 1\n")
+            with open(os.path.join(bindir, "cpog-gen"), "w") as fh:
+                fh.write("#!/bin/sh\n: > '%s'\nexit 1\n" % marker)
+            for t in ("d4", "cpog-gen"):
+                os.chmod(os.path.join(bindir, t), 0o755)
+            stale = os.path.join(keep, "instance.nnf")
+            with open(stale, "w") as fh:
+                fh.write("o 1 0\n")                       # a non-empty d-DNNF from an earlier run
+            self.assertTrue(os.path.getsize(stale) > 0, "precondition: the stale .nnf is non-empty")
+            cnf = sat.CNF(); v = cnf.var(); cnf.add(v)
+            old = os.environ.get("PATH", "")
+            os.environ["PATH"] = bindir + os.pathsep + old
+            try:
+                with self.assertRaises(SystemExit) as cm:
+                    sat.certify_count(cnf, "lsf-probe", keep_dir=keep)
+            finally:
+                os.environ["PATH"] = old
+            msg = str(cm.exception)
+            self.assertIn("d4 failed", msg, "the refusal did not name d4: %s" % msg[:200])
+            self.assertFalse(os.path.exists(marker),
+                             "cpog-gen ran on a stale d-DNNF after d4 had failed")
+            self.assertFalse(os.path.exists(stale), "the stale .nnf survived into the run")
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+
+def _lsf_heredoc_body(marker):
+    """The body of the python3 heredoc in reports/certificates/verify_all.sh that contains
+    `marker` (the same heredoc grammar the Q-373 scan uses)."""
+    src = _lsf_read("reports/certificates/verify_all.sh")
+    HD = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?\s*\n(.*?)\n[ \t]*\1", re.S)
+    bodies = [m.group(2) for m in HD.finditer(src) if marker in m.group(2)]
+    if len(bodies) != 1:
+        raise AssertionError("expected exactly one verify_all.sh heredoc containing %r, found %d"
+                             % (marker, len(bodies)))
+    return bodies[0]
+
+
+class TestLeanSourceCensusLeg(unittest.TestCase):
+    """Codex LSD R8: verify_all.sh's Lean gate passed a module with no `#print axioms`
+    directive on rc alone (five of fifteen modules had none). Leg (C) reads the sources with
+    comments stripped and fails on native_decide / sorry / axiom / skipKernelTC /
+    implemented_by / extern / unsafe / opaque / partial def. Run here on a copy of lean/ with
+    the positive-control probe the script's comment names."""
+    PROBE = "\ntheorem _lsf_probe : (1:Nat) = 1 := by native_decide\n"
+
+    def _run(self, tree):
+        body = _lsf_heredoc_body("LEAN_SOURCE_CENSUS")
+        return subprocess.run([sys.executable, "-", ], input=body, capture_output=True, text=True, cwd=tree)
+
+    def test_census_passes_the_shipped_sources_and_fails_the_native_decide_probe(self):
+        d = tempfile.mkdtemp()
+        try:
+            shutil.copytree("lean", os.path.join(d, "lean"))
+            files = sorted(f for f in os.listdir(os.path.join(d, "lean")) if f.endswith(".lean"))
+            self.assertGreaterEqual(len(files), 15, "precondition: the fifteen modules are present")
+            r = self._run(d)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("\nLEAN_SOURCE_CENSUS=PASS n=0\n", "\n" + r.stdout)
+            with open(os.path.join(d, "lean", "KingWen.lean"), "a", encoding="utf-8") as fh:
+                fh.write(self.PROBE)
+            r = self._run(d)
+            self.assertNotEqual(r.returncode, 0, "a native_decide theorem outside comments passed the census")
+            self.assertIn("LEAN_SOURCE_CENSUS=FAIL n=1", r.stdout)
+            self.assertIn("KingWen.lean", r.stdout)
+            # the same token inside a comment is NOT a hit (comment stripping is what makes
+            # the shipped tree pass: every module's header names native_decide as excluded)
+            with open(os.path.join(d, "lean", "KingWen.lean"), encoding="utf-8") as fh:
+                s = fh.read()
+            with open(os.path.join(d, "lean", "KingWen.lean"), "w", encoding="utf-8") as fh:
+                fh.write(s.replace(self.PROBE, "\n-- probe: native_decide sorry axiom\n/- axiom\n  native_decide -/\n"))
+            r = self._run(d)
+            self.assertEqual(r.returncode, 0, r.stdout)
+            base = s.replace(self.PROBE, "\n")   # the shipped module, without the first probe
+            # 2026-09-29 (Fable batch-26 prepub): the other spellings of native_decide, the term
+            # it elaborates to, and a modifier-prefixed axiom each fail on their own.
+            for probe in ("\ntheorem _p1 : (1:Nat) = 1 := by decide +native\n",
+                          "\ntheorem _p2 : (1:Nat) = 1 := Lean.ofReduceBool _ _ rfl\n",
+                          "\nprivate axiom _p3 : False\n",
+                          "\n@[simp] noncomputable opaque _p4 : Nat\n"):
+                with self.subTest(probe=probe.strip()):
+                    with open(os.path.join(d, "lean", "KingWen.lean"), "w", encoding="utf-8") as fh:
+                        fh.write(base + probe)
+                    r = self._run(d)
+                    self.assertNotEqual(r.returncode, 0, "passed: %r" % probe)
+                    self.assertIn("LEAN_SOURCE_CENSUS=FAIL n=1", r.stdout)
+            with open(os.path.join(d, "lean", "KingWen.lean"), "w", encoding="utf-8") as fh:
+                fh.write(base + "\n-- decide +native, private axiom, ofReduceBool (comment only)\n")
+            r = self._run(d)
+            self.assertEqual(r.returncode, 0, r.stdout)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_previously_undirected_load_bearing_theorems_now_carry_directives(self):
+        want = {"lean/C3Decomposition.lean": ["#print axioms C3Decomposition.kw_walkCd_387"],
+                "lean/TrigramTheorems.lean": ["#print axioms Trigram.G12_decomposition_nodup",
+                                              "#print axioms Trigram.mirrorDouble_inj"],
+                "lean/PruneGInvariance.lean": ["#print axioms PruneGInvariance.runningG_mapP",
+                                               "#print axioms PruneGInvariance.runningG_orbit_invariant"],
+                "lean/KingWen.lean": ["#print axioms kw_valid_kernel", "#print axioms equivariance_ceiling",
+                                      "#print axioms twins_24_records"],
+                "lean/C1RuleConstants.lean": ["#print axioms C1RuleConstants.mmt4_const"],
+                "lean/RecordConvention.lean": ["#print axioms RecordConvention.visitedMin_exhaustive_agreement"]}
+        for f, lines in want.items():
+            src = _lsf_read(f).split("\n")
+            for want_line in lines:
+                self.assertIn(want_line, src, "%s lacks the directive %r" % (f, want_line))
+                name = want_line.split()[-1].split(".")[-1]
+                self.assertTrue(re.search(r"^theorem %s\b" % re.escape(name), "\n".join(src), re.M),
+                                "%s: directive names no theorem %s" % (f, name))
+
+
+class TestWitnessFileSelfDescriptionIsChecked(unittest.TestCase):
+    """Codex LSD R18a: verify_all.sh §3b re-checked C1-C5 and C3/G but nothing checked what
+    c3_positional_witnesses.txt says about its own rows: the G=95 tie row's pair-slot layout
+    != KW, and the yangcount/entryyang annotation. Both are now checked; this runs the real
+    heredoc on a copy of the file, then on two mutants."""
+
+    def _run(self, mutate=None):
+        d = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(d, "reports", "certificates"))
+            shutil.copy("verify.py", d)
+            src = _lsf_read("reports/certificates/c3_positional_witnesses.txt")
+            if mutate:
+                src = mutate(src)
+            with open(os.path.join(d, "reports", "certificates", "c3_positional_witnesses.txt"), "w",
+                      encoding="utf-8") as fh:
+                fh.write(src)
+            body = _lsf_heredoc_body("c3_positional_witnesses.txt")
+            return subprocess.run([sys.executable, "-"], input=body, capture_output=True, text=True, cwd=d)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_shipped_file_passes_and_prints_the_tokens(self):
+        r = self._run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("\nWITNESS_G95_LAYOUT=PASS\n", "\n" + r.stdout)
+        self.assertIn("\nWITNESS_ANNOTATIONS_CHECKED=", "\n" + r.stdout)
+
+    def test_yangcount_annotation_off_by_one_fails(self):
+        src = _lsf_read("reports/certificates/c3_positional_witnesses.txt")
+        self.assertEqual(src.count("yangcount=90"), 1, "precondition: the annotated row is there once")
+        r = self._run(lambda s: s.replace("yangcount=90", "yangcount=91"))
+        self.assertNotEqual(r.returncode, 0, "an annotation the sequence contradicts passed")
+        self.assertIn("yangcount", r.stdout + r.stderr)
+
+    def test_g95_row_replaced_by_king_wen_fails(self):
+        import roae
+        kw = "SEQ=" + " ".join(str(h) for h in roae.binary_hexagrams) + "\n"
+        def mut(s):
+            lines = s.split("\n")
+            i = next(k for k, ln in enumerate(lines) if ln.startswith("G=95 "))
+            if not lines[i + 1].startswith("SEQ="):
+                raise AssertionError("precondition: the G=95 header is followed by its SEQ line")
+            lines[i + 1] = kw.rstrip("\n")
+            return "\n".join(lines)
+        r = self._run(mut)
+        self.assertNotEqual(r.returncode, 0, "King Wen itself passed as the G=95 tie witness")
+        self.assertIn("tie row", r.stdout + r.stderr)
+
+
+class TestLsdRetiredLeanAndSatPhrases(unittest.TestCase):
+    """The .lean docstring corrections of Codex LSD rows R6, K01-6, R11, R20a, R20b and R22
+    (and the DRAT counter of R18k) are outside the RETRACTED_PHRASES doc gate, which scans
+    *.md only; this is their absence guard. Each phrase was present at 5ad06afa."""
+    RETIRED = [("lean/C3Decomposition.lean", "KERNEL end to end"),
+               ("lean/C3Decomposition.lean", "self_couple_sum"),
+               ("lean/C3Decomposition.lean", "cross_couple_sum"),
+               ("lean/PruneExactness.lean", "plain-vs-quotient agreement on group-closed subsets"),
+               ("lean/PruneReprFC.lean", "genuine trap"),
+               ("lean/RecordConvention.lean", "theorem-grade (per-cell exhaustion)"),
+               ("lean/RecordConvention.lean", "first-occurrence dedup"),
+               ("lean/Automorphism.lean", "flips every pair's orientation"),
+               ("lean/HammingOptimalMatching.lean", "solve.c's partner()"),
+               ("lean/CompilerCorrectness.lean", "Per-block gzip"),
+               ("lean/CompilerCorrectness.lean", "does not exist on this (v4-compiler) branch"),
+               ("lean/CompilerCorrectness.lean", "first-occurrence dedup"),
+               ("lean/PartitionInvariance.lean", "take-2 vs take-3"),
+               ("lean/TrigramTheorems.lean", "48 = 24+24"),
+               ("lean/TrigramTheorems.lean", "each sequence-level\n   theorem above is exercised")]
+
+    def test_retired_phrases_are_absent(self):
+        for f, phrase in self.RETIRED:
+            src = _lsf_read(f)
+            self.assertNotIn(phrase, src, "%s still carries the retired phrase %r" % (f, phrase))
+
+    def test_bridge_fact_names_the_inert_couple_convention(self):
+        src = _lsf_read("lean/PruneGInvariance.lean")
+        self.assertIn("inert-couple convention", src)
+        self.assertIn("cpartner[i] = -1", src)
+
+    def test_drat_population_counts_verified_certificates_only(self):
+        src = _lsf_read("reports/certificates/verify_all.sh")
+        self.assertIn('if [ "$LAST_RC" -eq 0 ]; then CERTS_CHECKED=$((CERTS_CHECKED+1)); fi', src)
+        self.assertNotIn("\n  CERTS_CHECKED=$((CERTS_CHECKED+1))\n", src,
+                         "the unconditional attempt counter is back")
+# end lane LSF
 
 
 if __name__ == "__main__":

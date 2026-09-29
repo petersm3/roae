@@ -12,7 +12,7 @@
 > shutdown` self-halt) and exits immediately on a host without that layout. Reproducing the
 > battery means re-creating that VM environment; the from-the-repo record is the archived outputs
 > beside it — `battery.log`,
-> `calibration_report.txt`, `derived_ci.out`, `exact_audit.tsv`, `gates.json`, `hits.json`.
+> `calibration_report.txt`, `derived_ci.out`, `exact_audit.tsv`, `gates.json`, `hits.json`. (2026-09-29, CX-230: the two cost figures on `battery.log`'s ABORT-CHECK lines, and one in a comment of the battery script, read `[cost redacted]`; the battery script's comment and its two ABORT messages no longer print an amount (its rate and limit values, what ran, are unchanged); nothing else was changed.)
 
 This bundle is the measurement that closes the N_gs stop-flag (TR-2 v1.10 → v1.12) and
 re-affirms the corruption-vs-tendency verdict. It re-measures the triple-strict
@@ -142,10 +142,10 @@ as shown above, and TR-2 v1.23 restores it under this convention.
 
 - Phase-2 four-seed battery: worker `c237-r11p2` (Spot D64als_v7), 4 seeds ×
   ~9,600–9,700 s each; `r11_phase2_battery.sh` archived here; battery complete
-  2026-07-12T15:26:52Z, rc=0; VM and all resources deleted, zero orphans; cost ≈ $6–7.
+  2026-07-12T15:26:52Z, rc=0; VM and all resources deleted, zero orphans.
 - Repaired stratified run: worker `r11-strat` (Spot D32als_v7),
   `r11_stratified_repair.sh` archived here; 56 branches × 3.57×10⁸ probes, wall ≈ 4,634 s;
-  complete 2026-07-13T07:03:03Z, rc=0; VM deleted, zero orphans; cost ≈ $3.
+  complete 2026-07-13T07:03:03Z, rc=0; VM deleted, zero orphans.
 
 Developed with AI assistance (Claude, Anthropic). The Knuth (1975) random-probe estimator
 is standard prior art; nothing in the measurement methodology is claimed as novel. The

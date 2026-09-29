@@ -884,7 +884,10 @@ example : pruneV4 c5target 776 [] = false := by decide +kernel
    applyPerm_range_perm); no native_decide anywhere in this section.
    Bridge facts (stated, NOT machine-checked — the same discipline as the
    file header's list): solve.c's g accumulator equals this model's
-   runningG (one partner_pair mask test per placement), and at a full mask
+   runningG (one partner_pair mask test per placement), and — on truncated
+   rungs — solve.c's inert-couple convention (a hexagram whose partner lies
+   outside the rung contributes 0: cpartner[i] = -1; gStep here models the
+   full-64 rung and has no inert case), and at a full mask
    runningG equals the final G = Σ_couples |slot − slot| of
    C3Decomposition.c3slot (witnessed at KW below and carried by runtime
    gates G1/G4/G5 of the design). Attribution: gap identified by the C3
@@ -1043,3 +1046,10 @@ ALLOWLIST: any axiom token outside [propext, Classical.choice, Quot.sound] fails
 #print axioms PruneGInvariance.partner_involution
 #print axioms PruneGInvariance.sum_perm
 #print axioms PruneGInvariance.transitions_mapP
+
+-- Trust-base audit directives (2026-09-29, Codex LSD R8): one `#print axioms` per theorem of this
+-- module that a public document cites by name, so reports/certificates/verify_all.sh leg (B)
+-- (every stdout line an allowlisted axiom report) screens them; the source-census leg (C)
+-- screens the rest. ALLOWLIST: [propext, Classical.choice, Quot.sound].
+#print axioms PruneGInvariance.runningG_mapP
+#print axioms PruneGInvariance.runningG_orbit_invariant

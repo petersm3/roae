@@ -393,7 +393,7 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 > document; **until they land, treat the sentence above as not yet true.** The null result it points at is
 > sound — it is the cross-reference that is missing. See the 2026-08-30 re-evaluation entry at the end of this file. Task #82 ("HARDWARE_CPU_COMPARISON.md doesn't exist") was marked stale because the AVX-512 numbers actually live across commits `b26cd9b` and `0783d52` rather than the conjectured doc.
 
-Cost of the bench: ~$10 (preflight + 5 paired trials on D128 Standard on-demand, ~80 min total).
+Bench wall: preflight + 5 paired trials on D128 Standard on-demand, ~80 min total.
 Archive: `canonical-archive/20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3258f4c/`.
 
 ---
@@ -445,7 +445,7 @@ Commit `9d00c48` reverts `438d297`. Both commits are kept in the lineage so the 
 
 **Category**: re-baseline (not a perf change — establishes new canonical sha)  
 **Sha impact**: forking (new v2 canonical anchor)  
-**Decision**: shipped after 4-attempt $13 saga; details in canonical pipeline runbook
+**Decision**: shipped after a 4-attempt saga; details in canonical pipeline runbook
 
 ### Hypothesis
 With v2 prune stack (#67 + #68 + #70 + #72) shipped and #71 reverted, re-run the 11.2T canonical to establish a new v2 anchor sha for downstream comparisons.
@@ -453,7 +453,7 @@ With v2 prune stack (#67 + #68 + #70 + #72) shipped and #71 reverted, re-run the
 ### Methodology
 - D128als_v7 Spot, westus3, full enum + cross-build pair (Build A)
 - 11.2 trillion total node budget, 158,364 depth-3 sub-branches
-- Canonical pipeline runbook: shards-on-solver-data, Premium SSD only for merge temp, never auto-tear-down on Phase 2 error, curl -T not --data-binary, $0.02 D2 pre-flight, triple storage redundancy
+- Canonical pipeline runbook: shards-on-solver-data, Premium SSD only for merge temp, never auto-tear-down on Phase 2 error, curl -T not --data-binary, cheap D2 pre-flight, triple storage redundancy
 
 ### Result
 - v2 11.2T canonical sha: `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d`
@@ -530,7 +530,7 @@ gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layo
 4. **v1 baseline at depth-2** uses different work-unit granularity than v2 at depth-3; wall comparisons between Builds A and B are not apples-to-apples for "per-unit" speed. Records/budget is the cleaner cross-build comparison: v1 found 162.6M records at 1T budget; v2 found 305.9M = **1.87× more records per unit budget**.
 
 ### Follow-up needed (for cleanup of this entry)
-- Re-run PGO 1T bench with: (a) preflight throttle probe, (b) larger OS disk to avoid the merge-disk-pressure race, (c) bench script that waits for merge before STEP 7 teardown. Cost ~$2-3 on D128 Spot. Would verify Build C sha and tighten the speedup confidence interval.
+- Re-run PGO 1T bench with: (a) preflight throttle probe, (b) larger OS disk to avoid the merge-disk-pressure race, (c) bench script that waits for merge before STEP 7 teardown. A short run on D128 Spot. Would verify Build C sha and tighten the speedup confidence interval.
 
 ### Notes
 This is the **first entry produced by the standardized `scripts/perf_bench.sh` harness** (or its prototype: `/tmp/pgo_1T_retry.sh`). Page-cache flush between paired runs is now the standard methodology — applied here for the first time. Compose +2.53% (LTO) + +4.8% (PGO) on top of v2's prune stack: total LTO+PGO marginal contribution ~7.4% on v2-bundled. AVX-512 contribution still TBD pending the backfill (see #46 entry).
@@ -598,7 +598,7 @@ The v2 retry's reported 4.8% was a LOWER bound — the v3 rerun on a strictly-va
 
 **Composes with LTO**: net PGO+LTO marginal contribution on v2-bundled is approximately 2.53% (LTO) + 6.5% (PGO) ≈ **9% cumulative speedup from compile-flag optimizations alone**, sha-preserving.
 
-Cost of v3 rerun: ~$1.51 (D128als_v7 Spot @ ~$0.95/hr × 1h 35m). Bench script at `/tmp/pgo_1T_v3.sh`.
+Wall of v3 rerun: 1h 35m on D128als_v7 Spot. Bench script at `/tmp/pgo_1T_v3.sh`.
 
 ---
 
@@ -612,16 +612,16 @@ Cost of v3 rerun: ~$1.51 (D128als_v7 Spot @ ~$0.95/hr × 1h 35m). Bench script a
 Bisect (filed in `roae-private/RESUME_REGRESSION_RCA_2026_05_18.md`) localized the resume divergence to commit `9f4b630` (#67 mid-walk C3 reship): `BacktrackFrame.mw_delta` is required for the RETRY phase's `ts->mw_partial_cd_x64 -= fr->mw_delta;` undo, but was not serialized in `DFSStackFrame_v2`. On resume, every restored frame's `mw_delta` was uninitialized (effectively 0), so the undo subtracted 0 → `mw_partial_cd_x64` drifted from live-path value → prune predicate fired differently → resume sha diverged. Fix: extend the on-disk format to carry `mw_delta`, bump version.
 
 ### Methodology (multi-scale validation)
-1. **Bisect gate** (claude orchestrator, ~$0): three commits tested via `--selftest-resume`
+1. **Bisect gate** (claude orchestrator, no VM): three commits tested via `--selftest-resume`
    - `bf58c65` (#68 alone, pre-bug): **PASS** resume sha `e43f2905…` = single-shot
    - `9f4b630` (#67 reship, breaking commit): **FAIL** resume sha `e353086e…` ≠ single-shot `86a74da5…`
    - `1b32270` (HEAD, pre-fix): **FAIL** resume sha `2954b271…` ≠ single-shot `1f6a3b4a…`
 
-2. **Post-fix selftest gate** (claude, ~$0):
+2. **Post-fix selftest gate** (claude, no VM):
    - `--selftest`: sha `56487ab5…` UNCHANGED ✓ (confirms no behavior change at single-shot)
    - `--selftest-resume`: resume sha `1f6a3b4a…` = single-shot sha `1f6a3b4a…` ✓
 
-3. **1B-scale resume validation** (D8als_v7 Spot, $0.05 / 8 min wall):
+3. **1B-scale resume validation** (D8als_v7 Spot, 8 min wall):
    - BASELINE: fresh dir, 1B single-shot, 128 threads, `--branch 24 0`
    - PHASE_A: fresh dir, 500M (triggers per-cell budget, writes 2,824 `.dfs_state` checkpoints across 2,824 sub-branches)
    - PHASE_B: same dir as PHASE_A, 1B (resumes from all 2,824 checkpoints, continues to 1B)
@@ -682,7 +682,7 @@ Iterate available pairs at each DFS step in fail-first order (pairs with rarest 
 - Fail-first mode: PASS at selftest scale (canonical-level diff = zero at 100M)
 - 1B K-pilot: pending
 
-### Result — K-pilot empirical data (2026-05-18, ~$2 total)
+### Result — K-pilot empirical data (2026-05-18)
 
 Paired numeric-vs-fail-first runs on `--branch 24 0` (largest first-level branch, 2,488 depth-3 cells), same VM, page-cache flush between modes, preflight throttle probe at canonical scale:
 
@@ -827,7 +827,7 @@ Multiple variants reproduced previously-registered shas, validating methodology:
 
 ### Cost
 
-~$0.59 total compute (D8 Spot 1B + 10B + D128 Spot 100B; local 100M used claude orchestrator).
+Compute: D8 Spot 1B + 10B + D128 Spot 100B; local 100M used claude orchestrator.
 
 ### Notes
 - The chained D128 sweep was designed to include 1T scale, but the v1_C5_C3_C3opt variant's single-threaded in-memory merge of 70M pre-dedup records bottlenecked the run. 100B sweep completed in time; 1T phase pre-emptively killed to free schedule. The 4-scale data (100M → 100B) already establishes the convergence trajectory decisively.
@@ -883,7 +883,7 @@ The scale-dependent reversal is real and explains why the small-scale measuremen
 The empirical lesson: **always measure perf knobs at canonical-relevant scale.** A D8/1B pilot would have led to the WRONG operational decision (turn off THP for canonical, costing +22% wall).
 
 ### Cost
-~$0.45 total: $0.05 D8 1B + $0.40 D128 100B. ~35 min wall.
+D8 1B + D128 100B. ~35 min wall.
 
 ### Notes
 - No code change required. The Ubuntu 24.04 default (`THP=always`) is correct for v2-bundled canonical builds.
@@ -929,7 +929,7 @@ All 6 iters produced solutions.bin sha `8c35a854…` (matches the per-prune isol
 3. **`LD_PRELOAD` is a workaround pattern** per operator memory `feedback_fix_root_cause_not_workaround` — canonical artifacts must ship on the stock toolchain, not on a preload shim. Even a positive result wouldn't be shippable in this form without a separate build-time integration task.
 
 ### Cost
-~$0.40 D128 Spot Spot (~25 min wall).
+D128 Spot, ~25 min wall.
 
 ### Notes
 - This entry exists to bank the empirical null result so the question doesn't get re-litigated in a future "what about jemalloc?" thread. The workload pattern doesn't match jemalloc's design strengths; the bench confirms.
@@ -998,7 +998,7 @@ solve.c has neither pattern. Each thread's hash table is private; threads don't 
 3. **The structural reason is informative**: solve.c's design choices (per-thread private allocations, thread-per-core) already exploit NUMA locality implicitly. No further work needed.
 
 ### Cost
-~$0.35 D128 Spot (~25 min wall, including topology probe and throttle preflight).
+D128 Spot, ~25 min wall, including topology probe and throttle preflight.
 
 ### Closes #47 entirely
 With NUMA-local now measured, the CPU optimization bundle (task #47) is fully closed:
@@ -1154,7 +1154,7 @@ So this bench's v3-vs-v1 delta of 4.38% ≈ LTO 2.53% + small residual gains fro
 
 ### Cost
 
-- Bench: ~$30 (Standard D128als_v7 × ~6.5h wall, including PGO Pass 1 instrumented run + Pass 2 build)
+- Bench: Standard D128als_v7 × ~6.5h wall, including PGO Pass 1 instrumented run + Pass 2 build
 - 1T canonical archive bytes: 475 MB gzip -9 (cold + managed + local)
 
 ### 1T canonical established as a byproduct (5a0f0bc2…)
@@ -1194,7 +1194,7 @@ Sub-branch 83477/158364 BUDGETED ... 0s
 - Real Azure Spot eviction (the 30s eviction-notice path is similar but not identical to administrative deallocate).
 - Mid-walk resume via `DFSStackFrame_v2 + mw_delta` (#92) — this test caught all in-flight sub-branches in the graceful drain.
 
-**Cost:** ~$0.10 (~30 min on D32als_v7 Spot).
+**Wall:** ~30 min on D32als_v7 Spot.
 
 ---
 
@@ -1272,13 +1272,13 @@ Expected: `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
 
 ### Cost
 
-- This re-run: ~$30 (Standard D128als_v7 × 5.8h wall, including PGO Pass 1 instrumented profile-gen run)
-- Combined PGO investigation across both benches: ~$60
+- This re-run: Standard D128als_v7 × 5.8h wall, including PGO Pass 1 instrumented profile-gen run
+- Combined PGO investigation across both benches: ~12.3h of Standard D128 wall
 - Real finding: build-recipe hardening (`scripts/build_pgo.sh` + `-Werror=missing-profile`) is shipped and tested, even if PGO itself turns out net-zero — the hardening prevents future silent no-PGO regressions.
 
 ### Open questions for follow-up
 
-1. Would a 1T-scale profile-gen workload (instead of 1B) train PGO closer to canonical hot paths and recover the predicted speedup? Cost to test: ~2× the current bench (~$60). Defer until needed.
+1. Would a 1T-scale profile-gen workload (instead of 1B) train PGO closer to canonical hot paths and recover the predicted speedup? Cost to test: ~2× the current bench's wall. Defer until needed.
 2. Does PGO show net-positive at intermediate scales (10B-100B)? Untested at full-enum scale; the #78 v3 rerun was at `--branch 24 0`, not full-enum `0 128`.
 3. What's the within-bench variance ceiling on Bergamo Spot? The 15% spread observed here suggests any future ~5% perf claim needs 6+ reps to be statistically defensible.
 
@@ -1423,7 +1423,7 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 ### Delta vs baseline
 - Per-thread CPU-on-DFS at canonical scale: **~+170%** (35% → 95%)
 - 1T enum wall: **3430s → 1679s** = **2.04× faster** (matches the hypothesis prediction)
-- enum_wall (5.6T canonical, predicted): 11.4d → ~5.6d on D128 Spot per 35→95% util ratio. Confirmed by 1T extrapolation. **560T projection: ~$577 saved per run.**
+- enum_wall (5.6T canonical, predicted): 11.4d → ~5.6d on D128 Spot per 35→95% util ratio. Confirmed by 1T extrapolation. **560T projection: roughly half the enum wall saved per run.**
 - sha changed: no (sha-equivalent to current c72eada main HEAD at 1T)
 
 ### Sha gate

@@ -129,7 +129,7 @@ construction and the column-sum check is the reader's first gate.
 
 ## Generation
 
-**Rehearsal at n=9 (sub-second, runs today, $0):**
+**Rehearsal at n=9 (sub-second, runs today, local):**
 
 ```bash
 # run from the repository root (solve.c and solve.py live there)

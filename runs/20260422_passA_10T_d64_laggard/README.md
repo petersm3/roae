@@ -27,7 +27,7 @@
 > **This inverts the conclusion.** Sub-linear growth means the branch is *approaching* exhaustion
 > rather than running away from it. The tree-size estimate for the yield-16 laggards drops from
 > 10¹⁶⁺ to **10¹⁴–10¹⁵**, and exhaustion becomes feasible at **100T–1000T on Azure D64 Spot
-> (~$5–$50)**. The following statements on this page are therefore **superseded and should not be
+> ([cost redacted])**. The following statements on this page are therefore **superseded and should not be
 > cited**: the **Answer** line above ("super-linear growth persists … Exhaustion-via-budget is
 > infeasible for this class"); the "**~1,700× super-linear**" growth figure; the Pass-2/Pass-3
 > yield projections in *Implication for single-branch exhaustion*; and "Pass 2 … is **NOT
@@ -110,8 +110,8 @@ sha256sum -c sub_22_0_30_1_20_0.sha256  # (after copying .sha256 from this repo)
 ## Compute summary
 
 - 2 × D64als_v7 spot in westus3, ~3 hrs each
-- Cost: ~$2.82 on successful runs (D64 spot ≈ $0.47/hr × 6 VM-hours)
-- Plus ~$0.70 wasted on a mid-run IP/name-mixup recovery (see operator log)
+- 6 VM-hours on successful runs (D64 spot)
+- Plus some VM time wasted on a mid-run IP/name-mixup recovery (see operator log)
 - Checkpoint interval: 60s; no actual evictions hit during the run
 
 Commit of solver used: `cca1a40` (P1 v3 with per-CCD counters + intra-sub-branch checkpointing).

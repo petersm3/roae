@@ -1105,3 +1105,54 @@ theorem orientation_not_forced :
   · rw [h3]; exact hv.2
   · rw [c3x64_compSeq KW kw_all_lt64]; exact kw_c3_776_kernel
   · exact c4ok_breaks_under_comp KW kw_length_64 hv.1.1.2
+
+-- Trust-base audit directives (2026-09-29, Codex LSD R8): one `#print axioms` per theorem of this
+-- module that a public document cites by name, so reports/certificates/verify_all.sh leg (B)
+-- (every stdout line an allowlisted axiom report) screens them; the source-census leg (C)
+-- screens the rest. ALLOWLIST: [propext, Classical.choice, Quot.sound].
+#print axioms within_pair_even_nonzero
+#print axioms xor_universality
+#print axioms xor_all_seven_attained
+#print axioms partner_preserves_parity
+#print axioms parity_split_32_32
+#print axioms xor_parity_identity
+#print axioms kw_valid
+#print axioms kw_c3_exactly_776
+#print axioms kw_no_five
+#print axioms kw_alternations_15
+#print axioms sigma_kw_valid_48
+#print axioms valid_iff_centralizes_rev
+#print axioms twins_24_records
+#print axioms sum_parity_odd_count
+#print axioms transitions_sum_parity
+#print axioms odd_count_partition
+#print axioms wrap_parity_general
+#print axioms within_even
+#print axioms partner_parity
+#print axioms alternations_15_general
+#print axioms switches_30_general
+#print axioms gray_code_impossible
+#print axioms circular_alternations_16
+#print axioms kwOrbit_length
+#print axioms nodup_eraseDups
+#print axioms kwOrbit_nodup
+#print axioms kw_record_mem_kwOrbit
+#print axioms mass_of_invariant_score
+#print axioms sum_map_const
+#print axioms mass_const_on_kwOrbit
+#print axioms kwOrbit_mass_eq
+#print axioms equivariance_ceiling
+#print axioms no_unique_kw_concentration
+#print axioms popcount_profile_const_on_kw_images
+#print axioms partner_comp_comm63
+#print axioms compSeq_involution
+#print axioms transitions_compSeq
+#print axioms c5ok_compSeq
+#print axioms c1ok_compSeq
+#print axioms c3x64_compSeq
+#print axioms c3ok_compSeq
+#print axioms comp_symmetry_c1_c2_c3_c5
+#print axioms c4ok_breaks_under_comp
+#print axioms kw_valid_kernel
+#print axioms kw_c3_776_kernel
+#print axioms orientation_not_forced

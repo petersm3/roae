@@ -196,8 +196,8 @@ def check_repr(path, count, offset=0):
             fh.seek(SOL_HEADER_SIZE + offset * 32)
             while checked < count:
                 rec = fh.read(32)
-                if len(rec) < 32:
-                    break
+                if 0 < len(rec) < 32: print(f"  record {offset + checked}: torn, {len(rec)} of 32 bytes (LSD R18j; verify.c:583 prints the same token)\nCHECK_REPR=FAIL_partial_record"); return 2
+                if not rec: break
                 pair_order = [(rec[i] >> 2) & 0x3F for i in range(32)]
                 if any(p >= 32 for p in pair_order) or len(set(pair_order)) != 32:
                     print(f"CHECK_REPR=FAIL_malformed_key at record {offset + checked}")
@@ -1256,7 +1256,7 @@ def repr_of_key(pair_order):
     # RETURNED A RECORD where the definition says none exists. Because C3 cannot
     # change WHICH completion is lex-least (it is orientation-invariant -- swapping
     # a pair moves a hexagram and its complement together), the omission never
-    # corrupted an AGREE/DISAGREE verdict. It corrupted the INCOMPUTABLE leg
+    # corrupted an AGREE/DISAGREE verdict on a C3-valid key (CORRECTIONS.md, the 2026-09-02 entry on the repr oracle's C3 blind spot). It corrupted the INCOMPUTABLE leg
     # instead: the one VERIFY.md advertises as fail-closed. Measured on a
     # C3 = 1080 key, both languages: CHECK_REPR=PASS, INCOMPUTABLE=0, rc 0.
     #

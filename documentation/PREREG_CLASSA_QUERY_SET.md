@@ -123,8 +123,8 @@ All of the following is already public in this repository; nothing here is new.
 |---|---|
 | **SUPERSPACE** (`SUPER`) | the set of hexagram orderings satisfying **C1 ∧ C2 ∧ C4 ∧ C5** — every constraint except C3. Defined in `solve.c`, `solve.py`, `verify.py`, `viz/README.md`. |
 | **N** | `\|SUPER\| = 1097051278789181790036112071176579186688` (≈ 1.097 × 10³⁹). In `verify.c`, `solve.py`, `verify.py`, `reports/FULL31_EXACT_AGGREGATES.md`. |
-| **N/24** | `45710469949549241251504669632357466112` — the orbit anchor. **`N` and every per-layer flow are divisible by 24** (Lean-kernel
-`twenty_four_dvd_*`, which is about the solution count). ⚠ **NOT "every published count" — this cell
+| **N/24** | `45710469949549241251504669632357466112` — the orbit anchor. **`N` and every per-layer flow are divisible by 24** (backed by the paper-proved free order-48 action on orientation-explicit sequences (TR-5 / SYMMETRY_SEARCH; 48 ∣ N, so 24 ∣ N); the Lean
+theorems `twenty_four_dvd_*` prove the record-level 24 ∣ count only (lean/README § "DIV-24 attribution")). ⚠ **NOT "every published count" — this cell
 said so until 2026-09-06 (QSET-3 finding 5), and the XA-a row below refutes it in its own text:**
 per-branch counts are reported-not-gated, and the committed n=9 fixture shows residues 16, 8 and 0. |
 | **C15** | the subset of SUPER additionally satisfying C3. |
@@ -464,7 +464,7 @@ prints per-layer cut identities, not King Wen's states.
 
 emitted as `TR12_XA_A=PASS` or `FAIL:sum_b(<value>)!=N(<value>)` — the verdict is **read off the
 table the consumer just wrote**, not asserted. `N` and every per-layer flow additionally pass the
-24-divisibility integrity check, which is Lean-kernel-backed. ⚠ **Per-branch counts are *reported,
+24-divisibility integrity check, which rests on the paper-proved free action (Lean covers the record level). ⚠ **Per-branch counts are *reported,
 not gated*, and this row said otherwise until 2026-09-05.** It read "Every count additionally
 passes" — which pre-registers a check that **correct data fails**: the order-24 group permutes walks
 *between* branches, so an individual `solutions(b)` need not be divisible by 24. This repository's

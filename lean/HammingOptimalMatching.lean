@@ -55,7 +55,9 @@ def comp6 (n : Nat) : Nat := n ^^^ 63
 def ham (a b : Nat) : Nat := pc6 (a ^^^ b)
 
 /-- canonical partner: reversal, or complement for palindromes
-    (identical to `partner` in lean/KingWen.lean and to solve.c's partner()). -/
+    (identical to `partner` in lean/KingWen.lean and to solve.c's static
+    partner table `init_pairs` / `pairs[]`, whose KW self-check computes
+    `(h_rev != h) ? h_rev : (h ^ 63)` inline). -/
 def partner (h : Nat) : Nat := if rev6 h = h then comp6 h else rev6 h
 
 /-- Σ_{h<n} f h. -/

@@ -129,11 +129,15 @@ echo "  [ok] extracted $(grep -c . "$W/block.sh") lines of a2_q7_ranks from $BAT
 # so the extracted block contains no N_PAIRS test and the N_PAIRS=31 set below is inert. F-5 round 7
 # proved it by mutation (`-ge 32` -> this gate still PASSes). The guard is covered by the battery's
 # own SKIP:reduced-universe row at n=9, not here; claiming it here was an overclaim.
-run_row(){ # $1 = arrangement walk, $2 = ANCHOR [, $3 = label (KW), $4 = cert file name (q7_kw.json)] ; echoes row output, returns the row's rc
+run_row(){ # $1 = arrangement walk, $2 = ANCHOR [, $3 = label (KW), $4 = cert file name (q7_kw.json), $5 = one: no OUT companion] ; echoes row output, returns the row's rc
   # CX-93 (2026-09-25): $3/$4 let legs 6-7 feed the row a NON-KW IN certificate the way a pinned SAT
   # witness arrives (label "explicit", file q7_<target>.json).
   local arr=$1 anchor=$2 lab=${3:-KW} fn=${4:-q7_kw.json} d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/art" "$d/work"
   printf '{"label": "%s", "verdict_super": "IN", "arrangement": "63,0,%s"}' "$lab" "$arr" > "$d/art/$fn"
+  # LSD R18c (2026-09-29): the row now refuses to pass on fewer than two certificates read. The real
+  # battery always hands it KW plus the historical OUT arrangements, so every leg gets one OUT companion
+  # (read, printed, never ranked) unless $5 = one, which leg 9 uses to measure the refusal itself.
+  [ "${5:-}" = one ] || printf '{"label": "historical", "verdict_super": "OUT", "arrangement": "63,0,%s"}' "$arr" > "$d/art/q7_zz_historical_out.json"
   ( set +u
     row_begin(){ :; }; row_end(){ ROWRC=$2; }
     SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; ARTDIR="$d/art"; WORK="$d/work"
@@ -212,6 +216,14 @@ else
   r FAIL "leg 8: could not unrank 16244 (cannot measure the label-keyed case)"
 fi
 
-printf 'Q7RANKS_PARSE_LEGS=8\n'
+# ---- LEG 9 (LSD R18c, 2026-09-29): ONE certificate read must FAIL the row, by name ------------------
+out=$(run_row "$W0" "$W0" KW q7_kw.json one); rc=$?
+if [ "$rc" -ne 0 ] && grep -q 'Q7RANKS_FAIL.*witnesses_processed=1<2' <<<"$out"; then
+  r ok "leg 9: a row that read one certificate fails and says witnesses_processed=1<2"
+else
+  r FAIL "leg 9: a single-certificate run gave rc=$rc without Q7RANKS_FAIL witnesses_processed=1<2 -- a row that ranked nothing could pass"
+fi
+
+printf 'Q7RANKS_PARSE_LEGS=9\n'
 [ "$fail" -eq 0 ] && echo "Q7RANKS_PARSE=PASS" || echo "Q7RANKS_PARSE=FAIL"
 exit "$fail"

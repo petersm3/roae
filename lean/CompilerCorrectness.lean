@@ -67,13 +67,14 @@
     different storage). Witness today: shared-kernel construction + n=13
     producer-integration gate. Required before full-31 claims: V1 gates
     rerun against the REAL v2-OOC reader, n=24/27/28 on a worker
-    (fullbuild plan).
+    (fullbuild plan). Status 2026-09-29: not run as specified. Substitute evidence on the published n = 31 ladders: N re-derived by the independent inclusion–exclusion engine (verify.c --ie-count, exact match), the per-layer f·g = N cut identity executed on every layer during the g build, and out-of-core ≡ in-RAM agreement to n = 28; the limit of that evidence for reader-side corruption is disclosed (VERDICTS F2_GCHECK_DETECTS=NO).
   · KB5 (group tables). The startup asserts (finite, exhaustive) actually
     run on every build/query host — they do (unconditional `F1_CHECK`s;
     failure aborts). Witness: `f1_build_group` hard-abort asserts, every
     run.
-  · KB6 (v2-gz layer). Per-block gzip decompresses to the v1 logical
-    stream; shas anchor decompressed bytes only (gzip is storage, never
+  · KB6 (v2-gz layer). Each block is an RFC-1950 zlib stream (not gzip;
+    documentation/F1C5_LAYER_FORMAT.md § "The codec is zlib") that
+    decompresses to the v1 logical stream (compression is storage, never
     identity — standing policy). Witness: decompressed-stream sha gates.
   · KB7 (full-31 C3 constant). T = 387 per the proofs doc §2.6, gated vs
     solve.py before use. Witness: the specified two-language gate
@@ -211,7 +212,7 @@
 
   Attribution: developed with AI assistance (Claude, Anthropic). The
   mathematics here (path counting in a layered DAG, digit-cap sum
-  arguments, concatenation associativity, first-occurrence dedup) is
+  arguments, concatenation associativity, last-occurrence dedup) is
   elementary and standard — the rank/unrank layer in §B is the
   classical Nijenhuis–Wilf / Knuth TAOCP 4A §7.2.1 unranking scheme, and
   no novelty is claimed for any content here; only the mapping of this
@@ -1038,8 +1039,7 @@ example : ([[1], [2, 3]].map (assemble fun t => [t, 10 * t])).flatten
     ingredient the proofs doc §3.3 identifies as needed from this side,
     definitional from the take-prefix formulation, proven fresh below.
 
-    `RecordConvention.lean` does not exist on this (v4-compiler) branch,
-    and house convention keeps proof files standalone (no imports), so the
+    House convention keeps proof files standalone (no imports), so the
     needed definitions and the two needed theorems are RESTATED here
     verbatim and re-proven from scratch (they are short); attribution on
     each. -/
@@ -1047,9 +1047,10 @@ example : ([[1], [2, 3]].map (assemble fun t => [t, 10 * t])).flatten
 variable {κ : Type v} {ρ : Type w} [DecidableEq κ]
 
 /-- One-copy-per-distinct-key dedup of a key list (set-preserving —
-    `mem_dedup` is the only property any theorem below consumes).
-    Restated from RecordConvention.lean (v4-canonical branch), proven
-    there; restated here for composition. -/
+    `mem_dedup` is the only property any theorem below consumes; the copy
+    kept is the LAST occurrence: dedup [1, 2, 1] = [2, 1], see the §E
+    witness). Restated from RecordConvention.lean, proven there; restated
+    here for composition. -/
 def dedup : List κ → List κ
   | [] => []
   | k :: ks => if k ∈ ks then dedup ks else k :: dedup ks
@@ -1442,7 +1443,8 @@ theorem canonB_in_orbit :
   · exact ⟨id, List.mem_cons_self, rfl⟩
 
 /-- `canonB` is idempotent — the representative-stability the runtime
-    F1_CHECKs for `f1_canon` (KB5); NOT consumed by
+    checks for `f1_canon` (the `[kc-scan] orbit image canon mismatch`
+    F1_CHECK on solve.c's scan path, KB5); NOT consumed by
     `quotient_lookup_sound` (the orbit hypothesis suffices), witnessed
     here only to mirror the runtime contract. -/
 example : ∀ m, canonB (canonB m) = canonB m := fun _ => rfl

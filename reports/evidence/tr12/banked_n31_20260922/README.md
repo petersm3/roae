@@ -68,7 +68,7 @@ derivation.
 | `a1_q8_subset.txt` | Q8: 110 of the 1,000 SUPER draws have `cd ≤ 387` | 467 |
 | `a1_q8_member.txt` | Q8: member re-check, 1000 re-checked, 0 failures | 46 |
 | `c_q10a_20260922_asrun.txt` | Q10(a): the row as it ran; census column `NA:schema-v1-sidecar` on all 32 layers | 12,153 |
-| `c_q10a.txt` | Q10(a): the same row re-run with the Q-857 fallback on the published sidecars; census filled on all 32 layers | 14,623 |
+| `c_q10a.txt` | Q10(a): the same row re-run with the Q-857 fallback on the published sidecars; census filled on all 32 layers (regenerated 2026-09-29 for the CX-232 label corrections; the as-run receipt is unchanged) | 14,768 |
 | `c_q10a_kwrank.txt` | Q10(a): the KW-orbit-rank leg, measured `EMPTY` | 819 |
 | `check_receipts.sh` | the reader-side re-check described below | — |
 | `SHA256SUMS` | sha256 of every file above except this README and `SHA256SUMS` | — |

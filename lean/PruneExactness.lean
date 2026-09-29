@@ -628,8 +628,10 @@ example : Fcount [[1, 1], [1, 0]] [3, 1] = 0 ∧ Fcount [[1, 1], [1, 0]] [2, 2] 
     orbit-quotient layered DP (`solve --f1-exact-c1c2c4[c5]`): that the
     quotient ("gather") formulation computes the SAME counts as the plain
     non-quotient layered DP. Until now this argument was prose (TR-11 §2–3)
-    plus empirical plain-vs-quotient agreement on group-closed subsets to
-    n = 28 pairs; this section closes the mathematical half of TR-11
+    plus empirical agreement of the in-RAM and out-of-core quotient DPs on
+    group-closed subsets to n = 28 pairs (a storage-mode check; plain-vs-quotient
+    agreement exists only to n = 16 — see the scope note at the end of this
+    section); this section closes the mathematical half of TR-11
     §10(vi)'s single-instrument caveat. Two independent claims:
 
     1. VALUE TRANSFER (`dp_orbit_invariant`, `orbit_transfer_exact`):

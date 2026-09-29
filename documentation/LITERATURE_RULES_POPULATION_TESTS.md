@@ -164,7 +164,7 @@ constraint definitions, external kissat solver, DRAT certificates) adds *exact* 
    simplistic" because it leaves the rhythm broken; the two orientation flips complete the repair.
 2. **The minimal repair is exactly 3 slot-edits** — SAT-decided: no ordering within 2 slot-edits of King Wen
    achieves joint compliance (UNSAT, a fortiori under C3), and 3 suffices. If a compliant precursor ever
-   existed, the deviation to KW was a 3-edit event centered on Moore's own anomaly locus.
+   existed, the *minimum* deviation from it to King Wen is 3 slot-edits, and one such 3-edit witness is centered on Moore's own anomaly locus; nothing here shows the deviation was that event (compliant orderings at 4 edits exist too — the grand-strict witness with slot 5 reversed).
 3. **The parity-alternation theorem is SAT-verified over the full space** (a mechanized *corroboration* of
    the counting step — not a third independent verification; the prose proof and the Lean-checked lemmas
    are the two independent legs): both "≤14 alternations" and "≥16
@@ -211,7 +211,7 @@ carried the verified checker as of that date, and **all 24 do as of 2026-09-19**
 cardinality-only subset proofs archived 2026-09-03 were taken through the same chain in a
 full-archive run of the shipped harness (24/24 `s VERIFIED UNSAT`, 0 FAIL;
 `CAKE_LPR_ID=98c1649d…` — `reports/certificates/README.md` §Checker coverage). The encoder round-trip validation's first solver model, pleasingly, is King Wen itself. Reproduce
-with `python3 sat.py --witness moore-strict` and
+with `python3 sat.py --witness plain` and
 `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf`.
 
 ### Schulz gender rule + the grand unified precursor (2026-07-03)
@@ -259,8 +259,8 @@ with `python3 sat.py --witness moore-strict` and
    orientation flip at slot 7, an adjacent-pair swap at slots 21/22, **and an orientation flip at slot 22**
    (0-based slots; result 1 above describes the same three edits in 1-based pair positions). The three
    rules' minimal repairs
-   are not merely equal-sized — they are *compatible*: a single 3-edit event completes all three at once.
-   If any corruption/precursor reading of the literature is right, the deviation was one small event, and
+   are not merely equal-sized — they are *compatible*: a single 3-edit witness completes all three at once.
+   If any corruption/precursor reading of the literature is right, the deviation could have been as small as 3 edits — the SAT results establish the minimum, not the event — and
    every independently-observed anomaly (Moore's pairs 22–23, Zhu Yuansheng/Schulz's stations 25–26) is a
    shadow of it. We note the standard caveat: witnesses produced by a solver seeded with King Wen's
    variable order are biased toward KW-like repairs; minimality (3) is exact, the specific repair need not
@@ -387,7 +387,7 @@ naturally as a **trade-off position**: exact on one strong rule, imperfect by tw
 (*corrected 2026-09-01 from "minimally imperfect" — the same withdrawn superlative as the bullet above,
 carried in a second spelling that the phrase sweep did not cover*). All
 four rules are KW-derived — selected because King Wen exhibits them, even where their form is general —
-so King Wen sitting near their joint Pareto frontier is expected rather than an efficiency result; the
+so King Wen scoring well on all four at once is expected rather than an efficiency result (nearness to their joint Pareto frontier is unverified: no extremal check exists); the
 ~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
 rules, and is not a measure of design efficiency (no arbitrary-rule-bundle baseline exists to read it
 against; restated per TR-1 v1.14, adversarial-review F-45). *(Sourcing flag, propagated 2026-08-01 from

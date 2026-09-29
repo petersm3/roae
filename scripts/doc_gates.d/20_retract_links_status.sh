@@ -76,6 +76,28 @@ gate_retract() {
   while IFS=$'\t' read -r phrase allow note; do
     # Q-761: was `case "$phrase" in ''|'#'*) continue`, which skipped a needle starting with #.
     reg_row_kind loud "$phrase" "$allow" "$note"; case $? in 0) continue;; 2) bad=1; continue;; esac
+    # CX-230: a HASHED row (`sha256:<hex>/<n>`, see hashed_row_parse) is matched by digest over the
+    # same corpus (DOCS minus the allowed file, plus the non-md evidence), and reported by RP key.
+    local hrow
+    if hrow=$(hashed_row_parse "$phrase"); then
+      local hh hn hf hfiles="" hhits
+      read -r hh hn <<<"$hrow"
+      for hf in $DOCS $evid; do
+        case "$hf" in *"$allow"*) continue;; esac
+        [ -f "$hf" ] && hfiles="$hfiles $hf"
+      done
+      # shellcheck disable=SC2086
+      hhits=$(hashed_needle_hits "$hh" "$hn" $hfiles)
+      if [ -n "$hhits" ]; then
+        echo "  [FAIL] retracted phrasing still present (hashed row RP-${hh:0:8}; the phrase is not restated here)"
+        echo "         matched by sha256 of the $hn-character span at a dollar sign   ($note)"
+        printf '%s\n' "$hhits" | sed 's/^/      /'
+        bad=1
+      else
+        echo "  [ok] retracted (hashed row): RP-${hh:0:8}"
+      fi
+      continue
+    fi
     local np hits=""
     np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
     for f in $DOCS; do

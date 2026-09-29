@@ -176,7 +176,7 @@ to `1/N`, rather than trusting the engine's own `#o3-trace-summary` attestation.
 `g_parent[i] == g[i−1]`, `g(s_0) == N` and `g(s_n) == 1`.
 
 
-**Rehearsal at n=9 (sub-second, $0):** build the n=9 f and g ladders as in
+**Rehearsal at n=9 (sub-second, local):** build the n=9 f and g ladders as in
 [viz_kc_field.md](viz_kc_field.md) and run `solve --kc-o3-selftest`, which exercises the trace's
 flow identities and the `Π p_i = 1/N` product check exhaustively over all 26,112 walks. The n=9
 world has no King Wen, so the *figure* is full-31 only; the n=9 gate covers the machinery.

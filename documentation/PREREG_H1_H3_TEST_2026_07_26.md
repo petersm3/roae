@@ -305,10 +305,10 @@ Dominant cost is rejection sampling: 108.8 cpu-ms/sample measured on D32als_v7 (
 `_ph_stats` adds negligible per-sample work (4 integer functionals vs U2's 170 masks × 3,246
 candidates). Total 1.1×10⁶ samples ≈ 33 cpu-h:
 
-- **Spot D16als_v7 (~$0.12/hr): ≈ 2.1–2.5 h wall → ≈ $0.30.** Spot is fine at this scale
+- **Spot D16als_v7 (~[cost redacted]/hr): ≈ 2.1–2.5 h wall → ≈ [cost redacted].** Spot is fine at this scale
   (trivial-budget class; checkpointed batches resume across evictions). Alternatively Spot D32
-  (~$0.30/hr): ≈ 1.1 h → ≈ $0.35. Either fits the **$1–5 envelope with wide margin**; quote
-  $1–5 to absorb throttled-host retries and setup overhead. Throttle-probe on launch per
+  (~[cost redacted]/hr): ≈ 1.1 h → ≈ [cost redacted]. Either fits the **[cost redacted] envelope with wide margin**; quote
+  [cost redacted] to absorb throttled-host retries and setup overhead. Throttle-probe on launch per
   standing rule; no wall-time cutoff (log-staleness monitoring only, per watchdog sizing rule);
   monitoring via zero-token bash monitors, not model calls.
 

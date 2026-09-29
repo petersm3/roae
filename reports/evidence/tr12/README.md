@@ -4,7 +4,7 @@
 battery on its full-31 run of **2026-09-22**, on the L64 query host (since torn down). It is
 published here with its failures intact — because
 [TR-12](../../TR12_QUERY_PROGRAM.md) publishes conclusions drawn from this run, and withholding
-the receipt while publishing its conclusions is the weaker position.
+the receipt while publishing its conclusions is the weaker position. One cost figure in its `TR12_Q5_REASON` line was replaced by `[cost redacted]` on 2026-09-29 (CX-230); nothing else in the file was changed.
 
 ## What it says
 

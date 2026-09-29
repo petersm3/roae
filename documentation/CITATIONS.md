@@ -1806,7 +1806,7 @@ certified-counting checks rest on this stack.)*
 - **Wetzler, Nathan; Heule, Marijn J. H.; Hunt, Warren A.** (2014). "DRAT-trim: Efficient
   Checking and Trimming Using Expressive Clausal Proofs." In *Theory and Applications of
   Satisfiability Testing (SAT 2014)*, LNCS 8561. The DRAT proof checker that independently
-  replays every UNSAT certificate (removing us from the trust chain).
+  replays every UNSAT certificate (removing us from the trust chain for the claim that each archived CNF is unsatisfiable — not for the claim that the CNF encodes the rule the prose names; see `reports/certificates/README.md`, scope note).
 <a id="cakelpr2021"></a>
 - **Tan, Yong Kiam; Heule, Marijn J. H.; Myreen, Magnus O.** (2021). "cake_lpr: Verified
   Propagation Redundancy Checking in CakeML." In *Tools and Algorithms for the Construction and

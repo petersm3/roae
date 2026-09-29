@@ -158,8 +158,8 @@ our solver, our encoding pipeline, or us" (Codex V2-F04 #2). The encoding pipeli
 DRAT replay, because the documented regeneration command *is* our encoder (`sat.py --emit-cnf`): the
 proof certifies that the CNF is unsatisfiable, never that the CNF means what the prose says it means.
 The paragraph immediately below names translation error as "the obvious failure mode", and
-[METHODS](METHODS.md)'s trust ladder calls this gap out explicitly. What closes it is the two-way
-encoding validation described next, not the certificate.]** Every impossibility claim in this report ships that way; the
+[METHODS](METHODS.md)'s trust ladder calls this gap out explicitly. What narrows it is the two-way
+encoding validation described next, not the certificate; it does not close it (certificates/README § scope).]** Every impossibility claim in this report ships that way; the
 certificates are in [certificates/](certificates/) and `verify_all.sh` checks all of them in one command.
 
 **Two-way encoding validation, in plain language.** The obvious failure mode is not a solver bug but a
@@ -199,7 +199,7 @@ it is exhibitable.
 **The distance is exactly three.** The more informative result is *how far* that precursor sits from the
 received order. Two SAT calls bracket it: `moore-strict-near-2` → **UNSAT**, so no jointly compliant
 ordering exists within two slot-edits of King Wen; `moore-strict-near-3` → **SAT**, so three suffice.
-A three-slot footprint — the 22↔23 transposition plus an orientation flip at pair 8 — and two of the
+A three-slot footprint — the 22↔23 transposition, an orientation flip at pair 8, and an orientation flip of pair 22 in its new slot 22 (without that last flip the ordering keeps one rhythm break) — and two of the
 three changed slots sit at the very anomaly Moore identified. ⚠ **[CORRECTED 2026-09-03 — this read
 "Three adjacent-position edits" (Codex V2-F04 #7). That is neither the certified quantity nor the
 witness's geometry. The `-near-<k>` target suffix (`python3 sat.py --emit-cnf moore-strict-near-3`,
@@ -257,8 +257,8 @@ so King Wen must mismatch at all four stations — expect **UNSAT**), with those
 import from `solve.reg_ccn4` / `solve._reg_stations` and cross-checked against an independent
 replica on King Wen, 300 seeded random permutations and three targeted mutants
 ([`sat.py`](../sat.py):442-505) rather than hand-written. ⚠ *(Named 2026-09-25, Codex v3 review, V3B-05#6: these checks run when `sat.py` is imported, so `python3 -c "import sat"` exits 0 only if the replica agrees on King Wen, on all 300 permutations drawn from `random.Random(2016)`, and on the three mutants.)* The lattice shows the conflict is not an
-artifact of piling on constraints; the battery is what shows the trigram clauses say what the rule
-says. ⚠ **[CORRECTED 2026-09-01 — this read "A single fragile encoding choice cannot produce that
+artifact of piling on constraints; the battery is the evidence that the trigram clauses say what the rule
+says at King Wen and on the 300 sampled permutations; it does not exercise the emitted clauses on a non-King-Wen model (a separate test has done so since 2026-09-29, `tests.py` `TestSatEmittedClausesNonKW`, on the 44 public non-King-Wen witnesses and one constructed sequence — tested, not proved). ⚠ **[CORRECTED 2026-09-01 — this read "A single fragile encoding choice cannot produce that
 pattern", attributing to the lattice an exclusion the lattice does not carry.]**
 
 **One honest qualification about the trigram rule.** Of the four, the S25–28 trigram configuration is the
@@ -267,7 +267,7 @@ Wen satisfies it exactly, by construction of how it was stated. A rule read off 
 "explains" carries less evidential weight than one stated independently, and this is priced accordingly
 elsewhere in the suite ([CRITIQUE.md](../documentation/CRITIQUE.md) §"Observable-selection accounting";
 [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)). It matters here because the conflict theorem is a statement
-about the rules *as their authors stated them*, and a reader is entitled to know that one of the four is
+about the rules in the strict forms encoded here (Schulz's source form of the gender rule admits one adjacent exception pair, `solve.py rc4`, and under it the fourth core does not arise; the four-rule conflict survives through the Moore cores — TR-1 § scope), and a reader is entitled to know that one of the four is
 more descriptive than explanatory. What the leave-one-out certificates establish is narrower than
 this paragraph used to claim. *A* conflict among the five stated rules does survive the trigram
 rule's removal — `five_loo_ccn4` is UNSAT — but the only trigram-free minimal two-rule core is
@@ -308,7 +308,7 @@ qualification.
   semantics were verified to reproduce each author's stated KW values before anything else was trusted.
 - "Did you interpret the rules correctly?" -> the KW-value reproduction gates (16/18 at 22-23; 2 breaks
   at (7,8),(22,23); 2 violations at 25/26; the trigram faces 31/24/26/29) — the authors' own numbers.
-- Scope honesty: theorem is about the rules AS STATED; no claim about the arranger's intent.
+- Scope honesty: theorem is about the rules in the strict forms encoded here, not Schulz's exception-admitting source form; no claim about the arranger's intent.
 - AI disclosure per policy; results independent of provenance.
 
 ### Commands
@@ -378,19 +378,19 @@ independent hardware:
    gender rule at its own parity — either station alone contradicts it, and popcount is
    reversal-invariant, so no orientation escapes. S25–28's *statement* never mentions gender, which is
    why the pair hid from every census until 2026-08-28 — a fact about the audit history, not about
-   the pair's structure. Its certificate is retained because it makes certificate-backed the
-   statement that Schulz's S25–28 configuration entails his gender-rule exceptions at exactly their
-   published locus, the two stations Zhu Yuansheng noted. The other two cores — {Moore parity,
+   the pair's structure. Its certificate is retained because it makes certificate-backed the weaker
+   statement that Schulz's S25–28 configuration is incompatible with an exception-free gender ordering — some exception is unavoidable. That the exceptions fall at the published locus, stations 25/26, is the hand check in § Extension, not what the certificate refutes.
+   The other two cores — {Moore parity,
    S25–28} and {Moore rhythm, S25–28} — are genuine discoveries: both Moore rules are aggregates over
-   all 32 slots, so no pointwise evaluation on four pinned faces decides them, and the decision
-   procedure was needed. Both genuine cores run through S25–28 (cf. §4's dependence statement), and
+   all 32 slots; the two cores are nonetheless decidable by hand from the four pinned faces (parity: faces 31 and 29 sit three slots apart and have popcounts 5 and 4, so strict alternation forces opposite parities; rhythm: faces 31 and 24 are adjacent applicable slots that both carry rhythm flag 0, a break). The solver certified them; it was not needed to decide them.
+   Both genuine cores run through S25–28 (cf. §4's dependence statement), and
    the four-rule conflict theorem of §4 does not involve CC-N8 at all.
 
 Certificates: fifteen DRAT proofs — the union (1), its near-2/3/4 repair ladder (3), all five
 leave-one-out subsets (5), all four two-rule cores (4: `core_parity_ccn4_unsat.drat.gz`,
 `core_rhythm_ccn4_unsat.drat.gz`, `core_gender_ccn8_unsat.drat.gz`, and `core_gender_ccn4_unsat.drat.gz`,
 shipped 2026-09-02), and two encoding-validation gates (ccn8-kwfail, ccn8-kwchain-not) — **all archived
-in [certificates/](certificates/)** alongside the original five conflict certificates (22 in the
+in [certificates/](certificates/)** alongside the original five conflict certificates (24 in the
 directory today — see certificates/README; each mapped to its `sat.py --emit-cnf` regeneration command
 in certificates/README.md and checked by verify_all.sh). Every one drat-trim verified; the fourteen of
 v1.6 were re-verified as a set against freshly regenerated encodings on a separate machine, and the 21
@@ -896,4 +896,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.35 | 2026-09-24 | **The calibration summary is brought into line with its own by-V table (Codex V3A-088#1 / V3A-152#6, Q-742).** The CX-25 bullet said the confusability-gate failure was "a step function confined to one stratum" (V=0) and that the received sequence's V=6 self-recovers 51/51. The by-V table in `reports/evidence/f11halfb/RESULTS.md` shows nine failures outside V=0 (56/63 at V=1–2, 59/61 at V=3–4) and reports 51/51 for the pooled V=5–7 stratum, not for V=6. The bullet now says so, with a ⚠ note in place; the same sentence in the evidence file's "Recommended published wording" is annotated there. No count, bar, verdict or withdrawal moved |
 | v1.36 | 2026-09-25 | **Thread counts and seeds for every sampled run this report reproduces (Q-758; Codex v3 E3 batch 5, V3B-05, the F1 thread-pin class).** The f11 reproduction paragraph now names each run's `SOLVE_THREADS`: A and B at 32, C and C2 at 64. The four N_gs direct runs are pinned at 64 threads with seeds 1001, 2003, 3011 and 4013. All values are read from the archived outputs' first lines. No figure changes. |
 | v1.37 | 2026-09-25 | **The last unswept site of the 2026-09-07 narrowing, three wording repairs, and five recipe gaps (Q-759; Codex V3B-05).** (i) The "What follows" paragraph still stated the forced trade-off as fact. The sentence is split across two lines, so the line-based sweep missed it. It now reads "consistent with", scoped to C1∩C2∩C4∩C5, with a ⚠ note (#8). (ii) "The four strongest" is defined at first use; "near their joint Pareto frontier" is replaced at two sites; "the next-strongest discriminating rule" becomes "a fifth discriminating rule" (#4, #12). (iii) Present-tense passages about the Bayes factor now say it was withdrawn on 2026-08-07 (CX-26) at all four cited sites (#28). (iv) Recipe gaps, each with a dated ⚠ note in place. The CC-N4 replica checks are named as import-time checks of `sat.py` (#6). The satisfiable-alone halves and the lattice census are stated to be unarchived (#6, #9). The derived bracket's two operands are named with file and line (#19). The N_gs pooling rule and per-run errors are stated and recomputed from the archived outputs (#21). The zero-mismatch line and the three audited subtrees are sourced (#22). No figure changes. **The gate-3 1.9σ is scoped to the range its interval is calibrated in (Q-713).** §"The three convergence gates" quoted the derived-path cross-check as 1.9σ with no note that its input carries a 65% relerr. The figure is reproduced from the archived inputs: DERIVED-N_gs 1.977×10²⁵ at relerr 64.99% (SE 1.285×10²⁵, `reports/evidence/r11/derived_ci.out`) against the pooled direct 4.503×10²⁵ with SE 0.277×10²⁵ gives (4.503 − 1.977) / √(1.285² + 0.277²) = 1.92. That is a Wald distance, and [METHODS](METHODS.md) calibrates the printed interval only at 5–30% relerr, so a ⚠ note in place reads it as order-of-magnitude only. On a log scale the distance is 1.26σ with each relerr taken as the SE of ln N, or 1.38σ with √ln(1 + relerr²), and gate 3 (within 2.5σ) passes either way. The same note is added to `reports/evidence/r11/PHASE2_README.md` gate 3 and pointed to from `reports/evidence/r11/README.md`. No figure, gate verdict or threshold changes |
-| v1.38 *(current)* | 2026-09-28 | **The shared trade-off figure is a four-row table (Q-900; Codex VIZ H2-01, H2-02; figure and wording only).** See TR-1 v1.37: named columns replace the red/green bars, and the trigram row names stations 25–28 (Lai Zhide's 36 consolidated units). §Figure's alt-text and caption describe the table. |
+| v1.38 | 2026-09-28 | **The shared trade-off figure is a four-row table (Q-900; Codex VIZ H2-01, H2-02; figure and wording only).** See TR-1 v1.37: named columns replace the red/green bars, and the trigram row names stations 25–28 (Lai Zhide's 36 consolidated units). §Figure's alt-text and caption describe the table. |
+| v1.39 *(current)* | 2026-09-29 | **Scope of five sentences, one recipe and one count (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** (i) The two-way encoding validation narrows the encoding-fidelity gap but does not close it, and the battery is evidence at King Wen and on the 300 sampled permutations only. (ii) The conflict theorem is about the strict rule forms encoded here, not Schulz's exception-admitting source form of the gender rule. (iii) The fourth core's certificate refutes only an exception-free gender ordering under S25–28; the locus 25/26 is the hand check. (iv) The two Moore cores are decidable by hand from the four pinned faces; the solver certified them. (v) The §3 footprint names the third edit, an orientation flip of pair 22 in its new slot. (vi) The certificate directory holds 24 proofs today. No verdict or certificate changed. |

@@ -270,7 +270,7 @@ python3 solve.py --v3-spectrum tr12/spectrum/grid_o3.tsv tr12/spectrum/v3_spectr
 # the proposed emitter. What it would add is one cold descent for the whole grid, not a new result.
 ```
 
-**Rehearsal at n=9 (once `--kc-unrank-grid` exists; sub-second, $0):** build the n=9 f and g
+**Rehearsal at n=9 (once `--kc-unrank-grid` exists; sub-second, local):** build the n=9 f and g
 ladders as in [viz_kc_field.md](viz_kc_field.md), then emit a grid over the 26,112-walk space and
 check every point against `--kc-o3-rank` round-tripping. The n=9 world has no King Wen and no
 64-hexagram record, so the *battery* half of the pipeline is exercised at full-31 only; the n=9 gate

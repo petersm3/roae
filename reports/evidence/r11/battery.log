@@ -6,7 +6,7 @@ selftest sha=403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
 smoke gate PASS
 --- direct seed=1001 probes=55000000000 -> /home/solver/r11p2/results/seed1_1001.out 2026-07-11T19:11:46Z ---
 seed 1 (=1001) wall=9633s
-ABORT-CHECK: projected total wall=13.6h cost=$6.81
+ABORT-CHECK: projected total wall=13.6h cost=[cost redacted]
 --- direct seed=2003 probes=55000000000 -> /home/solver/r11p2/results/seed2_2003.out 2026-07-11T21:52:19Z ---
 === R11 Phase-2 battery start 2026-07-12T04:35:01Z host=c237-r11p2 threads=64 ===
 --- gate: --selftest ---
@@ -16,7 +16,7 @@ selftest sha=403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
 smoke gate PASS
 --- direct seed=1001 already complete (/home/solver/r11p2/results/seed1_1001.out) — SKIP (eviction-resume) ---
 seed 1 (=1001) wall=0s
-ABORT-CHECK: projected total wall=0.0h cost=$0.00
+ABORT-CHECK: projected total wall=0.0h cost=[cost redacted]
 --- direct seed=2003 probes=55000000000 -> /home/solver/r11p2/results/seed2_2003.out 2026-07-12T04:41:22Z ---
 seed 2 (=2003) wall=9698s
 --- direct seed=3011 probes=55000000000 -> /home/solver/r11p2/results/seed3_3011.out 2026-07-12T07:23:00Z ---

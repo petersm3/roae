@@ -117,7 +117,7 @@ if [[ "$SKU" == "Standard_D128als_v7" && "$REGION" == "westus3" ]]; then
   log ""
   log "Note: D128als_v7 in westus3 has been capacity-constrained in 2026"
   log "(2 evictions observed during v2 100T campaign 2026-05-21/22)."
-  log "Consider westus2 or eastus2 if migration cost (~\$2 cross-region"
+  log "Consider westus2 or eastus2 if migration cost (cross-region"
   log "solver-data snapshot copy) is acceptable for the campaign duration."
 fi
 

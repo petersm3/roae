@@ -477,7 +477,10 @@ for cert in "${!CERTS[@]}"; do
   check "cert $cert ($t)" \
     "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > \"\$SCRATCH/$t.drat\" && require_verdict_line DRAT_VERIFIED_$cert 's VERIFIED' \"$DRAT\" \"\$SCRATCH/$t.cnf\" \"\$SCRATCH/$t.drat\" $LRAT_OPT"
   CERT_RC[$cert]=$LAST_RC
-  CERTS_CHECKED=$((CERTS_CHECKED+1))
+  # Counted only when drat-trim printed `s VERIFIED` (check() rc 0). Until 2026-09-29 (Codex LSD
+  # R18k) this counted ATTEMPTS, so DRAT_CERTS_CHECKED=24 was printed by a run in which every
+  # certificate had failed; the population floor below is over verified certificates.
+  if [ "$LAST_RC" -eq 0 ]; then CERTS_CHECKED=$((CERTS_CHECKED+1)); fi
 done
 # POPULATION, then the pair verdict. Both are whole-line tokens, emitted on every run: a count that
 # vanished would be indistinguishable from one nobody looked for.
@@ -551,14 +554,15 @@ fi
 echo "== 3b. C3 positional witnesses (independent verify.py-path recheck) =="
 if [ "$HAVE_PY" = "0" ]; then skip "c3_positional_witnesses.txt (42 witnesses)" "needs python3"; else
 check "c3_positional_witnesses.txt (42 witnesses)" "python3 - <<'PYEOF'
-import sys
+import sys, re
 sys.argv = ['verify.py']
 import verify
-g = c3 = None; n = 0; seen_g = []
+g = c3 = None; n = 0; seen_g = []; hdr = ''; g95_layout = None; annotations = 0
 for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     if ln.startswith('G='):
         head = ln.split('#')[0].split()
         g, c3 = int(head[0][2:]), int(head[1][3:])
+        hdr = ln
     if not ln.startswith('SEQ='):
         continue
     seq = [int(x) for x in ln[4:].split()]
@@ -584,6 +588,24 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     if not (verify.compute_comp_dist(seq) == c3 == 16 + 8*g):             # C3/G
         raise SystemExit(f'FAIL witness {n}: C3/G mismatch '
                          f'({verify.compute_comp_dist(seq)} vs c3={c3} vs {16 + 8*g})')
+    # WHAT THE ROWS SAY ABOUT THEMSELVES (2026-09-29, Codex LSD R18a). Until today the header
+    # annotations were not checked by anything: the G=95 row is published as the tie with a
+    # pair-slot layout != KW, and one ladder row annotates its yangcount/entryyang; a file whose
+    # G=95 SEQ was KW itself, or whose annotation was 91, passed this block.
+    if g == 95:
+        g95_layout = any(frozenset(seq[2*k:2*k+2]) != frozenset(verify.KW[2*k:2*k+2])
+                         for k in range(32))
+        if not g95_layout:
+            raise SystemExit(f'FAIL witness {n}: the G=95 tie row repeats KW pair-slot layout')
+    for _name, _j in (('yangcount', 1), ('entryyang', 0)):      # solve.py _yang_count: exit / entry
+        _m = re.search(_name + r'=(\d+)', hdr)
+        if _m is None:
+            continue
+        _got = sum(bin(seq[2*k + _j]).count('1') for k in range(1, 32))   # the 31 free slots
+        if _got != int(_m.group(1)):
+            raise SystemExit(f'FAIL witness {n}: annotated {_name}={_m.group(1)} but the '
+                             f'sequence has {_name}={_got}')
+        annotations += 1
     seen_g.append(g)
     n += 1
 if n != 42:
@@ -602,6 +624,12 @@ if sorted(seen_g) != _want_g:
     _extra = sorted(set(seen_g) - set(_want_g))
     raise SystemExit(f'FAIL: witness G-set is not {{12..51, 95, 97}} — '
                      f'missing {_miss}, duplicated {_dup}, unexpected {_extra}')
+if g95_layout is not True:
+    raise SystemExit('FAIL: the G=95 layout check did not run — nothing compared the tie row to KW')
+if annotations < 1:
+    raise SystemExit('FAIL: no yangcount/entryyang annotation was checked — the annotated row is gone')
+print('WITNESS_G95_LAYOUT=PASS')
+print(f'WITNESS_ANNOTATIONS_CHECKED={annotations}')
 print(f'  [ok] {n} witnesses re-checked independently (permutation, C1, C2, C3/G, C4, C5); '
       f'G-set = {{12..51, 95, 97}}')
 PYEOF"
@@ -720,6 +748,67 @@ else
   done
   echo "LEAN_FILES=$_n" | tee -a "$LOG"
   check "lean module count >= $LEAN_FILES_MIN (found $_n)" "[ $_n -ge $LEAN_FILES_MIN ]"
+fi
+#   (C) SOURCE CENSUS (2026-09-29, Codex LSD R8). Leg (B) reads `#print axioms` reports, so it
+#       screens exactly the theorems that carry a directive: a module with NO directive passes on
+#       rc alone, and at 5ad06afa five of the fifteen modules carried none (C1RuleConstants,
+#       CompilerCorrectness, KingWen, PruneSafety, RecordConvention) while the loaded theorems of
+#       three more sat after their module's last directive. This leg reads the SOURCES: every
+#       `lean/*.lean` with `--` line comments and (nested) `/- ... -/` blocks removed, and fails
+#       the run on any remaining line matching one of the trust-base escape hatches:
+#         native_decide  skipKernelTC  implemented_by  extern  unsafe  sorry   (anywhere),
+#         ofReduceBool  trustCompiler  `decide +native`  `native := true`     (anywhere: the other
+#         spellings of native_decide and the terms it elaborates to), or
+#         axiom  opaque  partial def, bare or after private/protected/noncomputable/@[..]
+#                                                                             (declaration head).
+#       (2026-09-29, Fable batch-26 prepub: the first pattern passed `by decide +native`,
+#       `Lean.ofReduceBool _ _ rfl` and `private axiom`, each measured PASS n=0 on a probe.)
+#       It needs python3 only, so it runs on a host without Lean too. Positive control (measured on
+#       a temp copy of lean/): `theorem _probe : (1:Nat) = 1 := by native_decide` appended to
+#       KingWen.lean, which leg (B) passes (no directive names it), prints
+#       LEAN_SOURCE_CENSUS=FAIL n=1 here; the shipped tree prints LEAN_SOURCE_CENSUS=PASS n=0.
+#       tests.py `TestLeanSourceCensusLeg` runs this same filter (extracted from this file) on
+#       that probe on every harness run. What it cannot see: a directive-less theorem proved by
+#       an axiom smuggled through a term the regex does not name; leg (B) plus the module-wide
+#       constant census recorded in CLAIM_TO_ARTIFACT.md row 13 are the complements.
+if [ "$HAVE_PY" = "0" ]; then
+  skip "lean source census (no native_decide/axiom/sorry/skipKernelTC/implemented_by/extern/unsafe/opaque/partial def outside comments)" "needs python3"
+else
+  check "lean source census (no native_decide/axiom/sorry/skipKernelTC/implemented_by/extern/unsafe/opaque/partial def outside comments)" "python3 - <<'PYEOF'
+import re, glob, sys
+PAT = re.compile(r'\b(native_decide|skipKernelTC|implemented_by|extern|unsafe|sorry|ofReduceBool|trustCompiler)\b|decide\s*\+\s*native\b|native\s*:=\s*true|^\s*(?:(?:private|protected|noncomputable|@\[[^\]]*\])\s+)*(axiom|opaque|partial\s+def)\b')
+def strip_comments(src):
+    out, i, depth, n = [], 0, 0, len(src)
+    while i < n:
+        if depth == 0 and src.startswith('--', i):
+            while i < n and src[i] != chr(10):
+                i += 1
+            continue
+        if src.startswith('/-', i):
+            depth += 1; i += 2; continue
+        if depth > 0 and src.startswith('-/', i):
+            depth -= 1; i += 2; continue
+        if depth == 0:
+            out.append(src[i])
+        elif src[i] == chr(10):
+            out.append(src[i])
+        i += 1
+    return ''.join(out)
+files = sorted(glob.glob('lean/*.lean'))
+if len(files) < 15:
+    print('LEAN_SOURCE_CENSUS=FAIL n=NO_SOURCES')
+    raise SystemExit('FAIL: the census saw %d lean/*.lean files (needs >= 15); an empty census is not a pass' % len(files))
+hits = []
+for f in files:
+    for ln, text in enumerate(strip_comments(open(f, encoding='utf-8').read()).split(chr(10)), 1):
+        if PAT.search(text):
+            hits.append((f, ln, text.strip()[:120]))
+for f, ln, text in hits:
+    print('  census hit %s:%d: %s' % (f, ln, text))
+print('LEAN_SOURCE_CENSUS=%s n=%d' % ('FAIL' if hits else 'PASS', len(hits)))
+if hits:
+    raise SystemExit('FAIL: %d trust-base escape hatch(es) outside comments' % len(hits))
+PYEOF"
 fi
 
 echo "== 5. Python regression harness (python3 tests.py) =="

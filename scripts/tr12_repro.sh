@@ -785,7 +785,7 @@ say "  artifacts       $OUTDIR"
 say "  knobs           C3MAX=$C3MAX SEED=$SEED Q8_K=$Q8K Q4AC_M=$Q4ACM Q1C_M=$Q1CM V3_K=$V3K"
 say ""
 if [ "$N_MOD24" != "0" ]; then
-    say "  🔴 N mod 24 = $N_MOD24, not 0 — the kernel-backed divisibility invariant is violated."
+    say "  🔴 N mod 24 = $N_MOD24, not 0 — the divisibility invariant (paper-proved free order-48 action on sequences; Lean covers the record level) is violated."
     say "     Refusing to run a battery whose universe is already known to be wrong."
     printf 'TR12_REPRO=FAIL\n' | tee -a "$VERD" >/dev/null
     say "TR12_REPRO=FAIL"; exit 1
@@ -2070,7 +2070,7 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
     # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
     # ships. Budget is an operator decision; an unbuilt builder is not.
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, \$40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37739-37740) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20693), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, several machine-hours each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37739-37740) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20693), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -2609,7 +2609,7 @@ row_end TR12_Q2 $rc
 if [ "$N_PAIRS" -ge 31 ]; then
     row_begin a2_q7_ranks
     (
-      erc=0
+      erc=0; processed=0   # LSD R18c (2026-09-29): count the certificates actually read
       echo "# inputs: every q7_*.json written by the Q7 legs above: KW (IN; rank_O3(KW) = 0 is a labeling theorem),"
       echo "# the three historical arrangements (OUT; no rank), and -- since CX-93, 2026-09-25 -- the two PINNED"
       echo "# SAT witnesses q7_moore-strict.json / q7_grand-strict.json (IN; each gets its rank_O3, the witness"
@@ -2617,7 +2617,7 @@ if [ "$N_PAIRS" -ge 31 ]; then
       echo "# coordinate (D5-14), not a rarity statement; it is required to be present and NON-zero, because"
       echo "# rank 0 is the anchor walk itself and a0_q7_witnesses has already established the witness != KW."
       for j in "$ARTDIR"/q7_*.json; do
-          [ -f "$j" ] || continue
+          [ -f "$j" ] || continue; processed=$((processed+1))
           v=$(sed -n 's/.*"verdict_super": "\([^"]*\)".*/\1/p' "$j" | head -1)
           lab=$(sed -n 's/.*"label": "\([^"]*\)".*/\1/p' "$j" | head -1); id=${lab:-explicit}; [ "$id" = explicit ] && id=$(basename "$j" .json)   # Q-795: a witness is named by its label; the filename is only the fallback for a pre---label ("explicit") certificate
           arr=$(sed -n 's/.*"arrangement": "\([^"]*\)".*/\1/p' "$j" | head -1)
@@ -2675,7 +2675,7 @@ if [ "$N_PAIRS" -ge 31 ]; then
               echo "(not IN — no rank; a rank of a non-member is not defined)"
           fi
       done
-      exit $erc
+      [ "$processed" -ge 2 ] || { echo "Q7RANKS_FAIL	witnesses_processed=$processed<2 -- the row read fewer than two q7_*.json certificates, so it ranked nothing (LSD R18c)"; erc=1; }; exit $erc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_RANKS $rc
 else
@@ -3028,7 +3028,7 @@ else
     row_begin c_xa_mod24
     (
       fails=0
-      echo "# XA-24 — the (mod 24) divisibility gate, kernel-backed (twenty_four_dvd_solution_count)"
+      echo "# XA-24 — the (mod 24) divisibility gate, paper-proved free order-48 action on sequences; Lean twenty_four_dvd_solution_count covers the record level"
       echo -e "quantity\tvalue\tmod24"
       chk(){ local name="$1" v="$2" m; m=$(echo "$v % 24" | bc); printf '%s\t%s\t%s\n' "$name" "$v" "$m"
              [ "$m" = "0" ] || { echo "MOD24_FAIL	$name is not divisible by 24"; fails=1; }; }
@@ -3059,8 +3059,8 @@ else
     #      where the labels are not anchor-derived: row c_q10a_kwrank measures rank3=13056 there and
     #      emits TR12_Q10A_KWRANK=NONVACUOUS -- see scripts/tr12_expected/n9/c_q10a_kwrank.txt.) Now:
     #        (i)   N/24 stated ONCE, as the identity it is (the free order-24 action on solutions);
-    #        (ii)  the mod-24 gate on every layer flow (kept; kernel-backed);
-    #        (iii) the census CONTENT: the per-layer STATE census by G-orbit-size class and the branching
+    #        (ii)  the mod-24 gate on every layer flow (kept; paper-proved free action, Lean at record level);
+    #        (iii) the census CONTENT: the per-layer MASK census by G-orbit-size class (entry counts per class) and the branching
     #              histogram, transcribed from the f-ladder sidecars f1c5_layer_stats_XX.json that
     #              --kc-build already wrote (orbit_size_census = [orbit_size, n_masks, n_entries] triples;
     #              branching.hist = [children, n_states] pairs; sidecar schema v2). Read, not computed:
@@ -3075,10 +3075,10 @@ else
     row_begin c_q10a
     (
       echo "# Q10(a) — (i) the N/24 identity, stated once; (ii) the per-layer mod-24 gate; (iii) the per-layer"
-      echo "# STATE census by G-orbit-size class + branching histogram, transcribed from the f-ladder sidecars."
+      echo "# MASK census by G-orbit-size class (with per-class DP-entry counts) + branching histogram, transcribed from the f-ladder sidecars."
       echo "# (iv) KW-orbit-rank: MEASURED separately as TR12_Q10A_KWRANK (row c_q10a_kwrank, N3 2026-09-10);"
       echo "# this line used to ASSERT it was dropped. Q-394 §5 / D5-08."
-      echo "N_div_24	$N_DIV24	# = N/24, the RECORD-level orbit identity. NOT the number of walk-orbits: 24 is the record-level divisor, and at the orientation-explicit sequence level orbits have size 48, so N/24 is 2x the sequence-orbit count (TR-11 sec2 precision note; measured n=9: 544 walk-orbits, N/24 = 1088). Identical at every layer because every layer flow == N (gated in c_atlas)"
+      echo "N_div_24	$N_DIV24	# = N/24, the exact integer that 24 | N guarantees. Not an orbit count at any level (a record-level orbit count cannot exceed 31!/24 — TR-11 Q-642 note). NOT the number of walk-orbits: 24 is the record-level divisor, and at the orientation-explicit sequence level orbits have size 48, so N/24 is 2x the sequence-orbit count (TR-11 sec2 precision note; measured n=9: 544 walk-orbits, N/24 = 1088). Identical at every layer because every layer flow == N (gated in c_atlas)"
       echo "## per-layer flow mod-24 gate (atlas layers[k].flow)"
       echo -e "k\tflow\tflow_mod_24"
       fails=0; i=0

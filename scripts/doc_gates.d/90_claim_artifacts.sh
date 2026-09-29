@@ -1102,7 +1102,25 @@ for d,_,fs in os.walk(flatdir):
     for fn in fs: files.append(os.path.relpath(os.path.join(d,fn), flatdir))
 texts={f: io.open(os.path.join(flatdir,f), encoding="utf-8", errors="replace").read() for f in files}
 used=set(); hits=0
+import re as _re, hashlib as _hl
+def _hflat(t):   # the gates' flatten: newline -> space, runs of spaces collapse
+    return _re.sub(" +", " ", t.replace("\n", " "))
 for p,allowcol,note in rows:
+    # CX-230: a HASHED row (`sha256:<hex>/<n>`, doc_gates.sh hashed_row_parse) is matched by digest
+    # of the n-character span at every dollar sign, in the flattened copy and in the raw file.
+    hm=_re.fullmatch(r"sha256:([0-9a-f]{64})/([1-9][0-9]*)", p)
+    if hm:
+        hh,hn=hm.group(1),int(hm.group(2))
+        for f in files:
+            try: raw=_hflat(io.open(f, encoding="utf-8", errors="surrogateescape").read())
+            except OSError: raw=""
+            for t in (texts[f], raw):
+                i=t.find("$"); hit=False
+                while i>=0 and not hit:
+                    hit=_hl.sha256(t[i:i+hn].encode("utf-8","surrogateescape")).hexdigest()==hh; i=t.find("$",i+1)
+                if hit:
+                    print("HIT\t%s\tRP-%s (hashed row; the phrase is not restated)\t1\tno allow row (%s)"%(f,hh[:8],note[:90])); hits+=1; break
+        continue
     np_=needles[p]
     if not np_: continue
     for f in files:

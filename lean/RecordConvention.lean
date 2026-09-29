@@ -91,9 +91,10 @@
   · `visitedMin_exhaustive_agreement` — FAITHFULNESS: when the visited
     walk set is EXHAUSTIVE (contains every valid variant of every visited
     key), the visited-min representative equals repr. Hence the v4
-    convention agrees byte-identically with v1/v3 wherever v1/v3's output
-    is theorem-grade (per-cell exhaustion), and re-anchors only budgeted
-    bytes.
+    convention agrees byte-identically with v1/v3 wherever every cell that
+    contains a variant of the key is exhausted (the `hmem` hypothesis;
+    per-cell exhaustion of one cell is not enough), and re-anchors only
+    budgeted bytes.
   · `dfsFirst_*`             — correctness of the computation of repr:
     a first-found depth-first search over orientation bits that tries 0
     before 1 at every slot returns exactly the lex-least satisfying
@@ -140,8 +141,11 @@ set_option linter.unusedSectionVars false
 
 variable {κ ρ : Type} [DecidableEq κ] [DecidableEq ρ]
 
-/-- Order-preserving first-occurrence dedup of a key list (self-contained;
-    only `List.elem`/`∈` API is used). -/
+/-- Order-preserving dedup of a key list that keeps the LAST occurrence of a
+    repeated key (a key is dropped while it still occurs later; e.g.
+    dedup [1, 2, 1] = [2, 1]) — self-contained; only `List.elem`/`∈` API is
+    used. (Until 2026-09-29 this read "first-occurrence"; the definition below
+    did not change.) -/
 def dedup [DecidableEq κ] : List κ → List κ
   | [] => []
   | k :: ks => if k ∈ ks then dedup ks else k :: dedup ks
@@ -514,3 +518,11 @@ theorem dfsFirst_min (P : List Bool → Bool) :
         | none => rw [ht] at h; cases h
 
 end RecordConvention
+
+-- Trust-base audit directives (2026-09-29, Codex LSD R8): one `#print axioms` per theorem of this
+-- module that a public document cites by name, so reports/certificates/verify_all.sh leg (B)
+-- (every stdout line an allowlisted axiom report) screens them; the source-census leg (C)
+-- screens the rest. ALLOWLIST: [propext, Classical.choice, Quot.sound].
+#print axioms RecordConvention.visitedMin_not_nested
+#print axioms RecordConvention.dfsFirst_min
+#print axioms RecordConvention.visitedMin_exhaustive_agreement

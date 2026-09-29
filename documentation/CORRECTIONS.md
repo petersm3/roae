@@ -5885,7 +5885,7 @@ be checked.
 The same entry then priced the run by multiplying an hourly rate by the D128 **projection**, and
 concluded that D128 costs marginally more than D32 while finishing sooner. The measurement refutes
 the numerator: the post-rewrite D128 analyze run completed in **13,631 s (3 h 47 m)**, recorded eight
-lines below in that same entry, so at the stated $5/h the run cost **~$18.93**, roughly 2.5× the
+lines below in that same entry, so at the stated [cost redacted]/h the run cost **~[cost redacted]**, roughly 2.5× the
 published product. The comparison is withdrawn rather than rescaled, because its D32 half has no
 measured wall at any scale.
 
@@ -6493,7 +6493,7 @@ twelve lines above it was left. Only by grepping the *retired values* rather tha
 numbers was it clear which half survived — the line numbers themselves had drifted by ~80 lines.
 
 **Found while verifying, not by the review:** with the banner corrected to DEPLOYED, the
-long-term-pause procedure's step 3 — **"Delete the managed disk"**, in bold, justified by ~$64 saved
+long-term-pause procedure's step 3 — **"Delete the managed disk"**, in bold, justified by ~[cost redacted] saved
 over six months — stopped being harmless aspirational text and became an executable instruction
 contradicting the standing rule this repo states three times in `DEPLOYMENT.md` ("never delete data
 disks"; "Managed disks preserved = the win condition for every class of failure"; "Never delete
@@ -8388,7 +8388,7 @@ that a reader can now tell how well those masses are resolved.
 `gate_seed_provenance` builds its seed map by extracting `SEED OVERRIDE ACTIVE: base=` from each
 evidence file — **a file without that line contributes nothing**. The archived pair carries no such
 line, so a single reseeded run would have published the ± while leaving the "independent" claim
-still failing that gate. The marginal cost of the second replicate was ~$0.60.
+still failing that gate. The marginal cost of the second replicate was ~[cost redacted].
 
 🔴 **A SIBLING SITE IS CORRECTED WITH IT.** `documentation/CIRCULAR_KING_WEN.md` published the same
 three masses with **no disclosure whatsoever** — not even the "no ± is published" warning TR-7 carried
@@ -9674,7 +9674,7 @@ unverified provenance claim is doing the thing it exists to prevent.
 **2026-09-18 · C3 · `reports/TR12_QUERY_PROGRAM.md`**
 
 §R's "Cost/time per stage" paragraph priced atlas assembly at a token dollar figure and told a
-reader that everything after the ladders runs "in minutes, near-$0". The second half is correct and
+reader that everything after the ladders runs "in minutes, near-[cost redacted]". The second half is correct and
 stands. The first half was wrong by orders of magnitude, and it sat in the one paragraph a
 reproducer budgets from.
 
@@ -10693,8 +10693,8 @@ measurement landed in one place and left its contradiction standing in another.*
   of the same document records it **CLOSED** at distance 2 — the floor is structural and a published
   witness attains it, so, as §9 says, "the row's own 'interim bound' already equalled the answer".
   Both sites now say CLOSED and point at §9. The practical cost of leaving them: a reader could
-  budget a $40–80 sweep to rediscover a published number.
-- **The Tier B heading** read "(minutes, ~$0 compute)" against the measured **7 h 11 min** stated in
+  budget a [cost redacted] sweep to rediscover a published number.
+- **The Tier B heading** read "(minutes, ~[cost redacted] compute)" against the measured **7 h 11 min** stated in
   that section's own body, where v1.3 recorded the logical registry sweep and updated the body only.
   The heading now carries the measured figure and distinguishes the container check (minutes) from
   the logical sweep.
@@ -11782,7 +11782,7 @@ is the control, with wrap 3 and C3 = 776.
 
 **What was measured** (`reports/evidence/circular_census/`, 2026-09-24). The C5-budget-override walk
 was run at 2×10¹⁰ probes for each of M₂, M₄ and M′, as 20 chunks of 10⁹ per multiset, each chunk with
-its own seed. The instrument was a Spot D64als_v7 at about $2. Each term is the absolute estimate for
+its own seed. The instrument was a Spot D64als_v7 at about [cost redacted]. Each term is the absolute estimate for
 the one wrap bin that restores King Wen's circular multiset:
 
 | class | term | SE |
@@ -12102,7 +12102,7 @@ lane report for the transcript lines).
 final number.)
 
 **2026-09-25.** Origin: lane Opus SS in the 2026-09-24 queue run, under the operator's standing
-authorization ("anything that was declined but still reasonable to do, under $50, do it"). It
+authorization ("anything that was declined but still reasonable to do, under [cost redacted], do it"). It
 builds on lane Opus PP's Q-772 W0-D certificate loader. Every build, run, gate and test claim below
 was executed on the worker (`c302-worker`, D8als_v7 Spot), on a clean clone at 5c296837 with
 batches 1–6, the Q-772 work and this change overlaid.
@@ -12159,7 +12159,7 @@ accepted-and-priced, L1b the flip, L2–L18), and 6 mutants each killed on its n
 `PENDING:W0-D-node-mapping` to `PENDING:xa-throughput-anchors`. The nodes/sec anchor still has no
 public basis, and `c_xa_cd` still skips. With operator-supplied anchors, the token is
 `ONE-SIDED:lower-bound` and rows read INFEASIBLE or `UNDECIDED:lower-bound`. Even at deliberately
-generous hypothetical anchors (10^15 nodes/s, $0.01/h, a $1,000,000 ceiling), all 56 rows read
+generous hypothetical anchors (10^15 nodes/s, [cost redacted]/h, a [cost redacted] ceiling), all 56 rows read
 INFEASIBLE, because min t(b) ≈ 8.7 × 10^37. **Operator decision, not taken here:** whether a
 one-sided INFEASIBLE may be published in TR-12. The TR-12 text makes no call. On the n=9 atlas the
 certificate is now refused by scope, and `TR12_XA_CD` stays `PENDING:W0-D-node-mapping`.
@@ -16948,16 +16948,16 @@ fresh clone with the batch-14 candidate, the batch-16 base and the staged batch-
 then this change.
 
 **1. §7's committed-path total.** CX-160 found that the §7 wave table's waves 0–2 items, excluding
-Stage G, do not reach the upper end of the first total, ≈ $125–360. The 2026-07-17 plan that §7
+Stage G, do not reach the upper end of the first total, ≈ [cost redacted]. The 2026-07-17 plan that §7
 reproduces was read for the source of that figure. It carries the same table and the same total
 line, word for word, with no further working. So the source does not settle the gap. Itemized,
-the table's committed path excluding the authorized Stage G is wave 0 $10–60, wave 1 $30–80, and
-wave 2's t-ladder standalone $60–110, scan $15–50 and queries $10–30. That sums to $125–330, and
+the table's committed path excluding the authorized Stage G is wave 0 [cost redacted], wave 1 [cost redacted], and
+wave 2's t-ladder standalone [cost redacted], scan [cost redacted] and queries [cost redacted]. That sums to [cost redacted], and
 it is the figure the items support. The only combination of the table's own bands that
-reproduces both ends of $125–360 adds the co-scheduled t-ladder band ($0–30) on top of the
+reproduces both ends of [cost redacted] adds the co-scheduled t-ladder band ([cost redacted]) on top of the
 standalone one, which counts the t-ladder twice. The plan does not say that is how the total was
 formed, so the TR-12 note calls it a reading, not a finding. On the items' sum, the wave-3 total's
-upper end would be ≈ $2.7K rather than the printed ≈ $2.8K. A second same-line dated note on the
+upper end would be ≈ [cost redacted] rather than the printed ≈ [cost redacted]. A second same-line dated note on the
 total line says all of this. Both printed totals are left as the plan stated them, as the lane
 was told to do when the source cannot settle a figure. The Wave-status ruling's copy of the first
 total already points to the §7 note and stays accurate.
@@ -22887,3 +22887,348 @@ now also asserts anchor 18's line.
 **What this does not change.** The earlier ledger entries that describe the inventory as quoting
 commit messages are records of what it did when they were written. This entry supersedes that
 description from here on. The full messages remain in git history.
+
+## CX-230 — dollar figures removed from the current tree
+
+**2026-09-29.**
+
+**The decision.** The operator decided that the public record gives no dollar figures: no prices,
+per-hour rates, cost bands, spend totals or tallies. Wall times and VM hours may stay. The decision
+applies to the current tree only; git history is unchanged.
+
+**What changed.** 630 dollar-figure tokens were removed from 38 tracked files, plus about ten amounts
+written in words. No edit added or removed a line, so no line citation moved.
+
+- **Append-only ledgers, 290 tokens.** In this file (22 tokens on 14 lines) and in
+  [HISTORY.md](HISTORY.md) (268 tokens on 178 lines), each token was replaced by `[cost redacted]`
+  and nothing else on the line changed. This is the one sanctioned in-place edit of an append-only
+  ledger. Two HISTORY.md headings carried a token, so two anchors changed; the only link to either
+  was in the generated [HISTORY_INDEX.md](HISTORY_INDEX.md), which was regenerated.
+- **Other documentation, 198 tokens.** In DEPLOYMENT.md, DEVELOPMENT.md, PERFORMANCE_HISTORY.md,
+  CAMPAIGN_METHODOLOGY.md, LARGE_SCALE_CAMPAIGNS.md, SOLVE_C_CLI.md, the H1-H3 preregistration and
+  CLAUDE.md, sentences were reworded to keep their point without the amount. Money columns were
+  removed from cost tables, and hour and size columns were kept. Where a sentence quotes an earlier
+  wording, only the token was replaced.
+- **Reports, evidence notes, run pages and viz pages, 116 tokens.** TR-12 accounts for 87 of these:
+  its per-query cost lines, its section 7 wave table (whose cost column is gone) and two revision
+  rows. The rest are in TR-3, TR-11, five evidence notes, three run pages and seven viz pages, and
+  TR-4 lost one amount written in words.
+- **Two machine outputs, 3 tokens.** One line of `reports/evidence/tr12/VERDICTS_n31_20260922.txt`
+  and two lines of `reports/evidence/r11/battery.log` now read `[cost redacted]`. Each directory's
+  README says so, since both files are described as verbatim.
+- **Code comments, 20 tokens.** In `solve.c`, `scripts/perf_bench.sh`,
+  `scripts/spot_health_precheck.sh`, `scripts/pre_push_gate.sh`,
+  `scripts/q317_missing_shard_merge_gate.sh` and one comment of the archived r11 battery script.
+  Three messages that printed a literal amount no longer do: a TR-12 repro skip reason, a pre-launch
+  log line and the r11 battery script's abort messages (whose rate and limit values, what ran, are
+  unchanged). The XA pricer in `solve.py` still computes a cost, from rates the user supplies on the
+  command line; it carries no figure of its own.
+- **One pinned line.** DEPLOYMENT.md's d3 100T merge bullet carries a content pin in
+  `scripts/citation_line_gate.sh`. The line was reworded and the pin's hash was updated in the
+  same change.
+
+**The append-only gate.** GATE 10 (`appendonly-head` and `appendonly-history` in
+`scripts/doc_gates.sh`) now aligns each committed or published version to the working copy before
+comparing. A committed line counts as present when the working copy holds it with one or more
+dollar-figure tokens replaced by `[cost redacted]` and nothing else changed. Any other difference
+still fails: a reworded word, a changed amount, or a changed unit beside a redaction.
+`TestQ903AppendOnlyMoneyRedaction` in tests.py runs the real gate in a scratch repository. It
+checks one green case (a pure token-to-marker edit, full or partial) and three red cases. It also
+checks its own precondition: with the alignment step disabled, the green case fails.
+
+**The registry.** RETRACTED_PHRASES.tsv held one needle made of dollar figures (`RP-dd27f0bf`). That
+row now holds the phrase's sha256 and its length (`sha256:<hex>/<n>`) instead of the phrase, and its
+note no longer states an amount. The RP key is the digest's first eight hex digits, as before, so
+this ledger's existing entry still answers GATE 11. GATE 3 and GATE 47 match a hashed row by hashing
+the span that starts at each dollar sign in the text they scan. When the phrase was planted in a
+Markdown page and in a shell script, each gate failed on the planted copy. On the redacted tree,
+both pass. A hashed row matches only the exact registered spelling, after whitespace is flattened.
+`TestQ903HashedRetractedNeedle` covers the two helpers and the registered row.
+
+**The generator.** `scripts/corrections_inventory.sh` still replaces a registered withdrawn figure
+with `[withdrawn figure redacted]`. It now also replaces every other dollar figure in the published
+text column with `[cost redacted]`. A bare `$N` quoted as an awk or shell field is kept. The id,
+date and class are still computed from the unredacted text. Self-test anchor 15 now expects the
+unregistered figure to take the general marker. The new anchor 19 checks five money shapes and two
+awk fields on a synthetic row, and that the id comes from the unredacted message. The inventory is
+regenerated from this generator; rows whose Markdown source line changed get new ids, as any edited
+line does.
+
+## CX-231 — the Lean/SAT/DRAT trust base said more than it checked: a rigidity self-validation that never read its clauses, a witness check that took "C1" for "permutation", a re-score that rejected its own pinned model, a certificate counter that counted attempts, a Lean gate that passed undirected modules on exit status, and ten Lean docstrings that overstated what the kernel had checked (sat.py; reports/certificates/verify_all.sh; lean/C3Decomposition.lean; lean/PruneExactness.lean; lean/PruneGInvariance.lean; lean/RecordConvention.lean; lean/PruneReprFC.lean; lean/Automorphism.lean; lean/HammingOptimalMatching.lean; lean/CompilerCorrectness.lean; lean/PartitionInvariance.lean; lean/TrigramTheorems.lean; lean/KingWen.lean; lean/C1RuleConstants.lean; tests.py)
+
+**2026-09-29.**
+
+**Source.** An adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged
+by Fable; this entry covers the rows whose fix touches `sat.py`, `verify_all.sh` or a `.lean` file
+(triage rows R6, R7, R8, R9, K01-6, R11, R18a, R18b, R18f, R18g, R18h, R18k, R20a, R20b, R22). The
+prose rows of the same review are a separate entry. Nothing here moves a certificate verdict, a
+CNF byte, a count or a ladder digest: every emitted formula is unchanged, and the `.lean` edits are
+comments and `#print axioms` directives only (no definition or proof changed).
+
+**What was wrong, and the change, per row.**
+
+- *R18f — `rigidity_validate` never read the clauses.* Its negative control tested
+  `solve.reverse_6bit` against the anchor set in Python; a rigidity CNF with all seven anchor units
+  deleted still printed "encoding self-validation PASS" (measured). The bit-reversal assignment is
+  now evaluated against `cnf.cl` and must falsify at least one clause, every falsified clause a
+  unit. The emitted CNF is byte-identical (4096 variables, 282,760 clauses).
+- *R18g — `verify_seq` checked permutation-ness, not the C1 pairing.* King Wen with bits 0 and 1
+  swapped in every hexagram (C2, C5, C4 and C3 = 776 intact; `solve.has_pair_structure_c1` False)
+  returned `(True, 776, (2, 3, 13))`. `verify_seq` now folds `solve.has_pair_structure_c1` into its
+  first field; the manual "check any line without a SAT solver" recipe in
+  `c3_positional_witnesses.txt` and the `--decode` description in `SAT_CLI.md` now name the pairing
+  too (CX-232).
+- *R18h — `rc4-kwexempt` rejected its own pinned model.* The encoder exempts class positions 25/26
+  (Q-648) but the re-score did not, so `target_verdict(KW, "rc4-kwexempt")` gave `ok=False,
+  rule_viol={'gender': 2}`. The exemption is now one constant, `RC4_KWEXEMPT_POS`, read by the
+  clause emitter and by `rule_scores(seq, target)`; `target_verdict` passes its target through. No
+  published result depended on it (`--witness` skips the rule re-score for `kw*` targets).
+- *R18k — a failed `d4` could certify the previous run's d-DNNF.* With `--keep`, a `d4` that exited
+  non-zero having written nothing left the earlier `instance.nnf` in place; the size test passed on
+  it and `cpog-gen` ran on the old formula under the new label. `certify_count` now removes a stale
+  `.nnf`/`.cpog` before `d4` runs and refuses a non-zero `d4` exit. In `verify_all.sh`,
+  `DRAT_CERTS_CHECKED` counted attempts; it now counts certificates whose `drat-trim` printed
+  `s VERIFIED`, so the population floor is over verified certificates.
+- *R8 — the Lean gate passed a module with no `#print axioms` directive on exit status alone.* Leg
+  (B) screens exactly the theorems that carry a directive; five of the fifteen modules carried none
+  (`C1RuleConstants`, `CompilerCorrectness`, `KingWen`, `PruneSafety`, `RecordConvention`) and the
+  loaded theorems `kw_walkCd_387`, `G12_decomposition_nodup`, `mirrorDouble_inj`, `runningG_mapP`,
+  `runningG_orbit_invariant` sat after their module's last directive. A new leg (C), python-only,
+  strips `--` and nested `/- -/` comments from every `lean/*.lean` and fails the run on any
+  remaining `native_decide` (also spelled `decide +native` or `native := true`), `ofReduceBool`,
+  `trustCompiler`, `skipKernelTC`, `implemented_by`, `extern`, `unsafe`, `sorry`, or a declaration-head
+  `axiom`, `opaque`, `partial def`, bare or after `private`/`protected`/`noncomputable`/an attribute; token `LEAN_SOURCE_CENSUS=PASS|FAIL n=<hits>`.
+  Positive control: a `native_decide` theorem appended to a copy of `KingWen.lean` prints
+  `LEAN_SOURCE_CENSUS=FAIL n=1`; the shipped tree prints `PASS n=0`. Seventy directives were added
+  (`#print axioms` lines 123 → 193): one per theorem of the five undirected modules that a public
+  document cites by name (46 in `KingWen`, 16 in `C1RuleConstants`, 3 in `RecordConvention`; none
+  of `CompilerCorrectness`'s or `PruneSafety`'s theorems is cited by name, and those two modules
+  are covered by leg (C)), plus the five loaded theorems above. The 123-line attestation in
+  `CLAIM_TO_ARTIFACT.md` row 13 is a record of its run and is not edited.
+- *R18a — what the witness file says about itself was unchecked.* `verify_all.sh` §3b re-checked
+  C1–C5 and C3/G but nothing compared the G = 95 tie row to King Wen's pair-slot layout, and the
+  `yangcount`/`entryyang` annotations on the G = 16 and G = 30 rows were read by no one. Both are
+  checked now (`WITNESS_G95_LAYOUT=PASS`, `WITNESS_ANNOTATIONS_CHECKED=<k>`, each required to have
+  run; k = 4 on the shipped file, both functionals on both rows, measured by running the section);
+  the shipped file passes, and the two mutants (annotation 91; King Wen as the G = 95 sequence)
+  fail.
+- *R18b — the published Moore-precursor witness was pinned by permutation, opening, C3 and slot
+  set only.* An in-place orientation flip of one edited pair passes all four; the new test asserts
+  C1 pairing, C2, C5 and zero parity/rhythm/gender violations, and shows that at least one such
+  flip that the older pins cannot see is rejected.
+- *R7 — the emitted rule clauses were exercised on King Wen only.* The import-time battery checks a
+  replica of the rule predicates against `solve.py` at King Wen and 300 permutations; the KW-pinned
+  targets exercise the emitted clauses at King Wen; the station arithmetic
+  (`base = st2 + 2 + c`) is hand-coded. A new test evaluates each rule family's emitted clauses
+  (unit propagation from the full Y assignment) on every public C1–C5-valid witness — the two Q7
+  witnesses, the 42 positional witnesses and King Wen — and requires agreement with the `solve.py`
+  scorer for all five rules (225 verdicts, all agree). Measured while building it: the offset mutant
+  `base = st2 + 4` agrees with the correct encoder on all 44 public non-KW witnesses too, because 43
+  of them violate CC-N4 under both offsets, so the public witness set cannot separate the mutant.
+  The test therefore also evaluates a constructed sequence — King Wen with its slot-30 palindrome
+  pair exchanged with slot 1, which moves a palindrome across the stations — on which the shipped
+  clauses reject (agreeing with `solve.reg_ccn4`) and the mutant accepts. The triage's expectation
+  that a public witness would separate the mutant was wrong; this is the corrected form.
+- *R6, K01-6, R11, R20a, R20b, R22 — docstrings.* `C3Decomposition.lean` no longer says the null
+  law is machine-checked "end to end": it is checked at the DP-law layer, with the DP-to-permutation
+  bridge proved at (2,1,5), (2,3,7), (3,1,7) only; its header now names `self_sum` and `quad_sum`,
+  the theorems that exist. `PruneExactness.lean` no longer cites "plain-vs-quotient agreement … to
+  n = 28" (the n = 24–28 comparison is quotient against quotient; plain-vs-quotient exists to
+  n = 16). `PruneGInvariance.lean`'s bridge-fact list now names solve.c's inert-couple convention
+  on truncated rungs (`cpartner[i] = -1` contributes 0; the model's `gStep` has no inert case).
+  `RecordConvention.lean` states the `hmem` hypothesis (every cell holding a variant of the key
+  exhausted) instead of "per-cell exhaustion", and its `dedup` docstring says it keeps the LAST
+  occurrence, as the definition does (`CompilerCorrectness.lean` likewise, and its stale sentence
+  that `RecordConvention.lean` "does not exist on this branch" is removed; its KB6 note now says
+  RFC-1950 zlib, not gzip; its `canonB` note cites the `[kc-scan]` F1_CHECK). `PruneReprFC.lean` no
+  longer calls the rejected C3-lower-bound prune "a genuine trap": the §5 predicate is
+  orientation-dependent and C3 is key-only, so the prune was rejected conservatively.
+  `Automorphism.lean`: ρ flips every non-palindromic pair (the 8 rev-palindromes are fixed).
+  `HammingOptimalMatching.lean`: solve.c has a static partner table, not a `partner()` function.
+  `PartitionInvariance.lean`: a depth-d cell is a (d+1)-byte prefix of the record (byte 0 is the
+  anchor). `TrigramTheorems.lean`: the within-pair distance census is 64 = 24 + 24 + 16, and §6
+  exercises the theorems it instantiates, not "each" theorem. `CompilerCorrectness.lean`'s KB4 note
+  (R9, the out-of-core reader gate) now ends with its status: not run as specified, the substitute
+  evidence on the published n = 31 ladders, and that evidence's disclosed limit for reader-side
+  corruption; TR-12 and `GT_LADDER_FORMAT.md` carry the same sentence (CX-232).
+
+**Guards.** `tests.py` gains sixteen tests (942 → 958): `TestSatEmittedClausesNonKW` (R7),
+`TestPublishedMoorePrecursorWitness.test_published_witness_is_in_super_and_satisfies_the_three_rules`
+(R18b), `TestSatRigidityValidateReadsTheClauses` (R18f), `TestSatVerifySeqChecksC1Pairing` (R18g),
+`TestSatKwExemptRescoreAgreesWithEncoder` (R18h), `TestSatCertifyCountRefusesStaleDnnf` (R18k, a
+fake `d4` on PATH), `TestLeanSourceCensusLeg` (R8, the real heredoc on a copy of `lean/` with the
+probe), `TestWitnessFileSelfDescriptionIsChecked` (R18a, the real §3b heredoc on the shipped file and
+two mutants) and `TestLsdRetiredLeanAndSatPhrases` (the retired docstring phrases, which the
+`RETRACTED_PHRASES` gate cannot see because it scans `*.md` only). Run against the unmodified
+`sat.py`, `verify_all.sh` and `lean/` of the base tree: 12 failures across the classes that test the
+code changes (R18f, R18g, R18h, R18k, R8, R18a, phrases); with the changes, all 18 of
+the new and modified tests pass in 43 s. The R7 and R18b tests carry their own mutants and are green
+on both trees by construction. No Lean toolchain, solver or compiler ran on the drafting host; the
+Lean leg (fifteen `LEAN_MODULE_*=PASS`, `LEAN_SOURCE_CENSUS=PASS n=0`, 193 allowlisted
+`#print axioms` reports) and the full `verify_all.sh` are the integrator's checks on the worker.
+
+## CX-232 — two published numbers corrected (an n=9 orbit count and the share of records below King Wen's C3), and statements about the Lean, SAT and DRAT layers scoped to what their proofs cover
+
+**2026-09-29.**
+
+**Source.** An adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT layers, triaged by
+Fable. Each finding below was re-checked against the tree before it was changed. This entry applies
+the findings the triage assigned to prose, comments, gates and the Python verifier. The companion
+change to the `.lean` files, `sat.py`'s encoder checks and `reports/certificates/verify_all.sh` is
+separate.
+
+**Two published numbers.**
+
+- **TR-12 §Q10, n = 9.** Old: 18 orbits of records, printed as 432/24. New: **72** orbits, each of size
+  6. On the 9-pair rung the 9 free pairs admit only 6 distinct pair actions, so the record-level action
+  is not free there, and 432/24 is not an orbit count. The exhaustive recount in the review gives the
+  record-orbit census {6: 72}. The freeness theorem `act_fix_id_or_rho` is a full-64 statement and
+  does not carry to reduced rungs. The HISTORY.md section of 2026-09-07 quotes the old figure; this
+  entry supersedes it. Key `RP-ed38f7f6`.
+- **documentation/SOLVE.md, King Wen's C3 of 776 on the 100T canonical.** Old: more than 99.999999 %
+  of canonical orderings below King Wen. New: **90.09 %** of the 3,432,399,297 records are strictly
+  below 776 (3,092,219,648), and the other **9.91 %** (340,179,649) tie with it at 776. None is above
+  it. Source: `runs/20260419_100T_d3_d128westus3/c3_min_output.log`, which counts 340,179,649 records
+  at the maximum. The old figure is about the share of records that are not at the minimum, 424
+  (99.99999356 %). An earlier review pass had recorded this sentence as cured, but the phrase had only
+  moved when the root-level documents moved to `documentation/`. Key `RP-4ac88b3c`.
+
+**Statements scoped to what backs them.** Wording only, unless the entry says otherwise. No count,
+digest, certificate or verdict token changed.
+
+- **The DIV-24 gate's attribution** (TR-12 §Q10 and §11's XA row, the XA-24 and Q10a rows of
+  `documentation/QUERY_INVENTORY.md`, `documentation/PREREG_CLASSA_QUERY_SET.md`, `lean/README.md` two sites,
+  `reports/TR5_SYMMETRY.md` §3, and the header that `scripts/tr12_repro.sh` prints for row
+  `c_xa_mod24`). The Lean theorems `twenty_four_dvd_*` prove 24 ∣ the length of a record-level
+  listing. The gate on the published sequence counts rests on TR-5's paper-proved free order-48
+  action, so 48 ∣ N. Per-layer masses are not G-closed (k = 1, 2, 3: 56, 3030 and 158364, which are 8,
+  6 and 12 mod 24). Key `RP-298182f1`.
+- **N/24.** It is the integer that 24 ∣ N guarantees and not an orbit count at either level (TR-12
+  §Q10, TR-11 §4, the N/24 line of `scripts/tr12_repro.sh`). `solve.c`'s two printed labels now name
+  the order-24 subgroup on oriented sequences and say that the value is twice the sequence-orbit
+  count. Keys `RP-ff7e2c0b`, `RP-c779ecbc` and `RP-b383b2a9`.
+- **The Q10 sidecar census** is a census of canonical masks by their G-orbit size, with the DP entries
+  each class carries. It is not a census of states: a mask's stabiliser can move `last`. At layer 31
+  the one full mask has orbit size 1, while its 32 entries fall into G-orbits of sizes 6, 6, 8 and 12.
+  The change covers TR-12 §Q10 and two lines of `scripts/tr12_repro.sh`. Keys `RP-b8b5c51f` and
+  `RP-cb4bb28b`.
+- **The C1∩C4 null law** is kernel-checked at the DP-law layer (`lean/README.md`,
+  the Q4-Gexact row of `documentation/QUERY_INVENTORY.md`). The bridge from the DP to a count over the 31!
+  pair-orders is kernel-proved at toy sizes only. Key `RP-d619d050`.
+- **The SAT encoding.** The two-way encoding validation narrows the encoding-fidelity gap but does not
+  close it. The clause arithmetic that the emitted families use is not machine-checked; it is tested
+  off King Wen by CX-231's emitted-clause test (the 44 public non-King-Wen witnesses and one
+  constructed sequence that separates the offset mutant), which these sentences now cite.
+  `lean/SatEncodingFidelity.lean` models the reduced-subset encoder, not the full-31 `build()`
+  (`reports/certificates/README.md`, TR-2 §2, `documentation/SAT_CLI.md`). The header rule "no
+  hand-written constraint semantics" is scoped to predicates in `sat.py`'s own docstring and in
+  `CLAUDE.md` as well. Keys `RP-34bd5a7c`, `RP-0ad9ca63` and `RP-6ce0ca08`.
+- **The Lean leg of `verify_all.sh`** (`lean/README.md`, the Q9 row of `documentation/QUERY_INVENTORY.md`). The
+  allowlist leg sees only theorems that have a `#print axioms` directive, and `KingWen.lean` had
+  none. `lean/README.md` now describes the source-census leg CX-231 added: what it screens, its
+  whole-line token `LEAN_SOURCE_CENSUS=PASS|FAIL n=<hits>`, and that it is a text screen, not a
+  kernel check. The Q9 row says that each theorem it names carries a directive (`KingWen.lean`'s were
+  added by CX-231) and that the census leg covers every module. Keys `RP-d7575141` and
+  `RP-f53c1f8f`.
+- **The equivariance ceiling** is proved for generators with rational output probabilities
+  (`lean/README.md`, TR-12 §11 Q9). Keys `RP-40edf51f` and `RP-3ab6a19d`.
+- **TR-2.** The conflict theorem is about the strict rule forms encoded here. Schulz's source form of
+  the gender rule allows one adjacent exception pair, and under it the fourth core does not arise
+  (keys `RP-630a8d4f` and `RP-bb46e763`). The fourth core's certificate refutes an exception-free
+  gender ordering under S25–28, and the locus 25/26 is checked by hand. The same change is made in
+  `reports/certificates/README.md` (key `RP-9be127c1`). The two Moore cores can be decided by hand from
+  the four pinned faces (key `RP-c9ff5d85`). The entry of 2026-09-02 in this file on the fourth
+  two-rule core makes the same two statements about the Moore cores and the certificate's locus; this
+  entry supersedes both there too. The §3 footprint of the Moore precursor now names its
+  third edit, an orientation flip of pair 22 in its new slot 22. Without that flip the ordering keeps
+  one rhythm break. The certificate directory holds 24 proofs today (key `RP-7d427bd3`).
+- **Three edits is a minimum, not an event** (TR-1 §4, `documentation/LITERATURE_RULES_POPULATION_TESTS.md`).
+  The grand-strict witness with slot 5 reversed also satisfies all three rules and C1–C5, and it is 4
+  slots from King Wen. The same document no longer places King Wen near a Pareto frontier that nothing
+  measured. TR-1's executive summary and its §4 heading called the grand precursor's repair a 3-edit
+  "event" too; they now call it a repair, a minimum distance. Keys `RP-8363f38d` and `RP-f8a9a422`.
+- **The minimal-repair and two-rule-core rows** cite their SAT witnesses beside their UNSAT
+  certificates (TR-12's claim ledger, `documentation/CLAIM_TO_ARTIFACT.md` row 8). The `grander_strict_near*`
+  certificates refute the five-rule union, so they do not back the Moore row.
+- **Recipes that could not run as written.** `kissat` exits 10 on SAT and 20 on UNSAT. So three
+  recipes that ran the checker or decoder after `kissat` with `&&` never reached it:
+  `documentation/CLAIM_TO_ARTIFACT.md` rows 6 and 7 and `reports/certificates/c3_positional_witnesses.txt`'s
+  header. They now use `;`. `documentation/LITERATURE_RULES_POPULATION_TESTS.md` reproduces King Wen
+  with `--witness plain` (key `RP-3307cfd6`). `documentation/TRIGRAM_STRUCTURE.md`'s recipe runs Lean
+  on `lean/TrigramTheorems.lean` from the repository root (key `RP-07562567`), because its next line
+  runs `solve.py`. The Python one-liner in `reports/evidence/q7_witnesses/README.md` takes the last
+  `SEQ=`, because the witness file's comment also contains one.
+- **Smaller scope and fact corrections.** `verify.c` shares no code with `solve.c` but does share one
+  premise, orbit–stabiliser weighting (`documentation/VERIFY.md`, `README.md`, `reports/METHODS.md`;
+  key `RP-d7e7612e`). The trigram functionals are invariant under the record-level S₃ (key
+  `RP-95211162`). Complementing every hexagram is not a symmetry under the oriented C4 (TR-5; key
+  `RP-b4953e0d`). The within-pair orientation of TG-5 is free (key `RP-cd93676b`). Complementing
+  preserves C3, which equals 776 only for King Wen (key `RP-071f7ba1`). The "any complement/reverse
+  pairing" extensions in TR-8 and SPECIFICATION.md are one-line corollaries of the canonical-partner
+  case that Lean proves. The C1 optimality row is scoped to complement/reverse matchings. The
+  literature-rule row cites the `_const` theorems with the transcription caveat. SOLVE.md's Rule 3
+  inference is statistical, not logical (key `RP-a80811cf`), and SOLVE.md now cites TR-12's direct
+  estimate `P(cd ≤ 387) = 0.120937`. `reports/certificates/README.md` gives the 100T minimum as G = 51
+  and the 560T minimum as G = 47 (key `RP-2ceadcb1`). Its rule-conflict scope sentence now excepts the
+  rigidity and `noY` proofs, and its pre-2026-09-02 row excepts the two `noY` proofs. The TR-12 and
+  GT_LADDER_FORMAT.md Verification sections state that the KB4 out-of-core reader gate
+  (`lean/CompilerCorrectness.lean`) was not run as specified, and they name its substitute evidence
+  and that evidence's disclosed limit. The run page for the n = 31 ladders gives the g layers'
+  magic, `F1C5GLY2` (key `RP-bb2bbe68`). Comments in `solve.c`, `verify.py`, `verify.c` and `sat.py`
+  are corrected as well, and `lean/CompilerCorrectness.lean`'s KB4 note carries the same status
+  sentence (CX-231). The manual recipe in `c3_positional_witnesses.txt` and the `--decode`
+  description in `documentation/SAT_CLI.md` name the C1 pairing, which `verify_seq` now checks
+  (CX-231); `SAT_CLI.md` says that `DRAT_CERTS_CHECKED` counts verified certificates, not attempts,
+  and that a model of a different formula is refused only when it falsifies a clause of the rebuilt
+  one, not on provenance; `reports/certificates/README.md` documents the witness-file tokens
+  `WITNESS_G95_LAYOUT` and `WITNESS_ANNOTATIONS_CHECKED`. There are eight reverse-palindromes, not four. The g ladder is stored on a
+  superset of the f-reachable domain. The G accumulator's equality with the Lean model is a bridge
+  fact. The repr C3 omission is harmless only on a C3-valid key. The full-31 B0 of `sat.py`'s port
+  differs from `BETWEEN_MULTISET`.
+
+**Behaviour changes, three.**
+
+- `verify.py --check-repr` refuses a torn trailing record with `CHECK_REPR=FAIL_partial_record` and
+  exit 2, the token `verify.c` already printed. Before this change it stopped at the short read and
+  reported PASS on the records before it.
+- Row `a2_q7_ranks` of `scripts/tr12_repro.sh`, which runs at n = 31 only, fails when it has read
+  fewer than two `q7_*.json` certificates. Before this change it passed with none.
+- `sat.py`'s `--f1-pairs` refusal names its own table and no longer says that no union exists.
+
+**Evidence left as it is.** The banked n = 31 receipts
+`reports/evidence/tr12/banked_n31_20260922/c_q10a.txt` (lines 1–2 and 5) and
+`c_q10a_20260922_asrun.txt` keep the old labels, the state census and the orbit identity, as run.
+The committed n = 9 goldens `scripts/tr12_expected/n9/c_q10a.txt` and `c_xa_mod24.txt` carry the new
+header text, and `_MANIFEST.txt` carries their new hashes.
+
+**Guards.**
+
+- GATE 93 (`scripts/doc_gates.sh lsd-text`, new) has 29 legs. Retired wordings must be absent from
+  `scripts/tr12_repro.sh`, its golden, `solve.c`, `sat.py`, `CLAUDE.md`, TR-1 and the run page.
+  Scoping clauses, citations and verdict-token names must be present on the lines that need them. No
+  `kissat … &&` recipe may remain. TR-2's certificate count must equal the directory. With
+  `DOC_GATE_LSD_REF=b0abe4e5` every leg fails; the twelve legs that pin the prose to CX-231's code
+  also fail on the tree that carried CX-231 before this entry's reconciliation; on this tree every leg
+  passes.
+- GATE 38 has a second leg: a sentence that cites `twenty_four_dvd_*` for N, a flow, a walk, |SUPER|,
+  a layer count or the gate must name the record level or the paper layer. Restoring the five
+  pre-change files makes it fail at four sites.
+- There are 33 new rows in RETRACTED_PHRASES.tsv under the keys above. None of them exempts the file
+  it corrects: as first entered, thirty named that file in their allow column, which left each row
+  blind at its own site; GATE 3 passes with those exemptions removed.
+- `TestLsdTextFixes` in tests.py pins the full-31 B0 divergence, the 4-edit compliant witness, and the
+  torn-record refusal. The torn-record test gave PASS and rc 0 before the fix. A second test,
+  `test_ctl_repr_partial_record_is_rejected_by_both`, requires `verify.py` and `verify.c` to print
+  the same verdict on the same torn artifact.
+
+**The banked n=31 receipts (2026-09-29).** The Q10(a) row's two corrected labels (the MASK census; N/24 not an orbit
+count) changed the row's output text. The as-run receipt `c_q10a_20260922_asrun.txt` is evidence and is unchanged;
+`check_receipts.sh` now maps exactly those two label strings back before its byte comparison, so any other change to
+the row still fails, and `c_q10a.txt` (the current-code reproduction) was regenerated with the script's own
+`--emit-c-q10a`; it differs from the previous copy in those two lines only. `SHA256SUMS` and the bundle README follow.
+
+**The Q7 ranks parse gate (2026-09-29).** `a2_q7_ranks` now fails when it reads fewer than two certificates (R18c).
+`scripts/q7ranks_parse_gate.sh` fed its extracted row one certificate per leg, so legs 2, 6 and 8 went red; each leg
+now also gets one OUT companion certificate, as the real battery does (KW plus the historical OUT arrangements), and
+a new leg 9 feeds exactly one certificate and requires `Q7RANKS_FAIL … witnesses_processed=1<2`
+(`Q7RANKS_PARSE_LEGS=9`).

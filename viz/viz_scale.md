@@ -5,7 +5,7 @@
 > computation, no ladder read, and no VM. This page is the spec, per the doc-per-figure convention —
 > it exists so that drafting does not improvise the caption, which is where this particular figure
 > can most easily mislead. ⚠ *(corrected 2026-09-23: the title carried "PLAN ROW, not yet drawn" and
-> this block read "planned, zero-dollar, not drafted" — by that date the figure was on disk, so the
+> this block read "planned, [cost redacted], not drafted" — by that date the figure was on disk, so the
 > page described an undrawn plan for a figure that already existed.)*
 > ⚠ *(noted 2026-09-24: "on disk" meant the generator's working directory — no rendered file was in
 > the repository tree. It is now rendered to `reports/figures/viz_scale.{png,svg}` (committed

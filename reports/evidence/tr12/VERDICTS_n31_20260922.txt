@@ -48,7 +48,7 @@ TR12_Q2D_REASON=same bound as a1_q2c: at n=31, in-order enumeration does not rea
 TR12_Q1B=PASS
 TR12_V3_TSV=PASS
 TR12_Q5=SKIP:wave3-not-budgeted
-TR12_Q5_REASON=wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, $40–80 each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:35868) and an n=31 f ladder always opens out-of-core (:20657), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate.
+TR12_Q5_REASON=wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, [cost redacted] each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (solve.c:35868) and an n=31 f ladder always opens out-of-core (:20657), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate.
 TR12_GSHA=SKIP:banked-pre-scan
 TR12_GSHA_REASON=the pre-scan (--no-scan) run already took this ladder's digests under the same binary and the same universe; re-running a multi-day pass in the post-scan --atlas run buys no new information (PD-4)
 TR12_GIDENT=SKIP:banked-pre-scan

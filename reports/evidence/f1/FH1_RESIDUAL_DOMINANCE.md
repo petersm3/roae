@@ -180,9 +180,9 @@ reproducing |C1C2C4| exactly with C5 disabled ((7.5706e41 anchor), (ii) reduced-
 against this instrument's Python totals, (iii) 3 CRT residues CRT-reconstructed and cross-checked
 against the 1.3287e38 ±0.02% estimator value. Hardware: Standard (not Spot) M-series for the
 in-RAM route — mid-layer eviction loses ~hours of uncheckpointed gather unless out-of-core
-spooling is built anyway. Cost estimate (scoped, ±2x): M128s ~13 $/h on-demand westus3; edges
+spooling is built anyway. Time estimate (scoped, ±2x): M128s on-demand; edges
 1.0–1.7e13/pass, memory-latency-bound ~1–2e9 edge/s aggregate → 2–5 h/pass, 3 passes + overheads
-≈ 8–24 h ≈ **$100–320**; the out-of-core D64+NVMe route ≈ $30–80 but +days of implementation.
+≈ 8–24 h; the out-of-core D64+NVMe route is cheaper but +days of implementation.
 Per feedback_cost_awareness this needs operator sign-off either way.
 
 **Caveats (honest).** (1) f is extrapolated from n=16–18 group-closed unions whose inter-pair

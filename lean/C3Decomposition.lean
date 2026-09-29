@@ -14,11 +14,11 @@
       8 self-complement pairs (partner h = h ⊕ 63) and 12 cross-couples of two
       distinct pairs (`pairs_partition`, `selfReps`/`crossReps`);
   (b) each self-complement pair contributes exactly 2 (its two members sit in
-      adjacent positions 2s, 2s+1), giving the constant 8 · 2 = 16 (`self_couple_sum`);
+      adjacent positions 2s, 2s+1), giving the constant 8 · 2 = 16 (`self_sum`);
   (c) each cross-couple's four hexagram-level distances collapse to 8 · |slot(u) −
       slot(v)| INDEPENDENT of the two pairs' orientations — the orientation bits
       cancel because |2s+e₁ − (2t+e₂)| + |2s+(1−e₁) − (2t+(1−e₂))| = 4|s − t|
-      whenever s ≠ t (`quad_collapse`, `cross_couple_sum`).
+      whenever s ≠ t (`quad_collapse`, `quad_sum`).
   Main theorem: `c3_slot_decomposition`. Orientation-independence is manifest in the
   statement (the right side mentions only slots) and is pinned down separately by
   `slot_orientation_free` (a hexagram and its pair-partner share a slot).
@@ -45,7 +45,9 @@
 
   Added 2026-07-24 — THE C1∩C4 NULL G-LAW (final section): the exact distribution
   of G = c3slot over the 31! equally-weighted C1∩C4 pair-orders, machine-checked by
-  the KERNEL end to end (`decide +kernel`; no native_decide): the full 217-bin
+  the KERNEL at the DP-law layer (`decide +kernel`; no native_decide; the
+  DP-to-permutation bridge `nullHist_matches_brute_*` is proved at (2,1,5),
+  (2,3,7), (3,1,7) only — lean/README.md § null law, note of 2026-08-30): the full 217-bin
   histogram as a literal (`null_law`), total mass = 31! (`null_total`), support
   exactly [12, 228] with closed-form endpoint counts, E[G] = 128 exactly hence
   E[C3] = 1040 (`null_mean_128`, `null_c3_mean_1040`), and P(G ≤ 95) =
@@ -1002,3 +1004,9 @@ ALLOWLIST: any axiom token outside [propext, Classical.choice, Quot.sound] fails
 #print axioms C3Decomposition.null_mass_le_95
 #print axioms C3Decomposition.null_p_le_95
 #print axioms C3Decomposition.null_p_le_95_lowest_terms
+
+-- Trust-base audit directives (2026-09-29, Codex LSD R8): one `#print axioms` per theorem of this
+-- module that a public document cites by name, so reports/certificates/verify_all.sh leg (B)
+-- (every stdout line an allowlisted axiom report) screens them; the source-census leg (C)
+-- screens the rest. ALLOWLIST: [propext, Classical.choice, Quot.sound].
+#print axioms C3Decomposition.kw_walkCd_387

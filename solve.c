@@ -677,8 +677,8 @@ static int pair_index_of(int x, int y) {
  * 776, not any percentile.
  *
  * Note: SPECIFICATION.md contains a documentation error stating |C| = 60.
- * That number would correspond to excluding the 4 rev-palindromic hexagrams
- * {0, 21, 42, 63}, but `comp` is not used as their partner in this sum —
+ * That number would correspond to excluding 4 hexagrams; there are 8 rev-palindromes: 0,12,18,30,33,45,51,63
+ * (21 and 42 are a rev-pair, not palindromes), but `comp` is not used as their partner in this sum —
  * they still contribute normally. The correct divisor is 64. */
 static int compute_comp_dist_x64(const int seq[64]) {
     int pos[64] = {0};  /* Q-836: was uninitialised; a record that repeats a hexagram leaves pos[v] unset for every v it omits, so --verify read stack garbage and its C3 count drifted run to run (3843/2722/... on one 4,000-record witness). 0 = verify.py compute_comp_dist, so the two verifiers now agree on invalid records; permutations are unaffected */
@@ -4272,7 +4272,7 @@ static void snapshot_solve_binary(void) {
 /* Auto-selftest pre-flight (2026-05-26). For canonical-scale runs
  * (SOLVE_NODE_LIMIT >= 1T), fork `solve --selftest` and verify it passes
  * BEFORE doing any expensive work. Catches compile-toolchain regressions
- * before $50+ of compute is wasted on a binary that produces non-canonical
+ * before a campaign's compute is wasted on a binary that produces non-canonical
  * output. Sha-neutral; just spawns a subprocess to validate the canonical
  * selftest sha `403f7202…`. Override: SOLVE_SKIP_AUTO_SELFTEST=1.
  *
@@ -14769,7 +14769,7 @@ static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
         char qdec[64];
         f1_dec(q, qdec);
         printf("F1 EXACT |C1 & C2 & C4| = %s\n", tdec);
-        printf("  N / 24 (S4-orbit count) = %s\n", qdec);
+        printf("  N / 24 (orbit count of the order-24 subgroup on oriented sequences; = 2x the G48 sequence-orbit count) = %s\n", qdec);
         printf("  vs Knuth estimator 7.571e41 (+/-0.01%%): ratio = %.6f\n",
                f1_to_double(&total) / 7.571e41);
         printf("F1 EXACT: DONE (%.1fs)\n", omp_get_wtime() - T0);
@@ -14908,7 +14908,7 @@ static void f1c5_budget_free(F1C5Budget *B) {
  * canonicalization, and the partner table is the same static table in
  * canonical coordinates. (The prefix-G g48-invariance lemma LANDED 2026-07-22
  * as `runningG_mapP` / `runningG_orbit_invariant` in lean/PruneGInvariance.lean
- * §9, so this is machine-checked, not bridge-carried. It is no longer promised
+ * §9, so the INVARIANCE is machine-checked for the Lean model's runningG; the EQUALITY of this accumulator with that model — including this code's inert-couple convention on truncated rungs (cpartner[i] = -1 contributes 0, where the model's gStep has no inert case) — remains a bridge fact listed as NOT machine-checked in PruneGInvariance.lean § Bridge facts. It is no longer promised
  * in the design's Sec 2.5 nor pending in PruneExactness.lean.)
  *
  * THIS MODE IS UNCAPPED: no G-prune (`g_prune_sound`/`g_prune_exact` cover a
@@ -19245,7 +19245,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             char qdec[64];
             f1_dec(q, qdec);
             printf("F1C5 EXACT |C1 & C2 & C4 & C5| = %s\n", tdec);
-            printf("  N / 24 (S4-orbit count) = %s\n", qdec);
+            printf("  N / 24 (orbit count of the order-24 subgroup on oriented sequences; = 2x the G48 sequence-orbit count) = %s\n", qdec);
             /* 🔴 Q-366(B): this divided the C3-FREE exact |C1&C2&C4&C5| by the C3-INCLUSIVE
                |C1-C5| flagship estimate 1.3287e38 -- two different objects -- and printed
                ratio = 8.256576 where TR-11 section 9 publishes 0.999956. The correct comparand is
@@ -19621,7 +19621,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                                * (raised 16->22 for the mid-n harness; n=21/22 are the largest
                                * orbit-realizable unions below 24). The full-31 SUBSTRATE is a
                                * preserve-all-layers production run (SOLVE_F1_KEEP_LAYERS=1
-                               * --f1-out-of-core, Stage F, ~$75-105) — --kc-build stays capped.
+                               * --f1-out-of-core, Stage F) — --kc-build stays capped.
                                * The orchestrator-LIGHT ceiling within this cap is MEASURED, not
                                * assumed — see scripts/kc_midn_validate.sh + the full-build plan. */
 
@@ -20753,7 +20753,7 @@ static F1U192 kc_flookup(const KC *kc, int k, uint32_t m, int last, uint32_t rid
 }
 
 /* ---------- the g-side query boundary (domain-guarded) ----------
- * The g ladder is stored ONLY on the f-reachable domain: keys whose `last` is
+ * The g ladder is stored on a superset of the f-reachable domain (GT_LADDER_FORMAT:150-162); the f-reachable keys are those whose `last` is
  * an element of one of m's pairs (the anchor at the empty mask) — see the
  * Stage-G module header, "STORED DOMAIN". g is mathematically well-defined at
  * other `last` values too, but those states are never stored, so a raw
@@ -36986,8 +36986,8 @@ static int kc_witness_walks_selftest(void) {
  * TR-12 §8 item 7 / Q5: "min/max of a shortlisted G-invariant walk functional
  * over the C1&C2&C4&C5 SUPERSPACE, with an explicit witness walk". This is the
  * instrument; the FULL-31 RUN IS A SEPARATE OPERATOR DECISION — TR-12 §7 rules
- * Q5 wave 3, DEFERRED and NOT BUDGETED (~$40-80 per functional). Building and
- * gating it at n=9 costs $0; nothing here authorizes a run.
+ * Q5 wave 3, DEFERRED and NOT BUDGETED (one Stage-F-shaped pass per functional). Building and
+ * gating it at n=9 is a local run; nothing here authorizes a run.
  *
  * WHAT IT COMPUTES. For a functional that is EDGE-ADDITIVE on the compiled DP
  * graph,
@@ -41175,9 +41175,9 @@ int main(int argc, char *argv[]) {
          *   5. Exit 0 on match, 33 on mismatch (with host-fingerprint deltas if
          *      a reference fingerprint is present in $SOLVE_REFERENCE_FINGERPRINT)
          *
-         * Why: cheap pre-flight gate before $100+ canonical campaigns.
-         * 11.2T gate at $5/5h catches a wrong build or a wrong per-cell budget
-         * before it would invalidate a 560T campaign at $200+/5days. See
+         * Why: cheap pre-flight gate before canonical campaigns.
+         * An 11.2T gate (~5h) catches a wrong build or a wrong per-cell budget
+         * before it would invalidate a multi-day 560T campaign. See
          * x/roae/TASK_110_CANONICAL_DETERMINISM_HARDENING_ROADMAP_2026_05_27.md.
          *
          * Scale recommendations:
@@ -41190,7 +41190,7 @@ int main(int argc, char *argv[]) {
          *            Eight independent build/host paths reproduce it
          *            byte-identically, including an ARM Neoverse-N2 rebuild.
          *   - 100T:  overkill for routine; reserve for "the campaign
-         *            costs $200+ so I'll pay $15 to be sure."
+         *            runs for days, so a ~16h check is worth it."
          */
         if (argc < 4) {
             fprintf(stderr, "Usage: ./solve --validate-canonical <expected-sha256-64-hex> <scale>\n");
@@ -43770,8 +43770,8 @@ int main(int argc, char *argv[]) {
 
         /* (b) C1 pair-partner relationship: for each pair (KW[2i], KW[2i+1]),
          * the second is the "partner" of the first, where:
-         *   partner(h) = rev(h)   if rev(h) != h  (60 rev-asymmetric hexagrams)
-         *   partner(h) = comp(h)  if rev(h) == h  (4 rev-palindromes: 0,21,42,63)
+         *   partner(h) = rev(h)   if rev(h) != h  (56 rev-asymmetric hexagrams)
+         *   partner(h) = comp(h)  if rev(h) == h  (8 rev-palindromes: 0,12,18,30,33,45,51,63 (21 and 42 are a rev-pair, not palindromes))
          * Previously the check only verified uniqueness — a KW[] typo that
          * swapped a partner for a non-partner hexagram would pass (a,b,c,d...)
          * provided uniqueness held, and silently break every subsequent claim. */

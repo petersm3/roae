@@ -137,7 +137,7 @@ numeric matrix. The plotting step pivots `p` into a 32×31 array and never re-de
 
 ## Generation
 
-**Rehearsal at n=9 (sub-second, runs today, $0):**
+**Rehearsal at n=9 (sub-second, runs today, local):**
 
 ```bash
 # run from the repository root (solve.c and solve.py live there)

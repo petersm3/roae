@@ -2146,6 +2146,37 @@ for f in corpus():
             continue
         print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), " ".join(m.group(0).split())[:150]))
 print("POP\t%d mod-24 divisibility claim(s); %d retired-wording copy(ies) exempt as quoted, %d as narration" % (pop, ex_quoted, ex_narr))
+# LEG 2 — ATTRIBUTION (CX-232, 2026-09-29; the LSD review's R4 / K01-2, triaged by Fable). A sentence
+# that cites the Lean `twenty_four_dvd_*` theorems for a divisibility claim about N, a flow, a walk,
+# |SUPER|, a layer count or the gate itself must say that the theorems are RECORD-level, or that
+# the sequence-level gate rests on the PAPER-PROVED order-48 action. Those theorems count `SolRec`
+# listings; the published counts are orientation-explicit sequences (lean/README.md, the 2026-08-30
+# note). Unit: the flattened sentence around each citation in *.md, the line in
+# scripts/tr12_repro.sh (which prints the gate's own header). Measured before shipping, by restoring the
+# five b0abe4e5 files into the fixed tree: this leg fires at PREREG_CLASSA_QUERY_SET.md:127,
+# TR12_QUERY_PROGRAM.md:2152, TR5_SYMMETRY.md:159 and tr12_repro.sh:3031; on the fixed tree it fires
+# nowhere. QUERY_INVENTORY.md:278's old wording is not caught by this sentence unit; a
+# RETRACTED_PHRASES.tsv row carries that site.
+AOBJ = re.compile(r'\bflows?\b|\bwalks?\b|\|SUPER\||layer count|\bN\b|\bgate\b')
+AOK = re.compile(r'record[- ]level|paper-proved|\b48\b', re.I)
+ANARR = re.compile(r'CORRECTED 20\d\d|this read|\bBEFORE\.|RETIRED|withdraw|RP-[0-9a-f]{8}', re.I)
+apop = 0
+for f in corpus() + ['scripts/tr12_repro.sh']:
+    t = read(f)
+    if t is None: continue
+    if f.endswith('.sh'):
+        units = [(i + 1, l) for i, l in enumerate(t.split("\n"))]
+    else:
+        flat, starts = flatten(t)
+        units = [(lno(starts, m.start()), sent(flat, m.start(), m.end())) for m in re.finditer(r'twenty_four_dvd', flat)]
+    for n, u in units:
+        if 'twenty_four_dvd' not in u: continue
+        apop += 1
+        if AOBJ.search(u) and not AOK.search(u) and not ANARR.search(u):
+            print("AHIT\t%s\t%d\t%s" % (f, n, " ".join(u.split())[:150]))
+print("POP\t%d twenty_four_dvd citation(s) checked for their record-level / paper-layer attribution" % apop)
+if apop < 5:
+    print("ERROR\tonly %d twenty_four_dvd citation(s) found (floor 5) - the attribution leg is measuring nothing" % apop)
 if pop < floor:
     print("ERROR\tonly %d mod-24 divisibility claim(s) in the corpus (floor %d) - the class has been reworded out of this gate's reach and it is measuring nothing" % (pop, floor))
 PY
@@ -2161,10 +2192,16 @@ PY
              echo "         RECORD-LEVEL set. Sequence-level counts sit in orbits of 48, and the"
              echo "         C6/C7-pinned layer has no free action at all (METHODS.md:75, 'N/A under pins')."
              rc=1 ;;
+      AHIT)  echo "  [FAIL] $a:$b cites twenty_four_dvd_* for a sequence-level count without its level"
+             echo "         $c"
+             echo "         Those theorems are RECORD-level (SolRec listings). Say so, or say the gate on"
+             echo "         the published counts rests on the paper-proved order-48 action (CX-232)."
+             rc=1 ;;
     esac
   done < <(printf '%s\n' "$out")
   [ "$rc" -eq 0 ] || return 1
   echo "  [ok] every mod-24 divisibility claim carries the restriction the theorem quantifies over"
+  echo "  [ok] every twenty_four_dvd_* citation for a sequence-level count names its level (CX-232)"
   return 0
 }
 

@@ -424,3 +424,24 @@ theorem kw_c1ok : c1ok KW = true := by decide
 theorem kw_perm : KW.Perm (List.range 64) := by decide
 
 end C1RuleConstants
+
+-- Trust-base audit directives (2026-09-29, Codex LSD R8): one `#print axioms` per theorem of this
+-- module that a public document cites by name, so reports/certificates/verify_all.sh leg (B)
+-- (every stdout line an allowlisted axiom report) screens them; the source-census leg (C)
+-- screens the rest. ALLOWLIST: [propext, Classical.choice, Quot.sound].
+#print axioms C1RuleConstants.within_double
+#print axioms C1RuleConstants.mmt4CompViol_inv
+#print axioms C1RuleConstants.p1c4Viol_inv
+#print axioms C1RuleConstants.s1CompViol_inv
+#print axioms C1RuleConstants.s6WithinViol_inv
+#print axioms C1RuleConstants.r3Viol_inv
+#print axioms C1RuleConstants.r5Viol_inv
+#print axioms C1RuleConstants.p1c4Viol_r3Viol_false
+#print axioms C1RuleConstants.mmt4_const
+#print axioms C1RuleConstants.p1c4_const
+#print axioms C1RuleConstants.s1_const
+#print axioms C1RuleConstants.s6_const
+#print axioms C1RuleConstants.r3_const
+#print axioms C1RuleConstants.c2_hist_const
+#print axioms C1RuleConstants.r5_const
+#print axioms C1RuleConstants.kw_c1ok

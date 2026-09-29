@@ -339,6 +339,12 @@ predecessors) and, for t, `+1` added per stored state; it requires the
 hexagram lifts of the canonicalizing group elements, with the same
 harmless-tie caveat noted there.
 
+**OOC reader gate (KB4).** `lean/CompilerCorrectness.lean` (KB4) requires the V1 gates to be rerun
+against the real v2 out-of-core reader at n = 24, 27 and 28 before full-31 claims; the TR-12 battery's
+reader gate is a named skip at n = 31 (`TR12_OOCVERIFY=SKIP:no-in-memory-reference-above-n22`,
+[`reports/evidence/tr12/VERDICTS_n31_20260922.txt`](../reports/evidence/tr12/VERDICTS_n31_20260922.txt) line 5). Status 2026-09-29:
+not run as specified. Substitute evidence on the published n = 31 ladders: N re-derived by the independent inclusion–exclusion engine (verify.c --ie-count, exact match), the per-layer f·g = N cut identity executed on every layer during the g build, and out-of-core ≡ in-RAM agreement to n = 28; the limit of that evidence for reader-side corruption is disclosed (VERDICTS F2_GCHECK_DETECTS=NO).
+
 ## What is convention vs derivable
 
 **Pure conventions, published here:** the three-way kind→magic/prefix map;

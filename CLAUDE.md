@@ -125,11 +125,11 @@ positives on whitespace / comment-only edits.
 
 **The cost concern behind the blanket rule was real but aimed at the wrong target.** What accumulated cost was *forgotten* VMs, not Regular *pricing*. So the requirement is: **pair every VM create or start with a teardown plan in the same breath**, and stand it down when the job ends. That is what prevents the overspend; blanket-Spot only made the rule unfollowable, which is why it was not followed.
 
-Spot pricing references (D-als-v7 family, westus3):
-- D128als_v7: ~$5.146/hr on-demand → ~$0.95/hr Spot (~85% discount)
-- D64als_v7: ~$2.59/hr on-demand → ~$0.50/hr Spot
-- D32als_v7: ~$1.30/hr on-demand → ~$0.30/hr Spot
-- D16als_v7: ~$0.50/hr on-demand → ~$0.12/hr Spot
+Spot SKU references (D-als-v7 family, westus3):
+- D128als_v7: 128 vCPU, 256 GB RAM; Spot runs at a steep discount to on-demand (~85%)
+- D64als_v7: 64 vCPU, 128 GB RAM
+- D32als_v7: 32 vCPU, 64 GB RAM
+- D16als_v7: 16 vCPU, 32 GB RAM
 
 **Mandatory pre-launch verification gate (EVERY time, for any workload >1 hour):**
 
@@ -392,7 +392,10 @@ Why: single source of truth, one compile target, one test matrix, no
 dependency sprawl. The canonical source files are `solve.c` (enumeration,
 sha-anchored), `solve.py` (analysis + ground truth), and `sat.py` (SAT/
 certificate layer, operator-approved 2026-07-02; imports solve.py and must
-contain NO hand-written constraint semantics — see its header). They stay
+contain no hand-written constraint *predicates* — rule predicates and constants
+come from solve.py, while the clause arithmetic that places them (station
+offsets, gender stations) is sat.py's own and is tested, not derived: CX-232,
+Codex LSD review row R7; see its header and SAT_CLI.md). They stay
 that way; SAT work goes in `sat.py`, not new files.
 
 **The INDEPENDENCE exception — `verify.py` and `verify.c` (operator-approved

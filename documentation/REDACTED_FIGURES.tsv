@@ -15,7 +15,8 @@
 #   (a dollar sign, a number, an optional K or M, an optional dash and second number; trailing
 #   full stops and commas dropped), hashes it, and writes "[withdrawn figure redacted]" in the
 #   text column of documentation/CORRECTIONS_INVENTORY.tsv wherever the digest is listed here.
-#   The row id is computed before the redaction, so no published id changes.
+#   The row id is computed before the redaction, so no published id changes. Every other dollar figure in that
+#   column takes "[cost redacted]" instead (CX-230, 2026-09-29).
 #
 # SCOPE: only cost figures a report has withdrawn and redacted. A figure that was withdrawn but
 # may still be quoted beside a marker belongs in WITHDRAWN_FIGURES.tsv, not here.

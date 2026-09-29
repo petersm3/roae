@@ -95,8 +95,8 @@ Any failed check exits non-zero; a parity violation still prints the figures, th
   - Chunking made the run eviction-tolerant: an eviction loses at most one ≈3.5-minute chunk.
 - **Pooling.** Every chunk has the same probe count, so the pooled estimate is the mean of the 20 chunk
   estimates and the pooled SE is √(Σ seᵢ²)/20.
-- **Run.** 2026-09-24, 18:52Z → 22:27Z. The 60 chunks total 12,686 s of wall time, at about $2 of
-  Spot time.
+- **Run.** 2026-09-24, 18:52Z → 22:27Z. The 60 chunks total 12,686 s of wall time on
+  Spot capacity.
 
 ## Reproduce
 

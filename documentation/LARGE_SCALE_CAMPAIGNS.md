@@ -147,11 +147,11 @@ same regardless of VM count (D-als-v7 spot pricing is near-linear
 in cores). What VM count buys you is **wall time** and **eviction
 redundancy**.
 
-| VMs | Aggregate cores | Wall (560T) | Cost | Eviction blast |
-|---|---|---|---|---|
-| 1 × D64 | 64 | ~5.6 days | ~$60 | one VM eviction halts campaign |
-| **2 × D64** (recommended for 128-vCPU spot quota) | 128 | **~3.4 days** | ~$80 mid | redundant — one VM evicts, other progresses |
-| 4 × D64 (needs 256-vCPU quota) | 256 | ~1.7 days | ~$80 mid | best |
+| VMs | Aggregate cores | Wall (560T) | Eviction blast |
+|---|---|---|---|
+| 1 × D64 | 64 | ~5.6 days | one VM eviction halts campaign |
+| **2 × D64** (recommended for 128-vCPU spot quota) | 128 | **~3.4 days** | redundant — one VM evicts, other progresses |
+| 4 × D64 (needs 256-vCPU quota) | 256 | ~1.7 days | best |
 
 These rows are the 2026-05 **forecast** for the 560T campaign, kept as the
 worked plan; §14 sets them beside what the campaign actually took — 171.5 h of
@@ -288,7 +288,7 @@ Apply this formula:
 total_node_budget    = 56_branches × per_branch_budget   (e.g., 56 × 10T = 560T)
 aggregate_throughput = num_VMs × 64 × per_thread_rate    (use the rate from §2c)
 wall_seconds         = total_node_budget / aggregate_throughput
-cost                 = num_VMs × wall_hours × spot_$/hr   (D64 spot ~$0.50/hr in westus3 as of 2026-05)
+vm_hours             = num_VMs × wall_hours
 ```
 
 Always **quote a range, not a point**: per-thread rate varies
@@ -375,7 +375,7 @@ irrelevant for a plumbing test whose sha nobody reads.
 **Run this on each campaign VM before launching the actual
 canonical-budget enum.** Wall: ~5 minutes. Cost: trivial. If it
 fails, you've caught a deployment / env / disk / binary
-issue at $0 cost instead of mid-canonical at $30+ wasted.
+issue at trivial cost instead of mid-canonical after hours of wasted compute.
 
 The smoke test is intentionally tiny (depth-2, 100M nodes, 8
 threads) so it runs in minutes regardless of VM size.
@@ -400,7 +400,7 @@ the global merge once all VMs report completion.
    independently from the others; the orchestrator only joins them
    at merge time.
 3. **Verify the binary at every entry.** Stale binary on the VM
-   cost the validation campaign ~$8 of wasted spot time. Always
+   wasted spot time on the validation campaign. Always
    md5-check the binary before doing any work.
 4. **Append-only logs, atomic markers.** Done markers are
    `touch`-ed only after the work succeeds AND the sha file is
@@ -1146,7 +1146,7 @@ finishes without a full re-enumeration:
 |---|---|---|
 | Constraint set used during the walk | Walk pruning eliminated orderings excluded by the original constraints; you cannot recover them from solutions.bin. | Full re-enumeration with the new constraint set. |
 | Per-sub-branch budget | Cells that hit BUDGETED status weren't fully explored. | Asymmetric extension on those cells with higher budget. |
-| Whether near-miss orderings (failed C5 by ≤ N swaps) were captured | C5 is a running transition budget, not a final check: an ordering is pruned at the first transition that exceeds it, so no failed-C5 ordering reaches depth 32, and none is captured. | Full re-enumeration with a "drop C5 final check" mode (~$200-500 at moderate scale). |
+| Whether near-miss orderings (failed C5 by ≤ N swaps) were captured | C5 is a running transition budget, not a final check: an ordering is pruned at the first transition that exceeds it, so no failed-C5 ordering reaches depth 32, and none is captured. | Full re-enumeration with a "drop C5 final check" mode. |
 
 Decide these before launch — cost of wrong decisions is full
 re-runs, not incremental fixes.
@@ -1280,8 +1280,8 @@ For any campaign producing a sha you intend to publish:
 6. **Archive `solutions.bin` + `solutions.sha256` + all side-
    metadata + all shards + all `dfs_state` files + the locked
    binary** to cold storage (Azure Standard_LRS HDD is fine).
-   Cost: ~$0.045/GB-mo. For a 200 GB shard pile + 50 GB output
-   = ~$11/mo.
+   Size it for a 200 GB shard pile + 50 GB output
+   ≈ 250 GB in all.
 7. **Document the campaign** with a follow-up post-mortem (or
    methodology doc) describing what went wrong, what surprised
    you, and what cost-and-wall actually came in vs estimate.
@@ -1587,7 +1587,7 @@ plan's usefulness as a template is mostly in where it was wrong.
 | Merge VM | ~~D64 (likely sufficient with ~180 GB RAM); fallback D128~~ | **D16als_v7 (32 GB), external chunked-sort on Premium scratch** |
 | Merge wall | ~~~2 hr~~ | **18 h 42 m** — ~9× the estimate |
 | Solutions | ~~1.2–1.5 B (estimated)~~ | **10,525,271,997** — 7–9× the estimate |
-| Cost | ~$110 mid, $85–165 range | not recorded here; the wall overruns above make the planned range unreliable |
+| Cost | [cost redacted] | not recorded here; the wall overruns above make the planned range unreliable |
 
 ⚠ Three of these rows were corrected on 2026-09-01 rather than merely updated,
 because they were wrong as *planning inputs*, not just as forecasts: "31

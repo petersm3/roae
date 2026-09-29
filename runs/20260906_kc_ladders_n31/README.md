@@ -53,7 +53,7 @@ to that layer, which is the point of a per-layer registry rather than one digest
 ## Which digest, and why there are two
 
 **These are RAW-FILE digests — sha256 of each file exactly as stored.** The layer container holds
-per-block RFC-1950 zlib internally (`F1C5LAY2` for f and g, `F1C5TLY2` for t), but there is **no
+per-block RFC-1950 zlib internally (`F1C5LAY2` for f, `F1C5GLY2` for g, `F1C5TLY2` for t), but there is **no
 outer wrapper, nothing is `.gz`, and nothing was re-compressed at archive time.** There is nothing
 to uncompress before hashing. See `documentation/F1C5_LAYER_FORMAT.md` and
 `documentation/GT_LADDER_FORMAT.md` for the container specification.

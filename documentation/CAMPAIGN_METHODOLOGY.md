@@ -904,7 +904,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | Merge wall | **18 h 42 m** (single external chunked-sort pass, 250+ sort chunks) |
 | `solve --verify` | **PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates.** The same run additionally REPORTED that the King Wen sequence is present; that is a true measured observation about the artifact and is not part of the PASS verdict. ⚠ **[CORRECTED 2026-09-07 — this row read "PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates, King Wen sequence found", running the King Wen observation into the verdict clause as though `--verify` enforced it.** It does not: `kw_found_v` is printed (`King Wen found:` and the machine-readable `KW_PRESENT=YES\|NO`) and enters `total_fail` only via `fail_kw`, set only under the opt-in `--expect-kw` (in `solve.c`, inside the `--verify` handler's `if (g_expect_kw && !kw_found_v)` guard, `fail_kw` being the last term summed into `total_fail`; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift), so a default `--verify` on an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0. **The observation stands** — King Wen is in the 560 T canonical — but it is a FACT the run reported, not a criterion it gated on, and `--expect-kw` (added 2026-09-04) is what makes absence a FAIL; it did not exist when this row's 2026-06-08 run was made. Enforcement by default was deliberately retracted 2026-09-02 (registry `RP-60347080`) because a shard or a budgeted slice legitimately lacks the record; `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test. The witness row for the same run in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) carries the same marker of this date. No sha, record count or verdict changes — PASS was and remains PASS on the constraint, sort and dedup checks.]** |
 | `verify.py --jobs 16` | PASS (2026-06-09) — independent Python re-verify of all 10,525,271,997 records; see CANONICAL_HASHES.md witness table |
-| Total realized cost | **not published.** The pre-launch projection was $150–185; the realized total varied with eviction-defer wall-time and no itemized ledger has been published for it. ⚠ **[CORRECTED 2026-09-01 — this read "recorded in HISTORY.md campaign ledger". It is not: the 560 T entry in HISTORY.md records launch, wall, records, sha, dedup ratio, verify status and eviction count, and no cost total; that file's cost totals stop at earlier, smaller campaigns. The cross-reference pointed at a ledger that does not exist, and a `$360` 560 T total elsewhere in this document was anchored to it — see §7 rule 9, where both are withdrawn.]** ⚠ **[AMENDED 2026-09-01, later the same day — "not published" is right about the public corpus but was read here as "not known", and that is wrong. A realized total **was measured** at campaign closeout and is recorded in the project's private closeout analysis (`petersm3/roae-private:560T_FINAL_ANALYSIS.md`, the "Cost (realized)" row, stated against the $400 hard cap). So this is a **publication** gap, not a measurement gap. The figure is deliberately not restated here: a cost total carries no reproduction command, and §7 rule 9 has set the bar for putting one in this document at an **itemized** ledger — VM hours by SKU, disk-months, closeout — which the private one-line total does not supply. Withdrawing it as an estimation anchor (rule 9) and knowing it was measured are both true at once.]** |
+| Total realized cost | **not published.** The pre-launch projection is not restated here; the realized total varied with eviction-defer wall-time and no itemized ledger has been published for it. ⚠ **[CORRECTED 2026-09-01 — this read "recorded in HISTORY.md campaign ledger". It is not: the 560 T entry in HISTORY.md records launch, wall, records, sha, dedup ratio, verify status and eviction count, and no cost total; that file's cost totals stop at earlier, smaller campaigns. The cross-reference pointed at a ledger that does not exist, and a `[cost redacted]` 560 T total elsewhere in this document was anchored to it — see §7 rule 9, where both are withdrawn.]** ⚠ **[AMENDED 2026-09-01, later the same day — "not published" is right about the public corpus but was read here as "not known", and that is wrong. A realized total **was measured** at campaign closeout and is recorded in the project's private closeout analysis (`petersm3/roae-private:560T_FINAL_ANALYSIS.md`, the "Cost (realized)" row, stated against the campaign's hard cap). So this is a **publication** gap, not a measurement gap. The figure is deliberately not restated here: a cost total carries no reproduction command, and §7 rule 9 has set the bar for putting one in this document at an **itemized** ledger — VM hours by SKU, disk-months, closeout — which the private one-line total does not supply. Withdrawing it as an estimation anchor (rule 9) and knowing it was measured are both true at once.]** |
 | Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:34, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
 | Throttled-host re-provisions | 0 (no host returned throttled state) |
 | Cold archive | `solver-data:/canonical-archive/20260608_560T_9a968fa2/` (gzip warm mirror) + `canonical-archive/20260608_560T_9a968fa2/` (cold blob); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
@@ -969,7 +969,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   intervention. Wall-time cost per such eviction is ~10h 22min of defer
   (off-hours waits would be 75 min flat instead). Spend impact is
   negligible: the deallocated D128 doesn't bill; the Premium SSD baseline
-  continues at $0.18/h.
+  continues billing at a small hourly rate.
 
   *Possible interpretation note* for operators planning future campaigns:
   if the pattern persists, launching a campaign just **after** the
@@ -1081,7 +1081,7 @@ specific symptom that motivated it.
    sha256sum + gzip step 2 of the cold archive **all on a single D64 Spot
    against one Standard SSD**. Aggregate IOPS budget ~5,000 split across
    130+ concurrent readers = ~38 IOPS each. solve --analyze ran 7+ h
-   instead of expected ~2 h, the Spot eviction window caught it, ~$4 of
+   instead of expected ~2 h, the Spot eviction window caught it, and the
    D64 time + ~8 h of analyze work were lost.
    **Rule:** post-merge workloads (verify.py, solve --analyze, cold-archive
    gzip+azcopy, sha256sum) each get their own VM with their own attached
@@ -1207,7 +1207,7 @@ specific symptom that motivated it.
    sections (§[10], §[20], §[22]). So a D128 spends compute mostly idle,
    but the extra RAM is what's actually doing the work.
    **Rule:** size analyze VM at **D128als_v7 Standard** for 560T+ canonicals.
-   Cost: ~$5/hr × 3 h 47 m = **~$18.93 per analyze run**, measured, not
+   Wall: **3 h 47 m per analyze run** on D128, measured, not
    projected. Down-sizing to D64 or D32 still saves nothing net once wall
    time is accounted for, and D32 hits a "this won't fit" regime once the
    file exceeds ~5× cache size. For 1120T extension
@@ -1220,11 +1220,11 @@ specific symptom that motivated it.
    **≥6.5 h** (13,631 s × 18 / 10.525 = 23,311 s) — and ≥ is the right
    relation, because D128's cache fraction falls from 76 % to 47 % on the
    larger file, so the disk-bound sections get worse than linearly. Budget
-   ~$33 and up for a 1120T analyze run.
-   ⚠ **[CORRECTED 2026-09-01 — the cost read "~$5/hr × 1.5 h = ~$7.50" and
+   ≥6.5 h of D128 wall for a 1120T analyze run.
+   ⚠ **[CORRECTED 2026-09-01 — the cost read "[cost redacted]/hr × 1.5 h = [cost redacted]" and
    the forecast read "~1.5 h at 10.5 B records (560T) … ~3-5 h at 18 B records
    (1120T)". Both descended from the ~1.5 h projection corrected above. At the
-   measured 13,631 s the 560 T run cost ~$18.93, 2.5× what was published, and
+   measured 13,631 s the 560 T run cost 2.5× what was published, and
    the 1120T forecast — which was **below** the true 560 T wall — is replaced
    by a re-derivation from the measured base. The D64/D32 comparison figures
    were struck rather than rescaled: they were projections against a
@@ -1245,7 +1245,7 @@ specific symptom that motivated it.
    extension would walk the *additional* 560 T nodes, i.e. roughly the **same
    enum compute as the source campaign**, not half of it. (No such extension
    has been run; 560 T remains the deepest canonical.)
-   **(b) No `$360` anchor exists in the public corpus.** `grep -rn '\$360'`
+   **(b) No 560 T cost-total anchor exists in the public corpus.** A search for it
    over `documentation/`, `reports/` and the root markdown returns exactly one
    hit — the sentence this note replaces. The 560 T campaign entry in
    HISTORY.md records launch, wall, records, sha, verify status
@@ -1254,9 +1254,9 @@ specific symptom that motivated it.
    any kind — the pre-merge shard total and its 4.17× factor live in this file's own 560 T
    table above, relabelled 2026-08-28 as cross-sub-branch rediscovery of canonical keys,
    not an orientation-dedup ratio)*; the file's cost totals stop at
-   earlier, smaller campaigns. The `$690 = 2 × $360` anchor and the `~$390
-   incremental` figure derived from it therefore both rested on a number the
-   corpus never published, and the `~$390` additionally assumed the 41-50 %
+   earlier, smaller campaigns. The doubled-560 T-total anchor and the
+   incremental figure derived from it therefore both rested on a number the
+   corpus never published, and the incremental figure additionally assumed the 41-50 %
    model that (a) refutes. **No cost estimate for a 1120T extension is stated
    here until an itemized 560 T ledger — VM hours by SKU, disk-months,
    closeout — is published.**
@@ -1275,7 +1275,7 @@ specific symptom that motivated it.
    Any extension cost or wall estimate must either assume the redo or wait for
    the guard to be made yield-aware. ⚠ **[FOLLOW-UP 2026-09-25 (Q-730) — FIXED in `075931f4` (2026-09-05, Q-414) for sidecars that a fixed binary writes. It is NOT fixed for any archive written before that date, the 560 T one included.** The sentence above, "it is not fixed", was true when written and got no follow-up when the fix landed. That commit's edits to this file were about the 1 T budget pair. *What shipped.* The v2 `.dfs_state` writer now stores the cell's solution count, captured before the shard flush zeroes it, in `prior_solutions_found`. It also sets bit 0 of a flags byte, `reserved2[0]` (`DFS_V2_FLAG_YIELD_ATTESTED`), to say that the count is meaningful. The `#167` guard resumes a shard-less cell only when three things hold: the v2 resume is active, the flag is set, and the count is 0. Every other shard-less case still discards and walks the cell fresh. The byte layout is in [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §Files. The flag was needed because every sidecar written between `d7e6a1c0` and the fix already carried `prior_solutions_found = 0` whatever the yield. A bare 0 therefore could not be trusted, and exempting it would have switched the guard off for every cell. *Scope limit.* Only a binary containing `075931f4` sets the flag. Every v1 sidecar, and every v2 sidecar written before 2026-09-05, has it clear, so the guard discards exactly as before. That covers the June-8 560 T archive (`20260608_560T_9a968fa2`). A 560 T → 1120 T extension of it would still re-walk 93,083 zero-yield cells, 329,156,121,299,181 nodes, 58.8 % of the source campaign, as computed above. The output would still be correct. Only an archive whose sidecars were written by a fixed binary gets the saving. *Measured* 2026-09-25 with `scripts/selftest_resume_167_gate.sh --threads 2` (shipped with the fix; see DEVELOPMENT.md), on a d2 shape of 3,030 cells, 1,933 of them zero-yield. Positive control: `RESUMED=1933 DISCARDED=0`, `EXCESS_NODES=3030` (one re-entered frame per cell), `SELFTEST_RESUME_167=PASS`. Mutant M3 clears the flag on one attested zero-yield sidecar: `RESUMED=1932 DISCARDED=1`, `EXCESS_NODES=19530`, with the merged sha equal to single-shot in both runs. The extra 16,500 nodes are that one cell re-walking its first-phase budget from zero. That is the scope limit in miniature: an unflagged zero-yield sidecar is re-walked, and a 2026-06 sidecar is unflagged.]**
    ⚠ **[CORRECTED 2026-09-01 — replaces "Extension cost is NOT 2× the source's
-   cost; it's incremental … Real estimate … **~$390 incremental** … For
+   cost; it's incremental … Real estimate … **[cost redacted] incremental** … For
    560T → 1120T, that fraction was empirically ~41-50 %."** The 41-50 % was
    the campaign's *non-empty-shard yield* (41.22 %, stated in §7), reused
    ~300 lines later as if it were the cap-hit fraction; the two are unrelated
@@ -1366,7 +1366,7 @@ specific symptom that motivated it.
     c560-d64-coldarchive (on solver-data) + c560-d64-analyze2 (on Premium
     SSD). Analyze ran ~3× faster than the contended attempt 1 because no
     I/O competition for the same disk. Cost: one extra D64 hour
-    (~$2.50), saved: 4-5 h of analyze wall = ~$10 of D64 + lower
+    in exchange, saved: 4-5 h of analyze wall on D64 + lower
     Spot-eviction risk.
     **Rule:** the canonical post-merge pattern is **two D64 Standard
     VMs**, each with its own disk: cold-archive on solver-data,

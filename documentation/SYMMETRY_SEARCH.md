@@ -449,7 +449,7 @@ theorems `validC15_mapP`, `act_fix_id_or_rho`, `twenty_four_dvd_solution_count` 
 **Trigram-compatible subgroup (2026-07-11):** exactly **12 of the 48** elements of G respect the trigram
 bipartition {lines 1–3}, {lines 4–6} as an unordered block pair; they form a subgroup ≅ **S₃ × C₂** (with
 ρ = bit-reversal central), collapsing to S₃ (order 6) at record level. The upper/lower trigram change-count
-functionals are invariant under this subgroup but **not** under the full record-level S₄ — so the
+functionals are invariant under its record-level S₃ = G₆ (the block-fixing subgroup; the ρ-coset swaps the upper and lower counts, 59/58 ↔ 58/59 at King Wen) but **not** under the full record-level S₄ — so the
 relabeling-invariance caveat above bites concretely for trigram-defined statistics. Machine-checked:
 [lean/TrigramTheorems.lean](../lean/TrigramTheorems.lean) (TG-3); prose + scope:
 [TRIGRAM_STRUCTURE.md](TRIGRAM_STRUCTURE.md). Scope note: this subgroup lives inside G — the

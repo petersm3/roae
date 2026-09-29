@@ -500,8 +500,9 @@ theorem within_double (l : List Nat) (hperm : l.Perm (List.range 64))
 /- --- §3a finite facts (decide over 64 / 64×64) --- -/
 
 /-- within-pair distances take only the values 2, 4, 6, with population counts
-    48 = 24+24 over hexagrams, i.e. multiset {2:12, 4:12, 6:8} over the 32
-    pairs (each pair counted twice below, once per member). -/
+    64 = 24 + 24 + 16 over hexagrams (`pairdist_count_2/4/6`), i.e. multiset
+    {2:12, 4:12, 6:8} over the 32 pairs (each pair counted twice below, once
+    per member). -/
 theorem pairdist_count_0 : ((List.range 64).countP fun h => ham h (partner h) == 0) = 0 := by
   decide
 theorem pairdist_count_1 : ((List.range 64).countP fun h => ham h (partner h) == 1) = 0 := by
@@ -1453,8 +1454,10 @@ theorem pure_pairslot_count (l : List Nat) (hperm : l.Perm (List.range 64))
   omega
 
 /- ────────── §6 sanity instances at King Wen (decide +kernel) ──────────
-   Guards against silently-vacuous general statements: each sequence-level
-   theorem above is exercised on the concrete KW list. -/
+   Guards against silently-vacuous general statements: the sequence-level
+   theorems instantiated below are exercised on the concrete KW list (the
+   hypothesis `validC15 KW`, the budget, the trigram counts); not every
+   theorem above has an instance here. -/
 
 /-- KW satisfies the hypotheses used above. -/
 example : validC15 KW = true := by decide +kernel
@@ -1541,3 +1544,10 @@ ALLOWLIST: any axiom token outside [propext, Classical.choice, Quot.sound] fails
 #print axioms Trigram.trigram_balance_invariant
 #print axioms Trigram.pure_pairslot_couple
 #print axioms Trigram.pure_pairslot_count
+
+-- Trust-base audit directives (2026-09-29, Codex LSD R8): one `#print axioms` per theorem of this
+-- module that a public document cites by name, so reports/certificates/verify_all.sh leg (B)
+-- (every stdout line an allowlisted axiom report) screens them; the source-census leg (C)
+-- screens the rest. ALLOWLIST: [propext, Classical.choice, Quot.sound].
+#print axioms Trigram.G12_decomposition_nodup
+#print axioms Trigram.mirrorDouble_inj

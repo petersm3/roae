@@ -976,8 +976,12 @@ theorem recMergeOrder : MergeOrder recLe mask := by
 
 /-! ### §11 take-d prefix cells (design §4 L11): depth-d sharding.
 
-    Depth-2 vs depth-3 pipeline partitions correspond to take-2 vs take-3
-    prefixes of the pair/orient byte string. Cells key on RAW bytes, not
+    Depth-2 vs depth-3 pipeline partitions correspond to take-3 vs take-4
+    prefixes of solve.c's 32-byte pair/orient record (its byte 0 is the
+    fixed C4 anchor slot, so a depth-d cell is a (d+1)-byte prefix; the
+    model's `take d` below ranges over whatever byte string it is handed;
+    until 2026-09-29 this line equated the depth with the prefix length).
+    Cells key on RAW bytes, not
     masked bytes — orientation bits are part of the prefix — so canonical
     classes genuinely straddle cells, which is what makes T3/T4 non-trivial
     rather than per-cell-local. -/

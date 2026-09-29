@@ -65,10 +65,16 @@ LEDGER="documentation/CORRECTIONS.md"
 # GIT-2eebef43). documentation/REDACTED_FIGURES.tsv lists those figures by sha256, never as text.
 # redact_list() hashes every dollar-figure token in the swept text and returns the literal tokens
 # whose digest is registered; classify() replaces them in the TEXT column only. The id is computed
-# from the unredacted text first, so no published id moves. The rule is narrow on purpose: a
-# dollar figure that is not registered is printed as before.
+# from the unredacted text first, so no published id moves. Until 2026-09-29 the rule was narrow: a
+# dollar figure that was not registered was printed as before. Since CX-230 every other dollar figure
+# is replaced too, with its own marker (COST_MARK below); a registered one keeps REDACT_MARK.
 REDACT_REG="documentation/REDACTED_FIGURES.tsv"   # CORRECTIONS_REDACT_REGISTRY overrides it (tests)
 REDACT_MARK='[withdrawn figure redacted]'
+# CX-230 (2026-09-29): every OTHER dollar figure in the published text column is replaced too, with
+# COST_MARK, by classify()'s redmoney(); the operator's decision removed dollar figures from the current
+# tree. MONEY_RE ends a figure on a digit (or K/k/M), so a trailing full stop or comma is kept as text.
+COST_MARK='[cost redacted]'
+MONEY_RE='\$[0-9]([0-9,]*[0-9])?(\.[0-9]+)?[KkM]?((-|–)\$?[0-9]([0-9,]*[0-9])?(\.[0-9]+)?[KkM]?)?'
 # a dollar sign, a number, an optional K/M, an optional dash (hyphen or en-dash) and second number
 TOK_RE='\$[0-9][0-9.,]*[KkMm]?((-|–)\$?[0-9][0-9.,]*[KkMm]?)?'
 
@@ -208,12 +214,34 @@ redact_list() {
 #   own id column. Hash = polynomial mod 1000000007, printed hex. Collisions are
 #   detected and reported, not silently merged.
 classify() {
-  awk -F'\t' \
+  CI_MONEY_RE="$MONEY_RE" awk -F'\t' \
     -v C1RE="$C1_RE" -v C2RE="$C2_RE" -v C3RE="$C3_RE" -v C4RE="$C4_RE" \
-    -v MAXTEXT=400 -v REDACT_FILE="${REDACT_FILE:-}" -v REDMARK="$REDACT_MARK" '
+    -v MAXTEXT=400 -v REDACT_FILE="${REDACT_FILE:-}" -v REDMARK="$REDACT_MARK" \
+    -v COSTMARK="$COST_MARK" '
     function repl(s, t, r,   o, i) {   # literal (not regex) replace-all: tokens carry "$" and "."
       o = ""
       while ((i = index(s, t)) > 0) { o = o substr(s, 1, i - 1) r; s = substr(s, i + length(t)) }
+      return o s
+    }
+    # redmoney(s) — CX-230 (2026-09-29): EVERY dollar-figure token in s becomes COSTMARK, not only
+    # the registered ones. A token is MONEY_RE (a dollar sign, a number with optional digit-group
+    # commas, decimal part and K/k/M, and an optional hyphen or en-dash range). A bare `$N` with a
+    # backtick, quote, bracket or brace before it, or a backtick, `=`, `~`, `+`, `]`, `}` or a quote
+    # after it (`$3`, `$8 ~ /x/`, `a[$1]`) is an awk or shell field quoted in prose, and is kept.
+    function redmoney(s,   o, t, pre, post) {
+      o = ""
+      while (match(s, MONEY_RE)) {
+        t = substr(s, RSTART, RLENGTH)
+        pre = (RSTART > 1) ? substr(s, RSTART - 1, 1) : ""
+        post = substr(s, RSTART + RLENGTH, 2)
+        if (t ~ /^\$[0-9]+$/ && ((pre != "" && index(CODEPRE, pre) > 0) \
+            || (substr(post, 1, 1) != "" && index(CODEPOST, substr(post, 1, 1)) > 0) || post == " ~" || post == " =")) {
+          o = o substr(s, 1, RSTART + RLENGTH - 1)
+        } else {
+          o = o substr(s, 1, RSTART - 1) COSTMARK
+        }
+        s = substr(s, RSTART + RLENGTH)
+      }
       return o s
     }
     function hash(s,   i, h, n) {
@@ -230,6 +258,8 @@ classify() {
       OFS = "\t"
       tokre["C1"] = C1RE; tokre["C2"] = C2RE; tokre["C3"] = C3RE; tokre["C4"] = C4RE
       print "id", "date", "class", "matched", "source", "document", "line", "text"
+      MONEY_RE = ENVIRON["CI_MONEY_RE"]   # via the environment: -v would eat the backslashes
+      CODEPRE = "`\"([{" sprintf("%c", 39); CODEPOST = "`=~+]}\"" sprintf("%c", 39)
       nred = 0
       if (REDACT_FILE != "") while ((getline r < REDACT_FILE) > 0) if (r != "") red[++nred] = r
     }
@@ -306,20 +336,21 @@ classify() {
       seen[id] = fkey
       # REDACTED FIGURES (see redact_list): the id above hashes the unredacted text, so it is stable;
       # only the published text column changes. Redact BEFORE truncating, so a figure that
-      # straddled the old cut cannot survive as a fragment.
-      if (nred > 0) {
-        pub = text
-        for (k = 1; k <= nred; k++) pub = repl(pub, red[k], REDMARK)
-        if (pub != text) {
-          if (length(pub) > MAXTEXT) pub = substr(pub, 1, MAXTEXT) "  [...truncated]"
-          gsub(/[[:space:]]+/, " ", pub); sub(/^ /, "", pub)
-          out = pub
-        }
+      # straddled the old cut cannot survive as a fragment. Registered figures first (their own
+      # marker), then every other dollar figure (CX-230, see redmoney).
+      pub = text
+      for (k = 1; k <= nred; k++) pub = repl(pub, red[k], REDMARK)
+      pub = redmoney(pub)
+      if (pub != text) {
+        if (length(pub) > MAXTEXT) pub = substr(pub, 1, MAXTEXT) "  [...truncated]"
+        gsub(/[[:space:]]+/, " ", pub); sub(/^ /, "", pub)
+        out = pub
       }
       # a commit row publishes its SUBJECT (see src_git); everything above used the full message.
       if (src == "git" && subj != "") {
         pub = subj
         for (k = 1; k <= nred; k++) pub = repl(pub, red[k], REDMARK)
+        pub = redmoney(pub)
         if (length(pub) > MAXTEXT) pub = substr(pub, 1, MAXTEXT) "  [...truncated]"
         gsub(/[[:space:]]+/, " ", pub); sub(/^ /, "", pub)
         out = pub
@@ -541,8 +572,8 @@ selftest() {
   #      A registered dollar figure is replaced in the text column. Every occurrence is followed by
   #      a comma or a full stop, which the token pattern swallows, so this also proves the trailing-
   #      punctuation strip: without it no token hashes to the registered digest. The id is the one
-  #      the unredacted text gets, and an UNREGISTERED dollar figure on the same line is printed
-  #      unchanged (the rule is narrow, and this is its positive control).
+  #      the unredacted text gets. An UNREGISTERED dollar figure on the same line was printed unchanged
+  #      until 2026-09-29; since CX-230 it takes the general marker instead (anchor 19 holds that rule).
   local rreg rin rl rrow rtxt rid0 rid1
   rreg=$(mktemp) && rin=$(mktemp) && rl=$(mktemp) && {
     printf '# synthetic\n%s\tsynthetic test figure\n' \
@@ -555,8 +586,9 @@ selftest() {
     rid0=$(classify < "$rin" | tail -n +2 | cut -f1)
     if [ "$(grep -c . "$rl")" -eq 1 ] && [ "${rtxt#*900-9}" = "$rtxt" ] \
        && [ "$(grep -o -F "$REDACT_MARK" <<< "$rtxt" | grep -c .)" -eq 3 ] \
-       && [ "${rtxt#*\$7.25}" != "$rtxt" ] && [ -n "$rid0" ] && [ "$rid0" = "$rid1" ]; then
-      echo "  [ok]   a registered figure is redacted (3 of 3, each punctuation-trailed), id unchanged ($rid1), unregistered \$ kept"
+       && [ "${rtxt#*\$7.25}" = "$rtxt" ] && [ "$(grep -o -F "$COST_MARK" <<< "$rtxt" | grep -c .)" -eq 1 ] \
+       && [ -n "$rid0" ] && [ "$rid0" = "$rid1" ]; then
+      echo "  [ok]   a registered figure is redacted (3 of 3, each punctuation-trailed), id unchanged ($rid1), unregistered \$ takes the general marker"
     else
       echo "  [FAIL] redaction: list=$(grep -c . "$rl") id $rid0 -> $rid1 text: $rtxt"
       rc=1
@@ -600,17 +632,17 @@ selftest() {
   # (18) a commit row publishes its SUBJECT, on the real git log through sweep(). Precondition: at
   #      least 50 commit rows, and at least one of them has a non-empty body (else "text = subject"
   #      and "text = message" cannot be told apart). Verdict: every commit row's text equals its
-  #      commit's subject, normalised as classify() normalises it; rows carrying the redaction
-  #      marker are skipped (anchor 15 covers the replacement).
+  #      commit's subject, normalised as classify() normalises it; rows carrying either redaction
+  #      marker are skipped (anchors 15 and 19 cover the replacements).
   local sout smap nrow nbody nbad
   sout=$(mktemp) && smap=$(mktemp) && {
     sweep > "$sout" 2>/dev/null
     git log --format='%x01%H%x1f%s%x1f%b' | tr -d '\r' | tr '\t' ' ' | tr '\n' ' ' | tr '\001' '\n' | tr '\037' '\t' \
       | awk -F'\t' 'NF >= 2 { b = $3; gsub(/[[:space:]]/, "", b); print substr($1, 1, 8) "\t" (b != "") "\t" $2 }' > "$smap"
-    read -r nrow nbody nbad < <(awk -F'\t' -v MAXTEXT=400 -v RM="$REDACT_MARK" '
+    read -r nrow nbody nbad < <(awk -F'\t' -v MAXTEXT=400 -v RM="$REDACT_MARK" -v CM="$COST_MARK" '
       FILENAME == ARGV[1] { hb[$1] = $2; s = $3; if (length(s) > MAXTEXT) s = substr(s, 1, MAXTEXT) "  [...truncated]"
                             gsub(/[[:space:]]+/, " ", s); sub(/^ /, "", s); sj[$1] = s; next }
-      FNR > 1 && $5 == "git" { n++; if (hb[$6]) nb++; if (index($8, RM) == 0 && $8 != sj[$6]) bad++ }
+      FNR > 1 && $5 == "git" { n++; if (hb[$6]) nb++; if (index($8, RM) == 0 && index($8, CM) == 0 && $8 != sj[$6]) bad++ }
       END { print n + 0, nb + 0, bad + 0 }' "$smap" "$sout")
     if [ "${nrow:-0}" -ge 50 ] && [ "${nbody:-0}" -gt 0 ] && [ "${nbad:-1}" -eq 0 ]; then
       echo "  [ok]   every commit row publishes its subject: $nrow rows ($nbody with a body), 0 differ"
@@ -620,6 +652,31 @@ selftest() {
     fi
     rm -f "$sout" "$smap"
   }
+
+  # (19) CX-230 (2026-09-29): EVERY dollar figure in the published text column takes COST_MARK, on a
+  #      synthetic git row (so this test restates no real figure) whose SUBJECT carries five money
+  #      shapes -- a backslash-escaped figure, a bare zero in brackets, a K figure, an en-dash range and
+  #      a per-hour price -- plus two awk fields quoted in backticks. Precondition: the unredacted
+  #      subject carries all seven tokens (else the verdict is vacuous). Verdict: the text column holds
+  #      exactly five COST_MARKs, both awk fields survive and nothing else looks like money. The id is
+  #      computed from the UNREDACTED message: two rows whose messages differ only in a dollar figure
+  #      publish the same text and still get different ids.
+  local ms mrow mtxt mtxt2 mid mid2 mpre D='$'   # the figures are assembled, so this source states none
+  ms="HISTORY: corrected a ~\\${D}91 idle entry; awk \`${D}3\` and \`${D}8 ~ /x/\`, (≈ ${D}0), ${D}4.2K, ${D}31–${D}62, ${D}6/h."
+  mpre=$(grep -o -E "$MONEY_RE" <<< "$ms" | grep -c .)
+  mrow=$(printf 'git\tdeadbeef\t2026-01-01\tCorrected the %s12 band.\t%s\n' "$D" "$ms" | classify | tail -n +2)
+  mtxt=$(printf '%s' "$mrow" | cut -f8); mid=$(printf '%s' "$mrow" | cut -f1)
+  mrow=$(printf 'git\tdeadbeef\t2026-01-01\tCorrected the %s13 band.\t%s\n' "$D" "$ms" | classify | tail -n +2)
+  mtxt2=$(printf '%s' "$mrow" | cut -f8); mid2=$(printf '%s' "$mrow" | cut -f1)
+  if [ "$mpre" -eq 7 ] && [ "$(grep -o -F "$COST_MARK" <<< "$mtxt" | grep -c .)" -eq 5 ] \
+     && [ "${mtxt#*"\`${D}3\`"}" != "$mtxt" ] && [ "${mtxt#*"\`${D}8 ~"}" != "$mtxt" ] \
+     && [ "$(grep -o -E "$MONEY_RE" <<< "$mtxt" | grep -c .)" -eq 2 ] \
+     && [ "$mtxt" = "$mtxt2" ] && [ -n "$mid" ] && [ -n "$mid2" ] && [ "$mid" != "$mid2" ]; then
+    echo "  [ok]   every unregistered dollar figure takes the general marker (5 of 5), awk fields kept (2), id from the unredacted text"
+  else
+    echo "  [FAIL] general redaction: precondition tokens=$mpre (want 7) text: $mtxt ids $mid/$mid2"
+    rc=1
+  fi
 
   rm -f "$tmp"
   echo

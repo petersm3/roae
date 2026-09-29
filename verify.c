@@ -296,7 +296,7 @@ static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
      *
      * Because C3 is ORIENTATION-INVARIANT -- swapping a pair moves a hexagram
      * and its complement together -- the omission could never change WHICH
-     * completion is lex-least, so no AGREE/DISAGREE verdict was ever wrong. What
+     * completion is lex-least, so no AGREE/DISAGREE verdict on a C3-valid key was ever wrong (CORRECTIONS.md, the 2026-09-02 entry on the repr oracle's C3 blind spot). What
      * it corrupted is the INCOMPUTABLE leg, the one VERIFY.md advertises as
      * fail-closed: measured on a C3 = 1080 key in both languages, CHECK_REPR=PASS
      * with INCOMPUTABLE=0 and rc 0.

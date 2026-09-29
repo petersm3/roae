@@ -96,4 +96,4 @@ decision.
 
 ## Cost
 
-~100 draws × 2 classes on an existing D16; well under $1 of VM time. No new infrastructure.
+~100 draws × 2 classes on an existing D16; well under [cost redacted] of VM time. No new infrastructure.

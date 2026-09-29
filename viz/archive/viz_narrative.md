@@ -13,7 +13,7 @@
 > repository cannot obtain. They land with the document, not before.
 >
 > ⚠ *(corrected 2026-09-23: the title read "PLAN ROWS, not yet drawn" and this block read "planned,
-> zero-dollar, not drafted" — both were stale, since the figures had been drawn. This block also
+> [cost redacted], not drafted" — both were stale, since the figures had been drawn. This block also
 > cited `TASK_GATED_CAPSTONE_NARRATIVE_DOCUMENT.md` by name; **no file of that name is present in
 > the private repository** as of this date — the narrative document carried there
 > has a different name. Whether the task doc was renamed or never existed under the cited name

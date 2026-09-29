@@ -28,8 +28,11 @@
   change which valid leaf a first-found DFS in fixed child order returns:
   repr(k) is preserved bit-identically and SOLVE_REPR_FC=0/1 agree. This
   file machine-checks that argument at the MODEL level, and machine-checks
-  why the documented composition hazard (the evaluated-and-REJECTED
-  C3-lower-bound prune) is a genuine trap, not proof-side caution.
+  a generic composition hazard for orientation-dependent predicates under
+  representative choice (§5, `cP := s == [true, false, false]`); C3 is
+  key-only (`c3_slot_decomposition` in C3Decomposition.lean) and is not an
+  instance of it — the evaluated-and-REJECTED C3-lower-bound prune was
+  rejected conservatively, not shown to be a trap.
 
   What is machine-checked here (model level):
   · §1 `leavesPr_eq` / `prune_first_leaf_exact` — THE HEART, stated

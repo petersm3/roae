@@ -275,7 +275,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   by 24 exactly as that theorem predicts. (It is the suite's second exact full-scale count; the first,
   |C1∩C2∩C4| ≈ 7.5706×10⁴¹, landed 2026-07-04.) The count was **recomputed at full scale** (2026-07-25)
   by a second instrument — `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`), a
-  different algorithm class sharing no code or machinery with `solve.c` — and the two integers **match
+  different algorithm class sharing no code with `solve.c` (the one shared mathematical premise is orbit–stabiliser weighting under the same 24-element group, as `verify.c`'s own header states) — and the two integers **match
   exactly**, with the mod-24 free-action gate holding
   ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); the verifiers are
   [verify.py/verify.c](documentation/VERIFY.md)). The honest residual: both instruments are

@@ -67,11 +67,11 @@ Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s ✓ 
 
 ## What's NOT in this directory (and why)
 
-`solutions.bin` (actual 102.3 GB at 100T depth — exceeded the 30-65 GB estimate) is NOT archived here. It lives on the `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS). The sha is the reproducibility anchor; regenerating the bytes is a ~17-hour / ~$30 compute task if ever needed (measured 16h 47m 45s enum+merge; see Timings) (partition invariance guarantees byte-identical reproduction).
+`solutions.bin` (actual 102.3 GB at 100T depth — exceeded the 30-65 GB estimate) is NOT archived here. It lives on the `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS). The sha is the reproducibility anchor; regenerating the bytes is a ~17-hour compute task if ever needed (measured 16h 47m 45s enum+merge; see Timings) (partition invariance guarantees byte-identical reproduction).
 
 ## How to re-obtain `solutions.bin`
 
-Option 1 - re-enumerate from scratch (~$30; budget **~17 h** on D128 spot, per this run's own measured Timings table above: 11h 22m enum + 5h 26m merge = 16h 47m 45s. The "~13 hrs" this line previously carried was the pre-run projection, not the measurement):
+Option 1 - re-enumerate from scratch (budget **~17 h** on D128 spot, per this run's own measured Timings table above: 11h 22m enum + 5h 26m merge = 16h 47m 45s. The "~13 hrs" this line previously carried was the pre-run projection, not the measurement):
 ```
 ssh solver@<a D128als_v7 westus3 VM with 1.5 TB disk>
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=100000000000000 SOLVE_THREADS=128 ./solve 0

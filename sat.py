@@ -4,11 +4,11 @@
 """
 sat.py — SAT/certificate layer for the ROAE constraint system (established 2026-07-02).
 
-HARD RULE: this file must contain NO hand-written constraint semantics. Every constraint
-encoded here is derived from `solve` (solve.py) imports — the single source of truth for
-the King Wen ground truth and C1-C5 semantics. A clause encoding a C-rule from scratch is
-a bug by definition. Validation discipline: every encoding is round-trip checked (SAT
-model -> decode -> solve.py constraint functions) before any UNSAT claim from it is trusted.
+HARD RULE: no hand-written constraint PREDICATES. Every rule predicate and constant is derived
+from `solve` (solve.py) imports, the single source of truth for King Wen and C1-C5; a clause
+encoding a C-rule from scratch is a bug by definition. The clause ARITHMETIC that places them
+(station offsets, gender stations) is this file's own: tested, not derived (tests.py
+TestSatEmittedClausesNonKW). Every encoding is round-trip checked (model -> decode -> solve.py).
 
 GUARD RULE (Q-373, 2026-08-28): this file must contain NO `assert` statements. Every
 import-time ground-truth gate and runtime guard is an explicit `if not (...): raise`, so
@@ -749,6 +749,12 @@ for _r in FIVE_RULES:
 KW_PIN_VALIDATION_TARGETS = ("rc4-kwtest", "rc4-kwexempt", "ccn4-kwtest", "ccn4-kwfail",
                              "ccn8-kwtest", "ccn8-kwfail", "ccn8-kwchain", "ccn8-kwchain-not")
 KW_PIN_PLAIN_TARGETS = ("kw-pin", "moore-kwtest", "rhythm-kwtest")
+# The two inversion-class positions `rc4-kwexempt` exempts from the gender rule (Schulz's own
+# exception locus, KW's rc4_violations == (2, [25, 26])). ONE set, read by the encoder's clause
+# emitter AND by rule_scores(): until 2026-09-29 (Codex LSD R18h) only the emitter exempted them,
+# so target_verdict(KW, "rc4-kwexempt") re-scored the exempted stations as violations and rejected
+# the formula's own pinned model (measured: ok=False, rule_viol={'gender': 2}).
+RC4_KWEXEMPT_POS = frozenset({25, 26})
 KW_PINNED_TARGETS = KW_PIN_VALIDATION_TARGETS + KW_PIN_PLAIN_TARGETS
 
 # ---- cardinality-only subset targets (2026-09-02; TR-6 abstract, Codex V2-F08 #3) ----
@@ -848,9 +854,18 @@ def rigidity_validate(cnf, x):
                                  (l < 0 and -l not in ident) for l in c)]
     ok1 = len(unsat_by_ident) == 1 and unsat_by_ident[0] == \
         [-x[v][v] for v in range(64)]
-    rev_fix = all(solve.reverse_6bit(v) == v for v in [0] +
-                  [b for b in range(64) if solve.bit_diff(0, b) == 5])
-    ok2 = not rev_fix   # bit-reversal moves at least one anchor => excluded
+    # Negative control, evaluated against the EMITTED clauses (2026-09-29, Codex LSD R18f):
+    # until today this leg tested `solve.reverse_6bit` against the anchor set in Python and never
+    # read `cnf.cl`, so a CNF with its anchor units deleted still validated (measured: True). The
+    # bit-reversal assignment sigma(v) = rev6(v) is a G5-automorphism, so it satisfies every
+    # bijection and edge-support clause and the not-identity clause; the ONLY clauses it can
+    # falsify are anchor units, and it must falsify at least one (rev6 moves a distance-5
+    # neighbour of 0). Required: >= 1 falsified clause, and every falsified clause a unit.
+    rev_true = set(x[v][solve.reverse_6bit(v)] for v in range(64))
+    falsified = [c for c in cnf.cl
+                 if not any((l > 0 and l in rev_true) or
+                            (l < 0 and -l not in rev_true) for l in c)]
+    ok2 = len(falsified) >= 1 and all(len(c) == 1 for c in falsified)
     return ok1 and ok2
 
 
@@ -988,7 +1003,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
         # (slot 0 = pair 0 = palindromes 63,0 = classes 1,2, pure-exempt). Palindrome pairs occupy two
         # positions (first hexagram lower, orientation-dependent); gender from popcount.
         # ATTRIBUTION: Schulz 1990 JCP 17:3 motif 2 (exception: Zhu Yuansheng 13th c.); Cook 2006 elab.
-        exempt_pos = {25, 26} if tbase == "rc4-kwexempt" else set()
+        exempt_pos = RC4_KWEXEMPT_POS if tbase == "rc4-kwexempt" else frozenset()
         cnf.mark("inversion-class position counter")
         def _rev6(h):
             r = 0
@@ -1162,7 +1177,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
         cnf.mark("not-kw layout exclusion")
         # exclude KW's pair-slot LAYOUT (slot s = pair s, either orientation): a[s] <->
         # "slot s holds pair s", then require some a[s] false. The excluded set is exactly
-        # {KW and its 2^31 within-pair orientation variants} — a subset of "!= KW", so any
+        # {KW and its 2^31 within-pair orientation variants}, so the allowed set is a subset of "!= KW" and any
         # model decodes to an ordering != KW, and stronger: some pair sits in a non-KW slot
         # (G is orientation-blind, so an orientation-only variant would tie G trivially)
         akw = []
@@ -1277,8 +1292,8 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
 # B0 — both ported from solve.c's f1c5 path (f1_build_group / f1c5_unions /
 # f1c5_derive_b0 / f1c5_b0_dfs) and using only solve primitives. They emit no
 # clauses; they name the same numbers solve.c derives. The full-31 B0 this port
-# would produce equals the KW-derived between-multiset already asserted at the
-# top of this file (BETWEEN_MULTISET); the reduced-subset B0 values + reference
+# would produce ({1:2, 2:7, 3:13, 4:8, 6:1}) differs from the KW-derived BETWEEN_MULTISET ({1:2, 2:8, 3:13, 4:7, 6:1}) —
+# solve.c:15162-15185 special-cases the full-31 rung from King Wen rather than deriving it, and this port must not be used to extend the reduced encoder to n = 31; the reduced-subset B0 values + reference
 # counts are pinned in tests.py (test_sat_c5_subset_*), and a #SAT/C-binary
 # cross-check at N in {9,13,16} is the intended follow-up (see the private
 # R2 note). C5 itself is the boundary budget: the N boundary transitions
@@ -1347,7 +1362,7 @@ def subset_pairlist(npairs):
     pairs — matches solve.c f1_parse_subset (orbit-append order, NOT sorted)."""
     spec = F1C5_UNIONS.get(npairs)
     if spec is None:
-        raise SystemExit("--f1-pairs %r: no group-closed orbit union; have %s"
+        raise SystemExit("--f1-pairs %r: not in this port's F1C5_UNIONS table (solve.c's f1c5 union table has more, e.g. n = 10: 3.0,3.1,4.0@0); have %s"
                          % (npairs, ",".join(map(str, sorted(F1C5_UNIONS)))))
     # Q-311: `spec.index("@")` raises ValueError and `int(...)` raises on a non-numeric
     # suffix -- both bare tracebacks, the same shape as the four CLI integer flags fixed
@@ -1515,7 +1530,7 @@ def decode(model_lits, Y):
                 break
     return seq
 
-def rule_scores(seq):
+def rule_scores(seq, target=None):
     """Violation count of EVERY rule in FIVE_RULES on a 64-hexagram sequence, each through the
     solve.py scorer that defines the rule: parity/rhythm = solve.r11_axes g1/g2 (via
     _moore_scores), gender = solve.rc4_violations, ccn4/ccn8 = solve.reg_ccn4/reg_ccn8 (True is
@@ -1523,9 +1538,15 @@ def rule_scores(seq):
     the five (Codex V2 A09 row 14): target_rules("five-sub-ccn4") named a rule nothing re-scored,
     so an ordering with solve.reg_ccn4() == False was printed as `WITNESS:` (measured on the
     shipped file with a stub solver). The key set is asserted == FIVE_RULES at import, so a sixth
-    rule added without a scorer here fails the import, not the witness."""
+    rule added without a scorer here fails the import, not the witness.
+    `target` (2026-09-29, Codex LSD R18h): when its base is `rc4-kwexempt`, gender violations at
+    RC4_KWEXEMPT_POS are not counted — the same exemption the emitted clauses carry — so the
+    re-score agrees with the formula it re-scores. Every other target scores the strict rule."""
     g1, g2 = _moore_scores(seq)
-    return {"parity": g1, "rhythm": g2, "gender": solve.rc4_violations(seq)[0],
+    gviol, gpos = solve.rc4_violations(seq)
+    if target is not None and split_noy(target)[0].split("-near-")[0] == "rc4-kwexempt":
+        gviol -= sum(1 for p in gpos if p in RC4_KWEXEMPT_POS)
+    return {"parity": g1, "rhythm": g2, "gender": gviol,
             "ccn4": 0 if solve.reg_ccn4(seq) is True else 1,
             "ccn8": 0 if solve.reg_ccn8(seq) is True else 1}
 
@@ -1537,7 +1558,7 @@ if not (rule_scores(KW) == {"parity": 2, "rhythm": 2, "gender": 2, "ccn4": 0, "c
 
 def verify_seq(seq):
     """Round-trip re-verification of a decoded 64-hexagram sequence against
-    solve.py: C1 (permutation), C2 (no distance-5 step), C5 (transition
+    solve.py: C1 (permutation AND partner pairing), C2 (no distance-5 step), C5 (transition
     multiset), C3 total — AND (F-1) a re-score of the literature axes on the
     decoded witness: g1 Moore-2005 parity violations + g2 Moore-1989 rhythm
     breaks (both via _moore_scores -> solve.r11_axes) and g3 Schulz gender
@@ -1548,7 +1569,11 @@ def verify_seq(seq):
     scores are the first three of rule_scores(); target_verdict() is the
     five-rule form."""
     perm = len(seq) == 64 and set(seq) == set(range(64))
-    ok = perm and solve.has_no_five(seq)
+    # C1 is the PAIRING predicate (every slot a complement/reverse partner pair), not
+    # permutation-ness: until 2026-09-29 (Codex LSD R18g) this checked the permutation only, so
+    # King Wen with bits 0 and 1 swapped in every hexagram returned (True, 776, ...) while
+    # solve.has_pair_structure_c1 said False (measured; tests.py TestSatVerifySeqChecksC1Pairing).
+    ok = perm and solve.has_pair_structure_c1(seq) and solve.has_no_five(seq)
     # C5 against solve.py's OWN multiset (solve.h2_pop_valid -> solve.h2_kw_multiset), not the
     # module table the encoder shares: until 2026-09-02 this compared against `_tot`, so a wrong
     # `_tot` would have been confirmed by the round trip meant to catch it (Codex V2 A09 row 17).
@@ -1580,7 +1605,7 @@ def target_verdict(seq, target, with_c3=False, c3_max=None, c3_min=None, skip_ru
       ok         base and no rule violation and c3_ok"""
     base, c3, _ = verify_seq(seq)
     rules = set() if skip_rules else target_rules(target)
-    scores = rule_scores(seq) if base else None
+    scores = rule_scores(seq, target) if base else None
     rule_viol = ({r: scores[r] for r in sorted(rules) if scores[r] != 0}
                  if scores is not None else None)
     rules_ok = base and not rule_viol
@@ -1849,9 +1874,20 @@ def certify_count(cnf_obj, label, keep_dir=None):
         nnf_path = os.path.join(wd, "instance.nnf")
         cpog_path = os.path.join(wd, "instance.cpog")
         cnf_obj.write(cnf_path, label)
+        # A --keep directory is reused across runs, so a .nnf/.cpog left by an EARLIER run is
+        # removed before d4 runs, and d4's own exit status is judged: until 2026-09-29 (Codex LSD
+        # R18k) a d4 that exited non-zero having written nothing left the stale .nnf in place, the
+        # size test below passed on it, and cpog-gen/cpog-check certified a count for the OLD
+        # formula under the NEW label (measured with a fake d4 that exits 1).
+        for _stale in (nnf_path, cpog_path):
+            if os.path.exists(_stale):
+                os.remove(_stale)
         # 1) D4 v1: compile to Decision-DNNF (argv per D4 v1 README; the CPOG
         #    toolchain consumes D4 v1 .nnf — RUN-validate, see section header)
         r_d4 = _run_tool(["d4", "-dDNNF", cnf_path, "-out=" + nnf_path])
+        if r_d4.returncode != 0:
+            raise SystemExit("d4 failed (rc=%s); no d-DNNF is trusted from a failed compile"
+                             "\n--- d4 output tail ---\n%s" % (r_d4.returncode, _tool_tail(r_d4)))
         if not (os.path.exists(nnf_path) and os.path.getsize(nnf_path) > 0):
             raise SystemExit("d4 produced no d-DNNF at %s\n--- d4 output tail ---\n%s"
                              % (nnf_path, _tool_tail(r_d4)))

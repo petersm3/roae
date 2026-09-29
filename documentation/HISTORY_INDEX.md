@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 160 dated sections, 2 of them among the 84 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 162 dated sections, 2 of them among the 86 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -60,7 +60,7 @@
 | 40 | 2026-05-16 | embedded | 2686 | [open](HISTORY.md#v2-lineage-begins-2026-05-16) v2 lineage begins (2026-05-16) |
 | 41 | 2026-05-18 | prose | 3260 | [open](HISTORY.md#may-18-2026-pdt--performance_history-shipped-pgo-confirmed-65-resume-regression-bisected-fixed-validated-at-1b-scale) May 18, 2026 PDT — PERFORMANCE_HISTORY shipped; PGO confirmed +6.5%; resume regression bisected, fixed, validated at 1B scale |
 | 42 | 2026-05-18 | prose | 3415 | [open](HISTORY.md#may-18-2026-pdt--69-mrv-k-pilot-shelved--branch-cleanup-avx512--v2-bundled-cherry-picks) May 18, 2026 PDT — #69 MRV K-pilot SHELVED + branch cleanup (avx512 → v2-bundled cherry-picks) |
-| 43 | 2026-05-18 | prose | 3486 | [open](HISTORY.md#may-18-19-2026-pdt--per-prune-isolation-k-pilot-4-scales-059--8889-design-passes) May 18-19, 2026 PDT — per-prune isolation K-pilot (4 scales, $0.59) + #88/#89 design passes |
+| 43 | 2026-05-18 | prose | 3486 | [open](HISTORY.md#may-18-19-2026-pdt--per-prune-isolation-k-pilot-4-scales-cost-redacted--8889-design-passes) May 18-19, 2026 PDT — per-prune isolation K-pilot (4 scales, [cost redacted]) + #88/#89 design passes |
 | 44 | 2026-05-19 | prose | 3609 | [open](HISTORY.md#may-19-2026-utc--47-huge-pages--jemalloc-benches--57-audit-extended-session-continues) May 19, 2026 UTC — #47 huge pages + jemalloc benches + #57 audit (extended session continues) |
 | 45 | 2026-05-19 | prose | 3750 | [open](HISTORY.md#may-19-2026-utc--47-numa-local-null--88-phase-1-dead-end--47-fully-closed) May 19, 2026 UTC — #47 NUMA-local NULL + #88 Phase 1 dead-end + #47 fully closed |
 | 46 | 2026-05-19 | prose | 3853 | [open](HISTORY.md#may-19-2026-utc--mckenna-invisible-landscape-chapter-9-review--new-constraint-candidate-rule-2) May 19, 2026 UTC — McKenna *Invisible Landscape* Chapter 9 review + new constraint candidate (Rule 2) |
@@ -178,6 +178,8 @@
 | 158 | 2026-09-27 | iso | 9944 | [open](HISTORY.md#2026-09-27-night--batch-24-no-incomplete-run-is-reported-as-complete-and-the-560t-over-emission-figure-withdrawn) 2026-09-27 (night) — batch 24: no incomplete run is reported as complete, and the 560T over-emission figure withdrawn |
 | 159 | 2026-09-27 | iso | 9956 | [open](HISTORY.md#2026-09-27-pointer-560t--the-560t-over-emitted-3841927-figure-withdrawn) 2026-09-27 (pointer, 560T) — the 560T "over-emitted +3,841,927" figure withdrawn |
 | 160 | 2026-09-28 | iso | 9968 | [open](HISTORY.md#2026-09-28--the-report-figures-redrawn-once-after-an-outside-review-of-every-one-of-them) 2026-09-28 — the report figures redrawn once, after an outside review of every one of them |
+| 161 | 2026-09-29 | iso | 9981 | [open](HISTORY.md#2026-09-29--dollar-figures-redacted-from-the-current-tree) 2026-09-29 — dollar figures redacted from the current tree |
+| 162 | 2026-09-29 | iso | 9985 | [open](HISTORY.md#2026-09-29--the-lean-sat-and-drat-layers-reviewed-adversarially-two-published-numbers-corrected-every-proof-claim-scoped-to-what-it-covers) 2026-09-29 — the Lean, SAT and DRAT layers reviewed adversarially: two published numbers corrected, every proof claim scoped to what it covers |
 
 ## Sections with no date in the heading, in file order
 

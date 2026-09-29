@@ -1,15 +1,15 @@
 # C3 positional witnesses — C1&C2&C4&C5 orderings at prescribed couple-distance sums G
-# (C3 = 16 + 8*G; KW has G = 95, C3 = 776.) One witness per line: G=<g> C3=<c3> SEQ=<64 ints>.
+# (C3 = 16 + 8*G; KW has G = 95, C3 = 776.) One witness per two-line record: G=<g> C3=<c3> SEQ=<64 ints>.
 # Rows: G = 12..51 (every integer rung populated: G = 12 is the structural floor, achieved),
 # G = 95 with pair-slot layout != KW (tie non-uniqueness), G = 97 (population above the ceiling).
 # Regenerate (kissat + decode; see documentation/SAT_CLI.md):
 #   floor/ladder: python3 sat.py --emit-cnf plain f.cnf --c3-min $((16+8*G)) --c3-max $((16+8*G))
 #   tie:          python3 sat.py --emit-cnf plain f.cnf --c3-min 776 --c3-max 776 --not-kw
 #   above:        python3 sat.py --emit-cnf plain f.cnf --c3-min 784
-#   then:         kissat -q f.cnf > m.txt && python3 sat.py --decode m.txt plain <same flags>
-# Check any line without a SAT solver: the sequence is a permutation of 0..63 starting 63,0
-# (C1, C4), has no Hamming-distance-5 step (C2), KW's step-distance multiset (C5), and
-# sum_h |pos(h)-pos(h^63)| = C3 (verify.py: hamming/KW_DIST/compute_comp_dist).
+#   then:         kissat -q f.cnf > m.txt; python3 sat.py --decode m.txt plain <same flags>   (kissat exits 10 on SAT)
+# Check any line without a SAT solver: the sequence is a permutation of 0..63 starting 63,0 (C4)
+# whose every slot pair is a complement/reverse partner pair (C1), has no Hamming-distance-5 step (C2),
+# KW's step-distance multiset (C5), and sum_h |pos(h)-pos(h^63)| = C3 (verify.py: PAIRS/hamming/KW_DIST/compute_comp_dist).
 G=12 C3=112  # floor (G structural minimum, achieved)
 SEQ=63 0 33 30 56 7 5 40 58 23 25 38 53 43 10 20 19 50 44 13 3 48 15 60 22 26 41 37 12 51 32 1 31 62 45 18 34 17 29 46 61 47 2 16 57 39 6 24 11 52 54 27 9 36 21 42 35 49 28 14 59 55 4 8
 G=13 C3=120  # ladder rung

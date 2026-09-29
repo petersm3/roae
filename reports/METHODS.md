@@ -102,7 +102,7 @@ exactly what would change the number, and what it would take.
 recomputed at full scale by `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`;
 build: `cc -O2 -o verify verify.c -lz -lpthread -lm` — see [VERIFY.md](../documentation/VERIFY.md)
 (⚠ `-lm` corrected 2026-08-21; without it the link fails on `sqrtl`)
-— a different algorithm class sharing no code or machinery with `solve.c`; exact MATCH, mod-24
+— a different algorithm class sharing no code with `solve.c` (the one shared mathematical premise is orbit–stabiliser weighting under the same 24-element group, as `verify.c`'s own header states); exact MATCH, mod-24
 verified), additionally corroborated by the mod-24 gate and the 4/4 out-of-core ladder +
 identical cross-mode layer content (byte-identical in the v1-format validation runs; under
 current defaults the two modes' files are content-identical but byte-different — [TR-11]

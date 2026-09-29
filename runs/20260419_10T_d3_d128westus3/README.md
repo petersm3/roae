@@ -46,7 +46,7 @@ byte-identical to the canonical on `solver-data` / `solver-validate-d3`
 | **Total (enum + both merge passes)** | **2h 57m 43s** | 10663 |
 
 **Cost (D128als_v7 spot + P20 Premium SSD prorated for external merge):
-~$5.05.**
+[cost redacted].**
 
 ## 4-corners validation grid — complete
 

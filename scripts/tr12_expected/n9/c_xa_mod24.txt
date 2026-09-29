@@ -1,4 +1,4 @@
-# XA-24 — the (mod 24) divisibility gate, kernel-backed (twenty_four_dvd_solution_count)
+# XA-24 — the (mod 24) divisibility gate, paper-proved free order-48 action on sequences; Lean twenty_four_dvd_solution_count covers the record level
 quantity	value	mod24
 N_total	26112	0
 layer0_flow	26112	0

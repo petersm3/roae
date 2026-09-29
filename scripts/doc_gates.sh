@@ -155,6 +155,7 @@
 #   scripts/doc_gates.sh atlas-probe-tokens # GATE 90: SOLVE_PY_CLI.md's --atlas-probe token list equals atlas_probe()'s tok()/gate() names in print order (verdict ATLAS_PROBE_TOKEN_LIST)
 #   scripts/doc_gates.sh history-index # GATE 91: documentation/HISTORY_INDEX.md is a fresh output of scripts/history_index.sh, and that script's --selftest mutants fire, as do history_currency_gate.sh --selftest's (verdicts HISTORY_INDEX, HISTORY_CURRENCY_SELFTEST)
 #   scripts/doc_gates.sh claim-ledger # GATE 92: every row of documentation/CLAIMS.tsv (the typed claim ledger, Q-296; TR-12's headline figures) is on its cited line and re-derived by its evidence, a conditional-on figure carries its premise in the same sentence, and scripts/claim_ledger.sh --selftest's mutants fire (verdicts CLAIM_LEDGER, CLAIM_LEDGER_SELFTEST)
+#   scripts/doc_gates.sh lsd-text # GATE 93: the TEXT fixes of the Codex Lean/SAT/DRAT adversarial review (CX-232) stay fixed: retired wordings absent from scripts, a golden, solve.c and a run page; scoping clauses and citations present on the lines that need them; TR-2's certificate count equals the directory (verdict LSD_TEXT_GATE)
 #   scripts/doc_gates.sh generated  # generated artifacts still match their generator (3 roae.py runs,
 #                                   # ~67 s measured 2026-08-07, ~107-135 s on earlier recorded runs;
 #                                   # NOT in `all` — by cost; the PASS banner states what that excludes,
@@ -402,6 +403,49 @@ reg_row_kind() {
       return 0 ;;
   esac
   return 1
+}
+
+# HASHED NEEDLES (CX-230, 2026-09-29). A retracted phrase that carries a dollar figure is
+# registered in RETRACTED_PHRASES.tsv as `sha256:<64 hex>/<n>` rather than as text: the digest of
+# the phrase (UTF-8, no newline) and its length in characters. The dollar figures left the current
+# tree on the operator's decision, and a fixed-string row would restate one. The RP key is the
+# first 8 hex digits of that digest, which is the key the text row had, so GATE 11 finds the same
+# ledger entry. hashed_needle_hits scans whitespace-flattened text and hashes the n-character span
+# that starts at every dollar sign, so a hashed phrase must begin with `$`. Unlike a text row it
+# matches the exact registered spelling only (fold_variants is not applied: the needle is not
+# available to fold). GATE 3 and GATE 47 read hashed rows; every other reader sees a needle that
+# occurs nowhere.
+# hashed_row_parse <col1> — rc 0 and prints "<hex> <n>" for a hashed row; rc 1 for a text row.
+hashed_row_parse() {
+  case "$1" in sha256:*/*) ;; *) return 1;; esac
+  local h="${1#sha256:}" n; n="${h#*/}"; h="${h%%/*}"
+  [[ "$h" =~ ^[0-9a-f]{64}$ && "$n" =~ ^[1-9][0-9]*$ ]] || return 1
+  printf '%s %s\n' "$h" "$n"
+}
+# hashed_needle_hits <hex> <n> <file>... — prints `file:line` for every hit, `file(unreadable)` for a
+#   file it could not read. Lines are those of the unflattened file.
+hashed_needle_hits() {
+  python3 - "$@" <<'PY'
+import hashlib, sys
+h, n, files = sys.argv[1], int(sys.argv[2]), sys.argv[3:]
+for f in files:
+    try:
+        raw = open(f, encoding="utf-8", errors="surrogateescape").read()
+    except OSError:
+        print("%s(unreadable)" % f); continue
+    if "$" not in raw: continue
+    flat, where, ln, prev = [], [], 1, ""   # the gates' flatten: newline -> space, runs of spaces collapse
+    for ch in raw:
+        c = " " if ch == "\n" else ch
+        if not (c == " " and prev == " "): flat.append(c); where.append(ln)
+        prev = c
+        if ch == "\n": ln += 1
+    s = "".join(flat); i = s.find("$")
+    while i >= 0:
+        if hashlib.sha256(s[i:i + n].encode("utf-8", "surrogateescape")).hexdigest() == h:
+            print("%s:%d" % (f, where[i]))
+        i = s.find("$", i + 1)
+PY
 }
 
 # require_final_newline <path>
@@ -5693,6 +5737,7 @@ preflight_support_newlines || RC=1
 . scripts/doc_gates.d/97_atlas_probe_tokens.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/97_atlas_probe_tokens.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/98_history_index.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/98_history_index.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/99_claim_ledger.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/99_claim_ledger.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
+. scripts/doc_gates.d/99_lsd_text.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/99_lsd_text.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
   npath) gate_npath || RC=1 ;;
@@ -5807,6 +5852,7 @@ case "$MODE" in
   atlas-probe-tokens) gate_atlas_probe_tokens || RC=1 ;;
   history-index) gate_history_index || RC=1 ;;
   claim-ledger) gate_claim_ledger || RC=1 ;;
+  lsd-text) gate_lsd_text || RC=1 ;;
   all)     gate_numbers || RC=1; echo; gate_cli || RC=1
            echo; gate_citation_lines || RC=1; echo; gate_retract || RC=1
            echo; gate_retract_figures || RC=1
@@ -5895,6 +5941,7 @@ case "$MODE" in
            echo; gate_atlas_probe_tokens || RC=1
            echo; gate_history_index || RC=1
            echo; gate_claim_ledger || RC=1
+           echo; gate_lsd_text || RC=1
            # 🔴 GATE 89, added to `all` 2026-09-08. It was deliberately held OUT while its
            # allowance table (documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv) was untracked:
            # `all` runs in a detached worktree of the PUSHED sha, and the gate ERRORs without
@@ -5903,7 +5950,7 @@ case "$MODE" in
            # that outlives its reason is the defect this repo spent 2026-09-08 removing.
            # Cost measured: ~2.5 s against a suite that already runs ~35 min.
            echo; gate_emitted_surface || RC=1 ;;
-  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|cert-inventory|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|atlas-probe-tokens|history-index|claim-ledger|all}"; exit 2 ;;
+  *) echo "usage: $0 {numbers|cli|citation-lines|retract|retract-figures|links|links-internal|secrefs|status|figures|liveness|banner|appendonly|appendonly-head|appendonly-history|ledger|ledger-figures|ledger-phrases|revhist|revrows|regdupes|instruments|collisions|scoreboard|alias-reach|branch-registry|publication-state|script-paths|hex-prefix|tracked-ignored|generated|value-domains|repro-reach|canonical-ceiling|withdrawn-markers|framing-era|author-directives|rotation-c3|sk-gains|fiber-anchor|superlative|printed-quotient|stale-status|npath|se-vs-ci|dvd24-scope|p14-claims|mi-disambig|cell-space|band-status|anchor-coverage|report-verdict|net-brackets|history-scope|code-needles|sha-prediction|parity-figures|file-drawer|seed-provenance|unrepeatable-cite|branch-list|index-fidelity|sha-tuple|log-derived-figures|nontrivial-display|witness-count|baseline-arithmetic|derived-coefficient|cpu-vendor|az-name-closure|glossary-consistency|identifying-set-arity|stdlib-claims|lean-header-verbatim|evidence-type-vocabulary|theorem-vs-slice|chronology-access|layer-profile|arrivals-sync|scorecard-repro|scorecard-attribution|summary-scope|boundary-scope|merge-semantics|rec-scope|cert-inventory|scratch-examples|tree-invariants|quotient-frame-isolation|dispatch-alignment|env-surface|emitted-surface|completion-semantics|prereg-escrow|viz-shape|separates-census|atlas-probe-tokens|history-index|claim-ledger|lsd-text|all}"; exit 2 ;;
 esac
 
 echo
@@ -5950,7 +5997,7 @@ echo
 if [ "$RC" -ne 0 ]; then
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
-  echo "DOC GATES: PASS  — hard gates only: 2, 2c, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 24, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92. Gates 1, 5 (incl. 5b), 13"
+  echo "DOC GATES: PASS  — hard gates only: 2, 2c, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 24, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93. Gates 1, 5 (incl. 5b), 13"
   echo "                   and GATE 17's LEG B (the verdict ledger) are REPORT-ONLY,"
   echo "                   so any [WARN]/[note] above is NOT covered by this verdict."
   # GATE 18's CARVE-OUT, made explicit 2026-09-02 (Codex v2 charge 4). Naming 18 as hard

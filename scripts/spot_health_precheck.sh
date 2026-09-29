@@ -7,9 +7,9 @@
 #   2. Regional Spot vCPU quota headroom (cheap; az vm list-usage --
 #      `lowPriorityCores`, the bucket a Spot launch actually draws on,
 #      NOT the per-family on-demand row)
-#   3. Empirical probe — launch a $0.01 D2als_v7 Spot, see if it
-#      provisions within 90s and doesn't immediately evict (definitive
-#      but costs ~$0.01 per probe)
+#   3. Empirical probe — launch a small D2als_v7 Spot, see if it
+#      provisions within 90s and doesn't immediately evict (definitive,
+#      and cheap per probe)
 #
 # Exit codes:
 #   0 = OK to launch
@@ -185,7 +185,7 @@ if [ "$FREE" -lt "$NEED_VCPU" ]; then
 fi
 log "  signal-2 OK: $FREE vCPU free, enough for $NEED_VCPU"
 
-# ===== Signal 3: empirical probe (D2als_v7 Spot, ~$0.01) =====
+# ===== Signal 3: empirical probe (D2als_v7 Spot, cheap) =====
 log "Signal 3: empirical probe — provisioning $PROBE_SKU Spot for ${PROBE_TIMEOUT_SEC}s timeout"
 
 # Cleanup on exit

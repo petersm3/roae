@@ -136,7 +136,7 @@ and for the population (the river is drawn as 31 unit-width steps, edges −0.5�
 
 ## Generation
 
-**Rehearsal at n=9 (sub-second, runs today, $0)** — note the class multiset at n=9 is
+**Rehearsal at n=9 (sub-second, runs today, local)** — note the class multiset at n=9 is
 {1:2, 2:5, 4:2}, the reduced-world analogue of {1:2, 2:8, 3:13, 4:7, 6:1}:
 
 ```bash

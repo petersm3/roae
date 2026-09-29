@@ -60,10 +60,10 @@
 #
 # Gate on it with:  perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK
 #
-# Cost (D128als_v7 Spot ~$0.95/hr westus3):
-#   - 1B scale: ~$0.10 (≤10 min wall)
-#   - 1T scale: ~$2-3 (~3h wall: 2 enum + 1 merge)
-#   - 11.2T scale: ~$10-15 (~12h wall)
+# Wall (D128als_v7 Spot):
+#   - 1B scale: ≤10 min wall
+#   - 1T scale: ~3h wall (2 enum + 1 merge)
+#   - 11.2T scale: ~12h wall
 
 set -uo pipefail
 exec > >(tee /tmp/perf_bench_$$.log) 2>&1

@@ -13,7 +13,7 @@
 #  * ./solve --r11-verify == PASS              (two-language KW axis reproduction)
 #  * instrument smoke: a short strict run must print leaves_canonical + DERIVED-N_gs
 #
-# Pre-committed ABORT (design §5.5): if seed-1 wall implies > 30 h or > $20 total,
+# Pre-committed ABORT (design §5.5): if seed-1 wall implies > 30 h or > [cost redacted] total,
 # stop after seed 1 (its 5.5e10-probe result alone ~8% relerr = usable fallback).
 set -uo pipefail
 
@@ -22,7 +22,7 @@ SOLVE="${SOLVE:-$WORK/solve}"
 OUT="${OUT:-$WORK/results}"
 THREADS="${THREADS:-64}"
 HARDCAP_MIN="${HARDCAP_MIN:-1860}"      # 31 h guest hard cap (> 30 h abort budget)
-RATE_PER_HR="${RATE_PER_HR:-0.50}"      # Spot D64als_v7 ~$/hr, for the abort $ check
+RATE_PER_HR="${RATE_PER_HR:-0.50}"      # hourly rate for the abort check (figure redacted in comments/messages, 2026-09-29)
 SELFTEST_SHA="403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e"
 
 # Battery sizes (probes)
@@ -103,10 +103,10 @@ for s in $SEEDS; do
     proj_s=$(awk -v dt="$dt" -v sp="$SEED_PROBES" -v tp="$total_probes_after" 'BEGIN{printf "%d", dt*(tp/sp)}')
     proj_h=$(awk -v p="$proj_s" 'BEGIN{printf "%.1f", p/3600}')
     proj_cost=$(awk -v p="$proj_s" -v r="$RATE_PER_HR" 'BEGIN{printf "%.2f", (p/3600)*r}')
-    echo "ABORT-CHECK: projected total wall=${proj_h}h cost=\$${proj_cost}"
+    echo "ABORT-CHECK: projected total wall=${proj_h}h"
     over=$(awk -v h="$proj_h" -v c="$proj_cost" 'BEGIN{print (h>30||c>20)?1:0}')
     if [ "$over" = "1" ]; then
-      echo "ABORT (design §5.5): projection exceeds 30h/\$20 — stopping after seed 1 (fallback ~8% relerr)."
+      echo "ABORT (design §5.5): projection exceeds the design limit — stopping after seed 1 (fallback ~8% relerr)."
       echo "ABORTED_AFTER_SEED_1 proj_h=$proj_h proj_cost=$proj_cost" > "$OUT/ABORT"
       exit 0
     fi
@@ -139,7 +139,7 @@ SOLVE_KNUTH_SEED=505051 SOLVE_THREADS=$THREADS \
   "$SOLVE" --estimate-knuth "$DERIVED_PROBES" > "$OUT/derived_ci.out" 2>&1
 echo "derived done"
 
-# ---- RUN 4: exact-count calibration audits ($0; no strict prune, C1-C5 canonical) ----
+# ---- RUN 4: exact-count calibration audits (no extra compute; no strict prune, C1-C5 canonical) ----
 echo "--- exact-count audits $(date -u +%FT%TZ) ---"
 : > "$OUT/exact_audit.tsv"
 echo -e "depth\tseed\treached\texact_c3\test_c3\test_ci_lo\test_ci_hi" >> "$OUT/exact_audit.tsv"

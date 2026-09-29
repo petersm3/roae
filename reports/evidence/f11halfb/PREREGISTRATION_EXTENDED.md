@@ -77,5 +77,5 @@ choosing a favourable window.
 
 ## Cost
 
-~10x the 245 s n=100 run; ~40 min on 8 procs, less on 14. Under $1 of Standard VM time on
+~10x the 245 s n=100 run; ~40 min on 8 procs, less on 14. Under [cost redacted] of Standard VM time on
 a 16-core Standard VM already provisioned for the campaign.

@@ -591,6 +591,49 @@ gate_generated() {
 # existing entry was reworded". v1 reported 4 mid-entry changes and v2 reported 2
 # rewordings; both were artifacts, and GATE 10 would have had to be failing for either to
 # be real. Only ending a block at the next heading OF ANY LEVEL gives the numbers above.
+#
+# CX-230 (2026-09-29) — THE ONE SANCTIONED IN-PLACE EDIT. The operator decided that dollar figures
+# leave the current tree, the append-only ledgers included, with git history unchanged. In a ledger
+# the edit is mechanical: a dollar-figure token becomes `[cost redacted]` and nothing else on the
+# line moves. _g10_money_align reads a BASELINE version on stdin and writes it back with each line
+# that differs from a working-copy line ONLY by such replacements swapped for that working-copy line,
+# so 10a and 10b compare the redacted baseline and see no loss. Anything else on the line — a changed
+# word, a changed amount, a dropped token, punctuation — leaves the baseline line as it was, and it
+# fails as before. A token is `$` + a number (digit-group commas, a decimal part, an optional K/k/M)
+# with an optional hyphen or en-dash range; the redaction left awk and shell `$1`-style fields alone,
+# and the gate only ever ACCEPTS a replacement, so it needs no rule for them. $1 is the working copy.
+# Tested in tests.py (TestQ903AppendOnlyMoneyRedaction): green on a pure token->marker change, red on
+# the same change plus one reworded word, red on a changed amount.
+_g10_money_align() {
+  if ! grep -qF '[cost redacted]' "$1" 2>/dev/null; then cat; return 0; fi
+  DG_WORK="$1" python3 -c '
+import os, re, sys
+M = "[cost redacted]"
+NUM = r"[0-9](?:[0-9,]*[0-9])?(?:\.[0-9]+)?(?:[KkM](?![A-Za-z]))?"
+TOK = re.compile(r"\$" + NUM + r"(?:[-–]\$?" + NUM + r")?")
+idx = {}
+for w in open(os.environ["DG_WORK"], encoding="utf-8", errors="surrogateescape").read().split("\n"):
+    if M in w:
+        idx.setdefault(TOK.sub(M, w), []).append(w)
+data = sys.stdin.buffer.read().decode("utf-8", "surrogateescape").split("\n")
+for i, b in enumerate(data):
+    if M in b and not TOK.search(b):
+        continue
+    ws = idx.get(TOK.sub(M, b)) if TOK.search(b) else None
+    if not ws:
+        continue
+    parts, pos = [], 0
+    for m in TOK.finditer(b):
+        parts += [re.escape(b[pos:m.start()]), "(?:%s|%s)" % (re.escape(m.group(0)), re.escape(M))]
+        pos = m.end()
+    pat = re.compile("".join(parts) + re.escape(b[pos:]))
+    for w in ws:
+        if w != b and pat.fullmatch(w):
+            data[i] = w
+            break
+sys.stdout.buffer.write("\n".join(data).encode("utf-8", "surrogateescape"))
+'
+}
 gate_appendonly_head() {
   echo "== GATE 10a: CORRECTIONS.md is append-only vs HEAD =="
   local f="documentation/CORRECTIONS.md"
@@ -605,7 +648,7 @@ gate_appendonly_head() {
   fi
   local tmp gone
   tmp=$(mktemp) || return 1
-  git show "HEAD:$f" > "$tmp" 2>/dev/null
+  git show "HEAD:$f" 2>/dev/null | _g10_money_align "$f" > "$tmp"   # CX-230: token->marker only
   # ⚠ Q-284: the `|| true` here is CORRECT and must stay. `grep -c` exits 1 when the count
   # is ZERO, which is a normal result, not a failure. A sweep that strips every `|| true`
   # would break this gate. Two of the four sites found were real defects; these two are not.
@@ -743,6 +786,8 @@ gate_appendonly_history() {
   local g10b_diff g10b_rew
   g10b_diff=$(mktemp) || { rm -f "$cur" "$tmp"; return 1; }
   g10b_rew=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_diff"; return 1; }
+  local g10b_base
+  g10b_base=$(mktemp) || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew"; return 1; }
   grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
   # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
   # remote ref pointing at a commit already walked, contribute nothing.
@@ -861,14 +906,17 @@ gate_appendonly_history() {
     case " $seen " in *" $blob "*) continue;; esac
     seen="$seen $blob"
     n=$((n+1))
-    git cat-file -p "$blob" 2>/dev/null | grep -v '^[[:space:]]*$' | sort > "$tmp"
+    # CX-230: the baseline is aligned to the working copy's `[cost redacted]` lines first (see
+    # _g10_money_align above); a pure token->marker line is then not a loss, anything else still is.
+    git cat-file -p "$blob" 2>/dev/null | _g10_money_align "$f" > "$g10b_base"
+    grep -v '^[[:space:]]*$' "$g10b_base" | sort > "$tmp"
     local lost
     lost=$(comm -23 "$tmp" "$cur" | wc -l)
     if [ "${lost:-0}" -ne 0 ]; then
       # Q-251 / Q-718: split into RE-WRAPS (accumulated, reported once below) and LOST lines.
       local g10b_lostf
-      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew"; return 1; }
-      git cat-file -p "$blob" | diff - "$f" > "$g10b_diff"; comm -23 "$tmp" "$cur" | DG_DIFF="$g10b_diff" DG_REW="$g10b_rew" python3 -c '
+      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1; }
+      diff "$g10b_base" "$f" > "$g10b_diff"; comm -23 "$tmp" "$cur" | DG_DIFF="$g10b_diff" DG_REW="$g10b_rew" python3 -c '
 import os, re, sys, difflib, collections
 def classify(dt):  # Q-718: a normal-format diff -> (re-wrapped, lost) removed lines, judged hunk by hunk
     rew, lost = [], []
@@ -944,7 +992,7 @@ for l in (x.rstrip("\n") for x in sys.stdin):
   elif [ "$bad" -eq 0 ]; then
     echo "  [ok] every line of all $n distinct historical/published version(s) survives in the working copy"
   fi
-  rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew"
+  rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"
   return $bad
 }
 
@@ -1080,13 +1128,16 @@ gate_ledger_phrases() {
     echo "  [FAIL] sha256sum not on PATH — the RP-<sha> keying this gate is built on cannot"
     echo "         be computed, so the gate can check nothing. This is not a skip."
     return 1; }
-  local bad=0 n=0 key
+  local bad=0 n=0 key _hr
   require_final_newline "$reg" || bad=1
   while IFS=$'\t' read -r phrase allow note; do
     # Q-761: was `case "$phrase" in ''|'#'*) continue` — a needle starting with # got no RP line.
     reg_row_kind loud "$phrase" "$allow" "$note"; case $? in 0) continue;; 2) bad=1; continue;; esac
     n=$((n+1))
     key="RP-$(printf '%s' "$phrase" | sha256sum | cut -c1-8)"
+    # CX-230: a HASHED row already IS the phrase's digest; its key is that digest's first 8 digits,
+    # the key the text row had.
+    if _hr=$(hashed_row_parse "$phrase"); then key="RP-${_hr:0:8}"; fi
     if grep -qF -- "$key" "$f"; then
       echo "  [ok] $key recorded"
     else

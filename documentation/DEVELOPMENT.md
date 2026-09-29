@@ -766,7 +766,7 @@ table, and adding one is a defect, not a style.
 | `Q326_QUERY_SURFACE` | `q326_kc_query_surface_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Q-326 items (3)(4)(5): `--kc-count`/`--kc-rank`/`--kc-member` parsed `--kc-c3-max` and dropped it, returning the superspace count at rc 0 with nothing naming the scope; `--kc-c3-max` was `long long` at the CLI and `int` inside the enumerator, so 2³² truncated to 0 walks at rc 0; and `kc_parse_walk` validated each slot without checking the pairs form a **permutation**, so duplicate-pair vectors got a positive multiplicity under a trailer stamping the ratified convention. Legs 6, 7 and 10 exist because refusing everything is not a fix, and leg 11 because the permutation check belongs in the shared parser — a fix in the `--kc-repr` branch alone passes every other leg |
 | `Q326_UNRANK_M0` | `q326_kc_unrank_m0_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Q-326 item (1): `--kc-unrank … --kc-record` printed the class representative unconditionally, including on `kc_class_repr`'s `m == 0` exits, which leave `repr` unwritten — a record line built from uninitialised stack, indexing a 64-entry table with bytes up to 255, at rc 0 under a conformance trailer. Leg 3 is the load-bearing one: a guard that sets rc 1 and still prints `repr` passes legs 1 and 2 and is still reading uninitialised memory, so only the run-to-run byte-identity check sees it |
 | `Q422_RATIO_COLUMNS_GATE` | `q422_ratio_columns_gate.sh` | `PASS` \| `FAIL` (exit 40) \| `ERROR` (exit 2, added 2026-09-08). Every could-not-measure path *about the artifact* is still folded into `FAIL` — fail-closed. `ERROR` is reserved for the one condition that is not about the artifact at all: a `Q422_SOLVE` binary that does not correspond to `solve.c`, where the gate has no established subject to grade. Folding that into `FAIL` would assert "the Q-422 ratio columns are broken" about a binary nobody committed; measured on 2026-09-08, the 2026-09-05 `./solve` produced an unearned `Q422_RATIO_COLUMNS_GATE=PASS` through this arm. `Q422_ALLOW_STALE=1` overrides deliberately. The atlas consumer's cell-by-cell gates compared only the integer columns, so zeroing every derived ratio left 29 consumer gates printing `PASS`, `ATLAS_CONSUMER=PASS`, `TR12_REPRO=PASS` and a byte-identical committed golden, while the field V1 plots drew empty. The gate runs the consumer three ways on a fresh n=9 universe and requires `--atlas-fault ratio-zero` to fail **exactly** the five derived-column gates and no integer gate — an integer gate firing would mean the injected fault is not the one described |
-| `GROUPC_REHEARSAL` | `group_c_n9_rehearsal_gate.sh` | `PASS` \| `FAIL` \| `ERROR`, with `GROUPC_REHEARSAL_VERDICTS` (how many verdicts the consumer emitted) and `GROUPC_REHEARSAL_N31_GUARDS` (the ratcheted count of `n == 31` guards in the atlas consumer) beside it. Group C is nine query families of post-processing on a tens-of-KB JSON — milliseconds, $0 — but it runs AFTER a scan measured in days, so a family that needs a field the scan did not emit costs another full scan. `QUERY_INVENTORY.md` had said since it was written that this *should* be rehearsed at n=9 first, against a fixture path that does not exist. Three gates: it can run at all; every family that can run at n=9 does, with the verdict COUNT asserted because a family that silently stops emitting leaves every remaining verdict green; and every `n == 31`-only path either announces itself as `SKIP:n=<n>` or names a file that drives it at n=31 — which must exist, must actually mention the symbol, and if it is a `.sh` gate must have an invoker. That last clause is not decoration: `TR12_A5_ORBIT_COLUMNS` emitted nothing at all below n=31, and the one gate exercising its code had no invoker |
+| `GROUPC_REHEARSAL` | `group_c_n9_rehearsal_gate.sh` | `PASS` \| `FAIL` \| `ERROR`, with `GROUPC_REHEARSAL_VERDICTS` (how many verdicts the consumer emitted) and `GROUPC_REHEARSAL_N31_GUARDS` (the ratcheted count of `n == 31` guards in the atlas consumer) beside it. Group C is nine query families of post-processing on a tens-of-KB JSON — milliseconds — but it runs AFTER a scan measured in days, so a family that needs a field the scan did not emit costs another full scan. `QUERY_INVENTORY.md` had said since it was written that this *should* be rehearsed at n=9 first, against a fixture path that does not exist. Three gates: it can run at all; every family that can run at n=9 does, with the verdict COUNT asserted because a family that silently stops emitting leaves every remaining verdict green; and every `n == 31`-only path either announces itself as `SKIP:n=<n>` or names a file that drives it at n=31 — which must exist, must actually mention the symbol, and if it is a `.sh` gate must have an invoker. That last clause is not decoration: `TR12_A5_ORBIT_COLUMNS` emitted nothing at all below n=31, and the one gate exercising its code had no invoker |
 | `KC_WRITER_DEVFULL_GATE` | `kc_writer_devfull_gate.sh` | `PASS` \| `FAIL` \| `ERROR`, with `KC_WRITER_DEVFULL_CHECKS` (writers probed) and `KC_WRITER_DEVFULL_FAILS` beside it. Every KC artifact writer announced success when its output could not be written: on `/dev/full`, `--kc-scan` printed "atlas written" and `KC_SCAN=OK` at rc 0, the chunk writer `KC_SCAN_CHUNK=OK` at rc 0, `--kc-profile --kc-tsv` `KC_PROFILE=OK` at rc 0, and the check-arrangement, t-cert, o3-cert and oracle writers all printed "certificate written" — with nothing on disk. Found 2026-09-02, ONE of the seven writers (the merge) was fixed on 2026-09-04 and the rest were left, and a fresh review re-found it 2026-09-09; this gate exists so that cannot recur silently. Each writer is required **both** ways — nonzero exit and a FAIL token to `/dev/full`, and a clean exit with a non-empty file to a real path — because a gate checking only the red half passes on an engine that refuses to write anything at all. Probing fewer than seven writers is `ERROR`, not `PASS` |
 | `Q433_XA_CERT` | `q433_xa_cert_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. The XA pricing path's refusal tested that a certificate **path string** had been supplied and never opened the file, so naming a nonexistent path was enough to unblock an EXHAUSTIBLE/INFEASIBLE verdict — weaker than `test -f`. Since Q-772 (2026-09-24) the certificate is a fixed W0-D schema whose `mapping.nodes_per_t_unit` factor **multiplies** every priced row and whose `mapping.kind` (exact / upper-bound / lower-bound) limits the call a row may make. Leg 0 is static and checks the **wiring**: the refusal guard must actually call `_xa_node_mapping_load`, since a helper nothing invokes is the defect it was written to fix. **19 legs** then run: **L1** requires a full-schema exact certificate to be **accepted and priced** (a loader that refuses everything is a permanent `FALSE`, not a fix); **L1b** is the flip — the pre-Q-772 "good" certificate, a sentence with no factor, is now **refused**; L2–L14 refuse a missing path, the `--kc-t-cert` output by its type, a mapping-less document, unparseable JSON and every legacy `solve_node_limit_mapping` value, including the two RCQ04 inputs no grammar could close; L15–L18 are the ruling's R2–R5 (the factor multiplies exactly and flips a row; a bound never makes the call it cannot support; a malformed mapping is a reasoned refusal; no recursive search and no `RecursionError`). **Six mutants** must each die on the leg named for them: accept-all on L1b, refuse-all on L1, factor-ignored on L15, kind-ignored on L16, field-checks-removed on L17, recursive-find on L18 |
 | `RESUME_BUDGET_INFINITY` | `resume_budget_infinity_gate.sh` | `PASS` \| `FAIL` \| `ERROR`. Q-317 (1): the resume path decided whether to re-run a stored budgeted sub-branch with a test guarded on `current_budget > 0`, but budget **0 means uncapped**, i.e. infinite — so an uncapped resume skipped every stored budgeted cell and inherited truncated results as a complete enumeration. An undercount presented as exhaustive is this project's worst error direction. Both directions are checked from the same binary, because a one-sided test passes on a binary that never skips anything: a capped run whose stored budget is at least the current one must still skip the cell, and an uncapped run must not skip it at any finite stored budget. `ERROR` is reserved for an unestablished subject — a missing binary, or a `./solve` older than `solve.c` (`RESUME_BUDGET_ALLOW_STALE=1` overrides). That guard was added after the gate announced a live `FAIL` against a binary two days older than the commit that fixed the defect: an unestablished subject is not a defect, and reporting it as one sends a reader hunting a bug that is not there |
@@ -779,7 +779,7 @@ table, and adding one is a defect, not a style.
 | `SIZE_GATE_ERROR` | `pre_commit_size_gate.sh` | emitted only alongside `=ERROR`: `not-in-git-repo`, `staged-list-failed` or `allowlist-unparseable` |
 | `SIZE_GATE_LIMIT` | `pre_commit_size_gate.sh` | the threshold in bytes actually applied (1,310,720 = 1.25 MiB, raised from 1 MiB on 2026-09-04). `-1` when the run ended before reading it |
 | `SIZE_GATE_UNAPPROVED` | `pre_commit_size_gate.sh` | unapproved first-time files at or over the limit, emitted on every terminal path. `-1` when the gate could not measure |
-| `SPOT_PRECHECK` | `spot_health_precheck.sh` | `OK` \| `WAIT` \| `HARD-FAIL` \| `ERROR`, printed **bare** and last on every exit path — this one really is `grep -qx`-able, and was made so deliberately in 2026-09-02 after the only two tokens it emitted were prefixed, suffixed and on stderr while the OK/WAIT/HARD-FAIL paths emitted none at all. Three escalating signals: published SKU restrictions, family vCPU quota headroom, then a real ~$0.01 D2als_v7 Spot probe. `ERROR` (rc 4) is not a capacity verdict — treat it as do-not-launch, but escalate it as a broken precheck. A non-integer `need_vcpu` is `ERROR` for a measured reason: the numeric test failed, bash read the failed test as false, and the script printed a green light having checked nothing immediately before a real `az vm create` |
+| `SPOT_PRECHECK` | `spot_health_precheck.sh` | `OK` \| `WAIT` \| `HARD-FAIL` \| `ERROR`, printed **bare** and last on every exit path — this one really is `grep -qx`-able, and was made so deliberately in 2026-09-02 after the only two tokens it emitted were prefixed, suffixed and on stderr while the OK/WAIT/HARD-FAIL paths emitted none at all. Three escalating signals: published SKU restrictions, family vCPU quota headroom, then a real D2als_v7 Spot probe. `ERROR` (rc 4) is not a capacity verdict — treat it as do-not-launch, but escalate it as a broken precheck. A non-integer `need_vcpu` is `ERROR` for a measured reason: the numeric test failed, bash read the failed test as false, and the script printed a green light having checked nothing immediately before a real `az vm create` |
 | `TR12_N31_GOLDEN` | `tr12_n31_golden_gate.sh` | `OK` \| `ABSENT` \| `PLACEHOLDER`. A millisecond pre-flight, not the thing that makes n=31 certification able to fail — `tr12_repro.sh` already refuses both cases, and this gate's header says so. What it buys: the refusal arrives before a multi-day battery rather than after it; it requires `_MANIFEST.txt`, because the n=9 goldens are hashed by `tr12_repro_gate.sh` and an n=31 golden would otherwise be editable without trace; and it names **which** problem it is instead of 50 undifferentiated mismatches |
 | `TR12_MINT_STATE` | `tr12_mint_state_gate.sh` | `PASS` \| `FAIL` \| `ERROR` (rc 2), all whole-line. Proves the battery's verdict **distinguishes a diffed run from a minted one**: that `TR12_REPRO`/`QUERY_PROGRAM` read `PASS` when every reproduced row was compared against a pre-existing expected block, and `PASS:MINTED-<n>` when `<n>` rows were written by that same run under `--mint-missing` and so diffed against nothing. `ERROR`, never `PASS`, when the subject cannot be read — an absent battery or absent block markers are not a passing gate. It **extracts the region between `# >>> TR12_MINT_STATE_BLOCK_BEGIN` and `# <<< TR12_MINT_STATE_BLOCK_END` in `tr12_repro.sh` and EXECUTES it**, stubbing only the surrounding bookkeeping, so the mint decision and the token strings it grades are the battery's own bytes rather than a copy — the `q7ranks_parse_gate.sh` lesson, where a gate bound to its own copy of the row passed with the defect restored and with the battery deleted. Scope: it proves that IF rows are minted THEN the verdict says so; it does **not** verify a minted golden, which nothing can — a minted block is the run's own output, and that blind spot is `TR12_N31_GOLDEN`'s `MINTED-UNVERIFIED` |
 | `TR12_REPRO_GATE_CURRENT` | `tr12_repro_gate.sh --check` | `YES` \| `NO` \| `UNKNOWN`, all whole-line since 2026-09-08 (`NO` and `UNKNOWN` used to carry their explanation on the verdict line, so only `YES` was ever `grep -qx`-able — which is why the two existing consumers both matched it by substring). The cheap fingerprint-only leg (milliseconds, no build) that other checks call on every run: `YES` means none of the derived inputs, the gate itself, or any expected block has changed since the last recorded `PASS`; `NO` means one of them has; `UNKNOWN` means no stamp exists yet. It answers a narrower question than `TR12_REPRO_GATE=PASS` — "is that recorded pass still current", not "does the tree reproduce" |
@@ -877,7 +877,7 @@ Before adding any new sha to [CANONICAL_HASHES.md](CANONICAL_HASHES.md), the can
 4. If shas diverge: the canonical is not yet eligible. Investigate the manifest delta; track down whatever non-determinism the divergence
    reveals (toolchain, microarchitecture, latent UB).
 
-Cost: ~$5–15 of extra VM-hour per canonical for the second build. Negligible relative to the cost of an unreproducible canonical entering
+Cost: some extra VM time per canonical for the second build. Negligible relative to the cost of an unreproducible canonical entering
 the public record.
 
 The intra-day 4-equivalence test (full-enum L1, deterministic re-run L2, `--merge-layers` of full-enum, `--merge-layers` of 56-branch
@@ -906,16 +906,16 @@ Effort: ~2–4 hours of one-time Dockerfile setup, then zero ongoing cost. Statu
 
 #### Canonical pipeline runbook (added 2026-05-17, post-#81 v2 saga)
 
-For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-tier storage redundancy, the specific failure modes that have actually occurred in practice — see **`roae-private/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, ~$18 across four attempts vs ~$5 first-shot expected) — every failure mode it documents corresponds to a real overrun.
+For the operational mechanics of running a canonical enumeration ≥11.2T — pre-launch checklist, recovery procedures, trap discipline, three-tier storage redundancy, the specific failure modes that have actually occurred in practice — see **`roae-private/CANONICAL_PIPELINE_RUNBOOK.md`** (private staging repo). The cross-build regression gate above is the build-side reproducibility guarantee; the runbook is the run-side operational guarantee. The runbook was forced into existence by the v2 11.2T re-derivation saga (2026-05-16/17, four attempts vs one first-shot expected) — every failure mode it documents corresponds to a real overrun.
 
 The runbook's mandatory invariants for canonical runs:
 
 - Enum OS disk: explicit `--storage-sku StandardSSD_LRS` (Azure defaults `s`-suffix VMs to Premium_LRS otherwise)
 - Shards on attached managed disk (`solver-data-westus3`), not the enum VM's OS disk
-- ERR trap preserves the enum VM (never auto-`teardown_enum`); recovery from Phase 2 errors is then a $0.50 Phase-2-only re-run instead of a $4 enum redo
+- ERR trap preserves the enum VM (never auto-`teardown_enum`); recovery from Phase 2 errors is then a Phase-2-only re-run instead of a full enum redo
 - Cold-archive upload via streaming `curl -T file` (NEVER `--data-binary @file` — OOMs at 2 GB+)
 - Mount logic handles existing-ext4 (operator data on solver-data); write canonical outputs to `$ARCHIVE_PREFIX/` subdirectory
-- Mandatory $0.02 D2 pre-flight test of the critical-path commands before committing to a 4h+ canonical enum
+- Mandatory D2 pre-flight test of the critical-path commands before committing to a 4h+ canonical enum
 - Triple-redundancy archival: managed disk + cold archive + claude `/tmp` (size-permitting)
 
 The corresponding operator-memory entry at `feedback_canonical_pipeline_pattern.md` codifies the same rules for Claude.
@@ -1029,7 +1029,7 @@ Violation → `_exit(21)` with diagnostic to stderr (distinct from existing exit
 **Standing policy (codified 2026-05-14, was de facto since Phase B):**
 
 - **Enumeration phase** (sub-branch DFS, parallel, OK to evict mid-walk): Spot priority is required (CLAUDE.md cost-control rule). The mid-walk checkpoint capability (`SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`) handles eviction-recovery safely on post-`c3ad271` code.
-- **Merge phase** (`solve --merge`, single-threaded, eviction-fragile): **Standard (non-Spot) priority is required.** A merge that is evicted leaves a partial solutions.bin and re-running it costs 60+ minutes per attempt. The cost difference between Spot D32 ($0.30/hr) and Standard D32 ($1.30/hr) for a 60-minute merge is $1 — trivial vs the risk of corrupting a canonical artifact.
+- **Merge phase** (`solve --merge`, single-threaded, eviction-fragile): **Standard (non-Spot) priority is required.** A merge that is evicted leaves a partial solutions.bin and re-running it costs 60+ minutes per attempt. The cost difference between Spot D32 and Standard D32 for a 60-minute merge is trivial vs the risk of corrupting a canonical artifact.
 
 **Operator pre-flight gate (manual, mandatory):** before launching any canonical-scale `solve --merge`, run `az vm show --query priority -o tsv` on the target VM. If output is anything other than `null` or `Regular`, stop and switch to a non-Spot VM.
 
@@ -1107,15 +1107,15 @@ The full protocol lives in the private operational repo at `petersm3/roae-privat
 
 #### Phase 1 scale tiering on D64als_v7 64-thread
 
-| Scale | Wall/trial | 4-trial × 3-binary cycle wall (compute only: the protocol's nine 60 s cool-downs and two reboots add ≥ 11 min) | Cost (Spot $0.50/hr) | Purpose |
-|---|---|---|---|---|
-| 100M | ~5-10s | <2 min | ~$0.02 | sha preservation only (selftest scale); too short for speedup signal |
-| 10B | ~10-15s | ~3-4 min | ~$0.03 | quick sanity sweep |
-| **100B** | **~1-2 min** | **~30-40 min** | **~$0.25-0.33** | **default Phase 1 speedup measurement** — long enough to escape startup-dispatch noise, fast enough for iterative AVX-512 dev |
-| 1T | ~12-15 min | ~3 hr | ~$1.50 | canonical-correlation confirmation (run once per Phase 1 task after the 100B numbers settle) |
-| 11.2T canonical | ~77 min | ~15 hr | ~$7.50 | mandatory sha-preservation regression — operator-gate, not iterative |
+| Scale | Wall/trial | 4-trial × 3-binary cycle wall (compute only: the protocol's nine 60 s cool-downs and two reboots add ≥ 11 min) | Purpose |
+|---|---|---|---|
+| 100M | ~5-10s | <2 min | sha preservation only (selftest scale); too short for speedup signal |
+| 10B | ~10-15s | ~3-4 min | quick sanity sweep |
+| **100B** | **~1-2 min** | **~30-40 min** | **default Phase 1 speedup measurement** — long enough to escape startup-dispatch noise, fast enough for iterative AVX-512 dev |
+| 1T | ~12-15 min | ~3 hr | canonical-correlation confirmation (run once per Phase 1 task after the 100B numbers settle) |
+| 11.2T canonical | ~77 min | ~15 hr | mandatory sha-preservation regression — operator-gate, not iterative |
 
-Recommended workflow during AVX-512 dev (Phase 1a, 3-5 days engineering): provision one D64 Spot VM, leave it running for the session, iterate at 100B between code changes (~30-40 min per cycle), then run 1T once at the end of each binary's tuning to confirm canonical-scale behavior. ~$5-15 in compute for the whole Phase 1a depending on session length.
+Recommended workflow during AVX-512 dev (Phase 1a, 3-5 days engineering): provision one D64 Spot VM, leave it running for the session, iterate at 100B between code changes (~30-40 min per cycle), then run 1T once at the end of each binary's tuning to confirm canonical-scale behavior. Compute for the whole Phase 1a scales with session length.
 
 Reboot-between-binaries operator pattern:
 
@@ -1133,12 +1133,12 @@ sudo reboot
 #### Host strategy
 
 - **`claude` orchestrator (D2as_v6, AMD EPYC Zen 4, 2 cores, x86_64):** has **full AVX-512** instruction support (F/DQ/BW/VL/VNNI/BF16/VBMI/VBMI2/BITALG/VPOPCNTDQ — the complete Zen 4 stack), plus AVX2, FMA, BMI1/2, popcount. Suitable for **all sha-preservation regression at selftest scale** AND **AVX-512 development + selftest-scale speedup measurement**. The "scalar fallback path for ARM" plan element from the original V2_IMPLEMENTATION_PLAN_2026_05_06.md is still relevant for actual Cobalt ARM hosts (D-ps-v6 / Cobalt 100 family) — but claude is not one of those; its 2 cores run the full AVX-512 path natively. Wall time on claude is ~45–50s per 200M-node depth-2 trial (after correcting for benchmark contamination 2026-05-15); a full Phase 1 4-trial benchmark completes in ~3-4 minutes.
-- **x86 Spot D-series in westus3 (D32 or D64als_v7):** required for **canonical-scale (11.2T) sha-preservation regression** (claude has only 2 cores, can't realistically complete 11.2T in operator-friendly time) and for **AVX-512 actual canonical-scale speedup measurement** (Genoa AVX-512 throughput varies by core count + boost behavior; the 11.2T pilot is the operator-meaningful number). Cost: ~$1.50 per pilot run.
+- **x86 Spot D-series in westus3 (D32 or D64als_v7):** required for **canonical-scale (11.2T) sha-preservation regression** (claude has only 2 cores, can't realistically complete 11.2T in operator-friendly time) and for **AVX-512 actual canonical-scale speedup measurement** (Genoa AVX-512 throughput varies by core count + boost behavior; the 11.2T pilot is the operator-meaningful number). Cost: ~1.5 h of Spot time per pilot run.
 - **Cobalt ARM Spot (Dpsv6 family) in westus3:** required for cross-arch validation that the AVX-512-or-scalar fallback path produces identical sha on ARM. The plan's "validate scalar fallback on ARM" task lives here, not on claude (which is x86 and would never exercise the scalar fallback).
 
 #### Per-Phase-1 task — what gets measured
 
-- **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. ⚠ **[REFUTED 2026-05-16 — it was validated empirically, and the expectation did not survive. The definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected); #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits, so the scalar baseline was never scalar. The task description above is preserved as written; the AVX-512 host guidance earlier in this section remains accurate as a statement about instruction support, but no longer implies pending speedup work. This callout added 2026-09-02; it was the last of the three 1.4–2.0× sites left unmarked after prose batch P64 marked the two in HISTORY.md.]** Development + selftest-scale benchmarks happen on `claude` directly (full AVX-512 stack supported). Canonical-scale speedup measurement on D64als_v7 Spot in westus3 ($1.50, 1.5h). Scalar-fallback cross-arch validation on Cobalt ARM (Dpsv6) — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
+- **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. ⚠ **[REFUTED 2026-05-16 — it was validated empirically, and the expectation did not survive. The definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected); #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits, so the scalar baseline was never scalar. The task description above is preserved as written; the AVX-512 host guidance earlier in this section remains accurate as a statement about instruction support, but no longer implies pending speedup work. This callout added 2026-09-02; it was the last of the three 1.4–2.0× sites left unmarked after prose batch P64 marked the two in HISTORY.md.]** Development + selftest-scale benchmarks happen on `claude` directly (full AVX-512 stack supported). Canonical-scale speedup measurement on D64als_v7 Spot in westus3 (1.5h). Scalar-fallback cross-arch validation on Cobalt ARM (Dpsv6) — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
 - **#47 LTO:** baseline `-O3 -march=native` vs `-O3 -flto -march=native`. Speedup expected 0–5% (LTO mostly helps cross-translation-unit optimization; single-file project gets modest gains from extra dead-code elimination + cross-function inlining beyond `-O3`'s defaults). On claude.
 - **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude. **Build invariant (added 2026-05-24 after the silent no-PGO incident):** use `scripts/build_pgo.sh` for all PGO builds. Under `-flto`, GCC keys the `.gcda` lookup on the output binary's name; if Pass 1 and Pass 2 use different output names (e.g., `solve_inst` vs `solve_U`), Pass 2 silently misses the profile data and falls back to no-PGO with a one-line warning. The helper enforces three rules: (1) same output name in both passes (rename after), (2) `-Werror=missing-profile` on Pass 2 so any future regression fails the build loud, (3) assert `.gcda` count > 0 between passes. Past incident: the v1-vs-v3 paired bench 2026-05-24 measured only +4.38% v3 advantage (vs predicted +9.2%) because PGO silently didn't apply. See `roae-private/V1_V3_PAIRED_BENCH_RESULTS_2026_05_24.md`. *(2026-09-27, Q-828:)* the helper also refuses a training workload that did not finish. `solve` answers SIGTERM by checkpointing and exiting 0, so an exit status of 0 cannot tell a stopped workload from a finished one; and under the default workload's `SOLVE_SKIP_AUTOMERGE` no line of the log differed either. `solve` now ends every enumeration run with a whole-line `ENUM_RUN=FINISHED` or `ENUM_RUN=STOPPED` (`SOLVE_C_CLI.md`, default mode), and the workload log must carry `ENUM_RUN=FINISHED` and no `ENUM_RUN=STOPPED` or `*** Signal received` line, or the helper stops with an `ERROR:` line, exits 1 and builds no Pass 2. Bound a training workload with a node limit, not a time limit or a signal.
 - **#47 huge pages + NUMA:** runtime-environment changes (transparent huge pages, NUMA pinning); benchmarked on the host where they actually apply (D-series VM with NUMA-aware OS).
@@ -1204,7 +1204,7 @@ Reads both logs, builds two interpolation curves `leaf_count_v1(nodes)` and `lea
 
 #### Pre-implementation cheaper proxy — "shadow v2" predicate evaluation
 
-An even cheaper *pre-v2* tool would implement only the *predicates* of each v2 pruning rule (#67 mid-walk C3, #68 C5 feasibility, #70 C3 optimistic-completion bound, #71 C2 lookahead) in v1, evaluate them at each DFS step without applying them, and count how many subtrees v2 would have pruned. This gives a K estimate *before* committing to full v2 implementation. ~100 LoC per predicate, one instrumented v1 run at 1B nodes (~$0.50). Recommended as a decision input *before* v2 K-pilot if the v2 implementation cost is significant; skip it if operator is committed to v2 regardless. Captured here for completeness; not the recommended primary measurement.
+An even cheaper *pre-v2* tool would implement only the *predicates* of each v2 pruning rule (#67 mid-walk C3, #68 C5 feasibility, #70 C3 optimistic-completion bound, #71 C2 lookahead) in v1, evaluate them at each DFS step without applying them, and count how many subtrees v2 would have pruned. This gives a K estimate *before* committing to full v2 implementation. ~100 LoC per predicate, one instrumented v1 run at 1B nodes. Recommended as a decision input *before* v2 K-pilot if the v2 implementation cost is significant; skip it if operator is committed to v2 regardless. Captured here for completeness; not the recommended primary measurement.
 
 ### Layered enumeration (extension-friendly run organization)
 
@@ -1311,7 +1311,7 @@ copy. Two things would motivate a separate backup tier:
    have Azure's 11-9s durability guarantee, but the operator (me or a future
    session) is the real risk.
 2. **Cost during long pauses.** At 23.7 GB (10T) or 80-260 GB (1000T), keeping
-   a managed disk idle between sessions costs $0.04-0.40/GB/month. For a
+   a managed disk idle between sessions keeps billing per GB every month. For a
    multi-month pause, that adds up fast. Blob Archive tier is ~40× cheaper
    per GB.
 
@@ -1348,8 +1348,8 @@ original archive candidate, but that sha is a hash-table-bug-era undercount —
 see HISTORY.md Day 8 and SPECIFICATION.md §"Partial enumeration". *Superseded:*
 runs at every canonical scale have since been archived to cold blob storage;
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md) lists the `canonical-archive/…`
-container path for each.) At Archive-tier pricing (~$0.00099/GB/month) a 10T
-backup is ~$0.02/month — essentially free insurance.
+container path for each.) At that per-GB pricing a 10T
+backup is essentially free insurance.
 
 **Validation-first approach for major solver refactors.** When significant
 enumeration-path refactoring occurs (e.g., the Option B depth-3 work-unit
@@ -1385,7 +1385,7 @@ cases.
 3. **Do NOT delete the managed disk.** ⚠ **[CORRECTED 2026-09-02 — this step
    read "**Delete the managed disk** (only after both blob backup and, if
    chosen, local backup are verified)", justified by dropping storage cost
-   from ~$0.04/GB/month to ~$0.001/GB/month, ~$64 over 6 months for 260 GB.
+   from [cost redacted] to [cost redacted], [cost redacted] over 6 months for 260 GB.
    That instruction contradicts the standing operator rule this repo states
    three times elsewhere — [DEPLOYMENT.md](DEPLOYMENT.md) §"Teardown" ("never
    delete data disks"), its retrospective ("Managed disks preserved = the win
@@ -1412,7 +1412,7 @@ cases.
      --tier Hot --rehydrate-priority Standard
    ```
    Standard priority: 1-15 hour wait, cheapest. High priority: <1 hour, costs
-   a few dollars for multi-GB blobs.
+   more for multi-GB blobs.
 2. Poll rehydration status: `az storage blob show --query properties.rehydrationStatus`
 3. Create a new managed disk sized for the run (see "Running on cloud"
    section for sizing), provision merge VM, attach disk.
@@ -1423,13 +1423,13 @@ cases.
 
 **Cost-tier reference (westus2, April 2026 approximate):**
 
-| Tier | $/GB/month | Min retention | Restore time |
-|---|---|---|---|
-| Managed Disk (Standard HDD) | $0.041 | none | instant (attach) |
-| Blob Hot | $0.018 | none | instant |
-| Blob Cool | $0.010 | 30 days | milliseconds (online tier) |
-| Blob Cold | $0.0036 | 90 days | milliseconds (online tier; ⚠ read "hours" until 2026-09-25, Q-763 — only Archive needs rehydration) |
-| **Blob Archive** | **$0.00099** | **180 days** | **1-15 hours** |
+| Tier | Min retention | Restore time |
+|---|---|---|
+| Managed Disk (Standard HDD) | none | instant (attach) |
+| Blob Hot | none | instant |
+| Blob Cool | 30 days | milliseconds (online tier) |
+| Blob Cold | 90 days | milliseconds (online tier; ⚠ read "hours" until 2026-09-25, Q-763 — only Archive needs rehydration) |
+| **Blob Archive** | **180 days** | **1-15 hours** |
 
 Archive tier's 180-day minimum retention matches the "several months pause"
 use case naturally. Shorter pauses may prefer Cold (90-day minimum) or even
@@ -1494,7 +1494,7 @@ Not in either table above, but armed on the same dispatch: the **disk-IOPS pre-f
 
 For 560T specifically, the rule is **launch-phase-dependent**:
 
-- **First launch:** set none of the skip-\* escapes. The whole point of these gates is to catch silent failures on the ~$50 single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
+- **First launch:** set none of the skip-\* escapes. The whole point of these gates is to catch silent failures on the single-shot 3.5-day enum where forensic recovery cost exceeds the gate-implementation cost by 100×.
 - **Every eviction-resume / post-`az vm start` relaunch:** set `SOLVE_SKIP_IOPS_CHECK=1`, and nothing else. The #107/#115 IOPS pre-flight (exit 31) probes fsync rate against cold caches after a restart and mis-fires: the 11.2T dress rehearsal's resumed solve measured 223 fsync/s and exited 31 (HISTORY.md, dress-rehearsal bug 3). Over a 5-day campaign with ~5–10 expected evictions, leaving it armed deadlocks at the *first* eviction, so `SOLVE_SKIP_IOPS_CHECK=1` was baked into the real 560T `launch_enum` env (commits `86276eb`, `6d6539f`). This matches [SOLVE_C_CLI.md](SOLVE_C_CLI.md)'s ENVIRONMENT entry: "Recommended on every eviction-resume / post-`az vm start` launch (cold caches give noisy readings; the first-launch gate is authoritative)." The disk does not change between resumes, so the first-launch probe remains the authoritative measurement — this is a bypass of a known-noisy re-probe, not a relaxation of the gate. **All other gates stay armed on resume.** *(2026-09-27, lane HE: the value must be exactly `1`. `SOLVE_SKIP_IOPS_CHECK=yes` used to leave the gate armed silently; it, and any other malformed numeric `SOLVE_*` value, now exits 2 with a `SOLVE_ENV=REFUSED name=<VAR> value=<v>` line before any work — see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §ENVIRONMENT.)*
 
 ### build.sha invariant (Outlier #4)
@@ -1998,7 +1998,7 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
 - **Merge is not checkpoint-protected — use on-demand VMs.** The merge
   phase (malloc + qsort + write) is a single uninterruptible operation.
   If spot-evicted mid-sort, all work is lost and must restart from the
-  sub_*.bin files. For production merges, use an on-demand VM (~$2 for
+  sub_*.bin files. For production merges, use an on-demand VM (about
   30 min on F64). This is the two-phase pattern: spot for enumeration
   (checkpoint-protected), on-demand for merge (must complete in one shot).
 - **Progress rate + ETA in sync logs.** Each checkpoint sync computes
@@ -2033,7 +2033,7 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
 - **Disk tier dominates external merge time.** Lesson from the 2026-04-18
   10T depth-3 production-scale external merge test on Standard_LRS
   (HDD-tier): rate was ~6-7 min per 4 GB chunk × 20+ chunks in phase 1,
-  projecting to ~3-4 hours total wall and ~$12-15 at F64 on-demand. That
+  projecting to ~3-4 hours total wall at F64 on-demand. That
   is **~6× the time and ~6× the cost** of the same merge in-memory on the
   same F64 (fits in 128 GB RAM comfortably). The HDD is the bottleneck,
   not the code. Implication: never do an external merge on Standard HDD
@@ -2046,14 +2046,14 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
   `SOLVE_TEMP_DIR` at a Premium SSD attached only for the merge runs
   that I/O at SSD speeds (~200 MB/s on P20/P30, ~3-4× HDD). The SSD gets
   destroyed after the merge — no long-term Premium-storage cost, only
-  the prorated hourly rate during the merge (pennies). Shards stay on
-  `solver-data` (Standard HDD, ~$3/month). Final `solutions.bin` also
+  the prorated hourly rate during the merge. Shards stay on
+  `solver-data` (Standard HDD). Final `solutions.bin` also
   lands on `solver-data` since CWD during merge is unchanged. See
   [DEPLOYMENT.md §Premium-SSD-attach-for-merge](DEPLOYMENT.md)
   for the concrete az CLI workflow.
 - **Standing rule: never provision `solver-data` as Premium SSD.** It
-  holds cold shards 99% of the time. Standard_LRS ($3/month for 300 GB,
-  $10/month for 1 TB) is the right tier for archival. The factor-10
+  holds cold shards 99% of the time. Standard_LRS (cheap per GB from 300 GB
+  to 1 TB) is the right tier for archival. The factor-10
   cost jump to Premium is only justified during active merges, and those
   are better served by attach-a-temp-Premium-SSD-just-for-the-merge.
 - **External merge has a hard pre-dedup size ceiling.** `MAX_SORTED_CHUNKS
@@ -2253,7 +2253,7 @@ subnet) and **no public IP and no NSG rule**. The orchestrator SSHes to the
 private IP directly.
 
 **Why:** no port 22 reachable from the internet, no public-IP cost
-(~$0.005/hr per VM), simpler resource inventory.
+per VM, simpler resource inventory.
 
 **Documented exception — `scripts/perf_bench.sh` (the standardized paired
 benchmark harness).** This one endorsed script does **not** follow the rule,
@@ -2473,13 +2473,13 @@ rules. Concrete commands vary by provider; the architecture does not.
 
 ## Cost expectations (April 2026 baseline)
 
-- Solver run (10T on Azure F64 spot): ~$1.70 uninterrupted, ~$3-5 with 1-2
+- Solver run (10T on Azure F64 spot): [cost redacted] uninterrupted, more with 1-2
   evictions.
-- Analysis session (F32 spot, `--analyze` on 742M): ~$0.10-0.15 per session.
-- Persistent data disk (64 GB Standard HDD): ~$3/mo.
-- User's informal budget cap: ~$50/month for an ongoing project at this scale.
+- Analysis session (F32 spot, `--analyze` on 742M): [cost redacted] per session.
+- Persistent data disk (64 GB Standard HDD): [cost redacted].
+- User's informal budget cap: [cost redacted] for an ongoing project at this scale.
 
-Future 100T: projected ~$50-100 on spot with Option B (depth-3 work units)
+Future 100T: projected feasible on spot with Option B (depth-3 work units)
 reducing eviction recovery cost. Without Option B, spot is infeasible (first
 attempt projected 30+ days).
 

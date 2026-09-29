@@ -266,7 +266,7 @@ disclosure is now moot; the kernel migration made "kernel-checked for all three"
   `pure_pairslot_count`): in every C1-valid ordering the 8 pure hexagrams
   sit in exactly 4 pure–pure pair slots. Their pairwise adjacency in King
   Wen (#1–2, #29–30, #51–52, #57–58) is forced by the pairing rule, not a
-  design choice; only the four slot *positions* are a degree of freedom.
+  design choice; only the four slot *positions* and the orientation within each pure pair are degrees of freedom.
 
 ## 4. Attribution and novelty ledger
 
@@ -366,7 +366,7 @@ Two annotations of this document's own, on the block above:
 ## 5. Verify yourself
 
 ```bash
-cd lean && lean TrigramTheorems.lean   # exit 0 = all theorems check; expect 40 #print axioms lines, NOT silence
+lean lean/TrigramTheorems.lean        # exit 0 = all theorems check; expect 40 #print axioms lines, NOT silence
                                        # (wall time and peak RSS: the benchmark table in lean/README.md; Lean 4.31.0, core only)
 python3 solve.py --trigram-verify      # independent Python re-check of every finite/KW-instance claim
 ```

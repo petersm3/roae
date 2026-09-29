@@ -524,7 +524,7 @@ the 2026-07-25 full-scale MATCH: TR-11 §10(vi).
 
 - **Independent full-scale recomputation (`verify.c --ie-count`, 2026-07-25).** A signed
   inclusion–exclusion transfer-walk over free-pair subsets (DP state `(last, budget)`, no mask
-  — a different algorithm class sharing no code or machinery with `solve.c`) recomputed the
+  — a different algorithm class sharing no code with `solve.c`; the one shared mathematical premise is orbit–stabiliser weighting under the same 24-element group, as `verify.c`'s own header states) recomputed the
   full-31 integer via three Miller–Rabin-proven 63-bit prime passes, CRT-combined: **exact
   match**, with the mod-24 gate holding. This is the direct discharge of TR-11 §10(vi)'s
   instrument half; the items below are the (retained) corroboration that pre-dated it.

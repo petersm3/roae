@@ -80,7 +80,7 @@
 #   to be a REAL enumeration because that is the only shape that reaches the
 #   merge block. MEASURED end-to-end on the 2-core orchestrator, gzip shards,
 #   at the default Q317_PSB=2000:
-#     whole gate   2m55 wall / 1m15 user / 21s sys      $0, local, no VM
+#     whole gate   2m55 wall / 1m15 user / 21s sys      local, no VM
 #       seed       ~1m49  (enum ~100s + merge)  1,034 shards, 39,597 records, RC=0
 #       delete leg   27s   RC=0   1,033 shards, 39,588 records   <-- the defect
 #       truncate leg 39s   RC=20  "logical size 280 is not a multiple of 32"

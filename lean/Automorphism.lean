@@ -138,7 +138,9 @@ def pairKey (l : List Nat) : List Nat :=
 def idp : List Nat := [0, 1, 2, 3, 4, 5]
 
 /-- the bit-reversal permutation: applyPerm rho = rev6; the central element of G48,
-    acting trivially at record level (it flips every pair's orientation in place). -/
+    acting trivially at record level (it flips the orientation of every
+    non-palindromic pair in place; the 8 rev-palindromes 0, 12, 18, 30, 33, 45, 51, 63
+    are fixed). -/
 def rho : List Nat := [5, 4, 3, 2, 1, 0]
 
 /-- G48 = the centralizer of bit-reversal among the 720 bit permutations

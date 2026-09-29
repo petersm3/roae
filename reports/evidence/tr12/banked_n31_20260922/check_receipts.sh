@@ -166,6 +166,23 @@ PY
   cat "$W/q10a.row"; echo 'cat "$RAW"; exit $rc'; } > "$W/q10a.sh"
 bash "$W/q10a.sh" "$R/atlas_n31.json" "$R/sidecars/run_f" "" > "$W/asrun.txt"; rc1=$?
 bash "$W/q10a.sh" "$R/atlas_n31.json" "$R/sidecars/run_f" "$R/sidecars/run_t" > "$W/new.txt"; rc2=$?
+# 2026-09-29 (CX-232, rows R3 and R5): the row's two LABELS were corrected after the as-run receipt was
+# banked: the census is of MASKS by G-orbit-size class (not of states), and N/24 is not an orbit count.
+# The receipt is evidence and is not edited; the current row's output is mapped back on exactly those
+# two label strings before the byte comparison, so any other change to the row still fails here.
+python3 - "$W/asrun.txt" <<'PY' || { echo "C_Q10A_LABELMAP=FAIL"; bad=1; }
+import sys
+p = sys.argv[1]; s = open(p, encoding='utf-8').read()
+m = [("# MASK census by G-orbit-size class (with per-class DP-entry counts) + branching histogram, transcribed from the f-ladder sidecars.",
+      "# STATE census by G-orbit-size class + branching histogram, transcribed from the f-ladder sidecars."),
+     ("# = N/24, the exact integer that 24 | N guarantees. Not an orbit count at any level (a record-level orbit count cannot exceed 31!/24 — TR-11 Q-642 note). NOT the number",
+      "# = N/24, the RECORD-level orbit identity. NOT the number")]
+for new, old in m:
+    if s.count(new) != 1:
+        sys.exit("label not found exactly once: " + new[:40])
+    s = s.replace(new, old)
+open(p, 'w', encoding='utf-8').write(s)
+PY
 if cmp -s "$W/asrun.txt" "$B/c_q10a_20260922_asrun.txt" && [ "$rc1" = 0 ]; then echo "C_Q10A_ASRUN_REPRODUCED=YES"; else echo "C_Q10A_ASRUN_REPRODUCED=NO"; bad=1; fi
 [ -n "$EMIT" ] && cp "$W/new.txt" "$EMIT"
 if [ -f "$B/c_q10a.txt" ] && cmp -s "$W/new.txt" "$B/c_q10a.txt" && [ "$rc2" = 0 ]; then echo "C_Q10A_REPRODUCED=YES"; else echo "C_Q10A_REPRODUCED=NO"; bad=1; fi

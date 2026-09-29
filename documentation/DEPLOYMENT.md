@@ -160,11 +160,11 @@ because no single SKU is cost-effective at both.
 section. Corrected: practice never followed it (five of seven non-orchestrator VMs are Regular), and this
 split policy is the operative one. See CORRECTIONS.md]**
 
-- **Enumeration → spot, 128 cores** (D128als_v7 westus3). Eviction-resilient (sub-branch checkpoints). Spot gives ~70-85% discount ($5.146/hr on-demand → $0.95/hr spot).
+- **Enumeration → spot, 128 cores** (D128als_v7 westus3). Eviction-resilient (sub-branch checkpoints). Spot gives ~70-85% discount over on-demand.
 - **Merge → on-demand, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest sit idle. **Size the merge VM by RAM and I/O, NOT core count.** On-demand (not spot) because merge is fragile under eviction — a mid-merge eviction costs a full re-run at 100T+ scale (5+ hours).
-  - **d3 10T merge** (~89 GB pre-dedup): **D16als_v7** (16 cores, 32 GB RAM) with `SOLVE_MERGE_MODE=external`, or **D32als_v7** (32 cores, 64 GB RAM) which still needs the external path — 89 GB does not fit in 64 GB. On-demand ~$0.50-$1/hr → <$1 for 1h merge. *(This bullet previously read "D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory)", attaching two different RAM figures to one SKU and contradicting the 64 GB given for D32als_v7 in the next bullet. Corrected 2026-09-01 against the SKU→RAM table below.)*
-  - **d3 100T merge** (~443 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand ~$1.30/hr → ~$7 for a 5h merge (the 2026-04-19/20 merge measured 5h 25m 38s). *(The pre-dedup figure is measured: 13,832,832,979 records × 32 B = 442,650,655,328 B ≈ 443 GB, from `runs/20260419_100T_d3_d128westus3/README.md`. This bullet previously said "~880 GB" — the pre-run projection of ~27.7B records, which was never replaced by the measurement after the run. Corrected 2026-09-03; the same projection also survived as "~830 GB" (the same number in GiB) in §Premium-SSD-attach-for-merge, §100T and beyond, §Known scale limits and §Disk sizing, all corrected in the same pass.)*
-  - **d3 1000T+** (if ever): external merge on **D64als_v7** (128 GB RAM) handles chunk sort comfortably, ~$2.50/hr.
+  - **d3 10T merge** (~89 GB pre-dedup): **D16als_v7** (16 cores, 32 GB RAM) with `SOLVE_MERGE_MODE=external`, or **D32als_v7** (32 cores, 64 GB RAM) which still needs the external path — 89 GB does not fit in 64 GB. On-demand, about 1 h for the merge. *(This bullet previously read "D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory)", attaching two different RAM figures to one SKU and contradicting the 64 GB given for D32als_v7 in the next bullet. Corrected 2026-09-01 against the SKU→RAM table below.)*
+  - **d3 100T merge** (~443 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand, about 5 h for the merge (the 2026-04-19/20 merge measured 5h 25m 38s). *(The pre-dedup figure is measured: 13,832,832,979 records × 32 B = 442,650,655,328 B ≈ 443 GB, from `runs/20260419_100T_d3_d128westus3/README.md`. This bullet previously said "~880 GB" — the pre-run projection of ~27.7B records, which was never replaced by the measurement after the run. Corrected 2026-09-03; the same projection also survived as "~830 GB" (the same number in GiB) in §Premium-SSD-attach-for-merge, §100T and beyond, §Known scale limits and §Disk sizing, all corrected in the same pass.)*
+  - **d3 1000T+** (if ever): external merge on **D64als_v7** (128 GB RAM) handles chunk sort comfortably.
   - **NEVER use D128als_v7 for merge.** Paying for 128 cores to run a 1-core workload is ~4× over-spend. The 2026-04-19/20 100T run's merge did exactly this: a D128 billed for a workload a D32 would have served.
 
 **An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist. That rule is SUPERSEDED** — at 100T+ scale, re-running a 5-hour merge on spot eviction is worse than the on-demand premium. Revert to on-demand for merge; size it correctly instead.
@@ -204,7 +204,7 @@ This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo u
 - Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time — ~21 min for a 100T-scale 109.8 GB `solutions.bin`. This is the fast single-threaded check; `verify.py --jobs 1` is CPU-bound and two orders of magnitude slower (see §Sizing rule for verify.py).
 - Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cores.** Important caveat: verify.py's per-record decode path is **pure Python at every sha** — the only numpy import in the file is inside `check_t5_c3` (the T5/C3 recompute, unrelated to record verification), so installing numpy does not speed record verification up. The 560T campaign did observe roughly a 3× shortfall against the projected 19k records/sec/worker rate, but that shortfall was **misattributed** to a missing numpy package; disk contention (see §HDD-IOPS contention below) is the leading candidate, and the 19k projection itself may be optimistic. Budget from a measured rate on your own hardware, not from a package install.
 
-Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually <$3 over a multi-hour campaign.
+Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually small over a multi-hour campaign.
 
 ### HDD-IOPS contention vs CPU-parallel scaling (added 2026-05-10)
 
@@ -246,7 +246,7 @@ The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell
 - `--jobs 64` on D64: ~2.4h projected (planned post-warm-copy verify run for 560T)
 - `--jobs 128` on D128: ~2h projected (still sub-linear above D64 per the 100T finding)
 
-For ROAE 100T-scale verify on Standard HDD, **D32 is the empirical optimum** under the current verify.py design. For ROAE 560T-scale verify on Standard SSD, the disk-IOPS contention is less severe than HDD; D64 is the recommended sweet spot (1-3h wall, ~$0.50-1.50 Spot cost). If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again at both scales.
+For ROAE 100T-scale verify on Standard HDD, **D32 is the empirical optimum** under the current verify.py design. For ROAE 560T-scale verify on Standard SSD, the disk-IOPS contention is less severe than HDD; D64 is the recommended sweet spot (1-3h wall on Spot). If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again at both scales.
 
 ### Quota tracking — deallocated VMs still consume quota (added 2026-05-10)
 
@@ -330,7 +330,7 @@ echo "OK: CPU at ${FREQ} MHz"
 
 A 2026-05-12 cascade re-provision drew a host running at **3562 MHz boost** (1293 M/s rate, baseline-matching) on the second attempt. Empirically the second-draw success rate is high but not guaranteed; check on every fresh VM regardless.
 
-**Cost of detection vs. cost of not:** a 5-line script run once per provisioned VM is essentially free. Skipping the check on a single 5.6T run on a throttled host wastes ~$5; on a 100T run it wastes hours of wall and $30+. **Always check before launching long enum work.**
+**Cost of detection vs. cost of not:** a 5-line script run once per provisioned VM is essentially free. Skipping the check on a single 5.6T run on a throttled host wastes wall time; on a 100T run it wastes hours of wall. **Always check before launching long enum work.**
 
 The actual SKU underlying Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vCPU). Microsoft's Dalsv7-series page lists the family's processor as AMD EPYC 9005 (Turin), and §Measured scaling below calls it Zen 5c "Turin Dense"; the 9V45 is that generation's cloud part. ⚠ *(Corrected 2026-09-25, Q-763: this sentence called the earlier "Zen 5 Turin" label incorrect; it was right at the family level.)* The 9V45 is a cloud-optimized AMD SKU; per-core performance at full boost is comparable to (slightly below) Genoa for our DFS-heavy workload, *as long as the host is not throttling*.
 
@@ -338,7 +338,7 @@ The actual SKU underlying Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vC
 
 `solver-data` is deliberately **Standard_LRS** (HDD-tier). Standard HDD has
 IOPS capped at 500 and throughput ~60 MB/s regardless of disk size. That
-choice is right for long-term shard *storage* (~$3/month for 300 GB) but
+choice is right for long-term shard *storage* (cheap per GB) but
 wrong for merge-time *compute*. Empirical data point from the 2026-04-18
 10T depth-3 external re-merge:
 
@@ -350,18 +350,18 @@ wrong for merge-time *compute*. Empirical data point from the 2026-04-18
 | Phase 1 (read shards, sort chunks, write temp files) | ~6-7 min per 4 GB chunk × 20+ chunks ≈ 2-3 hours |
 | Phase 2 (k-way merge + write solutions.bin) | ~30-45 min |
 | Total wall | ~3-4 hours |
-| F64 on-demand cost at $3.87/hr | ~$12-15 |
+| F64 on-demand cost | [cost redacted] |
 
 Compared to the alternatives on various hardware (updated 2026-04-19 with measured D128 data):
 
-| Strategy | Wall time (10T) | Cost | Trade-off |
-|---|---|---|---|
-| F64als_v6 + external merge on Standard_LRS HDD (above, legacy) | 3-4 h | $12-15 on-demand | cheapest disk, slow merge; F64 retired |
-| F64als_v6 + in-memory merge (~89 GB fits in 128 GB RAM) | ~30 min | ~$2 on-demand | fast; F64 retired |
-| **D128als_v7 westus3 + in-memory heap-sort merge** | **~52 min** | **~$1.46 spot** | measured 2026-04-19; **superseded** (see note) |
-| **D128als_v7 westus3 + external merge on Premium SSD (P20)** | **~43 min** | **~$1.26 spot + $0.05 SSD** | measured 2026-04-19; faster than in-memory at 10T; **superseded** (see note) |
-| D64als_v7 westus3 + in-memory merge (128 GB RAM, perfect fit) | ~52 min | ~$0.43 spot | cheaper than D128 — single-threaded merge ignores core count; Spot **superseded** (see note) |
-| Premium SSD for `solver-data` permanently | (same as in-memory) | $3/month → $40/month | wasteful; SSD only needed during merge |
+| Strategy | Wall time (10T) | Trade-off |
+|---|---|---|
+| F64als_v6 + external merge on Standard_LRS HDD (above, legacy) | 3-4 h | cheapest disk, slow merge; F64 retired |
+| F64als_v6 + in-memory merge (~89 GB fits in 128 GB RAM) | ~30 min | fast; F64 retired |
+| **D128als_v7 westus3 + in-memory heap-sort merge** | **~52 min** | measured 2026-04-19; **superseded** (see note) |
+| **D128als_v7 westus3 + external merge on Premium SSD (P20)** | **~43 min** | measured 2026-04-19; faster than in-memory at 10T; **superseded** (see note) |
+| D64als_v7 westus3 + in-memory merge (128 GB RAM, perfect fit) | ~52 min | cheaper than D128 — single-threaded merge ignores core count; Spot **superseded** (see note) |
+| Premium SSD for `solver-data` permanently | (same as in-memory) | wasteful; SSD only needed during merge |
 
 *(Scope note, 2026-09-03: the three D-series rows are measurements from 2026-04-19, the
 day **before** the §Standing policy of 2026-04-20. The "new default" this table used
@@ -382,7 +382,7 @@ and ignores core count; the SKU and priority in these rows are withdrawn.)*
     it, run the merge. Solutions.bin lands on the CWD (which stays on
     solver-data), temp chunks land on the SSD. After the merge completes,
     detach and DELETE the SSD — shards and output are already on
-    solver-data. Pennies in prorated Premium cost for 3-4× throughput.
+    solver-data. A small prorated Premium cost for 3-4× throughput.
 
 ### Premium-SSD-attach-for-merge — the design pattern
 
@@ -391,7 +391,7 @@ and ignores core count; the SKU and priority in these rows are withdrawn.)*
 external algorithm's temp storage — written in Phase 1, read back in Phase
 2), and *output writes* (the final deduped `solutions.bin`). The shards and
 final output want to live on cheap durable archival storage (solver-data,
-Standard HDD, ~$3/mo for 300 GB). The chunk cycle wants to live on fast
+Standard HDD). The chunk cycle wants to live on fast
 temp storage that can be destroyed after the merge.
 
 Putting everything on the HDD forces the HDD to interleave all three
@@ -416,11 +416,11 @@ External merge is forced; running external on HDD at that scale projects to
 **5h 25m 38s** measured (§100T and beyond).
 
 **The cost economics.** SSD is billed by capacity per hour. A 2-hour P20
-(512 GB) attached to a 10T merge costs ~$0.22 in disk. A P40 (2 TB) for a
-3-hour 100T merge costs ~$1.25 in disk. Negligible against VM cost, and
+(512 GB) attached to a 10T merge adds little in disk cost. A P40 (2 TB) for a
+3-hour 100T merge, likewise. Negligible against VM cost, and
 the SSD is destroyed the moment the merge completes — no ongoing storage
 bill. That's why this is the right pattern instead of permanently
-upgrading solver-data to Premium (which would cost ~$40/month for a disk
+upgrading solver-data to Premium (which would bill continuously for a disk
 that sits cold 99% of the time).
 
 **The rule of thumb.** Shards and output live on Standard-tier `solver-data`
@@ -437,7 +437,7 @@ for cheap archival; attach a Premium SSD only for the duration of the merge
 so its temp I/O runs at SSD speed; destroy the SSD afterward.**
 
 ```bash
-# 1. Provision a Premium SSD. P20 = 512 GB ($76/month base, ~$0.11/hour).
+# 1. Provision a Premium SSD. P20 = 512 GB.
 #    For a 10T merge, P20 is plenty (~80 GB of temp chunks + slack).
 #    For 100T, use P40 (2 TB). Cost scales with size, NOT with I/O.
 SIZE_GB=512                      # P20; a single parameter for BOTH the create
@@ -489,7 +489,7 @@ az disk delete -g RG-CLAUDE -n merge-scratch --yes --no-wait
 
 **Cost accounting.** Premium SSD is billed per-hour, but Azure bills at a
 minimum of one hour of usage per disk lifetime. A 2-hour merge on a P20:
-~$0.22 in disk cost. A P40 (2 TB) for a 100T merge: ~$1-2 for the disk.
+a small disk cost. A P40 (2 TB) for a 100T merge: likewise small.
 Negligible against the VM cost.
 
 **Why this matters for 100T and beyond.** The 10T merge fits in-memory on
@@ -518,8 +518,8 @@ practical path at 100T is **external merge on Premium SSD**:
   of chunks, write the 110 GB output)
 - **5h 25m 38s wall measured** on the 2026-04-19/20 run (on a D128 the
   standing policy now forbids for merge; the wall does not depend on core
-  count) → ~$7 of D32als_v7 on-demand + ~$1.25 of P40, ~$8-9 total projected.
-  *(Previously "~3 hours wall time, ~$13-15 total" — a pre-run estimate on
+  count) → about 5.5 h of D32als_v7 on-demand plus a P40 for the same span.
+  *(Previously "~3 hours wall time, [cost redacted] total" — a pre-run estimate on
   the retired F64.)*
 
 The in-memory path effectively tops out around the 10T-at-our-current-VM-size
@@ -597,20 +597,20 @@ MB/thread). Merge RAM scales with output size.
    keeps a modest SKU sufficient by streaming chunks instead of buffering
    `unique_records × 32 bytes` in RAM.
 
-**Cost illustration (westus3 D-series; enum on Spot, merge on-demand — 2026-04-19 measured + projected):**
+**Wall-time illustration (westus3 D-series; enum on Spot, merge on-demand — 2026-04-19 measured + projected):**
 
-| Budget | Enum wall | Enum VM | Enum cost | Merge VM | Merge cost | Two-phase total |
-|---|---|---|---|---|---|---|
-| 10T | **1h 23m** (measured) | D128als_v7 spot ($1.70/h) | **~$2.35** | D16als_v7 on-demand (~$0.50/h) for ~50 min | ~$0.42 | **~$2.77** |
-| 100T | **~14h** (projected) | D128als_v7 spot | ~$24 | D32als_v7 on-demand (~$1.30/h) + P40 SSD for ~2-5h (external) | ~$5-9 | **~$29-33** |
-| 1000T | ~6-7 days | D128als_v7 spot | ~$250 | D64als_v7 on-demand (~$2.00-2.50/h) + P40 SSD for ~30h (external, parallel chunks) | ~$75-90 | **~$325-340** |
+| Budget | Enum wall | Enum VM | Merge VM |
+|---|---|---|---|
+| 10T | **1h 23m** (measured) | D128als_v7 spot | D16als_v7 on-demand for ~50 min |
+| 100T | **~14h** (projected) | D128als_v7 spot | D32als_v7 on-demand + P40 SSD for ~2-5h (external) |
+| 1000T | ~6-7 days | D128als_v7 spot | D64als_v7 on-demand + P40 SSD for ~30h (external, parallel chunks) |
 
 The merge column follows §Standing policy: **on-demand and right-sized, never
 D128 and never Spot.** An earlier revision of this table prescribed Spot merges
 and D128 merges — both are withdrawn; the merge-VM wall times are unchanged
 because merge is single-threaded and ignores core count.
 
-Legacy F64als_v6 westus2 figures (for historical reference): 10T ~$9 (6h enum + 30min merge), 100T was projected ~$175 with split (never run at scale post-pivot). F64 is retired 2026-04-19. See `DSERIES_ROI_REPORT.md` (outside repo) for full comparison.
+Legacy F64als_v6 westus2 figures (for historical reference): 10T took 6h enum + 30min merge; 100T was projected with split (never run at scale post-pivot). F64 is retired 2026-04-19. See `DSERIES_ROI_REPORT.md` (outside repo) for full comparison.
 
 Savings scale with wall-clock time; for ≥100T external merge with Premium SSD is strictly required (data volume exceeds RAM). For 1000T, parallel-chunk external merge on large Premium SSD is the path.
 
@@ -674,7 +674,7 @@ multi-disk or staged-archive layout rather than one volume.
 Failure direction is loud, not silent: running out of space mid-merge is ENOSPC,
 the shards survive on disk, and recovery is a single
 `az disk update --size-gb N` + `resize2fs` inside a VM after attach, then
-re-merge. No data loss. Preferring the raw-safe number up front costs pennies of
+re-merge. No data loss. Preferring the raw-safe number up front costs a sliver of
 storage against an aborted multi-hour merge.
 
 **Operational runbook for canonical enumerations ≥11.2T:**
@@ -686,7 +686,7 @@ practice, scale-specific guidance for 100T and 560T — lives in the
 **`roae-private/CANONICAL_PIPELINE_RUNBOOK.md`** runbook (private staging
 repo). That runbook is the single source of truth for canonical
 runs and supersedes earlier ad-hoc scripts. The 2026-05-16/17 v2
-11.2T saga (~$18 spent across four attempts vs ~$5 expected
+11.2T saga (four attempts vs the one expected
 first-shot) was the forcing function for the runbook's creation;
 the failure modes it documents have all been seen, and the
 mitigations are tested. Key non-obvious constraints captured there:
@@ -699,14 +699,14 @@ mitigations are tested. Key non-obvious constraints captured there:
   drove half the saga's overrun.
 - **Trap discipline: NEVER `teardown_enum` in the ERR trap.**
   Phase 2 errors should preserve the enum VM (with shards) so
-  recovery costs ~$0.50 not ~$4.
+  recovery is a Phase-2-only re-run, not a full enum redo.
 - **`curl -T file` streaming PUT for large blobs.** `curl --data-binary
   @file` OOMs at ~2 GB regardless of VM RAM.
 - **Mount logic must handle existing-ext4** (solver-data has empty
   ext4 from the 2026-05-06 incident wipe; subsequent re-population
   filled 120 GB of operator data into top-level dirs). Always write
   canonical outputs to a `$ARCHIVE_PREFIX/` subdirectory.
-- **Mandatory $0.02 D2 pre-flight** before any 4h+ enum: validate
+- **Mandatory D2 pre-flight** before any 4h+ enum: validate
   the disk-attach + mount + upload syntax on a throwaway VM with
   the actual managed disk before committing to the critical path.
 
@@ -1044,12 +1044,12 @@ inspection or a short-lived compute task.
 
 - **2026-04-19** (F64als_v6 spot recreated): a `solver-d3` F64 was spun up on
   2026-04-19 06:09 UTC to mount `solver-data`, then left running for ~32 hrs
-  before being caught and deleted on 2026-04-20 14:11 UTC. Accumulated ~$25 in
+  before being caught and deleted on 2026-04-20 14:11 UTC. Accumulated ~32 VM-hours of
   avoidable spot charges.
 - **2026-04-20** (same SKU, same disk, recreated again): a new `solver-d3` F64
   spot was provisioned on 2026-04-20 18:59 UTC with `solver-data` attached,
   then left running for ~9.5 hrs until the operator noticed at 04:30 UTC Tue.
-  Accumulated ~$7.50. Same anti-pattern, different session.
+  Accumulated ~9.5 VM-hours. Same anti-pattern, different session.
 - Both incidents violated the standing rule against F-series VMs.
 
 **The rules:**
@@ -1058,9 +1058,9 @@ inspection or a short-lived compute task.
    2026-04-19. If you're about to run `az vm create --size Standard_F*`, STOP.
 2. **Right-size for the task.** Mounting a 300GB data disk for a 10-minute
    inspection does not need 64 cores. Use:
-   - D2als_v7 (2 vCPU, $0.08/hr on-demand, $0.025/hr spot) — for simple `ls`,
+   - D2als_v7 (2 vCPU) — for simple `ls`,
      `cat`, copy-small-files tasks
-   - D4als_v7 (4 vCPU, $0.16/hr on-demand) — for 1-thread Python analysis
+   - D4als_v7 (4 vCPU) — for 1-thread Python analysis
    - D8als_v7 and up only if the task is actually multi-threaded CPU-bound
 3. **Every `az vm create` must pair with teardown in the same command
    sequence.** Register the teardown **before** doing the work, so it runs on every exit
@@ -1126,7 +1126,7 @@ inspection or a short-lived compute task.
 
    Past incident: at Pass 1 launch on 2026-04-22 I misassigned which IP
    went to which VM name, then when I "killed the slow VM" I actually
-   deleted the fast one. Recovery cost ~$0.70 + 1.5 hrs wall. The fix is
+   deleted the fast one. Recovery cost 1.5 hrs wall. The fix is
    cheap (query by name post-create); the failure mode is expensive.
 
 ### Archival pattern for large `--sub-branch` outputs (>100 MB)
@@ -1284,11 +1284,11 @@ gives only 4% additional speedup, at double the VM cost.
 
 **SKU recommendations for single-branch (single process per VM):**
 
-| Scenario | Recommended VM | Per-branch cost (50B budget) |
+| Scenario | Recommended VM | Per-branch wall (50B budget) |
 |---|---|---|
-| Wall-time critical, one branch | D128als_v7 spot (~$0.95/hr), K=1 N=128 | $0.0135 (51s wall) |
-| **Cost optimized, one branch** | **D64als_v7 spot (~$0.47/hr), K=1 N=64** | $0.0094 (72s wall) |
-| Noisy-neighbor tolerant | D32als_v7 spot (~$0.32/hr), K=1 N=32 | $0.0069 (~78s wall, projected) |
+| Wall-time critical, one branch | D128als_v7 spot, K=1 N=128 | 51s wall |
+| **Cost optimized, one branch** | **D64als_v7 spot, K=1 N=64** | 72s wall |
+| Noisy-neighbor tolerant | D32als_v7 spot, K=1 N=32 | ~78s wall, projected |
 
 **Packing (multiple concurrent `--sub-branch` processes on one VM) — for batches:**
 
@@ -1297,11 +1297,11 @@ A single VM can run K concurrent `--sub-branch` processes, each with N threads
 **Measured 2026-04-21**: packing breaks through the single-process atomic
 contention ceiling and produces higher aggregate throughput.
 
-| VM | Best packing | Wall (8 branches × 50B each) | $/branch |
-|---|---|---|---|
-| D128als_v7 | K=8 N=16 (or K=16 N=8) | 257s (K=8) / 501s for 16 branches (K=16) | $0.0085 / $0.0083 |
-| **D64als_v7** | **K=8 N=8** | **491s** | **$0.0080** ← cheapest measured |
-| D32als_v7 | K=8 N=4 | 963s | $0.0086 |
+| VM | Best packing | Wall (8 branches × 50B each) |
+|---|---|---|
+| D128als_v7 | K=8 N=16 (or K=16 N=8) | 257s (K=8) / 501s for 16 branches (K=16) |
+| **D64als_v7** | **K=8 N=8** | **491s** ← cheapest per branch measured |
+| D32als_v7 | K=8 N=4 | 963s |
 
 **On D128, aggregate throughput rises from 980 M/s (K=1 N=128) to 1.60 B/s (K=16 N=8)** — a 60%+ improvement — because each process has its own atomic
 counter and cache-resident hash table, breaking through the single-process
@@ -1329,18 +1329,18 @@ F-series retired on this project (see §Cost control).
 **Full measurement data + packing-mechanism analysis + campaign-planning math:**
 `roae-private/P1_SCALING_MEASUREMENTS.md` (staging repo).
 
-### Cost reference (2026-04-19 pricing, post-Dalsv7-pivot)
+### SKU reference (2026-04-19, post-Dalsv7-pivot)
 
-| SKU | Region | RAM | Use case | Spot price | On-demand |
-|---|---|---|---|---|---|
-| **D128als_v7** | westus3 | 256 GB | **Enumeration ≥10T (new default)** | ~$1.70/hr | ~$6.80/hr |
-| **D64als_v7** | westus3 | 128 GB | 1000T+ external merge (on-demand, §Standing policy); `--sub-branch` K=8 N=8 packing (Spot) | ~$0.50/hr | ~$2.00/hr |
-| **D16als_v7** | westus3 | 32 GB | 10T merge, external (on-demand, §Standing policy) | ~$0.13/hr | ~$0.50/hr |
-| **D4als_v7** | westus3 | 8 GB | Analysis / --analyze / --verify | ~$0.03/hr | ~$0.13/hr |
-| D2as_v6 | westus2 | 8 GB | Orchestrator / claude VM | ~$0.09/hr (on-demand) | — |
-| F64als_v6 | westus2 | 128 GB | **RETIRED 2026-04-19** (historical reference only) | ~$0.79/hr | ~$3.87/hr |
-| Standard HDD managed disk | any | — | Persistent `/data` (archival shards + solutions.bin) | — | ~$21-82/mo depending on tier (S15 300GB → S40 2TB) |
-| Premium SSD P20/P40 | any | — | External-merge temp scratch (attached-for-merge only) | — | ~$0.05-0.42/hr prorated |
+| SKU | Region | RAM | Use case |
+|---|---|---|---|
+| **D128als_v7** | westus3 | 256 GB | **Enumeration ≥10T (new default)** |
+| **D64als_v7** | westus3 | 128 GB | 1000T+ external merge (on-demand, §Standing policy); `--sub-branch` K=8 N=8 packing (Spot) |
+| **D16als_v7** | westus3 | 32 GB | 10T merge, external (on-demand, §Standing policy) |
+| **D4als_v7** | westus3 | 8 GB | Analysis / --analyze / --verify |
+| D2as_v6 | westus2 | 8 GB | Orchestrator / claude VM |
+| F64als_v6 | westus2 | 128 GB | **RETIRED 2026-04-19** (historical reference only) |
+| Standard HDD managed disk | any | — | Persistent `/data` (archival shards + solutions.bin); S15 300GB → S40 2TB |
+| Premium SSD P20/P40 | any | — | External-merge temp scratch (attached-for-merge only) |
 
 #### SKU to RAM reference
 
