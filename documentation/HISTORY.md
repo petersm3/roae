@@ -10037,3 +10037,12 @@ are kept, which is outside the project's scope. Documents were reworded to keep 
 and verification statement without that detail, and the append-only ledgers mark each removed span
 in place; git history is unchanged. The entry is CX-242, which also extends the append-only gate to
 accept exactly that marker and nothing more.
+
+## 2026-09-30 — batch 29: the doc-gates self-test no longer writes into the tree it is called in, and the R7 battery no longer prints a private path
+
+**Batch 29 (CX-243).**
+
+- `doc_gates.sh --selftest` now runs on a scratch clone of HEAD. Before, it planted its defects in the checkout it was started in, where a killed run or a reader who looked mid-run saw them as real edits; on 2026-09-30 the Q-761 needle was found in the main public checkout. Tests kill the run with SIGTERM and with SIGKILL mid-plant and require the caller's tree to stay clean.
+- `solve.py --r7-corpus` and `--r7-verify` print `<private design record>` where they printed a path in the operator's private repository, so a re-run reproduces the redacted log line of CX-239. The sha fixture for that log now reads the archived bytes from git history instead of spelling them out.
+- A merge of a tier-2 (`SOLVE_MEMORY_FLUSH_COUNT`) directory now says that its claim-vs-shard check has no count to compare there, instead of passing in silence.
+- The two notes on the pre-registration's Stage T row are reconciled on the escrow page, and the pre-registration itself is not revised.

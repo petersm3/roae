@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 167 dated sections, 2 of them among the 91 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 168 dated sections, 2 of them among the 92 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -185,6 +185,7 @@
 | 165 | 2026-09-29 | iso | 10005 | [open](HISTORY.md#2026-09-29--batch-25-an-unfinished-enumeration-can-no-longer-be-merged-as-a-finished-one-and-the-n31-ladder-checks-recounted-without-the-engine) 2026-09-29 — batch 25: an unfinished enumeration can no longer be merged as a finished one, and the n=31 ladder checks recounted without the engine |
 | 166 | 2026-09-29 | iso | 10019 | [open](HISTORY.md#2026-09-29--batch-28-the-independent-ladder-readers-refuse-five-malformed-shapes-and-four-published-sentences-about-the-n31-ladders-corrected) 2026-09-29 — batch 28: the independent ladder readers refuse five malformed shapes, and four published sentences about the n=31 ladders corrected |
 | 167 | 2026-09-29 | iso | 10033 | [open](HISTORY.md#2026-09-29--operational-storage-detail-removed-from-the-current-tree) 2026-09-29 — operational storage detail removed from the current tree |
+| 168 | 2026-09-30 | iso | 10041 | [open](HISTORY.md#2026-09-30--batch-29-the-doc-gates-self-test-no-longer-writes-into-the-tree-it-is-called-in-and-the-r7-battery-no-longer-prints-a-private-path) 2026-09-30 — batch 29: the doc-gates self-test no longer writes into the tree it is called in, and the R7 battery no longer prints a private path |
 
 ## Sections with no date in the heading, in file order
 

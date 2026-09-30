@@ -491,8 +491,8 @@ class TestGates(unittest.TestCase):
         # R7 cross-tradition corpus-control: frozen anchors (FC-2 construction
         # cross-validation; J1-J5 reproduce Jing Fang; M1-M5 + exact Mawangdui
         # reconstruction; cross-application matrix a-priori cells; FC-1
-        # positive-control expectation at pilot N=10^4). See roae-private/
-        # R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md.
+        # positive-control expectation at pilot N=10^4). The frozen design is
+        # an operator-held record (<private design record>).
         r = subprocess.run([sys.executable, "solve.py", "--r7-verify"],
                            capture_output=True, text=True)
         self.assertIn("R7 VERIFY: ALL ANCHORS PASS", r.stdout)
@@ -10849,6 +10849,13 @@ class TestV3A134BudgetGateAndSection25(unittest.TestCase):
             rm = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, cwd=d, env=env,
                                 timeout=900)
             self.assertEqual(rm.returncode, 0, "`%s` failed: %s" % (cmd, (rm.stdout + rm.stderr)[-600:]))
+            # Q-910 (CX-243): the tier-2 line claims 0 solutions, so the claim-vs-shard check has nothing
+            # to compare there; the merge must SAY it skipped it, and must not say so for a no-flush run.
+            skip = "that check is SKIPPED for them, not passed (Q-910)"
+            if mode == "flush":
+                self.assertIn(skip, rm.stderr, rm.stderr[-800:])
+            else:
+                self.assertNotIn(skip, rm.stderr)
             with open(os.path.join(d, "solutions.sha256")) as fh:
                 shas[mode] = fh.readline().split()[0]
         self.assertEqual(shas["flush"], shas["noflush"])
@@ -27091,14 +27098,44 @@ class TestLaneHAJ(unittest.TestCase):
         lines = raw.split(b"\n")
         self.assertEqual(len(lines), 202, "precondition: the archived log is 201 lines")
         self.assertEqual(lines[1], b"# Frozen design: <private design record> (b00911b)")
-        orig = b"\n".join(lines[:1] + [b"# Frozen design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)"] + lines[2:])
-        self.assertEqual(hashlib.sha256(orig).hexdigest(), self.R7_ORIG_SHA, "only line 2 changed")
+        # Q-909 / CX-243: the pre-redaction bytes are no longer spelled out here; they are read
+        # from the commit that first archived the log (00badebc), so "only line 2 changed" is
+        # still checked byte for byte wherever that history is present.
+        r = subprocess.run(["git", "show", "00badebc:reports/evidence/r7/r7_run_20260712.log"],
+                           cwd=self.ROOT, capture_output=True)
+        if r.returncode == 0:
+            orig = r.stdout
+            self.assertEqual(hashlib.sha256(orig).hexdigest(), self.R7_ORIG_SHA, "archived bytes")
+            olines = orig.split(b"\n")
+            self.assertEqual(len(olines), len(lines))
+            self.assertEqual([i for i in range(len(lines)) if lines[i] != olines[i]], [1], "only line 2 changed")
+            self.assertNotEqual(olines[1], lines[1], "precondition: the archived line 2 differs")
+        else:
+            sys.stderr.write("NOTE: history leg not run (commit 00badebc not in this clone)\n")
         with open(os.path.join(self.ROOT, "reports/evidence/r7/README.md"), encoding="utf-8") as fh:
             row = [l for l in fh.read().split("\n") if l.startswith("| `r7_run_20260712.log` |")]
         self.assertEqual(len(row), 1)
         self.assertIn(self.R7_ORIG_SHA, row[0])
         self.assertIn("<private design record>", row[0])
         self.assertIn("2026-09-27", row[0])
+
+    def test_q909_r7_generator_prints_the_placeholder_not_the_private_path(self):
+        # Q-909 / CX-243: solve.py, the generator of the redacted log line, now prints the same
+        # placeholder, so a re-run reproduces the archived (redacted) line 2 byte for byte.
+        with open(os.path.join(self.ROOT, "reports/evidence/r7/r7_run_20260712.log"), "rb") as fh:
+            line2 = fh.read().split(b"\n")[1].decode()
+        self.assertEqual(line2, "# Frozen design: <private design record> (b00911b)", "precondition")
+        needle = re.compile("R7_CORPUS_" "CONTROL_DESIGN")
+        self.assertTrue(needle.search("x/R7_CORPUS_" "CONTROL_DESIGN_X.md"), "positive control")
+        for rel in ("solve.py", "tests.py", "documentation/SOLVE_C_CLI.md", "documentation/SOLVE_PY_CLI.md"):
+            with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+                src = fh.read()
+            if needle.search(src):
+                raise AssertionError("%s still names the private design file" % rel)
+        with open(os.path.join(self.ROOT, "solve.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('print("%s")' % line2, src)
+        self.assertIn('print("# design: <private design record> (b00911b)")', src)
 
     # ============================================================== (5) .mailmap
     def test_mailmap_maps_the_placeholder_author(self):
@@ -27724,6 +27761,161 @@ class TestK28KcvTriageFixes(unittest.TestCase):
         self.assertGreaterEqual(s.count("splitmix64"), 2)
         self.assertIn("at most 2⁶⁴ of the ≈10³⁹ ranks", s)
 # end class TestK28KcvTriageFixes (batch 28)
+
+
+class TestLaneB29SelftestNeverPlantsInTheCallersTree(unittest.TestCase):
+    """Q-911 / CX-243 (batch 29): `doc_gates.sh --selftest` plants defects and reverts them with
+    `git checkout --`. It used to do that in the tree it was called in, so anything that ended the
+    run without its trap (SIGKILL; an untrapped hang-up) or anyone looking mid-run saw planted
+    files as real edits; on 2026-09-29 the Q-761 needle was found planted in a real checkout. The
+    fix runs the suite on a scratch clone of HEAD. This test calls the suite in a throwaway
+    caller clone carrying the working tree's doc_gates.sh, waits until a defect is PLANTED
+    somewhere (the precondition), requires that somewhere to be the scratch clone and never the
+    caller, then ends the run with SIGTERM (and, second leg, SIGKILL of the whole group) and
+    requires the caller to be clean. RED on the pre-Q-911 script: the plant lands in the caller.
+    Slow-ish (two shared clones of the tree plus the suite's first legs)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CLONE_FROM = ROOT   # the repository the caller clone borrows objects from (same HEAD as ROOT)
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="b29_q911_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.caller = os.path.join(self.tmp, "caller")
+        env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")}
+        env.update(GIT_AUTHOR_NAME="b29", GIT_AUTHOR_EMAIL="b29@invalid",
+                   GIT_COMMITTER_NAME="b29", GIT_COMMITTER_EMAIL="b29@invalid")
+        self.env = env
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.ROOT, capture_output=True, text=True, env=env)
+        if head.returncode != 0:
+            self.skipTest("not a git checkout")
+        for cmd in (["git", "clone", "-q", "--shared", "--no-checkout", self.CLONE_FROM, self.caller],
+                    ["git", "-C", self.caller, "checkout", "-q", "--detach", head.stdout.strip()]):
+            r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            if r.returncode != 0 and "nesting too deep" in r.stderr:
+                # Named, printed skip: this checkout already borrows its objects through a chain of
+                # --shared clones, so neither this caller nor the self-test's own scratch clone can
+                # read them here. A standalone clone (the operator's checkout) runs the test.
+                self.skipTest("Q-911 test NOT-RUN: alternate object stores nest too deep in this checkout")
+            if r.returncode != 0:
+                raise AssertionError("setup failed: %s: %s" % (cmd, r.stderr))
+        # The script under test is the WORKING TREE's, committed in the caller so it is clean.
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(self.caller, "scripts", "doc_gates.sh"))
+        d = os.path.join(self.ROOT, "scripts", "doc_gates.d")
+        for f in os.listdir(d):
+            shutil.copy(os.path.join(d, f), os.path.join(self.caller, "scripts", "doc_gates.d", f))
+        for cmd in (["git", "-C", self.caller, "add", "-A", "scripts"],
+                    ["git", "-C", self.caller, "commit", "-q", "--allow-empty", "--no-verify", "-m", "b29 caller"]):
+            r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise AssertionError("setup failed: %s: %s" % (cmd, r.stderr))
+        self.assertEqual(self._dirty(self.caller), "", "precondition: the caller starts clean")
+        self.stmp = os.path.join(self.tmp, "t")
+        os.mkdir(self.stmp)
+
+    def _dirty(self, tree):
+        r = subprocess.run(["git", "-C", tree, "status", "--porcelain", "--untracked-files=no"],
+                           capture_output=True, text=True, env=self.env)
+        return r.stdout if r.returncode == 0 else "<status failed: %s>" % r.stderr
+
+    def _scratch(self):
+        c = [os.path.join(self.stmp, n, "tree") for n in os.listdir(self.stmp) if n.startswith("doc_gates_selftest.")]
+        return [t for t in c if os.path.isdir(os.path.join(t, ".git"))]
+
+    def _planting(self):
+        # Only a scratch clone whose in-place suite holds its lock can have PLANTED anything. Before
+        # that, a --no-checkout clone reads as all-deleted and a checkout in flight as modified
+        # (measured 2026-09-30), and the wrapper's own trap has nothing to revert.
+        return [t for t in self._scratch()
+                if os.path.isdir(os.path.join(t, ".git", "doc_gates_selftest.lock"))]
+
+    def _start_and_wait_for_a_plant(self):
+        import time
+        env = dict(self.env, TMPDIR=self.stmp)
+        env.pop("DOC_GATES_SELFTEST_INPLACE", None)
+        env.pop("DOC_GATES_SELFTEST_DEPTH", None)
+        p = subprocess.Popen(["bash", "scripts/doc_gates.sh", "--selftest"], cwd=self.caller, env=env,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        deadline = time.time() + 600
+        where = None
+        while time.time() < deadline and p.poll() is None:
+            if self._dirty(self.caller):
+                where = "caller"
+                break
+            if any(self._dirty(t) for t in self._planting()):
+                where = "scratch"
+                break
+            time.sleep(0.2)
+        return p, where
+
+    def _stop(self, p, sig, group):
+        try:
+            (os.killpg(p.pid, sig) if group else os.kill(p.pid, sig))
+        except ProcessLookupError:
+            pass
+        try:
+            return p.wait(timeout=300)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+            return p.wait()
+
+    def test_sigterm_mid_plant_leaves_the_caller_clean(self):
+        p, where = self._start_and_wait_for_a_plant()
+        if where is None:
+            self._stop(p, signal.SIGKILL, True)
+            raise AssertionError("precondition: the self-test never planted a defect anywhere")
+        dirty_caller = self._dirty(self.caller)
+        rc = self._stop(p, signal.SIGTERM, False)
+        self.assertEqual(where, "scratch", "the self-test planted into the CALLER's tree:\n" + dirty_caller)
+        self.assertEqual(rc, 143)
+        self.assertEqual(self._dirty(self.caller), "")
+        self.assertEqual(self._scratch(), [], "SIGTERM must also remove the scratch clone")
+
+    def test_sigkill_of_the_group_mid_plant_leaves_the_caller_clean(self):
+        p, where = self._start_and_wait_for_a_plant()
+        if where is None:
+            self._stop(p, signal.SIGKILL, True)
+            raise AssertionError("precondition: the self-test never planted a defect anywhere")
+        planted = [t for t in self._planting() if self._dirty(t)]
+        self._stop(p, signal.SIGKILL, True)
+        self.assertEqual(where, "scratch", "the self-test planted into the CALLER's tree")
+        self.assertTrue(planted, "precondition: a scratch clone held the plant when it was killed")
+        self.assertEqual(self._dirty(self.caller), "", "no trap runs on SIGKILL; only the scratch is dirty")
+
+# end class TestLaneB29SelftestNeverPlantsInTheCallersTree (batch 29)
+
+
+class TestLaneB29Guards(unittest.TestCase):
+    """Batch 29 source-level guards that need neither a build nor a clone (Q-910, Q-911)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def test_q910_merge_gate_names_the_tier2_skip(self):
+        # Q-910 (CX-243), readable without a build: the merge gate must print why the claim-vs-shard
+        # check has nothing to compare in a tier-2 directory, rather than pass in silence. The
+        # behavioural leg is in test_q444_tier2_next_step_command_runs_and_merges_the_chunks.
+        with open(os.path.join(self.ROOT, "solve.c"), encoding="utf-8") as fh:
+            src = fh.read()
+        i = src.find("static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_out, int *n_bud_out, int *n_int_out) {")
+        self.assertGreater(i, 0, "precondition: the merge gate is defined")
+        body = src[i:src.find("\n}\n", i)]
+        self.assertIn('strncmp(ce->d_name, "sub_flush_chunk_", 16)', body)
+        self.assertIn("that check is SKIPPED for them, not passed (Q-910)", body)
+        self.assertEqual(len("sub_flush_chunk_"), 16)
+
+    def test_q910_prereg_left_untouched_and_escrow_reconciles(self):
+        with open(os.path.join(self.ROOT, "documentation", "PREREG_CLASSA_QUERY_SET.md"), "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(),
+                             "e73993f602861fddfeb8e6c7d2d88e88b4689bbd0bb764a2d7da6c34055c4b1e", "no ninth revision")
+        with open(os.path.join(self.ROOT, "documentation", "PREREGISTRATION_ESCROW.md"), encoding="utf-8") as fh:
+            esc = fh.read()
+        self.assertIn('So the "day before" in the older note refers to the 5-identity run.', esc)
+
+    def test_pre_push_runs_its_own_clone_in_place(self):
+        with open(os.path.join(self.ROOT, "scripts", "pre_push_gate.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn("DOC_GATES_SELFTEST_INPLACE=1 $_to bash scripts/doc_gates.sh --selftest", src)
+# end class TestLaneB29Guards (batch 29)
 
 
 if __name__ == "__main__":

@@ -954,7 +954,55 @@ fold_variants() {
 # THE ORDER BELOW IS LOAD-BEARING: clean-tree check FIRST, then lock, then trap. Installing
 # a restoring EXIT trap before the clean-tree check would make the dirty-tree refusal itself
 # run `git checkout -- .` and destroy exactly the uncommitted work it exists to protect.
-# ===========================================================================
+#
+# Q-911 (2026-09-30, CX-243) — THE SELF-TEST NO LONGER MUTATES THE TREE IT WAS CALLED IN.
+# Every guard above (lock, INT/TERM/EXIT traps, the snapshot ref) protects the tree only while
+# this process is alive to run its trap. SIGKILL cannot be trapped, a hang-up was not trapped,
+# and a reader who looks at the tree mid-run (or a `git pull` that lands mid-run) sees the
+# planted defects as real edits. On 2026-09-29 a ledger proof command that ran
+# `cd <the main public checkout> && bash scripts/doc_gates.sh --selftest` was found with the
+# Q-761 needle planted in that checkout's RETRACTED_PHRASES.tsv and GUIDE.md. So an ordinary
+# call now copies the committed HEAD into a scratch clone (`git clone --shared`, the same form
+# the pre-push leg has used since Q-720, so `.git/..` is the tree root and GATE 19 sees the
+# same origin refs) and runs the unchanged suite THERE, with DOC_GATES_SELFTEST_INPLACE=1.
+# The caller's tree is never written, whatever signal ends the run; what a SIGKILL can leave
+# behind is a scratch directory under $TMPDIR, never a planted file in a checkout.
+# The clean-tree refusal stays, for a new reason: with uncommitted edits the scratch copy
+# would test HEAD rather than the tree you are looking at, and a PASS would describe the
+# wrong program. DOC_GATES_SELFTEST_INPLACE=1 is for a caller that is ALREADY a throwaway
+# clone (pre_push_gate.sh); set by hand on a real checkout it restores the old in-place run.
+if [ "${1:-}" = --selftest ] && [ -z "${DOC_GATES_SELFTEST_INPLACE:-}" ]; then
+  cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
+  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    echo "REFUSING: working tree is not clean. The self-test runs on a scratch clone of HEAD"
+    echo "(Q-911), so with uncommitted edits it would test a different tree from this one."
+    exit 2
+  fi
+  _ST_HEAD=$(git rev-parse --verify -q HEAD) || { echo "REFUSING: no HEAD commit to self-test."; exit 2; }
+  _ST_BASE=$(mktemp -d "${TMPDIR:-/tmp}/doc_gates_selftest.XXXXXX") \
+    || { echo "REFUSING: mktemp failed, and the self-test never runs in place (Q-911)."; exit 2; }
+  _ST_PID=""
+  trap 'rm -rf "$_ST_BASE"' EXIT
+  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; exit 130' INT
+  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; exit 143' TERM
+  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; exit 129' HUP
+  if ! ( env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE sh -c '
+           git clone -q --shared --no-checkout "$1" "$2" &&
+           git -C "$2" remote remove origin &&
+           git -C "$2" fetch -q "$1" "+refs/remotes/origin/*:refs/remotes/origin/*" &&
+           git -C "$2" checkout -q --detach "$3"' _ "$PWD" "$_ST_BASE/tree" "$_ST_HEAD" ) >/dev/null 2>&1 \
+     || [ ! -f "$_ST_BASE/tree/scripts/doc_gates.sh" ]; then
+    echo "REFUSING: could not check HEAD out into a scratch clone (Q-911); nothing was tested."
+    exit 2
+  fi
+  echo "  [note] Q-911: self-testing HEAD ${_ST_HEAD:0:12} in the scratch clone $_ST_BASE/tree; this tree is not written"
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE DOC_GATES_SELFTEST_INPLACE=1 \
+    bash "$_ST_BASE/tree/scripts/doc_gates.sh" "$@" &
+  _ST_PID=$!
+  wait "$_ST_PID"; _ST_RC=$?
+  _ST_PID=""
+  exit "$_ST_RC"
+fi
 if [ "${1:-}" = "--selftest" ]; then
   cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
   if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
@@ -1081,6 +1129,8 @@ if [ "${1:-}" = "--selftest" ]; then
   }
   trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: INTERRUPTED (tree restored, lock released)"; exit 130' INT
   trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: TERMINATED (tree restored, lock released)"; exit 143' TERM
+  # Q-911: a hang-up (a closed terminal or session) was the one catchable signal left untrapped.
+  trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: HUNG UP (tree restored, lock released)"; exit 129' HUP
   trap '_selftest_release' EXIT
 
   PASS=0

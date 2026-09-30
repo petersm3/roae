@@ -1154,7 +1154,7 @@ INL-6814c50	2026-09-27	C1	withdrawn	inline	documentation/HISTORY_INDEX.md	179	| 
 INL-221ed8b6	2026-09-29	C3	corrected	inline	documentation/HISTORY_INDEX.md	182	| 162 | 2026-09-29 | iso | 9985 | [open](HISTORY.md#2026-09-29--the-lean-sat-and-drat-layers-reviewed-adversarially-two-published-numbers-corrected-every-proof-claim-scoped-to-what-it-covers) 2026-09-29 — the Lean, SAT and DRAT layers reviewed adversarially: two published numbers corrected, every proof claim scoped to what it covers |
 INL-1c79d023	2026-09-29	C3	correction	inline	documentation/HISTORY_INDEX.md	184	| 164 | 2026-09-29 | iso | 10001 | [open](HISTORY.md#2026-09-29--the-front-pages-correction-notes-moved-to-the-corrections-ledger) 2026-09-29 — the front page's correction notes moved to the corrections ledger |
 INL-49675a8	2026-09-29	C3	corrected	inline	documentation/HISTORY_INDEX.md	186	| 166 | 2026-09-29 | iso | 10019 | [open](HISTORY.md#2026-09-29--batch-28-the-independent-ladder-readers-refuse-five-malformed-shapes-and-four-published-sentences-about-the-n31-ladders-corrected) 2026-09-29 — batch 28: the independent ladder readers refuse five malformed shapes, and four published sentences about the n=31 ladders corrected |
-INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	194	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
+INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	195	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
 INL-50dd000	2026-09-01	C3	corrected	inline	documentation/KING_WEN_PROVENANCE.md	32	arrangement (Shaughnessy 2022, ch. 11). *(Corrected 2026-09-01: this previously described Xiping as
 INL-154b7ffc	-	C4	hedges	inline	documentation/KING_WEN_PROVENANCE.md	43	why this repository hedges whenever it refers to the sequence's age.
 INL-1b430e04	-	C3	typo	inline	documentation/KING_WEN_PROVENANCE.md	52	| **西仁村 pottery paddles** (長安, Shaanxi) | late Western Zhou at the latest — the excavator's typological date for surface finds; the numerals were incised before firing (曹瑋 2002) | Six numeral hexagrams on two paddles, surface-collected in 2001 from a kiln site since destroyed, which — read odd = yang / even = yin, with one numeral restored — give #7·8·9·10 and #63·64: two runs consecutive in the r [...truncated]
@@ -1398,22 +1398,24 @@ INL-13f2be79	2026-08-22	C3	corrected	inline	documentation/PREREGISTRATION_ESCROW
 INL-29f93cc4	2026-09-06	C3	correction	inline	documentation/PREREGISTRATION_ESCROW.md	85	published 2026-09-06; digest updated 2026-09-29 after an EIGHTH revision — an internal correction of which
 INL-1c134d0f	2026-09-11	C3	corrected	inline	documentation/PREREGISTRATION_ESCROW.md	88	*(Digest history: `6e21a148bfbb1ad57f7770f75cfdfd21f4f5c606258adec55231bc3066bfe2d9`, 41,881 bytes → `6b83cf4e0652dfe472e37c58f0cda4831a0300260cb8862e499b8a3ceb6f5dcb`, 45,882 bytes, when the QSET-3 pass's eight findings were applied → `fc0e40a6eac1c2ee9f159e599be02a8c69b42bc66fbf4f777cb801702230aca7`, 47,066 bytes, when QSET-4's four findings were applied. **QSET-4 attacked the QSET-3 repairs rat [...truncated]
 INL-13c7bdb7	-	C2	rescoped	inline	documentation/PREREGISTRATION_ESCROW.md	91	52,022 bytes. Three lines were rescoped after an adversarial review by Codex (gpt-6-astra), triaged by Fable
-INL-aae8e39	-	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	98	external reviewer could attack it while corrections are still possible — the adjacent query
-INL-37f5db41	-	C4	caveat	inline	documentation/PREREGISTRATION_ESCROW.md	140	These freeze-state digests carry **the same caveat as the date column**: they are derived from the
-INL-3a9e960c	-	C3	superseded	inline	documentation/PREREGISTRATION_ESCROW.md	163	(a draft superseded by the FROZEN file above, cited once in a `solve.py` docstring for its addendum),
-INL-1c7c1e8	2026-09-04	C3	superseded	inline	documentation/PREREGISTRATION_ESCROW.md	170	> ⚠ **Superseded 2026-09-04, annotated rather than rewritten.** The operator authorized it and all
-INL-1a8011c2	2026-07-10	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	192	| `R8_DAVIS_PREREG_2026_07_10.md` | `25444f5f` | 2026-07-10 | `9d788f479b12ffdcff6ea91febea773badbe77c2ced033fedf694ff8331ec762` | 26,717 | **differs — erratum** |
-INL-2a538e20	2026-07-12	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	207	**74 added lines** under a single heading, `### Erratum (2026-07-12, recorded at the wave-2
-INL-1ea149f0	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	208	landing)`, correcting §3.3/§3.1's "C2-compliant" to C1 (pair-structured). **It is an erratum, dated
-INL-c9333ad	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	214	The two changes are a cosmetic rename and a dated erratum. That check is the reason these rows name a
-INL-d60cb4e	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	216	post-erratum file as though it were the frozen one, and for `F5` would have escrowed a state that
-INL-38008737	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	239	> a result, an erratum, a rename — cannot corrupt the escrow. It becomes a visible mismatch instead.
-INL-1a2e76d2	2026-09-02	C3	corrected	inline	documentation/PREREGISTRATION_ESCROW.md	252	not, and cannot** — corrected 2026-09-02, replacing an unconditional promise that this page's own
-INL-93ce3e3	2026-09-02	C3	superseded	inline	documentation/PREREGISTRATION_ESCROW.md	320	with a superseded-note; its table stands and remains the correct record of the 2026-09-02 → 2026-09-04
-INL-22f07b45	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	327	erratum — and both differences are stated in full rather than summarised.
-INL-2f856c8d	2026-09-02	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	332	**2026-09-02 — amended (prose lane, batch P41), no published value changed.** Four corrections, all
-INL-2cc6edf5	2026-08-22	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	351	2026-08-22. The corrections ledger entry is
-INL-250f8ccd	2026-09-02	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	352	[CORRECTIONS.md](CORRECTIONS.md) §"2026-09-02 — PREREGISTRATION_ESCROW.md".
+INL-365d3a7e	2026-09-05	C3	corrected	inline	documentation/PREREGISTRATION_ESCROW.md	98	gate "had passed the day before" the 2026-09-05 draft, that is on 2026-09-04. The 2026-09-28 CORRECTED
+INL-24bd244a	2026-09-04	C3	supersedes	inline	documentation/PREREGISTRATION_ESCROW.md	99	note after it supersedes that: the 2026-09-04 06:48:28 UTC PASS was the `max_k` = 4 run of
+INL-aae8e39	-	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	105	external reviewer could attack it while corrections are still possible — the adjacent query
+INL-37f5db41	-	C4	caveat	inline	documentation/PREREGISTRATION_ESCROW.md	147	These freeze-state digests carry **the same caveat as the date column**: they are derived from the
+INL-3a9e960c	-	C3	superseded	inline	documentation/PREREGISTRATION_ESCROW.md	170	(a draft superseded by the FROZEN file above, cited once in a `solve.py` docstring for its addendum),
+INL-1c7c1e8	2026-09-04	C3	superseded	inline	documentation/PREREGISTRATION_ESCROW.md	177	> ⚠ **Superseded 2026-09-04, annotated rather than rewritten.** The operator authorized it and all
+INL-1a8011c2	2026-07-10	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	199	| `R8_DAVIS_PREREG_2026_07_10.md` | `25444f5f` | 2026-07-10 | `9d788f479b12ffdcff6ea91febea773badbe77c2ced033fedf694ff8331ec762` | 26,717 | **differs — erratum** |
+INL-2a538e20	2026-07-12	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	214	**74 added lines** under a single heading, `### Erratum (2026-07-12, recorded at the wave-2
+INL-1ea149f0	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	215	landing)`, correcting §3.3/§3.1's "C2-compliant" to C1 (pair-structured). **It is an erratum, dated
+INL-c9333ad	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	221	The two changes are a cosmetic rename and a dated erratum. That check is the reason these rows name a
+INL-d60cb4e	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	223	post-erratum file as though it were the frozen one, and for `F5` would have escrowed a state that
+INL-38008737	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	246	> a result, an erratum, a rename — cannot corrupt the escrow. It becomes a visible mismatch instead.
+INL-1a2e76d2	2026-09-02	C3	corrected	inline	documentation/PREREGISTRATION_ESCROW.md	259	not, and cannot** — corrected 2026-09-02, replacing an unconditional promise that this page's own
+INL-93ce3e3	2026-09-02	C3	superseded	inline	documentation/PREREGISTRATION_ESCROW.md	327	with a superseded-note; its table stands and remains the correct record of the 2026-09-02 → 2026-09-04
+INL-22f07b45	-	C3	erratum	inline	documentation/PREREGISTRATION_ESCROW.md	334	erratum — and both differences are stated in full rather than summarised.
+INL-2f856c8d	2026-09-02	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	339	**2026-09-02 — amended (prose lane, batch P41), no published value changed.** Four corrections, all
+INL-2cc6edf5	2026-08-22	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	358	2026-08-22. The corrections ledger entry is
+INL-250f8ccd	2026-09-02	C3	corrections	inline	documentation/PREREGISTRATION_ESCROW.md	359	[CORRECTIONS.md](CORRECTIONS.md) §"2026-09-02 — PREREGISTRATION_ESCROW.md".
 INL-19312bdf	-	C3	corrections	inline	documentation/PREREG_CLASSA_QUERY_SET.md	15	> reviewer read it while corrections are still possible; a defect found after the stamp would be
 INL-1e03ba0d	-	C3	corrected	inline	documentation/PREREG_CLASSA_QUERY_SET.md	18	> **What that costs, stated rather than hidden.** The git history will show this text being corrected
 INL-29404c08	2026-07-17	C3	rounding	inline	documentation/PREREG_CLASSA_QUERY_SET.md	20	> is about the **question text** being fixed since 2026-07-17, not about the surrounding document
@@ -3159,6 +3161,9 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-2e3e1697	2026-09-29	C2	mislabelled	git	828a6658	-	Batch 28: corrections CX-241..CX-242 — the KCV review's text and code fixes, and operational storage detail removed from the current tree
+GIT-27b70871	2026-09-29	C3	corrections	git	b0a710e1	-	Batch 25: corrections CX-235..CX-240 — engine inputs refused before any work, the merge and verification paths hardened, and the n=31 g- and t-ladder checks recorded
+GIT-5530ead	2026-09-29	C3	corrections	git	e0699739	-	Batch 27: corrections CX-233..CX-234 — the figures shown as a showcase with a page each, the TR-12 tables moved under reports/, and the front page's correction notes moved to the ledger
 GIT-297b854c	2026-09-29	C1	retracted	git	49f6f371	-	Batch 26: corrections CX-230..CX-232 — dollar figures removed from the current tree, and the Lean/SAT/DRAT layers reviewed adversarially: two published numbers corrected, every proof claim scoped to what it covers
 GIT-2fdbd7bb	2026-09-29	C1	withdrawn	git	5ad06afa	-	Batches 23, 24 and V: corrections CX-200..CX-229 — every report figure redrawn once, after an outside review of all twelve, and no incomplete run reported as complete
 GIT-1e71d9d	2026-09-22	C3	corrections	git	bca651a7	-	Batch 22: corrections CX-194..CX-199, the banked n=31 answers published, the visualization directory reorganized around TR-12, and the last silent arguments refused

@@ -11230,8 +11230,8 @@ def trigram_verify():
 # ===========================================================================
 # R7 — Cross-tradition corpus-control battery (--r7-corpus / --r7-verify)
 # ---------------------------------------------------------------------------
-# Frozen pre-registered design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_
-# 2026_07_11.md (commit b00911b). Referee question: does ROAE's extraction
+# Frozen pre-registered design: <private design record>, held by the
+# operator (commit b00911b). Referee question: does ROAE's extraction
 # methodology manufacture x10^3-class "design" discriminators for ANY
 # systematic ordering of the 64 hexagrams, or does it correctly identify which
 # orderings are structured, where, and how much? R7 answers by defining each
@@ -11710,7 +11710,7 @@ def r7_verify():
     the operator-gated N=10^6 battery."""
     failures = 0
     print("# R7 --r7-verify : frozen corpus-control anchors")
-    print("# design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)")
+    print("# design: <private design record> (b00911b)")
     print("# + Amendment 1 (2026-07-12, 53e088a): corrected FC-4 anchor counts\n")
 
     print("## FC-2 construction cross-validation (data integrity)")
@@ -11989,7 +11989,7 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     orchestrator. Use --r7-n / --r7-seed to override for smoke tests only; the
     canonical measurement uses the defaults. Nothing here is sha-gated."""
     print("# R7 -- Cross-tradition corpus-control battery")
-    print("# Frozen design: roae-private/R7_CORPUS_CONTROL_DESIGN_FROZEN_2026_07_11.md (b00911b)")
+    print("# Frozen design: <private design record> (b00911b)")
     print("# + Amendment 1 (2026-07-12, 53e088a): corrected FC-4 anchor "
           "(comp-sum 1024 is NOT extreme under the exact J1 null).")
     print(f"# L0 uniform N={n:,}, seed {seed}; Jing Fang L1 "
@@ -18083,8 +18083,8 @@ def main():
                              "1); markdown to stdout. HEAVY at "
                              "the default N=10^6 (Spot D4/D8 worker, NOT the "
                              "orchestrator). Report-only, sha-neutral. Frozen "
-                             "design: roae-private/R7_CORPUS_CONTROL_DESIGN_"
-                             "FROZEN_2026_07_11.md + Amendment 1 (2026-07-12)")
+                             "design: <private design record> + Amendment 1 "
+                             "(2026-07-12)")
     parser.add_argument("--r7-n", type=int, default=1_000_000,
                         help="--r7-corpus: null sample size N (default 10^6, the "
                              "frozen canonical value; lower only for smoke tests)")

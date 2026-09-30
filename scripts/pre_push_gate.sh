@@ -1353,8 +1353,11 @@ if [ -n "$DGST_SHA" ]; then
       echo "  ⚠ DOC_GATES_SELFTEST NOT-RUN on $_ds — the pushed tree has no scripts/doc_gates.sh."
     else
       _to=""; command -v timeout >/dev/null 2>&1 && _to="timeout 1800"
+      # DOC_GATES_SELFTEST_INPLACE=1 (Q-911): $STBASE/tree is already a throwaway clone, so the
+      # suite runs here rather than cloning itself a second time. A pushed tree older than
+      # Q-911 ignores the variable and runs in place, which is this same clone either way.
       _dso=$( cd "$STBASE/tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
-                $_to bash scripts/doc_gates.sh --selftest 2>&1 ); _dsrc=$?
+                DOC_GATES_SELFTEST_INPLACE=1 $_to bash scripts/doc_gates.sh --selftest 2>&1 ); _dsrc=$?
       _dsn=$(printf '%s\n' "$_dso" | grep -cE '^DOC_GATES_SELFTEST=') || true
       if [ "${_dsn:-0}" = 0 ] && grep -q '^REFUSING:' <<<"$_dso"; then
         echo "  ⚠ DOC_GATES_SELFTEST NOT-RUN on $_ds — the selftest REFUSED (rc=$_dsrc); nothing was tested:"

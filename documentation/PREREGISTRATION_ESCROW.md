@@ -93,6 +93,13 @@ instrument passed the Stage T gate, and on which date (KCV R3), applied after th
 free action, and the Lean theorems `twenty_four_dvd_*` to the record-level count they prove. No query, threshold
 or decision rule changed. The 51,794-byte revision above is `git show 5ad06afa:documentation/PREREG_CLASSA_QUERY_SET.md`.)*
 
+*(2026-09-30, CX-243: how to read the two notes on the file's Stage T row, written here so that the file
+is not revised a ninth time and its digest above stands. The first ⚠ note, kept from 2026-09-06, says the
+gate "had passed the day before" the 2026-09-05 draft, that is on 2026-09-04. The 2026-09-28 CORRECTED
+note after it supersedes that: the 2026-09-04 06:48:28 UTC PASS was the `max_k` = 4 run of
+`verify --check-t-ladder` (layers 0–4, 5 identities), and the 32-identity gate passed on 2026-09-05, as
+the row's first sentence says. So the "day before" in the older note refers to the 5-identity run.)*
+
 **This digest is deliberately NOT in the table above, and it does not verify against an escrowed
 row, because the file it describes is not frozen.** It was published *before* its freeze so that an
 external reviewer could attack it while corrections are still possible — the adjacent query

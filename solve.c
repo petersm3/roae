@@ -51960,6 +51960,26 @@ static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_ou
             }
         }
     }
+    {   /* Q-910 (batch 29, CX-243): under SOLVE_MEMORY_FLUSH_COUNT a parallel --sub-branch run moves its
+         * records into sub_flush_chunk_*.bin before it writes its checkpoint line, and the line then claims
+         * 0 solutions. Check 3 above has no count to compare for such a run, so it would pass by having
+         * nothing to check. Say so by name instead of passing in silence. Carrying the real count in the
+         * line was not taken: check 3 would then look for a sub_<cell>.bin shard that a tier-2 run never
+         * writes, and refuse a correct directory. */
+        int n_chunks = 0;
+        DIR *cd = opendir(dir);
+        if (cd) {
+            struct dirent *ce;
+            while ((ce = readdir(cd)) != NULL)
+                if (strncmp(ce->d_name, "sub_flush_chunk_", 16) == 0) n_chunks++;
+            closedir(cd);
+        }
+        if (n_chunks > 0)
+            fprintf(stderr, "NOTE: %s: %d tier-2 chunk file(s) (sub_flush_chunk_*) are in %s. A run that wrote them under\n"
+                            "      SOLVE_MEMORY_FLUSH_COUNT claims 0 solutions in its checkpoint line, so the claim-vs-shard check\n"
+                            "      (Q-317 (4)) has no count to compare for its records: that check is SKIPPED for them, not passed (Q-910)\n",
+                    ctx, n_chunks, dir);
+    }
     if (n_exh_out) *n_exh_out = n_exh;
     if (n_bud_out) *n_bud_out = n_bud;
     if (n_int_out) *n_int_out = n_incomplete;

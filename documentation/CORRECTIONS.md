@@ -24757,3 +24757,88 @@ present verbatim is never re-aligned. A reworded word outside the spans still fa
 green cases (two spans on one line; a span beside a cost marker) and three red cases (a reworded
 word, a marker that replaces nothing, a whole line replaced by a bare marker). It also checks its
 own precondition: with the alignment step disabled, the first green case fails.
+
+## CX-243 — the R7 battery still printed a private path, the doc-gates self-test planted its defects in the tree it was called in, and a tier-2 merge passed a check it could not make (solve.py; solve.c; scripts/doc_gates.sh; scripts/pre_push_gate.sh; tests.py; documentation/SOLVE_C_CLI.md; documentation/SOLVE_PY_CLI.md; documentation/PREREGISTRATION_ESCROW.md)
+
+**2026-09-30.** Origin: backlog rows Q-909 and Q-910 (follow-ups from the Fable pre-publication
+review of batch 25) and Q-911 (a harness defect found 2026-09-30 00:01 UTC). No published number,
+sha, count or reproduction parameter moves.
+
+**1. Q-909: the generator of a redacted log line still printed it.** CX-239 part 4 replaced line 2 of
+`reports/evidence/r7/r7_run_20260712.log`, which named the frozen R7 design by its path in the
+operator's private repository, with `<private design record>`. The code that printed that line was
+not changed, so re-running the battery reproduced the path. It is now the placeholder at every site:
+the two report headers `solve.py --r7-corpus` and `--r7-verify` print, the R7 section comment and the
+`--r7-corpus` help text in `solve.py`, the `--r7-verify` section of `SOLVE_C_CLI.md`, its row in
+`SOLVE_PY_CLI.md`, and a comment in `tests.py`. `--r7-corpus` now prints line 2 of the archived log
+byte for byte. Both commands are report-only and sha-neutral; their output changes in that one line.
+The test that re-derives the log's pre-redaction sha256 carried the original line as a literal; it now
+reads the archived bytes from the commit that first added the log (`00badebc`), checks their sha256
+against the one recorded in `reports/evidence/r7/README.md`, and checks that only line 2 differs. A
+clone without that commit prints a note and runs the other checks. A new test
+(`test_q909_r7_generator_prints_the_placeholder_not_the_private_path`) fails if any of the four files
+names the design file again or if `solve.py` stops printing the archived line 2. After the change no
+tracked file names that design file.
+
+**2. Q-911: the doc-gates self-test wrote its defects into the caller's tree.** `doc_gates.sh
+--selftest` proves each gate can fail by planting a defect in a real file, running the gate, and
+reverting with `git checkout --`. It did this in the checkout it was started in. Its lock and its
+INT/TERM/EXIT traps protect that checkout only while the process lives to run a trap: SIGKILL cannot
+be trapped, a hang-up was not, and anyone who reads the tree or runs `git pull` during the run sees
+the planted defects as real edits. On 2026-09-30 at 00:01 UTC the Q-761 needle was found in the main
+public checkout's `RETRACTED_PHRASES.tsv` and `GUIDE.md` during the batch 25 and 28 pushes. Nothing
+was committed or pushed.
+
+*Why that checkout.* `scripts/pre_push_gate.sh` was not the cause. It takes its root from
+`git rev-parse --show-toplevel` and already runs the self-test in its own fresh clone of the pushed
+sha (Q-720). The run came from a check in the operator's private task ledger. That check ran the
+self-test by changing into the main public checkout by a fixed path. A second check in the same
+ledger ran the ledger's own checker again, so every level of that recursion ran the self-test once
+more in that checkout. The run was live when the needle was found; it was not a run cut short before
+its revert. One problem remains in the local setup: the pre-push and pre-commit hooks installed in
+the main checkout run that checkout's working-tree copy of the gate scripts, whichever linked
+worktree is pushing. Those hooks are local files, not tracked here. Both findings are handed back to
+the operator.
+
+*The fix, for every planting self-test.* A survey of `scripts/` found that `doc_gates.sh --selftest`
+is the only self-test that plants into the tree it runs in. The others (`citation_line_gate.sh`,
+`pre_commit_stamp_gate.sh`, the append-only cases inside doc_gates) already work in `mktemp`
+directories, and `exec_lane.sh` resets a copied workspace. An ordinary `--selftest` call now clones
+the committed HEAD into a scratch directory (`git clone --shared`, then the caller's
+`refs/remotes/origin/*`, the same form as the pre-push leg) and runs the unchanged suite there with
+`DOC_GATES_SELFTEST_INPLACE=1`. The caller's tree is never written. A signal to the wrapper stops the
+suite, which reverts inside the scratch clone, and the wrapper then deletes the clone. A SIGKILL can
+leave a scratch directory under `$TMPDIR`, but never a planted file in a checkout. The dirty-tree
+refusal stays, for a new reason: with uncommitted edits the scratch copy would test HEAD, not the
+tree in front of you. The in-place path also traps HUP now. `pre_push_gate.sh` sets
+`DOC_GATES_SELFTEST_INPLACE=1` for its own clone, so it does not clone twice.
+
+*Tests.* `TestLaneB29SelftestNeverPlantsInTheCallersTree` runs the real script in a throwaway caller
+clone. It waits until a defect is planted somewhere, which is its precondition, and requires that
+place to be the scratch clone. It then ends the run with SIGTERM and requires exit 143, a clean
+caller and no scratch clone left behind. A second case ends the run with SIGKILL to the whole process
+group and requires a clean caller. Against the pre-fix script both cases fail: the plant lands in the
+caller. Where the checkout borrows its objects through a chain of `--shared` clones too deep for git,
+the class skips with a named reason. The self-test's own scratch clone cannot be made there either,
+and the suite refuses by name rather than running in place.
+
+**3. Q-910: (a) a tier-2 merge passed a check it had no count for.** Under `SOLVE_MEMORY_FLUSH_COUNT`,
+a parallel `--sub-branch` run flushes its records to `sub_flush_chunk_*.bin` before it writes its
+checkpoint line, so the line claims 0 solutions. CX-235 part 2's claim-vs-shard check (`MERGE_SHARD=
+MISSING`/`SHORT`) then has nothing to compare for that run, and it passed there by checking nothing.
+Carrying the real count in the line was not taken: the check would then look for a `sub_<cell>.bin`
+shard that a tier-2 run never writes, and would refuse a correct directory. Instead the merge gate
+(`q881_merge_input_gate()` in `solve.c`) counts `sub_flush_chunk_*` files in the directory and, when
+there are any, prints a `NOTE:` that the check is skipped for those records, not passed (Q-910). The
+merge's output and exit status are unchanged. `test_q444_tier2_next_step_command_runs_and_merges_the_chunks`
+now requires the note after the tier-2 merge and its absence after the no-flush merge, and still
+requires the two shas to agree. A source-level guard needs no build. The `solve.c` change was compiled with `-fopenmp` on the worker before this entry was published, and
+the Q-444 test passed there with it.
+
+**(b) two notes on one row of the pre-registration.** The Stage T row of
+`PREREG_CLASSA_QUERY_SET.md` keeps its 2026-09-06 ⚠ note ("the gate had passed the day before") and,
+after it, the 2026-09-28 CORRECTED note, which shows the 2026-09-04 PASS was a 5-identity run. Editing
+the file would be a ninth revision. Instead, the escrow page now has a dated paragraph saying how to
+read the two notes: the "day before" refers to the 5-identity run, and the 32-identity gate passed on
+2026-09-05. The pre-registration is unchanged. Its digest is still `e73993f6…`, 53,768 bytes, and a
+test pins that digest.
