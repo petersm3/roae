@@ -7,7 +7,7 @@ pair-slot in the ordering, the field gives the **exact fraction of the whole com
 that places pair *j* in that slot — not a sample, not a projection: a population marginal computed
 from every member at once via the compiled f·g ladders. King Wen's own 31 placements are overlaid.
 
-← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: **V1** · [V2 river](viz_kc_river.md) ·
+← Back to the [capstone's visual showcase](README.md#king-wens-place-in-the-space-tr-12) · V-family: **V1** · [V2 river](viz_kc_river.md) ·
 [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md) ·
 See also [viz_pca.md](archive/viz_pca.md) (the enumerated-slice projections this figure contrasts with)
 
@@ -88,7 +88,7 @@ and the 31 free pairs share seven distinct rows, their symmetry orbits. The full
   brightest cell; the axes now name slot and pair, the outline is two-tone, and a note states the
   seven rows, CX-227. The probability column is checked as probabilities, CX-228.
 - **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
-  as part of the [visual capstone](README.md) (CX-233).
+  as part of the [capstone's visual showcase](README.md) (CX-233).
 
 *The rest of this page is the figure's specification and drafting record, kept as written, with its
 dated corrections in place.*

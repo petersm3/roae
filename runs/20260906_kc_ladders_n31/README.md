@@ -155,9 +155,12 @@ the atlas, so with them the n=31 census reproduces from the tree:
 `bash reports/evidence/tr12/banked_n31_20260922/check_receipts.sh` runs the battery's own row on
 them and compares the result with the committed transcript. The f sidecars are schema v1 (the f
 ladder was built before `orbit_size_census` entered the schema), so the census column comes from
-the t sidecar of the same layer. The t sidecars cover exactly f's state set — equal `n_masks`,
-`n_entries` and branching histogram on all 32 layers — but their `mass_total` is in t-units, not
-N, so every other column stays f's. The g sidecars are **not** published here: g stores every
+the t sidecar of the same layer. On all 32 layers the row checks that the t sidecar has the same
+`n_masks`, `n_entries` and branching histogram as f's, that its census sums to those counts, and
+that its orbit-size-weighted mask count equals C(31, k), the number of k-subsets of the 31 pairs
+(Q-904, CX-246). These are count checks: the mask lists are not in the published tree, so the two
+state sets are not compared mask by mask. The t sidecars' `mass_total` is in t-units, not N, so
+every other column stays f's. The g sidecars are **not** published here: g stores every
 admissible entry, so its `n_entries` differs from f's on every layer but the first, and a second
 census over a different entry set would read as a disagreement.
 

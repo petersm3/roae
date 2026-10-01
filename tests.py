@@ -3713,7 +3713,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     CORRECTED 2026-09-04, twice, because this docstring's own premises expired under it.
     (1) It said "solve.c has no --expect-kw; verify.py's flag is the only instrument that
     promotes absence to a failure". solve.c GAINED --expect-kw on 2026-09-04 (g_expect_kw,
-    folded into the verdict at solve.c:44074 for --verify and :44509 for --validate), so
+    folded into the verdict at solve.c:44090 for --verify and :44525 for --validate), so
     both instruments now answer the question and the tests below pin BOTH halves: the
     default is still reported-not-enforced, and --expect-kw makes absence fatal.
     (2) It said "solve.c is behind the MASTER GATE and is not edited". That gate is Q-77,
@@ -4657,7 +4657,7 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
             self.fail("solve.c did not build: " + self.build_err)
         # START A NEW SESSION AND KILL THE GROUP, NOT THE PID (Q-656, 2026-09-19).
         # --validate-canonical system()-launches a 1T enumeration at SOLVE_THREADS=128
-        # (solve.c:41282-41296) microseconds after the token this test reads, and solve.c
+        # (solve.c:41298-41312) microseconds after the token this test reads, and solve.c
         # calls no setsid/setpgid/setpgrp -- so pr.kill(), which signals the driver's PID
         # alone, left that enumeration running and reparented on a 2-core box. Measured
         # against a stub reproducing solve.c's stdout order: driver-only kill orphaned the
@@ -5462,6 +5462,9 @@ class TestKcExtremalTwoLanguageRecheck(unittest.TestCase):
     # A real n=9 certificate, reduced to the keys the checker reads. Its witness and its
     # extreme_value were produced by `solve --kc-extremal yangcount <f> max --kc-witness`
     # on an n=9 ladder and are pinned here so these legs need no binary and no ladder.
+    # Q-905 (batch 30): the checker now binds a certificate to its universe, so the fixture
+    # carries the n=9 rung's `pairs` (orbits 3.0,3.1,3.2 in solve.c's pl order), its budget
+    # `b0` and the ladder identity `pl_hash` the producer writes for (n=9, start_exit=0, pl).
     CERT = {
         "type": "roae-kc-extremal-certificate",
         "version": 1,
@@ -5469,6 +5472,10 @@ class TestKcExtremalTwoLanguageRecheck(unittest.TestCase):
         "direction": "max",
         "n": 9,
         "start_exit": 0,
+        "pl_hash": "b5270954d483baaf",
+        "pairs": [[2, 16], [4, 8], [32, 1], [55, 59], [61, 47], [31, 62], [33, 30], [18, 45],
+                  [51, 12]],
+        "b0": [2, 5, 0, 2, 0],
         "g_invariant": True,
         "extreme_value": 30,
         "witness": "16,2,8,4,55,59,47,61,62,31,1,32,33,30,18,45,12,51",
@@ -5639,11 +5646,13 @@ class TestKcExtremalTwoLanguageRecheck(unittest.TestCase):
         return verdict
 
     def test_the_refusal_legs_have_a_passing_baseline(self):
-        # Precondition for every red leg below. CERT is a yangcount certificate, which never
-        # reads start_exit, so start_exit=63 must pass too. A red leg is meaningful only if the
-        # base certificate is not already failing for some other reason.
+        # Precondition for every red leg below. A red leg is meaningful only if the base
+        # certificate is not already failing for some other reason. (Until Q-905 this leg also
+        # required start_exit=63 to pass on the same walk, because yangcount never reads it; since
+        # Q-905 start_exit is part of the ladder identity pl_hash binds, so a certificate with the
+        # other start and the same pl_hash is refused -- by TestF30KcxRecheckBindsTheUniverse, as
+        # FAIL-pl-hash-mismatch -- and the out-of-range red leg below still runs before that.)
         self.assertEqual(self._verdict(self.CERT), "CHECKED-AGREE")
-        self.assertEqual(self._verdict(dict(self.CERT, start_exit=63)), "CHECKED-AGREE")
         self.assertEqual(self._verdict(dict(self.CERT, gdir=None, null_vs_g=None)),
                          "CHECKED-AGREE")
         self.assertEqual(self._verdict(dict(self.CERT, gdir="/g", null_vs_g="CONSISTENT")),
@@ -5811,6 +5820,211 @@ class TestKcExtremalRecheckKillsACoordinatedCMutant(unittest.TestCase):
         self.assertTrue(any("CHECKED-DISAGREE" in l and "phi_py=30" in l
                             and "extreme_value=39" in l for l in lines),
                         "expected phi_py=30 against extreme_value=39; got:\n" + "\n".join(lines))
+
+
+class TestF30KcxRecheckBindsTheUniverse(unittest.TestCase):
+    """Q-905 (Codex LSD review R18e, Fable triage): --kc-x-recheck binds a certificate to its
+    pair universe and its C5 budget before it evaluates Phi.
+
+    WHAT WENT WRONG. The certificate named its universe only through `pl_hash`, which solve.py
+    had no pair list to recompute from, and the checker required of a witness only that it be n
+    distinct canonical pairs. The review ran two mutants of a real n=9 yangcount certificate
+    through `solve.py --kc-x-recheck`: `wrong-pairs` places the pinned {0,63} pair as a free pair
+    (phi=35 > the absolute bound 30 of the real universe) and `wrong-C2` crosses a distance-5
+    boundary that yangcount never looks at. Both returned KC_X_PYCHECK=PASS. The "two-language
+    obligation" could not fail on instance membership.
+
+    THE FIX. The producer writes `pairs` (pl order, King Wen orientation) and `b0`; solve.py maps
+    each pair back to its King Wen index, recomputes solve.c's FNV `pl_hash` from (n, start_exit,
+    pl) and refuses a mismatch; re-derives `b0` (full 31 from King Wen, a rung from the same
+    first-completion DFS as solve.c) and refuses a mismatch; then requires every placement to be
+    a universe pair and the boundary-class multiset to equal b0. Only then is Phi evaluated.
+
+    RED ARM. The old checker is loaded from git history by path and shown to pass both mutants;
+    the new one refuses each with its named reason; the real certificate passes. The build and
+    the ladder run on a worker with gcc; a build failure is a test FAILURE, never a skip."""
+
+    BASE = "ba35b493"      # public main before Q-905: its solve.py passes both mutants
+    WRONG_PAIRS = dict(witness="0,63,8,4,55,59,47,61,62,31,1,32,33,30,18,45,12,51",
+                       extreme_value=35, witness_value=35)
+    WRONG_C2 = dict(witness="55,59,8,4,16,2,47,61,62,31,1,32,33,30,18,45,12,51")
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        cls.tmp = tempfile.mkdtemp(prefix="f30kcx_")
+        cls.sbin = os.path.join(cls.tmp, "solve_f30")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.cert = None
+        if cls.build_ok:
+            fdir = os.path.join(cls.tmp, "f")
+            os.makedirs(fdir)
+            b = subprocess.run([cls.sbin, "--kc-build", fdir, "--f1-pairs", "9"],
+                               capture_output=True, text=True, timeout=900)
+            cls.ladder_err = "--kc-build rc %d: %s" % (b.returncode, b.stderr[-800:])
+            cert = os.path.join(cls.tmp, "control.json")
+            if b.returncode == 0:
+                x = subprocess.run([cls.sbin, "--kc-extremal", "yangcount", fdir, "max",
+                                    "--kc-witness", "--kc-json", cert],
+                                   capture_output=True, text=True, timeout=900)
+                cls.ladder_err = "--kc-extremal rc %d: %s" % (x.returncode, x.stderr[-800:])
+                if x.returncode == 0 and os.path.exists(cert):
+                    with open(cert, encoding="utf-8") as fh:
+                        cls.cert = json.load(fh)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _real_cert(self):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        if self.cert is None:
+            self.fail("no real n=9 certificate was produced, so nothing was verified: "
+                      + self.ladder_err)
+        return dict(self.cert)
+
+    def _recheck(self, *certs):
+        import json
+        d = tempfile.mkdtemp(prefix="f30kcxpy_", dir=self.tmp)
+        paths = []
+        for i, c in enumerate(certs):
+            p = os.path.join(d, "cert_%02d.json" % i)
+            with open(p, "w") as fh:
+                json.dump(c, fh)
+            paths.append(p)
+        r = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck"] + paths,
+                           capture_output=True, text=True, timeout=300)
+        lines = [l.rstrip() for l in (r.stdout + "\n" + r.stderr).splitlines()]
+        rows = {l.split()[0][len("KC_X_PYCHECK_ROW="):]: l.split()[1]
+                for l in lines if l.startswith("KC_X_PYCHECK_ROW=")}
+        return r.returncode, lines, rows
+
+    # ---- the real certificate: fields present, and PASS (the precondition of every red leg) ----
+
+    def test_the_producer_writes_the_universe_and_the_real_certificate_passes(self):
+        c = self._real_cert()
+        for key in ("pairs", "b0", "pl_hash"):
+            self.assertIn(key, c, "the --kc-json certificate does not carry %r; the Python "
+                                  "binding below would be refusing every certificate" % key)
+        self.assertEqual(len(c["pairs"]), 9)
+        self.assertEqual(sum(c["b0"]), 9)
+        rc, lines, rows = self._recheck(c)
+        self.assertEqual(rows.get("cert_00.json"), "CHECKED-AGREE",
+                         "the control certificate must pass before any mutant can be said to "
+                         "fail for the right reason:\n" + "\n".join(lines))
+        self.assertEqual(rc, 0)
+        self.assertIn("KC_X_PYCHECK=PASS", lines)
+
+    def test_the_c_budget_and_pair_list_agree_with_the_python_derivation(self):
+        # The two languages' pl_hash and b0 agree on a real ladder: the FNV port, the King Wen
+        # pair-index convention and the first-completion DFS are all exercised here.
+        c = self._real_cert()
+        pl, pairs = solve._kc_x_universe(c)
+        self.assertEqual(solve._kc_x_pl_hash(c["n"], c["start_exit"], pl), c["pl_hash"])
+        derived = solve._kc_x_derive_b0(pairs, c["start_exit"])
+        self.assertEqual([derived[d] for d in solve.KC_X_DVALS], c["b0"])
+
+    # ---- the two review mutants: refused, each for its named reason ----------------------------
+
+    def test_wrong_pairs_mutant_is_refused(self):
+        rc, lines, rows = self._recheck(dict(self._real_cert(), **self.WRONG_PAIRS))
+        self.assertEqual(rows.get("cert_00.json"), "FAIL-witness-outside-universe",
+                         "\n".join(lines))
+        self.assertEqual(rc, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+
+    def test_wrong_c2_mutant_is_refused(self):
+        rc, lines, rows = self._recheck(dict(self._real_cert(), **self.WRONG_C2))
+        self.assertEqual(rows.get("cert_00.json"), "FAIL-witness-outside-budget",
+                         "\n".join(lines))
+        self.assertEqual(rc, 1)
+        self.assertIn("KC_X_PYCHECK=FAIL", lines)
+
+    # ---- RED: the checker before Q-905 passed both ------------------------------------------
+
+    def test_the_old_checker_passed_both_mutants(self):
+        r = subprocess.run(["git", "show", self.BASE + ":solve.py"], capture_output=True,
+                           text=True)
+        if r.returncode != 0 or not r.stdout:
+            self.fail("git show %s:solve.py failed, so the red arm measured nothing: %s"
+                      % (self.BASE, r.stderr[-400:]))
+        old_path = os.path.join(self.tmp, "solve_base_f30.py")
+        with open(old_path, "w", encoding="utf-8") as fh:
+            fh.write(r.stdout)
+        spec = importlib.util.spec_from_file_location("solve_base_f30", old_path)
+        old = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(old)
+        self.assertFalse(hasattr(old, "_kc_x_universe"),
+                         "the module loaded from %s already binds the universe; this is not "
+                         "the pre-fix checker and the red arm measured nothing" % self.BASE)
+        c = self._real_cert()
+        for name, change in (("wrong-pairs", self.WRONG_PAIRS), ("wrong-C2", self.WRONG_C2)):
+            verdict, detail = old._kc_x_check_cert(dict(c, **change))
+            self.assertEqual(verdict, "CHECKED-AGREE",
+                             "%s: the pre-fix checker was expected to accept this mutant; if it "
+                             "no longer does, the demonstration needs a new mutant, not "
+                             "deleting (%s)" % (name, detail))
+        verdict, _ = solve._kc_x_check_cert(dict(c, **self.WRONG_PAIRS))
+        self.assertEqual(verdict, "FAIL-witness-outside-universe")
+        verdict, _ = solve._kc_x_check_cert(dict(c, **self.WRONG_C2))
+        self.assertEqual(verdict, "FAIL-witness-outside-budget")
+
+    # ---- the binding itself, on the pinned fixture (no binary) -------------------------------
+
+    def test_the_fnv_reproduces_the_full_31_ladder_identity(self):
+        # Positive control for the FNV port: the tracked full-31 atlas sidecar's pl_hash, for
+        # pl = 1..31 at start_exit 0, must come out of the Python function.
+        with open("runs/20260906_kc_ladders_n31/atlas_n31.json", encoding="utf-8") as fh:
+            head = fh.read(8192)
+        m = re.search(r'"pl_hash":\s*"([0-9a-f]{16})"', head)
+        if not m:
+            self.fail("the full-31 atlas sidecar carries no pl_hash in its head; the positive "
+                      "control measured nothing")
+        self.assertEqual(solve._kc_x_pl_hash(31, 0, list(range(1, 32))), m.group(1))
+
+    def test_the_full_31_budget_is_king_wens(self):
+        pairs = [tuple(p) for p in solve.king_wen_pairs()[1:]]
+        self.assertEqual(solve._kc_x_derive_b0(pairs, 0), {1: 2, 2: 8, 3: 13, 4: 7, 6: 1})
+
+    def test_a_certificate_without_the_fields_is_refused_not_assumed(self):
+        c = dict(TestKcExtremalTwoLanguageRecheck.CERT)
+        del c["pairs"]
+        del c["b0"]
+        self.assertEqual(solve._kc_x_check_cert(c)[0], "FAIL-no-universe")
+
+    def test_an_edited_pair_list_is_refused(self):
+        base = TestKcExtremalTwoLanguageRecheck.CERT
+        cases = {
+            "FAIL-pl-hash-mismatch": [dict(base, pairs=base["pairs"][1:] + base["pairs"][:1]),
+                                      dict(base, start_exit=63),
+                                      dict(base, pl_hash="0" * 16)],
+            "FAIL-bad-universe": [dict(base, pairs=base["pairs"][:8] + [[63, 0]]),
+                                  dict(base, pairs=base["pairs"][:8] + [[16, 2]]),
+                                  dict(base, pairs=base["pairs"][:8] + [[2, 16]]),
+                                  dict(base, pairs=base["pairs"][:8]),
+                                  dict(base, pairs="2,16")],
+            "FAIL-bad-budget": [dict(base, b0=[2, 5, 0, 1, 1]), dict(base, b0=[2, 5, 0, 2]),
+                                dict(base, b0=[2, 4, 0, 2, 0])],
+        }
+        for want, certs in cases.items():
+            for c in certs:
+                verdict, detail = solve._kc_x_check_cert(c)
+                self.assertEqual(verdict, want, detail)
+
+    def test_the_fixture_universe_passes_and_a_wrong_c5_histogram_is_refused(self):
+        base = TestKcExtremalTwoLanguageRecheck.CERT
+        self.assertEqual(solve._kc_x_check_cert(base)[0], "CHECKED-AGREE")
+        # The review's third mutant: a graycode walk with one distance-1 boundary but the wrong
+        # class histogram (1,5,1,2,0 against the budget 2,5,0,2,0). Phi agrees; membership fails.
+        c5 = dict(base, functional="graycode",
+                  witness="1,32,8,4,55,59,47,61,62,31,16,2,33,30,18,45,12,51",
+                  extreme_value=1, witness_value=1)
+        self.assertEqual(solve._kc_x_check_cert(c5)[0], "FAIL-witness-outside-budget")
 
 
 class TestW0DNodeMappingCertificateIsUsedQ772(unittest.TestCase):
@@ -27979,6 +28193,286 @@ class TestQ908PinnedWindowJoin(unittest.TestCase):
         finally:
             shutil.rmtree(work, ignore_errors=True)
 # end class TestQ908PinnedWindowJoin
+
+
+class TestT30Q10CensusFallback(unittest.TestCase):
+    """Q-904 (CX-246; Codex LSD R18d). Row c_q10a's Q-857 fallback reads the census column from the t
+    sidecar when the f sidecar is schema v1. It accepted any t census whose version, n_masks, n_entries
+    and column sums matched, so a census with one orbit-size key changed (8 -> 12) passed. The row now
+    also requires sum(size * n_masks) == C(N_PAIRS, k) (every G-orbit of k-subsets is present, K28 /
+    CX-241) and t's branching histogram == f's, and prints TR12_Q10_CENSUS_ORBITCHECK=PASS|FAIL.
+    Fixture: the published n=31 sidecars (f at v1, t at v2), with the row extracted from
+    scripts/tr12_repro.sh the way scripts/d5_08_q6_q10a_shell_gate.sh extracts it. RED: the same row
+    with the two new clauses removed (the BASE accept test) passes the key and histogram mutants."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SC = os.path.join(ROOT, "runs", "20260906_kc_ladders_n31", "sidecars")
+    NEW_CLAUSES = ' && [ "$osm" = "$csub" ] && [ "$tbh" = "$bh" ]'
+
+    def setUp(self):
+        if shutil.which("bc") is None:
+            self.skipTest("Q904 NOT-RUN: bc is not on PATH (the row needs it)")
+        self.tmp = tempfile.mkdtemp(prefix="t30_q904_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        with open(os.path.join(self.ROOT, "scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
+            s = fh.read()
+        a = s.index("ratio9(){"); b = s.index("\n}\n", a) + 3
+        r9 = s[a:b]
+        a = s.index("    row_begin c_q10a\n"); b = s.index("row_end TR12_Q10A $rc", a)
+        row = s[a:b]
+        self.assertEqual(row.count(self.NEW_CLAUSES), 1, "precondition: the cured accept test is present")
+        self.cured = self._harness("cured", r9, row)
+        self.uncured = self._harness("uncured", r9, row.replace(self.NEW_CLAUSES, ""))
+        with open(os.path.join(self.SC, "run_f", "f1c5_layer_stats_31.json"), encoding="utf-8") as fh:
+            self.N = re.search(r'"mass_total": "(\d+)"', fh.read()).group(1)
+        self.atlas = os.path.join(self.tmp, "atlas.json")
+        with open(self.atlas, "w") as fh:
+            fh.write('{"layers": [\n' + ",\n".join('{"k": %d, "flow": "%s"}' % (k, self.N) for k in range(31)) + "\n]}\n")
+
+    def _harness(self, name, r9, row):
+        p = os.path.join(self.tmp, name + ".sh")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("#!/usr/bin/env bash\nset -u\nrow_begin(){ :; }\n"
+                     'W=$(mktemp -d); trap \'rm -rf "$W"\' EXIT; RAW="$W/raw.txt"; : > "$RAW"\n'
+                     'ATLAS="$1"; FDIR="$2"; ARTDIR="$3"; N_PAIRS="$4"; N_TOTAL="$5"; '
+                     'N_DIV24=$(echo "$N_TOTAL / 24" | bc); TDIR="${6:-}"\n')
+            fh.write(r9); fh.write(row); fh.write('cat "$RAW"; exit $rc\n')
+        return p
+
+    def _tdir(self, name, k=None, old=None, new=None):
+        d = os.path.join(self.tmp, name)
+        shutil.copytree(os.path.join(self.SC, "run_t"), d)
+        if k is not None:
+            p = os.path.join(d, "t_layer_stats_%02d.json" % k)
+            with open(p, encoding="utf-8") as fh:
+                t = fh.read()
+            self.assertEqual(t.count(old), 1, "precondition: the mutant's anchor %r is in t layer %d" % (old, k))
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(t.replace(old, new))
+        return d
+
+    def _run(self, harness, tdir):
+        art = tempfile.mkdtemp(dir=self.tmp)
+        r = subprocess.run(["bash", harness, self.atlas, os.path.join(self.SC, "run_f"), art, "31", self.N, tdir],
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout.splitlines()
+
+    def test_control_passes_on_the_published_sidecars(self):
+        rc, out = self._run(self.cured, self._tdir("t_control"))
+        self.assertEqual(rc, 0, "\n".join(out[-10:]))
+        self.assertIn("TR12_Q10_CENSUS_ORBITCHECK=PASS", out)
+        self.assertIn("Q10A_SIDECARS_MISSING\t0", out)
+        self.assertFalse([l for l in out if "T-CENSUS-MISMATCH" in l])
+
+    def test_orbit_size_key_mutant_fails_and_was_accepted_before(self):
+        tdir = self._tdir("t_key", 10, "[8,25,34336]", "[12,25,34336]")
+        rc, out = self._run(self.cured, tdir)
+        self.assertEqual(rc, 1)
+        self.assertTrue([l for l in out if l.startswith("10\tT-CENSUS-MISMATCH\t")], "\n".join(out[-8:]))
+        self.assertIn("TR12_Q10_CENSUS_ORBITCHECK=FAIL", out)
+        rc0, out0 = self._run(self.uncured, tdir)
+        self.assertEqual(rc0, 0, "RED: the BASE accept test passes the 8->12 mutant")
+        self.assertFalse([l for l in out0 if "T-CENSUS-MISMATCH" in l])
+
+    def test_branching_histogram_mutant_fails_and_was_accepted_before(self):
+        tdir = self._tdir("t_bh", 7, '"hist": [[', '"hist": [[0,1],[')
+        rc, out = self._run(self.cured, tdir)
+        self.assertEqual(rc, 1)
+        self.assertTrue([l for l in out if l.startswith("7\tT-CENSUS-MISMATCH\t")])
+        self.assertIn("TR12_Q10_CENSUS_ORBITCHECK=PASS", out, "the orbit check itself is not what failed")
+        rc0, _ = self._run(self.uncured, tdir)
+        self.assertEqual(rc0, 0, "RED: the BASE accept test never compared the branching histogram")
+
+    def test_n_masks_mutant_fails_on_both_positive_control(self):
+        with open(os.path.join(self.SC, "run_t", "t_layer_stats_12.json"), encoding="utf-8") as fh:
+            nm = re.search(r'"n_masks": (\d+),', fh.read()).group(1)
+        tdir = self._tdir("t_nm", 12, '"n_masks": %s,' % nm, '"n_masks": %d,' % (int(nm) + 1))
+        for h in (self.cured, self.uncured):
+            rc, out = self._run(h, tdir)
+            self.assertEqual(rc, 1, h)
+            self.assertTrue([l for l in out if l.startswith("12\tT-CENSUS-MISMATCH\t")], h)
+
+# end class TestT30Q10CensusFallback
+
+
+class TestT30GrowthCurveShaLabel(unittest.TestCase):
+    """Q-912 (CX-246). viz/growth_curve.py drew each point's short sha between Markdown backticks,
+    which matplotlib renders literally. BASE's line was
+        ax.annotate(f"{lab}\\n{r/1e9:.3f} B\\n`{sh}`", (b, r),
+    The committed run image under runs/20260608_560T_9a968fa2/viz/ is not regenerated."""
+
+    BAD = re.compile(r"`\{sh\}|\{sh\}`")
+
+    def _label(self, src):
+        m = re.search(r'ax\.annotate\(f"\{lab\}[^"]*"', src)
+        self.assertIsNotNone(m, "precondition: the point-label annotate call is present")
+        return m.group(0)
+
+    def test_sha_label_has_no_backticks(self):
+        base = 'ax.annotate(f"{lab}\\n{r/1e9:.3f} B\\n`{sh}`", (b, r),'
+        self.assertTrue(self.BAD.search(self._label(base)), "RED: BASE's label carries the backticks")
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "viz", "growth_curve.py"),
+                  encoding="utf-8") as fh:
+            lab = self._label(fh.read())
+        self.assertIn("{sh}", lab, "the short sha is still drawn")
+        self.assertIsNone(self.BAD.search(lab), lab)
+
+# end class TestT30GrowthCurveShaLabel
+
+
+class TestT30SelftestInplaceRefusesABranch(unittest.TestCase):
+    """Q-914 (CX-246; Fable batch-29 pre-publication review, U2). DOC_GATES_SELFTEST_INPLACE=1, set by
+    hand or left exported, made `doc_gates.sh --selftest` plant its defects in a real checkout again
+    (the Q-911 class). Both legitimate in-place callers are detached clones, so the in-place path now
+    refuses a branch HEAD before the lock and before any plant. Callers are throwaway shared clones,
+    as in TestLaneB29SelftestNeverPlantsInTheCallersTree. RED: the same script with the refusal block
+    removed (BASE) takes the lock in a branch checkout."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    BLOCK_START = "  # Q-914 (CX-246;"
+    REFUSAL = "REFUSING: DOC_GATES_SELFTEST_INPLACE is set but HEAD is a branch"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="t30_q914_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "DOC_GATES_SELFTEST_DEPTH")}
+        env.update(GIT_AUTHOR_NAME="t30", GIT_AUTHOR_EMAIL="t30@invalid",
+                   GIT_COMMITTER_NAME="t30", GIT_COMMITTER_EMAIL="t30@invalid", TMPDIR=self.tmp)
+        self.env = env
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.ROOT, capture_output=True, text=True, env=env)
+        if head.returncode != 0:
+            self.skipTest("not a git checkout")
+        self.head = head.stdout.strip()
+        with open(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), encoding="utf-8") as fh:
+            self.cured = fh.read()
+        a = self.cured.index(self.BLOCK_START)
+        b = self.cured.index("    exit 2\n  fi\n", a) + len("    exit 2\n  fi\n")
+        self.assertIn(self.REFUSAL, self.cured[a:b], "precondition: the refusal block is present")
+        self.uncured = self.cured[:a] + self.cured[b:]
+
+    def _git(self, *args, cwd=None):
+        return subprocess.run(["git"] + list(args), cwd=cwd, capture_output=True, text=True, env=self.env)
+
+    def _caller(self, name, script, branch):
+        c = os.path.join(self.tmp, name)
+        for cmd in (["clone", "-q", "--shared", "--no-checkout", self.ROOT, c],
+                    ["-C", c, "checkout", "-q"] + (["-b", "t30probe"] if branch else ["--detach"]) + [self.head]):
+            r = self._git(*cmd)
+            if r.returncode != 0 and "nesting too deep" in r.stderr:
+                self.skipTest("Q-914 test NOT-RUN: alternate object stores nest too deep in this checkout")
+            if r.returncode != 0:
+                raise AssertionError("setup failed: %s: %s" % (cmd, r.stderr))
+        with open(os.path.join(c, "scripts", "doc_gates.sh"), "w", encoding="utf-8") as fh:
+            fh.write(script)
+        d = os.path.join(self.ROOT, "scripts", "doc_gates.d")
+        for f in os.listdir(d):
+            shutil.copy(os.path.join(d, f), os.path.join(c, "scripts", "doc_gates.d", f))
+        for cmd in (["-C", c, "add", "-A", "scripts"],
+                    ["-C", c, "commit", "-q", "--allow-empty", "--no-verify", "-m", "t30 caller"]):
+            r = self._git(*cmd)
+            if r.returncode != 0:
+                raise AssertionError("setup failed: %s: %s" % (cmd, r.stderr))
+        if not branch:
+            self._git("-C", c, "checkout", "-q", "--detach")
+        on_branch = self._git("-C", c, "symbolic-ref", "-q", "HEAD").returncode == 0
+        self.assertEqual(on_branch, branch, "precondition: the caller's HEAD is %s" % ("a branch" if branch else "detached"))
+        self.assertEqual(self._dirty(c), "", "precondition: the caller starts clean")
+        return c
+
+    def _dirty(self, c):
+        r = self._git("-C", c, "status", "--porcelain", "--untracked-files=no")
+        return r.stdout if r.returncode == 0 else "<status failed: %s>" % r.stderr
+
+    def _lock(self, c):
+        return os.path.isdir(os.path.join(c, ".git", "doc_gates_selftest.lock"))
+
+    def _start(self, c):
+        env = dict(self.env, DOC_GATES_SELFTEST_INPLACE="1")
+        out = open(os.path.join(self.tmp, os.path.basename(c) + ".out"), "w")
+        self.addCleanup(out.close)
+        return subprocess.Popen(["bash", "scripts/doc_gates.sh", "--selftest"], cwd=c, env=env,
+                                stdout=out, stderr=subprocess.STDOUT, start_new_session=True), out.name
+
+    def _until_lock_or_dirty(self, p, c, secs=600):
+        import time
+        deadline = time.time() + secs
+        seen = False
+        while time.time() < deadline and p.poll() is None:
+            if self._lock(c) or self._dirty(c):
+                seen = True
+                break
+            time.sleep(0.2)
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        p.wait()
+        return seen
+
+    def test_branch_checkout_is_refused_with_nothing_written(self):
+        c = self._caller("branch_new", self.cured, True)
+        p, outp = self._start(c)
+        try:
+            rc = p.wait(timeout=300)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL); p.wait()
+            raise AssertionError("the in-place self-test did not refuse a branch checkout within 300 s")
+        with open(outp, encoding="utf-8", errors="replace") as fh:
+            out = fh.read().splitlines()
+        self.assertNotEqual(rc, 0)
+        self.assertTrue([l for l in out if l.startswith(self.REFUSAL)], "\n".join(out[-10:]))
+        self.assertEqual(self._dirty(c), "")
+        self.assertFalse(self._lock(c), "the refusal comes before the lock")
+
+    def test_base_script_plants_in_a_branch_checkout_red(self):
+        c = self._caller("branch_base", self.uncured, True)
+        p, _ = self._start(c)
+        self.assertTrue(self._until_lock_or_dirty(p, c),
+                        "RED expected: BASE's in-place self-test takes the lock in a branch checkout")
+
+    def test_detached_clone_still_proceeds_past_the_check(self):
+        c = self._caller("detached_new", self.cured, False)
+        p, outp = self._start(c)
+        self.assertTrue(self._until_lock_or_dirty(p, c),
+                        "a detached throwaway clone must still run the in-place suite (lock taken)")
+        with open(outp, encoding="utf-8", errors="replace") as fh:
+            self.assertNotIn(self.REFUSAL, fh.read())
+
+# end class TestT30SelftestInplaceRefusesABranch
+
+
+class TestT30CapstoneWording(unittest.TestCase):
+    """Operator ruling 2026-09-30 (CX-246): the project's capstone is ONE thing in three parts -- the
+    written report (TR-12), the visual showcase, and a step-by-step laptop reproduction guide (in
+    preparation). No live doc may call the viz page a capstone of its own or speak of two capstones.
+    CORRECTIONS.md, HISTORY.md and HISTORY_INDEX.md narrate the history and are allowlisted."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    RETIRED = re.compile(r"two capstones|visual capstone|visual half " r"of the capstone", re.I)  # split so this file never carries a retired phrase whole
+    ALLOW = {"documentation/CORRECTIONS.md", "documentation/HISTORY.md", "documentation/HISTORY_INDEX.md"}
+
+    def test_no_live_doc_uses_the_retired_capstone_wording(self):
+        old = ("# Visualization — the visual " "capstone\n**The project has two " "capstones.** The written one is\n"
+               "This section is the visual half " "of the capstone and follows\n")
+        self.assertEqual(len(self.RETIRED.findall(old)), 3, "positive control: BASE's viz/README.md lines")
+        r = subprocess.run(["git", "ls-files", "*.md"], cwd=self.ROOT, capture_output=True, text=True)
+        files = [f for f in r.stdout.splitlines() if f not in self.ALLOW]
+        self.assertGreater(len(files), 50, "precondition: the doc corpus was enumerated")
+        hits = []
+        for f in files:
+            p = os.path.join(self.ROOT, f)
+            if not os.path.isfile(p):
+                continue
+            with open(p, encoding="utf-8", errors="replace") as fh:
+                for i, ln in enumerate(fh, 1):
+                    if self.RETIRED.search(ln):
+                        hits.append("%s:%d" % (f, i))
+        self.assertEqual(hits, [])
+        with open(os.path.join(self.ROOT, "viz", "README.md"), encoding="utf-8") as fh:
+            self.assertIn("in preparation", fh.read())
+
+# end class TestT30CapstoneWording
 
 
 if __name__ == "__main__":

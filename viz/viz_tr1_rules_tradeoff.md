@@ -1,6 +1,6 @@
 # Figure — TR-1, the conflict theorem's trade-off (`fig_tr1_rules_tradeoff`)
 
-← [Visual capstone](README.md#the-rules-and-the-conflict) · Report: [TR-1 §Figure](../reports/TR1_EIGHT_CENTURIES_MEASURED.md#figure) (also shown in [TR-2 §Figure](../reports/TR2_THE_RULES_CONFLICT.md#figure))
+← [The capstone's visual showcase](README.md#the-rules-and-the-conflict) · Report: [TR-1 §Figure](../reports/TR1_EIGHT_CENTURIES_MEASURED.md#figure) (also shown in [TR-2 §Figure](../reports/TR2_THE_RULES_CONFLICT.md#figure))
 
 [![Four-row comparison table of four conflicting rules: King Wen has 2 misses, breaks or violations on each of the first three rules and satisfies the fourth, the trigram configuration; the grand unified precursor has 0 on the first three and violates the fourth.](../reports/figures/fig_tr1_rules_tradeoff.png)](../reports/figures/fig_tr1_rules_tradeoff.svg)
 
@@ -75,11 +75,11 @@ carries it alone, so the table reads the same without colour.
 - **2026-09-28, Codex visualization review (VIZ-H2), triaged by Fable.** King Wen and the precursor
   were told apart by red against green only, and the green labels measured 4.12:1. The figure became
   the four-row table above, with its contrast asserted in code. CX-227 (TR-1 revision row v1.37).
-- **2026-09-29.** This page added, as part of the visual capstone (CX-233).
+- **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---
 
-*Part of the [visual capstone](README.md), the companion to
+*Part of the [capstone's visual showcase](README.md), the companion to
 [TR-12](../reports/TR12_QUERY_PROGRAM.md). Nothing here is claimed novel: the rules are the cited
 authors', and the figure is a table of the reports' numbers. Developed with AI assistance (Claude,
 Anthropic); corrections invited.*

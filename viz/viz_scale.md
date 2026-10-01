@@ -1,6 +1,6 @@
 # The scale figure (`viz_scale.png/.svg`) — spec and drafting record
 
-← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · Report: [TR-12 §"What this document is, and what it is not"](../reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not) · V-family: [V1 field](viz_kc_field.md) · [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md)
+← Back to the [capstone's visual showcase](README.md#king-wens-place-in-the-space-tr-12) · Report: [TR-12 §"What this document is, and what it is not"](../reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not) · V-family: [V1 field](viz_kc_field.md) · [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md)
 
 [![Log-log plot of count against per-cell node budget: three red points for the 11.2T, 100T and 560T canonical record counts on a power-law fit, and a horizontal line near the top at N, the exact count of the C1C2C4C5 superspace; the points and the line count different spaces.](../reports/figures/viz_scale.png)](../reports/figures/viz_scale.svg)
 
@@ -77,7 +77,7 @@ axis runs the full 29 decades unbroken, on purpose ([Decided at drafting](#decid
   hashes (Q-889, Q-890), CX-225. The legend entries ran 70–90 characters and the legend box covered
   the arrow; they are short now, and the embedded note is three lines, CX-227.
 - **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
-  as part of the [visual capstone](README.md) (CX-233).
+  as part of the [capstone's visual showcase](README.md) (CX-233).
 
 *The rest of this page is the figure's specification and drafting record, kept as written, with its
 dated corrections in place.*

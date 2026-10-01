@@ -8,7 +8,7 @@ table as a picture. *(Corrected 2026-09-04, Q-316 item 4: this read "the 32 shel
 shells counting `Shell_0 = SUPER`, but the TSV has one row per free PLACEMENT — 31 at full-31 — and
 `Shell_0` appears only as step 1's `g_parent`. `fig_tr12_kc_shells` plots the rows.)*
 
-← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
+← Back to the [capstone's visual showcase](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · **V4** ·
 [V5 grammar](viz_kc_grammar.md)
 
@@ -89,7 +89,7 @@ single admissible alternative costs 0 bits. The full reading guide is
   accepted tables they should have refused (Q-891), CX-226. p_i was never defined on the figure; the
   subtitle now defines it, and the log₂ ticks and a boxed key were added, CX-227.
 - **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
-  as part of the [visual capstone](README.md) (CX-233).
+  as part of the [capstone's visual showcase](README.md) (CX-233).
 
 *The rest of this page is the figure's specification and drafting record, kept as written, with its
 dated corrections in place.*

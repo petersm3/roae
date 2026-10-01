@@ -1,4 +1,4 @@
-# Visualization — the visual capstone
+# Visualization — the capstone's visual showcase
 
 ROAE is a mathematical analysis of the **King Wen sequence**, the received order of the 64 hexagrams
 of the I Ching. It treats the order as a combinatorial object: it writes the sequence's proposed
@@ -7,10 +7,11 @@ orderings that obey them, and asks which of the sequence's features that space f
 does not. This page shows the twelve report figures the project publishes, grouped by the part of that
 story each one tells.
 
-**The project has two capstones.** The written one is
-**[TR-12, The Query Program](../reports/TR12_QUERY_PROGRAM.md)**, the report that queries the
+**The project's capstone has three parts:** the written report (TR-12), this visual showcase, and a
+step-by-step guide for reproducing a subset of the work on a laptop (in preparation). The written
+report is **[TR-12, The Query Program](../reports/TR12_QUERY_PROGRAM.md)**, which queries the
 C1C2C4C5 superspace (every ordering satisfying C1, C2, C4 and C5; C3 is not imposed), exactly and
-without listing it. The visual one is this page, which is TR-12's companion. Its
+without listing it. This page is TR-12's companion. Its
 [TR-12 section](#king-wens-place-in-the-space-tr-12) follows TR-12's own order: the scale figure
 from TR-12's scope section, then V1–V5 from [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5).
 Every statement there about a TR-12 figure cites the TR-12 section it comes from, and says no more
@@ -92,7 +93,7 @@ Full description, provenance and review history: [viz_tr1_rules_tradeoff.md](viz
 
 ## King Wen's place in the space (TR-12)
 
-This section is the visual half of the capstone and follows
+This section is the core of the capstone's visual part and follows
 [TR-12](../reports/TR12_QUERY_PROGRAM.md) in its own order. [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
 counted the superspace exactly, and TR-12 queries it without listing it, through compiled
 f, g and t ladders (TR-12 §R).

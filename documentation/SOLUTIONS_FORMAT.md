@@ -323,9 +323,9 @@ Each record in solutions.bin satisfies:
   ⚠ **[SCOPED 2026-09-19 — `--verify`'s failure total can WRAP, and the wrap is
   reachable at the scale this project publishes.** The per-constraint failure
   counters and their sum are **32-bit** (`int fail_c1 … fail_dup`,
-  `solve.c:43927-43928`; `int total_fail`, `:44087`; the verdict is
-  `total_fail == 0` at `:44102`), while the record loop counts in **64-bit**
-  (`long long r`, `:43931`). Past 2³² accumulated failures the total wraps.
+  `solve.c:43943-43944`; `int total_fail`, `:44103`; the verdict is
+  `total_fail == 0` at `:44118`), while the record loop counts in **64-bit**
+  (`long long r`, `:43947`). Past 2³² accumulated failures the total wraps.
   **Executed** on a 1,073,741,825-record witness: `*** VERIFY FAIL: -549899140
   issues found ***`, which is the true total 3,745,068,156 reduced mod 2³². The
   560 T canonical holds **10,525,271,997** records, far past 2³². This bounds
@@ -361,9 +361,9 @@ Minimum sketch for any language:
 ⚠ **[CORRECTED 2026-09-01 — step 6 previously asserted that neither of the
 two `solve` subcommands performed this cross-check, and told the reader not
 to rely on them for it. Both implement it, and both landed before that
-sentence was last reviewed: `solve.c:43902-43919` for `solve --verify`
+sentence was last reviewed: `solve.c:43918-43935` for `solve --verify`
 (Q-277, 2026-08-28), which prints `VERIFY=ERROR` and refuses when a header
-under-declares its record count, and `solve.c:44367-44378` for
+under-declares its record count, and `solve.c:44383-44394` for
 `solve --validate` (Q-367, 2026-08-29), which refuses to validate a record
 stream that contradicts its own header. The retracted advice steered
 operators away from a check that already existed.]**

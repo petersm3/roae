@@ -6945,7 +6945,7 @@ def extended_selftest(solve_binary):
     def _run(env_extra, dir_, args_=("0", "4")):
         env = os.environ.copy()
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
-        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43612) refuses to start
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43628) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
         # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
         # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
@@ -12551,7 +12551,7 @@ def atlas_load(path):
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30131) is ALSO an un-run gate,
     # but VERIFY.md:1257 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6293,
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6507,
     # :6636; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
@@ -17141,7 +17141,7 @@ def t3_encode_solutions(out_bin, input_paths):
                     # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
                     # legitimate line. Refusing it would have broken the tool on real
                     # --kc-sample/--kc-unrank output. Checked by reading the emitters
-                    # (solve.c:38903 `record\tm=%llu\t`, :38978 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    # (solve.c:38919 `record\tm=%llu\t`, :38994 and the `%s\tcd=%d\t` form beside them), not assumed.
                     #
                     # What is safe, and is done, is to COUNT what the skip discards, so a changed
                     # input shape is visible instead of silent.
@@ -17401,6 +17401,135 @@ def _kc_x_partner_map():
     return m
 
 
+def _kc_x_pl_hash(n, start_exit, pl):
+    """solve.c's `f1_pl_hash`: FNV-1a (64-bit) over n, start_exit and the pair indices pl[0..n-1],
+    in that order. It is the ladder identity every layer header, manifest and sidecar carries,
+    and `--kc-extremal --kc-json` writes it as `pl_hash`. Re-derived here so a certificate's
+    `pairs` field is BOUND to the ladder the producer queried rather than asserted beside it.
+    Pinned by a test against the full-31 atlas sidecar's value."""
+    h = 0xcbf29ce484222325
+    for x in (n, start_exit) + tuple(pl):
+        h ^= x
+        h = (h * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
+    return "%016x" % h
+
+
+def _kc_x_universe(cert):
+    """The certificate's pair universe -> (pl, pairs), or raise ValueError.
+
+    `pairs` is the producer's list of [pa, pb] in pl order (Q-905); each must be a King Wen pair
+    (pa, pb) = (KW[2p], KW[2p+1]) in that orientation, with 1 <= p <= 31 (pair 0, {63, 0}, is the
+    pinned opening pair and is never free), none repeated, exactly n of them, and the FNV of the
+    recovered pl must equal the certificate's `pl_hash`. A certificate that predates the field is
+    refused by the caller (FAIL-no-universe); this function reports every other defect."""
+    n, start_exit = cert.get("n"), cert.get("start_exit")
+    pairs = cert.get("pairs")
+    if type(n) is not int or not 1 <= n <= 31:
+        raise ValueError("n=%r is not an integer in 1..31" % (n,))
+    if not isinstance(pairs, list) or len(pairs) != n:
+        raise ValueError("pairs must be a list of n=%d [pa,pb] entries; got %s"
+                         % (n, "a list of %d" % len(pairs) if isinstance(pairs, list)
+                            else type(pairs).__name__))
+    index_of = dict((kp, p) for p, kp in enumerate(king_wen_pairs()))
+    pl, out = [], []
+    for item in pairs:
+        if (not isinstance(item, list) or len(item) != 2
+                or any(type(v) is not int or not 0 <= v <= 63 for v in item)):
+            raise ValueError("pairs entry %r is not [pa,pb] with 0..63 integers" % (item,))
+        p = index_of.get((item[0], item[1]))
+        if p is None:
+            raise ValueError("pairs entry [%d,%d] is not a King Wen pair in (KW[2p], KW[2p+1]) "
+                             "orientation" % (item[0], item[1]))
+        if p == 0:
+            raise ValueError("pairs entry [%d,%d] is pair 0, the pinned opening pair, which is "
+                             "never a free pair" % (item[0], item[1]))
+        if p in pl:
+            raise ValueError("pairs lists pair %d ([%d,%d]) more than once" % (p, item[0], item[1]))
+        pl.append(p)
+        out.append((item[0], item[1]))
+    want = _kc_x_pl_hash(n, start_exit, pl)
+    got = cert.get("pl_hash")
+    if (not isinstance(got, str) or len(got) != 16
+            or any(c not in "0123456789abcdef" for c in got)):
+        raise ValueError("pl_hash=%r is not a 16-digit lowercase hex string" % (got,))
+    if got != want:
+        raise ValueError("pl_hash %s does not match the FNV of (n=%d, start_exit=%d, pairs) = %s: "
+                         "the pairs field is not the ladder's" % (got, n, start_exit, want))
+    return pl, out
+
+
+def _kc_x_derive_b0(pairs, start_exit):
+    """The C5 boundary budget solve.c's `f1c5_derive_b0` assigns to this universe, as
+    {distance class: count} over KC_X_DVALS. Full 31: King Wen's whole-walk boundary multiset
+    minus the C1-fixed within-pair distances (a property of KW alone). A reduced rung: the class
+    multiset of the FIRST completion a deterministic DFS finds (pairs in `pairs` order,
+    orientations with o=0 entering pb / exiting pa, as solve.c's `f1c5_b0_dfs`), which is why the
+    order of `pairs` is part of the ladder identity pl_hash binds. (`sat.derive_b0` ports only the
+    DFS half and so gives a different answer at 31; it is not used here.)"""
+    cls = dict((d, 0) for d in KC_X_DVALS)
+    n = len(pairs)
+    if n == 31:
+        kw = binary_hexagrams
+        for i in range(63):
+            d = bit_diff(kw[i], kw[i + 1])
+            if d not in cls:
+                raise ValueError("King Wen transition %d has boundary distance %d" % (i, d))
+            cls[d] += 1
+        for a, b in king_wen_pairs():
+            d = bit_diff(a, b)
+            if d not in cls:
+                raise ValueError("King Wen pair (%d,%d) has within-pair distance %d" % (a, b, d))
+            cls[d] -= 1
+        return cls
+    pa = [p[0] for p in pairs]
+    pb = [p[1] for p in pairs]
+    picked = [None] * n
+
+    def dfs(mask, last, depth):
+        if mask == (1 << n) - 1:
+            return True
+        for i in range(n):
+            if (mask >> i) & 1:
+                continue
+            for o in (0, 1):
+                first = pa[i] if o else pb[i]
+                second = pb[i] if o else pa[i]
+                d = bit_diff(last, first)
+                if d not in cls:
+                    continue
+                picked[depth] = d
+                if dfs(mask | (1 << i), second, depth + 1):
+                    return True
+        return False
+
+    if not dfs(0, start_exit, 0):
+        raise ValueError("no valid completion exists for this %d-pair universe from start_exit=%d"
+                         % (n, start_exit))
+    for d in picked:
+        cls[d] += 1
+    return cls
+
+
+def _kc_x_budget(cert, pairs, start_exit):
+    """The certificate's `b0` as {class: count}, or raise ValueError when it is malformed or is
+    not the budget `_kc_x_derive_b0` assigns to its universe (a self-asserted budget is not a
+    binding)."""
+    b0 = cert.get("b0")
+    if (not isinstance(b0, list) or len(b0) != 5
+            or any(type(v) is not int or not 0 <= v <= 31 for v in b0)):
+        raise ValueError("b0 must be a list of five integers in 0..31 (classes %s); got %r"
+                         % (list(KC_X_DVALS), b0))
+    carried = dict(zip(KC_X_DVALS, b0))
+    if sum(b0) != len(pairs):
+        raise ValueError("b0 sums to %d, not n=%d (one boundary per placement)"
+                         % (sum(b0), len(pairs)))
+    derived = _kc_x_derive_b0(pairs, start_exit)
+    if carried != derived:
+        raise ValueError("b0 %r is not the budget this universe derives, %r"
+                         % ([carried[d] for d in KC_X_DVALS], [derived[d] for d in KC_X_DVALS]))
+    return carried
+
+
 def kc_x_parse_witness(text, n=None):
     """Parse a `--kc-extremal --kc-witness` walk, "entry,exit,entry,exit,...".
 
@@ -17570,8 +17699,49 @@ def _kc_x_check_cert(cert):
         return ("FAIL-witness-not-verified",
                 "witness_member=%r witness_verified=%r"
                 % (cert.get("witness_member"), cert.get("witness_verified")))
+    # Q-905 (Codex LSD review R18e, batch 30): bind the certificate to its universe BEFORE
+    # evaluating Phi. Until now a witness was checked only for being n distinct canonical pairs,
+    # so a walk placing the pinned {0,63} pair as a free pair, or crossing a distance-5 boundary
+    # under a functional that never reads distances (yangcount), re-checked as CHECKED-AGREE:
+    # the "two-language obligation" could not fail on instance membership. The producer now
+    # writes `pairs` and `b0`; `pairs` is bound to the ladder identity by recomputing pl_hash,
+    # `b0` by re-deriving it, and the walk is then required to lie inside both.
+    if "pairs" not in cert or "b0" not in cert:
+        return ("FAIL-no-universe",
+                "certificate predates the pairs/b0 fields; the witness cannot be checked for "
+                "membership in the ladder's universe without assuming it")
+    try:
+        pl, universe = _kc_x_universe(cert)
+    except ValueError as e:
+        msg = str(e)
+        return ("FAIL-pl-hash-mismatch" if msg.startswith("pl_hash") else "FAIL-bad-universe",
+                msg)
+    try:
+        budget = _kc_x_budget(cert, universe, start_exit)
+    except ValueError as e:
+        return "FAIL-bad-budget", str(e)
     try:
         walk = kc_x_parse_witness(cert["witness"], n if isinstance(n, int) else None)
+    except (ValueError, KeyError, TypeError) as e:
+        return "FAIL-unevaluable", str(e)
+    member = set(frozenset(p) for p in universe)
+    for k, (entry, exitx) in enumerate(walk):
+        if frozenset((entry, exitx)) not in member:
+            return ("FAIL-witness-outside-universe",
+                    "placement %d (%d,%d) is a canonical pair but not one of the %d pairs this "
+                    "ladder was built over" % (k, entry, exitx, len(universe)))
+    seen = dict((d, 0) for d in KC_X_DVALS)
+    for k, d in enumerate(_boundary_distances(walk, start_exit)):
+        if d not in seen:
+            return ("FAIL-witness-outside-budget",
+                    "boundary %d has Hamming distance %d, outside the classes %s (C2 forbids 5)"
+                    % (k, d, list(KC_X_DVALS)))
+        seen[d] += 1
+    if seen != budget:
+        return ("FAIL-witness-outside-budget",
+                "boundary-class multiset %s is not the ladder's budget b0 %s"
+                % ([seen[d] for d in KC_X_DVALS], [budget[d] for d in KC_X_DVALS]))
+    try:
         phi = kc_x_phi(func, walk, start_exit)
     except (ValueError, KeyError, TypeError) as e:
         return "FAIL-unevaluable", str(e)

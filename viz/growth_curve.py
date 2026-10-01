@@ -100,7 +100,9 @@ def main():
     # data points
     ax.scatter(budgets, records, s=90, color="#d32f2f", zorder=5, label="canonical scales (measured)")
     for b, r, lab, sh in zip(budgets, records, labels, shas):
-        ax.annotate(f"{lab}\n{r/1e9:.3f} B\n`{sh}`", (b, r),
+        # Q-912 (CX-246): the short sha is drawn plain. Markdown backticks around it rendered
+        # literally in the figure (CX-225 left them; the committed run image keeps its as-run label).
+        ax.annotate(f"{lab}\n{r/1e9:.3f} B\n{sh}", (b, r),
                     textcoords="offset points", xytext=(8, -28), fontsize=9)
     # 1120T projection (dashed, explicitly NOT measured)
     ax.scatter([EXT_BUDGET], [proj_records], s=90, facecolors="none",

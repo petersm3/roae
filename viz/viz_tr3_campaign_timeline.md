@@ -1,6 +1,6 @@
 # Figure — TR-3, the first 560T campaign's timeline (`fig_tr3_campaign_timeline`)
 
-← [Visual capstone](README.md#how-the-computation-was-run) · Report: [TR-3 §Figure](../reports/TR3_REPRODUCIBLE_ENUMERATION.md#figure)
+← [The capstone's visual showcase](README.md#how-the-computation-was-run) · Report: [TR-3 §Figure](../reports/TR3_REPRODUCIBLE_ENUMERATION.md#figure)
 
 [![Timeline of the first 560T campaign, 2026-05-31 to 2026-06-08: green enumeration segments interrupted by five red eviction marks on weekday mornings, each followed by a deferred-downtime block until the evening relaunch, then an eviction-free weekend through completion.](../reports/figures/fig_tr3_campaign_timeline.png)](../reports/figures/fig_tr3_campaign_timeline.svg)
 
@@ -67,10 +67,10 @@ purple block is the downtime a defer policy imposed after a weekday-daytime evic
   runway", an interval that matched nothing plotted. It now states the plotted 50.5 h, asserted from
   the datetimes, and the note was moved so it overlaps no other text (Q-895, Q-889). CX-225 (TR-3
   revision row v1.17).
-- **2026-09-29.** This page added, as part of the visual capstone (CX-233).
+- **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---
 
-*Part of the [visual capstone](README.md), the companion to
+*Part of the [capstone's visual showcase](README.md), the companion to
 [TR-12](../reports/TR12_QUERY_PROGRAM.md). A timeline of a published campaign record; nothing is
 claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*

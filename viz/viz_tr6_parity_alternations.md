@@ -1,6 +1,6 @@
 # Figure — TR-6, King Wen's parity-class string (`fig_tr6_parity_alternations`)
 
-← [Visual capstone](README.md#structure-of-the-sequence) · Report: [TR-6 §Figure](../reports/TR6_PARITY_SKELETON.md#figure)
+← [The capstone's visual showcase](README.md#structure-of-the-sequence) · Report: [TR-6 §Figure](../reports/TR6_PARITY_SKELETON.md#figure)
 
 [![King Wen's 32-pair parity-class string: 32 squares, 16 even and 16 odd, with red marks at each of the exactly 15 class alternations across the 31 pair boundaries.](../reports/figures/fig_tr6_parity_alternations.png)](../reports/figures/fig_tr6_parity_alternations.svg)
 
@@ -67,10 +67,10 @@ pins it.
   2.16:1, and the 16→17 alternation at the row break had nothing after it. O is now near-black
   (8.76:1), and the dashed connector carries the alternation to the second row. CX-227 (TR-6
   revision row v1.11).
-- **2026-09-29.** This page added, as part of the visual capstone (CX-233).
+- **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---
 
-*Part of the [visual capstone](README.md), the companion to
+*Part of the [capstone's visual showcase](README.md), the companion to
 [TR-12](../reports/TR12_QUERY_PROGRAM.md). A drawing of a string computed from the sequence; nothing
 is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*

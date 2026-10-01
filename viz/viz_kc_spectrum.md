@@ -6,7 +6,7 @@ a fixed battery of structural observables on it, and plot each observable agains
 is blunt: **is the rank index a structural coordinate, or is it arbitrary?** A flat, noisy spectrum
 is the informative answer, and it is the one this figure most likely gives.
 
-← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
+← Back to the [capstone's visual showcase](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · **V3** · [V4 shells](viz_kc_shells.md) ·
 [V5 grammar](viz_kc_grammar.md) · See also [viz_pca.md](archive/viz_pca.md)
 
@@ -87,7 +87,7 @@ flat lines. The full reading guide is [How to read it](#how-to-read-it) below.
   ticked at 0.2 steps; they now carry display labels, integer ticks and a key, CX-227. The caption's
   correction history moved out of the reading text, CX-228.
 - **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
-  as part of the [visual capstone](README.md) (CX-233).
+  as part of the [capstone's visual showcase](README.md) (CX-233).
 
 *The rest of this page is the figure's specification and drafting record, kept as written, with its
 dated corrections in place.*

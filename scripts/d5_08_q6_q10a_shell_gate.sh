@@ -43,7 +43,7 @@
 #                 Q10A_CENSUS_SOURCE line "on 32 layer(s)", no NA and no Q10A_SIDECAR_SCHEMA line, exit 0
 #          leg 8  as leg 7, t sidecar k=11's header n_entries off by one (census still sums to f's) ->
 #                 "11<TAB>T-CENSUS-MISMATCH", Q10A_SIDECARS_MISSING 1, the other 31 rows filled, exit 1
-#          leg 9  as leg 7, t sidecar k=5's census sums disagree with its own n_masks -> "5<TAB>T-CENSUS-MISMATCH", exit 1
+#          leg 9  as leg 7, t sidecar k=5's census entries column sums to n_entries+1 (masks column untouched, Q-904) -> "5<TAB>T-CENSUS-MISMATCH", exit 1
 #          leg 10 as leg 7, t sidecar k=20 tagged v1 -> "20<TAB>T-CENSUS-MISMATCH", exit 1
 # plus mutants per row (4 for c_q6, 11 for c_q10a), each of which must turn a leg red.
 #
@@ -97,7 +97,7 @@ run(){ bash "$1" "$2" "$3" "$4" "$5" "$6" "${7:-}" > "$WORK/last.out" 2>"$WORK/l
 # ---------------------------------------------------------------- synthetic worlds (Python builds them
 # and computes the EXPECTED transcripts independently: Fraction arithmetic and the json module)
 python3 - "$WORK" "$GOLD_Q6" "$GOLD_PROFILE" <<'PY'
-import sys, os, json
+import sys, os, json, math
 from fractions import Fraction
 W,goldq6,goldprof=sys.argv[1],sys.argv[2],sys.argv[3]
 N=1097051278789181790036112071176579186688
@@ -161,13 +161,18 @@ def sidecar(path,k,nm,ne,mt,census,hist,ver=2):
         else:
             f.write('  "top_heavy": [{"mask": 7, "last": 1, "rid": 7, "value": "8"}],\n')
             f.write('  "orbit_size_census": %s\n}\n' % json.dumps(census,separators=(',',':')))
-def q10_world(name, badflow=False, drop=None, badlast=False, ver=2, nocensus=None):
+def tnm(k):   # Q-904 (CX-246): t-world mask count; with tcensus(k) its size-weighted sum is C(31,k), as the row now gates
+    c=math.comb(31,k); return c-c//3
+def tcensus(k,ne):
+    c=math.comb(31,k); b=c//3; a=c-2*b
+    return [[1,a,2],[2,b,ne-2]] if b else [[1,a,ne]]
+def q10_world(name, badflow=False, drop=None, badlast=False, ver=2, nocensus=None, tw=False):
     d=W+'/'+name; os.makedirs(d+'/f',exist_ok=True); os.makedirs(d+'/art',exist_ok=True)
     layers=[(k, N+1 if (badflow and k==3) else N, {1:N,2:0,3:0,4:0,6:0}) for k in range(31)]
     write_atlas(d+'/atlas.json',layers)
     exp=[]
     for k in range(32):
-        nm=k*3+1; ne=k*7+2; mt=(N if k==31 else (7**k) % N); census=[[1,k+1,k+2],[3,2*k,5*k+1]]; hist=[[0,k],[2,3*k+1]]
+        nm=(tnm(k) if tw else k*3+1); ne=k*7+2; mt=(N if k==31 else (7**k) % N); census=[[1,k+1,k+2],[3,2*k,5*k+1]]; hist=[[0,k],[2,3*k+1]]
         if badlast and k==31: mt=N-1
         if drop==k: continue
         no_c = (ver == 1) or (nocensus == k)
@@ -178,25 +183,25 @@ q10_world('q10L1'); q10_world('q10L2',badflow=True); q10_world('q10L3',drop=17);
 q10_world('q10L5',nocensus=3); q10_world('q10L6',ver=1)
 # ---- Q-857(b) worlds: the v1 f world plus t sidecars in the MEASURED n=31 t byte shape (tag
 # f1c5_layer_stats_v2, "kind": "t", mass_total a small t-unit number -- NOT N -- census on the last line)
-def t_sidecar(path,k,nm,ne,census,ver=2):
+def t_sidecar(path,k,nm,ne,census,ver=2,hist=[[0,1]]):
     with open(path,'w') as f:
         f.write('{\n  "sidecar": "f1c5_layer_stats_v%d",\n  "kind": "t",\n  "layer_file": "t_layer_%02d.bin",\n  "n": 31,\n  "k": %d,\n' % (ver,k,k))
         f.write('  "n_masks": %d,\n  "n_empty_masks": 0,\n  "n_entries": %d,\n' % (nm,ne))
         f.write('  "mass_total": "%d",\n  "frame": "canonical-quotient(orbit-unweighted;G-equivariant)",\n' % (1000+k))
-        f.write('  "branching": {"min": 0, "max": 9, "mean": 1.5, "hist": [[0,1]]},\n')
+        f.write('  "branching": {"min": 0, "max": 9, "mean": 1.5, "hist": %s},\n' % json.dumps(hist,separators=(',',':')))
         f.write('  "orbit_size_census": %s\n}\n' % json.dumps(census,separators=(',',':')))
 def q10_tworld(name, bad_ne=None, bad_sum=None, v1t=None):
-    q10_world(name, ver=1); d=W+'/'+name; os.makedirs(d+'/t',exist_ok=True)
+    q10_world(name, ver=1, tw=True); d=W+'/'+name; os.makedirs(d+'/t',exist_ok=True)
     exp=[]
     for k in range(32):
-        nm=k*3+1; ne=k*7+2; mt=(N if k==31 else (7**k) % N); hist=[[0,k],[2,3*k+1]]
-        census=[[1,1,2],[4,nm-1,ne-2]]      # sums to (nm, ne); DIFFERENT from the v2 f world's census
+        nm=tnm(k); ne=k*7+2; mt=(N if k==31 else (7**k) % N); hist=[[0,k],[2,3*k+1]]
+        census=tcensus(k,ne)                # sums to (nm, ne), size-weighted to C(31,k); DIFFERENT from the v2 f world's census
         tne = ne+1 if bad_ne==k else ne
         # bad_ne: t's header n_entries differs from f's while its census still sums to f's counts, so ONLY
         # the state-set equality clause can catch it (mutant M7); bad_sum: headers equal f's, census does
         # not sum to them, so ONLY the census-sum clause can catch it (mutant M9)
-        if bad_sum==k: census=[[1,1,2],[4,nm,ne-2]]    # n_masks column sums to nm+1
-        t_sidecar('%s/t/t_layer_stats_%02d.json' % (d,k),k,nm,tne,census,1 if v1t==k else 2)
+        if bad_sum==k: census=[[c[0],c[1],c[2]+(1 if i==0 else 0)] for i,c in enumerate(census)]    # n_entries column sums to ne+1 (Q-904: the masks column is left alone so the orbit-size check cannot also catch it)
+        t_sidecar('%s/t/t_layer_stats_%02d.json' % (d,k),k,nm,tne,census,1 if v1t==k else 2,hist)
         exp.append('%d\t%d\t%d\t%d\t%s\t%s' % (k,nm,ne,mt,json.dumps(census,separators=(',',':')),json.dumps(hist,separators=(',',':'))))
     open(d+'/expect.tsv','w').write('\n'.join(exp)+'\n')
 q10_tworld('q10L7'); q10_tworld('q10L8',bad_ne=11); q10_tworld('q10L9',bad_sum=5); q10_tworld('q10L10',v1t=20)
@@ -247,7 +252,7 @@ verdict_q10(){ # verdict_q10 <harness>
     || { echo "    c_q10a leg 8 (t n_entries != f n_entries at k=11) rc=$rc: a census over a different state set was accepted"; return 1; }
   rc=$(run "$h" "$WORK/q10L9/atlas.json" "$WORK/q10L9/f" "$WORK/q10L9/art" 31 "$N" "$WORK/q10L9/t")
   [ "$rc" = 1 ] && grep -q $'^5\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
-    || { echo "    c_q10a leg 9 (t census sums != its n_masks at k=5) rc=$rc: an inconsistent census was accepted"; return 1; }
+    || { echo "    c_q10a leg 9 (t census entries sum != its n_entries at k=5) rc=$rc: an inconsistent census was accepted"; return 1; }
   rc=$(run "$h" "$WORK/q10L10/atlas.json" "$WORK/q10L10/f" "$WORK/q10L10/art" 31 "$N" "$WORK/q10L10/t")
   [ "$rc" = 1 ] && grep -q $'^20\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
     || { echo "    c_q10a leg 10 (t sidecar k=20 tagged v1) rc=$rc: a t sidecar of the wrong schema was accepted"; return 1; }

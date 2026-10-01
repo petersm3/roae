@@ -261,7 +261,7 @@ PYEOF
 # The gate's matching is unchanged: no anchor rule or window was widened. The two rows left were
 # tr12_repro.sh row_skip text (the a1_q5 wave-3 reason).
 # DRAINED 2 -> 0, 2026-09-25 (Opus BC, batch 14). That reason now names `kc_open` on the cited span
-# solve.c:37739-37740 (the call, then the `fkc->ooc != NULL` refusal) and `KC_MEM_MAX_PAIRS` on
+# solve.c:37755-37756 (the call, then the `fkc->ooc != NULL` refusal) and `KC_MEM_MAX_PAIRS` on
 # :20692, so both citations are CHECKED. The row_skip branch runs only at n>=31, so the n=9
 # expected blocks do not carry the text. Only the ATTESTED rows below remain in this table.
 # A LANDS row still has leg A behind it: a shift under it fails leg A regardless of this pin.
@@ -442,7 +442,7 @@ def tsrc(t):
 # ---- the citation grammar -------------------------------------------------------------------
 # `solve.c:N`, `solve.c:N-M` (en dash too, and the abbreviated `:18859-77`), and a bare `:N`
 # continuation, which belongs to the most recent `<name>.<ext>:N` citation on the same line and
-# counts only when that one is solve.c ("(solve.c:38918, :42086)", "solve.c:23845/:24476").
+# counts only when that one is solve.c ("(solve.c:38934, :42102)", "solve.c:23845/:24476").
 TOK = re.compile(
     r'(?P<file>(?<![\w.\-])[\w\-./]*[\w\-]\.[A-Za-z]{1,5}):(?P<a>\d+)(?:\s?[-–]\s?(?P<b>\d+))?(?!\d|\.\d)'
     r'|(?:(?<=[\s(`,/;])|^):(?P<ca>\d+)(?:\s?[-–]\s?(?P<cb>\d+))?(?!\d|\.\d|:)')
@@ -646,7 +646,7 @@ def candidates(line, tname="solve.c"):
 def context(lines, li, ismd):
     """The citing line plus its paragraph neighbours (<= 3 lines each way, never across a blank
     line). Hard-wrapped prose puts the symbol on the line BEFORE the number as often as on the
-    same line (`...\n  `int fail_c1 ...` (`solve.c:43925-43926`)`), and a comment block in a
+    same line (`...\n  `int fail_c1 ...` (`solve.c:43941-43942`)`), and a comment block in a
     script is one sentence spread over several `#` lines. A markdown TABLE ROW is its own unit:
     the next row is a different claim, so a table row takes no neighbours; nor does a heading."""
     line = lines[li - 1]

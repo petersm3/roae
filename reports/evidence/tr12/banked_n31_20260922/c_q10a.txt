@@ -71,6 +71,7 @@ k	n_masks	n_entries	mass_total	orbit_size_census[size,n_masks,n_entries]	branchi
 29	56	22824	328492926672597858008987250293978169344	[[3,11,4476],[6,22,8956],[12,21,8576],[24,2,816]]	[[0,7260],[1,5468],[2,7084],[3,1768],[4,1244]]
 30	7	1056	797714679524004329369031179336031404032	[[3,3,452],[4,1,150],[6,3,454]]	[[0,724],[1,228],[2,104]]
 31	1	32	1097051278789181790036112071176579186688	[[1,1,32]]	[[0,32]]
-Q10A_CENSUS_SOURCE	t_layer_stats_XX.json (kind=t, schema v2) on 32 layer(s): the f sidecar is schema v1 there; the t sidecar's n_masks and n_entries equal f's on each such layer and its census sums to them, so the census is over exactly f's state set. All other columns are f's (Q-857)
+Q10A_CENSUS_SOURCE	t_layer_stats_XX.json (kind=t, schema v2) on 32 layer(s): the f sidecar is schema v1 there; on each such layer the t sidecar's n_masks, n_entries and branching histogram equal f's, its census sums to n_masks and n_entries, and its orbit-size-weighted mask count equals C(31,k). These are count checks, not a mask-by-mask comparison of the two state sets. All other columns are f's (Q-857, Q-904)
+TR12_Q10_CENSUS_ORBITCHECK=PASS
 Q10A_SIDECARS_MISSING	0
 Q10A_LAST_LAYER_MASS_EQ_N	YES (1097051278789181790036112071176579186688)

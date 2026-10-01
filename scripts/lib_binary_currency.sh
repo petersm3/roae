@@ -41,7 +41,7 @@
 #   ./solve dated 2026-09-05         0 hits for the current sha                          -> 0 hits
 #
 # 🔴 A 64-HEX STRING IN THE BINARY IS NOT AUTOMATICALLY A SOURCE_SHA. solve.c carries four 64-hex
-# literals of its own — the canonical selftest sha 403f7202... (solve.c:4320, :40332, :42540) and
+# literals of its own — the canonical selftest sha 403f7202... (solve.c:4320, :40348, :42556) and
 # three all-one-digit placeholders. An early draft of this library read 403f7202... out of the
 # stale ./solve and concluded it was that binary's SOURCE_SHA, i.e. that the binary came from some
 # uncommitted tree. WRONG: it is a constant present in EVERY build, current ones included. The

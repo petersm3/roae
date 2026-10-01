@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 169 dated sections, 2 of them among the 93 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 170 dated sections, 2 of them among the 94 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -187,6 +187,7 @@
 | 167 | 2026-09-29 | iso | 10033 | [open](HISTORY.md#2026-09-29--operational-storage-detail-removed-from-the-current-tree) 2026-09-29 — operational storage detail removed from the current tree |
 | 168 | 2026-09-30 | iso | 10041 | [open](HISTORY.md#2026-09-30--batch-29-the-doc-gates-self-test-no-longer-writes-into-the-tree-it-is-called-in-and-the-r7-battery-no-longer-prints-a-private-path) 2026-09-30 — batch 29: the doc-gates self-test no longer writes into the tree it is called in, and the R7 battery no longer prints a private path |
 | 169 | 2026-09-30 | iso | 10050 | [open](HISTORY.md#2026-09-30--a-third-count-of-the-c1c7-superspace-read-from-the-stored-ladders) 2026-09-30 — a third count of the C1–C7 superspace, read from the stored ladders |
+| 170 | 2026-10-01 | iso | 10054 | [open](HISTORY.md#2026-10-01--batch-30-the-extremal-certificate-is-bound-to-its-universe-the-q10-census-fallback-checks-orbit-sizes-and-the-capstone-is-one-thing-in-three-parts) 2026-10-01 — batch 30: the extremal certificate is bound to its universe, the Q10 census fallback checks orbit sizes, and the capstone is one thing in three parts |
 
 ## Sections with no date in the heading, in file order
 

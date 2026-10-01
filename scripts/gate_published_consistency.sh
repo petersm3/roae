@@ -265,7 +265,7 @@ fi
 # 🔴 LB-A6/LB-A7, 2026-09-07. LEADERBOARD published `./solve --branch 24 0 0` with no budget: run as
 # printed it prints "No time limit - running to completion" and does not return (measured -- killed
 # at 20 s). And `--validate solutions_merged.bin` named a file --merge has NEVER written; the merge
-# output is <layer_root>/_merged_/solutions.bin (solve.c:40111, :43279). A reader who pastes the
+# output is <layer_root>/_merged_/solutions.bin (solve.c:40127, :43295). A reader who pastes the
 # block gets a hang and then a missing file. exec_lane runs commands but checks neither, so this is
 # a static leg over the published text.
 G9=0

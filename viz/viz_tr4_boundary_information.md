@@ -1,6 +1,6 @@
 # Figure — TR-4, the boundary-information curve S(k) (`fig_tr4_boundary_information`)
 
-← [Visual capstone](README.md#the-space-and-its-scale) · Report: [TR-4 §Figure](../reports/TR4_SIZE_OF_THE_SPACE.md#figure)
+← [The capstone's visual showcase](README.md#the-space-and-its-scale) · Report: [TR-4 §Figure](../reports/TR4_SIZE_OF_THE_SPACE.md#figure)
 
 [![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four estimated points, a dashed illustrative early-rate line, an illustrative bracket, and horizontal lines for the reachable floor.](../reports/figures/fig_tr4_boundary_information.png)](../reports/figures/fig_tr4_boundary_information.svg)
 
@@ -94,10 +94,10 @@ two earlier removals are recorded in the generator's comment block (its notes da
   on the dotted line; the points were called "measured". Redrawn with full-size ticks, the legend
   below the axes, and the points labelled as estimates. No S(k) value, gain, floor or marker moved.
   CX-225.
-- **2026-09-29.** This page added, as part of the visual capstone (CX-233).
+- **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---
 
-*Part of the [visual capstone](README.md), the companion to
+*Part of the [capstone's visual showcase](README.md), the companion to
 [TR-12](../reports/TR12_QUERY_PROGRAM.md). A log-scale plot of TR-4's published estimates; nothing is
 claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*

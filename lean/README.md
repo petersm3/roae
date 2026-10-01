@@ -626,7 +626,7 @@ The first-principles optimality of the C1 pairing — previously resting on an e
 preprint ([Radisic 2026](../documentation/CITATIONS.md#radisic2026), arXiv:2601.07175) — is now
 machine-checked **in-repo**. The mathematical result is Radisic's; this file is an independent
 re-derivation in this repo's own encoding (core Lean 4, no mathlib, standalone file, the same
-`partner` definition as `KingWen.lean` / solve.c's KW-derived pair table (`init_pairs`, solve.c:1708-1714) and inline partner check (:43779-43782)), written after his proof was read
+`partner` definition as `KingWen.lean` / solve.c's KW-derived pair table (`init_pairs`, solve.c:1708-1714) and inline partner check (:43795-43798)), written after his proof was read
 and his artifact independently rebuilt. Verified statements:
 
 | Theorem | Statement |

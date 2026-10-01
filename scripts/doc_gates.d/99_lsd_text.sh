@@ -152,6 +152,23 @@ line_has("R7", "reports/certificates/README.md", r"offset mutant", [r"TestSatEmi
 line_has("R8", "lean/README.md", r"source-census leg", [r"LEAN_SOURCE_CENSUS", r"partial def"], "name the token and every pattern the leg screens")
 line_has("R8", "documentation/QUERY_INVENTORY.md", r"All four are committed, and each theorem", [r"LEAN_SOURCE_CENSUS", r"carried none until 2026-09-29"], "KingWen.lean now carries directives")
 line_has("R9", "lean/CompilerCorrectness.lean", r"Status 2026-09-29: not run as specified", [r"F2_GCHECK_DETECTS=NO"], "the KB4 comment states its status")
+# R18 (the KCV review's Fable triage, batch 30, 2026-10-01) -- the KB1-KB7 summary sentence in
+# CompilerCorrectness.lean no longer calls every bridge fact runtime-verified: KB4 is carried by
+# substitute evidence (R9 above) and KB7 is derived-but-unverified, and the summary now says so.
+# PRECONDITION: the file must still carry the "KB1" anchor; an empty or replaced file is a FAIL,
+# not a pass, because the retired wording is absent from an empty file too.
+t = need("R18", "lean/CompilerCorrectness.lean")
+if t is not None:
+    if "KB1" not in t:
+        fail("R18", "lean/CompilerCorrectness.lean has no KB1 anchor -- not the file this leg checks, so nothing was checked")
+    else:
+        r18 = [i + 1 for i, l in enumerate(t.split("\n"))
+               if re.search(r"each RUNTIME-VERIFIED by the named executable witnes[s]", l)]
+        print("R18_KB_SUMMARY_RETIRED_WORDING_LINES=%d" % len(r18))
+        if r18:
+            fail("R18", "lean/CompilerCorrectness.lean:%s still calls every bridge fact runtime-verified (KB4 is substitute evidence, KB7 derived-but-unverified)" % ",".join(map(str, r18)))
+        else:
+            ok("R18", "lean/CompilerCorrectness.lean's KB1-KB7 summary no longer calls every bridge fact runtime-verified")
 absent("R13", "reports/TR1_EIGHT_CENTURIES_MEASURED.md", r"compatible 3-edit even[t]", "a minimum repair distance, not an event")
 line_has("R18g", "documentation/SAT_CLI.md", r"base\*\* ground truth", [r"partner pair"], "verify_seq checks the C1 pairing")
 line_has("R18g", "reports/certificates/c3_positional_witnesses.txt", r"verify\.py: ", [r"PAIRS"], "the manual recipe checks the C1 pairing")

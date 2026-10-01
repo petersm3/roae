@@ -5,7 +5,7 @@ space splits into streams; the river plots the exact width of each stream as it 
 right across the ordering, with King Wen's own path drawn on top. A companion panel gives the exact
 mass — and the exact exhaustion cost — of each of the 56 first-level branches.
 
-← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) · **V2** ·
+← Back to the [capstone's visual showcase](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) · **V2** ·
 [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) · [V5 grammar](viz_kc_grammar.md)
 
 [![Two-panel figure. Upper: a stacked mass river over layers 0 to 30 showing the exact share of the superspace in each boundary-distance class d = 1, 2, 3, 4 and 6, with King Wen's own class at each layer drawn as a black step line. Lower: the 56 top-level branches sorted by solution mass, with log10 exhaustion cost in t-units overlaid as a red line.](../reports/figures/fig_tr12_kc_river.png)](../reports/figures/fig_tr12_kc_river.svg)
@@ -90,7 +90,7 @@ The full reading guide is [How to read it](#how-to-read-it) below.
   dark text beside a swatch, and a key defines d, King Wen's line, the branch label and the t-unit,
   CX-227. The caption's correction history moved out of the reading text (Q-901), CX-228.
 - **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
-  as part of the [visual capstone](README.md) (CX-233).
+  as part of the [capstone's visual showcase](README.md) (CX-233).
 
 *The rest of this page is the figure's specification and drafting record, kept as written, with its
 dated corrections in place.*

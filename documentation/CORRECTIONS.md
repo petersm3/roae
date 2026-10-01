@@ -24874,3 +24874,123 @@ layer 23 values at the states whose mask orbit avoids the pinned pairs and the g
 the masks containing them. It is one linear functional of those bytes, not an entry-level check, and
 it says nothing about the ladder's other layers. Reviewed by Fable before the run (GO; its two
 wording fixes to `documentation/VERIFY.md` are included).
+
+## CX-245 — the Lean bridge-fact summary said every bridge fact was runtime-verified while two of them were not, and `solve.py --kc-x-recheck` accepted a witness over the wrong pairs or across a forbidden boundary (lean/CompilerCorrectness.lean; scripts/doc_gates.d/99_lsd_text.sh; solve.c; solve.py; tests.py; documentation/SOLVE_PY_CLI.md; documentation/SOLVE_C_CLI.md)
+
+**2026-10-01.** Origin: KCV R18 and backlog row Q-905 (LSD R18e). Codex review, Fable triage and
+fix. No published number, sha, count or reproduction parameter moves.
+
+**(1) R18 — the KB1–KB7 summary.** The scope comment of `lean/CompilerCorrectness.lean` introduced
+the bridge facts KB1–KB7 as "each stated explicitly, each RUNTIME-VERIFIED by the named executable
+witness, and each NOT machine-checked", while the same comment said of KB4 "not run as specified.
+Substitute evidence …" (CX-232) and of KB7 "(derived-but-unverified until that gate lands)". The
+summary now reads "each with a named executable witness — KB1–KB3, KB5 and KB6 runtime-verified by
+it, KB4 carried by the substitute evidence stated below, KB7 derived-but-unverified — and each NOT
+machine-checked". Comment only; no theorem, statement or proof changes. GATE 93 (`lsd-text`) gains
+leg R18, which requires the retired wording to be absent from the file and the `KB1` anchor to be
+present (an empty file would otherwise pass); on the tree before this entry it fails at line 42 and
+on this tree it passes.
+
+**(2) Q-905 — binding the extremal certificate to its universe.** `solve.py --kc-x-recheck` required
+of a `--kc-extremal` witness only that it be n distinct canonical pairs, each evaluating to the
+published number. The certificate named its ladder only through `pl_hash`, which the Python side had
+no pair list to recompute from. The review ran two mutants of a real n=9 `yangcount` certificate:
+`wrong-pairs` places the pinned {0,63} pair as a free pair (Φ = 35, above the absolute bound 30 of
+the real universe) and `wrong-C2` crosses a distance-5 boundary that `yangcount` never reads. Both
+returned `KC_X_PYCHECK=PASS`; a third, with the wrong boundary-class histogram, did too. The
+two-language obligation could not fail on instance membership. Now the `--kc-json` writer carries
+`pairs` (the pair list in `pl` order, King Wen orientation) and `b0` (the C5 budget), and the checker,
+before evaluating Φ, maps each pair back to its King Wen index and recomputes `solve.c`'s FNV-1a
+`pl_hash` from (`n`, `start_exit`, indices), re-derives `b0` (full 31 from King Wen's boundary
+multiset minus the within-pair distances; a rung from the same first-completion DFS as `solve.c`),
+and requires every placement to be a universe pair and the walk's boundary-class multiset to equal
+`b0`. The refusals are `FAIL-no-universe`, `FAIL-bad-universe`, `FAIL-pl-hash-mismatch`,
+`FAIL-bad-budget`, `FAIL-witness-outside-universe` and `FAIL-witness-outside-budget`, documented in
+the `--kc-x-recheck` row of SOLVE_PY_CLI.md in check order; no run-level verdict is added. Positive
+controls: the Python FNV reproduces the full-31 atlas sidecar's `pl_hash` for `pl` = 1..31, and the
+re-derived full-31 budget is {1:2, 2:8, 3:13, 4:7, 6:1}. `TestF30KcxRecheckBindsTheUniverse` builds
+an n=9 ladder, produces a real certificate (`PASS`), refuses each review mutant with its named
+reason, and loads the pre-fix checker from git history to show it accepted both. What this binding
+cannot catch: a certificate whose `pairs`, `b0` and `pl_hash` were all rewritten consistently to a
+universe the ladder was not built over (the layer files' own `pl_hash` is the check for that, and
+`--kc-x-recheck` does not read them), and extremality, which is not re-derived in Python. The
+`solve.c` change touches only the `--kc-extremal --kc-json` writer; `./solve --selftest` is checked
+on the worker before this entry is published. Scope: no Q5 number is published at n=31
+(`scripts/tr12_repro.sh` skips row `a1_q5` there), so no published number moves.
+
+## CX-246 — the Q10 t-census fallback now checks the orbit-size column and the branching histogram, and its sentences say what is checked; the growth-curve label loses its backticks; the in-place doc-gates self-test refuses a branch checkout; the capstone is described as one thing in three parts (scripts/tr12_repro.sh; scripts/d5_08_q6_q10a_shell_gate.sh; scripts/doc_gates.sh; viz/growth_curve.py; tests.py; reports/TR12_QUERY_PROGRAM.md; runs/20260906_kc_ladders_n31/README.md; documentation/QUERY_INVENTORY.md; documentation/RETRACTED_PHRASES.tsv; viz/README.md; viz/viz_*.md)
+
+**2026-10-01.** Origin: backlog rows Q-904 (the Codex LSD review as triaged by Fable, row R18d),
+Q-912, Q-914 (the Fable batch-29 pre-publication review, item U2) and an operator ruling of
+2026-09-30. No published number, sha, count or reproduction parameter moves.
+
+**1. Q-904.** Row `c_q10a` reads the n=31 census column from the t sidecar of each layer, because
+the f sidecars there are schema v1 (Q-857). It accepted any t census whose schema tag, `n_masks`,
+`n_entries` and column sums matched f's. Nothing read the orbit-size column, so a census with one
+row's size key changed from 8 to 12 passed. Four places nevertheless said the t census was over the
+same state set as f: the `Q10A_CENSUS_SOURCE` line of `scripts/tr12_repro.sh`, the census paragraph
+of `runs/20260906_kc_ladders_n31/README.md`, the Q-857 note in TR-12 §10, and the CX entry at
+`documentation/CORRECTIONS.md:19262`. That entry is append-only and is superseded here, not edited.
+The banked as-run receipt `reports/evidence/tr12/banked_n31_20260922/c_q10a.txt:74` also carries the
+old sentence. It is as-run evidence and is left as it is.
+The row now also requires two more things on each layer. First, the size-weighted mask count
+Σ size·n_masks must equal C(N_PAIRS, k). K28 (CX-241) makes the verifier require every layer's mask
+count to be the Burnside count of G-orbits of k-subsets, so every orbit is present and this identity
+must hold. Second, t's branching histogram must equal f's. A miss is a `T-CENSUS-MISMATCH` row FAIL,
+and the row prints `TR12_Q10_CENSUS_ORBITCHECK=PASS|FAIL` whenever it consulted a t census.
+The identity was measured before it was adopted. It holds on all 10 layers of the n=9 golden
+census. It also holds on all 32 published n=31 t sidecars: the sums are exactly C(31, k), from 1 up
+to 300540195 and back. The f and t branching histograms are equal on all 32 layers. These are count
+checks and do not prove that the two state sets are the same mask for mask. The mask lists are not
+in the published tree, so the four sentences now list the checks and claim nothing more. The n=9
+golden does not move, because the fallback runs only when an f sidecar is schema v1.
+The synthetic t worlds of `scripts/d5_08_q6_q10a_shell_gate.sh` now satisfy the identity, and its
+leg 9 damages the entries column, so the census-sum clause stays the only one that can catch it.
+Its legs and mutant counts are unchanged. Class `TestT30Q10CensusFallback` runs the extracted row on
+the published sidecars. The control passes. The 8→12 key mutant and a histogram mutant FAIL, and
+both pass the row with the two new clauses removed. An `n_masks` mutant fails both versions (the
+positive control). Retracted needles: keys RP-f627ccd1 and RP-0579c879. The banked receipt is the
+one file allowed to keep the second of them.
+
+**2. Q-912.** `viz/growth_curve.py` drew each point's short sha between Markdown backticks, which
+matplotlib renders literally. CX-225 left them so that the committed run image under
+`runs/20260608_560T_9a968fa2/viz/` would keep its as-run label, and said a follow-up was filed. No
+row carried it until Q-912. The generator now draws the sha plain. The committed run image is not
+regenerated, and it keeps its as-run label.
+Measured 2026-10-01: the base generator does not reproduce that image in any case. Its SVG is
+707.76 × 496.59 pt, against 708.09 × 495.34 pt for the committed one, and after dates and ids are
+normalised the two differ on 1510 diff lines. The committed image was drawn on 2026-06-15 by
+matplotlib 3.6.3, before the generator's labels were derived from the table (Q-898, Q-901). The
+reason CX-225 gave was therefore moot. Test: `TestT30GrowthCurveShaLabel`.
+
+**3. Q-914.** `DOC_GATES_SELFTEST_INPLACE=1`, set by hand or left exported in a shell, made
+`scripts/doc_gates.sh --selftest` plant its defects in a real checkout again, which is the Q-911
+class (CX-243). Both legitimate in-place callers are detached clones: the wrapper's scratch clone
+and `pre_push_gate.sh`'s clone. So the in-place path now refuses when `git symbolic-ref -q HEAD`
+succeeds. It does this before the lock and before any plant, prints one `REFUSING:` line naming the
+reason, and exits 2 with nothing written. No shell function was added. Test:
+`TestT30SelftestInplaceRefusesABranch`. A clean branch clone is refused with no lock and a clean
+tree. The script with the refusal removed takes the lock there (the red). A detached clone still
+proceeds past the check. Q-913, the first end-to-end `DOC_GATES_SELFTEST=PASS` through the scratch
+wrapper on a standalone clone, is a worker step. Its result is recorded with the batch.
+
+**4. The capstone (operator ruling 2026-09-30).** `viz/README.md` said the project had two capstones
+and called itself the visual capstone, and the viz figure pages linked back to it under that name.
+The capstone is one thing in three parts: the written report (TR-12), the visual showcase, and a
+step-by-step guide for reproducing a subset of the work on a laptop, which is in preparation. The
+README and the twelve figure pages now say so. Every link still points at the same README sections,
+since no section heading changed. Retracted needles: keys RP-2e83f1b1, RP-969fbaf9, RP-efaafe0f,
+RP-5bc03f9d, RP-fb205bd0 and RP-4eed62c3. Test `TestT30CapstoneWording` also checks the corpus
+case-insensitively, with this ledger and HISTORY allowlisted.
+
+Line citations in `documentation/QUERY_INVENTORY.md` and one in `scripts/tr12_repro.sh` that the
+new lines shifted have been moved with them. `scripts/tr12_expected/_GATE_STAMP.txt` is re-stamped
+because `tr12_repro.sh` and `d5_08` changed.
+
+**The banked n=31 receipts (CX-246).** The Q10(a) row's census-source sentence now lists the
+count checks, and the row prints `TR12_Q10_CENSUS_ORBITCHECK=PASS` when it reads the t census. The
+as-run receipt `c_q10a_20260922_asrun.txt` is unchanged and still reproduces byte for byte (that
+path reads no t census). `c_q10a.txt`, the current-code reproduction, was regenerated with
+`check_receipts.sh --emit-c-q10a`; it differs from the previous copy in those two lines only.
+`SHA256SUMS` and the bundle README follow.
+

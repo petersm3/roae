@@ -37614,6 +37614,22 @@ static int kc_x_write_cert(const char *path, const KC *fkc, const KcXFunc *F,
     fprintf(f, "  \"n\": %d,\n  \"start_exit\": %d,\n", fkc->n, fkc->c.start_exit);
     fprintf(f, "  \"N_total\": \"%s\",\n", nd);
     fprintf(f, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(&fkc->c));
+    /* Q-905 (Codex LSD review R18e, Fable triage; 2026-10-01): the pair universe and the C5
+     * boundary budget the ladder was built with. Until now the certificate named its universe
+     * only through pl_hash, which solve.py had no pair list to recompute from, so --kc-x-recheck
+     * evaluated Phi on ANY walk of canonical pairs: a witness placing the pinned {0,63} pair as a
+     * free pair, or crossing a distance-5 boundary, re-checked as CHECKED-AGREE (two review
+     * mutants, both PASS). pairs[i] = [pa, pb] in pl order, KW orientation (pair p is
+     * (KW[2p], KW[2p+1]), so solve.py can map each back to its pair index and recompute
+     * pl_hash); b0 = the per-class budget over the classes 1,2,3,4,6. solve.py rebinds
+     * pl_hash from `pairs`, re-derives `b0`, and refuses a witness outside either BEFORE Phi
+     * is evaluated. Sha-neutral: this writer is reached only from --kc-extremal --kc-json. */
+    fprintf(f, "  \"pairs\": [");
+    for (int i = 0; i < fkc->n; i++)
+        fprintf(f, "%s[%d,%d]", i ? "," : "", fkc->c.pa[i], fkc->c.pb[i]);
+    fprintf(f, "],\n");
+    fprintf(f, "  \"b0\": [%d,%d,%d,%d,%d],\n",
+            fkc->b0v[0], fkc->b0v[1], fkc->b0v[2], fkc->b0v[3], fkc->b0v[4]);
     kc_h_json_escape(fdir, esc, sizeof(esc));
     fprintf(f, "  \"fdir\": \"%s\",\n", esc);
     if (gdir) {

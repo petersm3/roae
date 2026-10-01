@@ -39,8 +39,10 @@
   masks, rids, 192-bit integers, or bytes on disk. The bridge from this
   model to the actual `solve.c` code (the f1c5 DP substrate and the KC query
   layer) is carried by the bridge facts KB1–KB7 below — each stated
-  explicitly, each RUNTIME-VERIFIED by the named executable witness, and
-  each NOT machine-checked. Nothing in this file proves `solve.c` bug-free.
+  explicitly, each with a named executable witness — KB1–KB3, KB5 and KB6
+  runtime-verified by it, KB4 carried by the substitute evidence stated
+  below, KB7 derived-but-unverified — and each NOT machine-checked.
+  Nothing in this file proves `solve.c` bug-free.
   This is exactly the trust posture of PartitionInvariance.lean's B1–B4 and
   the lean/README "Tier 3" scope note: model theorems + stated bridges.
   ─────────────────────────────────────────────────────────────────────────

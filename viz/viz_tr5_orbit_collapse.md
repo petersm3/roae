@@ -1,6 +1,6 @@
 # Figure — TR-5, the symmetry collapse (`fig_tr5_orbit_collapse`)
 
-← [Visual capstone](README.md#the-space-and-its-scale) · Report: [TR-5 §Figure: the symmetry collapse](../reports/TR5_SYMMETRY.md#figure-the-symmetry-collapse)
+← [The capstone's visual showcase](README.md#the-space-and-its-scale) · Report: [TR-5 §Figure: the symmetry collapse](../reports/TR5_SYMMETRY.md#figure-the-symmetry-collapse)
 
 [![Diagram of the order-48 group B₃ quotienting by {±I} to a free order-24 S₄ action on canonical pair-order records, with a ring showing King Wen's record and the 23 other records in its orbit.](../reports/figures/fig_tr5_orbit_collapse.png)](../reports/figures/fig_tr5_orbit_collapse.svg)
 
@@ -79,10 +79,10 @@ under these 24 changes cannot tell such a group of records apart.
 - **2026-09-28, Codex visualization review, triaged by Fable.** The R/24 statement carried no premise,
   and "±I acts trivially" did not say what −I is. Both notes now state them. CX-227 (TR-5 revision
   row v2.21).
-- **2026-09-29.** This page added, as part of the visual capstone (CX-233).
+- **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---
 
-*Part of the [visual capstone](README.md), the companion to
+*Part of the [capstone's visual showcase](README.md), the companion to
 [TR-12](../reports/TR12_QUERY_PROGRAM.md). A diagram of TR-5's group-theoretic result; the group
 theory is standard. Developed with AI assistance (Claude, Anthropic); corrections invited.*

@@ -1010,6 +1010,15 @@ if [ "${1:-}" = "--selftest" ]; then
     echo "reverts them with 'git checkout --'; that would discard your uncommitted work."
     exit 2
   fi
+  # Q-914 (CX-246; the Fable batch-29 pre-publication review, item U2). This in-place branch is
+  # reached only with DOC_GATES_SELFTEST_INPLACE set. Its two legitimate callers, the scratch clone
+  # above and pre_push_gate.sh's clone, both check out a DETACHED HEAD. A HEAD on a branch means a
+  # real checkout (the variable set by hand, or left exported in a shell), which is the Q-911
+  # incident class: refuse it here, before the lock and before any plant, with nothing written.
+  if git symbolic-ref -q HEAD >/dev/null 2>&1; then
+    echo "REFUSING: DOC_GATES_SELFTEST_INPLACE is set but HEAD is a branch ($(git symbolic-ref -q --short HEAD 2>/dev/null)), so this is a real checkout. The in-place self-test runs only in a detached throwaway clone (Q-911, Q-914); unset DOC_GATES_SELFTEST_INPLACE."
+    exit 2
+  fi
 
   # --- A3 (1): mutual exclusion. `mkdir` is atomic on every POSIX filesystem; a lockFILE
   # written with `>` is not. The holder's pid goes inside so a lock left behind by `kill -9`

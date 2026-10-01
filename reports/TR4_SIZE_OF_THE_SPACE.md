@@ -149,7 +149,7 @@ The conclusion is untouched by all of this: **8** survivors in every variant, al
    at any k.** This section's boundaries are measured with `SOLVE_KNUTH_PIN_SLOTS`, which pins **pair
    identity only**: `solve.c:7900` applies the pin to the pair index chosen at a step
    (`(knuth_pin_mask >> step) & 1u) && p != step`) and the orientation loop is untouched, and the flag
-   accepts steps 1–31 (`solve.c:41804`), so there are 31 pinnable boundaries in total. Pin **all 31** and
+   accepts steps 1–31 (`solve.c:41820`), so there are 31 pinnable boundaries in total. Pin **all 31** and
    what remains is not one ordering but **1,720,320** of them — King Wen's C4-oriented orientation fibre,
    a constant this project has published since [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §7 (v1.7,
    2026-07-05), gates in `scripts/doc_gates.sh` GATE 32 (`fiber-anchor`), and which

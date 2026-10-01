@@ -115,7 +115,7 @@ documentation/CLAIMS_DECIDED.md	54	ledger-link	CORRECTION	n/a	-	not-a-marker	ff0
 documentation/CLAIMS_DECIDED.md	80	marker	CORRECTED	1|2	-	unreviewed	1d8b91106749
 documentation/CLAIMS_DECIDED.md	101	marker	CORRECTED	1|2	-	unreviewed	3cd5418430f8
 documentation/CLAIM_TO_ARTIFACT.md	43	marker	CORRECTED	1|2	-	unreviewed	324f7ccfdaf1
-documentation/CRITIQUE.md	7	marker	CORRECTED	1|2	-	unreviewed	a374c65d7193
+documentation/CRITIQUE.md	7	marker	CORRECTED	1|2	-	unreviewed	eaf5abc0b734
 documentation/CRITIQUE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	3df76fd79ac3
 documentation/CRITIQUE.md	60	marker	CORRECTED	1|2	-	unreviewed	f8ba3b65a9cf
 documentation/CRITIQUE.md	103	marker	CORRECTED	3	GATE 26	gate-anchored	61dcd6d2654d
@@ -291,17 +291,17 @@ documentation/SOLVE_C_CLI.md	1778	marker	CORRECTED	1|2	-	unreviewed	aa7908b7e52b
 documentation/SOLVE_C_CLI.md	1932	marker	CORRECTED	1|2	-	unreviewed	72888a99f0d6
 documentation/SOLVE_C_CLI.md	2076	ledger-link	CORRECTION	n/a	-	not-a-marker	f674f98c4327
 documentation/SOLVE_C_CLI.md	2492	marker	CORRECTED	1|2	-	unreviewed	e0fa245a5d0c
-documentation/SOLVE_C_CLI.md	2803	narration	now reads	1|2	-	unreviewed	1b2fae92923a
-documentation/SOLVE_C_CLI.md	2945	marker	CORRECTED	1|2	-	unreviewed	1c1c6dba49b7
-documentation/SOLVE_C_CLI.md	2998	narration	now reads	1|2	-	unreviewed	22bf68b96d54
-documentation/SOLVE_C_CLI.md	3219	marker	CORRECTED	1|2	-	unreviewed	b5c21b0c3aed
-documentation/SOLVE_C_CLI.md	3252	marker	CORRECTED	1|2	-	unreviewed	fa29ec2344cf
-documentation/SOLVE_C_CLI.md	3277	marker	CORRECTED	1|2	-	unreviewed	c679478fb3ba
-documentation/SOLVE_C_CLI.md	3323	marker	CORRECTED	1|2	-	unreviewed	6e7c42db49bc
-documentation/SOLVE_C_CLI.md	3503	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	b87f2ab29b55
-documentation/SOLVE_C_CLI.md	3509	ledger-link	CORRECTION	n/a	-	not-a-marker	60af68ec6e14
+documentation/SOLVE_C_CLI.md	2806	narration	now reads	1|2	-	unreviewed	1b2fae92923a
+documentation/SOLVE_C_CLI.md	2948	marker	CORRECTED	1|2	-	unreviewed	1c1c6dba49b7
+documentation/SOLVE_C_CLI.md	3001	narration	now reads	1|2	-	unreviewed	22bf68b96d54
+documentation/SOLVE_C_CLI.md	3222	marker	CORRECTED	1|2	-	unreviewed	b5c21b0c3aed
+documentation/SOLVE_C_CLI.md	3255	marker	CORRECTED	1|2	-	unreviewed	fa29ec2344cf
+documentation/SOLVE_C_CLI.md	3280	marker	CORRECTED	1|2	-	unreviewed	c679478fb3ba
+documentation/SOLVE_C_CLI.md	3326	marker	CORRECTED	1|2	-	unreviewed	6e7c42db49bc
+documentation/SOLVE_C_CLI.md	3506	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	b87f2ab29b55
+documentation/SOLVE_C_CLI.md	3512	ledger-link	CORRECTION	n/a	-	not-a-marker	60af68ec6e14
 documentation/SOLVE_PY_CLI.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	76e7c2e90141
-documentation/SOLVE_PY_CLI.md	156	marker	CORRECTED	1|2	-	unreviewed	305b2e468e80
+documentation/SOLVE_PY_CLI.md	156	marker	CORRECTED	1|2	-	unreviewed	18eb57e03302
 documentation/SOLVE_PY_CLI.md	174	marker	CORRECTED	1|2	-	unreviewed	871c547dbacd
 documentation/SOLVE_PY_CLI.md	306	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2d2b3ac8d
 documentation/SOLVE_PY_CLI.md	331	marker	CORRECTED	1|2	-	unreviewed	3f7511a8ab6b
@@ -344,7 +344,7 @@ documentation/VERIFY.md	1010	marker	CORRECTED	1|2	-	unreviewed	51e29f0a7e61
 documentation/VERIFY.md	1222	ledger-link	CORRECTION	n/a	-	not-a-marker	9690cbc0bc97
 documentation/VERIFY.md	1272	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077a58
 documentation/VERIFY.md	1331	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
-enumeration/LEADERBOARD.md	7	marker	CORRECTED	1|2	-	unreviewed	34a535de8c62
+enumeration/LEADERBOARD.md	7	marker	CORRECTED	1|2	-	unreviewed	829aed6413ee
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1|2	-	unreviewed	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1|2	-	unreviewed	8ff0ea958479
 enumeration/LEADERBOARD.md	192	marker	WITHDRAWN	3	GATE 26,GATE 27	gate-anchored	653e853d6ca7
@@ -513,8 +513,8 @@ reports/evidence/tr12/v3_rows_n31_20260925/README.md	103	narration	now reads	1|2
 runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	43	marker	CORRECTED	3	GATE 3b	gate-anchored	250a146d1906
 runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	74	marker	CORRECTED	1|2	-	unreviewed	2298a7a58936
 scripts/tr12_expected/README.md	32	marker	CORRECTED	1|2	-	unreviewed	f830b198793f
-viz/README.md	270	ledger-link	CORRECTION	n/a	-	not-a-marker	869b2339f85a
-viz/README.md	329	ledger-link	CORRECTION	n/a	-	not-a-marker	913a18257ddb
+viz/README.md	271	ledger-link	CORRECTION	n/a	-	not-a-marker	869b2339f85a
+viz/README.md	330	ledger-link	CORRECTION	n/a	-	not-a-marker	913a18257ddb
 viz/viz_tr1_rules_tradeoff.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	3070fa0dd4f0
 viz/viz_tr3_campaign_timeline.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	19700485ed8b
 viz/viz_tr4_boundary_information.md	77	ledger-link	CORRECTION	n/a	-	not-a-marker	5ae76a22f09d

@@ -1851,7 +1851,7 @@ row_begin a1_q2b
   # walk three times -- passed. The REL rank/unrank pair has an inverse that costs one extra ladder
   # descent per probe: `--kc-rank FDIR <walk>` must return the r that was unranked. That is the
   # same certificate `--kc-bracket` supplies for O3 in row a2_q2 (--kc-bracket is O3-ONLY,
-  # solve.c:38569, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
+  # solve.c:38585, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
   # not the `record` line: measured 2026-09-11 at n=9, r=0 -> the plain line ranks 0 and the
   # `record m=32` line ranks 21, because the record form is a different representative of the
   # orbit. The solver's output is captured and cat'd rather than written straight to the row
@@ -2064,13 +2064,13 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
     # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
     # (solve.c:20693, reached via the kc_open wrapper at :20698), and kc_extremal_main refuses an out-of-core f ladder immediately
-    # (solve.c:37740) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
+    # (solve.c:37756) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
     # witness and the certificate: "v1 is IN-MEMORY ONLY ... the streaming, eviction-resumable OOC
     # extremal builder is a SEPARATE, UNBUILT item ... it is the full-31 enabler". So --wave3 at
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
     # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
     # ships. Budget is an operator decision; an unbuilt builder is not.
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, several machine-hours each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37739-37740) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20693), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, several machine-hours each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37755-37756) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20693), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -3091,7 +3091,7 @@ else
       echo "Q10A_LAYER_MOD24_FAILS	$fails"
       echo "## per-layer state census, transcribed from f1c5_layer_stats_XX.json (frame: canonical quotient, orbit-unweighted; mass_total = f-prefix mass)"
       echo -e "k\tn_masks\tn_entries\tmass_total\torbit_size_census[size,n_masks,n_entries]\tbranching_hist[children,n_states]"
-      k=0; miss=0; last_mt=""; nv1=0; nt=0
+      k=0; miss=0; last_mt=""; nv1=0; nt=0; noc=0; ntc=0
       while [ "$k" -le "$N_PAIRS" ]; do
           sc=$(printf '%s/f1c5_layer_stats_%02d.json' "$FDIR" "$k")
           if [ ! -s "$sc" ]; then printf '%d\tMISSING-SIDECAR\n' "$k"; miss=$((miss+1)); k=$((k+1)); continue; fi
@@ -3126,10 +3126,23 @@ else
                       toc=$(sed -n 's/^  "orbit_size_census": \(\[.*\]\),*$/\1/p' "$tc" | head -1)
                       tsv=$(sed -n 's/^  "sidecar": "f1c5_layer_stats_v\([0-9]*\)",*$/\1/p' "$tc" | head -1)
                       csm=$(printf '%s' "$toc" | tr -d '[]' | tr ',' '\n' | awk 'NR%3==2{a+=$1} NR%3==0{b+=$1} END{printf "%d %d", a, b}')
-                      if [ "$tsv" = 2 ] && [ -n "$toc" ] && [ "$tnm" = "$nm" ] && [ "$tne" = "$ne" ] && [ "$csm" = "$nm $ne" ]; then
+                      # Q-904 (CX-246; Codex LSD R18d). The checks above cannot see the orbit-size column:
+                      # a census with one row's size key changed (8 -> 12) still matches every count. K28
+                      # (CX-241) makes verify.c require, on every layer, mask count == the Burnside count of
+                      # G-orbits of k-subsets of the N_PAIRS pairs, so every orbit is present and
+                      # sum(size * n_masks) over the census must equal C(N_PAIRS, k). MEASURED before adoption
+                      # (2026-10-01): true on all 10 n=9 golden layers and on all 32 published n=31 t sidecars.
+                      # It needs no mask list (the mask lists are not in the published tree), and it is a
+                      # count identity, NOT a proof that t's masks are f's masks. Also compared: the branching
+                      # histogram (t's equals f's on all 32 published n=31 layers, measured the same day).
+                      osm=$(printf '%s' "$toc" | tr -d '[]' | tr ',' '\n' | awk 'NR%3==1{s=$1} NR%3==2{a+=s*$1} END{printf "%.0f", a}')
+                      csub=$(awk -v n="$N_PAIRS" -v k="$k" 'BEGIN{c=1; for(i=1;i<=k;i++) c=c*(n-k+i)/i; printf "%.0f", c}')
+                      tbh=$(grep -o '"branching": {[^}]*}' "$tc" | sed -n 's/.*"hist": \(\[.*\]\)}.*/\1/p' | head -1)
+                      ntc=$((ntc+1)); [ -n "$toc" ] && [ "$osm" != "$csub" ] && noc=$((noc+1))
+                      if [ "$tsv" = 2 ] && [ -n "$toc" ] && [ "$tnm" = "$nm" ] && [ "$tne" = "$ne" ] && [ "$csm" = "$nm $ne" ] && [ "$osm" = "$csub" ] && [ "$tbh" = "$bh" ]; then
                           oc="$toc"; nt=$((nt+1))
                       else
-                          printf '%d\tT-CENSUS-MISMATCH\tf(n_masks=%s,n_entries=%s) t(v%s,n_masks=%s,n_entries=%s,census_sums=%s)\n' "$k" "$nm" "$ne" "${tsv:-?}" "${tnm:-?}" "${tne:-?}" "${csm:-?}"
+                          printf '%d\tT-CENSUS-MISMATCH\tf(n_masks=%s,n_entries=%s) t(v%s,n_masks=%s,n_entries=%s,census_sums=%s,size_weighted_masks=%s,C(%s,%d)=%s,branching_hist_equal=%s)\n' "$k" "$nm" "$ne" "${tsv:-?}" "${tnm:-?}" "${tne:-?}" "${csm:-?}" "${osm:-?}" "$N_PAIRS" "$k" "$csub" "$([ "$tbh" = "$bh" ] && echo yes || echo no)"
                           miss=$((miss+1)); k=$((k+1)); continue
                       fi
                   else oc="NA:schema-v1-sidecar"; nv1=$((nv1+1)); fi
@@ -3141,7 +3154,12 @@ else
       done
       # silent when every sidecar is schema v2, so the n=9 golden does not move
       [ "$nv1" -gt 0 ] && echo "Q10A_SIDECAR_SCHEMA	v1 on $nv1 layer(s): no orbit_size_census (built before sidecar schema v2, 317dda34); that column is NA there, every other field is read and gated"
-      [ "$nt" -gt 0 ] && echo "Q10A_CENSUS_SOURCE	t_layer_stats_XX.json (kind=t, schema v2) on $nt layer(s): the f sidecar is schema v1 there; the t sidecar's n_masks and n_entries equal f's on each such layer and its census sums to them, so the census is over exactly f's state set. All other columns are f's (Q-857)"
+      [ "$nt" -gt 0 ] && echo "Q10A_CENSUS_SOURCE	t_layer_stats_XX.json (kind=t, schema v2) on $nt layer(s): the f sidecar is schema v1 there; on each such layer the t sidecar's n_masks, n_entries and branching histogram equal f's, its census sums to n_masks and n_entries, and its orbit-size-weighted mask count equals C($N_PAIRS,k). These are count checks, not a mask-by-mask comparison of the two state sets. All other columns are f's (Q-857, Q-904)"
+      # Q-904: silent unless a t census was consulted, so the n=9 golden (all f sidecars v2) does not move
+      if [ "$ntc" -gt 0 ]; then
+          if [ "$noc" -eq 0 ]; then echo "TR12_Q10_CENSUS_ORBITCHECK=PASS"
+          else echo "Q10A_CENSUS_ORBITCHECK_MISSES	$noc layer(s): orbit-size-weighted mask count != C($N_PAIRS,k)"; echo "TR12_Q10_CENSUS_ORBITCHECK=FAIL"; fi
+      fi
       echo "Q10A_SIDECARS_MISSING	$miss"
       if [ "$last_mt" = "$N_TOTAL" ]; then echo "Q10A_LAST_LAYER_MASS_EQ_N	YES ($last_mt)"
       else echo "Q10A_LAST_LAYER_MASS_EQ_N	NO (sidecar k=$N_PAIRS mass_total='$last_mt', N=$N_TOTAL)"; fails=1; fi
@@ -3282,7 +3300,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3256) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3274) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.

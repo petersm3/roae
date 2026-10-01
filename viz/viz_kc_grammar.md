@@ -5,7 +5,7 @@ has reached layer *k*, what is the exact probability — over the whole superspa
 that its next transition belongs to each choice class? The grammar is that conditional law rendered
 as a heat map over `class × k`, with King Wen's own 31 choices marked on it.
 
-← Back to the [visual capstone](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
+← Back to the [capstone's visual showcase](README.md#king-wens-place-in-the-space-tr-12) · V-family: [V1 field](viz_kc_field.md) ·
 [V2 river](viz_kc_river.md) · [V3 spectrum](viz_kc_spectrum.md) · [V4 shells](viz_kc_shells.md) ·
 **V5**
 
@@ -83,7 +83,7 @@ last columns differ visibly from the near-constant interior. The full reading gu
   layer marginal. The outline is two-tone, and the axis and a note say both, CX-227. The spec's
   statements about `--kc-raw` were made consistent, CX-228.
 - **2026-09-29.** The figure is shown at the top of this page, and these summary sections were added
-  as part of the [visual capstone](README.md) (CX-233).
+  as part of the [capstone's visual showcase](README.md) (CX-233).
 
 *The rest of this page is the figure's specification and drafting record, kept as written, with its
 dated corrections in place.*

@@ -10050,3 +10050,24 @@ accept exactly that marker and nothing more.
 ## 2026-09-30 — a third count of the C1–C7 superspace, read from the stored ladders
 
 The exact number of orderings that satisfy C1, C2, C4, C5, C6 and C7 inside the C3-free superspace, 516,880,238,445,773,965,371,923,491,676,160, has been published since July from two independent calculations that do not touch the stored ladders. A new verifier mode now computes it a third way, from the stored ladder files themselves: it reads one layer of the forward ladder and one of the backward ladder, walks the four pinned positions between them, and adds up the matches. It was first checked against the two older methods and a brute-force search on small instances, then run at full size on the retained ladder bytes, where it printed the same number in 78 seconds (CX-244). It confirms one sum over those two layers, not every entry in them.
+
+## 2026-10-01 — batch 30: the extremal certificate is bound to its universe, the Q10 census fallback checks orbit sizes, and the capstone is one thing in three parts
+**Batch 30, part 1 (CX-246).**
+
+- The n=31 Q10 census reads its orbit-size column from the t sidecars. That fallback now checks that
+  the size-weighted mask count of each layer equals the number of k-subsets of the 31 pairs, and
+  that t's branching histogram equals f's. Both were measured on every published layer before they
+  were adopted. The sentences that said the t census covered exactly f's state set now list the count
+  checks instead.
+- The growth-curve generator draws each point's sha without literal backticks. The committed run
+  image is not regenerated.
+- The doc-gates self-test refuses to run in place on a branch checkout, so a stray
+  `DOC_GATES_SELFTEST_INPLACE=1` can no longer plant defects in a real tree.
+- The visualization page no longer calls itself a second capstone. The project's capstone has three
+  parts: TR-12, the visual showcase, and a step-by-step guide for reproducing a subset of the work on
+  a laptop, which is in preparation.
+
+**Batch 30, part 2 (CX-245).**
+
+- The scope comment of `lean/CompilerCorrectness.lean` no longer says every bridge fact KB1–KB7 is runtime-verified: KB4 is carried by substitute evidence and KB7 is derived-but-unverified, as the comment's own status lines already said. A GATE 93 leg keeps the retired wording out.
+- `solve.py --kc-x-recheck` now binds a `--kc-extremal` certificate to the ladder it came from. The certificate carries its pair list and C5 budget; the checker recomputes the ladder identity `pl_hash` from the pair list, re-derives the budget, and refuses a witness that places a pair outside the universe or crosses a boundary outside the budget before it evaluates Φ. Two review mutants that passed before — the pinned {0,63} pair as a free pair, and a distance-5 boundary — are refused with named reasons. No Q5 number is published at n=31, so no published number moves.

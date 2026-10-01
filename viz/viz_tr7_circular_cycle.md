@@ -1,6 +1,6 @@
 # Figure — TR-7, the cycle (`fig_tr7_circular_cycle`)
 
-← [Visual capstone](README.md#structure-of-the-sequence) · Report: [TR-7 §Figure: the cycle](../reports/TR7_CIRCULAR_READING.md#figure-the-cycle)
+← [The capstone's visual showcase](README.md#structure-of-the-sequence) · Report: [TR-7 §Figure: the cycle](../reports/TR7_CIRCULAR_READING.md#figure-the-cycle)
 
 [![The 64 hexagrams as a cycle in King Wen order, with thick red edges at the odd Hamming-distance transitions: 15 internal plus the 64→1 wrap of distance 3, 16 in all.](../reports/figures/fig_tr7_circular_cycle.png)](../reports/figures/fig_tr7_circular_cycle.svg)
 
@@ -66,10 +66,10 @@ theorem with its premise: for every ordering satisfying C4 and C5, the wrap dist
 - **2026-09-28, Codex visualization review, triaged by Fable.** One annotation stated both King Wen's
   wrap and the theorem for every ordering, without the theorem's premise. They are now two labels, and
   the theorem line states C4 and C5. CX-227 (TR-7 revision row v2.10).
-- **2026-09-29.** This page added, as part of the visual capstone (CX-233).
+- **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---
 
-*Part of the [visual capstone](README.md), the companion to
+*Part of the [capstone's visual showcase](README.md), the companion to
 [TR-12](../reports/TR12_QUERY_PROGRAM.md). A cycle drawing of the sequence; nothing is claimed novel.
 Developed with AI assistance (Claude, Anthropic); corrections invited.*

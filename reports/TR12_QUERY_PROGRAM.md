@@ -2043,7 +2043,7 @@ query family and refines four existing items. All items below are labeled by spa
   **and KW's orbit's rank among them**", and the run produces neither as written. What row `c_q10a`
   delivers is: N/24 **stated once** — an integrality identity (24 ∣ N), not an orbit count at either level — a per-layer
   mod-24 gate, and a per-layer census of canonical **masks** by G-orbit size, with the number of DP entries (states) each mask class carries plus a branching histogram,
-  transcribed from the f-ladder sidecars ⚠ *(corrected 2026-09-27, Q-857: at n=31 the f sidecars are schema v1 and carry no census, so the census column is transcribed from the t-ladder sidecars — which cover exactly f's state set, checked per layer by `n_masks`/`n_entries` equality and by the census's own sums — and every other column from the f sidecars. Both sidecar sets are published at `runs/20260906_kc_ladders_n31/sidecars/`, so the n=31 table reproduces from the tree: `reports/evidence/tr12/banked_n31_20260922/c_q10a.txt`.)*. The orbit-rank leg is measured separately as row
+  transcribed from the f-ladder sidecars ⚠ *(corrected 2026-09-27, Q-857: at n=31 the f sidecars are schema v1 and carry no census, so the census column is transcribed from the t-ladder sidecars — which agree with f's on every count the row checks per layer: equal `n_masks`, `n_entries` and branching histogram, a census that sums to those counts, and an orbit-size-weighted mask count equal to C(31, k) *(re-scoped 2026-10-01, Q-904, CX-246: these are count checks, not a mask-by-mask comparison of the two state sets, since the mask lists are not in the published tree)* — and every other column from the f sidecars. Both sidecar sets are published at `runs/20260906_kc_ladders_n31/sidecars/`, so the n=31 table reproduces from the tree: `reports/evidence/tr12/banked_n31_20260922/c_q10a.txt`.)*. The orbit-rank leg is measured separately as row
   `c_q10a_kwrank`, and the value that row is expected to emit at n=31 is
   **`TR12_Q10A_KWRANK=EMPTY:class-rank-uncomputable-under-kw-labels`** — forced to 0 by KW-derived
   labels, so it is a null result, not a rank. ⚠ **Corrected 2026-09-13 (V3B-03#41): this read "its
@@ -2085,11 +2085,11 @@ query family and refines four existing items. All items below are labeled by spa
   both symbols are **Lean definitions**, not engine helpers: `lean/Automorphism.lean:127` defines
   `applyPerm` and `:131` defines `pairKey`. Measured on `origin/main`: `applyPerm` occurs **0**
   times in `solve.c` under every casing tried (`applyPerm`, `applyperm`, `APPLYPERM`, `ApplyPerm`,
-  `apply_perm`; control `main` = 38, `zzznotreal` = 0). The `PairKey` struct at `solve.c:45542` is
+  `apply_perm`; control `main` = 38, `zzznotreal` = 0). The `PairKey` struct at `solve.c:45558` is
   an unrelated `qsort` sort-record (`{ unsigned char pi[32]; long long idx; }`) with no coset
   semantics, so calling this a misspelling would point the reader at real machinery that does the
   wrong thing. The engine's actual XOR/coset tables are `F1Coset`/`f1_g24[24]`
-  (`solve.c:13945-14075`) and `F1UCoset`/`f1u_cos[48]` (`:39103-39250`), and **neither is
+  (`solve.c:13945-14075`) and `F1UCoset`/`f1u_cos[48]` (`:39119-39266`), and **neither is
   referenced anywhere on the `--kc-scan` path**.]** Aggregating the scan-pass mass table by coset
   id is therefore not possible at all — see the withdrawn cost line below.
 - **Stage:** post-G (needs the g-ladder). **Cost:** (a) [cost redacted] (projection of existing tables);
