@@ -1,0 +1,26 @@
+# verify --c67-join FDIR GDIR --join-c6c7   (n=31; slots 24..27 pinned to King Wen's pairs; f layer 23 -> g layer 27)
+# finished 2026-09-30 ~11:20 UTC; wall 78 s single-threaded, max RSS 64 MB
+# inputs (sha256 checked against STAGE_F_SHA256.txt / STAGE_G_SHA256.txt before the run): run_f/f1c5_layer_23.bin, run_f/f1c5_manifest.txt, run_g/g_layer_27.bin, run_g/g_manifest.txt
+# built from verify.c sha256 663d482d3037588a89b661094ec34679d63a85f427ca835240516342ef1cdf21 (gcc -O2 -Wall -Wextra, 0 warnings); the binary itself was not hashed
+# the log below is byte-for-byte; its sha256 is e0bb6d636c08de603d855c96a369af2a63c672ee3a7c698841537cf9c9852383
+======================================================================
+verify.c --c67-join : pinned-window join of the stored f and g ladders
+(third instrument for the slot-pinned count; reads the two cut layers
+ only; written against F1C5_LAYER_FORMAT.md + GT_LADDER_FORMAT.md;
+ shares no code with solve.c)
+======================================================================
+instance : n=31 start_exit=0 b0=(2,8,13,7,1)
+C67_JOIN_PINS=24:24,25:25,26:26,27:27
+C67_JOIN_WINDOW=slots_24..27_f_layer_23_g_layer_27
+group    : 24 pair-perms preserve the run's pair set (24 distinct restricted);
+           every witness bit-perm re-verified elementwise
+g layer  : k=27 nm=2087 ne=1922156 v2 — in RAM, structural checks OK
+f layer  : k=23 nm=369823 ne=1643386030 v2 — streaming
+C67_JOIN_ORBIT_TILING=PASS
+stats    : f entries 1643386030; raw masks 7888725 (= C(31,23)); window-disjoint raw masks 17550;
+           valid pinned paths 116012000; g hits 35905064; g misses (g = 0) 80106936; wall 78s
+C67_JOIN_COUNT=516880238445773965371923491676160
+C67_JOIN_EXPECT=516880238445773965371923491676160
+C67_JOIN_COMPARED=1
+C67_JOIN=PASS
+======================================================================

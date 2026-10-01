@@ -205,7 +205,7 @@ resume after interrupt or eviction. *(2026-09-27, Q-828: every enumeration run (
 Output sha matches a canonical entry in
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md) iff inputs (env vars +
 solver version) match. Mismatch **within the tested toolchain class**
-(see [DEVELOPMENT.md](DEVELOPMENT.md):1664) is a bug, not a new result;
+(see [DEVELOPMENT.md](DEVELOPMENT.md):1665) is a bug, not a new result;
 across toolchain classes, see the scope note under REPRODUCIBILITY below.
 *(Qualifier added 2026-09-01.)*
 
@@ -3500,7 +3500,7 @@ External cleanup is not required but is a disk-hygiene best practice.
   **Across hardware and region the guarantee is scoped, not absolute:** it
   holds *within the tested toolchain class*
   ([SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Reproducibility;
-  [DEVELOPMENT.md](DEVELOPMENT.md):1664). ⚠ [CORRECTED 2026-09-04 — this read
+  [DEVELOPMENT.md](DEVELOPMENT.md):1665). ⚠ [CORRECTED 2026-09-04 — this read
   "a host-level drift event is on the record, and at 1T scale
   CAMPAIGN_METHODOLOGY.md:604-607 notes that moving between hosts *in the
   same SKU class* can change the sha". **No host-level drift event is on the

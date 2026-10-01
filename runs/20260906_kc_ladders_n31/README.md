@@ -175,6 +175,7 @@ header that gives the command, the binary and the dates:
 |---|---|---|---|
 | `VERIFY_CHECK_T_LADDER_n31.txt` | `verify --check-t-ladder FDIR TDIR 31` | `TLADDER_RESULT=PASS`, `IDENTITIES_CHECKED=32`, `IDENTITIES_SKIPPED=0` | 2026-09-05 13:24 UTC |
 | `VERIFY_CHECK_G_LADDER_n31.txt` | `verify --check-g-ladder FDIR GDIR 31` | `GLADDER_RESULT=PASS`, `IDENTITIES_CHECKED=32`, `IDENTITIES_SKIPPED=0` | by 2026-09-21 10:33 UTC |
+| `C67_JOIN_n31.txt` | `verify --c67-join FDIR GDIR --join-c6c7` (reads f layer 23 and g layer 27 only) | `C67_JOIN=PASS`, `C67_JOIN_COUNT=516880238445773965371923491676160`, `C67_JOIN_ORBIT_TILING=PASS` | 2026-09-30 ~11:20 UTC |
 
 Below each header the transcript is the captured log, byte for byte. Its sha256 is in the header.
 The header removes nothing from the log; the logs name no host or path. What was left out is

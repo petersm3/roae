@@ -24842,3 +24842,35 @@ the file would be a ninth revision. Instead, the escrow page now has a dated par
 read the two notes: the "day before" refers to the 5-identity run, and the 32-identity gate passed on
 2026-09-05. The pre-registration is unchanged. Its digest is still `e73993f6…`, 53,768 bytes, and a
 test pins that digest.
+
+## CX-244 — a third instrument for the exact C1∩C2∩C4∩C5∩C6∩C7 count, computed from the stored ladders (verify.c; scripts/q908_join_accept.sh; tests.py; documentation/VERIFY.md; runs/20260906_kc_ladders_n31/)
+
+**2026-09-30.** Origin: backlog row Q-908. No published number, sha, count or reproduction
+parameter moves.
+
+The exact count |C1∩C2∩C4∩C5∩C6∩C7| = 516880238445773965371923491676160 has been published since
+2026-07-26 from two instruments, `verify --ie-count --ie-pin-c6c7 --ie-no-quotient` and
+`verify --dp-count --dp-pin-c6c7`. Neither reads a ladder file. `verify --c67-join` computes the
+same count from the stored f and g ladders: it streams f layer 23, expands each canonical state over
+its orbit (the pins break the symmetry group), walks the four pinned steps (slots 24 to 27,
+orientation free, the C2 and C5 rules), and looks each end state up in g layer 27. Layer 23, not 24,
+because under the `--ie-pin` convention slot s is the step from layer s−1 to layer s. A built-in
+check requires the orbit images of the f mask list to cover every popcount-23 mask exactly once. It
+uses only `verify.c`'s own readers and group code and shares no code with `solve.c`.
+
+Acceptance (`scripts/q908_join_accept.sh`, class `TestQ908PinnedWindowJoin`): on n=9 and n=10 ladders
+the join equals the IE count and a brute-force permutation DFS on every window tried, including the
+C6/C7-equivalent one; the pin-sum identity holds; doubled or single-corrupted g values, a wrong pin,
+a truncated g layer and a missing f layer each fail or are refused. When a planned n=9 window
+counted zero, its last pin is searched over the other pairs for a nonzero window of the same shape,
+every candidate checked three ways, so that the agreement is not vacuous.
+
+At full 31, on 2026-09-30, on the retained ladder bytes (the four files read were first checked
+against `runs/20260906_kc_ladders_n31/STAGE_F_SHA256.txt` and `STAGE_G_SHA256.txt`), it printed
+`C67_JOIN_ORBIT_TILING=PASS`, `C67_JOIN_COUNT=516880238445773965371923491676160` and `C67_JOIN=PASS`
+in 78 s; the transcript is `runs/20260906_kc_ladders_n31/C67_JOIN_n31.txt`. Scope: agreement attests,
+under a pinned functional that the per-layer cut and mass identities do not constrain, the stored f
+layer 23 values at the states whose mask orbit avoids the pinned pairs and the g layer 27 values at
+the masks containing them. It is one linear functional of those bytes, not an entry-level check, and
+it says nothing about the ladder's other layers. Reviewed by Fable before the run (GO; its two
+wording fixes to `documentation/VERIFY.md` are included).

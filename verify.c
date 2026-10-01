@@ -76,6 +76,11 @@
  *          pinned (C6/C7) exact count — a direct layered exact-cover mask DP
  *          (NO inclusion–exclusion; different algorithm class from --ie-count).
  *          See the ROUTE D section header below.
+ *         ./verify --c67-join FDIR GDIR (--join-pin SLOT:PAIR ... | --join-c6c7)
+ *          [--join-expect D]   the THIRD instrument for the slot-pinned (C6/C7)
+ *          count: joins the stored f layer S-1 to the stored g layer S+w-1 across
+ *          the w pinned steps, orbit-expanding canonical states. See the
+ *          PINNED-WINDOW JOIN section header below.
  *         ./verify --knuth-anchors   clean-room Knuth prober validation gate:
  *          exact KW-prefix subtree anchors (443/4, 62,256/2,232,
  *          9,422,793/16,504, 8 with C6/C7) + a fixed-seed probe-vs-exact
@@ -7326,6 +7331,438 @@ static int bf_g_main(int argc, char **argv) {
     return fail ? 1 : 0;
 }
 
+/* ==========================================================================
+ * PINNED-WINDOW JOIN  (--c67-join FDIR GDIR ...)   [Q-908: a THIRD instrument]
+ *
+ *   ./verify --c67-join FDIR GDIR (--join-pin SLOT:PAIR ... | --join-c6c7)
+ *            [--join-expect DECIMAL]
+ *
+ * WHAT IT COUNTS. The number of full C1∩C2∩C4∩C5 walks whose pair-slots
+ * S..S+w-1 hold the given pairs, orientation free — exactly the semantics of
+ * --ie-pin / --dp-pin (1 <= w <= 8 consecutive slots; the C6/C7 row is w = 4,
+ * slots 24..27 := KW pairs #24..27, --join-c6c7). With --join-c6c7 as the only
+ * pin set the default target is the published |C1∩C2∩C4∩C5∩C6∩C7|
+ * (LC_PUBLISHED_COUNT_C1C7NOC3); any other pin set needs --join-expect.
+ *
+ * HOW. From the STORED LADDER BYTES, which the other two instruments never
+ * read: the f layer just before the window and the g layer just after it.
+ *
+ *   SLOT/LAYER CONVENTION (the --ie-pin convention, read off ie_walk above:
+ *   step k, 0-based, is the transition layer k -> k+1 and is pinned by
+ *   pin_at[k] = the pair of 1-based SLOT k+1). So slot s is the placement
+ *   that takes a layer-(s-1) prefix to layer s, f layer a = "a placements
+ *   made", and a window S..S+w-1 joins f layer a = S-1 to g layer b = S+w-1.
+ *   The C6/C7 window 24..27 is therefore f layer 23 -> g layer 27.
+ *
+ *   count = Σ over RAW f states s = (m, l, r) at layer a whose mask m
+ *           contains none of the pinned pairs
+ *           of f(s) · Σ over the 2^w orientation choices that pass every
+ *           pinned step (C2: d != 5, d = 0 impossible; C5: the class digit
+ *           of r below b0[c], then r += rad[c]) of g(m ∪ pins, l_w, r_w).
+ *
+ *   That is the prefix x window x suffix bijection: a full walk with the
+ *   pinned slots is exactly a valid depth-a prefix, then the w forced
+ *   placements, then a valid completion — the same bijection behind the
+ *   f·g cut identity (GT_LADDER_FORMAT.md), with the w pinned steps
+ *   walked explicitly between the two cut layers.
+ *
+ *   ORBIT EXPANSION (why raw states). The ladders store canonical masks
+ *   only, with per-representative values. The pins break the 24-group
+ *   (their pointwise stabiliser is trivial), so the sum cannot be taken on
+ *   canonical states: every canonical f mask cm is expanded over its orbit.
+ *   For each pair-perm q that preserves the run's pair set, with its
+ *   witness hexagram bit-permutation h_q (PPG, re-verified elementwise by
+ *   ie_verify_group: bijection, fixes 0/63/start, Hamming isometry, maps
+ *   pair j onto pair PP[q][j]), (q·cm, h_q(l), r) is a raw state with
+ *   f = f(cm, l, r) — f is invariant because h_q maps valid prefixes of
+ *   the instance onto valid prefixes of the instance with the same
+ *   boundary classes. Each DISTINCT image mask is used once (the first q
+ *   reaching it); stabiliser elements permute the stored lasts of the same
+ *   raw mask and so cannot double count. The g side goes the other way:
+ *   the raw end state (M, l_w, r_w) is mapped to its canonical
+ *   representative by the q minimising q·M (spec: canonical = numeric
+ *   minimum of the orbit) and looked up in g layer b; a stored-key miss
+ *   is g = 0 (zero states are not stored), a missing canonical MASK is a
+ *   malformed layer and refused.
+ *
+ *   BUILT-IN GATE: the distinct orbit images of every listed canonical f
+ *   mask must tile the popcount-a masks exactly — Σ images == C(n, a), and
+ *   each mask's image count == its orbit size from lc_orbit_of. A lift or
+ *   restriction defect that loses or repeats a raw mask fails here before
+ *   any count is printed (C67_JOIN_ORBIT_TILING=PASS|FAIL).
+ *
+ * INDEPENDENCE. Written against F1C5_LAYER_FORMAT.md / GT_LADDER_FORMAT.md
+ * and this file's own spec-derived machinery (gt_open/gt_next/
+ * gt_span_checks/gt_mask_checks, derive_pair_perms, ie_verify_group,
+ * lc_radix); no solve.c code, header, table or constant. The instrument is
+ * a different class from both existing ones: --ie-pin (signed
+ * inclusion-exclusion transfer walk, no mask, no ladder bytes) and
+ * --dp-pin (layered exact-cover mask DP, no ladder bytes) each recompute
+ * the whole space from the constraint definitions; this one computes
+ * nothing from scratch outside the window — it consumes solve.c's stored f
+ * and g values. Agreement therefore attests the STORED BYTES of the two cut
+ * layers under a functional the per-layer identities do not constrain: the
+ * f·g cut identity and the mass invariants are G-invariant linear
+ * functionals, and this one is pinned, hence not G-invariant. Scope stated,
+ * not implied: it tests the two layers it reads, not the ladder's other
+ * layers, and it shares the KW table (the object of study) with every
+ * instrument in this file.
+ *
+ * MEMORY / I-O. g layer b is held in RAM (keys + values + masks/offsets);
+ * f layer a is STREAMED one mask span at a time (a span is at most 64·R
+ * entries). Only those two layer files and the two manifests are opened.
+ * A missing, short or malformed layer or manifest is REFUSED: rc 2 with
+ * whole-line C67_JOIN=REFUSED and C67_JOIN_REFUSED=<reason>. A computed
+ * count prints C67_JOIN_COUNT=<decimal>; with a target it also prints
+ * C67_JOIN=PASS (rc 0) or C67_JOIN=FAIL (rc 1); without one
+ * C67_JOIN_COMPARED=0 (rc 0). Pinning one pair at two slots yields 0 by
+ * definition (no permutation walk repeats a pair), printed as such after
+ * both layers' headers and masks are validated.
+ * ========================================================================== */
+
+#define CJ_MAXW 8
+
+static int cj_refuse(const char *why) {
+    printf("C67_JOIN=REFUSED\nC67_JOIN_REFUSED=%s\n", why);
+    return 2;
+}
+
+/* 1 iff s is a non-empty string of decimal digits. */
+static int cj_is_decimal(const char *s) {
+    if (!s || !*s) return 0;
+    for (; *s; s++) if (*s < '0' || *s > '9') return 0;
+    return 1;
+}
+
+static int cj_join_main(int argc, char **argv) {
+    if (argc < 4) {
+        fprintf(stderr, "usage: %s --c67-join FDIR GDIR (--join-pin SLOT:PAIR ... | --join-c6c7) "
+                        "[--join-expect DECIMAL]\n", argv[0]);
+        return cj_refuse("usage");
+    }
+    const char *fdir = argv[2], *gdir = argv[3], *expect = NULL;
+    int pslot[CJ_MAXW], ppair[CJ_MAXW], np = 0, c6c7 = 0, nexp = 0, nc67 = 0;
+    for (int i = 4; i < argc; i++) {
+        if (!strcmp(argv[i], "--join-pin") && i + 1 < argc) {
+            int s, p; char tail;
+            if (np >= CJ_MAXW || sscanf(argv[++i], "%d:%d%c", &s, &p, &tail) != 2) {
+                fprintf(stderr, "ERROR: --join-pin wants SLOT:PAIR (at most %d pins), got '%s'\n",
+                        CJ_MAXW, argv[i]);
+                return cj_refuse("bad_pin_argument");
+            }
+            pslot[np] = s; ppair[np] = p; np++;
+        }
+        else if (!strcmp(argv[i], "--join-c6c7")) { c6c7 = 1; nc67++; }
+        else if (!strcmp(argv[i], "--join-expect") && i + 1 < argc) { expect = argv[++i]; nexp++; }
+        else {
+            fprintf(stderr, "ERROR: --c67-join: unknown or incomplete option '%s'\n", argv[i]);
+            return cj_refuse("unknown_option");
+        }
+    }
+    if (nexp > 1 || nc67 > 1) return cj_refuse("repeated_option");
+    if (expect && !cj_is_decimal(expect)) return cj_refuse("expect_not_decimal");
+
+    printf("======================================================================\n");
+    printf("verify.c --c67-join : pinned-window join of the stored f and g ladders\n");
+    printf("(third instrument for the slot-pinned count; reads the two cut layers\n");
+    printf(" only; written against F1C5_LAYER_FORMAT.md + GT_LADDER_FORMAT.md;\n");
+    printf(" shares no code with solve.c)\n");
+    printf("======================================================================\n");
+    if (!build_pairs()) return cj_refuse("pair_table");
+    if (!derive_pair_perms()) return cj_refuse("pair_perms");
+
+    uint32_t n, se, pl[64]; uint64_t plh; int npl, b0v[5], glk;
+    if (lc_gt_manifests(fdir, gdir, "g", &n, &se, &plh, pl, &npl, b0v, &glk))
+        return cj_refuse("manifest");
+    int flk;                                    /* f: highest built layer (forward manifest) */
+    {   uint32_t n2, se2, pl2[64]; uint64_t ph2; int npl2, b02[5];
+        if (lc_manifest_pfx(fdir, "f1c5", &n2, &se2, &ph2, pl2, &npl2, b02, &flk))
+            return cj_refuse("f_manifest");
+    }
+    int bsum = 0;
+    for (int c = 0; c < 5; c++) { if (b0v[c] < 0) return cj_refuse("manifest_b0"); bsum += b0v[c]; }
+    if (bsum != (int)n) {
+        printf("*** FAIL: manifest b0 sums to %d, not n=%u\n", bsum, n);
+        return cj_refuse("manifest_b0");
+    }
+
+    if (c6c7) {
+        if (n != 31 || se != 0) {
+            printf("*** FAIL: --join-c6c7 needs the full-31 ladder rooted at exit 0 (n=%u start_exit=%u)\n", n, se);
+            return cj_refuse("c6c7_needs_full31");
+        }
+        /* SPECIFICATION.md C6/C7 hexagram constants, as --ie-pin-c6c7 cross-checks
+         * them: C7 pins slots 24,25 to {29,46},{9,36}; C6 pins 26,27 to {11,52},{13,44}. */
+        static const int spec67[4][2] = {{29,46},{9,36},{11,52},{13,44}};
+        for (int s = 24; s <= 27; s++) {
+            int a = PA[s], b = PB[s], sa = spec67[s - 24][0], sb = spec67[s - 24][1];
+            if (!((a == sa && b == sb) || (a == sb && b == sa))) {
+                printf("*** FAIL: KW pair #%d {%d,%d} != SPEC C6/C7 {%d,%d}\n", s, a, b, sa, sb);
+                return cj_refuse("c6c7_spec_crosscheck");
+            }
+            if (np >= CJ_MAXW) return cj_refuse("too_many_pins");
+            pslot[np] = s; ppair[np] = s; np++;
+        }
+    }
+    if (np < 1) return cj_refuse("no_pins");
+    for (int i = 1; i < np; i++) {              /* sort pins by slot (insertion) */
+        int s = pslot[i], p = ppair[i], j = i;
+        while (j > 0 && pslot[j - 1] > s) { pslot[j] = pslot[j - 1]; ppair[j] = ppair[j - 1]; j--; }
+        pslot[j] = s; ppair[j] = p;
+    }
+    int S = pslot[0], w = np;
+    for (int i = 0; i < np; i++)
+        if (pslot[i] != S + i) {
+            printf("*** FAIL: pinned slots must be %d consecutive distinct slots S..S+%d\n", w, w - 1);
+            return cj_refuse("slots_not_consecutive");
+        }
+    if (S < 1 || S + w - 1 > (int)n) {
+        printf("*** FAIL: window slots %d..%d outside 1..%u\n", S, S + w - 1, n);
+        return cj_refuse("window_out_of_range");
+    }
+    int a = S - 1, b = S + w - 1;               /* f layer a  ->  g layer b */
+    int inv[32]; for (int i = 0; i < 32; i++) inv[i] = -1;
+    for (uint32_t i = 0; i < n; i++) {
+        if (pl[i] < 1 || pl[i] > 31 || inv[pl[i]] >= 0) {
+            printf("*** FAIL: manifest pl entry %u is out of 1..31 or repeated\n", pl[i]);
+            return cj_refuse("manifest_pl");
+        }
+        inv[pl[i]] = (int)i;
+    }
+    uint32_t pinbits = 0; int dup = 0;
+    char pinstr[160]; pinstr[0] = 0;
+    for (int i = 0; i < np; i++) {
+        int p = ppair[i];
+        if (p < 1 || p > 31 || inv[p] < 0) {
+            printf("*** FAIL: pinned pair %d is not in this ladder's pair list\n", p);
+            return cj_refuse("pin_pair_not_in_instance");
+        }
+        if (pinbits & (1u << inv[p])) dup = 1;
+        pinbits |= 1u << inv[p];
+        char t[16]; snprintf(t, sizeof t, "%s%d:%d", i ? "," : "", pslot[i], p);
+        strncat(pinstr, t, sizeof pinstr - strlen(pinstr) - 1);
+    }
+    if (a > flk) {
+        printf("*** FAIL: f manifest last_complete_k=%d < needed layer %d\n", flk, a);
+        return cj_refuse("f_layer_not_built");
+    }
+    if (glk > b) {
+        printf("*** FAIL: g manifest last_complete_k=%d > needed layer %d (g layers %d..%u present)\n",
+               glk, b, glk, n);
+        return cj_refuse("g_layer_not_built");
+    }
+    printf("instance : n=%u start_exit=%u b0=(%d,%d,%d,%d,%d)\n", n, se,
+           b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]);
+    printf("C67_JOIN_PINS=%s\n", pinstr);
+    printf("C67_JOIN_WINDOW=slots_%d..%d_f_layer_%d_g_layer_%d\n", S, S + w - 1, a, b);
+
+    /* ---- the group: restricted (for canonicity / Burnside) and the lifts ---- */
+    static uint8_t rp[24][32];
+    int geff = lc_restrict_perms(pl, n, rp);
+    if (geff < 1) { printf("*** FAIL: restricted pair-perms are not a group\n"); return cj_refuse("group"); }
+    if (!ie_verify_group((int)se)) {
+        printf("*** FAIL: elementwise group re-verification (bijection/fix-0-63/start/\n"
+               "          Hamming isometry/pair mapping)\n");
+        return cj_refuse("group_reverification");
+    }
+    static uint8_t rpq[24][32], hx[24][64];
+    int npq = 0;
+    for (int q = 0; q < NPP; q++) {             /* every pair-perm preserving the pair set */
+        int ok = 1;
+        for (uint32_t i = 0; i < n && ok; i++) {
+            int im = inv[PP[q][pl[i]]];
+            if (im < 0) ok = 0; else rpq[npq][i] = (uint8_t)im;
+        }
+        if (!ok) continue;
+        for (int x = 0; x < 64; x++) {
+            int r = 0;
+            for (int t = 0; t < 6; t++) if ((x >> t) & 1) r |= 1 << PPG[q][t];
+            hx[npq][x] = (uint8_t)r;
+        }
+        npq++;
+    }
+    {   int distinct = 0;                        /* must reproduce geff */
+        for (int t = 0; t < npq; t++) {
+            int seen = 0;
+            for (int u = 0; u < t && !seen; u++) if (!memcmp(rpq[u], rpq[t], n)) seen = 1;
+            if (!seen) distinct++;
+        }
+        if (distinct != geff) {
+            printf("*** FAIL: %d preserving pair-perms restrict to %d distinct, lc_restrict_perms says %d\n",
+                   npq, distinct, geff);
+            return cj_refuse("group_restriction");
+        }
+    }
+    printf("group    : %d pair-perms preserve the run's pair set (%d distinct restricted);\n"
+           "           every witness bit-perm re-verified elementwise\n", npq, geff);
+
+    uint32_t rad[5], R; lc_radix(b0v, rad, &R);
+    uint64_t cap = 64ull * R;
+
+    /* ---- g layer b into RAM ---- */
+    const char *why = NULL;
+    GtCur gc, fc; memset(&gc, 0, sizeof gc); memset(&fc, 0, sizeof fc);
+    uint32_t *gmasks = NULL, *gkeys = NULL, *fkeys = NULL; uint64_t *goff = NULL;
+    u192 *gvals = NULL, *fvals = NULL; uint8_t *gorb = NULL, *forb = NULL;
+    u192 acc = {{0,0,0}};
+    int ovf = 0, tiling_ok = 1;
+    uint64_t n_fent = 0, n_img = 0, n_win = 0, n_paths = 0, n_hit = 0, n_miss = 0;
+
+    if (gt_open(gdir, "g", "F1C5GLY", 'g', b, n, se, plh, b0v, &gc)) { why = "g_layer_open_or_header"; goto done; }
+    gorb = malloc(gc.nm ? gc.nm : 1);
+    if (!gorb) { why = "oom"; goto done; }
+    if (gt_mask_checks(&gc, n, rp, geff, gorb)) { why = "g_layer_masks"; goto done; }
+    if (gc.ne > (1ull << 32)) { why = "g_layer_too_large_for_ram"; goto done; }
+    gmasks = malloc(gc.nm * 4 + 4);
+    goff   = malloc((gc.nm + 1) * 8);
+    gkeys  = malloc(gc.ne * 4 + 4);
+    gvals  = malloc(gc.ne * sizeof(u192) + sizeof(u192));
+    if (!gmasks || !goff || !gkeys || !gvals) { why = "oom"; goto done; }
+    memcpy(gmasks, gc.masks, gc.nm * 4);
+    memcpy(goff, gc.off, (gc.nm + 1) * 8);
+    for (uint64_t i = 0; i < gc.nm; i++) {
+        uint64_t cnt = gt_read_span(&gc, i, gkeys + goff[i], gvals + goff[i], cap);
+        if (cnt == UINT64_MAX) { why = "g_layer_entries"; goto done; }
+        uint64_t allow = 0;
+        for (uint32_t bb = 0; bb < n; bb++)
+            if ((gmasks[i] >> bb) & 1) allow |= (1ull << PA[pl[bb]]) | (1ull << PB[pl[bb]]);
+        if (gt_span_checks('g', b, cnt, gkeys + goff[i], gvals + goff[i], b0v, rad, R, allow)) {
+            why = "g_layer_entry_checks"; goto done; }
+    }
+    if (gc.e != gc.ne) { why = "g_layer_entries"; goto done; }
+    printf("g layer  : k=%d nm=%llu ne=%llu %s — in RAM, structural checks OK\n", b,
+           (unsigned long long)gc.nm, (unsigned long long)gc.ne, gc.is_v2 ? "v2" : "v1");
+
+    /* ---- f layer a, streamed span by span ---- */
+    if (gt_open(fdir, "f1c5", "F1C5LAY", 'f', a, n, se, plh, b0v, &fc)) { why = "f_layer_open_or_header"; goto done; }
+    forb = malloc(fc.nm ? fc.nm : 1);
+    fkeys = malloc(cap * 4);
+    fvals = malloc(cap * sizeof(u192));
+    if (!forb || !fkeys || !fvals) { why = "oom"; goto done; }
+    if (gt_mask_checks(&fc, n, rp, geff, forb)) { why = "f_layer_masks"; goto done; }
+    printf("f layer  : k=%d nm=%llu ne=%llu %s — streaming\n", a,
+           (unsigned long long)fc.nm, (unsigned long long)fc.ne, fc.is_v2 ? "v2" : "v1");
+    if (dup) {
+        printf("C67_JOIN_NOTE=duplicate_pin_count_is_zero_by_definition\n");
+        goto done;
+    }
+    {
+        uint64_t binom = 1;                     /* C(n, a): the raw masks to tile */
+        for (int i = 1; i <= a; i++) binom = binom * (uint64_t)(n - (uint32_t)a + (uint32_t)i) / (uint64_t)i;
+        time_t t0 = time(NULL), tlast = t0;
+        for (uint64_t i = 0; i < fc.nm; i++) {
+            uint32_t cm = fc.masks[i];
+            uint64_t cnt = gt_read_span(&fc, i, fkeys, fvals, cap);
+            if (cnt == UINT64_MAX) { why = "f_layer_entries"; goto done; }
+            uint64_t allow = 0;
+            if (a == 0) allow = 1ull << se;
+            else for (uint32_t bb = 0; bb < n; bb++)
+                if ((cm >> bb) & 1) allow |= (1ull << PA[pl[bb]]) | (1ull << PB[pl[bb]]);
+            if (gt_span_checks('f', a, cnt, fkeys, fvals, b0v, rad, R, allow)) {
+                why = "f_layer_entry_checks"; goto done; }
+            n_fent += cnt;
+            uint32_t seen[24]; int ns = 0;
+            for (int t = 0; t < npq; t++) {
+                uint32_t m1 = lc_mask_img(cm, rpq[t]);
+                int again = 0;
+                for (int u = 0; u < ns; u++) if (seen[u] == m1) { again = 1; break; }
+                if (again) continue;
+                seen[ns++] = m1;
+                if (m1 & pinbits) continue;
+                if (!cnt) continue;
+                n_win++;
+                uint32_t M = m1 | pinbits, best = UINT32_MAX; int bq = 0;
+                for (int u = 0; u < npq; u++) {
+                    uint32_t im = lc_mask_img(M, rpq[u]);
+                    if (im < best) { best = im; bq = u; }
+                }
+                uint64_t lo = 0, hi = gc.nm;     /* binary search the canonical mask */
+                while (lo < hi) { uint64_t mid = (lo + hi) / 2; if (gmasks[mid] < best) lo = mid + 1; else hi = mid; }
+                if (lo >= gc.nm || gmasks[lo] != best) {
+                    printf("  [g] k=%2d  *** FAIL: canonical mask 0x%08x absent from the g mask list\n", b, best);
+                    why = "g_mask_missing"; goto done;
+                }
+                uint64_t glo = goff[lo], ghi = goff[lo + 1];
+                for (uint64_t j = 0; j < cnt; j++) {
+                    int l0 = hx[t][fkeys[j] >> 16];
+                    uint32_t r0 = fkeys[j] & 0xffff;
+                    for (uint32_t o = 0; o < (1u << w); o++) {
+                        int last = l0, ok = 1; uint32_t rr = r0;
+                        for (int s = 0; s < w; s++) {
+                            int P = ppair[s], flip = (int)((o >> s) & 1);
+                            int enter = flip ? PB[P] : PA[P], ex = flip ? PA[P] : PB[P];
+                            int d = hamming(last, enter);
+                            if (d == 5 || d == 0) { ok = 0; break; }
+                            int c = cls_ix(d);
+                            uint32_t dig = (rr / rad[c]) % (uint32_t)(b0v[c] + 1);
+                            if (dig >= (uint32_t)b0v[c]) { ok = 0; break; }
+                            rr += rad[c]; last = ex;
+                        }
+                        if (!ok) continue;
+                        n_paths++;
+                        uint32_t k2 = ((uint32_t)hx[bq][last] << 16) | rr;
+                        uint64_t x = glo, y = ghi;
+                        while (x < y) { uint64_t mid = (x + y) / 2; if (gkeys[mid] < k2) x = mid + 1; else y = mid; }
+                        if (x < ghi && gkeys[x] == k2) {
+                            u192 pr = u192_mul(fvals[j], gvals[x], &ovf);
+                            if (u192_add(&acc, pr)) ovf = 1;
+                            n_hit++;
+                        } else n_miss++;
+                    }
+                }
+            }
+            if (ns != forb[i]) {
+                printf("  [f] k=%2d  *** FAIL: mask 0x%08x has %d distinct images, orbit size %d\n",
+                       a, cm, ns, forb[i]);
+                tiling_ok = 0;
+            }
+            n_img += (uint64_t)ns;
+            if (fc.nm > 65536 && (i & 0xffff) == 0 && time(NULL) - tlast >= 60) {
+                tlast = time(NULL);
+                fprintf(stderr, "[c67-join] %llu/%llu f masks, %llu entries, %lds\n",
+                        (unsigned long long)i, (unsigned long long)fc.nm,
+                        (unsigned long long)n_fent, (long)(tlast - t0));
+            }
+        }
+        if (fc.e != fc.ne) { why = "f_layer_entries"; goto done; }
+        if (n_img != binom) {
+            printf("*** FAIL: orbit images of the f mask list = %llu raw masks, C(%u,%d) = %llu\n",
+                   (unsigned long long)n_img, n, a, (unsigned long long)binom);
+            tiling_ok = 0;
+        }
+        printf("C67_JOIN_ORBIT_TILING=%s\n", tiling_ok ? "PASS" : "FAIL");
+        if (!tiling_ok) { why = "orbit_tiling"; goto done; }
+        if (ovf) { printf("*** FAIL: 192-bit overflow in the join sum\n"); why = "overflow"; goto done; }
+        printf("stats    : f entries %llu; raw masks %llu (= C(%u,%d)); window-disjoint raw masks %llu;\n"
+               "           valid pinned paths %llu; g hits %llu; g misses (g = 0) %llu; wall %lds\n",
+               (unsigned long long)n_fent, (unsigned long long)n_img, n, a,
+               (unsigned long long)n_win, (unsigned long long)n_paths,
+               (unsigned long long)n_hit, (unsigned long long)n_miss, (long)(time(NULL) - t0));
+    }
+
+done:
+    gt_close(&gc); gt_close(&fc);
+    free(gmasks); free(goff); free(gkeys); free(gvals); free(gorb);
+    free(fkeys); free(fvals); free(forb);
+    if (why) return cj_refuse(why);
+
+    char dec[64]; u192_print(acc, dec);
+    printf("C67_JOIN_COUNT=%s\n", dec);
+    const char *target = expect;
+    if (!target && c6c7 && np == 4) target = LC_PUBLISHED_COUNT_C1C7NOC3;
+    if (!target) {
+        printf("C67_JOIN_COMPARED=0\n");
+        printf("======================================================================\n");
+        return 0;
+    }
+    int eq = u192_eq(acc, u192_dec(target));
+    printf("C67_JOIN_EXPECT=%s\n", target);
+    printf("C67_JOIN_COMPARED=1\n");
+    printf("C67_JOIN=%s\n", eq ? "PASS" : "FAIL");
+    printf("======================================================================\n");
+    return eq ? 0 : 1;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--check-layers-selftest") == 0) return lc_selftest();
     if (argc >= 2 && strcmp(argv[1], "--check-gt-selftest") == 0) return lc_gt_selftest();
@@ -7339,6 +7776,7 @@ int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--knuth-probe") == 0) return kn_probe_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--brute-masses") == 0) return bf_masses_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--brute-g") == 0) return bf_g_main(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "--c67-join") == 0) return cj_join_main(argc, argv);
     if (argc >= 2 && strcmp(argv[1], "--check-layers") == 0) {
         if (argc < 3) { fprintf(stderr, "usage: %s --check-layers DIR [max_k] [run.out]\n", argv[0]); return 2; }
         return lc_check_layers(argv[2], argc > 3 ? atoi(argv[3]) : 31,
@@ -7387,9 +7825,13 @@ int main(int argc, char **argv) {
                                     "       %s --brute-masses RUN.OUT [K] [THREADS]   (valid k-prefixes counted\n"
                                     "                                  one by one vs the run log's masses, k<=K)\n"
                                     "       %s --brute-g TSV [KMIN] [FMAX] [THREADS]   (ladder f/g entries along\n"
-                                    "                                  King Wen's path vs exhaustive DFS)\n",
+                                    "                                  King Wen's path vs exhaustive DFS)\n"
+                                    "       %s --c67-join FDIR GDIR (--join-pin SLOT:PAIR ... | --join-c6c7)\n"
+                                    "                     [--join-expect DECIMAL]   (slot-pinned count from the\n"
+                                    "                                  stored f and g ladders: third instrument)\n",
                                     argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
-                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0]); return 2; }
+                                    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
+                                    argv[0]); return 2; }
     int maxk = argc > 2 ? atoi(argv[2]) : 6;
     if (maxk < 1) maxk = 1;
     if (maxk > 31) maxk = 31;

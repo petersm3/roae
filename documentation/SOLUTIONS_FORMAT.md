@@ -332,7 +332,7 @@ Each record in solutions.bin satisfies:
   what a `--verify` PASS attests on a large artifact. It does **not** put any
   published canonical in doubt: those are attested by the independent verifiers,
   and **`verify.c` is immune** — its counters and their sum are `long long`
-  (`verify.c:424`, `:443`, `:541`). The exact PASS-flip (a total ≡ 0 mod 2³²)
+  (`verify.c:429`, `:448`, `:546`). The exact PASS-flip (a total ≡ 0 mod 2³²)
   was **not** executed and is **not** claimed. A sibling limitation, reported
   rather than cured: `--verify` frames a gzip artifact from the gzip ISIZE
   trailer, itself mod 2³², so any artifact ≥ 4 GiB logical is mis-framed. The

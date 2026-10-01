@@ -818,6 +818,50 @@ refuses the resume with `DP_CHECKPOINT=CORRUPT` rc 1 — the IE route has had th
 this one installed the corrupt row as a unit value until 2026-09-03. `--dp-no-budget`
 drops C5 entirely, giving a plain `(M,last)` DP and the F4-variant cross-check.
 
+### Pinned-window join of the stored ladders (`--c67-join`) — a third instrument
+
+**Added 2026-09-30 (Q-908).** Routes B and D each recompute the slot-pinned count from the
+constraint definitions and never read a ladder file. This mode computes the same quantity from the
+**stored f and g ladder bytes**: the f layer just before the pinned window and the g layer just
+after it, with the pinned steps walked explicitly between them.
+
+```
+./verify --c67-join FDIR GDIR (--join-pin SLOT:PAIR ... | --join-c6c7) [--join-expect DECIMAL]
+```
+
+- **Semantics** are those of `--ie-pin` / `--dp-pin`: slot `SLOT` (1-based; slot 0 is the C4 pair)
+  holds pair `PAIR` (KW pair order), orientation free. The pins must be 1 to 8 **consecutive**
+  slots `S..S+w−1`. Under the `--ie-pin` convention (slot `s` is the step from layer `s−1` to layer `s`), f layer `a` holds the
+  prefixes with `a` slots filled, so the window joins **f layer `S−1` to g layer `S+w−1`**; the
+  C6/C7 window (`--join-c6c7`: slots 24..27 := KW pairs #24..27, cross-checked against the
+  SPECIFICATION.md hexagram constants) is **f layer 23 → g layer 27**. With `--join-c6c7` as the
+  only pin set the target defaults to the published `516880238445773965371923491676160`; any other
+  pin set needs `--join-expect`.
+- **Method.** `count = Σ f(s) · Σ g(m ∪ pins, l_w, r_w)` over raw f states `s = (m, l, r)` whose mask
+  avoids the pinned pairs, the inner sum over the `2^w` orientation choices that pass every pinned
+  step (C2 `d ≠ 5`; C5 class digit below `b0`). The pins break the 24-group, so each canonical f
+  mask is **expanded over its orbit** with the re-verified hexagram lifts, and each raw end state is
+  canonicalised (numeric minimum of its orbit) for the g lookup. A built-in gate requires the orbit
+  images of the f mask list to tile all `C(n, S−1)` masks exactly (`C67_JOIN_ORBIT_TILING=PASS`).
+- **Tokens.** `C67_JOIN_COUNT=<decimal>`; with a target `C67_JOIN=PASS` (rc 0) or `C67_JOIN=FAIL`
+  (rc 1), else `C67_JOIN_COMPARED=0`. A missing, short or malformed layer or manifest is refused:
+  rc 2, `C67_JOIN=REFUSED`, `C67_JOIN_REFUSED=<reason>`. One pair pinned at two slots counts 0 by
+  definition.
+- **Memory / reads.** Opens the two manifests and the two layer files only; g layer `S+w−1` is held
+  in RAM, f layer `S−1` is streamed one mask span at a time.
+- **Scope.** Agreement with Routes B and D attests, under a pinned (not G-invariant) functional that
+  the per-layer cut and mass identities do not constrain, the stored f layer `S−1` values at the
+  states whose mask orbit avoids the pinned pairs and the g layer `S+w−1` values at the masks
+  containing them. It is one linear functional of those bytes, not an entry-level check, and it says
+  nothing about the ladder's other layers.
+- **Result at n=31 (2026-09-30).** `C67_JOIN_COUNT=516880238445773965371923491676160`, `C67_JOIN=PASS`,
+  equal to Routes B and D; transcript `runs/20260906_kc_ladders_n31/C67_JOIN_n31.txt`.
+- **Acceptance.** `scripts/q908_join_accept.sh` (needs compiled `solve` and `verify`) builds n=9
+  and n=10 ladders, requires the join to equal `--ie-count --ie-pin … --ie-no-quotient` (and the
+  `--ie-brute` DFS) exactly on six windows, checks the pin-sum identity and a duplicate pin, and
+  runs negative controls (doubled and single-entry-corrupted g values, a wrong pin, a truncated g
+  layer, a missing f layer). The script does not run the full-31 join; that result is the bullet above.
+
 ### The parallel scan driver (`--scan-layers`)
 
 ```

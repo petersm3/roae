@@ -27918,5 +27918,68 @@ class TestLaneB29Guards(unittest.TestCase):
 # end class TestLaneB29Guards (batch 29)
 
 
+class TestQ908PinnedWindowJoin(unittest.TestCase):
+    """Q-908: `verify --c67-join`, the third instrument for the slot-pinned (C6/C7) count, joins
+    the stored f layer S-1 to the stored g layer S+w-1 across the pinned steps. The behavioural
+    leg runs scripts/q908_join_accept.sh (n=9 and n=10 ladders; join == --ie-pin == --ie-brute on
+    every window, the pin-sum identity, a duplicate pin, and negative controls that must come out
+    red) when compiled binaries are available, and skips BY NAME when they are not: this class
+    does not compile solve.c or verify.c itself. Point it at binaries with Q908_SOLVE_BIN /
+    Q908_VERIFY_BIN, or leave ./solve and ./verify in the repo root."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _binaries(self):
+        sb = os.environ.get("Q908_SOLVE_BIN", os.path.join(self.ROOT, "solve"))
+        vb = os.environ.get("Q908_VERIFY_BIN", os.path.join(self.ROOT, "verify"))
+        return sb, vb
+
+    def test_verify_c_dispatches_the_join_and_prints_its_tokens(self):
+        with open(os.path.join(self.ROOT, "verify.c"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('strcmp(argv[1], "--c67-join") == 0) return cj_join_main(argc, argv);', src)
+        i = src.find("static int cj_join_main(int argc, char **argv) {")
+        self.assertGreater(i, 0, "precondition: the join driver is defined")
+        body = src[i:src.find("\nint main(int argc, char **argv) {", i)]
+        for tok in ('"C67_JOIN_COUNT=%s\\n"', '"C67_JOIN=%s\\n"', '"C67_JOIN_COMPARED=0\\n"',
+                    '"C67_JOIN_ORBIT_TILING=%s\\n"'):
+            self.assertIn(tok, body, "token printf %s missing from cj_join_main" % tok)
+        # the slot/layer convention: slot S is the step from layer S-1 to layer S
+        self.assertIn("int a = S - 1, b = S + w - 1;", body)
+        self.assertIn('"C67_JOIN=REFUSED\\nC67_JOIN_REFUSED=%s\\n"', src)
+
+    def test_acceptance_script_is_executable_and_names_its_verdict(self):
+        p = os.path.join(self.ROOT, "scripts", "q908_join_accept.sh")
+        self.assertTrue(os.path.isfile(p), "scripts/q908_join_accept.sh is missing")
+        self.assertTrue(os.access(p, os.X_OK), "scripts/q908_join_accept.sh is not executable")
+        with open(p, encoding="utf-8") as fh:
+            src = fh.read()
+        for line in ('echo "Q908_JOIN_ACCEPT=PASS"', 'echo "Q908_JOIN_ACCEPT=FAIL"',
+                     'echo "Q908_JOIN_ACCEPT=ERROR"'):
+            self.assertIn(line, src)
+
+    def test_acceptance_on_n9_n10_ladders(self):
+        sb, vb = self._binaries()
+        if not (os.path.isfile(sb) and os.access(sb, os.X_OK) and
+                os.path.isfile(vb) and os.access(vb, os.X_OK)):
+            self.skipTest("Q908_JOIN_ACCEPT=SKIP:no-compiled-binaries (want %s and %s; set "
+                          "Q908_SOLVE_BIN / Q908_VERIFY_BIN)" % (sb, vb))
+        work = tempfile.mkdtemp(prefix="q908_join_")
+        try:
+            env = dict(os.environ, SOLVE_BIN=sb, VERIFY_BIN=vb, Q908_WORK=work)
+            r = subprocess.run(["bash", os.path.join(self.ROOT, "scripts", "q908_join_accept.sh")],
+                               cwd=self.ROOT, env=env, capture_output=True, text=True)
+            lines = set(r.stdout.splitlines())
+            if r.returncode == 2 and "Q908_JOIN_ACCEPT=ERROR" in lines:
+                self.skipTest("Q908_JOIN_ACCEPT=SKIP:not-runnable (%s)" %
+                              " ".join(l for l in r.stdout.splitlines() if l.startswith("ERROR:")))
+            self.assertIn("Q908_JOIN_ACCEPT=PASS", lines, r.stdout[-4000:] + r.stderr[-1000:])
+            self.assertEqual(r.returncode, 0, r.stdout[-4000:])
+            self.assertIn("Q908_JOIN_FAILS=0", lines)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+# end class TestQ908PinnedWindowJoin
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

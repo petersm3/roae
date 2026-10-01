@@ -10046,3 +10046,7 @@ accept exactly that marker and nothing more.
 - `solve.py --r7-corpus` and `--r7-verify` print `<private design record>` where they printed a path in the operator's private repository, so a re-run reproduces the redacted log line of CX-239. The sha fixture for that log now reads the archived bytes from git history instead of spelling them out.
 - A merge of a tier-2 (`SOLVE_MEMORY_FLUSH_COUNT`) directory now says that its claim-vs-shard check has no count to compare there, instead of passing in silence.
 - The two notes on the pre-registration's Stage T row are reconciled on the escrow page, and the pre-registration itself is not revised.
+
+## 2026-09-30 — a third count of the C1–C7 superspace, read from the stored ladders
+
+The exact number of orderings that satisfy C1, C2, C4, C5, C6 and C7 inside the C3-free superspace, 516,880,238,445,773,965,371,923,491,676,160, has been published since July from two independent calculations that do not touch the stored ladders. A new verifier mode now computes it a third way, from the stored ladder files themselves: it reads one layer of the forward ladder and one of the backward ladder, walks the four pinned positions between them, and adds up the matches. It was first checked against the two older methods and a brute-force search on small instances, then run at full size on the retained ladder bytes, where it printed the same number in 78 seconds (CX-244). It confirms one sum over those two layers, not every entry in them.

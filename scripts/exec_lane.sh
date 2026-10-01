@@ -373,7 +373,7 @@ def unbounded_branch(c):
     could-not-fail shape it exists to refuse. Measured 2026-09-07 on --list, both gating,
     both fence-origin, both published as recipes a reader is meant to paste:
         documentation/SOLVE_C_CLI.md:519   SOLVE_THREADS=128 ./solve 0 128
-        documentation/DEVELOPMENT.md:988   SOLVE_RESUME_HISTORY="..." ./solve 0 64
+        documentation/DEVELOPMENT.md:989   SOLVE_RESUME_HISTORY="..." ./solve 0 64
     time_limit ALSO defaults to 0 (SOLVE_C_CLI.md:199-200, "`0` means run to completion.
     Default 0"), so a MISSING time_limit is the same unbounded run as an explicit `0`.
     Matched on the strip_opt output, before run_one's `./` prefixing, with leading `VAR=...`
@@ -473,7 +473,7 @@ for f in files:
             # A quoted program that spans lines (`python3 -c "` ... `"`) is ONE command: keep
             # joining, newline-separated and indentation kept, until the quotes balance or the
             # fence ends. Measured pre-fix: DISTRIBUTIONAL_ANALYSIS.md:84/432/523 and
-            # VERIFY.md:1102 were extracted as their opening line alone (`python3 -c "`) and each
+            # VERIFY.md:1146 were extracted as their opening line alone (`python3 -c "`) and each
             # ran as an unterminated-quote error, FAIL(rc=2). A block that never balances is
             # still emitted (it fails closed as before) -- a silent drop would hide a defect.
             while more(j) and not balanced(strip_comment(raw)):
