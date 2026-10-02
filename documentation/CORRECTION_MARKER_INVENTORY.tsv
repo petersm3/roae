@@ -10,9 +10,9 @@ CLAUDE.md	388	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
 CLAUDE.md	389	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
 README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	073e3d84aa02
 README.md	146	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
-README.md	289	ledger-link	CORRECTION	n/a	-	not-a-marker	fca6f9b47e6d
-README.md	320	ledger-link	CORRECTION	n/a	-	not-a-marker	f639e1756165
-README.md	325	ledger-link	CORRECTION	n/a	-	not-a-marker	0f47ff4f3a2c
+README.md	290	ledger-link	CORRECTION	n/a	-	not-a-marker	fca6f9b47e6d
+README.md	321	ledger-link	CORRECTION	n/a	-	not-a-marker	f639e1756165
+README.md	326	ledger-link	CORRECTION	n/a	-	not-a-marker	0f47ff4f3a2c
 documentation/BOUNDARY_MINIMUM.md	48	ledger-link	CORRECTION	n/a	-	not-a-marker	5c2b86f94f1e
 documentation/BOUNDARY_MINIMUM.md	48	marker	CORRECTED	1|2	-	unreviewed	5c2b86f94f1e
 documentation/BOUNDARY_MINIMUM.md	68	marker	CORRECTED	1|2	-	unreviewed	1a59ec4f6390
@@ -136,7 +136,7 @@ documentation/DEPLOYMENT.md	806	marker	CORRECTED	1|2	-	unreviewed	a6887a7e7e96
 documentation/DEPLOYMENT.md	1276	marker	CORRECTED	1|2	-	unreviewed	043dad8683eb
 documentation/DESCRIPTION_LENGTH.md	89	marker	CORRECTED	1|2	-	unreviewed	a4a692a42886
 documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	c61cc43645a2
-documentation/DESCRIPTION_LENGTH.md	263	ledger-link	CORRECTION	n/a	-	not-a-marker	f272fca47fba
+documentation/DESCRIPTION_LENGTH.md	264	ledger-link	CORRECTION	n/a	-	not-a-marker	f272fca47fba
 documentation/DEVELOPMENT.md	62	narration	now reads	1|2	-	unreviewed	1b52abae68a7
 documentation/DEVELOPMENT.md	735	narration	now reads	1|2	-	unreviewed	ff1b7fd00155
 documentation/DEVELOPMENT.md	755	narration	now reads	1|2	-	unreviewed	2a05129bdf4b
@@ -203,9 +203,9 @@ documentation/MCKENNA.md	111	ledger-link	CORRECTION	n/a	-	not-a-marker	4a0171a7e
 documentation/MCKENNA.md	122	marker	CORRECTED	1|2	-	unreviewed	6bfd0828d1b1
 documentation/MCKENNA.md	124	ledger-link	CORRECTION	n/a	-	not-a-marker	c78c5123bc89
 documentation/MCKENNA.md	139	ledger-link	CORRECTION	n/a	-	not-a-marker	ffc5d3ef03f9
-documentation/PARITY_ALTERNATION.md	37	ledger-link	RETRACTED	n/a	-	not-a-marker	39c9dfa8ef67
-documentation/PARITY_ALTERNATION.md	92	ledger-link	RETRACTED	n/a	-	not-a-marker	d0b066a41998
-documentation/PARTITION_INVARIANCE.md	92	marker	CORRECTED	1|2	-	unreviewed	303730ca7ac0
+documentation/PARITY_ALTERNATION.md	38	ledger-link	RETRACTED	n/a	-	not-a-marker	39c9dfa8ef67
+documentation/PARITY_ALTERNATION.md	94	ledger-link	RETRACTED	n/a	-	not-a-marker	d0b066a41998
+documentation/PARTITION_INVARIANCE.md	94	marker	CORRECTED	1|2	-	unreviewed	303730ca7ac0
 documentation/PARTITION_STABILITY_BOUNDARIES.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	0e25dd1c67d7
 documentation/PARTITION_STABILITY_BOUNDARIES.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	3254357da7f3
 documentation/PARTITION_STABILITY_BOUNDARIES.md	52	ledger-link	CORRECTION	n/a	-	not-a-marker	8994f6c50536
@@ -246,9 +246,9 @@ documentation/REBUILD_FROM_SPEC.md	438	marker	CORRECTED	1|2	-	unreviewed	27b224f
 documentation/ROAE_PY_CLI.md	297	marker	CORRECTED	1|2	-	unreviewed	3d637f9508dd
 documentation/ROAE_PY_CLI.md	355	ledger-link	CORRECTION	n/a	-	not-a-marker	fa5d2ed2020a
 documentation/ROAE_PY_CLI.md	382	marker	CORRECTED	1|2	-	unreviewed	1a9d70c8317f
-documentation/ROAE_PY_CLI.md	822	marker	CORRECTED	1|2	-	unreviewed	bff6cf9f9f63
-documentation/SAT_CLI.md	77	ledger-link	CORRECTION	n/a	-	not-a-marker	134457b932e4
-documentation/SAT_CLI.md	92	marker	SUPERSEDED	1|2	-	unreviewed	a6342c40e3e4
+documentation/ROAE_PY_CLI.md	823	marker	CORRECTED	1|2	-	unreviewed	bff6cf9f9f63
+documentation/SAT_CLI.md	82	ledger-link	CORRECTION	n/a	-	not-a-marker	134457b932e4
+documentation/SAT_CLI.md	97	marker	SUPERSEDED	1|2	-	unreviewed	a6342c40e3e4
 documentation/SEARCH_SPACE_SIZE.md	3	marker	WITHDRAWN	3	GATE 27	gate-anchored	d2005eee5ef3
 documentation/SEARCH_SPACE_SIZE.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	5d0062947151
 documentation/SEARCH_SPACE_SIZE.md	44	marker	WITHDRAWN	3	GATE 27	gate-anchored	1d4bec207986
@@ -301,15 +301,15 @@ documentation/SOLVE_C_CLI.md	3326	marker	CORRECTED	1|2	-	unreviewed	6e7c42db49bc
 documentation/SOLVE_C_CLI.md	3506	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	b87f2ab29b55
 documentation/SOLVE_C_CLI.md	3512	ledger-link	CORRECTION	n/a	-	not-a-marker	60af68ec6e14
 documentation/SOLVE_PY_CLI.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	76e7c2e90141
-documentation/SOLVE_PY_CLI.md	156	marker	CORRECTED	1|2	-	unreviewed	18eb57e03302
+documentation/SOLVE_PY_CLI.md	156	marker	CORRECTED	1|2	-	unreviewed	d929e80c48aa
 documentation/SOLVE_PY_CLI.md	174	marker	CORRECTED	1|2	-	unreviewed	871c547dbacd
-documentation/SOLVE_PY_CLI.md	306	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2d2b3ac8d
-documentation/SOLVE_PY_CLI.md	331	marker	CORRECTED	1|2	-	unreviewed	3f7511a8ab6b
-documentation/SOLVE_PY_CLI.md	399	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	8b35a66b7c6f
-documentation/SOLVE_PY_CLI.md	566	marker	CORRECTED	1|2	-	unreviewed	388d511cb961
-documentation/SOLVE_PY_CLI.md	1424	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1426	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
-documentation/SOLVE_PY_CLI.md	1630	marker	CORRECTED	1|2	-	unreviewed	adef18abb0c4
+documentation/SOLVE_PY_CLI.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2d2b3ac8d
+documentation/SOLVE_PY_CLI.md	335	marker	CORRECTED	1|2	-	unreviewed	3f7511a8ab6b
+documentation/SOLVE_PY_CLI.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	8b35a66b7c6f
+documentation/SOLVE_PY_CLI.md	570	marker	CORRECTED	1|2	-	unreviewed	388d511cb961
+documentation/SOLVE_PY_CLI.md	1428	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1430	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
+documentation/SOLVE_PY_CLI.md	1634	marker	CORRECTED	1|2	-	unreviewed	adef18abb0c4
 documentation/SOLVE_SUMMARY.md	85	marker	CORRECTED	1|2	-	unreviewed	ee32cf8d5224
 documentation/SOLVE_SUMMARY.md	178	marker	WITHDRAWN	3	GATE 26,GATE 27	gate-anchored	9a9b7c6e5eaf
 documentation/SOLVE_SUMMARY.md	191	marker	CORRECTED	1|2	-	unreviewed	3c5b8586e07b
@@ -339,11 +339,11 @@ documentation/SYMMETRY_SEARCH.md	195	ledger-link	CORRECTION	n/a	-	not-a-marker	8
 documentation/SYMMETRY_SEARCH.md	306	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	428e5d03e66c
 documentation/VERIFY.md	76	marker	CORRECTED	1|2	-	unreviewed	1ef62a3f1feb
 documentation/VERIFY.md	156	marker	CORRECTED	1|2	-	unreviewed	b0831baa9ed2
-documentation/VERIFY.md	945	marker	CORRECTED	1|2	-	unreviewed	fa839526f832
-documentation/VERIFY.md	1010	marker	CORRECTED	1|2	-	unreviewed	51e29f0a7e61
-documentation/VERIFY.md	1222	ledger-link	CORRECTION	n/a	-	not-a-marker	9690cbc0bc97
-documentation/VERIFY.md	1272	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077a58
-documentation/VERIFY.md	1331	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
+documentation/VERIFY.md	948	marker	CORRECTED	1|2	-	unreviewed	fa839526f832
+documentation/VERIFY.md	1013	marker	CORRECTED	1|2	-	unreviewed	51e29f0a7e61
+documentation/VERIFY.md	1225	ledger-link	CORRECTION	n/a	-	not-a-marker	9690cbc0bc97
+documentation/VERIFY.md	1275	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077a58
+documentation/VERIFY.md	1334	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
 enumeration/LEADERBOARD.md	7	marker	CORRECTED	1|2	-	unreviewed	829aed6413ee
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1|2	-	unreviewed	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1|2	-	unreviewed	8ff0ea958479
@@ -352,9 +352,9 @@ lean/README.md	25	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c9
 lean/README.md	71	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	023cb1dfad39
 lean/README.md	78	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	90caebe1d6d7
 lean/README.md	249	marker	CORRECTED	1|2	-	unreviewed	d4ca86898847
-lean/README.md	338	marker	CORRECTED	1|2	-	unreviewed	7e04babdaffb
-lean/README.md	390	marker	CORRECTED	1|2	-	unreviewed	826d33dcd3dd
-lean/README.md	723	marker	CORRECTED	1|2	-	unreviewed	5b5a41a13f81
+lean/README.md	343	marker	CORRECTED	1|2	-	unreviewed	7e04babdaffb
+lean/README.md	395	marker	CORRECTED	1|2	-	unreviewed	826d33dcd3dd
+lean/README.md	728	marker	CORRECTED	1|2	-	unreviewed	5b5a41a13f81
 reports/FULL31_EXACT_AGGREGATES.md	7	marker	CORRECTED	1|2	-	unreviewed	859f11490cbd
 reports/FULL31_EXACT_AGGREGATES.md	15	marker	CORRECTED	1|2	-	unreviewed	44ec9d8de0a7
 reports/FULL31_EXACT_AGGREGATES.md	40	marker	CORRECTED	1|2	-	unreviewed	a8b3e44f5cfe
@@ -392,19 +392,19 @@ reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	819	changelog	now reads	keep
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	824	changelog	CORRECTION	keep	-	revision-row	ab93778c33ff
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	825	changelog	CORRECTION	keep	-	revision-row	dd7365a391d6
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	828	changelog	now reads	keep	-	revision-row	97583c22fb13
-reports/TR12_QUERY_PROGRAM.md	614	marker	CORRECTED	1|2	-	unreviewed	9c5d6f746f87
-reports/TR12_QUERY_PROGRAM.md	927	narration	now reads	3	CITATION LINE GATE,GATE 2c	gate-anchored	c9e146cbc23c
-reports/TR12_QUERY_PROGRAM.md	1274	marker	CORRECTED	1|2	-	unreviewed	205d798de93b
+reports/TR12_QUERY_PROGRAM.md	614	marker	CORRECTED	3	GATE 94 (ADVISORY)(file)	gate-anchored	9c5d6f746f87
+reports/TR12_QUERY_PROGRAM.md	927	narration	now reads	3	CITATION LINE GATE,GATE 2c,GATE 94 (ADVISORY)(file)	gate-anchored	c9e146cbc23c
+reports/TR12_QUERY_PROGRAM.md	1274	marker	CORRECTED	3	GATE 94 (ADVISORY)(file)	gate-anchored	205d798de93b
 reports/TR12_QUERY_PROGRAM.md	1284	ledger-link	CORRECTION	n/a	-	not-a-marker	9d951f2c0a3e
-reports/TR12_QUERY_PROGRAM.md	1728	marker	CORRECTED	1|2	-	unreviewed	5cd736162e40
+reports/TR12_QUERY_PROGRAM.md	1728	marker	CORRECTED	3	GATE 94 (ADVISORY)(file)	gate-anchored	5cd736162e40
 reports/TR12_QUERY_PROGRAM.md	1738	ledger-link	CORRECTION	n/a	-	not-a-marker	61f2a569fa62
-reports/TR12_QUERY_PROGRAM.md	2084	marker	CORRECTED	1|2	-	unreviewed	aa9a1971d4bc
-reports/TR12_QUERY_PROGRAM.md	2097	marker	CORRECTED	1|2	-	unreviewed	fe63899bd2f6
+reports/TR12_QUERY_PROGRAM.md	2084	marker	CORRECTED	3	GATE 94 (ADVISORY)(file)	gate-anchored	aa9a1971d4bc
+reports/TR12_QUERY_PROGRAM.md	2097	marker	CORRECTED	3	GATE 94 (ADVISORY)(file)	gate-anchored	fe63899bd2f6
 reports/TR12_QUERY_PROGRAM.md	2117	ledger-link	CORRECTION	n/a	-	not-a-marker	9cb9fa7f232e
 reports/TR12_QUERY_PROGRAM.md	2150	ledger-link	CORRECTION	n/a	-	not-a-marker	e619af87797b
-reports/TR12_QUERY_PROGRAM.md	2150	marker	CORRECTED	1|2	-	unreviewed	e619af87797b
+reports/TR12_QUERY_PROGRAM.md	2150	marker	CORRECTED	3	GATE 94 (ADVISORY)(file)	gate-anchored	e619af87797b
 reports/TR12_QUERY_PROGRAM.md	2151	ledger-link	CORRECTION	n/a	-	not-a-marker	2b2404425aa0
-reports/TR12_QUERY_PROGRAM.md	2151	marker	CORRECTED	1|2	-	unreviewed	2b2404425aa0
+reports/TR12_QUERY_PROGRAM.md	2151	marker	CORRECTED	3	GATE 94 (ADVISORY)(file)	gate-anchored	2b2404425aa0
 reports/TR12_QUERY_PROGRAM.md	2486	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2f8a91dbc
 reports/TR12_QUERY_PROGRAM.md	2647	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
 reports/TR12_QUERY_PROGRAM.md	2812	changelog	CORRECTION	keep	-	revision-row	8e7f201097bb
@@ -478,7 +478,7 @@ reports/TR5_SYMMETRY.md	258	ledger-link	CORRECTION	n/a	-	not-a-marker	b9b75ef36a
 reports/TR5_SYMMETRY.md	258	marker	CORRECTED	1|2	-	unreviewed	b9b75ef36afc
 reports/TR6_PARITY_SKELETON.md	13	marker	CORRECTED	1|2	-	unreviewed	07b994dbdadb
 reports/TR6_PARITY_SKELETON.md	55	marker	CORRECTED	1|2	-	unreviewed	3c218a3dc97d
-reports/TR6_PARITY_SKELETON.md	199	changelog	now reads	keep	-	revision-row	75b1931269f2
+reports/TR6_PARITY_SKELETON.md	200	changelog	now reads	keep	-	revision-row	75b1931269f2
 reports/TR7_CIRCULAR_READING.md	331	marker	CORRECTED	1|2	-	unreviewed	950598f00a9b
 reports/TR8_REORDERING_REVISITED.md	40	ledger-link	CORRECTION	n/a	-	not-a-marker	757e938cbbe3
 reports/TR8_REORDERING_REVISITED.md	67	ledger-link	CORRECTION	n/a	-	not-a-marker	f012ec6cc68b
@@ -544,4 +544,4 @@ documentation/LARGE_SCALE_CAMPAIGNS.md	-	population	-	3?	GATE 53	count-changed	-
 -	-	population	-	3?	GATE 5	count-changed	-
 -	-	population	-	3?	GATE 86	count-changed	-
 -	-	population	-	3?	GATE 89	count-changed	-
--	-	any-edit	-	n/a	GATE 13	fires-on-any-edit	-
+-	-	population	-	3?	GATE 94 (ADVISORY)	count-changed	-

@@ -269,7 +269,7 @@ PY
 # count (LEG 1's CANONICAL_HASHES.md table). Number words one..twelve are folded to digits.
 # POPULATION printed: LEG 1 headings (floor 1), LEG 2 restatements (printed, no floor).
 # MEASURED BEFORE LANDING (2026-09-02): pre-fix (`89e7a9a1`: CANONICAL_HASHES.md heading 8 over 7
-# rows; PARTITION_INVARIANCE.md:294 "(7 independent witnesses total)") -> 2 HITs, rc 1; live -> 8 over
+# rows; PARTITION_INVARIANCE.md:296 "(7 independent witnesses total)") -> 2 HITs, rc 1; live -> 8 over
 # 8 rows, "eight independent paths" restatement = 8, rc 0; mutation (live heading 8 -> 9) -> HIT rc 1.
 gate_witness_count() {
   echo "== GATE 58: 'N independent paths/witnesses' equals the rows of its table; 11.2T restatements agree =="
@@ -1149,7 +1149,7 @@ PY
 # The judged population is every blank-line paragraph of every other tracked *.md that links >= 3
 # distinct ledger keys as `CITATIONS.md#anchor` — i.e. that is already enumerating the chain. Such
 # a paragraph must name EVERY ledger key, as a link OR as the bibliography surname in plain prose
-# (accent-folded). The plain-prose arm is not a softening: SYMMETRY_SEARCH.md:483 names Goldenberg
+# (accent-folded). The plain-prose arm is not a softening: SYMMETRY_SEARCH.md:485 names Goldenberg
 # in running text and links the other six, and a link-only predicate would have failed correct
 # published content — MEASURED, 1 false positive of 2 paragraphs.
 # 🔴 VERIFIER-CLOSURE / NEEDLE-REACHABILITY GUARD: the >= 3 trigger is read off the checked

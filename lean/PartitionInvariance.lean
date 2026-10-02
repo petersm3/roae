@@ -38,12 +38,19 @@
     `merge_append_congr`, `merge_map_merge_flatten`) — dedup placement
     irrelevance: pre-merging any shard subset, at any interior node of any
     aggregation tree, leaves the root output unchanged (per-thread hash-table
-    dedup, shard-level dedup, Phase-B re-merges, --merge-layers composition).
+    dedup, shard-level dedup, Phase-B re-merges, and --merge-layers
+    composition where it min-selects — solve.c's --merge-layers REPLACES a
+    same-named earlier-layer shard wholesale rather than min-selecting, so
+    for two layers holding different records under one shard name T4 applies
+    only after that replacement; the composition is covered when the later
+    shard is a superset of the earlier one, as on a resumed continuation).
   · T5 `grouping_invariance`   — the empirically-validated headline theorem
     (1 full-parallel invocation vs 56 single-branch invocations): the same
     cell family, regrouped/reordered arbitrarily, merges identically — for
     ANY deterministic per-cell shard function E (budgeted or exhaustive; this
-    is why the 5.6T c34390c0 budgeted double-regression sha-matches, and why
+    is why the 5.6T c34390c0 budgeted double-regression sha-matches — a sha
+    CANONICAL_HASHES.md has since recorded as irreproducible from any extant
+    commit; the same-path match it witnessed stands — and why
     cross-depth BUDGETED runs are structurally NOT covered — different index
     families admit no common E, reproducing the prose doc's §3 scope
     restriction as a feature of the statement).
@@ -83,10 +90,13 @@
     (T4).
   · B4 (serialization is a function): header + record stream contain no
     timestamps/build IDs (SOLUTIONS_FORMAT.md), so equal record lists give
-    byte-identical solutions.bin files and equal sha256. Stated as narrative
-    only — `congrArg sha` would be content-free and SHA-256 is not modeled.
+    byte-identical DECOMPRESSED solutions.bin streams and equal sha256 (the
+    sha anchors the decompressed bytes; the on-disk file is gzip-framed at a
+    configurable SOLVE_GZIP_LEVEL, sha-neutral at any level, so the framed
+    bytes are not promised identical). Stated as narrative only —
+    `congrArg sha` would be content-free and SHA-256 is not modeled.
 
-  Given B1–B4 the theorems yield byte-identical canonical artifacts across
+  Given B1–B4 the theorems yield stream-identical canonical artifacts across
   any invocation grouping (T5), any partition/depth under exhaustion (T3),
   any merge hierarchy of the same scope (T4), and any shard order (T1).
 
@@ -481,8 +491,9 @@ theorem mem_merge_iff (h : MergeOrder le key) {l : List α} {x : α} :
     Min-selection is an idempotent, commutative, associative aggregation
     (design §1, bridge fact B3): dedup may happen at any intermediate point
     — per-thread hash table, per-cell shard, final merge, Phase-B re-merge
-    of archived shards, --merge-layers composition — without changing the
-    final bytes. -/
+    of archived shards, --merge-layers composition (min-selection only: the
+    shipped --merge-layers replaces a same-named earlier shard wholesale, see
+    the T4 note in the header) — without changing the final bytes. -/
 
 /-- being class-minimal over `merge A ++ B` transfers down to `A ++ B`
     (route the class through A's retained representative + transitivity). -/
@@ -796,7 +807,8 @@ theorem perm_flatMap {ι : Type w} (E : ι → List α) :
     in any order, merges identically. `E` is an ARBITRARY function from cell
     indices to shard contents — no exhaustion, no relation to a global S —
     which is why this covers fixed-per-sub-branch-budget runs
-    (SOLVE_PER_SUB_BRANCH_LIMIT; the 5.6T c34390c0 double-regression) as
+    (SOLVE_PER_SUB_BRANCH_LIMIT; the 5.6T c34390c0 double-regression, a sha
+    since recorded as irreproducible from any extant commit) as
     well as exhaustive ones, and why it does NOT cover cross-depth budgeted
     runs (different index families share no E). Combined with T4, any
     partition of the index list into invocation groups with per-group

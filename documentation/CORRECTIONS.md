@@ -24994,3 +24994,381 @@ path reads no t census). `c_q10a.txt`, the current-code reproduction, was regene
 `check_receipts.sh --emit-c-q10a`; it differs from the previous copy in those two lines only.
 `SHA256SUMS` and the bundle README follow.
 
+## CX-247 — published-text residue from the Codex v3 review and four backlog rows: the XA-a producer is named, the ladder identities are called integrity checks, the report covers stop promising a command for every measured result, TR-4's estimator commands run as printed, seven performance-history sentences are scoped, three history claims are corrected here, `--color` says what it colours, and a scratch path is ignored (documentation/QUERY_INVENTORY.md; solve.c; documentation/SOLVE_C_CLI.md; reports/TR1_EIGHT_CENTURIES_MEASURED.md to reports/TR12_QUERY_PROGRAM.md, all twelve; reports/README.md; documentation/SOLVE_SUMMARY.md; documentation/SEARCH_SPACE_SIZE.md; documentation/PERFORMANCE_HISTORY.md; documentation/ROAE_PY_CLI.md; documentation/RETRACTED_PHRASES.tsv; .gitignore; tests.py; ledger only for documentation/HISTORY.md)
+
+**2026-10-01.** Origin: backlog rows Q-65, Q-326 (item 8, the text half), Q-759 and Q-763 (the
+remainders of the Codex v3 review's batches 5 and 6, an external review adjudicated by Fable),
+Q-410 (item e) and Q-514. Landed by Opus lane A31. **No published number, count, sha, theorem or
+verdict moves.** One projection in PERFORMANCE_HISTORY.md (part 6) is marked as not derived, and its
+measured ratio stands. Retracted needles: keys RP-2c15de03, RP-a073715c, RP-f93a6a30 and RP-146667e6.
+Test: class `TestA31PublishedTextResidue` in `tests.py`.
+
+**1. Q-65: the XA-a row named a producer that did not exist.** In QUERY_INVENTORY.md §3, the
+"Produced by" cell of row XA-a still carried the pre-landing pending marker, even though
+`reports/tr12/xa_branches.tsv` is published. The cell now names the real producer:
+`python3 solve.py --atlas-queries $OUT/atlas.json --atlas-out $OUT`. Its writer is
+`atlas_emit_xa` in `solve.py`, and the tr12 row that runs it is `c_consumer`
+(`TR12_ATLAS_CONSUMER`). Row `c_xa_ab` (`TR12_XA_AB`) recomputes the two sum gates in awk and bc.
+The published TSV's header is that writer's (`branch pair entry exit d solutions share
+prefixes_t_units t_source walks kw`), not the awk row's. The XA-c/d cell, which is held for an
+operator decision, is untouched.
+
+**2. Q-326 item 8: "independent exact identities".** The `--kc-g-check` and `--kc-t-check` help
+strings and the KC-T header comment in `solve.c` called the per-layer ladder identities
+*independent*. The count (31 at full-31, n+1 per t ladder) is right and the identities are exact.
+But they hold for any transition DAG from which the ladders were built consistently (Codex A05), so
+*independent* invited an evidential reading. All three sites now call them integrity checks on the
+files, as documentation/GT_LADDER_FORMAT.md has since 2026-09-03. Each edit keeps its line count,
+so no line citation into `solve.c` moves. The `--kc-g-check` usage dump in SOLVE_C_CLI.md was
+regenerated from the new literal: its adjacent C string literals were joined and the whitespace
+collapsed. That rule reproduces the old dump byte for byte from the old `solve.c`. `git grep -n
+'independent exact identit'` now finds only GT_LADDER_FORMAT.md's dated scoping note. The change is
+help text only, so the `--selftest` sha does not move; the build and that check run on the worker.
+The transition-independent oracle (the code half of item 8) is not part of this entry.
+
+**3. Q-759, Codex V3B-08 #22: the report covers' reproduction promise.** All twelve TR covers opened
+with "Every MEASURED result carries a reproduction command". Several reports flag, at the claim,
+results that have none (TR-5 v2.14 (b) names three). TR-5's edit on 2026-09-02 declined to soften
+the banner in one report, because GATE 9 pins it byte-identical across all of them, and queued the
+sweep. The banner now says that every MEASURED result carries a reproduction command or says at the
+claim that it has none. The reports index has said the second half since its own revision. The same
+edit is made in all twelve covers, in the index's opening sentence and in SOLVE_SUMMARY.md's copy
+of the promise. Each block keeps its six lines, and the scope clause GATE 9 requires is unchanged.
+The new wording is strictly weaker than the old, so it cannot be less true than it. It is not an
+audit that every report flags every gap: a measured result with no command and no flag would
+falsify both wordings. Every changed report gains a revision row: TR-1 v1.39, TR-2 v1.40, TR-3
+v1.18, TR-4 v1.38, TR-5 v2.23, TR-6 v1.13, TR-7 v2.11, TR-8 v1.20, TR-9 v1.32, TR-10 v1.20, TR-11
+v1.33 (its cover's version line follows) and TR-12 v1.25.
+
+**4. Q-759, Codex V3B-07 #31: TR-4's estimator commands.** TR-4's Verification Guide printed
+`solve --estimate-knuth …` three times, directly after a build line that writes `./solve`, which a
+shell does not find as bare `solve`. The commands now read `./solve`. The two sampled ones also gain
+a `SOLVE_THREADS=<T>` pin, because METHODS.md requires a sampled command to carry its thread count.
+The note beside them says the superseded 5×10⁸ draw's thread count was not recorded, so a re-run
+reproduces a draw, not those digits. No concrete count is written, because none is on record and
+inventing one would fabricate provenance. SEARCH_SPACE_SIZE.md's reproduction line carried the same
+three commands and is fixed the same way. TR-9's executive summary quotes the old whole-tree command
+while narrating the pre-2026-09-02 state, and is left as it is. The thread-pin ratchet G2 in
+`scripts/gate_published_consistency.sh` stays at 9, so its pin is unchanged.
+
+**5. Q-759, the rest of the batch-5 remainder.** V3B-03 is TR-12's lens-B target. Fable ruled all 43
+of its findings on 2026-09-19, and none of them is in the batch-5 record, so this row has no V3B-03
+item left. PREREG_H1_H3 items #2, #4 and #5 are escrowed pre-registration text and stay frozen.
+
+**6. Q-763, Codex V3A-039 #4–#8: PERFORMANCE_HISTORY.md.** Each site gets a dated note on its own
+line, so no line moves.
+- #4. The paired v1/v2 1T comparison called records per budget "the cleaner cross-build comparison"
+  at two sites. The crossover bullet compared depth-2 benches with depth-3 canonicals. The engine
+  splits the node budget evenly over the partition's cells, and depth 2 has 3,030 cells against
+  depth 3's 158,364. So at one total budget the per-cell budgets differ about 52× (158,364 / 3,030 =
+  52.27), and neither ratio isolates the build.
+- #5. "Perf-neutral by construction" holds on a clean run only. On the resume path, the pre-fix
+  guard re-walked 31,897,530 nodes, 63.8% of the 50M PHASE_A budget (DEVELOPMENT.md, the
+  `scripts/selftest_resume_167_gate.sh` measurement).
+- #6. "checkpoint.txt … is the sole resume input — no slow shard-file scan needed" is corrected.
+  `promote_orphaned_shards()` opens the run directory and reads every entry to find unlisted
+  `sub_*.bin` shards. The measurement showed that this scan was fast, not that it is absent.
+- #7. The 5.6T projection "11.4d → ~5.6d … per 35→95% util ratio. Confirmed by 1T extrapolation"
+  does not follow. 11.4 / 5.6 = 2.04 is the 1T wall ratio (3430 / 1679 = 2.043), not the utilisation
+  ratio (95 / 35 = 2.71). And a linear extrapolation of the 1T wall, 3,430 s × 5.6 = 19,208 s, is
+  about 5.3 h, not 11.4 d. The measured 2.04× at 1T stands, but the days are not derived.
+- #8. The AVX2/AVX-512 bench compared `-mno-avx512*` with `-march=native` on x86 only. Its "NEON-only
+  pilot is sufficient" is an inference from the scalar-bound profile, not a measurement on NEON or
+  SVE2.
+The arithmetic was re-measured with `python3 -c "print(158364/3030, 3430/1679, 95/35, 11.4/5.6,
+3430*5.6/3600, 31897530/50e6)"`, which prints 52.265…, 2.0429…, 2.7143…, 2.0357…, 5.3356… and
+0.63795…. Items #1–#3 were fixed under CX-82.
+
+**7. Q-763, Codex V3A-030 #2–#4: HISTORY.md, corrected here because that file is append-only.**
+- `documentation/HISTORY.md:4892`, "60.4% of 560T's records come from cells that yielded NOTHING at
+  11.2T" (repeated at `:5029`). The two sides are keyed differently. The 11.2T side counts 24,152
+  yielding cells from the deduplicated output, keyed by the orientation each record retained. The
+  560T side counts 65,281 cells from the pre-dedup shards, and `:1373` records 56,874 shards behind
+  the 11.2T merge. So "41,129 cells had zero solutions at 11.2T", and the 60.4% derived from it,
+  compare two cell notions. `:5029-5031` concedes the two notions and does not repair the count. The
+  figure is not re-derived here, because that needs the 11.2T per-shard table. Until it is, read the
+  60.4% and the 41,129 as unreconciled across keyings, not as a measurement under one keying.
+- `documentation/HISTORY.md:5148`, "(had any been an invalid ordering, it would have survived dedup
+  and moved the sha)". The merge's dedup comparator `compare_canonical` in `solve.c` masks each
+  byte with `0xFC`, which drops the orientation bits. So an invalid orientation variant whose key
+  equals a valid record's is erased by dedup, and it does not move the sha. The conclusion, localized
+  over-emission of duplicates, still stands on the record counts. The parenthetical argument for it
+  does not.
+- `documentation/HISTORY.md:754` ("mandatory in every minimum-boundary set") and `:4861` ("appear in
+  every minimum set across all canonicals"). `solve --analyze` §[6] returns one greedy path per
+  dataset, breaking ties toward the lower index, and PARTITION_STABILITY_BOUNDARIES.md scopes the
+  exhaustive check to triples and quadruples. Read both as "every **greedy-ordered**
+  minimum-boundary set", as that file and the README already say.
+Three batch-6 findings stay with Fable, who rules on them: V3A-020 #3, V3A-025 #5, and the
+double-count half of V3A-018 #3. CLAUDE.md is the operator's and is not edited.
+
+**8. Q-410 item e: `--color`.** ROAE_PY_CLI.md said `--color` enables "ANSI color in terminal
+output". `use_color` reaches only `print_table` (the binary column, yang red and yin blue) and
+`print_pairs` (the Reverse/Inverse labels), and every other section ignores it. The row now says
+so. `roae.py`'s own argparse help, "Enable ANSI color output", is outside the registry's corpus
+and is unchanged. The declaration-metadata leg in GATE 2 (`cli`) is not built here and stays named
+in the row.
+
+**9. Q-514: the query-evidence scratch path.** The scripts/v4_query_evidence directory is now in
+the public `.gitignore`. A review lane once wrote working files there inside a checkout. Nothing under it is
+tracked (`git ls-files scripts/v4_query_evidence` is empty before and after), so the line hides
+no tracked file. `git check-ignore -q scripts/v4_query_evidence/probe` exits 1 before the change
+and 0 after it.
+
+## CX-248 — five gates now measure what they claim: G2 of the published-consistency gate and GATE 22's hash universe fail closed when their grep fails, tests.py can swap in a mutated solve.py or sat.py, the TR-12 golden set is reconciled with the battery's rows, withdrawn phrasings are derived from this ledger (advisory), citations that land only on a weak line are counted (advisory), and the execution lane runs a dependent fenced block as one chain (scripts/gate_published_consistency.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/99_retract_derived.sh; scripts/doc_gates.sh; scripts/tr12_golden_set_gate.sh; scripts/tr12_repro_gate.sh; scripts/citation_line_gate.sh; scripts/exec_lane.sh; solve.py; tests.py)
+
+**2026-10-01.** Origin: backlog rows Q-887 (lane HAG, the sibling of Q-883), Q-885 (lane HAF),
+Q-884 (Fable E4, Part 2: two assurance gaps with no check), Q-572 and Q-435 (its chain-carry half,
+whose design was settled on 2026-09-07). No published number, sha, count or reproduction parameter
+moves. Each fix below was shown red on the unfixed form and green on the fix.
+
+**1. Q-887 (blocking).** G2 of `scripts/gate_published_consistency.sh` ran its producer as
+`grep -rnE ... reports/ documentation/ 2>/dev/null | grep -v ... || true`. A grep that failed with
+rc 2 therefore read as zero hits. With a PATH grep shim that refused only G2's pattern, the ratchet
+printed "G2 fell to 0 from a pinned 9 — TIGHTEN THE PIN" and the verdict stayed PASS-AT-PIN. G2 now
+gets the cure CX-238 gave G1. Both roots must exist and be readable. The producer runs alone, so its
+rc is branched on: 0 means hits, 1 means none, and 2 or more is a FAIL whose population is
+unmeasured. The leg prints `G2_FILES_SCANNED=N` and fails below `G2_FLOOR` (250, against 375 files
+measured on public main). Any of those failures forces `PUBLISHED_CONSISTENCY=FAIL` through
+`G2_ERR` at the ratchet. `G2_ROOT` points the leg at a scratch root for the tests. The minor sibling
+is GATE 22's 64-nibble universe grep (`scripts/doc_gates.d/70_publication_surfaces.sh`). It ran
+`git grep ... HEAD 2>/dev/null` with no rc check. In a clean tree that failed closed, through the
+empty-universe FAIL, but nothing named the cause. In a dirty tree the working-tree leg refilled the
+universe, and the gate reported a list of unresolvable tokens instead. Its rc is now captured, and
+rc 2 or more is a FAIL that names the universe producer. Tests: `TestQ887G2PopulationAndGrepRc`
+(the shim case is FAIL on the fix; a copy with the old G2 block put back is not FAIL; root-missing
+and below-floor are FAIL) and `TestQ887Gate22UniverseRc`.
+
+**2. Q-885.** `tests.py` could swap the C sources under test (`ROAE_TESTS_SOLVE_SRC`,
+`ROAE_TESTS_VERIFY_SRC`) but not the Python ones. A red run against a mutated `solve.py` therefore
+needed a one-off harness. `ROAE_TESTS_SOLVEPY_SRC` and `ROAE_TESTS_SATPY_SRC` now redirect three
+things: every in-process load, every subprocess run of the script, and the in-process
+`import solve` / `import sat`, which includes `sat.py`'s own import of `solve`. Unset, the command
+lines are byte-for-byte what they were. Some uses are not redirected, by design: tests that read
+the source text, `python3 -c "import ..."` smoke runs, and a subprocess `sat.py`'s own import of
+`solve`. These are listed in the comment beside the helper. Test: `TestQ885PySourceOverride`. A
+copy of `solve.py` with a planted marker is seen on all three paths when the variable is set and
+on none when it is unset. A `tests.py` whose loader ignores the variable does not see it. One
+comment in `solve.py` cites two `tests.py` lines that the new header moved. It now names the new
+lines; the code is unchanged.
+
+**3. Q-884.** Two gaps that no check covered.
+*GAP-2 (blocking).* Nothing reconciled the n=9 golden files under `scripts/tr12_expected/n9/` with
+the battery's own row list. A row deleted from `scripts/tr12_repro.sh` left its golden unread, and
+a golden deleted together with its manifest line read as a smaller battery with no FAIL. The new
+`scripts/tr12_golden_set_gate.sh` reads the row ids statically and prints
+`TR12_GOLDEN_SET=PASS|FAIL`. The row ids come from `row_begin`, `row_skip`, `ladder_row` and
+`indep_ladder_row`. Each of these is a FAIL: an orphan golden; a golden missing from
+`_MANIFEST.txt`; a manifest entry with no file; and a row with no golden, unless one of its tokens
+is pinned NOT RUN in `_EXPECTED_SKIPS.txt`. `b_atlas_supplied`, whose expected block is derived
+from `b_scan.txt`, is also exempt. Measured: 77 row ids and 60 goldens reconcile, and 17 rows have
+no golden, each pinned or derived. It is a blocking leg of `scripts/tr12_repro_gate.sh`. It sits
+beside the two other battery-shape legs and runs before the stamp is written, so a tree with an
+orphan cannot be stamped as reproducing. Every golden deleted with its manifest line was caught,
+except `a0_q7_resolve`. That row is pinned opt-in at n=9, so the default battery does not run it;
+with the opt-in, the battery itself fails with no-expected-block. Test: `TestQ884TR12GoldenSet`.
+*GAP-1 (advisory, not blocking).* Withdrawn phrasings were enforced only against
+`documentation/RETRACTED_PHRASES.tsv`, which is kept by hand. The new GATE 94 (`doc_gates.sh
+retract-derived`, in `all` and report-only) derives candidates from this ledger. A candidate is a
+quoted string of 14 to 240 characters that follows "read", "said", "was", "stated", "claimed",
+"named" or "printed". The gate prints `RETRACT_DERIVED=PASS` or `RETRACT_DERIVED=ADVISORY n=<k>`
+for the k candidates the registry does not register. It also prints how many of them are still
+present in a tracked page outside the ledgers. Measured on public main: 66 candidates, 65
+unregistered, 35 of those still present. Most are narration or the corrected wording, which is why
+the leg is advisory. Test: `TestQ884RetractDerived`. A fixture with one unregistered quote gives
+`ADVISORY n=1` with exit 0, and the same quote registered gives `PASS`.
+
+**4. Q-572 (advisory, not blocking).** In `--all-files` mode, `scripts/citation_line_gate.sh` let a
+.c, .py, .md or .tsv citation land when any mined identifier appeared within two lines of the cited
+span. The rarity rule that tightens this bound only .sh targets. A new content rule flags a landing
+as content-weak in two cases. The first is that it lands only through a common identifier (one on
+more than three lines of the target) that is off the cited span. The second is that the only cited
+line carrying it is a print call that passes it as an argument. That second case is the row's
+worked example, a citation of "the read loop bounded by n_records" that sat on a `printf` passing
+`n_records`. The count is printed as `CITATION_CONTENT_RULE=PASS|ADVISORY n=<k>` against a pin of
+24, and `CITATION_LINE_GATE` never moves. Measured on public main: 24 landings are flagged, 20 off
+the span and 4 on a print argument. Reading them found most to be correct citations. In those, the
+cited line states the claim in prose while the identifier sits on the next line, or the claim is
+that a value is printed. About six are one or two lines off. Repairing them is left to a later
+batch, so the row stays open. Test: `TestQ572CitationContentRule`. On a fixture repository the
+print-argument citation is `ADVISORY n=1` with the verdict still PASS, and the correct citation is
+`PASS`. A copy without the rule misses it.
+
+**5. Q-435, chain-carry (blocking).** `scripts/exec_lane.sh` ran every documented command alone, keyed
+by its text. A consumer of an earlier fenced step's output was therefore graded by itself, and a
+consumer of a `/tmp` file read whatever an earlier run had left there. The f5 evidence block's
+`diff ... /tmp/f5_modec_fiber_rerun.out` could pass with its producer never run. The extractor now
+also keeps each fenced block's steps in order, including `cd` lines. A block in a gating document
+is run once more as one cwd chain when a later step names a path that an earlier step also names,
+and that path is absent from the tree, under `/tmp`, or in the earlier step's output position. In
+the chain, state carries from a step only while it passed; any other outcome resets the
+workspace. A consumer whose producer did not pass is `CHAINBREAK-AFTER-<n>`, a skip and never a
+PASS. One whose producer passed without writing the path is `CHAINBREAK-AFTER-<n>` as a gating
+FAIL. Reference blocks are denied the chain: the first fence under a Synopsis, Usage or Options
+heading, or a block that is at least one-third placeholders. The budget is per block, and a chain
+step that rewrites a tracked path is reported, never refused. Every `/tmp/` path a command names is
+now redirected into the workspace in both phases. A stale file outside the workspace can no longer
+satisfy a consumer, and the real file is never touched. The chain phase can add a FAIL and cannot
+remove one, because its tallies (`EXEC_LANE_CHAINS`, `EXEC_LANE_CHAIN_{PASS,FAIL,SKIP}`,
+`EXEC_LANE_CHAINBREAK`) are separate from the per-command ones. `FAIL-UNBOUNDED` is unchanged.
+Measured with `--list` on public main: 12 chained blocks. Test: `TestQ435ExecLaneChainCarry`. The
+real lane runs on fixture trees. A consumer of a file its producer never wrote is
+`CHAINBREAK-AFTER-1` and the lane FAILs, where the old behaviour passed. A pre-seeded stale `/tmp`
+file no longer satisfies the consumer; the old behaviour graded it PASS. A valid chain passes, and
+a Usage block is not chained. The full lane over the corpus, which builds `solve`, runs on the
+worker with the batch.
+
+`scripts/tr12_expected/_GATE_STAMP.txt` is re-stamped on the worker, because `tests.py`,
+`solve.py`, `scripts/tr12_repro_gate.sh` and this ledger are fingerprinted inputs.
+
+## CX-249 — the Lean modules' comments and scope notes said more than their theorems prove at forty sites, four SAT/CNF command-line edges answered a missing operation with exit 0, a traceback, a stale companion file or silence, and two batch-6 sentences (a gender-rule attribution and a counting-rule tally) were wrong; the comments now say what is proved, each edge refuses by name, and the two sentences say what is true (lean/C3Decomposition.lean; lean/CompilerCorrectness.lean; lean/KingWen.lean; lean/PartitionInvariance.lean; lean/PruneExactness.lean; lean/PruneGInvariance.lean; lean/PruneReprFC.lean; lean/RecordConvention.lean; lean/SatEncodingFidelity.lean; lean/SymmetryCompleteness.lean; lean/TrigramTheorems.lean; lean/README.md; lean/C1RuleConstants.lean; README.md; documentation/SYMMETRY_SEARCH.md; documentation/VERIFY.md; documentation/DESCRIPTION_LENGTH.md; documentation/PARITY_ALTERNATION.md; documentation/PARTITION_INVARIANCE.md; documentation/PARTITION_STABILITY_BOUNDARIES.md; documentation/TRIGRAM_STRUCTURE.md; documentation/PROJECT_OVERVIEW.md; documentation/SPECIFICATION.md; documentation/MCKENNA.md; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt; reports/TR9_PRICING_THE_CONSTRAINTS.md; reports/TR6_PARITY_SKELETON.md; sat.py; solve.py; documentation/SAT_CLI.md; documentation/SOLVE_PY_CLI.md; tests.py; scripts/doc_gates.d/99_lsd_text.sh; documentation/RETRACTED_PHRASES.tsv; citation re-pins in documentation/QUERY_INVENTORY.md, documentation/SOLVE_C_CLI.md, reports/TR1_EIGHT_CENTURIES_MEASURED.md, scripts/doc_gates.d/70_publication_surfaces.sh, scripts/doc_gates.d/80_repro_reach_claim_shapes.sh, scripts/doc_gates.d/90_claim_artifacts.sh, scripts/doc_gates.d/95_derived_figures_scope.sh, scripts/exec_lane.sh, scripts/tr12_repro.sh, solve.c)
+
+**2026-10-01.**
+
+**Source.** Two reviews by Codex (gpt-6-astra), each adjudicated by Fable. (1) The v3 E3 batch-4
+adjudication (Q-754): 63 confirmed findings across the twelve Lean targets and eleven documentation
+targets, of which the seven P1/P2 items were fixed under CX-78 and the remaining **56 P3 items** —
+comments, headers, docstrings and scope notes; no theorem claimed wrong — are this entry's first
+part. (2) The Lean/SAT/DRAT review's row R22 (Q-410, the `sat.py` and `solve.py --sat-encode`
+command-line edges), its second part. **No theorem statement, definition or proof changed; every
+`.lean` edit is a comment, a docstring or a `#print axioms` directive. No emitted CNF byte changed**
+(the `plain` and rigidity formulas emitted by the previous `sat.py` and this one are byte-identical,
+`sha256` `5d5c3594…` and `88444fba698a898ad359c48dff0299d1a6b48ca6ab759ff827ce0ea03927f8bb` on both). No published number moved.
+
+**Part 1 — the 56 P3 items, dispositioned one by one.** Sixteen were already fixed when this sweep
+began and are recorded, not re-fixed: nine under CX-231 (the C3Decomposition header's "end to end",
+CompilerCorrectness's zlib/`dedup`/"does not exist on this branch" sentences, PartitionInvariance's
+prefix-length note, PruneExactness's plain-vs-quotient range — with Q-778's dated note —
+PruneGInvariance's inert-couple convention, PruneReprFC's "trap", RecordConvention's `dedup`
+docstring); five under CX-232 (lean/README's DIV-24 gate attribution, its null-law wording and its
+"computable generator" clause; SYMMETRY_SEARCH's change-count invariance scoped to G₆; README's
+"no code" sentence); one under CX-245 (CompilerCorrectness's KB1–KB7 summary); one under CX-78
+(LEADERBOARD's 1.72-bit figure). The other **forty** are fixed here. Per module:
+
+- *C3Decomposition.lean* — the KB7 scope note no longer credits a two-language gate that `solve.c`
+  says is not built: KB7 is pending, derived but unverified. The axiom-audit block, which promises a
+  directive for every theorem a public document cites by name, gains the two it lacked
+  (`c3slot_ge_12`, `c3_ge_112`; HISTORY.md had already asked for them). The suite's `#print axioms`
+  line count therefore moves 193 → 195.
+- *CompilerCorrectness.lean* — `canon` idempotence is argued from group closure and witnessed by the
+  `[kc-scan]` orbit-image F1_CHECK; `f1_canon` itself carries no F1_CHECK.
+- *KingWen.lean* — the equivariance-ceiling docstring says the mass must factor through a
+  G-invariant score (the theorem takes `mass (score r)`); a constant score with enumeration-order
+  tie-breaking is G-invariant and selects King Wen outright, so invariance alone is not the
+  hypothesis.
+- *PartitionInvariance.lean* — T4's `--merge-layers` composition is scoped: the shipped mode
+  replaces a same-named earlier shard wholesale rather than min-selecting. B4 promises
+  byte-identical decompressed streams, not files (the on-disk framing varies with the gzip level,
+  sha-neutrally). The 5.6T `c34390c0` witness carries, at both mentions, the irreproducibility
+  CANONICAL_HASHES.md records for it; documentation/PARTITION_INVARIANCE.md carries the same
+  parenthetical at its two sites (V3A-036#1, the sibling).
+- *PruneExactness.lean* — gate G5 (capped ≡ uncapped-then-filter) is labelled a proposed acceptance
+  test at its three mentions: `solve.c`'s only G5 is a KC gate and no capped G prune exists. The
+  budget-kill `p_d < B0_d` is no longer credited to `capping_exact`, whose `hMbound` premise B0 does
+  not satisfy (the first full-31 completion uses {2,7,13,8,1} against {2,8,13,7,1}); it is the
+  exact-consumption guard PruneReprFC.lean states separately.
+- *PruneGInvariance.lean* — the per-cell work `min(tree, B)` is a bridge-fact qualification: the
+  shipped recursive DFS stops only the branch that exhausted the budget, so counted work can exceed
+  B and depends on sibling order. The orbit cost identity is written as a sum over orbits of four
+  sizes (14 of 6, 270 of 12, 1736 of 24, 2362 of 48 — 158,364 cells, mean 36.14), not one
+  `|orbit|` factor. "The live predicate in solve.c" names the v4-compiler lineage; main has neither
+  `mw_pos` nor `inevitable` and applies C3 at completed leaves.
+- *PruneReprFC.lean* — the top-call budget sum is κ·(np − 1) = 62, not κ·np = 64 (slot 0 forced).
+- *lean/README.md* — the 2026-08-07 audit's "7 and 35" are reported as constants carrying a
+  non-standard axiom at their `native_decide` sites, with the note that on the pinned toolchain a
+  `native_decide` proof surfaces as an `ax_*` axiom with zero `ofReduceBool` (measured 2026-09-04,
+  same section), that the token the old report printed is not on record, and that the revision is
+  gone and cannot be re-run.
+- *RecordConvention.lean* — the agreement statement names its hypothesis (every cell holding a
+  variant of the key exhausted, not one cell: cells key on orientation bits). B5 is scoped to
+  single-traversal modes (a parallel `--sub-branch` run shares one budget). The non-nesting
+  theorem is credited with non-nesting; the partition effect is budgeted visiting. The 2026-08-15
+  sweep carries its coverage: stopped early, nine chunks agreeing, manifest unpublished.
+- *SatEncodingFidelity.lean* — leg (iii)'s cardinality identity is a corollary of
+  `decode_bijection` at the abstract level; `verify.py`'s recurrence counts valid walks and reads
+  no CNF, and no certified model count exists at n = 13. The review ids B1, S01, S03 are labelled
+  private review records.
+- *SymmetryCompleteness.lean* — the W2 witness family is gate SC-8 (W2 × 1824), not SC-5/SC-6.
+- *TrigramTheorems.lean* — `uChange`/`lChange` are functionals of the oriented list (King Wen gives
+  (59, 58), its ρ-image — the same record — (58, 59)), so a record-level battery must fix an
+  orientation convention; only those two functionals are shown preserved under G₆. TG-4.3 is
+  conditional on the original h (`nuc` is not injective: `nuc 0 = nuc 1 = 0`), so the pairing
+  does not descend. McKenna & McKenna 1975 are credited with the observation at King Wen; the
+  universal is the file's theorem. documentation/TRIGRAM_STRUCTURE.md's binding ledger says the
+  same (V3A-060#1).
+- *Documentation* — SYMMETRY_SEARCH names the order-4 subgroup G₁₂ shares with Hershock's group;
+  VERIFY says a T3 PASS licenses the rank stream (duplicates are printed, never failed), calls the
+  convolution output an unconditional printout that can exclude only i.i.d. m-fold sums with
+  m ≥ 8, and adds "C3-valid" to the fiber sweep's arbitrary ordering; README uses TR-10's own
+  phrase and names its one exception; DESCRIPTION_LENGTH (and TR-9 §4, v1.33) condition the
+  105.4-bit residual on C1–C7, since the gender-rule row is priced but not counted;
+  PARITY_ALTERNATION says the prune cannot fire before the tenth pair (nothing rejectable through
+  nine pairs; a small fraction is rejectable at the tenth) and quotes the C5-tightening conclusion whole (two
+  routes, one declined; TR-6 §1, v1.14, likewise); PARTITION_STABILITY_BOUNDARIES defines a
+  boundary as the seam between pair slots k and k+1 and agreement as pair identity at both, which
+  is what the analyzer counts; PROJECT_OVERVIEW scopes the kept orient variant to those the run
+  encountered (twice), names C1's reverse-priority rule as the XOR theorem's hypothesis (MCKENNA.md
+  likewise; GUIDE.md already had the scoped form), and replaces an underived "~7 %" with the
+  measured one determined position of 32; SPECIFICATION's pseudocode checks C6 at step 28 and C7 at
+  step 26, where their pins are complete, and labels the ~20.6-bit statement cost underived as its
+  source does.
+
+**Part 2 — the four command-line edges.** (a) A recognised `sat.py` modifier with no subcommand
+(`--with-c3`, `--expect 26113`, `--c3-max 800` alone) was stripped, left an empty argument list, and
+the no-argument branch printed the catalogue and exited 0; it now exits 1 naming the modifier.
+(b) A solver `v` line carrying a non-integer token in `--witness` was an uncaught `ValueError`
+with exit 1 and no token; it is now `WITNESS_RESULT=SOLVER_ERROR`, exit 2. (c) `solve.py
+--sat-encode` with `--sat-c3 none|adder` wrote a fresh CNF and a sidecar saying `out_opb: null`
+beside an OPB left by an earlier `pb` run — an OPB lacking the new constraints, whose existence the
+sidecar's documented meaning denied; such a run now refuses before writing anything, exit 2.
+(d) `--sat-c3 pb --sat-c5` printed no deferred-C5 warning because the condition keyed on `--sat-c3`
+not being `pb`; the warning now keys on the deferred records themselves. SAT_CLI.md and
+SOLVE_PY_CLI.md document each refusal.
+
+**Guards.** GATE 93 (`lsd-text`) gains 36 legs keyed `Q754-*`, one per changed Lean phrase and per
+additive `.md` scoping, each anchored on a line that must still exist so an emptied file cannot
+pass; read through `DOC_GATE_LSD_REF=38feb643` (the tree before this entry) all 36 FAIL and the
+gate prints `LSD_TEXT_GATE=FAIL`; on this tree all pass. The retired `.md` phrases are fifteen
+RETRACTED_PHRASES.tsv rows cited here by key and never restated: RP-0d52fc82, RP-809b8ebd,
+RP-16a890bb, RP-1bb7c93c, RP-4c8cabdd, RP-98553554, RP-1f2ef294, RP-2f8b4275, RP-b8101bca,
+RP-550fe616, RP-408d33a5, RP-e9614c75, RP-51a95f3b, RP-5b72e16c, RP-9723527d (each needle present
+on 38feb643 — 1 to 3 sites — and absent from every `.md` now). `tests.py` gains
+`TestG31SatCliEdges` (nine tests, 1085 → 1094): each edge has a green test on this tree and a red
+test that loads the previous `sat.py` or `solve.py` from `38feb643` and asserts the old behaviour
+(exit 0 with the catalogue; the traceback with no token; the stale OPB accepted with `null`; no
+warning line), with the precondition of each probe asserted first (the modifier is recognised; the
+stub solver is the one found on PATH; the stale file is untouched; the sidecar carries a deferred
+record beside a real OPB); a ninth test pins the emitted-CNF byte equality above. The twenty
+`file:line` citations the Lean and `solve.py` edits shifted were moved with them, including
+comment-only re-pins in `solve.c`, `scripts/tr12_repro.sh` and `lean/C1RuleConstants.lean`; the
+TR-12 reproduction stamp is re-recorded with the batch. No Lean toolchain, solver or compiler ran
+on the drafting host; the Lean leg of `reports/certificates/verify_all.sh` (fifteen modules, the
+source census, 195 allowlisted directive reports), `--selftest` on the rebuilt binary and the full
+`tests.py` are the integrator's checks.
+
+**Part 3 — the three batch-6 items left UNSETTLED (Q-763), ruled.** *(i) V3A-020#3 — CONFIRMED.*
+The alias-reach registry says every surviving site of the gender/position-parity rule is
+Schulz-primary or co-lists Schulz; `documentation/PARITY_ALTERNATION.md` credited Cook (2006) alone
+for "a gender/position-valence parity rule over his 36-class ordering". By the project's own citation
+record the rule over the 36 consolidated units is Schulz 1990's motif 2 ("originates here", first-hand
+read 2026-07-08) and Cook is its elaborator; Cook's formulation — each non-neuter class at a position
+whose parity matches its gender, one marked exception — is the rule `solve.py`'s `rc4_violations`
+scores. So the site was a surviving Cook-alone site and the registry sentence was false there. Fixed
+by co-listing Schulz as primary at that site; guard `Q763-U1` in GATE 93 (red on 38feb643). The
+ruling rests on the citation record and on a reading of Cook's statement of the rule, not on a
+side-by-side reading of the two original texts. *(ii) V3A-025#5 — CONFIRMED.* The instruments
+registry said three counting rules "disagree on 4 of the 10 rows" at `23e9fd3`. Re-executed on that
+revision's `scripts/doc_gates.sh` under the two rules exactly as the sentence states them (command
+position at line start; a word followed by space, tab or `;` on non-comment lines; definitions
+excluded), reproducing its four published numbers (57/6/0/0 and 61/9/5/4) as the positive control,
+**six** rows disagree: `_selftest_revert` (20 vs 16) and `_selftest_release` (0 vs 2) as well as the
+four the sentence discusses. The sentence now says six and names the two; guard `Q763-U2` (red on
+38feb643). If the 2026-08-02 measurement used an unrecorded variant of the rules, "4" was true of
+that variant, which is not the one stated. *(iii) V3A-018#3, the double-count half — CONFIRMED and
+already CURED (CX-174).* At the pin, `agg->total_records_emitted += records` summed every sidecar
+write, and each write's `records_emitted` is the shard's whole count at that write (an extension or
+resume reloads the prior records first), so a shard written twice was counted twice: measured by
+CX-174 as 60,390 reported against 39,597 held. `solve.c` now adds each sidecar's last write once.
+The resume case rides the same write path as the measured extension; a resume-shaped two-phase
+run compared by `--compare-provenance` has not been executed and is the confirming check, not a
+condition of this ruling. Nothing to apply.

@@ -68,6 +68,19 @@
 #      an absent population is not a clean one. Evidence bundles under reports/evidence/ are
 #      outside the leg (their figures resolve through the bundle's `Reproduce:` directive,
 #      not a per-figure window) and are COUNTED, not silently dropped. Runs in --list too.
+#   3c. CHAIN-CARRY (Q-435, 2026-10-01; design settled 2026-09-07). The inventory is keyed by command
+#      TEXT, so a fenced block's order is lost and a consumer that needs an earlier step's output ran
+#      alone (and was graded SKIP-MISSING-INPUT, or worse, read a stale copy). The extractor now also
+#      keeps an ORDERED per-block list, and a block with a real dependency (a later step names a path
+#      an earlier step names, the path being absent from the tree, under /tmp, or in the earlier
+#      step's OUTPUT position) runs once more as ONE cwd chain, its `cd` lines carried. A consumer
+#      whose producer did not PASS is CHAINBREAK-AFTER-<n> (a skip, never a PASS); one whose producer
+#      PASSED without writing the path is CHAINBREAK-AFTER-<n> as a gating FAIL. Reference blocks
+#      (first fence under SYNOPSIS/USAGE/OPTIONS, or >= 1/3 SKIP-PLACEHOLDER) are denied the chain.
+#      Every /tmp/ path a command names is redirected into the workspace (both phases), so a stale
+#      file left by an earlier run can no longer satisfy a consumer. Tokens: EXEC_LANE_CHAINS,
+#      EXEC_LANE_CHAIN_{PASS,FAIL,SKIP}, EXEC_LANE_CHAINBREAK. The chain phase can add a FAIL and can
+#      never remove one; FAIL-UNBOUNDED rows are never executed in either phase.
 #   4. VERDICT: EXEC_LANE=PASS only if no gating FAIL. Machine-checkable tokens
 #      (grep -qx): EXEC_LANE=PASS|FAIL|ERROR|INTERRUPTED, plus EXEC_LANE_{EXTRACTED,RUN,PASS,FAIL,SKIP}=N,
 #      plus EXEC_LANE_ERROR=<cause> alongside ERROR or INTERRUPTED. 🔴 2026-09-08: the four
@@ -148,6 +161,7 @@ BUILD_BUDGET="${EXEC_LANE_BUILD_BUDGET:-300}"
 # ---------------------------------------------------------------- 1. EXTRACT
 # Generative extraction: every tracked *.md, three source shapes, no curated command list.
 INV="$(mktemp "${TMPDIR:-/tmp}/exec_lane_inv.XXXXXX")"
+CHAINS="$(mktemp "${TMPDIR:-/tmp}/exec_lane_chains.XXXXXX")"   # Q-435: ordered per-block chains
 # Shared normalisation helpers, loaded by BOTH python blocks below (the extractor and the
 # MEASURED-figure leg) so the two can never disagree about what a command's key is.
 HELP="$(mktemp "${TMPDIR:-/tmp}/exec_lane_help.XXXXXX")"
@@ -218,9 +232,10 @@ def norm_cmd(c):
     if c.startswith('$ '): c = c[2:]
     return strip_comment(strip_opt(c))
 PYHELP
-python3 - "$ROOT" "$HELP" > "$INV" <<'PYEOF'
+python3 - "$ROOT" "$HELP" "$CHAINS" > "$INV" <<'PYEOF'
 import os, re, shlex, shutil, subprocess, sys
 ROOT = sys.argv[1]
+CHAINS_OUT = sys.argv[3]
 exec(open(sys.argv[2], encoding='utf-8').read())
 files = [f for f in subprocess.run(['git','-C',ROOT,'ls-files','*.md'],
          capture_output=True, text=True).stdout.split('\n') if f]
@@ -418,10 +433,12 @@ def pick_cwd(f, c):
     return '.'
 seen = {}
 def emit(f, ln, origin, raw, ulimit_ctx):
+    """Record one command in the deduplicated inventory. Returns (class, key) for a command it
+    records, None otherwise -- the Q-435 block walker below needs the class of every fence line."""
     c = strip_comment(strip_opt(raw.strip()))
-    if not c or c.startswith('#'): return
-    if not cmd_shaped(c, need_args=(origin == 'inline')): return
-    if origin == 'fence' and fence_reject(c): return
+    if not c or c.startswith('#'): return None
+    if not cmd_shaped(c, need_args=(origin == 'inline')): return None
+    if origin == 'fence' and fence_reject(c): return None
     t = tok0(c)
     cls = 'BUILD' if t in ('cc','gcc','clang','g++') else 'RUN'
     if ops_deny(c): cls = 'SKIP-OPS'
@@ -444,16 +461,116 @@ def emit(f, ln, origin, raw, ulimit_ctx):
     e['gat'] = max(e['gat'], gating(f)); e['ctx'] = max(e['ctx'], ulimit_ctx)
     e['origins'].add(origin)
     if len(e['src']) < 3: e['src'].append(f'{f}:{ln}')
+    return cls, key
+# ---- Q-435 CHAIN-CARRY: the ordered per-block list (design settled 2026-09-07) -----------------
+# The inventory above is keyed by command TEXT, so a fenced block's order and membership do not
+# survive it. It stays the unit of REPORTING; this second structure is the unit of CHAIN execution.
+# Rules, from the settled design:
+#   (D2) fence rows only, within one file, in document order; `cd DIR` lines are steps too (they
+#        carry the cwd and are never extracted as commands, which is why the f5 block's consumer
+#        could not find its golden when run alone).
+#   (D1) chain-carry is a GRANT, denied to REFERENCE blocks: the first fence under a SYNOPSIS / USAGE
+#        / OPTIONS heading, or a block whose extracted lines are >= 1/3 SKIP-PLACEHOLDER.
+#   A block is chained only when it has a DEPENDENCY: a RUN step names a path an earlier step also
+#   names, and that path is (a) absent from the baseline tree, (b) under /tmp (quarantined, so absent
+#   by construction), or (c) present but named by the earlier step in an OUTPUT position (`> P`,
+#   `>> P`, `-o P`, `--out P`, `--output P`). (c) is the tracked-file carve-out: a consumer that
+#   would otherwise read the pristine tracked copy of an artifact its producer never rewrote.
+#   Blocks with no dependency gain nothing from a chain and are left to the per-command phase.
+CHAIN_ROWS = []
+def _paths(c):
+    """(path-like word, in-output-position) pairs of a command, judged outside quotes."""
+    try:
+        w = shlex.split(c.replace('\n', ' '))
+    except ValueError:
+        w = c.split()
+    while w and re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', w[0]):
+        w = w[1:]                                      # leading VAR=val assignments
+    w = w[1:]                                          # the program itself is not an artifact
+    out = []
+    nxt_out = False
+    for x in w:
+        if x in ('>', '>>', '-o', '--out', '--output'):
+            nxt_out = True; continue
+        m = re.match(r'^(?:\d?>>?|--out(?:put)?=)(.+)$', x)
+        if m:
+            x, isout = m.group(1), True
+        else:
+            isout, nxt_out = nxt_out, False
+        if x.startswith('-') or not re.match(r'^[A-Za-z0-9_./~+-]+$', x):
+            continue
+        if os.path.basename(x) in ('solve', 'verify'):
+            continue                                   # built by the BUILD phase, not by the block
+        if ('/' in x or '.' in x) and not re.match(r'^[0-9.]+$', x) and x not in ('.', '..'):
+            out.append((x, isout))
+    return out
+def finish_block(f, start, heading, first_under, steps):
+    if not gating(f) or len([s for s in steps if s[1] == 'CMD']) < 2:
+        return
+    cmds = [s for s in steps if s[1] == 'CMD']
+    if (first_under and re.search(r'(?i)\b(synopsis|usage|options)\b', heading)) or \
+       3 * sum(1 for s in cmds if s[2] == 'SKIP-PLACEHOLDER') >= len(cmds):
+        return                                         # (D1) a reference block: no chain grant
+    rows, named, dep_any, cur = [], {}, False, None
+    for i, (ln, kind, cls, c, ctx) in enumerate(steps, 1):
+        if kind == 'CD':
+            cur = os.path.normpath(os.path.join(cur or '.', c))
+            rows.append([f'{f}:{ln}', str(i), 'CD', '-', cur, '0', '-', c]); continue
+        cwd = cur if cur is not None else pick_cwd(f, c)
+        deps = []
+        for tok, isout in _paths(c):
+            if cls != 'RUN':
+                continue
+            # The path itself, or the nearest ANCESTOR an earlier step named: a producer that writes
+            # a directory (`run_v3_rows.sh ... /tmp/v3rows_out`) feeds `grep ... /tmp/v3rows_out/X`.
+            anc = [tok] + [tok[:k] for k in range(len(tok) - 1, 0, -1) if tok[k] == '/']
+            cand = [named[a] for a in anc if a in named and named[a][0] != i]
+            if not cand:
+                continue
+            # The PRODUCER: the latest step that named the path (or an ancestor) in an OUTPUT
+            # position; failing that, the FIRST step that named it at all.
+            outs = [x for x in cand if x[1]]
+            j, jout = max(outs) if outs else min(cand)
+            tmp = tok.startswith('/tmp/')
+            absent = not tok.startswith('/') and not os.path.exists(os.path.join(ROOT, cwd, tok))
+            if tmp or absent or jout:
+                deps.append(f'{j}:{tok}')
+        for tok, isout in _paths(c):
+            if isout:
+                named[tok] = (i, True)                 # an OUTPUT naming makes this step the producer
+            elif tok not in named:
+                named[tok] = (i, False)                # else the FIRST step that names it
+        dep_any = dep_any or bool(deps)
+        rows.append([f'{f}:{ln}', str(i), 'CMD', cls, cwd, str(ctx), ';'.join(deps) or '-', c])
+    if dep_any:
+        # ROLE: only producers (named by a later dependency) and consumers (carry one) RUN in the
+        # chain; every other step was already executed by the per-command phase and nothing in the
+        # block depends on it, so re-running it would only double the lane's cost.
+        prod = {d.split(':', 1)[0] for r in rows for d in r[6].split(';') if d != '-'}
+        for r in rows:
+            r.insert(4, 'CD' if r[2] == 'CD' else
+                     ('PC' if r[1] in prod and r[6] != '-' else 'P' if r[1] in prod else
+                      'C' if r[6] != '-' else '-'))
+        nrun = sum(1 for r in rows if r[4] not in ('-', 'CD') and r[3] == 'RUN')
+        for r in rows:
+            CHAIN_ROWS.append([f'{f}:{start}', str(nrun)] + r)
 for f in files:
     try: lines = open(os.path.join(ROOT,f), encoding='utf-8', errors='replace').read().split('\n')
     except OSError: continue
     ul = [i for i,L in enumerate(lines) if 'ulimit -s' in L]
     def ctx(i): return 1 if any(j <= i for j in ul) else 0   # requirement stated EARLIER in file
     in_f = False; i = 0
+    heading, nfence_under, bstart, bsteps = '', 0, 0, []
     while i < len(lines):
         L = lines[i]
         if re.match(r'^\s*```', L):
+            if in_f:
+                finish_block(f, bstart, heading, nfence_under == 1, bsteps)
+            else:
+                nfence_under += 1; bstart = i+1; bsteps = []
             in_f = not in_f; fence_ind = re.match(r'^\s*', L).group(0); i += 1; continue
+        if not in_f and re.match(r'^#{1,6}\s', L):
+            heading, nfence_under = L, 0
         if in_f:
             # A fence inside a list item is indented; markdown renders its content with that
             # indentation removed, so that is the verbatim form a reader copies. Measured
@@ -473,12 +590,18 @@ for f in files:
             # A quoted program that spans lines (`python3 -c "` ... `"`) is ONE command: keep
             # joining, newline-separated and indentation kept, until the quotes balance or the
             # fence ends. Measured pre-fix: DISTRIBUTIONAL_ANALYSIS.md:84/432/523 and
-            # VERIFY.md:1146 were extracted as their opening line alone (`python3 -c "`) and each
+            # VERIFY.md:1149 were extracted as their opening line alone (`python3 -c "`) and each
             # ran as an unterminated-quote error, FAIL(rc=2). A block that never balances is
             # still emitted (it fails closed as before) -- a silent drop would hide a defect.
             while more(j) and not balanced(strip_comment(raw)):
                 j += 1; raw = raw + '\n' + dedent(lines[j].rstrip())
-            emit(f, i+1, 'fence', raw, ctx(i)); i = j+1; continue
+            mcd = re.match(r'^cd\s+([A-Za-z0-9_./-]+)\s*$', strip_comment(raw))
+            if mcd:
+                bsteps.append((i+1, 'CD', '-', mcd.group(1), 0))
+            else:
+                r = emit(f, i+1, 'fence', raw, ctx(i))
+                if r: bsteps.append((i+1, 'CMD', r[0], r[1], ctx(i)))
+            i = j+1; continue
         if 'Reproduce:' in L:
             para = L; j = i
             while j+1 < len(lines) and lines[j+1].strip() and not lines[j+1].strip().startswith('```'):
@@ -489,6 +612,9 @@ for f in files:
         for cmd in re.findall(r'`([^`\n]+)`', L):
             emit(f, i+1, 'inline', cmd, ctx(i))
         i += 1
+with open(CHAINS_OUT, 'w', encoding='utf-8') as fh:
+    for r in CHAIN_ROWS:
+        fh.write('\t'.join(r[:-1] + [r[-1].replace('\n', '\x1e')]) + '\n')
 for key, e in seen.items():
     org = 'inline' if e['origins'] == {'inline'} else '+'.join(sorted(e['origins']))
     print('\t'.join([e['cls'], str(e['gat']), str(e['ctx']), e['cwd'], org,
@@ -506,7 +632,7 @@ if [ "$EXTRACT_RC" -ne 0 ]; then
   echo "  would be vacuous."
   echo "EXEC_LANE_ERROR=extractor-failed"
   echo "EXEC_LANE=ERROR"
-  rm -f "$INV" "$HELP"; exit 1
+  rm -f "$INV" "$HELP" "$CHAINS"; exit 1
 fi
 N_EXTRACTED=$(wc -l < "$INV")
 if [ "${N_EXTRACTED:-0}" -eq 0 ]; then
@@ -514,7 +640,7 @@ if [ "${N_EXTRACTED:-0}" -eq 0 ]; then
   echo "  broken extractor, not a clean tree; refusing to report a lane result."
   echo "EXEC_LANE_ERROR=zero-commands-extracted"
   echo "EXEC_LANE=ERROR"
-  rm -f "$INV" "$HELP"; exit 1
+  rm -f "$INV" "$HELP" "$CHAINS"; exit 1
 fi
 # ---------------------------------------------------------------- 1b. MEASURED-FIGURE LEG
 # Resolution is judged by THIS lane's own extractor: a window command counts only if the
@@ -581,7 +707,7 @@ if [ "$MEAS_RC" -ne 0 ]; then
   echo "  so 'every MEASURED figure resolves' would be vacuous. Refusing to report a lane result."
   echo "EXEC_LANE_ERROR=measured-leg-could-not-run"
   echo "EXEC_LANE=ERROR"
-  rm -f "$INV" "$HELP" "$MEAS_OUT"; exit 1
+  rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"; exit 1
 fi
 NMEAS_UNRES=$(sed -n 's/^EXEC_LANE_MEASURED_UNRESOLVED=//p' "$MEAS_OUT" | tail -1)
 case "$NMEAS_UNRES" in ''|*[!0-9]*)
@@ -589,15 +715,18 @@ case "$NMEAS_UNRES" in ''|*[!0-9]*)
   echo "  The MEASURED-figure leg printed no EXEC_LANE_MEASURED_UNRESOLVED count."
   echo "EXEC_LANE_ERROR=measured-leg-no-count"
   echo "EXEC_LANE=ERROR"
-  rm -f "$INV" "$HELP" "$MEAS_OUT"; exit 1 ;;
+  rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"; exit 1 ;;
 esac
 
 if [ "$MODE" = "list" ]; then
   sort -t$'\t' -k1,1 "$INV" | awk -F'\t' '{gsub(/\x1e/," ⏎ ",$7); printf "%-17s gat=%s %-13s %-28s %s\n",$1,$2,$5,$6,$7}'
   echo; echo "== MEASURED figures in reports/TR*.md (window resolution, not executed) =="
   cat "$MEAS_OUT"
+  echo; echo "== CHAINED blocks (Q-435: a fenced block run as ONE cwd chain because a step depends on an earlier one) =="
+  awk -F'\t' '{gsub(/\x1e/," ⏎ ",$NF); printf "%-44s step %-2s %-3s %-16s role=%-2s cwd=%-28s deps=%s  %s\n",$1,$4,$5,$6,$7,$8,$(NF-1),$NF}' "$CHAINS"
+  echo "EXEC_LANE_CHAINS=$(cut -f1 "$CHAINS" | sort -u | grep -c .)"
   echo "EXEC_LANE_EXTRACTED=$N_EXTRACTED"; echo "EXEC_LANE_SCOPE=LIST-ONLY"
-  rm -f "$INV" "$HELP" "$MEAS_OUT"; exit 0
+  rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"; exit 0
 fi
 
 # ---------------------------------------------------------------- 2. WORKSPACE
@@ -626,7 +755,7 @@ lane_kill_and_cleanup() {
   if [ -n "$WS" ] && [ -d "$WS" ]; then
     if [ "${EXEC_LANE_KEEP:-0}" != "1" ]; then rm -rf "$WS"; elif [ -n "$LANE_SIG" ]; then echo "workspace kept: $WS"; fi
   fi
-  rm -f "$INV" "$HELP" "$MEAS_OUT"
+  rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"
   if [ -n "$LANE_SIG" ]; then
     [ -n "$LOGDIR" ] && echo "logs kept: $LOGDIR"
     echo "EXEC_LANE_ERROR=interrupted-by-SIG$LANE_SIG"; echo "EXEC_LANE=INTERRUPTED"
@@ -674,7 +803,7 @@ if ! git -C "$WS" add -A; then
   echo "  and every verdict below would be against the wrong tree."
   echo "EXEC_LANE_ERROR=workspace-index-unstageable"
   echo "EXEC_LANE=ERROR"
-  rm -f "$INV" "$HELP" "$MEAS_OUT"; rm -rf "$WS" "$LOGDIR"; exit 1
+  rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"; rm -rf "$WS" "$LOGDIR"; exit 1
 fi
 echo "workspace: $WS  (scratch copy of tracked files; nothing runs in the real tree)"
 echo "logs:      $LOGDIR"
@@ -812,9 +941,10 @@ last_stage_tok() {  # first token of the LAST pipeline stage, quoted spans blank
 
 run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   local cls="$1" gat="$2" ctx="$3" cwd="$4" org="$5" src="$6" cmd="$7"
-  local budget="$BUDGET"; [ "$cls" = "BUILD" ] && budget="$BUILD_BUDGET"
-  IDX=$((IDX+1))
-  local log="$LOGDIR/$(printf '%03d' "$IDX").log"
+  local budget="${CHAIN_BUDGET:-$BUDGET}"; [ "$cls" = "BUILD" ] && budget="$BUILD_BUDGET"   # Q-435: a chain step gets what is LEFT of its block's budget
+  local log
+  if [ "${CHAIN_MODE:-0}" = "1" ]; then CIDX=$((CIDX+1)); log="$LOGDIR/c$(printf '%03d' "$CIDX").log"   # EXEC_LANE_RUN stays the per-command count
+  else IDX=$((IDX+1)); log="$LOGDIR/$(printf '%03d' "$IDX").log"; fi
   # A multi-line quoted program travels through the inventory with its newlines as \x1e (one TSV
   # row per command); restore them for execution and show them as a visible mark in reports.
   local execmd="${cmd//$'\x1e'/$'\n'}" show="${cmd//$'\x1e'/ ⏎ }"
@@ -822,6 +952,15 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
                           # what the documented-failure lookup must match (measured 2026-09-02:
                           # `solve --extended-selftest` vs the doc's span, missed on the first run)
   case "$execmd" in solve\ *|solve) execmd="./$execmd" ;; verify\ *|verify) execmd="./$execmd" ;; esac
+  # Q-435 OUT-OF-WORKSPACE QUARANTINE. `git clean` resets only the workspace, so a command that names
+  # /tmp/X read whatever a PREVIOUS run (of this lane, or of a person reproducing the doc) had left
+  # there: reports/evidence/f5's `diff f5_modec_fiber.out /tmp/f5_modec_fiber_rerun.out` printed PASS
+  # with the producer never run, as long as a stale copy existed. Every /tmp/ path a command names is
+  # redirected into $WS/.lane_tmp/, which starts empty and is cleaned with the workspace, so the only
+  # /tmp file a command can see is one this run's own producer wrote. The doc's text ($asdoc, $show)
+  # is unchanged; only the executed form is.
+  mkdir -p "$WS/.lane_tmp"
+  execmd="$(sed -E "s#(^|[[:space:]\"'=>(:])/tmp/#\1$WS/.lane_tmp/#g" <<<"$execmd")"
   # A failed link UNLINKS its output (ld's default). Measured 2026-09-02 on the full lane: BUILD
   # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3591, a quoted pre-fix line)
   # failed as documented and took the `solve` that BUILD 17 had just built with it; 167 RUN
@@ -939,7 +1078,7 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qE "projected fsync-wait|SOLVE_ALLOW_SLOW_IOPS" <<<"$out"; then
     outcome="SKIP-RESOURCE(disk-IOPS pre-check refused — host disk too slow, not claim)"
   elif grep -qiE "no such file|cannot open|cannot read|\[Errno 2\]|no .* files found" <<<"$out"; then
-    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:241)
+    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:246)
     # says "--decode 'model.txt': no such file" -- lowercase, no "or directory" -- and was FAIL(rc=1)
     if [ "$cls" = "BUILD" ]; then
       outcome="FAIL(build cannot find a source or header its compile line names — the tree does not ship what the recipe compiles)"
@@ -969,9 +1108,21 @@ $(tail -c 2000 "$ref")"; fi
       FRAG_LINES="$FRAG_LINES  UNJUSTIFIED $src  $show"$'\n'
     fi
   else outcome="FAIL(rc=$rc)"; fi
-  git -C "$WS" checkout -q -- . 2>/dev/null
-  git -C "$WS" clean -fdqx -e solve -e verify >/dev/null 2>&1
+  if [ "${CHAIN_MODE:-0}" != "1" ]; then     # Q-435: inside a chain the state CARRIES to the next step
+    git -C "$WS" checkout -q -- . 2>/dev/null
+    git -C "$WS" clean -fdqx -e solve -e verify >/dev/null 2>&1
+  fi
   outcome="$outcome$restored"
+  RUN_OUTCOME="$outcome"; RUN_DT=$dt
+  if [ "${CHAIN_MODE:-0}" = "1" ]; then       # chain tallies are separate, so per-command ones never move
+    case "$outcome" in
+      PASS*) NCP=$((NCP+1));;
+      FAIL*) NCF=$((NCF+1)); NF=$((NF+1)); FAIL_LINES="${FAIL_LINES}CHAIN $outcome  $src  $show"$'\n';;
+      *) NCS=$((NCS+1));;
+    esac
+    printf '%-4s %-52s %3ss  %s\n     src: %s  (chain step, cwd %s)\n' "c$CIDX." "$outcome" "$dt" "$show" "$src" "$cwd"
+    return 0
+  fi
   case "$outcome" in
     PASS*) NP=$((NP+1));;
     FAIL*) if [ "$gat" = "1" ]; then NF=$((NF+1)); else outcome="$outcome[NONGATING]"; NFN=$((NFN+1)); fi
@@ -1001,6 +1152,90 @@ while IFS=$'\t' read -r cls gat ctx cwd org src cmd; do
   if [ -n "$ONLY" ] && ! grep -qE "$ONLY" <<<"$cmd"; then continue; fi
   run_one "$cls" "$gat" "$ctx" "$cwd" "$org" "$src" "$cmd"
 done < "$INV"
+
+# ---------------------------------------------------------------- 3c. CHAINS (Q-435)
+# CHAIN-CARRY IS A GRANT, NOT A DEFAULT (design settled 2026-09-07). Each chained block (see the
+# extractor) runs in ONE workspace, in document order, its `cd` lines carrying the cwd. State passes
+# from step n to a later step only while n PASSED: after any other outcome the workspace is reset and
+# the rest of the block runs from the restored baseline. Before a consumer runs, every dependency it
+# carries is checked:
+#   - its producer did not PASS                        -> CHAINBREAK-AFTER-<producer>  (a skip, not a
+#     verdict: the producer's own outcome is already reported, and it is never a PASS)
+#   - the path was removed by a reset after step <r>   -> CHAINBREAK-AFTER-<r>         (a skip)
+#   - its producer PASSED and the path does not exist  -> CHAINBREAK-AFTER-<producer>  GATING FAIL: the
+#     block publishes a consumer of a file its own producer never writes
+# Only producers and consumers run here; every other step was run by the per-command phase. This
+# phase can ADD a FAIL and can never remove one: its PASS/SKIP tallies are separate tokens and the
+# per-command tallies above are untouched, so a chain cannot turn a red lane green. (B) The budget is
+# per BLOCK: EXEC_LANE_BUDGET x the number of steps that run, shared in order.
+NCHAIN=0; NCP=0; NCF=0; NCS=0; NCB=0; CIDX=0
+chain_reset() { git -C "$WS" checkout -q -- . 2>/dev/null; git -C "$WS" clean -fdqx -e solve -e verify >/dev/null 2>&1; }
+if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then
+  echo
+  echo "== CHAINED blocks (Q-435: one cwd chain per block; CHAINBREAK-AFTER-<n> = a step depends on step n's output) =="
+  chain_reset
+  _bid=""; declare -A COUT=(); _reset_after=0; _cd_broken=0; _left=0
+  while IFS=$'\t' read -r cbid cnrun csrc cidx ckind ccls crole ccwd cctx cdeps ccmd; do
+    if [ "$cbid" != "$_bid" ]; then
+      [ -n "$_bid" ] && chain_reset
+      _bid="$cbid"; COUT=(); _reset_after=0; _cd_broken=0
+      _left=$(( BUDGET * (cnrun > 0 ? cnrun : 1) )); NCHAIN=$((NCHAIN+1))
+      echo "-- chain $cbid  (block budget ${_left}s, $cnrun step(s) run) --"
+    fi
+    cshow="${ccmd//$'\x1e'/ ⏎ }"
+    if [ "$ckind" = "CD" ]; then
+      if [ -d "$WS/$ccwd" ]; then COUT[$cidx]="PASS"
+      else
+        COUT[$cidx]="FAIL(chain: cd target does not exist)"; _cd_broken=$cidx; NCF=$((NCF+1)); NF=$((NF+1))
+        FAIL_LINES="${FAIL_LINES}CHAIN FAIL(chain: cd target does not exist)  $csrc  cd $cshow"$'\n'
+      fi
+      printf '     step %-3s %-52s cd %s\n' "$cidx" "${COUT[$cidx]}" "$cshow"; continue
+    fi
+    if [ "$crole" = "-" ]; then COUT[$cidx]="UNCHAINED"; continue; fi
+    if [ "$ccls" != "RUN" ]; then
+      COUT[$cidx]="NOT-RUN($ccls)"; printf '     step %-3s %-52s %s\n' "$cidx" "${COUT[$cidx]}" "$cshow"; continue
+    fi
+    _brk=""; _brkg=0; _why=""
+    [ "$_cd_broken" -gt 0 ] && { _brk=$_cd_broken; _why="the block's cd at step $_cd_broken failed"; }
+    if [ -z "$_brk" ] && [ "$cdeps" != "-" ]; then
+      IFS=';' read -ra _dl <<<"$cdeps"
+      for _d in "${_dl[@]}"; do
+        _j="${_d%%:*}"; _tok="${_d#*:}"; _o="${COUT[$_j]:-NOT-RUN}"
+        case "$_o" in PASS*) ;; *) _brk=$_j; _why="step $_j did not PASS ($_o); $_tok is its output"; break ;; esac
+        case "$_tok" in /tmp/*) _p="$WS/.lane_tmp/${_tok#/tmp/}" ;; /*) _p="$_tok" ;; *) _p="$WS/$ccwd/$_tok" ;; esac
+        if [ ! -e "$_p" ]; then
+          if [ "$_reset_after" -gt "$_j" ]; then _brk=$_reset_after; _why="$_tok was removed by the reset after step $_reset_after"
+          else _brk=$_j; _brkg=1; _why="step $_j PASSED but never produced $_tok"; fi
+          break
+        fi
+      done
+    fi
+    if [ -n "$_brk" ]; then
+      COUT[$cidx]="CHAINBREAK-AFTER-$_brk($_why)"
+      if [ "$_brkg" = 1 ]; then
+        NCF=$((NCF+1)); NF=$((NF+1)); FAIL_LINES="${FAIL_LINES}CHAIN FAIL ${COUT[$cidx]}  $csrc  $cshow"$'\n'
+      else NCB=$((NCB+1)); fi
+      printf '     step %-3s %s\n               %s\n' "$cidx" "${COUT[$cidx]}" "$cshow"; continue
+    fi
+    # The classifier's side counters belong to the per-command census; a chain re-run must not
+    # count the same published line twice there.
+    _sv="$NDIFFU|$NFRAG|$NFRAGU|$NUNDOC|$NBLDMISS"; _svd="$DIFF_LINES"; _svf="$FRAG_LINES"
+    CHAIN_MODE=1 CHAIN_BUDGET=$(( _left > 1 ? _left : 1 )) run_one RUN 1 "$cctx" "$ccwd" fence "$csrc" "$ccmd"
+    IFS='|' read -r NDIFFU NFRAG NFRAGU NUNDOC NBLDMISS <<<"$_sv"; DIFF_LINES="$_svd"; FRAG_LINES="$_svf"
+    _left=$(( _left - RUN_DT )); COUT[$cidx]="$RUN_OUTCOME"
+    # (R) a chain step that REWRITES a tracked path is REPORTED, never refused: regenerating a
+    # tracked artifact is what a reproduction recipe legitimately does (run_replicates.sh).
+    _trk="$(git -C "$WS" diff --name-only 2>/dev/null | tr '\n' ' ')"
+    [ -n "$_trk" ] && echo "     [note] after step $cidx the chain's workspace differs from the tree in tracked path(s): $_trk"
+    case "$RUN_OUTCOME" in PASS*) ;; *) chain_reset; _reset_after=$cidx ;; esac
+  done < "$CHAINS"
+  chain_reset
+fi
+echo "EXEC_LANE_CHAINS=$NCHAIN"
+echo "EXEC_LANE_CHAIN_PASS=$NCP"
+echo "EXEC_LANE_CHAIN_FAIL=$NCF"
+echo "EXEC_LANE_CHAIN_SKIP=$NCS"
+echo "EXEC_LANE_CHAINBREAK=$NCB"
 
 echo
 echo "== MEASURED figures in reports/TR*.md (each must resolve to a RUN/BUILD command in its window) =="
@@ -1056,5 +1291,5 @@ echo "EXEC_LANE_BUILD_MISSING_SOURCE=$NBLDMISS"
 grep '^EXEC_LANE_MEASURED_' "$MEAS_OUT"
 if [ -n "$ONLY" ]; then echo "EXEC_LANE_SCOPE=PARTIAL"; else echo "EXEC_LANE_SCOPE=FULL"; fi
 if [ "${EXEC_LANE_KEEP:-0}" != "1" ]; then rm -rf "$WS"; else echo "workspace kept: $WS"; fi
-rm -f "$INV" "$HELP" "$MEAS_OUT"
+rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"
 if [ "$NF" -gt 0 ]; then echo "EXEC_LANE=FAIL"; exit 1; else echo "EXEC_LANE=PASS"; exit 0; fi

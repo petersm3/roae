@@ -863,8 +863,10 @@ theorem null_p_le_95_lowest_terms : Nat.gcd 641983711307479 7919632354008375 = 1
    SCOPE (stated bluntly, per the project's bridge-fact discipline): this
    proves the MATHEMATICAL identity between the two functionals as defined
    here. That solve.c's cd* accumulator implements this walk functional
-   remains bridge fact KB7, runtime-carried (the two-language gate vs
-   solve.py), exactly as documented — nothing here machine-checks C code. -/
+   remains bridge fact KB7, and KB7 is PENDING — derived but unverified:
+   the two-language gate vs solve.py that would carry it is a flagged
+   obligation solve.c says is not built (CompilerCorrectness.lean's KB7
+   note) — nothing here machine-checks C code. -/
 
 /-- C4 (restated verbatim from KingWen.lean): the ordering opens 63, 0. -/
 def c4ok (l : List Nat) : Bool := l.getD 0 99 == 63 && l.getD 1 99 == 0
@@ -1010,3 +1012,7 @@ ALLOWLIST: any axiom token outside [propext, Classical.choice, Quot.sound] fails
 -- (every stdout line an allowlisted axiom report) screens them; the source-census leg (C)
 -- screens the rest. ALLOWLIST: [propext, Classical.choice, Quot.sound].
 #print axioms C3Decomposition.kw_walkCd_387
+-- C3 >= 112 floor (2026-10-01, Codex V3A-068#3 / Q-754): the two theorems HISTORY.md cites by name
+-- carried no directive although the audit header above promises one for every doc-cited theorem.
+#print axioms C3Decomposition.c3slot_ge_12
+#print axioms C3Decomposition.c3_ge_112

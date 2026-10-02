@@ -1,10 +1,10 @@
 # TR-6 — The Parity Skeleton: One Theorem, Three Verifications
-*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
-proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
-interpretation are argued, not verified. One caveat is structural, and it frames all the rest: the same
-author wrote the claims, the software that checks them, and this report that grades the check.
-Verification here is independent in mechanism, never in authorship; no independent party has yet
-audited or reproduced any of it (METHODS.md §"Authorship independence").*
+*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, or says at
+the claim that it has none; every proof cited as machine-checked names its certificate or Lean theorem;
+claims of scope, attribution and interpretation are argued, not verified. One caveat is structural, and
+it frames all the rest: the same author wrote the claims, the software that checks them, and this report
+that grades the check. Verification here is independent in mechanism, never in authorship; no
+independent party has yet audited or reproduced any of it (METHODS.md §"Authorship independence").*
 
 ⚠ **One exception to the banner's reproduction-command promise, stated here because the banner is
 shared boilerplate and is not this report's to amend** (added 2026-09-02, Codex V2-F08 #3, prose batch
@@ -83,7 +83,8 @@ inherits.
    between-pair, and their count equals the number of adjacent class-alternations — hence exactly 15.
    Corollary: summing parities recovers the wrap-around-parity theorem ([SPECIFICATION.md](../documentation/SPECIFICATION.md)). The theorem
    generalizes it and supplies the "novel structural theorem" the earlier C5-tightening investigation
-   concluded would be required for any further provable pruning.
+   named as one of two routes to a further cheap provable prune (the other being the bipartite-matching
+   engineering cost it declined to pay; HISTORY.md).
 2. **The corrected within/between decomposition.** Designing the CNF encoding of C5 required the exact
    within/between-pair distance split — and the recomputation contradicted [CRITIQUE](../documentation/CRITIQUE.md)'s published table.
    True values (machine-checked, summing exactly to C5's multiset): within-pair **{2:12, 4:12, 6:8}** (was
@@ -200,4 +201,6 @@ main theorem's three modalities (measurement and kernel proof); no SAT target or
 | v1.9 | 2026-09-25 | **The `par_switch` discovery run gets its thread pin (Q-758; Codex v3 E3 batch 5, V3B-09#14, the F1 thread-pin class).** `SOLVE_THREADS=32`, read from the first line of evidence/f4p_tier1.out. No figure changes. |
 | v1.10 | 2026-09-25 | **Two qualifiers (Q-759; Codex V3B-09).** (i) The ×11,364 carries the "≤2 violations anywhere" relaxation (#8). (ii) The 30-switch corollary has two of the main theorem's three modalities, not all three: no SAT target or certificate states it (#15). ⚠ note in place. No figure changes. The same day's recipe pass (Codex V3B-09 #3, #6, #11, #12), each with a dated ⚠ note: (iii) the ≈1.3× excess names its baseline, 13 threes against 31·20/63 ≈ 9.84 (#3); (iv) the "first solver model is King Wen" sentence names its target, `plain`, and command, `sat.py --witness plain`, re-run with kissat 4.0.4 and archived in `evidence/sat_witness_models/`, and is scoped to that solver (#6); (v) the figure caption gets a one-line invocation (#11); (vi) the stack note's frame sizes get a `-fstack-usage` recipe: `main` ≈7.24 MiB and `estimate_tree_knuth` ≈1.48 MiB on this tree, so the ~1.02 MB figure is stale and the 16 MB requirement stands (#12). |
 | v1.11 | 2026-09-28 | **The figure's O letters are near-black, and the alternation between the rows is drawn (Q-900; Codex VIZ H2-09, H2-10; figure and wording only).** White on the orange cells measured 2.16:1; #111111 gives 8.76:1. The 16→17 alternation, drawn at the end of the top row with nothing after it, now has a dashed connector to the second row labelled 16→17: O→E. §Figure's alt-text and caption say so. |
-| v1.12 *(current)* | 2026-09-29 | **A stale sentence removed (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** §1 said the mechanical subset demonstration of the counting argument was not public; the two `noY` certificates have shipped it since 2026-09-03, as the section's opening already says. Wording only. |
+| v1.12 | 2026-09-29 | **A stale sentence removed (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** §1 said the mechanical subset demonstration of the counting argument was not public; the two `noY` certificates have shipped it since 2026-09-03, as the section's opening already says. Wording only. |
+| v1.13 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.14 *(current)* | 2026-10-01 | **The C5-tightening investigation's conclusion is quoted whole (Q-754; Codex V3A-035#2, swept from PARITY_ALTERNATION.md).** §1 said that investigation concluded a novel structural theorem would be required for any further provable pruning; it named two routes — a novel theorem OR the bipartite-matching engineering cost — and declined the second. The sentence now says so. Wording only; no figure changes. |

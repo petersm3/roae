@@ -485,7 +485,8 @@ this page until 2026-09-02.**]**
 ## OUTPUT FORMATS
 
 ```
---color            Enable ANSI color in terminal output
+--color            ANSI color in two sections only: the --table binary column (yang red, yin blue)
+                   and the --pairs Reverse/Inverse labels; every other section ignores it
 --json             Export hexagram data to hexagrams.json
 --csv              Export hexagram data to hexagrams.csv
 --svg              Export hexagram line-diagrams to hexagrams.svg

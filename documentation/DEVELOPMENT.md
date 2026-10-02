@@ -2721,3 +2721,12 @@ with an all-PASS record, which must skip exactly the covered legs. Each case als
 removes the refusal it relies on. `TestLaneHAJ` covers the advisory legs: a matching record's `PASS`
 skips them, a record without a leg runs it, and a record with an advisory `FAIL` still matches and does
 not block.
+
+## Verdict tokens added 2026-10-01 (batch 31a)
+
+These rows extend the verdict-token table above. They sit at the end of the page so that no existing line moves.
+
+| token | emitter | values, and what the verdict rests on |
+|---|---|---|
+| `TR12_GOLDEN_SET` · `TR12_GOLDEN_ROWS` · `TR12_GOLDENS` · `TR12_GOLDEN_EXEMPT` | `tr12_golden_set_gate.sh` (also run inside `tr12_repro_gate.sh`, before the stamp) | `TR12_GOLDEN_SET` is `PASS` \| `FAIL`, whole-line. It reconciles the n=9 golden files in `scripts/tr12_expected/n9/` with the battery's row ids and with the manifest: a row with no golden, a golden with no row, a golden missing from the manifest, or a manifest entry with no golden, is a `FAIL` unless the row is excused; fewer than 60 row ids or 50 goldens parsed is also a `FAIL`. The three receipts are integers: `TR12_GOLDEN_ROWS` the battery row ids it read, `TR12_GOLDENS` the golden files it found, `TR12_GOLDEN_EXEMPT` the rows excused: pinned skips, plus `b_atlas_supplied` while its block is derived from `b_scan.txt`'s `### atlas` section (added 2026-10-01, CX-248). |
+| `EXEC_LANE_CHAINS` · `EXEC_LANE_CHAIN_PASS` · `EXEC_LANE_CHAIN_FAIL` · `EXEC_LANE_CHAIN_SKIP` · `EXEC_LANE_CHAINBREAK` | `exec_lane.sh` (chain phase) | integers, whole-line. The chain phase re-runs the producer and consumer steps of each dependent fenced block once more as one chain in one working directory, after the per-command phase. `EXEC_LANE_CHAINS` counts the chained blocks; `_PASS`, `_FAIL` and `_SKIP` count the outcomes of the producer and consumer steps re-run inside them (one per step, so they can exceed `EXEC_LANE_CHAINS`; `_FAIL` also counts a `cd` to a missing directory and a consumer whose producer passed but never wrote the path); `EXEC_LANE_CHAINBREAK` counts consumer steps skipped because an earlier step did not pass or a reset removed its input. These tallies are separate from the per-command ones, so the chain phase can add a failure to the lane but never remove one (added 2026-10-01, CX-248). |

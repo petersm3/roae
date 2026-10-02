@@ -256,7 +256,8 @@ Headlines only — each links to its full treatment (technical reports in [repor
   comparison of two standard errors and not of two published precision bands).
   [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
 - **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
-  population-typical; one uniqueness claim is corrected; the ~126-bit (C1–C5-layer) residual survives its second
+  typical-to-mildly-uncommon (TR-10's own phrase; the #43–50 array is its lone Bonferroni-notable
+  exception); one uniqueness claim is corrected; the ~126-bit (C1–C5-layer) residual survives its second
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
 - **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
   (≈1.097×10³⁹; counting orientation-explicit sequences with C4's pair pinned —

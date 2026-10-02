@@ -81,6 +81,9 @@ SRC="${CITGATE_SRC:-solve.c}"
 # once by a uniform +43. That is the intended direction, but it hard-blocks the pushing lane, so
 # the number is a deliberate choice and not an accident of when the drain finished.
 BUDGET="${CITGATE_BUDGET:-0}"
+# Q-572 content-rule ratchet (ADVISORY; see JUDGE_B_WEAK): content-weak landings measured on public
+# main 38feb643 under --all-files --all-targets. Lower it whenever the count falls; it never blocks.
+CONTENT_PIN=24
 KNOWN_KEYS="${CITGATE_KEYS:-}"
 
 _run() {
@@ -700,6 +703,30 @@ def chash(src, lo, hi):
     body = "\n".join(x.rstrip() for x in src[lo - 1:hi]) if 1 <= lo and hi <= len(src) else "<out-of-range>"
     return hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12]
 
+# * CONTENT RULE, ADVISORY (Q-572, 2026-10-01). The rarity rule above binds .sh targets only, so for a
+#   .c, .py, .md or .tsv target a COMMON anchor (on more than RARE lines of the target) two lines OFF the
+#   cited span still lands. JUDGE_B_WEAK records, for each landing, whether it would ALSO land with the
+#   rarity rule applied to every target (a common anchor must be on the cited span itself). A landing
+#   that holds only under the old rule is CONTENT-WEAK: printed as WEAK, counted, and compared with
+#   CITGATE_CONTENT_PIN. ADVISORY, NOT BLOCKING: measured on public main 38feb643 the rule flags 24
+#   landings (20 by a common anchor off the span, 4 by the print-argument shape below), and reading
+#   them found most to be CORRECT citations -- the cited line bears the claim in prose while the mined
+#   anchor sits on a neighbouring line (a `def` line under its flag, a guard under its function name),
+#   or the claim is that a value is PRINTED -- and a minority (about six) genuinely one or two lines
+#   off. As a hard rule it would demand ~24 cross-file edits that are mostly not repairs. It never
+#   changes CITATION_LINE_GATE; it prints CITATION_CONTENT_RULE.
+#   A COMMON anchor that is on the cited span only as an ARGUMENT of a print call (outside the call's
+#   string literals) is content-weak too: that line mentions the symbol, it does not bear a claim
+#   about it. That is Q-572's worked example -- a citation of "the read loop bounded by n_records"
+#   that landed on `printf("... records=%lld\n", vpath, n_records);`, not on `while (done < n_records)`.
+#   A print line cited for what it PRINTS names a token inside the literal and is unaffected.
+JUDGE_B_WEAK = [False]
+_PRINT_CALL = re.compile(r'\b(?:f?printf|snprintf|fputs|puts|print)\s*\(')
+_STRLIT = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
+def print_arg_only(tg, c, line):
+    if not re.search(r'\.(?:c|h|py)$', tg) or not _PRINT_CALL.search(line):
+        return False
+    return c in _STRLIT.sub("", line)
 def judge_b(tg, lo, hi, ctx, heading, ismd):
     """Leg B on one citation -> (state, key, anchors); state is lands | stale | unchk."""
     src, srctext = tsrc(tg)
@@ -709,13 +736,16 @@ def judge_b(tg, lo, hi, ctx, heading, ismd):
         return "unchk", None, []
     lo, hi = lo + PROBE, hi + PROBE
     win, core = src[max(0, lo - 3):max(0, hi + 2)], src[max(0, lo - 1):max(0, hi)]
-    hit = False
+    hit = strict = False
     for c in cands:
         if any(c in l for l in win):
+            if occ(tg, c) <= RARE or any(c in l and not print_arg_only(tg, c, l) for l in core):
+                strict = True            # Q-572 content rule: rare, or BORNE by the cited span itself
             if (SH_TIGHT != "0" and tg.endswith(".sh") and occ(tg, c) > RARE
                     and not any(c in l for l in core)):
                 continue                 # a common word two lines off is chance, not a landing
-            hit = True; break
+            hit = True
+    JUDGE_B_WEAK[0] = hit and not strict
     if lo < 1 or hi > len(src) or not hit:
         return "stale", sorted(cands)[0], sorted(cands)
     return "lands", sorted(cands)[0], sorted(cands)
@@ -781,6 +811,7 @@ def moved_with(bs, a, b, hs, lo, hi):
     return len(re.sub(r'\s', '', x)) >= 8 and x == "\n".join(s.strip() for s in hs[lo - 1:hi])
 
 shift, inhunk, stale, cited = [], [], [], set()
+weak = []   # Q-572: leg-B landings that fail the content rule (advisory)
 pend, a2 = [], Counter()
 bstate, sh_ck, sh_st, att_seen = {}, Counter(), Counter(), Counter()
 totA = totB = checked = 0
@@ -852,6 +883,8 @@ for p in files:
                 ctx = context(lines, li, ismd)
             st, key, cands = judge_b(tg, lo, hi, ctx, heading, ismd)
             bstate[(p, li, tg, lo, hi)] = (st, key, h)
+            if st == "lands" and JUDGE_B_WEAK[0]:
+                weak.append((p, li, t, tg, cands))
             if st == "unchk":
                 continue
             checked += 1
@@ -915,6 +948,10 @@ if based and changed:
     print("COUNT legA2 edited=%d fresh=%d followed=%d moved-with=%d anchored=%d pinned=%d attested=%d repin=%d"
           % (a2["edited"], a2["fresh"], a2["followed"], a2["moved-with"], a2["anchored"], a2["pinned"],
              a2["attested"], len(repin)))
+print("COUNT content-rule (Q-572, ADVISORY) weak=%d pin=%s" % (len(weak), os.environ.get("CITGATE_CONTENT_PIN", "?")))
+for p, li, t, tg, cs in weak:
+    print("WEAK %s:%d %s%s names %s" % (p, li, t, "" if tg == "solve.c" else " [%s]" % tg, ",".join(cs[:4])))
+print("CONTENTRULE %d" % len(weak))
 for s in shift:
     print("SHIFT " + s)
 for s in inhunk:
@@ -978,7 +1015,7 @@ verdict_all() { # $1 root $2 base $3 base-explicit $4 pins [$5 all-targets $6 ta
   else echo FAIL; fi
 }
 print_all() { # the --all-files report; a run that printed no verdict at all (a crash) shows its tail
-  sed -n 's/^COUNT /  [cite] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p' "$OUT"
+  sed -n 's/^COUNT /  [cite] /p;s/^WEAK /  [weak] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p' "$OUT"
   grep -q '^VERDICT \|^ERROR ' "$OUT" || tail -5 "$OUT" | sed 's/^/  [crash] /'
 }
 
@@ -1192,8 +1229,20 @@ if [ "${1:-}" = "--all-files" ]; then
       *) echo "  [ERROR] usage: $0 --all-files [--all-targets] [--base REF]"; echo "CITATION_LINE_GATE=ERROR"; exit 41 ;;
     esac
   done
+  export CITGATE_CONTENT_PIN="${CITGATE_CONTENT_PIN:-$CONTENT_PIN}"
   V=$(verdict_all "${CITGATE_ROOT:-$PWD}" "$BASEREF" "$BASE_EXPLICIT" "$ALL_PINS" "$ALLT" "$TARGET_PINS")
   print_all
+  # Q-572 CONTENT RULE -- ADVISORY, NEVER BLOCKING: its token is printed beside the verdict and never
+  # moves it. A count above the pin is a loud [WARN] (a new content-weak landing); a count below it
+  # asks for the pin to be lowered in the same change.
+  _cr=$(sed -n 's/^CONTENTRULE \([0-9][0-9]*\)$/\1/p' "$OUT")
+  if [ -n "$_cr" ] && [ -n "$ALLT" ]; then   # the pin is measured under --all-targets; plain mode only counts
+    [ "$_cr" -gt "$CITGATE_CONTENT_PIN" ] && echo "  [WARN] content rule (advisory): $_cr content-weak landing(s), above the pin $CITGATE_CONTENT_PIN -- a new citation lands only on a common anchor off its cited span"
+    [ "$_cr" -lt "$CITGATE_CONTENT_PIN" ] && echo "  [note] content rule (advisory): $_cr content-weak landing(s), below the pin $CITGATE_CONTENT_PIN -- lower CONTENT_PIN in this change"
+  fi
+  if [ -n "$_cr" ]; then
+    if [ "$_cr" -eq 0 ]; then echo "CITATION_CONTENT_RULE=PASS"; else echo "CITATION_CONTENT_RULE=ADVISORY n=$_cr"; fi
+  fi
   echo "CITATION_LINE_GATE=$V"
   case "$V" in PASS) exit 0 ;; ERROR) exit 41 ;; *) exit 40 ;; esac
 fi

@@ -1575,7 +1575,7 @@ PY
 #
 # RED TEST (2026-09-02, scratch clone): deleted "at the time of the SAT work (×11,364),
 # later exceeded by the data-like S25-28 configuration at ×5×10⁷" from
-# reports/TR6_PARITY_SKELETON.md:132-133, restoring the pre-P37 bare superlative. Gate
+# reports/TR6_PARITY_SKELETON.md:133-134, restoring the pre-P37 bare superlative. Gate
 # [FAIL] naming that line. Restored; [ok]. A second red test confirmed the wrap case:
 # deleted the qualifier from documentation/CITATIONS.md:1976-1977, where the superlative
 # and its qualifier sit on DIFFERENT source lines - gate [FAIL], as flattening requires.

@@ -811,7 +811,9 @@ theorem fcCheck_leaf_free {C D Pos : Type} [DecidableEq D]
 /-- The exact-consumption guard is preserved by every taken step: a
     fitting cost of total κ drops the budget total by exactly κ. (The
     step case of solve.c's reachable-state sum invariant; the root case
-    — budget0 sums to κ·np at the top call — is bridge fact B10.) -/
+    — budget0 sums to κ·(np − 1) = 62 at the top call, slot 0 being forced
+    with its within-pair transition already consumed, so n = 31 remaining
+    slots (B10's "2·(remaining slots)") — is bridge fact B10.) -/
 theorem sumv_sub_of_vle {D : Type} (ds : List D) (b k : D → Nat)
     (h : ∀ d ∈ ds, k d ≤ b d) :
     sumv ds (fun d => b d - k d) = sumv ds b - sumv ds k := by

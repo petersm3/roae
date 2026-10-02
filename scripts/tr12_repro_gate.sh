@@ -813,6 +813,19 @@ if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   q2_witness_leg; _q2rc=$?
   if [ "$_q2rc" -eq 1 ]; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
   if [ "$_q2rc" -eq 2 ]; then echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
+  # Q-884 GAP-2 (2026-10-01): the golden set must reconcile with the battery's own row list -- no
+  # orphan golden, no golden missing from (or extra to) _MANIFEST.txt, and no row without a golden
+  # unless it is pinned NOT RUN. Static and cheap; same placement and reason as the two legs above.
+  if [ -x ./scripts/tr12_golden_set_gate.sh ]; then
+    _gs_out=$(bash ./scripts/tr12_golden_set_gate.sh 2>&1); printf '%s\n' "$_gs_out" | sed 's/^/  /'
+    if ! grep -qx 'TR12_GOLDEN_SET=PASS' <<<"$_gs_out"; then
+      echo "  [FAIL] TR12_GOLDEN_SET is not PASS -- the golden set does not match the battery's rows"
+      echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
+  else
+    echo "  [ERROR] scripts/tr12_golden_set_gate.sh is absent or not executable -- the golden-set"
+    echo "          reconciliation is UNMEASURED. That is not the same as passing."
+    echo "TR12_REPRO_GATE=ERROR"; exit 2
+  fi
 
   if [ "$MODE" = "--stamp" ]; then
     # 🔴 Q-587. RECOMPUTE HERE. Do NOT reuse the capture from the top of this file.

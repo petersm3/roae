@@ -73,7 +73,7 @@ implied by C5's histogram and kept as an O(1) pre-filter — see the Numbering n
 
 C6 and C7 are the two weakest entries and are marked as such at their definitions below.
 [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) prices them together at **21.3 bits eliminated
-against ~20.6 bits to state — net ≈ 0**: they restate part of the answer rather than explain it.
+against ~20.6 bits to state — net ≈ 0** (the ~20.6 is a figure DESCRIPTION_LENGTH.md itself labels *underived*): they restate part of the answer rather than explain it.
 Accordingly, **headline counts in this project are reported over C1–C5**, with C6–C7 added only
 where the text says so; aggregate `C1–C7` figures appear almost exclusively in the *refutation*
 (≈5.21×10³¹ orderings survive all seven), where including the weakest pins makes the claim
@@ -225,8 +225,8 @@ function construct_king_wen():
             if boundary_distance ∈ budget              # C5: budget check
                and boundary_distance ≠ 5               # C2: no-5 check
                and complement_distance(candidate) is feasible for ≤ 12.125  # C3
-               and (step ≠ 26 or adjacency_27_satisfied)  # C6
-               and (step ≠ 25 or adjacency_25_satisfied):  # C7
+               and (step ≠ 28 or adjacency_27_satisfied)  # C6: pins pair slots 27/28, complete at step 28
+               and (step ≠ 26 or adjacency_25_satisfied):  # C7: pins pair slots 25/26, complete at step 26
                 place pair, update budget
     
     return S

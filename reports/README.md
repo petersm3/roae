@@ -16,8 +16,8 @@ against exact ground truth at both layers where it exists ([TR-4](TR4_SIZE_OF_TH
 §"Estimator calibration") — they are novelty and instrument-coverage scoping. The suite around it treats the
 sequence as a combinatorial object — enumerating, measuring, and proving; the repository README is the
 front door, these reports are the findings in depth.*
-*Technical reports — not peer-reviewed. Every MEASURED result carries a reproduction command, and every
-proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
+*Technical reports — not peer-reviewed. Every MEASURED result carries a reproduction command, or says at
+the claim that it has none; every proof cited as machine-checked names its certificate or Lean theorem; claims of scope, attribution and
 interpretation are argued, not verified. The covers' authorship disclosure holds suite-wide: the same
 author wrote the claims, the software that checks them, and the reports that grade the check —
 independent in mechanism, never in authorship, and no independent party has yet audited or reproduced

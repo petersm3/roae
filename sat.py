@@ -1973,6 +1973,15 @@ if __name__ == "__main__":
         if i + 1 >= len(args):                       # Q-311: was an IndexError traceback
             raise SystemExit("--keep needs a directory (none was given)")
         keep_dir = args[i + 1]; del args[i:i + 2]; given.add("--keep")
+    # 2026-10-01 (Codex LSD R22, Q-410): a recognised modifier with NO subcommand -- `--with-c3`,
+    # `--expect 26113`, `--c3-max 800` on their own -- was stripped above, leaving args empty, and
+    # the no-argument branch at the end printed the catalogue and exited 0 (measured). A scripted
+    # caller checking the exit status mistook a missing operation for success. Refused here, before
+    # the subcommand checks, which `if args:` guards cannot reach.
+    if given and not args:
+        raise SystemExit("modifier(s) %s given without a subcommand: nothing was run (before "
+                         "2026-10-01 this printed the catalogue and exited 0)"
+                         % " ".join(sorted(given)))
 
     # 🔴 An UNRECOGNISED flag was silently ignored. Measured 2026-08-28: `--c3max 776` -- one
     # missing hyphen, the most likely typo there is -- left sat.py printing its help banner and
@@ -2221,9 +2230,18 @@ if __name__ == "__main__":
                 print(r.stdout[-400:]); print(r.stderr[-400:])
                 print("WITNESS_RESULT=SOLVER_ERROR"); result = 2; break
             lits = []
-            for ln in lines:
-                if ln.startswith("v "):
-                    lits += [int(x) for x in ln[2:].split() if x != "0"]
+            try:
+                for ln in lines:
+                    if ln.startswith("v "):
+                        lits += [int(x) for x in ln[2:].split() if x != "0"]
+            except ValueError as e:
+                # 2026-10-01 (Codex LSD R22, Q-410): a `v` line carrying a non-integer token
+                # (`v nope 0`) was an uncaught ValueError traceback, exit 1 -- neither the
+                # whole-line WITNESS_RESULT= token nor the documented exit 2. It is the
+                # SOLVER_ERROR shape: output that is not a solver verdict.
+                print("SOLVER_ERROR at attempt %d: a `v` line carries a non-integer token (%s)"
+                      % (attempt, e))
+                print("WITNESS_RESULT=SOLVER_ERROR"); result = 2; break
             mc = model_check(cnf, lits)
             if mc["verdict"] != "SATISFIED":
                 print("SOLVER_ERROR at attempt %d: the claimed model does not satisfy the formula "

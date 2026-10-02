@@ -11,7 +11,8 @@ constraints, **not** to an unconstrained arranger. This is the same conditional-
 [TR-7](../reports/TR7_CIRCULAR_READING.md) §3 made on 2026-07-20 (revision v2.1, adversarial-review
 F-14a); the prior phrasing smuggled the KW-derived constraints in as premise. The theorem generalizes the wrap-around-parity theorem ([SPECIFICATION.md](SPECIFICATION.md)), which is
 recovered as its total-parity corollary, and it supplies the "novel structural theorem" that the earlier
-C5-tightening investigation concluded would be required for any further provable pruning.
+C5-tightening investigation named as one of two routes to a further cheap provable prune (the other being
+the bipartite-matching engineering cost it declined to pay; [HISTORY.md](HISTORY.md)).
 
 **Reproduce the theorem's figures below:** `python3 verify.py --check-parity-alternation`
 (added 2026-08-16). It re-derives the 63 transition distances and their multiset
@@ -73,7 +74,8 @@ the linear sequence's endpoint popcounts differ in parity ⇒ odd wrap distance,
    counts; the prefix is viable only if the remaining sequence can realize exactly the residual alternation
    deficit (a two-sided interval check: with e even and o odd pairs left and current end class known, the
    achievable alternation range is computable in constant time). The prune is *exact* (derived from the
-   theorem, no false negatives) and fires from the earliest placements.
+   theorem, no false negatives) and cannot fire before the tenth pair: exhaustively over class
+   prefixes, nothing is rejectable through 9 pairs, and only a small fraction is rejectable at the tenth.
 3. **Sha-lineage caveat.** An exact prune preserves the full solution set, but wherever it *fires* it
    changes node-visit ordering and counts, so per-cell **budgeted** canonical outputs — and therefore
    canonical shas — **can** change, at budgets deep enough for the prune to fire. Whether a given prune
@@ -104,8 +106,9 @@ Zhu Yuansheng in the 13th century), we state that with humility — corrections 
 welcomed via [CITATIONS.md](CITATIONS.md).
 
 Two independent, differently-formulated parity rules for the King Wen sequence exist in prior literature and
-deserve credit as cousins of (not sources for) this theorem: **[Cook (2006)](CITATIONS.md#cook2006)** states a gender/position-valence
-parity rule over his 36-class ordering, and **[Moore (2005, *Oracle Papers* No. 1)](CITATIONS.md#moore2005)** states a yin/yang
+deserve credit as cousins of (not sources for) this theorem: **[Schulz (1990)](CITATIONS.md#schulz1990-motifs)** states a gender/position
+parity rule (his motif 2) over the 36 consolidated units, which **[Cook (2006)](CITATIONS.md#cook2006)** elaborates as a gender/position-valence
+parity rule over his 36-class ordering (Schulz-primary, Cook-elaborated, as CITATIONS.md records; this site named Cook alone until 2026-10-01), and **[Moore (2005, *Oracle Papers* No. 1)](CITATIONS.md#moore2005)** states a yin/yang
 pair-positioning parity rule over the 32 pair positions (King Wen complies 16/18). Both are empirical
 KW-specific observations over different partitions; the theorem above differs in kind — it is a *forced*
 property of the C1–C5 constraint system (every valid ordering has exactly 15 alternations), derived and

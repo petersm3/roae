@@ -827,11 +827,16 @@ theorem kwOrbit_mass_eq {γ : Type} (score : List Nat → γ) (mass : γ → Nat
     (kwOrbit.map fun r => mass (score r)).sum = 24 * mass (score (pairKey KW)) := by
   rw [sum_map_const kwOrbit (mass_const_on_kwOrbit score mass hconst), kwOrbit_length]
 
-/-- THE EQUIVARIANCE CEILING: a generator whose score is G-invariant gives KW's
+/-- THE EQUIVARIANCE CEILING: a generator whose output mass depends only on
+    a G-invariant score — the theorem takes `mass (score r)`, so the mass
+    FACTORS THROUGH the score; a constant score with enumeration-order
+    tie-breaking is G-invariant yet selects KW outright, which is why the
+    factoring, not the invariance alone, is the hypothesis — gives KW's
     record at most 1/24 of the total mass (`24 * mass(KW) ≤ total`, in scaled
     Nat weights). Corollary of twins_24_records: the best any agnostic
-    bit-structural generator can achieve is the uniform distribution on KW's
-    24-element record orbit — never concentration on KW itself. -/
+    bit-structural generator of that form can achieve is the uniform
+    distribution on KW's 24-element record orbit — never concentration on KW
+    itself. -/
 theorem equivariance_ceiling {γ : Type} (score : List Nat → γ) (mass : γ → Nat)
     (total : Nat)
     (hconst : ∀ p ∈ validPerms, score (pairKey (KW.map (applyPerm p))) = score (pairKey KW))

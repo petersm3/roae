@@ -10071,3 +10071,60 @@ The exact number of orderings that satisfy C1, C2, C4, C5, C6 and C7 inside the 
 
 - The scope comment of `lean/CompilerCorrectness.lean` no longer says every bridge fact KB1–KB7 is runtime-verified: KB4 is carried by substitute evidence and KB7 is derived-but-unverified, as the comment's own status lines already said. A GATE 93 leg keeps the retired wording out.
 - `solve.py --kc-x-recheck` now binds a `--kc-extremal` certificate to the ladder it came from. The certificate carries its pair list and C5 budget; the checker recomputes the ladder identity `pl_hash` from the pair list, re-derives the budget, and refuses a witness that places a pair outside the universe or crosses a boundary outside the budget before it evaluates Φ. Two review mutants that passed before — the pinned {0,63} pair as a free pair, and a distance-5 boundary — are refused with named reasons. No Q5 number is published at n=31, so no published number moves.
+
+## 2026-10-01 — batch 31a: published-text residue from the Codex v3 review, five gates that now measure what they claim, and Lean comments and SAT/CNF command-line edges
+**Batch 31a, lane A31 (CX-247).**
+
+- QUERY_INVENTORY's XA-a row names its real producer, `solve.py --atlas-queries` run by tr12 row
+  `c_consumer`. It had kept a pending marker after the branch table was published.
+- The ladder identities that `--kc-g-check` and `--kc-t-check` verify are now called integrity checks
+  on the files, not independent identities, in the help text, the KC-T header comment and the
+  regenerated usage dump. The count and exactness are unchanged.
+- The twelve TR covers, the reports index and SOLVE_SUMMARY.md promised a reproduction command for
+  every measured result. They now say each result has one or says at the claim that it has none.
+  GATE 9 keeps the covers byte-identical, so all twelve changed together, each with a revision row.
+- TR-4's and SEARCH_SPACE_SIZE.md's estimator commands run as printed (`./solve`), and the sampled
+  ones carry a `SOLVE_THREADS=<T>` pin with a note that the old draw's thread count was not recorded.
+- Five PERFORMANCE_HISTORY.md findings are scoped in place: a depth confound, a resume-path cost, a
+  directory scan that does exist, a projection that does not follow from its own numbers, and an
+  x86-only bench read as a NEON result. Three HISTORY.md claims are corrected in the ledger entry,
+  not here, because this file is append-only.
+- ROAE_PY_CLI.md says which two sections `--color` colours, and the scripts/v4_query_evidence
+  scratch directory is ignored.
+- No published number, count, sha or verdict moves.
+
+**Batch 31a, gate assurance (CX-248).**
+
+- A failed grep in the published-consistency gate's sampled-command leg, or in the doc gates' hash
+  universe, used to read as "nothing found". It is now a failure that names the step that broke,
+  and the published-consistency leg also counts the files it scanned and checks that count against
+  a floor.
+- The Python test harness can now run against a deliberately broken copy of `solve.py` or `sat.py`.
+  That is how a test proves it can fail.
+- The TR-12 battery's expected-output files are reconciled with its own list of rows before a
+  reproduction stamp is written. A leftover file or a silently dropped row now fails.
+- Two advisory counts were added, and neither blocks anything. One lists withdrawn phrasings quoted
+  in the corrections ledger that the retracted-phrase registry does not yet name. The other counts
+  line citations that land only on a weak line.
+- The execution lane now runs a documentation block whose later commands use an earlier command's
+  output as one chain, in one working directory. A file left in `/tmp` by an earlier run can no
+  longer make a reproduction check pass.
+
+**Batch 31a, Lean comments and SAT/CNF edges (CX-249).** The Codex v3 E3 batch-4 adjudication left 56 P3 items across the twelve
+Lean targets and eleven documentation targets (Q-754) — comments, headers, docstrings and scope
+notes, no theorem claimed wrong. Sixteen had been fixed by CX-78, CX-231, CX-232 and CX-245 and are
+recorded as such; the other forty are fixed in one sweep: no theorem statement, definition or proof
+changed, and the only non-comment `.lean` change is two `#print axioms` directives the
+C3Decomposition audit block had promised and lacked (193 → 195 directive lines). Three sibling
+sentences outside the row's file list (TR-9 §4, TR-6 §1, MCKENNA.md) are swept with their
+documentation twins. The Lean/SAT/DRAT review's row R22 (Q-410) named four command-line edges in
+`sat.py` and `solve.py --sat-encode` — a modifier without a subcommand exiting 0, a non-integer
+solver literal raising a traceback, a stale OPB companion accepted beside a sidecar saying none
+exists, and a suppressed deferred-C5 warning — each now a named refusal with a non-zero exit, each
+measured red against the previous files and green here, with the emitted formulas byte-identical.
+Guards: 36 `lsd-text` legs (all red through `DOC_GATE_LSD_REF=38feb643`), fifteen retracted-phrase
+registry rows, and `TestG31SatCliEdges` (nine tests). The three batch-6 items left unsettled
+(Q-763) are ruled: the gender/position-parity rule's one surviving Cook-alone site now co-lists
+Schulz as primary (V3A-020#3, CONFIRMED), the instruments registry's "4 of the 10 rows" is six under
+the rules it states (V3A-025#5, CONFIRMED, re-executed on the cited revision), and the sidecar
+double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONFIRMED-CURED).

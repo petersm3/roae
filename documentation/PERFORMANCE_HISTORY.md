@@ -372,7 +372,7 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 ### Notes
 **The instructive zero entry.** The original projection of 1.4–2.0× was structurally wrong: gcc already auto-vectorizes the only loop that benefits (one vectorizable loop in the enum hot path per `-fopt-info-vec`; the other 112 "control flow in loop" misses in `backtrack` are inherently un-vectorizable — DFS with data-dependent `budget[wd]<=0` early-exits cannot be SIMD'd).
 
-**ARM implication (refutes the original SVE2-parity-required framing)**: with AVX-512 confirmed as ~zero contributor, the SIMD-width gap between x86 (512-bit) and ARM Neoverse (NEON 128-bit / SVE2 256-bit) is NOT a performance concern for this workload. ARM-vs-x86 reduces to scalar IPC + branch prediction + memory subsystem. NEON-only pilot is sufficient; SVE2 parity is not required. #83 (ARM pilot) scope reduced accordingly.
+**ARM implication (refutes the original SVE2-parity-required framing)**: with AVX-512 confirmed as ~zero contributor, the SIMD-width gap between x86 (512-bit) and ARM Neoverse (NEON 128-bit / SVE2 256-bit) is NOT a performance concern for this workload. ARM-vs-x86 reduces to scalar IPC + branch prediction + memory subsystem. NEON-only pilot is sufficient; SVE2 parity is not required. *(Scoped 2026-10-01, Codex V3A-039 #8: the bench compared `-mno-avx512*` with `-march=native` on x86 only. It bounds AVX-512's contribution on that host; it measures nothing on NEON or SVE2, so this sentence is an inference from the scalar-bound profile, not a result.)* #83 (ARM pilot) scope reduced accordingly.
 
 **Stale references corrected**: HISTORY.md April 2026 plan section now carries a `[REFUTED 2026-05-16]` callout against the 1.4–2.0× projection.
 
@@ -527,7 +527,7 @@ gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layo
 1. **No preflight throttle probe was run.** Per the standing `feedback_preflight_throttle_probe` and the AVX-512 definitive bench (commit `0783d52`) precedent, paired 1T benches should validate the host with a 60s 128-thread burn-in measuring per-core MHz ≥ 3664. We did not. Mid-bench sampling showed average CPU MHz at 2717 across 128 cores — could be normal-under-load (memory-bound DFS, cores waiting on RAM) or could be TDP-cap throttle. Cannot distinguish without the preflight burn-in.
 2. **The 4.8% PGO speedup is a paired comparison on the same VM with page-cache flush between runs.** If throttling was symmetric across Build B and Build C, the speedup is valid. If throttling was asymmetric (B unthrottled / C throttled, or vice versa), the speedup is biased. We have no monitoring data to rule asymmetric throttle out.
 3. **The 4.8% at 1T agrees with the 4% at 1B on a different VM (D8 Spot)** — independent corroboration that PGO speedup is real and roughly in this range, even if absolute scale at 1T is uncertain.
-4. **v1 baseline at depth-2** uses different work-unit granularity than v2 at depth-3; wall comparisons between Builds A and B are not apples-to-apples for "per-unit" speed. Records/budget is the cleaner cross-build comparison: v1 found 162.6M records at 1T budget; v2 found 305.9M = **1.87× more records per unit budget**.
+4. **v1 baseline at depth-2** uses different work-unit granularity than v2 at depth-3; wall comparisons between Builds A and B are not apples-to-apples for "per-unit" speed. Records/budget is the cleaner cross-build comparison: v1 found 162.6M records at 1T budget; v2 found 305.9M = **1.87× more records per unit budget**. *(Scoped 2026-10-01, Codex V3A-039 #4: records per budget carries the same depth confound. The engine divides the node budget evenly over the partition's cells, and depth 2 has 3,030 cells against depth 3's 158,364, so at one total budget the two builds ran per-cell budgets about 52× apart. Neither the wall ratio nor this records ratio isolates the build.)*
 
 ### Follow-up needed (for cleanup of this entry)
 - Re-run PGO 1T bench with: (a) preflight throttle probe, (b) larger OS disk to avoid the merge-disk-pressure race, (c) bench script that waits for merge before STEP 7 teardown. A short run on D128 Spot. Would verify Build C sha and tighten the speedup confidence interval.
@@ -818,7 +818,7 @@ Multiple variants reproduced previously-registered shas, validating methodology:
   > **The measured table above is untouched** — only its interpretation was wrong. Read the "crossover budget"
   > bullet below in the same corrected light: there is no change of regime, only a gap that narrows as both
   > lineages converge. See the 2026-08-30 re-evaluation entry at the end of this file.
-- The crossover budget (where v2's advantage drops from the sub-canonical regime into the unlimited-budget regime) sits between 100B and 11.2T. We did not measure intermediate points — would have required 1T+ benches, blocked by single-threaded in-memory merge bottleneck at 70M+ records.
+- The crossover budget (where v2's advantage drops from the sub-canonical regime into the unlimited-budget regime) sits between 100B and 11.2T. *(Scoped 2026-10-01, Codex V3A-039 #4: the sub-canonical benches above ran at depth 2 and the 11.2T canonicals at depth 3, so the narrowing between them also mixes the two per-cell budgets; it is not a clean budget trend.)* We did not measure intermediate points — would have required 1T+ benches, blocked by single-threaded in-memory merge bottleneck at 70M+ records.
 
 ### Implications for next prune candidates
 
@@ -1047,7 +1047,7 @@ The table below summarizes what's measured so far. Numbers in brackets are the e
 **Remaining known gaps:**
 - #67 per-thread rate isolated from records-found delta — only records/budget measured.
 - Merge-step wall times — captured during canonical runs but not standardized in PERFORMANCE_HISTORY format (the v3 PGO entry does capture them: 809s for Build B merge, 853s for Build C merge — comparable, no PGO impact on merge wall).
-- 1T paired v1 vs v2-bundled wall comparison — Build A 1T (depth-2 recursive) gives 708s/162.6M; Build B 1T (v2 depth-3 iterative) gives 1067s/305.9M. Different depths confound clean wall comparison. Records-per-budget is the cleaner cross-build comparison: **1.88× more records per node-budget for v2**.
+- 1T paired v1 vs v2-bundled wall comparison — Build A 1T (depth-2 recursive) gives 708s/162.6M; Build B 1T (v2 depth-3 iterative) gives 1067s/305.9M. Different depths confound clean wall comparison. Records-per-budget is the cleaner cross-build comparison: **1.88× more records per node-budget for v2**. *(Scoped 2026-10-01, Codex V3A-039 #4: it is not cleaner. The per-cell budget is the total over the cell count, so depth 2 and depth 3 differ in it by about 52× at one total, the same confound as the wall.)*
 
 **Validated cumulative claim (v1 11.2T → v2 11.2T, same hardware):**
 - Records found at 11.2T budget: 759.6M → 796.4M (**+4.83%**)
@@ -1186,7 +1186,7 @@ Sub-branch 83477/158364 BUDGETED ... 0s
 
 **What this validates:**
 - `promote_orphaned_shards()` (v3.1 patch) correctly identifies completed shards.
-- `checkpoint.txt` (12 MB at 100B scale, ~100 MB at 100T projected) is the sole resume input — no slow shard-file scan needed.
+- `checkpoint.txt` (12 MB at 100B scale, ~100 MB at 100T projected) is the sole resume input — no slow shard-file scan needed. *(Corrected 2026-10-01, Codex V3A-039 #6: not the sole input. `promote_orphaned_shards()`, named two lines up, opens the run directory and reads every entry to find `sub_*.bin` shards that checkpoint.txt does not yet list; the measurement shows that scan was fast here, not that it is absent.)*
 - Recovery is scale-invariant — wall time scales with checkpoint parse, not shard count.
 - Graceful SIGTERM gives solve enough time to flush in-flight shards (27,008 → 29,588 between deallocate and process exit).
 
@@ -1423,7 +1423,7 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 ### Delta vs baseline
 - Per-thread CPU-on-DFS at canonical scale: **~+170%** (35% → 95%)
 - 1T enum wall: **3430s → 1679s** = **2.04× faster** (matches the hypothesis prediction)
-- enum_wall (5.6T canonical, predicted): 11.4d → ~5.6d on D128 Spot per 35→95% util ratio. Confirmed by 1T extrapolation. **560T projection: roughly half the enum wall saved per run.**
+- enum_wall (5.6T canonical, predicted): 11.4d → ~5.6d on D128 Spot per 35→95% util ratio. Confirmed by 1T extrapolation. *(Corrected 2026-10-01, Codex V3A-039 #7: the arithmetic does not support either sentence. 11.4/5.6 = 2.04 is the 1T wall ratio above (3430/1679), not the utilisation ratio, which is 95/35 = 2.71; and a linear extrapolation of the 1T wall, 3,430 s × 5.6, is about 5.3 h, not 11.4 d. The measured 2.04× at 1T stands; the 5.6T days are not derived here.)* **560T projection: roughly half the enum wall saved per run.**
 - sha changed: no (sha-equivalent to current c72eada main HEAD at 1T)
 
 ### Sha gate
@@ -1475,7 +1475,7 @@ unset, which it always is in production.
 - **Sha: UNCHANGED.** `--selftest` = `403f7202…` on both stock and fixed (two toolchains). Full clean run
   reproduced the stock clean sha byte-identically (`95c2f8f0…`, 46,344 shards). → **sha-preserving confirmed.**
 - enum_wall: no measurable change (formal `perf_bench.sh` paired timing **deferred to the canonical sign-off**;
-  the inner-loop delta is one predictable always-false compare, perf-neutral by construction).
+  the inner-loop delta is one predictable always-false compare, perf-neutral by construction). *(Scoped 2026-10-01, Codex V3A-039 #5: neutral on a clean run only. On the resume path the pre-fix guard re-walked 31,897,530 nodes, 63.8% of the PHASE_A budget, in the DEVELOPMENT.md §selftest-resume measurement, so the fix saves work there.)*
 - Eviction-resume correctness: stock lost cells (1/3 kill trials); fixed = 0/N; deterministic CASE-D recovery PASS.
 
 ### Sha gate

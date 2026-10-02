@@ -14,8 +14,26 @@ import subprocess, sys, unittest, importlib.util, itertools
 import gzip  # gz-framing equivalence fixture (V2-F48 #4)
 import os, random, re, shutil, signal, struct, tempfile, hashlib
 
+# Q-885 (2026-10-01): source overrides for the Python instruments, the solve.py/sat.py analogue of
+# ROAE_TESTS_SOLVE_SRC (solve.c) and ROAE_TESTS_VERIFY_SRC (verify.c). With ROAE_TESTS_SOLVEPY_SRC
+# (or ROAE_TESTS_SATPY_SRC) set to a mutated copy, every in-process load (_load), every subprocess
+# run of the script (`[sys.executable, _py_src(...)] ...`) and every `import solve` / `import sat`
+# that tests.py does in-process (sys.modules is primed below) uses the copy, so a red run against a
+# mutated solve.py needs no one-off harness. Unset, _py_src returns the bare relative name, which is
+# byte-for-byte the command line tests.py ran before. NOT redirected, by design: tests that READ the
+# source text (static checks of solve.py's own wording), `python3 -c "import ..."` smoke
+# subprocesses, and a subprocess sat.py's own `import solve` (it resolves beside sat.py). solve.py
+# reads some data relative to its own file, so keep the copy beside solve.py when the path under
+# test does. TestQ885PySourceOverride is the positive control that the override takes effect.
+_PY_OVERRIDE_ENV = {"solve": "ROAE_TESTS_SOLVEPY_SRC", "sat": "ROAE_TESTS_SATPY_SRC"}
+
+def _py_src(name):
+    env = _PY_OVERRIDE_ENV.get(name)
+    p = os.environ.get(env, "") if env else ""
+    return os.path.abspath(p) if p else name + ".py"
+
 def _load(name):
-    spec = importlib.util.spec_from_file_location(name, name + ".py")
+    spec = importlib.util.spec_from_file_location(name, _py_src(name))
     m = importlib.util.module_from_spec(spec)
     argv, sys.argv = sys.argv, [name + ".py"]
     try:
@@ -41,8 +59,12 @@ def _emit_token(key, value):
     sys.stdout.flush()
 
 solve = _load("solve")
+if os.environ.get("ROAE_TESTS_SOLVEPY_SRC"):
+    sys.modules["solve"] = solve  # Q-885: sat.py's `import solve` and in-test `import solve` bind the override
 roae = _load("roae")
 sat = _load("sat")
+if os.environ.get("ROAE_TESTS_SATPY_SRC"):
+    sys.modules["sat"] = sat  # Q-885: in-test `import sat` binds the override
 
 KW = list(solve.binary_hexagrams)
 
@@ -446,7 +468,7 @@ class TestGates(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
 
     def test_registry_verify(self):
-        r = subprocess.run([sys.executable, "solve.py", "--registry-verify"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--registry-verify"],
                            capture_output=True, text=True)
         self.assertIn("ALL 31 REGISTRY CHECKS PASS", r.stdout)
         # The banner and the exit contract are two conjuncts; assert both
@@ -454,13 +476,13 @@ class TestGates(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
 
     def test_f4p_verify(self):
-        r = subprocess.run([sys.executable, "solve.py", "--f4p-verify"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--f4p-verify"],
                            capture_output=True, text=True)
         self.assertIn("F4P VERIFY: PASS", r.stdout)
         self.assertEqual(r.returncode, 0)
 
     def test_books_verify(self):
-        r = subprocess.run([sys.executable, "solve.py", "--books-verify"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--books-verify"],
                            capture_output=True, text=True)
         self.assertIn("BOOKS VERIFY: ALL 14 CLAIMS PASS", r.stdout)
         self.assertEqual(r.returncode, 0)
@@ -468,7 +490,7 @@ class TestGates(unittest.TestCase):
     def test_trigram_verify(self):
         # Two-language check of lean/TrigramTheorems.lean (finite facts +
         # KW instances); see documentation/TRIGRAM_STRUCTURE.md.
-        r = subprocess.run([sys.executable, "solve.py", "--trigram-verify"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--trigram-verify"],
                            capture_output=True, text=True)
         self.assertIn("TRIGRAM VERIFY: ALL 18 CLAIMS PASS", r.stdout)
         self.assertEqual(r.returncode, 0)
@@ -476,11 +498,11 @@ class TestGates(unittest.TestCase):
     def test_perm_verify(self):
         # R3 permutation-cycle family: KW gate (13 frozen functionals) +
         # Fu Xi natural-order identity free-correctness check (prereg §6c).
-        r = subprocess.run([sys.executable, "solve.py", "--perm-verify"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--perm-verify"],
                            capture_output=True, text=True)
         self.assertIn("PERM VERIFY: PASS", r.stdout)
         seq = ",".join(str(i) for i in range(64))
-        r2 = subprocess.run([sys.executable, "solve.py", "--perm-verify", seq],
+        r2 = subprocess.run([sys.executable, _py_src("solve"), "--perm-verify", seq],
                             capture_output=True, text=True)
         # bit0=bottom identity -> pi_bot=id: ncyc=64,lcyc=1,fix=64,c2=0,ord=1,
         # desc=0,sign=0 (top convention non-trivial); template indicators 0,0.
@@ -493,7 +515,7 @@ class TestGates(unittest.TestCase):
         # reconstruction; cross-application matrix a-priori cells; FC-1
         # positive-control expectation at pilot N=10^4). The frozen design is
         # an operator-held record (<private design record>).
-        r = subprocess.run([sys.executable, "solve.py", "--r7-verify"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--r7-verify"],
                            capture_output=True, text=True)
         self.assertIn("R7 VERIFY: ALL ANCHORS PASS", r.stdout)
         self.assertEqual(r.returncode, 0)
@@ -513,7 +535,7 @@ class TestGates(unittest.TestCase):
         import os, tempfile
         with tempfile.TemporaryDirectory() as empty:
             env = dict(os.environ, PATH=empty)
-            r = subprocess.run([sys.executable, "sat.py", "--certify-count", "f1c5",
+            r = subprocess.run([sys.executable, _py_src("sat"), "--certify-count", "f1c5",
                                 "--f1-pairs", "9", "--expect", "26112"],
                                capture_output=True, text=True, env=env)
         self.assertNotEqual(r.returncode, 0)
@@ -526,7 +548,7 @@ class TestGates(unittest.TestCase):
         import os, tempfile
         with tempfile.TemporaryDirectory() as empty:
             env = dict(os.environ, PATH=empty)
-            r = subprocess.run([sys.executable, "sat.py", "--witness", "plain"],
+            r = subprocess.run([sys.executable, _py_src("sat"), "--witness", "plain"],
                                capture_output=True, text=True, env=env)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("kissat is required to run --witness", r.stderr)
@@ -536,7 +558,7 @@ class TestGates(unittest.TestCase):
         # T6 (2026-09-02): sat.py's two C5 tables were hand-written literals, in breach of its own
         # header rule, and the guard between them passed a common-mode +1 (Codex V2 A08 row 13 /
         # A09 row 17). Pinned by verdict TOKENS (grep -qx semantics), never by output shape.
-        r = subprocess.run([sys.executable, "sat.py", "--c5-selfcheck"], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, _py_src("sat"), "--c5-selfcheck"], capture_output=True, text=True)
         lines = r.stdout.splitlines()
         self.assertIn("C5_LITERALS_DERIVED=1", lines, r.stdout)
         self.assertIn("GUARD_REJECTS_COMMON_MODE=1", lines, r.stdout)
@@ -569,20 +591,20 @@ class TestGates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as empty:
             out = os.path.join(empty, "rig.cnf")
             env = dict(os.environ, PATH=empty)
-            r = subprocess.run([sys.executable, "sat.py", "--rigidity-cnf", out, "--run"],
+            r = subprocess.run([sys.executable, _py_src("sat"), "--rigidity-cnf", out, "--run"],
                                capture_output=True, text=True, env=env)
             self.assertTrue(os.path.exists(out), r.stderr[-300:])
             self.assertNotIn("unrecognised flag", r.stderr)
             self.assertIn("kissat is required for --rigidity-cnf --run", r.stderr)
             self.assertNotIn("Traceback", r.stderr)
             # --run outside --rigidity-cnf is refused, not silently dropped (the Q-309 class)
-            r = subprocess.run([sys.executable, "sat.py", "--emit-cnf", "plain",
+            r = subprocess.run([sys.executable, _py_src("sat"), "--emit-cnf", "plain",
                                 os.path.join(empty, "x.cnf"), "--run"], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
             self.assertIn("--run applies to --rigidity-cnf only", r.stderr)
             self.assertFalse(os.path.exists(os.path.join(empty, "x.cnf")))
         # sibling (A09 row 20, limb 2): a mistyped SUBCOMMAND is an error, not help banner + rc 0
-        r = subprocess.run([sys.executable, "sat.py", "--wittness", "plain"], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, _py_src("sat"), "--wittness", "plain"], capture_output=True, text=True)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("unrecognised flag(s): --wittness", r.stderr)
 
@@ -652,7 +674,7 @@ class TestSatInputGuards(unittest.TestCase):
         # must go through a subprocess; it cannot be reached via the module API.
         with tempfile.TemporaryDirectory() as td:
             missing = os.path.join(td, "no_such_model.txt")
-            r = subprocess.run([sys.executable, "sat.py", "--decode", missing],
+            r = subprocess.run([sys.executable, _py_src("sat"), "--decode", missing],
                                capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0,
                                 "a missing --decode model must not exit 0")
@@ -673,7 +695,7 @@ class TestSatInputGuards(unittest.TestCase):
             model = os.path.join(td, "partial.txt")
             with open(model, "w") as fh:
                 fh.write("v %d 0\n" % one)
-            r = subprocess.run([sys.executable, "sat.py", "--decode", model, "--f1-pairs", "9"],
+            r = subprocess.run([sys.executable, _py_src("sat"), "--decode", model, "--f1-pairs", "9"],
                                capture_output=True, text=True)
             self.assertNotIn("Traceback", r.stderr + r.stdout,
                              "a model that decodes to a partial sequence must be a verdict, "
@@ -754,7 +776,7 @@ class TestSatInputGuards(unittest.TestCase):
         # names the specific message so the missing-tools exit cannot satisfy it by accident.
         with tempfile.TemporaryDirectory() as td:
             out = os.path.join(td, "wrong_target.cnf")
-            r = subprocess.run([sys.executable, "sat.py", "--emit-cnf", "alt-le-14", out,
+            r = subprocess.run([sys.executable, _py_src("sat"), "--emit-cnf", "alt-le-14", out,
                                 "--f1-pairs", "9"], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0, "a TARGET that --f1-pairs ignores must not exit 0")
             self.assertIn("has no reduced form", r.stderr,
@@ -764,14 +786,14 @@ class TestSatInputGuards(unittest.TestCase):
             model = os.path.join(td, "m.txt")
             with open(model, "w") as fh:
                 fh.write("v 1 0\n")
-            r = subprocess.run([sys.executable, "sat.py", "--decode", model, "plain",
+            r = subprocess.run([sys.executable, _py_src("sat"), "--decode", model, "plain",
                                 "--f1-pairs", "9"], capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
             self.assertIn("has no reduced form", r.stderr)
             # NEGATIVE CONTROL: the documented form still emits (a guard that refuses everything
             # is a permanent FALSE dressed as rigour)
             ok = os.path.join(td, "f1c5.cnf")
-            r = subprocess.run([sys.executable, "sat.py", "--emit-cnf", "f1c5", ok,
+            r = subprocess.run([sys.executable, _py_src("sat"), "--emit-cnf", "f1c5", ok,
                                 "--f1-pairs", "9"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr[-400:])
             self.assertTrue(os.path.getsize(ok) > 0)
@@ -3277,7 +3299,7 @@ class TestParityAlternationScope(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
 
     def test_the_two_out_of_scope_figures_have_live_reproducers(self):
-        r = subprocess.run([sys.executable, "solve.py",
+        r = subprocess.run([sys.executable, _py_src("solve"),
                             "--symmetry-completeness"],
                            capture_output=True, text=True)
         if not r.stdout:
@@ -3441,7 +3463,7 @@ class TestReconstructVerdictIsNotRefuted(unittest.TestCase):
         return ("14", "5.21e31")
 
     def test_reconstruct_does_not_print_the_refuted_uniqueness_claim(self):
-        r = subprocess.run([sys.executable, "solve.py", "--reconstruct"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--reconstruct"],
                            capture_output=True, text=True)
         if not r.stdout:
             self.fail("solve.py --reconstruct produced no output; an unreadable "
@@ -3458,7 +3480,7 @@ class TestReconstructVerdictIsNotRefuted(unittest.TestCase):
 
     def test_the_closing_scope_carries_the_published_refutation_figures(self):
         n_survivors, full_space = self._spec_figures()
-        r = subprocess.run([sys.executable, "solve.py", "--reconstruct"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--reconstruct"],
                            capture_output=True, text=True)
         if not r.stdout:
             self.fail("solve.py --reconstruct produced no output; an unreadable "
@@ -3556,7 +3578,7 @@ class TestInfoContentLeadsWithTheMeasuredLedger(unittest.TestCase):
     RED-TESTED 2026-09-02 -- see the private followups entry."""
 
     def _info(self):
-        r = subprocess.run([sys.executable, "solve.py", "--info"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--info"],
                            capture_output=True, text=True)
         if not r.stdout:
             self.fail("solve.py --info produced no output; an unreadable result "
@@ -3672,7 +3694,7 @@ class TestRulesBannerCarriesNoRetractedPhrase(unittest.TestCase):
         self.assertGreaterEqual(len(phrases), 1,
                                 f"{RETRACTED_REGISTRY} parsed to ZERO rows: the needle "
                                 "population is empty, so this test can check nothing")
-        emitter = os.environ.get("ROAE_TESTS_RULES_EMITTER", "solve.py")
+        emitter = os.environ.get("ROAE_TESTS_RULES_EMITTER", _py_src("solve"))
         r = subprocess.run([sys.executable, emitter, "--rules"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr[-2000:])
@@ -4241,7 +4263,7 @@ class TestSatLane12(unittest.TestCase):
 
     @staticmethod
     def _sat(args, env=None):
-        return subprocess.run([sys.executable, "sat.py"] + args, capture_output=True, text=True, env=env)
+        return subprocess.run([sys.executable, _py_src("sat")] + args, capture_output=True, text=True, env=env)
 
     @staticmethod
     def _stub(tmp, body):
@@ -4896,7 +4918,7 @@ class TestExtractionNull(unittest.TestCase):
     seed actually matters, and every emitted vector really is a C1&C2 difference-wave multiset."""
 
     def _run(self, n, seed=None):
-        cmd = [sys.executable, "solve.py", "--extraction-null", str(n)]
+        cmd = [sys.executable, _py_src("solve"), "--extraction-null", str(n)]
         if seed is not None:
             cmd += ["--extraction-null-seed", str(seed)]
         r = subprocess.run(cmd, capture_output=True, text=True)
@@ -5501,7 +5523,7 @@ class TestKcExtremalTwoLanguageRecheck(unittest.TestCase):
                     else:
                         json.dump(c, fh)
                 paths.append(p)
-            r = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck"] + paths,
+            r = subprocess.run([sys.executable, _py_src("solve"), "--kc-x-recheck"] + paths,
                                capture_output=True, text=True, timeout=300)
             return r.returncode, [l.rstrip() for l in
                                   (r.stdout + "\n" + r.stderr).splitlines()]
@@ -5723,7 +5745,7 @@ class TestKcExtremalTwoLanguageRecheck(unittest.TestCase):
         self.assertIn("KC_X_PYCHECK=ERROR", lines)
 
     def test_no_certificates_at_all_is_an_error(self):
-        r = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck"],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--kc-x-recheck"],
                            capture_output=True, text=True, timeout=300)
         self.assertNotEqual(r.returncode, 0,
                             "--kc-x-recheck with no arguments must refuse, not report PASS")
@@ -5812,7 +5834,7 @@ class TestKcExtremalRecheckKillsACoordinatedCMutant(unittest.TestCase):
                         "expected the mutant to publish extreme_value=39; got:\n" + r.stdout)
 
         # 3. The second language says no.
-        p = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck", cert],
+        p = subprocess.run([sys.executable, _py_src("solve"), "--kc-x-recheck", cert],
                            capture_output=True, text=True, timeout=300)
         lines = [l.rstrip() for l in (p.stdout + "\n" + p.stderr).splitlines()]
         self.assertEqual(p.returncode, 1)
@@ -5897,7 +5919,7 @@ class TestF30KcxRecheckBindsTheUniverse(unittest.TestCase):
             with open(p, "w") as fh:
                 json.dump(c, fh)
             paths.append(p)
-        r = subprocess.run([sys.executable, "solve.py", "--kc-x-recheck"] + paths,
+        r = subprocess.run([sys.executable, _py_src("solve"), "--kc-x-recheck"] + paths,
                            capture_output=True, text=True, timeout=300)
         lines = [l.rstrip() for l in (r.stdout + "\n" + r.stderr).splitlines()]
         rows = {l.split()[0][len("KC_X_PYCHECK_ROW="):]: l.split()[1]
@@ -7370,7 +7392,7 @@ class TestP2GzipInputIsTheDocumentedInput(unittest.TestCase):
         with open(stream, "w") as fh:
             fh.write("record\tcd=387\t%s\n" % kw)
         raw = os.path.join(cls.tmp, "raw.bin")
-        r = subprocess.run([sys.executable, "solve.py", "--encode-solutions", raw, stream],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--encode-solutions", raw, stream],
                            capture_output=True, text=True)
         if "ENCODE_ROUNDTRIP=PASS" not in r.stdout.splitlines():     # explicit raise (Q-373)
             raise AssertionError("--encode-solutions did not PASS: " + r.stdout + r.stderr)
@@ -7378,7 +7400,7 @@ class TestP2GzipInputIsTheDocumentedInput(unittest.TestCase):
         with open(raw, "rb") as src, gzip.open(cls.gz, "wb") as dst:
             dst.write(src.read())
         cls.chunks = os.path.join(cls.tmp, "chunks")
-        r = subprocess.run([sys.executable, "solve.py", "--compute-stats", cls.gz, cls.chunks,
+        r = subprocess.run([sys.executable, _py_src("solve"), "--compute-stats", cls.gz, cls.chunks,
                             "--compute-stats-workers", "1"], capture_output=True, text=True)
         if r.returncode != 0 or "COMPUTE_STATS=PASS" not in r.stdout:    # explicit raise (Q-373)
             raise AssertionError("--compute-stats did not PASS: " + r.stdout + r.stderr)
@@ -7432,7 +7454,8 @@ class TestMissingInputIsRefusedNotCrashed(unittest.TestCase):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def _check(self, prog, argv, rc, line_re):
-        r = subprocess.run([sys.executable, prog] + argv, capture_output=True, text=True,
+        run = {"solve.py": _py_src("solve"), "sat.py": _py_src("sat")}.get(prog, prog)  # Q-885
+        r = subprocess.run([sys.executable, run] + argv, capture_output=True, text=True,
                            timeout=300)
         out = r.stdout + r.stderr
         self.assertNotIn("Traceback (most recent call last)", out, "%s %s\n%s" % (prog, argv, out))
@@ -7571,7 +7594,7 @@ class TestAtlasProbe(unittest.TestCase):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def _probe(self, path):
-        r = subprocess.run([sys.executable, "solve.py", "--atlas-probe", path],
+        r = subprocess.run([sys.executable, _py_src("solve"), "--atlas-probe", path],
                            capture_output=True, text=True)
         out = r.stdout + r.stderr
         self.assertNotIn("Traceback (most recent call last)", out, out)
@@ -9863,7 +9886,7 @@ class TestQ699FieldRowGateAcceptsReducedN(unittest.TestCase):
                  [sbin, "--kc-g-build", os.path.join(cls.tmp, "g"), "--f1-pairs", "9"],
                  [sbin, "--kc-scan", os.path.join(cls.tmp, "f"), os.path.join(cls.tmp, "g"),
                   os.path.join(cls.tmp, "atlas.json")],
-                 [sys.executable, os.path.join(cls.HERE, "solve.py"), "--atlas-queries",
+                 [sys.executable, os.path.join(cls.HERE, _py_src("solve")), "--atlas-queries",
                   os.path.join(cls.tmp, "atlas.json"), "--atlas-out", os.path.join(cls.tmp, "out"),
                   "--atlas-select", "v1"]]
         cls.ok, cls.err = True, ""
@@ -10457,7 +10480,7 @@ class TestAtlasResidualRank(unittest.TestCase):
         TestAtlasProbe.tearDownClass.__func__(cls)
 
     def _run(self, flag, path):
-        r = subprocess.run([sys.executable, "solve.py", flag, path], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, _py_src("solve"), flag, path], capture_output=True, text=True)
         out = r.stdout + r.stderr
         self.assertNotIn("Traceback (most recent call last)", out, out)
         return r.returncode, r.stdout.splitlines(), out
@@ -12364,7 +12387,7 @@ class TestAtlasProbeRefusesMalformedCounts(unittest.TestCase):
             p = os.path.join(self.tmp, "a.json")
             with open(p, "w", encoding="utf-8") as fh:
                 json.dump(self._mutant(v), fh)
-            r = subprocess.run([sys.executable, "solve.py", "--atlas-probe", p],
+            r = subprocess.run([sys.executable, _py_src("solve"), "--atlas-probe", p],
                                capture_output=True, text=True)
             self.assertNotIn("Traceback", r.stderr, r.stderr)
             self.assertEqual(2, r.returncode, (v, r.stdout[-500:], r.stderr))
@@ -12722,7 +12745,7 @@ class TestAtlasConsumerIsAsStrictAsTheProbe(unittest.TestCase):
              "as the producer spells it"))
         for f, why in plants:
             path = self._write(self._mut(f))
-            r = subprocess.run([sys.executable, "solve.py", "--atlas-queries", path,
+            r = subprocess.run([sys.executable, _py_src("solve"), "--atlas-queries", path,
                                 "--atlas-out", os.path.join(self.tmp, "out")],
                                capture_output=True, text=True)
             self.assertNotIn("Traceback", r.stderr, r.stderr)
@@ -15166,7 +15189,7 @@ class TestQ846SolvePyPairIndexBounds(unittest.TestCase):
                 "outside the 32-entry pair table" % (path, byte, val, pidx))
 
     def _py(self, *args):
-        return subprocess.run([sys.executable, "solve.py"] + list(args), capture_output=True,
+        return subprocess.run([sys.executable, _py_src("solve")] + list(args), capture_output=True,
                               text=True, timeout=600)
 
     # ---- positive controls: the clean King Wen file ----------------------------------------
@@ -15864,7 +15887,7 @@ class TestQ850SolvePyGzNamesChunkCleanupReservedBit(unittest.TestCase):
         return path
 
     def _py(self, *args):
-        return subprocess.run([sys.executable, "solve.py"] + list(args), capture_output=True,
+        return subprocess.run([sys.executable, _py_src("solve")] + list(args), capture_output=True,
                               text=True, timeout=600)
 
     def _rsv(self, path, rec, byte, val):
@@ -23994,7 +24017,7 @@ print(json.dumps(out))
     def _selftest_with(self, mutate=None):
         d = tempfile.mkdtemp(dir=self.tmp)
         os.makedirs(os.path.join(d, "viz"))
-        os.symlink(os.path.join(self.HERE, "solve.py"), os.path.join(d, "solve.py"))
+        os.symlink(os.path.join(self.HERE, _py_src("solve")), os.path.join(d, "solve.py"))
         src = self.src if mutate is None else mutate(self.src)
         with open(os.path.join(d, "viz", "report_figures.py"), "w", encoding="utf-8") as fh:
             fh.write(src)
@@ -27937,7 +27960,7 @@ class TestK28KcvTriageFixes(unittest.TestCase):
     def test_r9_dead_live_split_is_tied_to_outdeg(self):
         import json
         def probe(path):
-            r = subprocess.run([sys.executable, "solve.py", "--atlas-probe", path],
+            r = subprocess.run([sys.executable, _py_src("solve"), "--atlas-probe", path],
                                capture_output=True, text=True, timeout=900)
             return r.returncode, r.stdout.splitlines(), r.stdout + r.stderr
         rc, lines, out = probe(self.ATLAS31)
@@ -28473,6 +28496,918 @@ class TestT30CapstoneWording(unittest.TestCase):
             self.assertIn("in preparation", fh.read())
 
 # end class TestT30CapstoneWording
+
+
+class TestA31PublishedTextResidue(unittest.TestCase):
+    """Batch 31a, lane A31: published-text residue (Q-65, Q-326 item 8, Q-759, Q-763, Q-410 item e,
+    Q-514). Every leg asserts its precondition and runs its predicate on the BASE text first (the
+    red), so a predicate that cannot fail is caught here rather than trusted."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    OLD_ID = "independent exact " "identit"          # split so this file never carries it whole
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+
+    # ---- Q-65 ---------------------------------------------------------------------------------
+    @staticmethod
+    def _xa_a_ok(text):
+        rows = [l for l in text.split("\n") if l.startswith("| **XA-a** ")]
+        if len(rows) != 1:
+            return None
+        return (re.search(r"PENDING:atlas-consumer --xa([^-]|$)", rows[0]) is None
+                and "--atlas-queries" in rows[0])
+
+    def test_q65_xa_a_names_its_producer(self):
+        base = ("| **XA-a** | `solutions(b)` per top-level branch. | scan (row Q6) → "
+                "`PENDING:atlas-consumer " "--xa` | f+g | DERIVED | `reports/tr12/xa_branches.tsv` (TSV) |")
+        self.assertIs(self._xa_a_ok(base), False, "red: BASE's XA-a cell fails the predicate")
+        qi = self._read("documentation/QUERY_INVENTORY.md")
+        self.assertIs(self._xa_a_ok(qi), True, "the XA-a row exists once and names its producer")
+        self.assertIn("PENDING:atlas-consumer --xa-cost", qi, "the held XA-c/d cell is untouched")
+
+    # ---- Q-326 item 8 -------------------------------------------------------------------------
+    def test_q326_8_ladder_identities_are_not_called_independent(self):
+        src = self._read("solve.c")
+        for anchor in ("g(0,root) == N", "t(root) == total tree size"):
+            self.assertIn(anchor, src, "precondition: the help-string anchor %r exists" % anchor)
+        base = ('"  g(0,root) == N — 31 ' + self.OLD_ID + 'ies at full-31 (V3).\\n");\n'
+                '"  ' + self.OLD_ID + 'ies, incl. t(root) == total tree size.\\n");\n'
+                ' * ' + self.OLD_ID + 'ies; the geometry (mask lists, offsets, keys)\n')
+        self.assertEqual(base.count(self.OLD_ID), 3, "red: BASE's three sites are counted")
+        self.assertEqual(src.count(self.OLD_ID), 0)
+        for anchor in ("g(0,root) == N — 31 exact identities", "t(root) == total tree size, integrity"):
+            self.assertIn(anchor, src, "the scoped wording is present")
+
+    @staticmethod
+    def _usage_dump(src, flag):
+        """The usage literal for FLAG with adjacent literals joined and whitespace collapsed,
+        which reproduces the SOLVE_C_CLI.md dump byte for byte (checked on the BASE tree)."""
+        m = re.search(r'"Usage: solve ' + re.escape(flag) + " ", src)
+        if not m:
+            return None
+        k, body = m.start(), []
+        while True:
+            j = k + 1
+            while src[j] != '"':
+                if src[j] == "\\":
+                    body.append({"n": "\n", "t": "\t", '"': '"', "\\": "\\"}.get(src[j + 1], src[j + 1]))
+                    j += 2
+                    continue
+                body.append(src[j])
+                j += 1
+            nxt = re.match(r'\s*"', src[j + 1:])
+            if not nxt:
+                break
+            k = j + 1 + nxt.end() - 1
+        return " ".join("".join(body).split())
+
+    def test_q326_8_usage_dump_matches_the_binary_text(self):
+        dump = self._usage_dump(self._read("solve.c"), "--kc-g-check")
+        self.assertIsNotNone(dump, "precondition: --kc-g-check has a Usage: literal")
+        doc = self._read("documentation/SOLVE_C_CLI.md").split("\n")
+        lines = [l for l in doc if l.startswith("Usage: solve --kc-g-check FDIR")]
+        self.assertEqual(len(lines), 1, "precondition: one dump line")
+        self.assertEqual(lines[0], dump)
+        self.assertNotIn(self.OLD_ID, lines[0])
+
+    # ---- Q-759: V3B-08 #22 and V3B-07 #31 ------------------------------------------------------
+    OLD_PROMISE = "carries a reproduction command, " "and every"
+    NEW_PROMISE = "carries a reproduction command, or says at the claim that it has none"
+
+    def test_v3b08_22_cover_promise_is_scoped_everywhere(self):
+        r = subprocess.run(["git", "ls-files", "reports/TR*.md"], cwd=self.ROOT, capture_output=True, text=True)
+        trs = [f for f in r.stdout.split() if re.match(r"reports/TR\d+_", f)]
+        self.assertEqual(len(trs), 12, "precondition: the twelve TRs were enumerated")
+        base = ("*Technical report — not peer-reviewed. Every MEASURED result carries a reproduction "
+                "command, and every\nproof cited as machine-checked")
+        self.assertIn(self.OLD_PROMISE, " ".join(base.split()), "red: BASE's cover carries the old promise")
+        for f in trs + ["reports/README.md", "documentation/SOLVE_SUMMARY.md"]:
+            flat = " ".join(self._read(f).split())
+            self.assertNotIn(self.OLD_PROMISE, flat, f)
+        for f in trs + ["reports/README.md"]:
+            self.assertIn(self.NEW_PROMISE, " ".join(self._read(f).split()), f)
+
+    BARE = re.compile(r"`(?:SOLVE_[A-Z0-9_]+=\S+ )*solve --estimate-knuth +[1-9]")  # sampled runs; prose naming the exact mode is not a command
+
+    def test_v3b07_31_estimator_commands_run_as_printed(self):
+        base = "  `solve --estimate-knuth 100000000 " "<p1> <o1>` (one branch); `solve --estimate-knuth 0 <prefix>`"
+        self.assertEqual(len(self.BARE.findall(base)), 1, "red: BASE's TR-4 line is caught")
+        for f in ("reports/TR4_SIZE_OF_THE_SPACE.md", "documentation/SEARCH_SPACE_SIZE.md"):
+            text = self._read(f)
+            self.assertIn("--estimate-knuth 0 <prefix>", text, "precondition: " + f)
+            self.assertEqual(self.BARE.findall(text), [], f)
+            self.assertIn("`./solve --estimate-knuth 0 <prefix>`", text, f)
+            for cmd in ("./solve --estimate-knuth 500000000`", "./solve --estimate-knuth 100000000 <p1> <o1>`"):
+                self.assertIn("`SOLVE_THREADS=<T> " + cmd, text, "%s: the sampled command carries its thread pin" % f)
+
+    # ---- Q-763: V3A-039 #4-#8 -------------------------------------------------------------------
+    PH_SITES = (
+        ("**1.87× more records per unit budget**.", "V3A-039 #4"),
+        ("**1.88× more records per node-budget for v2**.", "V3A-039 #4"),
+        ("sits between 100B and 11.2T.", "V3A-039 #4"),
+        ("perf-neutral by construction).", "V3A-039 #5"),
+        ("is the sole resume input — no slow shard-file scan needed.", "V3A-039 #6"),
+        ("Confirmed by 1T extrapolation.", "V3A-039 #7"),
+        ("NEON-only pilot is sufficient; SVE2 parity is not required.", "V3A-039 #8"),
+    )
+
+    def test_v3a039_sites_carry_their_scope_note(self):
+        lines = self._read("documentation/PERFORMANCE_HISTORY.md").split("\n")
+        base = "- `checkpoint.txt` (12 MB) is the sole resume input — no slow shard-file scan needed."
+        self.assertNotIn("V3A-039 #6", base, "red: BASE's line carries no note")
+        for anchor, key in self.PH_SITES:
+            hit = [l for l in lines if anchor in l]
+            self.assertEqual(len(hit), 1, "precondition: one line carries %r" % anchor)
+            self.assertIn(key, hit[0], anchor)
+
+    # ---- Q-410 item e -------------------------------------------------------------------------
+    def test_q410e_color_row_names_the_two_sections_it_reaches(self):
+        src = self._read("roae.py")
+        users = sorted(set(re.findall(r"(\w+)\(use_color=use_color\)", src)))
+        self.assertEqual(users, ["print_pairs", "print_table"], "precondition: what --color reaches")
+        doc = self._read("documentation/ROAE_PY_CLI.md")
+        base = "--color            Enable ANSI color " "in terminal output\n"
+        self.assertNotIn("--table", base, "red: BASE's row names no section")
+        row = doc[doc.index("\n--color "):][:400]
+        self.assertIn("--table", row)
+        self.assertIn("--pairs", row)
+        self.assertIn("every other section ignores it", row)
+
+    # ---- Q-514 ---------------------------------------------------------------------------------
+    def test_q514_scratch_path_is_ignored_and_hides_nothing(self):
+        r = subprocess.run(["git", "ls-files", "scripts/v4_query_evidence"], cwd=self.ROOT,
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(r.stdout, "", "precondition: nothing under the path is tracked")
+        c = subprocess.run(["git", "check-ignore", "-q", "scripts/v4_query_evidence/probe"],
+                           cwd=self.ROOT, capture_output=True, text=True)
+        self.assertEqual(c.returncode, 0)
+
+# end class TestA31PublishedTextResidue
+
+class TestQ885PySourceOverride(unittest.TestCase):
+    """Lane D31: Q-885. tests.py had a source override for solve.c (ROAE_TESTS_SOLVE_SRC) and verify.c
+    (ROAE_TESTS_VERIFY_SRC) but none for solve.py or sat.py, so a red run against a mutated solve.py
+    needed a one-off harness that re-imported tests.py. ROAE_TESTS_SOLVEPY_SRC / ROAE_TESTS_SATPY_SRC
+    now redirect _load, every subprocess run of the script, and the in-process `import solve|sat`.
+
+    POSITIVE CONTROL: a copy of solve.py with a planted marker is loaded by a child that imports
+    tests.py as a module with the variable set; the marker must be seen through the module-level
+    load, through sat.py's own `import solve`, and through a subprocess run of `_py_src("solve")`.
+    NEGATIVE: unset, none of the three sees it. RED: a mutant tests.py whose _load ignores the
+    override (BASE's form, `name + ".py"`) does not see it, so this class can fail."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CHILD = r"""
+import importlib.util, os, subprocess, sys
+sys.argv = ["tests.py"]
+spec = importlib.util.spec_from_file_location("tests_q885", os.environ["Q885_TESTS"])
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+print("LOAD=" + str(getattr(m.solve, "Q885_MARKER", "absent")))
+print("SATBIND=" + str(getattr(m.sat.solve, "Q885_MARKER", "absent")))
+src = m._py_src("solve") if hasattr(m, "_py_src") else "solve.py"
+r = subprocess.run([sys.executable, src, "--help"], capture_output=True, text=True,
+                   env=dict(os.environ, Q885_ECHO="1"), timeout=300)
+line = [l for l in r.stdout.splitlines() if l.startswith("Q885_MARKER=")]
+print("SUBPROC=" + (line[0].split("=", 1)[1] if line else "absent"))
+"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q885_")
+        cls.token = "q885-%d" % os.getpid()
+        with open(os.path.join(cls.ROOT, "solve.py"), encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+        plant = ['Q885_MARKER = "%s"' % cls.token,
+                 'import os as _q885_os, sys as _q885_sys',
+                 'if _q885_os.environ.get("Q885_ECHO"):',
+                 '    print("Q885_MARKER=" + Q885_MARKER); _q885_sys.exit(0)']
+        cls.override = os.path.join(cls.tmp, "solve_q885.py")
+        with open(cls.override, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines[:3] + plant + lines[3:]))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _child(self, tests_path, override):
+        env = dict(os.environ, Q885_TESTS=tests_path)
+        env.pop("ROAE_TESTS_SOLVEPY_SRC", None)
+        env.pop("ROAE_TESTS_SATPY_SRC", None)
+        env.pop("Q885_ECHO", None)
+        if override:
+            env["ROAE_TESTS_SOLVEPY_SRC"] = override
+        r = subprocess.run([sys.executable, "-c", self.CHILD], capture_output=True, text=True,
+                           env=env, cwd=self.ROOT, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        got = dict(l.split("=", 1) for l in r.stdout.splitlines() if "=" in l)
+        self.assertEqual(sorted(got), ["LOAD", "SATBIND", "SUBPROC"], r.stdout[-2000:])
+        return got
+
+    def test_precondition_override_exists_and_differs(self):
+        self.assertTrue(os.path.isfile(self.override))
+        with open(self.override, encoding="utf-8") as a, open(os.path.join(self.ROOT, "solve.py"), encoding="utf-8") as b:
+            self.assertNotEqual(a.read(), b.read(), "the override must differ from the repo copy")
+
+    def test_override_is_observed_on_all_three_paths(self):
+        got = self._child(os.path.join(self.ROOT, "tests.py"), self.override)
+        self.assertEqual(got, {"LOAD": self.token, "SATBIND": self.token, "SUBPROC": self.token})
+
+    def test_unset_uses_the_repo_copy(self):
+        got = self._child(os.path.join(self.ROOT, "tests.py"), None)
+        self.assertEqual(got, {"LOAD": "absent", "SATBIND": "absent", "SUBPROC": "absent"})
+
+    def test_mutant_that_ignores_the_override_is_red(self):
+        with open(os.path.join(self.ROOT, "tests.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        live = "spec = importlib.util.spec_from_file_location(name, " "_py_src(name))"  # split: count the code, not this line
+        ret = "    return os.path.abspath(p) " "if p else name + \".py\""
+        self.assertEqual(src.count(live), 1, "precondition: the override-honouring _load line is present once")
+        self.assertEqual(src.count(ret), 1, "precondition: _py_src's override return is present once")
+        mut = src.replace(live, 'spec = importlib.util.spec_from_file_location(name, name + ".py")')
+        mut = mut.replace(ret, '    return name + ".py"')
+        mp = os.path.join(self.tmp, "tests_mutant.py")
+        with open(mp, "w", encoding="utf-8") as fh:
+            fh.write(mut)
+        got = self._child(mp, self.override)
+        self.assertEqual(got["LOAD"], "absent", "the BASE-form _load must not see the planted marker")
+        self.assertEqual(got["SUBPROC"], "absent", "the BASE-form subprocess path must not see it")
+
+# end class TestQ885PySourceOverride (lane D31)
+
+
+
+class TestQ887G2PopulationAndGrepRc(unittest.TestCase):
+    """Lane D31: Q-887, the Q-883 sibling. G2 of scripts/gate_published_consistency.sh ran its producer
+    as `grep -rnE ... reports/ documentation/ 2>/dev/null | grep -v ... || true`, so a grep that
+    FAILED (rc 2) read as zero hits: with a PATH grep shim refusing only G2's pattern the ratchet
+    printed "G2 fell to 0 ... TIGHTEN THE PIN" and the verdict stayed PASS-AT-PIN. G2 now checks both
+    roots, branches on the producer's rc, prints G2_FILES_SCANNED=N, fails below G2_FLOOR, and any of
+    those forces PUBLISHED_CONSISTENCY=FAIL. RED: a copy of the gate with BASE's G2 block put back is
+    run under the same shim and must NOT say FAIL (asserted), so the shim case discriminates."""
+
+    GATE = os.path.join("scripts", "gate_published_consistency.sh")
+    VERDICT = re.compile(r"^PUBLISHED_CONSISTENCY=(PASS|PASS-AT-PIN|FAIL)$", re.M)
+    RECEIPT = re.compile(r"^G2_FILES_SCANNED=(\d+)$", re.M)
+    BASE_G2 = ("G2=$(grep -rnE '`[^`]*\\./solve --estimate-knuth +[1-9][0-9]*[^`]*`' reports/ documentation/ 2>/dev/null \\\n"
+               "     | grep -v 'SOLVE_THREADS' \\\n"
+               "     | grep -vE '^documentation/CORRECTIONS(_INVENTORY)?\\.(md|tsv):' || true)\n"
+               "G2_ERR=0\n")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.tmp = tempfile.mkdtemp(prefix="q887_g2_")
+        cls.shim = os.path.join(cls.tmp, "shim")
+        os.makedirs(cls.shim)
+        real = shutil.which("grep")
+        cls.acted = os.path.join(cls.tmp, "acted")
+        with open(os.path.join(cls.shim, "grep"), "w", encoding="utf-8") as fh:
+            fh.write("#!/usr/bin/env bash\nfor a in \"$@\"; do case \"$a\" in *'estimate-knuth +[1-9]'*) "
+                     "touch '%s'; echo 'q887 shim: grep refused' >&2; exit 2;; esac; done\nexec '%s' \"$@\"\n"
+                     % (cls.acted, real))
+        os.chmod(os.path.join(cls.shim, "grep"), 0o755)
+        with open(os.path.join(cls.root, cls.GATE), encoding="utf-8") as fh:
+            live = fh.read()
+        a = live.index("_G2R=${G2_ROOT:-.}")
+        b = live.index("G2_N=$(", a)
+        cd = 'cd "$(dirname "$0")/.." || exit 2'
+        cls.base_ok = live.count(cd) == 1 and a < b
+        base = live[:a] + cls.BASE_G2 + live[b:]
+        base = base.replace(cd, "cd '%s' || exit 2" % cls.root)
+        pin = 'PIN="$(dirname "$0")/gate_published_consistency.pin"'
+        cls.base_ok = cls.base_ok and base.count(pin) == 1
+        base = base.replace(pin, 'PIN="scripts/gate_published_consistency.pin"')
+        cls.base_gate = os.path.join(cls.tmp, "gate_base_g2.sh")
+        with open(cls.base_gate, "w", encoding="utf-8") as fh:
+            fh.write(base)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, script=None, shim=False, g2_root=None):
+        env = dict(os.environ)
+        env.pop("G2_ROOT", None)
+        env.pop("G1_ROOT", None)
+        if shim:
+            env["PATH"] = self.shim + os.pathsep + env["PATH"]
+        if g2_root is not None:
+            env["G2_ROOT"] = g2_root
+        if os.path.exists(self.acted):
+            os.remove(self.acted)
+        r = subprocess.run(["bash", script or os.path.join(self.root, self.GATE)], capture_output=True,
+                           text=True, env=env, cwd=self.root, timeout=900)
+        out = r.stdout
+        v = self.VERDICT.findall(out)
+        self.assertEqual(len(v), 1, "exactly one verdict token expected:\n" + out[-2000:])
+        if shim:
+            self.assertTrue(os.path.exists(self.acted), "precondition: the PATH grep shim was never reached")
+        if g2_root is not None:
+            self.assertIn("G2: G2_ROOT overrides the scanned root to %s" % g2_root, out,
+                          "precondition: the G2_ROOT override was not honoured")
+        return out, v[0]
+
+    def _tree(self, name, n_reports, n_docs, docs=True):
+        d = os.path.join(self.tmp, name)
+        os.makedirs(os.path.join(d, "reports"))
+        for i in range(n_reports):
+            with open(os.path.join(d, "reports", "R%03d.md" % i), "w", encoding="utf-8") as fh:
+                fh.write("clean %d\n" % i)
+        if docs:
+            os.makedirs(os.path.join(d, "documentation"))
+            for i in range(n_docs):
+                with open(os.path.join(d, "documentation", "D%03d.md" % i), "w", encoding="utf-8") as fh:
+                    fh.write("clean %d\n" % i)
+        return d
+
+    def test_precondition_unshimmed_both_scripts_agree(self):
+        self.assertTrue(self.base_ok, "precondition: the BASE-G2 mutant could be built")
+        out_l, v_l = self._run()
+        out_b, v_b = self._run(self.base_gate)
+        self.assertEqual(v_l, v_b, "without the shim the BASE form and the fix must agree")
+        self.assertIn(v_l, ("PASS", "PASS-AT-PIN"))
+        m = self.RECEIPT.findall(out_l)
+        self.assertEqual(len(m), 1)
+        self.assertGreaterEqual(int(m[0]), 250, "the real tree is below the G2 floor")
+
+    def test_shim_base_form_is_not_fail_red(self):
+        out, v = self._run(self.base_gate, shim=True)
+        self.assertNotEqual(v, "FAIL", "the BASE form was expected to fail OPEN under the shim:\n" + out[-1500:])
+        self.assertIn("G2 fell to 0", out)
+
+    def test_shim_fix_is_fail_naming_g2(self):
+        out, v = self._run(shim=True)
+        self.assertEqual(v, "FAIL")
+        self.assertIn("[FAIL] G2: the sampled-command grep failed (rc 2)", out)
+        self.assertIn("[FAIL] G2 measured nothing trustworthy", out)
+        self.assertNotIn("every published --estimate-knuth command carries a thread pin", out)
+
+    def test_g2_root_without_reports_is_fail(self):
+        d = os.path.join(self.tmp, "noreports")
+        os.makedirs(os.path.join(d, "documentation"))
+        self.assertFalse(os.path.isdir(os.path.join(d, "reports")))
+        out, v = self._run(g2_root=d)
+        self.assertIn("[FAIL] G2: %s/reports/ or %s/documentation/ is missing or unreadable" % (d, d), out)
+        self.assertIn("G2_FILES_SCANNED=0", out.splitlines())
+        self.assertEqual(v, "FAIL")
+
+    def test_g2_below_floor_is_fail(self):
+        d = self._tree("small", 3, 2)
+        out, v = self._run(g2_root=d)
+        self.assertIn("G2_FILES_SCANNED=5", out.splitlines(), "precondition: 3 reports + 2 docs")
+        self.assertIn("[FAIL] G2: 5 file(s) scanned, below the floor 250", out)
+        self.assertEqual(v, "FAIL")
+
+    def test_g2_clean_root_above_floor_is_not_fail(self):
+        d = self._tree("clean", 200, 60)
+        out, v = self._run(g2_root=d)
+        self.assertIn("G2_FILES_SCANNED=260", out.splitlines())
+        self.assertNotIn("[FAIL] G2", out)
+        self.assertIn("[ok]   every published --estimate-knuth command carries a thread pin", out)
+        self.assertIn(v, ("PASS", "PASS-AT-PIN"))
+
+# end class TestQ887G2PopulationAndGrepRc (lane D31)
+
+
+class TestQ887Gate22UniverseRc(unittest.TestCase):
+    """Lane D31: Q-887's minor sibling. GATE 22's 64-nibble UNIVERSE grep (`git grep -ohIE '[0-9a-f]+'
+    HEAD ...`) ran `2>/dev/null` with no rc check. In a clean tree that failed closed through the
+    empty-universe [FAIL], but nothing named the producer, and in a dirty tree the working-tree leg
+    could refill the universe and hide it. The rc is now captured and rc >= 2 is a FAIL naming the
+    universe producer. A PATH git shim refuses ONLY that grep (keyed on the pattern AND `HEAD`)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def test_universe_producer_failure_is_named(self):
+        tmp = tempfile.mkdtemp(prefix="q887_g22_")
+        try:
+            real = shutil.which("git")
+            acted = os.path.join(tmp, "acted")
+            with open(os.path.join(tmp, "git"), "w", encoding="utf-8") as fh:
+                fh.write("#!/usr/bin/env bash\nhp=0; hh=0\nfor a in \"$@\"; do [ \"$a\" = '[0-9a-f]+' ] && hp=1; "
+                         "[ \"$a\" = HEAD ] && hh=1; done\nif [ $hp = 1 ] && [ $hh = 1 ]; then touch '%s'; "
+                         "echo 'q887 shim: git grep refused' >&2; exit 2; fi\nexec '%s' \"$@\"\n" % (acted, real))
+            os.chmod(os.path.join(tmp, "git"), 0o755)
+            env = dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"])
+            r = subprocess.run(["bash", "scripts/doc_gates.sh", "hex-prefix"], capture_output=True, text=True,
+                               env=env, cwd=self.ROOT, timeout=900)
+            self.assertTrue(os.path.exists(acted), "precondition: the PATH git shim was never reached")
+            out = r.stdout + r.stderr
+            self.assertNotEqual(r.returncode, 0)
+            self.assertTrue("GATE 22: the universe producer (git grep over HEAD) failed rc 2" in out,
+                            "the universe producer's failure was not named:\n" + out[:1500])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+# end class TestQ887Gate22UniverseRc (lane D31)
+
+
+
+class TestQ884TR12GoldenSet(unittest.TestCase):
+    """Lane D31: Q-884 GAP-2. scripts/tr12_golden_set_gate.sh reconciles scripts/tr12_expected/n9/*.txt
+    with the battery's own row list (and with _MANIFEST.txt): an orphan golden, a golden missing from
+    disk or from the manifest, or a row with no golden that is not pinned NOT RUN, is FAIL. Each case
+    runs against a scratch copy (TR12_GOLDEN_ROOT) and first asserts the clean copy PASSES with at
+    least the known row count, so a red can only come from the planted change."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    GATE = os.path.join("scripts", "tr12_golden_set_gate.sh")
+    KNOWN_ROWS = 77
+    KNOWN_GOLDENS = 60
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="q884_gs_")
+        os.makedirs(os.path.join(self.tmp, "scripts", "tr12_expected"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "tr12_repro.sh"), os.path.join(self.tmp, "scripts"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "tr12_expected", "n9"),
+                        os.path.join(self.tmp, "scripts", "tr12_expected", "n9"))
+        self.n9 = os.path.join(self.tmp, "scripts", "tr12_expected", "n9")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, root):
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, self.GATE)), "the golden-set gate is missing")
+        env = dict(os.environ, TR12_GOLDEN_ROOT=root)
+        r = subprocess.run(["bash", os.path.join(self.ROOT, self.GATE)], capture_output=True, text=True,
+                           env=env, timeout=300)
+        lines = r.stdout.splitlines()
+        v = [l for l in lines if l.startswith("TR12_GOLDEN_SET=")]
+        self.assertEqual(len(v), 1, r.stdout + r.stderr)
+        return r.returncode, v[0], r.stdout
+
+    def _rows(self, out):
+        m = re.search(r"^TR12_GOLDEN_ROWS=(\d+)$", out, re.M)
+        self.assertIsNotNone(m, out)
+        return int(m.group(1))
+
+    def test_real_tree_passes_at_known_counts(self):
+        rc, v, out = self._run(self.ROOT)
+        self.assertEqual((rc, v), (0, "TR12_GOLDEN_SET=PASS"), out)
+        self.assertGreaterEqual(self._rows(out), self.KNOWN_ROWS)
+        self.assertIn("TR12_GOLDENS=%d" % self.KNOWN_GOLDENS, out.splitlines())
+
+    def test_clean_copy_passes(self):
+        rc, v, out = self._run(self.tmp)
+        self.assertEqual((rc, v), (0, "TR12_GOLDEN_SET=PASS"), out)
+        self.assertGreaterEqual(self._rows(out), self.KNOWN_ROWS, "precondition: the row list parsed")
+
+    def test_orphan_golden_is_fail(self):
+        shutil.copy(os.path.join(self.n9, "a0_anchor.txt"), os.path.join(self.n9, "zz_orphan.txt"))
+        rc, v, out = self._run(self.tmp)
+        self.assertEqual((rc, v), (1, "TR12_GOLDEN_SET=FAIL"), out)
+        self.assertIn("orphan: golden zz_orphan.txt names no row", out)
+
+    def test_deleted_golden_is_fail(self):
+        os.remove(os.path.join(self.n9, "a0_anchor.txt"))
+        rc, v, out = self._run(self.tmp)
+        self.assertEqual((rc, v), (1, "TR12_GOLDEN_SET=FAIL"), out)
+        self.assertIn("manifest-missing: _MANIFEST.txt lists a0_anchor.txt", out)
+        self.assertIn("row-no-golden: row a0_anchor has no golden", out)
+
+    def test_deleted_golden_and_manifest_line_is_still_fail(self):
+        os.remove(os.path.join(self.n9, "a0_anchor.txt"))
+        mp = os.path.join(self.n9, "_MANIFEST.txt")
+        with open(mp, encoding="utf-8") as fh:
+            kept = [l for l in fh if not l.rstrip().endswith(" a0_anchor.txt")]
+        with open(mp, "w", encoding="utf-8") as fh:
+            fh.writelines(kept)
+        rc, v, out = self._run(self.tmp)
+        self.assertEqual((rc, v), (1, "TR12_GOLDEN_SET=FAIL"), out)
+        self.assertNotIn("manifest-missing", out)
+        self.assertIn("row-no-golden: row a0_anchor has no golden", out)
+
+    def test_wired_into_the_reproduction_gate_before_the_stamp(self):
+        with open(os.path.join(self.ROOT, "scripts", "tr12_repro_gate.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        a = src.find("bash ./scripts/tr12_golden_set_gate.sh")
+        b = src.find("FP=$(fingerprint)\n    {")
+        self.assertGreater(a, 0, "the golden-set leg is not called by tr12_repro_gate.sh")
+        self.assertGreater(b, a, "the golden-set leg must run before the stamp is written")
+
+# end class TestQ884TR12GoldenSet (lane D31)
+
+
+class TestQ884RetractDerived(unittest.TestCase):
+    """Lane D31: Q-884 GAP-1. doc_gates GATE 94 (`retract-derived`, ADVISORY) derives withdrawn-phrase
+    candidates from CORRECTIONS.md quotes and reports those RETRACTED_PHRASES.tsv does not register.
+    It never fails the run. Fixtures replace the ledger, the registry and the live corpus."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PHRASE = "the q884 fixture claim holds everywhere"
+
+    def _run(self, corr, reg):
+        tmp = tempfile.mkdtemp(prefix="q884_rd_")
+        try:
+            cp, rp = os.path.join(tmp, "CORR.md"), os.path.join(tmp, "REG.tsv")
+            with open(cp, "w", encoding="utf-8") as fh:
+                fh.write(corr)
+            with open(rp, "w", encoding="utf-8") as fh:
+                fh.write(reg)
+            os.makedirs(os.path.join(tmp, "corpus"))
+            env = dict(os.environ, DOC_GATE_RD_CORR=cp, DOC_GATE_RD_REG=rp,
+                       DOC_GATE_RD_CORPUS=os.path.join(tmp, "corpus"))
+            r = subprocess.run(["bash", "scripts/doc_gates.sh", "retract-derived"], capture_output=True,
+                               text=True, env=env, cwd=self.ROOT, timeout=300)
+            return r.returncode, r.stdout
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_unregistered_quote_is_advisory_n1_and_exit_0(self):
+        rc, out = self._run('## CX-1 — fixture\nThe summary read "%s" and is withdrawn.\n' % self.PHRASE,
+                            "# registry\nsome other phrase entirely\tCORRECTIONS.md\tnote\n")
+        self.assertIn("RETRACT_DERIVED_CANDIDATES=1", out.splitlines(), "precondition: one quote extracted")
+        self.assertIn("RETRACT_DERIVED=ADVISORY n=1", out.splitlines(), out[-1500:])
+        self.assertEqual(rc, 0, "an advisory leg must never fail the run")
+
+    def test_registered_quote_is_pass_n0(self):
+        rc, out = self._run('## CX-1 — fixture\nThe summary read "%s" and is withdrawn.\n' % self.PHRASE,
+                            "# registry\n%s\tCORRECTIONS.md\tnote\n" % self.PHRASE)
+        self.assertIn("RETRACT_DERIVED_CANDIDATES=1", out.splitlines(), "precondition: one quote extracted")
+        self.assertIn("RETRACT_DERIVED=PASS", out.splitlines(), out[-1500:])
+        self.assertEqual(rc, 0)
+
+    def test_real_ledger_population_at_or_above_floor(self):
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "retract-derived"], capture_output=True,
+                           text=True, cwd=self.ROOT, timeout=300)
+        self.assertEqual(r.returncode, 0)
+        m = re.search(r"^RETRACT_DERIVED_CANDIDATES=(\d+)$", r.stdout, re.M)
+        self.assertIsNotNone(m, r.stdout[-1500:])
+        self.assertGreaterEqual(int(m.group(1)), 40)
+        self.assertTrue(re.search(r"^RETRACT_DERIVED=(PASS|ADVISORY n=\d+)$", r.stdout, re.M), r.stdout[-1500:])
+
+# end class TestQ884RetractDerived (lane D31)
+
+
+
+class TestQ572CitationContentRule(unittest.TestCase):
+    """Lane D31: Q-572. citation_line_gate.sh --all-files accepted a landing for .c/.py/.md targets
+    whenever a mined identifier appeared anywhere in the cited span (+-2), so a citation of "the read
+    loop bounded by n_records" that sat on a printf merely passing n_records reported clean. The
+    CONTENT RULE (advisory, never blocking) now flags such landings as content-weak and prints
+    CITATION_CONTENT_RULE=PASS|ADVISORY n=<k>; CITATION_LINE_GATE is unchanged. Fixtures are throwaway
+    git repos read through CITGATE_ROOT. RED: a mutant whose content rule always holds (BASE's
+    semantics, which had no such rule) reports n=0 on the weak fixture, so the case can fail."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    GATE = os.path.join("scripts", "citation_line_gate.sh")
+    SRC = ("int a;\n"                                                   # 1
+           "long long n_records = count();\n"                           # 2
+           "printf(\"[verify] records=%lld\\n\", n_records);\n"         # 3
+           "long long done = 0;\n"                                      # 4
+           "/* n_records is the header count */\n"                      # 5
+           "while (done < n_records) {\n"                               # 6
+           "    done += step(n_records);\n"                             # 7
+           "}\n")                                                       # 8
+
+    def _repo(self, line_no):
+        d = tempfile.mkdtemp(prefix="q572_")
+        self.addCleanup(shutil.rmtree, d, True)
+        with open(os.path.join(d, "solve.c"), "w", encoding="utf-8") as fh:
+            fh.write(self.SRC)
+        with open(os.path.join(d, "doc.md"), "w", encoding="utf-8") as fh:
+            fh.write("The read loop is bounded by it (`n_records`, solve.c:%d).\n" % line_no)
+        g = ["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@invalid"]
+        for cmd in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "base"]):
+            r = subprocess.run(g + cmd, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+        return d
+
+    def _run(self, root, gate=None):
+        env = dict(os.environ, CITGATE_ROOT=root, CITGATE_ALL_PINS="", CITGATE_TARGET_PINS="")
+        r = subprocess.run(["bash", gate or os.path.join(self.ROOT, self.GATE), "--all-files"],
+                           capture_output=True, text=True, env=env, cwd=self.ROOT, timeout=300)
+        lines = r.stdout.splitlines()
+        v = [l for l in lines if l.startswith("CITATION_LINE_GATE=")]
+        c = [l for l in lines if l.startswith("CITATION_CONTENT_RULE=")]
+        self.assertEqual(len(v), 1, r.stdout[-2000:])
+        return v[0], c, r.stdout
+
+    def test_precondition_fixture_shape(self):
+        src = self.SRC.split("\n")
+        self.assertIn("printf", src[2])
+        self.assertIn("while (done < n_records)", src[5])
+        self.assertGreater(sum("n_records" in l for l in src), 3, "n_records must be COMMON (> RARE lines)")
+
+    def test_correct_citation_passes_with_no_advisory(self):
+        v, c, out = self._run(self._repo(6))
+        self.assertEqual(v, "CITATION_LINE_GATE=PASS", out[-1500:])
+        self.assertEqual(c, ["CITATION_CONTENT_RULE=PASS"], out[-1500:])
+
+    def test_print_argument_landing_is_advisory_not_blocking(self):
+        v, c, out = self._run(self._repo(3))
+        self.assertEqual(v, "CITATION_LINE_GATE=PASS", "the content rule must never move the verdict")
+        self.assertEqual(c, ["CITATION_CONTENT_RULE=ADVISORY n=1"], out[-1500:])
+        self.assertIn("[weak] doc.md:1 solve.c:3", out)
+
+    def test_common_anchor_off_span_is_advisory(self):
+        v, c, out = self._run(self._repo(4))
+        self.assertEqual(v, "CITATION_LINE_GATE=PASS", out[-1500:])
+        self.assertEqual(c, ["CITATION_CONTENT_RULE=ADVISORY n=1"], out[-1500:])
+
+    def test_mutant_without_the_rule_is_red(self):
+        with open(os.path.join(self.ROOT, self.GATE), encoding="utf-8") as fh:
+            src = fh.read()
+        live = "if occ(tg, c) <= RARE or any(c in l and not print_arg_only(tg, c, l) for l in core):"
+        self.assertEqual(src.count(live), 1, "precondition: the content-rule condition is present once")
+        d = tempfile.mkdtemp(prefix="q572m_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        mp = os.path.join(d, "scripts", "citation_line_gate.sh")
+        with open(mp, "w", encoding="utf-8") as fh:
+            fh.write(src.replace(live, "if True:"))
+        v, c, out = self._run(self._repo(3), gate=mp)
+        self.assertEqual(c, ["CITATION_CONTENT_RULE=PASS"], "the rule-less mutant must miss the weak landing")
+
+# end class TestQ572CitationContentRule (lane D31)
+
+
+
+@unittest.skipUnless(shutil.which("setsid") and shutil.which("git"), "needs setsid and git")
+class TestQ435ExecLaneChainCarry(unittest.TestCase):
+    """Lane D31: Q-435, the chain-carry half. scripts/exec_lane.sh ran every fenced command alone, keyed
+    by its text, so a consumer of an earlier step's output was graded on its own (SKIP-MISSING-INPUT)
+    and a consumer of a /tmp file read whatever a previous run had left there (reports/evidence/f5's
+    stale-file PASS). It now runs a dependent block as ONE cwd chain (CHAINBREAK-AFTER-<n> when a step
+    needs step n's output and does not get it) and redirects every /tmp/ path into the workspace.
+    Each case runs the REAL lane via --tree on a fixture tree with a private TMPDIR. RED: a mutant with
+    the chain phase switched off and the quarantine removed (BASE's behaviour) is run on the same
+    fixtures and must give the old, wrong answers -- so every case here can fail."""
+
+    LANE = os.path.abspath("scripts/exec_lane.sh")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q435_")
+        with open(cls.LANE, encoding="utf-8") as fh:
+            src = fh.read()
+        gate = 'if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then'
+        quar = 'execmd="$(sed -E "s#(^|[[:space:]\\"\'=>(:])/tmp/#\\1$WS/.lane_tmp/#g" <<<"$execmd")"'
+        cls.mutant_ok = src.count(gate) == 1 and src.count(quar) == 1
+        cls.mutant = os.path.join(cls.tmp, "exec_lane_mutant.sh")
+        with open(cls.mutant, "w", encoding="utf-8") as fh:
+            fh.write(src.replace(gate, "if false; then").replace(quar, ":"))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _tree(self, name, readme, extra=None):
+        tree = os.path.join(self.tmp, name, "tree")
+        os.makedirs(os.path.join(tree, "reports"))
+        with open(os.path.join(tree, "README.md"), "w", encoding="utf-8") as fh:
+            fh.write(readme)
+        with open(os.path.join(tree, "reports", "TR1_X.md"), "w", encoding="utf-8") as fh:
+            fh.write("# TR1\n\nEvery MEASURED result carries a reproduction command.\n")
+        for rel, body in (extra or {}).items():
+            with open(os.path.join(tree, rel), "w", encoding="utf-8") as fh:
+                fh.write(body)
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.invalid",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.invalid")
+        for a in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "fixture"]):
+            subprocess.run(["git", "-C", tree] + a, check=True, env=env, capture_output=True)
+        return tree
+
+    def _lane(self, tree, lane=None):
+        tmpd = tempfile.mkdtemp(dir=self.tmp)
+        env = dict(os.environ, TMPDIR=tmpd, EXEC_LANE_BUDGET="60")
+        r = subprocess.run(["bash", lane or self.LANE, "--tree", tree], env=env, text=True,
+                           capture_output=True, timeout=600)
+        out = r.stdout
+        self.assertIn(out.strip().splitlines()[-1], ("EXEC_LANE=PASS", "EXEC_LANE=FAIL"), out[-3000:])
+        return out
+
+    def test_proof_tokens_present(self):
+        with open(self.LANE, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn("CHAINBREAK-AFTER-", src)
+        self.assertIn("FAIL-UNBOUNDED", src)
+        self.assertTrue(self.mutant_ok, "precondition: the BASE-behaviour mutant could be built")
+
+    def test_consumer_of_a_file_its_producer_never_wrote_is_chainbreak_after_1(self):
+        tree = self._tree("broken", "# f\n\n```\necho hello --out out.txt\ncat out.txt\n```\n")
+        out = self._lane(tree)
+        self.assertIn("CHAINBREAK-AFTER-1(step 1 PASSED but never produced out.txt)", out)
+        self.assertEqual(out.strip().splitlines()[-1], "EXEC_LANE=FAIL", out[-3000:])
+        base = self._lane(tree, self.mutant)
+        self.assertIsNone(re.search(r"CHAINBREAK-AFTER-\d", base), "RED: BASE has no chain class")
+        self.assertEqual(base.strip().splitlines()[-1], "EXEC_LANE=PASS", "RED: BASE passes the broken chain")
+
+    def test_stale_tmp_file_cannot_satisfy_a_consumer(self):
+        uniq = "/tmp/q435_stale_%d_%d.out" % (os.getpid(), random.randrange(10 ** 9))
+        tree = self._tree("stale", "# f\n\n```\npython3 gen.py --rows ROWS > %s\ndiff expected.out %s\n```\n"
+                          % (uniq, uniq), {"expected.out": "golden\n", "gen.py": 'print("golden")\n'})
+        try:
+            with open(uniq, "w", encoding="utf-8") as fh:
+                fh.write("golden\n")
+            with open(uniq, encoding="utf-8") as a, open(os.path.join(tree, "expected.out"), encoding="utf-8") as b:
+                self.assertEqual(a.read(), b.read(), "precondition: the pre-seeded stale file matches the golden")
+            out = self._lane(tree)
+            diff = [l for l in out.splitlines() if l.rstrip().endswith("diff expected.out %s" % uniq)
+                    and re.match(r"^\s*c?\d+\.", l)]
+            self.assertTrue(diff, "precondition: the consumer was executed:\n" + out[-3000:])
+            self.assertFalse(any(re.search(r"\bPASS\b", l) for l in diff), "the stale /tmp file satisfied the consumer:\n" + "\n".join(diff))
+            base = self._lane(tree, self.mutant)
+            bdiff = [l for l in base.splitlines() if l.rstrip().endswith("diff expected.out %s" % uniq)
+                     and re.match(r"^\s*\d+\.", l)]
+            self.assertTrue(bdiff and "PASS" in bdiff[0], "RED: BASE passed on the stale file:\n" + base[-2000:])
+            with open(uniq, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "golden\n", "the lane must never touch the real /tmp file")
+        finally:
+            if os.path.exists(uniq):
+                os.remove(uniq)
+
+    def test_valid_chain_passes(self):
+        tree = self._tree("valid", "# f\n\n```\necho hello > good.txt\ncat good.txt\n```\n")
+        out = self._lane(tree)
+        self.assertEqual(out.strip().splitlines()[-1], "EXEC_LANE=PASS", out[-3000:])
+        self.assertIn("EXEC_LANE_CHAINS=1", out.splitlines())
+        self.assertIn("EXEC_LANE_CHAIN_PASS=2", out.splitlines())
+        self.assertIsNone(re.search(r"CHAINBREAK-AFTER-\d", out), out[-2000:])
+
+    def test_reference_block_is_denied_the_chain(self):
+        tree = self._tree("ref", "# f\n\n## Usage\n\n```\necho hello --out out.txt\ncat out.txt\n```\n")
+        out = self._lane(tree)
+        self.assertIn("EXEC_LANE_CHAINS=0", out.splitlines(), "a first fence under a Usage heading is a reference block")
+        self.assertEqual(out.strip().splitlines()[-1], "EXEC_LANE=PASS", out[-3000:])
+
+    def test_real_corpus_lists_the_f5_chain(self):
+        r = subprocess.run(["bash", self.LANE, "--list"], capture_output=True, text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stdout[-2000:])
+        rows = [l for l in r.stdout.splitlines() if l.startswith("reports/evidence/f5/README.md:")]
+        self.assertTrue(any("deps=" in l and "/tmp/f5_modec_fiber_rerun.out" in l and "diff " in l for l in rows),
+                        "the f5 consumer must be listed with its /tmp dependency:\n" + "\n".join(rows))
+        m = re.search(r"^EXEC_LANE_CHAINS=(\d+)$", r.stdout, re.M)
+        self.assertIsNotNone(m)
+        self.assertGreaterEqual(int(m.group(1)), 2)
+
+# end class TestQ435ExecLaneChainCarry (lane D31)
+
+# ---- lane G31 (2026-10-01): Q-410 SAT/CNF CLI edges from the Codex LSD review, row R22 ----------
+class TestG31SatCliEdges(unittest.TestCase):
+    """Four CLI edges, each a refusal with a named message and a non-zero exit now, each measured
+    RED against BASE's file (public main 38feb643, loaded by `git show`) and GREEN on this tree.
+    Every probe asserts that its input really is the edge case before grading the verdict."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    BASE = "38feb643"
+
+    def _base_file(self, tmp, name):
+        r = subprocess.run(["git", "-C", self.ROOT, "show", self.BASE + ":" + name],
+                           capture_output=True, text=True)
+        if r.returncode != 0 or not r.stdout:
+            self.fail("git show %s:%s failed, so the red arm measured nothing: %s"
+                      % (self.BASE, name, r.stderr[-400:]))
+        p = os.path.join(tmp, "base_" + name)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(r.stdout)
+        return p
+
+    def _env(self, extra_path=None):
+        env = dict(os.environ, PYTHONPATH=self.ROOT)   # BASE's sat.py must still `import solve`
+        if extra_path:
+            env["PATH"] = extra_path + os.pathsep + env.get("PATH", "")
+        return env
+
+    def _run(self, script, args, env=None, cwd=None):
+        return subprocess.run([sys.executable, script] + args, capture_output=True, text=True,
+                              env=env or self._env(), cwd=cwd or self.ROOT, timeout=600)
+
+    # E1 -- a recognised modifier with no subcommand exited 0 after printing the catalogue
+    def test_e1_modifier_without_subcommand_is_refused(self):
+        # precondition: `--with-c3` IS a recognised modifier (it is consumed, so only the decoy
+        # is reported as unrecognised); an unrecognised flag alone is a different refusal
+        r = self._run("sat.py", ["--with-c3", "--no-such-flag-g31"])
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("unrecognised flag(s): --no-such-flag-g31", r.stderr)
+        self.assertNotIn("--with-c3", r.stderr.split("unrecognised flag(s):")[1].splitlines()[0])
+        for args in (["--with-c3"], ["--expect", "26113"], ["--c3-max", "800"]):
+            r = self._run("sat.py", args)
+            self.assertNotEqual(r.returncode, 0, args)
+            self.assertIn("given without a subcommand: nothing was run", r.stderr, args)
+            self.assertNotIn("--emit-cnf TARGET", r.stdout, "the catalogue was printed")
+        r = self._run("sat.py", [])                         # the documented no-argument form
+        self.assertEqual(r.returncode, 0, r.stderr[-300:])
+        self.assertIn("--emit-cnf", r.stdout)
+
+    def test_e1_red_base_printed_the_catalogue_and_exited_0(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = self._base_file(tmp, "sat.py")
+            for args in (["--with-c3"], ["--expect", "26113"], ["--c3-max", "800"]):
+                r = self._run(old, args)
+                self.assertEqual(r.returncode, 0, (args, r.stderr[-300:]))
+                self.assertIn("--emit-cnf", r.stdout, args)   # the catalogue, not a refusal
+
+    # E2 -- a `v` line with a non-integer token was an uncaught ValueError traceback
+    @staticmethod
+    def _stub_kissat(tmp):
+        d = os.path.join(tmp, "bin"); os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, "kissat")
+        with open(p, "w") as fh:
+            fh.write('#!/bin/sh\nprintf "s SATISFIABLE\\nv nope 0\\n"\nexit 10\n')
+        os.chmod(p, 0o755)
+        return d, p
+
+    def test_e2_non_integer_v_token_is_solver_error_exit_2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d, p = self._stub_kissat(tmp)
+            env = self._env(d)
+            self.assertEqual(shutil.which("kissat", path=env["PATH"]), p,
+                             "the stub is not the kissat that will run; the probe is not the edge")
+            r = self._run("sat.py", ["--witness", "plain"], env=env)
+            self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-400:])
+            lines = r.stdout.splitlines()
+            self.assertIn("WITNESS_RESULT=SOLVER_ERROR", lines)
+            self.assertTrue(any("non-integer token" in ln for ln in lines), r.stdout[-400:])
+            self.assertNotIn("Traceback", r.stderr)
+
+    def test_e2_red_base_raised_valueerror_with_no_token(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d, p = self._stub_kissat(tmp)
+            env = self._env(d)
+            self.assertEqual(shutil.which("kissat", path=env["PATH"]), p)
+            old = self._base_file(tmp, "sat.py")
+            r = self._run(old, ["--witness", "plain"], env=env)
+            self.assertEqual(r.returncode, 1, r.stdout[-400:] + r.stderr[-400:])
+            self.assertIn("ValueError: invalid literal for int()", r.stderr)
+            self.assertFalse(any(ln.startswith("WITNESS_RESULT=") for ln in r.stdout.splitlines()),
+                             "BASE printed a token; this is not the pre-fix parser")
+
+    # E3 -- a stale OPB companion beside a run that writes none, with the sidecar saying null
+    def test_e3_stale_opb_companion_is_refused_before_writing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stale = os.path.join(tmp, "P.cnf.opb")
+            with open(stale, "w") as fh:
+                fh.write("* stale OPB from an earlier run\n")
+            before = hashlib.sha256(open(stale, "rb").read()).hexdigest()
+            r = self._run("solve.py", ["--sat-encode", os.path.join(tmp, "P.cnf"), "--sat-c3", "none"])
+            self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-400:])
+            self.assertIn("REFUSING: a stale OPB companion", r.stdout)
+            self.assertFalse(os.path.exists(os.path.join(tmp, "P.cnf")), "the CNF was written anyway")
+            self.assertFalse(os.path.exists(os.path.join(tmp, "P.cnf.meta.json")))
+            self.assertEqual(hashlib.sha256(open(stale, "rb").read()).hexdigest(), before)
+            # the pb form rewrites the companion and is not refused
+            r = self._run("solve.py", ["--sat-encode", os.path.join(tmp, "P.cnf"), "--sat-c3", "pb"])
+            self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+            self.assertNotEqual(hashlib.sha256(open(stale, "rb").read()).hexdigest(), before)
+
+    def test_e3_red_base_accepted_the_stale_opb_and_wrote_null(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            old = self._base_file(tmp, "solve.py")
+            stale = os.path.join(tmp, "P.cnf.opb")
+            with open(stale, "w") as fh:
+                fh.write("* stale OPB from an earlier run\n")
+            before = hashlib.sha256(open(stale, "rb").read()).hexdigest()
+            r = self._run(old, ["--sat-encode", os.path.join(tmp, "P.cnf"), "--sat-c3", "none"])
+            self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+            with open(os.path.join(tmp, "P.cnf.meta.json")) as fh:
+                meta = json.load(fh)
+            self.assertIsNone(meta["out_opb"], "BASE's sidecar did not say null; not the edge")
+            self.assertEqual(hashlib.sha256(open(stale, "rb").read()).hexdigest(), before,
+                             "BASE touched the stale OPB; not the edge")
+
+    # E4 -- `--sat-c3 pb --sat-c5` printed no deferred-C5 warning
+    def _pb_c5(self, script, tmp):
+        import json
+        out = os.path.join(tmp, "W.cnf")
+        r = self._run(script, ["--sat-encode", out, "--sat-c3", "pb", "--sat-c5"])
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+        with open(out + ".meta.json") as fh:
+            meta = json.load(fh)
+        # precondition: this IS the edge -- a real OPB beside a deferred C5 record
+        self.assertEqual(meta["out_opb"], out + ".opb")
+        self.assertTrue(any(str(pb.get("status", "")).startswith("deferred")
+                            for pb in meta["pb_constraints"]), meta["pb_constraints"])
+        return [ln for ln in r.stdout.splitlines() if ln.startswith("[sat-encode] WARNING")]
+
+    def test_e4_deferred_c5_beside_pb_c3_warns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            warn = self._pb_c5("solve.py", tmp)
+            self.assertEqual(len(warn), 1, warn)
+            self.assertIn("NOT emitted as clauses", warn[0])
+            self.assertIn("C3 lives in the OPB companion", warn[0])
+
+    def test_e4_red_base_printed_no_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = self._base_file(tmp, "solve.py")
+            self.assertEqual(self._pb_c5(old, tmp), [])
+
+    # the two sat.py changes touch argv handling and the witness loop only: emitted bytes unchanged
+    def test_emitted_cnf_bytes_match_base(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = self._base_file(tmp, "sat.py")
+            for args in (["--emit-cnf", "plain"], ["--rigidity-cnf"]):
+                a, b = os.path.join(tmp, "new.cnf"), os.path.join(tmp, "old.cnf")
+                self.assertEqual(self._run("sat.py", args + [a]).returncode, 0)
+                self.assertEqual(self._run(old, args + [b]).returncode, 0)
+                self.assertTrue(os.path.getsize(a) > 1000, "no formula was emitted")
+                self.assertEqual(hashlib.sha256(open(a, "rb").read()).hexdigest(),
+                                 hashlib.sha256(open(b, "rb").read()).hexdigest(), args)
+# end lane G31
 
 
 if __name__ == "__main__":

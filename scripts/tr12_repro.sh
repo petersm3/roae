@@ -3448,7 +3448,7 @@ fi
 # this row, because it is a real n-INDEPENDENT gate on the EMITTERS: it would have caught
 # `v2-class-swap` at n=31 without waiting for the RCQ04 F1 lift.
 # ⚠ THIS SENTENCE ALSO CLAIMED `ratio-zero`, AND THAT WAS WRONG. Measured (KCP2 §5): `ratio-zero`
-# blanks only `_atlas_f` output (`solve.py:12428`), i.e. the DERIVED ratio columns; this row
+# blanks only `_atlas_f` output (`solve.py:12446`), i.e. the DERIVED ratio columns; this row
 # compares per-class MASS as integers and never reads a ratio, so `--atlas-fault ratio-zero`
 # against the committed n=9 atlas gives `c_xcheck` rc 0. `ratio-zero` is caught by
 # `TR12_Q6_EXTREMES`, not here. An overclaim about what a gate covers is the same defect class as

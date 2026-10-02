@@ -59,8 +59,10 @@
     DERIVATION; OBSERVATION CREDITED. The "9th six" observation — every
     canonical King Wen-type sequence has exactly one between-pair transition
     of Hamming distance 6, i.e. one boundary complementing BOTH trigrams
-    simultaneously — is due to McKenna & McKenna 1975 (see MCKENNA.md and
-    TR-1 row 9; measured universal at 11.2T and 560T). The theorem here
+    simultaneously — is, as the OBSERVATION at King Wen, due to McKenna &
+    McKenna 1975 (see MCKENNA.md and TR-1 row 9; the universal statement
+    for every valid ordering is this file's theorem, and it was measured
+    universal at 11.2T and 560T). The theorem here
     derives the full forced boundary-distance multiset {1:2, 2:8, 3:13, 4:7,
     6:1} from C1+C5 for EVERY valid ordering, making the measurement a
     corollary. The pangtong-successor and flanking-exclusion corollaries
@@ -1286,8 +1288,12 @@ theorem G6_lowerT_iff :
     This is the certification promised for the R7 corpus-scoreboard rider:
     the two trigram-locality functionals are S₃-relabel-invariant.
     (The rho-coset elements of G12 swap the two blocks and hence exchange
-    uChange ↔ lChange; that swap variant is deliberately not formalized here
-    — record-level representatives suffice for the battery gate.) -/
+    uChange ↔ lChange; that swap variant is deliberately not formalized
+    here. SCOPE: uChange and lChange are functionals of the ORIENTED list,
+    not of the record — King Wen gives (59, 58) and its rho-image, the same
+    record, gives (58, 59) — so what is proved is invariance under G6 on
+    oriented sequences, and a record-level battery must fix an orientation
+    convention before it can use record-level representatives.) -/
 theorem uChange_mapP (p : List Nat) (hp : p ∈ G6) {l : List Nat}
     (hb : ∀ x ∈ l, x < 64) : uChange (l.map (applyPerm p)) = uChange l := by
   unfold uChange
@@ -1344,7 +1350,9 @@ theorem sigmaW_image_valid : validC15 (KW.map (applyPerm sigmaW)) = true := by
     record-level symmetry σ ∈ G24 carrying the valid ordering KW to a valid
     ordering in the same orbit with a DIFFERENT upper-trigram change count
     (62 vs 59). Consequence for any future measured trigram battery: only
-    the order-6 refinement (G6, §4d) preserves trigram functionals, so
+    the order-6 refinement (G6, §4d) is shown here to preserve the two
+    trigram change-count functionals uChange/lChange (on oriented
+    sequences; other trigram functionals are not covered by this file), so
     per-orbit class counts under the DIV-24 gate do NOT extend to trigram
     functionals, and every battery functional must declare whether it is
     S₃-relabel-invariant. -/
@@ -1374,9 +1382,12 @@ theorem nuc_comm_comp : ∀ h, h < 64 → nuc (h ^^^ 63) = nuc h ^^^ 63 := by de
 theorem nuc_preserves_symmetric : ∀ h, h < 64 → rev6 h = h → rev6 (nuc h) = nuc h := by
   decide
 
-/-- TG-4.3 (C1-DESCENT): the canonical pairing descends along nuc — the
-    nuclear image of a canonical pair {h, partner h} is always a pair of the
-    form {x, rev6 x} (h non-symmetric) or {x, comp6 x} (h symmetric). -/
+/-- TG-4.3 (C1-DESCENT): the nuclear image of a canonical pair {h, partner h}
+    is always a pair of the form {x, rev6 x} (h non-symmetric) or
+    {x, comp6 x} (h symmetric). The statement is conditional on the ORIGINAL
+    h; nuc is not injective (nuc 0 = nuc 1 = 0 while nuc (partner 0) = 63 ≠
+    0 = nuc (partner 1)), so no map on nuclear images recovers the partner
+    and the pairing does not "descend" to the nuclear level. -/
 theorem nuc_partner_descent :
     ∀ h, h < 64 →
       nuc (partner h) = if rev6 h = h then nuc h ^^^ 63 else rev6 (nuc h) := by

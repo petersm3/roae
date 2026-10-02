@@ -277,7 +277,7 @@ second wave of results, each with a full [technical report](../reports/README.md
   matchings; [Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by nothing anyone
   has found yet. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
 
-Each of these is reported in full: every MEASURED result carries a reproduction command, and every proof
+Each of these is reported in full: every MEASURED result carries a reproduction command or says at the claim that it has none, and every proof
 cited as machine-checked names its certificate or Lean theorem. That is not the same as saying all four
 are machine-verifiable, and one of them is not. The bit-ledger above is the suite's most
 judgment-dependent result — its accounting conventions are chosen, not derived, which is why TR-9 states

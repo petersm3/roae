@@ -268,9 +268,14 @@ reader to locate, was the exhaustive negative one above — that `native_decide`
 Azure host, Lean 4.31.0): a module-wide scan (`Lean.collectAxioms` over EVERY non-internal
 constant of each compiled module, not just the doc-cited names) reports **zero**
 compiler-trust axioms in `PartitionInvariance` (99 constants) and `PruneGInvariance`
-(111 constants), and exactly **7** and **35** `Lean.ofReduceBool`-bearing constants in
+(111 constants), and exactly **7** and **35** constants carrying a non-standard axiom in
 `SymmetryCompleteness` (24 constants) and `TrigramTheorems` (134 constants) respectively —
-precisely their documented `native_decide` sites, and nothing else. The same scan on
+precisely their documented `native_decide` sites, and nothing else. (The 2026-08-07 run reported
+these as "`Lean.ofReduceBool`-bearing"; on the pinned 4.31.0 a `native_decide` proof surfaces as a
+`<decl>._native.native_decide.ax_*` axiom with **0** `ofReduceBool` — measured 2026-09-04, above —
+so what that scan counted at its 7 + 35 sites was the `native_decide` axiom, whatever token its
+report printed. The revision it ran on is gone and the scan cannot be re-run; the figures are kept
+as the historical record and are superseded by the suite-wide zero below.) The same scan on
 `C3Decomposition`, `PruneExactness`, `C1RuleConstants`, `KingWen`, `PruneSafety`, and
 `RecordConvention` reports zero native hits, and the (fixed, qualified) in-file directives
 of `Automorphism` and `HammingOptimalMatching` executed in the same builds report only

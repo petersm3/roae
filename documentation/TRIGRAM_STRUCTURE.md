@@ -274,7 +274,7 @@ The binding ledger is the header of
 [`lean/TrigramTheorems.lean`](../lean/TrigramTheorems.lean), reproduced
 below (it travels with the code, per the project's attribution rules;
 corrections invited on every "we have not located..." hedge). The fenced
-block is verbatim — lines 44–115 of that file, less the two-space comment
+block is verbatim — lines 44–117 of that file, less the two-space comment
 indent and the closing rule; this document's own two annotations to it now
 sit after the fence rather than inside it. Bibliographic entries:
 [CITATIONS.md](CITATIONS.md).
@@ -298,8 +298,10 @@ corrections invited on every "we have not located..." hedge):
   DERIVATION; OBSERVATION CREDITED. The "9th six" observation — every
   canonical King Wen-type sequence has exactly one between-pair transition
   of Hamming distance 6, i.e. one boundary complementing BOTH trigrams
-  simultaneously — is due to McKenna & McKenna 1975 (see MCKENNA.md and
-  TR-1 row 9; measured universal at 11.2T and 560T). The theorem here
+  simultaneously — is, as the OBSERVATION at King Wen, due to McKenna &
+  McKenna 1975 (see MCKENNA.md and TR-1 row 9; the universal statement
+  for every valid ordering is this file's theorem, and it was measured
+  universal at 11.2T and 560T). The theorem here
   derives the full forced boundary-distance multiset {1:2, 2:8, 3:13, 4:7,
   6:1} from C1+C5 for EVERY valid ordering, making the measurement a
   corollary. The pangtong-successor and flanking-exclusion corollaries

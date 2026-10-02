@@ -30,10 +30,12 @@
          bit-reversal), and there are exactly 48 of them.
 
   NOT formalized here (covered exhaustively by `solve.py
-  --symmetry-completeness` gates SC-5/SC-6 and by the prose + SAT kernel
-  `sat.py --rigidity-cnf`): the explicit 46,080-element Aut(G5) enumeration,
-  the fix-0 collapse, and the sequence-level witness arguments (the W2
-  family) that lift these finite facts to the preservation statement. The
+  --symmetry-completeness`: gates SC-5/SC-6 for the enumeration and the
+  collapse, gate SC-8 for the W2 witness family — W2 × 1824 — and by the
+  prose + SAT kernel `sat.py --rigidity-cnf`, the rigidity CNF of SC-4):
+  the explicit 46,080-element Aut(G5) enumeration, the fix-0 collapse, and
+  the sequence-level witness arguments (the W2 family) that lift these
+  finite facts to the preservation statement. The
   forward direction (the 48 preserve C1–C5 on all orderings) is
   Automorphism.lean's validC15_mapP.
 

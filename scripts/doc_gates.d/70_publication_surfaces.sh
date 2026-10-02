@@ -554,7 +554,7 @@ gate_hex_prefix() {
     5640d0cd)
       echo "a SUPERSEDED artifact digest, quoted in the very record that replaced it — CORRECTIONS.md CX-55 cites the pre-regeneration PNG sha to prove the post-cure change was the edit and not renderer drift, so by construction no 64-nibble expansion survives in the tree. Same shape as d63bb25c above: a real hex string that is not a live sha";;
     5450b53e)
-      echo "not a sha256: the mathlib git revision pinned by lake-manifest.json (lean/README.md:647)";;
+      echo "not a sha256: the mathlib git revision pinned by lake-manifest.json (lean/README.md:652)";;
     df3d92ba)
       echo "not a real sha: the head of the elided trailing 56 characters of the HALLUCINATED phantom 11.2T value, which HISTORY.md:4804 states correspond to no artifact anywhere";;
     0d10944dda|10aa1f84|163a7660|188ce945|1ce20ff3|2954b271|2db60543|4ad70a0f|4ad70a0fb9|4f1cd8b3|76ada31e|86a74da5|8c35a854|95c2f8f0|98b8c0ef|9ab1cd08|b415c8ec|b82a2f48|daab1c48|e353086e|e5cfc6cd|f6b554ea|fc1e921e|fe98e58a)
@@ -569,7 +569,14 @@ gate_hex_prefix() {
   # the checker's own narration: delete every independent expansion from the corpus and this gate
   # still reports OK. A verifier must be FALSE when its target is absent, and it cannot supply the
   # witness from its own text.
-  { git grep -ohIE '[0-9a-f]+' HEAD -- ':!scripts/doc_gates.sh' ':!scripts/doc_gates.d' 2>/dev/null
+  # Q-887 (2026-10-01, minor sibling): the tracked-tree universe grep below ran `2>/dev/null` with no
+  # rc check, so a git grep that FAILED (rc >= 2) contributed nothing and was indistinguishable from
+  # a tree with no hashes. It now writes to a file, its rc is captured, and rc >= 2 is a FAIL naming
+  # the producer (rc 1, no match, falls through to the zero-universe FAIL just below). The
+  # working-tree leg is unchanged: a deleted-but-unstaged path legitimately makes its grep exit 2.
+  local g22urc=0; git grep -ohIE '[0-9a-f]+' HEAD -- ':!scripts/doc_gates.sh' ':!scripts/doc_gates.d' 2>"$d/univ.err" > "$d/univ.head" || g22urc=$?
+  if [ "$g22urc" -ge 2 ]; then echo "  [FAIL] GATE 22: the universe producer (git grep over HEAD) failed rc $g22urc, so the 64-nibble universe is UNMEASURED and nothing was checked: $(head -c 300 "$d/univ.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi
+  { cat "$d/univ.head"
     git diff -z --name-only HEAD 2>/dev/null | grep -zvE '^scripts/doc_gates(\.sh$|\.d/)' \
       | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
   } | awk 'length($0)==64' | sort -u > "$d/univ"
@@ -1475,7 +1482,7 @@ docs = "\n".join(texts)
 # 🔴 HYPHENATED NAMES WERE UNDOCUMENTABLE BY CONSTRUCTION (fixed 2026-09-08).
 # This vocabulary was [A-Za-z_][A-Za-z0-9_]* , which can never yield a token containing a
 # hyphen. So header.json seed-purpose keys "bank-calibration" and "timing-probe" -- both
-# named VERBATIM at documentation/SOLVE_PY_CLI.md:359 -- could not be cleared by any amount
+# named VERBATIM at documentation/SOLVE_PY_CLI.md:363 -- could not be cleared by any amount
 # of writing, and sat OPEN as "undocumented". An instrument that cannot register a real fix
 # sends the next reader to write prose that changes nothing. The second pattern adds the
 # hyphen- and slash-separated compounds; it only ADDS to the vocabulary, so it can move a

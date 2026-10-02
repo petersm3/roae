@@ -174,6 +174,75 @@ line_has("R18g", "documentation/SAT_CLI.md", r"base\*\* ground truth", [r"partne
 line_has("R18g", "reports/certificates/c3_positional_witnesses.txt", r"verify\.py: ", [r"PAIRS"], "the manual recipe checks the C1 pairing")
 line_has("R18k", "documentation/SAT_CLI.md", r"DRAT_CERTS_CHECKED=<n>", [r"passed"], "the count is of verified certificates")
 line_has("R18a", "reports/certificates/README.md", r"c3_positional_witnesses\.txt` \| 42 verified", [r"WITNESS_G95_LAYOUT", r"WITNESS_ANNOTATIONS_CHECKED"], "document the witness-file tokens")
+# ---- Q-754 (lane G31, 2026-10-01): the Codex v3 E3 batch-4 P3 sweep -- Lean module comments,
+# ---- docstrings and scope notes, plus the additive scopings of the .md items (the retired .md
+# ---- phrases are RETRACTED_PHRASES.tsv rows). Each leg anchors on a line that must still exist,
+# ---- so an emptied file cannot pass. On 38feb643 (the tree before the sweep) every leg FAILS.
+def gone(leg, path, anchor_rx, rx, why):
+    """`rx` must be absent from `path`, AND the anchor must be present (precondition)."""
+    t = need(leg, path)
+    if t is None:
+        return
+    if not re.search(anchor_rx, t):
+        fail(leg, "%s: anchor /%s/ not found -- not the file this leg checks, so nothing was checked" % (path, anchor_rx))
+        return
+    hits = [i + 1 for i, l in enumerate(t.split("\n")) if re.search(rx, l)]
+    if hits:
+        fail(leg, "%s:%s still carries the retired wording (%s)" % (path, ",".join(map(str, hits[:5])), why))
+    else:
+        ok(leg, "%s is clear of /%s/ (anchor present)" % (path, rx))
+gone("Q754-C3D#2", "lean/C3Decomposition.lean", r"remains bridge fact KB7", r"KB7, runtime-carried \(the two-language gat[e]", "KB7 is pending, not runtime-carried")
+line_has("Q754-C3D#3", "lean/C3Decomposition.lean", r"^#print axioms C3Decomposition\.c3(slot_ge_12|_ge_112)$", [r"#print axioms"], "the two doc-cited C3-floor theorems carry directives")
+t = need("Q754-C3D#3", "lean/C3Decomposition.lean")
+if t is not None and len([l for l in t.split("\n") if re.fullmatch(r"#print axioms C3Decomposition\.c3(slot_ge_12|_ge_112)", l)]) != 2:
+    fail("Q754-C3D#3", "lean/C3Decomposition.lean does not carry both c3slot_ge_12 and c3_ge_112 directives")
+gone("Q754-CC#2", "lean/CompilerCorrectness.lean", r"canon` idempotence", r"runtime-carried \(`f1_canon`$", "f1_canon carries no F1_CHECK; the scan-path check is the witness")
+line_has("Q754-KW#2", "lean/KingWen.lean", r"THE EQUIVARIANCE CEILING: a generator whose", [r"output mass depends only on"], "mass factors through the score")
+gone("Q754-PI#1", "lean/PartitionInvariance.lean", r"T4 `", r"Phase-B re-merges, --merge-layers composition\)\.$", "--merge-layers replaces, it does not min-select")
+gone("Q754-PI#2", "lean/PartitionInvariance.lean", r"B4", r"byte-identical solutions\.bin file[s]", "only the decompressed stream is fixed")
+t = need("Q754-PI#3", "lean/PartitionInvariance.lean")
+if t is not None:
+    if "5.6T c34390c0" not in t:
+        fail("Q754-PI#3", "lean/PartitionInvariance.lean: the c34390c0 witness is no longer named -- nothing was checked")
+    elif t.count("irreproducible from any extant") < 2:
+        fail("Q754-PI#3", "lean/PartitionInvariance.lean: the deprecated 5.6T sha lacks its irreproducibility qualifier at one of its two sites")
+    else:
+        ok("Q754-PI#3", "lean/PartitionInvariance.lean names c34390c0 with its qualifier at both sites")
+gone("Q754-PE#2", "lean/PruneExactness.lean", r"gLB_step_self", r"runtime gate G5 cross-checks this empiricall[y]", "G5 is a proposed acceptance test, not an implemented gate")
+gone("Q754-PE#2", "lean/PruneExactness.lean", r"gLB_step_self", r"esp\. G5 capped ≡ uncapped-then-filter\) and cod[e]", "no capped G prune exists in solve.c")
+gone("Q754-PE#2", "lean/PruneExactness.lean", r"gLB_step_self", r"\(runtime gate G5\)\. `C` i[s]", "G5 is proposed, not implemented")
+gone("Q754-PE#3", "lean/PruneExactness.lean", r"budget-kill p_d < B0_d", r"whose exactness is `capping_exact`$", "capping_exact's hMbound premise is not met by B0")
+line_has("Q754-PGI#1", "lean/PruneGInvariance.lean", r"per-cell DFS work = min\(tree, B\) for a DFS", [r"stops the whole"], "the budget semantics the model assumes are named")
+gone("Q754-PGI#2", "lean/PruneGInvariance.lean", r"work_orbit_invariant", r"= \|orbit\| × Σ_reps min\(tree,B\)\. -[/]", "one orbit size cannot leave a sum over four sizes")
+gone("Q754-PGI#4", "lean/PruneGInvariance.lean", r"def prune70", r"\(the live predicate in solve\.c\)[:]", "main's solve.c has neither mw_pos nor inevitable")
+gone("Q754-PRFC#2", "lean/PruneReprFC.lean", r"sumv_sub_of_vle", r"budget0 sums to κ·np at the top cal[l]", "the top-call budget is 2·31 = 62, not 64")
+gone("Q754-LR#4", "lean/README.md", r"906 non-internal constants", r"\*\*7\*\* and \*\*35\*\* `Lean\.ofReduceBool`-bearin[g]", "the 4.31.0 detector cannot see ofReduceBool at a native_decide site")
+gone("Q754-RC#1", "lean/RecordConvention.lean", r"visitedMin_exhaustive_agreement", r"wherever enumeration reached per-cell exhaustion[:]", "the hypothesis is every-variant exhaustion, not one cell")
+line_has("Q754-RC#2", "lean/RecordConvention.lean", r"B5 \(walk-order monotonicity\)", [r"B5"], "anchor")
+t = need("Q754-RC#2", "lean/RecordConvention.lean")
+if t is not None and "SCOPE: single-" not in t:
+    fail("Q754-RC#2", "lean/RecordConvention.lean: B5 lacks its single-traversal scope (parallel --sub-branch shares one budget)")
+gone("Q754-RC#3", "lean/RecordConvention.lean", r"visitedMin_not_nested below", r"breaking partition-invariance and record-level nestin[g]", "the theorem shows non-nesting; the partition effect is budgeted visiting")
+line_has("Q754-RC#4", "lean/RecordConvention.lean", r"regionally, with INCOMPUTABLE=0", [r"STOPPED EARLY"], "the sweep's coverage qualification travels with its rates")
+gone("Q754-SEF#1", "lean/SatEncodingFidelity.lean", r"model_completeness", r"which stays with$", "verify.py's recurrence has no model-count half")
+line_has("Q754-SEF#2", "lean/SatEncodingFidelity.lean", r"S01/S03 external reviews", [r"private review records"], "the review ids resolve to nothing public")
+line_has("Q754-SC#1", "lean/SymmetryCompleteness.lean", r"gate SC-8 for the W2", [r"W2 × 1824"], "the W2 family is gate SC-8")
+gone("Q754-TT#1", "lean/TrigramTheorems.lean", r"theorem uChange_mapP", r"record-level representatives suffice for the battery gat[e]", "uChange/lChange are oriented-list functionals")
+gone("Q754-TT#1", "lean/TrigramTheorems.lean", r"theorem uChange_mapP", r"refinement \(G6, §4d\) preserves trigram functionals, s[o]", "only uChange/lChange on oriented sequences are covered")
+gone("Q754-TT#2", "lean/TrigramTheorems.lean", r"theorem nuc_partner_descent", r"the canonical pairing descends along nu[c]", "nuc is not injective; the theorem is conditional on the original h")
+line_has("Q754-TT#3", "lean/TrigramTheorems.lean", r"due to McKenna &$", [r"OBSERVATION at King Wen"], "McKenna is credited with the observation, not the universal")
+# additive .md scopings (the retired .md phrases are registry rows: keys in CORRECTIONS.md)
+line_has("Q754-PI-MD", "documentation/PARTITION_INVARIANCE.md", r"Verified via `--double-regression-test` \(2026-04-30\)", [r"irreproducible from any extant commit"], "the deprecated 5.6T sha carries its qualifier")
+line_has("Q754-PO#2", "documentation/PROJECT_OVERVIEW.md", r"lex-smallest orient variant", [r"among those the run encountered"], "the kept variant is run-local, not class-global")
+line_has("Q754-SPEC#4", "documentation/SPECIFICATION.md", r"~20\.6 bits to state", [r"underived"], "the statement cost carries its source's label")
+line_has("Q754-SPEC#2", "documentation/SPECIFICATION.md", r"adjacency_27_satisfied", [r"step ≠ 28"], "C6 completes at step 28")
+line_has("Q754-SPEC#2", "documentation/SPECIFICATION.md", r"adjacency_25_satisfied", [r"step ≠ 26"], "C7 completes at step 26")
+line_has("Q754-VER#6", "documentation/VERIFY.md", r"generalises the same object to an", [r"C3-valid"], "the fiber DP assumes C3")
+line_has("Q754-TS#1", "documentation/TRIGRAM_STRUCTURE.md", r"due to McKenna &$", [r"(?:\*observation\*|OBSERVATION) at King Wen"], "the binding ledger credits the observation only (it is a verbatim copy of the Lean header, GATE 66)")
+# Q-763 rulings (lane G31, 2026-10-01): V3A-020#3 and V3A-025#5 CONFIRMED and fixed here.
+line_has("Q763-U1", "documentation/PARITY_ALTERNATION.md", r"36-class ordering", [r"Schulz"], "the gender/position rule is Schulz-primary, Cook-elaborated, at every surviving site")
+gone("Q763-U2", "documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt", r"three defensible counting rules disagree", r"on 4 of the 10 row[s]", "under the two rules as stated, six rows disagree")
+
 print("LSD_TEXT_GATE=%s" % ("FAIL" if bad else "PASS"))
 sys.exit(bad)
 LSD_PY

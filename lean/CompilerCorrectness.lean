@@ -1344,9 +1344,12 @@ theorem count_invariant_perm (D : LDP σ) {φ : σ → σ}
     choice among many, by L3). The family is a `List (σ → σ)` of maps,
     each carrying its equivariance hypothesis — the 24-coset mask-level
     instantiation stays runtime-verified (KB5). `canon` idempotence
-    (representative stability) is also runtime-carried (`f1_canon`
-    F1_CHECKs) and is NOT consumed by the model theorem — the orbit
-    hypothesis alone suffices. -/
+    (representative stability) is argued from group closure and is
+    runtime-carried by the `[kc-scan] orbit image canon mismatch` F1_CHECK
+    on solve.c's scan path — `f1_canon` itself carries no F1_CHECK; it
+    computes the minimum over the 23 non-identity images and returns it —
+    and it is NOT consumed by the model theorem — the orbit hypothesis
+    alone suffices. -/
 
 /-- **L4 model core (order-preserving family).** Looking up the count at
     the canonical representative answers the query at `m` exactly. -/

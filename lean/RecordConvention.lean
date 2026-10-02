@@ -31,7 +31,11 @@
 
       NOTE (2026-08-15): a --check-repr sweep of the 1.78e9-record merge
       artifact disagreed with this definition on 1.06%-42.2% of records,
-      regionally, with INCOMPUTABLE=0. That is NOT a defect and NOT a
+      regionally, with INCOMPUTABLE=0 — a sweep that was STOPPED EARLY and
+      did not cover the whole artifact (9 chunks of 5,242,880 records agreed
+      perfectly, 212 reported disagreement, the per-chunk manifest is not
+      published, so the rates are not reproducible from this repository
+      alone; VERIFY.md §"The sweep result"). That is NOT a defect and NOT a
       divergence: solutions.bin is a PRE-NORMALIZATION artifact — main's
       merge stores the v1/v3 visited-min representative described in
       CONTEXT above, and nothing in this tree claims that artifact carries
@@ -62,7 +66,12 @@
       at slot 1 having forced slot 0 alone. Cell-scoped visited-min was
       considered and PROVEN INSUFFICIENT as a record representative
       (visitedMin_not_nested below): the merged cross-cell min moves with
-      budget, breaking partition-invariance and record-level nesting.
+      budget, breaking record-level nesting — that is what the theorem
+      exhibits. The partition effect is a consequence of BUDGETED VISITING,
+      not of the theorem: over a fixed visited set the min is
+      partition-invariant (PartitionInvariance.lean's min-selection is
+      idempotent, commutative and associative); what varies with the
+      partition under a budget is the visited set itself.
 
   This file machine-checks the four model-level facts that decision rests
   on, plus the correctness of the DFS that computes repr:
@@ -111,7 +120,11 @@
   · B5 (walk-order monotonicity): solve.c's per-cell DFS visits nodes in
     a fixed budget-independent order, so the visited leaf/key set at
     budget B is a subset of that at budget B' ≥ B (truncation nesting);
-    eviction-resume preserves the walk (Tier 5 gates).
+    eviction-resume preserves the walk (Tier 5 gates). SCOPE: single-
+    traversal modes only. A parallel --sub-branch run pulls its tasks by
+    an atomic counter under one SHARED budget (whichever worker first
+    crosses it flips the stop), so its visited set at two budgets is
+    scheduling-dependent and B5 does not cover it.
   · B6 (repr computability): `orb_recanon`-with-slot-0-only-forcing
     implements the `dfsFirst` model over orientation vectors with P = "the
     completed sequence satisfies C2/C3/C5" (C1/C4 by construction); its
@@ -303,9 +316,11 @@ theorem visitedMin_not_nested :
     `Valid k` (as a set) — then the visited-min representative equals the
     canonical form `listMin` over `Valid k`. Consequently the v4
     canonical-form artifact agrees with the v1/v3 visited-min artifact,
-    key by key, wherever enumeration reached per-cell exhaustion: the v4
-    convention preserves v1/v3 record semantics on the theorem-grade
-    regime and re-anchors only budgeted bytes.
+    key by key, wherever EVERY cell holding a variant of the key was
+    exhausted (the `hmem` hypothesis; cells key on raw bytes including
+    orientation bits, so one cell holds one orientation prefix of a key and
+    exhausting one cell is not enough): the v4 convention preserves v1/v3
+    record semantics on that regime and re-anchors only budgeted bytes.
 
     Stated with the antisymmetric/total/transitive order hypotheses the
     byte order (lex on fixed-length byte strings) satisfies. -/

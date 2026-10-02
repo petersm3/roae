@@ -78,3 +78,6 @@ solve.binary.snapshot
 !/example/wave.*
 # doc_gates.sh GATE 17 LEG 6 scratch copy (left behind only if a selftest is interrupted)
 scripts/.doc_gates_g17_copy.*
+# Q-514: query-evidence scratch that a review lane once wrote into a checkout of this tree.
+# It is working material, not a published artifact; nothing under it is tracked.
+scripts/v4_query_evidence/

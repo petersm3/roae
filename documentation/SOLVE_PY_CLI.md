@@ -153,7 +153,7 @@ points (`--compute-stats`, `--marginals`, `--bivariate`,
 **v2** analyses and the pipeline modifiers below have no other CLI home:
 
 **Stage 0 — `--encode-solutions OUT_BIN IN [IN ...]`.** The P2 entry points read a
-`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:38995` and `:39002` emit **repr(k)** on the record line, and `solve.py:17133` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
+`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:38995` and `:39002` emit **repr(k)** on the record line, and `solve.py:17151` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
 `record` lines into that binary (32-byte `ROAE` header; 32-byte records,
 `byte[i] = (pair_index << 2) | (orient << 1)`, KW-consecutive pair table). A
 **mandatory round-trip gate** re-reads the output with `verify.py`'s own decoder and
@@ -245,8 +245,12 @@ workflow lives in the sibling `sat.py`; see [SAT_CLI.md](SAT_CLI.md).)
 status, operator decision 2026-07-10).** Neither encoder is built: the
 requested constraint is not encoded, a `status:
 deferred_superseded_by_pairslot_model` entry is recorded in the
-`.meta.json` sidecar, and the run prints a WARNING stating that the file
-carries C1+C2 only. ⚠ "Not encoded" is not the same as "emits nothing",
+`.meta.json` sidecar, and the run prints a WARNING stating that the DIMACS
+file carries C1+C2 only (plus `+C4` when pinned; under `--sat-c3 pb` it adds
+that C3 lives in the OPB companion). Until 2026-10-01 the warning keyed on
+`--sat-c3` not being `pb`, so `--sat-c3 pb --sat-c5` — a deferred C5 beside a
+real PB C3 — printed no warning although the sidecar carried the deferred
+record; it now keys on the deferred records themselves. ⚠ "Not encoded" is not the same as "emits nothing",
 and the two flags differ (measured 2026-08-31, this tree): `--sat-c5`
 emits **no** extra clauses — 4,096 vars / 272,128 clauses, clause-sha
 identical to `--sat-c3 none`. **`--sat-c3 adder` used to differ, and no longer
@@ -291,7 +295,7 @@ three of them are routinely read as if they were.
 | Key | Invariant |
 |---|---|
 | `out_cnf` | The `--sat-encode OUT_CNF` argument **verbatim**, exactly as typed — not absolutized and not normalized, so a relative path stays relative and is meaningful only from the directory the run was launched in. It is the path the DIMACS was written to; the sidecar itself is that path with `.meta.json` appended. |
-| `out_opb` | The companion OPB path, `out_cnf` + `.opb` — but **`null` on every run that is not `--sat-c3 pb`**. `null` here does not mean "the OPB was not requested"; it means no OPB exists, which is also the state under `--sat-c3 adder` (see the deferred-flags note above). Where it is non-null it is likewise the verbatim, un-absolutized path. |
+| `out_opb` | The companion OPB path, `out_cnf` + `.opb` — but **`null` on every run that is not `--sat-c3 pb`**. `null` here does not mean "the OPB was not requested"; it means *this run wrote no OPB* — and, since 2026-10-01, that no `out_cnf.opb` exists beside the output either: a run that writes no OPB **refuses** (`ERROR: --sat-encode: REFUSING: a stale OPB companion … exists`, exit 2, nothing written) when an `.opb` from an earlier `--sat-c3 pb` run is already there, because that file would lack this run's constraints while the sidecar denied its existence (measured before the fix: the old OPB's hash was unchanged and the sidecar said `null`). Remove the stale companion or pass `--sat-c3 pb`, which rewrites it. `null` is also the state under `--sat-c3 adder` (see the deferred-flags note above). Where it is non-null it is likewise the verbatim, un-absolutized path. |
 | `include_c3` | The `--sat-c3` argument as a **string** — `"none"`, `"pb"` or `"adder"`. ⚠ It records what was ASKED FOR, never what was encoded: `"adder"` puts no C3 into the CNF and produces no `.opb`, so `"adder"` and `"none"` describe byte-identical output. Only `"pb"` puts C3 anywhere, and even then **not in the `.cnf`** — the `.cnf` gains only the Tseitin `pair[v][i][j]` linking clauses, and the distance bound itself exists solely in the `.opb`. |
 | `include_c4` | The `--sat-c4` flag as a **boolean**. Unlike the other two `include_*` keys this one *is* faithful: `true` means two unit clauses forcing the oriented slot-0 pair are in the CNF. Note the type asymmetry — `include_c3` is a string while `include_c4` and `include_c5` are booleans, in the same object. |
 | `include_c5` | The `--sat-c5` flag as a **boolean**, and the flag is **deferred/superseded**. ⚠ `true` here means *requested*, and adds **zero** clauses and zero variables; the only trace is a `status: deferred_superseded_by_pairslot_model` entry in `pb_constraints`. A reader who takes `include_c5: true` as "this CNF constrains the Hamming distribution" is wrong; the clause-sha is identical to a run with the flag absent. |
@@ -1481,7 +1485,7 @@ sample, an n=9 atlas with walks, a sharded TR-8 pool and two `DEPTH_PROFILE` log
 | `--tr8-dof-sampler` | `--tr8-dof-sampler: n_pool (N) must be a positive multiple of n_shards (S) — …` and `--tr8-dof-sampler: cannot create OUT_DIR PATH (…)` on stderr (were `ValueError` / `PermissionError` tracebacks); a non-integer in `--tr8-dof-k` is an argparse usage error | 1 / 2 |
 | `--h2-verify` | `h2-verify: PATH: cannot read the dump (…) — REFUSING.` then `H2 VERIFY: FAIL (unreadable dump)` (a malformed `H2LEAF` line is named by `PATH:LINE`); a non-integer `N` is an argparse usage error | 1 / 2 |
 | `--h2-mass` | `h2-mass: PATH: cannot read the dump (…) — aborting` | 1 |
-| `--sat-encode` | `ERROR: --sat-encode: cannot write OUT_CNF PATH: …` (was a `FileNotFoundError` traceback after the whole encoding had been built) | 2 |
+| `--sat-encode` | `ERROR: --sat-encode: cannot write OUT_CNF PATH: …` (was a `FileNotFoundError` traceback after the whole encoding had been built); since 2026-10-01 also `ERROR: --sat-encode: REFUSING: a stale OPB companion PATH.opb exists from an earlier run …` when a run that writes no OPB finds one beside its output (nothing written; see the `out_opb` row) | 2 |
 
 Modes that already refused with a message and are unchanged: `--kc-x-recheck` (`KC_X_PYCHECK=ERROR`,
 rc 2), `--kc-class-swap-detect` (`KC_CLASS_SWAP_DETECT=ERROR`, rc 2), `--uniform-marginals`

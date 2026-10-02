@@ -20,7 +20,8 @@
   machine-checked; it is carried by:
 
   · the side-by-side structural correspondence (audit table below), and
-  · the executed n=9 set-level evidence (B1 2026-08-27, re-executed 2026-08-28):
+  · the executed n=9 set-level evidence (B1 — a PRIVATE review record, not in
+    the public tree — 2026-08-27, re-executed 2026-08-28):
     generic total-model enumeration over all 450 variables of the emitted n=9
     CNF decodes to exactly the clean-room walk set, bijectively.
 
@@ -30,8 +31,12 @@
   CompilerCorrectness.lean (model theorems + stated bridges). Nothing in this
   file proves sat.py bug-free; nothing here touches the C enumerator, the
   certified-counting pipeline, or leg (iii) of the B1 §5 argument (the
-  independent cardinality identity |models| = |valid|, which stays with
-  verify.py's clean-room recurrence and is deliberately NOT attempted here).
+  cardinality identity |models| = |valid|: at the ABSTRACT level it is a
+  corollary of `decode_bijection` below; for the shipping encoder its
+  model-count half would need a certified model count, which does not exist
+  at n = 13 (SAT_CLI.md) — verify.py's clean-room recurrence counts valid
+  walks and reads no CNF, so it supplies the |valid| side only — and the
+  concrete identity is deliberately NOT attempted here).
 
   WHAT IS PROVED (all at the abstract level, uniform in n — so in particular
   covering the n=13 instance shape, whose set-level fidelity was previously
@@ -123,7 +128,8 @@
 
   Attribution: the sequential-counter encoding is Sinz 2005 (CP 2005, LNCS
   3709); the register-determination-inside-exactly-k observation was raised
-  by the S01/S03 external reviews (2026-08) and is proved here. To our
+  by the S01/S03 external reviews (2026-08; private review records, not in
+  the public tree) and is proved here. To our
   knowledge this particular machine-checked formalization is ours;
   corrections welcome.
 

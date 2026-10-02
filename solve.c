@@ -33889,10 +33889,10 @@ static int kc_ar2_selftest(void) {
  *       ==  sum over j = k..n of M_j            (# nodes at depth >= k)
  *
  * for EVERY k: at k = n it degenerates to M_n (t == 1 on the seed); at
- * k = 0 to t(root) == sum_j M_j = the whole search-tree size. n+1
- * independent exact identities; the geometry (mask lists, offsets, keys)
- * is additionally required to mirror f exactly, and the tamper leg of
- * --kc-t-selftest verifies a single flipped value byte is caught.
+ * k = 0 to t(root) == sum_j M_j = the whole search-tree size. n+1 exact identities,
+ * integrity checks on the FILES: any consistent transition DAG satisfies them (Codex A05, Q-326 (8)).
+ * The geometry (mask lists, offsets, keys) is additionally required to mirror f exactly, and the
+ * tamper leg of --kc-t-selftest verifies a single flipped value byte is caught.
  *
  * FILES: t_layer_NN.bin with NEW magic F1C5TLY1/F1C5TLY2 (deliberately not
  * GLY reuse — a t file must never be readable as a g file; the same
@@ -38604,7 +38604,7 @@ static int kc_cli(int argc, char *argv[]) {
                     "  FDIR: an f (forward) retained-layers dir (--kc-build or Stage F);\n"
                     "  GDIR: the matching g ladder (--kc-g-build). Verifies, for EVERY\n"
                     "  layer k, sum over canonical masks of orbit * sum f*g == N, plus\n"
-                    "  g(0,root) == N — 31 independent exact identities at full-31 (V3).\n");
+                    "  g(0,root) == N — 31 exact identities at full-31 (V3), integrity\n  checks on the FILES: any consistent transition DAG satisfies them.\n");
             return 2;
         }
         int gfooc = 0, gcache = 0;
@@ -38708,7 +38708,7 @@ static int kc_cli(int argc, char *argv[]) {
                         : "  Verifies, for EVERY layer k, byte-exact f/t geometry mirroring\n"
                           "  AND sum over states of orbit * f * t == the number of search-\n"
                           "  tree nodes at depth >= k (from the f layer masses) — n+1\n"
-                          "  independent exact identities, incl. t(root) == total tree size.\n");
+                          "  exact identities, incl. t(root) == total tree size, integrity\n  checks on the FILES: any consistent transition DAG satisfies them.\n");
             return 2;
         }
         int tooc = 0, tcache = 0;
@@ -40401,7 +40401,7 @@ int main(int argc, char *argv[]) {
                   * ~2.1 GB at the old hardcoded 4 threads, on a 7 GB box, concurrently with a
                   * gcc -O3 -march=native in the same gate. That is the MEMORY half of the crash;
                   * the thread fix above is only the CPU half and halving threads only halves it.
-                  * solve.py:7111 already sets this knob for the same reason ("keep RAM use modest
+                  * solve.py:7129 already sets this knob for the same reason ("keep RAM use modest
                   * on tiny VMs"); the push path simply never picked it up.
                   * SHA-SAFE: this is the INITIAL table size, not a ceiling -- the table
                   * auto-doubles past a 75%% load factor (see the header at the top of this file),

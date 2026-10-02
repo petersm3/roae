@@ -306,7 +306,7 @@ path that canonical extensions (e.g. 560T → 1120T) rely on. *(2026-09-26, Q-84
 > interruption or eviction recovery. The real SIGTERM-mid-walk exercise is
 > elsewhere in this tree: `solve.py` extended-selftest **subtest 8**
 > ("single-branch eviction-resume invariance"), which calls `proc.terminate()`
-> during a `--branch` walk and then resumes — solve.py:7280-7335.
+> during a `--branch` walk and then resumes — solve.py:7298-7353.
 > *(Corrected 2026-09-01: this paragraph described the gate as interrupting
 > the run and as covering eviction recovery.)* ⚠ *(Scoped 2026-09-25, CX-134: until that fix the per-branch file subtest 8 hashes held 0 records, so its clean-vs-resumed sha comparison compared two copies of one header-only sha (`4cd43b2b…`) and could fail only on an exit code; its first content check is its PASS on the fixed binary (measured 2026-09-25). See documentation/CORRECTIONS.md CX-134.)*
 
@@ -1141,7 +1141,7 @@ first-hand), with [Hacker, Moore & Patsco (2002)](CITATIONS.md#hacker-moore2002)
 the entry that first surfaced the theorem statements. *(Source status
 corrected 2026-09-01: this sentence previously graded the attribution as
 annotation-only with the primary source still unread — a status the
-attribution block at solve.py:10496-10499 and the ledger entry at
+attribution block at solve.py:10514-10517 and the ledger entry at
 [CITATIONS.md](CITATIONS.md):2646 had already superseded on 2026-07-11.)* Prints one PASS/FAIL line per claim
 with expected + computed values. Exit 0 iff all 14 pass. Wall <1 s.
 Attribution per claim function in solve.py; master ledger
@@ -3743,7 +3743,7 @@ slow layer from an interrupted one. Background and the falsifiable proofs: `roae
 #### `--kc-g-check`
 
 ```
-Usage: solve --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB] FDIR: an f (forward) retained-layers dir (--kc-build or Stage F); GDIR: the matching g ladder (--kc-g-build). Verifies, for EVERY layer k, sum over canonical masks of orbit * sum f*g == N, plus g(0,root) == N — 31 independent exact identities at full-31 (V3).
+Usage: solve --kc-g-check FDIR GDIR [--kc-ooc] [--kc-cache-mb MB] FDIR: an f (forward) retained-layers dir (--kc-build or Stage F); GDIR: the matching g ladder (--kc-g-build). Verifies, for EVERY layer k, sum over canonical masks of orbit * sum f*g == N, plus g(0,root) == N — 31 exact identities at full-31 (V3), integrity checks on the FILES: any consistent transition DAG satisfies them.
 ```
 *Grammar reproduced from `solve.c:38600`.*
 

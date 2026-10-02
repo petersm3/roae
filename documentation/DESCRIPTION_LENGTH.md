@@ -142,7 +142,8 @@ across the whole band, and holds at 16.9 as well (fn⁸).
 
 ## The residual — the honest thesis
 
-Knowing everything structural in this table, the sequence retains **log₂|C1–C7| = 105.4 bits** of
+Knowing C1–C7 — every row of this table that the count conditions on; the gender-rule row is
+priced but is not part of C1–C7 — the sequence retains **log₂|C1–C7| = 105.4 bits** of
 unexplained information — the most conservative reading: unexplained by anything known, even the
 data-like pins. At the other end, the residual against the layers this ledger actually claims as
 *explanatory* — C1, C2 and C4 only, since the ledger itself prices C3 as circular and C5 as confirmed

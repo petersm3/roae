@@ -1097,7 +1097,7 @@ def check_kw_pair_adjacency():
 
     That result cannot support any inference about ordering, and this check says
     why in a form a reader can run. In King Wen EVERY adjacent pair (positions
-    2k-1, 2k) is a partner pair: reversal where the hexagram is not
+    2k-1 and 2k) is a partner pair: reversal where the hexagram is not
     reversal-symmetric, complement for the eight that are. So a symbol that
     agrees within each King Wen adjacent pair is EQUALLY well explained by
       H1  the symbol respects reversal, and

@@ -116,7 +116,7 @@
 #       prose-vs-diff class it needs no design pass.
 #
 #       (i) MEASURED 2026-08-02 (round 9, drain-1): three defensible counting rules disagree
-#           on 4 of the 10 rows. Counting the name in COMMAND POSITION at line start gives
+#           on 6 of the 10 rows (this read "4" until 2026-10-01; re-measured on the same revision under the two rules exactly as stated here, _selftest_revert 20 vs 16 and _selftest_release 0 vs 2 also disagree). Counting the name in COMMAND POSITION at line start gives
 #           assert_fires_why 57, assert_stays_clean_why 6, _gsrc 0 and _g13 0 — the last two
 #           are wrong, because both are only ever called inside `$(...)`. Counting the name
 #           as a WORD followed by space/tab/`;` on non-comment lines gives 61, 9, 5 and 4 —

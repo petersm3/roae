@@ -672,8 +672,14 @@ example : Fcount [[1, 1], [1, 0]] [3, 1] = 0 ∧ Fcount [[1, 1], [1, 0]] [2, 2] 
     · states = (used-pair-mask, last-exit-hexagram[, C5 residual]) tuples;
       w s t = number of admissible single-pair placements from s to t
       (0/1 here; includes the C2 Hamming-5 check and, in the C5-tracked
-      DP, the budget-kill p_d < B0_d — whose exactness is `capping_exact`
-      above); init = the C4 pinned start (mass 1 at the empty mask,
+      DP, the budget-kill p_d < B0_d — an exact-consumption guard against
+      prefix over-use of the exact C5 target, a different operation from
+      `capping_exact` above: that theorem's `hMbound` premise asks every
+      completion's usage to be pointwise ≤ the bound, and B0 is not such a
+      bound — the ported DFS's first full-31 completion uses {2,7,13,8,1}
+      against B0 = {2,8,13,7,1}; the exact-consumption argument is stated
+      separately in PruneReprFC.lean §2/§4, bridge fact B10); init = the
+      C4 pinned start (mass 1 at the empty mask,
       last = Kun's exit).
     · the group is TR-5's 24 pair-permutations with their hexagram lifts;
       w-equivariance is the prose fact that each element is a Hamming
@@ -1196,7 +1202,9 @@ end OrbitTransfer
     · `g_prune_exact` — the counting form: at a fired state, the number of
       completions with final G ≤ thresh is 0 — dropping the state changes
       no G ≤ thresh count (with the prune off, the final filter counts the
-      same completions; runtime gate G5 cross-checks this empirically).
+      same completions; the design's gate G5 would cross-check this
+      empirically, but it is a PROPOSED acceptance test, not an implemented
+      one: solve.c's only G5 is a KC gate and no capped G prune exists).
     · `gLB_step_self` / `gLB_step_open` / `gLB_step_close` — MONOTONICITY:
       along any transition (place a self-pair / open a couple / close a
       couple at slot m+1), runningG + LB rises by exactly o / 2o / 0.
@@ -1207,9 +1215,10 @@ end OrbitTransfer
     F-53 section): solve.c's running-g accumulator equals the model's
     (open/close from one partner_pair mask test), o/u are correctly
     recomputed from the mask, and reachable states have remaining slots
-    exactly {m+1..31}. These are carried by the runtime gates
-    (G1–G7 of the design, esp. G5 capped ≡ uncapped-then-filter) and code
-    review.
+    exactly {m+1..31}. These are carried by the runtime gates of the
+    design (G1–G7 — a proposed acceptance plan; G5 capped ≡
+    uncapped-then-filter has no implementation in solve.c, whose only G5 is
+    a KC gate, and the G-histogram mode is uncapped) and code review.
 
     Attribution: the capping direction is the operator's (FH-1); the LB
     derivation and this machine-checked packaging are Claude's (Fable 5,
@@ -1342,7 +1351,8 @@ def finalG (runningG : Int) (cd : List Nat × List Nat) : Int :=
 /-- G-PRUNE EXACTNESS (the counting form, design §2.3): at a state where
     the prune fires, the count of completions with final G ≤ thresh is 0 —
     so dropping the state changes no G ≤ thresh count, i.e. capped-DP
-    ≡ uncapped-DP-then-filter (runtime gate G5). `C` is the state's
+    ≡ uncapped-DP-then-filter (the design's proposed gate G5, not
+    implemented in solve.c). `C` is the state's
     completion list, each recorded as (close slots, unplaced spreads);
     all completions of one state share o (open couples) and u (unplaced
     couples), which the mask determines. -/

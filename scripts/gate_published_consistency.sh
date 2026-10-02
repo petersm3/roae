@@ -44,16 +44,36 @@ echo "== G2: sampled-figure commands missing SOLVE_THREADS =="
 # no sampling at all -- it walks the prefix ladder deterministically -- so its output does not depend
 # on thread count and METHODS' pin requirement, which exists for SAMPLED draws, does not apply.
 # Second false-positive class found while red-testing this gate, after the corrections-ledger one.
-G2=$(grep -rnE '`[^`]*\./solve --estimate-knuth +[1-9][0-9]*[^`]*`' reports/ documentation/ 2>/dev/null \
-     | grep -v 'SOLVE_THREADS' \
-     | grep -vE '^documentation/CORRECTIONS(_INVENTORY)?\.(md|tsv):' || true)
+# Q-887 (2026-10-01, the Q-883 sibling): the producer grep headed a pipeline closed by `|| true` with
+# its stderr discarded, so a grep that FAILED (rc >= 2: a missing root, an unreadable file, a broken
+# grep) read as zero hits; a PATH grep shim refusing only this pattern made the ratchet print "G2 fell
+# to 0 ... TIGHTEN THE PIN" while the verdict stayed PASS-AT-PIN. G2 now takes G1's cure: both roots
+# must exist, the producer grep runs ALONE so its rc is captured and branched on (0 hits, 1 none,
+# >= 2 FAIL "population UNMEASURED"), G2_FILES_SCANNED=N is printed and must reach G2_FLOOR (250
+# against 375 measured 2026-10-01 on public main: files under reports/ plus documentation/), and any
+# of those failures forces PUBLISHED_CONSISTENCY=FAIL through G2_ERR at the ratchet. G2_ROOT
+# overrides the directory scanned (default the repo root), for the red tests, the way G1_ROOT does.
+_G2R=${G2_ROOT:-.}; G2_ERR=0; G2_FLOOR=250; G2_SCANNED=0; G2=""; _g2raw=""; _g2rc=0
+[ "$_G2R" = . ] || echo "   [note] G2: G2_ROOT overrides the scanned root to $_G2R"
+if [ -d "$_G2R/reports" ] && [ -r "$_G2R/reports" ] && [ -d "$_G2R/documentation" ] && [ -r "$_G2R/documentation" ]; then
+  G2_SCANNED=$(find "$_G2R/reports" "$_G2R/documentation" -type f | wc -l)
+  _g2raw=$(cd "$_G2R" || exit 2; grep -rnE '`[^`]*\./solve --estimate-knuth +[1-9][0-9]*[^`]*`' reports/ documentation/); _g2rc=$?
+else
+  echo "   [FAIL] G2: $_G2R/reports/ or $_G2R/documentation/ is missing or unreadable -- this leg measured NOTHING"; G2_ERR=1
+fi
+echo "G2_FILES_SCANNED=$G2_SCANNED"
+[ "$_g2rc" -le 1 ] || { echo "   [FAIL] G2: the sampled-command grep failed (rc $_g2rc) -- its population is UNMEASURED, so no [ok] can be printed"; G2_ERR=1; }
+[ "$G2_SCANNED" -ge "$G2_FLOOR" ] || { echo "   [FAIL] G2: $G2_SCANNED file(s) scanned, below the floor $G2_FLOOR -- a moved, emptied or narrowed reports/ or documentation/ tree is a broken scan, not a clean one"; G2_ERR=1; }
+if [ "$_g2rc" -eq 0 ]; then
+  G2=$(printf '%s\n' "$_g2raw" | grep -v 'SOLVE_THREADS' | grep -vE '^documentation/CORRECTIONS(_INVENTORY)?\.(md|tsv):')
+fi
 G2_N=$( [ -n "$G2" ] && echo "$G2" | grep -c . || echo 0 )
 if [ -n "$G2" ]; then
   echo "$G2" | cut -c1-140 | sed 's/^/   [FAIL] /'
   echo "   $G2_N sampled-figure command(s) with no thread pin"
   fail=1
 else
-  echo "   [ok]   every published --estimate-knuth command carries a thread pin"
+  [ "$G2_ERR" -eq 0 ] && echo "   [ok]   every published --estimate-knuth command carries a thread pin"
 fi
 
 # ---- G3: disclosures that have become FALSE ----------------------------------------------------
@@ -671,7 +691,8 @@ for _g in 1 2 3 4 $GLEGS; do
 done
 echo
 echo "== RATCHET vs $PIN =="
-ratchet=$G1_ERR; tighten=0; outstanding=0; open_legs=""; [ "$G1_ERR" -eq 0 ] || echo "  [FAIL] G1 measured nothing trustworthy (missing root, grep rc >= 2, or below its file floor; see its [FAIL] above) -- the verdict cannot be PASS or PASS-AT-PIN"  # Q-883: G1_ERR has no default; unset aborts under set -u
+ratchet=$(( G1_ERR | G2_ERR )); tighten=0; outstanding=0; open_legs=""; [ "$G1_ERR" -eq 0 ] || echo "  [FAIL] G1 measured nothing trustworthy (missing root, grep rc >= 2, or below its file floor; see its [FAIL] above) -- the verdict cannot be PASS or PASS-AT-PIN"  # Q-883: G1_ERR has no default; unset aborts under set -u
+[ "$G2_ERR" -eq 0 ] || echo "  [FAIL] G2 measured nothing trustworthy (missing root, grep rc >= 2, or below its file floor; see its [FAIL] above) -- the verdict cannot be PASS or PASS-AT-PIN"  # Q-887: same shape as G1_ERR
 # G1..G4 carry their counts in G<n>_N; G5 onward carry them in G<n>. Built from GLEGS so the
 # ratchet cannot fall behind the legs that exist.
 # 🔴 NO `${…:-0}` DEFAULTS HERE, DELIBERATELY, AND THIS IS THE STRUCTURAL HALF OF THE G3 FIX.

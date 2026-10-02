@@ -53,10 +53,12 @@ project's reference sha256s — which are computed over the logical
 | **Architecture: x86 vs ARM** | Zen 5 ↔ Cobalt 100 ARM (D96ps_v6 westus3), d3 10T sha `f7b8c4fb…` matches (2026-04-28; same deprecation note) |
 | **Region: westus2 vs westus3** | F64 westus2 ↔ D128 westus3, same sha (2026-04-19) |
 | **Merge mode: external vs in-memory** | Both produce the canonical sha at d3 10T (2026-04-19) |
-| **Partition strategy: full-enum vs --branch reconstruction (depth 3, same per-sub-branch budget)** | sha `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` matches across both paths at 5.6T budget (35.4M nodes/sub-branch). Verified via `--double-regression-test` (2026-04-30). |
+| **Partition strategy: full-enum vs --branch reconstruction (depth 3, same per-sub-branch budget)** | sha `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` matches across both paths at 5.6T budget (35.4M nodes/sub-branch). Verified via `--double-regression-test` (2026-04-30). (The sha has since been recorded in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) as irreproducible from any extant commit; the same-path match it witnessed stands.) |
 | **Layered-merge correctness** | Layer 1 + Layer 2 of identical scope, merged via `--merge-layers`, produces same sha as a single-layer run (2026-04-30). |
 
-The 5.6T regression test is the strongest validation of the theorem to
+The 5.6T regression test (its sha `c34390c0…` since deprecated — irreproducible from any
+extant commit per [CANONICAL_HASHES.md](CANONICAL_HASHES.md); the within-run match is the
+evidence) is the strongest validation of the theorem to
 date — it explicitly verifies the `solve 0 64 == solve --branch p1 o1 × 56`
 equivalence at depth-3 partitioning with controlled per-sub-branch
 budgets via `SOLVE_PER_SUB_BRANCH_LIMIT`. See

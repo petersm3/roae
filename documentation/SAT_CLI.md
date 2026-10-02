@@ -31,7 +31,12 @@ With no arguments, `sat.py` prints its module docstring (the full target
 catalogue) and exits 0. An unrecognised flag — or, since 2026-09-02, an
 unrecognised subcommand token such as `--wittness` — exits 1 with
 `unrecognised flag(s): …` and writes nothing (before 2026-09-02 a mistyped
-subcommand printed the docstring and exited 0).
+subcommand printed the docstring and exited 0). A recognised modifier given
+with **no subcommand** (`--with-c3`, `--expect 26113`, `--c3-max 800` on their
+own) exits 1 with `modifier(s) … given without a subcommand: nothing was run`
+— before 2026-10-01 the stripped modifier left an empty argument list and the
+no-argument branch printed the catalogue and exited 0, so a caller checking
+the exit status mistook a missing operation for success.
 
 ## EXTERNAL-BINARY REQUIREMENTS (all optional)
 
@@ -362,7 +367,7 @@ and a matching exit status:
 |---|---|---|
 | `WITNESS` | `WITNESS: [...]` printed — passed base, every enforced rule and the C3 window | 0 |
 | `UNSAT` | the solver printed the whole line `s UNSATISFIABLE` **and** exited 20 | 0 |
-| `SOLVER_ERROR` | anything else from the solver (a bare exit status, a truncated or CR-prefixed verdict line, an `s SATISFIABLE` without exit 10), or a claimed model that does not satisfy the formula — e.g. one that ignores the blocking clauses | 2 |
+| `SOLVER_ERROR` | anything else from the solver (a bare exit status, a truncated or CR-prefixed verdict line, an `s SATISFIABLE` without exit 10, or — since 2026-10-01 — a `v` line carrying a non-integer token such as `v nope 0`, which was an uncaught `ValueError` traceback with exit 1 and no token before), or a claimed model that does not satisfy the formula — e.g. one that ignores the blocking clauses | 2 |
 | `ENCODING_DIVERGENCE` | a genuine model of the formula decodes to an ordering the formula was meant to exclude: base C1/C2/C5 fails, an *encoded* rule is violated, or C3 falls outside a *natively encoded* window — the Q-58 signal, never blocked-and-retried | 3 |
 | `EXHAUSTED` | 200 blocking rounds without a verdict | 4 |
 

@@ -5934,6 +5934,17 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
     import hashlib
     import json
     import time
+    # 2026-10-01 (Codex LSD R22, Q-410): a run that writes no OPB (`--sat-c3 none|adder`) left an
+    # OUT_CNF.opb from an EARLIER `--sat-c3 pb` run on disk beside a fresh .cnf and a sidecar saying
+    # `out_opb: null` -- an OPB lacking this run's constraints, which the sidecar's documented
+    # meaning ("no OPB exists") denied. Refused before anything is written: the caller removes the
+    # stale companion or asks for `--sat-c3 pb`, which rewrites it. rc 2 = refused input.
+    if include_c3 != "pb" and os.path.exists(out_path + ".opb"):
+        print(f"ERROR: --sat-encode: REFUSING: a stale OPB companion {out_path + '.opb'} exists "
+              f"from an earlier run; this run (--sat-c3 {include_c3}) would write no OPB and "
+              f"record out_opb: null beside it. Remove the stale file, or pass --sat-c3 pb to "
+              f"regenerate it.", flush=True)
+        return 2
 
     partner = _sat_partner_map()
     clauses = []
@@ -6204,13 +6215,20 @@ def p3_sat_encode(out_path, include_c3="none", include_c4=False, include_c5=Fals
         print(f"[sat-encode] wrote {opb_path} (OPB with C3 PB; "
               f"{len(pb_constraints[0]['opb_terms'])} terms in C3 sum)", flush=True)
     print(f"[sat-encode] wrote {meta_path}", flush=True)
-    if pb_constraints and include_c3 != "pb":
-        print(f"[sat-encode] WARNING: {len(pb_constraints)} requested "
+    # 2026-10-01 (Codex LSD R22, Q-410): the condition was `include_c3 != "pb"`, so
+    # `--sat-c3 pb --sat-c5` -- a deferred C5 beside a real PB C3 -- printed no warning although
+    # the sidecar carried the deferred record. The warning now keys on the deferred records
+    # themselves, whatever else was requested.
+    deferred = [pb for pb in pb_constraints
+                if str(pb.get("status", "")).startswith("deferred")]
+    if deferred:
+        print(f"[sat-encode] WARNING: {len(deferred)} requested "
               "constraint(s) NOT emitted as clauses (status recorded in the "
               ".meta.json sidecar): the adder-C3/C5 encoders here are "
               "deferred/superseded — C3 (Sinz) and C5 are native in sat.py's "
-              "pair-slot model (the certification path). This file carries "
-              "C1+C2" + ("+C4" if include_c4 else "") + " only.", flush=True)
+              "pair-slot model (the certification path). The DIMACS file carries "
+              "C1+C2" + ("+C4" if include_c4 else "") + " only"
+              + (" (C3 lives in the OPB companion)" if opb_path else "") + ".", flush=True)
 
 
 # ============================================================================
@@ -12549,10 +12567,10 @@ def atlas_load(path):
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30131) is ALSO an un-run gate,
-    # but VERIFY.md:1257 states as POLICY that it "is not a failed run". Reversing a documented
+    # but VERIFY.md:1260 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6507,
-    # :6636; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6529,
+    # :6658; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
     if fails != 0 or failed:
         raise AtlasError(
