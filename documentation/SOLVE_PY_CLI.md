@@ -1152,7 +1152,7 @@ fold: the first wiring produced `error: ambiguous option: --atlas could match --
 | flag | meaning |
 |---|---|
 | `--atlas ATLAS.json` | the atlas under test; its `by_class` table is the reference distribution |
-| `--alpha A` | simultaneous confidence level (default 0.001, i.e. 99.9 %) |
+| `--alpha A` | simultaneous error probability for the Hoeffding bound (default 0.001, i.e. 99.9 % simultaneous confidence); must lie in (0, 1). ⚠ *Corrected 2026-10-02 (Q-410, batch 32): this read "simultaneous confidence level (default 0.001 …)"; `A` is the error probability, as `solve.py`'s own help says, and the confidence is 1 − `A`.* |
 | `--exact` | the SAMPLE is a complete `--kc-enum` enumeration, not a draw; compares cell-for-cell |
 | `--show K` | print the K worst cells |
 | `--json OUT` | write the full result as JSON |

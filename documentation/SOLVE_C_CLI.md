@@ -1285,13 +1285,13 @@ Sha-neutral (argv-dispatched, never on the enumeration path).
 ### --f1-exact-c1c2c4c5
 
 ```
-solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]
+solve --f1-exact-c1c2c4c5 [--f1-pairs N] [--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers] [--f1-b0 a,b,c,d,e]
 ```
 
 Extension of the orbit DP with the capped C5-residual dimension (#217): exact
 |C1 ∩ C2 ∩ C4 ∩ C5| over group-closed pair-orbit unions. `--f1-pairs N` with
 N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31} (default 31 = full
-run at KW's budget). Sha-neutral.
+run at KW's budget). Sha-neutral. `--f1-b0 a,b,c,d,e` (Q-918, added 2026-10-02) replaces the boundary budget B0 at a **reduced** rung. Without it, B0 at a rung N < 31 is read off one deterministic first-completion witness (the `[f1c5] B0 … [deterministic-DFS witness]` stderr line); with it, B0 is the five given counts for the classes d = 1, 2, 3, 4, 6, in that order, and the same line ends `[--f1-b0 override]`. The layer headers and the manifest carry the given `b0=` exactly as they carry a derived one, so a ladder built with an override is read back unchanged, and a `--layers-dir` holding a ladder built under a different budget is refused at resume (the existing manifest check). The option exists for the Q-918 transition oracle: no DFS-derived budget has a nonzero d=6 count at any reduced rung, so the d=6 residual channel is never exercised there, and an instance with all five budgets nonzero and distinct (N = 16, `1,2,3,4,6`) is needed to see class-relabeling defects. Counts it produces are counts **for that synthetic budget** and are not published rung values. Refusals (exit 2, with the line `F1_EXACT_C1C2C4C5_ARGS=REFUSED`): `--f1-pairs 31` (the full-31 budget is King Wen's (2,8,13,7,1), derived and self-checked, and is never overridden); a value that is not exactly five comma-separated decimal integers each in [0, 31]; a sum other than N (one boundary transition per pair); a rid space ∏(b+1) > 65535 (unreachable when the sum is at most 28, kept as a clean refusal ahead of the allocator's own check); and `--f1-b0` given twice. A budget that passes can still admit no walk at all (N = 13, `1,2,3,3,4` measures 0): the run then prints `total = 0` with a stderr note instead of aborting, since zero is a property of the chosen budget, not a defect. Measured with the option (2026-10-02, 2-core box, under 1 s each): N = 9 `2,5,0,2,0` (the derived budget) gives 26,112, identical to the run without the option; N = 9 `1,2,2,2,2` gives 135,360; N = 16 `1,2,3,4,6` gives 1,747,353,600. Without the option every behaviour is unchanged. Argv-dispatched, never on the enumeration path → **Sha-neutral** (`./solve --selftest` still prints `403f7202…`).
 
 A rung must be a union of WHOLE pair-orbits, and the orbit sizes are
 {3,3,3,4,6,6,6}, so that set is exactly the realizable pair counts — the other
@@ -3549,7 +3549,7 @@ with `SOLVE_DFS_CHECKPOINT=1`:
 Single-thread `--branch p o 0 1`: ~22M nodes/sec on the AMD EPYC 9V45.
 *(Architecture corrected 2026-09-01 in both lines above: the SKU underlying
 Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vCPU), per
-[DEPLOYMENT.md](DEPLOYMENT.md):318, which retracts the earlier Zen-5-family
+[DEPLOYMENT.md](DEPLOYMENT.md):335, which retracts the earlier Zen-5-family
 attribution these two lines carried.)*
 Multi-thread saturates at ~2.5B nodes/sec on 128 threads.
 

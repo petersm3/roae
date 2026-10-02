@@ -110,7 +110,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    these four prefixes — the KW-following one and one σ-related one, which is also the pair encoded in
    `verify.py --recount-subtree`. The other two σ were drawn from the same 48-element G and their
    individual invocations are not published one by one. **The exhaustive replacement SHIPPED and
-   supersedes the sample: `python3 verify.py --sigma-isomorphism-all48`** (`verify.py:4783`) walks the
+   supersedes the sample: `python3 verify.py --sigma-isomorphism-all48`** (`verify.py:4786`) walks the
    exact C1–C5 tree below **every one of the 48** σ image prefixes and gates each against
    9,422,793 / 16,504, printing `SIGMA_ISOMORPHISM_ALL48=PASS` only after all 48 match. ~27 s per σ,
    ~21.5 min for all 48 (measured 2026-09-02); deliberately not folded into `--recount-subtree`,
@@ -238,7 +238,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
   recipe, not a shipped command**: the 24 record keys follow in under a second from the snippet at
   SYMMETRY_SEARCH.md §Reproducibility and the key specified in
   [SOLUTIONS_FORMAT.md](../documentation/SOLUTIONS_FORMAT.md) §Sort order. **`verify.py --twins-bisect
-  SOLUTIONS_BIN` ships** (`verify.py:4327`) and performs exactly this: it derives the 24 record keys
+  SOLUTIONS_BIN` ships** (`verify.py:4330`) and performs exactly this: it derives the 24 record keys
   from the 48 valid σ and reports each PRESENT/ABSENT, bisecting a raw file on the primary sort key
   (~35 reads per key on the 560T canonical) or scanning a gzip-framed one. **No result artifact is
   archived** — that half of the limitation stands, and running the flag needs a `solutions.bin` this

@@ -191,7 +191,7 @@ gate_generated() {
   # document is a live hazard for anyone who reaches for digit-stripping again.
   #
   # Q1. WHAT LEGITIMATE VARIATION DID IT ERASE? Every numeric difference, by design. roae.py
-  #     seeded nothing by default (`_global_seed`, roae.py:22 — a `--seed` flag existed but
+  #     seeded nothing by default (`_global_seed`, roae.py:23 — a `--seed` flag existed but
   #     the shipped artifacts were not produced with it), so Monte Carlo figures differed
   #     every run and a byte comparison would have failed always. THAT IS NO LONGER TRUE OF
   #     THIS GATE: example/ ships under `--seed $ROAE_EXAMPLE_SEED` and the regeneration above

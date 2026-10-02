@@ -338,12 +338,12 @@ documentation/SPECIFICATION.md	258	marker	CORRECTED	1|2	-	unreviewed	05b4538c797
 documentation/SYMMETRY_SEARCH.md	195	ledger-link	CORRECTION	n/a	-	not-a-marker	851b6cdd6b0f
 documentation/SYMMETRY_SEARCH.md	306	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	428e5d03e66c
 documentation/VERIFY.md	76	marker	CORRECTED	1|2	-	unreviewed	1ef62a3f1feb
-documentation/VERIFY.md	156	marker	CORRECTED	1|2	-	unreviewed	b0831baa9ed2
-documentation/VERIFY.md	948	marker	CORRECTED	1|2	-	unreviewed	fa839526f832
-documentation/VERIFY.md	1013	marker	CORRECTED	1|2	-	unreviewed	51e29f0a7e61
-documentation/VERIFY.md	1225	ledger-link	CORRECTION	n/a	-	not-a-marker	9690cbc0bc97
-documentation/VERIFY.md	1275	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077a58
-documentation/VERIFY.md	1334	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
+documentation/VERIFY.md	157	marker	CORRECTED	1|2	-	unreviewed	b0831baa9ed2
+documentation/VERIFY.md	949	marker	CORRECTED	1|2	-	unreviewed	fa839526f832
+documentation/VERIFY.md	1014	marker	CORRECTED	1|2	-	unreviewed	51e29f0a7e61
+documentation/VERIFY.md	1226	ledger-link	CORRECTION	n/a	-	not-a-marker	9690cbc0bc97
+documentation/VERIFY.md	1276	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077a58
+documentation/VERIFY.md	1335	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
 enumeration/LEADERBOARD.md	7	marker	CORRECTED	1|2	-	unreviewed	829aed6413ee
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1|2	-	unreviewed	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1|2	-	unreviewed	8ff0ea958479
@@ -519,6 +519,9 @@ viz/viz_tr1_rules_tradeoff.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	3070f
 viz/viz_tr3_campaign_timeline.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	19700485ed8b
 viz/viz_tr4_boundary_information.md	77	ledger-link	CORRECTION	n/a	-	not-a-marker	5ae76a22f09d
 -	-	population	-	3?	CITATION LINE GATE	count-changed	-
+documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	3?	CITATION LINE GATE	count-changed	-
+documentation/SOLVE_C_CLI.md	-	population	-	3?	CITATION LINE GATE	count-changed	-
+documentation/SOLVE_PY_CLI.md	-	population	-	3?	CITATION LINE GATE	count-changed	-
 -	-	population	-	3?	GATE 18	count-changed	-
 documentation/CITATIONS.md	-	population	-	3?	GATE 18	count-changed	-
 reports/METHODS.md	-	population	-	3?	GATE 18	count-changed	-
@@ -533,6 +536,9 @@ documentation/SOLVE_C_CLI.md	-	population	-	3?	GATE 2	count-changed	-
 documentation/SOLVE_PY_CLI.md	-	population	-	3?	GATE 2	count-changed	-
 documentation/VERIFY.md	-	population	-	3?	GATE 2	count-changed	-
 -	-	population	-	3?	GATE 2c	count-changed	-
+documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	3?	GATE 2c	count-changed	-
+documentation/SOLVE_C_CLI.md	-	population	-	3?	GATE 2c	count-changed	-
+documentation/SOLVE_PY_CLI.md	-	population	-	3?	GATE 2c	count-changed	-
 -	-	population	-	3?	GATE 38	count-changed	-
 -	-	population	-	3?	GATE 39	count-changed	-
 -	-	population	-	3?	GATE 3b	count-changed	-

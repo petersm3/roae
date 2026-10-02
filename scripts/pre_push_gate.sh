@@ -618,7 +618,11 @@ for sha in $SHAS; do
     done
     # The ALWAYS-LOCAL doc gates, in the pushed tree, with the same CITGATE_BASE rule as `all`.
     # Blocking with the same 0 / 1 / >1 classification as the `all` leg below.
-    for _lm in branch-registry appendonly revrows tracked-ignored; do
+    # script-paths (GATE 21) is local too (Q-919, 2026-10-02): its COLLISION and STALE-PRIVATE
+    # legs run only where ROAE_PRIVATE_DIR names the private checkout, so a record measured on a
+    # host without one (every chain VM) carries a DOC_GATES_ALL=PASS in which those legs were
+    # SKIPPED, and cannot speak for them. Re-running it here costs under a second.
+    for _lm in branch-registry appendonly revrows tracked-ignored script-paths; do
       echo
       ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
           ${_cb:+CITGATE_BASE=$_cb} bash scripts/doc_gates.sh "$_lm" ); _lrc=$?

@@ -12,7 +12,8 @@
 # non-PASS, or for any other tree / citation base / toolchain: the hook runs the FULL battery,
 # exactly as before. Legs whose answer depends on the pushing clone's refs, history, network or git
 # config (branch registry, append-only ledger, revision rows, tracked-but-ignored files, new-ref
-# declaration) ALWAYS run locally; see "Q-798: TREE-KEYED REUSE" in scripts/pre_push_gate.sh and
+# declaration), and GATE 21 (script-paths), whose private-checkout legs depend on ROAE_PRIVATE_DIR
+# (Q-919), ALWAYS run locally; see "Q-798: TREE-KEYED REUSE" in scripts/pre_push_gate.sh and
 # DEVELOPMENT.md section "Pre-push verdict record".
 #
 # ADVISORY LEGS (lane HAJ, 2026-09-27). The record also carries the verdicts of the hook's ADVISORY

@@ -10202,3 +10202,78 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
 - The Lean bridge-fact summary says KB2 is witnessed by code inspection plus the runtime gates, as
   KB2's own line always said. Comment only; no theorem or axiom report changes.
 - No published number, count, sha or verdict moves.
+
+## 2026-10-02 — batch 32: GATE 21's private-checkout check now runs the same way in the pre-push hook and in a reused verdict
+
+**Batch 32, GATE 21 in the hook (CX-254).**
+
+- A push was refused by GATE 21, which checks that `roae-private/` paths named in the docs exist,
+  while a manual run of the same gates on the same tree passed. The difference was one setting,
+  `ROAE_PRIVATE_DIR`: the hook sets it, so the check runs; a manual run without it skips the check
+  and reports nothing, and a skipped check cannot fail.
+- The flagged path, `roae-private/FILE` in correction CX-203, is a placeholder meaning "some file",
+  not a real path. The ledger is append-only, so it is now exempt by its exact text; real paths are
+  still checked.
+- The hook can reuse an earlier verdict for the same tree. A verdict made on a machine without the
+  private checkout had skipped this check, which is why the placeholder slipped through earlier
+  pushes. The hook now always re-runs GATE 21 itself, as it already did for the other checks that
+  depend on the machine.
+
+**Batch 32, CLI declaration-metadata gate (CX-255).**
+
+- A new check compares what the solve.py, roae.py and verify.py command-line docs say about each
+  flag (its default, its list of allowed values, how many arguments it takes) with how the flag is
+  declared in the code. A doc that drifts from the code now fails the documentation gates.
+- On its first run the docs agreed with the code everywhere. One description was still wrong in
+  words: `--alpha` was called a confidence level when it is the error probability. It is corrected.
+- The check proves on every run that it can fail, by planting three wrong statements in memory and
+  requiring each to be caught.
+- This closes the last open part of backlog row Q-410.
+
+**Batch 32, citation content rule (CX-256).**
+
+- The line-citation gate used to accept a citation whenever a name from the citing sentence
+  appeared within two lines of the cited line. A citation could be one or two lines off and still
+  pass. Batch 31 started counting these cases without failing on them.
+- All 24 counted cases were read against the lines they cite. Five were wrong (three off by one or
+  two lines, one 17 lines off, and one that cited an older version of a file without saying so) and
+  are fixed. The other 19 are correct and are listed in the gate with the reason for each.
+- A new citation of this kind now fails the gate unless someone has reviewed it and listed it.
+
+**Batch 32, pipe-record sweep (CX-257).**
+
+- Every script that stores a record as one `|`-separated string, or splits a table row on `|`, was
+  checked for the failure where a field holding a `|` (a shell `||`, a regex alternation) breaks
+  the split. No public script had that failure: each record either holds only short codes and
+  numbers, or carries its one free-text field last.
+- Five Markdown-table readers in the doc gates now treat an escaped `\|` inside a cell as text,
+  as the table format does. No gate verdict changed.
+- GATE 47's allow table now refuses an empty anchor, which a stray `||` would create.
+- A new test class scans every shell script for the shape, and fails it on a copy of the original
+  defect.
+- `viz/viz_kc_shells.md` now states that the King Wen Q3 table's sidecar must carry the table's
+  sha256, and `DEVELOPMENT.md` says the branch-registry gate needs a clone of the public repository.
+- No published number, count, sha or verdict moves.
+
+**Batch 32, the KC transition oracle `verify.py --check-kc-transition` and `--f1-b0` for `--f1-exact-c1c2c4c5` (CX-258).**
+
+- At a reduced rung, `--f1-exact-c1c2c4c5` now takes `--f1-b0 a,b,c,d,e`, a chosen budget for the
+  five step-distance classes, in place of the one read off a single valid walk. It is the solve.c
+  half of the Q-918 transition-oracle design; the independent comparison is `verify.py
+  --check-kc-transition`, described below.
+- The derived budgets never use the distance-6 class, so a defect there cannot show in their
+  counts. With `1,2,3,4,6` at 16 pairs, two such kernel defects change the total; at the derived
+  budget they do not.
+- The full-31 budget is never overridden. Malformed values, a wrong sum and a repeated flag are
+  refused.
+- A chosen budget that admits no walk reports 0 instead of stopping with a self-check failure.
+- Without the flag nothing changes. No published number, count or sha moves.
+- `verify.py --check-kc-transition N [--b0 a,b,c,d,e]` is the other half: it builds the N-pair
+  ladder with `solve`, recomputes it by verify.py's own plain recurrence with no symmetry quotient,
+  and compares every stored state — keys and values, both directions — plus the orbit-weighted
+  closure of each layer, printing `KC_TRANSITION_ORACLE=PASS|FAIL|ERROR`. The per-layer mass
+  recounts could not see a relabelling or a budget-killed channel; this does. It says ERROR, never
+  PASS, when the binary refuses the option, a layer cannot be read, the instance admits no walk, or
+  too few states were compared. Pinned able to fail by six kernel mutants and a tampered layer
+  value (`tests.py::TestQ918KcTransitionOracle`); n=9 and n=13 run in seconds, n=16 in minutes.
+

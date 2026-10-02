@@ -18,7 +18,7 @@
 # gate prints on every run.
 #
 # Columns (tab-separated): file <TAB> phrase <TAB> max <TAB> anchor <TAB> reason
-#   anchor = one or more fixed strings separated by `|`; EVERY allowed occurrence must be preceded,
+#   anchor = one or more fixed strings separated by `|` (so an anchor cannot contain one, and an empty anchor from `||` or an edge `|` is refused as ERROR, Q-525); EVERY allowed occurrence must be preceded,
 #   within 170 characters of the folded+flattened file, by one of them. This is the withdrawal
 #   CONSTRUCTION (`This read`, `once gave`, `WHAT WAS WRONG`, the gate's own `fixed string` fixture),
 #   and it is what separates a quote-to-withdraw from a live use — a bare count cannot: the pre-fix

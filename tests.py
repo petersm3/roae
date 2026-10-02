@@ -3850,7 +3850,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
         self.assertIn("KW_REQUIRED=NO", lines)
 
     def test_kw_presence_is_a_machine_readable_token_in_both_modes(self):
-        """KW_PRESENT mirrors verify.py:7147 exactly, and pairs with KW_REQUIRED.
+        """KW_PRESENT mirrors verify.py:7559 exactly, and pairs with KW_REQUIRED.
 
         Presence is a FACT about the artifact; KW_REQUIRED is the CONTRACT in force. A log carrying
         only the second cannot answer "was King Wen actually there?" without re-parsing the prose
@@ -20696,7 +20696,7 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
     COVERED = ("doc_gates all", "doc_gates generated", "compile", "consistency", "r167 run",
                "r167 mutant M3", "r167 mutant M4", "disk_precheck", "atlas", "outpaths")
     LOCAL = ("doc_gates branch-registry", "doc_gates appendonly", "doc_gates revrows",
-             "doc_gates tracked-ignored")
+             "doc_gates tracked-ignored", "doc_gates script-paths")
     LEGS = ("DOC_GATES_ALL", "GENERATED", "COMPILE_GATE", "PUBLISHED_CONSISTENCY", "R167",
             "R167_M3", "R167_M4", "ATLAS_N31", "TR12_OUTPUT_PATHS")
     STUBS = {
@@ -20936,8 +20936,8 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
         self.assertIn("compile", m2, "mutant killed: reuse did not fire, the covered legs ran")
         # MUTANT (reuse skips a local leg too): dropping appendonly from the local loop fails it.
         mut_hook = os.path.join(d, "hook_mut_local.sh")
-        self._write(mut_hook, self._mutate(self.hook_src, "for _lm in branch-registry appendonly revrows tracked-ignored; do",
-                                           "for _lm in branch-registry revrows tracked-ignored; do"), 0o755)
+        self._write(mut_hook, self._mutate(self.hook_src, "for _lm in branch-registry appendonly revrows tracked-ignored script-paths; do",
+                                           "for _lm in branch-registry revrows tracked-ignored script-paths; do"), 0o755)
         r3, m3 = self._hook(repo, self._push_line(b, a), record=rec, hook_path=mut_hook)
         self.assertNotIn("doc_gates appendonly", m3, "mutant killed: the append-only leg no longer runs locally")
 
@@ -29054,13 +29054,15 @@ class TestQ884RetractDerived(unittest.TestCase):
 
 
 class TestQ572CitationContentRule(unittest.TestCase):
-    """Lane D31: Q-572. citation_line_gate.sh --all-files accepted a landing for .c/.py/.md targets
-    whenever a mined identifier appeared anywhere in the cited span (+-2), so a citation of "the read
-    loop bounded by n_records" that sat on a printf merely passing n_records reported clean. The
-    CONTENT RULE (advisory, never blocking) now flags such landings as content-weak and prints
-    CITATION_CONTENT_RULE=PASS|ADVISORY n=<k>; CITATION_LINE_GATE is unchanged. Fixtures are throwaway
-    git repos read through CITGATE_ROOT. RED: a mutant whose content rule always holds (BASE's
-    semantics, which had no such rule) reports n=0 on the weak fixture, so the case can fail."""
+    """Q-572. citation_line_gate.sh --all-files accepted a landing for .c/.py/.md targets whenever a
+    mined identifier appeared anywhere in the cited span (+-2), so a citation of "the read loop bounded
+    by n_records" that sat on a printf merely passing n_records reported clean. Lane D31 (batch 31)
+    added the CONTENT RULE as an advisory count; batch 32 repaired the wrong citations it found and made
+    it BLOCKING: an unreviewed content-weak landing, or a reviewed CONTENT_PINS row that no longer
+    matches one, is a VERDICT FAIL, and CITATION_CONTENT_RULE=PASS|FAIL is printed beside
+    CITATION_LINE_GATE. Fixtures are throwaway git repos read through CITGATE_ROOT. RED: the advisory
+    mutant (batch 31's semantics: the rule counts but never fails) and a rule-less mutant both PASS the
+    planted off-by-two citation that the live gate FAILs."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
     GATE = os.path.join("scripts", "citation_line_gate.sh")
@@ -29086,9 +29088,15 @@ class TestQ572CitationContentRule(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
         return d
 
-    def _run(self, root, gate=None):
-        env = dict(os.environ, CITGATE_ROOT=root, CITGATE_ALL_PINS="", CITGATE_TARGET_PINS="")
-        r = subprocess.run(["bash", gate or os.path.join(self.ROOT, self.GATE), "--all-files"],
+    def _pin(self, line_no):
+        """A CONTENT_PINS row for doc.md -> solve.c at line_no, hashed the way the gate's chash() does."""
+        body = self.SRC.split("\n")[line_no - 1].rstrip()
+        return "doc.md\tsolve.c\t%s\treviewed fixture pin" % hashlib.sha256(body.encode()).hexdigest()[:12]
+
+    def _run(self, root, gate=None, cpins="", extra=()):
+        env = dict(os.environ, CITGATE_ROOT=root, CITGATE_ALL_PINS="", CITGATE_TARGET_PINS="",
+                   CITGATE_CONTENT_PINS=cpins)
+        r = subprocess.run(["bash", gate or os.path.join(self.ROOT, self.GATE), "--all-files", *extra],
                            capture_output=True, text=True, env=env, cwd=self.ROOT, timeout=300)
         lines = r.stdout.splitlines()
         v = [l for l in lines if l.startswith("CITATION_LINE_GATE=")]
@@ -29096,43 +29104,80 @@ class TestQ572CitationContentRule(unittest.TestCase):
         self.assertEqual(len(v), 1, r.stdout[-2000:])
         return v[0], c, r.stdout
 
-    def test_precondition_fixture_shape(self):
-        src = self.SRC.split("\n")
-        self.assertIn("printf", src[2])
-        self.assertIn("while (done < n_records)", src[5])
-        self.assertGreater(sum("n_records" in l for l in src), 3, "n_records must be COMMON (> RARE lines)")
-
-    def test_correct_citation_passes_with_no_advisory(self):
-        v, c, out = self._run(self._repo(6))
-        self.assertEqual(v, "CITATION_LINE_GATE=PASS", out[-1500:])
-        self.assertEqual(c, ["CITATION_CONTENT_RULE=PASS"], out[-1500:])
-
-    def test_print_argument_landing_is_advisory_not_blocking(self):
-        v, c, out = self._run(self._repo(3))
-        self.assertEqual(v, "CITATION_LINE_GATE=PASS", "the content rule must never move the verdict")
-        self.assertEqual(c, ["CITATION_CONTENT_RULE=ADVISORY n=1"], out[-1500:])
-        self.assertIn("[weak] doc.md:1 solve.c:3", out)
-
-    def test_common_anchor_off_span_is_advisory(self):
-        v, c, out = self._run(self._repo(4))
-        self.assertEqual(v, "CITATION_LINE_GATE=PASS", out[-1500:])
-        self.assertEqual(c, ["CITATION_CONTENT_RULE=ADVISORY n=1"], out[-1500:])
-
-    def test_mutant_without_the_rule_is_red(self):
+    def _mutant(self, live, repl):
         with open(os.path.join(self.ROOT, self.GATE), encoding="utf-8") as fh:
             src = fh.read()
-        live = "if occ(tg, c) <= RARE or any(c in l and not print_arg_only(tg, c, l) for l in core):"
-        self.assertEqual(src.count(live), 1, "precondition: the content-rule condition is present once")
+        self.assertEqual(src.count(live), 1, "precondition: the mutated text is present once")
         d = tempfile.mkdtemp(prefix="q572m_")
         self.addCleanup(shutil.rmtree, d, True)
         os.makedirs(os.path.join(d, "scripts"))
         mp = os.path.join(d, "scripts", "citation_line_gate.sh")
         with open(mp, "w", encoding="utf-8") as fh:
-            fh.write(src.replace(live, "if True:"))
-        v, c, out = self._run(self._repo(3), gate=mp)
-        self.assertEqual(c, ["CITATION_CONTENT_RULE=PASS"], "the rule-less mutant must miss the weak landing")
+            fh.write(src.replace(live, repl))
+        return mp
 
-# end class TestQ572CitationContentRule (lane D31)
+    def test_precondition_fixture_shape(self):
+        src = self.SRC.split("\n")
+        self.assertIn("printf", src[2])
+        self.assertIn("while (done < n_records)", src[5])
+        self.assertGreater(sum("n_records" in l for l in src), 3, "n_records must be COMMON (> RARE lines)")
+        self.assertNotIn("n_records", src[3], "line 4, the planted citation, must not carry the anchor")
+
+    def test_correct_citation_passes(self):
+        v, c, out = self._run(self._repo(6))
+        self.assertEqual(v, "CITATION_LINE_GATE=PASS", out[-1500:])
+        self.assertEqual(c, ["CITATION_CONTENT_RULE=PASS"], out[-1500:])
+
+    def test_planted_off_by_two_fails(self):
+        v, c, out = self._run(self._repo(4))
+        self.assertEqual(v, "CITATION_LINE_GATE=FAIL", out[-1500:])
+        self.assertEqual(c, ["CITATION_CONTENT_RULE=FAIL"], out[-1500:])
+        self.assertIn("[NEW-weak] doc.md:1 solve.c:4", out)
+
+    def test_print_argument_landing_fails(self):
+        v, c, out = self._run(self._repo(3))
+        self.assertEqual(v, "CITATION_LINE_GATE=FAIL", out[-1500:])
+        self.assertEqual(c, ["CITATION_CONTENT_RULE=FAIL"], out[-1500:])
+
+    def test_reviewed_pin_passes_and_is_exact(self):
+        v, c, out = self._run(self._repo(4), cpins=self._pin(4))
+        self.assertEqual((v, c), ("CITATION_LINE_GATE=PASS", ["CITATION_CONTENT_RULE=PASS"]), out[-1500:])
+        v, c, out = self._run(self._repo(6), cpins=self._pin(4))      # the citation was repaired
+        self.assertEqual((v, c), ("CITATION_LINE_GATE=FAIL", ["CITATION_CONTENT_RULE=FAIL"]), out[-1500:])
+        self.assertIn("[weak-pin-unmatched] doc.md -> solve.c #", out)
+        v, c, out = self._run(self._repo(4), cpins=self._pin(5))      # a pin for other content
+        self.assertEqual(v, "CITATION_LINE_GATE=FAIL", out[-1500:])
+
+    def test_advisory_mutant_is_red(self):
+        mp = self._mutant("if wnew:\n    bad.append(", "if False:\n    bad.append(")
+        v, c, out = self._run(self._repo(4), gate=mp)
+        self.assertEqual(v, "CITATION_LINE_GATE=PASS", "the advisory mutant must pass the off-by-two")
+
+    def test_ruleless_mutant_is_red(self):
+        mp = self._mutant("if occ(tg, c) <= RARE or any(c in l and not print_arg_only(tg, c, l) for l in core):",
+                          "if True:")
+        v, c, out = self._run(self._repo(4), gate=mp)
+        self.assertEqual((v, c), ("CITATION_LINE_GATE=PASS", ["CITATION_CONTENT_RULE=PASS"]),
+                         "the rule-less mutant must miss the off-by-two")
+
+    def test_real_tree_content_pins_are_reviewed_and_exact(self):
+        with open(os.path.join(self.ROOT, self.GATE), encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r"CONTENT_PINS_DEFAULT=\$\(cat <<'PINS'\n(.*?)\nPINS\n", src, re.S)
+        self.assertIsNotNone(m)
+        rows = [r for r in m.group(1).split("\n") if r.strip() and not r.startswith("#")]
+        self.assertGreaterEqual(len(rows), 1)
+        for r in rows:
+            f = r.split("\t")
+            self.assertEqual(len(f), 4, r)
+            self.assertRegex(f[2], r"^[0-9a-f]{12}$")
+            self.assertTrue(f[3].startswith("CORRECT: "), "each pin states its review: %r" % r)
+        r = subprocess.run(["bash", self.GATE, "--all-files", "--all-targets"], capture_output=True,
+                           text=True, cwd=self.ROOT, timeout=600)
+        self.assertIn("\nCITATION_CONTENT_RULE=PASS\n", "\n" + r.stdout, r.stdout[-3000:])
+        self.assertIn("reviewed-pins=%d new=0 pins-unmatched=0" % len(rows), r.stdout)
+
+# end class TestQ572CitationContentRule (lane D31; blocking, batch 32)
 
 
 
@@ -30760,6 +30805,755 @@ class TestQ916CensusHistogramClauseNotVacuous(unittest.TestCase):
 
 # end class TestQ916CensusHistogramClauseNotVacuous
 
+
+class TestQ919Gate21PrivateLegAsTheHookRunsIt(unittest.TestCase):
+    """Q-919: the pre-push hook exports ROAE_PRIVATE_DIR (local .git/hooks/pre-push wrapper), so
+    GATE 21's STALE-PRIVATE leg RUNS there; a bare `bash scripts/doc_gates.sh` and every verdict
+    record made on a host without the private checkout SKIP it, and a skipped leg cannot fail.
+    The placeholder `roae-private/FILE` (CORRECTIONS.md, append-only) went red only in the hook.
+    These tests run the leg in RAN mode on the REAL corpus, the way the hook does."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _run(self, privdir):
+        env = dict(os.environ)
+        env.pop("ROAE_PRIVATE_DIR", None)
+        if privdir is not None:
+            env["ROAE_PRIVATE_DIR"] = privdir
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "script-paths"], cwd=self.ROOT, env=env, capture_output=True, text=True, timeout=300)
+        tok = [l for l in r.stdout.splitlines() if l.startswith("DOC_GATE_SCRIPT_PATHS_PRIVATE=")]
+        stale = re.findall(r"STALE-PRIVATE: `(roae-private/[^`]+)`", r.stdout)
+        return r.returncode, r.stdout + r.stderr, tok, stale
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="q919_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def test_q919_placeholder_is_exempt_when_private_leg_runs(self):
+        # Hermetic: an EMPTY private dir makes every real roae-private/ pointer STALE, which
+        # proves the leg RAN and enumerates what it would hold against a real checkout.
+        empty = os.path.join(self.tmp, "empty"); os.mkdir(empty)
+        rc, out, tok, stale = self._run(empty)
+        self.assertEqual(tok, ["DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"], out)   # precondition
+        self.assertTrue(stale, "positive control: an empty private dir must make real pointers STALE")
+        self.assertFalse("roae-private/FILE" in stale,
+                         "placeholder `roae-private/FILE` is held to the STALE-PRIVATE leg (Q-919)")
+        # Satisfy every reported pointer: what is left is exactly what a complete private
+        # checkout would still fail on, and that must equal the SKIP-mode verdict (green).
+        full = os.path.join(self.tmp, "full")
+        for t in stale:
+            p = os.path.join(full, t[len("roae-private/"):])
+            if t.endswith("/"):
+                os.makedirs(p, exist_ok=True)
+            else:
+                os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w").close()
+        os.makedirs(full, exist_ok=True)
+        rc_ran, out_ran, tok_ran, _ = self._run(full)
+        rc_skip, out_skip, tok_skip, _ = self._run(None)
+        self.assertEqual(tok_ran, ["DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"], out_ran)
+        self.assertEqual(tok_skip, ["DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-unset"], out_skip)
+        self.assertEqual((rc_ran, rc_skip), (0, 0), out_ran + out_skip)
+
+    @unittest.skipUnless(os.path.isdir(os.environ.get("ROAE_PRIVATE_DIR", "")),
+                         "ROAE_PRIVATE_DIR not set to a directory: the operator-box leg cannot run here")
+    def test_q919_real_private_checkout_as_hook_runs_it(self):
+        rc, out, tok, stale = self._run(os.environ["ROAE_PRIVATE_DIR"])
+        self.assertEqual(tok, ["DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"], out)
+        self.assertEqual(rc, 0, out)
+
+# end class TestQ919Gate21PrivateLegAsTheHookRunsIt
+
+class TestQ410CliDeclMetadataGate(unittest.TestCase):
+    """Batch 32 (Q-410, the declaration-metadata leg). scripts/cli_decl_metadata_gate.sh checks every
+    default, choice list and argument count that SOLVE_PY_CLI.md / ROAE_PY_CLI.md / VERIFY.md STATE
+    against the argparse declaration in solve.py / roae.py / verify.py, and is GATE 2's last leg.
+    GREEN on the tree; RED on a scratch copy carrying one planted drift of each kind, each named; and
+    ERROR (never PASS) for a mutant that disables a comparison, because the gate's in-process positive
+    controls must then go unreported."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    GATE = os.path.join("scripts", "cli_decl_metadata_gate.sh")
+    FILES = ("solve.py", "roae.py", "verify.py", "documentation/SOLVE_PY_CLI.md",
+             "documentation/ROAE_PY_CLI.md", "documentation/VERIFY.md")
+
+    def _copy(self, gate_src=None):
+        d = tempfile.mkdtemp(prefix="q410decl_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "documentation"))
+        os.makedirs(os.path.join(d, "scripts"))
+        for f in self.FILES:
+            shutil.copy(os.path.join(self.ROOT, f), os.path.join(d, f))
+        with open(os.path.join(self.ROOT, self.GATE), encoding="utf-8") as fh:
+            src = fh.read()
+        with open(os.path.join(d, self.GATE), "w", encoding="utf-8") as fh:
+            fh.write(gate_src(src) if gate_src else src)
+        return d
+
+    def _plant(self, d, rel, old, new):
+        p = os.path.join(d, rel)
+        with open(p, encoding="utf-8") as fh:
+            s = fh.read()
+        self.assertEqual(s.count(old), 1, "precondition: the planted anchor %r occurs once in %s" % (old, rel))
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(s.replace(old, new))
+
+    def _run(self, cwd):
+        r = subprocess.run(["bash", self.GATE], capture_output=True, text=True, cwd=cwd, timeout=300)
+        v = [l for l in r.stdout.splitlines() if l.startswith("CLI_DECL_METADATA=")]
+        self.assertEqual(len(v), 1, r.stdout[-2000:])
+        return r.returncode, v[0], r.stdout
+
+    def test_green_on_the_tree(self):
+        rc, v, out = self._run(self.ROOT)
+        self.assertEqual((rc, v), (0, "CLI_DECL_METADATA=PASS"), out[-2000:])
+        self.assertEqual(out.count("positive control:"), 3, out[-2000:])
+
+    def test_red_on_each_kind_of_planted_drift(self):
+        d = self._copy()
+        self._plant(d, "documentation/SOLVE_PY_CLI.md", "the **probe count** (default 10000000)",
+                    "the **probe count** (default 1000000)")
+        self._plant(d, "documentation/SOLVE_PY_CLI.md", "| `--sat-c3 none\\|pb\\|adder` |",
+                    "| `--sat-c3 none\\|pb\\|cardinality` |")
+        self._plant(d, "documentation/ROAE_PY_CLI.md", "--compare A B                   Compare",
+                    "--compare A                     Compare")
+        self._plant(d, "documentation/VERIFY.md", "Default `1`, which is single-threaded",
+                    "Default `4`, which is single-threaded")
+        rc, v, out = self._run(d)
+        self.assertEqual((rc, v), (1, "CLI_DECL_METADATA=FAIL"), out[-2500:])
+        for needle in ("DEFAULT L365 --tr8-dof-pool-draws", "CHOICES L240 --sat-c3",
+                       "ARITY L164 --compare", "--jobs: doc states default '4'"):
+            self.assertIn(needle, out)
+
+    def test_mutant_without_the_default_comparison_is_error_not_pass(self):
+        live = '            if Decimal(str(v)) == dnum:\n                return "ok", None'
+        def mutate(src):
+            self.assertEqual(src.count(live), 1, "precondition: the numeric default comparison is present once")
+            return src.replace(live, '            return "ok", None')
+        rc, v, out = self._run(self._copy(mutate))
+        self.assertEqual((rc, v), (2, "CLI_DECL_METADATA=ERROR"), out[-2000:])
+        self.assertIn("the default mutant of", out)
+
+# end class TestQ410CliDeclMetadataGate (batch 32)
+
+class TestPipeRecordSplitSafety(unittest.TestCase):
+    """Q-525 (batch 32): a `|`-delimited record whose fields can hold shell or regex text.
+
+    THE SHAPE (private commit 7dc566c0, a mutation harness): each mutant was ONE string
+    `id|file|find|repl|test`, split with `${m%%|*}` / `${m#*|}`. One find-string held a shell
+    `||`, so the split stopped inside it, the test path became a source fragment, bash failed on
+    it, and the non-zero exit was scored as the mutant being KILLED. Three kills were artifacts.
+
+    THE SWEEP (documentation/CORRECTIONS.md, the batch-32 entry) found no public consumer of that
+    unsafe shape: every public pipe record either holds machine tokens only, or carries its one
+    free-text field LAST and reads it as the remainder. These tests pin both facts, and the
+    scanner below fails the 7dc566c0 shape itself (positive control) if it is ever written here.
+    Rule: a bash array literal or `for X in … do` word list is a RECORD LIST when the script
+    splits its loop variable on a pipe (`${X%%|*}`-style expansions, `cut -d'|'`, `IFS='|'`).
+    In a record list every word must carry the SAME number of pipes, and none may carry `||`
+    (an empty field from a bare split, or a shell OR inside a field). Heredoc bodies are not
+    bash and are not scanned. Limitations, stated: a record list whose every word carries the
+    same extra pipes passes this rule, and a list built at run time (`A+=("$x|$y")`) is not
+    seen; the pins below cover the kept consumers, and a new consumer needs its own."""
+
+    @staticmethod
+    def _word_lists(text):
+        """(line, kind, name, [dequoted words]) for each `NAME=( … )` and `for NAME in … do`."""
+        out = []
+        text = re.sub(r"<<-?\s*'?\"?([A-Za-z_]\w*)'?\"?([^\n]*\n)(.*?\n)[ \t]*\1(?=\n)",
+                      lambda h: "<<" + h.group(1) + h.group(2) + "\n" * h.group(3).count("\n") + h.group(1),
+                      text, flags=re.S)                         # heredoc bodies are not bash
+        for m in re.finditer(r"(?m)(?:^|[\s;&])(?:local\s+|declare\s+-a\s+)?([A-Za-z_]\w*)=\(|"
+                             r"\bfor\s+([A-Za-z_]\w*)\s+in\s", text):
+            kind = "array" if m.group(0).endswith("(") else "for"
+            name = m.group(1) or m.group(2)
+            i, words, cur, depth, have = m.end(), [], [], 0, False
+            while i < len(text):
+                ch = text[i]
+                if ch == "'":
+                    j = text.find("'", i + 1)
+                    if j < 0:
+                        break
+                    cur.append(text[i + 1:j]); have = True; i = j + 1; continue
+                if ch == '"':
+                    j = i + 1
+                    while j < len(text) and text[j] != '"':
+                        j += 2 if text[j] == "\\" else 1
+                    cur.append(text[i + 1:j]); have = True; i = j + 1; continue
+                if ch == "\\" and text[i + 1:i + 2] == "\n":
+                    ch = " "; i += 1                              # line continuation = blank
+                elif ch == "\\" and i + 1 < len(text):
+                    cur.append(text[i + 1]); have = True; i += 2; continue
+                if ch == "$" and text[i + 1:i + 2] == "(":
+                    depth += 1; cur.append("$("); have = True; i += 2; continue
+                if depth and ch == ")":
+                    depth -= 1; cur.append(ch); i += 1; continue
+                if ch == "#" and not have and not depth:
+                    j = text.find("\n", i); i = len(text) if j < 0 else j; continue
+                end = (kind == "array" and ch == ")" and not depth) or \
+                      (kind == "for" and ch in ";\n" and not depth)
+                if ch in " \t\n" or end:
+                    if have:
+                        words.append("".join(cur))
+                    cur, have = [], False
+                    if end:
+                        break
+                    i += 1; continue
+                cur.append(ch); have = True; i += 1
+            if kind == "for" and not re.match(r"\s*(?:;\s*)?do\b", text[i + 1:]):
+                continue                                          # not a bash for-list
+            out.append((text.count("\n", 0, m.start()) + 1, kind, name, words))
+        return out
+
+    @staticmethod
+    def _split_on_pipe(text, kind, name):
+        """True when the script splits this list's loop variable on a pipe."""
+        vs = [name] if kind == "for" else re.findall(
+            r"\bfor\s+([A-Za-z_]\w*)\s+in\s+\"?\$\{%s\[@\]\}" % re.escape(name), text)
+        for v in vs:
+            v = re.escape(v)
+            if re.search(r"\$\{%s(?:%%%%|%%|##|#)[^}]*\|" % v, text) or \
+               re.search(r"\$%s\"?\s*\|\s*cut -d\s*'?\\?\|" % v, text) or \
+               re.search(r"IFS='?\\?\|'?[^\n]*<<<\s*\"?\$\{?%s\b" % v, text):
+                return True
+        return False
+
+    def _defects(self, text):
+        bad = []
+        for line, kind, name, words in self._word_lists(text):
+            recs = [w for w in words if "|" in w]
+            if len(recs) < 2 or not self._split_on_pipe(text, kind, name):
+                continue
+            arity = sorted({w.count("|") for w in recs})
+            if len(arity) > 1:
+                bad.append("line %d (%s): pipe counts differ across records %s" % (line, kind, arity))
+            dbl = [w for w in recs if "||" in w]
+            if dbl:
+                bad.append("line %d (%s): a record carries `||`: %r" % (line, kind, dbl[0][:80]))
+        return bad
+
+    # The 7dc566c0 shape, with neutral names: a shell `||` inside the find-string of a 5-field record.
+    PRE_FIX = """MUTANTS=(
+  'm1|a.sh|[ "$x" = y ] || why="$why bad"|:|t.sh:TOK'
+  # a comment between records
+  'm2|a.sh|if [ "$z" = 1 ]; then|if false; then|t.sh:TOK'
+)
+for m in "${MUTANTS[@]}"; do id=${m%%|*}; done
+"""
+    POST_FIX = """MUTANTS=(
+  m1 a.sh '[ "$x" = y ] || why="$why bad"' : t.sh:TOK
+  m2 a.sh 'if [ "$z" = 1 ]; then' 'if false; then' t.sh:TOK
+)
+"""
+
+    def test_positive_control_the_7dc566c0_shape_is_flagged(self):
+        lists = self._word_lists(self.PRE_FIX)
+        self.assertEqual([len(w) for _l, k, _n, w in lists if k == "array"], [2],
+                         "the scanner did not read the two-record array: %r" % (lists,))
+        bad = self._defects(self.PRE_FIX)
+        self.assertTrue(any("pipe counts differ" in b for b in bad), bad)
+        self.assertTrue(any("`||`" in b for b in bad), bad)
+
+    def test_negative_control_no_in_band_delimiter_is_clean(self):
+        self.assertEqual(self._defects(self.POST_FIX), [])
+
+    def test_no_tracked_shell_script_carries_the_shape(self):
+        sh = [f for f in subprocess.run(["git", "ls-files", "*.sh"], capture_output=True,
+                                        text=True).stdout.split("\n") if f]
+        self.assertGreater(len(sh), 30, "git ls-files matched too few shell scripts: the scan would be vacuous")
+        found, seen = [], 0
+        for f in sh:
+            with open(f, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            seen += sum(1 for _l, k, n, w in self._word_lists(text)
+                        if sum("|" in x for x in w) >= 2 and self._split_on_pipe(text, k, n))
+            found += ["%s %s" % (f, b) for b in self._defects(text)]
+        self.assertEqual(found, [], "Q-525: a pipe record that a bare split can mis-parse")
+        # The two kept record arrays (history_currency_gate.sh CASES, knuth_c67_repro_gate.sh
+        # CASES) must be in the population, or the scan proves nothing about them.
+        self.assertGreaterEqual(seen, 2, "the scanner found no pipe-record lists at all")
+
+    def _bash(self, script, **env):
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                           env=dict(os.environ, **env))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.split("\x1f")
+
+    def test_history_currency_split_keeps_free_text_last(self):
+        # The split lines are read FROM the script, so an edit to either is what gets tested.
+        with open("scripts/history_currency_gate.sh", encoding="utf-8") as fh:
+            src = fh.read()
+        case = re.search(r"^\s*(id=\$\{c%%\|\*\}; want=.*head=\$\{c#\*\|\*\|\})\s*$", src, re.M)
+        mut = re.search(r"^\s*(id=\$\{mu%%\|\*\}; rep=\$\{mu#\*\|\})\s*$", src, re.M)
+        self.assertTrue(case and mut, "the CASES / MU split lines moved: re-audit them (Q-525)")
+        got = self._bash(case.group(1) + "; printf '%s\\x1f%s\\x1f%s' \"$id\" \"$want\" \"$head\"",
+                         c="W9|FAIL|## a || b | c")
+        self.assertEqual(got, ["W9", "FAIL", "## a || b | c"])
+        got = self._bash(mut.group(1) + "; printf '%s\\x1f%s' \"$id\" \"$rep\"", mu="MU9|(?:a|b)||c")
+        self.assertEqual(got, ["MU9", "(?:a|b)||c"])
+
+    def test_knuth_cases_carry_machine_tokens_only(self):
+        with open("scripts/knuth_c67_repro_gate.sh", encoding="utf-8") as fh:
+            src = fh.read()
+        lists = [w for _l, k, _n, w in self._word_lists(src) if k == "array" and any("|" in x for x in w)]
+        self.assertEqual(len(lists), 1, "knuth_c67_repro_gate.sh: expected one CASES record array")
+        for w in lists[0]:
+            self.assertRegex(w, r"\A[0-9,]*\|[0-9]+\Z", "a pins|figure record holds more than digits")
+
+    def test_tr12_skip_record_reason_is_the_remainder(self):
+        with open("scripts/tr12_repro.sh", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertEqual(src.count('SKIPPED+=("$id|$token|$value|$reason")'), 1)
+        self.assertEqual(src.count("cut -d'|' -f4-)"), 1, "the reason must be read as the remainder")
+        calls = re.findall(r"^\s*row_skip\s+(\S+)\s+(\S+)\s+(\"[^\"\n]*\"|\S+)", src, re.M)
+        self.assertGreater(len(calls), 30, "row_skip calls not found: the check would be vacuous")
+        for c in calls:
+            self.assertFalse(any("|" in x for x in c), "a row_skip ID/TOKEN/VALUE holds a pipe: %r" % (c,))
+
+    def test_markdown_readers_split_escape_aware(self):
+        # GFM: `\\|` inside a cell is a literal pipe, not a cell break. CLAIMS_DECIDED.md's rows
+        # carry `\\|C1∩C2∩C4\\|`; GATE 72/73 read its Claim and Source cells by position.
+        pins = {"scripts/doc_gates.d/95_derived_figures_scope.sh": 5,
+                "scripts/doc_gates.d/20_retract_links_status.sh": 2}
+        for f, n in pins.items():
+            with open(f, encoding="utf-8") as fh:
+                self.assertEqual(fh.read().count("(?<!\\\\)\\|"), n, f)
+        row = "| a \\|x\\| b | src | x | proof |"
+        self.assertEqual([c.strip() for c in re.split(r"(?<!\\)\|", row.strip().strip("|"))],
+                         ["a \\|x\\| b", "src", "x", "proof"])
+
+# end class TestPipeRecordSplitSafety
+
+def _q918_build(src, out):
+    """Start a -O1 build of `src` into `out` (the tests.py mutant-compile pattern)."""
+    return subprocess.Popen(["gcc", "-O1", "-pthread", "-fopenmp", "-o", out, src, "-lm", "-lz"],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+
+
+def _q918_run(binary, args, cwd, extra_env=None, timeout=300):
+    """Run `solve --f1-exact-c1c2c4c5 ARGS`; return (rc, stdout+stderr lines, total or None)."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+    env.update(extra_env or {})
+    r = subprocess.run([binary, "--f1-exact-c1c2c4c5"] + list(args), capture_output=True,
+                       text=True, cwd=cwd, env=env, timeout=timeout)
+    lines = (r.stdout + r.stderr).splitlines()
+    tot = [l.split("=")[-1].strip() for l in lines if l.strip().startswith("orbit-quotient C5-DP total =")]
+    return r.returncode, lines, (int(tot[-1]) if tot else None)
+
+
+class TestQ918F1B0Override(unittest.TestCase):
+    """Q-918 (2026-10-02), the solve.c half of the transition-oracle design (item A1):
+    `--f1-exact-c1c2c4c5 --f1-pairs N --f1-b0 a,b,c,d,e` replaces the deterministic-DFS boundary
+    budget at a reduced rung. Pinned here: the override equal to the derived budget reproduces the
+    published n=9 total; the synthetic budgets the design measured with an independent scratch
+    recurrence give the same totals in the engine (n=9 1,2,2,2,2 -> 135,360; n=16 1,2,3,4,6 ->
+    1,747,353,600); every refusal exits 2 with the mode's ARGS=REFUSED line; a budget that admits
+    no walk (n=13 1,2,3,3,4) reports total 0 instead of aborting as a "DP defect"; the manifest
+    carries the given b0 and a dir built under one budget is refused under another. Without the
+    flag nothing changes (control leg, green on any tree). RED on the base tree (38feb643): the
+    flag is unknown there, so every override run exits 2 with the usage text -- each red leg first
+    asserts the precondition that the SAME binary runs the derived n=9 instance cleanly.
+    ROAE_TESTS_SOLVE_SRC builds a different source (red runs only); a build failure is a FAILURE."""
+
+    TOKEN = "F1_EXACT_C1C2C4C5_ARGS=REFUSED"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q918_b0_")
+        src = os.path.abspath(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"))
+        cls.sbin = os.path.join(cls.tmp, "solve_q918")
+        err = _q918_build(src, cls.sbin).communicate()[1]
+        cls.build_ok = os.path.exists(cls.sbin)
+        cls.build_err = (err or "")[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, *args, **kw):
+        self.assertTrue(self.build_ok, self.build_err)
+        return _q918_run(self.sbin, args, self.tmp, **kw)
+
+    def _precondition(self):
+        rc, out, tot = self._run("--f1-pairs", "9")
+        self.assertEqual((rc, tot), (0, 26112), "precondition: the derived n=9 instance runs\n"
+                         + "\n".join(out[-5:]))
+
+    def test_absent_flag_keeps_the_derived_budget(self):
+        rc, out, tot = self._run("--f1-pairs", "9")
+        self.assertEqual((rc, tot), (0, 26112), "\n".join(out[-5:]))
+        self.assertTrue([l for l in out if "(2,5,0,2,0) sum=9 [deterministic-DFS witness]" in l],
+                        "the B0 line names the DFS witness when --f1-b0 is absent")
+        self.assertFalse([l for l in out if "--f1-b0 override" in l])
+
+    def test_override_equal_to_derived_budget_reproduces_n9(self):
+        self._precondition()
+        rc, out, tot = self._run("--f1-pairs", "9", "--f1-b0", "2,5,0,2,0")
+        self.assertEqual((rc, tot), (0, 26112), "\n".join(out[-5:]))
+        self.assertTrue([l for l in out if "(2,5,0,2,0) sum=9 [--f1-b0 override]" in l],
+                        "the B0 line marks the override")
+
+    def test_synthetic_budgets_match_the_independent_recurrence(self):
+        self._precondition()
+        for n, b0, want in (("9", "1,2,2,2,2", 135360), ("16", "1,2,3,4,6", 1747353600)):
+            rc, out, tot = self._run("--f1-pairs", n, "--f1-b0", b0)
+            self.assertEqual((rc, tot), (0, want), "n=%s b0=%s\n%s" % (n, b0, "\n".join(out[-5:])))
+
+    def test_every_malformed_or_inadmissible_value_is_refused(self):
+        self._precondition()
+        bad = (("31", "2,8,13,7,1"),      # full-31 is never overridden
+               ("9", "2,5,0,2"), ("9", "2,5,0,2,0,0"), ("9", "2,,5,2,0"), ("9", "2,5,0,2,0,"),
+               ("9", "2,5,x,2,0"), ("9", "2,5,-1,2,0"), ("9", "+2,5,0,2,0"), ("9", "32,0,0,0,0"),
+               ("9", ""), ("9", "2,5,0,3,0"))  # last: sum 10 != 9
+        for n, b0 in bad:
+            rc, out, tot = self._run("--f1-pairs", n, "--f1-b0", b0)
+            self.assertEqual(rc, 2, "n=%s b0=%r\n%s" % (n, b0, "\n".join(out[-5:])))
+            self.assertIn(self.TOKEN, out, "n=%s b0=%r: refusal token line" % (n, b0))
+            self.assertIsNone(tot, "n=%s b0=%r: a refused run must not count" % (n, b0))
+        rc, out, _ = self._run("--f1-pairs", "9", "--f1-b0", "2,5,0,2,0", "--f1-b0", "2,5,0,2,0")
+        self.assertEqual(rc, 2)
+        self.assertIn(self.TOKEN, out, "a repeated --f1-b0 is refused (Q-864)")
+
+    def test_zero_walk_budget_reports_zero_not_a_dp_defect(self):
+        self._precondition()
+        rc, out, tot = self._run("--f1-pairs", "13", "--f1-b0", "1,2,3,3,4")
+        self.assertEqual((rc, tot), (0, 0), "\n".join(out[-5:]))
+        self.assertTrue([l for l in out if "--f1-b0 override admits no completed walk: total = 0" in l])
+        self.assertFalse([l for l in out if "self-check FAILED" in l])
+
+    def test_manifest_carries_the_override_and_a_different_budget_is_refused(self):
+        self._precondition()
+        d = tempfile.mkdtemp(dir=self.tmp)
+        rc, out, tot = self._run("--f1-pairs", "9", "--f1-b0", "1,2,2,2,2", "--layers-dir", d,
+                                 extra_env={"SOLVE_F1_KEEP_LAYERS": "1"})
+        self.assertEqual((rc, tot), (0, 135360), "\n".join(out[-5:]))
+        with open(os.path.join(d, "f1c5_manifest.txt"), encoding="utf-8") as fh:
+            self.assertIn("b0=1,2,2,2,2", fh.read().splitlines())
+        self.assertTrue(all(os.path.exists(os.path.join(d, "f1c5_layer_%02d.bin" % k))
+                            for k in range(10)), "KEEP_LAYERS retains layers 0..9")
+        rc, out, tot = self._run("--f1-pairs", "9", "--layers-dir", d)
+        self.assertNotEqual(rc, 0, "a DFS-budget run must not resume an override ladder")
+        self.assertIsNone(tot)
+        self.assertTrue([l for l in out if "does not match this run" in l], "\n".join(out[-5:]))
+
+# end class TestQ918F1B0Override
+
+
+class TestQ918SyntheticBudgetExposesKernelMutants(unittest.TestCase):
+    """Q-918 (2026-10-02): why the oracle needs `--f1-b0`, pinned at the MASS level in the engine
+    itself. Mutants M1-M4 of the Q-918 design are compiled from solve.c (unique anchors, asserted)
+    and run at n=16 with the derived budget (1,8,1,6,0) and the synthetic one (1,2,3,4,6).
+    MEASURED 2026-10-02 (engine; M1-M3 agree with the design's independent scratch recurrence):
+    M1 (d=5 admitted as d1) synth 3,494,707,200; M2 (d=5 charged to d6) derived budget UNCHANGED
+    (b0[d6] = 0 kills the channel), synth 107,722,882,240,512; M3 (d1<->d3 swap) derived budget
+    UNCHANGED, synth 316,293,120; M4 (d=5 admitted only into hexagram 23, orbit 6.1) unchanged at
+    n=9 and n=13, changed at n=16 under both budgets. M4's engine totals (284,257,783,137,152 and
+    1,835,458,560) are NOT the design's scratch values (273,852,617,099,264 and 1,787,719,680):
+    the engine applies the mutant inside the orbit quotient, where a non-equivariant rule is not
+    the same raw rule, so only "changed / unchanged" is pinned for M4 here. This class says
+    nothing per state; the per-state comparison is the verify.py half (Fable). RED on the base
+    tree: the synthetic-budget runs exit 2 there (no --f1-b0), after the precondition legs pass."""
+
+    CLS = "static const int8_t F1C5_CLS[7] = {-1, 0, 1, 2, 3, -1, 4};"
+    GATHER = "int cls = F1C5_CLS[__builtin_popcount(lp ^ fa)];"
+    MUTANTS = {
+        "M1": (CLS, CLS.replace("3, -1, 4", "3, 0, 4")),
+        "M2": (CLS, CLS.replace("3, -1, 4", "3, 4, 4")),
+        "M3": (CLS, CLS.replace("{-1, 0, 1, 2,", "{-1, 2, 1, 0,")),
+        "M4": (GATHER, GATHER + " if (cls < 0 && fa == 23) cls = 0;"),
+    }
+    CLEAN_DFS, CLEAN_SYN = 267765117419520, 1747353600
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q918_mut_")
+        src = os.path.abspath(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"))
+        with open(src, encoding="utf-8") as fh:
+            text = fh.read()
+        cls.anchor_counts = {k: text.count(o) for k, (o, _) in cls.MUTANTS.items()}
+        jobs = {"clean": (src, os.path.join(cls.tmp, "clean"))}
+        for k, (o, n) in cls.MUTANTS.items():
+            if cls.anchor_counts[k] == 1:
+                ms = os.path.join(cls.tmp, k + ".c")
+                with open(ms, "w", encoding="utf-8") as fh:
+                    fh.write(text.replace(o, n))
+                jobs[k] = (ms, os.path.join(cls.tmp, k))
+        cls.bins, cls.build_err = {}, ""
+        procs = {k: (out, _q918_build(s, out)) for k, (s, out) in jobs.items()}
+        for k, (out, p) in procs.items():
+            err = p.communicate()[1]
+            if p.returncode == 0 and os.path.exists(out):
+                cls.bins[k] = out
+            else:
+                cls.build_err += "%s: gcc rc %d: %s\n" % (k, p.returncode, (err or "")[-1500:])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _tot(self, which, *args):
+        self.assertIn(which, self.bins, self.build_err)
+        rc, out, tot = _q918_run(self.bins[which], args, self.tmp)
+        self.assertEqual(rc, 0, "%s %s\n%s" % (which, args, "\n".join(out[-5:])))
+        self.assertIsNotNone(tot, "%s %s printed no total" % (which, args))
+        return tot
+
+    def _syn(self, which):
+        return self._tot(which, "--f1-pairs", "16", "--f1-b0", "1,2,3,4,6")
+
+    def test_anchors_are_unique_and_the_clean_tree_is_the_baseline(self):
+        self.assertEqual(self.anchor_counts, {k: 1 for k in self.MUTANTS}, "each anchor occurs once")
+        self.assertEqual(self._tot("clean", "--f1-pairs", "16"), self.CLEAN_DFS)
+        self.assertEqual(self._syn("clean"), self.CLEAN_SYN)
+
+    def test_m1_admitting_d5_is_caught_by_the_synthetic_budget(self):
+        self.assertEqual(self._tot("clean", "--f1-pairs", "16"), self.CLEAN_DFS, "precondition")
+        self.assertEqual(self._syn("M1"), 3494707200)
+
+    def test_m2_is_mass_blind_at_the_derived_budget_and_caught_by_the_synthetic(self):
+        self.assertEqual(self._tot("M2", "--f1-pairs", "16"), self.CLEAN_DFS,
+                         "precondition: b0[d6] = 0 hides M2 at the derived budget")
+        self.assertEqual(self._syn("M2"), 107722882240512)
+
+    def test_m3_is_mass_blind_at_the_derived_budget_and_caught_by_the_synthetic(self):
+        self.assertEqual(self._tot("M3", "--f1-pairs", "16"), self.CLEAN_DFS,
+                         "precondition: equal d1/d3 budgets hide the swap at the derived budget")
+        self.assertEqual(self._syn("M3"), 316293120)
+
+    def test_m4_needs_a_rung_with_orbit_6_1(self):
+        self.assertEqual(self._tot("M4", "--f1-pairs", "9"), 26112, "precondition: n=9 is blind")
+        self.assertEqual(self._tot("M4", "--f1-pairs", "13"), 2063395607040, "precondition: n=13 is blind")
+        self.assertNotEqual(self._tot("M4", "--f1-pairs", "16"), self.CLEAN_DFS)
+        self.assertNotEqual(self._syn("M4"), self.CLEAN_SYN)
+
+# end class TestQ918SyntheticBudgetExposesKernelMutants
+
+
+class TestQ918KcTransitionOracle(unittest.TestCase):
+    """Q-918 (2026-10-02), the verify.py half of the transition-oracle design (items B1-B4):
+    `verify.py --check-kc-transition N [--b0 a,b,c,d,e] [--layers DIR]` builds the N-pair ladder
+    with solve, recomputes it by verify.py's own plain budgeted recurrence (no symmetry quotient, no
+    shared code) and compares every stored state -- keys and values, both directions -- plus each
+    layer's orbit-weighted closure. Tokens: KC_TRANSITION_ORACLE=PASS|FAIL|ERROR with _LEG, _STATES
+    and _FIRST_BAD_LAYER lines; exit 0 / 1 / 2.
+
+    PINNED HERE, all measured 2026-10-02 against the staged solve.c (-O1 builds, 2-core host):
+    the clean tree PASSES n=9 under the derived budget (2,5,0,2,0; 950 states) and under 1,2,2,2,2
+    (5,004 states) and n=13 (40,461 states); the kernel mutants of the design fail PER STATE at
+    the layer in EXPECT below; M4 (d=5 admitted only into hexagram 23, pair 2 of orbit 6.1) PASSES
+    n=9 and n=13 because pair 2 is in neither rung -- the proof that a rung with 6.0/6.1 is
+    mandatory; the vacuous budget n=13 1,2,3,3,4 is ERROR, not PASS; an engine without --f1-b0 (M0,
+    the base tree's shape) is ERROR on a --b0 leg after passing a derived one; a missing binary is
+    ERROR with STATES=-1; a single flipped value byte or key byte in a built layer file is FAIL at
+    that layer through --layers; n=31 and a budget whose sum is not n are ERROR with exit 2.
+
+    WORKER LEGS (not run here; minutes and ~0.5 GB each in CPython): the n=16 clean legs
+    `--check-kc-transition 16` and `16 --b0 1,2,3,4,6` must print PASS with STATES 417169 and
+    524089; every mutant M1-M6 must print FAIL on `16 --b0 1,2,3,4,6`; M4 must print FAIL on
+    `--check-kc-transition 16` (its first bad layer is recorded by that run, not predicted here:
+    the engine applies a non-equivariant mutant inside its orbit quotient, so its totals
+    284,257,783,137,152 / 1,835,458,560 are not the design's raw-rule values and the per-state
+    first bad layer is the datum to record).
+
+    RED on the base tree: verify.py there has no --check-kc-transition (argparse exits 2 with no
+    token) and solve.c has no --f1-b0, so every test fails after its precondition. Builds are lazy
+    (one per mutant on first use) so `-k` runs stay bounded; a build failure is a FAILURE."""
+
+    SIB = TestQ918SyntheticBudgetExposesKernelMutants
+    FA_BRANCH = ("int cls = F1C5_CLS[__builtin_popcount(lp ^ fa)];\n"
+                 "        if (cls >= 0 && B->dig[cls][rid] < B->b0[cls]) {\n"
+                 "            int32_t lo = loc1[rid + B->rad[cls]];\n"
+                 "            F1_CHECK(lo >= 0, \"sum-invariant violation in gather\");\n"
+                 "            f1_add(&scr[(size_t)fb * (size_t)vk1 + (size_t)lo], pv);")
+    ARGV_B0 = 'else if (strcmp(argv[ai], "--f1-b0") == 0 && ai + 1 < argc) f1c5_b0s = argv[++ai];'
+    MUTANTS = dict(SIB.MUTANTS)
+    # M5, the cap off by one. The design's form, `<` -> `<=`, is NOT silent in the engine: its own
+    # F1_CHECK aborts ("sum-invariant violation in gather", exit 71) at layer 3 of n=9, so the oracle
+    # sees ERROR (solve exited 71), never a wrong ladder -- that mutant tests the engine's invariant,
+    # not this oracle, and is pinned below as M5L for the record. The in-bounds off-by-one, the cap
+    # tightened by one (p + 1 < b0), builds a wrong ladder silently and is the M5 the oracle catches.
+    MUTANTS["M5"] = (FA_BRANCH, FA_BRANCH.replace("B->dig[cls][rid] < B->b0[cls]",
+                                                  "B->dig[cls][rid] + 1 < B->b0[cls]"))
+    MUTANTS["M5L"] = (FA_BRANCH, FA_BRANCH.replace("< B->b0[cls]", "<= B->b0[cls]"))
+    MUTANTS["M6"] = (FA_BRANCH, FA_BRANCH.replace("scr[(size_t)fb *", "scr[(size_t)fa *"))  # wrong exit
+    MUTANTS["M0"] = (ARGV_B0, "")                                                     # option absent
+    # (mutant, n, b0) -> (verdict, first bad layer), MEASURED -- see the class docstring.
+    EXPECT = {
+        ("M1", "9", None): ("FAIL", 1), ("M1", "9", "1,2,2,2,2"): ("FAIL", 1),
+        ("M2", "9", "1,2,2,2,2"): ("FAIL", 1),
+        ("M3", "9", None): ("FAIL", 0), ("M3", "9", "1,2,2,2,2"): ("FAIL", 1), ("M3", "13", None): ("FAIL", 0),
+        ("M5", "9", None): ("FAIL", 2), ("M5", "9", "1,2,2,2,2"): ("FAIL", 1), ("M5", "13", None): ("FAIL", 1),
+        ("M6", "9", None): ("FAIL", 1), ("M6", "9", "1,2,2,2,2"): ("FAIL", 1), ("M6", "13", None): ("FAIL", 1),
+    }
+    CLEAN_STATES = {("9", None): 950, ("9", "1,2,2,2,2"): 5004, ("13", None): 40461}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q918_oracle_")
+        cls.src = os.path.abspath(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"))
+        cls.vpy = os.path.abspath(os.environ.get("ROAE_TESTS_VERIFYPY_SRC", "verify.py"))
+        with open(cls.src, encoding="utf-8") as fh:
+            cls.text = fh.read()
+        cls.bins, cls.errs, cls.clean_ok = {}, {}, {}
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _bin(self, which):
+        """Lazily build `which` ("clean" or a MUTANTS key); assert the anchor is unique."""
+        if which not in self.bins and which not in self.errs:
+            if which == "clean":
+                src = self.src
+            else:
+                o, n = self.MUTANTS[which]
+                self.assertEqual(self.text.count(o), 1, "%s: anchor must occur exactly once" % which)
+                src = os.path.join(self.tmp, which + ".c")
+                with open(src, "w", encoding="utf-8") as fh:
+                    fh.write(self.text.replace(o, n))
+            out = os.path.join(self.tmp, which)
+            p = _q918_build(src, out)
+            err = p.communicate()[1]
+            if p.returncode == 0 and os.path.exists(out):
+                self.bins[which] = out
+            else:
+                self.errs[which] = "%s: gcc rc %d: %s" % (which, p.returncode, (err or "")[-1500:])
+        self.assertIn(which, self.bins, self.errs.get(which))
+        return self.bins[which]
+
+    def _oracle(self, binary, n, b0=None, layers=None, timeout=900):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        env["SOLVE_BIN"] = binary
+        argv = [sys.executable, self.vpy, "--check-kc-transition", str(n)]
+        if b0 is not None:
+            argv += ["--b0", b0]
+        if layers is not None:
+            argv += ["--layers", layers]
+        r = subprocess.run(argv, capture_output=True, text=True, env=env, timeout=timeout,
+                           stdin=subprocess.DEVNULL)
+        out = r.stdout + r.stderr
+        tok = {}
+        for line in out.splitlines():
+            m = re.match(r"^(KC_TRANSITION_ORACLE(?:_LEG|_STATES|_FIRST_BAD_LAYER)?)=(.*)$", line)
+            if m:
+                tok[m.group(1)] = m.group(2)
+        return r.returncode, tok, out
+
+    def _clean_pass(self, n, b0=None):
+        """Precondition shared by the red legs: the clean binary PASSES the same leg."""
+        if (n, b0) not in self.clean_ok:
+            rc, tok, out = self._oracle(self._bin("clean"), n, b0)
+            self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE")), (0, "PASS"),
+                             "precondition: clean n=%s b0=%s\n%s" % (n, b0, out[-1500:]))
+            self.assertEqual(tok.get("KC_TRANSITION_ORACLE_FIRST_BAD_LAYER"), "-1")
+            self.clean_ok[(n, b0)] = tok
+        return self.clean_ok[(n, b0)]
+
+    def test_clean_tree_passes_n9_both_budgets_and_n13(self):
+        for (n, b0), states in self.CLEAN_STATES.items():
+            tok = self._clean_pass(n, b0)
+            leg = "%s:%s:PASS" % (n, b0 or {"9": "2,5,0,2,0", "13": "1,6,0,6,0"}[n])
+            self.assertEqual(tok.get("KC_TRANSITION_ORACLE_LEG"), leg)
+            self.assertEqual(tok.get("KC_TRANSITION_ORACLE_STATES"), str(states),
+                             "the compared-state count is the ladder's entry count on a pass")
+
+    def test_each_kernel_mutant_fails_per_state(self):
+        for (which, n, b0), (verdict, bad) in sorted(self.EXPECT.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2] or "")):
+            self._clean_pass(n, b0)
+            rc, tok, out = self._oracle(self._bin(which), n, b0)
+            self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"),
+                              tok.get("KC_TRANSITION_ORACLE_FIRST_BAD_LAYER")),
+                             ({"FAIL": 1, "ERROR": 2}[verdict], verdict, str(bad)),
+                             "%s n=%s b0=%s\n%s" % (which, n, b0, out[-1500:]))
+            self.assertIn("KC_TRANSITION_ORACLE_LEG=%s:" % n, out)
+            self.assertNotIn("KC_TRANSITION_ORACLE=PASS", out)
+
+    def test_m4_is_blind_at_n9_and_n13_so_the_union_needs_a_6_1_rung(self):
+        for n, b0 in (("9", None), ("9", "1,2,2,2,2"), ("13", None)):
+            clean = self._clean_pass(n, b0)
+            rc, tok, out = self._oracle(self._bin("M4"), n, b0)
+            self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE")), (0, "PASS"),
+                             "M4 touches only pair 2 (hexagram 23), absent from n=9 and n=13\n" + out[-800:])
+            self.assertEqual(tok.get("KC_TRANSITION_ORACLE_STATES"),
+                             clean.get("KC_TRANSITION_ORACLE_STATES"))
+
+    def test_m2_is_invisible_at_a_derived_budget_so_the_synthetic_one_is_needed(self):
+        # b0[d6] = 0 at every DFS-derived rung: the misrouted d=5 transitions are budget-killed in
+        # the ladder AND in the recurrence, so the two agree state for state. Measured PASS at n=9
+        # and n=13; the same mutant is FAIL at layer 1 under 1,2,2,2,2 (EXPECT above).
+        for n in ("9", "13"):
+            clean = self._clean_pass(n)
+            rc, tok, out = self._oracle(self._bin("M2"), n)
+            self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"), tok.get("KC_TRANSITION_ORACLE_STATES")),
+                             (0, "PASS", clean.get("KC_TRANSITION_ORACLE_STATES")), out[-800:])
+
+    def test_loosened_cap_is_caught_by_the_engine_itself_not_by_this_oracle(self):
+        self._clean_pass("9")
+        rc, tok, out = self._oracle(self._bin("M5L"), "9")
+        self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"), tok.get("KC_TRANSITION_ORACLE_STATES")),
+                         (2, "ERROR", "-1"), out[-1200:])
+        self.assertIn("solve exited 71", out)
+        self.assertIn("sum-invariant violation in gather", out)
+
+    def test_zero_total_instance_is_error_not_pass(self):
+        self._clean_pass("13")
+        rc, tok, out = self._oracle(self._bin("clean"), "13", "1,2,3,3,4")
+        self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"), tok.get("KC_TRANSITION_ORACLE_LEG")),
+                         (2, "ERROR", "13:1,2,3,3,4:ERROR"), out[-1200:])
+        self.assertEqual(tok.get("KC_TRANSITION_ORACLE_FIRST_BAD_LAYER"), "-1")
+        self.assertIn("admits no completed walk", out)
+
+    def test_option_absent_or_missing_binary_is_error(self):
+        self._clean_pass("9", "1,2,2,2,2")
+        m0 = self._bin("M0")
+        rc, tok, out = self._oracle(m0, "9")
+        self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE")), (0, "PASS"),
+                         "precondition: M0 still builds the derived n=9 ladder\n" + out[-800:])
+        rc, tok, out = self._oracle(m0, "9", "1,2,2,2,2")
+        self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"), tok.get("KC_TRANSITION_ORACLE_STATES")),
+                         (2, "ERROR", "-1"), out[-1200:])
+        self.assertIn("solve exited 2", out)
+        rc, tok, out = self._oracle(os.path.join(self.tmp, "no_such_solve"), "9")
+        self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"), tok.get("KC_TRANSITION_ORACLE_STATES")),
+                         (2, "ERROR", "-1"), out[-1200:])
+        self.assertIn("no solve binary", out)
+
+    def test_tampered_layer_byte_fails_through_layers_dir(self):
+        d = tempfile.mkdtemp(dir=self.tmp)
+        rc, out, tot = _q918_run(self._bin("clean"), ["--f1-pairs", "9", "--layers-dir", d], self.tmp,
+                                 extra_env={"SOLVE_F1_KEEP_LAYERS": "1"})
+        self.assertEqual((rc, tot), (0, 26112), "\n".join(out[-5:]))
+        rc, tok, text = self._oracle(self._bin("clean"), "9", layers=d)
+        self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE")), (0, "PASS"),
+                         "precondition: the untouched directory passes\n" + text[-800:])
+        fp = os.path.join(d, "f1c5_layer_03.bin")
+        with open(fp, "rb") as fh:
+            raw = bytearray(fh.read())
+        nm, ne = struct.unpack_from("<QQ", raw, 32)
+        keys0 = 72 + 4 * nm + 8 * (nm + 1)
+        vals0 = keys0 + 4 * ne
+        for name, off in (("value", vals0), ("key", keys0)):
+            bad = bytearray(raw)
+            bad[off] ^= 0x01
+            with open(fp, "wb") as fh:
+                fh.write(bad)
+            rc, tok, text = self._oracle(self._bin("clean"), "9", layers=d)
+            self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"),
+                              tok.get("KC_TRANSITION_ORACLE_FIRST_BAD_LAYER")), (1, "FAIL", "3"),
+                             "one flipped %s byte in layer 3\n%s" % (name, text[-1200:]))
+        with open(fp, "wb") as fh:
+            fh.write(raw)
+        rc, tok, text = self._oracle(self._bin("clean"), "9", "1,2,2,2,2", layers=d)
+        self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE")), (2, "ERROR"),
+                         "a directory built under another budget is ERROR, not compared\n" + text[-800:])
+        self.assertIn("manifest b0=", text)
+
+    def test_rung_and_budget_refusals_print_error(self):
+        for n, b0 in (("31", None), ("9", "1,2,3,4,5"), ("9", "1,2,2,2"), ("10", None)):
+            rc, tok, out = self._oracle(self._bin("clean"), n, b0)
+            self.assertEqual((rc, tok.get("KC_TRANSITION_ORACLE"), tok.get("KC_TRANSITION_ORACLE_STATES")),
+                             (2, "ERROR", "-1"), "n=%s b0=%s\n%s" % (n, b0, out[-800:]))
+
+# end class TestQ918KcTransitionOracle
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1141,8 +1141,8 @@ def header_labels(header, row, val, want):
     Column-aware rather than whole-header: a table with BOTH an exact and an estimate
     column (TR-4 has exactly that) would otherwise be self-exempting in both directions.
     """
-    hc = [c.strip() for c in header.split('|')]
-    rc = [c.strip() for c in row.split('|')]
+    hc = [c.strip() for c in re.split(r'(?<!\\)\|', header)]   # Q-525: a GFM \| is not a cell break
+    rc = [c.strip() for c in re.split(r'(?<!\\)\|', row)]
     pat = EST if want == 'estimate' else EX
     idx = [i for i, c in enumerate(rc) if val in c]
     if idx and len(hc) == len(rc):

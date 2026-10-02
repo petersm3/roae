@@ -81,9 +81,8 @@ SRC="${CITGATE_SRC:-solve.c}"
 # once by a uniform +43. That is the intended direction, but it hard-blocks the pushing lane, so
 # the number is a deliberate choice and not an accident of when the drain finished.
 BUDGET="${CITGATE_BUDGET:-0}"
-# Q-572 content-rule ratchet (ADVISORY; see JUDGE_B_WEAK): content-weak landings measured on public
-# main 38feb643 under --all-files --all-targets. Lower it whenever the count falls; it never blocks.
-CONTENT_PIN=24
+# Q-572 content rule (BLOCKING since batch 32; see JUDGE_B_WEAK): its reviewed allowlist is
+# CONTENT_PINS, below the --all-targets pin table.
 KNOWN_KEYS="${CITGATE_KEYS:-}"
 
 _run() {
@@ -365,12 +364,47 @@ PINS
 )
 TARGET_PINS="${CITGATE_TARGET_PINS-$TARGET_PINS_DEFAULT}"
 
-_run_all() { # $1 root  $2 base ref  $3 base-explicit (1|"")  $4 pins  $5 all-targets (1|"")  $6 target pins
-  ROOT="$1" BASE="$2" BASE_EXPLICIT="$3" PINS="$4" ALLT="${5:-}" TPINS="${6:-}" python3 - <<'PYEOF'
+# THE Q-572 CONTENT PIN TABLE (batch 32): <citing file> TAB <target> TAB <hash> TAB <reason>.
+# One row per REVIEWED content-weak landing (see JUDGE_B_WEAK): a citation that lands only on a
+# common anchor off its cited span, or on a print argument, and that a person read against its cited
+# lines and found CORRECT. Keyed by citing file, target and the 12-hex content hash of the cited span
+# (chash), with NO anchor key: the mined anchor set differs between --all-files and --all-targets (a
+# tracked file's name is dropped only in the latter), and the same row must hold in both. Exact both ways: an unlisted
+# content-weak landing FAILs, and so does a row that no longer matches one (repaired, or its cited
+# content changed -- re-read it, then re-hash or drop the row). CITGATE_PINROWS=1 prints a CPINROW
+# line per content-weak landing. Each reason says what the cited line IS and why the anchor is off it.
+CONTENT_PINS_DEFAULT=$(cat <<'PINS'
+# file	target	hash	reason
+documentation/QUERY_INVENTORY.md	solve.c	26292c76c925	CORRECT: solve.c line 37756 is `if (fkc->ooc != NULL) {`, the out-of-core refusal in kc_extremal_main the sentence cites; the mined anchors are the function name and its callees on neighbouring lines (reviewed 2026-10-02, batch 32)
+documentation/QUERY_INVENTORY.md	solve.c	29da842d5d58	CORRECT: solve.c line 28003 opens the `"kernel"` object inside `if (want_raw) {` (line 28002), the block that writes each nonzero `m<a>_<b>` cell; `want_raw` is one line above the cited line (reviewed 2026-10-02, batch 32)
+documentation/SOLVE_C_CLI.md	solve.c	a345c87a8e52	CORRECT: solve.c line 44522 is the --validate printf of `kw_found_v`; the sentence claims the value is PRINTED, so a print line is the right target (reviewed 2026-10-02, batch 32)
+documentation/SOLVE_C_CLI.md	solve.c	686f314dda25	CORRECT: solve.c line 44074 is the --verify printf of `kw_found_v`; the sentence claims the value is PRINTED (reviewed 2026-10-02, batch 32)
+documentation/SOLVE_C_CLI.md	documentation/DISTRIBUTIONAL_ANALYSIS.md	3e04e5915ee8	CORRECT: DISTRIBUTIONAL_ANALYSIS.md lines 329-331 are the 'withdrawn as evidence' sentence the entry cites; the flag `--joint-density` is on line 328, the start of the same bullet (reviewed 2026-10-02, batch 32)
+documentation/SOLVE_C_CLI.md	solve.c	9a2c5780a876	CORRECT: solve.c line 42828 is the `snprintf(count_cmd, ..., "wc -l < %s", manifest_path)` the sentence names; `manifest_path` is a print-call argument because the claim is about that formatted command (reviewed 2026-10-02, batch 32)
+documentation/SOLVE_PY_CLI.md	solve.c	66e816717890	CORRECT: solve.c line 39002 is `kc_print_walk(kc, repr, stdout)`, the record-line emission of repr(k) the sentence describes (reviewed 2026-10-02, batch 32)
+documentation/SOLVE_PY_CLI.md	documentation/DISTRIBUTIONAL_ANALYSIS.md	3e04e5915ee8	CORRECT: the cell quotes DISTRIBUTIONAL_ANALYSIS.md lines 329-331 verbatim; the flag is on line 328 (reviewed 2026-10-02, batch 32)
+lean/README.md	solve.c	8220e36db292	CORRECT: solve.c lines 43795-43798 are the inline partner check (`expected = (h_rev != h) ? h_rev : (h ^ 63)`); the word `partner` is in the error message on the next lines (reviewed 2026-10-02, batch 32)
+reports/TR12_QUERY_PROGRAM.md	solve.c	29da842d5d58	CORRECT: the same solve.c line 28003 `"kernel"` block under `if (want_raw) {` as QUERY_INVENTORY.md row V5 (reviewed 2026-10-02, batch 32)
+reports/TR5_SYMMETRY.md	verify.py	17d5490d8e25	CORRECT: verify.py line 4786 is `def sigma_isomorphism_all48(limit=None):`; the flag is in its docstring on the next line (reviewed 2026-10-02, batch 32)
+reports/TR5_SYMMETRY.md	verify.py	917054257ea0	CORRECT: verify.py line 4330 is `def twins_bisect(path):`; the flag is in its docstring on the next line (reviewed 2026-10-02, batch 32)
+sat.py	solve.c	769116ea55af	CORRECT: solve.c lines 15162-15185 are exactly the `if (full31)` branch of f1c5_derive_b0 that takes the full-31 rung from King Wen; the function name is two lines above (reviewed 2026-10-02, batch 32)
+scripts/build_pgo.sh	solve.c	4e6badeb0ab6	CORRECT: solve.c line 49273 is the --branch exit's `printf("ENUM_RUN=%s\n", ...)`, the verdict line the comment cites; the mined anchors are the neighbouring report strings (reviewed 2026-10-02, batch 32)
+scripts/corrections_inventory.sh	documentation/SOLVE.md	55d219e805bd	CORRECT: SOLVE.md line 334 carries the '(Corrected 2026-07-04: previously listed as "4".)' note this fixture copies; 'corrected' is a common word, so it must be on the span (reviewed 2026-10-02, batch 32)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/HISTORY.md	f8b9c58acd28	CORRECT: HISTORY.md line 5942 is 'Its divisor was the maximum', the sentence the exemption names; 'unconditional' is on the wrapped next line (reviewed 2026-10-02, batch 32)
+scripts/tr12_repro.sh	solve.c	26292c76c925	CORRECT: solve.c line 37756 is `if (fkc->ooc != NULL) {`, the refusal the comment cites (reviewed 2026-10-02, batch 32)
+tests.py	sat.py	db7bca64f2aa	CORRECT: sat.py line 696 is `if k < 0:`, the guard in at_most_k the comment cites; the function name is two lines above (reviewed 2026-10-02, batch 32)
+viz/report_figures.py	solve.py	ad53c9d5c9ca	CORRECT: solve.py line 32 is 'Bit 0 = bottom line, bit 5 = top', the bit convention the comment cites; `binary_hexagrams` is on line 33 (reviewed 2026-10-02, batch 32)
+PINS
+)
+CONTENT_PINS="${CITGATE_CONTENT_PINS-$CONTENT_PINS_DEFAULT}"
+
+_run_all() { # $1 root  $2 base ref  $3 base-explicit (1|"")  $4 pins  $5 all-targets (1|"")  $6 target pins  $7 content pins
+  ROOT="$1" BASE="$2" BASE_EXPLICIT="$3" PINS="$4" ALLT="${5:-}" TPINS="${6:-}" CPINS="${7:-}" python3 - <<'PYEOF'
 import difflib, hashlib, os, re, subprocess, sys
 from collections import Counter, defaultdict
 root, base, base_explicit, pins_raw = (os.environ[k] for k in ("ROOT", "BASE", "BASE_EXPLICIT", "PINS"))
 allt, tpins_raw = os.environ["ALLT"] == "1", os.environ["TPINS"]
+cpins_raw = os.environ.get("CPINS", "")
 sys.stdout.reconfigure(line_buffering=True)   # PINROW audit lines go to stderr: keep the two in order
 try:
     os.chdir(root)
@@ -649,7 +683,7 @@ def candidates(line, tname="solve.c"):
 def context(lines, li, ismd):
     """The citing line plus its paragraph neighbours (<= 3 lines each way, never across a blank
     line). Hard-wrapped prose puts the symbol on the line BEFORE the number as often as on the
-    same line (`...\n  `int fail_c1 ...` (`solve.c:43941-43942`)`), and a comment block in a
+    same line (`...\n  `long long fail_c1 ...` (`solve.c:43943-43944`)`), and a comment block in a
     script is one sentence spread over several `#` lines. A markdown TABLE ROW is its own unit:
     the next row is a different claim, so a table row takes no neighbours; nor does a heading."""
     line = lines[li - 1]
@@ -703,23 +737,26 @@ def chash(src, lo, hi):
     body = "\n".join(x.rstrip() for x in src[lo - 1:hi]) if 1 <= lo and hi <= len(src) else "<out-of-range>"
     return hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12]
 
-# * CONTENT RULE, ADVISORY (Q-572, 2026-10-01). The rarity rule above binds .sh targets only, so for a
-#   .c, .py, .md or .tsv target a COMMON anchor (on more than RARE lines of the target) two lines OFF the
-#   cited span still lands. JUDGE_B_WEAK records, for each landing, whether it would ALSO land with the
-#   rarity rule applied to every target (a common anchor must be on the cited span itself). A landing
-#   that holds only under the old rule is CONTENT-WEAK: printed as WEAK, counted, and compared with
-#   CITGATE_CONTENT_PIN. ADVISORY, NOT BLOCKING: measured on public main 38feb643 the rule flags 24
-#   landings (20 by a common anchor off the span, 4 by the print-argument shape below), and reading
-#   them found most to be CORRECT citations -- the cited line bears the claim in prose while the mined
-#   anchor sits on a neighbouring line (a `def` line under its flag, a guard under its function name),
-#   or the claim is that a value is PRINTED -- and a minority (about six) genuinely one or two lines
-#   off. As a hard rule it would demand ~24 cross-file edits that are mostly not repairs. It never
-#   changes CITATION_LINE_GATE; it prints CITATION_CONTENT_RULE.
+# * CONTENT RULE (Q-572; advisory 2026-10-01, BLOCKING since batch 32, 2026-10-02). The rarity rule
+#   above binds .sh targets only, so for a .c, .py, .md or .tsv target a COMMON anchor (on more than
+#   RARE lines of the target) two lines OFF the cited span still lands. JUDGE_B_WEAK records, for each
+#   landing, whether it would ALSO land with the rarity rule applied to every target (a common anchor
+#   must be on the cited span itself). A landing that holds only under the old rule is CONTENT-WEAK:
+#   printed, and a VERDICT FAIL unless a person has read it against its cited lines and listed it in
+#   CONTENT_PINS with a reason. MEASURED on public main 38feb643 + batch 31 (--all-files --all-targets):
+#   24 content-weak landings. Five were wrong and were repaired in batch 32 (an off-by-one into solve.c,
+#   an off-by-one into roae.py, an off-by-two example in this script, a DEPLOYMENT.md line 17 lines from
+#   the sentence it was cited for, and a red-test citation of a PAST tree that lacked its revision pin).
+#   The other 19 are correct -- the cited line bears the claim while the mined anchor sits on a
+#   neighbouring line (a `def` under its flag, a guard under its function name, a hard-wrapped
+#   sentence), or the claim is that a value is PRINTED -- and are the CONTENT_PINS rows. The rule
+#   prints CITATION_CONTENT_RULE=PASS|FAIL beside CITATION_LINE_GATE, which it also moves.
 #   A COMMON anchor that is on the cited span only as an ARGUMENT of a print call (outside the call's
 #   string literals) is content-weak too: that line mentions the symbol, it does not bear a claim
 #   about it. That is Q-572's worked example -- a citation of "the read loop bounded by n_records"
 #   that landed on `printf("... records=%lld\n", vpath, n_records);`, not on `while (done < n_records)`.
-#   A print line cited for what it PRINTS names a token inside the literal and is unaffected.
+#   A print line cited for what it PRINTS names a token inside the literal and is unaffected; one
+#   cited because it prints a named VARIABLE is flagged, and after review is a CONTENT_PINS row.
 JUDGE_B_WEAK = [False]
 _PRINT_CALL = re.compile(r'\b(?:f?printf|snprintf|fputs|puts|print)\s*\(')
 _STRLIT = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
@@ -811,7 +848,7 @@ def moved_with(bs, a, b, hs, lo, hi):
     return len(re.sub(r'\s', '', x)) >= 8 and x == "\n".join(s.strip() for s in hs[lo - 1:hi])
 
 shift, inhunk, stale, cited = [], [], [], set()
-weak = []   # Q-572: leg-B landings that fail the content rule (advisory)
+weak = []   # Q-572: leg-B landings that fail the content rule (blocking unless in CONTENT_PINS)
 pend, a2 = [], Counter()
 bstate, sh_ck, sh_st, att_seen = {}, Counter(), Counter(), Counter()
 totA = totB = checked = 0
@@ -884,7 +921,7 @@ for p in files:
             st, key, cands = judge_b(tg, lo, hi, ctx, heading, ismd)
             bstate[(p, li, tg, lo, hi)] = (st, key, h)
             if st == "lands" and JUDGE_B_WEAK[0]:
-                weak.append((p, li, t, tg, cands))
+                weak.append((p, li, t, tg, cands, key, h))
             if st == "unchk":
                 continue
             checked += 1
@@ -908,6 +945,20 @@ for raw, ncol in ((pins_raw, 4), (tpins_raw if allt else "", 5)):
         k = (f[0], "solve.c", f[1], f[2]) if ncol == 4 else (f[0], f[1], f[2], f[3])
         pins[k] += 1
         pinned_keys[k[:3]] += 1
+
+# Q-572 content pins: <citing file> TAB <target> TAB <hash> TAB <reason>, one row per
+# reviewed content-weak landing. Without --all-targets only the solve.c rows are in scope (leg B
+# reads no other target there), so the exactness check below is judged on the same population.
+cpins = Counter()
+for r in cpins_raw.split("\n"):
+    if not r.strip() or r.lstrip().startswith("#"):
+        continue
+    f = r.split("\t")
+    if len(f) < 4 or not f[3].strip() or not re.fullmatch(r'[0-9a-f]{12}', f[2]):
+        print("ERROR malformed content pin row (need file TAB target TAB <12-hex content hash> "
+              "TAB reason): %r" % r); sys.exit(0)
+    if allt or f[1] == "solve.c":
+        cpins[(f[0], f[1], f[2])] += 1
 
 if totB == 0 or checked == 0:
     print("ERROR leg B found %d citation(s), %d checkable -- measured nothing" % (totB, checked)); sys.exit(0)
@@ -948,10 +999,19 @@ if based and changed:
     print("COUNT legA2 edited=%d fresh=%d followed=%d moved-with=%d anchored=%d pinned=%d attested=%d repin=%d"
           % (a2["edited"], a2["fresh"], a2["followed"], a2["moved-with"], a2["anchored"], a2["pinned"],
              a2["attested"], len(repin)))
-print("COUNT content-rule (Q-572, ADVISORY) weak=%d pin=%s" % (len(weak), os.environ.get("CITGATE_CONTENT_PIN", "?")))
-for p, li, t, tg, cs in weak:
-    print("WEAK %s:%d %s%s names %s" % (p, li, t, "" if tg == "solve.c" else " [%s]" % tg, ",".join(cs[:4])))
-print("CONTENTRULE %d" % len(weak))
+wseen = Counter((p, tg, h) for p, _, _, tg, _, _, h in weak)
+wnew = sorted(k for k in wseen if wseen[k] > cpins[k])
+wgone = sorted(k for k in cpins if wseen[k] < cpins[k])
+print("COUNT content-rule (Q-572) weak=%d reviewed-pins=%d new=%d pins-unmatched=%d"
+      % (len(weak), sum(cpins.values()), sum(wseen[k] - cpins[k] for k in wnew), len(wgone)))
+for p, li, t, tg, cs, k, h in weak:
+    print("%s %s:%d %s%s names %s" % ("WEAK" if wseen[(p, tg, h)] <= cpins[(p, tg, h)] else "NEWWEAK",
+                                      p, li, t, "" if tg == "solve.c" else " [%s]" % tg, ",".join(cs[:4])))
+    if os.environ.get("CITGATE_PINROWS") == "1":      # a CONTENT_PINS row, key verbatim
+        sys.stderr.write("CPINROW\t%s\t%s\t%s\t%s:%d %s (anchor %s)\n" % (p, tg, h, p, li, t, k))
+for k in wgone:
+    print("WEAKGONE %s -> %s #%s" % k)
+print("CONTENTRULE %s" % ("FAIL" if wnew or wgone else "PASS"))
 for s in shift:
     print("SHIFT " + s)
 for s in inhunk:
@@ -987,6 +1047,14 @@ if gone_att:
     bad.append("leg A2: attested pin(s) match no unanchored citation at that content -- the citation "
                "moved or its target changed; RE-CHECK and re-hash, or drop: "
                + ", ".join("%s->%s#%s" % (k[0], k[1], k[3]) for k in gone_att))
+if wnew:
+    bad.append("content rule (Q-572): %d citation(s) land only on a common anchor off the cited span, or "
+               "on a print argument, and are not in the reviewed CONTENT_PINS: "
+               % sum(wseen[k] - cpins[k] for k in wnew) + ", ".join("%s->%s#%s" % k for k in wnew))
+if wgone:
+    bad.append("content rule (Q-572): reviewed content pin(s) match no content-weak landing at that "
+               "content -- the citation was repaired or its target changed; RE-CHECK and re-hash, or drop: "
+               + ", ".join("%s->%s#%s" % k for k in wgone))
 if bad:
     for b in bad:
         print("VERDICT FAIL " + b)
@@ -1008,14 +1076,14 @@ verdict_of() { # $1..$4 -> echoes PASS|FAIL|ERROR
   else echo FAIL; fi
 }
 
-verdict_all() { # $1 root $2 base $3 base-explicit $4 pins [$5 all-targets $6 target pins] -> PASS|FAIL|ERROR
-  _run_all "$1" "$2" "$3" "$4" "${5:-}" "${6:-}" >"$OUT" 2>&1
+verdict_all() { # $1 root $2 base $3 base-explicit $4 pins [$5 all-targets $6 target pins $7 content pins] -> PASS|FAIL|ERROR
+  _run_all "$1" "$2" "$3" "$4" "${5:-}" "${6:-}" "${7:-}" >"$OUT" 2>&1
   if grep -q '^ERROR ' "$OUT"; then echo ERROR
   elif grep -q '^VERDICT PASS ' "$OUT"; then echo PASS
   else echo FAIL; fi
 }
 print_all() { # the --all-files report; a run that printed no verdict at all (a crash) shows its tail
-  sed -n 's/^COUNT /  [cite] /p;s/^WEAK /  [weak] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p' "$OUT"
+  sed -n 's/^COUNT /  [cite] /p;s/^WEAK /  [weak-reviewed] /p;s/^NEWWEAK /  [NEW-weak] /p;s/^WEAKGONE /  [weak-pin-unmatched] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p;/^CPINROW\t/p' "$OUT"
   grep -q '^VERDICT \|^ERROR ' "$OUT" || tail -5 "$OUT" | sed 's/^/  [crash] /'
 }
 
@@ -1189,7 +1257,12 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   mk_h3 '# ins 1\n# ins 2\n'; printf "$T3" 8 >"$R3/reg.tsv"
   printf "$D3E"'\nThe `ARTDIR` echo is at helper.sh:%s.\n' 7 8 10 >"$R3/doc3.md"; G3 add -A; G3 commit -q -m rar
   n9=$(verdict_all "$R3" HEAD "" "" 1 "")                       # common word, 1 line off -> FAIL
-  n10=$(CITGATE_SH_TIGHT=0 verdict_all "$R3" HEAD "" "" 1 "")   # the pre-rule window -> PASS (the blind spot)
+  # Since Q-572 went blocking (batch 32) the content rule catches the same landing with the .sh rarity
+  # rule OFF, so N10 is FAIL with a NEWWEAK line, and N10b pins exactly that landing to show the rarity
+  # rule itself is off (the blind-spot measurement, with the content rule's verdict set aside).
+  n10=$(CITGATE_SH_TIGHT=0 verdict_all "$R3" HEAD "" "" 1 ""); n10o=$(cat "$OUT")
+  CP3=$(printf 'doc3.md\thelper.sh\t%s\tselftest content pin' "$(hsh "$R3/helper.sh" 10)")
+  n10b=$(CITGATE_SH_TIGHT=0 verdict_all "$R3" HEAD "" "" 1 "" "$CP3")   # the pre-rule window -> PASS (the blind spot)
   printf "$D3E"'\nThe `ARTDIR` echo is at helper.sh:%s.\n' 7 8 9 >"$R3/doc3.md"; G3 add -A; G3 commit -q -m rar2
   n11=$(verdict_all "$R3" HEAD "" "" 1 "")                      # on the cited line -> PASS
   [ "$n0" = PASS ] || { echo "  [gate] leg N0 (clean) gave $n0, want PASS"; rc=1; }
@@ -1211,9 +1284,39 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   [ "$n8" = FAIL ] || { echo "  [gate] leg N8 (pinned citation's target content changed) gave $n8, want FAIL"; rc=1; }
   grep -q 'PINNED CONTENT CHANGED' <<<"$n8o" || { echo "  [gate] leg N8 did not say PINNED CONTENT CHANGED"; rc=1; }
   [ "$n9" = FAIL ] || { echo "  [gate] leg N9 (.sh common anchor one line off) gave $n9, want FAIL"; rc=1; }
-  [ "$n10" = PASS ] || { echo "  [gate] leg N10 (same, rarity rule off) gave $n10, want PASS"; rc=1; }
+  [ "$n10" = FAIL ] || { echo "  [gate] leg N10 (same, rarity rule off: the Q-572 content rule) gave $n10, want FAIL"; rc=1; }
+  grep -q '^NEWWEAK doc3.md:5 helper.sh:10 ' <<<"$n10o" || { echo "  [gate] leg N10 did not report the content-weak landing"; rc=1; }
+  [ "$n10b" = PASS ] || { echo "  [gate] leg N10b (same, rarity rule off, landing content-pinned) gave $n10b, want PASS"; rc=1; }
   [ "$n11" = PASS ] || { echo "  [gate] leg N11 (.sh common anchor on the cited line) gave $n11, want PASS"; rc=1; }
-  if [ "$rc" = 0 ]; then echo "  [ok] red-test A2/tsv/hash/rarity: N0=PASS N1=FAIL(repin-restale, A2 alone) N2=PASS N3=FAIL N4=PASS(attested) N4b=PASS N5=FAIL(attested content changed, alone) N6=FAIL(.tsv) N7=PASS N8=FAIL(pinned content changed) N9=FAIL N10=PASS(rule off) N11=PASS"
+  # Q-572 CONTENT RULE (blocking since batch 32). Fixture solve.c: `n_records` on lines 2, 3, 5, 6, 7
+  # (COMMON: more than RARE lines), line 3 a printf that only passes it, line 6 the bounding `while`.
+  # The citing sentence claims the read loop is bounded by it, so line 6 is right, line 4 is the
+  # planted OFF-BY-TWO (it lands under the +-2 window by chance only), line 3 the print-argument shape.
+  R4="$W/r4"; mkdir -p "$R4"
+  G4() { git -C "$R4" -c user.name=selftest -c user.email=selftest@invalid "$@" >/dev/null 2>&1; }
+  G4 init -q
+  printf 'int a;\nlong long n_records = count();\nprintf("[verify] records=%%lld\\n", n_records);\nlong long done = 0;\n/* n_records is the header count */\nwhile (done < n_records) {\n    done += step(n_records);\n}\n' >"$R4/solve.c"
+  q4doc() { printf 'The read loop is bounded by it (`n_records`, solve.c:%d).\n' "$1" >"$R4/doc.md"; G4 add -A; G4 commit -q -m "cite $1"; }
+  CP4=$(printf 'doc.md\tsolve.c\t%s\tselftest content pin' "$(hsh "$R4/solve.c" 4)")
+  q4doc 6; q1=$(verdict_all "$R4" HEAD "" "" "" "" ""); q1o=$(cat "$OUT")        # correct -> PASS
+  q4doc 4; q2=$(verdict_all "$R4" HEAD "" "" "" "" ""); q2o=$(cat "$OUT")        # off by two -> FAIL
+  q4doc 3; q3=$(verdict_all "$R4" HEAD "" "" "" "" "")                           # print argument -> FAIL
+  q4doc 4; q4=$(verdict_all "$R4" HEAD "" "" "" "" "$CP4")                       # reviewed and pinned -> PASS
+  q4doc 6; q5=$(verdict_all "$R4" HEAD "" "" "" "" "$CP4"); q5o=$(cat "$OUT")    # pin left behind -> FAIL
+  q4doc 4; sed -i '4s/done = 0/done = 1/' "$R4/solve.c"; G4 add -A; G4 commit -q -m edit
+  q6=$(verdict_all "$R4" HEAD "" "" "" "" "$CP4")                               # pinned content changed -> FAIL
+  [ "$q1" = PASS ] || { echo "  [gate] leg Q1 (content rule: correct citation) gave $q1, want PASS"; rc=1; }
+  grep -qx 'CONTENTRULE PASS' <<<"$q1o" || { echo "  [gate] leg Q1 did not print CONTENTRULE PASS"; rc=1; }
+  [ "$q2" = FAIL ] || { echo "  [gate] leg Q2 (content rule: planted off-by-two) gave $q2, want FAIL"; rc=1; }
+  grep -q '^NEWWEAK doc.md:1 solve[.]c:4 ' <<<"$q2o" || { echo "  [gate] leg Q2 did not report the off-by-two as NEWWEAK"; rc=1; }
+  grep -q '^NEW \|^SHIFT \|^REPIN ' <<<"$q2o" && { echo "  [gate] leg Q2: another leg fired, so Q2 does not isolate the content rule"; rc=1; }
+  [ "$q3" = FAIL ] || { echo "  [gate] leg Q3 (content rule: print argument) gave $q3, want FAIL"; rc=1; }
+  [ "$q4" = PASS ] || { echo "  [gate] leg Q4 (content rule: reviewed pin) gave $q4, want PASS"; rc=1; }
+  [ "$q5" = FAIL ] || { echo "  [gate] leg Q5 (content pin with no weak landing) gave $q5, want FAIL"; rc=1; }
+  grep -q '^WEAKGONE ' <<<"$q5o" || { echo "  [gate] leg Q5 did not report the unmatched content pin"; rc=1; }
+  [ "$q6" = FAIL ] || { echo "  [gate] leg Q6 (content pin, cited content changed) gave $q6, want FAIL"; rc=1; }
+  [ "$rc" = 0 ] && echo "  [ok] red-test content rule (Q-572): Q1=PASS Q2=FAIL(off-by-two, alone) Q3=FAIL(print arg) Q4=PASS(pinned) Q5=FAIL(pin unmatched) Q6=FAIL(pinned content changed)"
+  if [ "$rc" = 0 ]; then echo "  [ok] red-test A2/tsv/hash/rarity: N0=PASS N1=FAIL(repin-restale, A2 alone) N2=PASS N3=FAIL N4=PASS(attested) N4b=PASS N5=FAIL(attested content changed, alone) N6=FAIL(.tsv) N7=PASS N8=FAIL(pinned content changed) N9=FAIL N10=FAIL(rule off, content rule) N10b=PASS(rule off, content-pinned) N11=PASS"
                          echo "CITATION_LINE_GATE=PASS"; exit 0
   else echo "CITATION_LINE_GATE=FAIL"; exit 40; fi
 fi
@@ -1229,20 +1332,13 @@ if [ "${1:-}" = "--all-files" ]; then
       *) echo "  [ERROR] usage: $0 --all-files [--all-targets] [--base REF]"; echo "CITATION_LINE_GATE=ERROR"; exit 41 ;;
     esac
   done
-  export CITGATE_CONTENT_PIN="${CITGATE_CONTENT_PIN:-$CONTENT_PIN}"
-  V=$(verdict_all "${CITGATE_ROOT:-$PWD}" "$BASEREF" "$BASE_EXPLICIT" "$ALL_PINS" "$ALLT" "$TARGET_PINS")
+  V=$(verdict_all "${CITGATE_ROOT:-$PWD}" "$BASEREF" "$BASE_EXPLICIT" "$ALL_PINS" "$ALLT" "$TARGET_PINS" "$CONTENT_PINS")
   print_all
-  # Q-572 CONTENT RULE -- ADVISORY, NEVER BLOCKING: its token is printed beside the verdict and never
-  # moves it. A count above the pin is a loud [WARN] (a new content-weak landing); a count below it
-  # asks for the pin to be lowered in the same change.
-  _cr=$(sed -n 's/^CONTENTRULE \([0-9][0-9]*\)$/\1/p' "$OUT")
-  if [ -n "$_cr" ] && [ -n "$ALLT" ]; then   # the pin is measured under --all-targets; plain mode only counts
-    [ "$_cr" -gt "$CITGATE_CONTENT_PIN" ] && echo "  [WARN] content rule (advisory): $_cr content-weak landing(s), above the pin $CITGATE_CONTENT_PIN -- a new citation lands only on a common anchor off its cited span"
-    [ "$_cr" -lt "$CITGATE_CONTENT_PIN" ] && echo "  [note] content rule (advisory): $_cr content-weak landing(s), below the pin $CITGATE_CONTENT_PIN -- lower CONTENT_PIN in this change"
-  fi
-  if [ -n "$_cr" ]; then
-    if [ "$_cr" -eq 0 ]; then echo "CITATION_CONTENT_RULE=PASS"; else echo "CITATION_CONTENT_RULE=ADVISORY n=$_cr"; fi
-  fi
+  # Q-572 CONTENT RULE -- BLOCKING since batch 32: an unreviewed content-weak landing, or a reviewed
+  # pin that no longer matches one, is a VERDICT FAIL (so CITATION_LINE_GATE=FAIL). Its own token is
+  # printed beside the verdict so a consumer can tell which rule failed.
+  _cr=$(sed -n 's/^CONTENTRULE \(PASS\|FAIL\)$/\1/p' "$OUT")
+  [ -n "$_cr" ] && echo "CITATION_CONTENT_RULE=$_cr"
   echo "CITATION_LINE_GATE=$V"
   case "$V" in PASS) exit 0 ;; ERROR) exit 41 ;; *) exit 40 ;; esac
 fi

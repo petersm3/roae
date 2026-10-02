@@ -191,7 +191,7 @@ written as `q3_profile.tsv`. Before it writes, the emitter removes the other nam
 never holds both names from two runs. The renderer
 (`viz/report_figures.py` `tr12_figures`, via `_tr12_q3_table`) chooses by the sidecar, not by
 which name exists. It draws `q3_profile_kw.tsv` only when that table's own
-`q3_profile_kw.tsv.provenance.txt` reads `q3_is_king_wen=PASS` and `q3_table=q3_profile_kw.tsv`.
+`q3_profile_kw.tsv.provenance.txt` reads `q3_is_king_wen=PASS` and `q3_table=q3_profile_kw.tsv`. Since 2026-09-28 (lane VR4) that sidecar's `q3_table_sha256=` must also equal the sha256 of the table's bytes: a PASS sidecar without the digest, or with another one, is refused, and a plain table's sidecar that carries a digest must match it too. ⚠ *(added 2026-10-02, Q-776: this paragraph did not state the digest condition, which `SOLVE_PY_CLI.md` already did.)*
 It refuses V4 in three cases: both names are present; the KW table's sidecar says anything else;
 or the KW table has no sidecar while `q3_profile.tsv.provenance.txt` sits beside it, which marks
 the KW table as a leftover of an earlier run. ⚠ *(corrected 2026-09-25, Q-776: this listed the

@@ -418,6 +418,13 @@ gate_script_paths() {
       if git ls-files --error-unmatch "reports/$1" >/dev/null 2>&1; then
         echo "historical location of reports/$1 before CX-233 (2026-09-29)"
       else echo ""; fi;;
+    roae-private/FILE)
+      # Q-919 (2026-10-02): a PLACEHOLDER, not a pointer. CORRECTIONS.md CX-203 (~:20165,
+      # landed 5ad06afa) lists "Five repo-relative `roae-private/FILE` pointers" -- FILE stands
+      # for "some file", naming the SHAPE of the five pointers it corrects. The ledger is
+      # append-only, so the text cannot be rewritten. Exact token only: a real
+      # `roae-private/<x>` pointer is still held to the STALE-PRIVATE leg.
+      echo "placeholder naming the shape of a corrected pointer (CORRECTIONS.md CX-203, append-only), not a path";;
     roae/findings/)
       echo "dated HISTORY narration of the pre-2026-06 findings/ layout (consolidation recorded at HISTORY.md ~:4875)";;
     runs/20260420_singlebranch1T_d32westus3/)

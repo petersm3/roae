@@ -1092,7 +1092,7 @@ for ln,l in enumerate(io.open(allow, encoding="utf-8"),1):
     c=l.rstrip("\n").split("\t")
     if len(c)<5 or not c[2].isdigit() or not c[3].strip(): print("ERROR\t%s:%d malformed allow row (need file<TAB>phrase<TAB>max<TAB>anchor<TAB>reason)"%(allow,ln)); sys.exit(0)
     if c[1] not in phrases: print("ERROR\t%s:%d allows a phrase the registry does not hold: %r"%(allow,ln,c[1])); sys.exit(0)
-    anchors=[a for a in c[3].split("|") if a]
+    anchors=c[3].split("|"); ("" in anchors) and (print("ERROR\t%s:%d empty anchor: a bare || or an edge | in the anchor column splits a field (Q-525)"%(allow,ln)), sys.exit(0))
     allows[(c[0],c[1])]=(int(c[2]),ln,[" ".join(fold(a).split()) for a in anchors])
 # flatten every registry needle ONCE via the gate's own fold_variants (same bytes GATE 3 matches on)
 needles={}
@@ -1674,7 +1674,7 @@ PY
 #
 # QUEUED AS: Codex A12-designated leg `sha-tuple` (V2-F22 #5): every tracked-md enumeration of the
 # sha-determining inputs must be the same set as CANONICAL_HASHES.md §"Reproducibility parameters".
-# Red-test: CAMPAIGN_METHODOLOGY.md:86's two-element "(source code, search budget)" red against
+# Red-test: the pre-P19 CAMPAIGN_METHODOLOGY.md:86@97f50cc6^ two-element "(source code, search budget)" red against
 # the registry's four, with the same file's §8 green.
 # MECHANICS: the enumeration grammar is the literal `a function of (...)` (fold strips bold); a
 # sentence beginning "this read" or sitting in a CORRECTED paragraph is narration. The tuple must

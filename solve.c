@@ -471,7 +471,7 @@ typedef struct {
     int8_t  reserved;
 } DFSStackFrame_v2;
 static Pair pairs[32];
-static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */ static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec); static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out); static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out); static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out); static int argv_dbl(const char *mode, const char *what, const char *s, double *out); static const int kc_cache_mb_max = 4194304; /* Q-864, Q-865: defined at end of file; the --kc-cache-mb ceiling is --kc-gcache-mb-per-thread's */ static int g_build_sha_defer = 0; static char g_build_sha_pending[80]; static void build_sha_write_pending(void); /* Q-866: the enumeration defers a first-run build.sha until after its refusals */ static int solve_env_preflight(void); /* SOLVE_* numeric environment validation (lane HE); defined at end of file */ static void selftest_relay_child_stderr(const char *dir, int failed); /* Q-886 (3): defined at end of file */
+static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */ static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec); static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out); static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out); static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out); static int argv_dbl(const char *mode, const char *what, const char *s, double *out); static const int kc_cache_mb_max = 4194304; /* Q-864, Q-865: defined at end of file; the --kc-cache-mb ceiling is --kc-gcache-mb-per-thread's */ static int g_build_sha_defer = 0; static char g_build_sha_pending[80]; static void build_sha_write_pending(void); /* Q-866: the enumeration defers a first-run build.sha until after its refusals */ static int solve_env_preflight(void); /* SOLVE_* numeric environment validation (lane HE); defined at end of file */ static void selftest_relay_child_stderr(const char *dir, int failed); /* Q-886 (3): defined at end of file */ static int f1c5_parse_b0_override(const char *s, int npairs, int b0[5]); /* Q-918: --f1-b0, defined at end of file */
 
 /* ---------- Bitmask domain representation (task #72, Phase A) ----------
  * Compact representation of the "remaining pair pool" used by the DFS hot
@@ -18662,7 +18662,7 @@ static void f1c5_stream_cold_hook(const char *dir, int k_old) {
  * the G-channel module header). g_use_c5 keeps the C5 residual (rung gates);
  * g_no_c2 drops the C2 adjacency test (C1&C4 null-distribution gate base). */
 static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_dir,
-                           int resume_required, int g_hist, int g_use_c5, int g_no_c2) {
+                           int resume_required, int g_hist, int g_use_c5, int g_no_c2, const int *b0_override) {
     f1_binom_init();
     f1_build_group();
 
@@ -18739,7 +18739,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
          * counts the C1 & C2 & C4 base (or C1 & C4 with --no-c2). */
         for (int d = 0; d < 5; d++) b0v[d] = 0;
     } else {
-        f1c5_derive_b0(c, full31, b0v);
+        if (b0_override) { F1_CHECK(!full31 && !gm, "--f1-b0 is a reduced-rung, plain-f1c5 override only"); for (int d = 0; d < 5; d++) b0v[d] = b0_override[d]; } else f1c5_derive_b0(c, full31, b0v);  /* Q-918: --f1-b0 replaces the DFS witness; the sum/R checks below still run */
     }
     F1C5Budget B;
     f1c5_budget_init(&B, b0v);
@@ -18816,7 +18816,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             "rid_space=%u V_max=%d/layer scratch=%.2f MB/thread x %d threads\n",
             b0v[0], b0v[1], b0v[2], b0v[3], b0v[4], n,
             (gm && !gm->use_c5) ? "rid disabled (G-mode base)"
-                                : (full31 ? "KW-derived" : "deterministic-DFS witness"),
+                                : (b0_override ? "--f1-b0 override" : full31 ? "KW-derived" : "deterministic-DFS witness"),
             B.R, vmax, 64.0 * (double)vmax * (double)(gm ? gm->gwmax : 1)
                        * (double)sizeof(F1U192) / 1e6, T);
     if (gm) {
@@ -19116,8 +19116,8 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                      "final-layer residual != B0 (sum invariant violated)");
             f1_add(&total, &cur.vals[e]);
         }
-        F1_CHECK(!f1_is_zero(&total),
-                 "total = 0 but B0 is achievable by construction — DP defect");
+        F1_CHECK(b0_override || !f1_is_zero(&total),  /* Q-918: a synthetic --f1-b0 budget need not be reachable */
+                 "total = 0 but B0 is achievable by construction — DP defect"); if (b0_override && f1_is_zero(&total)) fprintf(stderr, "[f1c5] --f1-b0 override admits no completed walk: total = 0 (a property of the synthetic budget, not a DP defect)\n");
         char tdec[64];
         f1_dec(total, tdec);
         /* observability: final total known -> mark done + publish flagship count */
@@ -42398,14 +42398,14 @@ int main(int argc, char *argv[]) {
          * attribution. Sha-neutral (argv-dispatched, never on the enum path). */
         const char *f1c5_layers_dir = NULL, *f1c5_ooc_dir = NULL;
         int f1c5_npairs = 31;
-        int f1c5_argerr = 0, f1c5_resume = 0;
-        { if (argv_refuse_repeat(argc, argv, 2, "--layers-dir --f1-out-of-core --f1-pairs")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {
+        int f1c5_argerr = 0, f1c5_resume = 0; const char *f1c5_b0s = NULL; int f1c5_b0v[5] = {0, 0, 0, 0, 0};  /* Q-918: --f1-b0 */
+        { if (argv_refuse_repeat(argc, argv, 2, "--layers-dir --f1-out-of-core --f1-pairs --f1-b0")) return 2; } /* Q-864 */ for (int ai = 2; ai < argc; ai++) {
             if (strcmp(argv[ai], "--layers-dir") == 0 && ai + 1 < argc)
                 f1c5_layers_dir = argv[++ai];
             else if (strcmp(argv[ai], "--f1-out-of-core") == 0 && ai + 1 < argc)
                 f1c5_ooc_dir = argv[++ai];
-            else if (strcmp(argv[ai], "--resume-from-layers") == 0)
-                f1c5_resume = 1;
+            else if (strcmp(argv[ai], "--resume-from-layers") == 0) f1c5_resume = 1;
+            else if (strcmp(argv[ai], "--f1-b0") == 0 && ai + 1 < argc) f1c5_b0s = argv[++ai];  /* Q-918: reduced-rung budget override */
             else if (strcmp(argv[ai], "--f1-pairs") == 0 && ai + 1 < argc)
                 { if (argv_int(argv[1], "--f1-pairs", argv[++ai], 1, 31, &f1c5_npairs)) return 2; }  /* Q-865 */
             else
@@ -42423,7 +42423,7 @@ int main(int argc, char *argv[]) {
         }
         if (f1c5_argerr) {
             fprintf(stderr, "Usage: solve --f1-exact-c1c2c4c5 [--f1-pairs N] "
-                    "[--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers]\n"
+                    "[--layers-dir DIR | --f1-out-of-core DIR] [--resume-from-layers] [--f1-b0 a,b,c,d,e]\n"
                     "  N in {");
             f1c5_fprint_npairs_domain(stderr, 0, 1);   /* printed, never typed -- see the
                                                         * printer's header for why */
@@ -42432,10 +42432,10 @@ int main(int argc, char *argv[]) {
                     "  --f1-out-of-core DIR (#221): at most one layer in RAM; layer k streams "
                     "from DIR via bucketed sequential reads\n"
                     "  --resume-from-layers: require resume from DIR's last complete layer "
-                    "(resume is automatic when a matching manifest exists)\n");
+                    "(resume is automatic when a matching manifest exists)\n" "  --f1-b0 a,b,c,d,e (Q-918): replace the deterministic-DFS boundary budget (d=1,2,3,4,6) at a reduced rung N < 31; each 0..31, sum = N, rid space prod(b+1) <= 65535\n");
             return 2;
         }
-        return f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume, 0, 0, 0);
+        return (f1c5_b0s && f1c5_parse_b0_override(f1c5_b0s, f1c5_npairs, f1c5_b0v)) ? 2 : f1c5_exact_main(f1c5_layers_dir, f1c5_npairs, f1c5_ooc_dir, f1c5_resume, 0, 0, 0, f1c5_b0s ? f1c5_b0v : NULL);  /* Q-918: --f1-b0 refusals exit 2 before any work */
     } else if (argc > 1 && strncmp(argv[1], "--kc-", 5) == 0) {
         /* v4-compiler: the f1c5 DP layers as a compiled knowledge structure
          * (count / rank / unrank / sample / member / enum / repr adapter).
@@ -42541,7 +42541,7 @@ int main(int argc, char *argv[]) {
             return 2;
         }
         return f1c5_exact_main(c3_layers_dir, c3_npairs, c3_ooc_dir, c3_resume,
-                               1, c3_with_c5, c3_no_c2);
+                               1, c3_with_c5, c3_no_c2, NULL);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
         /* Config introspection (2026-05-28). Dumps build provenance + every
          * SOLVE_* env var's effective value, so that when a future change
@@ -44092,7 +44092,7 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", verify_file);
             fail_kw = 1;
         }
-        /* Mirror verify.py's PAIR exactly (verify.py:7147-7148 prints KW_PRESENT then
+        /* Mirror verify.py's PAIR exactly (verify.py:7559-7560 prints KW_PRESENT then
          * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
          * "King Wen found:" prose line above: presence is a FACT about the artifact,
          * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
@@ -44527,7 +44527,7 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", validate_file);
             errors++;
         }
-        /* Mirror verify.py's PAIR exactly (verify.py:7147-7148 prints KW_PRESENT then
+        /* Mirror verify.py's PAIR exactly (verify.py:7559-7560 prints KW_PRESENT then
          * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
          * "King Wen found:" prose line above: presence is a FACT about the artifact,
          * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
@@ -52256,4 +52256,61 @@ int q888_gz_stream_bad(const char *name) {
     fprintf(stderr, "WARN: orphaned shard %s fails its gzip CRC-32/size check (its data did not all reach the disk, or it was\n"
                     "      damaged); refusing promotion, the sub-branch will be walked again (Q-888 (5))\n", name);
     return 1;
+}
+/* Q-918 (2026-10-02): `--f1-exact-c1c2c4c5 --f1-pairs N --f1-b0 a,b,c,d,e` — parse and validate
+ * a SYNTHETIC first-completion budget (classes d=1,2,3,4,6, in that order) that replaces the
+ * deterministic-DFS witness f1c5_derive_b0() would derive at a reduced rung. Purpose: the
+ * transition-independent oracle (verify.py, Q-918 design) needs an instance in which all five
+ * C5 channels are live and all budgets distinct (n=16, 1,2,3,4,6), which no DFS-derived rung has
+ * (b0[d6] = 0 at every one). Refused, with the mode's ARGS=REFUSED token, when: the value is not
+ * exactly five comma-separated decimal integers, each in [0,31]; N = 31 (the full-31 budget is
+ * the King Wen one, KW-derived and self-checked, and is never overridden); or the sum is not N
+ * (one boundary transition per pair). The rid space prod(b+1) <= 65535 bound is re-checked here
+ * for a clean refusal, although with sum = N <= 28 the product is at most 12,348 (6,6,6,5,5), so
+ * f1c5_budget_init's abort is the backstop, not the gate. A budget that passes may still admit
+ * zero walks (n=13 1,2,3,3,4): that is a property of the instance, reported as total = 0 with a
+ * stderr note, not refused. Sha-neutral: reached only through argv. */
+static int f1c5_parse_b0_override(const char *s, int npairs, int b0[5]) {
+    const char *mode = "--f1-exact-c1c2c4c5";
+    char tok[96];
+    q852_args_token(mode, tok, sizeof(tok));
+    if (npairs == 31) {
+        fprintf(stderr, "ERROR: %s --f1-b0 is a reduced-rung option; at --f1-pairs 31 the budget is the King Wen\n"
+                        "       boundary budget (2,8,13,7,1), derived and self-checked, and is never overridden.\n"
+                        "%s_ARGS=REFUSED\n", mode, tok);
+        return 1;
+    }
+    int k = 0, sum = 0, ok = 1;
+    unsigned long R = 1;
+    const char *p = s;
+    while (ok) {
+        const char *q = p;
+        long v = 0;
+        while (*q >= '0' && *q <= '9' && q - p < 3) { v = v * 10 + (*q - '0'); q++; }
+        if (q == p || (*q != ',' && *q != '\0') || v > 31 || k >= 5) { ok = 0; break; }
+        b0[k++] = (int)v;
+        sum += (int)v;
+        R *= (unsigned long)(v + 1);
+        if (*q == '\0') break;
+        p = q + 1;
+    }
+    if (!ok || k != 5) {
+        fprintf(stderr, "ERROR: %s --f1-b0 must be five comma-separated decimal integers a,b,c,d,e (budgets for\n"
+                        "       d=1,2,3,4,6), each in [0, 31]; got '%s'.\n"
+                        "%s_ARGS=REFUSED\n", mode, s, tok);
+        return 1;
+    }
+    if (sum != npairs) {
+        fprintf(stderr, "ERROR: %s --f1-b0 %s sums to %d, but --f1-pairs is %d: the budget counts the boundary\n"
+                        "       transitions of a completed walk, exactly one per pair, so it must sum to N.\n"
+                        "%s_ARGS=REFUSED\n", mode, s, sum, npairs, tok);
+        return 1;
+    }
+    if (R > 65535UL) {
+        fprintf(stderr, "ERROR: %s --f1-b0 %s has rid space prod(b+1) = %lu > 65535 (the residual id is\n"
+                        "       packed in 16 bits).\n"
+                        "%s_ARGS=REFUSED\n", mode, s, R, tok);
+        return 1;
+    }
+    return 0;
 }

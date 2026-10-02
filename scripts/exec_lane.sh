@@ -590,7 +590,7 @@ for f in files:
             # A quoted program that spans lines (`python3 -c "` ... `"`) is ONE command: keep
             # joining, newline-separated and indentation kept, until the quotes balance or the
             # fence ends. Measured pre-fix: DISTRIBUTIONAL_ANALYSIS.md:84/432/523 and
-            # VERIFY.md:1149 were extracted as their opening line alone (`python3 -c "`) and each
+            # VERIFY.md:1150 were extracted as their opening line alone (`python3 -c "`) and each
             # ran as an unterminated-quote error, FAIL(rc=2). A block that never balances is
             # still emitted (it fails closed as before) -- a silent drop would hide a defect.
             while more(j) and not balanced(strip_comment(raw)):

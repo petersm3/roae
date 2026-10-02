@@ -45,6 +45,9 @@ Usage:
     python3 verify.py --f1-dec-roundtrip            # gate the 192-bit decimal renderer, full range
     python3 verify.py --f1u192-binary-roundtrip     # gate the 24-byte on-disk limb layout + every
                                                     # intermediate layer's orbit-weighted mass (Q-269)
+    python3 verify.py --check-kc-transition N [--b0 a,b,c,d,e]   # Q-918: the compiled ladder vs the
+                                                    # plain recurrence PER STATE (n=9/13/16/18;
+                                                    # 16 is ~2-3 min; --layers DIR reads a built one)
     python3 verify.py --recount-orbit-widths 31     # Burnside gate on the canonical_masks column
     python3 verify.py --recount-subtree             # TR-5 exact subtree anchors (443/62,256/9,422,793/16,504)
                                                     # + pair orderings 2/381/899 (orientation-deduped)
@@ -4878,7 +4881,7 @@ def recount_subtree():
     # SYMMETRY_SEARCH entry.  NOTE the labels below still read "canonical
     # leaves": the corpus-wide `canonical` -> `oriented` relabel is coupled to
     # solve.c's printf rename, which is behind the master gate, and splitting
-    # them would leave documentation/VERIFY.md:85 describing output that no
+    # them would leave documentation/VERIFY.md:86 describing output that no
     # longer exists.  The new rows say "pair orderings", which is unambiguous
     # under either label.
     for free, want_nodes, want_canon, want_ord in ((5, 443, 4, 2),
@@ -6559,6 +6562,387 @@ def g_structure(c2on_path, c2off_path):
     return rc
 
 
+# ---------------------------------------------------------------------------
+# KC TRANSITION ORACLE — per-state comparison of a compiled ladder against the plain
+# recurrence (2026-10-02, Q-918; the gap is Codex review finding A05)
+#
+# THE GAP. The ladder's transition kernel (solve.c f1c5_gather_entries: C2 as the forbidden
+# distance 5, the C5 budget predicate, the two orientations of a pair, the exit recorded as the
+# next state's `last`) was checked by engine self-checks that share its specification tables, and
+# by this file's per-layer MASS recounts. A layer mass is a linear functional of the layer, so
+# any perturbation orthogonal to the all-ones functional passes every mass and cut identity:
+# measured 2026-10-02, a d1<->d3 class relabelling and a d=5->d6 misclassification both leave
+# all seventeen n=16 masses unchanged at the DFS-derived budget (tests.py,
+# TestQ918SyntheticBudgetExposesKernelMutants).
+#
+# WHAT THIS CHECKS. --check-kc-transition N [--b0 a,b,c,d,e] runs solve to build the N-pair
+# rung's layer files (or reads a directory given with --layers), recomputes the SAME ladder by
+# the plain (mask, last, residual) recurrence of _count_c1c2c4c5 -- no symmetry quotient, no code
+# shared with solve.c -- and compares PER STATE: for every canonical mask stored in layer k the
+# stored span {(last, rid) -> value} must equal the recurrence's states at that mask as a set with
+# values, in both directions (a missing successor is a state the recurrence has and the span
+# lacks; an invented one is the converse), every stored mask must be canonical under the group
+# derived HERE from the 48 commuting bit-perms, and every canonical mask the recurrence reaches
+# must be stored. F1C5_LAYER_FORMAT.md defines the stored entry as the raw count at the canonical
+# representative itself, so the comparison at the ladder's own masks needs no group action; the
+# group enters once, in the per-layer closure  sum over stored m of orbit(m) * mass(m)  ==  raw
+# layer mass, which covers the non-canonical masks. Keys are compared as the file packs them
+# (last << 16 | rid, rid mixed-radix least-significant-first over b0 + 1), so a relabelled
+# residual digit lands in a different slot and is seen even when the budgets it swaps are equal.
+#
+# WHY A SYNTHETIC BUDGET. No DFS-derived budget at any reduced rung uses the d=6 class
+# (b0[d6] = 0 at every one), so a kernel defect in that channel is invisible at every published
+# rung -- unreachable states compare equal because there are none -- and equal budgets hide a
+# class swap at the mass level. --b0 (solve's --f1-b0) builds the instance under a chosen
+# budget; n=16 with 1,2,3,4,6 is the smallest rung at which all five channels are live with all
+# budgets distinct (five distinct positive counts sum to at least 15; the class values themselves
+# sum to 16).
+#
+# NON-VACUITY IS ASSERTED, NOT ASSUMED. ERROR, never PASS, when: the binary is absent or refuses
+# the option (a solve without --f1-b0 exits 2 on a --b0 leg); a layer file is missing, fails the
+# structural reader, or names another instance (header n/k/b0/start, manifest pair list); the
+# instance admits no completed walk (measured necessary: n=13 under 1,2,3,3,4 has no state past
+# layer 9, so it can compare nothing at the top); or fewer raw states were compared than the
+# per-rung floor pinned below from the clean engine's entry counts.
+#
+# WHAT IT STILL CANNOT SEE. An edge-multiset error that preserves every stored value (two
+# predecessors exchanged between two targets of equal value), and -- at a DFS-derived budget --
+# a channel that is budget-killed in both the ladder and the recurrence. The first is only
+# closable by the spec's own sampled entry-level recurrence through solve.c's canonicalising
+# lift; the second is why the synthetic budget exists. Both sides still read the same published
+# definitions of C2 and C5 (the shared-specification residual README.md concedes).
+#
+# SHOWN ABLE TO FAIL. tests.py TestQ918KcTransitionOracle compiles six kernel mutants from
+# solve.c and a tampered layer file; the measured first bad layer of each is pinned there.
+
+_KC_ORACLE_RUNGS = {9: "3.0,3.1,3.2", 13: "3.0,4.0,6.2", 16: "4.0,6.0,6.1", 18: "6.0,6.1,6.2"}
+# Per-rung floor on the number of raw states compared per state (all layers). Half of the entry
+# totals of the clean engine's ladders, measured 2026-10-02 on the staged solve.c: n=9 950
+# (DFS budget) / 5,004 (1,2,2,2,2); n=13 40,461; n=16 417,169 (DFS) / 524,089 (1,2,3,4,6);
+# n=18 575,839. A run that compares fewer than this proved less than this gate claims and is
+# ERROR. n=16 is ~2-3 min and ~0.5 GB in CPython, n=18 ~1 GB; n=19 and above are refused
+# (the plain recurrence has no in-process rung past 18; n=19 is ~8 GB packed).
+_KC_ORACLE_STATE_FLOOR = {9: 400, 13: 20000, 16: 200000, 18: 280000}
+
+def _parse_f1c5_layer_keys(path):
+    """Decode a layer file's keys u32[ne] beside its masks/off/vals. v1: contiguous at
+    72 + 4*nm + 8*(nm+1); v2: per-block zlib streams indexed by kidx (F1C5_LAYER_FORMAT.md
+    section 'v2 body'). Returns (header, masks, off, keys, vals). Raises on any structural
+    inconsistency, exactly as the readers it builds on."""
+    import struct, zlib
+    h, masks, off, vals = _parse_f1c5_layer_masks(path)
+    raw = open(path, "rb").read()
+    hs = struct.calcsize(_F1C5_HDR)
+    nm, ne = h["n_masks"], h["n_entries"]
+    base = hs + 4 * nm + 8 * (nm + 1)
+    if not h["magic"].endswith("2"):
+        keys = list(struct.unpack_from("<%dI" % ne, raw, base))
+    else:
+        blk = h["blk"]
+        nblk = (ne + blk - 1) // blk
+        kidx = struct.unpack_from("<%dQ" % (nblk + 1), raw, base)
+        kbase = base + 2 * 8 * (nblk + 1)
+        keys = []
+        for b in range(nblk):
+            e0, e1 = b * blk, min((b + 1) * blk, ne)
+            out = zlib.decompress(raw[kbase + kidx[b]: kbase + kidx[b + 1]])
+            if len(out) != 4 * (e1 - e0):
+                raise RuntimeError(f"{path}: key block {b} inflates to {len(out)} bytes, "
+                                   f"expected {4 * (e1 - e0)}")
+            keys.extend(struct.unpack_from("<%dI" % (e1 - e0), out, 0))
+    if len(keys) != len(vals):
+        raise RuntimeError(f"{path}: {len(keys)} keys but {len(vals)} values")
+    return h, masks, off, keys, vals
+
+def _rung_pair_perms(pl):
+    """The faithful restricted pair-perm action on a rung, as position permutations: the
+    construction _rung_orbit_size_fn makes for orbit sizes, repeated here because the oracle
+    needs the elements themselves (to canonicalise a mask as the numeric minimum of its
+    orbit, TR-11 section 2) and that function exposes only sizes. The two are checked against
+    each other at every run (same |G|)."""
+    index_of = {frozenset(p): i for i, p in enumerate(PAIRS)}
+    sel = [index_of[frozenset(p)] for p in pl]
+    pos = {g: i for i, g in enumerate(sel)}
+    G = set()
+    for img in _induced_pair_perms():
+        r = []
+        for g in sel:
+            im = img[g - 1]
+            if im not in pos:
+                raise RuntimeError(f"rung is not closed under the pair-perm group: "
+                                   f"pair {g} -> {im} lies outside the rung")
+            r.append(pos[im])
+        G.add(tuple(r))
+    return sorted(G)
+
+def _kc_raw_layers(pairs, start, b0):
+    """The plain budgeted recurrence, RETAINING every state: yields (k, layer) for k = 0..n,
+    layer = {mask: {key: count}} with key = last << 16 | rid and rid the mixed-radix residual
+    the layer files use (F1C5_LAYER_FORMAT.md 'Entry encoding'). Same transition rule as
+    _count_c1c2c4c5 -- d = hamming(last, entry) != 5, p[class(d)] < b0[class(d)] -- stated
+    through a 64x64 class table built from hamming() so the inner loop is a lookup."""
+    n = len(pairs)
+    rad = [1] * 5
+    for c in range(1, 5):
+        rad[c] = rad[c - 1] * (b0[c - 1] + 1)
+    radix = [b + 1 for b in b0]
+    cls_tab = [[_CLS_IX.get(hamming(x, y), -1) for y in range(64)] for x in range(64)]
+    orients = [((a, b), (b, a)) for (a, b) in pairs]
+    cur = {0: {start << 16: 1}}
+    yield 0, cur
+    for _k in range(n):
+        nxt = {}
+        for mask, span in cur.items():
+            free = [(i, 1 << i) for i in range(n) if not mask & (1 << i)]
+            for key, cnt in span.items():
+                row = cls_tab[key >> 16]
+                rid = key & 0xffff
+                for i, bit in free:
+                    tgt = nxt.get(mask | bit)
+                    if tgt is None:
+                        tgt = nxt[mask | bit] = {}
+                    for (f, s) in orients[i]:
+                        ci = row[f]
+                        if ci < 0 or (rid // rad[ci]) % radix[ci] >= b0[ci]:
+                            continue
+                        nk = (s << 16) | (rid + rad[ci])
+                        tgt[nk] = tgt.get(nk, 0) + cnt
+        cur = nxt
+        yield _k + 1, cur
+
+def _kc_parse_b0(s, n):
+    """--b0 a,b,c,d,e -> 5-tuple, or a string saying why it is refused."""
+    parts = s.split(",")
+    if len(parts) != 5 or not all(p.isdigit() for p in parts):
+        return f"--b0 must be five comma-separated non-negative integers, got {s!r}"
+    b0 = tuple(int(p) for p in parts)
+    if sum(b0) != n:
+        return f"--b0 {s} sums to {sum(b0)}, not n={n} (one boundary transition per pair)"
+    R = 1
+    for b in b0:
+        R *= b + 1
+    if R > 65535:
+        return f"--b0 {s} has rid space {R} > 65535 (16-bit residual)"
+    return b0
+
+def _kc_read_manifest(d):
+    out = {}
+    with open(os.path.join(d, "f1c5_manifest.txt"), encoding="utf-8") as fh:
+        for line in fh:
+            if "=" in line:
+                k, v = line.rstrip("\n").split("=", 1)
+                out[k] = v
+    return out
+
+def _kc_compare_layer(fp, k, raw, n, b0, start, G, size):
+    """Compare raw layer k (from _kc_raw_layers) with layer file fp. Returns
+    (verdict, compared, note): verdict PASS/FAIL/ERROR, compared = number of raw states at
+    canonical masks (the per-state comparison's size), note = the first discrepancy."""
+    try:
+        h, masks, off, keys, vals = _parse_f1c5_layer_keys(fp)
+    except Exception as e:
+        return "ERROR", 0, f"layer {k}: {e}"
+    hb0 = None
+    import struct
+    with open(fp, "rb") as fh:
+        hb0 = struct.unpack("<5I", fh.read(72)[48:68])
+    if h["n"] != n or h["k"] != k or h["start_exit"] != start or tuple(hb0) != tuple(b0):
+        return "ERROR", 0, (f"layer {k}: header names another instance (n={h['n']} k={h['k']} "
+                            f"start={h['start_exit']} b0={tuple(hb0)}; expected n={n} k={k} "
+                            f"start={start} b0={tuple(b0)})")
+
+    def canon(m):
+        best = m
+        for r in G:
+            o = 0
+            mm = m
+            while mm:
+                i = (mm & -mm).bit_length() - 1
+                mm &= mm - 1
+                o |= 1 << r[i]
+            if o < best:
+                best = o
+        return best
+
+    compared = 0
+    stored = set(masks)
+    if any(masks[i] >= masks[i + 1] for i in range(len(masks) - 1)):
+        return "FAIL", 0, f"layer {k}: stored masks are not strictly ascending"
+    for i, m in enumerate(masks):
+        if bin(m).count("1") != k:
+            return "FAIL", 0, f"layer {k}: stored mask {m:#x} has popcount != {k}"
+        if canon(m) != m:
+            return "FAIL", 0, (f"layer {k}: stored mask {m:#x} is not canonical "
+                               f"(orbit minimum {canon(m):#x}) under the group derived here")
+        ks = keys[off[i]:off[i + 1]]
+        vs = vals[off[i]:off[i + 1]]
+        if any(ks[j] >= ks[j + 1] for j in range(len(ks) - 1)):
+            return "FAIL", 0, f"layer {k} mask {m:#x}: keys are not strictly ascending"
+        span = dict(zip(ks, vs))
+        want = raw.get(m, {})
+        compared += len(want)
+        if span != want:
+            missing = sorted(set(want) - set(span))
+            invented = sorted(set(span) - set(want))
+            differ = sorted(key for key in set(span) & set(want) if span[key] != want[key])
+            def show(key):
+                return f"(last={key >> 16}, rid={key & 0xffff})"
+            parts = []
+            if missing:
+                parts.append(f"{len(missing)} state(s) the recurrence has and the span lacks, "
+                             f"first {show(missing[0])} = {want[missing[0]]:,}")
+            if invented:
+                parts.append(f"{len(invented)} stored state(s) the recurrence does not reach, "
+                             f"first {show(invented[0])} = {span[invented[0]]:,}")
+            if differ:
+                parts.append(f"{len(differ)} value(s) differ, first {show(differ[0])}: stored "
+                             f"{span[differ[0]]:,} vs recurrence {want[differ[0]]:,}")
+            return "FAIL", compared, f"layer {k} mask {m:#x}: " + "; ".join(parts)
+    # every canonical mask the recurrence reaches must be stored
+    for m, span in raw.items():
+        if span and m not in stored and canon(m) == m:
+            compared += len(span)
+            return "FAIL", compared, (f"layer {k}: canonical mask {m:#x} carries "
+                                      f"{len(span)} recurrence state(s) but is not stored")
+    # orbit-weighted closure over the non-canonical masks
+    file_mass = sum(size(m) * sum(vals[off[i]:off[i + 1]]) for i, m in enumerate(masks))
+    raw_mass = sum(sum(span.values()) for span in raw.values())
+    if file_mass != raw_mass:
+        return "FAIL", compared, (f"layer {k}: orbit-weighted stored mass {file_mass:,} != "
+                                  f"raw layer mass {raw_mass:,}")
+    return "PASS", compared, f"layer {k}: {len(masks)} canonical masks, {compared:,} states"
+
+def check_kc_transition(n, b0_arg=None, layers_dir=None, solve_bin=None):
+    """--check-kc-transition N [--b0 a,b,c,d,e] [--layers DIR] [--solve-bin PATH]: see the
+    block comment above. Prints whole-line tokens KC_TRANSITION_ORACLE_LEG=<n>:<b0>:<verdict>,
+    KC_TRANSITION_ORACLE_STATES=<compared raw states or -1>,
+    KC_TRANSITION_ORACLE_FIRST_BAD_LAYER=<k or -1> and KC_TRANSITION_ORACLE=PASS|FAIL|ERROR.
+    Exit 0 on PASS, 1 on FAIL, 2 on ERROR."""
+    import subprocess, tempfile, shutil, time
+    t0 = time.time()
+    verdict, states, first_bad = "ERROR", -1, -1
+    b0_s = b0_arg if b0_arg is not None else "derived"
+
+    def finish(reason=None):
+        if reason:
+            print(f"*{verdict}* {reason}")
+        print(f"KC_TRANSITION_ORACLE_LEG={n}:{b0_s}:{verdict}")
+        print(f"KC_TRANSITION_ORACLE_STATES={states}")
+        print(f"KC_TRANSITION_ORACLE_FIRST_BAD_LAYER={first_bad}")
+        print(f"KC_TRANSITION_ORACLE={verdict}")
+        return {"PASS": 0, "FAIL": 1}.get(verdict, 2)
+
+    if n not in _KC_ORACLE_RUNGS:
+        return finish(f"n={n} is not an in-process rung of this oracle; supported: "
+                      f"{sorted(_KC_ORACLE_RUNGS)} (n=31 is out of scope: exhaustive entry-level "
+                      f"verification of the full-31 ladder was declined, HISTORY.md; "
+                      f"n=19+ exceeds the plain recurrence's single-node memory)")
+    spec = _KC_ORACLE_RUNGS[n]
+    pl = _spec_to_pairs_ordered(spec)
+    if not (len(pl) == n):
+        raise AssertionError('guard failed: len(pl) == n')
+    index_of = {frozenset(p): i for i, p in enumerate(PAIRS)}
+    pl_idx = [index_of[frozenset(p)] for p in pl]
+    start = 0
+    if b0_arg is None:
+        b0 = _b0_first_completion(pl, start)
+        if b0 is None:
+            return finish(f"n={n}: the first-completion DFS found no walk, so no budget")
+        b0 = tuple(b0)
+        b0_s = ",".join(str(b) for b in b0)
+    else:
+        b0 = _kc_parse_b0(b0_arg, n)
+        if isinstance(b0, str):
+            return finish(b0)
+    G = _rung_pair_perms(pl)
+    size, g = _rung_orbit_size_fn(pl)
+    if len(G) != g:
+        return finish(f"group derivations disagree: {len(G)} elements vs {g}")
+    print(f"n={n} {{{spec}}}@{start}  B0 = {b0} [{'--b0' if b0_arg is not None else 'first-completion DFS'}]"
+          f"  |G_rung| = {g}  pairs {pl_idx}")
+
+    tmp = None
+    try:
+        if layers_dir is None:
+            here = os.path.dirname(os.path.abspath(__file__))
+            binp = solve_bin or os.environ.get("SOLVE_BIN") or os.path.join(here, "solve")
+            if not os.path.exists(binp):
+                return finish(f"no solve binary at {binp} -- nothing to compare. Build it, set "
+                              f"SOLVE_BIN or pass --solve-bin. A gate with no target must reject.")
+            tmp = tempfile.mkdtemp(prefix=f"kc_oracle_{n}_")
+            layers_dir = tmp
+            cmd = [binp, "--f1-exact-c1c2c4c5", "--f1-pairs", str(n)]
+            if b0_arg is not None:
+                cmd += ["--f1-b0", ",".join(str(b) for b in b0)]
+            cmd += ["--layers-dir", layers_dir]
+            env = dict(os.environ)
+            env["SOLVE_F1_KEEP_LAYERS"] = "1"
+            r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                tail = (r.stdout + r.stderr).strip().splitlines()[-6:]
+                return finish(f"solve exited {r.returncode} building the ladder "
+                              f"({' '.join(cmd[1:-1])} ...):\n    " + "\n    ".join(tail))
+            print(f"ladder built by {binp} in {time.time() - t0:.1f}s")
+        else:
+            if not os.path.isdir(layers_dir):
+                return finish(f"--layers {layers_dir} is not a directory")
+        try:
+            man = _kc_read_manifest(layers_dir)
+        except Exception as e:
+            return finish(f"cannot read the manifest: {e}")
+        want_man = {"n": str(n), "start_exit": str(start),
+                    "pl": ",".join(str(i) for i in pl_idx),
+                    "b0": ",".join(str(b) for b in b0)}
+        for key, val in want_man.items():
+            if man.get(key) != val:
+                if key == "b0" and tmp is not None and b0_arg is None:
+                    # The engine DERIVED this budget itself, from the same published definition
+                    # (TR-11 section 5 step 1) _b0_first_completion implements, and got another
+                    # answer: a defect in the engine, not in the instance -- measured with the
+                    # d1<->d3 class relabelling, whose witness budget comes out (0,5,2,2,0) at n=9.
+                    # The budget is fixed at the root, so the first bad layer is 0.
+                    verdict, states, first_bad = "FAIL", 0, 0
+                    return finish(f"the engine derived budget {man.get(key)}, this file derives "
+                                  f"{val} from the same definition")
+                return finish(f"manifest {key}={man.get(key)!r}, this instance needs {val!r}")
+        if man.get("last_complete_k") != str(n):
+            return finish(f"manifest last_complete_k={man.get('last_complete_k')!r}, not {n}: "
+                          f"the ladder is incomplete")
+
+        compared_total = 0
+        raw_total = None
+        for k, raw in _kc_raw_layers(pl, start, b0):
+            fp = os.path.join(layers_dir, f"f1c5_layer_{k:02d}.bin")
+            if not os.path.exists(fp):
+                return finish(f"layer {k} file is missing -- a layer that cannot be read is a "
+                              f"failure of this gate, not a layer it skips")
+            v, compared, note = _kc_compare_layer(fp, k, raw, n, b0, start, G, size)
+            compared_total += compared
+            print(f"  {note}  [{v.lower() if v != 'PASS' else 'ok'}]")
+            if v != "PASS":
+                verdict = v
+                states = compared_total
+                first_bad = k
+                return finish(f"first bad layer {k}  [{time.time() - t0:.1f}s]")
+            if k == n:
+                raw_total = sum(sum(s.values()) for s in raw.values())
+        states = compared_total
+        if not raw_total:
+            return finish(f"the instance admits no completed walk (raw total 0): a vacuous "
+                          f"instance compares nothing at the top and proves nothing")
+        floor = _KC_ORACLE_STATE_FLOOR[n]
+        if compared_total < floor:
+            return finish(f"only {compared_total:,} raw states compared, below the n={n} "
+                          f"floor {floor:,}")
+        verdict = "PASS"
+        print(f"all {n + 1} layers agree per state; raw total {raw_total:,}; "
+              f"{compared_total:,} states compared at canonical masks  [{time.time() - t0:.1f}s]")
+        return finish()
+    finally:
+        if tmp is not None:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
@@ -6597,6 +6981,29 @@ def main():
                              'INTERMEDIATE layer\'s stored values by an orbit size derived here '
                              'and checks them against the plain layered DP, both on-disk formats; '
                              'emits F1U192_INTERMEDIATE_MASS=GATED. Absence of a binary FAILS.')
+    parser.add_argument('--check-kc-transition', type=int, metavar='N', default=None,
+                        help='Q-918 transition oracle: build the N-pair C5 rung\'s layer files with '
+                             'solve (N in 9/13/16/18; or read them with --layers DIR) and compare '
+                             'them PER STATE against the plain budgeted recurrence of this file, with '
+                             'no symmetry quotient: every stored span must equal the recurrence\'s '
+                             'states at that canonical mask (keys and values, both directions), the '
+                             'stored masks must be canonical under the group derived here, and each '
+                             'layer\'s orbit-weighted mass must close on the raw mass. Prints '
+                             'KC_TRANSITION_ORACLE=PASS|FAIL|ERROR with _LEG, _STATES and '
+                             '_FIRST_BAD_LAYER lines; ERROR, never PASS, when the binary or a layer '
+                             'is absent, the option is refused, the instance admits no walk, or too '
+                             'few states were compared. n=16 ~2-3 min and ~0.5 GB in CPython.')
+    parser.add_argument('--b0', metavar='a,b,c,d,e', default=None,
+                        help='With --check-kc-transition: a synthetic boundary budget for the classes '
+                             'd=1,2,3,4,6 (passed to solve as --f1-b0) in place of the first-completion '
+                             'DFS witness. n=16 with 1,2,3,4,6 is the leg on which every C5 channel is '
+                             'live and every budget distinct.')
+    parser.add_argument('--layers', metavar='DIR', default=None,
+                        help='With --check-kc-transition: compare an existing layer directory '
+                             '(f1c5_layer_NN.bin + f1c5_manifest.txt) instead of building one.')
+    parser.add_argument('--solve-bin', metavar='PATH', default=None,
+                        help='With --check-kc-transition: the solve binary to build the ladder with '
+                             '(default: SOLVE_BIN, else ./solve beside this file).')
     parser.add_argument('--f1-dec-roundtrip', action='store_true',
                         help='Gate solve.c\'s 192-bit decimal renderer f1_dec() against exact '
                              'Python integer arithmetic across the full range -- both limb '
@@ -6920,6 +7327,11 @@ def main():
         sys.exit(recount_orbit_widths(args.recount_orbit_widths))
     if args.f1u192_binary_roundtrip:
         sys.exit(f1u192_binary_roundtrip())
+    if args.check_kc_transition is not None:
+        sys.exit(check_kc_transition(args.check_kc_transition, args.b0, args.layers,
+                                     args.solve_bin))
+    if args.b0 is not None or args.layers is not None or args.solve_bin is not None:
+        parser.error("--b0, --layers and --solve-bin only make sense with --check-kc-transition")
     if args.f1_dec_roundtrip:
         sys.exit(f1_dec_roundtrip())
     if args.recount_rung_layers is not None:

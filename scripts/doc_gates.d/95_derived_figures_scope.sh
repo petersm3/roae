@@ -91,12 +91,12 @@ for f in files:
     # LEG T
     for i, l in enumerate(lines):
         if not l.startswith('|') or i+1 >= len(lines) or not re.match(r'^\|[\s:|-]+\|?\s*$', lines[i+1]): continue
-        hdr = [c.strip() for c in l.strip().strip('|').split('|')]
+        hdr = [c.strip() for c in re.split(r'(?<!\\)\|', l.strip().strip('|'))]  # Q-525: a GFM \| is not a cell break
         cols = [k for k, c in enumerate(hdr) if re.search(r'§\s*\[6\]|Greedy set', c)]
         if not cols: continue
         j = i + 2
         while j < len(lines) and lines[j].startswith('|'):
-            cells = [c.strip() for c in lines[j].strip().strip('|').split('|')]
+            cells = [c.strip() for c in re.split(r'(?<!\\)\|', lines[j].strip().strip('|'))]
             ds = named(cells[0] if cells else '')
             for k in cols:
                 if k >= len(cells): continue
@@ -911,7 +911,7 @@ rows=0; k=hi+1; types=[]
 while k<len(lines) and lines[k].lstrip().startswith("|"):
     c=lines[k].strip()
     if not re.match(r"^\|\s*:?-",c):
-        cells=[x.strip() for x in c.strip("|").split("|")]
+        cells=[x.strip() for x in re.split(r"(?<!\\)\|", c.strip("|"))]  # Q-525: escape-aware
         cell=cells[-1].replace("**","").strip()
         rows+=1
         t=next((v for v in VOCAB if cell.lower().startswith(v)),None)
@@ -1284,7 +1284,7 @@ rows=[l for l in t.split("\n")
       if l.startswith("|") and not re.match(r"^\|[-\s|:]+\|$",l) and not l.startswith("| Claim ")]
 nrow=len(rows); ntgt=set(); cache={}
 for r in rows:
-    cells=[c.strip() for c in r.strip("|").split("|")]
+    cells=[c.strip() for c in re.split(r"(?<!\\)\|", r.strip("|"))]  # Q-525: a \| in the Claim cell is not a cell break
     claim=re.sub(r"\s+"," ",re.sub(r"[*`]","",cells[0]))[:62]
     if len(cells)<2:
         print("HIT\t%s\tmalformed row: %d cell(s), expected the 5-column scorecard shape"%(claim,len(cells))); continue
@@ -1376,7 +1376,7 @@ rows=[l for l in t.split("\n")
 if not rows: print("ERROR\tno scorecard table rows found in %s"%F); sys.exit(0)
 na=npg=0; cache={}
 for r in rows:
-    c=[x.strip() for x in r.strip("|").split("|")]
+    c=[x.strip() for x in re.split(r"(?<!\\)\|", r.strip("|"))]  # Q-525: escape-aware, as GATE 72
     if len(c)<3: continue
     claim=re.sub(r"\s+"," ",re.sub(r"[*`]","",c[0]))[:56]
     src=c[1]; body=""; tgt=[]

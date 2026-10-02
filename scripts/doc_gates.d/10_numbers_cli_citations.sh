@@ -329,6 +329,27 @@ PYEOF
     fi
   fi
 
+  # ---- LEG: a documented flag's DECLARED METADATA must match its argparse declaration ----------
+  # Q-410, the last leg (batch 32, 2026-10-02). solve.py, roae.py and verify.py print no Usage:
+  # strings, so the usage-grammar leg above has nothing to read for them; their oracle is the
+  # add_argument declaration. scripts/cli_decl_metadata_gate.sh reads every declaration with `ast`
+  # and checks each default, choice list and argument count that SOLVE_PY_CLI.md, ROAE_PY_CLI.md
+  # and VERIFY.md STATE against it, with three in-memory positive controls on every run. It is a
+  # separate script so that its red test can run on a scratch copy; this is the dispatch. Judged on
+  # its whole-line token, captured first (never `producer | grep -q`, see the leg above).
+  echo "  -- declaration-metadata leg (scripts/cli_decl_metadata_gate.sh)"
+  if [ ! -r scripts/cli_decl_metadata_gate.sh ]; then
+    echo "  [FAIL] scripts/cli_decl_metadata_gate.sh missing — the declaration-metadata leg checked NOTHING"; bad=1
+  else
+    _dm=$(bash scripts/cli_decl_metadata_gate.sh 2>&1)
+    sed -n '/^  \[/p; /^         /p' <<<"$_dm"
+    if ! grep -qx 'CLI_DECL_METADATA=PASS' <<<"$_dm"; then
+      grep -qxE 'CLI_DECL_METADATA=(FAIL|ERROR)' <<<"$_dm" \
+        || echo "  [FAIL] the declaration-metadata leg printed no verdict token — treated as FAIL"
+      bad=1
+    fi
+  fi
+
   return $bad
 
 

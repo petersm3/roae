@@ -12567,7 +12567,7 @@ def atlas_load(path):
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30131) is ALSO an un-run gate,
-    # but VERIFY.md:1260 states as POLICY that it "is not a failed run". Reversing a documented
+    # but VERIFY.md:1261 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6529,
     # :6658; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.

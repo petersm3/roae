@@ -25933,3 +25933,396 @@ with the 195 directive reports compared byte-for-byte against the previous run; 
 sha `403f7202…`; the full `python3 tests.py`; `scripts/tr12_repro.sh` re-stamp (the row script changed).
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, lane Q-916, batch 31c.
+
+## CX-254 — GATE 21's private-checkout legs passed in a manual run and failed in the pre-push hook because only the hook sets `ROAE_PRIVATE_DIR`; the placeholder `roae-private/FILE` in CX-203 is now exempt by exact token, and the hook re-runs GATE 21 locally even when it reuses a verdict record (scripts/doc_gates.d/70_publication_surfaces.sh; scripts/pre_push_gate.sh; scripts/prepush_verdict_record.sh; tests.py; documentation/DEVELOPMENT.md)
+
+**2026-10-02.** Origin: backlog row Q-919. A push on 2026-10-01 was refused by GATE 21
+(`doc_gates.sh script-paths`) with `[FAIL] STALE-PRIVATE: \`roae-private/FILE\``, while
+`bash scripts/doc_gates.sh` run by hand on the same tree passed. No published number, count, sha,
+verdict or receipt moves; `solve.c`, `solve.py` and `verify.py` are untouched.
+
+**What differed.** Not the tree, the working directory or the allow-list. The operator's local hook
+wrapper exports `ROAE_PRIVATE_DIR` before it runs `scripts/pre_push_gate.sh`, so in the hook GATE 21's
+COLLISION and STALE-PRIVATE legs RUN (`DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN`). A bare manual run has the
+variable unset and, by the Q-861 design, prints `DOC_GATE_SCRIPT_PATHS_PRIVATE=SKIP:ROAE_PRIVATE_DIR-unset`
+and skips both legs. A skipped leg cannot fail, so that manual PASS meant "not checked". MEASURED in
+one tree, changing only the variable: unset gives rc 0 with the SKIP token; set to the private
+checkout gives rc 1 with the STALE-PRIVATE line above and the RAN token.
+
+**Content cause.** CX-203 (CORRECTIONS.md:20165, landed in 5ad06afa on 2026-09-29) reads "Five
+repo-relative `roae-private/FILE` pointers". `FILE` there stands for "some file": it names the shape
+of the five pointers that entry corrects, and no such file exists. `gate_script_paths()` had no allow
+row for it, and this ledger is append-only, so the text stays. New allow row,
+scripts/doc_gates.d/70_publication_surfaces.sh:421-427: the exact token `roae-private/FILE` is
+declared narration, with the reason printed. It is an exact match, so every real `roae-private/<x>`
+pointer is still held to the STALE-PRIVATE leg.
+
+**Structural cause: a reused verdict record could vouch for legs it never ran.** The Q-798 verdict
+record keys `DOC_GATES_ALL` on the tree, the citation base and the toolchain. A record made on a host
+without the private checkout (every campaign worker) carries a `DOC_GATES_ALL=PASS` in which GATE 21's
+private legs were skipped, and the hook then reused that leg without re-running GATE 21. That is why
+pushes between 5ad06afa and 2026-10-01 stayed green: the first full battery run on the operator box
+after 5ad06afa was the one that failed. GATE 21 now joins the ALWAYS-LOCAL legs
+(scripts/pre_push_gate.sh:621-625, `for _lm in branch-registry appendonly revrows tracked-ignored
+script-paths; do`): on reuse the hook runs it in the pushed worktree under the pushing shell's
+`ROAE_PRIVATE_DIR`, so a reused record and a full battery give the same GATE 21 verdict. It costs
+under a second. The header of scripts/prepush_verdict_record.sh (lines 12-17) and the "Pre-push
+verdict record" table in DEVELOPMENT.md (line 2682) list it with the other always-local legs.
+
+**Scope, stated.** A bare manual `bash scripts/doc_gates.sh` still SKIPS the private legs when
+`ROAE_PRIVATE_DIR` is unset; that is the Q-861 design and is unchanged. A manual run matches the hook
+only when the variable is exported, and a `SKIP:` token is "not checked", never PASS. GATE 21 is the
+only doc gate that reads `ROAE_PRIVATE_DIR`. The other environment-dependent gates (GATE 19, GATE
+10a/10b, revrows, GATE 23) were already always-local; `CITGATE_BASE` is bound in the record. A few
+test-injection overrides of other gates (`DOC_GATE_LSD_REF`, `DOC_GATE_RD_*`) are not unset by the
+hook; nothing sets them today, and that hardening is not part of this entry.
+
+**Guards.** `TestQ919Gate21PrivateLegAsTheHookRunsIt` (tests.py:30809-30862) runs the real
+`doc_gates.sh script-paths` on the real corpus. Its hermetic test points `ROAE_PRIVATE_DIR` at an
+EMPTY directory, asserts the `=RAN` token (precondition) and that real pointers are reported STALE
+(positive control), then asserts `roae-private/FILE` is not among them; it then creates every
+reported pointer in a stub private directory and asserts that RAN mode and SKIP mode both exit 0. A
+second test runs only where `ROAE_PRIVATE_DIR` names a directory and asserts `=RAN` with rc 0.
+MEASURED on the base tree: the hermetic test FAILS (`placeholder \`roae-private/FILE\` is held to the
+STALE-PRIVATE leg`), and with the private checkout set both FAIL; with the fix both PASS.
+`TestQ798PrepushTreeKeyedReuse` now lists `doc_gates script-paths` among the local legs
+(tests.py:20699) and its local-leg mutant anchors on the new loop text (tests.py:20939); on the base
+hook two of its tests FAIL (`'doc_gates script-paths' not found` in the local legs), with the fix all
+eleven PASS.
+
+**Worker items (not run here).** The full `python3 tests.py`.
+
+Developed with AI assistance (Claude, Anthropic): Claude Opus 5.5, lane Q-919, batch 32.
+
+## CX-255 — a CLI doc's stated default, choice list or argument count could disagree with the flag's argparse declaration in solve.py, roae.py or verify.py and no gate would notice; GATE 2 now has a declaration-metadata leg, and the one false description it surfaced, `--alpha` called a confidence level, says what the value is (scripts/cli_decl_metadata_gate.sh; scripts/doc_gates.d/10_numbers_cli_citations.sh; tests.py; documentation/SOLVE_PY_CLI.md; documentation/DEVELOPMENT.md)
+
+**2026-10-02.** Origin: backlog row Q-410, its last open item. The row's diagnosis was that GATE 2
+(`doc_gates.sh cli`) checks that a flag is NAMED in its CLI doc and, for solve.c, that the doc shows
+the argument grammar the binary prints; nothing checked whether what a doc says ABOUT a flag is
+true. The sat.py surface (CX-249) and item (e), `--color` (CX-247), were closed in batch 31a. What
+remained was solve.py, roae.py and verify.py: they print no `Usage:` strings, so the usage-grammar
+leg has nothing to read there, and their oracle is the `add_argument` declaration itself.
+
+**1. The leg (scripts/cli_decl_metadata_gate.sh; scripts/doc_gates.d/10_numbers_cli_citations.sh:332–353).**
+The script reads every `add_argument` call with `ast` (the files are never imported or run) and
+records each flag's `default=`, `choices=`, `nargs=`/`action=`, `const=` and `type=`, with module
+constants and a one-literal wrapper (`_ExactAnchor("2.0")`) resolved, and with the positional
+arguments of the same parser. It then checks every place `SOLVE_PY_CLI.md`, `ROAE_PY_CLI.md` and
+`VERIFY.md` STATE one of those things: a default (`(default X)`, `Default `X``, `defaults to X`,
+`X = … (default)`, a table's `Default` column) must equal the declaration, numbers compared as
+numbers; a choice list `a|b|c` must equal `choices=` where the flag is defined and be a subset of it
+in a synopsis or example; and an argument count shown in a definition's grammar must fit the
+declaration. A terse entry that states nothing is not a finding, as the row's scope note asks. A
+default worded as prose, or stated for an operand placeholder (`` `N` (default 2) ``), is counted
+and not compared; the counts are printed every run. Verdict `CLI_DECL_METADATA=PASS|FAIL|ERROR`,
+whole line, documented at DEVELOPMENT.md:2740 (so GATE 89 sees it documented). GATE 2 runs the
+script as its last leg and fails on anything but `PASS`.
+
+Measured on this tree: 121 / 59 / 45 declarations; 132 / 57 / 43 definition sites; 32 defaults,
+13 choice lists and 122 argument counts compared. Floors sit below each, so an extractor that stops
+matching a format is an `ERROR`, not a smaller `PASS`. On every run three in-memory mutants of the
+real docs (one compared default changed, one choice list given a wrong alternative, one
+`store_true` definition given an operand) must each be reported against its flag; otherwise the
+verdict is `ERROR`.
+
+**2. What its first run found, and what was fixed.** The first run reported three findings. Two
+were the gate's own errors and were fixed in the gate, not the docs: VERIFY.md renders verify.py's
+positional `path` after `--fiber-sweep` (`[solutions.bin]`) and names "the default `solutions.bin`"
+in the same row, which is the positional's default, so a flag's argument ceiling now includes its
+parser's positionals and a positional's default is accepted; and SOLVE_PY_CLI.md's `--h2-verify`
+row states "`N` (default 2)", the default of the second operand inside `nargs='+'`, which is now
+counted as an operand default. No stated default, choice list or argument count in the three docs
+disagreed with the code. Before this batch, the 2026-09-07 sweep had found solve.py clean across
+its declarations and verify.py clean apart from one fixed row; the gate confirms that by machine
+and keeps it true.
+
+Read beside the code, one description was false although no number in it was:
+SOLVE_PY_CLI.md:1155 called `--alpha` a "simultaneous confidence level (default 0.001, i.e. 99.9 %)".
+`--alpha` is the error probability for the Hoeffding bound (solve.py's own help says so, and
+`DEFAULT_ALPHA = 0.001` carries the comment "99.9% simultaneous confidence"); the confidence is
+1 − `A`. The row now says that, and that `A` must lie in (0, 1), the range the code checks; the
+correction is noted in the row.
+
+**3. Red and green.** Green on the tree: `CLI_DECL_METADATA=PASS`, `doc_gates.sh cli` PASS. Red on
+a scratch copy of the three code files and three docs with five planted drifts (`--tr8-dof-pool-draws`
+default 10000000 → 1000000; `--sat-c3 none|pb|adder` → `none|pb|cardinality`; roae.py `--compare A B`
+→ `--compare A`; `--gs-probe` default 256 → 128; VERIFY.md `--jobs` default `1` → `4`):
+`CLI_DECL_METADATA=FAIL`, exit 1, each of the five named with document, line, flag and both
+values. Through GATE 2 on the worktree, one planted default (`--joint-density-bandwidth` `cv` →
+`silverman`) turned `doc_gates.sh cli` red naming it; the file was restored byte-identical (`cmp`).
+Mutants of the gate: an extractor that matches no declaration → `ERROR` (floor); the arity
+comparison disabled → `ERROR` (the arity control unreported); the numeric default comparison
+disabled → `ERROR` (the default control unreported). Guard: `TestQ410CliDeclMetadataGate`
+(tests.py:30866–30934, three tests: green on the tree; red on four planted drifts of the three
+kinds, each named; `ERROR`, not `PASS`, for the default-comparison mutant).
+
+**Limits, stated.** Not checked: a default worded as prose; `help=` text; `required=`; metavar
+spelling; env-var defaults (GATE 84's surface); sat.py and solve.c (CX-249 and the usage-grammar
+leg). A default is attributed to the nearest flag named in the 60 characters before it, else to the
+row's own flag; a row defining two flags with no nearer mention is counted as ambiguous and not
+compared (zero such rows today). No published number, count, sha or verdict moves; no code
+behaviour changes.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, lane Q410, batch 32.
+
+## CX-256 — the citation gate's content rule (Q-572) is blocking: five citations that landed only by span width are repaired, the nineteen correct ones are a reviewed allowlist, and a new content-weak citation fails the gate (scripts/citation_line_gate.sh; scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; documentation/QUERY_INVENTORY.md; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-10-02.** Origin: backlog row Q-572, left open by CX-248 §4. That entry added the content
+rule as an advisory count (`CITATION_CONTENT_RULE=ADVISORY n=24`) and left two things for this
+batch: repair the citations that were really wrong, and make the rule block. No published number,
+sha, count or reproduction parameter moves. Every change below is to a line NUMBER in a citation
+or to the gate; no cited code changes.
+
+**1. The 24 content-weak landings, each read against its cited lines.** A landing is content-weak
+when it holds only because a COMMON anchor (one on more than 3 lines of the target) sits within ±2
+of the cited span but not on it, or sits on the span only as an argument of a print call. Five were
+wrong and are repaired:
+- `documentation/QUERY_INVENTORY.md` Q6 row: `extrema` cited at `solve.c:27908`, which is the
+  `/* L4 */` comment; the `"extrema"` emitter is the next line. Now `solve.c:27909` (off by one).
+- `documentation/SOLVE_C_CLI.md`, the EPYC 9V45 architecture note: cited `DEPLOYMENT.md:318`, which
+  is an `exit 1` in a shell snippet. The SKU sentence is line 335. Wrong target, now `:335`.
+- `scripts/citation_line_gate.sh`, the `context()` docstring example: `` `int fail_c1 ...`
+  (`solve.c:43941-43942`) ``. The declaration is now `long long` on line 43943 (Q-641 widened it).
+  Now `` `long long fail_c1 ...` (`solve.c:43943-43944`) `` (off by two).
+- `scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh`: `_global_seed` cited at
+  `roae.py:22`, which is a blank line; `_global_seed = None` is line 23. Now `roae.py:23` (off by
+  one; the sibling citation in `pre_commit_generated_gate.sh` was already repinned to 23).
+- `scripts/doc_gates.d/90_claim_artifacts.sh`, GATE 55's red-test note: `CAMPAIGN_METHODOLOGY.md:86`
+  for the two-element "(source code, search budget)" tuple. That text was at line 86 only in the
+  pre-P19 tree, as the same comment's measurement line says (`git show 97f50cc6^`); today line 86 is
+  unrelated prose. The citation now carries the revision pin `:86@97f50cc6^`, which the gate reads
+  as a past-tree citation.
+
+The other 19 are correct and are now rows of a reviewed allowlist, `CONTENT_PINS` in the gate, each
+with what the cited line is and why the anchor is off it. Their shapes: a `def` line whose flag is
+in the docstring below it (TR-5 ×2); a guard or branch whose function name is a line or two above
+(sat.py, tests.py, the two `fkc->ooc != NULL` refusals cited from QUERY_INVENTORY.md and
+tr12_repro.sh); a hard-wrapped sentence whose anchor word is on the next line (HISTORY.md:5942,
+DISTRIBUTIONAL_ANALYSIS.md:329-331 ×2, solve.py:32); a print line cited because it prints a named
+variable (`kw_found_v` ×2, `manifest_path`, the `ENUM_RUN` line in build_pgo.sh); and a block whose
+guard is one line above (`want_raw` ×2, the inline partner check, `kc_print_walk`, SOLVE.md:334).
+CX-248 estimated "about six" genuinely off and named QUERY_INVENTORY.md:248 / tr12_repro.sh:2067 and
+the corrections_inventory SOLVE.md:334 fixture among them; read again here, all three are correct
+(line 37756 is the refusal itself, and SOLVE.md:334 does carry the quoted correction note), so the
+count of wrong ones is five.
+
+**2. The rule blocks.** `--all-files` now FAILs (`CITATION_LINE_GATE=FAIL`) on a content-weak landing
+that is not in `CONTENT_PINS`, and on a `CONTENT_PINS` row that matches no content-weak landing (the
+citation was repaired, or the cited content changed). Rows are keyed by citing file, target and the
+12-hex content hash of the cited span, without the anchor key, because the mined anchor set differs
+between `--all-files` and `--all-targets` (a tracked file's name is dropped only in the latter) and
+one row must hold in both; without `--all-targets` only the `solve.c` rows are in scope. The count
+pin `CONTENT_PIN=24` is gone. `CITATION_CONTENT_RULE` now takes `PASS` | `FAIL` and is documented in
+DEVELOPMENT.md's token table. `CITGATE_PINROWS=1` prints a `CPINROW` line per content-weak landing,
+for review.
+
+**3. Red and green.** Planted off-by-two on the real tree (a `VERIFY.md` line citing `fail_c1` at
+`solve.c:43941`, two lines above its declaration): the batch-31 gate gave `CITATION_LINE_GATE=PASS`
+with `CITATION_CONTENT_RULE=ADVISORY n=20`; this gate gives `FAIL` / `FAIL`, naming that line as
+`[NEW-weak]` and nothing else. `--selftest` gains legs Q1-Q6 on a fixture (correct PASS; off-by-two
+FAIL with no other leg firing; print argument FAIL; reviewed pin PASS; pin left behind FAIL; pinned
+content changed FAIL). Leg N10 (the `.sh` rarity rule turned off) is now FAIL, because the content
+rule catches the same landing, and the new N10b pins that landing to show the rarity rule itself is
+off. `TestQ572CitationContentRule` (8 tests) replaces the advisory tests: the advisory mutant and a
+rule-less mutant both PASS the off-by-two (RED); the live gate FAILs it (GREEN); every allowlist row
+is 4 columns, hashed and reasoned; the real tree passes with every row matched.
+
+**Gates.** `citation_line_gate.sh --all-files --all-targets`: `CITATION_CONTENT_RULE=PASS`,
+`CITATION_LINE_GATE=PASS` (19 content-weak, 19 reviewed, 0 new, 0 unmatched); `--all-files`: PASS
+(11 of the 19 are `solve.c` targets); document mode and `--selftest`: PASS.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, lane Q572, batch 32.
+
+## CX-257 — the sweep for `|`-delimited records that a bare split can mis-parse: no public consumer has the unsafe shape, five markdown-table readers now split escape-aware, an empty anchor in GATE 47's allow table is refused, and a scanner test fails the shape itself; the Q3 table paragraph in viz_kc_shells.md states the digest condition, and DEVELOPMENT.md says GATE 19 needs a clone of the public repository (tests.py; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/90_claim_artifacts.sh; documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv; viz/viz_kc_shells.md; documentation/DEVELOPMENT.md)
+
+**2026-10-02.** Origin: backlog rows Q-525 (the class sweep) and Q-776 items (1) and (3). No
+published number, count, sha, verdict or receipt moves; `solve.c`, `solve.py`, `verify.py` and
+`scripts/tr12_repro.sh` are untouched. Every script and document edit keeps its file's line count;
+the only insertion is one new test class at the end of `tests.py`.
+
+**1. The class (Q-525).** A record stored as one string and split on a bare `|` mis-parses when a
+field that is not the last one can hold a `|`: shell text (`||`, a pipeline) or regex text (an
+alternation). The instance that opened the row was a mutation harness outside this repository
+(commit 7dc566c0 there): a mutant's find-string held a shell `||`, the split took the test file
+name from the middle of a source fragment, bash failed on that path, and the non-zero exit was
+scored as the mutant being killed. That harness now stores five separate array entries per mutant.
+
+**2. The sweep, every consumer found.** Searched: every tracked `*.sh` and `*.py` for `cut -d'|'`,
+`IFS='|'`, `awk -F'|'`, `${x%%|*}`-style expansions and Python `split("|")`, and (by the new test
+below) every bash array literal and `for … in … do` word list whose loop variable the script splits
+on a pipe. Classified:
+
+- *Shell records, safe because the only free-text field is LAST and is read as the remainder.*
+  `scripts/history_currency_gate.sh`: the self-test `CASES` (`id|want|heading`, the heading read as
+  `${c#*|*|}`) and the mutant list (`id|regex`, the regex read as `${mu#*|}`; a regex alternation
+  there is harmless). `scripts/tr12_repro.sh`: the skip records (`id|token|value|reason`, the reason
+  read with `cut -f4-`; the first three are row ids, token names and short `SKIP:`/`PENDING:` codes).
+- *Shell records, safe because every field is a machine token.* `scripts/knuth_c67_repro_gate.sh`
+  `CASES` (`pins|figure`, digits and commas only, read in bash and in its Python block);
+  `scripts/exec_lane.sh`'s five saved counters (integers, read back with `IFS='|' read`).
+- *Not a record.* `scripts/exec_lane.sh` `last_stage_tok` splits a shell command on `|` on purpose,
+  to find its last pipeline stage. `scripts/n3_measured_nulls_gate.sh` and
+  `scripts/d5_01_q1c_skip_gate.sh` list `sed` scripts whose delimiter is `#`; their fields hold
+  pipes but nothing splits them on one, and each mutant that changes nothing already fails by name.
+- *Markdown-table readers.* In a GitHub-flavoured table a bare `|` is the format's own cell
+  break, so splitting on it is correct, except for an escaped `\|` inside a cell, which the format
+  treats as text. Converted to an escape-aware split (`re.split(r"(?<!\\)\|", …)`), same line,
+  because the cells they read can be prose: GATE 72 and GATE 73 in
+  `scripts/doc_gates.d/95_derived_figures_scope.sh` (they read the Claim and Source cells of
+  `documentation/CLAIMS_DECIDED.md`, one of whose rows already carries `\|C1∩C2∩C4\|`; today the
+  escape sits in a middle cell, so no verdict changed), that file's LEG T header and row readers and
+  its Evidence-type reader, and the header-labels helper in
+  `scripts/doc_gates.d/20_retract_links_status.sh`. Left as they are, safe by content and recorded:
+  the readers of all-numeric tables (`verify.py`'s three FULL31 aggregate readers,
+  `scripts/q433_xa_cert_gate.sh`, `scripts/reproduce_digests_gate.sh` and two `tests.py` readers),
+  each of which also asserts its cell count or refuses a non-numeric cell; GATE 12's revision-row
+  fire-proofs in `scripts/doc_gates.sh`, which read the first two cells and rejoin the row
+  unchanged; a `tests.py` reader that selects a TR-10 row by an exact cell value and raises when
+  none matches; and a `tests.py` word-table reader whose words are C string literals, checked both
+  ways against the code.
+- *A list in a table cell.* `documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv`'s anchor column holds
+  fixed strings separated by `|`, and GATE 47 dropped empty pieces silently, so `a||b` read as two
+  anchors. A shorter anchor matches more text, so the failure would loosen the gate. An empty anchor
+  is now refused as ERROR, in the same line (`scripts/doc_gates.d/90_claim_artifacts.sh`), and the
+  table's header says an anchor cannot contain a `|`. Fired by hand on a copy of the table with one
+  `||` inserted: `[FAIL] GATE 47 could not judge its corpus: …:31 empty anchor`; restored, the leg
+  passes.
+
+**3. The regression check.** `tests.py` `TestPipeRecordSplitSafety` (seven tests). Its scanner reads
+every tracked shell script, skips heredoc bodies, and treats an array or `for` list as a record list
+only when the script splits its loop variable on a pipe. In a record list every word must carry the
+same number of pipes and none may carry `||`. Positive control: the 7dc566c0 shape, rewritten with
+neutral names (a 5-field mutant whose find-string holds `|| why=…`, beside one that does not), is
+flagged by both rules; negative control: the same mutants as separate entries are clean. On this
+tree the scanner sees three record lists, all clean. Three pins cover what the scanner cannot see:
+the two `history_currency_gate.sh` split lines are read from the script and run in bash on fields
+holding `||` and an alternation; every `knuth_c67_repro_gate.sh` record is digits; and the
+`tr12_repro.sh` skip record keeps its reason last, read with `-f4-`, with no `|` in any literal
+row id, token or value. Stated limits: a list whose every record carries the same extra pipes passes
+the arity rule, and a record list built at run time is not scanned.
+
+**4. Q-776 item (1).** `SOLVE_PY_CLI.md` already documented both points the item asked for (the
+emitter removes the other name; `tr12_figures` chooses by sidecar). `viz/viz_kc_shells.md` did too,
+but it did not state the digest condition added on 2026-09-28: the KW table is taken only when its
+sidecar's `q3_table_sha256=` equals the table's sha256. That sentence is added to its paragraph,
+marked with the date. Checked against `viz/report_figures.py` `_tr12_q3_table`.
+
+**5. Q-776 item (3).** GATE 19 lists `git ls-remote --heads origin`. A working clone made from
+another local clone lists that clone's branches, and scratch heads there fail GATE 19 for reasons
+unrelated to the change. `documentation/DEVELOPMENT.md`'s pre-push table now says so in GATE 19's
+cell. Item (2), the optional `q3_profile_kw.tsv.provenance.txt`, is not done.
+
+**Worker items (not run here).** The full `python3 tests.py`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, lane B32E, batch 32.
+
+## CX-258 — the KC ladder transition kernel gets a transition-independent oracle: `verify.py --check-kc-transition N [--b0 a,b,c,d,e]` compares every stored state of a compiled rung with the plain recurrence, and `solve --f1-exact-c1c2c4c5` takes the synthetic budget it needs (`--f1-b0`) (verify.py; solve.c; tests.py; documentation/VERIFY.md, SOLVE_C_CLI.md, HISTORY.md)
+
+**2026-10-02.** Origin: backlog row Q-918, Codex review finding A05: the compiled ladder's
+transition kernel (`solve.c f1c5_gather_entries` — C2 as the forbidden distance 5, the C5 budget
+predicate, the two orientations of a pair, the exit recorded as the next `last`) was checked by
+engine self-checks that share its specification tables, and by `verify.py`'s per-layer MASS
+recounts. A layer mass is a linear functional of the layer, so any perturbation orthogonal to the
+all-ones functional passes every mass and cut identity. Measured here: a d1↔d3 class relabelling
+and a d=5→d6 misclassification both leave all seventeen n=16 layer masses unchanged at the
+DFS-derived budget. Design: the Fable lane, 2026-10-01 (private); this entry is both halves of
+it. No published number, count, sha or verdict moves: without the new options every behaviour is
+unchanged, and `./solve --selftest` still prints `403f7202…` on a fresh build of this tree.
+
+**The oracle (verify.py, new block before `main()`; `--check-kc-transition N`, `--b0`, `--layers`,
+`--solve-bin`).** It builds the N-pair rung's layer files with `solve --f1-exact-c1c2c4c5
+--f1-pairs N [--f1-b0 …] --layers-dir` (`SOLVE_F1_KEEP_LAYERS=1`), recomputes the same ladder by
+verify.py's own budgeted `(mask, last, residual)` recurrence — no symmetry quotient, no shared
+code — and compares PER STATE: every stored span `{(last, rid) → value}` must equal the
+recurrence's states at that canonical mask, keys and values, both directions (a missing successor
+is a state the recurrence has and the span lacks; an invented one is the converse); every stored
+mask must be the orbit minimum under the group derived in verify.py from the 48 commuting
+bit-perms; every canonical mask the recurrence reaches must be stored; and each layer's
+orbit-weighted stored mass must equal the raw layer mass (the closure over the non-canonical
+masks). Keys are compared as the file packs them, so a relabelled residual digit lands in another
+slot even when the budgets it swaps are equal. The manifest's pair list and budget bind the mask
+bits and the residual radix to the instance. Rungs N = 9, 13, 16, 18; N = 31 is out of scope
+(full-31 entry-level verification was declined; HISTORY.md) and N ≥ 19 exceeds the plain
+recurrence's single-node memory. Tokens, whole-line: `KC_TRANSITION_ORACLE_LEG=<N>:<b0>:PASS|FAIL|ERROR`,
+`KC_TRANSITION_ORACLE_STATES=<raw states compared at canonical masks, or -1>`,
+`KC_TRANSITION_ORACLE_FIRST_BAD_LAYER=<k or -1>`, `KC_TRANSITION_ORACLE=PASS|FAIL|ERROR`; exit
+0 / 1 / 2. **ERROR, never PASS**, when the binary is absent or refuses the option (a `solve`
+without `--f1-b0` exits 2 on a `--b0` leg), a layer is missing, unreadable or names another
+instance, the instance admits no completed walk, or fewer states were compared than a per-rung
+floor pinned at half the clean engine's entry counts. A budget the engine DERIVED that differs
+from the one verify.py derives from the same definition is FAIL at layer 0, not ERROR: that is an
+engine defect, and the d1↔d3 relabelling produces exactly it (witness budget `0,5,2,2,0` at n=9).
+
+**Why a synthetic budget (solve.c `--f1-b0`).** No DFS-derived budget at any reduced rung uses the
+d=6 class (`b0[d6] = 0` at every one), so a kernel defect in that channel is invisible at every
+published rung — unreachable states compare equal because there are none — and equal budgets hide
+a class swap at the mass level. `--f1-exact-c1c2c4c5 --f1-pairs N --f1-b0 a,b,c,d,e` replaces the
+deterministic-DFS budget for the classes d = 1, 2, 3, 4, 6 at the derivation site (solve.c:18742);
+the `[f1c5] B0` stderr line ends `[--f1-b0 override]`, and the manifest and layer headers carry
+the given `b0=`. Refused with exit 2 and `F1_EXACT_C1C2C4C5_ARGS=REFUSED`: `--f1-pairs 31` (King
+Wen's budget is never overridden); a value that is not five comma-separated decimal integers in
+[0, 31]; a sum other than N; a rid space above 65535; a repeated `--f1-b0`. A layers directory
+built under one budget is refused under another by the existing manifest check (exit 71). N = 16
+with `1,2,3,4,6` is the smallest rung at which all five channels are live with all budgets
+distinct (five distinct positive counts sum to at least 15; the class values themselves sum to 16).
+
+**A synthetic budget that admits no walk reports `total = 0` and exits 0 (solve.c:19119–19120);
+ruled correct, not a masked defect.** The final self-check "total = 0 but B0 is achievable by
+construction — DP defect" is sound only because the derived budget is the class multiset of a walk
+the engine has already found; a chosen budget carries no such witness, so under `--f1-b0` the
+check cannot distinguish an unreachable budget from a defect and is correctly not applied. A
+refusal would be circular (reachability is the DP's own output), and no engine token is added:
+the count is a number, the verdict belongs to the oracle, which prints
+`KC_TRANSITION_ORACLE=ERROR` for the vacuous instance (measured necessary: n = 13 under
+`1,2,3,3,4` has no state past layer 9 and all four top layers are written empty) and would print
+FAIL if the engine reported 0 where the recurrence does not. The engine still writes every layer
+file and a complete manifest in that case.
+
+**Measured (2026-10-02, builds of this tree on the 2-core orchestrator).** Clean: n = 9 PASS under
+the derived budget `2,5,0,2,0` (950 states compared, 0.8 s) and under `1,2,2,2,2` (5,004 states);
+n = 13 PASS (40,461 states, 6 s); n = 13 `1,2,3,3,4` ERROR; n = 31 and a budget whose sum is not
+n ERROR with exit 2. Engine totals: n = 9 `1,2,2,2,2` 135,360; n = 16 `1,2,3,4,6` 1,747,353,600;
+n = 13 `1,2,3,3,4` 0 — the three nonzero values equal the design's independent scratch
+recurrence. Mutants compiled from solve.c, verdict and first bad layer per leg: M1 (d = 5 admitted
+as d1) FAIL at layer 1 on every leg; M2 (d = 5 charged to d6) PASS at the derived budgets of n = 9
+and n = 13 — the budget-killed channel — and FAIL at layer 1 under `1,2,2,2,2`; M3 (d1↔d3
+relabelling) FAIL at layer 0 at the derived budgets (the engine's witness budget comes out
+`0,5,2,2,0` / `0,6,1,6,0`) and at layer 1 under `1,2,2,2,2`; M4 (d = 5 admitted only into
+hexagram 23, pair 2 of orbit 6.1) PASS at n = 9 and n = 13 with the clean state counts — pair 2 is
+in neither rung, which is the proof that a rung containing 6.0/6.1 is mandatory; M5 (the budget
+cap tightened by one, `p + 1 < b0`) FAIL at layer 2 at n = 9 derived, layer 1 under `1,2,2,2,2`
+and at n = 13; M6 (the wrong exit recorded as `last`) FAIL at layer 1 on every leg; a single
+flipped value byte or key byte in a built layer-3 file FAIL at layer 3 through `--layers`. The
+design's form of M5, `<` → `<=`, is not silent in the engine: its own `F1_CHECK` aborts with
+"sum-invariant violation in gather" (exit 71) at layer 3 of n = 9, so the oracle reports ERROR
+("solve exited 71"); that mutant tests the engine's invariant, not the oracle, and is pinned as such.
+M4's engine totals at n = 16 (284,257,783,137,152 at the derived budget, 1,835,458,560 under
+`1,2,3,4,6`) are not the design's scratch-recurrence values (273,852,617,099,264 and
+1,787,719,680): adjudicated — the gather applies the mutant to `fa`, pair i's first hexagram at the
+CANONICAL target, with the predecessor's `last` lifted through the canonicalising element, so a
+non-equivariant rule evaluated there is a different function from the same rule on raw masks; both
+numbers are correct measurements of two different mutants, neither is a defect, and the oracle
+compares the engine against the clean raw rule, so only the engine's own first bad layer is the
+datum to record. Sha-neutral: `./solve --selftest` on a fresh `-O2` build of this tree printed
+`403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`, PASS.
+
+**Guards (tests.py).** `TestQ918F1B0Override` (six tests: the no-flag control, the derived-budget
+override, the two synthetic totals, eleven malformed or inadmissible values plus a repeat, the
+zero-walk budget, the manifest/resume check), `TestQ918SyntheticBudgetExposesKernelMutants` (five
+mass-level tests; M2 and M3 pinned mass-blind at the derived budget as their precondition) and
+`TestQ918KcTransitionOracle` (nine tests: the clean legs with their exact state counts; every
+mutant leg of the table above, each after the clean binary passed the same leg; M4 and M2 blind
+where the design says they are; the vacuous budget; the option-absent engine and the missing
+binary; the tampered layer bytes and a directory built under another budget; the rung and budget
+refusals; builds are lazy so `-k` runs stay bounded). RED on the base tree: verify.py there has no
+`--check-kc-transition` (argparse exits 2 with no token) and solve.c has no `--f1-b0`, so every
+test fails after its precondition.
+
+**Worker items (not run on the orchestrator).** The full `python3 tests.py`; the n = 16 legs
+`verify.py --check-kc-transition 16` (expected PASS, STATES 417169) and `16 --b0 1,2,3,4,6`
+(PASS, 524089); every mutant M1–M6 on `16 --b0 1,2,3,4,6` (FAIL) and M4 on
+`--check-kc-transition 16` (FAIL; its first bad layer is recorded by that run); n = 18 (PASS,
+STATES 575839, ~1 GB).
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (design, oracle, adjudication
+and tests of the oracle) and claude-opus-5-5 (`--f1-b0`, its documentation and tests), batch 32b.
