@@ -465,7 +465,7 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
       atomic_touch(DONE_MARKER)              # only NOW mark complete
       log "DONE $p1/$o1 sha=$sha"   # ⚠ 2026-09-25 (CX-134): before that fix this sha was the same header-only 4cd43b2b… for every branch
     ELSE IF rc == 0 AND status == "TIMED_OUT":
-      # SIGTERM or wall-clock stop. solve WRITES ITS SHA AND RETURNS 0 here,
+      # SIGTERM or wall-clock stop. solve WRITES ITS SHA AND RETURNS 0 here, # [2026-10-01, Q-888 (1): solve now exits 36 here, with BRANCH_OUTPUT=PARTIAL and its set under solutions_<p1>_<o1>.partial.*, so this arm is reached only with an older binary; the rc != 0 arm below retries it]
       # so an rc-plus-sha test alone marks this branch done forever with as
       # little as 0 of its cells walked. Retry; do NOT touch DONE_MARKER.
       log "$p1/$o1 exit=0 but status=TIMED_OUT; will retry next loop"
@@ -523,7 +523,7 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
   "it was stopped", and it does **NOT** assert that the search space was
   exhausted. Every budgeted run reports it; see
   [DEPLOYMENT.md](DEPLOYMENT.md) §"Completion and archival". See
-  documentation/CORRECTIONS.md CX-52.]** ⚠ **[Scoped 2026-09-25 (CX-134): before that fix the per-branch file behind this sha held 0 records, so the sha the runner logs was the same header-only `4cd43b2b…` for every branch and attested no records. The lifecycle point above stands. A campaign's data went through the `sub_*` shards and `--merge`, never through this sha.]**
+  documentation/CORRECTIONS.md CX-52.]** ⚠ **[Scoped 2026-09-25 (CX-134): before that fix the per-branch file behind this sha held 0 records, so the sha the runner logs was the same header-only `4cd43b2b…` for every branch and attested no records. The lifecycle point above stands. A campaign's data went through the `sub_*` shards and `--merge`, never through this sha.]** ⚠ **[2026-10-01, Q-888 (1): a stopped `--branch` no longer returns 0. It writes its partial set to `solutions_<p1>_<o1>.partial.bin` and `.partial.sha256`, prints `BRANCH_OUTPUT=PARTIAL` and exits 36, so the rc-plus-sha test above no longer marks a stopped branch done; the status check is kept for older binaries. See documentation/CORRECTIONS.md (batch 31c).]**
 
 ### 6c. Cross-VM orchestrator — pseudocode
 
@@ -1099,7 +1099,7 @@ What `solutions.bin` does NOT contain — capture these explicitly:
 
 | Side-metadata | How | Why you might need it |
 |---|---|---|
-| `per_task_stats.csv` (one row per **depth-5 task**: `task_idx,p4,o4,p5,o5,nodes,solutions_added,wall_time_ms,worker_id,completed,max_depth,c3_leaves` + 33 per-depth node bins) | **Written unconditionally** by the parallel sub-branch path — no env var needed. Fixed filename in the run's CWD, so give each branch its own directory or it is overwritten. | Worker load-balance and per-task budget analysis. ⚠ This row previously read "per-cell yield + status + nodes-walked + wall … Set `SOLVE_DEPTH_PROFILE=1` during enum" — wrong on both halves. The granularity is per depth-5 task, not per depth-3 cell, and `SOLVE_DEPTH_PROFILE=1` gates a *different* artifact: a per-depth node histogram printed to **stderr** (`DEPTH_PROFILE depth=<d> nodes=<n>` lines). To identify which **cells** are budget-exhausted, use the shard checkpoint state and `shards_by_final_status` in `solutions.provenance.json`. |
+| `per_task_stats.csv` (one row per **depth-5 task**: `task_idx,p4,o4,p5,o5,nodes,solutions_added,wall_time_ms,worker_id,completed,max_depth,c3_leaves` + 33 per-depth node bins) | **Written unconditionally** by the parallel sub-branch path — no env var needed. Fixed filename in the run's CWD, so give each branch its own directory or it is overwritten. | Worker load-balance and per-task budget analysis. ⚠ This row previously read "per-cell yield + status + nodes-walked + wall … Set `SOLVE_DEPTH_PROFILE=1` during enum" — wrong on both halves. The granularity is per depth-5 task, not per depth-3 cell, and `SOLVE_DEPTH_PROFILE=1` gates a *different* artifact: a per-depth node histogram printed to **stderr** (`DEPTH_PROFILE depth=<d> nodes=<n>` lines). To identify which **cells** are budget-exhausted, use the shard checkpoint state and `shards_by_final_status` in `solutions.provenance.json`. | *(2026-10-01, Q-317 (2): a task stopped by `SOLVE_PER_TASK_NODE_LIMIT` is now `completed=0`; before, `completed=1` meant only that no global budget, signal or time limit fired during the task, so a capped task counted as completed.)*
 | `checkpoint.txt` | Auto-produced by solve | Records the per-sub-branch budget that was reached. Needed for resume + extension. |
 | `branch_yield_report.txt` | `solve.py --branch-yield-report <solutions.bin>` post-merge, **or** the C form `zcat <enum log>.gz \| solve --yield-report` which reads an enumeration **log** on stdin. ⚠ `solve --branch-yield-report` is not a subcommand and never was — the C binary rejects it as an unknown option. [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) documents the C form correctly; this file was the outlier. | Pre-computed per-prefix counts at depths 1, 2, 3 |
 | `constraint_definitions.json` | Manual extract from solve.c at locked commit | Future C6 / new-rule work needs to reference the EXACT C1-C5 used |

@@ -779,7 +779,7 @@ say "  universe        n=$N_PAIRS   N=$N_TOTAL   N mod 24 = $N_MOD24   N/24 = $N
 say "  fdir            $FDIR"
 say "  gdir            $GDIR"
 say "  tdir            ${TDIR:-<none>}"
-say "  solve           $SOLVE"
+say "  solve           $SOLVE"; TR12_HDR_SRC=$( [ -f "$REPO_ROOT/solve.c" ] && sha256sum "$REPO_ROOT/solve.c" | cut -c1-64 ); TR12_HDR_EMBED=no; [ -n "$TR12_HDR_SRC" ] && grep -a -F -q -e "$TR12_HDR_SRC" "$SOLVE" 2>/dev/null && TR12_HDR_EMBED=yes; say "  solve sha256    $(sha256sum "$SOLVE" 2>/dev/null | cut -c1-64)"; say "  solve.c sha256  ${TR12_HDR_SRC:-<no solve.c at $REPO_ROOT>}   (binary embeds it: $TR12_HDR_EMBED)"; say "  git             $(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)   (modified tracked files: $(git -C "$REPO_ROOT" status --porcelain --untracked-files=no 2>/dev/null | wc -l))"  # Q-320 item (5), 2026-10-01: norm() strips git=/source_sha=/engine_git/engine_source_sha as "recorded separately in the run header", which recorded only the binary PATH while --solve accepts any binary; the header now records the binary sha256, the solve.c sha256 and whether the binary embeds it, and the git identity. Log only: no golden or verdict line moves. One line, so no line cited elsewhere in this file moves.
 say "  expected blocks $EXPECTDIR$( [ "$REGEN" -eq 1 ] && echo '   (REGEN — writing, not diffing)')"
 say "  artifacts       $OUTDIR"
 say "  knobs           C3MAX=$C3MAX SEED=$SEED Q8_K=$Q8K Q4AC_M=$Q4ACM Q1C_M=$Q1CM V3_K=$V3K"
@@ -3139,10 +3139,10 @@ else
                       csub=$(awk -v n="$N_PAIRS" -v k="$k" 'BEGIN{c=1; for(i=1;i<=k;i++) c=c*(n-k+i)/i; printf "%.0f", c}')
                       tbh=$(grep -o '"branching": {[^}]*}' "$tc" | sed -n 's/.*"hist": \(\[.*\]\)}.*/\1/p' | head -1)
                       ntc=$((ntc+1)); [ -n "$toc" ] && [ "$osm" != "$csub" ] && noc=$((noc+1))
-                      if [ "$tsv" = 2 ] && [ -n "$toc" ] && [ "$tnm" = "$nm" ] && [ "$tne" = "$ne" ] && [ "$csm" = "$nm $ne" ] && [ "$osm" = "$csub" ] && [ "$tbh" = "$bh" ]; then
+                      if [ "$tsv" = 2 ] && [ -n "$toc" ] && [ "$tnm" = "$nm" ] && [ "$tne" = "$ne" ] && [ "$csm" = "$nm $ne" ] && [ "$osm" = "$csub" ] && [ -n "$tbh" ] && [ "$tbh" = "$bh" ]; then
                           oc="$toc"; nt=$((nt+1))
                       else
-                          printf '%d\tT-CENSUS-MISMATCH\tf(n_masks=%s,n_entries=%s) t(v%s,n_masks=%s,n_entries=%s,census_sums=%s,size_weighted_masks=%s,C(%s,%d)=%s,branching_hist_equal=%s)\n' "$k" "$nm" "$ne" "${tsv:-?}" "${tnm:-?}" "${tne:-?}" "${csm:-?}" "${osm:-?}" "$N_PAIRS" "$k" "$csub" "$([ "$tbh" = "$bh" ] && echo yes || echo no)"
+                          printf '%d\tT-CENSUS-MISMATCH\tf(n_masks=%s,n_entries=%s) t(v%s,n_masks=%s,n_entries=%s,census_sums=%s,size_weighted_masks=%s,C(%s,%d)=%s,branching_hist_equal=%s)\n' "$k" "$nm" "$ne" "${tsv:-?}" "${tnm:-?}" "${tne:-?}" "${csm:-?}" "${osm:-?}" "$N_PAIRS" "$k" "$csub" "$([ -n "$tbh" ] && [ "$tbh" = "$bh" ] && echo yes || echo no)"
                           miss=$((miss+1)); k=$((k+1)); continue
                       fi
                   else oc="NA:schema-v1-sidecar"; nv1=$((nv1+1)); fi

@@ -25471,3 +25471,465 @@ green on the fix, each with a positive control) and `TestE31EngineResidueWorker`
 on the unfixed `solve.c`). `TestQ845MoreArgRefusal` now expects exit 1 from
 `--symmetry-search --validate-counts` on an empty stdin. Reviewer: Codex (R12b), acknowledged as
 a reviewer, not credited as an author.
+
+## CX-251 — a stopped `--branch` wrote its partial set under the final names and exited 0, the parallel `--sub-branch` path kept no run-in-progress marker, a deleted shard that no checkpoint line claimed merged unnoticed, a damaged gz orphan could be promoted on its size trailer alone, and a task stopped by the per-task node cap was reported completed; each is now refused or reported by name, and two related items wait for a decision (solve.c; tests.py; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md; documentation/LARGE_SCALE_CAMPAIGNS.md)
+
+**2026-10-01.** Origin: backlog rows Q-888, items (1) to (5) (lane HAC's merge-completeness residue,
+listed as not fixed in CX-235 part 7 and CX-239 part 9), and Q-317, items (2) and (5) (Codex A04
+residue, re-verified in code on 2026-09-07 and 2026-09-19; item (2) is also Codex v3 V3A-134#3).
+Landed by Opus, lane B31. Every site was re-located on this tree before it was changed; none had
+been fixed since the rows were written. Q-317 items (1), (3) and (4) were confirmed landed and not
+redone: (1) by 779fff4c (budget 0 read as uncapped, solve.c:1938), (3) by the `< 0` test of
+`dfs_state_load_prior_shard()`'s return (solve.c:9981), and (4) by CX-235 part 2.
+
+**No published number, count, sha or canonical output moves.** Every change is on a path a
+canonical run either does not take or takes without changing a byte of a shard or of
+`solutions.bin`: a stopped single-branch run's output names and exit code, a marker file the
+parallel `--sub-branch` path writes and removes, a check the merge makes before it reads a record,
+a check on an orphaned shard before promotion, and the status a capped parallel task reports. No
+canonical run sets `SOLVE_PER_TASK_NODE_LIMIT`. `./solve --selftest` must still print `403f7202…`;
+the worker checks it against CANONICAL_HASHES.md. `solve.c` keeps every existing line number: each
+edit replaces one line in place, and the new functions are appended at the end of the file.
+
+**1. Q-888 (1): a stopped `--branch` wrote the final names and exited 0.**
+
+*What was wrong.* `--branch` answers a SIGTERM, a SIGINT or its time limit by finishing the cells in
+flight. Its output step then wrote the records it had to `solutions_<p1>_<o1>.bin` and
+`solutions_<p1>_<o1>.sha256`, the names a finished run writes, and returned 0. Only
+`"status": "TIMED_OUT"` in `results_<p1>_<o1>.json` and the report's `TIMED OUT after` line told the
+two apart. CX-235's marker stopped a later `--merge` of that directory, but not a script that took
+the per-branch file and its sha. The single-threaded `--sub-branch` shares this output step.
+
+*The change.* The run reads the stop flag once, before it names its outputs. A stopped run writes
+`solutions_<p1>_<o1>.partial.bin`, `.partial.sha256` and `.partial.bin.meta.json`, prints its
+report as before, then a WARNING naming both files, a whole line `BRANCH_OUTPUT=PARTIAL` on stdout,
+and exits **36**, a code no other path uses. A finished run writes the same names and bytes as
+before and exits 0. The `.partial` files are not removed by a later finished run; nothing reads them.
+The full enumeration and the parallel `--sub-branch` path still exit 0 when stopped (Q-828), and
+`ENUM_RUN=STOPPED` is still printed before the report. Code: solve.c:49182-49185 and :49418, and
+`q888_branch_stopped()` at the end of the file.
+
+**2. Q-888 (2): the parallel `--sub-branch` path wrote no marker.**
+
+The parallel path now calls `q881_mark_incomplete()` just before its workers start (solve.c:48644),
+as `--branch` and the full run do, so the CX-239 launch check applies there too. It removes the
+marker after its shard and its checkpoint line are written, only when it was not stopped
+(solve.c:48883). A stop, a crash or a kill leaves the marker, and `--merge` refuses the directory with
+`MERGE_INPUT=INCOMPLETE`, exit 35. Before this, a hard kill there left no checkpoint line and no
+marker.
+
+**3. Q-888 (3): a deleted shard that no checkpoint line claims merged with exit 0.**
+
+*What was wrong.* CX-235's claim check compares each checkpoint line's claimed count with its shard,
+so it cannot see a shard whose line was lost (a promoted line lost in a crash, for example). Such a
+shard could be deleted and the merge exited 0 with fewer records.
+
+*The change.* `q881_merge_input_gate()` now also reads `shard_manifest.txt`, which the full
+enumeration writes after its startup promotion and again after its worker join (solve.c:49481,
+:49924), and refuses when a shard it lists is absent and no checkpoint line claims that shard: an
+`ERROR:` line naming the shard, `MERGE_SHARD=MISSING`, exit 20. A shard that a line claims is left
+to the claim check, so it is reported once. The check is presence only; the manifest's sizes and
+digests stay the startup auto-verify's job. When the directory has no manifest (a `--branch` or
+`--sub-branch` directory, or a run under `SOLVE_SKIP_AUTO_MANIFEST=1`) the merge prints a `NOTE:`
+that the check is skipped, not passed. An unreadable manifest is refused. A merge that passes prints
+`Shard manifest cross-ref: all N shard(s) listed in shard_manifest.txt are present`. It writes
+nothing and does not change which shards a merge reads. Code: solve.c:51999 (same-line call) and
+`q888_manifest_missing()` at the end of the file.
+
+**4. Q-888 (4): not changed here; a decision is needed.** A directory that an earlier binary
+stopped, relaunched and finished, where the relaunch promoted the stopped cell's partial shard,
+carries an `INTERRUPTED` line covered by a `[v3.1 promoted]` `BUDGETED` line at the same budget, and
+passes the gate. CX-235 part 7 left it as a signature, not a refusal, because a finished cell whose
+own line was lost before its promotion leaves the same two lines. One narrower test was looked at:
+the promoted line's count equal to the `INTERRUPTED` line's count. It still matches a re-walk that
+found nothing new after the stop, and a refusal there could not be cleared by a relaunch, because
+the promoted line marks the cell done. Choosing between a refusal with an override, a warning, or
+leaving the signature as it is changes the merge's semantics for legacy directories, so it is left
+for a decision. No canonical enumeration has run since 2026-09-26, so the exposure is limited to
+directories written before CX-235.
+
+**5. Q-888 (5): a damaged gz orphan could be promoted on its size trailer alone.**
+
+*What was wrong.* Under `SOLVE_FSYNC_BATCH_SIZE > 1` a crash can leave a renamed gz shard whose data
+did not all reach the disk. `promote_orphaned_shards()` read only the 4-byte size trailer, and a
+garbage trailer passes when it is a positive multiple of 32, about one value in 32.
+
+*The change.* A gz shard that would be promoted is first inflated and its CRC-32 and size trailer
+checked (`gz_test()`, the native `gzip -t`). A failure prints `WARN: orphaned shard … fails its gzip
+CRC-32/size check … (Q-888 (5))`, counts as an integrity failure, and the cell is walked again,
+which replaces the shard. Only orphans reach this check: a shard that a checkpoint line records is
+skipped before it, so a normal resume inflates only the few shards whose line was lost. Code:
+solve.c:2163 and `q888_gz_stream_bad()` at the end of the file.
+
+*Measured, and what is not.* Whether a real crash on the worker's filesystem leaves such a file was
+not measured; that needs crash injection on a block device. The check is correct either way: if
+such files occur it refuses them, and if they do not, it costs one inflate per orphan. The worker
+runs a seeded measurement of the binary half: 36 damaged trailers on a real orphan, against the base
+and the changed binary, with the base's promotions compared to the number of trailers whose size
+field is a positive multiple of 32. Its result is recorded with the batch.
+
+**6. Q-317 (2): a task stopped by `SOLVE_PER_TASK_NODE_LIMIT` was reported completed.**
+
+*What was wrong.* In the parallel `--sub-branch` path, `task_completed_cleanly` was
+`(!sub_sub_budget_hit && !global_timed_out)` (solve.c:10759). It did not fold in `task_cap_hit`
+(declared :979, set :5195, cleared :10702), so a task the per-task cap stopped was written
+`completed=1` in `per_task_stats.csv`, and a run whose only stops were per-task caps reported its
+sub-branch `EXHAUSTED`, in the checkpoint line and in `*** Parallel --sub-branch EXHAUSTED`.
+
+*The change.* The predicate now includes `!ts->task_cap_hit`, so a capped task is `completed=0` and is
+counted as partial in the per-task summary, and a run in which any task was capped reports
+`BUDGETED` (solve.c:10759, :48818). The resume is unchanged: a capped task is still marked done in
+the completed-task bitmap (solve.c:10760), as it was before, so a resume does not walk it again. A
+re-walk would spend the cap again and, since the cap is checked only at each worker's ~65,536-node
+flush, would not even stop at the same node.
+
+*Scope note on HISTORY.md:1070.* "Coverage: 2,380 of 2,507 (p4, o4, p5, o5) cells fully completed
+(94.9 %)" was read from that `completed` flag, under a 40 G per-task cap. Under the old predicate the
+flag meant only that no global budget, signal or time limit fired while the task ran. The same
+paragraph says "Zero cells naturally exhausted under the 40 G per-cell cap", so the 2,380 are cells
+that ran to the cap with no other stop, not cells whose subtrees were walked. The 664,086,250 record
+count is a lower-bound slice and does not rest on the flag. HISTORY.md is append-only and is not
+edited.
+
+**7. Q-317 (5): not changed here; a decision is needed.** The row asks for a `BUDGET_EXHAUSTED`
+status when any budget fired, and says to coordinate with Q-49. Q-49 (300359de) kept the
+`SEARCH_COMPLETE` token on purpose, because monitors match it as a literal, and GATE 85 holds
+DEPLOYMENT.md's statement that the token is a lifecycle status, not a claim of exhaustion.
+LARGE_SCALE_CAMPAIGNS.md's documented branch runner marks a branch done only on
+`"status": "SEARCH_COMPLETE"`, and every published enumeration is budgeted. Replacing the status on a
+budgeted run would stop that runner from ever marking a budgeted branch done. An additive form (keep
+`SEARCH_COMPLETE` and add a separate whole-line token, or the `budget_hit` field Q-49 recorded as a
+proposal) changes the run's output contract. Either is a semantics choice, so neither is made here.
+The full run's report already prints `Enumeration: BUDGET-LIMITED (… BUDGETED …)` when its
+checkpoint holds a `BUDGETED` line.
+
+**8. Consumers of the changed outputs.**
+- `BRANCH_OUTPUT=PARTIAL` and exit 36 are new. `TestQ828PgoWorkloadMustFinish` expected a stopped
+  `--branch` to exit 0; it now expects 36 for that site and 0 for the others (same-line edit).
+  `TestRequiredSidecarIsAttested`'s two tests ran `--branch 1 0 6 2` and relied on the 6 s time limit to end
+  the run; they now run with `SOLVE_PER_SUB_BRANCH_LIMIT=2000` at depth 2 and no time limit, so the
+  run finishes and the sidecar path they test is the finished one (same-line edits).
+  `scripts/build_pgo.sh` refuses any non-zero workload exit already. `solve.py --extended-selftest`
+  subtest 8 ignores its stopped run's exit and reads the sha its resumed run writes. The runner in
+  LARGE_SCALE_CAMPAIGNS.md retries a non-zero exit; dated notes say so. `TestLaneHACIncompleteMergeInputs`
+  does not read the stopped `--branch` exit.
+- `EXHAUSTED`/`BUDGETED` in the parallel `--sub-branch` checkpoint line and report: `test_q444_…`
+  runs a capped parallel run without a node budget, which now writes `BUDGETED`; the merge gate
+  treats `BUDGETED` and `EXHAUSTED` alike when nothing is `INTERRUPTED`, so its merge and its sha
+  are unchanged. `TestQ828PgoWorkloadMustFinish` already expected `BUDGETED` for its finished
+  parallel run. No script reads that line. `per_task_stats.csv`'s `completed` column: no script reads
+  it; LARGE_SCALE_CAMPAIGNS.md's schema row has a dated note.
+- `SEARCH_COMPLETE`, `INTERRUPTED` and `TIMED_OUT` are unchanged.
+- The merge's new `Shard manifest cross-ref:` stdout line and `NOTE:` stderr line: no golden and no
+  script reads the merge's report lines; `test_q444_…` checks that the Q-910 note is absent, and the
+  new note's text differs from it.
+- `scripts/q317_missing_shard_merge_gate.sh` deletes a claimed shard, so it still exits 20 on the
+  claim check and still reports `MISSING_SHARD_MERGE=PASS`.
+
+**9. Tests.** `TestB31MergeCompleteness` in tests.py, 9 tests, on a -O1 -fopenmp build at
+`SOLVE_HASH_LOG2=16 SOLVE_DEPTH=2`, 4 threads. A SIGTERM is sent only once `/proc/<pid>/status`
+shows the handler installed, and each stopped case asserts the handler's line first.
+- Q-888 (1): a `--branch` stopped with cells in flight (precondition: an `INTERRUPTED` line exists)
+  writes neither final name, writes both `.partial` names, prints `BRANCH_OUTPUT=PARTIAL` and exits
+  36. Control: a finished `--branch` writes the final names, no `.partial` file and exits 0.
+- Q-888 (2): a stopped parallel `--sub-branch` keeps `enum_incomplete.txt` and its `--merge` exits
+  35. Control: a finished parallel run removes it.
+- Q-888 (3): a finished directory with one shard deleted and every line for its cell removed
+  (preconditions: the shard is listed in the manifest and held at least one record) is refused,
+  exit 20, `MERGE_SHARD=MISSING`, naming the shard. Controls: the intact directory merges and prints
+  the cross-ref line; without a manifest it merges and prints the skip note.
+- Q-888 (5): a gz orphan whose CRC is inverted and whose size trailer is raised by 32 (preconditions:
+  its `.budget` matches the relaunch, the new size passes the size check, and Python's gzip refuses
+  it) is not promoted on a relaunch, the WARN names it, and the cell is walked again to its
+  original record count.
+- Q-317 (2): a parallel run with `SOLVE_PER_TASK_NODE_LIMIT=1000` and no node budget (precondition:
+  a task walked more than 66,536 nodes, which the cap must have stopped) reports no capped task
+  `completed=1`, and reports `BUDGETED`, not `EXHAUSTED`. A source check confirms the old predicate
+  line is gone.
+Each refusal and status test is expected to fail on the base solve.c on its verdict and pass on this
+change; the worker runs both. No test uses a bare `assert`.
+
+**10. Gates.** Run in this lane, which builds nothing: `citation_line_gate.sh --all-files
+--all-targets`, `doc_gates.sh` (retract, ledger, appendonly-head, appendonly-history), the claim
+ledger, `TestNoBareAsserts`, `history_index.sh --check` and the public-topic scan. The worker runs
+`pre_push_compile_gate.sh`, `./solve --selftest`, the new class, the Q-444, Q-881, Q-619, Q-317 and
+Q-828 classes, `q317_missing_shard_merge_gate.sh`, the full `tests.py`, and the item (5)
+measurement. solve.c and tests.py are in the TR-12 reproduction fingerprint, so the batch re-stamps
+it.
+
+**11. Two test fixes after the worker run (2026-10-02).** The worker's chain failed two tests on this
+tree; both were test or bench-script expectations, not solve.c defects.
+- `TestQ877PerfBenchRunsMustFinish.test_bench_refuses_a_sigterm_stopped_real_treatment_run` still
+  expected the stopped `--branch` treatment run to exit 0, the Q-877 precondition, and item 8 above
+  missed it as a consumer. `scripts/perf_bench.sh` already refused the run (its collector requires
+  `enum_rc=0`, a merge and a sha, and the run printed `ENUM_RUN=STOPPED`); it now also reads exit 36
+  or a whole line `BRANCH_OUTPUT=PARTIAL` as `enum_run=STOPPED`, and its Q-877 comment no longer says
+  a stopped run returns 0. The test now requires the treatment run's own exit to be 36 (its old
+  precondition matched the synthetic training run's `rc=0` line instead), `BRANCH_OUTPUT=PARTIAL` in
+  the run's log, `BUILD U merge_rc=SKIPPED-ENUM-FAILED`, and `treatment:enum_rc=36`,
+  `treatment:enum_run=STOPPED` and `treatment:sha=ABSENT` among the refusal's reasons. Measured: it
+  passes on this tree, and fails on a bench whose collector skips the completeness checks (rc 0,
+  `PERF_BENCH_METHODOLOGY=OK`) and on one whose collector ignores the exit codes (no
+  `treatment:enum_rc=36`).
+- `TestB31MergeCompleteness.test_q317_2_…`: the precondition in item 9 ("a task walked more than
+  66,536 nodes") could never be met. `backtrack()` counts a node at entry and checks
+  `SOLVE_PER_TASK_NODE_LIMIT` only at its 65,536-node flush point, and every task ends with a
+  residual flush, so a task's first check comes at its own 65,536th node and a capped task stops a
+  few unwinding entries later. Measured on this fixture (`SOLVE_PER_TASK_NODE_LIMIT=1000`, 4 threads,
+  no time limit): all 2,488 tasks capped, at 66,037 to 66,138 nodes each. The precondition is now
+  "a task walked at least 65,536 nodes", which implies the cap fired; the workload is node-driven,
+  so the result does not depend on machine speed or core count. Measured: the test passes on this
+  tree and fails on a solve.c with the old `task_completed_cleanly` predicate (every capped task
+  reported `completed=1`).
+
+## CX-252 — the KC query surface's merge-gate residue is closed item by item: `--kc-enum-desc` names its limit and C3 bound, `--kc-scan` names its verdict on every early exit and no longer leaves a previous OUT behind a failed run, the f/g binding covers the pair table, start and budget, an n=31 manifest must be the production tuple, the atlas reader takes only the producer's gate statuses, the TR-12 run header records the binary's identity, and the fifteen KCQ02-04 findings each have a disposition on the record (solve.c; solve.py; scripts/tr12_repro.sh; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-10-01.** Origin: backlog rows Q-320 (Codex N04, R10, A04: items 3, 5 and 6), Q-326 (Codex
+Z03, A05, A06: items 2, 3, 5, 6, 7, 9 and the code half of 8) and Q-533 (the fifteen KCQ02-04
+findings that the G2 merge gate of 2026-09-04 left adjudicated with a fix named in prose, plus two
+items that gate's disposition parked in its own section 7). These became published-tree items when
+the query program merged into main (a19682b2, 2026-09-04). Landed by Opus, lane C31. Every site was
+re-located on this tree before it was changed, and each item already landed was confirmed in code
+and not redone.
+
+**No published number, count, digest or canonical output moves.** No KC count, atlas digest or n=31
+golden changes. The `solve.c` edits are on `--kc-*` paths that `./solve --selftest` does not reach,
+and every edit replaces a line in place, so no `solve.c` line number moves; the `solve.py` and `scripts/tr12_repro.sh` edits keep their line numbers the same way, with the new `solve.py` helper placed at the end of the file. `./solve --selftest`
+must still print `403f7202…`; the worker checks it against CANONICAL_HASHES.md. One stdout line
+changes: the `#provenance` line of `--kc-enum-desc` (part 1), which the n=9 golden
+`scripts/tr12_expected/n9/a1_q2d.txt` carries; the batch re-stamps it. No n=31 golden carries it.
+
+**Prior work, checked first.** Q-320 items (1), (2) and (4) are fixed (the VACUOUS verdict, the class
+and quotient row-sum gates, and c1dc9546). Q-326 items (1) and (4) are fixed (c7e8b6fc; `kc_enum`
+takes a `long long` bound), and items (3) and (5) were fixed by 0e8cacc3 and are pinned by
+`scripts/q326_kc_query_surface_gate.sh`: the per-command option table refuses `--kc-c3-max` where it
+was ignored, an unknown option is refused, and `kc_parse_walk` requires a permutation of the pairs
+(solve.c:23839-23857). The text half of Q-326 item (8) landed in CX-247 part 2. CX-241's R11 (an
+n=31 manifest must say `start_exit=0`) is in `verify.c`'s readers, not in `solve.c`'s query reader,
+so Q-326 item (2) was still live here. Seventeen of the nineteen KCQ items were fixed in code by
+14efc27f (2026-09-08) and 075931f4 (2026-09-05) without a ledger entry; part 7 records them.
+
+**1. Q-320 item (6), Codex A04: `--kc-enum-desc` did not say what it was limited to.** The
+`#provenance` line stamped only `space=`, so a run cut to a prefix by `--kc-limit` and the numeric T
+behind `walk-cd<=T` were not on the record. It now ends `limit=M` and `c3max=T`, or `limit=none` and
+`c3max=none` when either option was not given (solve.c:39029).
+
+**2. Q-320 item (3), Codex N04's checklist, re-verified.** Three of its five points were already
+true: the tail resets `t_sum_ok` (solve.c:29488), the atlas write is checked through
+`kc_h_close_artifact` and a short write prints `KC_SCAN=FAIL` (solve.c:30385-30392), and
+`atlas_load` refuses `gates.fails != 0`, `"see fails"`, `"not-emitted"` and every un-run tail check
+(`atlas_load` in solve.py). Two were still live, and are fixed:
+- *Early exits with no verdict.* `--kc-scan` exited 2 with no token when a ladder failed to open, and
+  when `--kc-layers` came without its two values. Each now prints `KC_SCAN=FAIL`, or
+  `KC_SCAN_CHUNK=FAIL` in chunk or measurement mode (solve.c:30217, :30220, :30227-30235).
+- *Gate statuses were a denylist.* `atlas_load` refused the two failure strings it knew, so any other
+  value (`false`, the string `"true"`, `"PASS"`, a number) loaded beside `"fails": 0` as though the
+  gate had passed. It now accepts only the four values the producer writes: `true`, `"see fails"`,
+  `"not-emitted"` and `"not-run (requires --kc-tdir)"`, and refuses anything else by name
+  (`_atlas_gate_vocab_check`, called at solve.py:12574 and defined at :19327). The published n=31 atlas carries only `true` and loads unchanged. The producer's
+  four strings are not changed: changing them would change every atlas's bytes, and the reader now
+  holds them to a closed set, which is what N04 asked for.
+- *Tests for the FAILED and not-run states.* N04 asked for checked-in tests. The new class covers a
+  failed gate (`"see fails"` with `fails` 1) and a tail check that did not run (`fails` -1), beside
+  the vocabulary case.
+
+**3. Q-320 item (5), Codex R10: the run header recorded no identity.** `norm()` in
+`scripts/tr12_repro.sh` strips `git=`, `source_sha=`, `engine_git` and `engine_source_sha` from the
+diffed blocks and said they are "recorded separately in the run header", but the header recorded
+only the binary's path, and `--solve` accepts any binary. The header now records the binary's
+sha256, the sha256 of the `solve.c` beside it and whether the binary embeds that sha (a binary built
+with the published line does), and the checkout's git commit with its count of modified tracked
+files (scripts/tr12_repro.sh:782, one line, so no line cited in that file moves). This is the run log only; no golden and no verdict line moves.
+
+**4. Q-326 item (2), Codex Z03: the n=31 manifest tuple was trusted.** The out-of-core reader checked
+only that the manifest's budget summed to n, so a ladder built over another start or budget would be
+answered as though it were the King Wen universe. A manifest that declares n=31 must now carry the
+production tuple, start exit 0, pairs 1..31 in order and budget (2,8,13,7,1); anything else is
+refused with exit 2 and a line naming the fields, before any layer is opened (solve.c:20514).
+Reduced-n ladders are unaffected. The tuple's pair-table hash, recomputed for this entry, equals the
+published atlas's `pl_hash` (`da2d4756d0535d0e`).
+
+**5. Q-326 item (6), Codex Z03: the f/g binding covered n and the total only.** `--kc-scan`,
+`--kc-scan-merge` and `--kc-profile` compared the two ladders' n and total, which two ladders over
+different pair tables can share. `--kc-scan` and `--kc-scan-merge` now refuse a pair whose n, start
+exit, pair-table hash or budget differ, with exit 2, their FAIL token and a line naming each field
+(`kc_fg_ctx_same`, solve.c:22410; :30236, :30969). `--kc-profile`, both forms, and
+`--kc-extremal --kc-gdir` call the check `--kc-g-check` and `--kc-o3-rank` already used, which stops
+with exit 71 (solve.c:32507, :33192, :37830).
+
+**6. Q-533, the G2 disposition's section 7.**
+- *Item 5: `--kc-scan` left the previous OUT standing on failure.* It opened OUT only after a
+  successful layer pass, so a failed run left the last run's atlas or chunk in place, the defect the
+  G2 gate fixed for `--kc-scan-merge`. `--kc-scan`, whole-run and chunk mode, now removes a
+  pre-existing regular-file OUT before it opens a ladder, as the merge does; a measurement run still
+  never touches OUT (solve.c:30220).
+- *Item 7: sha-neutrality under `-DSOURCE_SHA`.* Measured since: CX-239 part 8 records
+  `./solve --selftest`, built with `SOURCE_SHA`, printing `403f7202…`, and the worker has built every
+  batch since with the published line, which carries the flag. Closed on that record; nothing to
+  change.
+
+**7. Q-533, the fifteen KCQ02-04 findings, each with its disposition.** "Fixed" names the commit
+and the test that holds it.
+- KCQ02 #1 (XA cost in floating point could reverse a verdict): fixed, 075931f4, exact anchors and
+  rational arithmetic; held by `scripts/xa_exact_verdict_gate.sh` and tests.py's Q-772 case.
+- KCQ02 #2 (no production closure on `by_class`): fixed, the class and quotient row-sum gates in the
+  chunk and the tail (solve.c:29406, :30318) and the reader's class-set check; held by
+  `--kc-layers-selftest` and the new KCQ04 #2 case.
+- KCQ02 #3 and KCQ04 #1 (tokens asserted, not derived): fixed, 14efc27f, each XA and Q10 token read
+  off the table it rules; held by `scripts/a2_slot_verdict_gate.sh`'s fault legs.
+- KCQ02 #4 (`bits` never checked): fixed, 14efc27f, the Q3 reader re-derives it from `p_num/p_den`;
+  held by tests.py's Q3 reader cases.
+- KCQ02 #5 (the full-31 external checks unreachable): fixed, c1dc9546; held by tests.py.
+- KCQ02 #6 (counts not held to decimal strings): the reader half is fixed, 14efc27f, bare integers
+  refused except at three named producer fields. The producer half, quoting those three fields, is
+  **declined**: they are written only for a run without a t ladder and for the `walks` column,
+  which the published n=31 atlas does not carry; quoting them would change the bytes of every
+  reduced-n atlas and golden for no change in any value, and the reader already names the three
+  exceptions.
+- KCQ03 #1 (the witness verifier closed over the producer's weight): fixed, 14efc27f and the TR-12
+  two-language re-check (`solve.py --kc-x-recheck`); held by tests.py and the selftest's reference
+  evaluator.
+- KCQ03 #2 (a certificate with no witness read as witnessed) and #3 (an unwritable certificate
+  exited 0): fixed, 14efc27f; held by the new extremal case.
+- KCQ03 #4 (unknown evidence options ignored): fixed, 14efc27f; held by tests.py's unknown-option
+  cases.
+- KCQ03 #5 (K5 counted brute's extremum, not the DP's): fixed, 14efc27f; held by the new source
+  case. A mutant build that would hold it end to end is not added.
+- KCQ04 #2 (the reader accepted omitted classes): fixed, 14efc27f, set equality between the atlas's
+  classes and the reader's registry on every layer; held by the new KCQ04 #2 case. Its second half,
+  a known-answer leg with nonzero d3 and d6, is part 8.
+- KCQ04 #3 (the top gate accepted a vanished consumer): fixed, the pinned skip set of
+  `scripts/tr12_repro_gate.sh`, so a row that used to run and now skips fails the gate; held by its
+  `--selftest-skip-pin`.
+- KCQ04 #4 (G7 skipped open): fixed, 14efc27f, both G7 rows fail when `/proc/self/exe` cannot be
+  read; held by the new source case.
+
+**8. Q-326 item (9), Codex A06: no reduced instance has all five channels nonzero.** Recorded, not
+built. The reduced budgets come from a first-completion search over each rung's pairs. Re-derived for
+all eighteen reduced rungs with the published clean-room script
+(`reports/evidence/f1/f3_rung_b0_cleanroom.py`, `derive_b0`, the engine's convention; its n=9 result
+(2,5,0,2,0) is the engine's), no reduced rung has a nonzero budget for distance 6, so that channel is
+identically zero below n=31. Distance 3 is nonzero at n=12, 16, 18 and above. A reduced instance
+with all five channels nonzero therefore does not exist in the engine's rung table. The consumer
+side is covered another way: the reader refuses a class set that differs from its registry
+(KCQ04 #2), and `TestQ6ExtremesIsCheckedOnThePathThatRunsAtFull31` runs the Q6 emitter on a
+synthetic n=31 table whose d3 and d6 are nonzero.
+
+**9. Q-326 item (7), Codex Z03: `--kc-extremal` has no n=31 path.** Recorded as a permanent scope
+limit in SOLVE_C_CLI.md: the out-of-core refusal is the intended behaviour, not a gap awaiting a fix.
+The battery's Q5 row already skips with the reason, and the Python re-check refuses mismatches
+(CX-245).
+
+**10. Waiting for a decision: Q-326 item (8), the code half (Codex A05).** A transition-independent
+oracle that encodes C2 directly as `popcount(last xor entry) != 5`, keeps the five C5 counters
+without the class tables the engine uses, and compares successor sets with the ladder transition on
+every pair orbit, including 6.0 and 6.1. This is a new verifier with its own design questions (where
+it lives, given the rule that an independent check must not share the engine's tables; which n
+reaches orbits 6.0 and 6.1 in memory; whether it compares successor sets or layer masses). It is not
+changed here and is handed to Fable as a design item.
+
+**11. Tests.** tests.py class `TestC31KcQuerySurface` builds the binary and n=9 f and g ladders:
+- Q-320 (6): `--kc-enum-desc --kc-limit 3 --kc-c3-max 387` emits three walks (precondition) and a
+  provenance line with `limit=3` and `c3max=387`; without options, `limit=none` and `c3max=none`.
+- Q-320 (3): a missing f or g ladder, a chunk run with a missing g, and a bare `--kc-layers` each
+  exit 2 with their FAIL token; the published n=31 atlas loads (positive control), and `false`,
+  `"true"`, `"PASS"` and `1` in a gate are refused, as are a failed gate and a tail check that did
+  not run, while the documented `"not-run (requires --kc-tdir)"` still loads.
+- Q-320 (5): the run-header block, executed on its own, prints the binary's sha256, the `solve.c`
+  sha with `embeds it: yes` and `no` on two fixtures, and the git line.
+- Q-326 (2): an n=31 manifest with the production tuple gets past the manifest (it fails only on
+  the missing layer files); start exit 1, budget (3,7,13,7,1) and a swapped pair list are each
+  refused before any layer is opened.
+- Q-326 (6): a copy of the g ladder with two pairs swapped and its hashes re-derived (precondition:
+  `--kc-g-check` opens it and names the mismatch; the untampered pair passes) is refused by
+  `--kc-scan`, `--kc-scan-merge` and `--kc-profile`.
+- Q-533 item 5: a failed whole-run and chunk-mode `--kc-scan` removes a previous OUT; a measurement
+  run leaves OUT byte-identical; a successful run still writes its atlas.
+- Regression cover for KCQ03 #2, #3, #5 and KCQ04 #2, #4, which landed without a checked-in test;
+  these are green on the base by construction.
+The pure-Python cases were run here, red on the base files and green on the change. The binary cases
+are expected to fail on the base solve.c on their verdicts and pass on this change; the worker runs
+both. No test uses a bare `assert`.
+
+**12. Gates.** Run in this lane, which builds nothing: `citation_line_gate.sh --all-files
+--all-targets`, the full `doc_gates.sh`, the claim ledger, `TestNoBareAsserts`, `history_index.sh`
+and the public-topic scan. The worker runs `pre_push_compile_gate.sh`, `./solve --selftest`, the new
+class, `TestK28KcvTriageFixes`, `--kc-layers-selftest`, `--kc-scan-selftest`,
+`--check-gt-selftest`, `q326_kc_unrank_m0_gate.sh`, `q326_kc_query_surface_gate.sh`,
+`tr12_repro.sh --n9` with the re-stamp, and the full `tests.py`. solve.c, solve.py, tests.py and
+scripts/ are in the TR-12 reproduction fingerprint, so the batch re-stamps it.
+
+**Credit.** The findings are Codex's (N04, R10, A04, Z03, A05, A06 and KCQ02-04), adjudicated by
+Fable on 2026-09-02 and 2026-09-04. External review acknowledged; not co-authorship.
+
+## CX-253 — the four follow-ups of the Fable batch-30 pre-publication review: a malformed `pl_hash` is refused as a malformed field, the Q10 census fallback's histogram clause refuses two empty histograms on its own, the F30 red arm skips by name on a shallow clone, and the Lean bridge-fact summary says how KB2 is witnessed (solve.py; scripts/tr12_repro.sh; tests.py; lean/CompilerCorrectness.lean; documentation/SOLVE_PY_CLI.md; documentation/RETRACTED_PHRASES.tsv)
+
+**2026-10-01.** Origin: backlog row Q-916, the four FOLLOW-UP items of the Fable (claude-fable-5-1)
+pre-publication review of batch 30 (CX-245, CX-246). None is a safety defect: each input below was
+already refused, mislabelled, or shielded by an earlier check. No published number, count, sha,
+verdict or receipt moves; `solve.c` is untouched; the Lean change is comment-only (lines 42–45,
+inside the header block that runs from line 3 to line 228; no theorem, definition or `#print axioms`
+directive changes, and the worker re-runs `verify_all.sh` to show the 195 directive reports are
+byte-identical). Every code edit keeps its file's line count, so no `solve.py:N`, `tr12_repro.sh:N`
+or `tests.py:N` citation moves; the one Lean insertion is a line in a comment that nothing pins.
+
+**1. A malformed `pl_hash` is `FAIL-bad-universe`, not `FAIL-pl-hash-mismatch` (solve.py:17471–17472,
+17735–17736; SOLVE_PY_CLI.md:1421).** `_kc_x_check_cert` mapped every `ValueError` whose message began
+with `pl_hash` to `FAIL-pl-hash-mismatch`, and the malformed-field message began the same way.
+MEASURED on the base `solve.py` against the n=9 fixture certificate: `pl_hash='ZZZ'`, `None` (and a
+missing field) and the fixture's own hash in upper case all returned `FAIL-pl-hash-mismatch` — the
+label for a well-formed hash that names a different pair list. The malformed message now begins
+`malformed pl_hash=`, and the dispatch keys on the mismatch wording (`pl_hash … does not match …`),
+so a missing, non-hex, wrong-length or upper-case `pl_hash` is `FAIL-bad-universe` (the
+malformed-field refusal), and only a well-formed wrong hash — including `start_exit` changed under
+the same hash and a rotated pair list — is `FAIL-pl-hash-mismatch`. Both are still refused before Φ
+is evaluated. The SOLVE_PY_CLI row says so. Guard: `TestQ916MalformedPlHashIsItsOwnRefusal` (five
+tests): the fixed file labels six malformed certificates `FAIL-bad-universe` with a
+`malformed pl_hash=` detail and the CLI row prints the same; a copy with the base's two lines
+restored labels all six a mismatch (RED); both agree on the control and on three well-formed
+mismatches. Run with `ROAE_TESTS_SOLVEPY_SRC=<base solve.py>` the class fails two tests with
+`'FAIL-pl-hash-mismatch' != 'FAIL-bad-universe'` and passes the other three.
+
+**2. The Q-904 histogram clause requires a non-empty t histogram (scripts/tr12_repro.sh:3142, 3145;
+tests.py:28233).** Row `c_q10a`'s fallback compared t's branching histogram with f's as
+`[ "$tbh" = "$bh" ]`, which is true when neither sidecar carries a `branching` block. MEASURED on the
+published n=31 sidecars with layer 7's block removed from both: the full row still refused that
+world (rc 1, `Q10A_SIDECARS_MISSING 1`, `7 UNPARSED-SIDECAR`), but only because the parse guard
+`[ -z "$bh" ]` (af95a91f, 2026-09-05, which predates the clause) runs first; with that guard removed
+the row accepted the same world (rc 0, no mismatch). So the review's reading was right about the
+clause and the published row was never exposed. The accept test and its diagnostic now carry
+`[ -n "$tbh" ] &&`, and the clause refuses the both-empty world on its own; `TestT30Q10CensusFallback`
+'s clause anchor follows. Guard: `TestQ916CensusHistogramClauseNotVacuous` (four tests): the
+published world passes the cured row; the both-empty world is refused by the full row via the
+guard; with the guard removed, the base-shape clause accepts it (RED) and the cured clause refuses
+it with `branching_hist_equal=no` while `TR12_Q10_CENSUS_ORBITCHECK=PASS` (GREEN).
+
+**3. The F30 red arm skips by name on a shallow clone (tests.py:5973–5976, 30411, 30434–30523).**
+`TestF30KcxRecheckBindsTheUniverse.test_the_old_checker_passed_both_mutants` loads the pre-Q-905
+checker with `git show ba35b493:solve.py` and FAILED when that commit was unreachable, which is the
+right verdict for a full clone and the wrong one for a depth-limited reproducer that cannot carry
+the commit. The arm now calls `_q916_git_show_or_skip`: when the commit is not reachable AND
+`git rev-parse --is-shallow-repository` says true, the test is SKIPPED with the precondition in its
+reason (`Q916 NOT-RUN: shallow clone -- commit ba35b493 is not reachable here …`); in a full clone a
+missing object, a failed `git show` or empty output is still a FAILURE. Guard:
+`TestQ916RedArmPreconditions` (five tests) builds a two-commit repository and a real `--depth 1`
+clone of it: `git show` of the first commit fails there (RED, the base form's failure); the helper
+raises `SkipTest` naming the commit (GREEN); the same helper FAILS on a missing object in the full
+repository; it returns the file where the commit is reachable; and the F30 arm is wired to it.
+Measured here, where ba35b493 is reachable, the F30 class runs all ten tests and skips none.
+
+**4. The Lean bridge-fact summary says how KB2 is witnessed (lean/CompilerCorrectness.lean:42–45;
+registry key RP-531c8cb8).** The CX-245 summary sentence counted KB2 among the bridge facts
+"runtime-verified by" a named executable witness, while KB2's own line (line 60–62) is "code
+inspection + the same gates". The sentence now reads: each with a named witness — KB1, KB3, KB5 and
+KB6 runtime-verified by it, KB2 by code inspection plus the same gates, KB4 carried by the substitute
+evidence stated below, KB7 derived-but-unverified — and each NOT machine-checked. The retired
+fragment is registered under the key above and survives only in this ledger's CX-245 entry. The
+`lsd-text` leg R18 is unaffected (its retired regex is the pre-CX-245 wording; 0 hits on the tree
+before and after). No theorem statement, proof or directive changes.
+
+**Worker items (not run here; this box has gcc but no Lean toolchain).** `reports/certificates/verify_all.sh`
+with the 195 directive reports compared byte-for-byte against the previous run; `./solve --selftest`
+sha `403f7202…`; the full `python3 tests.py`; `scripts/tr12_repro.sh` re-stamp (the row script changed).
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, lane Q-916, batch 31c.

@@ -420,10 +420,10 @@ run_enum_only() {
         ENUM_WALL_NS=\$((END - START))
         echo \"BUILD $BUILD enum_wall_ns=\${ENUM_WALL_NS}\"
         echo \"BUILD $BUILD enum_rc=\${ENUM_RC}\"
-        # Q-877: rc 0 is also what a SIGTERM-stopped run returns (Q-828), and its partial shards still
-        # merge to a sha. FINISHED = solve's whole-line ENUM_RUN=FINISHED and no stop line; ABSENT
-        # (no token, e.g. a solve.c older than Q-828) is not a pass. The collector requires FINISHED.
-        if grep -Eq '^(ENUM_RUN=STOPPED|\\*\\*\\* Signal received)' solve.log; then ENUM_RUN=STOPPED
+        # Q-877: a stopped run used to return rc 0 (Q-828) and its partial shards still merged to a sha. FINISHED = solve's whole-line
+        # ENUM_RUN=FINISHED and no stop line; ABSENT (no token, a solve.c older than Q-828) is not a pass. The collector requires FINISHED.
+        # Q-888 (1) (CX-251): a stopped --branch now exits 36 with a whole line BRANCH_OUTPUT=PARTIAL; either also reads as STOPPED here.
+        if [ \$ENUM_RC -eq 36 ] || grep -qx 'BRANCH_OUTPUT=PARTIAL' solve.log || grep -Eq '^(ENUM_RUN=STOPPED|\\*\\*\\* Signal received)' solve.log; then ENUM_RUN=STOPPED
         elif grep -qx 'ENUM_RUN=FINISHED' solve.log; then ENUM_RUN=FINISHED; else ENUM_RUN=ABSENT; fi
         echo \"BUILD $BUILD enum_run=\${ENUM_RUN}\"
         # Merge separately (NOT counted toward speedup)

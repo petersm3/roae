@@ -10147,3 +10147,58 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
   what the child reported. Provenance lines now print how many threads were actually granted beside
   how many were requested.
 - Q-42 is closed on the limit its verifier already states. No published number, count or sha moves.
+
+## 2026-10-01 — batch 31c: merge completeness, the KC query surface's merge-gate residue, and the batch-30 review follow-ups
+
+**Batch 31c, canonical-merge completeness (CX-251).**
+
+- A `--branch` run stopped by a signal or its time limit used to write its partial set under the
+  same file names a finished run writes, and exit 0. It now writes `.partial` names, prints
+  `BRANCH_OUTPUT=PARTIAL` and exits 36. A finished run is unchanged.
+- The parallel `--sub-branch` path now keeps the run-in-progress marker until it finishes, as the
+  other enumeration modes already did, so a merge refuses its directory while the run is incomplete.
+- A merge now checks the shard list the enumeration wrote (`shard_manifest.txt`) and refuses when a
+  listed shard is gone and no checkpoint line accounts for it. Before, such a shard could be deleted
+  and the merge exited 0 without its records.
+- A gz shard left behind by a crash, with no checkpoint line, is now checked end to end before a
+  relaunch adopts it; a damaged one is walked again. Whether a real crash on the worker's disk can
+  produce such a file is measured separately; the check holds either way.
+- A sub-branch task stopped by the opt-in per-task node cap is no longer reported as completed, and
+  the sub-branch is reported `BUDGETED`, not `EXHAUSTED`. The 2,380 "fully completed" cells of the
+  April 100T pilot counted cells that ran to that cap with no other stop; the same paragraph already
+  says none was walked to its end (scope note in CX-251).
+- Two items are left for a decision and are not changed: a legacy directory whose partial shard was
+  promoted, and a separate status for a run that stopped on its node budget.
+- No published number, count or sha moves.
+
+**Batch 31c, KC query surface (CX-252).**
+
+- `--kc-enum-desc` now says on its provenance line which `--kc-limit` cut its output to a prefix and
+  which C3 bound it used.
+- `--kc-scan` prints its FAIL token when a ladder will not open, and a failed run no longer leaves
+  the previous run's atlas or chunk sitting under the output name.
+- The scan, the merge and the profile now check that the f and g ladders share a pair table, a start
+  and a budget, not only a size and a total.
+- The query reader refuses an n=31 ladder that was not built over the King Wen start, pairs and
+  budget.
+- The atlas reader accepts only the four gate statuses the producer writes.
+- The TR-12 battery's run log now records the binary's sha256, the source sha and the git commit.
+- The fifteen remaining findings of the 2026-09-02 query-program review each have a disposition on
+  the record: fourteen were fixed in code earlier (most on 2026-09-08) and one half-item is declined
+  with a reason. One design item, an independent transition oracle, waits for a decision.
+- No published number, count or sha moves.
+
+**Batch 31c, batch-30 review follow-ups (CX-253).**
+
+- A certificate whose `pl_hash` is missing or not a 16-digit lowercase hex string is now refused as
+  a malformed field (`FAIL-bad-universe`), not reported as a hash mismatch. It was refused before
+  too; the label was wrong.
+- The Q10 census fallback's "t's branching histogram equals f's" test now requires a non-empty
+  histogram. Two empty histograms compared equal; the published row never accepted that world,
+  because an earlier parse guard refused it first, and the clause no longer depends on that guard.
+- The one test that loads the pre-Q-905 checker from git history skips by name, with the reason
+  stated, on a depth-limited clone where that commit cannot exist; it still fails on a full clone
+  that cannot produce the file.
+- The Lean bridge-fact summary says KB2 is witnessed by code inspection plus the runtime gates, as
+  KB2's own line always said. Comment only; no theorem or axiom report changes.
+- No published number, count, sha or verdict moves.

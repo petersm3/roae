@@ -1888,7 +1888,7 @@ static inline int completed_sub_key_d3(int p1, int o1, int p2, int o2, int p3, i
     return ((p1 & 31) << 13) | ((o1 & 1) << 12) | ((p2 & 31) << 7) | ((o2 & 1) << 6) |
            ((p3 & 31) << 1) | (o3 & 1);
 }
-static void q619_note_interrupted(const char *line); static int q619_was_interrupted(int p1, int o1, int p2, int o2, int p3, int o3); static int q881_mark_incomplete(void); static void q881_clear_incomplete(void); static int q881_allow_incomplete(void); static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_out, int *n_bud_out, int *n_int_out); static int q881_override_at_start(void); static int q881_override_for_dir(const char *dir, const char *ctx); static long long q881_launch_budget(void);  /* Q-881, Q-317 (4), Q-619 #2: defined at the end of the file; the last two are the Q-881 follow-up (lane HAJ) */
+static int q317_task_cap_fired; static void q619_note_interrupted(const char *line); static int q619_was_interrupted(int p1, int o1, int p2, int o2, int p3, int o3); static int q881_mark_incomplete(void); static void q881_clear_incomplete(void); static int q881_allow_incomplete(void); static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_out, int *n_bud_out, int *n_int_out); static int q881_override_at_start(void); static int q881_override_for_dir(const char *dir, const char *ctx); static long long q881_launch_budget(void);  /* Q-881, Q-317 (4), Q-619 #2: defined at the end of the file; the last two are the Q-881 follow-up (lane HAJ) */
 /* Current run's per-sub-branch node budget, for budget-aware BUDGETED resume.
  * Set before the checkpoint loads: the override, else node_limit / the partition's exact size. */
 static long long current_per_branch_budget = 0;
@@ -2160,7 +2160,7 @@ static int promote_orphaned_shards(void) {
         if (is_done) { continue; } if (q619_was_interrupted(p1, o1, p2, o2, p3, o3)) { fprintf(stderr, "WARN: orphaned shard %s belongs to a sub-branch the checkpoint records as INTERRUPTED, so it holds only the records found before the stop (Q-619 #2); refusing promotion, the sub-branch will be walked again\n", n); integrity_fail++; continue; }  /* Q-619 #2: the .budget sidecar alone used to promote it */
 
         /* Integrity check: the LOGICAL size must be a positive multiple of SOL_RECORD_SIZE. Q-838 (2026-09-26): this read st_size, the COMPRESSED size of a gz shard, so ~31 of every 32 gz shards were refused */
-        long long lsz = gz_logical_size(n);  /* gz: ISIZE trailer (per-cell shards are < 4 GiB, so exact); raw: stat size; -1 on error */
+        long long lsz = gz_logical_size(n); { int q888_gz_stream_bad(const char *); if (lsz > 0 && lsz % SOL_RECORD_SIZE == 0 && q888_gz_stream_bad(n)) { integrity_fail++; continue; } }  /* Q-888 (5): a renamed gz shard whose data never reached the disk can carry a size trailer that passes the check below; its stream is now inflated and its CRC checked. gz: ISIZE trailer (per-cell shards are < 4 GiB, so exact); raw: stat size; -1 on error */
         if (lsz <= 0 || lsz % SOL_RECORD_SIZE != 0) {
             fprintf(stderr,
                     "WARN: orphaned shard %s failed integrity check (logical size=%lld); leaving for LOAD path\n",
@@ -10756,8 +10756,8 @@ static void *thread_func_sub_sub(void *arg) {
          * the flag clear so resume will redo this task. False positives
          * here mean redoing a bit of already-done work; false negatives
          * would mean skipping incomplete tasks, which would drop solutions. */
-        int task_completed_cleanly = (!sub_sub_budget_hit && !global_timed_out);
-        if (task_completed_cleanly) {
+        int task_completed_cleanly = (!sub_sub_budget_hit && !global_timed_out && !ts->task_cap_hit); if (ts->task_cap_hit) __atomic_store_n(&q317_task_cap_fired, 1, __ATOMIC_RELAXED);  /* Q-317 (2): a task stopped by SOLVE_PER_TASK_NODE_LIMIT was walked only to its cap: not completed, and the sub-branch is BUDGETED */
+        if (task_completed_cleanly || (ts->task_cap_hit && !sub_sub_budget_hit && !global_timed_out)) {  /* Q-317 (2): a capped task is still skipped by a resume, exactly as before; only its reported status changed */
             sub_sub_task_done[idx] = 1;
         }
 
@@ -20511,7 +20511,7 @@ static int kc_ooc_open_ext(KC *kc, const char *dir, const char *pfx, int is_g,
                           : (is_g ? "--kc-g-build" : "--kc-build or SOLVE_F1_KEEP_LAYERS=1"));
         return -1;
     }
-    if (only_k > n) {
+    if (n == 31) { static const int prod_b0[5] = {2, 8, 13, 7, 1}; int pl_ok = 1; for (int i = 0; i < 31; i++) pl_ok &= (pl[i] == i + 1); if (start_exit != 0 || !pl_ok || memcmp(b0v, prod_b0, sizeof(prod_b0)) != 0) { fprintf(stderr, "ERROR: [kc-ooc] %s/%s_manifest.txt declares n=31 but not the production tuple (start_exit=0, pl=1..31, b0=2,8,13,7,1): it has start_exit=%d, a pair list that %s, and b0=%d,%d,%d,%d,%d. A full-31 answer is an answer about the King Wen universe only if the ladder was built over it, so this manifest is refused rather than trusted.\n", dir, pfx, start_exit, pl_ok ? "matches" : "differs", b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]); return -1; } }  /* Q-326 item (2), 2026-10-01: the manifest tuple was checked only for sum(b0) = n */ if (only_k > n) {
         fprintf(stderr, "ERROR: [kc-ooc] layer %d out of range (manifest n=%d)\n", only_k, n);
         return -1;
     }
@@ -22407,7 +22407,7 @@ static void kc_g_ctx_check(const KC *fkc, const KC *gkc) {
              "[kc-g] f/g ladder context mismatch");
     for (int d = 0; d < 5; d++)
         F1_CHECK(fkc->b0v[d] == gkc->b0v[d], "[kc-g] f/g budget mismatch");
-}
+} /* Q-326 item (6), 2026-10-01: the same binding as kc_g_ctx_check (n, start exit, pair-table hash, budget), as a REFUSAL the caller turns into its own FAIL token rather than an abort. --kc-scan, --kc-scan-merge and --kc-profile bound only n and the total. */ static int kc_fg_ctx_same(const KC *f, const KC *g, const char *tag) { const int ok = f->n == g->n && f->start_exit == g->start_exit && f1_pl_hash(&f->c) == f1_pl_hash(&g->c) && memcmp(f->b0v, g->b0v, sizeof(f->b0v)) == 0; if (!ok) fprintf(stderr, "ERROR: [%s] f/g ladder context mismatch: n %d vs %d, start_exit %d vs %d, pl_hash %016llx vs %016llx, b0 %d,%d,%d,%d,%d vs %d,%d,%d,%d,%d. The two ladders were not built over the same pair table, start and budget, so they are not a matching pair; an equal n and total does not make them one.\n", tag, f->n, g->n, f->start_exit, g->start_exit, (unsigned long long)f1_pl_hash(&f->c), (unsigned long long)f1_pl_hash(&g->c), f->b0v[0], f->b0v[1], f->b0v[2], f->b0v[3], f->b0v[4], g->b0v[0], g->b0v[1], g->b0v[2], g->b0v[3], g->b0v[4]); return ok; }
 
 /* The f*g cut identity at ONE layer: sum over canonical masks of
  * orbit(cm) * sum_states f*g == *expect. Returns 0 OK / 1 fail (printing the
@@ -30214,26 +30214,26 @@ static int kc_scan_main(int argc, char *argv[]) {
         } else if (strcmp(argv[ai], "--kc-layers") == 0) {
             fprintf(stderr, "ERROR: [kc-scan] --kc-layers needs two arguments A B "
                     "(HALF-OPEN range [A, B))\n");
-            return 2;
+            printf("KC_SCAN=FAIL\n"); return 2;  /* Q-320 (3): every early exit names its verdict */
         } else { argv_refuse_arg(argv[1], argv[ai], "FDIR GDIR OUT, then --kc-raw, --kc-ooc, --kc-scan-threads N, --kc-gcache-mb-per-thread MB, --kc-cache-mb MB, --kc-tdir T and --kc-layers A B"); printf("KC_SCAN=FAIL\n"); return 2; } /* Q-852 */
     }
-    KC *fkc = (KC *)calloc(1, sizeof(KC));
+    const char *ftok = (chunk_mode || P.measure) ? "KC_SCAN_CHUNK=FAIL" : "KC_SCAN=FAIL";  /* Q-320 (3) */ if (!P.measure && kc_h_unlink_regular(outp) != 0) { fprintf(stderr, "ERROR: [kc-scan] cannot remove pre-existing %s: %s\n", outp, strerror(errno)); printf("%s\n", ftok); return 2; }  /* Q-533, G2 section 7 item 5: OUT means THIS run's output, so a failed run no longer leaves the previous file standing (the --kc-scan-merge rule); a MEASUREMENT run still never touches OUT */ KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = (KC *)calloc(1, sizeof(KC));
     KC *tkc = tdir ? (KC *)calloc(1, sizeof(KC)) : NULL;
     F1_CHECK(fkc && gkc && (!tdir || tkc), "[kc-scan] alloc");
     /* design s1.3/s1.2 row B: the scan streams f layers BY PATH and makes ~2n t
      * lookups in the tail, so the f and t readers get the minimal cache (1 MB ->
      * the 4-slot floor) instead of --kc-cache-mb each; only g is cache-bound. */
-    if (kc_open(fkc, fdir, force_ooc, 1) != 0) { free(fkc); free(gkc); free(tkc); return 2; }
+    if (kc_open(fkc, fdir, force_ooc, 1) != 0) { free(fkc); free(gkc); free(tkc); printf("%s\n", ftok); return 2; }
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc); free(tkc);
-        return 2;
+        printf("%s\n", ftok); return 2;
     }
     if (tdir && kc_open_as(tkc, tdir, "t", 2, force_ooc, 1) != 0) {
         kc_free(fkc); kc_free(gkc); free(fkc); free(gkc); free(tkc);
-        return 2;
+        printf("%s\n", ftok); return 2;
     }
-    F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+    if (!kc_fg_ctx_same(fkc, gkc, "kc-scan")) { kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc); free(fkc); free(gkc); free(tkc); printf("%s\n", ftok); return 2; }  /* Q-326 (6) */ F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
              "[kc-scan] f/g ladders disagree (n or total)");
     if (tkc)
         F1_CHECK(fkc->n == tkc->n && fkc->start_exit == tkc->start_exit &&
@@ -30966,7 +30966,7 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
         return 2;
     }
     /* same hard checks --kc-scan applies */
-    F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+    if (!kc_fg_ctx_same(fkc, gkc, "kc-scan-merge")) { kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc); free(fkc); free(gkc); free(tkc); printf("KC_SCAN_MERGE=FAIL\n"); return 2; }  /* Q-326 (6) */ F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
              "[kc-scan-merge] f/g ladders disagree (n or total)");
     if (tkc)
         F1_CHECK(fkc->n == tkc->n && fkc->start_exit == tkc->start_exit &&
@@ -32504,7 +32504,7 @@ static int kc_profile_main(int argc, char *argv[]) {
         kc_free(fkc); free(fkc); free(gkc); free(P);
         return 2;
     }
-    F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+    kc_g_ctx_check(fkc, gkc);  /* Q-326 (6): n, start exit, pair-table hash and budget, not only n and the total */ F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
              "[kc-profile] f and g ladders disagree on n or on the total -- "
              "they are not a matching pair");
     int rc = 0;
@@ -33189,7 +33189,7 @@ static int kc_profile_walks_main(int argc, char *argv[]) {
         kc_free(fkc); free(fkc); free(gkc); free(P);
         return 2;
     }
-    F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+    kc_g_ctx_check(fkc, gkc);  /* Q-326 (6): n, start exit, pair-table hash and budget, not only n and the total */ F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
              "[kc-profile] f and g ladders disagree on n or on the total -- "
              "they are not a matching pair");
     KcWalkRow *rows = NULL;
@@ -37827,7 +37827,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
             kc_x_free(fkc, XL); free(XL); kc_free(fkc); free(fkc);
             return 2;
         }
-        F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+        kc_g_ctx_check(fkc, gkc);  /* Q-326 (6) sibling */ F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
                  "[kc-extremal] f and g ladders disagree on n or on the total -- "
                  "they are not a matching pair");
         const uint64_t bad = kc_x_null_vs_g(fkc, XL, gkc);
@@ -39026,11 +39026,11 @@ static int kc_cli(int argc, char *argv[]) {
                 (unsigned long long)emitted, c3max >= 0 ? " (C3 in-path)" : "",
                 desc ? " (descending)" : "");
         if (desc) {
-            printf("#provenance\tengine=solve.c/kc-enum-desc\tbranch=%s\t"
+            char lim_s[32], c3_s[32]; if (limit > 0) snprintf(lim_s, sizeof(lim_s), "%lld", limit); else strcpy(lim_s, "none"); if (c3max >= 0) snprintf(c3_s, sizeof(c3_s), "%lld", c3max); else strcpy(c3_s, "none");  /* Q-320 (6): the trailer now names the --kc-limit that made the output a PREFIX, and the numeric T behind "walk-cd<=T" */ printf("#provenance\tengine=solve.c/kc-enum-desc\tbranch=%s\t"
                    "git=%s\tsource_sha=%s\tn=%d\torder=REL-DESCENDING"
-                   "(reverse-exit-lex,descending;NOT-O3)\tobject=WALK\tspace=%s\n",
+                   "(reverse-exit-lex,descending;NOT-O3)\tobject=WALK\tspace=%s\tlimit=%s\tc3max=%s\n",
                    GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n,
-                   c3max >= 0 ? "C1C2C4C5+walk-cd<=T" : "C1C2C4C5-SUPERSPACE");
+                   c3max >= 0 ? "C1C2C4C5+walk-cd<=T" : "C1C2C4C5-SUPERSPACE", lim_s, c3_s);
             printf("KC_ENUM_DESC=OK\n");
         }
     } else {
@@ -48641,7 +48641,7 @@ sub_enum_done:
             sigemptyset(&sa_usr.sa_mask);
             sigaction(SIGUSR1, &sa_usr, NULL);
 
-            start_time = time(NULL);
+            { int q881m = q881_mark_incomplete(); if (q881m != 0) { return q881m > 0 ? q881m : 10; } } start_time = time(NULL);  /* Q-888 (2): the parallel --sub-branch path keeps enum_incomplete.txt until it finishes, as --branch and the full run do */
             printf("Starting parallel --sub-branch enumeration...\n\n");
             fflush(stdout);
 
@@ -48815,7 +48815,7 @@ sub_enum_done:
 
             const char *status_p;
             if (global_timed_out) status_p = "INTERRUPTED";
-            else if (sub_sub_budget_hit) status_p = "BUDGETED";
+            else if (sub_sub_budget_hit || q317_task_cap_fired) status_p = "BUDGETED";  /* Q-317 (2): a per-task cap is a budget; it used to report EXHAUSTED */
             else status_p = "EXHAUSTED";
 
             long elapsed_p = (long)(time(NULL) - start_time);
@@ -48880,7 +48880,7 @@ sub_enum_done:
                 fclose(ckpt_p);
             }
             pthread_mutex_unlock(&checkpoint_mutex);
-            printf("ENUM_RUN=%s\n", global_timed_out ? "STOPPED" : "FINISHED"); fflush(stdout);  /* Q-828: whole-line verdict; STOPPED = signal or time limit (global_timed_out), which also exits 0 */
+            if (!global_timed_out) { q881_clear_incomplete(); } printf("ENUM_RUN=%s\n", global_timed_out ? "STOPPED" : "FINISHED"); fflush(stdout);  /* Q-828: whole-line verdict; STOPPED = signal or time limit (global_timed_out), which also exits 0. Q-888 (2): the marker is removed only here, after the shard and the checkpoint line, and only when not stopped */
             fprintf(stderr, "\n*** Parallel --sub-branch %s: %lldB nodes, %lldM C3, "
                     "%d solutions, %lds (%d threads, %d tasks, %lld dedup collisions) ***\n",
                     status_p, total_nodes_p/1000000000LL, total_c3_p/1000000LL,
@@ -49179,10 +49179,10 @@ sub_enum_done:
                 unique_count++;
             }
         }
-        /* Per-branch output filenames */
+        int q888_branch_stopped(const char *, const char *); const int q888_stopped = global_timed_out;  /* Q-888 (1): read once. Per-branch output filenames; a stopped run's partial set gets the .partial names */
         char bin_name[64], sha_name[64], json_name[64];
-        snprintf(bin_name, sizeof(bin_name), "solutions_%d_%d.bin", sb_pair, sb_orient);
-        snprintf(sha_name, sizeof(sha_name), "solutions_%d_%d.sha256", sb_pair, sb_orient);
+        snprintf(bin_name, sizeof(bin_name), "solutions_%d_%d%s.bin", sb_pair, sb_orient, q888_stopped ? ".partial" : "");
+        snprintf(sha_name, sizeof(sha_name), "solutions_%d_%d%s.sha256", sb_pair, sb_orient, q888_stopped ? ".partial" : "");
         snprintf(json_name, sizeof(json_name), "results_%d_%d.json", sb_pair, sb_orient);
 
         printf("Writing %lld unique solutions to %s...\n", unique_count, bin_name);
@@ -49415,7 +49415,7 @@ sub_enum_done:
                    c6_sat, c7_sat, c6c7_sat, per_boundary, adj_hist, cd_hist,
                    pair_freq_m, super_match, hash_only, bin_name);
         printf("JSON results written to %s\n", json_name);
-        return 0;
+        return q888_stopped ? q888_branch_stopped(bin_name, sha_name) : 0;  /* Q-888 (1): a stopped run used to exit 0 here with its partial set under the final names */
     }
 
     /* ---------- Normal mode: enumerate all depth-2 sub-branches ---------- */
@@ -51996,7 +51996,7 @@ static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_ou
                             "      (Q-317 (4)) has no count to compare for its records: that check is SKIPPED for them, not passed (Q-910)\n",
                     ctx, n_chunks, dir);
     }
-    if (n_exh_out) *n_exh_out = n_exh;
+    { int q888_manifest_missing(const char *, const char *, const long long *, int); n_missing += q888_manifest_missing(dir, ctx, claim, n_missing); }  /* Q-888 (3) */ if (n_exh_out) *n_exh_out = n_exh;
     if (n_bud_out) *n_bud_out = n_bud;
     if (n_int_out) *n_int_out = n_incomplete;
     if (n_incomplete > 0 && !allow)
@@ -52167,4 +52167,93 @@ static void selftest_relay_child_stderr(const char *dir, int failed) {
             fprintf(stderr, "[--selftest child] %s%s", s, (len && s[len - 1] == '\n') ? "" : "\n");
         }
     }
+}
+
+/* ---------- Q-888 (lane B31, 2026-10-01): the merge-completeness residue CX-235 part 7 left open ----------
+ *
+ * (1) A --branch run (and a single-threaded --sub-branch run, which shares its output block) stopped by
+ *     a signal or its time limit wrote its partial set to solutions_<p1>_<o1>.bin and its .sha256, the
+ *     names a finished run writes, and exited 0. Its partial set now goes to
+ *     solutions_<p1>_<o1>.partial.bin and .partial.sha256, its report is printed as before, and it
+ *     exits 36 with a whole line BRANCH_OUTPUT=PARTIAL. A finished run is unchanged.
+ * (2) The parallel --sub-branch path wrote no run-in-progress marker. It now writes Q881_MARKER just
+ *     before its workers start and removes it after its shard and its checkpoint line are written,
+ *     only when it was not stopped (call sites: the parallel --sub-branch block).
+ * (3) A shard that no checkpoint line claims (a lost promoted line, for example) could be deleted and
+ *     the merge still exited 0 with fewer records. q881_merge_input_gate() now also reads
+ *     shard_manifest.txt, which the full enumeration writes after its startup promotion and again
+ *     after its worker join, and refuses (MERGE_SHARD=MISSING, exit 20) when a shard it lists is
+ *     absent. Presence only: the manifest's sizes and digests are the startup auto-verify's business.
+ *     A directory with no manifest (a --branch directory, a run under SOLVE_SKIP_AUTO_MANIFEST=1) is
+ *     not checked, and the merge says so in a NOTE line.
+ * (5) Under SOLVE_FSYNC_BATCH_SIZE > 1 a crash can leave a renamed gz shard whose data never reached
+ *     the disk; promote_orphaned_shards() read only its 4-byte size trailer, which garbage passes when
+ *     it is a positive multiple of 32 (1 value in 32). A gz orphan is now inflated and its CRC-32 and
+ *     size trailer checked (gz_test) before it can be promoted; a failure refuses the promotion and
+ *     the cell is walked again. Only orphans reach this check: a shard a checkpoint line already
+ *     records is skipped before it.
+ * None of these changes a byte of any shard or of solutions.bin. */
+int q888_branch_stopped(const char *bin_name, const char *sha_name) {
+    fflush(stdout);
+    fprintf(stderr, "WARNING: this single-branch run was STOPPED (signal or time limit) before every sub-branch was walked, so its\n"
+                    "         records are a partial set: they were written to %s and %s, not to the\n"
+                    "         names a finished run writes. Relaunch the same command to resume; the finished run writes the\n"
+                    "         final names (Q-888 (1)).\n", bin_name, sha_name);
+    printf("BRANCH_OUTPUT=PARTIAL\n");
+    fflush(stdout);
+    return 36;
+}
+int q888_manifest_missing(const char *dir, const char *ctx, const long long *claim, int already) {
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "%s/shard_manifest.txt", dir);
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        if (errno == ENOENT) {
+            fprintf(stderr, "NOTE: %s: no shard_manifest.txt in %s, so a shard that no checkpoint line claims cannot be\n"
+                            "      missed by name: that check is SKIPPED, not passed (Q-888 (3))\n", ctx, dir);
+            return 0;
+        }
+        fprintf(stderr, "ERROR: %s: cannot read %s: %s -- refusing to merge without the shard list it holds (Q-888 (3))\n",
+                ctx, path, strerror(errno));
+        return 1;
+    }
+    char line[4096];
+    int missing = 0, listed = 0;
+    while (fgets(line, sizeof(line), f)) {
+        char *tab = strchr(line, '\t');
+        if (!tab) continue;
+        *tab = '\0';
+        if (strncmp(line, "sub_", 4) != 0 || strchr(line, '/') != NULL) continue;
+        listed++;
+        int p1, o1, p2, o2, p3 = -1, o3 = -1, k = -1;
+        char tail[8];
+        if (sscanf(line, "sub_%d_%d_%d_%d_%d_%d%7s", &p1, &o1, &p2, &o2, &p3, &o3, tail) == 7 && strcmp(tail, ".bin") == 0)
+            k = q623_sec25_key(p1, o1, p2, o2, p3, o3);
+        else if (sscanf(line, "sub_%d_%d_%d_%d%7s", &p1, &o1, &p2, &o2, tail) == 5 && strcmp(tail, ".bin") == 0)
+            k = q623_sec25_key(p1, o1, p2, o2, -1, -1);
+        if (k >= 0 && claim[k] > 0) continue;   /* a line claims it: the claim check above already judged it */
+        char sp[PATH_MAX + sizeof(line) + 2];
+        snprintf(sp, sizeof(sp), "%s/%s", dir, line);
+        if (access(sp, F_OK) != 0 && errno == ENOENT) {
+            missing++;
+            if (already + missing <= 10)
+                fprintf(stderr, "ERROR: %s: shard %s is ABSENT, but shard_manifest.txt lists it and no checkpoint line claims it:\n"
+                                "       its records would be missing from the merge (Q-888 (3))\n", ctx, sp);
+        }
+    }
+    int rerr = ferror(f);
+    fclose(f);
+    if (rerr) {
+        fprintf(stderr, "ERROR: %s: read error on %s -- refusing to merge without the shard list it holds (Q-888 (3))\n", ctx, path);
+        return missing + 1;
+    }
+    if (missing == 0)
+        printf("  Shard manifest cross-ref: all %d shard(s) listed in shard_manifest.txt are present (Q-888 (3))\n", listed);
+    return missing;
+}
+int q888_gz_stream_bad(const char *name) {
+    if (!file_is_gzip(name) || gz_test(name) == 0) return 0;
+    fprintf(stderr, "WARN: orphaned shard %s fails its gzip CRC-32/size check (its data did not all reach the disk, or it was\n"
+                    "      damaged); refusing promotion, the sub-branch will be walked again (Q-888 (5))\n", name);
+    return 1;
 }

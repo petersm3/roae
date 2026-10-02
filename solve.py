@@ -12571,7 +12571,7 @@ def atlas_load(path):
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6529,
     # :6658; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
-    failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted"))
+    failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted")); _atlas_gate_vocab_check(gates, path)  # Q-320 (3): a closed status vocabulary
     if fails != 0 or failed:
         raise AtlasError(
             "%s: the producer's OWN recomputed gates FAILED (gates.fails=%d%s). Refusing to "
@@ -17468,8 +17468,8 @@ def _kc_x_universe(cert):
     want = _kc_x_pl_hash(n, start_exit, pl)
     got = cert.get("pl_hash")
     if (not isinstance(got, str) or len(got) != 16
-            or any(c not in "0123456789abcdef" for c in got)):
-        raise ValueError("pl_hash=%r is not a 16-digit lowercase hex string" % (got,))
+            or any(c not in "0123456789abcdef" for c in got)):  # Q-916: a malformed field, not a mismatch
+        raise ValueError("malformed pl_hash=%r: not a 16-digit lowercase hex string" % (got,))
     if got != want:
         raise ValueError("pl_hash %s does not match the FNV of (n=%d, start_exit=%d, pairs) = %s: "
                          "the pairs field is not the ladder's" % (got, n, start_exit, want))
@@ -17732,8 +17732,8 @@ def _kc_x_check_cert(cert):
         pl, universe = _kc_x_universe(cert)
     except ValueError as e:
         msg = str(e)
-        return ("FAIL-pl-hash-mismatch" if msg.startswith("pl_hash") else "FAIL-bad-universe",
-                msg)
+        return ("FAIL-pl-hash-mismatch" if msg.startswith("pl_hash ") and " does not match "
+                in msg else "FAIL-bad-universe", msg)  # Q-916: a malformed pl_hash is FAIL-bad-universe
     try:
         budget = _kc_x_budget(cert, universe, start_exit)
     except ValueError as e:
@@ -19323,6 +19323,26 @@ def _p2_cs_clean_on_fail(impl, solutions_bin, out_dir, *args, **kwargs):
                       f"it wrote to {out_dir}; files that were already there are untouched",
                       flush=True)
 
+
+def _atlas_gate_vocab_check(gates, path):
+    """Q-320 item (3), Codex N04 (2026-10-01): a STABLE per-gate status vocabulary for atlas_load.
+
+    atlas_load's denylist refuses the two failure strings it knows, so until this check any OTHER
+    value -- `false`, the string "true", "PASS", a number -- loaded beside "fails": 0 as though the
+    gate had passed.  The producer writes exactly four values (solve.c kc_h_scan_write_atlas): the
+    JSON literal true, "see fails", "not-emitted" and "not-run (requires --kc-tdir)".  Anything else
+    is refused by name.  `is True` on purpose: 1 == True in Python, and a gate is not a count.
+    Defined here, at the end of the file, so that no solve.py line cited elsewhere moves.
+    """
+    vocab = ("see fails", "not-emitted", "not-run (requires --kc-tdir)")
+    unknown = sorted(k for k, v in gates.items()
+                     if k != "fails" and v is not True and not (isinstance(v, str) and v in vocab))
+    if unknown:
+        raise AtlasError(
+            "%s: gates carries a status outside the producer's vocabulary (%s). A gate reads true, "
+            "\"see fails\", \"not-emitted\" or \"not-run (requires --kc-tdir)\"; any other value "
+            "is not a verdict, so this atlas is refused."
+            % (path, ", ".join("%s=%r" % (k, gates[k]) for k in unknown)))
 
 if __name__ == "__main__":
     main()
