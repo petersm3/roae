@@ -3850,7 +3850,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
         self.assertIn("KW_REQUIRED=NO", lines)
 
     def test_kw_presence_is_a_machine_readable_token_in_both_modes(self):
-        """KW_PRESENT mirrors verify.py:7127 exactly, and pairs with KW_REQUIRED.
+        """KW_PRESENT mirrors verify.py:7147 exactly, and pairs with KW_REQUIRED.
 
         Presence is a FACT about the artifact; KW_REQUIRED is the CONTRACT in force. A log carrying
         only the second cannot answer "was King Wen actually there?" without re-parsing the prose
@@ -15115,7 +15115,7 @@ class TestQ845MoreArgRefusal(unittest.TestCase):
               (["--validate", "KW"], 0), (["--validate", "--expect-kw", "KW"], 0),
               (["--validate", "KW", "--expect-kw"], 0), (["--validate", "BAD"], 1),
               (["--c3-min", "KW"], 0), (["--symmetry-search"], 0),
-              (["--symmetry-search", "--validate-counts"], 0),
+              (["--symmetry-search", "--validate-counts"], 1),  # empty stdin: refused by name since R12b #12 (lane E31)
               (["--yield-report"], 1),                 # empty stdin: the mode ran and said so
               (["--null-gray"], 0), (["--null-lex"], 0), (["--null-historical"], 0),
               (["--null-latin-explain"], 0), (["--null-random", "1000"], 0),
@@ -29408,6 +29408,365 @@ class TestG31SatCliEdges(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(open(a, "rb").read()).hexdigest(),
                                  hashlib.sha256(open(b, "rb").read()).hexdigest(), args)
 # end lane G31
+
+
+class TestE31R12bFalseAcceptsPython(unittest.TestCase):
+    """Lane E31 (batch 31b, 2026-10-01): Codex R12b's remaining false accepts in the Python
+    instruments, each reproduced before it was fixed. Every test builds the exact fixture the
+    unfixed code ACCEPTED (exit 0) and asserts the fixed code refuses it, with a positive control
+    that the refusal is not a blanket one.
+      #11  verify.py --fiber-sweep read each record's stored orientation and never used it; a King
+           Wen record with byte 15 flipped (fails C5 as stored) exited 0.
+           verify.py --check-t5-c3 printed the header version and never checked it.
+      #12  verify.py --t3-membership counted duplicate walks and left them out of the verdict.
+           verify.py --t3-stats passed a 16-line population (chi^2 = 0, C3 fraction 0.125).
+      #16  verify.py --fiber-sweep on a NAMED artifact that does not exist exited 0.
+           solve.py --extended-selftest subtest 1 checked only that three paths agreed.
+    RED RUNS. verify.py has no tests.py-wide override, so this class reads ROAE_TESTS_VERIFYPY_SRC
+    (a path to another verify.py) for its own subprocess and in-process runs; solve.py goes through
+    _load / ROAE_TESTS_SOLVEPY_SRC as everywhere else. Against the unfixed files every test below
+    fails on its refusal assertion, and every precondition still holds."""
+
+    KW_REC = bytes.fromhex("0004080c1014181c2024282c3034383c4044484c5054585c6064686c7074787c")
+    HDR1 = b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16
+    CANON = "403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.vpy = os.path.abspath(os.environ.get("ROAE_TESTS_VERIFYPY_SRC", "verify.py"))
+        cls.tmp = tempfile.mkdtemp(prefix="e31py_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _v(self, *argv, timeout=600):
+        return subprocess.run([sys.executable, self.vpy] + list(argv), capture_output=True,
+                              text=True, timeout=timeout, stdin=subprocess.DEVNULL)
+
+    def _write(self, name, data, mode="wb"):
+        p = os.path.join(self.tmp, name)
+        with open(p, mode) as fh:
+            fh.write(data)
+        return p
+
+    # ---- #11: --fiber-sweep must check the STORED orientation ----
+    def test_r12b_11_fiber_sweep_refuses_a_stored_orientation_outside_the_fiber(self):
+        rec = bytearray(self.KW_REC)
+        self.assertEqual(rec[15], 0x3C, "precondition: byte 15 of the King Wen record")
+        rec[15] = 0x3E                                  # one within-pair orientation flipped
+        bad = self._write("kw_flip.bin", self.HDR1 + bytes(rec))
+        good = self._write("kw.bin", self.HDR1 + self.KW_REC)
+        r = self._v(bad)                                # records path: the record fails C5 as stored
+        self.assertEqual(r.returncode, 1, "precondition: the flipped record must fail the records path\n" + r.stdout[-800:])
+        self.assertIn("VERIFY=FAIL", r.stdout.splitlines())
+        ctl = self._v(good, "--fiber-sweep")
+        self.assertEqual(ctl.returncode, 0, "positive control: King Wen as stored is in its fiber\n" + ctl.stdout[-800:])
+        r = self._v(bad, "--fiber-sweep")
+        self.assertNotEqual(r.returncode, 0, "R12b #11: a record failing C5 as stored must not pass --fiber-sweep\n" + r.stdout[-800:])
+        self.assertIn("STORED orientation outside it", r.stdout)
+
+    def test_r12b_16_fiber_sweep_named_absent_artifact_is_an_error(self):
+        missing = os.path.join(self.tmp, "no_such_artifact.bin")
+        self.assertFalse(os.path.exists(missing), "precondition: the named artifact is absent")
+        r = self._v(missing, "--fiber-sweep")
+        self.assertEqual(r.returncode, 2, "R12b #16: a named, absent artifact is an error\n" + r.stdout[-600:])
+        self.assertIn("the named artifact does not exist", r.stdout)
+
+    # ---- #11: --check-t5-c3 must check the header version ----
+    def test_r12b_11_check_t5_c3_refuses_an_unsupported_header_version(self):
+        try:
+            import pyarrow  # noqa: F401
+        except ImportError:
+            self.skipTest("pyarrow absent: --compute-stats and --check-t5-c3 need it")
+        S = _load("solve")
+        kw = ",".join(str(h) for h in S.binary_hexagrams)
+        stream = self._write("t5_kw.out", "record\tcd=387\t%s\n" % kw, mode="w")
+        raw = os.path.join(self.tmp, "t5_raw.bin")
+        r = subprocess.run([sys.executable, _py_src("solve"), "--encode-solutions", raw, stream],
+                           capture_output=True, text=True)
+        self.assertIn("ENCODE_ROUNDTRIP=PASS", r.stdout.splitlines(), r.stdout + r.stderr)
+        chunks = os.path.join(self.tmp, "t5_chunks")
+        r = subprocess.run([sys.executable, _py_src("solve"), "--compute-stats", raw, chunks,
+                            "--compute-stats-workers", "1"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout[-800:] + r.stderr[-800:])
+        ctl = self._v("--check-t5-c3", raw, chunks)
+        self.assertIn("T5_C3_AGREE=PASS", ctl.stdout.splitlines(), "positive control\n" + ctl.stdout[-800:])
+        blob = bytearray(open(raw, "rb").read())
+        blob[4:8] = struct.pack("<I", 2)
+        v2 = self._write("t5_v2.bin", bytes(blob))
+        self.assertEqual(open(v2, "rb").read()[4:8], struct.pack("<I", 2), "precondition: version 2 on disk")
+        r = self._v("--check-t5-c3", v2, chunks)
+        self.assertNotEqual(r.returncode, 0, "R12b #11: a version-2 header must not pass\n" + r.stdout[-800:])
+        self.assertTrue(any(l.startswith("T5_C3_AGREE=FAIL unsupported header") for l in r.stdout.splitlines()),
+                        r.stdout[-800:])
+
+    # ---- #12: T3 population checks ----
+    def _kw_draw(self, rank, cd=None):
+        V = _load_path("verify_e31", self.vpy)
+        walk = list(V.KW[2:])
+        cd = V._t3_cd(V._t3_reconstruct(walk)) if cd is None else cd
+        return "%d\tcd=%d\t%s\n" % (rank, cd, ",".join(map(str, walk)))
+
+    def test_r12b_12_t3_membership_fails_on_a_duplicate_walk(self):
+        one = self._write("t3_stream_one.out", self._kw_draw(5), mode="w")
+        ctl = self._v("--t3-membership", one)
+        self.assertEqual(ctl.returncode, 0, "positive control: one King Wen draw is a member\n" + ctl.stdout[-800:])
+        dup = self._write("t3_stream_dup.out", self._kw_draw(5) * 2, mode="w")
+        r = self._v("--t3-membership", dup)
+        self.assertIn("duplicate walks                            : 1", r.stdout,
+                      "precondition: the duplicate was seen\n" + r.stdout[-800:])
+        self.assertEqual(r.returncode, 1, "R12b #12: a duplicate walk must fail the census\n" + r.stdout[-800:])
+
+    def test_r12b_12_t3_stats_requires_the_preregistered_population(self):
+        import contextlib, io
+        V = _load_path("verify_e31_stats", self.vpy)
+        N = V.T3_N
+        lines = "".join(self._kw_draw((2 * i + 1) * N // 32, cd=387 if i < 2 else 400) for i in range(16))
+        p = self._write("t3_stream_16.out", lines, mode="w")
+        r = self._v("--t3-stats", p)
+        self.assertIn("chi^2 = 0.0000", r.stdout, "precondition: the fixture is perfectly uniform\n" + r.stdout[-800:])
+        self.assertIn("  (a) uniformity  : PASS", r.stdout.splitlines())
+        self.assertIn("  (c) C3 fraction : within bar", r.stdout.splitlines())
+        self.assertEqual(r.returncode, 1, "R12b #12: 16 draws are not the pre-registered 16 x 62,500\n" + r.stdout[-800:])
+        # positive control: the same population passes when it IS the required shape
+        self.assertTrue(hasattr(V, "T3_STREAMS") and hasattr(V, "T3_DRAWS_PER_STREAM"),
+                        "the pre-registered shape constants are absent")
+        V.T3_STREAMS, V.T3_DRAWS_PER_STREAM = 1, 16
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = V.t3_stats(p)
+        self.assertEqual(rc, 0, "control: the shape check must not refuse a matching population\n" + buf.getvalue()[-800:])
+
+    # ---- #16: --extended-selftest subtest 1 must compare with the canonical sha ----
+    def _ext(self, sha):
+        import contextlib, io
+        S = _load("solve")
+        d = tempfile.mkdtemp(prefix="e31_ext_")
+        self.addCleanup(shutil.rmtree, d, True)
+        stub = os.path.join(d, "solve_stub")
+        with open(stub, "w") as f:
+            f.write("#!/bin/sh\n")
+            f.write('if [ "$1" = "--branch" ]; then echo "%s  x" > "solutions_$2_$3.sha256"; '
+                    'else echo "%s  solutions.bin" > solutions.sha256; fi\nexit 0\n' % ("ab" * 32, sha))
+        os.chmod(stub, 0o755)
+        old_tmp, tempfile.tempdir = tempfile.tempdir, d
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                S.extended_selftest(stub)
+        finally:
+            tempfile.tempdir = old_tmp
+        return buf.getvalue()
+
+    def test_r12b_16_extended_selftest_subtest_1_compares_the_canonical_sha(self):
+        wrong = "cd" * 32
+        out = self._ext(wrong)
+        for label in ("recursive", "iterative", "iterative+v2"):
+            self.assertIn("  %-14s: %s" % (label, wrong), out, "precondition: the stub ran on all three paths")
+        self.assertNotIn("3-way sha mismatch", out, "precondition: the three paths agree")
+        self.assertIn("  - subtest 1: the three paths agree on %s, which is NOT the canonical selftest sha" % wrong,
+                      out, "R12b #16: agreement on a non-canonical sha must fail subtest 1\n" + out[-1500:])
+        ctl = self._ext(self.CANON)
+        self.assertIn("  recursive     : %s" % self.CANON, ctl)
+        self.assertNotIn("  - subtest 1:", ctl, "positive control: the canonical sha passes subtest 1")
+
+    # ---- Q-465 and Q-886 (3): source guards ----
+    def _solve_src(self):
+        with open(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_q465_every_printed_thread_request_carries_the_grant(self):
+        src = self._solve_src()
+        sites = [m.start() for m in re.finditer(r"omp_get_max_threads\(\)", src)]
+        printing = []
+        for pos in sites:
+            pf = max(src.rfind("printf(", 0, pos), -1)
+            if pf >= 0 and ";" not in src[pf:pos]:
+                printing.append((pf, src.index(";", pos)))
+        self.assertGreaterEqual(len(printing), 5, "precondition: the five printing request sites "
+                                "(the [f1]/[f1u]/[kc-g]/[kc-t] start lines and the layer sidecar)")
+        bare = [src.count("\n", 0, a) + 1 for a, b in printing
+                if "omp_granted_threads()" not in src[a:b] or "granted" not in src[a:b].replace("omp_granted_threads()", "")]
+        self.assertEqual(bare, [], "Q-465: these printed thread REQUESTS carry no grant beside them (lines %s)" % bare)
+        helper = [l for l in src.splitlines() if l.startswith("static int omp_granted_threads(void)")]
+        self.assertEqual(len(helper), 1, "the grant helper must be defined once")
+        self.assertIn("omp parallel", helper[0])
+        self.assertIn("omp_get_num_threads()", helper[0], "the grant is measured INSIDE a parallel region")
+
+    def test_q886_3_selftest_children_keep_stderr(self):
+        src = self._solve_src()
+        child = [l for l in src.splitlines() if l.lstrip().startswith('"%s 0 > /dev/null')]
+        self.assertEqual(len(child), 1, "precondition: the --selftest child command line")
+        self.assertNotIn("2>&1", child[0].split("/*")[0], "Q-886 (3): the --selftest child's stderr must not be discarded")
+        self.assertIn("2> selftest_child.stderr", child[0])
+        auto = [l for l in src.splitlines() if '"%s --selftest > /dev/null' in l]
+        self.assertEqual(len(auto), 1, "precondition: the auto-selftest command line")
+        self.assertNotIn("2>&1", auto[0].split("/*")[0], "Q-886 (3): the auto-selftest must not discard --selftest's stderr")
+        self.assertIn("selftest_relay_child_stderr(tempdir_template,", src)
+
+# end class TestE31R12bFalseAcceptsPython (lane E31)
+
+
+def _load_path(name, path):
+    """Load a module from an explicit path (lane E31: verify.py under ROAE_TESTS_VERIFYPY_SRC)."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+class TestE31EngineResidueWorker(unittest.TestCase):
+    """Lane E31 (batch 31b, 2026-10-01), compiled legs. The binary is built from
+    ROAE_TESTS_SOLVE_SRC (default solve.c), so the red run is the same class against the unfixed
+    solve.c; ROAE_TESTS_VERIFYPY_SRC selects the verify.py the #16 sample leg loads.
+      Q-886 (3)  the --selftest child's stderr reached /dev/null: an invalid OMP_NUM_THREADS makes
+                 libgomp print a warning in BOTH processes; the parent's own copy is the
+                 precondition, the child's relayed copy is the assertion, and the selftest must
+                 still PASS on the canonical sha.
+      Q-465      OMP_THREAD_LIMIT=1 under OMP_NUM_THREADS=2: the [f1] run: line must say granted=1
+                 beside threads=2 (default: granted=2).
+      R12b #14   --f1c5-verify-layer reported IDENTICAL for a v2 file whose header names another
+                 layer, and for either file with stale trailing bytes.
+      R12b #12   --symmetry-search --validate-counts on an empty log printed every sigma as a
+                 candidate and exited 0.
+      R12b #16   tests.py's only real-record fiber test skips (no solutions.bin ships); this leg
+                 makes a sample with the built binary and checks every stored orientation."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="e31w_")
+        cls.sbin = os.path.join(cls.tmp, "solve_e31")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _env(self, **extra):
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("SOLVE_", "OMP_"))}
+        env.update(extra)
+        return env
+
+    def _run(self, argv, env, timeout=600, cwd=None, stdin=subprocess.DEVNULL):
+        return subprocess.run([self.sbin] + argv, cwd=cwd or self.tmp, env=env, capture_output=True,
+                              text=True, timeout=timeout, stdin=stdin)
+
+    def test_q886_3_selftest_relays_child_runtime_diagnostics(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        r = self._run(["--selftest"], self._env(OMP_NUM_THREADS="e31-not-a-number"), timeout=1800)
+        errl = r.stderr.splitlines()
+        self.assertTrue(any(l.startswith("libgomp:") for l in errl),
+                        "precondition: this libgomp warns about the invalid OMP_NUM_THREADS\n" + r.stderr[-1500:])
+        self.assertIn("[--selftest] Actual sha256:   " + TestE31R12bFalseAcceptsPython.CANON, r.stdout.splitlines(),
+                      "the selftest sha must not move\n" + r.stdout[-1500:])
+        self.assertEqual(r.returncode, 0, r.stdout[-800:] + r.stderr[-800:])
+        relayed = [l for l in errl if l.startswith("[--selftest child] ") and "libgomp:" in l]
+        self.assertTrue(relayed, "Q-886 (3): the child's libgomp diagnostic never reached the parent's stderr\n"
+                        + r.stderr[-1500:])
+
+    def test_q465_start_line_prints_the_grant(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        for limit, want in ((None, "granted=2"), ("1", "granted=1")):
+            env = self._env(OMP_NUM_THREADS="2", SOLVE_F1_MAX_LAYER="1")
+            if limit:
+                env["OMP_THREAD_LIMIT"] = limit
+            try:
+                r = self._run(["--f1-exact-c1c2c4", "--f1-subset", "U1"], env, timeout=300)
+                err = r.stderr
+            except subprocess.TimeoutExpired as e:
+                err = (e.stderr or b"").decode("utf-8", "replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
+            line = [l for l in err.splitlines() if l.startswith("[f1] run:")]
+            self.assertEqual(len(line), 1, "precondition: one [f1] run: provenance line\n" + err[-1500:])
+            self.assertIn("threads=2", line[0], "precondition: the request is 2")
+            self.assertIn(want, line[0].split(), "Q-465: the grant must be printed beside the request: " + line[0])
+
+    def _ladder(self, fmt):
+        d = os.path.join(self.tmp, "ladder_" + fmt)
+        r = self._run(["--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--f1-out-of-core", d],
+                      self._env(OMP_NUM_THREADS="2", SOLVE_F1_OOC_FORMAT=fmt, SOLVE_F1_KEEP_LAYERS="1"),
+                      timeout=900)
+        self.assertEqual(r.returncode, 0, "ladder build (%s) failed\n%s" % (fmt, r.stderr[-1500:]))
+        return d
+
+    def test_r12b_14_f1c5_verify_layer_checks_identity_and_trailing_bytes(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        d1, d2 = self._ladder("v1"), self._ladder("v2")
+        pick = None
+        for k in range(9, 0, -1):
+            a = os.path.join(d1, "f1c5_layer_%02d.bin" % k)
+            b = os.path.join(d2, "f1c5_layer_%02d.bin" % k)
+            if os.path.exists(a) and os.path.exists(b) and os.path.getsize(a) > 200:
+                pick = (k, a, b)
+                break
+        self.assertIsNotNone(pick, "precondition: a common non-trivial layer in both ladders")
+        k, v1, v2 = pick
+        self.assertEqual(open(v1, "rb").read(8), b"F1C5LAY1", "precondition: v1 magic")
+        self.assertEqual(open(v2, "rb").read(8), b"F1C5LAY2", "precondition: v2 magic")
+        env = self._env()
+        ctl = self._run(["--f1c5-verify-layer", v1, v2], env)
+        self.assertEqual(ctl.returncode, 0, "positive control: the same layer in both formats\n" + ctl.stdout + ctl.stderr)
+        self.assertIn("IDENTICAL", ctl.stdout)
+        b2 = bytearray(open(v2, "rb").read())
+        other_k = struct.unpack_from("<I", b2, 16)[0] ^ 1
+        self.assertEqual(struct.unpack_from("<I", b2, 16)[0], k, "precondition: header k sits at offset 16")
+        struct.pack_into("<I", b2, 16, other_k)
+        wrong_k = os.path.join(self.tmp, "v2_wrong_k.bin")
+        open(wrong_k, "wb").write(bytes(b2))
+        tail2 = os.path.join(self.tmp, "v2_tail.bin")
+        open(tail2, "wb").write(open(v2, "rb").read() + b"\0" * 7)
+        tail1 = os.path.join(self.tmp, "v1_tail.bin")
+        open(tail1, "wb").write(open(v1, "rb").read() + b"\0" * 32)
+        for a, b, why in ((v1, wrong_k, "layer identity"), (v1, tail2, "v2 file does not end"),
+                          (tail1, v2, "v1 file has trailing bytes")):
+            with self.subTest(case=why):
+                r = self._run(["--f1c5-verify-layer", a, b], env)
+                self.assertEqual(r.returncode, 1, "R12b #14 (%s): must be a mismatch\n%s%s" % (why, r.stdout, r.stderr))
+                self.assertIn(why, r.stderr)
+
+    def test_r12b_12_symmetry_search_empty_log_is_an_error(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        r = self._run(["--symmetry-search", "--validate-counts"], self._env(OMP_NUM_THREADS="2"), timeout=300)
+        self.assertIn("Non-trivial on (pair,orient) space:     47", r.stdout, "precondition: phases 1 and 2 ran")
+        self.assertIn("parsed 0 sub-branch yields from stdin", r.stderr, "precondition: the log was empty")
+        self.assertNotIn("**CANDIDATE SYMMETRY**", r.stdout, "R12b #12: nothing was compared")
+        self.assertIn("SYMMETRY_PHASE3=NO_INPUT", r.stderr.splitlines())
+        self.assertEqual(r.returncode, 1)
+        log = os.path.join(self.tmp, "one_yield.log")
+        with open(log, "w") as fh:
+            fh.write("Wrote 7 solutions to sub_1_0_2_0_3_0.bin\n")
+        with open(log) as fh:
+            ctl = self._run(["--symmetry-search", "--validate-counts"], self._env(OMP_NUM_THREADS="2"),
+                            timeout=300, stdin=fh)
+        self.assertEqual(ctl.returncode, 0, "control: a non-empty log still exits 0\n" + ctl.stderr[-800:])
+        self.assertIn("parsed 1 sub-branch yields from stdin", ctl.stderr)
+
+    def test_r12b_16_real_sample_stored_orientations_are_in_their_fibers(self):
+        self.assertTrue(self.build_ok, self.build_err)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        env = self._env(SOLVE_THREADS="2", SOLVE_NODE_LIMIT="10000000", SOLVE_HASH_LOG2="16",
+                        SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_SKIP_CANONICAL_LOCK="1",
+                        SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_SKIP_DISK_CHECK="1",
+                        SOLVE_SKIP_BINARY_SNAPSHOT="1", SOLVE_SKIP_AUTO_MANIFEST="1",
+                        SOLVE_SKIP_IOPS_CHECK="1")
+        r = self._run(["0"], env, timeout=900, cwd=d)
+        path = os.path.join(d, "solutions.bin")
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        self.assertTrue(os.path.exists(path), "precondition: the run wrote solutions.bin")
+        V = _load_path("verify_e31_fiber", os.path.abspath(os.environ.get("ROAE_TESTS_VERIFYPY_SRC", "verify.py")))
+        seen = 0
+        for i, perm, orient in V._fiber_records(path, limit=400):
+            self.assertEqual(orient[0], 0, "record %d: slot 0 must carry the C4 orientation" % i)
+            self.assertEqual(V.fiber_count(perm, 63, fixed={s: orient[s] for s in range(1, 32)}), 1,
+                             "record %d: its stored orientation is not in its fiber" % i)
+            seen += 1
+        self.assertGreater(seen, 1, "precondition: the sample holds real records, not only King Wen")
+
+# end class TestE31EngineResidueWorker (lane E31)
 
 
 if __name__ == "__main__":

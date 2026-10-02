@@ -25372,3 +25372,102 @@ CX-174 as 60,390 reported against 39,597 held. `solve.c` now adds each sidecar's
 The resume case rides the same write path as the measured extension; a resume-shaped two-phase
 run compared by `--compare-provenance` has not been executed and is the confirming check, not a
 condition of this ruling. Nothing to apply.
+
+## CX-250 — the rest of the Codex R12b review of the artifact readers is closed item by item, the `--selftest` child's stderr is no longer thrown away, provenance lines print the OpenMP grant beside the request, and Q-42 is closed on its stated limit (solve.c; verify.py; solve.py; tests.py; documentation/VERIFY.md; documentation/SOLVE_C_CLI.md)
+
+**2026-10-01.** Origin: backlog rows Q-286 (the unadjudicated rest of the Codex R12b review, which
+ranked sixteen ways an ordinary accident could make a reader accept a bad artifact), Q-886 item (3),
+Q-465 and Q-42. Each R12b item was reproduced on the unfixed tree before it was accepted, because a
+reviewer's evidence is a lead and not a verdict. No published number, count, sha or canonical output
+moves. Every engine change is in an argv-dispatched reader, a provenance print, or the selftest's
+handling of its child's stderr; the selftest's stdout and its sha `403f7202…` are unchanged, and the
+worker checks the sha. `solve.c` keeps every existing line number: each edit replaces one line in
+place, and the one new function is appended at the end of the file.
+
+**1. Q-286, Codex R12b, in the review's own ranking order.** The list was re-measured first.
+Items #1 to #8 and #13 were already settled under Q-285, Q-367 and the dated entries of 2026-08-30
+to 2026-09-07; #10 and #15 had been dispositioned in this ledger before (#10's C4-orientation half
+under Q-293); and so were the first half of #11 (the C3 counter and the header checks in
+both `--check-artifact` readers) and two legs of #12 (`solve.py --h2-verify` on an empty dump, and
+`verify.py --g-structure` without its totals). None of the open items is touched by CX-151, CX-219,
+CX-221, CX-235, CX-241, CX-247 or CX-248. What was left, and what happened to it:
+- **#9, sub-case (1): DECLINED.** A `--encode-solutions` input line whose `record` tag is corrupted
+  cannot be told apart from a legitimate line by the shape the review proposed (three tab fields whose
+  last parses as an ordering); a narrower check keyed on the `m=` field is possible and is not added
+  here. The engine's KC sampler writes `<rank>`, `cd=<n>`, then
+  the walk, three tab fields with a comma-separated ordering last, which is exactly the
+  corrupted-tag shape. A refusal for that shape was written once and withdrawn for that reason. The
+  census (`RECORDS_ENCODED`, `LINES_SKIPPED`, and the comparison of the two passes' skip counts)
+  stays the guard. A wholly deleted line remains undetectable from the stream, as the function's
+  docstring says.
+- **#11: FIXED.** `verify.py --fiber-sweep` read each record's stored orientation and never used it.
+  King Wen with byte 15 changed from `0x3c` to `0x3e` fails C5 as stored (the records path prints
+  `VERIFY=FAIL`) and still exited 0. Each record's stored orientation must now lie in its fiber, with
+  slot 0 carrying the C4 orientation, or the sweep exits 1. `verify.py --check-t5-c3` printed the
+  header's format version and never compared it; anything but version 1 with zero reserved bytes is
+  now `T5_C3_AGREE=FAIL`, exit 1.
+- **#12: FIXED.** `verify.py --t3-membership` counted duplicate walks and left them out of the
+  verdict, so two identical King Wen draw lines exited 0. A duplicate now fails: a uniform draw over
+  about 1.1 × 10³⁹ walks does not repeat among 10⁶ draws, so a repeat means a copied stream or a
+  reused seed. `verify.py --t3-stats` passed a 16-line file with one rank centred in each bucket and
+  two lines at `cd<=387` (χ² = 0, C3 fraction 0.125). A PASS now requires the pre-registered
+  population of 16 streams × 62,500 draws; on any other population the statistics are still printed
+  and the exit is 1. `solve --symmetry-search --validate-counts` on an empty log printed all 47 σ as
+  `**CANDIDATE SYMMETRY**` and exited 0. It now prints `SYMMETRY_PHASE3=NO_INPUT` and exits 1, and a
+  σ with zero compared pairs reads `NO EVIDENCE (0 sigma-pairs compared)`. The published 100T
+  evidence run under `reports/evidence/symmetry_search_100T/` does not change: every σ there is
+  FALSIFIED on thousands of compared pairs.
+- **#14: FIXED.** `solve --f1c5-verify-layer` compared the magic, the block size, the two counts and
+  the four arrays, and reported `IDENTICAL` for a v2 file whose header named another layer or run, and
+  for either file with stale bytes at the end. It now also compares `n`, `k`, `start_exit`, `pl_hash`
+  and `b0`, and refuses bytes after the v1 value array or after the last v2 value block. Each is a
+  `MISMATCH:` line and exit 1.
+- **#16: FIXED.** `solve.py --extended-selftest` subtest 1 checked only that its three paths agreed,
+  while its docstring said all three must equal `403f7202…`. It now makes that comparison as well, so
+  a regression common to all three paths fails. Recorded runs of this subtest print that sha on all
+  three paths. `verify.py --fiber-sweep` given a named artifact that does not exist now exits 2; with
+  nothing named and no `solutions.bin` present, the gate-only run still exits 0. The one `tests.py`
+  test that reads real records always skipped, because no `solutions.bin` ships with the repository.
+  A worker test now makes a small sample with the built binary and checks every stored orientation
+  in it against its fiber.
+- **The review's "Checks I found adequate for their stated scope".** Read, all ten entries. Each is
+  agreed with under the scope the review gave it, and the scopes it drew stay drawn: the default
+  `verify.py` records path does not establish completeness or run identity, `--validate-canonical`
+  is only as good as the sha the caller supplies, the resume and regression tests establish
+  equivalence and not canonical correctness, and `--compare-provenance` and `--compare-depth-profile`
+  are metadata comparisons, not artifact integrity checks.
+
+**2. Q-886, item (3).** The `--selftest` child ran as `… 0 > /dev/null 2>&1`, so a sanitizer
+build's `--selftest` lost every diagnostic the child printed, and a failing child said nothing. Its
+stderr is now captured in the selftest's temp dir and read back before the dir is removed.
+Runtime-library diagnostics in it (UBSan's `runtime error:`, any `…Sanitizer` report, `libgomp:`
+messages) are relayed to stderr on every run, prefixed `[--selftest child] `, and on a failure the
+last 60 lines are relayed too. The child's stdout is still discarded, so the selftest's own stdout is
+unchanged. The canonical-scale auto-selftest ran `--selftest > /dev/null 2>&1` and now keeps
+`--selftest`'s stderr. The two forks inside `--kc-scan-par-selftest` that reopen stderr on
+`/dev/null` are left as they are: each silences the abort line it expects and is judged by an exact
+exit code (70 or 71), and a sanitizer that halts on error changes that exit code, so a diagnostic
+there turns the gate red rather than vanishing. Items (1) and (2) of Q-886 are not touched; they
+wait for a performance window on the worker.
+
+**3. Q-465.** Five provenance prints recorded `omp_get_max_threads()`, the thread REQUEST, and
+nothing recorded the GRANT. Each now prints the grant beside it, measured inside a parallel region
+with `omp_get_num_threads()`: `granted=` on the `[f1] run:`, `[f1u] run:`, `[kc-g]` and `[kc-t]`
+start lines (stderr), and `threads_granted` beside `threads` in the layer-stats sidecar. A run under
+`OMP_THREAD_LIMIT=1` with `OMP_NUM_THREADS=2` now says `threads=2 granted=1`. This is evidential:
+F1_ASSERT_THREADS already refuses a short grant where a region divides its work by the request
+(CX-142). No stdout line and no sha moves; the sidecar already carries run-dependent fields
+(`rss_peak_mb`, `utc_epoch`), and no reader requires a fixed key set.
+
+**4. Q-42, closed on its stated limit.** Items (c) and (e) were fixed under CX-142, (b) landed earlier
+as a same-implementation identity gate, and (d) largely landed. Item (a), mass moved within one symmetry orbit, is a limit that the docstring of
+`check_atlas_orbit_frames` in `verify.py` already states ("a necessary condition, not a sufficient
+one"). No within-orbit leg is added. Closing it needs an independent reimplementation of the
+canonical-quotient labelling, which is not cheap, and Q-57 established that no published figure
+reads a quotient cell. The same class is carried by Q-545, which is deferred.
+
+Tests: `TestE31R12bFalseAcceptsPython` (Python; red on the unfixed `verify.py` and `solve.py` and
+green on the fix, each with a positive control) and `TestE31EngineResidueWorker` (built binary; red
+on the unfixed `solve.c`). `TestQ845MoreArgRefusal` now expects exit 1 from
+`--symmetry-search --validate-counts` on an empty stdin. Reviewer: Codex (R12b), acknowledged as
+a reviewer, not credited as an author.

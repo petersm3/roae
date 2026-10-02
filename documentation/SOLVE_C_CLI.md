@@ -280,7 +280,7 @@ compares it to the canonical baseline `403f7202…`. Prints PASS or
 FAIL.
 
 Runs in ~5 seconds. Every commit to solve.c MUST preserve this sha;
-divergence is a regression. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `SELFTEST_ARGS=REFUSED` line, before the child enumeration starts. Before that it was accepted and silently ignored.)*
+divergence is a regression. *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `SELFTEST_ARGS=REFUSED` line, before the child enumeration starts. Before that it was accepted and silently ignored.)* *(2026-10-01, Q-886 (3): the child's stderr is no longer sent to /dev/null. It is captured in the selftest's temp dir; runtime-library diagnostics in it (UBSan `runtime error:`, any `…Sanitizer` report, `libgomp:` messages) are relayed to stderr on every run, prefixed `[--selftest child] `, and on a failure the last 60 lines are relayed too. The child's stdout is still discarded, and the selftest's own stdout and sha are unchanged. The canonical-scale auto-selftest no longer discards `--selftest`'s stderr either.)*
 
 Exits 0 on PASS and **40** on a sha mismatch (`solve.c:40349-40357`, "validation
 mismatch"). *(Corrected 2026-09-01: this line previously gave 1 and the EXIT STATUS table
@@ -738,7 +738,7 @@ A `solve.py` command (the `extended_selftest` function in solve.py) — **not** 
 C subcommand; `solve --extended-selftest` is not dispatched by the binary.
 Runs the 9-subtest harness covering single-thread / multi-thread / different
 node limits / clean and resumed runs. Stricter than `--selftest`. Used in CI
-and pre-merge gating.
+and pre-merge gating. *(2026-10-01, Codex R12b #16: subtest 1 now also compares the three agreeing shas with the canonical selftest sha `403f7202…`, as its docstring always said; before that it checked only that the three paths agreed with one another, so a regression common to all three passed.)*
 
 ### --compare-depth-profile (solve.py only)
 
@@ -1544,7 +1544,7 @@ codec is RFC-1950 zlib), asserting they decode to byte-identical mask/entry
 content (#223). Both path arguments are required (exit 2 on usage error or read
 error); exit 1 on a content mismatch, 0 on match. This is the format-invariance
 check that backs the "count is format-invariant" claim for the OOC DP.
-Sha-neutral. *(2026-09-27, Q-852: it takes exactly two arguments; any further argument is refused with exit 2 and a `F1C5_VERIFY_LAYER_ARGS=REFUSED` line naming the first one, before either file is opened. Before that it was accepted and silently ignored.)*
+Sha-neutral. *(2026-09-27, Q-852: it takes exactly two arguments; any further argument is refused with exit 2 and a `F1C5_VERIFY_LAYER_ARGS=REFUSED` line naming the first one, before either file is opened. Before that it was accepted and silently ignored.)* *(2026-10-01, Codex R12b #14: it now also compares the header fields that say which layer of which run each file is — `n`, `k`, `start_exit`, `pl_hash` and `b0` — and refuses trailing bytes after the v1 value array or after the last v2 value block; each is a `MISMATCH:` line and exit 1. Before that two files that differed only in those fields, or carried stale bytes at the end, were reported `IDENTICAL`.)*
 
 ### --f1c5-layer-sha
 
@@ -1653,7 +1653,7 @@ byte-neutral (read-only on layer bytes; writes only separate `.json` files,
 atomically) and non-fatal (any sidecar failure warns, never aborts a build).
 Known boundary: extended-state questions (e.g. exact C3-value distributions)
 are **not** retrofittable from these aggregates — they are re-runs by design.
-Exit 0 ok, 2 error, 30 if no SHA-256 tool is on PATH. Sha-neutral.
+Exit 0 ok, 2 error, 30 if no SHA-256 tool is on PATH. Sha-neutral. *(2026-10-01, Q-465: `threads` is the OpenMP request, `omp_get_max_threads()`; `threads_granted` beside it is the grant, measured inside a parallel region. The `[f1] run:`, `[f1u] run:`, `[kc-g]` and `[kc-t]` start lines likewise print `granted=` beside `threads=`.)*
 
 ### --check-arrangement
 
@@ -2948,7 +2948,7 @@ It finds the group: of the 720 bit-permutations it enumerates, **48
 preserve C1**, and 47 of those act non-trivially on the (pair, orient) space. That is the order-48 group of bit permutations commuting with bit-reversal, which [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) proves is an exact symmetry of C1–C5 (machine-checked in Lean). ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-054#3) — this read "Has produced negative results to date (no non-trivial group discovered)."** SYMMETRY_SEARCH.md withdrew that negative on 2026-07-02, and this entry was not updated. Executed 2026-09-25 on this tree: `./solve --symmetry-search` prints `C1-preserving: 48 (6.7%)` and `Non-trivial on (pair,orient) space: 47`, and it does not print the "NO non-trivial bit-permutation" branch.]**
 
 `--validate-counts` annotates each candidate symmetry with empirical
-yield equality across orientations. *(2026-09-26, Q-845: `--validate-counts` is the only argument it takes. Any other, or any second one, is refused with exit 2 and a `SYMMETRY_SEARCH_ARGS=REFUSED` line. Before that an argument other than `--validate-counts` was silently ignored, so a misspelt `--validate-count` ran phases 1 and 2 alone and exited 0.)*
+yield equality across orientations. *(2026-09-26, Q-845: `--validate-counts` is the only argument it takes. Any other, or any second one, is refused with exit 2 and a `SYMMETRY_SEARCH_ARGS=REFUSED` line. Before that an argument other than `--validate-counts` was silently ignored, so a misspelt `--validate-count` ran phases 1 and 2 alone and exited 0.)* *(2026-10-01, Codex R12b #12: a log with no `Wrote N solutions to sub_*.bin` lines is now an error — a `SYMMETRY_PHASE3=NO_INPUT` line on stderr and exit 1 — and a σ with zero compared pairs is labelled `NO EVIDENCE (0 sigma-pairs compared)` instead of `**CANDIDATE SYMMETRY**`. Before that an empty stdin printed all 47 as candidates and exited 0.)*
 
 ### --null-*
 

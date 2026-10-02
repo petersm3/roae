@@ -7045,7 +7045,7 @@ def extended_selftest(solve_binary):
                 f"iterative={shas_3way.get('iterative')}, "
                 f"iterative+v2={shas_3way.get('iterative+v2')}"
             )
-
+        elif len(shas_3way) == 3 and set(shas_3way.values()) != {"403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e"}: failures.append("subtest 1: the three paths agree on %s, which is NOT the canonical selftest sha 403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e" % next(iter(shas_3way.values())))   # R12b #16 (Codex, 2026-10-01): agreement alone passed a regression common to all three paths; the docstring always promised this comparison
         # --- Subtest 2: v2 resume sha-equivalence ---
         print("[extended-selftest] Subtest 2/9: v2 resume @ 50M -> 200M",
               flush=True)

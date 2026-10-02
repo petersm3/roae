@@ -10128,3 +10128,22 @@ registry rows, and `TestG31SatCliEdges` (nine tests). The three batch-6 items le
 Schulz as primary (V3A-020#3, CONFIRMED), the instruments registry's "4 of the 10 rows" is six under
 the rules it states (V3A-025#5, CONFIRMED, re-executed on the cited revision), and the sidecar
 double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONFIRMED-CURED).
+
+## 2026-10-01 — batch 31b: engine and verifier residue from the Codex R12b review
+
+**Batch 31b, engine and verifier residue (CX-250).**
+
+- The rest of the Codex R12b review of the artifact readers was worked through in its own order.
+  Each item was reproduced before it was accepted. Four readers that used to say "pass" on a bad
+  input now refuse it: the fiber sweep on a record whose stored orientation breaks C5, the T5 C3
+  check on an unsupported header version, the T3 checks on a duplicated draw or a too-small sample,
+  and the symmetry search on an empty log. The layer comparator now checks that both files are the
+  same layer of the same run and have nothing extra at the end.
+- One item was declined with a reason: a corrupted `record` tag looks exactly like a line the engine
+  writes on purpose, so refusing it would break the tool.
+- The extended selftest's first subtest now checks the canonical sha, as its own description always
+  said, and a test that used to skip because no sample file ships now makes its own sample.
+- The `--selftest` child's error output is kept instead of thrown away, so a sanitizer build shows
+  what the child reported. Provenance lines now print how many threads were actually granted beside
+  how many were requested.
+- Q-42 is closed on the limit its verifier already states. No published number, count or sha moves.

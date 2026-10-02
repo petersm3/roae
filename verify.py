@@ -3609,7 +3609,7 @@ def check_t5_c3(sol_bin, chunks_dir):
         ver, = struct.unpack('<I', hdr[4:8])
         count, = struct.unpack('<Q', hdr[8:16])
         print('[t5-c3] %s: version=%d records=%d' % (sol_bin, ver, count))
-
+        if ver != 1 or any(hdr[16:32]): print('T5_C3_AGREE=FAIL unsupported header in %s: version=%d (only 1 is defined), reserved bytes %s' % (sol_bin, ver, 'NONZERO' if any(hdr[16:32]) else 'zero')); return 1   # R12b #11 (2026-10-01): the version was printed and never checked
         files = sorted(glob.glob('%s/chunk_*.parquet' % chunks_dir))
         if not files:
             print('T5_C3_AGREE=FAIL no chunk_*.parquet in %s' % chunks_dir); return 1
@@ -4030,11 +4030,11 @@ def fiber_sweep(path=None):
     print("    1.3342e5. The published '~4×' orientation-dedup factor is therefore")
     print("    low by at least four and a half orders of magnitude.")
 
-    if path is None:
-        path = 'solutions.bin'
+    explicit = path is not None and path != 'solutions.bin'   # R12b #16 (2026-10-01): a NAMED artifact that is absent is an error, not a skip
+    path = 'solutions.bin' if path is None else path
     if not os.path.exists(path):
-        print(f"\n  (no {path} present — sample sweep skipped; the gate above is the result)")
-        return 0
+        print(f"\n  *** {path}: the named artifact does not exist — nothing was swept. This is an error, not a pass." if explicit else f"\n  (no {path} present — sample sweep skipped; the gate above is the result)")
+        return 2 if explicit else 0
 
     print()
     print(f"  SAMPLE SWEEP — exact fiber of every record in {path}:")
@@ -4043,12 +4043,12 @@ def fiber_sweep(path=None):
         if perm == ident:
             kw_seen = True
         f = fiber_count(perm, 63)
-        if f == 0:
+        if f == 0 or orient[0] != 0 or fiber_count(perm, 63, fixed={s: orient[s] for s in range(1, 32)}) != 1:   # R12b #11 (2026-10-01): the stored orientations were read and never used
             zero += 1
         sizes.append(f)
     if zero:
-        print(f"    *** {zero} record(s) have an EMPTY fiber — impossible, since the "
-              f"record's own stored orientation is in it. The routine is wrong.")
+        print(f"    *** {zero} record(s) have an empty fiber or a STORED orientation outside it (the record as stored "
+              f"fails C2, C4 or C5). The artifact or the fiber routine is wrong.")
         return 1
     sizes.sort()
     n = len(sizes)
@@ -4056,7 +4056,7 @@ def fiber_sweep(path=None):
     gm = math.exp(sum(math.log(s) for s in sizes) / n)
     print(f"    records swept                : {n:,}"
           f"{'  (King Wen included)' if kw_seen else ''}")
-    print(f"    empty fibers                 : 0  (every record admits its own orientation)")
+    print(f"    stored orientation in fiber  : {n:,} / {n:,}  (checked per record; no fiber is empty)")
     print(f"    min / median / max           : {sizes[0]:,} / {sizes[n // 2]:,} / {sizes[-1]:,}")
     print(f"    ARITHMETIC MEAN (dedup factor over this population) : {am:,.1f}")
     print(f"    geometric mean               : {gm:,.1f}")
@@ -5966,6 +5966,8 @@ T3_CHI2_BAR = 37.70      # 15 dof; the engine's own kc-midn critical value
 T3_CD_MAX = 387          # the C3 threshold, in the sampler's `cd=` units
 T3_P0 = 0.12107          # 1/8.26, the doc figure named in the prereg
 T3_SIGMA_K = 4.0         # flag beyond 4 sigma, either direction
+T3_STREAMS = 16          # the pre-registered population: 16 streams ...
+T3_DRAWS_PER_STREAM = 62500   # ... x 62,500 draws = 10^6 (R12b #12: --t3-stats now requires it)
 
 
 def _t3_c5_target():
@@ -6174,6 +6176,17 @@ def t3_stats(path):
     if out_of_range:
         print("  A rank outside [0,N) is a first-order defect in the unrank path.")
         return 1
+    # R12b #12 (Codex, 2026-10-01): the only population guard was M == 0, so a 16-line fixture with
+    # one rank centred in each bucket and two lines at cd<=387 scored chi^2 = 0 and 0.125 and
+    # PASSED. Both bars are calibrated for the pre-registered 16 x 62,500 sample; on any other
+    # population the statistics are still printed, but no PASS is issued.
+    pop_ok = (len(per_stream) == T3_STREAMS
+              and all(v == T3_DRAWS_PER_STREAM for v in per_stream.values()))
+    print(f"  population     : {'the pre-registered %d x %s' % (T3_STREAMS, format(T3_DRAWS_PER_STREAM, ','))}"
+          if pop_ok else
+          f"  population     : *** NOT the pre-registered {T3_STREAMS} streams x "
+          f"{T3_DRAWS_PER_STREAM:,} draws ({len(per_stream)} stream(s), {M:,} draws) — "
+          f"statistics below are shown, but no PASS is licensed ***")
 
     exp = M / T3_BUCKETS
     chi2 = sum((c - exp) ** 2 / exp for c in counts)
@@ -6217,8 +6230,9 @@ def t3_stats(path):
     print("  (a) uniformity  : %s" % ("PASS" if uni_pass else "FINDING"))
     print("  (b) membership  : not run here (--t3-membership)")
     print("  (c) C3 fraction : %s" % ("within bar" if c3_ok else "FINDING"))
+    print("  population      : %s" % ("pre-registered" if pop_ok else "NOT pre-registered — FAIL"))
     print("=" * 74)
-    return 0 if (uni_pass and c3_ok) else 1
+    return 0 if (uni_pass and c3_ok and pop_ok) else 1
 
 
 def t3_membership(path, limit=0):
@@ -6365,7 +6379,13 @@ def t3_membership(path, limit=0):
         print("  FIRST NON-MEMBERS (file, index, failing predicates):")
         for row in bad:
             print(f"    {row}")
-    failed = bool(per_pred) or bad_struct or cd_mismatch
+    # R12b #12 (Codex, 2026-10-01): duplicates were counted and printed but left out of the verdict,
+    # so two identical KW draw lines exited 0. Under the uniform null over N ~ 1.1e39 walks, a repeat
+    # among 10^6 draws has probability ~ 10^-27: a duplicate means a copied stream or a reused seed.
+    failed = bool(per_pred) or bad_struct or cd_mismatch or dups
+    if dups:
+        print(f"\n  *** FINDING — {dups} duplicate walk(s). A uniform draw over N ~ 1.1e39 walks does not")
+        print("      repeat; a repeat means a copied stream file or a reused seed.")
     if failed:
         print("\n  *** FINDING — the bar is 100%. Quarantine the sample. Do NOT redraw.")
         print("      Do NOT adjust the bar. ***")

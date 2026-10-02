@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 171 dated sections, 2 of them among the 95 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 172 dated sections, 2 of them among the 96 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -189,6 +189,7 @@
 | 169 | 2026-09-30 | iso | 10050 | [open](HISTORY.md#2026-09-30--a-third-count-of-the-c1c7-superspace-read-from-the-stored-ladders) 2026-09-30 — a third count of the C1–C7 superspace, read from the stored ladders |
 | 170 | 2026-10-01 | iso | 10054 | [open](HISTORY.md#2026-10-01--batch-30-the-extremal-certificate-is-bound-to-its-universe-the-q10-census-fallback-checks-orbit-sizes-and-the-capstone-is-one-thing-in-three-parts) 2026-10-01 — batch 30: the extremal certificate is bound to its universe, the Q10 census fallback checks orbit sizes, and the capstone is one thing in three parts |
 | 171 | 2026-10-01 | iso | 10075 | [open](HISTORY.md#2026-10-01--batch-31a-published-text-residue-from-the-codex-v3-review-five-gates-that-now-measure-what-they-claim-and-lean-comments-and-satcnf-command-line-edges) 2026-10-01 — batch 31a: published-text residue from the Codex v3 review, five gates that now measure what they claim, and Lean comments and SAT/CNF command-line edges |
+| 172 | 2026-10-01 | iso | 10132 | [open](HISTORY.md#2026-10-01--batch-31b-engine-and-verifier-residue-from-the-codex-r12b-review) 2026-10-01 — batch 31b: engine and verifier residue from the Codex R12b review |
 
 ## Sections with no date in the heading, in file order
 

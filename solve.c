@@ -471,7 +471,7 @@ typedef struct {
     int8_t  reserved;
 } DFSStackFrame_v2;
 static Pair pairs[32];
-static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */ static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec); static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out); static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out); static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out); static int argv_dbl(const char *mode, const char *what, const char *s, double *out); static const int kc_cache_mb_max = 4194304; /* Q-864, Q-865: defined at end of file; the --kc-cache-mb ceiling is --kc-gcache-mb-per-thread's */ static int g_build_sha_defer = 0; static char g_build_sha_pending[80]; static void build_sha_write_pending(void); /* Q-866: the enumeration defers a first-run build.sha until after its refusals */ static int solve_env_preflight(void); /* SOLVE_* numeric environment validation (lane HE); defined at end of file */
+static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */ static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec); static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out); static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out); static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out); static int argv_dbl(const char *mode, const char *what, const char *s, double *out); static const int kc_cache_mb_max = 4194304; /* Q-864, Q-865: defined at end of file; the --kc-cache-mb ceiling is --kc-gcache-mb-per-thread's */ static int g_build_sha_defer = 0; static char g_build_sha_pending[80]; static void build_sha_write_pending(void); /* Q-866: the enumeration defers a first-run build.sha until after its refusals */ static int solve_env_preflight(void); /* SOLVE_* numeric environment validation (lane HE); defined at end of file */ static void selftest_relay_child_stderr(const char *dir, int failed); /* Q-886 (3): defined at end of file */
 
 /* ---------- Bitmask domain representation (task #72, Phase A) ----------
  * Compact representation of the "remaining pair pool" used by the DFS hot
@@ -4309,7 +4309,7 @@ static int auto_selftest_check(long long node_limit) {
              "-u SOLVE_DFS_CHECKPOINT -u SOLVE_FSYNC_BATCH_SIZE "
              "-u SOLVE_TIME_LIMIT -u SOLVE_TEMP_DIR -u SOLVE_MAX_THREADS "
              "-u SOLVE_SKIP_AUTOMERGE "  /* #113: the breaker — also scrubbed inside --selftest now */
-             "%s --selftest > /dev/null 2>&1", self_path);
+             "%s --selftest > /dev/null", self_path);   /* Q-886 (3), 2026-10-01: stdout quiet, stderr through (was 2>&1, which also dropped the FAIL lines and every relayed child diagnostic) */
     int rc = system(cmd);
     if (rc == 0) {
         fprintf(stderr, "[hardening] auto-selftest PASS (canonical selftest sha 403f7202... reproduced)\n");
@@ -13403,7 +13403,7 @@ typedef struct {
 
 /* Phase 3: parse stdin enum log into a hash table; for each non-trivial σ,
  * map each prefix p to its σ-image p' and verify yield(p) == yield(p'). */
-static void symmetry_phase3(const int candidates[][6], int n_candidates) {
+static int g_sym_phase3_rc = 0;   /* R12b #12 (2026-10-01): the --symmetry-search exit status; 1 when phase 3 had nothing to compare */ static void symmetry_phase3(const int candidates[][6], int n_candidates) {
     /* Read all "Wrote N solutions to sub_P1_O1_P2_O2_P3_O3.bin" lines. */
     SymEntry *entries = calloc(YIELD_MAX_ENTRIES, sizeof(SymEntry));
     if (!entries) { fprintf(stderr, "ERROR: alloc\n"); exit(10); }
@@ -13425,7 +13425,7 @@ static void symmetry_phase3(const int candidates[][6], int n_candidates) {
             n++;
         }
     }
-    fprintf(stderr, "[sym-phase3] parsed %d sub-branch yields from stdin\n", n);
+    fprintf(stderr, "[sym-phase3] parsed %d sub-branch yields from stdin\n", n); if (n == 0) { fprintf(stderr, "ERROR: --validate-counts: no 'Wrote N solutions to sub_*.bin' lines on stdin; nothing was compared, so no sigma can be called a candidate\nSYMMETRY_PHASE3=NO_INPUT\n"); free(entries); g_sym_phase3_rc = 1; return; }   /* R12b #12: an empty log used to print every sigma as **CANDIDATE SYMMETRY**, exit 0 */
 
     /* Build lookup: hash (p1,o1,p2,o2,p3,o3) → yield.
      * Encode key as 24-bit integer: p1(5) o1(1) p2(5) o2(1) p3(5) o3(1) padding to 24.
@@ -13486,7 +13486,7 @@ static void symmetry_phase3(const int candidates[][6], int n_candidates) {
                "missing=%lld  max_diff=%lld   →  %s\n",
                s + 1, sigma[0], sigma[1], sigma[2], sigma[3], sigma[4], sigma[5],
                matches, mismatches, missing, max_diff,
-               (mismatches == 0 ? "**CANDIDATE SYMMETRY**" : "FALSIFIED"));
+               (mismatches != 0 ? "FALSIFIED" : matches == 0 ? "NO EVIDENCE (0 sigma-pairs compared)" : "**CANDIDATE SYMMETRY**"));   /* R12b #12: zero comparisons is not a candidate */
     }
     printf("\n(missing = σ-image prefix had no entry in the parsed log;\n"
            " typically because the prefix was BUDGETED with 0 solutions and\n"
@@ -14404,7 +14404,7 @@ static int f1_try_resume(const char *dir, const F1Ctx *c, F1Layer *L) {
              "REQUESTED count, so a smaller grant silently drops whole chunks. Refusing to "      \
              "report a count. Unset OMP_THREAD_LIMIT / OMP_DYNAMIC, or set OMP_NUM_THREADS.",     \
              (granted), (requested))
-
+static int omp_granted_threads(void) { int g = 0; _Pragma("omp parallel") { _Pragma("omp single") g = omp_get_num_threads(); } return g; }   /* Q-465 (2026-10-01): the GRANT, measured inside a default parallel region with omp_get_num_threads(), printed beside every omp_get_max_threads() REQUEST in a provenance line (evidential; F1_ASSERT_THREADS above refuses a short grant where a region partitions by the request) */
 static void f1_enum_canonical(const F1Ctx *c, int k1, uint32_t **out, uint64_t *nout) {
     uint64_t total = f1_binom[c->n][k1];
     int T = omp_get_max_threads();
@@ -14641,8 +14641,8 @@ static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
 
     fprintf(stderr, "[f1] run: %s, n=%d pairs [", subset_spec ? subset_spec : "FULL-31", n);
     for (int i = 0; i < n; i++) fprintf(stderr, "%s%d", i ? "," : "", pl[i]);
-    fprintf(stderr, "] start_exit=%d n_eff=%d threads=%d layers_dir=%s\n",
-            start_exit, c->n_eff, omp_get_max_threads(), layers_dir ? layers_dir : "(none)");
+    fprintf(stderr, "] start_exit=%d n_eff=%d threads=%d granted=%d layers_dir=%s\n",   /* Q-465: granted= */
+            start_exit, c->n_eff, omp_get_max_threads(), omp_granted_threads(), layers_dir ? layers_dir : "(none)");
 
     double T0 = omp_get_wtime();
     F1Layer cur;
@@ -16212,13 +16212,13 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
     if ((nm && fread(m1, 4, nm, f1) != nm) || fread(o1, 8, nm + 1, f1) != nm + 1 ||
         (ne && fread(k1, 4, ne, f1) != ne) || (ne && fread(val1, sizeof(F1U192), ne, f1) != ne))
         { fprintf(stderr, "v1 body read\n"); return 2; }
-    fclose(f1);
+    const int v1_trail = fgetc(f1) != EOF; fclose(f1);   /* R12b #14: bytes after vals[] are not part of the layer */
     FILE *f2 = fopen(v2path, "rb");
     if (!f2) { fprintf(stderr, "cannot open v2 %s\n", v2path); return 2; }
     F1C5LayerHdr h2;
     if (fread(&h2, sizeof(h2), 1, f2) != 1) { fprintf(stderr, "v2 hdr read\n"); return 2; }
     if (memcmp(h2.magic, "F1C5LAY2", 8) != 0) { fprintf(stderr, "v2 file not F1C5LAY2\n"); return 2; }
-    if (h2.pad != F1C5_OOC_BLK) { fprintf(stderr, "v2 file BLK=%u != build BLK=%u\n", h2.pad, (unsigned)F1C5_OOC_BLK); return 2; }
+    if (h2.pad != F1C5_OOC_BLK) { fprintf(stderr, "v2 file BLK=%u != build BLK=%u\n", h2.pad, (unsigned)F1C5_OOC_BLK); return 2; } if (h2.n != h1.n || h2.k != h1.k || h2.start_exit != h1.start_exit || h2.pl_hash != h1.pl_hash || memcmp(h2.b0, h1.b0, sizeof h1.b0) != 0) { fprintf(stderr, "MISMATCH: layer identity: n %u/%u k %u/%u start_exit %u/%u pl_hash %016llx/%016llx b0 %s -- not the same layer of the same run\n", h2.n, h1.n, h2.k, h1.k, h2.start_exit, h1.start_exit, (unsigned long long)h2.pl_hash, (unsigned long long)h1.pl_hash, memcmp(h2.b0, h1.b0, sizeof h1.b0) ? "differ" : "equal"); return 1; }   /* R12b #14 (Codex, 2026-10-01): the header fields that say WHICH layer of WHICH run were read and never compared */
     if (h2.n_masks != nm || h2.n_entries != ne) {
         fprintf(stderr, "MISMATCH: nm %llu/%llu ne %llu/%llu\n",
                 (unsigned long long)h2.n_masks, (unsigned long long)nm,
@@ -16252,8 +16252,8 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
         if (fread(cb, 1, vc, f2) != vc) { fprintf(stderr, "v2 vblock read\n"); return 2; }
         f1c5_inflate_block(cb, vc, (Bytef *)(val2 + e0), 24ull * bn);
     }
-    fclose(f2);
-    int bad = 0;
+    const int v2_trail = fseek(f2, 0, SEEK_END) != 0 || ftell(f2) != vblk_base + (long)vidx[nblk]; fclose(f2);   /* R12b #14: the file must end where the last v-block ends */
+    int bad = 0; if (v1_trail) { fprintf(stderr, "MISMATCH: v1 file has trailing bytes after vals[]\n"); bad = 1; } if (v2_trail) { fprintf(stderr, "MISMATCH: v2 file does not end at its last value block (trailing or missing bytes)\n"); bad = 1; }   /* R12b #14 */
     if (nm && memcmp(m1, m2, 4 * nm) != 0) { fprintf(stderr, "MISMATCH: masks\n"); bad = 1; }
     if (memcmp(o1, o2, 8 * (nm + 1)) != 0) { fprintf(stderr, "MISMATCH: off[]\n"); bad = 1; }
     if (ne && memcmp(k1, k2, 4 * ne) != 0) { fprintf(stderr, "MISMATCH: keys\n"); bad = 1; }
@@ -17177,9 +17177,9 @@ static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         {
             double rss_cur = 0.0, rss_peak = 0.0;
             f1_rss_mb(&rss_cur, &rss_peak);
-            fprintf(jf, "  \"threads\": %d,\n  \"gzip_level\": %d,\n"
+            fprintf(jf, "  \"threads\": %d,\n  \"threads_granted\": %d,\n  \"gzip_level\": %d,\n"   /* Q-465: threads_granted (the grant) beside threads (the request) */
                     "  \"rss_peak_mb\": %.1f,\n  \"utc_epoch\": %lld,\n",
-                    omp_get_max_threads(), f1c5_ooc_gzip_level(),
+                    omp_get_max_threads(), omp_granted_threads(), f1c5_ooc_gzip_level(),
                     rss_peak, (long long)time(NULL));
         }
         {
@@ -23267,10 +23267,10 @@ static int kc_g_build_main(const char *gdir, int npairs, int force_ooc_build) {
         { const char *fe = getenv("SOLVE_F1_OOC_FORMAT");
           if (fe && (strcmp(fe, "v1") == 0 || strcmp(fe, "1") == 0)) use_v2 = 0; }
         fprintf(stderr, "[kc-g] out-of-core backward build: n=%d dir=%s format=%s "
-                "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d\n",
+                "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d granted=%d\n",   /* Q-465: granted= */
                 kc->n, gdir, use_v2 ? "v2 (zlib-blocked)" : "v1 (raw)",
                 (unsigned long long)cfg.read_mb, (unsigned long long)cfg.scratch_mb,
-                (unsigned long long)cfg.gap_kb, omp_get_max_threads());
+                (unsigned long long)cfg.gap_kb, omp_get_max_threads(), omp_granted_threads());
         kc_g_build_ooc(kc, gdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1, "g", 1, NULL);
         if (stop_at_k == 0) {
             /* readback + integrity: reopen the finished ladder OOC and print
@@ -34184,10 +34184,10 @@ static int kc_t_build_main(const char *fdir, const char *tdir, int force_ooc, in
         { const char *fe = getenv("SOLVE_F1_OOC_FORMAT");
           if (fe && (strcmp(fe, "v1") == 0 || strcmp(fe, "1") == 0)) use_v2 = 0; }
         fprintf(stderr, "[kc-t] out-of-core t build: n=%d fdir=%s tdir=%s format=%s "
-                "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d\n",
+                "read_buf=%llu MB scratch=%llu MB gap=%llu KB threads=%d granted=%d\n",   /* Q-465: granted= */
                 fkc->n, fdir, tdir, use_v2 ? "v2 (zlib-blocked)" : "v1 (raw)",
                 (unsigned long long)cfg.read_mb, (unsigned long long)cfg.scratch_mb,
-                (unsigned long long)cfg.gap_kb, omp_get_max_threads());
+                (unsigned long long)cfg.gap_kb, omp_get_max_threads(), omp_granted_threads());
         kc_g_build_ooc(fkc, tdir, &cfg, use_v2, f1c5_ooc_gzip_level(), stop_at_k, 1,
                        "t", 2, fkc);
         if (stop_at_k == 0) {
@@ -39737,9 +39737,9 @@ static int f1u_exact_main(const char *subset_spec, const char *orbit_spec, const
 
     fprintf(stderr, "[f1u] run: %s, n=%d pairs [", subset_spec ? subset_spec : "FULL-32", n);
     for (int i = 0; i < n; i++) fprintf(stderr, "%s%d", i ? "," : "", pl[i]);
-    fprintf(stderr, "] start_orbit=%s (%d) mod=%llu n_eff=%d threads=%d\n",
+    fprintf(stderr, "] start_orbit=%s (%d) mod=%llu n_eff=%d threads=%d granted=%d\n",   /* Q-465: granted= */
             start_orbit < 0 ? "all" : orbit_spec, start_orbit,
-            (unsigned long long)P, c->n_eff, omp_get_max_threads());
+            (unsigned long long)P, c->n_eff, omp_get_max_threads(), omp_granted_threads());
 
     double T0 = omp_get_wtime();
     uint64_t *omasses = (uint64_t *)calloc((size_t)n + 1, sizeof(uint64_t));
@@ -40293,7 +40293,7 @@ int main(int argc, char *argv[]) {
          * compare yields across σ orbits. */
         int with_yield = (argc > 2 && strcmp(argv[2], "--validate-counts") == 0); if (argc > 3 || (argc == 3 && !with_yield)) { fprintf(stderr, "ERROR: --symmetry-search takes at most ONE argument, --validate-counts; got '%s'.\n       An argument here was previously accepted and silently ignored.\nSYMMETRY_SEARCH_ARGS=REFUSED\n", argv[with_yield ? 3 : 2]); return 2; } /* Q-845: refuse, as the Q-839 siblings do, rather than ignore */
         run_symmetry_search(with_yield);
-        return 0;
+        return g_sym_phase3_rc;   /* R12b #12: 1 when --validate-counts read no yields */
     } else if (argc > 1 && strcmp(argv[1], "--analyze") == 0) {
         analyze_mode = 1;
         analyze_file = (argc > 2) ? argv[2] : "solutions.bin";
@@ -40411,7 +40411,7 @@ int main(int argc, char *argv[]) {
                  "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
                  "SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 "
                  "SOLVE_SKIP_IOPS_CHECK=1 "
-                 "%s 0 > /dev/null 2>&1 && "
+                 "%s 0 > /dev/null 2> selftest_child.stderr && "   /* Q-886 (3): stderr captured, not discarded; relayed by selftest_relay_child_stderr() */
                  /* #169: solutions.bin may be gz — hash the DECOMPRESSED (logical)
                   * content so the canonical selftest sha 403f7202 is unchanged. */
                  "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s | cut -d' ' -f1",
@@ -40424,13 +40424,13 @@ int main(int argc, char *argv[]) {
         char actual_sha[128] = {0};
         if (fgets(actual_sha, sizeof(actual_sha), fp) == NULL) {
             pclose(fp);
-            fprintf(stderr, "ERROR: selftest child produced no output\n");
+            fprintf(stderr, "ERROR: selftest child produced no output\n"); selftest_relay_child_stderr(tempdir_template, 1);   /* Q-886 (3) */
             return 40;
         }
         pclose(fp);
         /* Strip trailing newline */
         for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
-        printf("[--selftest] Actual sha256:   %s\n", actual_sha);
+        printf("[--selftest] Actual sha256:   %s\n", actual_sha); fflush(stdout); selftest_relay_child_stderr(tempdir_template, strcmp(actual_sha, expected_sha) != 0);   /* Q-886 (3): before the rm -rf below */
         /* Cleanup temp dir */
         char rm_cmd[4200];
         snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf '%s'", tempdir_template);
@@ -44092,7 +44092,7 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", verify_file);
             fail_kw = 1;
         }
-        /* Mirror verify.py's PAIR exactly (verify.py:7127-7128 prints KW_PRESENT then
+        /* Mirror verify.py's PAIR exactly (verify.py:7147-7148 prints KW_PRESENT then
          * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
          * "King Wen found:" prose line above: presence is a FACT about the artifact,
          * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
@@ -44527,7 +44527,7 @@ int main(int argc, char *argv[]) {
                 "ERROR: --expect-kw was given and King Wen is ABSENT from %s.\n", validate_file);
             errors++;
         }
-        /* Mirror verify.py's PAIR exactly (verify.py:7127-7128 prints KW_PRESENT then
+        /* Mirror verify.py's PAIR exactly (verify.py:7147-7148 prints KW_PRESENT then
          * KW_REQUIRED adjacently). KW_PRESENT is the machine-readable sibling of the
          * "King Wen found:" prose line above: presence is a FACT about the artifact,
          * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
@@ -52125,4 +52125,46 @@ static int q881_override_for_dir(const char *dir, const char *ctx) {
         budget = cn; src = "resume_contract.txt";
     }
     return q881_override_verdict(budget, tl_known, tl, ctx, src, 1);
+}
+/* Q-886 (3) (2026-10-01). The --selftest child's stderr went to /dev/null, so a sanitizer build's
+ * --selftest lost every diagnostic the child printed, and a failing child said nothing about why.
+ * The child's stdout is still discarded (the selftest's own stdout is unchanged and the sha it
+ * prints is computed exactly as before); its stderr is captured to selftest_child.stderr in the
+ * selftest's temp dir and read back here before the dir is removed. Two rules:
+ *   - runtime-library diagnostics are relayed EVERY time, pass or fail: UBSan's "runtime error:",
+ *     any "...Sanitizer" report, and libgomp's own "libgomp:" messages (at most 200 lines);
+ *   - when the selftest FAILED (no output, or a sha mismatch), the last 60 lines are relayed too.
+ * Relayed lines go to stderr, prefixed "[--selftest child] ". A clean pass prints nothing extra. */
+static void selftest_relay_child_stderr(const char *dir, int failed) {
+    char path[4300];
+    snprintf(path, sizeof(path), "%s/selftest_child.stderr", dir);
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        if (failed) fprintf(stderr, "[--selftest] child stderr: not captured (%s: %s)\n", path, strerror(errno));
+        return;
+    }
+    static char tail[60][1024];
+    long nlines = 0, ndiag = 0;
+    char line[1024];
+    while (fgets(line, sizeof(line), f)) {
+        const size_t len = strlen(line);
+        const char *nl = (len && line[len - 1] == '\n') ? "" : "\n";
+        if (strstr(line, "runtime error:") || strstr(line, "Sanitizer") || strstr(line, "libgomp:")) {
+            if (ndiag < 200) fprintf(stderr, "[--selftest child] %s%s", line, nl);
+            ndiag++;
+        }
+        snprintf(tail[nlines % 60], sizeof(tail[0]), "%s", line);
+        nlines++;
+    }
+    fclose(f);
+    if (ndiag > 200) fprintf(stderr, "[--selftest] child stderr: %ld further diagnostic line(s) not shown\n", ndiag - 200);
+    if (failed) {
+        const long first = nlines > 60 ? nlines - 60 : 0;
+        fprintf(stderr, "[--selftest] child stderr, last %ld of %ld line(s):\n", nlines - first, nlines);
+        for (long i = first; i < nlines; i++) {
+            const char *s = tail[i % 60];
+            const size_t len = strlen(s);
+            fprintf(stderr, "[--selftest child] %s%s", s, (len && s[len - 1] == '\n') ? "" : "\n");
+        }
+    }
 }
