@@ -42,13 +42,13 @@
       the v4 convention. The global repr would be applied by a post-pass,
       orb_normalize_rec_op -> orb_repr_global, exposed as
       `solve --kc-repr-normalize IN.bin OUT.bin` (task #20).
-      AVAILABILITY (2026-09-03, Codex v2): that flag is in NO published
-      ref's solve.c — zero occurrences on main, v4-compiler and
-      v4-canonical — and every solve.c orb_* symbol named in this file
-      (orb_normalize_rec_op, orb_repr_global, orb_recanon,
-      orb_recanon_dfs, orb_expand_record) is published only on
-      orbit-port-188-candidate, which BRANCH_REGISTRY.tsv classes
-      "snapshot" / "CANDIDATE, EXPLICITLY NOT LANDED" (do not cite). So
+      AVAILABILITY (re-measured 2026-10-02): that flag is on NO branch —
+      zero occurrences on main — and is public only on the tag
+      v4-repr-fc-legc-20260813 (5f473242); every solve.c orb_* symbol
+      named in this file (orb_normalize_rec_op, orb_repr_global,
+      orb_recanon, orb_recanon_dfs, orb_expand_record) is on that tag and
+      on archive/orbit-port-188-candidate-20260824 (fb19a66b), the retired
+      candidate BRANCH_REGISTRY.tsv records as not mergeable as-is (do not cite). So
       in this tree the v4 convention is an acceptance-test CONTRACT with
       no shipped tool that applies it (VERIFY.md §"NOT AVAILABLE IN THIS
       TREE"); "has not been run" is not the situation — a reader of main
@@ -113,8 +113,8 @@
 
   Bridge facts — the honest trust boundary (NOT machine-checked; the
   PartitionInvariance.lean B1–B4 pattern, continued numbering). B6 names
-  solve.c code (`orb_recanon`) that is published on orbit-port-188-candidate
-  ONLY (see the AVAILABILITY note above): a reader of main can check the
+  solve.c code (`orb_recanon`) that is published on the two tags named in
+  the AVAILABILITY note above, on no branch: a reader of main can check the
   model theorems but cannot inspect the C side of THAT bridge fact in a
   citable tree. B5 and B7 describe main's per-cell DFS.
   · B5 (walk-order monotonicity): solve.c's per-cell DFS visits nodes in

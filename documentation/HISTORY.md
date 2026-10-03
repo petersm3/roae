@@ -10437,3 +10437,80 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
   polarities agrees with `solve.reg_ccn4` everywhere and catches all four mis-encodings. Every
   previously emitted formula is byte-identical, so no certificate moves. What the conjunct now
   rests on is the registry's reading of Schulz, not the encoding.
+
+## 2026-10-02 — batch 35: the King Wen over-constraint control reaches every sequence certificate and the one-command suite, the full-31 divisibility gates move to 48 with the README no longer offering divisibility as confirmation, every literature rule is stated formally, the record-count estimate stays unpublished for stated reasons, the v4 engine stays off `main` by operator decision, four deferred Q-944 items are closed, and 48 of the 106 gate-anchored correction markers are freed
+
+**Batch 35, over-constraint control, divisibility gates, formal rule statements, record count (CX-271, Q-946).**
+
+- A DRAT certificate is monotone evidence, so it cannot show that a regenerated formula is not
+  over-constrained; the project's control for that — King Wen must falsify only the families an UNSAT
+  target is about — covered 8 of the 24 archived certificates and ran only inside the whole test
+  harness. It is now `sat.py --kw-control`, three legs (refutation, exclusion, per-family necessity),
+  a closure form for the two cardinality-only subsets whose clauses name no ordering variable, and
+  one token per certificate in `verify_all.sh` (23 pass; the rigidity kernel is stated inapplicable,
+  with its own positive control named). Three planted defects turn it red; its family-level
+  limitation is asserted in the test rather than left implicit.
+- The README offered "divisible by 24 exactly as that theorem predicts" as confirmation of the count.
+  Read from the engine, the quotient DP computes every partial-mask stabiliser and never assumes the
+  free action on complete sequences, so divisibility is a consequence with 1-in-24 power, not a
+  confirmation; the sentence now says so. Since TR-5 §4 states that the order-48 lift acts freely on
+  orientation-explicit sequences and both landed integers are ≡ 0 (mod 48), the four full-31 gates
+  in `solve.c` and `verify.c` assert 48, with the printed `mod 24` / `N / 24` lines kept.
+- Every literature rule the project measures is now stated formally for an independent encoder
+  (`documentation/LITERATURE_RULES_FORMAL.md`); the five theorem-bearing rules are re-encoded from
+  that text in `tests.py` and agree with the scorers on 496 orderings, and two candidate deviations
+  found to be equivalent encodings are recorded as facts about the rules.
+- The orientation-deduplicated C1–C5 record count was measured privately on 2026-08-29; it is not
+  published because its run output is not archived, the producing binary predates a later change to
+  the same path, its convergence caveat rests on the same unarchived runs, and no METHODS row owns it.
+  The ledger's "never been measured" is superseded; "no point estimate" stands. A bare copy of the
+  figure in a `solve.c` comment is withdrawn.
+- The repr(k) forward-check engine (`SOLVE_REPR_FC`, `--kc-repr-normalize`) stays off `main`, by
+  measurement rather than default: its 404-line commit calls orbit-host functions `main` does not
+  have, and that host is the v4 prune stack whose promotion is an operator decision not taken. The
+  seven public sites that said the engine was on "no published ref" now say where each piece is —
+  the tag `v4-repr-fc-legc-20260813` (`5f473242`), the host also on
+  `archive/orbit-port-188-candidate-20260824` — that `c996a42b` is unpublished, and what `main`'s
+  binary answers. The tag's build passes its own `--orbit-selftest` under both A/B settings
+  (CX-272, Q-926).
+- Open decision #31 is closed by the operator: the v4 DFS + orbit-reduction + prune-stack engine
+  will not be merged into `main`. It stays public at its tags (newest:
+  `v4-repr-fc-legc-20260813`, `5f473242`) as a historical independent cross-check, and `main`,
+  the compiler that produced the n=31 results and TR-12, is the single source of truth.
+  `documentation/BRANCHES_EXPLAINED.md` ends with a dated section explaining the two engines, why
+  the second is not merged, and how to check out, build and self-test each tag. The branch
+  registry records the decision and restores a retired row for `v4-canonical` (CX-273).
+- Q-944 closed four items from the 2026-08-01 deferred set. Five `SOLVE.md` sentences that still
+  called the C3 effect at C1∩C2∩C4∩C5 unresolved now give 12.1% by the ledger and 12.09%
+  [12.03%, 12.16%] by the n=31 battery's direct estimate, which agree (CX-274). The Jing Fang
+  positive control of FC-1 was measured across all 40,320 palace orders for the first time: at the
+  pilot null the count runs 5 to 9 of 11, the attested order sits at the maximum 9, and 21,506
+  orders, 114 of them among the 1,152 that keep Jing Fang's diff-wave, fall below the gate of 8, so
+  that leg is a positive control for the attested order only; `solve.py --r7-palace-sweep`
+  reproduces it (CX-275). `verify.py`'s import-time table gate let 9 single pair-block orientation
+  flips of the KW literal load and now pins the literal by sha256, with all 528 transpositions and
+  flips refused in a test (CX-276). The C1 rule-constants transcription check is a shipped command,
+  `solve.py --c1-constants-check` (5,455 C1 orderings, 0 deviations, with a non-C1 control and a
+  cross-pair mutant), and the sites that called it attested-only name it (CX-277).
+
+**Batch 35, gate-anchored correction markers (CX-278).**
+
+- The inventory of inline correction markers found 106 that a doc gate depends on. Moving one of
+  those into `CORRECTIONS.md` would change what the gate checks. This lane changed the gates and
+  the inventory. No marker was moved or reworded.
+- GATE 27 (withdrawn figures) and GATE 26 (the 31! ceiling on canonical counts) now also accept a
+  link to a `CORRECTIONS.md` entry by CX id, when that entry quotes the figure. A link to the wrong
+  entry, to a missing one, or with no CX id still fails.
+- GATE 3b now fails an allowlist row that matches nothing, where it used to print a note and pass.
+  Such a row is what a moved marker leaves behind.
+- The inventory now marks a gate leg `reanchored` only when the gate has a stable anchor for it AND
+  deleting the marker made that leg fail. It also ties GATE 4b's stale-row finding to the one marker
+  it rests on, instead of every marker in two files. Two markers inside the Lean-verbatim block of
+  `TRIGRAM_STRUCTURE.md` are recorded as staying.
+- Result: 24 re-anchored, 2 staying, 22 freed and given a class, 58 still gate-anchored. The 58 are
+  the citation gate (34), GATE 53 (12), GATE 86 (7, an operator decision), GATE 56 (3) and GATE 94
+  (2).
+- GATE 4b stopped with a traceback when a second dangling reference followed a reference to a
+  missing file, and lost every finding after it. It now reports them all.
+- 17 tests: each gate's original defect is red, each anchor that must not count is red, and a code
+  mutant shows each check is load-bearing.

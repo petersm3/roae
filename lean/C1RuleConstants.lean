@@ -73,6 +73,11 @@
       values across the 8 rules, and as positive control 200 of 200 random
       non-C1 permutations deviate. That driver is likewise not in the repo, so
       the transcription stays "attested" until a shipped command replays it.]
+      [Added 2026-10-02, Q-944: one now does. `python3 solve.py
+      --c1-constants-check` replays that design (seed 944): 5,455 C1-valid
+      orderings, 0 deviations across the 8 rules; 200 of 200 non-C1 controls
+      deviate; a cross-pair mis-reading of r4 is caught on 4,857 of them.
+      The 2026-07-21 5,449-sequence drive itself stays attested.]
   (b) r4 = 120: the one-line arithmetic 2·12 + 4·12 + 6·8 = 120 converting the
       Lean-checked within-pair histogram {2:12, 4:12, 6:8} (c2_hist_const;
       independently lean/TrigramTheorems.lean within_multiset_general) into the

@@ -77,7 +77,8 @@ NARRATION = {
     ("solve", "--constraint-spec"):       "removed subcommand, cited in LARGE_SCALE_CAMPAIGNS",
     ("solve.py", "--compare-leaf-rates"): "removed subcommand, cited in DEVELOPMENT/HISTORY",
     ("solve", "--extended-selftest"):     "documented NON-existence; SOLVE_C_CLI.md:738 warns readers away",
-    ("solve", "--kc-repr-normalize"):     "documented NON-existence (case b); lives on an UNLANDED v4 branch that BRANCH_REGISTRY marks snapshot-do-not-cite. VERIFY.md carries a NOT-AVAILABLE box, and both invocation-form cite sites were given an inline warning 2026-08-16 so a reader entering the file at either one cannot be misled. Retire this row if the branch lands.",
+    ("solve", "--kc-repr-normalize"):     "documented NON-existence (case b); lives only on the public tag v4-repr-fc-legc-20260813 (5f473242), on no branch (re-measured 2026-10-02). VERIFY.md carries a NOT-AVAILABLE box, and both invocation-form cite sites were given an inline warning 2026-08-16 so a reader entering the file at either one cannot be misled. Retire this row if the engine lands on main.",
+    ("solve", "--orbit-selftest"):       "documented NON-existence on main; the self-test of the v4 orbit engine, which exists only on the public tags (v4-repr-fc-legc-20260813, archive/orbit-port-188-candidate-20260824, archive/v4-canonical-20260824). Cited in BRANCHES_EXPLAINED.md §\"Decision 2026-10-02\" inside a block that first checks out the tag; operator decision 2026-10-02 (CX-273) keeps that engine off main for good.",
 }
 
 # CODEX N10 FINDING 13 HALF A, adjudicated 2026-09-03. The extractor was
@@ -703,6 +704,34 @@ pat=re.compile(r"(\d(?:[.,]\d+)?)\s*[×x]\s*10([" + "".join(SUP) + NEG + r"]+)")
 sci=re.compile(r"(?<![0-9a-fA-F.])(\d(?:\.\d+)?)[eE]\+?(\d+)(?![0-9a-fA-F])")
 lax=re.compile(r"\d(?:\.\d+)?[eE]\+?\d+")   # the PRESCRIBED form, kept only to size guard (a)
 span=re.compile(r"`[^`]*`")
+# Q-937 (batch 35): the LEDGER ANCHOR, as GATE 27 reads it (the header there has the rules), but
+# per LINE: a match is also exempt when the same line links a CX entry of documentation/CORRECTIONS.md
+# whose own text quotes the matched figure exactly as written. The marker words below exempt a line
+# whatever figure it states; the anchor exempts one figure, and only the one its entry records.
+import os
+LEDGER="documentation/CORRECTIONS.md"
+LINK=re.compile(r"\[([^\]\n]*)\]\(([^)\s]*CORRECTIONS\.md)(#[^)\s]*)?\)")
+def ledger_entries():
+    ent={}; cur=None; lvl=0; fence=False
+    try: src=io.open(LEDGER,encoding="utf-8").read().split("\n")
+    except OSError: return ent
+    for l in src:
+        if l.lstrip().startswith("```"): fence=not fence
+        h=None if fence else re.match(r"(#{1,6})\s+(.*)",l)
+        if h and (cur is None or len(h.group(1))<=lvl):
+            m=re.match(r"CX-(\d+)\b",h.group(2)); cur=None
+            if m: cur=int(m.group(1)); lvl=len(h.group(1)); ent[cur]=[]
+            continue
+        if cur is not None: ent[cur].append(l)
+    return {k:"\n".join(v) for k,v in ent.items()}
+ENT=ledger_entries()
+def anchored(f,text):
+    out=[]
+    for m in LINK.finditer(text):
+        if os.path.normpath(os.path.join(os.path.dirname(f),m.group(2)))!=LEDGER: continue
+        cx=re.search(r"\bCX-(\d+)\b",m.group(1)) or re.match(r"#cx-(\d+)\b",(m.group(3) or "").lower())
+        if cx and int(cx.group(1)) in ENT: out.append(ENT[int(cx.group(1))])
+    return out
 files=[l.strip() for l in sys.stdin if l.strip()]
 if not files:
     print("EMPTY"); sys.exit(0)
@@ -713,6 +742,7 @@ for f in files:
         print("READFAIL\t%s\t%s" % (f,e)); n+=1; continue
     for ln,line in enumerate(lines,1):
         if "WITHDRAWN" in line or "LABEL CORRECTED" in line: continue
+        anc=anchored(f,line) if "CORRECTIONS.md" in line else []
         low=line.lower()
         spans=[(m.start(),m.end()) for m in span.finditer(line)]
         for m in pat.finditer(line):
@@ -727,6 +757,7 @@ for f in files:
             if re.search(r"3[01]!|ceiling", w): continue
             if "canonical-leaf" in w or "canonical tree" in w: continue
             if f=="documentation/CORRECTIONS.md" and any(a<=m.start() and m.end()<=b for a,b in spans): continue
+            if any(m.group(0) in e for e in anc): continue
             n+=1
             print("HIT\t%s\t%d\t%s\t%.2f\t%s" % (f,ln,m.group(0),v,line[max(0,m.start()-60):m.end()+60].strip()[:150]))
         # ---- LEG 2: the same property written the way the solver prints it ----
@@ -745,6 +776,7 @@ for f in files:
             # code-span skip, ALL files. Reason in the LEG 2 header block. Counted, never silent.
             if any(a<=m.start() and m.end()<=b for a,b in spans):
                 sci_span+=1; continue
+            if any(m.group(0) in e for e in anc): continue
             n+=1
             print("HIT\t%s\t%d\t%s\t%.2f\t%s" % (f,ln,m.group(0),v,line[max(0,m.start()-60):m.end()+60].strip()[:150]))
 print("SCI\t%d\t%d\t%d" % (sci_cand,sci_hex,sci_span))
@@ -819,6 +851,19 @@ print("CEIL\t%.6f" % CEIL)
 # documentation/CORRECTIONS.md is EXEMPT, and this is the only exemption. It is the ledger of
 # record: quoting a withdrawn figure is its job, all 12 of its unmarked lines do exactly that,
 # and GATE 10a makes it append-only so it cannot be quietly rewritten.
+#
+# THE LEDGER ANCHOR (Q-937, batch 35). Inline markers are to MOVE into CORRECTIONS.md (Q-634 Part 1,
+# Q-938). Keyed only on marker words, this gate would let a marker move only together with every
+# figure it sits beside, so a block is ALSO accepted for a figure F when it links a ledger entry
+# by its CX id -- `[CORRECTIONS CX-<n>](<path to documentation/CORRECTIONS.md>)`, or a `#cx-<n>`
+# fragment -- AND that entry's own text quotes F. Three things must hold, each checked: the link
+# resolves to documentation/CORRECTIONS.md from the citing file; a `CX-<n>` heading exists there
+# (headings inside code fences do not count); and the entry under it, up to the next heading of the
+# same or a higher level, contains F as a plain substring. A link to the ledger with no CX id, to
+# an entry that does not quote F, or to an id the ledger lacks exempts nothing. The anchor is
+# stable because the ledger is append-only (GATE 10a): moving the marker into its CX entry keeps
+# the figure quoted there. GATE 26 reads the same anchor, on the line. Mutants: tests.py
+# TestQ937LedgerAnchoredGates.
 gate_withdrawn_markers() {
   echo "== GATE 27: withdrawn figures are never restated without a supersession marker =="
   local REG=documentation/WITHDRAWN_FIGURES.tsv
@@ -829,6 +874,32 @@ import sys, io, re
 REG="documentation/WITHDRAWN_FIGURES.tsv"
 EXEMPT={"documentation/CORRECTIONS.md"}
 MARK=re.compile(r"withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract|run\s+description\s+corrected", re.I)  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
+import os
+LEDGER="documentation/CORRECTIONS.md"
+LINK=re.compile(r"\[([^\]\n]*)\]\(([^)\s]*CORRECTIONS\.md)(#[^)\s]*)?\)")
+def ledger_entries():
+    ent={}; cur=None; lvl=0; fence=False
+    try: src=io.open(LEDGER,encoding="utf-8").read().split("\n")
+    except OSError: return ent
+    for l in src:
+        if l.lstrip().startswith("```"): fence=not fence
+        h=None if fence else re.match(r"(#{1,6})\s+(.*)",l)
+        if h and (cur is None or len(h.group(1))<=lvl):
+            m=re.match(r"CX-(\d+)\b",h.group(2)); cur=None
+            if m: cur=int(m.group(1)); lvl=len(h.group(1)); ent[cur]=[]
+            continue
+        if cur is not None: ent[cur].append(l)
+    return {k:"\n".join(v) for k,v in ent.items()}
+ENT=ledger_entries()
+def anchored(f,text):
+    out=[]
+    for m in LINK.finditer(text):
+        if os.path.normpath(os.path.join(os.path.dirname(f),m.group(2)))!=LEDGER: continue
+        cx=re.search(r"\bCX-(\d+)\b",m.group(1)) or re.match(r"#cx-(\d+)\b",(m.group(3) or "").lower())
+        if cx and int(cx.group(1)) in ENT: out.append(ENT[int(cx.group(1))])
+    return out
+def bare(fig,text,anc):
+    return fig in text and not any(fig in e for e in anc)
 figs=[]
 for ln in io.open(REG,encoding="utf-8"):
     c=ln.rstrip("\n").split("\t")  # Q-773: comment = col 1 exactly "#" or "# ..." (reg_row_kind); a figure "#7..." is DATA
@@ -877,19 +948,22 @@ for f in files:
         hit=False
         for j,l in rows:
             if MARK.search(l): continue
+            anc=anchored(f,l)
             for fig,why in figs:
-                if fig in l:
+                if bare(fig,l,anc):
                     print("HIT\t%s\t%d\t%s\t%s"%(f,bs+j,fig,l.strip()[:120])); n+=1; hit=True; break
             if hit: break
         if hit: continue
         ptext="\n".join(l for j,l in prose)
         if not prose or MARK.search(ptext): continue
+        anc=anchored(f,ptext)
         for fig,why in figs:
-            if fig in ptext:
+            if bare(fig,ptext,anc):
                 off=next((j for j,l in prose if fig in l),0)
                 bad_line=blines[off].strip()[:120]
                 print("HIT\t%s\t%d\t%s\t%s"%(f,bs+off,fig,bad_line)); n+=1; break
 print("POP\t%d\t%d\t%d"%(nfiles,pop_rows,pop_blocks))
+print("LEDGER\t%d"%len(ENT))
 print("COUNT\t%d"%n)
 ') || { echo "  [FAIL] GATE 27 scanner failed — NOTHING was checked."; return 1; }
   grep -qx 'EMPTY' <<<"$out" && { echo "  [FAIL] corpus reached GATE 27 empty."; return 1; }
@@ -910,19 +984,21 @@ print("COUNT\t%d"%n)
   local rc=0 hrc=0
   while IFS=$'\t' read -r tag f ln fig line; do
     [ "$tag" = HASHROW ] && { echo "  [FAIL] Q-761: $REG line \"$f\" is comment-shaped (\"# ...\") but carries data column(s), so it is not checked. Register the figure without the leading \"# \"."; hrc=1; continue; }; [ "$tag" = HIT ] || continue
-    echo "  [FAIL] $f:$ln restates withdrawn figure '$fig' with NO supersession marker"
+    echo "  [FAIL] $f:$ln restates withdrawn figure '$fig' with NO supersession marker and no ledger anchor quoting it"
     echo "         $line"
     rc=1
   done < <(printf '%s\n' "$out")
   if [ "$rc" -ne 0 ]; then
     echo "         A merge or edit that reintroduces a withdrawn figure unmarked is the exact"
-    echo "         regression this gate exists for. Add the marker, or withdraw the line."
+    echo "         regression this gate exists for. Add the marker, link the CX entry that quotes the"
+    echo "         figure ([CORRECTIONS CX-<n>](…/CORRECTIONS.md)), or withdraw the line."
     return 1
   fi; [ "$hrc" -eq 0 ] || return 1
   echo "  [ok] every TABLE ROW (judged per row) and every PROSE PARAGRAPH (judged as a block, so a"
   echo "       marker on the wrapped next line counts) that states a registered withdrawn figure"
-  echo "       carries a supersession marker — population: $pf files scanned, $pr figure-bearing"
-  echo "       table rows and $pb figure-bearing prose blocks judged"
+  echo "       carries a supersession marker, or links a ledger entry (CX id) that quotes the figure —"
+  echo "       population: $pf files scanned, $pr figure-bearing table rows and $pb figure-bearing prose"
+  echo "       blocks judged; $(printf '%s\n' "$out" | awk -F'\t' '$1=="LEDGER"{print $2; exit}') CX entries readable as anchors"
   return 0
 }
 

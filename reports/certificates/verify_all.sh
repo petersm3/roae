@@ -26,7 +26,9 @@
 #   OPTIONAL: cake_lpr (formally verified LRAT checker) — section 3c runs it only when CAKE_LPR is
 #   set; by default that section emits CAKE_LPR_LEG=NOT_RUN and the run is drat-trim-only.
 #   NOT required: a SAT solver. This script REPLAYS the archived DRAT proofs against freshly
-#   regenerated CNF, which is the sufficient check and needs only drat-trim. kissat was listed
+#   regenerated CNF, which is the sufficient check and needs only drat-trim. The King Wen
+#   over-constraint control beside each replay (`sat.py --kw-control`, added 2026-10-02) needs
+#   python3 only, so it still runs on a host without drat-trim. kissat was listed
 #   here until 2026-08-01 and never invoked by any code path — building it from source was
 #   wasted work for a replicator (lens-sweep item T4-9). It is still what PRODUCED the archived
 #   proofs (METHODS.md pins the version); reproducing the proofs themselves, rather than
@@ -438,6 +440,10 @@ declare -A CERTS=( [alt-le-14]="alt-le-14" [alt-ge-16]="alt-ge-16" \
 # the full proofs" -- the archived alt-le-14 core contains 356 of them (cores are proof-relative).
 # The pair's joint verdict is emitted below as ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN.
 CERT_FLOOR=24        # archived certificates as of 2026-09-02; a corpus that silently shrinks must not pass
+# KW over-constraint controls that must PASS (2026-10-02): every sequence-formula certificate, i.e.
+# CERT_FLOOR minus the one rigidity kernel, which is reported INAPPLICABLE by name in the loop below.
+KW_CONTROL_FLOOR=23
+KW_CONTROLS_PASSED=0
 # FILE POPULATION, counted with no tool (Q-709, 2026-09-25). The population check below counts the
 # CERTS map entries that drat-trim ran, so on a host without drat-trim or python3 it is a SKIP, and
 # a missing .drat.gz reads exactly like a present one. And with no file matching, the completeness
@@ -465,6 +471,29 @@ for cert in "${!CERTS[@]}"; do
   else
     GEN="python3 sat.py --emit-cnf $t \"\$SCRATCH/$t.cnf\""
   fi
+  # THE KING WEN OVER-CONSTRAINT CONTROL, per certificate (Q-58 / GATES-04, 2026-10-02). DRAT is
+  # monotone: a formula with a stray extra clause has the same (or a shorter) refutation, so `s VERIFIED`
+  # above says nothing about whether the regenerated CNF forbids orderings the target's statement does
+  # not. `sat.py --kw-control` asks the King Wen assignment to falsify ONLY the families the target is
+  # about (its theorem family plus the rule families solve.py's scorers say KW violates), nothing on the
+  # formula minus those families, and each of them on its own (SAT_CLI.md §--kw-control). It needs
+  # python3 only, so it runs on a host without drat-trim. Until today the control lived in tests.py
+  # for 8 of the 24 targets and surfaced only inside section 5's "Ran N tests" line; it is now one
+  # whole-line token per certificate here, KW_CONTROL_<cert>=PASS|FAIL…, with the population floor
+  # below. The rigidity kernel is not a sequence formula (no ordering to pin King Wen into); its own
+  # positive control is sat.py's rigidity_validate(), run by --rigidity-cnf before it writes, so it is
+  # stated INAPPLICABLE on every run rather than silently left out of the count.
+  if [ "$cert" = "rigidity_sc4_unsat" ]; then
+    echo "KW_CONTROL_$cert=INAPPLICABLE (not a sequence formula; its positive control is rigidity_validate, run by --rigidity-cnf)" | tee -a "$LOG"
+  elif [ "$HAVE_PY" = "0" ]; then
+    skip "kw-control $cert ($t)" "needs python3"
+  else
+    KWC_ARGS="$t"
+    if [ "$cert" = "c3_kwpin_ge777_unsat" ]; then KWC_ARGS="kw-pin --c3-min 777"; fi
+    check "kw-control $cert ($t)" \
+      "require_verdict_line KW_CONTROL_$cert 'KW_CONTROL=PASS' python3 sat.py --kw-control $KWC_ARGS"
+    if [ "$LAST_RC" -eq 0 ]; then KW_CONTROLS_PASSED=$((KW_CONTROLS_PASSED+1)); fi
+  fi
   if [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_PY" = "0" ]; then
     skip "cert $cert ($t)" "needs python3 + drat-trim"
     continue
@@ -489,6 +518,14 @@ if [ "$HAVE_DRAT" = "1" ] && [ "$HAVE_PY" = "1" ]; then
   check "cert population >= $CERT_FLOOR (checked $CERTS_CHECKED)" "[ $CERTS_CHECKED -ge $CERT_FLOOR ]"
 else
   skip "cert population >= $CERT_FLOOR" "needs python3 + drat-trim"
+fi
+# The control population, the same way (2026-10-02): counted over PASSED controls, so a run in which
+# every control failed cannot print the floor.
+echo "KW_CONTROLS_PASSED=$KW_CONTROLS_PASSED" | tee -a "$LOG"
+if [ "$HAVE_PY" = "1" ]; then
+  check "kw-control population >= $KW_CONTROL_FLOOR (passed $KW_CONTROLS_PASSED)" "[ $KW_CONTROLS_PASSED -ge $KW_CONTROL_FLOOR ]"
+else
+  skip "kw-control population >= $KW_CONTROL_FLOOR" "needs python3"
 fi
 if [ -n "${CERT_RC[alt_le_14_noY_unsat]+x}" ] && [ -n "${CERT_RC[alt_ge_16_noY_unsat]+x}" ]; then
   if [ "${CERT_RC[alt_le_14_noY_unsat]}" -eq 0 ] && [ "${CERT_RC[alt_ge_16_noY_unsat]}" -eq 0 ]; then

@@ -24,7 +24,7 @@
 #   filename regex extracts `_unsat.drat` from that and checks NOTHING, so the one site
 #   the leg exists for is invisible to it — measured: without expansion the four real names
 #   never enter the population. One brace group per line is expanded before matching.
-#   EXEMPT: command metavariables (`OUT.cnf.drat` at SAT_CLI.md:419 — a template, not a
+#   EXEMPT: command metavariables (`OUT.cnf.drat` at SAT_CLI.md:424 — a template, not a
 #   claim). Declared as an ALL-CAPS stem segment, and counted.
 #
 # LEG 2 `four-five-labels` (row 2) — `grander-strict` is the FIVE-rule union and

@@ -69,7 +69,7 @@ Hamming-isometric, so suffix counts and subtree sizes are preserved.
   at full-31. **The shipped ranking is pinned against an external instrument
   only at n = 9**, where the forward brute-force oracle's walk list is built twice and sorted
   with a separate comparator, and every rank/unrank pair is checked against it: gate A3 of `kc_selftest()` (`--kc-selftest`) and gates OA2–OA4 of `kc_o3_selftest()` (`--kc-o3-selftest`)
-  (the oracle is the `independent forward brute force (the verification oracle)` block at `solve.c:21176`, whose list builder is `kc_brute()` at `:21222`). At n = 13 and above the gates
+  (the oracle is the `independent forward brute force (the verification oracle)` block at `solve.c:21202`, whose list builder is `kc_brute()` at `:21248`). At n = 13 and above the gates
   are **sampled** round-trips plus sampled monotonicity, with a local neighbour
   bracket — and `rank(unrank(r)) == r` is **closure, not correctness**. A
   consistently wrong, n-dependent ranking round-trips and certificate-verifies

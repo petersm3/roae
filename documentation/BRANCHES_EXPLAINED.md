@@ -806,3 +806,109 @@ For implementation details and the actual C source code, see
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.*
 
 *Revision 2026-09-01 (prose-correction batch P21 — this document's first pass through the correction lane): eleven adjudicated findings applied. Partition invariance qualified to a fixed partition depth and to the exhaustive-vs-budgeted restriction (Part 10 and the glossary); the two Part 9 example commands given their `SOLVE_DEPTH=3` and `SOLVE_PER_SUB_BRANCH_LIMIT` prefixes, with the depth-2/unbounded defaults stated; the "one shard per depth-3 sub-sub-branch" invariant corrected to non-empty cells only; the node definition reconciled between Part 8 and the glossary (frame entry, root frame included); the `solutions.bin` record bytes corrected from hexagrams to `(pair_index << 2) \| (orient << 1)`; the "for most pairs … equal counts" claim replaced by a measurement re-derived from the committed 100T log (0 of 28 pairs equal) with its reproduction command; the `solve.py --sat-encode` cross-validation claim scoped to what the encoder actually emits; depth profiles scoped to `SOLVE_DEPTH_PROFILE=1`; the canonical `solutions.bin` size corrected 102 GB → 336.8 GB (d3 560T); and "Intel Zen 5" corrected to AMD EPYC x86-64 (Zen is AMD's microarchitecture family). Five further sites were swept as siblings rather than left inconsistent: two more CPU-generation references; the two places that still posed the constraint system's symmetry group as an open problem after [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) proved it; and the "exhaustion at the symmetry boundary" sketch, which the truncated yields cannot decide either way.*
+
+---
+
+## Decision 2026-10-02: the DFS + orbit/prune engine stays at its tags
+
+*Added 2026-10-02 (CX-273). This section is appended so that no line cited elsewhere moves.*
+
+**The decision.** The project has two engines. Only one of them lives on `main`, and that will not
+change: the second engine will **not** be merged. It stays public at the tags listed below, as a
+historical independent cross-check. `main` is the single source of truth. This closes the
+project's open decision #31 (whether to promote the second engine), which earlier documents
+describe as undecided.
+
+**The two engines.**
+
+1. **`main` — the knowledge compiler** (`solve --kc-*`, `--f1c5-*`, `--kc-g-*`). It counts and
+   indexes the solution space layer by layer (the f, g and t "ladders") instead of walking it, and
+   it never needs the whole set of orderings on disk. It produced the full-scale exact count
+   |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
+   ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §9), the n=31 ladders, and
+   the measured results in [TR-12](../reports/TR12_QUERY_PROGRAM.md). `main` also keeps the original
+   depth-first enumerator described in Parts 1–10 of this document: the one behind the published
+   `solutions.bin` canonicals and the `403f7202` `--selftest` anchor.
+2. **The tagged line — a v4 depth-first enumerator with orbit reduction and a prune stack.** It
+   walks the tree like the original enumerator, but visits only one representative per symmetry
+   orbit of the depth-3 cells, re-enables an extra set of pruning rules (the "v2 prune stack",
+   switched by `SOLVE_V4_PRUNES`), and writes each record in a canonical form (`repr(k)`). The
+   newest tag adds a forward-checked version of that canonicalising search (`SOLVE_REPR_FC`) and
+   a post-pass, `--kc-repr-normalize`. **No published count, sha or record file was produced by
+   this line.** Its own second selftest anchor
+   (`e26c68500c2b07389a32cd147c37a732c7f333c69c1547e8a60a4ac578f91a77`, printed by the tag's
+   `--selftest` with the prunes on) is a regression anchor for the tag, not a published result.
+
+**Why it is not merged.**
+
+- **One source of truth.** Every published number now traces to `main`. A second engine on
+  `main` would mean two code paths that both claim to produce the canonical answer, and every
+  correction would have to land in both.
+- **It depends on a stack that `main` does not have.** The forward-checked search calls
+  orbit-host functions (`orb_recanon_dfs`, `orb_repr_global`, `orb_normalize_rec_op`, the
+  `OrbitProblem` type) that occur zero times in `main`'s `solve.c`. From its merge base with
+  `main` (`3fc0e6b1`) the newest tag changes `solve.c` by 2,740 insertions and 66 deletions, and
+  the 66 deletions are inside the `--selftest` block. The candidate port onto `main` (on
+  `archive/orbit-port-188-candidate-20260824`) is marked in its own commit `e7c63d83` as not for
+  merging: it bumps the checkpoint format and turns the prune stack on by default, so landing it
+  would move the `403f7202` anchor.
+- **Its job was to cross-check, and that job is done.** It was built so the project would have a
+  second, differently-built enumerator to compare against the compiler while the compiler was
+  new. The compiler has since produced and checked the full-scale results on its own (TR-11 §9,
+  TR-12), with the reduced-scope agreement and the independent verifiers listed in
+  [VERIFY.md](VERIFY.md).
+
+**What it cross-checked, and what you can check yourself.** Public evidence only:
+
+- The tag's `--selftest` runs twice. The first pass, with the prune stack off, must reproduce
+  `403f7202…`, the same anchor `main`'s `--selftest` prints, so the two code lines agree on the
+  canonical regression run. The second pass, with the prunes on, must reproduce `e26c6850…`.
+- The tag's `--orbit-selftest` checks the orbit census of the real problem (158,364 cells in
+  4,382 orbits) and then checks the orbit-reduced search byte-for-byte against brute force on a
+  7-pair toy problem.
+- [VERIFY.md](VERIFY.md) §"Corroboration chain for the full-scale count" records that "the compiler / DFS lineages cross-check the
+  enumeration side", and [lean/README.md](../lean/README.md) §"PruneReprFC.lean" describes the
+  model-level Lean proof for the forward-checked search and the runtime gates on the tag that
+  carry its bridge to the binary. Three Lean files that began on this line
+  (`PruneExactness.lean`, `PruneGInvariance.lean`, `RecordConvention.lean`) were copied into
+  `main`'s `lean/` on 2026-08-01 and are maintained there.
+- The orbit-port tag contains `8e53454`, which added a `--walker-subset N` DFS walker for
+  comparing the two engines at small pair subsets. The receipts of those engine-vs-engine runs
+  were not published, so no figure from them is quoted here.
+
+**How to review it.** The `git` commands below were run on 2026-10-02 in a fresh clone of the public
+repository. The build line is the one the tag's own README gives. The `--orbit-selftest` runs were
+made on a build of this tag on 2026-10-02 and passed in both settings, with byte-identical output
+([CORRECTIONS.md](CORRECTIONS.md) CX-272 §1). The two `--selftest` anchors are read from the tag's
+`solve.c` (`expected_sha_v1` and `V4_SELFTEST_SHA`); that run is not recorded here.
+
+```
+git clone https://github.com/petersm3/roae.git && cd roae && git fetch --tags
+git checkout v4-repr-fc-legc-20260813       # detached HEAD; git log -1 shows 5f473242
+gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz
+./solve --selftest                          # two passes: 403f7202… (prunes off), e26c6850… (on)
+SOLVE_REPR_FC=0 ./solve --orbit-selftest    # orbit census + toy brute-force check; ends in PASS
+SOLVE_REPR_FC=1 ./solve --orbit-selftest    # same check with the forward-checked search on
+git log --oneline origin/main..HEAD         # the 5 commits this tag has that main lacks
+git diff --stat $(git merge-base origin/main HEAD) HEAD   # what the line changed, file by file
+git checkout main                           # back to the source of truth
+```
+
+The tags, one line each:
+
+| Tag | Commit | What it contains |
+|---|---|---|
+| `v4-repr-fc-legc-20260813` | `5f473242` | The newest state of the line: the orbit-reduced DFS, the prune stack, the record convention, the forward-checked `repr(k)` search (`SOLVE_REPR_FC`) and `--kc-repr-normalize`. On no branch. |
+| `archive/orbit-port-188-candidate-20260824` | `fb19a66b` | The attempted port of the orbit engine onto `main` (commit `e7c63d83`, "CANDIDATE (do not land)"), plus the `--walker-subset` walker; the retired branch `orbit-port-188-candidate`. |
+| `archive/v4-canonical-20260824` | `fca6f998` | The `v4-canonical` branch as it stood before it was deleted: the orbit reduction, the re-adopted prune stack, the two-pass selftest, and its Lean proofs. |
+| `v4-canonical-20260829-retired` | `fca6f998` | The same commit; this tag's message records the 2026-08-29 retirement of the `v4-canonical` branch and why deleting it lost nothing. |
+| `snapshot/v4-canonical-20260731` | `fca6f998` | The same commit, tagged on 2026-07-31 as a point-in-time snapshot. |
+| `archive/v4-compiler-20260824` | `453e1bf5` | The compiler engine's own development branch. It is an ancestor of `main`, so `main` already contains it. |
+| `snapshot/v4-compiler-20260731` | `453e1bf5` | The same compiler commit, tagged on 2026-07-31. |
+| `v4-2a-engine-ed8125c` | `ed8125c5` | The C3 G-channel instrument (`--f1-c3-hist`) from the deleted `f1c3-gchannel` branch. The instrument was carried onto `main` separately (`c31f9bdf`); the tag keeps the original commit reachable. |
+
+**Tags do not change.** A tag is a fixed snapshot: it will not receive fixes, and it does not carry
+any correction made on `main` after its date (it predates most of
+[CORRECTIONS.md](CORRECTIONS.md)). Prose inside a tag may therefore state things `main` has since
+corrected. Read a tag to review the code; cite `main` for results.
+[BRANCH_REGISTRY.tsv](BRANCH_REGISTRY.tsv) records where each deleted branch went.

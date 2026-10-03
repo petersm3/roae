@@ -27237,3 +27237,487 @@ ledger, `history_index.sh`, `TestNoBareAsserts`, `TestSatEmittedClausesNonKW`,
 changed) and the new class.
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 34, Q-934.
+
+## CX-271 — the King Wen over-constraint control covered 8 of the 24 archived certificates and ran only inside the whole test harness; it now covers all 23 sequence-formula certificates as a `sat.py` subcommand the one-command suite runs per certificate; the full-31 divisibility gates move from 24 to 48 and the README no longer offers that divisibility as confirmation of the method it was computed with; every literature rule is stated formally for an independent encoder; and the orientation-deduplicated C1–C5 record count stays unpublished, with the reason recorded (sat.py; tests.py; reports/certificates/verify_all.sh; reports/certificates/README.md; documentation/SAT_CLI.md; solve.c; verify.c; README.md; documentation/VERIFY.md; documentation/F1C5_LAYER_FORMAT.md; documentation/SOLVE_C_CLI.md; documentation/LITERATURE_RULES_FORMAL.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; documentation/README.md; documentation/HISTORY.md)
+
+**2026-10-02.** Origin: backlog row Q-946 — the SAT/CNF, formal-specification and engine-design residue
+of the 2026-08-01 lens sweep (items GATES-04, HOST-12 with C-4, T3-21 and A1-DEF-1), each re-verified on
+the batch's staged tree before anything was changed. Batch 35, Fable lane.
+
+**No published number, count, sha or certificate moves.** Every formula `sat.py` emits is byte-identical
+before and after this entry — the two `-noY` subsets now carry clause-family marks, which `write()`
+ignores; sha256 compared on four targets including both subsets — so no DRAT certificate is re-run.
+
+**1. GATES-04 — the over-constraint control, from 8 targets inside the harness to 23 inside the suite.**
+Every archived certificate is an UNSAT proof, and DRAT is monotone: a regenerated formula carrying a
+stray extra clause has the same, or a shorter, refutation, so `s VERIFIED` cannot say whether a formula
+forbids orderings its target's statement does not. The executable control is King Wen — C1–C5 valid, and
+`solve.py`'s scorers say which literature rules it violates — which must falsify only the families the
+target is about. Until today that control lived in `tests.py` for 8 of the 24 targets and surfaced in the
+suite only inside section 5's "Ran N tests" line. It is now `sat.py --kw-control TARGET [--c3-min N]`,
+with three legs as whole-line tokens: King Wen refutes the full formula; on the formula minus the expected
+families nothing is falsified and no literal is foreign (the exclusion form, propagation-order
+independent); and each expected family, with the others removed, still refutes King Wen on its own, so
+an emitter that silently emitted nothing is caught. The expected families are derived from the scorers
+and the target's theorem family, and `tests.py` checks that derivation against a hand table for every
+certified target. The two cardinality-only `noY` subsets needed a second form: their clauses name no
+ordering variable, so King Wen's 31 literals propagate nothing there (measured: `CONSISTENT`, every
+clause undetermined); the control evaluates King Wen's unit-propagation closure on the full base formula
+minus the expected families — conflict-free, hence unique — against the subset. The rigidity kernel is not
+a sequence formula and is stated `INAPPLICABLE` by name on every run, its own positive control
+(`rigidity_validate`, run before `--rigidity-cnf` writes) named in the line. Measured on this tree: all
+23 pass, King Wen falsifying exactly the stated families (two parity and two rhythm forbids under
+`moore-strict-near-2`, the two gender forbids under `five-sub-gender+ccn4`, the one alternation-bound
+clause under each `alt` target and its subset); three planted defects each turn the verdict `FAIL` — an
+extra forbid on a King Wen literal hidden under the C5 budget family (one clause falsified on the rest),
+the parity family emptied (necessity 2 of 3), the alternation bound removed (`SATISFIED` where
+`FALSIFIED` is due). Stated limitation, asserted in the test so it cannot be read as coverage: the control
+is family-level, and an over-constraint hidden inside a family King Wen already violates is invisible to
+it. `verify_all.sh` now runs the subcommand beside every replay (one `KW_CONTROL_<cert>` token each,
+`KW_CONTROLS_PASSED` with floor 23) and needs `python3` only, so the leg runs on a host without
+`drat-trim`; a run of the suite on this tree printed 23 passes and the one `INAPPLICABLE` line.
+
+**2. HOST-12 and C-4 — what the divisibility gate is, and the gates at 48.** The README said the exact
+count was "computed to the last digit via the symmetry theorem's 24-fold quotient, and divisible by 24
+exactly as that theorem predicts", which offers the divisibility as confirmation of the theorem the count
+was computed with. Read from the engine: `f1_gather_layer` is a pull DP that stores exact plain-DP values
+at one representative per orbit of *partial* masks, mapping each stored `last` key through the inverse
+lift of the canonicalising element; the full mask is fixed by the whole group and its value is N itself;
+orbit sizes (`n_eff / |stab|`, with every partial-mask stabiliser computed, never assumed trivial) enter
+only the subset-mode layer-mass gate. So nothing multiplies by 24, the DP uses the group's invariance of
+C1–C5 and not its free action on complete sequences, and 24 | N is a consequence the computation does not
+assume — a necessary condition with 1-in-24 power against an arbitrary wrong integer, not a confirmation
+(TR-5 §4 already called the mod-24 gate "a strictly weaker check than the space affords"). The README
+sentence is reworded to say that. The C-4 residue is closed on the same reading: the order-48 lift acts
+freely on orientation-explicit sequences (TR-5 §4; `rev` flips every non-palindrome pair's orientation,
+and the C4 pin is on two palindromes, which every line-position permutation fixes), both landed exact
+integers are ≡ 0 (mod 48) — replayed in one line of arithmetic each — and the per-G-bin gate of the
+`--f1-c3-hist` path has asserted 48 at full-31 since 2026-08-10. The two full-31 totals gates in `solve.c`
+and the two full-31 gates in `verify.c` (`--check-layers`, the `--ie-count` CRT total) now assert
+48 | N, each printing a `mod 48` line beside the `mod 24` / `N / 24` lines the documentation quotes, which
+are unchanged. Not executed at full scale: those gates are reached only by the ~64 GB / ~4 TB run, so the
+evidence is the arithmetic on the archived integers, a clean build with the compiler warning set
+identical to the previous source, `--selftest` reproducing its canonical sha, and the reduced-n F1 subset
+verify passing on the new binary. METHODS' "mod-24 gated" labels describe the 2026-07-25 runs and are
+left as written.
+
+**3. T3-21 — formal statements of the rules.** `documentation/LITERATURE_RULES_FORMAL.md` states the
+conventions once (encoding, reversal and complement, stations, balance, gender) and then every rule as
+implemented: the five theorem-bearing rules the SAT targets enforce (Moore parity and rhythm, Schulz
+gender, CC-N4, CC-N8) and the 29 other registry rules, each with its return type, its King Wen value and
+any conjunct the implementation carries that discriminates no ordering. `tests.py`
+(`TestLiteratureRulesFormalStatements`) re-encodes the five from that text with integer bit operations
+only and agrees with the project's scorers on 496 orderings — King Wen, the 44 public non-King-Wen
+witnesses, 400 seeded random pair orderings with random orientations, 50 tail-permuted King Wen variants
+(CC-N4/CC-N8 positives) and a face swap (a CC-N4 negative) — with both polarities of every rule present
+and one planted deviation per rule caught. Two first-choice "deviations" turned out to be equivalent
+encodings and are recorded as such: reversing every rhythm weight (a counted pair never has `sc = 0`,
+since two mirror-position minority lines make a palindrome, which is always a complement pair and exempt,
+so the relabelling is uniform and the break count is invariant — now stated in the document as an encoder
+note) and `pc <= 3` for male (`pc = 3` is exempt first). Scope: the 29 scoreboard rules are
+transcriptions checked by reading; a finite test is not a proof of equivalence; the one-point King Wen
+gate is unchanged. The sentence "they have not been written" in LITERATURE_RULES_POPULATION_TESTS.md
+carries a dated note.
+
+**4. A1-DEF-1 — the orientation-deduplicated C1–C5 record count: measured privately, not published, and
+why.** The two withdrawal entries above (dated 2026-08-23 and 2026-08-24) say "`E[1/m]` has never been
+measured" and offer no point estimate. The first half is no longer true and this entry supersedes it: on
+2026-08-29 (backlog Q-388) a W/m estimator — each Knuth probe contributing W/m at its leaf, m being the
+exact orientation fibre of the leaf's pair ordering, so that the reciprocals sum to one per pair-order
+class — measured R(C1–C5) at 2×10⁸ probes with a 0.70% relative 95% interval, below the 31! ceiling, with a
+ten-seed replicate control and a second estimator derivation agreeing within 0.7σ; the estimator is on
+this tree (`SOLVE_KNUTH_FIBER=1`, SOLVE_C_CLI.md). The second half stands, deliberately, and the
+publication bar is not met for four reasons. (a) No artifact: the run logs lived in a session scratchpad
+and no copy exists in either repository, while every estimate this suite publishes is cited to an archived
+output (`reports/evidence/c67_probe.out` for the C1–C7 figure). (b) The binary that produced it predates
+the 2026-09-04 change to the same estimator path (the strict-walk refusal), so the figure would be
+attributed to a code state no longer in the tree. (c) Its own record says the estimate rose monotonically
+across three probe scales (2×10⁵, 2×10⁶, 2×10⁸) and that a residual low-side systematic of the order of
+the interval cannot be excluded — a caveat that must travel with the figure and whose evidence is the same
+unarchived set of runs. (d) No METHODS row or owning report section exists for the quantity. What
+publication needs, in order: a re-run on the current binary with the output archived under
+`reports/evidence/`, the replicate control and the second derivation beside it; then a METHODS
+"Canonical quantities" row labelled **estimate** with the interval and the convergence note, owned by
+TR-4. One public occurrence of the private figure existed: a `solve.c` comment of 2026-09-04 quoted it
+bare, as context for the strict-walk refusal, without its interval or caveat; the digits are withdrawn
+from that comment, not corrected, and the comment now points here. No number is quoted in this entry for
+the same reason.
+
+**5. Gates.** `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`, the claim
+ledger, `history_index.sh`, `TestNoBareAsserts`, `TestSatLane12` (its control test now covers 23 targets,
+plus the three-defect test, the subcommand test and the `noY` byte-identity test) and the new
+`TestLiteratureRulesFormalStatements`. The full `verify_all.sh` with `drat-trim`, `lean` and ≥ 12 GB is a
+replicator's run, not this tree's.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 35, Q-946.
+
+## CX-272 — the repr(k) forward-check engine was described at seven public sites as being on "no published ref at all" and its host functions as living on a deleted branch; both have been reachable from public tags, one commit remains unpublished, and the engine stays off `main` because its host is the unpromoted v4 prune stack — every site now says where each piece is and what `main` answers (documentation/VERIFY.md; lean/README.md; lean/PruneReprFC.lean; lean/RecordConvention.lean; verify.c; verify.py; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh)
+
+**2026-10-02.** Origin: backlog row Q-926, from the same day's disposition pass over the pending
+index (Q-920). Batch 35, Fable lane. The row offered two resolutions — port the engine onto `main`,
+or re-scope the public text — and asked for the choice to be justified.
+
+**No published number, count, sha or canonical output moves.** `solve.c` is untouched by this entry;
+`./solve --selftest` on this tree reproduces the `403f7202` canonical sha (PASS). Every change is to
+comment or prose text and is line-count-neutral at each site.
+
+**1. What the sites said, and what is true.** VERIFY.md's inline warning and its NOT-AVAILABLE box,
+lean/README.md's PruneReprFC section, the PruneReprFC.lean and RecordConvention.lean headers, the
+repr(k)-oracle comments in verify.c and verify.py, and the repro-reach gate's row said that
+`--kc-repr-normalize` and the `SOLVE_REPR_FC` prunes were "on NO PUBLISHED REF AT ALL" / "only on
+an unpushed local branch", that a reader "cannot obtain them by any means", and that their host
+functions (`orb_recanon`, `orb_repr_global`, `orb_normalize_rec_op`) were "published only on the
+unlanded `orbit-port-188-candidate` branch". Each was true when written (2026-08-21 and 2026-09-03)
+and false at this measurement: `git ls-remote origin` lists the tag `v4-repr-fc-legc-20260813` at
+`5f473242`, which contains `46c4a6d9` (the commit that added the flag and the prunes; `git tag
+--contains 46c4a6d9` names that tag and `git branch -r --contains 46c4a6d9` names nothing), and the
+tag `archive/orbit-port-188-candidate-20260824` at `fb19a66b`, which carries the host functions
+(`orb_recanon_dfs` 5, `orb_repr_global` 6, `orb_normalize_rec_op` 9 occurrences) while the branch of
+that name is deleted. `c996a42b` (prune-A exact-consumption fail-safe plus an in-process
+FC-equivalence selftest) is in no origin ref; it survives in a private backup. On `main`,
+`SOLVE_REPR_FC`, `--kc-repr-normalize`, `OrbitProblem`, `orb_recanon_dfs` and `orb_repr_global` have
+zero occurrences in `solve.c`, and `main`'s binary answers `ERROR: [kc] unknown subcommand
+--kc-repr-normalize` with exit 2 — the inline warning had quoted `ERROR: unknown option`, which is
+the message for a flag outside the `--kc-*` family. The tag's `solve.c`, built with the documented
+flags, answers `Usage: solve --kc-repr-normalize IN.bin OUT.bin`, and its `--orbit-selftest` prints
+`PASS` under `SOLVE_REPR_FC=0` and under `SOLVE_REPR_FC=1` with byte-identical output.
+
+**2. Why the engine is not ported, and why that is the right resolution.** The port was measured and
+declined for three reasons, each sufficient on its own. (a) `46c4a6d9` is a 404-line patch to
+`solve.c` against functions `main` does not have: its added lines call `orb_recanon_dfs`,
+`orb_normalize_rec_op`, `orb_repr_global`, `v4_normalize_record` and the `OrbitProblem` type, none
+defined in the commit and all zero on `main`. What would have to come with it is the orbit host —
+from the merge base `3fc0e6b1`, the tag's `solve.c` delta is 2,740 insertions and 66 deletions,
+against a `solve.c` that has grown from 24,209 to 52,316 lines over 928 commits since that base.
+(b) That host is the v4 prune stack: the tag's `backtrack` and `backtrack_iterative` hunks carry the
+`mw_c3` prunes under `SOLVE_V4_PRUNES`, and its `--selftest` is a two-pass check in which only the
+`SOLVE_V4_PRUNES=0` pass reproduces `403f7202`. BRANCH_REGISTRY.tsv records the same lineage's
+candidate as not merged and not mergeable as-is (a checkpoint-format bump and a prune stack enabled
+by default) and its promotion as an operator decision not taken; landing the engine would land that
+decision by the side door. (c) The batch's constraints for `solve.c` — sha-neutral on the canonical
+path, new code appended, in-place edits line-neutral — cannot be met by a patch whose 66 deletions
+sit inside the `--selftest` block. So the proof stays published, the implementation stays on the tag,
+and the text now says exactly that instead of saying the implementation cannot be obtained.
+
+**3. What the proof covers, and the one gap that stays open.** `lean/PruneReprFC.lean` machine-checks,
+at the model level, that the two prunes remove only leaf-free subtrees and so preserve the first-found
+leaf; its bridge to any binary is the stated facts B8–B11, carried by prose, code review and runtime
+gates. Those gates are on the tag — `--orbit-selftest` against the brute-force `orb_brute_repr`, and
+the two-pass `SOLVE_REPR_FC=0/1` byte-identity A/B — except the in-process A/B, which is
+`c996a42b`'s and unpublished. At the tag both halves of the interval check fire without an
+exact-consumption guard and are licensed by `fcCheck_leaf_free` through B10's reachable-state
+invariant; `c996a42b` adds the guard to the upper half only, so in its advertised fail-safe mode the
+lower half fires where the proved predicate is false, licensed by prose alone. The unconditional
+lower-half lemma follows from `costs_bounded` and `leaves_nil_of_costs_infeasible` (a budget entry
+below its suffix-min makes every completion's demand exceed it pointwise). It is not added here: no
+Lean toolchain is on this host, and an unchecked edit to a file whose `#print axioms` lines are the
+published trust base would be worse than the gap. It is recorded as open, scoped to the unpublished
+commit.
+
+**4. What changed.** The seven sites named in the heading now state, per piece: the flag and the
+prunes are public only on the tag `v4-repr-fc-legc-20260813` (`5f473242`) and on no branch; the host
+functions are on that tag and on `archive/orbit-port-188-candidate-20260824` (`fb19a66b`); `c996a42b`
+is on no public ref; `main` has none of it and answers the quoted `[kc]` error. The gate row's
+retirement condition reads "if the engine lands on main". The 2026-08-21 and 2026-09-03 wordings
+remain in the append-only ledgers as the record of what was true then; the registry of retired
+phrasings gains no row, because no live document is left to carry the old sentence and the ledgers
+that carry it are exempt by design.
+
+Gates run on the staged tree: `./solve --selftest` (`403f7202` PASS, binary built from this tree's
+source), the full `doc_gates.sh` with the private directory set, `claim_ledger.sh`,
+`history_index.sh --check`, `TestNoBareAsserts`, and the line-count check at every edited site. The
+tag's build and its `--orbit-selftest` runs are this entry's evidence for where the implementation
+lives, not a claim that `main` carries it.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 35, Q-926.
+
+## CX-273 — open decision #31 is closed: the v4 DFS + orbit-reduction + prune-stack engine will not be merged into `main`; it stays public at its tags as a historical independent cross-check, `main` is the single source of truth, and the public text now says so and shows how to review the tagged code (documentation/BRANCHES_EXPLAINED.md; documentation/BRANCH_REGISTRY.tsv; documentation/CORRECTIONS.md; documentation/HISTORY.md; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh)
+
+**2026-10-02.** Origin: operator decision of 2026-10-02 on the recommendation in CX-272 §2 — take
+the recommendation, document the decision publicly, and tell readers how to reach the tagged code.
+Batch 35.
+
+**No published number, count, sha or canonical output moves.** `solve.c` is untouched by this entry.
+
+**1. What the public text said.** BRANCH_REGISTRY.tsv's `orbit-port-188-candidate` row, HISTORY.md's
+2026-09-04 branch-consolidation entry and CX-272 §2(b) described landing the DFS + orbit/prune line
+as "the operator's #31 promotion decision, undecided". That was true when written. The decision has
+now been taken: the line is not merged. HISTORY.md and the earlier ledger entries stay as written,
+as the record of what was true then; the registry row is a live declaration and is updated in place
+(one line, so the cited `BRANCH_REGISTRY.tsv:38` still lands on that row).
+
+**2. What changed.**
+- `documentation/BRANCHES_EXPLAINED.md` gains a dated section at its end, "Decision 2026-10-02: the
+  DFS + orbit/prune engine stays at its tags": what each engine is, which one produced which
+  published results (the compiler on `main` produced the TR-11 §9 count, the n=31 ladders and the
+  TR-12 results; the tagged line produced no published count, sha or record file), why the tagged
+  line is not merged, what public evidence of its cross-checking exists, a review procedure, and one
+  line per tag. The section says tags are fixed snapshots that receive no fixes. It quotes no figure
+  from the engine-vs-engine comparisons, because their receipts were not published.
+- `documentation/BRANCH_REGISTRY.tsv`: the `orbit-port-188-candidate` row now records the decision.
+  A `v4-canonical` row is restored as `retired`. That branch was declared here as a public
+  `snapshot` from 2026-08-08 and was deleted on 2026-08-29; its row was removed the same day, before the registry kept retired rows
+  (the `retired` status dates from 2026-09-04). The restored row names its three tags.
+- `scripts/doc_gates.d/80_repro_reach_claim_shapes.sh` (GATE 25) gains one declared-narration row,
+  `solve --orbit-selftest`: the flag is not in `main`'s `solve.c`, and the new section names it on
+  purpose, inside a block that first checks out the tag. The row follows the existing
+  `--kc-repr-normalize` row. The section prints the tag's second selftest anchor in full
+  (`e26c68500c2b…`), so GATE 22 can resolve the short form used in this entry.
+- CX-272 §2(a) gave the tag's `solve.c` delta from the merge base `3fc0e6b1` as 2,910
+  insertions. Re-measured for this entry (`git diff --numstat 3fc0e6b1 5f473242 -- solve.c` → `2740 66`), it is 2,740.
+  CX-272 is from the same unpublished batch, so the figure was corrected in place; the 66 deletions,
+  the 24,209 → 52,316 line counts and the 928-commit count re-measured as stated.
+
+**3. How the review procedure was verified.** In a fresh clone of the public repository the
+documented commands ran as written: `git fetch --tags`, `git checkout v4-repr-fc-legc-20260813`,
+`git log -1` (→ `5f473242`), `git log --oneline origin/main..HEAD` (5 commits), and the `git diff
+--stat` against the merge base. All eight tags were confirmed with `git ls-remote --tags` against the
+public remote, and each tag's commit and ancestry relation to `main` was checked (only the two
+`v4-compiler` tags are ancestors of `main`). The tag's build and self-tests were not re-run for this entry: on this host a niced build of the tag's
+`solve.c` had used 9 CPU-seconds in about nine minutes, so it was stopped under the lane's
+two-minute limit. The section therefore cites the `--orbit-selftest` results that CX-272 §1
+recorded for a build of the same tag the same day, and reads the two `--selftest` anchors from the
+tag's `solve.c` (`expected_sha_v1` = `403f7202…` for the `SOLVE_V4_PRUNES=0` pass,
+`V4_SELFTEST_SHA` = `e26c6850…` for the second pass). It says which is which.
+
+Developed with AI assistance (Claude, Anthropic): Claude Opus 5.5, batch 35, lane D31DOC.
+
+## CX-274 — five SOLVE.md sentences still called the C3 effect at C1∩C2∩C4∩C5 "unresolved" or "unconfirmed by direct measurement" after the n=31 battery had published a direct estimate; they now give the ledger value and the estimate with its interval (documentation/SOLVE.md)
+
+**2026-10-02.** Origin: Q-944 item T1-2 (split from Q-927), re-checked against public main
+`ec0e1ef9`. Batch 35, lane Q944P.
+
+**No number moves.** The flag block in §Rule 3 (`SOLVE.md:103`) has cited the direct estimate
+since 2026-09-27 (Q-857): `P(cd ≤ 387) = 0.120937` [0.120299, 0.121578], an estimate with a 95 %
+Wilson interval over 10⁶ uniform draws from C1∩C2∩C4∩C5 (row `a1_q4ac` of the n=31 battery,
+receipt `reports/evidence/tr12/banked_n31_20260922/a1_q4ac.txt`, 120,937 accepted; walk units,
+`cd = 2·(walk_cd + 1)`, so 387 is cd ≤ 776). Five sentences further down still said the size of
+the effect was unresolved and unconfirmed by direct measurement. Both were false once the estimate
+was published.
+
+**Agreement, re-computed for this entry.** The ledger ratio is 1.3287×10³⁸ / 1.097051×10³⁹ =
+0.12112. It lies inside the estimate's interval. The interval re-derives from the receipt's counts
+(120,937 of 1,000,000; Wilson, z = 1.96: [0.120299, 0.121578]).
+
+**What changed.** `SOLVE.md:103` gains a dated note: the estimate is the measurement the flag
+block asked for, a uniform sample is the stronger instrument for the same indicator because it
+needs no importance weights, and no separate weighted-Knuth run is planned. `SOLVE.md:106`, `:108`,
+`:271` and `:279` now read "≈12%: 12.1% by the ledger and 12.09% [12.03%, 12.16%] by direct
+estimate (attested)", each with a dated "this read …" note where a phrase was replaced. Every edit
+is on its own line, so no line moves.
+
+**Scope.** The estimate is attested, as TR-12 §Q4 already says: its draws need the f ladder, which
+is not distributed; the estimate and its interval re-derive from the committed counts
+(`check_receipts.sh`, `Q4_REDERIVED=MATCH`). Six other sites that say "the ledger gives ≈12%"
+(`CITATIONS.md`, `CRITIQUE.md`, `SOLVE.md:579`, `SPECIFICATION.md` twice, `viz/archive/viz_pca.md`)
+are true and are left as they are.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 35, lane Q944P (Q-944).
+
+## CX-275 — the Jing Fang positive control of the FC-1 broken-instrument gate depends on the palace order, which was unmeasured: over all 40,320 palace orders its EXTREME count is 5 to 9 of 11 at the pilot null, the attested order sits at the maximum 9, and 21,506 orders (114 of the 1,152 that keep Jing Fang's diff-wave) fail the gate of 8; a shipped command reproduces it (solve.py; tests.py; documentation/CRITIQUE.md; documentation/SOLVE_PY_CLI.md; documentation/DEVELOPMENT.md)
+
+**2026-10-02.** Origin: Q-944 item T1-5-FC1 (split from Q-927). Batch 35, lane Q944P.
+
+**Old value → new value.** Before this entry the published record (`tests.py` TestJingFang
+docstring) said that how far the Jing Fang leg of FC-1 would move under a different palace order
+was **UNMEASURED**, and CRITIQUE "Specificity, measured three ways" item 1 presented Jing Fang's
+**9 of 11** as a positive control without that condition. It is now measured: over all
+8! = 40,320 palace orders, against the `--r7-verify` pilot null (N = 10⁴, seed 42), the count is
+**5 to 9 of 11** (histogram 5:934, 6:6594, 7:13978, 8:14466, 9:4348). The attested order (Qian,
+Zhen, Kan, Gen, Kun, Xun, Li, Dui; Nielsen 2003 Table 2) gives **9**, the maximum, which 4,348
+orders (10.8%) reach. **21,506 orders (53.3%) fall below the pre-committed gate of 8.** Of the
+1,152 orders that reproduce Jing Fang's diff-wave multiset {1:48, 3:15}, the count is 7 to 9
+(7:114, 8:538, 9:500), and **114 fail the gate**.
+
+**Label: EXACT for the seeded pilot null, MEASURED.** Every order is evaluated; nothing is sampled
+over orders. The null itself is the seeded `--r7-verify` sample of size 10⁴. The published FC-1
+figures are at N = 10⁶ (`--r7-corpus`), where the 1st/99th-percentile cut points can move and
+boundary counts may shift by ±1. That run is not done here, and the text says so. The direction of
+the finding does not rest on the boundary: the histogram spans 5 to 9.
+
+**Reproduction.** `python3 solve.py --r7-palace-sweep` (new; about 15 CPU-s). It uses `solve.py`'s
+own R7 machinery unchanged (`_r7_W`, the 11 `_R7_OBSERVABLES`, `_r7_uniform_nulls`, the EXTREME
+rule of `_r7_l0_extreme_counts`). Before the sweep it checks that its percentile reproduces
+`_r7_l0_extreme_counts` on the attested order, and it prints `FC1_PALACE_SWEEP=FAIL` and exits 1
+if not. `tests.py::TestQ944R7PalaceSweep` pins every token above; its red half replaces the
+shipped counter's Jing Fang result and requires the sweep to refuse.
+
+**What this does and does not change.** FC-1's published Jing Fang leg (9 of 11) is correct for
+the order the suite uses, and that order is anchored to a printed primary source. But "a battery
+that failed to flag Jing Fang would have been published as instrument broken" holds for the attested
+order only. The Mawangdui leg (9 of 11) does not depend on the Jing Fang palace order and still
+carries FC-1 on its own. CRITIQUE §Corpus Control II's exact pricing of the order,
+P(J2 ∧ J3 | J1) = 1/40,320, stands. CRITIQUE item 1 gains a dated note with these figures; the
+TestJingFang docstring is rewritten in place (same six lines).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 35, lane Q944P (Q-944).
+
+## CX-276 — verify.py's import-time table gate let 9 of the 32 single pair-block orientation flips of the KW literal load, and decode() reads each pair's orientation from that literal; the gate now pins the literal's order and orientation by sha256 (verify.py; tests.py; documentation/VERIFY.md; documentation/DEVELOPMENT.md)
+
+**2026-10-02.** Origin: Q-944 item GATES-06 (split from Q-927). Batch 35, lane Q944P.
+
+**The gap, measured.** `_verify_tables_against_rules()` checks that KW is a permutation, `PAIRS`
+as a set, partner-exactness, the C5 multiset and cd = 776. Executing the real `verify.py` source
+with only the `KW = [...]` literal replaced, over all C(32,2) = 496 pair-block transpositions and
+all 32 single pair-block flips: with the gate alone, 9 transpositions and 9 flips pass (18). On a
+full import, the 9 transpositions die only incidentally, in `_verify_orbits_against_group()`, which
+re-derives the pair-orbit partition from `PAIRS`' indices. **The 9 flips (blocks 3, 5, 9, 10, 11,
+12, 17, 21, 31) load.** That matters because `decode()` maps each record's orientation bit through
+`PAIRS[pidx]`: a flipped block silently reverses that pair in every decoded record and changes
+which sequence `verify.py` calls KW, while every check stays green.
+
+**The fix.** The last check of `_verify_tables_against_rules()` compares
+`sha256(bytes(KW))` with `e0632bd577d83c5d21f10ff7901e29205a5f2e91b59721445c88e74857cebd87` and
+raises otherwise (an explicit raise, so it survives `python3 -O`). After it, 0 of the 528
+corruptions load and the true table does. The docstring is rewritten to name the pin within its
+old line count, so no `verify.py` line moves.
+
+**Tests.** `tests.py::TestQ944Gates06KwPin` runs the same enumeration on the real source: all 528
+refused, the true table loads, a non-permutation is refused. Its red half removes the pin from the
+same source and requires exactly the 9 known flips to load again, so the test fails on the uncured
+file.
+
+**Scope.** The pin is a checksum of the same literal. It catches any edit to the table; it is not
+an independent derivation of King Wen's order. The independent anchors for the order stay the
+multi-source checks in `roae.py`, `solve.py` and the Lean `KW`. No published number, count or sha
+of any run output moves.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 35, lane Q944P (Q-944).
+
+## CX-277 — the numerical check behind the C1 rule-constants transcription bridge was attested only, run from a script never committed; it is now a shipped command, `solve.py --c1-constants-check`, and the sites that called the check attested-only say so (solve.py; tests.py; README.md; lean/README.md; lean/C1RuleConstants.lean; reports/TR12_QUERY_PROGRAM.md; reports/TR1_EIGHT_CENTURIES_MEASURED.md; documentation/CLAIMS_DECIDED.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; documentation/SOLVE_PY_CLI.md; documentation/DEVELOPMENT.md)
+
+**2026-10-02.** Origin: Q-944 item HOST-01-ARTIFACT (split from Q-927). Batch 35, lane Q944P.
+
+**Before.** `lean/C1RuleConstants.lean` proves eight registry rules constant on the C1 space, as
+`countP` forms. Identifying those forms with `reg_*` in `solve.py` is a non-Lean transcription
+step. Its one numerical check, a 2026-07-21 drive of `reg_*` over 5,449 structured C1 sequences,
+ran from a scratchpad script that was never committed (CX-84, CX-86), and a 2026-09-24 re-run of
+the same design was likewise not in the repo. Seven sites said the bridge's check was "attested
+only", and `README.md` called its re-derivation "an open item".
+
+**Now.** `python3 solve.py --c1-constants-check` drives the shipped `reg_mmt4`, `reg_p1c4`,
+`reg_s1`, `reg_s6`, `reg_r3`, `reg_r4`, `reg_r5` and `reg_c2` over 5,455 C1-valid orderings (KW and
+6 seeded random C1 bases, each with its 32 single-pair flips, 31 adjacent pair-slot transpositions
+and full reversal, plus 5,000 seeded random C1 orderings; seed 944) and requires every value and
+its type to equal `REGISTRY_KW_EXPECTED`. Measured 2026-10-02: `SEQUENCES_WITH_DEVIATION=0`;
+control, 200 of 200 random non-C1 permutations deviate; a cross-pair mis-reading of r4, the
+failure the bridge exists to rule out, is caught on 4,857 of the 5,455. `C1_CONSTANTS_CHECK=PASS`,
+about 9 CPU-s. `tests.py::TestQ944C1ConstantsCheck` pins the tokens; its red half installs the
+cross-pair r4 as `reg_r4` and requires `C1_CONSTANTS_CHECK=FAIL`.
+
+**What changed in the text.** The "attested only" qualifier at `README.md`, `lean/README.md`,
+`reports/TR12_QUERY_PROGRAM.md` (Q9), `reports/TR1_EIGHT_CENTURIES_MEASURED.md` (twice),
+`documentation/CLAIMS_DECIDED.md` and `documentation/LITERATURE_RULES_POPULATION_TESTS.md` now names
+the command, with a dated "this read …" note. `lean/C1RuleConstants.lean`'s header gains a dated
+note after its 2026-09-24 correction (comment only; no Lean statement changes).
+
+**What stays.** The 2026-07-21 5,449-sequence run itself stays attested, and `README.md`'s list of
+attested-not-reproducible legacy figures still names it. The bridge is still a non-Lean step: the
+command checks the transcription on samples, it does not prove it, so "Lean-proven modulo a
+transcription step" is unchanged. No published count, rate or sha moves. The retired phrase is not
+added to `RETRACTED_PHRASES.tsv`: each live site that carried it now quotes it inside its own dated
+note.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 35, lane Q944P (Q-944).
+
+## CX-278 — 48 of the 106 gate-anchored correction markers are freed: GATE 27 and GATE 26 also accept a ledger anchor, GATE 3b fails an allowlist row that matches nothing, GATE 4b's stale-row finding is tied to the one marker it rests on, and the inventory records each re-anchored leg; 58 rows remain gate-anchored; GATE 4b no longer crashes when a second dangling reference follows a bare one (scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/correction_marker_inventory.sh; documentation/CORRECTION_MARKER_INVENTORY.tsv; documentation/WITHDRAWN_FIGURES.tsv; tests.py)
+
+**2026-10-02.** Origin: backlog row Q-937, step 2 of the inline-correction work (CX-166). Landed by
+Opus, batch 35. No marker was moved or reworded.
+
+**1. What was open.** The marker inventory measures which doc gates depend on a marker: it deletes
+every marker in a copy of the tree, runs the gates in both copies, and ties each changed output line
+to the markers it cites. On this tree 106 marker rows were class 3, `gate-anchored`. Such a marker
+cannot move into this ledger (step 3, Q-938) until the gate leg it holds up rests on something that
+stays behind.
+
+**2. GATE 27 and GATE 26 accept a ledger anchor.** GATE 27 passed a withdrawn figure only when a
+marker word sat in the same table row or paragraph, and GATE 26 passed an over-ceiling "canonical"
+figure only when its line said WITHDRAWN. So a marker could move only together with every figure
+beside it. Both gates now also accept a link to this ledger by CX id:
+a Markdown link whose text names `CX-<n>` (or whose fragment is `#cx-<n>`), under three conditions. The link
+must resolve to `documentation/CORRECTIONS.md` from the file that holds it. A `CX-<n>` heading must
+exist here, outside a code fence. The entry under that heading must quote the figure. A link with no
+CX id, to a missing id, or to an entry that does not quote the figure exempts nothing. GATE 27 reads
+the anchor per table row or paragraph, GATE 26 per line. The anchor is stable because this file is
+append-only: a marker moved here verbatim keeps quoting its figure.
+
+**3. GATE 3b fails a stale allowlist row.** The two GATE 3b markers quote the retracted figure
+themselves. A row in `DOC_GATE_FIGURE_ALLOWLIST.txt` exempts that quote. Moving the marker takes the
+figure with it, and before this entry the row left behind printed a `[note]` and the gate passed.
+That row is a licence nobody has to look at. A row that matches nothing is now a `[FAIL]`, as GATE
+4b and GATE 18 already do for their exemption rows. On this tree no row is stale. With every marker
+deleted, 3 rows are stale and the gate fails.
+
+**4. The inventory.** `scripts/correction_marker_inventory.sh` gains a `REANCHORED` table of gate
+legs whose dependency is now a stable anchor: GATE 26 and GATE 27 (ledger anchor), GATE 3b and GATE
+4b (allowlist row that fails when stale), and GATE 18 (the rule's own pointer token or a registry
+row, already accepted and already failing when stale, so that gate is unchanged). A row reads
+`reanchored:<leg>=<anchor>` only when every leg it has is in that table AND the deletion turned every
+one of them red with a `[FAIL]` line tied to that row. A leg whose deletion changed only a count or a
+note stays `gate-anchored`, because that is the silent case. A second table, `STAYS3`, records the
+two markers that cannot be freed. They sit inside the fenced block of
+`documentation/TRIGRAM_STRUCTURE.md` that GATE 66 holds byte-identical to the header of
+`lean/TrigramTheorems.lean`, so they are the Lean header's own words. They read
+`stays:verbatim-copy-of-the-lean/TrigramTheorems.lean-header;moves-only-with-the-Lean-file`.
+
+GATE 4b's stale-row finding names the citing file, the target file and the section key, here a
+2-character key.
+The inventory therefore spread it over every marker in both files, 23 rows for one dependency. It is
+now tied to the marker in the source file whose block names the target file and the key: the
+`reports/METHODS.md` note that quotes a retired pointer into the critique. The 22 rows this frees
+have no gate leg. They were read by the CX-266 rule and carry a class: 20 are class 1 and 2 are
+class 2. CRITIQUE.md's 2026-07-05 note holds the only statement of the Mawangdui rerun result.
+METHODS.md's C4 note holds the only statement in that bullet of what the classical record attests.
+Two batch-34 markers that reached the table after CX-266 was read are reviewed too (class 1).
+
+**5. Result.** Of the 106 rows: 24 `reanchored` (15 GATE 26/27 only; 4 that had GATE 26 with the
+spread GATE 4b leg; 2 GATE 3b; 2 GATE 18; 1 GATE 4b), 2 `stays` (GATE 66), 22 no longer class 3, and
+58 still `gate-anchored`. The table has no `unreviewed` row. The verdict stays
+`CORRECTION_MARKER_INVENTORY=INCOMPLETE` because of the 40 population rows from CX-266.
+
+These counts are for the merged batch-35 tree. The lane counted 105 and 57 because on its tree
+documentation/DEPLOYMENT.md:335 read class 1; on the merged tree the citation line gate and GATE 2c
+depend on it, as CX-266 records, so it stays `gate-anchored` and its `REVIEWED` key is retired in a
+comment. The merged table also read `unreviewed` on 12 rows of lines batch 35 edited. Nine rows on
+seven lines had a verdict whose key moved when a line-number cite or Q-944's text changed: each was
+re-read and re-keyed with the same class. Three are the new SOLVE.md markers from CX-274: class 1,
+because the text around each already gives both the ledger figure and the direct estimate.
+
+**6. What remains (58 rows).**
+- The citation line gate with GATE 2c: 34 rows, 1 of them also GATE 26/27. Other files cite these
+  marker lines by line number and content pin, and deleting the marker breaks the pin. The gate fails
+  loudly, but the anchor is still the marker's line. The re-anchor is to re-point those citations at
+  the CX entry, or at text that stays.
+- GATE 53: 12 rows in `documentation/LARGE_SCALE_CAMPAIGNS.md`. The gate skips a paragraph holding a
+  CORRECTED marker. The old 31 + 31 split sits outside the marker span in such a paragraph, so
+  deleting the markers fails the gate, but the finding names no line, so all 12 markers in the file
+  carry the leg.
+- GATE 86: 7 rows in `documentation/PREREG_CLASSA_QUERY_SET.md`. The file is bound by its digest on
+  the escrow page, so any edit fails the gate. Whether these stay, or the digest is re-registered, is
+  an operator decision recorded with Q-634.
+- GATE 56: 3 rows, and GATE 94 (advisory): 2 rows. Deleting the marker only adds `[note]` lines. The
+  gate goes wider, not narrower, but the inventory cannot call that red.
+
+**7. Checks.** `TestQ937LedgerAnchoredGates` (17 tests) runs the real gate modules in a scratch
+repo. Each gate's original defect is red: an unmarked withdrawn figure for GATE 27, an over-ceiling
+canonical figure for GATE 26, an unanchored retracted figure for GATE 3b. A marker and a valid ledger
+anchor are green. Each anchor that must not count is red: wrong entry, missing id, an id only inside
+a fence, no id, a path that does not reach the ledger, the next line for GATE 26, and the neighbouring
+table row for GATE 27. Each load-bearing check has a code mutant that turns its red case green:
+dropping the "entry quotes the figure" test in either gate, and returning GATE 3b's stale row to a
+note. The inventory's disposition and its GATE 4b tie are tested the same way. The table was
+regenerated from a full two-copy ablation run on this tree. Also run in this lane: the script's
+`--selftest`, the citation gate (`--all-files --all-targets`), the full `doc_gates.sh`, the claim
+ledger, `TestNoBareAsserts`, `TestQ935ParenthesisedCorrectionMarkers` and `history_index.sh`.
+
+**8. A GATE 4b crash, found while writing this entry.** A first draft of this entry named a file that
+does not exist in a section-reference shape. GATE 4b reported it, then stopped with a Python
+traceback. Its bare-reference branch set `bad = True`, which replaced the gate's list of findings
+with a boolean, so the next dangling reference crashed on `bad.append`. The gate still exited
+non-zero, but every finding after the crash was lost. That branch now appends to its own list,
+`bare`, and the exit code reads it. A test plants two references to missing files and one dangling
+section reference after them. All three are now reported, with no traceback. On the old code the
+same test shows the traceback.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 35, lane Q937.

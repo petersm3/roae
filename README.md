@@ -210,9 +210,9 @@ Headlines only — each links to its full treatment (technical reports in [repor
   `reg_*` over 5,449 structured C1 sequences with zero deviations is **attested, not reproducible**: it
   was run from a scratchpad script that is not in the repo. It is disclosed in the Lean file's header and
   in [lean/README.md](lean/README.md). So the eight are Lean-proven **modulo a transcription step whose
-  only numerical check is attested** — a bridge carried outside Lean, like those disclosed for
-  PartitionInvariance and PruneExactness, but with its check unarchived. Re-deriving it as a tracked
-  artifact is an open item.)* (A separate analytic theorem — the no-5 rule's implication chain, behind
+  numerical check is a shipped command** — a bridge carried outside Lean, like those disclosed for
+  PartitionInvariance and PruneExactness; the 2026-07-21 check itself stays unarchived. Its re-derivation is now tracked:
+  `python3 solve.py --c1-constants-check` drives the same design over 5,455 C1 orderings with 0 deviations, a non-C1 control and a cross-pair r4 mutant *(updated 2026-10-02, Q-944: this read "whose only numerical check is attested" and "Re-deriving it as a tracked artifact is an open item")*.)* (A separate analytic theorem — the no-5 rule's implication chain, behind
   McKenna's 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
   ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
@@ -261,12 +261,18 @@ Headlines only — each links to its full treatment (technical reports in [repor
   literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
 - **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
   (≈1.097×10³⁹; counting orientation-explicit sequences with C4's pair pinned —
-  [METHODS](reports/METHODS.md) §"Canonical quantities") — computed to the last digit via the symmetry theorem's 24-fold quotient, and divisible
-  by 24 exactly as that theorem predicts. (It is the suite's second exact full-scale count; the first,
+  [METHODS](reports/METHODS.md) §"Canonical quantities") — computed to the last digit by a dynamic program that keeps one
+  representative per orbit of the symmetry group on *partial* states ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md);
+  the group's invariance of C1–C5 is what makes the DP fit in memory). The integer is divisible by 24, and by 48, as the
+  free action of that group on *complete* sequences requires ([TR-5](reports/TR5_SYMMETRY.md) §4). The divisibility is not
+  a restatement of the method: the DP computes each partial state's stabiliser and never assumes the free action, so a wrong
+  integer would pass the check one time in 48 — a necessary-condition gate, not a confirmation. The confirmation is the
+  independent recount below. (Until 2026-10-02 this sentence offered "divisible by 24 exactly as that theorem predicts" as if it
+  confirmed the theorem the count was computed with; the engine reading above replaces it.) (It is the suite's second exact full-scale count; the first,
   |C1∩C2∩C4| ≈ 7.5706×10⁴¹, landed 2026-07-04.) The count was **recomputed at full scale** (2026-07-25)
   by a second instrument — `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`), a
   different algorithm class sharing no code with `solve.c` (the one shared mathematical premise is orbit–stabiliser weighting under the same 24-element group, as `verify.c`'s own header states) — and the two integers **match
-  exactly**, with the mod-24 free-action gate holding
+  exactly**, with the free-action divisibility gate holding (mod 24 in the 2026-07-25 run; both instruments gate mod 48 since 2026-10-02, the strength TR-5 §4 states)
   ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); the verifiers are
   [verify.py/verify.c](documentation/VERIFY.md)). The honest residual: both instruments are
   project-authored and share the group-theory/constraint specification, so the independence is

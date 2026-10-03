@@ -861,7 +861,7 @@ row_begin a0_gates
 row_end TR12_GATES $rc
 
 # ---- A0.x  the OUT-OF-CORE reader, which is the ONLY read path at n=31 ------------------------
-# 🔴 Q-492. `KC_MEM_MAX_PAIRS` is 22 (solve.c:19620) and `kc_resolve_pairs` sends anything larger
+# 🔴 Q-492. `KC_MEM_MAX_PAIRS` is 22 (solve.c:19646) and `kc_resolve_pairs` sends anything larger
 # down the out-of-core loader -- a DIFFERENT loader, a v2 zlib-blocked layer format and an LRU block cache.
 # So EVERY `--kc-*` query at n=31 reads through code that no n<=13 execution touches: measured, the
 # n=9 `--kc-build` writes `F1C5LAY1` magic, so the in-memory path is taken and the OOC reader is
@@ -1851,7 +1851,7 @@ row_begin a1_q2b
   # walk three times -- passed. The REL rank/unrank pair has an inverse that costs one extra ladder
   # descent per probe: `--kc-rank FDIR <walk>` must return the r that was unranked. That is the
   # same certificate `--kc-bracket` supplies for O3 in row a2_q2 (--kc-bracket is O3-ONLY,
-  # solve.c:38585, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
+  # solve.c:38611, so it cannot be used here). ⚠ THE PLAIN WALK LINE IS THE ONE THAT ROUND-TRIPS,
   # not the `record` line: measured 2026-09-11 at n=9, r=0 -> the plain line ranks 0 and the
   # `record m=32` line ranks 21, because the record form is a different representative of the
   # orbit. The solver's output is captured and cat'd rather than written straight to the row
@@ -1958,7 +1958,7 @@ kc_first_last_witness() {
 #   * 36 random ranks below 10^18 gave ZERO with cd<=387 (per-bin minima 767 / 739 / 599).
 #     The first passing sample appears near rank 5.1e29 (cd=355).
 #   * At the measured emission rate, reaching rank 10^18 is ~2.5e5 years; 10^29 is ~1e17 years.
-#     No budget reaches it, and neither does more parallelism: kc_enum_rec (solve.c:21114) is a
+#     No budget reaches it, and neither does more parallelism: kc_enum_rec (solve.c:21140) is a
 #     plain recursive DFS with no OpenMP, so 64 idle cores buy exactly nothing.
 # ⚠ THIS IS A BOUND, NOT A PROOF OF NON-EXISTENCE, and the row must not be recorded as one.
 #   Walks with cd<=387 are COMMON: 30 uniform-random ranks gave 4 (13.3%, min cd 355), agreeing
@@ -2063,14 +2063,14 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # 🔴 CODEX R5 FINDING 5 (2026-09-11). This said "Pass --wave3 to run it anyway", which is an
     # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
     # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
-    # (solve.c:20693, reached via the kc_open wrapper at :20698), and kc_extremal_main refuses an out-of-core f ladder immediately
-    # (solve.c:37756) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
+    # (solve.c:20719, reached via the kc_open wrapper at :20724), and kc_extremal_main refuses an out-of-core f ladder immediately
+    # (solve.c:37782) -- BEFORE the invariance gate, the extremal DP, the null-vs-g check, the
     # witness and the certificate: "v1 is IN-MEMORY ONLY ... the streaming, eviction-resumable OOC
     # extremal builder is a SEPARATE, UNBUILT item ... it is the full-31 enabler". So --wave3 at
     # n=31 exits 2 with that diagnostic and computes nothing. The refusal is correct and loud; the
     # DESCRIPTION was wrong, and "not budgeted" and "cannot run" are different facts about what
     # ships. Budget is an operator decision; an unbuilt builder is not.
-    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, several machine-hours each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37755-37756) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20693), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
+    row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, several machine-hours each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37781-37782) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20719), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
 elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
@@ -2939,7 +2939,7 @@ else
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk0.json" --kc-tdir "$TDIR" --kc-raw --kc-layers 0 "$half" || exit 1
       "$SOLVE" --kc-scan "$FDIR" "$GDIR" "$WORK/chunk1.json" --kc-tdir "$TDIR" --kc-raw --kc-layers "$half" "$N_PAIRS" || exit 1
       # 🔴 CODEX KCP1 FINDING 6 (2026-09-11). Both --kc-scan calls above carry --kc-raw; this
-      # merge did not. solve.c:30976 auto-enables want_raw ONLY when n <= 13, and :31089 then
+      # merge did not. solve.c:31002 auto-enables want_raw ONLY when n <= 13, and :31115 then
       # REQUIRES the merge's want_raw to agree with each chunk's. So at n=31 the chunks are raw=1
       # and the merge is raw=0, the identity check fails, and the battery REJECTS CORRECT CHUNKS
       # after paying for a second full scan. Invisible at n<=13, where the auto-enable makes them

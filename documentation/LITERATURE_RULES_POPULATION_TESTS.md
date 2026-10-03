@@ -294,7 +294,11 @@ attribution: solve.py `--registry-verify` section.
 > [METHODS.md](../reports/METHODS.md)'s independence rung 2 ("only the encoder") made concrete: a
 > replicator can *re-run* our encoding and reproduce the numbers, but cannot *independently re-derive*
 > the encoding from the published record. Formal prose statements of the 31 rules would close the
-> gap; they have not been written.
+> gap; they have not been written. *(2026-10-02, Q-946: now written —
+> [LITERATURE_RULES_FORMAL.md](LITERATURE_RULES_FORMAL.md) states all 31 registry rules and the three
+> `r11_axes` rules as implemented; the five theorem-bearing rules carry an executable re-encoding
+> check from that text in `tests.py`, the 29 scoreboard rules are transcriptions checked by reading.
+> The one-point King Wen gate described above is unchanged.)*
 
 Three headline findings:
 
@@ -315,7 +319,7 @@ c2 — including three consequences of [Radisic's](CITATIONS.md#radisic2026) opt
 asserted in the literature as design features, are now **theorems** (two of the eight, r3 (Radisic 2026) and p1c4 (Schulz 1982, citing Lai Zhide 1599), formalize to extensionally the **same** function of the ordering, so the eight literature rules state **seven distinct** ordering facts — one fact under two separately-published citations; both attributions stand. See TR-1 §3(2)): each depends only on the unordered
 pair-partition, which C1 fixes, so each is constant on the *entire C1 space* — a superset of the C1–C5
 population, hence a fortiori equal to King Wen's value on every C1–C5 ordering. Machine-checked in Lean 4
-([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean) *(qualified 2026-10-02, Q-943: Lean proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as implemented — `reg_*` in solve.py, `score_registry` in solve.c — is a non-Lean transcription step, so the eight are Lean-proven **modulo a transcription step whose check is attested only**; see [lean/README.md](../lean/README.md))*; the r4/r5 threshold forms hold because the
+([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean) *(qualified 2026-10-02, Q-943: Lean proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as implemented — `reg_*` in solve.py, `score_registry` in solve.c — is a non-Lean transcription step, so the eight are Lean-proven **modulo a transcription step whose numerical check is `python3 solve.py --c1-constants-check`** *(updated 2026-10-02, Q-944: this read "whose check is attested only"; the command replays the check over 5,455 C1 orderings with 0 deviations)*; see [lean/README.md](../lean/README.md))*; the r4/r5 threshold forms hold because the
 C1-fixed within-pair HD histogram {2:12, 4:12, 6:8} — which is c2 — sums to a total pairing cost of
 exactly 120, meeting r4's ≤120 threshold with equality). Their zero-violation readings in 2×10¹⁰ weighted
 probes — previously reported only as "empirically forced to the estimator's precision", since sampling

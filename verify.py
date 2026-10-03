@@ -138,14 +138,14 @@ def canonical(record):
 # ---------------------------------------------------------------------------
 # INDEPENDENT repr(k) ORACLE  (--check-repr)
 #
-# WHY THIS EXISTS. `--kc-repr-normalize` is NOT in main's solve.c and is on NO
-# published ref AT ALL (zero occurrences on main, v4-compiler, v4-canonical and
-# orbit-port-188-candidate; it exists only on an unpushed local branch). The
-# orb_* functions it wraps are published only on the unlanded
-# orbit-port-188-candidate branch, which BRANCH_REGISTRY marks
-# snapshot-do-not-cite (VERIFY.md §"NOT AVAILABLE IN THIS TREE"). It is quoted
-# here as design rationale, not as a command a reader of this tree can run.
-# That unpublished flag states outright that "there is
+# WHY THIS EXISTS. `--kc-repr-normalize` is NOT in main's solve.c (zero
+# occurrences, re-measured 2026-10-02) and is on NO branch; it is public only on
+# the tag v4-repr-fc-legc-20260813 (5f473242). The orb_* functions it wraps are
+# on that tag and on archive/orbit-port-188-candidate-20260824 (fb19a66b), the
+# retired candidate BRANCH_REGISTRY records as not mergeable as-is
+# (VERIFY.md §"NOT AVAILABLE IN THIS TREE"). It is quoted here as design
+# rationale, not as a command a reader of this tree can run.
+# That tag-only flag states outright that "there is
 # NO separate repr oracle in this tree": its only built-in check is IDEMPOTENCE
 # (re-run on the output, expect byte-identical), which is self-consistent and
 # therefore cannot catch a normalization that is stable but WRONG. The
@@ -240,9 +240,9 @@ def check_artifact(path, count=-1, offset=0):
     record convention -- forced by partition-invariance, and settled against the
     cell-scoped alternative -- but it is established by a POST-PASS, not by the
     merge: orb_normalize_rec_op -> orb_repr_global, exposed as
-    `solve --kc-repr-normalize IN.bin OUT.bin` -- the orb_* functions are
-    published only on the unlanded orbit-port-188-candidate branch, and the
-    flag itself is on NO published ref at all (NOT in main's solve.c; VERIFY.md
+    `solve --kc-repr-normalize IN.bin OUT.bin` -- the orb_* functions are on
+    the two tags named above, and the flag itself only on the tag
+    v4-repr-fc-legc-20260813, neither on any branch (NOT in main's solve.c; VERIFY.md
     section "NOT AVAILABLE IN THIS TREE"; in this
     tree the convention is an acceptance-test CONTRACT, with no shipped tool
     that applies it). Against a raw merge output that
@@ -2047,19 +2047,15 @@ def _canonical_pairs():
 def _verify_tables_against_rules():
     """Import-time gate: the KW table, and everything derived from it, must
     agree with the RULE-derived objects of SPECIFICATION.md — not merely with
-    itself.
-
-    Without this the record path is self-verifying: PAIRS, KW_DIST and
-    KW_COMP_DIST are all computed from the KW literal at the top of this file,
-    so a corrupted KW table would silently redefine C1 and C5 and then check
-    every record against the corruption. (Concretely: swapping the last two
-    pair-blocks moves both complement partners together, leaving cd = 776
-    intact, while changing the C5 multiset — the file would then reject
-    spec-compliant records and accept violating ones, against itself.)
-
-    These are explicit raises rather than `assert` so they survive `python3 -O`.
-    --recount reports the same facts as table rows; this gate makes them
-    unconditional on the default `verify.py solutions.bin` path.
+    itself. PAIRS, KW_DIST and KW_COMP_DIST are all computed from the KW literal
+    above, so without this a corrupted table would redefine C1 and C5 and then
+    check every record against the corruption. The rule checks are blind to 9
+    of the 32 single pair-block orientation flips, and decode() reads each
+    pair's orientation from PAIRS, so the last check pins the literal's exact
+    order and orientation by sha256 of bytes(KW) (GATES-06, 2026-10-02; a
+    checksum of the same literal, not an independent derivation of the order).
+    Explicit raises, not `assert`, so they survive `python3 -O`. --recount
+    reports the rule facts as table rows; this gate makes them unconditional.
     """
     if sorted(KW) != list(range(64)):
         raise RuntimeError("table check: KW is not a permutation of {0..63}")
@@ -2075,6 +2071,10 @@ def _verify_tables_against_rules():
             f"table check: KW difference-wave multiset {observed} != SPECIFICATION.md C5 literal")
     if KW_COMP_DIST != 776:
         raise RuntimeError(f"table check: KW complement distance {KW_COMP_DIST} != 776 (C3)")
+    import hashlib  # GATES-06 order + orientation pin; see the docstring
+    if hashlib.sha256(bytes(KW)).hexdigest() != "e0632bd577d83c5d21f10ff7901e29205a5f2e91b59721445c88e74857cebd87":
+        raise RuntimeError("table check: KW literal differs from the pinned order and orientation "
+                           "(sha256 of bytes(KW), GATES-06)")
 
 _verify_tables_against_rules()
 

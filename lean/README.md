@@ -64,9 +64,9 @@ trust-base note below for what that means and how it came to hold). What that bu
   fixes, *(scope, 2026-08-01: Lean proves constancy of the **countP forms** defined in that file. Identifying
   those forms with the actual registry rules — `reg_*` in solve.py / `score_registry` in solve.c — is a
   NON-Lean step. Its one numerical check, a drive of the repo's own `reg_*` over 5,449 structured C1
-  sequences, is **attested, not reproducible**: the script is not in the repo. It is disclosed in
+  sequences, is **attested, not reproducible**: the script is not in the repo. *(Added 2026-10-02, Q-944: its design is now replayed by `python3 solve.py --c1-constants-check` — 5,455 C1 orderings, 0 deviations, with a non-C1 control and a cross-pair r4 mutant; the 2026-07-21 run itself stays attested.)* It is disclosed in
   `C1RuleConstants.lean`'s header. So "proven, not just measured" holds of the Lean predicates; for the
-  registry rules themselves it is Lean-proven **modulo a transcription step whose check is attested only** —
+  registry rules themselves it is Lean-proven **modulo a transcription step whose numerical check is `python3 solve.py --c1-constants-check`** *(updated 2026-10-02, Q-944: this read "whose check is attested only"; the command replays the check over 5,455 C1 orderings with 0 deviations)* —
   a bridge carried outside Lean, as at the claim site for PartitionInvariance and PruneExactness, and it
   belongs here too. ⚠ **[CORRECTED 2026-09-24 — this called the transcription numerically validated, twice; the check
   behind that word is unarchived. Codex V3B-14#4 / V3B-13#12, Q-778.]**)*, so no valid ordering can violate them. This upgrades the "empirically forced (sampled)" status
@@ -439,8 +439,8 @@ zero `sorry`/`axiom`/`admit`) and checks with `lean <file>` like the others:
 ## PruneReprFC.lean (2026-08-15): SOLVE_REPR_FC prune safety — the repr(k) forward-checked DFS
 
 Machine-checks, at the model level, the correctness comment of the `SOLVE_REPR_FC`
-forward-checked repr(k) DFS (task #20 option C, branch `v4-repr-fc-legc-20260813` —
-the feature is NOT on main at the time of writing; solve.c `orb_recanon_dfs_fc` /
+forward-checked repr(k) DFS (task #20 option C, public tag `v4-repr-fc-legc-20260813` =
+`5f473242` — the feature is NOT on main, re-checked 2026-10-02; solve.c `orb_recanon_dfs_fc` /
 `orb_fc_build` / the epoch-tagged memo table): the exact-consumption forward check
 (prune A) and the leaf-free-state memoization (prune C) remove only subtrees
 containing NO leaves at all — leaf = slot-np node reached through the budget edges,
@@ -468,8 +468,8 @@ runs through stated bridge facts B8–B11 (DFS-shape faithfulness, memo-table
 contract incl. `orb_fc_pack` injectivity and the wrap clear, FC-table faithfulness
 and the reachable-state budget-sum invariant, top-level call correspondence) —
 explicit modeling assumptions, NOT machine-checked, carried by prose + code review
-+ the runtime gates (`--orbit-selftest` against the brute-force `orb_brute_repr`;
-the SOLVE_REPR_FC=0/1 byte-identity A/B). The per-edge bound/sum facts about
++ the runtime gates (`--orbit-selftest` against the brute-force `orb_brute_repr`, on the tag;
+the two-pass SOLVE_REPR_FC=0/1 byte-identity A/B, runnable on the tag's binary; its in-process form, `c996a42b`, is on no public ref). The per-edge bound/sum facts about
 orb_fc_build's tables and the initial budget sum are explicit HYPOTHESES of the
 theorems (named in the file header), in the PruneExactness demands/remaining
 discipline. Nothing here proves solve.c correct; the lex-min reading of the
@@ -631,7 +631,7 @@ The first-principles optimality of the C1 pairing — previously resting on an e
 preprint ([Radisic 2026](../documentation/CITATIONS.md#radisic2026), arXiv:2601.07175) — is now
 machine-checked **in-repo**. The mathematical result is Radisic's; this file is an independent
 re-derivation in this repo's own encoding (core Lean 4, no mathlib, standalone file, the same
-`partner` definition as `KingWen.lean` / solve.c's KW-derived pair table (`init_pairs`, solve.c:1708-1714) and inline partner check (:43795-43798)), written after his proof was read
+`partner` definition as `KingWen.lean` / solve.c's KW-derived pair table (`init_pairs`, solve.c:1708-1714) and inline partner check (:43825-43828)), written after his proof was read
 and his artifact independently rebuilt. Verified statements:
 
 | Theorem | Statement |

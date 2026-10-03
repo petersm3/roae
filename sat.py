@@ -48,6 +48,17 @@ Subcommands:
                                 [expect UNSAT, both sides]: SIDE=fwd is shipped AND NOT spec,
                                 SIDE=rev is spec AND NOT shipped (Q-934). Emits + self-validates;
                                 --run as for --rigidity-cnf.
+  --kw-control TARGET [--c3-min N]  the King Wen over-constraint control for an UNSAT target
+                                (Q-58; 2026-10-02): KW's literals against the formula must falsify
+                                ONLY the families the target is about (its theorem family plus the
+                                rule families solve.py's scorers say KW violates) -- nothing on the
+                                formula minus those families, and each of them refuting KW on its
+                                own. A -noY target is checked through KW's propagation closure on
+                                the full base formula (its own clauses name no Y variable). Prints
+                                KW_CONTROL_* whole-line tokens and KW_CONTROL=PASS|FAIL; exit 0 iff
+                                PASS. Needs no external binary; verify_all.sh runs it per archived
+                                certificate (--rigidity-cnf is not a sequence formula and is
+                                reported INAPPLICABLE there).
   --c5-selfcheck                behavioural evidence that the C5 tables are DERIVED from solve
                                 primitives and that their guard REFUSES a common-mode corruption;
                                 prints KEY=value verdict lines (C5_LITERALS_DERIVED,
@@ -793,9 +804,12 @@ def noy_subset(cnf, ny):
                          "before the Y block, so the predicate would misname a variable"
                          % (ny, len(SLOTS) * NJ))
     sub = CNF(); sub.n = cnf.n
-    keep, drop = [], []
-    for c in cnf.cl:
-        (keep if all(abs(l) > ny for l in c) else drop).append(c)
+    keep, drop, keep_idx = [], [], []
+    for ci, c in enumerate(cnf.cl):
+        if all(abs(l) > ny for l in c):
+            keep.append(c); keep_idx.append(ci)
+        else:
+            drop.append(c)
     # both directions, re-scanned from the partition, not from the predicate that built it:
     # every kept clause is Y-free AND every dropped clause names a Y variable
     leaked = sum(1 for c in keep for l in c if abs(l) <= ny)
@@ -807,6 +821,13 @@ def noy_subset(cnf, ny):
         raise SystemExit("noy_subset: implausible subset %d of %d clauses (an empty or total "
                          "subset means the Y range %d is wrong)" % (len(keep), len(cnf.cl), ny))
     sub.cl = keep
+    # The parent's clause-family marks, carried onto the kept clauses (2026-10-02, Q-946 GATES-04).
+    # write() ignores marks, so the emitted file is unchanged; they exist so that model_check()'s
+    # family exclusion -- the King Wen over-constraint control -- can run on the subset too. Until
+    # this date the subset carried no marks, so every kept clause was "(unmarked)" and the control
+    # had no family to exclude (kw_control's closure form below).
+    sub.marks = [(k, cnf.stage_of(ci)) for k, ci in enumerate(keep_idx)
+                 if k == 0 or cnf.stage_of(ci) != cnf.stage_of(keep_idx[k - 1])]
     return sub, len(drop)
 
 
@@ -1519,7 +1540,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
 # f1c5_derive_b0 / f1c5_b0_dfs) and using only solve primitives. They emit no
 # clauses; they name the same numbers solve.c derives. The full-31 B0 this port
 # would produce ({1:2, 2:7, 3:13, 4:8, 6:1}) differs from the KW-derived BETWEEN_MULTISET ({1:2, 2:8, 3:13, 4:7, 6:1}) —
-# solve.c:15162-15185 special-cases the full-31 rung from King Wen rather than deriving it, and this port must not be used to extend the reduced encoder to n = 31; the reduced-subset B0 values + reference
+# solve.c:15178-15201 special-cases the full-31 rung from King Wen rather than deriving it, and this port must not be used to extend the reduced encoder to n = 31; the reduced-subset B0 values + reference
 # counts are pinned in tests.py (test_sat_c5_subset_*), and a #SAT/C-binary
 # cross-check at N in {9,13,16} is the intended follow-up (see the private
 # R2 note). C5 itself is the boundary budget: the N boundary transitions
@@ -1986,7 +2007,11 @@ def model_check(cnf, lits, exclude_stages=()):
             "conflict": conflict, "foreign": foreign, "assigned": len(val),
             "attribution": "exact" if full_input else "first-conflict",
             "falsified_stages": sorted(false_stages), "falsified_by_stage": false_stages,
-            "undetermined_by_stage": undet_stages, "verdict": verdict}
+            "undetermined_by_stage": undet_stages, "verdict": verdict,
+            # the propagated assignment itself (2026-10-02): on a conflict-free run this is THE
+            # unit-propagation closure of `lits`, unique by the order-independence argument above;
+            # kw_control's closure form hands it to a -noY subset whose clauses name no Y variable
+            "model": sorted((v if s else -v) for v, s in val.items())}
 
 def _print_model_check(mc, cnf):
     """The model_check() result as whole-line KEY=value tokens (grep -qx)."""
@@ -2000,6 +2025,137 @@ def _print_model_check(mc, cnf):
     # a model file asserting both x and -x is FALSIFIED with 0 falsified clauses; say why
     print("MODEL_INPUT_CONTRADICTORY=%d" % (mc["conflict"] == -1))
     print("  satisfied=%d assigned=%d/%d vars" % (mc["satisfied"], mc["assigned"], cnf.n))
+
+# ---- the King Wen over-constraint control, as a subcommand (Q-58 / GATES-04, 2026-10-02) ----
+# Every archived certificate is an UNSAT proof, and DRAT is monotone: a formula with a stray
+# extra clause has the same (or a shorter) refutation, so a certificate that verifies says nothing
+# about whether the formula is OVER-constrained -- whether it forbids orderings the target's
+# statement does not. The executable control is the King Wen assignment: KW is C1-C5 valid, and
+# solve.py's own scorers say exactly which literature rules it violates, so on an UNSAT target KW
+# must falsify ONLY the families the target is about (its theorem family, plus the rule families
+# KW is known to violate) and NOTHING else. The order-independent form is exclusion (model_check):
+# "falsified == 0 on the formula minus the expected families". A second leg asks that every
+# expected family is NECESSARY -- excluded one at a time, the rest still refute KW -- so a family
+# that silently emitted nothing is caught as well. Until this date the control lived only in
+# tests.py (8 of the 24 certified targets, run with the whole harness); it is now a subcommand that
+# needs no external binary, covers every sequence-formula certificate, and is run per certificate
+# by reports/certificates/verify_all.sh, which emits one KW_CONTROL_<cert> line each.
+# SCOPE: a sequence formula. --rigidity-cnf is a G5-automorphism instance with no ordering, and its
+# own positive control is rigidity_validate() (the identity satisfies everything but the
+# not-identity clause); verify_all.sh reports it as INAPPLICABLE rather than silently skipping it.
+KW_CONTROL_THEOREM_FAMILIES = {
+    "alt-le-14": "alternation bound (alt-le-14)",
+    "alt-ge-16": "alternation bound (alt-ge-16)",
+    "ccn8-kwfail": "rule ccn8 (locus 24,25)",                 # the shifted locus is the theorem
+    "ccn8-kwchain-not": "ccn8 chain machinery (ccn8-kwchain-not)",
+}
+KW_CONTROL_RULE_FAMILIES = {"parity": "rule parity", "rhythm": "rule rhythm",
+                            "gender": "rule gender", "ccn4": "rule ccn4",
+                            "ccn8": "rule ccn8 (locus 25,26)"}
+
+def kw_lits():
+    """The 31 Y literals of King Wen in build()'s numbering: slot s holds pair s in orientation 0
+    (ORIENTS[j] = (pair, orient, a, b)) and the Y block is allocated first, so Y[(s, j)] is
+    (s-1)*NJ + j + 1. Computed from ORIENTS, not from a build()."""
+    out = []
+    for s in SLOTS:
+        j = next(j for j in range(NJ) if ORIENTS[j][0] == s and ORIENTS[j][1] == 0)
+        out.append((s - 1) * NJ + j + 1)
+    return out
+
+def kw_control_expected(target, c3_min=None):
+    """The clause families King Wen is EXPECTED to falsify under `target`: the target's theorem
+    family (KW_CONTROL_THEOREM_FAMILIES; a --c3-min bound), plus `rule <r>` for every literature
+    rule the target enforces that solve.py's scorers (rule_scores) say KW violates. Empty for a
+    target KW satisfies (plain, kw-pin, the -kwtest targets): there the control is that KW is a
+    MODEL. A -near-k suffix adds nothing (KW differs from itself in 0 slots)."""
+    base, _noy = split_noy(target)
+    tbase = base.split("-near-")[0]
+    expect = set()
+    if tbase in KW_CONTROL_THEOREM_FAMILIES:
+        expect.add(KW_CONTROL_THEOREM_FAMILIES[tbase])
+    if c3_min is not None:
+        expect.add("C3 >= %d bound" % c3_min)
+    scores = rule_scores(KW, base)
+    for r in target_rules(base):
+        if scores[r] > 0:
+            expect.add(KW_CONTROL_RULE_FAMILIES[r])
+    return expect
+
+def kw_control_check(cnf, lits, expected):
+    """The control on a built formula: `lits` (King Wen's literals, or a closure of them) against
+    `cnf` with `expected` the families KW may falsify. Returns a dict with verdict lines' values
+    and "ok". Legs: (1) refuted -- the un-excluded verdict is FALSIFIED (or SATISFIED when nothing
+    is expected); (2) rest -- on the formula minus the expected families, 0 falsified and 0
+    foreign literals; (3) necessary -- for each expected family f, the formula minus the OTHER
+    expected families is still FALSIFIED (f alone refutes KW). A family named in `expected` that
+    the formula does not contain raises (model_check's own guard), never passes."""
+    expected = set(expected)
+    families = set(name for _, name in cnf.marks)
+    missing = sorted(expected - families)
+    if missing:
+        raise ValueError("kw_control: expected families absent from the formula: %s (families: %s)"
+                         % (missing, sorted(families)))
+    full = model_check(cnf, lits)
+    out = {"expected": sorted(expected), "refuted": full["verdict"],
+           "falsified_by_stage": full["falsified_by_stage"], "foreign": full["foreign"]}
+    if not expected:
+        out.update({"rest_falsified": 0, "rest_foreign": full["foreign"], "necessary": (0, 0),
+                    "ok": full["verdict"] == "SATISFIED"})
+        return out
+    rest = model_check(cnf, lits, exclude_stages=expected)
+    out["rest_falsified"], out["rest_foreign"] = rest["falsified"], rest["foreign"]
+    hits = 0
+    for f in sorted(expected):
+        others = expected - {f}
+        r = model_check(cnf, lits, exclude_stages=others) if others else full
+        if r["verdict"] == "FALSIFIED":
+            hits += 1
+    out["necessary"] = (hits, len(expected))
+    out["ok"] = (full["verdict"] == "FALSIFIED" and rest["falsified"] == 0
+                 and rest["foreign"] == 0 and hits == len(expected))
+    return out
+
+def kw_control(target, c3_min=None):
+    """Build `target` (with --c3-min when given) and run the control. For a -noY target the Y
+    variables occur in no clause, so KW's 31 literals propagate nothing there; the closure form
+    is used instead: KW's unit-propagation closure on the FULL base formula minus the expected
+    families (conflict-free, hence unique) is evaluated on the subset. Returns the check dict
+    plus "target" and "form"."""
+    base, noy = split_noy(target)
+    expected = kw_control_expected(target, c3_min)
+    lits = kw_lits()
+    if noy:
+        parent, _Y = build(base)
+        closure = model_check(parent, lits, exclude_stages=expected)
+        if closure["falsified"] != 0 or closure["foreign"] != 0:
+            raise SystemExit("kw_control %s: King Wen's closure on %s minus %s is not conflict-free "
+                             "(falsified=%d foreign=%d); the subset control has no sound input"
+                             % (target, base, sorted(expected), closure["falsified"],
+                                closure["foreign"]))
+        sub, _Y = build(target)
+        out = kw_control_check(sub, closure["model"], expected)
+        out["form"] = "closure(%s)" % base
+    else:
+        cnf, _Y = build(target, c3_min=c3_min)
+        out = kw_control_check(cnf, lits, expected)
+        out["form"] = "direct"
+    out["target"] = target + (" c3>=%d" % c3_min if c3_min is not None else "")
+    return out
+
+def _print_kw_control(out):
+    """The kw_control() result as whole-line KEY=value tokens (grep -qx); returns the exit status."""
+    print("KW_CONTROL_TARGET=%s" % out["target"])
+    print("KW_CONTROL_FORM=%s" % out["form"])
+    print("KW_CONTROL_EXPECTED=%s" % (";".join(out["expected"]) or "none"))
+    print("KW_CONTROL_REFUTED=%s" % out["refuted"])
+    print("KW_CONTROL_FALSIFIED_BY_FAMILY=%s" % (
+        ";".join("%s:%d" % kv for kv in sorted(out["falsified_by_stage"].items())) or "none"))
+    print("KW_CONTROL_REST_FALSIFIED=%d" % out["rest_falsified"])
+    print("KW_CONTROL_REST_FOREIGN=%d" % out["rest_foreign"])
+    print("KW_CONTROL_EACH_FAMILY_NECESSARY=%d/%d" % out["necessary"])
+    print("KW_CONTROL=%s" % ("PASS" if out["ok"] else "FAIL"))
+    return 0 if out["ok"] else 1
 
 def _read_model_lits(path):
     """Parse a solver model: DIMACS 'v '-lines, or a bare whitespace/newline
@@ -2262,7 +2418,7 @@ if __name__ == "__main__":
     # help banner and exited 0, the very failure its comment says it closed. `--run` is now consumed
     # first, and args[0] is validated against the closed subcommand list.
     _SUBCOMMANDS = ("--emit-cnf", "--decode", "--witness", "--rigidity-cnf", "--certify-count",
-                    "--c5-selfcheck", "--ccn4-equiv-cnf")
+                    "--c5-selfcheck", "--ccn4-equiv-cnf", "--kw-control")
     _stray = ([args[0]] if args and args[0] not in _SUBCOMMANDS else []) \
            + [a for a in args[1:] if a.startswith("--")]
     if _stray:
@@ -2277,7 +2433,8 @@ if __name__ == "__main__":
                 "--witness": {"--with-c3", "--c3-max", "--c3-min", "--not-kw", "--f1-pairs"},
                 "--certify-count": {"--with-c3", "--c3-max", "--c3-min", "--not-kw", "--f1-pairs",
                                     "--expect", "--keep"},
-                "--rigidity-cnf": set(), "--c5-selfcheck": set(), "--ccn4-equiv-cnf": set()}
+                "--rigidity-cnf": set(), "--c5-selfcheck": set(), "--ccn4-equiv-cnf": set(),
+                "--kw-control": {"--c3-min"}}
     if args:
         _na = sorted(given - _APPLIES[args[0]])
         if _na:
@@ -2303,7 +2460,7 @@ if __name__ == "__main__":
     _USAGE = {"--emit-cnf": "TARGET OUT.cnf", "--decode": "MODEL.txt [TARGET]",
               "--witness": "TARGET", "--rigidity-cnf": "OUT.cnf [--run]",
               "--certify-count": "TARGET", "--c5-selfcheck": "",
-              "--ccn4-equiv-cnf": "SIDE OUT.cnf [--run]"}
+              "--ccn4-equiv-cnf": "SIDE OUT.cnf [--run]", "--kw-control": "TARGET [--c3-min N]"}
 
     def _out_path(path):
         """Q-311 (2026-09-03): an OUT.cnf whose directory does not exist or is not writable was
@@ -2571,6 +2728,9 @@ if __name__ == "__main__":
             _run_expect_unsat(out, "--ccn4-equiv-cnf")
     elif args == ["--c5-selfcheck"]:
         sys.exit(c5_selfcheck())
+    elif args[:1] == ["--kw-control"] and len(args) == 2:
+        # Q-58 / GATES-04 (2026-10-02): the King Wen over-constraint control as a verdict emitter.
+        sys.exit(_print_kw_control(kw_control(args[1], c3_min=c3_min)))
     elif not args:
         print(__doc__)                               # no arguments: the catalogue, exit 0 (SAT_CLI.md)
     else:

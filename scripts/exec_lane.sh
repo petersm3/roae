@@ -113,7 +113,7 @@
 #   - A command a source line QUOTES AS FAILING (the verb right after the closing backtick:
 #     "fails", "does not link", ...) is held to failing — PASS if rc != 0, FAIL if it exits 0 (a
 #     stale correction note). Counting cannot tell a defect from its own withdrawal quote; the
-#     verb can (2026-09-02, SOLVE_C_CLI.md:3591).
+#     verb can (2026-09-02, SOLVE_C_CLI.md:3597).
 #   - A failed BUILD line's `-o` target is restored from the previous successful build: ld
 #     unlinks its output on a failed link, and on 2026-09-02 one quoted-as-failing build line
 #     took `solve` with it, so 167 RUN commands reported SKIP-MISSING-INPUT and no `./solve`
@@ -590,7 +590,7 @@ for f in files:
             # A quoted program that spans lines (`python3 -c "` ... `"`) is ONE command: keep
             # joining, newline-separated and indentation kept, until the quotes balance or the
             # fence ends. Measured pre-fix: DISTRIBUTIONAL_ANALYSIS.md:84/432/523 and
-            # VERIFY.md:1150 were extracted as their opening line alone (`python3 -c "`) and each
+            # VERIFY.md:1157 were extracted as their opening line alone (`python3 -c "`) and each
             # ran as an unterminated-quote error, FAIL(rc=2). A block that never balances is
             # still emitted (it fails closed as before) -- a silent drop would hide a defect.
             while more(j) and not balanced(strip_comment(raw)):
@@ -896,7 +896,7 @@ corpus_publishes_complete_form() {   # $1 = command; true iff the inventory hold
 
 doc_says_fails() {   # $1 = sources, $2 = command; true iff a source LINE (joined with the line
   # after it -- the verb is often hard-wrapped) quotes the command and says, right after the
-  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:3591 quotes the
+  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:3597 quotes the
   # pre-correction build line `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` and line 3546
   # begins "fails with 13 undefined references" -- a correction note DOCUMENTING the defect it
   # withdrew, and the lane reported the quote as a live FAIL. Counting cannot tell a defect from
@@ -962,7 +962,7 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   mkdir -p "$WS/.lane_tmp"
   execmd="$(sed -E "s#(^|[[:space:]\"'=>(:])/tmp/#\1$WS/.lane_tmp/#g" <<<"$execmd")"
   # A failed link UNLINKS its output (ld's default). Measured 2026-09-02 on the full lane: BUILD
-  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3591, a quoted pre-fix line)
+  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3597, a quoted pre-fix line)
   # failed as documented and took the `solve` that BUILD 17 had just built with it; 167 RUN
   # commands then reported SKIP-MISSING-INPUT and `./solve --selftest` never ran. Keep the
   # previous output of a build line's `-o` target and put it back if the failed build removed it.
@@ -1063,7 +1063,7 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
     outcome="SKIP-RESOURCE(allocation/disk failure — host, not claim)"
   # solve.c's disk_iops_pre_check (solve.c:4120) refuses with "ERROR: projected fsync-wait
-  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49449).
+  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49479).
   # That is a HOST verdict — this box's disk is too slow — not a verdict on the documented
   # claim, so it is a SKIP-RESOURCE exactly as an allocation failure is. Measured 2026-09-07:
   # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:385 — a gating row,
@@ -1078,7 +1078,7 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qE "projected fsync-wait|SOLVE_ALLOW_SLOW_IOPS" <<<"$out"; then
     outcome="SKIP-RESOURCE(disk-IOPS pre-check refused — host disk too slow, not claim)"
   elif grep -qiE "no such file|cannot open|cannot read|\[Errno 2\]|no .* files found" <<<"$out"; then
-    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:247)
+    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:252)
     # says "--decode 'model.txt': no such file" -- lowercase, no "or directory" -- and was FAIL(rc=1)
     if [ "$cls" = "BUILD" ]; then
       outcome="FAIL(build cannot find a source or header its compile line names — the tree does not ship what the recipe compiles)"

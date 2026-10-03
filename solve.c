@@ -14761,14 +14761,30 @@ static int f1_exact_main(const char *layers_dir, const char *subset_spec) {
         }
         free(pmasses);
     } else {
-        /* Result protocol: S4 acts freely on C1&C2&C4 sequences (fixed-pairing
-         * argument, TR-5), so N must be divisible by 24. */
+        /* Result protocol: the order-48 lift of the symmetry group acts freely on
+         * orientation-explicit C1&C2&C4 sequences (TR-5 §4: S4 acts freely on records
+         * by the fixed-pairing argument, and `rev` flips every non-palindrome pair's
+         * orientation, so no element but the identity fixes a sequence), so N must be
+         * divisible by 48, not only by 24. Gated at 24 until 2026-10-02 (Q-946, C-4):
+         * the stronger gate is the one the space affords (TR-5 §4 says so in as many
+         * words), and both landed exact counts are ≡ 0 (mod 48). NOTE what this gate
+         * is: the DP above stores exact plain-DP values at one representative per
+         * orbit of PARTIAL masks, where stabilisers are nontrivial and are computed,
+         * never assumed; the free action on COMPLETE sequences enters nowhere in it, so
+         * 48 | N is a consequence the computation does not assume -- a necessary
+         * condition with 1-in-48 power against an arbitrary wrong integer, not a
+         * confirmation of the count. The confirmation is verify.c's independent recount. */
+        F1U192 q48 = total;
+        uint32_t rem48 = f1_divmod_small(&q48, 48);
+        F1_CHECK(rem48 == 0, "N %% 48 = %u != 0 — free-action divisibility violated "
+                 "(order-48 lift, TR-5 §4)", rem48);
         F1U192 q = total;
-        uint32_t rem = f1_divmod_small(&q, 24);
-        F1_CHECK(rem == 0, "N %% 24 = %u != 0 — free-action divisibility violated", rem);
+        uint32_t rem = f1_divmod_small(&q, 24);   /* 48 | N implies rem == 0; printed, not re-gated */
+        (void)rem;
         char qdec[64];
         f1_dec(q, qdec);
         printf("F1 EXACT |C1 & C2 & C4| = %s\n", tdec);
+        printf("  N mod 48 = 0 (asserted; order-48 free action on oriented sequences, TR-5 §4)\n");
         printf("  N / 24 (orbit count of the order-24 subgroup on oriented sequences; = 2x the G48 sequence-orbit count) = %s\n", qdec);
         printf("  vs Knuth estimator 7.571e41 (+/-0.01%%): ratio = %.6f\n",
                f1_to_double(&total) / 7.571e41);
@@ -19237,14 +19253,24 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             printf("F1C3 HIST: DONE (%.1fs)\n", omp_get_wtime() - T0);
             free(hist);
         } else if (full31) {
-            /* S4 acts freely on C1-C5 solutions (fixed-pairing argument, TR-5)
-             * and C5 is G-invariant (Hamming isometry) -> N divisible by 24 */
+            /* The order-48 lift acts freely on orientation-explicit C1-C5 solutions
+             * (TR-5 §4; C5 is G-invariant, a Hamming isometry) -> N divisible by 48.
+             * Gated at 24 until 2026-10-02 (Q-946, C-4); the per-G-bin gate in the
+             * --f1-c3-hist path above has asserted 48 at full-31 since 2026-08-10, and
+             * the landed 1.097051e39 is ≡ 0 (mod 48). As at the C1&C2&C4 gate: the
+             * quotient DP never assumes the free action on complete sequences, so
+             * this is a consequence check, not a restatement of the method. */
+            F1U192 q48 = total;
+            uint32_t rem48 = f1_divmod_small(&q48, 48);
+            F1_CHECK(rem48 == 0, "N %% 48 = %u != 0 — free-action divisibility violated "
+                     "(order-48 lift, TR-5 §4)", rem48);
             F1U192 q = total;
-            uint32_t rem24 = f1_divmod_small(&q, 24);
-            F1_CHECK(rem24 == 0, "N %% 24 = %u != 0 — free-action divisibility violated", rem24);
+            uint32_t rem24 = f1_divmod_small(&q, 24);   /* implied by 48 | N; printed below */
+            (void)rem24;
             char qdec[64];
             f1_dec(q, qdec);
             printf("F1C5 EXACT |C1 & C2 & C4 & C5| = %s\n", tdec);
+            printf("  N mod 48 = 0 (asserted; order-48 free action on oriented sequences, TR-5 §4)\n");
             printf("  N / 24 (orbit count of the order-24 subgroup on oriented sequences; = 2x the G48 sequence-orbit count) = %s\n", qdec);
             /* 🔴 Q-366(B): this divided the C3-FREE exact |C1&C2&C4&C5| by the C3-INCLUSIVE
                |C1-C5| flagship estimate 1.3287e38 -- two different objects -- and printed
@@ -29305,7 +29331,7 @@ static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
      * not help: its arm below sits inside the ok[i]==0 branch, so an un-run check never reaches
      * it. The consumer ALREADY refuses "not-run" (solve.py atlas_load), so the fix is not a new
      * mechanism -- it is to stop laundering the un-run state through a word nothing checks.
-     * Unreachable at n<=13 (want_raw is forced at :30242 and :30976), so no golden moves. */
+     * Unreachable at n<=13 (want_raw is forced at :30268 and :31002), so no golden moves. */
     int tail_notrun = 0;
     for (int i = 0; i < KC_SCAN_NTC; i++) {
         strcpy(T->tail_report[i], ok[i] < 0 ? "not-run" : (ok[i] ? "PASS" : "FAIL"));
@@ -29433,7 +29459,7 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
     }
     {   /* VERTICAL: sum over layers of the class-d mass == b0[d] * N.
          * PROOF. kc_finish_init asserts sum_d b0[d] == n on EVERY ladder-open
-         * path (solve.c:19394-19396) -- derived by f1c5_derive_b0 or parsed from
+         * path (solve.c:19420-19422) -- derived by f1c5_derive_b0 or parsed from
          * the manifest, the assertion runs either way. A walk makes exactly n
          * transitions, and kc_h_scan_layers refuses one once dig[cls] >= b0[cls],
          * so each walk uses AT MOST b0[d] of class d and n in total. Caps summing
@@ -31990,12 +32016,12 @@ static int kc_h_par_tab_eq(const KcScanTab *A, const KcScanTab *B, int n) {
             !f1_eq(&A->hist[i].mw, &B->hist[i].mw) || !f1_eq(&A->hist[i].mworb, &B->hist[i].mworb))
             return 0;
     /* 🔴 L6a `kw` AND L7' `rid_mass` (Codex KCP5 #2, adjudicated by Fable 2026-09-12).
-     * Both are per-thread accumulators reduced at :28329-28333 and both are PERSISTED --
-     * `kwrank` at :27974/:27980, `rid_mass` at :27990/:27994 -- yet neither appeared in this
+     * Both are per-thread accumulators reduced at :28355-28359 and both are PERSISTED --
+     * `kwrank` at :28000/:28006, `rid_mass` at :28016/:28020 -- yet neither appeared in this
      * comparator, so a difference confined to either could not fail the thread-count or
      * in-core/OOC equality it backs. The gates do not close the gap: L6a's bins are
-     * invariant under an lt/gt swap (:29144), and L7' checks only 1-D marginals of the rid
-     * joint (:29168), so a 2x2 marginal-preserving move also passes. */
+     * invariant under an lt/gt swap (:29170), and L7' checks only 1-D marginals of the rid
+     * joint (:29194), so a 2x2 marginal-preserving move also passes. */
     if (A->kw_ok != B->kw_ok || A->R != B->R) return 0;
     for (int i = 0; i < n * 15; i++)
         if (A->kw[i].cnt != B->kw[i].cnt || A->kw[i].orb != B->kw[i].orb ||
@@ -38656,7 +38682,7 @@ static int kc_cli(int argc, char *argv[]) {
             kval = strtol(ks, &kend, 10);
             /* SYNTAX only. The RANGE check belongs to kc_g_check_layer_main, which
              * already tests k against the REAL ladder (`k < 0 || k > fkc->n`,
-             * solve.c:23343) and so knows the bound this dispatch does not. Duplicating
+             * solve.c:23369) and so knows the bound this dispatch does not. Duplicating
              * it here with a constant would be a second source of truth that drifts. */
             if (ks[0] == '\0' || kend == ks || *kend != '\0' ||
                 errno == ERANGE || kval < INT_MIN || kval > INT_MAX) {
@@ -41885,8 +41911,12 @@ int main(int argc, char *argv[]) {
                figure undercounts strict classes as N->infinity. The shipped-witness arithmetic in
                the adjudication makes the scale concrete: 3,840/2,064,384 = 5/2688, a 537.6x
                per-class undercount. This combination previously RAN WITH NO REFUSAL (measured).
-               No W/m output is published or archived from a strict run -- Q-388's landed 3.36e31
-               was unrestricted -- so this is a latent estimand trap, not a wrong published number.
+               No W/m output is published or archived from a strict run -- the Q-388 measurement
+               (2026-08-29, private; not a published quantity, see the 2026-10-02 Q-946 entry in
+               documentation/CORRECTIONS.md) was unrestricted -- so this is a latent estimand
+               trap, not a wrong published number. [Until 2026-10-02 this comment quoted that
+               private figure bare, without its interval or the convergence caveat its own
+               record attaches to it; the digits are withdrawn from here, not corrected.]
                Refused here, mirroring the Purdom block's policy for the same class of problem;
                the honest alternatives are an unrestricted FIBER run or a strict-subfiber DP,
                which does not exist. */

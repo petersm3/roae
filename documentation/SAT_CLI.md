@@ -26,6 +26,7 @@ python3 sat.py --certify-count TARGET               [--f1-pairs N]
 python3 sat.py --rigidity-cnf OUT.cnf               [--run]
 python3 sat.py --ccn4-equiv-cnf SIDE OUT.cnf        [--run]     SIDE = fwd | rev
 python3 sat.py --c5-selfcheck
+python3 sat.py --kw-control TARGET                 [--c3-min N]
 ```
 
 With no arguments, `sat.py` prints its module docstring (the full target
@@ -98,7 +99,7 @@ guarded-but-not-derived for these two tables. *(Caveat added 2026-09-01.)*
 ⚠ **[SUPERSEDED — note added 2026-09-21.** The caveat above describes the
 file as it stood on 2026-09-01 and is kept as that record; the paragraph
 before it is the current description. Since 2026-09-02 (`73d31e8b`) both
-tables are derived at import — `sat.py:244`
+tables are derived at import — `sat.py:255`
 `_tot, _wp, BETWEEN_MULTISET = derive_c5_tables(KW)` — and
 `python3 sat.py --c5-selfcheck` prints `C5_LITERALS_DERIVED=1` (measured
 2026-09-21 at `5219dc43`, rc 0, all five tokens at their passing values).
@@ -157,7 +158,11 @@ It writes one token per certificate, `DRAT_VERIFIED_<cert>=PASS` (or
 `=FAIL rc=<n> verdict_line=<present|absent>`), and after the loop the
 script prints `DRAT_CERTS_CHECKED=<n>` (floor 24, a shrunken corpus fails; since 2026-09-29 `<n>` counts only certificates whose drat-trim run passed, where it had counted attempts, so a run in which every certificate failed could have printed 24)
 and `ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN` for the two cardinality-only
-certificates. Three measured facts explain the shape. drat-trim **exits 0
+certificates; since 2026-10-02 each replay is also paired with the King Wen
+over-constraint control (`--kw-control`, below), one `KW_CONTROL_<cert>=PASS|FAIL…`
+token per certificate through the same `require_verdict_line`, the rigidity
+kernel stated `INAPPLICABLE`, and `KW_CONTROLS_PASSED=<n>` (floor 23) after
+the loop. Three measured facts explain the shape. drat-trim **exits 0
 on a run that checked nothing** — an empty CNF yields
 `c ERROR: did not find p cnf line`, no `s` line, rc 0 — so its exit status
 alone is fail-open; on a truncated or empty proof of a non-trivial instance
@@ -466,6 +471,54 @@ Every previously emitted formula is byte-identical (`grand-ccn4`, `grander-stric
 `five-sub-ccn4`, `five-sub-gender+ccn4`, `ccn4-kwtest`, `ccn4-kwfail`, `--rigidity-cnf`;
 sha256 compared), so no existing certificate moves.
 
+### --kw-control TARGET [--c3-min N]
+
+```
+python3 sat.py --kw-control grander-strict
+python3 sat.py --kw-control kw-pin --c3-min 777 | grep -qx 'KW_CONTROL=PASS'
+```
+
+The King Wen over-constraint control for an UNSAT target (Q-58; added
+2026-10-02, Q-946). Every archived certificate is an UNSAT proof, and DRAT is
+monotone: a formula carrying a stray extra clause has the same, or a shorter,
+refutation, so a certificate that verifies says nothing about whether the
+regenerated formula forbids orderings the target's *statement* does not. The
+executable control is King Wen itself: it is C1–C5 valid, and `solve.py`'s own
+scorers say exactly which literature rules it violates (parity 2, rhythm 2,
+gender 2; CC-N4 and CC-N8 satisfied), so under an UNSAT target KW must falsify
+**only** the clause families the target is about and nothing else. Three legs,
+each a whole-line token:
+
+| Token | Passing value means |
+|---|---|
+| `KW_CONTROL_EXPECTED=<f1>;<f2>…` | the families KW may falsify: the target's theorem family (`alternation bound (alt-le-14)`, `C3 >= N bound`, the shifted locus of `ccn8-kwfail`, the chain negation of `ccn8-kwchain-not`) plus `rule <r>` for each enforced rule the scorers say KW violates. `none` for a target KW satisfies |
+| `KW_CONTROL_REFUTED=FALSIFIED` | leg 1: KW's 31 literals refute the full formula (for `EXPECTED=none`, `SATISFIED`: KW is a model) |
+| `KW_CONTROL_REST_FALSIFIED=0`, `KW_CONTROL_REST_FOREIGN=0` | leg 2: on the formula **minus** the expected families, nothing is falsified — the exclusion form, which is propagation-order independent (`model_check` docstring) where "which clause ended up falsified" is not |
+| `KW_CONTROL_EACH_FAMILY_NECESSARY=k/n` | leg 3: each expected family, with the other expected families removed, still refutes KW on its own (`k = n`) — an emitter that silently emitted nothing is caught here |
+| `KW_CONTROL_FORM=direct` / `closure(<base>)` | a `-noY` subset's clauses name no ordering variable, so KW's literals propagate nothing there; the control then evaluates KW's unit-propagation closure on the full base formula minus the expected families (conflict-free, hence unique) against the subset |
+| `KW_CONTROL=PASS` | all legs; exit 0 iff `PASS` |
+
+`KW_CONTROL_FALSIFIED_BY_FAMILY=` is printed for the record and is **not** a
+leg: on a partial model it is a first-conflict attribution (a gender forbid
+and the counter implication it contradicts blame each other), which is
+exactly why the legs use exclusion.
+
+Scope, stated: this is a **family-level** control. An over-constraint hidden
+inside a family King Wen already violates (an extra forbid under `rule
+parity`, say) is invisible to it, because that family is excluded wholesale;
+`tests.py` asserts that limitation so it cannot be read as coverage. The
+rigidity kernel (`--rigidity-cnf`) is not a sequence formula and has no
+target name, so `--kw-control rigidity` is refused (`unknown target`); its
+own positive control is `rigidity_validate()`, run before the file is written.
+`reports/certificates/verify_all.sh` runs this subcommand beside every
+certificate replay (one `KW_CONTROL_<cert>=PASS|FAIL…` token each, the
+rigidity kernel stated `INAPPLICABLE`, and `KW_CONTROLS_PASSED=<n>` with floor
+23 after the loop); it needs no external binary. `tests.py` pins the expected
+family of every certified target in a hand table that
+`kw_control_expected()` is checked against, and shows three planted defects —
+an over-constraint under a non-theorem family, a theorem family emitting
+nothing, a theorem bound KW happens to satisfy — each turn the verdict `FAIL`.
+
 ### --c5-selfcheck
 
 ```
@@ -659,7 +712,7 @@ binaries are not on `PATH` — the latter with a clear install message.
 verdict is not UNSAT (whole line **and** exit status 20, since
 2026-09-03), or when `drat-trim` is present and does not verify the
 proof. `--c5-selfcheck` exits 0 iff every verdict token has its passing
-value. An unrecognised flag or subcommand token exits 1; so does a
+value; so does `--kw-control` (`KW_CONTROL=PASS`, since 2026-10-02). An unrecognised flag or subcommand token exits 1; so does a
 recognised modifier on a subcommand it does not apply to (e.g. `--expect`
 with `--emit-cnf`), a wrong argument count (`--emit-cnf plain` with no
 `OUT.cnf` — it printed the help banner and exited 0 before 2026-09-03),

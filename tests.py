@@ -331,12 +331,12 @@ class TestJingFang(unittest.TestCase):
     only 1,152 of the 8! = 40,320 palace orders reproduce Jing Fang's diff-wave
     multiset {1: 48, 3: 15} (`_r7_J5`), asserted below. It is NOT load-bearing
     everywhere — `f4p_housedisp` is 56 for all 40,320, since the palaces are
-    contiguous blocks of 8 in any order. How far the Jing Fang leg of the FC-1
-    broken-instrument gate (`solve.py --r7-verify`) would move under a
-    different order is UNMEASURED: CRITIQUE §Corpus Control II prices the order
-    exactly at P(J2 ∧ J3 | J1) = 1/40,320 and reports Jing Fang EXTREME on 0 of
-    11 under the J1-conditioned null, which bounds that exposure without
-    settling it.
+    contiguous blocks of 8 in any order. The Jing Fang leg of the FC-1 gate
+    (`solve.py --r7-verify`) DOES move with the order: measured 2026-10-02 by
+    `solve.py --r7-palace-sweep` at the pilot null (N=10^4, seed 42), 5 to 9 of
+    11 over the 40,320 orders, 9 (the maximum) for this one, below the gate of
+    8 for 21,506 (114 of the 1,152 diff-wave-preserving); it read UNMEASURED
+    before. CRITIQUE §Corpus Control II's 1/40,320 pricing stands.
 
     Two anchors, both external to the generators:
       (1) Nielsen 2003 Table 2 (p. 3, after Hui Dong 1697-1758) prints the
@@ -618,7 +618,7 @@ class TestSatInputGuards(unittest.TestCase):
     raised: `certify_count` can also exit with the missing-tools message
     (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
     while proving nothing about the guard. Verified 2026-09-19 that the --keep
-    guard fires BEFORE any tool use (sat.py:2085 precedes the d4 call at :2113),
+    guard fires BEFORE any tool use (sat.py:2241 precedes the d4 call at :2269),
     so these are green on a host with no SAT toolchain installed."""
 
     def test_keep_dir_uncreatable_is_refused_before_the_work(self):
@@ -713,7 +713,7 @@ class TestSatInputGuards(unittest.TestCase):
         # Q-311's fourth fixture, the one routed to the SAT lane: `at_least_k(lits, k)` with
         # k > len(lits) is an impossible cardinality. It is encoded by delegation --
         # at_most_k(-lits, n-k) -- so the bound at_most_k sees is NEGATIVE, and the guard
-        # at sat.py:701 is what refuses it. That guard sits in the primitive precisely so
+        # at sat.py:712 is what refuses it. That guard sits in the primitive precisely so
         # every one of the 23 call sites is covered centrally; this test pins that the
         # delegation actually reaches it. Red on a mutant with the guard deleted, MEASURED
         # 2026-09-21: the mutant dies with IndexError (`s[0][0]` over an empty counter row),
@@ -3735,7 +3735,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     CORRECTED 2026-09-04, twice, because this docstring's own premises expired under it.
     (1) It said "solve.c has no --expect-kw; verify.py's flag is the only instrument that
     promotes absence to a failure". solve.c GAINED --expect-kw on 2026-09-04 (g_expect_kw,
-    folded into the verdict at solve.c:44090 for --verify and :44525 for --validate), so
+    folded into the verdict at solve.c:44120 for --verify and :44555 for --validate), so
     both instruments now answer the question and the tests below pin BOTH halves: the
     default is still reported-not-enforced, and --expect-kw makes absence fatal.
     (2) It said "solve.c is behind the MASTER GATE and is not edited". That gate is Q-77,
@@ -4424,17 +4424,59 @@ class TestSatLane12(unittest.TestCase):
         # which is propagation-order independent (model_check docstring); the family names of
         # the un-excluded run are not, and are deliberately not asserted here. RED on the
         # shipped file: neither model_check() nor clause-family marks exist (AttributeError).
+        # 2026-10-02 (Q-946 GATES-04): the table covers EVERY archived sequence-formula
+        # certificate of reports/certificates/verify_all.sh (23 of the 24; rigidity_sc4_unsat is a
+        # G5-automorphism instance with no ordering, see test_kw_control_subcommand_... below), not
+        # the 8 it covered until then. The expectations are a HAND table -- sat.kw_control_expected()
+        # derives the same sets from the scorers and is checked AGAINST this table, so the
+        # subcommand verify_all.sh runs cannot drift from what the test asserts. RED on the
+        # pre-2026-10-02 sat.py: kw_control / kw_lits do not exist (AttributeError), and the two
+        # -noY subsets carried no family marks (model_check raised on the exclusion).
         P, R, G = "rule parity", "rule rhythm", "rule gender"
         cases = [("alt-le-14", {}, {"alternation bound (alt-le-14)"}),
                  ("alt-ge-16", {}, {"alternation bound (alt-ge-16)"}),
-                 ("grander-strict", {}, {P, R, G}), ("gender-ccn8", {}, {G}),
+                 ("moore-strict-near-2", {}, {P, R}), ("rc4-strict-near-2", {}, {G}),
+                 ("grand-ccn4", {}, {P, R, G}),
+                 ("grander-strict", {}, {P, R, G}), ("grander-strict-near-2", {}, {P, R, G}),
+                 ("grander-strict-near-3", {}, {P, R, G}), ("grander-strict-near-4", {}, {P, R, G}),
+                 ("five-loo-parity", {}, {R, G}), ("five-loo-rhythm", {}, {P, G}),
+                 ("five-loo-gender", {}, {P, R}), ("five-loo-ccn4", {}, {P, R, G}),
                  ("five-loo-ccn8", {}, {P, R, G}),
+                 ("five-sub-parity+ccn4", {}, {P}), ("five-sub-rhythm+ccn4", {}, {R}),
+                 ("gender-ccn8", {}, {G}), ("five-sub-gender+ccn4", {}, {G}),
                  ("ccn8-kwfail", {}, {"rule ccn8 (locus 24,25)"}),
                  ("ccn8-kwchain-not", {}, {"ccn8 chain machinery (ccn8-kwchain-not)"}),
-                 ("kw-pin", {"c3_min": 777}, {"C3 >= 777 bound"})]
+                 ("kw-pin", {"c3_min": 777}, {"C3 >= 777 bound"}),
+                 ("alt-le-14-noY", {}, {"alternation bound (alt-le-14)"}),
+                 ("alt-ge-16-noY", {}, {"alternation bound (alt-ge-16)"})]
+        # the CERTS map of verify_all.sh, minus rigidity: every sequence certificate is in `cases`
+        with open(os.path.join("reports", "certificates", "verify_all.sh")) as fh:
+            certified = set(re.findall(r'\[[A-Za-z0-9_-]+\]="([^"]+)"', fh.read()))
+        self.assertIn("rigidity", certified, "precondition: the CERTS map was found")
+        certified.discard("rigidity")
+        self.assertEqual(len(certified), 23, sorted(certified))
+        named = set(t if t != "kw-pin" else "kwpin-ge777" for t, _, _ in cases)
+        self.assertEqual(certified - named, set(), "certified targets with no KW control")
+        lits = self._seq_lits(KW)
+        self.assertEqual(sat.kw_lits(), lits, "sat.kw_lits() must equal the test-side literal map")
         for target, kw, expect in cases:
+            self.assertEqual(sat.kw_control_expected(target, **kw), expect, target)
+            out = sat.kw_control(target, **kw)
+            self.assertTrue(out["ok"], (target, out))
+            self.assertEqual(out["refuted"], "FALSIFIED", (target, out))
+            self.assertEqual((out["rest_falsified"], out["rest_foreign"]), (0, 0), (target, out))
+            self.assertEqual(out["necessary"], (len(expect), len(expect)), (target, out))
+            if target.endswith(sat.NOY_SUFFIX):
+                # the subset's clauses name no Y variable: KW's 31 literals propagate nothing
+                # there (CONSISTENT), so the control runs on KW's closure of the base formula
+                self.assertEqual(out["form"], "closure(%s)" % target[:-len(sat.NOY_SUFFIX)])
+                cnf, Y = sat.build(target, **kw)
+                self.assertEqual(sat.model_check(cnf, lits)["verdict"], "CONSISTENT", target)
+                self.assertTrue(expect <= set(name for _, name in cnf.marks), target)
+                continue
+            self.assertEqual(out["form"], "direct")
+            # the original two legs, asserted here independently of kw_control_check()
             cnf, Y = sat.build(target, **kw)
-            lits = self._seq_lits(KW)
             families = set(name for _, name in cnf.marks)
             self.assertTrue(expect <= families, (target, expect - families))
             full = sat.model_check(cnf, lits)
@@ -4445,6 +4487,107 @@ class TestSatLane12(unittest.TestCase):
         for target in ("plain", "kw-pin", "ccn4-kwtest", "ccn8-kwchain"):
             cnf, Y = sat.build(target)
             self.assertEqual(sat.model_check(cnf, self._seq_lits(KW))["verdict"], "SATISFIED", target)
+            self.assertEqual(sat.kw_control_expected(target), set(), target)
+            out = sat.kw_control(target)
+            self.assertTrue(out["ok"] and out["refuted"] == "SATISFIED", (target, out))
+
+    @staticmethod
+    def _drop_family(cnf, name):
+        """`cnf` minus every clause of family `name`, marks rebuilt to stay aligned (the family's
+        mark survives with no clauses, as an emitter that silently emitted nothing would leave it)."""
+        keep = [ci for ci in range(len(cnf.cl)) if cnf.stage_of(ci) != name]
+        sub = sat.CNF(); sub.n = cnf.n; sub.cl = [cnf.cl[ci] for ci in keep]
+        sub.marks = [(k, cnf.stage_of(ci)) for k, ci in enumerate(keep)
+                     if k == 0 or cnf.stage_of(ci) != cnf.stage_of(keep[k - 1])]
+        sub.marks.append((len(sub.cl), name))
+        return sub
+
+    def test_kw_control_is_red_on_three_planted_defects(self):
+        # Q-946 GATES-04 (2026-10-02). The control is load-bearing for every archived UNSAT
+        # certificate, so three single-defect mutants of a built formula must each turn it FAIL:
+        # (1) an over-constraint -- one extra forbid on a King Wen literal -- hidden under a family
+        # the target is NOT about (caught by the exclusion leg: 1 clause falsified on the rest);
+        # (2) a theorem family whose emitter emitted nothing (caught by the per-family necessity
+        # leg: the rest still refutes KW, but parity alone no longer does); (3) a theorem bound
+        # KW happens to satisfy (caught by the refutation leg: SATISFIED where FALSIFIED is due).
+        # LIMITATION, stated: an over-constraint hidden INSIDE a family KW already violates (4) is
+        # invisible to a family-level control -- that family is excluded wholesale -- and the
+        # test asserts the limitation so it cannot be mistaken for coverage.
+        lits = sat.kw_lits()
+        exp = sat.kw_control_expected("grander-strict")
+        cnf, Y = sat.build("grander-strict")
+        cnf.mark("C5 boundary multiset budget"); cnf.add(-lits[5])
+        r = sat.kw_control_check(cnf, lits, exp)
+        self.assertFalse(r["ok"]); self.assertEqual(r["rest_falsified"], 1); self.assertEqual(r["necessary"], (3, 3))
+        cnf, Y = sat.build("grander-strict")
+        r = sat.kw_control_check(self._drop_family(cnf, "rule parity"), lits, exp)
+        self.assertFalse(r["ok"]); self.assertEqual(r["refuted"], "FALSIFIED"); self.assertEqual(r["necessary"], (2, 3))
+        cnf, Y = sat.build("alt-le-14")
+        r = sat.kw_control_check(self._drop_family(cnf, "alternation bound (alt-le-14)"), lits,
+                                 sat.kw_control_expected("alt-le-14"))
+        self.assertFalse(r["ok"]); self.assertEqual(r["refuted"], "SATISFIED")
+        cnf, Y = sat.build("grander-strict")
+        cnf.mark("rule parity"); cnf.add(-lits[5])
+        self.assertTrue(sat.kw_control_check(cnf, lits, exp)["ok"], "the stated limitation (4)")
+        # a misspelt expected family can never pass silently
+        cnf, Y = sat.build("grander-strict")
+        with self.assertRaises(ValueError):
+            sat.kw_control_check(cnf, lits, {"rule parity", "rule partiy"})
+
+    def test_kw_control_subcommand_tokens_and_refusals(self):
+        # Q-946 GATES-04 (2026-10-02): the verdict emitter verify_all.sh greps. Whole-line tokens,
+        # exit 0 iff KW_CONTROL=PASS; --c3-min applies; --expect does not; a non-sequence
+        # instance (the rigidity kernel has no target name) is refused with `unknown target`, which
+        # is what makes verify_all.sh's INAPPLICABLE line a decision and not a silent skip.
+        r = self._sat(["--kw-control", "five-sub-gender+ccn4"])
+        lines = r.stdout.splitlines()
+        self.assertEqual(r.returncode, 0, r.stdout[-500:] + r.stderr[-500:])
+        for want in ("KW_CONTROL_TARGET=five-sub-gender+ccn4", "KW_CONTROL_FORM=direct",
+                     "KW_CONTROL_EXPECTED=rule gender", "KW_CONTROL_REFUTED=FALSIFIED",
+                     "KW_CONTROL_REST_FALSIFIED=0", "KW_CONTROL_REST_FOREIGN=0",
+                     "KW_CONTROL_EACH_FAMILY_NECESSARY=1/1", "KW_CONTROL=PASS"):
+            self.assertIn(want, lines, want)
+        r = self._sat(["--kw-control", "kw-pin", "--c3-min", "777"])
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertIn("KW_CONTROL_TARGET=kw-pin c3>=777", r.stdout.splitlines())
+        self.assertIn("KW_CONTROL_EXPECTED=C3 >= 777 bound", r.stdout.splitlines())
+        r = self._sat(["--kw-control", "alt-le-14-noY"])
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertIn("KW_CONTROL_FORM=closure(alt-le-14)", r.stdout.splitlines())
+        r = self._sat(["--kw-control", "rigidity"])
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("unknown target: rigidity", r.stderr)
+        self.assertNotIn("KW_CONTROL=", r.stdout)
+        r = self._sat(["--kw-control", "plain", "--expect", "5"])
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("does not apply to --kw-control", r.stderr)
+        r = self._sat(["--kw-control"])
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("wrong argument count", r.stderr)
+
+    def test_noy_subset_carries_the_parent_family_marks_and_emits_the_same_bytes(self):
+        # Q-946 GATES-04 (2026-10-02). Until this date noy_subset() dropped the parent's clause
+        # family marks, so every kept clause was "(unmarked)" and the control had nothing to
+        # exclude. The marks are bookkeeping beside the clauses: write() ignores them, so the
+        # emitted DIMACS must be byte-for-byte what an unmarked subset writes.
+        for target in ("alt-le-14-noY", "alt-ge-16-noY"):
+            base = target[:-len(sat.NOY_SUFFIX)]
+            parent, _ = sat.build(base)
+            sub, _ = sat.build(target)
+            fams = [name for _, name in sub.marks]
+            self.assertEqual(len(fams), len(set(fams)), "a family must be one contiguous block")
+            self.assertIn("alternation bound (%s)" % base, fams)
+            self.assertNotIn("C1 one (pair,orient) per slot", fams, "a Y-touching family survived")
+            # every kept clause's family is the family it had in the parent
+            pos = {tuple(c): ci for ci, c in enumerate(parent.cl)}
+            for k, c in enumerate(sub.cl):
+                self.assertEqual(sub.stage_of(k), parent.stage_of(pos[tuple(c)]), (target, k))
+            bare = sat.CNF(); bare.n = sub.n; bare.cl = sub.cl
+            with tempfile.TemporaryDirectory() as tmp:
+                a, b = os.path.join(tmp, "a.cnf"), os.path.join(tmp, "b.cnf")
+                sub.write(a, "x"); bare.write(b, "x")
+                with open(a, "rb") as fa, open(b, "rb") as fb:
+                    self.assertEqual(fa.read(), fb.read(), target)
 
     def test_model_check_is_a_direct_evaluation_on_a_full_model(self):
         # Fable review 2026-09-03. The witness loop hands model_check() a FULL solver model, so
@@ -4601,6 +4744,211 @@ class TestSatLane12(unittest.TestCase):
                 self.assertIn("not writable", r.stderr)
 
 
+class TestLiteratureRulesFormalStatements(unittest.TestCase):
+    """Q-946 / T3-21 (2026-10-02). documentation/LITERATURE_RULES_FORMAL.md states every literature
+    rule in a form an independent encoder can implement. For the five theorem-bearing rules (its §2)
+    this class IS that encoder: each rule below is written from the document's text with nothing but
+    integer bit operations -- no solve.py helper, no sat.py table -- and must agree with the
+    project's own scorers (solve.r11_axes g1/g2, solve.rc4_violations, solve.reg_ccn4,
+    solve.reg_ccn8) on King Wen, the 44 public non-KW witnesses, 400 seeded random pair orderings
+    with random orientations, 50 tail-permuted King Wen variants (positives for CC-N4/CC-N8) and
+    the four-slot face swap (a CC-N4 negative that keeps everything else). Each re-encoding then
+    has one planted one-token deviation that must disagree somewhere on that set, so an agreement
+    is not vacuous. For the 29 scoreboard rules (§3) the document is a transcription checked by
+    reading; here only its identifiers and stated King Wen values are checked against the code.
+    RED on the pre-2026-10-02 tree: the document does not exist."""
+
+    DOC = os.path.join("documentation", "LITERATURE_RULES_FORMAL.md")
+
+    # ---- §1 conventions, from the text ----
+    @staticmethod
+    def _rev(h):
+        return sum(((h >> i) & 1) << (5 - i) for i in range(6))
+
+    @staticmethod
+    def _pc(h):
+        return bin(h).count("1")
+
+    @classmethod
+    def _stations(cls, S):
+        """(canonical, members) in first-appearance order; key = min(h, rev h)."""
+        seen, out = set(), []
+        for h in S:
+            key = min(h, cls._rev(h))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append((h, {h} if cls._rev(h) == h else {h, cls._rev(h)}))
+        return out
+
+    # ---- §2.1 parity ----
+    @classmethod
+    def _g1(cls, S, mutant=False):
+        ok = 0
+        for k in range(32):
+            h, h2 = S[2 * k], S[2 * k + 1]
+            p = k + 1
+            if (h ^ h2) == 63 or cls._pc(h) == 3:
+                continue
+            odd = (p % 2 == 1) if not mutant else (p % 2 == 0)
+            if (cls._pc(h) > 3) == odd:
+                ok += 1
+        return max(0, 18 - ok)
+
+    # ---- §2.2 rhythm ----
+    @classmethod
+    def _g2(cls, S, mutant=False):
+        prev, have, adj, breaks = 0, False, False, 0
+        for k in range(32):
+            h, h2 = S[2 * k], S[2 * k + 1]
+            if (h ^ h2) == 63 or cls._pc(h) == 3:
+                if not mutant:               # the deviation: an exempt pair no longer breaks adjacency
+                    adj = False
+                continue
+            mb = 0 if cls._pc(h) > 3 else 1
+            # (reversing every weight is NOT a deviation: sc = 0 never occurs for a counted pair, so
+            # it relabels rising/falling uniformly and g2 is invariant -- measured here first, then
+            # proved in the document's §2.2 note)
+            sc = sum((5 - 2 * i) for i in range(6) if ((h >> i) & 1) == mb)
+            rf = 1 if sc > 0 else 0
+            if have and adj and rf == prev:
+                breaks += 1
+            prev, have, adj = rf, True, True
+        return breaks
+
+    # ---- §2.3 gender ----
+    @classmethod
+    def _g3(cls, S, mutant=False):
+        viol = []
+        for n, (c, _m) in enumerate(cls._stations(S), 1):
+            pc = cls._pc(c)
+            if pc in (0, 3, 6):
+                continue
+            # (`pc <= 3` for male is NOT a deviation either: pc = 3 is exempt one line above)
+            male = pc < 3
+            if male != ((n % 2 == 1) if not mutant else (n % 2 == 0)):
+                viol.append(n)
+        return len(viol), viol
+
+    # ---- §2.4 CC-N4 ----
+    @classmethod
+    def _ccn4(cls, S, mutant=False):
+        st = cls._stations(S)
+        faces = [st[s - 1][0] for s in (25, 26, 27, 28)]
+        want = [7, 0, 2, 5] if not mutant else [7, 0, 5, 2]
+        return all(((f >> 3) & 7) == 3 for f in faces) and [f & 7 for f in faces] == want
+
+    # ---- §2.5 CC-N8 (needs §3.2 R-S2's violation set) ----
+    @classmethod
+    def _rs2_violators(cls, S):
+        bal = [2 * cls._pc(c) - 6 for c, _ in cls._stations(S)]
+        viol, run = [], []
+
+        def close(run):
+            for i in range(0, len(run) - 1, 2):
+                a, b = run[i], run[i + 1]
+                if bal[a - 1] != -bal[b - 1]:
+                    viol.extend([a, b])
+            if len(run) % 2:
+                viol.append(run[-1])
+        for s in range(1, 37):
+            if bal[s - 1] == 0:
+                close(run); run = []
+            else:
+                run.append(s)
+        close(run)
+        return set(viol)
+
+    @classmethod
+    def _ccn8(cls, S, mutant=False):
+        gv = set(cls._g3(S)[1])
+        rs2 = cls._rs2_violators(S)
+        if mutant:
+            return gv == {25, 26} and rs2 == {25, 26}
+        return gv == {25, 26} and {25, 26} <= rs2
+
+    # ---- the ordering set ----
+    @classmethod
+    def _orderings(cls):
+        out = [(lbl, seq) for lbl, seq in _lsf_public_witnesses()]
+        kw = list(KW)
+        pairs = [(kw[2 * k], kw[2 * k + 1]) for k in range(32)]
+        rng = random.Random(946)
+        for i in range(400):
+            perm = pairs[:]
+            rng.shuffle(perm)
+            seq = []
+            for a, b in perm:
+                seq += [a, b] if rng.random() < 0.5 else [b, a]
+            out.append(("random#%d" % i, seq))
+        for i in range(50):                     # tail permutations keep stations 1..28 intact
+            head, tail = pairs[:28], pairs[28:]
+            rng.shuffle(tail)
+            seq = []
+            for a, b in head + tail:
+                seq += [a, b] if rng.random() < 0.5 else [b, a]
+            out.append(("kwtail#%d" % i, seq))
+        swapped = kw[:]                          # the S25-S28 faces moved: a CC-N4 negative
+        swapped[48:52], swapped[52:56] = kw[52:56], kw[48:52]
+        out.append(("kw-face-swap", swapped))
+        return out
+
+    def test_precondition_both_polarities_for_every_rule(self):
+        S = self._orderings()
+        self.assertEqual(len(S), 45 + 400 + 50 + 1)
+        for name, f in (("parity", lambda s: solve.r11_axes(s)[0] == 0),
+                        ("rhythm", lambda s: solve.r11_axes(s)[1] == 0),
+                        ("gender", lambda s: solve.rc4_violations(s)[0] == 0),
+                        ("ccn4", lambda s: solve.reg_ccn4(s) is True),
+                        ("ccn8", lambda s: solve.reg_ccn8(s) is True)):
+            vals = set(f(s) for _, s in S)
+            self.assertEqual(vals, {True, False}, "rule %s is one-sided on the set" % name)
+
+    def test_the_five_re_encodings_agree_with_the_code_and_their_mutants_do_not(self):
+        S = self._orderings()
+        disagree = {"parity": 0, "rhythm": 0, "gender": 0, "ccn4": 0, "ccn8": 0}
+        for lbl, s in S:
+            g = solve.r11_axes(s)
+            self.assertEqual(self._g1(s), g[0], (lbl, "parity"))
+            self.assertEqual(self._g2(s), g[1], (lbl, "rhythm"))
+            gv, gpos = solve.rc4_violations(s)
+            self.assertEqual(self._g3(s), (gv, list(gpos)), (lbl, "gender"))
+            self.assertEqual(self._ccn4(s), solve.reg_ccn4(s), (lbl, "ccn4"))
+            self.assertEqual(self._ccn8(s), solve.reg_ccn8(s), (lbl, "ccn8"))
+            disagree["parity"] += self._g1(s, True) != g[0]
+            disagree["rhythm"] += self._g2(s, True) != g[1]
+            disagree["gender"] += self._g3(s, True)[0] != gv
+            disagree["ccn4"] += self._ccn4(s, True) != solve.reg_ccn4(s)
+            disagree["ccn8"] += self._ccn8(s, True) != solve.reg_ccn8(s)
+        for rule, n in disagree.items():
+            self.assertGreater(n, 0, "the planted %s deviation was not caught" % rule)
+        # the §1 King Wen values, as the document states them
+        self.assertEqual(solve.r11_axes(list(KW))[:3], [2, 2, 2])
+        self.assertEqual(solve.r11_violation_positions(list(KW)),
+                         {"parity": [22, 23], "rhythm": [(7, 8), (22, 23)], "gender": [25, 26]})
+
+    def test_document_names_every_rule_and_states_the_kw_value_the_code_returns(self):
+        with open(self.DOC, encoding="utf-8") as fh:
+            doc = fh.read()
+        flat = re.sub(r"\s+", " ", doc)              # the document wraps lines; phrases may too
+        self.assertIn(" ".join(str(h) for h in KW), flat, "the King Wen sequence of §1")
+        for want in ("**g1 = 2**", "**g2 = 2**", "**g3 = 2**", "**{25, 26}**",
+                     "(7, 8) and (22, 23)", "positions 22 and 23"):
+            self.assertIn(want, flat, want)
+        sections = re.split(r"^### 3\.\d+ ", doc, flags=re.M)[1:]
+        ids = [re.match(r"`([a-z0-9]+)`", sec).group(1) for sec in sections]
+        self.assertEqual(ids, [rid for rid, _ in solve.REGISTRY_KW_EXPECTED
+                               if rid not in ("ccn4", "ccn8")], "one §3 section per scoreboard rule, in registry order")
+        for sec, rid in zip(sections, ids):
+            value = getattr(solve, "reg_" + rid)(list(KW))
+            if value is True:
+                self.assertIn("KW True", sec, rid)
+            elif isinstance(value, tuple):
+                self.assertIn("KW **%s**" % (value,), sec, rid)
+            else:
+                self.assertIn("KW **%d**" % value, sec, rid)
+
+
 class TestSolveCliHardeningTokens(unittest.TestCase):
     """Whole-line KEY=value gates for the Codex v2 solve.c CLI/validator fixes landed 2026-09-04.
 
@@ -4679,7 +5027,7 @@ class TestSolveCliHardeningTokens(unittest.TestCase):
             self.fail("solve.c did not build: " + self.build_err)
         # START A NEW SESSION AND KILL THE GROUP, NOT THE PID (Q-656, 2026-09-19).
         # --validate-canonical system()-launches a 1T enumeration at SOLVE_THREADS=128
-        # (solve.c:41298-41312) microseconds after the token this test reads, and solve.c
+        # (solve.c:41324-41338) microseconds after the token this test reads, and solve.c
         # calls no setsid/setpgid/setpgrp -- so pr.kill(), which signals the driver's PID
         # alone, left that enumeration running and reparented on a 2-core box. Measured
         # against a stub reproducing solve.c's stdout order: driver-only kill orphaned the
@@ -33479,6 +33827,468 @@ class TestQ29TranscriptRegistry(unittest.TestCase):
         self.assertIn("gate_transcripts || RC=1", src[a:src.find(";;", src.find("gate_emitted_surface", a))])
 
 # end class TestQ29TranscriptRegistry (batch 34, lane Q925I)
+
+
+class TestQ944Gates06KwPin(unittest.TestCase):
+    """Q-944 GATES-06 (batch 35, 2026-10-02): verify.py's import-time table gate pins the
+    KW literal's order and orientation (sha256 of bytes(KW)).
+
+    The rule checks in _verify_tables_against_rules() (permutation, PAIRS as a set,
+    partner-exactness, the C5 multiset, cd = 776) are blind to 9 of the 32 single pair-block
+    orientation flips (blocks 3, 5, 9, 10, 11, 12, 17, 21, 31), and decode() reads each pair's
+    orientation from PAIRS, so such a flip silently reverses that pair in every decoded record.
+    This executes the REAL verify.py source with only the `KW = [...]` literal replaced, over
+    all C(32,2) = 496 pair-block transpositions and all 32 flips: every one of the 528 must be
+    refused at load, and the true table must load. The red half removes the pin from the same
+    source and requires exactly the 9 known flips to load again, so the test discriminates."""
+
+    def _compiled(self, drop_pin=False):
+        import re as _re
+        with open("verify.py", encoding="utf-8") as fh:
+            src = fh.read()
+        m = _re.search(r"^KW = \[(.*?)\]\n", src, _re.S | _re.M)
+        self.assertIsNotNone(m, "KW literal not found in verify.py")
+        kw0 = [int(x) for x in _re.findall(r"\d+", m.group(1))]
+        self.assertEqual(sorted(kw0), list(range(64)))
+        src = src[:m.start()] + "KW = list(__Q944_KW__)\n" + src[m.end():]
+        if drop_pin:
+            pin = '    if hashlib.sha256(bytes(KW)).hexdigest() != "'
+            self.assertEqual(src.count(pin), 1, "the GATES-06 pin line is not in verify.py")
+            src = src.replace(pin, '    if False and hashlib.sha256(bytes(KW)).hexdigest() != "')
+        return kw0, compile(src, "verify_q944", "exec")
+
+    @staticmethod
+    def _loads(code, kw):
+        ns = {"__name__": "verify_q944", "__Q944_KW__": kw}
+        try:
+            exec(code, ns)
+            return True
+        except (RuntimeError, AssertionError):  # verify.py's load-time checks raise both
+            return False
+
+    def _survivors(self, code, kw0):
+        blocks = [kw0[2 * i:2 * i + 2] for i in range(32)]
+        trans, flips = [], []
+        for i, j in itertools.combinations(range(32), 2):
+            b = [x[:] for x in blocks]
+            b[i], b[j] = b[j], b[i]
+            if self._loads(code, [h for x in b for h in x]):
+                trans.append((i, j))
+        for k in range(32):
+            b = [x[:] for x in blocks]
+            b[k] = b[k][::-1]
+            if self._loads(code, [h for x in b for h in x]):
+                flips.append(k)
+        return trans, flips
+
+    def test_all_528_corruptions_refused_and_true_table_loads(self):
+        kw0, code = self._compiled()
+        self.assertTrue(self._loads(code, kw0), "the true KW table must load")
+        bad = kw0[:]
+        bad[0] = bad[1]
+        self.assertFalse(self._loads(code, bad), "a non-permutation must be refused")
+        trans, flips = self._survivors(code, kw0)
+        self.assertEqual((trans, flips), ([], []))
+
+    def test_red_without_the_pin_the_nine_flips_load(self):
+        kw0, code = self._compiled(drop_pin=True)
+        self.assertTrue(self._loads(code, kw0))
+        trans, flips = self._survivors(code, kw0)
+        self.assertEqual(flips, [3, 5, 9, 10, 11, 12, 17, 21, 31])
+        self.assertEqual(trans, [])
+
+    def test_pin_is_the_sha256_of_the_shipped_literal(self):
+        import verify as V
+        self.assertEqual(hashlib.sha256(bytes(V.KW)).hexdigest(),
+                         "e0632bd577d83c5d21f10ff7901e29205a5f2e91b59721445c88e74857cebd87")
+
+# end class TestQ944Gates06KwPin (batch 35, lane Q944P)
+
+
+class TestQ944C1ConstantsCheck(unittest.TestCase):
+    """Q-944 HOST-01 (batch 35, 2026-10-02): `solve.py --c1-constants-check` is the shipped
+    replay of lean/C1RuleConstants.lean's numerical transcription check. It must PASS on the
+    shipped reg_* (5,455 C1 orderings, 0 deviations, 200/200 non-C1 controls deviating, the
+    cross-pair r4 mutant caught), and FAIL when a shipped rule is replaced by one that does not
+    factor through the pair partition (the red half: the same mutant, installed as reg_r4)."""
+
+    def _run(self, S):
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = S.c1_constants_check()
+        return rc, buf.getvalue().splitlines()
+
+    def test_passes_on_the_shipped_rules(self):
+        S = _load("solve")
+        rc, lines = self._run(S)
+        self.assertEqual(rc, 0, lines)
+        for tok in ("STRUCTURED_SEQUENCES=455", "RANDOM_C1_SEQUENCES=5000",
+                    "TOTAL_SEQUENCES=5455", "SEQUENCES_WITH_DEVIATION=0",
+                    "PER_RULE_DEVIATIONS=mmt4:0,p1c4:0,s1:0,s6:0,r3:0,r4:0,r5:0,c2:0",
+                    "POSITIVE_CONTROL_DEVIATING=200/200",
+                    "MUTANT_CROSS_PAIR_R4_CAUGHT_ON=4857/5455",
+                    "C1_CONSTANTS_CHECK=PASS"):
+            self.assertIn(tok, lines)
+
+    def test_red_a_cross_pair_rule_fails(self):
+        S = _load("solve")
+        S.reg_r4 = lambda s: sum(S.bit_diff(s[2 * k + 1], s[(2 * k + 2) % 64]) for k in range(32))
+        rc, lines = self._run(S)
+        self.assertEqual(rc, 1, lines)
+        self.assertIn("C1_CONSTANTS_CHECK=FAIL", lines)
+        self.assertNotIn("SEQUENCES_WITH_DEVIATION=0", lines)
+
+    def test_flag_is_wired(self):
+        r = subprocess.run([sys.executable, _py_src("solve"), "--help"],
+                           capture_output=True, text=True, timeout=120)
+        self.assertIn("--c1-constants-check", r.stdout)
+        self.assertIn("--r7-palace-sweep", r.stdout)
+
+# end class TestQ944C1ConstantsCheck (batch 35, lane Q944P)
+
+
+class TestQ944R7PalaceSweep(unittest.TestCase):
+    """Q-944 T1-5-FC1 (batch 35, 2026-10-02): `solve.py --r7-palace-sweep` reproduces the
+    published palace-order figures for the Jing Fang leg of FC-1, exactly, at the --r7-verify
+    pilot null (N = 10^4, seed 42): over all 8! = 40,320 palace orders the EXTREME count runs
+    5 to 9 of 11, the attested order is at the maximum 9 (with 4,348 orders), 21,506 orders
+    fall below the FC-1 gate of 8, and 114 of the 1,152 orders that keep Jing Fang's diff-wave
+    multiset fail it. About 15 CPU-s. The red half: when the sweep's percentile disagrees with
+    _r7_l0_extreme_counts on the attested order, it must refuse rather than sweep."""
+
+    def test_published_histogram(self):
+        import io, contextlib
+        S = _load("solve")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = S.r7_palace_sweep(n=10_000, seed=42)
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(rc, 0, lines)
+        for tok in ("CANONICAL_JF_EXTREME_COUNT=9", "ORDERS_TESTED=40320",
+                    "EXTREME_COUNT_HISTOGRAM=5:934,6:6594,7:13978,8:14466,9:4348",
+                    "ORDERS_AT_CANONICAL_COUNT=4348", "ORDERS_BELOW_FC1_GATE_8=21506",
+                    "DIFFWAVE_REPRODUCING_ORDERS=1152",
+                    "DIFFWAVE_ORDERS_HISTOGRAM=7:114,8:538,9:500",
+                    "DIFFWAVE_ORDERS_BELOW_FC1_GATE_8=114",
+                    "MIN_EXTREME_COUNT=5", "MAX_EXTREME_COUNT=9",
+                    "FC1_PALACE_SWEEP=DONE"):
+            self.assertIn(tok, lines)
+
+    def test_red_refuses_when_the_shipped_counter_disagrees(self):
+        import io, contextlib
+        S = _load("solve")
+        real = S._r7_l0_extreme_counts
+        def wrong(n, seed):
+            r = real(n, seed)
+            r["Jing Fang"] = {"count": 0, "extremes": []}
+            return r
+        S._r7_l0_extreme_counts = wrong
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = S.r7_palace_sweep(n=200, seed=42)
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(rc, 1, lines)
+        self.assertIn("FC1_PALACE_SWEEP=FAIL", lines)
+        self.assertNotIn("ORDERS_TESTED=40320", lines)
+
+# end class TestQ944R7PalaceSweep (batch 35, lane Q944P)
+
+
+class TestQ937LedgerAnchoredGates(unittest.TestCase):
+    """Q-937 (batch 35): GATE 27 and GATE 26 exempted a withdrawn / over-ceiling figure only by
+    marker WORDS beside it, so an inline marker could not move into CORRECTIONS.md (Q-938) without
+    the gate going red, or being satisfied by a stray word. Both now also accept a LEDGER ANCHOR:
+    a `[CORRECTIONS CX-<n>](…/CORRECTIONS.md)` link whose CX entry itself quotes the figure.
+    These run the real gate modules in a scratch git repo with the real WITHDRAWN_FIGURES.tsv,
+    a two-entry synthetic ledger and one planted doc. Each red case is the gate's ORIGINAL defect
+    or an anchor that must not count; the green cases are the anchors that must."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    FIG = "3×10³⁷"
+    LEDGER = ("# Corrections\n\n## Entries\n\n"
+              "## CX-7 — the whole-space figure is withdrawn\n\nIt read `≈3×10³⁷ distinct canonical`.\n\n"
+              "### a sub-heading inside CX-7\n\nStill CX-7's text.\n\n"
+              "## CX-8 — an unrelated entry\n\nNothing about that figure here.\n\n"
+              "## Notes\n\n```\n## CX-9 — a heading inside a code fence is not an entry: 3×10³⁷\n```\n")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q937_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        os.makedirs(os.path.join(cls.repo, "docs"))
+        os.makedirs(os.path.join(cls.repo, "documentation"))
+        shutil.copytree(os.path.join(cls.ROOT, "scripts", "doc_gates.d"),
+                        os.path.join(cls.repo, "scripts", "doc_gates.d"))
+        shutil.copy2(os.path.join(cls.ROOT, "scripts", "doc_gates.sh"),
+                     os.path.join(cls.repo, "scripts", "doc_gates.sh"))
+        shutil.copy2(os.path.join(cls.ROOT, "documentation", "WITHDRAWN_FIGURES.tsv"),
+                     os.path.join(cls.repo, "documentation", "WITHDRAWN_FIGURES.tsv"))
+        with open(os.path.join(cls.repo, "documentation", "CORRECTIONS.md"), "w", encoding="utf-8") as fh:
+            fh.write(cls.LEDGER)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _gate(self, mode, doc, gates_dir=None):
+        with open(os.path.join(self.repo, "docs", "NOTE.md"), "w", encoding="utf-8") as fh:
+            fh.write(doc)
+        g = ["git", "-C", self.repo]
+        if not os.path.isdir(os.path.join(self.repo, ".git")):
+            subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
+                            "--allow-empty", "-m", "fixture"], check=True)
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", mode], cwd=self.repo,
+                           capture_output=True, text=True, timeout=300)
+        return r.returncode, r.stdout + r.stderr
+
+    LINK7 = "([CORRECTIONS CX-7](../documentation/CORRECTIONS.md))"
+
+    # ---------------------------------------------------------------- GATE 27 (withdrawn-markers)
+    def _g27(self, doc, red):
+        rc, out = self._gate("withdrawn-markers", doc)
+        self.assertIn("== GATE 27:", out, "precondition: GATE 27 ran")
+        if red:
+            self.assertEqual(rc, 1, out)
+            self.assertIn("docs/NOTE.md:", out)
+            self.assertIn("restates withdrawn figure '%s'" % self.FIG, out)
+        else:
+            self.assertEqual(rc, 0, out)
+            self.assertIn("CX entries readable as anchors", out)
+        return out
+
+    def test_g27_original_defect_unmarked_figure_is_red(self):
+        self._g27("The space holds %s distinct orderings.\n" % self.FIG, red=True)
+
+    def test_g27_marker_still_accepted(self):
+        self._g27("The space held %s ⚠ **[WITHDRAWN 2026-08-24 — over its ceiling]**.\n" % self.FIG, red=False)
+
+    def test_g27_ledger_anchor_quoting_the_figure_is_green(self):
+        self._g27("The space held %s orderings %s.\n" % (self.FIG, self.LINK7), red=False)
+        self._g27("The space held %s orderings ([see](../documentation/CORRECTIONS.md#cx-7-the-whole)).\n"
+                  % self.FIG, red=False)
+
+    def test_g27_anchor_that_does_not_count_is_red(self):
+        for link in ("([CORRECTIONS CX-8](../documentation/CORRECTIONS.md))",     # entry lacks the figure
+                     "([CORRECTIONS CX-99](../documentation/CORRECTIONS.md))",    # no such entry
+                     "([CORRECTIONS CX-9](../documentation/CORRECTIONS.md))",     # heading only inside a fence
+                     "([CORRECTIONS.md](../documentation/CORRECTIONS.md))",       # no CX id
+                     "([CORRECTIONS CX-7](CORRECTIONS.md))"):                     # resolves to docs/, not the ledger
+            with self.subTest(link=link):
+                self._g27("The space holds %s distinct orderings %s.\n" % (self.FIG, link), red=True)
+
+    def test_g27_table_anchor_is_per_row(self):
+        self._g27("| a | b |\n|---|---|\n| headline | %s %s |\n" % (self.FIG, self.LINK7), red=False)
+        self._g27("| a | b |\n|---|---|\n| headline | %s |\n| other | %s |\n" % (self.FIG, self.LINK7), red=True)
+
+    def test_g27_entry_quote_check_is_load_bearing(self):
+        # mutant: any resolvable CX link exempts, whatever its entry says -> the CX-8 case goes green.
+        mod = os.path.join(self.repo, "scripts", "doc_gates.d", "80_repro_reach_claim_shapes.sh")
+        with open(mod, encoding="utf-8") as fh:
+            src = fh.read()
+        want = "return fig in text and not any(fig in e for e in anc)"
+        self.assertEqual(src.count(want), 1, "precondition: the mutant applies")
+        try:
+            with open(mod, "w", encoding="utf-8") as fh:
+                fh.write(src.replace(want, "return fig in text and not anc"))
+            rc, out = self._gate("withdrawn-markers", "The space holds %s orderings %s.\n"
+                                 % (self.FIG, "([CORRECTIONS CX-8](../documentation/CORRECTIONS.md))"))
+            self.assertEqual(rc, 0, "the mutant should wrongly pass, else the CX-8 test proves nothing: " + out)
+        finally:
+            with open(mod, "w", encoding="utf-8") as fh:
+                fh.write(src)
+
+    # ---------------------------------------------------------------- GATE 26 (canonical-ceiling)
+    def _g26(self, doc, red):
+        rc, out = self._gate("canonical-ceiling", doc)
+        self.assertIn("== GATE 26:", out, "precondition: GATE 26 ran")
+        if red:
+            self.assertEqual(rc, 1, out)
+            self.assertIn("docs/NOTE.md:", out)
+            self.assertIn("'%s' is labelled CANONICAL" % self.FIG, out)
+        else:
+            self.assertEqual(rc, 0, out)
+        return out
+
+    def test_g26_original_defect_is_red(self):
+        self._g26("There are %s canonical orderings.\nA 1e40 canonical figure.\n" % self.FIG, red=True)
+
+    def test_g26_marker_and_same_line_anchor_are_green(self):
+        self._g26("There were %s canonical orderings (WITHDRAWN).\nA 1e1 canonical.\n" % self.FIG, red=False)
+        self._g26("There were %s canonical orderings %s.\nA 1e1 canonical.\n" % (self.FIG, self.LINK7), red=False)
+
+    def test_g26_anchor_is_per_line_and_per_entry(self):
+        self._g26("There are %s canonical orderings,\nsee %s.\nA 1e1 canonical.\n" % (self.FIG, self.LINK7), red=True)
+        self._g26("There are %s canonical orderings ([CORRECTIONS CX-8](../documentation/CORRECTIONS.md)).\n"
+                  "A 1e1 canonical.\n" % self.FIG, red=True)
+
+    def test_g26_entry_quote_check_is_load_bearing(self):
+        mod = os.path.join(self.repo, "scripts", "doc_gates.d", "80_repro_reach_claim_shapes.sh")
+        with open(mod, encoding="utf-8") as fh:
+            src = fh.read()
+        want = "            if any(m.group(0) in e for e in anc): continue\n            n+=1\n            print(\"HIT"
+        self.assertEqual(src.count(want), 2, "precondition: the mutant applies to both legs")
+        try:
+            with open(mod, "w", encoding="utf-8") as fh:
+                fh.write(src.replace(want, want.replace("any(m.group(0) in e for e in anc)", "anc")))
+            rc, out = self._gate("canonical-ceiling", "There are %s canonical orderings "
+                                 "([CORRECTIONS CX-8](../documentation/CORRECTIONS.md)).\nA 1e1 canonical.\n" % self.FIG)
+            self.assertEqual(rc, 0, "the mutant should wrongly pass, else the CX-8 test proves nothing: " + out)
+        finally:
+            with open(mod, "w", encoding="utf-8") as fh:
+                fh.write(src)
+
+
+    # ---------------------------------------------------------------- GATE 4b (secrefs) crash
+    def test_g4b_two_bare_references_to_missing_files_are_both_reported(self):
+        # Found while writing CX-278: the bare-reference branch did `bad = True`, rebinding GATE 4b's
+        # findings LIST, so a later dangling reference crashed on `bad.append` (a traceback, and every
+        # finding after it lost). Two references to missing files must give two findings and rc 1.
+        doc = ('See NOPE_ONE.md §"Alpha" for one.\n\nSee NOPE_TWO.md §"Beta" for the other.\n\n'
+               'And a real one: NOTE.md §"Gamma" is missing too.\n\n## Delta\n')
+        rc, out = self._gate("secrefs", doc)
+        self.assertIn("== GATE 4b:", out, "precondition: GATE 4b ran")
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(rc, 1, out)
+        for name in ("NOPE_ONE.md", "NOPE_TWO.md"):
+            self.assertIn('bare section reference to "%s"' % name, out)
+        self.assertIn('NOTE.md §"Gamma"', out, "the dangling reference after the bare ones is still judged")
+
+    # ---------------------------------------------------------------- the inventory's disposition
+    INV_DOC = ("Para one 3×10³⁷ ⚠ **[WITHDRAWN 2026-08-24 — x]**.\n\n"
+               "Para two ⚠ **[CORRECTED 2026-09-01 — y]** text.\n\n"
+               "Para three ⚠ **[CORRECTED 2026-09-01 — z]** text.\n")
+    INV_BASE = "== GATE 1: x ==\n  [ok] fine\n== GATE 27: w ==\n  [ok] all marked\n== GATE 56: s ==\n  [ok] fine\n"
+    INV_ABL = ("== GATE 1: x ==\n  [ok] fine\n== GATE 27: w ==\n"
+               "  [FAIL] A.md:1 restates withdrawn figure '3×10³⁷' with NO supersession marker\n"
+               "  [FAIL] A.md:3 restates withdrawn figure '3×10³⁷' with NO supersession marker\n"
+               "== GATE 56: s ==\n  [FAIL] A.md:3: a figure\n  [note] A.md:5: only a note\n  [ok] fine\n")
+
+    def _attribute(self, script_text=None, files=None):
+        d = tempfile.mkdtemp(prefix="q937i_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        with open(os.path.join(self.ROOT, "scripts", "correction_marker_inventory.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        with open(os.path.join(d, "scripts", "correction_marker_inventory.sh"), "w", encoding="utf-8") as fh:
+            fh.write(src if script_text is None else script_text(src))
+        files = files or {"A.md": self.INV_DOC, "base.log": self.INV_BASE, "abl.log": self.INV_ABL}
+        for name, text in files.items():
+            with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+                fh.write(text)
+        subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+        subprocess.run(["git", "add", "--"] + sorted(n for n in files if n.endswith(".md")), cwd=d, check=True)
+        r = subprocess.run(["bash", "scripts/correction_marker_inventory.sh", "--attribute", "base.log", "abl.log"],
+                           cwd=d, capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        rows = [ln.split("\t") for ln in r.stdout.rstrip("\n").split("\n")]
+        self.assertEqual(rows[0][5:7], ["legs", "review"], "precondition: TSV header")
+        return {(c[0], c[1]): (c[4], c[5], c[6]) for c in rows[1:] if c[2] == "marker"}
+
+    def test_inventory_reanchored_only_when_every_leg_is_reanchored_and_red(self):
+        got = self._attribute()
+        self.assertEqual(got[("A.md", "1")], ("3", "GATE 27", "reanchored:GATE-27=ledger-anchor"))
+        # a second leg that is not re-anchored keeps the row gate-anchored
+        self.assertEqual(got[("A.md", "3")], ("3", "GATE 27,GATE 56", "gate-anchored"))
+        # a leg whose removal produced only a [note] (the silent case) is never called re-anchored
+        self.assertEqual(got[("A.md", "5")][0], "3", "precondition: the [note] line ties row 5 to GATE 56")
+        self.assertEqual(got[("A.md", "5")][2], "gate-anchored")
+
+    def test_inventory_silent_reanchored_leg_stays_gate_anchored(self):
+        # GATE 27 listed as re-anchored, but this row's removal only produced a [note]: not red.
+        mut = lambda s: s.replace("'GATE 18': 'ruling-token'}", "'GATE 18': 'ruling-token', 'GATE 56': 'x'}", 1)
+        with open(os.path.join(self.ROOT, "scripts", "correction_marker_inventory.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotEqual(mut(src), src, "precondition: the mutant applies")
+        got = self._attribute(mut)
+        self.assertEqual(got[("A.md", "3")][2], "reanchored:GATE-27=ledger-anchor+GATE-56=x", "precondition: the mutant applies")
+        self.assertEqual(got[("A.md", "5")][2], "gate-anchored")
+
+    def test_inventory_g4b_stale_row_ties_to_the_one_marker_quoting_the_pointer(self):
+        # GATE 4b's stale-row finding names two files and quotes a 2-character key; it must land on
+        # the marker in the SOURCE file whose block names the target file and the key, not on every
+        # marker of both files (the pre-Q-937 `(file)` spread: 23 rows for one real dependency).
+        src = ("Intro ⚠ **[CORRECTED 2026-08-01 — x]** text.\n\n"
+               "Pointer *(Corrected 2026-08-07: this cited \"T.md Q1\", which T.md does not have.)*\n")
+        tgt = "Body ⚠ **[CORRECTED 2026-08-02 — y]** text.\n"
+        base = "== GATE 1: x ==\n  [ok] x\n== GATE 4b: secrefs ==\n  [ok] fine\n"
+        abl = ("== GATE 1: x ==\n  [ok] x\n== GATE 4b: secrefs ==\n"
+               "  [FAIL] stale allowlist row: S.md -> T.md §\"q1\"\n  [ok] fine\n")
+        got = self._attribute(files={"S.md": src, "T.md": tgt, "base.log": base, "abl.log": abl})
+        self.assertEqual(got[("S.md", "3")], ("3", "GATE 4b", "reanchored:GATE-4b=allowlist-row"))
+        self.assertEqual(got[("S.md", "1")][1], "-")
+        self.assertEqual(got[("T.md", "1")][1], "-")
+        # mutant: the SECREF form never matches -> the old spread over both files comes back
+        mut = lambda t: t.replace("SECREF = re.compile(r'(", "SECREF = re.compile(r'(?!)(", 1)
+        with open(os.path.join(self.ROOT, "scripts", "correction_marker_inventory.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotEqual(mut(src), src, "precondition: the mutant applies")
+        got = self._attribute(mut,
+                              files={"S.md": src, "T.md": tgt, "base.log": base, "abl.log": abl})
+        self.assertEqual(got[("T.md", "1")][1], "GATE 4b(file)")
+
+    def test_inventory_reanchored_table_is_load_bearing(self):
+        mut = lambda s: s.replace("REANCHORED = {'GATE 26'", "REANCHORED = {} and {'GATE 26'", 1)
+        with open(os.path.join(self.ROOT, "scripts", "correction_marker_inventory.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotEqual(mut(src), src, "precondition: the mutant applies")
+        got = self._attribute(mut)
+        self.assertEqual(got[("A.md", "1")][2], "gate-anchored")
+
+    # ---------------------------------------------------------------- GATE 3b (retract-figures)
+    def _g3b(self, doc, allow_rows, mutate=None):
+        d = tempfile.mkdtemp(prefix="q937b_")
+        self.addCleanup(shutil.rmtree, d, True)
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        shutil.copy2(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        if mutate:
+            mod = os.path.join(d, "scripts", "doc_gates.d", "20_retract_links_status.sh")
+            with open(mod, encoding="utf-8") as fh:
+                src = fh.read()
+            new = mutate(src)
+            self.assertNotEqual(new, src, "precondition: the mutant applies")
+            with open(mod, "w", encoding="utf-8") as fh:
+                fh.write(new)
+        os.makedirs(os.path.join(d, "documentation")); os.makedirs(os.path.join(d, "docs"))
+        os.makedirs(os.path.join(d, "reports", "evidence"))
+        for k in range(125):     # the gate floors its evidence corpus at 120 non-md files
+            with open(os.path.join(d, "reports", "evidence", "e%03d.out" % k), "w") as fh:
+                fh.write("x\n")
+        files = {"documentation/RETRACTED_FIGURES.tsv": "# figure, why\n1.4σ\twithdrawn in a test\n",
+                 "documentation/DOC_GATE_FIGURE_ALLOWLIST.txt": "# rows\n" + "".join(r + "\n" for r in allow_rows),
+                 "docs/NOTE.md": doc}
+        for name, text in files.items():
+            with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+                fh.write(text)
+        subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "retract-figures"], cwd=d,
+                           capture_output=True, text=True, timeout=300)
+        self.assertIn("== GATE 3b:", r.stdout, "precondition: GATE 3b ran")
+        return r.returncode, r.stdout + r.stderr
+
+    ROW3B = "docs/NOTE.md\t1.4σ\tthis read 1.4σ\tmeta-mention\tthe marker quotes the withdrawn figure"
+    MARKED3B = "Text ⚠ **[CORRECTED 2026-08-02 — this read 1.4σ before]** now.\n"
+
+    def test_g3b_original_defect_and_anchored_marker(self):
+        rc, out = self._g3b("The value sits 1.4σ above.\n", [])
+        self.assertEqual(rc, 1, out); self.assertIn('retracted figure "1.4σ" restated', out)
+        rc, out = self._g3b(self.MARKED3B, [self.ROW3B])
+        self.assertEqual(rc, 0, out); self.assertIn("1 meta-mention", out)
+
+    def test_g3b_row_left_behind_by_a_moved_marker_is_red(self):
+        moved = "Text now.\n"                       # the marker (and the figure it quoted) moved out
+        self.assertNotIn("1.4σ", moved, "precondition: nothing for the row to match")
+        rc, out = self._g3b(moved, [self.ROW3B])
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[FAIL] allowlist row matched nothing this run: docs/NOTE.md", out)
+        # mutant: the pre-Q-937 behaviour (a note that does not count) -> the same tree passes
+        rc, out = self._g3b(moved, [self.ROW3B], mutate=lambda s: s.replace(
+            "+ len(hashrow) + len(dead) + (len(evid)", "+ len(hashrow) + (len(evid)", 1))
+        self.assertEqual(rc, 0, "the mutant should wrongly pass, else the test above proves nothing: " + out)
+
+# end class TestQ937LedgerAnchoredGates (batch 35, lane Q937)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

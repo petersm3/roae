@@ -6963,7 +6963,7 @@ def extended_selftest(solve_binary):
     def _run(env_extra, dir_, args_=("0", "4")):
         env = os.environ.copy()
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
-        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43628) refuses to start
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43658) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
         # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
         # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
@@ -12562,14 +12562,14 @@ def atlas_load(path):
     if isinstance(fails, bool) or not isinstance(fails, int):
         raise AtlasError("%s: gates.fails=%r is not an integer" % (path, fails))
     # 🔴 Q-560, FIXED 2026-09-12. "see fails" was the ONLY value read as a failure, so the
-    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30121, emitted
+    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30147, emitted
     # for raw_marginal_sums_eq_N and kernel_marginals_eq_cls_raw whenever want_raw is 0 -- was
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
-    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30131) is ALSO an un-run gate,
-    # but VERIFY.md:1261 states as POLICY that it "is not a failed run". Reversing a documented
+    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30157) is ALSO an un-run gate,
+    # but VERIFY.md:1268 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6529,
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6877,
     # :6658; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted")); _atlas_gate_vocab_check(gates, path)  # Q-320 (3): a closed status vocabulary
     if fails != 0 or failed:
@@ -12605,11 +12605,11 @@ def atlas_load(path):
                    ",".join(sorted(have - want)) or "-", ",".join(sorted(want - have)) or "-"))
     # 🔴 THE TAIL VERDICT WAS EMITTED AND NEVER READ (Codex KCP5 #1, adjudicated by Fable
     # 2026-09-12: ACCEPTED, and BROADER than charged). The five F3-rule tail checks count
-    # failures unconditionally (solve.c:29315, `if (ok[i] == 0)`) but increment `gate_fails` only under
-    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29317), while KC_SCAN (:30410) and KC_SCAN_MERGE
-    # (:31326) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
+    # failures unconditionally (solve.c:29341, `if (ok[i] == 0)`) but increment `gate_fails` only under
+    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29343), while KC_SCAN (:30436) and KC_SCAN_MERGE
+    # (:31352) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
     # beside `tail_checks.fails >= 1` in the SAME file and still prints KC_SCAN=OK, exit 0.
-    # SOLVE_C_CLI.md:2185 states that honestly; :2292 then claimed THIS loader closed it,
+    # SOLVE_C_CLI.md:2191 states that honestly; :2298 then claimed THIS loader closed it,
     # and it did not -- `tail_check` and `tail_report` appeared ZERO times in this file
     # (positive control: `atlas_emit_v1` = 2). Codex demonstrated the consequence rather
     # than asserting it: moving 48 units between two raw pair marginals produced vertical
@@ -12654,7 +12654,7 @@ def atlas_load(path):
             % (path, tf, len(bad), ", ".join(bad) or "-"))
     # 🔴 Q-561, FIXED 2026-09-12. The guard that stood here fired only when "n/a" verdicts
     # were present AND some layer carried marginal_raw. But "n/a" was produced precisely when
-    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:29990
+    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:30016
     # asserts it appears exactly want_raw times. So the guard was conditioned on the data that
     # vanishes in the only case it had to catch: it could fire on a forged atlas and never on a
     # real one. Removed, not repaired. Every un-run verdict now lands in the notrun arm above,
@@ -14257,7 +14257,7 @@ def atlas_q3_reader_check(tsv_path, N):
         # profile traces rather than about the universe:
         #   f(s_i) counts the prefixes that reach s_i, and this walk's own prefix is one of
         #     them, so f >= 1 on every visited step;
-        #   alts counts the admissible oriented successors with g > 0 (solve.c:23991) and the
+        #   alts counts the admissible oriented successors with g > 0 (solve.c:24017) and the
         #     step actually taken is one of them, so alts >= 1.
         # >= 1 is the TIGHT bound, not a loose one: the committed golden
         # scripts/tr12_expected/n9/a2_q3_profile.txt bottoms out at f = 1 (step 1) and at
@@ -17159,7 +17159,7 @@ def t3_encode_solutions(out_bin, input_paths):
                     # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
                     # legitimate line. Refusing it would have broken the tool on real
                     # --kc-sample/--kc-unrank output. Checked by reading the emitters
-                    # (solve.c:38919 `record\tm=%llu\t`, :38994 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    # (solve.c:38945 `record\tm=%llu\t`, :39020 and the `%s\tcd=%d\t` form beside them), not assumed.
                     #
                     # What is safe, and is done, is to COUNT what the skip discards, so a changed
                     # input shape is visible instead of silent.
@@ -18278,6 +18278,13 @@ def main():
                              "frozen canonical value; lower only for smoke tests)")
     parser.add_argument("--r7-seed", type=int, default=42,
                         help="--r7-corpus: shared RNG seed (frozen default 42)")
+    parser.add_argument("--r7-palace-sweep", type=int, nargs="?", const=10_000, default=None,
+                        metavar="N",
+                        help="R7 FC-1: count the Jing Fang EXTREME observables under every "
+                             "one of the 8! = 40,320 palace orders, against the uniform null "
+                             "of size N (default 10^4 = the --r7-verify pilot; seed from "
+                             "--r7-seed). Prints the histogram and FC1_PALACE_SWEEP=DONE|FAIL; "
+                             "returns 0 on DONE, 1 on FAIL. ~15 CPU-s at N=10^4.")
     parser.add_argument("--r7-verify", action="store_true",
                         help="R7: assert the frozen corpus-control anchors "
                              "deterministically (FC-2 construction cross-"
@@ -18339,6 +18346,12 @@ def main():
                              "King Wen sequence and assert each equals its "
                              "registry KW-expected value. Returns 0 on full "
                              "PASS, 1 on any mismatch.")
+    parser.add_argument("--c1-constants-check", action="store_true",
+                        help="Drive reg_* for the 8 rules lean/C1RuleConstants.lean proves "
+                             "constant over 5,455 C1-valid orderings (the transcription "
+                             "bridge's numerical check, seed 944), with a non-C1 control and "
+                             "a cross-pair r4 mutant; prints C1_CONSTANTS_CHECK=PASS|FAIL. "
+                             "Returns 0 on PASS, 1 otherwise.")
     parser.add_argument("--extended-selftest", metavar="SOLVE_BINARY",
                         help="Run small-scale path-invariance + resume "
                              "regression suite that exercises the fork-merge, "
@@ -18548,6 +18561,9 @@ def main():
     if args.registry_verify:
         sys.exit(registry_verify())
 
+    if args.c1_constants_check:
+        sys.exit(c1_constants_check())
+
     if args.f4p_verify:
         sys.exit(f4p_verify())
 
@@ -18577,6 +18593,9 @@ def main():
 
     if args.r7_verify:
         sys.exit(r7_verify())
+
+    if args.r7_palace_sweep is not None:
+        sys.exit(r7_palace_sweep(n=args.r7_palace_sweep, seed=args.r7_seed))
 
     if args.r7_corpus:
         sys.exit(r7_corpus(n=args.r7_n, seed=args.r7_seed))
@@ -19343,6 +19362,199 @@ def _atlas_gate_vocab_check(gates, path):
             "\"see fails\", \"not-emitted\" or \"not-run (requires --kc-tdir)\"; any other value "
             "is not a verdict, so this atlas is refused."
             % (path, ", ".join("%s=%r" % (k, gates[k]) for k in unknown)))
+
+
+C1_CONST_RULES = ("mmt4", "p1c4", "s1", "s6", "r3", "r4", "r5", "c2")
+
+
+def c1_constants_check(seed=944):
+    """--c1-constants-check (Q-944 HOST-01, 2026-10-02): the numerical half of
+    lean/C1RuleConstants.lean's transcription bridge, as a shipped command.
+
+    The Lean file proves eight rules constant on the C1 space; this drives this
+    file's own reg_* for those eight rules over 5,455 C1-valid orderings and
+    requires every value (and its type) to equal REGISTRY_KW_EXPECTED. The
+    orderings: KW and 6 seeded random C1 bases, each with its 32 single-pair
+    flips, 31 adjacent pair-slot transpositions and full reversal (455), plus
+    5,000 seeded random C1 orderings. Controls: 200 random non-C1 permutations
+    must each deviate on >= 1 rule (the drive can see a deviation at all), and
+    a cross-pair mis-reading of r4 -- a rule that does NOT factor through the
+    pair partition, the failure the bridge exists to rule out -- must deviate
+    somewhere. Deterministic (seed 944). Prints KEY=value tokens; returns 0
+    only on C1_CONSTANTS_CHECK=PASS. Defined at the end of the file so that no
+    solve.py line cited elsewhere moves.
+    """
+    rng = random.Random(seed)
+    exp = dict(REGISTRY_KW_EXPECTED)
+    fn = {r: globals()["reg_" + r] for r in C1_CONST_RULES}
+    kw = list(binary_hexagrams)
+
+    def partner(h):
+        r = reverse_6bit(h)
+        return r if r != h else h ^ 63
+
+    def c1ok(s):
+        return (sorted(s) == list(range(64))
+                and all(s[2 * i + 1] == partner(s[2 * i]) for i in range(32)))
+
+    def devs(s, f=fn, e=exp):
+        out = []
+        for r in C1_CONST_RULES:
+            v = f[r](s)
+            if not (v == e[r] and type(v) is type(e[r])):
+                out.append(r)
+        return out
+
+    pairs = [(kw[2 * i], kw[2 * i + 1]) for i in range(32)]
+
+    def rand_c1():
+        order = list(range(32))
+        rng.shuffle(order)
+        s = []
+        for p in order:
+            a, b = pairs[p]
+            s += [a, b] if rng.random() < 0.5 else [b, a]
+        return s
+
+    def family(base):
+        blk = [base[2 * i:2 * i + 2] for i in range(32)]
+        out = [base[:]]
+        for k in range(32):
+            b = [x[:] for x in blk]
+            b[k] = b[k][::-1]
+            out.append([h for x in b for h in x])
+        for k in range(31):
+            b = [x[:] for x in blk]
+            b[k], b[k + 1] = b[k + 1], b[k]
+            out.append([h for x in b for h in x])
+        out.append(base[::-1])
+        return out
+
+    seqs = family(kw)
+    for _ in range(6):
+        seqs += family(rand_c1())
+    n_struct = len(seqs)
+    for _ in range(5000):
+        seqs.append(rand_c1())
+    if not all(c1ok(s) for s in seqs):
+        print("C1_CONSTANTS_CHECK=FAIL")
+        print("ERROR: a generated ordering is not C1-valid (generator defect)")
+        return 1
+    per_rule = {r: 0 for r in C1_CONST_RULES}
+    bad = 0
+    for s in seqs:
+        d = devs(s)
+        bad += bool(d)
+        for r in d:
+            per_rule[r] += 1
+    pc = 0
+    n = 0
+    while n < 200:
+        p = list(range(64))
+        rng.shuffle(p)
+        if c1ok(p):
+            continue
+        n += 1
+        pc += bool(devs(p))
+    mf = dict(fn)
+    me = dict(exp)
+    mf["r4"] = lambda s: sum(bit_diff(s[2 * k + 1], s[(2 * k + 2) % 64]) for k in range(32))
+    me["r4"] = mf["r4"](kw)
+    mut = sum(1 for s in seqs if "r4" in devs(s, mf, me))
+    print(f"STRUCTURED_SEQUENCES={n_struct}")
+    print(f"RANDOM_C1_SEQUENCES={len(seqs) - n_struct}")
+    print(f"TOTAL_SEQUENCES={len(seqs)}")
+    print(f"SEQUENCES_WITH_DEVIATION={bad}")
+    print("PER_RULE_DEVIATIONS=" + ",".join(f"{r}:{per_rule[r]}" for r in C1_CONST_RULES))
+    print(f"POSITIVE_CONTROL_DEVIATING={pc}/{n}")
+    print(f"MUTANT_CROSS_PAIR_R4_CAUGHT_ON={mut}/{len(seqs)}")
+    ok = bad == 0 and pc == n == 200 and mut > 0
+    print(f"C1_CONSTANTS_CHECK={'PASS' if ok else 'FAIL'}")
+    return 0 if ok else 1
+
+
+def r7_palace_sweep(n=10_000, seed=42):
+    """--r7-palace-sweep (Q-944 T1-5-FC1, 2026-10-02): how far the Jing Fang leg
+    of the FC-1 broken-instrument gate moves under the other palace orders.
+
+    Uses this file's R7 machinery unchanged -- _r7_W (world stages), the 11
+    _R7_OBSERVABLES, _r7_uniform_nulls(n, seed) and the EXTREME rule of
+    _r7_l0_extreme_counts (mid-percentile <= 1 or >= 99) -- and evaluates every
+    one of the 8! = 40,320 orders of the eight palaces. The mid-percentile is
+    taken by bisect on the sorted null, which is arithmetically identical to
+    _r7_percentile ((lt + 0.5*eq) / n); the attested order's EXTREME set is
+    checked against _r7_l0_extreme_counts' own before the sweep, and a mismatch
+    prints FC1_PALACE_SWEEP=FAIL and returns 1. Defaults n=10^4, seed 42 are
+    the --r7-verify pilot anchor (EXACT over the 40,320 orders, given that
+    seeded null); the published FC-1 figures are at n=10^6 (--r7-corpus), where
+    boundary counts can shift by +-1. Prints KEY=value tokens. Defined at the
+    end of the file so that no solve.py line cited elsewhere moves.
+    """
+    import bisect
+    import collections
+    import itertools
+    if n < 1:
+        print("FC1_PALACE_SWEEP=FAIL")
+        print(f"ERROR: --r7-palace-sweep N must be >= 1 (got {n})")
+        return 1
+    # The attested palace order is read off _r7_jingfang() block by block rather than
+    # restated, so this adds no copy of the order literal (TestJingFang counts them).
+    jf = _r7_jingfang()
+    canon = tuple(next((t for t in range(8) if _r7_W(t) == jf[8 * i:8 * i + 8]), None)
+                  for i in range(8))
+    if None in canon or sorted(canon) != list(range(8)):
+        print("FC1_PALACE_SWEEP=FAIL")
+        print("ERROR: _r7_jingfang() is not 8 world-stage palaces in some order")
+        return 1
+    nulls = _r7_uniform_nulls(n, seed)
+    sorted_null = {lab: sorted(v) for lab, v in nulls.items()}
+
+    def extremes(seq):
+        out = []
+        for lab, f in _R7_OBSERVABLES:
+            srt = sorted_null[lab]
+            x = f(seq)
+            lt = bisect.bisect_left(srt, x)
+            le = bisect.bisect_right(srt, x)
+            p = 100.0 * (lt + 0.5 * (le - lt)) / len(srt)
+            if p <= 1.0 or p >= 99.0:
+                out.append(lab.split(".")[0])
+        return out
+
+    shipped = _r7_l0_extreme_counts(n=n, seed=seed)["Jing Fang"]["extremes"]
+    mine = extremes(jf)
+    print(f"N={n} SEED={seed}")
+    if shipped != mine:
+        print("FC1_PALACE_SWEEP=FAIL")
+        print(f"ERROR: bisect percentile disagrees with _r7_l0_extreme_counts on the attested "
+              f"order ({mine} vs {shipped})")
+        return 1
+    print(f"CANONICAL_JF_EXTREME_COUNT={len(mine)}")
+    print("CANONICAL_JF_EXTREMES=" + ",".join(mine))
+    hist = collections.Counter()
+    hist_dw = collections.Counter()
+    below8 = below8_dw = n_dw = 0
+    canon_dw = collections.Counter(_r7_diff_wave(jf))
+    for order in itertools.permutations(canon):
+        seq = [h for t in order for h in _r7_W(t)]
+        k = len(extremes(seq))
+        hist[k] += 1
+        below8 += k < 8
+        if collections.Counter(_r7_diff_wave(seq)) == canon_dw:
+            n_dw += 1
+            hist_dw[k] += 1
+            below8_dw += k < 8
+    print(f"ORDERS_TESTED={sum(hist.values())}")
+    print("EXTREME_COUNT_HISTOGRAM=" + ",".join(f"{k}:{hist[k]}" for k in sorted(hist)))
+    print(f"ORDERS_AT_CANONICAL_COUNT={hist[len(mine)]}")
+    print(f"ORDERS_BELOW_FC1_GATE_8={below8}")
+    print(f"DIFFWAVE_REPRODUCING_ORDERS={n_dw}")
+    print("DIFFWAVE_ORDERS_HISTOGRAM=" + ",".join(f"{k}:{hist_dw[k]}" for k in sorted(hist_dw)))
+    print(f"DIFFWAVE_ORDERS_BELOW_FC1_GATE_8={below8_dw}")
+    print(f"MIN_EXTREME_COUNT={min(hist)}")
+    print(f"MAX_EXTREME_COUNT={max(hist)}")
+    print("FC1_PALACE_SWEEP=DONE")
+    return 0
 
 if __name__ == "__main__":
     main()

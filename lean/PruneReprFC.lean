@@ -2,8 +2,8 @@
 -- Developed with AI assistance (Claude, Anthropic)
 /-
   PruneReprFC.lean — machine-checked prune safety of the SOLVE_REPR_FC
-  forward-checked repr(k) DFS (task #20 option C, 2026-08-13, branch
-  v4-repr-fc-legc-20260813 — NOT on main at the time of writing).
+  forward-checked repr(k) DFS (task #20 option C, 2026-08-13; public tag
+  v4-repr-fc-legc-20260813 = 5f473242 — on no branch; NOT on main, 2026-10-02).
   Core Lean 4 only (no mathlib). Standalone: `lean PruneReprFC.lean`
   (verified 2026-08-15, Lean 4.31.0 pinned via ./lean-toolchain: exit 0,
   ~1.5 s wall / ~0.49 GB peak RSS on the 2-core orchestrator; zero
@@ -135,8 +135,8 @@
 
   Bridge facts (stated, NOT machine-checked — the PartitionInvariance
   B1–B4 / RecordConvention B5–B7 pattern, numbering continued; carried
-  by prose, code review, and the runtime gates — --orbit-selftest's
-  brute-force repr cross-check and the SOLVE_REPR_FC=0/1 A/B):
+  by prose, code review, and the runtime gates on the tag — --orbit-selftest's
+  brute-force repr cross-check and the two-pass SOLVE_REPR_FC=0/1 A/B):
   · B8 (DFS shape): orb_recanon_dfs_fc implements §3's dfsM over §2's
     budgeted tree: choices = orientation O ∈ {0,1} in that order;
     step = bstep with spend from the pair table (bd = hamming(tail, f),

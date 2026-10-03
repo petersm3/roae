@@ -440,11 +440,18 @@ opens = [e for e in exempt if e[3] not in ('meta-mention', 'historical', 'litera
 for m, i, fig, cls, why in opens:
     print(f'  [OPEN] {m}:{i} "{fig}" — {why}')
 dead = [k for k in allow if (k[0], k[1], k[2]) not in used]
+# Q-937 (batch 35): a row that matches nothing is a FAIL, not a note. Most rows anchor on the
+# wording of an inline correction marker, and those markers are to move into CORRECTIONS.md
+# (Q-938). As a note, a moved marker left its row behind and the gate still passed: a licence for
+# the next sentence that reuses the anchor, which nobody had to look at. GATE 4b and GATE 18 already
+# fail a stale exemption row for the same reason. Measured before the change: 0 dead rows on the
+# tree; 3 after ablating every marker (scripts/correction_marker_inventory.sh), all printed as notes.
 for k in dead:
-    print(f'  [note] allowlist row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
-    print(f'         Either the text was fixed (delete the row) or the anchor drifted.')
+    print(f'  [FAIL] allowlist row matched nothing this run: {k[0]} "{k[1]}" @ "{k[2][:40]}"')
+    print(f'         Either the text was fixed (delete the row) or the anchor drifted (re-anchor it).')
+    print(f'         A row that exempts nothing is a silent licence for the next line that matches it.')
 
-nbad = len(bad) + len(spans) + len(missing) + len(hashrow) + (len(evid) < EVID_FLOOR); _ = len(evid) < EVID_FLOOR and print(f'  [FAIL] GATE 3b evidence corpus: {len(evid)} non-md file(s) tracked under reports/evidence/, floor {EVID_FLOOR}. A moved, renamed or emptied evidence tree leaves it checking nothing.')
+nbad = len(bad) + len(spans) + len(missing) + len(hashrow) + len(dead) + (len(evid) < EVID_FLOOR); _ = len(evid) < EVID_FLOOR and print(f'  [FAIL] GATE 3b evidence corpus: {len(evid)} non-md file(s) tracked under reports/evidence/, floor {EVID_FLOOR}. A moved, renamed or emptied evidence tree leaves it checking nothing.')
 if not nbad:
     byclass = {}
     for _, _, _, cls, _ in exempt:
@@ -645,6 +652,8 @@ if os.path.exists(ALLOW):
             allow_why[(f[0], f[1], norm(f[2]))] = f[3]
 
 bad, opened, ambiguous, viabold = [], [], [], []
+bare = []   # Q-937: a bare reference to a file that does not exist. This was `bad = True`, which rebound
+            # the LIST: the next dangling reference crashed on `bad.append` and every later finding was lost.
 hit_allow = set()
 # ITEM B1 (2026-08-02, drain-2) — TWO-LINE WINDOW. The scan was per line, so a reference a hard
 # wrap splits between `FILE.md` and its §"…" was invisible. GATE 3's hardening note (a) already
@@ -707,14 +716,14 @@ for m in mds:
                 if ':' not in path and not path.startswith('roae-private/') and path != 'FILE.md':
                     # ⚠ The enclosing loop is `for m in mds:` with `lineno`; `ln` is a COMPREHENSION
                     # variable bound to file lines, and `rc` does not exist here — this block signals
-                    # failure through `bad`, consumed by `sys.exit(1 if (bad or stale) else 0)`.
+                    # failure through `bare`, consumed by `sys.exit(1 if (bad or stale or bare) else 0)`.
                     # My first port copied the branch's `{f}:{ln}` and `rc = 1` verbatim: the message
                     # printed a LIST and the finding did not move the exit code. Copying the shape of
                     # a fix without checking its scope is the same error twice in one evening.
                     print(f'  [FINDING] {m}:{lineno} - bare section reference to "{path}", which '
                           f'resolves to no file in this repo. Qualify it as repo:FILE.md if the '
                           f'target is private, or fix the name.')
-                    bad = True
+                    bare.append((m, lineno, path))
                 continue                           # file-level resolution is phase 1's job
             want = norm(sec)
             if not want:
@@ -847,7 +856,7 @@ if opened:
 if not bad and not stale:
     print(f"  [ok] every delimited section reference resolves to a heading or a line-leading "
           f"bold label ({len(mds)} markdown files scanned)")
-sys.exit(1 if (bad or stale) else 0)
+sys.exit(1 if (bad or stale or bare) else 0)
 PY
   [ $? -ne 0 ] && rc=1
   return $rc

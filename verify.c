@@ -211,15 +211,15 @@ static int cls_ix(int d) { for (int i = 0; i < 5; i++) if (CLS[i] == d) return i
 
 /* ---------- independent repr(k) oracle (--check-repr) ----------------------
  *
- * WHY IT EXISTS. AVAILABILITY FIRST (2026-09-03, Codex V2-L21 #3 / V2-F59 #7):
- * `--kc-repr-normalize` and the SOLVE_REPR_FC A/B are NOT in main's solve.c and
- * are on NO published ref AT ALL (zero occurrences on main, v4-compiler,
- * v4-canonical AND orbit-port-188-candidate; they exist only on an unpushed
- * local branch). The orb_* functions they wrap are published only on the
- * unlanded orbit-port-188-candidate branch, which BRANCH_REGISTRY marks
- * snapshot-do-not-cite (VERIFY.md §"NOT AVAILABLE IN THIS TREE"). They are
- * quoted below as the design rationale this oracle answers, not as commands a
- * reader of this tree can run. That unpublished --kc-repr-normalize said outright
+ * WHY IT EXISTS. AVAILABILITY FIRST (2026-09-03, Codex V2-L21 #3 / V2-F59 #7;
+ * re-measured 2026-10-02): `--kc-repr-normalize` and the SOLVE_REPR_FC prunes are
+ * NOT in main's solve.c (zero occurrences) and are on NO branch; they are public
+ * only on the tag v4-repr-fc-legc-20260813 (5f473242). The orb_* functions they
+ * wrap are on that tag and on archive/orbit-port-188-candidate-20260824
+ * (fb19a66b), the retired candidate BRANCH_REGISTRY records as not mergeable
+ * as-is (VERIFY.md §"NOT AVAILABLE IN THIS TREE"). They are quoted below as
+ * the design rationale this oracle answers, not as commands a reader of this
+ * tree can run. That tag-only --kc-repr-normalize said outright
  * that "there is NO separate repr oracle in this tree": its only built-in
  * check was IDEMPOTENCE (re-run on the output, expect byte-identical), which
  * is self-consistent and so cannot catch a normalization that is stable but
@@ -339,8 +339,8 @@ static int vc_repr_of_key(const int *pair_order, unsigned char *out) {
  * partition-invariance, and settled against the cell-scoped alternative -- but it
  * is established by a POST-PASS, not by the merge. orb_normalize_rec_op ->
  * orb_repr_global, exposed as `solve --kc-repr-normalize IN.bin OUT.bin` — the
- * orb_* functions published only on the UNLANDED orbit-port-188-candidate branch,
- * the flag itself on NO published ref at all (NOT in main's solve.c — VERIFY.md
+ * orb_* functions on the two tags named above, the flag itself only on the tag
+ * v4-repr-fc-legc-20260813, neither on any branch (NOT in main's solve.c — VERIFY.md
  * §"NOT AVAILABLE IN THIS TREE"; in this tree the
  * convention is an acceptance-test CONTRACT, with no shipped tool that applies
  * it), is what applies it. Against a raw merge output that pass has not run, so --check-repr
@@ -1749,14 +1749,20 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     if (saw_final) {
         char g[64]; u192_print(finalgrand, g);
         printf("FINAL LAYER Σvalues = %s\n", g);
-        if (mn == 31) {          /* the published count + mod-24 gates are full-31 facts */
+        if (mn == 31) {          /* the published count + divisibility gates are full-31 facts */
             u192 pub = u192_dec(LC_PUBLISHED_COUNT);
             int cnt_ok = u192_eq(finalgrand, pub), mod_ok = (u192_mod(finalgrand,24)==0);
+            /* 2026-10-02 (Q-946, C-4): the order-48 lift acts freely on orientation-explicit
+             * sequences (TR-5 §4), so 48 | N is the gate the space affords; mod 24 is kept as
+             * the printed line the documentation quotes (48 | N implies it). */
+            int mod48_ok = (u192_mod(finalgrand,48)==0);
             printf("  vs published |C1∩C2∩C4∩C5| = %s   %s\n", LC_PUBLISHED_COUNT,
                    cnt_ok ? "MATCH" : "*** MISMATCH ***");
             printf("  mod 24 = %u   %s (TR-5 free action)\n", u192_mod(finalgrand,24),
                    mod_ok ? "ok" : "*** FAIL ***");
-            if (!cnt_ok || !mod_ok) fails++;
+            printf("  mod 48 = %u   %s (TR-5 §4 order-48 free action on oriented sequences)\n",
+                   u192_mod(finalgrand,48), mod48_ok ? "ok" : "*** FAIL ***");
+            if (!cnt_ok || !mod_ok || !mod48_ok) fails++;
         }
     } else {
         printf("NOTE: final layer k=%u not present (run incomplete or window-pruned) —\n"
@@ -5181,7 +5187,14 @@ static int ie_count_main(int argc, char **argv) {
                       : (C.n == 31 && !negctl)
                         ? (u192_mod(N, 24) == 0 ? "  (free-action gate: ok)"
                                                 : "  *** FAIL: expected 0 ***") : "");
-        if (C.n == 31 && !negctl && !C.npin && u192_mod(N, 24) != 0) fails++;
+        /* 2026-10-02 (Q-946, C-4): the same gate at the strength TR-5 §4 states -- the
+         * order-48 lift acts freely on orientation-explicit sequences, so 48 | N. */
+        printf("          N mod 48 = %u%s\n", u192_mod(N, 48),
+               C.npin ? "  (informational — free-action gate N/A under pins)"
+                      : (C.n == 31 && !negctl)
+                        ? (u192_mod(N, 48) == 0 ? "  (order-48 free-action gate: ok)"
+                                                : "  *** FAIL: expected 0 ***") : "");
+        if (C.n == 31 && !negctl && !C.npin && u192_mod(N, 48) != 0) fails++;
         if (ran[0]) {
             u192 W = {{ acc[0], 0, 0 }};
             int eq = u192_eq(N, W);

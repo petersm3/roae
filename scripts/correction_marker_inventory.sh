@@ -12,6 +12,9 @@
 #                              that was not changed; the surrounding text must be rewritten first;
 #     class 3  gate-anchored — a doc gate's verdict depends on it, so the gate must be re-anchored
 #                              (and shown red on a planted violation) before the marker moves.
+#                              Once every leg of a row is re-anchored (the REANCHORED table, Q-937)
+#                              the row reads `reanchored:<leg>=<anchor>` instead: the marker may
+#                              move, provided it leaves that anchor behind.
 #   This script decides class 3 MECHANICALLY and records which gate leg it is. Classes 1 and 2
 #   are an editorial judgement; a row nobody has reviewed yet says `1|2` and `unreviewed`, and a
 #   reviewed row carries its verdict from the REVIEWED table below, keyed on the line's content.
@@ -289,8 +292,9 @@ REVIEWED = {
         ('1', 'reviewed:item-already-checks-decompressed-length'),
     ('documentation/DEPLOYMENT.md', 'c108685b1733'):
         ('1', 'reviewed:box-already-sizes-from-pre-dedup-records'),
-    ('documentation/DEPLOYMENT.md', 'cbe96c2b4198'):
-        ('1', 'reviewed:sentence-already-reads-correctly'),
+    # ('documentation/DEPLOYMENT.md', 'cbe96c2b4198') was read as class 1 (sentence-already-reads-correctly),
+    # but its row is class 3 (CITATION LINE GATE, GATE 2c), so the key never applied and was reported stale.
+    # Retired in batch 35; restore it here if both legs are re-anchored.
     ('documentation/DEPLOYMENT.md', 'd79088c2324b'):
         ('1', 'reviewed:item-already-reads-wipe-then-write'),
     ('documentation/DESCRIPTION_LENGTH.md', 'a4a692a42886'):
@@ -495,13 +499,15 @@ REVIEWED = {
         ('1', 'reviewed:item-already-reads-priced-and-declined'),
     ('documentation/QUERY_INVENTORY.md', '5f70b5c4156d'):
         ('1', 'reviewed:stale-narrowing-is-already-struck-through'),
-    ('documentation/QUERY_INVENTORY.md', '85bc4c72984a'):
+    # re-keyed batch 35 (was 85bc4c72984a): only a line-number cite on the line moved; re-read, same verdict.
+    ('documentation/QUERY_INVENTORY.md', 'b26b7cea9ea8'):
         ('1', 'reviewed:stale-clause-is-already-struck-through'),
     ('documentation/QUERY_INVENTORY.md', '900d958f9aa5'):
         ('1', 'reviewed:cell-already-names-the-kc-figure'),
     ('documentation/QUERY_INVENTORY.md', '94c1605ab856'):
         ('2', 'reviewed:cell-above-still-describes-the-witness-row-as-unbuilt'),
-    ('documentation/QUERY_INVENTORY.md', 'daa1160a9ad7'):
+    # re-keyed batch 35 (was daa1160a9ad7): only a line-number cite on the line moved; re-read, same verdict.
+    ('documentation/QUERY_INVENTORY.md', '3c456275085a'):
         ('1', 'reviewed:cell-already-states-the-lower-bound-direction'),
     ('documentation/QUERY_INVENTORY.md', 'dacbcd2e9d4c'):
         ('2', 'reviewed:cell-above-still-gives-the-unbuilt-sat-witness-and-cert-path'),
@@ -633,7 +639,8 @@ REVIEWED = {
         ('1', 'reviewed:dated-change-note;not-a-correction-of-a-claim'),
     ('documentation/SOLVE_C_CLI.md', '2338b84a23d6'):
         ('1', 'reviewed:dated-label;bullet-already-reads-correctly'),
-    ('documentation/SOLVE_C_CLI.md', '2cfd795d413c'):
+    # re-keyed batch 35 (was 2cfd795d413c): only a line-number cite on the line moved; re-read, same verdict.
+    ('documentation/SOLVE_C_CLI.md', '907e2fa66794'):
         ('1', 'reviewed:line-already-gives-the-256-ceiling'),
     ('documentation/SOLVE_C_CLI.md', '45051dcbdad8'):
         ('1', 'reviewed:rule-already-sized-from-input-bytes'),
@@ -717,7 +724,8 @@ REVIEWED = {
         ('1', 'reviewed:row-already-pins-hexagram-63-first'),
     ('documentation/SOLVE_PY_CLI.md', 'adef18abb0c4'):
         ('1', 'reviewed:paragraph-above-already-omits-F5'),
-    ('documentation/SOLVE_PY_CLI.md', 'd929e80c48aa'):
+    # re-keyed batch 35 (was d929e80c48aa): only a line-number cite on the line moved; re-read, same verdict.
+    ('documentation/SOLVE_PY_CLI.md', 'fc0c83cdf4eb'):
         ('2', 'reviewed:only-statement-that-the-encoded-orientation-is-the-representatives-not-the-draw'),
     ('documentation/SOLVE_SUMMARY.md', '17330333a03e'):
         ('1', 'reviewed:bullet-already-withdraws-the-superlative-in-its-own-words'),
@@ -805,7 +813,8 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-says-no-instrument-here-counts-C3-conditioned'),
     ('enumeration/LEADERBOARD.md', '2cb7abe5c0a2'):
         ('1', 'reviewed:paragraph-already-reads-from-the-742M-archive'),
-    ('enumeration/LEADERBOARD.md', '829aed6413ee'):
+    # re-keyed batch 35 (was 829aed6413ee): only a line-number cite on the line moved; re-read, same verdict.
+    ('enumeration/LEADERBOARD.md', '945a371c2c4b'):
         ('1', 'reviewed:sentence-already-calls-it-an-overlap-ratio'),
     ('enumeration/LEADERBOARD.md', '8ff0ea958479'):
         ('1', 'reviewed:qualifier-already-uses-0-based-pair-numbers'),
@@ -859,8 +868,9 @@ REVIEWED = {
         ('1', 'reviewed:text-already-says-solve.c-differs'),
     ('reports/TR12_QUERY_PROGRAM.md', '205d798de93b'):
         ('1', 'reviewed:parenthetical-already-gives-the-Bonferroni-arithmetic'),
-    ('reports/TR12_QUERY_PROGRAM.md', '2b2404425aa0'):
-        ('1', 'reviewed:cell-already-says-attested-not-reproducible'),
+    # re-keyed batch 35 (was 2b2404425aa0): Q-944 added the replay check to the cell; re-read, still class 1.
+    ('reports/TR12_QUERY_PROGRAM.md', '15f88f5e990f'):
+        ('1', 'reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check'),
     ('reports/TR12_QUERY_PROGRAM.md', '2c1d251a6490'):
         ('1', 'reviewed:text-already-gives-the-TV-distance-and-cell-range'),
     ('reports/TR12_QUERY_PROGRAM.md', '2e4dad3aee80'):
@@ -1117,6 +1127,68 @@ REVIEWED = {
         ('1', 'reviewed:row-already-cites-TR-11-and-METHODS'),
     ('viz/viz_scale.md', 'ebc0122e15c3'):
         ('1', 'reviewed:heading-already-reads-decided'),
+    # tranche Q-937 (2026-10-02, batch 35). These rows were class 3 only because GATE 4b's stale-row
+    # finding named two files and was spread over every marker in both; with that finding tied to the
+    # one marker it rests on (reports/METHODS.md, the retired "CRITIQUE.md Q1" pointer) they have no
+    # gate leg, and were read here by the CX-266 rule (class 2 = the withdrawn wording still stands,
+    # or the marker holds the only statement of something the text relies on). The SOLVE_C_CLI.md and
+    # layer_curve.md rows are batch-34 markers that reached the table after CX-266 was read.
+    ('documentation/CRITIQUE.md', 'c644bbbeed75'):
+        ('1', 'reviewed:note-already-says-the-boundary-minimum-did-not-shift'),
+    # re-keyed batch 35 (was eaf5abc0b734): only a line-number cite on the line moved; re-read, same verdict.
+    ('documentation/CRITIQUE.md', '597d3234e446'):
+        ('1', 'reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007'),
+    ('documentation/CRITIQUE.md', 'f8ba3b65a9cf'):
+        ('1', 'reviewed:sentence-already-states-the-rate-bound-scoped-to-its-sampler;no-minimum-claim-left'),
+    ('documentation/CRITIQUE.md', '14f8e15eb91d'):
+        ('1', 'reviewed:paragraph-already-closes-order-64-Costas-by-construction-and-C1'),
+    ('documentation/CRITIQUE.md', '7af2bf88c662'):
+        ('1', 'reviewed:proof-already-says-only-all-32-reverse-pairs-together-are-ruled-out'),
+    ('documentation/CRITIQUE.md', '515c7944c99a'):
+        ('1', 'reviewed:table-already-reads-12/12/8'),
+    ('documentation/CRITIQUE.md', '1375d35925cf'):
+        ('1', 'reviewed:passage-already-gives-the-circular-14-as-the-circular-reading'),
+    ('documentation/CRITIQUE.md', 'd907e831bb97'):
+        ('1', 'reviewed:sentence-already-says-13:2'),
+    ('documentation/CRITIQUE.md', '46bddd89bbb5'):
+        ('1', 'reviewed:label-only;the-narration-after-it-carries-the-correction'),
+    ('documentation/CRITIQUE.md', '15db5a90707b'):
+        ('1', 'reviewed:item-already-says-the-Golomb-G3-construction-gives-order-64'),
+    ('documentation/CRITIQUE.md', 'b20c1fa789ca'):
+        ('1', 'reviewed:answer-already-says-three-of-seven-families-cannot-exclude-KW'),
+    ('documentation/CRITIQUE.md', '2ba747fae63b'):
+        ('1', 'reviewed:item-already-states-the-5-boundary-minimum-at-560T'),
+    ('documentation/CRITIQUE.md', '12cf3ecada50'):
+        ('2', 'reviewed:marker-holds-the-only-statement-of-the-rerun-result-Mawangdui-9-of-11'),
+    ('documentation/CRITIQUE.md', '508d410785a6'):
+        ('1', 'reviewed:sentence-already-gives-the-3.4th-4.8th-percentile'),
+    ('documentation/CRITIQUE.md', '3ce53bd6ba9a'):
+        ('1', 'reviewed:label-only;the-section-already-reports-the-calibration-outcome'),
+    ('documentation/CRITIQUE.md', '7e8663968875'):
+        ('1', 'reviewed:paragraph-already-says-the-calibration-ran-and-failed-and-the-rest-is-vetoed'),
+    ('documentation/SOLVE_C_CLI.md', 'e0d8ba7f7138'):
+        ('1', 'reviewed:paragraph-above-already-says-both-checkers-fail-a-duplicate-canonical-class'),
+    ('reports/METHODS.md', '0b88d6e7fd91'):
+        ('1', 'reviewed:sentence-already-points-at-CORRECTIONS-and-names-no-public-archive'),
+    ('reports/METHODS.md', '7572f71d2e55'):
+        ('2', 'reviewed:marker-holds-the-only-statement-in-the-C4-bullet-of-what-the-classical-record-attests'),
+    ('reports/METHODS.md', 'd5cd7e932a31'):
+        ('1', 'reviewed:bullet-already-defines-C5-as-the-63-transition-multiset'),
+    ('reports/METHODS.md', '06b77b191546'):
+        ('1', 'reviewed:sentence-already-says-priced-and-declined-and-cites-TR-12-section-9'),
+    ('reports/METHODS.md', '8dd1ef0fa19f'):
+        ('1', 'reviewed:row-already-says-pin-to-a-commit-sha'),
+    ('runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md', 'eacac6a9e8de'):
+        ('1', 'reviewed:bar-already-redrawn;note-is-provenance'),
+    # tranche batch 35 (2026-10-03): the three markers Q-944 (CX-274) added to SOLVE.md, read by the
+    # CX-266 rule. Each records only that the text once called the ~12% magnitude unresolved; the text
+    # around it now gives both the ledger figure and the direct estimate.
+    ('documentation/SOLVE.md', '9823cbd1f2ae'):
+        ('1', 'reviewed:bullet-already-gives-12.1%-ledger-and-12.09%-direct-estimate'),
+    ('documentation/SOLVE.md', '5f0ddf10cb02'):
+        ('1', 'reviewed:item-already-gives-12.1%-ledger-and-12.09%-direct-estimate'),
+    ('documentation/SOLVE.md', '78ad22311840'):
+        ('1', 'reviewed:paragraph-already-gives-12.1%-ledger-and-12.09%-direct-estimate'),
 }
 
 def md_files():
@@ -1240,10 +1312,45 @@ CITE2 = re.compile(r'(?:^|\s):([0-9]+) \[([A-Za-z0-9_./-]+\.md)\]')   # citation
 MDPATH = re.compile(r'[A-Za-z0-9_./-]+\.md\b')
 ARROW = re.compile(r'([A-Za-z0-9_./-]+\.md)->[A-Za-z0-9_./-]+\[([^\]]+)\]')
 QUOTE = re.compile(r'"([^"]{6,})"')
+SECREF = re.compile(r'([A-Za-z0-9_./-]+\.md) -> ([A-Za-z0-9_./-]+\.md) §"([^"]+)"')   # GATE 4b's stale-row form
 # Legs whose output changes on ANY edit to a file of their population, whatever the edit: a TR body
 # edit needs a revision row (GATE 13, report-only), and the citation gate's leg-A summary counts
 # edited files. They are requirements every tranche meets, not evidence that a marker is anchored.
 ANY_EDIT = ('GATE 13',)
+# REANCHORED (Q-937, batch 35) — gate legs that no longer depend on marker TEXT alone: the gate now
+# also accepts a stable anchor, named here, that a moved marker leaves behind. A class-3 row whose
+# EVERY leg is listed here, and whose ablation turned EVERY one of those legs red (a [FAIL] line
+# tied to the row), reads `reanchored:<leg>=<anchor>[+…]` instead of `gate-anchored`. Both halves
+# are needed: the gate's own mutants (tests.py TestQ937LedgerAnchoredGates) show the anchor counts
+# and nothing weaker does; the red ablation shows that moving the marker WITHOUT leaving the anchor
+# is caught loudly, so the move cannot narrow the leg silently. A listed leg whose removal changed
+# only a count or a note stays `gate-anchored`: that is the silent case this table must not hide.
+#   ledger-anchor = a `[CORRECTIONS CX-<n>](…/CORRECTIONS.md)` link in the block (GATE 27) or on the
+#                   line (GATE 26) whose CX entry quotes the figure; the header of GATE 27 has the rules.
+#   allowlist-row = GATE 3b: the marker QUOTES the retracted figure, and a DOC_GATE_FIGURE_ALLOWLIST.txt
+#                   row exempts that quote. Moving the marker takes the figure with it; what was left
+#                   behind was the row, which printed a [note] and passed. A row that matches nothing
+#                   now FAILS (Q-937), so the move must delete it in the same change.
+#   ruling-token  = GATE 18: the gate accepts the rule's own pointer token on the line (a pointer to
+#                   the ruling, e.g. the METHODS §"Legacy shorthand" note) or a registry allow/open
+#                   row, and fails a row that matches nothing; neither is marker text. No gate change.
+#                   GATE 4b: the same for DOC_GATE_SECREF_ALLOWLIST.txt, whose rows already fail when stale:
+#                   the marker quotes a retired section pointer, and a row exempts that quote.
+REANCHORED = {'GATE 26': 'ledger-anchor', 'GATE 27': 'ledger-anchor',
+              'GATE 3b': 'allowlist-row', 'GATE 4b': 'allowlist-row', 'GATE 18': 'ruling-token'}
+# STAYS3 — a class-3 marker that cannot be freed, keyed (file, line_sha) -> (legs as the TSV prints
+# them, review). Applied only while the row's measured legs are exactly those: a new leg on the same
+# marker brings `gate-anchored` back.
+STAYS3 = {
+    # GATE 66 holds TRIGRAM_STRUCTURE.md's fenced attribution ledger byte-identical to the header of
+    # lean/TrigramTheorems.lean, and these two markers are inside that fence: they are the Lean
+    # header's own text. They can move only together with an edit to the Lean file (Lean work is
+    # routed separately), so they stay with the verbatim copy.
+    ('documentation/TRIGRAM_STRUCTURE.md', '5edd45dc0476'):
+        ('GATE 66', 'stays:verbatim-copy-of-the-lean/TrigramTheorems.lean-header;moves-only-with-the-Lean-file'),
+    ('documentation/TRIGRAM_STRUCTURE.md', '58a1c902d08a'):
+        ('GATE 66', 'stays:verbatim-copy-of-the-lean/TrigramTheorems.lean-header;moves-only-with-the-Lean-file'),
+}
 
 def attribute(base, abl):
     from collections import Counter
@@ -1261,8 +1368,9 @@ def attribute(base, abl):
         if f not in src:
             src[f] = open(f, encoding='utf-8').read().split('\n'); blk[f] = blocks(src[f])
     linehit = set(); deferred = []
-    def tag(r, leg, sec):
+    def tag(r, leg, sec, line=''):
         r.setdefault('legs', set()).add(leg); attributed[sec] = 1
+        if '[FAIL]' in line: r.setdefault('red', set()).add(leg)
         if not leg.endswith('(file)'): linehit.add((sec, r['file']))
     for (sec, l) in sections(abl):
         if bl[l] > 0: bl[l] -= 1; continue
@@ -1279,7 +1387,7 @@ def attribute(base, abl):
             for r in by[f]:
                 if r['kind'] not in ('marker', 'narration'): continue
                 if r['line'] <= n <= r['end'] or (lo <= r['line'] <= hi) or (r['line'] <= hi and r['end'] >= lo):
-                    tag(r, leg, sec)
+                    tag(r, leg, sec, l)
         if hit: continue
         # the citation gate's pin form `CITING.md->TARGET[key]`: the CITING line's text changed, so
         # the marker in CITING whose block holds `key` is the one the pin rests on.
@@ -1289,7 +1397,7 @@ def attribute(base, abl):
             load(f); hit = True
             ms = [r for r in by[f] if r['kind'] in ('marker', 'narration')]
             near = [r for r in ms if key in '\n'.join(src[f][blk[f].get(r['line'], (r['line'], r['end']))[0]-1:max(blk[f].get(r['line'], (0, r['end']))[1], r['end'])])]
-            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec)
+            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec, l)
         if hit: continue
         # a COUNT line ([ok]/[info]/[cite]/[measured]/scanned …) naming no finding: the gate's
         # population moved. Recorded per section (and file, when one is named), not per marker.
@@ -1305,6 +1413,24 @@ def attribute(base, abl):
     # `[inhunk]`/`[REPIN]` lines, then its `leg A2` summary naming the same pair) is explained by
     # them, and is not spread over every other marker in that file.
     for (sec, leg, l) in deferred:
+        # GATE 4b's stale-row form `SRC.md -> TGT.md §"key"` (Q-937): the row exempted a reference
+        # written in SRC, so the marker it rests on is the one in SRC whose block names TGT's file
+        # and the key as a word (case folded, as GATE 4b folds it). Without this the finding named two
+        # files and quoted nothing six characters long, and was spread over every marker in both
+        # (23 rows, one real).
+        near = []
+        for (a, t, k) in SECREF.findall(l):
+            a = resolve(a)
+            if a is None: continue
+            load(a)
+            for r in by[a]:
+                if r['kind'] not in ('marker', 'narration'): continue
+                lo, hi = blk[a].get(r['line'], (r['line'], r['end']))
+                bt = '\n'.join(src[a][lo-1:max(hi, r['end'])]).lower()
+                if os.path.basename(t).lower() in bt and re.search(r'(?<!\w)%s(?!\w)' % re.escape(k.lower()), bt): near.append(r)
+        if near:
+            for r in near: tag(r, leg, sec, l)
+            continue
         for f in set(MDPATH.findall(l)):
             f = resolve(f)
             if f is None or (sec, f) in linehit: continue
@@ -1316,20 +1442,23 @@ def attribute(base, abl):
                 lo, hi = blk[f].get(r['line'], (r['line'], r['end']))
                 t = '\n'.join(src[f][lo-1:max(hi, r['end'])])
                 if any(q in t for q in qs): near.append(r)
-            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec)
+            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec, l)
     unattr = sorted(s for s in changed if s not in attributed)
     pop |= {(s, '-') for s in unattr if not any(p[0] == s for p in pop)}
     return rows, unattr, sorted(anyedit), sorted(pop)
 
 def emit(rows, measured):
     print('\t'.join(['file', 'line', 'kind', 'token', 'class', 'legs', 'review', 'line_sha']))
-    used = set()
+    used = set(); used3 = set()
     for r in sorted(rows, key=lambda r: (r['file'], r['line'], r['kind'], r['token'])):
         legs = ','.join(sorted(r.get('legs', ())))
         k = (r['file'], r['sha'])
         if r['kind'] == 'ledger-link': cls, rev = 'n/a', 'not-a-marker'
         elif r['kind'] == 'changelog': cls, rev = 'keep', 'revision-row'
         elif not measured: cls, rev = '-', 'not-measured'
+        elif legs and STAYS3.get(k, ('',))[0] == legs: cls, rev = '3', STAYS3[k][1]; used3.add(k)
+        elif legs and all(x in REANCHORED and x in r.get('red', ()) for x in r['legs']):
+            cls, rev = '3', 'reanchored:' + '+'.join('%s=%s' % (x.replace(' ', '-'), REANCHORED[x]) for x in sorted(r['legs']))
         elif legs: cls, rev = '3', 'gate-anchored'
         elif k in REVIEWED: cls, rev = REVIEWED[k]; used.add(k)
         else: cls, rev = '1|2', 'unreviewed'
@@ -1337,6 +1466,8 @@ def emit(rows, measured):
         print('\t'.join([r['file'], str(r['line']), r['kind'], r['token'], cls, legs or '-', rev, r['sha']]))
     for k in sorted(set(REVIEWED) - used):
         print('REVIEWED key matches no unanchored marker line (re-read it): %s %s' % k, file=sys.stderr)
+    for k in sorted(set(STAYS3) - used3):
+        if measured: print('STAYS3 key matches no class-3 row with those legs (re-read it): %s %s' % k, file=sys.stderr)
 
 mode = sys.argv[1]
 if mode == 'list':

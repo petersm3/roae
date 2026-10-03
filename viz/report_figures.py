@@ -747,7 +747,7 @@ def fig_tr4_boundary_information():
     # from assertion — the same reason the 2026-08-01 note above paraphrases rather than quotes. A
     # boundary constraint pins PAIR IDENTITY ONLY — solve.c:7900 (knuth_pin_mask) constrains the pair index chosen
     # at a step and leaves the orientation loop untouched, and SOLVE_KNUTH_PIN_SLOTS accepts steps
-    # 1-31 (solve.c:41820) — so pinning is blind to the orientation layer by construction. Pin all
+    # 1-31 (solve.c:41846) — so pinning is blind to the orientation layer by construction. Pin all
     # 31 and 1,720,320 orderings remain: King Wen's C4-oriented orientation fibre (TR-1 §7, gated
     # by doc_gates.sh GATE 32, recomputed with `python3 verify.py --recount-fiber`). The reachable
     # floor is therefore 1,720,320/N_total = 1.29e-32, and 1/N_total = 7.53e-39 sits

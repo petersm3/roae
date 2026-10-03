@@ -1556,7 +1556,7 @@ PY
 # claim, stated once for this document", so a document-wide rule would clear every site in that
 # file on one sentence. Not the single line either — hard wraps split these sentences routinely.
 # AND NOT +/- N RAW LINES, which is what the first cut used and what MUT A caught: stripping
-# "greedy" from documentation/README.md:49 did NOT fire, because :50 is a DIFFERENT document's
+# "greedy" from documentation/README.md:50 did NOT fire, because :51 is a DIFFERENT document's
 # index entry (BOUNDARY_MINIMUM.md's) and it carries "greedy minimum 4 -> 5". One index entry was
 # scoping its neighbour. That is a false NEGATIVE, so it is invisible on a green run — the only
 # reason it surfaced is that the mutation was run and its result read rather than assumed.
@@ -1601,7 +1601,7 @@ def starts_unit(l):
     return False
 def unit(lines, idx):
     # THE WINDOW IS THE MARKDOWN UNIT, NOT +/- N RAW LINES, and this was forced by a measurement.
-    # The first cut used lines[i-3:i+2]; MUT A (strip 'greedy' from documentation/README.md:49)
+    # The first cut used lines[i-3:i+2]; MUT A (strip 'greedy' from documentation/README.md:50)
     # did NOT fire, because :50 is a DIFFERENT document's index entry — the BOUNDARY_MINIMUM.md
     # summary — and it happens to contain 'greedy minimum 4 -> 5'. One index entry was scoping
     # its neighbour. A raw-line window in any list, index or table leaks the neighbour's text,

@@ -436,7 +436,9 @@ pure function of the layer file plus the TR-11 §2 group. To recompute it
 Compare against the run log's layer-`k` `mass=` and `states=` fields. For
 the final layer, skip the orbit weighting: check `nm = 1`,
 `masks[0] = 2^n − 1`, every `rid = R−1`, and sum the values — that sum is
-the published count, and `mod 24 = 0` for full-31.
+the published count, and `mod 24 = 0` for full-31 (since 2026-10-02 `verify --check-layers`
+prints and gates `mod 48 = 0` beside it as well — the order-48 lift acts freely on
+orientation-explicit sequences, [TR-5](../reports/TR5_SYMMETRY.md) §4).
 
 **Sampled entry-level verification (the stronger check).** Any single
 canonical mask `m` of layer `k` can be recomputed from layer `k−1`'s file

@@ -158,6 +158,21 @@ propagation, and a half-truncated copy is `s NOT VERIFIED`). `verify_all.sh` reg
 CNF and re-checks the archived proof against it, emitting the whole-line verdict
 `ALT_NOY_SUBSET_UNSAT=PASS|FAIL|NOT_RUN`.
 
+**The King Wen over-constraint control beside every replay (2026-10-02, Q-946).** A DRAT
+certificate is monotone evidence: a regenerated CNF carrying a stray extra clause still has a
+verifying refutation, so `s VERIFIED` cannot say whether a formula forbids orderings its target's
+statement does not. `verify_all.sh` therefore pairs each replay with `python3 sat.py --kw-control
+<target>` ([SAT_CLI.md](../../documentation/SAT_CLI.md) §`--kw-control`): King Wen's assignment must
+falsify only the families the target is about — its theorem family plus the rule families
+`solve.py`'s scorers say King Wen violates — nothing on the formula minus those families, and each of
+them on its own. One token per certificate, `KW_CONTROL_<cert>=PASS|FAIL…`; the two `noY` subsets are
+checked through King Wen's propagation closure on their full base formula (their own clauses name no
+ordering variable); `rigidity_sc4_unsat` is not a sequence formula and is stated
+`KW_CONTROL_rigidity_sc4_unsat=INAPPLICABLE` on every run (its positive control is
+`rigidity_validate()`, run before `--rigidity-cnf` writes); `KW_CONTROLS_PASSED=<n>` with floor 23
+closes the loop. The control needs `python3` only. It is family-level: an over-constraint hidden inside
+a family King Wen already violates is invisible to it, which `tests.py` asserts as a stated limitation.
+
 ⚠ **Scope, which is narrower than the file names suggest.** They certify the *semantic* claim behind
 [TR-6](../TR6_PARITY_SKELETON.md)'s "corroborating, not independent" verdict — the alternation
 theorem follows from C5's cardinalities before any ordering variable is consulted. They do **not**
