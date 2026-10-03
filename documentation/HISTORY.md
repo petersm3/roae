@@ -10514,3 +10514,78 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
   missing file, and lost every finding after it. It now reports them all.
 - 17 tests: each gate's original defect is red, each anchor that must not count is red, and a code
   mutant shows each check is load-bearing.
+
+## 2026-10-03 — batch 36: the TR-8 sampler is made to compute exactly what its frozen pre-registration says before it runs, with the pre-run decisions published and escrowed first; the T5 cross-check is one-language by decision and the Q4(b) C3-minimum bisection ran as a positive control; the cascade proof's sequence sets are sized to their domain and a checkpoint status the merge gate cannot classify is refused; and the correction-marker inventory's population rows are attributed one file at a time, with verdict COMPLETE
+
+**Batch 36, the TR-8 dof-matched sampler (CX-279).**
+
+- TR-8 once gave a "median rarity" figure with no code behind it. It was withdrawn in August, and
+  the only way to put a new figure in its place is to run a sampler whose rules were frozen in
+  writing before any data existed. That freeze happened on 2026-08-11. The run has not happened
+  yet.
+- Before running it, the public code was read against the frozen text, sentence by sentence. Six
+  things did not match: two of the 319 clause templates were computed differently from the text;
+  the "at least as rare as King Wen" test was a float comparison where the text says an integer
+  one; the verdict was thrown away whenever the median could not be measured, which the text
+  forbids; the sanity band for the null draws was wider than the frozen one; and four required
+  checks and summaries were not implemented at all.
+- Each is now fixed in the code, by the text, before the instrument is pinned and before any
+  frozen seed is used. The reason it is fixed in the public code and not patched around in a
+  private script: the frozen text requires the published verdict to be reproducible with the
+  published command, and a command that computes a different rule cannot reproduce it.
+- Every choice the frozen text left open — what to do if a shard process stops, how deciles are
+  taken, the exactly-half case for the median, how "overlap" and the geometric mean are defined,
+  which runs first, which machine and which Python, what to do with eight clauses that sit
+  exactly on the band's edge — is decided in a dated addendum, each with the line of the frozen
+  text that decides it. The addendum is public, and its hash is on the escrow page in the same
+  commit, so anyone can check later that none of it was changed after the result was seen. That
+  is the first entry on that page made before the measurement it governs.
+- Nothing published changes. No pool has been drawn. The withdrawn figure stays withdrawn
+  whatever the run finds; the registration says so for every outcome.
+- Ten new tests, each failing on the previous code and passing on this one, plus the selftest.
+
+**Batch 36, T5 scope and Q4(b) positive control (CX-280).**
+
+- The T5 agreement check (`verify.py --check-t5-c3`) and the pipeline it checks are both Python. The
+  operator decided on 2026-10-03 to accept that scope. No C-side export will be built, and VERIFY.md
+  says so.
+- The SAT bisection for the minimum C3 was run on `plain` on 2026-10-03 as a positive control. All
+  six probes (G = 47, 29, 20, 15, 13, 12) were SAT, and each was decoded and re-verified. The minimum
+  is C3 = 112, the published value. Nothing new was found.
+- No UNSAT leg occurred, so no DRAT certificate was made or checked. The loop is not in the
+  repository, but each probe can be re-run with the public `sat.py` commands that TR-12 lists.
+- No number, count, sha or verdict changed.
+
+**Batch 36, the cascade proof's sequence tables and the merge gate's status words (CX-281).**
+
+- `--prove-cascade` counted each branch's unique pair sequences in a table of 1,000 rows, but let the
+  count run to 131,072, the number of paths, before it stopped writing: past 1,000 it would have written
+  outside the table. Its second phase kept at most 100 of those sequences and said nothing when there
+  were more, so a theorem line could print with sequences untested. Codex review A04 found the pair on
+  2026-08-27; no correction since had touched it.
+- Every path is fixed by its 17 bits, so each phase now keeps one bit per path, 2^17 bits, and the
+  second phase's table has 2^17 rows: nothing can run past either. King Wen's branches have at most
+  18 unique sequences, so no run was affected; a full run of the old and the new code prints the same
+  bytes, and `--selftest` still prints `403f7202…`.
+- The merge gate read a checkpoint line with a status word it did not know as a finished sub-branch,
+  the sibling CX-264 left for a decision. It now refuses such a line, names the file, the cell and the
+  word, prints `MERGE_INPUT=UNRECOGNIZED_STATUS` and exits 20; the resume loader and the gate read one
+  list of the four words. A damaged line is repaired by hand; a relaunch walks the cell again but does
+  not remove the line.
+- Nine tests across two classes; six of them fail on the previous code and pass on this one, and the
+  other three pin what did not change.
+
+**Batch 36, population rows attributed (CX-282, Q-936 (a)).**
+
+- The inventory's whole-tree ablation
+  left 40 `population` rows. Each is a gate count that moved when every marker was deleted at once,
+  so no single marker could be named from it. The ablation was rerun one file at a time: 81 runs, one
+  per file that holds a marker. Every changed line was matched to the files whose run prints it.
+  Thirty-nine rows turned out to be counts that fall with text inside a deleted span, lines that
+  move on any edit, or the continuation text of findings already tied to class-3 markers. Each now
+  carries a reviewed verdict with a one-line reason. Two gate findings named no line, and the
+  one-file runs traced each to a single marker. GATE 71 depends on CITATIONS.md:421, because deleting
+  that whole-line marker splits the arrivals-chain paragraph. GATE 44 depends on MCKENNA.md:88, whose
+  span holds one of the two null-spectrum verdicts the gate's floor needs. Both are now class 3.
+  The regenerated table's verdict is `CORRECTION_MARKER_INVENTORY=COMPLETE`. No marker was reworded
+  or moved.

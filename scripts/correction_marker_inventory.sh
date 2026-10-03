@@ -260,8 +260,9 @@ REVIEWED = {
         ('2', 'reviewed:the-1781-sentence-alone-still-implies-the-withdrawn-no-access-inference'),
     ('documentation/CITATIONS.md', 'a53ab4f07e27'):
         ('1', 'reviewed:entry-already-drops-the-edition-label'),
-    ('documentation/CITATIONS.md', 'a5662de10714'):
-        ('1', 'reviewed:sentence-already-reads-seventh'),
+    # ('documentation/CITATIONS.md', 'a5662de10714') — line 421, class 1 'sentence-already-reads-seventh'
+    # in tranche 2 — is now class 3 by the one-file ablation (SOLO_ANCHORED below, GATE 71), so its
+    # class-1 verdict is no longer applied and the key is removed rather than left to warn.
     ('documentation/CITATIONS.md', 'bc2854ad3918'):
         ('1', 'reviewed:list-already-omits-the-nonexistent-file'),
     ('documentation/CITATIONS.md', 'c179c688913d'):
@@ -635,7 +636,8 @@ REVIEWED = {
         ('1', 'reviewed:dated-change-note;not-a-correction-of-a-claim'),
     ('documentation/SOLVE_C_CLI.md', '1c1c6dba49b7'):
         ('1', 'reviewed:entry-already-reports-the-order-48-group'),
-    ('documentation/SOLVE_C_CLI.md', '22bf68b96d54'):
+    # re-keyed batch 36 (was 22bf68b96d54): Q-317 (CX-281) appended a dated note to the line; re-read, same verdict.
+    ('documentation/SOLVE_C_CLI.md', '1b12ee0a92d0'):
         ('1', 'reviewed:dated-change-note;not-a-correction-of-a-claim'),
     ('documentation/SOLVE_C_CLI.md', '2338b84a23d6'):
         ('1', 'reviewed:dated-label;bullet-already-reads-correctly'),
@@ -714,7 +716,8 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-gives-the-measured-4.349-percent'),
     ('documentation/SOLVE_PY_CLI.md', '388d511cb961'):
         ('1', 'reviewed:sentence-already-true-since-the-gate-moved-to-the-emitter'),
-    ('documentation/SOLVE_PY_CLI.md', '3f7511a8ab6b'):
+    # re-keyed batch 36 (was 3f7511a8ab6b): Q-932 (CX-279) named the integer test in the cited code; re-read, still class 2.
+    ('documentation/SOLVE_PY_CLI.md', 'ce4fc3faed93'):
         ('2', 'reviewed:only-statement-that-the-CI-is-conditional-on-the-shared-pool'),
     ('documentation/SOLVE_PY_CLI.md', '69dfe1571f39'):
         ('1', 'reviewed:dated-label;sentence-already-reads-correctly'),
@@ -1189,6 +1192,111 @@ REVIEWED = {
         ('1', 'reviewed:item-already-gives-12.1%-ledger-and-12.09%-direct-estimate'),
     ('documentation/SOLVE.md', '78ad22311840'):
         ('1', 'reviewed:paragraph-already-gives-12.1%-ledger-and-12.09%-direct-estimate'),
+    # tranche 3 (2026-10-03, Q-936 (a), batch 36): the `population` rows. Key (file or '-',
+    # 'pop:' + gate leg), value (class, review). Each was attributed by a ONE-FILE ablation: the
+    # doc gates and the citation gate were run once per file that holds a marker, with only that
+    # file's markers deleted (81 runs), and every changed line behind the row was matched to the
+    # one-file runs that print the same line (or, for a count, the same line shape). Class `n/a`:
+    # the row names no marker of its own. Either it is a count that falls because text inside a
+    # deleted span is gone (verdict unchanged), or a line that moves on any edit, or it is the
+    # continuation text of a finding whose headline is already tied by line to class-3 rows of the
+    # file(s) named. The two findings no line could name are tied by SOLO_ANCHORED below.
+    ('-', 'pop:CITATION LINE GATE'):
+        ('n/a', 'reviewed:summary-counts-only;legB-all-targets-and-excluded-counts-fall-with-citations-written-inside-deleted-spans;legA-A2-summary-moves-on-any-edit;verdict-tokens-follow-FAILs-already-tied-by-line'),
+    ('documentation/DISTRIBUTIONAL_ANALYSIS.md', 'pop:CITATION LINE GATE'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line'),
+    ('documentation/SOLVE.md', 'pop:CITATION LINE GATE'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line'),
+    ('documentation/SOLVE_C_CLI.md', 'pop:CITATION LINE GATE'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
+    ('documentation/SOLVE_PY_CLI.md', 'pop:CITATION LINE GATE'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
+    ('-', 'pop:GATE 2c'):
+        ('n/a', 'reviewed:summary-counts-of-the-embedded-citation-run-only;counts-fall-with-citations-inside-deleted-spans;legA2-moves-on-any-edit;FAILs-already-tied-by-line'),
+    ('documentation/DISTRIBUTIONAL_ANALYSIS.md', 'pop:GATE 2c'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line'),
+    ('documentation/SOLVE.md', 'pop:GATE 2c'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line'),
+    ('documentation/SOLVE_C_CLI.md', 'pop:GATE 2c'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
+    ('documentation/SOLVE_PY_CLI.md', 'pop:GATE 2c'):
+        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
+    ('documentation/SOLVE_C_CLI.md', 'pop:GATE 2'):
+        ('n/a', 'reviewed:documented-flag-count-211-to-210-because-a-deleted-span-names-a-flag;verdict-stays-ok;SOLVE_C_CLI.md-one-file-run'),
+    ('documentation/SOLVE_PY_CLI.md', 'pop:GATE 2'):
+        ('n/a', 'reviewed:documented-flag-count-170-to-169-because-a-deleted-span-names-a-flag;verdict-stays-ok;SOLVE_PY_CLI.md-one-file-run'),
+    ('documentation/VERIFY.md', 'pop:GATE 2'):
+        ('n/a', 'reviewed:documented-flag-count-167-to-165-because-deleted-spans-name-flags;verdict-stays-ok;VERIFY.md-one-file-run'),
+    ('-', 'pop:GATE 3b'):
+        ('n/a', 'reviewed:continuation-of-allowlist-row-matched-nothing-notes-plus-the-ok-count;TR9-and-runs-f1c5-README-one-file-runs-print-them;both-files-markers-are-class-3-by-line'),
+    ('-', 'pop:GATE 4b'):
+        ('n/a', 'reviewed:WHY-line-of-the-stale-allowlist-FAIL;the-METHODS.md-one-file-run-prints-it;METHODS.md-markers-are-class-3-GATE-4b(file)'),
+    ('-', 'pop:GATE 5'):
+        ('n/a', 'reviewed:noise-floor-count-125-of-247-to-123-of-241-falls-with-registry-values-inside-deleted-spans;no-finding;CLAIM_TO_ARTIFACT-CRITIQUE-LITERATURE_RULES-SOLVE-TR2-runs'),
+    ('-', 'pop:GATE 18'):
+        ('n/a', 'reviewed:RULING-LINE-FIX-and-stale-exemption-text-of-GATE-18-FAILs;SOLVE_SUMMARY.md-and-SOLVE_PY_CLI.md-one-file-runs-print-them;both-files-markers-are-class-3-GATE-18'),
+    ('documentation/CITATIONS.md', 'pop:GATE 18'):
+        ('n/a', 'reviewed:LIVES-AT-line-of-the-SOLVE_SUMMARY.md-GATE-18-FAIL-names-the-ruling-home;CITATIONS.md-one-file-run-leaves-GATE-18-unchanged'),
+    ('reports/METHODS.md', 'pop:GATE 18'):
+        ('n/a', 'reviewed:LIVES-AT-line-of-the-SOLVE_SUMMARY.md-GATE-18-FAIL-names-the-ruling-home;METHODS.md-one-file-run-leaves-GATE-18-unchanged'),
+    ('-', 'pop:GATE 21'):
+        ('n/a', 'reviewed:path-token-count-469-to-465-falls-with-backticked-paths-inside-deleted-spans;verdict-stays-ok;CLAUDE.md-CITATIONS.md-TR12-runs'),
+    ('-', 'pop:GATE 25'):
+        ('n/a', 'reviewed:documented-flag-use-count-1965-to-1922-falls-with-commands-inside-deleted-spans;no-finding;18-one-file-runs-move-it'),
+    ('-', 'pop:GATE 26'):
+        ('n/a', 'reviewed:excerpt-and-explanation-text-of-GATE-26-FAILs;each-excerpt-is-printed-by-its-own-files-one-file-run;all-8-files-have-class-3-GATE-26-rows'),
+    ('documentation/SEARCH_SPACE_SIZE.md', 'pop:GATE 26'):
+        ('n/a', 'reviewed:GATE-26-FAIL-excerpts-that-link-to-SEARCH_SPACE_SIZE.md;printed-by-CANONICAL_HASHES-SOLVE-SOLVE_SUMMARY-one-file-runs;their-markers-are-class-3-GATE-26'),
+    ('-', 'pop:GATE 27'):
+        ('n/a', 'reviewed:excerpt-and-explanation-text-of-GATE-27-FAILs;each-excerpt-is-printed-by-its-own-files-one-file-run;all-6-files-have-class-3-GATE-27-rows'),
+    ('documentation/SEARCH_SPACE_SIZE.md', 'pop:GATE 27'):
+        ('n/a', 'reviewed:GATE-27-FAIL-excerpt-that-links-to-SEARCH_SPACE_SIZE.md;printed-by-the-BRANCHES_EXPLAINED.md-one-file-run;its-markers-are-class-3-GATE-27'),
+    ('-', 'pop:GATE 29'):
+        ('n/a', 'reviewed:directive-shape-count-3-to-2-falls-with-the-correction-that-quotes-one;no-finding;TR8-one-file-run'),
+    ('-', 'pop:GATE 33'):
+        ('n/a', 'reviewed:superlative-count-7-to-6-falls-with-a-superlative-inside-a-deleted-span;no-finding;LITERATURE_RULES_POPULATION_TESTS-one-file-run'),
+    ('-', 'pop:GATE 38'):
+        ('n/a', 'reviewed:claim-count-126-to-121-and-quoted-retired-copy-1-to-0-fall-with-text-inside-deleted-spans;no-finding;lean-README-and-TR12-runs'),
+    ('-', 'pop:GATE 39'):
+        ('n/a', 'reviewed:SE-row-count-9-to-8-and-its-gap-exemption-4-to-3-fall-together;no-finding;TR10-one-file-run'),
+    ('-', 'pop:GATE 41'):
+        ('n/a', 'reviewed:mention-count-of-65281-49-to-44-falls-with-mentions-inside-deleted-spans;no-finding;CAMPAIGN_METHODOLOGY-CANONICAL_HASHES-TR5-runs'),
+    ('-', 'pop:GATE 44'):
+        ('n/a', 'reviewed:verdict-count-2-to-1-is-the-MCKENNA.md:88-span;its-FAIL-is-tied-by-SOLO_ANCHORED-GATE-44'),
+    ('-', 'pop:GATE 53'):
+        ('n/a', 'reviewed:continuation-text-of-the-GATE-53-sum-FAIL;the-LARGE_SCALE_CAMPAIGNS.md-one-file-run-prints-it;its-markers-are-class-3-GATE-53(file)'),
+    ('documentation/LARGE_SCALE_CAMPAIGNS.md', 'pop:GATE 53'):
+        ('n/a', 'reviewed:continuation-text-of-the-GATE-53-sum-FAIL;the-LARGE_SCALE_CAMPAIGNS.md-one-file-run-prints-it;its-markers-are-class-3-GATE-53(file)'),
+    ('-', 'pop:GATE 56'):
+        ('n/a', 'reviewed:judged-paragraph-count-13-to-17-rises-when-spans-no-longer-hide-figures;verdict-stays-ok;notes-tied-by-line-to-PROJECT_OVERVIEW.md'),
+    ('-', 'pop:GATE 66'):
+        ('n/a', 'reviewed:FIX-line-of-the-GATE-66-verbatim-FAIL;the-TRIGRAM_STRUCTURE.md-one-file-run-prints-it;its-markers-are-class-3-GATE-66'),
+    ('-', 'pop:GATE 80'):
+        ('n/a', 'reviewed:rec-literal-count-31-to-30-falls-with-a-literal-inside-a-deleted-span;verdict-stays-ok;TR12-one-file-run'),
+    ('-', 'pop:GATE 86'):
+        ('n/a', 'reviewed:explanation-text-of-the-GATE-86-digest-FAIL;the-PREREG_CLASSA_QUERY_SET.md-one-file-run-prints-it;its-markers-are-class-3-GATE-86(file)'),
+    ('-', 'pop:GATE 89'):
+        ('n/a', 'reviewed:corpus-byte-count-moves-on-any-edit;the-DOC-GATES-summary-follows-FAILs-tied-elsewhere'),
+    ('-', 'pop:GATE 94 (ADVISORY)'):
+        ('n/a', 'reviewed:advisory-live-count-falls-with-phrasings-quoted-inside-deleted-spans;CAMPAIGN_METHODOLOGY-GUIDE-viz_kc_river-runs'),
+}
+
+# SOLO_ANCHORED — markers a one-file ablation (Q-936 (a)) named for a gate finding that cites no
+# line and names no file, so the joint ablation could not tie it to any marker. Each was then
+# ablated alone in its file (every other marker of the file left in place) and is the only one that
+# turns the gate red. Key (file, line_sha), value (gate leg, review). Applied only when that gate's
+# section changed in the run; a key that matches no line, or whose gate did not change, is reported
+# on stderr. The row gets the leg with a `(solo)` suffix and is class 3.
+SOLO_ANCHORED = {
+    # GATE 71: line 421's parenthesised marker fills the whole line; deleting it leaves a blank line
+    # that splits the chain paragraph ("independent arrival" above, "→ ROAE" below), so the gate finds
+    # 0 chain paragraphs. Moving it must keep the paragraph whole.
+    ('documentation/CITATIONS.md', 'a5662de10714'):
+        ('GATE 71', 'solo:blank-line-left-by-the-span-splits-the-chain-paragraph'),
+    # GATE 44: the span holds one of the corpus's two narrated null-spectrum verdicts; without it the
+    # gate falls under its floor of 2 and reports that it is measuring nothing.
+    ('documentation/MCKENNA.md', '3a92c159f931'):
+        ('GATE 44', 'solo:span-holds-one-of-the-two-null-spectrum-verdicts-the-gate-floor-needs'),
 }
 
 def md_files():
@@ -1443,9 +1551,36 @@ def attribute(base, abl):
                 t = '\n'.join(src[f][lo-1:max(hi, r['end'])])
                 if any(q in t for q in qs): near.append(r)
             for r in (near or ms): tag(r, leg if near else leg + '(file)', sec, l)
+    # third pass (Q-936 (a)): a finding no line or file could tie, named by the one-file ablation.
+    legs_changed = {sec.strip('= ').split(':')[0]: sec for sec in changed}
+    seen_solo = set()
+    for r in rows:
+        k = (r['file'], r['sha'])
+        if k not in SOLO_ANCHORED or r['kind'] not in ('marker', 'narration'): continue
+        seen_solo.add(k)
+        leg, why = SOLO_ANCHORED[k]
+        if leg not in legs_changed:
+            print('SOLO_ANCHORED key: %s %s — %s did not change in this run (re-measure it)' % (k + (leg,)), file=sys.stderr); continue
+        r.setdefault('legs', set()).add(leg + '(solo)'); r['solo'] = why; attributed[legs_changed[leg]] = 1
+    for k in sorted(set(SOLO_ANCHORED) - seen_solo):
+        print('SOLO_ANCHORED key matches no marker line (re-read it): %s %s' % k, file=sys.stderr)
     unattr = sorted(s for s in changed if s not in attributed)
     pop |= {(s, '-') for s in unattr if not any(p[0] == s for p in pop)}
     return rows, unattr, sorted(anyedit), sorted(pop)
+
+def pop_rows(pop):
+    """(table lines, unattributed pairs, stale pop keys) for the population pairs of a run. A pair
+    whose (file, 'pop:' + leg) key is in REVIEWED takes that verdict; any other pair stays `3?
+    count-changed` and is UNATTRIBUTED, which keeps the verdict INCOMPLETE."""
+    out, unattr, used = [], [], set()
+    for (s, f) in pop:
+        leg = s.strip('= ').split(':')[0]
+        k = (f, 'pop:' + leg)
+        if k in REVIEWED: cls, rev = REVIEWED[k]; used.add(k)
+        else: cls, rev = '3?', 'count-changed'; unattr.append((s, f))
+        out.append('\t'.join([f, '-', 'population', '-', cls, leg, rev, '-']))
+    stale = sorted(k for k in REVIEWED if k[1].startswith('pop:') and k not in used)
+    return out, unattr, stale
 
 def emit(rows, measured):
     print('\t'.join(['file', 'line', 'kind', 'token', 'class', 'legs', 'review', 'line_sha']))
@@ -1459,12 +1594,12 @@ def emit(rows, measured):
         elif legs and STAYS3.get(k, ('',))[0] == legs: cls, rev = '3', STAYS3[k][1]; used3.add(k)
         elif legs and all(x in REANCHORED and x in r.get('red', ()) for x in r['legs']):
             cls, rev = '3', 'reanchored:' + '+'.join('%s=%s' % (x.replace(' ', '-'), REANCHORED[x]) for x in sorted(r['legs']))
-        elif legs: cls, rev = '3', 'gate-anchored'
+        elif legs: cls, rev = '3', 'gate-anchored' + (';' + r['solo'] if r.get('solo') else '')
         elif k in REVIEWED: cls, rev = REVIEWED[k]; used.add(k)
         else: cls, rev = '1|2', 'unreviewed'
         if r['kind'] == 'marker' and not r['closed']: rev += ';span-unclosed'
         print('\t'.join([r['file'], str(r['line']), r['kind'], r['token'], cls, legs or '-', rev, r['sha']]))
-    for k in sorted(set(REVIEWED) - used):
+    for k in sorted(k for k in set(REVIEWED) - used if not k[1].startswith('pop:')):
         print('REVIEWED key matches no unanchored marker line (re-read it): %s %s' % k, file=sys.stderr)
     for k in sorted(set(STAYS3) - used3):
         if measured: print('STAYS3 key matches no class-3 row with those legs (re-read it): %s %s' % k, file=sys.stderr)
@@ -1480,12 +1615,15 @@ elif mode == 'attribute':
     emit(rows, True)
     # a changed gate section no marker line could be tied to: the gate's POPULATION moved (a count
     # it prints fell or rose). It is a row of the table, class `3?`, so it cannot be overlooked.
-    for (s, f) in pop:
-        print('\t'.join([f, '-', 'population', '-', '3?', s.strip('= ').split(':')[0], 'count-changed', '-']))
+    # a reviewed pair (REVIEWED key (file, 'pop:' + leg), Q-936 (a)) carries its verdict and is not
+    # UNATTRIBUTED; a stale key is reported, never silently applied.
+    lines, unattr_pop, stale = pop_rows(pop)
+    for l in lines: print(l)
     for s in anyedit:
         print('\t'.join(['-', '-', 'any-edit', '-', 'n/a', s.strip('= ').split(':')[0], 'fires-on-any-edit', '-']))
-    for (s, f) in pop: print('UNATTRIBUTED\t%s\t%s' % (s, f), file=sys.stderr)
-    print('G27=%d UNATTR=%d MARKERS=%d' % (g27, len(pop), sum(1 for r in rows if r['kind'] in ('marker', 'narration'))), file=sys.stderr)
+    for k in stale: print('REVIEWED population key matches no population row (re-measure it): %s %s' % k, file=sys.stderr)
+    for (s, f) in unattr_pop: print('UNATTRIBUTED\t%s\t%s' % (s, f), file=sys.stderr)
+    print('G27=%d UNATTR=%d POP=%d MARKERS=%d' % (g27, len(unattr_pop), len(pop), sum(1 for r in rows if r['kind'] in ('marker', 'narration'))), file=sys.stderr)
 elif mode == 'selftest':
     ok = True
     def chk(name, got, want):
@@ -1518,6 +1656,9 @@ elif mode == 'selftest':
     chk('prose that merely contains "(corrected" etc. is not a marker', list(spans(t)), [])
     t = 'Bracket ⚠ **[CORRECTED 2026-09-01 — x]** and paren *(Corrected 2026-09-01: y)* on one line.\n'
     chk('both forms on one line are both seen', [(x[2], x[3]) for x in spans(t)], [('marker', 'CORRECTED'), ('marker', 'Corrected')])
+    lines, ua, _ = pop_rows([('== GATE 2: CLI flags ==', 'documentation/VERIFY.md'), ('== GATE 999: none ==', '-')])
+    chk('a reviewed population pair takes its verdict; an unreviewed one stays UNATTRIBUTED',
+        ([l.split('\t')[4] for l in lines], ua), (['n/a', '3?'], [('== GATE 999: none ==', '-')]))
     t = 'one ⚠ **[CORRECTED 2026 — a\nb]** two\nthe text now reads y\n'
     import tempfile
     d = tempfile.mkdtemp(); os.chdir(d)

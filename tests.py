@@ -145,20 +145,20 @@ class TestTr8DofSampler(unittest.TestCase):
                 self.assertTrue((a, b) in pairs or (b, a) in pairs)
 
     def test_h_b_null_calibration_tail(self):
-        # H-b, the pre-registration's named tests.py regression: the sampler's own pair-only
-        # null draw generator must reproduce pair_null_gender_le2_exact() = 47/445740 within
-        # Poisson error, scored by the UNMODIFIED rc4_violations. At 1e5 draws the expectation
-        # is ~10.5 hits, so this tail check is weak on its own — which is exactly why the
-        # distribution check below exists beside it.
+        # H-b, the pre-registration's named tests.py regression (§4.4(1)): the sampler's own
+        # pair-only null draw generator must reproduce pair_null_gender_le2_exact() = 47/445740
+        # within the §3.5 4-sigma BINOMIAL band at 1e5 draws, scored by the UNMODIFIED
+        # rc4_violations (until 2026-10-03, CX-279, this asserted the old 5*sqrt(E)+3 band). At
+        # 1e5 draws E ~ 10.5, so this is weak alone; the distribution check below sits beside it.
         import random
         rng = random.Random(20260811)
         pairs = solve.king_wen_pairs()
         n = 100000
         hits = sum(1 for _ in range(n)
                    if solve.rc4_violations(solve.pair_null_draw(rng, pairs))[0] <= 2)
-        exp = float(solve.pair_null_gender_le2_exact()) * n
-        self.assertLess(abs(hits - exp), 5.0 * exp ** 0.5 + 3.0,
-                        "observed %d, expected %.2f" % (hits, exp))
+        exp, _sigma, lo, hi = solve.tr8_hb_band(n)
+        self.assertAlmostEqual(exp, float(solve.pair_null_gender_le2_exact()) * n, places=9)
+        self.assertTrue(lo <= hits <= hi, "observed %d, expected %.2f, band [%d, %d]" % (hits, exp, lo, hi))
 
     def test_h_b_violation_distribution_matches_closed_form(self):
         # The strong form of H-b: the whole violation-count distribution, not just its tail.
@@ -3515,7 +3515,7 @@ class TestHbBandIsDescribedAsImplemented(unittest.TestCase):
     required to appear in the prose page and in the shipped note. Change 5.0 or
     3.0 and all three legs go red together; that coupling is what was missing.
 
-    RED-TESTED 2026-09-02 -- see the private followups entry."""
+    RED-TESTED 2026-09-02. Re-pinned 2026-10-03 (CX-279) to the frozen 4-sigma binomial bar."""
 
     def _predicate_rhs(self):
         with open("solve.py", encoding="utf-8") as fh:
@@ -3526,11 +3526,11 @@ class TestHbBandIsDescribedAsImplemented(unittest.TestCase):
                       "unreadable input is an ERROR, not a pass")
         return m.group(1).strip()
 
-    def test_the_band_the_code_applies_is_five_sigma_plus_three(self):
+    def test_the_band_the_code_applies_is_the_frozen_four_sigma(self):
         rhs = self._predicate_rhs()
         f = lambda sig: eval(rhs, {"__builtins__": {}}, {"sigma": sig})
         intercept, slope = f(0.0), f(1.0) - f(0.0)
-        self.assertEqual((slope, intercept), (5.0, 3.0),
+        self.assertEqual((slope, intercept), (4.0, 0.0),
                          f"H-b band changed: RHS is {rhs!r}. If that is "
                          "intentional, SOLVE_PY_CLI.md and h_b_note must move "
                          "with it -- which is what the next two legs enforce")
@@ -3538,7 +3538,7 @@ class TestHbBandIsDescribedAsImplemented(unittest.TestCase):
     def test_the_published_page_states_the_band_the_code_applies(self):
         with open("documentation/SOLVE_PY_CLI.md", encoding="utf-8") as fh:
             md = fh.read()
-        self.assertIn("`|observed − expected| ≤ 5σ + 3`", md,
+        self.assertIn("`|observed − expected| ≤ 4σ`", md,
                       "SOLVE_PY_CLI.md must state the band _tr8_finish applies")
 
     def test_the_shipped_note_states_the_band_the_code_applies(self):
@@ -3549,10 +3549,10 @@ class TestHbBandIsDescribedAsImplemented(unittest.TestCase):
             self.fail("could not locate h_b_note in solve.py; an unreadable "
                       "input is an ERROR, not a pass")
         note = m.group(1)
-        self.assertIn("5*sigma + 3", note,
+        self.assertIn("4*sigma", note,
                       "results.json's h_b_note is the description a reader keeps "
-                      "with the artifact; it must name the band that was applied, "
-                      "not the sigma term alone")
+                      "with the artifact; it must name the band that was applied")
+        self.assertNotIn("5*sigma", note, "h_b_note still names the superseded band")
 
 
 class TestInfoContentLeadsWithTheMeasuredLedger(unittest.TestCase):
@@ -34289,6 +34289,487 @@ class TestQ937LedgerAnchoredGates(unittest.TestCase):
         self.assertEqual(rc, 0, "the mutant should wrongly pass, else the test above proves nothing: " + out)
 
 # end class TestQ937LedgerAnchoredGates (batch 35, lane Q937)
+
+
+class TestTr8PreregConformanceQ932(unittest.TestCase):
+    """CX-279 (2026-10-03, Q-932): the sampler implements the FROZEN pre-registration's text.
+
+    Before the recorded run of the TR-8 dof-matched sampler, the public code was compared line
+    by line with the frozen registration (escrowed digest 4b307f07…) and diverged in six places:
+    family E and instance I3 computed different clauses from the §3.3(i) tables; the verdict
+    forced INCONCLUSIVE on a censored median, which §3.5 forbids; the H-b band was 5*sqrt(E)+3
+    (Poisson) where §3.5 freezes a 4-sigma binomial band; the rarity comparison was a float rate
+    test where §3.4 freezes the integer test hits <= H; and the §3.3(ii) abort floor, the §3.5
+    pool-B gate and raw-count cross-check, and the §3.4 ensemble context were not implemented.
+    Each test below is red on the pre-CX-279 code (4 failures, 6 errors, measured) and green
+    after it. None of these numbers is a measurement: every seed root is a throwaway, never the
+    frozen one. Appended at the end of this file so that no tests.py line cited elsewhere moves."""
+
+    SEED = "TR8-Q932-CONFORMANCE-THROWAWAY"
+
+    # --- independent transcriptions of the two corrected §3.3(i) extractors -----------------
+    @staticmethod
+    def _pc(h):
+        return bin(h).count("1")
+
+    def _e_prereg(self, s):
+        # §3.3(i) family E: sign(popcount(σ[2s]) − popcount(σ[2s−1])), positions 1-indexed.
+        out = []
+        for i in range(32):
+            v = self._pc(s[2 * i + 1]) - self._pc(s[2 * i])
+            out.append((v > 0) - (v < 0))
+        return out
+
+    def _i3_prereg(self, s):
+        # §3.3(i) I3: sign(Σ_{t=1}^{62} (d_t − d̄)(d_{t+1} − d̄)), d_t = bit_diff(σ[t], σ[t+1]).
+        from fractions import Fraction
+        d = [self._pc(s[t] ^ s[t + 1]) for t in range(63)]
+        mean = Fraction(sum(d), 63)
+        v = sum((d[t] - mean) * (d[t + 1] - mean) for t in range(62))
+        return (v > 0) - (v < 0)
+
+    def test_family_e_and_i3_match_the_registration_text_on_seeded_draws(self):
+        import random
+        rng = random.Random(20261003)
+        pairs = solve.king_wen_pairs()
+        seqs = [list(solve.binary_hexagrams)] + [solve.pair_null_draw(rng, pairs)
+                                                 for _ in range(400)]
+        seen_e = set()
+        seen_i3 = set()
+        for s in seqs:
+            f = solve._tr8_features(s)
+            self.assertEqual(f[4], self._e_prereg(s))
+            self.assertEqual(f[8][2], self._i3_prereg(s))
+            seen_e.update(f[4])
+            seen_i3.add(f[8][2])
+        # Both extractors are genuinely three-valued on this null (a boolean reading could not
+        # produce -1), and the pair-only null does exercise all three E values.
+        self.assertEqual(seen_e, {-1, 0, 1})
+        self.assertTrue({-1, 1} <= seen_i3, seen_i3)
+
+    def test_bank_comparators_follow_the_family_i_table(self):
+        bank = solve.tr8_clause_bank()
+        fam_i = [e for e in bank if e[0] == "I"]
+        self.assertEqual([e[2] for e in fam_i], ["ge", "ge", "eq", "ge", "ge"])
+        self.assertIn("dist_autocorr_lag1_sign ==", fam_i[2][3])
+        self.assertTrue(all(e[2] == "eq" for e in bank if e[0] == "E"))
+        self.assertTrue(all(e[2] == ("ge" if e[0] == "G" else "eq")
+                            for e in bank if e[0] not in ("I",)))
+
+    def test_i3_eq_comparator_is_applied_not_ge(self):
+        # A draw whose I3 sign differs from King Wen's must evaluate the clause FALSE under EQ
+        # (under the old GE it was TRUE whenever the draw's sign was the larger one).
+        import random
+        rng = random.Random(3)
+        pairs = solve.king_wen_pairs()
+        kw_sign = solve.tr8_kw_features()[8][2]
+        idx = [i for i, e in enumerate(solve.tr8_clause_bank()) if e[0] == "I"][2]
+        found = False
+        for _ in range(2000):
+            s = solve.pair_null_draw(rng, pairs)
+            sign = solve._tr8_features(s)[8][2]
+            if sign != kw_sign:
+                self.assertEqual(solve.tr8_clause_values(s)[idx], 0)
+                found = True
+                if sign > kw_sign:
+                    break
+        self.assertTrue(found, "no draw with an I3 sign different from King Wen's in 2000")
+
+    # --- §3.4 integer threshold and §3.5 bars --------------------------------------------
+    def test_h_threshold_matches_the_registration_worked_values(self):
+        for n_pool, H in ((10_000_000, 1054), (5_000_000, 527), (2_000_000, 210),
+                          (1_000_000, 105)):
+            self.assertEqual(solve.tr8_h_threshold(n_pool), H)
+        # hits = H counts as "at least as rare"; H + 1 does not — decided in integers.
+        st = solve.tr8_statistics({16: [1054, 1055]}, 10_000_000, {16: 2})
+        self.assertEqual(st["h_threshold"], 1054)
+        self.assertEqual(st["by_k"][16]["f_hat_x"], 1)
+
+    def test_h_b_band_is_the_frozen_four_sigma_binomial_band(self):
+        E, sigma, lo, hi = solve.tr8_hb_band(10_000_000)
+        self.assertAlmostEqual(E, 1054.426347, places=5)
+        self.assertAlmostEqual(sigma, 32.47, places=2)
+        self.assertEqual((lo, hi), (925, 1184))
+
+    def _stats_with(self, x, n_pred=1000, censored=False):
+        lo, hi = solve.tr8_clopper_pearson(x, n_pred)
+        return {"by_k": {16: {"n_pred": n_pred, "f_hat_x": x, "f_hat": x / n_pred,
+                              "f_ci": [lo, hi], "median_censored": censored}}}
+
+    def test_d1_reproduces_the_raw_count_column_and_ignores_censoring(self):
+        # §3.5 boundaries, and §4.4(5): X = 64 → INCONCLUSIVE, 65 → BULK, 36 → TAIL-EXTREME,
+        # 37 → INCONCLUSIVE, 963 → INCONCLUSIVE, 964 → COMMON; plus 935/936 and the ends.
+        want = {0: "TAIL-EXTREME", 36: "TAIL-EXTREME", 37: "INCONCLUSIVE", 64: "INCONCLUSIVE",
+                65: "BULK", 500: "BULK", 935: "BULK", 936: "INCONCLUSIVE",
+                963: "INCONCLUSIVE", 964: "COMMON", 1000: "COMMON"}
+        for x, v in want.items():
+            for censored in (False, True):
+                got, _why = solve.tr8_verdict(self._stats_with(x, censored=censored))
+                self.assertEqual(got, v, "X=%d censored=%s" % (x, censored))
+                self.assertEqual(solve.tr8_d1_by_count_1000(x), v)
+
+    def test_d1_halts_when_the_interval_and_the_count_column_disagree(self):
+        # Mutant input: an interval that says BULK at X = 64 (the count column says
+        # INCONCLUSIVE). §3.5: an implementation bug halts; nothing is reported.
+        st = self._stats_with(64)
+        st["by_k"][16]["f_ci"] = [0.0501, 0.0799]
+        with self.assertRaises(SystemExit) as cm:
+            solve.tr8_verdict(st)
+        self.assertIn("IMPLEMENTATION_BUG", str(cm.exception))
+
+    # --- §3.3(ii) abort floor, §3.4 context, §3.5 replication gate -----------------------
+    def _quiet(self, fn, *a, **kw):
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            return fn(*a, **kw)
+
+    def test_sampler_halts_below_the_admit_floor_before_any_pool_draw(self):
+        import json, os, tempfile
+        self.assertEqual(solve.TR8_B_ADMIT_FLOOR, 120)
+        with tempfile.TemporaryDirectory() as td:
+            d = os.path.join(td, "thin")
+            # A band this narrow admits only a handful of instances on any calibration draw.
+            with self.assertRaises(SystemExit) as cm:
+                solve.tr8_dof_sampler(d, seed_root=self.SEED, n_pool=1024, n_pred=10,
+                                      klist=(4,), n_shards=2, calib_draws=1500,
+                                      band=(0.49, 0.51), quiet=True)
+            self.assertIn("B_ADMITTED_BELOW_FLOOR", str(cm.exception))
+            with open(os.path.join(d, "bank.json"), encoding="utf-8") as f:
+                bj = json.load(f)
+            self.assertLess(bj["b_admitted"], 120)
+            self.assertFalse(os.path.exists(os.path.join(d, "results.json")))
+            self.assertFalse(any(n.startswith("shard_") for n in os.listdir(d)))
+            rc = self._quiet(solve.tr8_emit_bank, seed_root=self.SEED, calib_draws=1500,
+                             band=(0.49, 0.51), out_dir=os.path.join(td, "eb"))
+            self.assertEqual(rc, 5)
+
+    def _run_pool(self, d, pool, n_pred=20, klist=(16,)):
+        for i in range(2):
+            solve.tr8_dof_sampler(d, seed_root=self.SEED, pool=pool, n_pool=1024,
+                                  n_pred=n_pred, klist=klist, n_shards=2, shard=i,
+                                  calib_draws=1500, quiet=True)
+
+    def test_ensemble_context_is_exact_and_reported(self):
+        import json, os, tempfile
+        from itertools import combinations
+        with tempfile.TemporaryDirectory() as td:
+            d = os.path.join(td, "A")
+            self._run_pool(d, "A", n_pred=12, klist=(4, 16))
+            solve.tr8_dof_merge(d, quiet=True)
+            with open(os.path.join(d, "results.json"), encoding="utf-8") as f:
+                res = json.load(f)
+            ctx = res["ensemble_context"]
+            n_adm = res["header"]["b_admitted"]
+            for k in (4, 16):
+                ens = solve.tr8_predicate_ensemble(res["header"]["seeds"]["predicates/K-%d" % k],
+                                                   12, k, n_adm)
+                brute = sum(len(set(p) & set(q)) for p, q in combinations(ens, 2)) / 66.0
+                self.assertAlmostEqual(ctx[str(k)]["mean_pairwise_clause_overlap"], brute,
+                                       places=12)
+                self.assertEqual(sum(ctx[str(k)]["family_composition"].values()), 12 * k)
+            self.assertIn("d2_k16", res)
+            self.assertEqual(res["statistics"]["h_threshold"],
+                             solve.tr8_h_threshold(res["draws_used"]))
+            self.assertEqual(res["gates"]["h_b_band"],
+                             list(solve.tr8_hb_band(res["draws_used"])[2:]))
+            with open(os.path.join(d, "RESULTS.md"), encoding="utf-8") as f:
+                md = f.read()
+            self.assertIn("mean pairwise clause overlap", md)
+            self.assertIn("D2 never alters D1", md)
+
+    def test_replication_gate_passes_on_a_true_replicate_and_fails_on_a_mutant(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as td:
+            a, b = os.path.join(td, "A"), os.path.join(td, "B")
+            self._run_pool(a, "A")
+            self._run_pool(b, "B")
+            # B must be merged first; an unmerged B is refused, not silently skipped.
+            with self.assertRaises(SystemExit):
+                solve.tr8_replication_gate(a, b, quiet=True)
+            solve.tr8_dof_merge(b, quiet=True)
+            solve.tr8_dof_merge(a, quiet=True, replicate=b)
+            with open(os.path.join(a, "replication.json"), encoding="utf-8") as f:
+                rep = json.load(f)
+            with open(os.path.join(a, "results.json"), encoding="utf-8") as f:
+                ra = json.load(f)
+            # At N_pool = 1024 nearly every 16-clause predicate has zero hits, so both pools
+            # agree (F_hat = 1, COMMON) and the gate passes; the governing verdict is pool A's.
+            self.assertTrue(rep["gate_pass"])
+            self.assertEqual(rep["d1_a"], rep["d1_b"])
+            self.assertEqual(rep["governing_d1_k16"], ra["verdict"])
+            self.assertLessEqual(rep["abs_diff_f16"], 0.05)
+            self.assertEqual(rep["withdrawn_6e-5_figure"], "NEVER_REINSTATED")
+            # A lone --tr8-dof-replicate (merge dir None) is refused by name, not listdir(None).
+            with self.assertRaises(SystemExit):
+                solve.tr8_dof_merge(None, quiet=True, replicate=b)
+            # MUTANT pool B: a different F_hat beyond the tolerance → the gate FAILS and the
+            # governing verdict is forced to INCONCLUSIVE, whatever pool A said.
+            p = os.path.join(b, "results.json")
+            with open(p, encoding="utf-8") as f:
+                rb = json.load(f)
+            rb["statistics"]["by_k"]["16"]["f_hat_x"] = 0
+            rb["statistics"]["by_k"]["16"]["f_hat"] = 0.0
+            rb["verdict"] = "TAIL-EXTREME"
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(rb, f)
+            rep2 = solve.tr8_replication_gate(a, b, quiet=True)
+            self.assertFalse(rep2["gate_pass"])
+            self.assertEqual(rep2["governing_d1_k16"], "INCONCLUSIVE")
+            self.assertEqual(rep2["s6_outcome"], "STAYS_WITHDRAWN")
+            # A pool B drawn against a different bank is refused outright.
+            rb["header"]["admitted_bank_sha256"] = "0" * 64
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(rb, f)
+            with self.assertRaises(SystemExit):
+                solve.tr8_replication_gate(a, b, quiet=True)
+
+# end class TestTr8PreregConformanceQ932 (batch 36, Q-932, CX-279)
+
+
+class TestQ317CascadeSequenceSets(unittest.TestCase):
+    """Batch 36, Q-317 (Codex A04): --prove-cascade's two unique-sequence sets are sized to their domain.
+
+    Phase 1 counted a branch's unique pair sequences in a table found_seqs[1000][17] written under the
+    guard `n_found < 131072`: the size of the domain (2^17 binary paths), not of the table, so the
+    1,001st unique sequence of a branch would have been written past the table. Phase 2 re-derived the
+    sequences into multi_seqs[100][17] under a guard of 100, which matched the table but capped it: a
+    branch with more than 100 unique sequences would have been adjudicated on its first 100 in silence,
+    and the closing theorem line was still reachable. The King Wen distribution reaches 18 per branch, so
+    no run has reached either bound; measured for this batch on f9b50120 with the Phase 1 table cut to 2
+    rows and the guard left as it was, a bounds-checked build stops at the first branch with a third
+    unique sequence (index 2 out of bounds for found_seqs).
+
+    A feasible path is a function of `bits` alone (path[j] is pos or pos-1 by bit j), so the set of
+    unique sequences is a set of `bits` values. Phase 1 now keeps a 2^17-bit set (found_seen) and no
+    table; Phase 2 keeps the same set beside a table of 2^17 rows under a guard of 2^17, which cannot be
+    false. Tests a and b read the source, each after asserting it found the region it reads, and are red
+    on f9b50120. Test c runs the fixed binary (Phase 2 stubbed as TestLaneHVProveCascadeLabels stubs it)
+    and pins every per-branch count to the ones the tables produced on f9b50120: it is green on both
+    trees by design, because it is the check that the sets count what the tables counted.
+    ROAE_TESTS_SOLVE_SRC names another source for the pre-fix runs; nothing in the harness sets it.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    P1_START = 'printf("PROOF: Position 2 determines positions 3-19\\n");'
+    P1_END = "/* Print Phase 1 results in branch order"
+    P2_START = "/* Re-run the binary path enumeration to collect the multiple sequences */"
+    P2_END = "if (n_multi <= 1) continue;"
+    CALL = "proof_search(seq, used, budget, step, last_hex, &cnodes, &found_c3);"
+    # per-branch (feasible paths, unique sequences) -> number of branches, as f9b50120 printed them
+    PINNED = {(2, 1): 16, (0, 0): 3, (36, 18): 12}
+    PAIR_RE = re.compile(r"^  Pair\s+(\d+) \(hexagrams\s+\d+,\s*\d+\):\s+(\d+) feasible paths, (\d+) unique -> (.*)$", re.M)
+    BRANCH_RE = re.compile(r"^  Branch pair (\d+): (\d+) configurations\.", re.M)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q317_")
+        src = os.path.join(cls.ROOT, os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"))
+        with open(src, encoding="utf-8") as fh:
+            cls.src = fh.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _region(self, start, end):
+        self.assertEqual(self.src.count(start), 1, "precondition: region start found once: " + start)
+        a = self.src.index(start)
+        b = self.src.find(end, a)
+        self.assertGreater(b, a, "precondition: region end found after its start: " + end)
+        return re.sub(r"/\*.*?\*/", "", self.src[a:b], flags=re.S)   # code only: the comments name the old tables
+
+    @staticmethod
+    def _value(expr):
+        m = re.fullmatch(r"(\d+)(?: << (\d+))?", expr)
+        return None if not m else int(m.group(1)) << int(m.group(2) or 0)
+
+    def test_a_phase1_set_is_keyed_by_bits_and_has_no_cap(self):
+        r = self._region(self.P1_START, self.P1_END)
+        self.assertIn("n_found++", r, "precondition: the unique-sequence counter is in the region")
+        self.assertIn("unsigned int found_seen[(1 << 17) / 32]", r, "the set is one bit per bits value, 2^17 bits")
+        self.assertIn("found_seen[bits >> 5] & (1u << (bits & 31))", r, "membership is decided by bits")
+        self.assertNotRegex(r, r"found_seqs\[\d+\]\[17\]", "no fixed-row sequence table in Phase 1")
+        self.assertNotRegex(r, r"n_found < \d+", "no numeric write guard: the set has no cap")
+
+    def test_b_phase2_table_is_sized_to_the_domain_and_its_guard_equals_its_rows(self):
+        r = self._region(self.P2_START, self.P2_END)
+        m = re.search(r"static int multi_seqs\[([^\]]+)\]\[17\]", r)
+        self.assertIsNotNone(m, "precondition: the Phase 2 sequence table is declared in the region")
+        g = re.search(r"is_new && n_multi < (\([^)]*\)|\d+)\)", r)
+        self.assertIsNotNone(g, "precondition: the table's write guard is in the region")
+        rows, guard = m.group(1).strip(), g.group(1).strip("()").strip()
+        self.assertEqual(rows, guard, "the write guard equals the table's row count")
+        self.assertEqual(self._value(rows), 1 << 17, "the table holds every path of the domain (2^17 rows)")
+        self.assertIn("multi_seen[bits >> 5]", r, "dedup is the same bits-keyed set as Phase 1")
+
+    def test_c_counts_of_the_sized_sets_equal_the_tables_counts_on_king_wen(self):
+        self.assertEqual(self.src.count(self.CALL), 1, "precondition: the proof_search call is found exactly once")
+        t = self.src.replace(self.CALL, '{ if (!getenv("ROAE_HV_FAKE")) ' + self.CALL + " else cnodes = 7; }")
+        fsrc = os.path.join(self.tmp, "solve_q317_stub.c")
+        with open(fsrc, "w", encoding="utf-8") as fh:
+            fh.write(t)
+        b = os.path.join(self.tmp, "solve_q317_stub")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", b, fsrc, "-lm", "-lz"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, "precondition: the stubbed source builds: " + r.stderr[-2000:])
+        e = {k: v for k, v in os.environ.items()
+             if not k.startswith("SOLVE_") and not k.startswith("ROAE_") and k != "PROVE_CONFIG_TIMEOUT"}
+        e.update(OMP_NUM_THREADS="2", ROAE_HV_FAKE="E")
+        d = tempfile.mkdtemp(dir=self.tmp)
+        r = subprocess.run([b, "--prove-cascade"], cwd=d, env=e, stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        pairs = self.PAIR_RE.findall(r.stdout)
+        self.assertEqual(len(pairs), 31, "precondition: one Phase 1 line per branch")
+        counts, unique = {}, {}
+        for bp, feas, uniq, _ in pairs:
+            counts[(int(feas), int(uniq))] = counts.get((int(feas), int(uniq)), 0) + 1
+            unique[int(bp)] = int(uniq)
+        self.assertEqual(counts, self.PINNED, "per-branch (feasible, unique) counts as the tables produced them")
+        self.assertIn("Results: 16 proved, 3 dead, 12 multiple", r.stdout)
+        branches = self.BRANCH_RE.findall(r.stdout)
+        self.assertEqual(len(branches), 12, "precondition: Phase 2 reports every MULTIPLE branch")
+        for bp, n in branches:
+            self.assertEqual(int(n), unique[int(bp)], "Phase 2 re-derives Phase 1's count for branch " + bp)
+            self.assertEqual(int(n), 18, "branch " + bp)
+        self.assertIn("Placed-orientation search: 204 configs tested", r.stdout)
+
+# end class TestQ317CascadeSequenceSets (batch 36, Q-317)
+
+
+class TestQ941MergeGateUnrecognizedStatus(unittest.TestCase):
+    """Batch 36, Q-941 addendum (A11R #7 in the merge-input gate): a checkpoint line whose status is one
+    no writer emits is refused by name, not counted as completion.
+
+    q881_gate_file(), the per-cell checkpoint reader behind --merge, --merge-layers, the
+    end-of-enumeration merge and the BUDGET_EXHAUSTED token, classified a line by searching it for
+    INTERRUPTED, then BUDGETED, and counted any other line as EXHAUSTED. CX-264 part 7 gave the resume
+    loader a vocabulary (EXHAUSTED, BUDGETED, COMPLETE, INTERRUPTED, at the position after "Sub-branch ")
+    and listed the gate's classification for a decision. Decided here: the gate refuses. The resume can
+    re-walk such a cell, which is always correct there; a merge has nothing to re-walk, and a line it
+    cannot classify leaves the cell's completion unknown. The reader returns -2 with an ERROR naming the
+    file, the cell and the token; the gate prints MERGE_INPUT=UNRECOGNIZED_STATUS and exits 20, the
+    format-error code of the absent-or-short shard refusals, with no override
+    (SOLVE_MERGE_ALLOW_INCOMPLETE=1 merges a set known to be partial, not one whose record cannot be
+    read); BUDGET_EXHAUSTED reports UNKNOWN. One list, q941_ckpt_status_word(), now serves the loader
+    and the gate.
+
+    The fixture is a finished `--branch 1 0 0 2` run at a 2,000-node budget (BUDGETED lines in
+    checkpoint_t0.txt). Each test asserts its precondition before its verdict: the untouched copy merges
+    with exit 0, so a refusal is the status word's doing. Tests b, c, d and f are red on f9b50120 (exit 0
+    and a solutions.bin for GARBAGE and for the lower-case word; BUDGET_EXHAUSTED=YES); a and e pass
+    there. ROAE_TESTS_SOLVE_SRC names another source for the pre-fix runs; nothing in the harness sets it.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    ENUM = {"SOLVE_PER_SUB_BRANCH_LIMIT": "2000", "SOLVE_HASH_LOG2": "16", "SOLVE_THREADS": "2",
+            "SOLVE_SKIP_AUTOMERGE": "1"}
+    TOKEN = "MERGE_INPUT=UNRECOGNIZED_STATUS"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q941g_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q941g")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           cwd=cls.ROOT, capture_output=True, text=True)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        cls.base = os.path.join(cls.tmp, "base")
+        os.makedirs(cls.base)
+        cls.fixture = None
+        if cls.build_ok:
+            cls.fixture = cls._run(cls.base, ["--branch", "1", "0", "0", "2"], cls.ENUM)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _env(cls, extra=None):
+        e = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        e.update({"SOLVE_HASH_LOG2": "16", "SOLVE_THREADS": "2"})
+        e.update(extra or {})
+        return e
+
+    @classmethod
+    def _run(cls, d, argv, extra=None):
+        r = subprocess.run([cls.sbin] + argv, cwd=d, env=cls._env(extra), stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, timeout=900)
+        return r.returncode, r.stdout, r.stderr
+
+    def setUp(self):
+        self.assertTrue(self.build_ok, "precondition: solve.c builds: " + self.build_err)
+        rc, out, err = self.fixture
+        self.assertEqual(rc, 0, "precondition: the fixture enumeration finished: " + err[-1500:])
+        self.assertFalse(os.path.exists(os.path.join(self.base, "enum_incomplete.txt")),
+                         "precondition: the fixture run removed its in-progress marker")
+        with open(os.path.join(self.base, "checkpoint_t0.txt"), encoding="utf-8") as fh:
+            self.assertIn("Sub-branch BUDGETED", fh.read(), "precondition: a BUDGETED line to rewrite")
+
+    def _copy(self, name, status=None):
+        d = os.path.join(self.tmp, name)
+        shutil.copytree(self.base, d)
+        for f in os.listdir(d):
+            if f.startswith("solutions."):
+                os.remove(os.path.join(d, f))
+        if status is not None:
+            p = os.path.join(d, "checkpoint_t0.txt")
+            with open(p, encoding="utf-8") as fh:
+                t = fh.read()
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(t.replace("Sub-branch BUDGETED", "Sub-branch " + status, 1))
+        return d
+
+    def _merge(self, d, extra=None):
+        rc, out, err = self._run(d, ["--merge"], extra)
+        return rc, out, err, os.path.exists(os.path.join(d, "solutions.bin"))
+
+    def test_a_precondition_the_untouched_copy_merges(self):
+        rc, out, err, written = self._merge(self._copy("ok"))
+        self.assertEqual(rc, 0, err[-1500:])
+        self.assertIn("Checkpoint cross-ref:", out)
+        self.assertTrue(written)
+
+    def test_b_an_unrecognized_status_is_refused_by_name_with_exit_20(self):
+        rc, out, err, written = self._merge(self._copy("garbage", "GARBAGE"))
+        self.assertEqual(rc, 20, err[-1500:])
+        self.assertIn("\n" + self.TOKEN + "\n", "\n" + err)
+        self.assertIn("has status 'GARBAGE'", err)
+        self.assertIn("checkpoint_t0.txt", err)
+        self.assertIn("pair1 1 orient1 0 pair2", err)
+        self.assertFalse(written, "nothing is written")
+
+    def test_c_the_vocabulary_is_case_sensitive_as_the_resume_loaders_is(self):
+        rc, out, err, written = self._merge(self._copy("lower", "budgeted"))
+        self.assertEqual(rc, 20, err[-1500:])
+        self.assertIn("\n" + self.TOKEN + "\n", "\n" + err)
+        self.assertIn("has status 'budgeted'", err)
+        self.assertFalse(written)
+
+    def test_d_the_incomplete_override_does_not_apply(self):
+        rc, out, err, written = self._merge(self._copy("garbage_allow", "GARBAGE"),
+                                            {"SOLVE_MERGE_ALLOW_INCOMPLETE": "1"})
+        self.assertEqual(rc, 20, err[-1500:])
+        self.assertIn("\n" + self.TOKEN + "\n", "\n" + err)
+        self.assertNotIn("INCOMPLETE_ALLOWED", err)
+        self.assertFalse(written)
+
+    def test_e_the_legacy_complete_token_is_still_recognized(self):
+        rc, out, err, written = self._merge(self._copy("complete", "COMPLETE"))
+        self.assertEqual(rc, 0, err[-1500:])
+        self.assertNotIn(self.TOKEN, err)
+        self.assertTrue(written)
+
+    def test_f_budget_exhausted_reports_unknown_for_such_a_line(self):
+        d = self._copy("garbage_resume", "GARBAGE")
+        rc, out, err = self._run(d, ["--branch", "1", "0", "0", "2"], self.ENUM)
+        self.assertEqual(rc, 0, err[-1500:])
+        self.assertIn("unrecognized status 'GARBAGE'", err, "precondition: the resume loader saw the line (A11R #7)")
+        self.assertIn("\nENUM_RUN=FINISHED\n", "\n" + out, "precondition: the resume walked the cell and finished")
+        self.assertIn("\nBUDGET_EXHAUSTED=UNKNOWN\n", "\n" + out)
+
+# end class TestQ941MergeGateUnrecognizedStatus (batch 36, Q-941 addendum)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

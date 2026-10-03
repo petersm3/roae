@@ -1115,7 +1115,19 @@ FLOOR_KEYS, FLOOR_TOKENS, FLOOR_FILES, FLOOR_BYTES = 300, 95, 45, 2000000
 # documentation/SOLVE_PY_CLI.md under `--kc-class-swap-detect`, which is what the census exists
 # to protect. Raising a ratchet without establishing what grew is a rubber stamp; this is the
 # note that makes it not one.
-FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 72
+# 🔴 CEIL_PY_UNRESOLVED re-pinned 72 -> 89 on 2026-10-03 (CX-279, Q-932), MEASURED THE SAME WAY:
+# this gate run on the pre-batch tree (f9b50120) reports 70 unresolved positions and on the staged
+# tree 89, and the diff of the two site lists is exactly the code that batch added to make the TR-8
+# sampler compute its frozen pre-registration: 8 subscript reads and one `get(...)` in
+# tr8_replication_gate (the two pools' results.json values copied into replication.json), the 4
+# tuple-unpacks of tr8_hb_band() in _tr8_finish (exp_hb, sigma, hb_lo, hb_hi), the `k_head`
+# parameter of tr8_replication_gate, the computed key and `items(...)` of tr8_ensemble_context,
+# a third pass-through of tr8_dof_sampler's `band` parameter (_tr8_floor_halt), and the two
+# `args.tr8_dof_merge` / `args.tr8_dof_replicate` attribute reads that become `pool_a_dir` /
+# `pool_b_dir`. Every key those expressions produce is named in documentation/SOLVE_PY_CLI.md
+# (§"TR-8 SAMPLER — CX-279 ADDITIONS": replication.json's keys, `gates.h_b_band`,
+# `statistics.h_threshold`, `d2_k16`, `ensemble_context`), which is what the census protects.
+FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 89
 
 def rec(*a):
     print("\t".join(str(x) for x in a))

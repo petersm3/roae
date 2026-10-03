@@ -357,3 +357,37 @@ narrowing claims the original text made too broadly:
 Nothing in this amendment adds, removes or alters a hash, byte count or date published on
 2026-08-22. The corrections ledger entry is
 [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-02 — PREREGISTRATION_ESCROW.md".
+
+## 2026-10-03 — a PRE-RUN addendum to the TR-8 sampler's pre-registration, escrowed before its run
+
+Added 2026-10-03. **Nothing above is altered.** The row for
+`PREREG_TR8_DOF_MATCHED_SAMPLER_20260811.md` (`4b307f07…`, 66,659 bytes, first committed
+2026-08-11, one private commit) stands, and the file it describes is byte-identical to that row
+today. That file's own text says it is "amendable only by dated annotation appended in §7", and
+calls for two annotations before its first recorded pool draw: the instrument pin and the
+admitted clause bank. Under this page's rule of 2026-09-04 — a pre-registration file is closed at
+its freeze — those annotations are **separate dated files**, and the first of them is public and
+escrowed here **before the run**:
+
+| file | sha256 | bytes | published |
+|---|---|---|---|
+| [`documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md`](PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md) | `7441a21437043d1ec638b158f6ef8e9bfb44aee1890f4e5b89a9b8c74fc78bef` | 21,961 | 2026-10-03, in this repository, in full |
+
+**What this row is, stated exactly.** It is the first row on this page of the kind the page
+promised on 2026-09-02: a digest published **before** the measurement it governs. The addendum
+pins the instrument by bytes (`solve.py` sha256 `38f3f886…`, the file shipped in the same commit),
+records that the public code was brought into conformance with the frozen text before that pin
+([CORRECTIONS.md](CORRECTIONS.md) CX-279), fixes every parameter the frozen text left open with
+the line that decides it, and attests that no seed of the frozen root has been used. Because the
+file is public in full, a reader can hash it against this row and read what it fixes; because it
+is committed before any draw, the commit is a third-party timestamp for the freeze of those
+choices. The frozen file itself remains private and remains covered by its 2026-08-22 row only.
+
+**What the run will be read against.** The kit that executes the registration reads the byte
+concatenation *frozen file ‖ A1 ‖ A2*, where A2 is the admitted-bank annotation the frozen text
+requires after the calibration draw and before the first pool draw (its form is fixed in A1
+§A1.5 and it is produced mechanically). A2 is a measured list and is not escrowed here before
+the run; its digest is written into the run's token log before the first pool draw and will be
+published on this page, with the result, as a **post-calibration, pre-pool** digest — labelled as
+such, not as a pre-measurement one. The run's `PREREG_SHA256_RUN` token is the digest of the
+whole concatenation, so all three parts are checkable once A2 is published.

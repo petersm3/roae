@@ -332,7 +332,7 @@ rarity of a predicate is its probability under the **pair-only (C1) null**
 by direct sampling. The comparator is King Wen's own exact Schulz-gender
 rarity over that same null, `pair_null_gender_le2_exact()` = 47/445740. The
 sampler reports, per K, the **fraction of predicates at least as rare as King
-Wen** (Clopper–Pearson 95% CI ⚠ **[CORRECTED 2026-09-22 (V3A-055#4) — the interval is CONDITIONAL ON THE SHARED POOL, a qualifier this doc and the docstring omit.** `solve.py:685-689` classifies on `hits/n_pool <= r_KW` and applies CP over the **predicate count only**. "Immune to censoring" is numerically true *at the registered pool* — `N_pool = 1e7` (`PREREG_TR8_DOF_MATCHED_SAMPLER_20260811.md:419`) puts the CP-95 upper bound for 0 hits at `3.69e-7`, far below `r_KW = 1.054e-4` — but what is genuinely unpropagated is **boundary noise: relative sd 3.1% at r_KW, correlated across predicates through the shared pool**. The private pre-registration already carries this at `:556` (*"conditional on the pool"*, with the pool-B replication as the pre-registered check) and `:419` (*"~4% relative error per predicate"*); this public doc did not. Adjudicated 2026-09-19, rank (d): no `F̂` is published and no recorded run exists, so no figure moves. The `tr8_statistics` docstring and the `RESULTS.md` statistics line now carry the pool-conditional scope too (2026-09-25, V3A-135#6).]** — the primary statistic, because it is immune to
+Wen** (Clopper–Pearson 95% CI ⚠ **[CORRECTED 2026-09-22 (V3A-055#4) — the interval is CONDITIONAL ON THE SHARED POOL, a qualifier this doc and the docstring omit.** `solve.py:685-689` classifies on the integer test `hits <= H`, H = ⌊`n_pool` · 47/445740⌋ (since 2026-10-03, CX-279; a float rate test `hits/n_pool <= r_KW` before that, identical at 10⁷), and applies CP over the **predicate count only**. "Immune to censoring" is numerically true *at the registered pool* — `N_pool = 1e7` (`PREREG_TR8_DOF_MATCHED_SAMPLER_20260811.md:419`) puts the CP-95 upper bound for 0 hits at `3.69e-7`, far below `r_KW = 1.054e-4` — but what is genuinely unpropagated is **boundary noise: relative sd 3.1% at r_KW, correlated across predicates through the shared pool**. The private pre-registration already carries this at `:556` (*"conditional on the pool"*, with the pool-B replication as the pre-registered check) and `:419` (*"~4% relative error per predicate"*); this public doc did not. Adjudicated 2026-09-19, rank (d): no `F̂` is published and no recorded run exists, so no figure moves. The `tr8_statistics` docstring and the `RESULTS.md` statistics line now carry the pool-conditional scope too (2026-09-25, V3A-135#6).]** — the primary statistic, because it is immune to
 censoring) and the **median rarity** (distribution-free order-statistic 95%
 CI — the statistic CX-27 names).
 
@@ -348,17 +348,17 @@ template names a hexagram's *identity* at a position. Each instance is
 **admitted** only if its measured marginal under the null lies in the band
 **[0.25, 0.75]**; the band is stated without reference to King Wen's rarity,
 deliberately. Templates outside the band are dropped, and the drop is data —
-family **E** is admitted in **zero** instances because both readings of "the
-ordered popcount relation, ties exempt" are degenerate under this null (the 28
-reversal pairs have equal popcounts by construction), and the
+family **E** (`sign(popcount(later) − popcount(earlier))` per slot, the registered
+three-valued form since 2026-10-03, CX-279) is admitted in **zero** instances because it is
+degenerate under this null (the 28 reversal pairs tie by construction), and the
 distinct-within-pair-XOR clause is constant for the same reason. `B_admitted`
 is therefore a **measured** quantity of each calibration draw, not a constant.
 
 | Flag | Description |
 |---|---|
 | `--tr8-dof-sampler OUT_DIR` | Run the sampler; write `header.json`, `env.json`, `bank.json`, `results.json` and `RESULTS.md` to `OUT_DIR` (terminal command). |
-| `--tr8-dof-emit-bank` | Measure and print the admitted clause bank with its marginals, then exit — the pre-registration's bank-freeze step. Combine with `--tr8-dof-sampler OUT_DIR` to also write `bank.json` there (the bank is emitted and the pool is **not** run). |
-| `--tr8-dof-merge OUT_DIR` | Merge the per-shard hit files in `OUT_DIR` and compute the statistics (terminal command). Refuses to merge a partial pool or shards whose run headers disagree. |
+| `--tr8-dof-emit-bank` | Measure and print the admitted clause bank with its marginals, then exit — the pre-registration's bank-freeze step. Combine with `--tr8-dof-sampler OUT_DIR` to also write `bank.json` there (the bank is emitted and the pool is **not** run). Exit 1 if King Wen fails a raw template (H-a); exit **5** if `B_admitted` is below the registration's abort floor of 120 (the bank is still printed and written; CX-279, §"TR-8 sampler — CX-279 additions" below). |
+| `--tr8-dof-merge OUT_DIR` | Merge the per-shard hit files in `OUT_DIR` and compute the statistics (terminal command). Refuses to merge a partial pool or shards whose run headers disagree. With `--tr8-dof-replicate B_DIR` (2026-10-03, CX-279) it also applies the pre-registered pool-B replication gate and writes `OUT_DIR/replication.json`; see §"TR-8 sampler — CX-279 additions" at the end of this document. |
 | `--tr8-dof-selftest` | Run the instrument self-tests — bank integrity, H-a, the H-b null calibration, determinism, and shard/merge equivalence — then exit. Exit 0 = all passed. These are also standing regressions in `tests.py`. |
 | `--tr8-dof-seed ROOT` | Seed **root** string. Every seed is `uint64(sha256("ROOT/<purpose>")[:8], big-endian)` over the purposes `bank-calibration`, `pool-<A\|B>/shard-<i>`, `predicates/K-<K>`, `timing-probe` (**`timing-probe` is reserved and unused** — it is derived and echoed but no code path reads it; see §Cost). Echoed verbatim in `header.json` together with every derived seed as a decimal integer. Default: the pre-registration namespace. |
 | `--tr8-dof-pool A\|B\|calib` | Which seed family the pool draws from (default `A`). The registration's pool-B replication gate re-runs the identical measurement on `B`. |
@@ -381,15 +381,15 @@ what TR-8 requires published alongside the number.
 template; a single failure is an implementation finding, not a result, and the
 run aborts. **H-b**: the pool's own rate of `rc4_violations(seq)[0] <= 2`,
 scored by the **unmodified** `rc4_violations`, must reproduce
-`pair_null_gender_le2_exact()` within the frozen band **`|observed − expected| ≤ 5σ + 3`**
-(Poisson σ, plus a 3-count integer-continuity floor; implemented as `hb_ok` in
-`solve.py`'s `_tr8_finish`) — this
+`pair_null_gender_le2_exact()` within the frozen band **`|observed − expected| ≤ 4σ`**
+(binomial σ = `sqrt(N_pool · p · (1 − p))`, p = 47/445740; implemented as `hb_ok` in
+`solve.py`'s `_tr8_finish`, band from `tr8_hb_band`: **[925, 1184]** at `N_pool` = 10⁷) — this
 is the evidence that the pool is the same null the comparator was computed over. H-b
-failure forces the verdict to `INCONCLUSIVE`. ⚠ The `+3` term matters only where the
-expectation is small. At the 200,000-draw smoke scale used in the example below,
-expected ≈ 21.09 and σ ≈ 4.59, so the band widens from ±22.96 (5σ alone) to ±25.96 —
-H-b is weak by construction at that scale. At the default `N_pool` = 10⁷ (expected ≈
-1054.4, σ ≈ 32.47) it widens ±162.36 to ±165.36, under 2%, and is negligible.
+failure forces the verdict to `INCONCLUSIVE`. ⚠ *Corrected 2026-10-03 (CX-279, Q-932): until
+then this paragraph and the code applied `|observed − expected| ≤ 5σ + 3` with a Poisson σ, a
+WIDER band than the one the pre-registration froze — at 10⁷ a pool with `n_le2` in 889–924 or
+1185–1219 would have passed here and failed the registration. The band is the registration's,
+not a tuning choice.* At the 200,000-draw smoke scale below (E ≈ 21.09) the gate is weak by construction.
 
 **Cost.** Measured on the 2-core orchestrator, 2026-08-11: ~10,000 draws/s per
 core for the full per-draw scoring path (draw + 319 templates + the H-b
@@ -454,7 +454,7 @@ merge result changes.
 | `calibration_draws` | The `--tr8-dof-calib-draws` argument: draws in the **dedicated bank-calibration pool**, which has its own seed and is never merged into a measurement pool. Every marginal, and therefore admission itself, is measured at this size and not at `n_pool`. Also echoed into `bank.json`. |
 | `b_raw` | The size of the **raw** template bank — every instance the nine families generate, before the band is applied. It is a property of the templates and the King Wen values they are instantiated at, so it does not vary with the seed. Also in `bank.json`. |
 | `b_admitted` | How many of those raw instances fell inside `admission_band` **on this run's calibration pool**. It is a **measured** quantity, not a constant: a different `--tr8-dof-seed` or `--tr8-dof-calib-draws` can admit a different number. Also in `bank.json`. |
-| `admitted_family_counts` | Admitted instances per family, as a `family → count` object. 🔴 It ranges over the **admitted** list only, so **a family admitted zero times has no key at all — not a key with value 0.** Family E is in exactly that state (both readings of its ordered-popcount template are degenerate under this null), so the object is missing an `"E"` entry rather than reporting `"E": 0`, and a reader summing the values gets `b_admitted` while a reader counting the keys gets fewer than nine families. The text report from `--tr8-dof-emit-bank` does print the zeros, because it iterates the family table instead. |
+| `admitted_family_counts` | Admitted instances per family, as a `family → count` object. 🔴 It ranges over the **admitted** list only, so **a family admitted zero times has no key at all — not a key with value 0.** Family E is in exactly that state (its three-valued `sign(popcount(later) − popcount(earlier))` template is degenerate under this null), so the object is missing an `"E"` entry rather than reporting `"E": 0`, and a reader summing the values gets `b_admitted` while a reader counting the keys gets fewer than nine families. The text report from `--tr8-dof-emit-bank` does print the zeros, because it iterates the family table instead. |
 | `admitted_bank_sha256` | sha256 over one line per **admitted** instance, in admission order, each line being the family, index, comparator, template text **and that instance's calibration marginal rounded to six decimals**. Because the marginal is inside the digest, it changes whenever the calibration pool changes, even if the identical set of instances is admitted — it identifies a *measured* bank, not a set of templates. `--tr8-dof-merge` recomputes it from `bank.json` with the same expression and refuses to merge on a mismatch. ⚠ The check is skipped, silently, if the header carries no value for it. |
 | `solve_py_sha256` | sha256 of the `solve.py` source file the run loaded, read back off disk by path. ⚠ It may legitimately be **`null`**: the helper returns `None` on any `OSError` rather than failing the run, so a source file that has been moved or is unreadable at write time yields a null field instead of an abort. A null is an unproven provenance, not a proven absence. |
 | `r_kw` | King Wen's comparator rarity, the exact Schulz-gender figure over the same pair-only null. ⚠ It is emitted as a **hard-coded string literal**, not rendered from `pair_null_gender_le2_exact()`, which is what the statistics themselves use. It is a transcription for the reader; if the exact computation ever moved, this field would not follow it. `results.json`'s `statistics.r_kw` *is* computed, and is a float. |
@@ -490,10 +490,10 @@ that "same seed root ⇒ byte-identical `header.json`" stays a testable property
 | `gates.h_a_kw_satisfies_every_raw_template` | `all(...)` over King Wen's clause vector against the **raw template bank**, all `b_raw` instances — the identical computation `bank.json` records as `h_a_kw_satisfies_all`. It inspects **no drawn predicate**: that every drawn predicate holds on King Wen is a *consequence* (a predicate is a conjunction of admitted bank clauses, each instantiated at the value King Wen exhibits, and the admitted clauses are a subset of the raw bank), not something this field checked. The raw bank is kept, rather than narrowed to the admitted subset, because it is the stronger check: a raw template King Wen fails is an implementation defect even if the band would have dropped it. It is re-evaluated here rather than copied, so that a `--tr8-dof-merge`, which never runs the sampler's own pre-flight check, cannot report a gate it did not execute. *(Renamed 2026-09-25, Q-451: until then the key was `h_a_kw_satisfies_every_predicate`, a name wider than the measurement; the value and its computation are unchanged, and no recorded run exists.)* |
 | `gates.h_b_observed` | The H-b count over the whole measurement: draws with `rc4_violations <= 2`, summed across the shards that were merged. Same quantity as the shards' `hb_hits`, aggregated. |
 | `gates.h_b_expected` | The **expected** H-b count under the exact closed form: `pair_null_gender_le2_exact() × draws_used`. A real-valued expectation, not a rounded count, and computed from the exact fraction rather than from `header.r_kw`. |
-| `gates.h_b_sigma` | The Poisson standard deviation of that expectation, `sqrt(h_b_expected)` — a spread of the **expected** count, not a dispersion measured from the pool. ⚠ It is a **hard `0.0` when the expectation is not positive**, which is a placeholder rather than a measurement; at that point the tolerance below collapses to its `+3` floor. |
-| `gates.h_b_null_calibration` | The H-b verdict: `\|h_b_observed − h_b_expected\| <= 5 × h_b_sigma + 3`. The `+3` is an integer-continuity floor, not a fitted slack, and the whole band is frozen in the pre-registration rather than chosen after seeing the pool. ⚠ The gate is **weak by construction at small pool sizes**, where the floor is a large share of the band; at the default `n_pool` it contributes under 2%. `false` forces the verdict to `INCONCLUSIVE`. |
+| `gates.h_b_sigma` | The **binomial** standard deviation of that expectation, `sqrt(draws_used · p · (1 − p))` with p = 47/445740 — a spread of the **expected** count, not a dispersion measured from the pool. ⚠ *Corrected 2026-10-03 (CX-279): until then this was the Poisson `sqrt(h_b_expected)`, hard `0.0` at a non-positive expectation, and the row said so; the two differ by `sqrt(1 − p)`, under 0.01% here. The inclusive integer band is now written beside it as `gates.h_b_band` (§"TR-8 sampler — CX-279 additions").* |
+| `gates.h_b_null_calibration` | The H-b verdict: `\|h_b_observed − h_b_expected\| <= 4 × h_b_sigma`, the pre-registration's frozen 4σ binomial bar. ⚠ *Corrected 2026-10-03 (CX-279): until then the code applied `<= 5 × h_b_sigma + 3` with a Poisson σ, and this row described that wider band as "frozen in the pre-registration"; it was not — the registration's band is the one here.* The gate is **weak by construction at small pool sizes**. `false` forces the verdict to `INCONCLUSIVE`. |
 | `gates.h_b_note` | A **constant explanatory string**, not a measurement — it restates the band and the exact probability for a reader of the file. ⚠ The probability inside it is a separately hard-coded fraction, not rendered from the value `h_b_expected` was computed with, so it is documentation embedded in data and carries no attestation. |
-| `verdict_reason` | The one-sentence justification for `verdict`. When both sanity gates pass it is the frozen decision rule's own sentence, read at **K = 16 only** and describing where that rung's `f_hat` confidence interval sits relative to the 0.05 and 0.95 bars. When a gate fails it is overwritten by that gate's name. 🔴 **The overwrites are ordered: H-a first, then H-b.** If both gates fail, this field names H-b and the H-a failure is invisible here — read `gates.h_a_kw_satisfies_every_raw_template` for it, never this string. |
+| `verdict_reason` | The one-sentence justification for `verdict` (**D1**; since 2026-10-03, CX-279, read from the Clopper–Pearson interval only, never from the median's censoring, which is the separate `d2_k16` — §"TR-8 sampler — CX-279 additions"). When every gate passes it is the frozen decision rule's own sentence, read at **K = 16 only** and describing where that rung's `f_hat` confidence interval sits relative to the 0.05 and 0.95 bars. When a gate fails it is overwritten by that gate's name. 🔴 **The overwrites are ordered: H-a first, then H-b, then the bank floor, then `b_raw`.** If several gates fail, this field names the last and the earlier failures are invisible here — read the `gates` object for them, never this string. |
 | `geometric_mean_admitted_marginal` | The geometric mean of the **admitted** instances' calibration marginals — measured on the bank-calibration pool, not on the measurement pool, so it does not move with `n_pool`. It is a summary of how central the admitted bank is inside `admission_band`. Two edge behaviours: instances with a non-positive marginal are **dropped from the mean rather than counted**, and an empty input returns a literal `0.0` rather than null. Neither can arise while the band excludes zero, so both are defensive. |
 
 ## BRANCH-YIELD REPORTING
@@ -1685,3 +1685,76 @@ python3 solve.py --r7-palace-sweep [N] [--r7-seed S]
 |---|---|
 | `--c1-constants-check` | The numerical half of `lean/C1RuleConstants.lean`'s transcription bridge, as a shipped command. Drives this file's own `reg_*` for the eight rules that file proves constant on the C1 space (mmt4, p1c4, s1, s6, r3, r4, r5, c2) over 5,455 C1-valid orderings — KW and 6 seeded random C1 bases, each with its 32 single-pair flips, 31 adjacent pair-slot transpositions and full reversal (455), plus 5,000 seeded random C1 orderings — and requires every value and its type to equal `REGISTRY_KW_EXPECTED`. Controls: 200 random non-C1 permutations must each deviate on at least one rule, and a cross-pair mis-reading of r4 (a rule that does not factor through the pair partition) must be caught. Deterministic, seed 944; about 9 CPU-s. Prints `TOTAL_SEQUENCES`, `SEQUENCES_WITH_DEVIATION`, `PER_RULE_DEVIATIONS`, `POSITIVE_CONTROL_DEVIATING`, `MUTANT_CROSS_PAIR_R4_CAUGHT_ON` and `C1_CONSTANTS_CHECK=PASS\|FAIL`; exit 0 on PASS, 1 otherwise. Measured 2026-10-02: 0 deviations, 200/200, 4,857/5,455, PASS. It checks the transcription on samples; it is not a proof of it. |
 | `--r7-palace-sweep [N]` | R7 FC-1: how far the Jing Fang leg of the FC-1 broken-instrument gate moves under the other palace orders. Evaluates every one of the 8! = 40,320 palace orders with the R7 machinery unchanged (`_r7_W`, the 11 `_R7_OBSERVABLES`, `_r7_uniform_nulls(N, seed)`, and the EXTREME rule of `_r7_l0_extreme_counts`), after checking that its percentile reproduces `_r7_l0_extreme_counts` on the attested order. `N` defaults to 10⁴ (the `--r7-verify` pilot null); the seed is `--r7-seed` (default 42). Exact over the 40,320 orders for that seeded null; the published FC-1 figures are at N = 10⁶ (`--r7-corpus`). About 15 CPU-s at N = 10⁴. Prints `CANONICAL_JF_EXTREME_COUNT`, `EXTREME_COUNT_HISTOGRAM`, `ORDERS_AT_CANONICAL_COUNT`, `ORDERS_BELOW_FC1_GATE_8`, `DIFFWAVE_REPRODUCING_ORDERS`, `DIFFWAVE_ORDERS_HISTOGRAM`, `DIFFWAVE_ORDERS_BELOW_FC1_GATE_8`, `MIN_EXTREME_COUNT`, `MAX_EXTREME_COUNT` and `FC1_PALACE_SWEEP=DONE\|FAIL`; exit 0 on DONE, 1 on FAIL (N < 1, or the percentile cross-check disagrees). Measured 2026-10-02 at N = 10⁴, seed 42: histogram 5:934, 6:6594, 7:13978, 8:14466, 9:4348; 21,506 orders below the gate of 8; 114 of the 1,152 diff-wave-preserving orders below it. See [CRITIQUE.md](CRITIQUE.md) "Specificity, measured three ways". |
+
+## TR-8 SAMPLER — CX-279 ADDITIONS (2026-10-03, Q-932)
+
+Added 2026-10-03, before the sampler's recorded run and before any frozen seed was consumed,
+so that the public instrument computes exactly what the frozen pre-registration (escrowed
+digest `4b307f07…`, [PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md)) says. The six
+divergences this closes are itemised in [CORRECTIONS.md](CORRECTIONS.md) CX-279 and in the
+public pre-run addendum
+[PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md](PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md).
+This section is appended here, rather than woven into the sections above, so that no line of
+this document cited elsewhere moves; the rows above carry same-line dated notes pointing here.
+
+### `--tr8-dof-replicate B_DIR` — the pool-B replication gate
+
+| Flag | Description |
+|---|---|
+| `--tr8-dof-replicate B_DIR` | With `--tr8-dof-merge OUT_DIR` (pool A): after the merge, apply the pre-registered **pool-B replication gate** against the already-merged pool B in `B_DIR` — PASS iff `\|F̂_A(16) − F̂_B(16)\| ≤ 0.05`, decided in exact rationals on the raw counts, **and** the two pools' D1 verdicts are identical — and write `OUT_DIR/replication.json`. Refuses a `B_DIR` that has not been merged (no `results.json`), two pools whose headers disagree on any frozen parameter or on `admitted_bank_sha256`, and directories whose headers are not pool `A` and pool `B`. Alone, without `--tr8-dof-merge`, it is refused by name (the merge directory would otherwise be `None`). The merge's own exit status is unchanged by the gate: a failed gate is a finding written to the file, not an error. |
+
+Order of operations for a recorded run: merge pool B (`--tr8-dof-merge B_DIR`), then merge
+pool A with the gate (`--tr8-dof-merge A_DIR --tr8-dof-replicate B_DIR`). Pool A is the
+reported pool; pool B is never substituted for it (pre-registration §3.5).
+
+### `replication.json` — the governing verdict
+
+| Key | Invariant |
+|---|---|
+| `pool_a_dir`, `pool_b_dir`, `k_head` | The two directories as given on the command line (A first), and the headline K the gate was read at (`16`; the registration's K_primary). Provenance fields, so the file says which pools and which rung it compares. |
+| `x16_a`, `x16_b`, `f16_a`, `f16_b` | The raw counts `f_hat_x` and the fractions `f_hat` at K = 16 of the two pools, copied from their `results.json`. |
+| `abs_diff_f16`, `tolerance` | `\|F̂_A − F̂_B\|` as a float of the exact rational difference, and the frozen tolerance `0.05`. The comparison itself is done on the rationals, not on this float. |
+| `d1_a`, `d1_b`, `d1_a_reason`, `d1_b_reason` | Each pool's own `verdict` and `verdict_reason` — D1 after that pool's own H-a, H-b and bank gates. |
+| `gate_pass` | `true` iff the rational difference is ≤ 0.05 **and** `d1_a == d1_b`. |
+| `governing_d1_k16` | **The verdict a writeup may cite:** `d1_a` when `gate_pass` is `true`, else `INCONCLUSIVE`. Disagreement between the pools is a finding and is never resolved by choosing a pool. |
+| `d2_k16` | Pool A's D2 (`CENSORED` / `UNCENSORED`), copied so the file is self-contained. |
+| `s6_outcome` | The pre-registration's §6 meaning assignment: `REFILLED` iff `gate_pass` and `governing_d1_k16` is `BULK`, `TAIL-EXTREME` or `COMMON`; otherwise `STAYS_WITHDRAWN`. The H-a, H-b and bank gates are already folded into `d1_a`, so this one field is the whole §6.1 conjunction. |
+| `withdrawn_6e-5_figure` | The constant `NEVER_REINSTATED`: no outcome of this instrument reinstates TR-8's withdrawn ~6×10⁻⁵ median (CX-27). |
+
+### New and changed `results.json` keys
+
+| Key | Invariant |
+|---|---|
+| `statistics.h_threshold` | `H = floor(draws_used · 47/445740)`, the integer threshold of the rarity comparison: a predicate counts toward `f_hat_x` iff its summed `hits <= H` (1054 at 10⁷; 527 at 5×10⁶; 210 at 2×10⁶; 105 at 10⁶). Until CX-279 the comparison was the float test `hits / n_pool <= float(47/445740)`, which agrees at 10⁷ but is not the registered definition. |
+| `gates.h_b_band` | The inclusive integer band `[ceil(E − 4σ), floor(E + 4σ)]` the H-b gate applies — `[925, 1184]` at `draws_used` = 10⁷ — written so a reader can check `gates.h_b_null_calibration` against `gates.h_b_observed` by eye. `gates.h_b_sigma` is now the binomial σ and the band is the registration's; the superseded `5σ + 3` Poisson band is recorded in the two rows above and in CX-279. |
+| `gates.b_raw_eq_319`, `gates.b_admitted_ge_floor` | The pre-registration's two bank gates, re-evaluated from the header: `b_raw == 319` and `b_admitted >= 120`. Either `false` forces `verdict` to `INCONCLUSIVE`. The sampler itself refuses to draw a pool below the floor (below), so the second can be `false` only in a merge of shards produced some other way. |
+| `verdict` | **D1**, read from the Clopper–Pearson interval of `f_hat` at K = 16 **only** — `BULK`, `TAIL-EXTREME`, `COMMON` or `INCONCLUSIVE` — and at `n_pred` = 1000 cross-checked against the registration's raw-count column (BULK 65–935, TAIL-EXTREME ≤ 36, COMMON ≥ 964, INCONCLUSIVE otherwise); a disagreement is an implementation bug and the merge **halts** with `IMPLEMENTATION_BUG` on stderr rather than writing a verdict. Until CX-279 a censored K = 16 median forced this field to `INCONCLUSIVE`, which the registration forbids: D1 is censoring-immune by design. |
+| `d2_k16` | **D2**, the median deliverable at K = 16: `UNCENSORED` (fewer than half the predicates have zero hits; the median is a point estimate with its order-statistic CI) or `CENSORED` (at least half have zero hits; the median is reportable only as the bound `< 1/draws_used`). It never alters `verdict`. `null` when 16 is not in the ladder. |
+| `ensemble_context` | Per K (decimal-string keys): `mean_pairwise_clause_overlap` — the mean of `\|P ∩ Q\|` over all C(`n_pred`, 2) unordered predicate pairs, computed exactly from per-clause draw counts; `expected_overlap_k2_over_b` — the K²/`b_admitted` reference the registration cites beside its abort floor; `family_composition` — clause slots per family across the drawn predicates, summing to K · `n_pred`. Rebuilt from the frozen `predicates/K-<K>` seeds and the admitted bank, so a merge reports it without the shard files carrying it. |
+
+`RESULTS.md` gains the same facts in prose: H, the 4σ band beside the H-b line, the bank gates,
+an ensemble-context table, and a final line that states D1 and D2 side by side.
+
+### The bank floor, and two clause templates re-stated
+
+- **`B_admitted < 120` halts before any pool draw.** `--tr8-dof-sampler` writes `bank.json`
+  (shard 0 and whole-pool runs; other shards write nothing, so no file is torn) and exits with
+  `--tr8-dof-sampler: B_ADMITTED_BELOW_FLOOR: …` on stderr, rc 1, having drawn no predicate and
+  no pool. `--tr8-dof-emit-bank` prints and writes the bank as before and exits **5**. Nothing is
+  widened, lowered or re-banded to fit: a thinner bank needs a new dated pre-registration.
+- **Family E** is the registration's three-valued `sign(popcount(σ[2s]) − popcount(σ[2s−1]))`
+  per slot (later minus earlier), compared by equality with King Wen's value. Until CX-279 the
+  code computed the boolean `earlier ≤ later`. Both readings are degenerate under the pair-only
+  null (the 28 reversal pairs tie), so no instance was ever admitted either way; the registered
+  clause is the one the code now computes, and `bank.json`'s E templates read accordingly.
+- **Instance I3** is the registration's `sign(Σ_{t=1}^{62} (d_t − d̄)(d_{t+1} − d̄))` over the 63
+  seam distances, compared by **equality** (it is a sign in {−1, 0, +1}), computed exactly in
+  integers; its template reads `dist_autocorr_lag1_sign == v`. Until CX-279 the slot held the
+  raw product sum `Σ d_t·d_{t+1}` compared with `>=`, a different clause with a different
+  comparator; it was never admitted on any throwaway calibration. Family I's comparators are
+  therefore per instance (`I1`, `I2`, `I4`, `I5` ≥; `I3` ==), exactly as the registration's
+  family-I table pins them.
+
+Every item above is pinned by `tests.py::TestTr8PreregConformanceQ932` (ten tests, each red on
+the previous code) and by the re-pinned `TestHbBandIsDescribedAsImplemented`; the smoke example
+in §EXAMPLES is unchanged and remains an instrument test, not a result.

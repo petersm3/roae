@@ -288,9 +288,9 @@ _TR8_FAMILY_SIZES = (("A", 36), ("B", 64), ("C", 32), ("D", 63), ("E", 32),
                      ("F", 15), ("G", 8), ("H", 64), ("I", 5))
 TR8_B_RAW = sum(n for _f, n in _TR8_FAMILY_SIZES)          # 319
 
-# Family I's five global statistics, in bank order.
+# Family I's five global statistics, in bank order; comparator PER INSTANCE in _TR8_GLOBAL_CMPS.
 _TR8_GLOBAL_NAMES = ("shared_trigram_adjacencies", "par_switch",
-                     "dist_autocorr_lag1", "five_line_transitions",
+                     "dist_autocorr_lag1_sign", "five_line_transitions",   # I3: a sign, EQ (CX-279)
                      "distinct_within_pair_xor")
 
 _TR8_KW_FEATURES_CACHE = None
@@ -298,15 +298,15 @@ _TR8_R_KW_CACHE = None
 
 
 def tr8_r_kw():
-    """King Wen's comparator rarity as a float: pair_null_gender_le2_exact() = 47/445740.
+    """King Wen's comparator rarity as a float, for PRINTING: float(47/445740).
 
-    Cached because the exact Fraction DP behind it costs several seconds per call and the
-    sampler needs the same constant in two places; the closed form itself is unchanged and is
-    still what is quoted in the run header (as the exact rational, not this float)."""
-    global _TR8_R_KW_CACHE
-    if _TR8_R_KW_CACHE is None:
-        _TR8_R_KW_CACHE = float(pair_null_gender_le2_exact())
-    return _TR8_R_KW_CACHE
+    The exact rational is tr8_r_kw_exact() (end of this file), cached because the Fraction DP
+    behind it costs several seconds per call. Since 2026-10-03 (CX-279) the §3.4 threshold H and
+    the §3.5 H-b band are derived from the exact rational (tr8_h_threshold, tr8_hb_band), never
+    from this float; the closed form itself is unchanged and is still what the run header quotes
+    as the exact rational. Until then this float was the classification comparator itself
+    (hits/N_pool <= float), which agreed with the integer test at 10^7 but was not the rule."""
+    return float(tr8_r_kw_exact())
 
 
 def pair_null_draw(rng, pairs=None):
@@ -355,8 +355,8 @@ def _tr8_features(seq):
     parity = [PC[h] & 1 for h in seq]                              # B
     pairdist = [d[2 * s] for s in range(32)]                       # C
     seampar = [x & 1 for x in d]                                   # D
-    orient = [1 if PC[seq[2 * s]] <= PC[seq[2 * s + 1]] else 0     # E
-              for s in range(32)]
+    orient = [(PC[seq[2 * s + 1]] > PC[seq[2 * s]]) - (PC[seq[2 * s + 1]] < PC[seq[2 * s]])
+              for s in range(32)]              # E: sign(later − earlier), §3.3(i) verbatim (CX-279)
 
     yangsign = []                                                  # F
     run = 0
@@ -374,7 +374,7 @@ def _tr8_features(seq):
             if _TR8_UPTRI[seq[i]] == _TR8_UPTRI[seq[i + 1]]
             or _TR8_LOTRI[seq[i]] == _TR8_LOTRI[seq[i + 1]]),
         sum(1 for i in range(62) if seampar[i] != seampar[i + 1]),
-        sum(d[i] * d[i + 1] for i in range(62)),
+        _tr8_i3_sign(d),          # I3: SIGN of the lag-1 autocovariance, §3.3(i) verbatim (CX-279)
         sum(1 for x in d if x == 5),
         len({seq[2 * s] ^ seq[2 * s + 1] for s in range(32)}),
     ]
@@ -417,7 +417,7 @@ def tr8_clause_bank():
                      "parity of seam distance %d == %d" % (t + 1, seampar[t])))
     for s in range(32):
         bank.append(("E", s + 1, "eq",
-                     "orientation relation (earlier popcount <= later) at slot %d == %d"
+                     "sign(popcount(later) - popcount(earlier)) at slot %d == %d"
                      % (s + 1, orient[s])))
     for p in range(15):
         bank.append(("F", 4 * (p + 1), "eq",
@@ -430,9 +430,9 @@ def tr8_clause_bank():
         bank.append(("H", j + 1, "eq",
                      "lower-trigram yang-majority class at position %d == %d"
                      % (j + 1, lomaj[j])))
-    for g in range(5):
-        bank.append(("I", g + 1, "ge",
-                     "%s >= %d" % (_TR8_GLOBAL_NAMES[g], glob[g])))
+    for g in range(5):                       # family I: comparator per instance; I3 is EQ (CX-279)
+        bank.append(("I", g + 1, _TR8_GLOBAL_CMPS[g],
+                     "%s %s %d" % (_TR8_GLOBAL_NAMES[g], _TR8_GLOBAL_OPS[g], glob[g])))
     if len(bank) != TR8_B_RAW:
         raise AssertionError("clause bank is %d instances, expected B_raw = %d"
                              % (len(bank), TR8_B_RAW))
@@ -455,8 +455,8 @@ def tr8_clause_values(seq, kw=None):
     v.extend([1 if a[i] >= b[i] else 0 for i in range(len(b))])
     a, b = f[7], kw[7]                       # family H — equality
     v.extend([1 if a[i] == b[i] else 0 for i in range(len(b))])
-    a, b = f[8], kw[8]                       # family I — same side as KW (>=)
-    v.extend([1 if a[i] >= b[i] else 0 for i in range(len(b))])
+    a, b = f[8], kw[8]                       # family I — per-instance comparator (CX-279)
+    v.extend(_tr8_family_i_values(a, b))
     return v
 
 
@@ -675,8 +675,8 @@ def tr8_statistics(hits_by_k, n_pool, n_pred_by_k, alpha=0.05):
              the median specifically, so it ships regardless — but it is reportable only while
              fewer than half the predicates are censored, and this function says so rather than
              printing a number that is really a bound."""
-    r_kw = tr8_r_kw()
-    out = {"r_kw": r_kw, "n_pool": n_pool, "alpha": alpha, "by_k": {}}
+    r_kw, H = tr8_r_kw(), tr8_h_threshold(n_pool)       # §3.4: H = floor(N_pool · 47/445740)
+    out = {"r_kw": r_kw, "n_pool": n_pool, "h_threshold": H, "alpha": alpha, "by_k": {}}
     for k in sorted(hits_by_k):
         h = hits_by_k[k]
         n_pred = n_pred_by_k[k]
@@ -684,7 +684,7 @@ def tr8_statistics(hits_by_k, n_pool, n_pred_by_k, alpha=0.05):
             raise AssertionError("K=%d: %d hit rows for %d predicates" % (k, len(h), n_pred))
         r = sorted(x / n_pool for x in h)
         n_cens = sum(1 for x in h if x == 0)
-        x = sum(1 for v in r if v <= r_kw)
+        x = sum(1 for v in h if v <= H)      # §3.4: the INTEGER test hits <= H (CX-279; was a float rate)
         f_hat = x / n_pred
         f_lo, f_hi = tr8_clopper_pearson(x, n_pred, alpha)
         L, U = tr8_median_ci_ranks(n_pred, alpha)
@@ -708,23 +708,23 @@ def tr8_statistics(hits_by_k, n_pool, n_pred_by_k, alpha=0.05):
 
 
 def tr8_verdict(stats, k_head=16):
-    """The frozen decision rule (pre-registration §3.5), applied at the headline K.
+    """The frozen decision rule (pre-registration §3.5 D1), on F_hat at the headline K.
 
-    BULK / TAIL-EXTREME / COMMON / INCONCLUSIVE. A verdict is only meaningful under a FROZEN
-    registration; this function computes it, it does not authorize publishing it."""
+    BULK / TAIL-EXTREME / COMMON / INCONCLUSIVE from the Clopper-Pearson interval ONLY: the
+    median's censoring is the separate deliverable D2 and never alters D1 (until 2026-10-03,
+    CX-279, a censored K = 16 median forced INCONCLUSIVE here, which §3.5 forbids). At N_pred =
+    1000 _tr8_d1_check (end of file) HALTS on any disagreement with §3.5's raw-count column."""
     d = stats["by_k"].get(k_head)
     if d is None:
         return ("INCONCLUSIVE", "K=%d not in the ladder" % k_head)
     lo, hi = d["f_ci"]
-    if d["median_censored"]:
-        return ("INCONCLUSIVE", "the median is censored at 1/N_pool")
     if lo >= 0.05 and hi <= 0.95:
-        return ("BULK", "CI(F_hat) is inside [0.05, 0.95]")
+        return _tr8_d1_check(d, k_head, "BULK", "CI(F_hat) is inside [0.05, 0.95]")
     if hi < 0.05:
-        return ("TAIL-EXTREME", "CI(F_hat) lies entirely below 0.05")
+        return _tr8_d1_check(d, k_head, "TAIL-EXTREME", "CI(F_hat) lies entirely below 0.05")
     if lo > 0.95:
-        return ("COMMON", "CI(F_hat) lies entirely above 0.95")
-    return ("INCONCLUSIVE", "CI(F_hat) straddles a bar")
+        return _tr8_d1_check(d, k_head, "COMMON", "CI(F_hat) lies entirely above 0.95")
+    return _tr8_d1_check(d, k_head, "INCONCLUSIVE", "CI(F_hat) straddles a bar")
 
 
 # --- driver -----------------------------------------------------------------------------
@@ -845,15 +845,14 @@ def tr8_emit_bank(seed_root=TR8_DEFAULT_SEED_ROOT, calib_draws=100000,
         os.makedirs(out_dir, exist_ok=True)
         tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted, hits)
         print("  wrote %s" % os.path.join(out_dir, "bank.json"))
-    return 0 if ha else 1
+    return _tr8_bank_exit(ha, len(admitted))   # 1 = H-a failed; 5 = below the §3.3(ii) floor
 
 
 def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
                     n_pool=10000000, n_pred=1000, klist=TR8_DEFAULT_K_LADDER,
                     shard=None, n_shards=8, calib_draws=100000,
                     band=TR8_ADMISSION_BAND, quiet=False):
-    """Run the dof-matched sampler. Terminal command.
-
+    """Run the dof-matched sampler. Terminal command. Halts below the §3.3(ii) floor (CX-279).
     With no --tr8-dof-shard the whole pool is run in this process, shard by shard in index order,
     and the statistics are computed. With --tr8-dof-shard I only shard I runs and its per-
     predicate hit counts are written for a later --tr8-dof-merge; hits are ADDITIVE across shards
@@ -887,6 +886,7 @@ def tr8_dof_sampler(out_dir, seed_root=TR8_DEFAULT_SEED_ROOT, pool="A",
                              "first-order implementation finding, not a result" % bad[:8])
     header = _tr8_header(seed_root, pool, n_pool, n_shards, n_pred, klist, calib_draws,
                          band, bank, marg, admitted)
+    _tr8_floor_halt(out_dir, shard, seed_root, calib_draws, band, bank, marg, admitted, bhits)
     ensembles = {k: tr8_predicate_ensemble(header["seeds"]["predicates/K-%d" % k],
                                            n_pred, k, len(admitted)) for k in klist}
 
@@ -950,12 +950,12 @@ def tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitt
                             for i in range(len(bank))]}, f, indent=1, sort_keys=True)
 
 
-def tr8_dof_merge(out_dir, quiet=False):
+def tr8_dof_merge(out_dir, quiet=False, replicate=None):
     """Sum the per-shard hit files in OUT_DIR and compute the statistics. Terminal command.
-
-    Refuses to merge shards whose headers disagree (different seed root, pool, bank or ladder) and
-    refuses a merge that is missing a shard — a partial pool is a different pool, and silently
-    reporting one would be the exact failure this project's canonical gates exist to prevent."""
+    `replicate` = the directory of an already-merged pool B: the §3.5 pool-B replication gate is
+    then applied by tr8_replication_gate (end of file; CX-279) and OUT_DIR/replication.json gets
+    the GOVERNING K = 16 verdict. Refuses to merge shards whose headers disagree and refuses a
+    merge that is missing a shard — a partial pool is a different pool, silently reported."""
     import json
     import hashlib   # R12b #8(b): the bank-digest recomputation below needs it
     # This mode's refusal vocabulary is SystemExit("<message>") -- the message on stderr,
@@ -965,7 +965,7 @@ def tr8_dof_merge(out_dir, quiet=False):
     # #9). Each guard is narrow: the OSError/ValueError of one open+parse, the KeyError of
     # one field read. There is no KEY=value token in this mode; none is coined.
     try:
-        entries = os.listdir(out_dir)
+        entries = os.listdir(_tr8_merge_dir(out_dir))   # None (lone --tr8-dof-replicate) refused
     except OSError as e:
         raise SystemExit("cannot read OUT_DIR %s (%s) — nothing to merge"
                          % (out_dir, e.strerror or e))
@@ -1039,7 +1039,7 @@ def tr8_dof_merge(out_dir, quiet=False):
     # marginal could be edited in place, its shape preserved, and the merge would
     # still exit 0 while reporting stale labels. A digest that is written and never
     # checked is decoration. Recomputed here with the SAME expression that produced
-    # it (solve.py:755-757), so the two cannot drift apart silently.
+    # it (_tr8_header's bank_digest), so the two cannot drift apart silently.
     _recomputed = hashlib.sha256(
         "\n".join("%s%d|%s|%s|%.6f" % (bank[i][0], bank[i][1], bank[i][2], bank[i][3], marg[i])
                    for i in admitted).encode("utf-8")).hexdigest()
@@ -1048,8 +1048,8 @@ def tr8_dof_merge(out_dir, quiet=False):
         raise SystemExit("bank.json does not match the run header: admitted_bank_sha256 declared "
                          "%s, recomputed %s — refusing to merge against a bank that has changed "
                          "since the shards were drawn (%s)" % (_declared, _recomputed, out_dir))
-    return _tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
-                       header["n_pred"], marg, admitted, bank, quiet)
+    return _tr8_merge_tail(_tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
+                                       header["n_pred"], marg, admitted, bank, quiet), out_dir, replicate, quiet)
 
 
 def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted, bank, quiet):
@@ -1057,19 +1057,16 @@ def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted,
     import json
     from fractions import Fraction
     stats = tr8_statistics(hits, drawn, {k: n_pred for k in klist})
-    p_exact = tr8_r_kw()
-    exp_hb = p_exact * drawn
-    # H-b: the pool's own rate of rc4_violations <= 2 against the exact closed form. Poisson
-    # error at the pool size; the frozen tolerance is |observed - expected| <= 5*sigma + 3 --
-    # five Poisson sigma PLUS a 3-count integer-continuity floor -- and is stated, not tuned
-    # after the fact. At small pool sizes this gate is weak by construction and says so.
-    # (Corrected 2026-09-02, code batch C3: this comment and the h_b_note below both read
-    # "5 sigma", two lines above the "+ 3.0" they were describing. SOLVE_PY_CLI.md has
-    # carried the full band since it was written; only the code understated it.)
-    import math
-    sigma = math.sqrt(exp_hb) if exp_hb > 0 else 0.0
-    hb_ok = abs(hb - exp_hb) <= 5.0 * sigma + 3.0
+    exp_hb, sigma, hb_lo, hb_hi = tr8_hb_band(drawn)
+    # H-b: the pool's own rate of rc4_violations <= 2 against the exact closed form, under the
+    # pre-registration's §3.5 bar: a 4-sigma BINOMIAL band, sigma = sqrt(E · (1 − p)) with
+    # p = 47/445740 — [925, 1184] at N_pool = 10^7 (tr8_hb_band, end of file). Stated, not
+    # tuned. (Until 2026-10-03, CX-279, the code applied |observed − expected| <= 5·sigma + 3
+    # with a Poisson sigma — WIDER than the frozen band: n_le2 in 889..924 or 1185..1219 at
+    # 10^7 passed here and failed the registration. SOLVE_PY_CLI.md carries both histories.)
+    hb_ok = abs(hb - exp_hb) <= 4.0 * sigma
     verdict, why = tr8_verdict(stats)
+    d2 = _tr8_d2(stats)                 # D2 is reported BESIDE D1 and never alters it (§3.5)
     # H-a is EVALUATED here, not asserted from elsewhere: --tr8-dof-merge reaches this function
     # without going through the sampler's own pre-run check, and a gate reported as PASS on a
     # path that never ran it is a false attestation.
@@ -1078,16 +1075,19 @@ def _tr8_finish(out_dir, header, hits, hb, drawn, klist, n_pred, marg, admitted,
     if not ha_ok:
         verdict, why = "INCONCLUSIVE", "sanity gate H-a (KW satisfies every clause) FAILED"
     gates = {"h_a_kw_satisfies_every_raw_template": ha_ok,
-             "h_b_null_calibration": hb_ok,
+             "h_b_null_calibration": hb_ok, "h_b_band": [hb_lo, hb_hi],
              "h_b_observed": hb, "h_b_expected": exp_hb,
-             "h_b_sigma": sigma,
-             "h_b_note": "band |observed-expected| <= 5*sigma + 3 (Poisson sigma "
-                         "plus a 3-count integer-continuity floor) on "
+             "h_b_sigma": sigma, "b_raw_eq_319": header["b_raw"] == TR8_B_RAW,
+             "b_admitted_ge_floor": header["b_admitted"] >= TR8_B_ADMIT_FLOOR,
+             "h_b_note": "band |observed-expected| <= 4*sigma (binomial sigma, "
+                         "sqrt(N_pool*p*(1-p)); the pre-registration's §3.5 bar) on "
                          "P(rc4_violations<=2) = %s" % Fraction(47, 445740)}
     if not hb_ok:
         verdict, why = "INCONCLUSIVE", "sanity gate H-b (null calibration) FAILED"
-    res = {"header": header, "gates": gates, "statistics": stats,
-           "verdict": verdict, "verdict_reason": why,
+    verdict, why = _tr8_bank_gate_override(gates, header, verdict, why)
+    res = {"header": header, "gates": gates, "statistics": stats, "d2_k16": d2,
+           "verdict": verdict, "verdict_reason": why, "ensemble_context":
+           tr8_ensemble_context(header["seed_root"], klist, n_pred, admitted, bank),
            "geometric_mean_admitted_marginal": _tr8_geomean([marg[i] for i in admitted]),
            "draws_used": drawn}
     with open(os.path.join(out_dir, "results.json"), "w", encoding="utf-8") as f:
@@ -1144,10 +1144,10 @@ def _tr8_results_md(res, bank, admitted, marg):
     L.append("- **H-a** (King Wen satisfies every raw template clause, so every drawn predicate): **%s**"
              % ("PASS" if g["h_a_kw_satisfies_every_raw_template"] else "FAIL"))
     L.append("- **H-b** (the pool reproduces the exact pair-null gender rate): **%s** — "
-             "observed %d, expected %.2f, sigma %.2f"
-             % ("PASS" if g["h_b_null_calibration"] else "FAIL",
-                g["h_b_observed"], g["h_b_expected"], g["h_b_sigma"]))
-    L.append("")
+             "observed %d, expected %.2f, binomial sigma %.2f, 4-sigma band [%d, %d]"
+             % ("PASS" if g["h_b_null_calibration"] else "FAIL", g["h_b_observed"],
+                g["h_b_expected"], g["h_b_sigma"], g["h_b_band"][0], g["h_b_band"][1]))
+    L.extend(_tr8_results_md_bank_gates(g))
     L.append("## Statistics")
     L.append("")
     L.append("`F_hat` = fraction of drawn predicates at least as rare as King Wen "
@@ -1176,8 +1176,8 @@ def _tr8_results_md(res, bank, admitted, marg):
             cells.append("cens" if not v else "%.2f" % math.log10(v))
         L.append("| %d | " % k + " | ".join(cells) + " |")
     L.append("")
-    L.append("**Verdict (pre-registered rule, headline K = 16): %s** — %s"
-             % (res["verdict"], res["verdict_reason"]))
+    # H, the §3.4 ensemble context, and D1 beside D2 (CX-279; helper at the end of the file).
+    L.extend(_tr8_results_md_context(res))
     L.append("")
     L.append("## Admitted clause bank")
     L.append("")
@@ -18186,6 +18186,10 @@ def main():
     parser.add_argument("--tr8-dof-merge", metavar="OUT_DIR",
                         help="TR-8 sampler: merge the per-shard hit files in OUT_DIR and "
                              "compute the statistics (terminal command)")
+    parser.add_argument("--tr8-dof-replicate", metavar="B_DIR",
+                        help="TR-8 sampler, with --tr8-dof-merge OUT_DIR (pool A): apply the "
+                             "pre-registered pool-B replication gate against the already-merged "
+                             "pool B in B_DIR; writes OUT_DIR/replication.json (CX-279)")
     parser.add_argument("--tr8-dof-selftest", action="store_true",
                         help="TR-8 sampler: run the four instrument self-tests (bank integrity, "
                              "H-a, H-b null calibration, determinism + shard/merge equivalence)")
@@ -18708,8 +18712,8 @@ def main():
                                calib_draws=args.tr8_dof_calib_draws,
                                out_dir=args.tr8_dof_sampler))
 
-    if args.tr8_dof_merge:
-        sys.exit(tr8_dof_merge(args.tr8_dof_merge))
+    if args.tr8_dof_merge or args.tr8_dof_replicate:
+        sys.exit(tr8_dof_merge(args.tr8_dof_merge, replicate=args.tr8_dof_replicate))
 
     if args.tr8_dof_sampler:
         try:
@@ -19555,6 +19559,279 @@ def r7_palace_sweep(n=10_000, seed=42):
     print(f"MAX_EXTREME_COUNT={max(hist)}")
     print("FC1_PALACE_SWEEP=DONE")
     return 0
+
+
+# --- TR-8 dof-matched sampler: conformance to the FROZEN pre-registration (CX-279, Q-932) -------
+# Everything below was added 2026-10-03, BEFORE the sampler's recorded run and before any frozen
+# seed was consumed, to make the public instrument compute exactly what the escrowed registration
+# (sha256 4b307f07…) says: the §3.3(i) extractors for family E and instance I3, the §3.4 integer
+# threshold H, the §3.5 4-sigma binomial H-b bar, the raw-count cross-check, the separation of
+# D1 from D2, the §3.3(ii) abort floor, the §3.4 ensemble context and the §3.5 pool-B gate.
+# Defined here, at the end of the file (the _atlas_gate_vocab_check precedent), so that no
+# solve.py line cited elsewhere moves; the sampler's own functions above call into this block.
+
+# Family I comparators, per instance, from the registration's family-I table: I1 GE, I2 GE,
+# I3 EQ (it is a sign in {-1, 0, +1}), I4 GE, I5 GE.
+_TR8_GLOBAL_CMPS = ("ge", "ge", "eq", "ge", "ge")
+_TR8_GLOBAL_OPS = tuple(">=" if c == "ge" else "==" for c in _TR8_GLOBAL_CMPS)
+# §3.3(ii) abort floor: fewer admitted instances than this is a design failure of the
+# registration (K_max = 24 drawn from it makes the 1000 "independent" predicates largely the
+# same predicate). Both terminal commands halt BEFORE any pool draw; nothing is widened, lowered
+# or re-banded to fit — a thinner bank needs a new dated pre-registration.
+TR8_B_ADMIT_FLOOR = 120
+
+
+def tr8_r_kw_exact():
+    """King Wen's comparator rarity as the exact rational pair_null_gender_le2_exact() =
+    47/445740, cached (the Fraction DP behind it costs seconds). H and the H-b band derive
+    from this exact value, never from its float."""
+    global _TR8_R_KW_CACHE
+    if _TR8_R_KW_CACHE is None:
+        _TR8_R_KW_CACHE = pair_null_gender_le2_exact()
+    return _TR8_R_KW_CACHE
+
+
+def tr8_h_threshold(n_pool):
+    """§3.4: H = floor(N_pool · 47/445740). "P is at least as rare as King Wen" means
+    hits(P) <= H, decided in integers. At the registered N_pool = 10^7 this is 1054
+    (10^7 · 47/445740 = 1054.426…); 5×10^6 → 527, 2×10^6 → 210, 10^6 → 105."""
+    r = tr8_r_kw_exact()
+    return (n_pool * r.numerator) // r.denominator
+
+
+def tr8_hb_band(n_pool):
+    """§3.5 H-b bar: E = N_pool · 47/445740, binomial sigma = sqrt(E · (1 − 47/445740)), PASS
+    iff |n_le2 − E| <= 4·sigma. Returns (E, sigma, lo, hi) with [lo, hi] the inclusive integer
+    band: at N_pool = 10^7, E = 1054.426…, sigma = 32.47, band [925, 1184]."""
+    import math
+    r = tr8_r_kw_exact()
+    E = float(n_pool * r)
+    sigma = math.sqrt(float(n_pool * r * (1 - r)))
+    return E, sigma, math.ceil(E - 4.0 * sigma), math.floor(E + 4.0 * sigma)
+
+
+def _tr8_i3_sign(d):
+    """§3.3(i) I3: sign(Σ_{t=1}^{62} (d_t − d̄)(d_{t+1} − d̄)) over the 63 seam distances d,
+    computed EXACTLY in integers by multiplying through by 63² (S = Σ d_t):
+    sign(Σ (63·d_t − S)(63·d_{t+1} − S)). Until CX-279 the slot held the raw product sum
+    Σ d_t·d_{t+1}, compared with >= — a different clause; never admitted on any calibration."""
+    S = sum(d)
+    v = sum((63 * d[i] - S) * (63 * d[i + 1] - S) for i in range(62))
+    return (v > 0) - (v < 0)
+
+
+def _tr8_family_i_values(a, b):
+    """Family I clause values with the per-instance comparator (I3 EQ, the rest GE)."""
+    return [1 if (a[i] == b[i] if _TR8_GLOBAL_CMPS[i] == "eq" else a[i] >= b[i]) else 0
+            for i in range(len(b))]
+
+
+def tr8_d1_by_count_1000(x):
+    """§3.5's raw-count column at N_pred = 1000, which GOVERNS there: BULK 65..935,
+    TAIL-EXTREME <= 36, COMMON >= 964, INCONCLUSIVE 37..64 and 936..963."""
+    if 65 <= x <= 935:
+        return "BULK"
+    if x <= 36:
+        return "TAIL-EXTREME"
+    if x >= 964:
+        return "COMMON"
+    return "INCONCLUSIVE"
+
+
+def _tr8_d1_check(d, k_head, v, why):
+    """At N_pred = 1000 the interval verdict must reproduce §3.5's raw-count column exactly; a
+    disagreement is an implementation bug and HALTS the run (SystemExit) — the count column
+    governs and is never substituted here, because a verdict that needed substituting is one
+    the implementation got wrong."""
+    if d.get("n_pred") == 1000 and tr8_d1_by_count_1000(d["f_hat_x"]) != v:
+        raise SystemExit("IMPLEMENTATION_BUG: at K=%d, X=%d the Clopper-Pearson verdict %s "
+                         "disagrees with the pre-registration's raw-count column (%s) — the "
+                         "run halts; no verdict is reported"
+                         % (k_head, d["f_hat_x"], v, tr8_d1_by_count_1000(d["f_hat_x"])))
+    return (v, why)
+
+
+def _tr8_d2(stats, k_head=16):
+    """§3.5 D2, the median deliverable at the headline K: UNCENSORED (a point estimate with its
+    order-statistic CI) or CENSORED (at least half the predicates have zero hits; the median is
+    reportable only as the bound < 1/N_pool). None when K is not in the ladder."""
+    d = stats["by_k"].get(k_head)
+    return None if d is None else ("CENSORED" if d["median_censored"] else "UNCENSORED")
+
+
+def _tr8_bank_gate_override(gates, header, verdict, why):
+    """§3.5 override list, the bank half: B_admitted < 120 or B_raw != 319 forces D1 to
+    INCONCLUSIVE (the sampler refuses to draw a pool below the floor, so these can be false
+    only for a merge of shards produced some other way)."""
+    if not gates["b_admitted_ge_floor"]:
+        return "INCONCLUSIVE", ("B_admitted = %d is below the pre-registration's floor %d"
+                                % (header["b_admitted"], TR8_B_ADMIT_FLOOR))
+    if not gates["b_raw_eq_319"]:
+        return "INCONCLUSIVE", "B_raw = %d != 319" % header["b_raw"]
+    return verdict, why
+
+
+def tr8_ensemble_context(seed_root, klist, n_pred, admitted, bank):
+    """§3.4 item 3's mandatory context that depends only on the drawn ensembles: the mean
+    pairwise clause overlap at each K — the mean of |P ∩ Q| over all C(N_pred, 2) unordered
+    predicate pairs, computed exactly from per-clause draw counts — and the family composition
+    of the drawn predicates (clause slots per family, summing to K · N_pred). Rebuilt from the
+    frozen predicate seeds, so a merge reports it without the shard files carrying it."""
+    from fractions import Fraction
+    ctx = {}
+    for k in klist:
+        ens = tr8_predicate_ensemble(tr8_seed(seed_root, "predicates/K-%d" % k), n_pred, k,
+                                     len(admitted))
+        cnt = [0] * len(admitted)
+        fam = {}
+        for pred in ens:
+            for c in pred:
+                cnt[c] += 1
+                f = bank[admitted[c]][0]
+                fam[f] = fam.get(f, 0) + 1
+        pairs = n_pred * (n_pred - 1) // 2
+        overlap = (Fraction(sum(c * (c - 1) // 2 for c in cnt), pairs) if pairs
+                   else Fraction(0))
+        ctx[k] = {"mean_pairwise_clause_overlap": float(overlap),
+                  "expected_overlap_k2_over_b": (k * k / len(admitted)) if admitted else None,
+                  "family_composition": dict(sorted(fam.items()))}
+    return ctx
+
+
+def tr8_replication_gate(a_dir, b_dir, quiet=False, k_head=16):
+    """The pre-registration's §3.5 pool-B replication gate, applied to two MERGED pools.
+
+    PASS iff |F_hat_A(16) − F_hat_B(16)| <= 0.05 (decided in exact rationals on the raw counts)
+    AND the two pools' D1 verdicts are identical. Disagreement is a FINDING, never resolved by
+    picking a pool: it forces the governing D1 to INCONCLUSIVE. The §6 meaning assignment is
+    then read off: the median-rarity slot is REFILLED iff every gate passed and D1 is
+    determinate; otherwise it STAYS WITHDRAWN. Writes A_DIR/replication.json; A is the reported
+    pool. Refuses two pools drawn against different admitted banks or different frozen
+    parameters, and a B_DIR that has not been merged (no results.json)."""
+    import json
+    from fractions import Fraction
+    res = {}
+    for name, d in (("A", a_dir), ("B", b_dir)):
+        p = os.path.join(d, "results.json")
+        try:
+            with open(p, encoding="utf-8") as f:
+                res[name] = json.load(f)
+        except (OSError, ValueError) as e:
+            raise SystemExit("cannot read %s (%s) — merge pool %s first; refusing to apply the "
+                             "replication gate" % (p, getattr(e, "strerror", None) or e, name))
+    hA, hB = res["A"]["header"], res["B"]["header"]
+    for key in ("seed_root", "n_pool", "n_shards", "n_pred", "k_ladder", "calibration_draws",
+                "admission_band", "b_raw", "b_admitted", "admitted_bank_sha256",
+                "solve_py_sha256"):
+        if hA.get(key) != hB.get(key):
+            raise SystemExit("replication gate: the two pools disagree on header field %r (%r vs "
+                             "%r) — they are not the same measurement; refusing"
+                             % (key, hA.get(key), hB.get(key)))
+    if (hA.get("pool"), hB.get("pool")) != ("A", "B"):
+        raise SystemExit("replication gate: expected pool A in %s and pool B in %s, found %r and "
+                         "%r" % (a_dir, b_dir, hA.get("pool"), hB.get("pool")))
+    k = str(k_head)
+    try:
+        sA, sB = res["A"]["statistics"]["by_k"][k], res["B"]["statistics"]["by_k"][k]
+    except KeyError:
+        raise SystemExit("replication gate: K=%d is not in both pools' ladders" % k_head)
+    fA, fB = Fraction(sA["f_hat_x"], sA["n_pred"]), Fraction(sB["f_hat_x"], sB["n_pred"])
+    diff = abs(fA - fB)
+    d1A, d1B = res["A"]["verdict"], res["B"]["verdict"]
+    gate = (diff <= Fraction(1, 20)) and (d1A == d1B)
+    governing = d1A if gate else "INCONCLUSIVE"
+    refilled = gate and governing in ("BULK", "TAIL-EXTREME", "COMMON")
+    out = {"pool_a_dir": a_dir, "pool_b_dir": b_dir, "k_head": k_head,
+           "x16_a": sA["f_hat_x"], "x16_b": sB["f_hat_x"],
+           "f16_a": sA["f_hat"], "f16_b": sB["f_hat"],
+           "abs_diff_f16": float(diff), "tolerance": 0.05,
+           "d1_a": d1A, "d1_b": d1B, "d1_a_reason": res["A"]["verdict_reason"],
+           "d1_b_reason": res["B"]["verdict_reason"],
+           "gate_pass": gate, "governing_d1_k16": governing,
+           "d2_k16": res["A"].get("d2_k16"),
+           "s6_outcome": "REFILLED" if refilled else "STAYS_WITHDRAWN",
+           "withdrawn_6e-5_figure": "NEVER_REINSTATED"}
+    with open(os.path.join(a_dir, "replication.json"), "w", encoding="utf-8") as f:
+        json.dump(out, f, indent=1, sort_keys=True)
+    if not quiet:
+        print("Pool-B replication gate (pre-registered): %s — |F_A(16) − F_B(16)| = %.4f "
+              "(tolerance 0.05), D1_A = %s, D1_B = %s" % ("PASS" if gate else "FAIL",
+                                                           float(diff), d1A, d1B))
+        print("Governing D1 at K = 16: %s; D2: %s; §6 outcome: %s"
+              % (governing, out["d2_k16"], out["s6_outcome"]))
+        print("  wrote %s" % os.path.join(a_dir, "replication.json"))
+    return out
+
+
+def _tr8_bank_exit(ha, n_admitted):
+    """tr8_emit_bank's exit status: 0; 1 if King Wen fails a raw template (H-a); 5 if the bank is
+    below the §3.3(ii) floor — the bank and its marginals are already printed and written, no
+    rarity is computed, and the sampler will refuse to run on this bank."""
+    if n_admitted < TR8_B_ADMIT_FLOOR:
+        print("  B_ADMITTED_BELOW_FLOOR: %d < %d — design failure of the registration; the "
+              "sampler will refuse to run on this bank" % (n_admitted, TR8_B_ADMIT_FLOOR))
+        return 5
+    return 0 if ha else 1
+
+
+def _tr8_floor_halt(out_dir, shard, seed_root, calib_draws, band, bank, marg, admitted, bhits):
+    """§3.3(ii) abort floor inside tr8_dof_sampler, BEFORE any predicate or pool draw: the bank
+    is published (shard 0 and whole-pool runs write bank.json; other shards do not, so no file
+    is torn), then the run stops. SystemExit, rc 1, in the sampler's refusal vocabulary."""
+    if len(admitted) >= TR8_B_ADMIT_FLOOR:
+        return
+    if shard is None or shard == 0:
+        tr8_emit_bank_json(out_dir, seed_root, calib_draws, band, bank, marg, admitted, bhits)
+    raise SystemExit("--tr8-dof-sampler: B_ADMITTED_BELOW_FLOOR: B_admitted = %d < %d — the "
+                     "pre-registration's §3.3(ii) abort floor; the bank is written to "
+                     "%s/bank.json and no pool is drawn. A thinner bank needs a NEW dated "
+                     "pre-registration, not a wider band or a lower K"
+                     % (len(admitted), TR8_B_ADMIT_FLOOR, out_dir))
+
+
+def _tr8_merge_dir(out_dir):
+    """`--tr8-dof-replicate` without `--tr8-dof-merge` reaches tr8_dof_merge with out_dir None;
+    os.listdir(None) would silently list the working directory, so it is refused by name."""
+    if out_dir is None:
+        raise SystemExit("--tr8-dof-replicate B_DIR is only meaningful with --tr8-dof-merge "
+                         "OUT_DIR (the merged pool A); nothing was merged")
+    return out_dir
+
+
+def _tr8_merge_tail(rc, out_dir, replicate, quiet):
+    """After a merge: apply the pool-B gate when a replicate directory was given. The merge's
+    own exit status (0, or 1 when a sanity gate failed) is returned unchanged; the gate's
+    outcome is in replication.json and is a finding, not an error."""
+    if replicate is not None:
+        tr8_replication_gate(out_dir, replicate, quiet)
+    return rc
+
+
+def _tr8_results_md_bank_gates(g):
+    return ["- **B_raw = 319**: **%s**; **B_admitted >= %d** (the §3.3(ii) abort floor): **%s**"
+            % ("PASS" if g["b_raw_eq_319"] else "FAIL", TR8_B_ADMIT_FLOOR,
+               "PASS" if g["b_admitted_ge_floor"] else "FAIL"), ""]
+
+
+def _tr8_results_md_context(res):
+    """RESULTS.md lines for H, the §3.4 ensemble context, and D1 beside D2."""
+    s = res["statistics"]
+    L = ["Threshold H = floor(N_pool · 47/445740) = %d: a predicate is at least as rare as "
+         "King Wen iff hits <= H." % s["h_threshold"], "",
+         "Ensemble context (from the frozen predicate seeds): mean pairwise clause overlap "
+         "|P ∩ Q| over all predicate pairs, its K²/B_admitted reference, and the family "
+         "composition of the drawn clause slots:", "",
+         "| K | mean overlap | K²/B_adm | family composition |", "|---|---|---|---|"]
+    for k in sorted(res["ensemble_context"], key=int):
+        c = res["ensemble_context"][k]
+        L.append("| %s | %.3f | %.3f | %s |"
+                 % (k, c["mean_pairwise_clause_overlap"], c["expected_overlap_k2_over_b"] or 0.0,
+                    ", ".join("%s=%d" % kv for kv in sorted(c["family_composition"].items()))))
+    L += ["", "**D1 (pre-registered rule on F_hat, headline K = 16): %s** — %s. "
+          "**D2 (the median deliverable at K = 16): %s** — D2 never alters D1."
+          % (res["verdict"], res["verdict_reason"], res["d2_k16"])]
+    return L
+
 
 if __name__ == "__main__":
     main()

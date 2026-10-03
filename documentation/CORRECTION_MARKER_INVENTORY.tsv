@@ -106,7 +106,7 @@ documentation/CITATIONS.md	161	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e3
 documentation/CITATIONS.md	168	ledger-link	CORRECTION	n/a	-	not-a-marker	0a8dc0c2d41c
 documentation/CITATIONS.md	294	marker	CORRECTED	1	-	reviewed:line-already-gives-the-2-4-6-multiset	c3aa04002a63
 documentation/CITATIONS.md	403	marker	CORRECTED	1	-	reviewed:framing-already-names-the-self-reverse-subgroup	5914e3df6f6a
-documentation/CITATIONS.md	421	marker	Corrected	1	-	reviewed:sentence-already-reads-seventh	a5662de10714
+documentation/CITATIONS.md	421	marker	Corrected	3	GATE 71(solo)	gate-anchored;solo:blank-line-left-by-the-span-splits-the-chain-paragraph	a5662de10714
 documentation/CITATIONS.md	422	ledger-link	CORRECTION	n/a	-	not-a-marker	772ee3a9ff79
 documentation/CITATIONS.md	553	marker	CORRECTED	1	-	reviewed:sentence-already-records-the-first-hand-read	4c6cd6c76ff9
 documentation/CITATIONS.md	581	marker	Corrected	1	-	reviewed:sentence-already-reads-correctly	266b8291222d
@@ -274,7 +274,7 @@ documentation/MCKENNA.md	72	marker	Corrected	1	-	reviewed:sentence-already-reads
 documentation/MCKENNA.md	76	ledger-link	RETRACTED	n/a	-	not-a-marker	1e44714ef06d
 documentation/MCKENNA.md	86	marker	Corrected	1	-	reviewed:paragraph-already-reads-two-of-four	82c5a6aa6ecd
 documentation/MCKENNA.md	88	ledger-link	CORRECTION	n/a	-	not-a-marker	3a92c159f931
-documentation/MCKENNA.md	88	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	3a92c159f931
+documentation/MCKENNA.md	88	marker	Corrected	3	CITATION LINE GATE,GATE 2c,GATE 44(solo)	gate-anchored;solo:span-holds-one-of-the-two-null-spectrum-verdicts-the-gate-floor-needs	3a92c159f931
 documentation/MCKENNA.md	102	ledger-link	CORRECTION	n/a	-	not-a-marker	02bdab1053c4
 documentation/MCKENNA.md	104	ledger-link	CORRECTION	n/a	-	not-a-marker	acd849c87592
 documentation/MCKENNA.md	104	marker	Corrected	1	-	reviewed:item-already-separates-the-module-and-the-day-calibration	acd849c87592
@@ -312,6 +312,7 @@ documentation/PERFORMANCE_HISTORY.md	230	marker	CORRECTED	2	-	reviewed:bullet-ab
 documentation/PERFORMANCE_HISTORY.md	1189	marker	Corrected	2	-	reviewed:bullet-above-still-says-checkpoint-is-the-sole-resume-input	e459f31d3a93
 documentation/PERFORMANCE_HISTORY.md	1426	marker	Corrected	2	-	reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation	75cfed7a5f0e
 documentation/PREREGISTRATION_ESCROW.md	359	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
+documentation/PREREGISTRATION_ESCROW.md	380	ledger-link	CORRECTION	n/a	-	not-a-marker	72b7489475c1
 documentation/PREREG_CLASSA_QUERY_SET.md	58	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ee4dfed3e343
 documentation/PREREG_CLASSA_QUERY_SET.md	166	marker	CORRECTED	3	GATE 86(file)	gate-anchored	21fdbd99b0b4
 documentation/PREREG_CLASSA_QUERY_SET.md	235	marker	CORRECTED	3	GATE 86(file)	gate-anchored	05d0f5c9b0a2
@@ -319,6 +320,7 @@ documentation/PREREG_CLASSA_QUERY_SET.md	261	marker	CORRECTED	3	GATE 86(file)	ga
 documentation/PREREG_CLASSA_QUERY_SET.md	364	marker	CORRECTED	3	GATE 86(file)	gate-anchored	beda1f29488e
 documentation/PREREG_CLASSA_QUERY_SET.md	530	marker	CORRECTED	3	GATE 86(file)	gate-anchored	6076641c1da2
 documentation/PREREG_CLASSA_QUERY_SET.md	613	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ac89ca1c4b99
+documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md	66	ledger-link	CORRECTION	n/a	-	not-a-marker	d399f520849e
 documentation/PROJECT_OVERVIEW.md	14	ledger-link	CORRECTION	n/a	-	not-a-marker	3a7d8baee073
 documentation/PROJECT_OVERVIEW.md	18	marker	Corrected	1	-	reviewed:sentence-already-reads-monotone-4-then-5	90f401aa2eb2
 documentation/PROJECT_OVERVIEW.md	53	ledger-link	CORRECTION	n/a	-	not-a-marker	92255bf4c636
@@ -447,7 +449,7 @@ documentation/SOLVE_C_CLI.md	2852	marker	Corrected	1	-	reviewed:paragraph-alread
 documentation/SOLVE_C_CLI.md	2876	marker	Corrected	1	-	reviewed:text-already-names-solutions_p1_o1.bin	da12417b44fb
 documentation/SOLVE_C_CLI.md	2900	marker	Corrected	1	-	reviewed:text-already-describes-the-measured-table	b4ca98c0f26a
 documentation/SOLVE_C_CLI.md	2954	marker	CORRECTED	1	-	reviewed:entry-already-reports-the-order-48-group	1c1c6dba49b7
-documentation/SOLVE_C_CLI.md	3007	narration	now reads	1	-	reviewed:dated-change-note;not-a-correction-of-a-claim	22bf68b96d54
+documentation/SOLVE_C_CLI.md	3007	narration	now reads	1	-	reviewed:dated-change-note;not-a-correction-of-a-claim	1b12ee0a92d0
 documentation/SOLVE_C_CLI.md	3021	marker	Corrected	1	-	reviewed:text-already-quotes-the-banner	b208aeec0192
 documentation/SOLVE_C_CLI.md	3033	marker	Corrected	1	-	reviewed:text-already-quotes-the-banner	d44c32e2312b
 documentation/SOLVE_C_CLI.md	3052	marker	Corrected	1	-	reviewed:section-above-already-says-budget-and-refuses-non-numeric	fae3082f6785
@@ -470,7 +472,7 @@ documentation/SOLVE_PY_CLI.md	156	marker	CORRECTED	2	-	reviewed:only-statement-t
 documentation/SOLVE_PY_CLI.md	174	marker	CORRECTED	2	-	reviewed:paragraph-above-still-says-the-sampler-is-not-on-main	871c547dbacd
 documentation/SOLVE_PY_CLI.md	241	marker	Corrected	1	-	reviewed:row-already-pins-hexagram-63-first	a9311de1c5bb
 documentation/SOLVE_PY_CLI.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2d2b3ac8d
-documentation/SOLVE_PY_CLI.md	335	marker	CORRECTED	2	-	reviewed:only-statement-that-the-CI-is-conditional-on-the-shared-pool	3f7511a8ab6b
+documentation/SOLVE_PY_CLI.md	335	marker	CORRECTED	2	-	reviewed:only-statement-that-the-CI-is-conditional-on-the-shared-pool	ce4fc3faed93
 documentation/SOLVE_PY_CLI.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	8b35a66b7c6f
 documentation/SOLVE_PY_CLI.md	434	marker	Corrected	1	-	reviewed:dated-label;sentence-already-reads-correctly	69dfe1571f39
 documentation/SOLVE_PY_CLI.md	570	marker	CORRECTED	1	-	reviewed:sentence-already-true-since-the-gate-moved-to-the-emitter	388d511cb961
@@ -480,6 +482,7 @@ documentation/SOLVE_PY_CLI.md	1428	marker	Corrected	1	-	reviewed:paragraph-alrea
 documentation/SOLVE_PY_CLI.md	1430	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
 documentation/SOLVE_PY_CLI.md	1557	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
 documentation/SOLVE_PY_CLI.md	1634	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
+documentation/SOLVE_PY_CLI.md	1694	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
 documentation/SOLVE_SUMMARY.md	85	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-distance-5-block	ee32cf8d5224
 documentation/SOLVE_SUMMARY.md	178	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	9a9b7c6e5eaf
 documentation/SOLVE_SUMMARY.md	191	marker	CORRECTED	1	-	reviewed:table-text-already-re-derived-from-the-logs	3c5b8586e07b
@@ -808,44 +811,43 @@ viz/viz_scale.md	186	marker	Corrected	1	-	reviewed:heading-already-reads-decided
 viz/viz_tr1_rules_tradeoff.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	3070fa0dd4f0
 viz/viz_tr3_campaign_timeline.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	19700485ed8b
 viz/viz_tr4_boundary_information.md	77	ledger-link	CORRECTION	n/a	-	not-a-marker	5ae76a22f09d
--	-	population	-	3?	CITATION LINE GATE	count-changed	-
-documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	3?	CITATION LINE GATE	count-changed	-
-documentation/SOLVE.md	-	population	-	3?	CITATION LINE GATE	count-changed	-
-documentation/SOLVE_C_CLI.md	-	population	-	3?	CITATION LINE GATE	count-changed	-
-documentation/SOLVE_PY_CLI.md	-	population	-	3?	CITATION LINE GATE	count-changed	-
--	-	population	-	3?	GATE 18	count-changed	-
-documentation/CITATIONS.md	-	population	-	3?	GATE 18	count-changed	-
-reports/METHODS.md	-	population	-	3?	GATE 18	count-changed	-
--	-	population	-	3?	GATE 21	count-changed	-
--	-	population	-	3?	GATE 25	count-changed	-
--	-	population	-	3?	GATE 26	count-changed	-
-documentation/SEARCH_SPACE_SIZE.md	-	population	-	3?	GATE 26	count-changed	-
--	-	population	-	3?	GATE 27	count-changed	-
-documentation/SEARCH_SPACE_SIZE.md	-	population	-	3?	GATE 27	count-changed	-
--	-	population	-	3?	GATE 29	count-changed	-
-documentation/SOLVE_C_CLI.md	-	population	-	3?	GATE 2	count-changed	-
-documentation/SOLVE_PY_CLI.md	-	population	-	3?	GATE 2	count-changed	-
-documentation/VERIFY.md	-	population	-	3?	GATE 2	count-changed	-
--	-	population	-	3?	GATE 2c	count-changed	-
-documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	3?	GATE 2c	count-changed	-
-documentation/SOLVE.md	-	population	-	3?	GATE 2c	count-changed	-
-documentation/SOLVE_C_CLI.md	-	population	-	3?	GATE 2c	count-changed	-
-documentation/SOLVE_PY_CLI.md	-	population	-	3?	GATE 2c	count-changed	-
--	-	population	-	3?	GATE 33	count-changed	-
--	-	population	-	3?	GATE 38	count-changed	-
--	-	population	-	3?	GATE 39	count-changed	-
--	-	population	-	3?	GATE 3b	count-changed	-
--	-	population	-	3?	GATE 41	count-changed	-
--	-	population	-	3?	GATE 44	count-changed	-
--	-	population	-	3?	GATE 4b	count-changed	-
--	-	population	-	3?	GATE 53	count-changed	-
-documentation/LARGE_SCALE_CAMPAIGNS.md	-	population	-	3?	GATE 53	count-changed	-
--	-	population	-	3?	GATE 56	count-changed	-
--	-	population	-	3?	GATE 5	count-changed	-
--	-	population	-	3?	GATE 66	count-changed	-
--	-	population	-	3?	GATE 71	count-changed	-
--	-	population	-	3?	GATE 80	count-changed	-
--	-	population	-	3?	GATE 86	count-changed	-
--	-	population	-	3?	GATE 89	count-changed	-
--	-	population	-	3?	GATE 94 (ADVISORY)	count-changed	-
+-	-	population	-	n/a	CITATION LINE GATE	reviewed:summary-counts-only;legB-all-targets-and-excluded-counts-fall-with-citations-written-inside-deleted-spans;legA-A2-summary-moves-on-any-edit;verdict-tokens-follow-FAILs-already-tied-by-line	-
+documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line	-
+documentation/SOLVE.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line	-
+documentation/SOLVE_C_CLI.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
+documentation/SOLVE_PY_CLI.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
+-	-	population	-	n/a	GATE 18	reviewed:RULING-LINE-FIX-and-stale-exemption-text-of-GATE-18-FAILs;SOLVE_SUMMARY.md-and-SOLVE_PY_CLI.md-one-file-runs-print-them;both-files-markers-are-class-3-GATE-18	-
+documentation/CITATIONS.md	-	population	-	n/a	GATE 18	reviewed:LIVES-AT-line-of-the-SOLVE_SUMMARY.md-GATE-18-FAIL-names-the-ruling-home;CITATIONS.md-one-file-run-leaves-GATE-18-unchanged	-
+reports/METHODS.md	-	population	-	n/a	GATE 18	reviewed:LIVES-AT-line-of-the-SOLVE_SUMMARY.md-GATE-18-FAIL-names-the-ruling-home;METHODS.md-one-file-run-leaves-GATE-18-unchanged	-
+-	-	population	-	n/a	GATE 21	reviewed:path-token-count-469-to-465-falls-with-backticked-paths-inside-deleted-spans;verdict-stays-ok;CLAUDE.md-CITATIONS.md-TR12-runs	-
+-	-	population	-	n/a	GATE 25	reviewed:documented-flag-use-count-1965-to-1922-falls-with-commands-inside-deleted-spans;no-finding;18-one-file-runs-move-it	-
+-	-	population	-	n/a	GATE 26	reviewed:excerpt-and-explanation-text-of-GATE-26-FAILs;each-excerpt-is-printed-by-its-own-files-one-file-run;all-8-files-have-class-3-GATE-26-rows	-
+documentation/SEARCH_SPACE_SIZE.md	-	population	-	n/a	GATE 26	reviewed:GATE-26-FAIL-excerpts-that-link-to-SEARCH_SPACE_SIZE.md;printed-by-CANONICAL_HASHES-SOLVE-SOLVE_SUMMARY-one-file-runs;their-markers-are-class-3-GATE-26	-
+-	-	population	-	n/a	GATE 27	reviewed:excerpt-and-explanation-text-of-GATE-27-FAILs;each-excerpt-is-printed-by-its-own-files-one-file-run;all-6-files-have-class-3-GATE-27-rows	-
+documentation/SEARCH_SPACE_SIZE.md	-	population	-	n/a	GATE 27	reviewed:GATE-27-FAIL-excerpt-that-links-to-SEARCH_SPACE_SIZE.md;printed-by-the-BRANCHES_EXPLAINED.md-one-file-run;its-markers-are-class-3-GATE-27	-
+-	-	population	-	n/a	GATE 29	reviewed:directive-shape-count-3-to-2-falls-with-the-correction-that-quotes-one;no-finding;TR8-one-file-run	-
+documentation/SOLVE_C_CLI.md	-	population	-	n/a	GATE 2	reviewed:documented-flag-count-211-to-210-because-a-deleted-span-names-a-flag;verdict-stays-ok;SOLVE_C_CLI.md-one-file-run	-
+documentation/SOLVE_PY_CLI.md	-	population	-	n/a	GATE 2	reviewed:documented-flag-count-170-to-169-because-a-deleted-span-names-a-flag;verdict-stays-ok;SOLVE_PY_CLI.md-one-file-run	-
+documentation/VERIFY.md	-	population	-	n/a	GATE 2	reviewed:documented-flag-count-167-to-165-because-deleted-spans-name-flags;verdict-stays-ok;VERIFY.md-one-file-run	-
+-	-	population	-	n/a	GATE 2c	reviewed:summary-counts-of-the-embedded-citation-run-only;counts-fall-with-citations-inside-deleted-spans;legA2-moves-on-any-edit;FAILs-already-tied-by-line	-
+documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line	-
+documentation/SOLVE.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line	-
+documentation/SOLVE_C_CLI.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
+documentation/SOLVE_PY_CLI.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
+-	-	population	-	n/a	GATE 33	reviewed:superlative-count-7-to-6-falls-with-a-superlative-inside-a-deleted-span;no-finding;LITERATURE_RULES_POPULATION_TESTS-one-file-run	-
+-	-	population	-	n/a	GATE 38	reviewed:claim-count-126-to-121-and-quoted-retired-copy-1-to-0-fall-with-text-inside-deleted-spans;no-finding;lean-README-and-TR12-runs	-
+-	-	population	-	n/a	GATE 39	reviewed:SE-row-count-9-to-8-and-its-gap-exemption-4-to-3-fall-together;no-finding;TR10-one-file-run	-
+-	-	population	-	n/a	GATE 3b	reviewed:continuation-of-allowlist-row-matched-nothing-notes-plus-the-ok-count;TR9-and-runs-f1c5-README-one-file-runs-print-them;both-files-markers-are-class-3-by-line	-
+-	-	population	-	n/a	GATE 41	reviewed:mention-count-of-65281-49-to-44-falls-with-mentions-inside-deleted-spans;no-finding;CAMPAIGN_METHODOLOGY-CANONICAL_HASHES-TR5-runs	-
+-	-	population	-	n/a	GATE 44	reviewed:verdict-count-2-to-1-is-the-MCKENNA.md:88-span;its-FAIL-is-tied-by-SOLO_ANCHORED-GATE-44	-
+-	-	population	-	n/a	GATE 4b	reviewed:WHY-line-of-the-stale-allowlist-FAIL;the-METHODS.md-one-file-run-prints-it;METHODS.md-markers-are-class-3-GATE-4b(file)	-
+-	-	population	-	n/a	GATE 53	reviewed:continuation-text-of-the-GATE-53-sum-FAIL;the-LARGE_SCALE_CAMPAIGNS.md-one-file-run-prints-it;its-markers-are-class-3-GATE-53(file)	-
+documentation/LARGE_SCALE_CAMPAIGNS.md	-	population	-	n/a	GATE 53	reviewed:continuation-text-of-the-GATE-53-sum-FAIL;the-LARGE_SCALE_CAMPAIGNS.md-one-file-run-prints-it;its-markers-are-class-3-GATE-53(file)	-
+-	-	population	-	n/a	GATE 56	reviewed:judged-paragraph-count-13-to-17-rises-when-spans-no-longer-hide-figures;verdict-stays-ok;notes-tied-by-line-to-PROJECT_OVERVIEW.md	-
+-	-	population	-	n/a	GATE 5	reviewed:noise-floor-count-125-of-247-to-123-of-241-falls-with-registry-values-inside-deleted-spans;no-finding;CLAIM_TO_ARTIFACT-CRITIQUE-LITERATURE_RULES-SOLVE-TR2-runs	-
+-	-	population	-	n/a	GATE 66	reviewed:FIX-line-of-the-GATE-66-verbatim-FAIL;the-TRIGRAM_STRUCTURE.md-one-file-run-prints-it;its-markers-are-class-3-GATE-66	-
+-	-	population	-	n/a	GATE 80	reviewed:rec-literal-count-31-to-30-falls-with-a-literal-inside-a-deleted-span;verdict-stays-ok;TR12-one-file-run	-
+-	-	population	-	n/a	GATE 86	reviewed:explanation-text-of-the-GATE-86-digest-FAIL;the-PREREG_CLASSA_QUERY_SET.md-one-file-run-prints-it;its-markers-are-class-3-GATE-86(file)	-
+-	-	population	-	n/a	GATE 89	reviewed:corpus-byte-count-moves-on-any-edit;the-DOC-GATES-summary-follows-FAILs-tied-elsewhere	-
+-	-	population	-	n/a	GATE 94 (ADVISORY)	reviewed:advisory-live-count-falls-with-phrasings-quoted-inside-deleted-spans;CAMPAIGN_METHODOLOGY-GUIDE-viz_kc_river-runs	-
 -	-	any-edit	-	n/a	GATE 13	fires-on-any-edit	-

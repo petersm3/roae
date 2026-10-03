@@ -27721,3 +27721,285 @@ section reference after them. All three are now reported, with no traceback. On 
 same test shows the traceback.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 35, lane Q937.
+
+## CX-279 — the TR-8 dof-matched sampler computed six things differently from its frozen pre-registration; each is conformed to the frozen text BEFORE the instrument is pinned and before any frozen seed is used, and the pre-run annotations are published as an escrowed addendum (solve.py; tests.py; documentation/SOLVE_PY_CLI.md; documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md; documentation/PREREGISTRATION_ESCROW.md; documentation/README.md; scripts/doc_gates.d/70_publication_surfaces.sh)
+
+**2026-10-03.** Origin: backlog row Q-932, the run of the sampler that CX-27 named as the only
+way to refill TR-8's withdrawn median-rarity slot, under the pre-registration frozen 2026-08-11
+(private; escrowed digest `4b307f07…`, 66,659 bytes). Preparing that run on 2026-10-02 compared
+the public instrument (`solve.py --tr8-dof-sampler` and its merge) with the frozen text line by
+line. Batch 36, decided by the Fable lane from the frozen text alone; no pool, no calibration
+and no predicate ensemble has been drawn on the frozen seed root, before or after this entry.
+
+**No published number, count, sha or verdict moves.** No recorded run of this instrument exists
+(the 2026-09-22 and 2026-09-25 notes on `SOLVE_PY_CLI.md` say the same), so nothing this entry
+changes has ever produced a published figure; the ~6×10⁻⁵ figure stays withdrawn, as the
+registration pre-commits for every outcome.
+
+**1. What differed, and what the frozen text says about each.**
+(a) Family **E**: the text is the three-valued `sign(popcount(σ[2s]) − popcount(σ[2s−1]))`
+compared by equality; the code computed the boolean `earlier ≤ later`. Both readings are
+degenerate under the pair-only null (the 28 reversal pairs tie; the 4 complement pairs flip a
+fair coin), so every E marginal lies in {1/16, 7/8, 15/16}, outside the band, and no instance was
+ever admitted either way; the published template text differs. (b) Instance **I3**: the text is
+the sign of the lag-1 autocovariance of the 63 seam distances, compared by **equality**; the code
+held the raw product sum `Σ d_t·d_{t+1}` compared by `>=` — a different clause with a different
+comparator. On throwaway roots both marginals (≈ 0.79 and ≈ 0.86) sit far above the band; the
+frozen calibration decides it. (c) The rarity comparison: the text's integer test `hits ≤ H`,
+H = ⌊N_pool·47/445740⌋; the code's float rate test, identical at 10⁷ but not the definition.
+(d) The verdict: the text's D1 is read from F̂'s interval and "D2 does not alter D1"; the code
+forced INCONCLUSIVE whenever the K = 16 median was censored — a BULK, TAIL-EXTREME or COMMON run
+with a censored median would have been reported INCONCLUSIVE by the public command. (e) The H-b
+bar: the text freezes a 4σ **binomial** band, [925, 1184] at 10⁷; the code applied `5·√E + 3`
+with a Poisson σ, ≈ [889, 1219], and `SOLVE_PY_CLI.md` described that wider band as "frozen in
+the pre-registration" (the 2026-09-02 C3 correction aligned the code's comment with the doc; it
+did not check either against the registration). (f) Not implemented at all: the §3.3(ii) abort
+floor B_admitted < 120, the §3.5 pool-B replication gate, the §3.5 raw-count cross-check, and
+the §3.4 mandatory context (mean pairwise clause overlap, family composition).
+
+**2. Why the code changes rather than a private script computing the registered rule.** The
+frozen text orders "implementation and self-test" before the instrument pin, calls an
+implementation whose interval disagrees with its raw-count column "an implementation bug" that
+halts, and requires the result to be "published with its seed and probe count" and its "exact
+reproduction command". A public command that computed a different clause, bar or rule from the
+registered one would not reproduce the published verdict, and a verdict computed only by a
+private script is not reproducible by a reader. The 2026-10-02 preparation had drafted exactly
+that arrangement (the public merge recorded as "non-governing", the verdict from a private kit)
+with signed-off "rulings" for the material cases; it is withdrawn. The code is conformed to the
+text before the pin, and the private kit becomes an independent re-derivation whose disagreement
+with the public code voids the run.
+
+**3. What now holds.** `solve.py`: E and I3 are the registered extractors (I3 computed exactly
+in integers, family I's comparators per instance as the family-I table pins them); `hits ≤ H`
+with H from the exact rational and written to `results.json`; `tr8_verdict` reads the interval
+only and halts with `IMPLEMENTATION_BUG` if, at N_pred = 1000, it disagrees with the raw-count
+column; D2 is reported beside D1 as `d2_k16`; the H-b band is the registration's, computed by
+`tr8_hb_band` and written as `gates.h_b_band`; `--tr8-dof-sampler` and `--tr8-dof-emit-bank`
+halt below 120 admitted instances before any pool draw (exit 5 for emit-bank); the new
+`--tr8-dof-replicate B_DIR` applies the pool-B gate after `--tr8-dof-merge` and writes
+`replication.json` with the governing K = 16 verdict and the registration's §6 outcome;
+`ensemble_context` carries the exact mean pairwise overlap and family composition at each K. All
+new code is appended at the end of the file so that no cited `solve.py` line moves, and the three
+line citations `SOLVE_PY_CLI.md` makes into the sampler still land. `tests.py`:
+`TestTr8PreregConformanceQ932` (ten tests, each red on the previous code — 4 failures, 6 errors
+measured — and green now; appended at the end of the file for the same reason) and
+`TestHbBandIsDescribedAsImplemented` re-pinned to `(4.0, 0.0)` and `≤ 4σ`; the 1e5-draw H-b tail
+test asserts the registration's band. `SOLVE_PY_CLI.md`: same-line dated notes on the band, the
+sigma, the verdict and the E template, and an appended section for the new flag, file and keys.
+`--tr8-dof-selftest` passes on the shipped bytes.
+
+**4. The pre-run addendum, escrowed before the run.** The frozen text's §7 annotations —
+instrument pin, the decisions on every parameter it left open (an interrupted shard, the decile
+method, the exactly-half censoring case, the overlap and geometric-mean definitions, the
+calibration-before-probe order, the worker and interpreter, the knife-edge family-C admissions,
+no drops for cost, the halt rule for any residual code-vs-text divergence, which computation
+governs, no truncation) — are published as
+`documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md` (sha256
+`7441a21437043d1ec638b158f6ef8e9bfb44aee1890f4e5b89a9b8c74fc78bef`, 21,961 bytes), with its
+digest on `PREREGISTRATION_ESCROW.md` in the same commit — the first row on that page published
+before the measurement it governs, which is what the page said on 2026-09-02 it exists for. The
+frozen file is unchanged and its row stands. The instrument is pinned by bytes (`solve.py`
+sha256 `38f3f886dcfed34b36fe5be4de17b2ed5363c719a63d3bde634934738aa4b609`); the commit is
+recorded in the bank annotation A2 before the first pool draw, since a commit cannot name itself.
+
+**5. Gates.** `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh` with
+GATE 86 covering the new public pre-registration file, the claim ledger, `history_index.sh`,
+`TestNoBareAsserts`, the three TR-8 test classes, and the kit's labelled SMOKE run on the shipped
+bytes with a throwaway seed root. GATE 89's unresolved-expression ceiling is re-pinned 72 → 89
+the way its 2026-09-11 precedent was: the gate measured 70 positions on the pre-batch tree and 89
+on this one, and the site-list diff is exactly the code this entry adds (the replication gate's
+reads of the two pools' `results.json`, the four unpacked values of `tr8_hb_band`, the ensemble
+context's computed key, and the two `--tr8-dof-*` attribute reads), every key of which is named in
+`SOLVE_PY_CLI.md`; the reason is written beside the constant. The new public file is indexed in
+`documentation/README.md` (GATE 54).
+
+**6. A gate fixture the new refusal broke.** The sampler now refuses a K above the admitted bank
+size, and the control pool in `scripts/tr8_merge_pool_integrity_gate.sh` asked for K = 4 from a
+bank with one admitted clause, so the control crashed before either of its checks ran and the
+TR-12 stamp failed on this tree. The fixture now asks for K = 1; the gate's two checks are
+unchanged. Found by the batch's push-shape check, not by the gates listed in item 5.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 36, Q-932.
+
+## CX-280 — the T5 two-language cross-check is one-language by decision, and the Q4(b) C3-minimum bisection was run on `plain` as a positive control: C3 = 112 re-derived by six SAT probes, no DRAT certificate (documentation/VERIFY.md; reports/TR12_QUERY_PROGRAM.md; documentation/QUERY_INVENTORY.md; documentation/HISTORY.md)
+
+**2026-10-03.** Batch 36, two parts. Both were approved by the operator on 2026-10-03.
+
+**No published number, count, sha or certificate moves.** Every edit is a dated same-line note or a
+dated replacement that quotes the earlier text. The earlier entries are not edited, including the
+2026-09-05 entry on the `PENDING:sat-c3min-driver` token.
+
+**1. T5 two-language agreement (Q-930).** `documentation/VERIFY.md`'s `--check-t5-c3` row already said
+that this mode is implementation-independent but not language-independent: `verify.py` and the
+`solve.py` pipeline are both Python. The operator accepted that scope on 2026-10-03. The T5 agreement
+check is `verify.py --check-t5-c3` against the parquet the `solve.py` pipeline produced, and no C-side
+per-record export will be built. The row now says so in a dated note. No line moved.
+
+**2. Q4(b) positive control (Q-924).** TR-12 said three times that the SAT machinery for Q4(b) was
+absent: "`sat.py`'s bisection driver, `kissat` and `drat-trim` are still absent". QUERY_INVENTORY.md
+and PREREG_CLASSA_QUERY_SET.md said the same. On 2026-10-03 the bisection on integer G for `plain` was
+run outside this repository against `sat.py` at f9b50120 (blob `e83f2d4f`) with kissat 4.0.4. The
+probes were G = 47, 29, 20, 15, 13, 12 (C3 caps 392, 248, 176, 136, 120, 112). All six were SAT, and
+each model was decoded and re-verified (`DECODE_VERDICT=PASS`). G = 11 is refused by `sat.py`, and
+G ≥ 12 is structural, so the minimum is C3 = 112. That is the published value re-derived, not a new
+result. No UNSAT leg occurred, so no DRAT certificate was produced or checked, and `drat-trim` was
+never invoked. The "UNSAT leg checked by `drat-trim`" clause of the pre-registration remains
+unexercised.
+
+The loop that chose the probes is not in this repository. Each probe is reproducible from public
+commands: the primitive is `python3 sat.py --witness plain --with-c3 --c3-max N` with N = 16 + 8·G,
+and the run used its split form (`--emit-cnf`, then `kissat`, then `--decode`). The annotated sites
+are TR12_QUERY_PROGRAM.md §Q4 ("What remains genuinely open", now a dated replacement quoting the old
+sentence), the end of the Q4(b) pre-registration bullet, §8 item 9, and the revision table (v1.26);
+QUERY_INVENTORY.md's `PENDING:sat-c3min-driver` row, Confidence-Ledger row 8.9 and open question 6.
+PREREG_CLASSA_QUERY_SET.md is **not** edited: it is an escrowed pre-registration, and GATE 86 requires
+its sha256 to match the digest on the escrow page, so its "the bisection driver does not exist"
+sentence (line 331) stays as escrowed and this entry is its correction. `sat-c3min-driver` stays PENDING and the
+count of four PENDING rows is unchanged, because the loop is not in the repository. No battery row
+changes: `TR12_Q4B` is `PASS` on `--check-arrangement`, and `_EXPECTED_SKIPS.txt` has no `TR12_Q4B`
+row.
+
+**3. Gates.** `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`, the claim
+ledger and `history_index.sh`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 36, Q-930 and Q-924. The Q-924
+run was by Claude (Opus 5.5), with a driver designed by Claude (Fable 5.1).
+
+## CX-281 — `--prove-cascade` kept a branch's unique sequences in a 1,000-row table written under a guard of 131,072 and adjudicated Phase 2 on at most 100 of them in silence; both sets are now sized to the 2^17-path domain. The merge-input gate counted a checkpoint line with a status no writer emits as a finished sub-branch; it now refuses such a line by name, with the resume loader's vocabulary (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-10-03.** Origin: backlog row Q-317, the "plus" item of Codex review A04 (2026-08-27) that no entry
+CX-250 through CX-270 touched, and the Q-941 addendum that lane B34A found and CX-264 part 7 listed "for a
+decision" because the code belonged to another lane. Batch 36, lane B36D, on the batch's staged tree.
+
+**No published number, count, sha or certificate moves.** `--selftest` prints `403f7202…` before and after.
+A full `--prove-cascade` run of the previous and the corrected source, with Phase 2's search stubbed so that
+both take the same path through it, writes byte-identical stdout and stderr (296 lines; `cmp` on each stream).
+A merge directory whose checkpoint lines all carry one of the four status words merges exactly as before.
+
+**1. The sequence tables (Q-317, Codex A04).** Phase 1 of `--prove-cascade` enumerates the 2^17 binary
+paths of positions 3-19 for each branch, in both orientations of the branch pair, and counts the unique pair
+sequences among the feasible ones. The set was a table `found_seqs[1000][17]` on each OpenMP thread's stack,
+written under `n_found < 131072`: the size of the domain, not of the table, so the 1,001st unique sequence of
+a branch would have been written 68 KB past the table. Phase 2 re-derived the sequences of each MULTIPLE
+branch into `static int multi_seqs[100][17]` under a guard of 100, which matched that table but capped it: a
+branch with more than 100 unique sequences would have been adjudicated on its first 100 and the closing
+theorem line was still reachable (the review's charge: "a buffer overrun behind a theorem claim").
+
+The correction uses what the enumeration already guarantees: a feasible path is a function of its bit
+pattern alone (position j holds pair `pos` or `pos-1` by bit j), so the set of unique sequences is a set of
+`bits` values, and the only duplicate the table ever removed was the same `bits` feasible in both
+orientations. Phase 1 now keeps a 2^17-bit set (`found_seen`, 16 KB per thread) and no table. Phase 2 keeps
+the same set beside a table of 2^17 rows under a guard of 2^17, which cannot be false, since each `bits`
+value is stored at most once. Sized allocation rather than a cap with a refusal, because the domain is finite
+and small, so a cap and a refusal path would be dead code, and a refusal would leave a branch unadjudicated
+where the proof could simply run. The King Wen distribution reaches 18 unique sequences per branch (twelve
+branches at 36 feasible paths and 18 unique, sixteen at 2 and 1, three dead), so no run reached either bound.
+
+Measured on f9b50120 with the Phase 1 table cut to two rows and the guard left as it was, a bounds-checked
+build (`-fsanitize=bounds`) stops in Phase 1 with "index 2 out of bounds for type 'int [2][17]'" at the first
+branch with a third unique sequence; the corrected source under the same checker runs the whole mode clean.
+The test class `TestQ317CascadeSequenceSets` reads the two Phase regions, each after asserting it found them
+(tests a and b, red on f9b50120), and pins every per-branch count of the corrected binary to the counts the
+tables produced (test c, green on both trees by design: it is the check that the sets count what the tables
+counted). Phase 2's table grows the binary's BSS by 8.9 MB, beside the 28.5 MB already there; it costs
+nothing until a row is touched.
+
+**2. The merge-input gate's checkpoint reader (Q-941 addendum, A11R #7).** `q881_gate_file()`, behind
+`--merge`, `--merge-layers`, the end-of-enumeration merge and the `BUDGET_EXHAUSTED` token, classified a
+`Sub-branch` line by searching it for `INTERRUPTED`, then `BUDGETED`, and counted any other line as
+`EXHAUSTED`. CX-264 part 7 gave the resume loader a vocabulary (`EXHAUSTED`, `BUDGETED`, `COMPLETE`,
+`INTERRUPTED`, the word after `Sub-branch `) under which any other line is named and its cell walked again,
+and listed the gate's classification for a decision. Measured on f9b50120: a finished `--branch 1 0 0 2`
+directory with one line's status rewritten to `GARBAGE` merged with exit 0 and wrote `solutions.bin`.
+
+Decided: the gate refuses. The resume can re-walk such a cell, which is always correct there; a merge has
+nothing to re-walk, and a line it cannot classify leaves the cell's completion unknown. The reader now checks
+the status word first, from one list, `q941_ckpt_status_word()`, that the resume loader
+(`a11r_ckpt_status_ok`) also reads, and returns -2 with an `ERROR` naming the file, the cell and the word;
+the gate prints `ERROR: … refusing to merge: a checkpoint line's status is one no writer emits …` and a whole
+line `MERGE_INPUT=UNRECOGNIZED_STATUS`, and exits 20, the format-error code of the absent-or-short shard
+refusals, beside which it belongs: this is a record that cannot be read, not a set known to be partial, so
+`SOLVE_MERGE_ALLOW_INCOMPLETE=1` does not apply. `BUDGET_EXHAUSTED` prints `UNKNOWN` for such a directory.
+The match is case-sensitive, as the loader's is. The remedy is stated in the message and is the operator's:
+inspect the file and repair or remove the line by hand; a relaunch does not clear it, because the resume
+ignores the line with a `WARNING` and walks the cell again, but the line stays and the gate reads every line.
+An unreadable file keeps its exit 10. `TestQ941MergeGateUnrecognizedStatus` builds the fixture, asserts the
+untouched copy merges, and checks the refusal (exit 20, token, no `solutions.bin`), the case, the absent
+override, the legacy `COMPLETE` word still passing, and the `UNKNOWN` token; four of its six tests are red on
+f9b50120.
+
+**3. Gates.** `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`, the claim ledger,
+`history_index.sh`, `TestNoBareAsserts` and the two new classes. Every in-place edit of solve.c keeps its
+line count; the two helpers are at the end of the file.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 36, Q-317 and Q-941.
+
+## CX-282 — the inventory's 40 `population` rows are attributed by a one-file ablation: 39 carry a reviewed verdict, and the two gate findings no line could name are tied to the marker behind each (CITATIONS.md:421 for GATE 71, MCKENNA.md:88 for GATE 44); the inventory's verdict is now COMPLETE (scripts/correction_marker_inventory.sh; documentation/CORRECTION_MARKER_INVENTORY.tsv)
+
+**2026-10-03.** Origin: backlog row Q-936, part (a), left open by CX-266 §5. Landed by Opus, batch 36.
+
+**1. What was open.** The inventory decides class 3 by deleting every marker at once and diffing the
+doc-gate output. A changed line that cites a line is tied to the marker there. A changed COUNT line
+cites nothing, so it became a `population` row (class `3?`, review `count-changed`). There were 40,
+and they kept the verdict at `CORRECTION_MARKER_INVENTORY=INCOMPLETE`.
+
+**2. How they were attributed.** The ablation was run one file at a time. For each of the 81 files that
+hold a marker or a "now reads" phrase, a fresh copy of the tree at f9b50120 had only that file's spans
+deleted (the script's own `ablate` code, copied in from the whole-tree ablated copy), and
+`scripts/doc_gates.sh` plus `scripts/citation_line_gate.sh --all-files --all-targets` were run in it.
+That is 81 runs, plus the usual base run and joint run, done on a 16-core worker. The joint run
+reproduces the published table byte for byte. Every changed line behind each population row was then
+matched to the one-file runs that print the same line, or for a count, a line of the same shape.
+Every line matched at least one file.
+
+**3. What the rows turned out to be.** There are three kinds. None of them is a marker the joint
+run missed, except the two in §4.
+- **Counts that fall because text inside a deleted span is gone.** The verdict does not change.
+  Examples: GATE 2's documented-flag counts (211→210 for SOLVE_C_CLI.md, 170→169 for SOLVE_PY_CLI.md,
+  167→165 for VERIFY.md), GATE 21's path tokens (469→465), GATE 25's flag uses (1,965→1,922), GATE 41's
+  65,281 mentions (49→44), and the citation gate's leg-B and exclusion counts. Each of these gates
+  scans a population, and some of its members are written inside a marker.
+- **Lines that move on any edit.** The citation gate's leg A/A2 summary lines, and the corpus byte count
+  printed under GATE 89. All 81 one-file runs move them.
+- **The continuation text of a finding whose headline is already tied by line.** Examples: GATE 18's
+  RULING/LINE/FIX lines, the GATE 26 and GATE 27 excerpts, the content rule's `[weak-pin-unmatched]`
+  list, and the GATE 53, 66 and 86 explanations. Each comes from the one-file run of a file whose
+  markers are already class 3 for that gate. CITATIONS.md and METHODS.md appear in two GATE 18 rows only
+  because the ruling's "LIVES AT" line names them. Their own one-file runs leave GATE 18 unchanged.
+  The `DOC GATES: FINDINGS` summary line is in this kind too.
+
+Each of these 39 rows now has an entry in the script's `REVIEWED` table, keyed `(file or '-',
+'pop:' + gate leg)`, with class `n/a` and a one-line reason that names the one-file runs it rests on.
+A reviewed pair is printed with that verdict and is not `UNATTRIBUTED`. An unreviewed pair still is.
+A key that matches no population row is reported on stderr. `--selftest` has a check for both cases.
+
+**4. The two findings no line could name.** In both, the joint run turned a gate red with a `[FAIL]` that
+cites no line and names no file, so no marker carried the leg. In each case the one-file run named the
+file, and ablating that file's markers one at a time named the marker. Every other marker in the file
+leaves the gate green.
+- GATE 71 (CITATIONS.md:421). The parenthesised `(corrected 2026-08-29 from "fifth" …)` marker fills
+  the whole of line 421. Deleting it leaves a blank line that splits the arrivals-chain paragraph in
+  two: "independent arrival" ends up above the break and "→ ROAE" below it. The gate then finds no
+  chain paragraph. So the marker is load-bearing for the gate only through the paragraph's shape.
+  Whoever moves it (Q-938) must keep the paragraph whole.
+- GATE 44 (MCKENNA.md:88). This span holds one of the corpus's two narrated null-spectrum verdicts.
+  Without it, the gate falls under its floor of 2 and reports that it is measuring nothing.
+
+Both are listed in a new table in the script, `SOLO_ANCHORED`, keyed on (file, line sha).
+It is applied only when that gate's section changed in the run. The row gets the leg with a `(solo)`
+suffix and becomes class 3. With GATE 71 tied, its `-` population row is gone, so the table has 39
+population rows rather than 40. CITATIONS.md:421 was class 1 in CX-266. Its `REVIEWED` key is removed
+because a class-3 result wins over the review. The same is done for DEPLOYMENT.md:335, which was
+already class 3 and whose key only produced a "matches no unanchored marker line" warning.
+
+**5. Result.** The table was regenerated with the real script (full two-copy ablation) on this tree:
+`CORRECTION_MARKER_INVENTORY=COMPLETE`, 0 unattributed, 39 reviewed population rows, G27=15. No marker
+in any document was reworded or moved. One-file attribution has a limit. A count that moved only when
+two files were ablated together would match no one-file run. None did: every population line matched
+at least one file.
+
+**6. Gates.** `correction_marker_inventory.sh --selftest`, `citation_line_gate.sh --all-files
+--all-targets`, the full `doc_gates.sh` with `ROAE_PRIVATE_DIR` set, the claim ledger, and
+`history_index.sh --check`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 36, Q-936 (a).

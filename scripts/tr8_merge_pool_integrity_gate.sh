@@ -37,12 +37,15 @@ def build(dirpath, extra_shard=False, mutate_bank=False):
     # catch, so it now demands rc == 0 as well.
     # Every key the finish path reads, collected from h["..."] in _tr8_finish /
     # _tr8_results_md rather than discovered one KeyError at a time.
-    hdr = {"n_shards": 1, "n_pool": 10, "k_ladder": [4], "n_pred": 1, "pool": "p",
+    # k_ladder is [1], not [4] (2026-10-03, batch 36, CX-279): the sampler refuses K above the
+    # admitted bank size, and this fixture's bank has one admitted clause, so K=4 made the control
+    # crash with "K = 4 exceeds the admitted bank size 1" before either check was reached.
+    hdr = {"n_shards": 1, "n_pool": 10, "k_ladder": [1], "n_pred": 1, "pool": "p",
            "seed_root": "r", "calibration_draws": 10, "admission_band": [0.0, 1.0],
            "b_raw": 1, "b_admitted": 1, "r_kw": 0.25, "seeds": {},
            "admitted_bank_sha256": digest(BANK, MARG, ADMIT)}
     def shard(i):
-        return {"header": hdr, "shard": i, "hits": {"4": [0]}, "hb_hits": 0, "draws": 10}
+        return {"header": hdr, "shard": i, "hits": {"1": [0]}, "hb_hits": 0, "draws": 10}
     json.dump(shard(0), open(os.path.join(dirpath, "shard_000.json"), "w"))
     if extra_shard:                      # id outside the declared 0..0 range
         json.dump(shard(5), open(os.path.join(dirpath, "shard_005.json"), "w"))

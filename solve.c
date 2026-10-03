@@ -47732,7 +47732,7 @@ int main(int argc, char *argv[]) {
             int branch_feasible = 0;
             /* Track unique pair sequences (ignoring orientation).
              * Per-iteration (was static; that broke under OpenMP parallelism). */
-            int found_seqs[1000][17];
+            unsigned int found_seen[(1 << 17) / 32] = {0};   /* Q-317 (A04): one bit per `bits` value, 2^17 bits; see the dedup below */
             int n_found = 0;
 
             for (int orient1 = 0; orient1 < 2; orient1++) {
@@ -47814,19 +47814,19 @@ int main(int argc, char *argv[]) {
                     }
 
                     if (feasible) {
-                        /* Check if this pair sequence is new */
-                        int is_new = 1;
-                        for (int f = 0; f < n_found; f++) {
-                            int match = 1;
-                            for (int j = 0; j < 17; j++) {
-                                if (found_seqs[f][j] != path[j]) { match = 0; break; }
-                            }
-                            if (match) { is_new = 0; break; }
-                        }
-                        if (is_new && n_found < 131072) {
-                            memcpy(found_seqs[n_found], path, sizeof(int) * 17);
-                            n_found++;
-                        }
+                        /* Check if this pair sequence is new. Q-317 (A04, batch 36): a feasible path is a
+                         * function of `bits` alone (path[j] is pos or pos-1 by bit j, above), so the set of
+                         * unique sequences is a set of `bits` values: one bit each, 2^17 in all, sized to the
+                         * domain, with no cap and nothing to refuse. Before, the set was a table
+                         * found_seqs[1000][17] written under the guard `n_found < 131072`, the size of the
+                         * domain and not of the table, so the 1001st unique sequence of a branch would have
+                         * been written past the table (the King Wen distribution reaches 18 per branch, as
+                         * the lines below print, so no run has reached it). The two orientations of the
+                         * branch pair can make the same `bits` feasible twice; that is the duplicate this
+                         * set removes, exactly as the table did. */
+                        int is_new = !(found_seen[bits >> 5] & (1u << (bits & 31)));
+                        if (is_new) { found_seen[bits >> 5] |= 1u << (bits & 31); n_found++; }
+                        (void)path;   /* the sequence itself is not needed in Phase 1; Phase 2 re-derives it */
                         branch_feasible++;
                     }
                 }
@@ -47891,7 +47891,7 @@ int main(int argc, char *argv[]) {
             if (bp == start_pair_idx) continue;
 
             /* Re-run the binary path enumeration to collect the multiple sequences */
-            static int multi_seqs[100][17];
+            static int multi_seqs[1 << 17][17]; static unsigned int multi_seen[(1 << 17) / 32]; memset(multi_seen, 0, sizeof multi_seen);   /* Q-317 (A04): both sized to the domain of 2^17 paths; this loop is serial, so static is safe */
             int n_multi = 0;
 
             for (int orient1 = 0; orient1 < 2; orient1++) {
@@ -47946,13 +47946,13 @@ int main(int argc, char *argv[]) {
                         if (!placed) { feasible = 0; break; }
                     }
                     if (feasible) {
-                        int is_new = 1;
-                        for (int f = 0; f < n_multi; f++) {
-                            int m = 1;
-                            for (int j = 0; j < 17; j++) if (multi_seqs[f][j] != path[j]) { m = 0; break; }
-                            if (m) { is_new = 0; break; }
-                        }
-                        if (is_new && n_multi < 100) {
+                        int is_new = !(multi_seen[bits >> 5] & (1u << (bits & 31)));   /* Q-317 (A04): the same set as Phase 1 */
+                        /* The guard below equals the table's row count, and it cannot be false: each `bits` value
+                         * is stored at most once and there are 2^17 of them. Before batch 36 the table had 100 rows
+                         * under a guard of 100, so a branch with more unique sequences than that would have been
+                         * adjudicated on its first 100 in silence, and the closing theorem line was still reachable (Codex A04). */
+                        if (is_new && n_multi < (1 << 17)) {
+                            multi_seen[bits >> 5] |= 1u << (bits & 31);
                             memcpy(multi_seqs[n_multi], path, sizeof(int) * 17);
                             n_multi++;
                         }
@@ -51888,8 +51888,8 @@ static void q881_clear_incomplete(void) {
         fprintf(stderr, "WARN: directory fsync after removing %s failed: %s; after a crash the marker can reappear, and a\n"
                         "      merge then refuses until the run is relaunched (Q-881)\n", Q881_MARKER, strerror(errno));
 }
-/* One checkpoint file into the per-cell tables. fl bits: 1 EXHAUSTED/COMPLETE line, 2 INTERRUPTED
- * line, 4 BUDGETED line with no budget field (old format), 8 any line, 16 a [v3.1 promoted] BUDGETED line (Q-888 (4): its budget goes to q888_covp[], not cov[]). Returns 1 read, 0 absent, -1 error. */
+/* One checkpoint file into the per-cell tables. fl bits: 1 EXHAUSTED/COMPLETE line, 2 INTERRUPTED line, 4 BUDGETED line with no budget field (old format), 8 any line, 16 a [v3.1 promoted] BUDGETED line (Q-888 (4): its budget goes to q888_covp[], not cov[]). Returns 1 read, 0 absent, -1 error, -2 a line that names a cell but whose status token is not one a writer emits (Q-941, batch 36: the ERROR line naming the file, the cell and the token is printed here; the caller says what it does about it). */
+static int q941_ckpt_status_word(const char *line, const char **tok, int *w); static int q941_gate_unrecognized_rc(int r, const char *ctx);   /* Q-941: defined at the end of the file; one status vocabulary for the resume loader (a11r_ckpt_status_ok) and this reader */
 static int q881_gate_file(const char *path, unsigned char *fl, long long *cov, long long *intr, long long *claim, int *n_lines) {
     FILE *f = fopen(path, "r");
     if (!f) {
@@ -51908,7 +51908,7 @@ static int q881_gate_file(const char *path, unsigned char *fl, long long *cov, l
         const char *bp = strstr(line, "budget ");
         if (!bp || sscanf(bp, "budget %lld", &b) != 1 || b < 0) b = -1;
         long long bn = (b == 0) ? LLONG_MAX : b;   /* 0 = uncapped = infinite (Q-317 (1)); -1 = no field */
-        if (strstr(line, "INTERRUPTED")) {
+        const char *q941_tok = NULL; int q941_w = 0; if (!q941_ckpt_status_word(line, &q941_tok, &q941_w)) { fprintf(stderr, "ERROR: checkpoint file %s: the line for sub-branch pair1 %d orient1 %d pair2 %d orient2 %d%s has status '%.*s', which no checkpoint writer emits (EXHAUSTED, BUDGETED, COMPLETE or INTERRUPTED): the file is damaged or not this program's, and that cell's state is unknown (Q-941)\n", path, p1, o1, p2, o2, p3 >= 0 ? " (a pair3 cell)" : "", q941_w, q941_tok ? q941_tok : ""); fclose(f); return -2; } else if (strstr(line, "INTERRUPTED")) {   /* Q-941 (batch 36): the token after "Sub-branch " is checked first, as the resume loader checks it (A11R #7); before, any line that was neither INTERRUPTED nor BUDGETED counted as completion */
             fl[k] |= 2;
             long long ib = (bn < 0) ? 1 : bn;       /* no field: any completing line covers it */
             if (ib > intr[k]) intr[k] = ib;
@@ -51961,7 +51961,7 @@ static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_ou
     memset(q888_covp, 0, sizeof q888_covp); if (!fl || !cov || !intr || !claim) { fprintf(stderr, "ERROR: %s: cannot allocate the checkpoint cross-reference tables\n", ctx); rc = 10; goto done; }
     snprintf(path, sizeof(path), "%s/checkpoint.txt", dir);
     int r = q881_gate_file(path, fl, cov, intr, claim, &n_lines);
-    if (r < 0) { rc = 10; goto done; }
+    if (r < 0) { rc = q941_gate_unrecognized_rc(r, ctx); goto done; }   /* Q-941: -2 (a status no writer emits) is refused by name with exit 20; -1 (unreadable) stays 10 */
     n_files += r;
     DIR *d = opendir(dir);
     if (!d) { fprintf(stderr, "ERROR: %s: opendir(%s): %s\n", ctx, dir, strerror(errno)); rc = 10; goto done; }
@@ -51974,7 +51974,7 @@ static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_ou
         if (i != len - 4) continue;   /* checkpoint_t<digits>.txt only, as load_sub_checkpoint() */
         snprintf(path, sizeof(path), "%s/%s", dir, n);
         r = q881_gate_file(path, fl, cov, intr, claim, &n_lines);
-        if (r < 0) { closedir(d); rc = 10; goto done; }
+        if (r < 0) { closedir(d); rc = q941_gate_unrecognized_rc(r, ctx); goto done; }   /* Q-941: as above */
         n_files += r;
     }
     closedir(d);
@@ -52607,15 +52607,15 @@ static int a11r_sol_count_ok(uint64_t n) {
  * "completed" as soon as the pair fields parsed, so a damaged line suppressed work that was
  * never done. Refused lines set no bit, so the cell is re-walked, which is always correct. */
 static int a11r_ckpt_status_ok(const char *line) {
-    const char *p = strstr(line, "Sub-branch ");
-    if (p) {
-        p += strlen("Sub-branch ");
-        static const char *const ok[] = { "EXHAUSTED ", "BUDGETED ", "COMPLETE ", "INTERRUPTED " };
-        for (size_t i = 0; i < sizeof(ok) / sizeof(ok[0]); i++)
-            if (strncmp(p, ok[i], strlen(ok[i])) == 0) return 1;
-    }
+    const char *p = NULL;
     int w = 0;
-    while (p && p[w] && p[w] != ' ' && p[w] != '\n' && w < 32) w++;
+    /* Q-941 (batch 36): the vocabulary that stood here (EXHAUSTED, BUDGETED, COMPLETE, INTERRUPTED,
+     * each matched with its trailing space at the position after "Sub-branch ") moved to
+     * q941_ckpt_status_word() at the end of the file, so that the merge-input gate's checkpoint
+     * reader (q881_gate_file) classifies a line by the same list. This loader's behaviour is
+     * unchanged: a recognized token returns 1, any other sets no bit and is named below, and the
+     * cell is walked again. The merge gate, which has nothing to re-walk, refuses instead. */
+    if (q941_ckpt_status_word(line, &p, &w)) return 1;
     fprintf(stderr, "WARNING: checkpoint line with unrecognized status '%.*s' ignored; that "
                     "sub-branch is NOT marked complete and will be re-walked (A11R #7)\n",
             w, p ? p : "");
@@ -52731,4 +52731,43 @@ static int a11r_bld_refuse(const char *path, const char *why) {
     fprintf(stderr, "[f1c5-ooc] build checkpoint %s refused: %s -- the layer is rebuilt fresh (A11R #9)\n",
             path, why);
     return 0;
+}
+
+/* Q-941 (batch 36). The checkpoint status vocabulary, in one place. A `Sub-branch` line's status is
+ * the word after "Sub-branch ", and a writer emits exactly EXHAUSTED, BUDGETED, COMPLETE (legacy) or
+ * INTERRUPTED, each followed by a space. Returns 1 when the line's token is one of them. Otherwise
+ * returns 0 and sets *tok to the token's start (NULL when the line has no "Sub-branch ") and *w to its
+ * length, at most 32, for the caller's message. The resume loader (a11r_ckpt_status_ok, A11R #7) and
+ * the merge-input gate's reader (q881_gate_file) both classify by this list; until batch 36 the gate
+ * had no list and counted any line that was neither INTERRUPTED nor BUDGETED as completion. */
+static int q941_ckpt_status_word(const char *line, const char **tok, int *w) {
+    static const char *const ok[] = { "EXHAUSTED ", "BUDGETED ", "COMPLETE ", "INTERRUPTED " };
+    const char *p = strstr(line, "Sub-branch ");
+    int n = 0;
+    if (p) {
+        p += strlen("Sub-branch ");
+        for (size_t i = 0; i < sizeof(ok) / sizeof(ok[0]); i++)
+            if (strncmp(p, ok[i], strlen(ok[i])) == 0) return 1;
+    }
+    while (p && p[n] && p[n] != ' ' && p[n] != '\n' && n < 32) n++;
+    *tok = p;
+    *w = n;
+    return 0;
+}
+
+/* Q-941 (batch 36). What the merge-input gate does with a q881_gate_file() failure. -1 (the file
+ * cannot be read) stays the I/O-error exit 10, as before. -2 (a line names a cell with a status no
+ * writer emits) is the format-error exit 20 with a whole line MERGE_INPUT=UNRECOGNIZED_STATUS, beside
+ * the absent-or-short shard refusals of the same exit code: the resume loader can re-walk such a
+ * cell, which is always correct there, but a merge has nothing to re-walk, and a line it cannot
+ * classify leaves the cell's completion unknown. SOLVE_MERGE_ALLOW_INCOMPLETE=1 does not apply: the
+ * override merges a set known to be partial, and this set is one whose record cannot be read. */
+static int q941_gate_unrecognized_rc(int r, const char *ctx) {
+    if (r != -2) return 10;
+    fprintf(stderr, "ERROR: %s: refusing to merge: a checkpoint line's status is one no writer emits, so whether its sub-branch\n"
+                    "       finished cannot be read from the checkpoint (Q-941). Inspect the file and repair or remove that line by\n"
+                    "       hand, then merge again. A relaunch does not clear it: the resume ignores the line with a WARNING and\n"
+                    "       walks the cell again (A11R #7), but the line stays, and this gate reads every line.\n"
+                    "MERGE_INPUT=UNRECOGNIZED_STATUS\n", ctx);
+    return 20;
 }
