@@ -10589,3 +10589,33 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
   span holds one of the two null-spectrum verdicts the gate's floor needs. Both are now class 3.
   The regenerated table's verdict is `CORRECTION_MARKER_INVENTORY=COMPLETE`. No marker was reworded
   or moved.
+
+## 2026-10-03 — batch 37: the capstone — the laptop guide is published and runs from a clone, and the reviewer package is one bundle with thirteen checked steps
+
+**Batch 37, the capstone guide (CX-283).**
+
+- The third part of the capstone, a guide for running a subset of the work on a laptop, is published
+  as `reports/CAPSTONE_GUIDE.md`. It explains the object, the seven rules, how about 10³⁹ orderings
+  are counted without listing them, the catalog, what is known and what is open, in 20 commands that
+  run from a clone of this repository, each with its expected output.
+- Three of its steps are built from commands already on the tree: a `diff` of the published 31-layer
+  table against the published run log, and two planted off-by-one values that `verify.c` and that
+  comparison reject. All 20 steps were re-run on 2026-10-03 and every expected text appeared.
+- `viz/README.md` stops calling the guide "in preparation"; the root README, the report index,
+  TR-12's laptop tier and GUIDE.md link to it.
+
+**Batch 37, the reviewer package (CX-284, Q-158).**
+
+- A reviewer can now check the project from one page. `reviewer/README.md` lists thirteen steps
+  that run on a laptop with nothing downloaded from us: the small exact rungs, rebuilt and compared
+  byte for byte with published digests; the same counts made a second way in Python; the first six
+  layers of the full-31 count, made by enumerating every prefix; and a check that the full-31
+  aggregate table is a faithful copy of the published run log. One script runs every step as the
+  page writes it and compares the output, and one script bundles the files into a single archive
+  with a manifest. The page says what the package cannot show, which includes every headline
+  full-31 figure. Codex reviewed the package twice before publication by running every step; the
+  reviews led to a self-check that works on a copy of the package files only, matches whole output
+  lines and fails on a contradicting one, to `solve --selftest` running from a path with a space,
+  to `verify --brute-masses` and the FULL31 table readers refusing repeated, relabelled or foreign
+  records, to the digest gate counting the hashing command's exit status, and to two FULL31
+  sentences scoped to what was shown.

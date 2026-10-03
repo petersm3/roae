@@ -12,8 +12,8 @@ CLAUDE.md	389	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
 README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	073e3d84aa02
 README.md	146	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
 README.md	296	ledger-link	CORRECTION	n/a	-	not-a-marker	fca6f9b47e6d
-README.md	327	ledger-link	CORRECTION	n/a	-	not-a-marker	f639e1756165
-README.md	332	ledger-link	CORRECTION	n/a	-	not-a-marker	0f47ff4f3a2c
+README.md	334	ledger-link	CORRECTION	n/a	-	not-a-marker	f639e1756165
+README.md	339	ledger-link	CORRECTION	n/a	-	not-a-marker	0f47ff4f3a2c
 documentation/BOUNDARY_MINIMUM.md	48	ledger-link	CORRECTION	n/a	-	not-a-marker	5c2b86f94f1e
 documentation/BOUNDARY_MINIMUM.md	48	marker	CORRECTED	1	-	reviewed:table-already-separates-greedy-set-and-4-set-family	5c2b86f94f1e
 documentation/BOUNDARY_MINIMUM.md	68	marker	CORRECTED	2	-	reviewed:only-statement-on-the-page-that-the-full-space-minimum-is-at-least-7	1a59ec4f6390
@@ -557,10 +557,14 @@ lean/README.md	249	marker	CORRECTED	1	-	reviewed:sentence-already-names-stdout-a
 lean/README.md	343	marker	CORRECTED	1	-	reviewed:sentence-already-reads-fifteen	7e04babdaffb
 lean/README.md	395	marker	CORRECTED	1	-	reviewed:table-already-carries-the-re-measured-figures	826d33dcd3dd
 lean/README.md	728	marker	CORRECTED	1	-	reviewed:sentence-above-already-says-definitional	5b5a41a13f81
-reports/FULL31_EXACT_AGGREGATES.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-layer_curve-exception	859f11490cbd
-reports/FULL31_EXACT_AGGREGATES.md	15	marker	CORRECTED	1	-	reviewed:following-text-already-gives-the-measured-ratios	44ec9d8de0a7
-reports/FULL31_EXACT_AGGREGATES.md	40	marker	CORRECTED	1	-	reviewed:text-already-defines-V_k-as-residual-vectors	a8b3e44f5cfe
-reports/FULL31_EXACT_AGGREGATES.md	153	marker	CORRECTED	1	-	reviewed:paragraph-already-calls-the-ceiling-an-extrapolation	78717a9d8def
+reports/CAPSTONE_GUIDE.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	e9a5687d5cf6
+reports/CAPSTONE_GUIDE.md	570	ledger-link	CORRECTION	n/a	-	not-a-marker	b0eaa4102d81
+reports/FULL31_EXACT_AGGREGATES.md	9	marker	CORRECTED	1|2	-	unreviewed	95394accbcda
+reports/FULL31_EXACT_AGGREGATES.md	12	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-layer_curve-exception	a3745ad9aa27
+reports/FULL31_EXACT_AGGREGATES.md	20	marker	CORRECTED	1	-	reviewed:following-text-already-gives-the-measured-ratios	44ec9d8de0a7
+reports/FULL31_EXACT_AGGREGATES.md	45	marker	CORRECTED	1	-	reviewed:text-already-defines-V_k-as-residual-vectors	a8b3e44f5cfe
+reports/FULL31_EXACT_AGGREGATES.md	95	marker	CORRECTED	1|2	-	unreviewed	dd87654435af
+reports/FULL31_EXACT_AGGREGATES.md	165	marker	CORRECTED	1	-	reviewed:paragraph-already-calls-the-ceiling-an-extrapolation	78717a9d8def
 reports/METHODS.md	6	ledger-link	CORRECTION	n/a	-	not-a-marker	0b88d6e7fd91
 reports/METHODS.md	6	marker	Corrected	1	-	reviewed:sentence-already-points-at-CORRECTIONS-and-names-no-public-archive	0b88d6e7fd91
 reports/METHODS.md	25	marker	CORRECTED	2	-	reviewed:marker-holds-the-only-statement-in-the-C4-bullet-of-what-the-classical-record-attests	7572f71d2e55
@@ -579,9 +583,9 @@ reports/README.md	42	ledger-link	CORRECTION	n/a	-	not-a-marker	eeaba5fb691c
 reports/README.md	42	marker	CORRECTED	1	-	reviewed:row-already-says-not-confined-to-V-0	eeaba5fb691c
 reports/README.md	44	marker	CORRECTED	1	-	reviewed:row-already-scopes-to-the-first-four-boundaries	b4ce93c76e88
 reports/README.md	48	marker	CORRECTED	1	-	reviewed:row-already-scopes-to-the-Gray-path-claim	31f8297b0b33
-reports/README.md	71	marker	CORRECTED	1	-	reviewed:meta-mention-of-the-marker-form-in-code;not-a-correction	2a35a3c9c536
-reports/README.md	72	ledger-link	CORRECTION	n/a	-	not-a-marker	433fc133688e
-reports/README.md	93	ledger-link	CORRECTION	n/a	-	not-a-marker	53a19f3161f1
+reports/README.md	73	marker	CORRECTED	1	-	reviewed:meta-mention-of-the-marker-form-in-code;not-a-correction	2a35a3c9c536
+reports/README.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	433fc133688e
+reports/README.md	95	ledger-link	CORRECTION	n/a	-	not-a-marker	53a19f3161f1
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	85	marker	CORRECTED	2	-	reviewed:only-statement-that-the-archived-outputs-carry-no-se-field	07a138384de5
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	116	marker	CORRECTED	1	-	reviewed:row-already-reads-does-not-meet-the-bar	475777f8f1d6
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	117	marker	CORRECTED	1	-	reviewed:row-already-reads-NULL	4f2bbde898c9
@@ -786,6 +790,7 @@ reports/evidence/tr12/README.md	63	marker	Corrected	1	-	reviewed:bullet-already-
 reports/evidence/tr12/README.md	103	marker	Corrected	1	-	reviewed:bullet-already-scopes-the-container-count-to-t	80ab431c9646
 reports/evidence/tr12/v3_rows_n31_20260925/README.md	103	narration	now reads	1	-	reviewed:narration-inside-a-change-note;text-reads-correctly	27f78169945d
 reports/evidence/w0d_lower_bound/README.md	86	marker	Corrected	1	-	reviewed:text-already-says-the-atlas-is-distributed	2b8aff0baaa3
+reviewer/README.md	42	ledger-link	CORRECTION	n/a	-	not-a-marker	9967306c5a2a
 runs/20260419_100T_d3_d128westus3/README.md	65	marker	Corrected	1	-	reviewed:dated-label;row-already-says-not-present	f7f41ce12530
 runs/20260419_100T_d3_d128westus3/README.md	117	marker	Corrected	1	-	reviewed:bullet-already-cites-the-git-ls-files-listing	d7c195a0b90a
 runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	43	marker	CORRECTED	3	GATE 3b	reanchored:GATE-3b=allowlist-row	250a146d1906

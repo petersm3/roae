@@ -40,7 +40,8 @@
 #
 # COST, measured 2026-09-25 on the D16 worker: build ~12 s; all five rows together ~5 s;
 # P1-P3 ~2 s. n = 18 and n = 19 are ~1-1.5 s each, so no rung is gated behind a flag.
-# --selftest builds once and grades six planted pages (~40 s). Needs gcc, zlib, python3, ~200 MB
+# --selftest builds once and grades seven pages (~45 s): the real page, the real page with a
+# hashing command that exits nonzero, and five planted pages. Needs gcc, zlib, python3, ~200 MB
 # of scratch under ${TMPDIR:-/tmp}; no network, no ladder data.
 #
 # Usage:
@@ -205,12 +206,25 @@ check_page(){
   local UNSET=() v
   for v in $(compgen -e | grep '^SOLVE_'); do UNSET+=(-u "$v"); done
   inst(){ printf '%s' "$1" | sed -E "s/([a-z])N\b/\1$2/g; s/\bN\b/$2/g"; }
+  # digest_of RECIPE -> prints the digest, or nothing if the recipe failed. The recipe runs with
+  # pipefail and its exit status is checked, and its whole output must be ONE line
+  # "<64 hex>  -": a hashing command that prints the right digest and then exits nonzero, or
+  # prints a second line, gives no digest at all (Codex PKG-V3 finding 6: before 2026-10-03 a
+  # stand-in sha256sum that printed the real digest and exited 23 still passed).
+  digest_of(){
+    local out rc
+    out=$(cd "$work" && bash -o pipefail -c "$1" 2>/dev/null); rc=$?
+    [ "$rc" -eq 0 ] || { echo "  [note]  the digest recipe exited rc=$rc" >&2; return 0; }
+    grep -qxE '[0-9a-f]{64}  -' <<<"$out" && [ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ] \
+      || { echo "  [note]  the digest recipe printed something other than one '<sha256>  -' line" >&2; return 0; }
+    printf '%s' "${out%%  -}"
+  }
   run_rung(){  # $1 command, $2 digest recipe -> sets R_RC R_OUT R_DIG R_DIR R_MS
     local t0 t1
     t0=$(date +%s%N)
-    R_OUT=$(cd "$work" && env "${UNSET[@]}" timeout 300 bash -c "$1" 2>&1); R_RC=$?
+    R_OUT=$(cd "$work" && env "${UNSET[@]}" timeout 300 bash -o pipefail -c "$1" 2>&1); R_RC=$?
     t1=$(date +%s%N); R_MS=$(( (t1 - t0) / 1000000 ))
-    R_DIG=$(cd "$work" && bash -c "$2" 2>/dev/null | awk '{print $1; exit}')
+    R_DIG=$(digest_of "$2")
     R_DIR=$(printf '%s\n' "$1" | sed -nE 's/.*--layers-dir +([^ ]+).*/\1/p')
   }
   local n byts files total dg c d nb nf tot
@@ -259,7 +273,7 @@ check_page(){
     local f; f=$(find "$work/$alt" -name '*.bin' | sort | head -1)
     if [ -n "$f" ]; then
       printf '\xff' | dd of="$f" bs=1 seek=64 conv=notrunc status=none
-      local t; t=$(cd "$work" && bash -c "$(printf '%s' "$d13" | sed "s#\b$dir13\b#$alt#g")" 2>/dev/null | awk '{print $1; exit}')
+      local t; t=$(digest_of "$(printf '%s' "$d13" | sed "s#\b$dir13\b#$alt#g")" 2>/dev/null)
       if [ -n "$t" ] && [ "$t" != "$base13" ]; then echo "  [ok]    P2 tamper evidence: one flipped byte changes the digest"
       else echo "  [FAIL]  P2 tamper evidence: the digest did not move when a layer byte changed"; fail=1; fi
     else
@@ -325,7 +339,8 @@ if [ "$MODE" = run ]; then
 fi
 
 # ---- --selftest: the gate must discriminate ------------------------------------------------------
-# One build from the real page, then six pages graded against it. Each planted page differs from
+# One build from the real page, then seven gradings against it: the real page, the real page with
+# a failing hashing command, and five planted pages. Each planted page differs from
 # the real one in ONE place, and each mutation must actually land (asserted, so a page reworded
 # under this selftest cannot turn a red leg into a no-op that "passes" by grading the real page).
 echo "== REPRODUCE.md digests: --selftest =="
@@ -348,6 +363,11 @@ expect(){  # $1 name, $2 expected verdict, $3 page
   fi
 }
 expect real-page PASS "$PAGE"
+# the real page, with a hashing command that prints the true digest and then exits nonzero
+# (Codex PKG-V3 finding 6): the recipe's exit status must count, not only its text
+SHAREAL=$(command -v sha256sum); mkdir -p "$SD/stubbin"
+printf '#!/usr/bin/env bash\n"%s" "$@"\nexit 23\n' "$SHAREAL" > "$SD/stubbin/sha256sum"; chmod +x "$SD/stubbin/sha256sum"
+SAVED_PATH=$PATH; PATH="$SD/stubbin:$PATH"; expect hash-tool-fails FAIL "$PAGE"; PATH=$SAVED_PATH
 # a planted wrong digest: the last hex digit of the n=16 row
 plant wrong-digest 's/(fa2ae688058e5e6ef923f9eae93cbbfddde413ba05859460375069aaab3b471)3/\14/' && expect wrong-digest FAIL "$SD/wrong-digest.md"
 # the ledger command with SOLVE_F1_KEEP_LAYERS=1 removed (failure mode 1)

@@ -145,7 +145,7 @@ the kind of gap this disclosure exists to surface.
   own results, plus the authorship disclosure above and the append-only corrections record in
   [CORRECTIONS.md](documentation/CORRECTIONS.md).
 - **Replicator** — the one-command check above, then the full replication recipe in
-  [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md).
+  [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md). On a laptop, the [capstone guide](reports/CAPSTONE_GUIDE.md) walks through 20 checks of the counts, beside [TR-12](reports/TR12_QUERY_PROGRAM.md) *(added 2026-10-03)*.
 
 ## The constraints
 
@@ -320,6 +320,13 @@ tool is absent, never that a certificate failed to verify. SKIPs do not pass the
 status distinguishes them — so a machine without drat-trim and Lean gives a partial, honestly-labelled
 result rather than a wall of failures.
 Full CLI references: [SOLVE_C_CLI](documentation/SOLVE_C_CLI.md) · [ROAE_PY_CLI](documentation/ROAE_PY_CLI.md).
+
+**Checking our numbers on a laptop?** The [reviewer package](reviewer/README.md) is one
+self-contained bundle of 13 steps, each with the output it must print, and nothing downloaded from
+us. It recomputes the small exact rungs and the first six layers of the full count and compares them
+with published digests and integers. It does not recompute the headline full-31 figures: for those it
+checks only that the published table matches the published run log, and it labels every figure by
+its evidence.
 
 ## Going deeper
 **If you read one thing**: [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md) — the literature's rules, measured and decided.

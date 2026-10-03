@@ -378,7 +378,7 @@ norm(){
     [ -n "$WORK" ] && s+=( -e "s#$(_rq "$WORK")#<WORK>#g" )
     [ -n "$REPO_ROOT" ] && s+=( -e "s#$(_rq "$REPO_ROOT")#<REPO>#g" )
     sed "${s[@]}" \
-        -e 's#/tmp/solve_selftest_[A-Za-z0-9._]*#<SELFTEST_TMP>#g' \
+        -e 's#[^[:space:]]*/solve_selftest_[A-Za-z0-9._]*#<SELFTEST_TMP>#g' \
         -e 's#/tmp/[A-Za-z0-9][A-Za-z0-9_.-]*_[A-Za-z0-9]\{6\}#<SELFTEST_TMP>#g' \
         -e 's#"engine_git": "[^"]*"#"engine_git": "<GIT>"#g' \
         -e 's#"engine_source_sha": "[^"]*"#"engine_source_sha": "<SRC>"#g' \

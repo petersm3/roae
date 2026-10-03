@@ -28003,3 +28003,184 @@ at least one file.
 `history_index.sh --check`.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 36, Q-936 (a).
+
+## CX-283 — the capstone's third part, the laptop guide, is published as reports/CAPSTONE_GUIDE.md and runs from a clone of this repository; viz/README.md no longer calls it "in preparation", and five pages link to it (reports/CAPSTONE_GUIDE.md; viz/README.md; README.md; reports/README.md; reports/TR12_QUERY_PROGRAM.md; documentation/GUIDE.md)
+
+**2026-10-03.** Origin: backlog row Q-142, the capstone laptop guide. Batch 37, lane B37A.
+
+**Before.** `viz/README.md` named the capstone's three parts and called the third, a step-by-step
+guide for reproducing a subset of the work on a laptop, "in preparation". No such page was
+published, and no page linked to one.
+
+**Now.** `reports/CAPSTONE_GUIDE.md` is that guide: nine sections for a reader with no background in
+the I Ching, and 20 numbered steps, each a command with its expected output. Every step runs from a
+clone of this repository with commands that exist on this tree. Each was re-run on 2026-10-03 in a
+worktree of the commit that adds the guide, one core, builds with `-O2 -fopenmp`, and every
+`expect:` text appeared in its output. Steps 15, 19 and 20 are new forms: step 15 extracts the eight
+fields of each `[f1c5] layer` line of `runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out` and the eight
+columns of the 31-row table in §1 of `reports/FULL31_EXACT_AGGREGATES.md`, and `diff`s them
+(`LAYER_TABLE=MATCH`, 31 rows); step 19 plants one off-by-one layer-4 count in a copy of that log
+and `./verify --brute-masses` rejects it (`BRUTE_MASSES_MISMATCHED=1`, `BRUTE_MASSES_RESULT=FAIL`);
+step 20 plants the same off-by-one in a copy of the table and step 15's comparison reports the one
+row (`LAYER_TABLE=DIFFER`). The guide states that from 2026-10-02 the full-31 engine run asserts
+divisibility by 48, and that the run behind the published total asserted 24 (CX-271).
+
+**What changed in the text.** `viz/README.md:11` replaces "(in preparation)" with a link, with a
+dated "this read" note on the same line. `README.md` (the Replicator door) and `reports/TR12_QUERY_PROGRAM.md` (the Tier C paragraph of §R)
+each carry a dated same-line pointer, so no line of either moves.
+`reports/README.md` gains one line under the report table, and `documentation/GUIDE.md` a "Next
+step" line at its end.
+
+**What stays.** No published number, count, sha or token moves: every figure in the guide is quoted
+from a page that already publishes it, is exact arithmetic on such figures, or is printed by one of
+its 20 commands. The guide recomputes
+none of the headline totals, and says so. Timings marked measured come from two machines and are a
+guide to scale only.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 37, lane B37A (Q-142).
+Drafts reviewed by Codex (OpenAI; review targets GUIDE-V1 and GUIDE-V2) and Claude (Fable 5);
+corrections invited.
+
+## CX-284 — the reviewer package: one bundle, thirteen checked steps, and a check that the full-31 aggregate table is the published run log; and, from Codex's two reviews of it, `solve --selftest` runs from a path with a space and honours `$TMPDIR`, `verify --brute-masses` refuses a relabelled or repeated layer and a log of another problem, the FULL31 table readers refuse a repeated or out-of-range row, the digest gate counts the hashing command's exit status, and two FULL31 sentences are scoped (reviewer/README.md; reviewer/selfcheck.sh; reviewer/make_package.sh; README.md; solve.c; verify.c; verify.py; scripts/reproduce_digests_gate.sh; scripts/tr12_repro.sh; reports/FULL31_EXACT_AGGREGATES.md; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-10-03.** Origin: backlog row Q-158 and the operator's ruling of 2026-09-30 that the capstone
+includes a step-by-step guide for reproducing a subset of the work on a laptop; the package is that
+guide's prerequisite. Before publication the package was reviewed twice by Codex (gpt-6-astra).
+Review PKG-V1 ran every step literally in a clean unpack and returned 2 blocking findings, 11 fixes
+and 1 nit. Review PKG-V3 ran all 13 steps of the revised package (all matched) and returned 1
+blocking finding, 9 fixes and 3 nits, with a plain-language rewrite of the summary and of each
+step's one-line purpose. Each finding was reproduced before it was fixed, and each is applied below
+or declined with a reason. No published number, sha, count or reproduction parameter moves. The
+package was built on an earlier `main` and rebased onto batch 35 (see "Rebase" below).
+
+**What was missing.** A reviewer who wanted to check the project had to assemble the route from
+REPRODUCE.md, VERIFY.md, FULL31_EXACT_AGGREGATES.md and two verifiers, and nothing checked that the
+31-row aggregate table matched the published full-31 run log. FULL31 §3 records a one-time `diff`
+of the seven fields on 2026-09-25; it was not repeatable from the tree.
+
+**What was added.** `reviewer/README.md` is one entry point. It opens with a short summary, says
+what is counted (C1, C2, C4, C5, with a glossary of layer, prefix, mass, `B0`, rung, orbit quotient
+and f-ladder), labels every figure by its evidence (recomputed here, compared, transcription check,
+consistency check, reported upstream as exact, measured or estimated, proved upstream), states what
+the package cannot show, and lists 13 numbered steps, each with a one-line purpose and the output it
+must print. Every step uses an existing instrument: the engine at n = 9 and 13,
+`verify.py --recount-rung-layers 9` and `13`, the n=13 catalog build, the catalog query together
+with the digest of the catalog's own layer files, `scripts/reproduce_digests_gate.sh` for the five
+small rungs, `verify --brute-masses` for the full-31 masses at k ≤ 6, and
+`verify.py --recount-orbit-widths 31`. The one new check is step 13,
+`reviewer/selfcheck.sh --aggregates`. It compares all seven fields of all 31 rows of FULL31 §1
+with the `[f1c5] layer k=` records of `runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out`, checks
+that log's sha256 (`8c7d063e…`, as in its `PRESERVE_SHA256.txt`), pins the table's own digest
+(`165cda4e…`), checks `C(31,k)` by arithmetic, requires every layer record to be a well-formed
+full-31 record with each layer once, every run session to be the full problem and every final-count
+line to agree, checks that row 31 is the published total and divisible by 24 (labelled a
+consistency check), and compares the reader's own n=13 engine log, which must hold exactly one
+n=13 run with the published pair list and starting exit and its layers in order, with §2's n=13
+column. It checks transcription, not the run's arithmetic, and the page says so.
+
+`reviewer/selfcheck.sh` with no argument reads the steps from the page and runs each one as written.
+It copies the package files, and nothing else, into a fresh scratch directory; runs each command
+with `bash -o pipefail` and no inherited `SOLVE_*` setting; and passes a step only when it exits 0,
+every expectation equals a whole output line (an expectation ending in ` …` must begin a line), no
+other line of the same form as a matched expectation carries another value, and no line reports a
+failure. In an unpacked package it requires the manifest, which must list exactly the package
+files, each once; a repository checkout must say `--source-checkout` to skip it. It fails a page
+whose stated step count differs from its numbered steps. `--selftest` plants one defect at a time
+and requires the targeted check, and only that check, to reject it: 67 legs over the aggregate
+check, the n=13 log, the manifest, the pass rule, isolation, and steps 2, 4 and 8 of the real page
+run against stand-in programs. It plants no fault in the counting programs themselves. Weakened
+copies of the checker, each with one check disabled (thirty in the first round, seven more in the
+second), were each rejected by it. `reviewer/make_package.sh` bundles the files that
+`selfcheck.sh --files` lists into one reproducible `.tar.gz` with a sha256 manifest; it refuses
+while the page's measured-times table says PENDING or re-measure, and it refuses a non-draft
+package whose files differ from the named commit.
+
+**What the first review (PKG-V1) found, and what changed.**
+- *Isolation (blocking).* The first version's scratch directory linked every entry of the package
+  directory, outputs included, so after a manual run step 4 resumed the reader's finished `out13/`,
+  overwrote their `run13.log`, and step 13 failed. The scratch now holds copies of the listed
+  inputs only; a self-test leg shows a step neither sees nor changes outputs already present.
+- *Matching (blocking).* Expectations that were not `KEY=VALUE` were substring matches, so an
+  engine printing ten times the n=13 count passed all 13 steps. All expectations now match whole
+  lines; self-test legs cover an extra digit, a malformed digest, a quoted success line and
+  conflicting verdicts.
+- *Parsers.* Step 13's parsers let a duplicate layer overwrite the first, took the first of two
+  totals, and accepted malformed records; each is now refused. `verify --brute-masses` accepted
+  layer lines labelled `/13:` as full-31 records, because `sscanf` returned 1 whether or not the
+  literal `/31:` after `%d` matched, and a repeated layer overwrote the first value. Both are now
+  refused with the line named (and the sibling run-log reader of `--check-layers` refuses a
+  repeated layer); `tests.py` covers both, red on the previous `verify.c`.
+- *The catalog query* read its count from the last layer, so a changed byte in layer 7 of `kc13/`
+  still printed the right count. Step 8 now also hashes the catalog's layer files against the
+  published n=13 digest. The catalog's metadata files are not checked, and the page says so.
+- *`solve --selftest`* spliced its own path and its scratch directory into a shell command
+  unquoted, so run from a directory whose path holds a space it exited 40 with "selftest child
+  produced no output"; it also ignored `$TMPDIR`. Both paths are now passed as single-quoted words,
+  the scratch directory honours `$TMPDIR` (default `/tmp`, as before), and `mkdtemp` failure names
+  the directory and the reason. The auto-selftest's own call is quoted the same way.
+  `scripts/tr12_repro.sh`'s normaliser now recognises a selftest directory under any temporary
+  root. The canonical selftest sha `403f7202…` does not move.
+- *Public text.* The bundled sources no longer carry storage-tier names, a pricing sentence, a
+  private file path or a storage volume's name in the comments and messages Codex cited, or in their
+  siblings in `solve.c`, `verify.c`, `verify.py` and SOLVE_C_CLI.md's exit-code 29 row.
+
+**What the second review (PKG-V3) found, and what changed.**
+- *Overclaim (blocking).* FULL31_EXACT_AGGREGATES.md said its last row was anchored to a figure
+  "published, and independently reproduced", naming neither instrument nor date, and that "an
+  aggregate of an exact computation is itself exact". Both are now scoped: the reproduction is the
+  project's report of `verify.c --ie-count` at full scale on 2026-07-25 (TR-11 §10(vi)), which the
+  package does not rerun, and the table's integers are exact counts reported by the run, whose
+  correctness is a separate question; `layer GB` is rounded. The old wording is kept in two
+  correction notes there.
+- *Contradicting lines.* The runner passed the right line followed by a wrong one when the
+  expectation was not `KEY=VALUE`: the right sha256 and then an all-zero one or the engine's own
+  `FAIL — sha mismatch!` line, or the right count and then `KC COUNT n=13 = 1`. A step now also
+  fails on a line of the same form as a matched expectation with another value (the first number
+  of a multi-number form is a label, so other layers' lines do not count), and on any line that
+  reports a failure.
+- *Table readers.* `verify.py --recount-rung-layers` kept the first of two rows for a layer, and
+  `--recount-orbit-widths` let a later row overwrite an earlier one and skipped a row k = 32; step
+  13 kept the first n=13 row. A repeated, out-of-range or malformed row now fails each of them.
+- *Step 9.* The digest gate ignored the hashing command's exit status, so a `sha256sum` that
+  printed the real digest and exited 23 passed. The recipe now runs with `pipefail`, its status
+  counts, and its output must be one `<sha256>  -` line; the gate's self-test has a leg for it.
+- *Problem identity.* `verify --brute-masses` accepted six correct full-31 layer lines under a
+  `SUBSET n=13` session line; every session line must now name the full problem (pairs 1..31,
+  start exit 0), and a log with none fails. Only layers 1..K are compared, and the page says step
+  13 checks all 31.
+- *Manifest.* Removing both marker files switched the integrity check off. The manifest is now
+  required, as above.
+- *Release identity.* The draft version line says "DRAFT: not a release", and a non-draft package
+  must match its named commit.
+- *Prerequisites and text.* The page names GNU diffutils and `dd` for `--selftest` and a scratch
+  directory that allows running programs; explains reverse, complement, the size notation and the
+  catalog; and says what a matching hash does and does not show. The help text of `verify.py`'s T3
+  sample and one `solve.c` comment no longer carry a cost word, a machine size or a disk product
+  name.
+- Declined in both rounds: renaming the run-log folder (operator decision) and editing the run log,
+  which is pinned by its digest. Other deployment notes in `solve.c` comments name no account,
+  price or archive and were left for a separate sweep.
+
+**Rebase.** The package was built on `main` at 38feb643 and re-applied onto batch 35. Every fix
+outside `reviewer/` was re-located in the current code and the defect re-checked. One part is
+dropped because `main` already has it: the package made the `--selftest` child's output go to a
+kept log printed when the child produced nothing, and batch 31b (CX-250, Q-886 item (3)) had since made that child
+write its standard error to `selftest_child.stderr`, which is relayed on failure, and made the
+auto-selftest let its standard error through. The quoting of both paths, `$TMPDIR` and the
+`mkdtemp` message are kept on top of it. Four `grep -q` lines that read from a pipe, in the package's
+own scripts, now read a here-string, as the repository's Q-799 rule requires of every tracked
+script.
+
+`tests.py` adds three red-first tests (`verify --brute-masses` on a relabelled or repeated layer
+and on a log of another problem; repeated and extra rows in both table readers), and the digest-gate
+test names its new leg.
+
+**Measured.** On the rebased tree the draft bundle is 1,120,603 bytes compressed, 15 files. On a
+16-core machine with the run pinned to one core and a clean environment, the self-check passed from
+a fresh unpack (13 of 13 steps, `PACKAGE_MANIFEST=OK`) in 138 s, with a largest peak of 434 MB;
+`--selftest` (67 legs) and the digest gate's own `--selftest` passed there too. Other work was
+running on that machine's other cores, so these times are on the slow side; the page's
+measured-times table carries them as measured.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, lanes R158, PKG-V2 to PKG-V4 and
+batch 37 (rebase); reviewed by Codex (gpt-6-astra), PKG-V1 and PKG-V3.

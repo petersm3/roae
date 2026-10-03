@@ -2314,7 +2314,7 @@ _C5_RUNGS = [
 # The gate was deliberately NOT wired at publication time: gating asserts that THIS
 # independent DP reproduces the integer, and doing that on faith would let the gate
 # inherit its expected value from the engine it exists to check.  So the recount was
-# run first, on a throwaway westus2 Spot VM (the orchestrator hosts the live Stage G
+# run first, on a throwaway cloud VM (the orchestrator hosts the live Stage G
 # supervisor and an OOM there would kill a 9-day campaign): 2026-08-10, n=16 packed-DP
 # self-gate ok, B0 re-derived (0,7,1,10,0) MATCH, count 3,211,799,156,883,456 EXACT,
 # 157 s wall / 953 MB peak RSS.  Only then was the value wired in.
@@ -2510,11 +2510,11 @@ def _published_rung_layers(n):
         if len(cells) not in (5, 8) or col + 1 >= len(cells):
             continue
         k, m = cells[col], cells[col + 1]
-        if not re.fullmatch(r"\d+", k) or not re.fullmatch(r"[\d,]+", m):
-            continue
-        ki = int(k)
-        if 1 <= ki <= n and ki not in got:
-            got[ki] = int(m.replace(",", ""))
+        if not re.fullmatch(r"\d+", k): continue
+        ki = int(k)  # 2026-10-03 (Codex PKG-V3 finding 5): a second row for a layer used to be skipped, so a wrong row after the right one passed; every numbered row of this column must now be in range, well formed, and the only row for its layer
+        _why = (f"row k={ki} is outside 1..{n}" if not 1 <= ki <= n else f"row k={ki} has a malformed mass {m!r}" if not re.fullmatch(r"\d{1,3}(,\d{3})*", m) else f"layer k={ki} appears more than once" if ki in got else None)
+        if _why: raise RuntimeError(f"{_AGG_DOC} section 2: n={n} {_why}")
+        got[ki] = int(m.replace(",", ""))
     missing = [k for k in range(1, n + 1) if k not in got]
     if missing:
         raise RuntimeError(f"{_AGG_DOC} has no n={n} mass for layer(s) {missing}")
@@ -3133,9 +3133,9 @@ def _published_canonical_masks():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         if len(cells) != 8 or not re.fullmatch(r"\d+", cells[0]):
             continue
-        if not re.fullmatch(r"[\d,]+", cells[1]):
-            continue
-        got[int(cells[0])] = int(cells[1].replace(",", ""))
+        k = int(cells[0]); _why = (f"row k={k} is outside 1..31" if not 1 <= k <= 31 else f"row k={k} has a malformed canonical_masks {cells[1]!r}" if not re.fullmatch(r"\d{1,3}(,\d{3})*", cells[1]) else f"layer k={k} appears more than once" if k in got else None)  # 2026-10-03 (Codex PKG-V3 finding 5): a repeated layer used to overwrite the first, and a row outside 1..31 or with a malformed cell was skipped; each is now a failure
+        if _why: raise RuntimeError(f"{_AGG_DOC} section 1: {_why}")
+        got[k] = int(cells[1].replace(",", ""))
     missing = [k for k in range(1, 32) if k not in got]
     if missing:
         raise RuntimeError(f"{_AGG_DOC} has no canonical_masks for layer(s) {missing}")
@@ -6119,13 +6119,13 @@ _T3_GEN = (
     "      (with SOLVE_F1_OOC_READ_MB=1)\n"
     "    WHICH BUILD: the --kc-* subcommands are on main (merged 2026-07-17), so the\n"
     "    recipe runs against this tree's solve.c: `solve --kc-sample` prints its usage,\n"
-    "    --kc-record included, on this ref. The price of regenerating the sample is\n"
+    "    --kc-record included, on this ref. Regenerating the sample takes\n"
     "    the ~12.6 h of compute and nothing else. (Until 2026-09-21 this text said the\n"
     "    subcommands lived only on the `v4-query-program` snapshot branch and were not\n"
     "    runnable here; that was true when written and stale after the merge. The\n"
     "    same stale claim in VERIFY.md was corrected 2026-09-11; this copy was not.)\n"
-    "    MEASURED COST: ~12.6 h wall on one D16als_v7 against a 3.1 TB f-ladder\n"
-    "    (16 lanes, Premium P50 f-disk). Seed-deterministic: the same seeds against\n"
+    "    MEASURED: ~12.6 h wall on one 16-core machine against a 3.1 TB f-ladder\n"
+    "    (16 lanes, f-ladder on a fast network SSD). Seed-deterministic: the same seeds against\n"
     "    the same f-ladder and binary regenerate the same draws.\n")
 
 

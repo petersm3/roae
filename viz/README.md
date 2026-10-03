@@ -8,7 +8,7 @@ does not. This page shows the twelve report figures the project publishes, group
 story each one tells.
 
 **The project's capstone has three parts:** the written report (TR-12), this visual showcase, and a
-step-by-step guide for reproducing a subset of the work on a laptop (in preparation). The written
+step-by-step guide for reproducing a subset of the work on a laptop, [the capstone guide](../reports/CAPSTONE_GUIDE.md) *(this read "in preparation" until 2026-10-03)*. The written
 report is **[TR-12, The Query Program](../reports/TR12_QUERY_PROGRAM.md)**, which queries the
 C1C2C4C5 superspace (every ordering satisfying C1, C2, C4 and C5; C3 is not imposed), exactly and
 without listing it. This page is TR-12's companion. Its

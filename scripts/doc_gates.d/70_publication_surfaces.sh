@@ -400,6 +400,8 @@ gate_script_paths() {
   else privrun=1; fi
   # (token, why-it-is-narration) — extend ONLY with a reason.
   allow() { case "$1" in
+    reviewer/MANIFEST.sha256|reviewer/PACKAGE_VERSION)
+      echo "written into the reviewer bundle by reviewer/make_package.sh at release time and untracked by design; reviewer/README.md describes them for the unpacked package (2026-10-03, CX-284)";;
     scripts/compute_stats.py|scripts/p2_marginals.py|scripts/p2_bivariate.py|scripts/p2_joint_density.py)
       echo "narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
     scripts/d128_preflight_throttle_probe.sh)

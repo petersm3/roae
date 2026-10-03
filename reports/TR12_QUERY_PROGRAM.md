@@ -1684,7 +1684,7 @@ acquisition step.
 **TIER C — the SMALL TIER (laptop scale, minutes, no ladder build).** *(Added 2026-09-13,
 V3B-03#32. §10D states that "the §R small-tier commands ARE the appendix", and §R carried no such
 commands — `grep -c -- '--n9'` over this file returned **0**. The route existed only in
-`scripts/tr12_expected/README.md`. It is written out here, so §10D's sentence is true.)*
+`scripts/tr12_expected/README.md`. It is written out here, so §10D's sentence is true.)* *(Added 2026-10-03: a guided laptop path through the counts behind this report, 20 commands with their expected outputs, is [CAPSTONE_GUIDE.md](CAPSTONE_GUIDE.md).)*
 
 ```
 scripts/tr12_repro.sh --n9          # the whole battery at n=9 against the committed goldens:

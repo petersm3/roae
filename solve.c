@@ -239,10 +239,10 @@
  *   SOLVE_MERGE_CHUNK_GB=N   — external-merge chunk size (default 4 GB).
  *   SOLVE_TEMP_DIR=path      — where external-merge writes temp sorted chunks.
  *                              Defaults to "." (current directory). Recommended
- *                              pattern: point at a Premium SSD attached only
- *                              for the merge, while shards and final
- *                              solutions.bin stay on Standard-tier archival
- *                              storage. See DEPLOYMENT.md §Disk tier matters.
+ *                              pattern: point at a fast local SSD attached
+ *                              only for the merge, while shards and final
+ *                              solutions.bin stay where they were written.
+ *                              See DEPLOYMENT.md §Disk tier matters.
  *   SOLVE_CONCENTRATE_BUDGET=1 (strictly 0 or 1 since lane HAJ, 2026-09-27; anything else exits 2)
  *                            — opt-in: when resuming from checkpoint, divide
  *                              SOLVE_NODE_LIMIT by the REMAINING sub-branch
@@ -1155,7 +1155,7 @@ static int total_sub_complete = 0;
  * ~792k fsyncs per 11.2T campaign; at 560T (~8M sub-branches) ~32M fsyncs.
  *
  * Standard HDD ~200 IOPS → ~55 hours of fsync wait at 560T.
- * Premium SSD ~10k IOPS → ~1.1 hours.
+ * A fast SSD at ~10k IOPS → ~1.1 hours.
  *
  * Mitigation: each worker tracks completions in TLS, and once per
  * SOLVE_FSYNC_BATCH_SIZE sub-branches calls syncfs() to coalesce all
@@ -2287,7 +2287,7 @@ static int promote_orphaned_shards(void) {
  * promote_orphaned_shards but read_budget_sidecar is called inside promote
  * (Outlier #5 sidecar check); do_emit/do_verify_shard_manifest are called
  * from the auto-protect helpers in the canonical-enum startup. */
-static const char *sha256_tool(void);
+static const char *sha256_tool(void); static int sh_squote(char *dst, size_t cap, const char *src);
 static int require_sha256_tool(void);
 static long long read_budget_sidecar(const char *bin_fname);
 
@@ -3979,7 +3979,7 @@ static int disk_space_pre_check(long long node_limit) {
             "ERROR: free disk in cwd (%.1f GB) is below estimated requirement (%.1f GB)\n"
             "       for SOLVE_NODE_LIMIT=%lld. The enum or merge will likely run out of\n"
             "       disk space mid-run (we hit this on the 2026-05-25 100B bisect VM).\n"
-            "       Either move to a larger filesystem (solver-data-westus3 has 2 TB),\n"
+            "       Either move to a larger filesystem,\n"
             "       or override with SOLVE_SKIP_DISK_CHECK=1 if you're confident the\n"
             "       projection is wrong for your case.\n",
             free_bytes / 1e9, required / 1e9, node_limit);
@@ -3992,7 +3992,7 @@ static int disk_space_pre_check(long long node_limit) {
  * canonical-enum startup; refuse to launch on slow disk unless the
  * operator explicitly acknowledges. Catches accidental HDD assignment
  * for solver-data on a 560T-scale run (would project to ~9h of pure
- * fsync wait alone vs ~30 min on Premium SSD).
+ * fsync wait alone vs ~30 min on a fast SSD).
  *
  * Probe: 100 iterations of {fopen, write 4B, fsync, fclose, unlink}
  * on cwd. Measures fsync round-trips — the dominant cost during
@@ -4000,7 +4000,7 @@ static int disk_space_pre_check(long long node_limit) {
  * .dfs_state, per-thread checkpoint, all fsync).
  *
  * Threshold 1000 fsync/sec catches HDD (~150-300) without false-
- * positiving Standard SSD (~2-5k) or Premium SSD (~5-20k).
+ * positiving an ordinary SSD (~2-5k) or a fast SSD (~5-20k).
  *
  * Override SOLVE_SKIP_IOPS_CHECK=1 (skip probe entirely; tmpfs/test).
  * Override SOLVE_ALLOW_SLOW_IOPS=1 (probe runs, logs result, but does
@@ -4302,14 +4302,14 @@ static int auto_selftest_check(long long node_limit) {
      * these (defense-in-depth, see solve.c around line 8286), but the outer
      * env scrub here keeps the system() invocation hygienic so even older
      * versions of --selftest would work correctly. */
-    char cmd[PATH_MAX + 256];
+    char q_self[4 * PATH_MAX + 8]; if (sh_squote(q_self, sizeof q_self, self_path) != 0) { fprintf(stderr, "ERROR: auto-selftest: binary path too long to quote\n"); return 24; } char cmd[sizeof q_self + 512]; /* self_path as ONE quoted shell word: a path with a space split this command (2026-10-02, sibling of Codex PKG-V1 finding 8) */
     snprintf(cmd, sizeof(cmd),
              "env -u SOLVE_DEPTH -u SOLVE_THREADS -u SOLVE_NODE_LIMIT "
              "-u SOLVE_PER_SUB_BRANCH_LIMIT -u SOLVE_DFS_ITERATIVE "
              "-u SOLVE_DFS_CHECKPOINT -u SOLVE_FSYNC_BATCH_SIZE "
              "-u SOLVE_TIME_LIMIT -u SOLVE_TEMP_DIR -u SOLVE_MAX_THREADS "
              "-u SOLVE_SKIP_AUTOMERGE "  /* #113: the breaker — also scrubbed inside --selftest now */
-             "%s --selftest > /dev/null", self_path);   /* Q-886 (3), 2026-10-01: stdout quiet, stderr through (was 2>&1, which also dropped the FAIL lines and every relayed child diagnostic) */
+             "%s --selftest > /dev/null", q_self);   /* Q-886 (3), 2026-10-01: stdout quiet, stderr through (was 2>&1, which also dropped the FAIL lines and every relayed child diagnostic) */
     int rc = system(cmd);
     if (rc == 0) {
         fprintf(stderr, "[hardening] auto-selftest PASS (canonical selftest sha 403f7202... reproduced)\n");
@@ -10884,8 +10884,8 @@ static int binary_exists_on_path(const char *name) {
     return found;
 }
 
-/* Returns the sha256 command prefix to splice into system()/popen() strings,
- * or NULL if no compatible tool is found. Cached after first call. */
+/* sh_squote: SRC as ONE single-quoted shell word in DST (each ' written '\''); 0, or -1 if CAP is too small. 2026-10-02, Codex PKG-V1 finding 8: --selftest spliced its own path into popen() unquoted, so a path with a space exited 40. */ static int sh_squote(char *dst, size_t cap, const char *src) { size_t o = 0; if (cap < 3) return -1; dst[o++] = '\''; for (const char *p = src; *p; p++) { if (*p == '\'') { if (o + 4 >= cap) return -1; memcpy(dst + o, "'\\''", 4); o += 4; } else { if (o + 1 >= cap) return -1; dst[o++] = *p; } } if (o + 2 > cap) return -1; dst[o++] = '\''; dst[o] = 0; return 0; }
+/* Returns the sha256 command prefix to splice into system()/popen() strings, or NULL if no compatible tool is found. Cached after first call. */
 static const char *sha256_tool(void) {
     static const char *cached = NULL;
     static int checked = 0;
@@ -11434,11 +11434,11 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
     /* Temp directory for sorted chunks (Phase 1 output; read back in Phase 2).
      * Defaults to "." (current working directory). Set SOLVE_TEMP_DIR to
      * redirect — recommended pattern is to point it at a fast local disk
-     * (Premium SSD attached temporarily for the merge), while shards and
-     * final solutions.bin stay on cheaper Standard-tier archival storage.
+     * (an SSD attached temporarily for the merge), while shards and the
+     * final solutions.bin stay where they were written.
      * A 2.77B-record merge does ~2×(chunk size in GB) of I/O to this path;
      * putting chunks on SSD while shards remain on HDD can reduce total
-     * merge wall time 3-4× with only pennies of prorated Premium cost. */
+     * merge wall time 3-4×. */
     const char *tmp_dir = getenv("SOLVE_TEMP_DIR");
     if (!tmp_dir || !*tmp_dir) tmp_dir = ".";
     /* Validate the temp dir exists and is writable — fail early rather than
@@ -13301,7 +13301,7 @@ static void run_yield_report(void) {
  *
  * Phase 4 (bijection sampling against solutions.bin records) is not
  * implemented here — requires the canonical solutions.bin which is
- * 102 GB on solver-data-westus3, and is run via a separate VM workflow.
+ * about 102 GB, and is run via a separate VM workflow.
  * ========================================================================= */
 
 /* Apply bit-position permutation sigma to a 6-bit value v.
@@ -40382,9 +40382,9 @@ int main(int argc, char *argv[]) {
         ssize_t sn = readlink("/proc/self/exe", solve_path, sizeof(solve_path) - 1);
         if (sn > 0) solve_path[sn] = 0;
 
-        char tempdir_template[] = "/tmp/solve_selftest_XXXXXX";
+        char tempdir_template[4200]; { const char *td = getenv("TMPDIR"); if (!td || !*td || strlen(td) > 4000) td = "/tmp"; snprintf(tempdir_template, sizeof(tempdir_template), "%s/solve_selftest_XXXXXX", td); } /* honours $TMPDIR, default /tmp as before (2026-10-02, Codex PKG-V1 finding 8) */
         if (!mkdtemp(tempdir_template)) {
-            fprintf(stderr, "ERROR: mkdtemp failed\n");
+            fprintf(stderr, "ERROR: mkdtemp failed for %s: %s\n", tempdir_template, strerror(errno));
             return 10;
         }
         printf("[--selftest] Running in %s\n", tempdir_template);
@@ -40397,7 +40397,7 @@ int main(int argc, char *argv[]) {
          * depends on thread scheduling. The result: sha256 varies run-to-run
          * under load. Using node-limit only (per-sub-branch budgets) gives
          * byte-exact determinism across thread counts and machines. */
-        char cmd[8192];
+        char q_dir[8500], q_solve[16500]; if (sh_squote(q_dir, sizeof q_dir, tempdir_template) != 0 || sh_squote(q_solve, sizeof q_solve, solve_path) != 0) { fprintf(stderr, "ERROR: --selftest path too long to quote\n"); return 10; } char cmd[32768]; /* both paths are ONE quoted shell word each: a path with a space split this command and the child never ran (Codex PKG-V1 finding 8) */
         /* Task #105 (2026-05-27) + #113 (2026-05-29): scrub ALL SOLVE_* env
          * vars before invoking the selftest child, then set only the ones the
          * selftest needs. The earlier explicit denylist (#105) missed
@@ -40441,7 +40441,7 @@ int main(int argc, char *argv[]) {
                  /* #169: solutions.bin may be gz — hash the DECOMPRESSED (logical)
                   * content so the canonical selftest sha 403f7202 is unchanged. */
                  "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s | cut -d' ' -f1",
-                 tempdir_template, selftest_threads, solve_path, tool);
+                 q_dir, selftest_threads, q_solve, tool);
         FILE *fp = popen(cmd, "r");
         if (!fp) {
             fprintf(stderr, "ERROR: popen failed\n");
@@ -40458,8 +40458,8 @@ int main(int argc, char *argv[]) {
         for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
         printf("[--selftest] Actual sha256:   %s\n", actual_sha); fflush(stdout); selftest_relay_child_stderr(tempdir_template, strcmp(actual_sha, expected_sha) != 0);   /* Q-886 (3): before the rm -rf below */
         /* Cleanup temp dir */
-        char rm_cmd[4200];
-        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf '%s'", tempdir_template);
+        char rm_cmd[8600];
+        snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf -- %s", q_dir);  /* q_dir is already ONE single-quoted word (sh_squote), so this is not an unquoted interpolation */
         int _rm = system(rm_cmd); (void)_rm;
         if (strcmp(actual_sha, expected_sha) == 0) {
             printf("[--selftest] PASS — sha256 matches canonical baseline\n");
@@ -42784,7 +42784,7 @@ int main(int argc, char *argv[]) {
          * against an operator-configurable threshold (--cpu-freq 2200 →
          * flag any core below 2200 MHz). Default threshold: 2000 MHz.
          *
-         * Why: Spot D128als_v7 hosts in westus3 can hand back thermally-
+         * Why: rented 128-core cloud hosts can hand back thermally-
          * throttled physical hosts at ~600 MHz vs the expected 2596 MHz
          * base / 3700 MHz boost. This subcommand IS the published check;
          * run it before any paired A/B bench. (Earlier revisions of this

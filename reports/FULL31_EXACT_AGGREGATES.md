@@ -3,8 +3,13 @@
 **What this is.** The per-layer aggregate of the exact full-scale computation of
 |C1∩C2∩C4∩C5| — all 31 layers, as integers. Almost every previous small artifact in this repository
 has been either a **sampled** subset of the full computation or a **smaller-problem** rung
-(n=9…19). Both are proxies. The exception is one exact full-31 column, the per-layer canonical-mask counts in [layer_curve.md](../runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md), published 2026-07-17; §1 below carries that column beside the rest of each layer. This table is neither a sample nor a smaller rung: it is an *aggregate of an exact computation*,
-and an aggregate of an exact computation is itself exact, where a sample of one is not. ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-081#4) — this read "Every previous small artifact in this repository has been either a sampled subset … or a smaller-problem rung".** `runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md` has published the 32 full-31 `canonical_masks` values since 2026-07-17, six weeks before this report first shipped on 2026-08-27. Its k = 10…31 values are read from the run log, and its k = 0…9 values are their Burnside-palindrome mirrors.]**
+(n=9…19). Both are proxies. The exception is one exact full-31 column, the per-layer canonical-mask counts in [layer_curve.md](../runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md), published 2026-07-17; §1 below carries that column beside the rest of each layer. This table is neither a sample nor a smaller rung: it is an *aggregate of an exact computation*.
+Its integer columns are the exact counts that run reported, not estimates; whether the run itself was
+right is a separate question, which §2's gates and the instruments named below address, and `layer GB`
+is rounded telemetry. ⚠ **[CORRECTED 2026-10-03 (Q-158, Codex PKG-V3 finding 1) — this read "an
+aggregate of an exact computation is itself exact, where a sample of one is not". That is true of
+how the numbers were made, and silent on whether the computation was correct, which is what a
+reader checking it wants to know; it also covered the rounded `layer GB` column.]** ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-081#4) — this read "Every previous small artifact in this repository has been either a sampled subset … or a smaller-problem rung".** `runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md` has published the 32 full-31 `canonical_masks` values since 2026-07-17, six weeks before this report first shipped on 2026-08-27. Its k = 10…31 values are read from the run log, and its k = 0…9 values are their Burnside-palindrome mirrors.]**
 
 **Who it is for.** A reader who wants to *check us* is already served by the small-n rung table in
 [VERIFY.md](../documentation/VERIFY.md) and by the independent per-layer recount in §2 below. A
@@ -82,8 +87,15 @@ space** — the column of scientific interest.
 
 **Row 31 is a published integer.** `mass` at k=31 is
 1,097,051,278,789,181,790,036,112,071,176,579,186,688 — the value `METHODS.md`, `TR-2`, `TR-4`,
-`TR-5` and `TR-11` give for |C1∩C2∩C4∩C5|. The table's last row is therefore anchored to a
-figure that was published, and independently reproduced, before this artifact existed.
+`TR-5` and `TR-11` give for |C1∩C2∩C4∩C5|. The table's last row therefore matches a figure that was
+published before this artifact existed. The project reports that figure as recomputed at full
+scale by a second, independent engine, `verify.c --ie-count`, on 2026-07-25 (TR-11 §10(vi);
+METHODS.md). The reviewer package (`reviewer/README.md`) does not rerun that recomputation: it
+checks this table against the bundled run log, which shows the table copies the log faithfully,
+not that the run's arithmetic is right. ⚠ **[CORRECTED 2026-10-03 (Q-158, Codex PKG-V3 finding 1)
+— this read "anchored to a figure that was published, and independently reproduced, before this
+artifact existed". It named neither the instrument nor the date, and the reviewer package sends
+its readers here, where the sentence could be taken for something that package shows.]**
 
 ### Per-column provenance — read this before quoting a column
 

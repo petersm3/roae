@@ -833,7 +833,7 @@ REVIEWED = {
         ('1', 'reviewed:following-text-already-gives-the-measured-ratios'),
     ('reports/FULL31_EXACT_AGGREGATES.md', '78717a9d8def'):
         ('1', 'reviewed:paragraph-already-calls-the-ceiling-an-extrapolation'),
-    ('reports/FULL31_EXACT_AGGREGATES.md', '859f11490cbd'):
+    ('reports/FULL31_EXACT_AGGREGATES.md', 'a3745ad9aa27'):
         ('1', 'reviewed:sentence-already-names-the-layer_curve-exception'),
     ('reports/FULL31_EXACT_AGGREGATES.md', 'a8b3e44f5cfe'):
         ('1', 'reviewed:text-already-defines-V_k-as-residual-vectors'),

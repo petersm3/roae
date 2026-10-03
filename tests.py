@@ -10342,7 +10342,7 @@ class TestQ727ReproduceDigestsGate(unittest.TestCase):
     def test_the_gate_discriminates(self):
         r, lines = self._gate("--selftest")
         self.assertIn("REPRODUCE_DIGESTS_SELFTEST=PASS", lines, r.stdout[-4000:] + r.stderr[-2000:])
-        for leg, verdict in (("real-page", "PASS"), ("wrong-digest", "FAIL"),
+        for leg, verdict in (("real-page", "PASS"), ("hash-tool-fails", "FAIL"), ("wrong-digest", "FAIL"),
                              ("cmd-no-keep", "FAIL"), ("recipe-path", "FAIL"),
                              ("row-deleted", "FAIL"), ("rows-gone", "ERROR")):
             self.assertIn("  [ok]    %s -> %s (expected %s)" % (leg, verdict, verdict), lines,
@@ -28129,6 +28129,59 @@ class TestLaneHAM(unittest.TestCase):
         self.assertIn("BRUTE_MASSES_RESULT=FAIL", r.stdout.splitlines())
         self.assertEqual(r.returncode, 1)
 
+    def test_brute_masses_refuse_a_relabelled_or_repeated_layer(self):
+        # Codex PKG-V1 finding 3 (2026-10-02): the parser accepted layer lines labelled "/13:" as
+        # full-31 records (sscanf's count did not show the literal "/31:" matched), and a repeated
+        # k overwrote the first value. Both must now be refused before anything is counted.
+        with open(self.RUNOUT, encoding="utf-8") as fh:
+            src = fh.read()
+        lines = [l for l in src.split("\n") if l.startswith("[f1c5] layer k=")]
+        self.assertEqual(len(lines), 31, "precondition: 31 layer lines")
+        relab = os.path.join(self.tmp, "runout_relabelled")
+        with open(relab, "w", encoding="utf-8") as fh:
+            fh.write(re.sub(r"^(\[f1c5\] layer k=\s*\d+)/31:", r"\1/13:", src, flags=re.M))
+        k3 = [l for l in lines if l.startswith("[f1c5] layer k= 3/31:")]
+        self.assertEqual(len(k3), 1, "precondition: one k=3 line")
+        dup = self._copy_edit(self.RUNOUT, k3[0] + "\n",
+                              k3[0].replace("mass=158364 ", "mass=158365 ") + "\n" + k3[0] + "\n", "runout_dup3")
+        for path, why in ((relab, "not a full-31"), (dup, "appears more than once")):
+            r = self._run("--brute-masses", path, "2", "1")
+            self.assertEqual(r.returncode, 1, path)
+            self.assertIn(why, r.stderr, path)
+            self.assertIn("BRUTE_MASSES_RESULT=FAIL", r.stdout.splitlines(), path)
+            self.assertNotIn("BRUTE_MASSES_RESULT=PASS", r.stdout.splitlines(), path)
+        r = self._run("--brute-masses", self.RUNOUT, "2", "1")   # positive control
+        self.assertIn("BRUTE_MASSES_RESULT=PASS", r.stdout.splitlines(), r.stdout + r.stderr)
+
+    def test_brute_masses_refuse_a_log_of_another_problem(self):
+        # Codex PKG-V3 finding 7 (2026-10-03): six correct full-31 layer lines under a
+        # "[f1c5] run: SUBSET n=13 ... start_exit=63" session line passed as a full-31 log. Every
+        # session line must now name the full problem (pairs 1..31, start_exit=0), and a log with
+        # no session line fails too; the layers are still counted and printed.
+        with open(self.RUNOUT, encoding="utf-8") as fh:
+            src = fh.read().split("\n")
+        six = [l for l in src if re.match(r"\[f1c5\] layer k= [1-6]/31:", l)]
+        self.assertEqual(len(six), 6, "precondition: six layer lines")
+        sess = [l for l in src if l.startswith("[f1c5] run:")]
+        self.assertTrue(sess and all(l.startswith("[f1c5] run: FULL-31 n=31 ") for l in sess), "precondition")
+        other = os.path.join(self.tmp, "runout_other_problem")
+        with open(other, "w", encoding="utf-8") as fh:
+            fh.write("[f1c5] run: SUBSET n=13 start_exit=63\n" + "\n".join(six) + "\n")
+        bare = os.path.join(self.tmp, "runout_no_session")
+        with open(bare, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(six) + "\n")
+        exit63 = self._copy_edit(self.RUNOUT, sess[0], sess[0].replace(" start_exit=0 ", " start_exit=63 ", 1), "runout_exit63")
+        for path, why in ((other, "not the full-31 problem"), (bare, "no '[f1c5] run: FULL-31 n=31' session"),
+                          (exit63, "not the full-31 problem")):
+            r = self._run("--brute-masses", path, "2", "1")
+            lines = r.stdout.splitlines()
+            self.assertEqual(r.returncode, 1, path + r.stdout + r.stderr)
+            self.assertIn(why, r.stderr, path)
+            self.assertIn("BRUTE_MASSES_MISMATCHED=0", lines, "precondition: the masses themselves agree")
+            self.assertIn("BRUTE_MASSES_RESULT=FAIL", lines, path)
+        r = self._run("--brute-masses", self.RUNOUT, "2", "1")   # positive control
+        self.assertIn("BRUTE_MASSES_RESULT=PASS", r.stdout.splitlines(), r.stdout + r.stderr)
+
     def test_brute_masses_refuse_bad_arguments(self):
         # A path that does not exist: the refusal must come before the file is opened, and a
         # mutant that accepts the argument stops at the missing file instead of computing K = 11.
@@ -28249,6 +28302,57 @@ class TestLaneHAM(unittest.TestCase):
         for name in ("VERIFY_CHECK_T_LADDER_n31.txt", "VERIFY_CHECK_G_LADDER_n31.txt"):
             self.assertTrue(os.path.isfile(os.path.join(self.RUNDIR, name)), name)
 # end class TestLaneHAM (lane HAM)
+
+
+class TestPkgV3TableParsers(unittest.TestCase):
+    """Codex PKG-V3 finding 5 (2026-10-03): verify.py's readers of the FULL31 tables kept the first of
+    two rows for a rung layer and let a later canonical_masks row overwrite an earlier one, so a
+    wrong row beside the right one passed. A repeated, out-of-range or malformed row now fails.
+    Each case runs a copy of verify.py beside an edited copy of the page."""
+
+    DOC = "reports/FULL31_EXACT_AGGREGATES.md"
+
+    def _run(self, doc_text, *args):
+        d = tempfile.mkdtemp(prefix="pkgv3_tables_")
+        try:
+            os.makedirs(os.path.join(d, "reports"))
+            shutil.copy("verify.py", os.path.join(d, "verify.py"))
+            with open(os.path.join(d, self.DOC), "w", encoding="utf-8") as fh:
+                fh.write(doc_text)
+            return subprocess.run([sys.executable, "verify.py"] + list(args), cwd=d,
+                                  capture_output=True, text=True, timeout=600)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def setUp(self):
+        with open(self.DOC, encoding="utf-8") as fh:
+            self.src = fh.read()
+
+    def test_a_repeated_rung_row_fails(self):
+        row = "| 1 | 12 | | 1 | 6 | | 1 | 32 |\n"
+        self.assertEqual(self.src.count(row), 1, "precondition: one first rung row")
+        doc = self.src.replace(row, row + "| 1 | 999 | | 1 | 999 | | 1 | 999 |\n")
+        for n in ("9", "13"):
+            r = self._run(doc, "--recount-rung-layers", n)
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn("layer k=1 appears more than once", r.stdout)
+            self.assertNotIn("layer masses MATCH", r.stdout)
+        r = self._run(self.src, "--recount-rung-layers", "9")   # positive control
+        self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_a_repeated_or_extra_width_row_fails(self):
+        lines = self.src.split("\n")
+        i = next(j for j, l in enumerate(lines) if l.startswith("| 15 | 13,047,760 |"))
+        wrong_first = "\n".join(lines[:i] + [lines[i].replace("| 15 | 13,047,760 |", "| 15 | 13,047,761 |")] + lines[i:])
+        j = next(j for j, l in enumerate(lines) if l.startswith("| 31 | 1 |"))
+        extra = "\n".join(lines[:j + 1] + ["| 32 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |"] + lines[j + 1:])
+        for doc, why in ((wrong_first, "layer k=15 appears more than once"), (extra, "row k=32 is outside 1..31")):
+            r = self._run(doc, "--recount-orbit-widths", "31")
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn(why, r.stdout)
+            self.assertNotIn("ORBIT_WIDTHS=GATED", r.stdout.splitlines())
+        r = self._run(self.src, "--recount-orbit-widths", "31")   # positive control
+        self.assertIn("ORBIT_WIDTHS=GATED", r.stdout.splitlines(), r.stdout)
 
 
 class TestK28KcvTriageFixes(unittest.TestCase):

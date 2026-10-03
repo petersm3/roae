@@ -711,21 +711,40 @@ static void tab_add(Tab *t, uint32_t mask, int last, const uint8_t *p, u128 v) {
 
 /* ---------- run.out parsing (reads only the published per-layer mass line) ---------- */
 
+/* Returns the number of layers parsed, -1 if the file cannot be opened, or -2 if a layer record
+ * is malformed or repeated (the reason is printed to stderr).
+ * 2026-10-02 (Codex PKG-V1 finding 3): every line that starts "[f1c5] layer k=" must now carry the
+ * problem size "/31:" and a "mass=" field, and no k may appear twice. Before, sscanf's return
+ * value of 1 did not show that the literal "/31:" after %d matched, so a log whose layer lines
+ * read "/13:" was accepted as a full-31 log; and a repeated k silently overwrote the first value. */
 static int parse_masses(const char *path, char masses[32][48]) {
     FILE *f = fopen(path, "r");
     if (!f) { fprintf(stderr, "cannot open %s\n", path); return -1; }
-    char line[8192]; int found = 0;
+    char line[8192]; int found = 0, lineno = 0;
     for (int i = 0; i < 32; i++) masses[i][0] = 0;
     while (fgets(line, sizeof line, f)) {
-        int k; const char *q;
-        if (sscanf(line, "[f1c5] layer k=%d/31:", &k) != 1) continue;
-        if (k < 0 || k > 31) continue;
-        q = strstr(line, "mass=");
-        if (!q) continue;
-        q += 5;
-        int j = 0; while (*q >= '0' && *q <= '9' && j < 46) masses[k][j++] = *q++;
-        masses[k][j] = 0;
-        if (j) found++;
+        int k, end = 0; const char *q;
+        lineno++;
+        if (strncmp(line, "[f1c5] layer k=", 15) != 0) continue;
+        if (sscanf(line, "[f1c5] layer k=%d/31:%n", &k, &end) != 1 || end == 0 || k < 1 || k > 31) {
+            fprintf(stderr, "ERROR: %s line %d: a layer record that is not a full-31 'k=<1..31>/31:' record\n",
+                    path, lineno);
+            fclose(f); return -2;
+        }
+        q = strstr(line, " mass=");
+        int j = 0;
+        if (q) { q += 6; while (q[j] >= '0' && q[j] <= '9' && j < 46) j++; }
+        if (!q || j == 0 || j >= 46 || q[j] != ' ') {
+            fprintf(stderr, "ERROR: %s line %d: layer k=%d has no well-formed 'mass=<digits> ' field\n",
+                    path, lineno, k);
+            fclose(f); return -2;
+        }
+        if (masses[k][0]) {
+            fprintf(stderr, "ERROR: %s line %d: layer k=%d appears more than once\n", path, lineno, k);
+            fclose(f); return -2;
+        }
+        memcpy(masses[k], q, (size_t)j); masses[k][j] = 0;
+        found++;
     }
     fclose(f);
     return found;
@@ -1450,6 +1469,12 @@ static int lc_parse_masses(const char *path, uint32_t n, char masses[32][48]) {
         const char *q = strstr(line, " mass=");
         if (!q) continue;
         q += 6;
+        /* 2026-10-02 (sibling of the parse_masses fix, Codex PKG-V1 finding 3): a repeated k used
+         * to overwrite the first value silently; it is now refused (-2) with the line named. */
+        if (masses[k][0]) {
+            fprintf(stderr, "ERROR: %s: layer k=%d appears more than once\n", path, k);
+            fclose(f); return -2;
+        }
         int j = 0; while (*q >= '0' && *q <= '9' && j < 46) masses[k][j++] = *q++;
         masses[k][j] = 0;
         if (j) found++;
@@ -1527,7 +1552,7 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
         rm = calloc(32, 48);
         if (!rm) { printf("*** FAIL: OOM mass table\n"); return 1; }
         n_rm = lc_parse_masses(run_out, mn, rm);
-        if (n_rm < 0) { printf("*** FAIL: cannot open run log %s\n", run_out); free(rm); return 1; }
+        if (n_rm < 0) { printf("*** FAIL: cannot %s run log %s\n", n_rm == -1 ? "open" : "use", run_out); free(rm); return 1; }
         printf("run log : parsed %d per-layer mass line(s) from %s\n", n_rm, run_out);
     }
     printf("----------------------------------------------------------------------\n");
@@ -5465,7 +5490,6 @@ static int ie_probe_main(int argc, char **argv) {
     printf("  per-pass:  %.1f core-h  =  %.2f h wall on 32 cores  =  %.2f h wall on 128 cores\n",
            pass_core_h, pass_core_h / 32, pass_core_h / 128);
     printf("  THREE passes on D128:  %.2f h wall\n", 3 * pass_core_h / 128);
-    printf("  (dollar sizing left to the operator report: multiply by the Spot rate)\n");
     printf("======================================================================\n");
     return 0;
 }
@@ -6281,8 +6305,9 @@ static int dp_count_main(int argc, char **argv) {
  * carries its OWN C3 predicate and its OWN C6/C7 pin logic, derived from
  * the published definitions, so a coherent day-one C3 defect in solve.c
  * would show here as a stable shift in the estimate, not be inherited.
- * Pre-registration (agreement gate frozen before any run):
- * roae-private/PREREG_KNUTH_CLEANROOM_2026_08_08.md.
+ * Pre-registration (agreement gate frozen before any run): the 2026-08-08
+ * cleanroom pre-registration, whose digest is escrowed in
+ * documentation/PREREGISTRATION_ESCROW.md (the document itself is not published).
  *
  * INDEPENDENCE (same discipline as the rest of this file). No solve.c
  * header, table, constant, or transliterated function. Sources:
@@ -6970,7 +6995,10 @@ static int vc_rev_partner_main(void) {
  *   public runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out reproducing the
  *   column). K defaults to 6 and is at most 10 (M_10 ~ 5.4e16 fits 64 bits; the
  *   work grows ~40x per layer, so K = 7 is minutes on 16 cores and K = 8 hours).
- *   A layer in 1..K with no mass line FAILS; so does a zero census.
+ *   A layer in 1..K with no mass line FAILS; so does a zero census, and so
+ *   does a log with no run session line or with one that is not the full-31
+ *   problem (FULL-31 n=31, pairs 1..31, start_exit=0). Only layers 1..K are
+ *   compared; the other layer records must still parse, each k once.
  *   Tokens: BRUTE_MASSES_COMPARED=, BRUTE_MASSES_MISMATCHED=,
  *   BRUTE_MASSES_RESULT=PASS|FAIL.
  *
@@ -7090,6 +7118,33 @@ static int bf_default_threads(void) {
     return n < 1 ? 1 : (n > 1024 ? 1024 : (int)n);
 }
 
+/* 2026-10-03 (Codex PKG-V3 finding 7): which problem does RUN.OUT describe? The layer records say
+ * "/31:", but a file holding only correct full-31 layer lines under a "[f1c5] run: SUBSET n=13"
+ * session line was accepted as a full-31 log. Every "[f1c5] run:" session line must now name the
+ * full problem exactly: FULL-31, n=31, all 31 pairs in order, starting exit 0, and there must be
+ * at least one. Returns the number of such lines, or -1 (reason on stderr). */
+static int bf_log_sessions(const char *path) {
+    static const char want[] = "[f1c5] run: FULL-31 n=31 pairs "
+        "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] start_exit=0 ";
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    char line[8192]; int n = 0, lineno = 0, bad = 0;
+    while (fgets(line, sizeof line, f)) {
+        lineno++;
+        if (strncmp(line, "[f1c5] run:", 11) != 0) continue;
+        if (strncmp(line, want, sizeof want - 1) != 0) {
+            fprintf(stderr, "ERROR: %s line %d: a run session that is not the full-31 problem "
+                    "(FULL-31 n=31, pairs 1..31, start_exit=0)\n", path, lineno);
+            bad = 1; break;
+        }
+        n++;
+    }
+    fclose(f);
+    if (bad) return -1;
+    if (n == 0) fprintf(stderr, "ERROR: %s has no '[f1c5] run: FULL-31 n=31' session line\n", path);
+    return n;
+}
+
 static int bf_masses_main(int argc, char **argv) {
     if (argc < 3 || argc > 5) {
         fprintf(stderr, "BRUTE_MASSES_ARGS=REFUSED\n");
@@ -7114,7 +7169,8 @@ static int bf_masses_main(int argc, char **argv) {
     if (!bf_init()) return 1;
     char masses[32][48];
     int nm = parse_masses(argv[2], masses);
-    if (nm < 0) { fprintf(stderr, "ERROR: --brute-masses: cannot read %s\n", argv[2]); return 1; }
+    if (nm < 0) { fprintf(stderr, "ERROR: --brute-masses: cannot use %s\n", argv[2]);
+                  printf("BRUTE_MASSES_RESULT=FAIL\n"); return 1; }
 
     printf("verify.c --brute-masses — valid k-prefixes counted one by one (no DP, no quotient)\n");
     printf("B0 from KW boundary multiset (d1,d2,d3,d4,d6) = (%d,%d,%d,%d,%d); root last = 0 (Kun)\n",
@@ -7155,7 +7211,10 @@ static int bf_masses_main(int argc, char **argv) {
                !have ? "ABSENT" : (ok ? "ok" : "*MISMATCH*"));
     }
     printf("threads=%d tasks=%d wall=%lds\n", T, ntask, (long)(time(NULL) - t0));
-    int fail = bad > 0 || absent > 0 || compared == 0;
+    int nsess = bf_log_sessions(argv[2]);
+    int fail = bad > 0 || absent > 0 || compared == 0 || nsess <= 0;
+    if (nsess <= 0) printf("*** FAIL: %s is not a log of the full-31 problem (see the message above)\n", argv[2]);
+    else printf("run sessions in the log: %d, every one the full-31 problem\n", nsess);
     if (absent) printf("*** FAIL: %d layer(s) in 1..%d have no mass line in %s\n", absent, K, argv[2]);
     if (compared == 0) printf("*** FAIL: zero comparisons\n");
     printf("BRUTE_MASSES_COMPARED=%d\n", compared);
