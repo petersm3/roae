@@ -44,7 +44,7 @@ canonical 2026-04-18 datasets.
   entropy, per-boundary survivors, greedy + exhaustive boundary
   analysis).
 - **`analyze_sec25fix_742M.txt`** (52 KB) — section-22 revisited output
-  after a fix to how KW complement distance was computed.
+  after a fix to how KW complement distance was computed. *(Note 2026-10-02, Q-943: lines 656–657 of this file still print the old scope sentence for the "3.9th percentile" in SOLVE_SUMMARY.md, calling it a comparison against "ALL pair-constrained orderings (C1 only)". That figure is WITHDRAWN ([CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-13), and since `9d7de84c` `solve --analyze` prints the withdrawal in its place. The file is kept as the run printed it.)*
 - **`analyze_section14_742M.txt`** (13 KB) — orient-coupling
   generalization analysis (section 14).
 

@@ -43,6 +43,11 @@ Subcommands:
                                 G5-automorphism fixing 0 + its six d5-neighbors pointwise, != id.
                                 Emits + self-validates the CNF; with --run, decides via kissat
                                 (DRAT proof to OUT.cnf.drat, drat-trim verified when on PATH).
+  --ccn4-equiv-cnf SIDE OUT.cnf [--run]  the emitted `rule ccn4` clause family against an
+                                independent encoding of CC-N4 over every C1-valid ordering
+                                [expect UNSAT, both sides]: SIDE=fwd is shipped AND NOT spec,
+                                SIDE=rev is spec AND NOT shipped (Q-934). Emits + self-validates;
+                                --run as for --rigidity-cnf.
   --c5-selfcheck                behavioural evidence that the C5 tables are DERIVED from solve
                                 primitives and that their guard REFUSES a common-mode corruption;
                                 prints KEY=value verdict lines (C5_LITERALS_DERIVED,
@@ -866,6 +871,227 @@ def rigidity_validate(cnf, x):
                  if not any((l > 0 and l in rev_true) or
                             (l < 0 and -l not in rev_true) for l in c)]
     ok2 = len(falsified) >= 1 and all(len(c) == 1 for c in falsified)
+    return ok1 and ok2
+
+
+# ---- CC-N4: the emitted clause family against an independent encoding of the rule (Q-934) ----
+CCN4_EQUIV_SIDES = ("fwd", "rev")
+CCN4_EQUIV_FAMILIES = ("C1 one (pair,orient) per slot", "C1 each pair exactly once",
+                       "inversion-class position counter", "rule ccn4")
+
+def build_ccn4_equiv(side, req=None):
+    """The shipped `rule ccn4` clause family against an independent encoding of CC-N4, as a
+    SAT instance [expect UNSAT] (2026-10-02, backlog row Q-934).
+
+    The four-rule conflict theorem (`grand-ccn4`) and three of its four minimal two-rule cores
+    run through the `rule ccn4` family, and until this date that family was validated at King
+    Wen only (`ccn4-kwtest` / `ccn4-kwfail`, both KW-forced) plus a unit-propagation check on 44
+    public witnesses, 43 of which violate the rule. This instance asks a solver the question for
+    EVERY C1-valid ordering at once: is there a (pair, orient) assignment on which the shipped
+    clauses and an independently written encoding of `solve.reg_ccn4` disagree?
+
+    Universe: the `C1 one (pair,orient) per slot`, `C1 each pair exactly once` and
+    `inversion-class position counter` families of build("five-sub-ccn4"), taken from that build
+    by their marks so the clauses are the emitted ones, not a copy. Pair-once is load-bearing:
+    without it a palindrome pair can recur, more than three palindromes can precede a slot, and
+    both counters below go under-determined rather than contradictory (measured: dropping it
+    makes both sides SAT on an assignment with 27 palindrome-pair slots over 5 distinct pairs).
+
+    Shipped side (enc1): the `rule ccn4` family of that build, verbatim — one binary clause
+    "not (slot s holds orient j and c palindrome pairs precede s)" per in-window mismatch.
+
+    Independent side (enc2): for each station k in 25..28 with required face r = CCN4_REQ[k],
+    "some slot s holds the orient whose FIRST hexagram is r, and exactly k-2-s palindrome pairs
+    precede s" — an existential per station, where the shipped family is a universal per slot.
+    It counts palindrome pairs with its own thermometer chain G[t][c] ("at least c among slots
+    1..t", built from the Y variables and `solve.reverse_6bit` here, not from the shipped
+    E-counter), so the equivalence also checks the shipped counter against a second one. Every
+    auxiliary variable is defined by a full biconditional, so the Y-projection is unchanged.
+
+    side="fwd": universe AND enc1 AND NOT enc2  [UNSAT <=> the shipped clauses imply the spec]
+    side="rev": universe AND enc2 AND NOT enc1  [UNSAT <=> the spec implies the shipped clauses]
+    Both UNSAT: on every C1-valid ordering the emitted family holds iff CC-N4 holds in the
+    independent encoding. `req` (default CCN4_REQ) is the station -> face table the spec encodes;
+    ccn4_equiv_validate() builds the planted-difference controls with CCN4_REQ_FAIL.
+
+    Returns (cnf, ctx): ctx["Y"] is the build's Y map, ctx["neg"] the single clause that negates
+    the other side (an OR of selectors), ctx["neg_sel"] its selector variables, ctx["sel_of"] the
+    selector -> conjunction map ("fwd": selector d_k -> the station it negates; "rev": selector
+    b_i -> the enc1 clause it negates), ctx["spec"] the per-station OR clauses of enc2."""
+    if side not in CCN4_EQUIV_SIDES:
+        raise SystemExit("--ccn4-equiv-cnf SIDE must be one of %s, not %r"
+                         % ("|".join(CCN4_EQUIV_SIDES), side))
+    req = dict(CCN4_REQ if req is None else req)
+    base, Y = build("five-sub-ccn4")
+    fam = {}
+    for ci, c in enumerate(base.cl):
+        fam.setdefault(base.stage_of(ci), []).append(list(c))
+    missing = [f for f in CCN4_EQUIV_FAMILIES if f not in fam]
+    if missing:
+        raise AssertionError("build('five-sub-ccn4') lost clause families: %r" % missing)
+    cnf = CNF()
+    cnf.n = base.n
+    for f in CCN4_EQUIV_FAMILIES[:3]:
+        cnf.mark("ccn4-equiv universe: " + f)
+        cnf.cl += fam[f]
+    enc1 = fam["rule ccn4"]
+    # --- enc2: own palindrome counter (thermometer), then one existential per station ---
+    pal_pairs = [p for p in range(1, 32) if solve.reverse_6bit(KW_PAIRS[p][0]) == KW_PAIRS[p][0]]
+    npal = len(pal_pairs)
+    cnf.mark("ccn4-equiv spec counter")
+    pal_t = {}
+    for t in SLOTS:
+        v = cnf.var(); pal_t[t] = v
+        lits = [Y[(t, j)] for j in range(NJ) if ORIENTS[j][0] in pal_pairs]
+        for x in lits:
+            cnf.add(-x, v)
+        cnf.add(-v, *lits)                        # v <-> slot t holds a palindrome pair
+    G = {0: {}}                                   # G[t][c] <-> at least c palindrome pairs in 1..t
+    for t in SLOTS:
+        G[t] = {}
+        for c in range(1, min(t, npal) + 1):
+            g = cnf.var(); G[t][c] = g
+            prev = G[t - 1].get(c)                # >= c already before t
+            prevm1 = G[t - 1].get(c - 1)          # >= c-1 before t (None: c-1 == 0, always true)
+            # g -> prev OR (prevm1 AND pal_t)
+            if prev is None:
+                cnf.add(-g, pal_t[t])
+                if prevm1 is not None:
+                    cnf.add(-g, prevm1)
+            else:
+                cnf.add(-g, prev, pal_t[t])
+                if prevm1 is not None:
+                    cnf.add(-g, prev, prevm1)
+            # prev -> g ; (prevm1 AND pal_t) -> g
+            if prev is not None:
+                cnf.add(-prev, g)
+            if prevm1 is None:
+                cnf.add(-pal_t[t], g)
+            else:
+                cnf.add(-prevm1, -pal_t[t], g)
+    def exactly(t, c):
+        """literals whose conjunction says 'exactly c palindrome pairs among slots 1..t'."""
+        if c < 0 or c > min(t, npal):
+            return None
+        lits = []
+        if c >= 1:
+            lits.append(G[t][c])
+        if c + 1 <= min(t, npal):
+            lits.append(-G[t][c + 1])
+        return lits
+    cnf.mark("ccn4-equiv spec")
+    A, spec = {}, []
+    for k in sorted(req):
+        r = req[k]
+        js = [j for j in range(NJ) if ORIENTS[j][2] == r]
+        if len(js) != 1:
+            raise AssertionError("face %d is the first hexagram of %d orients, not 1" % (r, len(js)))
+        A[k] = []
+        for s in SLOTS:
+            ex = exactly(s - 1, k - 2 - s)        # class position of slot s = s + 2 + c
+            if ex is None:
+                continue
+            a = cnf.var(); A[k].append(a)
+            conj = [Y[(s, js[0])]] + ex
+            for x in conj:
+                cnf.add(-a, x)
+            cnf.add(a, *[-x for x in conj])       # a <-> Y(s, j_r) AND exactly(s-1, k-2-s)
+        spec.append(list(A[k]))
+    sel_of = {}
+    if side == "fwd":
+        cnf.mark("ccn4-equiv shipped rule ccn4")
+        cnf.cl += enc1
+        cnf.mark("ccn4-equiv NOT spec")
+        sels = []
+        for k in sorted(req):
+            d = cnf.var(); sels.append(d); sel_of[d] = k
+            for a in A[k]:
+                cnf.add(-d, -a)                   # d_k -> station k's face is not req[k]
+    else:
+        cnf.mark("ccn4-equiv spec (enforced)")
+        cnf.cl += spec
+        cnf.mark("ccn4-equiv NOT shipped rule ccn4")
+        sels = []
+        for c in enc1:
+            b = cnf.var(); sels.append(b); sel_of[b] = list(c)
+            for l in c:
+                cnf.add(-b, -l)                   # b_i -> enc1 clause i is falsified
+    neg = list(sels)
+    cnf.add(*neg)
+    return cnf, {"Y": Y, "neg": neg, "neg_sel": sels, "sel_of": sel_of, "spec": spec,
+                 "side": side, "req": req}
+
+
+def _ccn4_equiv_y_literals(seq, Y):
+    """The full Y assignment of a C1-valid sequence (every (slot, orient) variable signed)."""
+    lits = []
+    for s in SLOTS:
+        a, b = seq[2 * s], seq[2 * s + 1]
+        js = [j for j in range(NJ) if ORIENTS[j][2] == a and ORIENTS[j][3] == b]
+        if len(js) != 1:
+            raise AssertionError("slot %d (%d,%d) is not one (pair, orient) of the map" % (s, a, b))
+        lits += [Y[(s, j)] if j == js[0] else -Y[(s, j)] for j in range(NJ)]
+    return lits
+
+
+def ccn4_equiv_validate(side):
+    """Solver-free round-trip discipline for build_ccn4_equiv(side), the rigidity_validate()
+    analogue. Two legs, both evaluated against the EMITTED clauses by model_check():
+      (1) King Wen's full Y assignment falsifies the instance built with the true table, and the
+          only falsified clause is the negation (KW satisfies the shipped family AND the spec, so
+          the one clause that says "one side fails" is the one that fails) -- encoding sanity;
+      (2) with the spec table replaced by CCN4_REQ_FAIL (the ccn4-kwfail derangement) a FULL
+          assignment satisfying every clause is exhibited: for "fwd", King Wen with the selector of
+          station 25 raised (KW satisfies the shipped family and misses every permuted face); for
+          "rev", King Wen with the slots carrying stations 25/26 and 27/28 exchanged (that ordering
+          has the permuted faces, so it satisfies the permuted spec, and the shipped family rejects
+          it at four clauses), with the selector of each falsified enc1 clause raised. So the
+          instance pattern CAN be satisfied when the two sides differ: a planted difference is
+          what the UNSAT verdict excludes, not what the encoding cannot express."""
+    cnf, ctx = build_ccn4_equiv(side)
+    kw = _ccn4_equiv_y_literals(KW, ctx["Y"])
+    mc = model_check(cnf, kw)
+    neg_family = "ccn4-equiv NOT spec" if side == "fwd" else "ccn4-equiv NOT shipped rule ccn4"
+    # Exclusion form, the order-independent family-level control (model_check docstring): the
+    # full formula is refuted by King Wen, and the formula MINUS the negation family is not.
+    # (A by-family count on a partial model is a first-conflict attribution: measured here, the
+    # negation clause goes unit, raises a selector, and the conflict surfaces inside a spec
+    # definition, so `falsified_by_stage` named the spec family and not the negation.)
+    ok1 = (mc["verdict"] == "FALSIFIED"
+           and model_check(cnf, kw, exclude_stages=(neg_family,))["falsified"] == 0)
+    cnf2, ctx2 = build_ccn4_equiv(side, CCN4_REQ_FAIL)
+    if side == "fwd":
+        d25 = [d for d, k in ctx2["sel_of"].items() if k == 25]
+        lits = kw + d25 + [-d for d in ctx2["neg_sel"] if d not in d25]
+    else:
+        st = solve._reg_stations(KW)
+        slot_of = {}
+        for s in SLOTS:
+            slot_of[frozenset(KW[2 * s:2 * s + 2])] = s
+        sl = {k: slot_of[frozenset(st[k - 1][1])] for k in (25, 26, 27, 28)}
+        seq = list(KW)
+        for a, b in ((25, 26), (27, 28)):
+            sa, sb = sl[a], sl[b]
+            seq[2 * sa:2 * sa + 2], seq[2 * sb:2 * sb + 2] = KW[2 * sb:2 * sb + 2], KW[2 * sa:2 * sa + 2]
+        if solve.reg_ccn4(seq) is not False:
+            raise AssertionError("the station-exchanged King Wen must violate CC-N4")
+        ylits = _ccn4_equiv_y_literals(seq, ctx2["Y"])
+        ytrue = set(l for l in ylits if l > 0)
+        if model_check(cnf2, ylits)["falsified"] != 0:
+            return False               # a full Y assignment must not falsify the definitions
+        # an enc1 clause is [-Y, -E]; its selector can be raised iff the ordering makes that Y
+        # literal true AND the counter literal holds. The Y half is read here; the E half is
+        # decided by propagation, so each candidate (one per in-window slot and counter value,
+        # a handful) is tried with one propagation pass and kept iff nothing is falsified.
+        ny = len(ctx2["Y"])
+        cands = [b for b, clause in ctx2["sel_of"].items()
+                 if any(-l in ytrue for l in clause if abs(l) <= ny)]
+        chosen = [b for b in cands if model_check(cnf2, ylits + [b])["falsified"] == 0]
+        if not chosen:
+            return False
+        lits = ylits + chosen + [-b for b in ctx2["neg_sel"] if b not in chosen]
+    mc2 = model_check(cnf2, lits)
+    ok2 = mc2["verdict"] == "SATISFIED"
     return ok1 and ok2
 
 
@@ -1925,6 +2151,41 @@ def certify_count(cnf_obj, label, keep_dir=None):
         if keep_dir is None:
             shutil.rmtree(wd, ignore_errors=True)
 
+
+def _run_expect_unsat(out, subcommand):
+    """Decide the DIMACS file `out` with kissat, require UNSAT, and verify the DRAT proof with
+    drat-trim when it is on PATH (the --run leg of --rigidity-cnf, shared with --ccn4-equiv-cnf
+    since 2026-10-02; the printed lines are the ones --rigidity-cnf has printed since 2026-09-03)."""
+    import shutil
+    if shutil.which("kissat") is None:
+        raise SystemExit(
+            "kissat is required for %s --run but was not found on PATH.\n"
+            "Install kissat (https://github.com/arminbiere/kissat); see SAT_CLI.md." % subcommand)
+    proof = out + ".drat"
+    r = subprocess.run(["kissat", "-q", out, proof], capture_output=True, text=True)
+    # whole line + exit status, CR-normalised (2026-09-03; was a substring test on stdout
+    # with the exit status unread -- the same two-leg rule the drat-trim leg below applies)
+    klines = [ln.rstrip("\r") for ln in r.stdout.splitlines()]
+    verdict = ("UNSAT" if "s UNSATISFIABLE" in klines and r.returncode == 20
+               else "SAT" if "s SATISFIABLE" in klines and r.returncode == 10
+               else "UNKNOWN(rc=%d)" % r.returncode)
+    print("kissat verdict: %s (proof: %s)" % (verdict, proof))
+    if verdict != "UNSAT":
+        raise SystemExit("EXPECTED UNSAT — got " + verdict)
+    if shutil.which("drat-trim"):
+        r2 = subprocess.run(["drat-trim", out, proof], capture_output=True, text=True)
+        # WHOLE line + rc, two legs (2026-09-02, same rule as verify_all.sh): drat-trim
+        # prefixes each line with a bare CR and exits 0 on some runs that checked nothing.
+        lines = [ln.strip("\r") for ln in r2.stdout.splitlines()]
+        ver = "VERIFIED" if (r2.returncode == 0 and "s VERIFIED" in lines) else "NOT VERIFIED"
+        print("drat-trim: %s (rc=%d)" % (ver, r2.returncode))
+        if ver != "VERIFIED":
+            raise SystemExit("DRAT proof did not verify")
+    else:
+        print("drat-trim not on PATH — proof emitted but UNVERIFIED "
+              "(run drat-trim %s %s independently)" % (out, proof))
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
 
@@ -1989,11 +2250,11 @@ if __name__ == "__main__":
     # than emitting the wrong formula, because rc=0 is an assertion that the command ran.
     # Same silent-ignore class as Q-309 (`--f1-pairs` with C3 flags), one layer out: there the
     # flag was accepted and dropped, here the whole invocation is.
-    run = False                                      # --rigidity-cnf only: decide via kissat (+ drat-trim)
+    run = False                                      # --rigidity-cnf / --ccn4-equiv-cnf: decide via kissat (+ drat-trim)
     if "--run" in args:
         run = True; args.remove("--run")
-    if run and args[:1] != ["--rigidity-cnf"]:
-        raise SystemExit("--run applies to --rigidity-cnf only")
+    if run and args[:1] not in (["--rigidity-cnf"], ["--ccn4-equiv-cnf"]):
+        raise SystemExit("--run applies to --rigidity-cnf and --ccn4-equiv-cnf only")
     # 2026-09-02 (Codex V2 A08 row 18 / A09 row 20): this guard, installed 2026-08-28, rejected the
     # documented `--rigidity-cnf OUT --run` (rc=1, nothing written) because `--run` was consumed
     # AFTER it -- the complete kissat + DRAT + drat-trim path below was unreachable for five days --
@@ -2001,7 +2262,7 @@ if __name__ == "__main__":
     # help banner and exited 0, the very failure its comment says it closed. `--run` is now consumed
     # first, and args[0] is validated against the closed subcommand list.
     _SUBCOMMANDS = ("--emit-cnf", "--decode", "--witness", "--rigidity-cnf", "--certify-count",
-                    "--c5-selfcheck")
+                    "--c5-selfcheck", "--ccn4-equiv-cnf")
     _stray = ([args[0]] if args and args[0] not in _SUBCOMMANDS else []) \
            + [a for a in args[1:] if a.startswith("--")]
     if _stray:
@@ -2016,7 +2277,7 @@ if __name__ == "__main__":
                 "--witness": {"--with-c3", "--c3-max", "--c3-min", "--not-kw", "--f1-pairs"},
                 "--certify-count": {"--with-c3", "--c3-max", "--c3-min", "--not-kw", "--f1-pairs",
                                     "--expect", "--keep"},
-                "--rigidity-cnf": set(), "--c5-selfcheck": set()}
+                "--rigidity-cnf": set(), "--c5-selfcheck": set(), "--ccn4-equiv-cnf": set()}
     if args:
         _na = sorted(given - _APPLIES[args[0]])
         if _na:
@@ -2041,7 +2302,8 @@ if __name__ == "__main__":
     # mistyped-subcommand fall-through the row-20 fix closed one line above.
     _USAGE = {"--emit-cnf": "TARGET OUT.cnf", "--decode": "MODEL.txt [TARGET]",
               "--witness": "TARGET", "--rigidity-cnf": "OUT.cnf [--run]",
-              "--certify-count": "TARGET", "--c5-selfcheck": ""}
+              "--certify-count": "TARGET", "--c5-selfcheck": "",
+              "--ccn4-equiv-cnf": "SIDE OUT.cnf [--run]"}
 
     def _out_path(path):
         """Q-311 (2026-09-03): an OUT.cnf whose directory does not exist or is not writable was
@@ -2288,34 +2550,25 @@ if __name__ == "__main__":
         print("wrote %s (%d vars, %d clauses); encoding self-validation PASS" %
               (out, cnf.n, len(cnf.cl)))
         if run:
-            import shutil
-            if shutil.which("kissat") is None:
-                raise SystemExit(
-                    "kissat is required for --rigidity-cnf --run but was not found on PATH.\n"
-                    "Install kissat (https://github.com/arminbiere/kissat); see SAT_CLI.md.")
-            proof = out + ".drat"
-            r = subprocess.run(["kissat", "-q", out, proof], capture_output=True, text=True)
-            # whole line + exit status, CR-normalised (2026-09-03; was a substring test on stdout
-            # with the exit status unread -- the same two-leg rule the drat-trim leg below applies)
-            klines = [ln.rstrip("\r") for ln in r.stdout.splitlines()]
-            verdict = ("UNSAT" if "s UNSATISFIABLE" in klines and r.returncode == 20
-                       else "SAT" if "s SATISFIABLE" in klines and r.returncode == 10
-                       else "UNKNOWN(rc=%d)" % r.returncode)
-            print("kissat verdict: %s (proof: %s)" % (verdict, proof))
-            if verdict != "UNSAT":
-                raise SystemExit("EXPECTED UNSAT — got " + verdict)
-            if shutil.which("drat-trim"):
-                r2 = subprocess.run(["drat-trim", out, proof], capture_output=True, text=True)
-                # WHOLE line + rc, two legs (2026-09-02, same rule as verify_all.sh): drat-trim
-                # prefixes each line with a bare CR and exits 0 on some runs that checked nothing.
-                lines = [ln.strip("\r") for ln in r2.stdout.splitlines()]
-                ver = "VERIFIED" if (r2.returncode == 0 and "s VERIFIED" in lines) else "NOT VERIFIED"
-                print("drat-trim: %s (rc=%d)" % (ver, r2.returncode))
-                if ver != "VERIFIED":
-                    raise SystemExit("DRAT proof did not verify")
-            else:
-                print("drat-trim not on PATH — proof emitted but UNVERIFIED "
-                      "(run drat-trim %s %s independently)" % (out, proof))
+            _run_expect_unsat(out, "--rigidity-cnf")
+    elif args[:1] == ["--ccn4-equiv-cnf"] and len(args) == 3:
+        # Q-934 (2026-10-02): the emitted CC-N4 family against an independent encoding of the
+        # rule, over every C1-valid ordering [expect UNSAT on both sides]; see build_ccn4_equiv.
+        side = args[1]
+        if side not in CCN4_EQUIV_SIDES:
+            raise SystemExit("--ccn4-equiv-cnf SIDE must be one of %s, not %r"
+                             % ("|".join(CCN4_EQUIV_SIDES), side))
+        out = _out_path(args[2])
+        if not ccn4_equiv_validate(side):
+            raise SystemExit("ccn4-equiv encoding self-validation FAILED — not writing " + out)
+        cnf, _ctx = build_ccn4_equiv(side)
+        cnf.write(out, "ccn4-equiv %s: %s over every C1-valid ordering [expect UNSAT]"
+                  % (side, "emitted rule ccn4 AND NOT independent CC-N4 spec" if side == "fwd"
+                     else "independent CC-N4 spec AND NOT emitted rule ccn4"))
+        print("wrote %s (%d vars, %d clauses); encoding self-validation PASS" %
+              (out, cnf.n, len(cnf.cl)))
+        if run:
+            _run_expect_unsat(out, "--ccn4-equiv-cnf")
     elif args == ["--c5-selfcheck"]:
         sys.exit(c5_selfcheck())
     elif not args:

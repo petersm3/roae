@@ -91,7 +91,7 @@ launcher should scan for the partitionless ext4 volume rather than hardcoding
 >
 > The token itself is deliberately **not** renamed: monitors and supervisors match it as a literal,
 > and a completion-detection regex mismatch has already cost this project a run (§Lessons item 4, and
-> `HISTORY.md`). The name is a compatibility surface; this paragraph is the semantics.
+> `HISTORY.md`). The name is a compatibility surface; this paragraph is the semantics. *(2026-10-02, Q-317 (5), batch 33: the machine-readable answer to "did a budget cut this run short" is a separate whole line, `BUDGET_EXHAUSTED=YES` or `NO` (or `UNKNOWN`), printed after `ENUM_RUN`; `SEARCH_COMPLETE` is kept as it is. `NO` is not a claim that the search space was exhausted either: a stopped run prints it too. See SOLVE_C_CLI.md, default mode.)*
 
 - Completion detection depends on the mode. In **single-VM mode** (bundled
   merge) the solver writes `solve_results.json` with a `SEARCH_COMPLETE` status

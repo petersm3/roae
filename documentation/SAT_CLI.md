@@ -24,6 +24,7 @@ python3 sat.py --witness  TARGET                    [--with-c3] [--c3-max N] [--
 python3 sat.py --certify-count TARGET               [--f1-pairs N]
                                                     [--expect N] [--keep DIR]
 python3 sat.py --rigidity-cnf OUT.cnf               [--run]
+python3 sat.py --ccn4-equiv-cnf SIDE OUT.cnf        [--run]     SIDE = fwd | rev
 python3 sat.py --c5-selfcheck
 ```
 
@@ -47,7 +48,7 @@ traceback) if the tool is not on `PATH`:
 
 | Subcommand | Requires on `PATH` | Role |
 |---|---|---|
-| `--witness`; `--rigidity-cnf OUT.cnf --run` | [`kissat`](https://github.com/arminbiere/kissat) (`--run` also uses `drat-trim` when present) | external SAT solver for the witness-search loop; deciding the rigidity CNF |
+| `--witness`; `--rigidity-cnf OUT.cnf --run`; `--ccn4-equiv-cnf SIDE OUT.cnf --run` | [`kissat`](https://github.com/arminbiere/kissat) (`--run` also uses `drat-trim` when present) | external SAT solver for the witness-search loop; deciding the rigidity CNF |
 | `--certify-count` | [`d4`](https://github.com/crillab/d4) **and** `cpog-gen` + `cpog-check` ([CPOG](https://github.com/rebryant/cpog)) **and**, transitively via `cpog-gen`, `cadical` + `drat-trim` — five binaries | d-DNNF compilation + certified model counting |
 
 No other part of `sat.py` (or of the project's Python layer) needs any
@@ -97,7 +98,7 @@ guarded-but-not-derived for these two tables. *(Caveat added 2026-09-01.)*
 ⚠ **[SUPERSEDED — note added 2026-09-21.** The caveat above describes the
 file as it stood on 2026-09-01 and is kept as that record; the paragraph
 before it is the current description. Since 2026-09-02 (`73d31e8b`) both
-tables are derived at import — `sat.py:239`
+tables are derived at import — `sat.py:244`
 `_tot, _wp, BETWEEN_MULTISET = derive_c5_tables(KW)` — and
 `python3 sat.py --c5-selfcheck` prints `C5_LITERALS_DERIVED=1` (measured
 2026-09-21 at `5219dc43`, rc 0, all five tokens at their passing values).
@@ -426,6 +427,45 @@ exhaustive non-SAT machine check of the
 same kernel: [SYMMETRY_SEARCH.md §Completeness](SYMMETRY_SEARCH.md) and
 `solve.py --symmetry-completeness` (gate SC-4).
 
+### --ccn4-equiv-cnf SIDE OUT.cnf [--run]
+
+```
+python3 sat.py --ccn4-equiv-cnf fwd ccn4_fwd.cnf          # emit + self-validate; then kissat ccn4_fwd.cnf
+python3 sat.py --ccn4-equiv-cnf rev ccn4_rev.cnf          # emit + self-validate; then kissat ccn4_rev.cnf
+python3 sat.py --ccn4-equiv-cnf fwd ccn4_fwd.cnf --run    # requires kissat; expects UNSAT; drat-trim verifies the proof when on PATH
+python3 sat.py --ccn4-equiv-cnf rev ccn4_rev.cnf --run
+```
+
+Added 2026-10-02 (backlog row Q-934). The four-rule conflict theorem (`grand-ccn4`) and three
+of its four minimal two-rule cores run through the `rule ccn4` clause family, and until this
+date that family was validated at King Wen only (`ccn4-kwtest` / `ccn4-kwfail` above, both
+KW-forced) plus a unit-propagation check on 44 public witnesses of which 43 violate the rule.
+This subcommand asks the question for **every C1-valid ordering at once**: it emits the
+`C1` and inversion-class-counter families of `five-sub-ccn4` as the universe, the `rule ccn4`
+family of that build verbatim as one side, and an independently written encoding of CC-N4 as
+the other — one existential per station ("some slot holds the orient whose first hexagram is
+the required face, with exactly k−2−s palindrome pairs before it"), counted by its own
+thermometer chain rather than the shipped counter. `fwd` is *shipped AND NOT spec*, `rev` is
+*spec AND NOT shipped*; **UNSAT on both** means the emitted family holds on an ordering iff the
+rule does, over the whole universe. Pair-once is load-bearing in the universe: without it a
+palindrome pair can recur and both counters go under-determined rather than contradictory
+(measured: both sides SAT on an assignment with 27 palindrome-pair slots over 5 distinct pairs).
+
+Before writing, the encoder self-validates solver-free (`ccn4_equiv_validate`): King Wen's
+full assignment refutes each instance and does not refute it with the negation family removed
+(encoding sanity), and with the spec table replaced by the `ccn4-kwfail` derangement a full
+satisfying assignment is exhibited for each side (the instance pattern **can** be satisfied
+when the two sides differ). Measured 2026-10-02 with CaDiCaL 1.5.3 (via PySAT) on the emitted
+files: `fwd` 7,176 vars / 119,555 clauses UNSAT in 1.1 s; `rev` 8,172 vars / 120,543 clauses
+UNSAT in 2.9 s; the spec table permuted → SAT on both sides; station 28 dropped from the spec
+→ `fwd` UNSAT and `rev` SAT, as a one-sided weakening must. The population leg beside it
+(`tests.py` `TestSatCcn4ClausesBeyondKingWen`: 1,039 seeded C1-valid orderings, 151 satisfying
+CC-N4, and four planted mis-encodings that pass both KW-forced gates yet are each caught) is
+the solver-free check that the independent encoding is the rule `solve.reg_ccn4` scores.
+Every previously emitted formula is byte-identical (`grand-ccn4`, `grander-strict`,
+`five-sub-ccn4`, `five-sub-gender+ccn4`, `ccn4-kwtest`, `ccn4-kwfail`, `--rigidity-cnf`;
+sha256 compared), so no existing certificate moves.
+
 ### --c5-selfcheck
 
 ```
@@ -543,7 +583,7 @@ catalogue and the expected SAT/UNSAT verdict of each):
 | `grand-strict` | Moore parity + Moore rhythm + Schulz gender simultaneously ("grand unified precursor" question). |
 | `grand-ccn4` / `grander-strict` | The four- / five-rule conflict decisions (#217); UNSAT proves no **C1∩C2∩C4∩C5-valid** ordering is perfect under the combined rule set (the base is stated in the table preamble; repeated here because this row is often quoted alone). |
 | `wrap-d5` | Base AND wrap distance d(s63, s0) = 5 — the [McKenna](CITATIONS.md#mckenna-mckenna1975) circular-reading decision (see [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md)). |
-| `ccn4-kwtest` / `ccn4-kwfail` | CC-N4 encoding validation, both KW-forced: `ccn4-kwtest` adds the ccn4 clauses as-is (expect **SAT** — KW satisfies CC-N4); `ccn4-kwfail` permutes the required S25–S28 face hexagrams (S25↔S26 and S27↔S28 values swapped) so KW mismatches all four stations (expect **UNSAT**). The required faces are derived at import from `solve.reg_ccn4`/`solve._reg_stations` (not hand-written), and the negative gate catches an over-constrained ccn4 encoding that a SAT-expected gate alone cannot. |
+| `ccn4-kwtest` / `ccn4-kwfail` | CC-N4 encoding validation, both KW-forced: `ccn4-kwtest` adds the ccn4 clauses as-is (expect **SAT** — KW satisfies CC-N4); `ccn4-kwfail` permutes the required S25–S28 face hexagrams (S25↔S26 and S27↔S28 values swapped) so KW mismatches all four stations (expect **UNSAT**). The required faces are derived at import from `solve.reg_ccn4`/`solve._reg_stations` (not hand-written), and the negative gate catches an over-constrained ccn4 encoding that a SAT-expected gate alone cannot. *(2026-10-02, Q-934: both gates pin King Wen, and four planted mis-encodings pass both — `base = st2 + 4`, a counter saturating at 2, station 28 unenforced, the palindrome forbid removed — so they are the KW round-trip, not the validation of the family; that is `--ccn4-equiv-cnf` below, UNSAT on both sides, plus the 1,039-ordering population in `tests.py`.)* |
 | `*-kwtest` / `*-kwexempt` / `*-kwfail` / `*-kwchain` | Encoding-validation targets that force KW and assert the expected verdict — the two-language gate that the clauses match `solve.py` semantics. |
 | `BASE-near-k` | Any target above AND "differs from King Wen in at most `k` slots" (`k` in 0..31; a slot differs when its (pair, orientation) content does) — the minimal-repair form ([TR-2](../reports/TR2_THE_RULES_CONFLICT.md): `moore-strict-near-2` UNSAT, `moore-strict-near-3` SAT). The suffix **conjoins**: the base's own clause family is still emitted (2026-09-19, Q-648 — until then `alt-le-14`, `alt-ge-16` and `wrap-d5` keyed on the full target string, so a suffixed target silently built the plain `near-k` formula and King Wen passed a check he must fail). **Refused** on the KW-pinned bases (`kw-pin`, `*-kwtest`, `*-kwfail`, `rc4-kwexempt`, `ccn8-kwchain*`): the pin already forces every slot, so the label would name a relaxation the formula does not contain. `-noY` and `--certify-count` refuse it as documented above. |
 
@@ -568,6 +608,19 @@ Moore rhythm + Schulz gender + CC-N4), and the five-rule union that adds CC-N8
 ```
 python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf
 python3 sat.py --emit-cnf grander-strict f.cnf && kissat f.cnf
+```
+
+What that UNSAT rests on, as of 2026-10-02: the `rule ccn4` family in those formulas is
+shown equivalent, over every C1-valid ordering, to an independent encoding of CC-N4
+(`--ccn4-equiv-cnf fwd` and `rev`, both UNSAT), and that independent encoding agrees with
+`solve.reg_ccn4` on a seeded population of 1,039 orderings of both polarities
+(`tests.py` `TestSatCcn4ClausesBeyondKingWen`). What remains outside any of these checks is the
+registry's reading of Schulz — that `solve.reg_ccn4` is the rule Schulz 2011/2016 states — which
+is a question about the source, not the encoding:
+
+```
+python3 sat.py --ccn4-equiv-cnf fwd ccn4_fwd.cnf --run
+python3 sat.py --ccn4-equiv-cnf rev ccn4_rev.cnf --run
 ```
 
 Decide the circular (wrap-around) reading:

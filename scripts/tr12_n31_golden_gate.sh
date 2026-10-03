@@ -115,28 +115,44 @@ Q8_BUCKETS='71,55,64,59,75,58,53,74,51,49,64,60,58,81,60,68'
 # The sha here is of the n=9 golden FILE; it is checked before use, so a drifted n=9 golden is an
 # ERROR (re-measure and re-pin) rather than a silently weakened Tier 1.
 # Full transcript: roae-private/G31_TOKEN_IMPLEMENTED_2026_09_11.md.
+# RE-PINNED 2026-10-02 (CX-263): a0_xa_iii and b_scan_selftest. Their n=9 goldens had moved three
+# times since 09-11 and this table followed none of them, so every run reaching Tier 1 read ERROR:
+#   b_scan_selftest  599dc202 -> b919f997  92b8537f (09-12), the logging build's new selftest lines
+#                    b919f997 -> c1df8f1f  CX-142 (f31ec535), the t-units gate's label (Q-42 (c))
+#   a0_xa_iii        fe51a662 -> 716eeadd  CX-87 (6d0694c4), one string of the --kc-t-cert JSON
+# The new values were taken from a FRESH n=9 run of this tree (the two row bodies and norm() of
+# tr12_repro.sh, verbatim), and equal the committed n=9 files. Both rows' command lines carry no
+# ladder, no n and no knob (--kc-t-cert FILE; --kc-scan-selftest), so their output is
+# n-independent by construction; the 09-11 n=13 leg was not repeated. A golden MINTED BEFORE
+# those commits differs from n=9 on exactly those lines, and Tier 1 reports it [WRONG].
 TIER1_ROWS='
 a0_build        bfc2153cb595d9700c3614355ed1b4c37502cde0c0f1594cfc0157051edbbd1b
 a0_gates        897a2d168f60890a29f0d4c242a06e96398bac7a3de82a1c7807617c30ccd496
-a0_xa_iii       fe51a662df0691da3980c719ab9cac9aaa9626fb48497e241cc42bde671d57b6
+a0_xa_iii       716eeaddbe8f6aac4edb3f136061eda59665be129059919e4341c8f0f542be37
 a0_q7_kw        baecd37f936b5fdb891f1b90a595270e8fe49eb854241195dd5c172d52da0aaf
 a0_q7_hist      6076b14937dba09eb07dcc75518a4724a335d457f28f6f90aa2e4d68f02ad213
 a0_ls_w0        bf1593a820d9e2da157d3da538523dead0b177dce8d87231e6d09a0dc959b810
 a0_ls_w0_mc     00dcd5eebc9237d6722d35f3f5e15e9fb3cedf8ce1d4ce4874ef8ee77859354e
 a0_q4b          fd501f7b497b4582f427657281356d822dd9e6384c1260f71f3f05decaf66312
 a1_q8_midn13    565d5c4ffc39bcba232135b29536da5f82f53db3b8dcf1041f7acd559ac22a49
-b_scan_selftest 599dc2021b85f230602eabe7458349d1000818308fddc319022722f990eea0d2
+b_scan_selftest c1df8f1f47f1dc31630e9d9f71d357844a5cb8174e80aa73895c08c18e50ccd1
 '
 
 # Required pins (Tier 2, banked full-31 answers). rule is `contains` (the literal must appear in
-# that golden row) or `datasha` (sha256 of the row's tab-separated data lines).
+# that golden row), `datasha` (sha256 of the row's tab-separated data lines) or `field` (the value
+# of the golden's tab-keyed field named in the 4th column, compared EXACTLY through field()).
+# `field` was added 2026-10-02 (CX-263) for the Q8 subset count. A pins value cannot carry a tab,
+# so `contains` could not pin the line `q8_super_subset_cd_le_T<TAB>110`, and the bare literal 110
+# does not discriminate: it is a substring of the row's own fraction 0.11000000, and of 0.11100000,
+# the fraction a count of 111 would print. The count is pinned with the fraction beside it.
 REQUIRED_PINS='
 a1_q1b          contains  rel_rank_kw
 a1_q2b          contains  walk_r0
 a1_q2b          contains  walk_half
 a1_q2b          contains  walk_last
 a1_v3           datasha   grid_rows
-a1_q8_subset    contains  subset_cd_le_T
+a1_q8_subset    field     subset_cd_le_T   q8_super_subset_cd_le_T
+a1_q8_subset    field     subset_fraction  q8_super_subset_fraction
 '
 
 # ------------------------------------------------------------------------------- accumulators ---
@@ -394,10 +410,10 @@ if [ ! -r "$PINS" ]; then
   err "        DIFFERENT-build, DIFFERENT-host, DIFFERENT-date check this gate can make, and they"
   err "        are not inlined here on purpose (they would be published by doing so). Required keys:"
   printf '%s\n' "$REQUIRED_PINS" | sed '/^[[:space:]]*$/d' | awk '{printf "          %-14s %-9s %s\n",$1,$2,$3}'
-  err "        Format: <row> <TAB> contains|datasha <TAB> <pin-id> <TAB> <value>   (# comments ok)"
+  err "        Format: <row> <TAB> contains|datasha|field <TAB> <pin-id> <TAB> <value>   (# comments ok)"
   err "        Set TR12_N31_PINS to a private path to keep the values out of this repo."
 else
-  while read -r prow prule pid; do
+  while read -r prow prule pid pkey; do
     [ -n "${prow:-}" ] || continue
     pval=$(awk -v r="$prow" -v u="$prule" -v i="$pid" '
         !/^[[:space:]]*#/ && $1==r && $2==u && $3==i {v=$4; for(j=5;j<=NF;j++) v=v" "$j; print v; exit}' "$PINS")
@@ -417,6 +433,15 @@ else
           err "Tier 2 pin $prow/$pid: $prow.txt holds ZERO tab-separated data rows -- nothing to hash"
         elif [ "$dsha" = "$pval" ]; then ok "Tier 2 pin $prow/$pid: data-line sha matches the banked run"
         else bad "Tier 2 pin $prow/$pid: data-line sha $dsha != banked $pval"; fi ;;
+      field)
+        if [ -z "${pkey:-}" ]; then
+          err "Tier 2 pin $prow/$pid: rule 'field' names no golden key -- this gate cannot evaluate it"
+        else
+          fgot=$(field "$f" "$pkey")
+          if [ -z "$fgot" ]; then bad "Tier 2 pin $prow/$pid: $prow.txt states no '$pkey' field at all"
+          elif [ "$fgot" = "$pval" ]; then ok "Tier 2 pin $prow/$pid: $pkey = $pval, the banked value"
+          else bad "Tier 2 pin $prow/$pid: $pkey = $fgot, banked $pval"; fi
+        fi ;;
       *) err "Tier 2 pin $prow/$pid: unknown rule '$prule' -- this gate cannot evaluate it" ;;
     esac
   done <<< "$(printf '%s\n' "$REQUIRED_PINS" | sed '/^[[:space:]]*$/d')"

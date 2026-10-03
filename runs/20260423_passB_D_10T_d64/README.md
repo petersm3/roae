@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-23
 **Hardware:** 2 × Standard_D64als_v7 spot VMs (westus3)
-**Budget:** 1T (1,000,000,000,000) node cap per branch
+**Budget:** 1T (1,000,000,000,000) node cap per branch *(Note 2026-10-02, Q-943: the directory name says `10T`, but every one of the 14 runs here had this 1T budget, as each `sub_*.meta.json` records in `budget_nodes`. The name is kept because other files link to this path.)*
 **Total runs:** 14 (4 Campaign B + 10 Campaign D)
 
 ## Campaign B — orientation symmetry test
@@ -46,7 +46,7 @@ B_<prefix>/
 └── run.log.gz                # solver stderr log, gzipped
 ```
 
-The corresponding `sub_<prefix>.bin` files (155 MB – 624 MB each) are not in this git repo; they are archived on `solver-data-westus3:/data/20260423_passBD/`.
+The corresponding `sub_<prefix>.bin` files (155 MB – 624 MB each) are not in this git repo; they are archived on `solver-data-westus3:/data/20260423_passBD/`. *(Note 2026-10-02, Q-943: in every `sub_*.meta.json` here, `c3_valid_records` is a round number of millions, such as `482000000`. It was copied from the run log's final summary line, which prints the C3 count in millions ("482M C3" in `B_20_0_21_0_26_1/run.log.gz`), so it carries only that precision and is not an exact count. The exact fields are `solutions_canonical`, `dedup_collisions`, `actual_nodes` and the file size and sha. The meta files are kept as written.)*
 
 ## Reproduction
 

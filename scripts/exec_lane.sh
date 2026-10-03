@@ -1078,7 +1078,7 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qE "projected fsync-wait|SOLVE_ALLOW_SLOW_IOPS" <<<"$out"; then
     outcome="SKIP-RESOURCE(disk-IOPS pre-check refused — host disk too slow, not claim)"
   elif grep -qiE "no such file|cannot open|cannot read|\[Errno 2\]|no .* files found" <<<"$out"; then
-    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:246)
+    # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:247)
     # says "--decode 'model.txt': no such file" -- lowercase, no "or directory" -- and was FAIL(rc=1)
     if [ "$cls" = "BUILD" ]; then
       outcome="FAIL(build cannot find a source or header its compile line names — the tree does not ship what the recipe compiles)"

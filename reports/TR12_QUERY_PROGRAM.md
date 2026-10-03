@@ -501,7 +501,7 @@ Q10(b) coset census.
   the 100 T analogue 340,179,649 = 9.9108 %, are `./solve --c3-min <solutions.bin>` outputs; the
   100 T recipe and its log lines are committed at
   `runs/20260419_100T_d3_d128westus3/README.md`, but **the 560 T `--c3-min` run log is not
-  committed** — `runs/20260608_560T_9a968fa2/` holds only `viz/` — so at 560 T the counts are
+  committed** — `runs/20260608_560T_9a968fa2/` holds only `viz/` *(and, since 2026-10-02, a README saying so; Q-943)* — so at 560 T the counts are
   cited, not re-runnable from this tree (regenerating them means reading the archived 560 T
   canonical, whose bytes are not mounted and are not read back by standing rule). The 12.1288 % figure is
   `verify.py --check-t5-c3` over the T5 parquet, whose **input is not in this repo**

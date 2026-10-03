@@ -10277,3 +10277,163 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
   too few states were compared. Pinned able to fail by six kernel mutants and a tampered layer
   value (`tests.py::TestQ918KcTransitionOracle`); n=9 and n=13 run in seconds, n=16 in minutes.
 
+
+## 2026-10-02 — batch 33: a separate line now says when a node budget cut a run short, two merge-completeness items are closed as recorded limits, and the n=31 golden gate's stale Tier 1 references are re-pinned
+
+**Batch 33, budget token and recorded limits (CX-259).**
+
+- `SEARCH_COMPLETE` only means no signal or time limit stopped the run. Every published enumeration
+  stops each cell at a node budget, so it said the same thing for a budget-limited run as for one
+  that walked everything. The name is kept, because monitors and the branch runner match it.
+- Instead, each enumeration exit that prints `ENUM_RUN` now prints one more whole line after it:
+  `BUDGET_EXHAUSTED=YES` when a node budget ended at least one sub-branch of the output, `NO` when
+  none did, `UNKNOWN` when a checkpoint file could not be read. The full run and `--branch` read
+  the checkpoint files the merge reads, so a cell budgeted by an earlier process of a resumed run
+  counts. A stopped run can print `NO`, so the line is read beside `ENUM_RUN`.
+- No shard, `solutions.bin`, sha or TR-12 golden changes. Twelve tests: the token tests fail on the
+  previous solve.c and pass on this one.
+- A merge-gate blind spot in directories written before CX-235 (a stopped cell's partial shard
+  promoted by a relaunch) is now documented as a known limit, beside the merge gate's description.
+  Refusing it would also refuse a correct case that leaves the same checkpoint lines.
+- The crash-injection study on the gz CRC check (CX-251) will not be run. The check refuses a
+  damaged shard either way.
+- **Batch 33, legacy promoted partial refused and cleared (CX-260).** Later the same day, on the
+  operator's second decision, the case the bullet above recorded as a limit is closed. A merge now
+  refuses, by its own name (`MERGE_INPUT=LEGACY_PROMOTED_SUSPECT`, exit 35), a sub-branch whose
+  `INTERRUPTED` line is finished only by a `[v3.1 promoted]` line, because nothing on disk can tell a
+  promoted partial shard from a promoted complete one whose own line was lost, and a wrongly accepted
+  shard is the worse error. A relaunch no longer treats such a cell as done: it walks the cell again,
+  the flush replaces the shard, and its own line clears the refusal. Measured on a 3,030-cell fixture
+  with one shard cut in half: the previous binary merged it to a different sha with exit 0 and a
+  relaunch walked nothing; the fixed binary refuses, and after the relaunch merges to the
+  uninterrupted run's sha. A promoted line with no `INTERRUPTED` line is accepted as before.
+- **Batch 33, a shard with no gzip header is judged on its records (CX-261).** The Q-888 (5) check
+  reads a gz orphan's CRC; a renamed shard whose data never reached the disk can instead come back
+  zero-filled with no header, and such a file was promoted on its size, its checkpoint line claiming
+  records that are all zeros. An orphan with no gzip header is now refused unless every record is
+  well formed (bit 0 clear, the 32 pair indices a permutation of 0..31, which is how every record is
+  built), and the resume LOAD path refuses such a record the way it refuses a truncated gz
+  (`TRUNC_SHARD_RESUME=REFUSED`, exit 32). The refusal lines also now say that a cell with a
+  `.dfs_state` is not walked again but refused on resume until the operator restores the shard or
+  removes it with its `.dfs_state`; the fail-closed behaviour is kept. Measured on a 3,030-cell run:
+  the previous binary promoted a zero-filled orphan; the fixed one refuses it and walks the cell to a
+  byte-identical shard, and still promotes a valid raw orphan unchanged.
+- **Batch 33, the resume loaders refuse a full hash table (CX-262, Q-941 addendum).** The per-cell
+  LOAD path and the worker-snapshot consolidation probed the whole table for a record's slot and, when
+  the table was full, dropped the record with no message and went on; the consolidation then counted
+  it in its `loaded N records` line. Both now stop with a `FATAL: … hash table 100% full … (Q-941)`
+  line and exit 1, as the per-thread insert always has and as lane B34D's merge fix does. Reachable
+  only past the 2^30 resize cap, which no shipped run approaches. Measured with a scratchpad harness
+  in the capped state: the previous solve.c returned success from each loader with one of five records
+  gone; this one refuses. Five inspection tests, each asserting its precondition first.
+
+**Batch 33, n=31 golden gate Tier 1 re-pin and `field` pin (CX-263).**
+
+- The n=31 golden gate compares ten n=9 reference files against shas written into it on
+  2026-09-11. Two of those files had changed since, for documented reasons (CX-87, CX-142 and the
+  2026-09-12 scan logging build), and the gate's copy was never updated. So since 2026-09-12 every
+  run that reached that check reported ERROR.
+- The two shas were re-pinned from a fresh n=9 run of the current code. Both match the committed
+  files. The commit behind each change is named in the script and in CX-263.
+- A golden set made before those changes now shows as a mismatch on exactly those lines. That
+  comes from a code version, not a wrong count.
+- The Q8 subset result is pinned as the exact count 110, with its fraction 0.11000000 beside it,
+  through a new exact-field rule. The old substring rule could not tell 110 from 111.
+- A new test fails whenever an n=9 reference moves without the gate being updated.
+- No published number, count, sha or verdict moves.
+
+## 2026-10-02 — batch 34: nine file readers that accepted malformed input now refuse it and say why, the correction-marker inventory sees markers in parentheses, the Lean transcription-step qualifier reaches every forced-rule claim site, solve.c comment residue is closed, and shell transcripts outside example/ are registered and gated
+
+**Batch 34, on-disk decoders (CX-264).**
+
+- Codex reviewed every on-disk format in the project (review A11R): solutions files, shards, layer
+  files, checkpoints and manifests. It asked whether each reader rejects input no writer produces.
+  It found nine readers that did not. Each was reproduced on this tree before it was fixed.
+- The worst cases ended in a wrong answer with no error. A header-only solutions file with a huge
+  record count printed `VERIFY=PASS`. A layer file with two offsets swapped made `--kc-enum` list
+  19,584 walks instead of 26,112. A checkpoint line with an unknown status made a resume skip a
+  sub-branch it had never walked.
+- Now each reader stops, or skips the bad input and redoes the work, and names the field that was
+  wrong. Well-formed files read exactly as before: no sha, count or published number changes, and
+  `--selftest` still prints `403f7202…`.
+- One sibling is not changed: the merge-input gate reads checkpoint status the same loose way. It
+  sits in code another lane is editing, so it is listed for a decision.
+- Nine tests, one per finding. Each fails on the previous code and passes on this one.
+
+**Batch 34, parenthesised correction markers (CX-265).**
+
+- The inventory of inline correction markers (`scripts/correction_marker_inventory.sh`) found only
+  the bracketed `[CORRECTED …]` form and the phrase "now reads". Most corrections in this corpus are
+  written in parentheses, for example `*(Corrected 2026-09-20: …)*`, so they were not listed.
+- A parenthesis that opens on Corrected, Correction, Superseded, Withdrawn or Retracted is now a
+  marker when a date follows it within 40 characters, or when a colon or dash follows the word.
+  Prose such as "(corrected for drift)" or "(correction 4)" is not.
+- Every row found before is still found. The regenerated table gains 283 rows (282 markers and one
+  revision-history row), 845 data rows in all. Its verdict stays INCOMPLETE, from population rows
+  that predate this change.
+
+**Batch 34, inline-correction review (CX-266).**
+
+- Every inline correction marker that the inventory listed as unreviewed (505 rows on the final
+  batch-34 table, bracketed and parenthesised) was read in its paragraph and given a class with a
+  one-line reason: 464 are redundant (class 1) and 41 are load-bearing (class 2), because the text
+  around them still states the withdrawn claim or relies on the marker for a caveat. Three of them
+  (two markers added by sibling lanes and one line whose key a later note changed) were read at the
+  pre-publication review.
+- The verdicts are in the script's `REVIEWED` table, and the regenerated table carries them. No
+  marker was reworded or moved.
+- The 40 population rows are still unattributed, so the inventory's verdict stays INCOMPLETE.
+  Attributing them needs the ablation run one file at a time.
+
+**Batch 34, lens-sweep residue (CX-267).**
+
+- Four places said the eight forced literature rules were "machine-checked in Lean 4" without the
+  qualifier `README.md` and `lean/README.md` already carry. Lean proves its own `countP` forms
+  constant. Matching those forms to the solver's registry rules is a step outside Lean, and the one
+  check of that step is not in the repo. TR-1 (twice), CLAIMS_DECIDED.md and
+  LITERATURE_RULES_POPULATION_TESTS.md now say so.
+- Committed run outputs are kept as the runs wrote them, and the correction goes into the README
+  beside them. Under that rule: the analyze artifact that still prints the withdrawn "3.9th
+  percentile" scope is flagged in `enumeration/README.md`. The pass-B/D run directory named `10T` is
+  flagged as a 1T run. Its `c3_valid_records` fields are flagged as rounded to millions, as the run
+  logs print them.
+- The k=19 bar in the flagship run's layer curve was 35 marks long for a value that needs 19. It is
+  redrawn. No count changed.
+- The f5 evidence README now pins NumPy 2.0 or later for the byte-for-byte rerun, and says which
+  three annotation lines the rerun does not reproduce.
+- The 560T run directory, which held only figures, has a README that points to the sha registry and
+  says what is not committed.
+- No count, sha, theorem or verdict changed.
+
+**Batch 34, solve.c sweep residue (CX-268).**
+
+- Four solve.c comments said more than the code does. They now say: the out-of-core and in-RAM
+  layer files are byte-identical only under `SOLVE_F1_OOC_FORMAT=v1`; the specification's old
+  `|C| = 60` error was fixed in April; and the PSB table's 100T and 560T rows equal
+  `floor(NODE_LIMIT/158364)`, while the shallower rows do not.
+- `SOLVE_DEAD_LIMIT` was read into a variable nothing used. It is removed. Setting it still does
+  nothing and is not refused.
+- When its target table is full, the thread-table merge now stops with a `FATAL` line, as the
+  insert path does, instead of dropping a record without a word. The table grows long before
+  that, so no output changes.
+- No sha, count or published number moves. Every solve.c line number is unchanged.
+
+- **Batch 34, transcript registry (CX-269).** A shell transcript is a `$ ` command line followed by
+  what it printed, inside a fenced block. Outside `example/`, nothing checked those blocks. A new
+  hard gate, GATE 95 (`doc_gates.sh transcripts`), finds every such block in the tracked Markdown
+  files and requires a row for it in `documentation/DOC_GATE_TRANSCRIPTS.tsv` saying what kind of
+  record it is: historical (with the date it was taken), pinned to a named commit, or re-derived by
+  a named test or script. A row that matches no block also fails the gate. There are five today,
+  all in the append-only ledgers, all registered as historical. The gate does not re-run them.
+
+**Batch 34, CC-N4 beyond King Wen (CX-270, Q-934).**
+
+- The four-rule conflict theorem's UNSAT runs through the S25–28 (`rule ccn4`) clause family, and
+  that family had been validated at King Wen only: four planted mis-encodings pass both KW-forced
+  gates and the 2026-09-29 witness test (43 of whose 44 witnesses violate the rule). Two SAT
+  instances now compare the emitted family with an independently written encoding of the rule
+  over every C1-valid ordering (`sat.py --ccn4-equiv-cnf fwd|rev`, both UNSAT, 1.1 s and 2.9 s
+  with CaDiCaL; the spec permuted → SAT), and a seeded population of 1,039 orderings of both
+  polarities agrees with `solve.reg_ccn4` everywhere and catches all four mis-encodings. Every
+  previously emitted formula is byte-identical, so no certificate moves. What the conjunct now
+  rests on is the registry's reading of Schulz, not the encoding.

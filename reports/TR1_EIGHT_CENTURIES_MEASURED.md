@@ -23,7 +23,7 @@ enumerating it. The result sorts the claims into three kinds. Eight celebrated "
 choices" are **forced** — and as of 2026-07-21 all eight are **theorems**, not sampling results (two of the eight, r3 (Radisic 2026) and p1c4 (Schulz 1982, citing Lai Zhide 1599), formalize to extensionally the **same** function of the ordering, so the eight literature rules state **seven distinct** ordering facts — one fact under two separately-published citations; both attributions stand. See TR-1 §3(2)): each is
 proven constant on the entire C1 space (every pair-respecting ordering, a superset of the measured
 population, so every C1–C5 ordering inherits it), equal to King Wen's value — machine-checked in Lean 4
-([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean)). The twenty billion weighted probes that found
+([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean)) *(qualified 2026-10-02, Q-943: Lean proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as implemented — `reg_*` in solve.py, `score_registry` in solve.c — is a non-Lean transcription step, so the eight are Lean-proven **modulo a transcription step whose check is attested only**; see [lean/README.md](../lean/README.md))*. The twenty billion weighted probes that found
 no violating ordering now serve as instrument validation, not as the basis of the claim. (A separate,
 additional analytic theorem — the no-5 rule's implication chain, behind McKenna's 3:1 even:odd transition
 ratio — was proven earlier and stands; it is not one of the eight.) Forced-ness means they reveal nothing
@@ -184,7 +184,7 @@ result — see §5.)
    [Radisic's](../documentation/CITATIONS.md#radisic2026) optimality structure) are now **theorems**. Each
    depends only on the unordered pair-partition, which C1 fixes, so each is constant on the *entire C1
    space* — a superset of the C1–C5 population, hence a fortiori equal to King Wen's value on every C1–C5
-   ordering. Machine-checked in Lean 4 ([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean)); the
+   ordering. Machine-checked in Lean 4 ([lean/C1RuleConstants.lean](../lean/C1RuleConstants.lean)) *(qualified 2026-10-02, Q-943: Lean proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as implemented — `reg_*` in solve.py, `score_registry` in solve.c — is a non-Lean transcription step, so the eight are Lean-proven **modulo a transcription step whose check is attested only**; see [lean/README.md](../lean/README.md))*; the
    r4/r5 threshold forms hold because the C1-fixed within-pair HD histogram {2:12, 4:12, 6:8} (which is
    c2) sums to a total pairing cost of exactly 120 (= r4's ≤120 threshold, met with equality). Their
    zero-violation 2×10¹⁰-probe readings — previously reported only as "empirically forced to the

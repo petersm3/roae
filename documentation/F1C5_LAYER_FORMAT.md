@@ -370,8 +370,18 @@ only leave the sidecars *longer* than recorded, never shorter. On resume the
 marker is accepted only if **all** of: magic matches; `nxt_k`, `pl_hash`,
 `chunk_cap`, `BLK`, and gzip level match the current build; the trailing
 CRC32 verifies; the entry-conservation invariant
-`off[t0_next] = nblk·BLK + fill` holds; and both sidecars exist with size
-`≥` the recorded offsets. On acceptance the sidecars are truncated to
+`off[t0_next] = nblk·BLK + fill` holds; the geometry is possible — `t0_next`
+and `nblk` below 2^40 and `fill` below `BLK` (each checked as it is read,
+before anything is allocated from it), `off[0] = 0` and `off[]`
+non-decreasing, `kidx`/`vidx` starting at 0, non-decreasing and no block
+larger than `compressBound`, and `t0_next` no larger than the layer's mask
+count; and both sidecars exist with size
+`≥` the recorded offsets. *(The geometry clause was added 2026-10-02, batch 34,
+Codex review A11R #9: the CRC proves the bytes are the ones written, not that
+they describe a possible state. A marker with `fill = BLK + 1`, a matching
+conservation equation and a recomputed CRC was accepted and its partial block
+copied into `BLK`-entry buffers; a refused marker now prints
+`build checkpoint … refused: <reason>` and the layer rebuilds.)* On acceptance the sidecars are truncated to
 exactly the recorded sizes (discarding any post-marker partial append) and
 the build restarts at chunk `t0_next`; because the partial-block accumulator
 is restored byte-for-byte, the finished layer file is **byte-identical** to a
@@ -382,7 +392,9 @@ a rejected checkpoint never yields a wrong count.
 ⚠ **One failure mode escapes that rejection path.** The reader allocates
 `off[]`, `kidx[]`/`vidx[]` and the partial-block accumulator from the
 marker's own length fields (`t0_next`, `nblk`, `fill`) *before* the trailing
-CRC32 is compared, and an allocation refusal on those three is fatal
+CRC32 is compared — bounded since 2026-10-02 (`t0_next`, `nblk` < 2^40,
+`fill` < `BLK`), which removes the wrapping sizes but still admits requests
+of up to 8 TiB — and an allocation refusal on those three is fatal
 (`exit(71)`), not a rejection. Under default Linux overcommit an oversized
 `malloc` succeeds and the following short read rejects the marker as
 intended; on a host that actually refuses it — a `ulimit -v` or cgroup
@@ -460,7 +472,11 @@ Structural (no group needed):
 - `masks` strictly ascending; every mask has `popcount = k` and no bits
   ≥ `n`.
 - keys strictly ascending within each mask span; key bits 22–31 zero;
-  `last ≤ 63`; `rid < R`; **rid digit sum = k** and each digit ≤ its
+  `last ≤ 63`, and `last` is an element of one of the pairs its mask
+  selects (layer 0: the start exit) — `verify.c --check-layers` /
+  `--scan-layers` check this since 2026-10-02 (batch 34, Codex review A11R
+  #4; before that a final-layer entry with `last = 63`, the anchor pair,
+  passed both); `rid < R`; **rid digit sum = k** and each digit ≤ its
   `b0[c]` (the sum invariant — a strong per-entry check);
   values nonzero.
 - v1: `pad = 0`; file size `= 80 + 12·nm + 28·ne`.

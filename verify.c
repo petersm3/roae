@@ -1138,6 +1138,29 @@ static uint64_t lc_rec_hash(const char *s) {
         LCF(u192_eq(grand, (u192){{1,0,0}}), "layer 0 value != 1 (spec: the root entry's value is 1)"); \
     } } while (0)
 
+/* STORED-`last` DOMAIN (Codex review A11R #4, gpt-6-astra, 2026-10-02). A layer key is
+ * (last << 16) | rid, and the checks below used to bound `last` only by its six-bit width
+ * (`key >> 22`). The producer writes a positive entry only at an exit hexagram of a pair the
+ * entry's mask selects, so `last` must be an element of one of those pairs (layer 0: the
+ * start exit). An entry whose `last` is the anchor pair's 63 kept every other invariant and
+ * passed --check-layers and --scan-layers. The g/t span checker (gt_span_checks) already held
+ * this guard; this is the same bitmap, built from the manifest's pl= table. LC_ALLOW_ON is
+ * set by lc_check_layers_impl() once the manifest is read; while it is 0 the check is off. */
+static uint64_t LC_ALLOW_PE[32];
+static uint32_t LC_ALLOW_N = 0, LC_ALLOW_SE = 0;
+static int LC_ALLOW_ON = 0;
+static uint64_t lc_last_allow(uint32_t m, int k) {
+    if (!LC_ALLOW_ON) return 0;
+    if (k == 0) return 1ull << LC_ALLOW_SE;
+    uint64_t a = 0;
+    for (uint32_t b = 0; b < LC_ALLOW_N; b++) if ((m >> b) & 1) a |= LC_ALLOW_PE[b];
+    return a;
+}
+static int lc_last_outside(uint64_t allow, uint32_t key) {
+    uint32_t last = key >> 16;
+    return allow && last < 64 && !((allow >> last) & 1);
+}
+
 /* Verify one layer file. Returns 0 ok, 1 fail. Accumulates grand into *grand
  * (only meaningful when the caller knows this is the final layer) and the
  * §Reading-recipe step-5/6 ORBIT-WEIGHTED MASS into *mass_out:
@@ -1250,6 +1273,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     /* stream entries in global order, attributing each to its mask span via off[] */
     u192 grand = {{0,0,0}}, mass = {{0,0,0}}, span_sum = {{0,0,0}};
     uint64_t bad_last=0, bad_rid=0, bad_sum=0, bad_zero=0, bad_order=0, bad_finalrid=0, ovf=0, movf=0;
+    uint64_t bad_dom=0, allow_mi=UINT64_MAX, allow=0;   /* A11R #4: stored-last domain */
     uint64_t e = 0, mi = 0; uint32_t prev_key = 0, first_key = 0; int have_prev = 0;
     long keys_base=0, vals_base=0, kidx_off=0, vidx_off=0, kblk_base=0, vblk_base=0;
     uint64_t nblk=0, *kidx=NULL, *vidx=NULL;
@@ -1319,6 +1343,8 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             uint32_t rid = key & 0xffff;
             if (e == 0) first_key = key;  /* layer 0: the root key (lc_root_check) */
             if (key >> 22) bad_last++;   /* last = key>>16 must fit 0..63 */
+            if (mi < nm && mi != allow_mi) { allow = lc_last_allow(masks[mi], k); allow_mi = mi; }
+            if (lc_last_outside(allow, key)) bad_dom++;
             if (rid >= R) { bad_rid++; }
             else if (lc_rid_digits(rid, exp_b0, rad) != k) bad_sum++;
             if (have_prev && key <= prev_key) bad_order++;
@@ -1339,6 +1365,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     free(kbuf); free(vbuf); free(zbuf); free(kidx); free(vidx);
     LCF(e==ne, "streamed %llu entries != ne=%llu", (unsigned long long)e,(unsigned long long)ne);
     LCF(bad_last==0,  "%llu entries with nonzero key bits 22-31", (unsigned long long)bad_last);
+    LCF(bad_dom==0,   "%llu entries whose last is not an element of a pair in their mask (layer 0: the start exit)", (unsigned long long)bad_dom);
     LCF(bad_rid==0,   "%llu entries with rid >= R", (unsigned long long)bad_rid);
     LCF(bad_sum==0,   "%llu entries where rid digit-sum != k (SUM INVARIANT)", (unsigned long long)bad_sum);
     LCF(bad_order==0, "%llu non-ascending keys within a mask span", (unsigned long long)bad_order);
@@ -1452,6 +1479,16 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     if (mn < 1 || mn > 31 || npl != (int)mn) {
         printf("*** FAIL: manifest n=%u with %d pl entries (need 1<=n<=31, |pl|=n)\n", mn, npl);
         return 1; }
+    /* A11R #4: the stored-last domain bitmap, one pair (two hexagrams) per mask bit. */
+    LC_ALLOW_ON = 0;
+    if (!build_pairs()) return 1;
+    for (uint32_t b = 0; b < mn; b++) {
+        if (pl[b] >= 32 || mse >= 64) {
+            printf("*** FAIL: manifest pl[%u]=%u / start_exit=%u out of range\n", b, pl[b], mse);
+            return 1; }
+        LC_ALLOW_PE[b] = (1ull << PA[pl[b]]) | (1ull << PB[pl[b]]);
+    }
+    LC_ALLOW_N = mn; LC_ALLOW_SE = mse; LC_ALLOW_ON = 1;
 
     uint64_t rec_plhash = lc_pl_hash(mn, mse, pl);
     int plhash_ok = (rec_plhash == m_plhash);
@@ -2156,6 +2193,7 @@ typedef struct {
     const uint32_t *rad; const int *b0;
     uint64_t nm, ne, nblk;
     const uint64_t *off; const uint8_t *orbits;
+    const uint32_t *masks;                          /* A11R #4: for the stored-last domain */
     const uint64_t *kidx, *vidx;
     long keys_base, vals_base, kblk_base, vblk_base;
     const LcScanCfg *cfg;
@@ -2168,6 +2206,7 @@ typedef struct {
     uint64_t part_mi[2]; u192 part_sum[2]; int nparts;
     uint64_t e_cnt;
     uint64_t bad_last, bad_rid, bad_sum, bad_zero, bad_order, bad_finalrid, ovf, movf;
+    uint64_t bad_dom;                               /* A11R #4 */
     uint64_t first_mi, last_mi; uint32_t first_key, last_key; int nonempty;
     uint64_t t6_n[64]; u192 t6_v[64]; uint64_t t6_ovf;
     int fail; char msg[192];
@@ -2241,6 +2280,7 @@ static void *lcs_lane_worker(void *arg) {
         L->first_mi = lo;
     }
     uint64_t mi = L->first_mi;
+    uint64_t allow_mi = UINT64_MAX, allow = 0;      /* A11R #4 */
     u192 span_sum = {{0,0,0}};
     uint32_t prev_key = 0; int have_prev = 0;
     int first_entry_seen = 0;
@@ -2284,6 +2324,8 @@ static void *lcs_lane_worker(void *arg) {
             u192 val; memcpy(&val, vbuf + j * 24, 24);
             uint32_t rid = key & 0xffff;
             if (key >> 22) L->bad_last++;
+            if (mi < L->nm && mi != allow_mi) { allow = lc_last_allow(L->masks[mi], L->k); allow_mi = mi; }
+            if (lc_last_outside(allow, key)) L->bad_dom++;
             if (rid >= L->R) { L->bad_rid++; }
             else if (lc_rid_digits(rid, L->b0, L->rad) != L->k) L->bad_sum++;
             if (have_prev && key <= prev_key) L->bad_order++;
@@ -2459,6 +2501,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     uint32_t root_key = 0; int have_root = 0;        /* the globally first entry's key */
     u192 grand = {{0,0,0}}, mass = {{0,0,0}};
     uint64_t bad_last=0, bad_rid=0, bad_sum=0, bad_zero=0, bad_order=0, bad_finalrid=0, ovf=0, movf=0;
+    uint64_t bad_dom=0;                                /* A11R #4: stored-last domain */
     {
         int Lc = cfg->lanes; if ((uint64_t)Lc > nblocks) Lc = nblocks ? (int)nblocks : 1;
         static LcsLane ln[64];
@@ -2482,7 +2525,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             L->path = path; L->k = k; L->is_final = is_final; L->is_v2 = is_v2;
             L->exp_n = exp_n; L->BLK = BLK; L->R = R; L->rad = rad; L->b0 = exp_b0;
             L->nm = nm; L->ne = ne; L->nblk = nblk;
-            L->off = off; L->orbits = orbits; L->kidx = kidx; L->vidx = vidx;
+            L->off = off; L->orbits = orbits; L->kidx = kidx; L->vidx = vidx; L->masks = masks;
             L->keys_base = keys_base; L->vals_base = vals_base;
             L->kblk_base = kblk_base; L->vblk_base = vblk_base;
             L->cfg = cfg; L->abort_flag = &abort_flag; L->od_fallback = &od_fb;
@@ -2502,7 +2545,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             LcsLane *L = &ln[t];
             if (!have_root && L->nonempty && L->e_cnt) { root_key = L->first_key; have_root = 1; }
             e_total += L->e_cnt;
-            bad_last += L->bad_last; bad_rid += L->bad_rid; bad_sum += L->bad_sum;
+            bad_last += L->bad_last; bad_rid += L->bad_rid; bad_sum += L->bad_sum; bad_dom += L->bad_dom;
             bad_zero += L->bad_zero; bad_order += L->bad_order;
             bad_finalrid += L->bad_finalrid; ovf += L->ovf; movf += L->movf;
             if (u192_add(&grand, L->grand)) ovf++;
@@ -2554,6 +2597,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     }
     LCF(e_total==ne, "streamed %llu entries != ne=%llu", (unsigned long long)e_total,(unsigned long long)ne);
     LCF(bad_last==0,  "%llu entries with nonzero key bits 22-31", (unsigned long long)bad_last);
+    LCF(bad_dom==0,   "%llu entries whose last is not an element of a pair in their mask (layer 0: the start exit)", (unsigned long long)bad_dom);
     LCF(bad_rid==0,   "%llu entries with rid >= R", (unsigned long long)bad_rid);
     LCF(bad_sum==0,   "%llu entries where rid digit-sum != k (SUM INVARIANT)", (unsigned long long)bad_sum);
     LCF(bad_order==0, "%llu non-ascending keys within a mask span", (unsigned long long)bad_order);

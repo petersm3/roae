@@ -26326,3 +26326,914 @@ STATES 575839, ~1 GB).
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (design, oracle, adjudication
 and tests of the oracle) and claude-opus-5-5 (`--f1-b0`, its documentation and tests), batch 32b.
+
+## CX-259 — a run that a node budget cut short and a run that walked its whole space both reported `SEARCH_COMPLETE`, with no machine-readable line to tell them apart; every enumeration exit that prints `ENUM_RUN` now also prints `BUDGET_EXHAUSTED=YES|NO|UNKNOWN`, `SEARCH_COMPLETE` is unchanged, and the two items CX-251 left for a decision are closed as recorded limits (solve.c; tests.py; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md; documentation/DEPLOYMENT.md; documentation/LARGE_SCALE_CAMPAIGNS.md)
+
+**2026-10-02.** Origin: CX-251 parts 4 and 7 (backlog rows Q-888 item (4) and Q-317 item (5)) and
+CX-251 part 5's open measurement (Q-888 item (5)), each left for a decision. The operator decided
+all three on 2026-10-02: add a separate token and keep `SEARCH_COMPLETE`; record the legacy
+promoted-partial case as a known limit; do not run the crash-injection study. Landed by Opus,
+batch 33.
+
+**No published number, count, sha or canonical output moves.** The change adds one stdout line at
+each of the four exits that print `ENUM_RUN`, after it. It writes no file and changes no shard,
+merge input or `solutions.bin`. `./solve --selftest` runs its child with stdout discarded and
+compares only the sha, so it must still print `403f7202…`; the worker checks it against
+CANONICAL_HASHES.md. No TR-12 golden captures an enumeration's report: `tr12_repro.sh` runs
+`--selftest`, whose golden (`a0_build.txt`) holds only `--selftest`'s own lines, not its child's. `solve.c` keeps every existing line number: each
+edit is on one existing line, and the new function is at the end of the file. The --branch
+`ENUM_RUN` line (solve.c:49273) has a reviewed content pin in `citation_line_gate.sh`, so it is not
+edited; the new call is on the next line.
+
+**1. Q-317 (5): `BUDGET_EXHAUSTED`, a whole line beside `ENUM_RUN`.**
+
+*What was wrong.* `SEARCH_COMPLETE` means only that no signal or time limit ended the run. Every
+published enumeration is budgeted, so a budget-limited run and a run that walked its whole space
+printed the same status. Q-49 kept the token on purpose (monitors match it as a literal; GATE 85
+holds DEPLOYMENT.md's statement of what it means), and LARGE_SCALE_CAMPAIGNS.md's branch runner
+marks a branch done on it, so renaming it was ruled out. The full run's report already printed
+`Enumeration: BUDGET-LIMITED (…)`, but not as a line a script can match whole, and `--branch` and
+the parallel `--sub-branch` path printed nothing like it.
+
+*The change.* On the line after `ENUM_RUN=…`, each of these exits prints `BUDGET_EXHAUSTED=YES`,
+`=NO` or `=UNKNOWN`: the parallel `--sub-branch` exit (solve.c:48883), the `--branch` and
+single-threaded `--sub-branch` report (:49274), the full run under `SOLVE_SKIP_AUTOMERGE` (:49951)
+and the full run's final report (:50412). `YES` means a node budget, not completion, ended at least
+one sub-branch of the run's output. The full run and `--branch` decide it with
+`q317_budget_token()` (end of file), which reads `checkpoint.txt` and every `checkpoint_t<N>.txt`
+through the merge gate's own per-cell reader, `q881_gate_file()`, and counts a cell whose last word
+is `BUDGETED`: no `EXHAUSTED`/`COMPLETE` line, and not an `INTERRUPTED` cell left unfinished. A cell
+that an earlier process of a resumed run budgeted therefore counts, and a cell walked to
+`EXHAUSTED` later does not. `--branch` counts only its own `(pair1, orient1)` cells, and the
+single-threaded `--sub-branch` only its one cell. In the full run `YES` agrees with a non-zero
+`BUDGETED` count on the `Enumeration:` line. The parallel path prints the condition its own
+`BUDGETED` status uses: its node budget or a per-task cap fired in this process. It reads no
+checkpoint file, so a resume whose capped tasks were all walked by an earlier process prints `NO`.
+Its status line has the same limit. `NO` means no recorded sub-branch ended on a budget. A run
+stopped by a signal or its time limit, whose cells were all cut by the stop, prints `NO` too, so
+the token is read beside `ENUM_RUN`. `NO` is not a claim that the space was exhausted. `UNKNOWN`
+means a checkpoint file could not be read. The results JSON is unchanged; the `budget_hit` field
+Q-49 recorded as a proposal is not added.
+
+*Consumers.* No script reads the line after `ENUM_RUN`. `TestQ828PgoWorkloadMustFinish` counts
+whole `ENUM_RUN` lines, `build_pgo.sh` and `perf_bench.sh` match `ENUM_RUN` and stop lines whole,
+and none of them is affected by an added line. GATE 89 needs the token named under
+`documentation/`. It has a row in DEVELOPMENT.md's verdict-token table, which moved no cited line:
+the row was added at the top of the table and one of two blank lines before the table's heading was
+removed. Dated same-line notes: SOLVE_C_CLI.md:197 (default mode) and :2884 (`--sub-branch`),
+DEPLOYMENT.md:94 and LARGE_SCALE_CAMPAIGNS.md:526.
+
+*Tests.* `TestB33BudgetExhaustedToken` in tests.py, 12 tests, on a -O1 -fopenmp build at
+`SOLVE_HASH_LOG2=16 SOLVE_DEPTH=2` with 2 threads. Stopped cases use the run's own 2-second time
+limit. Each case checks its precondition (the checkpoint statuses, the `ENUM_RUN` verdict, the exit
+code) before it reads the token. Each requires exactly one token line, directly after `ENUM_RUN`.
+- `YES`: a budgeted `--branch`, which still prints `*** SEARCH COMPLETE` and `"SEARCH_COMPLETE"` in
+  its results JSON; a budgeted full run with the bundled merge, whose `Enumeration: BUDGET-LIMITED`
+  line agrees; the same run under `SOLVE_SKIP_AUTOMERGE`; a budgeted parallel and a budgeted
+  single-threaded `--sub-branch`; a `--branch` relaunched with a larger budget and stopped, where
+  only cells an earlier process budgeted carry `BUDGETED`.
+- `NO`: a stopped `--branch` (exit 36), a stopped full run (`ENUM_AUTOMERGE=SKIPPED`), a stopped
+  parallel `--sub-branch`; a `--branch` whose other cells' last word is `EXHAUSTED`; a stopped
+  `--branch 2 0` in a directory holding branch 1's `BUDGETED` lines.
+- A source check that both `SEARCH_COMPLETE` assignments remain.
+Measured here: 12/12 pass on this tree. On the solve.c before this change, the 11 token tests fail
+on the token's absence and the source check passes. A mutant that drops the `--branch` cell filter
+and counts `EXHAUSTED` cells fails exactly the two tests built for those rules.
+
+**2. Q-888 (4): the legacy promoted-partial shard is a known limit, recorded and not changed.** A
+directory that a binary older than CX-235 stopped, relaunched and finished can carry, for one cell,
+an `INTERRUPTED` line and a `[v3.1 promoted]` `BUDGETED` line at the same budget. If the relaunch
+promoted the stopped cell's partial shard, the merge gate passes that directory with exit 0. As
+CX-251 part 4 explains, a finished cell whose own line was lost before promotion leaves the same
+pair. A refusal would therefore hit that correct case too, and a relaunch could not clear it. A
+current binary does not write this pair for a stopped cell (Q-619 #2, CX-235 part 3). The limit
+is now written beside the merge gate's description (SOLVE_C_CLI.md:2760): a cell carrying the pair
+in such a directory is to be treated as possibly partial and walked again before its records are
+relied on. No canonical enumeration has run since CX-235.
+
+**3. Q-888 (5): the crash-injection study is not run.** CX-251 part 5 left open whether a real
+crash under `SOLVE_FSYNC_BATCH_SIZE > 1` leaves a renamed gz shard with a garbage trailer. Measuring
+it needs crash injection on a block device. The CRC check refuses such a file either way, so the
+check stands as a defence, not as the cure of an observed failure. SOLVE_C_CLI.md:3220 says so.
+The worker's seeded measurement of the binary half (CX-251 part 5) is not affected.
+
+**4. Gates.** Run in this lane: `gcc -fsyntax-only -Wall -Wextra -fopenmp` (the same four warnings
+as before), `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`, the claim
+ledger, `TestNoBareAsserts`, `history_index.sh` and the new class. The worker runs `./solve
+--selftest`, `pre_push_compile_gate.sh` and the full `tests.py`. solve.c and tests.py are in the
+TR-12 reproduction fingerprint, so the batch re-stamps it. No TR-12 golden moves.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 33.
+
+## CX-260 — a directory that a binary older than CX-235 stopped, relaunched and finished could carry a promoted PARTIAL shard that the merge gate accepted and no relaunch would ever walk again; the merge now refuses that signature by name (`MERGE_INPUT=LEGACY_PROMOTED_SUSPECT`, exit 35) and a relaunch clears it by walking the cell again, so CX-259 part 2's recorded limit is closed (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-10-02.** Origin: backlog row Q-888 item (4), recorded as a known limit by CX-259 part 2
+earlier the same day under the operator's first decision; the operator then asked for the full
+resolution ("do both"), with the B33B design (an estimate, not code) as the starting point. Landed
+by the Fable lane (B33C), batch 33, on the batch's staged tree.
+
+**No published number, count, sha or canonical output moves.** Neither arm runs on the canonical
+path: `--selftest` starts in an empty directory, so the resume accepts no checkpoint line and
+un-marks no cell, and the merge gate reads no line. Nothing here writes a file. A finished directory
+of a current binary has no `[v3.1 promoted]` line for an `INTERRUPTED` cell (Q-619 #2), so its
+merge takes the same branches as before and writes the same bytes. `solve.c` keeps every existing
+line number: each edit is on one existing line, and the new functions are at the end of the file;
+the citation gate reports 0 shifted. `./solve --selftest` = `403f7202…` is a worker check (the
+lane builds at -O1).
+
+**1. What the directory contains, and why the rule is the signature itself.** A binary older than
+CX-235, stopped inside a cell, flushed the cell's partial hash table to its shard WITH a `.budget`
+sidecar and wrote an `INTERRUPTED` line whose solution count is the flushed count (the count is
+captured before the flush, solve.c:10126-10136). The relaunch's `promote_orphaned_shards()` adopted
+the shard on the sidecar alone and appended `Sub-branch BUDGETED (thread -1 [v3.1 promoted], …):
+0 nodes, 0 C3-valid, N solutions, 0s elapsed, budget B` to `checkpoint.txt`; the cell was never
+walked again. So the cell carries an `INTERRUPTED` line and a promoted `BUDGETED` line at the same
+budget, and no thread-written line finishing it. The gate's INTERRUPTED rule (CX-235 part 1) read
+the promoted line as cover and passed the directory.
+
+The same pair is left by a cell that was stopped, walked to completion by a later process whose
+own line was lost (a crash between the shard rename and the line's fsync), and then promoted.
+Nothing on disk tells the two apart: the shard is whole in both (the rename is atomic), the
+sidecar matches in both, the promoted line is identical in both, and the `.dfs_state` is gone in
+both (promotion unlinks it). The one count that differs in principle does not discriminate safely:
+in the partial case the promoted count equals the `INTERRUPTED` count exactly; in the lost-line
+case it is at least that, with equality when the re-walk found nothing new after the stop point;
+and a second graceful stop whose line was lost leaves a larger partial count, so inequality does
+not prove a complete shard either. The counts are therefore not used in either direction. The rule
+is the signature: a cell with an `INTERRUPTED` line that no thread-written `EXHAUSTED`/`COMPLETE`/
+`BUDGETED` line finishes and that only a `[v3.1 promoted]` line covers is a suspect. A false
+positive costs one cell walked again at its budget; the old acceptance cost a shard short of
+records inside a merge that exited 0. A current binary cannot write the pair for a stopped cell
+(Q-619 #2 (a) and (b)), so the exposure is directories written before CX-235, and no canonical
+enumeration has run since.
+
+**2. The merge arm.** `q881_gate_file()` (solve.c:51886, same line) now parks a promoted line's
+budget in a separate per-cell table, `q888_covp[]`, and sets bit 16, so `cov[]` is thread-written
+cover only. In `q881_merge_input_gate()` (solve.c:51962, same line) a cell the INTERRUPTED rule
+would call unfinished is first offered to `q888_legacy_suspect()` (end of file): when a promoted
+line covers it at or above the `INTERRUPTED` budget, the cell is reported (`ERROR:` or, under the
+override, `WARNING:`, naming the shard and both budgets, up to 10) and counted as a suspect instead
+of as unfinished. After the loop, `q888_legacy_refuse()` prints the reason and the whole line
+`MERGE_INPUT=LEGACY_PROMOTED_SUSPECT`; the exit is 35 (solve.c:52005 and :52010, same line). Under
+`SOLVE_MERGE_ALLOW_INCOMPLETE=1` a suspect is treated exactly as an `INTERRUPTED` cell: the
+`WARNING:` form, lane HAJ's canonical-scale refusal in front, and `MERGE_INPUT=INCOMPLETE_ALLOWED`
+when it goes ahead (:52017). The reported `INTERRUPTED` count given back to the end-of-enumeration
+report includes suspects (:52001). The gate runs unchanged on `--merge`, `--merge-layers` and the
+end-of-enumeration merge. `q317_budget_token()` folds `q888_covp[]` back into `cov[]` before it
+classifies (:52337 and :52357, same line), so `BUDGET_EXHAUSTED` keeps CX-259's rule: a promoted
+line's last word is `BUDGETED`, and it covers.
+
+**3. The resume arm.** `load_sub_checkpoint_file()` records, per accepted finishing line, whether
+it was promoted or thread-written (solve.c:1920 and :1986, same line; `q888_note_accepted()` at
+the end of the file). `load_sub_checkpoint()` runs `q888_legacy_fixup()` after every checkpoint
+file is read (:2019 and :2038, same line), because the promoted line is in `checkpoint.txt`, read
+first, and the `INTERRUPTED` line is usually in a `checkpoint_t<N>.txt`, read later. The fix-up
+clears the skip-list bit of each cell that has an `INTERRUPTED` line and only promoted acceptance,
+adjusts the two resume counters, and prints a `WARN` naming the shard (up to 10) and one summary
+line. From there the existing machinery does the rest: `promote_orphaned_shards()` refuses the
+shard because the cell is recorded as `INTERRUPTED` (Q-619 #2, CX-235 part 3), the cell is walked
+from its start at the current budget, its flush replaces the shard, and its thread-written line
+finishes the pair, so the merge then passes. A cell with a promoted line and no `INTERRUPTED` line
+(a finished shard whose line was never written, the common eviction case) is untouched by both
+arms. B33B's design moved the suspect shard aside into a subdirectory; that is not done, because
+the Q-619 #2 refusal plus the flush's atomic replacement already give the re-walk a clean path and
+leave nothing extra on disk to explain.
+
+**4. Measured.** On this orchestrator, -O1 -fopenmp builds, `SOLVE_HASH_LOG2=16 SOLVE_DEPTH=2`,
+4 threads, per-sub-branch budget 20000, a finished `0 4` run (3,030 cells) edited into the
+legacy shape for cell `sub_1_0_2_0.bin` (107 records cut to 53; `INTERRUPTED` and promoted lines
+both claiming 53 at budget 20000; manifest re-emitted and verified).
+- Base solve.c (the batch's staged tree before this change): `--merge` exit 0 and a `solutions.bin`
+  whose logical sha (`37a00cd244d34170fd0609528719d59bfa922f0bf7b56075e40ecd933ed3a1ec`) differs from the uninterrupted run's (`f5b7eda307ef7b27c67f9f91542dc991f633730ad31b4d720a029ca0de837154`): a real
+  undercount with exit 0, not one masked by cross-cell duplicates. Relaunch: `All 3030 sub-branches
+  already completed.`, the shard still holds 53 records.
+- This change: `--merge` exit 35, `MERGE_INPUT=LEGACY_PROMOTED_SUSPECT`, two `Q-888 (4)` lines
+  naming the shard, nothing written. Relaunch: `Resuming: 3029 sub-branches already completed`, the
+  `WARN` names the shard, the Q-619 #2 refusal names it, a thread-written `BUDGETED` line with 107
+  solutions at budget 20000 is appended, the shard holds 107 records, and `--merge` then exits 0
+  with the uninterrupted run's sha `f5b7eda307ef7b27c67f9f91542dc991f633730ad31b4d720a029ca0de837154`.
+
+**5. Tests.** `TestB33CLegacyPromotedPartial` in tests.py, 7 tests, each on its own copy of a
+finished run; each asserts the fixture's shape (exactly an `INTERRUPTED` and a promoted line for
+the cell, the shard holding the partial set, no marker, the manifest verifying) before its verdict.
+- Refusal: exit 35, the token, exactly one `ERROR:` naming the shard with the budget, no
+  `MERGE_INPUT=INCOMPLETE`, no `solutions.bin`.
+- Relaunch: exit 0, `ENUM_RUN=FINISHED`, exactly one thread-written line for the cell at the full
+  count and the same budget, the shard restored, both `WARN` lines, then `--merge` exit 0 with the
+  finished run's sha. The relaunch's own bundled merge: the same, through the end-of-enumeration
+  gate.
+- Override: without a budget on disk, exit 35 with `MERGE_OVERRIDE=REFUSED`, the suspect as a
+  `WARNING:`, no token; with a sub-canonical `resume_contract.txt`, exit 0 with
+  `MERGE_INPUT=INCOMPLETE_ALLOWED`.
+- Controls, green on the base too: a promoted line with no `INTERRUPTED` line merges to the finished
+  sha and a relaunch walks nothing (`All … already completed`, no `Q-888 (4)` line, no thread line
+  added); a finished directory merges to the finished sha with `0 INTERRUPTED` in the cross-ref.
+- A source check that the gate reader parks a promoted budget in `q888_covp[]` and that the fix-up
+  is called on both exits of `load_sub_checkpoint()`.
+Measured: 7/7 pass on this tree (310 s). On the base solve.c (`ROAE_TESTS_SOLVE_SRC`): 5 fail,
+each on its verdict (`0 != 35`; `0 != 1` thread-written lines after the relaunch; no `ENUM_RUN=FINISHED`
+from the relaunch that walked nothing; no `WARNING … Q-888 (4)` under the override; the source check),
+and the two controls pass. Mutant M1 (the gate's legacy arm never fires): exactly the two gate tests
+fail, and the directory is still refused with exit 35, but as `MERGE_INPUT=INCOMPLETE`, because the
+reader split alone makes a promoted cover invisible to the INTERRUPTED rule; the name is what the
+tests pin. Mutant M2 (the fix-up never un-marks): exactly the two relaunch tests fail.
+
+**6. Docs.** SOLVE_C_CLI.md:2760 (the `--merge` note CX-259 part 2 added now describes the fix, in
+place, since both are batch 33 and neither has been published), :3338 (exit 35 row) and :3431 (the
+`.budget` sidecar paragraph), each a dated same-line note. GATE 89 sees `MERGE_INPUT` already
+named. Not done here, worker items: `./solve --selftest`, `pre_push_compile_gate.sh`, the full
+`tests.py`, `tr12_repro.sh --n9` and the TR-12 fingerprint re-stamp (solve.c and tests.py moved),
+and a depth-3 fixture (the fix-up decodes six-tuple cells by the same key as the gate, but every
+test here is depth 2).
+
+**7. Gates.** Run in this lane: `gcc -fsyntax-only -Wall -Wextra -fopenmp` (the same four
+warnings as before), `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`,
+the claim ledger, `TestNoBareAsserts`, `history_index.sh` and the new class.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 33, lane B33C.
+
+## CX-261 — an orphaned shard with no gzip header was promoted on its size alone, so a crash under batched fsync that left a zero-filled shard could put N all-zero records into the merge under a checkpoint line claiming N solutions; a shard with no gzip header is now refused unless every record is well formed, the resume LOAD path refuses such a record as it refuses a truncated gz, and the two refusal lines say what a relaunch does when the cell has a `.dfs_state` (solve.c; tests.py; documentation/SOLVE_C_CLI.md; documentation/HISTORY.md)
+
+**2026-10-02.** Origin: backlog row Q-941, filed from the Q-888 (5) crash-study dry run of the same
+day (its findings F1 and F2), routed to the Fable lane after Q-888 (4) landed in the same code area.
+Batch 33, on the batch's staged tree.
+
+**No published number, count, sha or canonical output moves.** `--selftest` starts in an empty
+directory and promotes nothing. The LOAD-path check passes every record a writer produced (part 2),
+so a resumed cell's verdicts are unchanged. `solve.c` keeps every existing line number: each edit is
+on one existing line, and the two new functions are at the end of the file; the citation gate
+reports 0 shifted. `./solve --selftest` = `403f7202…` is a worker check (the lane builds at -O1).
+
+**1. What was wrong (F1).** CX-251 part 5 made `promote_orphaned_shards()` inflate a gz orphan and
+check its CRC-32 before adopting it. That check begins with the gzip magic: `q888_gz_stream_bad()`
+returns 0 for a file that has none, and `gz_logical_size()` returns such a file's stat size. A crash
+under `SOLVE_FSYNC_BATCH_SIZE > 1` can leave a renamed shard whose data never reached the disk, and
+on ext4 `data=ordered` such a file keeps its size and reads back zero-filled; its size is a multiple
+of 32 whenever the writer's was. So a zero-filled shard with no header passed the size test, was
+read as a raw shard, and was promoted, with a `[v3.1 promoted]` line claiming N solutions over N
+all-zero records. The dry run saw this in 3 of 3 simulated cases, and it is reproduced below on a
+real run directory. An all-zero record (pair 0 at every position, bit 0 clear) also passes the
+`--show` malformed-record test (Q-855: a set reserved bit, or a pair index of 32..63) and every
+count check in the merge gate; `verify.py`'s artifact check would have flagged it after the merge
+("key is not a permutation of 0..31"), which is the first place it would have been seen.
+
+**2. The test, and why it is the record format's own invariant and nothing narrower.** A record is
+one byte per position, `(pair_index << 2) | (orient << 1)` with bit 0 reserved and clear
+(SOLUTIONS_FORMAT.md), and a solution places each of the 32 pairs exactly once, so its 32 pair
+indices are a permutation of 0..31; `analyze_solution()` builds every record that way from
+`sol_pair_idx[]`, so no writer can produce a record that fails the test and no valid raw shard
+(`SOLVE_COMPRESS=0`) is refused. A test for an all-zero record alone would be narrower but not
+correct against the failure class: a non-zero garbage block would pass it. The reserved-bit and
+pair-range test alone is what `--show` applies and does not see the zero record. The permutation
+test refuses any garbage block with overwhelming probability (a uniformly random record passes it
+with probability about 4 × 10⁻²³). `q941_raw_shard_bad()` reads a raw orphan once, the cost the gz
+path already pays to inflate; a gz orphan is not read here, since its CRC-32 attests the bytes the
+writer produced. A failure prints `ERROR: shard … record N has no valid record structure (…)
+(Q-941)` naming which of the three shapes failed and `WARN: orphaned shard … has no gzip header and
+no valid record structure … (Q-941)`, counts as an integrity failure, and leaves the shard in place.
+
+**3. The sibling: the resume LOAD path.** Under `SOLVE_DFS_CHECKPOINT=1` (the canonical default at
+≥ 1T) a budgeted cell keeps a `.dfs_state`, and a relaunch resumes it through
+`dfs_state_load_prior_shard()`, which reads the cell's prior shard into the hash table first.
+`gzopen` reads a file with no gzip header transparently, so that loader accepted a zero-filled
+shard as N records that collapse to one all-zero record, and the resumed cell's flush would have
+written that record into the replacement shard, with the records found before the checkpoint
+gone. A refusal at promotion alone would have handed the same file to that path. The loader now
+applies the same record test to every record it reads, raw or gz, and a failure refuses the resume
+exactly as a truncated gz has since 2026-09-04 (Codex v2 `solve.c:9056`): `FATAL: prior shard …
+did not end cleanly, or holds a record with no valid structure …`, `TRUNC_SHARD_RESUME=REFUSED`,
+exit 32, and the instruction to restore the shard or remove it and its `.dfs_state`. The cost is a
+32-step bit test per loaded record.
+
+**4. F2: the refusal lines promised a re-walk the relaunch does not always make.** The Q-888 (5)
+WARN ended "the sub-branch will be walked again", and CX-251 part 5 and SOLVE_C_CLI.md said the
+same. That is what happens when the cell has no `.dfs_state`: the relaunch walks it from its start
+and the flush replaces the shard. With a `.dfs_state` present the relaunch takes the LOAD path,
+finds the refused shard, and stops with `TRUNC_SHARD_RESUME=REFUSED`, exit 32; the dry run saw this
+on its planted control in all six configurations. The behaviour is kept: the records the
+`.dfs_state` attests may be gone, a walk from scratch would make that decision for the operator
+when restoring the shard from a backup is the cheaper cure at canonical scale, and the loader's
+fail-closed rule was adopted for exactly that reason. The two refusal lines (Q-888 (5) and the new
+Q-941 one) now state both outcomes and the operator action. CX-251 part 5's sentence is not
+reworded; this part records its scope. The Q-619 #2 refusal line is unchanged: the shard it refuses
+is whole, so a resume from it is correct and "walked again" covers both routes there.
+
+**5. Measured** (orchestrator, -O1 -fopenmp builds of the previous and this solve.c; one finished
+`0 4` run at `SOLVE_HASH_LOG2=16 SOLVE_DEPTH=2 SOLVE_THREADS=4 SOLVE_PER_SUB_BRANCH_LIMIT=20000`,
+3,030 cells, the victim `sub_1_0_2_1.bin` with 78 records, its checkpoint lines dropped so it is an
+orphan; the `.dfs_state` cases under `SOLVE_DFS_CHECKPOINT=1` with four other cells reset to be
+walked fresh, since the resume-shape contract clamps the thread count to the cells left to walk):
+
+| orphan shape | previous solve.c | this change |
+|---|---|---|
+| zero-filled, no header, 2,496 bytes, no `.dfs_state` | `promoted=1`; promoted line claims 78 solutions; shard still all zeros | `promoted=0, integrity_failed=1`, WARN + ERROR "all 32 bytes are zero"; cell walked again (thread line, 20,734 nodes, 78 solutions); shard byte-identical to the original |
+| the same 78 records raw (decompressed), no `.dfs_state` | `promoted=1` | `promoted=1`; no Q-941 line; bytes unchanged |
+| raw with record 0's first pair repeated (bit 0 clear, every index < 32) | `promoted=1` | refused, "not a permutation of 0..31"; walked again; shard byte-identical |
+| gz with CRC inverted and size trailer +32, `.dfs_state` kept | refused, WARN "will be walked again"; then `TRUNC_SHARD_RESUME=REFUSED`, exit 32 | refused, WARN names the LOAD-path outcome; `TRUNC_SHARD_RESUME=REFUSED`, exit 32 |
+| zero-filled, no header, `.dfs_state` kept | `promoted=1` (the `.dfs_state` removed by the promotion) | refused at promotion; LOAD path: `ERROR: shard … record 0 has no valid record structure`, `TRUNC_SHARD_RESUME=REFUSED`, exit 32; shard and `.dfs_state` left in place |
+
+**6. Tests.** `TestQ941RawOrphanStructure` (tests.py), six tests on the fixture above: the three
+refusals, the valid-raw control, the LOAD-path refusal, the wording, and a source pin of the two
+call sites. On this tree 6/6 pass (202 s on the orchestrator). On the previous solve.c 5 fail,
+each on its verdict (`promoted=1,` in the three refusal tests; the Q-888 (5) line still reading
+"will be walked again" in the wording test; the source pin), and the valid-raw control passes.
+Mutant M1 (`q941_record_bad()` accepts every record): exactly the two promotion refusals and the
+LOAD-path test fail. Mutant M3 (the test reduced to "all 32 bytes are zero"): exactly the
+repeated-pair test fails, so the class pins the permutation rule and not the zero case alone.
+
+**7. Gates.** `gcc -fsyntax-only -Wall -Wextra -pthread -fopenmp solve.c` (4 warnings, the same as
+before), `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`, the claim
+ledger, `TestNoBareAsserts`, `history_index.sh` and the new class.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 33, Q-941.
+
+## CX-262 — the two resume loaders dropped a record without a word when the hash table was full, and the consolidation counted it as loaded: `dfs_state_load_prior_shard()` (the per-cell LOAD path) and `sub_ckpt_load()` (the worker-snapshot consolidation) now stop with a named `FATAL` line and exit 1, as `analyze_solution()` always has (solve.c; tests.py; documentation/SOLVE_C_CLI.md; documentation/HISTORY.md)
+
+**2026-10-02.** Origin: backlog row Q-941, addendum. Lane B34D (batch 34, Q-942: the residue of the
+2026-08-01 solve.c correctness sweep, its item F-12) gave `merge_sol_tables()` a loud ending on a full
+table and recorded, as not changed there, two loops of the same shape in the checkpoint/resume code,
+which this lane owns. Batch 33, on the batch's staged tree.
+
+**No published number, count, sha or canonical output moves.** The new check fires only when the probe
+loop ran over the whole table and found neither a free slot nor a canonical match; every record a loader
+inserted or merged before this date took the same `break` it takes now, and `./solve --selftest` =
+`403f7202…`. `solve.c` keeps every existing line number: five edits on existing lines (a declaration, a
+hoisted `probe` and the post-loop check at each site) and the helper at the end of the file; the citation
+gate reports 0 shifted.
+
+**1. What was wrong.** Both loaders insert a record by linear probing: a free slot takes it, a canonical
+match keeps the lex-smaller of the two, and the table doubles through `resize_hash_table()` past 3/4
+load. That growth is capped at 2^30 (`ht_size` is an `int`; 2026-04-28), and at the cap the resize
+returns after one WARN, so a table can fill. When the probe loop ran out, both loaders fell through: no
+insert, no counter, no message. `dfs_state_load_prior_shard()` returned success, so the resumed cell's
+flush would have rewritten its shard without the record; `sub_ckpt_load()` went on to print
+`Checkpoint resume: loaded N records` with the dropped record counted. `analyze_solution()` ends the
+same loop with `FATAL: thread N hash table 100% full …` and exit 1. In the sweep's words, the one place
+where losing a record is unrecoverable was the one place that did not say so.
+
+**2. Reach.** Only past the cap: more than 2^30 unique records in one worker's table (32 GB per table).
+The sweep put the 560T canonical at about 82 M unique records per thread, so no shipped run came near
+it, and a run that did would carry the WARN. Closed because the cost is one comparison per record and the
+failure, if it ever occurs, is silent and cannot be repaired after the flush.
+
+**3. The change.** `probe` is hoisted out of each `for` header; after the loop,
+`if (probe == <table>->ht_size)` calls `q941_table_full_fatal()`, defined at the end of the file, which
+prints `FATAL: <loader>: thread N hash table 100% full at 2^K (M entries) after R records of <file>
+(Q-941): …` with the operator action (split the cells over more workers, or a deeper `SOLVE_DEPTH`, so no
+worker holds more than 2^30 unique records) and exits 1. In the consolidation the check precedes
+`loaded_records++`, so the record is never counted. The success path is unchanged: an insert or a match
+still `break`s with `probe < ht_size`.
+
+**4. Measured.** Nothing in the tree fills a table cheaply: `SOLVE_HASH_LOG2` is clamped to 16..30, both
+loops resize at 3/4, and the cap is a literal with no compile-time override; a C harness in the tree is
+barred by the single-C-file rule. So the behaviour was measured once with a scratchpad harness (not
+committed; its text is in the lane report) that builds solve.c with its `main` renamed, puts a
+`ThreadState` into the capped state (`ht_log2 = 30`, so `resize_hash_table()` no-ops exactly as at the
+cap, but `ht_size = 4`), writes five distinct well-formed records, and calls each loader:
+
+| loader, five records in a 4-slot capped table | previous solve.c | this change |
+|---|---|---|
+| `dfs_state_load_prior_shard()` on a raw shard | returns 0 (success), `solution_count = 4`, `[dfs-checkpoint] LOADED … (4 records)` | `FATAL: dfs_state_load_prior_shard: thread 7 hash table 100% full at 2^30 (4 entries) after 4 records of sub_0_0_1_0.bin (Q-941)`, exit 1 |
+| `sub_ckpt_load()` on `sub_ckpt_wrk0.bin` | `Checkpoint resume: loaded 5 records from 1 worker snapshots`, `solution_count = 4` | `FATAL: sub_ckpt_load: thread 7 hash table 100% full at 2^30 (4 entries) after 4 records of sub_ckpt_wrk0.bin (Q-941)`, exit 1 |
+
+**5. Tests.** `TestQ941TableFullLoud` (tests.py), five tests by code-path inspection, each asserting its
+precondition (the function, its probe loop over the whole table, and the capped resize are found)
+before its verdict: the LOAD-path check, the consolidation check (which must also precede
+`loaded_records++`), the helper's FATAL text, `exit(1)` and matching declarations at both call sites, and
+a `gcc -fsyntax-only` build. 5/5 on this tree; on the previous solve.c the three verdict tests fail on
+their verdicts and the two precondition tests pass. The harness would become a committed test if a C
+harness string in tests.py or a `solve` self-test subcommand were allowed; until then the inspection
+tests pin the shape and the lane report holds the measurement.
+
+**6. Gates.** `gcc -fsyntax-only -Wall -Wextra -pthread -fopenmp solve.c` (4 warnings, the same as
+before), `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`, the claim ledger,
+`TestNoBareAsserts`, `history_index.sh`, `TestQ941RawOrphanStructure` (the same code area) and the new
+class.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 33, Q-941 addendum.
+## CX-263 — the n=31 golden gate's Tier 1 table had not followed three moves of two n=9 goldens, so every run that reached Tier 1 read ERROR; the two references are re-pinned from a fresh n=9 run, and the Q8 subset count is pinned exactly by a new `field` rule (scripts/tr12_n31_golden_gate.sh; tests.py)
+
+**2026-10-02.** Origin: backlog row Q-917 (lane finding, 2026-10-01). Operator decision 2026-10-02
+on Q-917 / Q-584 / Q-585: re-pin, and pin the Q8 subset result as the bare count with its fraction
+beside it.
+
+**What was wrong.** `scripts/tr12_n31_golden_gate.sh` Tier 1 holds the sha256 of ten n=9 golden
+files, measured 2026-09-11, and checks each before using it: a moved n=9 golden is ERROR
+("re-measure and re-pin"), never a silently weaker tier. Two of the ten had moved, and no commit
+that moved them touched the table:
+
+| row | pinned | moved to | commit | cause |
+|---|---|---|---|---|
+| `b_scan_selftest` | `599dc2021b85f230602eabe7458349d1000818308fddc319022722f990eea0d2` | `b919f997f278449db7442a6a1ed895a8eda8c06526691e6683280ca509e798ac` | `92b8537f` (2026-09-12) | the KC scan logging build added the L3–L13 selftest lines and the TAIL-CHECK block |
+| `b_scan_selftest` | `b919f997…` | `c1df8f1f…` | `f31ec535` (CX-142) | the vacuous `t-units computed at n=9` gate became `t-units: t(root) == brute prefix DFS, leaves == brute` (Q-42 (c)) |
+| `a0_xa_iii` | `fe51a662df0691da3980c719ab9cac9aaa9626fb48497e241cc42bde671d57b6` | `716eeadd…` | `6d0694c4` (CX-87) | the `--kc-t-cert` JSON field `solve_node_limit_mapping` stopped naming C3-prune visit accounting |
+
+CX-87 recorded its own golden move (`fe51a662…` → `716eeadd…`) and CX-142 recorded its one-line
+change; neither swept the second place the old sha was pinned. So every run of the gate that got
+past Tier 0 has ended `TR12_N31_GOLDEN=ERROR` since 2026-09-12, whatever the set held.
+
+**The re-pin, measured, not copied.** `solve.c` of this tree was built (`gcc -O2 -pthread -fopenmp
+… -lm -lz`), the two row bodies of `scripts/tr12_repro.sh` were run as written (`--kc-t-cert FILE`
+then `cat FILE`; `--kc-scan-selftest`), and the output was normalised by that script's own `norm()`,
+extracted verbatim. Both results are byte-identical to the committed n=9 files: `a0_xa_iii`
+`716eeaddbe8f6aac4edb3f136061eda59665be129059919e4341c8f0f542be37`, `b_scan_selftest`
+`c1df8f1f47f1dc31630e9d9f71d357844a5cb8174e80aa73895c08c18e50ccd1`. The other eight Tier 1
+references still match. The 2026-09-11 n=13 leg was not repeated: neither row's command line
+takes a ladder, an n or a knob, so its output cannot depend on the universe.
+
+**What the re-pin shows.** A golden set minted before these commits differs from n=9 on exactly the
+lines in the table, and Tier 1 now reports it `[WRONG]`, so the token is MISMATCH rather than
+ERROR. That is the n=31 set minted 2026-09-22 (not in this repository): its two rows equal the n=9
+goldens at `6d0694c4~1` and `f31ec535~1` byte for byte. The difference is a code version, not a
+count. The gate cannot tell those apart, and this entry does not change that.
+
+**The `field` rule (Q8 subset count).** A pins-file value cannot carry a tab, so `contains` could
+not pin the golden line `q8_super_subset_cd_le_T<TAB>110`. The bare literal `110` would not
+discriminate: it is a substring of the row's own fraction `0.11000000`, and of `0.11100000`, which
+a count of 111 prints. Tier 2 now has a third rule, `field`. It compares a pin EXACTLY with the
+golden's tab-keyed field named in the gate's `REQUIRED_PINS` fourth column, through the existing
+`field()` helper. A missing field is WRONG and a missing key name is ERROR. The Q8 subset is now
+two pins: `subset_cd_le_T` against `q8_super_subset_cd_le_T`, and `subset_fraction` against
+`q8_super_subset_fraction`. The count 110 is already public (the banked n=31 evidence and its
+`check_receipts.sh`). The pins file stays outside the repository.
+
+**Tests.** `tests.py::TestQ917N31GoldenGateTier1AndFieldPin`. One test recomputes all ten Tier 1
+shas from `scripts/tr12_expected/n9/` and fails on drift. On the pre-fix table it names exactly
+`a0_xa_iii` and `b_scan_selftest`. This is the guard whose absence let the drift stand for three
+weeks. Three tests cover the `field` rule. The banked count holds. A count of 111, which the old
+`contains 110` would have passed, reads WRONG on both pins and the gate returns MISMATCH. A golden
+with no count field reads WRONG, not skipped.
+
+No published number, count, sha or verdict moves. `./solve --selftest` is untouched; `solve.c`
+is not edited by this entry.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 33.
+
+## CX-264 — nine on-disk decoders accepted malformed input and consumed it; each now refuses with a named reason: the solutions.bin header count, `--validate`'s duplicate test, the layer loaders' offset tables, verify.c's stored-`last` domain, verify.py's v2 block streams and version, the shard-manifest line grammar, checkpoint status tokens, DFS v2 sidecar consistency and build-checkpoint geometry (solve.c; verify.c; verify.py; tests.py; documentation/SOLVE_C_CLI.md; documentation/F1C5_LAYER_FORMAT.md)
+
+**2026-10-02.** Source: Codex review A11R (gpt-6-astra), "the on-disk representation: is each
+serialisation format faithful, injective, total and round-trip tested", run against public main
+15197e0a. Verdict 0 blocking / 9 fix / 0 nit. Codex's evidence is not a verdict: every finding was
+reproduced against the code before it was accepted, on this tree, and all nine reproduced. Landed
+by Opus, batch 34.
+
+**No published number, count or sha moves.** Every change is a check on input a
+writer never produces, so a well-formed artifact reads exactly as before: `./solve --selftest`
+still prints `403f7202…`, a clean n=9 ladder still enumerates 26,112 walks, `verify.c
+--check-layers` output on it is byte-identical, and every one of 54 real DFS v2 sidecars still
+resumes. `solve.c` keeps every existing line number: each edit is on one existing line, the
+prototypes replace one blank line, and the new functions are at the end of the file. Codex's
+injectivity analysis found no collision in the legal record or key encodings, and nothing here
+says a published result is wrong.
+
+**1. The solutions.bin header count (A11R #1).** The readers take a u64 count, convert it to a
+signed count and compute `32 + 32·n` in signed arithmetic. Measured: a 32-byte header-only file
+declaring `0xf800000000000000` records became -576,460,752,303,423,488 records, the framing check
+computed 32 bytes for it, the record loop ran zero times and `--verify` printed `VERIFY=PASS` with
+exit 0. `0x8000000000000000` did the same. The three header readers every consumer uses now refuse
+a count whose framing size does not fit a signed 64-bit byte count, and name it.
+
+**2. `--validate` and orientation variants (A11R #2).** SOLUTIONS_FORMAT.md keeps one record per
+canonical pair-order class. `--validate` tested duplicates with `compare_solutions`, which breaks
+ties on the full bytes, so King Wen followed by King Wen with pair 3 reversed printed
+`VALIDATE=PASS`, while `--verify` (`compare_canonical`) counted one duplicate. `--validate` now uses
+the class comparison too. SOLVE_C_CLI.md described the old behaviour accurately and called it a
+difference between the two checkers; it carries a correction marker.
+
+**3. Layer offset tables (A11R #3).** The resume loader, the v2 index loader, the KC out-of-core
+loader and `--kc-scan` checked only `off[0] = 0` and `off[nm] = ne`; the KC in-memory loader
+checked nothing. Measured on an n=9 ladder with two interior offsets of layer 5 swapped:
+`--kc-enum` listed 19,584 walks instead of 26,112 and exited 0, in memory and with `--kc-ooc`.
+All five now check the whole index (offsets non-decreasing, masks strictly ascending, and keys
+strictly ascending inside each mask where the keys are in memory) and stop with the reason.
+
+**4. verify.c and the stored `last` (A11R #4).** `--check-layers` and `--scan-layers` bounded
+`last` only by its width. The engine writes a positive entry only at an element of a pair the
+entry's mask selects. Measured: setting the final layer's largest key to `last = 63` (the anchor
+pair) kept order, residue, values and mass, and both modes returned 0. Both now check the domain,
+as verify.c's g/t span checker already did, and report the count.
+
+**5. verify.py's layer reader (A11R #5).** It dispatched v1/v2 on the magic and ignored the
+version field, and inflated value blocks with `zlib.decompress`, which stops at the end of the
+first stream; key blocks were not inflated at all. Measured: bytes appended after a value block's
+stream, bytes appended after a key block's, and `F1C5LAY2` with version 99 were each accepted. The
+reader now requires the version to agree with the magic and v1's block-size word to be zero, and
+inflates every key and value block as exactly one stream of exactly the expected length, the
+contract solve.c's own block reader keeps.
+
+**6. Shard-manifest lines (A11R #6).** The verify worker passed the size field to `head -c` and
+`[ -lt ]` unchecked. Measured: a line with size `bogus` and the sha of the empty stream returned 0
+(PASS); an empty size did too. A size that is not a decimal byte count, or a sha that is not 64
+lowercase hex digits, is now `DIVERGED` with `malformed-manifest-size` or `malformed-manifest-sha`.
+
+**7. Checkpoint status tokens (A11R #7).** The resume loader skipped `INTERRUPTED`, budget-checked
+`BUDGETED`, and counted any other line as completion once its cell fields parsed. Measured: a
+`Sub-branch GARBAGE (…)` line made a `--branch` resume skip that cell, and its shard was never
+written. Only `EXHAUSTED`, `BUDGETED`, `COMPLETE` and `INTERRUPTED` are recognized now; any other
+status is named on stderr and the cell is walked again, which is always correct. **Not changed:**
+the merge-input gate's checkpoint parser has the same classification (an unrecognized status
+counts as completion there too). It is in the merge-gate code another lane holds, so it is listed
+for a decision rather than edited here.
+
+**8. DFS v2 sidecars (A11R #8).** The reader validated the frames' domains but copied `used[]` and
+`budget[]` straight into the walk. Measured on 54 real sidecars from a budgeted `--branch` run
+resumed at twice the budget: marking one unplaced pair used (50 files) changed the resumed shard
+set away from the single-shot one; adding 1 to one budget class did too; `used = 2` resumed
+silently. The reader now checks the writer's invariant at capture: the prefix in `seq` is distinct
+pairs, `used[]` is exactly those pairs as 0/1, each budget is King Wen's count minus the prefix's
+steps of that distance, the prefix is the sidecar's own, and every frame below the top placed what
+`seq` holds. A sidecar that fails is refused with the field, and the cell is walked fresh; all
+three tampered cases then reproduce the single-shot shard set, and the 54 clean sidecars still
+resume.
+
+**9. Build checkpoints (A11R #9).** The CRC proves the bytes are the ones written, not that they
+are possible. Measured: a marker with `fill = BLK + 1`, `nblk = 0`, `t0_next = 1`, offsets
+`[0, BLK + 1]` and a recomputed CRC was accepted ("0 blocks + 65537 partial committed") and copied
+into `BLK`-entry buffers; the run then stopped on a later self-check. A non-monotone interior
+offset was accepted too. `t0_next` and `nblk` are now bounded below 2^40 and `fill` below `BLK` as
+each is read, before anything is allocated from it; the arrays are checked for a possible geometry;
+`t0_next` may not exceed the layer's mask count. A refused marker is named and the layer is
+rebuilt; all three crafted markers then give the n=9 total 26,112.
+F1C5_LAYER_FORMAT.md's acceptance list says so.
+
+**Tests.** `TestB34ACodexA11RDecoders` in tests.py, one test per finding, each with a positive
+control on the well-formed artifact. Test 5 includes a round trip over 300 random payloads (each
+inflates exactly; one byte appended or removed is refused) and parses every layer of a real n=9
+out-of-core run. Measured: 9/9 pass on this tree; against the solve.c, verify.c and verify.py
+before this change all nine fail (29 failing subtests and one error).
+
+**Listed, not changed.** (a) The merge-input gate's status classification, part 7. (b) An
+allocation from a build-checkpoint length below the new bounds can still ask for up to 8 TiB and
+is fatal where the host refuses it; F1C5_LAYER_FORMAT.md already documents that path.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 34. Review by Codex
+(gpt-6-astra), review A11R.
+
+## CX-265 — the correction-marker inventory could not see a marker written in parentheses; it now inventories `*(Corrected 2026-…)*`, `(Superseded 2026-… — …)` and the other parenthesised forms, keeps every row it found before, and the regenerated table gains 283 inventoried rows (scripts/correction_marker_inventory.sh; documentation/CORRECTION_MARKER_INVENTORY.tsv; tests.py)
+
+**2026-10-02.** Origin: CX-166 item 5, which recorded the parenthesised form as out of scope (backlog
+row Q-935). Landed by Opus, batch 34.
+
+**1. What was wrong.** `scripts/correction_marker_inventory.sh` found a marker only in its bracketed
+form (`[CORRECTED …]`, `[WITHDRAWN …]`, `[RETRACTED …]`, `[SUPERSEDED …]`, `[CORRECTION …]`) or as
+the phrase "now reads". Most inline corrections in this corpus are written in parentheses instead,
+for example `⚠ *(Corrected 2026-09-20, Q-…: this read …)*`. The inventory did not list them, and
+its ablation did not remove them, so the class-3 measurement never tested them either.
+
+**2. What a parenthesised marker is now.** An opening parenthesis directly before Corrected,
+Correction, Superseded, Withdrawn or Retracted, in any case, followed by the marker shape: a
+`YYYY-MM-DD` date within 40 characters inside the same parenthesis (a line break is allowed, a blank
+line is not), or a colon or dash right after the word. Prose that only contains the word in a
+parenthesis has neither and is not listed: "(corrected for drift)", "(correction 4)",
+"§Theorem 6 (retracted)", "(superseded for the headline number by …)". The span is the
+parenthesis with nesting counted, bounded by the paragraph, widened over a leading `⚠ ` and over an
+italic or bold star pair that closes right after it. The token column carries the word in Title
+case (`Corrected`, `Superseded`, `Withdrawn`, `Correction`), so a row's token says which form it
+is: upper case for the bracketed form, Title case for the parenthesised one. No `KEY=value` line
+the script prints changed, so GATE 89 has nothing new to document.
+
+**3. Nothing found before is lost.** The `--list` enumeration on the final batch-34 tree with the
+parenthesised pattern disabled and enabled: every one of the 521 earlier rows is still present,
+with the same file, line, kind and token. The new rows are 282 parenthesised markers (271
+`Corrected`, 2 `Correction`, 5 `Superseded`, 4 `Withdrawn`) in 61 files, and one revision-history row whose cell holds a
+parenthesised marker (kind `changelog`, kept). Ten of the new rows were read in place, each one a
+dated correction note: CLAUDE.md:20, documentation/CRITIQUE.md:665,
+documentation/KING_WEN_PROVENANCE.md:242, documentation/PARITY_ALTERNATION.md:92,
+documentation/SEARCH_SPACE_SIZE.md:156, documentation/SOLVE_C_CLI.md:2846,
+documentation/SOLVE_SUMMARY.md:214, reports/METHODS.md:91, reports/TR12_QUERY_PROGRAM.md:2723 and
+reports/TR5_SYMMETRY.md:219. A case-insensitive search for an opening parenthesis followed by any of
+the five words finds eleven lines the inventory does not list. All eleven were read: each is prose
+or a reference to a ledger, and none is a marker. One new marker,
+reports/TR12_QUERY_PROGRAM.md:1844, has no closing parenthesis in the source. Its row is marked
+`span-unclosed`, in the same way as an unclosed bracketed marker.
+
+**4. The regenerated table.** documentation/CORRECTION_MARKER_INVENTORY.tsv now has 845 data rows:
+805 inventoried rows and 40 `population` rows. The full run on the same final tree with the
+parenthesised pattern disabled gives 555 rows, 33 of them `population` rows (the batch-32 table
+had 553 and 33). Of the 282 new marker rows, 40 are gate-anchored (class 3) and 242 were
+unreviewed (class 1 or 2) until CX-266 read them; both sets fall to backlog rows Q-936 and Q-937.
+The verdict is `CORRECTION_MARKER_INVENTORY=INCOMPLETE`, as it was before. That verdict comes from
+the `population` rows, most of which predate this change. The parenthesised form adds 7 of them:
+GATES 33, 44, 66, 71 and 80, and the count lines of GATE 2c and the citation-line gate for
+documentation/SOLVE.md. The ablation still removes every marker at once, so some
+earlier rows changed class. Ten earlier rows became class 3 and seven are no longer class 3,
+because a gate finding that names only a file is now shared with the new markers in that file (for
+example GATE 4b's stale allowlist row for reports/METHODS.md, whose only reference sits inside a
+parenthesised marker). Attributing those rows one file at a time is Q-936's work, not this change.
+
+**5. Tests.** Six new selftest cases in the script: the decorated form with nested parentheses; the
+dash form, a date after a line break, any case; a marker inside a bold label that leaves the bold
+alone; a precondition that the prose sample holds six parenthesised words; that sample yields no
+span; and both forms on one line. The existing inventory and ablation cases now carry a
+parenthesised line too. A new class in tests.py, `TestQ935ParenthesisedCorrectionMarkers`, runs the
+real script's `--list` on a planted corpus in a scratch repository. A planted parenthesised marker
+is listed beside a bracketed one. A prose sample is not listed. A mutant that disables the new
+pattern loses the planted row. The selftest prints its PASS token. The committed table carries
+`Corrected` rows. Each test checks its precondition first. Run in this lane: the citation gate
+(`--all-files --all-targets`), the full `doc_gates.sh`, the claim ledger, `TestNoBareAsserts`, the
+new class and `history_index.sh`. The worker runs the full `tests.py`. tests.py is in the TR-12
+reproduction fingerprint, so the batch re-stamps it.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 34.
+
+## CX-266 — every inline correction marker the inventory listed as unreviewed now carries a class-1 or class-2 verdict with a one-line reason; the 40 population rows are still unattributed and the verdict stays INCOMPLETE (scripts/correction_marker_inventory.sh; documentation/CORRECTION_MARKER_INVENTORY.tsv)
+
+**2026-10-02.** Origin: backlog row Q-936, part (b), the review step that CX-166 left open and
+that CX-265 widened to the parenthesised form. Landed by Opus, batch 34.
+
+**1. What was open.** The inventory decides class 3 (a doc gate depends on the marker) by
+measurement. Classes 1 and 2 need a reader, and until this entry no row had one: on this lane's tree, 504 rows (492
+markers, 5 of them with an unclosed span, and 12 "now reads" narration rows) carried class `1|2`
+and review `unreviewed`. Class 1 means the marker is redundant: delete it and the surrounding text
+still reads correctly. Class 2 means the marker is load-bearing: delete it and a reader could
+re-derive the withdrawn claim, so the text has to be rewritten before the marker can move.
+
+**2. How each row was read.** Each marker was read in its own paragraph or table row, with the
+neighbouring block when the marker stands alone, and the text was judged as it would read with the
+marker's span deleted (the same span the ablation removes). A row is class 2 when the withdrawn
+wording is still standing beside the marker, or when the marker holds the only statement of a
+caveat the text depends on (for example a table header that says "see ⚠" and points at it). Every
+other row is class 1. No marker was reworded or moved. Nothing outside the script and the table
+changed.
+
+**3. Where the verdicts live.** They go in the script's existing `REVIEWED` table, keyed on (file,
+first 12 hex of the line's sha256), as `(class, 'reviewed:<reason>')`. This is the scheme CX-166
+set up, and the script already reads it: a key that no longer matches a line is reported on stderr
+and never applied silently. Two rows on one line share a key, so the 504 rows needed 497 keys (499
+on the final batch-34 tree, after the pre-publication pass in §6). When a
+later run finds a gate depending on a reviewed marker, the class-3 result wins over the review, as
+before.
+
+**4. The result.** On the final batch-34 table, 505 rows carry this entry's verdicts: 464 are
+class 1 and 41 are class 2 (the table's totals, 465 and 42, include the two tranche-1 rows reviewed
+before this entry). The class-2 rows are in 23 files,
+CANONICAL_HASHES.md (6) most of all. Recurring reasons: the sentence a marker withdraws still
+follows it (for example the 560 T over-emission sentences in CANONICAL_HASHES.md and the
+dead-branch figures in SOLVE.md); a withdrawn figure is still printed in the same sentence (the
+≈3.3×10³⁷ orientation-dedup size in TR-4 and in CITATIONS.md); a bullet still says what a later
+change made false (the witness row in TR-12, QUERY_INVENTORY.md and VERIFY.md; the sampler in
+SOLVE_PY_CLI.md); and four notes in the TR-2 evidence bundles whose superseded sentence is
+still standing above them. Each row's review column names the text its verdict rests
+on. The class-2 rows are what Q-938 has to rewrite before it can move them. The class-1 rows can
+move as they stand. Class 3 (106 rows on the final table) belongs to Q-937.
+
+**5. What is not done.** Q-936 part (a) is not done. The 40 `population` rows (class `3?`, review
+`count-changed`) are still unattributed. They come from gates whose printed population count moved
+only when every marker was removed at once. Naming the file behind each one needs the ablation run
+one file at a time, about 80 extra full gate runs (one per file that holds a marker). That is a heavy job and does not belong on the
+orchestrator. So the script's verdict is still `CORRECTION_MARKER_INVENTORY=INCOMPLETE`, and the
+Q-936 proof still fails on `count-changed`. The `unreviewed` half of the proof now passes.
+
+**6. Checks.** Run in this lane: the script's `--selftest` (PASS); the regenerated table (no row
+reads `unreviewed`, and no `REVIEWED` key reported unmatched); the citation gate
+(`--all-files --all-targets`); the full `doc_gates.sh`; the claim ledger; `TestNoBareAsserts` and
+`TestQ935ParenthesisedCorrectionMarkers`; and `history_index.sh`.
+
+Those two table results held on this lane's tree, not on the merged batch-34 tree. The Fable
+pre-publication review of batches 33 and 34 (2026-10-02) found the table regenerated on the merged tree reading
+`unreviewed` on two rows that sibling batch-34 lanes added after this lane's read:
+documentation/SOLVE_C_CLI.md:840 (CX-264's A11R #2 marker) and
+runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md:84 (CX-267). A third,
+reports/TR2_THE_RULES_CONFLICT.md:261, lost its verdict when CX-270 added a note to that line
+ahead of its marker, which changed the line's key. All three were read and are class 1; the
+TR-2 verdict was re-keyed, not re-decided. Regenerated on the final tree: 845 data rows, none
+reads `unreviewed`. One `REVIEWED` key is reported as matching no unanchored marker line:
+documentation/DEPLOYMENT.md:335, read here as class 1, is class 3 on the merged tree (the
+citation-line gate and GATE 2c depend on it), and a class-3 result wins over a review, as §3
+says, so its row reads `gate-anchored`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 34.
+
+## CX-267 — published-text and run-artifact residue from the 2026-08-01 lens sweep: the Lean transcription-step qualifier reaches the four forced-rule claim sites that lacked it, and five committed run records get dated notes or a README instead of edited outputs (reports/TR1_EIGHT_CENTURIES_MEASURED.md; documentation/CLAIMS_DECIDED.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; enumeration/README.md; runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md; runs/20260423_passB_D_10T_d64/README.md; runs/20260608_560T_9a968fa2/README.md; reports/evidence/f5/README.md; reports/TR12_QUERY_PROGRAM.md)
+
+**2026-10-02.** Origin: backlog row Q-943, split from the re-verification of the 58 findings the
+2026-08-01 lens sweep deferred (items C-3, HOST-TR-BATCH and RUNS-ARTIFACT-BATCH). Every item was
+checked on this tree before any edit. Batch 34.
+
+**No count, sha, theorem or verdict moves.** Every edit is a dated note on an existing line, one
+redrawn ASCII bar, or a new README; no cited line moves.
+
+**Policy for committed run outputs.** A file a run wrote (`.out`, `.txt`, `.json`, logs) is kept
+byte for byte as the run wrote it, the same rule as the frozen instruments in `reports/evidence/`
+("annotated, not edited"). The correction goes into the README or index entry that describes the
+file. A hand-written summary such as `layer_curve.md` is prose and is corrected in place with a
+dated note.
+
+**1. The Lean transcription-step qualifier (HOST-01 propagation).** `README.md` and
+`lean/README.md` say the eight forced literature rules are Lean-proven **modulo a transcription step
+whose check is attested only**: Lean proves the `countP` forms in `lean/C1RuleConstants.lean`
+constant on C1, and identifying those forms with `reg_*` in solve.py and `score_registry` in solve.c
+is a step outside Lean, whose one numerical check is not in the repo. Four claim sites said
+"machine-checked in Lean 4" with no qualifier: TR-1 line 187 and CLAIMS_DECIDED.md line 39 (the two
+the sweep named), and two siblings found by a `git grep C1RuleConstants` sweep, TR-1 line 26 (the
+abstract) and LITERATURE_RULES_POPULATION_TESTS.md line 318. Each now carries the qualifier and a
+link to `lean/README.md`. The re-derivation of the check as a tracked artifact is a separate row.
+
+**2. The withdrawn "3.9th percentile" scope in an analyze artifact (C-3).**
+`enumeration/analyze_sec25fix_742M.txt` lines 656–657 still print the superseded sentence that
+called the figure a comparison against "ALL pair-constrained orderings (C1 only)". The figure is
+withdrawn (CX-13) and `solve --analyze` has printed the withdrawal since `9d7de84c`. The file is
+kept; its entry in `enumeration/README.md` (line 47) now says this.
+
+**3. Run records (RUNS-ARTIFACT-BATCH).**
+- `layer_curve.md` drew the k=19 bar with 35 marks, the length of the k=14 and k=17 bars, while its
+  value, 6,191,140, equals k=12's, which has 19 marks. The bar now has 19 marks (6,191,140 ÷ 326,194
+  ≈ 18.98). No count changed.
+- `runs/20260423_passB_D_10T_d64/` is named `10T`, but all 14 runs in it had a 1T budget (each
+  `sub_*.meta.json` has `budget_nodes` 1000000000000). The README notes it; the directory is not
+  renamed because HISTORY.md links to the path.
+- In the same 14 meta files, `c3_valid_records` is a round number of millions. Each one equals the
+  `<n>M C3` figure on its own run log's final summary line (checked for all 14), so the field has
+  that precision and is not an exact count. The README notes it; the meta files are not edited.
+- `reports/evidence/f5/README.md` line 24 said the Mode C rerun "needs numpy". The archived output
+  prints NumPy scalars in the NumPy 2 form (`np.int32(15)`), so a NumPy 1.x rerun cannot match. The
+  note pins NumPy 2.0 or later. A rerun on this date with NumPy 2.4.4 and Python 3.12.3 matched the
+  archived file except for its three `#` lines 199–201, the archive's own note on the 2026-07-05
+  Mawangdui correction, which the script does not print; the line's "byte-identically" is scoped to
+  that.
+- `runs/20260608_560T_9a968fa2/` held only `viz/`. It now has a README that gives the run's sha,
+  record count and file size as `documentation/CANONICAL_HASHES.md` records them, and says that no
+  sha file, meta record or run log is committed for this run. TR-12 line 504, which said the
+  directory holds only `viz/`, gets a same-line note.
+
+**Already fixed, not changed.** `runs/20260716_f1c5_c1c2c4c5_d128westus3/count_result.json` line 18
+says `per-block gzip`, but the codec is zlib. The run's README has said so since 2026-09-26 (its
+"Layer format" row), and both files are kept as written, so nothing was left to do.
+
+Developed with AI assistance (Claude, Anthropic): Claude Opus 5.5, batch 34, lane B34C.
+
+## CX-268 — solve.c comment and small-code residue from the 2026-08-01 solve.c sweep: four comments that said more than the code does are narrowed, the never-read `SOLVE_DEAD_LIMIT` knob is removed, and `merge_sol_tables` now stops loudly instead of dropping a record when its target table is full (solve.c; tests.py; documentation/SOLVE_C_CLI.md)
+
+**2026-10-02.** Origin: five findings deferred by the 2026-08-01 solve.c sweep (C-5, C-6 = F-08,
+C-7, F-06, F-12) and re-checked one by one on 2026-10-02. All five were still present. Batch 34,
+lane B34D.
+
+**No published number, count, sha or canonical output moves.** Four of the five items are
+comments. The F-06 change removes a variable nothing read. The F-12 change adds a check on a path
+that cannot be reached below the 2^30-slot table cap. `solve.c` keeps every line number: each
+edit replaces existing lines one for one (solve.c:679-680, :1517, :9300-9302, :10835-10836,
+:10858, :15992-15993, :16012, :42563, :43574-43577, :51679). `./solve --selftest` =
+`403f7202…` after the change.
+
+1. **C-5, the out-of-core header (solve.c:15992-15993, :16012).** It said the out-of-core and
+   in-RAM modes write byte-identical layer files. That holds only under
+   `SOLVE_F1_OOC_FORMAT=v1`. Under the v2 out-of-core default the two files have the same
+   contents but different bytes, as `SOLVE_C_CLI.md` already said. Both sentences now say this.
+2. **C-6 = F-08, the complement-distance note (solve.c:679-680).** It said `SPECIFICATION.md`
+   contains the wrong divisor `|C| = 60`. The spec was fixed on 2026-04-18 and no longer
+   contains it. The note now says an older spec had the error and where the fix is recorded.
+   The divisor is still 64.
+3. **C-7, the PSB recipe table (solve.c:1517).** The comment said the per-sub-branch budgets
+   are "NOT floor(NODE_LIMIT/158364)". That is true for the 1T, 5.6T, 10T and 11.2T rows. For
+   the 100T and 560T rows the stored budget equals that floor exactly (631456644 and
+   3536157207). The comment now gives both cases. The rule it defends (use the table, never the
+   formula) is unchanged.
+4. **F-06, `SOLVE_DEAD_LIMIT` (solve.c:9300-9302, :43574-43577, :42563, :51679).** It was
+   parsed into `dead_node_limit` and nothing read it. The comments above it described a working
+   "dead sub-branch" skip, but no such skip exists. The choice was to implement it or remove
+   it. It is **removed** because a skip would change what a budgeted run outputs. The variable,
+   the parse, its entry in the startup environment check and its `--print-config` line are all
+   gone. That check never refuses a `SOLVE_*` name it does not recognise, so a launcher that
+   still sets the variable keeps working; the setting never had any effect. The
+   `SOLVE_C_CLI.md` row says this now.
+5. **F-12, `merge_sol_tables` (solve.c:10835-10836, :10858).** When the target hash table was
+   full, the probe loop ended without inserting the record, with no counter and no message.
+   `analyze_solution` stops with `FATAL: … hash table 100% full` in the same situation. The
+   merge now does the same: it prints `FATAL: merge_sol_tables: target hash table 100% full …`
+   and exits 1. This cannot happen below the 2^30 cap, because the table grows at 3/4 load, so
+   no shipped output is affected.
+
+**Not changed here.** Two other loops that insert into a solution hash table end the same way when
+the table is full: the shard loader used on resume (solve.c:9595) and the checkpoint-load
+consolidation (solve.c:10452). Both belong to checkpoint and resume code that another lane is
+changing, so this entry only records them.
+
+**Tests.** `tests.py::TestB34DSolveCommentResidue` (4 tests) checks the source. Run against the
+previous `solve.c`, all four fail. Run against this one, all four pass. The C-7 test works out which
+recipe rows equal the floor instead of trusting the comment. `TestLaneHESolveEnvValidation`
+no longer accepts `SOLVE_DEAD_LIMIT` in its list of valid values, and its check that every variable
+in the table is actually read is what showed that the table entry had to go too.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 34, lane B34D.
+
+## CX-269 — shell transcripts outside `example/` (a `$ ` prompt line plus its output in a fenced block) were checked by no gate; a new hard gate, GATE 95 (`transcripts`), now requires each one to be registered and classified in `documentation/DOC_GATE_TRANSCRIPTS.tsv`, and every registry row to match a block (scripts/doc_gates.sh; scripts/doc_gates.d/96_transcripts.sh; documentation/DOC_GATE_TRANSCRIPTS.tsv; tests.py; documentation/DEVELOPMENT.md)
+
+**2026-10-02.** Origin: review-loop item Q29, leg I. The re-measurement found the gap still open
+and wrote the spec this follows. Landed by lane Q925I, batch 34.
+
+**No published number, count, sha or canonical output moves.** No transcript, ledger sentence or
+code path is changed; this adds a gate, its registry and its tests.
+
+**1. The gap.** GATE 8 compares command output byte for byte, but only for `example/`. A transcript
+anywhere else states what a command printed, and nothing classified it or re-derived it: GATE 25
+checks that a documented flag exists, not what the command prints, and GATE 92 covers CLAIMS.tsv
+rows only. Measured on this tree, there are five such blocks: CORRECTIONS.md lines 3180, 5768 and
+6026, and HISTORY.md lines 6931 and 6983.
+
+**2. The gate.** A transcript is a fenced block in a tracked `*.md` outside `example/` that has a
+`$ ` prompt line followed by at least one output line. Continuation lines (after a line ending in
+`\`, or starting with `|`, `&&` or `||`), blank lines and `#` comments are not output. Each block is
+keyed by its file and the first 12 hex digits of sha256 of its first prompt line, so a row does not
+move when text is added above the block. Each row has a class:
+- `historical`: the evidence is the ISO date the transcript was taken. All five current rows are
+  this class, because they sit in the append-only ledgers, whose text records what ran then.
+- `pinned-tree`: the paragraph before the fence names a commit or a tag.
+- `rerun`: the evidence is a tests.py class or a scripts/ path that re-derives the output.
+
+The gate fails on an unregistered block, a row that matches no block (which is how a row whose file
+is gone shows up), a malformed, repeated or unknown-class row, evidence that does not fit its
+class, an unreadable registry, and zero blocks found. It prints `TRANSCRIPTS_N=<k>` and then
+`TRANSCRIPTS_GATE=PASS` or `TRANSCRIPTS_GATE=FAIL` as whole lines, and the gate's result is read
+from that verdict line, so a scan that crashes cannot pass. It is in `all` and listed as hard in
+the PASS banner. The tokens are in DEVELOPMENT.md's token table, in a section at the end of the
+page so that no cited line moves.
+
+**3. Scope, stated so the green is not read as more.** It does not re-run any transcript: a
+registered `historical` block can disagree with today's code and stay green, which is what
+append-only text is for. Command-plus-output blocks with no `$ ` prompt, mostly sample outputs in
+the CLI references, are out of scope; a looser detector finds about 47 of them, mainly recipes
+rather than transcripts. Two parts of the review spec are not built here: the opt-in re-run leg
+(`transcripts-rerun`), whose eligibility marking the spec leaves open, and the `--selftest`
+mutants. The same four cases (an unregistered block planted in `reports/`, a registry row deleted,
+the registry removed, and the negative control under `example/`) are covered in tests.py instead.
+A `pinned-tree` commit must be a lowercase hex word of 8 to 40 digits with at least one letter a-f,
+so an 8-digit date does not count as one.
+
+**4. Tests.** `TestQ29TranscriptRegistry` in tests.py, 10 tests, on fixture corpora and on the real
+tree. Each failing case asserts its precondition (the block count) before its verdict. Measured:
+10/10 pass. With the unregistered-block, orphan-row and zero-population checks removed from the
+gate, 4 of them fail, each on its verdict.
+
+**5. Gates.** Run in this lane: `citation_line_gate.sh --all-files --all-targets`, the full
+`doc_gates.sh`, the claim ledger, `TestNoBareAsserts`, `history_index.sh` and the new class.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 34, lane Q925I.
+
+## CX-270 — the four-rule conflict theorem's CC-N4 conjunct was validated at King Wen only: four planted mis-encodings of the S25–28 clause family pass both KW-forced gates and the public witness set; the family is now shown equivalent to an independent encoding of the rule over every C1-valid ordering (two SAT instances, both UNSAT) and checked against `solve.reg_ccn4` on 1,039 seeded orderings that catch all four (sat.py; tests.py; documentation/SAT_CLI.md; reports/TR2_THE_RULES_CONFLICT.md; documentation/HISTORY.md)
+
+**2026-10-02.** Origin: backlog row Q-934, the residual of the 2026-08-02 SAT re-review (#45): "the
+four-rule conflict theorem's UNSAT rests entirely on that conjunct and it is the one rule validated only
+against King Wen." Batch 34, on the batch's staged tree.
+
+**No published number, count, sha or certificate moves.** Every formula sat.py emitted before this date
+is byte-identical after it — `grand-ccn4`, `grander-strict`, `five-sub-ccn4`, `five-sub-gender+ccn4`,
+`ccn4-kwtest`, `ccn4-kwfail` and `--rigidity-cnf`, sha256 compared on the staged tree before and after
+the edit — so no DRAT certificate is re-run; the new instances are new files with their own expectation.
+
+**1. What was wrong.** `grand-ccn4` and three of its four minimal two-rule cores run through the
+`rule ccn4` clause family, and that family had two validations, both at King Wen: `ccn4-kwtest`
+(KW pinned, expect SAT) and `ccn4-kwfail` (KW pinned against permuted faces, expect UNSAT). The
+import-time replica battery (300 random permutations) checks a Python replica against `solve.reg_ccn4`,
+not the clauses. The 2026-09-29 unit-propagation test on 44 public witnesses evaluates the clauses, but
+43 of those witnesses violate CC-N4, so its positive side is King Wen plus one (measured). Four planted
+mis-encodings of the family — the station offset written `st2 + 4`, the palindrome counter saturating at
+2, station 28 left unenforced, the in-window palindrome forbid removed — pass both KW gates (each
+agrees with the correct encoder at King Wen, where two palindrome pairs precede the stations) and the
+import battery. The theorem's load-bearing conjunct was, in that sense, unvalidated beyond its one
+satisfying example.
+
+**2. Whether earlier work had discharged it.** Two candidates were named and neither does. The n=9
+CPOG certified count (TR-6) certifies a model count on the reduced `f1c5` counting rung, whose builder
+emits no rule family at all; the Q-380 pair census decides which two-rule subsets are UNSAT and shows
+the ccn4 singleton SAT, which is consistency of the clauses, not their meaning.
+
+**3. What now holds.** (a) `sat.py --ccn4-equiv-cnf fwd|rev`: the universe is the `C1` and
+inversion-class-counter families of `five-sub-ccn4` taken from that build by their marks; one side is
+its `rule ccn4` family verbatim; the other is an independently written encoding of CC-N4 — one
+existential per station over the slot that holds the required face with exactly k−2−s palindrome pairs
+before it, counted by a thermometer chain of its own. `fwd` is shipped AND NOT spec, `rev` is spec AND
+NOT shipped. Measured with CaDiCaL 1.5.3 through PySAT on the emitted files: `fwd` (7,176 vars,
+119,555 clauses) UNSAT in 1.1 s, `rev` (8,172 vars, 120,543 clauses) UNSAT in 2.9 s; with the spec table
+replaced by the `ccn4-kwfail` derangement both are SAT; with station 28 dropped from the spec `fwd` is
+UNSAT and `rev` SAT, the one-sided answer a weakening must give. Pair-once is load-bearing in the
+universe: without it both sides are SAT on an assignment with 27 palindrome-pair slots over 5 distinct
+pairs, because both counters go under-determined rather than contradictory. The encoder self-validates
+solver-free before writing (King Wen refutes each instance and not the instance minus its negation
+family; a full satisfying assignment is exhibited for each side under the permuted table), and two
+builder defects — the negation clause dropped, the spec offset shifted — each turn that validation
+FALSE. (b) `tests.py` `TestSatCcn4ClausesBeyondKingWen`: 1,039 seeded C1-valid orderings in the
+encoder's own (pair, orient) universe — 150 uniform, 150 constructed CC-N4 positives with 0..3
+palindrome pairs before the stations, 678 boundary negatives one edit from a positive, 60 with a
+palindrome pair inside the window, and King Wen; 151 satisfy the rule — on which the emitted clauses
+agree with `solve.reg_ccn4` everywhere, and the four mis-encodings above are caught by 190, 67, 84 and
+70 orderings respectively (the saturating counter only by orderings with three palindromes before the
+block, which the uniform draws never produce). The instance's shipped family is shown clause-for-clause
+equal to the `rule ccn4` family of `grand-ccn4` up to counter-variable renumbering, so the equivalence
+is about the theorem's own clauses.
+
+**4. What the theorem's UNSAT now rests on, for this conjunct.** That `solve.reg_ccn4` is the rule
+Schulz 2011/2016 states (the registry's convention note on reading direction) — a question about the
+source, not about the encoding. The clause family's meaning is no longer carried by one example.
+
+**5. Public text.** The `ccn4-kwtest`/`ccn4-kwfail` row and the theorem-reproduction block in
+`SAT_CLI.md`, and the robustness paragraph of TR-2, carry dated same-line notes; a `--ccn4-equiv-cnf`
+section documents the instances and the measured runs. The archive-grade form is `kissat` plus
+`drat-trim` on the emitted files (`--run`), to be executed where those binaries are installed; the
+verdicts above are from a local CaDiCaL run on the same DIMACS files.
+
+**6. Gates.** `citation_line_gate.sh --all-files --all-targets`, the full `doc_gates.sh`, the claim
+ledger, `history_index.sh`, `TestNoBareAsserts`, `TestSatEmittedClausesNonKW`,
+`TestGates.test_rigidity_run_reachable_and_subcommand_token_validated` (its `--run` guard message
+changed) and the new class.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, batch 34, Q-934.

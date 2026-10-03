@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 174 dated sections, 2 of them among the 98 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 3 place(s) over all 176 dated sections, 2 of them among the 100 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -192,6 +192,8 @@
 | 172 | 2026-10-01 | iso | 10132 | [open](HISTORY.md#2026-10-01--batch-31b-engine-and-verifier-residue-from-the-codex-r12b-review) 2026-10-01 — batch 31b: engine and verifier residue from the Codex R12b review |
 | 173 | 2026-10-01 | iso | 10151 | [open](HISTORY.md#2026-10-01--batch-31c-merge-completeness-the-kc-query-surfaces-merge-gate-residue-and-the-batch-30-review-follow-ups) 2026-10-01 — batch 31c: merge completeness, the KC query surface's merge-gate residue, and the batch-30 review follow-ups |
 | 174 | 2026-10-02 | iso | 10206 | [open](HISTORY.md#2026-10-02--batch-32-gate-21s-private-checkout-check-now-runs-the-same-way-in-the-pre-push-hook-and-in-a-reused-verdict) 2026-10-02 — batch 32: GATE 21's private-checkout check now runs the same way in the pre-push hook and in a reused verdict |
+| 175 | 2026-10-02 | iso | 10281 | [open](HISTORY.md#2026-10-02--batch-33-a-separate-line-now-says-when-a-node-budget-cut-a-run-short-two-merge-completeness-items-are-closed-as-recorded-limits-and-the-n31-golden-gates-stale-tier-1-references-are-re-pinned) 2026-10-02 — batch 33: a separate line now says when a node budget cut a run short, two merge-completeness items are closed as recorded limits, and the n=31 golden gate's stale Tier 1 references are re-pinned |
+| 176 | 2026-10-02 | iso | 10345 | [open](HISTORY.md#2026-10-02--batch-34-nine-file-readers-that-accepted-malformed-input-now-refuse-it-and-say-why-the-correction-marker-inventory-sees-markers-in-parentheses-the-lean-transcription-step-qualifier-reaches-every-forced-rule-claim-site-solvec-comment-residue-is-closed-and-shell-transcripts-outside-example-are-registered-and-gated) 2026-10-02 — batch 34: nine file readers that accepted malformed input now refuse it and say why, the correction-marker inventory sees markers in parentheses, the Lean transcription-step qualifier reaches every forced-rule claim site, solve.c comment residue is closed, and shell transcripts outside example/ are registered and gated |
 
 ## Sections with no date in the heading, in file order
 

@@ -66,7 +66,7 @@ Values k10..k31 are read directly from the run log; k0..k9 are the palindrome mi
 16 | ######################################## 13,047,760  <- peak
 17 | ###################################      11,530,906
 18 | ############################             8,998,676
-19 | ###################################      6,191,140  (mirror of 12)
+19 | ###################                      6,191,140  (mirror of 12)
 20 | ###########                              3,746,013
 21 | ######                                   1,986,807
 22 | ###                                      919,819
@@ -81,4 +81,4 @@ Values k10..k31 are read directly from the run log; k0..k9 are the palindrome mi
 31 |                                          1
 ```
 
-Symmetric about the k15/k16 midline (13,047,760 = C(31,15) canonical-reduced), monotone to k0 = k31 = 1. The peak two-live-layer window (k15 + k16) is where the out-of-core mode's ~4 TB disk footprint is set.
+Symmetric about the k15/k16 midline (13,047,760 = C(31,15) canonical-reduced), monotone to k0 = k31 = 1. The peak two-live-layer window (k15 + k16) is where the out-of-core mode's ~4 TB disk footprint is set. *(Corrected 2026-10-02, Q-943: the k=19 bar was drawn with 35 marks, the length of the k=14 and k=17 bars, although its value is 6,191,140, the same as k=12; it now has 19 marks like k=12. Only the bar changed; every count in this file is as it was.)*

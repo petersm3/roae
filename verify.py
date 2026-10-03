@@ -2720,7 +2720,7 @@ def _parse_f1c5_layer(path):
     h = {"magic": magic, "version": f[1], "n": f[2], "k": f[3],
          "start_exit": f[4], "pl_hash": f[5], "n_masks": f[6], "n_entries": f[7]}
     nm, ne = h["n_masks"], h["n_entries"]
-    h["blk"] = f[13]          # v1 leaves this zero; v2 records F1C5_OOC_BLK here
+    h["blk"] = _layer_magic_version_blk(path, magic, f[1], f[13])  # A11R #5: version agrees with magic; v1 blk 0
     if magic.endswith("2"):
         return h, _parse_v2_vals(path, raw, hs, nm, ne, h["blk"])
     want = hs + 4 * nm + 8 * (nm + 1) + 4 * ne + 24 * ne
@@ -2757,8 +2757,8 @@ def _parse_v2_vals(path, raw, hs, nm, ne, blk):
     vals = []
     for b in range(nblk):
         e0, e1 = b * blk, min((b + 1) * blk, ne)
-        blob = raw[vbase + vidx[b]: vbase + vidx[b + 1]]
-        out = zlib.decompress(blob)
+        _inflate_exact(path, "key", b, raw[kbase + kidx[b]: kbase + kidx[b + 1]], 4 * (e1 - e0))
+        out = _inflate_exact(path, "value", b, raw[vbase + vidx[b]: vbase + vidx[b + 1]], 24 * (e1 - e0))
         if len(out) != 24 * (e1 - e0):
             raise RuntimeError(f"{path}: block {b} inflates to {len(out)} bytes, "
                                f"expected {24 * (e1 - e0)}")
@@ -6645,7 +6645,7 @@ def _parse_f1c5_layer_keys(path):
         keys = []
         for b in range(nblk):
             e0, e1 = b * blk, min((b + 1) * blk, ne)
-            out = zlib.decompress(raw[kbase + kidx[b]: kbase + kidx[b + 1]])
+            out = _inflate_exact(path, "key", b, raw[kbase + kidx[b]: kbase + kidx[b + 1]], 4 * (e1 - e0))
             if len(out) != 4 * (e1 - e0):
                 raise RuntimeError(f"{path}: key block {b} inflates to {len(out)} bytes, "
                                    f"expected {4 * (e1 - e0)}")
@@ -7569,6 +7569,41 @@ def main():
         print(f"\nVERIFY FAIL: {total_fail} issues")
         print("VERIFY=FAIL")
         sys.exit(1)
+
+def _layer_magic_version_blk(path, magic, version, blk):
+    """A11R #5 (Codex review A11R, gpt-6-astra, 2026-10-02): the layer reader used to keep the
+    numeric version field and dispatch on the magic's last character alone, so `F1C5LAY2` with
+    version 99 parsed as a valid v2 layer. F1C5_LAYER_FORMAT.md says the version "must agree
+    with the magic", and v1's block-size word is zero. Returns blk, or raises naming the field."""
+    want = 2 if magic.endswith("2") else 1
+    if version != want:
+        raise RuntimeError(f"{path}: magic {magic!r} with version {version} -- the version "
+                           f"must agree with the magic (expected {want})")
+    if want == 1 and blk != 0:
+        raise RuntimeError(f"{path}: v1 layer with block-size word {blk} (v1 writes 0)")
+    return blk
+
+def _inflate_exact(path, what, b, blob, want_len):
+    """A11R #5: one block is ONE complete zlib stream, consumed to its last byte, that inflates
+    to exactly want_len bytes -- the contract solve.c's own block reader enforces
+    (rc == Z_STREAM_END, out == dstLen, left == 0). zlib.decompress() stops at the end of the
+    first stream and ignores anything after it, so bytes appended inside a block's indexed span
+    were accepted; and key blocks were never inflated at all. Raises naming the block."""
+    import zlib
+    d = zlib.decompressobj()
+    try:
+        out = d.decompress(blob) + d.flush()
+    except zlib.error as e:
+        raise RuntimeError(f"{path}: {what} block {b} does not inflate: {e}")
+    if not d.eof:
+        raise RuntimeError(f"{path}: {what} block {b} is a truncated zlib stream")
+    if d.unused_data:
+        raise RuntimeError(f"{path}: {what} block {b} has {len(d.unused_data)} byte(s) after "
+                           f"its zlib stream (a block is exactly one stream)")
+    if len(out) != want_len:
+        raise RuntimeError(f"{path}: {what} block {b} inflates to {len(out)} bytes, "
+                           f"expected {want_len}")
+    return out
 
 if __name__ == "__main__":
     main()

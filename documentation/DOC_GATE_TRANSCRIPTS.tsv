@@ -1,0 +1,19 @@
+# DOC_GATE_TRANSCRIPTS.tsv -- the transcript registry read by scripts/doc_gates.sh GATE 95 (`transcripts`).
+# A transcript is a fenced block in a tracked *.md outside example/ with a `$ ` prompt line followed by
+# output. Every one must have a row here, and every row must match one; the gate header in
+# scripts/doc_gates.d/96_transcripts.sh has the full rules. Review-loop item Q29, leg I, 2026-10-02.
+#
+# FORMAT: file<TAB>cmd_sha12<TAB>class<TAB>evidence. cmd_sha12 is the first 12 hex digits of sha256 of
+# the block's first prompt line with surrounding whitespace stripped (no line numbers, so a row does not
+# move when text is added above the block). class is historical (evidence = the ISO date it was taken),
+# pinned-tree (the paragraph before the fence names a commit or tag) or rerun (evidence = a tests.py
+# class or a scripts/ path that re-derives the output).
+#
+# All five rows below sit in the append-only ledgers, so they are historical: the text records what
+# ran then and is never reworded. HISTORY.md's rm -rf census names `main` and no sha, so it cannot be
+# pinned-tree. Dates are those of the ledger section or commit that added the block.
+documentation/CORRECTIONS.md	e0716fc7c3fa	historical	2026-09-01
+documentation/CORRECTIONS.md	e0353105978e	historical	2026-09-02
+documentation/CORRECTIONS.md	8b16382a2439	historical	2026-09-02
+documentation/HISTORY.md	4b52e49f7f71	historical	2026-09-02
+documentation/HISTORY.md	c63ce75fa9ca	historical	2026-09-02
