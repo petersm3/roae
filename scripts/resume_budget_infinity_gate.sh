@@ -49,8 +49,12 @@ ckpt_line='Sub-branch BUDGETED (thread -1 [v3.1 promoted], pair1 3 orient1 0 pai
 # "intentional within-code-state runs", which is exactly what this is.  That
 # override sets current_per_branch_budget directly (solve.c:48275, :49469), which
 # is the variable under test.
-run_case() { # run_case <budget-or-empty>; echoes the completed-from-checkpoint count
-  local d out here bin
+# Q-951 (Codex push-path review Q835, P-04, 2026-10-03): run_case echoes "<rc> <count>", and the
+# rc is read BEFORE the count. It used to echo the count alone, so a run that was killed or timed
+# out (rc 124/137) parsed as an empty count, ${uncapped:-0} = 0 -- which is exactly the PASS reading
+# of the uncapped leg. A crash is ERROR, never PASS. Documented success for `solve 1 2` here: rc 0.
+run_case() { # run_case <budget-or-empty>; echoes "<rc> <completed-from-checkpoint count, or empty>"
+  local d out here bin rc
   here=$(pwd)
   # BIN may be absolute or repo-relative; only the relative form needs $here.
   # Getting this wrong made the gate run a nonexistent path and report FAIL for a
@@ -60,18 +64,26 @@ run_case() { # run_case <budget-or-empty>; echoes the completed-from-checkpoint 
   printf '%s\n' "$ckpt_line" > "$d/checkpoint.txt"
   if [ -n "$1" ]; then
     out=$(cd "$d" && env SOLVE_PER_SUB_BRANCH_LIMIT="$1" SOLVE_DEPTH=2 \
-                        timeout 180 "$bin" 1 2 2>&1)
+                        timeout 180 "$bin" 1 2 2>&1); rc=$?
   else
     out=$(cd "$d" && env -u SOLVE_PER_SUB_BRANCH_LIMIT -u SOLVE_NODE_LIMIT SOLVE_DEPTH=2 \
-                        timeout 180 "$bin" 1 2 2>&1)
+                        timeout 180 "$bin" 1 2 2>&1); rc=$?
   fi
   rm -rf "$d"
-  printf '%s' "$out" | sed -n 's/.*(\([0-9]\+\) completed from checkpoint).*/\1/p' | head -1
+  printf '%s %s\n' "$rc" "$(printf '%s' "$out" | sed -n 's/.*(\([0-9]\+\) completed from checkpoint).*/\1/p' | head -1)"
 }
 
 fails=0
-capped=$(run_case 1000)
-uncapped=$(run_case "")
+read -r capped_rc capped < <(run_case 1000)
+read -r uncapped_rc uncapped < <(run_case "")
+for _leg in "capped:${capped_rc:-}" "uncapped:${uncapped_rc:-}"; do
+  case "${_leg#*:}" in
+    0) ;;
+    *) echo "   [ERROR] the ${_leg%%:*} run exited ${_leg#*:}$( [ "${_leg#*:}" = 124 ] && echo ' (timed out at 180 s)') --"
+       echo "           a run that did not finish proves nothing about what it would have skipped."
+       echo "RESUME_BUDGET_INFINITY=ERROR"; exit 2 ;;
+  esac
+done
 echo "   capped run   (stored 1,000,000 >= current): completed-from-checkpoint = ${capped:-0}"
 echo "   uncapped run (budget 0 = infinite)        : completed-from-checkpoint = ${uncapped:-0}"
 

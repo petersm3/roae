@@ -45,10 +45,11 @@
 #   cache, so the evidence commands run once (~15 s on the worker, measured 2026-09-26).
 #
 # VERDICTS, whole lines, `grep -qx`-able:
-#   CLAIM_<id>=TRUE|FALSE          one per row
+#   CLAIM_<id>=TRUE|FALSE|ERROR    one per row; ERROR = its evidence command did not exit 0 (Q-951)
 #   CLAIM_LEDGER=PASS  rc 0        every row TRUE
 #   CLAIM_LEDGER=FAIL  rc 1        some row FALSE ([FALSE] lines name it and why)
-#   CLAIM_LEDGER=ERROR rc 2        nothing was compared: unreadable ledger, bad schema, no rows
+#   CLAIM_LEDGER=ERROR rc 2        nothing was compared: unreadable ledger, bad schema, no rows, or
+#                                  an evidence command that crashed, timed out or exited non-zero
 #   CLAIM_LEDGER_SELFTEST=PASS|FAIL   from --selftest; rc 0 / 1
 #
 # SELF-TEST (--selftest). In memory: the ledger text and the published files are replaced by
@@ -66,6 +67,7 @@
 #   M9  a figure present only inside a longer number on its line (3 in 0.0337)      row FALSE
 #   M10 an unknown status / an unknown render / a short row / a duplicate id         ERROR each
 #   M11 an artifact path that does not exist                                        row FALSE
+#   M13 evidence that prints the right KEY=value and then exits 137 (killed)        ERROR (Q-951)
 #   M12 FOR EVERY ROW: its value perturbed (last digit +1, next number word, FAIL<->PASS)
 #       in the ledger AND on its published line, so S and P still hold       that row FALSE on E
 #   M1 and M2 fire on S; M12 is what shows each row's evidence discriminates on its own.
@@ -325,11 +327,19 @@ def unresolved(cmd):
     return bad
 
 
+# Q-951 (Codex push-path review Q835, P-04, 2026-10-03): -> (rc, output). The returncode used to be
+# dropped, so an evidence command that printed its KEY=value and then crashed, was killed, or exited
+# non-zero still matched; a timeout raised out of the whole check. rc is read FIRST (check_row), and
+# a timeout is rc 124, the same code timeout(1) uses.
 def run_evidence(cmd, cache):
     if cmd not in cache:
-        r = subprocess.run(["bash", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                           stdin=subprocess.DEVNULL, text=True, timeout=900)
-        cache[cmd] = r.stdout
+        try:
+            r = subprocess.run(["bash", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               stdin=subprocess.DEVNULL, text=True, timeout=900)
+            cache[cmd] = (r.returncode, r.stdout)
+        except subprocess.TimeoutExpired as exc:
+            out = exc.stdout or ""
+            cache[cmd] = (124, out if isinstance(out, str) else out.decode("utf-8", "replace"))
     return cache[cmd]
 
 
@@ -379,7 +389,10 @@ def check_row(r, files, cache):
     bad = unresolved(r["evidence"])
     if bad:
         return False, "F: evidence names what does not exist: %s" % ", ".join(bad)
-    out = run_evidence(r["evidence"], cache)
+    erc, out = run_evidence(r["evidence"], cache)
+    if erc != 0:   # X = the harness: nothing was compared, so the row is neither TRUE nor FALSE
+        return False, "X: evidence command exited %d%s -- HARNESS_BROKEN, nothing it printed is believed" % (
+            erc, " (timed out at 900 s)" if erc == 124 else " (killed by a signal)" if erc < 0 or erc >= 128 else "")
     vals = {mm.group(1) for mm in re.finditer(r"^" + re.escape(r["key"]) + r"=(.*)$", out, re.M)}
     if len(vals) != 1:
         return False, "E: evidence printed %d distinct values for %s (need exactly 1)" % (len(vals), r["key"])
@@ -410,6 +423,8 @@ def check(text, cache, overrides=None):
     except SchemaError as exc:
         return "ERROR", {}, str(exc)
     res = {r["id"]: check_row(r, files, cache) for r in rows}
+    if any(why.startswith("X:") for ok, why in res.values() if not ok):
+        return "ERROR", res, "an evidence command did not exit 0 (X rows above) -- not every row was compared"
     return ("PASS" if all(ok for ok, _ in res.values()) else "FAIL"), res, ""
 
 
@@ -417,7 +432,7 @@ def report(verdict, res, err):
     for rid, (ok, why) in res.items():
         if not ok:
             print("  [FALSE] %s: %s" % (rid, why))
-        print("CLAIM_%s=%s" % (rid, "TRUE" if ok else "FALSE"))
+        print("CLAIM_%s=%s" % (rid, "TRUE" if ok else "ERROR" if why.startswith("X:") else "FALSE"))
     if err:
         print("  [ERROR] " + err)
     print("CLAIM_LEDGER_ROWS=%d" % len(res))
@@ -541,6 +556,11 @@ def selftest(ledger_path, text, cache):
     expect("M10d duplicate id", text.rstrip("\n") + "\n" + rows[i] + "\n", "ERROR")
     expect("M11 artifact path that does not exist",
            with_row("TR12_SUM_B0", artifact="runs/no_such_dir/atlas.json"), "FAIL", "TR12_SUM_B0", False)
+    # M13 (Q-951): the row's own evidence, then `exit 137`. Its KEY=value is printed and correct, so
+    # only the returncode can refuse it; ERROR, never TRUE.
+    _, f = row_of("TR12_SUM_B0")
+    expect("M13 evidence prints the right value, then is killed (exit 137)",
+           with_row("TR12_SUM_B0", evidence=f[COLS.index("evidence")] + "; exit 137"), "ERROR", "TR12_SUM_B0", False)
     # M12: EVERY row's evidence discriminates. A consistent wrong figure -- the same perturbed value
     # in the ledger AND on the published line -- passes S and P by construction, so only E can
     # catch it; every row must go FALSE, and on E.

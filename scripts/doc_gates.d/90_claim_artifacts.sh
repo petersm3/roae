@@ -1277,11 +1277,13 @@ PY
 # without its PASS token -> ERROR rc 1.
 gate_parity_figures() {
   echo "== GATE 49: PARITY_ALTERNATION.md figures are re-derived by --check-parity-alternation or name a reproducer =="
-  local F=documentation/PARITY_ALTERNATION.md cpa
+  local F=documentation/PARITY_ALTERNATION.md cpa cparc
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
   [ -f verify.py ] || { echo "  [FAIL] verify.py is missing — the reproducer this gate runs is absent."; return 1; }
-  cpa=$(python3 verify.py --check-parity-alternation 2>&1 | tr -d '\r')
-  if ! grep -qx 'PARITY_ALTERNATION=PASS' <<<"$cpa"; then
+  # Q-952: the checker's OWN exit status is read (PIPESTATUS[0]; `| tr` used to hide it), and PASS
+  # needs rc 0 AND exactly one PARITY_ALTERNATION= line (require_pass_token, doc_gates.sh).
+  cpa=$(python3 verify.py --check-parity-alternation 2>&1 | tr -d '\r'; exit "${PIPESTATUS[0]}"); cparc=$?
+  if ! require_pass_token PARITY_ALTERNATION PASS "$cpa" "$cparc"; then
     echo "  [FAIL] verify.py --check-parity-alternation did not print PARITY_ALTERNATION=PASS — the output this gate"
     echo "         compares figures against is not trustworthy, so NOTHING was judged."
     return 1

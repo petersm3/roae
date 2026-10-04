@@ -34875,5 +34875,1682 @@ class TestQ941MergeGateUnrecognizedStatus(unittest.TestCase):
 # end class TestQ941MergeGateUnrecognizedStatus (batch 36, Q-941 addendum)
 
 
+class TestSolveVerifyShardScope(unittest.TestCase):
+    """Q-706: `solve --verify` on a headerless shard must not claim the sort/dup checks it skips.
+
+    For a file without the `ROAE` magic, `--verify` switches to shard mode. The loop then skips
+    the sort-order and duplicate counters (`if (r > 0 && !shard_mode)`), because a raw shard is
+    written in hash-slot order and has no cross-shard dedup. Before this fix the PASS sentence
+    still said "sorted, no duplicates" in both modes, the two counter lines printed a measured-
+    looking 0, and nothing machine-readable said which scope had run. A duplicate-bearing shard
+    therefore printed `... sorted, no duplicates ***` and `VERIFY=PASS`.
+
+    The fixture holds the King Wen record TWICE. Shard mode still PASSES, because sort/dup are
+    out of scope for a shard and that is the documented contract. The scope must now be stated,
+    though: `VERIFY_SCOPE=shard`, the counters say "not checked", and the sentence does not
+    say "sorted, no duplicates". POSITIVE CONTROL: the same two records with a header go
+    through the full path, which reports `Duplicate records: 1`, `VERIFY_SCOPE=full` and
+    `VERIFY=FAIL`. That proves the fixture really is a duplicate and that the full path still
+    checks for one.
+
+    RED, measured 2026-10-03: with ROAE_TESTS_SOLVE_SRC set to the pre-fix solve.c (the staged
+    tree before the Q-706 edit), test_shard_mode_states_its_scope_and_claims_no_sort_dedup and
+    test_full_mode_carries_the_full_scope_token fail, and the positive control passes."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="shardscope_")
+        cls.sbin = os.path.join(cls.tmp, "solve_shardscope")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src,
+                            "-lm", "-lz"], capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.V = _load("verify")
+        pidx = {frozenset(p): i for i, p in enumerate(cls.V.PAIRS)}
+        out = bytearray()
+        for i in range(32):
+            a, b = cls.V.KW[2 * i], cls.V.KW[2 * i + 1]
+            p = pidx[frozenset((a, b))]
+            out.append((p << 2) | ((0 if cls.V.PAIRS[p] == (a, b) else 1) << 1))
+        cls.kw = bytes(out)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _write(self, name, blob):
+        path = os.path.join(self.tmp, name)
+        with open(path, "wb") as fh:
+            fh.write(blob)
+        return path
+
+    def _verify(self, path):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        r = subprocess.run([self.sbin, "--verify", path], capture_output=True, text=True,
+                           timeout=120)
+        return r.returncode, [" ".join(l.split()) for l in r.stdout.splitlines()]
+
+    def _header(self, n):
+        return b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", n) + b"\0" * 16
+
+    def test_fixture_is_a_shard(self):
+        # PRECONDITION: the headerless file must really be routed to shard mode, or the
+        # assertions below would test the full path twice.
+        self.assertNotEqual(self.kw[:4], b"ROAE")
+        rc, lines = self._verify(self._write("dup_shard.bin", self.kw + self.kw))
+        self.assertTrue(any(l.startswith("Shard mode (no header): 2 records") for l in lines), lines)
+
+    def test_shard_mode_states_its_scope_and_claims_no_sort_dedup(self):
+        rc, lines = self._verify(self._write("dup_shard.bin", self.kw + self.kw))
+        self.assertEqual(rc, 0)
+        self.assertIn("VERIFY=PASS", lines)
+        self.assertIn("VERIFY_SCOPE=shard", lines)
+        self.assertNotIn("VERIFY_SCOPE=full", lines)
+        for l in lines:
+            self.assertNotIn("sorted, no duplicates", l,
+                             "shard mode skips the sort/dup check and must not claim it")
+        self.assertNotIn("Sort order violations: 0", lines)
+        self.assertNotIn("Duplicate records: 0", lines)
+        self.assertIn("Sort order violations: not checked (shard mode)", lines)
+        self.assertIn("Duplicate records: not checked (shard mode)", lines)
+
+    def test_full_mode_carries_the_full_scope_token(self):
+        rc, lines = self._verify(self._write("one_full.bin", self._header(1) + self.kw))
+        self.assertEqual(rc, 0)
+        self.assertIn("VERIFY=PASS", lines)
+        self.assertIn("VERIFY_SCOPE=full", lines)
+        self.assertNotIn("VERIFY_SCOPE=shard", lines)
+        self.assertIn("Duplicate records: 0", lines)
+
+    def test_positive_control_full_mode_catches_the_same_duplicate(self):
+        rc, lines = self._verify(self._write("dup_full.bin", self._header(2) + self.kw + self.kw))
+        self.assertEqual(rc, 1)
+        self.assertIn("Duplicate records: 1", lines)
+        self.assertIn("VERIFY=FAIL", lines)
+        self.assertNotIn("VERIFY=PASS", lines)
+
+
+class TestQ418F1C3LayerSidecars(unittest.TestCase):
+    """Q-418 (Codex A8R-2; executed 2026-10-03, batch 38). The --f1-c3-hist writers emit
+    F1C3LAY1/F1C3LAY2 layer files in the f1c5 binary format, but the logical-stream reader behind
+    the default-on stats sidecar accepted only F1C5LAY*/F1C5GLY*/F1C5TLY*. Executed on the pre-fix
+    source: `--f1-c3-hist --f1-pairs 9 --layers-dir D` printed `ERROR: ... is not an f1c5/g/t
+    layer file` and `WARN: [sidecar] digest failed ... sidecar skipped` for all 10 layers, exited 0,
+    and left NO f1c5_layer_stats_*.json on disk. Three static readings had predicted this; this
+    class is the execution, kept.
+
+    Fix: the reader accepts the F1C3 magics (is_c3) and the stats walk strips the G offset from
+    key32 (= gofs<<22 | last<<16 | rid) before decoding `last`; and a default-on sidecar that is
+    not written is now an ERROR line plus the whole-line token F1C5_LAYER_SIDECAR=MISSING (the
+    build still continues: sidecars stay non-fatal by contract, Q-875).
+
+    RED on the pre-fix source (ROAE_TESTS_SOLVE_SRC = the staged base): a, b, c, d, g, h fail and j
+    errors (no sidecars to remove). g and h fail there only on the new token: the old reader already
+    refused every C3 open with exit 2, with a plain magic-mismatch ERROR. g and h are also RED on the first cut
+    of this fix (exit 0, measured), which opened C3 layers to every reader. e, f and i are controls;
+    i passes on every tree because the KC loaders check the layer magic themselves. test_c is the decode check: without the gofs strip the C3
+    branching statistics differ from the f1c5 ones in 6 of 10 layers (mutant measured)."""
+
+    N = 9
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q418_")
+        cls.sbin = os.path.join(cls.tmp, "solve_q418")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True)
+        cls.build_ok = (r.returncode == 0 and os.path.exists(cls.sbin))
+        cls.build_err = f"gcc rc {r.returncode}: " + r.stderr[-2000:]
+        cls.runs = {}
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, name, mode_args, env_extra=None):
+        if not self.build_ok:
+            self.fail("solve.c did not build, so nothing was verified: " + self.build_err)
+        key = (name, tuple(mode_args), tuple(sorted((env_extra or {}).items())))
+        if key in self.runs:
+            return self.runs[key]
+        d = os.path.join(self.tmp, name)
+        os.makedirs(d)
+        env = dict(os.environ)
+        env.pop("SOLVE_F1_LAYER_SIDECARS", None)
+        env.update(env_extra or {})
+        r = subprocess.run([self.sbin] + mode_args + ["--f1-pairs", str(self.N), "--layers-dir", d],
+                           capture_output=True, text=True, timeout=600, cwd=self.tmp, env=env)
+        self.runs[key] = (r, d)
+        return r, d
+
+    def _sidecar(self, d, k):
+        p = os.path.join(d, "f1c5_layer_stats_%02d.json" % k)
+        if not os.path.exists(p):
+            return None
+        import json
+        with open(p, encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def _c3(self):
+        r, d = self._run("c3", ["--f1-c3-hist"])
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        self.assertIn("F1C3 HIST: DONE", r.stdout, "precondition: the C3 run completed")
+        return r, d
+
+    def test_a_default_c3_commit_writes_every_sidecar(self):
+        r, d = self._c3()
+        self.assertNotIn("sidecar skipped", r.stderr)
+        self.assertNotIn("is not an f1c5/g/t layer file", r.stderr)
+        self.assertNotIn("F1C5_LAYER_SIDECAR=MISSING", r.stderr.splitlines())
+        for k in range(self.N + 1):
+            j = self._sidecar(d, k)
+            self.assertIsNotNone(j, "layer %d committed without its stats sidecar" % k)
+            self.assertEqual(j["k"], k)
+            self.assertTrue(j.get("layer_family", "").startswith("f1c3 "), j.get("layer_family"))
+
+    def test_b_final_layer_mass_equals_the_histogram_total(self):
+        r, d = self._c3()
+        m = re.search(r"^G_HIST_TOTAL = (\d+)$", r.stdout, re.M)
+        self.assertIsNotNone(m, "precondition: G_HIST_TOTAL printed")
+        j = self._sidecar(d, self.N)
+        self.assertIsNotNone(j, "final-layer sidecar missing")
+        self.assertEqual(j["mass_total"], m.group(1))
+
+    def test_c_c3_with_c5_stats_match_the_f1c5_ladder_layer_by_layer(self):
+        # Same base (C1&C2&C4&C5); C3 only splits each f1c5 entry by its G offset, so per layer the
+        # mass, the last-marginal and the branching support/min/max must coincide.
+        rc3, dc3 = self._run("c3c5", ["--f1-c3-hist", "--with-c5"])
+        rf, df = self._run("f1c5", ["--f1-exact-c1c2c4c5"])
+        self.assertEqual(rc3.returncode, 0, rc3.stderr[-1500:])
+        self.assertEqual(rf.returncode, 0, rf.stderr[-1500:])
+        for k in range(self.N + 1):
+            a, b = self._sidecar(dc3, k), self._sidecar(df, k)
+            self.assertIsNotNone(b, "precondition: f1c5 sidecar %d exists" % k)
+            self.assertIsNotNone(a, "C3 --with-c5 layer %d has no sidecar" % k)
+            self.assertEqual(a["mass_total"], b["mass_total"], "k=%d" % k)
+            self.assertEqual(a["marginal_last_mass"], b["marginal_last_mass"], "k=%d" % k)
+            ba, bb = a["branching"], b["branching"]
+            self.assertEqual((ba["min"], ba["max"], sorted(x for x, _ in ba["hist"])),
+                             (bb["min"], bb["max"], sorted(x for x, _ in bb["hist"])),
+                             "k=%d: C3 key decode disagrees with the f1c5 ladder" % k)
+
+    def test_d_a_missing_sidecar_is_loud(self):
+        empty = os.path.join(self.tmp, "emptypath")
+        os.makedirs(empty, exist_ok=True)
+        r, d = self._run("nosha", ["--f1-c3-hist"], {"PATH": empty})
+        self.assertEqual(r.returncode, 0, "sidecars stay non-fatal by contract: " + r.stderr[-800:])
+        self.assertIn("no sha256 tool on PATH", r.stderr, "precondition: the sidecar could not be written")
+        self.assertTrue(os.path.exists(os.path.join(d, "f1c5_layer_%02d.bin" % self.N)),
+                        "precondition: the layers were committed")
+        self.assertEqual(r.stderr.splitlines().count("F1C5_LAYER_SIDECAR=MISSING"), self.N + 1)
+
+    def test_e_disabled_sidecars_are_silent(self):
+        r, d = self._run("off", ["--f1-c3-hist"], {"SOLVE_F1_LAYER_SIDECARS": "0"})
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        self.assertNotIn("F1C5_LAYER_SIDECAR=MISSING", r.stderr.splitlines())
+        self.assertIsNone(self._sidecar(d, self.N))
+
+    def test_f_f1c5_sidecar_schema_unchanged(self):
+        r, d = self._run("f1c5", ["--f1-exact-c1c2c4c5"])
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        j = self._sidecar(d, self.N)
+        self.assertIsNotNone(j)
+        self.assertNotIn("layer_family", j)
+        self.assertEqual(j["kind"], "f")
+
+    # ---- follow-up (same batch): the reader change must not open C3 layers to any other consumer.
+    # Before Q-418 every consumer refused F1C3LAY*; after the first cut of the fix --f1c5-layer-sha
+    # and --f1c5-layer-cmp accepted them (rc 0, measured), decoding keys without the G channel.
+    # Now only the sidecar pass (builder and --f1c5-sidecar-retrofit) may read them; every other
+    # open is an ERROR plus F1C5_LAYER_FAMILY=C3-REFUSED and a non-zero exit, as before.
+    REFUSED = "F1C5_LAYER_FAMILY=C3-REFUSED"
+
+    def _c3_kept(self, name, extra):
+        r, d = self._run(name, ["--f1-c3-hist"] + extra, {"SOLVE_F1_KEEP_LAYERS": "1"})
+        self.assertEqual(r.returncode, 0, r.stderr[-1000:])
+        self.assertTrue(os.path.exists(os.path.join(d, "f1c5_layer_05.bin")),
+                        "precondition: intermediate layers kept")
+        return d
+
+    def _tool(self, args):
+        if not self.build_ok:
+            self.fail("solve.c did not build: " + self.build_err)
+        return subprocess.run([self.sbin] + args, capture_output=True, text=True, timeout=600,
+                              cwd=self.tmp)
+
+    def test_g_layer_sha_refuses_a_c3_layer_file_and_dir(self):
+        d = self._c3_kept("c3keep", [])
+        for target in (os.path.join(d, "f1c5_layer_05.bin"), d):
+            r = self._tool(["--f1c5-layer-sha", target])
+            self.assertNotEqual(r.returncode, 0, "--f1c5-layer-sha accepted a C3 layer: " + r.stdout[-400:])
+            self.assertIn(self.REFUSED, r.stderr.splitlines())
+            self.assertIn("ERROR: ", r.stderr)
+
+    def test_h_layer_cmp_refuses_a_c3_layer(self):
+        d = self._c3_kept("c3keep", [])
+        p = os.path.join(d, "f1c5_layer_05.bin")
+        r = self._tool(["--f1c5-layer-cmp", p, p])
+        self.assertNotEqual(r.returncode, 0, "--f1c5-layer-cmp accepted a C3 layer: " + r.stdout[-400:])
+        self.assertIn(self.REFUSED, r.stderr.splitlines())
+
+    def test_i_kc_tools_refuse_a_c3_f_dir(self):
+        # Control on both trees: the KC loaders check the layer magic themselves, so these refused
+        # before and after; pinned so a loader change cannot make them read C3 keys.
+        d = self._c3_kept("c3c5keep", ["--with-c5"])
+        g = os.path.join(self.tmp, "kc_g")
+        if not os.path.isdir(g):
+            b = self._tool(["--kc-g-build", g, "--f1-pairs", str(self.N)])
+            self.assertEqual(b.returncode, 0, "precondition: g ladder built: " + b.stderr[-600:])
+        for args in (["--kc-ladder-verify", d, g], ["--kc-ladder-verify", d, g, "--kc-ooc"],
+                     ["--kc-scan", d, g, os.path.join(self.tmp, "a1.json"), "--kc-raw"],
+                     ["--kc-scan", d, g, os.path.join(self.tmp, "a2.json"), "--kc-raw", "--kc-ooc"]):
+            r = self._tool(args)
+            self.assertNotEqual(r.returncode, 0, " ".join(args[:1]) + " accepted a C3 dir")
+            self.assertTrue(any(l.startswith("ERROR") and "f1c5_layer_00.bin" in l
+                                for l in r.stderr.splitlines()), r.stderr[-600:])
+
+    def test_j_retrofit_still_reads_c3_layers(self):
+        # The sidecar pass is the one permitted reader: a retrofit of a C3 dir must regenerate.
+        d = self._c3_kept("c3retro", [])
+        for k in range(self.N + 1):
+            os.remove(os.path.join(d, "f1c5_layer_stats_%02d.json" % k))
+        r = self._tool(["--f1c5-sidecar-retrofit", d])
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        self.assertNotIn(self.REFUSED, r.stderr.splitlines())
+        for k in range(self.N + 1):
+            self.assertIsNotNone(self._sidecar(d, k), "retrofit did not regenerate layer %d" % k)
+
+# end class TestQ418F1C3LayerSidecars (batch 38, Q-418)
+
+
+class TestQ695ReproClosureDocMembership(unittest.TestCase):
+    """Batch 38, Q-695. Six documents (CORRECTIONS.md, HISTORY.md, PREREG_CLASSA_QUERY_SET.md,
+    SOLVE_PY_CLI.md, SYMMETRY_SEARCH.md, reports/TR8_REORDERING_REVISITED.md) were tr12 fingerprint
+    members only because prose named them, so every HISTORY.md append forced a re-stamp of a battery
+    that never reads it. scripts/tr12_repro_gate.sh now lists them in REFERENCED_NOT_INPUTS, which
+    fingerprint_files() subtracts, and not_input_read_check() fails the gate if a script starts
+    READING one. These tests pin the membership in both directions and run the real closure functions
+    (extracted with the same awk range the pre-commit gates use), never a copied list."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    GATE = os.path.join(ROOT, "scripts", "tr12_repro_gate.sh")
+    EXCLUDED = {"documentation/CORRECTIONS.md", "documentation/HISTORY.md",
+                "documentation/PREREG_CLASSA_QUERY_SET.md", "documentation/SOLVE_PY_CLI.md",
+                "documentation/SYMMETRY_SEARCH.md", "reports/TR8_REORDERING_REVISITED.md"}
+    KEPT = {"scripts/manifest_zero_entry_gate.sh", "scripts/resume_budget_infinity_gate.sh",
+            "scripts/tr12_expected/README.md", "scripts/tr12_mint_state_gate.sh", "tests.py"}
+    SEEDS = 'local seeds="scripts/tr12_repro.sh scripts/tr12_repro_gate.sh"'
+
+    @classmethod
+    def setUpClass(cls):
+        with open(cls.GATE, encoding="utf-8") as fh:
+            cls.src = fh.read()
+        lines = cls.src.split("\n")
+        a = next(i for i, l in enumerate(lines) if l.startswith("derived_inputs(){"))
+        b = next(i for i, l in enumerate(lines) if l.startswith("fingerprint_files(){"))
+        c = next(i for i, l in enumerate(lines) if l.startswith("not_input_read_check(){"))
+        d = next(i for i in range(c, len(lines)) if lines[i] == "}")
+        cls.fns = "\n".join(lines[a:b + 1]) + "\n" + "\n".join(lines[c:d + 1]) + "\n"
+
+    def _var(self, fns, name):
+        m = re.search(r'^%s="([^"]*)"$' % name, fns, re.M)
+        self.assertIsNotNone(m, "%s= not found in the closure range" % name)
+        return set(m.group(1).split())
+
+    def _bash(self, fns, call):
+        with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as fh:
+            fh.write(fns)
+            path = fh.name
+        try:
+            r = subprocess.run(["bash", "-c", '. "$1"; %s' % call, "_", path], cwd=self.ROOT,
+                               capture_output=True, text=True, timeout=120)
+        finally:
+            os.unlink(path)
+        return r.returncode, r.stdout
+
+    def _members(self, fns):
+        rc, out = self._bash(fns, "fingerprint_files")
+        self.assertEqual(rc, 0, out)
+        return set(out.split())
+
+    def _violations(self, fns):
+        """Everything wrong with a closure range, as strings; empty means the Q-695 contract holds."""
+        v = []
+        m = self._members(fns)
+        v += ["excluded doc is a member: " + p for p in sorted(self.EXCLUDED & m)]
+        v += ["kept member dropped: " + p for p in sorted(self.KEPT - m)]
+        if self._var(fns, "REFERENCED_NOT_INPUTS") != self.EXCLUDED:
+            v.append("REFERENCED_NOT_INPUTS changed")
+        if self._var(fns, "DECLARED") != self.KEPT:
+            v.append("DECLARED changed")
+        return v
+
+    def _with_extra_seed(self, body):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        extra = os.path.join(d, "extra_q695.sh")
+        with open(extra, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        self.assertIn(self.SEEDS, self.fns, "precondition: the derivation's seed line moved")
+        return self.fns.replace(self.SEEDS, self.SEEDS[:-1] + " " + extra + '"', 1)
+
+    def test_a_the_real_tree_satisfies_the_contract(self):
+        self.assertEqual(self._violations(self.fns), [])
+
+    def test_b_precondition_the_six_are_still_reached_so_the_subtraction_does_work(self):
+        rc, out = self._bash(self.fns, "derived_inputs")
+        self.assertEqual(rc, 0, out)
+        self.assertTrue(self.EXCLUDED <= set(out.split()),
+                        "the derivation no longer reaches all six; this test would pass vacuously")
+
+    def test_c_mutants_are_caught(self):
+        decl = 'DECLARED="' + " ".join(sorted(self.KEPT)) + '"'
+        self.assertIn(decl, self.fns, "precondition: DECLARED is not in its pinned form")
+        mutants = {
+            "re-declared": self.fns.replace(decl, decl[:-1] + ' documentation/HISTORY.md"', 1),
+            "kept dropped": self.fns.replace(" tests.py\"", "\"", 1),
+            "subtraction removed": re.sub(r" \| grep -vxF -f <\(printf .*?\); \}", "; }", self.fns, 1),
+        }
+        for name, fns in mutants.items():
+            self.assertNotEqual(fns, self.fns, "mutant %r did not apply" % name)
+            self.assertNotEqual(self._violations(fns), [], "mutant %r survived" % name)
+
+    def test_d_a_new_comment_cannot_re_add_a_removed_doc(self):
+        fns = self._with_extra_seed("#!/bin/bash\n# see documentation/HISTORY.md\n"
+                                    'echo "recorded in documentation/HISTORY.md"\n')
+        rc, out = self._bash(fns, "derived_inputs")
+        self.assertIn("documentation/HISTORY.md", out.split(), "precondition: the seed was read")
+        self.assertNotIn("documentation/HISTORY.md", self._members(fns))
+        rc, out = self._bash(fns, "not_input_read_check")
+        self.assertEqual(rc, 0, "naming the file in a comment or a message is not a read: " + out)
+
+    def test_e_a_real_read_of_an_excluded_doc_fails_the_gate(self):
+        for body in ('n=$(grep -c anchor documentation/HISTORY.md)\n',
+                     'x=$(cat reports/TR8_REORDERING_REVISITED.md | wc -l)\n',
+                     'while read -r l; do :; done < documentation/SOLVE_PY_CLI.md\n',
+                     # Conditional and wrapped reads (Fable batch-38 prepub FIX:2): the command
+                     # sits after if / ! / timeout N / nice -n N, not at a separator.
+                     'if grep -q foo documentation/HISTORY.md; then :; fi\n',
+                     '! grep -q foo documentation/CORRECTIONS.md || exit 1\n',
+                     'timeout 5 grep -c x documentation/SYMMETRY_SEARCH.md\n',
+                     'nice -n 19 cat documentation/PREREG_CLASSA_QUERY_SET.md >/dev/null\n'):
+            rc, out = self._bash(self._with_extra_seed("#!/bin/bash\n" + body), "not_input_read_check")
+            self.assertEqual(rc, 1, body + out)
+            self.assertIn("REFERENCED_NOT_INPUTS keeps out of the fingerprint", out)
+
+    def test_f_listing_a_doc_in_both_lists_fails(self):
+        decl = 'DECLARED="' + " ".join(sorted(self.KEPT)) + '"'
+        fns = self.fns.replace(decl, decl[:-1] + ' documentation/HISTORY.md"', 1)
+        rc, out = self._bash(fns, "not_input_read_check")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("cannot be both", out)
+
+    def test_g_the_check_is_wired_into_the_coverage_check(self):
+        a = self.src.find("  comment_membership_check || return 1\n  not_input_read_check || return 1\n")
+        self.assertGreater(a, 0, "not_input_read_check is not called by fingerprint_coverage_check")
+
+# end class TestQ695ReproClosureDocMembership (batch 38, Q-695)
+
+
+class TestP01V1CrossCheckExactMasses(unittest.TestCase):
+    """Q835-A13 P-01 (Codex gpt-6-astra, review Q835-A13; batch 38). Row c_xcheck's V1 leg in
+    scripts/tr12_repro.sh compared shell-vs-consumer masses with awk `!=` on strnum fields, i.e.
+    as doubles: 943 of the 992 published n=31 mass cells exceed 2^53, and 10^39 vs 10^39+48
+    compared EQUAL. The fix forces the mass to a string. This class runs the row's OWN V1
+    comparator, cut out of the script by its anchors, so it tests the shipped code.
+    Set ROAE_P01_SCRIPT to another copy of tr12_repro.sh to show red on the unfixed comparator."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    SCRIPT = os.environ.get("ROAE_P01_SCRIPT", os.path.join(HERE, "scripts", "tr12_repro.sh"))
+    ATLAS31 = os.path.join(HERE, "runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    CONS31 = os.path.join(HERE, "reports", "tr12", "scan", "v1_field.tsv")
+    BIG = 10 ** 39
+
+    @classmethod
+    def setUpClass(cls):
+        with open(cls.SCRIPT, encoding="utf-8") as fh:
+            src = fh.read()
+        a = src.index('      : > "$WORK/xv1.tsv"\n')
+        end = '\' "$WORK/xv1.tsv" || erc=1\n'
+        b = src.index(end, a) + len(end)
+        cls.snippet = src[a:b]
+
+    def _run(self, shell_rows, cons_rows):
+        d = tempfile.mkdtemp(prefix="p01v1_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "art", "consumer", "scan"))
+        os.makedirs(os.path.join(d, "work"))
+        with open(os.path.join(d, "art", "v1_field.tsv"), "w", encoding="utf-8") as fh:
+            fh.write("# V1 shell side\nk\tpair\tmass\n")
+            fh.writelines("%d\t%d\t%s\n" % r for r in shell_rows)
+        with open(os.path.join(d, "art", "consumer", "scan", "v1_field.tsv"), "w", encoding="utf-8") as fh:
+            fh.write("k\tslot\tpair\tmass\tp\tkw\n")
+            fh.writelines("%d\t2\t%d\t%s\t0\t0\n" % r for r in cons_rows)
+        env = dict(os.environ, ARTDIR=os.path.join(d, "art"), WORK=os.path.join(d, "work"))
+        r = subprocess.run(["bash", "-c", 'erc=0\n' + self.snippet + 'echo "V1XCHECK_RC=$erc"'],
+                           env=env, capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stderr, "")
+        lines = r.stdout.splitlines()
+        self.assertIn(lines[-1], ("V1XCHECK_RC=0", "V1XCHECK_RC=1"), r.stdout)
+        return lines[-1] == "V1XCHECK_RC=0", [l for l in lines if l.startswith("XCHECK_FAIL")]
+
+    def test_a_masses_differing_by_48_at_10e39_fail(self):
+        ok, fails = self._run([(0, 1, str(self.BIG)), (0, 2, "7")],
+                              [(0, 1, str(self.BIG + 48)), (0, 2, "7"), (0, 3, "0")])
+        self.assertFalse(ok, "10^39 vs 10^39+48 must FAIL")
+        self.assertEqual(len(fails), 1, fails)
+        self.assertIn("pair 1: shell says %d, consumer says %d" % (self.BIG, self.BIG + 48), fails[0])
+
+    def test_b_the_same_one_at_2e53_plus_1_fails(self):
+        ok, fails = self._run([(3, 4, str(2 ** 53))], [(3, 4, str(2 ** 53 + 1))])
+        self.assertFalse(ok, fails)
+
+    def test_c_equal_masses_pass(self):
+        ok, fails = self._run([(0, 1, str(self.BIG + 48)), (0, 2, "7")],
+                              [(0, 1, str(self.BIG + 48)), (0, 2, "7"), (0, 3, "0")])
+        self.assertTrue(ok, fails)
+        self.assertEqual(fails, [])
+
+    def test_d_small_masses_keep_their_behaviour(self):
+        self.assertFalse(self._run([(0, 1, "1000")], [(0, 1, "1001")])[0])
+        self.assertTrue(self._run([(0, 1, "1000")], [(0, 1, "1000")])[0])
+
+    def _real31(self):
+        if not (os.path.isfile(self.ATLAS31) and os.path.isfile(self.CONS31)):
+            self.skipTest("the n=31 atlas or the published consumer v1_field.tsv is absent")
+        with open(self.ATLAS31, encoding="utf-8") as fh:
+            blocks = re.findall(r'"marginal_raw": \{[^}]*\}', fh.read())
+        shell = [(k, int(p), m) for k, b in enumerate(blocks)
+                 for p, m in re.findall(r'"pair([0-9]*)": "([0-9]*)"', b)]
+        cons = []
+        with open(self.CONS31, encoding="utf-8") as fh:
+            hdr = fh.readline().rstrip("\n").split("\t")
+            for line in fh:
+                c = line.rstrip("\n").split("\t")
+                cons.append((int(c[hdr.index("k")]), int(c[hdr.index("pair")]), c[hdr.index("mass")]))
+        self.assertEqual(len(blocks), 31)
+        self.assertEqual(len(cons), 992)
+        self.assertGreaterEqual(sum(1 for _k, _p, m in cons if int(m) > 2 ** 53), 900,
+                                "precondition: the real table must carry masses above 2^53")
+        return shell, cons
+
+    def test_e_the_real_n31_tables_agree(self):
+        shell, cons = self._real31()
+        ok, fails = self._run(shell, cons)
+        self.assertTrue(ok, fails[:5])
+
+    def test_f_a_48_perturbation_of_one_real_n31_cell_fails(self):
+        shell, cons = self._real31()
+        i = max(range(len(cons)), key=lambda j: int(cons[j][2]))
+        k, p, m = cons[i]
+        cons[i] = (k, p, str(int(m) + 48))
+        ok, fails = self._run(shell, cons)
+        self.assertFalse(ok, "a +48 change to the largest real mass must FAIL")
+        self.assertTrue(any("layer %d pair %d:" % (k, p) in f for f in fails), fails)
+
+# end class TestP01V1CrossCheckExactMasses (batch 38, Q835-A13 P-01)
+
+
+class TestQ949Q950PrepushEnvAndRegistry(unittest.TestCase):
+    """Q-949 / Q-950 (batch 38; Codex (gpt-6-astra), push-path review Q835, P-02 and P-03).
+
+    Q-949. scripts/pre_push_gate.sh dropped only GIT_* and CITGATE_BASE, so a test-fixture or
+    override variable exported in the pusher's shell (DOC_GATE_LSD_REF, CITGATE_ROOT, CLIDECL_PAIRS,
+    G19_DOC, ATLAS, ...) reached the gates and changed what they checked. The hook now REFUSES any
+    such variable before it runs anything (PREPUSH_ENV=REFUSED, rc 1). Two kinds of test:
+      * STATIC: the hook's lists are re-derived from a scan of every file the push path can reach
+        (the file-reference closure from the hook, minus tests.py and the commit-time pre_commit_*
+        gates and perf_bench.sh, a VM benchmark reached only as citation-gate pin text) for
+        `${NAME<op>` reads, os.environ / os.getenv reads and C getenv("NAME"). Every name found must
+        be refused, allowed, dropped, or on NOT_ENV below (names PROVEN assigned on an earlier line
+        than the first read, or a bash builtin). Nothing stale: every NOT_ENV and named entry and
+        every family must match a scanned read. Positive controls: the scan finds the names Codex
+        listed, and a planted read in synthetic text.
+      * BEHAVIOURAL: the real hook, in a throwaway repo, refuses each override (an empty value
+        too), passes the allow-list, drops CITGATE_BASE, and refuses before any gate runs.
+    Q-950. The new-branch declaration leg ran $ROOT's working-tree doc_gates.sh against the
+    working-tree BRANCH_REGISTRY.tsv, so an uncommitted row cleared a branch no published tree
+    declares. It now runs GATE 19 in a temp worktree of a COMMITTED declaring tree. Red cases: an
+    uncommitted row must not clear a new branch, with or without a new tree; a declaring tree with
+    no committed registry blocks even when its own gate is lax. Positive controls: a committed row,
+    and a snapshot branch declared by main pushed in the same push.
+    MUTANTS (each anchor asserted to occur exactly once first): the guard call removed; the family
+    match quoted into a literal; GATE 19 run in $ROOT instead of the committed tree; the
+    missing-registry precheck removed. RED RUN against the pre-fix hook: set Q949_HOOK_SRC to a copy.
+    """
+    Z40 = "0" * 40
+    HOOK = "scripts/pre_push_gate.sh"
+    CODEX_NAMED = ("DOC_GATE_LSD_REF", "DOC_GATE_TR_REG", "DOC_GATE_TR_CORPUS", "DOC_GATES_SRC_OVERRIDE",
+                   "CITGATE_ROOT", "CLIDECL_PAIRS", "G19_DOC", "G19_TR12", "GROUPC_MIN_VERDICTS")
+    # Names the scan finds that are NOT inherited inputs: each is assigned on an earlier line of the
+    # same file than its first read (checked by test_not_env_entries_are_proven), or is a builtin.
+    NOT_ENV = ("ALLT BUDGET CPINS DOC KEYS SRC TPINS CMD LINE BASE_GOT CAUSE RES R_DIG CD GW N NROWS "
+               "N_EXTRACTED FRAC_LE N_PAIRS TDIR WORK G27 G5BLINEF Q7MS Q7S Q7T FAILOPEN_SELFTEST_SENTINEL").split()
+    BUILTIN = ("BASH_VERSINFO",)
+    SCOPE_EXCLUDE = ("tests.py", "perf_bench.sh")
+    SCOPE_EXCLUDE_PREFIX = ("pre_commit_",)
+    SH_READ = re.compile(r"\$\{([A-Z_][A-Z0-9_]*)(?::?[-=+?])")
+    PY_READ = re.compile(r"""(?:environ\.get|getenv|environ\.setdefault)\(\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]"""
+                         r"""|environ\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\]"""
+                         r"""|['"]([A-Z_][A-Z0-9_]*)['"]\s+(?:not\s+)?in\s+os\.environ""")
+    C_READ = re.compile(r"""getenv\(\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\)""")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q949_")
+        with open(os.environ.get("Q949_HOOK_SRC") or cls.HOOK, encoding="utf-8") as fh:
+            cls.hook_src = fh.read()
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- the static scan ----------------------------------------------------------------------
+    @classmethod
+    def _closure(cls, root="."):
+        cands = {}
+        for d in ("scripts", os.path.join("scripts", "doc_gates.d"), "."):
+            for f in os.listdir(os.path.join(root, d)):
+                q = os.path.normpath(os.path.join(d, f))
+                if os.path.isfile(os.path.join(root, q)) and re.search(r"\.(sh|py|c)$", f):
+                    cands.setdefault(f, set()).add(q)
+        tok = re.compile(r"[A-Za-z0-9_]+\.(?:sh|py|c)\b")
+        seen, todo = set(), [cls.HOOK]
+        while todo:
+            q = todo.pop()
+            if q in seen:
+                continue
+            seen.add(q)
+            with open(os.path.join(root, q), encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            names = set(tok.findall(text))
+            if "doc_gates.d" in text:
+                names |= {f for f in os.listdir(os.path.join(root, "scripts", "doc_gates.d")) if f.endswith(".sh")}
+            for nm in names:
+                if nm in cls.SCOPE_EXCLUDE or nm.startswith(cls.SCOPE_EXCLUDE_PREFIX):
+                    continue
+                todo.extend(x for x in cands.get(nm, ()) if x not in seen)
+        return sorted(seen)
+
+    @classmethod
+    def _scan_text(cls, path, text):
+        """{name: first line} of every inherited-variable read in one file's text."""
+        out = {}
+        for i, line in enumerate(text.split("\n"), 1):
+            if line.lstrip().startswith("#") and not path.endswith(".c"):
+                continue
+            hits = set()
+            if path.endswith(".sh"):
+                hits |= set(cls.SH_READ.findall(line))
+            if not path.endswith(".c"):
+                for m in cls.PY_READ.finditer(line):
+                    hits.add(next(g for g in m.groups() if g))
+            hits |= set(cls.C_READ.findall(line))
+            for v in hits:
+                out.setdefault(v, i)
+        return out
+
+    @classmethod
+    def _reads(cls):
+        reads = {}
+        for q in cls._closure():
+            with open(q, encoding="utf-8", errors="replace") as fh:
+                for v, ln in cls._scan_text(q, fh.read()).items():
+                    reads.setdefault(v, {})[q] = ln
+        return reads
+
+    def _hook_list(self, var):
+        m = re.search(r"^%s=(['\"])(.*?)\1" % var, self.hook_src, re.M | re.S)
+        self.assertIsNotNone(m, "the hook declares no %s= list (Q-949 guard absent)" % var)
+        return m.group(2).split()
+
+    def _lists(self):
+        return (self._hook_list("PREPUSH_ENV_ALLOW"), self._hook_list("PREPUSH_ENV_DROP"),
+                self._hook_list("PREPUSH_ENV_REFUSE_NAMES"), self._hook_list("PREPUSH_ENV_REFUSE_FAMILIES"))
+
+    @staticmethod
+    def _refused(v, names, fams):
+        import fnmatch
+        return v in names or any(fnmatch.fnmatchcase(v, p) for p in fams)
+
+    def test_scan_positive_controls(self):
+        reads = self._reads()
+        for v in self.CODEX_NAMED:
+            self.assertIn(v, reads, "the scan cannot see %s, which Codex found on the push path" % v)
+        planted = self._scan_text("x.sh", 'a=${PLANTED_Q949_SH:-1}\npython3 -c \'import os; os.environ.get("PLANTED_Q949_PY")\'\n'
+                                  '# ${PLANTED_Q949_COMMENT:-x}\n')
+        self.assertIn("PLANTED_Q949_SH", planted)
+        self.assertIn("PLANTED_Q949_PY", planted)
+        self.assertNotIn("PLANTED_Q949_COMMENT", planted)
+        self.assertIn("PLANTED_Q949_C", self._scan_text("x.c", 'char *e = getenv("PLANTED_Q949_C");\n'))
+        self.assertGreater(len(self._closure()), 40, "precondition: the closure reached the push path's scripts")
+
+    def test_every_scanned_read_is_classified(self):
+        allow, drop, names, fams = self._lists()
+        reads = self._reads()
+        unc = sorted(v for v in reads if v not in allow and v not in drop and v not in self.NOT_ENV
+                     and v not in self.BUILTIN and not self._refused(v, names, fams))
+        self.assertEqual(unc, [], "inherited reads on the push path that the Q-949 guard neither refuses, "
+                         "allows nor drops: %s" % {v: reads[v] for v in unc})
+        for v in self.CODEX_NAMED:
+            self.assertTrue(self._refused(v, names, fams), v)
+
+    def test_lists_are_not_stale_and_do_not_overlap(self):
+        allow, drop, names, fams = self._lists()
+        reads = self._reads()
+        for v in names + self.NOT_ENV + list(self.BUILTIN):
+            self.assertIn(v, reads, "list entry %s matches no read on the push path (stale)" % v)
+        import fnmatch
+        for p in fams:
+            self.assertTrue(any(fnmatch.fnmatchcase(v, p) for v in reads), "family %s matches no read (stale)" % p)
+        for v in allow:
+            self.assertFalse(self._refused(v, names, fams), "allow-listed %s is also refused" % v)
+        for v in self.NOT_ENV:
+            self.assertFalse(self._refused(v, names, fams), "NOT_ENV %s is refused anyway; drop the NOT_ENV row" % v)
+
+    def test_not_env_entries_are_proven(self):
+        reads = self._reads()
+        for v in self.NOT_ENV:
+            for q, ln in reads.get(v, {}).items():
+                with open(q, encoding="utf-8", errors="replace") as fh:
+                    before = fh.read().split("\n")[:ln - 1]
+                pat = re.compile(r"(?:^|[\s;(&|`]|\blocal\s+|\bexport\s+)%s=(?![\"']?\$\{%s:?[-=])|\bfor\s+%s\s+in\b|\bread\b.*\b%s\b"
+                                 % (v, v, v, v))
+                self.assertTrue(any(pat.search(L) for L in before),
+                                "%s is NOT_ENV but %s reads it at line %d before any assignment" % (v, q, ln))
+
+    # ---- behavioural fixture ------------------------------------------------------------------
+    def _git(self, repo, *a, check=True):
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t",
+                   GIT_COMMITTER_EMAIL="t@t")
+        for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            env.pop(k, None)
+        r = subprocess.run(["git", "-C", repo] + list(a), capture_output=True, text=True, env=env, timeout=120)
+        if check:
+            self.assertEqual(r.returncode, 0, (a, r.stderr))
+        return r.stdout.strip()
+
+    def _write(self, path, text, mode=0o644):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(path, mode)
+
+    DG_STUB = ('cd "$(dirname "$0")/.." || exit 2\n'
+               'echo "doc_gates ${1:-all}" >> "$HK_MARK"\n'
+               'if [ "${1:-all}" = branch-registry ]; then\n'
+               '  [ -r documentation/BRANCH_REGISTRY.tsv ] || { echo "  [FAIL] registry missing"; exit 1; }\n'
+               '  for b in ${DOC_GATES_PENDING_BRANCHES:-}; do b=${b#refs/heads/}\n'
+               '    awk -F"\\t" -v b="$b" \'$1 == b {f = 1} END {exit !f}\' documentation/BRANCH_REGISTRY.tsv \\\n'
+               '      || { echo "  [FAIL] published branch \'$b\' is NOT declared"; exit 1; }\n'
+               '  done\n'
+               'fi\n'
+               'exit 0\n')
+    DG_STUB_LAX = DG_STUB.replace('{ echo "  [FAIL] registry missing"; exit 1; }', 'exit 0')
+
+    def _fixture(self, hook_src=None, registry="main\tauthoritative\n"):
+        """Commit A (published as origin/main through a throwaway bare remote); nothing is pushed."""
+        type(self).n += 1
+        d = os.path.join(self.tmp, "f%d" % self.n)
+        repo, bare = os.path.join(d, "repo"), os.path.join(d, "origin.git")
+        os.makedirs(repo)
+        self._git(repo, "init", "-q")
+        self._write(os.path.join(repo, self.HOOK), hook_src or self.hook_src, 0o755)
+        stubs = dict(TestQ798PrepushTreeKeyedReuse.STUBS)
+        stubs["doc_gates.sh"] = self.DG_STUB
+        for name, body in stubs.items():
+            self._write(os.path.join(repo, "scripts", name), "#!/bin/bash\n" + body, 0o755)
+        if registry is not None:
+            self._write(os.path.join(repo, "documentation", "BRANCH_REGISTRY.tsv"), registry)
+        self._write(os.path.join(repo, "documentation", "NOTE.md"), "a\n")
+        self._write(os.path.join(repo, "solve.c"), "int main(void) { return 0; }\n")   # the #167 leg builds it
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "A")
+        subprocess.run(["git", "clone", "-q", "--bare", repo, bare], check=True, capture_output=True, timeout=120)
+        self._git(repo, "remote", "add", "origin", bare)
+        self._git(repo, "fetch", "-q", "origin")
+        self._git(repo, "branch", "-q", "-f", "main")
+        return {"d": d, "repo": repo, "a": self._git(repo, "rev-parse", "HEAD")}
+
+    def _commit(self, fx, rel, text, msg):
+        self._write(os.path.join(fx["repo"], rel), text)
+        self._git(fx["repo"], "add", "-A")
+        self._git(fx["repo"], "commit", "-qm", msg)
+        return self._git(fx["repo"], "rev-parse", "HEAD")
+
+    def _run(self, fx, stdin, env=None):
+        mark = os.path.join(fx["d"], "mark_%d.log" % random.randrange(1 << 30))
+        e = dict(os.environ, HK_MARK=mark, TMPDIR=fx["d"])
+        for k in list(e):
+            if k.startswith("GIT_") or k in ("CITGATE_BASE", "ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE"):
+                e.pop(k)
+        e.update(env or {})
+        r = subprocess.run(["bash", os.path.join(fx["repo"], self.HOOK)], cwd=fx["repo"], input=stdin,
+                           capture_output=True, text=True, env=e, timeout=600)
+        marks = []
+        if os.path.exists(mark):
+            with open(mark, encoding="utf-8") as fh:
+                marks = [l.strip() for l in fh if l.strip()]
+        return r, marks
+
+    @staticmethod
+    def _count(out, line):
+        return ("\n" + out).count("\n" + line + "\n")
+
+    def _mutant(self, old, new):
+        self.assertEqual(self.hook_src.count(old), 1, "mutant anchor must occur exactly once: %r" % old)
+        return self.hook_src.replace(old, new)
+
+    # ---- Q-949 behaviour ----------------------------------------------------------------------
+    REFUSE_CASES = ("DOC_GATE_LSD_REF", "DOC_GATE_TR_REG", "DOC_GATES_SRC_OVERRIDE", "CITGATE_ROOT",
+                    "CLIDECL_PAIRS", "G19_DOC", "G19_TR12", "GROUPC_MIN_VERDICTS", "ATLAS", "SOLVE",
+                    "TR12_SEED", "RESUME_167_ALLOW_STALE", "SOLVE_THREADS")
+
+    def _assert_refuses(self, fx, name, value="/tmp/elsewhere"):
+        b = self._commit(fx, "documentation/NOTE.md", "b %s\n" % name, "B")
+        r, marks = self._run(fx, "refs/heads/main %s refs/heads/main %s\n" % (b, fx["a"]), {name: value})
+        out = r.stdout
+        self.assertNotEqual(r.returncode, 0, "%s=%r was inherited and the hook gated anyway:\n%s" % (name, value, out[-2000:]))
+        self.assertEqual(self._count(out, "PREPUSH_ENV=REFUSED"), 1, out[-2000:])
+        self.assertIn("    [refused] %s\n" % name, out)
+        self.assertEqual(marks, [], "a gate ran although the environment was refused: %s" % marks)
+
+    def test_q949_refuses_each_override(self):
+        fx = self._fixture()
+        for name in self.REFUSE_CASES:
+            with self.subTest(name=name):
+                self._assert_refuses(fx, name)
+
+    def test_q949_refuses_an_empty_value(self):
+        self._assert_refuses(self._fixture(), "DOC_GATE_TR_CORPUS", "")
+
+    def test_q949_allow_list_and_drop_positive_control(self):
+        fx = self._fixture()
+        b = self._commit(fx, "documentation/NOTE.md", "b\n", "B")
+        r, marks = self._run(fx, "refs/heads/main %s refs/heads/main %s\n" % (b, fx["a"]),
+                             {"ROAE_PRIVATE_DIR": os.path.join(fx["d"], "nope"), "ROAE_REVIEW_QUEUE": "/nonexistent/q949",
+                              "CITGATE_BASE": fx["a"]})
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-1000:])
+        self.assertEqual(self._count(r.stdout, "PREPUSH_ENV=CLEAN"), 1, r.stdout[-2000:])
+        self.assertIn("dropped inherited CITGATE_BASE", r.stdout)
+        self.assertIn("doc_gates all", marks, "precondition: the gates ran")
+
+    def test_q949_mutant_without_the_guard_call_gates_anyway(self):
+        src = self._mutant("prepush_env_guard || exit 1\n", ":\n")
+        fx = self._fixture(hook_src=src)
+        b = self._commit(fx, "documentation/NOTE.md", "b\n", "B")
+        r, marks = self._run(fx, "refs/heads/main %s refs/heads/main %s\n" % (b, fx["a"]), {"G19_DOC": "/tmp/x"})
+        self.assertEqual(r.returncode, 0, "the mutant must reproduce the defect: " + r.stdout[-1500:])
+        self.assertNotIn("PREPUSH_ENV=REFUSED", r.stdout)
+
+    def test_q949_mutant_with_literal_family_patterns_misses_a_family_name(self):
+        src = self._mutant('case "$v" in $p) hit=1; break ;; esac', 'case "$v" in "$p") hit=1; break ;; esac')
+        fx = self._fixture(hook_src=src)
+        b = self._commit(fx, "documentation/NOTE.md", "b\n", "B")
+        r, _ = self._run(fx, "refs/heads/main %s refs/heads/main %s\n" % (b, fx["a"]), {"G19_DOC": "/tmp/x"})
+        self.assertEqual(r.returncode, 0, "a quoted pattern is literal, so G19_DOC must slip through the mutant")
+        r2, _ = self._run(fx, "refs/heads/main %s refs/heads/main %s\n" % (b, fx["a"]), {"ATLAS": "/tmp/x"})
+        self.assertNotEqual(r2.returncode, 0, "named entries do not depend on the family match")
+
+    # ---- Q-950 behaviour ----------------------------------------------------------------------
+    def _uncommitted_row(self, fx, name):
+        with open(os.path.join(fx["repo"], "documentation", "BRANCH_REGISTRY.tsv"), "a", encoding="utf-8") as fh:
+            fh.write("%s\tsnapshot\n" % name)
+
+    def test_q950_uncommitted_row_does_not_clear_a_new_branch_with_a_new_tree(self, hook_src=None, expect_block=True):
+        fx = self._fixture(hook_src=hook_src)
+        b = self._commit(fx, "documentation/NOTE.md", "b\n", "B")
+        self._uncommitted_row(fx, "feat")
+        r, marks = self._run(fx, "refs/heads/feat %s refs/heads/feat %s\n" % (b, self.Z40))
+        self.assertIn("NEW branch ref(s) to declare: refs/heads/feat", r.stdout, "precondition: the declaration leg ran")
+        if expect_block:
+            self.assertNotEqual(r.returncode, 0, "an UNCOMMITTED registry row cleared a new branch:\n" + r.stdout[-2500:])
+            self.assertIn("not declared in the branch registry", r.stdout)
+        return r
+
+    def test_q950_uncommitted_row_does_not_clear_a_new_branch_at_a_published_sha(self, hook_src=None, expect_block=True):
+        fx = self._fixture(hook_src=hook_src)
+        self._uncommitted_row(fx, "feat")
+        r, _ = self._run(fx, "refs/heads/feat %s refs/heads/feat %s\n" % (fx["a"], self.Z40))
+        self.assertIn("no new tree; the declaration leg above is the whole verdict", r.stdout, "precondition")
+        if expect_block:
+            self.assertNotEqual(r.returncode, 0, "an UNCOMMITTED row was the whole verdict:\n" + r.stdout[-2500:])
+        return r
+
+    def test_q950_committed_row_positive_control(self):
+        fx = self._fixture()
+        b = self._commit(fx, "documentation/BRANCH_REGISTRY.tsv", "main\tauthoritative\nfeat\tsnapshot\n", "B")
+        r, marks = self._run(fx, "refs/heads/feat %s refs/heads/feat %s\n" % (b, self.Z40))
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-1000:])
+        self.assertIn("branch-registry gate PASSED for refs/heads/feat", r.stdout)
+        self.assertIn("doc_gates branch-registry", marks)
+
+    def test_q950_snapshot_declared_by_main_in_the_same_push(self):
+        fx = self._fixture()
+        c = self._commit(fx, "documentation/BRANCH_REGISTRY.tsv", "main\tauthoritative\nsnap\tsnapshot\n", "C")
+        stdin = ("refs/heads/main %s refs/heads/main %s\nrefs/heads/snap %s refs/heads/snap %s\n"
+                 % (c, fx["a"], fx["a"], self.Z40))
+        r, _ = self._run(fx, stdin)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-1000:])
+        self.assertIn("refs/heads/snap is declared by the committed registry of %s" % c[:12], r.stdout)
+
+    def test_q950_no_committed_registry_blocks_even_with_a_lax_gate(self, hook_src=None, expect_block=True):
+        fx = self._fixture(hook_src=hook_src, registry=None)
+        self._write(os.path.join(fx["repo"], "scripts", "doc_gates.sh"), "#!/bin/bash\n" + self.DG_STUB_LAX, 0o755)
+        b = self._commit(fx, "documentation/NOTE.md", "b\n", "B")
+        self._write(os.path.join(fx["repo"], "documentation", "BRANCH_REGISTRY.tsv"), "main\tauthoritative\nfeat\tsnapshot\n")
+        r, _ = self._run(fx, "refs/heads/feat %s refs/heads/feat %s\n" % (b, self.Z40))
+        if expect_block:
+            self.assertNotEqual(r.returncode, 0, r.stdout[-2500:])
+            self.assertIn("has NO committed documentation/BRANCH_REGISTRY.tsv", r.stdout)
+        return r
+
+    def test_q950_mutant_gate_in_root_reads_the_working_tree(self):
+        old = '( cd "$WTBASE/tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \\\n          DOC_GATES_PENDING_BRANCHES="$_drefs" bash scripts/doc_gates.sh branch-registry )'
+        src = self._mutant(old, old.replace('cd "$WTBASE/tree"', 'cd "$ROOT"'))
+        r = self.test_q950_uncommitted_row_does_not_clear_a_new_branch_with_a_new_tree(hook_src=src, expect_block=False)
+        self.assertEqual(r.returncode, 0, "the mutant must reproduce the defect: " + r.stdout[-1500:])
+        r = self.test_q950_uncommitted_row_does_not_clear_a_new_branch_at_a_published_sha(hook_src=src, expect_block=False)
+        self.assertEqual(r.returncode, 0, "the mutant must reproduce the defect: " + r.stdout[-1500:])
+
+    def test_q950_mutant_without_the_registry_precheck_passes_a_lax_gate(self):
+        old = 'if ! git -C "$ROOT" cat-file -e "$_ds:documentation/BRANCH_REGISTRY.tsv" 2>/dev/null; then'
+        src = self._mutant(old, 'if false; then')
+        r = self.test_q950_no_committed_registry_blocks_even_with_a_lax_gate(hook_src=src, expect_block=False)
+        self.assertEqual(r.returncode, 0, "the mutant must let the lax gate pass: " + r.stdout[-1500:])
+
+# end class TestQ949Q950PrepushEnvAndRegistry (batch 38)
+
+
+class TestQ954Q955SelftestLegsCanFail(unittest.TestCase):
+    """Batch 38 lane F: Q-954 (Codex Q835 push-path review P-07) and Q-955 (P-08).
+
+    Each case runs the LEG ITSELF (the check text taken from the script, or the script's own
+    --selftest) on a planted defect and requires it to go red, and on the healthy input and
+    requires it to stay green. Run against copies of the pre-fix scripts every case below is red:
+    (a) GATE 1's `grep -q 'WARN'` was satisfied by the numbers footer and by the WARN key
+    40:1097051278 already carries on the real tree; (b) failopen_closure's "never executed"
+    sentinels were written to the deleted skeleton and looked for elsewhere; (c) its
+    plant_closed3.py fixture was a SyntaxError; (d) _g16b, the G15/G16 inline fire-proofs and
+    assert_fires_why/assert_gen_fires read no rc, or any rc != 0, as firing; (e) GATE 10b's
+    rcB != 0 accepted 2/124/137; Q-955: G3 read every nonzero probe rc as "still true" and both
+    DISCLOSURE_CHECKS rows probed with the constant `false`."""
+
+    DG = os.path.join("scripts", "doc_gates.sh")
+    FO = os.path.join("scripts", "failopen_closure_gate.sh")
+    GPC = os.path.join("scripts", "gate_published_consistency.sh")
+    REG = os.path.join("documentation", "DISCLOSURE_CHECKS.tsv")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.tmp = tempfile.mkdtemp(prefix="q954_")
+        with open(os.path.join(cls.root, cls.DG), encoding="utf-8") as fh:
+            cls.dg = fh.read()
+        with open(os.path.join(cls.root, cls.FO), encoding="utf-8") as fh:
+            cls.fo = fh.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _bash(self, script, args=(), env=None, cwd=None, timeout=300):
+        e = dict(os.environ)
+        e.update(env or {})
+        r = subprocess.run(["bash", "-c", script] + list(args), capture_output=True, text=True,
+                           env=e, cwd=cwd or self.tmp, timeout=timeout)
+        return r.returncode, r.stdout + r.stderr
+
+    def _stub(self, name, out, rc):
+        p = os.path.join(self.tmp, name)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("cat <<'Q954EOF'\n%s\nQ954EOF\nexit %d\n" % (out, rc))
+        return p
+
+    def _between(self, text, start, end):
+        i = text.find(start)
+        self.assertGreaterEqual(i, 0, "precondition: anchor %r not found" % start)
+        j = text.find(end, i)
+        self.assertGreaterEqual(j, 0, "precondition: end anchor %r not found" % end)
+        return text[i:j + len(end)]
+
+    # ---- (a) GATE 1 -------------------------------------------------------------------------
+    FOOTER = ("DOC GATES: PASS  \u2014 NOTE: 'numbers' is a REPORT-ONLY gate and always exits 0.\n"
+              "                   Read its [WARN]/[note] lines above; this verdict does not.")
+
+    def _g1(self, out, rc):
+        blk = self._between(self.dg, '{ G1OUT=$(bash "$0" numbers 2>&1)', "_selftest_revert README.md; }")
+        stub = self._stub("g1_stub.sh", out, rc)
+        return self._bash("PASS=0; _selftest_revert(){ :; }\n" + blk + "\necho PASS=$PASS", [stub])
+
+    def test_a_gate1_red_on_a_noop_gate_and_on_the_pre_existing_warn(self):
+        noop = "== GATE 1: cross-file numeric consistency (long integers) ==\n" \
+               "  [ok] no long integer disagrees with a same-length near-twin elsewhere\n\n" + self.FOOTER
+        rc, out = self._g1(noop, 0)
+        self.assertIn("PASS=1", out, "a no-op gate_numbers must turn GATE 1's leg red:\n" + out)
+        # The UNMUTATED real tree already WARNs on key 40 (N in README.md beside N-1 elsewhere);
+        # that WARN must not satisfy the leg either.
+        r = subprocess.run(["bash", self.DG, "numbers"], capture_output=True, text=True,
+                           cwd=self.root, timeout=600)
+        self.assertIn("key 40:1097051278:", r.stdout, "precondition: key 40 WARNs on the real tree")
+        rc, out = self._g1(r.stdout.rstrip("\n"), r.returncode)
+        self.assertIn("PASS=1", out, "the pre-existing key-40 WARN satisfied the leg:\n" + out[-800:])
+
+    def test_a_gate1_green_on_the_injected_near_twin(self):
+        hit = ("== GATE 1: cross-file numeric consistency (long integers) ==\n"
+               "  [WARN] near-twin long integers (same length, same 10-digit prefix) \u2014 key 40:1097051278:\n"
+               "      1097051278789181790036112071176579186688   <- documentation/VERIFY.md\n"
+               "      1097051278789181790036112071176579186689   <- README.md\n"
+               "  (report-only: confirm each pair is intentional, then add its key to x)\n\n" + self.FOOTER)
+        rc, out = self._g1(hit, 0)
+        self.assertIn("PASS=0", out, out)
+        self.assertIn("[ok]   GATE 1", out)
+        rc, out = self._g1(hit, 2)
+        self.assertIn("PASS=1", out, "a report-only gate that exits 2 is not a pass:\n" + out)
+
+    # ---- (b)(c) failopen_closure_gate.sh ------------------------------------------------------
+    def _fo_copy(self, name, old, new):
+        self.assertEqual(self.fo.count(old), 1, "precondition: mutation anchor for %s" % name)
+        p = os.path.join(self.tmp, name)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(self.fo.replace(old, new))
+        return p
+
+    def _fo_selftest(self, path):
+        stub = os.path.join(self.tmp, "stubbin")
+        os.makedirs(stub, exist_ok=True)
+        with open(os.path.join(stub, "az"), "w") as fh:   # a mis-executed fixture must never reach az
+            fh.write("#!/bin/sh\necho 'az stub: refused' >&2\nexit 1\n")
+        os.chmod(os.path.join(stub, "az"), 0o755)
+        home = os.path.join(self.tmp, "home")
+        os.makedirs(home, exist_ok=True)
+        r = subprocess.run(["timeout", "600", "bash", path, "--selftest"], capture_output=True,
+                           text=True, cwd=self.tmp, timeout=650,
+                           env=dict(os.environ, PATH=stub + os.pathsep + os.environ["PATH"], HOME=home))
+        return r.returncode, r.stdout
+
+    def test_b_c_failopen_selftest_green_on_the_real_script(self):
+        rc, out = self._fo_selftest(os.path.join(self.root, self.FO))
+        self.assertEqual(rc, 0, out[-2000:])
+        self.assertIn("\nFAILOPEN_CLOSURE_SELFTEST=PASS\n", "\n" + out)
+        self.assertIn("positive control: an EXECUTED fixture leaves its sentinel", out)
+
+    def test_b_failopen_red_when_an_unrun_script_is_executed(self):
+        a = "  if [ \"$(noncomment \"$f\" | grep -cE \"$UNRUNRE\")\" -gt 0 ]; then printf 'UNRUN\\t-\\t-\\n'; return; fi"
+        b = ("  if [ \"$(noncomment \"$f\" | grep -cE \"$UNRUNRE\")\" -gt 0 ]; then ( s=$(mktemp -d); mkdir -p \"$s/scripts\";"
+             " cp \"$f\" \"$s/scripts/\"; cd \"$s\" && HOME=$s bash \"scripts/$(basename \"$f\")\"; rm -rf \"$s\" ) >/dev/null 2>&1;"
+             " printf 'UNRUN\\t-\\t-\\n'; return; fi")
+        rc, out = self._fo_selftest(self._fo_copy("fo_exec_unrun.sh", a, b))
+        self.assertNotEqual(rc, 0, "an UNRUN script that WAS executed passed the selftest:\n" + out[-2500:])
+        self.assertIn("\nFAILOPEN_CLOSURE_SELFTEST=FAIL\n", "\n" + out)
+        self.assertRegex(out, r"\[FAIL\] az in a non-comment line -> UNRUN, never executed")
+
+    def test_c_failopen_python_fixture_parses_and_refuses_with_rc2(self):
+        m = re.search(r"^  mk plant_closed3\.py   '(.*?)'$", self.fo, re.M | re.S)
+        self.assertIsNotNone(m, "precondition: the plant_closed3.py fixture")
+        p = os.path.join(self.tmp, "plant_closed3.py")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(m.group(1) + "\n")
+        r = subprocess.run([sys.executable, p], capture_output=True, text=True, cwd=self.tmp, timeout=60)
+        self.assertNotIn("SyntaxError", r.stderr, "the fixture does not parse:\n" + r.stderr)
+        self.assertEqual(r.returncode, 2, "the fixture must refuse its absent input with rc 2")
+        self.assertIn("PLANT_CLOSED3=ERROR", r.stdout)
+
+    def test_c_failopen_red_on_an_unparseable_python_fixture(self):
+        m = re.search(r"^  mk plant_closed3\.py   '(.*?)'$", self.fo, re.M | re.S)
+        self.assertIsNotNone(m)
+        bad = "  mk plant_closed3.py   '" + m.group(1).replace("\n", "\\n") + "'"
+        rc, out = self._fo_selftest(self._fo_copy("fo_badpy.sh", m.group(0), bad))
+        self.assertIn("\nFAILOPEN_CLOSURE_SELFTEST=FAIL\n", "\n" + out,
+                      "a fixture closed by a SyntaxError passed:\n" + out[-2500:])
+
+    # ---- (d) rc of the GATE 15/16 fire-proofs and the two fire helpers ---------------------------
+    def _g16b(self, out, rc):
+        fn = self._between(self.dg, "  _g16b() {  # <label> <expected-substring> <python-mutation>", "\n  }\n")
+        script = ("PASS=0; _G16B_COPY=/dev/null; _gsrc(){ cat <<'Q954EOF'\n%s\nQ954EOF\nreturn %d; }\n%s\n"
+                  "_g16b 'probe' 'is 2 gates behind one exit code' 'pass'\necho PASS=$PASS") % (out, rc, fn)
+        return self._bash(script)
+
+    def test_d_g16b_needs_rc1_and_the_finding(self):
+        hit = "  [FAIL] x.sh:1 \u2014 runs the dispatch `ledger`, which is 2 gates behind one exit code:"
+        self.assertIn("PASS=0", self._g16b(hit, 1)[1])
+        for rc in (0, 2, 124, 137):
+            self.assertIn("PASS=1", self._g16b(hit, rc)[1], "_g16b accepted rc %d" % rc)
+        self.assertIn("PASS=1", self._g16b("nothing here", 1)[1])
+
+    def test_d_every_gsrc_fireproof_reads_rc1(self):
+        caps = [m for m in re.finditer(r"^(\s+)(\w+)=\$\(_gsrc \"\$\w+\" (?:instruments|collisions)\)(.*)$", self.dg, re.M)]
+        self.assertGreaterEqual(len(caps), 15, "precondition: the G15/G16 fire-proof population")
+        for m in caps:
+            name = m.group(2)
+            self.assertRegex(m.group(3), r"^; %s=\$\?$" % re.escape(name + "_RC") if name != "_G16BOUT" else r"^; _G16BRC=\$\?$",
+                             "%s's rc is not captured" % name)
+            tail = self.dg[m.end():m.end() + 900]
+            want = '"$%s" -eq 1 ] && grep -qF' % (name + "_RC" if name != "_G16BOUT" else "_G16BRC")
+            self.assertIn(want, tail, "%s's assertion does not require rc 1" % name)
+
+    def test_d_e_no_fireproof_accepts_any_nonzero_rc(self):
+        # the `[ "$X" -ne 0 ] && grep ...` / `[ "$rc" -eq 0 ] -> did NOT fire` shapes
+        bad = re.findall(r"^\s*(?:el)?if \[ \"\$\w+\" -ne 0 \] *(?:\\|&& *(?:grep|\[))", self.dg, re.M)
+        self.assertEqual(bad, [], "fire-proofs that accept any nonzero rc: %r" % bad)
+        for helper in ("assert_fires_why() {", "assert_gen_fires() {"):
+            body = self._between(self.dg, helper, "\n  }\n")
+            self.assertNotRegex(body, r'if \[ "\$rc" -eq 0 \]; then\s+echo "  \[FAIL\]', helper)
+            self.assertIn('if [ "$rc" -ne 1 ]; then', body, helper)
+
+    def test_d_assert_fires_why_red_on_a_refusal(self):
+        fn = self._between(self.dg, "  assert_fires_why() {", "\n  }\n")
+        for rc, want in ((1, "PASS=0"), (2, "PASS=1"), (124, "PASS=1"), (0, "PASS=1")):
+            stub = self._stub("afw_stub.sh", "  [FAIL] the planted WHY-q954", rc)
+            code, out = self._bash("PASS=0; _selftest_revert(){ :; }\n" + fn +
+                                   "\nassert_fires_why 'probe' g 'WHY-q954' 'pass'\necho PASS=$PASS", [stub])
+            self.assertIn(want, out, "assert_fires_why with gate rc %d:\n%s" % (rc, out))
+
+    # ---- (e) GATE 10b -------------------------------------------------------------------------
+    def test_e_gate10b_fires_on_rc1_only(self):
+        blk = self._between(self.dg, '    if [ "$rcA" -eq 0 ] && [ "$rcB" ', "\n    fi")
+        for rcb, want in ((1, "PASS=0"), (2, "PASS=1"), (124, "PASS=1"), (137, "PASS=1"), (143, "PASS=1"), (0, "PASS=1")):
+            code, out = self._bash("PASS=0; label=probe; rcA=0; rcB=%d\n%s\necho PASS=$PASS" % (rcb, blk))
+            self.assertIn(want, out, "10b with rcB=%d:\n%s" % (rcb, out))
+
+    # ---- Q-955: G3 and DISCLOSURE_CHECKS.tsv -------------------------------------------------------
+    def _rows(self):
+        rows = {}
+        with open(os.path.join(self.root, self.REG), encoding="utf-8") as fh:
+            for ln in fh.read().splitlines():
+                if not ln or ln.startswith("#"):
+                    continue
+                f, claim, cmd = ln.split("\t")
+                rows[f] = cmd
+        return rows
+
+    def _probe(self, cmd, cwd):
+        return subprocess.run(["bash", "-c", "( eval \"$1\" ) >/dev/null 2>&1", "_", cmd],
+                              cwd=cwd, timeout=120).returncode
+
+    def test_q955_no_row_probes_with_a_constant(self):
+        rows = self._rows()
+        self.assertEqual(len(rows), 2, "precondition: the two live disclosure rows")
+        for f, cmd in rows.items():
+            self.assertNotIn(re.sub(r"\s", "", cmd), ("", "false", "true", ":"), f)
+
+    def test_q955_real_rows_hold_on_the_real_tree(self):
+        for f, cmd in self._rows().items():
+            self.assertEqual(self._probe(cmd, self.root), 1, "%s: the probe does not read 'still true'" % f)
+
+    def test_q955_tr11_probe_fires_on_a_published_ladder_record(self):
+        cmd = self._rows()["reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md"]
+        d = os.path.join(self.tmp, "tr11repo")
+        os.makedirs(os.path.join(d, "runs", "x"))
+        g = lambda *a: subprocess.run(["git", "-C", d] + list(a), capture_output=True, timeout=60)
+        self.assertGreaterEqual(self._probe(cmd, d), 2, "outside a repository the probe must not read 'still true'")
+        g("init", "-q")
+        for name, body in (("README.md", "24 pairs = 7,477,248,378,538,061,907,099,648\n"),
+                           ("check.py", "EXPECTED = 7477248378538061907099648\n")):
+            with open(os.path.join(d, name), "w") as fh:
+                fh.write(body)
+        g("add", "-A")
+        self.assertEqual(self._probe(cmd, d), 1, "prose and source quoting the integer are not a record")
+        with open(os.path.join(d, "runs", "x", "rung24.log"), "w") as fh:
+            fh.write("terminal total 2155118806480613893163229118464\n")
+        g("add", "-A")
+        self.assertEqual(self._probe(cmd, d), 0, "a tracked ladder log did not fire the TR-11 probe")
+
+    def test_q955_tr12_probe_three_valued(self):
+        cmd = self._rows()["reports/TR12_QUERY_PROGRAM.md"]
+        d = os.path.join(self.tmp, "tr12tree")
+        os.makedirs(os.path.join(d, "reports", "tr12"))
+        v = os.path.join(d, "reports", "tr12", "VERDICTS.txt")
+        self.assertEqual(self._probe(cmd, d), 2, "a missing verdict record must be rc 2")
+        for body, want in (("TR12_XA_B=PASS\nTR12_XA_CD=PENDING:W0-D-node-mapping\n", 1),
+                           ("TR12_XA_CD=SKIP:xa-throughput-anchors\n", 1),
+                           ("TR12_XA_CD=PASS\n", 0),
+                           ("TR12_XA_CD=ONE-SIDED:upper-bound\n", 0),
+                           ("TR12_XA_A=PASS\n", 2),
+                           ("TR12_XA_CD=PENDING:x\nTR12_XA_CD=PASS\n", 2)):
+            with open(v, "w") as fh:
+                fh.write(body)
+            self.assertEqual(self._probe(cmd, d), want, body)
+
+    def test_q955_g3_rc_ladder_and_constant_refusal(self):
+        d = os.path.join(self.tmp, "g3")
+        os.makedirs(d)
+        doc = os.path.join(d, "doc.md")
+        with open(doc, "w") as fh:
+            fh.write("q955 claim A. q955 claim B. q955 claim C. q955 claim D.\n")
+        reg = os.path.join(d, "reg.tsv")
+        with open(reg, "w") as fh:
+            fh.write("# synthetic\n")
+            fh.write("%s\tq955 claim A\ttest -e %s\n" % (doc, doc))                     # rc 0 -> fires
+            fh.write("%s\tq955 claim B\ttest -e %s/absent\n" % (doc, d))               # rc 1 -> ok
+            fh.write("%s\tq955 claim C\tgrep -q x %s/absent\n" % (doc, d))             # rc 2 -> unmeasured
+            fh.write("%s\tq955 claim D\tfalse\n" % doc)                                # constant -> vacuous
+        r = subprocess.run(["bash", self.GPC], capture_output=True, text=True, cwd=self.root,
+                           env=dict(os.environ, G3_REG=reg), timeout=900)
+        out = r.stdout
+        self.assertIn("G3: G3_REG overrides the registry to %s" % reg, out, "precondition: override honoured")
+        g3 = out.split("== G3:")[1].split("== G4:")[0]
+        self.assertIn('says "q955 claim A" but the artifact EXISTS', g3)
+        self.assertIn('[ok]   %s: "q955 claim B" still true' % doc, g3)
+        self.assertIn('"q955 claim C" \u2014 the probe could not answer (rc 2)', g3)
+        self.assertIn('"q955 claim D" \u2014 its probe is the constant \'false\'', g3)
+        self.assertNotIn('"q955 claim C" still true', g3)
+        self.assertNotIn('"q955 claim D" still true', g3)
+        self.assertIn("\nPUBLISHED_CONSISTENCY=FAIL\n", "\n" + out)
+
+# end class TestQ954Q955SelftestLegsCanFail (batch 38 lane F, Q-954/Q-955)
+
+
+class TestQ951Q952VerdictNeedsExitStatus(unittest.TestCase):
+    """Q-951 / Q-952 (Codex gpt-6-astra push-path review Q835, P-04 and P-05, batch 38).
+
+    A leg is PASS only when its producer exited with its documented success code AND printed
+    exactly one whole-line verdict token AND that token is the passing one. Each wrapper SHAPE is
+    driven with a stub producer that (a) crashes, (b) times out, (c) prints PASS then exits
+    non-zero, (d) prints PASS then a conflicting FAIL; none may read PASS, and a healthy stub must.
+    (d) applies only to producers that speak in tokens; the count/text producers of P-04 get (a)-(c).
+
+    Q951_SCRIPTS_ROOT (default: this repo) points the class at another copy of scripts/, which is
+    how it was shown RED on the unfixed scripts before the fix and GREEN after."""
+
+    ROOT = os.environ.get("Q951_SCRIPTS_ROOT") or os.path.dirname(os.path.abspath(__file__))
+    BAD = ("crash", "timeout", "pass_rc1", "pass_rc137", "pass_then_fail")
+    # A producer stub: STUB_MODE picks the behaviour; $1 is the verdict KEY, $2 its passing value.
+    STUB = r'''#!/usr/bin/env bash
+k=${1:-KEY}; v=${2:-PASS}
+case "${STUB_MODE:-healthy}" in
+  healthy)        echo "$k=$v"; exit 0 ;;
+  crash)          kill -SEGV $$ ;;
+  timeout)        echo "$k=$v"; exit 124 ;;
+  pass_rc1)       echo "$k=$v"; exit 1 ;;
+  pass_rc137)     echo "$k=$v"; exit 137 ;;
+  pass_then_fail) echo "$k=$v"; echo "$k=FAIL"; exit 0 ;;
+esac
+'''
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="q951_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    # ---------------------------------------------------------------- helpers
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _fn(self, rel, name, required=True):
+        """The text of bash function `name` from ROOT/rel: from its `name() {` line to the first
+        later line that is exactly its indentation plus `}` (or the same line, for a one-liner)."""
+        lines = self._src(rel).split("\n")
+        pat = re.compile(r"^(\s*)" + re.escape(name) + r"\(\)\s*\{")
+        for i, l in enumerate(lines):
+            m = pat.match(l)
+            if not m:
+                continue
+            if l.rstrip().endswith("}") and l.count("{") == l.count("}"):
+                return l.strip() + "\n"
+            for j in range(i + 1, len(lines)):
+                if lines[j] == m.group(1) + "}":
+                    return "\n".join(x[len(m.group(1)):] if x.startswith(m.group(1)) else x
+                                     for x in lines[i:j + 1]) + "\n"
+        if required:
+            self.fail("function %s() not found in %s" % (name, rel))
+        return ""
+
+    def _write(self, path, text, mode=0o755):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(path, mode)
+        return path
+
+    def _bash(self, script, env=None, cwd=None, timeout=120):
+        e = dict(os.environ)
+        e.update(env or {})
+        r = subprocess.run(["bash", "-c", script], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           text=True, env=e, cwd=cwd or self.tmp, timeout=timeout)
+        return r.returncode, r.stdout
+
+    def _helper(self):   # require_pass_token from doc_gates.sh, or "" on a tree that predates it
+        return self._fn("scripts/doc_gates.sh", "require_pass_token", required=False)
+
+    # ---------------------------------------------- shape 1: the doc_gates helper
+    def test_a_require_pass_token_refuses_every_bad_producer(self):
+        helper = self._fn("scripts/doc_gates.sh", "require_pass_token")
+        stub = self._write(os.path.join(self.tmp, "stub.sh"), self.STUB)
+        for mode in self.BAD + ("healthy",):
+            rc, out = self._bash(helper + 'out=$(bash "%s" K PASS 2>&1); crc=$?\n'
+                                 'require_pass_token K PASS "$out" "$crc"; echo "RPT=$?"' % stub,
+                                 {"STUB_MODE": mode})
+            got = re.findall(r"^RPT=(\d+)$", out, re.M)
+            self.assertEqual(len(got), 1, out)
+            if mode == "healthy":
+                self.assertEqual(got[0], "0", "a healthy producer must read PASS: " + out)
+            else:
+                self.assertNotEqual(got[0], "0", "%s read as PASS: %s" % (mode, out))
+            if mode in ("crash", "timeout", "pass_rc137"):
+                self.assertEqual(got[0], "2", "%s must be HARNESS_BROKEN, not a plain FAIL: %s" % (mode, out))
+                self.assertIn("HARNESS_BROKEN", out)
+
+    def _module_gate(self, module, fn, producers, bad_producer, expect_pass_line=None):
+        """Source a doc_gates.d module (with the helper) in a temp tree whose producer scripts are
+        stubs, and run `fn` once per mode with `bad_producer` misbehaving -> {mode: (rc, out)}."""
+        for rel, (key, val) in producers.items():
+            self._write(os.path.join(self.tmp, rel),
+                        self.STUB.replace('k=${1:-KEY}; v=${2:-PASS}', 'k=%s; v=%s' % (key, val)))
+        res = {}
+        for mode in self.BAD + ("healthy",):
+            env = {"STUB_MODE": "healthy"}
+            script = (self._helper() + ". '%s'\n" % os.path.join(self.ROOT, "scripts/doc_gates.d", module)
+                      + "%s; echo \"GATE_RC=$?\"\n" % fn)
+            # only the bad producer sees the mode
+            bad = os.path.join(self.tmp, bad_producer)
+            self._write(bad, self.STUB.replace('k=${1:-KEY}; v=${2:-PASS}', 'k=%s; v=%s' % producers[bad_producer])
+                        .replace('"${STUB_MODE:-healthy}"', '"%s"' % mode))
+            rc, out = self._bash(script, env)
+            m = re.findall(r"^GATE_RC=(\d+)$", out, re.M)
+            self.assertEqual(len(m), 1, out)
+            res[mode] = (int(m[0]), out)
+        return res
+
+    # ---------------------------------------------- shape 2: a module, three sequential runs
+    def test_b_gate_history_index_needs_rc0_and_one_token(self):
+        # history_index.sh answers --check AND --selftest, so it gets a two-mode healthy stub; the
+        # misbehaving producer is history_currency_gate.sh.
+        self._write(os.path.join(self.tmp, "scripts/history_index.sh"),
+                    '#!/usr/bin/env bash\ncase "$1" in --check) echo HISTORY_INDEX=CURRENT ;;'
+                    ' --selftest) echo HISTORY_INDEX_SELFTEST=PASS ;; esac\nexit 0\n')
+        res = self._module_gate("98_history_index.sh", "gate_history_index",
+                                {"scripts/history_currency_gate.sh": ("HISTORY_CURRENCY_SELFTEST", "PASS")},
+                                "scripts/history_currency_gate.sh")
+        self.assertEqual(res["healthy"][0], 0, res["healthy"][1])
+        for mode in self.BAD:
+            self.assertNotEqual(res[mode][0], 0, "%s read as PASS:\n%s" % (mode, res[mode][1]))
+
+    def test_c_gate_claim_ledger_two_tokens_one_run(self):
+        p = self._write(os.path.join(self.tmp, "scripts/claim_ledger.sh"), "")
+        for mode in self.BAD + ("healthy",):
+            body = {"healthy": "echo CLAIM_LEDGER=PASS; echo CLAIM_LEDGER_SELFTEST=PASS; exit 0",
+                    "crash": "echo CLAIM_LEDGER=PASS; echo CLAIM_LEDGER_SELFTEST=PASS; kill -SEGV $$",
+                    "timeout": "echo CLAIM_LEDGER=PASS; echo CLAIM_LEDGER_SELFTEST=PASS; exit 124",
+                    "pass_rc1": "echo CLAIM_LEDGER=PASS; echo CLAIM_LEDGER_SELFTEST=PASS; exit 1",
+                    "pass_rc137": "echo CLAIM_LEDGER=PASS; echo CLAIM_LEDGER_SELFTEST=PASS; exit 137",
+                    "pass_then_fail": "echo CLAIM_LEDGER=PASS; echo CLAIM_LEDGER_SELFTEST=PASS; echo CLAIM_LEDGER=FAIL"}[mode]
+            self._write(p, "#!/usr/bin/env bash\n" + body + "\n")
+            rc, out = self._bash(self._helper() + ". '%s'\ngate_claim_ledger; echo \"GATE_RC=$?\"\n"
+                                 % os.path.join(self.ROOT, "scripts/doc_gates.d/99_claim_ledger.sh"))
+            g = re.findall(r"^GATE_RC=(\d+)$", out, re.M)
+            self.assertEqual(len(g), 1, out)
+            if mode == "healthy":
+                self.assertEqual(g[0], "0", out)
+            else:
+                self.assertNotEqual(g[0], "0", "%s read as PASS:\n%s" % (mode, out))
+
+    # ---------------------------------------------- shape 3: a loop that captured rc and ignored it
+    def test_d_gate_citation_lines_loop(self):
+        res = self._module_gate("10_numbers_cli_citations.sh", "gate_citation_lines",
+                                {"scripts/citation_line_gate.sh": ("CITATION_LINE_GATE", "PASS")},
+                                "scripts/citation_line_gate.sh")
+        self.assertEqual(res["healthy"][0], 0, res["healthy"][1])
+        for mode in self.BAD:
+            self.assertNotEqual(res[mode][0], 0, "%s read as PASS:\n%s" % (mode, res[mode][1]))
+
+    # ---------------------------------------------- shape 4: viz selftest (rc captured, unread)
+    def test_e_gate_viz_shape(self):
+        for mod in ("matplotlib", "numpy"):   # the gate only checks they import
+            self._write(os.path.join(self.tmp, "fakemods", mod, "__init__.py"), "", 0o644)
+        res = {}
+        for mode in self.BAD + ("healthy",):
+            body = {"healthy": "print('VIZ_SHAPE_SELFTEST=PASS')",
+                    "crash": "print('VIZ_SHAPE_SELFTEST=PASS', flush=True); import os, signal; os.kill(os.getpid(), signal.SIGSEGV)",
+                    "timeout": "print('VIZ_SHAPE_SELFTEST=PASS'); raise SystemExit(124)",
+                    "pass_rc1": "print('VIZ_SHAPE_SELFTEST=PASS'); raise SystemExit(1)",
+                    "pass_rc137": "print('VIZ_SHAPE_SELFTEST=PASS'); raise SystemExit(137)",
+                    "pass_then_fail": "print('VIZ_SHAPE_SELFTEST=PASS'); print('VIZ_SHAPE_SELFTEST=FAIL')"}[mode]
+            self._write(os.path.join(self.tmp, "viz/report_figures.py"), body + "\n", 0o644)
+            rc, out = self._bash("require_tracked(){ [ -f \"$1\" ]; }\n" + self._helper()
+                                 + ". '%s'\ngate_viz_shape; echo \"GATE_RC=$?\"\n"
+                                 % os.path.join(self.ROOT, "scripts/doc_gates.d/70_publication_surfaces.sh"),
+                                 {"PYTHONPATH": os.path.join(self.tmp, "fakemods")})
+            self.assertNotIn("[skip]", out, "precondition: the fake matplotlib/numpy must import")
+            g = re.findall(r"^GATE_RC=(\d+)$", out, re.M)
+            self.assertEqual(len(g), 1, out)
+            res[mode] = (g[0], out)
+        self.assertEqual(res["healthy"][0], "0", res["healthy"][1])
+        for mode in self.BAD:
+            self.assertNotEqual(res[mode][0], "0", "%s read as PASS:\n%s" % (mode, res[mode][1]))
+
+    # ---------------------------------------------- shape 5: `producer | tr` hid the producer's rc (G49)
+    def test_f_gate_parity_figures_reads_the_checker_rc(self):
+        self._write(os.path.join(self.tmp, "documentation/PARITY_ALTERNATION.md"), "x\n", 0o644)
+        for mode in self.BAD + ("healthy",):
+            body = {"healthy": "print('PARITY_ALTERNATION=PASS')",
+                    "crash": "print('PARITY_ALTERNATION=PASS', flush=True); import os, signal; os.kill(os.getpid(), signal.SIGSEGV)",
+                    "timeout": "print('PARITY_ALTERNATION=PASS'); raise SystemExit(124)",
+                    "pass_rc1": "print('PARITY_ALTERNATION=PASS'); raise SystemExit(1)",
+                    "pass_rc137": "print('PARITY_ALTERNATION=PASS'); raise SystemExit(137)",
+                    "pass_then_fail": "print('PARITY_ALTERNATION=PASS'); print('PARITY_ALTERNATION=FAIL')"}[mode]
+            self._write(os.path.join(self.tmp, "verify.py"), body + "\n", 0o644)
+            rc, out = self._bash("require_tracked(){ [ -f \"$1\" ]; }\n" + self._helper()
+                                 + ". '%s'\ngate_parity_figures; echo \"GATE_RC=$?\"\n"
+                                 % os.path.join(self.ROOT, "scripts/doc_gates.d/90_claim_artifacts.sh"))
+            refused = "did not print PARITY_ALTERNATION=PASS" in out
+            if mode == "healthy":   # it gets PAST the token check (the figure scan after it is not stubbed)
+                self.assertFalse(refused, out)
+            else:
+                self.assertTrue(refused, "%s got past the token check:\n%s" % (mode, out))
+
+    # ---------------------------------------------- shape 6: pre_push_gate one_token + tok_is
+    def test_g_pre_push_q479_leg(self):
+        pp = "scripts/pre_push_gate.sh"
+        prog = self._fn(pp, "one_token") + self._fn(pp, "tok_is") + self._fn(pp, "_q479_leg")
+        stub = self._write(os.path.join(self.tmp, "stub.sh"), self.STUB)
+        for mode in self.BAD + ("healthy",):
+            rc, out = self._bash(prog + '_q479_leg - LEG K bash "%s" K PASS\n' % stub, {"STUB_MODE": mode})
+            if mode == "healthy":
+                self.assertIn("[ok]", out, out)
+            else:
+                self.assertNotIn("[ok]", out, "%s read as PASS:\n%s" % (mode, out))
+
+    # ---------------------------------------------- shape 7: tr12_repro_gate sub-legs
+    def test_h_tr12_repro_gate_q7ranks_and_q2_legs(self):
+        for leg, gate, key in (("q7ranks_parse_leg", "q7ranks_parse_gate.sh", "Q7RANKS_PARSE"),
+                               ("q2_witness_leg", "q2_witness_gate.sh", "Q2_WITNESS")):
+            prog = self._fn("scripts/tr12_repro_gate.sh", leg)
+            self._write(os.path.join(self.tmp, "scripts", gate),
+                        self.STUB.replace('k=${1:-KEY}; v=${2:-PASS}', 'k=%s; v=PASS' % key))
+            for mode in self.BAD + ("healthy",):
+                rc, out = self._bash(prog + '%s; echo "LEG_RC=$?"\n' % leg, {"STUB_MODE": mode})
+                g = re.findall(r"^LEG_RC=(\d+)$", out, re.M)
+                self.assertEqual(len(g), 1, out)
+                if mode == "healthy":
+                    self.assertEqual(g[0], "0", out)
+                else:
+                    self.assertNotEqual(g[0], "0", "%s read as PASS:\n%s" % (mode, out))
+                if mode in ("crash", "timeout", "pass_rc137", "pass_then_fail"):
+                    self.assertEqual(g[0], "2", "%s must be ERROR (2), not FAIL:\n%s" % (mode, out))
+
+    # ---------------------------------------------- P-04: count producers whose rc was dropped
+    def _copy_script(self, rel):
+        dst = os.path.join(self.tmp, "tree", rel)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy(os.path.join(self.ROOT, rel), dst)
+        return dst
+
+    def test_i_resume_budget_infinity_uncapped_run_must_finish(self):
+        g = self._copy_script("scripts/resume_budget_infinity_gate.sh")
+        # capped run: the documented skip line, rc 0. Uncapped run: STUB_MODE.
+        binp = self._write(os.path.join(self.tmp, "fake_solve"), r'''#!/usr/bin/env bash
+if [ -n "${SOLVE_PER_SUB_BRANCH_LIMIT:-}" ]; then echo "done (1 completed from checkpoint)"; exit 0; fi
+case "$STUB_MODE" in
+  healthy)  echo "done"; exit 0 ;;
+  crash)    kill -SEGV $$ ;;
+  timeout)  exit 124 ;;
+  pass_rc1) echo "done"; exit 1 ;;
+  pass_rc137) echo "done"; exit 137 ;;
+esac
+''')
+        for mode in ("crash", "timeout", "pass_rc1", "pass_rc137", "healthy"):
+            rc, out = self._bash('bash "%s"' % g, {"BIN": binp, "STUB_MODE": mode})
+            if mode == "healthy":
+                self.assertIn("\nRESUME_BUDGET_INFINITY=PASS\n", "\n" + out, out)
+            else:
+                self.assertNotIn("RESUME_BUDGET_INFINITY=PASS", out, "%s read as PASS:\n%s" % (mode, out))
+                self.assertIn("\nRESUME_BUDGET_INFINITY=ERROR\n", "\n" + out, out)
+
+    def test_j_atlas_portability_reads_every_solver_status(self):
+        g = self._copy_script("scripts/atlas_path_portability_gate.sh")
+        self._copy_script("scripts/lib_binary_currency.sh")
+        binp = self._write(os.path.join(self.tmp, "fake_solve"), r'''#!/usr/bin/env bash
+case "$1" in
+  --kc-scan) printf '{"atlas": 1}\n' > "$4"
+             case "$STUB_MODE" in crash) kill -SEGV $$ ;; timeout) exit 124 ;; pass_rc1) exit 1 ;; pass_rc137) exit 137 ;; esac ;;
+  *) mkdir -p "$2" ;;
+esac
+exit 0
+''')
+        for mode in ("crash", "timeout", "pass_rc1", "pass_rc137", "healthy"):
+            rc, out = self._bash('bash "%s"' % g, {"SOLVE": binp, "STUB_MODE": mode,
+                                                   "ATLAS_PORTABILITY_ALLOW_STALE": "1"})
+            if mode == "healthy":
+                self.assertIn("\nATLAS_PATH_PORTABLE=PASS\n", "\n" + out, out)
+            else:
+                self.assertNotIn("ATLAS_PATH_PORTABLE=PASS", out, "%s read as PASS:\n%s" % (mode, out))
+
+    def test_k_q317_delete_leg_needs_the_documented_refusal(self):
+        g = self._copy_script("scripts/q317_missing_shard_merge_gate.sh")
+        V, P = "sub_1_0_2_0.bin", "sub_1_0_3_0.bin"
+        binp = self._write(os.path.join(self.tmp, "fake_solve"), r'''#!/usr/bin/env bash
+V=%s
+if [ ! -e checkpoint_t0.txt ]; then          # the seed: one productive shard, one pending row
+  head -c 64 /dev/zero > "$V"
+  { echo "Sub-branch BUDGETED (thread 0, pair1 1 orient1 0 pair2 2 orient2 0): 9 nodes, 0 C3-valid, 2 solutions, 0s elapsed, budget 2000"
+    echo "Sub-branch BUDGETED (thread 0, pair1 1 orient1 0 pair2 3 orient2 0): 9 nodes, 0 C3-valid, 0 solutions, 0s elapsed, budget 2000"
+  } > checkpoint_t0.txt
+  echo "Found 1 sub-branch files with 2 total records"; exit 0
+fi
+echo "Found 1 sub-branch files with 2 total records"
+if [ -e "$V" ]; then echo "ERROR: $V logical size 56 is not a multiple of 32"; exit 20; fi
+case "$STUB_MODE" in
+  healthy)    echo "ERROR: $V missing"; echo "MERGE_SHARD=MISSING"; exit 20 ;;
+  crash)      kill -SEGV $$ ;;
+  timeout)    exit 124 ;;
+  pass_rc1)   echo "ERROR: something unrelated"; exit 1 ;;
+  pass_rc137) exit 137 ;;
+esac
+''' % V)
+        for mode in ("crash", "timeout", "pass_rc1", "pass_rc137", "healthy"):
+            rc, out = self._bash('bash "%s"' % g, {"BIN": binp, "STUB_MODE": mode})
+            self.assertIn("victim shard = " + V, out, "precondition: the stub seed was accepted:\n" + out)
+            if mode == "healthy":
+                self.assertIn("\nMISSING_SHARD_MERGE=PASS\n", "\n" + out, out)
+            else:
+                self.assertNotIn("MISSING_SHARD_MERGE=PASS", out, "%s read as PASS:\n%s" % (mode, out))
+                self.assertIn("\nMISSING_SHARD_MERGE=ERROR\n", "\n" + out, out)
+
+    def test_l_claim_ledger_evidence_rc(self):
+        cl = os.path.join(self.ROOT, "scripts/claim_ledger.sh")
+        with open(os.path.join(self.ROOT, "documentation/CLAIMS.tsv"), encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+        hdr = next(l for l in lines if l.startswith("id\t"))
+        row = next(l for l in lines if l.startswith("TR12_SUM_B0\t")).split("\t")
+        cols = hdr.split("\t")
+        ev, key = row[cols.index("evidence")], row[cols.index("key")]
+        r = subprocess.run(["bash", "-c", ev], cwd=self.ROOT, stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, text=True, timeout=300)
+        tok = [l for l in r.stdout.split("\n") if l.startswith(key + "=")]
+        self.assertEqual(len(tok), 1, "precondition: the evidence prints its key once")
+        for mode in ("crash", "timeout", "pass_rc1", "pass_rc137", "pass_then_fail", "healthy"):
+            cmd = {"healthy": "printf '%s\\n' '" + tok[0] + "'",
+                   "crash": "printf '%s\\n' '" + tok[0] + "'; kill -SEGV $$",
+                   "timeout": "printf '%s\\n' '" + tok[0] + "'; exit 124",
+                   "pass_rc1": "printf '%s\\n' '" + tok[0] + "'; exit 1",
+                   "pass_rc137": "printf '%s\\n' '" + tok[0] + "'; exit 137",
+                   "pass_then_fail": "printf '%s\\n' '" + tok[0] + "' '" + key + "=0'"}[mode]
+            row2 = row[:]
+            row2[cols.index("evidence")] = cmd
+            led = self._write(os.path.join(self.tmp, "led_%s.tsv" % mode), hdr + "\n" + "\t".join(row2) + "\n", 0o644)
+            rc, out = self._bash('bash "%s" --check --ledger "%s"' % (cl, led), cwd=self.ROOT)
+            if mode == "healthy":
+                self.assertIn("\nCLAIM_LEDGER=PASS\n", "\n" + out, out)
+                self.assertEqual(rc, 0, out)
+            else:
+                self.assertNotIn("CLAIM_LEDGER=PASS", out, "%s read as PASS:\n%s" % (mode, out))
+                self.assertNotEqual(rc, 0, out)
+            if mode in ("crash", "timeout", "pass_rc1", "pass_rc137"):
+                self.assertIn("\nCLAIM_LEDGER=ERROR\n", "\n" + out, "%s must be ERROR:\n%s" % (mode, out))
+                self.assertEqual(rc, 2, out)
+
+    def test_m_resume_167_node_sum_refuses_drift(self):
+        prog = self._fn("scripts/selftest_resume_167_gate.sh", "node_sum")
+        d = os.path.join(self.tmp, "ck")
+        os.makedirs(d)
+        good = ("Sub-branch BUDGETED (thread 0, pair1 1 orient1 0 pair2 2 orient2 0): 7 nodes, 0 C3-valid, "
+                "0 solutions, 0s elapsed, budget 50\n")
+        for name, text, want in (("healthy", good + good.replace("7 nodes", "5 nodes"), "12"),
+                                 ("drift", good.replace("7 nodes,", "nodes=7,"), None),
+                                 ("nobudget", good.replace("budget 50", "budget 60"), None)):
+            self._write(os.path.join(d, "checkpoint_t0.txt"), text, 0o644)
+            rc, out = self._bash(prog + 'node_sum "%s" 50; echo "NS_RC=$?"\n' % d)
+            g = re.findall(r"^NS_RC=(\d+)$", out, re.M)
+            if want is None:
+                self.assertNotEqual(g, ["0"], "%s read as a sum:\n%s" % (name, out))
+            else:
+                self.assertEqual(g, ["0"], out)
+                self.assertIn("\n12\n", "\n" + out)
+
+    def test_n_disk_precheck_legs_read_rc(self):
+        prog = self._fn("scripts/disk_precheck_marker_gate.sh", "legs")
+        good = hashlib.sha256(b"roae-disk-precheck-gate").hexdigest()
+        stub = self._write(os.path.join(self.tmp, "fake_solve"), r'''#!/usr/bin/env bash
+m="$2/$SOLVE_DISK_MARKER"; rc=1
+if [ -n "${SOLVE_DISK_MARKER_SHA:-}" ]; then
+  if grep -q "^$SOLVE_DISK_MARKER_SHA" "$m"; then echo "marker digest matches SOLVE_DISK_MARKER_SHA: PASS"
+  else echo "MARKER MISMATCH"; rc=5; fi
+elif [ ! -s "$m" ]; then echo "IDENTITY NOT ESTABLISHED"
+elif ! grep -qE '^[0-9a-f]{64}' "$m"; then echo "no 64-hex digest"
+else echo "first field $(cut -d' ' -f1 "$m")"; echo "REPORTED, not asserted"; fi
+case "$STUB_MODE" in healthy) exit $rc ;; crash) kill -SEGV $$ ;; timeout) exit 124 ;; pass_rc137) exit 137 ;; pass_rc1) exit 3 ;; esac
+''')
+        os.makedirs(os.path.join(self.tmp, "mnt"))
+        for mode in ("crash", "timeout", "pass_rc1", "pass_rc137", "healthy"):
+            rc, out = self._bash('M=%s/mnt WORK=%s GOOD=%s ZERO=%s\n' % (self.tmp, self.tmp, good, "0" * 64)
+                                 + prog + 'legs "%s"\n' % stub, {"STUB_MODE": mode})
+            legs = re.findall(r"^(L[1-6])=(\S+)$", out, re.M)
+            self.assertEqual(len(legs), 6, out)
+            if mode == "healthy":
+                self.assertEqual([v for _, v in legs], ["OK"] * 6, out)
+            else:
+                self.assertEqual([k for k, v in legs if v == "OK"], [], "%s read OK:\n%s" % (mode, out))
+                # a crash, kill or timeout is ERROR on every leg, distinct from a BAD answer
+                self.assertEqual([k for k, v in legs if not v.startswith("ERROR(")], [],
+                                 "%s must read ERROR on every leg:\n%s" % (mode, out))
+
+# end class TestQ951Q952VerdictNeedsExitStatus (batch 38, Q-951 / Q-952)
+
+
+class TestQ957Q958RanksAndCostRedaction(unittest.TestCase):
+    """Batch 38 (2026-10-03), Codex (gpt-6-astra) push-path review Q835, findings P-10 and P-11.
+
+    Q-957 (P-10): the battery row a2_q7_ranks counted every q7_*.json it read and only then asked
+    whether the certificate was IN with an arrangement. An IN certificate with no arrangement fell
+    into the "(not IN ...)" branch, was never ranked, and still counted toward the two-certificate
+    floor; a set of OUT-only certificates (King Wen's absent) passed too. The row now FAILS by name
+    on an IN certificate it cannot rank, and on a read in which nothing was ranked. The row is
+    EXTRACTED from scripts/tr12_repro.sh by its own markers (as q7ranks_parse_gate.sh does) and run
+    with a stub engine that prints the real engine's `rank3<TAB>N` format, which
+    q7ranks_parse_gate.sh leg 1 measures against the real binary.
+
+    Q-958 (P-11): corrections_inventory.sh kept a bare dollar-digits token as "code" when ONE
+    neighbouring character looked like code, so an amount in parentheses, in double quotes or
+    followed by a plus sign was published verbatim. It now keeps such a token only inside a backtick
+    code span. classify() is driven directly on a synthetic row; every figure is assembled at run
+    time, so this source states none.
+
+    Q957_BATTERY / Q958_SCRIPT point the tests at a copy of the unfixed scripts (red there)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    D = "$"
+
+    # ---- Q-957 -------------------------------------------------------------------------------
+    def _rank_row(self, certs):
+        battery = os.environ.get("Q957_BATTERY", os.path.join(self.ROOT, "scripts", "tr12_repro.sh"))
+        src = open(battery, encoding="utf-8").read().split("\n")
+        out, on = [], False
+        for ln in src:
+            if re.match(r"^\s*row_begin a2_q7_ranks\s*$", ln):
+                on = True
+            if on:
+                out.append(ln)
+                if re.match(r"^\s*row_end TR12_Q7_RANKS", ln):
+                    break
+        self.assertTrue(out and "row_end TR12_Q7_RANKS" in out[-1], "precondition: the row was extracted")
+        d = tempfile.mkdtemp(prefix="q957_")
+        self.addCleanup(shutil.rmtree, d, True)
+        art = os.path.join(d, "art"); os.makedirs(art); os.makedirs(os.path.join(d, "work"))
+        for name, doc in certs.items():
+            with open(os.path.join(art, name), "w") as fh:
+                fh.write(doc)
+        stub = os.path.join(d, "solve")
+        with open(stub, "w") as fh:
+            fh.write("#!/bin/sh\nprintf 'rank3\\t0\\n'\n")
+        os.chmod(stub, 0o755)
+        with open(os.path.join(d, "block.sh"), "w") as fh:
+            fh.write("\n".join(out) + "\n")
+        drv = ('set +u; row_begin(){ :; }; row_end(){ ROWRC=$2; }\n'
+               'SOLVE="$D/solve"; FDIR="$D/f"; GDIR="$D/g"; ARTDIR="$D/art"; WORK="$D/work"\n'
+               'ANCHOR="5,6,7"; N_PAIRS=31; RAW="$D/raw"; : > "$RAW"\n'
+               '. "$D/block.sh" >/dev/null 2>&1\ncat "$RAW"; exit "${ROWRC:-99}"\n')
+        r = subprocess.run(["bash", "-c", drv], capture_output=True, text=True, timeout=60,
+                           env=dict(os.environ, D=d))
+        return r.returncode, r.stdout
+
+    KW = '{"label": "KW", "verdict_super": "IN", "arrangement": "63,0,5,6,7"}'
+    OUT = '{"label": "historical", "verdict_super": "OUT", "arrangement": "63,0,1,2,3"}'
+
+    def test_a_positive_control_kw_plus_out_passes(self):
+        rc, out = self._rank_row({"q7_kw.json": self.KW, "q7_zz_hist.json": self.OUT})
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("Q7RANKS_FAIL", out)
+
+    def test_b_in_certificate_without_arrangement_fails_by_name(self):
+        rc, out = self._rank_row({"q7_kw.json": self.KW, "q7_zz_hist.json": self.OUT,
+                                  "q7_moore-strict.json": '{"label": "moore-strict", "verdict_super": "IN", "arrangement": ""}'})
+        self.assertNotEqual(rc, 0, out)
+        self.assertRegex(out, r"(?m)^Q7RANKS_FAIL\tq7_moore-strict\.json: verdict_super=IN but no arrangement")
+
+    def test_c_nothing_ranked_fails_even_with_two_certificates_read(self):
+        rc, out = self._rank_row({"q7_a_hist.json": self.OUT, "q7_b_hist.json": self.OUT})
+        self.assertIn("(not IN", out, "precondition: both certificates were read")
+        self.assertNotEqual(rc, 0, out)
+        self.assertRegex(out, r"(?m)^Q7RANKS_FAIL\tranked=0<1")
+
+    # ---- Q-958 -------------------------------------------------------------------------------
+    def _classify(self, text):
+        script = os.environ.get("Q958_SCRIPT", os.path.join(self.ROOT, "scripts", "corrections_inventory.sh"))
+        src = open(script, encoding="utf-8").read()
+        i = src.index('\ncase "${1:-}" in')
+        d = tempfile.mkdtemp(prefix="q958_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        drv = os.path.join(d, "scripts", "drv.sh")
+        with open(drv, "w", encoding="utf-8") as fh:
+            fh.write(src[:i] + "\nclassify\n")
+        r = subprocess.run(["bash", drv], input="inline\tx.md\t1\t%s\n" % text,
+                           capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        rows = r.stdout.rstrip("\n").split("\n")
+        self.assertEqual(len(rows), 2, r.stdout)
+        return rows[1].split("\t")[7]
+
+    def test_d_wrapped_and_suffixed_amounts_are_redacted(self):
+        D = self.D
+        shapes = ["(%s900)" % D, '"%s901"' % D, "%s902+" % D, "'%s903'" % D, "[%s904]" % D,
+                  "{%s905}" % D, "%s906=" % D, "%s907 ~" % D, "%s908 =" % D]
+        text = "Corrected: " + ", ".join(shapes) + "."
+        got = self._classify(text)
+        for sh in shapes:
+            self.assertNotIn(sh, got, "a dollar amount survived the redaction: %r" % sh)
+        self.assertNotRegex(got, r"\$[0-9]", got)
+        self.assertEqual(got.count("[cost redacted]"), len(shapes), got)
+
+    def test_e_fields_inside_a_code_span_are_kept_and_nothing_else(self):
+        D = self.D
+        text = ("Corrected the awk: `%s3` and `a[%s1]` and `%s8 ~ /x/`; outside %s4 and an "
+                "unclosed `%s5" % (D, D, D, D, D))
+        got = self._classify(text)
+        for keep in ("`%s3`" % D, "`a[%s1]`" % D, "`%s8 ~ /x/`" % D):
+            self.assertIn(keep, got)
+        self.assertNotIn("%s4" % D, got)
+        self.assertNotIn("%s5" % D, got)
+        self.assertEqual(got.count("[cost redacted]"), 2, got)
+
+# end class TestQ957Q958RanksAndCostRedaction (batch 38, Q-957/Q-958)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -98,7 +98,9 @@
 #   gate adjudicates on the EXIT CODE and never on the unique count.
 #
 # VERDICT: MISSING_SHARD_MERGE=PASS|FAIL|ERROR   (exit 0 | 1 | 2)
-#   PASS  the delete leg reached the merge scan AND exited non-zero.
+#   PASS  the delete leg reached the merge scan AND exited 20 (MERGE_SHARD=MISSING), the documented
+#         refusal. Q-951 (2026-10-03): it used to be "exited non-zero", so a leg killed or timed out
+#         (rc 124/137) read as PASS; any other non-zero rc is now ERROR.
 #   FAIL  the delete leg reached the merge scan and exited 0 — the defect.
 #   ERROR nothing was measured; see the ERROR list. Never reported as PASS.
 #
@@ -139,7 +141,7 @@ trap cleanup EXIT
 run_enum() { # run_enum <dir> <logfile>
   ( cd "$1" && env -u SOLVE_SKIP_AUTOMERGE -u SOLVE_NODE_LIMIT -u SOLVE_DFS_ITERATIVE \
                     SOLVE_DEPTH=2 SOLVE_PER_SUB_BRANCH_LIMIT="$PSB" \
-                    nice -n 5 "$bin" 0 2 ) > "$2" 2>&1
+                    nice -n 5 timeout "${Q317_TIMEOUT:-3600}" "$bin" 0 2 ) > "$2" 2>&1
 }
 
 # ---------------------------------------------------------------- seed --------
@@ -248,6 +250,9 @@ echo "   TRUNCATE leg: RC=$trunc_rc  $(sed -n 's/^\(ERROR: .*not a multiple of 3
 if [ "$trunc_rc" -eq 0 ]; then
   fail_error "the TRUNCATE control exited 0 — a corruption this binary is known to catch did not surface; the legs are not reaching the merge, so nothing was measured"
 fi
+if [ "$trunc_rc" -ne 20 ]; then   # Q-951: 20 is the documented refusal; a kill or timeout is not one
+  fail_error "the TRUNCATE control exited $trunc_rc, not the documented refusal code 20 — it did not fail for the reason it exists to show, so nothing was measured"
+fi
 if [ "$(grep -cF "$vict" "$WORK/trunc.log")" -eq 0 ]; then
   fail_error "the TRUNCATE control exited $trunc_rc but never named $vict — it failed for some other reason, so nothing was measured"
 fi
@@ -255,6 +260,15 @@ if [ "${del_reached:-0}" -eq 0 ]; then
   fail_error "the DELETE leg never reached the merge scan (no 'Found N sub-branch files') — one of the four early exits fired; nothing was measured"
 fi
 
+# Q-951: the producer's rc must be one of its DOCUMENTED values before it is read as a verdict.
+# 0 is the defect (FAIL, below); 20 with MERGE_SHARD=MISSING is the refusal (PASS); anything else --
+# a timeout (124), a kill (137/143), a crash (>=128) or an unrelated error -- measured nothing.
+if [ "$del_rc" -ne 0 ] && [ "$del_rc" -ne 20 ]; then
+  fail_error "the DELETE leg exited $del_rc, neither 0 (the defect) nor 20 (the documented MERGE_SHARD=MISSING refusal)$( [ "$del_rc" = 124 ] && echo ' -- it timed out') — nothing was measured"
+fi
+if [ "$del_rc" -eq 20 ] && ! grep -qx 'MERGE_SHARD=MISSING' "$WORK/del.log"; then
+  fail_error "the DELETE leg exited 20 but never printed MERGE_SHARD=MISSING — it refused for some other reason, so nothing was measured"
+fi
 if [ "$del_rc" -eq 0 ]; then
   echo "   [FAIL] $vict was DELETED, its checkpoint row still claims $vict_n solutions,"
   echo "          and the merge completed with RC=0. The records are silently gone."

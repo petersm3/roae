@@ -562,6 +562,10 @@ latter.
 
 Written atomically (temp file, `fsync`, `rename`, directory `fsync`) once per
 layer commit, and non-fatally: any failure warns and the build continues.
+*(2026-10-03, Q-418: non-fatal, but not silent. When the sidecar is enabled and was not written, the build
+also prints `ERROR: [sidecar] … was committed WITHOUT its stats sidecar` and the line
+`F1C5_LAYER_SIDECAR=MISSING`, then continues. The sidecar is now written for `--f1-c3-hist` layers
+(`F1C3LAY1`/`F1C3LAY2`) as well, with an extra `layer_family` key; before that it was skipped for every one of them.)*
 
 | key | what it is |
 |---|---|

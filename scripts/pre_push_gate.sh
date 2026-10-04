@@ -138,6 +138,9 @@
 # battery on this same tree, and the hook reuses it ONLY when that record is complete, all-PASS,
 # and for the exact tree, citation base and toolchain being pushed. Anything else runs the full
 # battery. See "Q-798: TREE-KEYED REUSE" in the per-sha loop and scripts/prepush_verdict_record.sh.
+#   The reverse also holds (Q-949, 2026-10-03): a test-fixture or override variable inherited from
+# the pusher's shell is REFUSED before anything runs, so nothing in the environment can quietly
+# change what the gates check. See "Q-949" just below.
 #
 # FAIL DIRECTION: CLOSED. A false stop costs one retry; a false pass ships a
 # doc-integrity defect or a compile error into the published record.
@@ -145,6 +148,98 @@ set -u
 
 ROOT=$(git rev-parse --show-toplevel) || exit 1
 Z40=0000000000000000000000000000000000000000
+
+# ---- Q-949: INHERITED FIXTURE AND OVERRIDE VARIABLES ARE REFUSED (2026-10-03, batch 38) --------
+# WHY. Every leg below runs in the pusher's environment. Before this guard the hook dropped only
+# GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE and CITGATE_BASE, so any test-fixture or override variable
+# left exported in the pusher's shell reached the gates and changed what they checked: e.g.
+# DOC_GATE_LSD_REF moves GATE 99's reference, DOC_GATE_TR_REG/DOC_GATE_TR_CORPUS swap the
+# transcript registry and corpus, DOC_GATES_SRC_OVERRIDE makes the instrument scan read another
+# file, CITGATE_ROOT/CITGATE_SRC re-root the citation gate, CLIDECL_PAIRS replaces the CLI pairs,
+# G19_DOC/G19_TR12 and the other G<n>_* names repoint gate_published_consistency.sh, ATLAS swaps
+# the n=31 atlas the blocking probe reads, SOLVE/BIN/SOLVE_BIN pick the binary, and *_ALLOW_STALE
+# accepts a stale one. Found by Codex (gpt-6-astra), push-path review Q835 (P-02).
+#
+# REFUSE, NOT SCRUB. Dropping these silently would hide a mistaken setup: a pusher who exported
+# one meant something by it, and the honest answer is "this push would not be judged the way you
+# think", said before anything runs. So the hook stops with one line per variable and
+# PREPUSH_ENV=REFUSED, exit 1. Re-push without them (`env -u NAME git push ...`). An EMPTY value is
+# refused too: several gates read `${VAR-default}`, where empty is a value and not an absence.
+# There is no bypass variable (same rule as the rest of this hook); --no-verify stays the visible one.
+#
+# THE ONE DOCUMENTED SCRUB, kept as it was (PREPUSH_ENV_DROP). CITGATE_BASE has been dropped, not
+# refused, since Q-792: the hook computes the right base for each pushed sha and sets it itself,
+# and the Q-792 red test pins that an exported CITGATE_BASE is overridden and the push still
+# gated. SHAFAIL_SEEN and TOK are this hook's own working variables. These are unset here and a
+# [note] says so.
+#
+# THE ALLOW-LIST (PREPUSH_ENV_ALLOW): variables a REAL push legitimately carries.
+#   ROAE_PREPUSH_RECORD  Q-798 verdict-record reuse; the hook validates the record itself.
+#   ROAE_PRIVATE_DIR     the operator's private checkout; turns on GATE 21's private legs and the
+#                        scale gate. The operator's push runs set it.
+#   ROAE_REVIEW_QUEUE    the advisory review-loop print at the foot of this file; never blocking.
+#   TMPDIR, PATH, HOME   process environment: where scratch goes and where tools are found.
+# None of the refusal families below can match these names; they are checked first anyway.
+#
+# WHERE THE LIST COMES FROM. A scan of every file the push path can reach from this hook (the file
+# reference closure, without tests.py and the commit-time pre_commit_* gates), for every
+# `${NAME:-` / `${NAME-` / `${NAME:=` / `${NAME:+` / `${NAME:?` read, every os.environ / os.getenv
+# read, and every getenv("NAME") in C. tests.py (TestQ949Q950PrepushEnvAndRegistry) re-runs that
+# scan and fails when a name it finds is neither refused here, allowed, dropped, nor on its own
+# short list of names that are proven assigned before they are read. A family pattern or a named
+# entry that matches nothing the scan finds also fails it, so the lists cannot go stale either way.
+# NOT COVERED, and said so here: a variable read bare (`$NAME` with no default) and never assigned
+# before the read. Under `set -u` that aborts; without it the scan cannot tell it from a local.
+PREPUSH_ENV_ALLOW="ROAE_PREPUSH_RECORD ROAE_PRIVATE_DIR ROAE_REVIEW_QUEUE TMPDIR PATH HOME"
+PREPUSH_ENV_DROP="CITGATE_BASE SHAFAIL_SEEN TOK"
+# Named entries: inherited reads whose names belong to no family below.
+PREPUSH_ENV_REFUSE_NAMES="ATLAS BATTERY BIN SOLVE MUT ROWRC C2C3_FORCE_STDLIB CMI_KEEP_LOGS REDACT_FILE
+  CORPUS_RC DOC_CTX STRICT_FRAG CHAIN_BUDGET CHAIN_MODE PROVE_CONFIG_TIMEOUT LC_LAYERS_COMPLETE LC_RESUME
+  _DG_SRC ATLAS_PORTABILITY_TIMEOUT"
+# Families (shell glob patterns, matched with `case`; never pathname-expanded).
+PREPUSH_ENV_REFUSE_FAMILIES='DOC_GATE_* DOC_GATES_* CITGATE_* CLIDECL_* G[0-9]*_* _G[0-9]*_* GROUPC_*
+  TR12_* D5_[0-9]*_* Q[0-9]*_* *_ALLOW_STALE SOLVE_* KC_MIDN_* MANIFEST_ZERO_ENTRY_* EXEC_LANE_*
+  HISTORY_* DISK_PRECHECK_* DG_* LC_SCAN_* CORRECTIONS_*'
+prepush_env_guard() {
+  local v p hit refused="" n=0
+  local -a fams names allow drop
+  # `read -a` splits on IFS and never pathname-expands, so a pattern stays a pattern.
+  read -r -d '' -a fams <<<"$PREPUSH_ENV_REFUSE_FAMILIES" || true
+  read -r -d '' -a names <<<"$PREPUSH_ENV_REFUSE_NAMES" || true
+  read -r -d '' -a allow <<<"$PREPUSH_ENV_ALLOW" || true
+  read -r -d '' -a drop <<<"$PREPUSH_ENV_DROP" || true
+  for v in "${drop[@]}"; do
+    if [ -n "${!v+x}" ]; then
+      echo "pre-push: [note] dropped inherited $v (this hook sets it itself where a leg needs it)"
+      unset "$v"
+    fi
+  done
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    hit=0
+    for p in "${allow[@]}"; do [ "$v" = "$p" ] && hit=2 && break; done
+    [ "$hit" = 2 ] && continue
+    for p in "${names[@]}"; do [ "$v" = "$p" ] && hit=1 && break; done
+    if [ "$hit" = 0 ]; then
+      for p in "${fams[@]}"; do
+        case "$v" in $p) hit=1; break ;; esac
+      done
+    fi
+    if [ "$hit" = 1 ]; then refused="$refused $v"; n=$((n+1)); fi
+  done < <(compgen -e)
+  if [ "$n" -gt 0 ]; then
+    echo "pre-push: 🔴 REFUSED — the environment carries $n test-fixture or override variable(s) that"
+    echo "         change what the gates below would check. NOTHING was checked."
+    for v in $refused; do echo "    [refused] $v"; done
+    echo "         Re-run without them, e.g.:  env$(for v in $refused; do printf ' -u %s' "$v"; done) git push ..."
+    echo "         (see Q-949 at the top of scripts/pre_push_gate.sh for the list and the allow-list)."
+    echo "PREPUSH_ENV=REFUSED"
+    return 1
+  fi
+  echo "PREPUSH_ENV=CLEAN"
+  return 0
+}
+prepush_env_guard || exit 1
 
 # ---- EXACTLY-ONE verdict reader (Q-523, 2026-09-24) -------------------------
 # Every verdict this hook consumes is read through here. The reads it replaced were
@@ -337,6 +432,8 @@ R167SHAS=""
 SCRIPTSHAS=""
 REPRODIGSHAS=""
 NEWREFS=""
+declare -A NEWREF_SHA=()   # Q-950: new branch ref -> the (peeled) sha it publishes
+PUSHED_HEAD_SHAS=""        # Q-950: every sha this push publishes on a refs/heads/ ref
 if [ -t 0 ]; then
   SHAS=$(git rev-parse HEAD) || exit 1
   echo "pre-push: direct invocation (no ref list on stdin) — gating HEAD ${SHAS:0:12}"
@@ -393,11 +490,14 @@ else
     # Tags are not in the branch registry's population; a tag push must not consult it.
     case "${rref:-}" in
       refs/heads/*)
+        # Q-950: every sha published on a branch is a tree whose COMMITTED registry may declare a
+        # new name (see the declaration leg below); remember them, and which sha each new ref names.
+        case " $PUSHED_HEAD_SHAS " in *" $lsha "*) ;; *) PUSHED_HEAD_SHAS="$PUSHED_HEAD_SHAS $lsha" ;; esac
         case "${rsha:-}" in
           ''|*[!0]*) ;;                      # existing remote branch: name already known
           *) case " $NEWREFS " in
                *" $rref "*) ;;
-               *) NEWREFS="$NEWREFS $rref" ;;
+               *) NEWREFS="$NEWREFS $rref"; NEWREF_SHA[$rref]=$lsha ;;
              esac ;;
         esac ;;
     esac
@@ -465,48 +565,33 @@ NEWREFS=${NEWREFS# }
 # being created. That is the same defect the charge closed, restored by the shape of
 # the fix: a check nested under a precondition orthogonal to it.
 #
-# It runs in $ROOT and not in a pushed worktree ON PURPOSE: the registry rows that
-# matter are the ones in the tree being published, but the REMOTE REF LIST lives in
-# this clone. GATE 19 reads both, so it must run where both are readable.
-NEWREF_RC=0
-if [ -n "$NEWREFS" ]; then
-  echo "pre-push: NEW branch ref(s) to declare: $NEWREFS"
-  # 🔴 SIBLING SWEEP 2026-09-02 (FINDING_FAILOPEN_CLASS instance 38). This leg is the ONE dispatch
-  # in this hook that reads $ROOT's WORKING-TREE doc_gates.sh rather than a pushed sha's committed
-  # copy, so it sits squarely in the concurrency window where another unit's half-written script is
-  # unparseable. It is BLOCKING either way — the fail direction does not change — but "not declared
-  # in the branch registry" is a false statement about a gate that never ran, and it sends the
-  # reader to edit a registry that is fine. Classify instead of testing for zero.
-  if [ ! -f "$ROOT/scripts/doc_gates.sh" ]; then
-    echo "pre-push: BLOCKED — COULD NOT RUN the branch-registry gate (scripts/doc_gates.sh missing)."
-    echo "         Nothing was checked. This is not a registry finding."
-    NEWREF_RC=1
-  elif ! _dgerr=$(bash -n "$ROOT/scripts/doc_gates.sh" 2>&1); then
-    echo "pre-push: 🔴 BLOCKED — COULD NOT RUN the branch-registry gate: $ROOT/scripts/doc_gates.sh"
-    echo "         does not parse, so GATE 19 never executed and the branch registry was NOT read."
-    echo "         ${_dgerr:-bash -n returned non-zero with no message}"
-    echo "         DO NOT edit the branch registry in response to this — re-push once 'bash -n' is quiet."
-    NEWREF_RC=1
-  else
-    DOC_GATES_PENDING_BRANCHES="$NEWREFS" bash "$ROOT/scripts/doc_gates.sh" branch-registry; _brc=$?
-    case "$_brc" in
-      0) echo "pre-push: branch-registry gate PASSED for $NEWREFS" ;;
-      1) echo "pre-push: BLOCKED — new branch ref(s) not declared in the branch registry"; NEWREF_RC=1 ;;
-      *) echo "pre-push: 🔴 BLOCKED — COULD NOT RUN: the branch-registry gate exited $_brc, which is"
-         echo "         neither clean(0) nor findings(1). It aborted after parsing; the registry was"
-         echo "         not read. This is not a registry finding."; NEWREF_RC=1 ;;
-    esac
-  fi
-fi
-
-if [ -z "$SHAS" ]; then
-  if [ -n "$NEWREFS" ]; then
-    echo "pre-push: no new tree; the declaration leg above is the whole verdict"
-    exit "$NEWREF_RC"
-  fi
-  echo "pre-push: no shas to gate"
-  exit 0
-fi
+# Q-950 (2026-10-03, batch 38): IT READS THE COMMITTED REGISTRY OF A PUBLISHED TREE, NEVER $ROOT's.
+# Until this change it ran `bash "$ROOT/scripts/doc_gates.sh" branch-registry`, i.e. the developer's
+# WORKING-TREE gate against the WORKING-TREE documentation/BRANCH_REGISTRY.tsv and README.md. An
+# uncommitted registry row therefore cleared a new branch that no published tree declares, and when
+# the push carries no new tree that was the whole verdict. Found by Codex (gpt-6-astra), push-path
+# review Q835 (P-03). The comment this replaces said the leg ran in $ROOT because "the REMOTE REF
+# LIST lives in this clone"; a LINKED worktree shares this clone's refs and remote config, so
+# `git ls-remote origin` and refs/remotes/origin/* read the same there (the Q-798 always-local legs
+# have run GATE 19 in the pushed worktree since 2026-09-27).
+#   THE DECLARING TREE for each new ref is the first of these whose COMMITTED registry has a row for
+# the name (column 1, comment rows skipped, the same rule GATE 19 applies):
+#   1. the sha the ref itself publishes;
+#   2. any other sha this push publishes on a branch (e.g. main carrying the row, pushed together
+#      with a snapshot branch at an old commit whose own tree cannot name itself);
+#   3. refs/remotes/origin/main, the published main as this clone last fetched it.
+# If none declares it, the declaring tree is the ref's own sha, so GATE 19 reports it undeclared
+# there. GATE 19 then runs ONCE PER DECLARING TREE, in a temp detached worktree of that sha, with
+# that tree's own scripts/doc_gates.sh and DOC_GATES_PENDING_BRANCHES set to the refs it declares.
+# FAIL-CLOSED: a declaring tree with no committed documentation/BRANCH_REGISTRY.tsv, or no
+# scripts/doc_gates.sh, or one that does not parse, BLOCKS the push and says nothing was checked.
+# RESIDUAL: candidate 3 is a cached remote-tracking ref; a main force-pushed since the last fetch to
+# drop a row would still read as declaring it. `git fetch` before pushing closes that.
+# reg_declares <sha> <branch>: rc 0 when <sha>'s committed registry has a row for <branch>.
+reg_declares() {
+  git -C "$ROOT" show "$1:documentation/BRANCH_REGISTRY.tsv" 2>/dev/null \
+    | awk -F'\t' -v b="$2" '$1 == "#" || $1 ~ /^# / {next} $1 == b {f = 1} END {exit !f}'
+}
 
 # ---- temp-worktree lifecycle: removed on EVERY exit path ------------------
 # A leaked worktree pollutes `git worktree list` until pruned; clean up on
@@ -531,6 +616,78 @@ trap cleanup EXIT
 trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
 trap 'cleanup; exit 129' HUP
+
+NEWREF_RC=0
+if [ -n "$NEWREFS" ]; then
+  echo "pre-push: NEW branch ref(s) to declare: $NEWREFS"
+  # Group the new refs by declaring tree (see Q-950 above).
+  declare -A _DECL_REFS=()
+  _DECL_ORDER=""
+  _origin_main=$(git -C "$ROOT" rev-parse -q --verify 'refs/remotes/origin/main^{commit}' 2>/dev/null || true)
+  for _nr in $NEWREFS; do
+    _own=${NEWREF_SHA[$_nr]:-}
+    _ds=""
+    for _cand in $_own $PUSHED_HEAD_SHAS $_origin_main; do
+      if reg_declares "$_cand" "${_nr#refs/heads/}"; then _ds=$_cand; break; fi
+    done
+    if [ -n "$_ds" ]; then
+      [ "$_ds" = "$_own" ] || echo "pre-push: $_nr is declared by the committed registry of ${_ds:0:12}, not its own tree ${_own:0:12}"
+    else
+      _ds=$_own
+      echo "pre-push: no committed registry this push publishes (nor origin/main's) declares $_nr"
+    fi
+    case " $_DECL_ORDER " in *" $_ds "*) ;; *) _DECL_ORDER="$_DECL_ORDER $_ds" ;; esac
+    _DECL_REFS[$_ds]="${_DECL_REFS[$_ds]:-}${_DECL_REFS[$_ds]:+ }$_nr"
+  done
+  for _ds in $_DECL_ORDER; do
+    _dshort=${_ds:0:12}; _drefs=${_DECL_REFS[$_ds]}
+    # 🔴 SIBLING SWEEP 2026-09-02 (FINDING_FAILOPEN_CLASS instance 38), kept: a gate that could not
+    # run is classified as that, never as "not declared", which would send the reader to edit a
+    # registry that is fine. It is BLOCKING either way.
+    if ! git -C "$ROOT" cat-file -e "$_ds:documentation/BRANCH_REGISTRY.tsv" 2>/dev/null; then
+      echo "pre-push: BLOCKED — ${_dshort} has NO committed documentation/BRANCH_REGISTRY.tsv, so nothing"
+      echo "         published declares $_drefs. An uncommitted registry row does not count: commit it."
+      NEWREF_RC=1; continue
+    fi
+    WTBASE=$(mktemp -d "${TMPDIR:-/tmp}/prepush_decl.XXXXXX") || { echo "pre-push: BLOCKED — mktemp failed"; exit 1; }
+    if ! git -C "$ROOT" worktree add --detach --quiet "$WTBASE/tree" "$_ds"; then
+      echo "pre-push: BLOCKED — cannot check out ${_dshort} into a temp worktree for the branch-registry gate"
+      cleanup; NEWREF_RC=1; continue
+    fi
+    if [ ! -f "$WTBASE/tree/scripts/doc_gates.sh" ]; then
+      echo "pre-push: BLOCKED — COULD NOT RUN the branch-registry gate (${_dshort} has no scripts/doc_gates.sh)."
+      echo "         Nothing was checked. This is not a registry finding."
+      NEWREF_RC=1
+    elif ! _dgerr=$(bash -n "$WTBASE/tree/scripts/doc_gates.sh" 2>&1); then
+      echo "pre-push: 🔴 BLOCKED — COULD NOT RUN the branch-registry gate: ${_dshort}'s scripts/doc_gates.sh"
+      echo "         does not parse, so GATE 19 never executed and the branch registry was NOT read."
+      echo "         ${_dgerr:-bash -n returned non-zero with no message}"
+      echo "         DO NOT edit the branch registry in response to this."
+      NEWREF_RC=1
+    else
+      echo "pre-push: branch-registry gate for $_drefs in the committed tree of ${_dshort}"
+      ( cd "$WTBASE/tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+          DOC_GATES_PENDING_BRANCHES="$_drefs" bash scripts/doc_gates.sh branch-registry ); _brc=$?
+      case "$_brc" in
+        0) echo "pre-push: branch-registry gate PASSED for $_drefs (${_dshort})" ;;
+        1) echo "pre-push: BLOCKED — new branch ref(s) not declared in the branch registry of ${_dshort}"; NEWREF_RC=1 ;;
+        *) echo "pre-push: 🔴 BLOCKED — COULD NOT RUN: the branch-registry gate exited $_brc, which is"
+           echo "         neither clean(0) nor findings(1). It aborted after parsing; the registry was"
+           echo "         not read. This is not a registry finding."; NEWREF_RC=1 ;;
+      esac
+    fi
+    cleanup
+  done
+fi
+
+if [ -z "$SHAS" ]; then
+  if [ -n "$NEWREFS" ]; then
+    echo "pre-push: no new tree; the declaration leg above is the whole verdict"
+    exit "$NEWREF_RC"
+  fi
+  echo "pre-push: no shas to gate"
+  exit 0
+fi
 
 # ---- gate each pushed sha in its own detached worktree --------------------
 # Seeded from the declaration leg: an undeclared new branch blocks the push even when
@@ -708,7 +865,7 @@ for sha in $SHAS; do
       # failure would make every push noisy and the gate would be bypassed within a week.
       if [ -f "$WT/scripts/gate_published_consistency.sh" ]; then
         _gpc=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-                  bash scripts/gate_published_consistency.sh 2>&1 )
+                  bash scripts/gate_published_consistency.sh 2>&1 ); _gpcrc=$?
         # grep -qx, never a substring test: "PASS" is a prefix of "PASS-AT-PIN".
         # Q-523 sibling sweep: exactly one emission first. Before, a FAIL anywhere in the
         # output won (fail-closed), but FAIL-free duplicates -- PASS-AT-PIN then PASS --
@@ -722,18 +879,19 @@ for sha in $SHAS; do
           printf '%s\n' "$_gpc" | grep -E 'rose to|no pin file|malformed' | sed 's/^/         /'
           echo "         Fix it, or re-pin in this same commit with the reason written down."
           SHARC=1; _L_PUBLISHED_CONSISTENCY=FAIL
-        elif tok_is 'PUBLISHED_CONSISTENCY=PASS-AT-PIN'; then
+        # Q-952: a passing token counts only beside rc 0; a PASS with rc 124/137/1 falls to the else arm.
+        elif tok_is 'PUBLISHED_CONSISTENCY=PASS-AT-PIN' && [ "$_gpcrc" -eq 0 ]; then
           _L_PUBLISHED_CONSISTENCY=PASS
           echo "pre-push: published consistency at pin (no regression; known-open items stand)"
           # Echo WHICH legs stand. "at pin" alone reads as "fine"; the gate knows the list, so the
           # push log should carry it rather than making the lane re-run the gate to find out.
           printf '%s\n' "$_gpc" | grep -E '^  OUTSTANDING:' | sed 's/^/         /'
-        elif tok_is 'PUBLISHED_CONSISTENCY=PASS'; then
+        elif tok_is 'PUBLISHED_CONSISTENCY=PASS' && [ "$_gpcrc" -eq 0 ]; then
           _L_PUBLISHED_CONSISTENCY=PASS
           echo "pre-push: published consistency CLEAN -- all 19 legs measured zero;"
           echo "         tighten any non-zero pin to 0 in this commit (repaired-defect budget is headroom)"
         else
-          echo "pre-push: COULD NOT RUN the published-consistency gate (unrecognised verdict '$TOK')."
+          echo "pre-push: COULD NOT RUN the published-consistency gate (verdict '$TOK' with rc $_gpcrc is not a clean pass)."
           echo "         A gate that cannot report is not a gate that passed."
           SHARC=1; _L_PUBLISHED_CONSISTENCY=FAIL
         fi
@@ -982,13 +1140,17 @@ for sha in $SHAS; do
           # shape or exit code: an absent token is [ERROR], not a pass.
           _q479_leg() {  # $1 ADV_LEGS name (or - for none), $2 label, $3 verdict key, $4.. the command
             local adv=$1 lbl=$2 key=$3; shift 3
-            local out av="_A_$adv"
+            local out orc av="_A_$adv"
             [ "$adv" != - ] && [ "${!av:-}" = REUSED ] && return 0   # lane HAJ: covered by the record
-            out=$( "$@" 2>&1 )
+            out=$( "$@" 2>&1 ); orc=$?
             # Q-523: exactly one ${key}= line, or [ERROR] -- never the positional last one.
+            # Q-952: and a PASS/OK counts only beside rc 0. A gate killed or timed out after printing
+            # PASS (rc 124/137/143) is [ERROR] and stays NOT-RUN in the verdict record.
             if ! one_token "$key" "$out"; then
-              echo "    [ERROR]    $lbl — no single ${key}= verdict line (diagnosis above)."
+              echo "    [ERROR]    $lbl — no single ${key}= verdict line (rc $orc; diagnosis above)."
               echo "               A gate that cannot report is not a gate that passed."
+            elif { tok_is "$key=PASS" || tok_is "$key=OK"; } && [ "$orc" -ne 0 ]; then
+              echo "    [ERROR]    $lbl — $TOK but the gate exited $orc: HARNESS_BROKEN, not a pass."
             elif tok_is "$key=PASS" || tok_is "$key=OK"; then
               echo "    [ok]       $lbl — $TOK"
               [ "$adv" = - ] || printf -v "$av" '%s' PASS
@@ -1118,9 +1280,11 @@ for sha in $SHAS; do
         if adv_reuse FAILOPEN_CLOSURE "fail-open closure sweep" "./scripts/failopen_closure_gate.sh"; then
           _fo_out=""; _fo=REUSED   # lane HAJ: covered by a matching verdict record
         else
-        _fo_out=$( bash "$WT/scripts/failopen_closure_gate.sh" 2>&1 )
+        _fo_out=$( bash "$WT/scripts/failopen_closure_gate.sh" 2>&1 ); _forc=$?
         # Q-523: exactly one FAILOPEN_CLOSURE= line, or the *) arm below -- never the last one.
         one_token FAILOPEN_CLOSURE "$_fo_out"; _fo=$TOK
+        # Q-952: OK counts only beside rc 0; otherwise the *) arm reports it as not measured.
+        [ "$_fo" = FAILOPEN_CLOSURE=OK ] && [ "$_forc" -ne 0 ] && _fo="FAILOPEN_CLOSURE=OK (rc $_forc)"
         fi
         case "$_fo" in
           REUSED) ;;
@@ -1193,11 +1357,11 @@ for sha in $SHAS; do
   if [ -f "$WT/scripts/tr12_repro_gate.sh" ]; then
     echo "pre-push: [advisory] reproduction stamp + skip pin of pushed sha $short (its own tree) — NEVER blocking"
     _st_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-                 bash scripts/tr12_repro_gate.sh --check 2>&1 )
+                 bash scripts/tr12_repro_gate.sh --check 2>&1 ); _strc=$?
     if ! one_token TR12_REPRO_GATE_CURRENT "$_st_out"; then
       echo "  ⚠ reproduction stamp of $short: COULD NOT BE MEASURED — not the same as current"
       printf '%s\n' "$_st_out" | grep -E '^TR12_REPRO_GATE=|^ *\[(FAIL|ERROR)' | head -4 | sed 's/^/      /'
-    elif tok_is 'TR12_REPRO_GATE_CURRENT=YES'; then
+    elif tok_is 'TR12_REPRO_GATE_CURRENT=YES' && [ "$_strc" -eq 0 ]; then   # Q-952: YES needs rc 0
       echo "  [ok]   reproduction stamp describes pushed sha $short — $TOK"
     elif tok_is 'TR12_REPRO_GATE_CURRENT=NO'; then
       echo "  ⚠ REPRODUCTION STAMP IS STALE IN PUSHED SHA $short — $TOK"
@@ -1208,16 +1372,18 @@ for sha in $SHAS; do
     elif tok_is 'TR12_REPRO_GATE_CURRENT=UNKNOWN'; then
       echo "  ⚠ pushed sha $short carries NO reproduction stamp — $TOK. ADVISORY: the push continues."
     else
-      echo "  ⚠ reproduction stamp of $short: unrecognised verdict '$TOK' — not the same as current"
+      echo "  ⚠ reproduction stamp of $short: verdict '$TOK' with rc $_strc — not the same as current"
     fi
     # A pushed tree whose gate predates --selftest-skip-pin must NOT be asked for it: that
     # gate has no unknown-mode guard, so an unrecognised mode falls through to the full
     # build + battery run (minutes). Ask only a gate that declares the mode.
     if grep -qF -- '"--selftest-skip-pin"' "$WT/scripts/tr12_repro_gate.sh"; then
       _sp_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-                   bash scripts/tr12_repro_gate.sh --selftest-skip-pin 2>&1 )
+                   bash scripts/tr12_repro_gate.sh --selftest-skip-pin 2>&1 ); _sprc=$?
       if ! one_token TR12_SKIP_PIN_SELFTEST "$_sp_out"; then
-        echo "  ⚠ skip-pin comparator of $short: COULD NOT BE MEASURED — not the same as PASS"
+        echo "  ⚠ skip-pin comparator of $short: COULD NOT BE MEASURED (rc $_sprc) — not the same as PASS"
+      elif tok_is 'TR12_SKIP_PIN_SELFTEST=PASS' && [ "$_sprc" -ne 0 ]; then   # Q-952
+        echo "  ⚠ skip-pin comparator of $short: $TOK but rc $_sprc — HARNESS_BROKEN, not the same as PASS"
       elif tok_is 'TR12_SKIP_PIN_SELFTEST=PASS'; then
         echo "  [ok]   skip-pin comparator + live pin row count — $TOK"
       else
@@ -1265,9 +1431,11 @@ for sha in $SHAS; do
   # named; a detector that only recognises the rows already known to be bad is a list.
   if [ -f "$WT/scripts/row_assertion_gate.sh" ]; then
     _ra_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-                 bash scripts/row_assertion_gate.sh --strict 2>&1 )
+                 bash scripts/row_assertion_gate.sh --strict 2>&1 ); _rarc=$?
     if ! one_token ROW_ASSERTION "$_ra_out"; then
-      echo "  ⚠ row-assertion sweep of $short: COULD NOT BE MEASURED — not the same as PASS"
+      echo "  ⚠ row-assertion sweep of $short: COULD NOT BE MEASURED (rc $_rarc) — not the same as PASS"
+    elif tok_is 'ROW_ASSERTION=PASS' && [ "$_rarc" -ne 0 ]; then   # Q-952
+      echo "  ⚠ row-assertion sweep of $short: $TOK but rc $_rarc — HARNESS_BROKEN, not the same as PASS"
     elif tok_is 'ROW_ASSERTION=PASS'; then
       echo "  [ok]   every emitting battery row in $short asserts something about what it emitted"
     elif tok_is 'ROW_ASSERTION=FAIL'; then
@@ -1390,8 +1558,9 @@ if [ "$RC" -ne 0 ]; then
   echo
   if [ "$NEWREF_RC" -ne 0 ]; then
     echo "pre-push: BLOCKED — a NEW branch ref is not declared in documentation/BRANCH_REGISTRY.tsv."
-    echo "  Declare it (authoritative or snapshot) before publishing the name; an"
-    echo "  undeclared public branch is the CX-30-on-five-refs failure mode."
+    echo "  Declare it (authoritative or snapshot) in a COMMITTED registry this push publishes"
+    echo "  (or origin/main's) before publishing the name -- an uncommitted row does not count (Q-950);"
+    echo "  an undeclared public branch is the CX-30-on-five-refs failure mode."
   fi
   if [ "${SHAFAIL_SEEN:-0}" -ne 0 ]; then
     echo "pre-push: BLOCKED — at least one pushed sha failed its gates above."
@@ -1443,9 +1612,11 @@ fi
 # shape as a check that cannot fail, one layer out. ADVISORY here because it is a pre-scan
 # rehearsal rather than a property of the pushed tree.
 if [ -x "$ROOT/scripts/group_c_n9_rehearsal_gate.sh" ]; then
-  _gc_out=$( cd "$ROOT" && ./scripts/group_c_n9_rehearsal_gate.sh 2>/dev/null )
+  _gc_out=$( cd "$ROOT" && ./scripts/group_c_n9_rehearsal_gate.sh 2>/dev/null ); _gcrc=$?
   # Q-523: exactly one GROUPC_REHEARSAL= line, or the *) arm -- never the positional last one.
   one_token GROUPC_REHEARSAL "$_gc_out"; _gc=$TOK
+  # Q-952: PASS counts only beside rc 0; otherwise the *) arm reports it as not measured.
+  [ "$_gc" = GROUPC_REHEARSAL=PASS ] && [ "$_gcrc" -ne 0 ] && _gc="GROUPC_REHEARSAL=PASS (rc $_gcrc)"
   case "$_gc" in
     GROUPC_REHEARSAL=PASS) echo "  [ok]   Group C consumers rehearse clean at n=9, and the consumer's n==31 guard count matches its pin" ;;
     GROUPC_REHEARSAL=FAIL)

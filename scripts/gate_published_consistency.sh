@@ -88,8 +88,17 @@ echo "== G3: published disclosures that are now stale =="
 # this leg now COUNTS ITS OWN FINDINGS: one per stale row, one per fired artifact, and one for each
 # structural failure (registry unreadable, registry empty) so a leg that measured nothing is never
 # indistinguishable from a leg that measured clean.
+# 🔴 Q-955 (Codex Q835 P-08, A02#19; 2026-10-03): the probe's rc was read as two-valued, 0 = the
+# artifact exists and ANYTHING ELSE = "[ok] still true", and both rows carried the probe `false`.
+# Neither row could ever fire, and a probe that broke (a missing file, a git that failed, rc 2 or
+# 128) read as the disclosure being true. The probe contract is now three-valued, like grep's:
+# rc 0 = the artifact EXISTS (FAIL, the disclosure is stale), rc 1 = still true ([ok]), any other
+# rc = the probe could not answer (FAIL, counted). A probe that is a constant (`false`, `true`,
+# `:`, `exit N`, empty) can answer only one way and is refused as vacuous before it is run.
+# G3_REG overrides the registry path, for the red tests, the way G1_ROOT does for G1.
 G3_N=0
-REG=documentation/DISCLOSURE_CHECKS.tsv
+REG=${G3_REG:-documentation/DISCLOSURE_CHECKS.tsv}
+[ "$REG" = documentation/DISCLOSURE_CHECKS.tsv ] || echo "   [note] G3: G3_REG overrides the registry to $REG"
 if [ ! -r "$REG" ]; then
   echo "   [FAIL] $REG missing — the gate cannot run, which is a FAILURE, not a pass"; fail=1; G3_N=$((G3_N+1))
 else
@@ -100,11 +109,21 @@ else
     if ! grep -qF -- "$claim" "$f" 2>/dev/null; then
       echo "   [FAIL] $f no longer contains \"$claim\" — registry row is stale; remove it"; fail=1; G3_N=$((G3_N+1)); continue
     fi
-    if ( eval "$test_cmd" ) >/dev/null 2>&1; then
+    case "$(printf '%s' "$test_cmd" | tr -d '[:space:]')" in
+      ''|false|true|:|exit|exit[0-9]*)
+        echo "   [FAIL] $f: \"$claim\" — its probe is the constant '${test_cmd}', which can never"
+        echo "          fire, so this row watches nothing (Q-955). Give it a probe of the artifact."
+        fail=1; G3_N=$((G3_N+1)); continue ;;
+    esac
+    ( eval "$test_cmd" ) >/dev/null 2>&1; _g3rc=$?
+    if [ "$_g3rc" -eq 0 ]; then
       echo "   [FAIL] $f says \"$claim\" but the artifact EXISTS — the disclosure understates what"
       echo "          this repository can prove. Test that fired: $test_cmd"; fail=1; G3_N=$((G3_N+1))
-    else
+    elif [ "$_g3rc" -eq 1 ]; then
       echo "   [ok]   $f: \"$claim\" still true"
+    else
+      echo "   [FAIL] $f: \"$claim\" — the probe could not answer (rc $_g3rc), so whether the"
+      echo "          disclosure is still true is UNMEASURED (Q-955). Probe: $test_cmd"; fail=1; G3_N=$((G3_N+1))
     fi
   done < "$REG"
   [ "$n" -gt 0 ] || { echo "   [FAIL] registry has zero rows — a vacuous gate is not a passing one"; fail=1; G3_N=$((G3_N+1)); }

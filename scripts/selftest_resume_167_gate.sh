@@ -374,12 +374,13 @@ SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1"
   # PHASE_B *appends* to PHASE_A's checkpoint files, so the two runs are separated by the
   # `budget N` suffix of each line. sub_nodes is a PER-RUN delta (ts->nodes - nodes_before),
   # which is exactly why EXCESS discriminates where prior_nodes_walked does not.
-  G_NA=$(find "$tA" -maxdepth 1 -name 'checkpoint_t*.txt' -exec cat {} + 2>/dev/null \
-         | awk -v b="$bA" '$NF==b{for(i=1;i<=NF;i++) if($i=="nodes,") acc+=$(i-1)} END{print acc+0}')
-  G_NB=$(find "$tA" -maxdepth 1 -name 'checkpoint_t*.txt' -exec cat {} + 2>/dev/null \
-         | awk -v b="$bB" '$NF==b{for(i=1;i<=NF;i++) if($i=="nodes,") acc+=$(i-1)} END{print acc+0}')
-  G_NS=$(find "$tB" -maxdepth 1 -name 'checkpoint_t*.txt' -exec cat {} + 2>/dev/null \
-         | awk -v b="$bB" '$NF==b{for(i=1;i<=NF;i++) if($i=="nodes,") acc+=$(i-1)} END{print acc+0}')
+  # Q-951 (Codex push-path review Q835, P-04, 2026-10-03): each sum goes through node_sum, which
+  # REFUSES (rc 3) instead of reading 0. The inline awk `acc+0` read 0 nodes for every run when no
+  # row matched the budget or the row format drifted (no numeric "N nodes,"), so EXCESS = 0 sat
+  # under any threshold and the work-saving leg PASSED on a comparison that never happened.
+  G_NA=$(node_sum "$tA" "$bA") || { G_VERDICT=ERROR; G_RC=43; G_MSG="nodes_A unparseable: $G_NA"; return; }
+  G_NB=$(node_sum "$tA" "$bB") || { G_VERDICT=ERROR; G_RC=43; G_MSG="nodes_B unparseable: $G_NB"; return; }
+  G_NS=$(node_sum "$tB" "$bB") || { G_VERDICT=ERROR; G_RC=43; G_MSG="nodes_single unparseable: $G_NS"; return; }
   G_EXCESS=$(( G_NA + G_NB - G_NS ))
   echo "[gate] nodes_A=$G_NA nodes_B=$G_NB nodes_single=$G_NS  EXCESS=$G_EXCESS"
 
@@ -412,6 +413,19 @@ SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_AUTO_MANIFEST=1"
     G_VERDICT=PASS; G_RC=0
     G_MSG="R=Z=$G_Z zero-yield cells resumed, D=0, EXCESS=$G_EXCESS < Z*budget_A/2=$thresh, sha identical"
   fi
+}
+
+# node_sum <dir> <budget>: the sum of "<N> nodes," over that dir's checkpoint_t*.txt rows whose last
+# field is <budget>. rc 0 + the sum; rc 3 + a reason when no row carries the budget, or any such row
+# has no numeric "<N> nodes," field -- an unparseable population is not a population of zero.
+node_sum() {
+  find "$1" -maxdepth 1 -name 'checkpoint_t*.txt' -exec cat {} + 2>/dev/null | awk -v b="$2" '
+    $NF==b { n++; got=0
+             for (i=2;i<=NF;i++) if ($i=="nodes," && $(i-1) ~ /^[0-9]+$/) { acc+=$(i-1); got=1 }
+             if (!got) bad++ }
+    END { if (n==0)  { print "no checkpoint row carries budget " b; exit 3 }
+          if (bad>0) { print bad " of " n " budget-" b " row(s) have no numeric \"N nodes,\" field"; exit 3 }
+          print acc+0 }'
 }
 
 emit_tokens() {

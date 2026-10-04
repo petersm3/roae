@@ -227,7 +227,7 @@ fi
 
 # 🔴 EXECUTABLE IS NOT CURRENT. The build arm above compiles $REPO_ROOT/solve.c seconds
 # before use and is safe by construction. `--solve <path>` is not: it names a PATH, and the line
-# above checks only the +x bit. tr12_repro_gate.sh:744 passes a binary it just built from the
+# above checks only the +x bit. tr12_repro_gate.sh:802 passes a binary it just built from the
 # PUBLISHED build line, so the pre-push route was never exposed; a hand run
 # `scripts/tr12_repro.sh --n9 --solve ./solve` is, and that is the documented way to run this
 # battery against an existing binary. This file is the TR-12 REPRODUCTION harness: every row it
@@ -2609,7 +2609,7 @@ row_end TR12_Q2 $rc
 if [ "$N_PAIRS" -ge 31 ]; then
     row_begin a2_q7_ranks
     (
-      erc=0; processed=0   # LSD R18c (2026-09-29): count the certificates actually read
+      erc=0; processed=0; ranked=0   # LSD R18c (2026-09-29): count the certificates actually read; Q-957: and the ones actually ranked
       echo "# inputs: every q7_*.json written by the Q7 legs above: KW (IN; rank_O3(KW) = 0 is a labeling theorem),"
       echo "# the three historical arrangements (OUT; no rank), and -- since CX-93, 2026-09-25 -- the two PINNED"
       echo "# SAT witnesses q7_moore-strict.json / q7_grand-strict.json (IN; each gets its rank_O3, the witness"
@@ -2625,6 +2625,7 @@ if [ "$N_PAIRS" -ge 31 ]; then
           if [ "$v" = "IN" ] && [ -n "$arr" ]; then
               # §0.4(2): drop the first two values (the C4-anchored pair 63,0), pass the rest
               w=$(printf '%s' "$arr" | cut -d, -f3-)
+              ranked=$((ranked+1))
               "$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$w" > "$WORK/q7rank.out" 2>&1 || erc=1
               cat "$WORK/q7rank.out"
               # 🔴 F-5 ROUND 4 B3 (2026-09-11). This row took the solver's EXIT STATUS and nothing
@@ -2671,11 +2672,18 @@ if [ "$N_PAIRS" -ge 31 ]; then
               if [ "$lab" = "KW" ] && [ "$w" != "$ANCHOR" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): the walk ranked here is not \$ANCHOR -- two derivations of King Wen's walk disagree"; erc=1
               fi
+          elif [ "$v" = "IN" ]; then
+              # Q-957 (2026-10-03, Codex Q835 P-10): an IN certificate with no arrangement fell into
+              # the branch below, printed "(not IN ...)" and was never ranked, while the floor
+              # counted it as processed. An IN member that cannot be ranked is a broken certificate.
+              echo "Q7RANKS_FAIL	$(basename "$j"): verdict_super=IN but no arrangement -- an IN certificate that cannot be ranked is not ranked (Q-957)"; erc=1
           else
               echo "(not IN — no rank; a rank of a non-member is not defined)"
           fi
       done
-      [ "$processed" -ge 2 ] || { echo "Q7RANKS_FAIL	witnesses_processed=$processed<2 -- the row read fewer than two q7_*.json certificates, so it ranked nothing (LSD R18c)"; erc=1; }; exit $erc
+      [ "$processed" -ge 2 ] || { echo "Q7RANKS_FAIL	witnesses_processed=$processed<2 -- the row read fewer than two q7_*.json certificates, so it ranked nothing (LSD R18c)"; erc=1; }
+      [ "$ranked" -ge 1 ] || { echo "Q7RANKS_FAIL	ranked=$ranked<1 -- no IN certificate was ranked, so King Wen's rank_O3 = 0 was never measured (Q-957)"; erc=1; }
+      echo "q7_ranks_counts	processed=$processed	ranked=$ranked"; exit $erc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_RANKS $rc
 else
@@ -3300,7 +3308,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3274) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3282) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.
@@ -3654,7 +3662,12 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
       done
       awk -F'\t' '
         $1=="ZERO_ROWS" { print "XCHECK_FAIL\tv1_field/" $2 " produced no comparable (k,pair,mass) cell -- it was read and it said nothing"; f=1; next }
-        { v[$1 SUBSEP $2 SUBSEP $3] = $4; seen[$1]=1; if ($1=="shell") ns++; else nc++ }
+        # 🔴 Q835-A13 P-01 (Codex gpt-6-astra, 2026-10-03). This stored $4 as a strnum, so the
+        # `v[ck] != v[key]` below was a DOUBLE compare: 943 of the 992 published n=31 mass cells
+        # exceed 2^53, and 10^39 vs 10^39+48 compared EQUAL (gawk, mawk). The mass is forced to a
+        # string here ("" concatenation, after the ^[0-9]+$ filter of the reader above), so every
+        # comparison of v[] is exact and lexical. Equal decimals compare equal exactly as before.
+        { v[$1 SUBSEP $2 SUBSEP $3] = ($4 ""); seen[$1]=1; if ($1=="shell") ns++; else nc++ }
         END {
             if (!("shell" in seen) || !("cons" in seen)) { print "XCHECK_FAIL\tv1_field: only one side was read -- the cross-check did not cross-check"; exit 1 }
             if (ns==0 || nc==0) { print "XCHECK_FAIL\tv1_field: a side contributed no cells"; f=1 }
@@ -3663,7 +3676,7 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
                 if (kk[1] != "shell") continue
                 ck = "cons" SUBSEP kk[2] SUBSEP kk[3]
                 if (!(ck in v)) { print "XCHECK_FAIL\tv1_field layer " kk[2] " pair " kk[3] ": shell publishes " v[key] ", the consumer publishes no such cell"; f=1; continue }
-                if (v[ck] != v[key]) { print "XCHECK_FAIL\tv1_field layer " kk[2] " pair " kk[3] ": shell says " v[key] ", consumer says " v[ck]; f=1 }
+                if ((v[ck] "") != (v[key] "")) { print "XCHECK_FAIL\tv1_field layer " kk[2] " pair " kk[3] ": shell says " v[key] ", consumer says " v[ck]; f=1 }
             }
             for (key in v) {
                 split(key, kk, SUBSEP)

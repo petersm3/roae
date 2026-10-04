@@ -28184,3 +28184,415 @@ measured-times table carries them as measured.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, lanes R158, PKG-V2 to PKG-V4 and
 batch 37 (rebase); reviewed by Codex (gpt-6-astra), PKG-V1 and PKG-V3.
+
+## CX-285 — `solve --verify` on a headerless shard printed "sorted, no duplicates" and two zero counters for checks it skips; it now says they were not checked and prints a whole-line `VERIFY_SCOPE=shard|full` token (solve.c; tests.py; documentation/SOLVE_C_CLI.md; documentation/HISTORY.md)
+
+**2026-10-03.** Origin: backlog row Q-706, finding F-5 of the 2026-09-24 fail-open inventory (ledger
+instance 47). The fix was prepared on 2026-09-02 and never landed; HISTORY.md recorded it as open. Batch 38.
+
+**No published number, count, sha or certificate moves.** Every published `--verify` PASS was run on a
+`solutions.bin` with a header, and those runs did check sort order and duplicates. The header path's
+verdict, exit codes and counter lines are unchanged. Its only new output is the `VERIFY_SCOPE=full` line.
+
+**1. The defect.** `--verify` reads a file without the `ROAE` magic as a raw shard (a `sub_*.bin`). Raw
+shards are written in hash-slot order and are not deduplicated across shards, so the record loop skips the
+sort-order and duplicate counters (`if (r > 0 && !shard_mode)`). The output did not reflect that. Both
+counter lines printed 0, and the PASS sentence said `all N records satisfy C1-C5 (incl. C3), sorted, no
+duplicates`. Nothing machine-readable said which scope had run. Measured on the batch's previous staged tree:
+a shard holding the King Wen record twice printed that sentence, `Duplicate records: 0`, `VERIFY=PASS` and
+exit 0.
+
+**2. The correction.** In shard mode the two counter lines read `not checked (shard mode)` and the PASS
+sentence reads `all N records satisfy C1-C5 (incl. C3); shard mode: sort order and duplicates NOT checked`.
+After `KW_REQUIRED`, both modes print a whole-line `VERIFY_SCOPE=shard` or `VERIFY_SCOPE=full`. Shard mode
+still passes a shard that is unsorted or holds duplicates. That is the documented contract, since the merge
+is the step that sorts and deduplicates. Scripts can now see the scope by `grep -qx`, without parsing the
+prose. The token names the two modes, not the list of checks. The 2026-09-02 draft used
+`records_sorted_dedup` and `records_only_shard_no_sort_no_dedup`. Before landing they were shortened to `full`
+and `shard`, which fit the style of the other `KEY=value` tokens. The counter lines and the sentence say
+what each mode skips.
+
+**3. Tests.** `TestSolveVerifyShardScope` has four tests. One checks its own precondition: the headerless
+fixture really is routed to shard mode. One checks the shard output: scope token, both "not checked" lines,
+no "sorted, no duplicates". One checks the full-mode token. The last is a positive control: the same two
+records under a header report `Duplicate records: 1` and `VERIFY=FAIL` exit 1. With `ROAE_TESTS_SOLVE_SRC`
+pointed at the previous source, the shard-output and full-token tests fail and the other two pass. All four
+pass on this tree. Every solve.c edit keeps the file's line count.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-706.
+
+## CX-286 — every `--f1-c3-hist` layer was committed without its stats sidecar, because the sidecar reader refused the F1C3 layer magics and the builder treated the refusal as a warning; the reader now accepts them, decodes their keys correctly, and a sidecar that is not written is an ERROR with a token (solve.c; tests.py; documentation/SOLVE_C_CLI.md; documentation/F1C5_LAYER_FORMAT.md)
+
+**2026-10-03.** Origin: backlog row Q-418, item 4 of Codex review A8R. Codex and two later passes found the
+fault by reading the code, and none of the three could build and run it. Batch 38, lane B38B.
+
+**No published number, count, sha or certificate moves.** The sidecars are observability files, not part of
+the verification surface. The layer files and the histogram output are byte-for-byte the same before and
+after. The `--f1-exact-c1c2c4c5` sidecars are unchanged except for the run-dependent `rss_peak_mb` and
+`utc_epoch` fields.
+
+**1. What was run.** `solve --f1-c3-hist --f1-pairs 9 --layers-dir D`, built from the source before this fix.
+It printed `ERROR: D/f1c5_layer_00.bin is not an f1c5/g/t layer file (magic/version mismatch)`, then
+`WARN: [sidecar] digest failed for D/f1c5_layer_00.bin — sidecar skipped`, and did the same for each of
+the 10 layers. It exited 0, and `ls -l D` showed no `f1c5_layer_stats_*.json` file. The `--f1-c3-hist`
+writers use the f1c5 binary format under the magics `F1C3LAY1`/`F1C3LAY2`, which keep a C3 run and an f1c5
+run from resuming each other's layers. The logical-stream reader that the sidecar pass shares accepted
+only `F1C5LAY*`, `F1C5GLY*` and `F1C5TLY*`.
+
+**2. The fix.** The reader accepts the two F1C3 magics as forward (f) layers and records that it did. A C3
+key is `gofs<<22 | last<<16 | rid`, so the stats pass now strips the G offset before decoding `last`.
+Without that strip the branching statistics differ from the f1c5 ladder's in 6 of the 10 layers at n=9.
+C3 sidecars carry one extra key, `layer_family`. When sidecars are on and one was not written, the builder
+now prints `ERROR: [sidecar] … was committed WITHOUT its stats sidecar` and the line
+`F1C5_LAYER_SIDECAR=MISSING`, then continues. The pass stays non-fatal by contract (Q-875).
+
+**3. Checks.** At n=9, the final C3 layer's sidecar `mass_total` equals `G_HIST_TOTAL` (63,366,144). Run
+with `--with-c5`, the C3 sidecars match the `--f1-exact-c1c2c4c5` ladder's layer by layer: the same
+`mass_total`, the same `marginal_last_mass`, and the same branching minimum, maximum and support.
+`TestQ418F1C3LayerSidecars` has ten tests. Six fail and one errors on the previous source, and all
+pass on this one; the other three are controls. A mutant without the G-offset strip fails the cross-check test.
+
+**4. No other reader opens C3 layers.** A first version of this fix let every caller of the shared
+reader open them. `--f1c5-layer-sha` and `--f1c5-layer-cmp` then printed digests and comparisons of C3
+layers with exit 0, decoding their keys without the G channel. Before the fix, both refused with exit 2.
+Now only the sidecar pass reads C3 layers, from a build or from `--f1c5-sidecar-retrofit`. Any other
+open prints `ERROR: … is an --f1-c3-hist layer` and `F1C5_LAYER_FAMILY=C3-REFUSED`, and the tool exits 2
+as before. The KC tools (`--kc-ladder-verify` and `--kc-scan`, both in memory and with `--kc-ooc`) never
+reached the shared reader. Their own loaders reject the C3 magic, before and after the fix, and the tests
+pin that.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-418.
+
+## CX-287 — six documents left the TR-12 reproduction fingerprint: none of them is read by the battery, so `TR12_REPRO_GATE_CURRENT` no longer goes to `NO` when CORRECTIONS.md, HISTORY.md, PREREG_CLASSA_QUERY_SET.md, SOLVE_PY_CLI.md, SYMMETRY_SEARCH.md or TR8_REORDERING_REVISITED.md is edited, and the gate now fails if a script starts reading one (scripts/tr12_repro_gate.sh; tests.py; documentation/DEVELOPMENT.md)
+
+**2026-10-03.** Origin: backlog row Q-695, left open by Q-613. Landed by Opus, batch 38.
+
+**1. What was wrong.** Q-613 (2026-09-24) found 12 fingerprint members that were in the set only because
+a comment in a battery script named them, and listed 11 of them in `DECLARED` so the set stayed exactly
+as it was. Six of the 11 are documents. Whether they belonged was left open. Because they were members,
+every append to `documentation/HISTORY.md` or `documentation/CORRECTIONS.md` turned
+`TR12_REPRO_GATE_CURRENT` to `NO` and forced a re-stamp. The re-stamp re-ran a battery that cannot see
+the edit.
+
+**2. What was measured.** For each of the six, every non-comment line of the derived scripts (and of
+`solve.py`, `verify.py`, `sat.py` and `viz/report_figures.py`) that names the file was read. None opens,
+greps, sources or hashes it. The only code-text hits are two message strings in `scripts/tr12_repro.sh`
+(the `a2_gcheck_indep` skip reason, which names HISTORY.md, and a `READER_FAIL` message, which names
+PREREG_CLASSA_QUERY_SET.md and SYMMETRY_SEARCH.md), plus the gate's own list. No row's verdict and no
+golden depends on their bytes. The one case that looks like a dependency is not one. The three V4 tail
+anchors that the pre-registration publishes (690,176, 5,624 and 52) are written into
+`scripts/tr12_repro.sh` itself, which is a fingerprint member. The pre-registration's own bytes are
+pinned by its digest in `documentation/PREREGISTRATION_ESCROW.md`, which the doc gates check.
+
+**3. What changed.** The six moved from `DECLARED` to a new list, `REFERENCED_NOT_INPUTS`, which
+`fingerprint_files()` subtracts. The fingerprint went from 48 files to 42, and the six are the only
+difference. A new check, `not_input_read_check`, makes the gate fail if a listed file is also in `CORE`
+or `DECLARED`, or if a code line names one in a read form (a read command in command position, an input
+redirect, or a Python `open(`). A comment or a message that only names the file still passes. A read
+whose path is held in a variable is not seen; that is the same limit the derivation already has. The
+other five `DECLARED` members are scripts and the test harness, not documents, and are unchanged.
+
+**4. What it means for published claims.** `TR12_REPRO_GATE_CURRENT=YES` now says nothing about these
+six files. It never said anything useful about them: no PASS depended on them. The stamp was re-taken
+on this tree. `tests.py::TestQ695ReproClosureDocMembership` pins both lists and the 42-file result. It
+goes red when a removed document is listed again, when a kept member is dropped, or when the
+subtraction is removed. It also checks that a new comment cannot add a document back and that a real
+read fails the gate.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-695.
+
+## CX-288 — row c_xcheck's V1 leg compared 39-digit masses as doubles, so a low-digit disagreement between the shell and consumer tables passed; it now compares them as exact strings (scripts/tr12_repro.sh; tests.py)
+
+**Source.** Codex (gpt-6-astra), review Q835-A13, finding P-01 (High).
+
+**What was wrong.** Row `c_xcheck` in `scripts/tr12_repro.sh` has a V1 leg that checks each
+(layer, pair) mass in the shell's `v1_field.tsv` against the consumer's. It stored the mass as an awk
+field and compared with `v[ck] != v[key]`. An awk field that looks like a number is compared as a
+double, which holds about 16 significant digits. At n=31 the masses are 38-digit integers: 943 of the
+992 cells in the published `reports/tr12/scan/v1_field.tsv` are above 2^53. Measured with gawk and
+mawk: 10^39 and 10^39+48 compare equal, and so do 2^53 and 2^53+1. So the leg could not see a
+disagreement in the low digits of 95% of the cells it exists to check. The V5 and class-mass legs of
+the same row were already fixed for this class (Codex KCP1 finding 3; KCP2 section 2.1); the V1 leg,
+added later, was not.
+
+**Fix.** The mass is stored as a string (`$4 ""`) after the reader's existing `^[0-9]+$` filter, and
+the comparison forces both sides to strings. Equal decimal strings still compare equal, so the pass
+path is unchanged. Neither published table has leading zeros, so no pair of cells that compared
+equal before compares unequal now.
+
+**Sibling sweep.** Every awk and shell numeric comparison in `scripts/tr12_repro.sh`,
+`scripts/tr12_repro_gate.sh`, `scripts/*gate*.sh` and `scripts/doc_gates.d/*.sh` was checked
+against the range of the values it compares. This was the only unsafe one. The other mass and
+probability-numerator comparisons already use strings or bc, and the shell `-eq`/`-lt` tests and
+`$(( ))` act on row counts, layer indices, return codes, C3 values and file counts. The largest
+awk-summed value is a t-sidecar `n_entries` of about 8.4 × 10^10, which is exact in a double.
+`reviewer/selfcheck.sh` was swept too: its comparisons are Python `==` on strings or on `int()`
+values, so they are exact.
+
+**Tests.** `TestP01V1CrossCheckExactMasses` runs the row's own V1 comparator, cut from the script by
+its anchors. It checks that 10^39 against 10^39+48 fails, that 2^53 against 2^53+1 fails, that equal
+values pass, that small values behave as before, that the real n=31 tables pass (the shell side is
+rebuilt from `runs/20260906_kc_ladders_n31/atlas_n31.json`, the consumer side is the published table),
+and that a +48 change to the largest real cell fails. Run against the previous script, the three
+failure tests fail; on this tree all six pass. No number, count, sha or verdict changed. The TR-12
+fingerprint was re-stamped because `scripts/tr12_repro.sh` is in it.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q835-A13 P-01.
+
+## CX-289 — the pre-push hook ran its gates in whatever environment the pusher's shell carried, so an exported test-fixture or override variable (DOC_GATE_LSD_REF, CITGATE_ROOT, CLIDECL_PAIRS, G19_DOC, ATLAS, SOLVE, ...) changed what a push was checked against; the hook now refuses such a variable before running anything. The new-branch declaration check read the working-tree BRANCH_REGISTRY.tsv, so an uncommitted row cleared a branch no published tree declares; it now reads the committed registry of a published tree (scripts/pre_push_gate.sh; tests.py; documentation/DEVELOPMENT.md)
+
+**2026-10-03.** Origin: Codex (gpt-6-astra), push-path review Q835, findings P-02 (backlog Q-949) and P-03
+(backlog Q-950). Batch 38, on the batch's staged tree. Both findings were re-checked against the current
+source first; the line numbers in the review were at f9b50120 and had moved.
+
+**No published number, count, sha or certificate moves.** Only the push hook changed. A push from a clean
+environment whose new branches are declared in a committed registry runs exactly the legs it ran before.
+
+**1. Inherited variables (P-02, Q-949).** Before this change the hook dropped only `GIT_DIR`,
+`GIT_WORK_TREE`, `GIT_INDEX_FILE` and `CITGATE_BASE`. Every other variable in the pusher's shell reached the
+legs. Many gates read test-fixture or override variables of the form `${NAME:-default}`, so one left
+exported from a test session moved what was checked. Examples: `DOC_GATE_LSD_REF` moves GATE 99's
+reference, `DOC_GATE_TR_REG` and `DOC_GATE_TR_CORPUS` swap the transcript registry and corpus,
+`DOC_GATES_SRC_OVERRIDE` makes the instrument scan read another file, `CITGATE_ROOT` re-roots the citation
+gate, `CLIDECL_PAIRS` replaces the CLI pair list, the `G<n>_*` names repoint
+`gate_published_consistency.sh`, `ATLAS` swaps the atlas the blocking n=31 probe reads, `SOLVE`, `BIN` and
+`SOLVE_BIN` pick the binary, and the `*_ALLOW_STALE` names accept a stale one.
+- The hook now REFUSES to run when any of these is set, an empty value included, with one
+  `[refused] NAME` line each, `PREPUSH_ENV=REFUSED` and exit 1, before any leg runs. A clean run prints
+  `PREPUSH_ENV=CLEAN`. Refusal was chosen over a scrub because a scrub would hide a mistaken setup.
+- The variable list was enumerated by a scan of every file the push path can reach from the hook. The
+  scan excludes `tests.py`, the commit-time `pre_commit_*` gates and `perf_bench.sh`, which the push path
+  reaches only as citation-gate pin text. It finds every `${NAME:-`-style read, every `os.environ` or
+  `os.getenv` read and every C `getenv("NAME")`: 316 names. They are refused as 20 families (for example
+  `DOC_GATE_*`, `CITGATE_*`, `G[0-9]*_*`, `TR12_*`, `SOLVE_*`, `*_ALLOW_STALE`) and 18 named entries.
+  Two more reads arrived with the rest of batch 38. `ATLAS_PORTABILITY_TIMEOUT` (CX-291) is refused as
+  a 19th named entry. `FAILOPEN_SELFTEST_SENTINEL` (CX-290) is set by the self-test before any read, so
+  the test lists it with the names proven assigned first.
+- Allowed, with a comment saying why, because a real push carries them: `ROAE_PREPUSH_RECORD`,
+  `ROAE_PRIVATE_DIR`, `ROAE_REVIEW_QUEUE`, `TMPDIR`, `PATH`, `HOME`. `CITGATE_BASE` is still DROPPED rather
+  than refused, as it has been since Q-792: the hook sets the right base itself, and the Q-792 red test
+  pins that an exported value is overridden. The hook's own `SHAFAIL_SEEN` and `TOK` are dropped the same
+  way. No documented legitimate use is refused. The one knob that only tightens a check,
+  `DOC_GATES_LS_REMOTE_TIMEOUT`, is refused as well. It is documented only in its gate's header, not for
+  push use.
+- Not covered, and said so in the hook: a variable read bare (`$NAME`, no default) and never assigned
+  before the read. The five such idioms found on the push path (`TREE`, `BATTERY`, `OUTDIR`, `EXPECTDIR`, `BROOT`) are
+  each set from a flag or a fixed value first.
+
+**2. The branch registry (P-03, Q-950).** The new-branch declaration leg ran
+`$ROOT/scripts/doc_gates.sh branch-registry`, the developer's working-tree gate against the working-tree
+`documentation/BRANCH_REGISTRY.tsv` and `README.md`. An uncommitted registry row therefore cleared a new
+branch that no published tree declares. When the push carried no new tree, that was the whole verdict.
+- For each new branch the leg now picks a DECLARING TREE: the first of (1) the sha the ref publishes,
+  (2) any other sha this push publishes on a branch, (3) `refs/remotes/origin/main` whose COMMITTED
+  registry has a row for the name. Option (2) covers a snapshot branch at an old commit declared by
+  `main` in the same push.
+- If no tree declares the branch, the declaring tree is the ref's own sha, and GATE 19 reports the branch
+  undeclared there. GATE 19 runs in a temporary detached worktree of the declaring tree, with that tree's
+  own `doc_gates.sh`.
+- It fails closed. A declaring tree with no committed registry blocks the push even when that tree's own
+  gate would pass a missing file. So does a tree with no `doc_gates.sh`, or one that does not parse. The
+  comment the old leg carried said it had to run in `$ROOT` because the remote ref list lives there. A
+  linked worktree shares the clone's refs and remote configuration, and the Q-798 always-local legs have
+  run GATE 19 in the pushed worktree since 2026-09-27.
+- Residual: option (3) is a cached remote-tracking ref. A `main` force-pushed since the last fetch to
+  drop a row would still read as declaring it.
+
+**3. Sibling sweep (other legs reading the working tree where the pushed tree is meant).** None besides
+the declaration leg reads a working-tree file for a blocking verdict.
+- The Q-479 battery and the fail-open sweep are invoked by the path inside the pushed worktree without a
+  `cd`, but each resolves its tree from its own `dirname "$0"`, which is the worktree.
+- The review-loop leg reads the private queue, not tree content. The hook file itself is the working-tree
+  copy by git's design.
+- The Group C rehearsal still runs in `$ROOT`. It is advisory, and its header says why. But its
+  `n == 31` guard-count ratchet is a property of the tree, so this is recorded as a follow-up rather than
+  justified away.
+
+**4. Tests.** `TestQ949Q950PrepushEnvAndRegistry` in `tests.py`, 16 tests.
+- Static: the hook's lists are re-derived from the scan. Any name found and not classified fails, and so
+  does any list entry or family that matches nothing. Positive controls cover the names Codex listed and a
+  planted read.
+- Behavioural: the real hook in a throwaway repository with stub gates and a throwaway bare remote;
+  nothing is pushed. It refuses 13 sample overrides and an empty value before any gate runs. It passes
+  the allow-list and drops `CITGATE_BASE`. An uncommitted row clears nothing, with or without a new tree.
+  A committed row passes, a snapshot declared by `main` in the same push passes, and a tree with no
+  committed registry blocks under a lax gate.
+- Mutants: the guard call removed; the family match quoted into a literal; GATE 19 run in `$ROOT`; the
+  registry precheck removed. Each anchor is asserted to occur once before it is applied.
+- Run against a copy of the pre-fix hook, every defect test is red for the stated reason (rc 0).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-949 and Q-950.
+
+## CX-290 — self-test legs that could not fail now can: GATE 1's WARN check, two fail-open closure fixtures, the GATE 15/16 fire-proofs and the fire helpers that read no exit code or any nonzero one, GATE 10b's rc, and the two disclosure probes that were the constant `false` (scripts/doc_gates.sh; scripts/failopen_closure_gate.sh; scripts/gate_published_consistency.sh; documentation/DISCLOSURE_CHECKS.tsv; tests.py)
+
+**2026-10-03.** Origin: backlog rows Q-954 and Q-955, from the Codex (gpt-6-astra) push-path review Q835 (lens A), findings P-07 and P-08. Landed by Opus, batch 38.
+
+**1. What was wrong.** Each of these checks stayed green when the thing it checks was broken.
+- GATE 1's self-test leg passed if the output contained `WARN` anywhere. The numbers-mode footer
+  always says "Read its [WARN]/[note] lines above", and the anchor's key already warns on the
+  unchanged tree (README.md's N beside QUERY_INVENTORY.md's N-1). So the leg passed with the gate
+  doing nothing.
+- `failopen_closure_gate.sh --selftest` checked that two fixtures had not run by looking
+  for a file they would write. They wrote it under `$HOME`, which points at a scratch directory that
+  is deleted when the fixture exits, and the check looked somewhere else. The file could never be
+  there, so the check was true whether or not the fixture ran.
+- Its `plant_closed3.py` fixture was one line with literal `\n` escapes. Python could not parse it
+  (rc 1), so it was graded "closed" because it crashed, not because it refused an empty input.
+- `_g16b` and fourteen GATE 15/16 fire-proofs never read the gate's exit code. GATE 10b's leg, the
+  `assert_fires_why` and `assert_gen_fires` helpers and ten inline fire-proofs counted any nonzero
+  exit as "fires", so a refusal (2), a timeout (124) or a kill (137, 143) counted too.
+- `gate_published_consistency.sh` G3 read any nonzero probe exit as "the disclosure is still true",
+  and both rows of `DISCLOSURE_CHECKS.tsv` used the probe `false`, which can never fire. Both rows
+  had used it since they were added.
+
+**2. What changed.**
+- GATE 1's leg now needs exit 0, the WARN line for key 40:1097051278, and the injected value listed
+  as coming from README.md.
+- The fail-open self-test writes its marker files to a directory outside the scratch tree. A fixture
+  that does run (`plant_closed.sh`) now writes one too, which shows the check can see a run. The
+  `az` line in the "unrun" fixture comes after an `exit 0`, so a fixture that is run by mistake
+  never reaches it. The Python fixture has real newlines. Each "closed" check now names the exit
+  code the fixture's refusal produces (2, 1 or 127).
+- Every one of those fire-proofs and helpers now needs exit 1, the code a doc-gates mode returns
+  when a gate fires. A mode that refuses to run returns 2.
+- G3 probes now have three results: 0 means the artifact exists (FAIL), 1 means the disclosure is
+  still true, and anything else means the probe could not answer (FAIL). A constant probe (`false`,
+  `true`, `:`, `exit N`, empty) is refused before it runs. `G3_REG` points the leg at another
+  registry, for tests.
+- Each row now has a real probe. TR-11's row ("no public artifact backs these four integers", the
+  24/25/27/28-pair ladder) fires when any tracked file that is not prose or source code contains
+  one of the four integers. Source files are left out because verify.py and
+  `reports/evidence/f1/f3_rung_b0_cleanroom.py` hold them as expected values, not as run records.
+  TR-12's row (the shortfall factor has "no public reproduction command") fires when
+  `reports/tr12/VERDICTS.txt` reports `TR12_XA_CD` as PASS or ONE-SIDED. That query is the one that
+  would reproduce the factor. Both rows read "still true" on today's tree.
+
+- Found while checking the fix: two GATE 16 LEG 3 self-test legs (the "mixed bin") had been red
+  since batch 34 added a `[ok]   %s:%d %s %s (%s)` message to the transcript gate. Their planted
+  pattern `zqmix $zq planted` fits that message, because a field may take one word at either end of
+  the pattern. The pattern now ends in a fourth word, so `planted` sits in the middle, where no field
+  can take it. The gate itself was right.
+
+**3. What did not change.** No gate verdict on the real tree moved. No number, count, sha or published
+claim changed. Status-mode fire-proofs (GATE 5, report-only, always exit 0) still do not read the
+exit code: a report-only mode exits 0 whether or not it fires, so its exit code cannot tell the two apart.
+
+**4. Tests.** `TestQ954Q955SelftestLegsCanFail` (16 cases). 15 fail on the old scripts and pass on the
+new ones. The 16th checks that both rows read "still true" on the real tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-954/Q-955. Finding credit: Codex (gpt-6-astra), push-path review Q835.
+
+## CX-291 — a gate's PASS now needs its producer's exit status too: eighteen wrapper sites read a PASS line and ignored a crash, a timeout or a later conflicting line, and seven advisory legs went green when the program they ran crashed or was killed (scripts/doc_gates.sh; scripts/doc_gates.d/10_numbers_cli_citations.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/96_transcripts.sh; scripts/doc_gates.d/98_history_index.sh; scripts/doc_gates.d/99_claim_ledger.sh; scripts/pre_push_gate.sh; scripts/tr12_repro_gate.sh; scripts/resume_budget_infinity_gate.sh; scripts/atlas_path_portability_gate.sh; scripts/q317_missing_shard_merge_gate.sh; scripts/claim_ledger.sh; scripts/selftest_resume_167_gate.sh; scripts/disk_precheck_marker_gate.sh; tests.py)
+
+**2026-10-03.** Origin: Codex (gpt-6-astra), push-path review Q835, findings P-04 and P-05 (backlog rows
+Q-951 and Q-952). Batch 38, on the batch's staged tree. Each finding was re-checked against the current
+source before it was fixed; all of them still held.
+
+**No published number, count, sha or certificate moves.** Every changed gate was run on the real binary
+built from this tree and gives the verdict it gave before: RESUME_BUDGET_INFINITY=PASS,
+ATLAS_PATH_PORTABLE=PASS, MISSING_SHARD_MERGE=PASS (delete leg RC=20), SELFTEST_RESUME_167=PASS (EXCESS=3030),
+DISK_PRECHECK_MARKER=PASS (2/2 mutants killed), CLAIM_LEDGER=PASS (72 rows) with CLAIM_LEDGER_SELFTEST=PASS.
+
+**The rule.** A leg is PASS only when the program it runs exited with its documented success code, printed
+exactly one whole-line verdict token, and that token is the passing one. A timeout (rc 124), a kill
+(137, 143) or a crash (any rc >= 128) is a separate state, ERROR or HARNESS_BROKEN, and never PASS. An
+advisory leg stays advisory; it now reports the error instead of a green line. Token names are unchanged.
+
+**1. PASS line read without the exit status (P-05).** One helper, `require_pass_token KEY VALUE OUT RC` in
+scripts/doc_gates.sh beside `require_tracked`, now reads every doc_gates wrapper that ran a child gate: GATE
+91 (three runs), GATE 92 (both tokens), GATE 95 (the transcript scan's own python exit status), GATE 87 (the
+viz selftest, whose rc was captured and never read), GATE 49 (the parity checker, whose rc a `| tr` pipe
+had hidden; it is now read from PIPESTATUS), GATE 2c (the citation loop, which captured rc and accepted
+PASS whatever it was) and the GATE 2 declaration-metadata leg. In scripts/pre_push_gate.sh, which already
+reads every token through `one_token` (exactly one emission), a passing token now also needs rc 0 at the
+seven sites that did not check it: published-consistency, the Q-479 battery legs (`_q479_leg`), the
+fail-open closure sweep, the reproduction stamp, the skip-pin selftest, the row-assertion sweep and the
+Group C rehearsal. In scripts/tr12_repro_gate.sh, the q7ranks and q2-witness legs and the golden-set leg need
+rc 0 and one token, and the n=9 battery's `TR12_REPRO=PASS` is believed only beside rc 0 and as the one
+`TR12_REPRO=` line of VERDICTS.txt; otherwise the gate says ERROR rather than "does not reproduce".
+
+**2. Advisory legs green on a crash (P-04).**
+- `resume_budget_infinity_gate.sh`: the two solver runs' rc was dropped, and an empty parse read as a
+  count of 0, which is the PASS reading of the uncapped leg. Each run must now exit 0 or the gate is ERROR.
+- `atlas_path_portability_gate.sh`: all four solver statuses were dropped. Each step now runs under a
+  timeout and must exit 0.
+- `q317_missing_shard_merge_gate.sh`: any non-zero delete-leg rc was PASS, including 124 and 137. PASS now
+  needs rc 20 and the `MERGE_SHARD=MISSING` line; the truncate control needs rc 20; any other code is ERROR.
+  The enumerations run under a timeout.
+- `claim_ledger.sh`: `run_evidence` dropped the return code. A row whose evidence command exits non-zero
+  or times out is now `CLAIM_<id>=ERROR` and the ledger is `CLAIM_LEDGER=ERROR`. New self-test mutant M13:
+  the row's own evidence followed by `exit 137` must give ERROR.
+- The GATE 2 usage-grammar leg: when its python extractor crashed with no output, both [ok] arms ran. Its
+  exit status and its COUNT and ARGS receipts are now read first.
+- `selftest_resume_167_gate.sh`: the three node sums used awk's `acc+0`, so a format change read 0 nodes
+  and EXCESS=0 passed. A new `node_sum` refuses when no row carries the budget or a row has no numeric
+  `N nodes,` field.
+- `disk_precheck_marker_gate.sh`: legs L1-L4 never read the rc. Each probe now runs under a timeout, an rc
+  outside `--disk-precheck`'s documented codes (0, 1, 2, 5, 6) is `L<n>=ERROR(rc=N)`, and L1-L5 must end
+  in 0 or 1.
+
+**3. Siblings.** Swept in scripts/doc_gates.sh, scripts/doc_gates.d/*, scripts/pre_push_gate.sh and
+scripts/tr12_repro_gate.sh. Already correct and unchanged: GATE 90 (returns python's own rc), the
+pre-push legs for the record match, the n=31 atlas probe, TR-12 output paths, reproduce-digests, the
+doc_gates selftest and the #167 M3/M4 mutants (each already required rc). GATE 94 is report-only. The
+GATE 25 population check in the doc_gates selftest was left alone; CX-290 edits that region in this batch.
+
+**4. Tests.** `TestQ951Q952VerdictNeedsExitStatus` (14 tests) runs one stub producer per wrapper shape. The
+stub (a) crashes, (b) times out, (c) prints PASS then exits 1 or 137, and (d) prints PASS then FAIL. No
+wrapper may read PASS on any of them, and each must read PASS on a healthy stub. All 14 fail on copies of
+the previous scripts and pass on these. Ten mutants of the load-bearing checks were each killed by the
+class.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-951 and Q-952. Review
+findings: Codex (gpt-6-astra), push-path review Q835.
+
+## CX-292 — the Q7 rank row refuses an IN certificate it cannot rank and a read in which nothing was ranked; the corrections inventory keeps a `$`-and-digits token only inside a backtick code span, so an amount in parentheses, in quotes or followed by a plus sign is redacted (scripts/tr12_repro.sh; scripts/corrections_inventory.sh; tests.py)
+
+**2026-10-03.** Origin: Codex (gpt-6-astra), push-path review Q835, findings P-10 and P-11 (backlog rows
+Q-957 and Q-958). Batch 38, on the batch's staged tree.
+
+**No published number, count, sha or certificate moves.** The published full-31 transcript has
+`TR12_Q7_RANKS=PASS` with King Wen's certificate IN (with its arrangement) and the three historical
+arrangements OUT; under the corrected row that input reads four certificates, ranks one, and passes as
+before, with King Wen's rank still the labeling theorem's 0. The regenerated corrections inventory is
+byte-identical under the old and the new redaction rule on this tree.
+
+**1. The Q7 rank row (P-10, Q-957).** Battery row `a2_q7_ranks` counted every `q7_*.json` it read and
+then asked whether the certificate was IN with an arrangement. An IN certificate whose arrangement was
+empty fell into the branch that prints "(not IN — no rank …)", was never ranked, and still counted
+toward the row's floor of two certificates read. A read of OUT certificates only, with King Wen's
+absent, also passed. The row now prints `Q7RANKS_FAIL` and fails on an IN certificate with no
+arrangement, keeps a separate count of the certificates it ranked, fails when that count is zero, and
+prints both counts. The row runs only at n = 31, so no n = 9 golden covers it; `q7ranks_parse_gate.sh`,
+which extracts the row and runs it on the real engine, passes all nine legs unchanged.
+
+**2. The inventory's cost redaction (P-11, Q-958).** CX-230 made `corrections_inventory.sh` replace
+every dollar figure in the published text column with `[cost redacted]`, except a bare dollar-digits
+token that looked like an awk or shell field. "Looked like" meant one neighbouring character: a
+backtick, quote, bracket, brace or opening parenthesis before it, or a backtick, quote, equals sign,
+tilde, plus sign or closing bracket or brace after it. So an amount wrapped in parentheses or quotes,
+or followed by a plus sign, was published verbatim as "code". The rule now keeps such a token only
+inside a backtick code span: an odd number of backticks before it on the line and at least one after
+it. Every other dollar token is redacted. A field on a line of a fenced code block has no backticks
+of its own and is redacted too; the cost of that is a marker where a field reference stood, never a
+published figure. The script's own anchor 19 still passes (five figures redacted, two quoted fields
+kept).
+
+**3. Measurement on the public tree.** The new rule was applied to every line of every tracked file
+and of `documentation/CORRECTIONS_INVENTORY.tsv`. The inventory gives no hit: its three `$`-and-digits
+tokens are awk fields inside backticks. In Markdown every hit is an awk or shell field in a fenced
+code block or a LaTeX expression. In scripts and tests every hit is a shell or awk field, or one of
+the synthetic test figures that the inventory's self-test and two test classes assemble or state on
+purpose. No real cost or spend figure was found.
+
+**4. Siblings.** The other dollar scanners in the tree (the CX-230 append-only alignment in GATE 10,
+the G19 leg of `gate_published_consistency.sh`, and the hashed-row check in tests.py) have no
+code exemption, so the defect class does not recur there.
+
+**5. Tests.** `TestQ957Q958RanksAndCostRedaction`: five tests; four fail on copies of the unfixed
+scripts and pass on this tree, and one is the positive control. Gates: `corrections_inventory.sh
+--selftest`, `q7ranks_parse_gate.sh`, the citation line gate, the full `doc_gates.sh` with
+`ROAE_PRIVATE_DIR` set, and the claim ledger.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-957 and Q-958. Review
+credit: Codex (gpt-6-astra), push-path review Q835.

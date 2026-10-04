@@ -482,6 +482,36 @@ require_final_newline() {
   return 1
 }
 
+# Q-952 (Codex push-path review Q835, P-05, 2026-10-03) — THE VERDICT READER for a child gate.
+# The wrappers in doc_gates.d/ read `grep -qx 'KEY=PASS' <<<"$out"` and nothing else, so a child
+# that printed its PASS line and then crashed (rc 139), was killed (137), timed out (124), or
+# printed a later KEY=FAIL still read as PASS. PASS now needs all three: the child exited 0, it
+# printed exactly one ^KEY= line, and that line is KEY=<want>.
+#   $1 KEY   $2 the wanted value (PASS, CURRENT)   $3 the captured output   $4 the child's rc
+#   rc 0 PASS.  rc 1 not PASS; when the token alone does not say why, one "[verdict]" line does.
+#   rc 2 the child was killed or timed out (rc 124 or >= 128): HARNESS_BROKEN, never PASS.
+# The diagnosis is a log line, not a KEY=value token (GATE 89 requires every token be documented).
+require_pass_token() {
+  local key=$1 want=$2 out=$3 crc=$4 n
+  n=$(printf '%s\n' "$out" | grep -cE "^${key}=") || true
+  case "$crc" in ''|*[!0-9]*) crc=255 ;; esac
+  if [ "$crc" -eq 124 ] || [ "$crc" -ge 128 ]; then
+    echo "  [verdict] ${key}: HARNESS_BROKEN -- the producer was killed or timed out (rc $crc) after"
+    echo "            printing ${n:-0} ${key}= line(s); nothing it printed is believed"
+    return 2
+  fi
+  if [ "${n:-0}" != 1 ]; then
+    echo "  [verdict] ${key}= emitted ${n:-0} time(s), rc $crc; exactly 1 is required -- none believed"
+    return 1
+  fi
+  grep -qx -- "${key}=${want}" <<<"$out" || return 1
+  if [ "$crc" -ne 0 ]; then
+    echo "  [verdict] ${key}=${want} was printed but the producer exited $crc -- not a PASS"
+    return 1
+  fi
+  return 0
+}
+
 # ITEM A6 (2026-08-02) — THE SILENT-DROP GUARD, APPLIED TO EVERY SUPPORT FILE AT ONCE.
 #
 # require_final_newline was added for three registries one at a time. The item that raised it
@@ -1208,8 +1238,11 @@ if [ "${1:-}" = "--selftest" ]; then
                            PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
     _selftest_revert
-    if [ "$rc" -eq 0 ]; then
-      echo "  [FAIL] $label — $gate did NOT fire on an injected defect"; PASS=1; return
+    # Q-954 sibling sweep (Codex Q835 P-07 (e) shape): any rc != 0 used to count as firing, so a
+    # refusal (2) or a kill (124/137/143) passed here whenever the ERE below happened to be printed
+    # first. A mode run fires with rc 1 and refuses with rc 2, so the fire is rc 1 exactly.
+    if [ "$rc" -ne 1 ]; then
+      echo "  [FAIL] $label — $gate did NOT fire (rc 1) on an injected defect; rc=$rc"; PASS=1; return
     fi
     # 🔴 Q-799 (2026-09-25): a HERE-STRING, never `printf '%s' "$out" | grep -qE`. Under this
     # file's `set -o pipefail` that pipe is a RACE: grep -q exits at its first match, the printf
@@ -1468,11 +1501,18 @@ chr(10)+'<!-- A1 snapshot probe: this line is discarded and must stay recoverabl
 a='1,097,051,278,789,181,790,036,112,071,176,579,186,688'
 assert a in s, 'anchor moved'
 open('README.md','w').write(s.replace(a, a[:-1]+'9', 1))" 2>/dev/null \
-    && { G1OUT=$(bash "$0" numbers 2>&1)
-         if grep -q 'WARN' <<<"$G1OUT"; then
-           echo "  [ok]   GATE 1 cross-file numbers — emits a WARN (report-only gate)"
+    && { G1OUT=$(bash "$0" numbers 2>&1); G1RC=$?
+         # Q-954 (a) (Codex Q835 P-07, A11#6): this was `grep -q 'WARN'`, which the numbers-mode
+         # footer ("Read its [WARN]/[note] lines above") always satisfies, and key 40:1097051278
+         # already WARNs on the unmutated tree (README's N beside QUERY_INVENTORY's N-1). Either
+         # made the leg green with gate_numbers a no-op. It now requires the INJECTED value itself,
+         # listed under a near-twin WARN as coming from README.md, and rc 0 (report-only).
+         if [ "$G1RC" -eq 0 ] \
+            && grep -qE '^  \[WARN\] near-twin long integers .* key 40:1097051278:$' <<<"$G1OUT" \
+            && grep -qE '^ +1097051278789181790036112071176579186689 +<- README\.md$' <<<"$G1OUT"; then
+           echo "  [ok]   GATE 1 cross-file numbers — lists the injected near-twin under its WARN (report-only gate)"
          else
-           echo "  [FAIL] GATE 1 cross-file numbers — no WARN on an injected near-twin"
+           echo "  [FAIL] GATE 1 cross-file numbers — the injected near-twin is not listed under a WARN (rc=$G1RC)"
            printf '%s\n' "$G1OUT" | sed 's/^/           > /' | head -4
            PASS=1
          fi
@@ -1619,7 +1659,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,n+a,1))"
   # Written inline, not through assert_fires_why: there is no file to mutate (the environment
   # is the defect), and the helper's callers=N is pinned in DOC_GATE_SELFTEST_INSTRUMENTS.txt.
   _Q748_OUT=$(TMPDIR=/dev/null bash "$0" cli 2>&1); _Q748_RC=$?
-  if [ "$_Q748_RC" -ne 0 ] \
+  if [ "$_Q748_RC" -eq 1 ] \
      && grep -qF '[FAIL] GATE 2: mktemp failed, so NOTHING was checked.' <<<"$_Q748_OUT" \
      && ! grep -qE '^DOC GATES: PASS' <<<"$_Q748_OUT"; then
     echo "  [ok]   GATE 2 (Q-748a) mktemp failure under TMPDIR=/dev/null is a FAIL (rc=$_Q748_RC), not a PASS"
@@ -1652,7 +1692,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>
   printf '\n\nSelf-test sentence: %s here.\n' "$_Q761_N" >> documentation/GUIDE.md
   _Q761_OUT=$(bash "$0" retract 2>&1); _Q761_RC=$?
   git checkout -- documentation/RETRACTED_PHRASES.tsv documentation/GUIDE.md 2>/dev/null
-  if [ "$_Q761_RC" -ne 0 ] \
+  if [ "$_Q761_RC" -eq 1 ] \
      && grep -qF "retracted phrasing still present: \"$_Q761_N\"" <<<"$_Q761_OUT"; then
     echo "  [ok]   GATE 3 (Q-761) a registered needle starting with '#' is searched for, and FIRES when planted"
   else
@@ -1666,7 +1706,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>
     >> documentation/RETRACTED_PHRASES.tsv
   _Q761_OUT=$(bash "$0" ledger-phrases 2>&1); _Q761_RC=$?
   git checkout -- documentation/RETRACTED_PHRASES.tsv 2>/dev/null
-  if [ "$_Q761_RC" -ne 0 ] && grep -qF "[FAIL] $_Q761_K has NO entry" <<<"$_Q761_OUT"; then
+  if [ "$_Q761_RC" -eq 1 ] && grep -qF "[FAIL] $_Q761_K has NO entry" <<<"$_Q761_OUT"; then
     echo "  [ok]   GATE 11 (Q-761) a registered needle starting with '#' is ledger-checked ($_Q761_K)"
   else
     echo "  [FAIL] GATE 11 (Q-761) — a registered needle starting with '#' got no $_Q761_K verdict"
@@ -1678,7 +1718,7 @@ open('documentation/GUIDE.md','w').write(s+'\n\nThe ordering has a hard floor k>
     >> documentation/RETRACTED_PHRASES.tsv
   _Q761_OUT=$(bash "$0" ledger-phrases 2>&1); _Q761_RC=$?
   git checkout -- documentation/RETRACTED_PHRASES.tsv 2>/dev/null
-  if [ "$_Q761_RC" -ne 0 ] \
+  if [ "$_Q761_RC" -eq 1 ] \
      && grep -qF 'Q-761: a registry line is comment-shaped' <<<"$_Q761_OUT"; then
     echo "  [ok]   GATE 11 (Q-761) a comment-shaped line carrying data columns is a FAIL, not a skip"
   else
@@ -2295,10 +2335,13 @@ open(f,'w',encoding='utf-8').write(chr(10).join(cur))"
     ( cd "$d" && bash scripts/doc_gates.sh appendonly-head    >/dev/null 2>&1 ); rcA=$?
     ( cd "$d" && bash scripts/doc_gates.sh appendonly-history >/dev/null 2>&1 ); rcB=$?
     rm -rf "$d"
-    if [ "$rcA" -eq 0 ] && [ "$rcB" -ne 0 ]; then
+    # Q-954 (e) (Codex Q835 P-07, A05#23): 10b used to count as firing on ANY rc != 0, so a
+    # refusal (2), a timeout (124) or a kill (137/143) read as the fix working. A mode run exits
+    # 1 when a gate fires (RC=1) and 2 only when it refuses to run, so the fire is rc 1 exactly.
+    if [ "$rcA" -eq 0 ] && [ "$rcB" -eq 1 ]; then
       echo "  [ok]   $label — 10a green on it (the blindness), 10b fires (the fix)"
     else
-      echo "  [FAIL] $label — expected 10a rc=0 and 10b rc!=0; got 10a rc=$rcA, 10b rc=$rcB"
+      echo "  [FAIL] $label — expected 10a rc=0 and 10b rc=1; got 10a rc=$rcA, 10b rc=$rcB"
       PASS=1
     fi
   }
@@ -3240,8 +3283,8 @@ G5BPY
                            PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
-    if [ "$rc" -eq 0 ]; then
-      echo "  [FAIL] $label — GATE 8 did NOT fire on an injected defect"
+    if [ "$rc" -ne 1 ]; then   # Q-954 sweep: rc 1 is the fire; 2/124/137/143 is not
+      echo "  [FAIL] $label — GATE 8 did NOT fire (rc 1) on an injected defect; rc=$rc"
       PASS=1; return
     fi
     if grep -Eq -- "$want" <<<"$out"; then
@@ -3791,8 +3834,8 @@ os.remove(p)"
   if sed 's|^  assert_fires_why() {$|  _fireproof_undeclared_instrument() { :; }\n  assert_fires_why() {|' \
        "$_DG_SRC" > "$_G15_COPY" \
      && grep -qE '^  _fireproof_undeclared_instrument\(\) \{ :; \}$' "$_G15_COPY"; then
-    G15OUT=$(_gsrc "$_G15_COPY" instruments)
-    if grep -qF '_fireproof_undeclared_instrument() is defined at' <<<"$G15OUT"; then
+    G15OUT=$(_gsrc "$_G15_COPY" instruments); G15OUT_RC=$?
+    if [ "$G15OUT_RC" -eq 1 ] && grep -qF '_fireproof_undeclared_instrument() is defined at' <<<"$G15OUT"; then
       echo "  [ok]   GATE 15 an undeclared instrument in the --selftest region — fires, and names it"
     else
       echo "  [FAIL] GATE 15 — a new function in the --selftest region declared in NO row was"
@@ -3834,12 +3877,12 @@ if '$_g15b'=='unanchored':
 else:
     L[t[0]]='     && '+'grep '+'-qF '+chr(39)+'_fireproof_undeclared_instrument() { :; }'+chr(39)+' \"\$_G15_COPY\"; then'+chr(10)
 open('$_G15B_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-      G15BOUT=$(_gsrc "$_G15B_COPY" instruments)
+      G15BOUT=$(_gsrc "$_G15B_COPY" instruments); G15BOUT_RC=$?
       case "$_g15b" in
         unanchored)  _g15bwhy='this guard'"'"'s ERE is not anchored at line start' ;;
         fixedstring) _g15bwhy='with a FIXED string' ;;
       esac
-      if grep -qF "$_g15bwhy" <<<"$G15BOUT"; then
+      if [ "$G15BOUT_RC" -eq 1 ] && grep -qF "$_g15bwhy" <<<"$G15BOUT"; then
         echo "  [ok]   GATE 15 LEG 2 a copy-confirmation guard satisfiable by its own source ($_g15b) — fires, and says why"
       else
         echo "  [FAIL] GATE 15 LEG 2 — a $_g15b copy guard was NOT reported. That guard passes"
@@ -4125,8 +4168,8 @@ open(p,'w',encoding='utf-8').write(s.replace(
 
   _g15d() {  # <label> <expected-substring> <python-mutation>
     if _G15D_COPY="$_G15D_COPY" python3 -c "$3" 2>/dev/null; then
-      _G15DOUT=$(_gsrc "$_G15D_COPY" instruments)
-      if grep -qF "$2" <<<"$_G15DOUT"; then
+      _G15DOUT=$(_gsrc "$_G15D_COPY" instruments); _G15DOUT_RC=$?
+      if [ "$_G15DOUT_RC" -eq 1 ] && grep -qF "$2" <<<"$_G15DOUT"; then
         echo "  [ok]   GATE 15 LEG 4 $1 — fires"
       else
         echo "  [FAIL] GATE 15 LEG 4 $1 — NOT reported, so an unconfirmed copy would ship"
@@ -4209,8 +4252,8 @@ t=[i for i,l in enumerate(L)
 assert len(t)==2, 'anchor moved: %d (GATE 3 and GATE 6 share this ERE)' % len(t)
 L[t[0]]='    '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'is satisfied by a PREFLIGHT line' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'is satisfied by a PREFLIGHT line' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 an assertion reworded onto the preflight's wording — fires (the A6 near-miss)"
     else
       echo "  [FAIL] GATE 16 — a per-gate assertion whose ERE the corpus preflight emits was"
@@ -4231,8 +4274,8 @@ t=[i for i,l in enumerate(L)
 assert len(t)==1, 'anchor moved: %d' % len(t)
 del L[t[0]]
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'no evidence-ERE could be extracted' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'no evidence-ERE could be extracted' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 an assert_fires_why whose ERE cannot be extracted — fires, not skipped"
     else
       echo "  [FAIL] GATE 16 — an invocation with no extractable ERE was passed over in"
@@ -4263,8 +4306,8 @@ t=[i for i,l in enumerate(L) if l.strip()==A]
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]='    retract-figures '+chr(39)+'tracked markdown missing from the working tree'+chr(39)+' '+chr(92)+chr(10)
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'an anchored narration is exempt" is satisfied by a PREFLIGHT line' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'an anchored narration is exempt" is satisfied by a PREFLIGHT line' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (7) a NEGATIVE CONTROL reworded onto a preflight line — fires"
     else
       echo "  [FAIL] GATE 16 guard (7) — a negative control whose evidence-ERE the corpus"
@@ -4298,8 +4341,8 @@ t=[i for i,l in enumerate(L) if l.strip()==A]
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace('assert_fires_why','eval assert_fires_why',1)
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'invocation(s) of assert_fires_why; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt declares callers=' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'invocation(s) of assert_fires_why; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt declares callers=' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (7) an invocation the scan cannot reach — FAIL, not a smaller count"
     else
       echo "  [FAIL] GATE 16 guard (7) — the collision scan lost an invocation and still"
@@ -4328,8 +4371,8 @@ for l in L:
     out.append(l)
 assert n>0, 'no echo lines found in preflight_support_newlines'
 open('$_G16_COPY','w',encoding='utf-8').writelines(out)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'preflight_support_newlines() contributed ZERO message templates' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'preflight_support_newlines() contributed ZERO message templates' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 one preflight going quiet is a FAIL, not a smaller count"
     else
       echo "  [FAIL] GATE 16 — a preflight whose messages the extractor can no longer read was"
@@ -4362,8 +4405,8 @@ t=[i for i,l in enumerate(L) if l.rstrip()=='preflight_support_newlines || RC=1'
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L.insert(t[0]+1,'preflight_fireproof_fourth_emitter || RC=1'+chr(10))
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'preflight_fireproof_fourth_emitter() before EVERY mode' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'preflight_fireproof_fourth_emitter() before EVERY mode' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 a fourth pre-dispatch emitter — refused, not absorbed"
     else
       echo "  [FAIL] GATE 16 guard (4) — a function added before the dispatch was neither"
@@ -4383,8 +4426,8 @@ t=[i for i,l in enumerate(L) if l.rstrip()=='preflight_tracked_docs || RC=1']
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L[t[0]]='  '+L[t[0]]
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'preflight_tracked_docs() is declared to this gate but is not called' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'preflight_tracked_docs() is declared to this gate but is not called' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 a scanned emitter the region scan can no longer see — FAIL, not [ok]"
     else
       echo "  [FAIL] GATE 16 guard (4) — a declared emitter that the dispatch no longer calls"
@@ -4423,8 +4466,8 @@ t=[i for i,l in enumerate(L) if l.rstrip()=='preflight_tracked_docs() {']
 assert len(t)==1, 'anchor moved: %d' % len(t)
 L.insert(t[0]+1,'    require_tracked notes.md || missing=1'+chr(10))
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'preflight_tracked_docs() calls require_tracked() one level down' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'preflight_tracked_docs() calls require_tracked() one level down' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (5) an undeclared callee one level down — refused"
     else
       echo "  [FAIL] GATE 16 guard (5) leg A — a function called from INSIDE a pre-dispatch"
@@ -4445,8 +4488,8 @@ assert len(t)==1, 'call-site anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace(' quiet ',' ',1)
 assert 'quiet' not in L[t[0]], 'the suppressing argument survived the substitution'
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'and the ONLY thing keeping that callee out of this' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'and the ONLY thing keeping that callee out of this' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (5) the suppression its exemption rests on, deleted — refused"
     else
       echo "  [FAIL] GATE 16 guard (5) leg B — the argument that keeps a nested callee's"
@@ -4469,8 +4512,8 @@ assert len(t)==1, 'call-site anchor moved: %d' % len(t)
 L[t[0]]=L[t[0]].replace('require_final_newline','true',1)
 assert 'require_final_newline' not in L[t[0]], 'the call survived the substitution'
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'require_final_newline() is declared to guard (5) but is not called' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'require_final_newline() is declared to guard (5) but is not called' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (5) a declared callee the scan can no longer see — FAIL, not [ok]"
     else
       echo "  [FAIL] GATE 16 guard (5) leg C — a declared nested callee that is no longer"
@@ -4499,8 +4542,8 @@ L.insert(t[0]+1,'  cat <<'+chr(39)+'XEOF'+chr(39)+' >/dev/null'+chr(10))
 L.insert(t[0]+2,'}'+chr(10))
 L.insert(t[0]+3,'XEOF'+chr(10))
 open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
-    G16OUT=$(_gsrc "$_G16_COPY" collisions)
-    if grep -qF 'body() cannot be trusted on preflight_support_newlines()' <<<"$G16OUT"; then
+    G16OUT=$(_gsrc "$_G16_COPY" collisions); G16OUT_RC=$?
+    if [ "$G16OUT_RC" -eq 1 ] && grep -qF 'body() cannot be trusted on preflight_support_newlines()' <<<"$G16OUT"; then
       echo "  [ok]   GATE 16 guard (6) a heredoc brace truncating the shared reader — refused"
     else
       echo "  [FAIL] GATE 16 guard (6) — a column-0 '}' inside a heredoc silently truncated"
@@ -4541,11 +4584,13 @@ open('$_G16_COPY','w',encoding='utf-8').writelines(L)" 2>/dev/null; then
   _G16B_COPY=$(git rev-parse --git-dir)/doc_gates_g16b_copy.sh
   _g16b() {  # <label> <expected-substring> <python-mutation>
     if _G16B_COPY="$_G16B_COPY" python3 -c "$3" 2>/dev/null; then
-      _G16BOUT=$(_gsrc "$_G16B_COPY" collisions)
-      if grep -qF "$2" <<<"$_G16BOUT"; then
+      # Q-954 (d) (Codex Q835 P-07, A06#13): the rc was never read, so a run that printed the
+      # finding and then exited 0 (or died) still passed. The fire is rc 1 AND the finding.
+      _G16BOUT=$(_gsrc "$_G16B_COPY" collisions); _G16BRC=$?
+      if [ "$_G16BRC" -eq 1 ] && grep -qF "$2" <<<"$_G16BOUT"; then
         echo "  [ok]   GATE 16 $1 — fires"
       else
-        echo "  [FAIL] GATE 16 $1 — NOT reported, so the leg would stay green on it"
+        echo "  [FAIL] GATE 16 $1 — NOT reported with rc 1 (rc=$_G16BRC), so the leg would stay green on it"
         printf '%s\n' "$_G16BOUT" | sed 's/^/           > /' | head -6
         PASS=1
       fi
@@ -4682,11 +4727,15 @@ assert A not in L[t[0]], 'the wording survived the substitution'
 open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
   # LEG 3's MIXED BIN (Q-773 follow-up): a planted -qF pattern with text around an expansion fits ZERO templates alone, TWO beside two decoy echoes (item A2 fragments).
+  # Q-954 (2026-10-03): the planted pattern was `zqmix $zq planted`, whose two END words each fit a field
+  # by end absorption, so it fit 96_transcripts.sh's `[ok]   %s:%d %s %s (%s)` print as well: zero decoys
+  # gave 1 template (no finding, rc 0) and two gave 3. Both legs have been red since that print landed.
+  # The trailing literal `here` keeps `planted` interior, where no field can absorb it.
   _g16b "LEG 3: a mixed assertion that fits no message template" 'and fits 0 message template(s)' "
-assert (L:=open('$_DG_SRC',encoding='utf-8').read().splitlines(True)) and len(t:=[i for i,l in enumerate(L) if l.lstrip().startswith('echo '+chr(34)+'-- GATE 16 LEG 3: ')])==1, 'anchor moved'; L.insert(t[0], '  grep '+'-qF '+chr(34)+'zqmix \$zq planted'+chr(34)+' /dev/null'+chr(10))
+assert (L:=open('$_DG_SRC',encoding='utf-8').read().splitlines(True)) and len(t:=[i for i,l in enumerate(L) if l.lstrip().startswith('echo '+chr(34)+'-- GATE 16 LEG 3: ')])==1, 'anchor moved'; L.insert(t[0], '  grep '+'-qF '+chr(34)+'zqmix \$zq planted here'+chr(34)+' /dev/null'+chr(10))
 import os; open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
   _g16b "LEG 3: a mixed assertion that fits two message templates" 'and fits 2 message template(s)' "
-assert (L:=open('$_DG_SRC',encoding='utf-8').read().splitlines(True)) and len(t:=[i for i,l in enumerate(L) if l.lstrip().startswith('echo '+chr(34)+'-- GATE 16 LEG 3: ')])==1, 'anchor moved'; L[t[0]:t[0]]=['  grep '+'-qF '+chr(34)+'zqmix \$zq planted'+chr(34)+' /dev/null'+chr(10)]+2*['  echo '+chr(34)+'  [note] zqmix \$zq planted'+chr(34)+chr(10)]
+assert (L:=open('$_DG_SRC',encoding='utf-8').read().splitlines(True)) and len(t:=[i for i,l in enumerate(L) if l.lstrip().startswith('echo '+chr(34)+'-- GATE 16 LEG 3: ')])==1, 'anchor moved'; L[t[0]:t[0]]=['  grep '+'-qF '+chr(34)+'zqmix \$zq planted here'+chr(34)+' /dev/null'+chr(10)]+2*['  echo '+chr(34)+'  [note] zqmix \$zq planted here'+chr(34)+chr(10)]
 import os; open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
 
   rm -f "$_G16B_COPY"
@@ -4835,7 +4884,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
        "$_DG_SRC" > "$_G17_COPY" \
      && ! grep -qE '^    "documentation/LITERATURE_RULES_POPULATION_TESTS\.md",$' "$_G17_COPY"; then
     G17OUT=$(bash "$_G17_COPY" scoreboard 2>&1); G17RC=$?
-    if [ "$G17RC" -ne 0 ] \
+    if [ "$G17RC" -eq 1 ] \
        && grep -qF 'the board list holds 1 file(s)' <<<"$G17OUT"; then
       echo "  [ok]   GATE 17 LEG 6: one of the two published boards dropped from the list is a FAIL, not a smaller count"
     else
@@ -4987,7 +5036,7 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
       PASS=1
     else
       _g25p_out=$(cd "$_g25p_d" && bash scripts/doc_gates.sh repro-reach 2>&1); _g25p_rc=$?
-      if [ "$_g25p_rc" -ne 0 ] \
+      if [ "$_g25p_rc" -eq 1 ] \
          && grep -qx 'GATE25_POPULATION_FROM_DOCS=2' <<<"$_g25p_out" \
          && grep -qF '[FAIL] solve --no-such-flag-fablek — not a flag of solve.c' <<<"$_g25p_out" \
          && grep -qF 'cited in viz/README.md' <<<"$_g25p_out" \
@@ -5038,7 +5087,7 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
       PASS=1
     else
       _g25q_out=$(cd "$_g25q_d" && bash scripts/doc_gates.sh repro-reach 2>&1); _g25q_rc=$?
-      if [ "$_g25q_rc" -ne 0 ] \
+      if [ "$_g25q_rc" -eq 1 ] \
          && grep -qF '[FAIL] solve --kc-scann — not a flag of solve.c' <<<"$_g25q_out" \
          && grep -qF '[FAIL] solve --verifyy — not a flag of solve.c' <<<"$_g25q_out" \
          && grep -qF "[prop] solve --kc-nonesuch-fablep — viz/PROP.md:" <<<"$_g25q_out" \
@@ -5640,7 +5689,7 @@ open(r,'w',encoding='utf-8').write(t+chr(10)+chr(9).join(['open',f,alias,alt,'Se
   if [ -n "$_G20_MODE" ] && [ -r "$_G20_VICTIM" ] && chmod 000 "$_G20_VICTIM" 2>/dev/null; then
     G20OUT=$(bash "$0" publication-state 2>&1); G20RC=$?
     chmod "$_G20_MODE" "$_G20_VICTIM"
-    if [ "$G20RC" -ne 0 ] && grep -qF "GATE 20's per-file scanner FAILED on" <<<"$G20OUT"; then
+    if [ "$G20RC" -eq 1 ] && grep -qF "GATE 20's per-file scanner FAILED on" <<<"$G20OUT"; then
       echo "  [ok]   GATE 20 receipts — a corpus file the scanner could not read is a FAIL, not a clean scan"
     else
       echo "  [FAIL] GATE 20 receipts — an unreadable corpus file did NOT stop the gate reporting"
@@ -5736,7 +5785,7 @@ G22SHIM
     if [ ! -e "$_G22_D/acted" ]; then
       echo "  [FAIL] GATE 22 producer fails — the PATH shim was never reached, so nothing was injected."
       PASS=1
-    elif [ "$_G22_RC" -ne 0 ] && grep -qE 'GATE 22: the token producer \(git grep over tracked \*\.md\) failed rc 2' <<<"$_G22_OUT"; then
+    elif [ "$_G22_RC" -eq 1 ] && grep -qE 'GATE 22: the token producer \(git grep over tracked \*\.md\) failed rc 2' <<<"$_G22_OUT"; then
       echo "  [ok]   GATE 22 producer fails — a population grep exiting 2 is a FAIL naming the producer"
     else
       echo "  [FAIL] GATE 22 producer fails — a population grep that exited 2 did not produce a"
@@ -5750,7 +5799,7 @@ G22SHIM
     if [ ! -e "$_G22_D/acted" ]; then
       echo "  [FAIL] GATE 22 population floor — the PATH shim was never reached, so nothing was injected."
       PASS=1
-    elif [ "$_G22_RC" -ne 0 ] && [ -n "$_G22_M" ] && [ "$_G22_M" -lt 100 ] \
+    elif [ "$_G22_RC" -eq 1 ] && [ -n "$_G22_M" ] && [ "$_G22_M" -lt 100 ] \
          && grep -qE "GATE 22: only $_G22_M truncated hex token\(s\) measured, below the population floor 100" <<<"$_G22_OUT"; then
       echo "  [ok]   GATE 22 population floor — a population of $_G22_M token(s) is a FAIL below the floor 100"
     else

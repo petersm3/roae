@@ -21,5 +21,21 @@
 # watches LIVE disclosures; that one watches retracted ones. Keeping the row here made the gate fire
 # on the correction's own quotation of the phrase it retracts -- the "gate correct data fails" class,
 # for the third time in one night.
-reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	no public artifact	false
-reports/TR12_QUERY_PROGRAM.md	no public reproduction command	false
+# Q-955 (2026-10-03; Codex Q835 push-path review P-08, A02#19): the two rows below carried the
+# probe `false` from the day they were added (0465889e), so they could never fire, and the gate
+# read every nonzero probe rc as "still true". The gate now takes a THREE-VALUED probe (0 = the
+# artifact exists, 1 = the disclosure still holds, anything else = the probe could not answer,
+# which is a FAIL) and refuses a constant probe. Each row now probes its own subject:
+#  - TR-11 (the 24/25/27/28-pair Spot validation ladder, "no public artifact backs these four
+#    integers"): the retained records are session logs and manifests, so the artifact exists when
+#    a tracked file that is not prose or source (.md, .py, .c, .h, .sh) carries one of the four
+#    integers, with or without thousands commas. Source is excluded on purpose: verify.py and
+#    reports/evidence/f1/f3_rung_b0_cleanroom.py hold them as EXPECTED values, not as run records.
+#    `git grep` answers 0/1, and 128 outside a repository.
+#  - TR-12 (the single-branch-exhaustion shortfall factor, "no public reproduction command"): its
+#    reproduction command is the XA-c/d query, which yields a factor only once a node-mapping
+#    certificate exists. The published verdict record reports/tr12/VERDICTS.txt says which: the
+#    artifact exists when TR12_XA_CD reads PASS or ONE-SIDED:<kind> rather than PENDING/SKIP. A
+#    missing file, or anything but exactly one TR12_XA_CD line, is rc 2.
+reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	no public artifact	git grep -qE '7,?477,?248,?378,?538,?061,?907,?099,?648|83,?855,?263,?774,?549,?546,?015,?506,?432|61,?666,?352,?085,?618,?532,?666,?071,?318,?528|2,?155,?118,?806,?480,?613,?893,?163,?229,?118,?464' -- . ':!*.md' ':!*.py' ':!*.c' ':!*.h' ':!*.sh'
+reports/TR12_QUERY_PROGRAM.md	no public reproduction command	test "$(grep -c '^TR12_XA_CD=' reports/tr12/VERDICTS.txt 2>/dev/null)" = 1 || exit 2; grep -qxE 'TR12_XA_CD=(PASS|ONE-SIDED:.+)' reports/tr12/VERDICTS.txt

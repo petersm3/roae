@@ -200,21 +200,38 @@ gate(){
 }
 
 if [ "$SELFTEST" -eq 1 ]; then
-  T=$(mktemp -d); trap 'rm -rf "$T"' EXIT; mkdir -p "$T/scripts"; f=0
+  T=$(mktemp -d); trap 'rm -rf "$T"' EXIT; mkdir -p "$T/scripts" "$T/sentinel"; f=0
+  # Q-954 (b) (Codex Q835 P-07, A12#13): the "never executed" sentinels used to be written to
+  # $HOME, which run_one points at the skeleton and deletes when the script exits, while the
+  # checks looked in $T. The sentinel could therefore never be present, so the two "never
+  # executed" halves were true whether or not the script ran. The sentinel now lives in a
+  # directory OUTSIDE the skeleton, named by an exported variable the fixture inherits, and an
+  # EXECUTED fixture (plant_closed.sh) writes one too: that positive control proves the
+  # mechanism can see a run, so the absence of RAN_UNRUN/RAN_ABS means something. The az line
+  # now sits AFTER an `exit 0`, so a regression that does execute plant_unrun.sh touches the
+  # sentinel and stops; it never reaches az.
+  export FAILOPEN_SELFTEST_SENTINEL="$T/sentinel"
   mk(){ printf '%s\n' "$2" > "$T/scripts/$1"; }
   mk plant_open.sh      'echo "PLANT_OPEN=OK"; exit 0'
   mk plant_rc0.sh       'echo "PLANT_RC0=SKIP absent"; exit 0'
-  mk plant_closed.sh    '[ -r target.txt ] || { echo "PLANT_CLOSED=ERROR"; exit 2; }; echo "PLANT_CLOSED=OK"'
+  mk plant_closed.sh    'touch "${FAILOPEN_SELFTEST_SENTINEL:?}/RAN_CLOSED"; [ -r target.txt ] || { echo "PLANT_CLOSED=ERROR"; exit 2; }; echo "PLANT_CLOSED=OK"'
   mk plant_fail.sh      'echo "PLANT_FAIL=FAIL"; exit 1'
-  mk plant_unrun.sh     'touch "$HOME/RAN_UNRUN"; az vm delete -n x; echo "PLANT_UNRUN=OK"'
+  mk plant_unrun.sh     'touch "${FAILOPEN_SELFTEST_SENTINEL:?}/RAN_UNRUN"; exit 0
+az vm delete -n x; echo "PLANT_UNRUN=OK"'
   mk plant_allowed.sh   'echo "PLANT_ALLOWED=PASS"; exit 0'
   mk plant_py_open.py   'print("PLANT_PY=PASS")'
   mk plant_comment.sh   '# az vm delete in a COMMENT must not make this unrun
 [ -r target.txt ] || { echo "PLANT_COMMENT=ERROR"; exit 2; }; echo "PLANT_COMMENT=OK"'
   mk plant_notoken.sh   'echo hello; exit 0'
-  mk plant_abs.sh       'touch "$HOME/RAN_ABS"; [ -d /home/someone/github/roae ] && echo "PLANT_ABS=OK"'
+  mk plant_abs.sh       'touch "${FAILOPEN_SELFTEST_SENTINEL:?}/RAN_ABS"; [ -d /home/someone/github/roae ] && echo "PLANT_ABS=OK"'
   mk plant_closed2.sh   '[ -r x.tsv ] || { echo "PLANT_CLOSED2=ERROR unreadable"; exit 2; }; echo "PLANT_CLOSED2=OK"'
-  mk plant_closed3.py   'import sys, os\nif not os.path.exists("x.json"): print("PLANT_CLOSED3=ERROR"); sys.exit(2)\nprint("PLANT_CLOSED3=PASS")'
+  # Q-954 (c) (Codex Q835 P-07, A12#14): this was ONE single-quoted line with literal `\n`
+  # escapes, which mk's printf '%s' writes verbatim, so python3 raised SyntaxError (rc 1) and the
+  # fixture graded CLOSED for that reason rather than for refusing an empty world. Real newlines
+  # now, and the check below requires rc=2, which only the refusal branch can produce.
+  mk plant_closed3.py   'import sys, os
+if not os.path.exists("x.json"): print("PLANT_CLOSED3=ERROR"); sys.exit(2)
+print("PLANT_CLOSED3=PASS")'
   printf 'plant_allowed.sh\tself-contained\tfixture: prints its token from no input on purpose\n' > "$T/allow"
   out=$(gate "$T" "$T/allow"); rc=$?
   chk(){ if eval "$2"; then echo "  [ok]   $1"; else echo "  [FAIL] $1"; f=1; fi; }
@@ -223,11 +240,16 @@ if [ "$SELFTEST" -eq 1 ]; then
   chk "the unconditional OK is OPEN"                'grep -qE "^\s*\[OPEN  \] +plant_open.sh" <<<"$out"'
   chk "the python OK is OPEN"                       'grep -qE "^\s*\[OPEN  \] +plant_py_open.py" <<<"$out"'
   chk "exit-0-with-SKIP is RC0"                     'grep -qE "^\s*\[RC0   \] +plant_rc0.sh" <<<"$out"'
-  chk "ERROR-on-absent is closed"                   'grep -qE "^\s*\[closed\] +plant_closed.sh" <<<"$out"'
-  chk "FAIL-on-absent is closed"                    'grep -qE "^\s*\[closed\] +plant_fail.sh" <<<"$out"'
-  chk "az in a non-comment line -> UNRUN, never executed" 'grep -qE "^\s*\[unrun \] +plant_unrun.sh" <<<"$out" && [ ! -e "$T/RAN_UNRUN" ]'
-  chk "a hard-coded absolute repo path -> ABSPATH, never executed" 'grep -qE "^\s*\[abspth\] +plant_abs.sh" <<<"$out" && [ ! -e "$T/RAN_ABS" ]'
-  chk "az in a COMMENT does not make a script unrun" 'grep -qE "^\s*\[closed\] +plant_comment.sh" <<<"$out"'
+  # Q-954 (c): each CLOSED check names the rc its fixture's refusal branch exits with. "closed"
+  # alone is also what a fixture that cannot parse (python SyntaxError rc 1, bash rc 2) gets.
+  chk "ERROR-on-absent is closed (rc 2)"            'grep -qE "^\s*\[closed\] +plant_closed.sh +rc=2," <<<"$out"'
+  chk "FAIL-on-absent is closed (rc 1)"             'grep -qE "^\s*\[closed\] +plant_fail.sh +rc=1," <<<"$out"'
+  chk "an unreadable-input refusal is closed (rc 2)" 'grep -qE "^\s*\[closed\] +plant_closed2.sh +rc=2," <<<"$out"'
+  chk "a python refusal is closed by its sys.exit(2), not by a SyntaxError" 'grep -qE "^\s*\[closed\] +plant_closed3.py +rc=2," <<<"$out"'
+  chk "positive control: an EXECUTED fixture leaves its sentinel" '[ -e "$FAILOPEN_SELFTEST_SENTINEL/RAN_CLOSED" ]'
+  chk "az in a non-comment line -> UNRUN, never executed" 'grep -qE "^\s*\[unrun \] +plant_unrun.sh" <<<"$out" && [ ! -e "$FAILOPEN_SELFTEST_SENTINEL/RAN_UNRUN" ]'
+  chk "a hard-coded absolute repo path -> ABSPATH, never executed" 'grep -qE "^\s*\[abspth\] +plant_abs.sh" <<<"$out" && [ ! -e "$FAILOPEN_SELFTEST_SENTINEL/RAN_ABS" ]'
+  chk "az in a COMMENT does not make a script unrun (closed, rc 2)" 'grep -qE "^\s*\[closed\] +plant_comment.sh +rc=2," <<<"$out"'
   chk "allowlisted self-contained script is allowed" 'grep -qE "^\s*\[allow \] +plant_allowed.sh" <<<"$out"'
   chk "a script with no verdict token is not in the population" '! grep -q plant_notoken <<<"$out"'
   chk "counts: OPEN=2 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)" 'grep -qx "FAILOPEN_CLOSURE_OPEN=2" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RC0=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ALLOWED=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_UNRUN=2" <<<"$out"'
@@ -248,7 +270,7 @@ if [ "$SELFTEST" -eq 1 ]; then
   # this check, which is why the arm above is compound.
   mk plant_127.sh 'echo "PLANT127=ERROR a helper this gate needs is absent"; exit 127'
   out=$(gate "$T" "$T/allow"); rc=$?
-  chk "a legitimate exit 127 stays CLOSED (no over-fire)" 'grep -qE "^\s*\[closed\] +plant_127.sh" <<<"$out" && ! grep -q "launcher-failed" <<<"$out"'
+  chk "a legitimate exit 127 stays CLOSED (no over-fire)" 'grep -qE "^\s*\[closed\] +plant_127.sh +rc=127," <<<"$out" && ! grep -q "launcher-failed" <<<"$out"'
   rm -f "$T/scripts/plant_127.sh"
   printf 'plant_closed.sh\tself-contained\tthis row exempts a script that is CLOSED\n' >> "$T/allow"
   out=$(gate "$T" "$T/allow"); rc=$?

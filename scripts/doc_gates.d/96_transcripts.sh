@@ -47,7 +47,7 @@
 # ---------------------------------------------------------------------------
 gate_transcripts() {
   echo "== GATE 95: transcripts outside example/ are registered in documentation/DOC_GATE_TRANSCRIPTS.tsv =="
-  local out
+  local out orc
   out=$(DOC_GATE_TR_REG="${DOC_GATE_TR_REG:-}" DOC_GATE_TR_CORPUS="${DOC_GATE_TR_CORPUS:-}" python3 - 2>&1 <<'TR_PY'
 import hashlib, os, re, subprocess, sys
 reg = os.environ.get("DOC_GATE_TR_REG") or "documentation/DOC_GATE_TRANSCRIPTS.tsv"
@@ -164,8 +164,9 @@ for m in fail:
     print("  [FAIL] " + m)
 print("TRANSCRIPTS_GATE=%s" % ("FAIL" if fail else "PASS"))
 TR_PY
-)
+); orc=$?
   printf '%s\n' "$out"
-  # The verdict line, not python's exit status, decides: a scan that crashed prints no PASS line.
-  grep -qx 'TRANSCRIPTS_GATE=PASS' <<<"$out"
+  # The verdict line AND python's exit status decide (Q-952): a scan that printed PASS and then
+  # crashed, or printed a second, conflicting verdict, is not a PASS. require_pass_token: doc_gates.sh.
+  require_pass_token TRANSCRIPTS_GATE PASS "$out" "$orc"
 }

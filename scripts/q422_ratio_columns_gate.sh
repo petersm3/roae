@@ -75,7 +75,7 @@ if [ -n "${Q422_SOLVE:-}" ]; then
   SOLVE="$Q422_SOLVE"; [ -x "$SOLVE" ] || fail "Q422_SOLVE=$SOLVE is not executable"
   # 🔴 EXECUTABLE IS NOT CURRENT. The else-arm compiles the committed solve.c seconds before
   # use and is safe by construction; this arm is not. Q422_SOLVE names a PATH and only its +x bit
-  # was checked above. tr12_repro_gate.sh:622 hands in a binary it just built, but a hand run
+  # was checked above. tr12_repro_gate.sh:680 hands in a binary it just built, but a hand run
   # `Q422_SOLVE=./solve bash scripts/q422_ratio_columns_gate.sh` points the gate at whatever
   # artifact is lying in the tree -- and this gate then asserts things about --kc-scan output and
   # about 26112, i.e. about COUNTS.

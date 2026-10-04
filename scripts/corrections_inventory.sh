@@ -225,17 +225,22 @@ classify() {
     }
     # redmoney(s) — CX-230 (2026-09-29): EVERY dollar-figure token in s becomes COSTMARK, not only
     # the registered ones. A token is MONEY_RE (a dollar sign, a number with optional digit-group
-    # commas, decimal part and K/k/M, and an optional hyphen or en-dash range). A bare `$N` with a
-    # backtick, quote, bracket or brace before it, or a backtick, `=`, `~`, `+`, `]`, `}` or a quote
-    # after it (`$3`, `$8 ~ /x/`, `a[$1]`) is an awk or shell field quoted in prose, and is kept.
-    function redmoney(s,   o, t, pre, post) {
-      o = ""
+    # commas, decimal part and K/k/M, and an optional hyphen or en-dash range).
+    # Q-958 (2026-10-03, Codex Q835 P-11): the ONLY token kept is a bare `$N` (digits only) that sits
+    # INSIDE A BACKTICK CODE SPAN -- an odd number of backticks before it on the line and at least one
+    # after it -- which is how prose quotes an awk or shell field (`$3`, `$8 ~ /x/`, `a[$1]`). The old
+    # rule kept a bare `$N` whenever ONE neighbouring character looked like code: a quote, bracket,
+    # brace or parenthesis before it, or a quote, `=`, `~`, `+`, `]` or `}` after it. So a `$`
+    # amount in parentheses, in quotes or followed by a plus sign was published as "code". A line of
+    # a fenced code block carries no backticks of its own, so a field there is redacted too: the
+    # cost of that is a marker in place of a field reference, never a published figure.
+    function redmoney(s,   o, t, head, nbt) {
+      o = ""; nbt = 0
       while (match(s, MONEY_RE)) {
         t = substr(s, RSTART, RLENGTH)
-        pre = (RSTART > 1) ? substr(s, RSTART - 1, 1) : ""
-        post = substr(s, RSTART + RLENGTH, 2)
-        if (t ~ /^\$[0-9]+$/ && ((pre != "" && index(CODEPRE, pre) > 0) \
-            || (substr(post, 1, 1) != "" && index(CODEPOST, substr(post, 1, 1)) > 0) || post == " ~" || post == " =")) {
+        head = substr(s, 1, RSTART - 1)
+        nbt += gsub(/`/, "`", head)
+        if (t ~ /^\$[0-9]+$/ && nbt % 2 == 1 && index(substr(s, RSTART + RLENGTH), "`") > 0) {
           o = o substr(s, 1, RSTART + RLENGTH - 1)
         } else {
           o = o substr(s, 1, RSTART - 1) COSTMARK
@@ -259,7 +264,6 @@ classify() {
       tokre["C1"] = C1RE; tokre["C2"] = C2RE; tokre["C3"] = C3RE; tokre["C4"] = C4RE
       print "id", "date", "class", "matched", "source", "document", "line", "text"
       MONEY_RE = ENVIRON["CI_MONEY_RE"]   # via the environment: -v would eat the backslashes
-      CODEPRE = "`\"([{" sprintf("%c", 39); CODEPOST = "`=~+]}\"" sprintf("%c", 39)
       nred = 0
       if (REDACT_FILE != "") while ((getline r < REDACT_FILE) > 0) if (r != "") red[++nred] = r
     }

@@ -294,14 +294,22 @@ print(f"WEAK {len(weak)}")
 if len(weak) < len(WEAK_KNOWN):
     print(f"WEAKREPIN {len(weak)} of {len(WEAK_KNOWN)}")
 PYEOF
-)
+); _ua_rc=$?
     # `$_ua` is CAPTURED first and matched from the variable. Never `python3 ... | grep -q`:
     # grep -q exits at the first match, the producer dies of SIGPIPE, and under `set -o pipefail`
     # the pipeline status is 141 -- so a MATCH would read as NO MATCH and this leg would fail open
     # a second time, in a second way.
-    if grep -q '^ERROR' <<<"$_ua"; then
+    # Q-951: the extractor's exit status and its COUNT/ARGS receipts are read BEFORE its output is.
+    # A python3 that crashed or was killed printed nothing, so `_b` and `_wn` counted 0 and BOTH
+    # [ok] arms below ran over a comparison that never happened.
+    if [ "$_ua_rc" -eq 0 ] && grep -q '^ERROR' <<<"$_ua"; then
       echo "  [FAIL] GATE 2 usage-grammar leg: $(printf '%s\n' "$_ua" | sed -n 's/^ERROR //p')"
       echo "         The extractor is broken, so NOTHING was compared."; bad=1
+    elif [ "$_ua_rc" -ne 0 ] || [ "$(grep -cE '^COUNT [0-9]+$' <<<"$_ua")" != 1 ] \
+         || [ "$(grep -cE '^ARGS [0-9]+$' <<<"$_ua")" != 1 ]; then
+      echo "  [FAIL] GATE 2 usage-grammar leg: HARNESS_BROKEN -- the extractor exited $_ua_rc and/or"
+      echo "         did not print exactly one COUNT and one ARGS receipt, so NOTHING was compared."
+      printf '%s\n' "$_ua" | tail -3 | sed 's/^/           /'; bad=1
     else
       _n=$(printf '%s\n' "$_ua" | sed -n 's/^COUNT //p')
       _a=$(printf '%s\n' "$_ua" | sed -n 's/^ARGS //p')
@@ -341,9 +349,10 @@ PYEOF
   if [ ! -r scripts/cli_decl_metadata_gate.sh ]; then
     echo "  [FAIL] scripts/cli_decl_metadata_gate.sh missing — the declaration-metadata leg checked NOTHING"; bad=1
   else
-    _dm=$(bash scripts/cli_decl_metadata_gate.sh 2>&1)
+    _dm=$(bash scripts/cli_decl_metadata_gate.sh 2>&1); _dm_rc=$?
     sed -n '/^  \[/p; /^         /p' <<<"$_dm"
-    if ! grep -qx 'CLI_DECL_METADATA=PASS' <<<"$_dm"; then
+    # Q-952: rc 0 AND exactly one CLI_DECL_METADATA= line AND PASS (require_pass_token, doc_gates.sh).
+    if ! require_pass_token CLI_DECL_METADATA PASS "$_dm" "$_dm_rc"; then
       grep -qxE 'CLI_DECL_METADATA=(FAIL|ERROR)' <<<"$_dm" \
         || echo "  [FAIL] the declaration-metadata leg printed no verdict token — treated as FAIL"
       bad=1
@@ -390,14 +399,15 @@ gate_citation_lines() {
     _out=$(bash scripts/citation_line_gate.sh $_mode 2>&1); _rc=$?
     [ -n "$_mode" ] && echo "  -- citation_line_gate.sh $_mode"
     sed -n '/^  \[/p' <<<"$_out"
-    if grep -qx 'CITATION_LINE_GATE=PASS' <<<"$_out"; then
+    # Q-952: a PASS line beside a non-zero rc, or beside a second verdict, is not a PASS.
+    if require_pass_token CITATION_LINE_GATE PASS "$_out" "$_rc"; then
       continue
     fi
     _bad=1
     if grep -qx 'CITATION_LINE_GATE=ERROR' <<<"$_out"; then
       echo "  [FAIL] GATE 2c ${_mode:-(SOLVE_C_CLI.md)} measured NOTHING (ERROR verdict) — this is not agreement"
     elif ! grep -qx 'CITATION_LINE_GATE=FAIL' <<<"$_out"; then
-      echo "  [FAIL] GATE 2c ${_mode:-(SOLVE_C_CLI.md)} produced no verdict token at all (rc=$_rc) — treated as FAIL"
+      echo "  [FAIL] GATE 2c ${_mode:-(SOLVE_C_CLI.md)} produced no single clean verdict (rc=$_rc) — treated as FAIL"
     fi
   done
   return $_bad

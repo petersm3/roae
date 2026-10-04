@@ -839,9 +839,10 @@ gate_viz_shape() {
   fi
   local out rc
   out=$(python3 "$G" --selftest 2>&1); rc=$?
-  if ! grep -qx 'VIZ_SHAPE_SELFTEST=PASS' <<<"$out"; then
+  # Q-952: rc 0 AND exactly one VIZ_SHAPE_SELFTEST= line AND it is PASS (require_pass_token, doc_gates.sh).
+  if ! require_pass_token VIZ_SHAPE_SELFTEST PASS "$out" "$rc"; then
     printf '%s\n' "$out" | sed 's/^/     /'
-    echo "  [FAIL] $G --selftest did not print VIZ_SHAPE_SELFTEST=PASS (rc $rc)"
+    echo "  [FAIL] $G --selftest did not give a clean VIZ_SHAPE_SELFTEST=PASS (rc $rc)"
     return 1
   fi
   echo "  [ok]   $G --selftest: $(printf '%s\n' "$out" | grep -c '^  \[ok\]') arm(s) green, VIZ_SHAPE_SELFTEST=PASS"

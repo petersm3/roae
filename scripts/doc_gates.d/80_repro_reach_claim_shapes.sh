@@ -2230,7 +2230,7 @@ print("POP\t%d mod-24 divisibility claim(s); %d retired-wording copy(ies) exempt
 # note). Unit: the flattened sentence around each citation in *.md, the line in
 # scripts/tr12_repro.sh (which prints the gate's own header). Measured before shipping, by restoring the
 # five b0abe4e5 files into the fixed tree: this leg fires at PREREG_CLASSA_QUERY_SET.md:127,
-# TR12_QUERY_PROGRAM.md:2152, TR5_SYMMETRY.md:159 and tr12_repro.sh:3031; on the fixed tree it fires
+# TR12_QUERY_PROGRAM.md:2152, TR5_SYMMETRY.md:159 and tr12_repro.sh:3039; on the fixed tree it fires
 # nowhere. QUERY_INVENTORY.md:278's old wording is not caught by this sentence unit; a
 # RETRACTED_PHRASES.tsv row carries that site.
 AOBJ = re.compile(r'\bflows?\b|\bwalks?\b|\|SUPER\||layer count|\bN\b|\bgate\b')

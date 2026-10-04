@@ -31,15 +31,16 @@
 # ---------------------------------------------------------------------------
 gate_history_index() {
   echo "== GATE 91: documentation/HISTORY_INDEX.md is a fresh output of scripts/history_index.sh =="
-  local out rc=0
-  out=$(bash scripts/history_index.sh --check 2>&1)
+  # Q-952: each run is judged by require_pass_token (doc_gates.sh): rc 0, exactly one token, PASS.
+  local out orc rc=0
+  out=$(bash scripts/history_index.sh --check 2>&1); orc=$?
   printf '%s\n' "$out"
-  grep -qx 'HISTORY_INDEX=CURRENT' <<<"$out" || rc=1
-  out=$(bash scripts/history_index.sh --selftest 2>&1)
+  require_pass_token HISTORY_INDEX CURRENT "$out" "$orc" || rc=1
+  out=$(bash scripts/history_index.sh --selftest 2>&1); orc=$?
   printf '%s\n' "$out"
-  grep -qx 'HISTORY_INDEX_SELFTEST=PASS' <<<"$out" || rc=1
-  out=$(bash scripts/history_currency_gate.sh --selftest 2>&1)
+  require_pass_token HISTORY_INDEX_SELFTEST PASS "$out" "$orc" || rc=1
+  out=$(bash scripts/history_currency_gate.sh --selftest 2>&1); orc=$?
   printf '%s\n' "$out"
-  grep -qx 'HISTORY_CURRENCY_SELFTEST=PASS' <<<"$out" || rc=1
+  require_pass_token HISTORY_CURRENCY_SELFTEST PASS "$out" "$orc" || rc=1
   return $rc
 }

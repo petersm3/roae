@@ -180,12 +180,29 @@ CORE="solve.c verify.py verify.c solve.py documentation/VERIFY.md scripts/lib_bi
 # are listed here). Declaring them keeps the fingerprint set BYTE-IDENTICAL to what it was -- this
 # row changes no membership, it only makes the membership that already existed a stated contract
 # instead of a side effect of prose. Whether the five documentation files belong in a reproduction
-# fingerprint at all is a separate question and is NOT decided here.
+# fingerprint at all is a separate question and is NOT decided here. (Decided 2026-10-03 by Q-695,
+# below: none of the six documents is an input; they moved to REFERENCED_NOT_INPUTS.)
 # comment_membership_check (below) keeps it that way: a file reached only by a comment and named
 # in neither list makes the gate ERROR, so membership can no longer be created -- or silently
 # destroyed -- by rewording a comment.
-DECLARED="documentation/CORRECTIONS.md documentation/HISTORY.md documentation/PREREG_CLASSA_QUERY_SET.md documentation/SOLVE_PY_CLI.md documentation/SYMMETRY_SEARCH.md reports/TR8_REORDERING_REVISITED.md scripts/manifest_zero_entry_gate.sh scripts/resume_budget_infinity_gate.sh scripts/tr12_expected/README.md scripts/tr12_mint_state_gate.sh tests.py"
-fingerprint_files(){ { printf '%s\n' $CORE $DECLARED; derived_inputs; } | sort -u; }
+# 🔴 Q-695, 2026-10-03: THE SIX DOCUMENTATION FILES ARE OUT. Each was a member only because prose
+# names it, and none is an INPUT: measured on the batch-38 tree, no line of any derived script, nor of
+# solve.py / verify.py / sat.py / viz/report_figures.py, opens, greps, sources or hashes any of them
+# (their code-view hits are two message strings, tr12_repro.sh row_skip a2_gcheck_indep and the
+# READER_FAIL printf, plus this gate's own list). So no TR12 verdict or golden depends on their bytes:
+# editing one moved --check to NO and the re-stamp re-ran a battery that could not see the edit.
+# The one case that looks like a dependency is not one: the three V4 tail anchors that
+# PREREG_CLASSA_QUERY_SET.md publishes (690,176 / 5,624 / 52, from SYMMETRY_SEARCH.md:198-200) are
+# HARDCODED in tr12_repro.sh ("22:690176 24:5624 26:52"), which IS hashed; the PREREG's own bytes are
+# pinned by digest in PREREGISTRATION_ESCROW.md, which doc_gates checks, not by this fingerprint.
+# REFERENCED_NOT_INPUTS names them so they are subtracted from the fingerprint and can never be
+# re-added by a comment or a message string. not_input_read_check (below) fails the gate if a script
+# ever starts READING one of them, so the exclusion cannot hide a real input. The five files still in
+# DECLARED are kept exactly as Q-613 listed them: they are comment-reached too, but they are scripts
+# and harness, not documents, and Q-695 was scoped to the six documents, so it decides nothing here.
+DECLARED="scripts/manifest_zero_entry_gate.sh scripts/resume_budget_infinity_gate.sh scripts/tr12_expected/README.md scripts/tr12_mint_state_gate.sh tests.py"
+REFERENCED_NOT_INPUTS="documentation/CORRECTIONS.md documentation/HISTORY.md documentation/PREREG_CLASSA_QUERY_SET.md documentation/SOLVE_PY_CLI.md documentation/SYMMETRY_SEARCH.md reports/TR8_REORDERING_REVISITED.md"
+fingerprint_files(){ { printf '%s\n' $CORE $DECLARED; derived_inputs; } | sort -u | grep -vxF -f <(printf '%s\n' $REFERENCED_NOT_INPUTS | grep .); }
 
 # 🔴 MY FIRST VERSION OF THIS CHECK WAS TAUTOLOGICAL. It asserted that every derived input was in
 # a set BUILT FROM the derived inputs -- true by construction, and therefore worthless: the exact
@@ -198,7 +215,7 @@ fingerprint_files(){ { printf '%s\n' $CORE $DECLARED; derived_inputs; } | sort -
 # could see it. row_assertion_gate.sh proves a row ASSERTS; it cannot prove the assertion's parse
 # MATCHES ITS PRODUCER. This runs that check against a freshly built binary and real ladders.
 q7ranks_parse_leg(){
-  # Paths are relative to the repo root, matching this file's own idiom (:228, :232).
+  # Paths are relative to the repo root, matching this file's own idiom (:245, :249).
   # The first draft used "$ROOT", which is pre_push_gate.sh's variable and is unset here --
   # under `set -u` that aborted the gate AFTER the battery passed and BEFORE the stamp was
   # written. Loud and in the right direction (no stamp on an unmeasured tree), but a defect.
@@ -210,10 +227,10 @@ q7ranks_parse_leg(){
       echo "  [ERROR] scripts/q7ranks_parse_gate.sh is absent or not executable -- the n>=31-only"
       echo "          parse class is UNMEASURED. That is not the same as passing."
       return 2; }
-  local out; out=$(bash ./scripts/q7ranks_parse_gate.sh 2>&1)
+  local out orc n; out=$(bash ./scripts/q7ranks_parse_gate.sh 2>&1); orc=$?; n=$(grep -c '^Q7RANKS_PARSE=' <<<"$out")
   printf '%s\n' "$out" | sed 's/^/  /'
-  if grep -qx 'Q7RANKS_PARSE=PASS' <<<"$out"; then return 0; fi
-  if grep -qx 'Q7RANKS_PARSE=ERROR' <<<"$out"; then
+  if [ "$n" = 1 ] && [ "$orc" -eq 0 ] && grep -qx 'Q7RANKS_PARSE=PASS' <<<"$out"; then return 0; fi   # Q-952: rc 0 + ONE token
+  if [ "$n" != 1 ] || [ "$orc" -eq 124 ] || [ "$orc" -ge 128 ] || grep -qxE 'Q7RANKS_PARSE=(ERROR|PASS)' <<<"$out"; then
     echo "  [ERROR] Q7RANKS_PARSE could not be measured -- NOT the same as PASS"; return 2; fi
   echo "  [FAIL] Q7RANKS_PARSE=FAIL -- an n>=31-only row's parse does not match its producer"; return 1
 }
@@ -230,9 +247,9 @@ q2_witness_leg(){
       echo "          LAST^C15 witness requirement is UNMEASURED. That is not the same as passing."
       return 2; }
   local out; out=$(bash ./scripts/q2_witness_gate.sh 2>&1)
-  printf '%s\n' "$out" | sed 's/^/  /'
-  if grep -qx 'Q2_WITNESS=PASS' <<<"$out"; then return 0; fi
-  if grep -qx 'Q2_WITNESS=ERROR' <<<"$out"; then
+  local orc=$? n; n=$(grep -c '^Q2_WITNESS=' <<<"$out"); printf '%s\n' "$out" | sed 's/^/  /'   # orc: the gate's rc
+  if [ "$n" = 1 ] && [ "$orc" -eq 0 ] && grep -qx 'Q2_WITNESS=PASS' <<<"$out"; then return 0; fi   # Q-952: rc 0 + ONE token
+  if [ "$n" != 1 ] || [ "$orc" -eq 124 ] || [ "$orc" -ge 128 ] || grep -qxE 'Q2_WITNESS=(ERROR|PASS)' <<<"$out"; then
     echo "  [ERROR] Q2_WITNESS could not be measured -- NOT the same as PASS"; return 2; fi
   echo "  [FAIL] Q2_WITNESS=FAIL -- an extremal row can publish an enumeration that found nothing"; return 1
 }
@@ -267,6 +284,7 @@ fingerprint_coverage_check(){
     return 1
   fi
   comment_membership_check || return 1
+  not_input_read_check || return 1
   return 0
 }
 
@@ -278,7 +296,7 @@ fingerprint_coverage_check(){
 comment_membership_check(){
   local all code declared only
   all=$(derived_inputs); code=$(derived_inputs code)
-  declared=$(printf '%s\n' $CORE $DECLARED | sort -u)
+  declared=$(printf '%s\n' $CORE $DECLARED $REFERENCED_NOT_INPUTS | sort -u)
   only=$(comm -23 <(printf '%s\n' "$all" | sort -u) \
                   <( { printf '%s\n' "$code"; printf '%s\n' "$declared"; } | sort -u) | grep -v '^$')
   if [ -n "$only" ]; then
@@ -288,6 +306,46 @@ comment_membership_check(){
     echo "         Add each to CORE (the battery executes it) or DECLARED in scripts/tr12_repro_gate.sh."
     return 1
   fi
+  return 0
+}
+
+# 🔴 Q-695: AN EXCLUDED FILE MAY BE NAMED, NEVER READ. REFERENCED_NOT_INPUTS is subtracted from the
+# fingerprint, so if a script ever began to read one of those files the fingerprint would be blind to a
+# real input -- the exact Q-94 failure. This fails the gate when (1) an excluded path is also listed in
+# CORE or DECLARED, or (2) a CODE line (comments stripped, this gate's own REFERENCED_NOT_INPUTS= line
+# dropped) of any derived script, or of the four Python files the battery runs, names an excluded
+# file's basename together with a read shape: cat/grep/sed/awk/head/tail/cut/wc/diff/cmp/sort, a hash
+# tool, source/., mapfile/readarray IN COMMAND POSITION (line start, or after | ; & ( { ` $( ), an
+# input redirect, or Python open( / Path( / .read_text(. Measured 2026-10-03: a first draft matched
+# those words anywhere and fired on the READER_FAIL printf's prose "pre-registered tail anchor". A message string
+# that merely NAMES the file (row_skip a2_gcheck_indep, the READER_FAIL printf) is not a read and
+# passes. A read that hides the path in a variable is not seen: that is the derivation's own limit
+# (Q-613), not one this check adds.
+not_input_read_check(){
+  local p b hit="" f srcs
+  for p in $REFERENCED_NOT_INPUTS; do
+    if grep -qxF "$p" <<<"$(printf '%s\n' $CORE $DECLARED)"; then   # here-string, not a pipe (Q-799)
+      echo "  [FAIL] $p is in REFERENCED_NOT_INPUTS and also in CORE/DECLARED; it cannot be both (Q-695)"
+      return 1
+    fi
+  done
+  srcs=$( { derived_inputs code | grep '\.sh$'; printf '%s\n' solve.py verify.py sat.py viz/report_figures.py; } | sort -u)
+  for p in $REFERENCED_NOT_INPUTS; do
+    b=$(basename "$p")
+    for f in $srcs; do
+      [ -f "$f" ] || continue
+      hit=$(sed -e '/^REFERENCED_NOT_INPUTS=/d' -e 's/^[[:space:]]*#.*//' -e 's/[[:space:]]#.*$//' "$f" 2>/dev/null \
+        | grep -nF "$b" \
+        | grep -E '^[0-9]+:(.*([|;&({`]|\$\())?[[:space:]]*((if|elif|while|until|then|do|else|!|time|command|nice([[:space:]]+-n[[:space:]]*-?[0-9]+)?|env([[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)*|timeout([[:space:]]+-[^[:space:]]+)*[[:space:]]+[0-9.]+[smhd]?)[[:space:]]+)*(cat|grep|egrep|fgrep|sed|awk|head|tail|cut|wc|diff|cmp|sort|sha256sum|sha1sum|md5sum|cksum|source|\.|mapfile|readarray)([[:space:]]|$)|(^|[^A-Za-z_.])(open|Path)\(|\.read_(text|bytes)\(|(^|[^<])<[[:space:]]*["$./A-Za-z]' \
+        | head -1)
+      if [ -n "$hit" ]; then
+        echo "  [FAIL] $f READS $p, which REFERENCED_NOT_INPUTS keeps out of the fingerprint (Q-695):"
+        echo "           $f:$hit" | cut -c1-240
+        echo "         If the battery now depends on its bytes, move it to CORE or DECLARED and re-stamp."
+        return 1
+      fi
+    done
+  done
   return 0
 }
 
@@ -741,8 +799,15 @@ if ! bash ./scripts/xa_exact_verdict_gate.sh | grep -cx 'XA_EXACT_VERDICT=OK' >/
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
-if ! ./scripts/tr12_repro.sh --n9 --solve "$WORK/solve" --out "$WORK/out" >"$WORK/repro.log" 2>&1; then
-  :   # non-zero exit is expected on FAIL; the token below is the authority
+./scripts/tr12_repro.sh --n9 --solve "$WORK/solve" --out "$WORK/out" >"$WORK/repro.log" 2>&1; _reprorc=$?
+# Non-zero is expected on FAIL. Q-952: but TR12_REPRO=PASS is believed only beside rc 0 and as the ONE
+# TR12_REPRO= line of VERDICTS.txt; a battery that wrote PASS and was then killed, or wrote two
+# verdicts, is ERROR -- never PASS, and never the plain FAIL below (which would say "does not reproduce").
+_repron=$(grep -c '^TR12_REPRO=' "$WORK/out/VERDICTS.txt" 2>/dev/null); _repron=${_repron:-0}
+if grep -qE '^TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null && { [ "$_reprorc" -ne 0 ] || [ "$_repron" != 1 ]; }; then
+  echo "  [ERROR] the battery wrote a PASS verdict but exited $_reprorc with $_repron TR12_REPRO= line(s):"
+  echo "          HARNESS_BROKEN -- nothing it wrote is believed."
+  echo "TR12_REPRO_GATE=ERROR"; exit 2
 fi
 # A MINTED pass is refused BY NAME rather than falling through to the generic FAIL below, which
 # would report "the committed tree does not reproduce its own published battery" — true, but it
@@ -817,8 +882,10 @@ if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
   # orphan golden, no golden missing from (or extra to) _MANIFEST.txt, and no row without a golden
   # unless it is pinned NOT RUN. Static and cheap; same placement and reason as the two legs above.
   if [ -x ./scripts/tr12_golden_set_gate.sh ]; then
-    _gs_out=$(bash ./scripts/tr12_golden_set_gate.sh 2>&1); printf '%s\n' "$_gs_out" | sed 's/^/  /'
-    if ! grep -qx 'TR12_GOLDEN_SET=PASS' <<<"$_gs_out"; then
+    _gs_out=$(bash ./scripts/tr12_golden_set_gate.sh 2>&1); _gsrc=$?; printf '%s\n' "$_gs_out" | sed 's/^/  /'
+    # Q-952: PASS needs rc 0 AND exactly one TR12_GOLDEN_SET= line.
+    if [ "$_gsrc" -ne 0 ] || [ "$(grep -c '^TR12_GOLDEN_SET=' <<<"$_gs_out")" != 1 ] \
+       || ! grep -qx 'TR12_GOLDEN_SET=PASS' <<<"$_gs_out"; then
       echo "  [FAIL] TR12_GOLDEN_SET is not PASS -- the golden set does not match the battery's rows"
       echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
   else

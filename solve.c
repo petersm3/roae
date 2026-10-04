@@ -16325,7 +16325,7 @@ typedef struct {
     const char *path;
     F1C5LayerHdr h;
     int is_v2;
-    int kind;                  /* 0 f (F1C5LAY*), 1 g (F1C5GLY*), 2 t (F1C5TLY*) */
+    int kind; int is_c3;       /* 0 f (F1C5LAY*, and F1C3LAY* with is_c3=1: a forward f-format layer whose key32 also packs gofs<<22), 1 g (F1C5GLY*), 2 t (F1C5TLY*) */
     uint64_t nm, ne, nblk;     /* nblk = v2 entry blocks (0 for v1) */
     uint64_t *kidx, *vidx;     /* v2 only: per-block compressed offsets */
     int section;               /* 0 masks, 1 off, 2 keys, 3 vals, 4 EOF */
@@ -16336,7 +16336,7 @@ typedef struct {
     uint8_t *cbuf;             /* one compressed block (v2 only) */
     uint8_t *dbuf;             /* one decompressed block / raw chunk */
     uint64_t dcap;
-} F1c5LayerStream;
+} F1c5LayerStream; static int f1c5_lstream_c3_ok = 0, f1c5_sidecar_erc = 0;  /* Q-418: F1C3 layers are readable ONLY inside the layer-stats sidecar pass (which decodes their G-carrying keys); every other consumer refuses them, as all did before 2026-10-03 */
 
 static void f1c5_lstream_close(F1c5LayerStream *S) {
     if (S->f) fclose(S->f);
@@ -16359,10 +16359,10 @@ static int f1c5_lstream_open(const char *path, F1c5LayerStream *S) {
      * share one binary format — only the magic differs — so the logical-
      * stream digest/compare machinery serves all three ladders (operator
      * g-ladder directive, 2026-07-17; t added with the t-ladder). */
-    S->is_v2 = ((memcmp(S->h.magic, "F1C5LAY2", 8) == 0 ||
+    S->is_c3 = (memcmp(S->h.magic, "F1C3LAY", 7) == 0); if (S->is_c3 && !f1c5_lstream_c3_ok) { fprintf(stderr, "ERROR: %s is an --f1-c3-hist layer (F1C3LAY magic); only the layer-stats sidecar pass reads it -- this tool decodes keys without the G channel\nF1C5_LAYER_FAMILY=C3-REFUSED\n", path); f1c5_lstream_close(S); return -1; } S->is_v2 = ((memcmp(S->h.magic, "F1C5LAY2", 8) == 0 || memcmp(S->h.magic, "F1C3LAY2", 8) == 0 ||  /* Q-418: the --f1-c3-hist writers emit F1C3LAY1/2 in this same format; before 2026-10-03 this reader refused them, so every default C3 layer commit shipped without its sidecar (executed: n=9, 10 of 10 layers "sidecar skipped", rc 0) */
                  memcmp(S->h.magic, "F1C5GLY2", 8) == 0 ||
                  memcmp(S->h.magic, "F1C5TLY2", 8) == 0) && S->h.version == 2);
-    int is_v1 = ((memcmp(S->h.magic, "F1C5LAY1", 8) == 0 ||
+    int is_v1 = ((memcmp(S->h.magic, "F1C5LAY1", 8) == 0 || memcmp(S->h.magic, "F1C3LAY1", 8) == 0 ||
                   memcmp(S->h.magic, "F1C5GLY1", 8) == 0 ||
                   memcmp(S->h.magic, "F1C5TLY1", 8) == 0) && S->h.version == 1);
     S->kind = (memcmp(S->h.magic, "F1C5GLY", 7) == 0) ? 1
@@ -16680,7 +16680,7 @@ static int f1c5_layer_cmp_files(const char *pa, const char *pb) {
  * f1c5_lstream machinery as the registry tool, and writes only separate
  * .json files (tmp+fsync+rename, atomic). It never touches layer bytes, the
  * count arithmetic, or any enumeration path; every failure is a WARN, never
- * an abort (a sidecar can not kill a build). Env gate: default ON;
+ * an abort (a sidecar can not kill a build; Q-418: one not written is also ERROR + F1C5_LAYER_SIDECAR=MISSING). Env gate: default ON;
  * SOLVE_F1_LAYER_SIDECARS=0 disables (the f1c5_progress.json pattern).
  * Retrofit for pre-existing ladders (e.g. a finished Stage-F dir):
  * `solve --f1c5-sidecar-retrofit DIR [DIR...]` regenerates all sidecars in
@@ -16696,7 +16696,7 @@ static int f1c5_layer_cmp_files(const char *pa, const char *pb) {
  * stream passes over the ladder to the build wall (single-digit % of a
  * Stage-F/G build; measured small at gate scale). Fusing the two passes is a
  * possible follow-up; correctness-first per the operator directive.
- * Scope: f1c5/g layer formats only (the legacy #215 F1LAYER1 format is not
+ * Scope: f1c5/g/t layer formats, and since 2026-10-03 (Q-418) the F1C3LAY1/2 layers of --f1-c3-hist (the legacy #215 F1LAYER1 format is not
  * covered). Claude (Fable 5), 2026-07-17, operator-directed; developed with
  * AI assistance (Claude, Anthropic). */
 
@@ -16997,7 +16997,7 @@ static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         F1C5_SIDECAR_WARN("stats open (vals) failed for %s", lpath);
         return 1;
     }
-    const uint64_t nm = SK.nm, ne = SK.ne;
+    const uint64_t nm = SK.nm, ne = SK.ne; const int is_c3 = SK.is_c3;  /* Q-418 */
     const uint32_t R = B->R;
     uint32_t *masks = (uint32_t *)malloc(4ull * (nm ? nm : 1));
     uint64_t *off = (uint64_t *)malloc(8ull * (nm + 1));
@@ -17065,7 +17065,7 @@ static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         for (uint64_t i = 0; i < take; i++, e++) {
             const uint32_t key = kbuf[i];
             const F1U192 *v = &vbuf[i];
-            const int last = (int)(key >> 16);
+            const int last = SK.is_c3 ? (int)((key >> 16) & 63u) : (int)(key >> 16);  /* Q-418: a C3 key32 = gofs<<22 | last<<16 | rid -- strip gofs */
             const uint32_t rid = key & 0xffffu;
             while (mi < nm && off[mi + 1] <= e) mi++;
             /* (1) value histogram + (5) headroom */
@@ -17161,7 +17161,7 @@ static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         char dec[64];
         fprintf(jf, "{\n  \"sidecar\": \"f1c5_layer_stats_v2\",\n");
         fprintf(jf, "  \"kind\": \"%s\",\n  \"layer_file\": \"%s_layer_%02d.bin\",\n",
-                f1c5_kind_name(kind), pfx, k);
+                f1c5_kind_name(kind), pfx, k); if (is_c3) fprintf(jf, "  \"layer_family\": \"f1c3 (F1C3LAY magic; key32 = gofs<<22|last<<16|rid, stats decode last=(key>>16)&63; the G channel is not summarised here)\",\n");  /* Q-418 */
         fprintf(jf, "  \"n\": %d,\n  \"k\": %d,\n  \"start_exit\": %d,\n",
                 c->n, k, c->start_exit);
         fprintf(jf, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(c));
@@ -17323,7 +17323,7 @@ out:
 
 static void f1c5_sidecar_emit(const char *dir, const char *pfx,
                               const F1Ctx *c, const F1C5Budget *B, int k) {
-    (void)f1c5_sidecar_emit_impl(dir, pfx, c, B, k, 0);  /* builders: non-fatal by contract (Q-875 status ignored here) */
+    f1c5_lstream_c3_ok = 1; f1c5_sidecar_erc = f1c5_sidecar_emit_impl(dir, pfx, c, B, k, 0); f1c5_lstream_c3_ok = 0; if (f1c5_sidecar_erc != 0 && f1c5_sidecars_enabled()) { char jp_[4300]; snprintf(jp_, sizeof(jp_), "%s/%s_layer_stats_%02d.json", dir, pfx, k); if (access(jp_, F_OK) != 0) fprintf(stderr, "ERROR: [sidecar] %s/%s_layer_%02d.bin was committed WITHOUT its stats sidecar (see the WARN above); the build continues, sidecars being non-fatal by contract\nF1C5_LAYER_SIDECAR=MISSING\n", dir, pfx, k); }  /* builders: non-fatal by contract (Q-875). Q-418: but never SILENT -- a default-on sidecar that was not written is an ERROR line plus a grep -qx token; before 2026-10-03 every --f1-c3-hist layer took this path with only a WARN */
 }
 
 /* --f1c5-sidecar-retrofit worker: regenerate sidecars for every retained
@@ -17382,7 +17382,7 @@ static int f1c5_sidecar_retrofit_dir(const char *dir, int only_k) {
             char lpath[4300];
             snprintf(lpath, sizeof(lpath), "%s/%s_layer_%02d.bin", dir, pfx, k);
             if (access(lpath, F_OK) != 0) continue; else if (access(lpath, R_OK) != 0) { fprintf(stderr, "ERROR: [sidecar] cannot open %s: %s\nF1C5_SIDECAR_RETROFIT_LAYER=UNREADABLE\n", lpath, strerror(errno)); rc = 2; continue; }  /* Q-874: absent = not retained, skip as documented; exists-but-unreadable = named error, rc 2, never a silent skip */
-            { unsigned char hd_[72]; int hb_[5] = {0, 0, 0, 0, 0}, hok_ = 0; FILE *hf_ = fopen(lpath, "rb"); if (hf_) { hok_ = fread(hd_, 1, 72, hf_) == 72; fclose(hf_); } if (hok_) { for (int ci = 0; ci < 5; ci++) { uint32_t t_; memcpy(&t_, hd_ + 48 + 4 * ci, 4); hb_[ci] = (int)t_; } } if (!hok_ || memcmp(hb_, b0v, sizeof hb_) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: %s\nF1C5_SIDECAR_RETROFIT_LAYER=%s\n", lpath, hok_ ? "layer header b0 != manifest b0 (the sidecar would be computed under the wrong budget)" : "short layer header", hok_ ? "BUDGET-MISMATCH" : "UNREADABLE"); rc = 2; continue; } }  /* Codex KCV R13 (2026-09-29): the budget came from the manifest and was never compared with the layer header's b0 */ if (f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: sidecar not regenerated cleanly (see the WARN above)\nF1C5_SIDECAR_RETROFIT_LAYER=FAILED\n", lpath); rc = 2; continue; }  /* Q-875: was counted as regenerated, exit 0; now named, not counted, exit 2 */
+            { unsigned char hd_[72]; int hb_[5] = {0, 0, 0, 0, 0}, hok_ = 0; FILE *hf_ = fopen(lpath, "rb"); if (hf_) { hok_ = fread(hd_, 1, 72, hf_) == 72; fclose(hf_); } if (hok_) { for (int ci = 0; ci < 5; ci++) { uint32_t t_; memcpy(&t_, hd_ + 48 + 4 * ci, 4); hb_[ci] = (int)t_; } } if (!hok_ || memcmp(hb_, b0v, sizeof hb_) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: %s\nF1C5_SIDECAR_RETROFIT_LAYER=%s\n", lpath, hok_ ? "layer header b0 != manifest b0 (the sidecar would be computed under the wrong budget)" : "short layer header", hok_ ? "BUDGET-MISMATCH" : "UNREADABLE"); rc = 2; continue; } }  /* Codex KCV R13 (2026-09-29): the budget came from the manifest and was never compared with the layer header's b0 */ if ((f1c5_lstream_c3_ok = 1, f1c5_sidecar_erc = f1c5_sidecar_emit_impl(dir, pfx, c, &B, k, 1), f1c5_lstream_c3_ok = 0, f1c5_sidecar_erc) != 0) { fprintf(stderr, "ERROR: [sidecar] %s: sidecar not regenerated cleanly (see the WARN above)\nF1C5_SIDECAR_RETROFIT_LAYER=FAILED\n", lpath); rc = 2; continue; }  /* Q-875: was counted as regenerated, exit 0; now named, not counted, exit 2 */
             done++;
         }
         printf("[sidecar-retrofit] %s: %s ladder, %d layer sidecar(s) regenerated%s\n",
@@ -44067,10 +44067,10 @@ int main(int argc, char *argv[]) {
             int cd = compute_comp_dist_x64(seq);
             if (cd > kw_comp_dist_x64) fail_c3++;
 
-            /* Sorted order + duplicate checks apply only to post-merge
-             * solutions.bin (shard_mode=0). Raw shards are written in
-             * hash-table slot order (not sorted) and don't guarantee
-             * cross-shard dedup. */
+            /* Sorted order + duplicate checks apply only to post-merge solutions.bin
+             * (shard_mode=0); raw shards are in hash-slot order with no cross-shard dedup.
+             * Q-706: so shard mode must not CLAIM them — the counters, the PASS sentence and
+             * VERIFY_SCOPE=shard below say "not checked" instead of "sorted, no duplicates". */
             if (r > 0 && !shard_mode) {
                 int cmp = compare_solutions(prev, rec);
                 if (cmp > 0) fail_sort++;
@@ -44099,8 +44099,8 @@ int main(int argc, char *argv[]) {
         printf("C4 failures (first pair): %lld\n", fail_c4);
         printf("C5 failures (dist):     %lld\n", fail_c5);
         printf("Decode failures:        %lld\n", fail_decode);
-        printf("Sort order violations:  %lld\n", fail_sort);
-        printf("Duplicate records:      %lld\n", fail_dup);
+        if (shard_mode) printf("Sort order violations:  not checked (shard mode)\n"); else printf("Sort order violations:  %lld\n", fail_sort);
+        if (shard_mode) printf("Duplicate records:      not checked (shard mode)\n"); else printf("Duplicate records:      %lld\n", fail_dup);
         printf("King Wen found:         %s\n", kw_found_v ? "YES" : "No");
 
         /* 🔴 Codex v2 `solve.c:21051/:21439`, disposed 2026-09-04 — the charge is REAL but its
@@ -44128,7 +44128,7 @@ int main(int argc, char *argv[]) {
          * KW_REQUIRED is the CONTRACT that was in force. A log carrying only the second
          * cannot answer "was King Wen there?" without re-reading prose. */
         printf("KW_PRESENT=%s\n", kw_found_v ? "YES" : "NO");
-        printf("KW_REQUIRED=%s\n", g_expect_kw ? "YES" : "NO");
+        printf("KW_REQUIRED=%s\n", g_expect_kw ? "YES" : "NO"); printf("VERIFY_SCOPE=%s\n", shard_mode ? "shard" : "full");  /* Q-706: shard = C1-C5 + decode only */
 
         long long total_fail = fail_c1 + fail_c2 + fail_c3 + fail_c4 + fail_c5 + fail_decode + fail_sort + fail_dup + fail_kw;
         /* Q-285 (Codex R12b, ranked false accept #1). The verdict below is the SUM OF OBSERVED
@@ -44146,7 +44146,7 @@ int main(int argc, char *argv[]) {
             return 30;
         }
         if (total_fail == 0) {
-            printf("\n*** VERIFY PASS: all %lld records satisfy C1-C5 (incl. C3), sorted, no duplicates ***\n", n_records);
+            printf("\n*** VERIFY PASS: all %lld records satisfy C1-C5 (incl. C3)%s ***\n", n_records, shard_mode ? "; shard mode: sort order and duplicates NOT checked" : ", sorted, no duplicates");
             printf("VERIFY=PASS\n");
             return 0;
         } else {

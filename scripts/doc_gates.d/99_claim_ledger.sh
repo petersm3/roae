@@ -28,10 +28,11 @@
 # ---------------------------------------------------------------------------
 gate_claim_ledger() {
   echo "== GATE 92: documentation/CLAIMS.tsv -- every typed claim holds against its published line and its evidence =="
-  local out rc=0
-  out=$(bash scripts/claim_ledger.sh --check --selftest 2>&1)
+  # Q-952: judged by require_pass_token (doc_gates.sh): rc 0, exactly one of each token, PASS.
+  local out orc rc=0
+  out=$(bash scripts/claim_ledger.sh --check --selftest 2>&1); orc=$?
   printf '%s\n' "$out"
-  grep -qx 'CLAIM_LEDGER=PASS' <<<"$out" || rc=1
-  grep -qx 'CLAIM_LEDGER_SELFTEST=PASS' <<<"$out" || rc=1
+  require_pass_token CLAIM_LEDGER PASS "$out" "$orc" || rc=1
+  require_pass_token CLAIM_LEDGER_SELFTEST PASS "$out" "$orc" || rc=1
   return $rc
 }

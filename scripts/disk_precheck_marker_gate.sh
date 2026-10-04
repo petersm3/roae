@@ -66,30 +66,48 @@ M="$WORK/mnt"; mkdir -p "$M"
 GOOD=$(printf 'roae-disk-precheck-gate' | sha256sum | cut -d' ' -f1)
 ZERO=0000000000000000000000000000000000000000000000000000000000000000
 
-legs(){ # legs <solve> -> L1..L6
+legs(){ # legs <solve> -> L1..L6, each =OK, =BAD or =ERROR(rc=N)
+  # Q-951 (Codex push-path review Q835, P-04, 2026-10-03): every probe's rc is READ before its text.
+  # L1-L4 never looked at it, so a binary that printed the expected line and then crashed (139), was
+  # killed (137) or hung until a timeout read OK. --disk-precheck's documented codes are 0 PASS,
+  # 1 WARNING, 2 usage, 5 mismatch/refusal, 6 space or statvfs; anything else is ERROR, never OK.
+  # L1-L5 must end in 0 or 1 (no refusal), L6 in 5 (the mismatch refusal).
   local S="$1" out rc
-  probe(){ SOLVE_DISK_MARKER=marker.txt "$@" "$S" --disk-precheck "$M" 1 >"$WORK/o" 2>&1; echo $?; }
+  probe(){ SOLVE_DISK_MARKER=marker.txt "$@" timeout "${DISK_PRECHECK_TIMEOUT:-60}" "$S" --disk-precheck "$M" 1 >"$WORK/o" 2>&1; echo $?; }
+  known(){ case "$1" in 0|1|2|5|6) return 0 ;; *) return 1 ;; esac; }
+  warn_ok(){ case "$1" in 0|1) return 0 ;; *) return 1 ;; esac; }
   rm -f "$M/marker.txt";                        rc=$(probe env)
-  grep -q 'IDENTITY NOT ESTABLISHED' "$WORK/o" && echo "L1=OK" || echo "L1=BAD"
+  if ! known "$rc"; then echo "L1=ERROR(rc=$rc)"; else
+  { warn_ok "$rc" && grep -q 'IDENTITY NOT ESTABLISHED' "$WORK/o"; } && echo "L1=OK" || echo "L1=BAD"; fi
   : > "$M/marker.txt";                          rc=$(probe env)
-  { grep -q 'IDENTITY NOT ESTABLISHED' "$WORK/o" && ! grep -q 'present: PASS' "$WORK/o"; } \
-      && echo "L2=OK" || echo "L2=BAD"
+  if ! known "$rc"; then echo "L2=ERROR(rc=$rc)"; else
+  { warn_ok "$rc" && grep -q 'IDENTITY NOT ESTABLISHED' "$WORK/o" && ! grep -q 'present: PASS' "$WORK/o"; } \
+      && echo "L2=OK" || echo "L2=BAD"; fi
   echo "hello world" > "$M/marker.txt";         rc=$(probe env)
-  { grep -q 'no 64-hex digest' "$WORK/o" && ! grep -q 'present: PASS' "$WORK/o"; } \
-      && echo "L3=OK" || echo "L3=BAD"
+  if ! known "$rc"; then echo "L3=ERROR(rc=$rc)"; else
+  { warn_ok "$rc" && grep -q 'no 64-hex digest' "$WORK/o" && ! grep -q 'present: PASS' "$WORK/o"; } \
+      && echo "L3=OK" || echo "L3=BAD"; fi
   echo "$GOOD  solutions.bin" > "$M/marker.txt"; rc=$(probe env)
-  { grep -q "first field $GOOD" "$WORK/o" && grep -q 'REPORTED, not asserted' "$WORK/o" \
-      && ! grep -q 'IDENTITY NOT ESTABLISHED' "$WORK/o"; } && echo "L4=OK" || echo "L4=BAD"
+  if ! known "$rc"; then echo "L4=ERROR(rc=$rc)"; else
+  { warn_ok "$rc" && grep -q "first field $GOOD" "$WORK/o" && grep -q 'REPORTED, not asserted' "$WORK/o" \
+      && ! grep -q 'IDENTITY NOT ESTABLISHED' "$WORK/o"; } && echo "L4=OK" || echo "L4=BAD"; fi
   rc=$(probe env SOLVE_DISK_MARKER_SHA="$GOOD")
-  { [ "$rc" != 5 ] && grep -q 'matches SOLVE_DISK_MARKER_SHA: PASS' "$WORK/o"; } \
-      && echo "L5=OK" || echo "L5=BAD(rc=$rc)"
+  if ! known "$rc"; then echo "L5=ERROR(rc=$rc)"; else
+  { warn_ok "$rc" && grep -q 'matches SOLVE_DISK_MARKER_SHA: PASS' "$WORK/o"; } \
+      && echo "L5=OK" || echo "L5=BAD(rc=$rc)"; fi
   rc=$(probe env SOLVE_DISK_MARKER_SHA="$ZERO")
-  { [ "$rc" = 5 ] && grep -q 'MARKER MISMATCH' "$WORK/o"; } && echo "L6=OK" || echo "L6=BAD(rc=$rc)"
+  if ! known "$rc"; then echo "L6=ERROR(rc=$rc)"; else
+  { [ "$rc" = 5 ] && grep -q 'MARKER MISMATCH' "$WORK/o"; } && echo "L6=OK" || echo "L6=BAD(rc=$rc)"; fi
 }
 
 BASE=$(legs "$SOLVE")
 [ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 6 ] \
   || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 6 -- the gate measured nothing"
+case "$BASE" in *=ERROR*)
+  printf '%s\n' "$BASE" | grep '=ERROR' | sed 's/^/  [ERROR] baseline /'
+  echo "  [ERROR] HARNESS_BROKEN: the binary crashed, was killed or timed out -- nothing was measured"
+  echo "DISK_PRECHECK_MARKER=ERROR"; exit 2 ;;
+esac
 case "$BASE" in *=BAD*)
   printf '%s\n' "$BASE" | grep '=BAD' | sed 's/^/  [FAIL] baseline /'
   echo "DISK_PRECHECK_MARKER=FAIL"; exit 1 ;;
@@ -115,6 +133,7 @@ PY
   out=$(legs "$WORK/b_mut/bin")
   [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 6 ] \
     || { echo "  [ERROR] mutant $name produced no leg verdicts -- nothing was measured"; return 2; }
+  case "$out" in *=ERROR*) echo "  [ERROR] mutant $name crashed or timed out -- not a kill"; return 2 ;; esac
   case "$out" in *=BAD*) echo "  [gate] mutant $name killed"; return 0 ;; esac
   echo "  [FAIL] mutant $name SURVIVED -- the gate cannot see this fault"; return 1; }
 

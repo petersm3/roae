@@ -10619,3 +10619,114 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
   to `verify --brute-masses` and the FULL31 table readers refusing repeated, relabelled or foreign
   records, to the digest gate counting the hashing command's exit status, and to two FULL31
   sentences scoped to what was shown.
+
+## 2026-10-03 — batch 38: checks that could pass a broken result now fail it — a PASS needs its exit status, self-test legs can fail, the pre-push hook refuses override variables, the V1 cross-check compares exact masses, and shard verify and C3 sidecars state what they skip
+
+**Batch 38, shard-mode verify scope (CX-285, Q-706).**
+
+- The 2026-09-03 entry "Fail-opens in both designated independent verifiers" recorded as open that `solve --verify` on a headerless shard
+  printed "sorted, no duplicates" without checking either. It is now closed. In shard mode the
+  sort-order and duplicate counter lines read `not checked (shard mode)`, the PASS sentence says
+  `shard mode: sort order and duplicates NOT checked`, and both modes print a whole-line
+  `VERIFY_SCOPE=shard` or `VERIFY_SCOPE=full`. A file with a header is checked exactly as before.
+- No published verdict changes, because every published `--verify` PASS ran on a file with a header.
+  The new test class fails on the previous source and passes on this one, and its positive control
+  shows that the header path still catches the same duplicate.
+
+**Batch 38, the F1-C3 layer sidecars (CX-286, Q-418).**
+
+- Every layer an `--f1-c3-hist` run committed was meant to get a small statistics file beside it,
+  and none did. The reader behind those files did not recognise the C3 layers' magic, and the
+  builder printed a warning and moved on. Three reviews had found this by reading the code; this
+  time it was run, at n=9, and the warning and the missing files were seen.
+- The reader now accepts the C3 layers and decodes their keys with the G offset removed. A sidecar
+  that should exist and does not is now an `ERROR` line with `F1C5_LAYER_SIDECAR=MISSING`. Only the
+  sidecar pass may read C3 layers. Every other tool still refuses them, now with
+  `F1C5_LAYER_FAMILY=C3-REFUSED`. Ten tests check this.
+
+**Batch 38, six documents leave the reproduction fingerprint (CX-287, Q-695).**
+
+- Six documents were in the TR-12 fingerprint only because battery comments named them:
+  CORRECTIONS.md, HISTORY.md, PREREG_CLASSA_QUERY_SET.md, SOLVE_PY_CLI.md, SYMMETRY_SEARCH.md and
+  TR8_REORDERING_REVISITED.md. So every entry added to this file forced a re-stamp, for a battery that
+  never reads it.
+- None of the six is read by any battery script or by the Python the battery runs. The pre-registered
+  tail anchors are written into `tr12_repro.sh`, which stays in the fingerprint. The six are now
+  listed as named but not read, and they are taken out of the fingerprint (48 files down to 42). The
+  gate fails if a script ever starts reading one.
+- Seven tests pin the change. They go red if a removed document comes back or a kept member drops out.
+
+**Batch 38, the V1 cross-check compares masses exactly (CX-288).**
+
+- Row `c_xcheck` checks that the shell's V1 table and the consumer's agree cell by cell. Its V1 leg
+  compared the masses as awk doubles, which keep about 16 digits. At n=31 the masses have 38 digits,
+  so two masses that differed by 48 at 10^39 counted as equal. Codex (gpt-6-astra) found it in review
+  Q835-A13.
+- The masses are now compared as exact strings. The real n=31 tables still agree, and a +48 change to
+  one real cell now fails the check.
+- A sweep of every numeric comparison in the repro script and the gate scripts found no other case of
+  this kind.
+- Six tests; the three failure cases fail on the previous script and pass on this one. Nothing
+  published changes.
+
+**Batch 38, the pre-push hook's environment and branch registry (CX-289, Q-949, Q-950).**
+
+- Codex (gpt-6-astra), in its push-path review Q835, found two ways the pre-push hook could be told
+  something other than the truth about a push.
+- The first was the pusher's own shell. Gates read test-fixture and override variables, such as the
+  reference a text gate compares against or the binary a gate runs, and the hook passed them through
+  unchanged. A variable left exported after a test session changed what the push was checked against.
+  The hook now refuses to run while any of them is set. It names each one, and nothing runs. The list
+  comes from a scan of everything the push path can reach, and a test re-runs the scan, so a new override
+  cannot be added without being classified.
+- The second was the branch registry. The check for a newly published branch read the registry file in
+  the working tree, so a row that was never committed could clear a branch that no published tree
+  declares. The check now reads the committed registry of a tree that the push publishes, or of the
+  published `main`. A tree with no committed registry blocks the push.
+
+**Batch 38, self-test checks that could not fail (CX-290, Q-954 and Q-955).**
+
+- A Codex (gpt-6-astra) review of the push path, Q835, found self-test checks that would stay green
+  even if the gate they test were broken. GATE 1's check matched the word WARN, which the gate's own
+  footer always prints. The fail-open closure test looked for its "never ran" marker files in the
+  wrong place, and one of its Python fixtures could not be parsed. More than two dozen fire-proofs read no
+  exit code, or treated any nonzero exit as "fires".
+- Each check now needs the specific thing it exists to see. For GATE 1 that is the injected value.
+  For the fail-open test it is a marker file in a place the check reads, plus a fixture that is
+  known to run and leaves one. For the fire-proofs it is exit code 1, the code a gate returns when it
+  fires.
+- The published-consistency gate's two disclosure rows used the probe `false`, so they could never
+  fire. Each now has a real probe: TR-11's looks for a public run record that carries its four ladder
+  integers, and TR-12's reads the published XA-c/d verdict. A probe that cannot answer is now a FAIL,
+  not "still true". Both disclosures are still true today.
+- No published number or verdict changed. Sixteen new tests; fifteen fail on the old scripts.
+
+**Batch 38, a gate's PASS needs its program's exit status too (CX-291).**
+
+- Many checks run another program and look for a line such as `KEY=PASS` in what it prints. A Codex
+  review of the push path (Q835) found eighteen places that read that line and ignored how the program
+  ended. A program that printed PASS and then crashed, was killed or ran out of time still counted as a
+  pass. So did one that printed PASS and then FAIL.
+- Seven advisory checks had a worse version of the same problem. When the program they ran crashed,
+  they read the empty output as a clean result and showed green.
+- The rule now is the same everywhere: the program must exit with its success code and print exactly
+  one verdict line, and that line must say PASS. A crash or a timeout is reported as an error, never as
+  a pass. Advisory checks still do not block a push, but they now show the error.
+- Nothing published changes. Every changed check gives the same verdict on the real program as before.
+- Fourteen new tests feed each kind of check a fake program that crashes, times out, passes and then
+  fails, or passes and then exits with an error. All fourteen fail on the old scripts and pass on the
+  new ones.
+
+**Batch 38, the Q7 rank row and the inventory's cost redaction (CX-292).**
+
+- The battery row that ranks each IN sequence in the Q7 coordinate counted a certificate as read
+  before checking it could be ranked. An IN certificate with no arrangement was skipped as if it were
+  OUT, and still counted toward the row's floor. It now fails by name, and the row also fails when it
+  ranked nothing at all. Codex found it in the push-path review Q835 (P-10).
+- The corrections inventory replaces dollar figures with a marker, but kept a dollar sign followed by
+  digits whenever one character beside it looked like code, so an amount in parentheses, in quotes or
+  followed by a plus sign slipped through. It now keeps such a token only inside a backtick code span.
+  Codex found it in the same review (P-11).
+- Nothing published changes: the full-31 rank verdict passes as before and the regenerated inventory is
+  byte-identical. A scan of the whole public tree under the new rule found no real cost figure.
+- Five new tests; four fail on the previous code and pass on this one.

@@ -58,12 +58,24 @@ else
   fi
 fi
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+# Q-951 (Codex push-path review Q835, P-04, 2026-10-03): every solver status is READ. All four were
+# dropped, so a --kc-scan that wrote its atlas and then crashed, or a build that died half-way and
+# left two identical partial ladders, could still reach the byte comparison and PASS. Each step must
+# exit 0 (its documented success) inside a bounded wall; anything else is ERROR, never PASS.
+_TO=${ATLAS_PORTABILITY_TIMEOUT:-900}
+step() { # step <label> <args...>
+  local lbl=$1 rc; shift
+  timeout "$_TO" "$SOLVE" "$@" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  echo "  [ERROR] $lbl exited $rc$( [ "$rc" = 124 ] && echo " (timed out at ${_TO} s)") -- this gate measured NOTHING"
+  echo "ATLAS_PATH_PORTABLE=ERROR"; exit 2
+}
 for d in A B; do
   mkdir -p "$W/$d"
-  "$SOLVE" --kc-build   "$W/$d/f" --f1-pairs 9 >/dev/null 2>&1
-  "$SOLVE" --kc-g-build "$W/$d/g" --f1-pairs 9 >/dev/null 2>&1
-  "$SOLVE" --kc-t-build "$W/$d/f" "$W/$d/t"    >/dev/null 2>&1
-  "$SOLVE" --kc-scan "$W/$d/f" "$W/$d/g" "$W/$d/atlas.json" --kc-tdir "$W/$d/t" --kc-raw >/dev/null 2>&1
+  step "$d: --kc-build"   --kc-build   "$W/$d/f" --f1-pairs 9
+  step "$d: --kc-g-build" --kc-g-build "$W/$d/g" --f1-pairs 9
+  step "$d: --kc-t-build" --kc-t-build "$W/$d/f" "$W/$d/t"
+  step "$d: --kc-scan"    --kc-scan "$W/$d/f" "$W/$d/g" "$W/$d/atlas.json" --kc-tdir "$W/$d/t" --kc-raw
 done
 [ -s "$W/A/atlas.json" ] && [ -s "$W/B/atlas.json" ] || {
   echo "  [FAIL] one or both atlases were not produced -- this gate measured NOTHING"
