@@ -22,6 +22,10 @@
 #   2. stamp gate, 3. reproduction-currency gate -- WARN ONLY (O-redfloor; the latter refuses only on opt-in).
 #   4. size gate -- BLOCKING, and it exits before leg 5 when it refuses (V3A-119#2: this list named two legs).
 #   5. generated gate (#85) -- BLOCKING, run last by exec. Its exit status is the hook's.
+# Q-971 (c) (2026-10-03, batch 40): a refs/replace/* entry would change the HEAD and index objects
+# the legs below read (the size gate sizes staged blobs with `git cat-file -s`), while the commit
+# records the real ones. Ignore replace refs for every leg; same rule as scripts/pre_push_gate.sh.
+export GIT_NO_REPLACE_OBJECTS=1
 ROOT=$(git rev-parse --show-toplevel) || exit 1
 # WORKTREE FIX (2026-08-13): resolve the gate scripts from THIS script's own
 # location, not from $ROOT. .git/hooks is shared across git worktrees, so a
@@ -144,7 +148,7 @@ fi
 bash "$SDIR/pre_commit_size_gate.sh"; SZRC=$?
 if [ "$SZRC" -ne 0 ]; then
   echo "[pre-commit] 🔴 BLOCKED by the size gate (rc=$SZRC). Nothing was committed."
-  echo "[pre-commit]    Get the operator's OK and record it in scripts/oversize_approved.tsv,"
+  echo "[pre-commit]    Get the operator's OK and record it in scripts/oversize_approved.tsv AND STAGE IT,"
   echo "[pre-commit]    or gitignore it, or gzip -9 it AND RE-STAGE: the size gate measures the INDEX,"
   echo "[pre-commit]    so run 'git rm --cached -- <file>' and 'git add -- <file>.gz' as well; gzip alone"
   echo "[pre-commit]    leaves the uncompressed blob staged. Do not raise the threshold."

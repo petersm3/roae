@@ -111,9 +111,9 @@ gate_figures() {
   while IFS=$'\t' read -r phrase allow note; do
     reg_row_kind quiet "$phrase" "$allow" "$note"; [ $? -eq 1 ] || continue   # Q-761 (GATE 3/11 are the loud sites)
     local np hits=""
-    np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
+    np=$(printf '%s' "$phrase" | fold_variants | fold_join)
     for f in $gens; do
-      if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -cF -- "$np" >/dev/null; then
+      if fold_variants < "$f" | fold_join | grep -cF -- "$np" >/dev/null; then
         # RECORD WHERE (2026-08-02, item A5 / #65). This printed a bare filename, so a
         # maintainer given a 900-line generator had to re-run the search by hand to find
         # the annotation string — the same debugging cost #65 removed from GATE 3 and
@@ -149,9 +149,9 @@ gate_figures() {
         reg_row_kind quiet "$figure" "$fignote"; [ $? -eq 1 ] || continue   # Q-761
         nfig=$((nfig+1))
         local nf fighits=""
-        nf=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
+        nf=$(printf '%s' "$figure" | fold_variants | fold_join)
         for f in $gens; do
-          if fold_variants < "$f" | tr '\n' ' ' | tr -s ' ' | grep -cF -- "$nf" >/dev/null; then
+          if fold_variants < "$f" | fold_join | grep -cF -- "$nf" >/dev/null; then
             local fgln
             fgln=$(fold_variants < "$f" 2>/dev/null | grep -nF -- "$nf" | head -1 | cut -d: -f1)
             if [ -n "$fgln" ]; then fighits="$fighits $f:$fgln"; else fighits="$fighits $f(spans-lines)"; fi
@@ -227,21 +227,39 @@ gate_figures() {
     echo "  [note] LEG 3 scanned ZERO files: no tracked .svg carries renderable character data."
     echo "         Stated, not silent — this leg attests nothing this run."
   fi
+  local -A _G6FOLD=()
   for ff in $tbf $gsv; do
     # Strip tags and unescape the entities that can split or hide a needle. Deliberately a
     # SUPERSET of the rendered text (style/CDATA character data comes along): a superset can
     # only over-report, and an over-report here is loud and one edit away from fixed, whereas
     # an element type this leg forgot to name would be silent. &amp; is unescaped LAST.
-    case " $gsv " in *" $ff "*) xd=$(sed -n 's/^ *<!-- \(.*\) -->$/\1/p' "$ff" | sed -e 's/&lt;/</g; s/&gt;/>/g; s/&amp;/\&/g') ;;  # LEG 4: label comments, one per rendered line
-      *) xd=$(sed -e 's/<[^>]*>/ /g' -e 's/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#39;/'"'"'/g; s/&apos;/'"'"'/g; s/&amp;/\&/g' "$ff") ;; esac \
+    # Q-965 (A05#12-14): the extraction goes through the shared normaliser. md_read folds CRLF, so a
+    # label comment ending `-->\r` is still a label (it was invisible to the old `-->$` sed); every
+    # entity is decoded, numeric ones too (`1.4&#x3c3;` rendered as 1.4σ and passed the named-entity
+    # sed); and a text-bearing .svg contributes its COMMENTS as well as its character data, because a
+    # `<title>` used to flip a glyph-path figure into LEG 3, whose tag-strip deleted the very label
+    # comments LEG 4 reads. Line structure is kept, so a hit still names its line.
+    case " $gsv " in *" $ff "*) _g6m=label ;; *) _g6m=text ;; esac
+    xd=$(python3 -c "$(_md_norm_prelude)"'
+import sys, re
+t = md_read(sys.argv[1])
+if sys.argv[2] == "label":   # LEG 4: label comments, one per rendered line
+    out = [_mhtml.unescape(m.group(1)) for m in (re.match(r"^ *<!-- (.*) -->\s*$", l) for l in t.split("\n")) if m]
+    sys.stdout.write("\n".join(out) + ("\n" if out else ""))
+else:
+    t = re.sub(r"<!--(.*?)-->", lambda m: " " + m.group(1) + " ", t, flags=re.S)
+    t = re.sub(r"<[^>\n]*>", " ", t)   # per line, as the sed it replaces: a tag split over lines leaves its text in (a superset)
+    sys.stdout.write(_mhtml.unescape(t))
+' "$ff" "$_g6m") \
       || { echo "  [FAIL] LEG 3/4 could not extract text from $ff — NOTHING was scanned for it."; bad=1; continue; }
-    nx=$(printf '%s' "$xd" | fold_variants | tr '\n' ' ' | tr -s ' '); case " $gsv " in *" $ff "*) nlab=$((nlab + $(printf '%s\n' "$xd" | grep -c .))) ;; esac
+    nx=$(printf '%s' "$xd" | fold_variants | fold_join); case " $gsv " in *" $ff "*) nlab=$((nlab + $(printf '%s\n' "$xd" | grep -c .))) ;; esac
     # The allow column is ignored here for the same reason the generator leg ignores it: a
     # rendered figure carries no changelog row and no retraction narration to quote.
     while IFS=$'\t' read -r phrase allow note; do
       reg_row_kind quiet "$phrase" "$allow" "$note"; [ $? -eq 1 ] || continue   # Q-761
       local np3
-      np3=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
+      [ -n "${_G6FOLD[P$phrase]+x}" ] || _G6FOLD[P$phrase]=$(printf '%s' "$phrase" | fold_variants | fold_join)   # Q-965: fold each needle once, not once per .svg
+      np3=${_G6FOLD[P$phrase]}
       if grep -qF -- "$np3" <<<"$nx"; then
         xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$np3" | head -1 | cut -d: -f1)
         echo "  [FAIL] retracted phrasing RENDERED in a published figure: \"$phrase\""
@@ -255,7 +273,8 @@ gate_figures() {
       while IFS=$'\t' read -r figure fignote; do
         reg_row_kind quiet "$figure" "$fignote"; [ $? -eq 1 ] || continue   # Q-761
         local nf3
-        nf3=$(printf '%s' "$figure" | fold_variants | tr '\n' ' ' | tr -s ' ')
+        [ -n "${_G6FOLD[F$figure]+x}" ] || _G6FOLD[F$figure]=$(printf '%s' "$figure" | fold_variants | fold_join)
+        nf3=${_G6FOLD[F$figure]}
         if grep -qF -- "$nf3" <<<"$nx"; then
           xln=$(printf '%s' "$xd" | fold_variants | grep -nF -- "$nf3" | head -1 | cut -d: -f1)
           echo "  [FAIL] retracted FIGURE rendered in a published figure: \"$figure\""
@@ -294,7 +313,7 @@ gate_figures() {
 # whole point of that file is to preserve what was believed at the time.
 gate_liveness() {
   echo "== GATE 7: no frozen present-tense run status; no run named after an unreached budget =="
-  python3 - <<'PY'
+  { _md_norm_prelude; cat <<'PY'
 import re, glob, sys, os
 LIVE = ['in flight', 'currently running', 'results pending', 'and growing',
         'is underway', 'awaiting results', 'run is ongoing']
@@ -367,13 +386,113 @@ bad = 0
 reg = open('documentation/CANONICAL_HASHES.md', errors='replace').read()
 REACHED = set()
 MENTIONED = set()          # appears in the registry at all — but appearing is not attesting
+# Q-967 (Q-835 A05#16): the sha must be the BUDGET'S OWN, not any sha within 600 characters. A
+# cancelled "9999T" line placed under another run's sha line was attested by it. A budget is
+# REACHED when (a) a registry table row names it in its FIRST cell and carries a backticked sha
+# (a prefix of >= 8 hex, as the Quick reference writes them) in the same row, or (b) a heading
+# names it and that heading's own section, up to the next heading, carries a full-length sha.
 for m in re.finditer(r'\b([0-9.]+T)\b', reg):
     MENTIONED.add(m.group(1))
-    window = reg[max(0, m.start() - 600): m.end() + 600]
-    if re.search(r'\b[0-9a-f]{16,64}\b', window):     # a sha256 (or its prefix) attests completion
-        REACHED.add(m.group(1))
-files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') + ['README.md']
-         if os.path.basename(f) not in ('HISTORY.md', 'HISTORY_INDEX.md')]   # dated narrative is exempt by design; HISTORY_INDEX.md only quotes its headings, and GATE 91 proves it is a fresh generation from it (Q-686)
+_lines = reg.split('\n')
+for l in _lines:
+    if l.lstrip().startswith('|'):
+        cells = [c for c in re.split(r'(?<!\\)\|', l.strip().strip('|'))]
+        if len(cells) > 1 and re.search(r'`[0-9a-f]{8,64}…?`', l):
+            for b in re.findall(r'\b([0-9.]+T)\b', cells[0]):
+                REACHED.add(b)
+_heads = [i for i, l in enumerate(_lines) if re.match(r'^#{2,6} ', l)] + [len(_lines)]
+for a, b in zip(_heads, _heads[1:]):
+    body = '\n'.join(_lines[a + 1:b])
+    if re.search(r'\b[0-9a-f]{64}\b', body):
+        for bud in re.findall(r'\b([0-9.]+T)\b', _lines[a]):
+            REACHED.add(bud)
+# Q-967 (Q-835 A05#17): a disposition word counts only in the SAME SCOPE UNIT as the claim it
+# disposes of: the sentence that carries it (a hard-wrapped sentence spans lines; a list item, a
+# heading and a table row are units of their own). It was any DISPO word in a ±4/+3-line window
+# (and ±400 characters for a budget-named run), so "A separate test completed yesterday." excused
+# "The ladder build is in flight." on the next line.
+_SB = re.compile(r'[.!?][*_)`\]"”’\']*\s+(?=\S)')
+_ABBR = re.compile(r'(?:\b(?:e\.g|i\.e|vs|cf|al|approx|ca|resp|p|pp|no|Fig|Eq|Sec|Ch)|(?<![\w.])[A-Z])\.[*_)`\]"”’\']*$')
+_UNIT_START = re.compile(r'^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\||>\s*[-*+]\s)')
+# A key QUOTED in its unit, where the unit outside the quotation names what it is quoting, is
+# narration of an old status ('was labelled "1000T (in flight)"'), not a status. Quotation marks
+# alone are not enough (Q-835 A08#15 is the same class in GATES 30/31/33/38).
+_QSPAN = re.compile(r'"[^"\n]*"|“[^”\n]*”')
+_QVERB = re.compile(r'\b(?:labell?ed|read|reads|said|says|described|called|written|wrote|quoted?|phrase|wording)\b', re.I)
+def quoted_narration(unit, key):
+    spans = [m.span() for m in _QSPAN.finditer(unit)]
+    k = unit.lower().find(key)
+    if k < 0 or not any(a <= k < b for a, b in spans):
+        return False
+    return bool(_QVERB.search(_QSPAN.sub(' ', unit)))
+# A dated revision-table row (`| v1.2 | 2026-07-05 | ... |`) is a record of the state AT that
+# version, the role HISTORY.md plays for the whole corpus, so its tense is not a frozen status.
+_REVROW = re.compile(r'^\s*\|\s*\*{0,2}v?\d+(?:\.\d+)*[^|]*\|\s*\*{0,2}20\d\d-\d\d-\d\d\*{0,2}\s*\|')
+def unit_at(text, pos):
+    """The scope unit (sentence, table row, heading, list item) of `text` holding offset `pos`."""
+    ls = text.rfind('\n', 0, pos) + 1
+    le = text.find('\n', pos); le = len(text) if le < 0 else le
+    line = text[ls:le]
+    if line.lstrip().startswith('|') or re.match(r'^#{1,6}\s', line):
+        return line
+    a = ls                                   # walk back to the paragraph / list-item start
+    while a > 0:
+        p = text.rfind('\n', 0, a - 1) + 1
+        prev = text[p:a - 1]
+        if not prev.strip() or prev.lstrip().startswith('|') or re.match(r'^#{1,6}\s', prev) or _UNIT_START.match(text[a:text.find('\n', a) if text.find('\n', a) >= 0 else len(text)]):
+            break
+        a = p
+    b = le                                   # walk forward to the paragraph / list-item end
+    while b < len(text):
+        n = text.find('\n', b + 1); n = len(text) if n < 0 else n
+        nxt = text[b + 1:n]
+        if not nxt.strip() or _UNIT_START.match(nxt):
+            break
+        b = n
+    para = text[a:b]
+    off = pos - a
+    masked = re.sub(r'`[^`\n]*`', lambda mm: 'x' * len(mm.group(0)), para)   # no sentence ends inside a code span
+    cuts = [0] + [m.end() for m in _SB.finditer(masked) if not _ABBR.search(masked[:m.end()].rstrip())] + [len(para)]
+    for x, y in zip(cuts, cuts[1:]):
+        if x <= off < y:
+            return para[x:y]
+    return para
+def unit_of(u, p):
+    """unit_at for an md_parse block `u` (integration, batch 40). Q-965 joins a paragraph's lines with
+    one space, drops list markers and removes backticks, so unit_at's own code-span mask cannot see
+    them: the list item holding offset `p` is cut here, and a code span's text (taken from the RAW
+    lines of that item) is masked before the sentence cut, as unit_at does on raw text -- else
+    "`scp .../data/...`" ends a sentence at its "..." (DEVELOPMENT.md:1956)."""
+    t = u['text']
+    xs = [0] + [x for x in range(1, len(u['lines'])) if _MD_LIST.match(md_body(u['lines'][x][1]))] + [len(u['lines'])]
+    for xa, xb in zip(xs, xs[1:]):
+        a = u['starts'][xa]
+        b = u['starts'][xb] - 1 if xb < len(u['lines']) else len(t)
+        if a <= p <= b:
+            break
+    else:
+        xa, xb, a, b = 0, len(u['lines']), 0, len(t)
+    seg, off = t[a:b], p - a
+    if seg.lstrip().startswith('|') or re.match(r'^#{1,6}\s', seg):
+        return seg
+    masked = seg
+    for _ln, raw in u['lines'][xa:xb]:
+        for cm in re.finditer(r'(`+)([^`\n]+?)\1', raw):
+            c = md_inline(cm.group(2))
+            if not re.search(r'[.!?]', c) or not re.search(r'[^.!?\s]', c): continue   # Fable B40 FIX 2: a span with no sentence-ender cannot hide a cut, and a bare `.` span must not mask every period
+            q = seg.find(c) if c else -1      # found in seg, masked in `masked`: an earlier, shorter
+            while q >= 0:                     # span ("/data") must not hide a longer one that holds it
+                masked = masked[:q] + 'x' * len(c) + masked[q + len(c):]
+                q = seg.find(c, q + len(c))
+    cuts = [0] + [m.end() for m in _SB.finditer(masked) if not _ABBR.search(masked[:m.end()].rstrip())] + [len(seg)]
+    for x, y in zip(cuts, cuts[1:]):
+        if x <= off < y:
+            return seg[x:y]
+    return seg
+import subprocess   # Q-969 (A05#19): the population is EVERY tracked .md, nested ones included (`git ls-files`, recursive); the old one-level globs never read reports/evidence/f1/README.md
+files = [f for f in subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True, check=True).stdout.split('\n')
+         if f and os.path.isfile(f) and f not in ('documentation/HISTORY.md', 'documentation/HISTORY_INDEX.md')]
+if len(files) < 50: print(f"  [FAIL] GATE 7 population is {len(files)} tracked .md file(s) (floor 50): nothing like the corpus was read"); sys.exit(1)   # dated narrative is exempt by design; HISTORY_INDEX.md only quotes its headings, and GATE 91 proves it is a fresh generation from it (Q-686)
 # Codex N10 finding 1: the exemption was `'HISTORY.md' not in f`, a SUBSTRING test, so it
 # also exempted documentation/PERFORMANCE_HISTORY.md -- and anything else ending in the same
 # eleven characters. That file said a 1T enumeration was "in flight" at line 352 while the
@@ -382,42 +501,84 @@ files = [f for f in glob.glob('documentation/*.md') + glob.glob('reports/*.md') 
 for f in files:
     text = open(f, errors='replace').read()
     lines = text.split('\n')
-    for i, l in enumerate(lines, 1):
-        low = l.lower()
+    # Q-965 (A05#18): a status phrase is matched on the LOGICAL line -- a whole paragraph, md_inline'd
+    # (emphasis, backticks, entities and runs of spaces folded) -- because "in\nflight." and
+    # "in **flight**" are the same frozen status to a reader. Every other block kind is read per line.
+    # NARRATION is read on the source line(s) the match spans; DISPO in the claim's own scope unit
+    # (Q-967, below).
+    _L, _k, blocks, _u = md_parse(text)
+    units = []
+    for b in blocks:
+        if b['kind'] == 'para':
+            units.append(b)
+        else:
+            for ln_, raw in (b.get('lines') or [(b['start'], lines[b['start'] - 1])]):
+                units.append(md_para([(ln_, raw)]))
+    for u in units:
+        low = u['text'].lower()
+        found = set()
         for k in LIVE:
-            if k not in low:
-                continue
-            # item R18: for the boundary-sensitive keys the bare substring is not enough —
-            # "concurrently running" contains "currently running" and claims nothing.
-            if k in WORDSTART and not re.search(r'\b' + re.escape(k), low):
-                continue
-            # Same-line narration check FIRST: it is the tighter test, so a line that
-            # quotes or reports a past claim is cleared without widening the window.
-            if any(n in low for n in NARRATION):
-                continue
-            ctx = ' '.join(lines[max(0, i-4):i+3]).lower()
-            if any(d in ctx for d in DISPO):
-                continue
-            print(f"  [FINDING] {f}:{i} — status frozen in the present tense: \"{k}\"")
-            print(f"            {l.strip()[:110]}")
-            bad = 1
-            break
-    for m in re.finditer(r'\b(\d+(?:\.\d+)?T) (run|campaign|enumeration)\b', text):
+            for mk in re.finditer(re.escape(k), low):
+                p = mk.start()
+                if k in WORDSTART and p > 0 and (low[p - 1].isalnum() or low[p - 1] == '_'):
+                    continue
+                # A program's own work units "in flight" (one block in flight, the cells in flight) are
+                # not a run status. Measured when the paragraph join landed: the only two new matches in
+                # the public corpus were exactly these, SOLVE_C_CLI.md ("one block in\nflight") and a
+                # CORRECTIONS.md entry ("the cells in\nflight"), both hidden by their wraps before.
+                if k == 'in flight' and re.search(r'\b(?:blocks?|cells?)\s+$', low[max(0, p - 12):p]):
+                    continue
+                # Q-969: the nested-doc population (reports/evidence/**) brought one PAST-tense use, "while these
+                # runs were in flight" (wrap_mass_reseed/README.md). "was/were in flight" narrates; it is not a frozen status.
+                if k == 'in flight' and re.search(r'\b(?:was|were)\s+$', low[max(0, p - 6):p]):
+                    continue
+                # (integration, batch 40) a NEGATED status claims nothing live: "The run is not in\nflight --
+                # it landed 2026-07-16" (TR-11:332), visible only once Q-965 joined the wrap.
+                if re.search(r'\b(?:not|never|no longer)\s+$', low[max(0, p - 11):p]):
+                    continue
+                i, j = md_lno(u, p), md_lno(u, mk.end() - 1)
+                if i in found:
+                    continue
+                span = md_inline(' '.join(lines[i - 1:j])).lower()
+                if any(n in span for n in NARRATION):
+                    continue
+                # Q-967 (A05#17): DISPO and the quoted-narration rule are read from the claim's OWN
+                # scope unit (unit_of: its sentence, list item, table row or heading), no longer the
+                # -4/+2 raw-line window; a dated revision-table row is a record as of its version.
+                if _REVROW.match(lines[i - 1]):
+                    continue
+                ctx = unit_of(u, p).lower()
+                if any(d in ctx for d in DISPO) or quoted_narration(ctx, k):
+                    continue
+                print(f"  [FINDING] {f}:{i} — status frozen in the present tense: \"{k}\"")
+                print(f"            {lines[i - 1].strip()[:110]}")
+                bad = 1
+                found.add(i)
+    # Q-965 (A05#18): "9999T  run" (two spaces) and a wrapped "9999T\nrun" read as the run name they are.
+    # (integration, batch 40) the joins become '\n', one character like the ' ' they replace, so
+    # offsets and md_lno are unchanged and Q-967's unit_at still sees row, heading and list-item lines.
+    text, _starts = md_flatten(text)
+    _tl = list(text)
+    for _q in _starts[1:]:
+        _tl[_q - 1] = '\n'
+    text = ''.join(_tl)
+    for m in re.finditer(r'\b(\d+(?:\.\d+)?T)\s+(run|campaign|enumeration)\b', text):
         if m.group(1) in REACHED:
             continue                      # budget was actually reached — correct name
-        st = max(0, m.start() - 400)
-        para = text[st:m.end() + 400].lower()
+        if m.group(1) not in MENTIONED and re.search(r'(?:~|≈|about |approximately )$', text[max(0, m.start() - 14):m.start()]):
+            continue                      # "the ~154T run": a measured extent, not a budget it is named after; a MENTIONED budget ("~1120T run", the #65 shape) is still judged (Fable B40 FIX 1)
+        para = unit_at(text, m.start()).lower()
         if any(d in para for d in DISPO):
             continue                      # disposition is stated nearby
-        ln = text[:m.start()].count('\n') + 1
+        ln = md_lno(_starts, m.start())
         # SAY WHY IT IS NOT ATTESTED (2026-08-02, #65). "not a budget any canonical reached"
         # states the verdict but hides the test, and the two ways of failing that test need
         # different fixes: a budget absent from the registry may be a typo or an invented run,
         # while one PRESENT but sha-less is the 1120T shape — a real number quoted from a
         # projection sentence and then written up as though it had been run. Operator rule:
         # completion is attested by a sha256 in CANONICAL_HASHES.md, nothing weaker.
-        why = ("appears in documentation/CANONICAL_HASHES.md but with no sha256 within +/-600 "
-               "chars of any mention — mentioned is not attested"
+        why = ("appears in documentation/CANONICAL_HASHES.md but with no sha of its own (no table "
+               "row naming it beside a sha, no section headed by it holding one) — mentioned is not attested"
                if m.group(1) in MENTIONED else
                "does not appear in documentation/CANONICAL_HASHES.md at all")
         print(f"  [FINDING] {f}:{ln} — \"{m.group(0)}\" names a run after budget {m.group(1)}, which")
@@ -428,6 +589,7 @@ if not bad:
     print("  [ok] no frozen run status; every budget-named run carries a disposition")
 sys.exit(bad)
 PY
+} | python3 -
 }
 
 # ---------------------------------------------------------------------------
@@ -474,7 +636,7 @@ PY
 #     rule selects, not about what a reader sees under the heading.
 gate_banner() {
   echo "== GATE 9: report banner byte-identical across all TRs =="
-  python3 - <<'PY'
+  { _md_norm_prelude; cat <<'PY'
 import glob, sys
 
 MARK    = 'not peer-reviewed'
@@ -501,7 +663,10 @@ def block(path, cap=MAXBLK):
     blk = []
     for l in lines[i:i + cap]:
         blk.append(l)
-        if l.rstrip().endswith('*'):      # closing italic marker
+        # Q-965 (A05#20): a line ending in a BOLD close (`**argued, not verified**`) does not close
+        # the italic. Ending the block there let every line after it, the retracted over-claim
+        # included, sit outside the block this gate compares and checks. Drop `**` runs first.
+        if l.rstrip().replace('**', '').endswith('*'):      # closing italic marker
             return '\n'.join(blk), 1, i + 1
     return None, -1, i + 1                # never closed its italic within `cap`
 
@@ -545,11 +710,14 @@ if len(variants) > 1:
             print(f'        variant 2 > {y}')
             break
 
+# Q-965 (A05#21): the scope clause and the over-claim are matched on the NORMALISED block (md_inline:
+# hard wraps, emphasis, backticks, entities and curly quotes folded), so "Every claim is\nmachine-
+# verifiable" is the over-claim it reads as. Byte-identity above still compares the raw block.
 for blk, files in variants.items():
-    if RETRACT in blk:
+    if RETRACT in md_inline(blk):
         bad = 1
         print(f'  [FAIL] the retracted over-claim "{RETRACT}" is back in: {", ".join(files)}')
-    if KEEP not in blk:
+    if KEEP not in md_inline(blk):
         bad = 1
         print(f'  [FAIL] banner lacks its scope clause "{KEEP}" in: {", ".join(files)}')
 
@@ -559,10 +727,10 @@ iblk, n, ln = block(idx, MAXIDX)
 if iblk is None:
     bad = 1
     print(f'  [FAIL] {idx} — no single well-formed banner block (marker lines: {n})')
-elif RETRACT in iblk:
+elif RETRACT in md_inline(iblk):
     bad = 1
     print(f'  [FAIL] {idx}:{ln} — index banner re-asserts "{RETRACT}"')
-elif KEEP not in iblk:
+elif KEEP not in md_inline(iblk):
     bad = 1
     print(f'  [FAIL] {idx}:{ln} — index banner lacks "{KEEP}"; the index may not')
     print(f'         promise more than the {len(trs)} report covers do')
@@ -573,6 +741,7 @@ if not bad:
     print(f'       | {first}')
 sys.exit(bad)
 PY
+} | python3 -
 }
 
 # ---------------------------------------------------------------------------
@@ -615,7 +784,7 @@ PY
 # that and must not be read as clearing it.
 gate_revhist() {
   echo "== GATE 12: TR revision histories (versions, dates, one current) =="
-  python3 - <<'PY'
+  { _md_norm_prelude; cat <<'PY'
 import re, subprocess, sys
 
 HEAD = '## Revision history'
@@ -659,10 +828,14 @@ for f in trs:
         continue
 
     rows = []                       # (1-based line, version cell, date cell)
-    for i in range(start, len(lines)):
-        m = ROW.match(lines[i])
-        if m:
-            rows.append((i + 1, m.group(1).strip(), m.group(2).strip()))
+    # Q-965 (A05#22): rows come from the shared normaliser's tables, so a row indented one space or
+    # written without edge pipes is a row (` | v1.0 | ... |` passed as invisible before).
+    for blk in md_parse('\n'.join(lines))[2]:
+        if blk['kind'] != 'table' or blk['start'] <= start:
+            continue
+        for ln, cells in [blk['header']] + blk['rows']:
+            if len(cells) >= 2 and re.match(r'v[0-9]', cells[0]):
+                rows.append((ln, cells[0].strip(), cells[1].strip()))
     if not rows:
         print(f'  [FAIL] {f}:{start + 1} — "{HEAD}" heading with no version rows under it')
         bad = 1
@@ -734,6 +907,7 @@ if not bad:
           'no repeated released version, dates and versions ascending')
 sys.exit(bad)
 PY
+} | python3 -
 }
 
 # ----------------------------------------------------------------------------------

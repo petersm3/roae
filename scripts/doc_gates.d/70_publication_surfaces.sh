@@ -248,6 +248,29 @@ gate_publication_state() {
   # corpus free of draft markers having read nothing. Consume the guarded $DOCS instead:
   # one enumeration, one guard, and no second place for this to go wrong.
   hits=$(printf '%s\n' "$DOCS" | xargs grep -nE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' 2>/dev/null)
+  # Q-965 (A07#4): the grep above reads column-0 ATX lines only, so "   ## DRAFT" (indented 1-3
+  # spaces, still a heading) and a setext "DRAFT\n=====" passed. The shared normaliser's headings add
+  # those forms, outside code fences; a heading inside a `>` block quote is a quotation and is left out
+  # (measured: QUERY_INVENTORY.md:3 is the one such line, "> ### PUBLIC DRAFT", not an R1 form).
+  local hits2
+  hits2=$(printf '%s\n' "$DOCS" | python3 -c "$(_md_norm_prelude)"'
+import sys, re
+MK = re.compile(r"\b(?:DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\b|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public")
+for f in (l.strip() for l in sys.stdin):
+    if not f:
+        continue
+    try:
+        L, kind, blocks, unc = md_parse(md_read(f))
+    except OSError as e:
+        print("%s:0:could not be read (%s), so it was NOT scanned" % (f, e)); continue
+    for b in blocks:
+        raw = L[b["start"] - 1]
+        if b["kind"] != "heading" or re.match(r"#{1,6}[ \t]", raw) or raw.lstrip().startswith(">"):
+            continue
+        if MK.search(b["title"]):
+            print("%s:%d:%s" % (f, b["start"], raw))
+') || { echo "  [FAIL] GATE 20's heading scanner failed — NOTHING was checked."; rm -f "${_G20_OUT:-}"; return 1; }
+  hits=$(printf '%s\n%s\n' "$hits" "$hits2" | grep .)
   if [ -n "$hits" ]; then
     echo "$hits" | sed 's/^/  [FAIL] heading-form draft marker: /'
     echo "         A published document must not carry a section announcing it is unpublished."
@@ -277,8 +300,8 @@ gate_publication_state() {
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     awk -v FN="$f" '
-      /^#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
-      /^[[:space:]]*- \[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0,1,72) }
+      /^ {0,3}#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
+      /^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+\[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0, 1, 72) }
       END { printf "##SCANNED\t%s\n", FN }
     ' "$f" || printf '##AWKFAIL\t%s\n' "$f"
   done < <(printf '%s\n' "$DOCS") > "$_G20_OUT" 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
@@ -399,44 +422,63 @@ gate_script_paths() {
   elif [ ! -d "$priv" ]; then privwhy="ROAE_PRIVATE_DIR-not-a-directory"
   else privrun=1; fi
   # (token, why-it-is-narration) — extend ONLY with a reason.
-  allow() { case "$1" in
+  # 🔴 Q-966 (A07#6): a row is bound to the DOCUMENTS that narrate the path, not to the token. Keyed on
+  # the token alone, "Run `scripts/d128_preflight_throttle_probe.sh` before every bench." in README.md
+  # passed on the strength of LARGE_SCALE_CAMPAIGNS.md's retraction. `at` lists the files a row waives
+  # (measured 2026-10-03; case patterns); the two append-only ledgers, CORRECTIONS.md and HISTORY.md,
+  # are in every row because quoting a withdrawn path verbatim is what they are for.
+  allow() { local at=() _p; _why=""; case "$1" in   # $1 token, $2 the file citing it; sets _why
     reviewer/MANIFEST.sha256|reviewer/PACKAGE_VERSION)
-      echo "written into the reviewer bundle by reviewer/make_package.sh at release time and untracked by design; reviewer/README.md describes them for the unpacked package (2026-10-03, CX-284)";;
+      at=(reviewer/README.md)
+      _why="written into the reviewer bundle by reviewer/make_package.sh at release time and untracked by design; reviewer/README.md describes them for the unpacked package (2026-10-03, CX-284)";;
     scripts/compute_stats.py|scripts/p2_marginals.py|scripts/p2_bivariate.py|scripts/p2_joint_density.py)
-      echo "narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
+      at=(CLAUDE.md documentation/DISTRIBUTIONAL_ANALYSIS.md)
+      _why="narrating the 2026-04-21 consolidation into solve.py (file deliberately removed)";;
     scripts/d128_preflight_throttle_probe.sh)
-      echo "retraction text naming the phantom in order to withdraw it (2026-08-09)";;
+      at=(documentation/LARGE_SCALE_CAMPAIGNS.md)
+      _why="retraction text naming the phantom in order to withdraw it (2026-08-09)";;
     scripts/atlas_queries.py)
-      echo "QUERY_INVENTORY.md narrating a planned path that was never created: the atlas consumer landed inside solve.py (git grep -n \"def atlas_queries\" -- solve.py), and the file names the wrong path in order to correct it. Same shape as the d128 row above -- a correction that cannot name its own subject is unreadable";;
+      at=(documentation/QUERY_INVENTORY.md)
+      _why="QUERY_INVENTORY.md narrating a planned path that was never created: the atlas consumer landed inside solve.py (git grep -n \"def atlas_queries\" -- solve.py), and the file names the wrong path in order to correct it. Same shape as the d128 row above -- a correction that cannot name its own subject is unreadable";;
     example/report.pdf)
-      echo "CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
+      _why="CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
     tr12/q9_negatives.md)
-      echo "a deliverable that was specified and NEVER created, now named only by the two texts that WITHDRAW it: CX-73 in CORRECTIONS.md (append-only, so the wording cannot be rewritten) and TR-12 v1.9's revision-history row recording that same correction. Same shape as the d128 and example/report.pdf rows above -- a correction that cannot name its own subject is unreadable. The two LIVE pointers that once sent a reader here (QUERY_INVENTORY.md rows Q9 and LS-forced8) were repointed to \$OUT/q9_negatives.md on 2026-09-23, so nothing remaining is an instruction to open this path";;
+      at=(reports/TR12_QUERY_PROGRAM.md)
+      _why="a deliverable that was specified and NEVER created, now named only by the two texts that WITHDRAW it: CX-73 in CORRECTIONS.md (append-only, so the wording cannot be rewritten) and TR-12 v1.9's revision-history row recording that same correction. Same shape as the d128 and example/report.pdf rows above -- a correction that cannot name its own subject is unreadable. The two LIVE pointers that once sent a reader here (QUERY_INVENTORY.md rows Q9 and LS-forced8) were repointed to \$OUT/q9_negatives.md on 2026-09-23, so nothing remaining is an instruction to open this path";;
     tr12/*)
+      at=('*')   # (batch 40) any file: the binding is the moved file's existence below, not a document list (CX-233; TestTr12TablesMovedUnderReports)
       # CX-233 (2026-09-29): the TR-12 tables moved from a top-level tr12/ to reports/tr12/. A
       # tr12/ name is the files' location before that day, kept verbatim by the append-only
       # ledgers and the banked evidence; it is narration only while the same file is tracked
       # under reports/tr12/ (live docs are held to the new prefix by tr12_output_paths_gate.sh).
       if git ls-files --error-unmatch "reports/$1" >/dev/null 2>&1; then
-        echo "historical location of reports/$1 before CX-233 (2026-09-29)"
-      else echo ""; fi;;
+        _why="historical location of reports/$1 before CX-233 (2026-09-29)"
+      else _why=""; fi;;
     roae-private/FILE)
       # Q-919 (2026-10-02): a PLACEHOLDER, not a pointer. CORRECTIONS.md CX-203 (~:20165,
       # landed 5ad06afa) lists "Five repo-relative `roae-private/FILE` pointers" -- FILE stands
       # for "some file", naming the SHAPE of the five pointers it corrects. The ledger is
       # append-only, so the text cannot be rewritten. Exact token only: a real
       # `roae-private/<x>` pointer is still held to the STALE-PRIVATE leg.
-      echo "placeholder naming the shape of a corrected pointer (CORRECTIONS.md CX-203, append-only), not a path";;
+      _why="placeholder naming the shape of a corrected pointer (CORRECTIONS.md CX-203, append-only), not a path";;
     roae/findings/)
-      echo "dated HISTORY narration of the pre-2026-06 findings/ layout (consolidation recorded at HISTORY.md ~:4875)";;
+      _why="dated HISTORY narration of the pre-2026-06 findings/ layout (consolidation recorded at HISTORY.md ~:4875)";;
     runs/20260420_singlebranch1T_d32westus3/)
-      echo "TEMPORARY: known defect Q28-A2, operator-gated publish/boundary decision — REMOVE THIS ROW when Q28 lands; a green here does NOT bless the pointer";;
-    *) echo "";; esac; }
+      at=(runs/20260422_passA_10T_d64_laggard/README.md)
+      _why="TEMPORARY: known defect Q28-A2, operator-gated publish/boundary decision — REMOVE THIS ROW when Q28 lands; a green here does NOT bless the pointer";;
+    *) _why="";; esac
+    [ -n "$_why" ] || return 0
+    for _p in "${at[@]}" documentation/CORRECTIONS.md documentation/HISTORY.md; do
+      case "$2" in $_p) return 0;; esac
+    done
+    _why=""; }
   local seen=0 dang=0 coll=0 stale=0
   local topdirs; topdirs=$(git ls-tree -d --name-only HEAD | paste -sd'|')
+  local pairs f; pairs=$(git grep -oE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
+  seen=$(printf '%s\n' "$pairs" | sed -n 's/^[^:]*://p' | sort -u | grep -c .)
   while read -r t; do
     [ -n "$t" ] || continue
-    seen=$((seen+1))
+    f=${t%%:*}; t=${t#*:}     # Q-966: (file, token) pairs, so an allowance binds to its documents
     case "$t" in
       roae-private/*)  # private-qualified pointer: must exist in the private checkout
         if [ "$privrun" = 1 ]; then [ -e "$priv/${t#roae-private/}" ] && continue
@@ -446,28 +488,28 @@ gate_script_paths() {
       *)               # top-level-dir tokens (includes the original scripts/ leg)
         git ls-files --error-unmatch "$t" >/dev/null 2>&1 && continue ;;
     esac
-    local why; why=$(allow "$t")
-    if [ -n "$why" ]; then continue; fi
+    allow "$t" "$f"
+    if [ -n "$_why" ]; then continue; fi
     case "$t" in
       roae-private/*)
-        echo "  [FAIL] STALE-PRIVATE: \`$t\` is correctly qualified but its target is absent from"
+        echo "  [FAIL] STALE-PRIVATE: \`$t\` ($f) is correctly qualified but its target is absent from"
         echo "         the roae-private checkout — past instances were reorganizations into"
         echo "         campaigns/, results/, validation/. Find the moved file and update the"
         echo "         pointer; do not rewrite the prose."
         stale=$((stale+1)); rc=1 ;;
       *)
         if [ "$privrun" = 1 ] && [ -e "$priv/$t" ]; then
-          echo "  [FAIL] COLLISION: \`$t\` resolves in roae-private but NOT here."
+          echo "  [FAIL] COLLISION: \`$t\` ($f) resolves in roae-private but NOT here."
           echo "         Its prefix is a real published directory, so a reader follows this into"
           echo "         a directory that exists and lacks the file. Prefix it: \`roae-private/$t\`."
           coll=$((coll+1)); rc=1
         else
-          echo "  [FAIL] DANGLE: \`$t\` resolves nowhere — not tracked here, not in roae-private."
+          echo "  [FAIL] DANGLE: \`$t\` ($f) resolves nowhere — not tracked here, not in roae-private."
           echo "         Fix the text, or add an allowlist row SAYING WHY it is narration."
           dang=$((dang+1)); rc=1
         fi ;;
     esac
-  done < <(git grep -ohE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
+  done <<<"$pairs"
   if [ "$privrun" = 1 ]; then
     echo "DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"
   else
@@ -583,12 +625,16 @@ gate_hex_prefix() {
   # a tree with no hashes. It now writes to a file, its rc is captured, and rc >= 2 is a FAIL naming
   # the producer (rc 1, no match, falls through to the zero-universe FAIL just below). The
   # working-tree leg is unchanged: a deleted-but-unstaged path legitimately makes its grep exit 2.
-  local g22urc=0; git grep -ohIE '[0-9a-f]+' HEAD -- ':!scripts/doc_gates.sh' ':!scripts/doc_gates.d' 2>"$d/univ.err" > "$d/univ.head" || g22urc=$?
+  # Q-968 (A07#8): HEX IS CASE-INSENSITIVE. Both producers and the token pattern read [0-9a-fA-F] and
+  # every token is lower-cased before it is resolved, so an upper-case prefix such as "A09280FB0…" is
+  # judged like its lower-case spelling; until Q-968 only [0-9a-f] was read, the upper-case run was not
+  # a token at all, and only its short "0…" tail was seen (and dropped as < 7 nibbles).
+  local g22urc=0; git grep -ohIE '[0-9a-fA-F]+' HEAD -- ':!scripts/doc_gates.sh' ':!scripts/doc_gates.d' 2>"$d/univ.err" > "$d/univ.head" || g22urc=$?
   if [ "$g22urc" -ge 2 ]; then echo "  [FAIL] GATE 22: the universe producer (git grep over HEAD) failed rc $g22urc, so the 64-nibble universe is UNMEASURED and nothing was checked: $(head -c 300 "$d/univ.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi
   { cat "$d/univ.head"
     git diff -z --name-only HEAD 2>/dev/null | grep -zvE '^scripts/doc_gates(\.sh$|\.d/)' \
-      | xargs -0 -r grep -ohIE '[0-9a-f]+' 2>/dev/null
-  } | awk 'length($0)==64' | sort -u > "$d/univ"
+      | xargs -0 -r grep -ohIE '[0-9a-fA-F]+' 2>/dev/null
+  } | awk 'length($0)==64' | tr 'A-F' 'a-f' | sort -u > "$d/univ"
   if [ ! -s "$d/univ" ]; then
     echo "  [FAIL] zero 64-nibble strings found in the tree. That is a broken scan, not a"
     echo "         clean corpus — every token would 'fail to resolve' and the report would be"
@@ -603,15 +649,21 @@ gate_hex_prefix() {
   # 🔴 THE EXEMPTION IS PER-TOKEN AND UNANIMOUS, NOT PER-LINE. A token is narration ONLY if EVERY
   # one of its occurrences sits in a marker; one loose occurrence in plain prose and it is PROSE
   # again and still fails. A per-line waiver would let a real typo hide behind one tidy citation.
-  local g22rc=0 G22_FLOOR=100; git grep -nHE '[0-9a-f]+(…|\.\.\.)' -- '*.md' 2>"$d/hits.err" > "$d/hits" || g22rc=$?; if [ "$g22rc" -ge 2 ]; then echo "  [FAIL] GATE 22: the token producer (git grep over tracked *.md) failed rc $g22rc, so the population is UNMEASURED and nothing was checked: $(head -c 300 "$d/hits.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi  # Q-883 (2026-09-27): git grep rc 1 = no match (legitimate, and then the floor below fails it); rc >= 2 = the producer failed. This line read `2>/dev/null > hits || true` until Q-883, and a PATH git shim failing only this grep printed `[ok] 0 truncated hex token(s)` and DOC GATES: PASS (Fable E4).
+  local g22rc=0 G22_FLOOR=100; git grep -nHE '[0-9a-fA-F]+(…|\.\.\.)' -- '*.md' 2>"$d/hits.err" > "$d/hits" || g22rc=$?; if [ "$g22rc" -ge 2 ]; then echo "  [FAIL] GATE 22: the token producer (git grep over tracked *.md) failed rc $g22rc, so the population is UNMEASURED and nothing was checked: $(head -c 300 "$d/hits.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi  # Q-883 (2026-09-27): git grep rc 1 = no match (legitimate, and then the floor below fails it); rc >= 2 = the producer failed. This line read `2>/dev/null > hits || true` until Q-883, and a PATH git shim failing only this grep printed `[ok] 0 truncated hex token(s)` and DOC GATES: PASS (Fable E4).
   python3 - "$d/hits" "$d/tok" "$d/narr" <<'PYTOK'
 import re, sys
 hits, tokf, narrf = sys.argv[1], sys.argv[2], sys.argv[3]
-TOK  = re.compile(r'[0-9a-f]+(?:\u2026|\.\.\.)')
+TOK  = re.compile(r'[0-9a-fA-F]+(?:\u2026|\.\.\.)')
 # Same marker vocabulary GATE 27 uses, plus the CORRECTIONS.md entry shape itself. \s+ not " ":
 # a marker wrapping as "[CORRECTED\n2026-08-28" is the normal case in this corpus.
-MARK = re.compile(r'withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract'
-                  r'|\*\*before:\*\*|\*\*now:\*\*|typo', re.I)
+# Q-966 (A07#9): the markers are WHOLE WORDS and a NEGATED one is no marker, via the shared matcher
+# (scripts/doc_gates.d/word_match.sh). As a bare substring, "Current digest (not a typo): a09280fb0..."
+# declared its own mistyped prefix narration, and "unretracted" counted as "retract".
+import subprocess as _sp
+exec(_sp.run(["bash", "-c", ". scripts/doc_gates.d/word_match.sh && _wm_prelude"],
+             capture_output=True, text=True, check=True).stdout)
+MARK = wm_re(r'withdrawn|label\s+corrected|corrected\s+20\d\d|scoped\s+20\d\d|superseded|retract\w*'
+             r'|\*\*before:\*\*|\*\*now:\*\*|typos?')
 seen, prose = set(), set()
 try:
     fh = open(hits, encoding='utf-8', errors='replace')
@@ -620,9 +672,9 @@ except OSError:
 for line in fh:
     parts = line.split(':', 2)
     body = parts[2] if len(parts) == 3 else line
-    narr = bool(MARK.search(body))
+    narr = wm_has(body, MARK)
     for m in TOK.finditer(body):
-        t = m.group(0).rstrip('\u2026').rstrip('.')
+        t = m.group(0).rstrip('\u2026').rstrip('.').lower()
         if 7 <= len(t) <= 63:
             seen.add(t)
             if not narr:
@@ -886,11 +938,39 @@ gate_separates_census() {
     echo "  [FAIL] census floor: git ls-files returned $n source file(s) — refusing to pass vacuously"
     return 1
   fi
+  # 🔴 Q-966 (A07#12): "named by the list" means named IN THE LIST, as an approved entry. This read
+  # `grep -qF` over all of CLAUDE.md, so "Do not approve `q835_unapproved.py`." anywhere in the file
+  # approved it. The list is the run of bullets right after the "**The approved separates" paragraph,
+  # up to the first blank line; an entry is a backticked name inside a **bold** span of it (each
+  # bullet leads with its approved names in bold). Matched as exact names, not substrings.
+  local approved; approved=$(python3 - "$md" <<'PYSEP'
+import re, sys
+L = open(sys.argv[1], encoding="utf-8", errors="replace").read().split("\n")
+h = [i for i, l in enumerate(L) if "**The approved separates" in l]
+if len(h) != 1:
+    print("ERROR\t'**The approved separates' found %d time(s) (need exactly 1)" % len(h)); sys.exit(0)
+i = h[0]
+while i < len(L) and not L[i].startswith("- "): i += 1
+j = i
+while j < len(L) and L[j].strip(): j += 1
+names = set()
+for b in re.findall(r"\*\*(.+?)\*\*", " ".join(L[i:j]), re.S):
+    names.update(re.findall(r"`([^`\s]+)`", b))
+if not names:
+    print("ERROR\tthe approved-separates list under line %d parsed to zero names" % (h[0] + 1)); sys.exit(0)
+for n in sorted(names): print("NAME\t" + n)
+for n in sorted(set(re.findall(r"`([^`\s]+)`", " ".join(L[i:j])))): print("TOK\t" + n)
+PYSEP
+)
+  if ! grep -q $'^NAME\t' <<<"$approved" || grep -q $'^ERROR\t' <<<"$approved"; then
+    echo "  [FAIL] could not read the approved-separates list out of $md: $(sed -n 's/^ERROR\t//p' <<<"$approved")"
+    return 1
+  fi
   local f miss=0
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     case "$f" in reports/evidence/*/*.py) continue;; esac      # the sanctioned glob
-    if ! grep -qF -- "\`$f\`" "$md"; then
+    if ! grep -qxF -- "$(printf 'NAME\t%s' "$f")" <<<"$approved"; then
       echo "  [FAIL] tracked source '$f' is NOT named in $md's approved-separates list"
       echo "         Adding a .py/.c outside that list is an operator decision, not an implementation detail."
       miss=$((miss+1))
@@ -920,7 +1000,7 @@ EOF
   fi
   local d
   for d in $ev_dirs; do
-    if ! grep -qF -- "\`$d/\`" "$md"; then
+    if ! grep -qxF -- "$(printf 'TOK\t%s/' "$d")" <<<"$approved"; then   # Q-966: in the list, not anywhere
       echo "  [FAIL] evidence directory '$d/' holds tracked .py but is NOT named in $md's bullet"
       echo "         This is the half that rotted on 2026-09-04: the glob was right, the prose was not."
       rc=1
@@ -1796,14 +1876,33 @@ ESPY
 # ---------------------------------------------------------------------------
 gate_completion_semantics() {
   echo "== GATE 85: a completion status does not read as a completeness claim =="
-  local rc=0
+  local rc=0 _cs _sfw
   if [ ! -r documentation/DEPLOYMENT.md ]; then
     echo "  [FAIL] documentation/DEPLOYMENT.md unreadable — cannot confirm the disambiguation"
     rc=1
-  elif ! grep -qF 'search space was exhausted' documentation/DEPLOYMENT.md; then
+  elif _cs=$(python3 -c "$(_md_norm_prelude; _wm_prelude)"'
+import re
+L = md_read("documentation/DEPLOYMENT.md").split("\n")
+flat, starts = "", []
+for l in L:
+    starts.append(len(flat) + (1 if flat else 0)); flat = (flat + " " if flat else "") + md_inline(l)
+P = re.compile(r"search\s+space\s+was\s+exhausted", re.I)
+n = 0
+for m in P.finditer(flat):
+    n += 1
+    if not wm_negated(flat, m.start(), 6):
+        print("AFFIRM\t%d" % (sum(1 for s in starts if s <= m.start())))
+print("N\t%d" % n)') && ! grep -q $'^N\t[1-9]' <<<"$_cs"; then
     echo "  [FAIL] DEPLOYMENT.md no longer says what SEARCH_COMPLETE does NOT assert."
     echo "     The token is emitted as the else-branch of a wall-clock timeout test. Without the"
     echo "     qualifier a reader takes a budgeted run for an exhaustive one."
+    rc=1
+  elif [ -z "$_cs" ] || grep -q $'^AFFIRM\t' <<<"$_cs"; then
+    # Q-966 (A07#15): the phrase must be NEGATED where it stands ("It is NOT a claim that the search space
+    # was exhausted"), every occurrence; the shared matcher's negation test, 6 words back in the clause.
+    # A bare substring test passed "It is a claim that the search space was exhausted."
+    echo "  [FAIL] documentation/DEPLOYMENT.md:$(sed -n 's/^AFFIRM\t//p' <<<"$_cs" | paste -sd, -) states that the search space was exhausted"
+    echo "     without negating it (or the check could not run). SEARCH_COMPLETE is a lifecycle status, not exhaustion."
     rc=1
   else
     echo "  [ok]   DEPLOYMENT.md states that SEARCH_COMPLETE is not a claim of exhaustion"
@@ -1818,10 +1917,15 @@ gate_completion_semantics() {
   if [ ! -r documentation/SOLUTIONS_FORMAT.md ]; then
     echo "  [FAIL] documentation/SOLUTIONS_FORMAT.md unreadable — cannot confirm the budget scope"
     rc=1
-  elif ! grep -qF 'within its node budget' <<<"$_sf"; then
+  elif ! _sfw=$(printf '%s' "$_sf" | python3 -c "$(_wm_prelude)"'
+import sys, re
+s = sys.stdin.read()
+for k, p in (("budget", r"within\s+its\s+node\s+budget"), ("lower", r"lower\s+bound")):
+    if wm_has(s, wm_re(p)): print(k)   # Q-966: present AND not negated ("not a lower bound" is not one)
+') || ! grep -qx 'budget' <<<"$_sfw"; then
     echo "  [FAIL] SOLUTIONS_FORMAT.md lost its budget qualifier — the 2026-08-28 correction."
     rc=1
-  elif ! grep -qF 'lower bound' <<<"$_sf"; then
+  elif ! grep -qx 'lower' <<<"$_sfw"; then
     echo "  [FAIL] SOLUTIONS_FORMAT.md no longer calls the record count a lower bound."
     rc=1
   else
@@ -1859,7 +1963,7 @@ gate_completion_semantics() {
 # ---------------------------------------------------------------------------
 gate_env_surface() {
   echo "== GATE 84: every SOLVE_* env var the engine reads is documented =="
-  python3 - <<'ENVPY' || return 1
+  { _wm_prelude; cat <<'ENVPY'
 import re, os, sys
 try:
     src = open('solve.c', encoding='utf-8', errors='surrogateescape').read()
@@ -1892,7 +1996,9 @@ if missing_dir or not docs:
 # is a PREFIX of the new one and `n in docs` was still true. A documented variable that merely starts
 # with the same letters is not the documented variable, so the name must not be followed by another
 # name character.
-undoc = [n for n in names if not re.search(n + r'(?![A-Z0-9_])', docs)]
+# Q-966 (A07#17): an EXACT token (shared matcher), bounded on BOTH sides. With a right boundary only,
+# UNRELATED_SOLVE_X in a doc "documented" SOLVE_X.
+undoc = [n for n in names if not wm_tok(docs, n)]
 for n in undoc:
     line = src[:src.index('getenv("%s")' % n)].count(chr(10)) + 1
     print("  [FAIL] %s is read at solve.c:%d and appears in no documentation/*.md" % (n, line))
@@ -1901,6 +2007,7 @@ if undoc:
     sys.exit(1)
 print("  [ok]   all %d SOLVE_* variables read by solve.c appear in documentation/" % len(names))
 ENVPY
+  } | python3 - || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -2335,7 +2442,7 @@ gate_tracked_ignored() {
 # is not in GATE 8's excluded-by-cost class and never was.
 gate_value_domains() {
   echo "== GATE 24: documented value-domain sets match the literal domain in code =="
-  python3 - <<'PY'
+  { _wm_prelude; cat <<'PY'
 import re, sys
 
 FAIL = 0
@@ -2441,12 +2548,15 @@ if not mp:
     print("         state that let five of six copies go stale. If the printer was renamed,")
     print("         re-anchor this pattern; do not delete the check.")
     sys.exit(1)
-body = mp.group(1)
+body = wm_strip_comments(mp.group(1), "c")   # Q-966: every check below reads CODE, not comments
 if "f1c5_unions" not in body:
     print("  [FAIL] f1c5_fprint_npairs_domain() does not read f1c5_unions[] -- it prints a")
     print("         domain from somewhere other than the table that defines it.")
     FAIL = 1
-if "cap" not in body:
+# Q-966 (A07#21): "cap-aware" means the cap FILTERS: a whole-word `cap` inside an `if (...)` whose body
+# skips the row (continue / break / return), read from the comment-stripped body above. A bare
+# substring test passed `... > cap) (void)0;`, which mentions cap and filters nothing.
+if not re.search(r"\bif\s*\([^;{}]*\bcap\b[^;{}]*\)\s*(?:\{\s*)?(?:continue|break|return)\b", body):
     print("  [FAIL] f1c5_fprint_npairs_domain() ignores its `cap` argument, so --kc-build's")
     print("         in-memory ceiling of %d would be advertised as accepted." % mem_cap)
     FAIL = 1
@@ -2526,6 +2636,7 @@ if not FAIL:
           % (checked, len(DOC_SITES)))
 sys.exit(1 if FAIL else 0)
 PY
+  } | python3 -
   local rc=$?
   if [ "$rc" != "0" ]; then
     echo "  A documented value domain drifted from the code that enforces it."

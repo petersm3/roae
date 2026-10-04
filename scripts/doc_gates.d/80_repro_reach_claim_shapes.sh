@@ -62,7 +62,7 @@ gate_repro_reach() {
   echo "== GATE 25: every documented reproduction command resolves to a real flag =="
   # Q-703 (2026-09-24, Fable K): the population is the script's own $DOCS (git ls-files '*.md'),
   # passed in by environment because the heredoc is quoted. See the `docs =` note below.
-  DOC_GATES_DOCS="$DOCS" python3 - <<'PY'
+  { _wm_prelude; cat <<'PY'
 import bisect, os, re, sys
 
 TOOLS = {"verify.py": "verify.py", "solve.py": "solve.py", "sat.py": "sat.py",
@@ -80,6 +80,28 @@ NARRATION = {
     ("solve", "--kc-repr-normalize"):     "documented NON-existence (case b); lives only on the public tag v4-repr-fc-legc-20260813 (5f473242), on no branch (re-measured 2026-10-02). VERIFY.md carries a NOT-AVAILABLE box, and both invocation-form cite sites were given an inline warning 2026-08-16 so a reader entering the file at either one cannot be misled. Retire this row if the engine lands on main.",
     ("solve", "--orbit-selftest"):       "documented NON-existence on main; the self-test of the v4 orbit engine, which exists only on the public tags (v4-repr-fc-legc-20260813, archive/orbit-port-188-candidate-20260824, archive/v4-canonical-20260824). Cited in BRANCHES_EXPLAINED.md §\"Decision 2026-10-02\" inside a block that first checks out the tag; operator decision 2026-10-02 (CX-273) keeps that engine off main for good.",
 }
+# 🔴 Q-966 (A08#3, 2026-10-03): A NARRATION ROW IS BOUND TO THE DOCUMENTS THAT NARRATE THE FLAG. Keyed
+# on (tool, flag) alone, "To reproduce the result, run `solve --extended-selftest`." passed in ANY
+# document, because SOLVE_C_CLI.md warns readers away from that flag. NARRATION_AT lists, per row, the
+# documents whose citations it waives (measured 2026-10-03: every waived site at the time); the two
+# append-only ledgers are in every row, since quoting a removed flag verbatim is what they are for. A
+# row with no NARRATION_AT entry waives nothing, and is reported.
+_NARR_LEDGERS = {"documentation/CORRECTIONS.md", "documentation/HISTORY.md"}
+NARRATION_AT = {
+    ("solve", "--verify-superset"):       {"documentation/PERFORMANCE_HISTORY.md"},
+    ("solve", "--depth-profile"):         set(),
+    ("solve", "--branch-yield-report"):   {"documentation/LARGE_SCALE_CAMPAIGNS.md"},
+    ("solve", "--constraint-spec"):       {"documentation/LARGE_SCALE_CAMPAIGNS.md"},
+    ("solve.py", "--compare-leaf-rates"): {"documentation/DEVELOPMENT.md"},
+    ("solve", "--extended-selftest"):     {"documentation/SOLVE_C_CLI.md"},
+    ("solve", "--kc-repr-normalize"):     {"documentation/VERIFY.md"},
+    ("solve", "--orbit-selftest"):        {"documentation/BRANCHES_EXPLAINED.md"},
+}
+if set(NARRATION) - set(NARRATION_AT):
+    for _k in sorted(set(NARRATION) - set(NARRATION_AT)):
+        print("  [FAIL] NARRATION row %s %s has no NARRATION_AT entry; bind it to the documents that"
+              " narrate it" % _k)
+    sys.exit(1)
 
 # CODEX N10 FINDING 13 HALF A, adjudicated 2026-09-03. The extractor was
 # `((?:--[a-z0-9][a-z0-9-]*\s*)+)` — an INITIAL RUN of VALUELESS flags. It stopped dead at the
@@ -195,6 +217,20 @@ def _command_flags(text, at):
 #
 # WAIVERS ARE PRINTED, not merely counted: a proposal that is never built must stay visible.
 PROPOSAL = ['queued', 'outstanding fix', 'not yet implemented', 'pending flag', 'pending --']
+# 🔴 Q-966 (A08#4, 2026-10-03): each marker is matched through the shared word matcher
+# (scripts/doc_gates.d/word_match.sh) -- WHOLE WORDS, and not when negated -- and 'queued' only as a
+# PREDICATE of the thing proposed ("it is queued to the code lane", "queued for ..."). As a substring,
+# "Run the queued job with `solve --q835-absent`." waived a flag that does not exist: the job was
+# queued, not the flag. Measured 2026-10-03: the live corpus has 1 proposal waiver ('pending flag').
+PROPOSAL_RX = [
+    ('queued', wm_re(r'(?:is|are|was|were|been|being|be|stays?|remains?)\s+(?:still\s+|now\s+|also\s+)?queued'
+                     r'|queued(?=\s+(?:to|for)\b)')),
+    ('outstanding fix', wm_re(r'outstanding\s+fix')),
+    ('not yet implemented', wm_re(r'not\s+yet\s+implemented')),
+    ('pending flag', wm_re(r'pending\s+flag')),
+    ('pending --', wm_re(r'pending(?=\s+--)')),
+]
+if [k for k, _ in PROPOSAL_RX] != PROPOSAL: raise SystemExit('PROPOSAL_RX keys drifted from PROPOSAL')   # explicit, survives -O (Q-373)
 # 'pending flag' and 'pending --' (Q-703, 2026-09-24, Fable K; NARROWED the same day by the batch-2
 # pre-publication review, item S2, Fable P) are the two forms the viz/ pages use for a flag they
 # PROPOSE: "### PENDING flag (proposed name — TR-12 §8 should pin it before it is built)" as a
@@ -295,8 +331,20 @@ for tool, src in sorted(TOOLS.items()):
         print("  [FAIL] zero flags parsed from %s — vacuous, treated as failure." % src)
         print("         If the declaration style changed, update this gate; do not delete it.")
         sys.exit(1)
+    # 🔴 Q-966 (A08#2, 2026-10-03): the code view is the source with EVERY comment blanked by the shared
+    # matcher (scripts/doc_gates.d/word_match.sh: tokenize for .py, a string-aware lexer for .c), not
+    # only whole-line ones. `pass  # "--q835-absent"` appended to verify.py made a flag that nothing
+    # implements "code". The lexer-risk paragraph above was about REMOVING real flags from `have`;
+    # `have` is still the raw scan, so a mis-lex can only report a flag as comment-only, loudly. Measured
+    # 2026-10-03: the five other tools have no comment-only flag; solve.c has three comment fragments
+    # (--kc-alt, --kc-braket, --kc-witnes) and no document cites any of them.
+    try:
+        _code = wm_strip_comments(t, "py" if src.endswith(".py") else "c")
+    except Exception as exc:
+        print("  [FAIL] cannot separate code from comments in %s (%s), so its flags were not checked" % (src, exc))
+        sys.exit(1)
     in_code = set()
-    for _line in t.split("\n"):
+    for _line in _code.split("\n"):
         if _CMT_LINE.match(_line):
             continue
         for _m in _QFLAG.finditer(_line):
@@ -343,17 +391,17 @@ for d in docs:
                 if fl in comment_only[tool]:
                     cited_comment_only.setdefault((tool, fl), set()).add(d)
                 continue
-            if (tool, fl) in NARRATION:
+            if (tool, fl) in NARRATION and d in (NARRATION_AT.get((tool, fl), set()) | _NARR_LEDGERS):
                 waived += 1
                 continue
             if scope is None:
                 scope = _proposal_scope(lines, i, m.start() - offs[i])
-            hit = [k for k in PROPOSAL if k in scope]
+            hit = [k for k, rx in PROPOSAL_RX if wm_has(scope, rx)]
             where = 'sentence'
             if not hit:
                 # Q-703: a command inside a fenced block is labelled by the block's caption.
                 cap = _fence_caption(lines, i)
-                hit = [k for k in PROPOSAL if k in cap] if cap else []
+                hit = [k for k, rx in PROPOSAL_RX if wm_has(cap, rx)] if cap else []
                 where = 'fence caption'
             if hit:
                 # PER-SITE, not per-flag: the same flag proposed in one doc and asserted as
@@ -551,6 +599,7 @@ print("          reproduction lives in the report it links to.)")
 # this is "the flag's only witness is narration". LEG 2 still cannot move the exit code.
 sys.exit(1 if (bad or cited_comment_only) else 0)
 PY
+  } | DOC_GATES_DOCS="$DOCS" python3 -
   local rc=$?
   if [ "$rc" != "0" ]; then
     echo "  A published figure whose reproduction command errors is not reproducible."
@@ -694,15 +743,18 @@ PY
 gate_canonical_ceiling() {
   echo "== GATE 26: no count labelled CANONICAL may exceed its own factorial ceiling =="
   local out rc=0
-  out=$(printf '%s\n' "$DOCS" | python3 -c '
+  out=$(printf '%s\n' "$DOCS" | python3 -c "$(_md_num_prelude)"'
 import sys, io, re, math
 SUP={"⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9"}
 NEG="⁻"
 CEIL=sum(math.log10(k) for k in range(1,32))          # log10(31!), derived HERE
-pat=re.compile(r"(\d(?:[.,]\d+)?)\s*[×x]\s*10([" + "".join(SUP) + NEG + r"]+)")
+# Q-968 (A08#5, the one-digit mantissa): the mantissa was `\d(?:[.,]\d+)?`, ONE integer digit, so
+# "12×10³³" was read as 2×10³³ and "12e33" was not read at all. Both legs now take the shared
+# lexer'"'"'s mantissa (any digit run, comma groups, a decimal) at its left edge.
+pat=re.compile(r"(" + MD_EDGE + r"(?:\d{1,3}(?:,\d{3})+|\d+)(?!\d)(?:\.\d+)?)\s*[×x]\s*10([" + "".join(SUP) + NEG + r"]+)")
 # LEG 2. The lookarounds are the whole difference between a gate and a sha-fragment siren.
-sci=re.compile(r"(?<![0-9a-fA-F.])(\d(?:\.\d+)?)[eE]\+?(\d+)(?![0-9a-fA-F])")
-lax=re.compile(r"\d(?:\.\d+)?[eE]\+?\d+")   # the PRESCRIBED form, kept only to size guard (a)
+sci=re.compile(r"(?<![0-9a-fA-F.])(\d+(?:\.\d+)?)[eE]\+?(\d+)(?![0-9a-fA-F])")
+lax=re.compile(r"\d+(?:\.\d+)?[eE]\+?\d+")   # the PRESCRIBED form, kept only to size guard (a); Q-968: same mantissa as sci
 span=re.compile(r"`[^`]*`")
 # Q-937 (batch 35): the LEDGER ANCHOR, as GATE 27 reads it (the header there has the rules), but
 # per LINE: a match is also exempt when the same line links a CX entry of documentation/CORRECTIONS.md
@@ -774,7 +826,10 @@ for f in files:
             if re.search(r"3[01]!|ceiling",w): continue
             if "canonical-leaf" in w or "canonical tree" in w: continue
             # code-span skip, ALL files. Reason in the LEG 2 header block. Counted, never silent.
-            if any(a<=m.start() and m.end()<=b for a,b in spans):
+            # Q-965 (A08#6): only a span that QUOTES OUTPUT is exempt. A span holding nothing but the
+            # figure ("There are `3.3e37` canonical orderings.") is a claim set in code font, not a
+            # transcript, and it passed; it is now judged like the bare figure.
+            if any(a<=m.start() and m.end()<=b and not re.fullmatch(r"[~≈]?\s*"+re.escape(m.group(0)), line[a+1:b-1].strip()) for a,b in spans):
                 sci_span+=1; continue
             if any(m.group(0) in e for e in anc): continue
             n+=1
@@ -869,11 +924,11 @@ gate_withdrawn_markers() {
   local REG=documentation/WITHDRAWN_FIGURES.tsv
   require_rows "$REG" "A withdrawn figure that nothing registers is a figure nobody re-checks." || return 1
   local out
-  out=$(printf '%s\n' "$DOCS" | python3 -c '
+  out=$(printf '%s\n' "$DOCS" | python3 -c "$(_md_norm_prelude; _wm_prelude)"'
 import sys, io, re
 REG="documentation/WITHDRAWN_FIGURES.tsv"
 EXEMPT={"documentation/CORRECTIONS.md"}
-MARK=re.compile(r"withdrawn|label\s+corrected|corrected\s+20|scoped\s+20|superseded|retract|run\s+description\s+corrected", re.I)  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
+MARK=wm_re(r"withdrawn|label\s+corrected|corrected\s+20\d\d|scoped\s+20\d\d|superseded|retract\w*|run\s+description\s+corrected")  # Q-966 (A08#11): whole words via the shared matcher, and a NEGATED marker is none -- "remains unretracted", "not superseded" exempted before.  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
 import os
 LEDGER="documentation/CORRECTIONS.md"
 LINK=re.compile(r"\[([^\]\n]*)\]\(([^)\s]*CORRECTIONS\.md)(#[^)\s]*)?\)")
@@ -896,15 +951,18 @@ def anchored(f,text):
     for m in LINK.finditer(text):
         if os.path.normpath(os.path.join(os.path.dirname(f),m.group(2)))!=LEDGER: continue
         cx=re.search(r"\bCX-(\d+)\b",m.group(1)) or re.match(r"#cx-(\d+)\b",(m.group(3) or "").lower())
-        if cx and int(cx.group(1)) in ENT: out.append(ENT[int(cx.group(1))])
+        if cx and int(cx.group(1)) in ENT: out.append(ENTN.setdefault(int(cx.group(1)), md_inline(ENT[int(cx.group(1))])))
     return out
+ENTN={}
 def bare(fig,text,anc):
     return fig in text and not any(fig in e for e in anc)
 figs=[]
 for ln in io.open(REG,encoding="utf-8"):
     c=ln.rstrip("\n").split("\t")  # Q-773: comment = col 1 exactly "#" or "# ..." (reg_row_kind); a figure "#7..." is DATA
     if not ln.strip() or c[0]=="#" or c[0].startswith("# "): print("HASHROW\t%s"%c[0]) if any(x and not (x[:1]=="<" and x[-1:]==">") for x in c[1:]) else None; continue  # Q-761: a "# " line with data columns is LOUD, as in GATE 3/11
-    if len(c)>=2 and c[0].strip(): figs.append((c[0],c[1]))
+    if len(c)>=2 and c[0].strip() and c[1].strip(): figs.append((md_inline(c[0]),c[1]))
+    else: print("MALFORMED\t%s"%ln.rstrip("\n")[:100])  # Q-969 (A08#8): a figure with no "why" column was DROPPED while require_rows counted it
+print("ACCEPTED\t%d"%len(figs))
 if not figs: print("NOFIGS"); sys.exit(0)
 files=[l.strip() for l in sys.stdin if l.strip()]
 if not files: print("EMPTY"); sys.exit(0)
@@ -912,8 +970,13 @@ n=0; nfiles=0; pop_rows=0; pop_blocks=0
 for f in files:
     if f in EXEMPT: continue
     nfiles+=1
-    try: lines=io.open(f,encoding="utf-8").read().splitlines()
+    try: lines=md_text(io.open(f,encoding="utf-8").read()).split("\n")
     except OSError as e: print("READFAIL\t%s\t%s"%(f,e)); n+=1; continue
+    # Q-965 (A08#9, A08#10): figures and markers are matched on md_inline text (a figure wrapped as
+    # "null P =\n0.034", or set in emphasis, is the figure), both sides folded alike; and a table row
+    # is any row the shared normaliser sees -- a GFM table without edge pipes, or one indented, was
+    # read as PROSE before, where a marker on another row exempted it.
+    _L, KIND, _b, _u = md_parse("\n".join(lines))
     # 🔴 PARAGRAPH WINDOW, not a single line. Measured 2026-08-28 while building this gate: a
     # line-level rule flagged reports/TR4:72 and DISTRIBUTIONAL_ANALYSIS.md:587, both of which
     # ARE correctly marked -- TR4 carries the figures on one line and its marker on the next
@@ -938,28 +1001,34 @@ for f in files:
     # sentence below states exactly that split, so the guarantee and the scan agree.
     for blk,bs in zip(para,start):
         blines=blk.split("\n")
-        rows=[(j,l) for j,l in enumerate(blines) if l.lstrip().startswith("|")]
-        prose=[(j,l) for j,l in enumerate(blines) if not l.lstrip().startswith("|")]
+        isrow=lambda j: KIND[bs-1+j] in ("thead","tdelim","trow")
+        rows=[(j,md_inline(l)) for j,l in enumerate(blines) if isrow(j)]
+        prose=[(j,md_inline(l)) for j,l in enumerate(blines) if not isrow(j)]
         # POPULATION, counted before any marker test: how many rows / prose blocks state a
         # registered figure at all. Printed, and a zero fails -- the registry names figures
         # with ~40 known occurrences, so a scan that matched none of them is a broken scan.
         pop_rows+=sum(1 for j,l in rows if any(fig in l for fig,why in figs))
-        if prose and any(fig in "\n".join(l for j,l in prose) for fig,why in figs): pop_blocks+=1
+        if prose and any(fig in " ".join(l for j,l in prose) for fig,why in figs): pop_blocks+=1
         hit=False
         for j,l in rows:
-            if MARK.search(l): continue
-            anc=anchored(f,l)
+            if wm_has(l,MARK): continue
+            anc=anchored(f,blines[j])
             for fig,why in figs:
                 if bare(fig,l,anc):
                     print("HIT\t%s\t%d\t%s\t%s"%(f,bs+j,fig,l.strip()[:120])); n+=1; hit=True; break
             if hit: break
         if hit: continue
-        ptext="\n".join(l for j,l in prose)
-        if not prose or MARK.search(ptext): continue
-        anc=anchored(f,ptext)
+        ptext=" ".join(l for j,l in prose)
+        if not prose or wm_has(ptext,MARK): continue
+        anc=anchored(f,"\n".join(blines[j] for j,l in prose))
         for fig,why in figs:
             if bare(fig,ptext,anc):
-                off=next((j for j,l in prose if fig in l),0)
+                off=next((j for j,l in prose if fig in l),None)
+                if off is None:   # the figure spans a wrap: name the line it starts on
+                    p=ptext.find(fig); acc=0
+                    for j,l in prose:
+                        acc+=len(l)+1
+                        if acc>p: off=j; break
                 bad_line=blines[off].strip()[:120]
                 print("HIT\t%s\t%d\t%s\t%s"%(f,bs+off,fig,bad_line)); n+=1; break
 print("POP\t%d\t%d\t%d"%(nfiles,pop_rows,pop_blocks))
@@ -968,6 +1037,9 @@ print("COUNT\t%d"%n)
 ') || { echo "  [FAIL] GATE 27 scanner failed — NOTHING was checked."; return 1; }
   grep -qx 'EMPTY' <<<"$out" && { echo "  [FAIL] corpus reached GATE 27 empty."; return 1; }
   grep -qx 'NOFIGS' <<<"$out" && { echo "  [FAIL] $REG parsed to zero figures."; return 1; }
+  local _mal; _mal=$(printf '%s\n' "$out" | awk -F'\t' '$1=="MALFORMED"{print "         " $2}')
+  [ -n "$_mal" ] && { echo "  [FAIL] Q-969: $REG has row(s) that are not \"figure<TAB>why\", so they are not checked:"; printf '%s\n' "$_mal"; return 1; }
+  reg_accepted_check "$REG" "$(printf '%s\n' "$out" | awk -F'\t' '$1=="ACCEPTED"{print $2; exit}')" "GATE 27" || return 1
   local pf pr pb
   IFS=$'\t' read -r pf pr pb < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4; exit}')
   if ! grep -qxE '[0-9]+' <<<"${pr:-}" || ! grep -qxE '[0-9]+' <<<"${pb:-}"; then
@@ -1117,7 +1189,7 @@ gate_author_directives() {
   # the rows that quote these phrases verbatim — the patterns have rotted and the gate is blind,
   # which is an ERROR, not a pass.
   local out
-  out=$(python3 - <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import re, subprocess, sys
 files = [f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True).stdout.split() if f]
 if not files:
@@ -1130,7 +1202,9 @@ if not files:
 # So the pattern is anchored to a section reference. This is the same lesson the CNKI passes paid
 # for in a different domain: a term that matches the topic is not the same as a term that matches
 # the shape you are hunting.
-PATS = [r'(?:section|§)\s*\d+\s+can be written', r'(?:section|§)\s*\d+\s+should be written',
+# Q-965 (A08#13): `[Ss]ection` -- "Section 2 should be written next." opens a sentence, and the
+# capital S passed. The rest of RX stays case-sensitive on purpose (PREFER/TODO are marker conventions).
+PATS = [r'(?:[Ss]ection|§)\s*\d+\s+can be written', r'(?:[Ss]ection|§)\s*\d+\s+should be written',
         r'\bPREFER\b', r'\bTODO\b',
         r'One paragraph (?:of|on)\b', r'\bVerifiability box', r'in one page:',
         r'Table of measured', r'note to self', r'\bwe (?:should|must) (?:write|add|state)\b',
@@ -1142,16 +1216,25 @@ def exempt(line):
     return t.startswith('| v1.') or '⚠ **[' in line or 'CORRECTED' in line or 'relabelled' in line
 seen = live = 0
 hits = []
+# Q-965: matched on the LOGICAL line (a paragraph joined by the shared normaliser, so a directive
+# wrapped across lines is one directive); every other block kind per line. exempt() still reads the
+# source line(s) the match spans.
 for f in files:
-    try: lines = open(f, encoding='utf-8', errors='replace').read().split("\n")
+    try: text = md_read(f)
     except OSError: continue
-    for i, l in enumerate(lines, 1):
-        m = RX.search(l)
-        if not m: continue
-        seen += 1
-        if exempt(l): continue
-        live += 1
-        hits.append((f, i, m.group(0), l.strip()[:100]))
+    lines = text.split("\n")
+    units = []
+    for b in md_parse(text)[2]:
+        if b['kind'] == 'para': units.append(b)
+        else: units += [md_para([(x, lines[x - 1])]) for x in range(b['start'], b['end'] + 1)]
+    for u in units:
+        for m in RX.finditer(u['text']):
+            i, j = md_lno(u, m.start()), md_lno(u, m.end() - 1)
+            l = " ".join(lines[i - 1:j])
+            seen += 1
+            if exempt(l): continue
+            live += 1
+            hits.append((f, i, m.group(0), lines[i - 1].strip()[:100]))
 print("SEEN\t%d" % seen)
 if seen == 0:
     print("ERROR\tthe directive pattern set matches NOTHING anywhere — not even the revision rows that quote these phrases verbatim. The patterns have rotted; this gate is blind.")
@@ -1161,10 +1244,15 @@ for f,i,w,l in hits:
 for f in files:
     try: body = open(f, encoding='utf-8', errors='replace').read()
     except OSError: continue
+    seen_l = set()
     for m in re.finditer(r'^#+ *Structure \((\d+) sections?\)\s*$', body, re.M):
+        seen_l.add(body[:m.start()].count("\n")+1)
         print("BARE\t%s\t%d" % (f, body[:m.start()].count("\n")+1))
+    for b in md_parse(body)[2]:   # Q-965: indented and setext headings too
+        if b['kind'] == 'heading' and b['start'] not in seen_l and re.fullmatch(r'Structure \(\d+ sections?\)', b['text']):
+            print("BARE\t%s\t%d" % (f, b['start']))
 PY
-) || { echo "  [FAIL] GATE 29 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - ) || { echo "  [FAIL] GATE 29 scanner failed — NOTHING was checked."; return 1; }
   local rc=0
   while IFS=$'\t' read -r tag a b c d; do
     case "$tag" in
@@ -1217,7 +1305,10 @@ PY
 # _g1_py — the prelude every G1 scanner starts with. Emitted into the heredoc by the
 # caller so each scanner is self-contained; see the note above on why it is not a module.
 # flatten(text) -> (flat, starts): `flat` is the whole file whitespace-normalised onto
-#   ONE line (GATE 3's fold), `starts[i]` is the offset in `flat` at which source line
+#   ONE line (GATE 3's fold) -- and, since Q-965, each line is first folded by the shared
+#   normaliser's inline fold (emphasis and backticks dropped, entities decoded, curly quotes and
+#   dashes to ASCII, CRLF), which _g1_prelude now emits ahead of this block, so "not **yet**" and
+#   "24 divides **every ...**" are read as written. `starts[i]` is the offset in `flat` at which source line
 #   i+1 begins, so lno() recovers an exact source line for any flat offset.
 # sent(flat,a,b): the flattened SENTENCE containing [a,b). Sentence, not line — the
 #   qualifier legs below all ask "does the same sentence also say X".
@@ -1231,6 +1322,7 @@ PY
 #   it, GATE 30 fails on documentation/CORRECTIONS.md:4496-4497 and GATE 31 on :4121,
 #   all three of which are the ledger describing the wording it removed.
 _g1_prelude() {
+_md_norm_prelude   # Q-965: the shared normaliser; flatten() below folds each line through it
 cat <<'PRELUDE'
 import re, sys, bisect, subprocess
 _SUP = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4',
@@ -1260,23 +1352,45 @@ def read(f):
     except OSError as e:
         print("ERROR\t%s is unreadable (%s) - it was NOT checked" % (f, e.strerror))
         return None
+_UNIT = re.compile(r'^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\|)')
 def flatten(t):
-    out=[]; starts=[]; off=0
-    for l in t.split("\n"):
-        s=" ".join(l.split())
-        if out: out.append(" "); off+=1
-        starts.append(off); out.append(s); off+=len(s)
+    # Q-967 (Q-835 A08#14): a line break that ends a SCOPE UNIT is kept as "\n" (one character, so
+    # every offset is unchanged): a blank line, a list item, a heading or a table row starts a new
+    # unit, and sent() never crosses one. It was " ", so two bullets with no closing period read
+    # as ONE sentence and a qualifier in an unrelated bullet ("- ... uses C3") counted.
+    # Q-965 (A08#22, A08#24): each line is md_inline'd (emphasis, backticks, entities, curly quotes,
+    # CR); the unit test reads the RAW line, so a list marker is seen before md_inline folds it.
+    out=[]; starts=[]; off=0; prev=None
+    for l in md_text(t).split("\n"):
+        s=md_inline(l)
+        if out:
+            cut = (not s) or (not prev) or bool(_UNIT.match(l)) or prev.startswith(("#", "|"))
+            out.append("\n" if cut else " "); off+=1
+        starts.append(off); out.append(s); off+=len(s); prev=s
     return "".join(out), starts
 def lno(starts,pos):
     return bisect.bisect_right(starts,pos)
-_SB = re.compile(r'(?<=[.!?])\s')
+# (integration, batch 40) a **BEFORE.** label does not end a sentence: md_inline drops the `**`, so the
+# label's period would now cut the ledger's quoted old wording off from the BEFORE that narrates it
+# (GATE 30 fired on the ledger's own BEFORE quotation); on the raw text the `**` after the period kept them together.
+_SB = re.compile(r'(?<=[.!?])(?<!\bBEFORE\.)\s|\n')
 def sent(flat,a,b):
     s=0
     for m in _SB.finditer(flat,0,a): s=m.end()
     m=_SB.search(flat,b)
     return flat[s:(m.start() if m else len(flat))]
+# Q-967 (Q-835 A08#15): QUOTED is narration only when the sentence, outside its quotations, says
+# it is narrating: a correction marker, a retired-phrase id, or a verb that reports wording.
+# Quote parity alone made `We prove that "24 divides every exact solution count".` exempt.
+_QSPAN = re.compile(r'"[^"]*"|“[^”]*”')
+_QNARR = re.compile(r'\bBEFORE\b|\bNOW\b|CORRECTED|\bRP-[0-9a-f]{8}\b|\bRETIRED\b'
+                    r'|(?i:\b(?:this read|read|reads|said|says|called|described|credited|labell?ed|wrote|written'
+                    r'|registered|reworded|retired|retracted|withdr[a-z]*|corrected|superseded|previously'
+                    r'|formerly|falsified|replaced|removed|struck|phrase|wording)\b)')
 def quoted(seg,a):
-    return (seg.count('"',0,a) + seg.count('“',0,a) + seg.count('”',0,a)) % 2 == 1
+    if (seg.count('"',0,a) + seg.count('“',0,a) + seg.count('”',0,a)) % 2 != 1:
+        return False
+    return bool(_QNARR.search(_QSPAN.sub(' ', seg)))
 PRELUDE
 }
 
@@ -1305,12 +1419,21 @@ gate_rotation_c3() {
   echo "== GATE 30: a pair-slot rotation-symmetry claim that does not name C3 =="
   local FLOOR=4
   local out
-  out=$( { _g1_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
 
 floor = int(sys.argv[1])
 ROT = re.compile(r'(?:pair-slot|32)\s+rotations')
 SYM = re.compile(r'symmetr', re.I)
 C3  = re.compile(r'\bC3\b')
+# Q-966 (A08#16): C3 is NAMED as the exclusion only when it is not conceded INTO the claim. "...are
+# symmetries of the circular constraint system even with C3." names C3 and asserts the forbidden case.
+# A mention whose 4 preceding words in its clause (shared matcher, wm_before) carry a concessive or
+# inclusive cue does not count. Measured 2026-10-03: the 5 real C3 mentions in rotation-symmetry
+# sentences ("only if C3 were dropped", "with the absolute-position C3 retained", "with a circularized
+# C3", "the C3 ceiling", "only if C3 is also circularized") carry none.
+C3_CONCEDE = {'even', 'including', 'regardless', 'despite', 'spite', 'plus', 'also'}
+def c3_named(s):
+    return any(not (set(wm_before(s, c.start(), 4)) & C3_CONCEDE) for c in C3.finditer(s))
 pop = 0
 for f in corpus():
     t = read(f)
@@ -1323,7 +1446,7 @@ for f in corpus():
         pop += 1
         if quoted(s, s.find(m.group(0)) + len(m.group(0))):
             continue          # the correction ledger quoting the wording it retired
-        if C3.search(s):
+        if c3_named(s):
             continue
         print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:150]))
 print("POP\t%d" % pop)
@@ -1389,7 +1512,7 @@ gate_sk_gains() {
   echo "== GATE 31: the S(k) marginal-gain maximum, its divisor, and its qualifier =="
   local LIST_FLOOR=3 DIV_FLOOR=2 MAX_FLOOR=3
   local out
-  out=$( { _g1_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
 
 list_floor, div_floor, max_floor = (int(a) for a in sys.argv[1:4])
 # A published per-boundary gain list: five or more two-decimal values, comma separated.
@@ -1412,6 +1535,16 @@ FIRST = re.compile(r'\bfirst\b|\bgreedy\b|k *= *1|step 1|10\.38')
 SUPREMUM = re.compile(r'all\b[^.]{0,40}(?:conditioning|contexts)'
                       r'|over \*?all\*? [^.]{0,40}(?:boundaries|contexts)|supremum')
 UNC = re.compile(r'unconditional', re.I)
+# Q-966 (A08#17): SUPREMUM qualifies a sentence about THE maximum over all contexts; it is not a
+# qualifier of a sentence that names the FIRST gain as that maximum. "the first gain is the maximum
+# across all conditioning contexts" asserts the defect this leg exists for, and SUPREMUM exempted it.
+# So a sentence of the second MAXC form ("the first/k = 1/step 1 ... is the maximum") is exempted by
+# UNCONDITIONAL only, and SUPREMUM is read as whole words (shared matcher). Measured 2026-10-03: the
+# one real SUPREMUM-only exemption (TR4 §5, the maximum over all boundaries and contexts) is of the
+# first form and stays exempt.
+FIRSTMAX = re.compile(r'the (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum')
+WM_SUPREMUM = wm_re(r'all\b[^.]{0,40}(?:conditioning|contexts)'
+                    r'|over\s+\*?all\*?\s+[^.]{0,40}(?:boundaries|contexts)|supremum')
 lists = []      # (file, line, values)
 divs  = []      # (file, line, sentence)
 maxes = []      # (file, line, sentence, offset-in-sentence)
@@ -1448,7 +1581,7 @@ if lists:
             print("DIVISOR\t%s\t%d\t%.2f (claimed %s)\t%s" % (f, ln, peak, claimed, s.strip()[:120]))
 # LEG 2: a first/greedy maximum claim must be qualified UNCONDITIONAL.
 for f, ln, s, off in maxes:
-    if UNC.search(s) or SUPREMUM.search(s):  continue
+    if UNC.search(s) or (wm_has(s, WM_SUPREMUM) and not FIRSTMAX.search(s)):  continue
     if off >= 0 and quoted(s, off):          continue
     if not FIRST.search(s):                  continue
     print("UNCOND\t%s\t%d\t%s" % (f, ln, s.strip()[:150]))
@@ -1516,7 +1649,7 @@ gate_fiber_anchor() {
   echo "== GATE 32: the orientation-fiber anchors must survive their own arithmetic =="
   local FACT_FLOOR=4 SUM_FLOOR=2 EXP_FLOOR=6
   local out
-  out=$( { _g1_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
 fact_floor, sum_floor, exp_floor = (int(a) for a in sys.argv[1:4])
 ANCHORS = {1720320, 983040, 2703360}
 # A comma-grouped integer as the corpus writes them. Bare digit runs are excluded on
@@ -1541,6 +1674,7 @@ E31, E32 = re.compile(r'2\^31'), re.compile(r'2\^32')
 PERKEY = re.compile(r'recoverab|per-key|per pair-ordering|C4-oriented|C4 pins'
                     r'|testing all|collapsed orientation')
 CORRM  = re.compile(r'until 20\d\d-|corrected|previously|→|superseded', re.I)
+WM_CORRM = wm_re(r'until\s+20\d\d|corrected|previously|superseded')   # Q-966: CORRM as whole words
 nfact = nsum = n31 = nanchor = 0
 for f in corpus():
     raw = read(f)
@@ -1564,7 +1698,19 @@ for f in corpus():
         except ValueError:
             continue
         nfact += 1
-        if v not in stated:
+        # Q-967 (Q-835 A08#18): a factorization the sentence EQUATES to an integer is compared with
+        # THAT integer, not with every integer the sentence states. "1,720,320 = 3·5·7·2^15, whereas
+        # 3,440,640 is the raw comparison" passed because the wrong product appeared elsewhere in it.
+        # The bound integer is the grouped integer joined to the factorization by `=` (either side;
+        # markup, spaces and an opening parenthesis allowed). A factorization that is not written as
+        # an equation ("Reproduces 1,720,320 ..., the stated 3·5·7·2¹⁴ factorization") keeps the
+        # sentence-level test: its product must be an integer the sentence states.
+        lo, hi = m.start(), m.end()
+        eq = (re.search(r'(\d{1,3}(?:,\d{3})+)[*`\s]*=[*`\s]*$', flat[max(0, lo - 40):lo])
+              or re.match(r'^[*`\s]*=[*`\s]*\(?[*`\s]*(\d{1,3}(?:,\d{3})+)', flat[hi:hi + 40]))
+        if eq and v != int(eq.group(1).replace(',', '')):
+            print("FACT\t%s\t%d\t%s\t%d" % (f, lno(starts, m.start()), "%s (equated to %s)" % (expr, eq.group(1)), v))
+        elif not eq and v not in stated:
             print("FACT\t%s\t%d\t%s\t%d" % (f, lno(starts, m.start()), expr, v))
     for m in PLUS.finditer(flat):
         s = sent(flat, m.start(), m.end())
@@ -1581,11 +1727,15 @@ for f in corpus():
         if a + b not in stated:
             print("SUM\t%s\t%d\t%s + %s\t%d" % (f, lno(starts, m.start()), left.group(0), m.group(1), a + b))
     for m in E31.finditer(flat):
-        if PERKEY.search(sent(flat, m.start(), m.end())): n31 += 1
+        if PERKEY.search(sent(flat, m.start(), m.end())) and not wm_negated(flat, m.start()): n31 += 1
     for m in E32.finditer(flat):
         s = sent(flat, m.start(), m.end())
         if not PERKEY.search(s):        continue
-        if E31.search(s) or CORRM.search(s): continue   # the ledger narrating the 2^32 -> 2^31 fix
+        # Q-966 (A08#19): a 2^31 that the sentence NEGATES ("2^32, not 2^31") is the wrong exponent
+        # asserted, not the fix narrated; and the correction words are whole words (shared matcher), so
+        # "uncorrected" is not "corrected".
+        if (any(not wm_negated(s, x.start()) for x in E31.finditer(s))
+                or '\u2192' in s or wm_has(s, WM_CORRM)): continue   # the ledger narrating the 2^32 -> 2^31 fix
         print("EXP\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:140]))
 print("POP\t%d anchor mention(s), %d factorization(s), %d sum(s), %d per-key 2^31 site(s)"
       % (nanchor, nfact, nsum, n31))
@@ -1606,7 +1756,7 @@ PY
              echo "         A gate that passes because its subject vanished is not a green gate."
              rc=1 ;;
       POP)   echo "  [info] $a" ;;
-      FACT)  echo "  [FAIL] $a:$b factorization '$c' = $d, which this sentence does not state"
+      FACT)  echo "  [FAIL] $a:$b factorization '$c' = $d, which is not the integer its sentence equates it to or states"
              echo "         A published factorization must equal the integer it factorizes."
              rc=1 ;;
       SUM)   echo "  [FAIL] $a:$b published sum '$c' totals $d, which this sentence does not state"
@@ -1659,17 +1809,23 @@ gate_superlative() {
   echo "== GATE 33: a 'strongest measured discriminator' with no qualifier =="
   local FLOOR=4
   local out
-  out=$( { _g1_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
 floor = int(sys.argv[1])
 SUP = re.compile(r'strongest measured[^.]{0,40}?discriminator')
 # Temporal or category scoping. Any ONE of these makes the superlative a statement about a
 # named population or moment rather than an unqualified championship claim.
 QUAL = re.compile(r'at the time of|as of \d|later exceeded|then-|until 20\d\d'
                   r'|in the scoreboard table|of the population-measured|among the'
-                  r'|\bin this\b|headline finding', re.I)
+                  r'|\bin this\b', re.I)
 # The ledger's own word for what it removed. A sentence that SAYS the phrase was
 # unqualified is narrating the correction; failing it would be the self-defeating shape.
 NARR = re.compile(r'unqualified|\bBEFORE\.|Corrected 20\d\d|RP-[0-9a-f]{8}')
+# Q-966 (A08#20): 'headline finding' was a QUAL and qualifies nothing ("Our headline finding is that
+# Schulz is the strongest ..." passed); it is dropped. 'unqualified' NARRATES only as a predicate of
+# the old wording -- whole word, followed by punctuation or a quote ('called "...", unqualified.') --
+# never as the adjective of the superlative itself ("the unqualified strongest ..." passed). Measured
+# 2026-10-03: no real site depended on either (both 'unqualified' sites are also quoted or dated).
+WM_NARR = wm_re(r'unqualified(?=\s*(?:[.,;:)\]"\u201c\u201d\'\u2019]|$))|BEFORE\.|Corrected\s+20\d\d|RP-[0-9a-f]{8}', 0)
 pop = wrapped = 0
 for f in corpus():
     t = read(f)
@@ -1681,7 +1837,7 @@ for f in corpus():
         if lno(starts, m.start()) != lno(starts, m.end()):
             wrapped += 1
         if quoted(s, s.find(m.group(0)) + len(m.group(0))): continue
-        if NARR.search(s):                                  continue
+        if wm_has(s, WM_NARR):                              continue
         if QUAL.search(s):                                  continue
         print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:150]))
 print("POP\t%d superlative(s), %d of them spanning a line wrap" % (pop, wrapped))
@@ -1740,29 +1896,41 @@ gate_printed_quotient() {
   local out
   out=$( { _g1_prelude; cat <<'PY'
 floor = int(sys.argv[1])
-N = r'\d+(?:\.\d+)?'
+# Q-968 (A08#21): the operands are read by the shared number lexer (md_normalise.sh), so a grouped
+# "1,007.84" is one number. The ratio is MD_MAG directly after the ×, and the scientific-magnitude
+# exemption is now decided by SYNTAX: "×10⁻³" / "×10^3" / "×10³" carries an exponent and is not
+# matched (the lookahead); a bare "×10" is a ratio of ten and IS a claim. Until Q-968 the exemption
+# was `r == 10`, so every ratio equal to 10 left the population, and so did every zero denominator
+# (`b == 0`). A zero denominator is now a loud HIT: the printed quotient cannot be checked.
+N = MD_UNUM
+R = r'(?![\d,.]?\d)(?!\^|[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺])'
 # Shape A: "6.52 / 3.2258 = **×2.02**"     Shape B: "**×2.02 …** (6.52 / 3.2258)"
-A = re.compile(r'(%s)\s*/\s*(%s)\s*=\s*\**[×x](%s)(?![\d^⁰¹²³⁴⁵⁶⁷⁸⁹])' % (N, N, N))
-B = re.compile(r'[×x](%s)(?![\d^])\**[^()]{0,120}?\((%s)\s*/\s*(%s)\)' % (N, N, N))
+A = re.compile(r'(%s)\s*/\s*(%s)\s*=\s*\**[×x](%s)%s' % (N, N, MD_MAG, R))
+B = re.compile(r'[×x](%s)%s\**[^()]{0,120}?\((%s)\s*/\s*(%s)\)' % (MD_MAG, R, N, N))
 found = []
 for f in corpus():
     t = read(f)
     if t is None: continue
     flat, starts = flatten(t)
     for m in A.finditer(flat):
-        a, b, r = (float(x) for x in m.groups())
-        found.append((f, lno(starts, m.start()), a, b, r, m.group(3), m.group(0)))
+        a, b, r = (md_num(x) for x in m.groups())
+        found.append((f, lno(starts, m.start()), a, b, r, m.group(0)))
     for m in B.finditer(flat):
-        r, a, b = (float(x) for x in m.groups())
-        found.append((f, lno(starts, m.start()), a, b, r, m.group(1), m.group(0)))
+        r, a, b = (md_num(x) for x in m.groups())
+        found.append((f, lno(starts, m.start()), a, b, r, m.group(0)))
 kept = 0
-for f, ln, a, b, r, rtext, txt in found:
-    if r == 10 or b == 0:
-        continue                       # a magnitude (×10⁻³), not a claimed ratio
+for f, ln, a, b, r, txt in found:
+    if r.exp is not None and re.match(r'10(?:\^|[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺])', r.raw):
+        continue                       # a magnitude written as a power of ten (×10⁻³), not a ratio
     kept += 1
-    dp = len(rtext.split('.')[1]) if '.' in rtext else 0
-    if round(a / b, dp) != round(r, dp):
-        print("HIT\t%s\t%d\t%s\t%.4f" % (f, ln, txt.strip()[:90], a / b))
+    try:
+        q = float(md_ratio(a, b))
+    except MdNumError as e:
+        print("HIT\t%s\t%d\t%s\t%s" % (f, ln, txt.strip()[:90], e))
+        continue
+    sc = 10.0 ** (r.exp or 0)          # "×1.2×10³" is judged on its mantissa, at the mantissa's decimals
+    if round(q / sc, r.dp) != round(float(r.value) / sc, r.dp):
+        print("HIT\t%s\t%d\t%s\t%.4f" % (f, ln, txt.strip()[:90], q))
 print("POP\t%d published quotient claim(s)" % kept)
 if kept < floor:
     print("ERROR\tonly %d published quotient claim(s) (floor %d) - this gate is measuring nothing" % (kept, floor))
@@ -1932,6 +2100,14 @@ for f in corpus():
     t = read(f)
     if t is None: continue
     lines = t.split("\n")
+    # Q-965 (A08#10): the table under the heading is found by the shared normaliser, so a GFM table
+    # without edge pipes, or indented, is a table (a pipe-less 2-row table under "## 8-path
+    # equivalence" passed, since SEP wanted a leading `|`).
+    _L, KIND, BLOCKS, _u = md_parse(t)
+    TAB = {}
+    for blk in BLOCKS:
+        if blk['kind'] == 'table':
+            for x in range(blk['start'], blk['end'] + 1): TAB[x - 1] = blk
     for i, l in enumerate(lines):
         for m in NEEDLE.finditer(l):
             n = int(m.group(1))
@@ -1943,13 +2119,10 @@ for f in corpus():
             rows = None
             for j in range(i + 1, min(len(lines), i + 1 + adj)):
                 s = lines[j].strip()
-                if SEP.match(s):
-                    k, c = j + 1, 0
-                    while k < len(lines) and lines[k].lstrip().startswith("|"):
-                        c += 1; k += 1
-                    rows = c
+                if j in TAB and (KIND[j] == 'tdelim' or SEP.match(s)):
+                    rows = len([r for r in TAB[j]['rows'] if r[0] > j + 1])
                     break
-                if s == "" or s.startswith("|"):
+                if s == "" or KIND[j] in ('thead', 'trow'):
                     continue
                 break
             occ.append((f, i + 1, n, rows, l.strip()[:100]))
@@ -2056,15 +2229,20 @@ gate_se_vs_ci() {
   echo "== GATE 37: a relative standard error may not be published as a +- band =="
   local FLOOR=4
   local out
-  out=$( { _g1_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
 import math
 floor = int(sys.argv[1])
 PCT  = re.compile(r'(?<![0-9.])(\d{1,2}(?:\.\d+)?)\s*%')
 CONF = re.compile(r'\b(?:90|95|99)(?:\.\d+)?\s*%')
-BITS = re.compile(r'\u00b1\s*(\d+(?:\.\d+)?)\s*bits?')
+# Q-968 (A08#23): the band is read by the shared number lexer, so ASCII "+/-0.01 bits" is a band
+# exactly as "±0.01 bits" is; only the band forms (pm) are kept, as before only ± was.
+BITS = re.compile(r'(%s)\s*bits?' % MD_NUM)
 MARK = re.compile(r'(?i)(corrected|withdrawn|superseded|no longer stand)')
 DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
 NEW  = re.compile(r'\s*(?:[-*+]\s|\d+\.\s|\|)')
+# Q-966 (A08#11): MARK through the shared word matcher -- whole words, a negated marker is none. As
+# substrings, "uncorrected as of 2026-09-03" exempted a 1-sigma band as a dated correction.
+WM_MARK = wm_re(r'corrected|withdrawn|superseded|no\s+longer\s+stand')
 cand = ex_ledger = ex_marked = 0
 for f in corpus():
     t = read(f)
@@ -2088,7 +2266,8 @@ for f in corpus():
         text = " ".join(buf)
         # the confidence LEVEL is not a relative error; mask 90/95/99% before reading percentages
         pcts = sorted(set(m.group(1) for m in PCT.finditer(CONF.sub(" CONF ", text))))
-        bits = sorted(set(m.group(1) for m in BITS.finditer(text)))
+        bits = sorted(set(("%.*f" % (n.dp, float(n.mag)), n.dp, float(n.mag))
+                          for n in (md_num(m.group(1)) for m in BITS.finditer(text)) if n.pm))
         if not pcts or not bits:
             continue
         cand += 1
@@ -2098,16 +2277,14 @@ for f in corpus():
                 continue
             s1 = math.log2(1 + r)
             c95 = math.log2(1 + 1.96 * r)
-            for bs in bits:
-                dp = len(bs.split(".")[1]) if "." in bs else 0
-                x = float(bs)
+            for bs, dp, x in bits:
                 # the published band reproduces ONE sigma and does NOT reproduce 95%
                 if round(s1, dp) != x or round(c95, dp) == x:
                     continue
                 if f == "documentation/CORRECTIONS.md":
                     ex_ledger += 1
                     continue
-                if MARK.search(text) and DATE.search(text):
+                if wm_has(text, WM_MARK) and DATE.search(text):
                     ex_marked += 1
                     continue
                 print("HIT\t%s\t%d\t%s\t%s\t%.5f\t%.5f\t%s"
@@ -2185,7 +2362,7 @@ gate_dvd24_scope() {
   echo "== GATE 38: a mod-24 divisibility claim stated as an unrestricted universal =="
   local FLOOR=10
   local out
-  out=$( { _g1_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
 floor = int(sys.argv[1])
 # POPULATION: any mod-24 divisibility claim at all.
 POP = re.compile(r'divisib\w{0,4} by 24|indivisible by 24|\bmod[- ]24\b|24 divides|divides\b[^.]{0,30}\bby 24')
@@ -2204,6 +2381,8 @@ RESTR = re.compile(r'duplicate-free|record[- ]level|complete listing', re.I)
 # A correction quoting the sentence it retired is doing its job; failing it would be the
 # self-defeating shape. Same-scope only — the SENTENCE, never a line window.
 NARR = re.compile(r'CORRECTED 20\d\d|this read|\bBEFORE\.|RETIRED|withdraw|RP-[0-9a-f]{8}')
+# Q-966: NARR and ANARR below as whole, un-negated words (shared matcher).
+WM_NARR = wm_re(r'CORRECTED\s+20\d\d|this\s+read|BEFORE\.|RETIRED|withdraw\w*|RP-[0-9a-f]{8}', 0)
 pop = ex_quoted = ex_narr = 0
 for f in corpus():
     t = read(f)
@@ -2217,7 +2396,7 @@ for f in corpus():
         if quoted(s, s.find(m.group(0)) + len(m.group(0))):
             ex_quoted += 1
             continue
-        if NARR.search(s):
+        if wm_has(s, WM_NARR):
             ex_narr += 1
             continue
         print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), " ".join(m.group(0).split())[:150]))
@@ -2235,6 +2414,11 @@ print("POP\t%d mod-24 divisibility claim(s); %d retired-wording copy(ies) exempt
 # RETRACTED_PHRASES.tsv row carries that site.
 AOBJ = re.compile(r'\bflows?\b|\bwalks?\b|\|SUPER\||layer count|\bN\b|\bgate\b')
 AOK = re.compile(r'record[- ]level|paper-proved|\b48\b', re.I)
+# Q-966 (A08#25): a bare 48 is not an attribution ("... divisibility of N in run 48." passed). The
+# paper-layer attribution is the ORDER-48 ACTION, so 48 counts only in that phrase; and every AOK form
+# is a whole, un-negated word (shared matcher). Measured 2026-10-03: no real citation relied on a bare 48.
+WM_ANARR = wm_re(r'CORRECTED\s+20\d\d|this\s+read|BEFORE\.|RETIRED|withdraw\w*|RP-[0-9a-f]{8}')
+WM_AOK = wm_re(r'record[- ]level|paper-proved|order[- ]48|orbits?\s+of\s+48|48-element|group\s+of\s+order\s+48')
 ANARR = re.compile(r'CORRECTED 20\d\d|this read|\bBEFORE\.|RETIRED|withdraw|RP-[0-9a-f]{8}', re.I)
 apop = 0
 for f in corpus() + ['scripts/tr12_repro.sh']:
@@ -2248,7 +2432,7 @@ for f in corpus() + ['scripts/tr12_repro.sh']:
     for n, u in units:
         if 'twenty_four_dvd' not in u: continue
         apop += 1
-        if AOBJ.search(u) and not AOK.search(u) and not ANARR.search(u):
+        if AOBJ.search(u) and not wm_has(u, WM_AOK) and not wm_has(u, WM_ANARR):
             print("AHIT\t%s\t%d\t%s" % (f, n, " ".join(u.split())[:150]))
 print("POP\t%d twenty_four_dvd citation(s) checked for their record-level / paper-layer attribution" % apop)
 if apop < 5:

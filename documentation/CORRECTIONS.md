@@ -28795,3 +28795,482 @@ bundle. No step does different work, so the page's measured-times table is uncha
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, lane B39D. Review findings:
 Codex (gpt-6-astra), push-path review Q835.
+
+## CX-297 — the doc gates' prose and number legs now read Markdown through one shared normaliser, so a hard wrap, emphasis or backticks, a table without edge pipes or indented, an indented or setext heading, a `~~~` fence, CRLF or an XML entity no longer hides a withdrawn figure, a retracted phrase or an overclaim (scripts/doc_gates.d/md_normalise.sh; scripts/doc_gates.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/doc_gates.d/96_transcripts.sh; scripts/tr12_output_paths_gate.sh; tests.py)
+
+**2026-10-03.** **Source.** Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962. The
+finding class is R1 of `Q962_ADJUDICATION_REPORT.md` (private), backlog row Q-965: 30 findings, of
+which A05#15 is by design (a hashed cost row is unread outside GATES 3 and 47) and is not changed
+here. The other 29 are fixed. Batch 40, lane B40A.
+
+**No published number, count, sha or verdict moves, and no document was edited.** This entry
+changes how the gates read documents. On today's tree every affected leg is still green.
+
+**1. What was wrong.** Each leg read the raw lines of a file. So ordinary Markdown hid exactly what
+the leg looks for. Each of these was planted on public main `35782834` and passed its leg:
+
+- A hard wrap inside a paragraph: a withdrawn figure split across two lines (GATE 27), a run status
+  split across two lines (GATE 7), the retracted banner over-claim split across two lines (GATE 9),
+  a registered phrase broken after a `+` or with spaces around it (GATE 3), and the same shape in
+  GATES 40, 56, 69, 74 and 75.
+- Emphasis or backticks: a pending-status word in bold (GATE 35), the quantifier of a mod-24 claim
+  in bold (GATE 38), a CPU vendor and family each in its own code span (GATE 61), and an over-ceiling
+  canonical count alone in a code span (GATE 26, whose code-span skip is meant for quoted solver
+  output).
+- A table without edge pipes, or indented. GATES 27, 36, 45, 56 and the revision-history check
+  (GATE 12) only knew rows that start with `|`.
+- An indented or setext heading, and `*` or `+` task boxes (GATE 20). A heading inside a code fence
+  counted as a link anchor (GATE 4).
+- A `~~~` fence, or a fence tracked by parity (GATE 57, GATE 95, `tr12_output_paths_gate.sh`). A
+  heading line was never scanned for paths there, and a `# ` heading did not end the revision
+  history.
+- A `<title>` that turned a glyph-path SVG into a text SVG (whose comments were then deleted with
+  the tags), CRLF line ends, and numeric entities such as `&#x3c3;` (GATE 6).
+- Curly quotes and a reference wrapped over four lines (GATE 4b).
+- A `**` at the end of a banner line ended the banner early (GATE 9), and an author directive
+  that opens a sentence with a capital "Section" passed GATE 29.
+
+**2. The fix.** One helper, `_md_norm_prelude` in the new `scripts/doc_gates.d/md_normalise.sh`,
+which `doc_gates.sh` sources like its other modules and `tr12_output_paths_gate.sh` sources from its
+own checkout. It prints a block of python that a leg puts in front of its scanner, the way the G1
+legs already used `_g1_prelude`. It gives:
+
+- `md_inline`: entities decoded, curly quotes and dashes folded, NBSP to a space, backticks and
+  emphasis markers removed (content kept), whitespace collapsed.
+- `md_parse`: one kind per source line and a list of blocks — paragraphs (joined, with a map back to
+  the real line of every offset), headings (ATX at 0-3 spaces, and setext), tables (GFM, with or
+  without edge pipes, any indent; a line that starts with `|` is still a row), and code blocks
+  (fences matched by opener character and length).
+- `md_flatten`, used by the G1 legs through `_g1_prelude`, so all of GATES 30-38 and 39-44 read the
+  folded text.
+
+The fixed-string legs (GATES 3 and 6) keep `fold_variants`, which now also strips CR and folds runs
+of spaces around `+`, plus a new `fold_join` that re-applies the `+` rule after a file is joined
+onto one line. Each leg kept its own exemptions. GATE 26's code-span skip still applies to quoted
+output; it no longer applies to a span that holds nothing but the figure.
+
+**3. An unclosed fence is not code.** CommonMark renders an unclosed fence as code to the end of the
+file. If the gates did that, one stray ``` would exempt the rest of a document from every leg that
+skips code. So the normaliser returns the opener's line and parses what follows as ordinary prose,
+which every prose leg then scans. The two legs that read code itself (GATE 57 and GATE 95) FAIL on an
+unclosed fence instead of certifying a block they cannot delimit. Measured: the public corpus has no
+unclosed fence today.
+
+**4. What the normaliser found in today's documents.** No genuine finding. Three things needed a
+decision, and no document was changed:
+- GATE 7 matched "one block in\nflight" (SOLVE_C_CLI.md:1590) and "the cells in\nflight"
+  (CORRECTIONS.md:25496). Both describe a program's work units, not a run, and both had been hidden
+  by their wraps. That phrase is now exempt when it comes right after "block(s)" or "cell(s)", and
+  the leg's header says why.
+- GATE 41's one exempt candidate (CORRECTIONS.md:4001, the ledger quoting its own retired wording)
+  was exempt only because `**BEFORE.**` kept the sentence running into the heading above. With
+  emphasis folded, that sentence ends at "BEFORE.". A sentence that opens right after a `BEFORE.`
+  label is now counted as narration.
+- A heading inside a `>` block quote is a quotation, and GATE 20 leaves it out. The one such line
+  is QUERY_INVENTORY.md:3, "> ### PUBLIC DRAFT".
+
+Populations that moved, all with rc 0: GATE 29 counts 14 directive-shape occurrences, not 3 (each
+match in a joined paragraph counts, and all are exempt revision rows); GATE 40 counts 3 sites, not 2;
+GATE 56 now names TR4:142, the line where the cited sentence starts, not TR4:141.
+
+**5. Tests.** `TestQ965MarkdownNormaliser`, at the end of tests.py, is driven by 38 plants (the 29
+findings, some in several forms), each with the control twin the adjudication used. For each plant:
+it FAILs its leg on the fixed scripts and names the planted file; it PASSes on the scripts of
+`35782834`; its control FAILs on the fixed scripts; and the unplanted tree is green on every leg
+involved. Two more tests check the normaliser directly (fence matching, unclosed fences, tables,
+headings and the inline fold).
+
+**6. Limits.** The normaliser is not a CommonMark renderer: there are no HTML blocks, no link
+reference definitions and no nested-list indentation model. Indented code is scanned as prose. Legs
+outside R1 still read raw lines. The sweep of every remaining column-0 `^\|` and `^## ` regex that
+the backlog row also asks for is NOT done here; it is left on Q-965's follow-up.
+
+**7. Gates.** `citation_line_gate.sh` (both PASS), the full `doc_gates.sh` with `ROAE_PRIVATE_DIR` set
+(only GATE 91 `HISTORY_INDEX=STALE`, expected before the index is regenerated), `doc_gates.sh
+--selftest`, the claim ledger, and `TestQ965MarkdownNormaliser`.
+
+**8. Integration (batch 40).** Merged with Q-967 and Q-969, so three things changed here.
+- GATE 7 now reads Q-967's scope unit inside this entry's joined paragraph. The unit is the list item
+  that holds the match, cut to its sentence. That item's code spans are masked first, so an ellipsis
+  inside one does not end a sentence. The budget-run scan joins lines with a newline, not a space.
+  The offsets are the same.
+- Joining wrapped lines showed one negated status: TR-11's "The run is not in" / "flight". A status
+  word right after "not", "never" or "no longer" is no longer counted as a frozen status.
+- The shared flatten keeps Q-967's unit breaks and reads each line through md_inline. A **BEFORE.**
+  label no longer ends a sentence there. md_inline drops the bold that used to keep the ledger's
+  quoted old wording together with its label, and GATE 30 had fired on one such quotation.
+- A pre-publication review (Fable) found two holes in GATE 7, and both are now closed. A code span
+  whose text is only a period, or has no sentence end in it, is no longer masked; otherwise a bare
+  `.` span hid every sentence cut in its list item. And a tilde before the sha-less 1120T budget is
+  judged again: a `~`, "about" or "approximately" before a budget-named run now exempts only a
+  measured extent the registry never names. This rule came from Q-967, and on batch 39's scripts that
+  plant fired. Each case has a plant: the `.` span in `TestQ967ClaimBinding`, the tilde in the
+  `--selftest`.
+- In the full test suite, `TestPipeRecordSplitSafety` pinned five escape-aware `|` splits in module
+  95. Two of them are now GATE 56's table reads through `md_parse`/`md_cells`, which split with the
+  same escape-aware pattern. The test now pins 4 direct splits in module 95 and the normaliser's
+  splitter, and it checks that GATE 56 reads its rows from `md_cells`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 40, Q-965.
+
+## CX-298 — the doc gates' number legs now read numbers through one shared lexer, so a thousands separator, a sign, an ungrouped integer, `+/-`, upper-case hex, a spaced `C(91 , 6)`, a ratio of ten, a zero denominator, a hex seed or a multi-digit mantissa no longer changes or hides the figure a leg judges (scripts/doc_gates.d/md_normalise.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/doc_gates.sh; tests.py)
+
+**2026-10-03.** **Source.** Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962. The
+finding class is R4 of `Q962_ADJUDICATION_REPORT.md` (private), backlog row Q-968: 11 findings, all
+fixed, plus the earlier-confirmed one-digit mantissa (A08#5) that the row also names. Batch 40,
+lane B40C.
+
+**No published number, count, sha or verdict moves, and no document was edited.** This entry
+changes how the gates read numbers. On today's tree every affected leg is still green; one
+report-only GATE 5b warning is new (section 4).
+
+**1. What was wrong.** Each leg read numbers with its own pattern, and each pattern lost something.
+Each of these was planted on public main `35782834` and passed its leg:
+
+- A thousands separator cut the number. "1,023 distinct proofs" was read as 023 = 23 (GATE 77), and
+  a TR-11 footprint of "1,002.156 TB" as 2.156 (GATE 70), because the match began after the comma.
+- A sign was lost. "-58.8 % of fully-scanned cells produced zero solutions" was read as +58.8
+  (GATE 60).
+- An ungrouped long integer was invisible. A new `**exact**` anchor written without commas did not
+  count against TR-4's coverage line (GATE 43), and a registry integer written without commas was
+  not an occurrence, so calling it an estimate drew no warning (GATE 5, report-only).
+- A ratio of exactly ten and every zero denominator left the population. GATE 34 dropped `r == 10`
+  to skip scientific magnitudes, so a ratio printed as ten beside a quotient of 1.20 passed, and it
+  dropped `b == 0`, so a quotient over a zero denominator passed.
+- "+/-0.01 bits" was not a band, only "±0.01" was (GATE 37).
+- Upper-case hex was not hex. An upper-case digest prefix such as `A09280FB0` followed by an
+  ellipsis was not a truncated token (GATE 22).
+- "log2(C(91 , 6))" with spaces was not a pricing (GATE 50).
+- Seeds were compared as strings, so `base=1001` and `base=0x3e9` were two independent seeds
+  (GATE 51).
+- A reading time of "(1 min" was not parsed (only "~N" and "N-M" were), so it left the population
+  instead of being judged (GATE 54).
+- The mantissa of GATE 26 was one digit, so `12×10³³ canonical` was read as 2×10³³, and the same
+  figure in ASCII `e` notation was not read at all.
+
+**2. The fix.** One number lexer in `scripts/doc_gates.d/md_normalise.sh`: `_md_num_prelude` for a
+python leg (the Markdown normaliser's prelude now includes it) and `md_num_scan` for a bash leg. A
+number starts at a left edge: not after a letter, a digit, `_` or `.`, and not inside a digit group,
+so the "023" of "1,023" is never a number of its own while the 6 of "C(91,6)" still is. It has an
+optional sign (`-`, `+`, U+2212, and the bands `±` and `+/-`); digits, either ungrouped or in 3-digit
+groups joined by one kind of separator (comma, thin space, narrow NBSP or NBSP); an optional
+fraction; and an optional exponent (`e-5`, `×10⁻⁵`, `x 10^-5`, or a bare `10⁻⁵`). `0x`/`0X` hex is
+read in either case. A bare "×10" with no exponent is not an exponent. `md_num` raises on a string
+that is not exactly one number, and `md_ratio` raises on a zero denominator. A leg that captured a
+number it cannot read now says so instead of dropping it. The Markdown inline fold now turns a
+thin-space or NBSP digit group into a comma group before it folds spaces, so "1 023" stays one
+number. Each leg kept its own semantics otherwise:
+
+- GATE 34 now exempts a ratio only when it is written as a power of ten (`×10⁻³`, `×10^3`, `×10³`).
+  A zero denominator is a HIT.
+- GATE 51 compares seeds by integer value.
+- GATE 54 reads `~`, `≈`, an exact value or a range, and judges the upper end as before.
+- GATE 5 matches a comma-grouped registry integer by value as well as by its spelling.
+- GATE 22 reads `[0-9a-fA-F]` in both of its producers and lower-cases every token before it
+  resolves it.
+
+**3. Limits.** A decimal comma ("8,2") is not read as a decimal, ASCII space is never a group
+separator, and words and slash fractions are not numbers. A token whose exponent is beyond ±4000
+(such as the sha fragment `0e153637`) is passed over and recorded in `MD_NUM_OVERRANGE`, not read
+as 10^153637. GATE 22's hex is case-folded in its own grep producers, not through the python lexer.
+
+**4. What the lexer found in today's documents.** GATE 5 now sees 278 registry-value occurrences, not
+252. None of them contradicts its status. One of the new ones is a new report-only GATE 5b warning:
+documentation/PREREG_CLASSA_QUERY_SET.md:125 writes |SUPER| ungrouped in a code span with no status
+marker, in a table whose next row carries one. It is reported here, not edited. GATE 26 LEG 2 now
+examines 440 candidates, not 384. Every other leg's census is unchanged.
+
+**5. Tests.** `TestQ968NumberLexer`, at the end of tests.py, is driven by 19 plants: the 12 findings,
+some in several forms (a thin space, a Unicode minus, a narrow NBSP, an upper-case `0X` seed, `≈`, a
+ratio of ten and a zero denominator, and the ASCII mantissa). For each plant, it fires its leg on the
+fixed scripts with the planted file or token named (a FAIL line, or a [WARN] line for the
+report-only GATE 5). It evades on the scripts of `35782834`, and there its control still fires. Its
+control fires on the fixed scripts. The unplanted tree is green on every leg involved. Two more tests
+check the lexer directly (every form above, and the strings it must refuse).
+
+**6. Gates.** `citation_line_gate.sh` (both PASS), the full `doc_gates.sh` with `ROAE_PRIVATE_DIR` set
+(only GATE 91 `HISTORY_INDEX=STALE`, expected before the index is regenerated), the claim ledger,
+`TestQ968NumberLexer` and `TestQ965MarkdownNormaliser`.
+
+**7. Integration (batch 40).** Two `--selftest` pins in doc_gates.sh were updated to follow this
+entry. The GATE 22 producer shim now matches the producer's `[0-9a-fA-F]` pattern. With the old
+pattern the shim was never reached. The GATE 5b census pins are now 3 and 2, because the live
+mixed-table count is 1: the report-only WARN listed above.
+`TestQ887Gate22UniverseRc`'s PATH git shim now matches the universe producer's new `[0-9a-fA-F]+`
+pattern. The producer still runs `git` through PATH, and the shim proves that its failure is still
+named.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 40, Q-968.
+
+## CX-299 — 21 doc-gate and claim-ledger checks tied a claim to the wrong evidence (first match only, values pooled across datasets, a qualifier or sha borrowed from a neighbouring sentence, a ledger row whose evidence read the ledger); each now binds the claim to its own scope unit and key (scripts/claim_ledger.sh; scripts/gate_published_consistency.sh; scripts/doc_gates.d/20, 30, 80, 90 and 95; scripts/doc_gates.sh; tests.py)
+
+**2026-10-03.** Origin: Codex (gpt-6-astra), push-path review Q835 (lens A, targets A02-A10);
+adjudicated Q-962 (row R3, 21 findings, every one CONFIRMED by a replant on public main 35782834);
+backlog row Q-967. Landed by Opus, batch 40.
+
+**1. What was wrong.** Each check found the right kind of claim and then compared it with the wrong
+evidence. No published figure was wrong because of this; each defect let a planted false claim pass.
+The most serious one is in the claim ledger: a row's evidence command could read the ledger itself.
+With `TR12_SUM_B0`'s evidence replaced by an `awk` over CLAIMS.tsv, and the B0 vector changed from
+2,8,13,7,1 to 2,8,13,7,9 in both the ledger and TR-12, the ledger printed `CLAIM_LEDGER=PASS`.
+
+**2. The rule now.** A claim is judged in its own scope unit and against its own key.
+- Every match is checked, not the first (GATE 58 witness counts, GATE 59 baselines, GATE 66 ledger
+  blocks).
+- A value is compared with the evidence for its own dataset or context: GATE 56 keys a §[3] figure
+  by (dataset, boundary), GATE 64 keys identifying-set sizes by (depth, budget), GATE 62 keys az
+  names by (resource type, name), and GATE 80 keys attachment by occurrence, not by literal value.
+- A qualifier counts only in the claim's own unit. The shared sentence splitter of GATES 30-38 and
+  39-55 no longer joins two list items, two paragraphs, a heading or a table row into one sentence.
+  GATE 7 takes its disposition words from the claim's own sentence or table row, not from a ±4-line
+  or ±400-character window. GATE 7's REACHED set takes a budget's sha from that budget's own table
+  row or section, not from any sha within 600 characters. GATE 39 LEG 4 judges a table count together
+  with its own column header and the row's short label cells.
+- A quotation exempts a claim as retired wording only when its sentence also says it is narrating
+  (a correction marker, a retired-phrase id, or a verb such as "read", "called" or "described").
+- GATE 32 compares a factorization written as an equation with the integer it is equated to. GATE 55
+  rejects tuple elements the registry does not list. GATE 68 does not end a sentence at "vs.".
+  GATE 77 counts every write to CERT_FLOOR, so the captured value is the one the script runs with.
+  GATE 73 accepts a bare `(#anchor)` only from CITATIONS.md itself. GATE 4b's basename fallback
+  applies to bare file names only. Published-consistency G4 resolves a link relative to the ledger,
+  so `../README.md` is the root README; its count stays at the pinned 8, with that target corrected.
+- Claim ledger check I (new): an evidence command, and the artifact column, may not name the ledger
+  or the row's source file, and the command may not run git or name an absolute path. Each evidence
+  command also runs in a shadow tree in which those two files are named pipes. Opening either one,
+  under any spelling of its path, makes the row FALSE. The sentence splitter for check P now ends a
+  sentence before a quotation mark or a lower-case word, but not after an abbreviation.
+
+**3. Ledger audit.** All 72 rows of documentation/CLAIMS.tsv pass check I, both the static half and
+the run-time half. No row needed an allow-list, so none exists. `--selftest` adds M14-M17 (M13 is Q-951's, CX-291): the
+A03#3 plant, the same read under a name assembled at run time, a read of the row's own source
+file, and a premise placed in a following quoted or lower-case sentence. Each one must go FALSE.
+
+**4. Red/green.** `tests.py` `TestQ967ClaimBinding` replants all 21 findings, 27 plants in all, in a
+scratch clone of the tree. Each plant FAILs its leg, and each leg is green on the clean clone first.
+With `ROAE_TESTS_Q967_GATES_REV=35782834`, which checks out the pre-fix scripts/, every plant passes
+its leg. Apart from this entry and its HISTORY note, no document was edited, and no gate prints a
+new hit on the real tree.
+
+**5. Gates.** `citation_line_gate.sh` and `--all-files --all-targets`, the full `doc_gates.sh` with
+`ROAE_PRIVATE_DIR` set, `claim_ledger.sh --check --selftest` and plain `claim_ledger.sh`, and the
+new test class.
+
+**6. Integration (batch 40).** The claim ledger's evidence runner keeps Q-951's exit-status check
+(CX-291) together with this entry's shadow tree. It returns the exit status, the output and the
+forbidden files that were opened. An opened forbidden file is reported on I first, and a non-zero
+exit after that is X. Q-951's M13 keeps its number, so this entry's mutants are M14-M17. The GATE 7
+`--selftest` check for an unreached budget now looks for "with no sha of its own", the message this
+entry introduced.
+Check I's static half now also treats a path with a `..` component as reaching outside the working
+tree. Such a path resolves against the shadow directory, not the checkout, so `cat ../../<checkout>/
+documentation/CLAIMS.tsv` read the real ledger and passed (found by the Fable pre-publication review).
+New mutant M18 covers it. None of the 72 rows uses `..`. The stated limit now reads: realpath() or
+readlink -f of the program's own path or of any symlinked entry.
+Three precondition checks in `TestQ967ClaimBinding` were bare `assert` statements. They are now
+explicit raises, so they still run under `python3 -O` (Q-373, `TestNoBareAsserts`).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 40, Q-967.
+
+## CX-300 — the doc gates match exemption words, supersession markers, ids and KEY=value pairs as whole words or exact tokens through one shared matcher, a negated marker is no longer a marker, and a comment is no longer code (scripts/doc_gates.d/word_match.sh; scripts/doc_gates.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/gate_published_consistency.sh; scripts/tr12_output_paths_gate.sh; tests.py)
+
+**2026-10-03.** **Source.** Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962. The
+finding class is R2 of `Q962_ADJUDICATION_REPORT.md` (private), backlog row Q-966: 28 findings, all
+confirmed, all fixed here. Batch 40, lane B40E.
+
+**No published number, count, sha or verdict moves, and no document was edited.** This entry
+changes how the gates match words. On today's tree every affected leg is still green.
+
+**1. What was wrong.** The legs tested for a word or a token with an unbounded substring search that
+ignored negation, and some read comments as if they were code. Each of these was planted on public
+main `35782834` and passed its leg:
+
+- A negated or prefixed marker counted as the marker: "unretracted" as a retraction (GATE 27),
+  "uncorrected" as a dated correction (GATE 37), "not superseded" as a supersession (GATE 46), and
+  "(not a typo)" as a correction note that waived a mistyped sha prefix (GATE 22).
+- An exemption word counted wherever it stood: "non-empty" (GATE 41), "as said in" (GATE 44),
+  "headline finding" and an adjectival "unqualified" (GATE 33), "queued" in "the queued job"
+  (GATE 25), a 2^31 that the sentence rejects (GATE 32), "even with C3" (GATE 30), a maximum "across
+  all conditioning contexts" claimed for the first gain (GATE 31), a bare 48 as the order-48
+  attribution (GATE 38), naming both conflict rulesets on one line with each label on the wrong one
+  (GATE 39), and a decimal budget read as a hex sha (GATE 48).
+- No word or token boundary: "mainframe" named the frame (GATE 63), `dissolve --demo` was a solve
+  command (GATE 72), `base=` was an `se=` field (GATE 39), CX-999 was found inside CX-9990 and
+  PICK=2 inside PICK=20 (`gate_published_consistency.sh` G4 and G11), and a longer variable name
+  documented a shorter one it ends with (GATE 84).
+- Comments as code: a quoted flag in a trailing `#` comment of `verify.py` (GATE 25), an `$ARTDIR`
+  path in a comment of `scripts/tr12_repro.sh` (`tr12_output_paths_gate.sh`), the illustrative
+  marker in a comment beside a relabelled legend (GATE 42), and any mention of `cap` in the domain
+  printer (GATE 24).
+- An exemption bound to a token, not to where it stands: a narration waiver for a removed flag and
+  a path allowance for a withdrawn script applied in every document (GATES 25 and 21), a source file
+  named anywhere in `CLAUDE.md` counted as approved (GATE 88), the completion disclaimer was found
+  even with its NOT removed (GATE 85), and a denial after the noun was not read (GATE 76).
+
+**2. The fix.** One shared matcher, `scripts/doc_gates.d/word_match.sh`, sits next to the markdown
+normaliser and stays separate from it. It provides whole-word matching (no word character on either
+side, and no hyphenated prefix, so "non-empty" does not contain "empty"); a negation test within the
+word's own clause (not, never, no, nor, neither, without, cannot, n't); exact tokens for ids, flags,
+commands and KEY=value pairs (no word character before or after, and no decimal fraction after);
+a hex-sha token that must contain a letter; and comment stripping for Python (tokenize), C and
+shell. Every leg named above reads through it. Where an exemption was bound to a token, it is now
+bound to a place: the documents that narrate a removed flag or a withdrawn path, the bold entries of
+the approved-separates list, the clause that states the pair of rulesets.
+
+**3. What surfaced on the real tree.** One false clear. Three rows (METHODS.md:70, TR-11:33 and
+TR-11:194) claim a relative standard error for two estimator outputs that carry no `se=` field, only
+`relerr=`; GATE 39 had passed them because `seed_base=` contains `se=`. The rows are right, since
+`relerr` is the relative standard error, so a `relerr=` field now backs a row that says "relative
+standard error" or "relerr", and only such a row. GATE 42's population fell from 11 blocks to 10,
+because one of them was a comment and nothing else. No document was edited.
+
+**4. Tests.** `TestQ966WordMatcher`, at the end of tests.py, is driven by 30 plants (the 28
+findings; two have two forms), each with the control twin the adjudication used. For each plant: it
+FAILs its leg on the fixed scripts and a FAIL line names it; it PASSes on the scripts of `35782834`;
+its control FAILs on the fixed scripts; and the unplanted tree is green on every leg involved. Three
+more tests check the matcher directly.
+
+**5. Limits.** Negation is a fixed word list in a fixed window of the same clause, not a parser of
+English. Legs outside these 28 findings still use their own substring tests.
+
+**6. Integration (batch 40).** The two GATE 21 reviewer rows from batch 37 (CX-284) are rewritten
+in this entry's (token, file) form and bound to reviewer/README.md. The test's uncured scripts now
+come from public main `cb61be3f`, not `35782834`. The older allowlist predates those rows, and with
+it the GATE 21 leg had been skipped. Now no leg is skipped.
+In the full test suite, two more items came up. The `tr12/*` row had been bound to three documents.
+It now applies in any file: CX-233 makes the moved file's existence under reports/tr12/ the binding,
+and `TestTr12TablesMovedUnderReports` pins that. Second, GATE 25's `PROPOSAL_RX` key check was a bare
+`assert` in its python heredoc. It is now an explicit exit, so it survives `python3 -O`
+(`TestNoBareAsserts`).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 40, Q-966.
+
+## CX-301 — registry and population readers now fail on a row they cannot read, refuse an empty population, read nested documents, and compare sets rather than sizes, so a malformed or `#`-prefixed registry row, an emptied status registry, an extra table cell, an unparsed VM pair list, a terminal Documents field, a nested README, a duplicated Q3 step or a malformed skip value no longer hides a defect (scripts/doc_gates.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh; scripts/doc_gates.d/60_scoreboard_alias_reach.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/gate_published_consistency.sh; scripts/tr12_repro.sh; scripts/tr12_repro_gate.sh; tests.py; reports/evidence/f1/F1_ORBIT_QUOTIENT_2026_07.md)
+
+**2026-10-03.** **Source.** Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962. The
+finding class is R5 of `Q962_ADJUDICATION_REPORT.md` (private), backlog row Q-969: 11 findings, all
+fixed. Batch 40, lane B40F.
+
+**No published number, count, sha or verdict moves, and no document was edited.** This entry
+changes how the gates read their registries and file lists. On today's tree every affected leg is
+green except one new GATE 7 finding in a nested evidence note (section 4).
+
+**1. What was wrong.** Each of these was planted on public main `35782834` and passed its leg:
+
+- GATE 27 and GATE 3b dropped a registry row with no "why" column, while `require_rows` still
+  counted it. A withdrawn figure cut to one column, or a new retracted figure added without a tab,
+  was not checked, and a document restating it passed.
+- GATE 18 skipped every line starting `#` as a comment, while `require_rows` counted `#rule` as a
+  row. With every rule prefixed `#`, the gate checked 0 rules and passed.
+- GATE 5 printed "0 occurrences of 0/0 canonical quantities" when CANONICAL_VALUE_STATUS.tsv held
+  only comments.
+- GATE 67 read the last cell of a row as its Evidence-type cell, so a row with an extra fifth cell
+  was judged by that cell.
+- GATE 53 passed when no VM line carried a list it could parse ("pair indices 0–13"), and it judged
+  coverage by size, so "28, 29, 30, 32" covered 28 indices and missed 31.
+- G4 of gate_published_consistency.sh ended a `- **Documents:**` field at the next field bullet, so
+  a Documents field that was the entry's last field was never read.
+- GATE 7 read only `documentation/*.md`, `reports/*.md` and README.md, so a frozen run status
+  planted in reports/evidence/f1/README.md passed.
+- The Q3 cross-check in tr12_repro.sh compared step counts, so a consumer table with step 2
+  replaced by a copy of step 1 passed.
+- The skip pin in tr12_repro_gate.sh read only well-formed skip values, so `TR12_NEW=SKIP:failed
+  check` was invisible and the skip set still matched.
+
+**2. The fix.** Four rules, applied at each reader the findings name:
+
+- Every non-blank line is parsed, and a line the reader cannot parse is a FAIL. A `#` comment that
+  carries a tab-separated data column is a row in comment shape, and a FAIL. The registry readers
+  of GATES 3b, 18 and 27 also compare the rows they accepted with the count `require_rows` uses.
+  That count is now one shared helper, `reg_rows_count`, with `reg_accepted_check` beside it in
+  scripts/doc_gates.sh.
+- An empty population is a FAIL. GATE 5 fails on a status registry with zero rows or a row that is
+  not match, tab, `exact` or `estimate`. GATE 18 fails on zero rule rows.
+- GATE 7 reads every tracked `.md` file (`git ls-files`, so nested ones too), with a floor of 50
+  files. Its two exemptions are now the exact paths documentation/HISTORY.md and
+  documentation/HISTORY_INDEX.md.
+- Coverage is compared as a set. GATE 53 requires each split line to carry a pair list, `N` to equal
+  twice the list's size, no index twice, and the union to equal the 28 live pair indices. The Q3
+  cross-check fails on a duplicate step on either side and names each validated step that the
+  consumer table lacks. GATE 67 finds the Evidence-type column by its header name, and a row whose
+  cell count differs from the header's is a HIT. G4 ends the Documents field at the next field
+  bullet, a blank line or the end of the entry. On today's ledger this reads the same links as
+  before. The skip pin fails on any skip- or pending-shaped line, in the run or in the pin, that is
+  not `TR12_<ROW>=SKIP|PENDING:<code>`. Its own selftest covers that case.
+
+**3. Limits.** GATE 7's new population brought one past-tense use of its in-flight key, at
+reports/evidence/wrap_mass_reseed/README.md:88, where "were" comes right before it. The key preceded
+by "was" or "were" is now narration, not a frozen status. The edits to tr12_repro.sh and
+tr12_repro_gate.sh keep every line number, so no citation into them moves. Other registry readers that the findings do not name
+(GATE 3's and GATE 47's RETRACTED_PHRASES.tsv readers, and the allowlists) are unchanged.
+
+**4. What the readers found in today's documents.** One GATE 7 finding, not edited here:
+reports/evidence/f1/F1_ORBIT_QUOTIENT_2026_07.md:19, a July plan step described as "(agent, in flight)".
+Every other affected leg is green on today's tree, and G4's count is unchanged. At batch 40's
+integration that line was given a dated disposition on the same line: the step was completed by
+2026-07-04 (the log's own "Step 1 result"), and this orbit-quotient route led to TR-11. GATE 7 is
+now green, and the test's list of known real hits is empty.
+
+**5. Tests.** `TestQ969RegistryPopulations`, at the end of tests.py, is driven by the 11 plants. For
+each doc-gate plant, it fires its leg on the fixed scripts with a flagged line naming the planted
+file, and it evades on the scripts of `35782834`, where its control still fires. Its control also
+fires on the fixed scripts. The unplanted tree is green on every leg (after the disposition in
+section 4). G4, the Q3 awk and the skip pin are extracted from the fixed scripts and from those
+of `35782834`, and are run on the same plants.
+
+**6. Gates.** `citation_line_gate.sh` (both PASS), the full `doc_gates.sh` with `ROAE_PRIVATE_DIR` set
+(GATE 91 `HISTORY_INDEX=STALE`, expected before the index is regenerated, and, before the
+disposition, the GATE 7 finding in section 4), the claim ledger and `TestQ969RegistryPopulations`.
+
+**7. Integration (batch 40).** GATE 3b and GATE 18 now take require_rows' count as `argv[1]`, not
+as an environment variable. That leaves batch 38's push-path environment scan nothing new to
+classify. The test's extracted G4 now runs under Q-966's word-matcher prelude, which that leg needs.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 40, Q-969.
+
+## CX-302 — four checks were bound to the wrong thing: GATE 10b let an unmerged remote copy of an ancestor's ledger mask that ancestor's lost line; GATE 8's regeneration cache kept a previous run's output on a miss; the pre-push and pre-commit hooks let a `git replace` ref change the tree they judged; and the commit-time size gate read approvals from the working tree instead of the index (scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/pre_push_gate.sh; scripts/pre_commit_gate.sh; scripts/pre_commit_size_gate.sh; scripts/doc_gates.sh; tests.py)
+
+**2026-10-03.** Origin: Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962 (finding group
+R9, backlog row Q-971). Batch 40, on the batch's staged tree.
+
+**No published number, count, sha or certificate moves.** These are check-side defects. Each was
+reproduced in a scratch repository; none was found to have let a defect through on the published tree.
+
+**1. GATE 10b, history dedup (A05#2).** The ledger-history half of the append-only gate walked every
+commit that touched `documentation/CORRECTIONS.md`, newest first, classified it, and skipped any blob
+it had already seen. An unmerged remote commit carrying the same ledger blob as an ancestor of HEAD
+was visited first and reported as a merge-gap note, and the ancestor's copy was then skipped. So a
+committed deletion of a ledger line passed once such a ref was fetched. Every (commit, blob) pair is
+now classified first and the pairs are sorted strictest first (ancestor, published lineage, behind,
+unmerged) before the blob dedup, so a blob is always judged under the strictest verdict any commit
+holding it earns. The header now also states that a reorder that is already committed is outside both
+10a and 10b (A05#6, by design).
+
+**2. GATE 8, the regeneration cache (A05#7).** On a cache miss only the key file was removed, so an
+exporter that wrote nothing left the previous run's `report.md` in place and it was compared as fresh.
+A miss now removes every output first, and the key file records each output's sha256 next to the
+roae.py sha and the seed, so an output edited inside the cache is a miss too. An inherited
+`DOC_GATES_GEN_CACHE` is already refused at push time by the batch-38 environment guard.
+
+**3. Replace refs (A12#2).** `pre_push_gate.sh` never set `GIT_NO_REPLACE_OBJECTS`, so a
+`refs/replace/<bad>` entry made the per-sha worktree check out a replacement tree while the push sent
+the real objects. The hook now exports `GIT_NO_REPLACE_OBJECTS=1` before its first git read, and every
+leg inherits it; a replace ref is not refused (with the variable set it changes nothing the hook
+reads), and a note names it. The same export is in `pre_commit_gate.sh`, `pre_commit_size_gate.sh`
+(which sized a replacement blob) and `doc_gates.sh`.
+
+**4. The size gate's approvals (A12#9).** `pre_commit_size_gate.sh` sized the staged blobs but read
+`scripts/oversize_approved.tsv` from the working tree, so an approval row that was never staged
+cleared a file the commit shipped without one. It now reads the index copy (`git show :<path>`) and
+notes unstaged rows, which do not count.
+
+**5. Tests.** `TestQ971WhatACheckBindsTo`: seventeen tests. The four plants above and the entry-point
+check fail on copies of the unfixed scripts and pass on this tree; positive controls (the deletion
+alone fails, the line kept passes, a staged approval clears) pass on both; one mutant per
+load-bearing check reproduces its defect.
+
+**6. Integration (batch 40).** One precondition check in `TestQ971WhatACheckBindsTo` (that
+`require_tracked()` is found in doc_gates.sh) was a bare `assert`. It is now an explicit raise, so it
+survives `python3 -O` (`TestNoBareAsserts`).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 40, Q-971. Review credit:
+Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962.

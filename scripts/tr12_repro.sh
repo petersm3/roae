@@ -3707,14 +3707,14 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
           awk -F'\t' '
             # pass 1: the validated exact profile. Columns are fixed by --kc-profile --kc-tsv:
             #   1 step  8 f  9 g  10 g_parent  11 p_num  12 p_den
-            FNR==NR { if ($1 ~ /^[0-9]+$/) { s[$1 SUBSEP "f"]=$8 ""; s[$1 SUBSEP "g"]=$9 ""
+            FNR==NR { if ($1 ~ /^[0-9]+$/) { if (($1 SUBSEP "g") in s) { printf "XCHECK_FAIL\tvalidated profile step %s appears twice\n", $1; f=1 }; s[$1 SUBSEP "f"]=$8 ""; s[$1 SUBSEP "g"]=$9 ""
                                              s[$1 SUBSEP "g_parent"]=$10 ""; s[$1 SUBSEP "p_num"]=$11 ""
                                              s[$1 SUBSEP "p_den"]=$12 ""; ns++ }
                       next }
             # pass 2: the consumer table, read BY HEADER NAME (its column order is its own).
             FNR==1 { for (i=1;i<=NF;i++) idx[$i]=i; next }
             $1 ~ /^[0-9]+$/ {
-                st=$(idx["step"]); nc++
+                st=$(idx["step"]); nc++; if (st in seen) { printf "XCHECK_FAIL\tconsumer Q3 step %s appears twice -- a duplicate can hide a missing step (Q-969)\n", st; f=1; next }; seen[st]=1
                 if (!((st SUBSEP "g") in s)) { printf "XCHECK_FAIL\tconsumer Q3 step %s has no row in the validated exact profile\n", st; f=1; next }
                 ncol=split("g g_parent f p_num p_den", C, " ")
                 for (ci=1; ci<=ncol; ci++) {
@@ -3727,7 +3727,7 @@ if [ -d "$ARTDIR/consumer/scan" ]; then
             END {
                 if (ns==0) { print "XCHECK_FAIL\tthe validated exact profile contributed no step rows"; f=1 }
                 if (nc==0) { print "XCHECK_FAIL\tthe consumer Q3 table contributed no step rows"; f=1 }
-                if (ns != nc) { printf "XCHECK_FAIL\tthe consumer Q3 table has %d step(s), the validated profile has %d\n", nc, ns; f=1 }
+                if (ns != nc) { printf "XCHECK_FAIL\tthe consumer Q3 table has %d step(s), the validated profile has %d\n", nc, ns; f=1 }; for (k in s) { split(k, KP, SUBSEP); if (KP[2]=="g" && !(KP[1] in seen)) { printf "XCHECK_FAIL\tvalidated profile step %s has no row in the consumer Q3 table (Q-969: steps are compared as a SET)\n", KP[1]; f=1 } }
                 exit f?1:0 }' "$ARTDIR/q3_profile_exact.tsv" "$CQ3" || erc=1
       fi
       # ---- the shell's own ratio cells, and its anchor against the consumer's King Wen (Q-615) --

@@ -14,6 +14,9 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 fail=0
+# Q-966: the shared word/token matcher of doc_gates.sh (exact ids in G4, exact KEY=value in G11).
+. scripts/doc_gates.d/word_match.sh 2>/dev/null && declare -F _wm_prelude >/dev/null \
+  || { echo "   [FAIL] scripts/doc_gates.d/word_match.sh could not be loaded -- NOTHING was checked"; echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1; }
 
 # ---- G1: unfilled placeholder tokens in PUBLISHED text -----------------------------------------
 # A reader following `[REPRO-TAG]` gets nothing: the document's own resolver command returns no
@@ -150,7 +153,7 @@ echo
 echo "== G4: corrections that name a propagation target which lacks the correction id =="
 G4_N=0
 if [ -r documentation/CORRECTIONS.md ]; then
-  G4_OUT=$(python3 - <<'PYG4'
+  G4_OUT=$( { _wm_prelude; cat <<'PYG4'
 import re, os
 try: s = open("documentation/CORRECTIONS.md", errors="replace").read()
 except Exception: raise SystemExit(0)
@@ -159,21 +162,31 @@ for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
     m = re.match(r'#{2,4} *(CX-\d+)', e)
     if not m: continue
     cx = m.group(1)
-    dm = re.search(r'-\s*\*\*Documents:\*\*(.*?)(?=\n-\s*\*\*)', e, re.S)
+    # Q-969 (A02#22): the field ends at the next `- **Field:**` bullet, a blank line, or the END of the
+    # entry -- a Documents bullet that was the entry's last field matched nothing and was skipped.
+    dm = re.search(r'-\s*\*\*Documents:\*\*(.*?)(?=\n-\s*\*\*|\n[ \t]*\n|\Z)', e, re.S)
     if not dm: continue
     seen = set()
     for link in re.findall(r'\]\(([^)]+)\)', dm.group(1)):
-        q = link.split('#')[0].lstrip('./')
-        if q.startswith('../'): q = q[3:]
-        elif q.endswith('.md') and not q.startswith(('reports/','documentation/','lean/')):
-            q = 'documentation/' + q
+        # Q-967 (Q-835 A02#20): a link is resolved RELATIVE TO THE LEDGER (documentation/), the way
+        # a reader's renderer resolves it. This read `lstrip('./')`, which strips CHARACTERS: it
+        # turned `../README.md` into `README.md` and then prefixed `documentation/`, so a correction
+        # naming the ROOT README was checked against documentation/README.md (the CX-28 entry in the
+        # ledger links that way). A root-relative spelling (`reports/X.md` written without `../`) is still
+        # accepted, but only when the relative target does not exist.
+        p = link.split('#')[0].strip()
+        if not p or re.match(r'[a-z]+:', p): continue
+        q = os.path.normpath(os.path.join('documentation', p))
+        if not os.path.isfile(q) and p.startswith(('reports/','documentation/','lean/')):
+            q = os.path.normpath(p)
         if q.endswith('.md') and os.path.isfile(q) and q not in seen:
             seen.add(q)
-            if cx not in open(q, errors='replace').read():
+            # Q-966 (A02#21): the id as an EXACT token -- CX-999 is not found inside CX-9990.
+            if not wm_tok(open(q, errors='replace').read(), cx):
                 bad.append(f"{cx} names {q}, which does not carry {cx}")
 for b in bad: print(b)
 PYG4
-)
+} | python3 - )
   if [ -n "$G4_OUT" ]; then
     printf '%s\n' "$G4_OUT" | sed 's/^/   [FAIL] /'
     G4_N=$(printf '%s\n' "$G4_OUT" | grep -c .)
@@ -377,7 +390,7 @@ if [ -r "$_SK" ] && [ -r "$_SS" ]; then
   _pick=$(grep -oE 'round 5 PICK=[0-9]+' "$_SK" 2>/dev/null | grep -oE '[0-9]+$' | head -1)
   if [ -z "$_pick" ]; then
     echo "  [FAIL] G11: no 'round 5 PICK=' in $_SK -- this leg measured NOTHING"; G11=1
-  elif grep -q "round 5 \`PICK=$_pick\`\|PICK=$_pick" "$_SS" 2>/dev/null; then
+  elif grep -qE "$(_wm_tok_ere "PICK=$_pick")" "$_SS" 2>/dev/null; then   # Q-966 (A02#24): PICK=2 is not PICK=20
     echo "  [ok]   G11: the published gain series names the boundary the archived run picked (PICK=$_pick)"
   else
     echo "  [FAIL] G11: the archived run picked boundary $_pick at round 5; the document does not say so"

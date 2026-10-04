@@ -33,6 +33,7 @@
 # ("SIZE_GATE=OK no new files staged"), so the `grep -qx` this header promises could not match any
 # of them. The prose moved to its own line and the numbers to the companion tokens above.
 set -uo pipefail
+export GIT_NO_REPLACE_OBJECTS=1   # Q-971 (c): replace refs must not change the blobs sized below
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" || {
   echo "  [ERROR] not inside a git repository — there is no index to measure"
   echo "SIZE_GATE_UNAPPROVED=-1"; echo "SIZE_GATE_LIMIT=-1"
@@ -125,13 +126,29 @@ fi
 # 🔴 AN UNREADABLE ALLOWLIST IS NOT AN EMPTY ONE. If the file is missing every approved path would
 # read as unapproved and the gate would refuse a legitimate commit; if it were silently treated as
 # permissive, every path would read as approved. Neither is acceptable -- say which happened.
+# 🔴 Q-971 (d) (2026-10-03, batch 40; Codex (gpt-6-astra), push-path review Q835, adjudicated
+# Q-962 R9). The approvals were read from the WORKING-TREE file, so a row added there and never
+# staged cleared a file the commit then shipped with no approval in it (measured in a scratch
+# clone: 1.4 MB staged, row in the worktree only, SIZE_GATE=OK). The tree being judged is the
+# INDEX, so the approvals are read from the index's copy (`git show :<path>`), the same tree the
+# sizes come from. A row only in the working tree is named, and does not count.
 approved=""
-if [ -e "$ALLOW" ]; then
-  if ! approved=$(awk -F'\t' '!/^#/ && NF>=1 && $1!="" {print $1}' "$ALLOW" 2>/dev/null); then
-    echo "  [ERROR] $ALLOW exists but could not be parsed — an unreadable allowlist is not an empty one"
+case "$ALLOW" in
+  /*|../*|*/../*|..)
+    echo "  [ERROR] ALLOW='$ALLOW' is not a path inside this repository, so it has no index copy"
+    echo "SIZE_GATE_UNAPPROVED=-1"; echo "SIZE_GATE_LIMIT=$LIMIT"
+    echo "SIZE_GATE_ERROR=allowlist-unparseable"; echo "SIZE_GATE=ERROR"; exit 2 ;;
+esac
+if git cat-file -e ":$ALLOW" 2>/dev/null; then
+  if ! _allow_txt=$(git show ":$ALLOW" 2>/dev/null) \
+     || ! approved=$(printf '%s\n' "$_allow_txt" | awk -F'\t' '!/^#/ && NF>=1 && $1!="" {print $1}'); then
+    echo "  [ERROR] $ALLOW is staged but could not be parsed — an unreadable allowlist is not an empty one"
     echo "SIZE_GATE_UNAPPROVED=-1"; echo "SIZE_GATE_LIMIT=$LIMIT"
     echo "SIZE_GATE_ERROR=allowlist-unparseable"; echo "SIZE_GATE=ERROR"; exit 2
   fi
+fi
+if [ -e "$ALLOW" ] && { ! git cat-file -e ":$ALLOW" 2>/dev/null || ! git diff --quiet -- "$ALLOW" 2>/dev/null; }; then
+  echo "  [note] $ALLOW is unstaged or has UNSTAGED edits; those are not read (approvals come from the index). Stage the row to use it."
 fi
 # Exact string equality, one allowlist row at a time. `grep -qxF -- "$f"` was a bypass of its own:
 # a path containing a newline is SEVERAL fixed-string patterns, and any one of them matching an
@@ -161,7 +178,7 @@ while IFS= read -r -d '' meta && IFS= read -r -d '' f; do
   # solve.c is exempt by operator ruling 2026-08-06 (it is the enumerator; it grows by design).
   [ "$f" = "solve.c" ] && { echo "  [ok]   $f ($sz B) — exempt by operator ruling 2026-08-06"; continue; }
   if _approved "$f"; then
-    echo "  [ok]   $f ($sz B) — approved in $ALLOW"
+    echo "  [ok]   $f ($sz B) — approved in the staged $ALLOW"
   else
     echo "  [FAIL] $f is $sz B (>= $LIMIT) and is being tracked for the FIRST time, unapproved."
     bad=$((bad+1))
@@ -177,7 +194,7 @@ fi
 if [ "$bad" -gt 0 ]; then
   echo "  [REFUSED] $bad unapproved file(s) >= $LIMIT B staged for first-time tracking"
   echo "   The standing rule is that a file this size needs an explicit operator OK before \`git add\`."
-  echo "   To clear: get the OK and add a row to $ALLOW quoting it, or gitignore it, or gzip -9 it"
+  echo "   To clear: get the OK and add a row to $ALLOW quoting it AND STAGE IT, or gitignore it, or gzip -9 it"
   echo "   AND RE-STAGE: this gate measures the INDEX, so the uncompressed blob stays staged until"
   echo "   you run \`git rm --cached -- <file>\` and \`git add -- <file>.gz\` (the .gz is measured too)."
   echo "   Do NOT widen \$LIMIT to get past this — the threshold is the operator's, not the gate's."

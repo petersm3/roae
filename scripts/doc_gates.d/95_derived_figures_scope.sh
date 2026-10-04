@@ -40,7 +40,7 @@
 gate_log_derived_figures() {
   echo "== GATE 56: figures attributed to an analyze-log section (§[3]/§[6]/§[9]) are that log's own figures =="
   local out
-  out=$(python3 - <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import gzip, io, re, subprocess, sys
 LOGS = {'d3 10T': 'runs/20260418_10T_d3_fresh/analyze_output.log.gz',
         'd2 10T': 'runs/20260418_10T_d2_fresh/analyze_output.log.gz',
@@ -87,16 +87,17 @@ pt = pp = un = 0
 for f in files:
     text = io.open(f, encoding='utf-8', errors='replace').read()
     text = re.sub(r'\*\(Corrected.*?\)\*', '', text, flags=re.S)
+    text = md_text(text)
     lines = text.split('\n')
-    # LEG T
-    for i, l in enumerate(lines):
-        if not l.startswith('|') or i+1 >= len(lines) or not re.match(r'^\|[\s:|-]+\|?\s*$', lines[i+1]): continue
-        hdr = [c.strip() for c in re.split(r'(?<!\\)\|', l.strip().strip('|'))]  # Q-525: a GFM \| is not a cell break
+    # Q-965 (A10#7, A10#8): tables and paragraphs come from the shared normaliser.
+    BLOCKS = md_parse(text)[2]
+    # LEG T -- a §[6] table indented one space, or without edge pipes, is a table now.
+    for tb in BLOCKS:
+        if tb['kind'] != 'table' or not tb['delim']: continue
+        hdr = tb['header'][1]  # Q-525: a GFM \| is not a cell break (md_cells)
         cols = [k for k, c in enumerate(hdr) if re.search(r'§\s*\[6\]|Greedy set', c)]
         if not cols: continue
-        j = i + 2
-        while j < len(lines) and lines[j].startswith('|'):
-            cells = [c.strip() for c in re.split(r'(?<!\\)\|', lines[j].strip().strip('|'))]
+        for jl, cells in tb['rows']:
             ds = named(cells[0] if cells else '')
             for k in cols:
                 if k >= len(cells): continue
@@ -104,14 +105,13 @@ for f in files:
                 if not sets: continue
                 ok_ds = [d for d in ds if d in L]
                 if not ok_ds:
-                    if ds: un += 1; print('UNCHECKABLE\t%s:%d\ttable row for %s — no tracked analyze log' % (f, j+1, '/'.join(ds)))
+                    if ds: un += 1; print('UNCHECKABLE\t%s:%d\ttable row for %s — no tracked analyze log' % (f, jl, '/'.join(ds)))
                     continue
                 pt += 1
                 if not any(len(sets) == 1 and sets[0] == L[d]['chosen'] for d in ok_ds):
                     print('HIT\t%s:%d\t§[6] column holds %s but the %s log says Boundaries chosen = {%s}' % (
-                        f, j+1, ' '.join('{%s}' % ','.join(map(str, sorted(s))) for s in sets), '/'.join(ok_ds),
+                        f, jl, ' '.join('{%s}' % ','.join(map(str, sorted(s))) for s in sets), '/'.join(ok_ds),
                         ', '.join(' '.join(map(str, sorted(L[d]['chosen']))) for d in ok_ds)))
-            j += 1
     # LEG P — the window is the citing line ±1 within its paragraph (a sentence may be hard-wrapped),
     # overlapping windows merged; the figures judged are those in log-figure grammar (a number
     # after "boundary N['s]", "survivors", "joint", "min_single", "eliminates", "remain", "non-KW",
@@ -124,19 +124,18 @@ for f in files:
         for m in re.finditer(KEY + r"\W+(?:[\w'’×-]+\W+){0,3}?(" + NUM + r")", flat): got.add(int(m.group(1).replace(',', '')))
         for m in re.finditer(r"(" + NUM + r")\W+(?:[\w'’-]+\W+){0,2}?(?:survivors?|remain|non-KW)", flat): got.add(int(m.group(1).replace(',', '')))
         return got
-    blank = [not l.strip() for l in lines]
-    wins = []
-    for i, l in enumerate(lines):
-        if not re.search(r'§\s*\[(3|6|9)\]', l) or l.lstrip().startswith('|'): continue
-        lo = i if i == 0 or blank[i-1] else i-1
-        hi = i if i+1 >= len(lines) or blank[i+1] else i+1
-        if wins and lo <= wins[-1][1] + 1: wins[-1][1] = max(wins[-1][1], hi)
-        else: wins.append([lo, hi])
-    for lo, hi in wins:
-        para = '\n'.join(lines[lo:hi+1]); ln = lo + 1
+    # Q-965 (A10#7): the window is the WHOLE paragraph the citation sits in (a blank-line-delimited
+    # block of the shared normaliser, md_inline'd), not the citing line +/-1. A false figure two lines
+    # below its §[3] citation passed. The figure grammar above is what keeps a whole paragraph from
+    # the every-number failure recorded in the LEG P note; measured on the public corpus after the
+    # change: no new HIT, NOTE or UNATTRIB line (see the Q-965 report).
+    for pb in BLOCKS:
+        if pb['kind'] != 'para': continue
+        para = '\n'.join(r for _, r in pb['lines']); ln = pb['start']
+        if not re.search(r'§\s*\[(3|6|9)\]', para): continue
         if para.lstrip().startswith('⚠') or '[CORRECTED' in para: continue
-        cited = set(int(x) for x in re.findall(r'§\s*\[(3|6|9)\]', para))
-        flat = ' '.join(para.split())
+        flat = pb['text']
+        cited = set(int(x) for x in re.findall(r'§\s*\[(3|6|9)\]', flat))
         ds = named(flat); ok_ds = [d for d in ds if d in L]
         if not ok_ds:
             if ds: un += 1; print('UNCHECKABLE\t%s:%d\tcites §%s for %s — no tracked analyze log' % (f, ln, sorted(cited), '/'.join(ds)))
@@ -145,13 +144,27 @@ for f in files:
         # Each SENTENCE is keyed on the dataset and section it names itself, falling back to the
         # window's. Measured 2026-09-02: with window-level keys, swapping :102's "d3 10T (§[3])" to
         # "100T (§[3])" did NOT fire, because the next line's "d3 10T §[9]" sat in the same window.
+        _pos = 0
         for sent in re.split(r'(?<=[.!?;])\s+(?=[A-Z`*(\[])', flat):
+            _pos = flat.find(sent, _pos); ln = md_lno(pb, _pos)   # the line the SENTENCE starts on
             sds = named(sent) or ds; sok = [d for d in sds if d in L]
             if not sok: continue
             scited = set(int(x) for x in re.findall(r'§\s*\[(3|6|9)\]', sent)) or cited
             partial = any(d in NOLOG for d in sds)
             want = set().union(*[L[d]['n%d' % s] for d in sok for s in scited])
             anywhere = set().union(*[L[d]['all'] for d in sok])
+            # Q-967 (Q-835 A10#6): a §[3] figure written against a NAMED boundary is that boundary's
+            # survivor count, not any value of the section. Membership in the pooled §[3] set let
+            # "boundary 15 has 152,468,987 survivors" pass on boundary 19's figure. The key is
+            # (dataset, boundary): the figure must be surv[b] of a dataset the sentence names.
+            if 3 in scited:
+                for bm in re.finditer(r"[Bb]oundary (\d+)(?:'s|’s)?\W+(?:[\w'’×-]+\W+){0,3}?(" + NUM + r")", sent):
+                    b, n = int(bm.group(1)), int(bm.group(2).replace(',', ''))
+                    if not any(n in L[d]['n3'] for d in sok): continue   # not a §[3] figure: judged below
+                    if any(L[d]['surv'].get(b) == n for d in sok): continue
+                    print('HIT\t%s:%d\t%s is a §[3] figure of the %s log, but not boundary %d\'s (that is %s)' % (
+                        f, ln, format(n, ','), '/'.join(sok), b,
+                        ', '.join(format(L[d]['surv'][b], ',') if b in L[d]['surv'] else 'absent' for d in sok)))
             for n in sorted(figures(sent)):
                 if n in want: continue
                 if n in anywhere: print('NOTE\t%s:%d\t%s is in the %s log but not in the cited §%s' % (f, ln, format(n, ','), '/'.join(sok), sorted(scited))); continue
@@ -165,7 +178,7 @@ for f in files:
                     print('HIT\t%s:%d\tratio %s is attributed to §[9] of the %s log, whose ratio column never prints it' % (f, ln, r, '/'.join(sok)))
 print('POP\t%d\t%d\t%d\t%d' % (pt, pp, un, len(files)))
 PY
-) || { echo "  [FAIL] GATE 56 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - ) || { echo "  [FAIL] GATE 56 scanner failed — NOTHING was checked."; return 1; }
   out="$(printf '%s\n' "$out" | tr -d '\r')"
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 56 could not judge its subject: $err"; return 1; fi
@@ -213,16 +226,21 @@ PY
 gate_nontrivial_display() {
   echo "== GATE 57: a display equation (indented/fenced ' = ' line) does not have identical sides =="
   local out
-  out=$(python3 - <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import re, io, subprocess, sys
 files=[f for f in subprocess.run(["git","ls-files","documentation/*.md","reports/*.md","reports/**/*.md"],capture_output=True,text=True).stdout.split() if f.endswith(".md")]
 files=sorted(set(files))
 n=0
 for f in files:
-    fence=False
-    for i,line in enumerate(io.open(f,encoding="utf-8").read().split("\n"),1):
-        if line.strip().startswith("```"): fence=not fence; continue
-        if not (fence or re.match(r"^ {4,}\S",line)): continue
+    # Q-965 (A10#9): fences come from the shared normaliser -- matched by opener character and
+    # length, so a ~~~ block is a display block (it was not one at all here) and a ~~~ line inside a
+    # ``` block is content. An UNCLOSED fence is reported and FAILS: this leg reads code, and a block
+    # it cannot delimit is a block it cannot certify.
+    L,KIND,_B,UNC=md_parse(md_text(io.open(f,encoding="utf-8").read()))
+    for u in UNC: print("UNCLOSED\t%s:%d"%(f,u))
+    for i,line in enumerate(L,1):
+        if KIND[i-1]=="fence": continue
+        if not (KIND[i-1]=="code" or re.match(r"^ {4,}\S",line)): continue
         s=line.strip()
         if s[:1] in "#$>|-*": continue
         parts=s.split(" = ")
@@ -236,13 +254,14 @@ for f in files:
         if a==b: print("HIT\t%s:%d\t%s"%(f,i,s[:110]))
 print("POP\t%d\t%d"%(n,len(files)))
 PY
-) || { echo "  [FAIL] GATE 57 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - ) || { echo "  [FAIL] GATE 57 scanner failed — NOTHING was checked."; return 1; }
   local pn pf
   IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
   if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 57 printed no population census."; return 1; fi
   if [ "$pn" -lt 20 ]; then echo "  [FAIL] GATE 57 found only $pn two-sided display line(s) across $pf docs (floor 20) — the corpus or the grammar moved; nothing judged."; return 1; fi
   local rc=0 tag loc s
   while IFS=$'\t' read -r tag loc s; do
+    [ "$tag" = UNCLOSED ] && { echo "  [FAIL] $loc: a code fence opens here and never closes; its content to end of file is not a delimited display block, so it was NOT checked"; rc=1; continue; }
     [ "$tag" = HIT ] || continue
     echo "  [FAIL] $loc: display equation has IDENTICAL sides (it states x = x): $s"; rc=1
   done < <(printf '%s\n' "$out")
@@ -311,11 +330,18 @@ for f in files:
             u=re.sub(r"\[CORRECTED\b.*?\]"," ",u,flags=re.S)
             for s in re.split(r"(?<=[.!?])\s+",u):
                 if not re.search(r"11\.2\s?T\b",s): continue
-                mm=re.search(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b independent (?:witnesses|paths)",s,re.I)
-                if not mm: continue
-                rest+=1
-                v=mm.group(1).lower(); v=int(v) if v.isdigit() else W[v]
-                if v!=reg: print("HIT\t%s\tstates '%s independent %s' for 11.2T; the registry table has %d"%(f,mm.group(1),mm.group(0).split()[-1],reg))
+                # Q-967 (Q-835 A10#10): EVERY count is judged, not the first. "eight independent
+                # paths and nine independent witnesses" passed on the eight. Each count belongs to
+                # the dataset named last before it in the sentence (else the first one after it);
+                # only an 11.2T count is compared with the 11.2T registry.
+                ds=[(d.start(),d.group(0)) for d in re.finditer(r"\b\d+(?:\.\d+)?\s?[TMB]\b",s)]
+                for mm in re.finditer(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b independent (?:witnesses|paths)",s,re.I):
+                    before=[d for p,d in ds if p<mm.start()]; after=[d for p,d in ds if p>mm.start()]
+                    own=before[-1] if before else (after[0] if after else None)
+                    if own is None or not re.fullmatch(r"11\.2\s?T",own): continue
+                    rest+=1
+                    v=mm.group(1).lower(); v=int(v) if v.isdigit() else W[v]
+                    if v!=reg: print("HIT\t%s\tstates '%s independent %s' for 11.2T; the registry table has %d"%(f,mm.group(1),mm.group(0).split()[-1],reg))
 print("POP\t%d\t%d\t%d"%(heads,rest,reg))
 PY
 ) || { echo "  [FAIL] GATE 58 scanner failed — NOTHING was checked."; return 1; }
@@ -387,10 +413,13 @@ for f in files:
         p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
         flat=" ".join(p.replace("*","").split())
         for s in re.split(r"(?<=[.!?])\s+",flat):
-            mb=re.search(r"baseline (?:is|of) 1/(\d+)",s)
-            if not mb: continue
-            mk=re.search(r"\b(\d+) of (?:the )?(\d+)\b[^.;]*?\b(ineligible|eligible)\b",s[:mb.start()])
-            if not mk: continue
+          # Q-967 (Q-835 A10#11): EVERY baseline is judged, each against the nearest "K of N ...
+          # (in)eligible" before it. Only the first was read, so "... 1/16 and the baseline is 1/999"
+          # passed on the 1/16.
+          for mb in re.finditer(r"baseline (?:is|of) 1/(\d+)",s):
+            mks=list(re.finditer(r"\b(\d+) of (?:the )?(\d+)\b[^.;]*?\b(ineligible|eligible)\b",s[:mb.start()]))
+            if not mks: continue
+            mk=mks[-1]
             n+=1
             K,N,pol=int(mk.group(1)),int(mk.group(2)),mk.group(3)
             M=int(mb.group(1)); exp=N-K if pol=="ineligible" else K
@@ -441,7 +470,7 @@ gate_derived_coefficient() {
   echo "== GATE 60: CAMPAIGN_METHODOLOGY.md's zero-cell % and .bin-per-cell coefficient equal its own campaign actuals =="
   local F=documentation/CAMPAIGN_METHODOLOGY.md out
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
-  out=$(python3 - "$F" <<'PY'
+  out=$( { _md_num_prelude; cat <<'PY'
 import re, io, sys
 F=sys.argv[1]
 t=io.open(F,encoding="utf-8").read()
@@ -451,21 +480,24 @@ if not mz: print("ERROR\t%s has no '| Cells with zero solutions | Z (P %%)' actu
 if not mt: print("ERROR\t%s no longer states the cell total as '= 560 T / N cells'"%F); sys.exit(0)
 Z=int(mz.group(1).replace(",","")); T=int(mt.group(1).replace(",",""))
 pct=100.0*Z/T; coef=(T-Z)/T
-def dec(s): return len(s.split(".")[1]) if "." in s else 0
-def eq(claim,actual): return round(actual,dec(claim))==float(claim)
+# Q-968 (A10#12): a claim is read by the shared number lexer, sign included -- "-58.8 %" is -58.8,
+# not the 58.8 a `[\d.]+` capture began after the minus -- at the claim's own printed decimals.
+def eq(claim,actual):
+    n=md_num(claim)
+    return round(actual,n.dp)==float(n.value)
 if not eq(mz.group(2),pct): print("HIT\tactuals row\tzero-cell row prints %s %% but %s/%s = %.2f %%"%(mz.group(2),mz.group(1),mt.group(1),pct))
 body=re.sub(r"\[CORRECTED\b.*?\]"," ",t,flags=re.S).replace("*","")
 flat=" ".join(body.split())
 np_=nc=0
-for m in re.finditer(r"([\d.]+)\s*% of fully-scanned cells produced zero",flat):
+for m in re.finditer(r"(%s)\s*%% of fully-scanned cells produced zero"%MD_NUM,flat):
     np_+=1
     if not eq(m.group(1),pct): print("HIT\tprose\t'%s %% of fully-scanned cells produced zero' but the actuals give %.2f %% (%d of %d)"%(m.group(1),pct,Z,T))
-for m in re.finditer(r"roughly ([\d.]+)×? ?the scanned-cells count",flat):
+for m in re.finditer(r"roughly (%s)×? ?the scanned-cells count"%MD_NUM,flat):
     nc+=1
     if not eq(m.group(1),coef): print("HIT\tprose\t'roughly %s× the scanned-cells count' but (T-Z)/T = %.4f"%(m.group(1),coef))
 print("POP\t%d\t%d\t%d\t%d"%(np_,nc,Z,T))
 PY
-) || { echo "  [FAIL] GATE 60 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$F" ) || { echo "  [FAIL] GATE 60 scanner failed — NOTHING was checked."; return 1; }
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 60 could not judge its subject: $err"; return 1; fi
   local pp pc z tt
@@ -500,24 +532,24 @@ PY
 gate_cpu_vendor() {
   echo "== GATE 61: a CPU vendor is paired only with its own microarchitecture family =="
   local out
-  out=$(python3 - <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import re, io, subprocess, sys
 OK={"intel":{"xeon","core"},"amd":{"zen","epyc","ryzen"},"arm":{"cobalt","neoverse","altra","graviton"},"ampere":{"altra","neoverse"}}
 files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not f.endswith("CORRECTIONS.md")]
 n=0
 for f in files:
-    t=io.open(f,encoding="utf-8").read()
+    t=md_text(io.open(f,encoding="utf-8").read())
     for p in re.split(r"\n\s*\n",t):
         if p.lstrip().startswith("*Revision") or p.lstrip().startswith("*(Revision"): continue
         p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
-        flat=" ".join(p.replace("*","").split())
+        flat=md_inline(p)   # Q-965 (A10#13): "`Intel` `Zen 5`" is the pairing it renders as
         for m in re.finditer(r"\b(Intel|AMD|ARM|Ampere)\s+(Zen|EPYC|Ryzen|Xeon|Core|Cobalt|Neoverse|Altra|Graviton)\b",flat):
             n+=1
             if m.group(2).lower() not in OK[m.group(1).lower()]:
                 print("HIT\t%s\t'%s' — %s does not make %s parts"%(f,m.group(0),m.group(1),m.group(2)))
 print("POP\t%d\t%d"%(n,len(files)))
 PY
-) || { echo "  [FAIL] GATE 61 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - ) || { echo "  [FAIL] GATE 61 scanner failed — NOTHING was checked."; return 1; }
   local pn pf
   IFS=$'\t' read -r pn pf < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
   if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 61 printed no population census."; return 1; fi
@@ -566,17 +598,27 @@ secs=re.split(r"(?m)^## ",t)
 nref=0
 for si,sec in enumerate(secs):
     title=sec.split("\n",1)[0][:50]
+    # Q-967 (Q-835 A10#15): CREATED is keyed by (resource type, name), not by name. A disk named
+    # X used to "create" a NIC named X. The type is the az command group, with a `vm` prefix
+    # dropped for a sub-resource (`az vm disk attach --name D` names a DISK) and `--vm-name`
+    # always a vm; an `az rest PUT` URL segment maps to the same groups.
+    REST={"virtualMachines":"vm","disks":"disk","networkInterfaces":"network nic","publicIPAddresses":"network public-ip",
+          "virtualNetworks":"network vnet","networkSecurityGroups":"network nsg"}
+    def rtype(group):
+        g=" ".join(group.split())
+        return g[3:] if g.startswith("vm ") else g
     created=set()
-    for m in re.finditer(r"\baz\s+(?:[a-z-]+\s+)+create\b[^\n]*?(?:\s-n|\s--name)\s+([^\s\"'\\]+)",sec): created.add(m.group(1))
-    for m in re.finditer(r"az rest --method PUT[^\n]*?/(?:virtualMachines|disks|networkInterfaces|publicIPAddresses|virtualNetworks|networkSecurityGroups)/([A-Za-z0-9_.-]+)\??",sec): created.add(m.group(1))
+    for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)create\b[^\n]*?(?:\s-n|\s--name)\s+([^\s\"'\\]+)",sec): created.add((rtype(m.group(1)),m.group(2)))
+    for m in re.finditer(r"az rest --method PUT[^\n]*?/(virtualMachines|disks|networkInterfaces|publicIPAddresses|virtualNetworks|networkSecurityGroups)/([A-Za-z0-9_.-]+)\??",sec): created.add((REST[m.group(1)],m.group(2)))
     for ln,line in enumerate(sec.split("\n"),1):
-        for m in re.finditer(r"\baz\s+(?:[a-z-]+\s+)+(?:show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach)\b(.*)$",line):
-            tail=m.group(1)
-            for nm in re.findall(r"(?:\s-n|\s--name|\s--vm-name)\s+([^\s\"'\\]+)",tail):
+        for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)(?:show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach)\b(.*)$",line):
+            tail=m.group(2)
+            for opt,nm in re.findall(r"(\s-n|\s--name|\s--vm-name)\s+([^\s\"'\\]+)",tail):
                 if nm.startswith("$") or nm.startswith("<") or nm.startswith("{") or "$" in nm: continue
                 nref+=1
-                if nm in ALLOW or nm in created: continue
-                print("HIT\t%s\t%s\t%s"%(title,nm,line.strip()[:100]))
+                ty="vm" if opt.strip()=="--vm-name" else rtype(m.group(1))
+                if nm in ALLOW or (ty,nm) in created: continue
+                print("HIT\t%s\t%s\t%s"%(title,"%s (%s)"%(nm,ty),line.strip()[:100]))
 print("POP\t%d\t%d"%(nref,len(secs)))
 PY
 ) || { echo "  [FAIL] GATE 62 scanner failed — NOTHING was checked."; return 1; }
@@ -616,10 +658,13 @@ gate_glossary_consistency() {
   echo "== GATE 63: every definition of 'node' in BRANCHES_EXPLAINED.md names the frame (registered term list: node) =="
   local F=documentation/BRANCHES_EXPLAINED.md out
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
-  out=$(python3 - "$F" <<'PY'
+  out=$( { _wm_prelude; cat <<'PY'
 import re, io, sys
 F=sys.argv[1]
 TERMS={"node":"frame"}
+# Q-966 (A10#16): the frame is NAMED as a whole, un-negated word (shared matcher). As a substring,
+# "Every parent-to-child decision on a mainframe is a node." named it.
+DISC={d: wm_re(d + "s?") for d in TERMS.values()}
 t=io.open(F,encoding="utf-8").read()
 n=0
 for term,disc in TERMS.items():
@@ -630,16 +675,16 @@ for term,disc in TERMS.items():
             m=re.match(r"^\|\s*\*\*%s\*\*\s*\|(.*)$"%term.capitalize(),line.strip())
             if m:
                 n+=1
-                if disc not in m.group(1).lower(): print("HIT\tglossary row\t%s"%line.strip()[:120])
+                if not wm_has(m.group(1), DISC[disc]): print("HIT\tglossary row\t%s"%line.strip()[:120])
         flat=" ".join(p.replace("*","").split())
         if flat.startswith("|") or flat.startswith("#"): continue
         for s in re.split(r"(?<=[.!?])\s+",flat):
             if re.search(r"\b(?:is|counts as) (?:a |one )?[\"“'‘]?%s[\"”'’]?(?=[\s,.;:—)])"%term,s):
                 n+=1
-                if disc not in s.lower(): print("HIT\tbody definition\t%s"%s[:120])
+                if not wm_has(s, DISC[disc]): print("HIT\tbody definition\t%s"%s[:120])
 print("POP\t%d"%n)
 PY
-) || { echo "  [FAIL] GATE 63 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$F") || { echo "  [FAIL] GATE 63 scanner failed — NOTHING was checked."; return 1; }
   local pn
   pn=$(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2; exit}')
   if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 63 printed no population census."; return 1; fi
@@ -681,12 +726,31 @@ R=sys.argv[1]
 W={"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10}
 reg=io.open(R,encoding="utf-8").read()
 S=set(); S7=set()
+# Q-967 (Q-835 A10#17): the sizes are also kept PER DATASET, keyed (depth, budget). A claim that
+# names its dataset is judged against that row alone; pooled, "At d3 100T, C1–C7 plus two" passed
+# because the 10T rows allow two. Only a claim that names no dataset is judged against the pool.
+BY={}
 for line in reg.split("\n"):
     m=re.match(r"^\|\s*\**(d[23] \S+[^|]*?)\**\s*\|\s*\**(\d+)\**\s*\|(.*)\|\s*$",line.strip())
     if not m: continue
     size=int(m.group(2)); S.add(size)
     last=m.group(3).split("|")[-1]
     if "✓" in last: S7.add(size-2)
+    dm=re.match(r"d([23]) (\d+(?:\.\d+)?T)\b",m.group(1))
+    if dm:
+        e=BY.setdefault((dm.group(1),dm.group(2)),[set(),set()]); e[0].add(size)
+        if "✓" in last: e[1].add(size-2)
+DSX=re.compile(r"\b(?:d([23])[ _-]?)?(\d+(?:\.\d+)?T)\b")
+def own_sets(sent,pos):
+    """The (S, S7) of the dataset the claim at `pos` names: the last dataset before it in its
+    sentence, else the first after it; None when the sentence names no registry dataset."""
+    hits=[(m.start(),m.group(1),m.group(2)) for m in DSX.finditer(sent)]
+    before=[h for h in hits if h[0]<pos]; after=[h for h in hits if h[0]>pos]
+    for p,dep,bud in (before[::-1] or after):
+        keys=[k for k in BY if k[1]==bud and (dep is None or k[0]==dep)]
+        if keys:
+            return set().union(*[BY[k][0] for k in keys]), set().union(*[BY[k][1] for k in keys]), "/".join("d%s %s"%k for k in keys)
+    return None
 if not S: print("ERROR\t%s has no '| d? … | **size** | … |' result rows — the registry cannot be read"%R); sys.exit(0)
 files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
 n=0
@@ -699,8 +763,14 @@ for f in files:
         for m in re.finditer(r"C1[–-]C([57]) plus (?:the )?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b",flat):
             v=m.group(2).lower(); N=int(v) if v.isdigit() else W[v]; base=m.group(1)
             n+=1
-            allowed=S if base=="5" else S7
-            if N not in allowed: print("HIT\t%s\t'%s' — allowed counts are %s (BOUNDARY_MINIMUM.md sizes %s%s)"%(f,m.group(0),sorted(allowed),sorted(S),"" if base=="5" else ", minus the two that are C6/C7"))
+            ss=0
+            for b in re.finditer(r"(?<=[.!?])\s+(?=[A-Z])",flat[:m.start()]): ss=b.end()
+            se=re.search(r"(?<=[.!?])\s+(?=[A-Z])",flat[m.end():])
+            sent=flat[ss:m.end()+(se.start() if se else len(flat))]
+            own=own_sets(sent,m.start()-ss)
+            sz,sz7,where=(own if own else (S,S7,"all datasets"))
+            allowed=sz if base=="5" else sz7
+            if N not in allowed: print("HIT\t%s\t'%s' — allowed counts for %s are %s (BOUNDARY_MINIMUM.md sizes %s%s)"%(f,m.group(0),where,sorted(allowed),sorted(sz),"" if base=="5" else ", minus the two that are C6/C7"))
 print("POP\t%d\t%d\t%s\t%s"%(n,len(files),",".join(map(str,sorted(S))),",".join(map(str,sorted(S7)))))
 PY
 ) || { echo "  [FAIL] GATE 64 scanner failed — NOTHING was checked."; return 1; }
@@ -829,31 +899,39 @@ import re, io, sys
 F,L=sys.argv[1],sys.argv[2]
 doc=io.open(F,encoding="utf-8").read().split("\n")
 lean=[l.rstrip() for l in io.open(L,encoding="utf-8").read().split("\n")]
-start=None
-for i,l in enumerate(doc):
-    if "binding ledger" in l: start=i; break
-if start is None: print("ERROR\t%s no longer says which block is the binding ledger"%F); sys.exit(0)
-i=start
-while i<len(doc) and not doc[i].strip().startswith("```"): i+=1
-if i>=len(doc): print("ERROR\t%s has no fenced block after 'binding ledger'"%F); sys.exit(0)
-blk=[]; j=i+1
-while j<len(doc) and not doc[j].strip().startswith("```"): blk.append(doc[j].rstrip()); j+=1
-while blk and blk[-1]=="": blk.pop()
-if not blk: print("ERROR\t%s: the ledger fence is empty"%F); sys.exit(0)
 stripped=[re.sub(r"^  ","",l) for l in lean]
-try: a=stripped.index(blk[0])
-except ValueError: print("HIT\tblock line 1\t%r is not a line of %s"%(blk[0][:80],L)); print("POP\t%d"%len(blk)); sys.exit(0)
-hits=0
-for k,bl in enumerate(blk):
-    if a+k>=len(stripped): print("HIT\tblock line %d\tblock runs past the end of %s"%(k+1,L)); hits+=1; break
-    if bl!=stripped[a+k]:
-        print("HIT\tblock line %d (doc :%d vs %s:%d)\tdoc: %r | lean: %r"%(k+1,i+2+k,L,a+k+1,bl[:70],stripped[a+k][:70])); hits+=1
-        if hits>=3: break
-m=re.search(r"lines (\d+)[–-](\d+) of that file"," ".join(doc[start:i]))
-if m:
-    A,B=int(m.group(1)),int(m.group(2))
-    if A!=a+1 or B!=a+len(blk): print("HIT\tdoc's own range claim\tsays lines %d–%d, but the block matches %s:%d–%d"%(A,B,L,a+1,a+len(blk)))
-print("POP\t%d\t%d"%(len(blk),a+1))
+# Q-967 (Q-835 A10#18): EVERY "binding ledger" mention and the fence it introduces is judged, not
+# the first. A prepended "binding ledger preview" of 30 correct lines diverted the comparison
+# away from a corrupted real block. Two mentions that reach the same fence judge it once; the
+# population census is the SHORTEST block judged, so a short preview cannot carry the floor.
+starts=[i for i,l in enumerate(doc) if "binding ledger" in l]
+if not starts: print("ERROR\t%s no longer says which block is the binding ledger"%F); sys.exit(0)
+judged=set(); sizes=[]; first_a=None
+for start in starts:
+    i=start
+    while i<len(doc) and not doc[i].strip().startswith("```"): i+=1
+    if i>=len(doc) or i in judged: continue
+    judged.add(i)
+    blk=[]; j=i+1
+    while j<len(doc) and not doc[j].strip().startswith("```"): blk.append(doc[j].rstrip()); j+=1
+    while blk and blk[-1]=="": blk.pop()
+    if not blk: print("ERROR\t%s:%d: the ledger fence is empty"%(F,i+1)); sys.exit(0)
+    sizes.append(len(blk))
+    try: a=stripped.index(blk[0])
+    except ValueError: print("HIT\tblock at doc :%d, line 1\t%r is not a line of %s"%(i+1,blk[0][:80],L)); continue
+    if first_a is None: first_a=a
+    hits=0
+    for k,bl in enumerate(blk):
+        if a+k>=len(stripped): print("HIT\tblock line %d\tblock runs past the end of %s"%(k+1,L)); hits+=1; break
+        if bl!=stripped[a+k]:
+            print("HIT\tblock line %d (doc :%d vs %s:%d)\tdoc: %r | lean: %r"%(k+1,i+2+k,L,a+k+1,bl[:70],stripped[a+k][:70])); hits+=1
+            if hits>=3: break
+    m=re.search(r"lines (\d+)[–-](\d+) of that file"," ".join(doc[start:i]))
+    if m:
+        A,B=int(m.group(1)),int(m.group(2))
+        if A!=a+1 or B!=a+len(blk): print("HIT\tdoc's own range claim\tsays lines %d–%d, but the block matches %s:%d–%d"%(A,B,L,a+1,a+len(blk)))
+if not sizes: print("ERROR\t%s has no fenced block after 'binding ledger'"%F); sys.exit(0)
+print("POP\t%d\t%d"%(min(sizes),(first_a if first_a is not None else -1)+1))
 PY
 ) || { echo "  [FAIL] GATE 66 scanner failed — NOTHING was checked."; return 1; }
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
@@ -908,11 +986,18 @@ head=""
 for k in range(hi,-1,-1):
     if lines[k].startswith("#"): head=lines[k]; break
 rows=0; k=hi+1; types=[]
+# Q-969 (A10#19): the LAST cell was read as the type, so a row with an extra cell put that cell in the
+# Evidence-type column's place. The column is found BY HEADER NAME, and a row whose cell count differs
+# from the header's is a HIT (it cannot be read against the header at all).
+hcells=[x.strip() for x in re.split(r"(?<!\\)\|", lines[hi].strip().strip("|"))]
+ti=next(i for i,x in enumerate(hcells) if "evidence type" in x.lower())
 while k<len(lines) and lines[k].lstrip().startswith("|"):
     c=lines[k].strip()
     if not re.match(r"^\|\s*:?-",c):
         cells=[x.strip() for x in re.split(r"(?<!\\)\|", c.strip("|"))]  # Q-525: escape-aware
-        cell=cells[-1].replace("**","").strip()
+        if len(cells)!=len(hcells):
+            print("HIT\t:%d\trow has %d cells, the header has %d, so its Evidence-type cell cannot be located"%(k+1,len(cells),len(hcells)))
+        cell=cells[ti if ti<len(cells) else -1].replace("**","").strip()
         rows+=1
         t=next((v for v in VOCAB if cell.lower().startswith(v)),None)
         types.append(t)
@@ -967,7 +1052,9 @@ n=0
 for p in re.split(r"\n\s*\n",t):
     p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
     flat=" ".join(p.replace("*","").split())
-    for s in re.split(r"(?<=[.!?])\s+",flat):
+    # Q-967 (Q-835 A10#20): a period that closes an abbreviation is not a sentence end. The split
+    # cut "d=1 vs. d=3" in two at the very spelling the pattern below accepts, so it never matched.
+    for s in re.split(r"(?<=[.!?])(?<!\bvs\.)(?<!\bcf\.)(?<!\be\.g\.)(?<!\bi\.e\.)\s+",flat):
         if not re.search(r"d ?= ?1 vs\.? d ?= ?3",s): continue
         n+=1
         if not re.search(r"d ?= ?5|within the canonical|as measured|\bslice\b|in the enumerated",s,re.I):
@@ -1012,15 +1099,19 @@ gate_chronology_access() {
   echo "== GATE 69: a CITATIONS.md 'could not have read' clause does not rest on a year inside the author's life-range =="
   local F=documentation/CITATIONS.md out
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
-  out=$(python3 - "$F" <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import re, io, sys
 F=sys.argv[1]
-t=io.open(F,encoding="utf-8").read()
+t=md_text(io.open(F,encoding="utf-8").read())
 entries=re.split(r"(?m)^(?=- \*\*)",t)
 ne=nc=0
 for e in entries:
     head=e.split("\n",1)[0]
-    m=re.search(r"\((\d{4})[–-](\d{4})\)",head)
+    # Q-965 (A10#21): the life-range may wrap onto the entry's next line ("- **Cui Shu**\n  (1740-1816).").
+    # It is looked for in the first line OR the rest of the first sentence, joined across the wrap.
+    para=" ".join(e.split("\n\n",1)[0].split())
+    se=re.search(r"(?<=[.!?])\s",para)
+    m=re.search(r"\((\d{4})[–-](\d{4})\)",para[:max(len(" ".join(head.split())),se.start() if se else len(para))])
     if not m: continue
     ne+=1; lo,hi=int(m.group(1)),int(m.group(2))
     name=re.sub(r"\*","",head)[2:40]
@@ -1034,7 +1125,7 @@ for e in entries:
             if lo<=y<=hi: print("HIT\t%s\tyear %d lies inside the life-range %d–%d, so it cannot exclude access: %s"%(name.strip(),y,lo,hi,s[:110]))
 print("POP\t%d\t%d"%(ne,nc))
 PY
-) || { echo "  [FAIL] GATE 69 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$F" ) || { echo "  [FAIL] GATE 69 scanner failed — NOTHING was checked."; return 1; }
   local pe pc
   IFS=$'\t' read -r pe pc < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
   if ! grep -qxE '[0-9]+' <<<"${pe:-}"; then echo "  [FAIL] GATE 69 printed no population census."; return 1; fi
@@ -1068,7 +1159,7 @@ gate_layer_profile() {
   local T=reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md A=reports/FULL31_EXACT_AGGREGATES.md out
   require_tracked "$T" || { [ $? -eq 2 ] && return 1; echo "  [skip] $T absent and untracked"; return 0; }
   require_tracked "$A" || { [ $? -eq 2 ] && return 1; echo "  [skip] $A absent and untracked"; return 0; }
-  out=$(python3 - "$T" "$A" <<'PY'
+  out=$( { _md_num_prelude; cat <<'PY'
 import re, io, sys
 T,A=sys.argv[1],sys.argv[2]
 # SCOPE THE PARSE TO SECTION 1 (Q-265, 2026-09-04). The first cut matched ANY >=7-cell
@@ -1104,19 +1195,21 @@ while k<len(lines) and lines[k].strip().startswith("|"):
     k+=1
     if len(c)<2 or not re.fullmatch(r"\d+",c[0]): continue
     layer=int(c[0]); cell=c[1].replace("**","")
-    m=re.search(r"[≈>~]?\s*([\d.]+)\s*(GB|TB)\b",cell)
+    # Q-968 (A10#22): the footprint is read by the shared number lexer, so "1,002.156 TB" is
+    # 1002.156 -- a `[\d.]+` capture began after the comma and compared 2.156.
+    m=re.search(r"[≈>~]?\s*(%s)\s*(GB|TB)\b"%MD_NUM,cell)
     if not m: continue
     n+=1
     if layer not in agg: print("HIT\tk=%d\tno such layer in %s"%(layer,A)); continue
     gb,ent=agg[layer]
-    val=float(m.group(1)); unit=m.group(2); dec=len(m.group(1).split(".")[1]) if "." in m.group(1) else 0
+    nv=md_num(m.group(1)); val=float(nv.value); unit=m.group(2); dec=nv.dp
     actual=gb/1000.0 if unit=="TB" else gb
     if round(actual,dec)!=val: print("HIT\tk=%d\tTR-11 says %s %s; %s layer GB = %.6f (%.*f %s)"%(layer,m.group(1),unit,A,gb,dec,actual,unit))
     me=re.search(r"\(([\d,]+) entries\)",cell)
     if me and int(me.group(1).replace(",",""))!=ent: print("HIT\tk=%d\tTR-11 says %s entries; %s says %d"%(layer,me.group(1),A,ent))
 print("POP\t%d\t%d"%(n,len(agg)))
 PY
-) || { echo "  [FAIL] GATE 70 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$T" "$A" ) || { echo "  [FAIL] GATE 70 scanner failed — NOTHING was checked."; return 1; }
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 70 could not judge its subject: $err"; return 1; fi
   local pn pa
@@ -1273,11 +1366,13 @@ gate_scorecard_repro() {
   echo "== GATE 72: every CLAIMS_DECIDED row's linked report names a reproduction command =="
   local F=documentation/CLAIMS_DECIDED.md out
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
-  out=$(python3 - "$F" <<'PY'
+  out=$( { _wm_prelude; cat <<'PY'
 import re, io, os, sys
 F=sys.argv[1]
 D=os.path.dirname(F)
-CMD=re.compile(r"(?:python3?\s+)?(?:\./)?(?:verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+--[a-z0-9][a-z0-9-]*")
+# Q-966 (A10#24): the command name is a TOKEN, bounded on the left (shared matcher, WM_CMD_LB):
+# "`dissolve --demo`" in a linked report counted as a `solve` command.
+CMD=re.compile(WM_CMD_LB + r"(?:python3?\s+)?(?:\./)?(?:verify\.py|solve\.py|sat\.py|roae\.py|solve|verify)\s+--[a-z0-9][a-z0-9-]*")
 try: t=io.open(F,encoding="utf-8").read()
 except Exception as e: print("ERROR\tcannot read %s: %s"%(F,e)); sys.exit(0)
 rows=[l for l in t.split("\n")
@@ -1305,7 +1400,7 @@ for r in rows:
         print("HIT\t%s\tnone of its linked report(s) (%s) names a solve/verify/sat/roae command, so the row's reproduction path ends nowhere"%(claim,", ".join(links)))
 print("POP\t%d\t%d"%(nrow,len(ntgt)))
 PY
-) || { echo "  [FAIL] GATE 72 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$F") || { echo "  [FAIL] GATE 72 scanner failed — NOTHING was checked."; return 1; }
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 72 could not judge its subject: $err"; return 1; fi
   local pr pt
@@ -1379,7 +1474,7 @@ for r in rows:
     c=[x.strip() for x in re.split(r"(?<!\\)\|", r.strip("|"))]  # Q-525: escape-aware, as GATE 72
     if len(c)<3: continue
     claim=re.sub(r"\s+"," ",re.sub(r"[*`]","",c[0]))[:56]
-    src=c[1]; body=""; tgt=[]
+    src=c[1]; body=""; tgt=[]; seen=set()
     for l in re.findall(r"\]\(([^)#]+\.md)",c[-1]):
         p=os.path.normpath(os.path.join(D,l))
         if not os.path.exists(p): continue
@@ -1387,8 +1482,12 @@ for r in rows:
             try: cache[p]=io.open(p,encoding="utf-8",errors="replace").read()
             except Exception: cache[p]=""
         body+=cache[p]; tgt.append(l)
+        # Q-967 (Q-835 A10#25): an anchor is bound to the FILE it resolves in. `(#a)` is a
+        # CITATIONS.md anchor only inside CITATIONS.md itself; in any other report it names a
+        # heading of that report, so it backs no CITATIONS credit.
+        seen|=set(re.findall(r"CITATIONS\.md#([a-z0-9-]+)",cache[p]))
+        if os.path.basename(p)=="CITATIONS.md": seen|=set(re.findall(r"\]\(#([a-z0-9-]+)\)",cache[p]))
     if not tgt: continue
-    seen=set(re.findall(r"CITATIONS\.md#([a-z0-9-]+)",body))|set(re.findall(r"\]\(#([a-z0-9-]+)\)",body))
     for a in sorted(set(re.findall(r"CITATIONS\.md#([a-z0-9-]+)",src))):
         na+=1
         if a not in seen:
@@ -1455,7 +1554,7 @@ PY
 gate_summary_scope() {
   echo "== GATE 74: a body scoped 'not decided above' is repeated in the report's executive summary =="
   local out
-  out=$(python3 - <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import re, io, glob
 SCOPE=re.compile(r"not decided above",re.I)
 COMPLETE=re.compile(r"\bcomplete\w*\b",re.I)
@@ -1469,20 +1568,24 @@ npop=nsumm=nclaim=0
 for f in docs:
     try: t=io.open(f,encoding="utf-8",errors="replace").read()
     except Exception: continue
-    L=t.split("\n")
-    hs=[i for i,l in enumerate(L) if re.match(r"^##\s+Executive summary",l,re.I)]
+    # Q-965 (A10#26): headings and the scope note go through the shared normaliser. "not decided\nabove."
+    # is the scope note (the wrap hid it, so the summary was never judged), and an indented or setext
+    # "Executive summary" heading is the heading.
+    t=md_text(t); L=t.split("\n")
+    HD=[b for b in md_parse(t)[2] if b['kind']=='heading']
+    hs=[b['end']-1 for b in HD if b['level']==2 and re.match(r"Executive summary",b['text'],re.I)]
     if not hs:
         # In population, and a HIT: the scope has nowhere to be repeated. Counted into npop so the
         # population floor does not fire FIRST and mask the more specific finding.
-        if SCOPE.search(t):
+        if SCOPE.search(md_inline(t)):
             npop+=1
             print("HIT\t%s\tits body states a 'not decided above' scope but the report has no '## Executive summary' section to repeat it in"%f)
         continue
-    s=hs[0]; e=next((i for i in range(s+1,len(L)) if L[i].startswith("## ")),len(L))
+    s=hs[0]; e=next((b['start']-1 for b in HD if b['start']-1>s and b['level']<=2),len(L))
     summ="\n".join(L[s+1:e]); body="\n".join(L[:s]+L[e:])
-    if not SCOPE.search(body): continue
+    if not SCOPE.search(md_inline(body)): continue
     npop+=1; nsumm+=1
-    flat=" ".join(re.sub(r"[*`]","",summ).split())
+    flat=md_inline(summ)
     for sent in re.split(r"(?<=[.!?])\s+",flat):
         comp = bool(COMPLETE.search(sent) and GROUP.search(sent))
         twin = bool(TWIN.search(sent) and INDIST.search(sent))
@@ -1493,7 +1596,7 @@ for f in docs:
                   %(f,"completeness" if comp else "twin-indistinguishability",sent[:160]))
 print("POP\t%d\t%d\t%d"%(npop,nsumm,nclaim))
 PY
-) || { echo "  [FAIL] GATE 74 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - ) || { echo "  [FAIL] GATE 74 scanner failed — NOTHING was checked."; return 1; }
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 74 could not judge its subject: $err"; return 1; fi
   local pp ps pc
@@ -1579,7 +1682,7 @@ PY
 gate_boundary_scope() {
   echo "== GATE 75: a mandatoriness claim over boundary sets is scoped to the subset size exhausted =="
   local out err pop nsc
-  out=$(python3 - <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import subprocess, sys
 mds = subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True).stdout.split()
 if not mds:
@@ -1617,26 +1720,38 @@ pop = 0; nsc = 0
 for m in mds:
     if m in SKIP: continue
     try:
-        lines = open(m, encoding='utf-8').read().split('\n')
+        lines = md_text(open(m, encoding='utf-8').read()).split('\n')
     except OSError as e:
         print('ERR\t%s could not be read: %s' % (m, e)); sys.exit(0)
-    for i, l in enumerate(lines, 1):
-        low = l.lower()
-        if 'no combination of other boundaries' in low:
-            kind = 'no-combination'
-        elif 'mandator' in low and any(q in low for q in QUANT):
-            kind = 'quantified-mandatory'
-        else:
+    # Q-965 (A10#27): the claim is detected on the whole UNIT (a list item, a paragraph line run --
+    # the same unit() the scope test reads), md_inline'd, so "mandatory\nin every minimum set" is
+    # the quantified claim it reads as. Population still counts claim LINES (floor 10), plus one for
+    # a unit whose claim is only visible across a wrap.
+    def kind_of(low):
+        if 'no combination of other boundaries' in low: return 'no-combination'
+        if 'mandator' in low and any(q in low for q in QUANT): return 'quantified-mandatory'
+        return None
+    i = 0
+    while i < len(lines):
+        a = i
+        b = i
+        while b + 1 < len(lines) and not starts_unit(lines[b+1]): b += 1
+        i = b + 1
+        utext = md_inline(' '.join(lines[a:b+1])).lower()
+        kind = kind_of(utext)
+        if not kind:
             continue
-        pop += 1
-        para = unit(lines, i-1).lower()
-        if any(t in para for t in SCOPE):
-            nsc += 1
+        per = [x for x in range(a, b + 1) if kind_of(md_inline(lines[x]).lower())]
+        n = max(1, len(per))
+        pop += n
+        if any(t in utext for t in SCOPE):
+            nsc += n
         else:
-            print('HIT\t%s:%d\t%s\t%s' % (m, i, kind, l.strip()[:150]))
+            x = per[0] if per else next((x for x in range(a, b + 1) if 'mandator' in lines[x].lower() or 'no combination' in lines[x].lower()), a)
+            print('HIT\t%s:%d\t%s\t%s' % (m, x + 1, kind, lines[x].strip()[:150]))
 print('POP\t%d\t%d' % (pop, nsc))
 PY
-) || { echo "  [FAIL] GATE 75 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - ) || { echo "  [FAIL] GATE 75 scanner failed — NOTHING was checked."; return 1; }
   err=$(printf '%s\n' "$out" | sed -n 's/^ERR\t//p')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 75 could not judge its subject: $err"; return 1; fi
   pop=$(printf '%s\n' "$out" | sed -n 's/^POP\t\([0-9]*\)\t.*/\1/p')
@@ -1729,7 +1844,7 @@ PY
 gate_merge_semantics() {
   echo "== GATE 76: prose may not deny a merge capability the binary's env surface provides =="
   local out err npara nden
-  out=$(python3 - <<'PY'
+  out=$( { _wm_prelude; cat <<'PY'
 import subprocess, sys, os
 ENV = ('SOLVE_MERGE_MODE', 'SOLVE_MERGE_CHUNK_GB')
 CLI = 'documentation/SOLVE_C_CLI.md'
@@ -1761,6 +1876,10 @@ NEG  = ('does not currently implement', 'does not implement', 'not implement',
         'cannot do', 'does not do', 'no external', 'does not currently')
 NARR = ('the old text', 'previously read', 'used to read', 'now reads', '[corrected',
         '*(corrected', 'the old wording', 'superseded', 'old text opened')
+# Q-966: the denial phrases as WHOLE WORDS (shared matcher; a phrase ending in a letter takes any word
+# ending, so 'not implement' still covers 'not implemented').
+import re
+NEGRX = wm_re('|'.join(re.escape(g) + (r'\w*' if g[-1].isalnum() else '') for g in NEG))
 def starts_unit(l):
     t = l.lstrip()
     if not t: return True
@@ -1794,7 +1913,12 @@ for m in mds:
             seg = flat[:pos]
             cut = max(seg.rfind('. '), seg.rfind('; '), seg.rfind(' — '))
             clause = seg[cut+1:] if cut >= 0 else seg
-            if not any(g in clause for g in NEG): continue
+            # Q-966 (A10#28): the denial is read in the WHOLE clause around the noun, after it as well
+            # as before: "External sort is not implemented in solve.c." puts its denial after the noun,
+            # and a before-only window counted 0 denials. The clause ends at the same breaks it starts at.
+            tails = [k for k in (flat.find('. ', pos), flat.find('; ', pos), flat.find(' — ', pos)) if k >= 0]
+            clause = clause + flat[pos:min(tails) if tails else len(flat)]
+            if not NEGRX.search(clause): continue
             if any(x in flat for x in NARR):
                 nnarr += 1
             else:
@@ -1803,7 +1927,7 @@ for m in mds:
             break
 print('POP\t%d\t%d\t%d' % (npara, nden, nnarr))
 PY
-) || { echo "  [FAIL] GATE 76 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - ) || { echo "  [FAIL] GATE 76 scanner failed — NOTHING was checked."; return 1; }
   err=$(printf '%s\n' "$out" | sed -n 's/^ERR\t//p')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 76 could not judge its subject: $err"; return 1; fi
   local rc=0 line
@@ -1930,11 +2054,17 @@ for f in files:
             q=QUAL.search(unquoted)
             if not q: continue
             njudged+=1
+            # Q-967 (Q-835 A10#29): attachment is per OCCURRENCE (its offset), not per literal. Keyed
+            # by value, "rec#N at 560T ...; rec#N ... across all datasets" let the first, attached
+            # occurrence exempt the second, unattached one.
             attached=set()
-            for m in AFTER.finditer(unquoted): attached.add(REC.search(m.group()).group())
-            for m in BEFORE.finditer(unquoted): attached.add(REC.findall(m.group())[-1])
-            for lit in dict.fromkeys(REC.findall(unquoted)):
-                if lit not in attached:
+            for m in AFTER.finditer(unquoted): attached.add(m.start()+REC.search(m.group()).start())
+            for m in BEFORE.finditer(unquoted): attached.add(m.start()+list(REC.finditer(m.group()))[-1].start())
+            done=set()
+            for rm in REC.finditer(unquoted):
+                lit=rm.group()
+                if rm.start() not in attached and lit not in done:
+                    done.add(lit)
                     k=para.find(lit); line=start+(para[:k].count("\n") if k>=0 else 0)
                     print("HIT\t%s:%d\t%s is qualified %r but attached to no dataset — a rec# is a position in ONE dataset's sort order: %s"
                           %(f,line,lit,q.group(),sent[:150]))
@@ -2089,6 +2219,24 @@ gate_cert_inventory() {
     echo "         depends on which assignment runs last, which no reader can see."
     echo "CERT_INVENTORY=FAIL"; return 1
   fi
+  # Q-967 (Q-835 A10#2): the CAPTURED floor must be the EFFECTIVE one. The anchored grep above saw
+  # one `CERT_FLOOR=24` and missed a later `export CERT_FLOOR=1`, which is the value the script
+  # runs with. Every write to the variable, in any form (export/readonly/declare/local/typeset
+  # prefix, `+=`, `${CERT_FLOOR:=…}`, `read … CERT_FLOOR`, after `;` `&&` or indentation), in the
+  # comment-stripped source, is counted; the one recognised assignment must be the only write.
+  local writes nwrites
+  writes=$(sed -e 's/^[[:space:]]*#.*//' -e 's/[[:space:]]#.*//' "$vs" | grep -nE '(^|[;&|({[:space:]])((export|readonly|local|declare|typeset)([[:space:]]+-[A-Za-z]+)*[[:space:]]+)?CERT_FLOOR\+?=|\$\{CERT_FLOOR:?[=]|(^|[;&|[:space:]])read([[:space:]]+-[A-Za-z]+)*[[:space:]][^;&|]*\bCERT_FLOOR\b'); frc=$?
+  if [ "$frc" -gt 1 ]; then
+    echo "  [FAIL] grep failed (rc=$frc) reading $vs for writes to CERT_FLOOR; nothing judged."
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
+  if [ -z "$writes" ]; then nwrites=0; else nwrites=$(printf '%s\n' "$writes" | wc -l); fi
+  if [ "$nwrites" -ne 1 ]; then
+    echo "  [FAIL] $vs writes CERT_FLOOR $nwrites time(s) (comment-stripped); the captured CERT_FLOOR=${floors#CERT_FLOOR=}"
+    echo "         is then not the value the script runs with:"
+    printf '%s\n' "$writes" | sed 's/^/           /'
+    echo "CERT_INVENTORY=FAIL"; return 1
+  fi
   f=${floors#CERT_FLOOR=}
   if ! grep -qxE '[0-9]+' <<<"$f"; then
     echo "  [FAIL] the captured CERT_FLOOR is not a single integer: '$f'"
@@ -2124,9 +2272,11 @@ gate_cert_inventory() {
     echo "  [info] shared proof ${dup:0:16}…: $(printf '%s' "$shalist" | grep "^$dup " | cut -d' ' -f2- | xargs -n1 basename | tr '\n' ' ')"
   done
   local dclaims dcrc ndclaims nd
-  dclaims=$(grep -oE '[0-9]+ distinct proofs' "$readme"); dcrc=$?
-  if [ "$dcrc" -gt 1 ]; then
-    echo "  [FAIL] grep failed (rc=$dcrc) reading $readme — the distinct-proof claim was never read; nothing judged."
+  # Q-968 (A10#3): the count is read by the shared number lexer (md_normalise.sh), so "1,023 distinct
+  # proofs" is 1023, not the 023 an unanchored `[0-9]+` took from after the comma, and "-23" is not 23.
+  dclaims=$(set -o pipefail; md_num_scan "$readme" '({NUM})\s+distinct proofs' | cut -f2); dcrc=$?
+  if [ "$dcrc" -ne 0 ]; then
+    echo "  [FAIL] the number lexer failed (rc=$dcrc) reading $readme — the distinct-proof claim was never read; nothing judged."
     echo "CERT_INVENTORY=FAIL"; return 1
   fi
   if [ -z "$dclaims" ]; then ndclaims=0; else ndclaims=$(printf '%s\n' "$dclaims" | wc -l); fi
@@ -2137,7 +2287,7 @@ gate_cert_inventory() {
     echo "         capture is ambiguous — quote a retired count as a bare number, never in the live form."
     echo "CERT_INVENTORY=FAIL"; return 1
   fi
-  nd=${dclaims% distinct proofs}
+  nd=$dclaims
   if ! grep -qxE '[0-9]+' <<<"$nd"; then
     echo "  [FAIL] the captured distinct-proof count is not a single integer: '$nd'"
     echo "CERT_INVENTORY=FAIL"; return 1

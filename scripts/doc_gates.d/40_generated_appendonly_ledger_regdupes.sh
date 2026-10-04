@@ -148,8 +148,21 @@ gate_generated() {
   # nothing would turn a stale directory into a false clear — the failure mode this whole
   # suite exists to stop — so the key is the generator's own sha256, the only input that
   # can change what the reference should be.
+  # 🔴 Q-971 (b) (2026-10-03, batch 40; Codex (gpt-6-astra), push-path review Q835, adjudicated
+  # Q-962 R9). A miss used to remove only .roae_sha and regenerate OVER the old outputs, so an
+  # exporter that wrote nothing left the previous run's report.md in place and it was compared
+  # as if fresh (measured: PASS rc 0; the same break with no cache is rc 1). Now the key file
+  # also records the sha256 of each output as it was generated, a reuse requires the key AND
+  # every recorded digest to match the bytes on disk, and a miss removes ALL outputs before
+  # regenerating, so an output the generator did not write this time is absent, not stale.
+  # (Inheriting DOC_GATES_GEN_CACHE at push time is refused separately by pre_push_gate.sh's
+  # Q-949 env guard, family DOC_GATES_*.)
+  _gen_manifest() {   # the key, then one "sha256  name" line per output, in a fixed order
+    printf '%s\n' "$gen_key"
+    ( cd "$tmp" && sha256sum fresh.txt report.md report.html ) 2>/dev/null
+  }
   if [ -s "$tmp/fresh.txt" ] && [ -s "$tmp/report.md" ] && [ -s "$tmp/report.html" ] \
-     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$gen_key" ]; then
+     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$(_gen_manifest)" ]; then
     echo "  reusing regeneration cache $tmp (roae.py sha256 $(printf '%.12s' "$cur_sha")… and seed $ROAE_EXAMPLE_SEED unchanged)"
   else
     # `--markdown` and `--html` are run WITHOUT `--all` and from inside $tmp, because that
@@ -160,7 +173,9 @@ gate_generated() {
     # numbers, on purpose — a recorded line number is the thing that drifts, cf. the
     # GATE 5 allowlist.)
     echo "  regenerating (3 runs, ~45s each, --seed $ROAE_EXAMPLE_SEED): --all to stdout, then --markdown and --html into a temp dir"
-    rm -f "$tmp/.roae_sha"
+    rm -f "$tmp/.roae_sha" "$tmp/fresh.txt" "$tmp/report.md" "$tmp/report.html" || {
+      echo "  [FAIL] could not clear the regeneration cache $tmp, so a stale output could be compared"
+      [ "$owned" = 1 ] && rm -rf "$tmp"; return 1; }
     if ! timeout 300 python3 roae.py --all --seed "$ROAE_EXAMPLE_SEED" > "$tmp/fresh.txt" 2>/dev/null; then
       echo "  [FAIL] the generator itself did not run cleanly"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
@@ -177,7 +192,7 @@ gate_generated() {
       echo "  [FAIL] the generator did not run cleanly for --html"
       [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
-    [ -n "$cur_sha" ] && printf '%s\n' "$gen_key" > "$tmp/.roae_sha"
+    [ -n "$cur_sha" ] && _gen_manifest > "$tmp/.roae_sha"
   fi
   # A missing artifact is NOT a skip. The generator was just run and checked, so an
   # absent report.md means the gate cannot see its target -- which must be an error,
@@ -795,7 +810,9 @@ PY
 #     it is not an invariant anything can be gated on.
 #   - ORDER and BLANK LINES. This half is a multiset containment check, so a
 #     re-ordering passes it. 10a is the order-sensitive half (diff is an LCS); the two
-#     are complementary and both run.
+#     are complementary and both run. NOT COVERED BY EITHER (Q-971, A05#6): a reorder that is
+#     already COMMITTED. 10a compares the working copy with HEAD, so it sees only an
+#     uncommitted reorder; this half sees only lost lines.
 #
 # COST: B distinct blob versions x L lines; B = commits touching the file + remote-tracking refs,
 # deduplicated by blob id. Neither is quoted here: a "Measured 2026-08-02" `B = 5, L = 525` was
@@ -916,6 +933,17 @@ gate_appendonly_history() {
     echo "         rewritten-published-history arm has NO baseline here; other remote branches"
     echo "         are still walked and reported as merge gaps."
   fi
+  # 🔴 Q-971 (a) (2026-10-03, batch 40; Codex (gpt-6-astra), push-path review Q835, adjudicated
+  # Q-962 R9). The walk below used to CLASSIFY and DEDUPLICATE in one pass, in rev-list order
+  # (newest first), keyed on the blob alone. An unmerged remote commit that carried the SAME
+  # ledger blob as an ancestor of HEAD was visited first, became a merge-gap [note], marked the
+  # blob seen, and the ancestor's copy was skipped: a COMMITTED deletion went from FAIL to PASS
+  # once such a ref was fetched (measured in a scratch clone). Now every (commit, blob) pair is
+  # classified FIRST, the pairs are ordered strictest first (ancestor, published, behind,
+  # unmerged; rev-list order kept within a class), and only then deduplicated by blob, so a blob
+  # is always judged under the strictest verdict any commit holding it earns.
+  local g10b_pairs _g10b_rank _g10b_seq=0
+  g10b_pairs=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1; }
   for src in $(git rev-list HEAD $(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) \
                -- "$f" 2>/dev/null); do
     # 🔴 Q-283 finding 8, second half — a distinction the branch's fix does not draw and this tree
@@ -947,6 +975,14 @@ gate_appendonly_history() {
     fi
     blob=$(git rev-parse --quiet --verify "$src:$f" 2>/dev/null) || continue
     [ -n "$blob" ] || continue
+    case "$_g10b_kind" in ancestor) _g10b_rank=0;; published) _g10b_rank=1;; behind) _g10b_rank=2;; *) _g10b_rank=3;; esac
+    _g10b_seq=$((_g10b_seq+1))
+    printf '%s %s %s %s %s\n' "$_g10b_rank" "$_g10b_seq" "$src" "$_g10b_kind" "$blob"
+  done > "$g10b_pairs"
+  # Q-971 (a): strictest class first, then rev-list order; THEN the blob dedup. A failed sort is
+  # a FAIL, never an empty walk (an empty walk prints "[ok] ... no baseline").
+  sort -k1,1n -k2,2n -o "$g10b_pairs" "$g10b_pairs" || { echo "  [FAIL] GATE 10b: could not order the baselines, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
+  while read -r _g10b_rank _g10b_seq src _g10b_kind blob <&3; do
     case " $seen " in *" $blob "*) continue;; esac
     seen="$seen $blob"
     n=$((n+1))
@@ -959,7 +995,7 @@ gate_appendonly_history() {
     if [ "${lost:-0}" -ne 0 ]; then
       # Q-251 / Q-718: split into RE-WRAPS (accumulated, reported once below) and LOST lines.
       local g10b_lostf
-      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1; }
+      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
       diff "$g10b_base" "$f" > "$g10b_diff"; comm -23 "$tmp" "$cur" | DG_DIFF="$g10b_diff" DG_REW="$g10b_rew" python3 -c '
 import os, re, sys, difflib, collections
 def classify(dt):  # Q-718: a normal-format diff -> (re-wrapped, lost) removed lines, judged hunk by hunk
@@ -1018,7 +1054,8 @@ for l in (x.rstrip("\n") for x in sys.stdin):
       fi
     fi
     [ -n "${g10b_lostf:-}" ] && rm -f "$g10b_lostf" && g10b_lostf=""
-  done
+  done 3< "$g10b_pairs"
+  rm -f "$g10b_pairs"
   # Q-251, the aggregate. Printed ONCE however many baselines carried the same re-flowed line.
   if [ -s "$g10b_rew" ]; then
     local nrew

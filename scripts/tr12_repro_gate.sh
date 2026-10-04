@@ -540,13 +540,13 @@ expected_manifest > "$EXP_PRE"
 SKIPPIN=scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt
 observed_skips(){ # $1 = VERDICTS.txt -> sorted TOKEN=VALUE lines, one per skipped/pending row
   grep -E '^TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*$' "$1" 2>/dev/null | grep -v '_REASON=' | sort -u
-}
+}; malformed_skips(){ { grep -E '^[[:space:]]*TR12_[^=]*=[[:space:]]*(SKIP|PENDING)' "$1" 2>/dev/null | grep -v '_REASON='; grep -vE '^[[:space:]]*(#|$)' "$2"; } | grep -vxE 'TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*' | sort -u; }  # Q-969 (A13#8): observed_skips reads only WELL-FORMED values, so `TR12_X=SKIP:failed check` was invisible and the set still matched; $1 VERDICTS + $2 pin -> every skip/pending-shaped line that is NOT well-formed (one line, so no cited line below moves)
 skip_pin_compare(){ # $1 = VERDICTS.txt  $2 = pin file ; prints findings; rc 0 same / 1 differs / 2 cannot
   local v="$1" pin="$2" obs exp new gone
   [ -r "$v" ]   || { echo "  [FAIL] skip pin: VERDICTS file unreadable: $v"; return 2; }
   [ -r "$pin" ] || { echo "  [FAIL] skip pin: no pinned skip set at $pin — run scripts/tr12_repro_gate.sh --stamp on a quiet box; an UNPINNED skip set cannot be certified"; return 2; }
   obs=$(observed_skips "$v"); exp=$(grep -vE '^[[:space:]]*(#|$)' "$pin" | sort -u)
-  [ -n "$exp" ] || { echo "  [FAIL] skip pin: $pin has zero rows — an empty pin certifies nothing; re-stamp"; return 2; }
+  [ -n "$exp" ] || { echo "  [FAIL] skip pin: $pin has zero rows — an empty pin certifies nothing; re-stamp"; return 2; }; local mal; mal=$(malformed_skips "$v" "$pin"); [ -z "$mal" ] || { echo "  [FAIL] skip pin: malformed skip/pending line(s), not TR12_<ROW>=SKIP|PENDING:<code>:"; printf '%s\n' "$mal" | sed 's/^/           /'; return 1; }
   new=$(comm -23 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp"))
   gone=$(comm -13 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp"))
   if [ -z "$new" ] && [ -z "$gone" ]; then
@@ -567,7 +567,7 @@ if [ "$MODE" = "--selftest-skip-pin" ]; then
   o=$(skip_pin_compare "$T/v3" "$T/pin"); r=$?; [ "$r" -eq 1 ] && grep -q 'TR12_C=PENDING:--kc-x' <<<"$o" && echo "  [ok] a VANISHED skip -> 1, named" || { echo "  [FAIL] vanished skip -> $r"; f=1; }
   skip_pin_compare "$T/v" "$T/nopin" >/dev/null; r=$?; [ "$r" -eq 2 ] && echo "  [ok] missing pin -> 2" || { echo "  [FAIL] missing pin -> $r"; f=1; }
   : > "$T/empty"; skip_pin_compare "$T/v" "$T/empty" >/dev/null; r=$?; [ "$r" -eq 2 ] && echo "  [ok] empty pin -> 2" || { echo "  [FAIL] empty pin -> $r"; f=1; }
-  skip_pin_compare "$T/absent" "$T/pin" >/dev/null; r=$?; [ "$r" -eq 2 ] && echo "  [ok] missing VERDICTS -> 2" || { echo "  [FAIL] missing VERDICTS -> $r"; f=1; }
+  skip_pin_compare "$T/absent" "$T/pin" >/dev/null; r=$?; [ "$r" -eq 2 ] && echo "  [ok] missing VERDICTS -> 2" || { echo "  [FAIL] missing VERDICTS -> $r"; f=1; }; { cat "$T/v"; printf 'TR12_D=SKIP:failed check\n'; } > "$T/v4"; o=$(skip_pin_compare "$T/v4" "$T/pin"); r=$?; [ "$r" -eq 1 ] && grep -q 'TR12_D=SKIP:failed check' <<<"$o" && echo "  [ok] a MALFORMED skip -> 1, named (Q-969)" || { echo "  [FAIL] malformed skip -> $r"; f=1; }
   n=$(grep -cvE '^[[:space:]]*(#|$)' "$SKIPPIN" 2>/dev/null); [ "${n:-0}" -ge 1 ] && echo "  [ok] live pin $SKIPPIN has $n rows" || { echo "  [FAIL] live pin unreadable or empty"; f=1; }
   [ "$f" -eq 0 ] && { echo "TR12_SKIP_PIN_SELFTEST=PASS"; exit 0; } || { echo "TR12_SKIP_PIN_SELFTEST=FAIL"; exit 1; }
 fi

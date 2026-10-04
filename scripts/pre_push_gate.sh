@@ -146,7 +146,18 @@
 # doc-integrity defect or a compile error into the published record.
 set -u
 
+# ---- Q-971 (c): REPLACE REFS ARE IGNORED (2026-10-03, batch 40) -------------------------------
+# A refs/replace/<bad> -> <clean> entry makes every git read of <bad> (cat-file, show, ls-tree,
+# `worktree add`) see <clean>'s content, while `git push` sends <bad>'s real objects. So the tree
+# this hook gated was not the tree it published (measured in a scratch clone: the per-sha
+# worktree checked out the CLEAN README). Found by Codex (gpt-6-astra), push-path review Q835;
+# adjudicated Q-962 R9. Exported BEFORE the first git read, and inherited by every leg and gate
+# below. A replace ref is not refused: with this set it changes nothing this hook reads, and a
+# [note] names it so its presence is visible.
+export GIT_NO_REPLACE_OBJECTS=1
 ROOT=$(git rev-parse --show-toplevel) || exit 1
+_q971_nrep=$(git for-each-ref --format='%(refname)' refs/replace/ 2>/dev/null | wc -l)
+[ "${_q971_nrep:-0}" -gt 0 ] && echo "pre-push: [note] $_q971_nrep refs/replace/* entr(y/ies) present; IGNORED (GIT_NO_REPLACE_OBJECTS=1), the real objects are gated"
 Z40=0000000000000000000000000000000000000000
 
 # ---- Q-949: INHERITED FIXTURE AND OVERRIDE VARIABLES ARE REFUSED (2026-10-03, batch 38) --------

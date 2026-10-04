@@ -76,8 +76,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Q-965: headings and fences are read through the shared markdown normaliser of doc_gates.sh. It is
+# sourced from THIS script's checkout ($here), not from --root, so a planted --selftest repository
+# needs no copy of it; a missing normaliser is an ERROR, never a silent raw-line scan.
+. "$here/scripts/doc_gates.d/md_normalise.sh" 2>/dev/null && declare -F _md_norm_prelude >/dev/null \
+  || { echo "TR12_OUTPUT_PATHS_ERROR=normaliser-unreadable"; echo "TR12_OUTPUT_PATHS=ERROR"; exit 2; }
+# Q-966: and the shared word/token matcher, the same way, for the comment-stripped battery below.
+. "$here/scripts/doc_gates.d/word_match.sh" 2>/dev/null && declare -F _wm_prelude >/dev/null \
+  || { echo "TR12_OUTPUT_PATHS_ERROR=matcher-unreadable"; echo "TR12_OUTPUT_PATHS=ERROR"; exit 2; }
+
 run_gate() {  # $1 = checkout root
-  python3 - "$1" <<'PY'
+  { _md_norm_prelude; _wm_prelude; cat <<'PY'
 import os, re, subprocess, sys
 
 root = sys.argv[1]
@@ -126,14 +135,20 @@ try:
     battery = open(os.path.join(root, "scripts", "tr12_repro.sh"), encoding="utf-8").read()
 except OSError:
     verdict("ERROR", 2, "battery-unreadable")
-written = set(re.findall(r"\$ARTDIR/([A-Za-z0-9_./-]*[A-Za-z0-9_])", battery))
+# Q-966 (A02#17): a COMMENT is not a producer. `# cp "$RAW" "$ARTDIR/x.tsv"` in the battery made x.tsv
+# "written" while nothing writes it; the battery is read with its shell comments blanked.
+written = set(re.findall(r"\$ARTDIR/([A-Za-z0-9_./-]*[A-Za-z0-9_])", wm_strip_comments(battery, "sh")))
 if not written:
     verdict("ERROR", 2, "battery-has-no-ARTDIR-literal")
-has_consumer = "$ARTDIR/consumer" in battery
+has_consumer = "$ARTDIR/consumer" in wm_strip_comments(battery, "sh")
 try:
     solvepy = open(os.path.join(root, "solve.py"), encoding="utf-8").read()
 except OSError:
     solvepy = ""
+try:
+    solvepy = wm_strip_comments(solvepy, "py")      # Q-966: a quoted name in a comment is not a consumer
+except Exception:
+    verdict("ERROR", 2, "solve.py-untokenizable")
 
 def produced(name):
     """Does the battery write <artifact-root>/name ?"""
@@ -161,21 +176,20 @@ def tracked_path(tok):
 
 for f in sorted(t for t in tracked if t.endswith(".md") and t not in SKIP):
     try:
-        lines = open(os.path.join(root, f), encoding="utf-8").read().split("\n")
+        lines, kinds, blks, _unc = md_parse(open(os.path.join(root, f), encoding="utf-8").read())
     except (OSError, UnicodeDecodeError):
         continue
-    fence = False
+    # Q-965 (A02#14, A02#15): fences are matched by opener (a ~~~ line inside a ``` block is content,
+    # not a toggle), a heading line is SCANNED like any other line (a broken path on a "## See ..."
+    # heading passed), and a "## Revision history" section ends at the next heading of level 1 OR 2
+    # (a "# Current usage" after it stayed exempt to end of file). Any heading form counts.
+    hlev = {b["start"]: (b["level"], b["text"]) for b in blks if b["kind"] == "heading"}
     in_rev = False
     for i, line in enumerate(lines, 1):
-        s = line.lstrip()
-        if s.startswith("```") or s.startswith("~~~"):
-            fence = not fence
+        if kinds[i - 1] in ("code", "fence"):
             continue
-        if fence:
-            continue
-        if line.startswith("## "):
-            in_rev = line.strip().lower() == "## revision history"
-            continue
+        if i in hlev and hlev[i][0] <= 2:
+            in_rev = hlev[i][0] == 2 and hlev[i][1].strip().lower() == "revision history"
         if in_rev:
             continue
         for m in span_re.finditer(line):
@@ -234,6 +248,7 @@ print("  [ok] %d span(s): every reports/tr12/ name is tracked, every historical 
       "no-producer list (%d row(s))" % (checked, len(NO_PRODUCER)))
 verdict("PASS", 0)
 PY
+  } | python3 - "$1"
 }
 
 if [ "$mode" = run ]; then

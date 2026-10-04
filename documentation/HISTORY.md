@@ -10790,3 +10790,120 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
   refuses a file list from a producer that failed, and the step-9 gate refuses a rung that prints
   two totals. No big-integer comparison in the package was inexact; the aggregate check now reads
   ASCII digits only.
+
+## 2026-10-04 — batch 40: the document gates read Markdown, numbers and words the way a reader does, tie each claim to its own evidence, fail on a registry row they cannot read, and four checks now bind to what is really pushed
+
+**Batch 40, one shared Markdown normaliser for the prose and number gates (CX-297, Q-965).**
+
+- The document gates check the public text for things that must not come back: withdrawn numbers,
+  retracted sentences, over-claims. They read each file one raw line at a time.
+- A review by Codex, checked one finding at a time in Q-962, showed that ordinary Markdown got past
+  them. A withdrawn number split over two lines passed. So did a word in bold, a value in code font,
+  a table written without its outer `|` characters, a heading written in another of Markdown's
+  styles, a code block opened with `~~~`, Windows line ends, and a character written as an HTML
+  entity. There were 29 such findings, each planted in a copy of the public tree and passed by its
+  gate.
+- There is now one helper that turns a Markdown file into what a reader sees: joined paragraphs
+  that remember their real line numbers, tables and headings in every style, code blocks matched
+  correctly, and the formatting marks taken out. The affected gates read their files through it.
+- A code block that is opened and never closed would hide the rest of the file from any gate that
+  skips code. So such a block is not treated as code, and the two gates that read code itself fail
+  on it.
+- On today's documents nothing new was found. Two technical uses of "in flight" and one quoted line
+  in the corrections ledger needed a narrow, stated exemption; no document was changed.
+- 38 test cases, one per planted form of each finding: each fails on the new gates, passes on the
+  old ones, and has a plain twin that the gate catches.
+- No published number, count, sha or verdict changed.
+
+**Batch 40, one shared number reader for the number gates (CX-298, Q-968).**
+
+- Several document gates compare a number in the text with the number it must equal. Each one read
+  numbers its own way, and each way lost something.
+- The same Codex review, checked in Q-962, showed eleven ways past them. "1,023" was read as 23,
+  because reading began after the comma. A minus sign was dropped. A long number written without
+  commas was not seen. "+/-" was not read as "±". Upper-case hex digits were skipped. A ratio of
+  exactly ten, or one divided by zero, was left out of the check. 1001 and 0x3e9, which are the same
+  number, counted as two different seeds. A reading time of "(1 min" was not read. "C(91 , 6)" with
+  spaces was missed. An older finding of the same kind is fixed too: "12×10³³" was read as 2×10³³.
+- There is now one helper that reads a number the way a person does: commas or thin spaces between
+  digit groups, a sign or a ± band, a decimal part, scientific notation in any of the usual forms,
+  and hex. A number it cannot read, or a division by zero, is now reported, not skipped. The
+  affected gates read their numbers through it.
+- On today's documents nothing new failed. One gate that only warns now sees one more unlabelled
+  copy of an exact count; it is listed in the corrections entry, and no document was changed.
+- 19 test cases, one per planted form of each finding: each is caught by the new gates, passes the
+  old ones, and has a plain twin that the gate catches.
+- No published number, count, sha or verdict changed.
+
+**Batch 40, checks that matched a claim to the wrong evidence (Q-967, CX-299).**
+
+- Codex's push-path review (Q835) found 21 places where a documentation check found the right kind
+  of claim and then compared it with the wrong evidence. The Q-962 adjudication confirmed all 21. It
+  checked only the first number in a sentence. It pooled values from different datasets. It took a
+  qualifier, or a sha, from a neighbouring sentence or paragraph. And a claim-ledger row could
+  "prove" its value by reading the ledger itself.
+- The last one mattered most. A false TR-12 budget vector, written into both the ledger and the
+  report, passed the ledger check.
+- Each check now judges a claim inside its own sentence, table row, list item or section, and
+  against the evidence for its own dataset, boundary or resource. Every match is checked, not just
+  the first.
+- A ledger row's evidence may no longer name the ledger or the document that makes the claim. It
+  also runs in a copy of the tree where those two files cannot be read without the check noticing.
+- All 72 existing ledger rows pass the new rule. No published number, count, sha or verdict
+  changed, and no other document was edited.
+- A new test replants all 21 findings. Each one fails on this tree and passes on the old scripts.
+
+**Batch 40, one shared word matcher for the document gates (CX-300, Q-966).**
+
+- The gates look for marker words such as "retracted" or "superseded", and for ids such as CX-999.
+  They searched for them as plain pieces of text.
+- The same Codex review showed what that let through. "unretracted" counted as "retracted". "not
+  superseded" counted as "superseded". "mainframe" counted as "frame". CX-999 was found inside
+  CX-9990, and PICK=2 inside PICK=20. A comment in the code counted as code. There were 28 such
+  findings, each planted in a copy of the public tree and passed by its gate.
+- There is now one helper that matches whole words and exact ids, skips a word that is negated in
+  its own clause, and reads code with the comments taken out. The affected gates use it.
+- Some exemptions were tied only to a word. They are now tied to where the word stands: the
+  documents that explain a removed flag, or the list that approves a source file.
+- On today's documents one false pass came to light: three rows had been passed because `seed_base=`
+  contains `se=`. The rows are correct, since they cite a relative standard error, so the gate now
+  accepts that field for a row that says so. No document was changed.
+- 30 test cases, one per planted form of each finding: each fails on the new gates, passes on the
+  old ones, and has a plain twin that the gate catches.
+- No published number, count, sha or verdict changed.
+
+**Batch 40, registries and file lists that cannot lose a row (CX-301, Q-969).**
+
+- Many document gates read a list of rules or figures from a registry file, or a list of files to
+  check. If a row could not be read, the gate quietly skipped it and still passed.
+- The same Codex review, checked in Q-962, found eleven such cases. A registry row missing its
+  second column was skipped, as was a rule row starting with `#` or a status file with every row
+  removed. A table row with an extra cell was read in the wrong column. A machine list written as a
+  range was not read at all, and one with a wrong number passed because only its size was checked.
+  A ledger field at the end of an entry was never read. A README in a subfolder was never checked.
+  A repeated step in a table hid a missing one, and a badly written "skip" line was ignored.
+- Now a row a gate cannot read is a failure, an empty list is a failure, the gate that checks
+  "still running" wording reads every document in every folder, and lists are compared item by
+  item, not by size.
+- On today's documents one new finding appeared: a July plan in an evidence folder still says a
+  step is "in flight". That line now carries a dated note: the step was finished in July, and the
+  plan's route led to TR-11.
+- 11 test cases, one per finding: each is caught by the new gates, passes the old ones, and has a
+  plain twin that the gate catches.
+- No published number, count, sha or verdict changed.
+
+**Batch 40, what four checks bind to (CX-302, Q-971).**
+
+- The ledger-history check could be fooled by a fetched branch that held an old copy of the ledger:
+  that copy was reported as a merge gap, and the same copy in this branch's own history, which had
+  lost a line, was then skipped. A committed deletion passed. Each commit is now judged before
+  copies are merged, strictest verdict first.
+- The example-report check's optional cache kept an old `report.md` when the generator wrote none,
+  and compared it as if new. A miss now clears every output, and the cache records each output's
+  digest.
+- A `git replace` ref could make the pre-push and pre-commit hooks judge a different tree from the
+  one being pushed or committed. They now ignore replace refs.
+- The commit-time size check read its approval list from the working tree; it now reads the staged
+  copy, the one the commit carries.
+- Nothing published changes. Seventeen new tests; the plants fail on the old scripts and pass on the
+  new ones. Codex (gpt-6-astra) found these in the push-path review Q835; adjudicated Q-962.

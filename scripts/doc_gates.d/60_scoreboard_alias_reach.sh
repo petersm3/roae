@@ -313,7 +313,7 @@ gate_alias_reach() {
   require_tracked "documentation/DOC_GATE_ALIAS_REACH.tsv" \
     "The alias-ruling registry IS this gate; with it gone, zero rulings are checked."
   case $? in 1) return 0;; 2) return 1;; esac
-  python3 - <<'PY'
+  python3 - "$(reg_rows_count documentation/DOC_GATE_ALIAS_REACH.tsv)" <<'PY'   # argv[1] = require_rows' count (Q-969)
 import os, subprocess, sys
 REG = 'documentation/DOC_GATE_ALIAS_REACH.tsv'
 if not os.path.exists(REG):
@@ -324,9 +324,19 @@ if not os.path.exists(REG):
 
 rules, allows, opens, cfgbad = [], {}, {}, []
 stale = []   # GATE 18 LEG stale-registry-row, 2026-09-03 — see the leg comment below
+nrows = 0   # Q-969: every data row this parser accepted OR rejected loudly (cfgbad)
 for lno, ln in enumerate(open(REG, encoding='utf-8'), 1):
-    if not ln.strip() or ln.startswith('#'):
+    if not ln.strip():
         continue
+    if ln.startswith('#'):
+        # Q-969 (A07#2): "#rule\t..." was skipped as a comment while require_rows counted it, so
+        # prefixing every rule with "#" left 0 rules and rc 0. The header's comments carry no TAB
+        # column (measured: none do), so a "#" line with a TAB-separated column is a row in comment shape.
+        g = ln.rstrip('\n').split('\t')
+        if any(c.strip() for c in g[1:]):
+            cfgbad.append((lno, f'comment-shaped row carries TAB column(s) ({g[0][:30]!r}); a "#" line is a comment only without them'))
+        continue
+    nrows += 1
     f = ln.rstrip('\n').split('\t')
     kind = f[0]
     if kind in ('rule', 'attrib') and len(f) >= 7:
@@ -352,6 +362,10 @@ for lno, ln in enumerate(open(REG, encoding='utf-8'), 1):
 for lno, msg in cfgbad:
     print(f'  [FAIL] {REG}:{lno} — malformed registry row: {msg}')
     print(f'         A row this gate cannot parse is a row it silently stopped enforcing.')
+if not rules:
+    cfgbad.append((0, 'zero rule/attrib rows')); print(f'  [FAIL] Q-969: {REG} has ZERO rule/attrib rows, so no alias is checked.')
+if nrows != int((sys.argv[1:] or ['-1'])[0] or '-1'):
+    cfgbad.append((0, 'row count')); print(f'  [FAIL] Q-969: GATE 18 read {nrows} data row(s) of {REG}; require_rows counts {(sys.argv[1:] or ["?"])[0]}.')
 
 def occ(hay, needle, stop):
     # Fixed-substring occurrence count with a void-if-followed-by-stopchar guard.

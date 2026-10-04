@@ -200,7 +200,10 @@
 #@ the --selftest fire-proofs read, and it is line-for-line the pre-split file: print it with
 #@   bash scripts/doc_gates.d/logical_source.sh
 #@ A line number quoted by a gate as `scripts/doc_gates.sh:N` is a line of the logical source.
-set -uo pipefail
+#@ Q-971 (c) (2026-10-03, batch 40): GIT_NO_REPLACE_OBJECTS=1 is exported on the `set` line so a
+#@ refs/replace/* entry cannot change what any gate reads from git (see scripts/pre_push_gate.sh,
+#@ "Q-971 (c)"); same line, so the logical source keeps its line numbers.
+set -uo pipefail; export GIT_NO_REPLACE_OBJECTS=1
 cd "$(dirname "$0")/.." || exit 2
 RC=0
 
@@ -357,13 +360,34 @@ require_rows() { # $1=registry  $2=why it matters
   fi
   # A row is what reg_row_kind calls one (Q-773 follow-up): not blank, and column 1 (leading tabs dropped, as
   # `read` drops them) is neither exactly `#` nor starts `# `. A row starting `#7` counts; the old `grep -cvE` count dropped it.
-  n=$(awk -F'\t' '{ s = $0; sub(/^\t+/, "", s); split(s, c, "\t") } s ~ /^[[:space:]]*$/ { next } c[1] == "#" || c[1] ~ /^# / { next } { n++ } END { print n + 0 }' "$f" 2>/dev/null); n=${n:-0}
+  n=$(reg_rows_count "$f")
   if [ "${n:-0}" -eq 0 ]; then
     echo "  [FAIL] $f has ZERO rows. A registry with no rows SILENCES its gate rather than"
     echo "         passing it: the loop iterates nothing and returns clean. $2"
     return 1
   fi
   return 0
+}
+
+# reg_rows_count <registry> — the row count require_rows judges, as one number (0 for an unreadable file).
+#   Q-969 (R5 of the Q-962 adjudication, Codex Q835 lens A): a parser that drops a row it cannot read
+#   (a one-column row, a `#rule` row, an extra cell) still let require_rows count it, so the floor passed
+#   while the leg checked less than the file holds. A reader that consumes a registry passes this count
+#   in (as argv[1]) and FAILS when the rows it ACCEPTED differ from it; see reg_accepted_check.
+reg_rows_count() {
+  local n
+  n=$(awk -F'\t' '{ s = $0; sub(/^\t+/, "", s); split(s, c, "\t") } s ~ /^[[:space:]]*$/ { next } c[1] == "#" || c[1] ~ /^# / { next } { n++ } END { print n + 0 }' "$1" 2>/dev/null)
+  echo "${n:-0}"
+}
+# reg_accepted_check <registry> <accepted> <gate> — rc 0 when a parser accepted exactly the rows
+#   reg_rows_count sees; otherwise a [FAIL] naming both counts, rc 1. A row the parser could not read
+#   is a row the gate silently stopped enforcing, so the mismatch is the defect, not a warning.
+reg_accepted_check() {
+  local want; want=$(reg_rows_count "$1")
+  [ "$2" = "$want" ] && return 0
+  echo "  [FAIL] Q-969: $3 accepted $2 row(s) of $1, which holds $want data row(s). A row the parser"
+  echo "         cannot read is one this gate stopped checking; fix the row (or the parser), do not drop it."
+  return 1
 }
 
 # reg_row_kind <loud|quiet> <col1> [col2 ...]
@@ -913,7 +937,7 @@ fold_variants() {
       -e "s/$RSQ/'/g; s/$LSQ/'/g; s/$LDQ/\"/g; s/$RDQ/\"/g" \
       -e 's/\*//g' \
       -e 's/\([0-9]\),\([0-9]\)/\1\2/g' \
-      -e 's/ +/+/g; s/+ /+/g'
+      -e 's/\r$//; s/\t/ /g; s/ *+ */+/g'   # Q-965: CR, tabs, RUNS of spaces around + (fold_join: doc_gates.d/md_normalise.sh)
 }
 
 . scripts/doc_gates.d/20_retract_links_status.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/20_retract_links_status.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
@@ -2110,10 +2134,10 @@ open(c[0],'w').write(s+'\n# hard floor k>=13\n')"
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe ladder build is in flight and the log is 3,666 lines and growing.\n')"
 
-  # A5/#65: 1120T is the MENTIONED-but-sha-less shape, not the absent-from-registry shape,
-  # and the two need different fixes — so assert the branch, not just the failure.
+  # A5/#65: 1120T is the MENTIONED-but-sha-less shape, not the absent-from-registry shape, and the two need different fixes — so assert the branch, not just the failure; a "~" (Fable B40 FIX 1) does not make it a measured extent.
+  assert_fires_why "GATE 7 approximate mentioned budget" liveness 'mentioned is not attested' "s=open('documentation/GUIDE.md').read(); open('documentation/GUIDE.md','w').write(s+'\n\nThe ~1120T run reproduced the published ladder exactly.\n')"
   assert_fires_why "GATE 7 unreached budget" liveness \
-    'with no sha256 within' \
+    'with no sha of its own' \
 "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+'\n\nThe 1120T run reproduced the published ladder exactly.\n')"
 
@@ -2701,19 +2725,19 @@ open(d,'a',encoding='utf-8').write(chr(10)+'## Self-test table (5b fixture)'+chr
   # makes 5b-ii mean anything: without it, 5b-ii's silence about alpha is equally consistent
   # with "the entry suppressed it" and "the seed never produced it".
   assert_stays_clean_why "GATE 5b (5b-i) both seeded twins enter the reported class with no allowlist entry" status \
-'2 of those are in a MIXED table' \
+'3 of those are in a MIXED table' \
 "$_5b_seed"
 
   # 5b-ii — THE DISCRIMINATOR. Same seed, plus ONE allowlist entry anchored on ONE twin. The
-  # class census must fall by EXACTLY ONE, 2 -> 1, in a gate that cannot signal through rc.
+  # class census must fall by EXACTLY ONE, 3 -> 2, in a gate that cannot signal through rc.
   # 🔴 THIS IS AN ABSOLUTE PIN and it is a live rot hazard, declared rather than hidden: the
-  # numbers 2 and 1 are the seed's contribution ON TOP OF a live mixed-table census of ZERO,
+  # numbers 3 and 2 are the seed's 2 and 1 ON TOP OF a live mixed-table census of ONE (re-taken 2026-10-04, Q-968); ZERO when
   # measured 2026-09-03 immediately after reports/METHODS.md:71 was labelled. The next live
   # 5b finding turns both EREs red. RE-TAKE RECIPE, not a reason to weaken them: run
   # `bash scripts/doc_gates.sh status`, read the "N of those are in a MIXED table" figure,
   # and rewrite these two as N+2 and N+1.
   assert_stays_clean_why "GATE 5b (5b-ii) one allowlist entry removes exactly ONE occurrence from the class" status \
-'1 of those are in a MIXED table' \
+'2 of those are in a MIXED table' \
 "$_5b_seed
 a='documentation/DOC_GATE_UNMARKED_ALLOWLIST.txt'
 t=open(a,encoding='utf-8').read()
@@ -5760,7 +5784,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'## Self-test reader checklist'+chr
     cat > "$_G22_D/git" <<G22SHIM
 #!/usr/bin/env bash
 for a in "\$@"; do
-  if [ "\$a" = '[0-9a-f]+(…|\\.\\.\\.)' ]; then
+  if [ "\$a" = '[0-9a-fA-F]+(…|\\.\\.\\.)' ]; then
     touch "$_G22_D/acted"
     if [ "\${G22_SHIM_MODE:-}" = fail ]; then echo "g22 shim: git grep refused" >&2; exit 2; fi
     "$_G22_GIT" "\$@" | head -n 3; exit 0
@@ -5933,6 +5957,8 @@ preflight_support_newlines || RC=1
 . scripts/doc_gates.d/99_lsd_text.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/99_lsd_text.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/99_retract_derived.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/99_retract_derived.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/96_transcripts.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/96_transcripts.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
+. scripts/doc_gates.d/md_normalise.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/md_normalise.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
+. scripts/doc_gates.d/word_match.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/word_match.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
   npath) gate_npath || RC=1 ;;

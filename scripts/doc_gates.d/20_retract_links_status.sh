@@ -53,13 +53,15 @@ gate_retract() {
   # markdown-only -> 5.2 s with the extension. The match rule is IDENTICAL to the DOCS
   # half — same folded bytes, same whitespace normalisation, same fixed-string needle —
   # only the process orchestration differs.
-  local folddir flatevdir f
+  local folddir flatevdir flatdocdir f
   folddir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_fold.XXXXXX") || { echo "  [FAIL] mktemp failed"; return 1; }
   flatevdir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_flatev.XXXXXX") || { echo "  [FAIL] mktemp failed"; rm -rf "$folddir"; return 1; }
+  flatdocdir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_flatdoc.XXXXXX") || { echo "  [FAIL] mktemp failed"; rm -rf "$folddir" "$flatevdir"; return 1; }
   for f in $DOCS; do
     [ -f "$f" ] || continue        # a tracked-but-deleted doc is preflight_tracked_docs' finding
-    mkdir -p "$folddir/$(dirname "$f")"
+    mkdir -p "$folddir/$(dirname "$f")" "$flatdocdir/$(dirname "$f")"
     fold_variants < "$f" > "$folddir/$f"
+    fold_join < "$folddir/$f" > "$flatdocdir/$f"   # Q-965: joined ONCE per doc, not once per phrase
   done
   for f in $evid; do
     if [ ! -f "$f" ]; then
@@ -71,7 +73,7 @@ gate_retract() {
     fi
     mkdir -p "$folddir/$(dirname "$f")" "$flatevdir/$(dirname "$f")"
     fold_variants < "$f" > "$folddir/$f"
-    tr '\n' ' ' < "$folddir/$f" | tr -s ' ' > "$flatevdir/$f"
+    fold_join < "$folddir/$f" > "$flatevdir/$f"
   done
   while IFS=$'\t' read -r phrase allow note; do
     # Q-761: was `case "$phrase" in ''|'#'*) continue`, which skipped a needle starting with #.
@@ -99,12 +101,12 @@ gate_retract() {
       continue
     fi
     local np hits=""
-    np=$(printf '%s' "$phrase" | fold_variants | tr '\n' ' ' | tr -s ' ')
+    np=$(printf '%s' "$phrase" | fold_variants | fold_join)
     for f in $DOCS; do
       case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
       [ -f "$folddir/$f" ] || continue
       # normalise the FOLDED file to one whitespace-collapsed line, then fixed-string match
-      if tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -cF -- "$np" >/dev/null; then
+      if grep -qF -- "$np" "$flatdocdir/$f"; then
         # changelog rows legitimately quote superseded wording; only exempt if EVERY
         # line-level hit is a revision row.
         # RECORD WHERE, not just WHICH FILE (2026-08-02, #65). A bare filename makes the
@@ -124,7 +126,7 @@ gate_retract() {
         # at rc=0. Count instead of test: if the FLATTENED file holds more occurrences than the
         # revision rows do, at least one lives outside them.
         local nflat nrev
-        nflat=$(tr '\n' ' ' < "$folddir/$f" | tr -s ' ' | grep -oF -- "$np" 2>/dev/null | wc -l)
+        nflat=$(grep -oF -- "$np" "$flatdocdir/$f" 2>/dev/null | wc -l)
         nrev=$(grep -E '^\| v[0-9]' "$folddir/$f" 2>/dev/null | grep -oF -- "$np" 2>/dev/null | wc -l)
         if [ -n "$hitln" ]; then
           hits="$hits $f:$hitln"
@@ -159,7 +161,7 @@ gate_retract() {
       echo "  [ok] retracted: \"$phrase\""
     fi
   done < "$reg"
-  rm -rf "$folddir" "$flatevdir"
+  rm -rf "$folddir" "$flatevdir" "$flatdocdir"
   return $bad
 }
 
@@ -218,7 +220,7 @@ gate_retract_figures() {
   require_tracked "documentation/RETRACTED_FIGURES.tsv" \
     "The figure registry IS this gate; with it gone, zero statistics are checked."
   case $? in 1) return 0;; 2) return 1;; esac
-  python3 - <<'PY'
+  python3 - "$(reg_rows_count documentation/RETRACTED_FIGURES.tsv)" <<'PY'   # argv[1] = require_rows' count (Q-969)
 import os, re, subprocess, sys
 REG   = 'documentation/RETRACTED_FIGURES.tsv'
 ALLOW = 'documentation/DOC_GATE_FIGURE_ALLOWLIST.txt'
@@ -236,8 +238,12 @@ for ln in open(REG, encoding='utf-8'):
     if not ln.strip() or f[0] == '#' or f[0].startswith('# '):
         if any(c and not (c.startswith('<') and c.endswith('>')) for c in f[1:]): hashrow.append(f[0]); print(f'  [FAIL] Q-761: {REG} line "{f[0]}" is comment-shaped ("# ...") but carries data column(s), so it is not checked.\n         Register the figure without the leading "# ", or drop the tab-separated columns.')
         continue
-    if len(f) >= 2 and f[0].strip():
+    if len(f) >= 2 and f[0].strip() and f[1].strip():
         figs.append((f[0], f[1]))
+    else:   # Q-969 (A04#11): a one-column row was DROPPED here while require_rows counted it
+        hashrow.append(f[0]); print(f'  [FAIL] Q-969: {REG} row "{ln.rstrip(chr(10))[:80]}" is not "figure<TAB>why", so it is not checked.')
+if len(figs) != int((sys.argv[1:] or ['-1'])[0] or '-1'):
+    hashrow.append(''); print(f'  [FAIL] Q-969: GATE 3b accepted {len(figs)} row(s) of {REG}, which holds {(sys.argv[1:] or ["?"])[0]} data row(s).')
 
 # (file, figure, anchor) -> (class, why).  Anchor is a fixed substring that must appear on
 # the SAME LINE as the figure for the exemption to apply.
@@ -475,7 +481,7 @@ gate_links() {
   # deterministic by design; link-rot is a separate, network-dependent concern.
   # A dangling CITATIONS.md#anchor is the specific failure this protects against:
   # attribution that silently stops resolving when a citation entry is renamed.
-  python3 - <<'PY'
+  { _md_norm_prelude; cat <<'PY'
 import os, re, sys, subprocess, collections, unicodedata
 LINK = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
 HEAD = re.compile(r'^(#{1,6})\s+(.*?)\s*$', re.M)
@@ -490,7 +496,10 @@ anchors = {}
 for m in mds:
     txt = open(m, encoding='utf-8', errors='replace').read()
     seen, a = collections.Counter(), set()
-    for _, h in HEAD.findall(txt):
+    # Q-965 (A04#14): headings come from the shared normaliser. A "## Heading" inside a fenced code
+    # block is not a heading and gives no anchor (it satisfied a dead #fragment before); an indented,
+    # setext or block-quoted heading is one, as GitHub renders it.
+    for h in [b['title'] for b in md_parse(txt)[2] if b['kind'] == 'heading']:
         s = slug(h); seen[s] += 1
         a.add(s if seen[s] == 1 else f"{s}-{seen[s]-1}")
     a.update(re.findall(r'<a\s+(?:name|id)="([^"]+)"', txt))
@@ -522,6 +531,7 @@ if not bad:
           f"(#anchors verified on tracked-markdown targets only)")
 sys.exit(1 if bad else 0)
 PY
+} | python3 -
   rc=$?
 
   return $rc
@@ -587,8 +597,8 @@ gate_secrefs() {
   #     against an unrelated heading. So the rule is loose but is not currently producing a
   #     false clear — a statement about today's corpus, not about the rule.
   echo "== GATE 4b: plain-text section references resolve to a real heading =="
-  python3 - <<'PY'
-import os, re, sys, subprocess
+  { _md_norm_prelude; cat <<'PY'
+import os, re, sys, subprocess, bisect
 MDLINK = re.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
 HEAD   = re.compile(r'^#+\s+(.*?)\s*$', re.M)
 # ITEM B1 (2026-08-02, drain-2) — THE SECOND ANCHOR FORM. This repo names a block in two
@@ -637,7 +647,7 @@ mds = subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True).st
 heads, bolds, bybase = {}, {}, {}
 for m in mds:
     txt = open(m, encoding='utf-8', errors='replace').read()
-    heads[os.path.realpath(m)] = [norm(h) for h in HEAD.findall(txt)]
+    heads[os.path.realpath(m)] = [norm(b['title']) for b in md_parse(txt)[2] if b['kind'] == 'heading']   # Q-965: not inside a fence; indented/setext count
     bolds[os.path.realpath(m)] = [norm(b) for b in BOLD.findall(txt)]
     bybase.setdefault(os.path.basename(m), []).append(os.path.realpath(m))
 
@@ -666,29 +676,43 @@ hit_allow = set()
 # same reason — a shortening substitution would move every offset after it.
 for m in mds:
     base = os.path.dirname(m) or '.'
-    flats = [MDLINK.sub(lambda mo: mo.group(2), ln)      # [text](path) -> path
-             for ln in open(m, encoding='utf-8', errors='replace').read().split('\n')]
-    for lineno in range(1, len(flats) + 1):
-        head = flats[lineno - 1]
-        boundary = len(head)
-        cont = ''
-        if lineno < len(flats):
+    # Q-965 (A04#15): the window is the LOGICAL line of the shared normaliser -- a whole paragraph,
+    # every other block kind per line -- not two lines, so a reference wrapped over three or four lines
+    # is read; and curly quotes are folded to ASCII before matching, so §“Name” is a delimited
+    # reference (it matched nothing, and passed). Same-length folds only, so offsets stay exact; a hit
+    # is attributed to the line its match STARTS on, as before.
+    raw = md_text(open(m, encoding='utf-8', errors='replace').read())
+    flats = [md_fold_quotes(MDLINK.sub(lambda mo: mo.group(2), ln))      # [text](path) -> path
+             for ln in raw.split('\n')]
+    units = []
+    for blk in md_parse(raw)[2]:
+        span = [x for x, _ in blk['lines']] if blk['kind'] == 'para' else None
+        if span: units.append(span)
+        else: units += [[x] for x in range(blk['start'], blk['end'] + 1)]
+    allhits = []
+    for span in units:
+        window, offs = '', []
+        for k, x in enumerate(span):
             # drop the wrap's own blockquote/bullet decoration; it is not part of the sentence
-            cont = ' ' + re.sub(r'^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+)?', '', flats[lineno])
-        window = head + cont
-        hits  = [(mo.group(1), mo.group(2)) for mo in SEC_Q.finditer(window)
-                 if mo.start() < boundary]
+            s = flats[x - 1] if k == 0 else re.sub(r'^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+)?', '', flats[x - 1])
+            if k: window += ' '
+            offs.append(len(window)); window += s
+        at = lambda o: span[bisect.bisect_right(offs, o) - 1]
+        allhits += [(at(mo.start()), mo.group(1), mo.group(2)) for mo in SEC_Q.finditer(window)]
         blanked = SEC_Q.sub(lambda mo: ' ' * len(mo.group(0)), window)
-        hits += [(mo.group(1), mo.group(2)) for mo in SEC_N.finditer(blanked)
-                 if mo.start() < boundary]
-        for path, sec in hits:
+        allhits += [(at(mo.start()), mo.group(1), mo.group(2)) for mo in SEC_N.finditer(blanked)]
+    for lineno, path, sec in sorted(allhits, key=lambda h: h[0]):   # (the body keeps its old depth)
             if path.startswith(('http://', 'https://')):
                 continue
             dest = None
             for cand in (os.path.realpath(os.path.join(base, path)), os.path.realpath(path)):
                 if cand in heads:
                     dest = cand; break
-            if dest is None:                       # bare "CRITIQUE.md", no path
+            # Q-967 (Q-835 A04#16): the unique-basename fallback is for a BARE file name only.
+            # A reference that names a directory binds to that directory; when it resolves to
+            # nothing it is dangling, and `nonexistent/CRITIQUE.md` must not be read as
+            # documentation/CRITIQUE.md because that is the only CRITIQUE.md there is.
+            if dest is None and '/' not in path:   # bare "CRITIQUE.md", no path
                 same = bybase.get(os.path.basename(path), [])
                 if len(same) == 1:
                     dest = same[0]
@@ -858,6 +882,7 @@ if not bad and not stale:
           f"bold label ({len(mds)} markdown files scanned)")
 sys.exit(1 if (bad or stale or bare) else 0)
 PY
+} | python3 -
   [ $? -ne 0 ] && rc=1
   return $rc
 }
@@ -879,18 +904,31 @@ gate_status() {
   # source of truth; documentation/CANONICAL_VALUE_STATUS.tsv is its machine-readable
   # projection. Report-only, because legitimate sentences DO compare the two (e.g. "the
   # ratio of the exact count to the Knuth estimate"), so an allowlist carries those.
-  python3 - <<'PY'
+  { _md_num_prelude; cat <<'PY'
 import re, subprocess, sys, os
 reg = 'documentation/CANONICAL_VALUE_STATUS.tsv'
 allow = 'documentation/DOC_GATE_STATUS_ALLOWLIST.txt'
 if not os.path.exists(reg):
     print(f"  [FAIL] missing registry {reg}"); sys.exit(1)
 rows = []
-for line in open(reg, encoding='utf-8'):
+# Q-969 (A04#17): an emptied registry gave "[ok] 0 occurrences of 0/0", and a row the parser could
+# not read was dropped. Now: a comment (the header's own rule, `#` first) that carries a TAB column is
+# a data row in comment shape; a data row needs match<TAB>exact|estimate; zero rows is no registry.
+# Each is a structural FAIL (rc 1) even though the status findings themselves stay report-only.
+regbad = []
+for lno, line in enumerate(open(reg, encoding='utf-8'), 1):
     line = line.rstrip('\n')
-    if not line.strip() or line.lstrip().startswith('#'): continue
+    if not line.strip(): continue
     p = line.split('\t')
-    if len(p) >= 2: rows.append((p[0].strip(), p[1].strip()))
+    if line.lstrip().startswith('#'):
+        if any(c.strip() for c in p[1:]): regbad.append(f'{reg}:{lno} is comment-shaped but carries TAB column(s)')
+        continue
+    if len(p) >= 2 and p[0].strip() and p[1].strip() in ('exact', 'estimate'): rows.append((p[0].strip(), p[1].strip()))
+    else: regbad.append(f'{reg}:{lno} is not match<TAB>exact|estimate')
+if not rows: regbad.append(f'{reg} has ZERO rows, so no canonical quantity is checked')
+if regbad:
+    for b in regbad: print(f"  [FAIL] Q-969: {b}")
+    sys.exit(1)
 # Allowlist entries are "path:line" with an optional TAB-separated content anchor: a literal
 # substring identifying the reviewed sentence.
 #
@@ -984,6 +1022,21 @@ def exly_near(line, val):
             if re.fullmatch(_EXLY_GLUE, gap, re.I):
                 return {'exactly'}
     return set()
+# Q-968 (A04#18): A COMMA-GROUPED REGISTRY INTEGER IS MATCHED BY VALUE, not only by its literal
+# spelling. `val not in line` needed the commas, so the same integer written ungrouped (or grouped
+# with thin spaces) was never an occurrence, and calling it an estimate passed GATE 5 while GATE 1's
+# comma stripping saw unchanged digits. spelled() returns the spelling under which val occurs on the
+# line, read by the shared number lexer (md_normalise.sh); exly_near is then given that spelling.
+_VINT = {}
+def spelled(line, val):
+    want = _VINT.setdefault(val, int(val.replace(',', '')))
+    w = str(want)
+    if w[-3:] not in line or w not in re.sub(r'[^0-9]', '', line):   # cheap pre-filters: every spelling ends in w's last 3 digits
+        return None
+    for n in md_nums(line):
+        if n.kind == 'int' and n.value == want:
+            return n.raw
+    return None
 files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
          .stdout.split()]
 seen = 0; bad = 0; hits = set()   # hits: which registry rows actually occur in the corpus
@@ -1020,12 +1073,15 @@ for f in files:
                 if not (re.search(re.escape(val) + r'\s*[×x]\s*10', line) or _asc):
                     continue
             elif val not in line:
-                continue
+                vsp = spelled(line, val) if ',' in val and re.fullmatch(r'[\d,]+', val) else None
+                if vsp is None:
+                    continue
             seen += 1
             hits.add(val)
             TEXT[f] = _lines
             etoks = sorted(set(t.lower() for t in re.findall(EST, line, re.I)))
-            xtoks = sorted(set(t.lower() for t in re.findall(EX, line, re.I)) | exly_near(line, val))
+            xtoks = sorted(set(t.lower() for t in re.findall(EX, line, re.I))
+                           | exly_near(line, val if val in line else (spelled(line, val) or val)))
             he, hx = bool(etoks), bool(xtoks)
             if not he and not hx:
                 unmarked.setdefault(f, []).append((ln, val, want, line))
@@ -1211,5 +1267,6 @@ for fpath, entries in sorted(anc5b.items()):
             print(f"  [ok]   {alw5b}: {fpath}:{hh[0]} exemption live (matched by content)")
 sys.exit(0)
 PY
+  } | python3 -
 }
 

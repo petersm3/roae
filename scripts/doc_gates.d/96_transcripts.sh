@@ -11,8 +11,10 @@
 # not what the command prints, and GATE 92 covers CLAIMS.tsv rows only. Measured 2026-10-02: five
 # such blocks, three in documentation/CORRECTIONS.md and two in documentation/HISTORY.md.
 #
-# WHAT COUNTS AS A TRANSCRIPT. A fenced block (a line whose stripped form starts with three
-# backticks opens and closes it) in a `git ls-files '*.md'` file outside example/, with a line
+# WHAT COUNTS AS A TRANSCRIPT. A fenced block -- as the shared normaliser (doc_gates.d/md_normalise.sh)
+# delimits it: opened by ``` or ~~~ (3 or more), closed only by the same character at the same or a
+# greater length, so a ``` line inside a ```` block is content (Q-965, A03#11; it used to close the
+# block by parity) -- in a `git ls-files '*.md'` file outside example/, with a line
 # matching `^\s*\$ \S` (the prompt) followed by at least one output line. After a prompt, a line
 # that follows a line ending in `\`, or that starts with `|`, `&&` or `||`, is part of the command;
 # a blank line or a `#` comment is not output. A block with prompts and no output is a recipe, not
@@ -32,7 +34,9 @@
 #   rerun        `evidence` names what re-derives the output: a tests.py class (`TestName`) that
 #                exists in tests.py, or a tracked scripts/ path.
 #
-# IT FAILS when a block is unregistered, when a registry row matches no block (an orphan; this is
+# IT FAILS when a fence is UNCLOSED (Q-965: its content runs to end of file as rendered, and a block
+# this gate cannot delimit is one it cannot certify; it was silently not a block before), when a
+# block is unregistered, when a registry row matches no block (an orphan; this is
 # also how a row whose file is gone shows up), when a row is malformed or repeated, when a class is
 # unknown, when a row's evidence does not satisfy its class, when the registry cannot be read, and
 # when the population is 0 (a scan that finds nothing is a broken scan, not a clean tree).
@@ -48,7 +52,7 @@
 gate_transcripts() {
   echo "== GATE 95: transcripts outside example/ are registered in documentation/DOC_GATE_TRANSCRIPTS.tsv =="
   local out orc
-  out=$(DOC_GATE_TR_REG="${DOC_GATE_TR_REG:-}" DOC_GATE_TR_CORPUS="${DOC_GATE_TR_CORPUS:-}" python3 - 2>&1 <<'TR_PY'
+  out=$( { _md_norm_prelude; cat <<'TR_PY'
 import hashlib, os, re, subprocess, sys
 reg = os.environ.get("DOC_GATE_TR_REG") or "documentation/DOC_GATE_TRANSCRIPTS.tsv"
 corpus = os.environ.get("DOC_GATE_TR_CORPUS") or ""
@@ -68,46 +72,44 @@ files = [f for f in files if not f.startswith("example/")]
 blocks = {}   # (file, sha12) -> (line, preceding paragraph)
 for f in files:
     try:
-        L = open(os.path.join(base, f), encoding="utf-8", errors="replace").read().split("\n")
+        L, _kind, _blocks, _unc = md_parse(md_read(os.path.join(base, f)))
     except OSError:
         continue
-    inb = False
-    for i, l in enumerate(L, 1):
-        if l.lstrip().startswith("```"):
-            if inb:
-                out, cont, seen, first = 0, False, False, None
-                for x in blk:
-                    if PROMPT.match(x):
-                        seen = True
-                        cont = x.rstrip().endswith("\\")
-                        first = first or x.strip()
-                        continue
-                    if not seen:
-                        continue
-                    if cont or x.lstrip().startswith(("|", "&&", "||")):
-                        cont = x.rstrip().endswith("\\")
-                        continue
-                    cont = False
-                    if x.strip() and not x.lstrip().startswith("#"):
-                        out += 1
-                if seen and out:
-                    k = (f, hashlib.sha256(first.encode("utf-8")).hexdigest()[:12])
-                    j = start - 2
-                    while j >= 0 and not L[j].strip():
-                        j -= 1
-                    para = []
-                    while j >= 0 and L[j].strip() and not L[j].lstrip().startswith("```"):
-                        para.insert(0, L[j])
-                        j -= 1
-                    if k in blocks:
-                        fail.append("%s:%d repeats the first prompt line of the block at line %d, so the "
-                                    "two cannot be told apart by key" % (f, start, blocks[k][0]))
-                    blocks[k] = (start, "\n".join(para))
-                inb = False
-            else:
-                inb, start, blk = True, i, []
-        elif inb:
-            blk.append(l)
+    for u in _unc:
+        fail.append("%s:%d a code fence opens here and never closes, so its content to end of file "
+                    "cannot be delimited as a block and was NOT checked" % (f, u))
+    for _b in _blocks:
+        if _b["kind"] != "code":
+            continue
+        start, blk = _b["start"], [x for _, x in _b["lines"]]
+        out, cont, seen, first = 0, False, False, None
+        for x in blk:
+            if PROMPT.match(x):
+                seen = True
+                cont = x.rstrip().endswith("\\")
+                first = first or x.strip()
+                continue
+            if not seen:
+                continue
+            if cont or x.lstrip().startswith(("|", "&&", "||")):
+                cont = x.rstrip().endswith("\\")
+                continue
+            cont = False
+            if x.strip() and not x.lstrip().startswith("#"):
+                out += 1
+        if seen and out:
+            k = (f, hashlib.sha256(first.encode("utf-8")).hexdigest()[:12])
+            j = start - 2
+            while j >= 0 and not L[j].strip():
+                j -= 1
+            para = []
+            while j >= 0 and L[j].strip() and not L[j].lstrip().startswith("```"):
+                para.insert(0, L[j])
+                j -= 1
+            if k in blocks:
+                fail.append("%s:%d repeats the first prompt line of the block at line %d, so the "
+                            "two cannot be told apart by key" % (f, start, blocks[k][0]))
+            blocks[k] = (start, "\n".join(para))
 print("TRANSCRIPTS_N=%d" % len(blocks))
 rows = {}
 try:
@@ -164,7 +166,7 @@ for m in fail:
     print("  [FAIL] " + m)
 print("TRANSCRIPTS_GATE=%s" % ("FAIL" if fail else "PASS"))
 TR_PY
-); orc=$?
+} | DOC_GATE_TR_REG="${DOC_GATE_TR_REG:-}" DOC_GATE_TR_CORPUS="${DOC_GATE_TR_CORPUS:-}" python3 - 2>&1 ); orc=$?
   printf '%s\n' "$out"
   # The verdict line AND python's exit status decide (Q-952): a scan that printed PASS and then
   # crashed, or printed a second, conflicting verdict, is not a PASS. require_pass_token: doc_gates.sh.

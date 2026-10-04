@@ -29,6 +29,9 @@ G3=0
 #      SYMMETRY_SEARCH, TRIGRAM_STRUCTURE, lean/README, METHODS). Pre-existing, found the day this
 #      gate was written. Each needs an editorial decision -- whether the correction genuinely applies
 #      to that file, or whether the Documents list overreached -- so they are pinned, not bulk-edited.
+#      2026-10-03 (Q-967): CX-28's first target is the ROOT README.md. Its Documents line links
+#      ../README.md, which G4 resolved to documentation/README.md until Q-967; neither carries CX-28,
+#      so the count is unchanged at 8.
 G4=8
 # G5 — LEADERBOARD's edit-distance table vs section [28] of the artifact it cites. Fixed 2026-09-07.
 G5=0

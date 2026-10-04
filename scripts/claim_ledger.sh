@@ -33,10 +33,27 @@
 #   E  the evidence's KEY, rendered, equals `value`
 #   P  scope conditional-on:<premise>  =>  `premise` is in the sentence that carries `value`. The
 #      design's load-bearing invariant: a conditional figure may not be printed without its premise.
+#      A sentence ends at . ! or ? (after closing markup or a closing quotation mark) followed by
+#      whitespace, whatever comes next: a quoted sentence and one that opens in lower case are
+#      sentences too (Q-835 A03#7). A period that closes an abbreviation (e.g. i.e. vs. cf. etc.
+#      al. p. pp. no.) or a single capital initial does not end a sentence.
 #   F  the evidence resolves: every `solve.py --flag` it names is an add_argument flag of solve.py,
 #      and every `claim_ledger.sh --derive NAME` a derivation below (the ledger form of GATE 25's
 #      "a repro must name a real flag")
 #   A  every artifact exists
+#   I  the evidence is INDEPENDENT of the claim (Q-967, 2026-10-03). Neither the evidence command
+#      nor the artifact column may name the ledger file or the row's own source file (by path,
+#      by a glob that expands to it, or by a token that resolves to it), and the command may not
+#      reach outside the working tree (`git` object reads, absolute paths, `~`, a `..` component). That is the
+#      static half. The run-time half: every evidence command runs in a SHADOW TREE, a scratch
+#      directory of symlinks to the repository in which the ledger and the row's source file are
+#      replaced by named pipes. Opening either pipe, by any program and under any spelling of the
+#      path, is recorded and the row is FALSE on I. Before this, a row whose evidence read the
+#      ledger's own value (awk over CLAIMS.tsv) agreed with itself, and a false TR-12 B0 vector
+#      planted in both the ledger and TR-12 published with CLAIM_LEDGER=PASS (Q-835 A03#3).
+#      What the shadow cannot see: a program that resolves its own path, or any symlinked entry, with
+#      realpath()/readlink -f and then reads the real tree. No evidence command in the ledger does that (solve.py uses abspath).
+#      There is no allow-list: no row needs one (audited 2026-10-03, every row passes I).
 #
 # USAGE
 #   bash scripts/claim_ledger.sh [--check] [--selftest] [--ledger FILE]
@@ -70,12 +87,20 @@
 #   M13 evidence that prints the right KEY=value and then exits 137 (killed)        ERROR (Q-951)
 #   M12 FOR EVERY ROW: its value perturbed (last digit +1, next number word, FAIL<->PASS)
 #       in the ledger AND on its published line, so S and P still hold       that row FALSE on E
-#   M1 and M2 fire on S; M12 is what shows each row's evidence discriminates on its own.
+#   M14 (Q-835 A03#3) TR12_SUM_B0's evidence replaced by an awk that reads the row's own value out
+#       of the ledger, with 2,8,13,7,1 -> 2,8,13,7,9 in the ledger AND on TR-12:30   row FALSE on I
+#   M15 the same read with the ledger's name assembled at run time (no static trace)  row FALSE on I
+#   M16 evidence that reads the row's own source file under an assembled name         row FALSE on I
+#   M18 (Fable B40) the ledger read as cat ../../<checkout>/<ledger>: a `..` component   row FALSE on I
+#   M17 (Q-835 A03#7) the premise in a following QUOTED sentence, and in a following
+#       sentence that opens in lower case                                             row FALSE on P
+#   M1 and M2 fire on S; M12 is what shows each row's evidence discriminates on its own; M14-M16
+#   are what show it cannot discriminate by reading the claim back.
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || { echo "CLAIM_LEDGER=ERROR"; exit 2; }
 exec python3 - "$@" <<'CLAIM_LEDGER_PY'
-import csv, io, json, itertools, math, os, re, subprocess, sys
+import csv, glob, io, json, itertools, math, os, re, shutil, subprocess, sys, tempfile, threading, time
 from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING
 
 LEDGER_DEFAULT = "documentation/CLAIMS.tsv"
@@ -93,7 +118,12 @@ SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 # A sentence ends at . ! or ? (after any closing markup) followed by whitespace and then a
 # capital or a digit, optionally behind opening markup. Decimal points never qualify: they are
 # not followed by whitespace.
-SENT_END = re.compile(r"[.!?][*_)`\]]*\s+(?=[*_`(\[]*[A-Z0-9])")
+SENT_END = re.compile(r"[.!?][*_)`\]\"”’']*\s+(?=\S)")
+# Q-835 A03#7: the boundary used to need a capital or a digit next, behind opening markup that
+# did not include a quotation mark, so `42 is certain. “This inference ...”` was ONE sentence and
+# a premise in the quoted one counted. Any next character now ends the sentence, except after an
+# abbreviation or a single capital initial.
+ABBREV = re.compile(r"(?:\b(?:e\.g|i\.e|vs|cf|etc|al|approx|ca|resp|p|pp|no|Fig|Eq|Sec|Ch)|(?<![\w.])[A-Z])\.[*_)`\]\"”’']*$")
 
 
 # ------------------------------------------------------------------ derivations (--derive NAME)
@@ -327,20 +357,144 @@ def unresolved(cmd):
     return bad
 
 
-# Q-951 (Codex push-path review Q835, P-04, 2026-10-03): -> (rc, output). The returncode used to be
-# dropped, so an evidence command that printed its KEY=value and then crashed, was killed, or exited
-# non-zero still matched; a timeout raised out of the whole check. rc is read FIRST (check_row), and
-# a timeout is rc 124, the same code timeout(1) uses.
-def run_evidence(cmd, cache):
-    if cmd not in cache:
+LEDGER_PATH = LEDGER_DEFAULT      # set by main(); the ledger file the evidence may not read
+ROOT = os.getcwd()               # the bash wrapper cd'd to the repository root
+
+
+def _rel(path):
+    """`path` relative to the repository root, normalised; None when it lies outside it."""
+    r = os.path.relpath(os.path.realpath(os.path.join(ROOT, path)), os.path.realpath(ROOT))
+    return None if r == ".." or r.startswith("../") else r
+
+
+def forbidden_of(r):
+    """The files a row's evidence may not read: the ledger being checked, the tracked ledger (when
+    --ledger names another file), and the row's own source file."""
+    return sorted({p for p in (_rel(LEDGER_PATH), _rel(LEDGER_DEFAULT), _rel(r["source"].rsplit(":", 1)[0])) if p})
+
+
+_TOKEN_SPLIT = re.compile(r"[\s'\"=<>|;&()`,{}]+")
+
+
+def dependent(r):
+    """Static half of I: does the evidence or the artifact column NAME a forbidden file?"""
+    bad = []
+    forb = forbidden_of(r)
+    names = {os.path.basename(f) for f in forb}
+    for art in r["artifact"].split(","):
+        a = _rel(art.strip())
+        if a in forb:
+            bad.append("artifact %s is the %s" % (art.strip(), "row's own source file" if a == _rel(r["source"].rsplit(":", 1)[0]) else "ledger"))
+    cmd = r["evidence"]
+    for f in forb:
+        if re.search(r"(?<![\w./-])" + re.escape(f) + r"(?![\w-])", cmd):
+            bad.append("evidence names %s" % f)
+    for tok in _TOKEN_SPLIT.split(cmd):
+        if not tok or tok.startswith("-"):
+            continue
+        if tok.startswith("~") or ".." in tok.split("/") or re.match(r"/(?!dev/|tmp/)[A-Za-z]", tok):   # a ".." component resolves against the shadow dir, not ROOT (Fable B40 FIX 3)
+            bad.append("evidence reaches outside the working tree: %s" % ("a '..' path component" if ".." in tok.split("/") else tok))   # no checkout path in the verdict line
+            continue
+        cands = [tok]
+        if any(c in tok for c in "*?["):
+            cands += glob.glob(os.path.join(ROOT, tok))
+        for c in cands:
+            rc = _rel(c)
+            if rc in forb or (os.path.basename(c) in names and "/" not in tok):
+                bad.append("evidence token %r resolves to %s" % (tok, rc))
+    if re.search(r"(?<![\w.-])git(?![\w.-])", cmd):
+        bad.append("evidence runs git, which reads objects the shadow tree cannot withhold")
+    return sorted(set(bad))
+
+
+class _Canary(threading.Thread):
+    """A named pipe standing where a forbidden file was. A reader's open() rendezvouses with the
+    writer's open() below, so every open of the path, by any process, is counted."""
+
+    def __init__(self, path):
+        super().__init__(daemon=True)
+        self.path, self.hits, self.stop = path, 0, False
+
+    def run(self):
+        while True:
+            try:
+                fd = os.open(self.path, os.O_WRONLY)
+            except OSError:
+                return
+            if self.stop:
+                os.close(fd)
+                return
+            self.hits += 1
+            os.close(fd)                 # the reader sees end-of-file
+            time.sleep(0.05)
+
+    def release(self):
+        self.stop = True
         try:
-            r = subprocess.run(["bash", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                               stdin=subprocess.DEVNULL, text=True, timeout=900)
-            cache[cmd] = (r.returncode, r.stdout)
-        except subprocess.TimeoutExpired as exc:
-            out = exc.stdout or ""
-            cache[cmd] = (124, out if isinstance(out, str) else out.decode("utf-8", "replace"))
-    return cache[cmd]
+            fd = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError:
+            fd = None
+        self.join(5)
+        if fd is not None:
+            os.close(fd)
+
+
+def shadow_tree(forb):
+    """A scratch directory of symlinks to the repository root, with each forbidden file replaced
+    by a named pipe. Only the directories on the way to a forbidden file are real directories."""
+    d = tempfile.mkdtemp(prefix="claim_ledger_ev_")
+    need = set()
+    for f in forb:
+        p = os.path.dirname(f)
+        while p:
+            need.add(p)
+            p = os.path.dirname(p)
+    pipes = []
+
+    def fill(rel):
+        src = os.path.join(ROOT, rel) if rel else ROOT
+        dst = os.path.join(d, rel) if rel else d
+        for name in os.listdir(src):
+            rr = os.path.join(rel, name) if rel else name
+            if rr in forb:
+                os.mkfifo(os.path.join(dst, name))
+                pipes.append(rr)
+            elif rr in need and os.path.isdir(os.path.join(src, name)):
+                os.mkdir(os.path.join(dst, name))
+                fill(rr)
+            else:
+                os.symlink(os.path.join(src, name), os.path.join(dst, name))
+    fill("")
+    return d, pipes
+
+
+# Q-951 (Codex push-path review Q835, P-04, 2026-10-03): the returncode used to be dropped, so an
+# evidence command that printed its KEY=value and then crashed, was killed, or exited non-zero still
+# matched; a timeout raised out of the whole check. rc is read FIRST (check_row), and a timeout is
+# rc 124, the same code timeout(1) uses.
+def run_evidence(cmd, cache, forb=()):
+    """-> (rc, output, [forbidden files the run opened]). Runs in a shadow tree (the run-time half
+    of I, Q-967)."""
+    key = (cmd, tuple(forb))
+    if key not in cache:
+        d, pipes = shadow_tree(forb)
+        canaries = [_Canary(os.path.join(d, p)) for p in pipes]
+        for c in canaries:
+            c.start()
+        try:
+            try:
+                r = subprocess.run(["bash", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   stdin=subprocess.DEVNULL, text=True, timeout=900, cwd=d)
+                rc, out = r.returncode, r.stdout
+            except subprocess.TimeoutExpired as exc:
+                out = exc.stdout or ""
+                rc, out = 124, (out if isinstance(out, str) else out.decode("utf-8", "replace"))
+        finally:
+            for c in canaries:
+                c.release()
+            shutil.rmtree(d, ignore_errors=True)
+        cache[key] = (rc, out, [p for p, c in zip(pipes, canaries) if c.hits])
+    return cache[key]
 
 
 def sentence_of(lines, lno, start):
@@ -355,7 +509,7 @@ def sentence_of(lines, lno, start):
         if i == lno - 1:
             off = len(para) + start
         para += lines[i] + " "
-    cuts = [0] + [m.end() for m in SENT_END.finditer(para)] + [len(para)]
+    cuts = [0] + [m.end() for m in SENT_END.finditer(para) if not ABBREV.search(para[:m.end()].rstrip())] + [len(para)]
     for s, e in zip(cuts, cuts[1:]):
         if s <= off < e:
             return para[s:e]
@@ -389,7 +543,12 @@ def check_row(r, files, cache):
     bad = unresolved(r["evidence"])
     if bad:
         return False, "F: evidence names what does not exist: %s" % ", ".join(bad)
-    erc, out = run_evidence(r["evidence"], cache)
+    bad = dependent(r)
+    if bad:
+        return False, "I: evidence is not independent of the claim: %s" % "; ".join(bad)
+    erc, out, opened = run_evidence(r["evidence"], cache, forbidden_of(r))
+    if opened:
+        return False, "I: evidence opened %s at run time; it must re-derive the figure, not read the claim back" % ", ".join(opened)
     if erc != 0:   # X = the harness: nothing was compared, so the row is neither TRUE nor FALSE
         return False, "X: evidence command exited %d%s -- HARNESS_BROKEN, nothing it printed is believed" % (
             erc, " (timed out at 900 s)" if erc == 124 else " (killed by a signal)" if erc < 0 or erc >= 128 else "")
@@ -561,6 +720,44 @@ def selftest(ledger_path, text, cache):
     _, f = row_of("TR12_SUM_B0")
     expect("M13 evidence prints the right value, then is killed (exit 137)",
            with_row("TR12_SUM_B0", evidence=f[COLS.index("evidence")] + "; exit 137"), "ERROR", "TR12_SUM_B0", False)
+    # M14-M16 (Q-967): evidence that reads the claim back. Each must go FALSE, and on I.
+    def expect_i(name, t, rid, overrides=None, why=None):
+        v, res, err = check(t, cache, overrides)
+        ok, reason = res.get(rid, (True, err))
+        good = (not ok) and reason.startswith("I:") and (why is None or why in reason)
+        print("  [%s] %s -> %s (%s=%s)  %s" % ("ok" if good else "FAIL", name, v, rid, ok, reason[:160]))
+        if not good:
+            fails.append(name)
+    _, f = row_of("TR12_SUM_B0")
+    b0, b0key = f[COLS.index("value")], f[COLS.index("key")]
+    b0line = int(f[COLS.index("source")].rsplit(":", 1)[1])
+    lp = LEDGER_PATH
+    selfread = "awk -F'\\t' '$1==\"TR12_SUM_B0\"{print \"%s=\" $7}' %s" % (b0key, lp)
+    false_b0 = b0[:-1] + str((int(b0[-1]) + 8) % 10)          # 2,8,13,7,1 -> 2,8,13,7,9
+    t13 = with_row("TR12_SUM_B0", evidence=selfread)
+    t13 = "\n".join(l if not l.startswith("TR12_SUM_B0\t") else l.replace("\t%s\t" % b0, "\t%s\t" % false_b0, 1)
+                    for l in t13.split("\n"))
+    expect_i("M14 B0 evidence reads its own ledger value; %s -> %s in ledger AND TR-12:%d" % (b0, false_b0, b0line),
+             t13, "TR12_SUM_B0", tr_with(b0line, b0, false_b0), "names " + _rel(lp))
+    hidden = "f=%s; awk -F'\\t' '$1==\"TR12_SUM_B0\"{print \"%s=\" $7}' \"${f}%s\"" % (
+        lp[:-6], b0key, lp[-6:])
+    expect_i("M15 the same read under a name assembled at run time", with_row("TR12_SUM_B0", evidence=hidden),
+             "TR12_SUM_B0", None, "opened " + _rel(lp))
+    src = f[COLS.index("source")].rsplit(":", 1)[0]
+    hsrc = "g=%s; grep -o '%s' \"${g}%s\" | head -1 | sed 's/^/%s=/'" % (src[:-6], b0, src[-6:], b0key)
+    expect_i("M16 evidence reads the row's own source file under an assembled name",
+             with_row("TR12_SUM_B0", evidence=hsrc), "TR12_SUM_B0", None, "opened " + _rel(src))
+    # M18 (Fable B40 FIX 3): the ledger reached through `..` components from the shadow directory.
+    up = "cat ../../%s/%s | awk -F'\\t' '$1==\"TR12_SUM_B0\"{print \"%s=\" $7}'" % (ROOT.lstrip("/"), _rel(lp), b0key)
+    expect_i("M18 the ledger read through ../ components (cat ../../<checkout>/...)", with_row("TR12_SUM_B0", evidence=up),
+             "TR12_SUM_B0", None, "reaches outside the working tree")
+    # M17 (Q-835 A03#7): the premise in the NEXT sentence, quoted or opening in lower case.
+    expect("M17a premise in a following quoted sentence", t4, "FAIL", "SELFTEST_PLANTED", False,
+           tr_with(eline, "0.0415", "0.0415. \u201cHere we cannot attribute by measurement.\u201d"))
+    expect("M17b premise in a following sentence that opens in lower case", t4, "FAIL", "SELFTEST_PLANTED", False,
+           tr_with(eline, "0.0415", "0.0415. here we cannot attribute by measurement."))
+    expect("M17c twin: an abbreviation is not a sentence end", t4, "PASS", "SELFTEST_PLANTED", True,
+           tr_with(eline, "0.0415", "0.0415 (cf. cannot attribute by measurement)"))
     # M12: EVERY row's evidence discriminates. A consistent wrong figure -- the same perturbed value
     # in the ledger AND on the published line -- passes S and P by construction, so only E can
     # catch it; every row must go FALSE, and on E.
@@ -629,6 +826,8 @@ def main(argv):
         i += 1
     if not (mode_check or mode_self):
         mode_check = True
+    global LEDGER_PATH
+    LEDGER_PATH = ledger
     text = disk(ledger)
     if text is None:
         print("  [ERROR] cannot read %s" % ledger)

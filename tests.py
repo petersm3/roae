@@ -29647,7 +29647,9 @@ class TestQ887Gate22UniverseRc(unittest.TestCase):
     HEAD ...`) ran `2>/dev/null` with no rc check. In a clean tree that failed closed through the
     empty-universe [FAIL], but nothing named the producer, and in a dirty tree the working-tree leg
     could refill the universe and hide it. The rc is now captured and rc >= 2 is a FAIL naming the
-    universe producer. A PATH git shim refuses ONLY that grep (keyed on the pattern AND `HEAD`)."""
+    universe producer. A PATH git shim refuses ONLY that grep (keyed on the pattern AND `HEAD`). Batch 40
+    (Q-968, A07#8): the producer's pattern is `[0-9a-fA-F]+` (upper-case hex is read, then lower-cased),
+    so the shim keys on that pattern."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -29657,7 +29659,7 @@ class TestQ887Gate22UniverseRc(unittest.TestCase):
             real = shutil.which("git")
             acted = os.path.join(tmp, "acted")
             with open(os.path.join(tmp, "git"), "w", encoding="utf-8") as fh:
-                fh.write("#!/usr/bin/env bash\nhp=0; hh=0\nfor a in \"$@\"; do [ \"$a\" = '[0-9a-f]+' ] && hp=1; "
+                fh.write("#!/usr/bin/env bash\nhp=0; hh=0\nfor a in \"$@\"; do [ \"$a\" = '[0-9a-fA-F]+' ] && hp=1; "
                          "[ \"$a\" = HEAD ] && hh=1; done\nif [ $hp = 1 ] && [ $hh = 1 ]; then touch '%s'; "
                          "echo 'q887 shim: git grep refused' >&2; exit 2; fi\nexec '%s' \"$@\"\n" % (acted, real))
             os.chmod(os.path.join(tmp, "git"), 0o755)
@@ -31872,11 +31874,21 @@ for m in "${MUTANTS[@]}"; do id=${m%%|*}; done
     def test_markdown_readers_split_escape_aware(self):
         # GFM: `\\|` inside a cell is a literal pipe, not a cell break. CLAIMS_DECIDED.md's rows
         # carry `\\|C1∩C2∩C4\\|`; GATE 72/73 read its Claim and Source cells by position.
-        pins = {"scripts/doc_gates.d/95_derived_figures_scope.sh": 5,
-                "scripts/doc_gates.d/20_retract_links_status.sh": 2}
+        # Batch 40 (Q-965): two of module 95's five escape-aware splits (GATE 56's §[6] tables) now read
+        # cells from the shared normaliser's md_parse/md_cells, whose splitter is the same escape-aware
+        # regex; so 95 holds 4 direct splits plus that table reader, and the normaliser is pinned too.
+        pins = {"scripts/doc_gates.d/95_derived_figures_scope.sh": 4,
+                "scripts/doc_gates.d/20_retract_links_status.sh": 2,
+                "scripts/doc_gates.d/md_normalise.sh": 1}
         for f, n in pins.items():
             with open(f, encoding="utf-8") as fh:
                 self.assertEqual(fh.read().count("(?<!\\\\)\\|"), n, f)
+        with open("scripts/doc_gates.d/md_normalise.sh", encoding="utf-8") as fh:
+            nm = fh.read()
+        self.assertIn("_MD_PIPE = _mre.compile(r'(?<!\\\\)\\|')", nm)
+        self.assertIn("return [c.strip() for c in _MD_PIPE.split(s)]", nm)   # md_cells splits escape-aware
+        with open("scripts/doc_gates.d/95_derived_figures_scope.sh", encoding="utf-8") as fh:
+            self.assertIn("hdr = tb['header'][1]", fh.read())               # GATE 56 reads md_cells rows
         row = "| a \\|x\\| b | src | x | proof |"
         self.assertEqual([c.strip() for c in re.split(r"(?<!\\)\|", row.strip().strip("|"))],
                          ["a \\|x\\| b", "src", "x", "proof"])
@@ -37441,6 +37453,1866 @@ class TestB39DReviewerSelfcheckVerdicts(unittest.TestCase):
         rc, out, L = self._sc(d, "--selftest")
         self.assertEqual((rc, L[-1]), (0, "SELFCHECK_SELFTEST=PASS"), out[-3000:])
 # end class TestB39DReviewerSelfcheckVerdicts (batch 39, lane B39D)
+
+
+class TestQ965MarkdownNormaliser(unittest.TestCase):
+    """Q-965 (batch 40; R1 of review_2026_09_27/Q962_ADJUDICATION_REPORT.md, from the Q-835 Codex
+    lens-A push-path review). The prose and number legs scanned RAW LINES, so ordinary Markdown hid
+    what they look for: hard wraps, emphasis and backticks, tables without edge pipes or indented,
+    setext/indented headings and `*`/`+` task boxes, `~~~` fences and fences tracked by parity, CRLF,
+    numeric XML entities, curly quotes, and a `**` that ended a banner early. The fix is ONE shared
+    normaliser (scripts/doc_gates.d/md_normalise.sh, `_md_norm_prelude`) that each affected leg reads
+    through, plus `fold_join` for the fixed-string legs.
+
+    DATA-DRIVEN over the adjudication's plants: one row per plant (38 rows for the 29 non-BY-DESIGN
+    R1 findings; A05#15 is BY-DESIGN and excluded), each with its un-evaded CONTROL twin. Every row
+    runs the named leg alone on a scratch git copy of THIS working tree's tracked files:
+      * the plant must FAIL (rc 1) on the fixed scripts, naming the planted file;
+      * the same plant must PASS (rc 0) on the uncured scripts of public main 35782834 -- the
+        gates-must-discriminate rule: a red test that the old code also failed proves nothing;
+      * the control must FAIL on the fixed scripts (the leg can still fire on the plain form);
+      * the unplanted tree must be green on every leg involved (no new false positive).
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PIN = "35782834"   # public main before Q-965: the uncured scripts
+    TR1 = "reports/TR1_EIGHT_CENTURIES_MEASURED.md"
+    # (id, leg, file the FAIL must name, plant edits, control edits). An edit is
+    # (path-or-glob, op, *args): append TEXT | replace OLD NEW (first occurrence) | before TEXT ANCHOR |
+    # after_line TEXT LINE-PREFIX | crlf.
+    PLANTS = [
+        ('A02#14a', 'tr12-output-paths', 'README.md',
+         [('README.md', 'append', '\n## See `reports/tr12/q835_missing.tsv`\n')],
+         [('README.md', 'append', '\nSee `reports/tr12/q835_missing.tsv`.\n')]),
+        ('A02#14b', 'tr12-output-paths', 'reports/TR1_EIGHT_CENTURIES_MEASURED.md',
+         [('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'append', '\n# Current usage\n\nSee `reports/tr12/q835_missing.tsv`.\n')],
+         [('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'append', '\n## Current usage\n\nSee `reports/tr12/q835_missing.tsv`.\n')]),
+        ('A02#15', 'tr12-output-paths', 'README.md',
+         [('README.md', 'append', '\n```\n~~~\n```\n\nSee `reports/tr12/q835_missing.tsv`.\n')],
+         [('README.md', 'append', '\n```\n```\n\nSee `reports/tr12/q835_missing.tsv`.\n')]),
+        ('A03#11a', 'transcripts', 'documentation/DEVELOPMENT.md',
+         [('documentation/DEVELOPMENT.md', 'append', '\n```\n$ echo hi\nhi\n')],
+         [('documentation/DEVELOPMENT.md', 'append', '\n```\n$ echo hi\nhi\n```\n')]),
+        ('A03#11b', 'transcripts', 'documentation/DEVELOPMENT.md',
+         [('documentation/DEVELOPMENT.md', 'append', '\n````\n```\n$ echo hi\nhi\n````\n')],
+         [('documentation/DEVELOPMENT.md', 'append', '\n```\n$ echo hi\nhi\n```\n')]),
+        ('A04#14', 'links-internal', 'README.md',
+         [('README.md', 'append', '\nSee [x](#fake-heading).\n\n```\n## Fake heading\n```\n')],
+         [('README.md', 'append', '\nSee [x](#fake-heading).\n')]),
+        ('A04#15a', 'secrefs', 'README.md',
+         [('README.md', 'append', '\nSee documentation/CRITIQUE.md §“Missing heading q835”.\n')],
+         [('README.md', 'append', '\nSee documentation/CRITIQUE.md §"Missing heading q835".\n')]),
+        ('A04#15b', 'secrefs', 'README.md',
+         [('README.md', 'append', '\nSee documentation/CRITIQUE.md\n§"Missing\nheading\nq835" for the detail.\n')],
+         [('README.md', 'append', '\nSee documentation/CRITIQUE.md §"Missing heading q835" for the detail.\n')]),
+        ('A05#12', 'figures', 'reports/figures/fig_tr1_rules_tradeoff.svg',
+         [('reports/figures/fig_tr1_rules_tradeoff.svg', 'before', '<title>Figure</title>\n<!-- 1.4σ -->\n', '</svg>')],
+         [('reports/figures/fig_tr1_rules_tradeoff.svg', 'before', '<!-- 1.4σ -->\n', '</svg>')]),
+        ('A05#13', 'figures', 'reports/figures/fig_tr1_rules_tradeoff.svg',
+         [('reports/figures/fig_tr1_rules_tradeoff.svg', 'before', '<!-- 1.4σ -->\n', '</svg>'), ('reports/figures/fig_tr1_rules_tradeoff.svg', 'crlf')],
+         [('reports/figures/fig_tr1_rules_tradeoff.svg', 'before', '<!-- 1.4σ -->\n', '</svg>')]),
+        ('A05#14', 'figures', 'example/hexagrams.svg',
+         [('example/hexagrams.svg', 'before', '<text>1.4&#x3c3;</text>\n', '</svg>')],
+         [('example/hexagrams.svg', 'before', '<text>1.4σ</text>\n', '</svg>')]),
+        ('A05#18a', 'liveness', 'README.md',
+         [('README.md', 'append', '\nThe ladder build is in\nflight.\n')],
+         [('README.md', 'append', '\nThe ladder build is in flight.\n')]),
+        ('A05#18b', 'liveness', 'README.md',
+         [('README.md', 'append', '\nThe 9999T  run established the result.\n')],
+         [('README.md', 'append', '\nThe 9999T run established the result.\n')]),
+        ('A05#20', 'banner', 'reports/TR1_EIGHT_CENTURIES_MEASURED.md',
+         [('reports/TR*.md', 'replace', 'are argued, not verified. One caveat is structural, and', 'are **argued, not verified**\nOne caveat is structural, and'), ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'replace', 'are **argued, not verified**\n', 'are **argued, not verified**\nEvery claim is machine-verifiable;\n')],
+         [('reports/TR*.md', 'replace', 'are argued, not verified. One caveat is structural, and', 'are argued, not verified\nOne caveat is structural, and'), ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'replace', 'are argued, not verified\n', 'are argued, not verified\nEvery claim is machine-verifiable;\n')]),
+        ('A05#21', 'banner', 'reports/TR1_EIGHT_CENTURIES_MEASURED.md',
+         [('reports/TR*.md', 'replace', 'are argued, not verified. One caveat', 'are argued, not verified. Every claim is\nmachine-verifiable. One caveat')],
+         [('reports/TR*.md', 'replace', 'are argued, not verified. One caveat', 'are argued, not verified. Every claim is machine-verifiable.\nOne caveat')]),
+        ('A05#22', 'revhist', 'reports/TR1_EIGHT_CENTURIES_MEASURED.md',
+         [('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'after_line', ' | v1.0 | 2026-07-04 | duplicate |', '| v1.2 |')],
+         [('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'after_line', '| v1.0 | 2026-07-04 | duplicate |', '| v1.2 |')]),
+        ('A07#4a', 'publication-state', 'README.md',
+         [('README.md', 'append', '\n   ## DRAFT notes\n')],
+         [('README.md', 'append', '\n## DRAFT notes\n')]),
+        ('A07#4b', 'publication-state', 'README.md',
+         [('README.md', 'append', '\nDRAFT notes\n=====\n')],
+         [('README.md', 'append', '\n## DRAFT notes\n')]),
+        ('A07#4c', 'publication-state', 'README.md',
+         [('README.md', 'append', '\n## Notes\n\n* [ ] finish this\n')],
+         [('README.md', 'append', '\n## Notes\n\n- [ ] finish this\n')]),
+        ('A07#4d', 'publication-state', 'README.md',
+         [('README.md', 'append', '\n## Notes\n\n+ [ ] finish this\n')],
+         [('README.md', 'append', '\n## Notes\n\n- [ ] finish this\n')]),
+        ('A08#6', 'canonical-ceiling', 'documentation/PROJECT_OVERVIEW.md',
+         [('documentation/PROJECT_OVERVIEW.md', 'append', '\nThere are `3.3e37` canonical orderings.\n')],
+         [('documentation/PROJECT_OVERVIEW.md', 'append', '\nThere are 3.3e37 canonical orderings.\n')]),
+        ('A08#9', 'withdrawn-markers', 'documentation/GUIDE.md',
+         [('documentation/GUIDE.md', 'append', '\nThe null P =\n0.034.\n')],
+         [('documentation/GUIDE.md', 'append', '\nThe null P = 0.034.\n')]),
+        ('A08#10a', 'withdrawn-markers', 'documentation/GUIDE.md',
+         [('documentation/GUIDE.md', 'append', '\nitem | value\n--- | ---\nWITHDRAWN row | 1\nnull P = 0.034 | 2\n')],
+         [('documentation/GUIDE.md', 'append', '\n| item | value |\n| --- | --- |\n| WITHDRAWN row | 1 |\n| null P = 0.034 | 2 |\n')]),
+        ('A08#10b', 'npath', 'documentation/GUIDE.md',
+         [('documentation/GUIDE.md', 'append', '\n## 8-path equivalence\n\npath | how\n--- | ---\nA | x\nB | y\n')],
+         [('documentation/GUIDE.md', 'append', '\n## 8-path equivalence\n\n| path | how |\n| --- | --- |\n| A | x |\n| B | y |\n')]),
+        ('A08#13', 'author-directives', 'reports/TR8_REORDERING_REVISITED.md',
+         [('reports/TR8_REORDERING_REVISITED.md', 'append', '\nSection 2 should be written next.\n')],
+         [('reports/TR8_REORDERING_REVISITED.md', 'append', '\nsection 2 should be written next.\n')]),
+        ('A08#22', 'stale-status', 'reports/TR4_SIZE_OF_THE_SPACE.md',
+         [('reports/TR4_SIZE_OF_THE_SPACE.md', 'after_line', 'These runs are not **yet** complete.', '### Update (2026-07-05)')],
+         [('reports/TR4_SIZE_OF_THE_SPACE.md', 'after_line', 'These runs are not yet complete.', '### Update (2026-07-05)')]),
+        ('A08#24', 'dvd24-scope', 'README.md',
+         [('README.md', 'append', '\n24 divides **every exact solution count**.\n')],
+         [('README.md', 'append', '\n24 divides every exact solution count.\n')]),
+        ('A09#6', 'mi-disambig', 'README.md',
+         [('README.md', 'append', '\nThe --mutual-info figure is forced by the complete\nLatin square construction.\n')],
+         [('README.md', 'append', '\nThe --mutual-info figure is forced by the complete Latin square construction.\n')]),
+        ('A09#11', 'net-brackets', 'documentation/GUIDE.md',
+         [('documentation/GUIDE.md', 'append', '\nRule | Compression | Cost | Net\n--- | --- | --- | ---\nC9 | 5.0 | 2.0 | 999.0\n')],
+         [('documentation/GUIDE.md', 'append', '\n| Rule | Compression | Cost | Net |\n| --- | --- | --- | --- |\n| C9 | 5.0 | 2.0 | 999.0 |\n')]),
+        ('A10#7', 'log-derived-figures', 'README.md',
+         [('README.md', 'append', '\nThe d3 10T §[3] boundary survivors are listed in the log.\nThis middle line carries no figure.\nBoundary 15 has 999,999,999 survivors.\n')],
+         [('README.md', 'append', '\nThe d3 10T §[3] boundary survivors are listed in the log. Boundary 15 has 999,999,999 survivors.\n')]),
+        ('A10#8', 'log-derived-figures', 'README.md',
+         [('README.md', 'append', '\n | Dataset | Greedy set (§[6]) |\n |---|---|\n | d3 10T | {999} |\n')],
+         [('README.md', 'append', '\n| Dataset | Greedy set (§[6]) |\n|---|---|\n| d3 10T | {999} |\n')]),
+        ('A10#9', 'nontrivial-display', 'documentation/GUIDE.md',
+         [('documentation/GUIDE.md', 'append', '\n~~~\nsha256(E) = sha256(E)\n~~~\n')],
+         [('documentation/GUIDE.md', 'append', '\n```\nsha256(E) = sha256(E)\n```\n')]),
+        ('A10#13', 'cpu-vendor', 'README.md',
+         [('README.md', 'append', '\nThe host uses `Intel` `Zen 5`.\n')],
+         [('README.md', 'append', '\nThe host uses Intel Zen 5.\n')]),
+        ('A10#21', 'chronology-access', 'documentation/CITATIONS.md',
+         [('documentation/CITATIONS.md', 'replace', '- **Cui Shu 崔述** (1740–1816). ', '- **Cui Shu 崔述**\n  (1740–1816). Reconstructed in 1781, he could not have read it. ')],
+         [('documentation/CITATIONS.md', 'replace', '- **Cui Shu 崔述** (1740–1816). ', '- **Cui Shu 崔述** (1740–1816). Reconstructed in 1781, he could not have read it. ')]),
+        ('A10#26', 'summary-scope', 'reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md',
+         [('reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md', 'after_line', 'The complete symmetry group has 48 elements.', '## Executive summary'), ('reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md', 'append', '\nThis is not decided\nabove.\n')],
+         [('reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md', 'after_line', 'The complete symmetry group has 48 elements.', '## Executive summary'), ('reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md', 'append', '\nThis is not decided above.\n')]),
+        ('A10#27', 'boundary-scope', 'README.md',
+         [('README.md', 'append', '\nBoundaries 25 and 27 are mandatory\nin every minimum set.\n')],
+         [('README.md', 'append', '\nBoundaries 25 and 27 are mandatory in every minimum set.\n')]),
+        ('A11#2a', 'retract', 'README.md',
+         [('README.md', 'append', '\nIt appears to be a deri' 'ved property of C1+\nC2+C3+C5 in this reading.\n')],
+         [('README.md', 'append', '\nIt appears to be a deri' 'ved property of C1+C2+C3+C5 in this reading.\n')]),
+        ('A11#2b', 'retract', 'README.md',
+         [('README.md', 'append', '\nIt appears to be a deri' 'ved property of C1  +  C2  +  C3  +  C5 in this reading.\n')],
+         [('README.md', 'append', '\nIt appears to be a deri' 'ved property of C1+C2+C3+C5 in this reading.\n')]),
+    ]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q965_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files:
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(cls.repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        for f in ("scripts/doc_gates.d/md_normalise.sh",):   # new in Q-965; may not be tracked yet
+            os.makedirs(os.path.dirname(os.path.join(cls.repo, f)), exist_ok=True)
+            shutil.copy2(os.path.join(cls.ROOT, f), os.path.join(cls.repo, f))
+        g = ["git", "-C", cls.repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"],
+                       check=True)
+        cls.fixed = cls._snapshot()
+        cls.uncured = None
+        if subprocess.run(["git", "-C", cls.ROOT, "cat-file", "-e", cls.PIN + "^{commit}"],
+                          capture_output=True).returncode == 0:
+            cls.uncured = {}
+            names = subprocess.run(["git", "-C", cls.ROOT, "ls-tree", "--name-only", cls.PIN,
+                                    "scripts/doc_gates.d/"], capture_output=True, text=True,
+                                   check=True).stdout.split()
+            for f in names + ["scripts/doc_gates.sh", "scripts/tr12_output_paths_gate.sh"]:
+                cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
+                                                capture_output=True, check=True).stdout
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _snapshot(cls):
+        snap = {}
+        d = os.path.join(cls.repo, "scripts", "doc_gates.d")
+        for f in sorted(os.listdir(d)):
+            snap["scripts/doc_gates.d/" + f] = open(os.path.join(d, f), "rb").read()
+        for f in ("scripts/doc_gates.sh", "scripts/tr12_output_paths_gate.sh"):
+            snap[f] = open(os.path.join(cls.repo, f), "rb").read()
+        return snap
+
+    def _use(self, snap):
+        d = os.path.join(self.repo, "scripts", "doc_gates.d")
+        shutil.rmtree(d)
+        os.makedirs(d)
+        for f, b in snap.items():
+            with open(os.path.join(self.repo, f), "wb") as fh:
+                fh.write(b)
+
+    def _apply(self, edits):
+        import glob
+        saved = {}
+        for e in edits:
+            paths = sorted(glob.glob(os.path.join(self.repo, e[0])))
+            self.assertTrue(paths, "precondition: the plant's target exists: %r" % (e,))
+            for p in paths:
+                if p not in saved:
+                    saved[p] = open(p, "rb").read()
+                t = open(p, "rb").read().decode("utf-8")
+                op = e[1]
+                if op == "append":
+                    t += e[2]
+                elif op == "replace":
+                    self.assertIn(e[2], t, "precondition: the plant applies to %s" % p)
+                    t = t.replace(e[2], e[3], 1)
+                elif op == "before":
+                    self.assertIn(e[3], t, "precondition: the plant applies to %s" % p)
+                    k = t.index(e[3]); t = t[:k] + e[2] + t[k:]
+                elif op == "after_line":
+                    ls = t.split("\n")
+                    k = [i for i, l in enumerate(ls) if l.startswith(e[3])]
+                    self.assertTrue(k, "precondition: the plant applies to %s" % p)
+                    ls.insert(k[0] + 1, e[2]); t = "\n".join(ls)
+                elif op == "crlf":
+                    t = t.replace("\r\n", "\n").replace("\n", "\r\n")
+                else:
+                    self.fail("unknown plant op %r" % op)
+                with open(p, "wb") as fh:
+                    fh.write(t.encode("utf-8"))
+        return saved
+
+    def _leg(self, leg, edits=()):
+        saved = self._apply(edits)
+        try:
+            cmd = (["bash", "scripts/tr12_output_paths_gate.sh"] if leg == "tr12-output-paths"
+                   else ["bash", "scripts/doc_gates.sh", leg])
+            r = subprocess.run(["nice", "-n", "19"] + cmd, cwd=self.repo, capture_output=True,
+                               text=True, timeout=900)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+        return r.returncode, r.stdout + r.stderr
+
+    def _red(self, out, path):
+        # red for the RIGHT reason: a FAIL/FINDING line, or the file list printed under one, names the
+        # planted file.
+        return any(path in l for l in out.split("\n")
+                   if "FAIL" in l or "FINDING" in l or l.startswith("      "))
+
+    def test_a_unplanted_tree_is_green_on_every_leg(self):
+        self._use(self.fixed)
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg)
+                self.assertEqual(rc, 0, out[-3000:])
+
+    def test_b_every_plant_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, path, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertEqual(rc, 1, out[-3000:])
+                self.assertTrue(self._red(out, path), "the FAIL does not name %s:\n%s" % (path, out[-3000:]))
+
+    def test_c_every_control_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, path, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, ctl)
+                self.assertEqual(rc, 1, out[-3000:])
+
+    def test_d_every_plant_passes_on_the_uncured_scripts(self):
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
+        self._use(self.uncured)
+        try:
+            base = {}
+            for pid, leg, path, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg):
+                    if leg not in base:
+                        base[leg] = self._leg(leg)[0]
+                    if base[leg] != 0:
+                        # the 35782834 scripts no longer pass this tree unplanted (later docs), so a
+                        # rc 0 from them cannot be expected; stated, not silently passed
+                        self.skipTest("uncured %s is rc %d on the unplanted tree" % (leg, base[leg]))
+                    rc, out = self._leg(leg, plant)
+                    self.assertEqual(rc, 0, "the uncured scripts already catch this plant, so its red "
+                                     "test does not discriminate:\n" + out[-3000:])
+        finally:
+            self._use(self.fixed)
+
+    # ------------------------------------------------------------------ the normaliser itself
+    def _py(self, body):
+        src = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/md_normalise.sh && _md_norm_prelude"],
+                             cwd=self.ROOT, capture_output=True, text=True, check=True).stdout
+        r = subprocess.run(["python3", "-c", src + "\n" + body], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout
+
+    def test_e_fences_match_by_opener_and_an_unclosed_fence_is_not_code(self):
+        out = self._py(
+            "L,k,b,u=md_parse('a\\n```\\n~~~\\nx\\n```\\nb\\n````\\n```\\n````\\n~~~\\nopen\\n')\n"
+            "print(k); print(u)")
+        kinds, unc = out.split("\n")[:2]
+        self.assertEqual(kinds, str(['text', 'fence', 'code', 'code', 'fence', 'text', 'fence', 'code',
+                                     'fence', 'text', 'text', 'blank']))
+        self.assertEqual(unc, "[10]")
+
+    def test_f_tables_headings_and_inline_fold(self):
+        out = self._py(
+            "L,k,b,u=md_parse(' a | b\\n --- | ---\\n 1 | 2\\n\\nTitle\\n=====\\n\\n   ## Three\\n')\n"
+            "print([(x['kind'],x.get('rows'),x.get('text')) for x in b])\n"
+            "print(md_inline('null P =\\u00a0**0.034** `x` &#x3c3; \\u201cq\\u201d snake_case _em_'))")
+        blocks, inline = out.split("\n")[:2]
+        self.assertEqual(blocks, str([('table', [(3, ['1', '2'])], None), ('heading', None, 'Title'),
+                                      ('heading', None, 'Three')]))
+        self.assertEqual(inline, 'null P = 0.034 x \u03c3 "q" snake_case em')
+
+# end class TestQ965MarkdownNormaliser (batch 40, Q-965)
+
+
+class TestQ968NumberLexer(unittest.TestCase):
+    """Q-968 (batch 40; R4 of review_2026_09_27/Q962_ADJUDICATION_REPORT.md, from the Q-835 Codex
+    lens-A push-path review). Each number leg read numbers with its own pattern and each lost
+    something: "1,023" read as 023, "1,002.156" as 002.156, a minus sign dropped, ungrouped long
+    integers invisible, "+/-" not a band, upper-case hex ignored, "= ×10" and "/ 0" dropped from the
+    quotient population, 1001 and 0x3e9 two seeds, "(1 min" unparsed, "C(91 , 6)" missed, and a
+    one-digit mantissa ("12×10³³" read as 2×10³³). The fix is ONE shared number lexer
+    (scripts/doc_gates.d/md_normalise.sh: `_md_num_prelude`, `md_num_scan`) that each leg reads
+    through; GATE 22's hex is case-folded.
+
+    DATA-DRIVEN over the adjudication's plants (the 11 R4 findings, plus A08#5 = 80:701, the
+    earlier-confirmed one-digit mantissa the backlog row names, and a few lexer-form siblings). Each
+    row runs the named leg alone on a scratch git copy of THIS working tree's tracked files:
+      * the plant must FAIL (rc 1, or a [WARN] for the report-only `status` leg) on the fixed
+        scripts, with the row's needle on a FAIL/WARN line;
+      * the same plant must EVADE on the scripts of public main 35782834 (rc 0 and no needle);
+      * the control (the un-evaded twin) must fire on the fixed scripts;
+      * the unplanted tree must be green on every leg involved.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PIN = "35782834"   # public main before Q-965/Q-968: the uncured scripts
+    CERT = "reports/certificates/README.md"
+    CM = "documentation/CAMPAIGN_METHODOLOGY.md"
+    TR11 = "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md"
+    TR3 = "reports/TR3_REPRODUCIBLE_ENUMERATION.md"
+    G = "documentation/GUIDE.md"
+    S0 = "reports/evidence/circular_census/out/M2_c00.out"
+    S1 = "reports/evidence/circular_census/out/M2_c01.out"
+    SEEDCLAIM = ("\nThe two runs are independent draws (evidence/circular_census/out/M2_c00.out and "
+                 "evidence/circular_census/out/M2_c01.out).\n")
+    # (id, leg, needle on a FAIL/WARN line, plant edits, control edits). An edit is
+    # (path, op, *args): append TEXT | replace OLD NEW (first occurrence).
+    PLANTS = [
+        ('A10#3', 'cert-inventory', CERT,
+         [(CERT, 'replace', '23 distinct proofs', '1,023 distinct proofs')],
+         [(CERT, 'replace', '23 distinct proofs', '1023 distinct proofs')]),
+        ('A10#3-thinspace', 'cert-inventory', CERT,
+         [(CERT, 'replace', '23 distinct proofs', '1\u2009023 distinct proofs')],
+         [(CERT, 'replace', '23 distinct proofs', '1023 distinct proofs')]),
+        ('A10#12', 'derived-coefficient', CM,
+         [(CM, 'append', '\n-58.8 % of fully-scanned cells produced zero solutions.\n')],
+         [(CM, 'append', '\n12.3 % of fully-scanned cells produced zero solutions.\n')]),
+        ('A10#12-unicode-minus', 'derived-coefficient', CM,
+         [(CM, 'append', '\n\u221258.8 % of fully-scanned cells produced zero solutions.\n')],
+         [(CM, 'append', '\n12.3 % of fully-scanned cells produced zero solutions.\n')]),
+        ('A10#22', 'layer-profile', TR11,
+         [(TR11, 'replace', '| 15 | 2.156 TB |', '| 15 | 1,002.156 TB |')],
+         [(TR11, 'replace', '| 15 | 2.156 TB |', '| 15 | 3.156 TB |')]),
+        ('A10#22-nnbsp', 'layer-profile', TR11,
+         [(TR11, 'replace', '| 15 | 2.156 TB |', '| 15 | 1\u202f002.156 TB |')],
+         [(TR11, 'replace', '| 15 | 2.156 TB |', '| 15 | 3.156 TB |')]),
+        ('A09#9', 'anchor-coverage', 'reports/METHODS.md',
+         [('reports/METHODS.md', 'append', '\n| New independent anchor | 123456789012345678901234567890 | **exact** |\n')],
+         [('reports/METHODS.md', 'append', '\n| New independent anchor | 123,456,789,012,345,678,901,234,567,890 | **exact** |\n')]),
+        ('A09#17', 'file-drawer', 'README.md',
+         [('README.md', 'append', '\nThe selection charge is log2(C(91 , 6)).\n')],
+         [('README.md', 'append', '\nThe selection charge is log2(C(91,6)).\n')]),
+        ('A09#19', 'seed-provenance', TR3,
+         [(S0, 'replace', 'base=0x0000000078c3d520', 'base=1001'), (S1, 'replace', 'base=0x0000000078c3d521', 'base=0x3e9'),
+          (TR3, 'append', SEEDCLAIM)],
+         [(S0, 'replace', 'base=0x0000000078c3d520', 'base=1001'), (S1, 'replace', 'base=0x0000000078c3d521', 'base=1001'),
+          (TR3, 'append', SEEDCLAIM)]),
+        ('A09#19-upper-hex', 'seed-provenance', TR3,
+         [(S0, 'replace', 'base=0x0000000078c3d520', 'base=1001'), (S1, 'replace', 'base=0x0000000078c3d521', 'base=0X3E9'),
+          (TR3, 'append', SEEDCLAIM)],
+         [(S0, 'replace', 'base=0x0000000078c3d520', 'base=1001'), (S1, 'replace', 'base=0x0000000078c3d521', 'base=1001'),
+          (TR3, 'append', SEEDCLAIM)]),
+        ('A09#22', 'index-fidelity', 'documentation/README.md',
+         [('documentation/README.md', 'replace', '(~24 min', '(1 min')],
+         [('documentation/README.md', 'replace', '(~24 min', '(~1 min')]),
+        ('A09#22-approx', 'index-fidelity', 'documentation/README.md',
+         [('documentation/README.md', 'replace', '(~24 min', '(\u22481 min')],
+         [('documentation/README.md', 'replace', '(~24 min', '(~1 min')]),
+        ('A08#21-ten', 'printed-quotient', G,
+         [(G, 'append', '\nThe split is 7.84 / 6.52 = \u00d710.\n')],
+         [(G, 'append', '\nThe split is 7.84 / 6.52 = \u00d79.\n')]),
+        ('A08#21-zero', 'printed-quotient', G,
+         [(G, 'append', '\nThe split is 7.84 / 0 = \u00d72.\n')],
+         [(G, 'append', '\nThe split is 7.84 / 6.52 = \u00d79.\n')]),
+        ('A08#23', 'se-vs-ci', 'README.md',
+         [('README.md', 'append', '\nThe 0.78% relative standard error gives a 95% CI of +/-0.01 bits.\n')],
+         [('README.md', 'append', '\nThe 0.78% relative standard error gives a 95% CI of \u00b10.01 bits.\n')]),
+        ('A07#8', 'hex-prefix', 'a09280fb0',
+         [('README.md', 'append', '\nCurrent digest A09280FB0\u2026\n')],
+         [('README.md', 'append', '\nCurrent digest a09280fb0\u2026\n')]),
+        ('A04#18', 'status', G,
+         [(G, 'append', '\nThe 1097051278789181790036112071176579186688 figure is an estimate.\n')],
+         [(G, 'append', '\nThe 1,097,051,278,789,181,790,036,112,071,176,579,186,688 figure is an estimate.\n')]),
+        ('A08#5', 'canonical-ceiling', 'documentation/PROJECT_OVERVIEW.md',
+         [('documentation/PROJECT_OVERVIEW.md', 'append', '\nThere are 12\u00d710\u00b3\u00b3 canonical orderings.\n')],
+         [('documentation/PROJECT_OVERVIEW.md', 'append', '\nThere are 9\u00d710\u00b3\u00b3 canonical orderings.\n')]),
+        ('A08#5-ascii', 'canonical-ceiling', 'documentation/PROJECT_OVERVIEW.md',
+         [('documentation/PROJECT_OVERVIEW.md', 'append', '\nThere are 12e33 canonical orderings.\n')],
+         [('documentation/PROJECT_OVERVIEW.md', 'append', '\nThere are 9e33 canonical orderings.\n')]),
+    ]
+    REPORT_ONLY = {'status'}   # always rc 0; the verdict is the [WARN] line
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q968_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files + ["scripts/doc_gates.d/md_normalise.sh"]:   # new in Q-965; may not be tracked yet
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(cls.repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        g = ["git", "-C", cls.repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"],
+                       check=True)
+        cls.fixed = cls._snapshot()
+        cls.uncured = None
+        if subprocess.run(["git", "-C", cls.ROOT, "cat-file", "-e", cls.PIN + "^{commit}"],
+                          capture_output=True).returncode == 0:
+            cls.uncured = {}
+            names = subprocess.run(["git", "-C", cls.ROOT, "ls-tree", "--name-only", cls.PIN,
+                                    "scripts/doc_gates.d/"], capture_output=True, text=True,
+                                   check=True).stdout.split()
+            for f in names + ["scripts/doc_gates.sh"]:
+                cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
+                                                capture_output=True, check=True).stdout
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _snapshot(cls):
+        def rd(p):
+            with open(p, "rb") as fh:
+                return fh.read()
+        d = os.path.join(cls.repo, "scripts", "doc_gates.d")
+        snap = {"scripts/doc_gates.d/" + f: rd(os.path.join(d, f)) for f in sorted(os.listdir(d))}
+        snap["scripts/doc_gates.sh"] = rd(os.path.join(cls.repo, "scripts/doc_gates.sh"))
+        return snap
+
+    def _use(self, snap):
+        d = os.path.join(self.repo, "scripts", "doc_gates.d")
+        shutil.rmtree(d)
+        os.makedirs(d)
+        for f, b in snap.items():
+            with open(os.path.join(self.repo, f), "wb") as fh:
+                fh.write(b)
+
+    def _leg(self, leg, edits=()):
+        saved = {}
+        try:
+            for e in edits:
+                p = os.path.join(self.repo, e[0])
+                self.assertTrue(os.path.isfile(p), "precondition: the plant's target exists: %r" % (e,))
+                with open(p, "rb") as fh:
+                    t = fh.read()
+                saved.setdefault(p, t)
+                t = t.decode("utf-8")
+                if e[1] == "append":
+                    t += e[2]
+                elif e[1] == "replace":
+                    self.assertIn(e[2], t, "precondition: the plant applies to %s" % p)
+                    t = t.replace(e[2], e[3], 1)
+                else:
+                    self.fail("unknown plant op %r" % (e[1],))
+                with open(p, "wb") as fh:
+                    fh.write(t.encode("utf-8"))
+            r = subprocess.run(["nice", "-n", "19", "timeout", "900", "bash", "scripts/doc_gates.sh", leg],
+                               cwd=self.repo, capture_output=True, text=True, timeout=960)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fired(self, leg, rc, out, needle):
+        # fired for the RIGHT reason: a FAIL (or, report-only, a WARN) line names the needle
+        word = "[WARN]" if leg in self.REPORT_ONLY else "FAIL"
+        named = any(needle in l for l in out.split("\n") if word in l)
+        return named and (leg in self.REPORT_ONLY or rc == 1)
+
+    def test_a_unplanted_tree_is_green_on_every_leg(self):
+        self._use(self.fixed)
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg)
+                self.assertEqual(rc, 0, out[-3000:])
+                for pid, l2, needle, plant, ctl in self.PLANTS:
+                    if l2 == leg:
+                        self.assertFalse(self._fired(leg, 1, out, needle), "unplanted tree already fires:\n" + out[-3000:])
+
+    def test_b_every_plant_fires_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertTrue(self._fired(leg, rc, out, needle), "rc %d, needle %s:\n%s" % (rc, needle, out[-3000:]))
+
+    def test_c_every_control_fires_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, ctl)
+                self.assertTrue(self._fired(leg, rc, out, needle), "rc %d:\n%s" % (rc, out[-3000:]))
+
+    def test_d_every_plant_evades_the_uncured_scripts(self):
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
+        self._use(self.uncured)
+        try:
+            for pid, leg, needle, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg):
+                    rc, out = self._leg(leg, plant)
+                    self.assertFalse(self._fired(leg, rc, out, needle) or rc != 0,
+                                     "the uncured scripts already catch this plant, so its red test does "
+                                     "not discriminate (rc %d):\n%s" % (rc, out[-3000:]))
+                    rc, out = self._leg(leg, ctl)   # ...while they still fire on its plain twin
+                    self.assertTrue(self._fired(leg, rc, out, needle), "uncured control rc %d:\n%s" % (rc, out[-3000:]))
+        finally:
+            self._use(self.fixed)
+
+    # ------------------------------------------------------------------ the lexer itself
+    LEX = [   # (text, [(raw, value as str(Fraction), sign)] of every number md_nums reads)
+        ('1,023 distinct', [('1,023', '1023', '')]),
+        ('1,002.156 TB', [('1,002.156', '250539/250', '')]),
+        ('-58.8 %', [('-58.8', '-294/5', '-')]),
+        ('\u221258.8', [('\u221258.8', '-294/5', '-')]),
+        ('+/-0.01 and \u00b1 0.02', [('+/-0.01', '1/100', '\u00b1'), ('\u00b1 0.02', '1/50', '\u00b1')]),
+        ('0x3e9 0X3E9', [('0x3e9', '1001', ''), ('0X3E9', '1001', '')]),
+        ('1.2e-5 1.2\u00d710\u207b\u2075 1.2 x 10^-5', [('1.2e-5', '3/250000', ''), ('1.2\u00d710\u207b\u2075', '3/250000', ''),
+                                                       ('1.2 x 10^-5', '3/250000', '')]),
+        ('12\u00d710\u00b3\u00b3', [('12\u00d710\u00b3\u00b3', str(12 * 10 ** 33), '')]),
+        ('10\u207b\u2075', [('10\u207b\u2075', '1/100000', '')]),
+        ('= \u00d710.', [('10', '10', '')]),
+        ('1\u2009023 1\u00a0023\u00a0456', [('1\u2009023', '1023', ''), ('1\u00a0023\u00a0456', '1023456', '')]),
+        ('C(91,6) TR-11 3-5', [('91', '91', ''), ('6', '6', ''), ('11', '11', ''), ('3', '3', ''), ('5', '5', '')]),
+        ('1,0234 v1.2 a12e33', [('1', '1', ''), ('0234', '234', '')]),
+    ]
+
+    def _py(self, body):
+        src = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/md_normalise.sh && _md_norm_prelude"],
+                             cwd=self.ROOT, capture_output=True, text=True, check=True).stdout
+        r = subprocess.run(["python3", "-c", src + "\n" + body], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout
+
+    def test_e_lexer_reads_every_form(self):
+        import json
+        out = self._py("import json,sys\nfor t in json.loads(sys.argv[1] if len(sys.argv)>1 else %r):\n"
+                       "    print(json.dumps([[n.raw, str(n.value), n.sign] for n in md_nums(t)]))"
+                       % json.dumps([t for t, _ in self.LEX]))
+        got = [json.loads(l) for l in out.strip().split("\n")]
+        for (text, want), g in zip(self.LEX, got):
+            with self.subTest(text=text):
+                self.assertEqual([tuple(x) for x in g], want)
+
+    def test_f_unreadable_forms_raise_and_zero_denominators_are_loud(self):
+        out = self._py(
+            "for s in ('023x', '1,02', '', 'abc', '1e99999'):\n"
+            "    try:\n        md_num(s); print('PARSED', repr(s))\n"
+            "    except MdNumError:\n        print('ERR')\n"
+            "try:\n    md_ratio('7.84', '0'); print('PARSED')\nexcept MdNumError:\n    print('ERR')\n"
+            "print(list(md_binoms('log2(C(91 , 6)) \\\\binom{95}{3} C( 95,2 )')))\n"
+            "print(md_inline('1\\u202f023'))")
+        lines = out.strip().split("\n")
+        self.assertEqual(lines[:6], ['ERR'] * 6)
+        self.assertEqual(lines[6], '[(5, 91, 6), (16, 95, 3), (30, 95, 2)]')
+        self.assertEqual(lines[7], '1,023')
+
+# end class TestQ968NumberLexer (batch 40, Q-968)
+
+
+class TestQ967ClaimBinding(unittest.TestCase):
+    """Q-967 (batch 40, R3 of the Q-962 adjudication of Codex's Q835 push-path review): scanners
+    tied a claim to the wrong evidence. Only the first match was checked, values were pooled across
+    datasets, a nearby sha or another paragraph supplied the qualifier, and a claim_ledger row's
+    evidence could read the ledger itself, so a false TR-12 B0 vector published with
+    CLAIM_LEDGER=PASS. The fix binds each claim to its own scope unit (sentence, table row, list
+    item, section) and its own key (dataset and boundary, resource type and name, occurrence).
+
+    DATA-DRIVEN. Each case is one Q835 finding's plant, as the adjudication report records it,
+    applied to a scratch clone of this tree (HEAD plus the working-tree changes). Each must FAIL
+    the leg it names, and that leg must PASS on the clean clone first: the precondition is what
+    makes the red the plant's doing. ROAE_TESTS_Q967_GATES_REV=<rev> checks out scripts/ from
+    <rev> in the clone. With 35782834 (the pre-fix public main) every case goes green, which is
+    the evade half of the red/green record; nothing in the harness sets it.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    B0_EVIDENCE = "python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json"
+
+    # ------------------------------------------------------------------ plants
+    @staticmethod
+    def _append(rel, text):
+        def f(tree):
+            with open(os.path.join(tree, rel), "a", encoding="utf-8") as fh:
+                fh.write("\n\n" + text + "\n")
+        return f
+
+    @staticmethod
+    def _sub(rel, old, new):
+        def f(tree):
+            p = os.path.join(tree, rel)
+            with open(p, encoding="utf-8") as fh:
+                t = fh.read()
+            if not (t.count(old) >= 1): raise RuntimeError("precondition: %r is in %s" % (old[:60], rel))   # explicit, survives -O (Q-373)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(t.replace(old, new, 1))
+        return f
+
+    @staticmethod
+    def _write(rel, text):
+        def f(tree):
+            with open(os.path.join(tree, rel), "w", encoding="utf-8") as fh:
+                fh.write(text)
+        return f
+
+    @staticmethod
+    def _all(*fs):
+        def f(tree):
+            for g in fs:
+                g(tree)
+        return f
+
+    @staticmethod
+    def _lean_preview(tree):
+        # A10#18: corrupt TG-1 in the real ledger block, then prepend a "binding ledger preview"
+        # carrying the block's first 30 lines, verbatim and correct.
+        p = os.path.join(tree, "documentation", "TRIGRAM_STRUCTURE.md")
+        with open(p, encoding="utf-8") as fh:
+            t = fh.read()
+        lines = t.split("\n")
+        k = next(i for i, l in enumerate(lines) if "binding ledger" in l)
+        a = next(i for i in range(k, len(lines)) if lines[i].strip().startswith("```"))
+        preview = lines[a + 1:a + 31]
+        old = "· §TG-1 (trigram factorization layer) — CLASSICAL CONTENT"
+        if not (t.count(old) == 1): raise RuntimeError("precondition: the TG-1 ledger line is unique")   # explicit, survives -O (Q-373)
+        t = t.replace(old, "· §TG-1 (trigram factorization layer) — NOVEL CONTENT")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("The binding ledger preview:\n\n```\n" + "\n".join(preview) + "\n```\n\n" + t)
+
+    @staticmethod
+    def _cert_floor(tree):
+        p = os.path.join(tree, "reports", "certificates", "verify_all.sh")
+        with open(p, encoding="utf-8") as fh:
+            ls = fh.read().split("\n")
+        i = next(i for i, l in enumerate(ls) if l.startswith("CERT_FLOOR=24"))
+        ls.insert(i + 1, "export CERT_FLOOR=1")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(ls))
+
+    @staticmethod
+    def _sha_neighbour(tree):
+        # A05#16: a cancelled 9999T budget placed under another run's full-length sha line.
+        p = os.path.join(tree, "documentation", "CANONICAL_HASHES.md")
+        with open(p, encoding="utf-8") as fh:
+            ls = fh.read().split("\n")
+        i = next(i for i, l in enumerate(ls) if re.search(r"\b[0-9a-f]{64}\b", l) and not l.startswith("|"))
+        ls.insert(i + 1, "Planned 9999T budget; cancelled.")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(ls))
+
+    @classmethod
+    def _b0_selfread(cls, tree):
+        # A03#3: TR12_SUM_B0's evidence reads its own ledger value back; 2,8,13,7,1 -> 2,8,13,7,9
+        # in the ledger AND on TR-12:30, so S and P hold and only independence can catch it.
+        L = os.path.join(tree, "documentation", "CLAIMS.tsv")
+        with open(L, encoding="utf-8") as fh:
+            rows = fh.read().split("\n")
+        i = next(i for i, l in enumerate(rows) if l.startswith("TR12_SUM_B0\t"))
+        f = rows[i].split("\t")
+        if not (f[6] == "2,8,13,7,1"): raise RuntimeError("precondition: the B0 row carries the published vector")   # explicit, survives -O (Q-373)
+        f[6] = "2,8,13,7,9"
+        f[10] = "awk -F'\\t' '$1==\"TR12_SUM_B0\"{print \"B0_FROM_COLUMN_SUMS=\" $7}' documentation/CLAIMS.tsv"
+        rows[i] = "\t".join(f)
+        with open(L, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(rows))
+        hdr = next(l for l in rows if l.startswith("id\t"))
+        with open(os.path.join(tree, "q967_b0.tsv"), "w", encoding="utf-8") as fh:
+            fh.write(hdr + "\n" + rows[i] + "\n")
+        cls._sub("reports/TR12_QUERY_PROGRAM.md", "`2,8,13,7,1`", "`2,8,13,7,9`")(tree)
+
+    LEDGER_ROW = "\t".join(["Q967_PLANT", "a planted set", "none", "units", "conditional-on:planted",
+                            "measured", "42", "exact", "documentation/Q967_LEDGER_PLANT.md:1", "inference",
+                            "python3 -c \"print('Q967_V=42')\"", "Q967_V", "solve.py"])
+
+    @classmethod
+    def _ledger_plant(cls, line):
+        def f(tree):
+            with open(os.path.join(tree, "documentation", "CLAIMS.tsv"), encoding="utf-8") as fh:
+                hdr = next(l for l in fh.read().split("\n") if l.startswith("id\t"))
+            cls._write("q967_plant.tsv", hdr + "\n" + cls.LEDGER_ROW + "\n")(tree)
+            cls._write("documentation/Q967_LEDGER_PLANT.md", line + "\n")(tree)
+        return f
+
+    # ------------------------------------------------------------------ the table
+    # id, runner, plant, needle that must appear in the FAILING output
+    def cases(self):
+        A, S, D = self._append, self._sub, "documentation/PROJECT_OVERVIEW.md"
+        dg = lambda m: ("doc_gates", m)
+        return [
+            ("A10#2", dg("cert-inventory"), self._cert_floor, r"writes CERT_FLOOR 2 time"),
+            ("A10#6", dg("log-derived-figures"), A(D, "d3 10T §[3]: boundary 15 has 152,468,987 survivors."),
+             r"not boundary 15's"),
+            ("A10#10", dg("witness-count"), A(D, "11.2T has eight independent paths and nine independent witnesses."),
+             r"'nine independent witnesses' for 11\.2T"),
+            ("A10#11", dg("baseline-arithmetic"),
+             A(D, "15 of the 31 pairs are ineligible, so the baseline is 1/16 and the baseline is 1/999."),
+             r"baseline 1/999"),
+            ("A10#15", dg("az-name-closure"),
+             A("documentation/DEPLOYMENT.md", "## Q967 plant\n\n```\naz disk create -g rg -n q835-same --size-gb 1\n"
+               "az network nic show -g rg -n q835-same\n```"), r"'q835-same \(network nic\)' is referenced"),
+            ("A10#17", dg("identifying-set-arity"), A(D, "At d3 100T, C1–C7 plus two boundaries suffice to identify KW."),
+             r"allowed counts for d3 100T are \[3\]"),
+            ("A10#18", dg("lean-header-verbatim"), self._lean_preview, r"NOVEL CONTENT"),
+            ("A10#20", dg("theorem-vs-slice"), A("documentation/SPECIFICATION.md", "All possible wrap distances are d=1 vs. d=3."),
+             r"without d=5 or a scope word: All possible wrap"),
+            ("A10#25", dg("scorecard-attribution"), self._all(
+                A("documentation/CLAIMS_DECIDED.md", "| Q967 planted claim | [Cao 1995](CITATIONS.md#caohongjun1995), p.7 | x | y | "
+                  "[plant](../reports/Q967_SCORE_PLANT.md) |"),
+                self._write("reports/Q967_SCORE_PLANT.md", "A local [Cao](#caohongjun1995) note, p. 7.\n")),
+             r"credits CITATIONS\.md#caohongjun1995, which none of its linked"),
+            ("A10#29", dg("rec-scope"), A(D, "rec#330177707 at 560T is the survivor; rec#330177707 is the survivor across all datasets."),
+             r"rec#330177707 is qualified"),
+            ("A08#14 rotation", dg("rotation-c3"), A(D, "- The 32 rotations are symmetries\n- An unrelated benchmark uses C3"),
+             r"without naming C3"),
+            ("A08#14 rotation, paragraphs", dg("rotation-c3"), A(D, "The 32 rotations are symmetries\n\nAn unrelated benchmark uses C3"),
+             r"without naming C3"),
+            ("A08#14 sk-gains", dg("sk-gains"),
+             A(D, "- The first step gives the maximum single-boundary information gain\n- An unrelated benchmark is unconditional"),
+             r"without saying UNCONDITIONAL"),
+            ("A08#14 superlative", dg("superlative"),
+             A(D, "- Schulz gives the strongest measured literature discriminator\n- An unrelated survey as of 2026"),
+             r"UNQUALIFIED 'strongest measured"),
+            ("A08#15 dvd24", dg("dvd24-scope"), A(D, 'We prove that "24 divides every exact solution count".'),
+             r"UNRESTRICTED UNIVERSAL"),
+            ("A08#15 rotation", dg("rotation-c3"), A(D, 'We prove that "the 32 pair-slot rotations are symmetries".'),
+             r"without naming C3"),
+            ("A08#15 sk-gains", dg("sk-gains"), A(D, 'We prove that "the first step gives the maximum single-boundary information gain".'),
+             r"without saying UNCONDITIONAL"),
+            ("A08#15 superlative", dg("superlative"), A(D, 'We prove that "Schulz is the strongest measured literature discriminator".'),
+             r"UNQUALIFIED 'strongest measured"),
+            ("A08#18", dg("fiber-anchor"), A(D, "The fiber is 1,720,320 = 3·5·7·2^15, whereas 3,440,640 is the raw comparison."),
+             r"3·5·7·2\^15 \(equated to 1,720,320\)' = 3440640"),
+            ("A05#16", dg("liveness"), self._all(self._sha_neighbour, A("README.md", "The 9999T run established the result.")),
+             r'"9999T run" names a run after budget 9999T'),
+            ("A05#17", dg("liveness"), A("README.md", "A separate test completed yesterday.\nThe ladder build is in flight."),
+             r'status frozen in the present tense: "in flight"'),
+            # Fable B40 FIX 2: a bare `.` code span must not mask every period of the unit, or the DISPO
+            # word of the sentence before excuses the live status again.
+            ("A05#17 dot-span", dg("liveness"), A("README.md", "The 2000T run was cancelled before launch, see `.` for "
+                                                  "the directory. The 4000T ladder build is in flight."),
+             r'status frozen in the present tense: "in flight"'),
+            ("A09#5", dg("p14-claims"), A(D, "| n | Count | Convention |\n|---|---|---|\n| 9 | 26,112 | canonical |"),
+             r"PROJECT_OVERVIEW\.md:\d+"),
+            ("A09#23", dg("sha-tuple"), A(D, "The canonical sha is a function of (source code, partition depth, global node limit, "
+                                             "per-sub-branch limit, thread count, current time)."),
+             r"does not have: thread count, current time"),
+            ("A04#16", dg("secrefs"), A(D, 'See nonexistent/CRITIQUE.md §"Data correctness".'),
+             r'bare section reference to "nonexistent/CRITIQUE\.md"'),
+            ("A02#20", ("published", None), self._all(
+                A("documentation/CORRECTIONS.md", "## CX-9999 — Q967 plant\n\n- **Documents:** [root README](../README.md)\n"
+                  "- **Why:** a planted entry"),
+                A("documentation/README.md", "CX-9999")),
+             r"CX-9999 names README\.md, which does not carry CX-9999"),
+            ("A03#3", ("ledger", "q967_b0.tsv"), self._b0_selfread, r"\[FALSE\] TR12_SUM_B0: I: "),
+            ("A03#7", ("ledger", "q967_plant.tsv"), self._ledger_plant("42 is certain. “This inference is a different matter.”"),
+             r"\[FALSE\] Q967_PLANT: P: "),
+        ]
+
+    # ------------------------------------------------------------------ harness
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q967_")
+        cls.tree = os.path.join(cls.tmp, "tree")
+        g = lambda *a, **k: subprocess.run(["git"] + list(a), capture_output=True, text=True, **k)
+        head = g("-C", cls.ROOT, "rev-parse", "HEAD").stdout.strip()
+        cls.setup_err = ""
+        r = g("clone", "-q", "--shared", "--no-checkout", cls.ROOT, cls.tree)
+        r2 = g("-C", cls.tree, "checkout", "-q", "--detach", head) if r.returncode == 0 else r
+        if r2.returncode != 0:
+            cls.setup_err = "scratch clone failed: " + r.stderr + r2.stderr
+            return
+        changed = g("-C", cls.ROOT, "diff", "--name-only", "HEAD").stdout.split("\n")
+        changed += g("-C", cls.ROOT, "ls-files", "--others", "--exclude-standard").stdout.split("\n")
+        for rel in filter(None, changed):
+            src, dst = os.path.join(cls.ROOT, rel), os.path.join(cls.tree, rel)
+            if os.path.isfile(src):
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy2(src, dst)
+            elif os.path.exists(dst):
+                os.remove(dst)
+        rev = os.environ.get("ROAE_TESTS_Q967_GATES_REV")
+        if rev:
+            r = g("-C", cls.tree, "checkout", "-q", rev, "--", "scripts")
+            if r.returncode != 0:
+                cls.setup_err = "cannot check out scripts/ at %s: %s" % (rev, r.stderr)
+                return
+        g("-C", cls.tree, "add", "-A")
+        r = g("-C", cls.tree, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty",
+              "-m", "q967 fixture: HEAD + working tree")
+        if r.returncode != 0:
+            cls.setup_err = "fixture commit failed: " + r.stderr
+        cls.clean = {}
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _reset(self):
+        subprocess.run(["git", "-C", self.tree, "checkout", "-q", "--", "."], check=True)
+        subprocess.run(["git", "-C", self.tree, "clean", "-fdq"], check=True)
+
+    def _run(self, runner, clean=False):
+        kind, arg = runner
+        if kind == "doc_gates":
+            argv = ["bash", "scripts/doc_gates.sh", arg]
+        elif kind == "published":
+            argv = ["bash", "scripts/gate_published_consistency.sh"]
+        else:
+            argv = ["bash", "scripts/claim_ledger.sh", "--check", "--ledger", arg]
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("DOC_GATES_", "SOLVE_"))}
+        r = subprocess.run(["nice", "-n", "19", "timeout", "900"] + argv, cwd=self.tree, env=env,
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def _precondition(self, cid, runner, plant):
+        """The leg is green on the clean clone (and, for a ledger case, on its control row)."""
+        kind, arg = runner
+        if kind == "ledger":
+            # A03#3 control: the real evidence over the same one-row ledger reads the planted vector
+            # FALSE (on E) and the published one TRUE. A03#7 twin: the premise in the value's own
+            # sentence reads TRUE.
+            self._reset()
+            if cid == "A03#3":
+                plant(self.tree)
+                for f in ("q967_b0.tsv",):
+                    p = os.path.join(self.tree, f)
+                    with open(p, encoding="utf-8") as fh:
+                        t = fh.read()
+                    t = re.sub(r"\tawk [^\t]*\t", "\t" + self.B0_EVIDENCE + "\t", t)
+                    with open(p, "w", encoding="utf-8") as fh:
+                        fh.write(t)
+                rc, out = self._run(runner)
+                self.assertIn("\nCLAIM_TR12_SUM_B0=FALSE\n", "\n" + out, "control: the planted vector is false: " + out[-1500:])
+                self.assertIn("TR12_SUM_B0: E: ", out, "control: and false on E: " + out[-1500:])
+            else:
+                self._ledger_plant("42 is certain under this inference.")(self.tree)
+                rc, out = self._run(runner)
+                self.assertEqual(rc, 0, "twin: the premise in the same sentence reads TRUE: " + out[-1500:])
+                self.assertIn("\nCLAIM_Q967_PLANT=TRUE\n", "\n" + out)
+            return
+        key = runner
+        if key not in self.clean:
+            self._reset()
+            self.clean[key] = self._run(runner)
+        rc, out = self.clean[key]
+        self.assertEqual(rc, 0, "precondition: %s is green on the clean clone: %s" % (runner, out[-2000:]))
+        if kind == "published":     # its verdict is the token, not the exit code
+            self.assertRegex(out, r"(?m)^PUBLISHED_CONSISTENCY=PASS(-AT-PIN)?$", "precondition: " + out[-1500:])
+
+    def test_every_r3_plant_fails_its_leg(self):
+        self.assertEqual(self.setup_err, "", self.setup_err)
+        ids = [c[0] for c in self.cases()]
+        self.assertEqual(len({i.split()[0] for i in ids}), 21, "the 21 R3 findings are all in the table")
+        for cid, runner, plant, needle in self.cases():
+            with self.subTest(case=cid):
+                self._precondition(cid, runner, plant)
+                self._reset()
+                plant(self.tree)
+                rc, out = self._run(runner)
+                if runner[0] == "published":
+                    self.assertIn("\nPUBLISHED_CONSISTENCY=FAIL\n", "\n" + out,
+                                  "%s: the plant must FAIL the ratchet: %s" % (cid, out[-2500:]))
+                else:
+                    self.assertNotEqual(rc, 0, "%s: the plant must FAIL %s: %s" % (cid, runner, out[-2500:]))
+                self.assertRegex(out, needle, "%s: the failure names the plant" % cid)
+                if runner[0] == "ledger":
+                    self.assertIn("\nCLAIM_LEDGER=FAIL\n", "\n" + out)
+        self._reset()
+
+# end class TestQ967ClaimBinding (batch 40, Q-967)
+
+
+class TestQ966WordMatcher(unittest.TestCase):
+    """Q-966 (batch 40; R2 of review_2026_09_27/Q962_ADJUDICATION_REPORT.md, from the Q-835 Codex
+    lens-A push-path review). Exemption and marker words were matched as UNBOUNDED, NEGATION-BLIND
+    SUBSTRINGS and comments were read as code: "unretracted" was a supersession marker, "not
+    superseded" and "(not a typo)" exempted, "mainframe" named the frame, `dissolve --demo` was a solve
+    command, `base=` was `se=`, CX-999 was found inside CX-9990 and PICK=2 inside PICK=20, and a
+    `# comment` supplied a flag or a producer. The fix is ONE shared matcher next to the markdown
+    normaliser (scripts/doc_gates.d/word_match.sh: whole words with Unicode boundaries and no hyphenated
+    prefix, clause-bounded negation, exact tokens for ids and KEY=value, comment-stripped source), and
+    every leg the 28 findings name reads through it.
+
+    DATA-DRIVEN over the adjudication's plants: one row per plant (30 rows for the 28 findings; A08#11
+    and A08#20 each have two forms), each with its un-evaded CONTROL twin. Every row runs the named leg
+    alone on a scratch git copy of THIS working tree's tracked files:
+      * the plant must FAIL on the fixed scripts, and a FAIL line (or the file list under one) must name
+        the plant's needle;
+      * the same plant must PASS on the uncured scripts of public main 35782834 (gates-must-discriminate);
+      * the control must FAIL on the fixed scripts;
+      * the unplanted tree must be green on every leg involved.
+    A leg is `doc_gates.sh <mode>`, or `tr12-output-paths` / `published-consistency` (the verdict token
+    PUBLISHED_CONSISTENCY=FAIL is the failure; that script exits 0 either way).
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PIN = "cb61be3f"   # public main before Q-966 (batch 39; was 35782834 in the lane, whose script-paths allowlist predates batch 37's reviewer rows, so that leg skipped)
+    R, G = "README.md", "documentation/GUIDE.md"
+    # (id, leg, needle a FAIL line must carry, plant edits, control edits). An edit is
+    # (path, op, *args): append TEXT | replace OLD NEW (first) | replace_all OLD NEW |
+    # after_line TEXT LINE-PREFIX | new TEXT (a new tracked file). Key phrases are split with literal
+    # concatenation so this file does not itself restate a registered withdrawn figure or phrase.
+    PLANTS = [
+        ('A02#17', 'tr12-output-paths', 'q835_missing.tsv',
+         [(R, 'append', '\nSee `<artifact-root>/q835_missing.tsv`.\n'),
+          ('scripts/tr12_repro.sh', 'append', '\n# cp "$RAW" "$ARTDIR/q835_missing.tsv"\n')],
+         [(R, 'append', '\nSee `<artifact-root>/q835_missing.tsv`.\n')]),
+        ('A02#21', 'published-consistency', 'CX-9999',
+         [('documentation/CORRECTIONS.md', 'append', '\n## CX-9999 \u2014 q835 plant\n\n- **Documents:** [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md)\n- **Why:** plant.\n'),
+          ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'append', '\nSee CX-99990.\n')],
+         [('documentation/CORRECTIONS.md', 'append', '\n## CX-9999 \u2014 q835 plant\n\n- **Documents:** [TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md)\n- **Why:** plant.\n')]),
+        ('A02#24', 'published-consistency', 'G11',
+         [('documentation/SEARCH_SPACE_SIZE.md', 'replace', 'PICK=2', 'PICK=20')],
+         [('documentation/SEARCH_SPACE_SIZE.md', 'replace', 'PICK=2', 'PICK=7')]),
+        ('A07#6', 'script-paths', 'd128_preflight_throttle_probe',
+         [(R, 'append', '\nRun `scripts/d128_preflight_throttle_probe.sh` before every bench.\n')],
+         [(R, 'append', '\nRun `scripts/q835_phantom_probe.sh` before every bench.\n')]),
+        ('A07#9', 'hex-prefix', 'a09280fb0',
+         [(R, 'append', '\nCurrent digest (not a typo): a09280fb0\u2026\n')],
+         [(R, 'append', '\nCurrent digest: a09280fb0\u2026\n')]),
+        ('A07#12', 'separates-census', 'q835_unapproved.py',
+         [('q835_unapproved.py', 'new', 'print(1)\n'), ('CLAUDE.md', 'append', '\nDo not approve `q835_unapproved.py`.\n')],
+         [('q835_unapproved.py', 'new', 'print(1)\n')]),
+        ('A07#15', 'completion-semantics', 'DEPLOYMENT.md',
+         [('documentation/DEPLOYMENT.md', 'replace', 'It is **NOT** a claim that the search space was exhausted.',
+           'It is a claim that the search space was ' 'exhausted.')],
+         [('documentation/DEPLOYMENT.md', 'replace_all', 'search space was exhausted', 'space was walked')]),
+        ('A07#17', 'env-surface', 'SOLVE_Q835_UNDOCUMENTED',
+         [('solve.c', 'append', '\nstatic const char *q835_env(void) { return getenv("SOLVE_Q835_UNDOCUMENTED"); }\n'),
+          ('documentation/DEPLOYMENT.md', 'append', '\nSee `UNRELATED_SOLVE_Q835_UNDOCUMENTED`.\n')],
+         [('solve.c', 'append', '\nstatic const char *q835_env(void) { return getenv("SOLVE_Q835_UNDOCUMENTED"); }\n')]),
+        ('A07#21', 'value-domains', 'cap',
+         [('solve.c', 'replace', 'if (cap > 0 && f1c5_unions[u].n > cap) continue;', 'if (cap > 0 && f1c5_unions[u].n > cap) (void)0;')],
+         [('solve.c', 'replace', 'if (cap > 0 && f1c5_unions[u].n > cap) continue;', ';')]),
+        ('A08#2', 'repro-reach', '--q835-absent',
+         [(R, 'append', '\nRun `verify.py --q835-absent`.\n'), ('verify.py', 'append', '\npass  # "--q835-absent"\n')],
+         [(R, 'append', '\nRun `verify.py --q835-absent`.\n')]),
+        ('A08#3', 'repro-reach', '--extended-selftest',
+         [(R, 'append', '\nTo reproduce the result, run `solve --extended-' 'selftest`.\n')],
+         [(R, 'append', '\nTo reproduce the result, run `solve --q835-unwaived`.\n')]),
+        ('A08#4', 'repro-reach', '--q835-absent',
+         [(R, 'append', '\nRun the queued job with `solve --q835-absent`.\n')],
+         [(R, 'append', '\nRun the job with `solve --q835-absent`.\n')]),
+        ('A08#11a', 'withdrawn-markers', G,
+         [(G, 'append', '\nThe null P = 0.0' '34 and remains unretracted.\n')],
+         [(G, 'append', '\nThe null P = 0.0' '34 and remains.\n')]),
+        ('A08#11b', 'se-vs-ci', R,
+         [(R, 'append', '\nThe 0.78% relative standard error gives a 95% CI of \u00b10.01 bits; uncorrected as of 2026-09-03.\n')],
+         [(R, 'append', '\nThe 0.78% relative standard error gives a 95% CI of \u00b10.01 bits.\n')]),
+        ('A08#16', 'rotation-c3', R,
+         [(R, 'append', '\nThe 32 rotations are symmetr' 'ies of the circular constraint system even with C3.\n')],
+         [(R, 'append', '\nThe 32 rotations are symmetr' 'ies of the circular constraint system.\n')]),
+        ('A08#17', 'sk-gains', R,
+         [(R, 'append', '\nHere the first gain is the max' 'imum across all conditioning contexts.\n')],
+         [(R, 'append', '\nHere the first gain is the max' 'imum.\n')]),
+        ('A08#19', 'fiber-anchor', R,
+         [(R, 'append', '\nThe per-key orientation space is 2^' '32, not 2^31.\n')],
+         [(R, 'append', '\nThe per-key orientation space is 2^' '32.\n')]),
+        ('A08#20a', 'superlative', R,
+         [(R, 'append', '\nOur headline finding is that Schulz is the strongest measured literature discrim' 'inator.\n')],
+         [(R, 'append', '\nSchulz is the strongest measured literature discrim' 'inator.\n')]),
+        ('A08#20b', 'superlative', R,
+         [(R, 'append', '\nSchulz is the unqualified strongest measured literature discrim' 'inator.\n')],
+         [(R, 'append', '\nSchulz is the strongest measured literature discrim' 'inator.\n')]),
+        ('A08#25', 'dvd24-scope', R,
+         [(R, 'append', '\nThe theorem twenty_four_dvd_c1 proves divisibility of N in run 48.\n')],
+         [(R, 'append', '\nThe theorem twenty_four_dvd_c1 proves divisibility of N in run 47.\n')]),
+        ('A09#3', 'p14-claims', R,
+         [(R, 'append', '\ngrand-ccn4 is the five-rule theorem; grander-strict is the four-rule theorem.\n')],
+         [(R, 'append', '\ngrander-strict is the four-rule theorem.\n')]),
+        ('A09#4', 'p14-claims', 'dav_tier1.out',
+         [(R, 'append', '\nThe dav_tier1.out rows now carry SEs.\n'), ('reports/evidence/dav_tier1.out', 'append', 'base=123\n')],
+         [(R, 'append', '\nThe dav_tier1.out rows now carry SEs.\n')]),
+        ('A09#7', 'cell-space', R,
+         [(R, 'append', '\nThe entire space consists of 65,2' '81 non-empty cells.\n')],
+         [(R, 'append', '\nThe entire space consists of 65,2' '81 cells.\n')]),
+        ('A09#8', 'band-status', 'viz/report_figures.py',
+         [('viz/report_figures.py', 'replace', '(illustrative, k = 5\u20138)', '(measured, k = 5\u20138)')],
+         [('viz/report_figures.py', 'replace', '(illustrative, k = 5\u20138)', '(measured, k = 5\u20138)'),
+          ('viz/report_figures.py', 'replace', '# ILLUSTRATIVE, not measured: the only', '# the only')]),
+        ('A09#10', 'report-verdict', R,
+         [(R, 'append', '\nThe spectrum shows no frequencies above the white noise fl' 'oor, as said in our abstract.\n')],
+         [(R, 'append', '\nThe spectrum shows no frequencies above the white noise fl' 'oor.\n')]),
+        ('A09#12', 'history-scope', 'HISTORY.md',
+         [('documentation/HISTORY.md', 'replace', '| Partially superseded \u2014 see next row. |', '| Proven universally; not superseded. |')],
+         [('documentation/HISTORY.md', 'replace', '| Partially superseded \u2014 see next row. |', '| Proven universally. |')]),
+        ('A09#15', 'sha-prediction', G,
+         [(G, 'append', '\nThe parity prune would change the canonical sha at a budget of 1000000000 nodes.\n')],
+         [(G, 'append', '\nThe parity prune would change the canonical sha at a budget of one billion nodes.\n')]),
+        ('A10#16', 'glossary-consistency', 'BRANCHES_EXPLAINED',
+         [('documentation/BRANCHES_EXPLAINED.md', 'append', '\nEvery parent-to-child decision on a mainframe is a node.\n')],
+         [('documentation/BRANCHES_EXPLAINED.md', 'append', '\nEvery parent-to-child decision is a node.\n')]),
+        ('A10#24', 'scorecard-repro', 'q835 claim',
+         [('documentation/CLAIMS_DECIDED.md', 'after_line', '| q835 claim | x | x | x | [GT](GT_LADDER_FORMAT.md) |', '| A better King Wen exists'),
+          ('documentation/GT_LADDER_FORMAT.md', 'append', '\nSee `dissolve --demo`.\n')],
+         [('documentation/CLAIMS_DECIDED.md', 'after_line', '| q835 claim | x | x | x | [GT](GT_LADDER_FORMAT.md) |', '| A better King Wen exists')]),
+        ('A10#28', 'merge-semantics', R,
+         [(R, 'append', '\nExternal sort is not implemented in solve.c.\n')],
+         [(R, 'append', '\nsolve cannot do external sort.\n')]),
+    ]
+    SCRIPTS = ("scripts/doc_gates.sh", "scripts/tr12_output_paths_gate.sh",
+               "scripts/gate_published_consistency.sh")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q966_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files:
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(cls.repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        for f in ("scripts/doc_gates.d/md_normalise.sh", "scripts/doc_gates.d/word_match.sh"):
+            shutil.copy2(os.path.join(cls.ROOT, f), os.path.join(cls.repo, f))   # new; may be untracked
+        g = ["git", "-C", cls.repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"],
+                       check=True)
+        cls.fixed = cls._snapshot()
+        cls.uncured = None
+        if subprocess.run(["git", "-C", cls.ROOT, "cat-file", "-e", cls.PIN + "^{commit}"],
+                          capture_output=True).returncode == 0:
+            cls.uncured = {}
+            names = subprocess.run(["git", "-C", cls.ROOT, "ls-tree", "--name-only", cls.PIN,
+                                    "scripts/doc_gates.d/"], capture_output=True, text=True,
+                                   check=True).stdout.split()
+            for f in names + list(cls.SCRIPTS):
+                cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
+                                                capture_output=True, check=True).stdout
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _snapshot(cls):
+        snap = {}
+        d = os.path.join(cls.repo, "scripts", "doc_gates.d")
+        for f in sorted(os.listdir(d)):
+            snap["scripts/doc_gates.d/" + f] = open(os.path.join(d, f), "rb").read()
+        for f in cls.SCRIPTS:
+            snap[f] = open(os.path.join(cls.repo, f), "rb").read()
+        return snap
+
+    def _use(self, snap):
+        d = os.path.join(self.repo, "scripts", "doc_gates.d")
+        shutil.rmtree(d)
+        os.makedirs(d)
+        for f, b in snap.items():
+            with open(os.path.join(self.repo, f), "wb") as fh:
+                fh.write(b)
+
+    def _apply(self, edits):
+        saved, new = {}, []
+        for e in edits:
+            p = os.path.join(self.repo, e[0])
+            op = e[1]
+            if op == "new":
+                self.assertFalse(os.path.exists(p), "precondition: %s is new" % e[0])
+                with open(p, "w") as fh:
+                    fh.write(e[2])
+                new.append(e[0])
+                continue
+            self.assertTrue(os.path.isfile(p), "precondition: the plant's target exists: %r" % (e,))
+            if p not in saved:
+                saved[p] = open(p, "rb").read()
+            t = open(p, "rb").read().decode("utf-8")
+            if op == "append":
+                t += e[2]
+            elif op in ("replace", "replace_all"):
+                self.assertIn(e[2], t, "precondition: the plant applies to %s" % p)
+                t = t.replace(e[2], e[3], 1 if op == "replace" else -1)
+            elif op == "after_line":
+                ls = t.split("\n")
+                k = [i for i, l in enumerate(ls) if l.startswith(e[3])]
+                self.assertTrue(k, "precondition: the plant applies to %s" % p)
+                ls.insert(k[0] + 1, e[2]); t = "\n".join(ls)
+            else:
+                self.fail("unknown plant op %r" % op)
+            with open(p, "wb") as fh:
+                fh.write(t.encode("utf-8"))
+        if new:
+            subprocess.run(["git", "-C", self.repo, "add", "--"] + new, check=True)
+        return saved, new
+
+    def _leg(self, leg, edits=()):
+        saved, new = self._apply(edits)
+        try:
+            cmd = {"tr12-output-paths": ["bash", "scripts/tr12_output_paths_gate.sh"],
+                   "published-consistency": ["bash", "scripts/gate_published_consistency.sh"]
+                   }.get(leg, ["bash", "scripts/doc_gates.sh", leg])
+            r = subprocess.run(["nice", "-n", "19"] + cmd, cwd=self.repo, capture_output=True,
+                               text=True, timeout=900)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+            if new:
+                subprocess.run(["git", "-C", self.repo, "rm", "-q", "--cached", "--"] + new, check=True)
+                for f in new:
+                    os.remove(os.path.join(self.repo, f))
+        out = r.stdout + r.stderr
+        rc = r.returncode
+        if leg == "published-consistency" and rc == 0:
+            # that script prints its verdict as a token and exits 0 on FAIL too
+            rc = 1 if "PUBLISHED_CONSISTENCY=FAIL" in out.split("\n") else 0
+        return rc, out
+
+    def _red(self, out, needle):
+        return any(needle in l for l in out.split("\n") if "FAIL" in l or l.startswith("      "))
+
+    def test_a_unplanted_tree_is_green_on_every_leg(self):
+        self._use(self.fixed)
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg)
+                self.assertEqual(rc, 0, out[-3000:])
+
+    def test_b_every_plant_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertEqual(rc, 1, out[-3000:])
+                self.assertTrue(self._red(out, needle), "no FAIL line names %r:\n%s" % (needle, out[-3000:]))
+
+    def test_c_every_control_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, ctl)
+                self.assertEqual(rc, 1, out[-3000:])
+
+    def test_d_every_plant_passes_on_the_uncured_scripts(self):
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
+        self._use(self.uncured)
+        try:
+            base = {}
+            for pid, leg, needle, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg):
+                    if leg not in base:
+                        base[leg] = self._leg(leg)[0]
+                    if base[leg] != 0:
+                        self.skipTest("uncured %s is rc %d on the unplanted tree" % (leg, base[leg]))
+                    rc, out = self._leg(leg, plant)
+                    self.assertEqual(rc, 0, "the uncured scripts already catch this plant, so its red "
+                                     "test does not discriminate:\n" + out[-3000:])
+        finally:
+            self._use(self.fixed)
+
+    # ------------------------------------------------------------------ the matcher itself
+    def _py(self, body):
+        src = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/word_match.sh && _wm_prelude"],
+                             cwd=self.ROOT, capture_output=True, text=True, check=True).stdout
+        r = subprocess.run(["python3", "-c", src + "\n" + body], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.split("\n")
+
+    def test_e_whole_words_and_clause_bounded_negation(self):
+        out = self._py(
+            "M = wm_re(r'retract\\w*|superseded|withdrawn|corrected|typos?')\n"
+            "for s in ['remains unretracted', 'was un-retracted', 'not superseded', 'has not been retracted',\n"
+            "          '(not a typo)', 'never withdrawn', 'uncorrected as of', 'non-empty',\n"
+            "          'withdrawn, not superseded', '[RETRACTED 2026-09-01]', 'Partially superseded', 'corrected']:\n"
+            "    print(int(wm_has(s, M)))\n"
+            "a, b = 'It is NOT a claim that the search space', 'It is a claim that the search space'\n"
+            "print(int(wm_negated(a, a.find('search'), 6)), int(wm_negated(b, b.find('search'), 6)))")
+        self.assertEqual(out[:13], ['0', '0', '0', '0', '0', '0', '0', '0', '1', '1', '1', '1', '1 0'])
+
+    def test_f_exact_tokens(self):
+        out = self._py(
+            "for text, tok in [('CX-9990', 'CX-999'), ('(CX-999)', 'CX-999'), ('PICK=20', 'PICK=2'),\n"
+            "                  ('PICK=2.5', 'PICK=2'), ('round 5 `PICK=2`.', 'PICK=2'), ('base=1', 'se='),\n"
+            "                  ('se=0.1', 'se='), ('UNRELATED_SOLVE_X', 'SOLVE_X'), ('`SOLVE_X`', 'SOLVE_X'),\n"
+            "                  ('dissolve --demo', 'solve --demo'), ('./solve --demo', 'solve --demo')]:\n"
+            "    print(int(wm_tok(text, tok)))\n"
+            "print(int(bool(wm_hex_re().search('at 1000000000 nodes'))), int(bool(wm_hex_re().search('sha 8717d434'))))")
+        self.assertEqual(out[:12], ['0', '1', '0', '0', '1', '0', '1', '0', '1', '0', '1', '0 1'])
+        ere = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/word_match.sh && _wm_tok_ere PICK=2"],
+                             cwd=self.ROOT, capture_output=True, text=True, check=True).stdout
+        for text, want in (("PICK=20\n", 1), ("x PICK=2 y\n", 0), ("PICK=2.\n", 0), ("PICK=2.5\n", 1)):
+            with self.subTest(text=text):
+                self.assertEqual(subprocess.run(["grep", "-qE", ere], input=text, text=True).returncode, want)
+
+    def test_g_comments_are_not_code(self):
+        out = self._py(
+            "print(repr(wm_strip_comments('x = \"--a\"  # \"--b\"\\n', 'py')))\n"
+            "print(repr(wm_strip_comments('f(\"//x\"); // \"--b\"\\n/* \"--c\" */ int q;\\n', 'c')))\n"
+            "print(repr(wm_strip_comments('cp \"$A\" \"$ARTDIR/a\"  # \"$ARTDIR/b\"\\necho ${#x} \\'#k\\'\\n', 'sh')))")
+        self.assertIn('"--a"', out[0]); self.assertNotIn('--b', out[0])
+        self.assertIn('"//x"', out[1]); self.assertNotIn('--b', out[1]); self.assertNotIn('--c', out[1])
+        self.assertIn('$ARTDIR/a', out[2]); self.assertNotIn('$ARTDIR/b', out[2])
+        self.assertIn('${#x}', out[2]); self.assertIn("#k", out[2])
+
+# end class TestQ966WordMatcher (batch 40, Q-966)
+
+
+class TestQ969RegistryPopulations(unittest.TestCase):
+    """Q-969 (batch 40; R5 of review_2026_09_27/Q962_ADJUDICATION_REPORT.md, from the Q-835 Codex
+    lens-A push-path review). Registries and populations silently shed rows or files: a one-column
+    WITHDRAWN/RETRACTED figure row dropped while require_rows counted it, `#rule` rows skipped as
+    comments, an emptied CANONICAL_VALUE_STATUS.tsv giving "0/0", an extra cell read as the
+    Evidence-type column, zero parsed VM pair lists (and a set judged by its size), a terminal
+    `- **Documents:**` field ignored, nested docs outside liveness's population, a duplicate Q3 step
+    hiding a missing one, and a malformed SKIP value invisible to the skip pin.
+
+    DATA-DRIVEN over the 11 R5 plants. The doc-gate rows run the named leg on a scratch git copy of
+    THIS working tree's tracked files: the plant must fire on the fixed scripts (its needle on a
+    flagged line, rc 1), and must EVADE the scripts of public main 35782834 (rc 0, no needle), while
+    the control (the un-evaded twin) fires on both; the unplanted tree is green on every leg except
+    for the real hits listed in REAL. G4, the Q3 cross-check awk and skip_pin_compare are extracted
+    from the fixed and the pinned scripts and run on the same plants.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PIN = "35782834"   # public main before Q-969: the uncured scripts
+    W = "documentation/WITHDRAWN_FIGURES.tsv"
+    RF = "documentation/RETRACTED_FIGURES.tsv"
+    AR = "documentation/DOC_GATE_ALIAS_REACH.tsv"
+    CV = "documentation/CANONICAL_VALUE_STATUS.tsv"
+    PI = "documentation/PARTITION_INVARIANCE.md"
+    LS = "documentation/LARGE_SCALE_CAMPAIGNS.md"
+    G = "documentation/GUIDE.md"
+    F1 = "reports/evidence/f1/README.md"
+    ROW560 = r"(?m)^(\| \*\*560 T\*\* .*)$"
+    # (id, leg, plant needle, plant edits, control needle, control edits). An edit is (path, op, *args):
+    # append TEXT | re PATTERN REPL (first match; must apply) | hashdata (prefix every data row "#") |
+    # comments (keep only comment and blank lines).
+    PLANTS = [
+        ('A08#8', 'withdrawn-markers', W,
+         [(W, 're', r'(?m)^null P = 0\.034\t.*$', 'null P = 0.034'), (G, 'append', '\nThe null P = 0.034 holds.\n')],
+         G, [(G, 'append', '\nThe null P = 0.034 holds.\n')]),
+        ('A04#11', 'retract-figures', RF,
+         [(RF, 'append', 'Q835 9.99\u03c3\n'), ('README.md', 'append', '\nThe Q835 9.99\u03c3 result.\n')],
+         'Q835 9.99', [(RF, 'append', 'Q835 9.99\u03c3\tQ-969 control\n'), ('README.md', 'append', '\nThe Q835 9.99\u03c3 result.\n')]),
+        ('A07#2', 'alias-reach', AR, [(AR, 'hashdata')], 'ZERO rows', [(AR, 'comments')]),
+        ('A04#17', 'status', CV, [(CV, 'comments'), (G, 'append', '\nThe exact count is 5.21e31.\n')],
+         G, [(G, 'append', '\nThe exact count is 5.21e31.\n')]),
+        ('A10#19', 'evidence-type-vocabulary', PI,
+         [(PI, 're', ROW560, r'\1\n| 900 T | witness | repeat | Invented | Partition-path |')],
+         PI, [(PI, 're', ROW560, r'\1\n| 900 T | witness | repeat | Invented |')]),
+        ('A09#20', 'branch-list', LS,
+         [(LS, 're', r'pairs 1, 2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16', 'pair indices 0\u201313'),
+          (LS, 're', r'pairs 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31', 'pair indices 14\u201327')],
+         LS, [(LS, 're', r'pairs 1, 2, 3, 5,', 'pairs 1, 2, 3, 4, 5,')]),
+        ('A09#21', 'branch-list', LS, [(LS, 're', r'28, 29, 30, 31', '28, 29, 30, 32')],
+         LS, [(LS, 're', r'pairs 1, 2, 3, 5,', 'pairs 1, 2, 3, 4, 5,')]),
+        ('A05#19', 'liveness', F1, [(F1, 'append', '\nThe ladder build is in flight.\n')],
+         '] README.md:', [('README.md', 'append', '\nThe ladder build is in flight.\n')]),
+    ]
+    # Real public-tree hits the fixed scripts report. A leg in REAL may be red on the unplanted tree
+    # only by naming exactly these. Q-969 listed one, reports/evidence/f1/F1_ORBIT_QUOTIENT_2026_07.md:19
+    # ("(agent, in flight)" in a July 2026 plan); batch 40's integration gave that line a dated
+    # disposition, so none remains.
+    REAL = {}
+    FLAG = ('[FAIL]', '[WARN]', '[FINDING]', '[ERROR]')   # a flagged line STARTS with one (prose may quote "[FAIL]")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q969_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files + ["scripts/doc_gates.d/md_normalise.sh"]:   # new in Q-965; may not be tracked yet
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(cls.repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        g = ["git", "-C", cls.repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"],
+                       check=True)
+        cls.fixed = cls._snapshot()
+        cls.uncured = None
+        if subprocess.run(["git", "-C", cls.ROOT, "cat-file", "-e", cls.PIN + "^{commit}"],
+                          capture_output=True).returncode == 0:
+            cls.uncured = {}
+            names = subprocess.run(["git", "-C", cls.ROOT, "ls-tree", "--name-only", cls.PIN,
+                                    "scripts/doc_gates.d/"], capture_output=True, text=True,
+                                   check=True).stdout.split()
+            for f in names + ["scripts/doc_gates.sh"]:
+                cls.uncured[f] = cls._show(f)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _show(cls, f):
+        return subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
+                              capture_output=True, check=True).stdout
+
+    @classmethod
+    def _snapshot(cls):
+        def rd(p):
+            with open(p, "rb") as fh:
+                return fh.read()
+        d = os.path.join(cls.repo, "scripts", "doc_gates.d")
+        snap = {"scripts/doc_gates.d/" + f: rd(os.path.join(d, f)) for f in sorted(os.listdir(d))}
+        snap["scripts/doc_gates.sh"] = rd(os.path.join(cls.repo, "scripts/doc_gates.sh"))
+        return snap
+
+    def _use(self, snap):
+        d = os.path.join(self.repo, "scripts", "doc_gates.d")
+        shutil.rmtree(d)
+        os.makedirs(d)
+        for f, b in snap.items():
+            with open(os.path.join(self.repo, f), "wb") as fh:
+                fh.write(b)
+
+    def _apply(self, edits, saved):
+        for e in edits:
+            p = os.path.join(self.repo, e[0])
+            self.assertTrue(os.path.isfile(p), "precondition: the plant's target exists: %r" % (e,))
+            with open(p, "rb") as fh:
+                raw = fh.read()
+            saved.setdefault(p, raw)
+            t = raw.decode("utf-8")
+            if e[1] == "append":
+                t += e[2]
+            elif e[1] == "re":
+                t2 = re.sub(e[2], e[3], t, count=1)
+                self.assertNotEqual(t2, t, "precondition: the plant applies to %s" % p)
+                t = t2
+            elif e[1] == "hashdata":
+                t = "".join(("#" + l) if (l.strip() and not l.startswith("#")) else l for l in t.splitlines(True))
+            elif e[1] == "comments":
+                t = "".join(l for l in t.splitlines(True) if l.startswith("#") or not l.strip())
+            else:
+                self.fail("unknown plant op %r" % (e[1],))
+            with open(p, "wb") as fh:
+                fh.write(t.encode("utf-8"))
+
+    def _leg(self, leg, edits=()):
+        saved = {}
+        try:
+            self._apply(edits, saved)
+            r = subprocess.run(["nice", "-n", "19", "timeout", "900", "bash", "scripts/doc_gates.sh", leg],
+                               cwd=self.repo, capture_output=True, text=True, timeout=960)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+        return r.returncode, r.stdout + r.stderr
+
+    def _flagged(self, out):
+        return [l for l in out.split("\n") if l.lstrip().startswith(self.FLAG)]
+
+    def _fired(self, rc, out, needle):
+        # fired for the RIGHT reason: a flagged line names the needle, and the leg failed (a report-only
+        # [WARN] is the one rc-0 verdict that counts)
+        lines = [l for l in self._flagged(out) if needle in l]
+        return bool(lines) and (rc == 1 or any("[WARN]" in l for l in lines))
+
+    def test_a_unplanted_tree_is_green_on_every_leg(self):
+        self._use(self.fixed)
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg)
+                real = self.REAL.get(leg, [])
+                bad = [l for l in self._flagged(out) if "[WARN]" not in l
+                       and not any(r in l for r in real)]
+                self.assertEqual(bad, [], out[-3000:])
+                self.assertEqual(rc, 1 if real else 0, out[-3000:])
+                for r in real:
+                    self.assertIn(r, out, "a listed real hit is no longer reported; update REAL")
+
+    def test_b_every_plant_and_control_fires_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, cneedle, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertTrue(self._fired(rc, out, needle), "rc %d, needle %s:\n%s" % (rc, needle, out[-3000:]))
+                rc, out = self._leg(leg, ctl)
+                self.assertTrue(self._fired(rc, out, cneedle), "control rc %d:\n%s" % (rc, out[-3000:]))
+
+    def test_c_every_plant_evades_the_uncured_scripts(self):
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
+        self._use(self.uncured)
+        try:
+            for pid, leg, needle, plant, cneedle, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg):
+                    rc, out = self._leg(leg, plant)
+                    self.assertFalse(self._fired(rc, out, needle) or rc != 0,
+                                     "the uncured scripts already catch this plant, so its red test does "
+                                     "not discriminate (rc %d):\n%s" % (rc, out[-3000:]))
+                    rc, out = self._leg(leg, ctl)   # ...while they still fire on its plain twin
+                    self.assertTrue(self._fired(rc, out, cneedle), "uncured control rc %d:\n%s" % (rc, out[-3000:]))
+        finally:
+            self._use(self.fixed)
+
+    # ------------------------------------------------------------ extracted legs: G4, Q3, skip pin
+    def _src(self, path, cured):
+        if cured:
+            with open(os.path.join(self.ROOT, path), encoding="utf-8") as fh:
+                return fh.read()
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone" % self.PIN)
+        return self._show(path).decode("utf-8")
+
+    def _g4(self, cured, tail):
+        py = self._src("scripts/gate_published_consistency.sh", cured).split("<<'PYG4'\n", 1)[1].split("\nPYG4\n", 1)[0]
+        if "wm_tok(" in py:   # batch 40 integration: Q-966's G4 runs under the word-matcher prelude (_wm_prelude)
+            py = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/word_match.sh && _wm_prelude"], cwd=self.repo,
+                                capture_output=True, text=True, check=True).stdout + py
+        saved = {}
+        try:
+            self._apply([("documentation/CORRECTIONS.md", "append", tail)], saved)
+            r = subprocess.run(["timeout", "120", "python3", "-c", py], cwd=self.repo, capture_output=True, text=True)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+        return "CX-9999 names documentation/GUIDE.md" in r.stdout
+
+    def _q3(self, cured, steps):
+        m = re.search(r"awk -F'\\t' '\n(\s*# pass 1: the validated exact profile.*?)' \"\$ARTDIR/q3_profile_exact\.tsv\"",
+                      self._src("scripts/tr12_repro.sh", cured), re.S)
+        self.assertIsNotNone(m, "precondition: the Q3 cross-check awk is extractable")
+        p, c = os.path.join(self.tmp, "q3p.tsv"), os.path.join(self.tmp, "q3c.tsv")
+        with open(p, "w") as fh:
+            fh.write("".join("%d\tx\tx\tx\tx\tx\tx\t%d\t%d\t%d\t%d\t%d\n" % (s, 10 * s, 20 * s, 30 * s, 40 * s, 50 * s) for s in (1, 2, 3)))
+        with open(c, "w") as fh:
+            fh.write("step\tg\tg_parent\tf\tp_num\tp_den\n" + "".join(
+                "%d\t%d\t%d\t%d\t%d\t%d\n" % (s, 20 * s, 30 * s, 10 * s, 40 * s, 50 * s) for s in steps))
+        r = subprocess.run(["timeout", "60", "awk", "-F\t", m.group(1), p, c], capture_output=True, text=True)
+        return r.returncode, r.stdout
+
+    def _skip(self, cured, extra):
+        t = self._src("scripts/tr12_repro_gate.sh", cured)
+        fn = t[t.index("observed_skips(){"):t.index('if [ "$MODE" = "--selftest-skip-pin" ]')]
+        v, pin = os.path.join(self.tmp, "VERDICTS.txt"), os.path.join(self.tmp, "pin.txt")
+        with open(pin, "w") as fh:
+            fh.write("# pin\nTR12_B=SKIP:doc-only\n")
+        with open(v, "w") as fh:
+            fh.write("TR12_A=PASS\nTR12_B=SKIP:doc-only\n" + extra + "TR12_REPRO=PASS\n")
+        r = subprocess.run(["timeout", "60", "bash", "-c", fn + '\nskip_pin_compare "$1" "$2"', "x", v, pin],
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout
+
+    G4_PLANT = "\n## CX-9999 \u2014 Q-969 plant\n\n- **Status:** test\n- **Documents:** [GUIDE](GUIDE.md)\n"
+    G4_CTL = "\n## CX-9999 \u2014 Q-969 control\n\n- **Documents:** [GUIDE](GUIDE.md)\n- **Status:** test\n"
+
+    def test_d_extracted_legs_red_green(self):
+        for cured in (True, False):
+            with self.subTest(leg="G4 A02#22", cured=cured):
+                self.assertEqual(self._g4(cured, self.G4_PLANT), cured)   # a terminal Documents field
+                self.assertTrue(self._g4(cured, self.G4_CTL))
+            with self.subTest(leg="Q3 A13#2", cured=cured):
+                rc, out = self._q3(cured, (1, 1, 3))                      # step 2 replaced by a copy of step 1
+                self.assertEqual(rc, 1 if cured else 0, out)
+                if cured:
+                    self.assertIn("step 2 has no row", out)
+                    self.assertIn("step 1 appears twice", out)
+                self.assertEqual(self._q3(cured, (1, 3))[0], 1)           # control: step 2 missing
+                self.assertEqual(self._q3(cured, (1, 2, 3)), (0, ""))
+            with self.subTest(leg="skip pin A13#8", cured=cured):
+                rc, out = self._skip(cured, "TR12_NEW=SKIP:failed check\n")
+                self.assertEqual(rc, 1 if cured else 0, out)
+                if cured:
+                    self.assertIn("TR12_NEW=SKIP:failed check", out)
+                rc, out = self._skip(cured, "TR12_NEW=SKIP:failed-check\n")
+                self.assertEqual(rc, 1, out)
+                self.assertIn("TR12_NEW=SKIP:failed-check", out)
+                self.assertEqual(self._skip(cured, "")[0], 0)
+
+# end class TestQ969RegistryPopulations (batch 40, Q-969)
+
+
+class TestQ971WhatACheckBindsTo(unittest.TestCase):
+    """Q-971 (batch 40; Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962 R9).
+
+    What a check binds to. Four plants from the adjudication report, each run on the real script:
+      (a) GATE 10b: a COMMITTED deletion of a ledger line, plus an unmerged remote ref whose newest
+          commit carries the SAME ledger blob as the ancestor that lost the line. The walk used to
+          dedup by blob in rev-list order, so the unmerged copy (a [note]) masked the ancestor (a
+          [FAIL]). Must FAIL. Controls: the deletion alone FAILs; the same refs with the line kept PASS.
+      (b) GATE 8 with DOC_GATES_GEN_CACHE: a cache miss whose --markdown writes nothing must not
+          compare the previous run's report.md; a cached output edited in place must not be reused.
+      (c) refs/replace: the pre-push hook's per-sha tree must be the PUSHED objects, not a
+          replacement (the hook exports GIT_NO_REPLACE_OBJECTS=1 first); the size gate must size
+          the real staged blob; the other hook/gate entry points export it before their first git read.
+      (d) pre_commit_size_gate: an approval row in the working tree only must not clear a staged
+          oversize file; a STAGED row must (positive control).
+    MUTANTS (anchors asserted to occur exactly once): (a) the strictest-first sort skipped; (b) the
+    miss leaves outputs in place, and the manifest without output digests; (c) the hook's export
+    removed; (d) the approvals read with `cat` from the working tree.
+    RED RUN against the pre-fix scripts: set Q971_SRC_DIR to a directory holding copies of
+    40_generated_appendonly_ledger_regdupes.sh, pre_push_gate.sh, pre_commit_size_gate.sh,
+    pre_commit_gate.sh and doc_gates.sh (the plant tests go red; the mutant tests are fixed-tree only).
+    """
+    MOD = "scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh"
+    HOOK = "scripts/pre_push_gate.sh"
+    SIZE = "scripts/pre_commit_size_gate.sh"
+    Z40 = "0" * 40
+    DG_STUB = TestQ949Q950PrepushEnvAndRegistry.DG_STUB.replace(
+        'echo "doc_gates ${1:-all}" >> "$HK_MARK"\n',
+        'echo "doc_gates ${1:-all}" >> "$HK_MARK"\necho "note:$(cat documentation/NOTE.md)" >> "$HK_MARK"\n')
+    _git = TestQ949Q950PrepushEnvAndRegistry._git
+    _write = TestQ949Q950PrepushEnvAndRegistry._write
+    _fixture = TestQ949Q950PrepushEnvAndRegistry._fixture
+    _commit = TestQ949Q950PrepushEnvAndRegistry._commit
+
+    def _run(self, fx, stdin):
+        # Q971_SRC_DIR matches the hook's Q[0-9]*_* refusal family; the hook must not inherit it.
+        saved = os.environ.pop("Q971_SRC_DIR", None)
+        try:
+            return TestQ949Q950PrepushEnvAndRegistry._run(self, fx, stdin)
+        finally:
+            if saved is not None:
+                os.environ["Q971_SRC_DIR"] = saved
+
+    @classmethod
+    def _src(cls, rel):
+        d = os.environ.get("Q971_SRC_DIR")
+        return os.path.join(d, os.path.basename(rel)) if d else rel
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q971_")
+        cls.n = 0
+        with open(cls._src(cls.HOOK), encoding="utf-8") as fh:
+            cls.hook_src = fh.read()
+        with open("scripts/doc_gates.sh", encoding="utf-8") as fh:
+            m = re.search(r"^require_tracked\(\) \{\n.*?^\}\n", fh.read(), re.M | re.S)
+        if not (m): raise RuntimeError("require_tracked() not found in scripts/doc_gates.sh")   # explicit, survives -O (Q-373)
+        cls.req = m.group(0)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _dir(self, tag):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "%s%d" % (tag, self.n))
+        os.makedirs(d)
+        return d
+
+    @staticmethod
+    def _env(**kw):
+        e = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "DOC_GATES_"))}
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        e.update(kw)
+        return e
+
+    def _g(self, repo, *a, date=None):
+        env = self._env(**({"GIT_COMMITTER_DATE": date, "GIT_AUTHOR_DATE": date} if date else {}))
+        r = subprocess.run(["git", "-C", repo] + list(a), capture_output=True, text=True, env=env, timeout=120)
+        self.assertEqual(r.returncode, 0, (a, r.stderr))
+        return r.stdout.strip()
+
+    def _module(self, mutant=None):
+        with open(self._src(self.MOD), encoding="utf-8") as fh:
+            src = fh.read()
+        if mutant:
+            old, new = mutant
+            self.assertEqual(src.count(old), 1, "mutant anchor must occur exactly once: %r" % old)
+            src = src.replace(old, new)
+        p = os.path.join(self.tmp, "mod_%d.sh" % random.randrange(1 << 30))
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(src)
+        return p
+
+    def _gate(self, repo, func, mod, **env):
+        import shlex
+        h = "set -uo pipefail\n. %s\n%s\n%s\necho \"RC=$?\"\n" % (shlex.quote(mod), self.req, func)
+        r = subprocess.run(["bash", "-c", h], cwd=repo, capture_output=True, text=True,
+                           env=self._env(**env), timeout=300)
+        rc = re.findall(r"^RC=(\d+)$", r.stdout, re.M)
+        self.assertEqual(len(rc), 1, r.stdout[-2000:] + r.stderr[-1000:])
+        return int(rc[0]), r.stdout
+
+    # ---- (a) GATE 10b ------------------------------------------------------------------------
+    LEDGER = "documentation/CORRECTIONS.md"
+
+    def _ledger_repo(self, with_ref=True):
+        d = self._dir("a")
+        L = os.path.join(d, self.LEDGER)
+        self._g(d, "init", "-q", "-b", "main")
+        def commit(text, date):
+            self._write(L, text)
+            self._g(d, "add", "-A")
+            self._g(d, "commit", "-qm", "c", date=date)
+            return self._g(d, "rev-parse", "HEAD")
+        c1 = commit("A\nB\nC\n", "2026-01-01T00:00:00Z")
+        commit("A\nB\n", "2026-01-02T00:00:00Z")                 # the COMMITTED deletion of C
+        if with_ref:
+            self._g(d, "checkout", "-q", "-b", "side", c1)
+            commit("A\nB\nC\nD\n", "2026-01-03T00:00:00Z")
+            u2 = commit("A\nB\nC\n", "2026-01-04T00:00:00Z")      # newest; SAME blob as c1
+            self.assertEqual(self._g(d, "rev-parse", u2 + ":" + self.LEDGER), self._g(d, "rev-parse", c1 + ":" + self.LEDGER))
+            self._g(d, "update-ref", "refs/remotes/other/side", u2)
+            self._g(d, "checkout", "-q", "main")
+            self._g(d, "branch", "-q", "-D", "side")
+        return d, c1
+
+    def test_a_precondition_the_deletion_alone_fails(self):
+        d, c1 = self._ledger_repo(with_ref=False)
+        rc, out = self._gate(d, "gate_appendonly_history", self._module())
+        self.assertEqual(rc, 1, out)
+        self.assertIn("present in %s" % c1, out)
+
+    def test_a_unmerged_same_blob_does_not_mask_an_ancestor_loss(self):
+        self._a_case()
+
+    def _a_case(self, mod=None, expect_fail=True):
+        d, c1 = self._ledger_repo()
+        rc, out = self._gate(d, "gate_appendonly_history", mod or self._module())
+        self.assertIn("MERGE GAP", out, "precondition: the unmerged ref was walked")
+        if expect_fail:
+            self.assertEqual(rc, 1, "a committed deletion PASSED behind an unmerged same-blob ref:\n" + out[-2500:])
+            self.assertIn("[FAIL] 1 line(s) present in %s" % c1, out)
+        return rc, out
+
+    def test_a_positive_control_line_kept(self):
+        d, _ = self._ledger_repo()
+        with open(os.path.join(d, self.LEDGER), "a", encoding="utf-8") as fh:
+            fh.write("C\n")
+        rc, out = self._gate(d, "gate_appendonly_history", self._module())
+        self.assertEqual(rc, 0, out[-2500:])
+        self.assertIn("MERGE GAP", out)
+
+    def test_a_mutant_without_the_strictest_first_sort(self):
+        anchor = 'sort -k1,1n -k2,2n -o "$g10b_pairs" "$g10b_pairs" ||'
+        rc, out = self._a_case(
+            mod=self._module((anchor, 'true ||')), expect_fail=False)
+        self.assertEqual(rc, 0, "the mutant must reproduce the defect:\n" + out[-2000:])
+
+    # ---- (b) GATE 8 cache --------------------------------------------------------------------
+    ROAE_STUB = ('import sys\n# variant %s\na = sys.argv\n'
+                 'if "--all" in a: print("ALL")\n'
+                 'elif "--markdown" in a:\n    if %s: open("report.md", "w").write("MD\\n")\n'
+                 'elif "--html" in a: open("report.html", "w").write("HTML\\n")\n'
+                 'else:\n'
+                 '    for f in ("hexagrams.csv", "hexagrams.json", "hexagrams.svg", "wave.dot", "wave.mid"):\n'
+                 '        open(f, "w").write("x\\n")\n')
+
+    def _gen_repo(self):
+        d = self._dir("b")
+        self._g(d, "init", "-q")
+        self._write(os.path.join(d, "roae.py"), self.ROAE_STUB % (1, True))
+        for f, t in (("report.txt", "ALL\n"), ("report.md", "MD\n"), ("README.md", "MD\n"), ("report.html", "HTML\n")):
+            self._write(os.path.join(d, "example", f), t)
+        cache = os.path.join(d, "cache")
+        rc, out = self._gate(d, "gate_generated", self._mod_b, DOC_GATES_GEN_CACHE=cache)
+        self.assertIn("regenerating", out)
+        self.assertIn("[ok]   example/report.md is BYTE-IDENTICAL", out, "precondition: run 1 compared report.md")
+        return d, cache
+
+    def setUp(self):
+        self._mod_b = self._module()
+
+    def test_b_cache_miss_with_no_markdown_output_is_not_stale(self):
+        self._b_miss_case()
+
+    def _b_miss_case(self, expect_fail=True):
+        d, cache = self._gen_repo()
+        self._write(os.path.join(d, "roae.py"), self.ROAE_STUB % (2, False))   # --markdown writes nothing
+        rc, out = self._gate(d, "gate_generated", self._mod_b, DOC_GATES_GEN_CACHE=cache)
+        self.assertIn("regenerating", out, "precondition: the changed generator is a cache miss")
+        if expect_fail:
+            self.assertEqual(rc, 1, out[-2000:])
+            self.assertIn("[FAIL] --markdown produced no report.md", out)
+            self.assertNotIn("example/report.md is BYTE-IDENTICAL", out, "a stale cached report.md was compared")
+        return out
+
+    def test_b_edited_cached_output_is_not_reused(self):
+        self._b_edit_case()
+
+    def _b_edit_case(self, expect_fail=True):
+        d, cache = self._gen_repo()
+        for p in (os.path.join(cache, "report.md"), os.path.join(d, "example", "report.md"), os.path.join(d, "example", "README.md")):
+            self._write(p, "MD EDITED\n")
+        rc, out = self._gate(d, "gate_generated", self._mod_b, DOC_GATES_GEN_CACHE=cache)
+        if expect_fail:
+            self.assertIn("regenerating", out, "an edited cached output was reused:\n" + out[-2000:])
+            self.assertEqual(rc, 1, out[-2000:])
+            self.assertIn("[FAIL] example/report.md differs BYTE-FOR-BYTE", out)
+        return out
+
+    def test_b_mutant_miss_keeps_outputs(self):
+        self._mod_b = self._module(('rm -f "$tmp/.roae_sha" "$tmp/fresh.txt" "$tmp/report.md" "$tmp/report.html" ||',
+                                    'rm -f "$tmp/.roae_sha" ||'))
+        out = self._b_miss_case(expect_fail=False)
+        self.assertIn("example/report.md is BYTE-IDENTICAL", out, "the mutant must reproduce the defect")
+
+    def test_b_mutant_manifest_without_digests(self):
+        self._mod_b = self._module(('( cd "$tmp" && sha256sum fresh.txt report.md report.html ) 2>/dev/null', ':'))
+        out = self._b_edit_case(expect_fail=False)
+        self.assertIn("reusing regeneration cache", out, "the mutant must reproduce the defect")
+
+    # ---- (c) replace refs --------------------------------------------------------------------
+    def _replace_fixture(self, hook_src=None):
+        fx = self._fixture(hook_src=hook_src)
+        r = fx["repo"]
+        bad = self._commit(fx, "documentation/NOTE.md", "BAD\n", "B")
+        self._git(r, "checkout", "-q", "-b", "clean", fx["a"])
+        clean = self._commit(fx, "documentation/NOTE.md", "clean\n", "B")
+        self._git(r, "checkout", "-q", "main")
+        self._git(r, "branch", "-q", "-D", "clean")
+        self._git(r, "replace", bad, clean)
+        self.assertEqual(self._git(r, "show", bad + ":documentation/NOTE.md"), "clean", "precondition: the replace ref is live")
+        return fx, bad
+
+    def test_c_hook_gates_the_pushed_objects_not_a_replacement(self):
+        self._c_hook_case()
+
+    def _c_hook_case(self, hook_src=None, expect_fixed=True):
+        fx, bad = self._replace_fixture(hook_src)
+        r, marks = self._run(fx, "refs/heads/main %s refs/heads/main %s\n" % (bad, fx["a"]))
+        self.assertIn("doc_gates all", marks, "precondition: the gates ran:\n" + r.stdout[-2000:])
+        if expect_fixed:
+            self.assertIn("note:BAD", marks, "the per-sha tree was the REPLACEMENT, not the pushed commit: %s" % marks)
+            self.assertNotIn("note:clean", marks)
+            self.assertIn("refs/replace/* entr(y/ies) present; IGNORED", r.stdout)
+        return marks
+
+    def test_c_mutant_without_the_export(self):
+        old = "export GIT_NO_REPLACE_OBJECTS=1\n"
+        self.assertEqual(self.hook_src.count(old), 1)
+        marks = self._c_hook_case(
+            hook_src=self.hook_src.replace(old, ""), expect_fixed=False)
+        self.assertIn("note:clean", marks, "the mutant must reproduce the defect: %s" % marks)
+
+    def test_c_entry_points_export_before_their_first_git_read(self):
+        gitcall = re.compile(r"(?:^|[\s;(&|`$])git\s")
+        for rel in (self.HOOK, "scripts/pre_commit_gate.sh", self.SIZE, "scripts/doc_gates.sh"):
+            with self.subTest(script=rel):
+                with open(self._src(rel), encoding="utf-8") as fh:
+                    lines = fh.read().split("\n")
+                code = [(i, L) for i, L in enumerate(lines) if L.strip() and not L.lstrip().startswith("#")]
+                exp = [i for i, L in code if re.search(r"\bexport GIT_NO_REPLACE_OBJECTS=1\b", L)]
+                first_git = next(i for i, L in code if gitcall.search(L))
+                self.assertTrue(exp, "%s never exports GIT_NO_REPLACE_OBJECTS=1" % rel)
+                self.assertLessEqual(exp[0], first_git, "%s reads git (line %d) before the export" % (rel, first_git + 1))
+
+    # ---- (c)+(d) the size gate ---------------------------------------------------------------
+    def _size_repo(self):
+        d = self._dir("d")
+        self._g(d, "init", "-q")
+        self._write(os.path.join(d, "scripts", "oversize_approved.tsv"), "# path\twho\tdate\twhy\n")
+        self._g(d, "add", "-A")
+        self._g(d, "commit", "-qm", "init")
+        self._write(os.path.join(d, "big.dat"), "y" * 3000)
+        self._g(d, "add", "big.dat")
+        return d
+
+    def _size(self, d, src=None):
+        r = subprocess.run(["bash", src or os.path.abspath(self._src(self.SIZE))], cwd=d, capture_output=True,
+                           text=True, env=self._env(LIMIT="2000"), timeout=120)
+        v = re.findall(r"^SIZE_GATE=(\w+)$", r.stdout, re.M)
+        self.assertEqual(len(v), 1, r.stdout + r.stderr)
+        return r.returncode, v[0], r.stdout
+
+    def _approve_in_worktree(self, d):
+        with open(os.path.join(d, "scripts", "oversize_approved.tsv"), "a", encoding="utf-8") as fh:
+            fh.write("big.dat\tme\t2026-10-03\ttest\n")
+
+    def test_d_precondition_unapproved_is_refused(self):
+        self.assertEqual(self._size(self._size_repo())[:2], (1, "REFUSED"))
+
+    def test_d_worktree_only_approval_does_not_clear(self):
+        self._d_wt_case()
+
+    def _d_wt_case(self, src=None, expect_fixed=True):
+        d = self._size_repo()
+        self._approve_in_worktree(d)
+        rc, v, out = self._size(d, src)
+        if expect_fixed:
+            self.assertEqual((rc, v), (1, "REFUSED"), "an UNSTAGED approval row cleared a staged file:\n" + out)
+            self.assertIn("UNSTAGED edits; those are not read", out)
+        return rc, v, d
+
+    def test_d_staged_approval_clears(self):
+        d = self._size_repo()
+        self._approve_in_worktree(d)
+        self._g(d, "add", "scripts/oversize_approved.tsv")
+        rc, v, out = self._size(d)
+        self.assertEqual((rc, v), (0, "OK"), out)
+        self.assertIn("approved in the staged", out)
+
+    def test_d_mutant_reads_the_worktree_file(self):
+        with open(self.SIZE, encoding="utf-8") as fh:
+            src = fh.read()
+        old = '_allow_txt=$(git show ":$ALLOW" 2>/dev/null)'
+        self.assertEqual(src.count(old), 1)
+        p = os.path.join(self.tmp, "size_mutant.sh")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(src.replace(old, '_allow_txt=$(cat "$ALLOW" 2>/dev/null)'))
+        rc, v, _ = self._d_wt_case(src=p, expect_fixed=False)
+        self.assertEqual((rc, v), (0, "OK"), "the mutant must reproduce the defect")
+
+    def test_c_size_gate_sizes_the_real_blob_under_a_replace_ref(self):
+        self._c_size_case()
+
+    def _c_size_case(self, src=None, expect_fixed=True):
+        d = self._size_repo()
+        big = self._g(d, "rev-parse", ":big.dat")
+        small = subprocess.run(["git", "-C", d, "hash-object", "-w", "--stdin"], input="x\n", capture_output=True,
+                               text=True, env=self._env(), timeout=60).stdout.strip()
+        self._g(d, "replace", big, small)
+        self.assertEqual(self._g(d, "cat-file", "-s", big), "2", "precondition: the replace ref is live")
+        rc, v, out = self._size(d, src)
+        if expect_fixed:
+            self.assertEqual((rc, v), (1, "REFUSED"), "the size gate measured a replacement blob:\n" + out)
+        return rc, v
+
+    def test_c_size_gate_mutant_without_the_export(self):
+        with open(self.SIZE, encoding="utf-8") as fh:
+            src = fh.read()
+        old = "export GIT_NO_REPLACE_OBJECTS=1"
+        self.assertEqual(src.count(old), 1)
+        p = os.path.join(self.tmp, "size_mutant_c.sh")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(src.replace(old, ":"))
+        self.assertEqual(self._c_size_case(src=p, expect_fixed=False),
+                         (0, "OK"), "the mutant must reproduce the defect")
+
+# end class TestQ971WhatACheckBindsTo (batch 40, Q-971)
 
 
 if __name__ == "__main__":

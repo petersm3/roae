@@ -16,7 +16,7 @@ if transition WEIGHTS are S4-invariant, the DP collapses further onto invariant 
 - phase2: 0/12 same-class swap exchangeability -> no small lumping at hexagram level
 - phase3: pair-level bitmask recursion count(mask,last) — the ~5e12-op route (infeasible then)
 ## Plan
-1. Reconstruct phase-3's exact recursion + honest op/memory count (agent, in flight)
+1. Reconstruct phase-3's exact recursion + honest op/memory count (agent, in flight) — dated note 2026-10-04: a historical July 2026 plan step, completed by 2026-07-04 ("Step 1 result" below; F1_PHASE3_RECONSTRUCTION.md); this orbit-quotient route led to TR-11, reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md
 2. Group action: S4 acts on line-positions -> on hexagrams -> on PAIRS (permutes the 32 pairs,
    commutes with rev/comp) -> acts on (mask,last) states. Free on full sequences; question: is the
    action on the DP state space free enough / are transition matrices equivariant? (They should be:
