@@ -146,7 +146,7 @@ unreproduced figure until one is published.)* *(Escalated 2026-08-07 —
 [CORRECTIONS](../documentation/CORRECTIONS.md) CX-27: the median is now **withdrawn pending
 artifact**, not merely flagged — TR-8 v1.14 marks it not to be cited or relied on until the sampler
 exists; the qualitative specification-not-discovery direction stands on this firewall itself, not on
-that number.)* Borderline cases
+that number.)* *(2026-10-03, [CORRECTIONS](../documentation/CORRECTIONS.md) CX-293: the sampler has now run under its pre-registration; [TR-8](TR8_REORDERING_REVISITED.md) v1.21 reports a NEW measurement in place of the withdrawn one — verdict COMMON at K = 16, stated as conditional on its reference class. The withdrawn figure stays withdrawn, and this firewall rests on neither number.)* Borderline cases
 (C3's 776 threshold, the S25–28 trigram configuration) are classified data-like precisely because their
 defining number or face-set is KW's own. This is the firewall that keeps a fitted description from being
 reported as a design finding; where a result depends on the classification, the report states which side

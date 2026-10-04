@@ -10730,3 +10730,63 @@ double count was real at its pin and is already cured by CX-174 (V3A-018#3, CONF
 - Nothing published changes: the full-31 rank verdict passes as before and the regenerated inventory is
   byte-identical. A scan of the whole public tree under the new rule found no real cost figure.
 - Five new tests; four fail on the previous code and pass on this one.
+
+## 2026-10-03 — batch 39: TR-8's pre-registered dof-matched sampler was run, every gate passed, and the withdrawn median slot holds a new measurement with verdict COMMON; the pre-push verdict record binds every log it certifies, three push-path checks read only what they should, and the reviewer package takes a verdict only from a finished checker
+
+**Batch 39, the TR-8 sampler's recorded run (CX-293).**
+
+- In August TR-8's "median rarity" figure was withdrawn because no code stood behind it. The rules
+  for a replacement measurement were frozen in writing on 2026-08-11, before any data existed. On
+  2026-10-03 the sampler ran under those rules on one 16-vCPU machine. The two pools of ten million
+  random orderings took 219 seconds.
+- The order of steps was fixed in advance. First the clause bank was measured. Then the list of
+  admitted clauses (242 of 319) was committed. Only then were the pools drawn. The list is now
+  public, unchanged, and its hash is on the escrow page with that label.
+- Every check passed, and the pre-registered verdict is **COMMON**: all 1,000 matched 16-clause
+  predicates are at least as rare as King Wen's own rule. Their median rarity is 3.6×10⁻⁶, against King
+  Wen's 1.05×10⁻⁴. An independent second pool gave the same answer.
+- What it means is limited, and the frozen text says how far. Within this one reference class,
+  King Wen's rule is on the weak side for its complexity. That is neither a win nor a loss for the
+  idea that the rule's rarity is mostly specification. A different clause bank could move the
+  answer a long way, and TR-8 says so in the same paragraph.
+- The old withdrawn figure stays withdrawn. The new number is a new measurement, not a restoration.
+- The hit counts, both pools' statistics and the run log ship in
+  `runs/20261003_tr8_dof_sampler_35782834/`. Two commands rebuild the statistics from them,
+  byte for byte, in about two seconds.
+
+**Batch 39, the pre-push verdict record binds every log (CX-294, Q-956).**
+
+- The pre-push hook can skip its slow legs when another machine has already run them green on the
+  same tree. That machine leaves a record. Codex's push-path review found that the record tied only
+  the hook's own log to the tree. The tests, citation and stamp logs could have come from any tree,
+  the toolchain was the writing host's rather than the logs', and `Ran 0 tests` with `OK` counted as
+  a pass.
+- Record format v2: each of those programs now prints the tree it checked, and the writer refuses a
+  log that names another one. The toolchain comes from the hook and test logs, which must agree with
+  each other and with the writing host. A test run counts only if it ran at least as many tests as
+  the tree defines, with at most 8 skipped. A record in the old format is refused by version.
+- Seven tests; six fail on the previous code, and each binding has a mutant that removes it.
+
+**Batch 39, three push-path checks tightened (CX-295, Q-959/Q-960/Q-961).** From Codex (gpt-6-astra),
+push-path review Q835.
+
+- The Group C rehearsal now reads each verdict from its key, so a value that only quotes `PASS` is
+  not a pass. Its floor moves from 16 to the 18 verdicts it actually emits, counted once per key.
+- The pre-push hook's "already published" skip now looks only at the remote being pushed to. A push
+  to a URL, or with no remote named, skips nothing.
+- GATE 39 reads `verify_all.sh`'s certificate map from the map itself, not from the whole file, so a
+  comment naming a certificate no longer counts as a map entry.
+- Fifteen tests; thirteen fail on the previous scripts and pass on these.
+
+**Batch 39, the reviewer package's checks take a verdict only from a finished checker (CX-296).**
+
+The two defect classes swept here are Codex (gpt-6-astra) findings from its push-path review Q835.
+
+- The reviewer package's self-check now reports a step that runs out of time or is killed as
+  `[TIMEOUT]` or `[CRASH]` and ends the run with `REVIEWER_PACKAGE=ERROR`, never PASS or FAIL. A
+  verdict line must appear exactly once, a failure word after an expected beginning of a line
+  fails the step, and so do an `ERROR` line and a Python traceback. The aggregate and manifest
+  checks need their exit status and their single verdict line to agree. The bundling script
+  refuses a file list from a producer that failed, and the step-9 gate refuses a rung that prints
+  two totals. No big-integer comparison in the package was inexact; the aggregate check now reads
+  ASCII digits only.

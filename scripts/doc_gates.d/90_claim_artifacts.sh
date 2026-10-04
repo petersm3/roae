@@ -100,7 +100,22 @@ try:
 except OSError as e:
     print("ERROR\treports/certificates/ is unreadable (%s) - LEG 1 checked NOTHING" % e.strerror)
     arch = None
-vmap = read('reports/certificates/verify_all.sh')
+# Q-961 (Codex push-path review Q835, P-14): the regeneration map is the KEY SET of verify_all.sh's
+# `declare -A CERTS=( ... )` literal, not the file's text. Read as text, a comment naming a
+# certificate kept it "mapped" after its map entry was deleted. Exactly one CERTS literal, comments
+# stripped, at least one key -- otherwise ERROR, never a silent pass.
+vsrc = read('reports/certificates/verify_all.sh')
+vmap = None
+if vsrc is not None:
+    blocks = re.findall(r'(?m)^declare -A CERTS=\(([^)]*)\)', vsrc)
+    if len(blocks) != 1:
+        print("ERROR\tverify_all.sh has %d 'declare -A CERTS=(' literal(s), expected 1 - LEG 1's map check checked NOTHING" % len(blocks))
+    else:
+        body = re.sub(r'(?m)(?:^|(?<=\s))#.*$', '', blocks[0])
+        vmap = set(re.findall(r'\[([^\]\s]+)\]=', body))
+        if not vmap:
+            print("ERROR\tverify_all.sh's CERTS map parsed to 0 keys - LEG 1's map check checked NOTHING")
+            vmap = None
 if arch is not None and vmap is not None:
     ex_meta = 0
     for n in sorted(named):
@@ -110,7 +125,7 @@ if arch is not None and vmap is not None:
         where = sorted(named[n])[0]
         if n not in arch:
             print("HIT1\t%s\t%s\tnamed in markdown but NOT archived under reports/certificates/" % (where, n))
-        elif n not in vmap and n[:-5] not in vmap:
+        elif n[:-5] not in vmap:
             print("HIT1\t%s\t%s\tarchived but absent from verify_all.sh's regeneration map" % (where, n))
     print("POPA\t%d certificate filename(s) named in markdown, %d archived, %d command metavariable(s) exempt"
           % (len(named), len(arch), ex_meta))

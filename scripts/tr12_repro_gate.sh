@@ -612,6 +612,11 @@ if [ "$MODE" = "--selftest-stamp-guard" ]; then
 fi
 
 if [ "$MODE" = "--check" ]; then
+  # Q-956: name the tree this check measured (HEAD's tree when tracked content equals HEAD, else
+  # DIRTY, NONE outside a git work tree), so prepush_verdict_record.sh can bind this log to its record.
+  _ct=$(git rev-parse -q --verify 'HEAD^{tree}' 2>/dev/null) || _ct=NONE
+  [ "$_ct" = NONE ] || { git diff --quiet HEAD -- 2>/dev/null && git diff --cached --quiet HEAD -- 2>/dev/null; } || _ct=DIRTY
+  echo "TR12_REPRO_GATE_TREE=$_ct"
   if [ ! -f "$STAMP" ]; then
     echo "  no stamp exists yet — run scripts/tr12_repro_gate.sh --stamp"
     echo "TR12_REPRO_GATE_CURRENT=UNKNOWN"; exit 1

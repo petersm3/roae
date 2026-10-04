@@ -2664,6 +2664,17 @@ nothing weaker:
   repository has tracked changes against `HEAD` or when the hook log gated a tree other than `HEAD`'s.
   The hook log must come from a run of the hook itself on that commit, in producer shape: one ref line
   whose remote sha is all zeros on a `refs/tags/` name, so that every conditional leg runs.
+- *(Q-956, format v2.)* Every log is bound to the record's tree, not only the hook's. Each producer
+  names the tree it measured in one line: `ROAE_TESTS_TREE=` (`tests.py`, before the first test),
+  `CITATION_LINE_GATE_TREE=` (`citation_line_gate.sh --all-files`) and `TR12_REPRO_GATE_TREE=`
+  (`tr12_repro_gate.sh --check`). The value is `HEAD`'s tree when tracked content equals `HEAD`,
+  `DIRTY` when it does not, `NONE` outside a git work tree, and for `tests.py` `OVERRIDDEN` when a
+  `ROAE_TESTS_*` variable substitutes another source. `write` refuses a log whose line is absent,
+  repeated or names anything but the record's tree. `TOOLCHAIN` is taken from the logs: the hook's
+  `PREPUSH_TOOLCHAIN=` and `tests.py`'s `ROAE_TESTS_TOOLCHAIN=` (the interpreter that ran it) must
+  agree with each other and with the writing host. `LEG_TESTS` needs a full run: `Ran N` with `N`
+  at least the number of `    def test_` methods in the tree's `tests.py` (so `Ran 0 tests` is a
+  `FAIL`), and at most 8 skipped or expected-failure tests.
 - The pusher sets `ROAE_PREPUSH_RECORD=/path/outside/the/tree` for the push. For each pushed sha the
   hook computes that commit's tree id itself and asks the pushed tree's own copy of the helper
   (`check`). Only on `PREPUSH_RECORD=MATCH` are the covered legs skipped.
@@ -2675,6 +2686,9 @@ nothing weaker:
 - The record is an attestation by whoever wrote it, not a proof. Anyone who can hand the hook a
   record can equally run `git push --no-verify`. What the record adds is that the local legs still
   run, a partial or stale record is refused, and the push log carries the record's log digests.
+- `check` reads the record once into a private snapshot. A record of any other format version
+  (a v1 record from before Q-956) is refused as `old-version`: write a new one with the pushed
+  tree's scripts.
 
 | leg | with a matching record |
 |---|---|
@@ -2683,17 +2697,18 @@ nothing weaker:
 | the advisory legs whose answer depends only on the tree and the toolchain: the Q-479 battery's three public gates (`f1c5_adopt_digest_gate.sh`, `resume_budget_infinity_gate.sh`, `q317_missing_shard_merge_gate.sh`), `reproduce_digests_gate.sh` and `failopen_closure_gate.sh` *(added 2026-09-27, lane HAJ)* | **advisory, reusable**: a record's `PASS` or `FAIL` for the leg is printed as `[reused]` and the leg is not run (`PREPUSH_ADV_<NAME>=REUSED`). A recorded `FAIL` is printed loudly and never blocks. A record without the leg, or with `NOT-RUN`, `MISSING`, `REUSED` or `UNREADABLE` for it, runs the leg here as before |
 | the new-branch declaration leg, and the other advisory legs: `doc_gates.sh --selftest` (its fire-proofs read history: `git rev-list HEAD` on the ledger and two named commits, in a clone that fetches the remote-tracking refs), the scale-distinguishable gate (a private script, via `ROAE_PRIVATE_DIR`), the Group C rehearsal and the review loop (they read the pushing clone's own working tree and private state), and the reproduction stamp with its skip pin and the row-assertion sweep (tree-only, but each costs under a second, and the stamp stays a local cross-check of `LEG_TR12_STAMP_CURRENT`) | **always local**, unchanged |
 
-Record format, version 1: one `KEY=value` per line, LF-terminated, in this order.
+Record format, version 2 (Q-956): one `KEY=value` per line, LF-terminated, in this order.
 
 | key | value |
 |---|---|
-| `ROAE_PREPUSH_RECORD` | `1` (the format version; first line) |
+| `ROAE_PREPUSH_RECORD` | `2` (the format version; first line) |
 | `TREE` | the checked tree id (40 or 64 hex) |
 | `CITGATE_BASE` | the commit the citation gate's shift leg diffed against, or `NONE` |
-| `TOOLCHAIN` | `gcc-<version>,python-<version>` (`prepush_verdict_record.sh toolchain`) |
+| `TOOLCHAIN` | `gcc-<version>,python-<version>`, from the hook log's `PREPUSH_TOOLCHAIN` (equal to the tests log's `ROAE_TESTS_TOOLCHAIN` and the writer's `prepush_verdict_record.sh toolchain`) |
+| `TESTS_RAN` · `TESTS_FLOOR` · `TESTS_SKIPPED` | the tests log's `Ran N` · the tree's `def test_` count (at least 1) · skipped plus expected failures. `check` refuses `TESTS_RAN` < `TESTS_FLOOR` or more than 8 skipped (`tests-count`) |
 | `LEG_DOC_GATES_ALL` … `LEG_TR12_OUTPUT_PATHS` | one per covered hook leg: `PASS`, `FAIL`, `NOT-RUN`, `MISSING`, `REUSED` or `UNREADABLE` |
 | `LEG_HOOK` | the hook's own `PREPUSH_VERDICT` |
-| `LEG_TESTS` | `PASS` when the `tests.py` log has one `Ran N tests` line, one bare `OK` line and no `FAILED` line |
+| `LEG_TESTS` | `PASS` when the `tests.py` log has one `Ran N tests` line with `N` ≥ `TESTS_FLOOR`, one bare `OK` line with at most 8 skipped or expected failures, and no `FAILED` line |
 | `LEG_CITATION` | `PASS` when the `citation_line_gate.sh --all-files --all-targets` log has `CITATION_LINE_GATE=PASS` exactly once |
 | `LEG_TR12_STAMP_CURRENT` | `PASS` when the `tr12_repro_gate.sh --check` log has `TR12_REPRO_GATE_CURRENT=YES` exactly once |
 | `ADV_Q479_F1C5_ADOPT`, `ADV_Q479_RESUME_BUDGET`, `ADV_Q479_MISSING_SHARD`, `ADV_REPRODUCE_DIGESTS`, `ADV_FAILOPEN_CLOSURE` | *optional (lane HAJ, 2026-09-27)*: the hook log's `PREPUSH_ADV_<NAME>` for each advisory leg, `PASS`, `FAIL`, `NOT-RUN`, `MISSING`, `REUSED` or `UNREADABLE`. They never decide `MATCH`: `PREPUSH_RECORD_ALL_PASS` and the all-`PASS` rule read the `LEG_*` keys only. Any other value refuses the record (`bad-value`) |
@@ -2706,8 +2721,10 @@ Verdict tokens, all whole lines for `grep -qx`:
 |---|---|---|
 | `PREPUSH_RECORD` | `prepush_verdict_record.sh` | `WRITTEN` \| `MATCH` \| `NOMATCH` \| `ERROR`. `write` exits 0 all-PASS, 1 written with a non-PASS result, 2 nothing written; `check` exits 0 `MATCH`, 1 `NOMATCH`, 2 bad usage |
 | `PREPUSH_RECORD_ALL_PASS` | `write` | `YES` \| `NO` |
-| `PREPUSH_RECORD_WHY` | `check`, on `NOMATCH` | `absent` `unreadable` `inside-tree` `empty` `too-large` `truncated` `nul-byte` `bad-line` `bad-header` `checksum` `duplicate-key` `unknown-key` `missing-key` `bad-value` `not-pass:<LEG>` `tree-mismatch` `citbase-mismatch` `toolchain-mismatch` |
-| `PREPUSH_TREE` · `PREPUSH_CITGATE_BASE` | `pre_push_gate.sh`, per pushed sha | the tree id the hook computed (`UNKNOWN` if it could not) · the citation-gate base, or `NONE` |
+| `PREPUSH_RECORD_WHY` | `check`, on `NOMATCH` | `absent` `unreadable` `inside-tree` `empty` `too-large` `truncated` `nul-byte` `bad-line` `bad-header` `old-version` `checksum` `duplicate-key` `unknown-key` `missing-key` `bad-value` `not-pass:<LEG>` `tests-count` `tree-mismatch` `citbase-mismatch` `toolchain-mismatch` |
+| `PREPUSH_TREE` · `PREPUSH_CITGATE_BASE` · `PREPUSH_TOOLCHAIN` | `pre_push_gate.sh`, per pushed sha | the tree id the hook computed (`UNKNOWN` if it could not) · the citation-gate base, or `NONE` · the pushed tree's `prepush_verdict_record.sh toolchain` (Q-956; `UNKNOWN` without one) |
+| `ROAE_TESTS_TREE` · `ROAE_TESTS_TOOLCHAIN` | `tests.py`, first lines on stderr (Q-956) | the tree id, `DIRTY`, `NONE` or `OVERRIDDEN` · `gcc-<version>,python-<version>` |
+| `CITATION_LINE_GATE_TREE` · `TR12_REPRO_GATE_TREE` | `citation_line_gate.sh --all-files` · `tr12_repro_gate.sh --check` (Q-956) | the tree id, `DIRTY` or `NONE` |
 | `PREPUSH_LEG_<NAME>` | `pre_push_gate.sh`, per pushed sha, one per covered leg | `PASS` \| `FAIL` \| `NOT-RUN` \| `REUSED` |
 | `PREPUSH_ADV_<NAME>` | `pre_push_gate.sh`, per pushed sha, one per reusable advisory leg (lane HAJ) | `PASS` \| `FAIL` (it ran and gave that verdict) \| `NOT-RUN` (not due, or no single verdict) \| `REUSED` |
 | `PREPUSH_RECORD_ADV_<NAME>` | `check`, on `MATCH`, one per advisory leg the record holds as `PASS` or `FAIL` (lane HAJ) | `PASS` \| `FAIL` |
@@ -2721,7 +2738,10 @@ unparseable record, each of which must run the full battery. Its positive contro
 with an all-PASS record, which must skip exactly the covered legs. Each case also has a mutant that
 removes the refusal it relies on. `TestLaneHAJ` covers the advisory legs: a matching record's `PASS`
 skips them, a record without a leg runs it, and a record with an advisory `FAIL` still matches and does
-not block.
+not block. `TestQ956PrepushRecordBindsItsLogs` (Q-956) covers the bindings: a tests, citation or stamp
+log for another tree, `DIRTY` or unbound, a toolchain that differs between the logs or from the host,
+and `Ran 0`, a short run or too many skips are each refused, as are an old-version record and a
+resealed short run at the hook; each has a mutant that removes the binding.
 
 **Inherited variables and the branch registry (Q-949, Q-950; batch 38).** The hook refuses to run when the
 pusher's environment carries a test-fixture or override variable that a gate on the push path reads

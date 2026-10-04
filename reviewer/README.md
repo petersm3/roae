@@ -210,11 +210,18 @@ trailing blanks; an `expect:` line that ends in `…` must begin a line of the o
 goes on with a blank (these lines end in a timing). Three things count as a contradiction:
 
 - another line setting the same `KEY=` to something else, beside an expectation such as
-  `AGGREGATES=PASS`;
+  `AGGREGATES=PASS`, or the expected `KEY=` line itself printed more than once;
 - a line of the same form as a matched expectation with another value, such as a second
   `KC COUNT n=13 = ` line with a different number (a line whose first number differs, such as
   another layer's line, is another record, not a contradiction);
-- a line that reports a failure: one that contains the word `FAIL`, or a starred `MISMATCH`.
+- a line that reports a failure: one that contains the word `FAIL` or `ERROR`, a starred
+  `MISMATCH`, or the start of a Python traceback, including after the expected beginning of a line
+  that ends in `…`.
+
+A step that does not finish proves nothing either way. One that runs past the self-check's time
+limit (`SELFCHECK_STEP_TIMEOUT`, 1800 seconds unless you set it) is reported as `[TIMEOUT]`, and one
+killed by a signal (a segmentation fault, or out of memory) as `[CRASH]`; the run then ends with
+`REVIEWER_PACKAGE=ERROR`, not `PASS` or `FAIL`, whatever the step printed before it stopped.
 
 To run the steps by hand exactly as the self-check does, first start a shell that fails a
 pipeline when any part of it fails, and clear any engine settings you may have exported:
@@ -248,13 +255,13 @@ Why: one fixed enumeration test, its answer's hash recorded in the source; a mat
      gives our answer on that test. Later steps test the counting mode behind the headline.
 [2] ./solve --selftest
     expect: [--selftest] Actual sha256:   403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
-    expect: [--selftest] PASS — sha256 matches …
+    expect: [--selftest] PASS — sha256 matches canonical baseline
 
 Why: a separate Python program counts the n=9 problem layer by layer, with no symmetry shortcut,
      and every layer must match the published table.
 [3] python3 verify.py --recount-rung-layers 9
     expect: layer  9: recount 26,112  published 26,112  [ok]
-    expect: all 9 layer masses MATCH …
+    expect: all 9 layer masses MATCH reports/FULL31_EXACT_AGGREGATES.md …
 
 Why: the engine counts the n=13 problem with its symmetry shortcut; steps 5, 8 and 13 check its files and its log.
 [4] SOLVE_F1_KEEP_LAYERS=1 ./solve --f1-exact-c1c2c4c5 --f1-pairs 13 --layers-dir out13 2>&1 | tee run13.log
@@ -269,7 +276,7 @@ Why: the separate Python program counts every layer of the n=13 problem against 
      step 13 checks your engine's layers against the same table.
 [6] python3 verify.py --recount-rung-layers 13
     expect: layer 13: recount 2,063,395,607,040  published 2,063,395,607,040  [ok]
-    expect: all 13 layer masses MATCH …
+    expect: all 13 layer masses MATCH reports/FULL31_EXACT_AGGREGATES.md …
 
 Why: build the n=13 catalog, which stores shared counting work instead of listing orderings; step 8 checks it.
 [7] ./solve --kc-build kc13 --f1-pairs 13
@@ -396,7 +403,10 @@ manifest, a changed file, a truncated, duplicated or extended manifest, a missin
 marker files removed; for the runner, a wrong token, an extra digit, a malformed digest, a quoted
 success line, conflicting verdicts, a second line of the same form with another value, a reported
 failure, a failing command that prints every token, a failing program before `| tee`, a wrong step
-count, and a step with no expectation; that a step neither sees nor changes outputs already in the
+count, a step with no expectation, a verdict printed twice, a failure word after an expected
+beginning, a reported `ERROR`, a Python traceback, and a step that times out, crashes, or is killed
+behind `| tee`; for the aggregate and manifest checks, a verdict line beside a crash, a timeout or
+an exit status that disagrees, no verdict line, and two; that a step neither sees nor changes outputs already in the
 package directory; and the real steps 2, 4, 7 and 8 against stand-ins that print a wrong sha, a
 second all-zero sha, the engine's own failure line, a second count, exit nonzero after the right
 lines, print ten times the count, or leave a corrupted catalog. It prints

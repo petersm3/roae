@@ -241,8 +241,11 @@ check_page(){
       nf=$(find "$work/$R_DIR" -name '*.bin' | wc -l)
       nb=$(find "$work/$R_DIR" -name '*.bin' -printf '%s\n' | awk '{s+=$1} END{printf "%d", s}')
     fi
-    tot=$(printf '%s\n' "$R_OUT" | sed -nE 's/.*orbit-quotient C5-DP total = ([0-9]+).*/\1/p' | tail -1)
+    # Exactly one printed total (the Q-952 class, batch 39): before, `| tail -1` kept the last of
+    # several, so a wrong total followed by the right one passed.
+    tot=$(printf '%s\n' "$R_OUT" | sed -nE 's/.*orbit-quotient C5-DP total = ([0-9]+).*/\1/p')
     local bad=""
+    [ "$(grep -c . <<<"$tot")" -le 1 ] || { bad="$bad totals=$(grep -c . <<<"$tot")-lines(page 1)"; tot=""; }
     [ "$R_DIG" = "$dg" ] || bad="$bad digest=${R_DIG:-<none>}(page $dg)"
     [ "$nb" = "$byts" ]  || bad="$bad bytes=${nb:-<none>}(page $byts)"
     [ "$nf" = "$files" ] || bad="$bad files=${nf:-<none>}(page $files)"

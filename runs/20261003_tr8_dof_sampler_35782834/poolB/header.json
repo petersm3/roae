@@ -1,0 +1,53 @@
+{
+ "admission_band": [
+  0.25,
+  0.75
+ ],
+ "admitted_bank_sha256": "65663a14decc7fd03064810a01be93271b112e09f61a4436967ddaba780e4484",
+ "admitted_family_counts": {
+  "A": 36,
+  "B": 64,
+  "C": 28,
+  "D": 31,
+  "F": 12,
+  "G": 5,
+  "H": 64,
+  "I": 2
+ },
+ "b_admitted": 242,
+ "b_raw": 319,
+ "calibration_draws": 100000,
+ "instrument": "solve.py --tr8-dof-sampler",
+ "k_ladder": [
+  8,
+  12,
+  16,
+  20,
+  24
+ ],
+ "n_pool": 10000000,
+ "n_pred": 1000,
+ "n_shards": 8,
+ "pool": "B",
+ "prereg": "roae-private PREREG_TR8_DOF_MATCHED_SAMPLER (must be FROZEN before a recorded run; this header does not assert that it is)",
+ "r_kw": "47/445740",
+ "seed_root": "ROAE-TR8-DOFMATCH-2026-08-11",
+ "seeds": {
+  "bank-calibration": 16808612684394547738,
+  "pool-B/shard-0": 17280634769704081978,
+  "pool-B/shard-1": 12859789941146902710,
+  "pool-B/shard-2": 9673229268059519990,
+  "pool-B/shard-3": 2975484051319448252,
+  "pool-B/shard-4": 14691623685985260424,
+  "pool-B/shard-5": 7925071803624899320,
+  "pool-B/shard-6": 6803183296203478846,
+  "pool-B/shard-7": 1734777686958258059,
+  "predicates/K-12": 13098566881017873166,
+  "predicates/K-16": 8433741811206836744,
+  "predicates/K-20": 4864257483467187375,
+  "predicates/K-24": 6694891894007310856,
+  "predicates/K-8": 5773044589811096261,
+  "timing-probe": 16606691537943803774
+ },
+ "solve_py_sha256": "38f3f886dcfed34b36fe5be4de17b2ed5363c719a63d3bde634934738aa4b609"
+}

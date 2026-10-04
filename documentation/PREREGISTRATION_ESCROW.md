@@ -391,3 +391,37 @@ the run; its digest is written into the run's token log before the first pool dr
 published on this page, with the result, as a **post-calibration, pre-pool** digest — labelled as
 such, not as a pre-measurement one. The run's `PREREG_SHA256_RUN` token is the digest of the
 whole concatenation, so all three parts are checkable once A2 is published.
+
+## 2026-10-03 — the TR-8 admitted-bank addendum A2: a POST-CALIBRATION, PRE-POOL digest, published with the result
+
+Added 2026-10-03, after the run. **Nothing above is altered.** The section above said A2 would be
+published here with the result and labelled as a post-calibration, pre-pool digest, not a
+pre-measurement one. This is that row:
+
+| file | sha256 | bytes | committed privately | published |
+|---|---|---|---|---|
+| [`documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A2_20261003.md`](PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A2_20261003.md) | `a9f176cecc20e9df6d195a8d2ab15799855d8f5695bc5e68c032de7a97df7eb7` | 19,750 | 2026-10-03 10:02:41 UTC (private commit `9be179bc`) | 2026-10-03, in this repository, in full and byte-identical |
+
+**What this row is, stated exactly.**
+
+- **Post-calibration.** A2 is a measured list: the 242 of 319 clause templates whose calibration
+  marginal fell in the closed band [0.25, 0.75], each with its marginal, and the admitted-bank
+  digest `65663a14…`. It was written mechanically from the calibration pool, so it is **not** a
+  pre-measurement digest and is not offered as one. The calibration pool has its own seed and is
+  never merged into a measurement pool.
+- **Pre-pool.** The order is calibration, then A2, then the pools. The evidence for that order is
+  the private commit time of A2, 10:02:41 UTC, against the start of the pool phase, 10:03:51 UTC,
+  which is the timestamp on the `pools` lines of the run's token log
+  ([`runs/20261003_tr8_dof_sampler_35782834/TOKENS.txt`](../runs/20261003_tr8_dof_sampler_35782834/TOKENS.txt)).
+  The same log records `PREREG_A2_SHA256=a9f176ce…` and `PREREG_ANNOTATION_GATE=PASS` in that phase
+  before any shard line: the run kit refuses to draw a pool unless the run file contains the
+  admitted-bank digest and the instrument pin. The private commit time is operator-held, like every
+  date on this page: it is a claim, not a proof.
+- **What a reader can check.** Hash A2 against this row and A1 against its row above. The run's
+  `PREREG_SHA256_RUN=5d61c512f1032ec605660241e6d1cdaa733c9a260d4deb1bf1ddfa3f1b36235c` is the
+  digest of the byte concatenation *frozen file ‖ A1 ‖ A2*; the frozen file is private, so that
+  digest cannot be recomputed publicly. Its first part is covered by the 2026-08-22 row
+  (`4b307f07…`), which the run log also records as `PREREG_SHA256_FROZEN`.
+
+The result is in [TR-8](../reports/TR8_REORDERING_REVISITED.md) v1.21 and
+[CORRECTIONS.md](CORRECTIONS.md) CX-293.

@@ -1,0 +1,2885 @@
+{
+ "b_admitted": 242,
+ "b_raw": 319,
+ "band": [
+  0.25,
+  0.75
+ ],
+ "bank": [
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 34604,
+   "index": 1,
+   "marginal": 0.34604,
+   "template": "gender label at inversion-class position 1 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33304,
+   "index": 2,
+   "marginal": 0.33304,
+   "template": "gender label at inversion-class position 2 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33486,
+   "index": 3,
+   "marginal": 0.33486,
+   "template": "gender label at inversion-class position 3 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33457,
+   "index": 4,
+   "marginal": 0.33457,
+   "template": "gender label at inversion-class position 4 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33414,
+   "index": 5,
+   "marginal": 0.33414,
+   "template": "gender label at inversion-class position 5 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33275,
+   "index": 6,
+   "marginal": 0.33275,
+   "template": "gender label at inversion-class position 6 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33370,
+   "index": 7,
+   "marginal": 0.3337,
+   "template": "gender label at inversion-class position 7 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33424,
+   "index": 8,
+   "marginal": 0.33424,
+   "template": "gender label at inversion-class position 8 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33246,
+   "index": 9,
+   "marginal": 0.33246,
+   "template": "gender label at inversion-class position 9 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33118,
+   "index": 10,
+   "marginal": 0.33118,
+   "template": "gender label at inversion-class position 10 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33668,
+   "index": 11,
+   "marginal": 0.33668,
+   "template": "gender label at inversion-class position 11 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33244,
+   "index": 12,
+   "marginal": 0.33244,
+   "template": "gender label at inversion-class position 12 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33365,
+   "index": 13,
+   "marginal": 0.33365,
+   "template": "gender label at inversion-class position 13 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33315,
+   "index": 14,
+   "marginal": 0.33315,
+   "template": "gender label at inversion-class position 14 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33259,
+   "index": 15,
+   "marginal": 0.33259,
+   "template": "gender label at inversion-class position 15 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33526,
+   "index": 16,
+   "marginal": 0.33526,
+   "template": "gender label at inversion-class position 16 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33555,
+   "index": 17,
+   "marginal": 0.33555,
+   "template": "gender label at inversion-class position 17 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33278,
+   "index": 18,
+   "marginal": 0.33278,
+   "template": "gender label at inversion-class position 18 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33258,
+   "index": 19,
+   "marginal": 0.33258,
+   "template": "gender label at inversion-class position 19 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33398,
+   "index": 20,
+   "marginal": 0.33398,
+   "template": "gender label at inversion-class position 20 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33542,
+   "index": 21,
+   "marginal": 0.33542,
+   "template": "gender label at inversion-class position 21 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33248,
+   "index": 22,
+   "marginal": 0.33248,
+   "template": "gender label at inversion-class position 22 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33474,
+   "index": 23,
+   "marginal": 0.33474,
+   "template": "gender label at inversion-class position 23 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33495,
+   "index": 24,
+   "marginal": 0.33495,
+   "template": "gender label at inversion-class position 24 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33342,
+   "index": 25,
+   "marginal": 0.33342,
+   "template": "gender label at inversion-class position 25 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33078,
+   "index": 26,
+   "marginal": 0.33078,
+   "template": "gender label at inversion-class position 26 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33392,
+   "index": 27,
+   "marginal": 0.33392,
+   "template": "gender label at inversion-class position 27 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33154,
+   "index": 28,
+   "marginal": 0.33154,
+   "template": "gender label at inversion-class position 28 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33188,
+   "index": 29,
+   "marginal": 0.33188,
+   "template": "gender label at inversion-class position 29 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33238,
+   "index": 30,
+   "marginal": 0.33238,
+   "template": "gender label at inversion-class position 30 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33365,
+   "index": 31,
+   "marginal": 0.33365,
+   "template": "gender label at inversion-class position 31 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33361,
+   "index": 32,
+   "marginal": 0.33361,
+   "template": "gender label at inversion-class position 32 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33279,
+   "index": 33,
+   "marginal": 0.33279,
+   "template": "gender label at inversion-class position 33 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33379,
+   "index": 34,
+   "marginal": 0.33379,
+   "template": "gender label at inversion-class position 34 == female"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 33373,
+   "index": 35,
+   "marginal": 0.33373,
+   "template": "gender label at inversion-class position 35 == male"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "A",
+   "hits": 34255,
+   "index": 36,
+   "marginal": 0.34255,
+   "template": "gender label at inversion-class position 36 == exempt"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49585,
+   "index": 1,
+   "marginal": 0.49585,
+   "template": "popcount parity at position 1 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49585,
+   "index": 2,
+   "marginal": 0.49585,
+   "template": "popcount parity at position 2 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49881,
+   "index": 3,
+   "marginal": 0.49881,
+   "template": "popcount parity at position 3 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49881,
+   "index": 4,
+   "marginal": 0.49881,
+   "template": "popcount parity at position 4 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50025,
+   "index": 5,
+   "marginal": 0.50025,
+   "template": "popcount parity at position 5 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50025,
+   "index": 6,
+   "marginal": 0.50025,
+   "template": "popcount parity at position 6 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49871,
+   "index": 7,
+   "marginal": 0.49871,
+   "template": "popcount parity at position 7 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49871,
+   "index": 8,
+   "marginal": 0.49871,
+   "template": "popcount parity at position 8 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50063,
+   "index": 9,
+   "marginal": 0.50063,
+   "template": "popcount parity at position 9 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50063,
+   "index": 10,
+   "marginal": 0.50063,
+   "template": "popcount parity at position 10 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50085,
+   "index": 11,
+   "marginal": 0.50085,
+   "template": "popcount parity at position 11 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50085,
+   "index": 12,
+   "marginal": 0.50085,
+   "template": "popcount parity at position 12 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49948,
+   "index": 13,
+   "marginal": 0.49948,
+   "template": "popcount parity at position 13 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49948,
+   "index": 14,
+   "marginal": 0.49948,
+   "template": "popcount parity at position 14 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50135,
+   "index": 15,
+   "marginal": 0.50135,
+   "template": "popcount parity at position 15 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50135,
+   "index": 16,
+   "marginal": 0.50135,
+   "template": "popcount parity at position 16 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49966,
+   "index": 17,
+   "marginal": 0.49966,
+   "template": "popcount parity at position 17 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49966,
+   "index": 18,
+   "marginal": 0.49966,
+   "template": "popcount parity at position 18 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49862,
+   "index": 19,
+   "marginal": 0.49862,
+   "template": "popcount parity at position 19 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49862,
+   "index": 20,
+   "marginal": 0.49862,
+   "template": "popcount parity at position 20 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50102,
+   "index": 21,
+   "marginal": 0.50102,
+   "template": "popcount parity at position 21 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50102,
+   "index": 22,
+   "marginal": 0.50102,
+   "template": "popcount parity at position 22 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49989,
+   "index": 23,
+   "marginal": 0.49989,
+   "template": "popcount parity at position 23 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49989,
+   "index": 24,
+   "marginal": 0.49989,
+   "template": "popcount parity at position 24 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50132,
+   "index": 25,
+   "marginal": 0.50132,
+   "template": "popcount parity at position 25 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50132,
+   "index": 26,
+   "marginal": 0.50132,
+   "template": "popcount parity at position 26 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50176,
+   "index": 27,
+   "marginal": 0.50176,
+   "template": "popcount parity at position 27 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50176,
+   "index": 28,
+   "marginal": 0.50176,
+   "template": "popcount parity at position 28 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50332,
+   "index": 29,
+   "marginal": 0.50332,
+   "template": "popcount parity at position 29 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50332,
+   "index": 30,
+   "marginal": 0.50332,
+   "template": "popcount parity at position 30 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50038,
+   "index": 31,
+   "marginal": 0.50038,
+   "template": "popcount parity at position 31 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50038,
+   "index": 32,
+   "marginal": 0.50038,
+   "template": "popcount parity at position 32 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50065,
+   "index": 33,
+   "marginal": 0.50065,
+   "template": "popcount parity at position 33 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50065,
+   "index": 34,
+   "marginal": 0.50065,
+   "template": "popcount parity at position 34 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50136,
+   "index": 35,
+   "marginal": 0.50136,
+   "template": "popcount parity at position 35 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50136,
+   "index": 36,
+   "marginal": 0.50136,
+   "template": "popcount parity at position 36 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50069,
+   "index": 37,
+   "marginal": 0.50069,
+   "template": "popcount parity at position 37 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50069,
+   "index": 38,
+   "marginal": 0.50069,
+   "template": "popcount parity at position 38 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49799,
+   "index": 39,
+   "marginal": 0.49799,
+   "template": "popcount parity at position 39 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49799,
+   "index": 40,
+   "marginal": 0.49799,
+   "template": "popcount parity at position 40 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49868,
+   "index": 41,
+   "marginal": 0.49868,
+   "template": "popcount parity at position 41 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49868,
+   "index": 42,
+   "marginal": 0.49868,
+   "template": "popcount parity at position 42 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50305,
+   "index": 43,
+   "marginal": 0.50305,
+   "template": "popcount parity at position 43 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50305,
+   "index": 44,
+   "marginal": 0.50305,
+   "template": "popcount parity at position 44 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49893,
+   "index": 45,
+   "marginal": 0.49893,
+   "template": "popcount parity at position 45 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49893,
+   "index": 46,
+   "marginal": 0.49893,
+   "template": "popcount parity at position 46 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50238,
+   "index": 47,
+   "marginal": 0.50238,
+   "template": "popcount parity at position 47 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50238,
+   "index": 48,
+   "marginal": 0.50238,
+   "template": "popcount parity at position 48 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50123,
+   "index": 49,
+   "marginal": 0.50123,
+   "template": "popcount parity at position 49 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50123,
+   "index": 50,
+   "marginal": 0.50123,
+   "template": "popcount parity at position 50 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50051,
+   "index": 51,
+   "marginal": 0.50051,
+   "template": "popcount parity at position 51 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50051,
+   "index": 52,
+   "marginal": 0.50051,
+   "template": "popcount parity at position 52 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50030,
+   "index": 53,
+   "marginal": 0.5003,
+   "template": "popcount parity at position 53 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50030,
+   "index": 54,
+   "marginal": 0.5003,
+   "template": "popcount parity at position 54 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49821,
+   "index": 55,
+   "marginal": 0.49821,
+   "template": "popcount parity at position 55 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49821,
+   "index": 56,
+   "marginal": 0.49821,
+   "template": "popcount parity at position 56 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50210,
+   "index": 57,
+   "marginal": 0.5021,
+   "template": "popcount parity at position 57 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50210,
+   "index": 58,
+   "marginal": 0.5021,
+   "template": "popcount parity at position 58 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49967,
+   "index": 59,
+   "marginal": 0.49967,
+   "template": "popcount parity at position 59 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 49967,
+   "index": 60,
+   "marginal": 0.49967,
+   "template": "popcount parity at position 60 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50089,
+   "index": 61,
+   "marginal": 0.50089,
+   "template": "popcount parity at position 61 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50089,
+   "index": 62,
+   "marginal": 0.50089,
+   "template": "popcount parity at position 62 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50002,
+   "index": 63,
+   "marginal": 0.50002,
+   "template": "popcount parity at position 63 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "B",
+   "hits": 50002,
+   "index": 64,
+   "marginal": 0.50002,
+   "template": "popcount parity at position 64 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 25140,
+   "index": 1,
+   "marginal": 0.2514,
+   "template": "within-pair Hamming distance at slot 1 == 6"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37388,
+   "index": 2,
+   "marginal": 0.37388,
+   "template": "within-pair Hamming distance at slot 2 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37668,
+   "index": 3,
+   "marginal": 0.37668,
+   "template": "within-pair Hamming distance at slot 3 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37340,
+   "index": 4,
+   "marginal": 0.3734,
+   "template": "within-pair Hamming distance at slot 4 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37440,
+   "index": 5,
+   "marginal": 0.3744,
+   "template": "within-pair Hamming distance at slot 5 == 2"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 24911,
+   "index": 6,
+   "marginal": 0.24911,
+   "template": "within-pair Hamming distance at slot 6 == 6"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37434,
+   "index": 7,
+   "marginal": 0.37434,
+   "template": "within-pair Hamming distance at slot 7 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37639,
+   "index": 8,
+   "marginal": 0.37639,
+   "template": "within-pair Hamming distance at slot 8 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 25263,
+   "index": 9,
+   "marginal": 0.25263,
+   "template": "within-pair Hamming distance at slot 9 == 6"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37376,
+   "index": 10,
+   "marginal": 0.37376,
+   "template": "within-pair Hamming distance at slot 10 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37437,
+   "index": 11,
+   "marginal": 0.37437,
+   "template": "within-pair Hamming distance at slot 11 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37551,
+   "index": 12,
+   "marginal": 0.37551,
+   "template": "within-pair Hamming distance at slot 12 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37470,
+   "index": 13,
+   "marginal": 0.3747,
+   "template": "within-pair Hamming distance at slot 13 == 4"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 24983,
+   "index": 14,
+   "marginal": 0.24983,
+   "template": "within-pair Hamming distance at slot 14 == 6"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 25127,
+   "index": 15,
+   "marginal": 0.25127,
+   "template": "within-pair Hamming distance at slot 15 == 6"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37508,
+   "index": 16,
+   "marginal": 0.37508,
+   "template": "within-pair Hamming distance at slot 16 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37585,
+   "index": 17,
+   "marginal": 0.37585,
+   "template": "within-pair Hamming distance at slot 17 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37787,
+   "index": 18,
+   "marginal": 0.37787,
+   "template": "within-pair Hamming distance at slot 18 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37574,
+   "index": 19,
+   "marginal": 0.37574,
+   "template": "within-pair Hamming distance at slot 19 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37455,
+   "index": 20,
+   "marginal": 0.37455,
+   "template": "within-pair Hamming distance at slot 20 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37413,
+   "index": 21,
+   "marginal": 0.37413,
+   "template": "within-pair Hamming distance at slot 21 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37740,
+   "index": 22,
+   "marginal": 0.3774,
+   "template": "within-pair Hamming distance at slot 22 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37482,
+   "index": 23,
+   "marginal": 0.37482,
+   "template": "within-pair Hamming distance at slot 23 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37816,
+   "index": 24,
+   "marginal": 0.37816,
+   "template": "within-pair Hamming distance at slot 24 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37667,
+   "index": 25,
+   "marginal": 0.37667,
+   "template": "within-pair Hamming distance at slot 25 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37543,
+   "index": 26,
+   "marginal": 0.37543,
+   "template": "within-pair Hamming distance at slot 26 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 25103,
+   "index": 27,
+   "marginal": 0.25103,
+   "template": "within-pair Hamming distance at slot 27 == 6"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37373,
+   "index": 28,
+   "marginal": 0.37373,
+   "template": "within-pair Hamming distance at slot 28 == 2"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37711,
+   "index": 29,
+   "marginal": 0.37711,
+   "template": "within-pair Hamming distance at slot 29 == 4"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 37339,
+   "index": 30,
+   "marginal": 0.37339,
+   "template": "within-pair Hamming distance at slot 30 == 2"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 24990,
+   "index": 31,
+   "marginal": 0.2499,
+   "template": "within-pair Hamming distance at slot 31 == 6"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "C",
+   "hits": 24974,
+   "index": 32,
+   "marginal": 0.24974,
+   "template": "within-pair Hamming distance at slot 32 == 6"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 1,
+   "marginal": 1.0,
+   "template": "parity of seam distance 1 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48468,
+   "index": 2,
+   "marginal": 0.48468,
+   "template": "parity of seam distance 2 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 3,
+   "marginal": 1.0,
+   "template": "parity of seam distance 3 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48180,
+   "index": 4,
+   "marginal": 0.4818,
+   "template": "parity of seam distance 4 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 5,
+   "marginal": 1.0,
+   "template": "parity of seam distance 5 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51616,
+   "index": 6,
+   "marginal": 0.51616,
+   "template": "parity of seam distance 6 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 7,
+   "marginal": 1.0,
+   "template": "parity of seam distance 7 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48272,
+   "index": 8,
+   "marginal": 0.48272,
+   "template": "parity of seam distance 8 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 9,
+   "marginal": 1.0,
+   "template": "parity of seam distance 9 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48392,
+   "index": 10,
+   "marginal": 0.48392,
+   "template": "parity of seam distance 10 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 11,
+   "marginal": 1.0,
+   "template": "parity of seam distance 11 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48033,
+   "index": 12,
+   "marginal": 0.48033,
+   "template": "parity of seam distance 12 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 13,
+   "marginal": 1.0,
+   "template": "parity of seam distance 13 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48465,
+   "index": 14,
+   "marginal": 0.48465,
+   "template": "parity of seam distance 14 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 15,
+   "marginal": 1.0,
+   "template": "parity of seam distance 15 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48081,
+   "index": 16,
+   "marginal": 0.48081,
+   "template": "parity of seam distance 16 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 17,
+   "marginal": 1.0,
+   "template": "parity of seam distance 17 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51668,
+   "index": 18,
+   "marginal": 0.51668,
+   "template": "parity of seam distance 18 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 19,
+   "marginal": 1.0,
+   "template": "parity of seam distance 19 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51528,
+   "index": 20,
+   "marginal": 0.51528,
+   "template": "parity of seam distance 20 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 21,
+   "marginal": 1.0,
+   "template": "parity of seam distance 21 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48191,
+   "index": 22,
+   "marginal": 0.48191,
+   "template": "parity of seam distance 22 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 23,
+   "marginal": 1.0,
+   "template": "parity of seam distance 23 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51689,
+   "index": 24,
+   "marginal": 0.51689,
+   "template": "parity of seam distance 24 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 25,
+   "marginal": 1.0,
+   "template": "parity of seam distance 25 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48830,
+   "index": 26,
+   "marginal": 0.4883,
+   "template": "parity of seam distance 26 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 27,
+   "marginal": 1.0,
+   "template": "parity of seam distance 27 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48308,
+   "index": 28,
+   "marginal": 0.48308,
+   "template": "parity of seam distance 28 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 29,
+   "marginal": 1.0,
+   "template": "parity of seam distance 29 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51348,
+   "index": 30,
+   "marginal": 0.51348,
+   "template": "parity of seam distance 30 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 31,
+   "marginal": 1.0,
+   "template": "parity of seam distance 31 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51383,
+   "index": 32,
+   "marginal": 0.51383,
+   "template": "parity of seam distance 32 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 33,
+   "marginal": 1.0,
+   "template": "parity of seam distance 33 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48513,
+   "index": 34,
+   "marginal": 0.48513,
+   "template": "parity of seam distance 34 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 35,
+   "marginal": 1.0,
+   "template": "parity of seam distance 35 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48437,
+   "index": 36,
+   "marginal": 0.48437,
+   "template": "parity of seam distance 36 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 37,
+   "marginal": 1.0,
+   "template": "parity of seam distance 37 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48612,
+   "index": 38,
+   "marginal": 0.48612,
+   "template": "parity of seam distance 38 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 39,
+   "marginal": 1.0,
+   "template": "parity of seam distance 39 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51609,
+   "index": 40,
+   "marginal": 0.51609,
+   "template": "parity of seam distance 40 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 41,
+   "marginal": 1.0,
+   "template": "parity of seam distance 41 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48525,
+   "index": 42,
+   "marginal": 0.48525,
+   "template": "parity of seam distance 42 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 43,
+   "marginal": 1.0,
+   "template": "parity of seam distance 43 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51682,
+   "index": 44,
+   "marginal": 0.51682,
+   "template": "parity of seam distance 44 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 45,
+   "marginal": 1.0,
+   "template": "parity of seam distance 45 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51679,
+   "index": 46,
+   "marginal": 0.51679,
+   "template": "parity of seam distance 46 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 47,
+   "marginal": 1.0,
+   "template": "parity of seam distance 47 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51527,
+   "index": 48,
+   "marginal": 0.51527,
+   "template": "parity of seam distance 48 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 49,
+   "marginal": 1.0,
+   "template": "parity of seam distance 49 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48718,
+   "index": 50,
+   "marginal": 0.48718,
+   "template": "parity of seam distance 50 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 51,
+   "marginal": 1.0,
+   "template": "parity of seam distance 51 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51863,
+   "index": 52,
+   "marginal": 0.51863,
+   "template": "parity of seam distance 52 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 53,
+   "marginal": 1.0,
+   "template": "parity of seam distance 53 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 48431,
+   "index": 54,
+   "marginal": 0.48431,
+   "template": "parity of seam distance 54 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 55,
+   "marginal": 1.0,
+   "template": "parity of seam distance 55 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51713,
+   "index": 56,
+   "marginal": 0.51713,
+   "template": "parity of seam distance 56 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 57,
+   "marginal": 1.0,
+   "template": "parity of seam distance 57 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51543,
+   "index": 58,
+   "marginal": 0.51543,
+   "template": "parity of seam distance 58 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 59,
+   "marginal": 1.0,
+   "template": "parity of seam distance 59 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51742,
+   "index": 60,
+   "marginal": 0.51742,
+   "template": "parity of seam distance 60 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 61,
+   "marginal": 1.0,
+   "template": "parity of seam distance 61 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 51443,
+   "index": 62,
+   "marginal": 0.51443,
+   "template": "parity of seam distance 62 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "D",
+   "hits": 100000,
+   "index": 63,
+   "marginal": 1.0,
+   "template": "parity of seam distance 63 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 6223,
+   "index": 1,
+   "marginal": 0.06223,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 1 == -1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87507,
+   "index": 2,
+   "marginal": 0.87507,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 2 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87643,
+   "index": 3,
+   "marginal": 0.87643,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 3 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87621,
+   "index": 4,
+   "marginal": 0.87621,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 4 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87514,
+   "index": 5,
+   "marginal": 0.87514,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 5 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87487,
+   "index": 6,
+   "marginal": 0.87487,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 6 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87547,
+   "index": 7,
+   "marginal": 0.87547,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 7 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87461,
+   "index": 8,
+   "marginal": 0.87461,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 8 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87280,
+   "index": 9,
+   "marginal": 0.8728,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 9 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87514,
+   "index": 10,
+   "marginal": 0.87514,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 10 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87584,
+   "index": 11,
+   "marginal": 0.87584,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 11 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87559,
+   "index": 12,
+   "marginal": 0.87559,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 12 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87338,
+   "index": 13,
+   "marginal": 0.87338,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 13 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 6355,
+   "index": 14,
+   "marginal": 0.06355,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 14 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 6444,
+   "index": 15,
+   "marginal": 0.06444,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 15 == 1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87573,
+   "index": 16,
+   "marginal": 0.87573,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 16 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87520,
+   "index": 17,
+   "marginal": 0.8752,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 17 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87651,
+   "index": 18,
+   "marginal": 0.87651,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 18 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87505,
+   "index": 19,
+   "marginal": 0.87505,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 19 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87656,
+   "index": 20,
+   "marginal": 0.87656,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 20 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87409,
+   "index": 21,
+   "marginal": 0.87409,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 21 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87337,
+   "index": 22,
+   "marginal": 0.87337,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 22 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87589,
+   "index": 23,
+   "marginal": 0.87589,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 23 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87371,
+   "index": 24,
+   "marginal": 0.87371,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 24 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87544,
+   "index": 25,
+   "marginal": 0.87544,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 25 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87492,
+   "index": 26,
+   "marginal": 0.87492,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 26 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87418,
+   "index": 27,
+   "marginal": 0.87418,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 27 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87608,
+   "index": 28,
+   "marginal": 0.87608,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 28 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87501,
+   "index": 29,
+   "marginal": 0.87501,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 29 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87516,
+   "index": 30,
+   "marginal": 0.87516,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 30 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 6216,
+   "index": 31,
+   "marginal": 0.06216,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 31 == -1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "E",
+   "hits": 87593,
+   "index": 32,
+   "marginal": 0.87593,
+   "template": "sign(popcount(later) - popcount(earlier)) at slot 32 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 36294,
+   "index": 4,
+   "marginal": 0.36294,
+   "template": "sign of running yang balance at position 4 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 40658,
+   "index": 8,
+   "marginal": 0.40658,
+   "template": "sign of running yang balance at position 8 == -1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 16383,
+   "index": 12,
+   "marginal": 0.16383,
+   "template": "sign of running yang balance at position 12 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 14628,
+   "index": 16,
+   "marginal": 0.14628,
+   "template": "sign of running yang balance at position 16 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 43112,
+   "index": 20,
+   "marginal": 0.43112,
+   "template": "sign of running yang balance at position 20 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 43492,
+   "index": 24,
+   "marginal": 0.43492,
+   "template": "sign of running yang balance at position 24 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 43634,
+   "index": 28,
+   "marginal": 0.43634,
+   "template": "sign of running yang balance at position 28 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 43700,
+   "index": 32,
+   "marginal": 0.437,
+   "template": "sign of running yang balance at position 32 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 43731,
+   "index": 36,
+   "marginal": 0.43731,
+   "template": "sign of running yang balance at position 36 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 43588,
+   "index": 40,
+   "marginal": 0.43588,
+   "template": "sign of running yang balance at position 40 == -1"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 13888,
+   "index": 44,
+   "marginal": 0.13888,
+   "template": "sign of running yang balance at position 44 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 42876,
+   "index": 48,
+   "marginal": 0.42876,
+   "template": "sign of running yang balance at position 48 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 42110,
+   "index": 52,
+   "marginal": 0.4211,
+   "template": "sign of running yang balance at position 52 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 40578,
+   "index": 56,
+   "marginal": 0.40578,
+   "template": "sign of running yang balance at position 56 == -1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "F",
+   "hits": 27365,
+   "index": 60,
+   "marginal": 0.27365,
+   "template": "sign of running yang balance at position 60 == 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 89126,
+   "index": 1,
+   "marginal": 0.89126,
+   "template": "yang mass of block 1 >= 20"
+  },
+  {
+   "admitted": false,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 23068,
+   "index": 2,
+   "marginal": 0.23068,
+   "template": "yang mass of block 2 >= 28"
+  },
+  {
+   "admitted": false,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 96016,
+   "index": 3,
+   "marginal": 0.96016,
+   "template": "yang mass of block 3 >= 18"
+  },
+  {
+   "admitted": true,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 40251,
+   "index": 4,
+   "marginal": 0.40251,
+   "template": "yang mass of block 4 >= 26"
+  },
+  {
+   "admitted": true,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 59528,
+   "index": 5,
+   "marginal": 0.59528,
+   "template": "yang mass of block 5 >= 24"
+  },
+  {
+   "admitted": true,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 40718,
+   "index": 6,
+   "marginal": 0.40718,
+   "template": "yang mass of block 6 >= 26"
+  },
+  {
+   "admitted": true,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 59610,
+   "index": 7,
+   "marginal": 0.5961,
+   "template": "yang mass of block 7 >= 24"
+  },
+  {
+   "admitted": true,
+   "comparator": "ge",
+   "family": "G",
+   "hits": 40578,
+   "index": 8,
+   "marginal": 0.40578,
+   "template": "yang mass of block 8 >= 26"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49759,
+   "index": 1,
+   "marginal": 0.49759,
+   "template": "lower-trigram yang-majority class at position 1 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50014,
+   "index": 2,
+   "marginal": 0.50014,
+   "template": "lower-trigram yang-majority class at position 2 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49900,
+   "index": 3,
+   "marginal": 0.499,
+   "template": "lower-trigram yang-majority class at position 3 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49930,
+   "index": 4,
+   "marginal": 0.4993,
+   "template": "lower-trigram yang-majority class at position 4 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49904,
+   "index": 5,
+   "marginal": 0.49904,
+   "template": "lower-trigram yang-majority class at position 5 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50092,
+   "index": 6,
+   "marginal": 0.50092,
+   "template": "lower-trigram yang-majority class at position 6 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50136,
+   "index": 7,
+   "marginal": 0.50136,
+   "template": "lower-trigram yang-majority class at position 7 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49884,
+   "index": 8,
+   "marginal": 0.49884,
+   "template": "lower-trigram yang-majority class at position 8 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49852,
+   "index": 9,
+   "marginal": 0.49852,
+   "template": "lower-trigram yang-majority class at position 9 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49842,
+   "index": 10,
+   "marginal": 0.49842,
+   "template": "lower-trigram yang-majority class at position 10 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49918,
+   "index": 11,
+   "marginal": 0.49918,
+   "template": "lower-trigram yang-majority class at position 11 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50125,
+   "index": 12,
+   "marginal": 0.50125,
+   "template": "lower-trigram yang-majority class at position 12 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50233,
+   "index": 13,
+   "marginal": 0.50233,
+   "template": "lower-trigram yang-majority class at position 13 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50055,
+   "index": 14,
+   "marginal": 0.50055,
+   "template": "lower-trigram yang-majority class at position 14 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49981,
+   "index": 15,
+   "marginal": 0.49981,
+   "template": "lower-trigram yang-majority class at position 15 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49739,
+   "index": 16,
+   "marginal": 0.49739,
+   "template": "lower-trigram yang-majority class at position 16 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49970,
+   "index": 17,
+   "marginal": 0.4997,
+   "template": "lower-trigram yang-majority class at position 17 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49830,
+   "index": 18,
+   "marginal": 0.4983,
+   "template": "lower-trigram yang-majority class at position 18 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49935,
+   "index": 19,
+   "marginal": 0.49935,
+   "template": "lower-trigram yang-majority class at position 19 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50055,
+   "index": 20,
+   "marginal": 0.50055,
+   "template": "lower-trigram yang-majority class at position 20 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49751,
+   "index": 21,
+   "marginal": 0.49751,
+   "template": "lower-trigram yang-majority class at position 21 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49733,
+   "index": 22,
+   "marginal": 0.49733,
+   "template": "lower-trigram yang-majority class at position 22 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49948,
+   "index": 23,
+   "marginal": 0.49948,
+   "template": "lower-trigram yang-majority class at position 23 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49930,
+   "index": 24,
+   "marginal": 0.4993,
+   "template": "lower-trigram yang-majority class at position 24 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49826,
+   "index": 25,
+   "marginal": 0.49826,
+   "template": "lower-trigram yang-majority class at position 25 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49935,
+   "index": 26,
+   "marginal": 0.49935,
+   "template": "lower-trigram yang-majority class at position 26 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50229,
+   "index": 27,
+   "marginal": 0.50229,
+   "template": "lower-trigram yang-majority class at position 27 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50144,
+   "index": 28,
+   "marginal": 0.50144,
+   "template": "lower-trigram yang-majority class at position 28 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50138,
+   "index": 29,
+   "marginal": 0.50138,
+   "template": "lower-trigram yang-majority class at position 29 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50293,
+   "index": 30,
+   "marginal": 0.50293,
+   "template": "lower-trigram yang-majority class at position 30 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49923,
+   "index": 31,
+   "marginal": 0.49923,
+   "template": "lower-trigram yang-majority class at position 31 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50132,
+   "index": 32,
+   "marginal": 0.50132,
+   "template": "lower-trigram yang-majority class at position 32 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50035,
+   "index": 33,
+   "marginal": 0.50035,
+   "template": "lower-trigram yang-majority class at position 33 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49769,
+   "index": 34,
+   "marginal": 0.49769,
+   "template": "lower-trigram yang-majority class at position 34 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49906,
+   "index": 35,
+   "marginal": 0.49906,
+   "template": "lower-trigram yang-majority class at position 35 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49647,
+   "index": 36,
+   "marginal": 0.49647,
+   "template": "lower-trigram yang-majority class at position 36 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49983,
+   "index": 37,
+   "marginal": 0.49983,
+   "template": "lower-trigram yang-majority class at position 37 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50071,
+   "index": 38,
+   "marginal": 0.50071,
+   "template": "lower-trigram yang-majority class at position 38 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50160,
+   "index": 39,
+   "marginal": 0.5016,
+   "template": "lower-trigram yang-majority class at position 39 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49925,
+   "index": 40,
+   "marginal": 0.49925,
+   "template": "lower-trigram yang-majority class at position 40 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49909,
+   "index": 41,
+   "marginal": 0.49909,
+   "template": "lower-trigram yang-majority class at position 41 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49938,
+   "index": 42,
+   "marginal": 0.49938,
+   "template": "lower-trigram yang-majority class at position 42 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50082,
+   "index": 43,
+   "marginal": 0.50082,
+   "template": "lower-trigram yang-majority class at position 43 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49987,
+   "index": 44,
+   "marginal": 0.49987,
+   "template": "lower-trigram yang-majority class at position 44 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49983,
+   "index": 45,
+   "marginal": 0.49983,
+   "template": "lower-trigram yang-majority class at position 45 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50126,
+   "index": 46,
+   "marginal": 0.50126,
+   "template": "lower-trigram yang-majority class at position 46 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49755,
+   "index": 47,
+   "marginal": 0.49755,
+   "template": "lower-trigram yang-majority class at position 47 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49841,
+   "index": 48,
+   "marginal": 0.49841,
+   "template": "lower-trigram yang-majority class at position 48 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49966,
+   "index": 49,
+   "marginal": 0.49966,
+   "template": "lower-trigram yang-majority class at position 49 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50133,
+   "index": 50,
+   "marginal": 0.50133,
+   "template": "lower-trigram yang-majority class at position 50 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49846,
+   "index": 51,
+   "marginal": 0.49846,
+   "template": "lower-trigram yang-majority class at position 51 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50088,
+   "index": 52,
+   "marginal": 0.50088,
+   "template": "lower-trigram yang-majority class at position 52 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49947,
+   "index": 53,
+   "marginal": 0.49947,
+   "template": "lower-trigram yang-majority class at position 53 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50023,
+   "index": 54,
+   "marginal": 0.50023,
+   "template": "lower-trigram yang-majority class at position 54 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49920,
+   "index": 55,
+   "marginal": 0.4992,
+   "template": "lower-trigram yang-majority class at position 55 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49882,
+   "index": 56,
+   "marginal": 0.49882,
+   "template": "lower-trigram yang-majority class at position 56 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50042,
+   "index": 57,
+   "marginal": 0.50042,
+   "template": "lower-trigram yang-majority class at position 57 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49834,
+   "index": 58,
+   "marginal": 0.49834,
+   "template": "lower-trigram yang-majority class at position 58 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49735,
+   "index": 59,
+   "marginal": 0.49735,
+   "template": "lower-trigram yang-majority class at position 59 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49815,
+   "index": 60,
+   "marginal": 0.49815,
+   "template": "lower-trigram yang-majority class at position 60 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49942,
+   "index": 61,
+   "marginal": 0.49942,
+   "template": "lower-trigram yang-majority class at position 61 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 49942,
+   "index": 62,
+   "marginal": 0.49942,
+   "template": "lower-trigram yang-majority class at position 62 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50155,
+   "index": 63,
+   "marginal": 0.50155,
+   "template": "lower-trigram yang-majority class at position 63 == 1"
+  },
+  {
+   "admitted": true,
+   "comparator": "eq",
+   "family": "H",
+   "hits": 50097,
+   "index": 64,
+   "marginal": 0.50097,
+   "template": "lower-trigram yang-majority class at position 64 == 0"
+  },
+  {
+   "admitted": true,
+   "comparator": "ge",
+   "family": "I",
+   "hits": 25348,
+   "index": 1,
+   "marginal": 0.25348,
+   "template": "shared_trigram_adjacencies >= 9"
+  },
+  {
+   "admitted": true,
+   "comparator": "ge",
+   "family": "I",
+   "hits": 70721,
+   "index": 2,
+   "marginal": 0.70721,
+   "template": "par_switch >= 30"
+  },
+  {
+   "admitted": false,
+   "comparator": "eq",
+   "family": "I",
+   "hits": 78726,
+   "index": 3,
+   "marginal": 0.78726,
+   "template": "dist_autocorr_lag1_sign == -1"
+  },
+  {
+   "admitted": false,
+   "comparator": "ge",
+   "family": "I",
+   "hits": 100000,
+   "index": 4,
+   "marginal": 1.0,
+   "template": "five_line_transitions >= 0"
+  },
+  {
+   "admitted": false,
+   "comparator": "ge",
+   "family": "I",
+   "hits": 100000,
+   "index": 5,
+   "marginal": 1.0,
+   "template": "distinct_within_pair_xor >= 7"
+  }
+ ],
+ "calibration_draws": 100000,
+ "calibration_seed": 16808612684394547738,
+ "h_a_kw_satisfies_all": true,
+ "seed_root": "ROAE-TR8-DOFMATCH-2026-08-11"
+}

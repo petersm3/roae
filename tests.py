@@ -21148,10 +21148,11 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
         r, _ = self._hook(repo, "refs/heads/x %s refs/tags/prepush-record %s\n" % (sha, self.Z40))
         self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-2000:])
         logs = {}
+        bt, btc = _q956_fixture_binding(repo)   # Q-956: the logs name the tree and toolchain they measured
         for name, body in (("hook", r.stdout),
-                           ("tests", "Ran 3 tests in 0.1s\n\n" + ("OK\n" if tests_ok else "FAILED (failures=1)\n")),
-                           ("citation", "CITATION_LINE_GATE=PASS\n"),
-                           ("stamp", "TR12_REPRO_GATE_CURRENT=YES\n")):
+                           ("tests", bt["tests"] + "Ran 3 tests in 0.1s\n\n" + ("OK\n" if tests_ok else "FAILED (failures=1)\n")),
+                           ("citation", bt["citation"] + "CITATION_LINE_GATE=PASS\n"),
+                           ("stamp", bt["stamp"] + "TR12_REPRO_GATE_CURRENT=YES\n")):
             logs[name] = os.path.join(d, "%s.log" % name)
             self._write(logs[name], body)
         rec = os.path.join(d, "record.txt")
@@ -21212,7 +21213,7 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
         self.assertIn("PREPUSH_RECORD_ALL_PASS=YES", w.stdout.splitlines())
         with open(rec, encoding="utf-8") as fh:
             lines = fh.read().splitlines()
-        self.assertEqual(lines[0], "ROAE_PREPUSH_RECORD=1")
+        self.assertEqual(lines[0], "ROAE_PREPUSH_RECORD=2")   # Q-956: format v2
         self.assertIn("TREE=" + self._git(repo, "rev-parse", "HEAD^{tree}"), lines)
         self.assertIn("CITGATE_BASE=" + a, lines)
         for leg in self.LEGS + ("HOOK", "TESTS", "CITATION", "TR12_STAMP_CURRENT"):
@@ -21374,7 +21375,7 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
             "truncated": raw[:-20],                                         # cut inside the last line
             "empty": b"",
             "bad-line": b"\x89PNG not a record\n",
-            "bad-header": raw.replace(b"ROAE_PREPUSH_RECORD=1", b"ROAE_PREPUSH_RECORD=2"),
+            "bad-header": raw.replace(b"ROAE_PREPUSH_RECORD=2", b"ROAE_PREPUSH_RECORD=v2"),   # Q-956: =1 is old-version
         }
         # checksum: flip one hex digit of a LOG digest. Nothing but RECORD_SHA256 covers it.
         lines = raw.decode().splitlines()
@@ -27794,8 +27795,10 @@ class TestLaneHAJ(unittest.TestCase):
         for leg in (self.ADV if pre else ()):   # pre=False: a mutant hook that skips advisory legs in the producer run too
             self.assertIn(self.ADV_MARKS[leg], marks, "precondition: the producer run ran advisory leg %s" % leg)
         logs = {}
-        for name, body in (("hook", r.stdout), ("tests", "Ran 3 tests in 0.1s\n\nOK\n"),
-                           ("citation", "CITATION_LINE_GATE=PASS\n"), ("stamp", "TR12_REPRO_GATE_CURRENT=YES\n")):
+        bt, _ = _q956_fixture_binding(fx["repo"])   # Q-956: the logs name the tree and toolchain they measured
+        for name, body in (("hook", r.stdout), ("tests", bt["tests"] + "Ran 3 tests in 0.1s\n\nOK\n"),
+                           ("citation", bt["citation"] + "CITATION_LINE_GATE=PASS\n"),
+                           ("stamp", bt["stamp"] + "TR12_REPRO_GATE_CURRENT=YES\n")):
             logs[name] = os.path.join(fx["d"], "%s.log" % name)
             with open(logs[name], "w", encoding="utf-8") as fh:
                 fh.write(body)
@@ -27964,13 +27967,31 @@ class TestLaneHAJ(unittest.TestCase):
             self.assertIn(p, files)
         pat = re.compile(rb"roae-private")
         self.assertTrue(pat.search(b"Frozen design: roae-private/X.md"), "positive control")
+        # Batch 39: the one exemption. The TR-8 sampler at 35782834 writes this label into every
+        # header it emits (solve.py), and the recorded run ships those bytes unedited so they
+        # rebuild byte for byte. Exempt only inside that run's folder, only the exact literal, and
+        # only while solve.py still emits it; any other pointer on such a line is still a hit.
+        lit = b'"prereg": "roae-private PREREG_TR8_DOF_MATCHED_SAMPLER (must be FROZEN before a recorded run; this header does not assert that it is)"'
+        with open(os.path.join(self.ROOT, "solve.py"), "rb") as fh:
+            prod = fh.read()
+        self.assertRegex(prod, rb'"prereg": "roae-private PREREG_TR8_DOF_MATCHED_SAMPLER \(must be FROZEN before a "\s*'
+                         rb'"recorded run; this header does not assert that it is\)"',
+                         "precondition: solve.py emits the exempted literal; drop the exemption if it no longer does")
+        ex_dir = "runs/20261003_tr8_dof_sampler_35782834/"
+        def hit(rel, ln):
+            if rel.startswith(ex_dir):
+                ln = ln.replace(lit, b"")
+            return bool(pat.search(ln))
+        self.assertTrue(hit(ex_dir + "x.json", lit + b" roae-private/Y.md"), "positive control: a second pointer is still a hit")
+        self.assertFalse(hit(ex_dir + "x.json", lit), "the exempted literal alone is not a hit")
+        self.assertTrue(hit("runs/other/x.json", lit), "outside the run folder the literal is a hit")
         hits = []
         for rel in files:
             with open(os.path.join(self.ROOT, rel), "rb") as fh:
                 b = fh.read()
             if b"\0" in b:
                 continue
-            hits += ["%s:%d" % (rel, i) for i, ln in enumerate(b.split(b"\n"), 1) if pat.search(ln)]
+            hits += ["%s:%d" % (rel, i) for i, ln in enumerate(b.split(b"\n"), 1) if hit(rel, ln)]
         self.assertEqual(hits, [])
 
     def test_r7_log_redacted_in_place_and_readme_records_the_original(self):
@@ -35630,8 +35651,10 @@ class TestQ949Q950PrepushEnvAndRegistry(unittest.TestCase):
             if k.startswith("GIT_") or k in ("CITGATE_BASE", "ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE"):
                 e.pop(k)
         e.update(env or {})
-        r = subprocess.run(["bash", os.path.join(fx["repo"], self.HOOK)], cwd=fx["repo"], input=stdin,
-                           capture_output=True, text=True, env=e, timeout=600)
+        # githooks(5) argv: remote NAME, then its URL. Q-960 (batch 39) scopes the "already published"
+        # skip to the destination named in $1, so a run with no $1 skips nothing.
+        r = subprocess.run(["bash", os.path.join(fx["repo"], self.HOOK), "origin", os.path.join(fx["d"], "origin.git")],
+                           cwd=fx["repo"], input=stdin, capture_output=True, text=True, env=e, timeout=600)
         marks = []
         if os.path.exists(mark):
             with open(mark, encoding="utf-8") as fh:
@@ -36552,5 +36575,877 @@ class TestQ957Q958RanksAndCostRedaction(unittest.TestCase):
 # end class TestQ957Q958RanksAndCostRedaction (batch 38, Q-957/Q-958)
 
 
+class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
+    """Q-956 (Codex lens-A push-path review Q-835, P-09). The Q-798 verdict record bound less than it
+    claimed: (1) TOOLCHAIN was stamped from the WRITING host, not taken from the logs it certifies;
+    (2) the tests, citation and stamp logs were judged by content alone, so a log from any other tree
+    was accepted; (3) "Ran 0 tests" + "OK" (or "OK (skipped=N)" for every test) counted as PASS.
+
+    Fix (record format v2): every producer names the tree it measured (ROAE_TESTS_TREE= from tests.py,
+    CITATION_LINE_GATE_TREE= from the citation gate, TR12_REPRO_GATE_TREE= from tr12_repro_gate.sh
+    --check, alongside the hook's PREPUSH_TREE=) and the writer refuses a log that does not name the
+    record's tree; TOOLCHAIN is the hook log's PREPUSH_TOOLCHAIN=, which must equal the tests log's
+    ROAE_TESTS_TOOLCHAIN= and this host's id; TESTS is PASS only for Ran N >= the tree's own
+    `def test_` count with at most MAX_TEST_SKIPS skips; the consumer refuses any other format
+    version as WHY=old-version and re-checks the test counts (WHY=tests-count).
+
+    Drives the REAL helper and hook against TestQ798PrepushTreeKeyedReuse's throwaway fixture (stub
+    gates, a bare local origin, nothing pushed). RED: each bad log is refused by the writer. MUTANTS:
+    each binding, removed from a copy of the helper, lets its bad log through (anchors asserted to
+    exist exactly once)."""
+    Q = TestQ798PrepushTreeKeyedReuse
+    HOOK, HELPER, STUBS, Z40 = Q.HOOK, Q.HELPER, Q.STUBS, Q.Z40
+    COVERED, LOCAL, LEGS = Q.COVERED, Q.LOCAL, Q.LEGS
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q956_")
+        with open(cls.Q.HOOK, encoding="utf-8") as fh:
+            cls.hook_src = fh.read()
+        with open(cls.Q.HELPER, encoding="utf-8") as fh:
+            cls.helper_src = fh.read()
+        cls.n = 0
+        cls.tc = subprocess.run(["bash", cls.Q.HELPER, "toolchain"], capture_output=True, text=True,
+                                timeout=60).stdout.strip()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- fixture (TestQ798's, with a three-test tests.py in candidate B) -------------------------
+    def _git(self, repo, *a, check=True):
+        return self.Q._git(self, repo, *a, check=check)
+
+    def _write(self, path, text, mode=0o644):
+        self.Q._write(self, path, text, mode)
+
+    def _fixture(self, helper_src=None):
+        d, repo, a, _ = self.Q._fixture(self, helper_src)
+        self._write(os.path.join(repo, "tests.py"),
+                    "import unittest\nclass T(unittest.TestCase):\n"
+                    "    def test_a(self): pass\n    def test_b(self): pass\n    def test_c(self): pass\n")
+        self._git(repo, "add", "tests.py")
+        self._git(repo, "commit", "-qm", "B2: tests.py with three tests")
+        b = self._git(repo, "rev-parse", "HEAD")
+        return d, repo, a, b
+
+    def _logs(self, repo, d, tests_tail="Ran 3 tests in 0.1s\n\nOK\n", **over):
+        """The auxiliary logs a real chain would produce for HEAD's tree; `over` replaces one
+        binding value (tests_tree, tests_tc, cit_tree, stamp_tree) or drops it (value None)."""
+        tree = self._git(repo, "rev-parse", "HEAD^{tree}")
+        v = {"tests_tree": tree, "tests_tc": self.tc, "cit_tree": tree, "stamp_tree": tree}
+        v.update(over)
+        line = lambda k, x: "" if x is None else "%s=%s\n" % (k, x)
+        bodies = {
+            "tests": line("ROAE_TESTS_TREE", v["tests_tree"]) + line("ROAE_TESTS_TOOLCHAIN", v["tests_tc"]) + tests_tail,
+            "citation": "  [cite] files=1\n" + line("CITATION_LINE_GATE_TREE", v["cit_tree"]) + "CITATION_LINE_GATE=PASS\n",
+            "stamp": line("TR12_REPRO_GATE_TREE", v["stamp_tree"]) + "TR12_REPRO_GATE_CURRENT=YES\n",
+        }
+        paths = {}
+        for k, body in bodies.items():
+            paths[k] = os.path.join(d, "%s_%d.log" % (k, random.randrange(1 << 30)))
+            self._write(paths[k], body)
+        return paths
+
+    def _hook_log(self, d, repo, sha, edit=None):
+        r, _ = self.Q._hook(self, repo, "refs/heads/x %s refs/tags/prepush-record %s\n" % (sha, self.Q.Z40))
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-2000:])
+        out = r.stdout if edit is None else edit(r.stdout)
+        p = os.path.join(d, "hook_%d.log" % random.randrange(1 << 30))
+        self._write(p, out)
+        return p
+
+    def _write_record(self, d, repo, hook_log, logs, helper=None):
+        rec = os.path.join(d, "rec_%d.txt" % random.randrange(1 << 30))
+        h = helper or os.path.join(repo, self.Q.HELPER)
+        w = subprocess.run(["bash", h, "write", "--out", rec, "--hook-log", hook_log,
+                            "--tests-log", logs["tests"], "--citation-log", logs["citation"],
+                            "--stamp-log", logs["stamp"], "--repo", repo],
+                           capture_output=True, text=True, timeout=300)
+        return rec, w
+
+    def _mutate(self, src, old, new):
+        return self.Q._mutate(self, src, old, new)
+
+    def _mutant_helper(self, d, old, new):
+        p = os.path.join(d, "helper_mut_%d.sh" % random.randrange(1 << 30))
+        self._write(p, self.Q._mutate(self, self.helper_src, old, new), 0o755)
+        return p
+
+    def _lines(self, rec):
+        with open(rec, encoding="utf-8") as fh:
+            return fh.read().splitlines()
+
+    # ---- positive control ---------------------------------------------------------------------
+    def test_positive_control_bound_logs_write_a_v2_record_that_the_hook_reuses(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        with open(hl, encoding="utf-8") as fh:
+            hout = fh.read().splitlines()
+        self.assertIn("PREPUSH_TOOLCHAIN=" + self.tc, hout, "the hook names the toolchain its legs ran under")
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 3 tests in 0.1s\n\nOK (skipped=1)\n"))
+        self.assertEqual(w.returncode, 0, w.stdout + w.stderr)
+        L = self._lines(rec)
+        self.assertEqual(L[0], "ROAE_PREPUSH_RECORD=2")
+        for want in ("TOOLCHAIN=" + self.tc, "TESTS_RAN=3", "TESTS_FLOOR=3", "TESTS_SKIPPED=1", "LEG_TESTS=PASS"):
+            self.assertIn(want, L)
+        r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=rec)
+        self.Q._assert_reused(self, r, marks)
+
+    # ---- (2) every auxiliary log is bound to the record's tree ----------------------------------
+    def test_red_an_auxiliary_log_for_another_tree_or_none_is_refused(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        tree_a = self._git(repo, "rev-parse", a + "^{tree}")
+        for key in ("tests_tree", "cit_tree", "stamp_tree"):
+            for val in (tree_a, "DIRTY", None):
+                with self.subTest(log=key, value=val):
+                    rec, w = self._write_record(d, repo, hl, self._logs(repo, d, **{key: val}))
+                    self.assertEqual(w.returncode, 2, w.stdout)
+                    self.assertIn("PREPUSH_RECORD=ERROR", w.stdout.splitlines())
+                    self.assertFalse(os.path.exists(rec))
+        # MUTANT: the comparison removed, the other tree's logs are distilled into an all-PASS record.
+        mut = self._mutant_helper(d, '''    [ "$TOKV" = "$headtree" ] || err "write: the $_n log measured tree''',
+                                  '''    true || err "write: the $_n log measured tree''')
+        for key in ("tests_tree", "cit_tree", "stamp_tree"):
+            with self.subTest(mutant=key):
+                rec, w = self._write_record(d, repo, hl, self._logs(repo, d, **{key: tree_a}), helper=mut)
+                self.assertEqual(w.returncode, 0, "mutant killed: a %s for tree A was accepted for B\n%s" % (key, w.stdout))
+        # MUTANT: the line itself not required (one_val's failure ignored): a log with no binding passes.
+        mut2 = self._mutant_helper(d, '''    one_val "$_k" "$_f" || err "write: the $_n log has no single $_k= line''',
+                                   '''    one_val "$_k" "$_f" || TOKV=$headtree || err "write: the $_n log has no single $_k= line''')
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tree=None), helper=mut2)
+        self.assertEqual(w.returncode, 0, "mutant killed: an unbound tests log was accepted\n" + w.stdout)
+
+    # ---- (1) the toolchain is the logs', and they agree with each other and the host --------------
+    def test_red_toolchain_is_taken_from_the_logs_and_must_agree(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        other = "gcc-1.2.3,python-3.0.1"
+        self.assertNotEqual(other, self.tc)
+        # tests ran under another toolchain than the hook
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tc=other))
+        self.assertEqual(w.returncode, 2, w.stdout)
+        # no toolchain line in the tests log, or none in the hook log
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tc=None))
+        self.assertEqual(w.returncode, 2, w.stdout)
+        strip = lambda s: "".join(l + "\n" for l in s.splitlines() if not l.startswith("PREPUSH_TOOLCHAIN="))
+        hl_none = self._hook_log(d, repo, b, edit=strip)
+        rec, w = self._write_record(d, repo, hl_none, self._logs(repo, d))
+        self.assertEqual(w.returncode, 2, w.stdout)
+        # both logs agree on a toolchain this host does not have: refused (distil where they ran)
+        swap = lambda s: s.replace("PREPUSH_TOOLCHAIN=" + self.tc, "PREPUSH_TOOLCHAIN=" + other)
+        hl_other = self._hook_log(d, repo, b, edit=swap)
+        rec, w = self._write_record(d, repo, hl_other, self._logs(repo, d, tests_tc=other))
+        self.assertEqual(w.returncode, 2, w.stdout)
+        self.assertFalse(os.path.exists(rec))
+        # MUTANT (host check removed): the record now carries the LOGS' toolchain, not the host's,
+        # which is what the binding means; and the hook on this host refuses it as toolchain-mismatch.
+        mut = self._mutant_helper(d, '''  [ "$tc_hook" = "$(toolchain_id)" ] || err''', '''  true || err''')
+        rec, w = self._write_record(d, repo, hl_other, self._logs(repo, d, tests_tc=other), helper=mut)
+        self.assertEqual(w.returncode, 0, "mutant killed: the host check was what refused it\n" + w.stdout)
+        self.assertIn("TOOLCHAIN=" + other, self._lines(rec))
+        r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=rec)
+        self.Q._assert_full(self, r, marks, why="toolchain-mismatch")
+        # MUTANT (agreement check removed): a tests log from another toolchain is distilled.
+        mut2 = self._mutant_helper(d, '''  [ "$tc_tests" = "$tc_hook" ] || err''', '''  true || err''')
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tc=other), helper=mut2)
+        self.assertEqual(w.returncode, 0, "mutant killed: the tests/hook agreement was what refused it\n" + w.stdout)
+
+    # ---- (3) a positive, full test count --------------------------------------------------------
+    def test_red_ran_zero_short_or_mostly_skipped_tests_is_not_pass(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        cases = {"ran0": "Ran 0 tests in 0.0s\n\nOK\n",
+                 "short": "Ran 2 tests in 0.1s\n\nOK\n",
+                 "skipped": "Ran 12 tests in 0.1s\n\nOK (skipped=9)\n",
+                 "xfail": "Ran 12 tests in 0.1s\n\nOK (skipped=5, expected failures=4)\n"}
+        for name, tail in cases.items():
+            with self.subTest(case=name):
+                rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=tail))
+                self.assertEqual(w.returncode, 1, w.stdout)
+                self.assertIn("PREPUSH_RECORD_ALL_PASS=NO", w.stdout.splitlines())
+                self.assertIn("LEG_TESTS=FAIL", self._lines(rec))
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 11 tests in 0.1s\n\nOK (skipped=8)\n"))
+        self.assertEqual(w.returncode, 0, "at the skip limit is still a PASS\n" + w.stdout)
+        # MUTANT: the floor removed, "Ran 0 tests" + OK is a PASS again (the unfixed behaviour).
+        mut = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''',
+                                  '''     && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''')
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["ran0"]), helper=mut)
+        self.assertEqual(w.returncode, 0, "mutant killed: the floor was what refused Ran 0\n" + w.stdout)
+        # MUTANT: the floor counted from nothing (1): a one-test run of a three-test tree passes.
+        mut2 = self._mutant_helper(d, '''  tfloor=$(git -C "$top" show HEAD:tests.py 2>/dev/null | grep -cE '^    def test_') || true''',
+                                   '''  tfloor=1''')
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["short"]), helper=mut2)
+        self.assertEqual(w.returncode, 0, "mutant killed: the tree-derived floor was what refused Ran 2 of 3\n" + w.stdout)
+        # MUTANT: the skip limit removed.
+        mut3 = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''',
+                                   '''     && [ "$tran" -ge "$tfloor" ]; then V[TESTS]=PASS''')
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["skipped"]), helper=mut3)
+        self.assertEqual(w.returncode, 0, "mutant killed: the skip limit was what refused skipped=9\n" + w.stdout)
+
+    # ---- the consumer: old versions and resealed counts are refused -------------------------------
+    def test_red_consumer_refuses_an_old_version_and_a_resealed_short_run(self):
+        d, repo, a, b = self._fixture()
+        rec, w = self._write_record(d, repo, self._hook_log(d, repo, b), self._logs(repo, d))
+        self.assertEqual(w.returncode, 0, w.stdout)
+        # A v1-shaped record: header 1, without the v2 keys, resealed so only the version refuses it.
+        v1_keys = ("TESTS_RAN=", "TESTS_FLOOR=", "TESTS_SKIPPED=")
+        old = self.Q._reseal(self, rec, lambda L: ["ROAE_PREPUSH_RECORD=1"] + [l for l in L[1:] if not l.startswith(v1_keys)])
+        r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=old)
+        self.Q._assert_full(self, r, marks, why="old-version")
+        self.assertIn("re-run scripts/prepush_verdict_record.sh write", r.stdout)
+        # A v2 record resealed to say the run was empty.
+        short = self.Q._reseal(self, rec, lambda L: [("TESTS_RAN=0" if l.startswith("TESTS_RAN=") else l) for l in L])
+        r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=short)
+        self.Q._assert_full(self, r, marks, why="tests-count")
+        # MUTANTS: each refusal turned into acceptance, its record is reused (the covered legs skip).
+        for why, path in (("old-version", old), ("tests-count", short)):
+            with self.subTest(mutant=why):
+                d2, repo2, a2, b2 = self._fixture(self.Q._helper_accepts(self, why))
+                rec2, w2 = self._write_record(d2, repo2, self._hook_log(d2, repo2, b2), self._logs(repo2, d2))
+                self.assertEqual(w2.returncode, 0, w2.stdout)
+                if why == "old-version":
+                    p2 = self.Q._reseal(self, rec2, lambda L: ["ROAE_PREPUSH_RECORD=1"] + L[1:])
+                else:
+                    p2 = self.Q._reseal(self, rec2, lambda L: [("TESTS_RAN=0" if l.startswith("TESTS_RAN=") else l) for l in L])
+                r2, m2 = self.Q._hook(self, repo2, self.Q._push_line(self, b2, a2), record=p2)
+                self.assertNotIn("compile", m2, "mutant killed: the %s refusal was load-bearing" % why)
+
+    # ---- the producers name their tree -------------------------------------------------------------
+    def _expected_tree(self, root):
+        t = self._git(root, "rev-parse", "HEAD^{tree}")
+        clean = (subprocess.run(["git", "-C", root, "diff", "--quiet", "HEAD", "--"]).returncode == 0 and
+                 subprocess.run(["git", "-C", root, "diff", "--cached", "--quiet", "HEAD", "--"]).returncode == 0)
+        return t if clean else "DIRTY"
+
+    def _one(self, out, key):
+        vals = [l.split("=", 1)[1] for l in out.splitlines() if l.startswith(key + "=")]
+        self.assertEqual(len(vals), 1, "%s= must appear exactly once\n%s" % (key, out[-2000:]))
+        return vals[0]
+
+    def test_the_real_producers_print_their_tree_binding(self):
+        root = os.path.dirname(os.path.abspath(__file__))
+        want = self._expected_tree(root)
+        env = {k: v for k, v in os.environ.items() if k not in ("CITGATE_ROOT", "CITGATE_BASE")}
+        r = subprocess.run(["bash", "scripts/tr12_repro_gate.sh", "--check"], cwd=root, capture_output=True,
+                           text=True, timeout=600)
+        self.assertEqual(self._one(r.stdout, "TR12_REPRO_GATE_TREE"), want)
+        r = subprocess.run(["bash", "scripts/citation_line_gate.sh", "--all-files", "--all-targets"], cwd=root,
+                           capture_output=True, text=True, timeout=600, env=env)
+        self.assertEqual(self._one(r.stdout, "CITATION_LINE_GATE_TREE"), want)
+
+    def test_tests_py_names_its_tree_toolchain_and_overrides(self):
+        """tests.py's own header: the real file, run for no test, prints each line exactly once with
+        the tree this checkout measures; the tree function itself gives the clean tree, DIRTY, and
+        OVERRIDDEN when a ROAE_TESTS_* source override is set, in a throwaway repository."""
+        root = os.path.dirname(os.path.abspath(__file__))
+        base = {k: v for k, v in os.environ.items() if not k.startswith("ROAE_TESTS_")}
+        r = subprocess.run([sys.executable, os.path.join(root, "tests.py"), "-k", "q956_no_such_test_name"],
+                           cwd=root, capture_output=True, text=True, timeout=600, env=base)
+        self.assertEqual(self._one(r.stderr, "ROAE_TESTS_TREE"), self._expected_tree(root))
+        self.assertEqual(self._one(r.stderr, "ROAE_TESTS_TOOLCHAIN"),
+                         re.sub(r"python-([0-9.]+|none)", "python-%d.%d.%d" % sys.version_info[:3], self.tc))
+        self.assertIn("Ran 0 tests", r.stderr)
+        d = os.path.join(self.tmp, "tp")
+        os.makedirs(d)
+        self._git(d, "init", "-q")
+        self._write(os.path.join(d, "f.txt"), "x\n")
+        self._git(d, "add", "f.txt")
+        self._git(d, "commit", "-qm", "t")
+        saved = {k: os.environ.pop(k) for k in list(os.environ) if k.startswith("ROAE_TESTS_")}
+        try:
+            self.assertEqual(_q956_tests_tree(d), self._git(d, "rev-parse", "HEAD^{tree}"))
+            os.environ["ROAE_TESTS_SOLVE_SRC"] = "/nonexistent/solve.c"
+            self.assertEqual(_q956_tests_tree(d), "OVERRIDDEN")
+            del os.environ["ROAE_TESTS_SOLVE_SRC"]
+            self._write(os.path.join(d, "f.txt"), "y\n")
+            self.assertEqual(_q956_tests_tree(d), "DIRTY")
+            self.assertEqual(_q956_tests_tree(self.tmp), "NONE")
+        finally:
+            os.environ.pop("ROAE_TESTS_SOLVE_SRC", None)
+            os.environ.update(saved)
+
+# end class TestQ956PrepushRecordBindsItsLogs (batch 39, Q-956)
+
+
+def _q956_fixture_binding(repo):
+    """Q-956: the binding lines a real chain's tests, citation and stamp logs carry for `repo`'s HEAD
+    tree, for the Q-798/HAJ fixtures (which write those logs by hand); returns (prefixes, toolchain)."""
+    t = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD^{tree}"], capture_output=True, text=True,
+                       timeout=60).stdout.strip()
+    tc = subprocess.run(["bash", os.path.join(repo, "scripts", "prepush_verdict_record.sh"), "toolchain"],
+                        capture_output=True, text=True, timeout=60).stdout.strip()
+    return ({"tests": "ROAE_TESTS_TREE=%s\nROAE_TESTS_TOOLCHAIN=%s\n" % (t, tc),
+             "citation": "CITATION_LINE_GATE_TREE=%s\n" % t, "stamp": "TR12_REPRO_GATE_TREE=%s\n" % t}, tc)
+
+
+def _q956_tests_tree(root):
+    """Q-956: the tree this tests.py run measures, for prepush_verdict_record.sh: HEAD's tree when the
+    tracked content equals HEAD, DIRTY when it does not, OVERRIDDEN when a ROAE_TESTS_* variable
+    substitutes another source for the tree's own, NONE outside a git work tree."""
+    if any(k.startswith("ROAE_TESTS_") and v for k, v in os.environ.items()):
+        return "OVERRIDDEN"
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")}
+    try:
+        t = subprocess.run(["git", "-C", root, "rev-parse", "-q", "--verify", "HEAD^{tree}"],
+                           capture_output=True, text=True, timeout=120, env=env)
+        if t.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", t.stdout.strip()):
+            return "NONE"
+        for extra in ([], ["--cached"]):
+            if subprocess.run(["git", "-C", root, "diff", "--quiet"] + extra + ["HEAD", "--"],
+                              capture_output=True, timeout=600, env=env).returncode != 0:
+                return "DIRTY"
+        return t.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "NONE"
+
+
+def _q956_tests_toolchain():
+    """Q-956: the same id prepush_verdict_record.sh's toolchain_id prints, but for the interpreter
+    actually running tests.py (gcc as found on PATH, which the tests compile with)."""
+    try:
+        g = subprocess.run(["gcc", "-dumpfullversion"], capture_output=True, text=True, timeout=60).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        g = ""
+    if not re.fullmatch(r"[0-9.]+", g):
+        g = "none"
+    return "gcc-%s,python-%d.%d.%d" % ((g,) + tuple(sys.version_info[:3]))
+
+
+class TestQ959Q961PushPathB39C(unittest.TestCase):
+    """Q-959 / Q-960 / Q-961 (batch 39; Codex (gpt-6-astra) push-path review Q835, P-12..P-14).
+
+    Q-959: group_c_n9_rehearsal_gate.sh's verdict filter was unanchored (`X=ERROR:expected=PASS`
+      read green) and its floor (16) sat below the 18-verdict population. Driven against stub
+      engine + stub consumer that emit a chosen VERDICTS.txt.
+    Q-960: pre_push_gate.sh's "already published" skip consulted refs/remotes/origin/* whatever the
+      destination. Driven with the githooks(5) argv ($1 = remote name or URL).
+    Q-961: GATE 39 LEG 1 read verify_all.sh as text, so a comment naming a certificate kept it
+      "mapped". Driven through doc_gates.sh p14-claims in a throwaway tree.
+    Each red test is red on the pre-fix scripts; MUTANTS revert the load-bearing piece (each
+    mutant's anchor is asserted to occur exactly once before it is applied)."""
+    GC = os.path.join("scripts", "group_c_n9_rehearsal_gate.sh")
+    VA = os.path.join("reports", "certificates", "verify_all.sh")
+    Z40 = "0" * 40
+    GOOD18 = ("TR12_A2_SLOT=SKIP:n=9 TR12_A3_EXTERNAL=SKIP:n=9 TR12_A5_ORBIT_COLUMNS=SKIP:n=9 "
+              "TR12_A5_ORBIT_MEMBERSHIP=SKIP:n=9 TR12_Q10A=PASS TR12_Q3=PASS TR12_Q3_KW=SKIP:n=9 "
+              "TR12_Q3_READER=PASS TR12_Q6=PASS:REDUCED-DISTANCE-CLASS TR12_Q6_EXTREMES=PASS "
+              "TR12_RATIO_COLUMNS=PASS TR12_V1=PASS TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER "
+              "TR12_V5=PASS TR12_XA_A=PASS TR12_XA_B=PASS TR12_XA_CD=PENDING:W0-D-node-mapping "
+              "TR12_XA_MOD24=PASS").split()
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="b39c_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _d(self):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "c%d" % self.n)
+        os.makedirs(d)
+        return d
+
+    @staticmethod
+    def _mut(src, old, new):
+        if src.count(old) != 1:
+            raise AssertionError("mutant anchor not unique: %r" % old)
+        return src.replace(old, new)
+
+    def _git(self, repo, *a):
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t",
+                   GIT_COMMITTER_EMAIL="t@t")
+        for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            env.pop(k, None)
+        r = subprocess.run(["git", "-C", repo] + list(a), capture_output=True, text=True, env=env, timeout=120)
+        self.assertEqual(r.returncode, 0, (a, r.stderr))
+        return r.stdout.strip()
+
+    # ---- Q-959 ---------------------------------------------------------------------------------
+    def _gc(self, verdicts, src=None):
+        d = self._d()
+        os.makedirs(os.path.join(d, "scripts"))
+        with open(self.GC, encoding="utf-8") as fh:
+            gsrc = fh.read()
+        with open(os.path.join(d, self.GC), "w", encoding="utf-8") as fh:
+            fh.write(src if src is not None else gsrc)
+        vf = os.path.join(d, "verdicts.in")
+        with open(vf, "w", encoding="utf-8") as fh:
+            fh.write("".join(v + "\n" for v in verdicts))
+        eng = os.path.join(d, "solve_stub")
+        with open(eng, "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/bash\ncase "$1" in\n  --kc-scan) echo KC_SCAN=OK; echo KC_SCAN_TIDENTITY=VERIFIED;'
+                     ' echo "{}" > "$4" ;;\nesac\nexit 0\n')
+        os.chmod(eng, 0o755)
+        with open(os.path.join(d, "solve.py"), "w", encoding="utf-8") as fh:
+            fh.write("import os, shutil, sys\n_ATLAS_SELECTORS = 1\ndef atlas_queries(): pass\n"
+                     "def atlas_selftest(): pass\n"
+                     "out = sys.argv[sys.argv.index('--atlas-out') + 1]\nos.makedirs(out, exist_ok=True)\n"
+                     "shutil.copy(%r, os.path.join(out, 'VERDICTS.txt'))\n" % vf)
+        env = dict(os.environ, SOLVE=eng, TMPDIR=d)
+        for k in ("GROUPC_MIN_VERDICTS", "GROUPC_N31_GUARDS"):
+            env.pop(k, None)
+        r = subprocess.run(["bash", os.path.join(d, self.GC)], capture_output=True, text=True,
+                           env=env, timeout=120)
+        self.assertTrue("verdicts emitted (floor" in r.stdout or "verdict(s); expected at least" in r.stdout,
+                        "precondition: the gate reached GATE 2\n" + r.stdout[-2000:] + r.stderr[-1000:])
+        return r.stdout
+
+    def test_q959_a_positive_control_the_measured_18_are_green(self):
+        out = self._gc(self.GOOD18)
+        self.assertIn("[ok]   18 verdicts emitted (floor 18)", out)
+        self.assertIn("[ok]   every verdict is PASS / PASS: / SKIP: / PENDING:", out)
+
+    def test_q959_b_an_error_that_quotes_pass_is_not_green(self):
+        out = self._gc(self.GOOD18 + ["TR12_XA_A2=ERROR:expected=PASS"])
+        self.assertIn("[FAIL] verdict(s) that are neither", out)
+        self.assertIn("TR12_XA_A2=ERROR:expected=PASS", out)
+
+    def test_q959_c_a_bare_pass_prefix_is_not_pass(self):
+        out = self._gc(self.GOOD18 + ["TR12_XA_A2=PASSED_NOTHING"])
+        self.assertIn("[FAIL] verdict(s) that are neither", out)
+
+    def test_q959_d_seventeen_is_below_the_floor(self):
+        out = self._gc(self.GOOD18[:-1])
+        self.assertIn("[FAIL] only 17 verdict(s); expected at least 18", out)
+
+    def test_q959_e_a_duplicate_does_not_stand_in_for_a_silent_family(self):
+        out = self._gc(self.GOOD18[:-1] + [self.GOOD18[0]])
+        self.assertIn("[FAIL] only 17 verdict(s); expected at least 18", out)
+
+    def test_q959_f_mutants(self):
+        with open(self.GC, encoding="utf-8") as fh:
+            src = fh.read()
+        m1 = self._mut(src, "grep -vE '^TR12_[A-Z0-9_]+=(PASS|", "grep -vE '=(PASS|")
+        self.assertIn("[ok]   every verdict is", self._gc(self.GOOD18 + ["TR12_XA_A2=ERROR:expected=PASS"], m1),
+                      "mutant (unanchored filter) must let the quoted PASS through -- else test b is not load-bearing")
+        m2 = self._mut(src, "MINV=${GROUPC_MIN_VERDICTS:-18}", "MINV=${GROUPC_MIN_VERDICTS:-16}")
+        self.assertIn("[ok]   17 verdicts emitted", self._gc(self.GOOD18[:-1], m2))
+        m3 = self._mut(src, "| sort -u | grep -c .", "| grep -c .")
+        self.assertIn("[ok]   18 verdicts emitted", self._gc(self.GOOD18[:-1] + [self.GOOD18[0]], m3))
+
+    # ---- Q-960 ---------------------------------------------------------------------------------
+    def _pp(self, args, hook_src=None):
+        q = TestQ798PrepushTreeKeyedReuse
+        d = self._d()
+        repo, origin, mirror = (os.path.join(d, x) for x in ("repo", "origin.git", "mirror.git"))
+        os.makedirs(repo)
+        self._git(repo, "init", "-q")
+        with open(q.HOOK, encoding="utf-8") as fh:
+            hsrc = fh.read()
+        files = {q.HOOK: hook_src if hook_src is not None else hsrc}
+        with open(q.HELPER, encoding="utf-8") as fh:
+            files[q.HELPER] = fh.read()
+        for name, body in q.STUBS.items():
+            files[os.path.join("scripts", name)] = "#!/bin/bash\n" + body
+        files["solve.c"] = "int main(void) { return 0; }\n"
+        for rel, body in files.items():
+            pth = os.path.join(repo, rel)
+            os.makedirs(os.path.dirname(pth), exist_ok=True)
+            with open(pth, "w", encoding="utf-8") as fh:
+                fh.write(body)
+            os.chmod(pth, 0o755)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "A")
+        a = self._git(repo, "rev-parse", "HEAD")
+        subprocess.run(["git", "clone", "-q", "--bare", repo, origin], check=True, capture_output=True, timeout=120)
+        subprocess.run(["git", "init", "-q", "--bare", mirror], check=True, capture_output=True, timeout=120)
+        self._git(repo, "remote", "add", "origin", origin)
+        self._git(repo, "remote", "add", "mirror", mirror)
+        self._git(repo, "fetch", "-q", "origin")
+        self.assertTrue(self._git(repo, "for-each-ref", "refs/remotes/origin/"),
+                        "precondition: A is published on origin")
+        self.assertEqual(self._git(repo, "for-each-ref", "refs/remotes/mirror/"), "",
+                         "precondition: the mirror has nothing")
+        mark = os.path.join(d, "mark.log")
+        env = dict(os.environ, HK_MARK=mark, TMPDIR=d)
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE",
+                  "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            env.pop(k, None)
+        argv = [{"ORIGIN": origin, "MIRROR": mirror}.get(x, x) for x in args]
+        r = subprocess.run(["bash", os.path.join(repo, q.HOOK)] + argv, cwd=repo,
+                           input="refs/heads/x %s refs/heads/x %s\n" % (a, self.Z40),
+                           capture_output=True, text=True, env=env, timeout=600)
+        marks = []
+        if os.path.exists(mark):
+            with open(mark, encoding="utf-8") as fh:
+                marks = [l.strip() for l in fh if l.strip()]
+        return r.stdout, marks
+
+    def test_q960_a_positive_control_origin_destination_skips(self):
+        out, marks = self._pp(["origin", "ORIGIN"])
+        self.assertIn("already published (reachable from origin/", out)
+        self.assertNotIn("compile", marks)
+
+    def test_q960_b_a_sha_on_origin_is_gated_when_pushed_to_another_remote(self):
+        out, marks = self._pp(["mirror", "MIRROR"])
+        self.assertNotIn("already published", out)
+        self.assertIn("compile", marks, out[-2000:])
+
+    def test_q960_c_a_url_push_or_no_destination_fails_closed(self):
+        for args in (["ORIGIN", "ORIGIN"], []):
+            out, marks = self._pp(args)
+            self.assertNotIn("already published", out, args)
+            self.assertIn("compile", marks, (args, out[-2000:]))
+
+    def test_q960_d_mutant_origin_prefix_skips_the_mirror_push(self):
+        with open(TestQ798PrepushTreeKeyedReuse.HOOK, encoding="utf-8") as fh:
+            src = fh.read()
+        m = self._mut(src, '"refs/remotes/$_dst/"', "refs/remotes/origin/")
+        out, marks = self._pp(["mirror", "MIRROR"], m)
+        self.assertIn("already published", out, "mutant must skip -- else test b is not load-bearing")
+
+    # ---- Q-961 ---------------------------------------------------------------------------------
+    def _g39(self, va_src=None, gate_src=None):
+        d = self._d()
+        shutil.copytree("scripts/doc_gates.d", os.path.join(d, "scripts", "doc_gates.d"))
+        if gate_src is not None:
+            with open(os.path.join(d, "scripts", "doc_gates.d", "90_claim_artifacts.sh"), "w",
+                      encoding="utf-8") as fh:
+                fh.write(gate_src)
+        shutil.copy("scripts/doc_gates.sh", os.path.join(d, "scripts", "doc_gates.sh"))
+        cd = os.path.join(d, "reports", "certificates")
+        os.makedirs(cd)
+        names = sorted(f for f in os.listdir("reports/certificates") if f.endswith(".drat.gz"))
+        self.assertGreaterEqual(len(names), 15, "precondition: the real archive is populated")
+        for f in names:
+            open(os.path.join(cd, f), "w").close()
+        with open(self.VA, encoding="utf-8") as fh:
+            real = fh.read()
+        with open(os.path.join(d, self.VA), "w", encoding="utf-8") as fh:
+            fh.write(va_src if va_src is not None else real)
+        with open(os.path.join(d, "NOTE.md"), "w", encoding="utf-8") as fh:
+            fh.write("".join("- `%s`\n" % f for f in names))
+        self._git(d, "init", "-q")
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", "a")
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "p14-claims"], cwd=d, capture_output=True,
+                           text=True, timeout=300)
+        self.assertTrue("LEG 1 cert-claims-shipped: %d certificate filename(s)" % len(names) in r.stdout
+                        or "'declare -A CERTS=(' literal(s), expected 1" in r.stdout,
+                        "precondition: LEG 1 measured the archive or refused the map\n" + r.stdout[-2000:])
+        return r.stdout, real
+
+    RIG = '[rigidity_sc4_unsat]="rigidity" '
+
+    def test_q961_a_positive_control_the_real_map_is_complete(self):
+        out, _ = self._g39()
+        self.assertNotIn("regeneration map", out)
+        self.assertNotIn("checked NOTHING", out)
+
+    def test_q961_b_an_entry_removed_while_a_comment_names_it_is_a_hit(self):
+        _, real = self._g39()
+        src = self._mut(real, self.RIG, "") + "\n# rigidity_sc4_unsat.drat.gz regenerates via its own flag\n"
+        out, _ = self._g39(src)
+        self.assertIn("rigidity_sc4_unsat.drat", out)
+        self.assertIn("absent from verify_all.sh's regeneration map", out)
+
+    def test_q961_c_a_commented_out_entry_is_a_hit(self):
+        _, real = self._g39()
+        src = self._mut(real, self.RIG, '\\\n  # [rigidity_sc4_unsat]="rigidity" \\\n  ')
+        out, _ = self._g39(src)
+        self.assertIn("absent from verify_all.sh's regeneration map", out)
+
+    def test_q961_d_no_or_two_cert_literals_is_an_error(self):
+        _, real = self._g39()
+        out, _ = self._g39(self._mut(real, "declare -A CERTS=(", "declare -A CERTZ=("))
+        self.assertIn("0 'declare -A CERTS=(' literal(s), expected 1", out)
+        self.assertNotIn("LEG 1 cert-claims-shipped:", out, "a refused map must not print a census")
+        out, _ = self._g39(real + "\ndeclare -A CERTS=( [x]=y )\n")
+        self.assertIn("2 'declare -A CERTS=(' literal(s), expected 1", out)
+
+    def test_q961_e_mutant_without_comment_stripping_misses_the_commented_entry(self):
+        _, real = self._g39()
+        src = self._mut(real, self.RIG, '\\\n  # [rigidity_sc4_unsat]="rigidity" \\\n  ')
+        p = os.path.join("scripts", "doc_gates.d", "90_claim_artifacts.sh")
+        with open(p, encoding="utf-8") as fh:
+            gsrc = fh.read()
+        mg = self._mut(gsrc, "body = re.sub(r'(?m)(?:^|(?<=\\s))#.*$', '', blocks[0])", "body = blocks[0]")
+        out, _ = self._g39(src, mg)
+        self.assertNotIn("absent from verify_all.sh's regeneration map", out,
+                         "mutant must miss it -- else test c is not load-bearing")
+
+# end class TestQ959Q961PushPathB39C (batch 39, Q-959/Q-960/Q-961)
+
+
+class TestB39DReviewerSelfcheckVerdicts(unittest.TestCase):
+    """Batch 39 (lane B39D): the reviewer package (reviewer/, new in batch 37) swept for two classes
+    batch 38 fixed elsewhere. (1) P-01 / Q-948, big integers compared as floating point: none in
+    reviewer/; the aggregate check compares the 40-digit masses as exact strings and Python ints
+    (cases a, b), and now reads ASCII digits only (case j: Python's regex digit class and int() accept other
+    scripts' digits). (2) Q-951 / Q-952, a verdict read from a line while ignoring the exit status,
+    a second line, a crash or a timeout: the step runner (b-f, h), the aggregate and manifest
+    checkers (g, i), make_package.sh's file list (k) and step 9's gate (l). Each case is red on
+    the unfixed scripts: ROAE_B39D_REVIEWER_DIR names a directory holding selfcheck.sh, README.md
+    and make_package.sh to test instead of reviewer/, and ROAE_B39D_RDG a reproduce_digests_gate.sh."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    PKG = ["reviewer/README.md", "reviewer/selfcheck.sh", "reviewer/make_package.sh", "solve.c",
+           "verify.c", "verify.py", "documentation/REPRODUCE.md", "documentation/SPECIFICATION.md",
+           "reports/FULL31_EXACT_AGGREGATES.md", "scripts/reproduce_digests_gate.sh",
+           "runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out", "LICENSE.md", "CITATION.cff"]
+    TERMINAL = "1097051278789181790036112071176579186688"
+    P13 = "[3,7,11,5,8,26,31,10,15,20,23,27,29]"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="b39d_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.rdir = os.environ.get("ROAE_B39D_REVIEWER_DIR", os.path.join(self.HERE, "reviewer"))
+
+    def _tree(self, name="pkg"):
+        """A copy of the package's 13 input files, with the reviewer scripts under test."""
+        d = os.path.join(self.tmp, name)
+        for f in self.PKG:
+            src = os.path.join(self.HERE, f)
+            if f.startswith("reviewer/"):
+                src = os.path.join(self.rdir, os.path.basename(f))
+            os.makedirs(os.path.dirname(os.path.join(d, f)), exist_ok=True)
+            shutil.copy(src, os.path.join(d, f))
+        if "ROAE_B39D_RDG" in os.environ:
+            shutil.copy(os.environ["ROAE_B39D_RDG"], os.path.join(d, "scripts/reproduce_digests_gate.sh"))
+        return d
+
+    def _sc(self, d, *args, env=None, timeout=600):
+        e = dict(os.environ, TMPDIR=self.tmp)
+        e.update(env or {})
+        r = subprocess.run(["bash", "reviewer/selfcheck.sh"] + list(args), cwd=d, env=e,
+                           capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout + r.stderr, r.stdout.splitlines()
+
+    def _page(self, d, body, n=1):
+        p = os.path.join(d, "page.md")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("# t\n\nThere are **%d steps**.\n\n## The steps\n\n```text\n%s\n```\n" % (n, body))
+        return p
+
+    def _shim(self, name, body):
+        b = os.path.join(self.tmp, "shim_" + name)
+        os.makedirs(b, exist_ok=True)
+        with open(os.path.join(b, "python3"), "w") as fh:
+            fh.write("#!/usr/bin/env bash\n" + body + "\n")
+        os.chmod(os.path.join(b, "python3"), 0o755)
+        return {"PATH": b + os.pathsep + os.environ["PATH"]}
+
+    def _run13(self, doc_text):
+        """A synthetic n=13 engine log in the engine's record format, from section 2's column."""
+        import math
+        col, sec = {}, False
+        for l in doc_text.split("\n"):
+            if l.startswith("## "):
+                sec = l.startswith("## 2."); continue
+            if sec and l.startswith("|"):
+                c = [x.strip().replace(",", "") for x in l.strip().strip("|").split("|")]
+                if len(c) > 4 and re.fullmatch(r"[0-9]+", c[3]) and re.fullmatch(r"[0-9]+", c[4]):
+                    col.setdefault(int(c[3]), int(c[4]))
+        self.assertEqual(sorted(col), list(range(1, 14)), "precondition: section 2 has the n=13 column")
+        L = ["[f1c5] run: SUBSET n=13 pairs %s start_exit=0 n_eff=24 threads=1 layers_dir=out13" % self.P13]
+        for k in sorted(col):
+            L.append("[f1c5] layer k=%2d/13: canonical_masks=0 (of C(13,%d)=%d) states=0 entries=0 V_k=0 "
+                     "bytes=0.000000GB two_layer=0.000000GB peak2=0.000000GB mass=%d elapsed=0.00s total=0.0s"
+                     % (k, k, math.comb(13, k), col[k]))
+        L.append("F1C5 SUBSET n=13 pairs %s start_exit=0 B0=(1,6,0,6,0)" % self.P13)
+        L.append("  orbit-quotient C5-DP total = %d" % col[13])
+        return "\n".join(L) + "\n"
+
+    @staticmethod
+    def _sha(path):
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+
+    def _edit(self, d, rel, old, new):
+        p = os.path.join(d, rel)
+        with open(p, encoding="utf-8") as fh:
+            t = fh.read()
+        self.assertEqual(t.count(old), 1, "precondition: the plant site %r is unique in %s" % (old[:60], rel))
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(t.replace(old, new))
+
+    # ---- (1) exact big-integer comparison --------------------------------------------------------
+    def test_a_low_digit_of_the_40_digit_total_in_the_table_fails(self):
+        d = self._tree()
+        old = "1,097,051,278,789,181,790,036,112,071,176,579,186,688 |"
+        new = "1,097,051,278,789,181,790,036,112,071,176,579,186,689 |"
+        self.assertEqual(float(old[:-2].replace(",", "")), float(new[:-2].replace(",", "")),
+                         "precondition: the plant is invisible to a floating-point comparison")
+        rc, out, L = self._sc(d, "--aggregates")
+        self.assertEqual((rc, L[-1]), (0, "AGGREGATES=PASS"), out)       # control on the real files
+        self._edit(d, "reports/FULL31_EXACT_AGGREGATES.md", old, new)
+        rc, out, L = self._sc(d, "--aggregates")
+        self.assertEqual((rc, L[-1]), (1, "AGGREGATES=FAIL"), out)
+        self.assertIn("k=31 mass: table 1097051278789181790036112071176579186689, run log %s" % self.TERMINAL, out)
+
+    def test_a2_low_digit_of_a_mass_in_the_bundled_log_fails(self):
+        d = self._tree()
+        rel = "runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out"
+        with open(os.path.join(d, rel), encoding="utf-8") as fh:
+            t = fh.read()
+        m = re.search(r"^\[f1c5\] layer k=29/31: .*? mass=([0-9]+) ", t, re.M)
+        self.assertTrue(m and len(m.group(1)) == 40, "precondition: a 40-digit mass at k=29")
+        a = m.group(1); b = a[:-1] + str((int(a[-1]) + 1) % 10)
+        self.assertEqual(float(a), float(b), "precondition: invisible to floating point")
+        with open(os.path.join(d, rel), "w", encoding="utf-8") as fh:
+            fh.write(t[:m.start(1)] + b + t[m.end(1):])
+        # re-pin the log digest to the planted file, so only the field comparison can fire
+        sha = self._sha(os.path.join(d, rel))
+        self._edit(d, "reviewer/selfcheck.sh", 'RUNOUT_SHA="8c7d063e21a388b8a09f91a44dff36ffe0071c4e2737b1f50f34781a73260655"',
+                   'RUNOUT_SHA="%s"' % sha)
+        rc, out, L = self._sc(d, "--aggregates")
+        self.assertEqual((rc, L[-1]), (1, "AGGREGATES=FAIL"), out)
+        self.assertIn("k=29 mass: table %s, run log %s" % (a, b), out)
+        self.assertEqual([l for l in out.splitlines() if "[FAIL]" in l],
+                         [l for l in out.splitlines() if "k=29 mass" in l or "all 7 columns" in l], out)
+
+    # ---- (2) the step runner ---------------------------------------------------------------------
+    def _grade(self, body, env=None):
+        d = self._tree()
+        return self._sc(d, "--source-checkout", "--readme", self._page(d, body), env=env)
+
+    def test_b_step_timeout_is_error_not_fail(self):
+        rc, out, L = self._grade("[1] echo STEP_ONE=ok; sleep 5\n    expect: STEP_ONE=ok",
+                                 env={"SELFCHECK_STEP_TIMEOUT": "1"})
+        self.assertEqual((rc, L[-1]), (2, "REVIEWER_PACKAGE=ERROR"), out)
+        self.assertIn("[TIMEOUT]", out)
+        self.assertIn("SELFCHECK_UNFINISHED=1", L)
+
+    def test_c_step_killed_by_a_signal_is_error(self):
+        for body, sig in (("[1] echo STEP_ONE=ok; kill -SEGV $$\n    expect: STEP_ONE=ok", 11),
+                          ("[1] { echo PIPE=ok; kill -KILL $BASHPID; } | tee out.txt\n    expect: PIPE=ok", 9)):
+            rc, out, L = self._grade(body)
+            self.assertEqual((rc, L[-1]), (2, "REVIEWER_PACKAGE=ERROR"), out)
+            self.assertIn("[CRASH] the step was killed by signal %d" % sig, out)
+
+    def test_d_a_verdict_printed_twice_fails(self):
+        rc, out, L = self._grade("[1] echo AGGREGATES=PASS; echo AGGREGATES=PASS\n    expect: AGGREGATES=PASS")
+        self.assertEqual((rc, L[-1]), (1, "REVIEWER_PACKAGE=FAIL"), out)
+        self.assertIn("appears 2 times", out)
+        rc, out, L = self._grade("[1] echo AGGREGATES=PASS\n    expect: AGGREGATES=PASS")   # control
+        self.assertEqual((rc, L[-1]), (0, "REVIEWER_PACKAGE=PASS"), out)
+
+    def test_e_a_failure_after_an_expected_prefix_fails(self):
+        rc, out, L = self._grade("[1] printf 'all 9 layer masses MATCH x  [0.0s] FAIL\\n'\n"
+                                 "    expect: all 9 layer masses MATCH …")
+        self.assertEqual((rc, L[-1]), (1, "REVIEWER_PACKAGE=FAIL"), out)
+        self.assertIn("reports a failure", out)
+        rc, out, L = self._grade("[1] printf 'all 9 layer masses MATCH x  [0.0s]\\n'\n"
+                                 "    expect: all 9 layer masses MATCH …")                   # control
+        self.assertEqual((rc, L[-1]), (0, "REVIEWER_PACKAGE=PASS"), out)
+
+    def test_f_an_error_line_or_a_traceback_fails(self):
+        for extra in ("ERROR: layer 3 unreadable", "Traceback (most recent call last):"):
+            rc, out, L = self._grade("[1] printf 'STEP_ONE=ok\\n%s\\n'\n    expect: STEP_ONE=ok" % extra)
+            self.assertEqual((rc, L[-1]), (1, "REVIEWER_PACKAGE=FAIL"), out)
+            self.assertIn("reports a failure: '%s'" % extra, out)
+
+    def test_h_a_crash_of_the_contradiction_check_is_error(self):
+        real = shutil.which("python3")
+        env = self._shim("cc", 'a=(); for x in "$@"; do case "$x" in *.log.exp) a+=(/);; *) a+=("$x");; esac; done\n'
+                               'exec "%s" "${a[@]}"' % real)
+        rc, out, L = self._grade("[1] echo STEP_ONE=ok\n    expect: STEP_ONE=ok", env=env)
+        self.assertEqual((rc, L[-1]), (2, "REVIEWER_PACKAGE=ERROR"), out)
+        self.assertIn("the contradiction check itself failed (exit 3)", out)
+
+    # ---- (2) the aggregate and manifest checkers ---------------------------------------------------
+    def test_g_aggregate_verdict_needs_its_exit_status(self):
+        d = self._tree()
+        for body in ("cat >/dev/null; echo AGGREGATES=PASS; exit 137",
+                     "cat >/dev/null; echo AGGREGATES=PASS; exit 1",
+                     "cat >/dev/null; echo AGGREGATES=PASS; echo AGGREGATES=PASS; exit 0",
+                     "cat >/dev/null; exit 0"):
+            rc, out, L = self._sc(d, "--aggregates", env=self._shim("agg", body))
+            self.assertEqual(rc, 2, body + "\n" + out)
+            self.assertEqual([l for l in L if l.startswith("AGGREGATES=")], ["AGGREGATES=ERROR"], body + "\n" + out)
+
+    def test_i_manifest_verdict_needs_its_line(self):
+        d = self._tree()
+        with open(os.path.join(d, "reviewer/PACKAGE_VERSION"), "w") as fh:
+            fh.write("fixture\n")
+        files = sorted(self.PKG + ["reviewer/PACKAGE_VERSION"])
+        with open(os.path.join(d, "reviewer/MANIFEST.sha256"), "w") as fh:
+            for f in files:
+                fh.write("%s  %s\n" % (self._sha(os.path.join(d, f)), f))
+        # a manifest checker that exits 0 and prints no verdict must not let step 1 start
+        rc, out, L = self._sc(d, env=self._shim("man", "cat >/dev/null; exit 0"), timeout=120)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("PACKAGE_MANIFEST=ERROR", L)
+        self.assertNotIn("step  1", out)
+
+    def test_j_non_ascii_digits_in_the_n13_column_fail(self):
+        d = self._tree()
+        doc = os.path.join(d, "reports/FULL31_EXACT_AGGREGATES.md")
+        with open(doc, encoding="utf-8") as fh:
+            text = fh.read()
+        with open(os.path.join(d, "run13.log"), "w") as fh:
+            fh.write(self._run13(text))
+        rc, out, L = self._sc(d, "--aggregates", "run13.log")
+        self.assertEqual((rc, L[-1]), (0, "AGGREGATES=PASS"), out)       # control
+        lines = text.split("\n"); sec = False
+        for i, l in enumerate(lines):
+            if l.startswith("## "):
+                sec = l.startswith("## 2."); continue
+            c = l.strip().strip("|").split("|") if sec and l.startswith("|") else []
+            if len(c) > 4 and c[3].strip() == "7":
+                c[4] = " " + "".join(chr(0x660 + int(ch)) if ch.isdigit() else ch for ch in c[4].strip()) + " "
+                lines[i] = "|" + "|".join(c) + "|"; break
+        else:
+            self.fail("precondition: section 2 has a k=7 row")
+        with open(doc, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines))
+        rc, out, L = self._sc(d, "--aggregates", "run13.log")
+        self.assertEqual((rc, L[-1]), (1, "AGGREGATES=FAIL"), out)
+        self.assertIn("one well-formed n=13 mass", out)
+
+    # ---- (2) make_package.sh's file list -----------------------------------------------------------
+    def test_k_make_package_refuses_a_crashed_file_list(self):
+        d = os.path.join(self.tmp, "mp"); os.makedirs(os.path.join(d, "reviewer"))
+        shutil.copy(os.path.join(self.rdir, "make_package.sh"), os.path.join(d, "reviewer/make_package.sh"))
+        shutil.copy(os.path.join(self.rdir, "README.md"), os.path.join(d, "reviewer/README.md"))
+        with open(os.path.join(d, "reviewer/selfcheck.sh"), "w") as fh:
+            fh.write("echo reviewer/README.md\nexit 1\n")       # half a list, then a crash
+        r = subprocess.run(["bash", "reviewer/make_package.sh", os.path.join(self.tmp, "out")], cwd=d,
+                           env=dict(os.environ, ROAE_PKG_DRAFT="1", TMPDIR=self.tmp, GIT_CEILING_DIRECTORIES=self.tmp),
+                           capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines()[-1], "PACKAGE=ERROR", r.stdout)
+
+    # ---- (2) step 9's gate: exactly one printed total ------------------------------------------------
+    def test_l_reproduce_digests_needs_exactly_one_total(self):
+        d = self._tree()
+        real = os.path.join(self.tmp, "solve_real")
+        r = subprocess.run(["gcc", "-O2", "-pthread", "-fopenmp", "-o", real, os.path.join(self.HERE, "solve.c"),
+                            "-lm", "-lz"], capture_output=True, text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        # a solve that prints a wrong total, then runs the real engine (which prints the right one)
+        with open(os.path.join(d, "solve.c"), "w") as fh:
+            fh.write('#include <stdio.h>\n#include <unistd.h>\nint main(int c, char **v){ (void)c;\n'
+                     '  printf("  orbit-quotient C5-DP total = 1\\n"); fflush(stdout);\n'
+                     '  v[0] = "%s"; execv(v[0], v); return 127; }\n' % real)
+        e = dict(os.environ, TMPDIR=self.tmp)
+        r = subprocess.run(["timeout", "900", "bash", "scripts/reproduce_digests_gate.sh"], cwd=d, env=e,
+                           capture_output=True, text=True)
+        L = r.stdout.splitlines()
+        self.assertEqual((r.returncode, L[-1]), (1, "REPRODUCE_DIGESTS=FAIL"), r.stdout[-3000:])
+        self.assertIn("totals=2-lines", r.stdout)
+
+    # ---- the real package --------------------------------------------------------------------------
+    def test_m_real_page_expectations_are_exact_and_selftest_passes(self):
+        with open(os.path.join(self.rdir, "README.md"), encoding="utf-8") as fh:
+            page = fh.read()
+        self.assertIn("    expect: [--selftest] PASS — sha256 matches canonical baseline\n", page)
+        for n in (9, 13):
+            self.assertIn("    expect: all %d layer masses MATCH reports/FULL31_EXACT_AGGREGATES.md …\n" % n, page)
+        d = self._tree()
+        rc, out, L = self._sc(d, "--selftest")
+        self.assertEqual((rc, L[-1]), (0, "SELFCHECK_SELFTEST=PASS"), out[-3000:])
+# end class TestB39DReviewerSelfcheckVerdicts (batch 39, lane B39D)
+
+
 if __name__ == "__main__":
+    # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
+    sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))
+    sys.stderr.write("ROAE_TESTS_TOOLCHAIN=%s\n" % _q956_tests_toolchain())
+    sys.stderr.flush()
     unittest.main(verbosity=2)

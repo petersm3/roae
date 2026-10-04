@@ -63,17 +63,22 @@ python3 "$ROOT/solve.py" --atlas-queries "$WORK/atlas_n9.json" --atlas-out "$OUT
 V=$OUT/VERDICTS.txt
 [ -s "$V" ] || die "the consumer wrote no VERDICTS.txt -- nothing was measured"
 
-NV=$(grep -cE '^TR12_[A-Z0-9_]+=' "$V")
 # 🔴 A COUNT, not just a scan for FAIL. A family that silently stops emitting leaves every
 # remaining verdict green, and only the count sees it. 14 measured 2026-09-09.
-MINV=${GROUPC_MIN_VERDICTS:-16}   # 14 before A5 began announcing its skip (2026-09-09)
+# Q-959 (Codex push-path review Q835, P-12): DISTINCT keys, and the floor AT the population. The
+# floor was 16 against 18 verdicts measured 2026-10-03, so two families could go silent green;
+# and a raw line count let one family printing twice stand in for one that stopped.
+NV=$(grep -oE '^TR12_[A-Z0-9_]+=' "$V" | sort -u | grep -c . || true)
+MINV=${GROUPC_MIN_VERDICTS:-18}   # 18 distinct verdicts measured 2026-10-03 (14 before A5 announced its skip)
 if [ "$NV" -lt "$MINV" ]; then
   say "[FAIL] only $NV verdict(s); expected at least $MINV. A family stopped emitting."
   fails=$((fails+1))
 else
   say "[ok]   $NV verdicts emitted (floor $MINV)"
 fi
-BAD=$(grep -E '^TR12_[A-Z0-9_]+=' "$V" | grep -vE '=(PASS|PASS:|SKIP:|PENDING:)' || true)
+# Q-959: ANCHORED at the key. Unanchored, `=(PASS|...)` matched anywhere in the line, so
+# `TR12_X=ERROR:expected=PASS` read as green. The value must BE `PASS` or start with a qualifier.
+BAD=$(grep -E '^TR12_[A-Z0-9_]+=' "$V" | grep -vE '^TR12_[A-Z0-9_]+=(PASS|(PASS|SKIP|PENDING):.+)$' || true)
 if [ -n "$BAD" ]; then
   say "[FAIL] verdict(s) that are neither PASS, a qualified PASS:, a SKIP: nor a PENDING::"
   printf '%s\n' "$BAD" | sed 's/^/         /'

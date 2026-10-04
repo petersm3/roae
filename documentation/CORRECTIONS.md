@@ -28596,3 +28596,202 @@ scripts and pass on this tree, and one is the positive control. Gates: `correcti
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 38, Q-957 and Q-958. Review
 credit: Codex (gpt-6-astra), push-path review Q835.
+
+## CX-293 — TR-8's dof-matched median: the pre-registered sampler was run; the slot is REFILLED by a new measurement (reports/TR8_REORDERING_REVISITED.md; reports/METHODS.md; reports/README.md; reports/TR12_QUERY_PROGRAM.md; documentation/SOLVE_PY_CLI.md; documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A2_20261003.md; documentation/PREREGISTRATION_ESCROW.md; documentation/README.md; runs/20261003_tr8_dof_sampler_35782834/)
+
+**2026-10-03.** Origin: CX-27, which made reinstatement conditional on "a `solve.py` sampler over the
+≈16-clause KW-fitting predicate space, published with its seed and probe count, reporting the
+median rarity with a CI". The instrument is `solve.py --tr8-dof-sampler` at
+`35782834ea709969910419cce4e739da39dac19f` (solve.py sha256 `38f3f886…`, CPython 3.12.3, one
+Standard D16als_v7 worker). It was run under a pre-registration frozen 2026-08-11, before any draw
+(escrowed digest `4b307f07…`), with two dated annotations: A1, the instrument pin and every open
+parameter, published and escrowed before the run (CX-279); and A2, the admitted bank of 242 of 319
+clause templates, committed privately at 10:02:41 UTC after the calibration draw and before the
+first pool draw at 10:03:51 UTC. A2 is now public, byte-identical, and its digest `a9f176ce…` is on
+[PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md) labelled post-calibration, pre-pool.
+
+- **Result.** Every gate passed (`GATE_B_RAW_319`, `GATE_B_ADMITTED_GE_120`, `GATE_H_A`,
+  `GATE_H_B`, `GATE_POOL_B_REPLICATION` = PASS; `OVERRIDE=none`), so by the registration's §6.1 the
+  slot is refilled (`CODE_S6_OUTCOME=REFILLED`, `TR8_MEDIAN=RESTORED`). Verdict **COMMON** at
+  K = 16 (`CODE_GOVERNING_D1_K16=COMMON`, `D2_K16=UNCENSORED`): F̂ = 1.0000 [95% CI 0.99632,
+  1.00000], all 1,000 drawn predicates at least as rare as King Wen's exact 1.054426×10⁻⁴; median
+  3.6×10⁻⁶ [95% CI 3.4×10⁻⁶, 4.1×10⁻⁶]; pool B agreed (F̂_B(16) = 1.0000, the same verdict). The
+  registration's wording for this row is that matched predicates are typically rarer than King
+  Wen's rule and that it is on the weak side of its own complexity class, which neither vindicates
+  nor refutes the specification-not-design reading. The public merge and the independent private
+  re-derivation agreed on all 69 checks (`CODE_VS_KIT=AGREE`).
+- **Seed and probe count.** Seed root `ROAE-TR8-DOFMATCH-2026-08-11`; 2 × 10,000,000 pair-only-null
+  draws (8 shards each); 1,000 predicates at each of K = 8, 12, 16, 20, 24; calibration 100,000.
+  Every derived seed is in `runs/20261003_tr8_dof_sampler_35782834/poolA/header.json` (and
+  `poolB/header.json`). The directory also ships the per-shard hit files, from which the two
+  `--tr8-dof-merge` commands rebuild both pools' `results.json` byte for byte in about two seconds,
+  and the run's token log with one path prefix redacted.
+- **What did not move.** The withdrawn median figure stays withdrawn permanently, as the
+  registration pre-commits for every outcome; the new value is a new measurement, not a
+  restoration. The exact pair-null 47/445740, the ×1,362 / ×11,364 masses, the 91-observable
+  ledger, the Bonferroni/BH margins, the Gray-code theorem, and every certificate, count and sha
+  are unchanged. TR-8's text above the insertion is not reworded.
+- **Scope.** The statement is about this reference class only (§"Data-like vs principled
+  constraints" in METHODS still stands on its own reasoning). TR-8's revision says the result is
+  class-conditional in the same paragraph, gives the eight-decade sensitivity across the admission
+  band with the geometric-mean admitted marginal (0.446630), and says its CIs are conditional on
+  the shared pool.
+- **Where it landed.** TR-8 v1.21 (dated insertion after the CX-27 marker, one dated parenthetical
+  in the look-elsewhere paragraph, the revision row); one dated note each in METHODS.md,
+  reports/README.md, TR-12's withdrawn-figures sentence and two SOLVE_PY_CLI.md notes that said no
+  recorded run existed; the A2 file, its README index row and its escrow row; the run directory.
+- **The one label left in the shipped bytes.** The sampler at that commit writes the label
+  `"prereg": "roae-private PREREG_TR8_DOF_MATCHED_SAMPLER (must be FROZEN before a recorded run; …)"`
+  into every header it emits, so it appears in the run's shard, header and results files. They ship
+  unedited, because the merge must rebuild them byte for byte. The Q-868 sweep in `tests.py`
+  (`TestLaneHAJ`) that keeps private-repository pointers out of `runs/` exempts exactly that
+  literal, only in this run's directory and only while `solve.py` still emits it; any other pointer
+  on such a line still fails it. The frozen registration's digest is public on the escrow page.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 39, Q-932.
+
+## CX-294 — the pre-push verdict record bound only its hook log to the tree, stamped the toolchain from the host that wrote it, and counted `Ran 0 tests` + `OK` as a pass; record format v2 binds every log to the record's tree, takes the toolchain from the logs, needs a full test count, and an older record is refused by version (scripts/prepush_verdict_record.sh; scripts/pre_push_gate.sh; scripts/citation_line_gate.sh; scripts/tr12_repro_gate.sh; tests.py; documentation/DEVELOPMENT.md)
+
+**2026-10-03.** Origin: backlog row Q-956. Landed by Opus, batch 39.
+
+**Source.** The Codex (gpt-6-astra) push-path review Q835 (lens A, finding P-09), triaged by Claude.
+Each point below was checked against the current source before it was fixed.
+
+**1. What the record claimed and what it bound.** The Q-798 record (CX-214) lets the hook skip its
+covered legs on the push host when another host has already run them green on the identical tree.
+`scripts/prepush_verdict_record.sh write` checked that the hook log's `PREPUSH_TREE` equals `HEAD`'s
+tree. It did not bind the other three logs:
+- `TOOLCHAIN` was the writing host's `gcc` and `python3` versions at distil time, not what the logs
+  ran under.
+- The tests, citation and stamp logs were judged by their verdict lines alone. None of them names a
+  tree, so a log from any tree was accepted.
+- `LEG_TESTS` was `PASS` for any single `Ran N tests` line with an `OK` line, so `Ran 0 tests` + `OK`
+  passed, and so did a run where nearly every test was skipped.
+- `check` read the record by path several times, so the file could change between passes.
+
+**2. The fix (record format v2).**
+- Each producer now names the tree it measured, in one line: `ROAE_TESTS_TREE=` (`tests.py`, before
+  the first test runs), `CITATION_LINE_GATE_TREE=` (`citation_line_gate.sh --all-files`) and
+  `TR12_REPRO_GATE_TREE=` (`tr12_repro_gate.sh --check`). The value is `HEAD`'s tree when tracked
+  content equals `HEAD`, otherwise `DIRTY` (or `NONE` outside a git work tree). `tests.py` prints
+  `OVERRIDDEN` when a `ROAE_TESTS_*` variable makes it test another source than the tree's own.
+  `write` refuses, writing nothing, any log whose line is absent, repeated, or names another value
+  than the record's tree.
+- `TOOLCHAIN` comes from the logs. The hook prints `PREPUSH_TOOLCHAIN=` per pushed sha, and `tests.py`
+  prints `ROAE_TESTS_TOOLCHAIN=` for the interpreter that ran it. The two must agree with each other
+  and with the writing host.
+- `LEG_TESTS` is `PASS` only when `Ran N` has `N` at least the number of `    def test_` methods in the
+  tree's `tests.py`, with at most 8 skipped or expected-failure tests. The counts are recorded
+  (`TESTS_RAN`, `TESTS_FLOOR`, `TESTS_SKIPPED`), and `check` re-checks them (`tests-count`).
+- The format version is now 2. `check` refuses a well-formed header of any other version as
+  `old-version` and says to re-run the writer, so a v1 record never reaches the new consumer's
+  reuse path. `check` and `write` each read their inputs once into a private snapshot.
+- The hook change is one added line, `PREPUSH_TOOLCHAIN=`, beside `PREPUSH_TREE=`. Which legs are
+  covered, which run locally, and how a match is decided are unchanged.
+
+**3. Tests.** `TestQ956PrepushRecordBindsItsLogs`, at the end of `tests.py`, has seven tests. Six of
+them fail against the unfixed helper, hook and producers. The seventh pins `tests.py`'s own header.
+Each binding has a mutant that removes it, and the mutant lets its bad log through. The Q-798 and
+HAJ fixtures now write the binding lines that real logs carry.
+
+**4. Gates.** `citation_line_gate.sh` (both modes), the full `doc_gates.sh` with `ROAE_PRIVATE_DIR`
+set, the claim ledger, the TR-12 stamp re-stamped and `--check` CURRENT, and the classes
+`TestQ956PrepushRecordBindsItsLogs`, `TestQ798PrepushTreeKeyedReuse` and `TestLaneHAJ`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 39, Q-956.
+
+## CX-295 — three push-path checks read more than they should have: the Group C rehearsal accepted a verdict that only quoted PASS and its floor sat two below the population, the pre-push "already published" skip looked at origin whatever the destination, and GATE 39 counted a comment as a regeneration-map entry (scripts/group_c_n9_rehearsal_gate.sh; scripts/pre_push_gate.sh; scripts/doc_gates.d/90_claim_artifacts.sh; tests.py)
+
+**2026-10-03.** Origin: Codex (gpt-6-astra), push-path review Q835 (lens A), findings P-12, P-13 and
+P-14; backlog rows Q-959, Q-960 and Q-961. Each finding was re-checked against the current source
+before any change, and each still held. Landed by Opus, batch 39.
+
+**1. Group C rehearsal (Q-959, P-12).** The verdict filter was `grep -vE '=(PASS|PASS:|SKIP:|PENDING:)'`
+with no anchor, so `TR12_X=ERROR:expected=PASS` passed: the `=PASS` inside the value matched. The
+filter now matches from the key: the value must be exactly `PASS`, or `PASS:`, `SKIP:` or `PENDING:`
+followed by a qualifier. The verdict floor was 16. The rehearsal emits 18 verdicts (measured on this
+tree, 2026-10-03), so two families could stop emitting and the gate would stay green. The floor is now
+18, and the count is of distinct keys, so one family printing twice cannot stand in for one that
+stopped.
+
+**2. The "already published" skip (Q-960, P-13).** The pre-push hook skips the content gates for a
+commit already reachable from a remote-tracking ref. It checked `refs/remotes/origin/*` whatever remote
+the push was going to, so a commit on origin pushed to a second remote skipped every content gate. The
+hook now reads the destination from its first argument (git passes the remote's name there) and checks
+only that remote's tracking refs. A push to a URL, a run with no argument, or an unknown name skips
+nothing and gates the tree. Not changed: the hook still trusts the local tracking refs, so a stale or
+hand-moved tracking ref is still believed. The citation gate's base choice (`citgate_base`) also reads
+origin's refs; it was left alone, because it picks a diff base rather than skipping a gate, and
+narrowing it to the destination would leave a mirror push with no base at all.
+
+**3. GATE 39's regeneration map (Q-961, P-14).** LEG 1 read the whole of `verify_all.sh` as text and
+asked whether a certificate's name appeared anywhere in it, comments included. Deleting or commenting
+out a `CERTS` map entry while a comment still named the certificate passed. The leg now reads the keys
+of the single `declare -A CERTS=( … )` literal, with comments removed. No literal, or more than one, or
+a literal with no keys, is an error, not a pass. The real map gives the same result as before: all 24
+archived certificates are mapped.
+
+**4. Tests.** `TestQ959Q961PushPathB39C` (15 tests). Thirteen fail on the previous scripts and pass on
+these. The two that pass on both are positive controls. Mutants that undo each load-bearing change
+(the anchor, the floor, the distinct count, the destination prefix, the comment stripping) are shown to
+make their red test pass.
+
+**5. One existing fixture follows the hook.** `TestQ949Q950PrepushEnvAndRegistry` (batch 38) ran the
+hook with no arguments and relied on the "already published" skip for its published-sha case. Its runner
+now passes the githooks(5) arguments a real push gives, the remote name `origin` and its URL, so that
+case still reaches the skip it tests.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 39, Q-959/Q-960/Q-961.
+
+## CX-296 — the reviewer package's checks now take a verdict only from a finished checker: a step that times out or is killed is `[TIMEOUT]` or `[CRASH]` and the run ends `REVIEWER_PACKAGE=ERROR`; a verdict line must appear exactly once; a `FAIL` after an expected beginning of a line, an `ERROR` line or a Python traceback fails the step; the aggregate and manifest checks need their exit status and their one verdict line to agree; numbers are read as ASCII digits only; `make_package.sh` refuses a file list from a crashed producer; and step 9's gate refuses a rung that prints two totals (reviewer/selfcheck.sh; reviewer/make_package.sh; reviewer/README.md; scripts/reproduce_digests_gate.sh; tests.py)
+
+**2026-10-03.** Origin: batch 39, lane B39D, a sweep of `reviewer/` (new in batch 37) for two
+classes that batch 38 fixed elsewhere and had not checked here because the directory did not yet
+exist on its base. Both classes are findings of Codex (gpt-6-astra) in its push-path review
+Q835 (CX-288, CX-291).
+
+- **Big integers compared as floating point (the P-01 / Q-948 class).** None found. The aggregate
+  check (step 13) compares the 40-digit masses of the table and the run log as exact strings and
+  checks the C(31,k) cells, the divisibility by 24 and the n=13 column with Python integers. Tests
+  plant one low digit in the 40-digit total of the table and in a 40-digit mass of the bundled log,
+  a change a floating-point comparison cannot see; both fail on the fixed and the unfixed script.
+  One related defect was found and fixed: the check matched numbers with Python's `\d`, which also
+  matches the digits of other scripts, and `int()` accepts them, so a cell of the n=13 column
+  written in Arabic-Indic digits passed as the same number. It now reads `[0-9]` only.
+- **A verdict read while ignoring how the producer ended (the Q-951 / Q-952 class).**
+  - A step that ran past `SELFCHECK_STEP_TIMEOUT` (exit 124) or was killed by a signal was an
+    ordinary failure, "exit status 124". It is now `[TIMEOUT]` or `[CRASH]`, counted in a new
+    `SELFCHECK_UNFINISHED=<n>` line, and the run ends `REVIEWER_PACKAGE=ERROR`.
+  - An expected `KEY=VALUE` line printed twice passed; it must now appear exactly once.
+  - A line that began with an expected prefix (an expectation ending in `…`) was exempt from the
+    failure-word rule whatever followed, so `all 9 layer masses MATCH … FAIL` passed. Only the
+    prefix itself is exempt now. The rule also counts the word `ERROR` and the start of a Python
+    traceback, as well as `FAIL` and a starred `MISMATCH`.
+  - A crash of the contradiction check was read as "a contradiction". It now exits 3 and is
+    reported as `[ERROR]`, and the run ends `ERROR`.
+  - The aggregate check and the manifest check were judged by their exit status alone, or printed
+    their verdict line whatever their exit status. Both now pass through one rule: PASS only when
+    the exit status is 0 and exactly one verdict line says PASS (or OK); FAIL only when it is 1 and
+    exactly one says FAIL; otherwise `AGGREGATES=ERROR` or `PACKAGE_MANIFEST=ERROR`, exit 2. Before,
+    a manifest checker that exited 0 without a verdict let step 1 start.
+  - `make_package.sh` read the file list with `mapfile < <(selfcheck.sh --files)`, which succeeds
+    whatever the producer exits with; a list cut short by a crash would have been bundled. The
+    list is now read into a variable first and a nonzero exit is refused.
+  - Step 9's gate kept the last of several printed totals of a rung (`| tail -1`), so a wrong total
+    followed by the right one passed. A rung must now print exactly one.
+- **Expectations a wrong line could also match.** Step 2's expectation was the prefix
+  `[--selftest] PASS — sha256 matches …`; it is now the whole line. Steps 3 and 6 now expect the
+  name of the table they compared with, `MATCH reports/FULL31_EXACT_AGGREGATES.md …`.
+- **Pipes into `grep -q` (the Q-799 rule).** None in either script.
+
+`--selftest` gains fifteen legs: seven for the runner (timeout, crash, crash behind `| tee`, a
+verdict twice, `FAIL` after a prefix, an `ERROR` line, a traceback) and eight for the aggregate and
+manifest verdicts with a stand-in `python3`. One existing leg's planted line no longer starts with
+the word `ERROR`, so that it still tests the quoted-success case alone. `reviewer/README.md` states
+the new rules. `tests.py` class `TestB39DReviewerSelfcheckVerdicts` (14 tests) is red on copies of
+the unfixed scripts in 12 cases, each for its own reason; the two exact-comparison cases pass on
+both. The full self-check passes, 13 of 13 steps, from a source checkout and from an unpacked draft
+bundle. No step does different work, so the page's measured-times table is unchanged.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, lane B39D. Review findings:
+Codex (gpt-6-astra), push-path review Q835.

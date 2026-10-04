@@ -1,0 +1,20 @@
+{
+ "abs_diff_f16": 0.0,
+ "d1_a": "COMMON",
+ "d1_a_reason": "CI(F_hat) lies entirely above 0.95",
+ "d1_b": "COMMON",
+ "d1_b_reason": "CI(F_hat) lies entirely above 0.95",
+ "d2_k16": "UNCENSORED",
+ "f16_a": 1.0,
+ "f16_b": 1.0,
+ "gate_pass": true,
+ "governing_d1_k16": "COMMON",
+ "k_head": 16,
+ "pool_a_dir": "runs/20261003_tr8_dof_sampler_35782834/poolA",
+ "pool_b_dir": "runs/20261003_tr8_dof_sampler_35782834/poolB",
+ "s6_outcome": "REFILLED",
+ "tolerance": 0.05,
+ "withdrawn_6e-5_figure": "NEVER_REINSTATED",
+ "x16_a": 1000,
+ "x16_b": 1000
+}

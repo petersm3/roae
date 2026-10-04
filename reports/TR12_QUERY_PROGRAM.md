@@ -2722,7 +2722,7 @@ estimator's `se=` field**. They are not `estimated-with-CI` (no interval was pub
 **Three figures are deliberately absent because they are withdrawn, not graded:** TR-2's Bayes
 factor (CX-26), TR-4's ≈3.3×10³⁷ orientation-dedup size (withdrawn 2026-08-24, it exceeds its own
 31! ceiling by ~4,013×), and TR-8's ~6×10⁻⁵ dof-matched median (CX-27, withdrawn pending an
-artifact that exists nowhere in the repository). A withdrawn figure has no confidence to record.
+artifact that exists nowhere in the repository; *2026-10-03, CX-293: it stays withdrawn permanently — the slot it held in TR-8 is now filled by a different figure, a new pre-registered measurement with its artifact, TR-8 v1.21*). A withdrawn figure has no confidence to record.
 
 🔴 **Four suite-level inconsistencies this audit surfaced, none adjudicated here.** Each needs an
 owner's ruling, and a ledger that silently picked a side would be asserting rather than recording:

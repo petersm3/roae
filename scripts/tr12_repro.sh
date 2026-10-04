@@ -227,7 +227,7 @@ fi
 
 # 🔴 EXECUTABLE IS NOT CURRENT. The build arm above compiles $REPO_ROOT/solve.c seconds
 # before use and is safe by construction. `--solve <path>` is not: it names a PATH, and the line
-# above checks only the +x bit. tr12_repro_gate.sh:802 passes a binary it just built from the
+# above checks only the +x bit. tr12_repro_gate.sh:807 passes a binary it just built from the
 # PUBLISHED build line, so the pre-push route was never exposed; a hand run
 # `scripts/tr12_repro.sh --n9 --solve ./solve` is, and that is the documented way to run this
 # battery against an existing binary. This file is the TR-12 REPRODUCTION harness: every row it

@@ -35,23 +35,42 @@
 #       (exactly one KEY= line, whole-line value), never taken from the caller. The repo's HEAD
 #       tree must equal the hook log's PREPUSH_TREE, and the repo must be clean against HEAD, so
 #       the record names the tree the checks ran on. FILE must not lie inside the repo's tree.
+#       Q-956 (format v2): EVERY log is bound to that tree, not only the hook's. Each producer names
+#       the tree it measured in one line, and the writer refuses (nothing written) a log whose line
+#       is absent, repeated, DIRTY/NONE or names another tree:
+#         hook log      PREPUSH_TREE=<tree>              (scripts/pre_push_gate.sh, per pushed sha)
+#         tests log     ROAE_TESTS_TREE=<tree>           (tests.py, before the first test runs)
+#         citation log  CITATION_LINE_GATE_TREE=<tree>   (citation_line_gate.sh --all-files)
+#         stamp log     TR12_REPRO_GATE_TREE=<tree>      (tr12_repro_gate.sh --check)
+#       TOOLCHAIN comes from the LOGS, not from the writing host: the hook log's PREPUSH_TOOLCHAIN=
+#       and the tests log's ROAE_TESTS_TOOLCHAIN= (the interpreter that ran tests.py) must both be
+#       present and agree with each other AND with this host's toolchain id; any disagreement is
+#       refused. TESTS is PASS only with exactly one "Ran N tests" line, N >= TESTS_FLOOR (the
+#       number of `    def test_` methods in the record tree's tests.py, at least 1, so "Ran 0" is a
+#       FAIL), at most MAX_TEST_SKIPS skipped/expected-failure tests, one OK line and no FAILED line.
+#       Every log is read from a private snapshot, so what is judged is what is hashed.
 #       Tokens: PREPUSH_RECORD=WRITTEN|ERROR, and PREPUSH_RECORD_ALL_PASS=YES|NO when written.
 #       Exit 0 written and all PASS / 1 written with a non-PASS result / 2 nothing written.
 #   check --record FILE --tree TREE --citgate-base SHA|NONE [--forbid-under DIR]...
 #       Reads a record and says whether it covers TREE. Token: PREPUSH_RECORD=MATCH|NOMATCH, and
 #       on NOMATCH exactly one PREPUSH_RECORD_WHY=<code>. Exit 0 MATCH / 1 NOMATCH / 2 bad usage
 #       (PREPUSH_RECORD=ERROR). WHY codes: absent unreadable inside-tree empty too-large truncated
-#       nul-byte bad-line bad-header checksum duplicate-key unknown-key missing-key bad-value
-#       not-pass:<LEG> tree-mismatch citbase-mismatch toolchain-mismatch.
+#       nul-byte bad-line bad-header old-version checksum duplicate-key unknown-key missing-key
+#       bad-value not-pass:<LEG> tests-count tree-mismatch citbase-mismatch toolchain-mismatch.
+#       old-version (Q-956): the record is a well-formed header of another format version (a v1
+#       record carries no per-log tree binding and a host-stamped toolchain); it is never reused,
+#       re-run the writer with this tree's scripts. The record is read once into a private
+#       snapshot and every check reads the snapshot, not the path.
 #   toolchain
 #       Prints the toolchain id this host would record (gcc and python3 versions).
 #
-# RECORD FORMAT, version 1: plain text, one KEY=value per line, LF-terminated, no spaces, in this
+# RECORD FORMAT, version 2 (Q-956; version 1 lacked the per-log bindings and TESTS_*): plain text, one KEY=value per line, LF-terminated, no spaces, in this
 # order (the order is fixed so the checksum is well defined; the reader checks key SET and values):
-#   ROAE_PREPUSH_RECORD=1
+#   ROAE_PREPUSH_RECORD=2
 #   TREE=<git tree id of the checked tree, 40 or 64 hex>
 #   CITGATE_BASE=<commit the citation gate's shift leg diffed against, or NONE>
-#   TOOLCHAIN=gcc-<ver>,python-<ver>
+#   TOOLCHAIN=gcc-<ver>,python-<ver>          (from the hook and tests logs; see write above)
+#   TESTS_RAN=<N>  TESTS_FLOOR=<F>  TESTS_SKIPPED=<S>   (one per line; the tests log's counts)
 #   LEG_<NAME>=PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE   (one per name in REQ_LEGS below)
 #   ADV_<NAME>=PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE   (OPTIONAL; one per name in ADV_LEGS below)
 #   LOG_<NAME>_SHA256=<64 hex>                                (one per name in REQ_LOGS below)
@@ -63,8 +82,12 @@
 set -u
 export LC_ALL=C
 
-REC_VERSION=1
+REC_VERSION=2
 MAX_BYTES=65536
+# Q-956: a full run skips 1-3 tests on the worker (tools a lane box lacks); a fail-open that skips a
+# whole class (E4: `OK (skipped=12)`) must not count as PASS.
+MAX_TEST_SKIPS=8
+TOOLCHAIN_RE='^gcc-([0-9.]+|none),python-([0-9.]+|none)$'
 # Hook legs the record carries (the hook prints PREPUSH_LEG_<NAME>= for each, per pushed sha).
 HOOK_LEGS="DOC_GATES_ALL GENERATED COMPILE_GATE PUBLISHED_CONSISTENCY R167 R167_M3 R167_M4 ATLAS_N31 TR12_OUTPUT_PATHS"
 # Every result a record must carry, all PASS: the hook legs, the hook's own overall verdict, the
@@ -158,11 +181,32 @@ if [ "$MODE" = write ]; then
   # thing only when tracked content equals HEAD, so a dirty tree is refused, not recorded.
   git -C "$top" diff --quiet HEAD -- 2>/dev/null && git -C "$top" diff --cached --quiet HEAD -- 2>/dev/null \
     || err "write: $top has tracked changes against HEAD; the logs cannot be attributed to tree $headtree"
+  # Q-956: judge and hash private snapshots, so a log rewritten mid-distil cannot split the two.
+  SNAP=$(mktemp -d "${TMPDIR:-/tmp}/prepush_logs.XXXXXX") || err "write: mktemp failed"
+  trap 'rm -rf "$SNAP"' EXIT
+  cp -- "$HL" "$SNAP/hook" && cp -- "$TL" "$SNAP/tests" && cp -- "$CL" "$SNAP/citation" && cp -- "$SL" "$SNAP/stamp" \
+    || err "write: could not snapshot the logs"
+  HL=$SNAP/hook; TL=$SNAP/tests; CL=$SNAP/citation; SL=$SNAP/stamp
   one_val PREPUSH_TREE "$HL" || err "write: the hook log has no single PREPUSH_TREE= line (one pushed sha per producer run)"
   [ "$TOKV" = "$headtree" ] || err "write: the hook log gated tree '$TOKV', but HEAD's tree is $headtree"
   one_val PREPUSH_CITGATE_BASE "$HL" || err "write: the hook log has no single PREPUSH_CITGATE_BASE= line"
   cb=$TOKV
   { [ "$cb" = NONE ] || is_hex_id "$cb"; } || err "write: PREPUSH_CITGATE_BASE='$cb' is neither NONE nor an object id"
+  # Q-956 (2): every auxiliary log names the tree it measured; a log for another tree, a dirty
+  # tree, or no tree at all is not evidence about this one.
+  for _b in "tests:$TL:ROAE_TESTS_TREE" "citation:$CL:CITATION_LINE_GATE_TREE" "stamp:$SL:TR12_REPRO_GATE_TREE"; do
+    _n=${_b%%:*}; _k=${_b##*:}; _f=${_b#*:}; _f=${_f%:*}
+    one_val "$_k" "$_f" || err "write: the $_n log has no single $_k= line (its producer predates Q-956, or it is not that producer's log)"
+    [ "$TOKV" = "$headtree" ] || err "write: the $_n log measured tree '$TOKV', but the record's tree is $headtree"
+  done
+  # Q-956 (1): the toolchain is what the logs say ran, and it must be this host's too.
+  one_val PREPUSH_TOOLCHAIN "$HL" || err "write: the hook log has no single PREPUSH_TOOLCHAIN= line"
+  tc_hook=$TOKV
+  one_val ROAE_TESTS_TOOLCHAIN "$TL" || err "write: the tests log has no single ROAE_TESTS_TOOLCHAIN= line"
+  tc_tests=$TOKV
+  [[ "$tc_hook" =~ $TOOLCHAIN_RE ]] || err "write: PREPUSH_TOOLCHAIN='$tc_hook' is not a toolchain id"
+  [ "$tc_tests" = "$tc_hook" ] || err "write: the tests ran under '$tc_tests' but the hook under '$tc_hook'"
+  [ "$tc_hook" = "$(toolchain_id)" ] || err "write: the logs were measured with '$tc_hook' but this host has $(toolchain_id); distil on the host that ran them"
 
   declare -A V=()
   for leg in $HOOK_LEGS; do
@@ -180,11 +224,27 @@ if [ "$MODE" = write ]; then
     case "$TOKV" in PASS) V[HOOK]=PASS ;; FAIL) V[HOOK]=FAIL ;; *) V[HOOK]=UNREADABLE ;; esac
   else V[HOOK]=MISSING; fi
   # tests.py is unittest: PASS = exactly one "Ran N tests in" line, exactly one bare OK line (with
-  # or without a parenthesised skip/xfail count), and no FAILED line anywhere.
+  # or without a parenthesised skip/xfail count), and no FAILED line anywhere. Q-956 (3): and N is
+  # at least the tree's own test count (so "Ran 0 tests" + OK, or a one-class run, is a FAIL), and
+  # at most MAX_TEST_SKIPS of them were skipped or expected failures.
   nran=$(grep -acE '^Ran [0-9]+ tests? in ' "$TL") || true
   nok=$(grep -acE '^OK( \([a-z_=0-9, ]+\))?$' "$TL") || true
   nfail=$(grep -acE '^FAILED' "$TL") || true
-  if [ "${nran:-0}" = 1 ] && [ "${nok:-0}" = 1 ] && [ "${nfail:-0}" = 0 ]; then V[TESTS]=PASS; else V[TESTS]=FAIL; fi
+  tran=0; tskip=0
+  if [ "${nran:-0}" = 1 ]; then tran=$(grep -aE '^Ran [0-9]+ tests? in ' "$TL" | sed -E 's/^Ran ([0-9]+) .*/\1/'); fi
+  if [ "${nok:-0}" = 1 ]; then
+    _okl=$(grep -aE '^OK( \([a-z_=0-9, ]+\))?$' "$TL")
+    for _sk in $(printf '%s\n' "$_okl" | grep -oE '(skipped|expected failures)=[0-9]+' | sed 's/.*=//'); do tskip=$((tskip + 10#$_sk)); done
+  fi
+  tfloor=$(git -C "$top" show HEAD:tests.py 2>/dev/null | grep -cE '^    def test_') || true
+  case "$tfloor" in ''|*[!0-9]*) tfloor=0 ;; esac
+  [ "$tfloor" -ge 1 ] || tfloor=1
+  case "$tran" in ''|*[!0-9]*) tran=0 ;; esac
+  tran=$((10#$tran))
+  if [ "${nran:-0}" = 1 ] && [ "${nok:-0}" = 1 ] && [ "${nfail:-0}" = 0 ] \
+     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS; else V[TESTS]=FAIL; fi
+  [ "$tran" -ge "$tfloor" ] || echo "  [tests] Ran $tran test(s), fewer than the tree's $tfloor test methods"
+  [ "$tskip" -le "$MAX_TEST_SKIPS" ] || echo "  [tests] $tskip tests skipped or expected-failure (limit $MAX_TEST_SKIPS)"
   if one_val CITATION_LINE_GATE "$CL"; then
     [ "$TOKV" = PASS ] && V[CITATION]=PASS || V[CITATION]=FAIL
   else V[CITATION]=MISSING; fi
@@ -197,7 +257,10 @@ if [ "$MODE" = write ]; then
     printf '%s=%s\n' ROAE_PREPUSH_RECORD "$REC_VERSION"
     printf '%s=%s\n' TREE "$headtree"
     printf '%s=%s\n' CITGATE_BASE "$cb"
-    printf '%s=%s\n' TOOLCHAIN "$(toolchain_id)"
+    printf '%s=%s\n' TOOLCHAIN "$tc_hook"
+    printf '%s=%s\n' TESTS_RAN "$tran"
+    printf '%s=%s\n' TESTS_FLOOR "$tfloor"
+    printf '%s=%s\n' TESTS_SKIPPED "$tskip"
     for leg in $REQ_LEGS; do printf '%s=%s\n' "LEG_$leg" "${V[$leg]}"; done
     for leg in $ADV_LEGS; do printf '%s=%s\n' "ADV_$leg" "${A[$leg]}"; done
     printf '%s=%s\n' LOG_HOOK_SHA256     "$(sha256sum < "$HL" | cut -c1-64)"
@@ -247,23 +310,33 @@ if [ "$MODE" = check ]; then
     [ -n "$d" ] || continue
     path_under "$REC" "$d" && nomatch inside-tree "$REC lies inside $d; a record inside the tree it vouches for is refused"
   done
+  # Q-956: read the record ONCE into a private snapshot (one byte past the limit is enough to tell
+  # too-large); every check below reads the snapshot, so the path cannot change between passes.
+  SNAP=$(mktemp "${TMPDIR:-/tmp}/prepush_rec.XXXXXX") || err "check: mktemp failed"
+  trap 'rm -f "$SNAP"' EXIT
+  head -c "$((MAX_BYTES + 1))" -- "$REC" > "$SNAP" 2>/dev/null || nomatch unreadable "could not read $REC"
+  REC_SHOWN=$REC; REC=$SNAP
   size=$(wc -c < "$REC" | tr -d ' ') || size=""
   case "$size" in ''|*[!0-9]*) nomatch unreadable "could not size $REC" ;; esac
   [ "$size" -gt 0 ] || nomatch empty "$REC is empty"
-  [ "$size" -le "$MAX_BYTES" ] || nomatch too-large "$REC is $size bytes (limit $MAX_BYTES)"
+  [ "$size" -le "$MAX_BYTES" ] || nomatch too-large "$REC_SHOWN is more than $MAX_BYTES bytes"
   [ "$(tail -c1 "$REC" | od -An -tx1 | tr -d ' \n')" = 0a ] || nomatch truncated "$REC does not end in a newline"
   [ "$(tr -d '\000' < "$REC" | wc -c | tr -d ' ')" = "$size" ] || nomatch nul-byte "$REC contains a NUL byte"
   nbad=$(grep -avcE '^[A-Z][A-Z0-9_]*=[A-Za-z0-9._,:-]+$' "$REC") || true
   [ "${nbad:-1}" = 0 ] || nomatch bad-line "$nbad line(s) of $REC are not KEY=value"
-  [ "$(head -n1 "$REC")" = "ROAE_PREPUSH_RECORD=$REC_VERSION" ] \
-    || nomatch bad-header "first line is not ROAE_PREPUSH_RECORD=$REC_VERSION"
+  _h1=$(head -n1 "$REC")
+  if [ "$_h1" != "ROAE_PREPUSH_RECORD=$REC_VERSION" ]; then
+    [[ "$_h1" =~ ^ROAE_PREPUSH_RECORD=[0-9]+$ ]] \
+      && nomatch old-version "record format v${_h1#*=} is not v$REC_VERSION, the only format this tree reuses (Q-956: v1 records carry no per-log tree binding); re-run scripts/prepush_verdict_record.sh write with this tree's scripts"
+    nomatch bad-header "first line is not ROAE_PREPUSH_RECORD=$REC_VERSION"
+  fi
   last=$(tail -n1 "$REC")
   case "$last" in RECORD_SHA256=*) ;; *) nomatch truncated "last line is not RECORD_SHA256= (record cut short)" ;; esac
   [ "$(sed '$d' "$REC" | sha256sum | cut -c1-64)" = "${last#RECORD_SHA256=}" ] \
     || nomatch checksum "RECORD_SHA256 does not match the lines above it"
   dup=$(cut -d= -f1 "$REC" | sort | uniq -d | head -1)
   [ -z "$dup" ] || nomatch duplicate-key "key $dup appears more than once"
-  allowed=" ROAE_PREPUSH_RECORD TREE CITGATE_BASE TOOLCHAIN RECORD_SHA256 "
+  allowed=" ROAE_PREPUSH_RECORD TREE CITGATE_BASE TOOLCHAIN TESTS_RAN TESTS_FLOOR TESTS_SKIPPED RECORD_SHA256 "
   for leg in $REQ_LEGS; do allowed="$allowed LEG_$leg "; done
   for lg in $REQ_LOGS;  do allowed="$allowed LOG_${lg}_SHA256 "; done
   optional=" "
@@ -282,6 +355,18 @@ if [ "$MODE" = check ]; then
     one_val "LOG_${lg}_SHA256" "$REC"
     [[ "$TOKV" =~ ^[0-9a-f]{64}$ ]] || nomatch bad-value "LOG_${lg}_SHA256 is not a sha256"
   done
+  one_val TOOLCHAIN "$REC"
+  [[ "$TOKV" =~ $TOOLCHAIN_RE ]] || nomatch bad-value "TOOLCHAIN=$TOKV is not a toolchain id"
+  for k in TESTS_RAN TESTS_FLOOR TESTS_SKIPPED; do
+    one_val "$k" "$REC"
+    [[ "$TOKV" =~ ^(0|[1-9][0-9]{0,8})$ ]] || nomatch bad-value "$k=$TOKV is not a count"
+  done
+  one_val TESTS_RAN "$REC"; rran=$TOKV
+  one_val TESTS_FLOOR "$REC"; rfloor=$TOKV
+  one_val TESTS_SKIPPED "$REC"; rskip=$TOKV
+  # Q-956 (3), re-checked here so a resealed record cannot carry a PASS over a short run.
+  { [ "$rfloor" -ge 1 ] && [ "$rran" -ge "$rfloor" ] && [ "$rskip" -le "$MAX_TEST_SKIPS" ]; } \
+    || nomatch tests-count "TESTS_RAN=$rran TESTS_FLOOR=$rfloor TESTS_SKIPPED=$rskip: not a full test run"
   for leg in $ADV_LEGS; do
     one_val "ADV_$leg" "$REC" || continue
     case "$TOKV" in PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE) ;; *) nomatch bad-value "ADV_$leg=$TOKV" ;; esac
@@ -296,7 +381,7 @@ if [ "$MODE" = check ]; then
   [ "$rcb" = "$WANT_CB" ] || nomatch citbase-mismatch "record's citation base is $rcb, this push's is $WANT_CB"
   one_val TOOLCHAIN "$REC"
   [ "$TOKV" = "$(toolchain_id)" ] || nomatch toolchain-mismatch "record was measured with $TOKV, this host has $(toolchain_id)"
-  echo "  record $(sha256sum < "$REC" | cut -c1-16) covers tree $rtree (citation base $rcb, $TOKV)"
+  echo "  record $(sha256sum < "$REC" | cut -c1-16) ($REC_SHOWN) covers tree $rtree (citation base $rcb, $TOKV)"
   for lg in $REQ_LOGS; do one_val "LOG_${lg}_SHA256" "$REC"; echo "    log ${lg}: sha256 $TOKV"; done
   # Advisory verdicts the hook may reuse: only PASS and FAIL are measurements; the rest are omitted.
   for leg in $ADV_LEGS; do

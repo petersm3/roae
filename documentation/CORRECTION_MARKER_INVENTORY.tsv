@@ -313,6 +313,7 @@ documentation/PERFORMANCE_HISTORY.md	1189	marker	Corrected	2	-	reviewed:bullet-a
 documentation/PERFORMANCE_HISTORY.md	1426	marker	Corrected	2	-	reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation	75cfed7a5f0e
 documentation/PREREGISTRATION_ESCROW.md	359	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
 documentation/PREREGISTRATION_ESCROW.md	380	ledger-link	CORRECTION	n/a	-	not-a-marker	72b7489475c1
+documentation/PREREGISTRATION_ESCROW.md	427	ledger-link	CORRECTION	n/a	-	not-a-marker	4f56990fed9d
 documentation/PREREG_CLASSA_QUERY_SET.md	58	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ee4dfed3e343
 documentation/PREREG_CLASSA_QUERY_SET.md	166	marker	CORRECTED	3	GATE 86(file)	gate-anchored	21fdbd99b0b4
 documentation/PREREG_CLASSA_QUERY_SET.md	235	marker	CORRECTED	3	GATE 86(file)	gate-anchored	05d0f5c9b0a2
@@ -575,6 +576,7 @@ reports/METHODS.md	91	marker	Corrected	1	-	reviewed:sentence-already-says-priced
 reports/METHODS.md	114	marker	Corrected	1	-	reviewed:row-already-says-pin-to-a-commit-sha	8dd1ef0fa19f
 reports/METHODS.md	142	marker	Corrected	3	GATE 4b	reanchored:GATE-4b=allowlist-row	bc73b6ca1f60
 reports/METHODS.md	146	ledger-link	CORRECTION	n/a	-	not-a-marker	fd3fff6ea530
+reports/METHODS.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	79d98acdfc0b
 reports/METHODS.md	553	ledger-link	CORRECTION	n/a	-	not-a-marker	2ae7abd23d87
 reports/METHODS.md	554	ledger-link	RETRACTED	n/a	-	not-a-marker	629963a97751
 reports/METHODS.md	586	ledger-link	CORRECTION	n/a	-	not-a-marker	a9e1def5639d
@@ -749,6 +751,7 @@ reports/TR6_PARITY_SKELETON.md	187	marker	Corrected	1	-	reviewed:text-already-st
 reports/TR6_PARITY_SKELETON.md	200	changelog	now reads	keep	-	revision-row	75b1931269f2
 reports/TR7_CIRCULAR_READING.md	331	marker	CORRECTED	1	-	reviewed:text-already-says-lower-bound	950598f00a9b
 reports/TR8_REORDERING_REVISITED.md	40	ledger-link	CORRECTION	n/a	-	not-a-marker	757e938cbbe3
+reports/TR8_REORDERING_REVISITED.md	41	ledger-link	CORRECTION	n/a	-	not-a-marker	bc39eae64282
 reports/TR8_REORDERING_REVISITED.md	67	ledger-link	CORRECTION	n/a	-	not-a-marker	f012ec6cc68b
 reports/TR8_REORDERING_REVISITED.md	85	marker	Corrected	1	-	reviewed:passage-already-separates-the-two-quantities	9ed5548a0e40
 reports/TR8_REORDERING_REVISITED.md	159	marker	CORRECTED	1	-	reviewed:sentence-already-reads-correctly	804bba4e185c
@@ -758,6 +761,7 @@ reports/TR8_REORDERING_REVISITED.md	259	changelog	CORRECTION	keep	-	revision-row
 reports/TR8_REORDERING_REVISITED.md	259	changelog	now reads	keep	-	revision-row	14ab84548018
 reports/TR8_REORDERING_REVISITED.md	261	changelog	CORRECTION	keep	-	revision-row	c66811892af4
 reports/TR8_REORDERING_REVISITED.md	262	changelog	CORRECTION	keep	-	revision-row	129ca2ceb2c8
+reports/TR8_REORDERING_REVISITED.md	266	changelog	CORRECTION	keep	-	revision-row	6ff6477495e1
 reports/TR9_PRICING_THE_CONSTRAINTS.md	146	marker	CORRECTED	1	-	reviewed:bare-dated-tag;following-sentences-carry-the-correction	36ac98e5990d
 reports/TR9_PRICING_THE_CONSTRAINTS.md	158	narration	now reads	1	-	reviewed:narration-inside-a-correction-note;text-reads-correctly	b3ddf61963b0
 reports/TR9_PRICING_THE_CONSTRAINTS.md	231	marker	CORRECTED	1	-	reviewed:bare-dated-tag;following-sentences-carry-the-correction	a5298cb36fc2
@@ -797,6 +801,7 @@ runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	43	marker	CORRECTED	3	GATE 3b	
 runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	74	marker	CORRECTED	1	-	reviewed:example-above-already-reads-16384	2298a7a58936
 runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md	84	marker	Corrected	1	-	reviewed:bar-already-redrawn;note-is-provenance	eacac6a9e8de
 runs/20260906_kc_ladders_n31/README.md	37	marker	Corrected	1	-	reviewed:text-already-says-the-sidecar-re-reads-the-file	5a56ba8ff38d
+runs/20261003_tr8_dof_sampler_35782834/README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	103edf34a7db
 scripts/tr12_expected/README.md	32	marker	CORRECTED	1	-	reviewed:sentence-above-already-scopes-to-what-a-row-prints	f830b198793f
 viz/README.md	271	ledger-link	CORRECTION	n/a	-	not-a-marker	869b2339f85a
 viz/README.md	330	ledger-link	CORRECTION	n/a	-	not-a-marker	913a18257ddb

@@ -20,9 +20,13 @@
 # a WHOLE output line (leading and trailing blanks ignored). The one exception is an expectation
 # that ends in " …": the output line must then BEGIN with the text before " …", followed by a blank
 # or the end of the line (for lines that end in a timing). An expectation of the form KEY=VALUE
-# also fails if any other line sets the same KEY to a different value. (Before 2026-10-02 other
+# also fails if any other line sets the same KEY to a different value, or if the expected line
+# appears more than once. (Before 2026-10-02 other
 # expectations were substring matches, so "KC COUNT n=13 = 20633956070400", ten times the right
 # count, passed; Codex PKG-V1 finding 2.)
+# A step that runs past SELFCHECK_STEP_TIMEOUT seconds (default 1800; exit 124) is [TIMEOUT], and
+# one killed by a signal (exit 129..192) is [CRASH]: it did not finish, so whatever it printed is
+# not evidence, and the run ends REVIEWER_PACKAGE=ERROR, never PASS or FAIL (batch 39).
 # The page also states how many steps it has ("There are **N steps**"). The count of numbered steps
 # must equal N, and the steps must be numbered 1..N with none skipped or repeated.
 #
@@ -48,9 +52,9 @@
 #
 # VERDICT TOKENS, each a whole line:
 #   REVIEWER_PACKAGE=PASS|FAIL|ERROR      exit 0 | 1 | 2
-#   PACKAGE_MANIFEST=OK|FAIL|SKIPPED
-#   SELFCHECK_STEPS=<n>  SELFCHECK_FAILED=<n>
-#   AGGREGATES=PASS|FAIL                  --aggregates, exit 0 | 1
+#   PACKAGE_MANIFEST=OK|FAIL|SKIPPED|ERROR
+#   SELFCHECK_STEPS=<n>  SELFCHECK_FAILED=<n>  SELFCHECK_UNFINISHED=<n>  (timed out or crashed)
+#   AGGREGATES=PASS|FAIL|ERROR            --aggregates, exit 0 | 1 | 2 (ERROR: the check crashed)
 #   SELFCHECK_SELFTEST=PASS|FAIL          --selftest, exit 0 | 1
 #
 # NEEDS: bash, python3 (3.8 or later; no third-party packages), GNU coreutils, findutils, sed, awk,
@@ -113,12 +117,36 @@ RUNOUT_SHA="8c7d063e21a388b8a09f91a44dff36ffe0071c4e2737b1f50f34781a73260655"
 TABLE_SHA="165cda4e804e398a1d3690cf1d73348d7ddd743134a61c84ba99df8b38881547"
 TERMINAL="1097051278789181790036112071176579186688"
 
+# ---- a checker's verdict: its exit status AND exactly one verdict line ---------------------------
+# verdict_gate KEY RC OUT PASSVALS FAILVALS WHAT -> prints OUT without its KEY= lines, then ONE KEY=
+# line, and returns 0 when RC is 0 and OUT held exactly one KEY= line with a value in PASSVALS, 1
+# when RC is 1 and OUT held exactly one with a value in FAILVALS, and otherwise (a crash, a kill, a
+# timeout, no verdict line, two of them, or a verdict that disagrees with the exit status) prints
+# [ERROR] and KEY=ERROR and returns 2. (The Q-951 / Q-952 class, batch 39: a verdict read from a
+# line alone, or from an exit status alone, can be a crash's leftover.)
+verdict_gate(){
+  local key=$1 rc=$2 out=$3 pv=" $4 " fv=" $5 " what=$6 toks n v
+  toks=$(grep -E "^${key}=" <<<"$out")
+  n=$(grep -c . <<<"$toks")
+  grep -vE "^${key}=" <<<"$out"
+  v=${toks#"$key="}
+  if [ "$n" -eq 1 ] && [ "$rc" -eq 0 ] && [[ "$pv" == *" $v "* ]]; then echo "$toks"; return 0; fi
+  if [ "$n" -eq 1 ] && [ "$rc" -eq 1 ] && [[ "$fv" == *" $v "* ]]; then echo "$toks"; return 1; fi
+  echo "  [ERROR] $what did not finish cleanly (exit $rc, $n $key= line(s)$([ "$n" -gt 0 ] && printf ': %s' "$(tr '\n' ' ' <<<"$toks")")); its verdict is not evidence"
+  echo "$key=ERROR"; return 2
+}
+
 # ---- the aggregate check (layer B) ---------------------------------------------------------------
 # aggregates DOC RUNOUT [RUN13LOG [LOG_SHA TABLE_SHA TERMINAL]] -> prints its legs and
-# AGGREGATES=PASS|FAIL; returns 0|1. The last three default to the pinned values; --selftest
+# AGGREGATES=PASS|FAIL|ERROR; returns 0|1|2. The last three default to the pinned values; --selftest
 # passes others so that each planted defect is caught by the check it targets and not by a digest.
+# The verdict is the checker's exit status AND its one verdict line (verdict_gate): a crash, a kill
+# or a verdict line that disagrees with the exit status is AGGREGATES=ERROR, never PASS or FAIL.
+# Numbers are matched as ASCII digits only ([0-9], not Python's Unicode \d) and compared as exact
+# strings or Python integers, never as floating point (the P-01 / Q-948 class; batch 39).
 aggregates(){
-  python3 - "$1" "$2" "${3:-}" "${4:-$RUNOUT_SHA}" "${5:-$TABLE_SHA}" "${6:-$TERMINAL}" <<'PY'
+  local out rc
+  out=$(python3 - "$1" "$2" "${3:-}" "${4:-$RUNOUT_SHA}" "${5:-$TABLE_SHA}" "${6:-$TERMINAL}" 2>&1 <<'PY'
 import hashlib, math, re, sys
 doc, runout, run13, want_log_sha, want_table_sha, terminal = sys.argv[1:7]
 bad = []
@@ -144,7 +172,7 @@ def section_rows(n_sec, width):
     return rows
 
 # (1) the 31-row table of section 1
-t = [c for c in section_rows(1, 8) if re.fullmatch(r"\d+", c[0])]
+t = [c for c in section_rows(1, 8) if re.fullmatch(r"[0-9]+", c[0])]
 leg([int(c[0]) for c in t] == list(range(1, 32)),
     "section 1 of the aggregates page has rows k = 1..31 (found %d)" % len(t))
 canon = "".join("\t".join(c) + "\n" for c in t)
@@ -153,7 +181,7 @@ print("AGGREGATES_TABLE_SHA256=" + tsha)
 leg(tsha == want_table_sha, "the table digest is the published one (%s...)" % want_table_sha[:16])
 for c in t:
     k = int(c[0])
-    if not c[2].isdigit() or int(c[2]) != math.comb(31, k):
+    if not re.fullmatch(r"[0-9]+", c[2]) or int(c[2]) != math.comb(31, k):
         leg(False, "k=%d: the table's C(31,k) cell %s is not %d" % (k, c[2], math.comb(31, k)))
 
 # (2) the published full-31 run log. Every record of each kind must be well formed, about the
@@ -168,8 +196,8 @@ leg(lsha == want_log_sha, "the run log's sha256 is the published one (%s...)" % 
 text = raw.decode("utf-8", "replace")
 # A full-31 session line names the whole problem: all 31 pairs in order, starting exit 0.
 FULL31_RUN = "[f1c5] run: FULL-31 n=31 pairs [%s] start_exit=0 " % ",".join(str(i) for i in range(1, 32))
-pat = re.compile(r"^\[f1c5\] layer k=\s*(\d+)/31: canonical_masks=(\d+) \(of C\(31,(\d+)\)=(\d+)\) "
-                 r"states=(\d+) entries=(\d+) V_k=(\d+) bytes=([0-9.]+)GB .*? mass=(\d+) ")
+pat = re.compile(r"^\[f1c5\] layer k=\s*([0-9]+)/31: canonical_masks=([0-9]+) \(of C\(31,([0-9]+)\)=([0-9]+)\) "
+                 r"states=([0-9]+) entries=([0-9]+) V_k=([0-9]+) bytes=([0-9.]+)GB .*? mass=([0-9]+) ")
 log, dup, malformed = {}, [], []
 runs_other, n_runs = [], 0
 finals, finals_bad = [], []
@@ -190,7 +218,7 @@ for i, line in enumerate(text.split("\n"), 1):
         if not line.startswith(FULL31_RUN):
             runs_other.append(i)
     elif line.startswith("F1C5 EXACT"):
-        m = re.fullmatch(r"F1C5 EXACT \|C1 & C2 & C4 & C5\| = (\d+)", line)
+        m = re.fullmatch(r"F1C5 EXACT \|C1 & C2 & C4 & C5\| = ([0-9]+)", line)
         if m:
             finals.append(m.group(1))
         elif not line.startswith("F1C5 EXACT: DONE"):
@@ -220,7 +248,7 @@ leg(bool(finals) and not finals_bad and all(f == terminal for f in finals),
     "every final-count line of the run log reads %s (%d such lines%s)"
     % (terminal, len(finals), "" if not finals_bad else ", malformed at line %s" % finals_bad[:5]))
 leg(len(t) == 31 and t[-1][7] == terminal, "row k=31 of the table is the published total")
-leg(len(t) == 31 and t[-1][7].isdigit() and int(t[-1][7]) % 24 == 0,
+leg(len(t) == 31 and bool(re.fullmatch(r"[0-9]+", t[-1][7])) and int(t[-1][7]) % 24 == 0,
     "the total is divisible by 24 (a consistency check: the order-24 group acts freely)")
 
 # (3) optional: the reader's own n=13 engine log against the n=13 column of section 2.
@@ -233,9 +261,9 @@ if run13:
     P13 = "[3,7,11,5,8,26,31,10,15,20,23,27,29]"
     col, colbad = {}, []
     for c in section_rows(2, 8) + section_rows(2, 5):
-        if len(c) > 4 and re.fullmatch(r"\d+", c[3]):
+        if len(c) > 4 and re.fullmatch(r"[0-9]+", c[3]):
             k = int(c[3])
-            if not 1 <= k <= 13 or not re.fullmatch(r"\d+", c[4]) or k in col:
+            if not 1 <= k <= 13 or not re.fullmatch(r"[0-9]+", c[4]) or k in col:
                 colbad.append(k); continue
             col[k] = int(c[4])
     try:
@@ -243,8 +271,8 @@ if run13:
     except OSError as e:
         r13 = []
         leg(False, "cannot read %s: %s" % (run13, e))
-    p13 = re.compile(r"^\[f1c5\] layer k=\s*(\d+)/13: canonical_masks=(\d+) \(of C\(13,(\d+)\)=(\d+)\) "
-                     r"states=\d+ entries=\d+ V_k=\d+ bytes=[0-9.]+GB .*? mass=(\d+) ")
+    p13 = re.compile(r"^\[f1c5\] layer k=\s*([0-9]+)/13: canonical_masks=([0-9]+) \(of C\(13,([0-9]+)\)=([0-9]+)\) "
+                     r"states=[0-9]+ entries=[0-9]+ V_k=[0-9]+ bytes=[0-9.]+GB .*? mass=([0-9]+) ")
     eng, dup13, bad13 = {}, [], []
     starts, ends, totals, at = [], [], [], {}
     for i, line in enumerate(r13, 1):
@@ -261,7 +289,7 @@ if run13:
         elif line.startswith("F1C5 SUBSET n=") and "pairs" in line:
             ends.append((i, line))
         elif "orbit-quotient C5-DP total" in line:
-            m = re.fullmatch(r"\s*orbit-quotient C5-DP total = (\d+)", line)
+            m = re.fullmatch(r"\s*orbit-quotient C5-DP total = ([0-9]+)", line)
             totals.append((i, int(m.group(1)) if m else None))
     leg(sorted(col) == list(range(1, 14)) and not colbad,
         "section 2 has exactly one well-formed n=13 mass for each k = 1..13%s"
@@ -290,11 +318,13 @@ if run13:
 print("AGGREGATES=" + ("FAIL" if bad else "PASS"))
 sys.exit(1 if bad else 0)
 PY
+); rc=$?
+  verdict_gate AGGREGATES "$rc" "$out" PASS FAIL "the aggregate check"
 }
 
 # ---- the package manifest ------------------------------------------------------------------------
-# check_manifest DIR [CHECKOUT] -> prints its legs and PACKAGE_MANIFEST=OK|FAIL|SKIPPED; returns
-# 0|1|0. The manifest is required unless CHECKOUT is 1 (--source-checkout) AND neither marker file
+# check_manifest DIR [CHECKOUT] -> prints its legs and PACKAGE_MANIFEST=OK|FAIL|SKIPPED|ERROR;
+# returns 0|1|0|2 (ERROR: the checker crashed or its verdict line and exit status disagree). The manifest is required unless CHECKOUT is 1 (--source-checkout) AND neither marker file
 # is present. (Before 2026-10-03 a directory with neither marker was taken to be a checkout and
 # skipped, so deleting both files from a package switched the integrity check off; Codex PKG-V3
 # finding 8.)
@@ -309,7 +339,8 @@ check_manifest(){
     echo "          (in a repository checkout, run with --source-checkout)"
     echo "PACKAGE_MANIFEST=FAIL"; return 1
   fi
-  python3 - "$d" "${PKG_FILES[@]}" reviewer/PACKAGE_VERSION <<'PY'
+  local out rc
+  out=$(python3 - "$d" "${PKG_FILES[@]}" reviewer/PACKAGE_VERSION 2>&1 <<'PY'
 import hashlib, os, re, sys
 d, want = sys.argv[1], sys.argv[2:]
 bad = []
@@ -351,6 +382,8 @@ if not bad:
 print("PACKAGE_MANIFEST=" + ("FAIL" if bad else "OK"))
 sys.exit(1 if bad else 0)
 PY
+); rc=$?
+  verdict_gate PACKAGE_MANIFEST "$rc" "$out" OK FAIL "the manifest check"
 }
 
 # ---- the step parser -----------------------------------------------------------------------------
@@ -421,7 +454,7 @@ match_expect(){
   case "$exp" in
     *" …")
       local pre=${exp% …}
-      if ! awk -v p="$pre" 'index($0, p) == 1 && (length($0) == length(p) || substr($0, length(p) + 1, 1) == " ") {f=1} END{exit !f}' "$f"; then
+      if ! P=$pre awk 'BEGIN{p = ENVIRON["P"]} index($0, p) == 1 && (length($0) == length(p) || substr($0, length(p) + 1, 1) == " ") {f=1} END{exit !f}' "$f"; then
         echo "          [FAIL] no output line begins with: $pre"; return 1
       fi ;;
     *)
@@ -434,6 +467,12 @@ match_expect(){
     other=$(grep -E "^${key}=" "$f" | grep -vxF -- "$exp" | head -1)
     if [ -n "$other" ]; then
       echo "          [FAIL] conflicting verdict: '$other' beside the expected '$exp'"; return 1
+    fi
+    # Exactly one verdict line (the Q-952 class, batch 39): two runs' worth of tokens in one log, or
+    # a producer that printed its verdict twice, is not one result.
+    local nsame; nsame=$(grep -cxF -- "$exp" "$f")
+    if [ "$nsame" -ne 1 ]; then
+      echo "          [FAIL] the verdict line '$exp' appears $nsame times; a verdict must be printed exactly once"; return 1
     fi
   fi
   return 0
@@ -450,11 +489,17 @@ match_expect(){
 #      (a layer index, say) and must also agree, so "layer 1: ..." does not contradict "layer 9: ...".
 #      For an expectation ending in " …", the form of its text before " …" is compared with the
 #      start of each line. KEY=VALUE expectations are left to the KEY= rule in match_expect.
-#  (2) A REPORTED FAILURE. A line containing the word FAIL, or a starred MISMATCH, fails the step,
-#      unless it is itself an expected line, or a KEY= line already judged by the KEY= rule.
+#  (2) A REPORTED FAILURE. A line containing the word FAIL or ERROR, a starred MISMATCH, or the
+#      start of a Python traceback fails the step, unless it is exactly an expected line (for a
+#      " …" expectation: unless the word is inside the expected prefix, not in what follows it), or
+#      a KEY= line already judged by the KEY= rule. The checker's own crash is exit 3, which the
+#      runner reports as [ERROR], never as a pass.
 conflict_check(){
   python3 - "$1" "$2" <<'PY'
-import re, sys
+import os, re, sys, traceback
+def _crash(t, v, tb):                  # a crash is exit 3, never read as "no conflict" or "a conflict"
+    traceback.print_exception(t, v, tb); sys.stdout.flush(); sys.stderr.flush(); os._exit(3)
+sys.excepthook = _crash
 lines = open(sys.argv[1], encoding="utf-8", errors="replace").read().split("\n")
 exps = [e for e in open(sys.argv[2], encoding="utf-8").read().split("\n") if e]
 NUM = re.compile(r"[0-9a-f]{16,}|\d+(?:,\d+)*")
@@ -484,9 +529,14 @@ for e in exps:
             same = False               # a different label: another record, not a contradiction
         if same:
             print("          [FAIL] conflicting line: '%s' beside the expected '%s'" % (l, e)); bad = 1
-fail = re.compile(r"(?<![A-Za-z])FAIL(?![A-Za-z])|\*\s*MISMATCH\s*\*")
+fail = re.compile(r"(?<![A-Za-z])(?:FAIL|ERROR)(?![A-Za-z])|\*\s*MISMATCH\s*\*|^Traceback \(most recent call last\):")
 for l in lines:
-    if not fail.search(l) or any(matches(e, l) for e in exps):
+    if not fail.search(l) or any(not e.endswith(" …") and l == e for e in exps):
+        continue                       # no failure word, or the page asks for exactly this line
+    # A line that only BEGINS with an expected prefix is exempt only if the failure word is inside
+    # that prefix: "<expected prefix> ... FAIL" reports a failure (batch 39; before, any line that
+    # matched a " …" expectation was exempt, whatever followed the prefix).
+    if any(e.endswith(" …") and matches(e, l) and not fail.search(l[len(e) - 2:]) for e in exps):
         continue
     m = re.match(r"^([A-Za-z0-9_]+)=", l)
     if m and m.group(1) in keys:
@@ -507,9 +557,13 @@ populate(){
 }
 
 # run_steps PAGE SRC FILE... -> runs every step of PAGE in a fresh scratch directory holding copies
-# of the listed files of SRC; sets SCRATCH NSTEP NFAIL; returns 0, or 2 if the scratch cannot be made.
+# of the listed files of SRC; sets SCRATCH NSTEP NFAIL NUNFIN; returns 0, or 2 if the scratch cannot
+# be made. NUNFIN counts the steps that did not finish: a timeout (exit 124: [TIMEOUT]), a kill by a
+# signal (exit 129..192: [CRASH]) or a crash of the contradiction check itself ([ERROR]). Such a
+# step is also counted in NFAIL, and the run's verdict is then ERROR, never PASS or FAIL (the Q-951
+# class, batch 39: before, a timeout was an ordinary "exit status 124").
 run_steps(){
-  local page=$1 src=$2 W n cmd t0 t1 rc log ok rss exp; shift 2
+  local page=$1 src=$2 W n cmd t0 t1 rc crc log ok unfin rss exp state; shift 2
   W=$(mktemp -d "${TMPDIR:-/tmp}/roae_reviewer.XXXXXX") || return 2
   SCRATCH=$W
   populate "$W" "$src" "$@" || return 2
@@ -520,7 +574,8 @@ run_steps(){
   local TIMEBIN=""
   if [ -x /usr/bin/time ] && /usr/bin/time -f '%M' -o /dev/null true 2>/dev/null; then TIMEBIN=/usr/bin/time; fi
   [ -n "$TIMES" ] && printf 'step\twall_s\tpeak_rss_kib\tresult\n' > "$TIMES"
-  NSTEP=0; NFAIL=0
+  NSTEP=0; NFAIL=0; NUNFIN=0
+  local tmo=${SELFCHECK_STEP_TIMEOUT:-1800}
   while IFS=$'\t' read -r _ n cmd; do
     NSTEP=$((NSTEP+1))
     log="$W/.selfcheck/step_$n.log"
@@ -528,28 +583,45 @@ run_steps(){
     t0=$(date +%s%N)
     if [ -n "$TIMEBIN" ]; then
       (cd "$W" && env "${UNSET[@]}" "$TIMEBIN" -f '%M' -o "$W/.selfcheck/rss_$n" \
-          timeout "${SELFCHECK_STEP_TIMEOUT:-1800}" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
+          timeout "$tmo" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
       rss=$(tail -1 "$W/.selfcheck/rss_$n" 2>/dev/null | grep -E '^[0-9]+$' || echo "")
     else
-      (cd "$W" && env "${UNSET[@]}" timeout "${SELFCHECK_STEP_TIMEOUT:-1800}" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
+      (cd "$W" && env "${UNSET[@]}" timeout "$tmo" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
       rss=""
     fi
     t1=$(date +%s%N)
     local wall; wall=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", (b-a)/1e9}')
     sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$log" > "$log.trim"
-    ok=1
-    [ "$rc" -eq 0 ] || { echo "          [FAIL] exit status $rc"; ok=0; }
+    ok=1; unfin=0
+    if [ "$rc" -eq 124 ]; then
+      echo "          [TIMEOUT] the step did not finish within $tmo s (SELFCHECK_STEP_TIMEOUT; exit 124): nothing it printed is evidence"
+      ok=0; unfin=1
+    elif [ "$rc" -gt 128 ] && [ "$rc" -le 192 ]; then
+      echo "          [CRASH] the step was killed by signal $((rc - 128)) (exit $rc): nothing it printed is evidence"
+      ok=0; unfin=1
+    elif [ "$rc" -ne 0 ]; then
+      echo "          [FAIL] exit status $rc"; ok=0
+    fi
     while IFS=$'\t' read -r _ _ exp; do
       match_expect "$log.trim" "$exp" || ok=0
     done < <(awk -F'\t' -v n="$n" '$1=="EXPECT" && $2==n' <<<"$STEPS_TSV")
     awk -F'\t' -v n="$n" '$1=="EXPECT" && $2==n{print $3}' <<<"$STEPS_TSV" > "$log.exp"
-    conflict_check "$log.trim" "$log.exp" || ok=0
+    conflict_check "$log.trim" "$log.exp"; crc=$?
+    case "$crc" in
+      0) ;;
+      1) ok=0 ;;
+      *) echo "          [ERROR] the contradiction check itself failed (exit $crc), so this step is unchecked"; ok=0; unfin=1 ;;
+    esac
+    NUNFIN=$((NUNFIN + unfin))
     if [ "$ok" -eq 1 ]; then
       printf '          [ok] %s s%s\n' "$wall" "${rss:+, peak ${rss} KiB}"
     else
       NFAIL=$((NFAIL+1)); echo "          last lines of its output:"; tail -4 "$log" | sed 's/^/          | /'
     fi
-    [ -n "$TIMES" ] && printf '%s\t%s\t%s\t%s\n' "$n" "$wall" "$rss" "$([ $ok -eq 1 ] && echo ok || echo FAIL)" >> "$TIMES"
+    state=ok; [ "$ok" -eq 1 ] || state=FAIL
+    [ "$rc" -eq 124 ] && state=TIMEOUT
+    [ "$rc" -gt 128 ] && [ "$rc" -le 192 ] && state=CRASH
+    [ -n "$TIMES" ] && printf '%s\t%s\t%s\t%s\n' "$n" "$wall" "$rss" "$state" >> "$TIMES"
   done < <(grep '^STEP' <<<"$STEPS_TSV")
   return 0
 }
@@ -573,7 +645,9 @@ list)
 run)
   echo "== ROAE reviewer package: self-check =="
   [ -r "$ROOT/reviewer/PACKAGE_VERSION" ] && sed 's/^/  /' "$ROOT/reviewer/PACKAGE_VERSION"
-  check_manifest "$ROOT" "$CHECKOUT" || { echo "REVIEWER_PACKAGE=FAIL"; exit 1; }
+  check_manifest "$ROOT" "$CHECKOUT"; r=$?
+  if [ "$r" -eq 2 ]; then echo "REVIEWER_PACKAGE=ERROR"; exit 2; fi
+  if [ "$r" -ne 0 ]; then echo "REVIEWER_PACKAGE=FAIL"; exit 1; fi
   miss=""
   for t in gcc python3 sha256sum find xargs sort tee timeout mktemp awk sed grep gzip cut head tail cp; do
     command -v "$t" >/dev/null 2>&1 || miss="$miss $t"
@@ -591,6 +665,11 @@ run)
   [ "$KEEP" -eq 1 ] && echo "  scratch kept: $SCRATCH"
   echo "SELFCHECK_STEPS=$NSTEP"
   echo "SELFCHECK_FAILED=$NFAIL"
+  echo "SELFCHECK_UNFINISHED=$NUNFIN"
+  if [ "$NUNFIN" -gt 0 ]; then
+    echo "  [ERROR] $NUNFIN step(s) did not finish (timeout, crash, or a crash of the check itself): the run is incomplete"
+    echo "REVIEWER_PACKAGE=ERROR"; exit 2
+  fi
   if [ "$NFAIL" -eq 0 ] && [ "$NSTEP" -gt 0 ]; then echo "REVIEWER_PACKAGE=PASS"; exit 0; fi
   echo "REVIEWER_PACKAGE=FAIL"; exit 1 ;;
 esac
@@ -605,6 +684,7 @@ sfail=0
 DOC="$ROOT/$AGG_DOC_REL"; LOG="$ROOT/$RUNOUT_REL"
 sha(){ sha256sum "$1" | cut -d' ' -f1; }
 tsha(){ aggregates "$1" "$LOG" "" 2>/dev/null | sed -n 's/^AGGREGATES_TABLE_SHA256=//p'; }
+stub(){ mkdir -p "$(dirname "$1")"; printf '#!/usr/bin/env bash\n%s\n' "$2" > "$1"; chmod +x "$1"; }
 landed(){ if cmp -s "$1" "$2"; then echo "  [FAIL]  fixture $3: the plant did not land"; sfail=1; return 1; fi; }
 
 # grade NAME WANT(0|1) REQ[@ALLOW] OUTFILE RC -> checks the verdict; for a FAIL, that some [FAIL]
@@ -789,32 +869,60 @@ fi
 cp "$SD/solve.c.orig" "$MP/solve.c"; mv "$SD/pv.saved" "$MP/reviewer/PACKAGE_VERSION"
 mkmanifest
 
+echo "-- verdicts: the checker's exit status AND exactly one verdict line (Q-951 / Q-952 class)"
+# A stand-in python3 for the aggregate and manifest checkers: a verdict line beside a crash, no
+# verdict, two verdicts, or a verdict that disagrees with the exit status must be ERROR (rc 2).
+VS="$SD/vshim"
+vleg(){  # NAME KEY BODY -> run the checker for KEY with a stand-in python3 running BODY
+  local name=$1 key=$2 body=$3 out rc
+  stub "$VS/$name/python3" "cat >/dev/null; $body"
+  if [ "$key" = AGGREGATES ]; then out=$(PATH="$VS/$name:$PATH" aggregates "$DOC" "$LOG" "" 2>&1); rc=$?
+  else out=$(PATH="$VS/$name:$PATH" check_manifest "$MP" 2>&1); rc=$?; fi
+  if [ "$rc" -eq 2 ] && [ "$(grep -c "^$key=" <<<"$out")" -eq 1 ] && grep -qx "$key=ERROR" <<<"$out" \
+     && grep -q '\[ERROR\] .*did not finish cleanly' <<<"$out"; then
+    echo "  [ok]    $name -> $key=ERROR (rc 2)"
+  else
+    echo "  [FAIL]  $name: expected one $key=ERROR line and rc 2, got rc=$rc:"; sfail=1
+    grep -E "^$key=|\[(ERROR|FAIL)\]" <<<"$out" | head -3 | sed 's/^/          | /'
+  fi
+}
+vleg agg-pass-then-killed   AGGREGATES 'echo AGGREGATES=PASS; exit 137'
+vleg agg-no-verdict-rc0     AGGREGATES 'exit 0'
+vleg agg-two-verdicts       AGGREGATES 'echo AGGREGATES=PASS; echo AGGREGATES=PASS; exit 0'
+vleg agg-pass-then-fail     AGGREGATES 'echo AGGREGATES=PASS; echo AGGREGATES=FAIL; exit 1'
+vleg agg-pass-rc1           AGGREGATES 'echo AGGREGATES=PASS; exit 1'
+vleg agg-crash-rc1          AGGREGATES 'echo "Traceback (most recent call last):"; exit 1'
+vleg manifest-ok-then-timeout PACKAGE_MANIFEST 'echo PACKAGE_MANIFEST=OK; exit 124'
+vleg manifest-ok-rc1        PACKAGE_MANIFEST 'echo PACKAGE_MANIFEST=OK; exit 1'
+
 echo "-- the runner: pass rule"
 # mkpage NSTATED BODY NAME -> a page with the given steps
 mkpage(){ printf '# t\n\nThere are **%s steps**.\n\n## The steps\n\n```text\n%s\n```\n' "$1" "$2" > "$SD/$3.md"; }
-# runner NAME WANT(PASS|FAIL) DIAG_REGEX SRC [FILE...] -> runs a page, checks verdict and diagnostic
+# runner NAME WANT(PASS|FAIL|ERROR) DIAG_REGEX SRC [FILE...] -> runs a page, checks verdict and diagnostic
 runner(){
   local name=$1 want=$2 re=$3 src=$4 got; shift 4
   ( SCRATCH=""; KEEP=0; TIMES=""
     if ! check_page "$SD/$name.md"; then echo "VERDICT=FAIL"; exit 0; fi
     run_steps "$SD/$name.md" "$src" "$@"
     [ -n "$SCRATCH" ] && [ -d "$SCRATCH" ] && rm -rf -- "$SCRATCH"
-    [ "$NFAIL" -eq 0 ] && [ "$NSTEP" -gt 0 ] && echo "VERDICT=PASS" || echo "VERDICT=FAIL" ) > "$SD/$name.run" 2>&1
+    if [ "$NUNFIN" -gt 0 ]; then echo "VERDICT=ERROR"
+    elif [ "$NFAIL" -eq 0 ] && [ "$NSTEP" -gt 0 ]; then echo "VERDICT=PASS"
+    else echo "VERDICT=FAIL"; fi ) > "$SD/$name.run" 2>&1
   got=$(sed -n 's/^VERDICT=//p' "$SD/$name.run" | tail -1)
   if [ "$got" != "$want" ]; then
     echo "  [FAIL]  runner $name: expected $want, got ${got:-nothing}"; sfail=1
-    grep -E '\[(FAIL|ERROR)\]' "$SD/$name.run" | head -3 | sed 's/^/          | /'; return
+    grep -E '\[(FAIL|ERROR|TIMEOUT|CRASH)\]' "$SD/$name.run" | head -3 | sed 's/^/          | /'; return
   fi
-  if [ "$want" = FAIL ] && ! grep -qE -- "$re" <<<"$(grep -E '\[(FAIL|ERROR)\]' "$SD/$name.run")"; then
+  if [ "$want" != PASS ] && ! grep -qE -- "$re" <<<"$(grep -E '\[(FAIL|ERROR|TIMEOUT|CRASH)\]' "$SD/$name.run")"; then
     echo "  [FAIL]  runner $name: rejected, but not for the targeted reason (/$re/)"; sfail=1
-    grep -E '\[(FAIL|ERROR)\]' "$SD/$name.run" | head -3 | sed 's/^/          | /'; return
+    grep -E '\[(FAIL|ERROR|TIMEOUT|CRASH)\]' "$SD/$name.run" | head -3 | sed 's/^/          | /'; return
   fi
-  local stray; stray=$(grep -E '\[(FAIL|ERROR)\]' "$SD/$name.run" | grep -vE -- "$re" | head -1)
-  if [ "$want" = FAIL ] && [ -n "$stray" ]; then
+  local stray; stray=$(grep -E '\[(FAIL|ERROR|TIMEOUT|CRASH)\]' "$SD/$name.run" | grep -vE -- "$re" | head -1)
+  if [ "$want" != PASS ] && [ -n "$stray" ]; then
     echo "  [FAIL]  runner $name: another check also fired, so the leg is not isolated:"; sfail=1
     echo "          | $stray"; return
   fi
-  echo "  [ok]    runner $name -> $got$( [ "$want" = FAIL ] && printf ', by: %s' "$(grep -E '\[(FAIL|ERROR)\]' "$SD/$name.run" | grep -E -- "$re" | head -1 | sed 's/^ *\[[A-Z]*\] *//')")"
+  echo "  [ok]    runner $name -> $got$( [ "$want" != PASS ] && printf ', by: %s' "$(grep -E '\[(FAIL|ERROR|TIMEOUT|CRASH)\]' "$SD/$name.run" | grep -E -- "$re" | head -1 | sed 's/^ *\[[A-Z]*\] *//')")"
 }
 E="$SD/empty"; mkdir -p "$E"
 DIG=40387eed07b11319ba3943fca64ab94a7e19c6acfb56d2b42ce86e6ac0625c4e
@@ -827,7 +935,7 @@ mkpage 1 $'[1] echo STEP_ONE=ok' p_noexp
 mkpage 1 $'[1] echo STEP_ONE=ok_but_longer\n    expect: STEP_ONE=ok' p_wholeline
 mkpage 1 $'[1] echo \'KC COUNT n=13 = 20633956070400\'\n    expect: KC COUNT n=13 = 2063395607040' p_extra_digit
 mkpage 1 "[1] echo 'x${DIG}0  -'"$'\n'"    expect: ${DIG}  -" p_malformed_digest
-mkpage 1 $'[1] echo "ERROR: expected \'[--selftest] PASS — sha256 matches canonical baseline\'"\n    expect: [--selftest] PASS — sha256 matches canonical baseline' p_quoted_success
+mkpage 1 $'[1] echo "note: expected \'[--selftest] PASS — sha256 matches canonical baseline\'"\n    expect: [--selftest] PASS — sha256 matches canonical baseline' p_quoted_success
 mkpage 1 $'[1] echo AGGREGATES=PASS; echo AGGREGATES=FAIL\n    expect: AGGREGATES=PASS' p_conflicting_verdict
 mkpage 1 $'[1] echo \'all 9 layer masses MATCHED\'\n    expect: all 9 layer masses MATCH …' p_prefix_runs_on
 mkpage 1 $'[1] echo \'note: all 9 layer masses MATCH\'\n    expect: all 9 layer masses MATCH …' p_prefix_not_at_start
@@ -852,6 +960,22 @@ runner p_prefix_not_at_start FAIL 'begins with'              "$E"
 runner p_same_form_other_label PASS x                        "$E"
 runner p_same_form_other_value FAIL 'conflicting line'       "$E"
 runner p_reports_failure     FAIL 'reports a failure'        "$E"
+# A step that did not finish, a verdict printed twice, and a failure after an expected prefix
+# (the Q-951 / Q-952 class, batch 39).
+mkpage 1 $'[1] echo STEP_ONE=ok; sleep 5\n    expect: STEP_ONE=ok' p_timeout
+mkpage 1 $'[1] echo STEP_ONE=ok; kill -SEGV $$\n    expect: STEP_ONE=ok' p_crash
+mkpage 1 $'[1] { echo PIPE=ok; kill -KILL $BASHPID; } | tee out.txt\n    expect: PIPE=ok' p_crash_behind_tee
+mkpage 1 $'[1] echo AGGREGATES=PASS; echo AGGREGATES=PASS\n    expect: AGGREGATES=PASS' p_verdict_twice
+mkpage 1 $'[1] printf \'all 9 layer masses MATCH x  [0.0s] FAIL\\n\'\n    expect: all 9 layer masses MATCH …' p_prefix_then_fail
+mkpage 1 $'[1] printf \'STEP_ONE=ok\\nERROR: layer 3 unreadable\\n\'\n    expect: STEP_ONE=ok' p_reports_error
+mkpage 1 $'[1] printf \'STEP_ONE=ok\\nTraceback (most recent call last):\\n\'\n    expect: STEP_ONE=ok' p_traceback
+SELFCHECK_STEP_TIMEOUT=1 runner p_timeout ERROR '\[TIMEOUT\]' "$E"
+runner p_crash               ERROR '\[CRASH\] .*signal 11'  "$E"
+runner p_crash_behind_tee    ERROR '\[CRASH\] .*signal 9'   "$E"
+runner p_verdict_twice       FAIL 'exactly once'             "$E"
+runner p_prefix_then_fail    FAIL 'reports a failure'        "$E"
+runner p_reports_error       FAIL 'reports a failure'        "$E"
+runner p_traceback           FAIL 'reports a failure'        "$E"
 
 echo "-- the runner: isolation (Codex PKG-V1 finding 1)"
 # A package directory that already holds a reader's outputs. The step must not see them, and
@@ -890,7 +1014,6 @@ real_step_page(){  # STEPNO NAME -> $SD/NAME.md holding that one real step
     awk -F'\t' -v n="$1" '$1=="EXPECT" && $2==n{printf "    expect: %s\n", $3}' <<<"$REAL_TSV"
     printf '```\n'; } > "$SD/$2.md"
 }
-stub(){ mkdir -p "$(dirname "$1")"; printf '#!/usr/bin/env bash\n%s\n' "$2" > "$1"; chmod +x "$1"; }
 stepno(){ awk -F'\t' -v p="$1" '$1=="STEP" && index($3, p){print $2; exit}' <<<"$REAL_TSV"; }
 S_SELF=$(stepno './solve --selftest'); S_ENG=$(stepno '--f1-exact-c1c2c4c5'); S_KC=$(stepno '--kc-count')
 S_KCB=$(stepno '--kc-build')

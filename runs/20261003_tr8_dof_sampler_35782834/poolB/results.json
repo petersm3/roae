@@ -1,0 +1,319 @@
+{
+ "d2_k16": "UNCENSORED",
+ "draws_used": 10000000,
+ "ensemble_context": {
+  "8": {
+   "expected_overlap_k2_over_b": 0.2644628099173554,
+   "family_composition": {
+    "A": 1197,
+    "B": 2155,
+    "C": 882,
+    "D": 1014,
+    "F": 384,
+    "G": 169,
+    "H": 2112,
+    "I": 87
+   },
+   "mean_pairwise_clause_overlap": 0.2632132132132132
+  },
+  "12": {
+   "expected_overlap_k2_over_b": 0.5950413223140496,
+   "family_composition": {
+    "A": 1760,
+    "B": 3187,
+    "C": 1385,
+    "D": 1542,
+    "F": 607,
+    "G": 251,
+    "H": 3159,
+    "I": 109
+   },
+   "mean_pairwise_clause_overlap": 0.5955055055055055
+  },
+  "16": {
+   "expected_overlap_k2_over_b": 1.0578512396694215,
+   "family_composition": {
+    "A": 2350,
+    "B": 4322,
+    "C": 1869,
+    "D": 2111,
+    "F": 728,
+    "G": 349,
+    "H": 4121,
+    "I": 150
+   },
+   "mean_pairwise_clause_overlap": 1.0577217217217216
+  },
+  "20": {
+   "expected_overlap_k2_over_b": 1.6528925619834711,
+   "family_composition": {
+    "A": 2949,
+    "B": 5256,
+    "C": 2366,
+    "D": 2568,
+    "F": 978,
+    "G": 438,
+    "H": 5298,
+    "I": 147
+   },
+   "mean_pairwise_clause_overlap": 1.652836836836837
+  },
+  "24": {
+   "expected_overlap_k2_over_b": 2.3801652892561984,
+   "family_composition": {
+    "A": 3644,
+    "B": 6281,
+    "C": 2835,
+    "D": 3027,
+    "F": 1180,
+    "G": 523,
+    "H": 6299,
+    "I": 211
+   },
+   "mean_pairwise_clause_overlap": 2.38198998998999
+  }
+ },
+ "gates": {
+  "b_admitted_ge_floor": true,
+  "b_raw_eq_319": true,
+  "h_a_kw_satisfies_every_raw_template": true,
+  "h_b_band": [
+   925,
+   1184
+  ],
+  "h_b_expected": 1054.4263471979182,
+  "h_b_note": "band |observed-expected| <= 4*sigma (binomial sigma, sqrt(N_pool*p*(1-p)); the pre-registration's \u00a73.5 bar) on P(rc4_violations<=2) = 47/445740",
+  "h_b_null_calibration": true,
+  "h_b_observed": 1073,
+  "h_b_sigma": 32.47021967443016
+ },
+ "geometric_mean_admitted_marginal": 0.4466304221466478,
+ "header": {
+  "admission_band": [
+   0.25,
+   0.75
+  ],
+  "admitted_bank_sha256": "65663a14decc7fd03064810a01be93271b112e09f61a4436967ddaba780e4484",
+  "admitted_family_counts": {
+   "A": 36,
+   "B": 64,
+   "C": 28,
+   "D": 31,
+   "F": 12,
+   "G": 5,
+   "H": 64,
+   "I": 2
+  },
+  "b_admitted": 242,
+  "b_raw": 319,
+  "calibration_draws": 100000,
+  "instrument": "solve.py --tr8-dof-sampler",
+  "k_ladder": [
+   8,
+   12,
+   16,
+   20,
+   24
+  ],
+  "n_pool": 10000000,
+  "n_pred": 1000,
+  "n_shards": 8,
+  "pool": "B",
+  "prereg": "roae-private PREREG_TR8_DOF_MATCHED_SAMPLER (must be FROZEN before a recorded run; this header does not assert that it is)",
+  "r_kw": "47/445740",
+  "seed_root": "ROAE-TR8-DOFMATCH-2026-08-11",
+  "seeds": {
+   "bank-calibration": 16808612684394547738,
+   "pool-B/shard-0": 17280634769704081978,
+   "pool-B/shard-1": 12859789941146902710,
+   "pool-B/shard-2": 9673229268059519990,
+   "pool-B/shard-3": 2975484051319448252,
+   "pool-B/shard-4": 14691623685985260424,
+   "pool-B/shard-5": 7925071803624899320,
+   "pool-B/shard-6": 6803183296203478846,
+   "pool-B/shard-7": 1734777686958258059,
+   "predicates/K-12": 13098566881017873166,
+   "predicates/K-16": 8433741811206836744,
+   "predicates/K-20": 4864257483467187375,
+   "predicates/K-24": 6694891894007310856,
+   "predicates/K-8": 5773044589811096261,
+   "timing-probe": 16606691537943803774
+  },
+  "solve_py_sha256": "38f3f886dcfed34b36fe5be4de17b2ed5363c719a63d3bde634934738aa4b609"
+ },
+ "statistics": {
+  "alpha": 0.05,
+  "by_k": {
+   "8": {
+    "censored_fraction": 0.0,
+    "deciles": [
+     0.0008507,
+     0.0010695,
+     0.0013197,
+     0.0015643,
+     0.0018475,
+     0.0021136,
+     0.0024546,
+     0.0029161,
+     0.0036803
+    ],
+    "f_ci": [
+     0.0,
+     0.003682083896865672
+    ],
+    "f_hat": 0.0,
+    "f_hat_x": 0,
+    "max": 0.0091424,
+    "median": 0.0018487,
+    "median_censored": false,
+    "median_ci": [
+     0.0017495,
+     0.001914
+    ],
+    "median_ci_ranks": [
+     469,
+     532
+    ],
+    "min": 0.0001677,
+    "n_pred": 1000
+   },
+   "12": {
+    "censored_fraction": 0.0,
+    "deciles": [
+     2.59e-05,
+     3.7e-05,
+     5.09e-05,
+     6.58e-05,
+     8.21e-05,
+     9.75e-05,
+     0.0001198,
+     0.0001458,
+     0.0002085
+    ],
+    "f_ci": [
+     0.6103872092041001,
+     0.6707797565396447
+    ],
+    "f_hat": 0.641,
+    "f_hat_x": 641,
+    "max": 0.0011295,
+    "median": 8.215e-05,
+    "median_censored": false,
+    "median_ci": [
+     7.66e-05,
+     8.73e-05
+    ],
+    "median_ci_ranks": [
+     469,
+     532
+    ],
+    "min": 2.7e-06,
+    "n_pred": 1000
+   },
+   "16": {
+    "censored_fraction": 0.004,
+    "deciles": [
+     1e-06,
+     1.6e-06,
+     2.3e-06,
+     3e-06,
+     3.8e-06,
+     4.9e-06,
+     6.4e-06,
+     9e-06,
+     1.38e-05
+    ],
+    "f_ci": [
+     0.9963179161031344,
+     1.0
+    ],
+    "f_hat": 1.0,
+    "f_hat_x": 1000,
+    "max": 7.72e-05,
+    "median": 3.8e-06,
+    "median_censored": false,
+    "median_ci": [
+     3.5e-06,
+     4.1e-06
+    ],
+    "median_ci_ranks": [
+     469,
+     532
+    ],
+    "min": 0.0,
+    "n_pred": 1000
+   },
+   "20": {
+    "censored_fraction": 0.234,
+    "deciles": [
+     0.0,
+     0.0,
+     1e-07,
+     1e-07,
+     2e-07,
+     3e-07,
+     4e-07,
+     5e-07,
+     8e-07
+    ],
+    "f_ci": [
+     0.9963179161031344,
+     1.0
+    ],
+    "f_hat": 1.0,
+    "f_hat_x": 1000,
+    "max": 9.7e-06,
+    "median": 2e-07,
+    "median_censored": false,
+    "median_ci": [
+     2e-07,
+     2e-07
+    ],
+    "median_ci_ranks": [
+     469,
+     532
+    ],
+    "min": 0.0,
+    "n_pred": 1000
+   },
+   "24": {
+    "censored_fraction": 0.847,
+    "deciles": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1e-07
+    ],
+    "f_ci": [
+     0.9963179161031344,
+     1.0
+    ],
+    "f_hat": 1.0,
+    "f_hat_x": 1000,
+    "max": 6e-07,
+    "median": 0.0,
+    "median_censored": true,
+    "median_ci": [
+     0.0,
+     0.0
+    ],
+    "median_ci_ranks": [
+     469,
+     532
+    ],
+    "min": 0.0,
+    "n_pred": 1000
+   }
+  },
+  "h_threshold": 1054,
+  "n_pool": 10000000,
+  "r_kw": 0.0001054426347197918
+ },
+ "verdict": "COMMON",
+ "verdict_reason": "CI(F_hat) lies entirely above 0.95"
+}

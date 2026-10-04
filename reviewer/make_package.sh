@@ -31,7 +31,12 @@ case "$OUT" in /*) ;; *) OUT="$ORIG_PWD/$OUT" ;; esac
 ROOT=$(cd "$(dirname "$0")/.." && pwd) || { echo "PACKAGE=ERROR"; exit 2; }
 cd "$ROOT" || { echo "PACKAGE=ERROR"; exit 2; }
 die(){ echo "  [ERROR] $*"; echo "PACKAGE=ERROR"; exit 2; }
-mapfile -t FILES < <(bash reviewer/selfcheck.sh --files) || die "cannot read the file list"
+# The list is read into a variable first: `mapfile < <(cmd)` succeeds whatever cmd exits with, so
+# a --files run that crashed after printing part of the list would have bundled that part (the
+# Q-951 class, batch 39).
+FLIST=$(bash reviewer/selfcheck.sh --files) || die "reviewer/selfcheck.sh --files exited $?; no file list"
+mapfile -t FILES <<<"$FLIST"
+[ -n "$FLIST" ] || FILES=()
 [ "${#FILES[@]}" -gt 0 ] || die "reviewer/selfcheck.sh --files printed no files"
 
 if [ "${ROAE_PKG_DRAFT:-0}" != 1 ] && \

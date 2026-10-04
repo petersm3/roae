@@ -29,7 +29,7 @@ single-campaign pattern whose second run's per-eviction timestamps are not publi
 ([TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) §4 and its figure caption); the bit ledger's accounting
 conventions are judgment-dependent by construction ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md) executive
 summary); and one load-bearing baseline currently has no artifact in the repo, flagged as such at its own
-claim site ([TR-8](TR8_REORDERING_REVISITED.md) executive summary). Where a measured claim has no
+claim site ([TR-8](TR8_REORDERING_REVISITED.md) executive summary) *(2026-10-03, CX-293: that baseline stays withdrawn; its slot now holds a new pre-registered measurement that ships with its artifact)*. Where a measured claim has no
 reproduction command, the report carrying it says so at the claim.*
 
 Every report opens with a plain-language executive summary — start there. For a one-page scorecard of what the suite has settled (refuted / corrected / forced / confirmed), see [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md). For the append-only record of every claim this suite published and later withdrew, rescoped or corrected — with what was claimed before, what is claimed now, and how it was found — see [CORRECTIONS](../documentation/CORRECTIONS.md). Reports are numbered by our assessment of significance and impact (numbering is editorial, not a ranking

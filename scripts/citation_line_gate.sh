@@ -1332,8 +1332,14 @@ if [ "${1:-}" = "--all-files" ]; then
       *) echo "  [ERROR] usage: $0 --all-files [--all-targets] [--base REF]"; echo "CITATION_LINE_GATE=ERROR"; exit 41 ;;
     esac
   done
+  # Q-956: name the tree this run measured (HEAD's tree when tracked content equals HEAD, else DIRTY,
+  # NONE outside a git work tree), so prepush_verdict_record.sh can bind this log to its record.
+  _ct=$(git -C "${CITGATE_ROOT:-$PWD}" rev-parse -q --verify 'HEAD^{tree}' 2>/dev/null) || _ct=NONE
+  [ "$_ct" = NONE ] || { git -C "${CITGATE_ROOT:-$PWD}" diff --quiet HEAD -- 2>/dev/null \
+    && git -C "${CITGATE_ROOT:-$PWD}" diff --cached --quiet HEAD -- 2>/dev/null; } || _ct=DIRTY
   V=$(verdict_all "${CITGATE_ROOT:-$PWD}" "$BASEREF" "$BASE_EXPLICIT" "$ALL_PINS" "$ALLT" "$TARGET_PINS" "$CONTENT_PINS")
   print_all
+  echo "CITATION_LINE_GATE_TREE=$_ct"
   # Q-572 CONTENT RULE -- BLOCKING since batch 32: an unreviewed content-weak landing, or a reviewed
   # pin that no longer matches one, is a VERDICT FAIL (so CITATION_LINE_GATE=FAIL). Its own token is
   # printed beside the verdict so a consumer can tell which rule failed.

@@ -509,10 +509,17 @@ else
     # by construction (ed8125c5 has no scripts/doc_gates.sh because that script
     # did not yet exist). Without this clause the hook retroactively re-gates
     # published history and can never pass.
-    _pub=""
-    for _r in $(git for-each-ref --format='%(refname)' refs/remotes/origin/ 2>/dev/null); do
-      if git merge-base --is-ancestor "$lsha" "$_r" 2>/dev/null; then _pub=$_r; break; fi
-    done
+    # Q-960 (Codex push-path review Q835, P-13): reachable from the DESTINATION's tracking refs,
+    # not origin's whatever the destination. git hands the hook the remote's NAME as $1 (a URL for
+    # `git push <url>`); only a configured remote name has tracking refs, so a URL push, a run with
+    # no $1, or an unknown name skips NOTHING and gates the tree (fail-closed). The trust in the
+    # tracking refs themselves (stale or hand-advanced) is unchanged and is the residual.
+    _pub="" _dst="${1:-}"
+    if [ -n "$_dst" ] && git config --get "remote.$_dst.url" >/dev/null 2>&1; then
+      for _r in $(git for-each-ref --format='%(refname)' "refs/remotes/$_dst/" 2>/dev/null); do
+        if git merge-base --is-ancestor "$lsha" "$_r" 2>/dev/null; then _pub=$_r; break; fi
+      done
+    fi
     if [ -n "$_pub" ]; then
       # Codex v2: this skip is correct for TREE CONTENT -- no new tree, nothing to
       # gate -- but it is ORTHOGONAL to the branch-name declaration check, which is
@@ -730,7 +737,7 @@ for sha in $SHAS; do
   # ADVISORY, REUSABLE (lane HAJ, 2026-09-27): the ADV_LEGS above (the Q-479 battery's three public
   #   gates, the REPRODUCE.md digests, the fail-open sweep) take a PASS or FAIL from a matching record
   #   and stay advisory either way; with no such verdict in the record they run here as before.
-  # Each pushed sha prints PREPUSH_TREE=, PREPUSH_CITGATE_BASE= and one PREPUSH_LEG_<NAME>= per
+  # Each pushed sha prints PREPUSH_TREE=, PREPUSH_CITGATE_BASE=, PREPUSH_TOOLCHAIN= and one PREPUSH_LEG_<NAME>= per
   # covered leg (PASS|FAIL|NOT-RUN, or REUSED on MATCH), and the push ends with PREPUSH_VERDICT=;
   # a record is distilled from exactly those lines, so a REUSED run can never seed a new record.
   _cb=${CITBASE[$sha]:-}
@@ -739,6 +746,10 @@ for sha in $SHAS; do
   _tree=$(git -C "$ROOT" rev-parse -q --verify "${sha}^{tree}" 2>/dev/null) || _tree=""
   echo "PREPUSH_TREE=${_tree:-UNKNOWN}"
   echo "PREPUSH_CITGATE_BASE=${_cb:-NONE}"
+  # Q-956: the toolchain this run's legs used, as the pushed tree's helper names it; the record writer
+  # takes TOOLCHAIN from this line (and the tests log), not from the host that distils the record.
+  _tc=$( [ -f "$WT/scripts/prepush_verdict_record.sh" ] && bash "$WT/scripts/prepush_verdict_record.sh" toolchain 2>/dev/null ) || _tc=""
+  echo "PREPUSH_TOOLCHAIN=${_tc:-UNKNOWN}"
   if [ -n "${ROAE_PREPUSH_RECORD:-}" ]; then
     _recpath=$(realpath -m -- "$ROAE_PREPUSH_RECORD" 2>/dev/null) || _recpath=""
     if [ -z "$_tree" ] || [ -z "$_recpath" ]; then
