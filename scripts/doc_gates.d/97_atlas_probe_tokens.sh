@@ -44,7 +44,7 @@
 # ---------------------------------------------------------------------------
 gate_atlas_probe_tokens() {
   echo "== GATE 90: SOLVE_PY_CLI.md's --atlas-probe token list equals the tokens atlas_probe() prints, in order =="
-  python3 - solve.py documentation/SOLVE_PY_CLI.md <<'ATLAS_TOKENS_PY'
+  { _sp_prelude; cat <<'ATLAS_TOKENS_PY'
 import ast, re, sys
 src_path, doc_path = sys.argv[1], sys.argv[2]
 
@@ -68,6 +68,43 @@ EMIT = ("tok", "gate")
 helpers = {n.name: n for n in ast.walk(fn)
            if isinstance(n, ast.FunctionDef) and n is not fn and n.name not in EMIT}
 code, unresolved = [], []
+# Q-970 (A03#15, A03#16; Q-835 Codex review, adjudicated Q-962): EVERY EMITTER, AND ONLY REACHABLE ONES.
+#   * An ALIAS of tok/gate (`emit = tok; emit("X", 1)`) emits as tok does: assignments of an emitter
+#     name to another name are followed, in source order.
+#   * A direct print() to stdout (`print("X=1")`, an f-string or a `%` format whose literal head is
+#     `NAME=`) or sys.stdout.write() prints a token too. One whose text cannot be resolved is an
+#     UNRESOLVED emitter (a FAIL), never a smaller list. print(..., file=<anything else>) is not stdout.
+#   * Statically DEAD code does not print: the body of `if False:` / `if 0:` / `while False:`, the else
+#     of `if True:`, and statements after a return/raise/continue/break (src_parse.sh sp_py_dead). Only a
+#     CONSTANT test is decided; `if DEBUG:` is live.
+# NOT FOLLOWED, stated: a module-level helper (outside atlas_probe) that prints, and an emitter passed
+# into a helper as an argument.
+emit = set(EMIT)
+dead = sp_py_dead(fn)
+TOKHEAD = re.compile(r"([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)=")
+
+def printed(call):
+    if not call.args:
+        return []
+    a = call.args[0]
+    if isinstance(a, ast.Constant) and isinstance(a.value, str):
+        head = a.value
+    elif isinstance(a, ast.BinOp) and isinstance(a.op, ast.Mod) and isinstance(a.left, ast.Constant) \
+            and isinstance(a.left.value, str):
+        head = a.left.value
+    elif isinstance(a, ast.JoinedStr) and a.values and isinstance(a.values[0], ast.Constant):
+        head = a.values[0].value
+    else:
+        return None
+    m = TOKHEAD.match(head)
+    return [m.group(1)] if m else (None if head.startswith("%") or head.startswith("{") else [])
+
+def to_stdout(call):
+    for kw in call.keywords:
+        if kw.arg == "file":
+            v = kw.value
+            return isinstance(v, ast.Attribute) and v.attr == "stdout"
+    return True
 
 def lit(node):
     try:
@@ -85,8 +122,19 @@ def resolve(arg, env):
     return None
 
 def visit(node, env):
-    if isinstance(node, (ast.ExceptHandler, ast.FunctionDef, ast.Lambda)):
+    if isinstance(node, (ast.ExceptHandler, ast.FunctionDef, ast.Lambda)) or id(node) in dead:
         return
+    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name) and node.value.id in emit:
+        emit.update(t.id for t in node.targets if isinstance(t, ast.Name))
+    if isinstance(node, ast.Call) and (
+            (isinstance(node.func, ast.Name) and node.func.id == "print" and to_stdout(node))
+            or (isinstance(node.func, ast.Attribute) and node.func.attr == "write"
+                and isinstance(node.func.value, ast.Attribute) and node.func.value.attr == "stdout")):
+        r = printed(node)
+        if r is None:
+            unresolved.append(node.lineno)
+        else:
+            code.extend(r)
     if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
         visit(node.iter, env)
         vals, e = lit(node.iter), dict(env)
@@ -98,7 +146,7 @@ def visit(node, env):
             visit(st, e)
         return
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-        if node.func.id in EMIT:
+        if node.func.id in emit:
             r = resolve(node.args[0], env) if node.args else None
             if r is None:
                 unresolved.append(node.lineno)
@@ -183,4 +231,5 @@ if diff:
 print("  [ok]   GATE 90: %d tokens, same names and same order in solve.py and %s" % (len(code), doc_path))
 print("ATLAS_PROBE_TOKEN_LIST=PASS")
 ATLAS_TOKENS_PY
+  } | python3 - solve.py documentation/SOLVE_PY_CLI.md
 }

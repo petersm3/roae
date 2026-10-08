@@ -837,6 +837,10 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-names-the-layer_curve-exception'),
     ('reports/FULL31_EXACT_AGGREGATES.md', 'a8b3e44f5cfe'):
         ('1', 'reviewed:text-already-defines-V_k-as-residual-vectors'),
+    ('reports/FULL31_EXACT_AGGREGATES.md', '95394accbcda'):
+        ('1', 'reviewed:sentence-before-already-states-exact-counts-and-what-the-gates-check'),
+    ('reports/FULL31_EXACT_AGGREGATES.md', 'dd87654435af'):
+        ('1', 'reviewed:paragraph-already-names-the-instrument-date-and-what-the-package-checks'),
     ('reports/README.md', '2a35a3c9c536'):
         ('1', 'reviewed:meta-mention-of-the-marker-form-in-code;not-a-correction'),
     ('reports/README.md', '31f8297b0b33'):

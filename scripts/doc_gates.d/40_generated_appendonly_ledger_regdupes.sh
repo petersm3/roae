@@ -1350,6 +1350,7 @@ def sample():
 
 fns = [getattr(solve, "reg_" + r) for r in ids]
 vecs = [[] for _ in ids]
+mutated = set()
 n = 0
 for seq in sample():
     if sorted(seq) != list(range(64)):
@@ -1361,8 +1362,15 @@ for seq in sample():
     # would compare EQUAL under `==` and the gate would report a duplicate that is only a
     # type pun. registry_verify() guards the same confusion with `type(value) is
     # type(expected)`; this is the vector-comparison form of that check.
+    # Q-970 (A05#10, Q-835 Codex review; adjudicated Q-962): EACH RULE GETS ITS OWN COPY, and a rule
+    # that CHANGES its input is a FAIL. Every rule was handed the same list, so a rule that reversed
+    # it in place fed every later rule a different ordering: two copies of one predicate then
+    # disagreed and this gate reported "0 new" over a duplicate pair.
     for idx, fn in enumerate(fns):
-        vecs[idx].append(repr(fn(seq)))
+        arg = list(seq)
+        vecs[idx].append(repr(fn(arg)))
+        if arg != seq:
+            mutated.add(ids[idx])
 
 allow = {}
 path = os.environ["DOC_GATES_DUPE_ALLOW"]
@@ -1378,6 +1386,10 @@ with open(path, encoding="utf-8") as fh:
         allow[tuple(sorted(parts[:2]))] = lineno
 
 bad = 0
+for r in sorted(mutated):
+    print("  [FAIL] reg_%s MODIFIES the ordering it is given; a registry rule must be a pure"
+          " predicate of the sequence (it is called on shared lists by registry_verify)" % r)
+    bad = 1
 known = set(ids)
 for pair, lineno in sorted(allow.items()):
     unknown = [r for r in pair if r not in known]

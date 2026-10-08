@@ -1176,7 +1176,7 @@ PREREGPY
 gate_emitted_surface() {
   echo "== GATE 89: emitted JSON keys and verdict tokens are documented =="
   local out
-  out=$(python3 - <<'ESPY'
+  out=$( { _sp_prelude; cat <<'ESPY'
 import ast, io, os, re, glob, subprocess, sys
 
 ALLOW = "documentation/DOC_GATE_EMITTED_SURFACE_OPEN.tsv"
@@ -1210,7 +1210,21 @@ FLOOR_KEYS, FLOOR_TOKENS, FLOOR_FILES, FLOOR_BYTES = 300, 95, 45, 2000000
 # `pool_b_dir`. Every key those expressions produce is named in documentation/SOLVE_PY_CLI.md
 # (§"TR-8 SAMPLER — CX-279 ADDITIONS": replication.json's keys, `gates.h_b_band`,
 # `statistics.h_threshold`, `d2_k16`, `ensemble_context`), which is what the census protects.
-FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 89
+# 🔴 CEIL_PY_UNRESOLVED re-pinned 89 -> 91 on 2026-10-03 (Q-970, A07#14), MEASURED THE SAME WAY: the
+# only change is that a BoolOp operand is now resolved (`a or b` evaluates to an operand, so a dict
+# there is a payload). The two new positions are solve.py:6325 and :6328, where `solutions_bin` /
+# `baseline_bin` are rebound to `_ctx.__enter__()` -- file paths, not payloads; the diff of the two
+# site lists (35782834 scripts vs the staged ones) is exactly those two lines and nothing else.
+FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 91
+# 🔴 CEIL_SH_LEXONLY (Q-970, A07#13): verdict tokens the SHELL LEXER sees emitted and the line scan
+# above never did (an echo after `then`/`&&`/`{`/`;`, a second echo on a line, a printf with several
+# tokens or %s filled from a literal), and that no documentation/ file names. MEASURED 2026-10-03 on
+# the staged tree: 18, each printed below as a [note] with its site. They are pre-existing surface
+# made visible, NOT adjudicated -- 14 are real verdict/census tokens and 4 are generated-runner shell
+# source (scripts/tr12_mint_state_gate.sh:97-98, written inside a redirected `{ }` group this lexer
+# cannot see the redirection of); the decision is the operator's (Q-970 report). Until then this is
+# a RATCHET: one more FAILS. Its stated weakness: a COUNT, so fixing one and adding another holds it.
+CEIL_SH_LEXONLY = 18
 
 def rec(*a):
     print("\t".join(str(x) for x in a))
@@ -1225,7 +1239,7 @@ for m in re.finditer(r'\\"([A-Za-z_][A-Za-z0-9_]*)\\"\s*:', src):
     keys.setdefault(m.group(1), "%s:%d" % (SRC, src.count("\n", 0, m.start()) + 1))
 
 # ---- extract LEG 2: whole-line KEY=value verdict tokens --------------------------------------
-toks, dropped = {}, 0
+toks, dropped, lexonly = {}, 0, {}
 SH = re.compile(r"""^\s*(?:echo|printf)\s+(?:-e\s+|-n\s+)?(['"])([A-Z][A-Z0-9_]{2,})=(.*?)\1""")
 for f in sorted(glob.glob("scripts/*.sh")):
     try:
@@ -1245,10 +1259,52 @@ for f in sorted(glob.glob("scripts/*.sh")):
             dropped += 1
             continue
         toks.setdefault(m.group(2), "%s:%d" % (f, i))
+    # Q-970 (A07#13, Q-835 Codex review; adjudicated Q-962): AN EMITTER IS A COMMAND, NOT A LINE THAT
+    # STARTS WITH ONE. `if true; then echo "Q835_NEW_VERDICT=PASS"; fi` printed an undocumented
+    # verdict and SH (anchored at the line start) never read it. The same file is now also read by
+    # the shell lexer (scripts/doc_gates.d/src_parse.sh): every echo/printf COMMAND, wherever it sits
+    # on its line, and inside $(..) too, with printf's %s/%d filled from literal arguments
+    # (`printf 'K=%s\n' PASS` emits K). Fragments and `# not-a-verdict` lines are dropped as above
+    # (and not counted twice). A file the lexer cannot read is an ERROR. NOT SEEN, stated: lines a
+    # here-document feeds to `cat`, and output built in a variable and printed elsewhere.
+    _marked = {k for k, l in enumerate(lines, 1) if l.rstrip().endswith("# not-a-verdict")}
+    try:
+        _cmds = sp_sh_commands("\n".join(lines))
+    except SpError as e:
+        rec("ERROR", "cannot lex %s (%s) — refusing to report OK from a partly-read tree" % (f, e)); sys.exit(0)
+    for _ln, _w in _cmds:
+        if _w[0].quoted or _w[0].value not in ("echo", "printf") or _ln in _marked:
+            continue
+        if any(o in (">", ">>", ">|", "&>", "&>>") and t is not None
+               and t.value not in ("/dev/stdout", "/dev/stderr") for o, t in _w.redirs):
+            continue        # written into a FILE (a fixture, a generated script), not emitted
+        _a = [x.value for x in _w[1:]]
+        if _w[0].value == "echo":
+            while _a and re.fullmatch(r"-[neE]+", _a[0]):
+                _a = _a[1:]
+            _outs = " ".join(_a).split("\n")
+        else:
+            if not _a or _a[0] == "-v":
+                continue
+            if _a[0] == "--":
+                _a = _a[1:]
+            _fmt, _rest = (_a[0], _a[1:]) if _a else ("", [])
+            _fmt = _fmt.replace("\\n", "\n").replace("%%", "\x00")
+            _fmt = re.sub(r"%[-#0 +]*[0-9]*(?:\.[0-9]+)?[sdiuxXfgeqb]",
+                          lambda m: _rest.pop(0) if _rest else "", _fmt)
+            _outs = _fmt.replace("\x00", "%").split("\n")
+        for _o in _outs:
+            _m = re.match(r"([A-Z][A-Z0-9_]{2,})=(.*)$", _o)
+            if not _m or ";" in _m.group(2) or _m.group(2)[:1] in ('"', "'"):
+                continue
+            lexonly.setdefault(_m.group(1), "%s:%d" % (f, _ln))
 for pat in (r'\b(?:printf|puts)\s*\(\s*"([A-Z][A-Z0-9_]{2,})=',
             r'\bfprintf\s*\(\s*stdout\s*,\s*"([A-Z][A-Z0-9_]{2,})='):
     for m in re.finditer(pat, src):
         toks.setdefault(m.group(1), "%s:%d" % (SRC, src.count("\n", 0, m.start()) + 1))
+
+for _n in [n for n in lexonly if n in toks]:
+    del lexonly[_n]                     # the line scan saw it too: not lexer-only
 
 # ---- LEG 3: JSON keys printed by solve.py, resolved with an `ast` pass -------------------------
 # solve.py assembles its payloads as dicts built across many statements, so a literal scrape would
@@ -1273,10 +1329,10 @@ PY_SCALAR_METHODS = frozenset(
 PY_PASSTHRU_CALLS = frozenset("list tuple sorted set frozenset reversed copy deepcopy".split())
 PY_ARITH = (ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow, ast.LShift, ast.RShift,
             ast.BitAnd, ast.BitXor, ast.MatMult)
-PY_SCALARISH = (ast.Constant, ast.Compare, ast.BoolOp, ast.UnaryOp, ast.JoinedStr, ast.Lambda)
+PY_SCALARISH = (ast.Constant, ast.Compare, ast.UnaryOp, ast.JoinedStr, ast.Lambda)
 PY_MAXDEPTH = 12
 # A nested VALUE can hide a further JSON object only in these forms.
-PY_VALUE_FORMS = (ast.Dict, ast.DictComp, ast.IfExp, ast.List, ast.Tuple, ast.Set, ast.ListComp,
+PY_VALUE_FORMS = (ast.Dict, ast.DictComp, ast.IfExp, ast.BoolOp, ast.List, ast.Tuple, ast.Set, ast.ListComp,
                   ast.SetComp, ast.GeneratorExp, ast.Starred, ast.Name, ast.BinOp, ast.Call,
                   ast.Subscript, ast.Attribute)
 
@@ -1427,6 +1483,13 @@ def py_extract(text, fname):
             val(node.value, d); return
         if isinstance(node, ast.IfExp):
             obj(node.body, d); obj(node.orelse, d); return
+        # Q-970 (A07#14): `a or b` / `a and b` EVALUATES TO ONE OF ITS OPERANDS, so a dict operand is a
+        # payload. BoolOp sat in PY_SCALARISH (read as a bool), and `json.dumps({"k": 1} or {})`
+        # printed an undocumented key with this leg green. Every operand is resolved, like IfExp.
+        if isinstance(node, ast.BoolOp):
+            for v in node.values:
+                obj(v, d)
+            return
         if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
             for e in node.elts:
                 obj(e, d)
@@ -1527,14 +1590,24 @@ def py_extract(text, fname):
         if isinstance(node, PY_VALUE_FORMS):
             obj(node, depth)
 
+    # Q-970: the json module under ANY name -- `import json as j` (j.dumps) and `from json import dumps
+    # [as d]` (d(...)) are the same call as json.dumps.
+    jmods, jfuncs = {"json"}, {}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import):
+            jmods |= {a.asname or a.name for a in n.names if a.name == "json"}
+        elif isinstance(n, ast.ImportFrom) and n.module == "json":
+            jfuncs.update({a.asname or a.name: a.name for a in n.names if a.name in ("dump", "dumps")})
     dumps = sorted((n for n in ast.walk(tree)
-                    if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
-                    and n.func.attr in ("dump", "dumps")
-                    and isinstance(n.func.value, ast.Name) and n.func.value.id == "json"),
+                    if isinstance(n, ast.Call) and (
+                        (isinstance(n.func, ast.Attribute) and n.func.attr in ("dump", "dumps")
+                         and isinstance(n.func.value, ast.Name) and n.func.value.id in jmods)
+                        or (isinstance(n.func, ast.Name) and n.func.id in jfuncs))),
                    key=lambda n: getattr(n, "lineno", 0))
     for c in dumps:
         if not c.args:
-            blind(c, "no-arg", "json.%s() called with no positional payload" % c.func.attr)
+            blind(c, "no-arg", "json.%s() called with no positional payload"
+                  % getattr(c.func, "attr", jfuncs.get(getattr(c.func, "id", ""), "dumps")))
         else:
             obj(c.args[0], 0)
     unres.sort()
@@ -1767,6 +1840,23 @@ for s, n in weak:
 # is the silent partiality this leg exists to avoid.
 for kind, site, detail in pyunres:
     rec("PYUNRES", "py-unresolved", kind, site, detail)
+lexundoc = []
+for n in undocumented(lexonly, vocab):
+    if ("verdict-token", n) in allow:
+        allow[("verdict-token", n)][1] += 1
+        continue
+    lexundoc.append(n)
+for n in lexundoc:
+    # Over the ceiling every one is a FAIL line (the new name is among them; a diff against the
+    # 18 listed in the Q-970 report names it); at or under it they are notes.
+    rec("HIT" if len(lexundoc) > CEIL_SH_LEXONLY else "LEXONLY", "verdict-token", n, lexonly[n],
+        "emitted (seen by the shell lexer only, Q-970) and named in no documentation/ file; pending"
+        " adjudication")
+if len(lexundoc) > CEIL_SH_LEXONLY:
+    rec("CEIL", "verdict-token", len(lexundoc), "scripts/*.sh",
+        "the shell lexer sees %d undocumented verdict token(s) the line scan cannot, above the pinned"
+        " ceiling of %d — a NEW one was emitted. Document it, or re-pin CEIL_SH_LEXONLY with the"
+        " reason." % (len(lexundoc), CEIL_SH_LEXONLY))
 if len(pyunres) > CEIL_PY_UNRESOLVED:
     rec("CEIL", "py-unresolved", len(pyunres), PYSRC,
         "the AST pass could not resolve %d expression(s), above the pinned ceiling of %d — %s grew"
@@ -1774,14 +1864,14 @@ if len(pyunres) > CEIL_PY_UNRESOLVED:
         " Resolve it, or re-pin CEIL_PY_UNRESOLVED with the reason."
         % (len(pyunres), CEIL_PY_UNRESOLVED, PYSRC))
 rec("POP", len(keys), len(toks), nfiles, len(docs), nopen, nnew, dropped, len(weak),
-    pysites, len(pykeys), pyopen, pynew, len(pyunres))
+    pysites, len(pykeys), pyopen, pynew, len(pyunres), len(lexundoc))
 ESPY
-) || { echo "  [FAIL] GATE 89 scanner crashed — NOTHING was checked."
+} | python3 - ) || { echo "  [FAIL] GATE 89 scanner crashed — NOTHING was checked."
        echo "DOC_GATE_EMITTED_SURFACE_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_TOKENS=-1"
        echo "DOC_GATE_EMITTED_SURFACE_NEW=-1"; echo "DOC_GATE_EMITTED_SURFACE_OPEN=-1"
        echo "DOC_GATE_EMITTED_SURFACE_DROPPED=-1"
        echo "DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=-1"
-       echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"
+       echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"; echo "DOC_GATE_EMITTED_SURFACE_LEXONLY=-1"
        echo "DOC_GATE_EMITTED_SURFACE=ERROR"; return 1; }
 
   # The self-tests and the floors are judged BEFORE the findings, so a broken extractor can never
@@ -1796,21 +1886,21 @@ ESPY
     echo "DOC_GATE_EMITTED_SURFACE_NEW=-1"; echo "DOC_GATE_EMITTED_SURFACE_OPEN=-1"
     echo "DOC_GATE_EMITTED_SURFACE_DROPPED=-1"
     echo "DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=-1"
-    echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"; echo "DOC_GATE_EMITTED_SURFACE_LEXONLY=-1"
     echo "DOC_GATE_EMITTED_SURFACE=ERROR"
     return 1
   fi
   printf '%s\n' "$out" | awk -F'\t' '$1=="SELF"{printf "  [ok]   self-proof: %s\n",$3}'
 
-  local pk pt pf pb po pn pd pw pys pyk pyo pyn pyu
-  IFS=$'\t' read -r pk pt pf pb po pn pd pw pys pyk pyo pyn pyu < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$12"\t"$13"\t"$14; exit}')
+  local pk pt pf pb po pn pd pw pys pyk pyo pyn pyu pl
+  IFS=$'\t' read -r pk pt pf pb po pn pd pw pys pyk pyo pyn pyu pl < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$12"\t"$13"\t"$14"\t"$15; exit}')
   if ! grep -qxE '[0-9]+' <<<"${pk-}"; then
     echo "  [FAIL] GATE 89 printed no population census — nothing was measured."
     echo "DOC_GATE_EMITTED_SURFACE_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_TOKENS=-1"
     echo "DOC_GATE_EMITTED_SURFACE_NEW=-1"; echo "DOC_GATE_EMITTED_SURFACE_OPEN=-1"
     echo "DOC_GATE_EMITTED_SURFACE_DROPPED=-1"
     echo "DOC_GATE_EMITTED_SURFACE_PY_JSON_KEYS=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=-1"
-    echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"
+    echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=-1"; echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=-1"; echo "DOC_GATE_EMITTED_SURFACE_LEXONLY=-1"
     echo "DOC_GATE_EMITTED_SURFACE=ERROR"
     return 1
   fi
@@ -1822,6 +1912,7 @@ ESPY
       OPEN) echo "  [OPEN] ($surface) $name at $site — adjudicated open: $why" ;;
       WEAK) echo "  [note] weak clear ($surface) $name — $why" ;;
       PYUNRES) echo "  [note] LEG 3 unresolved [$name] at $site — $why" ;;
+      LEXONLY) echo "  [note] ($surface) $name at $site — $why" ;;
       CEIL) echo "  [FAIL] ($surface) $why"; rc=1 ;;
     esac
   done < <(printf '%s\n' "$out")
@@ -1841,6 +1932,7 @@ ESPY
   echo "DOC_GATE_EMITTED_SURFACE_PY_NEW=$pyn"
   echo "DOC_GATE_EMITTED_SURFACE_PY_OPEN=$pyo"
   echo "DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=$pyu"
+  echo "DOC_GATE_EMITTED_SURFACE_LEXONLY=$pl"
   if [ "$rc" -ne 0 ]; then
     echo "DOC_GATE_EMITTED_SURFACE=FAIL"
     return 1
@@ -1971,7 +2063,17 @@ except OSError as e:
     print("  [FAIL] cannot read solve.c (%s) — NOTHING was checked." % e.strerror)
     print("     An unreadable engine is not an engine with no env vars; refusing to report OK.")
     sys.exit(1)
-names = sorted(set(re.findall(r'getenv\("(SOLVE_[A-Z0-9_]+)"\)', src)))
+# Q-970 (A07#16, Q-835 Codex review; adjudicated Q-962): EVERY SPELLING OF A READ. `getenv("X")` was
+# the only one seen, so `getenv ( "SOLVE_X" )` -- the same call -- read an undocumented variable with
+# this gate green. The engine is read with its comments blanked (word_match.sh's C lexer: a name in a
+# comment is not a read), and a read is getenv/secure_getenv with any spacing, OR any "SOLVE_*" string
+# literal at all: a literal is how a name reaches getenv through a table (`getenv(specs[i].name)`), a
+# macro or a wrapper, none of which a call pattern can follow. The literal set is the UPPER BOUND, and
+# it is the set that must be documented. Measured 2026-10-03: the two sets are equal today (133).
+# NOT SEEN, stated: a name assembled at run time ("SOLVE_" "KC" or snprintf) is invisible to both.
+code = wm_strip_comments(src, 'c')
+calls = set(re.findall(r'\b(?:secure_)?getenv\s*\(\s*"(SOLVE_[A-Z0-9_]+)"\s*\)', code))
+names = sorted(calls | set(re.findall(r'"(SOLVE_[A-Z0-9_]+)"', code)))
 if not names:
     print("  [FAIL] extracted ZERO SOLVE_* getenv sites from solve.c.")
     print("     That means the matcher stopped matching, not that the engine reads no environment.")
@@ -2000,7 +2102,7 @@ if missing_dir or not docs:
 # UNRELATED_SOLVE_X in a doc "documented" SOLVE_X.
 undoc = [n for n in names if not wm_tok(docs, n)]
 for n in undoc:
-    line = src[:src.index('getenv("%s")' % n)].count(chr(10)) + 1
+    line = code[:re.search(r'"%s"' % re.escape(n), code).start()].count(chr(10)) + 1
     print("  [FAIL] %s is read at solve.c:%d and appears in no documentation/*.md" % (n, line))
 if undoc:
     print("  [FAIL] %d of %d SOLVE_* variable(s) undocumented" % (len(undoc), len(names)))
@@ -2041,7 +2143,7 @@ ENVPY
 # ---------------------------------------------------------------------------
 gate_dispatch_alignment() {
   echo "== GATE 83: dispatcher, usage banner and gate functions agree =="
-  python3 - <(bash scripts/doc_gates.d/logical_source.sh) <<'DISPATCH_PY' || return 1
+  { _sp_prelude; cat <<'DISPATCH_PY'
 import re, sys
 src = open(sys.argv[1], encoding='utf-8', errors='surrogateescape').read()
 # Anchor on the DISPATCHER'S DEFAULT ARM, not on the banner text alone. Measured 2026-09-04: this
@@ -2065,8 +2167,25 @@ except ValueError:
     sys.exit(1)
 listed = [x.strip() for x in re.split(r'[|\s"\\]+', src[i+len(ANCHOR):j]) if x.strip()]
 cases  = set(re.findall(r'^\s*([a-z0-9-]+)\)\s+gate_\w+\s+\|\|\s+RC=1\s*;;', src, re.M))
-fns    = set(re.findall(r'^(gate_\w+)\(\)\s*\{', src, re.M))
-used   = set(re.findall(r'(gate_\w+)\s+\|\|\s+(?:RC|rc)=1', src))
+# Q-970 (A07#18, Q-835 Codex review; adjudicated Q-962): DEFINED and INVOKED are read by the shell
+# lexer (scripts/doc_gates.d/src_parse.sh), not by patterns over raw text. `used` was any
+# `gate_x || RC=1` in the file, comments included, and a definition was `gate_x() {` on one line only.
+# Now a definition is any spelling bash accepts, and a use is a gate_* COMMAND -- not a comment, not a
+# here-document, not a quoted string. The old patterns stay as the cross-check: a definition they see
+# that the lexer does not is a FAIL (the lexer under-reads).
+try:
+    _sp_defs = sp_sh_funcdefs(src)
+    _sp_cmds = sp_sh_commands(src)
+except SpError as e:
+    print("  [FAIL] the logical source could not be lexed (%s) — nothing to compare." % e)
+    sys.exit(1)
+fns    = {n for n in _sp_defs if n.startswith('gate_')}
+used   = {w[0].value for _l, w in _sp_cmds if w[0].value.startswith('gate_') and not w[0].quoted}
+_rxfns = set(re.findall(r'^(gate_\w+)\(\)\s*\{', src, re.M))
+if not _rxfns <= fns:
+    print("  [FAIL] %d gate function(s) the line pattern sees and the lexer does not: %s"
+          % (len(_rxfns - fns), ", ".join(sorted(_rxfns - fns))))
+    sys.exit(1)
 bad = 0
 if not cases or not fns:
     print("  [FAIL] parsed %d dispatcher case(s) and %d gate function(s) — a zero here means the"
@@ -2086,6 +2205,7 @@ if bad:
 print("  [ok]   %d usage names, %d dispatcher cases, %d gate functions — all three agree"
       % (len(set(listed)) - 1, len(cases), len(fns)))
 DISPATCH_PY
+  } | python3 - <(bash scripts/doc_gates.d/logical_source.sh) || return 1
   # LEG 4 (2026-09-26): the `all` PASS banner names every gate `all` runs. MEASURED that day: its
   # hard list stopped at 77 while `all` also ran 79-91, and it omitted 2c and 24 (24's own
   # promotion note below the banner said it was "in the hard list above"; it was not). A green
@@ -2099,7 +2219,7 @@ DISPATCH_PY
   #   (c) no id is named both hard and report-only; every list item parses.
   # Then four in-memory mutants of the logical source must each be caught: the last id dropped from the
   # hard list, a new headed gate added to `all`, 78 added to the hard list, 13 added to it.
-  python3 - <(bash scripts/doc_gates.d/logical_source.sh) <<'BANNER_PY' || return 1
+  { _sp_prelude; cat <<'BANNER_PY'
 import re, sys
 real = open(sys.argv[1], encoding='utf-8', errors='surrogateescape').read()
 # Pieces, never whole: the whole strings must not occur in this file, or the search finds THIS
@@ -2119,6 +2239,14 @@ def ids_of(seg, where, bad):
         elif re.fullmatch(r'[a-z](?:\+[a-z])+', note):
             out |= {m.group(1) + c for c in note.split('+')}
     return out
+_CMDS = {}
+def _cmds_of(text):
+    if text not in _CMDS:
+        try:
+            _CMDS[text] = sp_sh_commands(text)
+        except SpError as e:
+            raise SystemExit("  [FAIL] LEG 4: could not lex a dispatcher body (%s)" % e)
+    return _CMDS[text]
 def check(src):
     bad = []
     arms = list(ALL_ARM.finditer(src))
@@ -2130,19 +2258,23 @@ def check(src):
         return ["the `all` arm has no usage arm after it; cannot bound it"], None
     defs = [(m.group(1), m.start()) for m in re.finditer(r'^(gate_\w+)\(\)\s*\{', src, re.M)]
     body = {n: src[s:(defs[k + 1][1] if k + 1 < len(defs) else len(src))] for k, (n, s) in enumerate(defs)}
+    # Q-970 (A07#18): the `all` arm and the bodies are read as COMMANDS (shell lexer): a commented-out
+    # `# echo; gate_x || RC=1` in the arm ran nothing and still counted as reaching gate_x's id.
     def reach(fn, seen):
         if fn in seen or fn not in body:
             return set()
         seen.add(fn)
-        own = set(re.findall(r'echo "== GATE (\d+[a-z]?)\b', body[fn]))
+        cmds = _cmds_of(body[fn])
+        own = {m.group(1) for _l, w in cmds if w[0].value == 'echo'
+               for m in [re.match(r'== GATE (\d+[a-z]?)\b', " ".join(x.value for x in w[1:]))] if m}
         if own:
             return own
         r = set()
-        for c in re.findall(r'(gate_\w+)\s+\|\|', body[fn]):
+        for c in [w[0].value for _l, w in cmds if w[0].value.startswith('gate_')]:
             r |= reach(c, seen)
         return r
     reached = set()
-    for fn in re.findall(r'(gate_\w+)\s+\|\|\s+RC=1', arm):
+    for fn in [w[0].value for _l, w in _cmds_of(arm) if w[0].value.startswith('gate_')]:
         got = reach(fn, set())
         if not got:
             bad.append("`all` calls %s, which has no `== GATE <id>` header, directly or through what it calls" % fn)
@@ -2201,6 +2333,7 @@ for label, src in MUTANTS:
         print("  [FAIL] LEG 4 %s: NOT caught" % label); miss += 1
 sys.exit(1 if miss else 0)
 BANNER_PY
+  } | python3 - <(bash scripts/doc_gates.d/logical_source.sh) || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -2263,14 +2396,92 @@ gate_quotient_frame_isolation() {
 
   # (2) No figure extractor may read a quotient CELL key. The namespaces are disjoint — "q<N>" is
   #     quotient, "pair<N>" is raw — so this is a decidable check rather than a judgement call.
+  #     Q-970 (A07#19, Q-835 Codex review; adjudicated Q-962): THE EXTRACTORS ARE READ AS COMMANDS AND
+  #     THEIR PATTERNS ARE RUN. `grep -o[^|]*"q\[0-9\]` saw one spelling; `grep -Eo '"q[0-9]+"'`, `-oE`,
+  #     `--only-matching`, `egrep -o`, `-e PAT` and `\d` all read the same cells unseen. Now every
+  #     grep/egrep/fgrep/zgrep/rg command in the battery (shell lexer, src_parse.sh; comments are not
+  #     commands; $(..) and <(..) are entered) that prints only the matching part has each of its
+  #     patterns run by grep in the command's own dialect (-E/-P/-F/-G) against sample quotient
+  #     cells, and a pattern that extracts a "q<N>" key is a HIT. NOT SEEN, stated: an expansion
+  #     inside a pattern (it is replaced by a string that matches nothing, and COUNTED below), and
+  #     extractors that are not grep (awk, sed, python, jq).
   local qcell
-  qcell=$(grep -n "grep -o[^|]*\"q\[0-9\]" "$f" 2>/dev/null)
-  if [ -n "$qcell" ]; then
+  qcell=$( { _sp_prelude; cat <<'QPY'
+import re, subprocess, sys
+try:
+    cmds = sp_sh_commands(open(sys.argv[1], encoding="utf-8").read())
+except (OSError, SpError) as e:
+    print("ERROR\t%s" % e); sys.exit(0)
+SAMPLES = '"q0"\n"q12": 3\n{"q31": 7, "q2": 1}\n'
+# A pattern that ALSO extracts a raw cell or an ordinary key is a generic key reader, not a quotient
+# reader (`grep -o '^[[:space:]]*"[A-Za-z0-9_]*":' "$cert"` lists a certificate's keys); only a
+# pattern that extracts quotient cells and nothing of these is a HIT. Generic readers are out of scope.
+GENERIC = '"pair12": 3\n"flow": 1\n{"pair3": 7, "by_class": 1}\n'
+VALUED = set("mABCfd")
+n = nexp = 0
+for ln, w in cmds:
+    tool = w[0].value.rsplit("/", 1)[-1]
+    if w[0].quoted or tool not in ("grep", "egrep", "fgrep", "zgrep", "rg"):
+        continue
+    mode = {"egrep": "-E", "fgrep": "-F", "rg": "-P"}.get(tool, "-G")
+    only, pats, rest, i, a = False, [], [], 0, w[1:]
+    while i < len(a):
+        v = a[i].value
+        if v == "--":
+            rest += a[i + 1:]; break
+        if v in ("-e", "--regexp") and i + 1 < len(a):
+            pats.append(a[i + 1]); i += 2; continue
+        if v.startswith("--"):
+            only |= v == "--only-matching"
+            mode = {"--extended-regexp": "-E", "--perl-regexp": "-P", "--fixed-strings": "-F",
+                    "--basic-regexp": "-G"}.get(v, mode)
+        elif v.startswith("-") and len(v) > 1 and a[i].lit():
+            for k, c in enumerate(v[1:]):
+                only |= c == "o"
+                mode = "-" + c if c in "EPFG" else mode
+                if c == "e" or c in VALUED:
+                    tail = v[k + 2:]
+                    if c == "e":
+                        pats.append(a[i + 1] if not tail and i + 1 < len(a) else None)
+                    i += 0 if tail else 1
+                    break
+        else:
+            rest.append(a[i])
+        i += 1
+    if not pats and rest:
+        pats = [rest[0]]
+    if not only:
+        continue
+    n += 1
+    for pw in pats:
+        if pw is None:
+            continue
+        if not pw.lit():
+            nexp += 1
+        pat = "".join(t if k == "lit" else "\x01\x02" for t, k in pw.parts)
+        r = subprocess.run(["grep", mode, "-o", "--", pat], input=SAMPLES, capture_output=True, text=True)
+        g = subprocess.run(["grep", mode, "-o", "--", pat], input=GENERIC, capture_output=True, text=True)
+        if r.returncode == 2:
+            print("HIT\t%d\tgrep cannot read this pattern, so what it extracts is unknown: %s" % (ln, pat))
+        elif r.returncode == 0 and re.search(r'"q[0-9]+"', r.stdout) and g.returncode != 0:
+            print("HIT\t%d\t%s" % (ln, " ".join(x.raw for x in w)[:160]))
+print("POP\t%d\t%d" % (n, nexp))
+QPY
+  } | python3 - "$f")
+  local qpop qexp
+  IFS=$'\t' read -r _ qpop qexp < <(printf '%s\n' "$qcell" | grep '^POP' | head -1)
+  if grep -q '^ERROR' <<<"$qcell"; then
+    echo "  [FAIL] the figure feeders in $f could not be lexed: $(printf '%s\n' "$qcell" | grep '^ERROR' | cut -f2-)"
+    rc=1
+  elif ! grep -qxE '[0-9]+' <<<"${qpop:-}" || [ "$qpop" -lt 1 ]; then
+    echo "  [FAIL] zero only-matching grep extractors found in $f — the reader stopped reading them"
+    rc=1
+  elif grep -q '^HIT' <<<"$qcell"; then
     echo "  [FAIL] a figure extractor reads quotient cell keys (\"q<N>\"):"
-    printf '%s\n' "$qcell" | sed 's/^/           /'
+    printf '%s\n' "$qcell" | awk -F'\t' '$1=="HIT"{print "           '"$f"':" $2 ": " $3}'
     rc=1
   else
-    echo "  [ok]   no figure extractor reads a \"q<N>\" quotient cell key"
+    echo "  [ok]   no figure extractor reads a \"q<N>\" quotient cell key ($qpop only-matching grep(s) run against sample cells; $qexp pattern(s) carry an expansion that was not followed)"
   fi
 
   # (3) The three standing prohibitions must still be present. They are how a future reader learns

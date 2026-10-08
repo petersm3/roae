@@ -51,6 +51,40 @@ gate_numbers() {
 gate_cli() {
   echo "== GATE 2: CLI flags live in code but undocumented =="
   local bad=0
+  # _cli_flags MODE FILE code|comment -- the long flags FILE declares (code) or names only in its
+  # comments (comment), one per line, sorted. Exit 1 when FILE does not parse. Q-970, see check_pair.
+  _cli_flags() {
+    { _wm_prelude; cat <<'CLIPY'
+import ast, re, sys
+mode, path, kind = sys.argv[1:4]
+try:
+    src = open(path, encoding="utf-8", errors="surrogateescape").read()
+    code = wm_strip_comments(src, "c" if path.endswith(".c") else "py")
+    tree = ast.parse(src) if path.endswith(".py") else None
+except (OSError, SyntaxError, ValueError) as e:
+    print("cannot parse %s: %s" % (path, e), file=sys.stderr); sys.exit(1)
+except Exception as e:                       # tokenize errors raise their own types
+    print("cannot tokenize %s: %s" % (path, e), file=sys.stderr); sys.exit(1)
+cmt = "".join(c if code[i] != c else " " for i, c in enumerate(src))
+FLAG = re.compile(r"--[a-z0-9][a-z0-9_-]*\Z" if mode == "py" else r"--[a-z0-9][a-z0-9-]*\Z")
+out = set()
+if kind == "code" and mode == "py":
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "add_argument":
+            out |= {a.value for a in n.args if isinstance(a, ast.Constant) and isinstance(a.value, str)
+                    and FLAG.match(a.value)}
+elif kind == "code":
+    out = {m.group(1) for m in re.finditer(r'"(--[a-z0-9][a-z0-9-]*)(?:"|=)', code)}
+elif mode == "py":
+    out = {m.group(2) for m in re.finditer(r"add_argument\(\s*(['\"])(--[a-z0-9][a-z0-9_-]*)", cmt)}
+else:
+    out = {m.group(1) for m in re.finditer(r'"(--[a-z0-9][a-z0-9-]*)"', cmt)}
+for f in sorted(out):
+    print(f)
+CLIPY
+    } | python3 - "$@" | sort -u
+    return "${PIPESTATUS[1]}"
+  }
   check_pair() { # $1=code file  $2=doc file  $3=extractor
     local code="$1" doc="$2" mode="$3" cf df miss rcc=0 rcd=0
     # ITEM A1. Both sides are probed before either verdict, so a run that lost both prints
@@ -108,13 +142,22 @@ gate_cli() {
     # at all, so this widening adds exactly zero flags to either and cannot move their census.
     # The flag is re-extracted by a second grep instead of `sed 's/.*"//'`, which could only
     # ever strip one of the two quote characters.
-    if [ "$mode" = py ]; then
-      grep -vE '^[[:space:]]*(#|//)' "$code" \
-        | grep -oE 'add_argument\(("|'"'"')--[a-z0-9][a-z0-9_-]*' \
-        | grep -oE -- '--[a-z0-9][a-z0-9_-]*' | sort -u > "$cf"
-    else
-      grep -vE '^[[:space:]]*(#|//)' "$code" \
-        | grep -oE '"--[a-z0-9][a-z0-9-]*"' | tr -d '"' | sort -u > "$cf"
+    # Q-970 (A04#3, Q-835 Codex review; adjudicated Q-962): THE DECLARATIONS ARE PARSED, NOT GREPPED.
+    # The py extractor read `add_argument("--x"` and nothing else, so `add_argument("-z", "--x")` (a
+    # short alias first) and an add_argument( whose flag is on the NEXT line declared flags this gate
+    # never compared. py mode now reads the file with `ast`: every string argument of every
+    # `.add_argument(...)` call that is a long flag. c mode (solve.c, and sat.py's hand-rolled argv)
+    # reads every string literal that IS a long flag or begins one with `=` (`strncmp(a, "--x=", 4)`),
+    # with comments blanked by the shared lexers of word_match.sh (C for .c, tokenize for .py), so a
+    # flag inside a `/* */` block or after a trailing `//` is no longer read as code. A source that
+    # does not parse is a FAIL: the old pipeline would have compared whatever it could grep.
+    # MEASURED 2026-10-03: py mode extracts the same set as the grep did on roae.py (59), solve.py (124)
+    # and verify.py (49); c mode loses exactly solve.c's three comment-only fragments (--kc-alt,
+    # --kc-braket, --kc-witnes) and gains nothing. The "commented" census below counts flags named in
+    # COMMENTS (whole-line or trailing), read the same way.
+    if ! _cli_flags "$mode" "$code" code > "$cf"; then
+      echo "  [FAIL] $code could not be parsed, so NOTHING was compared for it."; bad=1
+      rm -f "$cf" "$df"; return 1
     fi
     grep -oE -- '--[a-z0-9][a-z0-9_-]*' "$doc" | sort -u > "$df"
     miss=$(comm -23 "$cf" "$df")
@@ -135,14 +178,7 @@ gate_cli() {
     #               which a flags count alone cannot distinguish from never reading it.
     local ncode ndoc ncmt
     ncode=$(wc -l < "$cf"); ndoc=$(wc -l < "$df")
-    if [ "$mode" = py ]; then
-      ncmt=$(grep -E '^[[:space:]]*(#|//)' "$code" \
-             | grep -oE 'add_argument\(("|'"'"')--[a-z0-9][a-z0-9_-]*' \
-             | grep -oE -- '--[a-z0-9][a-z0-9_-]*' | sort -u | wc -l)
-    else
-      ncmt=$(grep -E '^[[:space:]]*(#|//)' "$code" \
-             | grep -oE '"--[a-z0-9][a-z0-9-]*"' | sort -u | wc -l)
-    fi
+    ncmt=$(_cli_flags "$mode" "$code" comment | wc -l)
     if [ -n "$miss" ]; then
       echo "  [FAIL] in $code but NOT in $doc:"; echo "$miss" | sed 's/^/      /'; bad=1
     else

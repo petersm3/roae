@@ -29274,3 +29274,217 @@ survives `python3 -O` (`TestNoBareAsserts`).
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 40, Q-971. Review credit:
 Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962.
+
+## CX-303 — the gates that read SOURCE CODE now read it with a parser, so a second spelling of the same shell function, ERE, environment read, flag declaration, import, emitter, link, command or verdict no longer slips past them (scripts/doc_gates.d/src_parse.sh; scripts/doc_gates.sh; scripts/doc_gates.d/10_numbers_cli_citations.sh; scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/doc_gates.d/50_instruments_collisions.sh; scripts/doc_gates.d/60_scoreboard_alias_reach.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/doc_gates.d/97_atlas_probe_tokens.sh; scripts/row_assertion_gate.sh; scripts/failopen_closure_gate.sh; scripts/pre_push_compile_gate.sh; scripts/tr12_output_paths_gate.sh; scripts/atlas_path_portability_gate.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-10-03.** **Source.** Codex (gpt-6-astra), push-path review Q835; adjudicated Q-962. The
+finding class is R6 of `Q962_ADJUDICATION_REPORT.md` (private), backlog row Q-970: 34 findings, of
+which A03#17 is by design (GATE 90 removes backtick spans from the documented token list on
+purpose) and is not changed here. The other 33 are fixed. Batch 41, lane B41A.
+
+**No published number, count, sha or verdict moves, and solve.c and solve.py are not edited.** This
+entry changes how the gates read source code. The only document change is one sentence in
+DEVELOPMENT.md naming GATE 89's new counter, and one line citation in
+`scripts/atlas_path_portability_gate.sh` moved with the gate it cites. On today's tree every
+affected leg is still green. One leg now sees 18 emitted tokens it could not see before (item 4).
+
+**1. What was wrong.** Each analyser recognised one spelling of the construct it looks for. Each of
+these was planted on public main `35782834` and passed:
+
+- GATE 15 (`instruments`): a shell function whose `{` is on the next line; a copy of the script
+  whose variable no longer ends in `COPY` (with its guard removed); a guard ERE whose first branch
+  is anchored and second is not.
+- GATE 16 (`collisions`): an evidence ERE read with Python `re` instead of grep -E
+  (`[[:space:]]`); an ERE built from two quoted pieces of one shell word; an `echo` followed by a
+  `# comment`; the suppressing word `quiet` present only in a comment; a gate that calls another
+  gate and also checks things itself; a `)` inside a string ending a `print(` early.
+- GATE 84 (`env-surface`): `getenv ( "X" )` with spaces. GATE 2 (`cli`): `add_argument("-z",
+  "--x")` and an `add_argument(` whose flag is on the next line. GATE 65 (`stdlib-claims`):
+  `import os, numpy`.
+- GATE 89 (`emitted-surface`): an `echo` after `if ...; then`, and a `json.dumps({...} or {})`.
+  GATE 83 (`dispatch-alignment`): a commented-out call in the `all` arm still counted as run.
+  GATE 82 (`quotient-frame-isolation`): `grep -Eo` instead of `grep -o`.
+- GATE 17 (`scoreboard`): a board entry whose id is in backticks. GATE 71 (`arrivals-sync`): a
+  link with a title. GATE 62 (`az-name-closure`): a quoted resource name. GATE 39 (`p14-claims`):
+  two brace groups in one certificate name. GATE 25 (`repro-reach`): a quoted value or a `\` line
+  continuation before a missing flag. GATE 28 (`framing-era`): the long spelling of sha256sum's
+  check option.
+- GATE 90 (`atlas-probe-tokens`): a token printed with `print()` or through an alias of `tok`, and
+  a `tok()` call inside `if False:`. GATE 14 (`regdupes`): a rule that changes the list it is given.
+- `tr12_output_paths_gate.sh`: a path with a non-ASCII letter.
+- `row_assertion_gate.sh`: `"$SOLVE" ... || exit 1` counted as a content check; an exit inside
+  `( ... ) || true`; an `ERROR:` string assigned to a variable nothing reads; `while IFS= read`;
+  a whole row written on one line inside `{ ...; }`.
+- `failopen_closure_gate.sh`: a gate that prints `printf 'K=%s\n' PASS` was never run, because its
+  source does not spell `K=PASS`.
+- `pre_push_compile_gate.sh`: `#warning [-Wunused-function]` was counted as an allowed
+  `-Wunused-function` warning. gcc tags it `-Wcpp`.
+
+**2. The fix.** Parse, where a parser exists. A new shared module, `scripts/doc_gates.d/src_parse.sh`,
+sits next to the markdown normaliser and the word matcher. It gives:
+
+- `bash -n` and bash's own canonical form (`declare -f` of a wrapper function, after `bash -n`
+  shows the text parses on its own, so nothing in it runs);
+- a shell lexer that knows quotes, escapes, line continuations, `$( )`, here-documents and
+  comments, and lists simple commands with their real words;
+- the top-level branches of an ERE, grep -E itself, bash brace expansion, markdown link targets,
+  a quote-aware split of a documented command line, and the statically dead parts of a Python
+  `ast`.
+
+Each analyser above now reads through it, or through `ast`/`tokenize`. Where a pattern stays, it is
+cross-checked against the parser: GATE 15's function census must equal bash's own; GATE 16 must see
+at least as many `echo` and `print()` calls as the old line patterns; `row_assertion_gate.sh` must
+parse as many rows as the raw file has `row_begin` commands. A source the parser cannot read is a
+FAIL or an ERROR, never a smaller census.
+
+**3. Populations that moved on today's tree (each leg green).** GATE 16 LEG 3 reads 2,332 message
+templates where it read 1,829 (`print()` calls that do not open a line, and `echo` commands inside
+`$( )`); on the batch-41 tree, which also carries batch 40's gates, it reads 2,366. GATE 2 compares 174 solve.c flags where it compared 177: the three it drops are
+comment-only fragments (`--kc-alt`, `--kc-braket`, `--kc-witnes`), and they are now counted as
+commented. GATE 89's unresolved ceiling moves from 89 to 91: the two new positions are file paths
+inside `or` expressions that the pass now enters, not payloads. In `row_assertion_gate.sh` three
+rows change from `flat` to `loop-driven` and stay asserted.
+
+**4. What the new reading found.** No document or code was changed for it. GATE 89 now sees 18
+verdict tokens that are emitted on a line the old scan could not read, and that no file under
+`documentation/` names. Fourteen are real stdout tokens; the gate prints each with its site
+(they are deliberately not named here, since a name in this file would count as documenting it). Four are lines of a generated runner
+script (`scripts/tr12_mint_state_gate.sh:97-98`) whose redirect the lexer cannot see. They are more
+than this lane may register on its own, so they are printed as notes and held by a ratchet at 18:
+one more fails the gate. Documenting them, or adding rows to the open-findings table, is left to the
+operator.
+
+**5. Tests.** `TestQ970SourceAnalysers`, at the end of tests.py, is driven by 35 plants (the 33
+findings; A08#1 and A03#15 have two forms each), each with a control twin. For each plant: it fails
+its leg on the fixed scripts and a failure line names it; it passes on the scripts of `f1b27e32`
+(batch 40; the lane measured the same on `35782834`);
+its control fails on the fixed scripts; and every leg is green on the unplanted tree. Two more tests
+check the shared reader against bash and against known inputs.
+
+**6. Limits.** The shell lexer is not a full shell grammar (`[[ ]]` operands, `case` arms inside
+`$( )`). The dead-code reader decides constant tests only. GATE 89's ratchet is a count, so fixing
+one of the 18 and adding another would hold it. Each leg's header states what it still cannot see.
+
+**7. Integration (batch 41).** The lane worked on public `35782834` plus batch 40's Q-965 and Q-966;
+it was carried onto public `f1b27e32` (batch 40) for this batch. One hunk overlapped: GATE 62's
+created-name reader, where CX-299 (Q-967) had keyed each created name by its resource type. The
+merged reader keeps both: names are read by the quote-aware split of this entry, and each is stored
+and looked up with its type. On the batch-41 tree GATE 89's unresolved count is still 91 and it still
+counts 18 lexer-only tokens, but the set moved by one. One generated-runner line from item 4 is no
+longer seen, because batch 40 rewrote that line. A fixture token that batch 40 added to the skip-pin
+selftest of `scripts/tr12_repro_gate.sh` is now seen: it is written inside a `{ ...; } >` group,
+whose redirect the lexer cannot see (the limit named in item 4).
+
+**8. Two existing tests the lane did not run (batch 41).** The full `tests.py` run on the batch tree
+failed two existing classes because of this entry. `TestLaneHPGrepQStraceSplitPerTaskDoc` and
+`TestLaneHMDocGateRegressions` found two `printf ... | grep -q` tests in GATE 82's new reader, the
+pipe-fed `grep -q` shape that races under `pipefail` (Q-799); they now read a here-string.
+`TestLaneHMDocGateRegressions` also runs GATE 90's Python on its own, and that Python now needs the
+shared reader's prelude, so the test prepends the prelude the gate itself loads.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 41, Q-970.
+
+## CX-304 — the pre-push hook's reproduction-stamp leg now blocks: a pushed sha whose committed stamp is stale, absent or unmeasurable, or whose tree has no stamp gate, fails the push; there is no override variable (scripts/pre_push_gate.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-10-08.** Origin: backlog row Q-711 (Q-477 (a)). The operator decided on 2026-09-30 to make the
+leg blocking, and on 2026-10-03 approved three mitigations with it: no override variable, a note in
+DEVELOPMENT.md, and a red/green test. Batch 41.
+
+**No published number, count, sha or verdict moves.** This changes what the push path refuses.
+
+**1. What was wrong.** Since Q-601 the hook ran the pushed sha's own `tr12_repro_gate.sh --check` in
+a temporary worktree of that sha, so it asked the right tree. But the leg was advisory. A pushed tree
+whose committed stamp did not fingerprint the tree beside it (`TR12_REPRO_GATE_CURRENT=NO`), that
+had no stamp (`UNKNOWN`), whose verdict could not be read, or that had no stamp gate at all printed a
+warning and was pushed. That is how `bec69b7a` was published with a stamp describing no published
+tree: a line on the push path can be scrolled past.
+
+**2. The fix.** The leg passes only on exactly one `TR12_REPRO_GATE_CURRENT=YES` line with exit
+status 0, the rule of Q-952. Each other outcome prints `[FAIL]` and fails the pushed sha: `NO`,
+`UNKNOWN`, no verdict line or more than one, `YES` with a non-zero exit status, any other verdict,
+and a pushed tree with no `scripts/tr12_repro_gate.sh`. The skip-pin checks printed under the same
+heading stay advisory; Q-711 decided the stamp verdict only. The leg reads no environment variable,
+so there is nothing to set to get past it. The hook already refuses to run with an inherited
+override variable (CX-289). The fix for a red leg is to re-stamp and commit the stamp with the code;
+`git push --no-verify` stays the visible bypass for historical trees. DEVELOPMENT.md gains a section
+at the end of the page, "Re-stamp before you push", and the pre-push row of its hook table names the
+leg among the things that block.
+
+**3. Tests.** `TestQ711BlockingStampLeg`, five tests that drive the real hook against the throwaway
+repository of `TestQ798PrepushTreeKeyedReuse`, changing only the stub stamp gate committed in the
+pushed tree. Green: a gate that prints `TR12_REPRO_GATE_CURRENT=YES` with exit status 0 passes.
+Red: `NO`, `UNKNOWN`, `YES` with exit status 3, no verdict, two verdicts, and a missing gate each fail
+the push. Three plausible override names, each set to 1, leave the `NO` case red, and a scan of the
+leg's source finds no variable that is not one of its own. A mutant of the hook with the leg's five
+blocking lines removed passes `NO` and `UNKNOWN`, so the red cases are red because of those lines.
+Against the hook of `f1b27e32` the class fails: every red case exits 0 (nine failures and two errors),
+and the green case passes on both.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 41, Q-711.
+
+## CX-305 — the laptop guide's sentence "in the full 31-pair run, the engine tests divisibility by 48" read as a statement about the run behind the published total, which its own parenthetical said tested by 24. Its first four sections also never said that the exact count leaves out C3, C6 and C7, and its promise that every figure carries a status label was not kept (reports/CAPSTONE_GUIDE.md)
+
+**2026-10-08.** Origin: the Q-142 gate audit of the published guide (gates N1 to N9 of the capstone
+narrative specification), which found three gates failing, N2, N3 and N8. Every fix is a text change
+to `reports/CAPSTONE_GUIDE.md`. No command, `expect:` line or figure changes, so the 20 steps and
+their outputs are as before. Batch 41.
+
+**No published number, count, sha or verdict moves.**
+
+**1. Divisibility by 48 (the one sentence that could mislead).** Point 2 of "Idea 3" read: "In the
+full 31-pair run, the engine tests divisibility by 48 at the end and stops if it fails. (The run that
+produced the published total tested divisibility by 24, the test in place at the time.)" The first
+sentence is about the program, but it reads as a statement about the run whose total the guide
+publishes, and that run tested 24 (CX-271 moved the full-31 totals gates to 48 on 2026-10-02). It now
+reads: "Run on the full 31-pair problem, the engine tests divisibility by 48 at the end and stops if
+the test fails. The log of the run behind the published total shows a test by 24, the weaker form."
+The dated code history earlier in the same section ("tested only that weaker form until 2026-10-02;
+since then they test divisibility by 48") is removed; the status it carried is in the new sentence.
+
+**2. What is exact and what is estimated (N2).** A first-time reader given only Sections 1 to 4 came
+away believing that the project counted all seven rules exactly. Section 3 asks how many orderings
+satisfy the same rules as King Wen, and Section 4 answers with the count for C1, C2, C4 and C5
+without saying that C3, C6 and C7 are left out. Section 3 now says, before it introduces the rungs, that the
+count without C3 is exact, that the counts with C3 are estimated (Section 6), and that Section 6
+writes down a second ordering that passes all seven rules. Section 4's statement of the exact count
+now says it leaves out C3, C6 and C7.
+
+**3. Status labels (N3).** The guide said "Every figure in this guide carries one of these words",
+and about twenty did not. The rule now reads: every count, probability and statistic carries a label,
+and times, file sizes and memory figures are measured unless a sentence cites the report that
+derives them. A sixth label, **calculated**, is added for a resource requirement worked out from the
+problem's size, and is used for the 150 to 450 GB of the plain method and the 64 GB / 4 TB of the
+layer-by-layer rebuild. Labels are added to the group sizes 3, 3, 3, 4, 6, 6 and 6 (exact, TR-11),
+the rung budget B0, the within-pair split and the between-pair budget (2, 8, 13, 7, 1), the bound
+2¹²⁸, the 93,939,712 orbit representatives and their saving of about 22.9 times, 42,987,408,480 = N₁₃ / 48, the ratio of about 5×10²⁶, and
+the atlas checks' margin of about twelve times their tolerance.
+
+**4. Two kinds of claim in one sentence (N8).** Seven more sentences joined a claim about the
+mathematics, the programs, the published files or the project's history to a claim of another kind.
+Each is split or reworded: the guide's one question (Section 1); where C1 and C2 come from, and C4's
+opening pair (Section 2); the largest list written out (Section 4); the memory limit of the plain
+method (Section 4); and the C3 identity, which now says the identity is proven, that the engine has an
+exact mode, and that the full-scale run of it was declined, so both totals that include C3 stay
+estimated (Section 6).
+
+**5. Checks.** Gates N1, N4 to N7 and N9 passed the audit and are not affected. The audit's N2
+(a fresh cold reader on Sections 1 to 4), N8 (the changed sentences re-annotated) and N3 (the figure
+scan) are to be re-run on this text before the narrative gate is closed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 41, Q-142.
+
+## CX-306 — two correction markers that batch 37 added to the exact-aggregates report were left unclassified, so the marker inventory read INCOMPLETE; both are now reviewed (scripts/correction_marker_inventory.sh; documentation/CORRECTION_MARKER_INVENTORY.tsv)
+
+**2026-10-08.** Origin: backlog row Q-936 (the residue of Q-634 part 1). Batch 41.
+
+**No published number, count, sha or verdict moves, and no document text changes.** CX-284 (batch 37)
+added two `CORRECTED` markers to `reports/FULL31_EXACT_AGGREGATES.md` (Q-158), at lines 9 and 95.
+The marker inventory listed them as class 1-or-2 with review `unreviewed`, so its verdict was
+`CORRECTION_MARKER_INVENTORY=INCOMPLETE`. Both are class 1: the text around each already states the
+corrected claim. Before line 9 the sentence already says the integer columns are the exact counts the
+run reported and that whether the run was right is a separate question for the gates; line 95's
+paragraph already names the second instrument, its date and what the reviewer package does and does
+not check. The two rows are added to the inventory script's reviewed table, keyed by line hash, and
+the inventory is regenerated.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 41, Q-936.

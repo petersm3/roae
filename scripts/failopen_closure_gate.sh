@@ -77,6 +77,16 @@ case "$TO" in ''|*[!0-9]*)
 
 TOKRE='^[A-Z][A-Z0-9_]{2,}=(OK|PASS|CLEAN)( |$)'                 # what "OK-class token" means
 SRCTOK='[A-Z][A-Z0-9_]{2,}=(OK|PASS|CLEAN|FAIL|ERROR|SKIP|BLOCKED|REFUSED)\b'  # a verdict-shaped token in source = a gate
+# Q-970 (A12#11, Q-835 Codex review; adjudicated Q-962): A VERDICT CAN BE PRINTED WITHOUT BEING SPELLED.
+# `printf 'DYNAMIC=%s\n' PASS; exit 0` prints DYNAMIC=PASS from an empty world, and its source holds no
+# `KEY=PASS` literal, so the population filter never ran it (POP=5, FAILOPEN_CLOSURE=OK). A script is
+# now ALSO gate-shaped when an echo/printf argument STARTS with a KEY= whose value is a format field or
+# an expansion (SRCDYN) and a verdict word is a literal elsewhere in its code (VWORD). MEASURED
+# 2026-10-03 over scripts/: this adds no script to the real population (an earlier, unanchored form
+# admitted two log lines, `KC_MIDN_MAX_N=$MAXN` and `SKU=${SKU:-...}`, and was narrowed to the
+# argument start). NOT SEEN, stated: a token assembled from two variables, or printed by a helper.
+SRCDYN="(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?[A-Z][A-Z0-9_]{2,}=(%[-0-9.]*[sdq]|\\\$\\{?[A-Za-z_])"
+VWORD='(^|[^A-Za-z0-9_=])(OK|PASS|CLEAN)([^A-Za-z0-9_]|$)'
 ABSRE='/home/[a-z]+/github/|/mnt/[a-z]'                            # a hard-coded absolute repo/mount path: the skeleton cannot isolate it
 UNRUNRE='\baz +(vm|storage|disk|network|login|account|group|snapshot)\b|\bssh +[^ ]|\bazcopy\b|\bgit +(commit|push)\b|\bcrontab +-|\bnohup\b|\bsetsid\b|\bsudo\b|\bmkfs\b|\bshutdown\b|\breboot\b'
 
@@ -147,7 +157,9 @@ gate(){
   fi
   for f in "$tree"/scripts/*.sh "$tree"/scripts/*.py; do
     [ -f "$f" ] || continue
-    [ "$(noncomment "$f" | grep -cE "$SRCTOK")" -gt 0 ] || continue   # only gate-shaped scripts (a FAIL-only gate can still exit 0); grep -c, see run_one
+    [ "$(noncomment "$f" | grep -cE "$SRCTOK")" -gt 0 ] \
+      || { [ "$(noncomment "$f" | grep -cE "$SRCDYN")" -gt 0 ] && [ "$(noncomment "$f" | grep -cE "$VWORD")" -gt 0 ]; } \
+      || continue   # only gate-shaped scripts (a FAIL-only gate can still exit 0); grep -c, see run_one
     name=$(basename "$f")
     # Self-exclusion, stated: this file carries the UNRUN regex as a literal and would match it;
     # and a copy of this gate alone in a skeleton finds no scripts/ population and ERRORs, which
@@ -185,7 +197,7 @@ gate(){
   # Tripwire against the population filter itself: an independent, pipeline-free count of files
   # whose source (comments included) carries a verdict token is an UPPER bound on $pop. If the
   # filter returns less than half of it, the filter — not the tree — is broken.
-  local upper; upper=$(grep -lE "$SRCTOK" "$tree"/scripts/*.sh "$tree"/scripts/*.py 2>/dev/null | wc -l)
+  local upper; upper=$(grep -lE "$SRCTOK|$SRCDYN" "$tree"/scripts/*.sh "$tree"/scripts/*.py 2>/dev/null | wc -l)
   if [ "$upper" -gt 0 ] && [ $((pop * 2)) -lt "$upper" ]; then
     echo "  [ERROR] population filter returned $pop of an upper bound of $upper files carrying a verdict token — the filter dropped scripts (the instance-24 shape)"; err=1
   fi

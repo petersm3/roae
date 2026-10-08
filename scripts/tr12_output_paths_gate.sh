@@ -137,7 +137,11 @@ except OSError:
     verdict("ERROR", 2, "battery-unreadable")
 # Q-966 (A02#17): a COMMENT is not a producer. `# cp "$RAW" "$ARTDIR/x.tsv"` in the battery made x.tsv
 # "written" while nothing writes it; the battery is read with its shell comments blanked.
-written = set(re.findall(r"\$ARTDIR/([A-Za-z0-9_./-]*[A-Za-z0-9_])", wm_strip_comments(battery, "sh")))
+# Q-970 (A02#16, Q-835 Codex review; adjudicated Q-962): a path is not ASCII by definition. The name
+# class was [A-Za-z0-9_./-], so `reports/tr12/résultats.tsv` (and `$ARTDIR/é.tsv`) was not a path and
+# was never checked. A name character is now any Unicode letter or digit (python's \w), `_`, `.`, `/`
+# or `-`; the ASCII punctuation that annotates a path (`file@sha`, `file:line`) still ends it.
+written = set(re.findall(r"\$ARTDIR/([\w./-]*\w)", wm_strip_comments(battery, "sh")))
 if not written:
     verdict("ERROR", 2, "battery-has-no-ARTDIR-literal")
 has_consumer = "$ARTDIR/consumer" in wm_strip_comments(battery, "sh")
@@ -163,7 +167,7 @@ def produced(name):
     return False
 
 SKIP = {"documentation/CORRECTIONS.md", "documentation/HISTORY.md"}
-PATHISH = re.compile(r"^[A-Za-z0-9_./-]+$")
+PATHISH = re.compile(r"^[\w./-]+$")      # Q-970: Unicode letters and digits, not ASCII only (see `written`)
 span_re = re.compile(r"`([^`\n]+)`")
 checked = 0
 fails = []

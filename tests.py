@@ -20367,6 +20367,14 @@ class TestLaneHMDocGateRegressions(unittest.TestCase):
             mod = fh.read()
         m = re.search(r"<<'ATLAS_TOKENS_PY'\n(.*?)\nATLAS_TOKENS_PY\n", mod, re.S)
         cls.gate90_py = m.group(1) if m else None
+        # Q-970 (batch 41): the heredoc now runs after the shared source reader's prelude
+        # (`{ _sp_prelude; cat <<'ATLAS_TOKENS_PY' ...`), so the extracted gate needs it too.
+        if cls.gate90_py is not None and "_sp_prelude;" in mod:
+            pre = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/src_parse.sh && _sp_prelude"],
+                                 cwd=cls.ROOT, capture_output=True, text=True, timeout=60)
+            if pre.returncode != 0 or "def sp_py_dead" not in pre.stdout:
+                raise RuntimeError("lane HM: the src_parse.sh prelude could not be read: " + pre.stderr[-500:])
+            cls.gate90_py = pre.stdout + "\n" + cls.gate90_py
         with open(os.path.join(cls.ROOT, "solve.py"), encoding="utf-8") as fh:
             cls.src = fh.read()
         with open(os.path.join(cls.ROOT, cls.DOC), encoding="utf-8") as fh:
@@ -39313,6 +39321,542 @@ class TestQ971WhatACheckBindsTo(unittest.TestCase):
                          (0, "OK"), "the mutant must reproduce the defect")
 
 # end class TestQ971WhatACheckBindsTo (batch 40, Q-971)
+
+
+class TestQ970SourceAnalysers(unittest.TestCase):
+    """Q-970 (batch 41; R6 of review_2026_09_27/Q962_ADJUDICATION_REPORT.md, from the Q-835 Codex
+    lens-A push-path review). The SOURCE-CODE analysers recognised one spelling of each construct: a
+    shell function with its `{` on the next line, a renamed copy variable, a half-anchored ERE, Python
+    `re` reading a POSIX ERE, a concatenated shell word, a trailing `# comment`, a `)` inside a string,
+    `getenv ( "X" )`, `add_argument("-z", "--x")`, `import os, numpy`, an inline `if ...; then echo`,
+    a BoolOp payload, a commented-out `all` call, `grep -Eo`, a backticked board row, a titled link,
+    a quoted documented value, `sha256sum --check`, `{a,b}_{1,2}`, a non-ASCII path, `print()` and an
+    aliased emitter, `if False:`, a rule that mutates its input, five row_assertion spellings, a
+    dynamic printf verdict and a `#warning` tag. The analysers now read through parsers -- bash itself
+    (`bash -n`, `declare -f`), python `ast`/`tokenize`, grep -E, and the shared shell/markdown lexers of
+    scripts/doc_gates.d/src_parse.sh -- with count cross-checks where a pattern stays.
+
+    DATA-DRIVEN over the adjudication's plants: one row per plant (35 rows for the 33 non-BY-DESIGN
+    findings; A08#1 and A03#15 each have two forms; A03#17 is BY-DESIGN and excluded), each with its
+    un-evaded CONTROL twin. Every row runs its leg alone on a scratch git copy of THIS working tree's
+    tracked files:
+      * the plant must FAIL (rc 1) on the fixed scripts, and a failure line must name its needle;
+      * the same plant must PASS (rc 0) on the uncured scripts of public main f1b27e32 (batch 40);
+      * the control must FAIL (rc 1) on the fixed scripts;
+      * every leg must be green on the unplanted tree (the cmd legs on a clean fixture).
+    A leg is `doc_gates.sh <mode>`, `tr12-output-paths`, or `cmd:<shell>` (row_assertion_gate.sh on a
+    planted battery, failopen_closure_gate.sh on a planted --tree, and pre_push_compile_gate.sh's
+    warning-census awk extracted verbatim and run over gcc output).
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PIN = "f1b27e32"   # public main batch 40, the last tree before Q-970: the uncured scripts (the lane used 35782834)
+    R, D = "README.md", "scripts/doc_gates.sh"
+    M50, M20 = "scripts/doc_gates.d/50_instruments_collisions.sh", "scripts/doc_gates.d/20_retract_links_status.sh"
+    GUARD15 = "     && grep -qE '^  _fireproof_undeclared_instrument\\(\\) \\{ :; \\}$' \"$_G15_COPY\"; then"
+    E3 = "'matched as the fixed string: \"hard floor k" + ">=13\"'"   # split: a registered phrase
+    ECHO_PF = '    echo "  [FAIL] tracked markdown missing from the working tree: $f"\n'
+    RFN = '    require_final_newline "$f" quiet && continue\n'
+    BAT = "q970_battery.sh"
+    RA = "cmd:bash scripts/row_assertion_gate.sh --battery " + BAT
+    GOOD_ROW = ('row_begin c_ok\n(\n  echo "k\tv"\n  while read -r line; do echo "$line"; done < <(grep -o \'"x": {[^}]*}\' "$A") | tee "$W/x.tsv"\n'
+                '  fails=0\n  n=$(grep -c . "$W/x.tsv")\n  [ "$n" -eq "$N_PAIRS" ] || { echo "X_FAIL\temitted $n rows"; fails=1; }\n'
+                '  exit $fails\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_OK $rc\n')
+    def bat(body, _b=BAT, _g=GOOD_ROW):
+        return [(_b, "new", _g + body)]
+    LOOPROW = '  echo "k\tv"\n  while read -r line; do echo "$line"; done < <(grep -o \'"x": {[^}]*}\' "$A")\n'
+    TREE = "q970_tree"
+    FO = "cmd:bash scripts/failopen_closure_gate.sh --tree " + TREE + " --timeout 20"
+    def tree(dyn, TREE=TREE):
+        ed = []
+        for k in range(1, 6):
+            ed.append((TREE + "/scripts/g%d.sh" % k, "new",
+                       '#!/bin/bash\n[ -f documentation/x%d.md ] || { echo "G%d_VERDICT=FAIL"; exit 1; }\necho "G%d_VERDICT=PASS"\n' % (k, k, k)))
+        ed.append((TREE + "/scripts/dyn.sh", "new", "#!/bin/bash\n" + dyn + "\nexit 0\n"))
+        return ed
+    CC = "cmd:bash q970_census.sh"
+    CENSUS = (
+        "set -u\n"
+        "prog=$(awk '/^WARN_SEEN=\\$\\(awk /{on=1} on{print} on&&/\"\\$WARN_LOG\"\\)$/{exit}' scripts/pre_push_compile_gate.sh"
+        " | sed 's/^WARN_SEEN=\\$(//; s/ \"\\$WARN_LOG\")$//')\n"
+        "[ -n \"$prog\" ] || { echo 'CENSUS ERROR: awk not extracted'; exit 2; }\n"
+        "base=$(awk \"/^WARN_BASELINE='/{on=1} on{print} on&&/'\\$/{exit}\" scripts/pre_push_compile_gate.sh | tr -d \"'\" | sed 's/^WARN_BASELINE=//')\n"
+        "LC_ALL=C gcc -fsyntax-only -Wall -Wextra q970_w.c 2> q970_w.log\n"
+        "rc=0\n"
+        "while read -r n cls; do [ -n \"$cls\" ] || continue\n"
+        "  b=$(printf '%s\\n' \"$base\" | grep -F -- \" $cls\" | awk '{print $1}')\n"
+        "  if [ -z \"$b\" ]; then echo \"FAIL: class OUTSIDE the baseline: $n x $cls\"; rc=1; fi\n"
+        "done < <(bash -c \"$prog q970_w.log\")\n"
+        "rm -f q970_w.log; exit $rc\n")
+    def census(src, _c=CENSUS):
+        return [("q970_census.sh", "new", _c), ("q970_w.c", "new", src)]
+    ATL = '        tok("ATLAS_N_TOTAL", N)\n'
+    REG_A = ('\ndef reg_q835a(seq):\n    r = seq[0] == 0\n    seq.reverse()\n    return r\n'
+             'def reg_q835b(seq):\n    return seq[0] == 0\n'
+             'REGISTRY_KW_EXPECTED = list(REGISTRY_KW_EXPECTED) + [("q835a", False), ("q835b", False)]\n')
+    REG_C = ('\ndef reg_q835a(seq):\n    return seq[0] == 0\n'
+             'def reg_q835b(seq):\n    return seq[0] == 0\n'
+             'REGISTRY_KW_EXPECTED = list(REGISTRY_KW_EXPECTED) + [("q835a", False), ("q835b", False)]\n')
+    TITLED = ('\nThe complete chain of independent arrivals is [Ouyang](documentation/CITATIONS.md#ouyang1990 "Ouyang"), '
+              '[Suenaga](documentation/CITATIONS.md#suenaga2012 "Suenaga") and [Radisic](documentation/CITATIONS.md#radisic2026 "Radisic").\n')
+    UNTITLED = ('\nThe complete chain of independent arrivals is [Ouyang](documentation/CITATIONS.md#ouyang1990), '
+                '[Suenaga](documentation/CITATIONS.md#suenaga2012) and [Radisic](documentation/CITATIONS.md#radisic2026).\n')
+    PLANTS = [
+        # ---- GATE 15 (instruments)
+        ("A06#2", "instruments", "unregistered",
+         [(D, "before", "  unregistered()\n  {\n    :\n  }\n", "  assert_fires_why() {\n")],
+         [(D, "before", "  unregistered() { :; }\n", "  assert_fires_why() {\n")]),
+        ("A06#3", "instruments", "_G15_MUTANT",
+         [(D, "replace", GUARD15, "     && true; then"), (D, "replace_all", "_G15_COPY", "_G15_MUTANT")],
+         [(D, "replace", GUARD15, "     && true; then")]),
+        ("A06#4", "instruments", "Q835_ABSENT",
+         [(D, "replace", "'^  _fireproof_undeclared_instrument\\(\\) \\{ :; \\}$'", "'^Q835_ABSENT|_fireproof_undeclared_instrument'")],
+         [(D, "replace", "'^  _fireproof_undeclared_instrument\\(\\) \\{ :; \\}$'", "'_fireproof_undeclared_instrument'")]),
+        # ---- GATE 16 (collisions)
+        ("A06#5", "collisions", "tracked[[:space:]]markdown",
+         [(D, "replace", E3, "'tracked[[:space:]]markdown missing from the working tree'")],
+         [(D, "replace", E3, "'tracked markdown missing from the working tree'")]),
+        ("A06#6", "collisions", "NEVER-MATCH-Q835",
+         [(D, "replace", E3, "'NEVER-MATCH-Q835'\"|tracked markdown missing from the working tree\"")],
+         [(D, "replace", E3, "'tracked markdown missing from the working tree'")]),
+        ("A06#7", "collisions", "spans a hard wrap",
+         [(D, "replace", ECHO_PF, ECHO_PF + '    echo "spans a hard wrap" # diagnostic\n')],
+         [(D, "replace", ECHO_PF, ECHO_PF + '    echo "spans a hard wrap"\n')]),
+        ("A06#9", "collisions", "require_final_newline",
+         [(D, "replace", RFN, '    require_final_newline "$f" loud && continue # quiet\n')],
+         [(D, "replace", RFN, '    require_final_newline "$f" loud && continue\n')]),
+        ("A06#11", "collisions", "gate_retract_figures",
+         [(M20, "replace", '  echo "== GATE 3: retracted phrasings still surviving =="\n',
+           '  echo "== GATE 3: retracted phrasings still surviving =="\n  gate_retract_figures || RC=1\n')],
+         [(D, "replace", "  retract) gate_retract || RC=1 ;;", "  retract) gate_retract || RC=1; gate_retract_figures || RC=1 ;;")]),
+        ("A06#12", "collisions", "and no anchored guard within",
+         [(M50, "before", 'print(")"\n      "and no anchored guard within")\n', "BLOCK_WINDOW = 8\n")],
+         [(M50, "before", 'print(")" "and no anchored guard within")\n', "BLOCK_WINDOW = 8\n")]),
+        # ---- module 70
+        ("A07#13", "emitted-surface", "Q835_NEW_VERDICT",
+         [("scripts/pre_push_compile_gate.sh", "append", '\nif true; then echo "Q835_NEW_VERDICT=PASS"; fi\n')],
+         [("scripts/pre_push_compile_gate.sh", "append", '\necho "Q835_NEW_VERDICT=PASS"\n')]),
+        ("A07#14", "emitted-surface", "q835_hidden_key",
+         [("solve.py", "append", '\nprint(json.dumps({"q835_hidden_key": 1} or {}))\n')],
+         [("solve.py", "append", '\nprint(json.dumps({"q835_hidden_key": 1}))\n')]),
+        ("A07#16", "env-surface", "SOLVE_Q835_UNDOCUMENTED",
+         [("solve.c", "append", '\nstatic const char *q835_env(void) { return getenv ( "SOLVE_Q835_UNDOCUMENTED" ); }\n')],
+         [("solve.c", "append", '\nstatic const char *q835_env(void) { return getenv("SOLVE_Q835_UNDOCUMENTED"); }\n')]),
+        ("A07#18", "dispatch-alignment", "GATE 17",
+         [(D, "replace", "           echo; gate_scoreboard_verdicts || RC=1\n", "           # echo; gate_scoreboard_verdicts || RC=1\n")],
+         [(D, "replace", "           echo; gate_scoreboard_verdicts || RC=1\n", "")]),
+        ("A07#19", "quotient-frame-isolation", "q[0-9]",
+         [("scripts/tr12_repro.sh", "append", '\ngrep -Eo \'"q[0-9]+"\' "$ATLAS"\n')],
+         [("scripts/tr12_repro.sh", "append", '\ngrep -o \'"q[0-9]*"\' "$ATLAS"\n')]),
+        ("A07#1", "scoreboard", "q835ghost",
+         [("reports/TR1_EIGHT_CENTURIES_MEASURED.md", "replace", "estimates): rs1 6.6", "estimates): `q835ghost` 0.5 \u00b7 rs1 6.6")],
+         [("reports/TR1_EIGHT_CENTURIES_MEASURED.md", "replace", "estimates): rs1 6.6", "estimates): q835ghost 0.5 \u00b7 rs1 6.6")]),
+        # ---- module 80
+        ("A08#1a", "repro-reach", "--q835-absent",
+         [(R, "append", '\nRun `solve --kc-scan "path with spaces" --q835-absent`.\n')],
+         [(R, "append", '\nRun `solve --kc-scan path --q835-absent`.\n')]),
+        ("A08#1b", "repro-reach", "--q835-absent",
+         [(R, "append", '\n```bash\nsolve --kc-scan path \\\n  --q835-absent\n```\n')],
+         [(R, "append", '\n```bash\nsolve --kc-scan path --q835-absent\n```\n')]),
+        ("A08#12", "framing-era", "sha256sum",
+         [(R, "append", '\nVerify the shard with `sha256sum --check sub_foo.sha256`.\n')],
+         [(R, "append", '\nVerify the shard with `sha256sum -c sub_foo.sha256`.\n')]),
+        # ---- module 90, 95, 10
+        ("A09#2", "p14-claims", "proof_",
+         [("documentation/MCKENNA.md", "append", "\nThe certificates are `proof_{left,right}_{1,2}.drat.gz`.\n")],
+         [("documentation/MCKENNA.md", "append", "\nThe certificates are `proof_{left,right}_1.drat.gz`.\n")]),
+        ("A10#14", "az-name-closure", "q835-absent-nic",
+         [("documentation/DEPLOYMENT.md", "append", '\n```bash\naz network nic show -g rg -n "q835-absent-nic"\n```\n')],
+         [("documentation/DEPLOYMENT.md", "append", '\n```bash\naz network nic show -g rg -n q835-absent-nic\n```\n')]),
+        ("A10#5", "stdlib-claims", "verify.py",
+         [("verify.py", "replace", "        import numpy as np\n        import pyarrow.parquet as pq\n",
+           "        import os, numpy as np\n        import os, pyarrow.parquet as pq\n"),
+          (R, "append", "\nverify.py is stdlib only.\n")],
+         [(R, "append", "\nverify.py is stdlib only.\n")]),
+        ("A10#23", "arrivals-sync", "README.md", [(R, "append", TITLED)], [(R, "append", UNTITLED)]),
+        ("A04#3", "cli", "--q835-undocumented",
+         [("solve.py", "append", '\ndef _q835(p):\n    p.add_argument("-z", "--q835-undocumented")\n    p.add_argument(\n        "--q835-multiline")\n')],
+         [("solve.py", "append", '\ndef _q835(p):\n    p.add_argument("--q835-undocumented")\n')]),
+        # ---- module 97, 40, tr12_output_paths
+        ("A03#15a", "atlas-probe-tokens", "UNDOCUMENTED_TOKEN",
+         [("solve.py", "replace", ATL, ATL + '        print("UNDOCUMENTED_TOKEN=1")\n')],
+         [("solve.py", "replace", ATL, ATL + '        tok("UNDOCUMENTED_TOKEN", 1)\n')]),
+        ("A03#15b", "atlas-probe-tokens", "UNDOCUMENTED_TOKEN",
+         [("solve.py", "replace", ATL, ATL + '        emit = tok; emit("UNDOCUMENTED_TOKEN", 1)\n')],
+         [("solve.py", "replace", ATL, ATL + '        tok("UNDOCUMENTED_TOKEN", 1)\n')]),
+        ("A03#16", "atlas-probe-tokens", "ATLAS_N_TOTAL",
+         [("solve.py", "replace", ATL, '        if False:\n    ' + ATL)],
+         [("solve.py", "replace", ATL, "")]),
+        ("A05#10", "regdupes", "q835", [("solve.py", "append", REG_A)], [("solve.py", "append", REG_C)]),
+        ("A02#16", "tr12-output-paths", "r\u00e9sultats.tsv",
+         [(R, "append", "\nSee `reports/tr12/r\u00e9sultats.tsv`.\n")],
+         [(R, "append", "\nSee `reports/tr12/resultats.tsv`.\n")]),
+        # ---- row_assertion_gate.sh
+        ("A02#7", RA, "c_y",
+         bat('row_begin c_y\n(\n  echo "k\tv"\n  for j in "$ARTDIR"/*.json; do\n      "$SOLVE" --kc-thing "$j" || exit 1\n'
+             '      cat "$WORK/out"\n  done\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_Y $rc\n'),
+         bat('row_begin c_y\n(\n  erc=0\n  echo "k\tv"\n  for j in "$ARTDIR"/*.json; do\n      "$SOLVE" --kc-thing "$j" || erc=1\n'
+             '      cat "$WORK/out"\n  done\n  exit $erc\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_Y $rc\n')),
+        ("A02#8", RA, "c_bad",
+         bat('row_begin c_bad\n(\n' + LOOPROW + '  ( [ -s "$A" ] || exit 1 ) || true\n) >>"$RAW" 2>&1\nrow_end TR12_BAD $?\n'),
+         bat('row_begin c_bad\n(\n' + LOOPROW + ') >>"$RAW" 2>&1\nrow_end TR12_BAD $?\n')),
+        ("A02#10", RA, "c_bad",
+         bat('row_begin c_bad\n(\n' + LOOPROW + '  [ -s "$A" ] || message="ERROR:empty"\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_BAD $rc\n'),
+         bat('row_begin c_bad\n(\n' + LOOPROW + ') >>"$RAW" 2>&1; rc=$?\nrow_end TR12_BAD $rc\n')),
+        ("A02#11", RA, "c_bad",
+         bat('row_begin c_bad\n(\n  while IFS= read -r line; do echo "$line"; done < $A\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_BAD $rc\n'),
+         bat('row_begin c_bad\n(\n  while read -r line; do echo "$line"; done < "$A"\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_BAD $rc\n')),
+        ("A02#12", RA, "bad",
+         bat('{ row_begin bad; while read -r l; do echo "$l"; done < "$A"; row_end BAD $?; }\n'),
+         bat('row_begin bad\nwhile read -r l; do echo "$l"; done < "$A"\nrow_end BAD $?\n')),
+        # ---- failopen_closure_gate.sh
+        ("A12#11", FO, "dyn.sh", tree("printf 'DYNAMIC=%s\\n' PASS"), tree('echo "DYNAMIC=PASS"')),
+        # ---- pre_push_compile_gate.sh warning census
+        ("A12#7", CC, "-Wcpp", census("#warning [-Wunused-function]\nint main(void) { return 0; }\n"),
+         census("#warning plain\nint main(void) { return 0; }\n")),
+    ]
+
+    BASE = {RA: bat(""), FO: tree("exit 1"), CC: census("int main(void) { return 0; }\n")}
+    del bat, tree, census
+    SCRIPTS = ("scripts/doc_gates.sh", "scripts/tr12_output_paths_gate.sh", "scripts/gate_published_consistency.sh",
+               "scripts/row_assertion_gate.sh", "scripts/failopen_closure_gate.sh", "scripts/pre_push_compile_gate.sh")
+    MARKS = ("FAIL", "ERROR", "UNASSERTED", "OPEN", "HIT")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q970_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files:
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(cls.repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        for f in ("scripts/doc_gates.d/md_normalise.sh", "scripts/doc_gates.d/word_match.sh",
+                  "scripts/doc_gates.d/src_parse.sh"):
+            shutil.copy2(os.path.join(cls.ROOT, f), os.path.join(cls.repo, f))   # new; may be untracked
+        g = ["git", "-C", cls.repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"],
+                       check=True)
+        cls.fixed = cls._snapshot()
+        cls.uncured = None
+        if subprocess.run(["git", "-C", cls.ROOT, "cat-file", "-e", cls.PIN + "^{commit}"],
+                          capture_output=True).returncode == 0:
+            cls.uncured = {}
+            names = subprocess.run(["git", "-C", cls.ROOT, "ls-tree", "--name-only", cls.PIN,
+                                    "scripts/doc_gates.d/"], capture_output=True, text=True,
+                                   check=True).stdout.split()
+            for f in names + list(cls.SCRIPTS):
+                cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
+                                                capture_output=True, check=True).stdout
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _snapshot(cls):
+        snap = {}
+        d = os.path.join(cls.repo, "scripts", "doc_gates.d")
+        for f in sorted(os.listdir(d)):
+            snap["scripts/doc_gates.d/" + f] = open(os.path.join(d, f), "rb").read()
+        for f in cls.SCRIPTS:
+            snap[f] = open(os.path.join(cls.repo, f), "rb").read()
+        return snap
+
+    def _use(self, snap):
+        d = os.path.join(self.repo, "scripts", "doc_gates.d")
+        shutil.rmtree(d)
+        os.makedirs(d)
+        for f, b in snap.items():
+            with open(os.path.join(self.repo, f), "wb") as fh:
+                fh.write(b)
+
+    def _apply(self, edits):
+        saved, new = {}, []
+        for e in edits:
+            p = os.path.join(self.repo, e[0])
+            op = e[1]
+            if op == "new":
+                self.assertFalse(os.path.exists(p), "precondition: %s is new" % e[0])
+                os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+                with open(p, "w") as fh:
+                    fh.write(e[2])
+                new.append(e[0])
+                continue
+            self.assertTrue(os.path.isfile(p), "precondition: the plant's target exists: %r" % (e[:2],))
+            if p not in saved:
+                saved[p] = open(p, "rb").read()
+            t = open(p, "rb").read().decode("utf-8")
+            if op == "append":
+                t += e[2]
+            elif op in ("replace", "replace_all"):
+                self.assertIn(e[2], t, "precondition: the plant applies to %s" % p)
+                t = t.replace(e[2], e[3], 1 if op == "replace" else -1)
+            elif op == "before":
+                self.assertIn(e[3], t, "precondition: the plant applies to %s" % p)
+                k = t.index(e[3]); t = t[:k] + e[2] + t[k:]
+            else:
+                self.fail("unknown plant op %r" % op)
+            with open(p, "wb") as fh:
+                fh.write(t.encode("utf-8"))
+        if new:
+            subprocess.run(["git", "-C", self.repo, "add", "--"] + new, check=True)
+        return saved, new
+
+    def _leg(self, leg, edits=()):
+        saved, new = self._apply(edits)
+        try:
+            if leg.startswith("cmd:"):
+                cmd = ["bash", "-c", leg[4:]]
+            else:
+                cmd = {"tr12-output-paths": ["bash", "scripts/tr12_output_paths_gate.sh"]
+                       }.get(leg, ["bash", "scripts/doc_gates.sh", leg])
+            r = subprocess.run(["nice", "-n", "19", "timeout", "900"] + cmd, cwd=self.repo,
+                               capture_output=True, text=True)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+            if new:
+                subprocess.run(["git", "-C", self.repo, "rm", "-q", "--cached", "--"] + new, check=True)
+                for f in new:
+                    os.remove(os.path.join(self.repo, f))
+                for f in new:                      # planted directories (the failopen --tree)
+                    d = os.path.dirname(os.path.join(self.repo, f))
+                    while d != self.repo and os.path.isdir(d) and not os.listdir(d):
+                        os.rmdir(d); d = os.path.dirname(d)
+        return r.returncode, r.stdout + r.stderr
+
+    def _red(self, out, needle):
+        return any(needle in l for l in out.split("\n")
+                   if any(m in l for m in self.MARKS) or l.startswith("      "))
+
+    def test_a_unplanted_tree_is_green_on_every_leg(self):
+        self._use(self.fixed)
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg, self.BASE.get(leg, ()))
+                self.assertEqual(rc, 0, out[-3000:])
+
+    def test_b_every_plant_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertEqual(rc, 1, out[-3000:])
+                self.assertTrue(self._red(out, needle), "no failure line names %r:\n%s" % (needle, out[-3000:]))
+
+    def test_c_every_control_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, ctl)
+                self.assertEqual(rc, 1, out[-3000:])
+
+    def test_d_every_plant_passes_on_the_uncured_scripts(self):
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
+        self._use(self.uncured)
+        try:
+            base = {}
+            for pid, leg, needle, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg):
+                    if leg not in base:
+                        base[leg] = self._leg(leg, self.BASE.get(leg, ()))[0]
+                    if base[leg] != 0:
+                        self.skipTest("uncured %s is rc %d on the unplanted tree" % (leg, base[leg]))
+                    rc, out = self._leg(leg, plant)
+                    self.assertEqual(rc, 0, "the uncured scripts already catch this plant, so its red "
+                                     "test does not discriminate:\n" + out[-3000:])
+        finally:
+            self._use(self.fixed)
+
+    # ------------------------------------------------------------------ the shared reader itself
+    def _py(self, body):
+        src = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/src_parse.sh && _sp_prelude"],
+                             cwd=self.ROOT, capture_output=True, text=True, check=True).stdout
+        r = subprocess.run(["python3", "-c", src + "\n" + body], capture_output=True, text=True,
+                           timeout=300, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.split("\n")
+
+    def test_e_shell_lexer_agrees_with_bash(self):
+        # every function bash itself sees in the logical source, and no other, is a lexer definition
+        out = self._py(
+            "import re, subprocess\n"
+            "src = subprocess.run(['bash', 'scripts/doc_gates.d/logical_source.sh'], capture_output=True,"
+            " text=True, check=True).stdout\n"
+            "lex = set(sp_sh_funcdefs(src))\n"
+            "can = set(re.findall(r'(?m)^\\s*function (\\S+) \\(\\) $', sp_sh_canon(src)))\n"
+            "print(len(lex) > 100, lex == can)\n"
+            "w = [t[1] for t in sp_sh_lex(\"x 'a'\\\"|b\\\" c # d\\n\") if t[0] == 'word']\n"
+            "print(repr([v.value for v in w]))\n"
+            "c = sp_sh_commands('if true; then echo \"K=1\"; fi\\n{ row_begin x; echo y; }\\nf() {\\n :\\n}\\n')\n"
+            "print(repr([w[0].value for _l, w in c]))\n"
+            "print(sorted(sp_sh_funcdefs('a()\\n{\\n :\\n}\\nfunction b { :; }\\nc () ( : )\\n')))\n"
+            "try:\n    sp_sh_lex(\"echo 'open\")\n    print('no-raise')\nexcept SpError:\n    print('raised')\n"
+            "try:\n    sp_sh_canon('}\\necho RAN\\n')\n    print('no-raise')\nexcept SpError:\n    print('refused')\n")
+        self.assertEqual(out[0], "True True")
+        self.assertEqual(out[1], "['x', 'a|b', 'c']")
+        self.assertEqual(out[2], "['true', 'echo', 'row_begin', 'echo', ':']")
+        self.assertEqual(out[3], "['a', 'b', 'c']")
+        self.assertEqual(out[4:6], ["raised", "refused"])
+
+    def test_f_other_readers(self):
+        out = self._py(
+            "print(sp_ere_branches('^a|b(c|d)|[|]x'))\n"
+            "print(sorted(sp_brace_expand('p_{l,r}_{1..2}.drat')))\n"
+            "print([t for _o, t in sp_md_links('[a](x.md#k \"T\") [b](<y z.md>) [c](w.md)\\n[r]: v.md \"t\"\\n')])\n"
+            "print(sp_sh_split('--a \"p q\" r\\\\ s \"open'))\n"
+            "import ast\n"
+            "t = ast.parse('def f():\\n    if False:\\n        g(1)\\n    return\\n    g(2)\\n    g(3)\\n')\n"
+            "d = sp_py_dead(t)\n"
+            "print(sorted(n.args[0].value for n in ast.walk(t) if isinstance(n, ast.Call) and id(n) in d))\n"
+            "print(sp_grep_E('tracked[[:space:]]x', ['tracked x', 'trackedx']))\n")
+        self.assertEqual(out[0], "['^a', 'b(c|d)', '[|]x']")
+        self.assertEqual(out[1], "['p_l_1.drat', 'p_l_2.drat', 'p_r_1.drat', 'p_r_2.drat']")
+        self.assertEqual(out[2], "['x.md#k', 'y z.md', 'w.md', 'v.md']")
+        self.assertEqual(out[3], "[('--a', False), ('p q', True), ('r s', False), ('\"open', False)]")
+        self.assertEqual(out[4], "[1, 2, 3]")
+        self.assertEqual(out[5], "['tracked x']")
+
+# end class TestQ970SourceAnalysers (batch 41, Q-970)
+
+
+class TestQ711BlockingStampLeg(unittest.TestCase):
+    """Q-711 (batch 41; Q-477 (a), operator decision 2026-09-30 with the 2026-10-03 mitigations). The
+    pre-push hook's reproduction-stamp leg was ADVISORY: a pushed sha whose committed stamp did not
+    fingerprint its own tree (TR12_REPRO_GATE_CURRENT=NO), carried no stamp (UNKNOWN), or could not be
+    measured was printed and pushed anyway. It now BLOCKS, with no override variable.
+
+    Drives the REAL hook against TestQ798's throwaway repository (stub gates, throwaway bare remote,
+    nothing pushed anywhere), varying only the stub tr12_repro_gate.sh committed in the pushed tree.
+    GREEN: a stamp gate that prints exactly one TR12_REPRO_GATE_CURRENT=YES with rc 0 passes (rc 0).
+    RED: NO, UNKNOWN, YES with a non-zero rc, no verdict line, two verdict lines and a missing gate
+    each fail the pushed sha (rc 1). NO OVERRIDE: the NO case stays red with plausible override names
+    exported, and the leg's source reads no environment variable. MUTANT: the hook with this leg's
+    SHARC=1 lines removed (the pre-Q-711 advisory leg) lets NO and UNKNOWN through, so the red cases
+    are red because of the blocking lines and nothing else.
+    """
+    Q = None
+    STAMP_YES = 'echo "tr12 $1" >> "$HK_MARK"\necho "TR12_REPRO_GATE_CURRENT=YES"\n'
+
+    @classmethod
+    def setUpClass(cls):
+        cls.Q = TestQ798PrepushTreeKeyedReuse
+        cls.HOOK, cls.HELPER = cls.Q.HOOK, cls.Q.HELPER
+        cls.tmp = tempfile.mkdtemp(prefix="q711_")
+        with open(cls.HOOK, encoding="utf-8") as fh:
+            cls.hook_src = fh.read()
+        with open(cls.HELPER, encoding="utf-8") as fh:
+            cls.helper_src = fh.read()
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _git(self, repo, *a, check=True):
+        return self.Q._git(self, repo, *a, check=check)
+
+    def _write(self, path, text, mode=0o644):
+        return self.Q._write(self, path, text, mode)
+
+    def _run(self, stamp_body, hook_src=None, env=None):
+        """stamp_body None = the pushed tree has NO scripts/tr12_repro_gate.sh."""
+        stubs = dict(self.Q.STUBS)
+        if stamp_body is None:
+            stubs.pop("tr12_repro_gate.sh")
+        else:
+            stubs["tr12_repro_gate.sh"] = stamp_body
+        self.STUBS = stubs
+        old = self.hook_src
+        if hook_src is not None:
+            self.hook_src = hook_src
+        try:
+            d, repo, a, b = self.Q._fixture(self)
+        finally:
+            self.hook_src = old
+        mark = os.path.join(d, "mark.log")
+        e = dict(os.environ, HK_MARK=mark, TMPDIR=d)
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE",
+                  "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            e.pop(k, None)
+        e.update(env or {})
+        r = subprocess.run(["bash", os.path.join(repo, self.HOOK)], cwd=repo,
+                           input="refs/heads/main %s refs/heads/main %s\n" % (b, a),
+                           capture_output=True, text=True, env=e, timeout=600)
+        return r
+
+    def _leg_ran(self, r):
+        self.assertRegex(r.stdout, r"pre-push: \[[A-Za-z]+\] reproduction stamp [^\n]*of pushed sha",
+                         "precondition: the hook reached the stamp leg\n" + r.stdout[-3000:] + r.stderr[-1500:])
+
+    def test_green_current_stamp_passes(self):
+        r = self._run(self.STAMP_YES)
+        self._leg_ran(r)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-1500:])
+        self.assertIn("[ok]   reproduction stamp describes pushed sha", r.stdout)
+        self.assertIn("PREPUSH_VERDICT=PASS", r.stdout.splitlines())
+
+    RED = {
+        "stale": 'echo "TR12_REPRO_GATE_CURRENT=NO"\nexit 1\n',
+        "no_stamp": 'echo "TR12_REPRO_GATE_CURRENT=UNKNOWN"\nexit 1\n',
+        "yes_bad_rc": 'echo "TR12_REPRO_GATE_CURRENT=YES"\nexit 3\n',
+        "no_verdict": 'echo "something else"\nexit 0\n',
+        "two_verdicts": 'echo "TR12_REPRO_GATE_CURRENT=YES"\necho "TR12_REPRO_GATE_CURRENT=YES"\nexit 0\n',
+    }
+
+    def test_red_each_non_current_verdict_blocks(self):
+        for name, body in self.RED.items():
+            with self.subTest(case=name):
+                r = self._run(body)
+                self._leg_ran(r)
+                self.assertEqual(r.returncode, 1, "%s must block\n%s" % (name, r.stdout[-3000:]))
+                self.assertIn("PREPUSH_VERDICT=FAIL", r.stdout.splitlines())
+                self.assertRegex(r.stdout, r"\[FAIL\] [^\n]*(?i:reproduction stamp)")
+
+    def test_red_missing_gate_blocks(self):
+        r = self._run(None)
+        self.assertEqual(r.returncode, 1, r.stdout[-3000:])
+        self.assertIn("has no scripts/tr12_repro_gate.sh", r.stdout)
+        self.assertIn("PREPUSH_VERDICT=FAIL", r.stdout.splitlines())
+
+    def test_no_override_variable(self):
+        for k in ("ROAE_STAMP_ADVISORY", "ROAE_ALLOW_STALE_STAMP", "PREPUSH_STAMP_ADVISORY"):
+            with self.subTest(var=k):
+                r = self._run(self.RED["stale"], env={k: "1"})
+                self._leg_ran(r)
+                self.assertEqual(r.returncode, 1, "%s=1 must not unblock a stale stamp\n%s" % (k, r.stdout[-2000:]))
+        a = self.hook_src.index("# ---- BLOCKING (Q-711): THE REPRODUCTION STAMP OF THE PUSHED SHA")
+        z = self.hook_src.index("# ---- ADVISORY: THE ROW-ASSERTION SWEEP, ON THE PUSHED SHA")
+        leg = "\n".join(l.split("#", 1)[0] if l.lstrip().startswith("#") else l
+                        for l in self.hook_src[a:z].splitlines())
+        reads = set(re.findall(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)", leg))
+        self.assertEqual(reads - {"WT", "short", "TOK", "_st_out", "_strc", "_sp_out", "_sprc", "_pin",
+                                  "_pin_rows", "_pin_n", "_pin_bad"}, set(),
+                         "the blocking stamp leg reads a variable that is not one of its own locals")
+
+    def test_mutant_advisory_leg_lets_stale_through(self):
+        a = self.hook_src.index("# ---- BLOCKING (Q-711): THE REPRODUCTION STAMP OF THE PUSHED SHA")
+        z = self.hook_src.index("# ---- ADVISORY: THE ROW-ASSERTION SWEEP, ON THE PUSHED SHA")
+        leg = self.hook_src[a:z]
+        n = len(re.findall(r"(?m)^ *SHARC=1\n", leg))
+        self.assertEqual(n, 5, "precondition: the stamp leg has five blocking SHARC=1 lines")
+        mutant = self.hook_src[:a] + re.sub(r"(?m)^ *SHARC=1\n", "", leg) + self.hook_src[z:]
+        for name in ("stale", "no_stamp"):
+            with self.subTest(case=name):
+                r = self._run(self.RED[name], hook_src=mutant)
+                self._leg_ran(r)
+                self.assertEqual(r.returncode, 0, "the mutant (advisory leg) should pass %s\n%s"
+                                 % (name, r.stdout[-2000:]))
+
+# end class TestQ711BlockingStampLeg (batch 41, Q-711)
 
 
 if __name__ == "__main__":

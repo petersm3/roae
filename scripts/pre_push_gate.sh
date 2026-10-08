@@ -77,8 +77,10 @@
 #   2b. scripts/gate_published_consistency.sh — RATCHET over three published-consistency classes.
 #      Blocks only when a count RISES above scripts/gate_published_consistency.pin; the token
 #      PASS-AT-PIN (no regression, known-open items stand) is accepted.
+#   2c. the reproduction stamp of the pushed sha, in its own worktree (Q-601/Q-477) -- BLOCKING
+#      since Q-711 (batch 41): only TR12_REPRO_GATE_CURRENT=YES with rc 0 passes.
 #   ADVISORY legs (never blocking) also run per pushed sha in its worktree -- the
-#      reproduction stamp + skip pin (Q-601/Q-477) and the row-assertion sweep --
+#      skip pin (Q-477 (b), (c)) and the row-assertion sweep --
 #      and every verdict is read through one_token(): exactly one KEY= line (Q-523).
 #   ADVISORY, once per push: doc_gates.sh --selftest on the last pushed sha whose range
 #      touches scripts/, in a FRESH standalone clone of its own (Q-720). PASS only on the one
@@ -1330,7 +1332,7 @@ for sha in $SHAS; do
       fi ;;
   esac
 
-  # ---- ADVISORY: THE REPRODUCTION STAMP OF THE PUSHED SHA (Q-601, Q-477) ------
+  # ---- BLOCKING (Q-711): THE REPRODUCTION STAMP OF THE PUSHED SHA (Q-601, Q-477) ------
   # Added 2026-09-10 (Q-477) because NOTHING ON THE PUSH PATH CHECKED IT, and that single
   # gap produced two defects in one commit: a stamp that did not fingerprint the tree it
   # shipped in, and two pinned skip rows that drifted with nothing noticing. Measured then:
@@ -1352,14 +1354,17 @@ for sha in $SHAS; do
   # worktree holds only committed bytes, so an untracked or modified file in $ROOT can no
   # longer vouch for a tree nobody published.
   #
-  # ADVISORY, NOT BLOCKING -- AND THAT CHOICE IS THE OPERATOR'S, NOT THIS HOOK'S (Q-477 (a)).
-  # The case for advisory: a stale stamp means "this tree has not been shown to reproduce",
-  # a fact about EVIDENCE rather than a broken tree, and a docs-only push should not be held
-  # hostage to a ~2-minute battery re-run (a re-stamp). The case for blocking: bec69b7a was
-  # published with a stamp describing no published tree, and an advisory line was on the
-  # push path and did not stop it (it was measuring the wrong tree, but a correct advisory
-  # line can be scrolled past just the same). Promoting it is one line -- set SHARC=1 in the
-  # NO/UNKNOWN/unmeasured arms below -- and is recorded as an OPEN operator decision.
+  # BLOCKING SINCE Q-711 (batch 41; the operator's decision on Q-477 (a), 2026-09-30, with the
+  # mitigations of 2026-10-03). The stamp verdict blocks unless it is exactly one
+  # TR12_REPRO_GATE_CURRENT=YES with rc 0: NO (stale), UNKNOWN (no stamp), a verdict that
+  # could not be measured, any other verdict, and a pushed tree with no tr12_repro_gate.sh all
+  # set SHARC=1. The case that was made for advisory -- a stale stamp is a fact about EVIDENCE,
+  # and a re-stamp costs a ~2-minute battery run -- lost to the case for blocking: bec69b7a was
+  # published with a stamp describing no published tree, and an advisory line can be scrolled
+  # past. There is NO override variable (the hook refuses override variables, CX-289); the fix
+  # is a re-stamp committed with the code (documentation/DEVELOPMENT.md, "Re-stamp before you
+  # push"), and `git push --no-verify` stays the visible, deliberate bypass. The skip-pin
+  # checks below stay ADVISORY: Q-711 decided the stamp verdict only.
   #
   # THE SKIP PIN'S PUSH-PATH CONSUMER (Q-477 (b), (c)). scripts/tr12_expected/n9/
   # _EXPECTED_SKIPS.txt lies under scripts/tr12_expected, which fingerprint() hashes in
@@ -1377,24 +1382,29 @@ for sha in $SHAS; do
   # unmeasured, because for a current tree that is a deleted gate, not "nothing to check".
   echo
   if [ -f "$WT/scripts/tr12_repro_gate.sh" ]; then
-    echo "pre-push: [advisory] reproduction stamp + skip pin of pushed sha $short (its own tree) — NEVER blocking"
+    echo "pre-push: [BLOCKING] reproduction stamp of pushed sha $short (its own tree; Q-711) + [advisory] skip pin"
     _st_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
                  bash scripts/tr12_repro_gate.sh --check 2>&1 ); _strc=$?
     if ! one_token TR12_REPRO_GATE_CURRENT "$_st_out"; then
-      echo "  ⚠ reproduction stamp of $short: COULD NOT BE MEASURED — not the same as current"
+      echo "  [FAIL] reproduction stamp of $short: COULD NOT BE MEASURED — not the same as current"
       printf '%s\n' "$_st_out" | grep -E '^TR12_REPRO_GATE=|^ *\[(FAIL|ERROR)' | head -4 | sed 's/^/      /'
+      SHARC=1
     elif tok_is 'TR12_REPRO_GATE_CURRENT=YES' && [ "$_strc" -eq 0 ]; then   # Q-952: YES needs rc 0
       echo "  [ok]   reproduction stamp describes pushed sha $short — $TOK"
     elif tok_is 'TR12_REPRO_GATE_CURRENT=NO'; then
-      echo "  ⚠ REPRODUCTION STAMP IS STALE IN PUSHED SHA $short — $TOK"
+      echo "  [FAIL] REPRODUCTION STAMP IS STALE IN PUSHED SHA $short — $TOK"
       echo "    The stamp COMMITTED in $short does NOT fingerprint the tree committed beside it, so"
       echo "    nothing published attests that this tree reproduces its own battery. A corrected"
-      echo "    stamp that is only an uncommitted edit does not count. ADVISORY: the push continues."
+      echo "    stamp that is only an uncommitted edit does not count. BLOCKED (Q-711)."
       echo "    Fix with:   ./scripts/tr12_repro_gate.sh --stamp     (then commit the stamp WITH the code)"
+      SHARC=1
     elif tok_is 'TR12_REPRO_GATE_CURRENT=UNKNOWN'; then
-      echo "  ⚠ pushed sha $short carries NO reproduction stamp — $TOK. ADVISORY: the push continues."
+      echo "  [FAIL] pushed sha $short carries NO reproduction stamp — $TOK. BLOCKED (Q-711)."
+      echo "    Fix with:   ./scripts/tr12_repro_gate.sh --stamp     (then commit the stamp WITH the code)"
+      SHARC=1
     else
-      echo "  ⚠ reproduction stamp of $short: verdict '$TOK' with rc $_strc — not the same as current"
+      echo "  [FAIL] reproduction stamp of $short: verdict '$TOK' with rc $_strc — not the same as current"
+      SHARC=1
     fi
     # A pushed tree whose gate predates --selftest-skip-pin must NOT be asked for it: that
     # gate has no unknown-mode guard, so an unrecognised mode falls through to the full
@@ -1435,8 +1445,10 @@ for sha in $SHAS; do
       echo "  ⚠ pushed sha $short has no readable scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt — skip set UNPINNED"
     fi
   else
-    echo "pre-push: [advisory] pushed sha $short has no scripts/tr12_repro_gate.sh — its reproduction"
-    echo "          stamp and skip pin were NOT measured. For a current tree that is a deleted gate."
+    echo "pre-push: FAIL — pushed sha $short has no scripts/tr12_repro_gate.sh: its reproduction"
+    echo "          stamp and skip pin were NOT measured. For a current tree that is a deleted gate"
+    echo "          (Q-711: blocking); --no-verify is the visible bypass."
+    SHARC=1
   fi
 
   # ---- ADVISORY: THE ROW-ASSERTION SWEEP, ON THE PUSHED SHA (Q-601 sibling) ---

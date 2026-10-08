@@ -63,7 +63,9 @@ opening pair, one at a time. You will **not** recompute the project's headline n
 count of orderings satisfying C1, C2, C4 and C5 took about a week on a 128-thread machine and
 produced several terabytes of data. Each step below says which part of the work it checks.
 
-**How numbers are labelled.** Every figure in this guide carries one of these words:
+**How numbers are labelled.** Every count, probability and statistic in this guide carries one of
+these words. Times, file sizes and memory figures are **measured** unless a sentence cites the
+report that derives them.
 
 - **exact**: a result obtained by complete counting or exact arithmetic. Rounded displays of an
   exact value are marked with "about" or "≈".
@@ -73,6 +75,7 @@ produced several terabytes of data. Each step below says which part of the work 
 - **proven**: a theorem, machine-checked in Lean 4.
 - **measured**: a value observed in a run or calculated from a stated file: a time, a size, or a
   statistic of the catalog in Section 6.
+- **calculated**: a resource requirement worked out from the problem's size, not observed in a run.
 
 The status labels follow the project's [METHODS](METHODS.md) page; the linked reports and
 the command measurements give the source of each figure.
@@ -115,9 +118,10 @@ noticed other regularities, such as how many lines change from one hexagram to t
 centuries commentators have proposed rules that might explain the order. Some earlier works
 describe patterns in the received order; others construct alternative orders and compare them.
 
-This guide asks one question of the proposed rules: taken together, do they allow any ordering
-other than King Wen? We study the order of the hexagrams only. These counts cannot establish the
-text's meaning or the intentions of the people who arranged it.
+This guide asks one question of seven stated rules, some taken from that literature and some read
+off King Wen (Section 2): taken together, do they allow any ordering other than King Wen? We study
+the order of the hexagrams only. These counts cannot establish the text's meaning or the intentions
+of the people who arranged it.
 
 **Step 1.** Print the sequence as a table, one hexagram per
 row, with its position, its six bits and its two trigrams. *Why:* it connects the symbols above to
@@ -158,12 +162,11 @@ hexagrams is the number of lines that differ, from 0 to 6.
   slot 1. C7 requires King Wen's own pairs in slots 25 and 26, and C6 requires them in slots 27
   and 28. Which way each of those four pairs faces is left free.
 
-C1 and C2 come from earlier literature, which states them as general properties of King Wen's
-order; neither refers to a total or a position particular to King Wen. C4's opening pair is in the
-classical commentary; the choice of which of the two comes first is our convention, and a Lean
-theorem shows that C1, C2, C3 and C5 do not force it (**proven**). C3, C5, C6 and C7 were **read
-off King Wen itself**: they use its own complement-distance total, its own jump counts and its own
-pair neighbours.
+C1 and C2 come from earlier literature. As rules, neither refers to a total or a position particular
+to King Wen. C4's opening pair is in the classical commentary. Which of the two comes first is our
+convention. A Lean theorem shows that C1, C2, C3 and C5 do not force that choice (**proven**). C3,
+C5, C6 and C7 were **read off King Wen itself**: they use its own complement-distance total, its own
+jump counts and its own pair neighbours.
 
 A rule read off King Wen will always be satisfied by King Wen, so King Wen passing these rules is
 no evidence that it was designed. What the rules can do is define a set of orderings, and then you
@@ -216,16 +219,22 @@ rules. If the answer is large, these rules alone leave many possible orderings a
 out King Wen. The count tells you how many candidates the rules leave. A claim that King Wen is
 rare also has to say which population it compares against and how the orderings are weighted.
 
+Two kinds of answer come later, and they have different standing. Without C3, the count is exact:
+Section 4 explains how the count for C1, C2, C4 and C5 was done. With C3, and so with all seven
+rules, the count is only estimated (Section 6). Section 6 also writes down a second ordering that
+passes all seven rules, so the answer is not 1.
+
 The full count is far too large to find by listing orderings, and Section 4 shows how it is done.
 First, a version small enough to count in a second.
 
-**Rungs.** Rule C4 fixes the first pair, which leaves **31 free pairs** to arrange. The
-project's symmetry theorem (Section 4) sorts those 31 pairs into seven groups, of sizes 3, 3, 3, 4,
-6, 6 and 6. Two pairs belong to the same group if one of the line-position shuffles described in
-Section 4 carries one pair to the other. If you keep only some whole groups and throw the rest away,
-you get a smaller problem with the same kind of rules, and keeping whole groups means those
-shuffles still act on it. We call each such problem a **rung**, named by its number of free pairs.
-This guide starts with the 9-pair rung.
+**Rungs.** Rule C4 fixes the first pair, which leaves **31 free pairs** to arrange. The project's
+symmetry theorem (Section 4) sorts those 31 pairs into seven groups, of sizes 3, 3, 3, 4, 6, 6 and 6
+(**exact**, [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), "Reproducing the reduced-rung
+counts"; the 48 shuffles themselves are **proven**, [TR-5](TR5_SYMMETRY.md)). Two pairs belong to the same group if one of the
+line-position shuffles described in Section 4 carries one pair to the other. If you keep only some
+whole groups and throw the rest away, you get a smaller problem with the same kind of rules, and
+keeping whole groups means those shuffles still act on it. We call each such problem a **rung**,
+named by its number of free pairs. This guide starts with the 9-pair rung.
 
 A rung's orderings always begin with the fixed opening pair, so the 9-pair rung orders 10 pairs, or
 20 hexagrams, and the 13-pair rung orders 14 pairs, or 28 hexagrams. A rung imposes C1, C2, C4 and
@@ -238,11 +247,12 @@ from its own pairs by a fixed recipe: search the rung's pairs in a fixed order f
 complete ordering that obeys C2, and take that ordering's between-pair jump counts as the budget.
 This gives a reproducible test problem with at least one solution
 ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), "Reproducing the reduced-rung counts"). For
-the 9-pair rung that budget, written B0, is (2,5,0,2,0): two between-pair steps of size 1, five of
-size 2, none of size 3, two of size 4 and none of size 6. (Section 4 explains why the budget only
-covers the steps *between* pairs.) Different rungs use different groups and do not sit inside
-each other (the 9-pair and 13-pair rungs share one group of three), so agreement across rungs is
-agreement across cases that overlap little. ([REPRODUCE.md](../documentation/REPRODUCE.md), "What `--f1-pairs n` means".)
+the 9-pair rung that budget, written B0, is (2,5,0,2,0) (**exact**): two between-pair steps of size
+1, five of size 2, none of size 3, two of size 4 and none of size 6. (Section 4 explains why the
+budget only covers the steps *between* pairs.) Different rungs use different groups and do not sit
+inside each other (the 9-pair and 13-pair rungs share one group of three), so agreement across rungs
+is agreement across cases that overlap little. ([REPRODUCE.md](../documentation/REPRODUCE.md), "What
+`--f1-pairs n` means".)
 
 **Step 4.** Count the 9-pair rung in Python. `verify.py` uses a plain counting method with no
 symmetry tricks, and shares no code with the C engine. It counts layer by layer and compares each
@@ -282,12 +292,13 @@ problem and its budget.
 you what each later check actually tests.
 
 The number this project computed exactly is the count of orderings that satisfy C1, C2, C4 and C5
-together. It is a 40-digit integer, about 1.097×10³⁹ (Section 6 gives it in full). Even if you
+together. It leaves out C3, C6 and C7, and Section 6 explains why the totals that include C3 are
+estimates. It is a 40-digit integer, about 1.097×10³⁹ (Section 6 gives it in full). Even if you
 merge orderings that differ only in which way their pairs face, at least 5.1×10²⁹ different orders
 of pairs remain (**exact** arithmetic: each order of pairs accounts for at most 2³¹ orderings). The
-largest list the project has written out holds 10,525,271,997 orders of pairs (**exact**); it was
-made under a different rule set, C1 to C5, so the two figures do not measure how much of the space
-that list covered. Listing is out of the question. We can count without listing every ordering by
+largest list the project has written out holds 10,525,271,997 orders of pairs (**exact**). That list
+was made under a different rule set, C1 to C5, so it says nothing about how much of this space a
+list could cover. Listing is out of the question. We can count without listing every ordering by
 combining partial orderings that have the same ways to finish. Three ideas make that work.
 
 ### Idea 1: think in pairs, and check C2 only where pairs meet
@@ -302,9 +313,9 @@ changes an even number of lines, and flipping every line changes all six.) So C2
 the 31 places where one pair ends and the next begins. You never need to check it anywhere else.
 
 The same split helps with C5. Of King Wen's 63 steps, 32 are inside pairs, and those are fixed by
-C1: twelve of size 2, twelve of size 4 and eight of size 6. Subtract them from King Wen's counts and
-what remains is a budget for the 31 steps between pairs: (2, 8, 13, 7, 1) steps of size 1, 2, 3, 4
-and 6. C5 becomes "use up this budget exactly".
+C1: twelve of size 2, twelve of size 4 and eight of size 6 (**exact**, read off King Wen). Subtract
+them from King Wen's counts and what remains is a budget for the 31 steps between pairs: (2, 8, 13,
+7, 1) steps of size 1, 2, 3, 4 and 6 (**exact**). C5 becomes "use up this budget exactly".
 
 ### Idea 2: count states, not orderings
 
@@ -324,9 +335,10 @@ and you get 32 **layers**, from 0 pairs to all 31. The count in the last layer i
 
 There is a catch. Ignore the budget for a moment, and there are still 31 × 2³¹ + 1 =
 66,571,993,089 possible states (**exact** arithmetic). The numbers stored in them get very large,
-past 2¹²⁸, and memory runs out first. Even holding only two layers at once, the plain method needs
-between about 150 and 450 gigabytes, depending on how the numbers are stored
-([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §1).
+past 2¹²⁸ (**exact**). Memory runs out before anything else does: even holding only two layers at
+once, the plain method needs between about 150 and 450 gigabytes, depending on how the numbers are
+stored ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §1; **calculated**, not a
+measurement).
 
 ### Idea 3: use the symmetry, and get a free check
 
@@ -347,22 +359,21 @@ This guide counts oriented orderings, direction bits included. There the upside-
 change the ordering, so the families have 48 members and the count must be divisible by 48. That
 last step, from pair orders to oriented orderings, is argued in
 [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §2 and is not itself machine-checked.
-Divisibility by 24 is the weaker form of the same fact. The full-scale count checks in the
-project's programs tested only that weaker form until 2026-10-02; since then they test divisibility
-by 48.
+Divisibility by 24 is the weaker form of the same fact.
 
 1. **Less work.** States related by a shuffle have the same future, so the engine stores only one
-   representative of each family of "used pairs" sets. At full scale that is 93,939,712 sets in
-   place of 2³¹ = 2,147,483,648, a saving of about 22.9 times. It is a little under 24, because
-   some partial sets are left unchanged by a few shuffles. The engine handles those with standard
-   orbit-counting bookkeeping. Lean checks the mathematics of that bookkeeping, as a model
-   (**proven**, [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §2); the C code that
-   carries it out is not machine-checked. Steps 8 and 13 compare the engine with two other
-   algorithms on the 13-pair rung, which is evidence for that case.
+   representative of each family of "used pairs" sets. At full scale that is 93,939,712 sets
+   (**exact**) in place of 2³¹ = 2,147,483,648, a saving of about 22.9 times (**exact** arithmetic,
+   rounded). It is a little under 24, because some partial sets are left unchanged by a few
+   shuffles. The engine handles those with standard orbit-counting bookkeeping. Lean checks the
+   mathematics of that bookkeeping, as a model (**proven**,
+   [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §2); the C code that carries it out is not
+   machine-checked. Steps 8 and 13 compare the engine with two other algorithms on the 13-pair rung,
+   which is evidence for that case.
 2. **A free check.** The final count must be divisible by 48, and so by 24. Nothing in the engine's
-   arithmetic makes that happen on its own. In the full 31-pair run, the engine tests divisibility
-   by 48 at the end and stops if it fails. (The run that produced the published total tested
-   divisibility by 24, the test in place at the time.) That catches any error that leaves the total
+   arithmetic makes that happen on its own. Run on the full 31-pair problem, the engine tests
+   divisibility by 48 at the end and stops if the test fails. The log of the run behind the
+   published total shows a test by 24, the weaker form. That catches any error that leaves the total
    indivisible by 48; a wrong total that happens to be a multiple of 48 would pass. The smaller runs
    in this guide do not make that test, so at step 6 you do the division yourself.
 
@@ -382,14 +393,16 @@ shortcut does real work, so this is the case the next steps check against other 
 Time: 0.6 s on one core, peak 12 MB (measured).
 
 The 13-pair rung has exactly **2,063,395,607,040** orderings (**exact**). Divide by 48 and you get
-42,987,408,480 with nothing left over, so by 24 as well. The same symmetry argument applies here,
-because a rung is made of whole groups of pairs (Section 3), so the shuffles act on it too.
+42,987,408,480 (**exact** arithmetic) with nothing left over, so by 24 as well. The same symmetry
+argument applies here, because a rung is made of whole groups of pairs (Section 3), so the shuffles
+act on it too.
 
-This is the same engine on a problem small enough to check exactly. The full count is about
-5×10²⁶ times the 13-pair count. All 14 layer files you just wrote come to about 1.1 MB. The full
-computation's layer files come to 3.29 TB (**measured**), and even the 19-pair rung's files are
-only about 0.003% of that by size, the 21-pair rung's about 0.013%. Agreement on this rung checks
-the method at 13 pairs; the 31-pair total needs its own full-scale computation.
+This is the same engine on a problem small enough to check exactly. The full count is about 5×10²⁶
+times the 13-pair count (**exact** arithmetic, rounded). All 14 layer files you just wrote come to
+about 1.1 MB. The full computation's layer files come to 3.29 TB (**measured**), and even the
+19-pair rung's files are only about 0.003% of that by size, the 21-pair rung's about 0.013%.
+Agreement on this rung checks the method at 13 pairs; the 31-pair total needs its own full-scale
+computation.
 
 **Step 7.** Check that your layer files are byte-for-byte the same as ours. *Why:* if they match,
 your build and ours produced the same data, so the later comparisons are about the same files.
@@ -541,7 +554,7 @@ recomputed any of these numbers yet.**
 
 The second number is the one Section 4 described. Rebuilding it with the engine's layer-by-layer
 method needs about 64 GB of RAM and about 4 TB of disk
-([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). The second instrument, `verify.c`'s
+([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); **calculated**). The second instrument, `verify.c`'s
 inclusion–exclusion mode, recomputed the same integer without any layer files. Both full-scale
 computations are beyond this guide.
 
@@ -558,7 +571,8 @@ but the full-space counts that combine it with C1, C2, C4 and C5 are estimates, 
 and C7. C3 depends on how far apart complementary hexagrams sit across the whole ordering, so to
 count it exactly the program must carry extra information in every state, which makes the full
 calculation much larger. A machine-checked identity rewrites C3 as a small whole number the counting method can
-carry, so an exact method exists and is built. Running it at full scale was **declined**.
+carry (**proven**). The engine has a mode that uses it to count exactly. That run at full scale was
+**declined**, so both totals that include C3 stay **estimated**.
 
 The estimator has been checked against exact answers where both exist. The exact 1.097×10³⁹ falls
 inside the estimator's stated error envelope for the same quantity ([TR-4](TR4_SIZE_OF_THE_SPACE.md),
@@ -743,7 +757,7 @@ orderings, which depend on how the steps relate to each other, stay open.
   what you get by shuffling the 31 jump sizes uniformly at random (**measured**). We have not
   tested whether this closeness is unusual.
 - Two checks compare the atlas with numbers the project published from a different instrument, and
-  both print `FAIL`, by about twelve times their tolerance. The populations differ by C3: the atlas
+  both print `FAIL`, by about twelve times their tolerance (**measured**). The populations differ by C3: the atlas
   has no C3, and the other instrument applied it. If both instruments are correct, C3 explains the
   gap; that explanation still needs a direct test.
 

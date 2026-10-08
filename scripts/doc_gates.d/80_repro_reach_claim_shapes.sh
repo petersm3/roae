@@ -62,7 +62,7 @@ gate_repro_reach() {
   echo "== GATE 25: every documented reproduction command resolves to a real flag =="
   # Q-703 (2026-09-24, Fable K): the population is the script's own $DOCS (git ls-files '*.md'),
   # passed in by environment because the heredoc is quoted. See the `docs =` note below.
-  { _wm_prelude; cat <<'PY'
+  { _wm_prelude; _sp_prelude; cat <<'PY'
 import bisect, os, re, sys
 
 TOOLS = {"verify.py": "verify.py", "solve.py": "solve.py", "sat.py": "sat.py",
@@ -144,23 +144,32 @@ HEAD_RE = re.compile(r'(?<![-A-Za-z0-9_.])'
 FLAGTOK = re.compile(r'^--[a-z0-9][a-z0-9-]*$')
 VALTOK  = re.compile(r'^[-A-Za-z0-9_./:=*%+~^@\[\]{}<>,]*[-A-Za-z0-9_./:=*%+~^@\]}>]$')
 
+# Q-970 (A08#1, Q-835 Codex review; adjudicated Q-962): THE COMMAND IS SPLIT AS THE SHELL SPLITS IT.
+# The walk split on whitespace and stopped at the first token that was not value-shaped, so a QUOTED
+# value (`--kc-scan "path with spaces"`) ended the command before the flag after it, and so did a
+# `\` line continuation: `solve --kc-scan x \` + `--q835-absent` on the next line reached no gate.
+# Now a line ending in `\` continues onto the next one, and the tokens come from the quote-aware
+# splitter of src_parse.sh: a quoted token is a value whatever it contains. An UNTERMINATED quote
+# still ends the walk (prose such as "isn't"), which is the conservative direction stated above.
 def _command_flags(text, at):
     """Flags of the invocation whose flag run begins at offset `at`. At most one value-shaped
     token may follow each flag; the command stops at the first token that is neither, and
-    never crosses a backtick or a newline."""
+    never crosses a backtick or an unescaped newline."""
     stop = text.find("\n", at)
+    while stop >= 0 and text[at:stop].rstrip(" \t").endswith("\\"):
+        stop = text.find("\n", stop + 1)
     if stop < 0:
         stop = len(text)
     tick = text.find("`", at)
     if 0 <= tick < stop:
         stop = tick
     flags, pend = [], False
-    for tok in text[at:stop].split():
+    for tok, quoted in sp_sh_split(re.sub(r"\\[ \t]*\n", " ", text[at:stop])):
         base = tok.split("=", 1)[0]
         if tok.startswith("--") and FLAGTOK.match(base):
             flags.append(base)
             pend = True
-        elif pend and not tok.startswith("-") and VALTOK.match(tok):
+        elif pend and (quoted or (not tok.startswith("-") and VALTOK.match(tok))):
             pend = False          # this token is the preceding flag's VALUE
         else:
             break
@@ -1106,7 +1115,7 @@ gate_framing_era() {
   # tracks the subject instead of the fix.
   local FLOOR=2
   local out
-  out=$(python3 - "$FLOOR" <<'PY'
+  out=$( { _sp_prelude; cat <<'PY'
 import re, subprocess, sys, os
 floor = int(sys.argv[1])
 # Population: tracked markdown only. Untracked scratch files are not published.
@@ -1114,6 +1123,37 @@ files = subprocess.run(["git","ls-files","*.md"], capture_output=True, text=True
 if not files:
     print("ERROR\tgit ls-files returned no markdown at all"); raise SystemExit(0)
 # A RECIPE, not a mention: `sha256sum -c` is only ever an executable instruction.
+# Q-970 (A08#12, Q-835 Codex review; adjudicated Q-962): EVERY SPELLING OF CHECK MODE. `-c` was the
+# only one read, so `sha256sum --check sub_x.sha256` -- the same recipe -- published the post-#169
+# failure with this gate green. A line is a recipe when its sha256sum (or `shasum -a 256`) command
+# carries `--check`, or a short-option cluster containing `c` (`-c`, `-bc`, `-cw`), anywhere in its
+# arguments (GNU permutes options, so `sha256sum FILE -c` is check mode too). The words are split
+# by the quote-aware splitter; the command ends at a shell operator or a backtick.
+_SHAWORD = re.compile(r'(?<![\w.-])(?:sha256sum|shasum)$')
+def _is_recipe(line):
+    if 'sha' not in line:
+        return False
+    for seg in re.split(r'`|\|\||&&|[|;]', line):
+        w = [v for v, _q in sp_sh_split(seg)]
+        for k, v in enumerate(w):
+            if not _SHAWORD.search(v):
+                continue
+            rest = w[k + 1:]
+            if v.endswith('shasum') and not any(a in ('256', '-a256') or a.endswith('=256') for a in rest[:3]):
+                continue
+            skip = False
+            for a in rest:
+                if skip:
+                    skip = False; continue
+                if a == '--':
+                    break
+                if a == '--check':
+                    return True
+                if a in ('-a', '--algorithm'):
+                    skip = True; continue
+                if re.fullmatch(r'-[A-Za-z]+', a) and 'c' in a[1:] and not a.startswith('-a'):
+                    return True
+    return False
 RECIPE = re.compile(r'sha256sum\s+-c\b')
 # The era vocabulary already in use across the corpus for exactly this distinction. Any ONE of
 # these within the window disambiguates which framing the recipe assumes.
@@ -1128,7 +1168,7 @@ for f in files:
     except OSError:
         continue
     for i, l in enumerate(lines):
-        if not RECIPE.search(l):
+        if not (RECIPE.search(l) or _is_recipe(l)):
             continue
         pop += 1
         sites.add(f)
@@ -1142,7 +1182,7 @@ if len(sites) < floor:
 for f, ln, l in bad:
     print("HIT\t%s\t%d\t%s" % (f, ln, l))
 PY
-) || { echo "  [FAIL] GATE 28 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$FLOOR") || { echo "  [FAIL] GATE 28 scanner failed — NOTHING was checked."; return 1; }
   local rc=0
   while IFS=$'\t' read -r tag a b c; do
     case "$tag" in

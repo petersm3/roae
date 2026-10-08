@@ -5959,6 +5959,7 @@ preflight_support_newlines || RC=1
 . scripts/doc_gates.d/96_transcripts.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/96_transcripts.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/md_normalise.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/md_normalise.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 . scripts/doc_gates.d/word_match.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/word_match.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
+. scripts/doc_gates.d/src_parse.sh || { echo "doc_gates.sh: cannot load scripts/doc_gates.d/src_parse.sh -- NOTHING was checked." >&2; exit 2; }  # DG-MODULE
 case "$MODE" in
   author-directives) gate_author_directives || RC=1 ;;
   npath) gate_npath || RC=1 ;;

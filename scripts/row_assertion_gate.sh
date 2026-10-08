@@ -71,15 +71,16 @@
 #       attachment across a merge detectable; that limit is real and is G-31 §3, not a gate bug.
 #   (b) a check that is content-guarded and reaches rc but is trivially true (`[ 1 = 1 ]`) reads
 #       as asserted. No static rule distinguishes a weak check from a strong one.
-#   (c) full-line `#` comments are stripped before analysis (so commenting a check OUT is caught);
-#       a trailing comment on a live line is not stripped and could in principle supply a keyword.
+#   (c) the battery is read in BASH'S OWN CANONICAL FORM (Q-970, below): every comment is gone, so
+#       commenting a check out is caught and a trailing comment cannot supply a keyword.
 #   (d) it does not run the battery. It cannot tell whether a row executes at n=31.
 #
 # Verdict tokens, each a WHOLE line (grep -qx; never gate on output shape):
 #   ROW_ASSERTION=PASS|FAIL|ERROR
 #   ROW_ASSERTION_ERROR=<cause>   on ERROR: bad-args | battery-missing | battery-unreadable |
 #                                 no-rows-parsed | unbalanced-block | analyzer-failed |
-#                                 exemption-unknown-row | exemption-malformed
+#                                 exemption-unknown-row | exemption-malformed |
+#                                 battery-unparseable | population-mismatch
 #   ROW_ASSERTION_POP=n        row_begin blocks parsed
 #   ROW_ASSERTION_EMIT=n       of those, rows that write a table or artifact (DRIVER + PUBLISH)
 #   ROW_ASSERTION_DRIVER=n     of those, rows the DRIVER builds (the class this gate owns)
@@ -95,6 +96,24 @@
 #   RC-ONLY    <id> …   advisory: emission and rc are both the producer's
 #   STALE      <id> …   an exemption that exempts nothing
 # Exit 0 PASS / 1 FAIL / 2 ERROR.
+#
+# Q-970 (A02#7, #8, #10, #11, #12; Q-835 Codex review, adjudicated Q-962) — THE BATTERY IS READ AS BASH
+# PARSES IT. The awk rules below are line patterns, and they recognised one spelling of each construct:
+# `{ row_begin x; ...; row_end X $?; }` on one line was no row at all (#12), `while IFS= read` was no
+# loop (#11), `"$SOLVE" "$j" || exit 1` was an assertion although the producer's status is all it
+# tests (#7), `( [ -s "$A" ] || exit 1 ) || true` was an assertion although `|| true` discards it
+# (#8), and an `ERROR:` string assigned to a variable nothing reads made a `row_end` row
+# value-carried (#10). So the analyser now reads the battery's CANONICAL FORM — `bash -n` must accept
+# the file (else ERROR battery-unparseable), and `declare -f` of a wrapper function prints it with
+# every comment removed, continuations joined and ONE statement per line — and:
+#   * every `while`/`until`/`for` loop is loop-driven, whatever its condition;
+#   * a failure raised on a line whose only test is a producer's exit status is rc-propagated, an
+#     `exit N` included;
+#   * an exit inside a `( ... )` whose status is then discarded (`|| true`, `|| :`) reaches nothing;
+#   * a value-carried verdict counts only on a row_end_val whose VALUE argument is that variable;
+#   * the rows the analyser parsed must be as many as the `row_begin` commands the raw file holds
+#     (outside comments): a disagreement is ERROR population-mismatch, never a smaller table.
+# Line ranges printed are the RAW file's (the row_begin line of each id, to its row_end).
 #
 # usage: row_assertion_gate.sh [--battery FILE] [--strict] [--list] [--selftest]
 #   --battery FILE  analyse FILE instead of scripts/tr12_repro.sh (mutation testing uses this)
@@ -137,10 +156,16 @@ ALLOW_EOF
 # and exits nonzero with an ERR line if the file does not parse as a battery.
 # ---------------------------------------------------------------------------------------------
 analyse(){ awk '
+BEGIN { SQ=sprintf("%c", 39) }
 function reset(   i){
     drv=0; pub=0; loop=0; nfail=0; nrcprop=0; valguard=0; emitted=0
-    delete failvar; delete failkind; delete exited; delete guard
-    depth=0
+    delete failvar; delete failkind; delete exited; delete guard; delete valvars; delete isbr
+    depth=0; sdepth=0; delete sopen
+}
+# parenthesis balance of a canonical line, outside single and double quotes: + opens, - closes
+function pbal(s,   t){
+    t=s; gsub(/\\./,"",t); gsub(SQ "[^" SQ "]*" SQ,"",t); gsub(/"[^"]*"/,"",t)
+    return gsub(/\(/,"(",t) - gsub(/\)/,")",t)
 }
 function testish(s){
     return (s ~ /\[ / || s ~ /\[\[/ || s ~ /(^|[^-A-Za-z0-9_])-(eq|ne|lt|gt|le|ge)([^A-Za-z0-9_]|$)/ \
@@ -173,7 +198,7 @@ function directexit(s){
 }
 function failish(s){ return (failname(s) != "" || directexit(s)) }
 
-/^[ \t]*[A-Za-z0-9_]+\(\)[ \t]*\{/ { fn=$0; sub(/\(\).*/,"",fn); gsub(/[ \t]/,"",fn) }
+/^[ \t]*(function[ \t]+)?[A-Za-z0-9_]+ ?\(\)[ \t]*(\{.*)?$/ { fn=$0; sub(/\(\).*/,"",fn); sub(/^[ \t]*(function[ \t]+)?/,"",fn); gsub(/[ \t]/,"",fn) }
 
 # join shell line continuations before anything else looks at the text
 { raw=$0
@@ -189,16 +214,18 @@ L ~ /^[ \t]*row_begin([ \t]|$)/ {
     reset(); rcseen=""; next
 }
 
-inb && L ~ /^[ \t]*row_end(_val)?([ \t]|$)/ {
-    split(L,F," "); kind=F[1]; token=F[2]; rcarg=F[3]
+inb && L ~ /^[ \t]*row_end(_val)?([ \t;]|$)/ {
+    l=L; sub(/^[ \t]+/,"",l); sub(/;[ \t]*$/,"",l)
+    split(l,F," "); kind=F[1]; token=F[2]; rcarg=F[3]; valarg=F[4]; gsub(/[^A-Za-z0-9_]/,"",valarg)
     why=""; asserted=0
     for (i=1;i<=nfail;i++) {
+        if (failkind[i] == "discarded") continue
         if (failkind[i] == "direct") { asserted=1; why="direct-exit"; break }
         v = failvar[i]
         if (v != "" && (v in exited)) { asserted=1; why="exit $" v; break }
         if (v != "" && index(rcarg, v) > 0) { asserted=1; why="row_end rc " rcarg; break }
     }
-    if (!asserted && valguard) { asserted=1; why="value-carried (ERROR/FAIL literal raised under a guard)" }
+    if (!asserted && kind == "row_end_val" && valarg != "" && (valarg in valvars)) { asserted=1; why="value-carried (ERROR/FAIL literal raised under a guard)" }
     if (!asserted) {
         if (nfail > 0) why="a check is written but nothing exits its flag"
         else if (nrcprop > 0) why="rc-propagated only: the producer ran, nothing checked what it printed"
@@ -212,11 +239,14 @@ inb && L ~ /^[ \t]*row_end(_val)?([ \t]|$)/ {
 
 inb {
     l=L; sub(/^[ \t]+/,"",l)
+    lo = l; ob = (l ~ /^\(/); b = pbal(l)   # a subshell opens here; its first statement follows the (
+    if (ob) sub(/^\([ \t]*/,"",l)
     if (l ~ /^#/) next                      # a check that has been commented out is not a check
     if (l == "") next
     # --- emission class ---------------------------------------------------------------------
     if (l ~ /done *< *</ || l ~ /done *< *"/ || l ~ /while +read/ || l ~ /^for +[A-Za-z_]+ +in/ \
-        || l ~ /^while +\[/ || l ~ /\| *while +read/) { loop=1; drv=1 }
+        || l ~ /^while +\[/ || l ~ /\| *while +read/ \
+        || l ~ /^(while|until)[ \t]/ || l ~ /^for[ \t(]/) { loop=1; drv=1 }
     if (l ~ /(^|\| *)(awk|sed|cut|bc|tr)[ \t]/ || l ~ /^\( *(awk|sed)[ \t]/ || l ~ /(^|\| *)grep -o/ \
         || l ~ /\| *tee/) drv=1
     if (l ~ /(echo|printf)[^|]*\$\(/) drv=1
@@ -228,12 +258,24 @@ inb {
         e=l; sub(/.*exit +/,"",e); gsub(/[^A-Za-z0-9_]/," ",e); m=split(e,E," ")
         for (j=1;j<=m;j++) if (E[j] ~ /^[A-Za-z_]/) exited[E[j]]=1
     }
-    if (l ~ /^if /)        { depth++; guard[depth]= (testish(l) && !rcprop(l)) ? 1 : 0 }
+    if (l ~ /^if /)        { depth++; isbr[depth]=0; guard[depth]= (testish(l) && !rcprop(l)) ? 1 : 0 }
     else if (l ~ /^elif /) { if (depth>0) guard[depth]= (testish(l) && !rcprop(l)) ? 1 : 0 }
-    else if (l ~ /^fi([ \t;]|$)/) { if (depth>0) depth-- }
+    else if (l ~ /^fi([ \t;)]|$)/) { if (depth>0 && !isbr[depth]) depth-- }
+    # Q-970: the canonical form puts a `cond || { ...; fails=1; }` group on its own lines, so a
+    # `{` opened by a guarded `||`/`&&` is a guard level like `if` (a plain `{` inherits the guard of the level around it).
+    else if (l ~ /\{ *$/) { depth++; isbr[depth]=1
+        guard[depth] = (l ~ /(\|\||&&) *\{ *$/ && testish(l) && !rcprop(l)) ? 1 : (depth>1 ? guard[depth-1] : 0) }
+    else if (l ~ /^\}/) { if (depth>0 && isbr[depth]) depth-- }
+    # --- subshells whose status is discarded (Q-970, A02#8) ---------------------------------
+    if (ob && b > 0) { sdepth++; sopen[sdepth]=nfail+1 }
+    else if (b < 0 && sdepth > 0) {
+        if (l ~ /\) *\|\| *(true|:) *;?$/) for (k=sopen[sdepth]; k<=nfail; k++) failkind[k]="discarded"
+        sdepth--
+    }
     # --- failure paths ----------------------------------------------------------------------
     if (failish(l)) {
-        if (rcprop(l) && !directexit(l)) nrcprop++
+        if (lo ~ /\(.*exit +[1-9].*\) *\|\| *(true|:)/) { nrcprop++; next }     # ( ... exit N ) || true
+        if (rcprop(l) && !testish(l)) nrcprop++                               # Q-970 A02#7: an exit too
         else if (testish(l) || (depth>0 && guard[depth]) || directexit(l)) {
             if (directexit(l) && !(testish(l) || (depth>0 && guard[depth]))) {
                 # an unguarded `exit 1` at the tail of a subshell is a failure path only if some
@@ -247,7 +289,9 @@ inb {
             }
         } else nrcprop++
     }
-    if (l ~ /[A-Za-z_][A-Za-z0-9_]*="(ERROR|FAIL)/ && (testish(l) || (depth>0 && guard[depth]))) valguard=1
+    if (l ~ /[A-Za-z_][A-Za-z0-9_]*="?(ERROR|FAIL)/ && (testish(l) || (depth>0 && guard[depth]))) {
+        valguard=1; v=l; sub(/="?(ERROR|FAIL).*/,"",v); sub(/.*[^A-Za-z0-9_]/,"",v); valvars[v]=1
+    }
     next
 }
 END{
@@ -260,17 +304,56 @@ END{
 
 fail(){ echo "ROW_ASSERTION_ERROR=$1"; echo "ROW_ASSERTION=ERROR"; exit 2; }
 
+# canon_of FILE -- bash's canonical form of FILE (Q-970): `bash -n` first, so the text is proven to
+# parse ON ITS OWN and the wrapper function below cannot be closed early by it (nothing in FILE ever
+# runs: defining a function executes none of its body). One statement per line, comments removed,
+# continuations joined; a statement's trailing `;` is dropped so `row_begin x;` reads as `row_begin x`.
+canon_of(){
+    local w e rc
+    e=$(LC_ALL=C bash --norc --noprofile -O extglob -n "$1" 2>&1) || return 1
+    [ -z "$e" ] || return 1
+    w=$(mktemp) || return 1
+    { echo '__ra_canon_w() {'; cat "$1"; printf '\n}\ndeclare -f __ra_canon_w\n'; } > "$w"
+    env -i PATH="$PATH" LC_ALL=C bash --norc --noprofile -O extglob "$w" > "$w.out" 2>"$w.err"; rc=$?
+    if [ "$rc" -ne 0 ] || [ -s "$w.err" ] || [ "$(head -1 "$w.out")" != "__ra_canon_w () " ]; then
+        rm -f "$w" "$w.out" "$w.err"; return 1; fi
+    sed '1,2d;$d;s/^    //' "$w.out" | sed -E 's/([^;]);$/\1/'
+    rm -f "$w" "$w.out" "$w.err"
+}
+# raw_rows FILE -- `row_begin` commands in the RAW file, outside comment lines: "id<TAB>line" each.
+raw_rows(){
+    awk '{ l=$0; sub(/^[ \t]+/,"",l); if (l ~ /^#/) next
+           s=$0
+           while (match(s, /(^|[;{(&|][ \t]*|^[ \t]+)row_begin[ \t]+[^ \t;&|)]+/)) {
+               t=substr(s, RSTART, RLENGTH); sub(/.*row_begin[ \t]+/,"",t); print t "\t" NR
+               s=substr(s, RSTART+RLENGTH) } }' "$1"
+}
+
 # ---------------------------------------------------------------------------------------------
 run_gate(){   # run_gate BATTERY STRICT ; prints the report, sets globals, returns 0/1/2
     local bat="$1" strict="$2"
     [ -f "$bat" ] || { echo "ROW_ASSERTION_ERROR=battery-missing"; echo "ROW_ASSERTION=ERROR"; return 2; }
     [ -r "$bat" ] || { echo "ROW_ASSERTION_ERROR=battery-unreadable"; echo "ROW_ASSERTION=ERROR"; return 2; }
-    local out arc
-    out=$(analyse "$bat"); arc=$?
+    local out arc cf rawp
+    cf=$(mktemp) || { echo "ROW_ASSERTION_ERROR=analyzer-failed"; echo "ROW_ASSERTION=ERROR"; return 2; }
+    if ! canon_of "$bat" > "$cf"; then
+        rm -f "$cf"; echo "ROW_ASSERTION_ERROR=battery-unparseable"; echo "ROW_ASSERTION=ERROR"; return 2; fi
+    out=$(analyse "$cf"); arc=$?
+    rm -f "$cf"
+    rawp=$(raw_rows "$bat")
     if [ "$arc" -eq 3 ]; then printf '%s\n' "$out"; echo "ROW_ASSERTION_ERROR=unbalanced-block"; echo "ROW_ASSERTION=ERROR"; return 2; fi
     if [ "$arc" -eq 4 ]; then printf '%s\n' "$out"; echo "ROW_ASSERTION_ERROR=no-rows-parsed"; echo "ROW_ASSERTION=ERROR"; return 2; fi
     if [ "$arc" -ne 0 ]; then echo "ROW_ASSERTION_ERROR=analyzer-failed"; echo "ROW_ASSERTION=ERROR"; return 2; fi
     grep -q '^ROW	' <<<"$out" || { echo "ROW_ASSERTION_ERROR=no-rows-parsed"; echo "ROW_ASSERTION=ERROR"; return 2; }
+    # the population cross-check, and the raw line ranges (Q-970; see the header)
+    if [ "$(grep -c '^ROW	' <<<"$out")" -ne "$(grep -c . <<<"$rawp")" ]; then
+        echo "  [ERROR] the analyser parsed $(grep -c '^ROW	' <<<"$out") row(s) and the raw file holds $(grep -c . <<<"$rawp") row_begin command(s)"
+        echo "ROW_ASSERTION_ERROR=population-mismatch"; echo "ROW_ASSERTION=ERROR"; return 2; fi
+    out=$(awk -F'\t' -v OFS='\t' -v B="$bat" 'NR==FNR { if (!($1 in at)) at[$1]=$2; next }
+        $1=="ROW" && ($2 in at) { s=at[$2]; e=s
+            while ((getline x < B) > 0) { k++; if (k>s && x ~ /(^|[^A-Za-z0-9_])row_end(_val)?[ \t]/) { e=k; break } }
+            close(B); k=0; $4=s "-" e }
+        { print }' <(printf '%s\n' "$rawp") - <<<"$out")
 
     local pop emit drvn asrt unas rcon
     pop=$(printf '%s\n' "$out" | grep -c '^ROW	')

@@ -90,8 +90,16 @@ WARN_BASELINE='3 [-Wmisleading-indentation]
 # Census: one "count class" line per class seen. awk ERE has no bounded
 # repetition ('+' only). Lines matching ' warning:' but carrying no tag are
 # counted as (untagged) so they cannot slide through the census.
-WARN_SEEN=$(awk '/warning:/ {
-    if (match($0, /\[-W[a-zA-Z0-9=-]+\]/)) c[substr($0, RSTART, RLENGTH)]++;
+# Q-970 (A12#7, Q-835 Codex review; adjudicated Q-962): THE CLASS IS THE TAG GCC APPENDS, i.e. the
+# LAST [-W...] on the line. The first one was taken, so `#warning [-Wunused-function]` -- which gcc
+# prints as "warning: #warning [-Wunused-function] [-Wcpp]" -- was charged to the baselined
+# -Wunused-function class and passed the ratchet. Text inside a message can contain anything; the
+# option tag is always the line's final token (gcc 13, -fdiagnostics-show-option, the default).
+# And only a DIAGNOSTIC line is a warning: gcc's source echo under a diagnostic is indented
+# ("    1 | #warning ..."), so a line that starts with a blank is quoted source, not a warning.
+WARN_SEEN=$(awk '/^[^ \t].*warning:/ {
+    s = $0; sub(/[ \t\r]+$/, "", s)
+    if (match(s, /\[-W[a-zA-Z0-9=-]+\]$/)) c[substr(s, RSTART, RLENGTH)]++;
     else c["(untagged)"]++
 } END { for (k in c) print c[k], k }' "$WARN_LOG")
 

@@ -67,7 +67,7 @@ gate_p14_claims() {
   require_tracked "reports/certificates/verify_all.sh" "GATE 39 LEG 1" || return 1
   local FA=15 FB=15 FC=2 FD=15
   local out
-  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; _sp_prelude; cat <<'PY'
 import os
 fa, fb, fc, fd = (int(x) for x in sys.argv[1:5])
 # Cell-aware sentence split: a markdown table cell is its own unit.
@@ -87,10 +87,19 @@ for f in corpus():
     t = read(f)
     if t is None: continue
     for i, l in enumerate(t.split("\n"), 1):
-        outs = [l]
-        m = BRACE.search(l)
-        if m:
-            outs = [l[:m.start()] + alt + l[m.end():] for alt in m.group(1).split(',')]
+        # Q-970 (A09#2, Q-835 Codex review; adjudicated Q-962): BASH BRACE EXPANSION, ALL OF IT. One
+        # group per line was expanded, so `proof_{left,right}_{1,2}.drat.gz` became two names with a
+        # `{1,2}` left in each and named no certificate at all. Each word that mentions a .drat is now
+        # expanded the way bash expands it (every group, nested groups, {a..b} ranges; src_parse.sh's
+        # sp_brace_expand), per WORD as the shell does. An expansion past 4096 words is an ERROR.
+        outs = []
+        for wd in re.findall(r"\S+", l):
+            if ".drat" not in wd:
+                continue
+            try:
+                outs += sp_brace_expand(wd.strip("`*()[],;:"))
+            except SpError as e:
+                print("ERROR\t%s:%d: %s - LEG 1 could not read this line" % (f, i, e))
         for o in outs:
             for tok in TOK.findall(o):
                 named.setdefault(tok[:-3] if tok.endswith('.gz') else tok, set()).add("%s:%d" % (f, i))

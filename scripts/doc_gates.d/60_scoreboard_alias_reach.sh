@@ -129,6 +129,13 @@ if len(regions) != len(BOARDS):
 # separator so an annotation is attributed to the id it follows and to no other -- the whole
 # point is that ccn4's verdict must not be credited to ccn3 because they share a line.
 ID_AT_START = re.compile(r"^\**([A-Za-z][A-Za-z0-9]*)\b")
+# Q-970 (A07#1, Q-835 Codex review; adjudicated Q-962): AN ENTRY'S ID MAY BE WRAPPED IN ANY INLINE
+# MARKUP. Only `*` was skipped, so " `q835ghost` 0.5 " -- an entry whose id is in a code span -- was
+# no entry at all, and its orphan row was never reported. Leading `*`, `_`, backticks and `~` are
+# skipped now, and EVERY non-empty chunk must yield an id: a chunk the parser cannot read is a FAIL,
+# never a silently smaller board.
+ID_AT_START = re.compile(r"^[*_`~]*([A-Za-z][A-Za-z0-9]*)\b")
+unparsed = []
 # AND AN ENTRY ENDS AT ITS SENTENCE, which is not a refinement but a fix for a defect this
 # gate's own NEGATIVE CONTROL caught. The LAST entry on the board has no "·" after it, so it
 # ran to the close anchor and swallowed every word in between: leg 5 inserted the sentence
@@ -151,11 +158,17 @@ def entries_of(region):
         if m:
             cut = SENTENCE_END.search(body)
             out.setdefault(m.group(1), []).append(body[:cut.start()] if cut else body)
+        elif body:
+            unparsed.append(body[:60])
     return out
 
 
 for path, region in sorted(regions.items()):
+    del unparsed[:]
     entries = entries_of(region)
+    for u in unparsed:
+        print("  [FAIL] %s — a board chunk names no id this parser can read: %r" % (path, u))
+        bad = 1
     missing = [r for r in ids if r not in entries]
     if missing:
         print("  [FAIL] %s — %d registry rule(s) never reach the published board: %s"

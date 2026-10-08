@@ -54,7 +54,7 @@ gate_selftest_instruments() {
     "The declaration table IS this gate; absent, every instrument reads as declared." || rct=$?
   [ "$rct" -eq 1 ] && return 0
   [ "$rct" -eq 2 ] && return 1
-  DOC_GATES_INSTR_TBL="$tbl" python3 - <<'PY'
+  { _sp_prelude; cat <<'PY'
 import os, re, subprocess, sys
 
 # READ-ONLY SOURCE SEAM, and it exists for one reason that is worth stating because a
@@ -108,11 +108,41 @@ DEF = re.compile(r"^[ \t]*(?:"
                  r"function[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*(?:\(\)[ \t]*)?"  # function f {  / function f() {
                  r"|([A-Za-z_][A-Za-z0-9_]*)[ \t]*\(\)[ \t]*"                    # f() {  / f () {
                  r")\{")
-defined = {}
-for i in range(start + 1, end):
-    m = DEF.match(lines[i])
-    if m:
-        defined[m.group(1) or m.group(2)] = i + 1
+# Q-970 (A06#2, Q-835 Codex review; adjudicated Q-962): `DEF` above needs the `{` ON the definition
+# line, and bash does not: `unregistered()` with `{` on the next line is a function, ran, and needed no
+# row. The population is now read by the shell lexer (scripts/doc_gates.d/src_parse.sh, every
+# spelling, comments and here-documents excluded), and CROSS-CHECKED against bash's own parse: the
+# `declare -f` canonical form prints every definition as `function NAME () `, and its --selftest
+# region must hold exactly the same names. DEF stays as the third opinion: a name it sees that the
+# lexer does not is a FAIL too. A source neither can read is a FAIL, never a smaller population.
+try:
+    _lexdefs = sp_sh_funcdefs("\n".join(lines[start + 1:end]))
+    _canon = sp_sh_canon("\n".join(lines) + "\n", src).split("\n")
+except SpError as exc:
+    print("  [FAIL] the --selftest region of %s could not be parsed: %s" % (src, exc))
+    print("         An instrument census taken from a source this gate cannot read is not a census.")
+    sys.exit(1)
+defined = {nm: start + 1 + ln for nm, ln in _lexdefs.items()}
+_ca = [i for i, l in enumerate(_canon) if l.strip() == 'if [ "${1:-}" = "--selftest" ]; then']
+canon_defs = set()
+if _ca:
+    _ind = _canon[_ca[0]][:len(_canon[_ca[0]]) - len(_canon[_ca[0]].lstrip())]
+    for _l in _canon[_ca[0] + 1:]:
+        if _l in (_ind + "fi", _ind + "fi;"):
+            break
+        _m = re.match(r"^\s*function (\S+) \(\) $", _l)
+        if _m:
+            canon_defs.add(_m.group(1))
+_regex_defs = {(m.group(1) or m.group(2)) for i in range(start + 1, end) for m in [DEF.match(lines[i])] if m}
+if not _ca or canon_defs != set(defined) or not _regex_defs <= set(defined):
+    print("  [FAIL] the --selftest instrument census disagrees with itself: lexer %d, bash canonical"
+          " form %d%s" % (len(defined), len(canon_defs), "" if _ca else " (region NOT found in it)"))
+    for _n in sorted((canon_defs | _regex_defs) - set(defined)):
+        print("         %s() is a function to bash or to DEF and not to the lexer" % _n)
+    for _n in sorted(set(defined) - canon_defs):
+        print("         %s() is a function to the lexer (%s:%d) and not to bash" % (_n, src, defined[_n]))
+    print("         Two parsers of one region must agree, or the population is not known.")
+    sys.exit(1)
 
 if not defined:
     print("  [FAIL] zero functions found in the --selftest region (lines %d-%d), which is"
@@ -260,8 +290,34 @@ for name in sorted(rows):
 #         stated; this line stated it anyway. THE LIVE FIGURE IS THE `N by an assert
 #         earlier in the same python program` TERM OF LEG 4's [ok] LINE, which is
 #         re-measured on every run and cannot go stale.
+# Q-970 (A06#3): A COPY IS WHAT IS USED AS ONE, NOT WHAT IS NAMED ONE. Keyed on a `*COPY` suffix,
+# renaming _G15_COPY to _G15_MUTANT (and replacing its guard by `&& true`) took the copy, its builder
+# and its missing guard out of every leg below with all four checks green. The copy variables are now
+# every `*COPY` name PLUS every variable the region hands to the gate as its source: the first
+# argument of `_gsrc`, the value of DOC_GATES_SRC_OVERRIDE, or a script run with `bash "$V"`.
+copyvars = set(re.findall(r"\$\{?(_[A-Za-z0-9_]*COPY)\b",
+                          "\n".join(l for l in lines[start + 1:end] if not l.lstrip().startswith("#"))))
+try:
+    _rcmds = sp_sh_commands("\n".join(lines[start + 1:end]))
+    _rtoks = sp_sh_lex("\n".join(lines[start + 1:end]))
+except SpError as exc:
+    print("  [FAIL] LEG 2: the --selftest region could not be lexed (%s); its copies are unknown" % exc)
+    sys.exit(1)
+def _var_of(w):
+    m = re.fullmatch(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?", w.value)
+    return m.group(1) if m else None
+for _ln, _w in _rcmds:
+    if _w[0].value in ("_gsrc", "bash") and len(_w) > 1 and _var_of(_w[1]):
+        copyvars.add(_var_of(_w[1]))
+for _k, _v, _ln in _rtoks:
+    if _k == "word" and _v.raw.startswith("DOC_GATES_SRC_OVERRIDE="):
+        _m = re.search(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)", _v.raw)
+        if _m and not _m.group(1)[0].isdigit():
+            copyvars.add(_m.group(1))
+copyvars.discard("_DG_SRC")      # the logical source itself, which every builder READS
+_CV = "(?:%s)" % "|".join(sorted(map(re.escape, copyvars))) if copyvars else "(?!)"
 COPY_GUARD = re.compile(
-    r"grep\s+-q([A-Za-z]*)\s+(?P<q>['\"])(?P<pat>.*?)(?P=q)[^&|;]*\$_[A-Za-z0-9_]*COPY")
+    r"grep\s+-q([A-Za-z]*)\s+(?P<q>['\"])(?P<pat>.*?)(?P=q)[^&|;]*\$\{?" + _CV + r"\b")
 guards = []
 for i in range(start + 1, end):
     m = COPY_GUARD.search(lines[i])
@@ -276,6 +332,11 @@ if not guards:
     print("         using them — a checker that finds nothing must never report [ok].")
     bad = 1
 
+def _branches(p):
+    try:
+        return sp_ere_branches(p)
+    except SpError:
+        return [""]                 # unparseable: reported as unanchored, the loud direction
 for lineno, flags, pat in guards:
     if "F" in flags:
         print("  [FAIL] %s:%d — this guard confirms an injection into a COPY of this script"
@@ -286,8 +347,11 @@ for lineno, flags, pat in guards:
         print("         searches. It then passes with the injection switched off. Use -qE")
         print("         with a `^` anchor no line of the fire-proof itself can match.")
         bad = 1
-    elif not pat.startswith("^"):
-        print("  [FAIL] %s:%d — this guard's ERE is not anchored at line start:" % (src, lineno))
+    elif not all(b.startswith("^") for b in _branches(pat)):
+        # Q-970 (A06#4): EVERY ALTERNATIVE must be anchored. `^Q835_ABSENT|_fireproof_...` starts
+        # with `^` and its second branch matches the fire-proof's own source line.
+        print("  [FAIL] %s:%d — this guard's ERE is not anchored at line start in every"
+              " alternative:" % (src, lineno))
         print("           grep -q%s %s" % (flags, pat))
         print("         Unanchored, it also matches the fire-proof's own source line, which")
         print("         the copy contains verbatim. Anchor it with `^`.")
@@ -694,10 +758,10 @@ for name in sorted(defined):
 #          What is declined is the cheap one, on the reasoning above rather than on cost.
 #   (xiv)  It sees the WRITE, not the CONTENT. A builder that asserts correctly and then
 #          writes different bytes is outside it.
-BUILD_SH = re.compile(r">[ \t]*\"\$(_[A-Za-z0-9_]*COPY)\"")
-BUILD_PY_LIT = re.compile(r"open\([ \t]*'\$(_[A-Za-z0-9_]*COPY)'[ \t]*,[ \t]*'w'")
+BUILD_SH = re.compile(r">[ \t]*\"\$\{?(" + _CV + r")\}?\"")      # Q-970: the copy variables by use (LEG 2)
+BUILD_PY_LIT = re.compile(r"open\([ \t]*'\$\{?(" + _CV + r")\}?'[ \t]*,[ \t]*'w'")
 BUILD_PY_ENV = re.compile(
-    r"open\([ \t]*os\.environ\[[ \t]*'(_[A-Za-z0-9_]*COPY)'[ \t]*\][ \t]*,[ \t]*'w'")
+    r"open\([ \t]*os\.environ\[[ \t]*'(" + _CV + r")'[ \t]*\][ \t]*,[ \t]*'w'")
 UNESCAPED_DQ = re.compile(r'(?<!\\)"')
 PY_ASSERT = re.compile(r"^[ \t]*assert[ \t]")
 CONFIRM_WINDOW = 2
@@ -802,6 +866,9 @@ if not bad:
           " assertion whose label EXISTS (caveat 1: existing is not exercising),"
           " %d declared unprovable in-harness"
           % (len(defined), len(defined) - unprov, unprov))
+    print("  [ok] the instrument set is the one bash itself parses (lexer %d = canonical %d);"
+          " copy variables read by use, not by name: %s"
+          % (len(defined), len(canon_defs), ", ".join(sorted(copyvars))))
     print("  [ok] %d copy-confirmation guard(s) all anchored at line start, so none can be"
           " satisfied by the fire-proof's own source text (item A2)" % len(guards))
     print("  [ok] claims column: %d kind=INVOCATION (label IS the call's first argument),"
@@ -823,6 +890,7 @@ if not bad:
           % ", ".join("%s %d" % (k, syn[k]) for k in sorted(syn)))
 sys.exit(bad)
 PY
+  } | DOC_GATES_INSTR_TBL="$tbl" python3 -
 }
 
 # ----------------------------------------------------------------------------------
@@ -1070,7 +1138,7 @@ PY
 gate_preflight_collisions() {
   local rc=0
   echo "== GATE 16: no per-gate assertion is satisfiable by a preflight =="
-  python3 - <<'PY' || rc=1
+  { _sp_prelude; cat <<'PY'
 import os, re, subprocess, sys
 
 # The same read-only source seam GATE 15 uses, and for the same reason: the mutation this
@@ -1174,8 +1242,17 @@ for i, ln in enumerate(lines):
     tail = blob[blob.index(helper) + len(helper):].strip()
     la = LABEL_ARG.match(tail)
     label = la.group(1) if la else "<unparsed label at %s:%d>" % (src, i + 1)
-    q = QUOTED.search(la.group(2)) if la else None
-    found.append((label, q.group(1) if q else None, i + 1))
+    # Q-970 (A06#6, Q-835 Codex review; adjudicated Q-962): the ERE is the helper's THIRD ARGUMENT AS
+    # THE SHELL BUILDS IT, not the first single-quoted fragment. `'NEVER-MATCH-Q835'"|tracked ..."`
+    # is one word, an alternation the helper's grep runs whole; QUOTED read only its first half. The
+    # argument list is read by the shell lexer (src_parse.sh); an expansion inside the word (`"$N"'
+    # meta-mention'`) becomes `.*`, which can only widen what the scan compares (the loud direction).
+    try:
+        _aw = [t[1] for t in sp_sh_lex(tail) if t[0] == "word"]
+    except SpError:
+        _aw = []
+    ere = "".join(t if k == "lit" else ".*" for t, k in _aw[2].parts) if len(_aw) >= 3 else None
+    found.append((label, ere, i + 1))
 
 bad = 0
 missing = [(l, n) for l, e, n in found if e is None]
@@ -1366,10 +1443,9 @@ _NESTEDCALL = re.compile(r"(?:^|[;&|(){}]|\b(?:if|elif|then|else|do|while|until|
 #   * IT SCOPES TO THE PRE-DISPATCH BODIES. require_final_newline is also called from inside
 #     GATE 11 (three sites, none of them quiet); those are a different question and LEG 1
 #     does not ask it.
-#   * THE CALL-SITE CHECK READS THE WHOLE LINE, so a trailing shell comment mentioning the
-#     literal would satisfy it. Only a line whose FIRST character is `#` is dropped. Narrow,
-#     stated rather than fixed: stripping trailing comments needs a lexer, because `#` also
-#     occurs inside strings, and a wrong lexer is a worse instrument than a stated limit.
+#   * THE CALL-SITE CHECK READS THE CALL'S ARGUMENTS (Q-970, A06#9). Until 2026-10-03 it read the
+#     whole line, so a trailing `# quiet` satisfied it; the shell lexer in src_parse.sh now reads
+#     the call, and only a literal argument equal to the suppressing word counts.
 _nested = []
 for _name, _ in emitters:
     for _bl in body(_name):
@@ -1395,7 +1471,14 @@ for _caller, _callee, _site in _nested:
         bad = 1
         continue
     _arg, _why = NESTED[_callee]
-    if not re.search(r"\b%s\b.*\b%s\b" % (re.escape(_callee), re.escape(_arg)), _site):
+    # Q-970 (A06#9): the suppressing literal must be an ARGUMENT of the call, read by the lexer --
+    # `require_final_newline "$f" loud && continue # quiet` carries the word only in a comment, and
+    # the whole-line search below this used to accept it.
+    try:
+        _cargs = [w for _l, ws in sp_sh_commands(_site, sub=False) if ws[0].value == _callee for w in ws[1:]]
+    except SpError:
+        _cargs = []
+    if not any(w.lit() and w.value == _arg for w in _cargs):
         print("  [FAIL] %s() calls %s(), and the ONLY thing keeping that callee out of this"
               " gate's scan is the '%s' argument — which is not at this call site"
               % (_caller, _callee, _arg))
@@ -1470,6 +1553,11 @@ for _fn in sorted(set(SCANNED) | set(NESTED)):
         bad = 1
 
 ECHO = re.compile(r'^\s*echo\s+"(.*)"\s*$')
+# Q-970 (A06#7): a message is what the SHELL echoes, read by the lexer -- not a line that happens to
+# end in a quote. `echo "spans a hard wrap" # diagnostic` prints the colliding text, and ECHO (which
+# needs the closing quote at the end of the line) did not see it. ECHO stays as a COUNT CROSS-CHECK:
+# the lexer must see at least every echo it sees. A `printf` in a preflight is a FAIL: its output is
+# not templated here, so it would be compared against nothing.
 templates = []
 for fn in SCANNED:
     b = body(fn)
@@ -1478,10 +1566,34 @@ for fn in SCANNED:
               % (fn, src))
         bad = 1
     n_before = len(templates)
-    for ln in b:
-        m = ECHO.match(ln)
-        if m:
-            templates.append(m.group(1).replace('\\`', '`').replace('\\"', '"'))
+    try:
+        _bc = sp_sh_commands("\n".join(b), sub=False)
+    except SpError as exc:
+        print("  [FAIL] %s() could not be lexed (%s), so its messages were not compared" % (fn, exc))
+        bad = 1
+        _bc = []
+    _nlex = 0
+    for _ln, _w in _bc:
+        if _w[0].quoted or _w[0].value not in ("echo", "printf"):
+            continue
+        if _w[0].value == "printf":
+            print("  [FAIL] %s() prints with printf at its line %d; this extractor templates echo"
+                  " only, so that output would be compared against nothing" % (fn, _ln))
+            bad = 1
+            continue
+        _nlex += 1
+        _args = _w[1:]
+        while _args and _args[0].lit() and re.fullmatch(r"-[neE]+", _args[0].value):
+            _args = _args[1:]
+        _t = " ".join("".join(x if k == "lit" else re.sub(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$", r"$\1", x)
+                              for x, k in a.parts) for a in _args)
+        if _t:
+            templates.append(_t)
+    _nrx = sum(1 for ln in b if ECHO.match(ln))
+    if _nlex < _nrx:
+        print("  [FAIL] %s(): the lexer read %d echo command(s) and the line pattern %d; the parser"
+              " under-reads, so the comparison is partial" % (fn, _nlex, _nrx))
+        bad = 1
     # PHASE-4: the global "no templates at all" guard below would not notice ONE preflight
     # going quiet — a rewrite from `echo` to `printf` in either function would drop its lines
     # from the comparison and leave the other's, and the count nobody reads would still look
@@ -1520,14 +1632,16 @@ for label, ere, n in found:
         exempt.append((label, n))
         continue
     checked += 1
+    # Q-970 (A06#5): the ERE is run by grep -E, the dialect the helpers run it in. Python `re` read
+    # `tracked[[:space:]]markdown` as a different pattern and found no collision that grep finds.
     try:
-        rx = re.compile(ere)
-    except re.error as exc:
+        _gh = sp_grep_E(ere, sorted(candidates))
+    except SpError as exc:
         print("  [FAIL] %s:%d — the evidence-ERE of \"%s\" does not compile: %s"
               % (src, n, label, exc))
         bad = 1
         continue
-    hit = next((c for c in sorted(candidates) if rx.search(c)), None)
+    hit = _gh[0] if _gh else None
     if hit is not None:
         print("  [FAIL] %s:%d — the assertion \"%s\" is satisfied by a PREFLIGHT line:"
               % (src, n, label))
@@ -1550,8 +1664,9 @@ if not bad:
              ", ".join("%s=%d" % (h, calls.count(h)) for h in HELPERS)))
 sys.exit(bad)
 PY
+  } | python3 - || rc=1
   echo "-- GATE 16 LEG 2: no fire-proof names a dispatch that runs more than one gate --"
-  python3 - <<'PY' || rc=1
+  { _sp_prelude; cat <<'PY'
 import os, re, subprocess, sys
 
 # LEG 2 (item B2, round 9, 2026-08-02). See the gate header for why this is mechanical
@@ -1591,13 +1706,28 @@ def fnbody(name):
 direct = {f: sorted({g for ln in fnbody(f) for g in GATECALL.findall(ln)
                      if g != f and g in defined}) for f in sorted(defined)}
 
+# Q-970 (A06#11, Q-835 Codex review; adjudicated Q-962): A PARENT THAT ALSO CHECKS IS A GATE TOO.
+# leaves() replaced every function that calls another gate by those callees, which is right only for
+# a pure DISPATCHER. `gate_retract_figures || RC=1` added inside the substantive gate_retract made
+# `retract` resolve to gate_retract_figures alone, and an assertion on `retract` then ran two gates
+# behind one exit code with this leg green. A caller counts as a leaf of its own when its body
+# (read by the shell lexer) runs anything besides gate calls and bookkeeping (local, echo, printf,
+# return, :, true, RC/rc assignments); a body the lexer cannot read counts as checking (loud).
+_BOOKKEEPING = {"local", "echo", "printf", "return", ":", "true"}
+def _checks(f):
+    try:
+        cmds = sp_sh_commands("\n".join(fnbody(f)), sub=False)
+    except SpError:
+        return True
+    return any(w[0].value not in _BOOKKEEPING and w[0].value not in defined for _l, w in cmds)
+
 def leaves(f, seen=frozenset()):
     if f in seen:
         return set()
     kids = direct.get(f, [])
     if not kids:
         return {f}
-    out = set()
+    out = {f} if _checks(f) else set()
     for k in kids:
         out |= leaves(k, seen | {f})
     return out
@@ -1732,8 +1862,9 @@ if not bad:
           " function(s) fan out)" % (len(combined), ", ".join(combined), len(fanout)))
 sys.exit(bad)
 PY
+  } | python3 - || rc=1
   echo "-- GATE 16 LEG 3: a fire-proof's expected substring names exactly ONE message --"
-  python3 - <<'PY' || rc=1
+  { _sp_prelude; cat <<'PY'
 import os, re, subprocess, sys
 
 # LEG 3 (item R4, round 11 drain-1, 2026-08-02). See the gate header for why this is
@@ -1778,25 +1909,84 @@ def literals(s):
                    for m in STRLIT.finditer(s))
 
 
-templates, i = [], 0
+# Q-970 (A06#12, Q-835 Codex review; adjudicated Q-962): THE MESSAGES ARE READ BY PARSERS. The line
+# reader below counted parentheses INSIDE string literals, so `print(")"` closed the call on its first
+# line and the second line's text -- an existing fire-proof substring -- was never templated: a
+# duplicate emitter went unseen. Now:
+#   * every python HERE-DOCUMENT body (found by the shell lexer, kept when `ast` parses it) is read
+#     with `ast`: each print() call's string constants, in source order, are its template;
+#   * a print( line outside those bodies (a `python3 -c "..."` program) is read by the line reader,
+#     with parentheses counted OUTSIDE string literals only;
+#   * echo templates are the lexer's echo commands (a trailing `# comment` no longer hides one).
+# CROSS-CHECK: in each parsed body, `ast` must find at least as many print() calls as there are
+# lines that open one; fewer means the parser under-reads, and that is a FAIL.
+def _strs(node):
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return [((node.lineno, node.col_offset), node.value)]
+    if isinstance(node, ast.JoinedStr):
+        return [((node.lineno, node.col_offset), "".join(
+            v.value if isinstance(v, ast.Constant) else "{" + ast.unparse(v.value) + "}"
+            for v in node.values))]
+    out = []
+    for c in ast.iter_child_nodes(node):
+        out += _strs(c)
+    return out
+
+import ast, warnings
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+templates, pycover = [], set()
+try:
+    _toks = sp_sh_lex("\n".join(lines) + "\n")
+    _echo = [(l, w) for l, w in sp_sh_commands("\n".join(lines) + "\n")
+             if not w[0].quoted and w[0].value == "echo"]
+except SpError as exc:
+    print("  [FAIL] LEG 3: %s could not be lexed (%s), so its messages are unknown" % (src, exc))
+    sys.exit(1)
+for _k, _v, _ln in _toks:
+    if _k != "heredoc":
+        continue
+    _delim, _body, _first = _v
+    _blines = _body.split("\n")
+    for _j in range(len(_blines)):
+        pycover.add(_first - 1 + _j)            # 0-based index into lines: not shell code
+    try:
+        _tree = ast.parse(_body)
+    except SyntaxError:
+        continue                                # not python (awk, text): no print() templates
+    _calls = [n for n in ast.walk(_tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+              and n.func.id == "print"]
+    _opens = sum(1 for l in _blines if PRINT_OPEN.match(l))
+    if len(_calls) < _opens:
+        print("  [FAIL] LEG 3: the python here-document at %s:%d holds %d line(s) opening print(),"
+              " and ast found %d call(s); the parse under-reads" % (src, _first, _opens, len(_calls)))
+        bad = 1
+    for _c in _calls:
+        _parts = sorted(x for a in _c.args for x in _strs(a))
+        templates.append((_first - 1 + _c.lineno, "print", norm("".join(t for _p, t in _parts), True)))
+i = 0
 while i < len(lines):
     ln = lines[i]
-    if PRINT_OPEN.match(ln):
+    if i not in pycover and PRINT_OPEN.match(ln):
         buf, depth, j = "", 0, i
         while j < len(lines) and j - i < TPL_SPAN:
             seg = lines[j]
             buf += literals(seg[seg.index("print(") + 6:] if j == i else seg)
-            depth += seg.count("(") - seg.count(")")
+            _bare = STRLIT.sub("", seg)
+            depth += _bare.count("(") - _bare.count(")")
             if depth <= 0:
                 break
             j += 1
         templates.append((i + 1, "print", norm(buf, True)))
         i = j + 1
         continue
-    m = ECHO_LINE.match(ln)
-    if m:
-        templates.append((i + 1, "echo", norm(m.group(1), True)))
     i += 1
+for _l, _w in _echo:
+    _a = _w[1:]
+    while _a and _a[0].lit() and re.fullmatch(r"-[neE]+", _a[0].value):
+        _a = _a[1:]
+    _t = " ".join(x.value for x in _a)
+    if _t:
+        templates.append((_l, "echo", norm(_t, True)))
 
 # --- VACUITY GUARD 1: neither message form may go quiet. This is LEG 1's per-preflight guard
 # applied to a set of two: a rewrite of every `print` to some other call, or of every `echo`,
@@ -2026,6 +2216,7 @@ if not bad:
           " %-field still cannot say which call printed it")
 sys.exit(bad)
 PY
+  } | python3 - || rc=1
   return $rc
 }
 

@@ -559,12 +559,12 @@ lean/README.md	343	marker	CORRECTED	1	-	reviewed:sentence-already-reads-fifteen	
 lean/README.md	395	marker	CORRECTED	1	-	reviewed:table-already-carries-the-re-measured-figures	826d33dcd3dd
 lean/README.md	728	marker	CORRECTED	1	-	reviewed:sentence-above-already-says-definitional	5b5a41a13f81
 reports/CAPSTONE_GUIDE.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	e9a5687d5cf6
-reports/CAPSTONE_GUIDE.md	570	ledger-link	CORRECTION	n/a	-	not-a-marker	b0eaa4102d81
-reports/FULL31_EXACT_AGGREGATES.md	9	marker	CORRECTED	1|2	-	unreviewed	95394accbcda
+reports/CAPSTONE_GUIDE.md	584	ledger-link	CORRECTION	n/a	-	not-a-marker	b0eaa4102d81
+reports/FULL31_EXACT_AGGREGATES.md	9	marker	CORRECTED	1	-	reviewed:sentence-before-already-states-exact-counts-and-what-the-gates-check	95394accbcda
 reports/FULL31_EXACT_AGGREGATES.md	12	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-layer_curve-exception	a3745ad9aa27
 reports/FULL31_EXACT_AGGREGATES.md	20	marker	CORRECTED	1	-	reviewed:following-text-already-gives-the-measured-ratios	44ec9d8de0a7
 reports/FULL31_EXACT_AGGREGATES.md	45	marker	CORRECTED	1	-	reviewed:text-already-defines-V_k-as-residual-vectors	a8b3e44f5cfe
-reports/FULL31_EXACT_AGGREGATES.md	95	marker	CORRECTED	1|2	-	unreviewed	dd87654435af
+reports/FULL31_EXACT_AGGREGATES.md	95	marker	CORRECTED	1	-	reviewed:paragraph-already-names-the-instrument-date-and-what-the-package-checks	dd87654435af
 reports/FULL31_EXACT_AGGREGATES.md	165	marker	CORRECTED	1	-	reviewed:paragraph-already-calls-the-ceiling-an-extrapolation	78717a9d8def
 reports/METHODS.md	6	ledger-link	CORRECTION	n/a	-	not-a-marker	0b88d6e7fd91
 reports/METHODS.md	6	marker	Corrected	1	-	reviewed:sentence-already-points-at-CORRECTIONS-and-names-no-public-archive	0b88d6e7fd91

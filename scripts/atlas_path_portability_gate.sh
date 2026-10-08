@@ -25,7 +25,7 @@ if [ -z "$SOLVE" ]; then
 else
   # 🔴 EXECUTABLE IS NOT CURRENT -- and this arm did not even check THAT. The build arm above
   # compiles the committed solve.c seconds before use and is safe by construction; $SOLVE is a bare
-  # PATH taken from the environment and, before this guard, was used unexamined. pre_push_compile_gate.sh:210
+  # PATH taken from the environment and, before this guard, was used unexamined. pre_push_compile_gate.sh:218
   # hands in a binary it just built, but `SOLVE=./solve bash scripts/atlas_path_portability_gate.sh`
   # by hand points the gate at whatever artifact is lying in the tree.
   #

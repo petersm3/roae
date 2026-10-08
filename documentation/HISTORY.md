@@ -10907,3 +10907,50 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
   copy, the one the commit carries.
 - Nothing published changes. Seventeen new tests; the plants fail on the old scripts and pass on the
   new ones. Codex (gpt-6-astra) found these in the push-path review Q835; adjudicated Q-962.
+
+## 2026-10-08 — batch 41: the gates that read source code use parsers, the push hook's reproduction-stamp check blocks, and the laptop guide says which counts are exact and what the published run tested
+
+**Batch 41, the gates that read source code read it with a parser (CX-303, Q-970).**
+
+- Many gates check the project's own code: that every environment variable it reads is
+  documented, every flag it declares, every token it prints, every test helper it defines. Each
+  of them looked for one way of writing the thing.
+- The Codex review showed what that let through. A shell function with its `{` on the next line,
+  `getenv ( "X" )` with spaces, a flag declared after a short alias, `import os, numpy`, an `echo`
+  that follows `then` on the same line, a link with a title, a quoted value in a documented
+  command, and 26 more. Each one was planted in a copy of the public tree and passed its gate.
+- The gates now use real parsers where one exists: bash itself, Python's own parser, and grep for
+  the regular expressions the tests run. A small shared module adds a shell lexer and a few other
+  readers. Where a simple pattern is still used, the parser checks its count.
+- On today's tree every gate stays green. One gate now sees 18 printed tokens that no document
+  names. They are listed, not fixed, and held so that one more fails; what to do with them is the
+  operator's call.
+- 35 test cases, one per planted form of each finding: each fails on the new gates, passes on the
+  old ones, and has a plain twin that the gate catches.
+- No published number, count, sha or verdict changed.
+
+**The push hook's reproduction-stamp check now blocks (CX-304, Q-711).**
+
+- Every push runs the pushed version's own stamp check, which asks whether the committed
+  reproduction stamp describes the files committed beside it. Until now a "no" was printed and the
+  push went ahead.
+- The operator decided it should stop the push. Now it does: a stale stamp, no stamp, an answer that
+  cannot be read, or a missing stamp check all fail. There is no variable that switches it off; the
+  fix is to re-stamp and commit the stamp with the code.
+- Five tests drive the real hook. They pass on the new hook and fail on the old one.
+
+**The laptop guide's wording (CX-305, Q-142).**
+
+- One sentence could be read as saying the full 31-pair run behind the published total tests
+  divisibility by 48. That run tested by 24, as a parenthetical already said; the sentence now says it
+  directly.
+- Sections 3 and 4 now say that the exact count leaves out C3, C6 and C7, and that the totals with C3
+  are estimates. A reader of those sections alone had come away thinking everything was exact.
+- More numbers carry a status word, a new word, **calculated**, marks memory and disk requirements
+  worked out rather than measured, and seven sentences that mixed two kinds of claim are split.
+- No command, expected output or figure changed.
+
+**Two unclassified correction markers (CX-306, Q-936).**
+
+- Two correction notes added in batch 37 were never sorted in the marker inventory. Both are class 1:
+  the text around them already states the corrected claim. The inventory is complete again.

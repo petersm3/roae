@@ -588,10 +588,26 @@ gate_az_name_closure() {
   echo "== GATE 62: every az resource name DEPLOYMENT.md references was created in its section (or is pre-existing) =="
   local F=documentation/DEPLOYMENT.md out
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
-  out=$(python3 - "$F" <<'PY'
+  out=$( { _sp_prelude; cat <<'PY'
 import re, io, sys
 F=sys.argv[1]
 ALLOW={"solver-data","claude-vnet","claude"}
+# Q-970 (A10#14, Q-835 Codex review; adjudicated Q-962): AN ARGUMENT IS A SHELL WORD. `-n "spot-nic"`
+# names spot-nic exactly as `-n spot-nic` does, and the name pattern `[^\s"'\\]+` stopped at the
+# quote, so a quoted reference was never judged. The command tail is now split by the quote-aware
+# splitter (src_parse.sh), and `--name=VALUE` counts too. A value carrying `$`, `<` or `{` is still a
+# variable or a placeholder and is skipped, and the command stops at a backtick (the end of the span).
+def names_after(tail, opts):
+    w = sp_sh_split(tail.split("`", 1)[0])
+    out = []
+    for k, (v, q) in enumerate(w):
+        if v in opts and k + 1 < len(w):
+            out.append((v, w[k + 1][0]))
+        else:
+            for o in opts:
+                if v.startswith(o + "=") and o.startswith("--"):
+                    out.append((o, v[len(o) + 1:]))
+    return out
 t=io.open(F,encoding="utf-8").read()
 t=re.sub(r"\\\n\s*"," ",t)
 secs=re.split(r"(?m)^## ",t)
@@ -608,12 +624,12 @@ for si,sec in enumerate(secs):
         g=" ".join(group.split())
         return g[3:] if g.startswith("vm ") else g
     created=set()
-    for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)create\b[^\n]*?(?:\s-n|\s--name)\s+([^\s\"'\\]+)",sec): created.add((rtype(m.group(1)),m.group(2)))
+    for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)create\b([^\n]*)",sec): created.update((rtype(m.group(1)),nm) for _o,nm in names_after(m.group(2), ("-n", "--name")))
     for m in re.finditer(r"az rest --method PUT[^\n]*?/(virtualMachines|disks|networkInterfaces|publicIPAddresses|virtualNetworks|networkSecurityGroups)/([A-Za-z0-9_.-]+)\??",sec): created.add((REST[m.group(1)],m.group(2)))
     for ln,line in enumerate(sec.split("\n"),1):
         for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)(?:show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach)\b(.*)$",line):
             tail=m.group(2)
-            for opt,nm in re.findall(r"(\s-n|\s--name|\s--vm-name)\s+([^\s\"'\\]+)",tail):
+            for opt,nm in names_after(tail, ("-n", "--name", "--vm-name")):
                 if nm.startswith("$") or nm.startswith("<") or nm.startswith("{") or "$" in nm: continue
                 nref+=1
                 ty="vm" if opt.strip()=="--vm-name" else rtype(m.group(1))
@@ -621,7 +637,7 @@ for si,sec in enumerate(secs):
                 print("HIT\t%s\t%s\t%s"%(title,"%s (%s)"%(nm,ty),line.strip()[:100]))
 print("POP\t%d\t%d"%(nref,len(secs)))
 PY
-) || { echo "  [FAIL] GATE 62 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$F") || { echo "  [FAIL] GATE 62 scanner failed — NOTHING was checked."; return 1; }
   local pn ps
   IFS=$'\t' read -r pn ps < <(printf '%s\n' "$out" | awk -F'\t' '$1=="POP"{print $2"\t"$3; exit}')
   if ! grep -qxE '[0-9]+' <<<"${pn:-}"; then echo "  [FAIL] GATE 62 printed no population census."; return 1; fi
@@ -819,15 +835,35 @@ gate_stdlib_claims() {
   echo "== GATE 65: a 'stdlib only' claim naming a file that imports third-party modules carries a scope word =="
   local out
   out=$(python3 - <<'PY'
-import re, io, subprocess, sys
+import ast, re, io, subprocess, sys
 files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
 tracked=set(subprocess.run(["git","ls-files"],capture_output=True,text=True).stdout.split())
 imp={}
+# Q-970 (A10#5, Q-835 Codex review; adjudicated Q-962): IMPORTS ARE READ BY `ast`, NOT BY A LINE PATTERN.
+# The pattern needed the third-party name FIRST after `import`, so `import os, numpy as np` -- the
+# same import -- counted zero and "verify.py is stdlib only." passed. Every Import / ImportFrom node
+# (any indentation, any position in a comma list, `import numpy.linalg`, `from numpy import x`) and
+# every `__import__("numpy")` / `importlib.import_module("numpy")` with a literal name counts once
+# per statement. A named file that does not parse is a HIT: its imports are unknown.
+THIRD=("numpy","pyarrow","pandas","scipy","sklearn","matplotlib")
 def third(path):
     if path not in imp:
-        try: src=io.open(path,encoding="utf-8").read()
-        except Exception: src=""
-        imp[path]=len(re.findall(r"(?m)^\s*(?:import|from)\s+(?:numpy|pyarrow|pandas|scipy|sklearn|matplotlib)\b",src))
+        try:
+            tree=ast.parse(io.open(path,encoding="utf-8").read())
+        except Exception as e:
+            imp[path]=-1; return -1
+        k=0
+        for nd in ast.walk(tree):
+            if isinstance(nd,ast.Import):
+                k+=any(a.name.split(".")[0] in THIRD for a in nd.names)
+            elif isinstance(nd,ast.ImportFrom) and nd.level==0 and nd.module:
+                k+=nd.module.split(".")[0] in THIRD
+            elif isinstance(nd,ast.Call) and nd.args and isinstance(nd.args[0],ast.Constant) \
+                    and isinstance(nd.args[0].value,str) and nd.args[0].value.split(".")[0] in THIRD \
+                    and ((isinstance(nd.func,ast.Name) and nd.func.id=="__import__")
+                         or (isinstance(nd.func,ast.Attribute) and nd.func.attr=="import_module")):
+                k+=1
+        imp[path]=k
     return imp[path]
 CLAIM=re.compile(r"stdlib[ -]only|standard library[^.]{0,40}no third-party|no third-party (?:modules|dependencies)",re.I)
 SCOPE=re.compile(r"\b(core|except|default|optional|lazily|lazy|P2|itself|Scoped)\b|--check-t5-c3")
@@ -851,6 +887,7 @@ for f in files:
                 cands=[py] if py in tracked else [x for x in tracked if x.endswith("/"+py)]
                 for c in cands:
                     k=third(c)
+                    if k==-1: print("HIT\t%s\t%s does not parse, so its imports are unknown and the claim cannot be checked: %s"%(f,c,u[:110])); continue
                     if k==0: continue
                     named+=1
                     if not SCOPE.search(u): print("HIT\t%s\t%s has %d third-party import line(s) but the claim carries no scope word: %s"%(f,c,k,u[:110]))
@@ -1258,9 +1295,16 @@ gate_arrivals_sync() {
   echo "== GATE 71: a prose enumeration of the (Z/2)⁶ arrivals names every arrival CITATIONS.md's chain names =="
   local C=documentation/CITATIONS.md out
   require_tracked "$C" || { [ $? -eq 2 ] && return 1; echo "  [skip] $C absent and untracked"; return 0; }
-  out=$(python3 - "$C" <<'PY'
+  out=$( { _sp_prelude; cat <<'PY'
 import re, io, sys, subprocess, unicodedata
 C=sys.argv[1]
+# Q-970 (A10#23, Q-835 Codex review; adjudicated Q-962): A LINK IS READ AS A LINK. The pattern
+# `CITATIONS\.md#([a-z0-9]+)\)` needed the `)` straight after the anchor, so a TITLED link
+# `(CITATIONS.md#ouyang1990 "Ouyang")` -- the same link -- did not count, and a paragraph linking three
+# arrivals that way left the census instead of being judged. Link targets now come from the markdown
+# link reader of src_parse.sh (titles, <angle> targets, reference definitions).
+def cit_anchors(p):
+    return [m.group(1) for _o, t in sp_md_links(p) for m in [re.search(r"CITATIONS\.md#([a-z0-9]+)$", t)] if m]
 def deacc(s): return "".join(c for c in unicodedata.normalize("NFKD",s) if not unicodedata.combining(c))
 try: t=io.open(C,encoding="utf-8").read()
 except Exception as e: print("ERROR\tcannot read %s: %s"%(C,e)); sys.exit(0)
@@ -1297,7 +1341,7 @@ for f in files:
     off=0
     for p in re.split(r"(\n\s*\n)",d):
         if re.fullmatch(r"\n\s*\n",p): off+=p.count("\n"); continue
-        linked={re.sub(r"\d{4}$","",a) for a in re.findall(r"CITATIONS\.md#([a-z0-9]+)\)",p)} & set(sur)
+        linked={re.sub(r"\d{4}$","",a) for a in cit_anchors(p)} & set(sur)
         if len(linked)>=3:
             npara+=1; ln=off+1
             flat=deacc(" ".join(p.split()))
@@ -1310,7 +1354,7 @@ for f in files:
         off+=p.count("\n")
 print("POP\t%d\t%d"%(npara,len(sur)))
 PY
-) || { echo "  [FAIL] GATE 71 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$C") || { echo "  [FAIL] GATE 71 scanner failed — NOTHING was checked."; return 1; }
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 71 could not judge its subject: $err"; return 1; fi
   local pp pl
