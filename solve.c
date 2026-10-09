@@ -33,7 +33,7 @@
  * the remaining unused pairs (in either orientation) at the next position. Pruning:
  *   C1: Pair structure — only the 32 pairs from KW are used (not arbitrary pairings)
  *   C2: No 5-line Hamming transitions between consecutive hexagrams
- *   C4: Position 1 is pinned to hexagram 1 / hexagram 2 (all-yang 63, all-yin 0) **by
+ *   C4: Position 1 is pinned to hexagram 1 / hexagram 2 (all-yang 63, all-yin 0; the PAIR choice is classical — 序卦傳, Schulz & Cunningham 1990 p. 298, CITATIONS.md #xugua — the orientation is ours) **by
  *       definition** (oriented C4). NOT forced by the other constraints — complementation
  *       is an exact symmetry of C1∩C2∩C3∩C5 (Lean `orientation_not_forced`; the former
  *       "Theorem 6" was RETRACTED 2026-07-26, see documentation/SPECIFICATION.md).
@@ -423,7 +423,7 @@ static void __attribute__((constructor)) check_stack_ulimit(void) {
 }
 
 /* ---------- King Wen sequence: 64 hexagrams as 6-bit integers ---------- */
-/* Each value 0-63 encodes a hexagram's six lines as bits (0=yin, 1=yang).
+/* Each value 0-63 encodes a hexagram's six lines as bits (0=yin, 1=yang; bit 0 = bottom line -- the same numbering, independently, in Ouyang 1993 p. 188; Suenaga 2012 uses the same yin=0/yang=1 six-bit vectors, written bottom line first; Leibniz 1703 for the binary reading: CITATIONS.md #ouyang1993 #suenaga2012 #leibniz1703).
  * Index 0 = hexagram #1 (111111 = 63), index 1 = hexagram #2
  * (000000 = 0), etc. in the traditional King Wen ordering. */
 static const int KW[64] = {
@@ -4823,7 +4823,7 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
  *   used[32]  — which pairs have been placed
  *   budget[7] — remaining count for each Hamming distance (0-6). Decremented when
  *               a transition of that distance is used. Enforces C5 (exact match of
- *               KW's difference distribution). This is the key pruning mechanism —
+ *               KW's difference distribution; the full cyclic distance sequence was published as data by Meyer 1998 in the same XOR-and-popcount form, CITATIONS.md #meyer1998). This is the key pruning mechanism —
  *               most branches are killed by budget exhaustion, not by C2 or C3.
  *   step      — current pair position (0-31). Step 0 is pre-filled (hexagram 1 / hexagram 2).
  *
@@ -5409,7 +5409,7 @@ typedef struct {
                                            * report-only). Same class-position and gender conventions as
                                            * rc4k/rc4s above. Ground truth: solve.py rc4b_pass/rc4c_pass; KW
                                            * gate --rc4b-verify. Attribution: Schulz 1990 (motif 2; exception
-                                           * per Zhu Yuansheng via Schulz 2018 fn.42), elaborated Cook 2006.
+                                           * per Zhu Yuansheng via Schulz 2018 fn.42), elaborated Cook 2006; same rule, same two exceptions, independently in Li Shangxin 2000 当位说 (CITATIONS.md #lishangxin2000).
                                            * Estimator-only, sha-neutral. */
     uint64_t rc4b_t1_checked, rc4b_t1_fail; /* SOLVE_RC4B_ASSERT_T1=1 (optional, R13 §5.1): per-leaf T1 assert
                                            * — on every adjacent-defect leaf, the level-3 (neuter, exempt)
@@ -5587,7 +5587,7 @@ static int knuth_gender_strict = 0; /* SOLVE_KNUTH_GENDER_STRICT=1: prune the wa
                                  * popcount {0,3,6} exempt). Composes with SOLVE_KNUTH_MOORE_STRICT to
                                  * estimate the TRIPLE-strict ("grand-strict") space (F11 preregistration:
                                  * M_corr precursor-set size). ATTRIBUTION: Schulz 1990 JCP 17:3 motif 2
-                                 * (exception first noted by Zhu Yuansheng, 13th c.); elaborated Cook 2006.
+                                 * (exception first noted by Zhu Yuansheng, 13th c.); elaborated Cook 2006; same rule, same two exceptions, independently in Li Shangxin 2000 当位说 (CITATIONS.md #lishangxin2000).
                                  * Estimator-only, sha-neutral. */
 static int knuth_f11_hist = 0;      /* SOLVE_KNUTH_F11_HIST=1: see KnuthArg.f11_hist. */
 static uint64_t knuth_seed_base = 0; /* SOLVE_KNUTH_SEED=<u64>: overrides the fixed per-thread RNG
@@ -5613,7 +5613,7 @@ static int knuth_score = 0;     /* SOLVE_KNUTH_SCORE=1: per-leaf weighted scorin
                                  * candidate rules. ATTRIBUTION (these rules are NOT ROAE discoveries):
                                  *   R-C1 final-pair anchor, R-C2 first-7-level coverage — Cook, Richard S.,
                                  *     "Classical Chinese Combinatorics" (STEDT Monograph 5, 2006).
-                                 *   R-C5 18:18 split — classical: Zheng Qiao (~1150), Hu Yigui (1247);
+                                 *   R-C5 18:18 split — classical: 張行成/朱熹 (Song; per the first-hand pass of Li Shangxin 2008, CITATIONS.md #li2008 — a Zheng Qiao credit here was withdrawn 2026-07-30), Hu Yigui (1247);
                                  *     modern: Hacker & Moore, J. Chinese Philosophy 30:2 (2003); Cook 2006.
                                  *   R-M1 pair-positioning parity — Moore, Steve, "Structural Elements in the
                                  *     King Wen Sequence of Hexagrams", Oracle Papers No. 1 (2005).
@@ -5647,12 +5647,12 @@ static int knuth_score_reg = 0; /* SOLVE_KNUTH_SCORE_REG=1: per-leaf weighted sc
  * ATTRIBUTION (these rules are NOT ROAE discoveries; ROAE contributes only the
  * population measurement over C1-C5 space; master ledger documentation/CITATIONS.md;
  * formalizations transcribed by Claude (Fable) from first-hand reading notes):
- *   rs1     Schulz & Cunningham 1990 / Schulz 1990, JCP 17 pp. 351-352
+ *   rs1     Schulz & Cunningham 1990 / Schulz 1990, JCP 17 pp. 351-352; units-13/25 trisection also Li Shangxin 2008 (Davis 2012 p. 119 n19) — CITATIONS.md #li2008
  *   rs2     Schulz 1990, JCP 17 pp. 348-350
  *   ccn1    Schulz 2016 (Hexagrammatics) pp. 15-16; S36 also Schulz 2018
  *   ccn2    Schulz 2016 (Hexagrammatics) pp. 17-18
  *   ccn3    Schulz 2016 pp. 22-24; = Schulz 2011 JCP 38:4 C2011-A6 (cited in Schulz 2018)
- *   ccn4    Schulz 2016 pp. 23-24; Schulz 2011 JCP 38:4
+ *   ccn4    Schulz 2016 pp. 23-24; Schulz 2011 JCP 38:4; the same configuration earlier in Li Shangxin 2000 p. 53 (crediting 顾伯叙 1997, not held) — CITATIONS.md #lishangxin2000
  *   ccn6    Schulz 2016 p. 15
  *   ccn7    Schulz 2016 p. 27 (rules table, SC-19)
  *   ccn8    Schulz 2016 pp. 14-15 (SC-7 double-exception note); Schulz 1990 JCP 17 for both motifs
@@ -5977,7 +5977,7 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
         ind[22] = (cnt >= 8);
         if (cnt > a->reg_max_d7) a->reg_max_d7 = cnt;
     }
-    /* 23: s1 — complement pairs XOR to 63; inversion pairs XOR to palindromes */
+    /* 23: s1 — complement pairs XOR to 63; inversion pairs XOR to palindromes (h^rev(h) lies in the palindrome subgroup: a (Z/2)^6 fact of Ouyang 1992/1993 and Suenaga 2012, CITATIONS.md section "(Z/2)^6"; the rule is ours, the algebra is not) */
     {
         int nc = 0, okc = 1, oki = 1;
         for (int k = 0; k < 32; k++){
@@ -5996,8 +5996,8 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
      * matching the three stabiliser types exactly, and 「反易取正對」 IS the composition
      * of the two operations. Parts were reached independently by Lai Zhide c.1600
      * (both operations tabulated across all 64, never composed), Jiao Xun c.1813 and
-     * Cui Shu c.1800. In the modern literature: Zhang 1994 in the Chinese
-     * group-theoretic work, within the (Z/2)^6 framing of Ouyang 1992; Radisic 2026
+     * Cui Shu c.1800. In the modern literature: Zhang Qingyu 1994 (the 32/28/8/4 tally) and 1998-2000 (the orbit
+     * concept, 错综不变组), within the (Z/2)^6 framing of Ouyang 1992 (book-length form 1993 ch. 4; independent arrivals Yuan 1991, Cao et al. 1995, Suenaga 2012 — CITATIONS.md section "(Z/2)^6"); Radisic 2026
      * names it as the Klein four-group and verifies results in Lean 4.
      * See documentation/CITATIONS.md#wucheng and #kongyingda.
      * This rule MEASURES that structure against King Wen; it does not originate it.
@@ -6088,7 +6088,7 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
  * integer operationalization + the population measurement over C1-C5 space;
  * master ledger documentation/CITATIONS.md):
  *   1 housedisp     Jing Fang (c. 77-37 BCE) 8-palace organization
- *   2 trigram_runs  Zheng Qiao (~1150) / Hu Yigui (1247) trigram clustering
+ *   2 trigram_runs  trigram clustering, registered with a classical credit (Hu Yigui 1247 via Hacker & Moore 2003) that CITATIONS.md does not carry: #hacker-moore2003 covers the 18:18 split only; Zheng Qiao credit withdrawn 2026-07-30; no first-hand classical source cited (CRITIQUE.md task #157)
  *   3 nuclear_adj   Cook 2006 (STEDT Monograph 5) nuclear-trigram structure
  *   4 yang_drift    Schulz 1990 (JCP 17) gender waning / Mawangdui comparison
  *   5 dist_runs     Moore 1988 rhythm/run structure
@@ -6722,7 +6722,7 @@ static int db1_group(int h){
 }
 
 /* C1 partner of hexagram h: its 6-bit reverse, or its complement (h^63) for the
- * 8 palindromes. The 32 C1 pair-sets are forced constants of every valid order. */
+ * 8 palindromes. The 32 C1 pair-sets are forced constants of every valid order. (The same partner rule -- self-reverse hexagrams paired by complement -- is step 1 of Ouyang 1993 §8.2 p. 189, restating 孔穎達's 非覆即變; CITATIONS.md #kongyingda #ouyang1993.) */
 static inline int db1_partner(int h){
     int r = reverse6(h);
     return (r != h) ? r : (h ^ 63);
@@ -6979,7 +6979,7 @@ static void score_f5(const int seq[64], double W, KnuthArg *a){
  * ATTRIBUTION (frozen spec §6; operationalizations are ROAE's):
  *  #1-5 Wu Deng (1249-1333, Yi zuan yan) warp/weft skeleton, via Nielsen 2003
  *       p.132 (JING GUA def.2): warp class W = {h: up==lo or up==comp(lo)},
- *       |W|=16; power-of-2 weft-block profile of the received order.
+ *       |W|=16 — the same sixteen as 崔述's 純卦+交卦, 沈有鼎 1936's 主卦 and 李尚信 2007's 主卦 skeleton (CITATIONS.md #cuishu #shen1936 #li2007; their 4/8/16 spacing stated qualitatively by Huang Pei-jung 2011, #huangpeirong); power-of-2 weft-block profile of the received order.
  *  #6-7 Jing Fang (77-37 BCE) eight-palaces partition, tabulated by Hui Dong
  *       (1697-1758), as printed in Nielsen 2003 pp.1-4 Table 2 (generator
  *       f4p_pal_init, verified against all 64 cells).
@@ -7270,8 +7270,8 @@ static void score_perm(const int seq[64], double W, KnuthArg *a){
  * r11_axes(); KW vector = {2,2,2,0,0,0,0,0}. ATTRIBUTION (rules are NOT ROAE discoveries):
  *   g1 Moore 2005 (Oracle Papers No.1) pair-positioning parity; g2 Moore 1989 (Trigrams of Han
  *   App.2) rising/falling rhythm; g3 Schulz 1990 (JCP 17:3, Zhu Yuansheng exception) gender/parity;
- *   g4/g5 Cook 2006 (STEDT Mono.5) first-7-level coverage / final-pair anchor; g6 Zheng Qiao ~1150
- *   / Hu Yigui 1247 / Hacker & Moore 2003 18:18 split; g7 Schulz 2011/2016 S25-28 dui config (ccn4);
+ *   g4/g5 Cook 2006 (STEDT Mono.5) first-7-level coverage / final-pair anchor; g6 張行成/朱熹 (Song, per
+ *   Li Shangxin 2008; Zheng Qiao credit withdrawn 2026-07-30) / Hu Yigui 1247 / Hacker & Moore 2003 18:18 split; g7 Schulz 2011/2016 S25-28 dui config (ccn4; earlier Li Shangxin 2000 p. 53);
  *   g8 Drasny / Schulz xiaoxi-in-group-B count (d7). ROAE contributes only the population measurement.
  * Estimator/gate-only, sha-neutral. */
 static void r11_axes(const int seq[64], int g[8]){
@@ -7340,7 +7340,7 @@ static void r11_axes(const int seq[64], int g[8]){
         }
         g[5] = (cc == 3) ? 0 : 1;
     }
-    /* g7 = 1 - [ccn4: S25-S28 upper trigram Dui(3), lower trigrams 7,0,2,5] (Schulz 2011/2016) */
+    /* g7 = 1 - [ccn4: S25-S28 upper trigram Dui(3), lower trigrams 7,0,2,5] (Schulz 2011/2016; the configuration earlier in Li Shangxin 2000 p. 53) */
     {
         int st_canon[36], n_st = 0; unsigned char seen2[64] = {0};
         for (int z=0; z<64 && n_st<36; z++){
@@ -8022,7 +8022,7 @@ static void *knuth_worker(void *vp){
                         unsigned lv = 0;
                         for (int q=0;q<14;q++) lv |= 1u << __builtin_popcount((unsigned)seq[q]);
                         if ((lv & 0x7Fu) == 0x7Fu) { a->sum_rc2 += W; a->sq_rc2 += W*W; f2 = 1; }
-                        /* R-C5 (Zheng Qiao ~1150 / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006):
+                        /* R-C5 (張行成/朱熹 per Li Shangxin 2008 — Zheng Qiao credit withdrawn 2026-07-30 — / Hu Yigui 1247 / Hacker & Moore 2003 / Cook 2006):
                          * 18 HEC in the first 30 hexagrams == exactly 3 of the 4
                          * complement-pairs (pair idx 0,13,14,30) among slots 0-14 */
                         int cc = 0;
@@ -12126,7 +12126,7 @@ static int null_c2_count_5line(const uint8_t *seq) {
     return n;
 }
 
-/* C3 total complement distance. KW's value is 776. */
+/* C3 total complement distance. KW's value is 776. No prior statement of the total is known to us; nearest on this axis, with no total: Li Shangxin 2002 and Barrett 2019 (CITATIONS.md #lishangxin2002 #barrett2019). */
 static int null_c3_total_comp_dist(const uint8_t *seq) {
     int pos[64] = {0};  /* EK (CX-161 follow-up): 0 = verify.py compute_comp_dist's pos = [0] * 64 (as compute_comp_dist_x64 since Q-836), so a non-permutation reads 0, never stack garbage; a permutation fills all 64 and is unaffected */
     for (int i = 0; i < 64; i++) pos[seq[i]] = i;
@@ -12243,7 +12243,7 @@ static void run_null_debruijn_exact(void) {
  * never 1 (they are 0/2/4/6 for reverse, 6 for complement), C1 is
  * also impossible in any Gray code — adjacent pair Hamming distance
  * is forced to 1, never the values C1 requires. So the interesting
- * question is C3.
+ * question is C3. (Gray-code orderings of the hexagrams are the family McKenna & Mair 1979 drew on for their replacement proposal, CITATIONS.md #mckenna-mair1979 — this null measures that family, it does not refute their hybrid construction (TR-8 v1.16); Gardner 1972 for the Gray-code background, #gardner1972.)
  *
  * Enumerates the canonical binary-reflected Gray code + its orbit
  * under {64 cyclic rotations} × {identity, reversal} × {identity,
@@ -12313,7 +12313,7 @@ static void run_null_gray(void) {
  * (upper_trigram, lower_trigram) is the hexagram with those trigrams
  * as top and bottom. A row-then-column traversal picks a row order
  * AND a column order (same column order applied to every row), giving
- * 8! × 8! = 1,625,702,400 structured permutations.
+ * 8! × 8! = 1,625,702,400 structured permutations — the same family (an upper-trigram order × a lower-trigram order) and the same count carried in the Chinese literature by Huang Shisheng 1997 (after 沈宜甲/董光璧, primaries unread) and Chen Zhuangwei 2007 (方陣 count; CITATIONS.md #huangshisheng1997 #chenzhuangwei2007): prior art for the count, not for the null-model test.
  *
  * This is the "definitive" scope for Latin-square row-traversals where
  * the column order is globally consistent across rows. (Letting each
@@ -12499,7 +12499,7 @@ static void run_null_latin_col(void) {
  * The natural lexicographic ordering [0, 1, 2, ..., 63] is one specific
  * permutation. Permuting the 6 bit positions gives 6! = 720 distinct
  * "lexicographic" orderings (each a relabeling of the bits). Finite
- * and small.
+ * and small. A 1993 prior NEGATIVE on this axis: Ouyang 1993 p. 188 found KW's binary numbers 「杂乱无章」 and binary numbering 「很难找到解释卦序排列的依据」 (CITATIONS.md #ouyang1993) — the lexicographic null is the measured form of that remark.
  */
 
 static void run_null_lex(void) {
@@ -12583,7 +12583,7 @@ static void run_null_historical(void) {
      * Xun); within each octet the lower trigram cycles Qian, Kun, Gen, Dui,
      * Kan, Li, Zhen, Xun with the octet's own trigram promoted to first.
      * Source: Shaughnessy, The Origin and Early Development of the Zhou
-     * Changes (Brill, 2022), Table 11.2; concordant with Cook 2006 and
+     * Changes (Brill, 2022), Table 11.2; concordant with Cook 2006, with Luo Jianjin 2017's earlier closed-form 选首排列 construction of the same order (CITATIONS.md #luojianjin2017), and
      * Shaughnessy 1996. Corrected 2026-07-05 (previous array had wrong
      * octet order + wrong within-octet order; octet membership was right). */
     int md_idx[64] = {

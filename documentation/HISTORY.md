@@ -10954,3 +10954,53 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 
 - Two correction notes added in batch 37 were never sorted in the marker inventory. Both are class 1:
   the text around them already states the corrected claim. The inventory is complete again.
+
+## 2026-10-08 — literature batch: the code credits the prior art CITATIONS.md credits, at the lines that implement it; a withdrawn credit leaves the code, a cession owed to Li Shangxin 2000 is published, and Ouyang 1993 is read and cited
+
+**Literature batch, a withdrawn credit leaves the code (CX-307, Q-975).**
+
+- In July the list of sources changed who gets credit for the 18:18 split: a first-hand reading of
+  Li Shangxin 2008 found the idea credited to 張行成 and 朱熹, not to Zheng Qiao (corrected 2026-07-30).
+- Six comments in the engines still gave the old credit (corrected 2026-07-30 for Zheng Qiao). Four now
+  give the new credit. Two were about a different idea, trigram clustering, whose registered credit has
+  no source in the list; they say so and name no replacement. All six say the old credit was withdrawn. A test fails if a
+  comment names him without saying so.
+- No published number, count or sha changed.
+
+**Literature batch, a credit owed to Li Shangxin 2000 (CX-308, Q-975).**
+
+- A private reading in August found that Li Shangxin's 2000 article already states the four-position
+  trigram pattern this project measures as `ccn4`, crediting 顾伯叙 1997, years before the author the
+  code credited. It also states the same gender rule with the same two exceptions.
+- That finding was never published. The source list and the comments at the code now say it.
+- The measurement of how strong the pattern is stays this project's. No number changed.
+
+**Literature batch, Ouyang 1993 read in full (CX-309, Q-974, Q-975).**
+
+- The source list said Ouyang Weicheng's 1993 book on the mathematics of the Zhouyi was on loan. It
+  was bought and read in full; it has its own entry, which says what it contains and that it counts
+  no orderings.
+- The code that uses the same bit convention, the same XOR group and the same groups of eight and
+  sixteen hexagrams now says these are also described in his book (and in Suenaga 2012).
+
+**Literature batch, credit at the code (CX-310, CX-311, Q-975).**
+
+- Eighteen more comments name a source the list already credited for the same idea, hedged ("also
+  described in"), each by its anchor in the list. A test checks that every anchor a comment cites
+  exists.
+- Two hedged additions to the source list: Li Zhen 2020, a second independent reading of 李挺之's
+  diagram, and a note that the content of 邵雍's reversal count may be his teacher's.
+- Every comment edit replaces one line with one line, so no line any document cites moved. No
+  published number, count, sha or verdict changed.
+
+**Literature batch, three source-list corrections from re-reading the pages (CX-312, CX-313, CX-314, Q-413, Q-974).**
+
+- Suenaga 2012: the list said he tied none of his structure to the King Wen order. He does relate his
+  grouping to it and guesses it was shuffled by some rule, which he reports he could not find. The entry
+  now says that.
+- Ouyang 1992: the list credited him with a count of magic squares. That count is printed on a page
+  his article shares with a different article; it is not his, and it is removed.
+- 俞琰: a quoted sentence had one wrong word. The page reads 偶合 ("coincidence"), and the quote is fixed.
+- Also from the page re-reading: the Chen Renren 2013 entry now quotes the printed count of eleven
+  pairs, and the Ouyang 1993 entry notes a misprinted table on its p. 129. No published number, count,
+  sha or verdict changed.

@@ -39858,6 +39858,85 @@ class TestQ711BlockingStampLeg(unittest.TestCase):
 
 # end class TestQ711BlockingStampLeg (batch 41, Q-711)
 
+class TestQ975SourceAttribution(unittest.TestCase):
+    """Q-975 + Q-974 step 4 (literature batch; plan by Fable, Q975_ATTRIBUTION_SITE_PLAN 2026-10-08).
+
+    Source-code attribution sites: the comments in solve.c / solve.py / verify.py / sat.py that
+    credit prior art by CITATIONS.md anchor.
+      (a) the 18:18-split credit to Zheng Qiao, withdrawn from CITATIONS.md on 2026-07-30, survived at
+          six code sites; every code line naming him must now say the credit was withdrawn;
+      (b) every CITATIONS.md anchor a code comment cites resolves to an `<a id>` in CITATIONS.md
+          (a negative control proves the reader flags a missing one);
+      (c) the ccn4 cession to Li Shangxin 2000 (after Gu Boxu 1997) is in CITATIONS.md and at both
+          ccn4 attribution sites; (d) the Ouyang 1993 entry exists and the stale loan sentence is gone.
+    Red on the pre-batch tree: (a) six live sites, (b) fewer than 40 cited anchors, (c) and (d) absent.
+    """
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    CODE = ("solve.c", "solve.py", "verify.py", "sat.py")
+
+    def _read(self, rel):
+        with open(os.path.join(self.HERE, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _ids(self):
+        return set(re.findall(r'<a id="([^"]+)"', self._read("documentation/CITATIONS.md")))
+
+    @staticmethod
+    def _cited(line):
+        toks = set()
+        i = line.find("CITATIONS.md")
+        if i >= 0:
+            toks |= {m.group(1) for m in re.finditer(r"(?<![\w&/])#([a-z][a-z0-9-]*[a-z0-9])", line[i:])}
+        toks |= {m.group(1) for m in re.finditer(r"(?<![\w&/])#([a-z][a-z-]*[0-9]{4}[a-z0-9-]*)\b", line)}
+        return toks
+
+    def test_a_withdrawn_zheng_qiao_credit_is_not_live_in_code(self):
+        hits, live = 0, []
+        for f in self.CODE:
+            for n, line in enumerate(self._read(f).split("\n"), 1):
+                if "Zheng Qiao" in line:
+                    hits += 1
+                    if "withdrawn" not in line:
+                        live.append("%s:%d" % (f, n))
+        self.assertEqual(hits, 6, "precondition: the six former sites still name him, now as withdrawn")
+        self.assertEqual(live, [], "a code line credits Zheng Qiao without saying the credit was withdrawn")
+
+    def test_b_every_cited_anchor_resolves(self):
+        ids = self._ids()
+        self.assertIn("ouyang1993", ids)
+        self.assertEqual(self._cited("x CITATIONS.md #nosuchanchor2099") - ids, {"nosuchanchor2099"},
+                         "negative control: the reader must flag an anchor CITATIONS.md lacks")
+        refs, missing = 0, []
+        for f in self.CODE:
+            for n, line in enumerate(self._read(f).split("\n"), 1):
+                for tok in self._cited(line):
+                    refs += 1
+                    if tok not in ids:
+                        missing.append("%s:%d #%s" % (f, n, tok))
+        self.assertGreaterEqual(refs, 40, "precondition: the attribution sites cite their anchors")
+        self.assertEqual(missing, [], "code cites a CITATIONS.md anchor that does not exist")
+
+    def test_c_ccn4_cession_is_landed(self):
+        cit = self._read("documentation/CITATIONS.md")
+        i = cit.index('<a id="lishangxin2000"></a>')
+        entry = cit[i:cit.index("<a id=", i + 10)]
+        self.assertIn("顾伯叙", entry)
+        self.assertIn("`ccn4`", entry)
+        py = [l for l in self._read("solve.py").split("\n") if "ATTRIBUTION: Schulz 2016 (Hexagrammatics) pp. 23-24; Schulz 2011 (JCP 38:4)" in l]
+        c = [l for l in self._read("solve.c").split("\n") if l.startswith(" *   ccn4    Schulz 2016")]
+        self.assertEqual((len(py), len(c)), (1, 1), "precondition: one reg_ccn4 site in each engine")
+        for line in py + c:
+            self.assertIn("Li Shangxin 2000 p. 53", line)
+            self.assertIn("#lishangxin2000", line)
+
+    def test_d_ouyang1993_entry_replaces_the_loan_sentence(self):
+        cit = self._read("documentation/CITATIONS.md")
+        self.assertEqual(cit.count('<a id="ouyang1993"></a>'), 1)
+        self.assertNotIn("欧阳维诚 1993 《周易的数学原理》 (on inter-library loan", cit)
+        self.assertIn("[#ouyang1993](#ouyang1993)", cit)
+
+# end class TestQ975SourceAttribution (literature batch, Q-975 + Q-974 step 4)
+
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

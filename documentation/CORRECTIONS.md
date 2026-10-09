@@ -29488,3 +29488,223 @@ not check. The two rows are added to the inventory script's reviewed table, keye
 the inventory is regenerated.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 41, Q-936.
+
+## CX-307 — six source-code comments still credited Zheng Qiao (~1150), a credit CITATIONS.md corrected 2026-07-30; the four 18:18-split sites now carry the CITATIONS.md attribution (張行成/朱熹, per the first-hand pass of Li Shangxin 2008), the two trigram-clustering sites drop the name without a replacement, and all six say the earlier credit was withdrawn (solve.c; solve.py; tests.py)
+
+**2026-10-08.** Origin: the Q-975 source-code attribution sweep (site plan by Fable, claude-fable-5-1),
+a sibling sweep of the 2026-07-30 CITATIONS.md correction. Literature batch, on the batch's staged tree.
+
+**No published number, count, sha or certificate moves.** Comment-only edits; every replacement is
+one line for one line, so no cited line number moves.
+
+**1. What was wrong.** [CITATIONS.md](CITATIONS.md#hacker-moore2003) §Attributed rules corrected the
+classical credit for the 18:18 split on 2026-07-30: Li Shangxin 2008 attributes the observation to
+張行成 and 朱熹, and the name corrected 2026-07-30 (Zheng Qiao) does not appear. Six comments in the
+engines kept the old credit: four for the 18:18 split (`solve.py`'s R11 attribution block; in
+`solve.c` the R-C5 registry line, the R11 attribution block and the R-C5 leaf scorer comment) and two
+for the F4' trigram-clustering axis (`solve.py` `f4p_trigram_runs` docstring and the solve.c
+`trigram_runs` registry line).
+
+**2. What it says now.** The four 18:18 sites name 張行成/朱熹 per Li Shangxin 2008 (no harder than
+CITATIONS.md puts it: the reading rests on the first-hand pass recorded there, Q-413) and keep Hu Yigui
+(1247) and Hacker & Moore 2003. Trigram clustering is a different claim from the 18:18 split (the
+alias-reach registry already says so for CRITIQUE.md), and CITATIONS.md gives it no classical source,
+so the two trigram sites name no replacement: they say that the credit the F4' registration carries (Hu
+Yigui via Hacker & Moore 2003) has no anchor in CITATIONS.md — #hacker-moore2003 covers the 18:18 split
+only (CRITIQUE.md task #157 stays open) — and that no first-hand classical source is cited. All six say the credit corrected 2026-07-30 was withdrawn.
+
+**3. Tests.** `TestQ975SourceAttribution.test_a_…`: every code line naming the person whose credit was
+corrected 2026-07-30 must say the credit was withdrawn; on the pre-batch tree it lists the six sites
+and fails.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-975. Site plan:
+Fable (claude-fable-5-1).
+
+## CX-308 — an attribution owed to Li Shangxin 2000 was recorded in the 2026-08-20 reading audit and never published: his p. 53 states the S25–28 configuration this project measures as `ccn4`, crediting 顾伯叙 1997, and his 当位说 is the station-parity rule credited here to Schulz 1990, with the same two exceptions; CITATIONS.md and the attribution sites now say so (documentation/CITATIONS.md; solve.c; solve.py; sat.py; tests.py)
+
+**2026-10-08.** Origin: the Q-975 site plan (Fable, claude-fable-5-1) found the cession in the
+2026-08-20 audit of Li Shangxin 2000 (named in the [#lishangxin2000](CITATIONS.md#lishangxin2000)
+entry); no public text carried it.
+
+**No published number, count, sha or certificate moves.** The ×5×10⁷ population measurement of
+`ccn4` and the SAT decision remain this project's; what moves is who stated the configuration first.
+
+**1. The `ccn4` configuration.** Li Shangxin 2000 p. 53 states it configuration for configuration (A区,
+卦位 25–28: upper trigram 兑 throughout, lower trigrams 乾, 坤, 坎, 离), crediting the core observation
+to 顾伯叙 1997 (not held), eleven to fourteen years before Schulz 2011/2016, whom the code credited
+alone. The sentence is added to the #lishangxin2000 entry, and `solve.py` `reg_ccn4` and the solve.c
+`ccn4` registry line, R11 attribution block and g7 comment now name Li 2000 p. 53.
+
+**2. The gender rule.** Li 2000's 当位说 puts its two violators, 夬姤 and 萃升, at 36-unit stations 25
+and 26, which is exactly the exception set of `rc4_violations` on King Wen (executed in the site plan:
+stations [25, 26]). The `rc4_violations` docstring, the R11 block's g3 note, `sat.py`'s rc4
+attribution and the two solve.c rc4 attribution comments (rc4b, and the Knuth gender-strict mode) now
+say the same rule with the same two exceptions is stated independently in Li 2000. Li applies the
+rule to 乾/坤 where Schulz exempts the pure hexagrams; the comments claim the station-parity rule
+and the exception set, and no more.
+
+**3. Tests.** `TestQ975SourceAttribution.test_c_…`: the #lishangxin2000 entry names 顾伯叙 and `ccn4`,
+and both `ccn4` attribution sites cite Li 2000 p. 53; fails on the pre-batch tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-975. Site plan
+and cession finding: Fable (claude-fable-5-1).
+
+## CX-309 — CITATIONS.md said 欧阳维诚 1993 《周易的数学原理》 was on inter-library loan; the book was bought and read in full, it has its own entry, and the code that computes in the algebra it describes now says so at the implementing lines (documentation/CITATIONS.md; solve.c; solve.py; verify.py; sat.py; tests.py)
+
+**2026-10-08.** Origin: the Q-68 reading of the monograph (Q-974 step 4); code sites from the Q-975
+site plan (Fable, claude-fable-5-1).
+
+**No published number, count, sha or certificate moves.** The book contains no count, bound or
+estimate of any ordering space; the entry says what it does contain and what is ceded to it.
+
+**1. CITATIONS.md.** The acquisition-round preamble listed the book among residual unobtained items
+("on inter-library loan — bounded meanwhile via its table of contents …"). It now says the book was
+obtained by purchase and read in full on 2026-10-08 and links the new
+[#ouyang1993](CITATIONS.md#ouyang1993) entry, inserted after #ouyang1992. The (Z/2)⁶ arrival chain
+adds "[1993], book-length" beside the 1992 paper; the "seventh independent arrival" count does not
+change (same author).
+
+**2. Code sites (hedged: "also described in", independent prior art, never a dependency).** The
+bottom-first bit convention (`solve.py` encoding note, solve.c KW array), the eight palindromes as an
+XOR subgroup (`solve.py` pair builder, `sat.py` PALPAIRS note), the line-wise XOR group (the
+`king_wen_xor_products` docstring and verify.py's XOR-product check — the operation is his, the
+within-pair key is this project's), 错/综 (`_cuo`/`_zong`), the sixteen hexagrams of Wu Cheng's two
+classes as an order-16 subgroup (verify.py), the s1 and s6 registry notes (solve.c; s6 also names Yuan
+1991, Cao et al. 1995 and Suenaga 2012 as independent arrivals, by the CITATIONS.md section pointer),
+the C1 partner rule (`db1_partner`), and, optional, his p. 188 remark on binary numbering at the
+lexicographic null header. Suenaga 2012 is co-cited where he describes the same object; neither is
+cited at a counting site. `sat.py`'s `_coset` is a different group (line permutations) and is not
+attributed.
+
+**3. Tests.** `TestQ975SourceAttribution.test_d_…` (the entry exists, the loan sentence is gone) and
+`test_b_…` (every anchor a code comment cites resolves in CITATIONS.md, with a negative control).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-974 step 4 and
+Q-975. Site plan: Fable (claude-fable-5-1).
+
+## CX-310 — prior art that CITATIONS.md already credited was not named at the code implementing the same idea; eighteen further comment sites now name it, hedged and by anchor (solve.c; solve.py; verify.py; tests.py)
+
+**2026-10-08.** Origin: the Q-975 source-code attribution sweep (site plan by Fable, claude-fable-5-1;
+rule: credit at the implementation site and in CITATIONS.md, hedged, no blanket attribution).
+
+**No published number, count, sha or certificate moves.** Comment-only, one line for one line.
+
+**1. The sites.** The F6 warp class W (`solve.py` and solve.c): the same sixteen as 崔述, 沈有鼎 1936 and
+李尚信 2007 (W equals Shen's rank-equality set, checked), with Huang Pei-jung 2011's qualitative 4/8/16
+spacing as related, not identical. `reg_rs1` and the solve.c `rs1` registry line: the units-13/25
+trisection is also Li Shangxin 2008, as #li2008 already says. `reg_s6` and verify.py's
+`check_shen_orbits`: the orbit decomposition is classical (朱元昇, 吳澄) and modern in Zhang Qingyu
+1998–2000; solve.c's "Zhang 1994" now separates the 1994 tally from the 1998–2000 orbit concept.
+verify.py's Pu 2003 check: the exclusion of reconstructed symbols was first raised by Wang Zhenfu
+2005, and the circularity by He Zeheng 2009 and Wu Yong 2013; the H2 reading is Jiang Guanghui 2004's.
+The C5 data: Meyer 1998's XOR-and-popcount sequence (verify.py and the solve.c budget note). The C3
+total: no prior statement known; Li Shangxin 2002 and Barrett 2019 are the nearest, with no total.
+The Mawangdui M1∧M3∧M4 alarm and array: Luo Jianjin 2017's closed-form 选首排列 construction. The
+Latin-square null: Huang Shisheng 1997 and Chen Zhuangwei 2007 carry the same 8!×8! count (prior art
+for the count, not the test). The Gray-code null: McKenna & Mair 1979's family, with Gardner 1972 as
+background. The C4 header: the pair choice is classical (序卦傳), the orientation is this project's.
+
+**2. Tests.** `TestQ975SourceAttribution.test_b_…` covers every anchor these comments cite.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-975. Site plan:
+Fable (claude-fable-5-1).
+
+## CX-311 — CITATIONS.md did not carry Li Zhen 2020, a second independent reading of 李挺之's 變卦反對圖, nor the hedge that the 邵雍 reversal count's content may be his teacher 李挺之's; both are added, hedged (documentation/CITATIONS.md)
+
+**2026-10-08.** Origin: a Fable (claude-fable-5-1) adjudication of an Opus first read of 李震 2020;
+both texts are Fable's drafts.
+
+**No published number, count, sha or certificate moves.** The "does not compose" reading is
+corroborated, not changed, and the count of orderings is untouched.
+
+**1. Li Zhen 2020.** New [#lizhen2020](CITATIONS.md#lizhen2020) entry after [蔡飛舟
+2020](CITATIONS.md#caifeizhou2020): independently of 蔡, describes 李之才's diagram as two-line exchange
+plus reversal, with no complement operation. Section-level only until the paginated PDF is held.
+
+**2. The 邵雍 entry.** A second 觀物外篇 tally (p. 1186) counts the reversal pairs by yang-line total;
+朱震 and 張行成 both attach it to 李挺之's diagram and list its members: 30 對 = the 28 reversal pairs
+with two counted twice (machine-checked). Whether the count is 邵雍's or 李挺之's is stated as
+unsettled; "the earliest counted statement of the reversal classification we have found" stays, as
+the earliest surviving statement. The two witnesses were read from transcriptions, not the scan, and
+the entry says so.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch. Texts and
+verdict: Fable (claude-fable-5-1).
+
+## CX-312 — CITATIONS.md said Suenaga 2012 tied none of his structure to the King Wen order; his pp. 1, 9 and 10 relate his coset grouping to the received order and conjecture a shuffle rule he reports not finding, and the entry now says so (documentation/CITATIONS.md)
+
+**2026-10-08.** Origin: the Q-413 page-image closure, item R7 (Fable, claude-fable-5-1), re-read against
+the page images of the paper. Literature batch, on the batch's staged tree.
+
+**No published number, count, sha or certificate moves.** Suenaga's counted objects stay disjoint from
+this project's orderings, and he still completes and validates no count; only the description of what
+he says about the received order changes.
+
+**1. What was wrong.** The [#suenaga2012](CITATIONS.md#suenaga2012) entry closed by saying he linked
+none of his structure to the King Wen ordering (registry key RP-a144c348). That overstates: he relates
+his coset grouping to the received order, and the entry's own earlier sentence already said he reports
+finding no rule that fixes it.
+
+**2. What it says now.** He conjectures that the received order was produced by shuffling his coset
+grouping under some rule (p. 9), reports finding no such rule (p. 10), and his trial shuffles (附録4,
+pp. 15–17) do not reproduce it. The replacement is the Q-413 §3 draft, unchanged. README.md:99 and
+CAPSTONE_GUIDE.md:799 say he reported finding no rule that fixes the sequence; that is consistent with
+the page and they are untouched.
+
+**3. Same pass, credit note only.** The 36-figure diagram predates Hu Yigui: Li 2008 p. 12 (page-verified
+2026-10-08) places it in 杨甲/毛邦翰's 六經圖, and the [#hacker-moore2003](CITATIONS.md#hacker-moore2003)
+entry now says so. Hacker & Moore 2003 was not re-read.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-413 R7. Finding
+and replacement text: Fable (claude-fable-5-1).
+
+## CX-313 — CITATIONS.md credited Ouyang 1992 with a count of magic squares that belongs to a different article printed on the same journal page; the count is removed from his entry, which now says why (documentation/CITATIONS.md)
+
+**2026-10-08.** Origin: the CNKI numeral re-OCR (Q-974 held leg). The journals' CNKI text layers drop
+every Arabic digit, so the figure could not be checked against the page until the page images were
+re-read; the page was then viewed directly.
+
+**No published number, count, sha or certificate moves.** The figure was never one of this project's
+counts and was cited only as an example of what Ouyang counts.
+
+**1. What was wrong.** The [#ouyang1992](CITATIONS.md#ouyang1992) entry listed among his counting
+objects a count of magic squares (registry key RP-e8deee5a). Ouyang's article ends on p. 77 with
+「下转第68页」; on p. 68 its continuation is only the notes ①–④, and the count is in the upper half of
+the page, the tail of a different article on four-order magic squares.
+
+**2. What it says now.** His counting objects are 卦变 transformation distances and subgroup orders, and
+a dated parenthesis says an earlier version listed the magic-square figure and why it was removed. The
+phrase appeared in one public place only, the CITATIONS.md entry; `git grep` finds no sibling.
+
+**3. Same pass, status note only.** The [#chenrenren2013](CITATIONS.md#chenrenren2013) status bracket
+said every printed numeral was lost to OCR and that "eleven" was our count of the named pairs. The
+count is printed (「共11对22个自然卦」, p. 67; also p. 61, page-verified twice, Q-413 R28 and this pass),
+and the bracket now quotes it. The reading of the entry does not change.
+
+**4. Same entry, same pass, a paraphrase tightened.** The gloss of Ouyang 1987 said he "argued the King Wen
+*sequence* has **no** mathematical structure". Page 122 says something narrower: the 64 hexagrams, as
+co-equal mathematical models, admit no intrinsic order, so ordering them is 「不可能也不必要」. The gloss
+now says that. No number or claim is withdrawn.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-974 (CNKI
+re-OCR). R28 page verification: Fable (claude-fable-5-1), Q-413.
+
+## CX-314 — CITATIONS.md misquoted 俞琰's dismissal of the 革 = 49 / 大衍 correspondence as transmitted by Li Shangxin 2000 p. 58; the page reads 偶合 ("coincidence"), and the entry now quotes it (documentation/CITATIONS.md)
+
+**2026-10-08.** Origin: the CNKI numeral re-OCR (Q-974 held leg), caught while eye-checking Li Shangxin
+2000 p. 58 on the page image. Not a numeral finding.
+
+**No published number, count, sha or certificate moves.** The sentence is cited only as a data point
+that 俞琰 rejects the correspondence; that reading stands.
+
+**1. What was wrong.** The [#yuyan](CITATIONS.md#yuyan) entry quoted the sentence with a different
+two-character word (registry key RP-3663af41). Li 2000 p. 58 prints 「此皆偶合耳，圣人作《易》果如是乎？」, and
+the Li 2008 book's transcription of the same passage agrees. The wrong word entered in a private reading
+audit of Li 2000 and was carried into the entry.
+
+**2. What it says now.** 「此皆偶合耳，聖人作《易》果如是乎？」, with a note that Li prints it in simplified
+characters and the entry normalises them, and that the quotation was page-checked on 2026-10-08. The
+四庫本 《讀易舉要》 wording itself is still not checked. `git grep` finds no public sibling.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-974 (CNKI
+re-OCR).

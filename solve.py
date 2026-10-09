@@ -29,7 +29,7 @@ import time
 # --- Hexagram data (King Wen order) ---
 
 # Each hexagram as a 6-bit integer: 1=solid (yang), 0=broken (yin).
-# Bit 0 = bottom line, bit 5 = top. Source: https://oeis.org/A102241
+# Bit 0 = bottom line, bit 5 = top. Source: https://oeis.org/A102241. The same bottom-line-as-low-bit numbering is also described, independently, in Ouyang 1993 p. 188 (屯 = 010001₂ = 17); Suenaga 2012 uses the same yin=0/yang=1 six-bit vectors, written bottom line first (CITATIONS.md #ouyang1993, #suenaga2012; Leibniz 1703 for the binary reading, #leibniz1703).
 binary_hexagrams = [
     0b111111, 0b000000, 0b010001, 0b100010, 0b010111, 0b111010, 0b000010, 0b010000,
     0b110111, 0b111011, 0b000111, 0b111000, 0b111101, 0b101111, 0b000100, 0b001000,
@@ -60,7 +60,7 @@ def bit_diff(a, b):
     return bin(a ^ b).count("1")
 
 # The 32 canonical pairs: each hexagram paired with its reverse (or inverse
-# for the 8 symmetric hexagrams -- the 6-bit palindromes 0,12,18,30,33,45,51,63,
+# for the 8 symmetric hexagrams -- the 6-bit palindromes 0,12,18,30,33,45,51,63 (an XOR subgroup; the 自复 eight of Ouyang 1993 §6.1 p. 129 and the order-8 subgroup of Suenaga 2012 — CITATIONS.md #ouyang1993, #suenaga2012),
 # which the complement fallback joins into 4 pairs). This pairing is unique and
 # deterministic. (Q-330 / Codex T04, 2026-09-03: this comment, the --pairs and
 # --rules banners and has_pair_structure_c1's docstring all gave the PAIR
@@ -99,7 +99,7 @@ def king_wen_pairs():
 
 # XOR products of King Wen pairs
 def king_wen_xor_products():
-    """The 7 unique XOR products of King Wen's 32 pairs."""
+    """The 7 unique XOR products of King Wen's 32 pairs. Line-wise XOR on hexagrams is the (Z/2)^6 group of Ouyang 1992/1993 (XNOR form with 乾 as identity, proved isomorphic, 1993 p. 93) and of Suenaga 2012 -- prior art for the OPERATION, not for this within-pair key (CITATIONS.md #ouyang1992, #ouyang1993, #suenaga2012)."""
     products = set()
     for a, b in king_wen_pairs():
         products.add(a ^ b)
@@ -111,7 +111,7 @@ def rc4_violations(seq):
     """Schulz gender/position-parity violations over the 36 inversion-class positions.
 
     ATTRIBUTION: Schulz 1990 (JCP 17:3, 345-358, motif 2; exception first noticed by Zhu Yuansheng,
-    13th c., per Schulz 2018 fn.42), elaborated Cook 2006. Port of solve.c's KW-verified scorer:
+    13th c., per Schulz 2018 fn.42), elaborated Cook 2006; the same station-parity rule, with the same two exceptions (stations 25-26, 夬姤/萃升), is stated independently as 当位说 in Li Shangxin 2000 (CITATIONS.md #lishangxin2000). Port of solve.c's KW-verified scorer:
     classes keyed by min(h, rev(h)) in first-appearance order; gender by popcount of the class
     (pc<3 male -> odd class position, pc>3 female -> even; pc==3 and pure pc 0/6 exempt).
     Returns (violation_count, violating_class_positions). KW == (2, [25, 26])."""
@@ -3876,7 +3876,7 @@ def has_pair_structure_c1(seq):
 
 def total_complement_distance_c3(seq):
     """Sum over all 64 hexagrams of |pos[v] - pos[v^63]|. King Wen's
-    value is 776 — this is the C3 ceiling used by solve.c."""
+    value is 776 — this is the C3 ceiling used by solve.c. No prior statement of this total is known to us; the nearest observations on the complement-distance axis -- Li Shangxin 2002 (selected 錯綜 spacings) and Barrett 2019 (informal gaps) -- give no total, percentile or bound (CITATIONS.md #lishangxin2002, #barrett2019)."""
     pos = [0] * 64
     for i, v in enumerate(seq):
         pos[v] = i
@@ -7551,7 +7551,7 @@ def _reg_balances(stations):
 def reg_rs1(seq):
     """R-S1 — Xiaoxi trisection + solstice minimum placement.
 
-    ATTRIBUTION: Schulz & Cunningham 1990 / Schulz 1990, JCP 17 pp. 351-352.
+    ATTRIBUTION: Schulz & Cunningham 1990 / Schulz 1990, JCP 17 pp. 351-352; the units-13/25 trisection is also Li Shangxin's (2008, 卦序与解卦理路; Davis 2012 p. 119 n19 credits him) -- CITATIONS.md #li2008 says any published R-S1 result credits Li alongside Schulz.
     (1) The xiaoxi marker gua Qian(h1), Fu(h24), Gou(h44) sit at stations 1/13/25,
     trisecting the 36 stations into 3x12; (2) Fu's station is the balance-graph
     minimum (-4) among non-pure stations (the pure gua Qian/Kun, balance +/-6, are
@@ -7656,7 +7656,7 @@ def reg_ccn4(seq):
     """CC-N4 — S25-S28 face hexagrams: upper trigram Dui; lower trigrams
     Qian, Kun, Kan, Li in upper-classic doubled-trigram station order.
 
-    ATTRIBUTION: Schulz 2016 (Hexagrammatics) pp. 23-24; Schulz 2011 (JCP 38:4).
+    ATTRIBUTION: Schulz 2016 (Hexagrammatics) pp. 23-24; Schulz 2011 (JCP 38:4). The same configuration (A区 卦位 25-28: 外卦皆兑, 内卦依次乾坤坎离) is stated earlier in Li Shangxin 2000 p. 53, who credits 顾伯叙 1997 (not held) -- CITATIONS.md #lishangxin2000.
     The 2016 book's 'xun on top' reads top-down; under ROAE bottom-to-top
     encoding the face (canonical) hexagrams of S25-S28 carry Dui (011b = 3) on
     top — convention resolution per registry note. Lower trigrams run
@@ -7983,7 +7983,7 @@ def reg_s6(seq):
     """S6 — Klein four-group orbit structure: every KW pair is within-orbit,
     and every size-4 orbit is entered via the reversal partner.
 
-    ATTRIBUTION: Schoter (yijing.co.uk, via biroco.com); formalized and proved
+    ATTRIBUTION: the orbit decomposition itself is classical -- 朱元昇 c.1270 / 吳澄 c.1300 (CITATIONS.md #zhuyuansheng, #wucheng; full note at solve.c s6) -- and modern in Zhang Qingyu 1998-2000 (#zhang1994); Schoter (yijing.co.uk, via biroco.com); formalized and proved
     by Radisic 2026 arXiv:2601.07175 (Lean 4). K4 = {id, comp, rev, comp.rev}
     partitions the 64 hexagrams into 12 size-4 orbits + 8 size-2 orbits; each
     KW pair lies inside a single orbit, and pairs drawn from size-4 orbits use
@@ -8172,8 +8172,8 @@ def f4p_housedisp(seq):
 
 def f4p_trigram_runs(seq):
     """2. Longest run of consecutive pairs sharing the lower trigram of the
-    pair's first member. Axis: Zheng Qiao (~1150) / Hu Yigui (b. 1247)
-    trigram clustering (via Hacker & Moore 2003)."""
+    pair's first member. Axis: trigram clustering, registered for F4' with a classical credit (Hu Yigui, b. 1247, via Hacker & Moore 2003) that CITATIONS.md does not carry:
+    #hacker-moore2003 covers the 18:18 split only, and the Zheng Qiao credit once given here was withdrawn 2026-07-30; no first-hand classical source for this axis is cited (CRITIQUE.md task #157)."""
     L = [seq[2 * i] & 7 for i in range(32)]
     best = cur = 1
     for i in range(1, 32):
@@ -8298,7 +8298,7 @@ F4P_KW_EXPECTED = {
 # measurement; Bonferroni N=7; two-sided atom-inclusive convention).
 # ATTRIBUTION: #1-5 operationalize the warp/weft skeleton of Wu Deng 吳澄
 # (1249-1333, Yi zuan yan), via Nielsen 2003 p. 132 (JING GUA def. 2): warp
-# class W = {h : up(h) = lo(h) or up(h) = comp(lo(h))}, |W| = 16, and the
+# class W = {h : up(h) = lo(h) or up(h) = comp(lo(h))}, |W| = 16 -- the same sixteen as 崔述's 純卦+交卦 (c.1800), 沈有鼎 1936's 主卦 and 李尚信 2007's 主卦 skeleton (CITATIONS.md #cuishu, #shen1936, #li2007; W == Shen's rank-equality set, checked) -- and the
 # power-of-2 weft-block profile of the received order. #6-7 operationalize
 # palace-partition alignment for Jing Fang's 京房 (77-37 BCE) eight palaces,
 # tabulation per Hui Dong 惠棟 (1697-1758) as printed in Nielsen 2003 pp. 1-4
@@ -8341,7 +8341,7 @@ def f6_warp_blocks(seq):
     return len(_f6_weft_blocks(seq))
 
 def f6_warp_pow2(seq):
-    """2. Count of weft blocks whose size is a power of two (1,2,4,8,16)."""
+    """2. Count of weft blocks whose size is a power of two (1,2,4,8,16). Huang Pei-jung 2011 states the sixteen's spacing regularity in the received order qualitatively (distances 4/8/16, 皆為四之倍數; CITATIONS.md #huangpeirong) -- related, not identical."""
     return sum(1 for x in _f6_weft_blocks(seq) if x & (x - 1) == 0)
 
 def f6_warp_adj(seq):
@@ -8660,8 +8660,8 @@ def rc4b_verify(seq_arg=None):
 # machinery (§2.2/§9.3). Two-language twin of solve.c r11_axes / --r11-verify
 # and the SOLVE_KNUTH_R11_HIST population instrument.
 # ATTRIBUTION (rules are NOT ROAE discoveries): g1 Moore 2005; g2 Moore 1989;
-# g3 Schulz 1990 (Zhu Yuansheng exception); g4/g5 Cook 2006; g6 Zheng Qiao
-# ~1150 / Hu Yigui 1247 / Hacker & Moore 2003; g7 Schulz 2011/2016; g8 Drasny
+# g3 Schulz 1990 (Zhu Yuansheng exception; same rule in Li Shangxin 2000); g4/g5 Cook 2006; g6 18:18 split:
+# 張行成/朱熹 per Li Shangxin 2008 (Zheng Qiao credit withdrawn 2026-07-30) / Hu Yigui 1247 / Hacker & Moore 2003; g7 Schulz 2011/2016; g8 Drasny
 # / Schulz. The greedy-builder class is ROAE's formalization of a folk idea
 # (novelty hedged; corrections welcome). Developed with AI assistance
 # (Claude, Anthropic). NOTE: per the R11 design freeze protocol (§9.3) the
@@ -11594,7 +11594,7 @@ def _r7_M5(s):
 
 def _r7_M_joint(s):
     """Joint-M = M1 ^ M3 ^ M4 -- the reconstruction set that recovers the
-    corrected Mawangdui sequence exactly. This is the frozen manufacture-alarm
+    corrected Mawangdui sequence exactly (the same 选首排列 construction -- the row's trigram promoted to first, the rest in base order -- is given in closed form by Luo Jianjin 2017, CITATIONS.md #luojianjin2017, earlier than our prose source Shaughnessy 2022). This is the frozen manufacture-alarm
     unit for the M family (a single weak predicate such as M1 is deliberately
     NOT the alarm unit; see the Fu Xi off-home M1 pass)."""
     return _r7_M1(s) is not None and _r7_M3(s) and _r7_M4(s)

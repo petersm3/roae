@@ -496,8 +496,8 @@ _TRIGRAM = {
 }
 def _lower(h): return h & 0b111
 def _upper(h): return (h >> 3) & 0b111
-def _cuo(h):  return h ^ 0b111111                      # 错 complement
-def _zong(h): return int(format(h, '06b')[::-1], 2)    # 综 reversal
+def _cuo(h):  return h ^ 0b111111                      # 错 complement (旁通 = product with 坤 in Ouyang 1993's XNOR group, p. 70; CITATIONS.md #ouyang1993)
+def _zong(h): return int(format(h, '06b')[::-1], 2)    # 综 reversal (复卦, Ouyang 1993 p. 128)
 def _hname(h): return _TRIGRAM[_upper(h)][0] + '/' + _TRIGRAM[_lower(h)][0]
 
 def check_shen_orbits():
@@ -517,7 +517,7 @@ def check_shen_orbits():
     operations, and he defines 正對 at the LINE level (卦畫奇偶) while explicitly
     contrasting it with the TRIGRAM level (上下二體). Verified against this file's own
     bit operations: zero mismatches, all 64 covered once, class set identical to the
-    true orbit set. See CITATIONS.md#wucheng and `--check-classical-groups`.
+    true orbit set. See CITATIONS.md#wucheng and `--check-classical-groups`; priority for the decomposition is ceded to 朱元昇 (#zhuyuansheng, complete by 1270), and its modern statement is Zhang Qingyu 1998-2000 (#zhang1994).
 
     The sixteen checked below are a SUBSET of that -- 6 of Wu Cheng's 20 orbits.
 
@@ -981,7 +981,7 @@ def check_classical_groups():
     # AND THE ELIGIBLE SET IS EXACTLY WU CHENG'S TWO DEGENERATE CLASSES (c. 1300):
     # the 8 self-reverse hexagrams (his 正對不反易者四) plus the 8 where complement
     # coincides with reversal (his 正對兼反易者四). His classification is not
-    # decorative -- it precisely characterises where the ambiguity lives.
+    # decorative -- it precisely characterises where the ambiguity lives. The same sixteen form an order-16 XOR subgroup (self-reverse ∪ reverse=complement) in Ouyang 1993, 例4.1.3 p. 91 and p. 190 (his 1992 覆变群 A16) -- the group-theoretic form of Wu Cheng's classes; CITATIONS.md #ouyang1993.
     from math import comb, factorial
     partner = {h: KW[pos[h] ^ 1] for h in KW}
     elig = [h for h in KW if partner[h] == _cuo(h)]
@@ -1078,8 +1078,8 @@ def check_kw_pair_adjacency():
         make the symbol evidence non-discriminating -- and the decision to
         report that rather than the 3/3 agreement alone.
 
-    Tested on the symbols Pu reports as DIRECTLY OBSERVED -- excluding every
-    entry his appendix reconstructs FROM that same invariance -- his claim
+    Tested on the symbols Pu reports as DIRECTLY OBSERVED -- excluding every entry his appendix
+    reconstructs FROM that same invariance (an objection first raised by 王振復 Wang Zhenfu 2005 p. 15; the circularity was stated before us by 何澤恆 He Zeheng 2009 and 吳勇 Wu Yong 2013 -- CITATIONS.md #wangzhenfu2005, #hezeheng2009, #wuyong2013) -- his claim
     holds on every pair that can be tested at all: of 9 claimed pairs,
     3 testable, 3 agreements, 0 disagreements, 6 unobserved. The routine
     PRINTS those four counts; do not read them from here, run the command.
@@ -1104,7 +1104,7 @@ def check_kw_pair_adjacency():
     reversal-symmetric, complement for the eight that are. So a symbol that
     agrees within each King Wen adjacent pair is EQUALLY well explained by
       H1  the symbol respects reversal, and
-      H2  the symbol is merely constant on contiguous blocks of King Wen.
+      H2  the symbol is merely constant on contiguous blocks of King Wen (the reading published by 姜廣輝 Jiang Guanghui 2004, CITATIONS.md #jiangguanghui2004).
     H1 and H2 make identical predictions on every observation available, because
     the blocks and the orbits coincide by construction of the sequence itself.
 
@@ -5155,11 +5155,11 @@ def recount():
     within = dict(Counter(hamming(a, b) for (a, b) in _canonical_pairs()))
     check("Within-pair distance multiset (32 pairs)", {2: 12, 4: 12, 6: 8},
           within, "popcount within each canonical pair")
-
+    # the (Z/2)^6 XOR algebra is prior art (Ouyang 1992/1993, Suenaga 2012; CITATIONS.md section "(Z/2)^6"); the 7-valued within-pair key checked here is this project's
     xorset = sorted({a ^ b for (a, b) in _canonical_pairs()})
     check("XOR-product set {h ^ partner(h)}",
           [12, 18, 30, 33, 45, 51, 63], xorset, "XOR within each pair, dedup")
-
+    # C5 as DATA: the full cyclic line-change sequence, in the same XOR-and-popcount form, was published by Meyer 1998 (#meyer1998; page since gone); the mean 211/63 by Chan 2026 (#chan2026); the no-5 observation is McKenna 1975
     fullms = dict(Counter(hamming(KW[i], KW[i + 1]) for i in range(63)))
     check("KW difference-wave multiset D(S) (all 63 transitions, C5)",
           {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}, fullms, "popcount along KW")

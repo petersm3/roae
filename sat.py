@@ -1249,7 +1249,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
         # Class position of slot s's pair = s + 2 + c, where c = # palindrome-pairs among slots 1..s-1
         # (slot 0 = pair 0 = palindromes 63,0 = classes 1,2, pure-exempt). Palindrome pairs occupy two
         # positions (first hexagram lower, orientation-dependent); gender from popcount.
-        # ATTRIBUTION: Schulz 1990 JCP 17:3 motif 2 (exception: Zhu Yuansheng 13th c.); Cook 2006 elab.
+        # ATTRIBUTION: Schulz 1990 JCP 17:3 motif 2 (exception: Zhu Yuansheng 13th c.); Cook 2006 elab.; the same rule with the same two exceptions, independently, in Li Shangxin 2000 当位说 (CITATIONS.md #lishangxin2000).
         exempt_pos = RC4_KWEXEMPT_POS if tbase == "rc4-kwexempt" else frozenset()
         cnf.mark("inversion-class position counter")
         def _rev6(h):
@@ -1257,7 +1257,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
             for b in range(6): r |= ((h >> b) & 1) << (5 - b)
             return r
         # only true palindrome pairs (rev(h)==h members, paired by complement) occupy TWO inversion
-        # classes; anti-symmetric pairs (rev(h)==comp(h)) also XOR to 63 but form ONE class.
+        # classes; anti-symmetric pairs (rev(h)==comp(h)) also XOR to 63 but form ONE class. (Both eights are described in Ouyang 1993 §6.1 p. 129 -- 自复 / 亦复亦变, each fixed by its lower trigram -- and the palindromes as an XOR subgroup in Suenaga 2012; CITATIONS.md #ouyang1993, #suenaga2012.)
         PALPAIRS = [p for p in range(1, 32) if _rev6(KW_PAIRS[p][0]) == KW_PAIRS[p][0]]
         NP = len(PALPAIRS)
         comp_slot = {}

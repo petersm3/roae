@@ -393,7 +393,7 @@ scripts/corrections_inventory.sh	documentation/SOLVE.md	55d219e805bd	CORRECT: SO
 scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/HISTORY.md	f8b9c58acd28	CORRECT: HISTORY.md line 5942 is 'Its divisor was the maximum', the sentence the exemption names; 'unconditional' is on the wrapped next line (reviewed 2026-10-02, batch 32)
 scripts/tr12_repro.sh	solve.c	26292c76c925	CORRECT: solve.c line 37756 is `if (fkc->ooc != NULL) {`, the refusal the comment cites (reviewed 2026-10-02, batch 32)
 tests.py	sat.py	db7bca64f2aa	CORRECT: sat.py line 696 is `if k < 0:`, the guard in at_most_k the comment cites; the function name is two lines above (reviewed 2026-10-02, batch 32)
-viz/report_figures.py	solve.py	ad53c9d5c9ca	CORRECT: solve.py line 32 is 'Bit 0 = bottom line, bit 5 = top', the bit convention the comment cites; `binary_hexagrams` is on line 33 (reviewed 2026-10-02, batch 32)
+viz/report_figures.py	solve.py	c02ff75fceb5	CORRECT: solve.py line 32 is 'Bit 0 = bottom line, bit 5 = top', the bit convention the comment cites; `binary_hexagrams` is on line 33 (reviewed 2026-10-02, batch 32; re-hashed 2026-10-08, literature batch: line 32 lengthened in place, still the bit convention)
 PINS
 )
 CONTENT_PINS="${CITGATE_CONTENT_PINS-$CONTENT_PINS_DEFAULT}"
@@ -538,7 +538,7 @@ BTFILE = re.compile(r'`([^`\s]+\.[A-Za-z]{1,5})`:(?=\d)')
 MDLINK = re.compile(r'\[[^\]\n]*\]\(`?([^)\s#`]+\.[A-Za-z]{1,5})`?\):(?=\d)')
 def cites(line, citer, prev=(), quiet=False):
     """(target, lo, hi, text) for every live citation on the line; exclusions counted."""
-    if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):1855`, is the
+    if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):1886`, is the
         line = MDLINK.sub(lambda m: " " + m.group(1) + ":", line)   # same citation: read it as one;
         line = BTFILE.sub(lambda m: " " + m.group(1) + ":", line)   # so is a backticked name, `x.out`:14
     out, cur, seen, pinned = [], None, False, False

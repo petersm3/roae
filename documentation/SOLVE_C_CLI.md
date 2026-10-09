@@ -1142,7 +1142,7 @@ the entry that first surfaced the theorem statements. *(Source status
 corrected 2026-09-01: this sentence previously graded the attribution as
 annotation-only with the primary source still unread — a status the
 attribution block at solve.py:10514-10517 and the ledger entry at
-[CITATIONS.md](CITATIONS.md):2646 had already superseded on 2026-07-11.)* Prints one PASS/FAIL line per claim
+[CITATIONS.md](CITATIONS.md):2677 had already superseded on 2026-07-11.)* Prints one PASS/FAIL line per claim
 with expected + computed values. Exit 0 iff all 14 pass. Wall <1 s.
 Attribution per claim function in solve.py; master ledger
 [CITATIONS.md](CITATIONS.md).
