@@ -3461,8 +3461,11 @@ open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organisin
                            PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
-    if [ "$rc" -eq 0 ]; then
-      echo "  [FAIL] $label — GATE 8 did NOT fire on a hand-edited digit"; PASS=1; return
+    # Q-983 (batch 42; Codex gpt-6-astra, Q964-D02#3): the fire is rc 1 EXACTLY, as in its Q-954-swept
+    # siblings assert_gen_fires and assert_fires_why. `-eq 0` took a refusal (2) or a kill (124/137/143)
+    # that happened to print the leg's ERE for a fire.
+    if [ "$rc" -ne 1 ]; then
+      echo "  [FAIL] $label — GATE 8 did NOT fire (rc 1) on a hand-edited digit; rc=$rc"; PASS=1; return
     fi
     if ! grep -Eq -- "$want" <<<"$out"; then
       echo "  [FAIL] $label — GATE 8 fired, but not on the digit leg"

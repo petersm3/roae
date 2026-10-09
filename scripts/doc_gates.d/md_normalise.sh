@@ -233,6 +233,45 @@ _MD_BINOM = _nre.compile(r'(?<![\w])(?:C|binom)\(\s*(\d+)\s*,\s*(\d+)\s*\)|\\bin
 def md_binoms(text):
     for m in _MD_BINOM.finditer(text):
         yield (m.start(), int(m.group(1) or m.group(3)), int(m.group(2) or m.group(4)))
+
+# md_code_spans(line) -> [(start, end)], end exclusive, each span INCLUDING its backticks.
+# Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): CommonMark inline code spans on one line. A run of
+# N backticks opens a span that closes at the next run of EXACTLY N; an opener with no such closer
+# is literal text; a backtick after an odd run of backslashes OUTSIDE a span is an escaped literal
+# (inside a span a backslash is literal and escapes nothing). The legs that masked spans with
+# `[^`]*` took an escaped backtick for a delimiter, so prose between two escaped backticks was
+# read as code and exempted.
+def md_code_spans(s):
+    out, i, n = [], 0, len(s)
+    while i < n:
+        c = s[i]
+        if c == '\\':
+            i += 2; continue
+        if c != '`':
+            i += 1; continue
+        j = i
+        while j < n and s[j] == '`':
+            j += 1
+        k, close = j, -1
+        while k < n:
+            if s[k] != '`':
+                k += 1; continue
+            m = k
+            while m < n and s[m] == '`':
+                m += 1
+            if m - k == j - i:
+                close = m; break
+            k = m
+        if close < 0:
+            i = j; continue
+        out.append((i, close)); i = close
+    return out
+
+def md_mask_code(s, ch='x'):
+    """s with every code span (backticks included) replaced by `ch`, length kept."""
+    for a, b in reversed(md_code_spans(s)):
+        s = s[:a] + ch * (b - a) + s[b:]
+    return s
 MD_NUM_PY
 }
 

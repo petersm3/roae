@@ -85,6 +85,7 @@
 #   M10 an unknown status / an unknown render / a short row / a duplicate id         ERROR each
 #   M11 an artifact path that does not exist                                        row FALSE
 #   M13 evidence that prints the right KEY=value and then exits 137 (killed)        ERROR (Q-951)
+#   M19 the same, with the killed producer on the left of `| sed -n p`               ERROR (Q-983)
 #   M12 FOR EVERY ROW: its value perturbed (last digit +1, next number word, FAIL<->PASS)
 #       in the ledger AND on its published line, so S and P still hold       that row FALSE on E
 #   M14 (Q-835 A03#3) TR12_SUM_B0's evidence replaced by an awk that reads the row's own value out
@@ -483,7 +484,9 @@ def run_evidence(cmd, cache, forb=()):
             c.start()
         try:
             try:
-                r = subprocess.run(["bash", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                # Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#6): under pipefail, so `producer | sed …`
+                # keeps the producer's rc (a 137 was lost to sed's 0 and the KEY still matched).
+                r = subprocess.run(["bash", "-o", "pipefail", "-c", cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    stdin=subprocess.DEVNULL, text=True, timeout=900, cwd=d)
                 rc, out = r.returncode, r.stdout
             except subprocess.TimeoutExpired as exc:
@@ -720,6 +723,11 @@ def selftest(ledger_path, text, cache):
     _, f = row_of("TR12_SUM_B0")
     expect("M13 evidence prints the right value, then is killed (exit 137)",
            with_row("TR12_SUM_B0", evidence=f[COLS.index("evidence")] + "; exit 137"), "ERROR", "TR12_SUM_B0", False)
+    # M19 (Q-983, batch 42; Codex gpt-6-astra, Q964-D08#6): the same kill on the LEFT of a pipe. Without
+    # pipefail the pipeline's rc was sed's 0, so the killed producer's KEY=value still matched.
+    expect("M19 evidence killed (exit 137) on the left of `| sed -n p`",
+           with_row("TR12_SUM_B0", evidence="( " + f[COLS.index("evidence")] + "; exit 137 ) | sed -n p"),
+           "ERROR", "TR12_SUM_B0", False)
     # M14-M16 (Q-967): evidence that reads the claim back. Each must go FALSE, and on I.
     def expect_i(name, t, rid, overrides=None, why=None):
         v, res, err = check(t, cache, overrides)

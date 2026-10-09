@@ -173,7 +173,7 @@ documentation/DESCRIPTION_LENGTH.md	89	marker	CORRECTED	1	-	reviewed:bare-regist
 documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	c61cc43645a2
 documentation/DESCRIPTION_LENGTH.md	264	ledger-link	CORRECTION	n/a	-	not-a-marker	f272fca47fba
 documentation/DEVELOPMENT.md	62	narration	now reads	1	-	reviewed:narration-inside-a-retired-warning-note;text-reads-correctly	1b52abae68a7
-documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	4de630c060f6
+documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	3692591963d4
 documentation/DEVELOPMENT.md	755	narration	now reads	2	-	reviewed:the-dated-note-is-what-says-the-rest-of-the-row-predates-the-Q-317-change	bb11bb8bf16c
 documentation/DEVELOPMENT.md	1043	marker	CORRECTED	1	-	reviewed:text-already-says-size-equals-stored-size	8c79421519c1
 documentation/DEVELOPMENT.md	1195	marker	Corrected	1	-	reviewed:text-already-separates-count-matching-and-set-matching-K	d4dcb7a62cd6

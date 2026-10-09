@@ -884,11 +884,31 @@ gate_viz_shape() {
   local G=viz/report_figures.py
   require_tracked "$G" "The TR-12 figure generator IS this gate; with it gone, nothing is checked."
   case $? in 1) return 0;; 2) return 1;; esac
-  if ! python3 -c 'import matplotlib, numpy' >/dev/null 2>&1; then
+  # Q-983 (batch 42; Codex gpt-6-astra, Q964-D04#9): the probe says WHICH failure it saw. Any nonzero rc
+  # of `python3 -c 'import matplotlib, numpy'` -- a crash, a kill (137), a broken install -- used to be
+  # read as "absent" and skipped with rc 0. Only a ModuleNotFoundError naming one of the two packages
+  # is ABSENT; the probe must exit 0 with exactly one VIZ_DEPS= token; anything else is a FAIL.
+  local _vd _vdrc
+  _vd=$(python3 -c '
+import sys
+try:
+    import matplotlib, numpy
+except ModuleNotFoundError as e:
+    if (e.name or "").split(".")[0] in ("matplotlib", "numpy"):
+        print("VIZ_DEPS=ABSENT"); sys.exit(0)
+    raise
+print("VIZ_DEPS=PRESENT")' 2>&1); _vdrc=$?
+  if [ "$_vdrc" -ne 0 ] || [ "$(grep -c '^VIZ_DEPS=' <<<"$_vd")" != 1 ]; then
+    printf '%s\n' "$_vd" | tail -3 | sed 's/^/     /'
+    echo "  [FAIL] the matplotlib/numpy probe did not finish cleanly (rc $_vdrc): that is not \"absent\""
+    return 1
+  fi
+  if grep -qx 'VIZ_DEPS=ABSENT' <<<"$_vd"; then
     echo "  [skip] matplotlib/numpy absent — viz/ is an optional external surface, not part of the"
     echo "         core toolchain. NOTHING was checked here; this is a skip, not a pass."
     return 0
   fi
+  grep -qx 'VIZ_DEPS=PRESENT' <<<"$_vd" || { echo "  [FAIL] the matplotlib/numpy probe printed no verdict"; return 1; }
   local out rc
   out=$(python3 "$G" --selftest 2>&1); rc=$?
   # Q-952: rc 0 AND exactly one VIZ_SHAPE_SELFTEST= line AND it is PASS (require_pass_token, doc_gates.sh).
@@ -1216,15 +1236,25 @@ FLOOR_KEYS, FLOOR_TOKENS, FLOOR_FILES, FLOOR_BYTES = 300, 95, 45, 2000000
 # `baseline_bin` are rebound to `_ctx.__enter__()` -- file paths, not payloads; the diff of the two
 # site lists (35782834 scripts vs the staged ones) is exactly those two lines and nothing else.
 FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 91
-# 🔴 CEIL_SH_LEXONLY (Q-970, A07#13): verdict tokens the SHELL LEXER sees emitted and the line scan
-# above never did (an echo after `then`/`&&`/`{`/`;`, a second echo on a line, a printf with several
-# tokens or %s filled from a literal), and that no documentation/ file names. MEASURED 2026-10-03 on
-# the staged tree: 18, each printed below as a [note] with its site. They are pre-existing surface
-# made visible, NOT adjudicated -- 14 are real verdict/census tokens and 4 are generated-runner shell
-# source (scripts/tr12_mint_state_gate.sh:97-98, written inside a redirected `{ }` group this lexer
-# cannot see the redirection of); the decision is the operator's (Q-970 report). Until then this is
-# a RATCHET: one more FAILS. Its stated weakness: a COUNT, so fixing one and adding another holds it.
-CEIL_SH_LEXONLY = 18
+# 🔴 PIN_SH_LEXONLY (Q-970, A07#13; re-pinned by NAME in batch 42): verdict tokens the SHELL LEXER
+# sees emitted and the line scan above never did (an echo after `then`/`&&`/`{`/`;`, a second echo
+# on a line, a printf with several tokens or %s filled from a literal), and that no documentation/
+# file names. They are pre-existing surface made visible, NOT adjudicated; the decision is the
+# operator's (Q-970 report). Until then this is a PIN BY NAME: a lexer-only undocumented token
+# OUTSIDE the set is a FAIL whatever the count; a pinned name that leaves is a [note] to re-pin.
+# Why a set, not the count of 18 it replaced: the count's stated weakness (fix one, add one, it
+# holds) fired in batch 42 -- CORRECTIONS.md quoted `TR12_D=SKIP:failed_REASON=missing` as an
+# example, which NAMES TR12_D in documentation/ (vocab is every identifier in documentation/*.md),
+# so TR12_D left this set (18 -> 17) and the A07#13 plant was absorbed at 17+1 = 18. The Q-970
+# report had already said "a name-pinned list would be stronger than the count ratchet".
+# MEASURED 2026-10-09 on the batch-42 tree: these 17. This list lives HERE and must never be copied
+# into documentation/ -- that would "document" every one of them in a single stroke.
+PIN_SH_LEXONLY = frozenset("""
+CHUNKED_ATLAS_EQ_WHOLE FAILOPEN_CLOSURE_ALLOWED FAILOPEN_CLOSURE_OPEN FAILOPEN_CLOSURE_RC0
+FAILOPEN_CLOSURE_SELFTEST FAILOPEN_CLOSURE_TIMEOUT FAILOPEN_CLOSURE_UNRUN L2A L2B LADDER_IDENTITY
+MINT_MISSING NFAIL SCAN_OK SELFTEST_EXPECTED_EQ_ACTUAL TR12_SKIP_PIN_SELFTEST
+TR12_STAMP_GUARD_SELFTEST XA_EXACT_VERDICT
+""".split())
 
 def rec(*a):
     print("\t".join(str(x) for x in a))
@@ -1846,17 +1876,23 @@ for n in undocumented(lexonly, vocab):
         allow[("verdict-token", n)][1] += 1
         continue
     lexundoc.append(n)
+lexnew = sorted(set(lexundoc) - PIN_SH_LEXONLY)
 for n in lexundoc:
-    # Over the ceiling every one is a FAIL line (the new name is among them; a diff against the
-    # 18 listed in the Q-970 report names it); at or under it they are notes.
-    rec("HIT" if len(lexundoc) > CEIL_SH_LEXONLY else "LEXONLY", "verdict-token", n, lexonly[n],
-        "emitted (seen by the shell lexer only, Q-970) and named in no documentation/ file; pending"
-        " adjudication")
-if len(lexundoc) > CEIL_SH_LEXONLY:
-    rec("CEIL", "verdict-token", len(lexundoc), "scripts/*.sh",
-        "the shell lexer sees %d undocumented verdict token(s) the line scan cannot, above the pinned"
-        " ceiling of %d — a NEW one was emitted. Document it, or re-pin CEIL_SH_LEXONLY with the"
-        " reason." % (len(lexundoc), CEIL_SH_LEXONLY))
+    # A name outside the pin is the FAIL line itself (no diff against a report needed); the pinned
+    # ones are notes.
+    rec("HIT" if n in lexnew else "LEXONLY", "verdict-token", n, lexonly[n],
+        "emitted (seen by the shell lexer only, Q-970) and named in no documentation/ file; "
+        + ("NOT in PIN_SH_LEXONLY — a NEW one was emitted. Document it, or add it to the pin with the"
+           " reason" if n in lexnew else "pending adjudication"))
+for n in sorted(PIN_SH_LEXONLY - set(lexundoc)):
+    rec("GONE", "verdict-token", n, "scripts/*.sh",
+        "pinned in PIN_SH_LEXONLY but no longer a lexer-only undocumented token (documented, removed,"
+        " or now seen by the line scan) — remove it from the pin, with the reason")
+if lexnew:
+    rec("CEIL", "verdict-token", len(lexnew), "scripts/*.sh",
+        "the shell lexer sees %d undocumented verdict token(s) outside the pinned set PIN_SH_LEXONLY:"
+        " %s — a NEW one was emitted. Document it, or add it to the pin with the reason."
+        % (len(lexnew), ", ".join(lexnew)))
 if len(pyunres) > CEIL_PY_UNRESOLVED:
     rec("CEIL", "py-unresolved", len(pyunres), PYSRC,
         "the AST pass could not resolve %d expression(s), above the pinned ceiling of %d — %s grew"
@@ -1913,6 +1949,7 @@ ESPY
       WEAK) echo "  [note] weak clear ($surface) $name — $why" ;;
       PYUNRES) echo "  [note] LEG 3 unresolved [$name] at $site — $why" ;;
       LEXONLY) echo "  [note] ($surface) $name at $site — $why" ;;
+      GONE) echo "  [note] ($surface) $name — $why" ;;
       CEIL) echo "  [FAIL] ($surface) $why"; rc=1 ;;
     esac
   done < <(printf '%s\n' "$out")
@@ -1969,10 +2006,13 @@ ESPY
 gate_completion_semantics() {
   echo "== GATE 85: a completion status does not read as a completeness claim =="
   local rc=0 _cs _sfw
-  if [ ! -r documentation/DEPLOYMENT.md ]; then
-    echo "  [FAIL] documentation/DEPLOYMENT.md unreadable — cannot confirm the disambiguation"
-    rc=1
-  elif _cs=$(python3 -c "$(_md_norm_prelude; _wm_prelude)"'
+  # Q-983 (batch 42; Codex gpt-6-astra, Q964-D04#1): the scanner's rc is READ. It sat in an `elif`
+  # condition (`_cs=$(python3 …) && ! grep …`), so a scanner that printed its census and then crashed
+  # skipped to the next arm, and a non-empty census with no AFFIRM line reached [ok]. Now the scanner
+  # must exit 0 with exactly one N line, or the gate FAILs as unmeasured.
+  local _csrc=0
+  if [ -r documentation/DEPLOYMENT.md ]; then
+    _cs=$(python3 -c "$(_md_norm_prelude; _wm_prelude)"'
 import re
 L = md_read("documentation/DEPLOYMENT.md").split("\n")
 flat, starts = "", []
@@ -1984,7 +2024,15 @@ for m in P.finditer(flat):
     n += 1
     if not wm_negated(flat, m.start(), 6):
         print("AFFIRM\t%d" % (sum(1 for s in starts if s <= m.start())))
-print("N\t%d" % n)') && ! grep -q $'^N\t[1-9]' <<<"$_cs"; then
+print("N\t%d" % n)'); _csrc=$?
+  fi
+  if [ ! -r documentation/DEPLOYMENT.md ]; then
+    echo "  [FAIL] documentation/DEPLOYMENT.md unreadable — cannot confirm the disambiguation"
+    rc=1
+  elif [ "$_csrc" -ne 0 ] || [ "$(grep -c $'^N\t' <<<"$_cs")" != 1 ]; then
+    echo "  [FAIL] the DEPLOYMENT.md exhaustion-phrase scanner did not finish cleanly (rc $_csrc) — NOTHING was checked"
+    rc=1
+  elif ! grep -q $'^N\t[1-9]' <<<"$_cs"; then
     echo "  [FAIL] DEPLOYMENT.md no longer says what SEARCH_COMPLETE does NOT assert."
     echo "     The token is emitted as the else-branch of a wall-clock timeout test. Without the"
     echo "     qualifier a reader takes a budgeted run for an exhaustive one."

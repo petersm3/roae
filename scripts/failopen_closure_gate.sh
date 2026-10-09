@@ -133,7 +133,11 @@ run_one(){
   elif [ "$rc" -ge 125 ] && [ "$rc" -le 127 ] \
        && [ "$(printf '%s\n' "$out" | grep -cE '^timeout: ')" -gt 0 ]; then
     printf 'ERROR\t%s\tlauncher-failed\n' "$rc"
-  else printf 'CLOSED\t%s\t-\n' "$rc"; fi
+  # Q-983 (batch 42; Codex gpt-6-astra, Q964-D07#4): a CLOSED row carries the LAST verdict-shaped token
+  # the script printed (or "-"), so a refusal can be told from a crash: bash exits 2 on a syntax
+  # error too, and "closed rc=2" alone was what both earned. The selftest now requires each refusal
+  # fixture's own ERROR/FAIL token on its row, and plants a syntax error that must show none.
+  else printf 'CLOSED\t%s\t%s\n' "$rc" "$(printf '%s\n' "$out" | grep -E '^[A-Z][A-Z0-9_]{2,}=' | tail -1 | cut -c1-60 | tr '\t' ' ')"; fi
 }
 
 # gate <tree> <allowfile-or-empty> -> verdict lines + token; returns 0/1/2
@@ -182,7 +186,7 @@ gate(){
       RC0)     run=$((run+1))
                if [ "${ALLOWC[$name]:-}" = rc0-by-design ]; then printf '  [allow ] %-44s exit 0 with token %s — %s\n' "$name" "${tok:-none}" "${ALLOWR[$name]}"; allowed=$((allowed+1))
                else rc0=$((rc0+1)); printf '  [RC0   ] %-44s exited 0 with every input ABSENT (last token: %s) — a `|| FAIL=1` consumer reads that as clean\n' "$name" "${tok:-none}"; fails=1; fi ;;
-      CLOSED)  run=$((run+1)); printf '  [closed] %-44s rc=%s, no OK token\n' "$name" "$rc" ;;
+      CLOSED)  run=$((run+1)); printf '  [closed] %-44s rc=%s, no OK token (last token: %s)\n' "$name" "$rc" "${tok:-none}" ;;
       *)       err=1; printf '  [ERROR ] %-44s harness failure: %s\n' "$name" "$tok" ;;
     esac
   done
@@ -237,6 +241,11 @@ az vm delete -n x; echo "PLANT_UNRUN=OK"'
   mk plant_notoken.sh   'echo hello; exit 0'
   mk plant_abs.sh       'touch "${FAILOPEN_SELFTEST_SENTINEL:?}/RAN_ABS"; [ -d /home/someone/github/roae ] && echo "PLANT_ABS=OK"'
   mk plant_closed2.sh   '[ -r x.tsv ] || { echo "PLANT_CLOSED2=ERROR unreadable"; exit 2; }; echo "PLANT_CLOSED2=OK"'
+  # Q-983 (Codex Q964-D07#4): a bash SYNTAX ERROR also exits 2. It must grade closed WITHOUT a refusal
+  # token, which is what tells it from plant_closed2's genuine refusal above.
+  mk plant_syntax.sh    'if [ -r x.tsv ]; then echo "PLANT_SYNTAX=OK"
+done'
+
   # Q-954 (c) (Codex Q835 P-07, A12#14): this was ONE single-quoted line with literal `\n`
   # escapes, which mk's printf '%s' writes verbatim, so python3 raised SyntaxError (rc 1) and the
   # fixture graded CLOSED for that reason rather than for refusing an empty world. Real newlines
@@ -254,14 +263,15 @@ print("PLANT_CLOSED3=PASS")'
   chk "exit-0-with-SKIP is RC0"                     'grep -qE "^\s*\[RC0   \] +plant_rc0.sh" <<<"$out"'
   # Q-954 (c): each CLOSED check names the rc its fixture's refusal branch exits with. "closed"
   # alone is also what a fixture that cannot parse (python SyntaxError rc 1, bash rc 2) gets.
-  chk "ERROR-on-absent is closed (rc 2)"            'grep -qE "^\s*\[closed\] +plant_closed.sh +rc=2," <<<"$out"'
-  chk "FAIL-on-absent is closed (rc 1)"             'grep -qE "^\s*\[closed\] +plant_fail.sh +rc=1," <<<"$out"'
-  chk "an unreadable-input refusal is closed (rc 2)" 'grep -qE "^\s*\[closed\] +plant_closed2.sh +rc=2," <<<"$out"'
-  chk "a python refusal is closed by its sys.exit(2), not by a SyntaxError" 'grep -qE "^\s*\[closed\] +plant_closed3.py +rc=2," <<<"$out"'
+  chk "ERROR-on-absent is closed (rc 2)"            'grep -qE "^\s*\[closed\] +plant_closed.sh +rc=2, .*last token: PLANT_CLOSED=ERROR\)" <<<"$out"'
+  chk "FAIL-on-absent is closed (rc 1)"             'grep -qE "^\s*\[closed\] +plant_fail.sh +rc=1, .*last token: PLANT_FAIL=FAIL\)" <<<"$out"'
+  chk "an unreadable-input refusal is closed (rc 2)" 'grep -qE "^\s*\[closed\] +plant_closed2.sh +rc=2, .*last token: PLANT_CLOSED2=ERROR unreadable\)" <<<"$out"'
+  chk "a python refusal is closed by its sys.exit(2), not by a SyntaxError" 'grep -qE "^\s*\[closed\] +plant_closed3.py +rc=2, .*last token: PLANT_CLOSED3=ERROR\)" <<<"$out"'
+  chk "a bash syntax error (rc 2) is closed with NO refusal token" 'grep -qE "^\s*\[closed\] +plant_syntax.sh +rc=2, no OK token \(last token: none\)" <<<"$out"'
   chk "positive control: an EXECUTED fixture leaves its sentinel" '[ -e "$FAILOPEN_SELFTEST_SENTINEL/RAN_CLOSED" ]'
   chk "az in a non-comment line -> UNRUN, never executed" 'grep -qE "^\s*\[unrun \] +plant_unrun.sh" <<<"$out" && [ ! -e "$FAILOPEN_SELFTEST_SENTINEL/RAN_UNRUN" ]'
   chk "a hard-coded absolute repo path -> ABSPATH, never executed" 'grep -qE "^\s*\[abspth\] +plant_abs.sh" <<<"$out" && [ ! -e "$FAILOPEN_SELFTEST_SENTINEL/RAN_ABS" ]'
-  chk "az in a COMMENT does not make a script unrun (closed, rc 2)" 'grep -qE "^\s*\[closed\] +plant_comment.sh +rc=2," <<<"$out"'
+  chk "az in a COMMENT does not make a script unrun (closed, rc 2)" 'grep -qE "^\s*\[closed\] +plant_comment.sh +rc=2, .*last token: PLANT_COMMENT=ERROR\)" <<<"$out"'
   chk "allowlisted self-contained script is allowed" 'grep -qE "^\s*\[allow \] +plant_allowed.sh" <<<"$out"'
   chk "a script with no verdict token is not in the population" '! grep -q plant_notoken <<<"$out"'
   chk "counts: OPEN=2 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)" 'grep -qx "FAILOPEN_CLOSURE_OPEN=2" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RC0=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ALLOWED=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_UNRUN=2" <<<"$out"'

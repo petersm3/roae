@@ -236,9 +236,25 @@ if [ "$MODE" = write ]; then
     _okl=$(grep -aE '^OK( \([a-z_=0-9, ]+\))?$' "$TL")
     for _sk in $(printf '%s\n' "$_okl" | grep -oE '(skipped|expected failures)=[0-9]+' | sed 's/.*=//'); do tskip=$((tskip + 10#$_sk)); done
   fi
+  # Q-982 (c) (batch 42; Codex gpt-6-astra, Q964-D07#3): the floor's POPULATION must be read, not
+  # assumed. This was `git show … 2>/dev/null | grep -c … || true` and then `[ -ge 1 ] || tfloor=1`, so
+  # a failed READ of HEAD:tests.py floored to ONE and `Ran 1 test` + `OK` recorded LEG_TESTS=PASS.
+  # Now: HEAD's listing must be readable; a tests.py it lists must be read, and must hold at least one
+  # test method; either failure is an ERROR and no record is written. A HEAD that carries no tests.py
+  # at all (the hook's own test fixtures) keeps the floor of 1, as before.
+  _tls=$(git -C "$top" ls-tree HEAD -- tests.py 2>/dev/null) \
+    || err "write: cannot list HEAD (git ls-tree failed), so the tree's test count (the TESTS floor) is unknown"
+  if [ -n "$_tls" ]; then
+    git -C "$top" show HEAD:tests.py >/dev/null 2>&1 \
+      || err "write: HEAD lists tests.py but it cannot be read, so the TESTS floor is unknown"
+  fi
   tfloor=$(git -C "$top" show HEAD:tests.py 2>/dev/null | grep -cE '^    def test_') || true
   case "$tfloor" in ''|*[!0-9]*) tfloor=0 ;; esac
-  [ "$tfloor" -ge 1 ] || tfloor=1
+  if [ -n "$_tls" ]; then
+    [ "$tfloor" -ge 1 ] || err "write: HEAD:tests.py has no test methods, so the TESTS floor has no population"
+  else
+    tfloor=1
+  fi
   case "$tran" in ''|*[!0-9]*) tran=0 ;; esac
   tran=$((10#$tran))
   if [ "${nran:-0}" = 1 ] && [ "${nok:-0}" = 1 ] && [ "${nfail:-0}" = 0 ] \

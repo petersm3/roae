@@ -336,7 +336,7 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-says-sub_ckpt_load-restores-state'),
     ('documentation/DEVELOPMENT.md', 'd4dcb7a62cd6'):
         ('1', 'reviewed:text-already-separates-count-matching-and-set-matching-K'),
-    ('documentation/DEVELOPMENT.md', '4de630c060f6'):
+    ('documentation/DEVELOPMENT.md', '3692591963d4'):
         ('1', 'reviewed:ordinary-present-tense-prose;not-a-correction-note'),
     ('documentation/DISTRIBUTIONAL_ANALYSIS.md', '0a25a691f691'):
         ('1', 'reviewed:bullet-already-credits-C5'),

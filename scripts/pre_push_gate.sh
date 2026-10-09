@@ -527,8 +527,19 @@ else
     # `git push <url>`); only a configured remote name has tracking refs, so a URL push, a run with
     # no $1, or an unknown name skips NOTHING and gates the tree (fail-closed). The trust in the
     # tracking refs themselves (stale or hand-advanced) is unchanged and is the residual.
-    _pub="" _dst="${1:-}"
-    if [ -n "$_dst" ] && git config --get "remote.$_dst.url" >/dev/null 2>&1; then
+    # Q-982 (b) (batch 42; Codex gpt-6-astra, Q964-D07#1): the tracking refs are what was FETCHED, from
+    # remote.$1.url; the push goes to the URL git hands the hook as $2, which is remote.$1.pushurl when
+    # one is set. A split fetch/push URL therefore skipped content gates on the FETCH side's refs for a
+    # push to somewhere else. The skip now also requires $2 to be the fetch URL and every push URL of
+    # the remote to be that same URL (insteadOf rewriting applied, as git applies it); else it skips
+    # NOTHING.
+    _pub="" _dst="${1:-}" _furl="" _purls=""
+    if [ -n "$_dst" ]; then
+      _furl=$(git remote get-url "$_dst" 2>/dev/null) || _furl=""
+      _purls=$(git remote get-url --push --all "$_dst" 2>/dev/null) || _purls=""
+    fi
+    if [ -n "$_dst" ] && git config --get "remote.$_dst.url" >/dev/null 2>&1 \
+       && [ -n "$_furl" ] && [ "${2:-}" = "$_furl" ] && [ "$_purls" = "$_furl" ]; then
       for _r in $(git for-each-ref --format='%(refname)' "refs/remotes/$_dst/" 2>/dev/null); do
         if git merge-base --is-ancestor "$lsha" "$_r" 2>/dev/null; then _pub=$_r; break; fi
       done
@@ -605,6 +616,8 @@ NEWREFS=${NEWREFS# }
 # that tree's own scripts/doc_gates.sh and DOC_GATES_PENDING_BRANCHES set to the refs it declares.
 # FAIL-CLOSED: a declaring tree with no committed documentation/BRANCH_REGISTRY.tsv, or no
 # scripts/doc_gates.sh, or one that does not parse, BLOCKS the push and says nothing was checked.
+# Q-982 (a) (batch 42): and so does a declaring tree whose GATE 19 does not FAIL on a planted
+# undeclared name (the positive control below): an old gate that ignores DOC_GATES_PENDING_BRANCHES.
 # RESIDUAL: candidate 3 is a cached remote-tracking ref; a main force-pushed since the last fetch to
 # drop a row would still read as declaring it. `git fetch` before pushing closes that.
 # reg_declares <sha> <branch>: rc 0 when <sha>'s committed registry has a row for <branch>.
@@ -659,6 +672,7 @@ if [ -n "$NEWREFS" ]; then
     case " $_DECL_ORDER " in *" $_ds "*) ;; *) _DECL_ORDER="$_DECL_ORDER $_ds" ;; esac
     _DECL_REFS[$_ds]="${_DECL_REFS[$_ds]:-}${_DECL_REFS[$_ds]:+ }$_nr"
   done
+  _canary="prepush-canary-undeclared-$$-$RANDOM"   # Q-982 (a): the positive control's planted name
   for _ds in $_DECL_ORDER; do
     _dshort=${_ds:0:12}; _drefs=${_DECL_REFS[$_ds]}
     # 🔴 SIBLING SWEEP 2026-09-02 (FINDING_FAILOPEN_CLASS instance 38), kept: a gate that could not
@@ -683,6 +697,22 @@ if [ -n "$NEWREFS" ]; then
       echo "         does not parse, so GATE 19 never executed and the branch registry was NOT read."
       echo "         ${_dgerr:-bash -n returned non-zero with no message}"
       echo "         DO NOT edit the branch registry in response to this."
+      NEWREF_RC=1
+    elif git -C "$ROOT" cat-file -e "$_ds:documentation/BRANCH_REGISTRY.tsv" 2>/dev/null \
+         && { _cnout=$( cd "$WTBASE/tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+             DOC_GATES_PENDING_BRANCHES="refs/heads/$_canary" bash scripts/doc_gates.sh branch-registry 2>&1 ); _crc=$?
+         [ "$_crc" -ne 1 ] || ! grep -qF "'$_canary' is NOT declared" <<<"$_cnout"; }; then
+      # Q-982 (a) (batch 42; Codex gpt-6-astra, Q964-D07#2): THE POSITIVE CONTROL. The declaring tree
+      # may be an OLD commit (a snapshot branch, or the ref's own sha when no registry declares it), and
+      # an old doc_gates.sh that predates DOC_GATES_PENDING_BRANCHES never reads the pending name, so it
+      # passed ANY new branch (measured: at 89e7a9a1 rc 0 for an undeclared name; at f1b27e32 rc 1).
+      # Before its verdict is believed, the same gate in the same tree is run on a planted name no
+      # registry can declare, and must fail on THAT name (rc 1 and the name in its finding).
+      # It runs where the tree HAS a committed registry; a tree without one is the precheck's above.
+      echo "pre-push: 🔴 BLOCKED — the branch-registry gate of ${_dshort} did not fail on a planted undeclared"
+      echo "         branch name (rc $_crc), so it cannot see a branch about to be published (its GATE 19 may"
+      echo "         predate DOC_GATES_PENDING_BRANCHES). Nothing it says about $_drefs is believed."
+      echo "         If no registry declares $_drefs, declare it in main and push main with it; if ${_dshort}'s OWN registry declares it, that tree is chosen first (Q-950) and only the visible bypass (git push --no-verify) can publish that commit."
       NEWREF_RC=1
     else
       echo "pre-push: branch-registry gate for $_drefs in the committed tree of ${_dshort}"

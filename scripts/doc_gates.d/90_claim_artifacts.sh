@@ -152,8 +152,14 @@ G5 = re.compile(r'grander-strict|grander_strict')
 # masked (the rulesets are cited in backticks), then only IDENTIFIER forms of the words:
 # `five_loo_ccn8`, `five-loo-ccn8`, `five-sub-gender+ccn4`. `four-rule` / `five-rule` are
 # deliberately NOT masked — they are the prose labels this leg reads.
-MASK = re.compile(r'`[^`]*`'
-                  r'|\b(?:five|four)[_-](?:loo|sub|ccn|strict|rules?_)[A-Za-z0-9_.+\-]*'
+# Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): code spans are found by md_code_spans (the
+# CommonMark rule, shared lexer) and removed by _unspan BEFORE MASK; MASK's own `[^`]*` alternative
+# took an escaped backtick for a delimiter, so prose between two escaped backticks was masked.
+def _unspan(u):
+    for a, b in reversed(md_code_spans(u)):
+        u = u[:a] + ' ' + u[b:]
+    return u
+MASK = re.compile(r'\b(?:five|four)[_-](?:loo|sub|ccn|strict|rules?_)[A-Za-z0-9_.+\-]*'
                   r'|\b(?:five|four)_[A-Za-z0-9_.+\-]+')
 _CL4 = re.compile(r'[;.!?](?:\s|$)|\s\|\s|\s[\u2014\u2013]\s|\s--?\s')   # Q-966: clause breaks for LEG 2
 W4 = re.compile(r'\bfour\b', re.I)
@@ -186,7 +192,7 @@ for f in corpus():
             continue
         for u in units:
             u4, u5 = bool(G4.search(u)), bool(G5.search(u))
-            m = MASK.sub(' ', u)
+            m = MASK.sub(' ', _unspan(u))
             if u5 and W4.search(m):
                 print("HIT2\t%s:%d\tgrander-strict (the FIVE-rule union) labelled 'four'\t%s" % (f, i, " ".join(u.split())[:130]))
             if u4 and W5.search(m):

@@ -168,7 +168,8 @@ def produced(name):
 
 SKIP = {"documentation/CORRECTIONS.md", "documentation/HISTORY.md"}
 PATHISH = re.compile(r"^[\w./-]+$")      # Q-970: Unicode letters and digits, not ASCII only (see `written`)
-span_re = re.compile(r"`([^`\n]+)`")
+# Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): spans come from md_code_spans (CommonMark, the shared
+# lexer). `([^`\n]+)` paired an escaped backtick with the next span's opener and lost that span.
 checked = 0
 fails = []
 named_noprod = set()
@@ -196,8 +197,8 @@ for f in sorted(t for t in tracked if t.endswith(".md") and t not in SKIP):
             in_rev = hlev[i][0] == 2 and hlev[i][1].strip().lower() == "revision history"
         if in_rev:
             continue
-        for m in span_re.finditer(line):
-            tok = m.group(1).strip()
+        for a, b in md_code_spans(line):
+            tok = line[a:b].strip("`").strip()
             if tok.startswith(LEGACY[1]):
                 if not PATHISH.match(tok):
                     continue

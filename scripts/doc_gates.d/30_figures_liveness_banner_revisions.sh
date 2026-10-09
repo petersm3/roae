@@ -451,7 +451,7 @@ def unit_at(text, pos):
         b = n
     para = text[a:b]
     off = pos - a
-    masked = re.sub(r'`[^`\n]*`', lambda mm: 'x' * len(mm.group(0)), para)   # no sentence ends inside a code span
+    masked = md_mask_code(para)   # no sentence ends inside a code span; Q-985 (Codex Q964-D08#5): CommonMark spans, an escaped backtick is not one
     cuts = [0] + [m.end() for m in _SB.finditer(masked) if not _ABBR.search(masked[:m.end()].rstrip())] + [len(para)]
     for x, y in zip(cuts, cuts[1:]):
         if x <= off < y:

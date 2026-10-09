@@ -76,6 +76,32 @@ if [ "$NV" -lt "$MINV" ]; then
 else
   say "[ok]   $NV verdicts emitted (floor $MINV)"
 fi
+# Q-983 (batch 42; Codex gpt-6-astra, Q964-D09#3): the EXPECTED SET, not only its size. A distinct-key
+# count lets an unrelated new key stand in for a family that stopped emitting (18 distinct either
+# way). Every key below must appear EXACTLY ONCE, and a key not below is a FAIL until it is added
+# here deliberately. The set is the n=9 consumer's, measured on the batch-42 tree; it is the same 18
+# keys the floor counts.
+GC_EXPECTED="TR12_A2_SLOT TR12_A3_EXTERNAL TR12_A5_ORBIT_COLUMNS TR12_A5_ORBIT_MEMBERSHIP TR12_Q10A
+TR12_Q3 TR12_Q3_KW TR12_Q3_READER TR12_Q6 TR12_Q6_EXTREMES TR12_RATIO_COLUMNS TR12_V1 TR12_V2 TR12_V5
+TR12_XA_A TR12_XA_B TR12_XA_CD TR12_XA_MOD24"
+_gk=$(grep -oE '^TR12_[A-Z0-9_]+=' "$V" | sed 's/=$//' | sort || true)
+_gmiss=""; _gdup=""; _gextra=""
+for _k in $GC_EXPECTED; do
+  _c=$(grep -cxF "$_k" <<<"$_gk" || true)
+  [ "${_c:-0}" -eq 0 ] && _gmiss="$_gmiss $_k"
+  [ "${_c:-0}" -gt 1 ] && _gdup="$_gdup $_k"
+done
+for _k in $(sort -u <<<"$_gk"); do
+  case " $(echo $GC_EXPECTED) " in *" $_k "*) ;; *) _gextra="$_gextra $_k" ;; esac
+done
+if [ -n "$_gmiss$_gdup$_gextra" ]; then
+  [ -n "$_gmiss" ]  && say "[FAIL] expected verdict(s) missing (a family stopped emitting):$_gmiss"
+  [ -n "$_gdup" ]   && say "[FAIL] verdict(s) emitted more than once:$_gdup"
+  [ -n "$_gextra" ] && say "[FAIL] verdict(s) not in the expected set (add a new family here deliberately):$_gextra"
+  fails=$((fails+1))
+else
+  say "[ok]   the verdict keys are exactly the expected set of $(echo $GC_EXPECTED | wc -w), each once"
+fi
 # Q-959: ANCHORED at the key. Unanchored, `=(PASS|...)` matched anywhere in the line, so
 # `TR12_X=ERROR:expected=PASS` read as green. The value must BE `PASS` or start with a qualifier.
 BAD=$(grep -E '^TR12_[A-Z0-9_]+=' "$V" | grep -vE '^TR12_[A-Z0-9_]+=(PASS|(PASS|SKIP|PENDING):.+)$' || true)

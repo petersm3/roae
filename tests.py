@@ -39938,6 +39938,665 @@ class TestQ975SourceAttribution(unittest.TestCase):
 # end class TestQ975SourceAttribution (literature batch, Q-975 + Q-974 step 4)
 
 
+class TestQ982Q983Q985Batch42(unittest.TestCase):
+    """Batch 42: Q-982 (N-07), Q-983 (N-08) and Q-985 (N-10), from the Q-964 lens-A Codex delta review
+    (Codex gpt-6-astra; targets Q964-D02#3, D04#1, D04#9, D07#1-#4, D08#1-#6, D09#2, D09#3, D09#5).
+
+    Each case drives the CHECK ITSELF (a function or block taken from the script's own text, the
+    script's own --selftest, or the hook on a scratch repository) on the planted defect and requires
+    it to go red, plus a positive control that must stay green. Run with the f1b27e32 copies of the
+    scripts in place, the defect cases are red (the lane report shows the run). Mutants revert the
+    load-bearing piece; each mutant's anchor is asserted to occur exactly once."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    Z40 = "0" * 40
+    COST = "[cost redacted]"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="b42_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _d(self):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "c%d" % self.n)
+        os.makedirs(d)
+        return d
+
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    @staticmethod
+    def _mut(src, old, new):
+        if src.count(old) != 1:
+            raise AssertionError("mutant anchor not unique (%d): %r" % (src.count(old), old))
+        return src.replace(old, new)
+
+    def _wr(self, path, text, mode=0o644):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(path, mode)
+        return path
+
+    def _bash(self, script, env=None, cwd=None, timeout=300):
+        e = dict(os.environ)
+        e.update(env or {})
+        return subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=e,
+                              cwd=cwd or self.ROOT, timeout=timeout)
+
+    def _fn(self, src, start, end_re=r"^  \}$"):
+        """The text of a shell function in SRC from the line equal to START to the first line
+        matching END_RE after it (both included)."""
+        lines = src.split("\n")
+        if lines.count(start) != 1:
+            raise AssertionError("function start not unique: %r" % start)
+        i = lines.index(start)
+        for j in range(i + 1, len(lines)):
+            if re.match(end_re, lines[j]):
+                return "\n".join(lines[i:j + 1]) + "\n"
+        raise AssertionError("function end not found after %r" % start)
+
+    # ================================================================================================
+    # Q-985 (N-10, Codex Q964-D08#5): a code span is a CommonMark span, not a backtick parity.
+    # ================================================================================================
+    CI = "scripts/corrections_inventory.sh"
+
+    def _ci_lib(self, src):
+        cut = src.index('case "${1:-}" in\n  --selftest)')
+        return self._wr(os.path.join(self._d(), "ci_lib.sh"), src[:cut])
+
+    def _classify(self, lib, subject, message):
+        r = subprocess.run(["bash", "-c", '. "$1"; printf "git\\tfeedface\\t2026-01-01\\t%s\\t%s\\n" "$2" "$3" | classify | tail -n +2 | cut -f8',
+                            "x", lib, subject, message], capture_output=True, text=True, cwd=self.ROOT, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        return r.stdout.strip()
+
+    D = "$"   # the figures are assembled, so this source states none (as corrections_inventory.sh anchor 19)
+    Q985_MSG = "HISTORY: \\`lit; price " + D + "91 today; \\`lit, field `" + D + "8`, double ``" + D + "7``, open `" + D + "6 end."
+
+    def _q985_case(self, src):
+        txt = self._classify(self._ci_lib(src), "Corrected the band.", self.Q985_MSG)
+        self.assertEqual(self.Q985_MSG.count("\\`"), 2, "precondition: two escaped backticks")
+        self.assertEqual(len(re.findall(r"\$[0-9]+", self.Q985_MSG)), 4, "precondition: four money tokens")
+        return txt
+
+    def test_q985_a_prose_between_escaped_backticks_is_redacted(self):
+        txt = self._q985_case(self._src(self.CI))
+        self.assertNotIn(self.D + "91", txt, "a prose amount between two escaped backticks was published:\n" + txt)
+        self.assertNotIn(self.D + "6 ", txt, "an amount after an unclosed opener was published:\n" + txt)
+        self.assertEqual(txt.count(self.COST), 2, txt)
+
+    def test_q985_b_real_code_spans_keep_their_fields(self):
+        txt = self._q985_case(self._src(self.CI))
+        self.assertIn("`" + self.D + "8`", txt, "positive control: a field in a single-backtick span is code")
+        self.assertIn("``" + self.D + "7``", txt, "positive control: a field in a double-backtick span is code")
+
+    def test_q985_c_mutant_escape_blind_spans_publish_the_amount(self):
+        src = self._mut(self._src(self.CI), '        if (substr(s, i, 1) == "\\\\") { i += 2; continue }\n',
+                        '        if (substr(s, i, 1) == "\\\\") { i += 1; continue }\n')
+        txt = self._q985_case(src)
+        self.assertIn(self.D + "91", txt, "the mutant (escapes ignored) must publish the prose amount -- else test a is not load-bearing")
+
+    def _spans(self, cases, prelude_src=None):
+        mdn = self._wr(os.path.join(self._d(), "md_normalise.sh"),
+                       prelude_src if prelude_src is not None else self._src("scripts/doc_gates.d/md_normalise.sh"))
+        prog = "import json, sys\nfor s in json.loads(sys.argv[1]):\n    print(json.dumps(md_code_spans(s)))\n"
+        import json as _json
+        r = subprocess.run(["bash", "-c", '. "$1"; python3 -c "$(_md_num_prelude)"$\'\\n\'"$2" "$3"', "x", mdn, prog,
+                            _json.dumps(cases)], capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        return [_json.loads(l) for l in r.stdout.splitlines()]
+
+    def test_q985_d_md_code_spans_is_commonmark(self):
+        got = self._spans(["a \\`x " + self.D + "1 \\`y", "`" + self.D + "8` ok", "``a`b`` c", "`unclosed " + self.D + "5",
+                           "\\\\`code`", "x `a` \\` `b`"])
+        self.assertEqual(got, [[], [[0, 4]], [[0, 7]], [], [[2, 8]], [[2, 5], [9, 12]]])
+
+    def test_q985_e_mutant_md_code_spans_without_escapes(self):
+        src = self._mut(self._src("scripts/doc_gates.d/md_normalise.sh"),
+                        "        if c == '\\\\':\n            i += 2; continue\n", "")
+        got = self._spans(["a \\`x " + self.D + "1 \\`y"], src)
+        self.assertNotEqual(got, [[]], "the mutant must pair the escaped backticks -- else test d is not load-bearing")
+
+    def test_q985_f_span_readers_use_the_shared_rule(self):
+        """The four span readers swept with Q-985 no longer carry their own `[^`]*` span regex."""
+        for rel, naive in (("scripts/doc_gates.d/80_repro_reach_claim_shapes.sh", 'span=re.compile(r"`[^`]*`")'),
+                           ("scripts/doc_gates.d/90_claim_artifacts.sh", "MASK = re.compile(r'`[^`]*`'"),
+                           ("scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh", "re.sub(r'`[^`\\n]*`'"),
+                           ("scripts/tr12_output_paths_gate.sh", 'span_re = re.compile(r"`([^`\\n]+)`")')):
+            s = self._src(rel)
+            self.assertNotIn(naive, s, rel)
+            self.assertIn("md_code_spans(" if "30_" not in rel else "md_mask_code(", s, rel)
+
+    # ================================================================================================
+    # Q-982 (N-07): push-hook binding residuals.
+    # ================================================================================================
+    HOOK = os.path.join("scripts", "pre_push_gate.sh")
+    REC = os.path.join("scripts", "prepush_verdict_record.sh")
+
+    # (a) Codex Q964-D07#2: an old tree's GATE 19 that ignores DOC_GATES_PENDING_BRANCHES.
+    DG_PENDING_BLIND = ('cd "$(dirname "$0")/.." || exit 2\n'
+                        'echo "doc_gates ${1:-all}" >> "$HK_MARK"\n'
+                        'if [ "${1:-all}" = branch-registry ]; then\n'
+                        '  [ -r documentation/BRANCH_REGISTRY.tsv ] || { echo "  [FAIL] registry missing"; exit 1; }\n'
+                        '  echo "  [ok] every PUBLISHED branch declared"   # predates DOC_GATES_PENDING_BRANCHES\n'
+                        'fi\n'
+                        'exit 0\n')
+
+    def _q950(self):
+        return TestQ949Q950PrepushEnvAndRegistry
+
+    def _hook_fixture(self, hook_src, dg_stub, registry="main\tauthoritative\n"):
+        q = self._q950()
+        d = self._d()
+        repo, bare = os.path.join(d, "repo"), os.path.join(d, "origin.git")
+        os.makedirs(repo)
+        g = lambda *a: q._git(self, repo, *a)
+        g("init", "-q")
+        self._wr(os.path.join(repo, q.HOOK), hook_src, 0o755)
+        stubs = dict(TestQ798PrepushTreeKeyedReuse.STUBS)
+        stubs["doc_gates.sh"] = dg_stub
+        for name, body in stubs.items():
+            self._wr(os.path.join(repo, "scripts", name), "#!/bin/bash\n" + body, 0o755)
+        if registry is not None:
+            self._wr(os.path.join(repo, "documentation", "BRANCH_REGISTRY.tsv"), registry)
+        self._wr(os.path.join(repo, "documentation", "NOTE.md"), "a\n")
+        self._wr(os.path.join(repo, "solve.c"), "int main(void) { return 0; }\n")
+        g("add", "-A")
+        g("commit", "-qm", "A")
+        subprocess.run(["git", "clone", "-q", "--bare", repo, bare], check=True, capture_output=True, timeout=120)
+        g("remote", "add", "origin", bare)
+        g("fetch", "-q", "origin")
+        g("branch", "-q", "-f", "main")
+        return {"d": d, "repo": repo, "a": g("rev-parse", "HEAD")}
+
+    def _hook_run(self, fx, stdin, argv=None):
+        mark = os.path.join(fx["d"], "mark_%d.log" % random.randrange(1 << 30))
+        e = dict(os.environ, HK_MARK=mark, TMPDIR=fx["d"])
+        for k in list(e):
+            if k.startswith("GIT_") or k in ("CITGATE_BASE", "ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE"):
+                e.pop(k)
+        argv = argv if argv is not None else ["origin", os.path.join(fx["d"], "origin.git")]
+        r = subprocess.run(["bash", os.path.join(fx["repo"], self.HOOK)] + argv, cwd=fx["repo"], input=stdin,
+                           capture_output=True, text=True, env=e, timeout=600)
+        marks = []
+        if os.path.exists(mark):
+            with open(mark, encoding="utf-8") as fh:
+                marks = [l.strip() for l in fh if l.strip()]
+        return r, marks
+
+    def _q982a_case(self, hook_src):
+        fx = self._hook_fixture(hook_src, self.DG_PENDING_BLIND)
+        r, marks = self._hook_run(fx, "refs/heads/feat %s refs/heads/feat %s\n" % (fx["a"], self.Z40))
+        self.assertIn("NEW branch ref(s) to declare: refs/heads/feat", r.stdout, "precondition: the declaration leg ran")
+        self.assertIn("doc_gates branch-registry", marks, "precondition: the old tree's GATE 19 was run")
+        return r
+
+    def test_q982_a_a_pending_blind_gate_cannot_clear_an_undeclared_branch(self):
+        r = self._q982a_case(self._src(self.HOOK))
+        self.assertNotEqual(r.returncode, 0, "an undeclared new branch at an old tree published:\n" + r.stdout[-2500:])
+        self.assertIn("did not fail on a planted undeclared", r.stdout)
+
+    def test_q982_b_positive_control_a_current_gate_still_clears_a_declared_branch(self):
+        q = self._q950()
+        fx = self._hook_fixture(self._src(self.HOOK), q.DG_STUB)
+        self._wr(os.path.join(fx["repo"], "documentation", "BRANCH_REGISTRY.tsv"), "main\tauthoritative\nfeat\tsnapshot\n")
+        q._git(self, fx["repo"], "commit", "-qam", "B")
+        b = q._git(self, fx["repo"], "rev-parse", "HEAD")
+        r, marks = self._hook_run(fx, "refs/heads/feat %s refs/heads/feat %s\n" % (b, self.Z40))
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:] + r.stderr[-1000:])
+        self.assertIn("branch-registry gate PASSED for refs/heads/feat", r.stdout)
+        self.assertGreaterEqual(marks.count("doc_gates branch-registry"), 2, "the positive control AND the real run: %s" % marks)
+
+    def test_q982_c_mutant_without_the_positive_control_publishes(self):
+        src = self._mut(self._src(self.HOOK), '[ "$_crc" -ne 1 ] || ! grep -qF "\'$_canary\' is NOT declared" <<<"$_cnout"; }; then',
+                        "false; }; then")
+        r = self._q982a_case(src)
+        self.assertEqual(r.returncode, 0, "the mutant must reproduce the defect:\n" + r.stdout[-2000:])
+
+    # (b) Codex Q964-D07#1: a split fetch/push URL.
+    def _q982b(self, hook_src, pushurl, arg2):
+        q = TestQ798PrepushTreeKeyedReuse
+        d = self._d()
+        repo, origin, mirror = (os.path.join(d, x) for x in ("repo", "origin.git", "mirror.git"))
+        os.makedirs(repo)
+        g = lambda *a: TestQ959Q961PushPathB39C._git(self, repo, *a)
+        g("init", "-q")
+        files = {q.HOOK: hook_src, q.HELPER: self._src(q.HELPER), "solve.c": "int main(void) { return 0; }\n"}
+        for name, body in q.STUBS.items():
+            files[os.path.join("scripts", name)] = "#!/bin/bash\n" + body
+        for rel, body in files.items():
+            self._wr(os.path.join(repo, rel), body, 0o755)
+        g("add", "-A")
+        g("commit", "-qm", "A")
+        a = g("rev-parse", "HEAD")
+        subprocess.run(["git", "clone", "-q", "--bare", repo, origin], check=True, capture_output=True, timeout=120)
+        subprocess.run(["git", "init", "-q", "--bare", mirror], check=True, capture_output=True, timeout=120)
+        g("remote", "add", "origin", origin)
+        g("fetch", "-q", "origin")
+        if pushurl:
+            g("config", "remote.origin.pushurl", mirror)
+        self.assertTrue(g("for-each-ref", "refs/remotes/origin/"), "precondition: A is on the fetch side's tracking refs")
+        mark = os.path.join(d, "mark.log")
+        env = dict(os.environ, HK_MARK=mark, TMPDIR=d)
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE",
+                  "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            env.pop(k, None)
+        r = subprocess.run(["bash", os.path.join(repo, q.HOOK), "origin", {"ORIGIN": origin, "MIRROR": mirror}[arg2]],
+                           cwd=repo, input="refs/heads/main %s refs/heads/main %s\n" % (a, a),
+                           capture_output=True, text=True, env=env, timeout=600)
+        marks = []
+        if os.path.exists(mark):
+            with open(mark, encoding="utf-8") as fh:
+                marks = [l.strip() for l in fh if l.strip()]
+        return r.stdout, marks
+
+    def test_q982_d_a_pushurl_elsewhere_skips_nothing(self):
+        out, marks = self._q982b(self._src(self.HOOK), True, "MIRROR")
+        self.assertNotIn("already published", out, "content gates were skipped on the FETCH side's refs")
+        self.assertIn("compile", marks, out[-2000:])
+
+    def test_q982_e_a_url_argument_that_is_not_the_fetch_url_skips_nothing(self):
+        out, marks = self._q982b(self._src(self.HOOK), True, "ORIGIN")   # $2 = fetch URL, pushurl differs
+        self.assertNotIn("already published", out)
+        self.assertIn("compile", marks, out[-2000:])
+
+    def test_q982_f_positive_control_same_url_still_skips(self):
+        out, marks = self._q982b(self._src(self.HOOK), False, "ORIGIN")
+        self.assertIn("already published (reachable from origin/", out)
+        self.assertNotIn("compile", marks)
+
+    def test_q982_g_mutant_without_the_url_binding_skips(self):
+        src = self._mut(self._src(self.HOOK), '       && [ -n "$_furl" ] && [ "${2:-}" = "$_furl" ] && [ "$_purls" = "$_furl" ]; then',
+                        "; then")
+        out, _ = self._q982b(src, True, "MIRROR")
+        self.assertIn("already published", out, "the mutant must reproduce the skip -- else test d is not load-bearing")
+
+    # (c) Codex Q964-D07#3: an unreadable tests.py population.
+    def _q982c(self, rec_src, stub_git, ran=1, with_tests_py=True):
+        d = self._d()
+        repo = os.path.join(d, "repo")
+        os.makedirs(repo)
+        g = lambda *a: TestQ959Q961PushPathB39C._git(self, repo, *a)
+        g("init", "-q")
+        self._wr(os.path.join(repo, self.REC), rec_src, 0o755)
+        if with_tests_py:
+            self._wr(os.path.join(repo, "tests.py"), "import unittest\nclass T(unittest.TestCase):\n"
+                     "    def test_a(self):\n        pass\n    def test_b(self):\n        pass\n")
+        self._wr(os.path.join(repo, "NOTE.md"), "a\n")
+        g("add", "-A")
+        g("commit", "-qm", "A")
+        tree = g("rev-parse", "HEAD^{tree}")
+        tc = subprocess.run(["bash", os.path.join(repo, self.REC), "toolchain"], capture_output=True, text=True,
+                            timeout=60).stdout.strip()
+        logs = {"hook": "PREPUSH_TREE=%s\nPREPUSH_CITGATE_BASE=NONE\nPREPUSH_TOOLCHAIN=%s\n" % (tree, tc),
+                "tests": "ROAE_TESTS_TREE=%s\nROAE_TESTS_TOOLCHAIN=%s\nRan %d test%s in 0.1s\n\nOK\n"
+                         % (tree, tc, ran, "" if ran == 1 else "s"),
+                "citation": "CITATION_LINE_GATE_TREE=%s\nCITATION_LINE_GATE=PASS\n" % tree,
+                "stamp": "TR12_REPRO_GATE_TREE=%s\nTR12_REPRO_GATE_CURRENT=YES\n" % tree}
+        for k, v in logs.items():
+            self._wr(os.path.join(d, k + ".log"), v)
+        env = dict(os.environ, TMPDIR=d)
+        for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            env.pop(k, None)
+        if stub_git:
+            real = shutil.which("git")
+            self._wr(os.path.join(d, "bin", "git"),
+                     '#!/bin/bash\ncase " $* " in *" show HEAD:tests.py "*) echo "fatal: stub" >&2; exit 128 ;; esac\n'
+                     'exec "%s" "$@"\n' % real, 0o755)
+            env["PATH"] = os.path.join(d, "bin") + os.pathsep + env["PATH"]
+        out = os.path.join(d, "record.txt")
+        r = subprocess.run(["bash", os.path.join(repo, self.REC), "write", "--out", out,
+                            "--hook-log", os.path.join(d, "hook.log"), "--tests-log", os.path.join(d, "tests.log"),
+                            "--citation-log", os.path.join(d, "citation.log"), "--stamp-log", os.path.join(d, "stamp.log"),
+                            "--repo", repo], capture_output=True, text=True, env=env, timeout=120)
+        rec = ""
+        if os.path.exists(out):
+            with open(out, encoding="utf-8") as fh:
+                rec = fh.read()
+        return r, rec
+
+    def test_q982_h_an_unreadable_tests_py_is_an_error_not_a_floor_of_one(self):
+        r, rec = self._q982c(self._src(self.REC), stub_git=True)
+        self.assertNotIn("LEG_TESTS=PASS", rec, "a failed read of HEAD:tests.py floored to 1:\n" + rec)
+        self.assertEqual(r.returncode, 2, r.stdout[-1500:])
+        self.assertIn("PREPUSH_RECORD=ERROR", r.stdout.splitlines())
+
+    def test_q982_i_positive_controls_the_floor_is_the_tree_s_count(self):
+        r, rec = self._q982c(self._src(self.REC), stub_git=False, ran=1)
+        self.assertIn("TESTS_FLOOR=2", rec.splitlines(), r.stdout[-1500:])
+        self.assertIn("LEG_TESTS=FAIL", rec.splitlines(), "Ran 1 of a 2-test tree must not PASS")
+        r, rec = self._q982c(self._src(self.REC), stub_git=False, ran=2)
+        self.assertIn("LEG_TESTS=PASS", rec.splitlines(), r.stdout[-1500:])
+        r, rec = self._q982c(self._src(self.REC), stub_git=False, ran=1, with_tests_py=False)
+        self.assertIn("TESTS_FLOOR=1", rec.splitlines(), "a tree with no tests.py keeps the floor of 1: " + r.stdout[-800:])
+
+    def test_q982_j_mutant_floor_of_one_on_a_failed_read(self):
+        src = self._src(self.REC)
+        a = src.index("  _tls=$(git -C \"$top\" ls-tree HEAD -- tests.py")
+        b = src.index("  case \"$tran\" in ''|*[!0-9]*) tran=0 ;; esac")
+        old = ("  tfloor=$(git -C \"$top\" show HEAD:tests.py 2>/dev/null | grep -cE '^    def test_') || true\n"
+               "  case \"$tfloor\" in ''|*[!0-9]*) tfloor=0 ;; esac\n"
+               "  [ \"$tfloor\" -ge 1 ] || tfloor=1\n")
+        r, rec = self._q982c(src[:a] + old + src[b:], stub_git=True)
+        self.assertIn("LEG_TESTS=PASS", rec, "the mutant (the f1b27e32 floor) must reproduce the defect:\n" + r.stdout[-800:])
+
+    # ================================================================================================
+    # Q-983 (N-08): verdict consumers that accepted a crashed or contradictory producer.
+    # ================================================================================================
+    DG = "scripts/doc_gates.sh"
+
+    # D02#3: assert_gen_fires_only takes only rc 1 as a fire.
+    def _gen_fires_only(self, src, rc):
+        fn = self._fn(src, "  assert_gen_fires_only() {")
+        d = self._d()
+        stub = self._wr(os.path.join(d, "stub.sh"),
+                        "echo '  [FAIL] digit leg fired'\necho '  [ok]   digit-blind leg'\nexit %d\n" % rc, 0o755)
+        prog = ("_selftest_revert(){ :; }\nPASS=0; GEN_CACHE=x\n" + fn +
+                'assert_gen_fires_only L "digit leg fired" "digit-blind leg" "pass"\necho "PASS_AFTER=$PASS"\n')
+        r = subprocess.run(["bash", "-c", prog, stub], capture_output=True, text=True, timeout=60)
+        m = re.search(r"^PASS_AFTER=(\d)$", r.stdout, re.M)
+        self.assertIsNotNone(m, r.stdout + r.stderr)
+        return m.group(1), r.stdout
+
+    def test_q983_a_gen_fires_only_refuses_a_refusal_or_a_kill(self):
+        for rc in (2, 137):
+            with self.subTest(rc=rc):
+                v, out = self._gen_fires_only(self._src(self.DG), rc)
+                self.assertEqual(v, "1", "rc %d with the leg's text printed was taken for a fire:\n%s" % (rc, out))
+
+    def test_q983_b_gen_fires_only_positive_control(self):
+        v, out = self._gen_fires_only(self._src(self.DG), 1)
+        self.assertEqual(v, "0", out)
+
+    # D04#1 / D04#9: doc_gates.sh modes run with a python3 that is killed on one probe.
+    def _killing_python(self, needle):
+        d = self._d()
+        self._wr(os.path.join(d, "bin", "python3"),
+                 '#!/bin/bash\ncase "$*" in *"%s"*) "%s" "$@"; exit 137 ;; esac\nexec "%s" "$@"\n'
+                 % (needle, sys.executable, sys.executable), 0o755)
+        return os.path.join(d, "bin")
+
+    def _dg_mode(self, mode, pybin=None):
+        env = {}
+        if pybin:
+            env["PATH"] = pybin + os.pathsep + os.environ["PATH"]
+        return self._bash("bash scripts/doc_gates.sh %s" % mode, env=env, timeout=600)
+
+    def test_q983_c_completion_semantics_reads_its_scanner_rc(self):
+        r = self._dg_mode("completion-semantics", self._killing_python("exhausted"))
+        self.assertNotIn("[ok]   DEPLOYMENT.md states that SEARCH_COMPLETE is not a claim", r.stdout,
+                         "a scanner killed after printing its census reached [ok]:\n" + r.stdout[-1500:])
+        self.assertIn("did not finish cleanly", r.stdout)
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_q983_d_completion_semantics_positive_control(self):
+        r = self._dg_mode("completion-semantics")
+        self.assertIn("[ok]   DEPLOYMENT.md states that SEARCH_COMPLETE is not a claim", r.stdout, r.stdout[-1500:])
+
+    def test_q983_e_viz_probe_kill_is_not_absent(self):
+        r = self._dg_mode("viz-shape", self._killing_python("import matplotlib, numpy"))
+        self.assertNotIn("[skip] matplotlib/numpy absent", r.stdout, "a killed probe was read as 'absent':\n" + r.stdout[-1500:])
+        self.assertIn("did not finish cleanly (rc 137)", r.stdout)
+        self.assertNotEqual(r.returncode, 0)
+
+    # D07#4: failopen_closure_gate.sh -- a refusal carries its token, a syntax error does not.
+    FO = "scripts/failopen_closure_gate.sh"
+
+    def _fo_selftest(self, src):
+        p = self._wr(os.path.join(self._d(), "scripts", "failopen_closure_gate.sh"), src, 0o755)
+        return subprocess.run(["bash", p, "--selftest"], capture_output=True, text=True, timeout=900)
+
+    def test_q983_f_failopen_selftest_tells_a_refusal_from_a_syntax_error(self):
+        r = self._fo_selftest(self._src(self.FO))
+        self.assertIn("[ok]   a bash syntax error (rc 2) is closed with NO refusal token", r.stdout, r.stdout[-2500:])
+        self.assertIn("[ok]   an unreadable-input refusal is closed (rc 2)", r.stdout)
+        self.assertIn("FAILOPEN_CLOSURE_SELFTEST=PASS", r.stdout.splitlines(), r.stdout[-2500:])
+
+    def test_q983_g_mutant_closed_rows_without_a_token(self):
+        src = self._src(self.FO)
+        a = src.index("  else printf 'CLOSED\\t%s\\t%s\\n' \"$rc\"")
+        b = src.index("; fi\n", a)
+        r = self._fo_selftest(src[:a] + "  else printf 'CLOSED\\t%s\\t-\\n' \"$rc\"" + src[b:])
+        self.assertNotIn("FAILOPEN_CLOSURE_SELFTEST=PASS", r.stdout.splitlines(),
+                         "the mutant (the f1b27e32 CLOSED row) must fail the selftest -- else test f is not load-bearing")
+
+    # D08#1: the a2_q7_ranks row, extracted from the battery and run with a stub engine.
+    def _q7row(self, battery_src, certs):
+        d = self._d()
+        art, work = os.path.join(d, "art"), os.path.join(d, "work")
+        os.makedirs(art)
+        os.makedirs(work)
+        lines = battery_src.split("\n")
+        i = [k for k, l in enumerate(lines) if re.match(r"^\s*row_begin a2_q7_ranks\s*$", l)]
+        self.assertEqual(len(i), 1, "precondition: the a2_q7_ranks block is found")
+        j = next(k for k in range(i[0], len(lines)) if re.match(r"^\s*row_end TR12_Q7_RANKS", lines[k]))
+        block = self._wr(os.path.join(d, "block.sh"), "\n".join(lines[i[0]:j + 1]) + "\n")
+        kw = "1,2,3"
+        stub = self._wr(os.path.join(d, "solve"),
+                        '#!/bin/bash\n[ "$1" = --kc-o3-rank ] || exit 2\n'
+                        'if [ "$4" = "%s" ]; then printf "rank3\\t0\\n"; else printf "rank3\\t16244\\n"; fi\n' % kw, 0o755)
+        for name, body in certs.items():
+            self._wr(os.path.join(art, name), body.replace("@KW@", "63,0," + kw).replace("@W@", "63,0,9,9,9"))
+        prog = ('set +u\nrow_begin(){ :; }; row_end(){ ROWRC=$2; }\nRAW="$1/raw"; : > "$RAW"\n'
+                '. "$2" >/dev/null 2>&1\ncat "$RAW"\nexit "${ROWRC:-99}"\n')
+        r = subprocess.run(["bash", "-c", prog, "x", d, block], capture_output=True, text=True, timeout=120,
+                           env=dict(os.environ, SOLVE=stub, FDIR=d, GDIR=d, ARTDIR=art, WORK=work, ANCHOR=kw, N_PAIRS="31"))
+        return r.returncode, r.stdout
+
+    KWCERT = '{\n  "label": "KW",\n  "verdict_super": "IN",\n  "arrangement": "@KW@"\n}\n'
+
+    def test_q983_h_compact_certificate_is_ranked(self):
+        rc, out = self._q7row(self._src("scripts/tr12_repro.sh"), {
+            "q7_kw.json": self.KWCERT,
+            "q7_moore-strict.json": '{"label":"moore-strict","verdict_super":"IN","arrangement":"@W@"}'})
+        self.assertIn("witness_serial\tmoore-strict\trank3=16244", out, "a compact certificate went unranked:\n" + out)
+        self.assertEqual(rc, 0, out)
+
+    def test_q983_i_unknown_verdict_fails_the_row(self):
+        rc, out = self._q7row(self._src("scripts/tr12_repro.sh"), {
+            "q7_kw.json": self.KWCERT,
+            "q7_zz.json": '{"label": "historical", "verdict_super": "MAYBE", "arrangement": "@W@"}'})
+        self.assertNotEqual(rc, 0, "verdict_super=MAYBE was read as a non-member:\n" + out)
+        self.assertIn("verdict_super is 'MAYBE', neither IN nor OUT", out)
+
+    def test_q983_j_q7_row_positive_control(self):
+        rc, out = self._q7row(self._src("scripts/tr12_repro.sh"), {
+            "q7_kw.json": self.KWCERT,
+            "q7_zz.json": '{"label": "historical", "verdict_super": "OUT", "arrangement": "@W@"}'})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("q7_ranks_counts\tprocessed=2\tranked=1", out)
+
+    # D08#2: the not-input read check sees `VAR=val cmd FILE`.
+    def _read_re(self, src):
+        m = re.search(r"\| grep -E '(\^\[0-9\]\+:\(\.\*\(.*?)' \\\n", src)
+        self.assertIsNotNone(m, "precondition: the read-shape ERE is found in tr12_repro_gate.sh")
+        return m.group(1)
+
+    def test_q983_k_not_input_read_check_sees_an_assignment_prefix(self):
+        ere = self._read_re(self._src("scripts/tr12_repro_gate.sh"))
+        for line, want in (("1:LC_ALL=C grep -q '^#' documentation/CORRECTIONS.md || exit 1", True),
+                           ("1:exec cat documentation/CORRECTIONS.md", True),
+                           ("1:env LC_ALL=C grep -q x documentation/CORRECTIONS.md", True),
+                           ("1:printf 'see documentation/CORRECTIONS.md'", False)):
+            with self.subTest(line=line):
+                r = subprocess.run(["grep", "-qE", ere], input=line + "\n", text=True, timeout=30)
+                self.assertEqual(r.returncode == 0, want, line)
+
+    # D08#3: the skip readers drop a _REASON line by its key only.
+    def _skips(self, src, verd, pin):
+        a = src.index("observed_skips(){")
+        b = src.index("\n", src.index("}; malformed_skips(){"))
+        d = self._d()
+        v = self._wr(os.path.join(d, "VERDICTS.txt"), verd)
+        p = self._wr(os.path.join(d, "pin.txt"), pin)
+        r = subprocess.run(["bash", "-c", src[a:b] + '\necho "OBS<<"; observed_skips "$1"; echo "MAL<<"; malformed_skips "$1" "$2"',
+                            "x", v, p], capture_output=True, text=True, timeout=60)
+        obs, mal = r.stdout.split("MAL<<\n")
+        return obs.replace("OBS<<\n", "").split(), mal.split("\n")
+
+    def test_q983_l_a_reason_inside_a_value_is_malformed_not_invisible(self):
+        _, mal = self._skips(self._src("scripts/tr12_repro_gate.sh"),
+                             "TR12_A=SKIP:x\nTR12_D=SKIP:failed_REASON=missing\n", "TR12_A=SKIP:x\n")
+        self.assertIn("TR12_D=SKIP:failed_REASON=missing", mal)
+
+    def test_q983_m_skip_readers_positive_control(self):
+        obs, mal = self._skips(self._src("scripts/tr12_repro_gate.sh"),
+                               "TR12_A=SKIP:x\nTR12_A_REASON=a long sentence\nTR12_B=PASS\n", "TR12_A=SKIP:x\n")
+        self.assertEqual(obs, ["TR12_A=SKIP:x"])
+        self.assertEqual([m for m in mal if m], [])
+
+    # D08#4: verdict_ok -- rc 0, one line, OK.
+    def _verdict_ok(self, body):
+        src = self._src("scripts/tr12_repro_gate.sh")
+        fns = [l for l in src.split("\n") if l.startswith("verdict_ok(){ ")]
+        self.assertEqual(len(fns), 1, "precondition: verdict_ok() is defined once, on one line")
+        fn = fns[0] + "\n"
+        stub = self._wr(os.path.join(self._d(), "g.sh"), body)
+        return subprocess.run(["bash", "-c", fn + 'verdict_ok A2_SLOT_VERDICT "$1"', "x", stub],
+                              capture_output=True, text=True, timeout=60).returncode
+
+    def test_q983_n_verdict_ok_refuses_contradiction_and_kill(self):
+        self.assertNotEqual(self._verdict_ok("echo A2_SLOT_VERDICT=OK\necho A2_SLOT_VERDICT=FAIL\n"), 0)
+        self.assertNotEqual(self._verdict_ok("echo A2_SLOT_VERDICT=OK\nexit 137\n"), 0)
+        self.assertEqual(self._verdict_ok("echo A2_SLOT_VERDICT=OK\n"), 0, "positive control")
+
+    def test_q983_o_the_old_pipe_accepted_a_contradiction(self):
+        """The f1b27e32 consumer shape, run on the same contradictory producer: it accepted it. Kept as
+        the measured premise of test n (the consumer is no longer in the tree)."""
+        stub = self._wr(os.path.join(self._d(), "g.sh"), "echo A2_SLOT_VERDICT=OK\necho A2_SLOT_VERDICT=FAIL\n")
+        r = subprocess.run(["bash", "-o", "pipefail", "-c", "bash \"$1\" | grep -cx 'A2_SLOT_VERDICT=OK' >/dev/null", "x", stub],
+                           timeout=60)
+        self.assertEqual(r.returncode, 0)
+        self.assertNotIn("| grep -cx 'A2_SLOT_VERDICT=OK' >/dev/null", self._src("scripts/tr12_repro_gate.sh"))
+
+    # D08#6: claim_ledger evidence runs under pipefail.
+    def _run_evidence(self, src, cmd):
+        body = src.split("<<'CLAIM_LEDGER_PY'\n", 1)[1].rsplit("\nsys.exit(main(sys.argv[1:]))", 1)[0]
+        prog = body + "\nprint('RC=%d' % run_evidence(sys.argv[1], {})[0])\n"
+        p = self._wr(os.path.join(self._d(), "cl.py"), prog)
+        r = subprocess.run([sys.executable, p, cmd], capture_output=True, text=True, cwd=self.ROOT, timeout=300)
+        m = re.search(r"^RC=(\d+)$", r.stdout, re.M)
+        self.assertIsNotNone(m, r.stdout[-800:] + r.stderr[-800:])
+        return int(m.group(1))
+
+    def test_q983_p_claim_ledger_evidence_keeps_a_killed_producer_rc(self):
+        self.assertEqual(self._run_evidence(self._src("scripts/claim_ledger.sh"),
+                                            "( echo KEY=1; exit 137 ) | sed -n p"), 137)
+        self.assertEqual(self._run_evidence(self._src("scripts/claim_ledger.sh"), "echo KEY=1 | sed -n p"), 0,
+                         "positive control")
+
+    # D09#2: disk_precheck legs grade rc 2/6 as ERROR, never BAD.
+    def _legs(self, src, rc, text):
+        fn = self._fn(src, "legs(){ # legs <solve> -> L1..L6, each =OK, =BAD or =ERROR(rc=N)", r"^\}$")
+        d = self._d()
+        os.makedirs(os.path.join(d, "mnt"))
+        stub = self._wr(os.path.join(d, "solve"), "#!/bin/bash\necho '%s'\nexit %d\n" % (text, rc), 0o755)
+        r = subprocess.run(["bash", "-c", 'WORK="$1"; M="$1/mnt"; GOOD=g; ZERO=z\n' + fn + 'legs "$2"', "x", d, stub],
+                           capture_output=True, text=True, timeout=120)
+        return r.stdout
+
+    def test_q983_q_disk_precheck_environment_rc_is_not_a_kill(self):
+        for rc in (2, 6):
+            with self.subTest(rc=rc):
+                out = self._legs(self._src("scripts/disk_precheck_marker_gate.sh"), rc, "IDENTITY NOT ESTABLISHED")
+                self.assertIn("L1=ERROR(rc=%d)" % rc, out)
+                self.assertNotIn("=BAD", out, "an rc-%d environment failure graded BAD (a mutant kill):\n%s" % (rc, out))
+
+    def test_q983_r_disk_precheck_positive_control(self):
+        out = self._legs(self._src("scripts/disk_precheck_marker_gate.sh"), 1, "IDENTITY NOT ESTABLISHED")
+        self.assertIn("L1=OK", out)
+
+    # D09#3: group_c checks the expected SET.
+    _gc = TestQ959Q961PushPathB39C._gc
+    _git = TestQ959Q961PushPathB39C._git
+    GC = TestQ959Q961PushPathB39C.GC
+    GOOD18 = TestQ959Q961PushPathB39C.GOOD18
+
+    def test_q983_s_group_c_new_key_cannot_stand_in_for_a_missing_family(self):
+        out = self._gc(self.GOOD18[:-1] + ["TR12_NEW_FAMILY=PASS"])
+        self.assertIn("[ok]   18 verdicts emitted", out, "precondition: the count alone is satisfied")
+        self.assertIn("expected verdict(s) missing (a family stopped emitting): TR12_XA_MOD24", out)
+        self.assertIn("not in the expected set (add a new family here deliberately): TR12_NEW_FAMILY", out)
+
+    def test_q983_t_group_c_positive_control_and_duplicate(self):
+        self.assertIn("[ok]   the verdict keys are exactly the expected set of 18, each once", self._gc(self.GOOD18))
+        out = self._gc(self.GOOD18 + [self.GOOD18[0]])
+        self.assertIn("verdict(s) emitted more than once: TR12_A2_SLOT", out)
+
+    def test_q983_u_mutant_group_c_without_the_set_check(self):
+        with open(os.path.join(self.ROOT, self.GC), encoding="utf-8") as fh:
+            src = fh.read()
+        src = self._mut(src, 'if [ -n "$_gmiss$_gdup$_gextra" ]; then', "if false; then")
+        out = self._gc(self.GOOD18[:-1] + ["TR12_NEW_FAMILY=PASS"], src)
+        self.assertNotIn("expected verdict(s) missing", out, "the mutant must let the stand-in through")
+        self.assertIn("[ok]   18 verdicts emitted", out)
+
+    # D09#5: reproduce_digests' printed total -- one line, an integer.
+    RD = "scripts/reproduce_digests_gate.sh"
+
+    def _rd_selftest(self, src):
+        """The gate cds to its own parent: a scratch root holding the copy, with the page's directory
+        and solve.c linked in from this tree."""
+        d = self._d()
+        p = self._wr(os.path.join(d, "scripts", "reproduce_digests_gate.sh"), src, 0o755)
+        for rel in ("documentation", "solve.c"):
+            os.symlink(os.path.join(self.ROOT, rel), os.path.join(d, rel))
+        e = dict(os.environ, TMPDIR=d)
+        return subprocess.run(["bash", p, "--selftest"], capture_output=True, text=True, timeout=1800, env=e, cwd=d)
+
+    def test_q983_v_reproduce_digests_selftest_refuses_a_second_or_decimal_total(self):
+        r = self._rd_selftest(self._src(self.RD))
+        self.assertIn("[ok]    total-extra-negative -> FAIL (expected FAIL)", r.stdout, r.stdout[-3000:])
+        self.assertIn("[ok]    total-decimal -> FAIL (expected FAIL)", r.stdout)
+        self.assertIn("REPRODUCE_DIGESTS_SELFTEST=PASS", r.stdout.splitlines(), r.stdout[-3000:])
+
+    def test_q983_w_mutant_numeric_only_extraction(self):
+        src = self._src(self.RD)
+        a = src.index("    local ntot\n    ntot=$(grep -c 'orbit-quotient C5-DP total =' <<<\"$R_OUT\" || true)")
+        b = src.index('    [ "$R_DIG" = "$dg" ] || bad=', a)
+        old = ("    tot=$(printf '%s\\n' \"$R_OUT\" | sed -nE 's/.*orbit-quotient C5-DP total = ([0-9]+).*/\\1/p')\n"
+               "    local bad=\"\"\n"
+               "    [ \"$(grep -c . <<<\"$tot\")\" -le 1 ] || { bad=\"$bad totals=$(grep -c . <<<\"$tot\")-lines(page 1)\"; tot=\"\"; }\n")
+        r = self._rd_selftest(src[:a] + old + src[b:])
+        self.assertIn("[FAIL]  total-extra-negative -> PASS, expected FAIL", r.stdout, r.stdout[-3000:])
+        self.assertIn("[FAIL]  total-decimal -> PASS, expected FAIL", r.stdout)
+
+    # D04#9 sibling sweep: tr12_repro.sh's import probes.
+    def _pis(self, solve_py, mods):
+        src = self._src("scripts/tr12_repro.sh")
+        fns = [l for l in src.split("\n") if l.startswith("say(){ ") and "py_import_state(){" in l]
+        self.assertEqual(len(fns), 1, "precondition: py_import_state() is defined on the say() line")
+        fn = "LOG=/dev/null\n" + fns[0] + "\n"
+        d = self._d()
+        if solve_py is not None:
+            self._wr(os.path.join(d, "solve.py"), solve_py)
+        r = subprocess.run(["bash", "-c", 'REPO_ROOT="$1"; shift\n' + fn + 'py_import_state "$@"', "x", d] + mods,
+                           capture_output=True, text=True, timeout=60, cwd=d)
+        old = subprocess.run(["python3", "-c", "import " + ", ".join(mods)], capture_output=True, timeout=60,
+                             env=dict(os.environ, PYTHONPATH=d), cwd=d).returncode
+        return r.stdout.strip(), old
+
+    def test_q983_x_import_probe_tells_a_crash_from_an_absence(self):
+        st, old = self._pis("raise SystemExit(3)\n", ["solve"])
+        self.assertEqual(st, "BROKEN")
+        self.assertNotEqual(old, 0, "premise: the f1b27e32 probe saw only a nonzero rc, as for an absent module")
+        st, old = self._pis("def f(:\n", ["solve"])
+        self.assertEqual(st, "BROKEN")
+        st, old = self._pis(None, ["q983_no_such_module"])
+        self.assertEqual(st, "ABSENT")
+        self.assertNotEqual(old, 0)
+        st, _ = self._pis("X = 1\n", ["solve"])
+        self.assertEqual(st, "PRESENT", "positive control")
+
+# end class TestQ982Q983Q985Batch42 (batch 42, Q-982/Q-983/Q-985)
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

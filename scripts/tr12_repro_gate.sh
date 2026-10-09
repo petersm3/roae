@@ -321,7 +321,7 @@ comment_membership_check(){
 # that merely NAMES the file (row_skip a2_gcheck_indep, the READER_FAIL printf) is not a read and
 # passes. A read that hides the path in a variable is not seen: that is the derivation's own limit
 # (Q-613), not one this check adds.
-not_input_read_check(){
+not_input_read_check(){   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#2): the command-position prefixes include a bare `VAR=val` (LC_ALL=C grep … FILE was not seen), exec/builtin/nohup/xargs/ionice/stdbuf and env options
   local p b hit="" f srcs
   for p in $REFERENCED_NOT_INPUTS; do
     if grep -qxF "$p" <<<"$(printf '%s\n' $CORE $DECLARED)"; then   # here-string, not a pipe (Q-799)
@@ -336,7 +336,7 @@ not_input_read_check(){
       [ -f "$f" ] || continue
       hit=$(sed -e '/^REFERENCED_NOT_INPUTS=/d' -e 's/^[[:space:]]*#.*//' -e 's/[[:space:]]#.*$//' "$f" 2>/dev/null \
         | grep -nF "$b" \
-        | grep -E '^[0-9]+:(.*([|;&({`]|\$\())?[[:space:]]*((if|elif|while|until|then|do|else|!|time|command|nice([[:space:]]+-n[[:space:]]*-?[0-9]+)?|env([[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)*|timeout([[:space:]]+-[^[:space:]]+)*[[:space:]]+[0-9.]+[smhd]?)[[:space:]]+)*(cat|grep|egrep|fgrep|sed|awk|head|tail|cut|wc|diff|cmp|sort|sha256sum|sha1sum|md5sum|cksum|source|\.|mapfile|readarray)([[:space:]]|$)|(^|[^A-Za-z_.])(open|Path)\(|\.read_(text|bytes)\(|(^|[^<])<[[:space:]]*["$./A-Za-z]' \
+        | grep -E '^[0-9]+:(.*([|;&({`]|\$\())?[[:space:]]*((if|elif|while|until|then|do|else|!|time|command|exec|builtin|nohup|xargs([[:space:]]+-[^[:space:]]+)*|nice([[:space:]]+-n[[:space:]]*-?[0-9]+)?|ionice([[:space:]]+-[^[:space:]]+)*|stdbuf([[:space:]]+-[^[:space:]]+)*|env([[:space:]]+-[^[:space:]]+)*([[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)*|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|timeout([[:space:]]+-[^[:space:]]+)*[[:space:]]+[0-9.]+[smhd]?)[[:space:]]+)*(cat|grep|egrep|fgrep|sed|awk|head|tail|cut|wc|diff|cmp|sort|sha256sum|sha1sum|md5sum|cksum|source|\.|mapfile|readarray)([[:space:]]|$)|(^|[^A-Za-z_.])(open|Path)\(|\.read_(text|bytes)\(|(^|[^<])<[[:space:]]*["$./A-Za-z]' \
         | head -1)
       if [ -n "$hit" ]; then
         echo "  [FAIL] $f READS $p, which REFERENCED_NOT_INPUTS keeps out of the fingerprint (Q-695):"
@@ -537,10 +537,10 @@ expected_manifest > "$EXP_PRE"
 #   refused the battery during the sweep. The next `--stamp` on a quiet box confirms or corrects
 #   it; if the seed is wrong the gate fails LOUDLY with the diff, which is the safe side.
 #   `--selftest-skip-pin` exercises the comparison on synthetic files, no battery needed.
-SKIPPIN=scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt
+SKIPPIN=scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt   # Q-983 (Codex Q964-D08#3): below, a <TOKEN>_REASON line is dropped by its KEY, not by `_REASON=` anywhere (that hid TR12_D=SKIP:failed_REASON=missing)
 observed_skips(){ # $1 = VERDICTS.txt -> sorted TOKEN=VALUE lines, one per skipped/pending row
-  grep -E '^TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*$' "$1" 2>/dev/null | grep -v '_REASON=' | sort -u
-}; malformed_skips(){ { grep -E '^[[:space:]]*TR12_[^=]*=[[:space:]]*(SKIP|PENDING)' "$1" 2>/dev/null | grep -v '_REASON='; grep -vE '^[[:space:]]*(#|$)' "$2"; } | grep -vxE 'TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*' | sort -u; }  # Q-969 (A13#8): observed_skips reads only WELL-FORMED values, so `TR12_X=SKIP:failed check` was invisible and the set still matched; $1 VERDICTS + $2 pin -> every skip/pending-shaped line that is NOT well-formed (one line, so no cited line below moves)
+  grep -E '^TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*$' "$1" 2>/dev/null | grep -vE '^TR12_[A-Z0-9_]*_REASON=' | sort -u
+}; malformed_skips(){ { grep -E '^[[:space:]]*TR12_[^=]*=[[:space:]]*(SKIP|PENDING)' "$1" 2>/dev/null | grep -vE '^[[:space:]]*TR12_[A-Z0-9_]*_REASON='; grep -vE '^[[:space:]]*(#|$)' "$2"; } | grep -vxE 'TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*' | sort -u; }  # Q-969 (A13#8): observed_skips reads only WELL-FORMED values, so `TR12_X=SKIP:failed check` was invisible and the set still matched; $1 VERDICTS + $2 pin -> every skip/pending-shaped line that is NOT well-formed (one line, so no cited line below moves)
 skip_pin_compare(){ # $1 = VERDICTS.txt  $2 = pin file ; prints findings; rc 0 same / 1 differs / 2 cannot
   local v="$1" pin="$2" obs exp new gone
   [ -r "$v" ]   || { echo "  [FAIL] skip pin: VERDICTS file unreadable: $v"; return 2; }
@@ -794,12 +794,12 @@ done
 
 # Sibling sweep (2026-09-05, MQ1A adjudication): the two other full-31-only verdict gates already in
 # the tree were wired into NOTHING -- each could be run by hand and was run by nobody. Same class,
-# same remedy; 1.1 s and 0.3 s.
-if ! bash ./scripts/a2_slot_verdict_gate.sh | grep -cx 'A2_SLOT_VERDICT=OK' >/dev/null; then
+verdict_ok(){ local out orc; out=$(bash "$2" 2>&1); orc=$?; [ "$orc" -eq 0 ] && [ "$(grep -c "^$1=" <<<"$out")" = 1 ] && grep -qx "$1=OK" <<<"$out" && return 0; echo "  [verdict] $1: rc $orc, $(grep -c "^$1=" <<<"$out") $1= line(s) -- not a clean OK"; return 1; }   # same remedy; 1.1 s and 0.3 s. Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#4): rc 0 + ONE KEY= line + KEY=OK (Q-952); `bash … | grep -cx 'X=OK' >/dev/null` accepted an OK beside a FAIL or before a crash
+if ! verdict_ok A2_SLOT_VERDICT ./scripts/a2_slot_verdict_gate.sh; then
   echo "  [FAIL] the A2 slot / verdict-exit gate (MQ1 §2a/§2d) did not report OK"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
-if ! bash ./scripts/xa_exact_verdict_gate.sh | grep -cx 'XA_EXACT_VERDICT=OK' >/dev/null; then
+if ! verdict_ok XA_EXACT_VERDICT ./scripts/xa_exact_verdict_gate.sh; then
   echo "  [FAIL] the XA exact-verdict gate (MQ1 §4) did not report OK"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi

@@ -234,18 +234,50 @@ classify() {
     # amount in parentheses, in quotes or followed by a plus sign was published as "code". A line of
     # a fenced code block carries no backticks of its own, so a field there is redacted too: the
     # cost of that is a marker in place of a field reference, never a published figure.
-    function redmoney(s,   o, t, head, nbt) {
-      o = ""; nbt = 0
-      while (match(s, MONEY_RE)) {
-        t = substr(s, RSTART, RLENGTH)
-        head = substr(s, 1, RSTART - 1)
-        nbt += gsub(/`/, "`", head)
-        if (t ~ /^\$[0-9]+$/ && nbt % 2 == 1 && index(substr(s, RSTART + RLENGTH), "`") > 0) {
-          o = o substr(s, 1, RSTART + RLENGTH - 1)
-        } else {
-          o = o substr(s, 1, RSTART - 1) COSTMARK
+    # Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): "inside a code span" is now the CommonMark rule,
+    # not a parity count. The count took EVERY backtick before the amount, escaped ones included, so a
+    # prose amount between two escaped backticks (\`x; price <amount>; \`) read as code and was published;
+    # the f9b50120 classifier redacted it. codespans() fills SPA/SPB with the CONTENT range of each span
+    # (1-based, inclusive): a run of N backticks opens a span that closes at the next run of EXACTLY N,
+    # an opener with no such closer is literal, and a backtick after a backslash outside a span is
+    # escaped. The same rule as md_code_spans() in scripts/doc_gates.d/md_normalise.sh.
+    function codespans(s,   n, i, j, k, m, L, ns, r) {
+      delete SPA; delete SPB; ns = 0; n = length(s); i = 1
+      while (i <= n) {
+        r = match(substr(s, i), /[\\`]/)
+        if (r == 0) break
+        i += r - 1
+        if (substr(s, i, 1) == "\\") { i += 2; continue }
+        j = i; while (j <= n && substr(s, j, 1) == "`") j++
+        L = j - i; k = j; m = 0
+        while (k <= n) {
+          if (substr(s, k, 1) != "`") { k++; continue }
+          m = k; while (m <= n && substr(s, m, 1) == "`") m++
+          if (m - k == L) break
+          k = m; m = 0
         }
-        s = substr(s, RSTART + RLENGTH)
+        if (k > n || m == 0) { i = j; continue }
+        ns++; SPA[ns] = j; SPB[ns] = k - 1; i = m
+      }
+      return ns
+    }
+    function redmoney(s,   o, t, s0, base, ns, k, a, b, keep, rs, rl) {
+      o = ""; s0 = s; base = 0; ns = -1
+      while (match(s, MONEY_RE)) {
+        rs = RSTART; rl = RLENGTH   # codespans() calls match() too, which resets RSTART/RLENGTH
+        t = substr(s, rs, rl); keep = 0
+        if (t ~ /^\$[0-9]+$/) {
+          if (ns < 0) ns = codespans(s0)
+          a = base + rs; b = base + rs + rl - 1
+          for (k = 1; k <= ns; k++) if (SPA[k] <= a && b <= SPB[k]) { keep = 1; break }
+        }
+        if (keep) {
+          o = o substr(s, 1, rs + rl - 1)
+        } else {
+          o = o substr(s, 1, rs - 1) COSTMARK
+        }
+        base += rs + rl - 1
+        s = substr(s, rs + rl)
       }
       return o s
     }
@@ -679,6 +711,27 @@ selftest() {
     echo "  [ok]   every unregistered dollar figure takes the general marker (5 of 5), awk fields kept (2), id from the unredacted text"
   else
     echo "  [FAIL] general redaction: precondition tokens=$mpre (want 7) text: $mtxt ids $mid/$mid2"
+    rc=1
+  fi
+
+  # (20) Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): a code span is a CommonMark span, not a
+  #      backtick parity. Synthetic subject: a prose amount between two ESCAPED backticks, an awk
+  #      field in a real span, one in a double-backtick span, and an amount after an opener that
+  #      never closes. Precondition: four money tokens and two escaped backticks in the unredacted
+  #      subject. Verdict: exactly two COST_MARKs, both fields kept verbatim, neither amount left.
+  #      Red on the parity rule: it counted the escaped backtick and published the prose amount.
+  local qs qrow qtxt qpre
+  qs="HISTORY: \\\`lit; price ${D}91 today; \\\`lit, field \`${D}8\`, double \`\`${D}7\`\`, open \`${D}6 end."
+  qpre=$(grep -o -E "$MONEY_RE" <<< "$qs" | grep -c .)
+  qrow=$(printf 'git\tfeedface\t2026-01-01\t%s\t%s\n' "Corrected the band." "$qs" | classify | tail -n +2)
+  qtxt=$(printf '%s' "$qrow" | cut -f8)
+  if [ "$qpre" -eq 4 ] && [ "$(grep -o -F '\`' <<< "$qs" | grep -c .)" -eq 2 ] \
+     && [ "$(grep -o -F "$COST_MARK" <<< "$qtxt" | grep -c .)" -eq 2 ] \
+     && [ "${qtxt#*"\`${D}8\`"}" != "$qtxt" ] && [ "${qtxt#*"\`\`${D}7\`\`"}" != "$qtxt" ] \
+     && [ "${qtxt#*"${D}91"}" = "$qtxt" ] && [ "${qtxt#*"${D}6 "}" = "$qtxt" ]; then
+    echo "  [ok]   escaped backticks open no code span: the prose amount and the unclosed one are redacted, both fields kept"
+  else
+    echo "  [FAIL] code-span rule (Q-985): precondition tokens=$qpre (want 4) text: $qtxt"
     rc=1
   fi
 

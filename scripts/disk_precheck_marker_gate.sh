@@ -74,7 +74,12 @@ legs(){ # legs <solve> -> L1..L6, each =OK, =BAD or =ERROR(rc=N)
   # L1-L5 must end in 0 or 1 (no refusal), L6 in 5 (the mismatch refusal).
   local S="$1" out rc
   probe(){ SOLVE_DISK_MARKER=marker.txt "$@" timeout "${DISK_PRECHECK_TIMEOUT:-60}" "$S" --disk-precheck "$M" 1 >"$WORK/o" 2>&1; echo $?; }
-  known(){ case "$1" in 0|1|2|5|6) return 0 ;; *) return 1 ;; esac; }
+  # Q-983 (batch 42; Codex gpt-6-astra, Q964-D09#2): a DOCUMENTED rc is not a GRADABLE one. 2 (usage)
+  # and 6 (space or statvfs) say the probe never reached the marker logic -- an environment or
+  # harness failure -- yet they were graded BAD, and the mutant loop takes any =BAD as a kill, so a
+  # mutant on a full or unreadable mount counted as killed. They are ERROR now. 0/1 (and 5, the
+  # refusal) are the marker logic's own answers and stay gradable.
+  known(){ case "$1" in 0|1|5) return 0 ;; *) return 1 ;; esac; }
   warn_ok(){ case "$1" in 0|1) return 0 ;; *) return 1 ;; esac; }
   rm -f "$M/marker.txt";                        rc=$(probe env)
   if ! known "$rc"; then echo "L1=ERROR(rc=$rc)"; else

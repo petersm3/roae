@@ -40,8 +40,8 @@
 #
 # COST, measured 2026-09-25 on the D16 worker: build ~12 s; all five rows together ~5 s;
 # P1-P3 ~2 s. n = 18 and n = 19 are ~1-1.5 s each, so no rung is gated behind a flag.
-# --selftest builds once and grades seven pages (~45 s): the real page, the real page with a
-# hashing command that exits nonzero, and five planted pages. Needs gcc, zlib, python3, ~200 MB
+# --selftest builds once and grades nine pages (~55 s): the real page, the real page with a
+# hashing command that exits nonzero, the real page with two wrapped binaries (Q-983), and five planted pages. Needs gcc, zlib, python3, ~200 MB
 # of scratch under ${TMPDIR:-/tmp}; no network, no ladder data.
 #
 # Usage:
@@ -243,9 +243,15 @@ check_page(){
     fi
     # Exactly one printed total (the Q-952 class, batch 39): before, `| tail -1` kept the last of
     # several, so a wrong total followed by the right one passed.
-    tot=$(printf '%s\n' "$R_OUT" | sed -nE 's/.*orbit-quotient C5-DP total = ([0-9]+).*/\1/p')
+    # Q-983 (batch 42; Codex gpt-6-astra, Q964-D09#5): "exactly one" counts every LINE carrying the
+    # label, whatever follows it, and the value must be a bare integer token. The extraction kept only
+    # `= [0-9]+`, so a `total = -1` line was not counted and `26112.5` was read as 26112.
+    local ntot
+    ntot=$(grep -c 'orbit-quotient C5-DP total =' <<<"$R_OUT" || true)
+    tot=$(printf '%s\n' "$R_OUT" | sed -nE 's/.*orbit-quotient C5-DP total = *([^[:space:]]*).*/\1/p')
     local bad=""
-    [ "$(grep -c . <<<"$tot")" -le 1 ] || { bad="$bad totals=$(grep -c . <<<"$tot")-lines(page 1)"; tot=""; }
+    if [ "${ntot:-0}" -gt 1 ]; then bad="$bad totals=${ntot}-lines(page 1)"; tot=""
+    elif [ -n "$tot" ] && ! [[ "$tot" =~ ^[0-9]+$ ]]; then bad="$bad total=$tot-not-an-integer(page $total)"; tot=""; fi
     [ "$R_DIG" = "$dg" ] || bad="$bad digest=${R_DIG:-<none>}(page $dg)"
     [ "$nb" = "$byts" ]  || bad="$bad bytes=${nb:-<none>}(page $byts)"
     [ "$nf" = "$files" ] || bad="$bad files=${nf:-<none>}(page $files)"
@@ -342,7 +348,7 @@ if [ "$MODE" = run ]; then
 fi
 
 # ---- --selftest: the gate must discriminate ------------------------------------------------------
-# One build from the real page, then seven gradings against it: the real page, the real page with
+# One build from the real page, then nine gradings against it: the real page, the real page with
 # a failing hashing command, and five planted pages. Each planted page differs from
 # the real one in ONE place, and each mutation must actually land (asserted, so a page reworded
 # under this selftest cannot turn a red leg into a no-op that "passes" by grading the real page).
@@ -380,6 +386,16 @@ plant cmd-no-keep 's/^(Command for every row: `)SOLVE_F1_KEEP_LAYERS=1 /\1/; s/^
 # the digest recipe hashing from outside the directory (failure mode 3)
 # (again in both places)
 plant recipe-path 's/^(The digest is `)\(cd outN \&\& find \. /\1(find outN /; s/^\(cd out13 \&\& find \. /(find out13 /' && expect recipe-path FAIL "$SD/recipe-path.md"
+# Q-983 (Codex Q964-D09#5): the real page and the real binary, with a wrapper that adds a second
+# `total = -1` line, and one that prints the total as a decimal; each must FAIL ("exactly one
+# total" counts every total line, and a total is an integer)
+BINREAL=$BIN
+printf '#!/usr/bin/env bash\n"%s" "$@"; rc=$?\necho "orbit-quotient C5-DP total = -1"\nexit $rc\n' "$BINREAL" > "$SD/solve_extra_total"
+printf '#!/usr/bin/env bash\nset -o pipefail\n"%s" "$@" | sed -E "s/(orbit-quotient C5-DP total = [0-9]+)/\\1.5/"\n' "$BINREAL" > "$SD/solve_decimal_total"
+chmod +x "$SD/solve_extra_total" "$SD/solve_decimal_total"
+BIN="$SD/solve_extra_total";   expect total-extra-negative FAIL "$PAGE"
+BIN="$SD/solve_decimal_total"; expect total-decimal FAIL "$PAGE"
+BIN=$BINREAL
 # one ledger row deleted: the population must not shrink quietly
 plant row-deleted '/^\| 18 \|/d' && expect row-deleted FAIL "$SD/row-deleted.md"
 # every ledger row deleted: nothing to compare is an ERROR, never a PASS

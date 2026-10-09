@@ -132,12 +132,19 @@ echo "  [ok] extracted $(grep -c . "$W/block.sh") lines of a2_q7_ranks from $BAT
 run_row(){ # $1 = arrangement walk, $2 = ANCHOR [, $3 = label (KW), $4 = cert file name (q7_kw.json), $5 = one: no OUT companion] ; echoes row output, returns the row's rc
   # CX-93 (2026-09-25): $3/$4 let legs 6-7 feed the row a NON-KW IN certificate the way a pinned SAT
   # witness arrives (label "explicit", file q7_<target>.json).
+  # Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#1): $6 = compact writes the certificate with no space
+  # after the colons (legal JSON the row read as verdict ""), and $7 sets the OUT companion's verdict
+  # (legs 10-11).
   local arr=$1 anchor=$2 lab=${3:-KW} fn=${4:-q7_kw.json} d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/art" "$d/work"
-  printf '{"label": "%s", "verdict_super": "IN", "arrangement": "63,0,%s"}' "$lab" "$arr" > "$d/art/$fn"
+  if [ "${6:-}" = compact ]; then
+    printf '{"label":"%s","verdict_super":"IN","arrangement":"63,0,%s"}' "$lab" "$arr" > "$d/art/$fn"
+  else
+    printf '{"label": "%s", "verdict_super": "IN", "arrangement": "63,0,%s"}' "$lab" "$arr" > "$d/art/$fn"
+  fi
   # LSD R18c (2026-09-29): the row now refuses to pass on fewer than two certificates read. The real
   # battery always hands it KW plus the historical OUT arrangements, so every leg gets one OUT companion
   # (read, printed, never ranked) unless $5 = one, which leg 9 uses to measure the refusal itself.
-  [ "${5:-}" = one ] || printf '{"label": "historical", "verdict_super": "OUT", "arrangement": "63,0,%s"}' "$arr" > "$d/art/q7_zz_historical_out.json"
+  [ "${5:-}" = one ] || printf '{"label": "historical", "verdict_super": "%s", "arrangement": "63,0,%s"}' "${7:-OUT}" "$arr" > "$d/art/q7_zz_historical_out.json"
   ( set +u
     row_begin(){ :; }; row_end(){ ROWRC=$2; }
     SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; ARTDIR="$d/art"; WORK="$d/work"
@@ -224,6 +231,30 @@ else
   r FAIL "leg 9: a single-certificate run gave rc=$rc without Q7RANKS_FAIL witnesses_processed=1<2 -- a row that ranked nothing could pass"
 fi
 
-printf 'Q7RANKS_PARSE_LEGS=9\n'
+# ---- LEG 10 (Q-983, Codex Q964-D08#1): a COMPACT certificate is read, not skipped ----------------
+# `{"verdict_super":"IN",…}` is the same JSON as the pretty form. The row's sed needed `": "`, read
+# v="" and took the "not IN" arm: the witness went unranked (here the only IN input, so the
+# pre-fix row failed on ranked=0; beside KW it would have passed with no serial number).
+if [ -n "$W16" ]; then
+  o10=$(run_row "$W16" "$W0" explicit q7_moore-strict.json "" compact); rc=$?
+  if [ "$rc" -eq 0 ] && grep -q '^witness_serial	q7_moore-strict	rank3=16244	' <<<"$o10"; then
+    r ok "leg 10: a compact-JSON witness certificate is read as IN and ranked (rank3=16244)"
+  else
+    r FAIL "leg 10: a compact-JSON witness certificate gave rc=$rc without its witness_serial line -- the row reads text, not JSON"
+    printf '%s\n' "$o10" | sed 's/^/        /' | head -4
+  fi
+else
+  r FAIL "leg 10: could not unrank 16244 (cannot measure the compact-certificate case)"
+fi
+
+# ---- LEG 11 (Q-983): a verdict that is neither IN nor OUT FAILS the row, by name ----------------
+o11=$(run_row "$W0" "$W0" KW q7_kw.json "" "" MAYBE); rc=$?
+if [ "$rc" -ne 0 ] && grep -q "Q7RANKS_FAIL.*verdict_super is 'MAYBE', neither IN nor OUT" <<<"$o11"; then
+  r ok "leg 11: a certificate whose verdict_super is neither IN nor OUT fails the row by name"
+else
+  r FAIL "leg 11: verdict_super=MAYBE gave rc=$rc without naming it -- an unreadable verdict reads as a non-member"
+fi
+
+printf 'Q7RANKS_PARSE_LEGS=11\n'
 [ "$fail" -eq 0 ] && echo "Q7RANKS_PARSE=PASS" || echo "Q7RANKS_PARSE=FAIL"
 exit "$fail"

@@ -29708,3 +29708,165 @@ characters and the entry normalises them, and that the quotation was page-checke
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch, Q-974 (CNKI
 re-OCR).
+
+## CX-315 — the pre-push hook no longer lets an old tree's branch-registry gate clear a new branch, skips content gates only when the push goes where the tracking refs were fetched from, and records an unreadable test count as an error (scripts/pre_push_gate.sh; scripts/prepush_verdict_record.sh; tests.py)
+
+**2026-10-08.** Origin: Codex (gpt-6-astra), the Q-964 lens-A delta review of the push path at
+f1b27e32, targets Q964-D07#2, Q964-D07#1 and Q964-D07#3; backlog row Q-982. Batch 42.
+
+**No published number, count, sha or certificate moves.** These are hook-side defects. Each was
+reproduced on a scratch repository; none was found to have let a defect through on the published tree.
+
+**1. The declaring tree's gate must be able to see a pending branch (Q964-D07#2).** For a new branch
+ref the hook runs GATE 19 in a "declaring tree": the first committed registry that has a row for the
+name, or, when none does, the ref's own commit. That tree's own `doc_gates.sh` was run. A commit
+older than `DOC_GATES_PENDING_BRANCHES` has a GATE 19 that never reads the pending name, so it passed
+any new branch. Codex measured it: at 89e7a9a1, an ancestor of main, an undeclared name gave rc 0;
+at f1b27e32, rc 1. Together with the already-published skip, a new branch name at an old commit
+published undeclared. Before the hook believes a declaring tree's verdict, it now runs the same gate
+in the same tree on a planted name that no registry can declare. The gate must fail on that name
+(rc 1, and the name in its finding), or the push is blocked. A tree with no committed registry
+is still blocked by the precheck before it. Residual: an old commit whose own registry declares
+its own name is now blocked as well, and because the hook prefers the ref's own tree when that tree
+declares it (Q-950), a row in main does not change that choice: such a commit can be published only
+with `git push --no-verify`, the visible bypass. Declaring the ref from main is the remedy when no
+registry declares it. No published or retired branch is in that window today (registry since
+55f813d1, pending support since 076a97fb).
+
+**2. The already-published skip is bound to the URL being pushed to (Q964-D07#1).** The skip trusted
+`refs/remotes/<remote>/*`, which are fetched from `remote.<remote>.url`. A `pushurl` that pointed
+somewhere else still skipped content gates for a push to that other place. The skip now also requires
+the hook's URL argument to equal the remote's fetch URL, and every push URL of the remote to be that
+same URL (`git remote get-url`, so `insteadOf` rewriting is applied as git applies it). Otherwise
+nothing is skipped.
+
+**3. The tests floor needs its population (Q964-D07#3).** `prepush_verdict_record.sh write` set
+TESTS_FLOOR from the test methods in `HEAD:tests.py`, read with `2>/dev/null` and `|| true`, and a
+count below 1 became 1. A failed read therefore turned `Ran 1 test` plus `OK` into LEG_TESTS=PASS. A
+HEAD listing that cannot be read, a listed tests.py that cannot be read, or a tests.py with no test
+method is now an ERROR, and no record is written. A HEAD with no tests.py at all, which is the
+hook's own test fixtures, keeps the floor of 1 as before.
+
+**4. Tests.** In `TestQ982Q983Q985Batch42`, the `test_q982_*` cases: a pending-blind gate in an old
+tree, a pushurl to another remote, a URL argument that is not the fetch URL, and a stubbed git
+whose `show HEAD:tests.py` fails. Each is red on the f1b27e32 scripts and green here. Positive
+controls: a current gate still clears a declared branch, and a same-URL push still skips. The
+floor is the tree's test count and stays 1 with no tests.py. One mutant per fix reproduces its
+defect.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 42, Q-982. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q-964 (Q964-D07#1, Q964-D07#2, Q964-D07#3).
+
+## CX-316 — twelve verdict consumers and their siblings no longer accept a crashed or contradictory producer: a fire must be rc 1, a scanner or import probe that crashed is not a clean or absent result, a refusal is told from a syntax error, a compact or unknown certificate verdict is read or refused, a read shape behind an assignment prefix is seen, a malformed skip cannot hide behind `_REASON=`, a contradictory OK is refused, evidence pipes keep the producer's exit status, an environment failure is not a mutant kill, verdict keys are checked as a set, and a printed total must be one integer (scripts/doc_gates.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/failopen_closure_gate.sh; scripts/tr12_repro.sh; scripts/q7ranks_parse_gate.sh; scripts/tr12_repro_gate.sh; scripts/claim_ledger.sh; scripts/disk_precheck_marker_gate.sh; scripts/group_c_n9_rehearsal_gate.sh; scripts/reproduce_digests_gate.sh; tests.py)
+
+**2026-10-08.** Origin: Codex (gpt-6-astra), the Q-964 lens-A delta review, targets Q964-D02#3,
+D04#1, D04#9, D07#4, D08#1, D08#2, D08#3, D08#4, D08#6, D09#2, D09#3 and D09#5; backlog row Q-983.
+These are the parts of the Q-951, Q-952, Q-954, Q-957 and Q-959 sweeps that had not been done. Batch 42.
+
+**No published number, count, sha or certificate moves.** Every site below is a check. On today's tree
+each one is still green; the defects needed a producer that crashed, printed twice or printed
+something unusual.
+
+The rule applied at each consumer is the one Q-952 set: the exit status must be a documented value,
+there must be exactly one verdict token, and that token must be the passing one. Evidence commands run
+under `set -o pipefail`, and population checks compare sets, not counts.
+
+1. **`assert_gen_fires_only` (doc_gates.sh, Q964-D02#3).** It took any non-zero rc as a fire. A
+   refusal (2) or a kill (137) that printed the leg's text passed. The fire is now rc 1 exactly, as
+   in its two siblings that Q-954 swept.
+2. **GATE 85, completion semantics (Q964-D04#1).** The scanner ran inside an `elif` condition, so a
+   scanner that printed its census and then crashed skipped to the next arm and reached `[ok]`. Its
+   rc is now read, and it must print exactly one N line.
+3. **GATE 87, the viz import probe (Q964-D04#9).** Any non-zero rc of `import matplotlib, numpy`,
+   including 137, was read as "absent" and skipped with rc 0. Only a ModuleNotFoundError that names
+   one of the two packages is "absent" now; any other failure is a FAIL. **Sibling sweep:**
+   `tr12_repro.sh` had six probes of the same shape (`import solve`, `import solve, sat, verify`,
+   `import numpy`, `import matplotlib, numpy`). A crash, a kill or a syntax error in solve.py
+   announced itself as `SKIP:python3-unavailable`. Five now use `py_import_state`
+   (PRESENT / ABSENT / BROKEN), and a BROKEN import fails its row. The sixth, the n=31-only
+   `import numpy` guard of the V3 join, is unchanged: `TestQ430V3JoinRunsInTheBattery` extracts that
+   guard verbatim. It is left as a residual: a crash there reads `SKIP:no-v3-join`, never
+   PASS.
+4. **The fail-open closure gate's bash fixtures (Q964-D07#4).** "closed rc=2" is also what a bash
+   syntax error earns. A CLOSED row now carries the last verdict-shaped token the script printed. The
+   selftest requires each refusal fixture's own ERROR or FAIL token, and it plants a syntax error that
+   must grade closed with no token.
+5. **The Q7 rank row (tr12_repro.sh, Q964-D08#1).** The certificate fields were read with a `sed`
+   that needed exactly `": "`. A compact certificate therefore read verdict "" and took the "not IN"
+   arm, unranked. The reads now allow any JSON whitespace, and a verdict other than IN or OUT fails
+   the row by name. `q7ranks_parse_gate.sh` gains legs 10 and 11 (11 legs; PASS on this tree).
+   **Siblings checked:** the other `sed`-read JSON fields in tr12_repro.sh, and `KWARR` in the d5_04
+   gate, already fail closed on an empty read.
+6. **The fingerprint read guard (tr12_repro_gate.sh, Q964-D08#2).** The command-position prefixes
+   took `env VAR=val cmd`, but not a bare `VAR=val cmd`. They also lacked exec, builtin, nohup,
+   xargs, ionice, stdbuf and env's own options. All of these are now accepted.
+7. **The skip readers (Q964-D08#3).** `grep -v '_REASON='` dropped any line that contained the
+   string anywhere, so `TR12_D=SKIP:failed_REASON=missing` was invisible to both readers. A
+   `<TOKEN>_REASON` line is now dropped by its key.
+8. **The A2 and XA consumers (Q964-D08#4).** `bash gate | grep -cx 'X=OK' >/dev/null` accepted an
+   OK beside a FAIL, or an OK followed by a crash. They now use `verdict_ok`: rc 0, one `X=` line,
+   and that line is `X=OK`.
+9. **claim_ledger evidence (Q964-D08#6).** Evidence ran under `bash -c` with no pipefail, so in
+   `python3 solve.py --atlas-probe … | sed -n …` the producer's 137 was lost to sed's 0. Evidence now
+   runs under `bash -o pipefail -c`. The selftest gains M19, a killed producer on the left of a pipe,
+   which must be ERROR (CLAIM_LEDGER is PASS on this tree).
+10. **disk_precheck legs (Q964-D09#2).** rc 2 (usage) and rc 6 (space or statvfs) were graded BAD,
+    and the mutant loop counts any BAD as a kill. So a mutant run on a full or unreadable mount
+    counted as killed. They are ERROR now. 0, 1 and 5 remain gradable.
+11. **The group C rehearsal (Q964-D09#3).** It counted distinct keys against a floor of 18, so an
+    unrelated new key could stand in for a family that stopped emitting. The expected set of 18 keys
+    is now listed; each must appear exactly once, and any key outside it fails until it is added on
+    purpose. The set was measured on this tree by a real n=9 run (GROUPC_REHEARSAL=PASS).
+12. **reproduce_digests (Q964-D09#5).** "Exactly one total" counted only the lines whose value was
+    digits, so a second `total = -1` line was not counted, and `26112.5` was read as 26112. Every
+    line with the label now counts, and the value must be a bare integer. The selftest gains two
+    wrapped-binary pages that must FAIL.
+
+**Tests.** `TestQ982Q983Q985Batch42`, the `test_q983_*` cases. Each site is driven through its own
+text: the function or block is taken from the script, or the script's own selftest or mode is run.
+Each case is red on the f1b27e32 scripts and green here, with a positive control and, for the
+load-bearing checks, a mutant.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 42, Q-983. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q-964 (Q964-D02#3, D04#1, D04#9, D07#4, D08#1, D08#2, D08#3,
+D08#4, D08#6, D09#2, D09#3, D09#5).
+
+**Same batch, a ratchet replaced by a name pin.** GATE 89 held the shell tokens it could see only through the
+lexer at a count ceiling of 18. Quoting one of them in this entry documented it, the count fell to 17, and a
+newly planted token then fitted under the ceiling (batch 41's TestQ970SourceAnalysers plant A07#13 stopped
+firing). The ceiling is now a pinned set of the 17 names (scripts/doc_gates.d/70_publication_surfaces.sh,
+PIN_SH_LEXONLY): any name outside the set fails, a pinned name that leaves is reported, and a swap can no
+longer hold the count. Found by the batch's own full test run; fix designed by Fable (claude-fable-5-1).
+
+## CX-317 — a code span is now read as a code span: an escaped backtick no longer opens one, so the corrections inventory redacts a dollar amount between two escaped backticks, and four doc-gate span readers share the same rule (scripts/corrections_inventory.sh; scripts/doc_gates.d/md_normalise.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh; scripts/tr12_output_paths_gate.sh; tests.py)
+
+**2026-10-08.** Origin: Codex (gpt-6-astra), the Q-964 lens-A delta review, target Q964-D08#5;
+backlog row Q-985. Batch 42.
+
+**No published number moves, and the published inventory leaks nothing today.** At f1b27e32,
+`documentation/CORRECTIONS_INVENTORY.tsv` has three `$`-and-digits spans, all awk fields, and no
+escaped backticks. This ledger, however, does carry escaped backticks, so the shape could be reached
+by a routine entry.
+
+**1. The inventory's redaction (Q964-D08#5).** `redmoney()` kept a bare `$`-and-digits token when
+an odd number of backticks came before it. It counted every backtick, including an escaped one. A
+prose amount between two escaped backticks was therefore kept as "code" and published, where the
+f9b50120 classifier had redacted it (Codex ran both). The rule is now CommonMark's. A run of N
+backticks opens a span that closes at the next run of exactly N. An opener with no closer is plain
+text, and a backtick after a backslash outside a span is escaped. The token is kept only if it lies
+inside a span's content. Selftest anchor (20) plants the shape, and the full selftest passes.
+
+**2. Sibling sweep.** Four doc-gate legs found code spans with their own `[^`]*` regex, and that
+regex had the same blindness: GATE 26's code-span exemption (80), the GATE 39 leg 2 mask (90), the
+sentence splitter of the liveness gate (30), and `tr12_output_paths_gate.sh`. In the last one, an
+escaped backtick paired with the next span's opener, and that span was never checked. All four now
+use `md_code_spans()` or `md_mask_code()`, added to the shared lexer in `md_normalise.sh`. On today's
+tree each of these legs gives the same verdict as before.
+
+**3. Tests.** `TestQ982Q983Q985Batch42`, the `test_q985_*` cases. The planted subject is redacted
+here and not on the f1b27e32 script. Real one- and two-backtick spans keep their awk fields. The lexer
+gets CommonMark cases. A mutant that ignores escapes, in the awk and in the python, reproduces the
+defect. The four readers no longer carry their own span regex.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 42, Q-985. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q-964 (Q964-D08#5).

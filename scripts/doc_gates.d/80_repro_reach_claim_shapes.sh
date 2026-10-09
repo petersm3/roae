@@ -764,7 +764,8 @@ pat=re.compile(r"(" + MD_EDGE + r"(?:\d{1,3}(?:,\d{3})+|\d+)(?!\d)(?:\.\d+)?)\s*
 # LEG 2. The lookarounds are the whole difference between a gate and a sha-fragment siren.
 sci=re.compile(r"(?<![0-9a-fA-F.])(\d+(?:\.\d+)?)[eE]\+?(\d+)(?![0-9a-fA-F])")
 lax=re.compile(r"\d+(?:\.\d+)?[eE]\+?\d+")   # the PRESCRIBED form, kept only to size guard (a); Q-968: same mantissa as sci
-span=re.compile(r"`[^`]*`")
+# Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): spans come from md_code_spans (the CommonMark
+# rule in the shared lexer); `[^`]*` took an escaped backtick for a delimiter, so prose read as code.
 # Q-937 (batch 35): the LEDGER ANCHOR, as GATE 27 reads it (the header there has the rules), but
 # per LINE: a match is also exempt when the same line links a CX entry of documentation/CORRECTIONS.md
 # whose own text quotes the matched figure exactly as written. The marker words below exempt a line
@@ -805,7 +806,7 @@ for f in files:
         if "WITHDRAWN" in line or "LABEL CORRECTED" in line: continue
         anc=anchored(f,line) if "CORRECTIONS.md" in line else []
         low=line.lower()
-        spans=[(m.start(),m.end()) for m in span.finditer(line)]
+        spans=md_code_spans(line)
         for m in pat.finditer(line):
             if NEG in m.group(2): continue
             try:
@@ -838,7 +839,7 @@ for f in files:
             # Q-965 (A08#6): only a span that QUOTES OUTPUT is exempt. A span holding nothing but the
             # figure ("There are `3.3e37` canonical orderings.") is a claim set in code font, not a
             # transcript, and it passed; it is now judged like the bare figure.
-            if any(a<=m.start() and m.end()<=b and not re.fullmatch(r"[~≈]?\s*"+re.escape(m.group(0)), line[a+1:b-1].strip()) for a,b in spans):
+            if any(a<=m.start() and m.end()<=b and not re.fullmatch(r"[~≈]?\s*"+re.escape(m.group(0)), line[a:b].strip("`").strip()) for a,b in spans):
                 sci_span+=1; continue
             if any(m.group(0) in e for e in anc): continue
             n+=1

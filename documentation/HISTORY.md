@@ -11004,3 +11004,46 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 - Also from the page re-reading: the Chen Renren 2013 entry now quotes the printed count of eleven
   pairs, and the Ouyang 1993 entry notes a misprinted table on its p. 129. No published number, count,
   sha or verdict changed.
+
+## 2026-10-08 — batch 42: the pre-push hook checks that an old tree's gate can see a new branch, skips only what it really fetched, and treats an unreadable test count as an error; twelve checks stop accepting a crashed or contradictory result; and a code span is read the way Markdown reads it
+
+**Batch 42, the pre-push hook (CX-315, Q-982).**
+
+- Before a new branch is published, the hook asks the branch registry whether the branch is
+  declared. It asked using the gate code of whichever commit holds the registry. A commit from before
+  2026-08-30 has a gate that never looks at a branch that is about to be published, so it said yes
+  to anything. The hook now tests that gate first, on a made-up branch name that nothing
+  declares. If the gate does not catch the made-up name, the push is blocked.
+- The hook skips content checks for commits that the remote already has. It decided that from what
+  it had fetched. A remote can be set up to fetch from one place and push to another, and then the
+  skip was wrong. Now it skips only when the push goes to the same place it fetched from.
+- The record of a passing test run compares the number of tests that ran with the number in the
+  tree. If the tree's test file could not be read, that number became 1, so one passing test was
+  enough. Now an unreadable count is an error.
+
+**Batch 42, checks that believed a crashed result (CX-316, Q-983).**
+
+- Codex found twelve more places where a check believed a program that had crashed, been killed,
+  or said two different things. One is a self-test that took any failure as proof that a gate
+  fired. Others are a scanner that crashed after printing, and an import test that took a crash for
+  "not installed". There is also a refusal that looked the same as a syntax error, and a certificate
+  written without spaces that was read as empty. The rest are a file read the guard did not see, a
+  bad "skip" line hidden by one word, an "OK" printed next to a "FAIL", and a pipe that hid a killed
+  program. The last three are a full disk counted as a caught mutant, a new name that stood in for a
+  missing one, and a total that was read as an integer when it was not.
+- Each one now follows the same rule: the program must finish cleanly, say its result exactly once,
+  and say the passing result. The same fix went into five import tests in the TR-12 battery.
+- Nothing published changed. Every check is still green on today's documents.
+
+**Batch 42, code spans (CX-317, Q-985).**
+
+- The corrections inventory removes dollar amounts from the text it publishes. It keeps text that
+  is inside a code span (between backticks), because that text is code, such as an awk field. It
+  decided this by counting backticks, and it also counted a backtick that had been escaped with a
+  backslash. So an amount between two escaped backticks was treated as code and kept.
+- It now uses Markdown's own rule for code spans. Four document gates that found code spans the same
+  way now share that rule.
+- Today's inventory had no such amount, so nothing published changes.
+- Codex (gpt-6-astra) found all of these in the Q-964 delta review of the push path (targets
+  Q964-D02#3 through Q964-D09#5). New tests in `TestQ982Q983Q985Batch42` fail on the old scripts and
+  pass on the new ones.

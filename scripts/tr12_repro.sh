@@ -190,7 +190,7 @@ mkdir -p "$RAWDIR" "$GOTDIR" "$DIFFDIR" "$ARTDIR"
 VERD="$OUTDIR/VERDICTS.txt"; : > "$VERD"
 LOG="$OUTDIR/tr12_repro.log"; : > "$LOG"
 
-say(){ printf '%s\n' "$*" | tee -a "$LOG"; }
+say(){ printf '%s\n' "$*" | tee -a "$LOG"; }; py_import_state(){ command -v python3 >/dev/null 2>&1 || { echo ABSENT; return 0; }; local o; o=$(PYTHONPATH="$REPO_ROOT" python3 -c 'exec("import importlib, sys\nm = sys.argv[1:]\ntry:\n    [importlib.import_module(x) for x in m]\nexcept ModuleNotFoundError as e:\n    if (e.name or \"\").split(\".\")[0] in m: print(\"PY_IMPORT=ABSENT\"); sys.exit(0)\n    raise\nprint(\"PY_IMPORT=PRESENT\")")' "$@" 2>/dev/null) && [ "$(grep -c '^PY_IMPORT=' <<<"$o")" = 1 ] && { sed -n 's/^PY_IMPORT=//p' <<<"$o"; return 0; }; echo BROKEN; }; row_broken(){ row_begin "$1"; echo "PY_IMPORT_BROKEN	$3: the import failed for a reason other than an absent module (a crash, a kill, a syntax error) -- not a skip (Q-983)" >>"$RAW"; row_end "$2" 1; }   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D04#9 sibling sweep): py_import_state MOD... prints PRESENT, ABSENT (no python3, or a ModuleNotFoundError naming a probed module) or BROKEN (any other failure); the import probes below took ANY nonzero rc for "unavailable" and skipped, so a crash or syntax error in solve.py read as SKIP:python3-unavailable. A BROKEN import fails its row (row_broken). Kept on this one line so no cited line below moves.
 die(){ say "FATAL: $*"; exit 2; }
 
 # ---- Q-461 (2026-09-24): --pairs is REFUSED outside the MEASURED set, by name, before any build.
@@ -925,7 +925,7 @@ row_end TR12_Q7_KW $rc
 #            a python3 call (QUERY_INVENTORY §2 row Q7).  It was the ONLY one until the Q5
 #            two-language re-check landed in row a1_q5, 2026-09-10. ---------------------------
 if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
-   && PYTHONPATH="$REPO_ROOT" python3 -c 'import solve' >/dev/null 2>&1; then
+   && [ "$(py_import_state solve)" = PRESENT ]; then
     row_begin a0_q7_hist
     (
       hrc=0
@@ -953,7 +953,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
       exit $hrc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_HIST $rc
-else
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve)" = BROKEN ]; then row_broken a0_q7_hist TR12_Q7_HIST "import solve"; else   # Q-983
     row_skip a0_q7_hist TR12_Q7_HIST "SKIP:python3-unavailable" \
       "python3+solve.py unavailable — the 3 historical arrangements (_r7_mawangdui/_r7_fuxi/_r7_jingfang) could not be materialised"
 fi
@@ -1047,7 +1047,7 @@ q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON  -> the solver-free property c
     return $frc
 }
 if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
-   && PYTHONPATH="$REPO_ROOT" python3 -c 'import solve, sat, verify' >/dev/null 2>&1; then
+   && [ "$(py_import_state solve sat verify)" = PRESENT ]; then
     row_begin a0_q7_witnesses
     (
       wrc=0
@@ -1071,7 +1071,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
       exit $wrc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_WITNESSES $rc
-else
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve sat verify)" = BROKEN ]; then row_broken a0_q7_witnesses TR12_Q7_WITNESSES "import solve, sat, verify"; else   # Q-983
     row_skip a0_q7_witnesses TR12_Q7_WITNESSES "SKIP:python3-unavailable" \
       "python3+solve.py/sat.py/verify.py unavailable — the pinned witnesses' literature rules (Moore parity/rhythm, Schulz gender) are defined only in solve.py, so the rule re-score cannot run"
 fi
@@ -1134,7 +1134,7 @@ fi
 #            kept below under its own name (a0_ls_w0_mc) and labelled as what it is. No ladder; both
 #            rows are 64-hexagram objects and n-independent, which is what Group A0 is for. ------------
 if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
-   && PYTHONPATH="$REPO_ROOT" python3 -c 'import solve' >/dev/null 2>&1; then
+   && [ "$(py_import_state solve)" = PRESENT ]; then
     row_begin a0_ls_w0
     ( cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 -c '
 import solve
@@ -1156,7 +1156,7 @@ print("threshold_label\tKW-anchored: the event level 2 is the rc4_violations val
 print("correction_family\t91 observables (TR-8 F-32; METHODS.md Global observable ledger); Bonferroni bar 0.05/91 = 5.5e-4, cleared by ~5x")
 ' ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_LS_W0 $rc
-else
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve)" = BROKEN ]; then row_broken a0_ls_w0 TR12_LS_W0 "import solve"; else   # Q-983
     row_skip a0_ls_w0 TR12_LS_W0 "SKIP:python3-unavailable" \
       "python3+solve.py unavailable — pair_null_gender_le2_exact() could not be evaluated"
 fi
@@ -2073,8 +2073,8 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, several machine-hours each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:37781-37782) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20719), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
-elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] \
-     || ! PYTHONPATH="$REPO_ROOT" python3 -c 'import solve' >/dev/null 2>&1; then
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve)" = BROKEN ]; then row_broken a1_q5 TR12_Q5 "import solve"   # Q-983
+elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] || [ "$(py_import_state solve)" != PRESENT ]; then
     # 🔴 THE ROW SKIPS RATHER THAN RUNS WITHOUT THE SECOND LANGUAGE. The KC-X module header makes
     # the solve.py re-check a SHIPPING CONDITION of every Q5 number ("no Q5 number ships without
     # it"), so a run that produces the numbers and cannot re-check them has not reproduced the
@@ -2618,11 +2618,11 @@ if [ "$N_PAIRS" -ge 31 ]; then
       echo "# rank 0 is the anchor walk itself and a0_q7_witnesses has already established the witness != KW."
       for j in "$ARTDIR"/q7_*.json; do
           [ -f "$j" ] || continue; processed=$((processed+1))
-          v=$(sed -n 's/.*"verdict_super": "\([^"]*\)".*/\1/p' "$j" | head -1)
-          lab=$(sed -n 's/.*"label": "\([^"]*\)".*/\1/p' "$j" | head -1); id=${lab:-explicit}; [ "$id" = explicit ] && id=$(basename "$j" .json)   # Q-795: a witness is named by its label; the filename is only the fallback for a pre---label ("explicit") certificate
-          arr=$(sed -n 's/.*"arrangement": "\([^"]*\)".*/\1/p' "$j" | head -1)
+          v=$(sed -n 's/.*"verdict_super"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$j" | head -1)   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#1): any JSON whitespace at the colon (a compact certificate read v="" and went unranked); v must be IN or OUT
+          lab=$(sed -n 's/.*"label"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$j" | head -1); id=${lab:-explicit}; [ "$id" = explicit ] && id=$(basename "$j" .json)   # Q-795: a witness is named by its label; the filename is only the fallback for a pre---label ("explicit") certificate
+          arr=$(sed -n 's/.*"arrangement"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$j" | head -1)
           echo "### $(basename "$j") label=$lab verdict_super=$v"
-          if [ "$v" = "IN" ] && [ -n "$arr" ]; then
+          if [ "$v" != "IN" ] && [ "$v" != "OUT" ]; then echo "Q7RANKS_FAIL	$(basename "$j"): verdict_super is '$v', neither IN nor OUT -- an unreadable verdict is not a non-member (Q-983)"; erc=1; elif [ "$v" = "IN" ] && [ -n "$arr" ]; then
               # §0.4(2): drop the first two values (the C4-anchored pair 63,0), pass the rest
               w=$(printf '%s' "$arr" | cut -d, -f3-)
               ranked=$((ranked+1))
@@ -3824,7 +3824,7 @@ fi
 # The V1/V2/V4/V5 generators landed in viz/report_figures.py (TSV -> figure, no analysis logic).
 # They need matplotlib + numpy, which are deliberately NOT project dependencies, so a box without
 # them skips the row rather than failing it.
-if [ -d "$ARTDIR/consumer" ] && python3 -c "import matplotlib, numpy" >/dev/null 2>&1; then
+if [ -d "$ARTDIR/consumer" ] && [ "$(py_import_state matplotlib numpy)" = BROKEN ]; then row_broken c_viz TR12_VIZ "import matplotlib, numpy"; elif [ -d "$ARTDIR/consumer" ] && [ "$(py_import_state matplotlib numpy)" = PRESENT ]; then   # Q-983
     row_begin c_viz
     mkdir -p "$ARTDIR/figures"
     #   V4 (shells) renders only if row c_consumer wrote a q3_profile TSV, i.e. only if the
