@@ -262,7 +262,9 @@ for f in corpus():
             r = has_se(n)
             if r is None:
                 print("HIT3\t%s:%d\t%s\tclaims standard errors for an evidence file that does not exist" % (f, i, n))
-            elif not r or (r == 'relerr' and not RELSE.search(l)):
+            # Q-978 (batch 43; Codex gpt-6-astra Q964-D06#3): the relative-error wording must be
+            # AFFIRMED (wm_has), so "not relative standard errors" does not stand for a relerr= claim.
+            elif not r or (r == 'relerr' and not wm_has(l, RELSE)):
                 print("HIT3\t%s:%d\t%s\tclaims standard errors, but the named file contains no `se=` field" % (f, i, n))
 print("POPC\t%d row(s) pair an SE claim with a named evidence file, %d disclosing the gap (exempt), %d revision-history row(s) excluded by shape" % (popc, exc, exr))
 if popc < fc:

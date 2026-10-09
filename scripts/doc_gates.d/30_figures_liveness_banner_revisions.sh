@@ -313,7 +313,7 @@ else:
 # whole point of that file is to preserve what was believed at the time.
 gate_liveness() {
   echo "== GATE 7: no frozen present-tense run status; no run named after an unreached budget =="
-  { _md_norm_prelude; cat <<'PY'
+  { _md_norm_prelude; _wm_prelude; cat <<'PY'
 import re, glob, sys, os
 LIVE = ['in flight', 'currently running', 'results pending', 'and growing',
         'is underway', 'awaiting results', 'run is ongoing']
@@ -400,11 +400,16 @@ for l in _lines:
         if len(cells) > 1 and re.search(r'`[0-9a-f]{8,64}…?`', l):
             for b in re.findall(r'\b([0-9.]+T)\b', cells[0]):
                 REACHED.add(b)
-_heads = [i for i, l in enumerate(_lines) if re.match(r'^#{2,6} ', l)] + [len(_lines)]
-for a, b in zip(_heads, _heads[1:]):
-    body = '\n'.join(_lines[a + 1:b])
+# Q-977 (batch 43; Codex gpt-6-astra Q964-D03#8): the section boundaries are the shared normaliser's
+# HEADINGS (md_parse): ATX at any level and indented up to 3 spaces, setext, never a `#` line inside a
+# code fence. The raw `^#{2,6} ` test missed " ## 560T" (one space), so the hashless "## 9999T"
+# section ran on into the 560T sha and was attested by it.
+_hb = [b for b in md_parse(reg)[2] if b['kind'] == 'heading']
+for _k, _h in enumerate(_hb):
+    _e = _hb[_k + 1]['start'] - 1 if _k + 1 < len(_hb) else len(_lines)
+    body = '\n'.join(_lines[_h['end']:_e])
     if re.search(r'\b[0-9a-f]{64}\b', body):
-        for bud in re.findall(r'\b([0-9.]+T)\b', _lines[a]):
+        for bud in re.findall(r'\b([0-9.]+T)\b', _h['text']):
             REACHED.add(bud)
 # Q-967 (Q-835 A05#17): a disposition word counts only in the SAME SCOPE UNIT as the claim it
 # disposes of: the sentence that carries it (a hard-wrapped sentence spans lines; a list item, a
@@ -540,7 +545,10 @@ for f in files:
                 if i in found:
                     continue
                 span = md_inline(' '.join(lines[i - 1:j])).lower()
-                if any(n in span for n in NARRATION):
+                # Q-978 (batch 43; the exemption-path sweep of Codex gpt-6-astra Q964-D04#7/D05#10): NARRATION
+                # and DISPO are read as whole words that are NOT negated (wm_any): "has not completed" and "not
+                # superseded" dispose of nothing; the substring tests counted them.
+                if wm_any(span, NARRATION):
                     continue
                 # Q-967 (A05#17): DISPO and the quoted-narration rule are read from the claim's OWN
                 # scope unit (unit_of: its sentence, list item, table row or heading), no longer the
@@ -548,7 +556,7 @@ for f in files:
                 if _REVROW.match(lines[i - 1]):
                     continue
                 ctx = unit_of(u, p).lower()
-                if any(d in ctx for d in DISPO) or quoted_narration(ctx, k):
+                if wm_any(ctx, DISPO) or quoted_narration(ctx, k):
                     continue
                 print(f"  [FINDING] {f}:{i} — status frozen in the present tense: \"{k}\"")
                 print(f"            {lines[i - 1].strip()[:110]}")
@@ -568,7 +576,7 @@ for f in files:
         if m.group(1) not in MENTIONED and re.search(r'(?:~|≈|about |approximately )$', text[max(0, m.start() - 14):m.start()]):
             continue                      # "the ~154T run": a measured extent, not a budget it is named after; a MENTIONED budget ("~1120T run", the #65 shape) is still judged (Fable B40 FIX 1)
         para = unit_at(text, m.start()).lower()
-        if any(d in para for d in DISPO):
+        if wm_any(para, DISPO):
             continue                      # disposition is stated nearby
         ln = md_lno(_starts, m.start())
         # SAY WHY IT IS NOT ATTESTED (2026-08-02, #65). "not a budget any canonical reached"

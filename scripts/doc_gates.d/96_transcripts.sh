@@ -78,10 +78,15 @@ for f in files:
     for u in _unc:
         fail.append("%s:%d a code fence opens here and never closes, so its content to end of file "
                     "cannot be delimited as a block and was NOT checked" % (f, u))
+    _prev = None
     for _b in _blocks:
+        _pb, _prev = _prev, _b
         if _b["kind"] != "code":
             continue
-        start, blk = _b["start"], [x for _, x in _b["lines"]]
+        # Q-977 (batch 43; Codex gpt-6-astra Q964-D02#2): the block's CONTENT, its block-quote and
+        # indentation container stripped (md_parse 'body'), so a transcript quoted with `> ` is
+        # counted; the raw lines start with `>` and the prompt test never matched them.
+        start, blk = _b["start"], [x for _, x in _b["body"]]
         out, cont, seen, first = 0, False, False, None
         for x in blk:
             if PROMPT.match(x):
@@ -99,13 +104,10 @@ for f in files:
                 out += 1
         if seen and out:
             k = (f, hashlib.sha256(first.encode("utf-8")).hexdigest()[:12])
-            j = start - 2
-            while j >= 0 and not L[j].strip():
-                j -= 1
-            para = []
-            while j >= 0 and L[j].strip() and not L[j].lstrip().startswith("```"):
-                para.insert(0, L[j])
-                j -= 1
+            # Q-977 (Codex Q964-D02#1): "the paragraph just before the fence" is the md_parse block
+            # before it, when that block is a paragraph. The raw walk-back stopped only at a ```
+            # line, so a ~~~ block above the paragraph lent it the commit it names.
+            para = [r for _, r in _pb["lines"]] if _pb is not None and _pb["kind"] == "para" else []
             if k in blocks:
                 fail.append("%s:%d repeats the first prompt line of the block at line %d, so the "
                             "two cannot be told apart by key" % (f, start, blocks[k][0]))

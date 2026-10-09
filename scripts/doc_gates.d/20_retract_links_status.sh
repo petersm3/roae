@@ -499,7 +499,9 @@ for m in mds:
     # Q-965 (A04#14): headings come from the shared normaliser. A "## Heading" inside a fenced code
     # block is not a heading and gives no anchor (it satisfied a dead #fragment before); an indented,
     # setext or block-quoted heading is one, as GitHub renders it.
-    for h in [b['title'] for b in md_parse(txt)[2] if b['kind'] == 'heading']:
+    # Q-976 (batch 43; Codex gpt-6-astra Q964-D03#2): a heading under an UNCLOSED fence is code as
+    # rendered (to the end of its container), so it gives no anchor ('shadow' blocks are left out).
+    for h in [b['title'] for b in md_parse(txt)[2] if b['kind'] == 'heading' and not b.get('shadow')]:
         s = slug(h); seen[s] += 1
         a.add(s if seen[s] == 1 else f"{s}-{seen[s]-1}")
     a.update(re.findall(r'<a\s+(?:name|id)="([^"]+)"', txt))
@@ -647,7 +649,7 @@ mds = subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True).st
 heads, bolds, bybase = {}, {}, {}
 for m in mds:
     txt = open(m, encoding='utf-8', errors='replace').read()
-    heads[os.path.realpath(m)] = [norm(b['title']) for b in md_parse(txt)[2] if b['kind'] == 'heading']   # Q-965: not inside a fence; indented/setext count
+    heads[os.path.realpath(m)] = [norm(b['title']) for b in md_parse(txt)[2] if b['kind'] == 'heading' and not b.get('shadow')]   # Q-965: not inside a fence; indented/setext count
     bolds[os.path.realpath(m)] = [norm(b) for b in BOLD.findall(txt)]
     bybase.setdefault(os.path.basename(m), []).append(os.path.realpath(m))
 

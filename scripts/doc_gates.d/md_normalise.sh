@@ -21,9 +21,16 @@
 #   md_inline(s)     the INLINE fold: XML/HTML entities decoded (`&#x3c3;` -> σ), a digit group joined
 #                    by a thin space or NBSP made a comma group (Q-968: "1 023" stays ONE number), curly quotes and
 #                    the dash family folded to ASCII, NBSP and the other space variants to a space,
-#                    backslash escapes dropped, backticks removed with their CONTENT kept, emphasis
-#                    markers removed (every `*`, `~~`, and `_` at a word edge -- an `_` inside a word
-#                    such as twenty_four_dvd_c1 is not emphasis and stays), whitespace collapsed.
+#                    backslash escapes dropped (the escaped character kept as a literal), CODE SPANS
+#                    kept with their backticks removed (Q-976: no escape or entity processing inside one,
+#                    and a `*`/`_` between alphanumerics stays, so `3*5*7*2^15` stays 3*5*7*2^15; an
+#                    emphasis-shaped run at a word edge is dropped there too), LINKS and images read as
+#                    their text with the destination dropped (Q-976: `[P](url)` is "P"), emphasis
+#                    markers removed OUTSIDE code spans (every `*`, `~~`, and `_` at a word edge -- an
+#                    `_` inside a word such as twenty_four_dvd_c1 is not emphasis and stays), stray
+#                    backticks dropped, whitespace collapsed.
+#   md_inline_lines(lines) the same fold for the lines of ONE block, with code spans paired across
+#                    the line ends (a span that wraps is code on both lines); md_para and md_flatten use it.
 #                    md_inline(s, fold=False) skips the quote/dash/space fold for a leg whose own
 #                    patterns read those glyphs.
 #   md_fold_quotes(s) the curly-quote half of that fold alone (same length, so offsets survive).
@@ -34,9 +41,16 @@
 #                      para    'lines' [(lineno, raw)], 'text' (md_inline of each line, blockquote
 #                              and list markers dropped, joined by one space), 'starts'/'lns' (the
 #                              offset table: md_lno(block, off) is the REAL source line of offset off)
-#                      heading 'level', 'title' (raw), 'text' (md_inline of the title)
+#                      heading 'level', 'title' (raw), 'text' (md_inline of the title), and (Q-977) the
+#                              para offset table ('lines', 'starts', 'lns'), so a heading is a unit too
 #                      table   'header' (lineno, cells) or None, 'delim' (bool), 'rows' [(lineno, cells)]
-#                      code    'lines' [(lineno, raw)] of the content, 'info' (the fence info string)
+#                      code    'lines' [(lineno, raw)] of the content, 'body' [(lineno, content)] -- the
+#                              content with its block-quote and indentation container stripped (Q-977) --
+#                              and 'info' (the fence info string)
+#                    and every block carries 'shadow' (Q-976): True when it lies under an UNCLOSED fence,
+#                    i.e. it renders as code; a leg that harvests anchors or exemptions skips it.
+#   md_units(text)   the scope units a prose leg reads (Q-977): each paragraph and list item, each
+#                    heading, each table row, each code line, as {'start','end','lines','text','kind'}.
 #   md_cells(line)   a table row's cells, with or without edge pipes; `\|` is not a cell break.
 #   md_flatten(text) -> (flat, starts): the whole file, md_inline per line, joined by one space;
 #                    starts[i] is the offset of source line i+1 (the _g1 flatten contract).
@@ -45,12 +59,19 @@
 # THE STRUCTURE RULES, and where they are looser than CommonMark/GFM ON PURPOSE (looser = scans more):
 #   * FENCES are matched by opener: ``` or ~~~, length >= 3; a fence closes only on the SAME
 #     character at a length >= the opener's, alone on its line. A `~~~` line inside a ``` block, or
-#     a ``` line inside a ```` block, is CONTENT. Any indentation is accepted for both (fences inside
-#     list items are indented), and a `>` blockquote prefix is looked through.
+#     a ``` line inside a ```` block, is CONTENT. Q-976 (batch 43): a fence belongs to its CONTAINER.
+#     It opens 0-3 columns past the content column of the list item it sits in (a ``` indented 4 or
+#     more past it is indented code, scanned as prose, not a fence), and it closes only on a line of
+#     the same block-quote depth; a shallower line (an unquoted line, a blank line with no `>`) or a
+#     line that leaves the list item ends the container, and a fence still open then is UNCLOSED.
+#     The list model is CommonMark's in outline: an item's content column is its marker's width plus
+#     1-4 spaces, a line indented less ends it unless it is a lazy paragraph continuation, and an
+#     ordered item other than 1 (or an empty item) cannot interrupt a paragraph.
 #   * 🔴 AN UNCLOSED FENCE IS NOT A FENCE HERE. CommonMark renders it as code to end of file; a leg
 #     that exempts code would then silently exempt the whole rest of the document, and one stray
 #     ``` is all that takes. So the opener is returned in `unclosed` (its line number) and its lines
-#     are parsed as ordinary prose -- every prose leg SCANS them (fail-closed), and the legs that
+#     are parsed as ordinary prose -- every prose leg SCANS them (fail-closed); the blocks it covers
+#     carry 'shadow' so a leg never HARVESTS an anchor or exemption from them (Q-976) -- and the legs that
 #     read code itself (GATE 57 display equations, GATE 95 transcripts) FAIL on any `unclosed`
 #     entry rather than certify a block they cannot delimit. Measured on 35782834: the public
 #     markdown corpus has no unclosed fence, so this costs nothing today.
@@ -66,13 +87,15 @@
 #     line with no `|` at all ends the table (GFM would keep it as a one-cell row); it is then prose,
 #     so it is still scanned.
 #   * PARAGRAPHS: maximal runs of non-blank lines that are none of the above, i.e. blank-line
-#     delimited, as the markdown is rendered. List items and blockquote lines stay in the paragraph
-#     they are wrapped in; a leg that wants smaller units splits further itself.
+#     delimited, as the markdown is rendered -- and (Q-976) a LIST ITEM starts a paragraph of its own,
+#     so two items are two blocks. Blockquote lines stay in the paragraph they are wrapped in.
+#     md_flatten keeps a bullet's marker, written `-`, so a unit splitter still sees the item start.
 #   * Indented (4-space) code is NOT treated as code: it is scanned as prose (fail-closed), except by
 #     a leg that reads indented displays on purpose (GATE 57 keeps its own rule).
 #
 # WHAT IT DOES NOT DO, so nobody reads it as more: it is not a CommonMark renderer (no HTML blocks,
-# link reference definitions, lazy continuation of block quotes, or nested-list indentation model),
+# link reference definitions or reference-style links, lazy continuation of block quotes, or lists
+# nested inside block quotes beyond a reset of the list model at each change of quote depth),
 # and md_inline does not fold the needle-matching variants of fold_variants in doc_gates.sh (×->x,
 # ≥->>=, digit commas, spacing around `+`). fold_variants is the FIXED-STRING layer GATES 3/6/47 use;
 # it applies the same CR and whitespace rules on top of its own folds.
@@ -340,18 +363,102 @@ def md_read(path):
         return md_text(_fh.read())
 
 _MD_DGRP = _mre.compile('(?<=\\d)[\u00a0\u2009\u202f](?=\\d{3}(?!\\d))')
+# Q-976 (batch 43; Codex gpt-6-astra Q964-D01#2, D01#3, D05#1): the inline fold reads CODE SPANS and
+# LINKS the way CommonMark renders them. A code span (a backtick run closed by a run of the SAME
+# length) is literal: no escape or entity is processed inside it and an operator `*` stays, so
+# `3*5*7*2^15` stays 3*5*7*2^15 (it was 3572^15 and GATE 32 went blind). A link or image keeps its
+# TEXT and drops its destination (and title): `[P](url)` reads "P", and a URL word such as
+# `.../withdrawn` can no longer supply a marker. An escaped character survives the emphasis strip
+# (`\*` is a literal star). Unmatched backticks are still dropped, as before.
+_MD_LINKRX = _mre.compile(r'(?<!\\)!?\[((?:[^\[\]\\\n]|\\.)*)\]'
+                          r'(?:\((?:[ \t]*(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)'
+                          r'(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)\))')
+_MD_ESCPH = _mre.compile(r'\\([!-/:-@\[-`{-~])')
 
-def md_inline(s, fold=True):
+def _md_spans(s):
+    """[(is_code, start, end)] covering s in order: CommonMark code spans (a run of n backticks
+    closed by the next run of exactly n; a span may cross a line end) and the text between them.
+    A backslash-escaped backtick outside a span is not an opener; an opener with no closer is
+    literal text. A code segment's (start, end) is its CONTENT, without the backtick runs."""
+    out, i, n, t0 = [], 0, len(s), 0
+    while i < n:
+        c = s[i]
+        if c == '\\' and i + 1 < n:
+            i += 2; continue
+        if c != '`':
+            i += 1; continue
+        j = i
+        while j < n and s[j] == '`':
+            j += 1
+        run = j - i
+        k, close = j, -1
+        while k < n:
+            if s[k] != '`':
+                k += 1; continue
+            e = k
+            while e < n and s[e] == '`':
+                e += 1
+            if e - k == run:
+                close = k; break
+            k = e
+        if close < 0:
+            i = j; continue
+        out.append((False, t0, i))
+        out.append((True, j, close))
+        i = t0 = close + run
+    out.append((False, t0, n))
+    return out
+
+def _md_inline_text(s, fold):
     if '&' in s:
         s = _mhtml.unescape(s)
-    # Q-968: a thin-space / NBSP digit group is a comma group, so the fold below cannot split
-    # "1 023" into two numbers
     s = _MD_DGRP.sub(',', s)
     if fold:
         s = s.translate(_MD_FOLD)
-    s = _MD_ESC.sub(r'\1', s).replace('`', '')
+    # an escaped character is parked in the private-use area so neither the link nor the emphasis
+    # rule below can consume it, then restored as the literal it is
+    s = _MD_ESCPH.sub(lambda m: chr(0xF0000 + ord(m.group(1))), s)
+    for _ in range(3):   # nested [ [x](u) ] collapses from the inside out
+        t = _MD_LINKRX.sub(lambda m: m.group(1), s)
+        if t == s:
+            break
+        s = t
+    s = s.replace('`', '')
     s = _MD_EMPH.sub('', s)
-    return ' '.join(s.split())
+    return _mre.sub('[\U000f0000-\U000f007f]', lambda m: chr(ord(m.group(0)) - 0xF0000), s)
+
+# An emphasis-SHAPED run at a word edge (`**P**`, `_x_`, `~~`) is dropped inside a span too, as the fold
+# dropped it before Q-976: a withdrawn phrase set in code font with its P in bold read as the phrase then
+# (GATE 27 caught it on f1b27e32) and must still. A `*` or `_` BETWEEN two alphanumerics (3*5*7,
+# twenty_four) is an operator or a name and stays, which is what Q-976 (Codex Q964-D01#2) needed.
+_MD_CODE_EMPH = _mre.compile(r'(?<![0-9A-Za-z])[*_]+|[*_]+(?![0-9A-Za-z])|~~')
+def _md_inline_code(seg, fold):
+    seg = seg.replace('\\|', '|')        # GFM: a pipe escaped for a table cell renders as |
+    seg = _MD_DGRP.sub(',', seg)
+    seg = _MD_CODE_EMPH.sub('', seg)
+    return seg.translate(_MD_FOLD) if fold else seg
+
+def md_inline_lines(lines, fold=True):
+    """md_inline of each line of ONE block (a paragraph, a list item), with code spans paired
+    across the line ends the way the block renders: a span opened on one line and closed on the
+    next is code on both. Returns one folded string per line."""
+    lines = list(lines)
+    joined = '\n'.join(lines)
+    segs = _md_spans(joined)
+    res, off = [], 0
+    for l in lines:
+        a, b, parts = off, off + len(l), []
+        for code, x, y in segs:
+            x, y = max(x, a), min(y, b)
+            if x >= y:
+                continue
+            parts.append(_md_inline_code(joined[x:y], fold) if code else _md_inline_text(joined[x:y], fold))
+        res.append(' '.join(''.join(parts).split()))
+        off = b + 1
+    return res
+
+def md_inline(s, fold=True):
+    return md_inline_lines([s], fold)[0]
 
 def md_body(line):
     return _MD_BQ.sub('', line) if line.lstrip().startswith('>') else line
@@ -364,29 +471,124 @@ def md_cells(line):
         s = s[:-1]
     return [c.strip() for c in _MD_PIPE.split(s)]
 
+# Q-976 (batch 43; Codex gpt-6-astra Q964-D01#1, D03#2, D03#7, D03#10): THE CONTAINER MODEL.
+# A fence belongs to its CONTAINER, as CommonMark has it: its block-quote depth and the list item it
+# sits in. (a) A fence opened inside `>` closes only on a line of the same depth; a line of a
+# SHALLOWER depth (an unquoted line, a blank line with no `>`) ends the block quote and with it the
+# fence -- a quoted ``` no longer pairs with an unquoted one and hides the prose between them.
+# (e) A fence may be indented 0-3 columns past its container's content column; a ``` line indented
+# 4 or more is indented code (scanned as prose here, as before), not a fence. (f) A fence that never
+# closes, or whose container ends first, is UNCLOSED: its lines stay prose (scanned, fail-closed, as
+# before), and every block it covers carries 'shadow': True, because as rendered it is code -- a leg
+# that HARVESTS from text (a heading anchor, an exemption marker) must not take it from there.
+# (g) A LIST ITEM is a block of its own: a paragraph ends where the next list item starts, so two
+# items are two units and a qualifier in one cannot reach the other.
+_MD_BQ1 = _mre.compile(r'[ \t]*>[ \t]?')
+_MD_OL = _mre.compile(r'^[ \t]*(\d{1,9})[.)](?:[ \t]+|$)')
+
+def _md_indent(s):
+    w = 0
+    for c in s:
+        if c == ' ':
+            w += 1
+        elif c == '\t':
+            w += 4 - w % 4
+        else:
+            break
+    return w
+
+def _md_depth(line):
+    d, s = 0, line
+    while True:
+        m = _MD_BQ1.match(s)
+        if not m:
+            return d, s
+        d += 1
+        s = s[m.end():]
+
+def _md_strip_depth(line, d):
+    s = line
+    for _ in range(d):
+        m = _MD_BQ1.match(s)
+        if not m:
+            break
+        s = s[m.end():]
+    return s
+
+def _md_item(body, interrupts):
+    """The content column of the list item `body` opens, or None. An ordered item other than 1, or
+    an empty item, cannot interrupt a paragraph (CommonMark), so a wrapped "8. The" stays prose."""
+    m = _MD_LIST.match(body)
+    if not m or _MD_HR.match(body):
+        return None
+    rest = body[m.end():]
+    if interrupts:
+        o = _MD_OL.match(body)
+        if (o and int(o.group(1)) != 1) or not rest.strip():
+            return None
+    mk = m.group(0).rstrip(' \t')
+    sp = len(m.group(0)) - len(mk)
+    w = _md_indent(body) + len(mk.strip()) + (sp if 1 <= sp <= 4 and rest.strip() else 1)
+    return w
+
 def md_parse(text):
     L = md_text(text).split('\n')
     n = len(L)
     B = [md_body(l) for l in L]
+    DEP = [_md_depth(l)[0] for l in L]
     kind = ['text'] * n
-    info = {}
-    unclosed = []
+    info, body, item = {}, {}, set()
+    unclosed, shadow = [], [False] * n
+    stack, sdep, prev_text = [], 0, False
     i = 0
     while i < n:
-        m = _MD_FENCE.match(B[i])
-        if m and not (m.group(1)[0] == '`' and '`' in m.group(2)):
+        d = DEP[i]
+        bi = _md_strip_depth(L[i], d)
+        if d != sdep:
+            stack, sdep = [], d
+        if not bi.strip():
+            prev_text = False
+            i += 1
+            continue
+        ind = _md_indent(bi)
+        m = _MD_FENCE.match(bi)
+        lead = m is not None or _MD_ATX.match(bi) is not None or _MD_HR.match(bi) is not None
+        while stack and ind < stack[-1] and not (prev_text and not lead and _md_item(bi, True) is None):
+            stack.pop()                     # the line is not indented into the item: the item ended
+        base = stack[-1] if stack else 0
+        if m and 0 <= ind - base <= 3 and not (m.group(1)[0] == '`' and '`' in m.group(2)):
             close = _mre.compile(r'^[ \t]*' + _mre.escape(m.group(1)[0]) + '{%d,}[ \t]*$' % len(m.group(1)))
-            j = i + 1
-            while j < n and not close.match(B[j]):
+            j, end, closed = i + 1, n, False
+            while j < n:
+                if DEP[j] < d:
+                    end = j; break          # the block quote ended, and the fence with it
+                bj = _md_strip_depth(L[j], d)
+                if bj.strip() and stack and _md_indent(bj) < base:
+                    end = j; break          # the list item ended, and the fence with it
+                if close.match(bj) and _md_indent(bj) - base <= 3:
+                    closed = True; break
                 j += 1
-            if j < n:
+            if closed:
                 kind[i] = kind[j] = 'fence'
                 info[i] = m.group(2).strip()
+                cut = ind
                 for k in range(i + 1, j):
                     kind[k] = 'code'
+                    bk = _md_strip_depth(L[k], d)
+                    body[k] = bk[min(cut, _md_indent(bk)):] if bk[:1] != '\t' else bk.lstrip(' \t')
                 i = j + 1
+                prev_text = False
                 continue
             unclosed.append(i + 1)
+            for k in range(i, end):
+                shadow[k] = True
+        w = _md_item(bi, prev_text)
+        if w is not None and ind - base <= 3:
+            while stack and stack[-1] > ind:
+                stack.pop()
+            stack.append(w)
+            item.add(i)
+        prev_text = not lead
         i += 1
     for i in range(n):
         if kind[i] != 'text':
@@ -418,7 +620,7 @@ def md_parse(text):
             continue
         if _MD_SETEXT.match(B[i]) and i > 0 and kind[i - 1] == 'text':
             a = i - 1
-            while a > 0 and kind[a - 1] == 'text':
+            while a > 0 and kind[a - 1] == 'text' and (a not in item):
                 a -= 1
             if not _MD_LIST.match(B[a]):
                 kind[i] = 'setext'
@@ -437,15 +639,18 @@ def md_parse(text):
             while kind[j] != 'fence':
                 j += 1
             blocks.append({'kind': 'code', 'start': i + 1, 'end': j + 1, 'info': info.get(i, ''),
-                           'lines': [(x + 1, L[x]) for x in range(i + 1, j)]})
+                           'lines': [(x + 1, L[x]) for x in range(i + 1, j)],
+                           'body': [(x + 1, body[x]) for x in range(i + 1, j)], 'shadow': False})
             i = j + 1
             continue
         if k == 'heading':
             m = _MD_ATX.match(B[i])
             t = m.group(2) or ''
             t = '' if _mre.fullmatch(r'#+', t) else _mre.sub(r'[ \t]+#+$', '', t)
+            tx = md_inline(t)
             blocks.append({'kind': 'heading', 'start': i + 1, 'end': i + 1, 'level': len(m.group(1)),
-                           'title': t, 'text': md_inline(t)})
+                           'title': t, 'text': tx, 'lines': [(i + 1, L[i])], 'starts': [0],
+                           'lns': [i + 1], 'shadow': shadow[i]})
             i += 1
             continue
         if k in ('thead', 'tdelim', 'trow'):
@@ -456,32 +661,38 @@ def md_parse(text):
             rows = [(x + 1, md_cells(L[x])) for x in range(i + (2 if delim else 1), j)]
             blocks.append({'kind': 'table', 'start': i + 1, 'end': j, 'delim': delim,
                            'header': (i + 1, md_cells(L[i])), 'rows': rows,
-                           'lines': [(x + 1, L[x]) for x in range(i, j)]})
+                           'lines': [(x + 1, L[x]) for x in range(i, j)], 'shadow': shadow[i]})
             i = j
             continue
         if k == 'hr':
-            blocks.append({'kind': 'hr', 'start': i + 1, 'end': i + 1})
+            blocks.append({'kind': 'hr', 'start': i + 1, 'end': i + 1, 'shadow': shadow[i]})
             i += 1
             continue
-        j = i
-        while j < n and kind[j] == 'text':
+        j = i + 1
+        while j < n and kind[j] == 'text' and j not in item:
             j += 1
         if j < n and kind[j] == 'setext':
             t = ' '.join(B[x].strip() for x in range(i, j))
-            blocks.append({'kind': 'heading', 'start': i + 1, 'end': j + 1,
-                           'level': 1 if B[j].strip()[0] == '=' else 2, 'title': t, 'text': md_inline(t)})
+            hb = md_para([(x + 1, L[x]) for x in range(i, j)])
+            hb.update({'kind': 'heading', 'end': j + 1, 'level': 1 if B[j].strip()[0] == '=' else 2,
+                       'title': t, 'shadow': shadow[i]})
+            blocks.append(hb)
             i = j + 1
             continue
-        blocks.append(md_para([(x + 1, L[x]) for x in range(i, j)]))
+        pb = md_para([(x + 1, L[x]) for x in range(i, j)])
+        pb['shadow'] = shadow[i]
+        blocks.append(pb)
         i = j
     return L, kind, blocks, unclosed
 
 def md_para(lines):
     parts, starts, lns, off = [], [], [], 0
-    for ln, raw in lines:
-        # a bullet marker is dropped on any line; an ORDERED marker only on the paragraph's first line,
-        # since a wrapped line that starts "8. The" is prose whose "8." must survive
-        s = md_inline((_MD_LIST if not parts else _MD_BULLET).sub('', md_body(raw), count=1))
+    # a bullet marker is dropped on any line; an ORDERED marker only on the paragraph's first line,
+    # since a wrapped line that starts "8. The" is prose whose "8." must survive. Q-976: the lines
+    # are folded TOGETHER, so a code span that wraps is code on both of its lines.
+    bodies = [(_MD_LIST if not k else _MD_BULLET).sub('', md_body(raw), count=1)
+              for k, (ln, raw) in enumerate(lines)]
+    for (ln, raw), s in zip(lines, md_inline_lines(bodies)):
         if parts:
             off += 1
         starts.append(off)
@@ -491,10 +702,27 @@ def md_para(lines):
     return {'kind': 'para', 'start': lines[0][0], 'end': lines[-1][0], 'lines': list(lines),
             'text': ' '.join(parts), 'starts': starts, 'lns': lns}
 
+# Q-976 (Codex Q964-D03#7): a BULLET keeps its marker in the flattened text, written `-` whatever the
+# source used. md_inline drops every `*`, so a `* item` line lost its marker and two items read as one
+# sentence (a `-` item kept it). The marker is what tells a unit splitter a new item starts here.
+_MD_FLATB = _mre.compile(r'^([ \t]*(?:>[ \t]?)*[ \t]*)[*+](?=[ \t])')
+
 def md_flatten(text):
+    src = md_text(text).split('\n')
+    for k, l in enumerate(src):
+        if _MD_BULLET.match(md_body(l)) and not _MD_HR.match(md_body(l)):
+            src[k] = _MD_FLATB.sub(r'\1-', l, count=1)
+    folded, run = [], []
+    for l in src + ['']:          # Q-976: each blank-line-delimited run is folded together (md_inline_lines)
+        if l.strip():
+            run.append(l)
+            continue
+        folded.extend(md_inline_lines(run))
+        run = []
+        folded.append('')
+    folded = folded[:len(src)]
     out, starts, off = [], [], 0
-    for l in md_text(text).split('\n'):
-        s = md_inline(l)
+    for s in folded:
         if out:
             out.append(' ')
             off += 1
@@ -502,6 +730,34 @@ def md_flatten(text):
         out.append(s)
         off += len(s)
     return ''.join(out), starts
+
+# md_units(text) -> [unit]: the SCOPE UNITS a prose leg reads, in source order (Q-977, batch 43;
+# Codex gpt-6-astra Q964-D06#19, D06#20): each paragraph and each list item (md_parse splits them),
+# each heading, each table row, and each code line on its own -- code is still SCANNED, one line at a
+# time, so moving a claim into a fence moves it into no-one's window. A unit is a dict with 'start'
+# and 'end' (1-based source lines), 'lines' [(lineno, raw)] and 'text' (md_inline'd, container
+# markers dropped). A leg that walked raw lines broke a unit at every `>` line, so a quoted
+# two-line claim was two half-claims; and it read `**not**` as written.
+def md_units(text):
+    L, kind, blocks, unc = md_parse(text)
+    out = []
+    for b in blocks:
+        k = b['kind']
+        if k in ('para', 'heading'):
+            out.append({'start': b['start'], 'end': b['end'], 'lines': list(b['lines']), 'text': b['text'],
+                        'kind': k})
+        elif k == 'table':
+            for ln, raw in b['lines']:
+                if kind[ln - 1] == 'tdelim':
+                    continue
+                out.append({'start': ln, 'end': ln, 'lines': [(ln, raw)], 'text': md_inline(md_body(raw)),
+                            'kind': 'row'})
+        elif k == 'code':
+            for (ln, raw), (_, x) in zip(b['lines'], b['body']):
+                if raw.strip():
+                    out.append({'start': ln, 'end': ln, 'lines': [(ln, raw)], 'text': md_inline(x),
+                                'kind': 'code'})
+    return out
 
 def md_lno(block_or_starts, off):
     if isinstance(block_or_starts, dict):

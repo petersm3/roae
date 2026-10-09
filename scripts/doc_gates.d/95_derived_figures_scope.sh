@@ -130,7 +130,9 @@ for f in files:
     # the every-number failure recorded in the LEG P note; measured on the public corpus after the
     # change: no new HIT, NOTE or UNATTRIB line (see the Q-965 report).
     for pb in BLOCKS:
-        if pb['kind'] != 'para': continue
+        # Q-977 (batch 43; Codex gpt-6-astra Q964-D06#10): a HEADING is a unit too ("### d3 10T (§[3]):
+        # boundary 15 has N survivors" states a figure); md_parse gives it the same lines/text/offset table.
+        if pb['kind'] not in ('para', 'heading'): continue
         para = '\n'.join(r for _, r in pb['lines']); ln = pb['start']
         if not re.search(r'§\s*\[(3|6|9)\]', para): continue
         if para.lstrip().startswith('⚠') or '[CORRECTED' in para: continue
@@ -238,9 +240,14 @@ for f in files:
     # it cannot delimit is a block it cannot certify.
     L,KIND,_B,UNC=md_parse(md_text(io.open(f,encoding="utf-8").read()))
     for u in UNC: print("UNCLOSED\t%s:%d"%(f,u))
+    # Q-977 (Codex Q964-D06#12): a code line is read as its CONTENT, the block-quote / list container
+    # stripped (md_parse 'body'), so a `>`-quoted display is judged; `s[:1] in "#$>|-*"` below skipped
+    # every quoted code line once the fences came from md_parse.
+    CODE={ln:x for b in _B if b["kind"]=="code" for ln,x in b["body"]}
     for i,line in enumerate(L,1):
         if KIND[i-1]=="fence": continue
         if not (KIND[i-1]=="code" or re.match(r"^ {4,}\S",line)): continue
+        if KIND[i-1]=="code": line=CODE.get(i,line)
         s=line.strip()
         if s[:1] in "#$>|-*": continue
         parts=s.split(" = ")
@@ -931,10 +938,15 @@ gate_lean_header_verbatim() {
   local F=documentation/TRIGRAM_STRUCTURE.md L=lean/TrigramTheorems.lean out
   require_tracked "$F" || { [ $? -eq 2 ] && return 1; echo "  [skip] $F absent and untracked"; return 0; }
   require_tracked "$L" || { [ $? -eq 2 ] && return 1; echo "  [skip] $L absent and untracked"; return 0; }
-  out=$(python3 - "$F" "$L" <<'PY'
+  out=$( { _md_norm_prelude; cat <<'PY'
 import re, io, sys
 F,L=sys.argv[1],sys.argv[2]
 doc=io.open(F,encoding="utf-8").read().split("\n")
+# Q-977 (batch 43; Codex gpt-6-astra Q964-D06#17): the fenced blocks are the shared normaliser's
+# (md_parse: ``` or ~~~, closed by the same character at the same or a greater length), so the block
+# after a mention is the next CODE BLOCK, whichever fence it uses. The ```-only scan skipped a ~~~
+# block and judged a later one.
+FENCED={b["start"]-1:b for b in md_parse("\n".join(doc))[2] if b["kind"]=="code"}
 lean=[l.rstrip() for l in io.open(L,encoding="utf-8").read().split("\n")]
 stripped=[re.sub(r"^  ","",l) for l in lean]
 # Q-967 (Q-835 A10#18): EVERY "binding ledger" mention and the fence it introduces is judged, not
@@ -945,12 +957,10 @@ starts=[i for i,l in enumerate(doc) if "binding ledger" in l]
 if not starts: print("ERROR\t%s no longer says which block is the binding ledger"%F); sys.exit(0)
 judged=set(); sizes=[]; first_a=None
 for start in starts:
-    i=start
-    while i<len(doc) and not doc[i].strip().startswith("```"): i+=1
+    i=min((k for k in FENCED if k>=start), default=len(doc))
     if i>=len(doc) or i in judged: continue
     judged.add(i)
-    blk=[]; j=i+1
-    while j<len(doc) and not doc[j].strip().startswith("```"): blk.append(doc[j].rstrip()); j+=1
+    blk=[x.rstrip() for _,x in FENCED[i]["body"]]
     while blk and blk[-1]=="": blk.pop()
     if not blk: print("ERROR\t%s:%d: the ledger fence is empty"%(F,i+1)); sys.exit(0)
     sizes.append(len(blk))
@@ -970,7 +980,7 @@ for start in starts:
 if not sizes: print("ERROR\t%s has no fenced block after 'binding ledger'"%F); sys.exit(0)
 print("POP\t%d\t%d"%(min(sizes),(first_a if first_a is not None else -1)+1))
 PY
-) || { echo "  [FAIL] GATE 66 scanner failed — NOTHING was checked."; return 1; }
+} | python3 - "$F" "$L" ) || { echo "  [FAIL] GATE 66 scanner failed — NOTHING was checked."; return 1; }
   local err; err=$(printf '%s\n' "$out" | awk -F'\t' '$1=="ERROR"{print $2}')
   if [ -n "$err" ]; then echo "  [FAIL] GATE 66 could not judge its subject: $err"; return 1; fi
   local pn pa
@@ -1775,17 +1785,17 @@ for m in mds:
         if 'no combination of other boundaries' in low: return 'no-combination'
         if 'mandator' in low and any(q in low for q in QUANT): return 'quantified-mandatory'
         return None
-    i = 0
-    while i < len(lines):
-        a = i
-        b = i
-        while b + 1 < len(lines) and not starts_unit(lines[b+1]): b += 1
-        i = b + 1
-        utext = md_inline(' '.join(lines[a:b+1])).lower()
+    # Q-977 (batch 43; Codex gpt-6-astra Q964-D06#19): the units are the shared normaliser's
+    # (md_units: a paragraph, a list item, a heading, a table row, one code line), read as rendered.
+    # starts_unit() broke a unit at EVERY `>` line, so a block-quoted claim wrapped over two lines was
+    # two halves, neither of them a claim.
+    for u in md_units('\n'.join(lines)):
+        a, b = u['start'] - 1, u['end'] - 1
+        utext = u['text'].lower()
         kind = kind_of(utext)
         if not kind:
             continue
-        per = [x for x in range(a, b + 1) if kind_of(md_inline(lines[x]).lower())]
+        per = [x for x in range(a, b + 1) if kind_of(md_inline(md_body(lines[x])).lower())]
         n = max(1, len(per))
         pop += n
         if any(t in utext for t in SCOPE):
@@ -1888,7 +1898,7 @@ PY
 gate_merge_semantics() {
   echo "== GATE 76: prose may not deny a merge capability the binary's env surface provides =="
   local out err npara nden
-  out=$( { _wm_prelude; cat <<'PY'
+  out=$( { _md_norm_prelude; _wm_prelude; cat <<'PY'
 import subprocess, sys, os
 ENV = ('SOLVE_MERGE_MODE', 'SOLVE_MERGE_CHUNK_GB')
 CLI = 'documentation/SOLVE_C_CLI.md'
@@ -1940,12 +1950,13 @@ for m in mds:
         L = open(m, encoding='utf-8').read().split('\n')
     except OSError as e:
         print('ERR\t%s could not be read: %s' % (m, e)); sys.exit(0)
-    i = 0
-    while i < len(L):
-        a = i; b = i
-        while b + 1 < len(L) and not starts_unit(L[b+1]): b += 1
-        i = b + 1
-        flat = ' '.join(' '.join(L[a:b+1]).split()).lower()
+    # Q-977/Q-978 (batch 43; Codex gpt-6-astra Q964-D06#20): the units are md_units (as GATE 75), and
+    # the denial is read on the RENDERED text, so "is **not** implemented" is "is not implemented".
+    # The narration markers are still read on the raw unit too ("*(corrected" is markup).
+    for u in md_units('\n'.join(L)):
+        a, b = u['start'] - 1, u['end'] - 1
+        raw = ' '.join(' '.join(x for _, x in u['lines']).split()).lower()
+        flat = u['text'].lower()
         if not any(n in flat for n in NOUN): continue
         npara += 1
         poss = []
@@ -1963,7 +1974,9 @@ for m in mds:
             tails = [k for k in (flat.find('. ', pos), flat.find('; ', pos), flat.find(' — ', pos)) if k >= 0]
             clause = clause + flat[pos:min(tails) if tails else len(flat)]
             if not NEGRX.search(clause): continue
-            if any(x in flat for x in NARR):
+            # Q-978: a word marker counts only un-negated (wm_any: "this is not superseded" narrates
+            # nothing); a markup marker ("[corrected", "*(corrected") is read on the raw unit
+            if wm_any(flat, [x for x in NARR if x[:1].isalnum()]) or any(x in raw for x in NARR if not x[:1].isalnum()):
                 nnarr += 1
             else:
                 nden += 1

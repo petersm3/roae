@@ -265,12 +265,15 @@ for f in (l.strip() for l in sys.stdin):
         print("%s:0:could not be read (%s), so it was NOT scanned" % (f, e)); continue
     for b in blocks:
         raw = L[b["start"] - 1]
-        if b["kind"] != "heading" or re.match(r"#{1,6}[ \t]", raw) or raw.lstrip().startswith(">"):
+        if b["kind"] != "heading" or raw.lstrip().startswith(">"):
             continue
-        if MK.search(b["title"]):
+        # Q-977 (batch 43; Codex gpt-6-astra Q964-D04#3): the heading as RENDERED (md_parse "text":
+        # entities decoded, emphasis dropped), on every heading form, column-0 ATX included -- the
+        # raw grep above cannot read "D&#82;AFT" or "**DRA**FT". Duplicates of its hits are merged.
+        if MK.search(b["text"]) or MK.search(b["title"]):
             print("%s:%d:%s" % (f, b["start"], raw))
 ') || { echo "  [FAIL] GATE 20's heading scanner failed — NOTHING was checked."; rm -f "${_G20_OUT:-}"; return 1; }
-  hits=$(printf '%s\n%s\n' "$hits" "$hits2" | grep .)
+  hits=$(printf '%s\n%s\n' "$hits" "$hits2" | grep . | sort -t: -k1,1 -k2,2n -u)
   if [ -n "$hits" ]; then
     echo "$hits" | sed 's/^/  [FAIL] heading-form draft marker: /'
     echo "         A published document must not carry a section announcing it is unpublished."
@@ -297,14 +300,31 @@ for f in (l.strip() for l in sys.stdin):
   # forged by silence, which is the property the whole class is short of.
   local _g20_docs _g20_scanned
   _g20_docs=$(printf '%s\n' "$DOCS" | grep -c .)
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    awk -v FN="$f" '
-      /^ {0,3}#{1,6}[[:space:]]/ { inck = (tolower($0) ~ /checklist/) ? 1 : 0 }
-      /^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+\[ \]/ { if (!inck) printf "  [FAIL] %s:%d unchecked box outside a reader checklist: %s\n", FN, NR, substr($0, 1, 72) }
-      END { printf "##SCANNED\t%s\n", FN }
-    ' "$f" || printf '##AWKFAIL\t%s\n' "$f"
-  done < <(printf '%s\n' "$DOCS") > "$_G20_OUT" 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
+  # Q-977 (batch 43; Codex gpt-6-astra Q964-D04#4): the checklist SCOPE is set by the shared
+  # normaliser's headings (md_parse: setext and indented ATX too, never a `#` line inside a code
+  # fence), and a box is found on the line's body (a `> - [ ]` quoted box is a box). The awk scope
+  # reset only at a column-0..3 ATX line, so a setext "Pending publication work" under a
+  # "## Reader checklist" inherited the exemption. The receipts are unchanged: one ##SCANNED per file
+  # the scanner finished, ##AWKFAIL (kept as the token the checks below read) for one it could not.
+  printf '%s\n' "$DOCS" | python3 -c "$(_md_norm_prelude)"'
+import sys, re
+BOX = re.compile(r"^[ \t]*(?:[-*+]|[0-9]+[.)])[ \t]+\[ \]")
+for f in (l.strip() for l in sys.stdin):
+    if not f:
+        continue
+    try:
+        L, kind, blocks, unc = md_parse(md_read(f))
+    except Exception:
+        print("##AWKFAIL\t%s" % f); continue
+    hd = {b["start"]: ("checklist" in b["text"].lower()) for b in blocks if b["kind"] == "heading"}
+    inck = False
+    for i, line in enumerate(L, 1):
+        if i in hd:
+            inck = hd[i]
+        if BOX.match(md_body(line)) and not inck:
+            print("  [FAIL] %s:%d unchecked box outside a reader checklist: %s" % (f, i, line[:72]))
+    print("##SCANNED\t%s" % f)
+' > "$_G20_OUT" 2>/dev/null   # Q-284: guarded $DOCS, not a second unguarded enumeration
   # Codex v2 / fail-open class: this wrote to /tmp/g20_$$ with the redirect UNCHECKED
   # and stderr discarded. If the redirect failed -- unwritable /tmp, full disk -- the
   # file never existed, `[ -s ... ]` was false, and the gate printed "[ok] every

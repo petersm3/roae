@@ -40597,6 +40597,435 @@ class TestQ982Q983Q985Batch42(unittest.TestCase):
 # end class TestQ982Q983Q985Batch42 (batch 42, Q-982/Q-983/Q-985)
 
 
+class TestQ976Q977Q978Batch43(unittest.TestCase):
+    """Q-976 / Q-977 / Q-978 (batch 43; from the Q-964 Codex lens-A delta review, Codex gpt-6-astra,
+    review_2026_09_27/Q964_CODEX_DELTA_REPORT.md rows N-01, N-02, N-03; targets Q964-Dnn#k below).
+      Q-976 (N-01): the shared normaliser's container and inline model -- a fence bound to its
+        block quote and list item, indented ``` not a fence, an unclosed fence's headings no anchor,
+        emphasis stripped outside code spans only, link text kept and its destination dropped, and a
+        `*` bullet still a list item when flattened.
+      Q-977 (N-02): consumers that bypassed the normaliser or knew only ``` fences, ATX headings or
+        unquoted lines now read md_parse blocks / md_units.
+      Q-978 (N-03): word_match.sh's clause, word and token rules (comma, curly apostrophe, hyphenated
+        compound, "no doubt", a negation after the value, PICK=2 inside PICK=2,000) and the exemption
+        paths that were negation-blind (quoted(), RELSE).
+
+    DATA-DRIVEN, the TestQ966WordMatcher shape: one row per plant with its un-evaded CONTROL twin,
+    each run as the named leg alone on a scratch git copy of THIS working tree's tracked files:
+      * the plant must FAIL on the fixed scripts, and a FAIL line (or the indented file list under one)
+        must carry the plant's needle;
+      * the same plant must PASS on the uncured scripts of public main f1b27e32 (gates-must-discriminate);
+      * the control must FAIL on the fixed scripts AND on the uncured ones (the twin still fails: the
+        leg could always see the plain form, so the plant's PASS there is the evasion, not a blind leg);
+      * the unplanted tree must be green on every leg involved, on both script sets (the precondition
+        of the uncured half: an uncured leg that is already red proves nothing).
+    Key phrases are split with literal concatenation so this file does not restate a registered figure.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PIN = "f1b27e32"   # public main before batch 43: the uncured scripts
+    R, G, DEV = "README.md", "documentation/GUIDE.md", "documentation/DEVELOPMENT.md"
+    TR1 = "reports/TR1_EIGHT_CENTURIES_MEASURED.md"
+    NULLP = "null P = 0.0" "34"
+    SHA_Q964 = "0b5e5b1ef53b4a1bb1c5e7d2f4c49d9cfb4ba3c3c06c1e7a7e7cbe1e3b9b9c1d"   # 64 hex, no registered sha
+    TSHA = None   # cmd_sha12 of "$ echo q964", set in setUpClass
+    PLANTS = [
+        # ---- Q-976 (N-01): md_normalise.sh
+        ('D01#1', 'tr12-output-paths', 'q964_missing.tsv',
+         [(R, 'append', '\n> ```\n> example\n\nSee `reports/tr12/q964_missing.tsv`.\n```\n')],
+         [(R, 'append', '\nSee `reports/tr12/q964_missing.tsv`.\n')]),
+        ('D01#2', 'fiber-anchor', 'README.md',
+         [(R, 'append', '\nThe fiber is `1,720,320 = 3*5*7*2^15`.\n')],
+         [(R, 'append', '\nThe fiber is `1,720,320 = 3\u00b75\u00b77\u00b72^15`.\n')]),
+        ('D01#3a', 'withdrawn-markers', G,
+         [(G, 'append', '\nThe null [P](https://example.org/q964) = 0.0' '34.\n')],
+         [(G, 'append', '\nThe ' + NULLP + '.\n')]),
+        ('D01#3b', 'withdrawn-markers', G,
+         [(G, 'append', '\nThe ' + NULLP + ' ([details](https://example.org/q964/withdrawn)).\n')],
+         [(G, 'append', '\nThe ' + NULLP + ' (details).\n')]),
+        ('D03#2', 'links-internal', 'q964-ghost',
+         [(R, 'append', '\nSee [ghost](#q964-ghost).\n\n~~~\n ## Q964 ghost\n')],
+         [(R, 'append', '\nSee [ghost](#q964-ghost).\n\n~~~\n ## Q964 ghost\n~~~\n')]),
+        ('D03#7', 'liveness', 'README.md',
+         [(R, 'append', '\n* A separate run completed\n* The 9999T run established the result.\n')],
+         [(R, 'append', '\n- A separate run completed\n- The 9999T run established the result.\n')]),
+        ('D03#10', 'revhist', TR1,
+         [(TR1, 'after_line', '    ```\n| v0.9 | 2025-01-01 | q964 |\n    ```', '| v1.39 ')],
+         [(TR1, 'after_line', '| v0.9 | 2025-01-01 | q964 |', '| v1.39 ')]),
+        # ---- Q-977 (N-02): consumers read md_parse blocks
+        ('D02#1', 'transcripts', DEV,
+         [(DEV, 'append', '\n~~~text\nf1b27e32\n~~~\nRun this.\n\n```\n$ echo q964\nq964\n```\n'),
+          ('documentation/DOC_GATE_TRANSCRIPTS.tsv', 'append', '@TSHA@pinned-tree')],
+         [(DEV, 'append', '\n~~~text\nno-commit-here\n~~~\nRun this.\n\n```\n$ echo q964\nq964\n```\n'),
+          ('documentation/DOC_GATE_TRANSCRIPTS.tsv', 'append', '@TSHA@pinned-tree')]),
+        ('D02#2', 'transcripts', DEV,
+         [(DEV, 'append', '\n> ~~~sh\n> $ echo q964\n> q964\n> ~~~\n')],
+         [(DEV, 'append', '\n~~~sh\n$ echo q964\nq964\n~~~\n')]),
+        ('D03#8', 'liveness', 'README.md',
+         [('documentation/CANONICAL_HASHES.md', 'append', '\n## 9999T\n\nNo hash here.\n\n ## 560T\n\n`' + SHA_Q964 + '`\n'),
+          (R, 'append', '\nThe 9999T run established the result.\n')],
+         [('documentation/CANONICAL_HASHES.md', 'append', '\n## 9999T\n\nNo hash here.\n\n## 560T\n\n`' + SHA_Q964 + '`\n'),
+          (R, 'append', '\nThe 9999T run established the result.\n')]),
+        ('D04#3a', 'publication-state', 'README.md',
+         [(R, 'append', '\n   ## D&#82;AFT notes\n')],
+         [(R, 'append', '\n   ## DRAFT notes\n')]),
+        ('D04#3b', 'publication-state', 'README.md',
+         [(R, 'append', '\n**DRA**FT notes\n=====\n')],
+         [(R, 'append', '\nDRAFT notes\n=====\n')]),
+        ('D04#3c', 'publication-state', 'README.md',          # sibling: a column-0 ATX heading the python half skipped
+         [(R, 'append', '\n## D&#82;AFT notes\n')],
+         [(R, 'append', '\n## DRAFT notes\n')]),
+        ('D04#4a', 'publication-state', 'README.md',
+         [(R, 'append', '\n## Reader checklist\n\nPending publication work\n---\n\n* [ ] Finish the q964 report\n')],
+         [(R, 'append', '\n## Reader checklist\n\n## Pending publication work\n\n* [ ] Finish the q964 report\n')]),
+        ('D04#4b', 'publication-state', 'README.md',          # sibling: a `# checklist` line INSIDE a fence set the scope
+         [(R, 'append', '\n## Notes\n\n```sh\n# checklist\n```\n\n- [ ] Finish the q964 report\n')],
+         [(R, 'append', '\n## Notes\n\n- [ ] Finish the q964 report\n')]),
+        ('D05#8a', 'withdrawn-markers', 'README.md',
+         [('documentation/CORRECTIONS.md', 'append', '\n~~~text\n## CX-9999\n' + NULLP + '\n~~~\n'),
+          (R, 'append', '\nThe ' + NULLP + ' ([CX-9999](documentation/CORRECTIONS.md#cx-9999)).\n')],
+         [('documentation/CORRECTIONS.md', 'append', '\n```text\n## CX-9999\n' + NULLP + '\n```\n'),
+          (R, 'append', '\nThe ' + NULLP + ' ([CX-9999](documentation/CORRECTIONS.md#cx-9999)).\n')]),
+        ('D05#8b', 'canonical-ceiling', 'README.md',          # the GATE 26 twin of the ledger parser (80:771)
+         [('documentation/CORRECTIONS.md', 'append', '\n~~~text\n## CX-9998\nThere are 3.3\u00d710\u00b3\u2077 canonical orderings (WITHDRAWN).\n~~~\n'),
+          (R, 'append', '\nThere are 3.3\u00d710\u00b3\u2077 canonical orderings ([CX-9998](documentation/CORRECTIONS.md#cx-9998)).\n')],
+         [('documentation/CORRECTIONS.md', 'append', '\n```text\n## CX-9998\nThere are 3.3\u00d710\u00b3\u2077 canonical orderings (WITHDRAWN).\n```\n'),
+          (R, 'append', '\nThere are 3.3\u00d710\u00b3\u2077 canonical orderings ([CX-9998](documentation/CORRECTIONS.md#cx-9998)).\n')]),
+        ('D06#10', 'log-derived-figures', 'README.md',
+         [(R, 'append', '\n### d3 10T (\u00a7[3]): boundary 15 has 999,999,999 survivors\n')],
+         [(R, 'append', '\nThe d3 10T (\u00a7[3]) boundary 15 has 999,999,999 survivors.\n')]),
+        ('D06#12', 'nontrivial-display', G,
+         [(G, 'append', '\n> ```\n> sha256(E) = sha256(E)\n> ```\n')],
+         [(G, 'append', '\n```\nsha256(E) = sha256(E)\n```\n')]),
+        ('D06#17', 'lean-header-verbatim', 'only 1 line(s)',   # the planted 1-line ~~~ block is the one judged
+         [('documentation/TRIGRAM_STRUCTURE.md', 'replace', '[CITATIONS.md](CITATIONS.md).\n\n```',
+           '[CITATIONS.md](CITATIONS.md).\n\n~~~\nnot a line of the lean header q964\n~~~\n\n```')],
+         [('documentation/TRIGRAM_STRUCTURE.md', 'replace', '[CITATIONS.md](CITATIONS.md).\n\n```',
+           '[CITATIONS.md](CITATIONS.md).\n\n```\nnot a line of the lean header q964\n```\n\n```')]),
+        ('D02-sib', 'repro-reach', 'kc-q964-misspelt',   # sibling: _fence_caption's parity toggle (80:257)
+         [(R, 'append', '\n````\n~~~\n### PENDING flag (q964)\n````\n\nRun `solve --kc-q964-misspelt` now.\n')],
+         [(R, 'append', '\n````\n### PENDING flag (q964)\n````\n\nRun `solve --kc-q964-misspelt` now.\n')]),
+        ('D06#19', 'boundary-scope', 'README.md',
+         [(R, 'append', '\n> Boundaries 25 and 27 are mandatory in\n> every minimum set.\n')],
+         [(R, 'append', '\nBoundaries 25 and 27 are mandatory in every minimum set.\n')]),
+        # ---- Q-978 (N-03): word_match.sh and the exemption paths
+        ('D01#5', 'completion-semantics', 'DEPLOYMENT.md',
+         [('documentation/DEPLOYMENT.md', 'replace', 'It is **NOT** a claim that the search space was exhausted.',
+           'There was no timeout, the search space was ' 'exhausted.')],
+         [('documentation/DEPLOYMENT.md', 'replace', 'It is **NOT** a claim that the search space was exhausted.',
+           'The search space was ' 'exhausted.')]),
+        ('D04#7', 'completion-semantics', 'DEPLOYMENT.md',
+         [('documentation/DEPLOYMENT.md', 'replace', 'It is **NOT** a claim that the search space was exhausted.',
+           'There is no doubt that the search space was ' 'exhausted.')],
+         [('documentation/DEPLOYMENT.md', 'replace', 'It is **NOT** a claim that the search space was exhausted.',
+           'There is certainty that the search space was ' 'exhausted.')]),
+        ('D01#6', 'history-scope', 'Q964 plant',
+         [('documentation/HISTORY.md', 'after_line', '| Q964 plant | over 31.6M solutions | Proven universally; isn\u2019t superseded. |', '|---------|---------------|--------|')],
+         [('documentation/HISTORY.md', 'after_line', "| Q964 plant | over 31.6M solutions | Proven universally; isn't superseded. |", '|---------|---------------|--------|')]),
+        ('D01#9', 'published-consistency', 'G11',
+         [('documentation/SEARCH_SPACE_SIZE.md', 'replace', 'PICK=2', 'PICK=2,000')],
+         [('documentation/SEARCH_SPACE_SIZE.md', 'replace', 'PICK=2', 'PICK=2000')]),
+        ('D04#5', 'hex-prefix', 'a09280fb0',
+         [(R, 'append', '\nCurrent digest (typo-free): a09280fb0\u2026\n')],
+         [(R, 'append', '\nCurrent digest: a09280fb0\u2026\n')]),
+        ('D05#10', 'dvd24-scope', 'README.md',
+         [(R, 'append', '\nOur result is not withdrawn: "24 divides every exact ' 'solution count".\n')],
+         [(R, 'append', '\nWe prove that "24 divides every exact ' 'solution count".\n')]),
+        ('D05#11', 'rotation-c3', 'README.md',
+         [(R, 'append', '\nThe 32 pair-slot rotations are symmetries of the circular constraint system even with the absolute-position C3 retained.\n')],
+         [(R, 'append', '\nThe 32 pair-slot rotations are symmetries of the circular constraint system even with C3 retained.\n')]),
+        ('D05#14', 'fiber-anchor', 'README.md',
+         [(R, 'append', '\nThe per-key space is 2^32; 2^31 is not correct.\n')],
+         [(R, 'append', '\nThe per-key space is 2^32, not 2^31.\n')]),
+        ('D06#3', 'p14-claims', 'knuth_whole_tree_5e10.out',
+         [(R, 'append', '\nThe masses carry standard errors, not relative standard errors (knuth_whole_tree_5e10.out).\n')],
+         [(R, 'append', '\nThe masses carry standard errors (knuth_whole_tree_5e10.out).\n')]),
+        ('D06#8', 'report-verdict', 'README.md',
+         [(R, 'append', '\nAs said in our abstract, "the FFT shows no frequencies above the white ' 'noise floor".\n')],
+         [(R, 'append', '\nAs said in our abstract, the FFT shows no frequencies above the white ' 'noise floor.\n')]),
+        ('D06#20', 'merge-semantics', 'README.md',
+         [(R, 'append', '\nExternal sort is **not** implemented in solve.c.\n')],
+         [(R, 'append', '\nExternal sort is not implemented in solve.c.\n')]),
+        ('N03-sib-a', 'liveness', 'README.md',          # sibling: DISPO read negation-blind
+         [(R, 'append', '\nThe ladder build is in flight and has not completed.\n')],
+         [(R, 'append', '\nThe ladder build is in flight.\n')]),
+        ('N03-sib-b', 'merge-semantics', 'README.md',    # sibling: GATE 76 NARR read negation-blind
+         [(R, 'append', '\nExternal sort is not implemented in solve.c, and this is not superseded.\n')],
+         [(R, 'append', '\nExternal sort is not implemented in solve.c.\n')]),
+    ]
+    SCRIPTS = ("scripts/doc_gates.sh", "scripts/tr12_output_paths_gate.sh",
+               "scripts/gate_published_consistency.sh")
+
+    @classmethod
+    def setUpClass(cls):
+        import hashlib
+        cls.TSHA = hashlib.sha256(b"$ echo q964").hexdigest()[:12]
+        cls.tmp = tempfile.mkdtemp(prefix="b43_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files:
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(cls.repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        g = ["git", "-C", cls.repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"],
+                       check=True)
+        cls.fixed = cls._snapshot()
+        cls.uncured = None
+        if subprocess.run(["git", "-C", cls.ROOT, "cat-file", "-e", cls.PIN + "^{commit}"],
+                          capture_output=True).returncode == 0:
+            cls.uncured = {}
+            names = subprocess.run(["git", "-C", cls.ROOT, "ls-tree", "--name-only", cls.PIN,
+                                    "scripts/doc_gates.d/"], capture_output=True, text=True,
+                                   check=True).stdout.split()
+            for f in names + list(cls.SCRIPTS):
+                cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
+                                                capture_output=True, check=True).stdout
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _snapshot(cls):
+        snap = {}
+        d = os.path.join(cls.repo, "scripts", "doc_gates.d")
+        for f in sorted(os.listdir(d)):
+            with open(os.path.join(d, f), "rb") as fh:
+                snap["scripts/doc_gates.d/" + f] = fh.read()
+        for f in cls.SCRIPTS:
+            with open(os.path.join(cls.repo, f), "rb") as fh:
+                snap[f] = fh.read()
+        return snap
+
+    def _use(self, snap):
+        d = os.path.join(self.repo, "scripts", "doc_gates.d")
+        shutil.rmtree(d)
+        os.makedirs(d)
+        for f, b in snap.items():
+            with open(os.path.join(self.repo, f), "wb") as fh:
+                fh.write(b)
+
+    def _apply(self, edits):
+        saved = {}
+        for e in edits:
+            p = os.path.join(self.repo, e[0])
+            self.assertTrue(os.path.isfile(p), "precondition: the plant's target exists: %r" % (e,))
+            with open(p, "rb") as fh:
+                t = fh.read().decode("utf-8")
+            if p not in saved:
+                saved[p] = t.encode("utf-8")
+            op, arg = e[1], e[2]
+            if arg.startswith("@TSHA@"):   # a transcript registry row for the planted block
+                arg = "%s\t%s\t%s\tq964 plant\n" % (self.DEV, self.TSHA, arg[len("@TSHA@"):])
+                if not t.endswith("\n"):
+                    arg = "\n" + arg
+            if op == "append":
+                t += arg
+            elif op == "replace":
+                self.assertIn(arg, t, "precondition: the plant applies to %s" % p)
+                t = t.replace(arg, e[3], 1)
+            elif op == "after_line":
+                ls = t.split("\n")
+                k = [i for i, l in enumerate(ls) if l.startswith(e[3])]
+                self.assertTrue(k, "precondition: the plant applies to %s" % p)
+                ls.insert(k[0] + 1, arg); t = "\n".join(ls)
+            else:
+                self.fail("unknown plant op %r" % op)
+            with open(p, "wb") as fh:
+                fh.write(t.encode("utf-8"))
+        return saved
+
+    def _leg(self, leg, edits=()):
+        saved = self._apply(edits)
+        try:
+            cmd = {"tr12-output-paths": ["bash", "scripts/tr12_output_paths_gate.sh"],
+                   "published-consistency": ["bash", "scripts/gate_published_consistency.sh"]
+                   }.get(leg, ["bash", "scripts/doc_gates.sh", leg])
+            r = subprocess.run(["nice", "-n", "19", "timeout", "900"] + cmd, cwd=self.repo,
+                               capture_output=True, text=True, timeout=960)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+        out = r.stdout + r.stderr
+        rc = r.returncode
+        if leg == "published-consistency" and rc == 0:
+            # that script prints its verdict as a token and exits 0 on FAIL too
+            rc = 1 if "PUBLISHED_CONSISTENCY=FAIL" in out.split("\n") else 0
+        return rc, out
+
+    def _red(self, out, needle):
+        return any(needle in l for l in out.split("\n")
+                   if "FAIL" in l or "FINDING" in l or l.startswith("      "))
+
+    def test_a_unplanted_tree_is_green_on_every_leg(self):
+        self._use(self.fixed)
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg)
+                self.assertEqual(rc, 0, out[-3000:])
+
+    def test_b_every_plant_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertEqual(rc, 1, out[-3000:])
+                self.assertTrue(self._red(out, needle), "no FAIL line names %r:\n%s" % (needle, out[-3000:]))
+
+    def test_c_every_control_fails_on_both_script_sets(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg, scripts="fixed"):
+                rc, out = self._leg(leg, ctl)
+                self.assertEqual(rc, 1, out[-3000:])
+        if self.uncured is None:
+            return
+        self._use(self.uncured)
+        try:
+            for pid, leg, needle, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg, scripts="uncured"):
+                    rc, out = self._leg(leg, ctl)
+                    self.assertEqual(rc, 1, "the un-evaded twin passes the uncured scripts, so the plant's "
+                                     "pass there is not an evasion:\n" + out[-3000:])
+        finally:
+            self._use(self.fixed)
+
+    def test_d_every_plant_passes_on_the_uncured_scripts(self):
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
+        self._use(self.uncured)
+        try:
+            for leg in sorted(set(p[1] for p in self.PLANTS)):
+                with self.subTest(leg=leg, precondition="unplanted tree green on the uncured scripts"):
+                    self.assertEqual(self._leg(leg)[0], 0, "precondition: uncured %s is green unplanted" % leg)
+            for pid, leg, needle, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg):
+                    rc, out = self._leg(leg, plant)
+                    self.assertEqual(rc, 0, "the uncured scripts already catch this plant, so its red "
+                                     "test does not discriminate:\n" + out[-3000:])
+        finally:
+            self._use(self.fixed)
+
+    # ------------------------------------------------------------------ the shared modules themselves
+    def _py(self, body, mod="md"):
+        fn = ("scripts/doc_gates.d/md_normalise.sh", "_md_norm_prelude") if mod == "md" else \
+             ("scripts/doc_gates.d/word_match.sh", "_wm_prelude")
+        src = subprocess.run(["bash", "-c", ". %s && %s" % fn], cwd=self.ROOT, capture_output=True,
+                             text=True, check=True).stdout
+        r = subprocess.run(["python3", "-c", src + "\n" + body], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.split("\n")
+
+    def test_e_container_model(self):
+        out = self._py(
+            "def k(t): return md_parse(t)[1]\n"
+            "print(k('> ```\\n> x\\n\\ny\\n'))\n"                      # quoted fence ends with its quote
+            "print(k('```\\n> ```\\nz\\n```\\n'))\n"                   # a quoted ``` inside a plain fence is content
+            "print(k('    ```\\na\\n    ```\\n'))\n"                    # 4-space ``` is not a fence
+            "print(k('1. Run:\\n\\n   ```\\n   x\\n   ```\\n'))\n"        # a list item's fence at its content column
+            "b = md_parse('x\\n~~~\\n## G\\n')[2]; print([(z['kind'], z.get('shadow')) for z in b])\n"
+            "b = md_parse('- a\\n- b\\n* c\\n  d\\n8. e\\n')[2]; print([z['text'] for z in b])\n"
+            "b = md_parse('> ~~~\\n> $ x\\n> ~~~\\n')[2]; print(b[0]['body'])\n"
+            "print(md_flatten('* a\\n* b\\n')[0])")
+        self.assertEqual(out[0], str(['text', 'text', 'blank', 'text', 'blank']))
+        self.assertEqual(out[1], str(['fence', 'code', 'code', 'fence', 'blank']))
+        self.assertEqual(out[2], str(['text', 'text', 'text', 'blank']))
+        self.assertEqual(out[3], str(['text', 'blank', 'fence', 'code', 'fence', 'blank']))
+        self.assertEqual(out[4], str([('para', False), ('heading', True)]))
+        self.assertEqual(out[5], str(['a', 'b', 'c d 8. e']))
+        self.assertEqual(out[6], str([(2, '$ x')]))
+        self.assertEqual(out[7].rstrip(), '- a - b')
+
+    def test_f_inline_model(self):
+        out = self._py(
+            "print(md_inline('`3*5*7*2^15` **b** _e_ `_x_`'))\n"
+            "print(md_inline('null [P](https://e.org/withdrawn) ![alt](i.png) [RETRACTED 2026] <https://e.org>'))\n"
+            "print(md_inline('a \\\\*b\\\\* \\\\[c](d)'))\n"
+            "print(md_inline_lines(['x `a &amp;b', 'c&amp; d` **e**']))\n"
+            "print(md_inline('`null **P** = 0.0' '34`'))")
+        self.assertEqual(out[0], '3*5*7*2^15 b e x')
+        self.assertEqual(out[1], 'null P alt [RETRACTED 2026] <https://e.org>')
+        self.assertEqual(out[2], 'a *b* [c](d)')
+        self.assertEqual(out[3], str(['x a &amp;b', 'c&amp; d e']))
+        self.assertEqual(out[4], 'null P = 0.0' '34')
+
+    def test_g_word_rules(self):
+        out = self._py(
+            "def n(t, w, k=6): return int(wm_negated(t, t.index(w), k))\n"
+            "print(n('There was no timeout, the search space was exhausted.', 'search'),\n"
+            "      n('It is NOT a claim that the search space was exhausted.', 'search'),\n"
+            "      n('There is no doubt that the search space was exhausted.', 'search'),\n"
+            "      n('There is no claim that the search space was exhausted.', 'search'),\n"
+            "      n('Proven; isn\\u2019t superseded.', 'superseded', 3),\n"
+            "      n('not superseded, retracted, or withdrawn', 'retracted', 3),\n"
+            "      n('not only superseded but retracted', 'superseded', 3))\n"
+            "M = wm_re(r'typos?|corrected\\s+20\\d\\d')\n"
+            "print(int(bool(M.search('(typo-free)'))), int(bool(M.search('(a typo)'))), int(bool(M.search('CORRECTED 2026-08-28'))))\n"
+            "print(int(wm_rejected('2^31 is not correct', 4)), int(wm_rejected('2^31 is the space', 4)))\n"
+            "print(int(wm_tok('PICK=2,000', 'PICK=2')), int(wm_tok('PICK=2, 3', 'PICK=2')))", mod="wm")
+        self.assertEqual(out[0], '0 1 0 1 1 1 0')
+        self.assertEqual(out[1], '0 1 1')
+        self.assertEqual(out[2], '1 0')
+        self.assertEqual(out[3], '0 1')
+        ere = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/word_match.sh && _wm_tok_ere PICK=2"],
+                             cwd=self.ROOT, capture_output=True, text=True, check=True).stdout
+        for text, want in (("PICK=2,000\n", 1), ("PICK=2, 3\n", 0), ("PICK=2,12\n", 0), ("PICK=2,0001\n", 0)):
+            with self.subTest(text=text):
+                self.assertEqual(subprocess.run(["grep", "-qE", ere], input=text, text=True).returncode, want)
+
+    # ------------------------------------------------------------------ mutants of the load-bearing rules
+    # Each mutant reverts ONE rule in the fixed md_normalise.sh / word_match.sh (in the scratch copy) and
+    # must turn the named plant green again: the plant is what kills it. A mutant whose sed matches
+    # nothing is an ERROR (asserted), never a silent survivor.
+    MUTANTS = [
+        ('M1-bq-depth', 'scripts/doc_gates.d/md_normalise.sh', "                if DEP[j] < d:\n",
+         "                if False:\n", 'D01#1'),
+        ('M2-code-span', 'scripts/doc_gates.d/md_normalise.sh',
+         "            parts.append(_md_inline_code(joined[x:y], fold) if code else _md_inline_text(joined[x:y], fold))",
+         "            parts.append(_md_inline_text(joined[x:y], fold))", 'D01#2'),
+        ('M3-link-dest', 'scripts/doc_gates.d/md_normalise.sh', "        t = _MD_LINKRX.sub(lambda m: m.group(1), s)",
+         "        t = s", 'D01#3b'),
+        ('M4-shadow', 'scripts/doc_gates.d/md_normalise.sh', "                shadow[k] = True", "                pass", 'D03#2'),
+        ('M5-indent-fence', 'scripts/doc_gates.d/md_normalise.sh',      # both halves of the 0-3 column rule
+         ["if m and 0 <= ind - base <= 3 and not", "if close.match(bj) and _md_indent(bj) - base <= 3:"],
+         ["if m and not", "if close.match(bj):"], 'D03#10'),
+        ('M6-comma', 'scripts/doc_gates.d/word_match.sh', "        if seg and not (set(seg) & _WM_COORD):",
+         "        if False:", 'D01#5'),
+        ('M7-doubt', 'scripts/doc_gates.d/word_match.sh', "nxt[0] in _WM_DOUBT:", "nxt[0] in ():", 'D04#7'),
+        ('M8-apostrophe', 'scripts/doc_gates.d/word_match.sh', "_WM_APOS = {0x2018: \"'\", 0x2019: \"'\", 0x201b: \"'\", 0x2032: \"'\"}",
+         "_WM_APOS = {}", 'D01#6'),
+        ('M9-compound', 'scripts/doc_gates.d/word_match.sh', r"(?!\w)(?!-[^\W\d_])', flags)", r"(?!\w)', flags)", 'D04#5'),
+    ]
+
+    def test_h_mutants_are_killed(self):
+        plants = {p[0]: p for p in self.PLANTS}
+        for mid, path, old, new, pid in self.MUTANTS:
+            with self.subTest(mutant=mid, plant=pid):
+                snap = dict(self.fixed)
+                src = snap[path].decode("utf-8")
+                for o, n in zip(*((old, new) if isinstance(old, list) else ([old], [new]))):
+                    self.assertIn(o, src, "precondition: mutant %s applies to %s" % (mid, path))
+                    src = src.replace(o, n, 1)
+                snap[path] = src.encode("utf-8")
+                self._use(snap)
+                try:
+                    _, leg, needle, plant, ctl = plants[pid]
+                    rc, out = self._leg(leg, plant)
+                    self.assertEqual(rc, 0, "mutant %s SURVIVED: plant %s still fails with the rule reverted, so "
+                                     "the plant does not test that rule:\n%s" % (mid, pid, out[-2000:]))
+                finally:
+                    self._use(self.fixed)
+
+# end class TestQ976Q977Q978Batch43 (batch 43, Q-976/Q-977/Q-978)
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

@@ -29870,3 +29870,183 @@ defect. The four readers no longer carry their own span regex.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 42, Q-985. Review credit:
 Codex (gpt-6-astra), lens-A delta review Q-964 (Q964-D08#5).
+
+## CX-318 — the shared Markdown normaliser binds a fence to its block quote and list item, does not read an indented ``` as a fence, gives no anchor from under an unclosed fence, keeps code spans literal, reads a link as its text, and keeps a list item a unit of its own (scripts/doc_gates.d/md_normalise.sh; scripts/doc_gates.d/20_retract_links_status.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review of the batch-40
+gates, targets Q964-D01#1, D01#2, D01#3, D03#2, D03#7, D03#10 and D05#1 (a duplicate of D01#2);
+backlog row Q-976 (drafted as N-01). Batch 43.
+
+**No published number, count, sha or verdict moves, and no document was edited.** These are gaps in
+how the gates read Markdown. Each was planted on public main `f1b27e32` and passed its leg there.
+On today's tree every affected leg is still green.
+
+**1. What was wrong.** Batch 40 sent the prose and number legs through one normaliser
+(`md_normalise.sh`), so each of its gaps was a gap in every leg that uses it:
+
+- It removed every `>` before pairing fences, so a fence line inside a block quote paired with an
+  unquoted fence line further down and hid the prose between them (Q964-D01#1,
+  `tr12_output_paths_gate.sh`).
+- It deleted every `*`, inside code spans too, so a factorization of 1,720,320 written with `*`
+  inside a code span lost its operators and GATE 32 could not see that it was wrong (Q964-D01#2,
+  D05#1).
+- A link kept its brackets and destination, so a link placed on the P of a registered withdrawn
+  phrase split the phrase, and a word in a link's address, such as `withdrawn`, supplied the
+  exemption marker (Q964-D01#3, GATE 27).
+- A ``` line indented four spaces was taken as a fence, so a revision row placed between two of
+  them was hidden from GATE 12 (Q964-D03#10).
+- The lines of an unclosed fence are scanned as prose, on purpose, but a heading among them still
+  gave an anchor, so a dead `#fragment` passed GATE 4 (Q964-D03#2; GATE 95 already fails an
+  unclosed fence, so `all` blocked this one).
+- `md_flatten` deleted a `*` bullet's marker with the other `*`s, so two `*` items read as one
+  sentence and a word in one excused the other in GATE 7 (Q964-D03#7).
+
+**2. The fix: a container model and an inline model.**
+
+- **Fences belong to their container.** A fence opens 0-3 columns past the content column of the
+  list item it sits in, and closes only on a line of the same block-quote depth. A shallower line,
+  or a line that leaves the list item, ends the container. A fence still open at that point is
+  unclosed, as before: its lines are scanned as prose. A ``` indented four or more columns past its
+  container is indented code, which is scanned as prose, not a fence.
+- **Unclosed means shadowed.** Every block under an unclosed fence carries `shadow`, because it
+  renders as code. GATE 4's anchors and GATE 4b's section headings skip shadowed headings.
+- **A list item is its own paragraph** (CommonMark's rule; an ordered item other than 1 cannot
+  interrupt a paragraph, so a wrapped "8. The" stays prose). `md_flatten` keeps a bullet's marker,
+  written `-`.
+- **Inline.** Code spans are paired as CommonMark pairs them, a run of n backticks closed by the
+  next run of exactly n, across line ends within one block (`md_inline_lines`). Inside a span no
+  escape or entity is processed and a `*` or `_` between two alphanumerics stays, so `3*5*7*2^15` is
+  read as written; an emphasis-shaped run at a word edge is still dropped there, so a withdrawn
+  phrase set in code font with its P in bold is still the phrase (pre-publication review, Fable). A
+  link or image reads as its text and its destination is dropped. An escaped character survives the
+  emphasis strip.
+- Code blocks now carry `body`, their content with the container stripped, and headings carry the
+  paragraph offset table, so a heading can be read as a unit (used by CX-319).
+- Measured on the Markdown corpus of `f1b27e32` (the per-line fold): no line changes kind and no fence opens,
+  closes or goes unclosed differently; 3,377 lines read differently because of links, 1,342 because
+  of code spans, and the paragraph count rises from 11,121 to 16,230 as list items become units.
+  Every affected leg is green on that corpus.
+
+**3. Not in this entry.** Q964-D01#4 (a sign separated from its number by a space) is the number
+lexer's, and its per-finding row is Q-981.
+
+**4. Tests.** `TestQ976Q977Q978Batch43` (at the end of tests.py), rows D01#1, D01#2, D01#3a/b,
+D03#2, D03#7 and D03#10. Each plant fails its leg on the fixed scripts, with a FAIL line naming it,
+and passes on the scripts of `f1b27e32`. Its un-evaded twin fails on both. Unit tests cover the
+container and inline models. Mutants M1-M5 each revert one rule (block-quote depth, the code-span
+split, the link rule, the shadow flag, the indented-fence test), and each one makes its plant pass
+again.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 43, Q-976. Review credit:
+Codex (gpt-6-astra), Q-964 lens-A delta review (Q964-D01#1-3, D03#2, D03#7, D03#10, D05#1).
+
+## CX-319 — the gates that read raw lines, or knew only ``` fences, ATX headings and unquoted lines, now read the normaliser's blocks (scripts/doc_gates.d/96_transcripts.sh; scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/doc_gates.d/md_normalise.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review, targets
+Q964-D02#1, D02#2, D03#8, D04#3, D04#4, D05#8, D06#10, D06#12, D06#17 and D06#19; backlog row Q-977
+(drafted as N-02). Batch 43.
+
+**No published number, count, sha or verdict moves, and no document was edited.** Each finding was
+planted on `f1b27e32` and passed its leg there. On today's tree every affected leg is still green.
+
+**1. What was wrong, and what each leg reads now.**
+
+- **GATE 95 (transcripts).** The "paragraph before the fence" walk stopped only at a ``` line, so a
+  `~~~` block above it lent it a commit hash (D02#1). The prompt test ran on raw lines, so a
+  transcript quoted with `> ` was never counted (D02#2). Now: the paragraph is the block before the
+  fence, and the prompt test reads the block's `body`.
+- **GATE 7 (liveness).** A hash section ended only at a `^#{2,6} ` line, so a hashless `## 9999T`
+  section ran into a ` ## 560T` (one space indent) section and was attested by its sha (D03#8). The
+  sections now come from `md_parse` headings.
+- **GATE 20 (publication-state).** The draft-marker scan read a heading's raw title, so
+  `D&#82;AFT` or `**DRA**FT` passed (D04#3). It also skipped column-0 ATX headings, leaving them to
+  a grep that cannot decode either form. It now reads the rendered heading of every form. The
+  checklist scope reset only at an ATX line (D04#4), and a `# checklist` comment inside a code fence
+  set it. Both now come from `md_parse` headings. The per-file scan receipts are unchanged.
+- **GATES 26 and 27 (the ledger anchor).** The CORRECTIONS.md entry parser toggled fences on ```
+  only, so a `## CX-` line inside a `~~~` fence was an entry that could anchor a withdrawn figure
+  (D05#8). It now cuts entries at `md_parse` headings.
+- **GATE 56 LEG P (log-derived figures).** Heading blocks were not judged (D06#10). They are now.
+- **GATE 57 (display equations).** A code line was read raw, and the `>` skip then dropped every
+  quoted code line (D06#12). It now reads the block's `body`.
+- **GATE 66 (lean-header-verbatim).** The block after "binding ledger" was searched for ``` only,
+  so a `~~~` block was skipped (D06#17). It is now the next `md_parse` code block.
+- **GATES 75 and 76.** `starts_unit()` broke a unit at every `>` line, so a quoted claim wrapped
+  over two lines was two half-claims (D06#19). Both gates now read `md_units`: paragraphs and list
+  items, headings, table rows and single code lines, as rendered.
+- **Sibling found while sweeping: GATE 25's `_fence_caption`** decided "inside a fence" by counting
+  lines that start with ``` or ~~~. A `~~~` line inside a ```` block flipped the count, so a prose
+  command after that block borrowed a "PENDING flag" caption from inside it. It now asks `md_parse`.
+
+**2. The sweep, and what was left.** Every literal ``` and `^#` test in the gate corpus outside
+`md_normalise.sh` was read. The sites above are fixed. These were left on purpose:
+
+- Single-document structural readers whose anchor heading is fixed and whose absence is an ERROR:
+  GATE 62 (DEPLOYMENT.md `## ` sections), GATE 67, GATE 70's section 1, GATE 71
+  (CITATIONS.md), GATE 55's Reproducibility-parameters heading, `reproduce_digests_gate.sh`,
+  `gate_published_consistency.sh` (CORRECTIONS.md headings), `history_index.sh` and
+  `history_currency_gate.sh` (HISTORY.md headings).
+- Readers of generated or tool input, not of prose: `cli_decl_metadata_gate.sh`, `exec_lane.sh`,
+  `knuth_c67_repro_gate.sh`.
+- GATE 46 (HISTORY.md's findings table) and GATE 27's own paragraph windows. The second is a scope
+  question and belongs to backlog row Q-980.
+
+**3. Tests.** `TestQ976Q977Q978Batch43`, rows D02#1, D02#2, D03#8, D04#3a/b/c, D04#4a/b, D05#8a/b,
+D06#10, D06#12, D06#17, D02-sib and D06#19, in the same four-way shape as CX-318.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 43, Q-977. Review credit:
+Codex (gpt-6-astra), Q-964 lens-A delta review (Q964-D02#1, D02#2, D03#8, D04#3, D04#4, D05#8,
+D06#10, D06#12, D06#17, D06#19).
+
+## CX-320 — the shared word matcher ends a clause at a comma, folds curly apostrophes, keeps a hyphenated compound one word, reads "no doubt" as an affirmation and a negation after a value as a rejection, and does not find PICK=2 inside PICK=2,000; the exemption paths that were negation-blind now use it (scripts/doc_gates.d/word_match.sh; scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review, targets
+Q964-D01#5, D01#6, D01#9, D04#5, D04#7, D05#10, D05#11, D05#14, D06#3, D06#8 and D06#20; backlog
+row Q-978 (drafted as N-03). Batch 43.
+
+**No published number, count, sha or verdict moves, and no document was edited.** Each finding was
+planted on `f1b27e32` and passed its leg there. On today's tree every affected leg is still green.
+
+**1. What was wrong, and the rule now.**
+
+- **A comma did not end a clause** (D01#5). In "There was no timeout, the search space was
+  exhausted", the "no" negated the exhaustion claim for GATE 85. A comma is now a clause boundary
+  unless it is list-internal: no word, or a coordinator, between it and the word being judged. So
+  "not superseded, retracted or withdrawn" is still one negated list. "but", and an "and" or "or"
+  that opens a new subject, end a clause too.
+- **Curly apostrophes** (D01#6). `isn’t` was not a negation, so GATE 46 took "isn’t superseded" as
+  a marker. Curly apostrophes are now folded before the words are read.
+- **Hyphenated compounds** (D04#5, D05#11). "typo-free" contained the word "typo" and declared a
+  mistyped sha prefix narration (GATE 22). "absolute-position" counted as two words of GATE 30's
+  4-word concession window, which pushed "even" out of it. A hyphen followed by a letter now
+  continues a word, on the right edge of a match as well as the left. A hyphen followed by a digit
+  does not, so "corrected 2026-08-28" is still the marker it reads as.
+- **What a negator governs** (D04#7). "There is no doubt that the search space was exhausted" read
+  as a denial. "no" or "without" before a doubt noun (doubt, question, denying, dispute) and "not
+  only" are no longer negations. "There is no claim that …" still is.
+- **A negation after the value** (D05#14). "2^32; 2^31 is not correct" read the 2^31 as the
+  narrated fix. A new rejection test reads the clause after a token ("is not", "was never", "is
+  wrong"), and GATE 32 now counts a rejected 2^31 as rejected.
+- **The exact-token rule** (D01#9). `PICK=2` matched inside `PICK=2,000`, so G11 of
+  `gate_published_consistency.sh` missed the edit. A token ending in a digit is no longer the first
+  group of a grouped number, in both the Python and the ERE form. `PICK=2, 3` still matches.
+- **Negation-blind exemption paths.** The prelude's `quoted()` exempted a quotation whenever the
+  sentence had a narration word, so "Our result is not withdrawn: "…"" (GATE 38, D05#10) and "As
+  said in our abstract, "…"" (GATE 44, D06#8) were exempt. A narration word now counts only when it
+  is not negated and not preceded by "as". GATE 39's relative-error test was a bare search, so "not
+  relative standard errors" backed a `relerr=` claim (D06#3); it is now `wm_has`. GATE 76 read the
+  raw line, so "is **not** implemented" was not a denial (D06#20); it now reads the rendered unit
+  (CX-319).
+- **Siblings found while sweeping.** GATE 7's DISPO and NARRATION lists and GATE 76's narration
+  list were plain substring tests, so "has not completed" and "not superseded" disposed of a claim.
+  They now go through `wm_any`, which matches whole words that are not negated (a letter-final
+  phrase still takes any word ending, as the substring did).
+
+**2. Tests.** `TestQ976Q977Q978Batch43`, rows D01#5, D04#7, D01#6, D01#9, D04#5, D05#10, D05#11,
+D05#14, D06#3, D06#8, D06#20, N03-sib-a and N03-sib-b, in the same four-way shape, plus unit tests
+of the rules. Mutants M6-M9 (the comma rule, the doubt rule, the apostrophe fold, the compound
+boundary) each make their plant pass again.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 43, Q-978. Review credit:
+Codex (gpt-6-astra), Q-964 lens-A delta review (Q964-D01#5, D01#6, D01#9, D04#5, D04#7, D05#10,
+D05#11, D05#14, D06#3, D06#8, D06#20).

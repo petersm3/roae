@@ -11047,3 +11047,47 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 - Codex (gpt-6-astra) found all of these in the Q-964 delta review of the push path (targets
   Q964-D02#3 through Q964-D09#5). New tests in `TestQ982Q983Q985Batch42` fail on the old scripts and
   pass on the new ones.
+
+## 2026-10-08 — batch 43: the document gates read fences, links, code spans and list items the way Markdown renders them, every leg that read raw lines reads the shared blocks, and the word matcher ends a clause at a comma and knows what a negation governs
+
+**Batch 43, the Markdown model (CX-318, Q-976).**
+
+- Batch 40 made the document checks read Markdown through one shared reader. Codex
+  (gpt-6-astra), reviewing that work (Q-964), found six places where the reader still saw
+  something different from the rendered page.
+- A code fence inside a quote paired with a fence outside it and hid the text between them. A
+  `*` inside a code span was deleted as if it were emphasis, so `3*5*7` read as `357`. A link's
+  web address stayed in the text, so a word in an address could excuse a withdrawn figure. A fence
+  line indented four spaces was taken as a fence. A heading after an unclosed fence still gave
+  a link target. Two `*` list items read as one sentence.
+- Now a fence belongs to the quote or list item it sits in, an indented fence line is not a fence,
+  a heading under an unclosed fence gives no link target, a code span keeps its operators, a
+  link reads as its text, and each list item is its own unit.
+- On today's documents every affected check is still green, and no document was edited.
+
+**Batch 43, the readers that went around it (CX-319, Q-977).**
+
+- Ten checks still read raw lines or knew only one kind of fence or heading. A `~~~` fence lent a
+  commit hash to a transcript. A quoted transcript was never counted. An indented heading let a
+  run with no hash borrow another run's. Drafts and checklists were missed under some heading
+  styles. A ledger entry inside a `~~~` fence counted. A heading's figures went unchecked. A quoted
+  display was skipped. A quoted claim was split in two.
+- Each of these checks now reads the shared reader's blocks. Sweeping for the same pattern found
+  one more: the check of reproduction commands could take a "pending" caption from inside a fence
+  for a command written after it.
+- No document was edited, and every affected check is green.
+
+**Batch 43, the word rules (CX-320, Q-978).**
+
+- The shared word matcher let "no timeout, the search space was exhausted" count as a denial, did
+  not read `isn’t` (curly apostrophe) as a negation, found "typo" inside "typo-free", read "no doubt
+  that …" as a denial, missed "2^31 is not correct" as a rejection, and found `PICK=2` inside
+  `PICK=2,000`. Three exemption paths ignored negation altogether.
+- Now a comma ends a clause unless it sits inside a list, curly apostrophes are folded, a
+  hyphenated word is one word, "no doubt" and "not only" are not denials, a negation after a value
+  rejects it, and a token is never the first part of a grouped number. Every exemption list goes
+  through the same negation test.
+- No published number, count, sha or verdict changed. 35 test cases, one per finding or sibling:
+  each is caught by the new checks, passes the old ones, and has a plain twin that both catch.
+  Nine mutants each undo one rule, and each makes its test case pass again. Codex (gpt-6-astra)
+  found these in the Q-964 review.

@@ -62,7 +62,7 @@ gate_repro_reach() {
   echo "== GATE 25: every documented reproduction command resolves to a real flag =="
   # Q-703 (2026-09-24, Fable K): the population is the script's own $DOCS (git ls-files '*.md'),
   # passed in by environment because the heredoc is quoted. See the `docs =` note below.
-  { _wm_prelude; _sp_prelude; cat <<'PY'
+  { _md_norm_prelude; _wm_prelude; _sp_prelude; cat <<'PY'   # Q-977: md_parse for _fence_caption
 import bisect, os, re, sys
 
 TOOLS = {"verify.py": "verify.py", "solve.py": "solve.py", "sat.py": "sat.py",
@@ -255,18 +255,26 @@ if [k for k, _ in PROPOSAL_RX] != PROPOSAL: raise SystemExit('PROPOSAL_RX keys d
 # ("GATE 25 (S2) ordinary 'pending' prose does not waive"). Every waiver granted is printed as
 # a [prop] line, never silently counted.
 
+_FC = {}
 def _fence_caption(lines, i):
     """Q-703. When lines[i] sits INSIDE a fenced code block, the block's caption: the nearest
     non-blank line above the OPENING fence, lower-cased. A synopsis block is labelled by the
     heading or sentence that introduces it, not by a sentence of its own — the sentence scope
     above sees only the fence line. Returns '' when lines[i] is not inside a fence, so this
     never widens the scope of a command written in prose."""
-    inside, opening = False, -1
-    for j in range(i):
-        if lines[j].lstrip().startswith(("```", "~~~")):
-            inside = not inside
-            opening = j
-    if not inside:
+    # Q-977 (batch 43; sibling sweep of Codex gpt-6-astra Q964-D02#1/D05#8/D06#17): "inside a fenced
+    # block" is the shared normaliser's (md_parse, cached per document), not a parity count of lines
+    # starting ``` or ~~~: a ~~~ line inside a ```` block flipped the parity, so a PROSE line after
+    # that block read as fenced and borrowed the caption of a line the block itself contained.
+    if _FC.get('lines') is not lines:
+        op = {}
+        for b in md_parse("\n".join(lines))[2]:
+            if b['kind'] == 'code':
+                for x in range(b['start'], b['end'] - 1):
+                    op[x] = b['start'] - 1
+        _FC.clear(); _FC['lines'] = lines; _FC['op'] = op
+    opening = _FC['op'].get(i)
+    if opening is None:
         return ''
     k = opening - 1
     while k >= 0 and not lines[k].strip():
@@ -752,7 +760,7 @@ PY
 gate_canonical_ceiling() {
   echo "== GATE 26: no count labelled CANONICAL may exceed its own factorial ceiling =="
   local out rc=0
-  out=$(printf '%s\n' "$DOCS" | python3 -c "$(_md_num_prelude)"'
+  out=$(printf '%s\n' "$DOCS" | python3 -c "$(_md_norm_prelude)"'   # Q-977: md_parse for the ledger anchor (the number lexer rides with it)
 import sys, io, re, math
 SUP={"⁰":"0","¹":"1","²":"2","³":"3","⁴":"4","⁵":"5","⁶":"6","⁷":"7","⁸":"8","⁹":"9"}
 NEG="⁻"
@@ -774,15 +782,22 @@ import os
 LEDGER="documentation/CORRECTIONS.md"
 LINK=re.compile(r"\[([^\]\n]*)\]\(([^)\s]*CORRECTIONS\.md)(#[^)\s]*)?\)")
 def ledger_entries():
-    ent={}; cur=None; lvl=0; fence=False
-    try: src=io.open(LEDGER,encoding="utf-8").read().split("\n")
+    # Q-977 (batch 43; Codex gpt-6-astra Q964-D05#8): the entries are cut at the shared normaliser
+    # HEADINGS (md_parse), so a "## CX-" line inside a ~~~ fence is content, not an entry (the parity
+    # toggle knew only ```), and an indented or setext entry heading is one.
+    ent={}; cur=None; lvl=0
+    try: src=io.open(LEDGER,encoding="utf-8").read()
     except OSError: return ent
-    for l in src:
-        if l.lstrip().startswith("```"): fence=not fence
-        h=None if fence else re.match(r"(#{1,6})\s+(.*)",l)
-        if h and (cur is None or len(h.group(1))<=lvl):
-            m=re.match(r"CX-(\d+)\b",h.group(2)); cur=None
-            if m: cur=int(m.group(1)); lvl=len(h.group(1)); ent[cur]=[]
+    L,_k,B,_u=md_parse(src)
+    hd={b["start"]:b for b in B if b["kind"]=="heading"}
+    skip=set()
+    for i,l in enumerate(L,1):
+        if i in skip: continue
+        h=hd.get(i)
+        if h and (cur is None or h["level"]<=lvl):
+            m=re.match(r"CX-(\d+)\b",h["text"]); cur=None
+            if m: cur=int(m.group(1)); lvl=h["level"]; ent[cur]=[]
+            skip.update(range(h["start"],h["end"]+1))
             continue
         if cur is not None: ent[cur].append(l)
     return {k:"\n".join(v) for k,v in ent.items()}
@@ -943,15 +958,22 @@ import os
 LEDGER="documentation/CORRECTIONS.md"
 LINK=re.compile(r"\[([^\]\n]*)\]\(([^)\s]*CORRECTIONS\.md)(#[^)\s]*)?\)")
 def ledger_entries():
-    ent={}; cur=None; lvl=0; fence=False
-    try: src=io.open(LEDGER,encoding="utf-8").read().split("\n")
+    # Q-977 (batch 43; Codex gpt-6-astra Q964-D05#8): the entries are cut at the shared normaliser
+    # HEADINGS (md_parse), so a "## CX-" line inside a ~~~ fence is content, not an entry (the parity
+    # toggle knew only ```), and an indented or setext entry heading is one.
+    ent={}; cur=None; lvl=0
+    try: src=io.open(LEDGER,encoding="utf-8").read()
     except OSError: return ent
-    for l in src:
-        if l.lstrip().startswith("```"): fence=not fence
-        h=None if fence else re.match(r"(#{1,6})\s+(.*)",l)
-        if h and (cur is None or len(h.group(1))<=lvl):
-            m=re.match(r"CX-(\d+)\b",h.group(2)); cur=None
-            if m: cur=int(m.group(1)); lvl=len(h.group(1)); ent[cur]=[]
+    L,_k,B,_u=md_parse(src)
+    hd={b["start"]:b for b in B if b["kind"]=="heading"}
+    skip=set()
+    for i,l in enumerate(L,1):
+        if i in skip: continue
+        h=hd.get(i)
+        if h and (cur is None or h["level"]<=lvl):
+            m=re.match(r"CX-(\d+)\b",h["text"]); cur=None
+            if m: cur=int(m.group(1)); lvl=h["level"]; ent[cur]=[]
+            skip.update(range(h["start"],h["end"]+1))
             continue
         if cur is not None: ent[cur].append(l)
     return {k:"\n".join(v) for k,v in ent.items()}
@@ -1364,6 +1386,7 @@ PY
 #   all three of which are the ledger describing the wording it removed.
 _g1_prelude() {
 _md_norm_prelude   # Q-965: the shared normaliser; flatten() below folds each line through it
+_wm_prelude        # Q-978: quoted() reads its narration words through the shared matcher
 cat <<'PRELUDE'
 import re, sys, bisect, subprocess
 _SUP = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4',
@@ -1428,10 +1451,20 @@ _QNARR = re.compile(r'\bBEFORE\b|\bNOW\b|CORRECTED|\bRP-[0-9a-f]{8}\b|\bRETIRED\
                     r'|(?i:\b(?:this read|read|reads|said|says|called|described|credited|labell?ed|wrote|written'
                     r'|registered|reworded|retired|retracted|withdr[a-z]*|corrected|superseded|previously'
                     r'|formerly|falsified|replaced|removed|struck|phrase|wording)\b)')
+# Q-978 (batch 43; Codex gpt-6-astra Q964-D05#10, D06#8): a narration word counts only when it is
+# NOT negated and not a reaffirming "as": `Our result is not withdrawn: "..."` and `As said in our
+# abstract, "..."` restate the quotation as their own; `the old text read "..."` narrates it. Read on
+# the sentence outside its quotations, through the shared matcher (wm_negated, wm_before).
+_QAS = {'as'}
 def quoted(seg,a):
     if (seg.count('"',0,a) + seg.count('“',0,a) + seg.count('”',0,a)) % 2 != 1:
         return False
-    return bool(_QNARR.search(_QSPAN.sub(' ', seg)))
+    out = _QSPAN.sub(' ', seg)
+    for m in _QNARR.finditer(out):
+        if wm_negated(out, m.start(), 4) or (_QAS & set(wm_before(out, m.start(), 2))):
+            continue
+        return True
+    return False
 PRELUDE
 }
 
@@ -1768,14 +1801,16 @@ for f in corpus():
         if a + b not in stated:
             print("SUM\t%s\t%d\t%s + %s\t%d" % (f, lno(starts, m.start()), left.group(0), m.group(1), a + b))
     for m in E31.finditer(flat):
-        if PERKEY.search(sent(flat, m.start(), m.end())) and not wm_negated(flat, m.start()): n31 += 1
+        if PERKEY.search(sent(flat, m.start(), m.end())) and not wm_negated(flat, m.start()) and not wm_rejected(flat, m.end()): n31 += 1
     for m in E32.finditer(flat):
         s = sent(flat, m.start(), m.end())
         if not PERKEY.search(s):        continue
         # Q-966 (A08#19): a 2^31 that the sentence NEGATES ("2^32, not 2^31") is the wrong exponent
         # asserted, not the fix narrated; and the correction words are whole words (shared matcher), so
         # "uncorrected" is not "corrected".
-        if (any(not wm_negated(s, x.start()) for x in E31.finditer(s))
+        # Q-978 (batch 43; Codex gpt-6-astra Q964-D05#14): and a 2^31 that what FOLLOWS denies ("2^31 is
+        # not correct") is rejected, not narrated as the fix (wm_rejected).
+        if (any(not wm_negated(s, x.start()) and not wm_rejected(s, x.end()) for x in E31.finditer(s))
                 or '\u2192' in s or wm_has(s, WM_CORRM)): continue   # the ledger narrating the 2^32 -> 2^31 fix
         print("EXP\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:140]))
 print("POP\t%d anchor mention(s), %d factorization(s), %d sum(s), %d per-key 2^31 site(s)"
