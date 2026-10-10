@@ -1136,7 +1136,7 @@ an exact compiler for this intersection and for no larger one, and a reader who 
 "exact count" for a count of the full constraint set has been misled by the omission. The C3
 conditional remains sampled by design (`DESCRIPTION_LENGTH.md`), and `|C1–C5|` and `|C1–C7|` are
 published elsewhere as **validated estimates, not exact counts** (`CITATIONS.md`). The same
-qualification is carried at `CLAIM_TO_ARTIFACT.md:34`, `CITATIONS.md:416` and `:1525`,
+qualification is carried at `CLAIM_TO_ARTIFACT.md:34`, `CITATIONS.md:534` and `:1643`,
 `CLAIMS_DECIDED.md:12` and `DESCRIPTION_LENGTH.md:77`; it was missing here alone.
 
 **No exact count is published in this project without the command that reproduces it.** Three of the

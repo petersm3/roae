@@ -127,7 +127,7 @@ budgeted and did not run.
   reason was cost or capability.
 - **§10. Capstone additions.** The DONE-contract set (A–D) and the versioned updates to other
   reports (E–G).
-- **§11. Prior-art refresh addendum.** Q10, the orbit/(ℤ/2)⁶-coset census in the Ouyang framing,
+- **§11. Novelty-refresh addendum.** Q10, the orbit/(ℤ/2)⁶-coset census in the Ouyang framing,
   plus refinements that need no new compute.
 - **§12. What the n=31 atlas establishes.** This document's results section: six measured readings
   over SUPER (§12.1–§12.6), what the atlas leaves open (§12.7), Q10(b) (§12.8), the figure→token
@@ -580,8 +580,8 @@ QSET external review, which the external review itself missed; see
   95 % Wilson with z = 1.959964 — on `P(cd ≤ T)`, on μ = h[T]/accepted, on the record-level HT companion `mu_rec_C15_HT` at the effective sample size `n_eff` (`mu_rec_wilson95_lo`/`_hi`; ⚠ *added 2026-09-26: the contract named three intervals and the row emits this fourth*), **and as a per-bin Wilson
   table over the histogram** (`cd  count  wilson95_lo  wilson95_hi`), row `a1_q4ac` of
   `scripts/tr12_repro.sh`, landed battery F-5 D8 2026-09-08 and pinned in
-  `scripts/tr12_expected/n9/a1_q4ac.txt`) — an estimator upgrade over this project's own prior C3
-  histograms (previous data was enumeration-slice-scoped; this is uniform over ALL of SUPER). (b): SAT
+  `scripts/tr12_expected/n9/a1_q4ac.txt`) — an estimator UPGRADE over all prior C3 histograms known to us: this project's own `--analyze`/`--c3-dist` tabulations over enumeration slices (the "C3 distribution" line of `runs/20260419_100T_d3_d128westus3/README.md`; `documentation/SOLVE_C_CLI.md` §`--c3-dist`), and none in the literature, where no source cited in `documentation/CITATIONS.md` tabulates a C3 distribution over orderings that we have found
+  (previous data was enumeration-slice-scoped; this is uniform over ALL of SUPER). (b): SAT
   binary search — `sat.py` C3 encoding — **[I1 correction, C3 adversarial review 2026-07-22:
   bisect on integer G, not on cd×64 units.** By the
   machine-checked `c3_slot_decomposition` (lean/C3Decomposition.lean), C3 = 16 + 8·G universally
@@ -857,8 +857,8 @@ how-to-read) + generation code in `viz/` (the single-file rule's exception dir �
 `report_figures.py`/`visualize.py`, no new top-level .py elsewhere); rendered figures committed
 in `reports/figures/fig_tr12_*.{png,svg}` (the renderer writes to its working directory; nothing is copied from `runs/`, Q-901) per the
 TR pattern; TR-12 links the viz docs and embeds from `reports/figures/`. Every caption carries
-the space label. What V1, V2 and V5 show: **population-exact fields computed over ALL ~1.1×10³⁹
-members via f·g** — population quantities, not a projection of an enumerated sample slice; V4's line is King Wen's one walk with the attested alternatives range, and V3 is a 1,000-point REL lattice (below).
+the space label. What V1, V2 and V5 show that the [PCA figures](../viz/archive/viz_pca.md) cannot: **population-exact fields computed from ALL ~1.1×10³⁹
+members via f·g**, vs PCA's projection of an enumerated sample slice (the d3 560T canonical); V4's line is King Wen's one walk with the attested alternatives range, and V3 is a 1,000-point REL lattice (below).
 
 | # | Figure | Exact definition (SUPER unless noted) | Data source | Stage | Script sketch |
 |---|---|---|---|---|---|
@@ -2028,7 +2028,7 @@ estimate, its method, and its **calibration status** — not a revised CI.
 
 ---
 
-## 11. Prior-art refresh addendum (2026-07-31) — queries the July prior-art sweep opens/refines
+## 11. Novelty-refresh addendum (2026-07-31) — queries the July novelty work opens/refines
 
 *Folded in 2026-07-31 after the July prior-art sweep + the #32 Lean
 closeout. Assessment basis: the sharpest prior-art frameworks the sweep surfaced are **Ouyang
@@ -2041,7 +2041,7 @@ Chen 2007 as earlier. No firstness is asserted here; the supported claim is inde
 also the form TR-11's novelty note already uses*);
 plus the now-kernel-only DIV-24 theorems (`twenty_four_dvd_*`, #32) and the equivariance ceiling
 (P ≤ 1/24). None of this opens a new heavy-compute program — the flagship queries (Q1–Q3, Q6, Q8)
-and the exact/estimate boundary are UNCHANGED (the sweep did not make |C15| exact). It adds ONE new
+and the exact/estimate boundary are UNCHANGED (novelty did not make |C15| exact). It adds ONE new
 query family and refines four existing items. All items below are labeled by space + method per §0.*
 
 ### Q10 (NEW). Orbit / (ℤ/2)⁶-coset census — the Ouyang-framing query
@@ -2844,4 +2844,5 @@ recomputation of anything in this report exists.
 | v1.23 | 2026-09-29 | **One published n=9 number corrected, and eight statements scoped to what their proofs cover (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** (i) §Q10's n=9 record-orbit count is **72** orbits of size 6, not the 432/24 quotient printed before: on the 9-pair rung the record-level action is not free, so dividing by 24 counted nothing (re-counted exhaustively in the review: record-orbit census {6: 72}). (ii) The Q10 sidecar census is a census of canonical **masks** by their G-orbit size, with the DP entries each class carries; it was described as a census of states, and a mask's stabiliser can move `last`. (iii) §Q10's definition, the §11 XA row and the Q10 output line attributed the divisibility gate on N and on per-layer flows to the Lean `twenty_four_dvd_*` theorems; those prove the record-level statement, and the gate on the published sequence counts rests on TR-5's paper-proved free order-48 action. Per-layer masses are not G-closed (k = 1, 2, 3: 56, 3030, 158364). (iv) N/24 is an integrality identity, not an orbit count at either level. (v) The Q9 ceiling is scoped to generators with rational output probabilities. (vi) The Verification Guide states that the KB4 out-of-core reader gate was not run as specified and names the substitute evidence. (vii) The ledger row for the minimal Moore repair cites its SAT witness for the k = 3 half. (viii) The C1 matching row is scoped to complement/reverse matchings, and the literature-rule row cites the `_const` theorems with the transcription caveat. No count, digest or verdict token changed. |
 | v1.24 | 2026-09-29 | **The sampler's reach stated, and a second table tied to the doomed-prefix split (Fable's triage of the Codex KCV review, rows R6 and R9; CX-241; wording and one new probe gate, no figure, table or verdict moved).** §Q8's definition and §C's opening now say what "exact-uniform" means here: exact rejection sampling of ranks, uniform given the pseudo-random stream, whose candidate rank is built from three consecutive outputs of one 64-bit-state splitmix64 generator, so one seed can reach at most 2⁶⁴ of the ≈10³⁹ ranks. No gallery is re-drawn and no seed changes. §12.2 names the new `--atlas-probe` gate `PROBE_DEAD_OUTDEG_TIE`, which ties each layer's dead/live split to the atlas's out-degree census; it passes on the published atlas, and `DOOMED_FRACTION_OF_T_ROOT=0.686725` is unchanged |
 | v1.25 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
-| v1.26 *(current)* | 2026-10-03 | **The Q4(b) C3-minimum bisection was run on `plain` as a positive control (Q-924; CX-280).** Three sentences said the SAT machinery for Q4(b) was absent. On 2026-10-03 the bisection on integer G was run outside this repository with `sat.py` at f9b50120 and kissat 4.0.4: G = 47, 29, 20, 15, 13, 12, all SAT and each decoded and re-verified, so the minimum is C3 = 112, the published value re-derived, not a new result. No UNSAT leg occurred, so no DRAT certificate was produced or checked. §Q4's "What remains genuinely open" sentence and §8 item 9 carry dated same-line notes, and the Q4(b) pre-registration bullet carries the run with the public `sat.py` commands that reproduce each probe. No figure, table, count or verdict moves; `TR12_Q4B` stays `PASS` on `--check-arrangement`. |
+| v1.26 | 2026-10-03 | **The Q4(b) C3-minimum bisection was run on `plain` as a positive control (Q-924; CX-280).** Three sentences said the SAT machinery for Q4(b) was absent. On 2026-10-03 the bisection on integer G was run outside this repository with `sat.py` at f9b50120 and kissat 4.0.4: G = 47, 29, 20, 15, 13, 12, all SAT and each decoded and re-verified, so the minimum is C3 = 112, the published value re-derived, not a new result. No UNSAT leg occurred, so no DRAT certificate was produced or checked. §Q4's "What remains genuinely open" sentence and §8 item 9 carry dated same-line notes, and the Q4(b) pre-registration bullet carries the run with the public `sat.py` commands that reproduce each probe. No figure, table, count or verdict moves; `TR12_Q4B` stays `PASS` on `--check-arrangement`. |
+| v1.27 *(current)* | 2026-10-10 | **Four sentences the 2026-09-05 novelty scrub removed are restored (Q-534; CX-329).** The v1.0 row above records that scrub as a loan with a separately gated restoration; this row is the restoration. The publication freeze of 2026-08-16 was lifted on 2026-10-10 after the last item of its reading condition, 王俊龍 2007, was read (`documentation/CITATIONS.md` §wangjunlong2002, CX-328). Restored: §2's comparison of the population-exact figures with the archived PCA projections (inside the CX-224 sentence); §1 Q4(a)'s "estimator UPGRADE over all prior C3 histograms", now with the statement of what "all prior" was checked against; §11's heading and its "novelty did not make \|C15\| exact". Two removals stay out on their own merits: a sentence about this project's public record (§9) and a reference to an internal gate (§11 opening note). No figure, table, count or verdict moves; every edited line keeps its line number. |

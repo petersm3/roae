@@ -1865,7 +1865,7 @@ PY
 # precise enough to miss it. This gate flattens (so it sees the twin) and then asks
 # whether the same sentence carries a temporal or category qualifier (so it passes it).
 # MEASURED at authoring time: 7 occurrences, 0 unqualified. One match itself spans a wrap
-# (documentation/CITATIONS.md:2007-2008, "strongest measured literature / discriminator")
+# (documentation/CITATIONS.md:2152-2153, "strongest measured literature / discriminator")
 # and at that same site the QUALIFIER "at the time of the SAT work" is on the following
 # source line again — so both the needle and its exemption are line-based-invisible there.
 #
@@ -1879,7 +1879,7 @@ PY
 # later exceeded by the data-like S25-28 configuration at ×5×10⁷" from
 # reports/TR6_PARITY_SKELETON.md:133-134, restoring the pre-P37 bare superlative. Gate
 # [FAIL] naming that line. Restored; [ok]. A second red test confirmed the wrap case:
-# deleted the qualifier from documentation/CITATIONS.md:2007-2008, where the superlative
+# deleted the qualifier from documentation/CITATIONS.md:2152-2153, where the superlative
 # and its qualifier sit on DIFFERENT source lines - gate [FAIL], as flattening requires.
 gate_superlative() {
   echo "== GATE 33: a 'strongest measured discriminator' with no qualifier =="

@@ -30165,3 +30165,226 @@ V-caption section at absolute lines 879..1010, and the ten-line §Q7 note moved 
 1012; no caption or claim line changed. The window is now anchored to the section's own heading at the offsets
 it had when pinned (heading at 865), so it covers exactly the same lines of the section, and the CLAIMS.tsv
 window moves with it.
+
+## CX-322 — CITATIONS.md said the 1984 Chinese publications of the Mawangdui silk order were uncited and unconsulted, and that the array had been checked against Shaughnessy alone; the 1984–86 primary literature is now read, cited as one hedged cluster, and the array is checked by name against the editio princeps and four primary tables (documentation/CITATIONS.md; documentation/KING_WEN_PROVENANCE.md; documentation/RETRACTED_PHRASES.tsv; solve.c; solve.py; roae.py; tests.py)
+
+**2026-10-09.** Origin: Fable (claude-fable-5-1) first-hand reads of 张政烺 1984, 于豪亮 1984, 韩仲民 1984
+and 周立升 1986, from purchased copies, every table and numeral read from the page images, each structural
+claim machine-checked with red controls. Literature batch 2, on the batch's staged tree.
+
+**No published number, count, sha or certificate moves.** The Mawangdui array is unchanged; it now agrees,
+by hexagram name, with the editio princeps and four primary tables of 1984–85.
+
+**1. What was wrong.** The Mawangdui block carried a 2026-09-03 flag (registry keys RP-77328e26 and
+RP-1ee75ce5) that the first Chinese publications were not cited or consulted, and that the array's only
+check was against Shaughnessy 2022. Both statements stop being true with this batch.
+
+**2. What it says now.** A lead paragraph and four entries (#yu1984, #zhang1984, #hanzhongmin1984,
+#zhoulisheng1986) say who stated the generating rule, when and by which route (Yu: all three parts, from a
+diagram on the silk 《系辞》; Zhang: the two orders by 阳卦/阴卦 pairing, the promotion only in his table;
+Han: all three from a grid, rejecting the diagram route; Zhou: 八宫 vocabulary after Yu), and that on
+priority they split, each by argument (two against three once Liu 1985 is counted; see CX-326). The three 64-position tables agree with the
+array 64/64 by name; Zhou prints only worked palaces (positions 1–16). The flag paragraph is replaced by a
+dated resolution that keeps the record that two review families raised it. The 2026-07-05 erratum's
+source list adds the primary tables and the editio princeps. KING_WEN_PROVENANCE.md's Mawangdui row names the 1984
+statements of the rule in the same row. No novelty is claimed for the rule or for the check.
+
+**3. Same pass, optional entry.** #dinglianghao2024 (丁亮皓 2024), cited for its reading of the 西仁村
+paddles and for the priority hedge, both of which it holds independently. It counts no orderings.
+
+**4. Same pass, code (Q-975).** The code that builds the Mawangdui order from its rule now names the 1984
+statements by anchor, hedged as prior art, at the lines that implement it: solve.py (the R7 attribution
+block, `_R7_LAMBDA`, `_r7_lambda_promote`, `_r7_M4`, `_r7_md_reconstruct`), solve.c (the
+`--null-historical` array comment) and roae.py (the array comment). Each edit replaces one line with one
+line. verify.py and sat.py build no Mawangdui order: no site.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch 2. Reads, checks and
+draft entries: Fable (claude-fable-5-1).
+
+## CX-323 — CITATIONS.md cited Li Zhen 2020 by section only, from unpaginated reposts; the entry now gives journal page numbers from the paginated copy (documentation/CITATIONS.md)
+
+**2026-10-09.** Origin: LIT1_PENDING_EDITS item 5. The paginated journal copy was obtained and read.
+
+**No published number, count, sha or certificate moves.** The reading of the paper is unchanged.
+
+**1. What changed.** The [#lizhen2020](CITATIONS.md#lizhen2020) entry now gives pages for its claims: the
+diagram, pp. 48–50; the reversal definition and the 28 + 8 count, p. 49; the "reversal core" argument,
+p. 51; the cited notes, pp. 46–47 and p. 50. The status bracket says where the page numbers come from. The
+term count for 反对 is given as 50 in the reposts and 52 in the paginated copy's text layer; the other
+three counts are 0 in both.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch 2.
+
+## CX-324 — CITATIONS.md did not carry the journal form of Li Shangxin's priority chapter; #lishangxin2008a is added, hedged (documentation/CITATIONS.md)
+
+**2026-10-09.** Origin: a Fable (claude-fable-5-1) read of 李尚信 2008, 《哲学研究》2008(6), from a
+purchased copy, with the numerals checked on the page images. Optional; isolated here so it can be dropped
+cleanly.
+
+**No published number, count, sha or certificate moves.** The paper counts nothing. It is the
+peer-reviewed form of material already cited at #li2007 and #li2008, and the "closest direct assertion"
+wording at #li2007 is unchanged.
+
+**1. What it adds.** The determination sentence quoted at #li2007 now has a dated journal locus (p. 28).
+The entry records his reading of the 错综图's figures 25–28 (KW 43–50) as 兑 over 乾/坤/坎/离: a description of the block, with the
+same status as 沈有鼎's. It also notes one slip for anyone quoting p. 31 (否's first line is 初六).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch 2. Read and draft:
+Fable (claude-fable-5-1).
+
+## CX-325 — a precision note: roae.py did not say which binary reading `fuxi_order` is (roae.py; tests.py)
+
+**2026-10-09.** Origin: Q-990 (a Fable read of 韩敬 2001, 《周易研究》2001(3)).
+
+**No published number, count, sha or certificate moves.** The note describes an object whose published
+statistics do not change.
+
+**1. `fuxi_order` (Q-990).** `list(range(64))` with bit 0 as the bottom line reads the bottom line as the
+units digit, so the list runs 坤 → 乾 (坤, 复, 师, 临, …). 邵雍's 横图 reads the top line as the units digit
+and runs 乾 → 坤 (乾, 夬, 大有, 大壮, …). The two lists are related by line reversal and order reversal,
+and their consecutive Hamming distances are identical, so every published statistic computed on
+`fuxi_order` holds for both readings. The comment at roae.py:129 now says this. The edit is one line for
+one line. No document lists the order by hexagram name.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch 2.
+
+## CX-326 — the Mawangdui primary-literature cluster lacked the 1984 editio princeps and Liu Dajun 1985; both are added, the four shared positions and the 贾公彦 quotation are dated to Liu 1985, and the priority split is recounted (documentation/CITATIONS.md; documentation/HISTORY.md; solve.py; roae.py; tests.py)
+
+**2026-10-09.** Origin: Fable (claude-fable-5-1) first-hand reads of the 马王堆汉墓帛书整理小组 释文
+(《文物》1984(3)) and of 刘大钧 1985 (《文史哲》1985(4)), from purchased copies, both read from the page
+images, each structural claim machine-checked with a negative control. Literature batch 2, round 3, on the
+batch's staged tree; it extends CX-322 before either is published.
+
+**No published number, count, sha or certificate moves.** The Mawangdui array is unchanged; it now agrees
+with the editio princeps and with a fourth 64-position table.
+
+**1. What it adds.** Two entries in the cluster: #shiwen1984, the editio princeps, placed first as the
+primary witness (its 64 entries, read by their received-name glosses, agree with the array position for
+position), and #liudajun1985 (a 64-row table that agrees by name and by King Wen numeral; the rule in
+prose from a 2×4 grid; the 纳甲 stem order as the silk lower order).
+
+**2. Credits dated to the source.** The four positions the silk and received orders share (1, 32, 57, 61)
+are stated by Liu 1985, p. 55; the entry says so, scoped "in our holdings". No public text credited a later
+source for that observation (checked across the repository for the years 1985 and 1988, the phrase "four
+shared", the position list and 中孚); #lishangxin2008a's mention now links the anchor. 贾公彦's 《周礼疏》
+doubling is quoted by Liu 1985 before Zhou 1986, so #zhoulisheng1986 now says "after Liu 1985", and the
+solve.py docstring that credits the quotation names both. roae.py's array comment adds the two new
+witnesses. Each code edit replaces one line with one line.
+
+**3. Priority recounted.** Liu sides with Yu (silk earlier, as conjecture). The cluster's lead paragraph,
+CX-322 §2 and the batch's HISTORY entry now say two against three where the staged text said two
+against two; that wording was never published, so no retracted-phrase row is needed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch 2. Reads, checks and
+draft entries: Fable (claude-fable-5-1).
+
+## CX-327 — optional: three recent papers that touch this project's objects without counting orderings are cited (documentation/CITATIONS.md; tests.py)
+
+**2026-10-09.** Origin: Fable (claude-fable-5-1) reads of 孙利·孙祥栋 2019b, 孙祥栋·孙利 2020 and 李喆 2025,
+from purchased copies, with machine checks. Optional; isolated here so it can be dropped cleanly (three
+entries, this section and three items of one test tuple).
+
+**No published number, count, sha or certificate moves.** None of the three counts orderings.
+
+**1. What it adds.** Beside #suli2019, two short entries for the companion magic-square walks to the
+《杂卦》 order (#suli2019b) and to the Mawangdui order (#sunxiangdong2020): each was checked to reproduce its
+target, and each walk has free choices at its steps, so it is a path to a known target, not a derivation.
+Under the de Bruijn section, #lizhe2025: a proposal of a B(2, 6) de Bruijn cycle as a hexagram ordering,
+with no count; of its structural claims, the one about runs of five is a property of every such cycle,
+and two adjacency claims are not necessary. The de Bruijn novelty statement in that section is unchanged
+(the paper gives no count and no test against King Wen's constraints).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, literature batch 2. Reads, checks and
+draft entries: Fable (claude-fable-5-1).
+
+## CX-328 — CITATIONS.md and KING_WEN_PROVENANCE.md said 王俊龍's 2007 chapter in 劉大鈞 ed. 《大易集釋》 was unobtainable; it was obtained by interlibrary loan and read in full, and the entry now says what it contains (documentation/CITATIONS.md; documentation/KING_WEN_PROVENANCE.md)
+
+**2026-10-10.** Origin: Fable (claude-fable-5-1) read of 王俊龙 2007, 〈极深研几数成序 致远索隐解是图——今本《周易》序卦、杂卦分布规律坐标几何通解〉,
+刘大钧 主编《大易集释》(上海古籍出版社 2007), 下册 pp. 812–836, from an interlibrary-loan scan, every page read as an
+image, with a machine check of every structural statement against `verify.py`'s hexagram table. Literature batch 2,
+extension.
+
+**No published number, count, sha or verdict moves.** The chapter counts nothing over orderings; the existing verdict
+for the author ("counting hexagrams, never orderings") extends to it without qualification.
+
+**1. What was wrong.** Since 2026-08-29 four public sentences said the chapter was unobtainable: the C1 prior-art
+preamble and the `#wangjunlong2002` entry and the acquisition-round preamble in CITATIONS.md, and the parallel sentence in
+KING_WEN_PROVENANCE.md. The entry also predicted, from the title and the author's 2005 forward reference, that the
+chapter "extends the trilogy's method to the 雜卦". That prediction was right; "unobtainable" became false on
+2026-10-10.
+
+**2. What the entry now says.** The chapter numbers the 36 reversal-classes in the received order and again in the 雜卦
+order, places the integers 1–36 on a fixed 6×6 lattice, and reads each line-count class's points as lines and
+polygons with the trilogy's index formulas. Both orders are inputs; the largest cardinal named is 55; the parity
+observation it builds on is credited by the author to Li Shangxin 2000; the author calls it a first attempt whose
+method needs further study. The lattice's column order is the one of 720 under which both of his 序卦 three-point lines
+are collinear, so the entry reads it as a description fitted to the two orders, not a derivation of either. The three
+"unobtainable" sentences now say read, with the date, and the acquisition-round preamble points at the entry.
+
+**3. What this closes.** The chapter was the last unread item by an author named in the 2026-08-16 publication
+freeze's reading condition (see CX-329). The private reading note and check script are not published; the entry's
+structural statements are checkable from the chapter and `verify.py`.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (read, check, draft); applied by claude-opus-5-5,
+literature batch 2 extension.
+
+## CX-329 — the 2026-09-05 novelty scrub of TR-12 is reversed in part: four sentences it removed are restored, one with the prior-art statement its register demanded, and two stay out on their own merits (reports/TR12_QUERY_PROGRAM.md)
+
+**2026-10-10.** Origin: the operator lifted the 2026-08-16 publication freeze on 2026-10-10, after the last unread item of
+its reading condition (王俊龍 2007; CX-328) was read; backlog row Q-534; Fable (claude-fable-5-1) adjudication and
+drafts. Literature batch 2, extension.
+
+**This entry reverses a recorded scrub, and says so plainly.** TR-12's v1.0 row (2026-09-05) records "a novelty scrub
+under the publication freeze, temporarily removing priority assertions; the removals are registered verbatim so the scrub
+is a loan, not a deletion, and their restoration is separately gated." Six sentences were removed then. This entry
+returns four and leaves two out. **No published number, count, sha or verdict moves**; every edited line keeps its line
+number, and the version table gains row v1.27.
+
+**1. Restored verbatim.** §11's heading, "Novelty-refresh addendum (2026-07-31) — queries the July novelty work
+opens/refines" (the table of contents entry matches it), and its opening note's "novelty did not make |C15| exact". Both
+are labels for a section whose body credits Ouyang 1990/1992 and Suenaga 2012; the |C15| statement is still true (§9:
+the exact C15 count is priced and declined on cost).
+
+**2. Restored inside a later sentence.** §2's "What these show that PCA cannot: population-exact fields computed from ALL
+~1.1×10³⁹ members via f·g, vs PCA's projection of an enumerated sample slice". CX-224 §4 (2026-09-27) had since rewritten
+the sentence to name V1, V2 and V5 and to describe V4 and V3; the restored words sit inside that sentence, and the PCA
+figures are now linked (`viz/archive/viz_pca.md`, which project the d3 560T canonical). The same comparison already
+stands in `viz/viz_kc_field.md` §"What this figure is allowed to claim".
+
+**3. Restored with the statement the register required.** §1 Q4(a)'s "an estimator UPGRADE over all prior C3 histograms"
+was scrubbed as unattributed priority by silence, with the condition that it return only with a statement of what "all
+prior" was checked against. It now says: this project's own `--analyze`/`--c3-dist` tabulations over enumeration slices
+(the 100T d3 run's README; `SOLVE_C_CLI.md` §`--c3-dist`), and none in the literature, where no source cited in
+CITATIONS.md tabulates a C3 distribution over orderings that we have found. The claim is scoped "known to us".
+
+**4. Deliberately left out.** §9's "the one class of error this project has never yet made in public" — a claim about
+this project's record, which this ledger and `RETRACTED_FIGURES.tsv` exist to let a reader judge for themselves. §11's
+"per operator directive … after the Thursday novelty gate" — an internal process no reader can resolve. The 2026-09-05
+replacements for both stand.
+
+**5. What the freeze's lifting rests on, for the record.** Every obtainable paper by the two authors the freeze named is
+read (the author written 關曉思 in the freeze is 管小思; see the 2026-08-28 entry). None counts, bounds or enumerates
+orderings of the 64. The surviving claim of CITATIONS.md §C3 and TR-11's novelty note is unchanged by any of them.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (adjudication, drafts); applied by claude-opus-5-5,
+literature batch 2 extension.
+
+## CX-330 — a term count was stated as a content claim: the Yuan Zuoxing 1991 entry said "no sequence content", and now says the received sequence is never discussed; two deferred bibliographic items are closed or kept deferred with the reason (documentation/CITATIONS.md)
+
+**2026-10-10.** Origin: the first literature batch's Fable pre-publication review deferred four small items (its §4);
+this closes what held notes can settle. Literature batch 2, extension.
+
+**No published number, count, sha or verdict moves.**
+
+**1. Yuan Zuoxing 1991.** The entry's term profile (群 17 · 矩阵 17 · 卦序 0) was summarised as "no sequence content". What
+the full-text read measured, and the 2026-08-27 verdict re-derived, is that the paper never discusses the received
+sequence. The entry now says that. Nothing else in the entry changes. The same three words stood at the (Z/2)⁶ hexagram-algebra chain's links for this paper and for Cao Hongjun et al. 1995, and in the Cao entry; the Cao full-text read (2026-08) measured the same fact — no discussion of the received order anywhere in its five pages — so those three sites now say "the received sequence is never discussed" too, in the same words.
+
+**2. Ouyang 1992, the page span.** The article runs pp. 69–77 with its notes continued on p. 68. The entry already says
+so in its parenthetical (added 2026-10-08); the span is left as the article's own. Closed without edit.
+
+**3. Zhang Qingyu 1994, pp. 43–44, and the Li Shangxin 1999 credit line.** Still deferred: the first needs a page read
+of pp. 43–44 that has not been done; the second needs the unread 1999 thesis. No public claim rests on either.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (decisions, drafts); applied by claude-opus-5-5,
+literature batch 2 extension.

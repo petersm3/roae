@@ -11110,3 +11110,85 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
   re-minted; no published number, sha or verdict changed.
 - Q-796 decided (operator D11, 2026-09-30): the two pinned files carry one sequence, recorded as
   produced; `Q7_DISTINCT_WITNESSES=NO`.
+
+## 2026-10-09 — literature batch 2: the 1984–86 Chinese primary literature on the Mawangdui order is read and cited, the array is checked against the primary tables, and the code that builds the order credits them
+
+**Literature batch 2, the Mawangdui primary literature (CX-322).**
+
+- Since September the source list had said that the first Chinese publications on the Mawangdui silk order
+  were not cited or read, and that the order this project uses had been checked only against one modern
+  book. Four articles from 1984–86 were bought and read in full.
+- The new entries say who first wrote down the rule that builds the order, when, and how each author got
+  there. The authors disagree about which order is older: two against three once Liu Dajun 1985 (below) is
+  counted, each by argument. This project still takes no side.
+- Three of the articles print the whole order as a 64-row table. The order in this project's code
+  matches each table, name by name. The old warning paragraph is replaced by a dated note that keeps the
+  record of who raised it.
+- The code that builds the order from its rule now names these authors, hedged, as prior art.
+- One optional entry: Ding Lianghao 2024, cited for its reading of the Western Zhou pottery paddles.
+
+**Literature batch 2, page numbers and one added entry (CX-323, CX-324).**
+
+- The Li Zhen 2020 entry had section references only, because it was read from unpaginated reposts. It
+  now gives journal page numbers from the paginated copy.
+- An optional entry for Li Shangxin's 2008 journal article, the peer-reviewed form of a chapter already
+  cited. It counts nothing.
+
+**Literature batch 2, round-3 additions (CX-326, CX-327).**
+
+- Two more 1984–85 publications were read in full. The first is the original 1984 transcription of the
+  silk manuscript itself; the order in this project's code matches its 64 entries one for one. The second
+  is Liu Dajun 1985, a fourth 64-row table that also matches, name by name and number by number.
+- Liu Dajun 1985 is, in our holdings, the earliest source for two observations: the four positions where
+  the silk order and the received order hold the same hexagram (1, 32, 57, 61), and a Tang-dynasty
+  doubling procedure (贾公彦) that the 1986 entry also quotes. The entries now say so.
+- Optional, and kept separate so they can be dropped: two short entries for the companion magic-square
+  papers of Sun Li and Sun Xiangdong (each is a walk with free choices to a known target, and counts
+  nothing), and one for Li Zhe 2025, which proposes a de Bruijn cycle as a hexagram order and gives no
+  count.
+
+**Literature batch 2, a precision note (CX-325).**
+
+- A code comment now says which of the two binary readings of the Fu Xi order the code uses. The
+  statistic the project publishes is the same for both.
+- No published number, count, sha or verdict changed in this batch.
+
+## 2026-10-10 — literature batch 2, extension: the last unread item of the publication freeze's reading condition is read, the freeze is lifted, and four sentences the 2026-09-05 scrub removed from TR-12 return
+
+**The 2007 chapter is read (CX-328).**
+
+- Since August the source list said one item by an author the publication freeze named was unobtainable: a 2007 book
+  chapter by Wang Junlong in a conference volume edited by Liu Dajun. It was obtained through interlibrary loan and read
+  in full, every page from the page image, with a machine check of each structural statement against this project's
+  hexagram table.
+- It draws pictures of two received orders on a 6×6 grid and reads lines and polygons into them. It counts nothing over
+  orderings; the largest count it names is 55. The entry now says what it contains instead of saying it is unobtainable.
+- No published number, count or verdict changed. The verdict for all six items by this author is the same as before:
+  counting hexagrams and fitting their positions, never counting orderings.
+
+**The freeze is lifted and the TR-12 scrub is reversed in part (CX-329).**
+
+- On 2026-08-16 this project froze every publication that asserts novelty until two named authors were read. Every
+  obtainable paper by both is now read; none counts orderings of the 64. On 2026-10-10 the freeze was lifted.
+- On 2026-09-05, under that freeze, six sentences were removed from TR-12 and recorded as a loan, each with its original
+  text. Four are now put back: the heading of §11 and its remark that the July work did not make the C15 count exact;
+  §2's comparison of the population-exact figures with the older PCA pictures, which project a sample; and §1's "estimator
+  upgrade over all prior C3 histograms", which returns only together with a statement of what "all prior" was checked
+  against: this project's own C3 tables over enumeration slices, and no source in the source list that we have found.
+- Two stay out on their own merits: a sentence about this project's own record, and a reference to an internal gate.
+  TR-12's version table (v1.27) and CORRECTIONS.md record the restoration as the reversal of the recorded scrub.
+- No figure, table, count or verdict moved; every edited line in TR-12 keeps its line number.
+
+**The literature sweep of 2026-10-08/09, summarised.**
+
+- Across the sources read in full on those two days and cited in CITATIONS.md with those dates — the 1993 book, the
+  1984–86 Mawangdui publications, and the journal papers whose entries carry those read dates — none
+  counts orderings of the 64. The ordering-count claim of CITATIONS.md §C3 and TR-11's novelty note is untouched.
+
+**Small items closed from the first literature batch's deferred list (CX-330).**
+
+- The Yuan Zuoxing 1991 entry said "no sequence content"; it now says the paper never discusses the received sequence,
+  which is what was measured; the same words stood for Cao Hongjun et al. 1995 and in the lineage chain, and are replaced the same way. The Ouyang 1992 page span stays as printed, because the entry already says where the notes
+  continue. One caution about Zhang Qingyu 1994 (pp. 43–44) is still deferred: it needs a page read that has not been
+  done.
+- No published number, count, sha or verdict changed in this extension.

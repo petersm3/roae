@@ -41172,6 +41172,144 @@ class TestQ431WitnessPropertyContract(unittest.TestCase):
 # end class TestQ431WitnessPropertyContract (CX-321, Q-431)
 
 
+class TestLit2MawangduiPrimaries(unittest.TestCase):
+    """Literature batch 2 (CX-322 .. CX-325; reads by Fable, 2026-10-09).
+
+      (a) the 1984-86 silk-order cluster: the four primary anchors (+ the two optional entries) exist once
+          each, the two retracted flag phrasings are gone from CITATIONS.md, and the dated resolution is there;
+      (b) the property the code comments now state: the base lower cycle is the four trigram-complement
+          pairs and the upper order is the four odd-popcount (yang) trigrams then the four even ones
+          (negative controls: a transposed cycle and the King Wen first octet fail);
+      (c) the code that builds the order from its rule cites the 1984 anchors;
+      (d) Q-990: roae.py says which binary reading fuxi_order is, and the reading is right;
+      (f) #lizhen2020 carries page numbers;
+      (g) round 3 (CX-326): the editio princeps (释文 1984) and Liu Dajun 1985 tables, transcribed here
+          independently of roae.py, agree with the array 64/64 (Liu also by King Wen numeral), the four
+          shared positions are 1, 32, 57, 61, and the entries carry the credits (negative controls: the
+          received order and a one-swap mutant fail).
+    Red on the pre-batch tree: (a), (c), (d), (f), (g).
+    """
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    def _read(self, rel):
+        with open(os.path.join(self.HERE, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_a_cluster_anchors_and_flag_resolved(self):
+        cit = self._read("documentation/CITATIONS.md")
+        for a in ("yu1984", "zhang1984", "hanzhongmin1984", "zhoulisheng1986", "dinglianghao2024",
+                  "lishangxin2008a", "shiwen1984", "liudajun1985", "suli2019b", "sunxiangdong2020", "lizhe2025"):
+            self.assertEqual(cit.count('<a id="%s"></a>' % a), 1, a)
+        # the two retracted phrasings (RETRACTED_PHRASES keys RP-77328e26, RP-1ee75ce5), split so this file
+        # does not restate them
+        self.assertNotIn("The original Chinese publication " + "is uncited here", cit)
+        self.assertNotIn("Shaughnessy's presentation " + "alone", cit)
+        self.assertIn("**Resolved 2026-10-09 — the original Chinese publications are cited above", cit)
+        self.assertIn("[Han 1984](#hanzhongmin1984) p. 23 and [Liu 1985](#liudajun1985) pp. 54–55 — by hexagram name", cit)
+
+    def test_b_rule_property_the_comments_state(self):
+        import solve
+        lam, up = solve._R7_LAMBDA, solve._R7_MD_UPPER_ORDER
+        pairs = lambda c: all(c[2 * k] ^ c[2 * k + 1] == 7 for k in range(4))
+        yang_first = lambda o: ([bin(t).count("1") % 2 for t in o] == [1] * 4 + [0] * 4)
+        self.assertTrue(pairs(lam), "the lower cycle is the four complement pairs")
+        self.assertTrue(yang_first(up), "the upper order is four yang trigrams, then four yin")
+        self.assertFalse(pairs(lam[1:] + lam[:1]), "negative control: a rotated cycle is not")
+        import roae
+        kw8 = [roae.binary_hexagrams[i] >> 3 for i in range(8)]
+        self.assertFalse(yang_first(kw8), "negative control: King Wen's first eight uppers are not")
+        self.assertEqual(solve._r7_md_reconstruct(), solve._r7_mawangdui())
+
+    def test_c_rule_sites_cite_the_1984_anchors(self):
+        n = {f: sum(1 for l in self._read(f).split("\n") if "#yu1984" in l or "#zhang1984" in l)
+             for f in ("solve.py", "solve.c", "roae.py")}
+        self.assertGreaterEqual(n["solve.py"], 4, n)
+        self.assertGreaterEqual(n["solve.c"], 1, n)
+        self.assertGreaterEqual(n["roae.py"], 1, n)
+
+    def test_d_fuxi_order_reading(self):
+        import roae
+        line = [l for l in self._read("roae.py").split("\n") if l.startswith("fuxi_order = ")]
+        self.assertEqual(len(line), 1)
+        self.assertIn("bit 0 (bottom line", line[0])
+        self.assertIn("Q-990", line[0])
+        pos = {v: i + 1 for i, v in enumerate(roae.binary_hexagrams)}
+        R = lambda h: int(format(h, "06b")[::-1], 2)
+        heng = [R(63 - k) for k in range(64)]
+        self.assertEqual([pos[v] for v in roae.fuxi_order[:4]], [2, 24, 7, 19])   # Kun Fu Shi Lin
+        self.assertEqual([pos[v] for v in heng[:4]], [1, 43, 14, 34])              # Qian Guai Dayou Dazhuang
+        hd = lambda s: [bin(a ^ b).count("1") for a, b in zip(s, s[1:])]
+        self.assertEqual(hd(roae.fuxi_order), hd(heng))
+        self.assertNotEqual(hd(roae.fuxi_order), hd(list(roae.binary_hexagrams)),
+                            "negative control: King Wen differs")
+
+    def test_f_lizhen2020_pages(self):
+        cit = self._read("documentation/CITATIONS.md")
+        i = cit.index('<a id="lizhen2020"></a>')
+        entry = cit[i:cit.index("<a id=", i + 10)]
+        self.assertNotIn("section-level references only", entry)
+        for pg in ("pp. 48–50", "p. 49", "p. 51"):
+            self.assertIn(pg, entry)
+
+    # round 3 (CX-326): received names / King Wen numerals as printed, in manuscript order
+    _SHIWEN_1984 = ("乾否遯履讼同人无妄姤艮大畜剥损蒙贲颐蛊坎需比蹇节既济屯井震大壮豫小过归妹解丰恒"
+                    "坤泰谦临师明夷复升兑夬萃咸困革随大过离大有晋旅睽未济噬嗑鼎巽小畜观渐中孚涣家人益")
+    _LIU_1985 = (1, 12, 33, 10, 6, 13, 25, 44, 52, 26, 23, 41, 4, 22, 27, 18, 29, 5, 8, 39, 60, 63, 3, 48,
+                 51, 34, 16, 62, 54, 40, 55, 32, 2, 11, 15, 19, 7, 36, 24, 46, 58, 43, 45, 31, 47, 49, 17, 28,
+                 30, 14, 35, 56, 38, 64, 21, 50, 57, 9, 20, 53, 61, 59, 37, 42)
+    _KW_NAMES = ("乾坤屯蒙需讼师比小畜履泰否同人大有谦豫随蛊临观噬嗑贲剥复无妄大畜颐大过坎离咸恒遯大壮晋"
+                 "明夷家人睽蹇解损益夬姤萃升困井革鼎震艮渐归妹丰旅巽兑涣节中孚小过既济未济")
+
+    def test_g_round3_primary_tables(self):
+        import re
+        import roae
+        multi = "大畜|大壮|小过|归妹|明夷|大过|大有|未济|噬嗑|小畜|中孚|家人|既济|同人|无妄|."
+        kwn = re.findall(multi, self._KW_NAMES)
+        self.assertEqual(len(set(kwn)), 64)
+        sw = [kwn.index(n) for n in re.findall(multi, self._SHIWEN_1984)]
+        liu = [k - 1 for k in self._LIU_1985]
+        mwd = list(roae.mawangdui_kw_indices)
+        self.assertEqual(sorted(sw), list(range(64)))
+        self.assertEqual(sw, mwd, "释文 1984 = the array, 64/64")
+        self.assertEqual(liu, mwd, "Liu 1985 numerals = the array, 64/64")
+        self.assertEqual([i + 1 for i in range(64) if mwd[i] == i], [1, 32, 57, 61])
+        self.assertNotEqual(list(range(64)), sw, "negative control: the received order")
+        mut = mwd[:5] + [mwd[6], mwd[5]] + mwd[7:]
+        self.assertNotEqual(mut, sw, "negative control: a one-swap mutant")
+        cit = self._read("documentation/CITATIONS.md")
+        i = cit.index('<a id="liudajun1985"></a>')
+        entry = cit[i:cit.index("<a id=", i + 10)]
+        for needle in ("1 乾, 32 恒, 57 巽, 61 中孚", "p. 55", "贾公彦", "pp. 54–55"):
+            self.assertIn(needle, entry)
+        self.assertIn("Quotes, after [Liu 1985](#liudajun1985), 贾公彦", cit)
+        self.assertIn("split two against three", cit.replace("\n", " "))
+        self.assertNotIn("split two against two", cit.replace("\n", " "))
+
+# end class TestLit2MawangduiPrimaries (literature batch 2)
+
+
+class TestLit2xWangjunlong2007(unittest.TestCase):
+    """Literature batch 2, extension (CX-328; read by Fable, 2026-10-10): 王俊龙 2007, in 刘大钧 ed. 大易集释,
+    is read, so neither CITATIONS.md nor KING_WEN_PROVENANCE.md may still say it is unobtainable, and the
+    #wangjunlong2002 entry carries the volume's page span once. The retired sentence's needle is split so
+    this file does not restate it. Red on the pre-extension tree (the needle is present at ea17b2bb)."""
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+    def _read(self, rel):
+        with open(os.path.join(self.HERE, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_no_unobtainable_sentence_and_span_once(self):
+        needle = "One item remains " + "unobtainable"
+        for rel in ("documentation/CITATIONS.md", "documentation/KING_WEN_PROVENANCE.md"):
+            self.assertNotIn(needle, self._read(rel).replace("\n", " "), rel)
+        cit = self._read("documentation/CITATIONS.md")
+        self.assertEqual(cit.count("下册 pp. 812–836"), 1)
+        i = cit.index('<a id="wangjunlong2002">')
+        self.assertIn("下册 pp. 812–836", cit[i:cit.index("<a id=", i + 10)])
+
+# end class TestLit2xWangjunlong2007 (literature batch 2, extension)
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

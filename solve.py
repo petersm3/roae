@@ -11268,7 +11268,7 @@ def trigram_verify():
 # are Claude's formalizations of standard classical constructions (JF palace
 # generator: standard sinological convention, see CITATIONS.md; MD two-key
 # trigram sort: Shaughnessy 2022, Brill, p.50 + Table 11.2, corrected 2026-07-05
-# per the public CITATIONS.md erratum). None of the generative descriptions is
+# per the public CITATIONS.md erratum; the earliest prose statements in our holdings are of 1984: CITATIONS.md #yu1984 #zhang1984 #hanzhongmin1984). None of the generative descriptions is
 # claimed as novel; only their use as a symmetric corpus-control instrument is,
 # to our knowledge, the project's own -- and that is hedged, not asserted.
 # Sinological corrections are invited; a correction reopens the freeze via a
@@ -11534,11 +11534,11 @@ def _r7_J5(s):
 
 # Mawangdui's natural family M1-M5 (trigram-octet representation) -------------
 
-_R7_LAMBDA = [7, 0, 4, 3, 2, 5, 1, 6]   # base lower cycle: Qian,Kun,Gen,Dui,Kan,Li,Zhen,Xun
+_R7_LAMBDA = [7, 0, 4, 3, 2, 5, 1, 6]   # base lower cycle: Qian,Kun,Gen,Dui,Kan,Li,Zhen,Xun = the four trigram-complement pairs, so derived by Yu 1984 p. 17 (diagram diagonals) and Zhang 1984 p. 13 (yang/yin pairing), CITATIONS.md #yu1984 #zhang1984
 _R7_MD_UPPER_ORDER = [7, 4, 2, 1, 0, 3, 5, 6]  # M4: Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun
 
 def _r7_lambda_promote(u):
-    """Lambda with trigram u moved to the front, remaining order preserved."""
+    """Lambda with trigram u moved to the front, remaining order preserved. (A pure-first promotion in a lower-fixed frame is quoted from 贾公彦 (7th c.) by Liu Dajun 1985 and Zhou Lisheng 1986, CITATIONS.md #liudajun1985 #zhoulisheng1986.)"""
     return [u] + [x for x in _R7_LAMBDA if x != u]
 
 def _r7_M1(s):
@@ -11579,7 +11579,7 @@ def _r7_M3(s):
 def _r7_M4(s):
     """M4 (gender-blocked upper order): upper octet order equals
     [Qian,Gen,Kan,Zhen,Kun,Dui,Li,Xun] (father, sons youngest->eldest, mother,
-    daughters youngest->eldest)."""
+    daughters youngest->eldest). Zhang 1984 p. 13 states this order as four yang then four yin trigrams and relates it to the 文王八卦次序 (children youngest-first here, eldest-first there), CITATIONS.md #zhang1984."""
     ups = _r7_M1(s)
     if ups is None:
         return False
@@ -11602,7 +11602,7 @@ def _r7_M_joint(s):
 def _r7_md_reconstruct():
     """Build the Mawangdui sequence from M1^M3^M4 alone (M4 upper order +
     Lambda-promotion lowers). Frozen anchor: this equals the corrected MD data
-    exactly (residual 0 bits given the two conventions)."""
+    exactly (residual 0 bits given the two conventions). The construction is prior art: stated in prose in 1984 by Yu Haoliang and Han Zhongmin (all three parts) and Zhang Zhenglang (the promotion only in his table), CITATIONS.md #yu1984 #hanzhongmin1984 #zhang1984."""
     rec = []
     for u in _R7_MD_UPPER_ORDER:
         for l in _r7_lambda_promote(u):

@@ -126,7 +126,7 @@ trigram_names = {
 # Fu Xi (binary/natural) ordering: hexagrams ordered by their binary value 0–63.
 # This is the "mathematical" ordering, unlike King Wen which is the traditional one.
 # https://en.wikipedia.org/wiki/King_Wen_sequence#Fu_Xi_sequence
-fuxi_order = list(range(64))  # Binary values 0–63 in natural order
+fuxi_order = list(range(64))  # Binary values 0–63 in natural order. Reading: bit 0 (bottom line, 初爻) is the units digit, so the list runs Kun -> Qian (坤 复 师 临 ...); Shao Yong's 横图 reads the top line as the units digit and runs Qian -> Kun (乾 夬 大有 大壮 ...), i.e. this list line-reversed and order-reversed. Consecutive Hamming distances are identical on both (Q-990).
 
 # Mawangdui ordering: an alternative ancient sequence found on silk manuscripts
 # in the Mawangdui tomb (168 BCE). Upper trigrams cycle through Qian, Gen, Kan,
@@ -139,7 +139,7 @@ fuxi_order = list(range(64))  # Binary values 0–63 in natural order
 # Shaughnessy 1996. Anchors: Qian 1st, Kun 33rd, Jiji (#63) 22nd, Weiji
 # (#64) 54th. Corrected 2026-07-05 — the previous array (2026-04-06) had
 # correct octet membership but wrong octet order and wrong within-octet
-# order; caught by cross-checking Shaughnessy 2022 Table 11.2.
+# order; caught by cross-checking Shaughnessy 2022 Table 11.2. Checked by name, 2026-10-09, against the 1984 primary tables too (CITATIONS.md #yu1984, #zhang1984, #hanzhongmin1984), the earliest prose statements of this rule in our holdings (Zhang's promotion step in his table only), and against the editio princeps (#shiwen1984) and Liu 1985 (#liudajun1985); prior art, not ours.
 mawangdui_kw_indices = [
      0, 11, 32,  9,  5, 12, 24, 43,  # Qian upper
     51, 25, 22, 40,  3, 21, 26, 17,  # Gen upper

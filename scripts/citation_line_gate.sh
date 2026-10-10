@@ -538,7 +538,7 @@ BTFILE = re.compile(r'`([^`\s]+\.[A-Za-z]{1,5})`:(?=\d)')
 MDLINK = re.compile(r'\[[^\]\n]*\]\(`?([^)\s#`]+\.[A-Za-z]{1,5})`?\):(?=\d)')
 def cites(line, citer, prev=(), quiet=False):
     """(target, lo, hi, text) for every live citation on the line; exclusions counted."""
-    if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):1886`, is the
+    if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):2031`, is the
         line = MDLINK.sub(lambda m: " " + m.group(1) + ":", line)   # same citation: read it as one;
         line = BTFILE.sub(lambda m: " " + m.group(1) + ":", line)   # so is a backticked name, `x.out`:14
     out, cur, seen, pinned = [], None, False, False

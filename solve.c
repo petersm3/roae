@@ -12585,7 +12585,7 @@ static void run_null_historical(void) {
      * Source: Shaughnessy, The Origin and Early Development of the Zhou
      * Changes (Brill, 2022), Table 11.2; concordant with Cook 2006, with Luo Jianjin 2017's earlier closed-form 选首排列 construction of the same order (CITATIONS.md #luojianjin2017), and
      * Shaughnessy 1996. Corrected 2026-07-05 (previous array had wrong
-     * octet order + wrong within-octet order; octet membership was right). */
+     * octet order + wrong within-octet order; octet membership was right). The rule is stated in prose in 1984 by Yu Haoliang and Han Zhongmin, and by Zhang Zhenglang with the promotion step in his table; this array matches their tables by name (CITATIONS.md #yu1984 #zhang1984 #hanzhongmin1984). */
     int md_idx[64] = {
          0, 11, 32,  9,  5, 12, 24, 43, 51, 25, 22, 40,  3, 21, 26, 17,
         28,  4,  7, 38, 59, 62,  2, 47, 50, 33, 15, 61, 53, 39, 54, 31,
