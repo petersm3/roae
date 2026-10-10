@@ -772,6 +772,16 @@ QSET external review, which the external review itself missed; see
   C1 break, on an IN-C15 sequence breaking one enforced rule, on King Wen submitted as the witness,
   on a missing and on a malformed file; green on the pinned files; output byte-identical with and
   without a solver on PATH).]**
+  **[CX-321 note, 2026-10-09 (Fable; Q-431): the row above verified that the pinned sequence is SOME member
+  of its target; it now asserts the claims this section and LRPT results 6–7 make of THIS member — C3 = 776 as
+  an equality (from `--check-arrangement`'s value line and from `solve.py`, separately), the 3-slot edit locus
+  7, 21, 22 with its published decomposition and 6 differing positions, the rule set each target enforces
+  written in the row (`sat.target_rules` must agree), parity/rhythm/gender re-tallied in C by
+  `solve.c --r11-verify` and matched to `solve.py`, and two in-row controls that must fire. Measured before
+  the change: a genuine grand-strict member 4 slot-edits from King Wen passed the row. The opt-in re-solve
+  row asserts none of these of a solver-returned member. Q-796 is decided: the two pinned files carry one
+  sequence (`Q7_DISTINCT_WITNESSES=NO`); the row prints `pins_identical` so a re-pin yielding two would be a
+  documented change. Gate legs 12–18 of `scripts/d5_04_q7_witnesses_gate.sh`; `tests.py::TestQ431WitnessPropertyContract`.]**
 - **The three arrangements, printed** *(added 2026-09-12, V3B-03#14 — this section named them by
   code identifier only, so a reader could not check a verdict without running the repository).*
   `H = {0..63}` as 6-bit integers (`documentation/SPECIFICATION.md` §H); each array below is a

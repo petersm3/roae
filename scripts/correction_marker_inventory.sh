@@ -336,7 +336,8 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-says-sub_ckpt_load-restores-state'),
     ('documentation/DEVELOPMENT.md', 'd4dcb7a62cd6'):
         ('1', 'reviewed:text-already-separates-count-matching-and-set-matching-K'),
-    ('documentation/DEVELOPMENT.md', '3692591963d4'):
+    # re-keyed CX-321 (was 3692591963d4): only line-number cites on the line moved; re-read, same verdict.
+    ('documentation/DEVELOPMENT.md', '101ff3a81dd7'):
         ('1', 'reviewed:ordinary-present-tense-prose;not-a-correction-note'),
     ('documentation/DISTRIBUTIONAL_ANALYSIS.md', '0a25a691f691'):
         ('1', 'reviewed:bullet-already-credits-C5'),
@@ -505,7 +506,9 @@ REVIEWED = {
         ('1', 'reviewed:stale-clause-is-already-struck-through'),
     ('documentation/QUERY_INVENTORY.md', '900d958f9aa5'):
         ('1', 'reviewed:cell-already-names-the-kc-figure'),
-    ('documentation/QUERY_INVENTORY.md', '94c1605ab856'):
+    # re-keyed CX-321 (was 94c1605ab856): the line gained the CX-321 note; re-read, the cell above still
+    # reads "the row is unbuilt either way", same verdict.
+    ('documentation/QUERY_INVENTORY.md', 'ed40b0b9fb76'):
         ('2', 'reviewed:cell-above-still-describes-the-witness-row-as-unbuilt'),
     # re-keyed batch 35 (was daa1160a9ad7): only a line-number cite on the line moved; re-read, same verdict.
     ('documentation/QUERY_INVENTORY.md', '3c456275085a'):

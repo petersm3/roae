@@ -145,7 +145,7 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # to bypass. The general case (the NEXT library sourced through a variable) is a real gap and is
 # queued, not silently closed by over-widening this.
 # reports/certificates/c3_positional_witnesses.txt is CORE for the same reason the sourced library
-# is: row a0_q4b READS it and GRADES ON ITS CONTENT (tr12_repro.sh:1202), and the derivation cannot
+# is: row a0_q4b READS it and GRADES ON ITS CONTENT (tr12_repro.sh:1311), and the derivation cannot
 # see it -- the regex covers .c/.py/.sh/.md, and widening it to .txt was MEASURED to sweep in
 # _GATE_STAMP.txt itself plus two enumeration artefacts. Naming the one file that matters is the
 # narrow fix; widening the grammar was the broad one that makes the stamp churn.
@@ -200,6 +200,9 @@ CORE="solve.c verify.py verify.c solve.py documentation/VERIFY.md scripts/lib_bi
 # ever starts READING one of them, so the exclusion cannot hide a real input. The five files still in
 # DECLARED are kept exactly as Q-613 listed them: they are comment-reached too, but they are scripts
 # and harness, not documents, and Q-695 was scoped to the six documents, so it decides nothing here.
+# CX-321 (2026-10-10): the LRPT document that d5_04 leg 17 READS is a member by CODE reference -- that gate
+# names its repo-relative path on the assignment that opens it -- not by declaration, so DECLARED stays exactly
+# as Q-613 listed it (Q-695 pins both lists); a comment rewrite can neither add nor drop it.
 DECLARED="scripts/manifest_zero_entry_gate.sh scripts/resume_budget_infinity_gate.sh scripts/tr12_expected/README.md scripts/tr12_mint_state_gate.sh tests.py"
 REFERENCED_NOT_INPUTS="documentation/CORRECTIONS.md documentation/HISTORY.md documentation/PREREG_CLASSA_QUERY_SET.md documentation/SOLVE_PY_CLI.md documentation/SYMMETRY_SEARCH.md reports/TR8_REORDERING_REVISITED.md"
 fingerprint_files(){ { printf '%s\n' $CORE $DECLARED; derived_inputs; } | sort -u | grep -vxF -f <(printf '%s\n' $REFERENCED_NOT_INPUTS | grep .); }
@@ -215,7 +218,7 @@ fingerprint_files(){ { printf '%s\n' $CORE $DECLARED; derived_inputs; } | sort -
 # could see it. row_assertion_gate.sh proves a row ASSERTS; it cannot prove the assertion's parse
 # MATCHES ITS PRODUCER. This runs that check against a freshly built binary and real ladders.
 q7ranks_parse_leg(){
-  # Paths are relative to the repo root, matching this file's own idiom (:245, :249).
+  # Paths are relative to the repo root, matching this file's own idiom (:248, :252).
   # The first draft used "$ROOT", which is pre_push_gate.sh's variable and is unset here --
   # under `set -u` that aborted the gate AFTER the battery passed and BEFORE the stamp was
   # written. Loud and in the right direction (no stamp on an unmeasured tree), but a defect.

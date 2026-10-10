@@ -11091,3 +11091,22 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
   each is caught by the new checks, passes the old ones, and has a plain twin that both catch.
   Nine mutants each undo one rule, and each makes its test case pass again. Codex (gpt-6-astra)
   found these in the Q-964 review.
+
+## 2026-10-09 — Q7 witness row: from "a member of the target" to "the member the reports describe" (CX-321, Q-431)
+
+**The Q7 witness property contract, attacked and completed (CX-321; Fable).**
+
+- Since CX-93 the battery row `a0_q7_witnesses` verified the pinned Q7 witness without a solver: IN SUPER,
+  IN C15, not King Wen, every enforced rule scoring 0. That proves the sequence is *some* member of its
+  target. The reports claim more of it — C3 = 776 as an equality, exactly 3 slot-edits from King Wen at
+  slots 7, 21, 22 — and the row checked neither; a grand-strict member 4 slots from King Wen passed it.
+- The row now asserts the published claims from two languages (`solve.c --check-arrangement` /
+  `--r11-verify` and `solve.py`, with `verify.py` for gender), pins the rule set each target enforces in
+  the row rather than reading it from `sat.py`, and runs two in-row controls that must fire. The opt-in
+  re-solve row keeps measuring whatever a solver returns without asserting the pinned constant's claims
+  of it.
+- `d5_04_q7_witnesses_gate.sh`: 17 legs, 7 mutants, PASS on the cured tree and FAIL on the previous one.
+  `tests.py`: 8 new tests, 7 of them red on the previous battery. The n = 9 golden for the row is
+  re-minted; no published number, sha or verdict changed.
+- Q-796 decided (operator D11, 2026-09-30): the two pinned files carry one sequence, recorded as
+  produced; `Q7_DISTINCT_WITNESSES=NO`.

@@ -108,3 +108,27 @@ python3 -c 'import sat; s=[int(x) for x in open("reports/evidence/q7_witnesses/g
 
 Or run the battery: `scripts/tr12_repro.sh --n9 --out /tmp/tr12 --solve ./solve` and read
 `TR12_Q7_WITNESSES=PASS` with the row's raw output in `/tmp/tr12/raw/a0_q7_witnesses.txt`.
+
+## What the battery row asserts (CX-321, 2026-10-09)
+
+`a0_q7_witnesses` verifies more than membership. In addition to CX-93's checks it asserts, of each pinned
+sequence, the claims the reports make of it — by name, in the diffed output, with no solver:
+
+| claim | source of the claim | asserted from |
+|---|---|---|
+| the rule set the target enforces (`moore-strict`: parity, rhythm; `grand-strict`: + gender) | TR-12 §Q7, SAT_CLI.md | written in the row; `sat.target_rules` must agree |
+| **C3 = 776** (an equality, not `<= 776`) | TR-12 §Q7; LRPT result 6 | `--check-arrangement`'s `value` line AND `sat.target_verdict`, separately |
+| exactly 3 slot-edits from King Wen: slot 7 flipped; pairs 21/22 swapped, slot 22 flipped; 6 positions differ | LRPT result 7; TR-12 §Q7 | computed against `solve._r7_kw()` |
+| parity, rhythm, gender re-tallied in C | — | `solve.c --r11-verify` fields 1..3 (parsed, never its exit status) must equal `solve.py --r11-verify` and read 0 on every enforced rule |
+| the instrument is alive | — | King Wen must violate the target's rules; King Wen with slot 1 flipped must be OUT; a passing control fails the row |
+
+Whole-line tokens: `Q7WIT_CONTRACT	HOLDS	...` on a green run, `pins_identical	YES` (the two files carry one
+sequence). Gate: `scripts/d5_04_q7_witnesses_gate.sh` legs 12–18 (each red on a fixture whose precondition
+is asserted first; the C3 = 776 check is proven live by moving the claim constant, because no member of
+either target with C3 ≠ 776 is known without a solver) and `tests.py::TestQ431WitnessPropertyContract`.
+
+**Q-796, decided (operator 2026-09-30, D11): `Q7_DISTINCT_WITNESSES=NO`.** The two targets share one
+pinned sequence, recorded as the commands produced it. A distinct moore-strict member can be written down
+by hand (this witness with slots 8 and 14 flipped: parity 0, rhythm 0, gender 2, C3 = 776), so the point
+is editorial, not mathematical: TR-12 names two targets and one sequence, and the row prints
+`pins_identical` so that a future re-pin yielding two would be a documented change.

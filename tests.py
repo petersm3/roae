@@ -25230,15 +25230,21 @@ print(json.dumps(rec))
         inside = set()
         for o in opens:
             inside |= set(range(o, min(x for x in closes if x > o)))
+        # CX-321 (2026-10-10): the V-caption window is pinned RELATIVE to its own heading, at the offsets the
+        # absolute 879..1010 / 880..1000 had when this test was written (heading at line 865), so an insertion
+        # ABOVE the section (Q-431 added ten lines to section Q7) moves the window with it instead of out of it.
+        heads = [i for i, l in enumerate(lines) if l.startswith("### Figures — all five (V1, V2, V5 from the n=31 atlas;")]
+        self.assertEqual(len(heads), 1, "precondition: the V-caption section heading moved")
+        h = heads[0]                                                    # 0-based; 864 when the window was pinned
         for needle in ("(CX-75)", "THE SECOND AXIS IS BUILT", "V3 WAS REPORTED BLOCKED", "Codex VIZ1 F07",
                        "Codex VIZ1 F06", "Codex VIZ1 F05"):
-            hits = [i for i in range(879, 1010) if needle in lines[i]]      # the V-caption section
+            hits = [i for i in range(h + 15, h + 146) if needle in lines[i]]      # the V-caption section
             self.assertTrue(hits and all(i in inside for i in hits), needle)
         # every TR-12 line a CLAIMS.tsv row cites between the V2 and V3 captions still carries its value
         n = 0
         for row in self._rd("documentation", "CLAIMS.tsv").splitlines():
             m = re.search(r"\treports/TR12_QUERY_PROGRAM\.md:(\d+)\t", row)
-            if m and 880 <= int(m.group(1)) <= 1000:
+            if m and h + 16 <= int(m.group(1)) <= h + 136:
                 val = row.split("\t")[6]
                 probe = {"seven": "seven"}.get(val, val.split("=")[-1].split("–")[0])
                 self.assertIn(probe, lines[int(m.group(1)) - 1], row[:80])
@@ -35470,7 +35476,10 @@ class TestQ949Q950PrepushEnvAndRegistry(unittest.TestCase):
     # Names the scan finds that are NOT inherited inputs: each is assigned on an earlier line of the
     # same file than its first read (checked by test_not_env_entries_are_proven), or is a builtin.
     NOT_ENV = ("ALLT BUDGET CPINS DOC KEYS SRC TPINS CMD LINE BASE_GOT CAUSE RES R_DIG CD GW N NROWS "
-               "N_EXTRACTED FRAC_LE N_PAIRS TDIR WORK G27 G5BLINEF Q7MS Q7S Q7T FAILOPEN_SELFTEST_SENTINEL").split()
+               "N_EXTRACTED FRAC_LE N_PAIRS TDIR WORK G27 G5BLINEF Q7MS Q7S Q7T FAILOPEN_SELFTEST_SENTINEL "
+               # CX-321 (Q-431): Q7M (tr12_repro.sh q7wit_props) and Q7X (d5_04 leg 12) are set on the python3
+               # command line; RUN_SOLVE / RUN_ROOT are assigned empty at the top of d5_04 and set per call.
+               "Q7M Q7X RUN_ROOT RUN_SOLVE").split()
     BUILTIN = ("BASH_VERSINFO",)
     SCOPE_EXCLUDE = ("tests.py", "perf_bench.sh")
     SCOPE_EXCLUDE_PREFIX = ("pre_commit_",)
@@ -41024,6 +41033,143 @@ class TestQ976Q977Q978Batch43(unittest.TestCase):
                     self._use(self.fixed)
 
 # end class TestQ976Q977Q978Batch43 (batch 43, Q-976/Q-977/Q-978)
+
+
+class TestQ431WitnessPropertyContract(unittest.TestCase):
+    """CX-321 (2026-10-09, Fable; Q-431): battery row a0_q7_witnesses asserts the PUBLISHED claims of
+    the pinned Q7 witness -- the rule set each target enforces, C3 = 776 as an equality, the 3-slot
+    edit locus 7,21,22 -- rather than only that the sequence is SOME member of the target. These tests
+    run the row's Python helper `q7wit_props` as extracted from scripts/tr12_repro.sh (no binary, no
+    solver), with each fixture's precondition asserted before the red assertion, and a mutant of the
+    helper that must turn the red fixture green (so the red test is shown to depend on the assertion).
+    The binary-side legs (C3 from --check-arrangement, the solve.c --r11-verify second language, the
+    slot-1 control) are measured by scripts/d5_04_q7_witnesses_gate.sh, which runs in
+    tr12_repro_gate.sh with a real binary."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    EXPECTED_LOCUS_FAIL = ("Q7WIT_FAIL\tgrand-strict: the sequence differs from KW at slots 5,7,21,22, "
+                           "the published 3-slot-edit locus is 7,21,22")
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(cls.ROOT, "scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r"(?ms)^q7wit_props\(\)\{.*?^\}$", src)
+        cls.fn = m.group(0) if m else None
+        with open(os.path.join(cls.ROOT, "reports", "evidence", "q7_witnesses", "grand-strict.txt"), encoding="utf-8") as fh:
+            txt = fh.read()
+        cls.W = [int(x) for x in txt.split("SEQ=")[-1].split(",")]
+        cls.M5 = list(cls.W); cls.M5[10], cls.M5[11] = cls.M5[11], cls.M5[10]   # slot 5 reversed
+
+    def _props(self, target, seq, mode="pinned", fn=None, root=None):
+        self.assertIsNotNone(self.fn, "precondition: q7wit_props(){ ... } is extractable from scripts/tr12_repro.sh")
+        script = "REPO_ROOT=%s\n%s\nq7wit_props \"$1\" \"$2\" \"$3\"\n" % (shlex_quote(root or self.ROOT), fn or self.fn)
+        r = subprocess.run(["bash", "-c", script, "q7wit", target, ",".join(map(str, seq)), mode],
+                           capture_output=True, text=True, timeout=300)
+        return r.returncode, r.stdout.splitlines()
+
+    @staticmethod
+    def _slots(seq, kw):
+        return [k for k in range(32) if seq[2 * k:2 * k + 2] != kw[2 * k:2 * k + 2]]
+
+    def test_a_preconditions_hold(self):
+        import sat
+        kw = list(sat.KW)
+        v = sat.target_verdict(self.W, "grand-strict")
+        self.assertTrue(v["ok"] and v["c3"] == 776 and not v["rule_viol"], "precondition: the pinned witness is a grand-strict member at C3 = 776")
+        self.assertEqual(self._slots(self.W, kw), [7, 21, 22])
+        v5 = sat.target_verdict(self.M5, "grand-strict")
+        self.assertTrue(v5["ok"] and v5["c3"] == 776 and not v5["rule_viol"],
+                        "precondition: the slot-5-reversed witness is a grand-strict member at C3 = 776 (tests.py::test_r13_a)")
+        self.assertEqual(self._slots(self.M5, kw), [5, 7, 21, 22])
+        for t in ("moore-strict", "grand-strict"):
+            self.assertTrue(sat.target_verdict(kw, t)["rule_viol"], "precondition: King Wen violates a rule %s enforces (the control input)" % t)
+
+    def test_b_green_on_the_pinned_witness_with_every_claim_as_a_whole_line(self):
+        for t, rules in (("moore-strict", "parity rhythm"), ("grand-strict", "gender parity rhythm")):
+            rc, lines = self._props(t, self.W)
+            self.assertEqual(rc, 0, "\n".join(lines))
+            self.assertFalse([l for l in lines if l.startswith("Q7WIT_FAIL")])
+            self.assertIn("rules_claimed\t%s\t(the published rule set; sat.target_rules agrees)" % rules, lines)
+            self.assertIn("c3_value\t776\t(published claim: C3 = 776)", lines)
+            self.assertIn("kw_slot_edits\t7,21,22\t(published locus: 7,21,22; positions differing: 6, published: 6)", lines)
+            self.assertIn("kw_edit_decomposition\tslot 7 flipped; pairs 21/22 swapped, slot 22 flipped\t(as published)", lines)
+            self.assertTrue([l for l in lines if l.startswith("ctl_kw_rules\tVIOLATED\t")], "the KW control fired")
+
+    def test_c_red_a_four_edit_member_fails_only_the_locus_by_name(self):
+        rc, lines = self._props("grand-strict", self.M5)
+        self.assertNotEqual(rc, 0)
+        fails = [l for l in lines if l.startswith("Q7WIT_FAIL")]
+        self.assertEqual(fails, [self.EXPECTED_LOCUS_FAIL], "exactly one failure, the locus, by name:\n" + "\n".join(lines))
+        self.assertIn("kw_slot_edits\t5,7,21,22\t(published locus: 7,21,22; positions differing: 8, published: 6)", lines)
+
+    def test_d_resolve_mode_measures_but_does_not_assert_the_pinned_claims(self):
+        # a solver-returned member of the satisfying set owes the published constant nothing
+        rc, lines = self._props("grand-strict", self.M5, mode="resolve")
+        self.assertEqual(rc, 0, "\n".join(lines))
+        self.assertFalse([l for l in lines if l.startswith("Q7WIT_FAIL")])
+        self.assertIn("kw_slot_edits\t5,7,21,22\t(published locus: 7,21,22; positions differing: 8, published: 6)", lines)
+        self.assertIn("c3_value\t776\t(published claim: C3 = 776)", lines)
+
+    def test_e_red_the_c3_claim_constant_moved_fails_the_real_witness_by_name(self):
+        fn = self.fn.replace("CLAIM_C3 = 776\n", "CLAIM_C3 = 775\n")
+        self.assertNotEqual(fn, self.fn, "precondition: CLAIM_C3 = 776 is in the helper")
+        rc, lines = self._props("grand-strict", self.W, fn=fn)
+        self.assertNotEqual(rc, 0)
+        self.assertIn("Q7WIT_FAIL\tgrand-strict: C3 is 776, the published claim is C3 = 775 -- IN C15 (c3 <= 776) is not the claim", lines)
+
+    def test_f_red_the_rule_set_is_pinned_in_the_row_not_read_from_sat_py(self):
+        shim = tempfile.mkdtemp(prefix="q431_shim_")
+        try:
+            for f in ("solve.py", "verify.py"):
+                os.symlink(os.path.join(self.ROOT, f), os.path.join(shim, f))
+            with open(os.path.join(shim, "sat.py"), "w", encoding="utf-8") as fh:
+                fh.write("import importlib.util as _u, sys as _s\n"
+                         "_spec = _u.spec_from_file_location('_real_sat', %r); _m = _u.module_from_spec(_spec); "
+                         "_s.modules['_real_sat'] = _m; _spec.loader.exec_module(_m)\n"
+                         "globals().update({k: v for k, v in vars(_m).items() if not k.startswith('__')})\n"
+                         "def target_rules(t):\n    r = set(_m.target_rules(t)); r.discard('gender'); return r\n"
+                         % os.path.join(self.ROOT, "sat.py"))
+            pre = subprocess.run([sys.executable, "-c", "import sat; print(sorted(sat.target_rules('grand-strict')))"],
+                                 cwd=shim, env=dict(os.environ, PYTHONPATH=shim), capture_output=True, text=True, timeout=300)
+            self.assertEqual(pre.stdout.strip(), "['parity', 'rhythm']", "precondition: the shim drops gender: " + pre.stderr[-400:])
+            rc, lines = self._props("grand-strict", self.W, root=shim)
+            self.assertNotEqual(rc, 0)
+            self.assertIn("Q7WIT_FAIL\tgrand-strict: sat.target_rules enforces {parity rhythm} but the published target enforces "
+                          "{gender parity rhythm} -- the rule set moved under the claim", lines)
+            rc, lines = self._props("moore-strict", self.W, root=shim)
+            self.assertEqual(rc, 0, "moore-strict, whose rule set the shim leaves alone, still passes:\n" + "\n".join(lines))
+        finally:
+            shutil.rmtree(shim, ignore_errors=True)
+
+    def test_g_mutant_locus_assertion_removed_turns_the_red_fixture_green(self):
+        # the mutant: both locus checks disabled. The four-edit member must then PASS -- which is also the
+        # proof that test_c's fixture is isolated to the locus (it passes every other check).
+        fn = (self.fn.replace("    if slots != CLAIM_SLOTS:\n", "    if False and slots != CLAIM_SLOTS:\n")
+                     .replace("    elif diff != 6:\n", "    elif False:\n"))
+        self.assertNotEqual(fn, self.fn, "precondition: both locus checks are in the helper")
+        self.assertNotEqual(fn.count("False"), self.fn.count("False") + 1, "precondition: BOTH checks were disabled, not one")
+        rc, lines = self._props("grand-strict", self.M5, fn=fn)
+        self.assertEqual(rc, 0, "mutant survived: the fixture still fails without the locus checks:\n" + "\n".join(lines))
+        self.assertFalse([l for l in lines if l.startswith("Q7WIT_FAIL")])
+
+    def _read(self, *parts):
+        with open(os.path.join(self.ROOT, *parts), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_h_source_pins(self):
+        src = self._read("scripts", "tr12_repro.sh")
+        self.assertIn("witness property contract", src)                       # Q-431's closure phrase
+        self.assertIn('q7wit_check "$t" "$seq" "$ARTDIR/q7_$t.json" pinned', src)
+        self.assertIn('q7wit_check "$t" "$rseq" "$ARTDIR/q7resolve_$t.json" resolve', src)
+        gate = self._read("scripts", "d5_04_q7_witnesses_gate.sh")
+        for leg in ("leg 12", "leg 13", "leg 14", "leg 15", "leg 16", "leg 17", "leg 18", "M4_locus_not_asserted", "M7_r11_disagreement_not_fatal"):
+            self.assertIn(leg, gate)
+        gold = self._read("scripts", "tr12_expected", "n9", "a0_q7_witnesses.txt").splitlines()
+        self.assertIn("Q7WIT_CONTRACT\tHOLDS\trules=published c3==776 locus=7,21,22 r11=C+py gender=verify.py controls=live", gold)
+        self.assertIn("pins_identical\tYES", gold)
+        self.assertEqual(gold.count("c3_checker\t776"), 2)
+
+# end class TestQ431WitnessPropertyContract (CX-321, Q-431)
 
 
 if __name__ == "__main__":

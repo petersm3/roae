@@ -98,7 +98,7 @@ fi
 
 # 🔴 F-5 ROUND 6. THE FIRST VERSION OF THIS GATE DEFINED ITS OWN parse() HERE -- a hand-copied
 # second instance of the row's awk -- and never read scripts/tr12_repro.sh at all. Fable measured
-# the consequence: restore the exact 92516f8d defect at tr12_repro.sh:2659 and this gate still
+# the consequence: restore the exact 92516f8d defect at tr12_repro.sh:2768 and this gate still
 # reported PASS while the row itself failed; DELETE tr12_repro.sh entirely and it STILL reported
 # PASS. It bound to the producer and to a COPY of the consumer, so the red test that shipped
 # mutated THE GATE, not THE ROW. That is the same verifier closure B1(r5) was, committed inside
@@ -106,7 +106,7 @@ fi
 #
 # The row is now EXTRACTED FROM THE BATTERY AND EXECUTED. ⚠ SCOPE, corrected after F-5 round 7
 # flagged the sentence that stood here: this gate covers the ONE n>=31-only copy of that parse
-# (tr12_repro.sh:2659). The same awk appears at :653 and :2737, and BOTH of those ARE exercised at
+# (tr12_repro.sh:2768). The same awk appears at :653 and :2846, and BOTH of those ARE exercised at
 # n=9 by the battery itself -- which is why they are not this gate's subject and why "exactly one
 # copy of the parse in the tree", as this comment previously read, was false. Extraction is by the
 # row's own markers, and an empty or

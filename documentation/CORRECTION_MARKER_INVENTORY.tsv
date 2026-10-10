@@ -173,7 +173,7 @@ documentation/DESCRIPTION_LENGTH.md	89	marker	CORRECTED	1	-	reviewed:bare-regist
 documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	c61cc43645a2
 documentation/DESCRIPTION_LENGTH.md	264	ledger-link	CORRECTION	n/a	-	not-a-marker	f272fca47fba
 documentation/DEVELOPMENT.md	62	narration	now reads	1	-	reviewed:narration-inside-a-retired-warning-note;text-reads-correctly	1b52abae68a7
-documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	3692591963d4
+documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	101ff3a81dd7
 documentation/DEVELOPMENT.md	755	narration	now reads	2	-	reviewed:the-dated-note-is-what-says-the-rest-of-the-row-predates-the-Q-317-change	bb11bb8bf16c
 documentation/DEVELOPMENT.md	1043	marker	CORRECTED	1	-	reviewed:text-already-says-size-equals-stored-size	8c79421519c1
 documentation/DEVELOPMENT.md	1195	marker	Corrected	1	-	reviewed:text-already-separates-count-matching-and-set-matching-K	d4dcb7a62cd6
@@ -346,7 +346,7 @@ documentation/QUERY_INVENTORY.md	382	narration	now reads	1	-	reviewed:stale-clau
 documentation/QUERY_INVENTORY.md	451	marker	Corrected	1	-	reviewed:item-already-reads-priced-and-declined	5153589a8057
 documentation/QUERY_INVENTORY.md	458	marker	Corrected	1	-	reviewed:stale-clause-is-already-struck-through	ebfbea5d0154
 documentation/QUERY_INVENTORY.md	549	marker	Corrected	1	-	reviewed:box-already-says-the-identity-row-runs	dd19eb8d2b73
-documentation/QUERY_INVENTORY.md	936	marker	Corrected	2	-	reviewed:cell-above-still-describes-the-witness-row-as-unbuilt	94c1605ab856
+documentation/QUERY_INVENTORY.md	936	marker	Corrected	2	-	reviewed:cell-above-still-describes-the-witness-row-as-unbuilt	ed40b0b9fb76
 documentation/README.md	19	ledger-link	CORRECTION	n/a	-	not-a-marker	5a5a9991ed3f
 documentation/README.md	59	marker	Corrected	1	-	reviewed:bare-dated-tag;entry-already-reads-correctly	b808b2d22f64
 documentation/REBUILD_FROM_SPEC.md	47	marker	CORRECTED	1	-	reviewed:text-already-says-reject-nonzero-reserved-bytes	316359bbd462
@@ -619,52 +619,52 @@ reports/TR12_QUERY_PROGRAM.md	424	marker	Corrected	1	-	reviewed:text-already-say
 reports/TR12_QUERY_PROGRAM.md	459	marker	Corrected	1	-	reviewed:output-line-already-names-the-consumer-path	9a7593256e26
 reports/TR12_QUERY_PROGRAM.md	464	marker	Corrected	1	-	reviewed:column-list-already-matches-the-table	8670f78aa107
 reports/TR12_QUERY_PROGRAM.md	614	marker	CORRECTED	2	-	reviewed:the-anchors-it-withdraws-are-still-described-above-it	9c5d6f746f87
-reports/TR12_QUERY_PROGRAM.md	823	marker	Corrected	1	-	reviewed:output-line-already-names-the-two-galleries	7eb16a45e8f6
-reports/TR12_QUERY_PROGRAM.md	882	marker	Corrected	1	-	reviewed:text-already-gives-the-TV-distance-and-cell-range	2c1d251a6490
-reports/TR12_QUERY_PROGRAM.md	927	narration	now reads	3	CITATION LINE GATE,GATE 2c	gate-anchored	c9e146cbc23c
-reports/TR12_QUERY_PROGRAM.md	1039	marker	Corrected	1	-	reviewed:text-already-says-the-certificate-is-loaded-and-used	006b75696937
-reports/TR12_QUERY_PROGRAM.md	1086	marker	Corrected	1	-	reviewed:text-already-says-t-price-is-a-floor	5208df717772
-reports/TR12_QUERY_PROGRAM.md	1274	marker	CORRECTED	1	-	reviewed:parenthetical-already-gives-the-Bonferroni-arithmetic	205d798de93b
-reports/TR12_QUERY_PROGRAM.md	1284	ledger-link	CORRECTION	n/a	-	not-a-marker	9d951f2c0a3e
-reports/TR12_QUERY_PROGRAM.md	1427	marker	Corrected	1	-	reviewed:bullet-already-lists-what-f-alone-answers	715e5a15829e
-reports/TR12_QUERY_PROGRAM.md	1449	marker	Corrected	1	-	reviewed:text-already-pins-the-tag	ffa7e6e73b5e
-reports/TR12_QUERY_PROGRAM.md	1475	marker	Corrected	1	-	reviewed:text-above-already-says-peak-unmeasured	ad03b1023f77
-reports/TR12_QUERY_PROGRAM.md	1587	marker	Corrected	1	-	reviewed:step-already-names-the-per-row-files	725e799b65d4
-reports/TR12_QUERY_PROGRAM.md	1728	marker	CORRECTED	1	-	reviewed:text-already-splits-totals-and-per-query	5cd736162e40
-reports/TR12_QUERY_PROGRAM.md	1738	ledger-link	CORRECTION	n/a	-	not-a-marker	61f2a569fa62
-reports/TR12_QUERY_PROGRAM.md	1844	marker	Corrected	1	-	reviewed:bullet-already-reads-priced-and-declined;span-unclosed	d6942b4ebed7
-reports/TR12_QUERY_PROGRAM.md	1988	marker	Corrected	1	-	reviewed:text-already-counts-three-exact-cells	c86e0a515c49
-reports/TR12_QUERY_PROGRAM.md	2014	marker	Corrected	1	-	reviewed:text-already-says-validates-not-tightens	1148e37a9c94
-reports/TR12_QUERY_PROGRAM.md	2046	marker	Corrected	1	-	reviewed:text-already-describes-what-the-row-delivers	2e4dad3aee80
-reports/TR12_QUERY_PROGRAM.md	2084	marker	CORRECTED	1	-	reviewed:text-already-says-not-via-applyPerm-pairKey	aa9a1971d4bc
-reports/TR12_QUERY_PROGRAM.md	2097	marker	CORRECTED	1	-	reviewed:text-already-reads-estimate-withdrawn	fe63899bd2f6
-reports/TR12_QUERY_PROGRAM.md	2117	ledger-link	CORRECTION	n/a	-	not-a-marker	9cb9fa7f232e
-reports/TR12_QUERY_PROGRAM.md	2121	marker	Corrected	1	-	reviewed:following-text-already-names-the-three-objects	f42fde98cf69
-reports/TR12_QUERY_PROGRAM.md	2143	marker	Corrected	1	-	reviewed:text-already-scopes-the-asrun-receipt	7bdc9663f67e
-reports/TR12_QUERY_PROGRAM.md	2150	ledger-link	CORRECTION	n/a	-	not-a-marker	e619af87797b
-reports/TR12_QUERY_PROGRAM.md	2150	marker	CORRECTED	1	-	reviewed:cell-already-says-exact-of-the-DP-defined-law	e619af87797b
-reports/TR12_QUERY_PROGRAM.md	2151	ledger-link	CORRECTION	n/a	-	not-a-marker	15f88f5e990f
-reports/TR12_QUERY_PROGRAM.md	2151	marker	CORRECTED	1	-	reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check	15f88f5e990f
-reports/TR12_QUERY_PROGRAM.md	2168	marker	Corrected	1	-	reviewed:sentence-already-scopes-12.10	787d37353231
-reports/TR12_QUERY_PROGRAM.md	2186	marker	Corrected	1	-	reviewed:text-already-says-the-file-is-distributed	655061a87291
-reports/TR12_QUERY_PROGRAM.md	2276	marker	Corrected	1	-	reviewed:scope-already-states-the-one-sided-relation	684884e12ba2
-reports/TR12_QUERY_PROGRAM.md	2386	marker	Corrected	1	-	reviewed:text-already-separates-all-slots-and-interior	747e86000ac1
-reports/TR12_QUERY_PROGRAM.md	2486	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2f8a91dbc
-reports/TR12_QUERY_PROGRAM.md	2620	marker	Corrected	1	-	reviewed:text-already-says-solve.c-differs	1c6c27f1c56a
-reports/TR12_QUERY_PROGRAM.md	2647	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
-reports/TR12_QUERY_PROGRAM.md	2656	marker	Corrected	1	-	reviewed:cell-already-says-no-battery-run-took-the-digests	8f4153493d43
-reports/TR12_QUERY_PROGRAM.md	2699	marker	Corrected	1	-	reviewed:cell-already-scopes-the-container-count-to-t	c615aa613801
-reports/TR12_QUERY_PROGRAM.md	2701	marker	Corrected	1	-	reviewed:cell-already-says-bound-from-below	474bb47a658a
-reports/TR12_QUERY_PROGRAM.md	2723	marker	Withdrawn	1	-	reviewed:sentence-already-lists-the-figure-as-withdrawn	ceefbb4faa97
-reports/TR12_QUERY_PROGRAM.md	2770	marker	Corrected	2	-	reviewed:bullet-above-still-calls-the-witnesses-leg-a-named-skip	efc7d1699e2a
-reports/TR12_QUERY_PROGRAM.md	2796	marker	Corrected	1	-	reviewed:text-already-says-the-atlas-is-distributed	3615257e9c26
-reports/TR12_QUERY_PROGRAM.md	2799	marker	Corrected	1	-	reviewed:text-already-says-the-witnesses-leg-verifies-pinned-bytes	bacba42ca97d
-reports/TR12_QUERY_PROGRAM.md	2812	changelog	CORRECTION	keep	-	revision-row	8e7f201097bb
-reports/TR12_QUERY_PROGRAM.md	2825	changelog	now reads	keep	-	revision-row	ea6e45f688a7
-reports/TR12_QUERY_PROGRAM.md	2826	changelog	CORRECTION	keep	-	revision-row	9218f33c3c9c
-reports/TR12_QUERY_PROGRAM.md	2826	changelog	now reads	keep	-	revision-row	9218f33c3c9c
-reports/TR12_QUERY_PROGRAM.md	2829	changelog	now reads	keep	-	revision-row	402a228da8c2
-reports/TR12_QUERY_PROGRAM.md	2831	changelog	CORRECTION	keep	-	revision-row	c4a3eddbc375
+reports/TR12_QUERY_PROGRAM.md	833	marker	Corrected	1	-	reviewed:output-line-already-names-the-two-galleries	7eb16a45e8f6
+reports/TR12_QUERY_PROGRAM.md	892	marker	Corrected	1	-	reviewed:text-already-gives-the-TV-distance-and-cell-range	2c1d251a6490
+reports/TR12_QUERY_PROGRAM.md	937	narration	now reads	3	CITATION LINE GATE,GATE 2c	gate-anchored	c9e146cbc23c
+reports/TR12_QUERY_PROGRAM.md	1049	marker	Corrected	1	-	reviewed:text-already-says-the-certificate-is-loaded-and-used	006b75696937
+reports/TR12_QUERY_PROGRAM.md	1096	marker	Corrected	1	-	reviewed:text-already-says-t-price-is-a-floor	5208df717772
+reports/TR12_QUERY_PROGRAM.md	1284	marker	CORRECTED	1	-	reviewed:parenthetical-already-gives-the-Bonferroni-arithmetic	205d798de93b
+reports/TR12_QUERY_PROGRAM.md	1294	ledger-link	CORRECTION	n/a	-	not-a-marker	9d951f2c0a3e
+reports/TR12_QUERY_PROGRAM.md	1437	marker	Corrected	1	-	reviewed:bullet-already-lists-what-f-alone-answers	715e5a15829e
+reports/TR12_QUERY_PROGRAM.md	1459	marker	Corrected	1	-	reviewed:text-already-pins-the-tag	ffa7e6e73b5e
+reports/TR12_QUERY_PROGRAM.md	1485	marker	Corrected	1	-	reviewed:text-above-already-says-peak-unmeasured	ad03b1023f77
+reports/TR12_QUERY_PROGRAM.md	1597	marker	Corrected	1	-	reviewed:step-already-names-the-per-row-files	725e799b65d4
+reports/TR12_QUERY_PROGRAM.md	1738	marker	CORRECTED	1	-	reviewed:text-already-splits-totals-and-per-query	5cd736162e40
+reports/TR12_QUERY_PROGRAM.md	1748	ledger-link	CORRECTION	n/a	-	not-a-marker	61f2a569fa62
+reports/TR12_QUERY_PROGRAM.md	1854	marker	Corrected	1	-	reviewed:bullet-already-reads-priced-and-declined;span-unclosed	d6942b4ebed7
+reports/TR12_QUERY_PROGRAM.md	1998	marker	Corrected	1	-	reviewed:text-already-counts-three-exact-cells	c86e0a515c49
+reports/TR12_QUERY_PROGRAM.md	2024	marker	Corrected	1	-	reviewed:text-already-says-validates-not-tightens	1148e37a9c94
+reports/TR12_QUERY_PROGRAM.md	2056	marker	Corrected	1	-	reviewed:text-already-describes-what-the-row-delivers	2e4dad3aee80
+reports/TR12_QUERY_PROGRAM.md	2094	marker	CORRECTED	1	-	reviewed:text-already-says-not-via-applyPerm-pairKey	aa9a1971d4bc
+reports/TR12_QUERY_PROGRAM.md	2107	marker	CORRECTED	1	-	reviewed:text-already-reads-estimate-withdrawn	fe63899bd2f6
+reports/TR12_QUERY_PROGRAM.md	2127	ledger-link	CORRECTION	n/a	-	not-a-marker	9cb9fa7f232e
+reports/TR12_QUERY_PROGRAM.md	2131	marker	Corrected	1	-	reviewed:following-text-already-names-the-three-objects	f42fde98cf69
+reports/TR12_QUERY_PROGRAM.md	2153	marker	Corrected	1	-	reviewed:text-already-scopes-the-asrun-receipt	7bdc9663f67e
+reports/TR12_QUERY_PROGRAM.md	2160	ledger-link	CORRECTION	n/a	-	not-a-marker	e619af87797b
+reports/TR12_QUERY_PROGRAM.md	2160	marker	CORRECTED	1	-	reviewed:cell-already-says-exact-of-the-DP-defined-law	e619af87797b
+reports/TR12_QUERY_PROGRAM.md	2161	ledger-link	CORRECTION	n/a	-	not-a-marker	15f88f5e990f
+reports/TR12_QUERY_PROGRAM.md	2161	marker	CORRECTED	1	-	reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check	15f88f5e990f
+reports/TR12_QUERY_PROGRAM.md	2178	marker	Corrected	1	-	reviewed:sentence-already-scopes-12.10	787d37353231
+reports/TR12_QUERY_PROGRAM.md	2196	marker	Corrected	1	-	reviewed:text-already-says-the-file-is-distributed	655061a87291
+reports/TR12_QUERY_PROGRAM.md	2286	marker	Corrected	1	-	reviewed:scope-already-states-the-one-sided-relation	684884e12ba2
+reports/TR12_QUERY_PROGRAM.md	2396	marker	Corrected	1	-	reviewed:text-already-separates-all-slots-and-interior	747e86000ac1
+reports/TR12_QUERY_PROGRAM.md	2496	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2f8a91dbc
+reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-says-solve.c-differs	1c6c27f1c56a
+reports/TR12_QUERY_PROGRAM.md	2657	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
+reports/TR12_QUERY_PROGRAM.md	2666	marker	Corrected	1	-	reviewed:cell-already-says-no-battery-run-took-the-digests	8f4153493d43
+reports/TR12_QUERY_PROGRAM.md	2709	marker	Corrected	1	-	reviewed:cell-already-scopes-the-container-count-to-t	c615aa613801
+reports/TR12_QUERY_PROGRAM.md	2711	marker	Corrected	1	-	reviewed:cell-already-says-bound-from-below	474bb47a658a
+reports/TR12_QUERY_PROGRAM.md	2733	marker	Withdrawn	1	-	reviewed:sentence-already-lists-the-figure-as-withdrawn	ceefbb4faa97
+reports/TR12_QUERY_PROGRAM.md	2780	marker	Corrected	2	-	reviewed:bullet-above-still-calls-the-witnesses-leg-a-named-skip	efc7d1699e2a
+reports/TR12_QUERY_PROGRAM.md	2806	marker	Corrected	1	-	reviewed:text-already-says-the-atlas-is-distributed	3615257e9c26
+reports/TR12_QUERY_PROGRAM.md	2809	marker	Corrected	1	-	reviewed:text-already-says-the-witnesses-leg-verifies-pinned-bytes	bacba42ca97d
+reports/TR12_QUERY_PROGRAM.md	2822	changelog	CORRECTION	keep	-	revision-row	8e7f201097bb
+reports/TR12_QUERY_PROGRAM.md	2835	changelog	now reads	keep	-	revision-row	ea6e45f688a7
+reports/TR12_QUERY_PROGRAM.md	2836	changelog	CORRECTION	keep	-	revision-row	9218f33c3c9c
+reports/TR12_QUERY_PROGRAM.md	2836	changelog	now reads	keep	-	revision-row	9218f33c3c9c
+reports/TR12_QUERY_PROGRAM.md	2839	changelog	now reads	keep	-	revision-row	402a228da8c2
+reports/TR12_QUERY_PROGRAM.md	2841	changelog	CORRECTION	keep	-	revision-row	c4a3eddbc375
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	55	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	44b4c27eab96
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	96	marker	Corrected	1	-	reviewed:caveat-already-says-the-fraction-is-weighted	e5524bd1cd03
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	141	marker	Corrected	1	-	reviewed:entry-already-prices-against-the-measured-6.52-percent	c60b3819912d

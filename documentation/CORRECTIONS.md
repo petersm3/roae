@@ -30050,3 +30050,118 @@ boundary) each make their plant pass again.
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 43, Q-978. Review credit:
 Codex (gpt-6-astra), Q-964 lens-A delta review (Q964-D01#5, D01#6, D01#9, D04#5, D04#7, D05#10,
 D05#11, D05#14, D06#3, D06#8, D06#20).
+
+## CX-321 — the Q7 witness row verified that the pinned sequence is SOME member of its target, not that it is the member the reports describe: C3 = 776 was accepted as c3 <= 776, the 3-slot edit locus was printed and never asserted, and the rule set came from the module under test; the row now asserts the published claims, in two languages, with live controls (scripts/tr12_repro.sh, scripts/d5_04_q7_witnesses_gate.sh, scripts/tr12_expected/n9/a0_q7_witnesses.txt, tests.py)
+
+**2026-10-09.** Origin: HARDENING_BACKLOG Q-431 ("assert a PROPERTY of the returned witness — it satisfies the
+constraint and has the claimed value — not its bytes"), attacked before it was built as that row asked
+(Fable, 2026-09-19 and 2026-10-09). Landed by Fable in a staged worktree at `11003edd`. Every build, gate,
+battery and test claim below was executed on a freshly built binary (`gcc -O2 -pthread -fopenmp -o solve
+solve.c -lm -lz`, rc 0); the checked-in `solve` was stale and was not used. No solver is on this host and
+none is needed by anything here.
+
+**1. What was wrong.** CX-93 (2026-09-25) pinned the two Q7 witness files and made `a0_q7_witnesses` /
+`TR12_Q7_WITNESSES` a real, solver-free row: `--check-arrangement` IN SUPER and IN C15, not King Wen,
+every enforced rule re-scored 0 (Schulz gender also by `verify.py`). That establishes that the pinned
+sequence is *a* member of the target's satisfying set. It did not establish that it is the member the
+reports describe. Three published claims attach to this constant and none was asserted: (a) TR-12 §Q7 and
+`LITERATURE_RULES_POPULATION_TESTS.md` result 6 say **C3 = 776** — an equality — while the row accepted
+`c3 <= 776` (IN C15) from both the C checker and `sat.target_verdict`; (b) result 7 says the witness is
+**exactly 3 slot-edits from King Wen** (an orientation flip at slot 7; pairs 21/22 swapped with slot 22
+flipped) and TR-12 §Q7 says "6 of 64 positions differ" — the row printed the count and never asserted the
+locus; (c) the set of rules each target enforces was read from `sat.target_rules`, the module whose
+encoder the row exists to check independently, so a target that silently dropped a rule would have been
+re-scored on fewer rules and still passed. At n = 9 the printed values are golden-diffed, so the hole was
+masked there; at n = 31 there is no expected block and the row's printed `c3=776` was checked by nothing.
+Measured on the uncured row: a genuine grand-strict member 4 slot-edits from KW (the witness with slot 5
+reversed; `tests.py::test_r13_a` already records it as compliant) **passes** (rc 0, `Q7WIT_OK` for both
+targets). The rule tallies for parity and rhythm had one language (`solve.py`); `solve.c --r11-verify`
+already provided the second and was not used.
+
+**2. The contract, attacked.** The property-vs-bytes distinction survives: the object is a published
+64-integer constant (byte-identical in LRPT results 1 and 6 and in both pinned files), and what a property
+row owes it is every claim the reports make of it — not what a solver would return. The attack found what a
+property check could accept that the published claim does not support: a member with a smaller C3; a
+member at a different locus; a member of a weaker target whose encoder dropped a rule; a stubbed binary or
+scorer that reads IN for everything (no in-row control fired). It found what the encoder is NOT: it is not
+in the trust chain, because every property is evaluated directly on the constant by `solve.c`, `solve.py`
+and `verify.py`, so a wrong CNF could not make a false claim pass (CX-93's `--q7-resolve` row remains the
+only place the encoder is exercised, opt-in). `kissat` is therefore not required by the row in any
+configuration: the row's output is byte-identical with and without it on PATH (gate leg 3); the opt-in
+re-solve reports `TR12_Q7_RESOLVE=SKIP:opt-in` when not requested and FAILS loudly if requested without a
+solver — it never reads PASS on an absence.
+
+**3. The row now (MODE=pinned).** The published rule set per target is written in the row
+(`moore-strict`: parity, rhythm; `grand-strict`: gender, parity, rhythm) and `sat.target_rules` must agree,
+by name. C3 is asserted `== 776` from the C checker's `value` line and from `sat.target_verdict`, separately.
+The slot-edit locus is asserted `== 7,21,22` with the published decomposition and 6 differing positions.
+Parity, rhythm and gender are re-tallied by `solve.c --r11-verify` (fields 1..3, parsed — the C form exits 0
+whatever the values), must equal `solve.py --r11-verify` byte-for-byte, and must read 0 on every enforced
+rule. Two in-row controls must fire: King Wen violates the target's rules (2, 2, 2), and King Wen with slot 1
+flipped is OUT of SUPER (C5); a control that passes fails the row as a dead instrument. The two pinned files
+are compared (`pins_identical YES`) and the whole line `Q7WIT_CONTRACT HOLDS ...` closes the row. The shared
+helper takes a MODE: the opt-in re-solve row calls it with `resolve`, which measures and prints the same
+quantities but asserts only membership — a solver-returned member of the satisfying set owes the published
+constant nothing, and nothing build-dependent reaches the diffed output. `scripts/tr12_repro.sh` grows by
+109 lines, `scripts/tr12_repro_gate.sh` by 3 (the DECLARED comment) and TR-12 by 10 (the §Q7 note); every
+live `<file>:N` citation into the moved regions — 51 in 9 files, one of them a range, per
+`citation_line_gate.sh --all-files --all-targets` LEG A against the base commit — is refreshed to the
+gate's line map after checking that the new line is byte-identical to the old one, and the gate reads
+PASS on the committed result. Citations inside the append-only history (this file, `HISTORY.md`) are
+left as written.
+
+**4. The gates.** `scripts/d5_04_q7_witnesses_gate.sh` keeps its 10 legs and 3 mutants and adds legs 12–18
+and mutants M4–M7, each red leg on a fixture whose precondition is asserted first: leg 12, the 4-slot-edit
+member fails ONLY the locus, by name (M4 disables both locus checks and the fixture then passes, rc 0 — the
+isolation proof); leg 13, the claim constant moved to 775 in Python and in the C-side comparison fails the
+REAL witness by name with both numbers, and the published C3 = 112 positional witness fails both C3 lines by
+name (no member of either target with C3 ≠ 776 is known without a solver: a deterministic sweep of every
+1..4-slot-edit neighbour of the witness found 41 moore-strict members, all at C3 = 776); leg 14, a shimmed
+`sat.py` whose grand-strict drops gender is caught by the row's own rule set; leg 15, a wrapper binary
+answering `--r11-verify` with a wrong vector is caught as a C/Python disagreement, and the leg-5 rule break
+is caught by the C tally too; leg 16, each control made to pass fails the row as a dead control; leg 17, the
+constant printed in LRPT (twice) and the witness README equals the pinned SEQ and a planted one-digit change
+in either is caught; leg 18, the green run carries every asserted property as a whole line. Measured:
+`D5_04_Q7_WITNESSES_GATE=PASS` on the cured tree (17 legs, 7/7 mutants killed) and `=FAIL` at leg 12 on
+`11003edd`'s row (`D5_04_SRC`). `tests.py::TestQ431WitnessPropertyContract` (8 tests) runs the extracted
+Python helper with no binary: preconditions, green with every claim as a whole line, red on the locus
+fixture (exactly one failure), resolve mode asserting nothing it should not, the claim-constant mutant, the
+rule-set shim, the locus mutant turning the fixture green, and source pins; 8/8 on the cured tree, 7/8
+red on `11003edd`'s battery (the precondition test holds on both, as it must). The n = 9 golden
+`a0_q7_witnesses.txt` is re-minted (+26 lines, all new property lines; nothing else in `n9/` moved).
+
+**5. Q-796, decided.** The two pinned files carry one sequence. Every production chain returned it at
+attempt 0, a grand-strict witness is a moore-strict witness by definition, and `sat.py` has no
+blocking-clause facility that would ask a solver for a *different* moore-strict member. Decision (operator,
+2026-09-30, D11): `Q7_DISTINCT_WITNESSES=NO` — TR-12 §Q7 names two targets and one sequence, recorded as
+produced, not curated into two. The row prints `pins_identical` and the gate pins `YES` on the committed
+files, so a future re-pin that yields two sequences is a documented change to TR-12, not a silent one. A
+confidence note for the record: a distinct moore-strict member does exist by hand (the witness with slots 8
+and 14 flipped scores parity 0, rhythm 0, gender 2, C3 = 776; measured 2026-10-09), so "no facility exists"
+is a statement about the tooling, not about the mathematics; the editorial decision stands on TR-12's
+sentence, not on impossibility.
+
+**6. Public docs, ⚠ convention.** TR-12 §Q7 carries a bracketed CX-321 note after the CX-93 note; the
+witness README gains "What the battery row asserts"; QUERY_INVENTORY row 10.3 gains a marker. No published
+number, sha or verdict changed; `TR12_Q7_WITNESSES` reads PASS before and after, now on a contract that
+would have failed the 4-edit member.
+
+**7. Chain failures fixed (2026-10-10).** The worker chain's full suite failed six tests on the staged tree;
+each is fixed at its cause, no test weakened or skipped, `tr12_repro.sh` / `tr12_repro_gate.sh` line-neutral.
+(a) `d5_04_q7_witnesses_gate.sh` leg 15's precondition fed `--check-arrangement` to `grep -q` through a pipe
+under `pipefail` (the Q-799 class, `TestLaneHPGrepQStraceSplitPerTaskDoc`); it now reads a here-string of the
+command's output. (b) `TestQ695ReproClosureDocMembership` pins DECLARED and REFERENCED_NOT_INPUTS; the
+section-3 entry had added the LRPT document to DECLARED. The document is a real input of a fingerprinted gate,
+so the cure is to make that a CODE reference: leg 17 now assigns its repo-relative path
+(`LRPT_REL=documentation/...`) on the line that opens it, which the derivation reaches, and DECLARED returns to
+its Q-613 form; the fingerprint is the same 43 files before and after, and `comment_membership_check` passes.
+(c) `TestQ949Q950PrepushEnvAndRegistry`: four new reads on the push path were unclassified. `Q7M` (the row's
+MODE) and `Q7X` (leg 12's fixture) are set on the `python3` command line and join NOT_ENV; `RUN_SOLVE` /
+`RUN_ROOT` were genuine inherited reads -- a value exported in the pusher's shell would have replaced the
+binary or the repository root under every leg -- so d5_04 now assigns both empty before its first read and
+sets them per call, and they join NOT_ENV under its proven-assignment test; the gate reads PASS with
+`RUN_ROOT=/nonexistent RUN_SOLVE=/bin/false` exported. (d) `TestLaneVR4VizHonesty`'s q901 test pinned the
+V-caption section at absolute lines 879..1010, and the ten-line §Q7 note moved `V3 WAS REPORTED BLOCKED` to
+1012; no caption or claim line changed. The window is now anchored to the section's own heading at the offsets
+it had when pinned (heading at 865), so it covers exactly the same lines of the section, and the CLAIMS.tsv
+window moves with it.

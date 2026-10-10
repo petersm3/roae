@@ -2,6 +2,8 @@
 # --check-arrangement (C1..C5, independent checker), compared with KW, and re-scored on every rule
 # its target enforces (solve.py; Schulz gender also by verify.py). No byte is trusted because a
 # solver once produced it. Provenance: reports/evidence/q7_witnesses/README.md
+# CX-321: the witness property contract -- the published rule set, C3 = 776 (equality, C and Python),
+# the 3-slot edit locus 7,21,22, a second-language rule tally (solve.c --r11-verify) and live controls.
 ### moore-strict
 witness_file	reports/evidence/q7_witnesses/moore-strict.txt
 witness_sha256	79fa29f5bdbfa1b4e0fb3bdc40399430b1a586a11aae0e914d2a32412389e788
@@ -18,13 +20,24 @@ witness_seq	63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,
 [check-arrangement] verdict C15  (C1-C5, C3<=776):   IN
 #provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
 [check-arrangement] certificate written: <ART>/q7_moore-strict.json
+c3_checker	776
 kw_string_identical	NO
+ctl_slot1flip	OUT
+r11_c	0,0,0,0,0,0,1,2
+r11_py	0,0,0,0,0,0,1,2
+r11_agree	YES
+r11_enforced_zero	YES	(0,0)
 rules_enforced	parity rhythm
+rules_claimed	parity rhythm	(the published rule set; sat.target_rules agrees)
 target_verdict	base=True c3=776 c3<=776 PASS ok=True
 rule_scores	parity=0 rhythm=0 gender=0 ccn4=1 ccn8=1
 rule_violations	NONE
 gender_indep	0	(verify.py _rc4_violations_indep; agrees with solve.py: YES)
+c3_value	776	(published claim: C3 = 776)
+ctl_kw_rules	VIOLATED	(parity=2 rhythm=2)
 kw_identical	NO	(positions differing from KW: 6; pair-slot layout differs from KW: YES)
+kw_slot_edits	7,21,22	(published locus: 7,21,22; positions differing: 6, published: 6)
+kw_edit_decomposition	slot 7 flipped; pairs 21/22 swapped, slot 22 flipped	(as published)
 Q7WIT_OK	moore-strict
 ### grand-strict
 witness_file	reports/evidence/q7_witnesses/grand-strict.txt
@@ -42,11 +55,24 @@ witness_seq	63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,
 [check-arrangement] verdict C15  (C1-C5, C3<=776):   IN
 #provenance	engine=solve.c/check-arrangement	branch=<BRANCH>	git=<GIT>	source_sha=<SRC>	semantics=independent-first-principles(C1..C5;SPECIFICATION.md,verify.py-diffable)	certificate-not-proof
 [check-arrangement] certificate written: <ART>/q7_grand-strict.json
+c3_checker	776
 kw_string_identical	NO
+ctl_slot1flip	OUT
+r11_c	0,0,0,0,0,0,1,2
+r11_py	0,0,0,0,0,0,1,2
+r11_agree	YES
+r11_enforced_zero	YES	(0,0,0)
 rules_enforced	gender parity rhythm
+rules_claimed	gender parity rhythm	(the published rule set; sat.target_rules agrees)
 target_verdict	base=True c3=776 c3<=776 PASS ok=True
 rule_scores	parity=0 rhythm=0 gender=0 ccn4=1 ccn8=1
 rule_violations	NONE
 gender_indep	0	(verify.py _rc4_violations_indep; agrees with solve.py: YES)
+c3_value	776	(published claim: C3 = 776)
+ctl_kw_rules	VIOLATED	(gender=2 parity=2 rhythm=2)
 kw_identical	NO	(positions differing from KW: 6; pair-slot layout differs from KW: YES)
+kw_slot_edits	7,21,22	(published locus: 7,21,22; positions differing: 6, published: 6)
+kw_edit_decomposition	slot 7 flipped; pairs 21/22 swapped, slot 22 flipped	(as published)
 Q7WIT_OK	grand-strict
+pins_identical	YES
+Q7WIT_CONTRACT	HOLDS	rules=published c3==776 locus=7,21,22 r11=C+py gender=verify.py controls=live

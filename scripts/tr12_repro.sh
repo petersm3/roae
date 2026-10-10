@@ -227,7 +227,7 @@ fi
 
 # 🔴 EXECUTABLE IS NOT CURRENT. The build arm above compiles $REPO_ROOT/solve.c seconds
 # before use and is safe by construction. `--solve <path>` is not: it names a PATH, and the line
-# above checks only the +x bit. tr12_repro_gate.sh:807 passes a binary it just built from the
+# above checks only the +x bit. tr12_repro_gate.sh:810 passes a binary it just built from the
 # PUBLISHED build line, so the pre-push route was never exposed; a hand run
 # `scripts/tr12_repro.sh --n9 --solve ./solve` is, and that is the documented way to run this
 # battery against an existing binary. This file is the TR-12 REPRODUCTION harness: every row it
@@ -990,18 +990,57 @@ fi
 #            is one member of a (possibly large) satisfying set; the live re-solve is row a0_q7_resolve
 #            below, opt-in (--q7-resolve), and it never compares bytes. A rule the encoder enforces
 #            that solve.py cannot score is impossible by construction (sat.py asserts the scorer set
-#            equals FIVE_RULES at import), so a rule silently unchecked here would fail the import. ----
+#            equals FIVE_RULES at import), so a rule silently unchecked here would fail the import.
+#            2026-10-09 (CX-321, Fable; Q-431): THE WITNESS PROPERTY CONTRACT, attacked and then
+#            completed. (1)-(4) above check that the pinned sequence is SOME member of the target's
+#            satisfying set; they did not check the three things the reports CLAIM of this member, and
+#            at n = 31 (no golden) nothing else did either: TR-12 section Q7 and LRPT result 6 say
+#            C3 = 776 (an equality; the row accepted c3 <= 776), LRPT result 7 says the witness is
+#            exactly 3 slot-edits from KW at slots 7, 21, 22 (printed, never asserted), and the rule
+#            SET each target enforces was read from sat.target_rules -- the module under test -- so a
+#            target that silently dropped a rule would have re-scored fewer rules and still passed.
+#            Now, in MODE=pinned: the published rule set per target is written in the row and
+#            sat.target_rules must agree; C3 is asserted == 776 from BOTH the C checker's value line
+#            and solve.py; the slot-edit locus is asserted == 7,21,22 with the published decomposition
+#            (slot 7 flipped; pairs 21/22 swapped, slot 22 flipped) and 6 differing positions; parity,
+#            rhythm and gender are re-tallied in a SECOND LANGUAGE (solve.c --r11-verify fields 1..3,
+#            parsed, never its exit status) and must agree with solve.py --r11-verify and read 0 on
+#            every enforced rule; and two in-row CONTROLS must fire (KW violates the target's rules;
+#            KW with slot 1 flipped is OUT of SUPER) -- a control that passes is a dead instrument
+#            and fails the row. MODE=resolve (a0_q7_resolve) measures the same quantities but asserts
+#            nothing the pinned constant alone owes (C3 value, locus): a solver-returned member of the
+#            satisfying set is not the published constant. No solver is needed in either mode; the
+#            opt-in re-solve row stays the only place kissat is run. ------------------------------------
 Q7WIT_DIR="$REPO_ROOT/reports/evidence/q7_witnesses"
-q7wit_props(){ # q7wit_props TARGET SEQ  -> property lines via solve.py/sat.py/verify.py; rc 0 iff every checked property holds
-    (cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" Q7T="$1" Q7S="$2" python3 - <<'PY'
+q7wit_props(){ # q7wit_props TARGET SEQ [MODE]  -> property lines via solve.py/sat.py/verify.py; rc 0 iff every checked property holds.
+    #   MODE=pinned (default) also asserts the PUBLISHED claims of the pinned constant: the rule set, C3 = 776,
+    #   the 3-slot edit locus. MODE=resolve measures and prints those but asserts only membership (CX-321).
+    (cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" Q7T="$1" Q7S="$2" Q7M="${3:-pinned}" python3 - <<'PY'
 import os, sys
 import solve, sat, verify
-t = os.environ["Q7T"]; seq = [int(x) for x in os.environ["Q7S"].split(",")]
+t = os.environ["Q7T"]; seq = [int(x) for x in os.environ["Q7S"].split(",")]; mode = os.environ["Q7M"]
 kw = list(solve._r7_kw())
+# CX-321: the witness property contract. The CLAIMS live HERE, in the row, not in the module under test:
+# the rule set each target enforces (TR-12 section Q7; SAT_CLI.md), the C3 value (TR-12 section Q7 and
+# LITERATURE_RULES_POPULATION_TESTS.md result 6: "C3 = 776", an equality) and the slot-edit locus (result
+# 7: an orientation flip at slot 7, pairs 21/22 swapped with slot 22 flipped). sat.target_rules is what
+# the ENCODER enforces; if it drifts from the published set the row fails by name rather than re-scoring
+# whatever the encoder now says.
+CLAIM_RULES = {"moore-strict": {"parity", "rhythm"}, "grand-strict": {"gender", "parity", "rhythm"}}
+CLAIM_C3 = 776
+CLAIM_SLOTS = [7, 21, 22]
+pinned = (mode == "pinned")
 rules = sorted(sat.target_rules(t))
 v = sat.target_verdict(seq, t)
 bad = 0
 print("rules_enforced\t%s" % " ".join(rules))
+if t not in CLAIM_RULES:
+    print("Q7WIT_FAIL\t%s: no published rule set for this target -- the contract covers moore-strict and grand-strict only" % t); bad = 1
+elif set(rules) != CLAIM_RULES[t]:
+    print("Q7WIT_FAIL\t%s: sat.target_rules enforces {%s} but the published target enforces {%s} -- the rule set moved under the claim"
+          % (t, " ".join(rules), " ".join(sorted(CLAIM_RULES[t])))); bad = 1
+else:
+    print("rules_claimed\t%s\t(the published rule set; sat.target_rules agrees)" % " ".join(sorted(CLAIM_RULES[t])))
 print("target_verdict\tbase=%s c3=%s %s ok=%s" % (v["base"], v["c3"], v["c3_label"], v["ok"]))
 if v["scores"] is None:
     print("Q7WIT_FAIL\t%s: base C1/C2/C5 re-verification failed in solve.py, no rule can be scored" % t); bad = 1
@@ -1019,18 +1058,46 @@ else:
               % (t, g_indep, v["scores"]["gender"])); bad = 1
 if not v["ok"]:
     print("Q7WIT_FAIL\t%s: sat.target_verdict says not ok (base=%s rules=%s c3=%s)" % (t, v["base"], v["rule_viol"], v["c3_label"])); bad = 1
+# CX-321: C3 is a published EQUALITY. c3 <= 776 is membership in C15; C3 = 776 is the claim.
+if v["c3"] is not None:
+    print("c3_value\t%d\t(published claim: C3 = %d)" % (v["c3"], CLAIM_C3))
+    if pinned and v["c3"] != CLAIM_C3:
+        print("Q7WIT_FAIL\t%s: C3 is %d, the published claim is C3 = %d -- IN C15 (c3 <= 776) is not the claim" % (t, v["c3"], CLAIM_C3)); bad = 1
+# CX-321 in-row control: King Wen must VIOLATE the rules this target enforces (parity 2, rhythm 2, gender 2).
+# If it does not, the re-score cannot fail anything and the instrument is dead.
+ctl = sat.target_verdict(kw, t)
+if ctl["rule_viol"]:
+    print("ctl_kw_rules\tVIOLATED\t(%s)" % " ".join("%s=%d" % kv for kv in sorted(ctl["rule_viol"].items())))
+else:
+    print("Q7WIT_FAIL\t%s: dead control -- King Wen scores 0 violations on every rule the target enforces, so the rule re-score can fail nothing" % t); bad = 1
 diff = sum(1 for a, b in zip(seq, kw) if a != b)
 lay = lambda s: [frozenset(s[i:i + 2]) for i in range(0, 64, 2)]
 print("kw_identical\t%s\t(positions differing from KW: %d; pair-slot layout differs from KW: %s)"
       % ("YES" if seq == kw else "NO", diff, "YES" if lay(seq) != lay(kw) else "NO"))
 if seq == kw:
     print("Q7WIT_FAIL\t%s: the sequence IS King Wen -- a witness must be a non-KW member" % t); bad = 1
+# CX-321: the slot-edit locus. A slot differs when its (pair, orientation) content differs from KW's.
+pair = lambda s, k: s[2 * k:2 * k + 2]
+slots = [k for k in range(32) if pair(seq, k) != pair(kw, k)]
+print("kw_slot_edits\t%s\t(published locus: %s; positions differing: %d, published: 6)"
+      % (",".join(map(str, slots)) or "NONE", ",".join(map(str, CLAIM_SLOTS)), diff))
+if pinned:
+    shape = (pair(seq, 7) == pair(kw, 7)[::-1] and pair(seq, 21) == pair(kw, 22) and pair(seq, 22) == pair(kw, 21)[::-1])
+    if slots != CLAIM_SLOTS:
+        print("Q7WIT_FAIL\t%s: the sequence differs from KW at slots %s, the published 3-slot-edit locus is %s"
+              % (t, ",".join(map(str, slots)) or "NONE", ",".join(map(str, CLAIM_SLOTS)))); bad = 1
+    elif not shape:
+        print("Q7WIT_FAIL\t%s: slots 7,21,22 differ from KW but not as published (slot 7 flipped; pairs 21/22 swapped, slot 22 flipped)" % t); bad = 1
+    elif diff != 6:
+        print("Q7WIT_FAIL\t%s: %d positions differ from KW, the published count is 6" % (t, diff)); bad = 1
+    else:
+        print("kw_edit_decomposition\tslot 7 flipped; pairs 21/22 swapped, slot 22 flipped\t(as published)")
 sys.exit(bad)
 PY
     )
 }
-q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON  -> the solver-free property check shared by both Q7 witness rows; rc 0 iff all hold
-    local t="$1" seq="$2" cert="$3" frc=0 nv kwarr
+q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON [MODE]  -> the solver-free property check shared by both Q7 witness rows; rc 0 iff all hold
+    local t="$1" seq="$2" cert="$3" mode="${4:-pinned}" frc=0 nv kwarr c3v r11c r11py ctl f1 f2 f3 got need
     nv=$(printf '%s\n' "$seq" | tr ',' '\n' | grep -c .)
     if [ "$nv" -ne 64 ]; then echo "Q7WIT_FAIL	$t: the sequence has $nv values, not 64"; return 1; fi
     "$SOLVE" --check-arrangement "$seq" --cert-out "$cert" --label "$t" > "$WORK/q7wit_$t.out" 2>&1 < /dev/null   # Q-795: label = target; a2_q7_ranks keys on it
@@ -1038,12 +1105,44 @@ q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON  -> the solver-free property c
     cat "$WORK/q7wit_$t.out"
     grep -q 'verdict SUPER (C1&C2&C4&C5):     IN' "$WORK/q7wit_$t.out" || { echo "Q7WIT_FAIL	$t: --check-arrangement does not say IN SUPER"; frc=1; }
     grep -q 'verdict C15  (C1-C5, C3<=776):   IN' "$WORK/q7wit_$t.out" || { echo "Q7WIT_FAIL	$t: --check-arrangement does not say IN C15 (C3 <= 776)"; frc=1; }
+    # CX-321: the C checker's C3 VALUE, not only its <= 776 verdict (the published claim is C3 = 776)
+    c3v=$(sed -n 's/.*C3 complement distance: *[A-Za-z]* (value \([0-9][0-9]*\), ceiling [0-9]*).*/\1/p' "$WORK/q7wit_$t.out" | head -1)
+    if [ -z "$c3v" ]; then echo "Q7WIT_FAIL	$t: --check-arrangement printed no C3 value line"; frc=1
+    else
+        echo "c3_checker	$c3v"
+        if [ "$mode" = pinned ] && [ "$c3v" != 776 ]; then echo "Q7WIT_FAIL	$t: --check-arrangement measures C3 = $c3v, the published claim is C3 = 776"; frc=1; fi
+    fi
     # not King Wen, by the battery's OWN KW certificate (leg 1, the independent checker's KW table)
     kwarr=$(sed -n 's/.*"arrangement": "\([^"]*\)".*/\1/p' "$ARTDIR/q7_kw.json" 2>/dev/null | head -1)
     if [ -z "$kwarr" ]; then echo "Q7WIT_FAIL	$t: no arrangement in $ARTDIR/q7_kw.json -- KW-distinctness cannot be established"; frc=1
     elif [ "$seq" = "$kwarr" ]; then echo "Q7WIT_FAIL	$t: the sequence is byte-identical to the KW arrangement of q7_kw.json"; frc=1
     else echo "kw_string_identical	NO"; fi
-    q7wit_props "$t" "$seq" || frc=1
+    # CX-321 in-row control: the checker must say OUT for a known non-member -- King Wen with slot 1
+    # flipped (C5 breaks; measured 2026-10-09). A control that passes is a dead instrument.
+    if [ -n "$kwarr" ]; then
+        ctl=$(printf '%s' "$kwarr" | awk -F, -v OFS=, '{x=$3; $3=$4; $4=x; print}')
+        "$SOLVE" --check-arrangement "$ctl" > "$WORK/q7wit_ctl.out" 2>&1 < /dev/null
+        if grep -q 'verdict SUPER (C1&C2&C4&C5):     OUT' "$WORK/q7wit_ctl.out"; then echo "ctl_slot1flip	OUT"
+        else echo "Q7WIT_FAIL	$t: dead control -- --check-arrangement does not say OUT for King Wen with slot 1 flipped"; frc=1; fi
+    fi
+    # CX-321: a SECOND LANGUAGE for the rule tallies. solve.c --r11-verify SEQ prints the R11 8-axis
+    # vector (fields 1..3 = Moore-2005 parity, Moore-1989 rhythm, Schulz gender; KW = 2,2,2,...); solve.py
+    # --r11-verify is its Python twin. The C form exits 0 whatever the values, so the FIELDS are parsed
+    # and the exit status is never trusted. The enforced rules must read 0 in C as well as in Python.
+    r11c=$("$SOLVE" --r11-verify "$seq" 2>/dev/null < /dev/null | grep -E '^[0-9]+(,[0-9]+){7}$' | head -1)
+    r11py=$(cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 solve.py --r11-verify "$seq" 2>/dev/null < /dev/null | grep -E '^[0-9]+(,[0-9]+){7}$' | head -1)
+    echo "r11_c	${r11c:-NONE}"
+    echo "r11_py	${r11py:-NONE}"
+    if [ -z "$r11c" ] || [ -z "$r11py" ]; then echo "Q7WIT_FAIL	$t: --r11-verify did not print an 8-field vector in both languages (C: ${r11c:-NONE}; py: ${r11py:-NONE})"; frc=1
+    elif [ "$r11c" != "$r11py" ]; then echo "Q7WIT_FAIL	$t: solve.c and solve.py disagree on the R11 rule vector ($r11c vs $r11py)"; frc=1
+    else
+        echo "r11_agree	YES"
+        f1=${r11c%%,*}; f2=$(printf '%s' "$r11c" | cut -d, -f2); f3=$(printf '%s' "$r11c" | cut -d, -f3)
+        case "$t" in grand-strict) got="$f1,$f2,$f3"; need="0,0,0";; *) got="$f1,$f2"; need="0,0";; esac
+        if [ "$got" != "$need" ]; then echo "Q7WIT_FAIL	$t: the C re-tally of the enforced rules (parity,rhythm[,gender]) is $got, not $need"; frc=1
+        else echo "r11_enforced_zero	YES	($got)"; fi
+    fi
+    q7wit_props "$t" "$seq" "$mode" || frc=1
     return $frc
 }
 if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
@@ -1055,6 +1154,9 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
       echo "# --check-arrangement (C1..C5, independent checker), compared with KW, and re-scored on every rule"
       echo "# its target enforces (solve.py; Schulz gender also by verify.py). No byte is trusted because a"
       echo "# solver once produced it. Provenance: reports/evidence/q7_witnesses/README.md"
+      echo "# CX-321: the witness property contract -- the published rule set, C3 = 776 (equality, C and Python),"
+      echo "# the 3-slot edit locus 7,21,22, a second-language rule tally (solve.c --r11-verify) and live controls."
+      seqs=""
       for t in moore-strict grand-strict; do
           f="$Q7WIT_DIR/$t.txt"
           echo "### $t"
@@ -1065,9 +1167,16 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
           if [ "$nseq" -ne 1 ]; then echo "Q7WIT_FAIL	$t: expected exactly one SEQ= line, found $nseq"; wrc=1; continue; fi
           seq=$(sed -n 's/^SEQ=//p' "$f" | tr -d ' \r')
           echo "witness_seq	$seq"
-          q7wit_check "$t" "$seq" "$ARTDIR/q7_$t.json" || { wrc=1; continue; }
+          seqs="$seqs $seq"
+          q7wit_check "$t" "$seq" "$ARTDIR/q7_$t.json" pinned || { wrc=1; continue; }
           echo "Q7WIT_OK	$t"
       done
+      # CX-321 / Q-796: the two pinned files carry ONE sequence (TR-12 section Q7: recorded as produced, not
+      # curated into two; Q7_DISTINCT_WITNESSES=NO). Printed and golden-pinned, not asserted -- a re-pin that
+      # yields two sequences is a documented change to TR-12, not a broken witness.
+      set -- $seqs
+      if [ "$#" -eq 2 ]; then [ "$1" = "$2" ] && echo "pins_identical	YES" || echo "pins_identical	NO"; else echo "pins_identical	UNMEASURED	($# of 2 witnesses read)"; fi
+      echo "Q7WIT_CONTRACT	$([ "$wrc" -eq 0 ] && echo HOLDS || echo BROKEN)	rules=published c3==776 locus=7,21,22 r11=C+py gender=verify.py controls=live"
       exit $wrc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_WITNESSES $rc
@@ -1108,7 +1217,7 @@ if [ "$Q7_RESOLVE" -eq 1 ]; then
           if [ -z "$rseq" ]; then echo "Q7RESOLVE_FAIL	$t: no WITNESS: line to re-verify"; rrc=1; continue; fi
           # property check only; the certificate name is q7resolve_* so the q7_*.json glob of
           # a2_q7_ranks does not pick up a solver-chosen sequence
-          q7wit_check "$t" "$rseq" "$ARTDIR/q7resolve_$t.json" > "$WORK/q7res_props_$t.out" 2>&1; prc=$?
+          q7wit_check "$t" "$rseq" "$ARTDIR/q7resolve_$t.json" resolve > "$WORK/q7res_props_$t.out" 2>&1; prc=$?   # CX-321: MODE=resolve -- membership only; C3 value and locus are measured, not asserted, of a solver-chosen member
           cp "$WORK/q7res_props_$t.out" "$ARTDIR/q7resolve_${t}_props.txt"
           grep -E '^(Q7WIT_FAIL|rules_enforced|rule_violations|kw_string_identical|kw_identical|gender_indep)	' "$WORK/q7res_props_$t.out" | sed 's/^kw_identical\t\([A-Z]*\)\t.*/kw_identical\t\1/; s/^gender_indep\t[0-9]*\t(verify.py _rc4_violations_indep; agrees with solve.py: \([A-Z]*\))$/gender_indep_agrees\t\1/'
           grep -q 'verdict SUPER (C1&C2&C4&C5):     IN' "$WORK/q7res_props_$t.out" && echo "resolve_super	IN" || echo "resolve_super	NOT-IN"
@@ -2505,7 +2614,7 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
       #  (1) the emitted table must carry one data row per source data row, and n of them, in
       #      step order 1..n -- that is what kills the header-only table;
       #  (2) THE TIE TO a2_q3_reader: that row asserts g == p_num and g_parent == p_den on the
-      #      source columns (:2299) after proving them canonical decimals and telescoping. This
+      #      source columns (:2408) after proving them canonical decimals and telescoping. This
       #      row therefore checks its OWN published cells against those same source columns, so a
       #      projection that read the wrong column cannot publish a plausible table. String
       #      comparison of canonical decimals is exact integer equality, which is why both sides
@@ -3308,7 +3417,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3282) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3391) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.
