@@ -606,13 +606,13 @@ NEWREFS=${NEWREFS# }
 # `git ls-remote origin` and refs/remotes/origin/* read the same there (the Q-798 always-local legs
 # have run GATE 19 in the pushed worktree since 2026-09-27).
 #   THE DECLARING TREE for each new ref is the first of these whose COMMITTED registry has a row for
-# the name (column 1, comment rows skipped, the same rule GATE 19 applies):
+# the name (column 1, comment rows skipped, the same rule GATE 19 applies) AND whose gate has pending support (Q-988, below):
 #   1. the sha the ref itself publishes;
 #   2. any other sha this push publishes on a branch (e.g. main carrying the row, pushed together
 #      with a snapshot branch at an old commit whose own tree cannot name itself);
 #   3. refs/remotes/origin/main, the published main as this clone last fetched it.
 # If none declares it, the declaring tree is the ref's own sha, so GATE 19 reports it undeclared
-# there. GATE 19 then runs ONCE PER DECLARING TREE, in a temp detached worktree of that sha, with
+# there. Q-988: a declaring tree with no pending support (its doc_gates.sh/doc_gates.d never name DOC_GATES_PENDING_BRANCHES) is passed over for a later declaring candidate; with none, it is still the declaring tree. GATE 19 then runs ONCE PER DECLARING TREE, in a temp detached worktree of that sha, with
 # that tree's own scripts/doc_gates.sh and DOC_GATES_PENDING_BRANCHES set to the refs it declares.
 # FAIL-CLOSED: a declaring tree with no committed documentation/BRANCH_REGISTRY.tsv, or no
 # scripts/doc_gates.sh, or one that does not parse, BLOCKS the push and says nothing was checked.
@@ -624,7 +624,7 @@ NEWREFS=${NEWREFS# }
 reg_declares() {
   git -C "$ROOT" show "$1:documentation/BRANCH_REGISTRY.tsv" 2>/dev/null \
     | awk -F'\t' -v b="$2" '$1 == "#" || $1 ~ /^# / {next} $1 == b {f = 1} END {exit !f}'
-}
+}; pending_support() { git -C "$ROOT" grep -qE '^[^#]*DOC_GATES_PENDING_BRANCHES' "$1" -- scripts/doc_gates.sh scripts/doc_gates.d 2>/dev/null; }   # Q-988: <sha>'s gate names DOC_GATES_PENDING_BRANCHES outside a comment. A SELECTION signal only: the positive control below stays the authority on the chosen tree
 
 # ---- temp-worktree lifecycle: removed on EVERY exit path ------------------
 # A leaked worktree pollutes `git worktree list` until pruned; clean up on
@@ -659,10 +659,10 @@ if [ -n "$NEWREFS" ]; then
   _origin_main=$(git -C "$ROOT" rev-parse -q --verify 'refs/remotes/origin/main^{commit}' 2>/dev/null || true)
   for _nr in $NEWREFS; do
     _own=${NEWREF_SHA[$_nr]:-}
-    _ds=""
+    _ds=""; _old=""   # Q-988 (Fable batch-42 prepub FIX-1 follow-up): _old = the first declaring candidate whose gate has no pending support
     for _cand in $_own $PUSHED_HEAD_SHAS $_origin_main; do
-      if reg_declares "$_cand" "${_nr#refs/heads/}"; then _ds=$_cand; break; fi
-    done
+      if reg_declares "$_cand" "${_nr#refs/heads/}"; then if pending_support "$_cand"; then _ds=$_cand; break; fi; _old=${_old:-$_cand}; fi
+    done; [ -n "$_ds" ] || _ds=$_old; [ -z "$_old" ] || [ "$_ds" = "$_old" ] || echo "pre-push: $_nr: passed over ${_old:0:12}, whose registry declares it but whose gate has no pending support (Q-988)"
     if [ -n "$_ds" ]; then
       [ "$_ds" = "$_own" ] || echo "pre-push: $_nr is declared by the committed registry of ${_ds:0:12}, not its own tree ${_own:0:12}"
     else
@@ -712,7 +712,7 @@ if [ -n "$NEWREFS" ]; then
       echo "pre-push: 🔴 BLOCKED — the branch-registry gate of ${_dshort} did not fail on a planted undeclared"
       echo "         branch name (rc $_crc), so it cannot see a branch about to be published (its GATE 19 may"
       echo "         predate DOC_GATES_PENDING_BRANCHES). Nothing it says about $_drefs is believed."
-      echo "         If no registry declares $_drefs, declare it in main and push main with it; if ${_dshort}'s OWN registry declares it, that tree is chosen first (Q-950) and only the visible bypass (git push --no-verify) can publish that commit."
+      echo "         Declare $_drefs in main (a current gate) and push main with it: a declaring tree whose gate never names DOC_GATES_PENDING_BRANCHES is passed over for a later one that does (Q-988), so main's row is read even when ${_dshort}'s own registry also declares it. If ${_dshort} names it and still failed here, no later candidate is consulted and only the visible bypass (git push --no-verify) can publish that commit."
       NEWREF_RC=1
     else
       echo "pre-push: branch-registry gate for $_drefs in the committed tree of ${_dshort}"

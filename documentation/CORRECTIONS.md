@@ -30727,3 +30727,105 @@ D06#21, D08#8 and D08#9; backlog row Q-986 (drafted as N-11). Batch 44.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 44, Q-986. Review credit:
 Codex (gpt-6-astra), lens-A delta review Q964 (Q964-D06#1, D06#21, D08#8, D08#9).
+
+## CX-337 — the last two import probes of the reproduction battery tell a crash from an absence: the V3 join's numpy guard and the atlas consumer's solve.py probe (scripts/tr12_repro.sh; tests.py)
+
+**2026-10-10.** **Source.** The pre-publication review of batch 42 (Fable, claude-fable-5-1),
+which accepted the V3-join residual of CX-316 item 3 and asked for this row; backlog row Q-987.
+Batch 45.
+
+**No published number, count, sha or verdict moves, and no document was edited.**
+
+**1. What was wrong.** CX-316 moved five import probes of `scripts/tr12_repro.sh` to
+`py_import_state` (PRESENT / ABSENT / BROKEN) and left the sixth, the n=31 V3-join guard
+`python3 -c "import numpy"`, because `TestQ430V3JoinRunsInTheBattery` runs that guard without the
+battery's prelude. A numpy that crashed on import therefore read `SKIP:no-v3-join`. Sweeping for
+the same shape found a seventh probe that CX-316 did not count: row c_consumer's
+`import sys, solve; … hasattr(solve, "atlas_queries")`. A crash in solve.py read there as
+`PENDING:atlas-consumer`, whose text says the checkout predates 2026-08-22.
+
+**2. The rule now.** The V3-join guard asks `py_import_state numpy`: ABSENT is still the named skip,
+BROKEN fails the row (row_broken, `PY_IMPORT_BROKEN`). Row c_consumer asks `py_import_state solve`
+first and fails on BROKEN; an importable solve.py without `atlas_queries` is still PENDING. Both
+edits are on their own lines, so no cited line of the script moves. The test now takes the
+battery's own prelude line (py_import_state, row_broken) with the guard, never a copy.
+
+**3. Tests.** `TestQ987Q988Q989Batch45`: a planted numpy that raises fails the join (red on
+`ea17b2bb`: `SKIP:no-v3-join`), a numpy that is absent is still the skip, no bare import probe is
+left; a solve.py that exits on import fails c_consumer (red on `ea17b2bb`: PENDING), with the
+present and pre-2026-08-22 controls. `TestQ430V3JoinRunsInTheBattery` passes unchanged in its
+cases.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 45, Q-987. Review credit:
+Fable (claude-fable-5-1), batch-42 pre-publication review.
+
+## CX-338 — the pre-push hook passes over a declaring tree whose gate cannot see a pending branch, so an old commit that declares its own name can be published by declaring it from main (scripts/pre_push_gate.sh; tests.py)
+
+**2026-10-10.** **Source.** The pre-publication review of batch 42 (Fable, claude-fable-5-1), FIX-1
+and its follow-up; backlog row Q-988. Batch 45.
+
+**No published number, count, sha or verdict moves, and no branch was published.**
+
+**1. What was wrong.** For each new branch the hook picks the declaring tree as the first of (the
+branch's own commit, the other pushed heads, origin/main) whose committed registry has a row for
+the name (Q-950). Since CX-315 that tree's gate must first fail on a planted undeclared name.
+An old commit (registry present, from 55f813d1; pending support absent, before 076a97fb) whose own
+registry declares its own name was always chosen and always blocked, and a row in main changed
+nothing: only `git push --no-verify` could publish it. CX-315 stated this as a residual and said no
+published or retired branch was in that window; that sentence was wrong. Measured on 2026-10-10 over
+every ref `git ls-remote` lists for the public repository, `main` and 34 tags, each peeled to its
+commit (a committed registry that declares the branch name the ref snapshots; no line of
+`scripts/doc_gates.sh` or `scripts/doc_gates.d/` naming `DOC_GATES_PENDING_BRANCHES` outside a
+comment, the hook's own `pending_support` test), four are: `archive/v4-query-program-20260829`
+(commit 34933bed) and `premerge/v4-query-program-20260903` (e08c3fe3),
+`archive/kw-provenance-and-adjacency-20260816-20260824` (0daa5ecb), and
+`fix-recon-1t-yield-offbyone-20260814-retired` (9e2c22af); `merged/v4-query-program-20260904`
+(a19682b2) declares its name too, but its gate names the variable. The remote holds only `main`
+today, so a restore of any of the four under its own name is a new ref and this case; no live
+branch is affected.
+
+**2. The rule now.** A declaring candidate whose `scripts/doc_gates.sh` and `scripts/doc_gates.d/`
+never name `DOC_GATES_PENDING_BRANCHES` outside a comment is passed over for a later declaring
+candidate, and the hook prints which tree it passed over. When no later candidate declares the
+name, the first declaring tree is still chosen, and the positive control blocks it as before. The
+text test only chooses a tree: the planted-name control still runs on the chosen tree and is the
+authority. A tree that names the variable but cannot read it is still chosen and still blocked. A
+current own tree is still chosen first. The remedy line of the block message now says to declare
+the branch in main. Line-neutral: no cited line of the hook moves.
+
+**3. Tests.** `TestQ987Q988Q989Batch45`: an old self-declaring commit pushed with a main that
+declares it publishes (red on `ea17b2bb`: blocked by the control), and so it does with origin/main
+declaring it. Controls: a main that does not declare it does not rescue it, and a current own tree
+is chosen before main. A mutant without the pending-support test blocks again.
+`TestQ949Q950PrepushEnvAndRegistry` and `TestQ982Q983Q985Batch42` pass.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 45, Q-988. Review credit:
+Fable (claude-fable-5-1), batch-42 pre-publication review.
+
+## CX-339 — the self-test's SIGKILL test reads the plant with the process group stopped, so the kill lands on a plant that is still on disk (tests.py)
+
+**2026-10-10.** **Source.** A failed run of the literature-batch chain on 2026-10-09 (tree
+`5615b478`): `TestLaneB29SelftestNeverPlantsInTheCallersTree.test_sigkill_of_the_group_mid_plant_leaves_the_caller_clean`
+failed its own precondition ("a scratch clone held the plant when it was killed" → `[]`), while
+the same chain's main run and three isolated re-runs passed. Backlog row Q-989. Batch 45.
+
+**No published number, count, sha or verdict moves. Test-only.**
+
+**1. What was wrong.** The test waited until a scratch clone was dirty, read the scratch clones a
+second time while the self-test was still running, and only then sent SIGKILL. The self-test
+reverts each plant within moments, so a revert between the second read and the kill left the
+precondition empty. The scripts were not at fault.
+
+**2. The rule now.** Before the kill the test stops the whole process group (SIGSTOP), waits until
+every member reads stopped in `/proc`, and reads the scratch clones then, when nothing in the
+group can revert. Between two plants it resumes the group and tries again, for at most 600 s, and
+fails by name when no plant was caught. After the kill it reads the plant again and requires it
+to be on disk.
+
+**3. Tests.** `TestQ987Q988Q989Batch45` drives the helper on a planter whose plant lasts about
+3 ms of every 55 ms: the plant is caught with the group stopped and is on disk after the kill.
+Under the old read-then-kill order on the same planter the plant was gone at the kill (measured,
+lane report). A planter that never plants gives the named empty result within the bound, with the
+group resumed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 45, Q-989.

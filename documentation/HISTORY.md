@@ -11260,3 +11260,32 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 - No published number, count, sha or verdict changed, and no document was edited. Every new test
   plants the finding, fails on the new gates and passes on the old ones, and has a plain twin that
   both catch.
+
+## 2026-10-10 — batch 45: the last import probes tell a crash from a missing module, the push hook can publish an old self-declaring commit through main, and a flaky self-test check waits for what it checks
+
+**Batch 45, the import probes (CX-337, Q-987).**
+
+- Batch 42 taught five import checks in the reproduction battery to tell a module that is missing
+  from one that crashes. One was left, the n=31 check for numpy before the V3 join, and a sweep
+  found one more, the check for the atlas consumer in solve.py.
+- Both now use the same three-way test. A crash fails the row instead of reading as a skip or as
+  "this checkout is too old". A missing module is still a named skip.
+- No published number changed. Found by the batch-42 pre-publication review (Fable).
+
+**Batch 45, publishing an old branch (CX-338, Q-988).**
+
+- The push hook checks a new branch in the first published tree that lists it. An old commit
+  that lists its own name, but whose checker cannot see a branch that is about to be published,
+  was always picked and always blocked, even when main listed the branch too.
+- Now a tree whose checker cannot do that is passed over for the next tree that lists the
+  branch. If none does, the push is still blocked. The safety check that the picked checker
+  really fails on an unlisted name still runs.
+- No live branch is affected today; four tagged snapshots of three retired branches are this case
+  (named in CX-338), which CX-315 had said did not exist. Found by the batch-42 pre-publication review (Fable).
+
+**Batch 45, a flaky test (CX-339, Q-989).**
+
+- A test that kills the self-test in the middle of a planted defect sometimes found no defect: it
+  looked, and the self-test undid the defect before the kill arrived.
+- The test now pauses the whole self-test, looks while nothing can change, and only then kills
+  it. It checks again afterwards that the defect is still there.

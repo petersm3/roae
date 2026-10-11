@@ -10071,7 +10071,8 @@ class TestQ430V3JoinRunsInTheBattery(unittest.TestCase):
     def setUpClass(cls):
         with open(os.path.join(cls.HERE, "scripts", "tr12_repro.sh"), encoding="utf-8") as fh:
             src = fh.read()
-        parts = [re.search(r"(?ms)^v3_join_row\(\)\{.*?^\}$", src),
+        parts = [re.search(r"(?m)^say\(\)\{ .*py_import_state\(\)\{.*row_broken\(\)\{.*$", src),   # Q-987: the battery's own prelude line (py_import_state, row_broken), never a copy
+                 re.search(r"(?ms)^v3_join_row\(\)\{.*?^\}$", src),
                  re.search(r'(?m)^if \[ "\$N_PAIRS" -ge [0-9]+ \].*\n(?:.*\n){0,3}?    v3_join_row .*\nfi$', src),
                  re.search(r"(?ms)^v3_fig_verdict\(\)\{.*?^\}$", src)]
         cls.fn = "\n".join(m.group(0) for m in parts) if all(parts) else None
@@ -10093,7 +10094,7 @@ class TestQ430V3JoinRunsInTheBattery(unittest.TestCase):
         if c_viz is not None:
             with open(os.path.join(raw, "c_viz.txt"), "w") as fh:
                 fh.write(c_viz)
-        script = ('declare -A TOKSTATE=([TR12_V3_TSV]="$V3TSV")\n'
+        script = ('declare -A TOKSTATE=([TR12_V3_TSV]="$V3TSV")\nLOG=/dev/null\n'
                   'row_begin(){ RAW="$RAWDIR/$1.txt"; : > "$RAW"; echo "ROW_BEGIN $1"; }\n'
                   'row_end(){ TOKSTATE[$1]="rc$2"; echo "ROW_END $1 $2"; }\n'
                   'row_skip(){ echo "ROW_SKIP $1 $2 $3"; }\n'
@@ -28939,15 +28940,66 @@ class TestLaneB29SelftestNeverPlantsInTheCallersTree(unittest.TestCase):
         self.assertEqual(self._dirty(self.caller), "")
         self.assertEqual(self._scratch(), [], "SIGTERM must also remove the scratch clone")
 
+    @staticmethod
+    def _group_frozen(pgid, seconds=10):
+        """Q-989: True once every live member of process group <pgid> reads state T (stopped) or Z in
+        /proc. kill() only queues SIGSTOP; this is the point after which nothing in the group writes."""
+        import time
+        deadline = time.time() + seconds
+        while time.time() < deadline:
+            states = []
+            for d in os.listdir("/proc"):
+                if not d.isdigit():
+                    continue
+                try:
+                    with open("/proc/%s/stat" % d) as fh:
+                        f = fh.read().rsplit(")", 1)[1].split()
+                except (OSError, IndexError):
+                    continue
+                if int(f[2]) == pgid:
+                    states.append(f[0])
+            if states and all(x in "TtZX" for x in states):
+                return True
+            time.sleep(0.01)
+        return False
+
+    def _freeze_on_a_plant(self, p, seconds=600):
+        """Q-989: stop the whole group, read the scratch clones while nothing in it can revert, and
+        return the planted ones with the group STILL STOPPED. When the stop landed between two plants,
+        resume and try again, up to <seconds>. [] when the run ended first or the wait expired. The old
+        test read the scratch clones while the suite ran and killed after, so a revert between the
+        read and the kill left "planted" empty (Q-989, chainlit 2026-10-09)."""
+        import time
+        deadline = time.time() + seconds
+        while time.time() < deadline and p.poll() is None:
+            try:
+                os.killpg(p.pid, signal.SIGSTOP)
+            except ProcessLookupError:
+                break
+            if self._group_frozen(p.pid):
+                planted = [t for t in self._planting() if self._dirty(t)]
+                if planted:
+                    return planted
+            try:
+                os.killpg(p.pid, signal.SIGCONT)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+        return []
+
     def test_sigkill_of_the_group_mid_plant_leaves_the_caller_clean(self):
         p, where = self._start_and_wait_for_a_plant()
         if where is None:
             self._stop(p, signal.SIGKILL, True)
             raise AssertionError("precondition: the self-test never planted a defect anywhere")
-        planted = [t for t in self._planting() if self._dirty(t)]
+        # Q-989: the plant is read with the group STOPPED, so it is still on disk when SIGKILL lands.
+        planted = self._freeze_on_a_plant(p) if where == "scratch" else []
         self._stop(p, signal.SIGKILL, True)
         self.assertEqual(where, "scratch", "the self-test planted into the CALLER's tree")
-        self.assertTrue(planted, "precondition: a scratch clone held the plant when it was killed")
+        self.assertTrue(planted, "precondition: no scratch clone held a plant while the group was stopped, "
+                        "within the bounded wait (Q-989); the kill would not have landed mid-plant")
+        self.assertEqual([t for t in planted if self._dirty(t)], planted,
+                         "precondition: the plant is still on disk after the kill (content, not time)")
         self.assertEqual(self._dirty(self.caller), "", "no trap runs on SIGKILL; only the scratch is dirty")
 
 # end class TestLaneB29SelftestNeverPlantsInTheCallersTree (batch 29)
@@ -41993,6 +42045,255 @@ class TestQ984Batch44Generated(TestQ984Batch44Slow):
     ]
 
 # end class TestQ984Batch44Generated (batch 44)
+
+
+class TestQ987Q988Q989Batch45(unittest.TestCase):
+    """Batch 45: Q-987, Q-988 and Q-989, the follow-ups of the Fable batch-42 prepub
+    (review_2026_09_27/FABLE_BATCH42_PREPUB.md) and the chainlit flake of 2026-10-09.
+
+    Q-987. The V3-join guard of scripts/tr12_repro.sh (n=31) probed `python3 -c "import numpy"`, so a
+    numpy that crashed on import read SKIP:no-v3-join, and the c_consumer probe read a crashed solve.py
+    as PENDING:atlas-consumer ("a pre-2026-08-22 checkout"). Both now ask py_import_state, and BROKEN
+    fails the row. Cases run the battery's OWN guard line and prelude line (py_import_state,
+    row_broken), extracted from the script, never a copy.
+    Q-988. The pre-push hook's candidate loop chose the pushed commit's OWN tree whenever its
+    registry declared the name, even when that tree's gate predates DOC_GATES_PENDING_BRANCHES, so
+    the Q-982 (a) positive control blocked it every time and a row in main changed nothing. A
+    declaring tree with no pending support is now passed over for a later declaring candidate (a
+    pushed head, then origin/main), and is still the declaring tree when none has it. Red: the
+    old-commit case. Controls: an undeclaring main does not rescue it; a current own tree is still
+    chosen first (Q-950); a mutant without the pending-support test reproduces the block.
+    Q-989. TestLaneB29SelftestNeverPlantsInTheCallersTree's SIGKILL leg read the scratch clones
+    while the suite ran and killed after, so a revert in between left its precondition empty. The
+    leg now stops the whole group, reads the plant while nothing can revert it, kills, and reads it
+    again. Driven here on a planter whose plant lasts a few milliseconds.
+    RED RUN: this file on the ea17b2bb scripts (the lane report shows it)."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    Z40 = "0" * 40
+    HOOK = os.path.join("scripts", "pre_push_gate.sh")
+
+    _d = TestQ982Q983Q985Batch42._d
+    _wr = TestQ982Q983Q985Batch42._wr
+    _mut = staticmethod(TestQ982Q983Q985Batch42._mut)
+    _q950 = TestQ982Q983Q985Batch42._q950
+    _hook_fixture = TestQ982Q983Q985Batch42._hook_fixture
+    _hook_run = TestQ982Q983Q985Batch42._hook_run
+    DG_PENDING_BLIND = TestQ982Q983Q985Batch42.DG_PENDING_BLIND
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="b45_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # ---- Q-987 -------------------------------------------------------------------------------
+    def _prelude(self):
+        lines = [l for l in self._src("scripts/tr12_repro.sh").split("\n")
+                 if l.startswith("say(){ ") and "py_import_state(){" in l and "row_broken(){" in l]
+        self.assertEqual(len(lines), 1, "precondition: py_import_state and row_broken are on the say() line")
+        return lines[0]
+
+    STUBS = ('LOG=/dev/null\n'
+             'row_begin(){ RAW="$RAWDIR/$1.txt"; : > "$RAW"; echo "ROW_BEGIN $1"; }\n'
+             'row_end(){ TOKSTATE[$1]="rc$2"; echo "ROW_END $1 $2"; }\n'
+             'row_skip(){ echo "ROW_SKIP $1 $2 $3"; }\n'
+             'tok_record(){ echo "TOK $1 $2 $3"; }\n')
+
+    def _fake_root(self, numpy_init=None, solve_py=""):
+        d = self._d()
+        root = os.path.join(d, "root")
+        self._wr(os.path.join(root, "solve.py"), solve_py)
+        if numpy_init is not None:
+            self._wr(os.path.join(root, "numpy", "__init__.py"), numpy_init)
+        return d, root
+
+    def _old_probe_rc(self, root, mod):
+        """What the ea17b2bb probe saw: any nonzero rc of `import <mod>` with root on the path."""
+        return subprocess.run(["python3", "-c", "import " + mod], capture_output=True, timeout=60, cwd=root,
+                              env=dict(os.environ, PYTHONPATH=root)).returncode
+
+    def _v3_guard(self, numpy_init):
+        TestQ430V3JoinRunsInTheBattery.setUpClass()   # the battery's own guard + functions + prelude line
+        fn = TestQ430V3JoinRunsInTheBattery.fn
+        self.assertIsNotNone(fn, "precondition: the V3-join guard and functions were extracted")
+        d, root = self._fake_root(numpy_init)
+        art, raw = os.path.join(d, "art"), os.path.join(d, "raw")
+        os.makedirs(os.path.join(art, "consumer")); os.makedirs(raw)
+        shutil.copy(TestQ430V3JoinRunsInTheBattery.GRID, os.path.join(art, "v3_rel_grid.tsv"))
+        script = 'declare -A TOKSTATE=([TR12_V3_TSV]=PASS)\n' + self.STUBS + 'eval "$FN"\nv3_fig_verdict\n'
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=300, cwd=root,
+                           env=dict(os.environ, FN=fn, N_PAIRS="31", ARTDIR=art, RAWDIR=raw,
+                                    REPO_ROOT=root, PYTHONPATH=root))
+        p = os.path.join(raw, "c_v3_join.txt")
+        rawtxt = ""
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as fh:
+                rawtxt = fh.read()
+        return r, rawtxt, root
+
+    def test_q987_a_crashed_numpy_fails_the_v3_join_not_skips_it(self):
+        r, rawtxt, root = self._v3_guard("raise RuntimeError('q987 planted crash')\n")
+        self.assertNotEqual(self._old_probe_rc(root, "numpy"), 0, "premise: the bare probe saw only a nonzero rc")
+        out = r.stdout + r.stderr
+        self.assertNotIn("ROW_SKIP c_v3_fig TR12_V3_FIG SKIP:no-v3-join", r.stdout.splitlines(),
+                         "a numpy that crashes on import read as an absent numpy:\n" + out)
+        self.assertIn("ROW_END TR12_V3_FIG 1", r.stdout.splitlines(), out)
+        self.assertTrue(any(l.startswith("PY_IMPORT_BROKEN\timport numpy") for l in rawtxt.splitlines()), rawtxt)
+
+    def test_q987_an_absent_numpy_is_still_the_named_skip(self):
+        r, rawtxt, _ = self._v3_guard("raise ModuleNotFoundError(\"No module named 'numpy'\", name='numpy')\n")
+        self.assertIn("ROW_SKIP c_v3_fig TR12_V3_FIG SKIP:no-v3-join", r.stdout.splitlines(), r.stdout + r.stderr)
+        self.assertNotIn("ROW_BEGIN c_v3_join", r.stdout.splitlines())
+
+    def test_q987_no_bare_import_probe_is_left_in_the_battery(self):
+        src = self._src("scripts/tr12_repro.sh")
+        code = [l for l in src.split("\n") if not l.lstrip().startswith("#")]
+        bare = [l for l in code if re.search(r"""python3 -c ["']import [A-Za-z_, ]+["'] >/dev/null""", l)]
+        self.assertEqual(bare, [], "an import probe that reads any nonzero rc as absent")
+        self.assertEqual(sum('"$(py_import_state numpy)"' in l for l in code), 1, "the V3-join guard asks py_import_state")
+
+    def _consumer_guard(self, solve_py):
+        lines = [l for l in self._src("scripts/tr12_repro.sh").split("\n")
+                 if l.startswith("elif ") and 'hasattr(solve, "atlas_queries")' in l]
+        self.assertEqual(len(lines), 1, "precondition: the c_consumer guard is one elif line")
+        d, root = self._fake_root(solve_py=solve_py)
+        raw = os.path.join(d, "raw"); os.makedirs(raw)
+        script = ("declare -A TOKSTATE=()\n" + self.STUBS + self._prelude() + "\n"
+                  "if false; then :\n" + lines[0] + "\n  echo CONSUMER_RAN\nelse\n  echo CONSUMER_PENDING\nfi\n")
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=120, cwd=root,
+                           env=dict(os.environ, RAWDIR=raw, REPO_ROOT=root))
+        return r.stdout.splitlines(), root
+
+    def test_q987_sibling_a_crashed_solve_fails_c_consumer(self):
+        out, root = self._consumer_guard("raise SystemExit(3)\n")
+        self.assertNotEqual(self._old_probe_rc(root, "solve"), 0, "premise")
+        self.assertNotIn("CONSUMER_PENDING", out, "a crashed solve.py read as a pre-2026-08-22 checkout")
+        self.assertIn("ROW_END TR12_ATLAS_CONSUMER 1", out)
+
+    def test_q987_sibling_controls_present_and_old_checkout(self):
+        out, _ = self._consumer_guard("atlas_queries = 1\n")
+        self.assertIn("CONSUMER_RAN", out, "positive control")
+        out, _ = self._consumer_guard("X = 1\n")
+        self.assertIn("CONSUMER_PENDING", out, "a solve.py without atlas_queries is still PENDING")
+
+    # ---- Q-988 -------------------------------------------------------------------------------
+    REG_FEAT = "main\tauthoritative\nfeat\tsnapshot\n"
+
+    def _has_pending(self, fx, sha):
+        return subprocess.run(["git", "-C", fx["repo"], "grep", "-qE", "^[^#]*DOC_GATES_PENDING_BRANCHES", sha, "--",
+                               "scripts/doc_gates.sh"], capture_output=True).returncode == 0
+
+    def _old_commit_case(self, hook_src, main_registry, on_origin=False):
+        """A: an old commit whose OWN registry declares feat and whose gate predates
+        DOC_GATES_PENDING_BRANCHES. B (main): a current gate, with main_registry."""
+        q = self._q950()
+        fx = self._hook_fixture(hook_src, self.DG_PENDING_BLIND, registry=self.REG_FEAT)
+        self._wr(os.path.join(fx["repo"], "scripts", "doc_gates.sh"), "#!/bin/bash\n" + q.DG_STUB, 0o755)
+        self._wr(os.path.join(fx["repo"], "documentation", "BRANCH_REGISTRY.tsv"), main_registry)
+        q._git(self, fx["repo"], "commit", "-qam", "B")
+        b = q._git(self, fx["repo"], "rev-parse", "HEAD")
+        self.assertFalse(self._has_pending(fx, fx["a"]), "precondition: A's gate has no pending support")
+        self.assertTrue(self._has_pending(fx, b), "precondition: B's gate has it")
+        if on_origin:
+            q._git(self, fx["repo"], "push", "-q", "--no-verify", "origin", "%s:refs/heads/main" % b)
+            q._git(self, fx["repo"], "fetch", "-q", "origin")
+            stdin = "refs/heads/feat %s refs/heads/feat %s\n" % (fx["a"], self.Z40)
+        else:
+            stdin = ("refs/heads/main %s refs/heads/main %s\nrefs/heads/feat %s refs/heads/feat %s\n"
+                     % (b, fx["a"], fx["a"], self.Z40))
+        r, marks = self._hook_run(fx, stdin)
+        self.assertIn("NEW branch ref(s) to declare: refs/heads/feat", r.stdout, "precondition: the declaration leg ran")
+        return r, fx, b
+
+    def test_q988_an_old_self_declaring_commit_is_published_by_main_in_the_same_push(self):
+        r, fx, b = self._old_commit_case(self._src(self.HOOK), self.REG_FEAT)
+        self.assertEqual(r.returncode, 0, "only --no-verify could publish it:\n" + r.stdout[-3000:])
+        self.assertIn("refs/heads/feat is declared by the committed registry of %s" % b[:12], r.stdout)
+        self.assertIn("passed over %s" % fx["a"][:12], r.stdout)
+        self.assertIn("branch-registry gate PASSED for refs/heads/feat (%s)" % b[:12], r.stdout)
+
+    def test_q988_and_by_origin_main(self):
+        r, fx, b = self._old_commit_case(self._src(self.HOOK), self.REG_FEAT, on_origin=True)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:])
+        self.assertIn("refs/heads/feat is declared by the committed registry of %s" % b[:12], r.stdout)
+
+    def test_q988_control_a_main_that_does_not_declare_it_does_not_rescue_it(self):
+        r, fx, _ = self._old_commit_case(self._src(self.HOOK), "main\tauthoritative\n")
+        self.assertNotEqual(r.returncode, 0, r.stdout[-3000:])
+        self.assertIn("the branch-registry gate of %s did not fail on a planted undeclared" % fx["a"][:12], r.stdout)
+
+    def test_q988_control_a_current_own_tree_is_still_chosen_first(self):
+        q = self._q950()
+        fx = self._hook_fixture(self._src(self.HOOK), q.DG_STUB, registry=self.REG_FEAT)
+        self._wr(os.path.join(fx["repo"], "documentation", "NOTE.md"), "b\n")
+        q._git(self, fx["repo"], "commit", "-qam", "B")
+        b = q._git(self, fx["repo"], "rev-parse", "HEAD")
+        stdin = ("refs/heads/main %s refs/heads/main %s\nrefs/heads/feat %s refs/heads/feat %s\n"
+                 % (b, fx["a"], fx["a"], self.Z40))
+        r, _ = self._hook_run(fx, stdin)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:])
+        self.assertIn("branch-registry gate PASSED for refs/heads/feat (%s)" % fx["a"][:12], r.stdout)
+        self.assertNotIn("is declared by the committed registry of", r.stdout, "Q-950: the own tree comes first")
+        self.assertNotIn("passed over", r.stdout)
+
+    def test_q988_mutant_without_the_pending_support_test_blocks_again(self):
+        src = self._mut(self._src(self.HOOK), 'then if pending_support "$_cand"; then _ds=$_cand; break; fi;',
+                        'then if true; then _ds=$_cand; break; fi;')
+        r, fx, _ = self._old_commit_case(src, self.REG_FEAT)
+        self.assertNotEqual(r.returncode, 0, "the mutant must reproduce the defect:\n" + r.stdout[-2000:])
+        self.assertIn("did not fail on a planted undeclared", r.stdout)
+
+    # ---- Q-989 -------------------------------------------------------------------------------
+    B29 = TestLaneB29SelftestNeverPlantsInTheCallersTree
+
+    def _planter(self, body):
+        d = self._d()
+        tree = os.path.join(d, "doc_gates_selftest.q989", "tree")
+        os.makedirs(tree)
+        g = lambda *a: subprocess.run(["git", "-C", tree] + list(a), capture_output=True, text=True, check=True,
+                                      env=dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                                               GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t"))
+        g("init", "-q"); self._wr(os.path.join(tree, "f"), "x\n"); g("add", "f"); g("commit", "-qm", "c")
+        os.makedirs(os.path.join(tree, ".git", "doc_gates_selftest.lock"))
+        b = self.B29.__new__(self.B29)
+        b.stmp, b.env = d, {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        p = subprocess.Popen(["bash", "-c", body], cwd=tree, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+        self.addCleanup(lambda: (p.poll() is None and os.killpg(p.pid, signal.SIGKILL), p.wait()))
+        return b, p, tree
+
+    # the plant lasts ~3 ms of every ~55: a read-then-kill almost always lands after the revert
+    BLINK = ("while :; do printf 'PLANT\\n' > f.tmp && mv f.tmp f; sleep 0.003; "
+             "printf 'x\\n' > f.tmp && mv f.tmp f; sleep 0.05; done")
+
+    def test_q989_the_kill_lands_on_a_plant_that_is_still_on_disk(self):
+        b, p, tree = self._planter(self.BLINK)
+        self.assertIsNone(p.poll(), "precondition: the planter runs")
+        planted = b._freeze_on_a_plant(p, seconds=120)
+        self.assertEqual(planted, [tree], "no plant was caught with the group stopped within 120 s")
+        self.assertTrue(b._group_frozen(p.pid, seconds=1), "the helper returns with the group still stopped")
+        os.killpg(p.pid, signal.SIGKILL); p.wait()
+        with open(os.path.join(tree, "f")) as fh:
+            self.assertEqual(fh.read(), "PLANT\n", "the plant read before the kill is on disk after it")
+
+    def test_q989_no_plant_is_a_loud_empty_result_within_the_bound(self):
+        import time
+        b, p, _ = self._planter("while :; do sleep 0.05; done")
+        t0 = time.time()
+        self.assertEqual(b._freeze_on_a_plant(p, seconds=2), [])
+        self.assertLess(time.time() - t0, 30, "the wait is bounded")
+        self.assertIsNone(p.poll(), "the group was killed")
+        with open("/proc/%d/stat" % p.pid) as fh:
+            self.assertNotIn(fh.read().rsplit(")", 1)[1].split()[0], "Tt", "the group was left stopped (poll() is None for a stopped process too)")
+
+# end class TestQ987Q988Q989Batch45 (batch 45, Q-987/Q-988/Q-989)
 
 
 if __name__ == "__main__":

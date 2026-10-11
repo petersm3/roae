@@ -3529,7 +3529,7 @@ row_skip c_q10b   TR12_Q10B   "PENDING:--kc-coset-census" "PENDING:--kc-coset-ce
 # paragraph as covering "every atlas-derived number" either. (Q-615, 2026-09-26: each side's `p` cells are now re-derived from its own integers -- xcheck_shell_ratios, TR12_RATIO_COLUMNS -- and the shell anchor is compared with the consumer's King Wen at n=31; the two sides' `p` TEXTS are still never compared.)
 if [ "$SCAN_OK" -eq 0 ] || [ ! -s "$ATLAS" ]; then
     row_skip c_consumer TR12_ATLAS_CONSUMER "SKIP:no-atlas" "no atlas.json — Group B did not produce one, so there is nothing for the consumer to read"
-elif PYTHONPATH="$REPO_ROOT" python3 -c 'import sys, solve; sys.exit(0 if hasattr(solve, "atlas_queries") else 1)' >/dev/null 2>&1; then
+elif [ "$(py_import_state solve)" = BROKEN ]; then row_broken c_consumer TR12_ATLAS_CONSUMER "import solve"; elif PYTHONPATH="$REPO_ROOT" python3 -c 'import sys, solve; sys.exit(0 if hasattr(solve, "atlas_queries") else 1)' >/dev/null 2>&1; then   # Q-987 sibling (the probe CX-316 did not count): a crash in solve.py read as PENDING:atlas-consumer, "a pre-2026-08-22 checkout"; BROKEN now fails the row
     row_begin c_consumer
     (
       crc=0
@@ -3927,7 +3927,7 @@ v3_join_row(){   # v3_join_row GRID_TSV CONSUMER_DIR
 }
 if [ "$N_PAIRS" -ge 31 ] && [ -d "$ARTDIR/consumer" ] && [ "${TOKSTATE[TR12_V3_TSV]:-MISSING}" = PASS ] \
    && command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
-   && python3 -c "import numpy" >/dev/null 2>&1; then
+   && case "$(py_import_state numpy)" in PRESENT) true;; BROKEN) row_broken c_v3_join TR12_V3_FIG "import numpy"; false;; *) false;; esac; then   # Q-987 (Fable batch-42 prepub, the Q-983 residual): the last bare probe; ABSENT skips (SKIP:no-v3-join), a crash fails the row
     v3_join_row "$ARTDIR/v3_rel_grid.tsv" "$ARTDIR/consumer"
 fi
 # The V1/V2/V4/V5 generators landed in viz/report_figures.py (TSV -> figure, no analysis logic).
