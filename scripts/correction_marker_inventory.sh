@@ -74,6 +74,7 @@
 #   scripts/correction_marker_inventory.sh --selftest # span/kind known answers on synthetic text
 #   CMI_KEEP_LOGS=DIR …                               # also keep the two gate logs in DIR, and
 #   scripts/correction_marker_inventory.sh --attribute BASE.log ABL.log   # re-attribute them
+#   scripts/correction_marker_inventory.sh --snapshot NEWDIR  # the tree both gate runs read, committed (snapshot())
 # Verdict: one whole line CORRECTION_MARKER_INVENTORY=<COMPLETE|INCOMPLETE|ERROR> on stderr.
 #   COMPLETE   every changed gate line was attributed to a marker line;
 #   INCOMPLETE some gate's population moved with no marker nameable (listed; `population` rows);
@@ -820,7 +821,8 @@ REVIEWED = {
     ('enumeration/LEADERBOARD.md', '2cb7abe5c0a2'):
         ('1', 'reviewed:paragraph-already-reads-from-the-742M-archive'),
     # re-keyed batch 35 (was 829aed6413ee): only a line-number cite on the line moved; re-read, same verdict.
-    ('enumeration/LEADERBOARD.md', '945a371c2c4b'):
+    # re-keyed batch 46 (was 945a371c2c4b; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
+    ('enumeration/LEADERBOARD.md', 'cc2f320eeea0'):
         ('1', 'reviewed:sentence-already-calls-it-an-overlap-ratio'),
     ('enumeration/LEADERBOARD.md', '8ff0ea958479'):
         ('1', 'reviewed:qualifier-already-uses-0-based-pair-numbers'),
@@ -1146,7 +1148,8 @@ REVIEWED = {
     ('documentation/CRITIQUE.md', 'c644bbbeed75'):
         ('1', 'reviewed:note-already-says-the-boundary-minimum-did-not-shift'),
     # re-keyed batch 35 (was eaf5abc0b734): only a line-number cite on the line moved; re-read, same verdict.
-    ('documentation/CRITIQUE.md', '597d3234e446'):
+    # re-keyed batch 46 (was 597d3234e446; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
+    ('documentation/CRITIQUE.md', '43ac02bc5b0b'):
         ('1', 'reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007'),
     ('documentation/CRITIQUE.md', 'f8ba3b65a9cf'):
         ('1', 'reviewed:sentence-already-states-the-rate-bound-scoped-to-its-sampler;no-minimum-claim-left'),
@@ -1681,23 +1684,45 @@ elif mode == 'selftest':
 PY
 }
 
+# snapshot DIR (Q-936 follow-up, batch 46, CX-341 item 4): DIR becomes this working tree (tracked +
+# untracked-but-not-ignored) COMMITTED on top of HEAD, in a git dir of its own that carries this
+# repository's refs and reads its objects by alternates. The copies used to take this checkout's .git
+# as it was, so their HEAD was the PARENT of the change being measured, and every leg that reads
+# `git diff HEAD` saw that change. The citation gate's shift leg (leg A) only reads a citing line
+# that is byte-identical to HEAD, so a NEW citation into a marker line was invisible while the change
+# was staged and printed `[inhunk]` against the ablated copy once it was committed: batch 46's staged
+# regeneration and the regeneration on top of batch 46 committed disagreed on three rows. Committed
+# in the copy, `git diff HEAD` is empty in the base copy, as it is after the real commit, and is the
+# ablation alone in the ablated one. It also keeps the gates in the copies from touching this
+# checkout's index (a linked worktree's .git is only a pointer to it). The commit stays in DIR.
+snapshot() {
+  local d="$1" head objs
+  head=$(git rev-parse --verify -q HEAD) && objs=$(cd "$(git rev-parse --git-common-dir)/objects" && pwd) || return 1
+  mkdir -p "$d" && git ls-files -z --cached --others --exclude-standard | xargs -0 cp --parents -a -t "$d" || return 1
+  git -C "$d" init -q && echo "$objs" > "$d/.git/objects/info/alternates" || return 1
+  git for-each-ref --format='create %(refname) %(objectname)' | git -C "$d" update-ref --stdin || return 1
+  git -C "$d" update-ref --no-deref HEAD "$head" && git -C "$d" add -A || return 1
+  git -C "$d" -c user.name=correction_marker_inventory -c user.email=cmi@invalid -c commit.gpgsign=false \
+    commit -q --no-verify --allow-empty -m 'correction_marker_inventory.sh: the tree as measured' || return 1
+  [ -z "$(git -C "$d" status --porcelain)" ] && [ "$(git -C "$d" rev-parse HEAD~1)" = "$head" ]
+}
+
 case "$MODE" in
   --selftest) core selftest; exit $? ;;
+  --snapshot) [ -n "${2:-}" ] && [ ! -e "$2" ] || { echo "usage: $0 --snapshot NEWDIR" >&2; exit 2; }
+              snapshot "$2"; exit $? ;;
   --list)     core list; exit $? ;;
   --attribute) core attribute "$2" "$3"; exit $? ;;   # re-attribute two kept gate logs (CMI_KEEP_LOGS)
   write|--stdout) ;;
-  *) echo "usage: $0 [--stdout|--list|--selftest]" >&2; exit 2 ;;
+  *) echo "usage: $0 [--stdout|--list|--selftest|--snapshot NEWDIR]" >&2; exit 2 ;;
 esac
 
 W=$(mktemp -d) || { echo "CORRECTION_MARKER_INVENTORY=ERROR mktemp" >&2; exit 2; }
 trap 'rm -rf "$W"' EXIT
-# Two identical copies of the working tree (tracked + untracked-but-not-ignored, with .git so the
-# gates that read HEAD see the same HEAD), so the only difference between the two runs is the ablation.
-for c in base abl; do
-  mkdir -p "$W/$c" && cp -a .git "$W/$c/.git" \
-    && git ls-files -z --cached --others --exclude-standard | (cd . && xargs -0 cp --parents -a -t "$W/$c" 2>/dev/null) \
-    || { echo "CORRECTION_MARKER_INVENTORY=ERROR copy-failed $c" >&2; exit 2; }
-done
+# Two identical copies of the working tree AS IT WILL BE COMMITTED, so the only difference between
+# the two runs is the ablation. See snapshot() above for why the tree is committed in the copy.
+snapshot "$W/base" || { echo "CORRECTION_MARKER_INVENTORY=ERROR copy-failed base" >&2; exit 2; }
+cp -a "$W/base" "$W/abl" || { echo "CORRECTION_MARKER_INVENTORY=ERROR copy-failed abl" >&2; exit 2; }
 N=$(core ablate "$W/abl") || { echo "CORRECTION_MARKER_INVENTORY=ERROR ablate-failed" >&2; exit 2; }
 [ "${N:-0}" -gt 0 ] || { echo "CORRECTION_MARKER_INVENTORY=ERROR no-markers-ablated" >&2; exit 2; }
 for c in base abl; do

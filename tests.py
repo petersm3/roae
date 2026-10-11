@@ -42296,6 +42296,157 @@ class TestQ987Q988Q989Batch45(unittest.TestCase):
 # end class TestQ987Q988Q989Batch45 (batch 45, Q-987/Q-988/Q-989)
 
 
+class TestQ993Q936Batch46(unittest.TestCase):
+    """Batch 46: Q-993 and Q-936 (CX-340, CX-341).
+
+    Q-993. The section [18] notes of CRITIQUE.md, PROJECT_OVERVIEW.md and LEADERBOARD.md (DOCS)
+    quote the baseline `sum_p H(pair at p)` "as `solve.c:N` states".
+    N was 46159, the line that opens the sentence but holds the CONDITIONAL sum
+    (`sum_p H(pair at p | records matching KW`); the baseline is on the next line. The citation
+    gate could not tell the two apart (both land inside its window), so the check here reads the
+    cited span by CONTENT: it must hold `baseline sum_p H(pair at p)` and be at most two lines.
+    RED: the a8237ea1 tree (span 46159 only). Control: the conditional line alone is refused.
+    Q-936. The committed marker inventory carries no `unreviewed` and no `count-changed` row, it
+    has its `not-a-marker` format control, and the two REVIEWED rows whose lines this batch edited
+    (re-keyed in scripts/correction_marker_inventory.sh) still carry their verdict under the
+    edited line's sha. The DOCS are named here without line numbers on purpose: a `file:N` note
+    in this docstring is a citation INTO those marker lines, which the marker inventory measures as
+    a gate anchor once it is committed (CX-341 item 4). The inventory's copies are now the tree as
+    committed (`--snapshot`), so a staged and a committed regeneration agree."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    DOCS = ("documentation/CRITIQUE.md", "documentation/PROJECT_OVERVIEW.md", "enumeration/LEADERBOARD.md")
+    CITE = re.compile(r'`sum_p H\(pair at p\)`, as `solve\.c:(\d+)(?:-(\d+))?` states')
+    BASELINE = "baseline sum_p H(pair at p)"
+    CONDITIONAL = "compute sum_p H(pair at p | records matching KW"
+    INV = "documentation/CORRECTION_MARKER_INVENTORY.tsv"
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), errors="replace") as fh:
+            return fh.read()
+
+    def _src(self):
+        return self._read("solve.c").split("\n")
+
+    def _verdicts(self, text, src):
+        """Every baseline cite in `text` -> (a, b, ok); ok = span <= 2 lines and holds BASELINE."""
+        out = []
+        for m in self.CITE.finditer(text):
+            a = int(m.group(1)); b = int(m.group(2) or a)
+            span = "\n".join(src[a - 1:b]) if 1 <= a <= b <= len(src) else ""
+            out.append((a, b, (b - a) <= 1 and self.BASELINE in span))
+        return out
+
+    def _recite(self, text, cite):
+        return self.CITE.sub(lambda m: re.sub(r'solve\.c:\d+(?:-\d+)?', cite, m.group(0)), text)
+
+    def test_q993_positive_control_the_baseline_is_on_one_line_of_solve_c(self):
+        src = self._src()
+        self.assertEqual(sum(self.BASELINE in l for l in src), 1, "the baseline sentence must be findable, once")
+        self.assertEqual(sum(self.CONDITIONAL in l for l in src), 1, "the conditional sentence must be findable, once")
+
+    def test_q993_each_cite_spans_the_baseline_line(self):
+        src = self._src()
+        for d in self.DOCS:
+            v = self._verdicts(self._read(d), src)
+            self.assertEqual(len(v), 1, "%s: exactly one baseline cite, got %r" % (d, v))
+            a, b, ok = v[0]
+            self.assertTrue(ok, "%s cites solve.c:%d-%d, which does not hold %r" % (d, a, b, self.BASELINE))
+
+    def test_q993_the_conditional_line_alone_is_refused(self):
+        src = self._src()
+        c = next(i for i, l in enumerate(src, 1) if self.CONDITIONAL in l)
+        for d in self.DOCS:
+            text = self._recite(self._read(d), "solve.c:%d" % c)
+            v = self._verdicts(text, src)
+            self.assertEqual([(a, b) for a, b, _ in v], [(c, c)], "%s: the mutant must cite the conditional line" % d)
+            self.assertFalse(v[0][2], "%s: a cite of the conditional line alone must be refused" % d)
+            wide = self._recite(self._read(d), "solve.c:%d-%d" % (c - 5, c + 5))
+            self.assertFalse(self._verdicts(wide, src)[0][2], "%s: a wide span that merely contains the line must be refused" % d)
+
+    def test_q936_inventory_has_no_unreviewed_or_count_changed_row(self):
+        rows = [l.split("\t") for l in self._read(self.INV).split("\n")[1:] if l]
+        self.assertTrue(all(len(r) == 8 for r in rows), "every inventory row has 8 cells")
+        reviews = [r[6] for r in rows]
+        self.assertIn("not-a-marker", reviews, "format control: the inventory must carry not-a-marker rows")
+        bad = [r for r in rows if r[6] in ("unreviewed", "count-changed")]
+        self.assertEqual(bad, [], "Q-936: rows still unreviewed or count-changed")
+
+    def test_q936_the_edited_lines_keep_their_verdict_under_the_new_sha(self):
+        rows = [l.split("\t") for l in self._read(self.INV).split("\n")[1:] if l]
+        for d, n in (("documentation/CRITIQUE.md", 7), ("enumeration/LEADERBOARD.md", 7)):
+            line = self._read(d).split("\n")[n - 1]
+            sha = hashlib.sha256(line.encode()).hexdigest()[:12]
+            mine = [r for r in rows if r[0] == d and r[1] == str(n) and r[2] == "marker"]
+            self.assertTrue(mine, "%s:%d must still be an inventoried marker line" % (d, n))
+            for r in mine:
+                self.assertEqual(r[7], sha, "%s:%d: inventory row is keyed to a stale line sha" % (d, n))
+                self.assertTrue(r[6].startswith("reviewed:"), "%s:%d lost its verdict: %r" % (d, n, r[6]))
+
+    def _g(self, repo, *a):
+        r = subprocess.run(["git", "-C", repo] + list(a), capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, "git %s: %s" % (" ".join(a), r.stderr))
+        return r.stdout.strip()
+
+    def _snapshot_case(self, linked):
+        """A repo with a staged edit, an unstaged edit and an untracked file; --snapshot run from the
+        checkout (or from a linked worktree of it). The snapshot must be that tree committed on top
+        of HEAD in its own git dir, carrying the repo's refs, and the checkout must be untouched."""
+        d = tempfile.mkdtemp(prefix="q936snap_")
+        self.addCleanup(shutil.rmtree, d, True)
+        repo = os.path.join(d, "repo")
+        os.makedirs(os.path.join(repo, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "correction_marker_inventory.sh"), os.path.join(repo, "scripts"))
+        for f, t in (("a.md", "one\n"), ("b.md", "two\n"), (".gitignore", "*.log\n")):
+            with open(os.path.join(repo, f), "w") as fh:
+                fh.write(t)
+        self._g(repo, "init", "-q", "-b", "trunk")
+        self._g(repo, "add", "-A")
+        self._g(repo, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-q", "--no-verify", "-m", "c0")
+        self._g(repo, "tag", "q936tag")
+        work = repo
+        if linked:
+            work = os.path.join(d, "wt")
+            self._g(repo, "worktree", "add", "-q", "--detach", work, "HEAD")
+        for f, t in (("a.md", "one edited\n"), ("b.md", "two staged\n"), ("c.md", "new\n"), ("x.log", "ignored\n")):
+            with open(os.path.join(work, f), "w") as fh:
+                fh.write(t)
+        self._g(work, "add", "b.md")
+        before = (self._g(work, "rev-parse", "HEAD"), self._g(work, "status", "--porcelain"),
+                  self._g(work, "diff", "--cached"), self._g(work, "rev-parse", "trunk"))
+        snap = os.path.join(d, "snap")
+        r = subprocess.run(["bash", "scripts/correction_marker_inventory.sh", "--snapshot", snap], cwd=work,
+                           capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, "--snapshot failed: %s%s" % (r.stdout, r.stderr))
+        after = (self._g(work, "rev-parse", "HEAD"), self._g(work, "status", "--porcelain"),
+                 self._g(work, "diff", "--cached"), self._g(work, "rev-parse", "trunk"))
+        self.assertEqual(before, after, "the checkout's HEAD, index, status or branch moved")
+        self.assertTrue(os.path.isdir(os.path.join(snap, ".git")), "the snapshot must have a git DIR of its own")
+        self.assertEqual(self._g(snap, "status", "--porcelain"), "", "the snapshot tree is committed: git diff HEAD is empty")
+        self.assertEqual(self._g(snap, "rev-parse", "HEAD~1"), before[0], "the snapshot commit sits on the checkout's HEAD")
+        self.assertEqual(self._g(snap, "show", "HEAD:a.md"), "one edited", "unstaged edit committed")
+        self.assertEqual(self._g(snap, "show", "HEAD:b.md"), "two staged", "staged edit committed")
+        self.assertEqual(self._g(snap, "show", "HEAD:c.md"), "new", "untracked, not ignored: committed")
+        self.assertFalse(os.path.exists(os.path.join(snap, "x.log")), "an ignored file is not copied")
+        self.assertEqual(self._g(snap, "rev-parse", "trunk"), before[3], "the repo's branches are carried")
+        self.assertEqual(self._g(snap, "rev-parse", "q936tag"), before[3], "the repo's tags are carried")
+
+    def test_q936_snapshot_commits_the_tree_and_leaves_the_checkout_alone(self):
+        self._snapshot_case(linked=False)
+
+    def test_q936_snapshot_from_a_linked_worktree_leaves_its_index_alone(self):
+        self._snapshot_case(linked=True)
+
+    def test_q936_the_inventory_measures_the_snapshot(self):
+        with open(os.path.join(self.ROOT, "scripts", "correction_marker_inventory.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertEqual(src.count('snapshot "$W/base"'), 1, "the base copy must be the committed snapshot")
+        self.assertEqual(src.count('cp -a "$W/base" "$W/abl"'), 1, "the ablated copy must be a copy OF the snapshot")
+        self.assertNotIn('cp -a .git', src, "a copy of this checkout's .git measures against the parent of the change")
+        self.assertNotRegex(self.__doc__, r'\.md:\d', "this docstring must not cite marker lines by number")
+
+# end class TestQ993Q936Batch46 (batch 46, Q-993/Q-936)
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

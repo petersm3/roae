@@ -136,8 +136,8 @@ documentation/CLAIMS_DECIDED.md	101	marker	CORRECTED	2	-	reviewed:sentence-above
 documentation/CLAIM_TO_ARTIFACT.md	17	marker	Corrected	1	-	reviewed:label-text-already-states-the-approx-convention	2ae9ba270ae1
 documentation/CLAIM_TO_ARTIFACT.md	43	marker	CORRECTED	1	-	reviewed:row-already-records-the-cake_lpr-leg	324f7ccfdaf1
 documentation/CRITIQUE.md	5	marker	Corrected	1	-	reviewed:note-already-says-the-boundary-minimum-did-not-shift	c644bbbeed75
-documentation/CRITIQUE.md	7	marker	CORRECTED	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	597d3234e446
-documentation/CRITIQUE.md	7	marker	Correction	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	597d3234e446
+documentation/CRITIQUE.md	7	marker	CORRECTED	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	43ac02bc5b0b
+documentation/CRITIQUE.md	7	marker	Correction	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	43ac02bc5b0b
 documentation/CRITIQUE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	3df76fd79ac3
 documentation/CRITIQUE.md	60	marker	CORRECTED	1	-	reviewed:sentence-already-states-the-rate-bound-scoped-to-its-sampler;no-minimum-claim-left	f8ba3b65a9cf
 documentation/CRITIQUE.md	103	marker	CORRECTED	3	GATE 26	reanchored:GATE-26=ledger-anchor	61dcd6d2654d
@@ -548,7 +548,7 @@ documentation/VERIFY.md	1233	ledger-link	CORRECTION	n/a	-	not-a-marker	9690cbc0b
 documentation/VERIFY.md	1283	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077a58
 documentation/VERIFY.md	1342	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
 documentation/VERIFY.md	1428	marker	Corrected	2	-	reviewed:paragraph-above-still-says-the-witness-row-does-not-exist	4b56db87bbf7
-enumeration/LEADERBOARD.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-calls-it-an-overlap-ratio	945a371c2c4b
+enumeration/LEADERBOARD.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-calls-it-an-overlap-ratio	cc2f320eeea0
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1	-	reviewed:paragraph-already-reads-from-the-742M-archive	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1	-	reviewed:qualifier-already-uses-0-based-pair-numbers	8ff0ea958479
 enumeration/LEADERBOARD.md	192	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	653e853d6ca7

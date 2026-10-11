@@ -30829,3 +30829,88 @@ lane report). A planter that never plants gives the named empty result within th
 group resumed.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 45, Q-989.
+
+## CX-340 — three documents cite one line for the per-position baseline, and that line holds the conditional sum; they now cite the two-line span the sentence occupies (CRITIQUE.md, PROJECT_OVERVIEW.md, LEADERBOARD.md)
+
+**2026-10-10.** **Source.** The batch 46 lane's re-check of Q-571 (review note in the private
+lane report). Backlog row Q-993. Batch 46.
+
+**No published number, count, sha or verdict moves. Navigation only.**
+
+**1. What was wrong.** `documentation/CRITIQUE.md` line 7, `documentation/PROJECT_OVERVIEW.md`
+line 117 and `enumeration/LEADERBOARD.md` line 7 each say that `77.81` is `sum_p H(pair at p)`,
+"as `solve.c:46159` states". Line 46159 opens the Section 18 comment, but what it shows is the
+conditional sum, `sum_p H(pair at p | records matching KW`. The baseline the documents quote,
+`baseline sum_p H(pair at p) over all 742M`, is on line 46160. CX-45 gave this site as a two-line
+span (`solve.c:44210-44211` at the time); later line shifts carried only the first line forward.
+The citation line gate passed both forms, because its anchors land within its window either way.
+
+**2. What changed.** The three documents now cite `solve.c:46159-46160`, the two lines of the
+Section 18 comment that states it. The two reviewed verdicts on CRITIQUE.md line 7 and
+LEADERBOARD.md line 7 are keyed by the line's sha, so both were re-keyed in
+`scripts/correction_marker_inventory.sh`. Each line was re-read and keeps its verdict.
+
+**3. Tests.** `TestQ993Q936Batch46` reads each cited span by content. The span must be at most
+two lines and must contain `baseline sum_p H(pair at p)`. It fails on the batch 45 tree (tree
+`a8237ea1`, span 46159 alone). Controls: the baseline and conditional sentences are each found
+exactly once in solve.c; a cite of the conditional line alone is refused; so is a wide span that
+merely contains the baseline. `citation_line_gate.sh --all-files --all-targets` passes on the new
+cite and fails on a planted `solve.c:46100`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 46, Q-993.
+
+## CX-341 — the marker inventory is re-measured at batch 46: no inline correction marker is unreviewed and no gate-population shift is unattributed, and this batch's own edits do not reopen either, staged or committed (scripts/correction_marker_inventory.sh; documentation/CORRECTION_MARKER_INVENTORY.tsv; tests.py)
+
+**2026-10-10.** **Source.** Backlog row Q-936 (part 1 step 1 of the post-v2 correction-hygiene
+task), re-checked before any work, because rows go stale. Batch 46.
+
+**No published number, count, sha or verdict moves. No marker moves.**
+
+**1. What was measured.** The inventory was regenerated on the batch 46 tree. It has 865 rows and
+reads `CORRECTION_MARKER_INVENTORY=COMPLETE`. Its summary line is `G27=15 UNATTR=0 POP=39
+MARKERS=618`. No row is `unreviewed` and no row is `count-changed`. The classification CX-266
+began and the one-file attribution CX-282 began are both finished; batch 41 (CX-306) registered
+the last two reviewed rows. No `REVIEWED key matches no` line is printed.
+
+**2. What this batch changed.** CX-340 edits two lines that carry reviewed markers, so their keys
+moved. Both lines were re-read and re-keyed with the same verdict (CX-340 item 2). Regenerated,
+the inventory differs from batch 45's only in those three rows' `line_sha` cells.
+
+**3. What remains, and why it is not done here.** 59 rows are still class 3 with review
+`gate-anchored`. Their legs: the citation line gate together with GATE 2c (34 rows, each read by
+both; one also by GATE 44, one also by GATE 26 and GATE 27), GATE 53 on
+documentation/LARGE_SCALE_CAMPAIGNS.md (12), GATE 86 on documentation/PREREG_CLASSA_QUERY_SET.md
+(7), GATE 56 (3), GATE 94 (2) and GATE 71 (1). Moving any of them would narrow the gate that reads it, so step 2 (re-anchoring those gates,
+backlog row Q-937) must come first. None was moved in this batch. Step 3 (moving markers into
+this ledger, Q-938) waits on step 2.
+
+**4. The inventory now measures the tree as it will be committed.** Regenerated on top of this
+batch as a commit, the first build of it gave a different answer: CRITIQUE.md lines 5 and 7 and
+LEADERBOARD.md line 7 measured class 3 (the citation line gate and GATE 2c), so their three
+reviewed keys matched nothing and three `REVIEWED key matches no` lines were printed. The cause was
+measured, not guessed. The inventory's two copies took this checkout's `.git` as it was, so their
+HEAD was the parent of the change being measured. The citation gate's shift leg (leg A) reads only
+a citing line that is byte-identical to HEAD. This batch's test docstring cited
+`documentation/CRITIQUE.md` and `enumeration/LEADERBOARD.md` line 7 by number. While staged, that
+docstring line was new, so leg A skipped it in both copies. Once committed, it was unchanged, and
+the ablated copy's edit of the cited line printed `[inhunk] tests.py:… documentation/CRITIQUE.md:7`
+there only; the inventory ties such a line to every marker in the cited block. The verdict token
+did not move. Two changes:
+(a) `scripts/correction_marker_inventory.sh --snapshot` builds the base copy as the working tree
+committed on top of HEAD, in a git dir of its own with this repository's refs (objects by
+alternates), and the ablated copy is a copy of it. `git diff HEAD` is then empty in the base copy,
+as after the real commit, so a staged and a committed regeneration measure the same thing. The
+copies also no longer share this checkout's index, which a linked worktree's `.git` pointer made
+them do. (b) The docstring names the three documents without line numbers. A note in a test is not
+a reason to tie a marker to a gate, and the three rows keep their reviewed verdicts.
+
+**5. Tests.** `TestQ993Q936Batch46` checks that the committed inventory has its `not-a-marker`
+format rows, has no `unreviewed` or `count-changed` row, and that the two re-keyed lines keep their
+verdict under the edited line's sha. Three tests cover item 4: `--snapshot`, run from a checkout
+and from a linked worktree with a staged edit, an unstaged edit, an untracked file and an ignored
+one, must give a clean committed copy on the checkout's HEAD that carries its branches and tags,
+and must leave the checkout's HEAD, index and status unchanged; the inventory must build its copies
+that way; and the class docstring must cite no `.md` line by number. All three fail on the
+script as batch 46 first staged it.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 46, Q-936.

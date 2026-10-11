@@ -11289,3 +11289,26 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
   looked, and the self-test undid the defect before the kill arrived.
 - The test now pauses the whole self-test, looks while nothing can change, and only then kills
   it. It checks again afterwards that the defect is still there.
+
+## 2026-10-10 — batch 46: three citations of the per-position baseline name the two lines it is stated on, and the correction-marker inventory is re-measured as complete
+
+**Batch 46, a citation one line short (CX-340, Q-993).**
+
+- CRITIQUE.md, PROJECT_OVERVIEW.md and LEADERBOARD.md said that solve.c line 46159 states the
+  77.81-bit baseline. That line holds the conditional sum. The baseline is on the next line.
+- All three now cite lines 46159-46160, the two-line comment that states it. A new test reads the
+  cited lines and requires the baseline wording in them.
+
+**Batch 46, the marker inventory (CX-341, Q-936).**
+
+- Re-measured on this tree, the inventory of inline correction markers is complete. No marker is
+  unreviewed and no gate-count change is unexplained. The two marker lines this batch edited keep
+  their verdicts.
+- 59 markers are still tied to a gate that reads them. None was moved. They wait for those gates to
+  be re-anchored.
+- The inventory now measures the tree as it will be committed. Before, a regeneration made with
+  this batch staged and one made with it committed disagreed on three rows.
+
+**What did not change.**
+
+- No published number, count, sha or verdict changed.
