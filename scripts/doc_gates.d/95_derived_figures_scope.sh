@@ -47,8 +47,10 @@ LOGS = {'d3 10T': 'runs/20260418_10T_d3_fresh/analyze_output.log.gz',
         '100T':   'runs/20260419_100T_d3_d128westus3/analyze_output.log.gz',
         '742M':   'enumeration/analyze_c_742M.txt'}
 NOLOG = ['560T', '11.2T']
-DS_RX = {'d3 10T': r'\bd3[ _-]10T\b|\b10T[ _-]d3\b|\b10T \(d3\)', 'd2 10T': r'\bd2[ _-]10T\b|\b10T[ _-]d2\b|\b10T \(d2\)',
-         '100T': r'\b100T\b', '742M': r'\b742M\b', '560T': r'\b560T\b', '11.2T': r'\b11\.2T\b'}
+# Q-980 (batch 44; the Codex gpt-6-astra Q964-D06#16 sibling): a spaced unit ("100 T") names the dataset too.
+DS_RX = {'d3 10T': r'\bd3[ _-]10\s?T\b|\b10\s?T[ _-]d3\b|\b10\s?T \(d3\)', 'd2 10T': r'\bd2[ _-]10\s?T\b|\b10\s?T[ _-]d2\b|\b10\s?T \(d2\)',
+         '100T': r'\b100\s?T\b', '742M': r'\b742\s?M\b', '560T': r'\b560\s?T\b', '11.2T': r'\b11\.2\s?T\b'}
+def named_pos(s): return sorted((m.start(), d) for d, rx in DS_RX.items() for m in re.finditer(rx, s))
 tracked = set(subprocess.run(['git','ls-files'], capture_output=True, text=True).stdout.split('\n'))
 def parse(path):
     if path not in tracked: print('ERROR\t%s is not tracked — the dataset map is stale' % path); sys.exit(0)
@@ -163,7 +165,15 @@ for f in files:
                 for bm in re.finditer(r"[Bb]oundary (\d+)(?:'s|’s)?\W+(?:[\w'’×-]+\W+){0,3}?(" + NUM + r")", sent):
                     b, n = int(bm.group(1)), int(bm.group(2).replace(',', ''))
                     if not any(n in L[d]['n3'] for d in sok): continue   # not a §[3] figure: judged below
-                    if any(L[d]['surv'].get(b) == n for d in sok): continue
+                    # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#11): the claim's OWN dataset is the one
+                    # named last before it in the sentence ("In d3 10T ..., boundary 15 has X, while at
+                    # 100T ... boundary 15 has Y": X is d3 10T's, Y is 100T's); any dataset of the sentence
+                    # let two swapped counts pass. With none before it, the sentence's datasets as before.
+                    _own = [d for q, d in named_pos(sent) if q < bm.start()]
+                    if _own:
+                        if _own[-1] not in L: continue          # an un-logged dataset: unattributable here
+                        if L[_own[-1]]['surv'].get(b) == n: continue
+                    elif any(L[d]['surv'].get(b) == n for d in sok): continue
                     print('HIT\t%s:%d\t%s is a §[3] figure of the %s log, but not boundary %d\'s (that is %s)' % (
                         f, ln, format(n, ','), '/'.join(sok), b,
                         ', '.join(format(L[d]['surv'][b], ',') if b in L[d]['surv'] else 'absent' for d in sok)))
@@ -344,7 +354,12 @@ for f in files:
                 ds=[(d.start(),d.group(0)) for d in re.finditer(r"\b\d+(?:\.\d+)?\s?[TMB]\b",s)]
                 for mm in re.finditer(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b independent (?:witnesses|paths)",s,re.I):
                     before=[d for p,d in ds if p<mm.start()]; after=[d for p,d in ds if p>mm.start()]
-                    own=before[-1] if before else (after[0] if after else None)
+                    # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#13): the count's own dataset is the one in
+                    # its own CLAUSE first (no , ; : or dash between them): "Unlike 100T, nine independent paths
+                    # validate 11.2T." is about 11.2T, and preferring the preceding 100T skipped it.
+                    cb=[d for p,d in ds if p<mm.start() and not re.search(r"[,;:—–]", s[p:mm.start()])]
+                    ca=[d for p,d in ds if p>mm.start() and not re.search(r"[,;:—–]", s[mm.end():p])]
+                    own=cb[-1] if cb else (ca[0] if ca else (before[-1] if before else (after[0] if after else None)))
                     if own is None or not re.fullmatch(r"11\.2\s?T",own): continue
                     rest+=1
                     v=mm.group(1).lower(); v=int(v) if v.isdigit() else W[v]
@@ -491,7 +506,9 @@ pct=100.0*Z/T; coef=(T-Z)/T
 # not the 58.8 a `[\d.]+` capture began after the minus -- at the claim's own printed decimals.
 def eq(claim,actual):
     n=md_num(claim)
-    return round(actual,n.dp)==float(n.value)
+    # Q-981 (batch 44; Codex gpt-6-astra Q964-D06#14): the claim's ABSOLUTE precision, 10^(exp-dp) --
+    # `0e-3` is stated to three decimals, not to the mantissa's zero (round(0.41,0) == 0 passed).
+    return round(actual,n.dp-(n.exp or 0))==float(n.value)
 if not eq(mz.group(2),pct): print("HIT\tactuals row\tzero-cell row prints %s %% but %s/%s = %.2f %%"%(mz.group(2),mz.group(1),mt.group(1),pct))
 body=re.sub(r"\[CORRECTED\b.*?\]"," ",t,flags=re.S).replace("*","")
 flat=" ".join(body.split())
@@ -598,7 +615,9 @@ gate_az_name_closure() {
   out=$( { _sp_prelude; cat <<'PY'
 import re, io, sys
 F=sys.argv[1]
-ALLOW={"solver-data","claude-vnet","claude"}
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D06#15): a pre-existing resource is a (TYPE, name), like CREATED --
+# solver-data is the documented persistent DISK, so `az network nic show -n solver-data` is not closed by it.
+ALLOW={("disk","solver-data"),("network vnet","claude-vnet"),("vm","claude")}
 # Q-970 (A10#14, Q-835 Codex review; adjudicated Q-962): AN ARGUMENT IS A SHELL WORD. `-n "spot-nic"`
 # names spot-nic exactly as `-n spot-nic` does, and the name pattern `[^\s"'\\]+` stopped at the
 # quote, so a quoted reference was never judged. The command tail is now split by the quote-aware
@@ -640,7 +659,7 @@ for si,sec in enumerate(secs):
                 if nm.startswith("$") or nm.startswith("<") or nm.startswith("{") or "$" in nm: continue
                 nref+=1
                 ty="vm" if opt.strip()=="--vm-name" else rtype(m.group(1))
-                if nm in ALLOW or (ty,nm) in created: continue
+                if (ty,nm) in ALLOW or (ty,nm) in created: continue
                 print("HIT\t%s\t%s\t%s"%(title,"%s (%s)"%(nm,ty),line.strip()[:100]))
 print("POP\t%d\t%d"%(nref,len(secs)))
 PY
@@ -763,11 +782,13 @@ for line in reg.split("\n"):
     if dm:
         e=BY.setdefault((dm.group(1),dm.group(2)),[set(),set()]); e[0].add(size)
         if "✓" in last: e[1].add(size-2)
-DSX=re.compile(r"\b(?:d([23])[ _-]?)?(\d+(?:\.\d+)?T)\b")
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D06#16): "100 T" is the 100T dataset -- unmatched, the claim fell
+# back to every dataset's pooled allowance. The budget is normalised to "<number>T".
+DSX=re.compile(r"\b(?:d([23])[ _-]?)?(\d+(?:\.\d+)?)\s?T\b")
 def own_sets(sent,pos):
     """The (S, S7) of the dataset the claim at `pos` names: the last dataset before it in its
     sentence, else the first after it; None when the sentence names no registry dataset."""
-    hits=[(m.start(),m.group(1),m.group(2)) for m in DSX.finditer(sent)]
+    hits=[(m.start(),m.group(1),m.group(2)+"T") for m in DSX.finditer(sent)]
     before=[h for h in hits if h[0]<pos]; after=[h for h in hits if h[0]>pos]
     for p,dep,bud in (before[::-1] or after):
         keys=[k for k in BY if k[1]==bud and (dep is None or k[0]==dep)]
@@ -1249,7 +1270,7 @@ while k<len(lines) and lines[k].strip().startswith("|"):
     n+=1
     if layer not in agg: print("HIT\tk=%d\tno such layer in %s"%(layer,A)); continue
     gb,ent=agg[layer]
-    nv=md_num(m.group(1)); val=float(nv.value); unit=m.group(2); dec=nv.dp
+    nv=md_num(m.group(1)); val=float(nv.value); unit=m.group(2); dec=nv.dp-(nv.exp or 0)   # Q-981 (Q964-D06#14): absolute precision
     actual=gb/1000.0 if unit=="TB" else gb
     if round(actual,dec)!=val: print("HIT\tk=%d\tTR-11 says %s %s; %s layer GB = %.6f (%.*f %s)"%(layer,m.group(1),unit,A,gb,dec,actual,unit))
     me=re.search(r"\(([\d,]+) entries\)",cell)
@@ -1524,6 +1545,9 @@ rows=[l for l in t.split("\n")
       if l.startswith("|") and not re.match(r"^\|[-\s|:]+\|$",l) and not l.startswith("| Claim ")]
 if not rows: print("ERROR\tno scorecard table rows found in %s"%F); sys.exit(0)
 na=npg=0; cache={}
+CIT=re.compile(r"([^\s()\[\]<>`|]*CITATIONS\.md)#([a-z0-9-]+)")
+def cites(text, base):
+    return {(os.path.normpath(os.path.join(base, m.group(1))), m.group(2)) for m in CIT.finditer(text)}
 for r in rows:
     c=[x.strip() for x in re.split(r"(?<!\\)\|", r.strip("|"))]  # Q-525: escape-aware, as GATE 72
     if len(c)<3: continue
@@ -1539,12 +1563,15 @@ for r in rows:
         # Q-967 (Q-835 A10#25): an anchor is bound to the FILE it resolves in. `(#a)` is a
         # CITATIONS.md anchor only inside CITATIONS.md itself; in any other report it names a
         # heading of that report, so it backs no CITATIONS credit.
-        seen|=set(re.findall(r"CITATIONS\.md#([a-z0-9-]+)",cache[p]))
-        if os.path.basename(p)=="CITATIONS.md": seen|=set(re.findall(r"\]\(#([a-z0-9-]+)\)",cache[p]))
+        # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#18): bound to the RESOLVED file, not the basename -- an
+        # appendix/CITATIONS.md's own `(#a)` backed a credit to documentation/CITATIONS.md#a. Each link is
+        # resolved against the file it sits in; a local `(#a)` counts only inside the credited file itself.
+        seen|=cites(cache[p], os.path.dirname(p))
+        seen|={(p, a) for a in re.findall(r"\]\(#([a-z0-9-]+)\)",cache[p])}
     if not tgt: continue
-    for a in sorted(set(re.findall(r"CITATIONS\.md#([a-z0-9-]+)",src))):
+    for cp, a in sorted(cites(src, D)):
         na+=1
-        if a not in seen:
+        if (cp, a) not in seen:
             print("HIT\t%s\tSource credits CITATIONS.md#%s, which none of its linked report(s) (%s) cites"%(claim,a,", ".join(tgt)))
     rp=pages(body)
     for x in sorted(pages(src)):
@@ -2281,8 +2308,17 @@ gate_cert_inventory() {
   # runs with. Every write to the variable, in any form (export/readonly/declare/local/typeset
   # prefix, `+=`, `${CERT_FLOOR:=…}`, `read … CERT_FLOOR`, after `;` `&&` or indentation), in the
   # comment-stripped source, is counted; the one recognised assignment must be the only write.
-  local writes nwrites
-  writes=$(sed -e 's/^[[:space:]]*#.*//' -e 's/[[:space:]]#.*//' "$vs" | grep -nE '(^|[;&|({[:space:]])((export|readonly|local|declare|typeset)([[:space:]]+-[A-Za-z]+)*[[:space:]]+)?CERT_FLOOR\+?=|\$\{CERT_FLOOR:?[=]|(^|[;&|[:space:]])read([[:space:]]+-[A-Za-z]+)*[[:space:]][^;&|]*\bCERT_FLOOR\b'); frc=$?
+  # Q-986 (batch 44; Codex gpt-6-astra Q964-D06#21): WRITES are counted, not lines with a write --
+  # `grep -o`, one output line per match, so `CERT_FLOOR=24; export CERT_FLOOR=1` is two writes.
+  # Q-986 (the sibling sweep): and the comments are the SHELL's, not a sed guess -- `[[:space:]]#.*` also
+  # cut a line at a quoted " #", hiding a write after it (`echo " #"; export CERT_FLOOR=1`).
+  local writes nwrites vs_code
+  vs_code=$(python3 -c "$(_sp_prelude)"'
+import sys
+sys.stdout.write(sp_strip_comments(open(sys.argv[1], encoding="utf-8").read(), "sh"))' "$vs") || {
+    echo "  [FAIL] could not lex $vs to find its comments; CERT_FLOOR writes were not counted."
+    echo "CERT_INVENTORY=FAIL"; return 1; }
+  writes=$(printf '%s\n' "$vs_code" | grep -noE '(^|[;&|({[:space:]])((export|readonly|local|declare|typeset)([[:space:]]+-[A-Za-z]+)*[[:space:]]+)?CERT_FLOOR\+?=|\$\{CERT_FLOOR:?[=]|(^|[;&|[:space:]])read([[:space:]]+-[A-Za-z]+)*[[:space:]][^;&|]*\bCERT_FLOOR\b'); frc=$?
   if [ "$frc" -gt 1 ]; then
     echo "  [FAIL] grep failed (rc=$frc) reading $vs for writes to CERT_FLOOR; nothing judged."
     echo "CERT_INVENTORY=FAIL"; return 1

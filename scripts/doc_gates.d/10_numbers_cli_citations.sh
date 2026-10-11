@@ -54,12 +54,12 @@ gate_cli() {
   # _cli_flags MODE FILE code|comment -- the long flags FILE declares (code) or names only in its
   # comments (comment), one per line, sorted. Exit 1 when FILE does not parse. Q-970, see check_pair.
   _cli_flags() {
-    { _wm_prelude; cat <<'CLIPY'
+    { _wm_prelude; _sp_prelude; cat <<'CLIPY'
 import ast, re, sys
 mode, path, kind = sys.argv[1:4]
 try:
     src = open(path, encoding="utf-8", errors="surrogateescape").read()
-    code = wm_strip_comments(src, "c" if path.endswith(".c") else "py")
+    code = sp_strip_comments(src, "c" if path.endswith(".c") else "py")
     tree = ast.parse(src) if path.endswith(".py") else None
 except (OSError, SyntaxError, ValueError) as e:
     print("cannot parse %s: %s" % (path, e), file=sys.stderr); sys.exit(1)

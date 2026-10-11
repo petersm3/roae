@@ -60,8 +60,13 @@ gate_retract() {
   for f in $DOCS; do
     [ -f "$f" ] || continue        # a tracked-but-deleted doc is preflight_tracked_docs' finding
     mkdir -p "$folddir/$(dirname "$f")" "$flatdocdir/$(dirname "$f")"
-    fold_variants < "$f" > "$folddir/$f"
-    fold_join < "$folddir/$f" > "$flatdocdir/$f"   # Q-965: joined ONCE per doc, not once per phrase
+    # Q-984 (batch 44; Codex gpt-6-astra Q964-D03#1): both cache writes are CHECKED. Unchecked, a fold or
+    # join that failed (ENOSPC, a killed sed) left an empty or absent cache file, and the `grep -qF` below
+    # reads "no match" there as clean: the retraction check went blind with the leg green. fold_join is a
+    # pipeline whose status is its LAST stage's, so a non-empty doc must also give a non-empty cache file.
+    { fold_variants < "$f" > "$folddir/$f" && fold_join < "$folddir/$f" > "$flatdocdir/$f" \
+      && { [ -s "$flatdocdir/$f" ] || [ ! -s "$f" ]; }; } \
+      || { echo "  [FAIL] could not fold $f into the scan cache, so it was NOT scanned"; bad=1; }
   done
   for f in $evid; do
     if [ ! -f "$f" ]; then
@@ -72,8 +77,9 @@ gate_retract() {
       continue
     fi
     mkdir -p "$folddir/$(dirname "$f")" "$flatevdir/$(dirname "$f")"
-    fold_variants < "$f" > "$folddir/$f"
-    fold_join < "$folddir/$f" > "$flatevdir/$f"
+    { fold_variants < "$f" > "$folddir/$f" && fold_join < "$folddir/$f" > "$flatevdir/$f" \
+      && { [ -s "$flatevdir/$f" ] || [ ! -s "$f" ]; }; } \
+      || { echo "  [FAIL] could not fold evidence file $f into the scan cache, so it was NOT scanned"; bad=1; }
   done
   while IFS=$'\t' read -r phrase allow note; do
     # Q-761: was `case "$phrase" in ''|'#'*) continue`, which skipped a needle starting with #.

@@ -157,12 +157,19 @@ gate_generated() {
   # regenerating, so an output the generator did not write this time is absent, not stale.
   # (Inheriting DOC_GATES_GEN_CACHE at push time is refused separately by pre_push_gate.sh's
   # Q-949 env guard, family DOC_GATES_*.)
+  # 🔴 Q-984 (batch 44; Codex gpt-6-astra Q964-D04#2): the manifest is a PRODUCER, and its rc was
+  # unchecked. `$(_gen_manifest)` printed the key and then nothing when sha256sum failed, so a legacy
+  # key-only .roae_sha EQUALLED it and a hand-edited cache was reused. Now a failed or short hash makes
+  # the manifest fail (rc 1, nothing printed): no reuse, and no key-only manifest is ever written.
   _gen_manifest() {   # the key, then one "sha256  name" line per output, in a fixed order
-    printf '%s\n' "$gen_key"
-    ( cd "$tmp" && sha256sum fresh.txt report.md report.html ) 2>/dev/null
+    local h
+    h=$( cd "$tmp" && sha256sum fresh.txt report.md report.html 2>/dev/null ) || return 1
+    [ "$(printf '%s\n' "$h" | grep -cE '^[0-9a-f]{64}  ')" = 3 ] || return 1
+    printf '%s\n%s\n' "$gen_key" "$h"
   }
+  local gen_man
   if [ -s "$tmp/fresh.txt" ] && [ -s "$tmp/report.md" ] && [ -s "$tmp/report.html" ] \
-     && [ -n "$cur_sha" ] && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$(_gen_manifest)" ]; then
+     && [ -n "$cur_sha" ] && gen_man=$(_gen_manifest) && [ "$(cat "$tmp/.roae_sha" 2>/dev/null)" = "$gen_man" ]; then
     echo "  reusing regeneration cache $tmp (roae.py sha256 $(printf '%.12s' "$cur_sha")… and seed $ROAE_EXAMPLE_SEED unchanged)"
   else
     # `--markdown` and `--html` are run WITHOUT `--all` and from inside $tmp, because that
@@ -192,7 +199,7 @@ gate_generated() {
       echo "  [FAIL] the generator did not run cleanly for --html"
       [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
-    [ -n "$cur_sha" ] && _gen_manifest > "$tmp/.roae_sha"
+    [ -n "$cur_sha" ] && { gen_man=$(_gen_manifest) && printf '%s\n' "$gen_man" > "$tmp/.roae_sha" || rm -f "$tmp/.roae_sha"; }
   fi
   # A missing artifact is NOT a skip. The generator was just run and checked, so an
   # absent report.md means the gate cannot see its target -- which must be an error,

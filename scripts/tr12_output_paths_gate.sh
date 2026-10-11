@@ -81,12 +81,12 @@ done
 # needs no copy of it; a missing normaliser is an ERROR, never a silent raw-line scan.
 . "$here/scripts/doc_gates.d/md_normalise.sh" 2>/dev/null && declare -F _md_norm_prelude >/dev/null \
   || { echo "TR12_OUTPUT_PATHS_ERROR=normaliser-unreadable"; echo "TR12_OUTPUT_PATHS=ERROR"; exit 2; }
-# Q-966: and the shared word/token matcher, the same way, for the comment-stripped battery below.
-. "$here/scripts/doc_gates.d/word_match.sh" 2>/dev/null && declare -F _wm_prelude >/dev/null \
+# Q-966/Q-979: and the shared matcher and source reader (sp_strip_comments: the comment-blanked battery).
+. "$here/scripts/doc_gates.d/word_match.sh" 2>/dev/null && . "$here/scripts/doc_gates.d/src_parse.sh" 2>/dev/null && declare -F _wm_prelude >/dev/null && declare -F _sp_prelude >/dev/null \
   || { echo "TR12_OUTPUT_PATHS_ERROR=matcher-unreadable"; echo "TR12_OUTPUT_PATHS=ERROR"; exit 2; }
 
 run_gate() {  # $1 = checkout root
-  { _md_norm_prelude; _wm_prelude; cat <<'PY'
+  { _md_norm_prelude; _wm_prelude; _sp_prelude; cat <<'PY'
 import os, re, subprocess, sys
 
 root = sys.argv[1]
@@ -141,16 +141,23 @@ except OSError:
 # class was [A-Za-z0-9_./-], so `reports/tr12/résultats.tsv` (and `$ARTDIR/é.tsv`) was not a path and
 # was never checked. A name character is now any Unicode letter or digit (python's \w), `_`, `.`, `/`
 # or `-`; the ASCII punctuation that annotates a path (`file@sha`, `file:line`) still ends it.
-written = set(re.findall(r"\$ARTDIR/([\w./-]*\w)", wm_strip_comments(battery, "sh")))
+# Q-979 (Codex gpt-6-astra Q964-D01#8, D08#10): through src_parse.sh's shell lexer, so a comment
+# INSIDE "$( ... )" is blanked too (`q="$(true # $ARTDIR/x.tsv` + `)"` wrote nothing); a battery the
+# lexer cannot read is an ERROR, not a raw scan.
+try:
+    battery_code = sp_strip_comments(battery, "sh")
+except Exception as exc:
+    verdict("ERROR", 2, "battery-unlexable")
+written = set(re.findall(r"\$ARTDIR/([\w./-]*\w)", battery_code))
 if not written:
     verdict("ERROR", 2, "battery-has-no-ARTDIR-literal")
-has_consumer = "$ARTDIR/consumer" in wm_strip_comments(battery, "sh")
+has_consumer = "$ARTDIR/consumer" in battery_code
 try:
     solvepy = open(os.path.join(root, "solve.py"), encoding="utf-8").read()
 except OSError:
     solvepy = ""
 try:
-    solvepy = wm_strip_comments(solvepy, "py")      # Q-966: a quoted name in a comment is not a consumer
+    solvepy = sp_strip_comments(solvepy, "py")      # Q-966: a quoted name in a comment is not a consumer
 except Exception:
     verdict("ERROR", 2, "solve.py-untokenizable")
 

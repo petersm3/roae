@@ -11219,3 +11219,44 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 - The run outputs, the scripts and every token are in `reports/evidence/qoy1_q992/`. The exact null
   can be reproduced on a laptop in about seven minutes (419 s measured on one core).
 - No published number, count, sha or verdict changed.
+
+## 2026-10-08 — batch 44: the document gates strip comments the way the compiler and the shell do, read each exemption from the claim's own sentence, row or file, read more number shapes, and check three more exit statuses
+
+**Comments in code (CX-332, Q-979).**
+
+- Six gates ask whether a name is in a program's code or only in a comment. Codex (gpt-6-astra),
+  reviewing the batch-40 gates (Q-964), found three comment shapes they read as code: a C comment
+  continued across a line join, a shell comment inside a quoted command, and a Python string on a
+  line of its own.
+- One shared stripper now handles all three, and every gate that asked the question uses it.
+
+**Exemptions borrowed from text the claim does not own (CX-333, Q-980).**
+
+- Codex found 22 places where a check let a word elsewhere excuse a claim: a quotation earlier in the
+  sentence, a second sentence on the same line, a neighbouring table row or cell, a name in a
+  sentence that said not to approve it, a dataset named elsewhere in the sentence, a file that only
+  shared a name with the cited one.
+- Each check now reads its exemption from the claim's own sentence, clause, row, cell, block or
+  file.
+
+**Number shapes (CX-334, Q-981).**
+
+- Some number-reading checks misread a grouped number in scientific form, a signed number, a
+  plus-or-minus band written against its mean, and the precision of a number such as 1e-2. One took a
+  number in scientific form for a sha. Each now reads these as written. The shared number reader
+  also reads a minus sign followed by a space as a sign where no number stands before it, so
+  "− 58.8 %" at the start of a sentence is negative.
+
+**Exit statuses (CX-335, Q-984) and registry readers (CX-336, Q-986).**
+
+- A failed write to the retraction check's cache, a failed hash in the generated-artifact cache and
+  a failed hash in the reproduction-digest check each read as success. Each now fails.
+- Four readers of registries read text instead of structure. The certificate map is now evaluated by
+  bash, writes to the certificate floor are counted one by one, a constant probe is refused however
+  it ends, and a correction's Documents list is read as a list item.
+
+**What did not change.**
+
+- No published number, count, sha or verdict changed, and no document was edited. Every new test
+  plants the finding, fails on the new gates and passes on the old ones, and has a plain twin that
+  both catch.

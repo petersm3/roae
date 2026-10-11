@@ -996,9 +996,22 @@ i = h[0]
 while i < len(L) and not L[i].startswith("- "): i += 1
 j = i
 while j < len(L) and L[j].strip(): j += 1
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D04#6): a name is approved only in its bullet's LEAD, the bold
+# names before the bullet's " — " -- not in any bold span of the list: "Do not approve **`x.py`**."
+# appended to the tests.py bullet approved x.py. A bullet with no " — " cannot say which of its names
+# it approves, and is an ERROR.
+items = []
+for l in L[i:j]:
+    if l.startswith("- ") or not items:
+        items.append(l)
+    else:
+        items[-1] += " " + l.strip()
 names = set()
-for b in re.findall(r"\*\*(.+?)\*\*", " ".join(L[i:j]), re.S):
-    names.update(re.findall(r"`([^`\s]+)`", b))
+for k, it in enumerate(items, 1):
+    if " — " not in it:
+        print("ERROR\tapproved-separates bullet %d has no ' — ' after its approved names" % k); sys.exit(0)
+    for b in re.findall(r"\*\*(.+?)\*\*", it.split(" — ", 1)[0], re.S):
+        names.update(re.findall(r"`([^`\s]+)`", b))
 if not names:
     print("ERROR\tthe approved-separates list under line %d parsed to zero names" % (h[0] + 1)); sys.exit(0)
 for n in sorted(names): print("NAME\t" + n)
@@ -2126,7 +2139,7 @@ for k, p in (("budget", r"within\s+its\s+node\s+budget"), ("lower", r"lower\s+bo
 # ---------------------------------------------------------------------------
 gate_env_surface() {
   echo "== GATE 84: every SOLVE_* env var the engine reads is documented =="
-  { _wm_prelude; cat <<'ENVPY'
+  { _wm_prelude; _sp_prelude; cat <<'ENVPY'
 import re, os, sys
 try:
     src = open('solve.c', encoding='utf-8', errors='surrogateescape').read()
@@ -2142,7 +2155,7 @@ except OSError as e:
 # macro or a wrapper, none of which a call pattern can follow. The literal set is the UPPER BOUND, and
 # it is the set that must be documented. Measured 2026-10-03: the two sets are equal today (133).
 # NOT SEEN, stated: a name assembled at run time ("SOLVE_" "KC" or snprintf) is invisible to both.
-code = wm_strip_comments(src, 'c')
+code = sp_strip_comments(src, 'c')
 calls = set(re.findall(r'\b(?:secure_)?getenv\s*\(\s*"(SOLVE_[A-Z0-9_]+)"\s*\)', code))
 names = sorted(calls | set(re.findall(r'"(SOLVE_[A-Z0-9_]+)"', code)))
 if not names:
@@ -2724,7 +2737,7 @@ gate_tracked_ignored() {
 # is not in GATE 8's excluded-by-cost class and never was.
 gate_value_domains() {
   echo "== GATE 24: documented value-domain sets match the literal domain in code =="
-  { _wm_prelude; cat <<'PY'
+  { _wm_prelude; _sp_prelude; cat <<'PY'
 import re, sys
 
 FAIL = 0
@@ -2830,7 +2843,7 @@ if not mp:
     print("         state that let five of six copies go stale. If the printer was renamed,")
     print("         re-anchor this pattern; do not delete the check.")
     sys.exit(1)
-body = wm_strip_comments(mp.group(1), "c")   # Q-966: every check below reads CODE, not comments
+body = sp_strip_comments(mp.group(1), "c")   # Q-966: every check below reads CODE, not comments
 if "f1c5_unions" not in body:
     print("  [FAIL] f1c5_fprint_npairs_domain() does not read f1c5_unions[] -- it prints a")
     print("         domain from somewhere other than the table that defines it.")
@@ -2838,7 +2851,25 @@ if "f1c5_unions" not in body:
 # Q-966 (A07#21): "cap-aware" means the cap FILTERS: a whole-word `cap` inside an `if (...)` whose body
 # skips the row (continue / break / return), read from the comment-stripped body above. A bare
 # substring test passed `... > cap) (void)0;`, which mentions cap and filters nothing.
-if not re.search(r"\bif\s*\([^;{}]*\bcap\b[^;{}]*\)\s*(?:\{\s*)?(?:continue|break|return)\b", body):
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D04#8): and it filters THE OVERSIZED ROWS. A skip whose
+# condition names cap passed with `cap < 0 && ... > cap`, which never fires for a positive cap. Each such
+# condition is now EVALUATED (C's && || ! and comparisons over cap, a row's .n and integer literals; any
+# other token and it is not judged) at four probes: a row over the cap is skipped, a row at the cap and
+# one under it are not, and with no cap (0) nothing is.
+def _cap_ok(cond):
+    e = re.sub(r"\b\w+\s*\[\s*\w+\s*\]\s*\.\s*n\b", " n ", cond)
+    if not re.fullmatch(r"(?:\s+|\bcap\b|\bn\b|\d+|&&|\|\||!=|==|<=|>=|<|>|!|\(|\))*", e):
+        return False
+    e = e.replace("&&", " and ").replace("||", " or ")
+    e = re.sub(r"!(?!=)", " not ", e)
+    try:
+        f = lambda c, x: bool(eval(e, {"__builtins__": {}}, {"cap": c, "n": x}))
+        return (f(mem_cap, mem_cap + 1) and not f(mem_cap, mem_cap) and not f(mem_cap, 1)
+                and not f(0, mem_cap + 1))
+    except Exception:
+        return False
+_caps = [mc.group(1) for mc in re.finditer(r"\bif\s*\(((?:[^();{}]|\([^();{}]*\))*\bcap\b(?:[^();{}]|\([^();{}]*\))*)\)\s*(?:\{\s*)?(?:continue|break|return)\b", body)]
+if not any(_cap_ok(c) for c in _caps):
     print("  [FAIL] f1c5_fprint_npairs_domain() ignores its `cap` argument, so --kc-build's")
     print("         in-memory ceiling of %d would be advertised as accepted." % mem_cap)
     FAIL = 1

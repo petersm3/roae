@@ -30492,3 +30492,238 @@ test's own positive controls check both cases.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, Q-OY1/Q-992 measurement and
 publication lanes. Registration: Fable (claude-fable-5-1).
+
+## CX-332 — the gates that ask whether a name is in the CODE now blank C comments after line splicing, shell comments inside a quoted command substitution, and Python statements that are only a string (scripts/doc_gates.d/src_parse.sh; scripts/doc_gates.d/10_numbers_cli_citations.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/tr12_output_paths_gate.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review of the batch-40
+gates, targets Q964-D01#7, D01#8, D05#3, D06#6 and D08#10 (a duplicate of D01#8); backlog row Q-979
+(drafted as N-04). Batch 44.
+
+**No published number, count, sha or verdict moves, and no document was edited.** On today's tree
+every affected leg is still green.
+
+**1. What was wrong.** Six gates ask whether a flag, a path or a marker is in the code rather than in
+a comment. They used one comment stripper, and it missed three shapes:
+
+- In C, a backslash at the end of a line joins it to the next line before comments are found. The
+  stripper looked for comments first, so a comment opened across a line join, or a `//` comment
+  continued onto the next line, left a quoted flag in what it called code, and GATE 25 counted the
+  flag as implemented. The C preprocessor removes both (Q964-D01#7, D05#3).
+- In shell, it copied a double-quoted word as it stood, so a `#` comment inside a quoted command
+  substitution was code, and the TR-12 output-paths gate counted a path named only in that comment
+  as one the battery writes (Q964-D01#8, D08#10).
+- In Python, it blanked comments only. A string on a line of its own is computed and thrown away,
+  but its text still supplied GATE 42's ILLUSTRATIVE marker beside a legend that said "measured"
+  (Q964-D06#6).
+
+**2. The fix.** `sp_strip_comments(src, lang)` in the shared source reader (`src_parse.sh`) replaces
+the old stripper at all eight call sites. It keeps every offset and line number. C is lexed on the
+spliced text and each comment is mapped back to the original lines. Shell is lexed by the reader's
+own shell lexer, which follows quotes, command substitutions, backquotes and here-documents the way
+bash does, and every comment it skips is blanked at any depth. Python blanks comments and every
+statement whose whole value is a string or an f-string. A source the lexer cannot read is a FAIL or
+an ERROR at each caller, never a half-stripped view. What it does not do: C `#if 0` blocks are still
+code, and shell here-document bodies are not blanked.
+
+**3. Sweep.** Every caller of the old stripper was moved: GATE 2 (the CLI flag lists), GATE 24 (the
+value-domain printer), GATE 25 (the documented-flag reach), GATE 42, GATE 84 (the environment census)
+and the TR-12 output-paths gate. The old function in `word_match.sh` has no caller left; it is not edited here.
+
+**4. Tests.** `TestQ979Q986Batch44`: the four plants fail on the new scripts and pass on public main
+`1092b1eb`, and their plain twins fail on both. Two unit tests drive the new stripper directly, and
+three mutants (no line splice, no comment record inside a command substitution, no statement
+strings) each turn one probe wrong.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 44, Q-979. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q964 (Q964-D01#7, D01#8, D05#3, D06#6, D08#10).
+
+## CX-333 — twenty-two exemptions and qualifiers are read from the claim's own unit, not borrowed from a neighbouring sentence, clause, table row, cell, block or file (scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/claim_ledger.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review, targets
+Q964-D03#3, D03#4, D03#5, D03#6, D03#9, D04#6, D04#8, D05#4, D05#5, D05#9, D05#12, D05#13, D05#15,
+D06#2, D06#4, D06#5, D06#11, D06#13, D06#15, D06#16, D06#18 and D08#7; backlog row Q-980 (drafted as
+N-05). Batch 44.
+
+**No published number, count, sha or verdict moves, and no document was edited.** Each leg below
+was planted on public main `1092b1eb` and passed there; on today's tree every one is still green.
+
+**1. One shape.** Each finding is a qualifier, a waiver or a dataset that the gate took from text the
+claim does not own. Each is now bound to the claim's own unit:
+
+- GATE 7 (liveness). A quotation exemption judged every occurrence of a status phrase by the FIRST
+  one, so a quoted old status excused a live one later in the same sentence; the claim's own offset
+  is judged now (D03#3). A revision row was any row whose first cell began with a digit, so a run
+  budget in a Run/Date/Status table passed as a revision; the first cell must be a version, `v1.2`
+  or `1.2` (D03#4). The narration words were read on the whole physical line, so a second sentence
+  on the line excused the first; they are read in the claim's sentence (D03#5). A code span was
+  masked wherever its text recurred, so a code span ending in a period also removed a real sentence
+  end in prose; spans are masked where they are (D03#6).
+- GATE 9 (banner). An escaped `\*` ended the banner block, so a line after it was never read; an
+  escaped asterisk no longer closes the italic (D03#9).
+- GATE 88 (approved separates). Any bold, backticked name in the list approved that file, a bold name
+  in a sentence telling the reader not to approve it included. A name is approved only in its
+  bullet's lead, before the bullet's dash; a bullet with no dash is an ERROR (D04#6).
+- GATE 24 (value domains). A skip whose condition named `cap` counted as "cap-aware" even when the
+  condition can never fire for a positive cap. Each such condition is now evaluated over four probes:
+  a row over the cap is skipped, a row at it or under it is not, and with no cap nothing is (D04#8).
+- GATE 25 (documented flags). The narration waiver for the orbit self-test covered the whole of
+  BRANCHES_EXPLAINED.md, though its reason is a block that first checks out the tag. A row may now
+  name such a block, and the waiver applies only inside a fenced block that checks out a ref other
+  than `main` above the command (D05#4). "Inside a fenced block" is the shared Markdown
+  normaliser's reading (batch 43), not a count of fence-like lines: on the parity count a prose line
+  after a block fenced with four backticks and holding a tilde fence line read as fenced, and a
+  checkout line above it waived the flag (Claude Fable pre-publication review, FIX-2). A proposal
+  marker anywhere in the sentence waived a flag; it must be in the flag's own clause, which ends at a
+  semicolon, a spaced dash, or a comma before "and", "but" or "so" (D05#5).
+- The sentence reader shared by GATES 29 to 35, 38, 39, 41 and 44 read a table row as its own unit
+  only when the line began with `|`, so two rows of a table written without edge pipes read as one
+  sentence and GATE 30 borrowed a qualifier across them (D05#9). The shared normaliser's table lines
+  now decide it. The first-is-the-maximum exemption knew one word order; it knows both, and a
+  sentence-initial "The first" (D05#12). A factorization or a sum that the sentence sets equal to a
+  number in brackets fell back to the sentence-wide test, so an unrelated number elsewhere in the
+  sentence answered it; brackets now bind, and a sum is bound to its own equation like a
+  factorization (D05#13). A trailing "unqualified" counted as narration of an old wording even when
+  the sentence quoted nothing; it now needs a quotation or a reporting verb before it (D05#15).
+- GATE 39. The two-ruleset clause split did not cut at a comma before "whereas", "while", "but" and
+  the like, so one clause named both rulesets with each label on the wrong one (D06#2). A short
+  sibling cell lent its convention to a count in another cell even when it held a count of its own;
+  a cell with a number is not a label (D06#4).
+- GATE 40. The "static" disclaimer was read anywhere in the paragraph; it must be in the sentence that
+  explains the mutual information by the complete square, when one sentence does (D06#5).
+- GATE 56. A boundary count was accepted if any dataset in the sentence had it, so two counts swapped
+  between two datasets passed; each count is bound to the dataset named last before it (D06#11).
+- GATE 58. A witness count was given to the preceding dataset even across a comma; the dataset in the
+  count's own clause comes first now (D06#13).
+- GATE 62. The pre-existing resources were names only; they are (type, name) pairs, like the created
+  ones, so a NIC named after the persistent disk is not closed by the disk (D06#15).
+- GATE 64. A spaced dataset label ("100 T") was not recognised, so the claim used every dataset's
+  pooled allowance; the label may be spaced (D06#16), and the same spelling is read in GATE 56.
+- GATE 73. An anchor credit to the ledger of citations was matched by file name, so another file of
+  the same name backed it; links are resolved against the file they sit in (D06#18).
+- The claim ledger's sentence splitter treated "etc." as an abbreviation even before a capital, so a
+  following sentence's premise qualified the claim; "etc." followed by a capital ends a sentence
+  (D08#7).
+
+**2. Sweep.** The same two shapes sat at other sites, and are fixed there too. Three revision-row
+patterns in GATES 39, 42 and 43 accepted any dotted number as a version, so a row headed by a run
+budget such as 11.2T was skipped as a revision; they take the GATE 7 rule. Four legs (GATES 30, 31,
+33 and 38) judged a match by the first occurrence of its text in the sentence (the D03#3 shape); each
+now judges the match at its own offset.
+
+**3. Real-corpus measurement.** With the cured scripts every affected leg is green on today's tree,
+and every population and census line it prints is the same as on `1092b1eb`. No document had to
+change.
+
+**4. Tests.** `TestQ979Q986Batch44`: one plant per target and per sibling site, each failing on the
+new scripts and passing on `1092b1eb`, with a twin that fails on both.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 44, Q-980. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q964 (the 22 targets above).
+
+## CX-334 — the number-reading legs read a grouped or signed mantissa, a band glued to its mean, an explicit plus sign, the precision of a number in scientific form, and a scientific number that is not a sha, and the shared lexer reads a spaced minus sign (scripts/doc_gates.d/md_normalise.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review, targets Q964-D05#2,
+D05#6, D05#7, D05#16, D05#17, D06#7, D06#9, D06#14 and D01#4; backlog row Q-981 (drafted as N-06).
+Batch 44.
+
+**No published number, count, sha or verdict moves, and no document was edited.**
+
+**1. What was wrong, and the fix.**
+
+- GATE 26 read a grouped mantissa in `e` notation from its last group, so a figure over the ceiling
+  read as one under it. The pattern takes a grouped mantissa whole and may not start inside a digit
+  group, after a comma that follows a digit (D05#6). A first draft refused a start after any comma,
+  so an over-ceiling figure written straight after a word and a comma passed where it had failed;
+  the digit-group form catches it again (Claude Fable pre-publication review, FIX-1). A signed figure alone in a code span was treated as quoted output; the sign is part of
+  the figure (D05#7).
+- GATE 34 read its operands unsigned, so a quotient over a signed zero matched nothing and its zero
+  denominator was never refused. The operands are signed (D05#16).
+- GATE 37 found a band only where the shared lexer starts a number, and the lexer does not start one
+  at a sign glued to a mean. The leg reads a band wherever its plus-minus sign is (D05#2). It also
+  compared a band in `e` notation at its mantissa's decimals; it compares at the band's absolute
+  precision, the mantissa's decimals minus the exponent (D05#17). GATES 60 and 70 had the same
+  precision gap and use the same rule now (D06#14).
+- GATE 43 dropped an anchor written with an explicit plus sign; a plus sign is still a positive count
+  (D06#7).
+- GATE 48 took any hex-looking token as sha evidence, and a number in `e` notation is hex-looking.
+  A token of digits, `e` and digits is a number, not a sha (D06#9).
+
+**2. Tests.** `TestQ979Q986Batch44`: one plant per target, failing on the new scripts and passing on
+`1092b1eb`; each twin fails on both.
+
+**3. The shared lexer.** D01#4: the lexer read a minus sign separated from its number by a space
+as no sign, so "− 58.8 %" opening a sentence was the positive 58.8 (GATE 60 passed it against an
+actuals table that a glued "−58.8 %" fails). `md_normalise.sh` now reads a spaced minus as a sign
+when the character before it, past at most three blanks, is one of `( [ { : = , ; | . ! ?`, or
+when a U+2212 minus starts the text or a line. "7 − 5" stays a subtraction, and an ASCII "- " at a
+line start stays a list marker. The precision rule and the glued band above stay at their
+consumers. Tests: `TestQ979Q986Batch44` plant D01#4 (GATE 60) and its glued twin, lexer probes
+`test_g`, and a mutant `test_h` that removes the new sign form.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 44, Q-981. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q964 (Q964-D05#2, D05#6, D05#7, D05#16, D05#17, D06#7,
+D06#9, D06#14, D01#4).
+
+## CX-335 — three more producers have their exit status checked: the retraction gate's scan cache, the generated-artifact cache manifest, and the third reproduction property's digest (scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/reproduce_digests_gate.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review, targets Q964-D03#1,
+D04#2 and D09#4; backlog row Q-984 (drafted as N-09, sites to add to the producer-status sweep
+Q-963). Batch 44. Q964-D09#1 is already in Q-963 and is not touched here.
+
+**No published number, count, sha or verdict moves.**
+
+- GATE 3 folds and joins each document into a scan cache once. Neither write was checked, so a
+  failed fold left an empty cache file, and the search over it read as "no retracted phrase". Both
+  writes are checked, and a non-empty document must give a non-empty cache file, since the join is
+  a pipeline whose status is its last stage's (D03#1, and the same two writes for evidence files).
+- GATE 8's cache manifest printed its key and then the hashes, with the hash status unchecked. A
+  failed hash left the key alone, which equals a legacy key-only manifest, so a hand-edited cache
+  was reused. The manifest now fails when the hash fails or prints fewer than three hashes; there is
+  then no reuse, and no key-only manifest is written (D04#2).
+- The reproduction-digest gate's third property accepted an empty digest from a failed hash as "a
+  different digest". The digest must exist to differ (D09#4).
+
+**Tests.** `TestQ984Batch44Slow` (D03#1, D09#4) and `TestQ984Batch44Generated` (D04#2): each fault is injected by a stand-in program on PATH (a join stage,
+a hash that fails for one directory or one file); the plant fails on the new scripts and passes on
+`1092b1eb`; each twin fails on both.
+
+**Addendum (2026-10-10): an older mutant had lost its anchor.** The GATE 8 change moved the hash into
+`h=$(...)`, so the line that `TestQ971WhatACheckBindsTo.test_b_mutant_manifest_without_digests`
+(batch 40) blanked no longer exists, and the full suite failed with "mutant anchor must occur exactly
+once". The mutant now blanks the same thing in the new code: the manifest's `printf` keeps the key and
+drops the hashes. It plants the same defect, a manifest without digests. On it the cache edited in place
+is reused (gate rc 0, so `test_b_edited_cached_output_is_not_reused` fails). The unmutated script
+regenerates and fails the edit (rc 1). Every other literal in `tests.py` that occurred in a file this batch
+changed was checked against the new bytes. None other was lost, and no exactly-once anchor now occurs twice.
+That check finds the old anchor when it is run on the unfixed `tests.py`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 44, Q-984. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q964 (Q964-D03#1, D04#2, D09#4).
+
+## CX-336 — four registry readers read structure: bash evaluates the certificate map, writes to the certificate floor are counted one by one, a constant probe is refused by its first word, and a Documents list item is read by its indentation (scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/gate_published_consistency.sh; tests.py)
+
+**2026-10-08.** **Source.** Codex (gpt-6-astra), the Q-964 lens-A delta review, targets Q964-D06#1,
+D06#21, D08#8 and D08#9; backlog row Q-986 (drafted as N-11). Batch 44.
+
+**No published number, count, sha or verdict moves.**
+
+- GATE 39 read the certificate map's keys with a pattern that also matched key-like text inside a
+  quoted value, and ended the map at the first closing parenthesis. The map now ends where the shell
+  lexer says, it must hold only plain words (nothing in it can run), and bash evaluates it and lists
+  its keys (D06#1).
+- GATE 77 counted lines that write the certificate floor, so two writes on one line counted as one.
+  It counts each write (D06#21).
+- G3 of the published-consistency gate refused a probe that was a constant only when the whole text,
+  spaces removed, was the constant; a trailing semicolon or comment got past it. It now refuses a
+  probe whose first command word is a constant (D08#8).
+- G4 ended a correction's Documents field at a blank line, so a link indented under it after a blank
+  line was never checked. The field is the list item, read by indentation (D08#9).
+- Sweep: GATE 77 also found comments with a `sed` pattern that cut a line at any blank followed by
+  `#`, a quoted one too, so a write after it was not counted. It reads the shell's comments through
+  the shared source reader (CX-332).
+
+**Tests.** `TestQ979Q986Batch44`: one plant per target, failing on the new scripts and passing on
+`1092b1eb`; each twin fails on both.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 44, Q-986. Review credit:
+Codex (gpt-6-astra), lens-A delta review Q964 (Q964-D06#1, D06#21, D08#8, D08#9).

@@ -296,10 +296,13 @@ check_page(){
     else
       run_rung "$ckeep" "$(printf '%s' "$d13" | sed "s#\b$dir13\b#$nk#g")"
       kn=$(find "$work/$dir13" -name '*.bin' | wc -l); nn=$(find "$work/$nk" -name '*.bin' 2>/dev/null | wc -l)
-      if [ "$R_RC" -eq 0 ] && [ "$R_DIG" != "$base13" ] && [ "$nn" -lt "$kn" ]; then
+      # Q-984 (batch 44; Codex gpt-6-astra Q964-D09#4): the digest must EXIST to differ. digest_of
+      # prints nothing when the hash fails, and R_RC is the solver's rc, not the hash's, so an empty
+      # R_DIG read as "a different digest" and a failed hash passed P3.
+      if [ "$R_RC" -eq 0 ] && [ -n "$R_DIG" ] && [ "$R_DIG" != "$base13" ] && [ "$nn" -lt "$kn" ]; then
         echo "  [ok]    P3 settings sensitivity: without SOLVE_F1_KEEP_LAYERS=1, $nn *.bin files (not $kn) and a different digest"
       else
-        echo "  [FAIL]  P3 settings sensitivity: omitting SOLVE_F1_KEEP_LAYERS=1 is invisible (rc=$R_RC, $nn vs $kn files)"; fail=1
+        echo "  [FAIL]  P3 settings sensitivity: omitting SOLVE_F1_KEEP_LAYERS=1 is invisible or unhashed (rc=$R_RC, digest '${R_DIG:0:16}', $nn vs $kn files)"; fail=1
       fi
     fi
   fi

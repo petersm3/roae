@@ -112,8 +112,13 @@ else
     if ! grep -qF -- "$claim" "$f" 2>/dev/null; then
       echo "   [FAIL] $f no longer contains \"$claim\" — registry row is stale; remove it"; fail=1; G3_N=$((G3_N+1)); continue
     fi
-    case "$(printf '%s' "$test_cmd" | tr -d '[:space:]')" in
-      ''|false|true|:|exit|exit[0-9]*)
+    # Q-986 (batch 44; Codex gpt-6-astra Q964-D08#8): refused by its FIRST COMMAND WORD, not by its whole
+    # text with spaces removed -- `false;`, `false # no artifact yet`, `! true`, `(exit 1)` and `true &&`
+    # are the same constants. Leading `!`, `(`, `{` and blanks are dropped; a comment or nothing left is
+    # an empty probe; the word ends at a blank or a shell operator character.
+    _g3w=$(printf '%s' "$test_cmd" | sed -E 's/^[[:space:]!({]*//; s/^#.*//; s/[[:space:];&|()<>#].*//')
+    case "$_g3w" in
+      ''|false|true|:|exit|return)
         echo "   [FAIL] $f: \"$claim\" — its probe is the constant '${test_cmd}', which can never"
         echo "          fire, so this row watches nothing (Q-955). Give it a probe of the artifact."
         fail=1; G3_N=$((G3_N+1)); continue ;;
@@ -164,10 +169,25 @@ for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
     cx = m.group(1)
     # Q-969 (A02#22): the field ends at the next `- **Field:**` bullet, a blank line, or the END of the
     # entry -- a Documents bullet that was the entry's last field matched nothing and was skipped.
-    dm = re.search(r'-\s*\*\*Documents:\*\*(.*?)(?=\n-\s*\*\*|\n[ \t]*\n|\Z)', e, re.S)
-    if not dm: continue
+    # Q-986 (batch 44; Codex gpt-6-astra Q964-D08#9): the field is the Documents LIST ITEM, read by
+    # indentation as CommonMark reads it: the bullet's line, its lazy continuation lines, and, past a
+    # blank line, every line indented to the item's content column. A blank line ended the field
+    # before, so `  [target](X.md)` under a blank line inside the item was never checked.
+    el = e.split('\n')
+    dk = next((k for k, l in enumerate(el) if re.match(r'[ \t]*[-*+][ \t]+\*\*Documents:\*\*', l)), None)
+    if dk is None: continue
+    _ind = len(el[dk]) - len(el[dk].lstrip(' '))
+    _col = _ind + 2
+    field, blank = [el[dk].split('**Documents:**', 1)[1]], False
+    for l in el[dk + 1:]:
+        if not l.strip():
+            blank = True; continue
+        lead = len(l) - len(l.lstrip(' '))
+        if lead >= _col or (not blank and lead <= _ind + 3 and not re.match(r'[ \t]*(?:[-*+][ \t]|\d+[.)][ \t]|#{1,6}[ \t]|>|```|~~~)', l)):
+            field.append(l); blank = False; continue
+        break
     seen = set()
-    for link in re.findall(r'\]\(([^)]+)\)', dm.group(1)):
+    for link in re.findall(r'\]\(([^)]+)\)', '\n'.join(field)):
         # Q-967 (Q-835 A02#20): a link is resolved RELATIVE TO THE LEDGER (documentation/), the way
         # a reader's renderer resolves it. This read `lstrip('./')`, which strips CHARACTERS: it
         # turned `../README.md` into `README.md` and then prefixed `documentation/`, so a correction

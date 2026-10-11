@@ -47,6 +47,9 @@
 #   sp_py_dead(tree)             ids of the ast nodes no execution can reach: the body of an
 #                                `if <false>:`/`while <false>:`, the else of an `if <true>:`, and
 #                                statements after a return/raise/continue/break in the same block.
+#   sp_strip_comments(src, lang) the source with every comment blanked, offsets kept (lang c, sh, py):
+#                                C after line splicing, shell comments at any $( ) depth, Python
+#                                comments and string-expression statements (Q-979).
 #
 # WHAT IT DOES NOT DO, stated so a clear is not read as more: sp_sh_lex is not a shell grammar --
 # it does not know `case` patterns or `[[ ... ]]` operands (a `<` there reads as a redirection), and
@@ -109,6 +112,8 @@ _SP_ESC = {'n': '\n', 't': '\t', 'r': '\r', 'a': '\a', 'b': '\b', 'e': '\x1b', '
 
 _SP_HD = _sre.compile(r"""[ \t]*(['"]?)([^\s'"<>|&;()]+)\1""")
 
+_SP_CMT = None      # sp_strip_comments: when a list, the lexers record each comment's (start, end) here
+
 def _sp_balanced(s, i, op, cl):
     # s[i] is just past the opener; returns the index just past the matching closer. Inside $(..)
     # it reads what bash reads: quotes, nested expansions, comments, here-documents (their bodies
@@ -136,7 +141,10 @@ def _sp_balanced(s, i, op, cl):
             i += 2; at_word = False; continue
         if c == '#' and at_word and op == '(':
             j = s.find('\n', i)
-            i = n if j < 0 else j
+            j = n if j < 0 else j
+            if _SP_CMT is not None:
+                _SP_CMT.append((i, j))
+            i = j
             continue
         if c == "'":
             j = s.find("'", i + 1)
@@ -261,7 +269,10 @@ def sp_sh_lex(text):
             flush(); i += 1; continue
         if c == '#' and cur is None:
             j = s.find('\n', i)
-            i = n if j < 0 else j
+            j = n if j < 0 else j
+            if _SP_CMT is not None:
+                _SP_CMT.append((i, j))
+            i = j
             continue
         if c == '\\':
             if s[i + 1:i + 2] == '\n':
@@ -616,5 +627,89 @@ def sp_py_dead(tree):
                 visit(x)
     visit(tree)
     return dead
+# sp_strip_comments(src, lang) -- Q-979 (batch 44; Codex gpt-6-astra Q964-D01#7, D01#8, D05#3, D06#6,
+# D08#10): the source text with every COMMENT blanked (each character but a newline becomes a space, so
+# offsets and line numbers are unchanged), for the legs that ask "is this name in the CODE?". It replaces
+# word_match.sh's wm_strip_comments at every caller, which (a) lexed C before line splicing, so `/\` +
+# newline + `*` opened a comment it did not see and `// ... \` + newline continued one into a line it
+# called code (translation phase 2 splices first; `cc -E -P` removes both); (b) copied a double-quoted
+# shell word verbatim, so a `# ...` inside "$( ... )" was code; (c) blanked Python comments only, so a
+# string-expression statement ("""ILLUSTRATIVE""" on its own line, a docstring) -- a value computed and
+# thrown away -- still supplied a marker. Now: C is lexed on the SPLICED text and each comment's span is
+# mapped back; sh is lexed by sp_sh_lex, which reads "$( )" (and $( ) / `..` / here-documents) the way
+# bash does, and every comment it skips is blanked, at any depth; py blanks tokenize comments AND every
+# expression statement whose value is a string literal or an f-string (ast). SpError (or a SyntaxError
+# from python) when the text does not lex: the caller FAILS, never reads a half-stripped view.
+# NOT DONE: C preprocessor conditionals (`#if 0` ... `#endif` is still code), shell here-document bodies
+# (not code, but not blanked either: a leg reading them reads what the battery would print).
+def _sp_blank(out, a, b):
+    for k in range(a, b):
+        if out[k] != '\n':
+            out[k] = ' '
+
+def sp_strip_comments(src, lang):
+    global _SP_CMT
+    out = list(src)
+    if lang == 'py':
+        import io as _sio, tokenize as _stok
+        lines = src.split('\n')
+        offs, acc = [], 0
+        for l in lines:
+            offs.append(acc); acc += len(l) + 1
+        def at(row, col_bytes):
+            ln = lines[row - 1]
+            return offs[row - 1] + len(ln.encode('utf-8')[:col_bytes].decode('utf-8', 'replace'))
+        for t in _stok.generate_tokens(_sio.StringIO(src).readline):
+            if t.type == _stok.COMMENT:
+                a = offs[t.start[0] - 1] + t.start[1]
+                _sp_blank(out, a, offs[t.end[0] - 1] + t.end[1])
+        for node in _sast.walk(_sast.parse(src)):
+            if isinstance(node, _sast.Expr) and (isinstance(node.value, _sast.JoinedStr) or (
+                    isinstance(node.value, _sast.Constant) and isinstance(node.value.value, (str, bytes)))):
+                _sp_blank(out, at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset))
+        return ''.join(out)
+    if lang == 'c':
+        keep = []                        # original index of each character of the SPLICED text
+        i, n = 0, len(src)
+        while i < n:
+            if src[i] == '\\' and src[i + 1:i + 2] == '\n':
+                i += 2; continue
+            if src[i] == '\\' and src[i + 1:i + 3] == '\r\n':
+                i += 3; continue
+            keep.append(i); i += 1
+        s = ''.join(src[k] for k in keep)
+        i, n = 0, len(s)
+        def cut(a, b):                   # blank s[a:b] in the ORIGINAL text, the splices inside it too
+            if a < b:
+                _sp_blank(out, keep[a], keep[b - 1] + 1)
+        while i < n:
+            c = s[i]
+            if c in '"\'':
+                j = i + 1
+                while j < n and s[j] != c and s[j] != '\n':
+                    j += 2 if s[j] == '\\' else 1
+                i = j + 1
+            elif s.startswith('//', i):
+                j = s.find('\n', i)
+                j = n if j < 0 else j
+                cut(i, j); i = j
+            elif s.startswith('/*', i):
+                j = s.find('*/', i + 2)
+                j = n if j < 0 else j + 2
+                cut(i, j); i = j
+            else:
+                i += 1
+        return ''.join(out)
+    if lang == 'sh':
+        _SP_CMT = []
+        try:
+            sp_sh_lex(src)
+            spans = _SP_CMT
+        finally:
+            _SP_CMT = None
+        for a, b in spans:
+            _sp_blank(out, a, b)
+        return ''.join(out)
+    raise SpError('sp_strip_comments: unknown language %r' % lang)
 SP_PY
 }

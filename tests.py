@@ -37241,7 +37241,10 @@ class TestQ959Q961PushPathB39C(unittest.TestCase):
         p = os.path.join("scripts", "doc_gates.d", "90_claim_artifacts.sh")
         with open(p, encoding="utf-8") as fh:
             gsrc = fh.read()
-        mg = self._mut(gsrc, "body = re.sub(r'(?m)(?:^|(?<=\\s))#.*$', '', blocks[0])", "body = blocks[0]")
+        # Batch 44 (Q-986, Codex gpt-6-astra Q964-D06#1): the keys are now what bash evaluates, so the mutant
+        # that drops comment handling is "read the keys as text again": the old key regex over the raw literal.
+        mg = self._mut(gsrc, "vmap = set(k for k in _r.stdout.split('\\n') if k)",
+                       "vmap = set(re.findall(r'\\[([^\\]\\s]+)\\]=', vsrc[blocks[0].end():_end - 1]))")
         out, _ = self._g39(src, mg)
         self.assertNotIn("absent from verify_all.sh's regeneration map", out,
                          "mutant must miss it -- else test c is not load-bearing")
@@ -39246,7 +39249,10 @@ class TestQ971WhatACheckBindsTo(unittest.TestCase):
         self.assertIn("example/report.md is BYTE-IDENTICAL", out, "the mutant must reproduce the defect")
 
     def test_b_mutant_manifest_without_digests(self):
-        self._mod_b = self._module(('( cd "$tmp" && sha256sum fresh.txt report.md report.html ) 2>/dev/null', ':'))
+        # Batch 44 (Q-984) moved the hash into `h=$(...)` and made a failed hash fail the manifest, so the
+        # old anchor (the bare sha256sum line) is gone. The defect class is unchanged: the manifest
+        # carries the key and no digests, so an output edited in place still matches it.
+        self._mod_b = self._module(('printf \'%s\\n%s\\n\' "$gen_key" "$h"', 'printf \'%s\\n\' "$gen_key"'))
         out = self._b_edit_case(expect_fail=False)
         self.assertIn("reusing regeneration cache", out, "the mutant must reproduce the defect")
 
@@ -41451,6 +41457,542 @@ class TestQoyScorer(unittest.TestCase):
         self.assertEqual(type(solve.verify).__name__, "module")   # the normal path uses verify.py itself
 
 # end class TestQoyScorer (PREREG_QOY1_Q992_2026_10_09 §7.1)
+
+
+
+class TestQ979Q986Batch44(unittest.TestCase):
+    """Q-979 / Q-980 / Q-981 / Q-984 / Q-986 (batch 44; from the Q-964 Codex lens-A delta review, Codex
+    gpt-6-astra, review_2026_09_27/Q964_CODEX_DELTA_REPORT.md rows N-04, N-05, N-06, N-09, N-11; the
+    targets are the Q964-Dnn#k ids below).
+      Q-979 (N-04): src_parse.sh's sp_strip_comments replaces word_match.sh's wm_strip_comments at every
+        caller -- C after line splicing, shell comments inside "$( )", Python string-expression statements.
+      Q-980 (N-05): a qualifier, waiver or dataset is read from the claim's own unit (sentence, clause,
+        row, cell, block, resolved file), not from text the claim does not own.
+      Q-981 (N-06): number shapes at the consumers -- a grouped or signed mantissa, a glued band, an
+        explicit `+`, absolute precision 10^(exp-dp), a scientific token that is not a sha.
+      Q-984 (N-09): four producer statuses (the retraction cache, the generator manifest, the P3 digest).
+      Q-986 (N-11): registry parsers read structure -- bash evaluates CERTS, writes counted with grep -o,
+        a probe refused by its first command word, a Documents item read by indentation.
+
+    DATA-DRIVEN, the TestQ976Q977Q978Batch43 shape: each plant and its un-evaded CONTROL twin run as the
+    named leg alone on a scratch git copy of THIS working tree's tracked files:
+      * the plant FAILS on the fixed scripts, and a FAIL line (or the indented list under one) names the needle;
+      * the same plant PASSES on the uncured scripts of public main 1092b1eb (gates must discriminate);
+      * the control FAILS on both script sets (the twin was always visible: the plant's pass is the evasion);
+      * the unplanted tree is green on every leg, on both script sets (the uncured half's precondition).
+    A plant may stub a program on PATH ('@stub'), or seed GATE 8's regeneration cache ('@cache': the
+    committed example/ outputs and a legacy key-only manifest). The three slow legs (retract, generated,
+    reproduce-digests) are TestQ984Batch44Slow and TestQ984Batch44Generated. Registered phrases are split by literal concatenation.
+    """
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PIN = "1092b1eb"   # public main before batch 44: the uncured scripts
+    SCRIPTS = ("scripts/doc_gates.sh", "scripts/tr12_output_paths_gate.sh", "scripts/gate_published_consistency.sh",
+               "scripts/claim_ledger.sh", "scripts/reproduce_digests_gate.sh")
+    R, G = "README.md", "documentation/GUIDE.md"
+    BE, DEP = "documentation/BRANCHES_EXPLAINED.md", "documentation/DEPLOYMENT.md"
+    VA, CM = "reports/certificates/verify_all.sh", "documentation/CAMPAIGN_METHODOLOGY.md"
+    T11 = "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md"
+    RUNQ = "\nRun `solve --q964-absent` to reproduce.\n"
+    SEB = "\nThe 0.78% relative error gives a 95% CI of "
+    PROBE2 = ("test \"$(grep -c '^TR12_XA_CD=' reports/tr12/VERDICTS.txt 2>/dev/null)\" = 1 || exit 2; "
+              "grep -qxE 'TR12_XA_CD=(PASS|ONE-SIDED:.+)' reports/tr12/VERDICTS.txt")
+    CXP = ("\n## CX-99999\n\nQ964 plant.\n\n- **Documents:** [self](CORRECTIONS.md)\n\n  [target](QUERY_INVENTORY.md)\n"
+           "- **Date:** 2026-10-08\n")
+    CXC = ("\n## CX-99999\n\nQ964 plant.\n\n- **Documents:** [self](CORRECTIONS.md), [target](QUERY_INVENTORY.md)\n"
+           "- **Date:** 2026-10-08\n")
+    SCROW = "\n| Q964 claim | [Davis](CITATIONS.md#davis2012) | **X** | x | [proof](appendix/CITATIONS.md) |\n"
+    CAPL = "if (cap > 0 && f1c5_unions[u].n > cap) continue;"
+    QTR = "reports/TR12_QUERY_PROGRAM.md"
+    QTR_AT = "differing by exactly C3 \u2014 but this program has"
+    PLANTS = [
+        # ---- Q-979 (N-04): comment strippers
+        ('D01#7', 'repro-reach', 'q964-absent',
+         [('solve.c', 'append', '\n/\\\n*\n"--q964-absent"\n*/\n'), (R, 'append', RUNQ)], [(R, 'append', RUNQ)]),
+        ('D05#3', 'repro-reach', 'q964-absent',
+         [('solve.c', 'append', '\n// a comment with a continuation \\\n"--q964-absent"\n'), (R, 'append', RUNQ)],
+         [(R, 'append', RUNQ)]),
+        ('D01#8', 'tr12-output-paths', 'q964_missing.tsv',
+         [('scripts/tr12_repro.sh', 'append', '\nq964="$(true # $ARTDIR/q964_missing.tsv\n)"\n'),
+          (R, 'append', '\nSee `<artifact-root>/q964_missing.tsv`.\n')],
+         [(R, 'append', '\nSee `<artifact-root>/q964_missing.tsv`.\n')]),
+        ('D08#10', 'tr12-output-paths', 'q964_ghost.tsv',
+         [('scripts/tr12_repro.sh', 'append', '\nunused="$(\n  # cp "$RAW" "$ARTDIR/q964_ghost.tsv"\n  :\n)"\n'),
+          (R, 'append', '\nSee `<artifact-root>/q964_ghost.tsv`.\n')],
+         [(R, 'append', '\nSee `<artifact-root>/q964_ghost.tsv`.\n')]),
+        ('D06#6', 'band-status', 'report_figures.py',
+         [('viz/report_figures.py', 'replace', '(illustrative, k = 5\u20138)', '(measured, k = 5\u20138)'),
+          ('viz/report_figures.py', 'replace', '    k_br = np.arange(4, 9)\n',
+           '    k_br = np.arange(4, 9)\n    """ILLUSTRATIVE, not measured."""\n')],
+         [('viz/report_figures.py', 'replace', '(illustrative, k = 5\u20138)', '(measured, k = 5\u20138)')]),
+        # ---- Q-980 (N-05): GATE 7 liveness, GATE 9 banner
+        ('D03#3', 'liveness', 'README.md',
+         [(R, 'append', '\nThe report formerly said "in flight", but the replacement run is in flight.\n')],
+         [(R, 'append', '\nThe replacement run is in flight.\n')]),
+        ('D03#4', 'liveness', 'README.md',
+         [(R, 'append', '\n| Run | Date | Status |\n|---|---|---|\n| 560T | 2026-10-08 | in flight |\n')],
+         [(R, 'append', '\n| Run | Date | Status |\n|---|---|---|\n| T560 | 2026-10-08 | in flight |\n')]),
+        ('D03#5', 'liveness', 'README.md',
+         [(R, 'append', '\nThe ladder build is in flight. A previous sentence was withdrawn.\n')],
+         [(R, 'append', '\nThe ladder build is in flight.\n')]),
+        ('D03#6', 'liveness', 'README.md',
+         [(R, 'append', '\nUse `done.` in logs. A separate run completed and is done. The ladder build is in flight.\n')],
+         [(R, 'append', '\nUse `exit.` in logs. A separate run completed and is done. The ladder build is in flight.\n')]),
+        ('D03#9', 'banner', 'reports/README.md',
+         [('reports/README.md', 'replace', 'interpretation are argued, not verified. The covers',
+           'interpretation are argued, not verified; multiplication is written \\*\nEvery claim is machine-verifiable. The covers')],
+         [('reports/README.md', 'replace', 'interpretation are argued, not verified. The covers',
+           'interpretation are argued, not verified; multiplication is written x\nEvery claim is machine-verifiable. The covers')]),
+        # ---- Q-980 (N-05): GATE 88 census, value-domains cap
+        ('D04#6', 'separates-census', 'q964_unapproved.py',
+         [('q964_unapproved.py', 'create', 'pass\n'),
+          ('CLAUDE.md', 'replace', 'so it cannot live inside it.', 'so it cannot live inside it. Do not approve **`q964_unapproved.py`**.')],
+         [('q964_unapproved.py', 'create', 'pass\n')]),
+        ('D04#8', 'value-domains', 'ignores its',
+         [('solve.c', 'replace', CAPL, 'if (cap < 0 && f1c5_unions[u].n > cap) continue;')],
+         [('solve.c', 'replace', CAPL, 'if (cap > 0 && f1c5_unions[u].n > cap) (void)0;')]),
+        # ---- Q-980 (N-05): GATES 25, 27-33
+        ('D05#4', 'repro-reach', 'orbit-selftest',
+         [(BE, 'append', '\nRun `solve --orbit-selftest` on main to reproduce this result.\n')],
+         [(R, 'append', '\nRun `solve --orbit-selftest` on main to reproduce this result.\n')]),
+        ('D05#5', 'repro-reach', 'q964-absent',
+         [(R, 'append', '\nThe job is queued for tonight; run `solve --q964-absent` to reproduce the result.\n')],
+         [(R, 'append', '\nRun `solve --q964-absent` to reproduce the result.\n')]),
+        ('D05#9', 'rotation-c3', 'README.md',
+         [(R, 'append', '\nClaim | Details\n--- | ---\nRotations | The 32 rotations are symmetries of the circular '
+           'constraint system\nOther | This experiment uses C3\n')],
+         [(R, 'append', '\n| Claim | Details |\n|---|---|\n| Rotations | The 32 rotations are symmetries of the circular '
+           'constraint system |\n| Other | This experiment uses C3 |\n')]),
+        ('D05#12', 'sk-gains', 'README.md',
+         [(R, 'append', '\nThe maximum single-boundary gain is the first gain across all conditioning contexts.\n')],
+         [(R, 'append', '\nThe maximum single-boundary gain is the first gain.\n')]),
+        ('D05#13a', 'fiber-anchor', 'README.md',
+         [(R, 'append', '\nThe fiber is 1,720,320 = (3\u00b75\u00b77\u00b72^15), whereas 3,440,640 is the raw comparison.\n')],
+         [(R, 'append', '\nThe fiber is 1,720,320 = (3\u00b75\u00b77\u00b72^15).\n')]),
+        ('D05#13b', 'fiber-anchor', 'README.md',
+         [(R, 'append', '\nThe fiber is 2,703,360 = 1,720,320 + 983,041, whereas 2,703,361 is the raw comparison.\n')],
+         [(R, 'append', '\nThe fiber is 2,703,360 = 1,720,320 + 983,041.\n')]),
+        ('D05#15', 'superlative', 'README.md',
+         [(R, 'append', '\nSchulz is the strongest measured literature discriminator, unqualified.\n')],
+         [(R, 'append', '\nSchulz is the strongest measured literature discriminator.\n')]),
+        # ---- Q-981 (N-06): GATES 26, 34, 37
+        ('D05#2', 'se-vs-ci', 'README.md', [(R, 'append', SEB + '8\u00b10.01 bits.\n')],
+         [(R, 'append', SEB + '8 \u00b10.01 bits.\n')]),
+        ('D05#17', 'se-vs-ci', 'README.md', [(R, 'append', SEB + '\u00b11e-2 bits.\n')],
+         [(R, 'append', SEB + '\u00b10.01 bits.\n')]),
+        ('D05#6', 'canonical-ceiling', 'README.md', [(R, 'append', '\nThere are 9,001e30 canonical orderings.\n')],
+         [(R, 'append', '\nThere are 9001e30 canonical orderings.\n')]),
+        ('D05#7', 'canonical-ceiling', 'README.md', [(R, 'append', '\nThere are `+3.3e37` canonical orderings.\n')],
+         [(R, 'append', '\nThere are `3.3e37` canonical orderings.\n')]),
+        ('D05#16', 'printed-quotient', 'README.md', [(R, 'append', '\nThe ratio is 7.84 / +0 = \u00d71.20.\n')],
+         [(R, 'append', '\nThe ratio is 7.84 / 0 = \u00d71.20.\n')]),
+        # ---- 90: GATES 39, 40, 43, 48
+        ('D06#1', 'p14-claims', 'grand_ccn4_unsat',
+         [(VA, 'replace', '  [grand_ccn4_unsat]="grand-ccn4" \\\n', ''),
+          (VA, 'replace', '[alt-le-14]="alt-le-14"', '[alt-le-14]="alt-le-14 [grand_ccn4_unsat]="')],
+         [(VA, 'replace', '  [grand_ccn4_unsat]="grand-ccn4" \\\n', '')]),
+        ('D06#2', 'p14-claims', 'README.md',
+         [(R, 'append', '\ngrand-ccn4 is the five-rule theorem, whereas grander-strict is the four-rule theorem.\n')],
+         [(R, 'append', '\ngrand-ccn4 is the five-rule theorem; grander-strict is the four-rule theorem.\n')]),
+        ('D06#4', 'p14-claims', 'README.md', [(R, 'append', '\n| canonical 26,112 | orientation-explicit 27,000 |\n')],
+         [(R, 'append', '\n| canonical 26,112 | other 27,000 |\n')]),
+        ('D06#5', 'mi-disambig', 'README.md',
+         [(R, 'append', '\nThe transition mutual information is forced to zero by the complete Latin square.\n'
+           'The static statistic is also reported.\n')],
+         [(R, 'append', '\nThe transition mutual information is forced to zero by the complete Latin square.\n\n'
+           'The static statistic is also reported.\n')]),
+        ('D06#7', 'anchor-coverage', 'METHODS.md',
+         [('reports/METHODS.md', 'append', '\n| Q964 | +123,456,789,012,345,678,901,234,567 | **exact** (two-instrument) | raw | x |\n')],
+         [('reports/METHODS.md', 'append', '\n| Q964 | 123,456,789,012,345,678,901,234,567 | **exact** (two-instrument) | raw | x |\n')]),
+        ('D06#9', 'sha-prediction', 'GUIDE.md',
+         [(G, 'append', '\nThe new prune would change the sha at a budget of `1000000e3` nodes.\n')],
+         [(G, 'append', '\nThe new prune would change the sha at a budget of `1000000000` nodes.\n')]),
+        # ---- 95: GATES 56, 58, 60, 62, 64, 70, 73
+        ('D06#11', 'log-derived-figures', 'README.md',
+         [(R, 'append', '\nIn d3 10T (\u00a7[3]), boundary 15 has 93,439,670 survivors, while at 100T (\u00a7[3]) '
+           'boundary 15 has 21,794,755 survivors.\n')],
+         [(R, 'append', '\nIn d3 10T (\u00a7[3]), boundary 15 has 93,439,670 survivors.\n')]),
+        ('D06#13', 'witness-count', 'README.md', [(R, 'append', '\nUnlike 100T, nine independent paths validate 11.2T.\n')],
+         [(R, 'append', '\nNine independent paths validate 11.2T.\n')]),
+        ('D06#15', 'az-name-closure', 'solver-data',
+         [(DEP, 'append', '\n## Q964 section\n\n`az network nic show -n solver-data`\n')],
+         [(DEP, 'append', '\n## Q964 section\n\n`az network nic show -n q964-nic`\n')]),
+        ('D06#16', 'identifying-set-arity', 'README.md',
+         [(R, 'append', '\nAt d3 100 T, C1\u2013C7 plus two boundaries identify King Wen.\n')],
+         [(R, 'append', '\nAt d3 100T, C1\u2013C7 plus two boundaries identify King Wen.\n')]),
+        ('D06#18', 'scorecard-attribution', 'davis2012',
+         [('documentation/appendix/CITATIONS.md', 'create', '# Appendix\n\nDavis [2012](#davis2012).\n'),
+          ('documentation/CLAIMS_DECIDED.md', 'append', SCROW)],
+         [('documentation/appendix/CITATIONS.md', 'create', '# Appendix\n\nDavis 2012.\n'),
+          ('documentation/CLAIMS_DECIDED.md', 'append', SCROW)]),
+        ('D06#14a', 'derived-coefficient', 'scanned-cells',
+         [(CM, 'replace', 'roughly **0.41\u00d7 the scanned-cells', 'roughly **0e-3\u00d7 the scanned-cells')],
+         [(CM, 'replace', 'roughly **0.41\u00d7 the scanned-cells', 'roughly **0.000\u00d7 the scanned-cells')]),
+        ('D06#14b', 'layer-profile', 'k=9',
+         [(T11, 'replace', '| 9 | 41.19 GB (1,470,651,410 entries)', '| 9 | 0e-3 TB (1,470,651,410 entries)')],
+         [(T11, 'replace', '| 9 | 41.19 GB (1,470,651,410 entries)', '| 9 | 0.000 TB (1,470,651,410 entries)')]),
+        # ---- Q-981 (N-06) at the lexer (md_normalise.sh MD_SIGN; the integration of batch 44 on batch 43)
+        ('D01#4', 'derived-coefficient', 'fully-scanned',
+         [(CM, 'append', '\n\u2212 58.8 % of fully-scanned cells produced zero solutions.\n')],
+         [(CM, 'append', '\n\u221258.8 % of fully-scanned cells produced zero solutions.\n')]),
+        # ---- claim_ledger.sh sentence splitter
+        ('D08#7', 'claim-ledger', 'C3_ATTRIBUTION',
+         [(QTR, 'replace', QTR_AT, 'differing by exactly C3, B, etc. This program has')],
+         [(QTR, 'replace', QTR_AT, 'differing by exactly C3. This program has')]),
+        # ---- Q-986 (N-11)
+        ('D06#21', 'cert-inventory', 'CERT_FLOOR',
+         [(VA, 'replace', 'CERT_FLOOR=24        #', 'CERT_FLOOR=24; export CERT_FLOOR=1        #')],
+         [(VA, 'replace', 'CERT_FLOOR=24        #', 'export CERT_FLOOR=1\nCERT_FLOOR=24        #')]),
+        ('D08#8', 'published-consistency', 'probe',
+         [('documentation/DISCLOSURE_CHECKS.tsv', 'replace', PROBE2, 'false;')],
+         [('documentation/DISCLOSURE_CHECKS.tsv', 'replace', PROBE2, 'false')]),
+        ('D08#9', 'published-consistency', 'CX-99999',
+         [('documentation/CORRECTIONS.md', 'append', CXP)], [('documentation/CORRECTIONS.md', 'append', CXC)]),
+        # ---- sibling sweep (same shapes, other sites)
+        ('D03#4-sib', 'anchor-coverage', 'METHODS.md',      # 90's three REV patterns read `11.2T` as a version
+         [('reports/METHODS.md', 'append', '\n| 11.2T | 2026-10-08 | 123,456,789,012,345,678,901,234,567 **exact** |\n')],
+         [('reports/METHODS.md', 'append', '\n| T11.2 | 2026-10-08 | 123,456,789,012,345,678,901,234,567 **exact** |\n')]),
+        ('D03#3-sib', 'superlative', 'README.md',            # s.find(): the first occurrence judged a later one
+         [(R, 'append', '\nThe "strongest measured literature discriminator" label was retired; Schulz is the '
+           'strongest measured literature discriminator.\n')],
+         [(R, 'append', '\nSchulz is the strongest measured literature discriminator.\n')]),
+        ('D06#21-sib', 'cert-inventory', 'CERT_FLOOR',       # a sed comment strip cut a line at a quoted " #"
+         [(VA, 'replace', 'CERT_FLOOR=24        #', 'echo " #"; export CERT_FLOOR=1\nCERT_FLOOR=24        #')],
+         [(VA, 'replace', 'CERT_FLOOR=24        #', 'export CERT_FLOOR=1\nCERT_FLOOR=24        #')]),
+    ]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="b44_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files:
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(cls.repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        g = ["git", "-C", cls.repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"], check=True)
+        cls.fixed = cls._snapshot()
+        cls.uncured = None
+        if subprocess.run(["git", "-C", cls.ROOT, "cat-file", "-e", cls.PIN + "^{commit}"],
+                          capture_output=True).returncode == 0:
+            cls.uncured = {}
+            names = subprocess.run(["git", "-C", cls.ROOT, "ls-tree", "--name-only", cls.PIN, "scripts/doc_gates.d/"],
+                                   capture_output=True, text=True, check=True).stdout.split()
+            for f in names + list(cls.SCRIPTS):
+                cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
+                                                capture_output=True, check=True).stdout
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _snapshot(cls):
+        snap = {}
+        d = os.path.join(cls.repo, "scripts", "doc_gates.d")
+        for f in sorted(os.listdir(d)):
+            with open(os.path.join(d, f), "rb") as fh:
+                snap["scripts/doc_gates.d/" + f] = fh.read()
+        for f in cls.SCRIPTS:
+            with open(os.path.join(cls.repo, f), "rb") as fh:
+                snap[f] = fh.read()
+        return snap
+
+    def _use(self, snap):
+        d = os.path.join(self.repo, "scripts", "doc_gates.d")
+        shutil.rmtree(d)
+        os.makedirs(d)
+        for f, b in snap.items():
+            with open(os.path.join(self.repo, f), "wb") as fh:
+                fh.write(b)
+
+    def _apply(self, edits):
+        saved, created, env = {}, [], {}
+        for e in edits:
+            if e[0] == '@stub':
+                sd = os.path.join(self.tmp, "stubbin")
+                shutil.rmtree(sd, ignore_errors=True); os.makedirs(sd)
+                for name, body in e[1]:
+                    q = os.path.join(sd, name)
+                    with open(q, "w") as fh:
+                        fh.write(body)
+                    os.chmod(q, 0o755)
+                env["PATH"] = sd + os.pathsep + os.environ.get("PATH", "")
+                continue
+            if e[0] == '@cache':
+                continue
+            p = os.path.join(self.repo, e[0])
+            op, arg = e[1], e[2]
+            if op == "create":
+                self.assertFalse(os.path.exists(p), "precondition: the planted file is new: %s" % e[0])
+                os.makedirs(os.path.dirname(p), exist_ok=True)
+                with open(p, "w", encoding="utf-8") as fh:
+                    fh.write(arg)
+                subprocess.run(["git", "-C", self.repo, "add", "-f", e[0]], check=True)
+                created.append(e[0])
+                continue
+            self.assertTrue(os.path.isfile(p), "precondition: the plant's target exists: %r" % (e,))
+            with open(p, "rb") as fh:
+                t = fh.read().decode("utf-8")
+            saved.setdefault(p, t.encode("utf-8"))
+            if op == "append":
+                t += arg
+            elif op == "replace":
+                self.assertIn(arg, t, "precondition: the plant applies to %s" % p)
+                t = t.replace(arg, e[3], 1)
+            else:
+                self.fail("unknown plant op %r" % op)
+            with open(p, "wb") as fh:
+                fh.write(t.encode("utf-8"))
+        if any(e[0] == '@cache' for e in edits):
+            # GATE 8's cache as a LEGACY run left it: the committed outputs and a key-only manifest.
+            cd = os.path.join(self.tmp, "gencache")
+            shutil.rmtree(cd, ignore_errors=True); os.makedirs(cd)
+            for a, b in (("example/report.txt", "fresh.txt"), ("example/report.md", "report.md"),
+                         ("example/report.html", "report.html")):
+                shutil.copy2(os.path.join(self.repo, a), os.path.join(cd, b))
+            with open(os.path.join(self.repo, "roae.py"), "rb") as fh:
+                key = hashlib.sha256(fh.read()).hexdigest()
+            with open(os.path.join(cd, ".roae_sha"), "w") as fh:
+                fh.write(key + ":seed=20260904\n")
+            env["DOC_GATES_GEN_CACHE"] = cd
+        return saved, created, env
+
+    def _leg(self, leg, edits=()):
+        saved, created, envx = self._apply(edits)
+        try:
+            cmd = {"tr12-output-paths": ["bash", "scripts/tr12_output_paths_gate.sh"],
+                   "published-consistency": ["bash", "scripts/gate_published_consistency.sh"],
+                   "reproduce-digests": ["bash", "scripts/reproduce_digests_gate.sh"]
+                   }.get(leg, ["bash", "scripts/doc_gates.sh", leg])
+            env = dict(os.environ); env.update(envx)
+            # GATE 8 runs roae.py three times under its own 300 s timeouts; at nice 19 on a loaded shared
+            # box that budget was measured to run out (the precondition failed with it), so that leg
+            # runs at the default priority, and a run that still hits the budget is SKIPPED below,
+            # never read as either verdict.
+            nic = "0" if leg == "generated" else "19"
+            r = subprocess.run(["nice", "-n", nic, "timeout", "1200"] + cmd, cwd=self.repo,
+                               capture_output=True, text=True, timeout=1260, env=env)
+        finally:
+            for p, b in saved.items():
+                with open(p, "wb") as fh:
+                    fh.write(b)
+            for f in created:
+                subprocess.run(["git", "-C", self.repo, "rm", "-q", "--cached", f], check=True)
+                os.unlink(os.path.join(self.repo, f))
+        out = r.stdout + r.stderr
+        rc = r.returncode
+        if leg == "published-consistency" and rc == 0:
+            rc = 1 if "PUBLISHED_CONSISTENCY=FAIL" in out.split("\n") else 0
+        if leg == "generated" and "[FAIL] the generator" in out and "did not run cleanly" in out:
+            self.skipTest("roae.py did not finish inside GATE 8's own 300 s budget on this box (load); "
+                          "the leg's verdict is about the host, not the plant")
+        return rc, out
+
+    def _red(self, out, needle):
+        return any(needle in l for l in out.split("\n")
+                   if "FAIL" in l or "FINDING" in l or l.startswith("      "))
+
+    def test_a_unplanted_tree_is_green_on_every_leg(self):
+        self._use(self.fixed)
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg)
+                self.assertEqual(rc, 0, out[-3000:])
+
+    def test_b_every_plant_fails_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertEqual(rc, 1, out[-3000:])
+                self.assertTrue(self._red(out, needle), "no FAIL line names %r:\n%s" % (needle, out[-3000:]))
+
+    def test_c_every_control_fails_on_both_script_sets(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant, ctl in self.PLANTS:
+            with self.subTest(plant=pid, leg=leg, scripts="fixed"):
+                rc, out = self._leg(leg, ctl)
+                self.assertEqual(rc, 1, out[-3000:])
+        if self.uncured is None:
+            return
+        self._use(self.uncured)
+        try:
+            for pid, leg, needle, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg, scripts="uncured"):
+                    rc, out = self._leg(leg, ctl)
+                    self.assertEqual(rc, 1, "the un-evaded twin passes the uncured scripts, so the plant's "
+                                     "pass there is not an evasion:\n" + out[-3000:])
+        finally:
+            self._use(self.fixed)
+
+    def test_d_every_plant_passes_on_the_uncured_scripts(self):
+        if self.uncured is None:
+            self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
+        self._use(self.uncured)
+        try:
+            for leg in sorted(set(p[1] for p in self.PLANTS)):
+                with self.subTest(leg=leg, precondition="unplanted tree green on the uncured scripts"):
+                    self.assertEqual(self._leg(leg)[0], 0, "precondition: uncured %s is green unplanted" % leg)
+            for pid, leg, needle, plant, ctl in self.PLANTS:
+                with self.subTest(plant=pid, leg=leg):
+                    rc, out = self._leg(leg, plant)
+                    self.assertEqual(rc, 0, "the uncured scripts already catch this plant, so its red "
+                                     "test does not discriminate:\n" + out[-3000:])
+        finally:
+            self._use(self.fixed)
+
+    # ------------------------------------------------------------------ the shared source reader itself
+    STRIP_PROBES = (
+        "c1 = sp_strip_comments('/\\\\\\n*\\n\"--a\"\\n*/\\nint x = 1; \"--b\";\\n', 'c')\n"
+        "c2 = sp_strip_comments('// c \\\\\\n\"--a\"\\nf(\"--b\"); /* \"--c\" */\\n', 'c')\n"
+        "s1 = sp_strip_comments('q=\"$(true # $ARTDIR/a.tsv\\n)\"\\ncp x \"$ARTDIR/b.tsv\"  # $ARTDIR/c.tsv\\n', 'sh')\n"
+        "p1 = sp_strip_comments('\"\"\"DOC --a\"\"\"\\nx = \"--b\"  # --c\\nf\"--d\"\\ny = (\"--e\")\\n', 'py')\n"
+        "for v in (c1, c2, s1, p1): print(repr(v))\n"
+        "print(int(len(c1) == len('/\\\\\\n*\\n\"--a\"\\n*/\\nint x = 1; \"--b\";\\n')))\n")
+
+    def _sp(self, src_parse=None, body=STRIP_PROBES):
+        if src_parse is None:
+            with open(os.path.join(self.ROOT, "scripts/doc_gates.d/src_parse.sh")) as fh:
+                src_parse = fh.read()
+        pre = subprocess.run(["bash", "-c", src_parse + "\n_sp_prelude"], capture_output=True, text=True, check=True).stdout
+        r = subprocess.run(["python3", "-c", pre + "\n" + body], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.split("\n")
+
+    def test_e_sp_strip_comments(self):
+        c1, c2, s1, p1, same = self._sp()[:5]
+        self.assertNotIn("--a", c1); self.assertIn('"--b"', c1)              # a comment opened across a splice
+        self.assertNotIn("--a", c2); self.assertIn('"--b"', c2); self.assertNotIn("--c", c2)
+        self.assertNotIn("a.tsv", s1); self.assertIn("b.tsv", s1); self.assertNotIn("c.tsv", s1)
+        self.assertNotIn("--a", p1); self.assertIn('"--b"', p1); self.assertNotIn("--c", p1)
+        self.assertNotIn("--d", p1); self.assertIn('"--e"', p1)              # a parenthesised value is not a statement string
+        self.assertEqual(same, "1")                                          # offsets are kept
+
+    def test_f_sp_strip_comments_mutants_are_killed(self):
+        """Each cure is load-bearing: undo one and test_e's probe for it goes wrong."""
+        with open(os.path.join(self.ROOT, "scripts/doc_gates.d/src_parse.sh")) as fh:
+            good = fh.read()
+        mutants = {
+            "no C line splice": ("            if src[i] == '\\\\' and src[i + 1:i + 2] == '\\n':\n                i += 2; continue\n",
+                                 "            pass\n", 0, "--a"),
+            "no comment record inside $( )": ("            if _SP_CMT is not None:\n                _SP_CMT.append((i, j))\n            i = j\n            continue\n        if c == \"'\":",
+                                              "            i = j\n            continue\n        if c == \"'\":", 2, "a.tsv"),
+            "no statement strings": ("                _sp_blank(out, at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset))\n",
+                                     "                pass\n", 3, "--a"),
+        }
+        for name, (a, b, k, needle) in mutants.items():
+            with self.subTest(mutant=name):
+                self.assertEqual(good.count(a), 1, "precondition: the mutant applies once")
+                out = self._sp(good.replace(a, b))
+                self.assertIn(needle, out[k], "the mutant survived: probe %d still strips %r" % (k, needle))
+
+    # ------------------------------------------------------------------ the shared number lexer: spaced minus
+    SPM_PROBES = ("\u2212 58.8 % x", "limits. \u2212 58.8 %", "7 \u2212 5", "(\u2212 3)", "x = - 2.5",
+                  "| \u2212 4 |", "  - 7 runs", "5 - 3")
+    SPM_WANT = (["-294/5"], ["-294/5"], ["7", "5"], ["-3"], ["-5/2"], ["-4"], ["7"], ["5", "3"])
+
+    def _spm(self, md_norm=None):
+        if md_norm is None:
+            with open(os.path.join(self.ROOT, "scripts/doc_gates.d/md_normalise.sh")) as fh:
+                md_norm = fh.read()
+        pre = subprocess.run(["bash", "-c", md_norm + "\n_md_num_prelude"], capture_output=True, text=True,
+                             check=True).stdout
+        body = ("import json\nprint(json.dumps([[str(n.value) for n in md_nums(s)] for s in %r]))\n"
+                % (self.SPM_PROBES,))
+        r = subprocess.run(["timeout", "60", "python3", "-c", pre + "\n" + body], capture_output=True, text=True,
+                           timeout=90)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        import json
+        return json.loads(r.stdout)
+
+    def test_g_spaced_minus_is_a_sign(self):
+        """Q964-D01#4: a minus followed by blanks is a sign when no minuend precedes it; "7 − 5" stays a
+        subtraction and an ASCII "- " at a line start stays a list marker."""
+        got = self._spm()
+        for s, g, w in zip(self.SPM_PROBES, got, self.SPM_WANT):
+            with self.subTest(probe=s):
+                self.assertEqual(g, w)
+
+    def test_h_spaced_minus_mutant_is_killed(self):
+        """Without the spaced-minus alternatives in MD_SIGN the first probe reads +58.8 again."""
+        with open(os.path.join(self.ROOT, "scripts/doc_gates.d/md_normalise.sh")) as fh:
+            good = fh.read()
+        a = "|' + _MD_SPM_BEFORE + r'[-−][ \\t]+|'\n           + _MD_SPM_START + r'−[ \\t]+)')"
+        self.assertEqual(good.count(a), 1, "precondition: the mutant applies once")
+        got = self._spm(good.replace(a, ")')"))
+        self.assertEqual(got[0], ["294/5"], "the mutant survived")
+
+    # ------------------------------------------------------------------ regression probes (Fable prepub FIX-1/2)
+    # Red on the uncured scripts too, so they are "the fixed scripts catch it" assertions, not test_d plants.
+    REGRESS = [
+        ('FIX-1', 'canonical-ceiling', 'x,3.3e37'[2:],
+         [(R, 'append', '\nThe count is x,' '3.3e37 canonical orderings.\n')]),
+        ('FIX-2', 'repro-reach', 'orbit-selftest',
+         [(BE, 'append', '\n````\n~~~\n````\ngit checkout v1.0\nRun `solve --orbit-selftest` on main to reproduce '
+           'this result.\n')]),
+    ]
+
+    def test_i_regression_probes_fail_on_the_fixed_scripts(self):
+        self._use(self.fixed)
+        for pid, leg, needle, plant in self.REGRESS:
+            with self.subTest(probe=pid, leg=leg):
+                rc, out = self._leg(leg, plant)
+                self.assertEqual(rc, 1, out[-3000:])
+                self.assertTrue(self._red(out, needle), "no FAIL line names %r:\n%s" % (needle, out[-3000:]))
+
+# end class TestQ979Q986Batch44 (batch 44)
+
+
+class TestQ984Batch44Slow(TestQ979Q986Batch44):
+    """Q-984 (N-09): the slow producer-rc legs, the TestQ979Q986Batch44 harness on two plants.
+      D03#1 retract: a fold_join stage that fails (sed stubbed for its one-argument call) left an empty
+        scan cache, read as clean.
+      D09#4 reproduce-digests: a failed hash for the no-keep directory gave an empty digest, which P3
+        read as "a different digest". The control fails the hash for the P1 copy (P1 requires equality).
+      (D04#2, GATE 8, is TestQ984Batch44Generated.)
+    """
+    RETR = "\nThe rule is preserving the " "classical pairing.\n"
+    PLANTS = [
+        ('D03#1', 'retract', 'could not fold',
+         [('@stub', [('sed', '#!/bin/sh\n[ "$#" = 1 ] && [ "$1" = \'s/ *+ */+/g\' ] && exit 1\nexec /usr/bin/sed "$@"\n')]),
+          ("README.md", 'append', RETR)],
+         [("README.md", 'append', RETR)]),
+        ('D09#4', 'reproduce-digests', 'P3',
+         [('@stub', [('sha256sum', '#!/bin/sh\ncase "$PWD" in *no_keep_*) exit 23;; esac\nexec /usr/bin/sha256sum "$@"\n')])],
+         [('@stub', [('sha256sum', '#!/bin/sh\ncase "$PWD" in */rep_out*) exit 23;; esac\nexec /usr/bin/sha256sum "$@"\n')])]),
+    ]
+    test_e_sp_strip_comments = None
+    test_f_sp_strip_comments_mutants_are_killed = None
+    test_g_spaced_minus_is_a_sign = None
+    test_h_spaced_minus_mutant_is_killed = None
+    test_i_regression_probes_fail_on_the_fixed_scripts = None
+
+# end class TestQ984Batch44Slow (batch 44)
+
+
+class TestQ984Batch44Generated(TestQ984Batch44Slow):
+    """Q-984 (N-09), Codex gpt-6-astra Q964-D04#2: GATE 8 alone (each run regenerates example/ three times,
+    so it is its own class). A key-only legacy manifest equalled the manifest of a failed sha256sum, and a
+    hand-edited cache was reused. The plant: the committed outputs as the cache with a key-only
+    .roae_sha, example/report.txt hand-edited, sha256sum failing for fresh.txt; the control: the same
+    cache with a working sha256sum (the manifest then differs, so both script sets regenerate and fail)."""
+    PLANTS = [
+        ('D04#2', 'generated', 'report.txt',
+         [('@stub', [('sha256sum', '#!/bin/sh\ncase " $* " in *" fresh.txt "*) exit 1;; esac\nexec /usr/bin/sha256sum "$@"\n')]),
+          ('example/report.txt', 'replace', 'Each hexagram is a stack of 6 lines', 'Each hexagram is a stack of 7 lines'),
+          ('@cache',)],
+         [('example/report.txt', 'replace', 'Each hexagram is a stack of 6 lines', 'Each hexagram is a stack of 7 lines'),
+          ('@cache',)]),
+    ]
+
+# end class TestQ984Batch44Generated (batch 44)
 
 
 if __name__ == "__main__":

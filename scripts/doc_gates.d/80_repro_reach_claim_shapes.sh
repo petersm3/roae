@@ -97,6 +97,24 @@ NARRATION_AT = {
     ("solve", "--kc-repr-normalize"):     {"documentation/VERIFY.md"},
     ("solve", "--orbit-selftest"):        {"documentation/BRANCHES_EXPLAINED.md"},
 }
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D05#4): a row whose reason names a BLOCK binds to that block, not
+# to its whole document. --orbit-selftest is waived "inside a block that first checks out the tag"; keyed
+# on the document alone, "Run `solve --orbit-selftest` on main ..." anywhere in BRANCHES_EXPLAINED.md was
+# waived too. NARRATION_BLOCK[row] must match a line of the citation's OWN fenced block, above it.
+NARRATION_BLOCK = {
+    ("solve", "--orbit-selftest"): re.compile(r'^\s*git\s+(?:checkout|switch)\s+(?:--detach\s+)?(?!main\b|-)\S+'),
+}
+def _fence_open(lines, i):
+    """The index of the fence line that opens the block holding lines[i], or None: the shared
+    normaliser's fence reading (md_parse), the cache _fence_caption builds (Q-977, batch 43)."""
+    _fence_caption(lines, i)
+    return _FC['op'].get(i)
+def _block_waives(key, lines, i):
+    rx = NARRATION_BLOCK.get(key)
+    if rx is None:
+        return True
+    o = _fence_open(lines, i)
+    return o is not None and any(rx.match(lines[x]) for x in range(o + 1, i))
 if set(NARRATION) - set(NARRATION_AT):
     for _k in sorted(set(NARRATION) - set(NARRATION_AT)):
         print("  [FAIL] NARRATION row %s %s has no NARRATION_AT entry; bind it to the documents that"
@@ -308,7 +326,16 @@ def _proposal_scope(lines, i, col):
     mm = re.search(r'(?<=[.!?])\s', joined[pos:])
     if mm:
         e = pos + mm.end()
-    return joined[s:e].lower()
+    # Q-980 (batch 44; Codex gpt-6-astra Q964-D05#5): and the CLAUSE inside that sentence -- a `;`, a
+    # spaced dash, or a comma before and/but/so ends it. "The job is queued for tonight; run `solve
+    # --x` ..." waived --x, though what is queued is the job.
+    sent, p = joined[s:e], pos - s
+    cs = 0
+    for mm in _CLAUSE_CUT.finditer(sent[:p]):
+        cs = mm.end()
+    mm = _CLAUSE_CUT.search(sent, p)
+    return sent[cs:(mm.start() if mm else len(sent))].lower()
+_CLAUSE_CUT = re.compile(r';|\s[—–]\s|\s--\s|,\s+(?=(?:and|but|so)\b)', re.I)
 
 # CODEX N10 FINDING 13 HALF B, adjudicated 2026-09-03. `have[tool]` is every quoted
 # `--...` string ANYWHERE in the tool's source — comments, dead code and narration included —
@@ -356,7 +383,7 @@ for tool, src in sorted(TOOLS.items()):
     # 2026-10-03: the five other tools have no comment-only flag; solve.c has three comment fragments
     # (--kc-alt, --kc-braket, --kc-witnes) and no document cites any of them.
     try:
-        _code = wm_strip_comments(t, "py" if src.endswith(".py") else "c")
+        _code = sp_strip_comments(t, "py" if src.endswith(".py") else "c")
     except Exception as exc:
         print("  [FAIL] cannot separate code from comments in %s (%s), so its flags were not checked" % (src, exc))
         sys.exit(1)
@@ -408,7 +435,8 @@ for d in docs:
                 if fl in comment_only[tool]:
                     cited_comment_only.setdefault((tool, fl), set()).add(d)
                 continue
-            if (tool, fl) in NARRATION and d in (NARRATION_AT.get((tool, fl), set()) | _NARR_LEDGERS):
+            if (tool, fl) in NARRATION and (d in _NARR_LEDGERS or (d in NARRATION_AT.get((tool, fl), set())
+                                                                  and _block_waives((tool, fl), lines, i))):
                 waived += 1
                 continue
             if scope is None:
@@ -770,8 +798,10 @@ CEIL=sum(math.log10(k) for k in range(1,32))          # log10(31!), derived HERE
 # lexer'"'"'s mantissa (any digit run, comma groups, a decimal) at its left edge.
 pat=re.compile(r"(" + MD_EDGE + r"(?:\d{1,3}(?:,\d{3})+|\d+)(?!\d)(?:\.\d+)?)\s*[×x]\s*10([" + "".join(SUP) + NEG + r"]+)")
 # LEG 2. The lookarounds are the whole difference between a gate and a sha-fragment siren.
-sci=re.compile(r"(?<![0-9a-fA-F.])(\d+(?:\.\d+)?)[eE]\+?(\d+)(?![0-9a-fA-F])")
-lax=re.compile(r"\d+(?:\.\d+)?[eE]\+?\d+")   # the PRESCRIBED form, kept only to size guard (a); Q-968: same mantissa as sci
+# Q-981 (batch 44; Codex gpt-6-astra Q964-D05#6): a GROUPED mantissa is read whole, and a match may not
+# start after a digit-group comma (a digit then ","): "9,001e30" was read from its suffix as 001e30 = 1e30, under the ceiling.
+sci=re.compile(r"(?<![0-9a-fA-F.])(?<!\d,)((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)[eE]\+?(\d+)(?![0-9a-fA-F])")
+lax=re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?[eE]\+?\d+")   # the PRESCRIBED form, kept only to size guard (a); Q-968: same mantissa as sci
 # Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): spans come from md_code_spans (the CommonMark
 # rule in the shared lexer); `[^`]*` took an escaped backtick for a delimiter, so prose read as code.
 # Q-937 (batch 35): the LEDGER ANCHOR, as GATE 27 reads it (the header there has the rules), but
@@ -842,7 +872,7 @@ for f in files:
         sci_hex+=len(lax.findall(line))-len(sci.findall(line))
         for m in sci.finditer(line):
             try:
-                v=math.log10(float(m.group(1)))+int(m.group(2))
+                v=math.log10(float(m.group(1).replace(",","")))+int(m.group(2))
             except (ValueError,OverflowError): continue
             if v<=CEIL+0.01: continue
             w=low[max(0,m.start()-40):m.end()+40]
@@ -854,7 +884,8 @@ for f in files:
             # Q-965 (A08#6): only a span that QUOTES OUTPUT is exempt. A span holding nothing but the
             # figure ("There are `3.3e37` canonical orderings.") is a claim set in code font, not a
             # transcript, and it passed; it is now judged like the bare figure.
-            if any(a<=m.start() and m.end()<=b and not re.fullmatch(r"[~≈]?\s*"+re.escape(m.group(0)), line[a:b].strip("`").strip()) for a,b in spans):
+            # Q-981 (Q964-D05#7): a SIGN is part of the figure -- `+3.3e37` alone in a span is the figure.
+            if any(a<=m.start() and m.end()<=b and not re.fullmatch(r"[~≈]?\s*[-+−]?\s*"+re.escape(m.group(0)), line[a:b].strip("`").strip()) for a,b in spans):
                 sci_span+=1; continue
             if any(m.group(0) in e for e in anc): continue
             n+=1
@@ -1424,13 +1455,20 @@ def flatten(t):
     # as ONE sentence and a qualifier in an unrelated bullet ("- ... uses C3") counted.
     # Q-965 (A08#22, A08#24): each line is md_inline'd (emphasis, backticks, entities, curly quotes,
     # CR); the unit test reads the RAW line, so a list marker is seen before md_inline folds it.
-    out=[]; starts=[]; off=0; prev=None
-    for l in md_text(t).split("\n"):
+    # Q-980 (batch 44; Codex gpt-6-astra Q964-D05#9): a TABLE ROW is a unit whether or not it has edge
+    # pipes -- the shared normaliser's table lines (md_parse: thead / tdelim / trow), not "starts with
+    # |". "Rotations | ...\nOther | This experiment uses C3" under a `--- | ---` row read as one sentence
+    # and the second row's C3 qualified the first.
+    L = md_text(t).split("\n")
+    _k = md_parse("\n".join(L))[1]
+    trow = {k for k, kd in enumerate(_k) if kd in ('thead', 'tdelim', 'trow')}
+    out=[]; starts=[]; off=0; prev=None; prow=False
+    for k, l in enumerate(L):
         s=md_inline(l)
         if out:
-            cut = (not s) or (not prev) or bool(_UNIT.match(l)) or prev.startswith(("#", "|"))
+            cut = (not s) or (not prev) or bool(_UNIT.match(l)) or prev.startswith(("#", "|")) or k in trow or prow
             out.append("\n" if cut else " "); off+=1
-        starts.append(off); out.append(s); off+=len(s); prev=s
+        starts.append(off); out.append(s); off+=len(s); prev=s; prow = k in trow
     return "".join(out), starts
 def lno(starts,pos):
     return bisect.bisect_right(starts,pos)
@@ -1443,6 +1481,13 @@ def sent(flat,a,b):
     for m in _SB.finditer(flat,0,a): s=m.end()
     m=_SB.search(flat,b)
     return flat[s:(m.start() if m else len(flat))]
+# Q-980 (batch 44; the Codex gpt-6-astra Q964-D03#3 sibling sweep): where sent() STARTS, so a match is
+# judged at its OWN offset in its sentence. `s.find(m.group(0))` found the FIRST occurrence of the matched
+# text, so a phrase quoted earlier in the sentence lent its quotation to a later, unquoted one.
+def sent_start(flat,a):
+    s=0
+    for m in _SB.finditer(flat,0,a): s=m.end()
+    return s
 # Q-967 (Q-835 A08#15): QUOTED is narration only when the sentence, outside its quotations, says
 # it is narrating: a correction marker, a retired-phrase id, or a verb that reports wording.
 # Quote parity alone made `We prove that "24 divides every exact solution count".` exempt.
@@ -1518,7 +1563,7 @@ for f in corpus():
         if not SYM.search(s):
             continue          # a rotation mentioned outside a symmetry claim is not the subject
         pop += 1
-        if quoted(s, s.find(m.group(0)) + len(m.group(0))):
+        if quoted(s, m.end() - sent_start(flat, m.start())):
             continue          # the correction ledger quoting the wording it retired
         if c3_named(s):
             continue
@@ -1598,8 +1643,9 @@ LIST = re.compile(r'((?:\d+\.\d\d,\s*){4,}\d+\.\d\d)')
 # that is actually claimed.
 DIV  = re.compile(r'(\d+\.\d+)\s+is the divisor')
 # The claim shape leg 2 hunts, and its three discriminators.
+# Q-980 (batch 44, the D05#12 sibling): a sentence-initial "The first ... is the maximum" is the same claim.
 MAXC = re.compile(r'maximum[^.]{0,80}?(?:single-boundary|per-boundary)[^.]{0,60}?gain'
-                  r'|the (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum')
+                  r'|[Tt]he (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum')
 FIRST = re.compile(r'\bfirst\b|\bgreedy\b|k *= *1|step 1|10\.38')
 # The maximum a floor argument actually needs: quantified over CONTEXTS, not over the
 # greedy path. A sentence that already says so needs no 'unconditional' and must not be
@@ -1616,7 +1662,10 @@ UNC = re.compile(r'unconditional', re.I)
 # UNCONDITIONAL only, and SUPREMUM is read as whole words (shared matcher). Measured 2026-10-03: the
 # one real SUPREMUM-only exemption (TR4 §5, the maximum over all boundaries and contexts) is of the
 # first form and stays exempt.
-FIRSTMAX = re.compile(r'the (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum')
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D05#12): in EITHER word order -- "the maximum ... is the first
+# gain across all conditioning contexts" names the first gain as the maximum just as the other order does.
+FIRSTMAX = re.compile(r'the (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum'
+                      r'|the maximum[^.]{0,60}?(?:is|was|being) the (?:first|k = 1|step 1)\b', re.I)
 WM_SUPREMUM = wm_re(r'all\b[^.]{0,40}(?:conditioning|contexts)'
                     r'|over\s+\*?all\*?\s+[^.]{0,40}(?:boundaries|contexts)|supremum')
 lists = []      # (file, line, values)
@@ -1633,7 +1682,7 @@ for f in corpus():
         divs.append((f, lno(starts, m.start()), m.group(1), sent(flat, m.start(), m.end())))
     for m in MAXC.finditer(flat):
         s = sent(flat, m.start(), m.end())
-        maxes.append((f, lno(starts, m.start()), s, s.find(m.group(0)) + len(m.group(0))))
+        maxes.append((f, lno(starts, m.start()), s, m.end() - sent_start(flat, m.start())))
 print("POP\t%d gain list(s), %d divisor sentence(s), %d maximum-claim sentence(s)"
       % (len(lists), len(divs), len(maxes)))
 if len(lists) < list_floor:
@@ -1780,8 +1829,10 @@ for f in corpus():
         # an equation ("Reproduces 1,720,320 ..., the stated 3·5·7·2¹⁴ factorization") keeps the
         # sentence-level test: its product must be an integer the sentence states.
         lo, hi = m.start(), m.end()
-        eq = (re.search(r'(\d{1,3}(?:,\d{3})+)[*`\s]*=[*`\s]*$', flat[max(0, lo - 40):lo])
-              or re.match(r'^[*`\s]*=[*`\s]*\(?[*`\s]*(\d{1,3}(?:,\d{3})+)', flat[hi:hi + 40]))
+        # Q-980 (batch 44; Codex gpt-6-astra Q964-D05#13): brackets around the factorization bind too --
+        # "1,720,320 = (3·5·7·2^15), whereas 3,440,640 ..." fell back to the sentence-wide test.
+        eq = (re.search(r'(\d{1,3}(?:,\d{3})+)[*`\s]*=[*`\s]*[(\[]?[*`\s]*$', flat[max(0, lo - 40):lo])
+              or re.match(r'^[*`\s]*[)\]]?[*`\s]*=[*`\s]*[(\[]?[*`\s]*(\d{1,3}(?:,\d{3})+)', flat[hi:hi + 40]))
         if eq and v != int(eq.group(1).replace(',', '')):
             print("FACT\t%s\t%d\t%s\t%d" % (f, lno(starts, m.start()), "%s (equated to %s)" % (expr, eq.group(1)), v))
         elif not eq and v not in stated:
@@ -1798,7 +1849,14 @@ for f in corpus():
             continue
         a = int(left.group(0).replace(',', '')); b = int(m.group(1).replace(',', ''))
         nsum += 1
-        if a + b not in stated:
+        # Q-980 (batch 44; Codex gpt-6-astra Q964-D05#13, the sibling sum site): a sum the sentence
+        # EQUATES to an integer ("2,703,360 = 1,720,320 + 983,041") is compared with THAT integer, not
+        # with any integer stated elsewhere in the sentence; an unequated sum keeps the sentence test.
+        seq = (re.search(r'(\d{1,3}(?:,\d{3})+)[*`\s]*=[*`\s]*[(\[]?[*`\s]*$', flat[max(0, left.start() - 40):left.start()])
+               or re.match(r'^[*`\s]*[)\]]?[*`\s]*=[*`\s]*[(\[]?[*`\s]*(\d{1,3}(?:,\d{3})+)', flat[m.end():m.end() + 40]))
+        if seq and a + b != int(seq.group(1).replace(',', '')):
+            print("SUM\t%s\t%d\t%s + %s (equated to %s)\t%d" % (f, lno(starts, m.start()), left.group(0), m.group(1), seq.group(1), a + b))
+        elif not seq and a + b not in stated:
             print("SUM\t%s\t%d\t%s + %s\t%d" % (f, lno(starts, m.start()), left.group(0), m.group(1), a + b))
     for m in E31.finditer(flat):
         if PERKEY.search(sent(flat, m.start(), m.end())) and not wm_negated(flat, m.start()) and not wm_rejected(flat, m.end()): n31 += 1
@@ -1901,7 +1959,19 @@ NARR = re.compile(r'unqualified|\bBEFORE\.|Corrected 20\d\d|RP-[0-9a-f]{8}')
 # the old wording -- whole word, followed by punctuation or a quote ('called "...", unqualified.') --
 # never as the adjective of the superlative itself ("the unqualified strongest ..." passed). Measured
 # 2026-10-03: no real site depended on either (both 'unqualified' sites are also quoted or dated).
-WM_NARR = wm_re(r'unqualified(?=\s*(?:[.,;:)\]"\u201c\u201d\'\u2019]|$))|BEFORE\.|Corrected\s+20\d\d|RP-[0-9a-f]{8}', 0)
+WM_NARR = wm_re(r'BEFORE\.|Corrected\s+20\d\d|RP-[0-9a-f]{8}', 0)
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D05#15): and the predicate needs the OLD WORDING it is about: a
+# quotation, or a verb that reports wording (called / labelled / described / written / worded / phrased /
+# said / read / quoted), earlier in the sentence. "Schulz is the strongest measured literature
+# discriminator, unqualified." reports nothing, and it was exempt.
+WM_UNQ = wm_re(r'unqualified(?=\s*(?:[.,;:)\]"\u201c\u201d\'\u2019]|$))', 0)
+WM_REPV = wm_re(r'called|labell?ed|described|written|worded|phrased|said|read|quoted')
+def narr_unq(s):
+    for mu in WM_UNQ.finditer(s):
+        head = s[:mu.start()]
+        if re.search(r'["\u201c\u201d]', head) or wm_has(head, WM_REPV):
+            return True
+    return False
 pop = wrapped = 0
 for f in corpus():
     t = read(f)
@@ -1912,8 +1982,8 @@ for f in corpus():
         s = sent(flat, m.start(), m.end())
         if lno(starts, m.start()) != lno(starts, m.end()):
             wrapped += 1
-        if quoted(s, s.find(m.group(0)) + len(m.group(0))): continue
-        if wm_has(s, WM_NARR):                              continue
+        if quoted(s, m.end() - sent_start(flat, m.start())): continue
+        if wm_has(s, WM_NARR) or narr_unq(s):               continue
         if QUAL.search(s):                                  continue
         print("HIT\t%s\t%d\t%s" % (f, lno(starts, m.start()), s.strip()[:150]))
 print("POP\t%d superlative(s), %d of them spanning a line wrap" % (pop, wrapped))
@@ -1978,7 +2048,9 @@ floor = int(sys.argv[1])
 # matched (the lookahead); a bare "×10" is a ratio of ten and IS a claim. Until Q-968 the exemption
 # was `r == 10`, so every ratio equal to 10 left the population, and so did every zero denominator
 # (`b == 0`). A zero denominator is now a loud HIT: the printed quotient cannot be checked.
-N = MD_UNUM
+# Q-981 (batch 44; Codex gpt-6-astra Q964-D05#16): the operands are SIGNED numbers. Unsigned, `7.84 / +0`
+# matched nothing at all, so the zero denominator md_ratio refuses never reached it.
+N = MD_NUM
 R = r'(?![\d,.]?\d)(?!\^|[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺])'
 # Shape A: "6.52 / 3.2258 = **×2.02**"     Shape B: "**×2.02 …** (6.52 / 3.2258)"
 A = re.compile(r'(%s)\s*/\s*(%s)\s*=\s*\**[×x](%s)%s' % (N, N, MD_MAG, R))
@@ -2312,7 +2384,9 @@ PCT  = re.compile(r'(?<![0-9.])(\d{1,2}(?:\.\d+)?)\s*%')
 CONF = re.compile(r'\b(?:90|95|99)(?:\.\d+)?\s*%')
 # Q-968 (A08#23): the band is read by the shared number lexer, so ASCII "+/-0.01 bits" is a band
 # exactly as "±0.01 bits" is; only the band forms (pm) are kept, as before only ± was.
-BITS = re.compile(r'(%s)\s*bits?' % MD_NUM)
+# Q-981 (batch 44; Codex gpt-6-astra Q964-D05#2): a BAND is read wherever its `±` (or `+/-`) is, glued to a
+# mean or not: "8±0.01 bits" was not a number to the lexer (its left edge refuses a digit before the sign).
+BITS = re.compile(r'((?:\+/[-−]|±)[ \t]?%s)\s*bits?' % MD_MAG)
 MARK = re.compile(r'(?i)(corrected|withdrawn|superseded|no longer stand)')
 DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
 NEW  = re.compile(r'\s*(?:[-*+]\s|\d+\.\s|\|)')
@@ -2342,7 +2416,9 @@ for f in corpus():
         text = " ".join(buf)
         # the confidence LEVEL is not a relative error; mask 90/95/99% before reading percentages
         pcts = sorted(set(m.group(1) for m in PCT.finditer(CONF.sub(" CONF ", text))))
-        bits = sorted(set(("%.*f" % (n.dp, float(n.mag)), n.dp, float(n.mag))
+        # Q-981 (Q964-D05#17): compared at the band's ABSOLUTE precision, 10^(exp-dp): `±1e-2` is stated to
+        # two decimals, not to its mantissa's zero.
+        bits = sorted(set(("%.*f" % (max(0, n.dp - (n.exp or 0)), float(n.mag)), n.dp - (n.exp or 0), float(n.mag))
                           for n in (md_num(m.group(1)) for m in BITS.finditer(text)) if n.pm))
         if not pcts or not bits:
             continue
@@ -2469,7 +2545,7 @@ for f in corpus():
         s = sent(flat, m.start(), m.end())
         if RESTR.search(m.group(0)):
             continue
-        if quoted(s, s.find(m.group(0)) + len(m.group(0))):
+        if quoted(s, m.end() - sent_start(flat, m.start())):
             ex_quoted += 1
             continue
         if wm_has(s, WM_NARR):

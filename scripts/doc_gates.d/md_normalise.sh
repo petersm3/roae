@@ -168,7 +168,20 @@ MD_MAG = (r'(?:0[xX][0-9A-Fa-f]+(?![0-9A-Za-z])'
           r'|\d{1,3}(?: \d{3})+|\d+)(?!\d)(?:\.\d+)?'
           r'(?:' + _MD_EXP + r'|(?:(?<=[^\d.,]10)|(?<=^10))' + _MD_POW + r')?)')
 MD_EDGE = r'(?<![\w.])(?:(?<!\d[,   ])|(?!\d{3}(?!\d)))'
-MD_SIGN = r'(?:(?:\+/[-−]|±)[ \t]?|[-+−])'
+# Q-981 (integration of batch 44 on batch 43; Codex gpt-6-astra Q964-D01#4): a SPACED minus is a sign
+# when nothing that could be a minuend precedes it -- the character before the minus (past at most three
+# blanks) is one of ( [ { : = , ; | . ! ? -- so "limits. − 58.8 %" is -58.8, not the 58.8 the old edge
+# read after the blank, while "7 − 5" stays a subtraction (two numbers). At the start of the text or of
+# a line only U+2212 counts: an ASCII "- " there is a Markdown list marker, not a sign. The anchors are
+# separate fixed-width lookbehinds (Python's re has no variable-width lookbehind).
+_MD_SPM_SET = r'[(\[{:=,;|.!?]'
+_MD_SPM_BEFORE = (r'(?:(?<=' + _MD_SPM_SET + r')'
+                  + ''.join(r'|(?<=' + _MD_SPM_SET + r'[ \t]{%d})' % k for k in (1, 2, 3)) + r')')
+_MD_SPM_START = (r'(?:(?<![\s\S])|(?<=\n)'
+                 + ''.join(r'|(?<=\n[ \t]{%d})|(?<=[ \t]{%d})(?<![\s\S]{%d})' % (k, k, k + 1)
+                           for k in (1, 2, 3)) + r')')
+MD_SIGN = (r'(?:(?:\+/[-−]|±)[ \t]?|[-+−]|' + _MD_SPM_BEFORE + r'[-−][ \t]+|'
+           + _MD_SPM_START + r'−[ \t]+)')
 MD_NUM = MD_EDGE + r'(?:' + MD_SIGN + r')?' + MD_MAG
 MD_UNUM = MD_EDGE + MD_MAG
 _MD_NUM_RE = _nre.compile(MD_NUM)
@@ -202,7 +215,7 @@ def md_num(raw):
             o.sign = {'+/-': '±', '+/−': '±', '−': '-'}.get(sg, sg)
             o.pm = o.sign == '±'
             s = s[len(sg):]
-            if o.pm:
+            if o.pm or o.sign == '-':   # Q964-D01#4: the spaced minus MD_SIGN takes ("− 58.8")
                 s = s.lstrip(' \t')
             break
     if _nre.fullmatch(r'0[xX][0-9A-Fa-f]+', s):

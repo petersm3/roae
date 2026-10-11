@@ -512,11 +512,18 @@ def sentence_of(lines, lno, start):
         if i == lno - 1:
             off = len(para) + start
         para += lines[i] + " "
-    cuts = [0] + [m.end() for m in SENT_END.finditer(para) if not ABBREV.search(para[:m.end()].rstrip())] + [len(para)]
+    cuts = [0] + [m.end() for m in SENT_END.finditer(para) if not ABBREV.search(para[:m.end()].rstrip())
+                  or (ETC_END.search(para[:m.end()].rstrip()) and para[m.end():m.end() + 1].isupper())] + [len(para)]
     for s, e in zip(cuts, cuts[1:]):
         if s <= off < e:
             return para[s:e]
     return para
+
+
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D08#7): "etc." also ENDS a sentence when a capital follows -- "The
+# value is 42 in A, B, etc. This inference is about a different result." was one sentence, so the second
+# sentence's premise qualified the first. ("etc. and ..." and "etc., ..." still continue one.)
+ETC_END = re.compile(r"\betc\.[*_)`\]\"”’']*$")
 
 
 def check_row(r, files, cache):

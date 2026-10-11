@@ -116,12 +116,29 @@ except OSError as e:
 vsrc = read('reports/certificates/verify_all.sh')
 vmap = None
 if vsrc is not None:
-    blocks = re.findall(r'(?m)^declare -A CERTS=\(([^)]*)\)', vsrc)
+    # Q-986 (batch 44; Codex gpt-6-astra Q964-D06#1): the keys are what BASH reads, not a regex over the
+    # text. `\[k\]=` also matched inside a quoted VALUE ("alt-le-14 [grand_ccn4_unsat]="), so a deleted
+    # entry stayed "mapped", and `[^)]*` ended the literal at a `)` inside a value. Now the literal ends
+    # where the shell lexer says, it must be words only (no expansion, no operator: nothing in it can
+    # run), and bash itself evaluates it and lists ${!CERTS[@]}.
+    import subprocess as _vsp
+    blocks = list(re.finditer(r'(?m)^declare -A CERTS=\(', vsrc))
     if len(blocks) != 1:
         print("ERROR\tverify_all.sh has %d 'declare -A CERTS=(' literal(s), expected 1 - LEG 1's map check checked NOTHING" % len(blocks))
     else:
-        body = re.sub(r'(?m)(?:^|(?<=\s))#.*$', '', blocks[0])
-        vmap = set(re.findall(r'\[([^\]\s]+)\]=', body))
+        try:
+            _end = _sp_balanced(vsrc, blocks[0].end(), '(', ')')
+            _toks = sp_sh_lex(vsrc[blocks[0].end():_end - 1])
+            if any(k not in ('word', 'nl') or (k == 'word' and not v.lit()) for k, v, _ in _toks):
+                raise SpError('the CERTS literal holds an expansion or an operator; it is not evaluated')
+            _r = _vsp.run(['bash', '--norc', '--noprofile', '-c', vsrc[blocks[0].start():_end] + '\nprintf "%s\\n" "${!CERTS[@]}"'],
+                          capture_output=True, text=True, timeout=60, env={'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'LC_ALL': 'C'})
+            if _r.returncode != 0 or _r.stderr.strip():
+                raise SpError('bash rc %d: %s' % (_r.returncode, _r.stderr.strip()[:200]))
+            vmap = set(k for k in _r.stdout.split('\n') if k)
+        except SpError as e:
+            print("ERROR\tverify_all.sh's CERTS literal could not be read (%s) - LEG 1's map check checked NOTHING" % e)
+            vmap = set()
         if not vmap:
             print("ERROR\tverify_all.sh's CERTS map parsed to 0 keys - LEG 1's map check checked NOTHING")
             vmap = None
@@ -161,7 +178,11 @@ def _unspan(u):
     return u
 MASK = re.compile(r'\b(?:five|four)[_-](?:loo|sub|ccn|strict|rules?_)[A-Za-z0-9_.+\-]*'
                   r'|\b(?:five|four)_[A-Za-z0-9_.+\-]+')
-_CL4 = re.compile(r'[;.!?](?:\s|$)|\s\|\s|\s[\u2014\u2013]\s|\s--?\s')   # Q-966: clause breaks for LEG 2
+_CL4 = re.compile(r'[;.!?](?:\s|$)|\s\|\s|\s[\u2014\u2013]\s|\s--?\s'   # Q-966: clause breaks for LEG 2
+                  # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#2): and a comma that opens a contrasting or
+                  # coordinate clause -- "grand-ccn4 is the five-rule theorem, whereas grander-strict is the
+                  # four-rule theorem." was one clause naming both, so neither swapped label was judged.
+                  r'|,\s+(?=(?:whereas|while|but|and|or|so|yet|although|though)\b)|\bwhereas\b', re.I)
 W4 = re.compile(r'\bfour\b', re.I)
 W5 = re.compile(r'\bfive\b', re.I)
 popb = exb = exl = 0
@@ -223,7 +244,7 @@ SE  = re.compile(r'\bse=|standard error|\bSEs\b', re.I)
 # would have gone green on its own red test. The negation must attach to the SE claim.
 NEG = re.compile(r'no `?se=|carr(?:y|ies|ied) no|contains? no|zero `?se=|does not carry'
                  r'|predates?\b|no standard error|without `?se=|no PUBLISHED artifact', re.I)
-REV = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
+REV = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`
 RELSE = wm_re(r'relative\s+standard\s+errors?|relerr')   # Q-966: the claim a `relerr=` field backs
 popc = exc = exr = 0
 _seen = {}
@@ -290,7 +311,10 @@ def row_unit(lines, i, col_text):
     while h > 0 and lines[h - 1].lstrip().startswith('|'): h -= 1
     if h + 1 < len(lines) and re.match(r'^\s*\|[\s:|-]+\|?\s*$', lines[h + 1]) and h != i:
         hc = _cells(lines[h]); hdr = hc[k] if k < len(hc) else ''
-    short = [c for j, c in enumerate(row) if j != k and len(re.sub(r'[*_`]', '', c).split()) <= 3]
+    # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#4): a sibling is a LABEL only if it states no quantity of
+    # its own -- `| canonical 26,112 | orientation-explicit 27,000 |` borrowed the other count's convention.
+    short = [c for j, c in enumerate(row) if j != k and len(re.sub(r'[*_`]', '', c).split()) <= 3
+             and not re.search(r'\d{1,3}(?:,\d{3})+|\d{3,}', c)]
     return ' | '.join([row[k], hdr] + short)
 popd = 0
 for f in corpus():
@@ -399,7 +423,12 @@ for f in corpus():
         if not (mi and LSQ.search(l)):
             continue
         pop += 1
-        if STATIC.search(l):
+        # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#5): "static" must be in the SENTENCE that explains
+        # the MI by the complete square, when one sentence does; a neighbouring sentence of the same
+        # paragraph ("The static statistic is also reported.") qualified nothing. A paragraph whose MI
+        # and square sit in different sentences keeps the paragraph test.
+        _ss = [s for s in re.split(r'(?<=[.!?])\s+(?=[A-Z(\[`*"])', l) if MI.search(s) and LSQ.search(s)]
+        if (all(STATIC.search(s) for s in _ss) if _ss else STATIC.search(l)):
             continue
         print("HIT\t%s\t%d\t%s" % (f, md_lno(u, mi.start()), l[:150]))
 print("POP\t%d site(s) explain a mutual-information figure with the complete-square construction" % pop)
@@ -556,7 +585,7 @@ gate_band_status() {
   echo "== GATE 42: the x15-17 weakest-remaining band must be labelled illustrative everywhere =="
   local FLOOR=5
   local out
-  out=$( { _g1_prelude; _wm_prelude; cat <<'PY'
+  out=$( { _g1_prelude; _wm_prelude; _sp_prelude; cat <<'PY'
 floor = int(sys.argv[1])
 files = corpus('*.md') + corpus('viz/*.py')
 BAND = re.compile(r'(?:×|x)\s?15\s?[-–]\s?17|15\s?[-–]\s?17\s?(?:/|per )boundary|weakest[- ]remaining[- ]boundary', re.I)
@@ -572,7 +601,7 @@ WM_MARK = wm_re(r'illustrative|not\s+reproducible|NOT\s+measured|no\s+measuremen
 # to catch, silently. The narration marker has to be about THIS band's status, not about
 # the paragraph having a correction somewhere in it.
 NARR = re.compile(r'published as measured|was published as|BEFORE\.|Registered as RP-', re.I)
-REV  = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
+REV  = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`
 # 🔴 CONTIGUOUS-BLOCK SCOPE, AND A LINE-SCOPE DRAFT WAS MEASURED FAILING BOTH ITS OWN
 # SITES. The marker sits on the NEXT physical line at both places it matters:
 # TR-4:174 ends "…reported roughly ×15–17 per boundary — but ⚠ **that" and :175 opens
@@ -604,7 +633,7 @@ for f in files:
         # generator is read with its comments blanked (shared matcher, tokenize), so the band and its
         # marker must both be in what the code prints.
         try:
-            t = wm_strip_comments(t, 'py')
+            t = sp_strip_comments(t, 'py')
         except Exception as e:
             print("ERROR\t%s could not be tokenized (%s) - it was NOT checked" % (f, e)); continue
     for i, blk in blocks(t):
@@ -674,12 +703,14 @@ gate_anchor_coverage() {
 # A token glued to a letter or digit on its right (a hex or sha fragment) is not a number.
 def ints(line):
     for n in md_nums(line):
-        if (n.kind == 'int' and n.sign == '' and len(str(n.value)) >= 25
+        # Q-981 (batch 44; Codex gpt-6-astra Q964-D06#7): an explicit `+` is still a positive count --
+        # `+123,456,...` was not an anchor at all, so a new anchor written that way escaped coverage.
+        if (n.kind == 'int' and n.sign in ('', '+') and len(str(n.value)) >= 25
                 and not line[n.end:n.end + 1].isalnum()):
             yield n
 # A row whose value is computed FROM another row is not an independent calibration anchor.
 DERIV = re.compile(r'=\s*N\s*/\s*24|/24 of the|derived from|of the two-instrument count above', re.I)
-REV   = re.compile(r'^\s*\|\s*\*{0,2}v?\d+\.\d+[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')
+REV   = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`
 m_txt = read('reports/METHODS.md')
 t_txt = read('reports/TR4_SIZE_OF_THE_SPACE.md')
 if m_txt is None or t_txt is None:
@@ -1339,6 +1370,11 @@ SUBJ=lambda s: re.search(r"\bprunes?\b",s) and re.search(r"\bshas?\b|sha lineage
 # 8717d434, HISTORY.md two 64-nibble shas) keep it.
 HEDGE=re.compile(r"\b(can|may|might) (change|move|differ|open)|byte-identical|wherever it fires|empirical question")
 SHAEV=wm_hex_re(8, 64)
+# Q-981 (batch 44; Codex gpt-6-astra Q964-D06#9): a token in SCIENTIFIC shape (digits, `e`, digits) is a
+# number, not a sha: "a budget of `1000000e3` nodes" was sha evidence because its `e` is a hex letter.
+_SCI = re.compile(r'\d+(?:\.\d+)?[eE]\d+')
+def shaev(s):
+    return any(not _SCI.fullmatch(m.group(0)) for m in SHAEV.finditer(s))
 n=0
 for f in files:
     try: t=io.open(f,encoding="utf-8").read()
@@ -1348,7 +1384,7 @@ for f in files:
         if re.match(r"\| *v\d", s): continue  # revision rows quote superseded wording (a version, Q-763)
         if not SUBJ(s): continue
         n+=1
-        if HEDGE.search(s) or SHAEV.search(s): continue
+        if HEDGE.search(s) or shaev(s): continue
         print("HIT\t%s\t%s"%(f,s[:220]))
 print("POP\t%d\t%d"%(n,len(files)))
 PY

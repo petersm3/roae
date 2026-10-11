@@ -424,15 +424,21 @@ _UNIT_START = re.compile(r'^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\||>\s*[-*+]\s)')
 # alone are not enough (Q-835 A08#15 is the same class in GATES 30/31/33/38).
 _QSPAN = re.compile(r'"[^"\n]*"|“[^”\n]*”')
 _QVERB = re.compile(r'\b(?:labell?ed|read|reads|said|says|described|called|written|wrote|quoted?|phrase|wording)\b', re.I)
-def quoted_narration(unit, key):
+def quoted_narration(unit, key, at=None):
+    # Q-980 (batch 44; Codex gpt-6-astra Q964-D03#3): the occurrence judged is the CLAIM'S OWN (`at`, its
+    # offset in the unit), not the first one: 'formerly said "in flight", but the replacement run is in
+    # flight.' judged the live second key by the quoted first.
     spans = [m.span() for m in _QSPAN.finditer(unit)]
-    k = unit.lower().find(key)
+    k = unit.lower().find(key) if at is None else at
     if k < 0 or not any(a <= k < b for a, b in spans):
         return False
     return bool(_QVERB.search(_QSPAN.sub(' ', unit)))
 # A dated revision-table row (`| v1.2 | 2026-07-05 | ... |`) is a record of the state AT that
 # version, the role HISTORY.md plays for the whole corpus, so its tense is not a frozen status.
-_REVROW = re.compile(r'^\s*\|\s*\*{0,2}v?\d+(?:\.\d+)*[^|]*\|\s*\*{0,2}20\d\d-\d\d-\d\d\*{0,2}\s*\|')
+# Q-980 (batch 44; Codex gpt-6-astra Q964-D03#4): the first cell must be a VERSION -- `v` and a number,
+# or a dotted number (1.2, 1.2.3) -- not any digit-led cell: `| 560T | 2026-10-08 | in flight |` under
+# Run/Date/Status is a live status row, and `v?\d+` with a free suffix read it as a revision row.
+_REVROW = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*\*{0,2}20\d\d-\d\d-\d\d\*{0,2}\s*\|')
 def unit_at(text, pos):
     """The scope unit (sentence, table row, heading, list item) of `text` holding offset `pos`."""
     ls = text.rfind('\n', 0, pos) + 1
@@ -462,7 +468,7 @@ def unit_at(text, pos):
         if x <= off < y:
             return para[x:y]
     return para
-def unit_of(u, p):
+def unit_of(u, p, with_off=False):
     """unit_at for an md_parse block `u` (integration, batch 40). Q-965 joins a paragraph's lines with
     one space, drops list markers and removes backticks, so unit_at's own code-span mask cannot see
     them: the list item holding offset `p` is cut here, and a code span's text (taken from the RAW
@@ -479,21 +485,35 @@ def unit_of(u, p):
         xa, xb, a, b = 0, len(u['lines']), 0, len(t)
     seg, off = t[a:b], p - a
     if seg.lstrip().startswith('|') or re.match(r'^#{1,6}\s', seg):
-        return seg
-    masked = seg
-    for _ln, raw in u['lines'][xa:xb]:
-        for cm in re.finditer(r'(`+)([^`\n]+?)\1', raw):
-            c = md_inline(cm.group(2))
-            if not re.search(r'[.!?]', c) or not re.search(r'[^.!?\s]', c): continue   # Fable B40 FIX 2: a span with no sentence-ender cannot hide a cut, and a bare `.` span must not mask every period
-            q = seg.find(c) if c else -1      # found in seg, masked in `masked`: an earlier, shorter
-            while q >= 0:                     # span ("/data") must not hide a longer one that holds it
-                masked = masked[:q] + 'x' * len(c) + masked[q + len(c):]
-                q = seg.find(c, q + len(c))
+        return (seg, off) if with_off else seg
+    # Q-980 (batch 44; Codex gpt-6-astra Q964-D03#6): a code span is masked WHERE IT IS, not wherever
+    # its text recurs: `done.` in a code span also masked the prose "is done." and removed that
+    # sentence end. The unit is re-normalised with each span's content replaced by x's of the same
+    # normalised length, so the masked text lines up character for character with u['text']; if it
+    # does not (a normalisation that is not length-stable), the old text search is the fallback.
+    def _xspan(cm):
+        c = md_inline(cm.group(2))
+        if not re.search(r'[.!?]', c) or not re.search(r'[^.!?\s]', c):   # Fable B40 FIX 2: no sentence-ender, nothing to hide
+            return cm.group(0)
+        return cm.group(1) + 'x' * len(c) + cm.group(1)
+    mt = md_para([(ln_, re.sub(r'(`+)([^`\n]+?)\1', _xspan, raw)) for ln_, raw in u['lines']])['text']
+    if len(mt) == len(t):
+        masked = mt[a:b]
+    else:
+        masked = seg
+        for _ln, raw in u['lines'][xa:xb]:
+            for cm in re.finditer(r'(`+)([^`\n]+?)\1', raw):
+                c = md_inline(cm.group(2))
+                if not re.search(r'[.!?]', c) or not re.search(r'[^.!?\s]', c): continue
+                q = seg.find(c) if c else -1
+                while q >= 0:
+                    masked = masked[:q] + 'x' * len(c) + masked[q + len(c):]
+                    q = seg.find(c, q + len(c))
     cuts = [0] + [m.end() for m in _SB.finditer(masked) if not _ABBR.search(masked[:m.end()].rstrip())] + [len(seg)]
     for x, y in zip(cuts, cuts[1:]):
         if x <= off < y:
-            return seg[x:y]
-    return seg
+            return (seg[x:y], off - x) if with_off else seg[x:y]
+    return (seg, off) if with_off else seg
 import subprocess   # Q-969 (A05#19): the population is EVERY tracked .md, nested ones included (`git ls-files`, recursive); the old one-level globs never read reports/evidence/f1/README.md
 files = [f for f in subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True, check=True).stdout.split('\n')
          if f and os.path.isfile(f) and f not in ('documentation/HISTORY.md', 'documentation/HISTORY_INDEX.md')]
@@ -544,7 +564,12 @@ for f in files:
                 i, j = md_lno(u, p), md_lno(u, mk.end() - 1)
                 if i in found:
                     continue
-                span = md_inline(' '.join(lines[i - 1:j])).lower()
+                # Q-980 (batch 44; Codex gpt-6-astra Q964-D03#5): NARRATION is read in the claim's own SENTENCE
+                # (unit_of), not on its whole physical line: "The ladder build is in flight. A previous
+                # sentence was withdrawn." -- the second sentence's "withdrawn" narrated nothing about the first.
+                ctx, at = unit_of(u, p, with_off=True)
+                ctx = ctx.lower()
+                span = ctx
                 # Q-978 (batch 43; the exemption-path sweep of Codex gpt-6-astra Q964-D04#7/D05#10): NARRATION
                 # and DISPO are read as whole words that are NOT negated (wm_any): "has not completed" and "not
                 # superseded" dispose of nothing; the substring tests counted them.
@@ -555,8 +580,7 @@ for f in files:
                 # -4/+2 raw-line window; a dated revision-table row is a record as of its version.
                 if _REVROW.match(lines[i - 1]):
                     continue
-                ctx = unit_of(u, p).lower()
-                if wm_any(ctx, DISPO) or quoted_narration(ctx, k):
+                if wm_any(ctx, DISPO) or quoted_narration(ctx, k, at):
                     continue
                 print(f"  [FINDING] {f}:{i} — status frozen in the present tense: \"{k}\"")
                 print(f"            {lines[i - 1].strip()[:110]}")
@@ -674,7 +698,11 @@ def block(path, cap=MAXBLK):
         # Q-965 (A05#20): a line ending in a BOLD close (`**argued, not verified**`) does not close
         # the italic. Ending the block there let every line after it, the retracted over-claim
         # included, sit outside the block this gate compares and checks. Drop `**` runs first.
-        if l.rstrip().replace('**', '').endswith('*'):      # closing italic marker
+        # Q-980 (batch 44; Codex gpt-6-astra Q964-D03#9): an ESCAPED `\*` is a literal asterisk, not the
+        # closing marker (an odd run of backslashes before it escapes it); ending there left the
+        # over-claim on the next line outside the block.
+        _s = l.rstrip().replace('**', '')
+        if _s.endswith('*') and (len(_s) - 1 - len(_s[:-1].rstrip('\\'))) % 2 == 0:      # closing italic marker
             return '\n'.join(blk), 1, i + 1
     return None, -1, i + 1                # never closed its italic within `cap`
 
