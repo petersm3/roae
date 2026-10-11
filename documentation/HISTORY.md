@@ -11192,3 +11192,30 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
   continue. One caution about Zhang Qingyu 1994 (pp. 43–44) is still deferred: it needs a page read that has not been
   done.
 - No published number, count, sha or verdict changed in this extension.
+
+## 2026-10-09 — two pre-registered literature tests, Q-OY1 and Q-992, came back UNINFORMATIVE, and the null result is published with its registration, instrument and run record
+
+**What was tested (CX-331).**
+
+- Two observations from the October literature reading were tested: Han Zhongmin's 1984 count of six
+  neighbouring pairs whose trigrams are exchanged, and Ouyang Weicheng's 1993 reading of a group of
+  sixteen hexagrams as a framework of the received order. The set of sixteen was named earlier by Zhang
+  Xingcheng.
+- Each became one number, frozen in a registration before it was computed on King Wen. The
+  registration's digest is published, with a public copy that leaves out its cost section and one cost sentence.
+
+**What came out.**
+
+- Both numbers are unremarkable for King Wen, against all orderings of the pairs (exact) and against
+  the C1–C5 population (estimated). The verdict for both is UNINFORMATIVE. This does not say either
+  author was wrong.
+- Han's six follows from the pairing rule alone: every ordering that respects the pairs has exactly
+  those six. The proof is short enough to check by hand.
+
+**What was published.**
+
+- The scorer in `solve.c` and `solve.py` was placed so that no line a document cites by number moved.
+  It gives the same output as the exact code the runs used, and that code is shipped as a patch.
+- The run outputs, the scripts and every token are in `reports/evidence/qoy1_q992/`. The exact null
+  can be reproduced on a laptop in about seven minutes (419 s measured on one core).
+- No published number, count, sha or verdict changed.

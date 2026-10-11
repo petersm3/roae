@@ -353,7 +353,7 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   whose only reproduction path was a private script would not be reproducible
   at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
   `solve.py` would destroy the independence it was created to supply.
-- **`reports/evidence/**/*.py`** (**14** files under `f1/`, `f5/`, `f11/`,
+- **`reports/evidence/**/*.py`** (**17** files under `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
   `r11/` and `q374_se_replicates/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
   "11 files under `f1/`, `f5/`, `f11/`, `r11/`" and BOTH halves were stale.**

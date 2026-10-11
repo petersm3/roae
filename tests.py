@@ -19191,11 +19191,34 @@ class TestLaneHFRedactReproOutCompileRatchet(unittest.TestCase):
         files = self._tracked("reports/evidence", "runs")
         self.assertGreater(len(files), 100, "precondition: the sweep sees the evidence tree")
         self.assertIn("reports/evidence/f5/c230_launch.log", files)
+        # CX-331 item 8: the same content-bound exemption as the private-pointer sweep (CX-331 item 7),
+        # for the two frozen Q-OY1/Q-992 files that carry the author's checkout path and must ship
+        # byte-identical to what was locked: the public pre-registration copy (005a0dab...) and the
+        # freeze-time defcheck (1540879a..., the lock-ledger digest; its README tells a reader to change
+        # line 7). A file is exempt only while its whole sha256 equals the value below; any edit re-arms
+        # the sweep on every line of it.
+        frozen = {"reports/evidence/qoy1_q992/PREREGISTRATION.md":
+                  "005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2",
+                  "reports/evidence/qoy1_q992/prereg_qoy1_q992_defcheck.py":
+                  "1540879aa119724f380d5bd191652bea46dc330e85cdf5556c4b9a86c89b7bf7"}
+        def exempt(rel, b):
+            return frozen.get(rel) == hashlib.sha256(b).hexdigest()
+        with open(os.path.join(self.ROOT, "reports/evidence/qoy1_q992/README.md"), encoding="utf-8") as fh:
+            readme = fh.read()
+        for rel, sha in sorted(frozen.items()):
+            self.assertIn(rel, files, "precondition: drop the exemption for %s if it is no longer shipped" % rel)
+            self.assertIn(sha, readme, "the bundle README records the exempted digest of %s" % rel)
+            with open(os.path.join(self.ROOT, rel), "rb") as fh:
+                b = fh.read()
+            self.assertTrue(self.leaks(b.decode("utf-8", "replace")), "precondition: %s still carries a path" % rel)
+            self.assertTrue(exempt(rel, b), "%s: edited, so its exemption no longer applies" % rel)
+            self.assertFalse(exempt(rel, b + b"/home/alice/x\n"), "positive control: an edited copy is not exempt")
+            self.assertFalse(exempt("reports/evidence/other/" + os.path.basename(rel), b), "the exemption is per path")
         hits = []
         for rel in files:
             with open(os.path.join(self.ROOT, rel), "rb") as fh:
                 b = fh.read()
-            if b"\0" in b:
+            if b"\0" in b or exempt(rel, b):
                 continue
             hits += ["%s:%d" % (rel, i) for i in self.leaks(b.decode("utf-8", "replace"))]
         self.assertEqual(hits, [])
@@ -27999,11 +28022,36 @@ class TestLaneHAJ(unittest.TestCase):
         self.assertTrue(hit(ex_dir + "x.json", lit + b" roae-private/Y.md"), "positive control: a second pointer is still a hit")
         self.assertFalse(hit(ex_dir + "x.json", lit), "the exempted literal alone is not a hit")
         self.assertTrue(hit("runs/other/x.json", lit), "outside the run folder the literal is a hit")
+        # CX-331 item 7: the second exemption, bound to CONTENT, not to a path. Two Q-OY1/Q-992 files
+        # must ship exactly as recorded: the public copy of the frozen pre-registration (its sha256 is
+        # published in the bundle README, on PREREGISTRATION_ESCROW.md and in CX-331, and its README
+        # promises a diff of exactly the two cost hunks against the privately frozen 5e15192f...), and
+        # the instrument-pin patch (it must reproduce solve.c 60937db1... / solve.py a0ed4150... /
+        # tests.py f91b3e11... byte for byte, and those files name the private registration path). A
+        # file is exempt only while its whole sha256 equals the value below, so any edit, including a
+        # new private pointer, re-arms the sweep on every line of it.
+        frozen = {"reports/evidence/qoy1_q992/PREREGISTRATION.md":
+                  "005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2",
+                  "reports/evidence/qoy1_q992/instrument_pin_4b590dfc.patch":
+                  "e4dd40aeb61258d02e9897da4d2f5af0dc7b82673c9f91c827314e7896588519"}
+        def exempt(rel, b):
+            return frozen.get(rel) == hashlib.sha256(b).hexdigest()
+        with open(os.path.join(self.ROOT, "reports/evidence/qoy1_q992/README.md"), encoding="utf-8") as fh:
+            readme = fh.read()
+        for rel, sha in sorted(frozen.items()):
+            self.assertIn(rel, files, "precondition: drop the exemption for %s if it is no longer shipped" % rel)
+            self.assertIn(sha, readme, "the bundle README records the exempted digest of %s" % rel)
+            with open(os.path.join(self.ROOT, rel), "rb") as fh:
+                b = fh.read()
+            self.assertTrue(any(pat.search(ln) for ln in b.split(b"\n")), "precondition: %s still carries a pointer" % rel)
+            self.assertTrue(exempt(rel, b), "%s: edited, so its exemption no longer applies" % rel)
+            self.assertFalse(exempt(rel, b + b"roae-private/Z.md\n"), "positive control: an edited copy is not exempt")
+            self.assertFalse(exempt("reports/evidence/other/" + os.path.basename(rel), b), "the exemption is per path")
         hits = []
         for rel in files:
             with open(os.path.join(self.ROOT, rel), "rb") as fh:
                 b = fh.read()
-            if b"\0" in b:
+            if b"\0" in b or exempt(rel, b):
                 continue
             hits += ["%s:%d" % (rel, i) for i, ln in enumerate(b.split(b"\n"), 1) if hit(rel, ln)]
         self.assertEqual(hits, [])
@@ -41309,6 +41357,101 @@ class TestLit2xWangjunlong2007(unittest.TestCase):
         self.assertIn("下册 pp. 812–836", cit[i:cit.index("<a id=", i + 10)])
 
 # end class TestLit2xWangjunlong2007 (literature batch 2, extension)
+
+
+class TestQoyScorer(unittest.TestCase):
+    """PREREG_QOY1_Q992_2026_10_09 §7.1: the Q-OY1/Q-992 scorer's two-language gate and its
+    mutant leg as standing regressions. Leg 1: solve.c --qoy-verify reproduces solve.py's
+    output byte-for-byte on KW and on seeded C1∩C4 orderings (the gate's own seed; fewer
+    orderings than the recorded 10^5 run, which is `python3 solve.py --qoy-gate ./solve`).
+    Leg 2 (gates must discriminate): a build with the within/cross parity of X and W swapped
+    must make the same gate print QOY_VERIFY=FAIL. These test the INSTRUMENT, not King Wen."""
+
+    N = 3000
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="qoy_")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        with open(src) as fh:
+            cls.text = fh.read()
+        cls.x_line = "for (int i = 1; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) x++;   /* QOY_X_PARITY"
+        cls.w_line = "for (int i = 0; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) w++;   /* QOY_W_PARITY"
+        mut = cls.text.replace(cls.x_line, cls.x_line.replace("i = 1;", "i = 0;")) \
+                      .replace(cls.w_line, cls.w_line.replace("i = 0;", "i = 1;"))
+        cls.mut_src = os.path.join(cls.tmp, "solve_qoy_mutant.c")
+        with open(cls.mut_src, "w") as fh:
+            fh.write(mut)
+        cls.bins = {}
+        for tag, path in (("good", src), ("mutant", cls.mut_src)):
+            b = os.path.join(cls.tmp, "solve_" + tag)
+            r = subprocess.run(["timeout", "600", "gcc", "-O1", "-fopenmp", "-o", b, path,
+                                "-lm", "-lpthread", "-lz"], capture_output=True, text=True)
+            cls.bins[tag] = b if r.returncode == 0 and os.path.exists(b) else None
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _gate(self, binary):
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = solve.qoy_gate(binary, n=self.N, include_kw=True, timeout=600)
+        return rc, buf.getvalue().splitlines()
+
+    def test_mutant_precondition(self):
+        # The mutation must actually change the source in both places, or leg 2 proves nothing.
+        self.assertEqual(self.text.count(self.x_line), 1)
+        self.assertEqual(self.text.count(self.w_line), 1)
+        with open(self.mut_src) as fh:
+            self.assertNotEqual(fh.read(), self.text)
+
+    def test_gate_passes_on_solve_c(self):
+        self.assertIsNotNone(self.bins["good"], "solve.c failed to build")
+        self.assertIsNotNone(solve.QOY_KW_EXPECTED, "QOY_KW_EXPECTED unset")
+        rc, out = self._gate(self.bins["good"])
+        self.assertIn("QOY_KW_EXPECTED_MATCH=YES", out)
+        self.assertIn("QOY_VERIFY=PASS", out)
+        self.assertEqual(rc, 0)
+
+    def test_gate_fails_on_parity_mutant(self):
+        self.assertIsNotNone(self.bins["mutant"], "mutant failed to build")
+        rc, out = self._gate(self.bins["mutant"])
+        self.assertIn("QOY_VERIFY=FAIL", out)
+        self.assertNotIn("QOY_VERIFY=PASS", out)
+        self.assertEqual(rc, 1)
+
+    def test_w_forced_and_x_range_on_c1_orderings(self):
+        # Prereg §3.1: every C1 ordering has W = 6; X is in 0..11; coset per slot consistent,
+        # eight coset-0 slots, slot 1 among them (C4).
+        for s in solve.qoy_gate_orderings(500, seed=20261009):
+            self.assertEqual(solve.q992_W(s), 6)
+            self.assertTrue(0 <= solve.q992_X(s) <= 11)
+            ids, cons = solve.qoy1_cosets(s)
+            self.assertTrue(cons)
+            self.assertEqual(ids.count(0), 8)
+            self.assertEqual(ids[0], 0)
+
+    def test_import_without_verify_beside_it(self):
+        # Some gates copy solve.py alone into a scratch directory (q422_ratio_columns_gate.sh). The
+        # module-level `import verify` of the QOY block must not break that, and its fallback must be
+        # verify.py's _cuo/_zong exactly (all 64), so King Wen's line is unchanged there.
+        d = tempfile.mkdtemp(prefix="qoy_nover_")
+        try:
+            shutil.copy("solve.py", d)
+            probe = ("import solve; print(type(solve.verify).__name__); "
+                     "print(solve.qoy_line(list(solve.binary_hexagrams)) == solve.QOY_KW_EXPECTED)")
+            r = subprocess.run(["timeout", "300", sys.executable, "-c", probe], cwd=d,
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr[-400:])
+            self.assertEqual(r.stdout.split(), ["_QoyVerifyFallback", "True"])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        self.assertEqual(type(solve.verify).__name__, "module")   # the normal path uses verify.py itself
+
+# end class TestQoyScorer (PREREG_QOY1_Q992_2026_10_09 §7.1)
+
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

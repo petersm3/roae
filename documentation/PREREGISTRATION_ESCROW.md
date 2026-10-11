@@ -425,3 +425,25 @@ pre-measurement one. This is that row:
 
 The result is in [TR-8](../reports/TR8_REORDERING_REVISITED.md) v1.21 and
 [CORRECTIONS.md](CORRECTIONS.md) CX-293.
+
+## 2026-10-09 — the Q-OY1 / Q-992 pre-registration: frozen privately before measurement, published with its result
+
+Added 2026-10-09, after the run. **Nothing above is altered.** This registration was frozen and
+committed in the private repository before either statistic was computed on King Wen, and its digest
+was **not** published here before the run. So, like the ten 2026-08-22 rows, its freeze timing is
+**attested, not checkable**. The commit and lock times below come from the private history and are a
+claim, not a proof. Its result (UNINFORMATIVE for both queries) and the full run record are in
+[reports/evidence/qoy1_q992/](../reports/evidence/qoy1_q992/README.md) and
+[CORRECTIONS.md](CORRECTIONS.md) CX-331.
+
+| file | sha256 | bytes | committed privately | published |
+|---|---|---|---|---|
+| `PREREG_QOY1_Q992_2026_10_09.md` (frozen original, private) | `5e15192fc8e4a5283dddb74c7918e32dca2581e414a8e23e2db5defc0c3651fa` | 32,650 | 2026-10-09 06:51:38 UTC (private commit `0a83ac56`; lock-ledger 06:52:17 UTC) | not published byte-identically; see the next row |
+| [`reports/evidence/qoy1_q992/PREREGISTRATION.md`](../reports/evidence/qoy1_q992/PREREGISTRATION.md) (public copy) | `005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2` | 32,350 | — | 2026-10-09; the frozen text with its cost section and one cost sentence removed (two hunks, listed in the bundle README) |
+| [`reports/evidence/qoy1_q992/PREREGISTRATION_S9_ANNOTATIONS.md`](../reports/evidence/qoy1_q992/PREREGISTRATION_S9_ANNOTATIONS.md) | `ecc50dc7a412d3f83bff169904268557b624ed0706b7ecbfdde49bb82ee9979c` | 3,252 | annotations written 2026-10-09 07:04–07:08 UTC, before any estimator run | 2026-10-09; the two §9 annotations verbatim under a short header |
+| [`reports/evidence/qoy1_q992/prereg_qoy1_q992_defcheck.py`](../reports/evidence/qoy1_q992/prereg_qoy1_q992_defcheck.py) | `1540879aa119724f380d5bd191652bea46dc330e85cdf5556c4b9a86c89b7bf7` | 5,928 | same private commit and lock-ledger entry as the frozen original | 2026-10-09, byte-identical |
+
+**What a reader can check.** That the public copy, the annotations and the check script hash to the
+values above. A reader cannot check that the public copy differs from the frozen original only by
+the two listed removals, because the original is private. If the original is ever disclosed, it can be
+hashed against `5e15192f…` and diffed against the copy.

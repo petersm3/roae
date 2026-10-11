@@ -3958,3 +3958,31 @@ The rejection message lists the accepted modifiers for that subcommand, so the c
 on screen. None of the three is parsed anywhere, and none should be added to a script: a
 harness that matches `KC_PROFILE=OK` / `KC_EXTREMAL=OK` / exit 0 would, before the fix,
 have passed on exactly the run that did not do what its row claimed.
+
+## Q-OY1 / Q-992 scorer — added 2026-10-09
+
+The scorer and two-language gate of the pre-registered Q-OY1 / Q-992 tests. This section sits at the end
+of the file so that no line of this document that other files cite by number moves.
+
+### --qoy-verify
+
+```
+solve --qoy-verify KW|FILE
+```
+
+The C side of the two-language gate for the pre-registered Q-OY1 / Q-992 statistics
+([reports/evidence/qoy1_q992/PREREGISTRATION.md](../reports/evidence/qoy1_q992/PREREGISTRATION.md) §2 and §7.1).
+With `KW` it prints one line for the King Wen sequence; with `FILE` it prints one line per
+ordering in the file (64 whitespace-separated integers per line, each line a permutation of 0..63).
+Each line reads `qoy X=… W=… T=… A=… D=… NSAME=… CONSISTENT=YES|NO IDS=<32 coset ids>`, followed by
+`QOY_VERIFY_N=<count>`. The SPEC side is `solve.py --qoy-verify`, and `solve.py --qoy-gate <binary>`
+compares the two byte-for-byte. It takes exactly one argument; anything else is refused with exit 2
+and `QOY_VERIFY_ARGS=REFUSED`, and an input line that is not a permutation is refused with exit 2 and
+`QOY_VERIFY_INPUT=REFUSED`. Sha-neutral. Population scoring: `SOLVE_KNUTH_SCORE_QOY` below. Results:
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) §"Addendum (2026-10-09): two pre-registered tests that came back UNINFORMATIVE".
+
+### Environment variable
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SOLVE_KNUTH_SCORE_QOY` | 0 | `=1` (with `SOLVE_KNUTH_SCORE=1`): score the pre-registered Q-OY1 / Q-992 statistics per canonical leaf ([reports/evidence/qoy1_q992/PREREGISTRATION.md](../reports/evidence/qoy1_q992/PREREGISTRATION.md) §2): `X` (cross-boundary trigram-swap adjacencies, 0..11), `D` (circular gap dispersion of the eight H16-coset-0 pair slots, 0..504), and the descriptive `W`, `A`, `NSAME` and coset-0 slot occupancy. Prints the raw weighted sums `QOY_RAW_SC`, `QOY_RAW_QC` and `QOY_RAW_N` and the `qoy_hist` and `qoy_occ` lines at full precision so that runs can be pooled; `QOY_LEAVES_SCORED`; the counters `QOY_W_NOT6_LEAVES`, `QOY_INCONSISTENT_LEAVES` and `QOY_CLAMPED` (each must be 0 on a C1 population); King Wen's own values `QOY_KW_X` and `QOY_KW_D`, computed from the KW table; and one `[qoy …]` summary line per statistic. Ground truth / two-language gate: `--qoy-verify`. Estimator-only, sha-neutral. |

@@ -5450,7 +5450,7 @@ typedef struct {
     double dav2_sum[2];                   /* weighted sum of each wave-2 candidate's value over canonical leaves */
     double dav2_sq_below[2], dav2_sq_at[2], dav2_sq_above[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
-    int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */
+    int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */ struct QoyAcc *qoy; /* SOLVE_KNUTH_SCORE_QOY=1: Q-OY1/Q-992 accumulator (heap; NULL otherwise) */
     /* SOLVE_KNUTH_SCORE_DB1=1 (Drasny "Rule of Ten" D-B1, Null B): weighted
      * canonical-leaf mass of the conformity count X (see the DB1 block below).
      * db1_hist[0..32] = exact-value histogram; below/at/above split at KW's X=22.
@@ -6607,7 +6607,7 @@ static void score_dav2(const int seq[64], double W, KnuthArg *a){
         }
     }
 }
-
+/* Q-OY1/Q-992 scorer (SOLVE_KNUTH_SCORE_QOY): declared here, defined in the qoy_* block before solve_env_preflight (placed there so no cited line moves). */ static int knuth_score_qoy = 0; static void score_qoy(const int seq[64], double Wt, KnuthArg *a); static void qoy_alloc_arg(KnuthArg *a); static void qoy_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N); static int qoy_verify_main(int argc, char *argv[]);
 /* ===================== Drasny "Rule of Ten" candidate D-B1 (SOLVE_KNUTH_SCORE_DB1) =====================
  * Rule-of-Ten conformity count X = # of pair-slots whose functional group matches
  * the group assigned to that slot's "room". Operational spec frozen in
@@ -8168,7 +8168,7 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_score_f4p) score_f4p(seq, W, a);
                     if (knuth_score_dav) score_dav(seq, W, a);
-                    if (knuth_score_dav2) score_dav2(seq, W, a);
+                    if (knuth_score_qoy) { score_qoy(seq, W, a); } if (knuth_score_dav2) score_dav2(seq, W, a);
                     if (knuth_score_db1)  score_db1(seq, W, a);
                     if (knuth_score_f5)  score_f5(seq, W, a);
                     if (knuth_score_f6)  score_f6(seq, W, a);
@@ -8547,7 +8547,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].dav2_hist = (double*)calloc(2 * 64, sizeof(double));
             for (int k2 = 0; k2 < 2; k2++){ arg[i].dav2_min[k2] = INT_MAX; arg[i].dav2_max[k2] = INT_MIN; }
         }
-        if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
+        if (knuth_score_qoy) { qoy_alloc_arg(&arg[i]); } if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
         if (knuth_score_f5) {
             arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
             for (int k2 = 0; k2 < 11; k2++){ arg[i].f5_min[k2] = INT_MAX; arg[i].f5_max[k2] = INT_MIN; }
@@ -9004,7 +9004,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                dav2_names[k2], dav2_lo[k2] + b2, dav2H[k2 * 64 + b2]/sC);
     }
     free(dav2H);
-    if (knuth_score_db1 && sC > 0) {
+    if (knuth_score_qoy && sC > 0) { qoy_report(arg, nthreads, sC, qC, (unsigned long long)N); } if (knuth_score_db1 && sC > 0) {
         /* Drasny "Rule of Ten" D-B1 conformity count X, Null B (dispositive
          * population null): weighted fraction of canonical mass with X below /
          * at / above KW's X=22. Ground truth classifier solve.py db1_* /
@@ -41817,7 +41817,7 @@ int main(int argc, char *argv[]) {
             knuth_score_dav2 = 1;
             fprintf(stderr, "[knuth] Davis-2012 wave-2 scoring ACTIVE (2 candidates: tquartet C-D9, xunslots C-D10; R8_DAVIS_PREREG_2026_07_10; ground truth solve.py dav2_*; C-D5 operator-declined)\n");
         }
-        if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
+        if (getenv("SOLVE_KNUTH_SCORE_QOY") && atoi(getenv("SOLVE_KNUTH_SCORE_QOY")) == 1) { knuth_score_qoy = 1; fprintf(stderr, "[knuth] Q-OY1/Q-992 scoring ACTIVE (X cross-boundary swap adjacencies, D H16-coset-0 gap dispersion + descriptives; PREREG_QOY1_Q992_2026_10_09; ground truth solve.py q992_*/qoy1_* / --qoy-verify)\n"); } if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
             knuth_score_db1 = 1;
             fprintf(stderr, "[knuth] Drasny Rule-of-Ten D-B1 scoring ACTIVE (conformity count X, Null B / dispositive population null; DRASNY_RULE_OF_TEN_SCOPING_2026_07_11; ground truth solve.py db1_* / --db1-verify; KW X=22)\n");
         }
@@ -41879,7 +41879,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (knuth_score || knuth_score_reg || knuth_score_f4p || knuth_score_dav ||
-                knuth_score_dav2 || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
+                knuth_score_dav2 || knuth_score_qoy || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
                 knuth_score_perm || knuth_moore_strict || knuth_gender_strict || knuth_h2 ||
                 knuth_f11_hist || knuth_r11_hist || knuth_depth_profile || knuth_rc4b_t1 ||
                 knuth_bcond) {
@@ -42030,7 +42030,7 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("DAV2 VERIFY: PASS\n");
         else printf("DAV2 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
-    } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--qoy-verify") == 0) { return qoy_verify_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
         /* Two-language gate for Drasny's "Rule of Ten" candidate D-B1: assert the
          * bit-structural classifier reproduces Table 4.1 (all 64 hexagrams) and
          * the KW conformity count X=22. Output format matches solve.py db1_verify
@@ -51701,6 +51701,198 @@ static int solve_env_check(const SolveEnvSpec *s, const char *v) {
     if (errno == ERANGE || !end || *end != '\0' || x < s->lo || x > s->hi) return solve_env_refused(s->name, v, want);
     return 0;
 }
+/* ===================== Q-OY1 / Q-992 scorer (SOLVE_KNUTH_SCORE_QOY) =====================
+ * C port of the frozen statistics of roae-private/review_2026_09_27/PREREG_QOY1_Q992_2026_10_09.md
+ * §2 (sha256 5e15192f..., frozen 2026-10-09 BEFORE any measurement). solve.py q992_* / qoy1_* is
+ * the SPEC; `--qoy-verify <KW|file>` prints one line per ordering in the same format as
+ * `solve.py --qoy-verify`, and `solve.py --qoy-gate <binary>` compares the two byte-for-byte
+ * (KW + 10^5 seeded C1∩C4 orderings). Estimator-only, sha-neutral: active only under
+ * SOLVE_KNUTH_SCORE_QOY=1 / --qoy-verify; zero effect on enumeration paths.
+ *
+ *   Q-992  X = # cross-boundary adjacencies (i odd) with swap(s[i]) == s[i+1]   (PRIMARY)
+ *          W = same, within-slot (i even; forced = 6 by C1), T = W + X, A = adjacent-slot couples
+ *   Q-OY1  D = circular gap dispersion sum (g-4)^2 of the H16-coset-0 pair slots (PRIMARY)
+ *          NSAME = same-coset slot boundaries; 32-bin weighted coset-0 occupancy
+ * swap = exchange upper/lower trigrams (verify.py _swap); H16 = {h : rev h == h or rev h == comp h}
+ * (Ouyang 1993 pp. 91/190); cosets labelled in ascending order of their least element.
+ *
+ * ATTRIBUTION: the H16 "backbone" reading is 欧阳维诚 (Ouyang Weicheng) 1993, pp. 190-191; the
+ * trigram-swap adjacency count is 韩仲民 (Han Zhongmin) 1984, p. 22 (see CITATIONS.md). The
+ * scalar operationalizations and the population measurement are ROAE's. */
+
+/* knuth_score_qoy (SOLVE_KNUTH_SCORE_QOY=1) is defined with the forward declarations after score_dav2. Estimator-only. */
+
+typedef struct { int X, W, T, A, D, NSAME, consistent, n0; int ids[32]; } QoyVals;
+/* Thread-local accumulator; heap-allocated only when SOLVE_KNUTH_SCORE_QOY=1. Every histogram
+ * carries its squared-weight twin so a tail mass at ANY threshold has a Q-374 delta-method SE. */
+typedef struct QoyAcc {
+    double hX[12], qX[12], hD[505], qD[505], hN[32], qN[32], hW[32], qW[32], hA[12], qA[12];
+    double occ[32], qocc[32];
+    unsigned long long leaves, w_not6, inconsistent, clamped;
+} QoyAcc;
+
+static int qoy_cid[64];
+static int qoy_ready = 0;
+static inline int qoy_swap(int h){ return ((h >> 3) & 7) | ((h & 7) << 3); }
+static inline int qoy_rev(int h){ int r = 0; for (int i = 0; i < 6; i++) if ((h >> i) & 1) r |= 1 << (5 - i); return r; }
+/* Coset table: coset id = rank (ascending) of the coset's least element. Called once before any
+ * thread starts (estimator setup) and by --qoy-verify. */
+static void qoy_init(void){
+    if (qoy_ready) return;
+    int h16[16], n = 0;
+    for (int h = 0; h < 64; h++){ int r = qoy_rev(h); if (r == h || r == (h ^ 63)) h16[n++] = h; }
+    if (n != 16){ fprintf(stderr, "FATAL: |H16| = %d, expected 16\n", n); exit(70); }
+    int rep[64], reps[64], nr = 0;
+    for (int h = 0; h < 64; h++){
+        int m = 64; for (int j = 0; j < 16; j++){ int x = h ^ h16[j]; if (x < m) m = x; }
+        rep[h] = m;
+        int seen = 0; for (int j = 0; j < nr; j++) if (reps[j] == m) seen = 1;
+        if (!seen) reps[nr++] = m;
+    }
+    if (nr != 4){ fprintf(stderr, "FATAL: %d H16 cosets, expected 4\n", nr); exit(70); }
+    for (int h = 0; h < 64; h++){ int id = 0; for (int j = 0; j < nr; j++) if (reps[j] < rep[h]) id++; qoy_cid[h] = id; }
+    qoy_ready = 1;
+}
+
+static void qoy_compute(const int s[64], QoyVals *v){
+    int x = 0, w = 0, t = 0;
+    for (int i = 0; i < 63; i++) if (qoy_swap(s[i]) == s[i+1]) t++;
+    for (int i = 0; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) w++;   /* QOY_W_PARITY within-slot */
+    for (int i = 1; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) x++;   /* QOY_X_PARITY cross-boundary */
+    v->X = x; v->W = w; v->T = t;
+    /* A: couples in adjacent slots, orientation ignored. Slot 2-sets are distinct in a
+     * permutation, so "slot of {swap a, swap b} == k+1" is "key of slot k+1 == that key". */
+    int keys[32], na = 0;
+    for (int k = 0; k < 32; k++){ int a = s[2*k], b = s[2*k+1]; keys[k] = (a < b ? a : b) << 6 | (a < b ? b : a); }
+    for (int k = 0; k + 1 < 32; k++){
+        int a = qoy_swap(s[2*k]), b = qoy_swap(s[2*k+1]);
+        if (keys[k+1] == ((a < b ? a : b) << 6 | (a < b ? b : a))) na++;
+    }
+    v->A = na;
+    int cons = 1, n0 = 0, pos[32];
+    for (int k = 0; k < 32; k++){
+        v->ids[k] = qoy_cid[s[2*k]];
+        if (qoy_cid[s[2*k]] != qoy_cid[s[2*k+1]]) cons = 0;
+        if (v->ids[k] == 0) pos[n0++] = k + 1;
+    }
+    v->consistent = cons; v->n0 = n0;
+    if (n0 == 0) v->D = -1;               /* undefined (no coset-0 slot; non-C1 orderings only) */
+    else {
+        int d = 0;
+        for (int i = 0; i + 1 < n0; i++){ int g = pos[i+1] - pos[i]; d += (g - 4) * (g - 4); }
+        { int g = 32 + pos[0] - pos[n0-1]; d += (g - 4) * (g - 4); }
+        v->D = d;
+    }
+    int ns = 0; for (int k = 0; k < 31; k++) if (v->ids[k] == v->ids[k+1]) ns++;
+    v->NSAME = ns;
+}
+
+/* One output line per ordering; solve.py qoy_line() is the byte-for-byte spec. */
+static void qoy_print_line(const int s[64]){
+    QoyVals v; qoy_compute(s, &v);
+    char ids[33]; for (int k = 0; k < 32; k++) ids[k] = (char)('0' + v.ids[k]); ids[32] = 0;
+    if (v.D < 0)
+        printf("qoy X=%d W=%d T=%d A=%d D=NA NSAME=%d CONSISTENT=%s IDS=%s\n", v.X, v.W, v.T, v.A, v.NSAME, v.consistent ? "YES" : "NO", ids);
+    else
+        printf("qoy X=%d W=%d T=%d A=%d D=%d NSAME=%d CONSISTENT=%s IDS=%s\n", v.X, v.W, v.T, v.A, v.D, v.NSAME, v.consistent ? "YES" : "NO", ids);
+}
+
+static inline void qoy_bin(double *h, double *q, int nb, int x, double Wt, unsigned long long *clamped){
+    if (x < 0){ x = 0; (*clamped)++; }
+    if (x >= nb){ x = nb - 1; (*clamped)++; }
+    h[x] += Wt; q[x] += Wt * Wt;
+}
+/* Evaluate the Q-OY1/Q-992 statistics on one canonical leaf (C1C2C4C5 + C3<=776); accumulate. */
+static void score_qoy(const int seq[64], double Wt, KnuthArg *a){
+    QoyAcc *q = a->qoy;
+    QoyVals v; qoy_compute(seq, &v);
+    q->leaves++;
+    if (v.W != 6) q->w_not6++;
+    if (!v.consistent || v.n0 != 8) q->inconsistent++;
+    qoy_bin(q->hX, q->qX, 12, v.X, Wt, &q->clamped);
+    qoy_bin(q->hD, q->qD, 505, v.D, Wt, &q->clamped);
+    qoy_bin(q->hN, q->qN, 32, v.NSAME, Wt, &q->clamped);
+    qoy_bin(q->hW, q->qW, 32, v.W, Wt, &q->clamped);
+    qoy_bin(q->hA, q->qA, 12, v.A, Wt, &q->clamped);
+    for (int k = 0; k < 32; k++) if (v.ids[k] == 0){ q->occ[k] += Wt; q->qocc[k] += Wt * Wt; }
+}
+
+/* Allocate one thread's accumulator (called from estimate_tree_knuth under SOLVE_KNUTH_SCORE_QOY=1). */
+static void qoy_alloc_arg(KnuthArg *a){
+    qoy_init();
+    a->qoy = (QoyAcc*)calloc(1, sizeof(QoyAcc));
+    if (!a->qoy) { fprintf(stderr, "FATAL: QoyAcc alloc\n"); exit(70); }
+}
+
+/* Pool the per-thread accumulators and print the QOY block (called from estimate_tree_knuth when sC > 0). */
+static void qoy_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N){
+    /* Q-OY1 / Q-992 (PREREG_QOY1_Q992_2026_10_09 §2; ground truth solve.py q992_* and qoy1_*).
+     * RAW weighted sums at full precision so independent runs can be POOLED exactly:
+     * pooled mass = (sum_a + sum_b) / (sC_a + sC_b), SE via KNUTH_MASS_SE on the summed twins.
+     * KW's values are computed here from the KW table (no hardcoded constants). */
+    QoyAcc T; memset(&T, 0, sizeof T);
+    for (int i = 0; i < nthreads; i++) {
+        QoyAcc *q = arg[i].qoy; if (!q) continue;
+        for (int b = 0; b < 12; b++)  { T.hX[b] += q->hX[b]; T.qX[b] += q->qX[b]; T.hA[b] += q->hA[b]; T.qA[b] += q->qA[b]; }
+        for (int b = 0; b < 505; b++) { T.hD[b] += q->hD[b]; T.qD[b] += q->qD[b]; }
+        for (int b = 0; b < 32; b++)  { T.hN[b] += q->hN[b]; T.qN[b] += q->qN[b]; T.hW[b] += q->hW[b]; T.qW[b] += q->qW[b];
+                                        T.occ[b] += q->occ[b]; T.qocc[b] += q->qocc[b]; }
+        T.leaves += q->leaves; T.w_not6 += q->w_not6; T.inconsistent += q->inconsistent; T.clamped += q->clamped;
+        free(q); arg[i].qoy = NULL;
+    }
+    QoyVals kv; qoy_compute(KW, &kv);
+    printf("QOY_RAW_SC=%.17g\nQOY_RAW_QC=%.17g\nQOY_RAW_N=%llu\nQOY_LEAVES_SCORED=%llu\n",
+           sC, qC, (unsigned long long)N, T.leaves);
+    printf("QOY_W_NOT6_LEAVES=%llu\nQOY_INCONSISTENT_LEAVES=%llu\nQOY_CLAMPED=%llu\n",
+           T.w_not6, T.inconsistent, T.clamped);
+    printf("QOY_KW_X=%d\nQOY_KW_D=%d\n", kv.X, kv.D);
+    struct { const char *nm; double *h, *q; int nb, kw; } st[5] = {
+        {"X", T.hX, T.qX, 12, kv.X}, {"D", T.hD, T.qD, 505, kv.D}, {"NSAME", T.hN, T.qN, 32, kv.NSAME},
+        {"W", T.hW, T.qW, 32, kv.W}, {"A", T.hA, T.qA, 12, kv.A} };
+    for (int k = 0; k < 5; k++) {
+        double mean = 0, bel = 0, at = 0, abv = 0, sb = 0, sa = 0, sv = 0; int mn = -1, mx = -1;
+        for (int b = 0; b < st[k].nb; b++) {
+            double h = st[k].h[b];
+            if (h > 0) { if (mn < 0) mn = b; mx = b; printf("qoy_hist %s %d %.17g %.17g\n", st[k].nm, b, h, st[k].q[b]); }
+            mean += h * b;
+            if (b < st[k].kw) { bel += h; sb += st[k].q[b]; } else if (b == st[k].kw) { at += h; sa += st[k].q[b]; } else { abv += h; sv += st[k].q[b]; }
+        }
+        printf("  [qoy %-5s] mean=%.6f min=%d max=%d kw=%d below=%.10e at=%.10e above=%.10e se=%.3e/%.3e/%.3e\n",
+               st[k].nm, mean / sC, mn, mx, st[k].kw, bel / sC, at / sC, abv / sC,
+               KNUTH_MASS_SE(sb, bel / sC, sC, qC), KNUTH_MASS_SE(sa, at / sC, sC, qC), KNUTH_MASS_SE(sv, abv / sC, sC, qC));
+    }
+    for (int b = 0; b < 32; b++) printf("qoy_occ %d %.17g %.17g\n", b + 1, T.occ[b], T.qocc[b]);
+}
+
+/* --qoy-verify KW|FILE (dispatched from main). */
+static int qoy_verify_main(int argc, char *argv[]){
+    /* Two-language gate for the Q-OY1/Q-992 statistics (PREREG_QOY1_Q992_2026_10_09 §7.1):
+     * one `qoy ...` line per ordering, byte-for-byte the format of solve.py --qoy-verify.
+     * Source: the word KW, or a file of orderings (64 whitespace-separated integers per
+     * line, each line a permutation of 0..63). The comparison is solve.py --qoy-gate.
+     * Sha-neutral (argv-dispatched, never on the enum path). */
+    if (argc != 3) { fprintf(stderr, "ERROR: --qoy-verify takes exactly one argument (KW or a file of orderings); got %d.\nQOY_VERIFY_ARGS=REFUSED\n", argc - 2); return 2; }
+    qoy_init();
+    if (strcmp(argv[2], "KW") == 0) { qoy_print_line(KW); printf("QOY_VERIFY_N=1\n"); return 0; }
+    FILE *qf = fopen(argv[2], "r");
+    if (!qf) { fprintf(stderr, "ERROR: --qoy-verify cannot open '%s'\nQOY_VERIFY_ARGS=REFUSED\n", argv[2]); return 2; }
+    long nl = 0; int sq[64];
+    for (;;) {
+        int got = 0, seen[64] = {0}, bad = 0;
+        for (int j = 0; j < 64; j++) {
+            if (fscanf(qf, "%d", &sq[j]) != 1) break;
+            got++;
+            if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1;
+        }
+        if (got == 0) break;
+        if (got != 64 || bad) { fprintf(stderr, "ERROR: --qoy-verify ordering %ld is not a permutation of 0..63\nQOY_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(qf); return 2; }
+        qoy_print_line(sq); nl++;
+    }
+    fclose(qf);
+    printf("QOY_VERIFY_N=%ld\n", nl);
+    return 0;
+}
+
 static int solve_env_preflight(void) {
     const long long IM = INT_MAX, LM = LLONG_MAX, TB = 1LL << 40;
     const SolveEnvSpec specs[] = {
@@ -51748,7 +51940,7 @@ static int solve_env_preflight(void) {
         {"SOLVE_KNUTH_FIBER", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_H2", SENV_BOOL, 0, 1},
         {"SOLVE_RC4B_ASSERT_T1", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_SCORE_F4P", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DAV", SENV_BOOL, 0, 1},
-        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_QOY", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_F4P_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DAV_HIST", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_DAV2_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DB1_HIST", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_F5_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_F6_HIST", SENV_BOOL, 0, 1},

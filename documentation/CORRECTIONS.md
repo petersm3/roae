@@ -30388,3 +30388,107 @@ of pp. 43–44 that has not been done; the second needs the unread 1999 thesis. 
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (decisions, drafts); applied by claude-opus-5-5,
 literature batch 2 extension.
+
+## CX-331 — two pre-registered tests, Q-OY1 (Ouyang 1993 H16-coset slot spacing) and Q-992 (Han 1984 trigram-swap adjacency), came back UNINFORMATIVE; the instrument, the public copy of the registration and the run record are published (solve.c; solve.py; tests.py; documentation/SOLVE_C_CLI.md; documentation/SOLVE_PY_CLI.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; reports/evidence/qoy1_q992/; CLAUDE.md; documentation/CITATIONS.md)
+
+**2026-10-09.** Origin: two observations from the 2026-10 literature reading (Q-OY1 from the Ouyang 1993
+reading; Q-992 from Han 1984), pre-registered and measured on 2026-10-09. The operator decided the same
+day to publish the null result.
+
+**No published number, count, sha or certificate moves.** Nothing is withdrawn. This entry adds a
+measurement and the code that makes it. SPECIFICATION.md, the counts, the ladders and the scoreboard are
+unchanged, because the registration's §8 allows no such change for this outcome.
+
+**1. The result.** Both registered statistics are UNINFORMATIVE under both nulls. For Q-992, `X = 0`,
+with exact pair-only `p_two` = 1 and C1–C5 operative `p_two` = 1. For Q-OY1, `D = 94`, with exact pair-only
+`p_two` = 438976/876525 ≈ 0.5008 and C1–C5 operative `p_two` ≈ 0.8038. The per-query bar was 0.005. Han's
+"six" exchanges inside pairs are forced by C1. This is a short theorem, scoped to orderings that satisfy C1.
+It was recorded in the registration before measurement and is stated with its proof in
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) §"Addendum (2026-10-09): two
+pre-registered tests that came back UNINFORMATIVE". Credit: the subgroup reading is Ouyang's, and the set of
+sixteen is 张行成's 「乾坤十六卦」 (as reported by Yin 2023); the swap count is Han's. CITATIONS.md gains an entry for Yin 2023 (#yinjiangcheng2023) and the Han 1984 entry notes the p. 22 observation.
+
+**2. The registration.** It was frozen before any King Wen evaluation. The frozen file's sha256 is
+`5e15192fc8e4a5283dddb74c7918e32dca2581e414a8e23e2db5defc0c3651fa`, locked 2026-10-09 06:52:17 UTC. A public copy
+is at [reports/evidence/qoy1_q992/PREREGISTRATION.md](../reports/evidence/qoy1_q992/PREREGISTRATION.md),
+sha256 `005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2`, with its cost section and one cost
+sentence removed. Both removals are listed in the bundle README. Freeze timing is attested, not checkable.
+
+**3. The instrument as committed is arranged differently from the instrument the runs used.** The runs
+used a staged tree (`4b590dfcbd0024beefd2bf354949e66ef95c951b` on `11003edd`; `solve.c` sha256 `60937db1…`, `solve.py` `a0ed4150…`).
+The bundle ships that tree as a patch that reproduces the three files byte for byte. The committed code
+carries the same scorer, rearranged so that no line any document cites by number moves:
+- the `solve.c` functions sit before `solve_env_preflight`;
+- the hooks (the accumulator field, the per-leaf call, the allocation, the report, the environment
+  switch and the `--qoy-verify` dispatch) are added to existing lines;
+- one blank line now holds the forward declarations;
+- the `solve.py` block sits before `def main()`, byte-identical except for one change: its
+  `import verify` is wrapped so that importing `solve.py` without `verify.py` beside it no longer
+  fails. Some gates copy `solve.py` alone into a scratch directory, and the pinned block broke
+  them (found by `q422_ratio_columns_gate.sh` while stamping this batch). In that case only, the
+  block uses a two-line restatement of `verify.py`'s `_cuo` and `_zong`; a test checks it against
+  all 64 hexagrams. The recorded runs had `verify.py` beside `solve.py`, so they are unaffected.
+
+The equivalence check, on the orchestrator (gcc 13, `-O2 -fopenmp`):
+- `python3 solve.py --qoy-gate` gives `QOY_VERIFY=PASS` with C-side sha256 `52a83cac…` for both builds, the
+  recorded value.
+- A seeded single-thread `--estimate-knuth 2000000` run, with and without `SOLVE_KNUTH_SCORE_QOY=1`, gives
+  byte-identical output from both builds apart from `wall_s`.
+
+**4. Documentation.** `SOLVE_C_CLI.md` gains a `--qoy-verify` section and a `SOLVE_KNUTH_SCORE_QOY`
+row. `SOLVE_PY_CLI.md` gains `--qoy-verify` and `--qoy-gate` rows; `--qoy-gate-n` and
+`--qoy-gate-skip-kw` are described in the `--qoy-gate` row. `tests.py` gains `TestQoyScorer`: the
+two-language gate on King Wen plus seeded orderings, its parity mutant (red), the C1 facts, and an import of `solve.py` without `verify.py` beside it.
+
+**5. Run record.** The unfiltered outputs of the four estimator runs, the exact-null script and its
+output, the verdict script and its tokens, and the gate outputs are in
+[reports/evidence/qoy1_q992/](../reports/evidence/qoy1_q992/README.md). They were copied unchanged and
+checked for machine names, addresses, account identifiers and costs (none found). The machine-lifecycle
+and driver files were left out. A laptop reproduces the exact pair-only null with
+`python3 reports/evidence/qoy1_q992/n0_exact.py . | diff - reports/evidence/qoy1_q992/n0_exact.out`.
+
+**6. CLAUDE.md.** The bundle adds three tracked `.py` files under `reports/evidence/` (`n0_exact.py`,
+`analyze.py` and `prereg_qoy1_q992_defcheck.py`). The glob `reports/evidence/**/*.py` in CLAUDE.md's
+approved-separates list already covers them, so no new kind of file is approved. The count and the
+directory list beside the glob did go stale, and the approved-separates census (doc gate 88) failed on
+them. One line of CLAUDE.md is edited, with the operator's approval given through the orchestrator
+(2026-10-10): the count goes from **14** to **17**, the measured value of
+`git ls-files 'reports/evidence/**/*.py' | wc -l`, and `qoy1_q992/` is added to the directories named.
+No other line of CLAUDE.md changes, so no line moves.
+
+**7. Addendum (2026-10-10): two bundle files name the private repository, and the sweep now exempts them by
+content.** `TestLaneHAJ.test_no_private_repository_pointer_in_public_evidence` (Q-868) bars the string
+`roae-private` from every tracked file under `reports/evidence/` and `runs/`. Two files of this bundle fail it:
+the public copy of the registration (lines 7, 56, 428 and 439 say where the registration and its outcome were
+committed, and name the private repository's commit at freeze) and `instrument_pin_4b590dfc.patch` (lines 18
+and 273, comments in the pinned `solve.c` and `solve.py` that name the registration's private path). Neither
+can be reworded without breaking what it is for. The patch must reproduce the pinned files byte for byte
+(item 3). The registration copy is already the frozen file less two cost passages, and its digest is
+published in the README, on PREREGISTRATION_ESCROW.md and in item 2. The README promises that `diff` against the
+frozen file shows exactly those two hunks. A third kind of removal would break that promise and move the
+published digest. Publishing the frozen bytes verbatim, which would let a reader recompute `5e15192f…`, is
+not possible either, because they contain the cost passages. So both files are exempt, and only by content:
+the sweep skips a file only while its whole sha256 equals the digest recorded in the bundle README
+(`005a0dab…` for the copy; `e4dd40ae…` for the patch, now added to the README's contents table). Any edit
+to either file, including a new pointer, re-arms the sweep on every line of it. A pointer planted in any
+other file of the bundle is still a hit; both cases were checked. The remaining bundle files carry no
+`roae-private` pointer. As provenance, the README gives the private lock commit `0a83ac56`, and
+`PREREGISTRATION_S9_ANNOTATIONS.md` gives that commit and the lock ledger's path. Neither names the repository.
+
+**8. Addendum (2026-10-11): two more full-suite failures in this bundle, fixed at their source or bound by content.**
+The first full test run on the real parent found two. (a) `TestNoBareAsserts`: `solve.py`'s new `qoy_c1c4_draw`
+guarded its precondition with a bare `assert`, which `python -O` removes (Q-373). It is now an explicit
+`ValueError` with the same condition; behaviour on valid input is unchanged. The pinned block in the patch
+keeps the `assert` (patch line 343), so the committed `solve.py` block now differs from `a0ed4150…` in two places,
+not the one item 3 names; the patch itself is unchanged (`e4dd40ae…`) and still reproduces the pinned files. (b)
+`TestLaneHFRedactReproOutCompileRatchet.test_no_machine_absolute_user_path_in_evidence_or_runs` bars machine-absolute
+user paths from the evidence tree, and two bundle files carry the author's checkout path: the registration copy
+(line 55) and `prereg_qoy1_q992_defcheck.py` (line 7). Both are frozen. The copy is bound to `005a0dab…` as in
+item 7, and the defcheck ships byte-identical to the locked script (`1540879a…`, the lock-ledger digest, already
+recorded in the README, which tells a reader to change line 7 to their own checkout). So this sweep gains the same
+content-bound exemption as item 7: a file is skipped only while its whole sha256 equals the README-recorded digest.
+Any edit re-arms the sweep on every line, and a path planted in any other evidence file is still a hit. The
+test's own positive controls check both cases.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, Q-OY1/Q-992 measurement and
+publication lanes. Registration: Fable (claude-fable-5-1).

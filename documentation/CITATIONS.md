@@ -257,7 +257,7 @@ only uses.
   (reversal) without regard to trigrams — (64−8)÷2 = 28 pairs, 36 forms split 18:18, and
   「通行本两两相对的卦次在帛书中毫无表现」 (recomputed here: no such pair in the silk order) — so the 64
   were not made by doubling the eight, and the silk order, which was, is the later re-arrangement
-  (「其时代必然较晚」). **Counts nothing about orderings.** [read in full 2026-10-09]
+  (「其时代必然较晚」). Notes (p. 22) that twelve hexagrams of the received order sit side by side as six pairs whose upper and lower trigrams are exchanged (5/6, 7/8, 11/12, 13/14, 35/36, 63/64) — the observation tested, and shown to be forced by the pairing, in CX-331. **Counts nothing about orderings.** [read in full 2026-10-09]
 <a id="liudajun1985"></a>
 - **Liu Dajun 刘大钧** (1985). "Bo «Yi» chutan" 〈帛《易》初探〉 [A preliminary study of the silk
   *Changes*]. *Wen shi zhe* 文史哲 1985(4): 53–60. Gives (pp. 54–55) a 64-row 帛书本 / 王弼注本 table with
@@ -2883,6 +2883,18 @@ skeleton, [Lai Zhide](#laizhide)'s endpoint feeders, the Jing Fang eight-palace 
 pair structure (all via Nielsen 2003), and Goldenberg's (1975) theorems T1–T4 + T7 — are
 programmatically verified against the King Wen sequence by [`solve.py --books-verify`](SOLVE_C_CLI.md#--books-verify-solvepy-only)
 (14 claims, one PASS/FAIL line each with expected + computed values; all 14 PASS as of 2026-07-05).
+
+## Yin Jiangcheng 尹江铖 (2023)
+
+<a id="yinjiangcheng2023"></a>
+- **Yin Jiangcheng 尹江铖** (2023). "Pan Yuting jinben guaxu shijie: gangling, luoji yu sixiang"
+  〈潘雨廷今本卦序释解：纲领、逻辑与思想〉 [Pan Yuting's reading of the received hexagram order: outline, logic and
+  thought]. *Zongjiaoxue yanjiu* 宗教学研究 2023(2): 224–230. An exposition of 潘雨廷's account of the received
+  order. Reports 张行成 Zhang Xingcheng's 「乾坤十六卦」 (《易通变》, 12th c.) as the eight self-reverse hexagrams plus
+  the eight whose reversal equals their complement — as a set, the same sixteen that [Ouyang 1993](#ouyang1993)
+  treats as an order-16 subgroup (recomputed here, all 16). The set is Zhang's; the subgroup and coset reading is
+  Ouyang's. We have not read Zhang's text. Cited for that credit in LITERATURE_RULES_POPULATION_TESTS.md
+  §"Addendum (2026-10-09)" (CX-331). **Counts nothing about orderings.** [read in full 2026-10-09]
 
 ## Encyclopedic & reference links (Wikipedia, OEIS)
 

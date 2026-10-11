@@ -460,6 +460,9 @@ gate_script_paths() {
     scripts/atlas_queries.py)
       at=(documentation/QUERY_INVENTORY.md)
       _why="QUERY_INVENTORY.md narrating a planned path that was never created: the atlas consumer landed inside solve.py (git grep -n \"def atlas_queries\" -- solve.py), and the file names the wrong path in order to correct it. Same shape as the d128 row above -- a correction that cannot name its own subject is unreadable";;
+    scripts/ouyang1993_ch4_check.py)
+      at=(reports/evidence/qoy1_q992/PREREGISTRATION.md)
+      _why="the public copy of a frozen pre-registration (CX-331, 2026-10-09) quoting its §1 table verbatim: the check script it names is in the private repository, and the copy's README says private paths are left as written. Rewording it would change the copy beyond the two disclosed cost removals";;
     example/report.pdf)
       _why="CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
     tr12/q9_negatives.md)

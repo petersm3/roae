@@ -1,0 +1,562 @@
+diff --git a/solve.c b/solve.c
+index 3df5db20..9383daa1 100644
+--- a/solve.c
++++ b/solve.c
+@@ -5451,6 +5451,7 @@ typedef struct {
+     double dav2_sq_below[2], dav2_sq_at[2], dav2_sq_above[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
+     double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
+     int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */
++    struct QoyAcc *qoy;                   /* SOLVE_KNUTH_SCORE_QOY=1: Q-OY1/Q-992 accumulator (heap; NULL otherwise) */
+     /* SOLVE_KNUTH_SCORE_DB1=1 (Drasny "Rule of Ten" D-B1, Null B): weighted
+      * canonical-leaf mass of the conformity count X (see the DB1 block below).
+      * db1_hist[0..32] = exact-value histogram; below/at/above split at KW's X=22.
+@@ -6608,6 +6609,122 @@ static void score_dav2(const int seq[64], double W, KnuthArg *a){
+     }
+ }
+ 
++/* ===================== Q-OY1 / Q-992 scorer (SOLVE_KNUTH_SCORE_QOY) =====================
++ * C port of the frozen statistics of roae-private/review_2026_09_27/PREREG_QOY1_Q992_2026_10_09.md
++ * §2 (sha256 5e15192f..., frozen 2026-10-09 BEFORE any measurement). solve.py q992_* / qoy1_* is
++ * the SPEC; `--qoy-verify <KW|file>` prints one line per ordering in the same format as
++ * `solve.py --qoy-verify`, and `solve.py --qoy-gate <binary>` compares the two byte-for-byte
++ * (KW + 10^5 seeded C1∩C4 orderings). Estimator-only, sha-neutral: active only under
++ * SOLVE_KNUTH_SCORE_QOY=1 / --qoy-verify; zero effect on enumeration paths.
++ *
++ *   Q-992  X = # cross-boundary adjacencies (i odd) with swap(s[i]) == s[i+1]   (PRIMARY)
++ *          W = same, within-slot (i even; forced = 6 by C1), T = W + X, A = adjacent-slot couples
++ *   Q-OY1  D = circular gap dispersion sum (g-4)^2 of the H16-coset-0 pair slots (PRIMARY)
++ *          NSAME = same-coset slot boundaries; 32-bin weighted coset-0 occupancy
++ * swap = exchange upper/lower trigrams (verify.py _swap); H16 = {h : rev h == h or rev h == comp h}
++ * (Ouyang 1993 pp. 91/190); cosets labelled in ascending order of their least element.
++ *
++ * ATTRIBUTION: the H16 "backbone" reading is 欧阳维诚 (Ouyang Weicheng) 1993, pp. 190-191; the
++ * trigram-swap adjacency count is 韩仲民 (Han Zhongmin) 1984, p. 22 (see CITATIONS.md). The
++ * scalar operationalizations and the population measurement are ROAE's. */
++
++static int knuth_score_qoy = 0; /* SOLVE_KNUTH_SCORE_QOY=1 (see block above). Estimator-only. */
++
++typedef struct { int X, W, T, A, D, NSAME, consistent, n0; int ids[32]; } QoyVals;
++/* Thread-local accumulator; heap-allocated only when SOLVE_KNUTH_SCORE_QOY=1. Every histogram
++ * carries its squared-weight twin so a tail mass at ANY threshold has a Q-374 delta-method SE. */
++typedef struct QoyAcc {
++    double hX[12], qX[12], hD[505], qD[505], hN[32], qN[32], hW[32], qW[32], hA[12], qA[12];
++    double occ[32], qocc[32];
++    unsigned long long leaves, w_not6, inconsistent, clamped;
++} QoyAcc;
++
++static int qoy_cid[64];
++static int qoy_ready = 0;
++static inline int qoy_swap(int h){ return ((h >> 3) & 7) | ((h & 7) << 3); }
++static inline int qoy_rev(int h){ int r = 0; for (int i = 0; i < 6; i++) if ((h >> i) & 1) r |= 1 << (5 - i); return r; }
++/* Coset table: coset id = rank (ascending) of the coset's least element. Called once before any
++ * thread starts (estimator setup) and by --qoy-verify. */
++static void qoy_init(void){
++    if (qoy_ready) return;
++    int h16[16], n = 0;
++    for (int h = 0; h < 64; h++){ int r = qoy_rev(h); if (r == h || r == (h ^ 63)) h16[n++] = h; }
++    if (n != 16){ fprintf(stderr, "FATAL: |H16| = %d, expected 16\n", n); exit(70); }
++    int rep[64], reps[64], nr = 0;
++    for (int h = 0; h < 64; h++){
++        int m = 64; for (int j = 0; j < 16; j++){ int x = h ^ h16[j]; if (x < m) m = x; }
++        rep[h] = m;
++        int seen = 0; for (int j = 0; j < nr; j++) if (reps[j] == m) seen = 1;
++        if (!seen) reps[nr++] = m;
++    }
++    if (nr != 4){ fprintf(stderr, "FATAL: %d H16 cosets, expected 4\n", nr); exit(70); }
++    for (int h = 0; h < 64; h++){ int id = 0; for (int j = 0; j < nr; j++) if (reps[j] < rep[h]) id++; qoy_cid[h] = id; }
++    qoy_ready = 1;
++}
++
++static void qoy_compute(const int s[64], QoyVals *v){
++    int x = 0, w = 0, t = 0;
++    for (int i = 0; i < 63; i++) if (qoy_swap(s[i]) == s[i+1]) t++;
++    for (int i = 0; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) w++;   /* QOY_W_PARITY within-slot */
++    for (int i = 1; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) x++;   /* QOY_X_PARITY cross-boundary */
++    v->X = x; v->W = w; v->T = t;
++    /* A: couples in adjacent slots, orientation ignored. Slot 2-sets are distinct in a
++     * permutation, so "slot of {swap a, swap b} == k+1" is "key of slot k+1 == that key". */
++    int keys[32], na = 0;
++    for (int k = 0; k < 32; k++){ int a = s[2*k], b = s[2*k+1]; keys[k] = (a < b ? a : b) << 6 | (a < b ? b : a); }
++    for (int k = 0; k + 1 < 32; k++){
++        int a = qoy_swap(s[2*k]), b = qoy_swap(s[2*k+1]);
++        if (keys[k+1] == ((a < b ? a : b) << 6 | (a < b ? b : a))) na++;
++    }
++    v->A = na;
++    int cons = 1, n0 = 0, pos[32];
++    for (int k = 0; k < 32; k++){
++        v->ids[k] = qoy_cid[s[2*k]];
++        if (qoy_cid[s[2*k]] != qoy_cid[s[2*k+1]]) cons = 0;
++        if (v->ids[k] == 0) pos[n0++] = k + 1;
++    }
++    v->consistent = cons; v->n0 = n0;
++    if (n0 == 0) v->D = -1;               /* undefined (no coset-0 slot; non-C1 orderings only) */
++    else {
++        int d = 0;
++        for (int i = 0; i + 1 < n0; i++){ int g = pos[i+1] - pos[i]; d += (g - 4) * (g - 4); }
++        { int g = 32 + pos[0] - pos[n0-1]; d += (g - 4) * (g - 4); }
++        v->D = d;
++    }
++    int ns = 0; for (int k = 0; k < 31; k++) if (v->ids[k] == v->ids[k+1]) ns++;
++    v->NSAME = ns;
++}
++
++/* One output line per ordering; solve.py qoy_line() is the byte-for-byte spec. */
++static void qoy_print_line(const int s[64]){
++    QoyVals v; qoy_compute(s, &v);
++    char ids[33]; for (int k = 0; k < 32; k++) ids[k] = (char)('0' + v.ids[k]); ids[32] = 0;
++    if (v.D < 0)
++        printf("qoy X=%d W=%d T=%d A=%d D=NA NSAME=%d CONSISTENT=%s IDS=%s\n", v.X, v.W, v.T, v.A, v.NSAME, v.consistent ? "YES" : "NO", ids);
++    else
++        printf("qoy X=%d W=%d T=%d A=%d D=%d NSAME=%d CONSISTENT=%s IDS=%s\n", v.X, v.W, v.T, v.A, v.D, v.NSAME, v.consistent ? "YES" : "NO", ids);
++}
++
++static inline void qoy_bin(double *h, double *q, int nb, int x, double Wt, unsigned long long *clamped){
++    if (x < 0){ x = 0; (*clamped)++; }
++    if (x >= nb){ x = nb - 1; (*clamped)++; }
++    h[x] += Wt; q[x] += Wt * Wt;
++}
++/* Evaluate the Q-OY1/Q-992 statistics on one canonical leaf (C1C2C4C5 + C3<=776); accumulate. */
++static void score_qoy(const int seq[64], double Wt, KnuthArg *a){
++    QoyAcc *q = a->qoy;
++    QoyVals v; qoy_compute(seq, &v);
++    q->leaves++;
++    if (v.W != 6) q->w_not6++;
++    if (!v.consistent || v.n0 != 8) q->inconsistent++;
++    qoy_bin(q->hX, q->qX, 12, v.X, Wt, &q->clamped);
++    qoy_bin(q->hD, q->qD, 505, v.D, Wt, &q->clamped);
++    qoy_bin(q->hN, q->qN, 32, v.NSAME, Wt, &q->clamped);
++    qoy_bin(q->hW, q->qW, 32, v.W, Wt, &q->clamped);
++    qoy_bin(q->hA, q->qA, 12, v.A, Wt, &q->clamped);
++    for (int k = 0; k < 32; k++) if (v.ids[k] == 0){ q->occ[k] += Wt; q->qocc[k] += Wt * Wt; }
++}
++
+ /* ===================== Drasny "Rule of Ten" candidate D-B1 (SOLVE_KNUTH_SCORE_DB1) =====================
+  * Rule-of-Ten conformity count X = # of pair-slots whose functional group matches
+  * the group assigned to that slot's "room". Operational spec frozen in
+@@ -8169,6 +8286,7 @@ static void *knuth_worker(void *vp){
+                     if (knuth_score_f4p) score_f4p(seq, W, a);
+                     if (knuth_score_dav) score_dav(seq, W, a);
+                     if (knuth_score_dav2) score_dav2(seq, W, a);
++                    if (knuth_score_qoy)  score_qoy(seq, W, a);
+                     if (knuth_score_db1)  score_db1(seq, W, a);
+                     if (knuth_score_f5)  score_f5(seq, W, a);
+                     if (knuth_score_f6)  score_f6(seq, W, a);
+@@ -8547,6 +8665,11 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
+             arg[i].dav2_hist = (double*)calloc(2 * 64, sizeof(double));
+             for (int k2 = 0; k2 < 2; k2++){ arg[i].dav2_min[k2] = INT_MAX; arg[i].dav2_max[k2] = INT_MIN; }
+         }
++        if (knuth_score_qoy) {
++            qoy_init();
++            arg[i].qoy = (QoyAcc*)calloc(1, sizeof(QoyAcc));
++            if (!arg[i].qoy) { fprintf(stderr, "FATAL: QoyAcc alloc\n"); exit(70); }
++        }
+         if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
+         if (knuth_score_f5) {
+             arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
+@@ -9004,6 +9127,44 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
+                                dav2_names[k2], dav2_lo[k2] + b2, dav2H[k2 * 64 + b2]/sC);
+     }
+     free(dav2H);
++    if (knuth_score_qoy && sC > 0) {
++        /* Q-OY1 / Q-992 (PREREG_QOY1_Q992_2026_10_09 §2; ground truth solve.py q992_* and qoy1_*).
++         * RAW weighted sums at full precision so independent runs can be POOLED exactly:
++         * pooled mass = (sum_a + sum_b) / (sC_a + sC_b), SE via KNUTH_MASS_SE on the summed twins.
++         * KW's values are computed here from the KW table (no hardcoded constants). */
++        QoyAcc T; memset(&T, 0, sizeof T);
++        for (int i = 0; i < nthreads; i++) {
++            QoyAcc *q = arg[i].qoy; if (!q) continue;
++            for (int b = 0; b < 12; b++)  { T.hX[b] += q->hX[b]; T.qX[b] += q->qX[b]; T.hA[b] += q->hA[b]; T.qA[b] += q->qA[b]; }
++            for (int b = 0; b < 505; b++) { T.hD[b] += q->hD[b]; T.qD[b] += q->qD[b]; }
++            for (int b = 0; b < 32; b++)  { T.hN[b] += q->hN[b]; T.qN[b] += q->qN[b]; T.hW[b] += q->hW[b]; T.qW[b] += q->qW[b];
++                                            T.occ[b] += q->occ[b]; T.qocc[b] += q->qocc[b]; }
++            T.leaves += q->leaves; T.w_not6 += q->w_not6; T.inconsistent += q->inconsistent; T.clamped += q->clamped;
++            free(q); arg[i].qoy = NULL;
++        }
++        QoyVals kv; qoy_compute(KW, &kv);
++        printf("QOY_RAW_SC=%.17g\nQOY_RAW_QC=%.17g\nQOY_RAW_N=%llu\nQOY_LEAVES_SCORED=%llu\n",
++               sC, qC, (unsigned long long)N, T.leaves);
++        printf("QOY_W_NOT6_LEAVES=%llu\nQOY_INCONSISTENT_LEAVES=%llu\nQOY_CLAMPED=%llu\n",
++               T.w_not6, T.inconsistent, T.clamped);
++        printf("QOY_KW_X=%d\nQOY_KW_D=%d\n", kv.X, kv.D);
++        struct { const char *nm; double *h, *q; int nb, kw; } st[5] = {
++            {"X", T.hX, T.qX, 12, kv.X}, {"D", T.hD, T.qD, 505, kv.D}, {"NSAME", T.hN, T.qN, 32, kv.NSAME},
++            {"W", T.hW, T.qW, 32, kv.W}, {"A", T.hA, T.qA, 12, kv.A} };
++        for (int k = 0; k < 5; k++) {
++            double mean = 0, bel = 0, at = 0, abv = 0, sb = 0, sa = 0, sv = 0; int mn = -1, mx = -1;
++            for (int b = 0; b < st[k].nb; b++) {
++                double h = st[k].h[b];
++                if (h > 0) { if (mn < 0) mn = b; mx = b; printf("qoy_hist %s %d %.17g %.17g\n", st[k].nm, b, h, st[k].q[b]); }
++                mean += h * b;
++                if (b < st[k].kw) { bel += h; sb += st[k].q[b]; } else if (b == st[k].kw) { at += h; sa += st[k].q[b]; } else { abv += h; sv += st[k].q[b]; }
++            }
++            printf("  [qoy %-5s] mean=%.6f min=%d max=%d kw=%d below=%.10e at=%.10e above=%.10e se=%.3e/%.3e/%.3e\n",
++                   st[k].nm, mean / sC, mn, mx, st[k].kw, bel / sC, at / sC, abv / sC,
++                   KNUTH_MASS_SE(sb, bel / sC, sC, qC), KNUTH_MASS_SE(sa, at / sC, sC, qC), KNUTH_MASS_SE(sv, abv / sC, sC, qC));
++        }
++        for (int b = 0; b < 32; b++) printf("qoy_occ %d %.17g %.17g\n", b + 1, T.occ[b], T.qocc[b]);
++    }
+     if (knuth_score_db1 && sC > 0) {
+         /* Drasny "Rule of Ten" D-B1 conformity count X, Null B (dispositive
+          * population null): weighted fraction of canonical mass with X below /
+@@ -41817,6 +41978,10 @@ int main(int argc, char *argv[]) {
+             knuth_score_dav2 = 1;
+             fprintf(stderr, "[knuth] Davis-2012 wave-2 scoring ACTIVE (2 candidates: tquartet C-D9, xunslots C-D10; R8_DAVIS_PREREG_2026_07_10; ground truth solve.py dav2_*; C-D5 operator-declined)\n");
+         }
++        if (getenv("SOLVE_KNUTH_SCORE_QOY") && atoi(getenv("SOLVE_KNUTH_SCORE_QOY")) == 1) {
++            knuth_score_qoy = 1;
++            fprintf(stderr, "[knuth] Q-OY1/Q-992 scoring ACTIVE (X cross-boundary swap adjacencies, D H16-coset-0 gap dispersion + descriptives; PREREG_QOY1_Q992_2026_10_09; ground truth solve.py q992_*/qoy1_* / --qoy-verify)\n");
++        }
+         if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
+             knuth_score_db1 = 1;
+             fprintf(stderr, "[knuth] Drasny Rule-of-Ten D-B1 scoring ACTIVE (conformity count X, Null B / dispositive population null; DRASNY_RULE_OF_TEN_SCOPING_2026_07_11; ground truth solve.py db1_* / --db1-verify; KW X=22)\n");
+@@ -41879,7 +42044,7 @@ int main(int argc, char *argv[]) {
+                 }
+             }
+             if (knuth_score || knuth_score_reg || knuth_score_f4p || knuth_score_dav ||
+-                knuth_score_dav2 || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
++                knuth_score_dav2 || knuth_score_qoy || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
+                 knuth_score_perm || knuth_moore_strict || knuth_gender_strict || knuth_h2 ||
+                 knuth_f11_hist || knuth_r11_hist || knuth_depth_profile || knuth_rc4b_t1 ||
+                 knuth_bcond) {
+@@ -42030,6 +42195,32 @@ int main(int argc, char *argv[]) {
+         if (failures == 0) printf("DAV2 VERIFY: PASS\n");
+         else printf("DAV2 VERIFY: %d FAILURES\n", failures);
+         return failures ? 1 : 0;
++    } else if (argc > 1 && strcmp(argv[1], "--qoy-verify") == 0) {
++        /* Two-language gate for the Q-OY1/Q-992 statistics (PREREG_QOY1_Q992_2026_10_09 §7.1):
++         * one `qoy ...` line per ordering, byte-for-byte the format of solve.py --qoy-verify.
++         * Source: the word KW, or a file of orderings (64 whitespace-separated integers per
++         * line, each line a permutation of 0..63). The comparison is solve.py --qoy-gate.
++         * Sha-neutral (argv-dispatched, never on the enum path). */
++        if (argc != 3) { fprintf(stderr, "ERROR: --qoy-verify takes exactly one argument (KW or a file of orderings); got %d.\nQOY_VERIFY_ARGS=REFUSED\n", argc - 2); return 2; }
++        qoy_init();
++        if (strcmp(argv[2], "KW") == 0) { qoy_print_line(KW); printf("QOY_VERIFY_N=1\n"); return 0; }
++        FILE *qf = fopen(argv[2], "r");
++        if (!qf) { fprintf(stderr, "ERROR: --qoy-verify cannot open '%s'\nQOY_VERIFY_ARGS=REFUSED\n", argv[2]); return 2; }
++        long nl = 0; int sq[64];
++        for (;;) {
++            int got = 0, seen[64] = {0}, bad = 0;
++            for (int j = 0; j < 64; j++) {
++                if (fscanf(qf, "%d", &sq[j]) != 1) break;
++                got++;
++                if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1;
++            }
++            if (got == 0) break;
++            if (got != 64 || bad) { fprintf(stderr, "ERROR: --qoy-verify ordering %ld is not a permutation of 0..63\nQOY_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(qf); return 2; }
++            qoy_print_line(sq); nl++;
++        }
++        fclose(qf);
++        printf("QOY_VERIFY_N=%ld\n", nl);
++        return 0;
+     } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
+         /* Two-language gate for Drasny's "Rule of Ten" candidate D-B1: assert the
+          * bit-structural classifier reproduces Table 4.1 (all 64 hexagrams) and
+@@ -51748,7 +51939,7 @@ static int solve_env_preflight(void) {
+         {"SOLVE_KNUTH_FIBER", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_H2", SENV_BOOL, 0, 1},
+         {"SOLVE_RC4B_ASSERT_T1", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_SCORE_F4P", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DAV", SENV_BOOL, 0, 1},
+-        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
++        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_QOY", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_F4P_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DAV_HIST", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_DAV2_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DB1_HIST", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_F5_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_F6_HIST", SENV_BOOL, 0, 1},
+diff --git a/solve.py b/solve.py
+index bb018cbf..ec618236 100644
+--- a/solve.py
++++ b/solve.py
+@@ -9812,6 +9812,175 @@ def dav2_verify():
+     return 1 if failures else 0
+ 
+ 
++# ---------------------------------------------------------------------------
++# Q-OY1 (Ouyang 1993 H16-coset slot spacing) and Q-992 (Han 1984 trigram-swap
++# adjacency) — frozen in roae-private/review_2026_09_27/
++# PREREG_QOY1_Q992_2026_10_09.md (sha256 5e15192f…, locked 2026-10-09 BEFORE
++# any measurement). The §2 definitions below are copied byte-for-byte from the
++# registration; solve.py is the SPEC and `--qoy-verify` is one side of the
++# two-language gate (`solve.c --qoy-verify` must reproduce its output
++# byte-for-byte; `--qoy-gate <binary>` compares them on KW + 10^5 seeded
++# C1∩C4 orderings). Primaries: q992_X and qoy1_D; everything else is
++# descriptive. ATTRIBUTION: the H16 "backbone" reading is 欧阳维诚 (Ouyang
++# Weicheng) 1993 pp. 190-191; the swap-adjacency count is 韩仲民 (Han Zhongmin)
++# 1984 p. 22 (CITATIONS.md). The scalar operationalizations and the population
++# measurement are ROAE's.
++# ---------------------------------------------------------------------------
++
++import verify   # §2: the normative bit operations are verify.py's (_zong, _cuo)
++
++# verify.py:905            swap: 上下互易, exchange upper and lower trigrams
++def swap(h):  return ((h >> 3) & 0b111) | ((h & 0b111) << 3)
++rev  = verify._zong         # 綜 / rev  (verify.py:500)
++comp = verify._cuo          # 錯 / comp (verify.py:499)
++def partner(h):             # SPECIFICATION.md C1; == verify._partner
++    r = rev(h); return r if r != h else comp(h)
++H16    = frozenset(h for h in range(64) if rev(h) == h or rev(h) == comp(h))     # Ouyang 1993 p. 91/190
++COSETS = sorted({frozenset(h ^ c for c in H16) for h in range(64)}, key=min)     # 4 cosets; COSETS[0] == H16
++def coset_id(h): return next(i for i, C in enumerate(COSETS) if h in C)
++
++def q992_T(s): return sum(swap(s[i]) == s[i+1] for i in range(0, 63))          # all 63 adjacencies
++def q992_W(s): return sum(swap(s[i]) == s[i+1] for i in range(0, 63, 2))       # within-slot  (i even)
++def q992_X(s): return sum(swap(s[i]) == s[i+1] for i in range(1, 63, 2))       # cross-boundary (i odd)  <- PRIMARY
++def q992_A(s):                                                                 # couples in adjacent slots, orientation ignored
++    slot = {}
++    for k in range(32): slot[frozenset((s[2*k], s[2*k+1]))] = k
++    n = 0
++    for k in range(32):
++        a, b = s[2*k], s[2*k+1]
++        q = frozenset((swap(a), swap(b)))
++        if q in slot and slot[q] == k + 1: n += 1
++    return n
++
++def qoy1_cosets(s):            # coset id per slot, from the slot's FIRST hexagram; consistency flag
++    ids = [coset_id(s[2*k]) for k in range(32)]
++    consistent = all(coset_id(s[2*k]) == coset_id(s[2*k+1]) for k in range(32))   # a theorem under C1 (§3.2)
++    return ids, consistent
++def qoy1_D(s):                 # PRIMARY: circular gap dispersion of the coset-0 slots
++    ids, _ = qoy1_cosets(s)
++    a = [k + 1 for k in range(32) if ids[k] == 0]                 # 1-based slots, ascending; |a| == 8 under C1
++    gaps = [a[i+1] - a[i] for i in range(len(a) - 1)] + [32 + a[0] - a[-1]]   # 8 circular gaps, sum 32
++    return sum((g - 4) ** 2 for g in gaps)
++def qoy1_NSAME(s):             # descriptive: same-coset slot boundaries (label-free clustering)
++    ids, _ = qoy1_cosets(s)
++    return sum(ids[k] == ids[k+1] for k in range(31))
++
++# KW's values, filled by the measurement lane AFTER the §9 instrument pin (prereg §7.1: this
++# fill is the first evaluation of either statistic on King Wen). Filled after §9-A1 (prereg §9-A2).
++QOY_KW_EXPECTED = "qoy X=0 W=6 T=6 A=0 D=94 NSAME=8 CONSISTENT=YES IDS=03223023033110023211211332012100"   # filled 2026-10-09T07:04:39Z
++
++
++def qoy_line(s):
++    """One `qoy ...` line for ordering s — the byte-for-byte format of solve.c --qoy-verify.
++    D is printed NA when no slot is in coset 0 (possible only for non-C1 orderings)."""
++    ids, cons = qoy1_cosets(s)
++    d = qoy1_D(s) if 0 in ids else "NA"
++    return ("qoy X=%d W=%d T=%d A=%d D=%s NSAME=%d CONSISTENT=%s IDS=%s"
++            % (q992_X(s), q992_W(s), q992_T(s), q992_A(s), d, qoy1_NSAME(s),
++               "YES" if cons else "NO", "".join(str(i) for i in ids)))
++
++
++def qoy_c1c4_draw(rng):
++    """One uniform draw from N0 (prereg §4.1): the 31 non-initial King Wen pairs shuffled into
++    slots 2..32, an independent fair orientation coin per pair (TR-8 idiom), (63, 0) in slot 1."""
++    pl = list(king_wen_pairs())
++    assert pl[0] == (63, 0)
++    rest = pl[1:]
++    rng.shuffle(rest)
++    seq = [63, 0]
++    for a, b in rest:
++        if rng.random() < 0.5:
++            seq.append(b); seq.append(a)
++        else:
++            seq.append(a); seq.append(b)
++    return seq
++
++
++def qoy_seed(purpose):
++    """Prereg §6 / A-4: uint64 = first 8 bytes, big-endian, of sha256(<ASCII string>)."""
++    import hashlib
++    return int.from_bytes(hashlib.sha256(purpose.encode()).digest()[:8], "big")
++
++
++QOY_GATE_SEED_STRING = "ROAE-QOY1-Q992-2026-10-09/gate-random-c1-orderings"
++
++
++def qoy_gate_orderings(n=100000, seed=None):
++    """The §7.1 gate's random C1∩C4 orderings, drawn with the frozen gate seed."""
++    rng = random.Random(qoy_seed(QOY_GATE_SEED_STRING) if seed is None else seed)
++    return [qoy_c1c4_draw(rng) for _ in range(n)]
++
++
++def qoy_verify(src):
++    """Print one qoy line per ordering of src (the word KW, or a file of orderings, 64 integers
++    per line) and QOY_VERIFY_N=<count>; byte-for-byte the output of solve.c --qoy-verify."""
++    if src == "KW":
++        seqs = [list(binary_hexagrams)]
++    else:
++        seqs = []
++        with open(src) as fh:
++            for ln in fh:
++                if ln.strip():
++                    s = [int(t) for t in ln.split()]
++                    if sorted(s) != list(range(64)):
++                        print("ERROR: --qoy-verify ordering %d is not a permutation of 0..63"
++                              % (len(seqs) + 1), file=sys.stderr)
++                        print("QOY_VERIFY_INPUT=REFUSED", file=sys.stderr)
++                        return 2
++                    seqs.append(s)
++    out = [qoy_line(s) for s in seqs]
++    out.append("QOY_VERIFY_N=%d" % len(seqs))
++    sys.stdout.write("\n".join(out) + "\n")
++    return 0
++
++
++def qoy_gate(binary, n=100000, include_kw=True, timeout=1800):
++    """The §7.1 two-language gate. Writes KW (unless include_kw is False — used only before the
++    §9 pin, when KW may not yet be evaluated) plus n gate-seed orderings to a temporary file,
++    runs `binary --qoy-verify <file>` and compares its stdout with qoy_verify's byte-for-byte.
++    With include_kw, KW's line must also match QOY_KW_EXPECTED. Prints QOY_VERIFY=PASS|FAIL."""
++    import hashlib, io, subprocess, tempfile, contextlib
++    seqs = ([list(binary_hexagrams)] if include_kw else []) + qoy_gate_orderings(n)
++    fd, path = tempfile.mkstemp(prefix="qoy_gate_", suffix=".txt")
++    try:
++        with os.fdopen(fd, "w") as fh:
++            for s in seqs:
++                fh.write(" ".join(map(str, s)) + "\n")
++        buf = io.StringIO()
++        with contextlib.redirect_stdout(buf):
++            prc = qoy_verify(path)
++        py = buf.getvalue().encode()
++        r = subprocess.run(["timeout", str(timeout), binary, "--qoy-verify", path],
++                           capture_output=True)
++        c = r.stdout
++    finally:
++        os.unlink(path)
++    ok = (prc == 0 and r.returncode == 0 and py == c)
++    print("QOY_GATE_ORDERINGS=%d" % len(seqs))
++    print("QOY_GATE_INCLUDES_KW=%s" % ("YES" if include_kw else "NO"))
++    print("QOY_GATE_PY_SHA256=%s" % hashlib.sha256(py).hexdigest())
++    print("QOY_GATE_C_SHA256=%s" % hashlib.sha256(c).hexdigest())
++    print("QOY_GATE_C_RC=%d" % r.returncode)
++    if py != c:
++        pl, cl = py.decode().splitlines(), c.decode(errors="replace").splitlines()
++        for i in range(max(len(pl), len(cl))):
++            a = pl[i] if i < len(pl) else "<none>"; b = cl[i] if i < len(cl) else "<none>"
++            if a != b:
++                print("QOY_GATE_FIRST_DIFF line=%d py=%s c=%s" % (i + 1, a, b))
++                break
++    if include_kw:
++        kw_line = py.decode().splitlines()[0]
++        if QOY_KW_EXPECTED is None:
++            print("QOY_KW_EXPECTED=UNSET")
++            ok = False
++        else:
++            m = kw_line == QOY_KW_EXPECTED
++            print("QOY_KW_EXPECTED_MATCH=%s" % ("YES" if m else "NO"))
++            ok = ok and m
++    print("QOY_VERIFY=%s" % ("PASS" if ok else "FAIL"))
++    return 0 if ok else 1
++
++
+ # ---------------------------------------------------------------------------
+ # Drasny "Rule of Ten" — candidate D-B1 (Rule-of-Ten conformity count).
+ # Operational spec frozen in
+@@ -18309,6 +18478,18 @@ def main():
+     parser.add_argument("--dav2-verify", action="store_true",
+                         help="verify the 2 pre-registered Davis (2012) wave-2 candidates "
+                              "(tquartet C-D9, xunslots C-D10) on KW")
++    parser.add_argument("--qoy-verify", metavar="SRC", default=None,
++                        help="Q-OY1/Q-992 (PREREG_QOY1_Q992_2026_10_09): print the frozen "
++                             "statistics, one line per ordering of SRC (KW or a file of "
++                             "orderings) — the SPEC side of the two-language gate")
++    parser.add_argument("--qoy-gate", metavar="BINARY", default=None,
++                        help="Q-OY1/Q-992 two-language gate: compare BINARY --qoy-verify with "
++                             "--qoy-verify byte-for-byte on KW + 10^5 gate-seed C1∩C4 orderings; "
++                             "prints QOY_VERIFY=PASS|FAIL")
++    parser.add_argument("--qoy-gate-n", type=int, default=100000,
++                        help="number of random orderings for --qoy-gate (prereg: 100000)")
++    parser.add_argument("--qoy-gate-skip-kw", action="store_true",
++                        help="--qoy-gate without the KW line (pre-pin self-test only)")
+     parser.add_argument("--db1-verify", action="store_true",
+                         help="verify Drasny's 'Rule of Ten' D-B1 classifier (== Table 4.1, "
+                              "all 64 hexagrams) and KW conformity count (X=22) — the "
+@@ -18613,6 +18794,12 @@ def main():
+     if args.dav2_verify:
+         sys.exit(dav2_verify())
+ 
++    if args.qoy_verify is not None:
++        sys.exit(qoy_verify(args.qoy_verify))
++
++    if args.qoy_gate is not None:
++        sys.exit(qoy_gate(args.qoy_gate, n=args.qoy_gate_n, include_kw=not args.qoy_gate_skip_kw))
++
+     if args.db1_verify:
+         sys.exit(db1_verify())
+ 
+diff --git a/tests.py b/tests.py
+index f905bea0..8caceb1e 100644
+--- a/tests.py
++++ b/tests.py
+@@ -39938,6 +39938,83 @@ class TestQ975SourceAttribution(unittest.TestCase):
+ # end class TestQ975SourceAttribution (literature batch, Q-975 + Q-974 step 4)
+ 
+ 
++class TestQoyScorer(unittest.TestCase):
++    """PREREG_QOY1_Q992_2026_10_09 §7.1: the Q-OY1/Q-992 scorer's two-language gate and its
++    mutant leg as standing regressions. Leg 1: solve.c --qoy-verify reproduces solve.py's
++    output byte-for-byte on KW and on seeded C1∩C4 orderings (the gate's own seed; fewer
++    orderings than the recorded 10^5 run, which is `python3 solve.py --qoy-gate ./solve`).
++    Leg 2 (gates must discriminate): a build with the within/cross parity of X and W swapped
++    must make the same gate print QOY_VERIFY=FAIL. These test the INSTRUMENT, not King Wen."""
++
++    N = 3000
++
++    @classmethod
++    def setUpClass(cls):
++        cls.tmp = tempfile.mkdtemp(prefix="qoy_")
++        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
++        with open(src) as fh:
++            cls.text = fh.read()
++        cls.x_line = "for (int i = 1; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) x++;   /* QOY_X_PARITY"
++        cls.w_line = "for (int i = 0; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) w++;   /* QOY_W_PARITY"
++        mut = cls.text.replace(cls.x_line, cls.x_line.replace("i = 1;", "i = 0;")) \
++                      .replace(cls.w_line, cls.w_line.replace("i = 0;", "i = 1;"))
++        cls.mut_src = os.path.join(cls.tmp, "solve_qoy_mutant.c")
++        with open(cls.mut_src, "w") as fh:
++            fh.write(mut)
++        cls.bins = {}
++        for tag, path in (("good", src), ("mutant", cls.mut_src)):
++            b = os.path.join(cls.tmp, "solve_" + tag)
++            r = subprocess.run(["timeout", "600", "gcc", "-O1", "-fopenmp", "-o", b, path,
++                                "-lm", "-lpthread", "-lz"], capture_output=True, text=True)
++            cls.bins[tag] = b if r.returncode == 0 and os.path.exists(b) else None
++
++    @classmethod
++    def tearDownClass(cls):
++        shutil.rmtree(cls.tmp, ignore_errors=True)
++
++    def _gate(self, binary):
++        import io, contextlib
++        buf = io.StringIO()
++        with contextlib.redirect_stdout(buf):
++            rc = solve.qoy_gate(binary, n=self.N, include_kw=True, timeout=600)
++        return rc, buf.getvalue().splitlines()
++
++    def test_mutant_precondition(self):
++        # The mutation must actually change the source in both places, or leg 2 proves nothing.
++        self.assertEqual(self.text.count(self.x_line), 1)
++        self.assertEqual(self.text.count(self.w_line), 1)
++        with open(self.mut_src) as fh:
++            self.assertNotEqual(fh.read(), self.text)
++
++    def test_gate_passes_on_solve_c(self):
++        self.assertIsNotNone(self.bins["good"], "solve.c failed to build")
++        self.assertIsNotNone(solve.QOY_KW_EXPECTED, "QOY_KW_EXPECTED unset")
++        rc, out = self._gate(self.bins["good"])
++        self.assertIn("QOY_KW_EXPECTED_MATCH=YES", out)
++        self.assertIn("QOY_VERIFY=PASS", out)
++        self.assertEqual(rc, 0)
++
++    def test_gate_fails_on_parity_mutant(self):
++        self.assertIsNotNone(self.bins["mutant"], "mutant failed to build")
++        rc, out = self._gate(self.bins["mutant"])
++        self.assertIn("QOY_VERIFY=FAIL", out)
++        self.assertNotIn("QOY_VERIFY=PASS", out)
++        self.assertEqual(rc, 1)
++
++    def test_w_forced_and_x_range_on_c1_orderings(self):
++        # Prereg §3.1: every C1 ordering has W = 6; X is in 0..11; coset per slot consistent,
++        # eight coset-0 slots, slot 1 among them (C4).
++        for s in solve.qoy_gate_orderings(500, seed=20261009):
++            self.assertEqual(solve.q992_W(s), 6)
++            self.assertTrue(0 <= solve.q992_X(s) <= 11)
++            ids, cons = solve.qoy1_cosets(s)
++            self.assertTrue(cons)
++            self.assertEqual(ids.count(0), 8)
++            self.assertEqual(ids[0], 0)
++
++# end class TestQoyScorer (PREREG_QOY1_Q992_2026_10_09 §7.1)
++
++
+ if __name__ == "__main__":
+     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
+     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

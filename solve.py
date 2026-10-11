@@ -18040,6 +18040,188 @@ def atlas_residual_rank(atlas_path):
     return 0 if ok else 1
 
 
+# ---------------------------------------------------------------------------
+# Q-OY1 (Ouyang 1993 H16-coset slot spacing) and Q-992 (Han 1984 trigram-swap
+# adjacency) — frozen in roae-private/review_2026_09_27/
+# PREREG_QOY1_Q992_2026_10_09.md (sha256 5e15192f…, locked 2026-10-09 BEFORE
+# any measurement). The §2 definitions below are copied byte-for-byte from the
+# registration; solve.py is the SPEC and `--qoy-verify` is one side of the
+# two-language gate (`solve.c --qoy-verify` must reproduce its output
+# byte-for-byte; `--qoy-gate <binary>` compares them on KW + 10^5 seeded
+# C1∩C4 orderings). Primaries: q992_X and qoy1_D; everything else is
+# descriptive. ATTRIBUTION: the H16 "backbone" reading is 欧阳维诚 (Ouyang
+# Weicheng) 1993 pp. 190-191; the swap-adjacency count is 韩仲民 (Han Zhongmin)
+# 1984 p. 22 (CITATIONS.md). The scalar operationalizations and the population
+# measurement are ROAE's.
+# ---------------------------------------------------------------------------
+
+try:
+    import verify   # §2: the normative bit operations are verify.py's (_zong, _cuo)
+except ImportError:
+    # solve.py run from a directory without verify.py beside it (some gates copy solve.py alone into
+    # a scratch directory). Importing solve.py must not fail there, so the two operations §2 takes
+    # from verify.py are restated exactly as verify.py defines its _cuo and _zong. With verify.py
+    # importable (every normal run, and the recorded measurement) this branch is never taken.
+    class _QoyVerifyFallback:
+        @staticmethod
+        def _cuo(h):  return h ^ 0b111111                      # 错 complement
+        @staticmethod
+        def _zong(h): return int(format(h, '06b')[::-1], 2)    # 综 reversal
+    verify = _QoyVerifyFallback()
+
+# verify.py:905            swap: 上下互易, exchange upper and lower trigrams
+def swap(h):  return ((h >> 3) & 0b111) | ((h & 0b111) << 3)
+rev  = verify._zong         # 綜 / rev  (verify.py:500)
+comp = verify._cuo          # 錯 / comp (verify.py:499)
+def partner(h):             # SPECIFICATION.md C1; == verify._partner
+    r = rev(h); return r if r != h else comp(h)
+H16    = frozenset(h for h in range(64) if rev(h) == h or rev(h) == comp(h))     # Ouyang 1993 p. 91/190
+COSETS = sorted({frozenset(h ^ c for c in H16) for h in range(64)}, key=min)     # 4 cosets; COSETS[0] == H16
+def coset_id(h): return next(i for i, C in enumerate(COSETS) if h in C)
+
+def q992_T(s): return sum(swap(s[i]) == s[i+1] for i in range(0, 63))          # all 63 adjacencies
+def q992_W(s): return sum(swap(s[i]) == s[i+1] for i in range(0, 63, 2))       # within-slot  (i even)
+def q992_X(s): return sum(swap(s[i]) == s[i+1] for i in range(1, 63, 2))       # cross-boundary (i odd)  <- PRIMARY
+def q992_A(s):                                                                 # couples in adjacent slots, orientation ignored
+    slot = {}
+    for k in range(32): slot[frozenset((s[2*k], s[2*k+1]))] = k
+    n = 0
+    for k in range(32):
+        a, b = s[2*k], s[2*k+1]
+        q = frozenset((swap(a), swap(b)))
+        if q in slot and slot[q] == k + 1: n += 1
+    return n
+
+def qoy1_cosets(s):            # coset id per slot, from the slot's FIRST hexagram; consistency flag
+    ids = [coset_id(s[2*k]) for k in range(32)]
+    consistent = all(coset_id(s[2*k]) == coset_id(s[2*k+1]) for k in range(32))   # a theorem under C1 (§3.2)
+    return ids, consistent
+def qoy1_D(s):                 # PRIMARY: circular gap dispersion of the coset-0 slots
+    ids, _ = qoy1_cosets(s)
+    a = [k + 1 for k in range(32) if ids[k] == 0]                 # 1-based slots, ascending; |a| == 8 under C1
+    gaps = [a[i+1] - a[i] for i in range(len(a) - 1)] + [32 + a[0] - a[-1]]   # 8 circular gaps, sum 32
+    return sum((g - 4) ** 2 for g in gaps)
+def qoy1_NSAME(s):             # descriptive: same-coset slot boundaries (label-free clustering)
+    ids, _ = qoy1_cosets(s)
+    return sum(ids[k] == ids[k+1] for k in range(31))
+
+# KW's values, filled by the measurement lane AFTER the §9 instrument pin (prereg §7.1: this
+# fill is the first evaluation of either statistic on King Wen). Filled after §9-A1 (prereg §9-A2).
+QOY_KW_EXPECTED = "qoy X=0 W=6 T=6 A=0 D=94 NSAME=8 CONSISTENT=YES IDS=03223023033110023211211332012100"   # filled 2026-10-09T07:04:39Z
+
+
+def qoy_line(s):
+    """One `qoy ...` line for ordering s — the byte-for-byte format of solve.c --qoy-verify.
+    D is printed NA when no slot is in coset 0 (possible only for non-C1 orderings)."""
+    ids, cons = qoy1_cosets(s)
+    d = qoy1_D(s) if 0 in ids else "NA"
+    return ("qoy X=%d W=%d T=%d A=%d D=%s NSAME=%d CONSISTENT=%s IDS=%s"
+            % (q992_X(s), q992_W(s), q992_T(s), q992_A(s), d, qoy1_NSAME(s),
+               "YES" if cons else "NO", "".join(str(i) for i in ids)))
+
+
+def qoy_c1c4_draw(rng):
+    """One uniform draw from N0 (prereg §4.1): the 31 non-initial King Wen pairs shuffled into
+    slots 2..32, an independent fair orientation coin per pair (TR-8 idiom), (63, 0) in slot 1."""
+    pl = list(king_wen_pairs())
+    if pl[0] != (63, 0):
+        raise ValueError("qoy_c1c4_draw: King Wen pair 1 must be (63, 0) for the N0 draw, got %r" % (pl[0],))
+    rest = pl[1:]
+    rng.shuffle(rest)
+    seq = [63, 0]
+    for a, b in rest:
+        if rng.random() < 0.5:
+            seq.append(b); seq.append(a)
+        else:
+            seq.append(a); seq.append(b)
+    return seq
+
+
+def qoy_seed(purpose):
+    """Prereg §6 / A-4: uint64 = first 8 bytes, big-endian, of sha256(<ASCII string>)."""
+    import hashlib
+    return int.from_bytes(hashlib.sha256(purpose.encode()).digest()[:8], "big")
+
+
+QOY_GATE_SEED_STRING = "ROAE-QOY1-Q992-2026-10-09/gate-random-c1-orderings"
+
+
+def qoy_gate_orderings(n=100000, seed=None):
+    """The §7.1 gate's random C1∩C4 orderings, drawn with the frozen gate seed."""
+    rng = random.Random(qoy_seed(QOY_GATE_SEED_STRING) if seed is None else seed)
+    return [qoy_c1c4_draw(rng) for _ in range(n)]
+
+
+def qoy_verify(src):
+    """Print one qoy line per ordering of src (the word KW, or a file of orderings, 64 integers
+    per line) and QOY_VERIFY_N=<count>; byte-for-byte the output of solve.c --qoy-verify."""
+    if src == "KW":
+        seqs = [list(binary_hexagrams)]
+    else:
+        seqs = []
+        with open(src) as fh:
+            for ln in fh:
+                if ln.strip():
+                    s = [int(t) for t in ln.split()]
+                    if sorted(s) != list(range(64)):
+                        print("ERROR: --qoy-verify ordering %d is not a permutation of 0..63"
+                              % (len(seqs) + 1), file=sys.stderr)
+                        print("QOY_VERIFY_INPUT=REFUSED", file=sys.stderr)
+                        return 2
+                    seqs.append(s)
+    out = [qoy_line(s) for s in seqs]
+    out.append("QOY_VERIFY_N=%d" % len(seqs))
+    sys.stdout.write("\n".join(out) + "\n")
+    return 0
+
+
+def qoy_gate(binary, n=100000, include_kw=True, timeout=1800):
+    """The §7.1 two-language gate. Writes KW (unless include_kw is False — used only before the
+    §9 pin, when KW may not yet be evaluated) plus n gate-seed orderings to a temporary file,
+    runs `binary --qoy-verify <file>` and compares its stdout with qoy_verify's byte-for-byte.
+    With include_kw, KW's line must also match QOY_KW_EXPECTED. Prints QOY_VERIFY=PASS|FAIL."""
+    import hashlib, io, subprocess, tempfile, contextlib
+    seqs = ([list(binary_hexagrams)] if include_kw else []) + qoy_gate_orderings(n)
+    fd, path = tempfile.mkstemp(prefix="qoy_gate_", suffix=".txt")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            for s in seqs:
+                fh.write(" ".join(map(str, s)) + "\n")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            prc = qoy_verify(path)
+        py = buf.getvalue().encode()
+        r = subprocess.run(["timeout", str(timeout), binary, "--qoy-verify", path],
+                           capture_output=True)
+        c = r.stdout
+    finally:
+        os.unlink(path)
+    ok = (prc == 0 and r.returncode == 0 and py == c)
+    print("QOY_GATE_ORDERINGS=%d" % len(seqs))
+    print("QOY_GATE_INCLUDES_KW=%s" % ("YES" if include_kw else "NO"))
+    print("QOY_GATE_PY_SHA256=%s" % hashlib.sha256(py).hexdigest())
+    print("QOY_GATE_C_SHA256=%s" % hashlib.sha256(c).hexdigest())
+    print("QOY_GATE_C_RC=%d" % r.returncode)
+    if py != c:
+        pl, cl = py.decode().splitlines(), c.decode(errors="replace").splitlines()
+        for i in range(max(len(pl), len(cl))):
+            a = pl[i] if i < len(pl) else "<none>"; b = cl[i] if i < len(cl) else "<none>"
+            if a != b:
+                print("QOY_GATE_FIRST_DIFF line=%d py=%s c=%s" % (i + 1, a, b))
+                break
+    if include_kw:
+        kw_line = py.decode().splitlines()[0]
+        if QOY_KW_EXPECTED is None:
+            print("QOY_KW_EXPECTED=UNSET")
+            ok = False
+        else:
+            m = kw_line == QOY_KW_EXPECTED
+            print("QOY_KW_EXPECTED_MATCH=%s" % ("YES" if m else "NO"))
+            ok = ok and m
+    print("QOY_VERIFY=%s" % ("PASS" if ok else "FAIL"))
+    return 0 if ok else 1
+
+
 
 def main():
     # 🔴 INTERCEPTED BEFORE argparse, deliberately. The detector takes `--atlas ATLAS.json`, and
@@ -18309,6 +18491,18 @@ def main():
     parser.add_argument("--dav2-verify", action="store_true",
                         help="verify the 2 pre-registered Davis (2012) wave-2 candidates "
                              "(tquartet C-D9, xunslots C-D10) on KW")
+    parser.add_argument("--qoy-verify", metavar="SRC", default=None,
+                        help="Q-OY1/Q-992 (PREREG_QOY1_Q992_2026_10_09): print the frozen "
+                             "statistics, one line per ordering of SRC (KW or a file of "
+                             "orderings) — the SPEC side of the two-language gate")
+    parser.add_argument("--qoy-gate", metavar="BINARY", default=None,
+                        help="Q-OY1/Q-992 two-language gate: compare BINARY --qoy-verify with "
+                             "--qoy-verify byte-for-byte on KW + 10^5 gate-seed C1∩C4 orderings; "
+                             "prints QOY_VERIFY=PASS|FAIL")
+    parser.add_argument("--qoy-gate-n", type=int, default=100000,
+                        help="number of random orderings for --qoy-gate (prereg: 100000)")
+    parser.add_argument("--qoy-gate-skip-kw", action="store_true",
+                        help="--qoy-gate without the KW line (pre-pin self-test only)")
     parser.add_argument("--db1-verify", action="store_true",
                         help="verify Drasny's 'Rule of Ten' D-B1 classifier (== Table 4.1, "
                              "all 64 hexagrams) and KW conformity count (X=22) — the "
@@ -18612,6 +18806,12 @@ def main():
 
     if args.dav2_verify:
         sys.exit(dav2_verify())
+
+    if args.qoy_verify is not None:
+        sys.exit(qoy_verify(args.qoy_verify))
+
+    if args.qoy_gate is not None:
+        sys.exit(qoy_gate(args.qoy_gate, n=args.qoy_gate_n, include_kw=not args.qoy_gate_skip_kw))
 
     if args.db1_verify:
         sys.exit(db1_verify())

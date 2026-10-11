@@ -418,3 +418,92 @@ to be. The residual, whether a given rendering is faithful, is not closable with
 statements, which this document already names as outstanding work.)* Reproduce:
 `python3 sat.py --emit-cnf grand-ccn4 f.cnf && kissat f.cnf` (encoding two-way validated: ccn4-kwtest SAT,
 rc4-kwtest UNSAT).
+
+## Addendum (2026-10-09): two pre-registered tests that came back UNINFORMATIVE
+
+Two observations about King Wen came out of the 2026-10 literature reading. Both were turned into a
+single number each and tested against the same C1–C5 population as the scoreboard above, under a
+registration frozen **before** either number was computed on King Wen. Both came back
+**UNINFORMATIVE**: King Wen is unremarkable on both numbers. We publish this because the registration
+committed us to publishing every outcome ("flat is a result"), not because it shows anything new. It is not
+evidence that either author's reading is wrong. It shows only that these two statistics do not single
+King Wen out.
+
+**What was asked.**
+
+- **Q-992, trigram-swap adjacency.** [Han Zhongmin 韩仲民 (1984)](CITATIONS.md#hanzhongmin1984), 〈帛书《周易》六十四卦浅说〉, *Jianghan luntan*
+  江汉论坛 1984(6): 20–24, notes on p. 22 that in the received order 「十二个排列在一起的卦」 (twelve hexagrams placed
+  side by side) are pairs whose upper and lower trigrams are exchanged: 5/6, 7/8, 11/12, 13/14, 35/36 and 63/64.
+  All six sit *inside* a C1 pair. The registered statistic is the count `X` of trigram exchanges *across* a pair
+  boundary. A count inside the pairs cannot be tested, for the reason given in the next paragraph. King Wen has `X = 0`.
+- **Q-OY1, H16-coset slot spacing.** [Ouyang Weicheng 欧阳维诚 (1993)](CITATIONS.md#ouyang1993) treats the
+  sixteen hexagrams that are self-reverse or whose reverse equals their complement as an order-16 subgroup of the
+  hexagram group. On pp. 189–191 he reads the eight pairs they form as placed first in the received order and
+  then rotated through it. This is our paraphrase of a reconstruction he labels a conjecture. The *set* of sixteen is
+  older than the subgroup reading. It is 张行成 Zhang Xingcheng's 「乾坤十六卦」 (12th c., 《易通变》), as reported
+  by [尹江铖 Yin Jiangcheng (2023)](CITATIONS.md#yinjiangcheng2023), 〈潘雨廷今本卦序释解：纲领、逻辑与思想〉, *Zongjiaoxue yanjiu* 宗教学研究
+  2023(2): 224–230, expounding 潘雨廷 Pan Yuting. We have not read Zhang's text itself. The credit for the set
+  is Zhang's, and the credit for the subgroup and coset reading is Ouyang's. Every C1 pair lies in one coset of
+  this subgroup, so each of the 32 pair slots carries a coset label, and eight slots are in the subgroup itself.
+  The registered statistic `D` is the sum of (gap − 4)² over the eight circular gaps between those slots. It is 0 when
+  they are evenly spaced and 504 when they are consecutive. King Wen has `D = 94`.
+
+**The "six" is forced by C1 (a short theorem, scoped to orderings that satisfy C1).** Let `swap` exchange
+a hexagram's upper and lower trigrams. A pair slot holds a hexagram `a` and its C1 partner. The
+exchange shows up inside the slot exactly when `swap(a)` is that partner, in either orientation, since
+`swap` undoes itself. When does this happen?
+
+1. If the partner is the reversal of `a` (and `a` is not its own reversal), then reversing a hexagram
+   reverses each trigram and exchanges them. So "reversal = swap" holds exactly when both trigrams read the
+   same upside down, which means both come from 乾, 坤, 坎 and 离. Since `a` is not its own reversal, the two
+   trigrams are different. That gives 4 × 3 = 12 hexagrams, which form six pairs: 5/6, 7/8, 11/12, 13/14,
+   35/36 and 63/64 (in this repository's bit labels, `(2,16) (5,40) (7,56) (21,42) (23,58) (47,61)`).
+2. If `a` is its own reversal, its partner is its complement, and swap would have to equal complement. That
+   needs a trigram whose upside-down reading is its own complement, and no trigram is like that (its middle
+   line would have to differ from itself).
+
+So every ordering that satisfies C1 has exactly these six exchanges inside its pairs, whatever order the
+pairs are in. Han's count is correct, and it follows from the pairing. The registration recorded this
+before any measurement (its §3.1), and the run confirmed it on every scored leaf
+(`Q992_W_CONST=YES`, 35,941,839 C1–C5 leaves and 5,762 C1–C7 leaves). A reader can check it by hand from
+the list above. We do not know whether Han or an earlier reader drew this consequence, and we make no
+claim that it is new.
+
+**Pre-registration.** Frozen 2026-10-09 and committed privately at 06:51:38 UTC, before either statistic was
+evaluated on King Wen (first evaluation 07:04:39 UTC). The frozen file's sha256 is
+`5e15192fc8e4a5283dddb74c7918e32dca2581e414a8e23e2db5defc0c3651fa`. The public copy is
+[reports/evidence/qoy1_q992/PREREGISTRATION.md](../reports/evidence/qoy1_q992/PREREGISTRATION.md). Its cost
+section and one cost sentence are removed, so its digest is different
+(`005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2`); the
+[bundle README](../reports/evidence/qoy1_q992/README.md) lists both removals. As for every pre-registration
+kept in a private repository, freeze timing is attested, not checkable by an outside reader.
+
+**Populations.** N0 is the pair-only null: all 31!·2³¹ orderings of the 32 C1 pairs with (63, 0) first, each
+pair in either orientation. Both statistics have closed **exact** laws there, so nothing is sampled. N1 is the
+C1–C5 population, measured with the same weighted-Knuth instrument as the scoreboard (`SOLVE_KNUTH_SCORE=1`).
+It used 2×10¹⁰ probes in two halves of 10¹⁰, on two pre-registered seeds, and these are **estimates**. N1′
+is the same instrument with the C6/C7 slot pins, 10¹⁰ probes in two halves (secondary; it cannot change the
+verdict). The test is two-sided, with `p_two = min(1, 2·min(p_le, p_ge))`. Under N1 each tail is taken
+conservatively, as the estimate plus three standard errors. The family is two queries at α = 0.01, so the
+bar is 0.005 per query.
+
+| query (source) | statistic | King Wen | N0 exact `p_two` | N1 (C1–C5) operative `p_two` | N1′ (C6/C7 pins) `p_two` | verdict |
+|---|---|---|---|---|---|---|
+| Q-992, trigram-swap adjacency (Han 1984) | `X`, cross-boundary exchanges, 0..11 | 0 | 1 (`p_le` = 0.6986) | 1 (`p_le` = 0.6620, SE 1.3×10⁻⁴) | 1 | **UNINFORMATIVE** |
+| Q-OY1, H16-coset slot spacing (Ouyang 1993; set: Zhang Xingcheng) | `D`, coset-0 gap dispersion, 0..504 | 94 | 438976/876525 ≈ 0.5008 | 0.8038 (`p_ge` = 0.4015, SE 1.4×10⁻⁴) | 0.6518 | **UNINFORMATIVE** |
+
+Neither query comes near the 0.005 bar. Both seed halves agree for both populations, and both
+self-validation gates pass (the N1 halves reproduce the published ≈1.33×10³⁸ total to within 0.02%). The
+means, for context: `E[X]` is 11/31 ≈ 0.355 under N0 and 0.406 under N1; `E[D]` is 224/3 ≈ 74.7 under N0 and
+94.1 under N1. King Wen's `D = 94` sits almost exactly at the C1–C5 mean. Every token, the unfiltered run
+outputs and the script that turns them into the verdicts are in
+[reports/evidence/qoy1_q992/](../reports/evidence/qoy1_q992/README.md).
+
+**What this changes.** Nothing in SPECIFICATION.md, the counts, the ladders or the scoreboard above. The
+registration (§8) allowed no such change for this outcome. *(CORRECTIONS.md CX-331.)*
+
+**Reproduce the exact null on a laptop** (Python 3, standard library, about seven minutes on one core; 419 s measured):
+`python3 reports/evidence/qoy1_q992/n0_exact.py . | diff - reports/evidence/qoy1_q992/n0_exact.out && echo N0_EXACT=REPRODUCED`.
+The verdicts from the shipped outputs: `cd reports/evidence/qoy1_q992 && python3 analyze.py | diff - TOKENS.txt`.
+The population runs (hours on a multi-core machine): `ulimit -s unlimited; SOLVE_THREADS=16 SOLVE_KNUTH_SCORE=1 SOLVE_KNUTH_SCORE_QOY=1 ./solve --estimate-knuth 10000000000`,
+with the seeds listed in the bundle README.
