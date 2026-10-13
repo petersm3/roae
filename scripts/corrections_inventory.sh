@@ -36,6 +36,24 @@
 #   scripts/corrections_inventory.sh --stdout   # write to stdout instead
 #   scripts/corrections_inventory.sh --summary  # counts per class/source, no file written
 #   scripts/corrections_inventory.sh --selftest # known-answer anchors (see below)
+#   scripts/corrections_inventory.sh --check    # is the COMMITTED inventory current for HEAD? (Q-994)
+#
+# --check (Q-994, batch 47). The right inventory depends on the exact parent COMMIT, not on its tree:
+#   every correction-bearing commit in `git log` is a GIT-<sha8> row. A tree regenerated on a
+#   stand-in parent (same tree as the real parent, different commit) lacks the real parent's row,
+#   and before this mode nothing at push time read the file, so such a tree passed every gate
+#   (review_2026_09_27 stand-in parent audit, 2026-10-10). --check rebuilds the inventory exactly as
+#   --stdout does, from this clone's real history, drops HEAD's OWN git row (a commit cannot contain
+#   its own sha, so that one row is always missing by construction; it is matched by the first
+#   GIT_SHA_W characters of HEAD's full sha, the width src_git writes) and compares the result
+#   byte-for-byte with `git show HEAD:documentation/CORRECTIONS_INVENTORY.tsv`. It prints exactly one
+#   stdout line, `CORRECTIONS_INVENTORY_CHECK=MATCH|STALE|ERROR` (gate with `grep -qx`), exit 0/1/2;
+#   the reason and the first differing rows go to stderr. ERROR, never a pass: a shallow clone (its
+#   log is truncated), no HEAD or no committed inventory, a working tree whose inputs (*.md, the
+#   inventory, the redaction registry) differ from HEAD (the sweep reads the working tree, so the
+#   answer would describe another tree), a failed sweep, a population under the floor, or a git row
+#   whose document cell is not GIT_SHA_W characters wide. It writes nothing. pre_push_gate.sh runs it
+#   in the pushed sha's worktree as a blocking leg (PREPUSH_LEG_CORRECTIONS_INVENTORY).
 #
 # ERRORS: every refusal prints one `CORRECTIONS_INVENTORY=ERROR <cause> ...` line and exits 2
 # without touching the published TSV. Causes: source-failed:markdown | source-failed:git |
@@ -54,6 +72,9 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 
 OUT="documentation/CORRECTIONS_INVENTORY.tsv"
+# Width of a git row's `document` cell (column 6): src_git cuts %H to it, and --check drops HEAD's
+# own row by it (Q-994). One constant, so the writer and the check cannot disagree about the width.
+GIT_SHA_W=8
 LEDGER="documentation/CORRECTIONS.md"
 
 # ---------------------------------------------------------------------------
@@ -163,14 +184,14 @@ src_markdown() {
 #   \x02 separator survives the tr chain (it only rewrites \r, \t, \n and \x01).
 src_git() {
   git log --date=short --format='%x01%H%x09%ad%x09%s%x02%s %b' \
-    | tr -d '\r' | tr '\t' ' ' | tr '\n' ' ' | tr '\001' '\n' | awk -v RE="$ALL_RE" '
+    | tr -d '\r' | tr '\t' ' ' | tr '\n' ' ' | tr '\001' '\n' | awk -v RE="$ALL_RE" -v W="$GIT_SHA_W" '
     NF == 0 { next }
     {
       n = split($0, a, " ")
       # fields were joined with a literal space by the format string; recover them
       sha = a[1]; dt = a[2]
       msg = substr($0, length(sha) + length(dt) + 3)
-      sha = substr(sha, 1, 8)
+      sha = substr(sha, 1, W)
       j = index(msg, "\002"); subj = substr(msg, 1, j - 1); msg = substr(msg, j + 1)
       if (tolower(msg) ~ RE) print "git\t" sha "\t" dt "\t" msg "\t" subj
     }'
@@ -743,8 +764,46 @@ selftest() {
 }
 
 # ---------------------------------------------------------------------------
+# check — see --check under USAGE (Q-994). One verdict line on stdout; everything else on stderr.
+CHECK_TMP=""
+check_verdict() {   # $1 = MATCH|STALE|ERROR, $2 = reason (stderr), exit 0/1/2
+  [ -n "$CHECK_TMP" ] && rm -rf -- "$CHECK_TMP"
+  [ -n "${2:-}" ] && echo "  [check] $2" >&2
+  echo "CORRECTIONS_INVENTORY_CHECK=$1"
+  case "$1" in MATCH) exit 0 ;; STALE) exit 1 ;; *) exit 2 ;; esac
+}
+check() {
+  local full self n bad drc
+  [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = false ] \
+    || check_verdict ERROR "shallow-repository: git log would see a truncated history, so a missing row could not be told from a cut one"
+  full=$(git rev-parse --verify -q 'HEAD^{commit}') || check_verdict ERROR "no HEAD commit"
+  git cat-file -e "HEAD:$OUT" 2>/dev/null || check_verdict ERROR "HEAD has no $OUT"
+  git diff --quiet HEAD -- '*.md' "$OUT" "$REDACT_REG"; drc=$?
+  [ "$drc" -eq 0 ] || check_verdict ERROR "the working tree's inputs (*.md, $OUT, $REDACT_REG) differ from HEAD (git diff rc=$drc); the sweep reads the working tree, so commit or stash first"
+  CHECK_TMP=$(mktemp -d) || check_verdict ERROR "mktemp-failed"
+  trap '[ -n "$CHECK_TMP" ] && rm -rf -- "$CHECK_TMP"' EXIT
+  trap '[ -n "$CHECK_TMP" ] && rm -rf -- "$CHECK_TMP"; exit 130' INT
+  trap '[ -n "$CHECK_TMP" ] && rm -rf -- "$CHECK_TMP"; exit 143' TERM
+  git show "HEAD:$OUT" > "$CHECK_TMP/committed" || check_verdict ERROR "git show HEAD:$OUT failed"
+  sweep > "$CHECK_TMP/rebuilt" || check_verdict ERROR "sweep failed rc=$? (its own ERROR line is above)"
+  n=$(awk 'NR>1' "$CHECK_TMP/rebuilt" | grep -c .)
+  [ "${n:-0}" -ge 50 ] || check_verdict ERROR "population-collapsed rows=${n:-0} (floor 50)"
+  bad=$(awk -F'\t' -v W="$GIT_SHA_W" 'NR>1 && $5=="git" && length($6)!=W {c++} END {print c+0}' "$CHECK_TMP/rebuilt")
+  [ "$bad" = 0 ] || check_verdict ERROR "$bad git row(s) with a document cell that is not $GIT_SHA_W characters; the self-row filter would miss"
+  self=${full:0:$GIT_SHA_W}
+  awk -F'\t' -v h="$self" 'NR==1 || !($5=="git" && $6==h)' "$CHECK_TMP/rebuilt" > "$CHECK_TMP/expected"
+  if cmp -s "$CHECK_TMP/committed" "$CHECK_TMP/expected"; then
+    check_verdict MATCH "HEAD ${full:0:12}: committed inventory = rebuilt from this history minus HEAD's own row ($(grep -c . "$CHECK_TMP/expected") lines)"
+  fi
+  { echo "  [check] HEAD ${full:0:12}: committed (<) vs rebuilt minus HEAD's own row (>), first rows:"
+    diff "$CHECK_TMP/committed" "$CHECK_TMP/expected" | grep -E '^[<>]' | head -10 | cut -c1-200 | sed 's/^/    /'
+    echo "  [check] regenerate with scripts/corrections_inventory.sh ON THE REAL PARENT COMMIT, then commit"; } >&2
+  check_verdict STALE
+}
+
 case "${1:-}" in
   --selftest) selftest; exit $? ;;
+  --check)    check; exit $? ;;
   --stdout)   sweep; exit $? ;;
   --summary)
     sweep | awk -F'\t' 'NR>1 { c[$3]++; s[$5]++; n++ }
@@ -754,7 +813,7 @@ case "${1:-}" in
             for (k in s) printf "  source %-10s %6d\n", k, s[k] | "sort" }'
     exit $? ;;
   "") ;;
-  *)  echo "usage: $0 [--stdout|--summary|--selftest]"; exit 2 ;;
+  *)  echo "usage: $0 [--stdout|--summary|--selftest|--check]"; exit 2 ;;
 esac
 
 sweep > "$OUT.new"; SRC=$?

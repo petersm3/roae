@@ -30914,3 +30914,205 @@ that way; and the class docstring must cite no `.md` line by number. All three f
 script as batch 46 first staged it.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 46, Q-936.
+
+## CX-342 — nothing checked CORRECTIONS_INVENTORY.tsv at push time, so a tree regenerated on a stand-in parent passed every gate; `corrections_inventory.sh --check` now compares it with the pushed commit's real history, as a blocking pre-push leg (scripts/corrections_inventory.sh; scripts/pre_push_gate.sh; scripts/doc_gates.sh)
+
+**2026-10-10.** **Source.** A stand-in parent audit in the private review record, the same day.
+Backlog row Q-994. Batch 47.
+
+**No published number, count, sha or verdict moves.** The published history was clean when the
+audit checked it: at `3198757c` and at the four public pushes before it, each commit's inventory
+carries its parent's row and lacks only its own.
+
+**1. What was wrong.** `documentation/CORRECTIONS_INVENTORY.tsv` has one `GIT-<sha8>` row for
+each correction-bearing commit in `git log`. So the correct file depends on the exact parent
+commit, not on the parent's tree. Batch trees were being staged on stand-in commits: the real
+parent's tree under another commit, whose subject has no correction word. Regenerated there, the
+inventory lacked the real parent's row (`GIT-16122c16` for `3198757c`). No gate noticed. The
+pre-push `generated` leg (GATE 8) compares only `example/` against `roae.py`, and nothing else read
+the file. `scripts/doc_gates.sh` itself said the inventory had "no consumer in this suite at all".
+
+**2. What changed.**
+
+- `scripts/corrections_inventory.sh --check` rebuilds the inventory the way `--stdout` does, from
+  this clone's real history. It drops HEAD's own git row, because a commit cannot contain its own
+  sha. That row is matched on the first 8 characters of HEAD's full sha. The 8 is now one constant,
+  `GIT_SHA_W`, which `src_git` also uses to cut column 6, so the writer and the check cannot
+  disagree about the width. The result is compared byte for byte with
+  `git show HEAD:documentation/CORRECTIONS_INVENTORY.tsv`. The script prints exactly one line,
+  `CORRECTIONS_INVENTORY_CHECK=MATCH|STALE|ERROR`, and exits 0, 1 or 2. Each of these is an `ERROR`,
+  never a pass: a shallow clone, no HEAD, no committed inventory, inputs in the working tree that
+  differ from HEAD, a failed sweep, fewer than 50 rows, or a git row of the wrong width.
+- `scripts/pre_push_gate.sh` runs it in the pushed sha's worktree on every push, as a blocking leg
+  (`PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS|FAIL`). The leg runs whether or not a verdict record
+  matched. A record is keyed by tree, and the same tree on a stand-in parent is the case the leg
+  exists to catch, so `scripts/prepush_verdict_record.sh` does not carry it, and says why. A pushed
+  tree without the script fails the leg.
+- The `scripts/doc_gates.sh` comment that said the inventory had no consumer now names
+  `--check` as its reader. The pointer beside it (`CORRECTIONS.md:52`) had drifted; it now names
+  the `awk` C4 recipe instead.
+- `documentation/DEVELOPMENT.md` documents both tokens and puts the leg in the always-local row.
+
+**3. Tests.** `TestQ994Q995Batch47` runs the real script in throwaway repositories, and each red
+case asserts its precondition first. (a) The parent's row deleted gives `STALE`. (b) The batch tree
+regenerated on a stand-in parent gives `MATCH` on the stand-in's own history; committed on the real
+parent, the same tree gives `STALE`, and the diagnosis names the missing row. It is also `STALE`
+when the stand-in's subject carries a correction word. (c) The same batch regenerated on the real
+parent gives `MATCH`. A mutant without the self-row drop turns (c) `STALE`, so (c)'s `MATCH` is not
+vacuous. (d) A shallow clone of the commit that matched gives `ERROR`. The real hook, driven end to
+end, passes the regenerated tree and blocks the stand-in one. On the batch 46 tree (which has no
+`--check`) the Q-994 cases fail.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 47, Q-994.
+
+## CX-343 — doc-gates runs left their `docgates_*` temp directories behind whenever a run was stopped part-way; each run now makes one temp root and removes it on EXIT, INT, TERM and HUP (scripts/doc_gates.sh)
+
+**2026-10-10.** **Source.** Backlog row Q-995, found during the Q-994 audit. Batch 47.
+
+**No published number, count, sha or verdict moves.**
+
+**1. What was wrong.** Doc-gate legs make scratch directories with `mktemp` under
+`${TMPDIR:-/tmp}`: `docgates_fold`, `docgates_flatev` and `docgates_flatdoc` in the retracted-phrase
+gate, `docgates_codeneedle` in GATE 47, and unnamed `mktemp` files and directories in other legs.
+Each removes them on its normal return paths only. When a run was stopped part-way (a timeout, ^C,
+a killed lane) every directory open at that moment stayed. 126 such directories, 1.4 GB, dating back
+to 2026-09-08, were removed by hand on 2026-10-10. During the audit they twice took the shared disk
+down to 32 MB free.
+
+**2. What changed.** A trap in each leg cannot fix this. The legs are functions in one shell, so each
+trap would replace the one before. So `scripts/doc_gates.sh` now makes one directory per run,
+`docgates_run.XXXXXX`, exports `TMPDIR` as it, and removes it on EXIT, INT, TERM and HUP. Every
+`mktemp` in every leg, module and child process then lands inside it, including legs written later.
+The two `--selftest` blocks set their own traps, which replace the run's; each now removes the root
+too. If the root cannot be made (for example `TMPDIR=/dev/null`, which the Q-748a fire-proof uses),
+`TMPDIR` is left as it was, so a leg still reports its own `mktemp` failure. The code sits on the
+existing `RC=0` line, with `#@` commentary, so the logical source keeps its line numbers. Not
+covered: SIGKILL, which no trap catches. A run killed that way leaves one `docgates_run.*` directory
+that holds everything it made.
+
+**3. Tests.** `TestQ994Q995Batch47` runs `retract` and `code-needles` under a fresh `TMPDIR` and
+requires nothing to be left, after a normal run and after TERM or INT is sent to the run's process
+group. The precondition is that the leg's own directory was seen to exist when the signal was sent.
+On the batch 46 tree, the interrupted runs leave their directories. A static test requires every
+EXIT, INT, TERM or HUP trap in the logical source to remove the root, and requires the root to be
+made before any other `mktemp`. A run with `TMPDIR=/dev/null` must still fail loudly.
+`TestLaneB29SelftestNeverPlantsInTheCallersTree` looked for the self-test's scratch clone directly
+under `TMPDIR`; it is now one level down, inside the run's root, and the test reads both levels.
+
+**4. Not done here.** Scripts outside the doc gates have the same pattern: at least 22 in `scripts/`
+call `mktemp` and set no trap. Under `doc_gates.sh` they now inherit its root. Run directly, they do
+not. They are left for a later batch.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 47, Q-995.
+
+## CX-344 — an interrupt could end a doc-gates run in `DOC GATES: PASS`, rc 0, and the pre-push hook had the same trap-and-continue pattern; both now run as a supervisor and a worker, and an interrupted run ends non-zero with an explicit INTERRUPTED verdict (scripts/doc_gates.sh; scripts/pre_push_gate.sh; documentation/DEVELOPMENT.md)
+
+**2026-10-10.** **Source.** Backlog row Q-997, found while restacking batches 45 to 47: the CX-343
+test of an INT sent to a `retract` run failed about 1 run in 3. Batch 47.
+
+**No published number, count, sha or verdict moves.** This is a fail-open of the gate runner under
+a signal, not a finding about any published figure.
+
+**1. What was wrong.** A SIGINT sent to a run's process group (a ^C, or a lane stopping a chain)
+reaches the shell and the child it is waiting for. Bash then follows its documented
+wait-and-cooperative-exit (WCE) rule: if that child does not die of SIGINT, bash assumes the child
+handled it and does not act on it either. The INT trap never runs and the script carries on. On
+bash 5.2.21, `doc_gates.sh retract` interrupted while folding sometimes gave rc 0 and
+`DOC GATES: PASS (retract)`. The deterministic test in item 3 reproduces it on every run. There, the child was a command substitution forked
+just as the signal landed. It ran the inherited trap text, failed with "unexpected EOF while
+looking for matching `)'", and so exited normally. The temp directories were still removed (by the
+EXIT trap at the end of the run), so only the exit code showed it. The TERM trap is not reliable
+either: a trap that fires as a command substitution returns can fail to parse in the same way, and
+its body never runs. On the batch 47 tree before this change, a TERM or HUP sent at a held point
+also ended in `DOC GATES: PASS`. `scripts/pre_push_gate.sh` used the same pattern
+(`trap 'cleanup; exit 130' INT`), so an interrupted push could carry on to `PREPUSH_VERDICT=PASS`.
+
+**2. What changed.** A trap in the interrupted shell cannot fix this, because that shell never
+sees the signal as its own. So each of the two scripts now runs as two processes.
+
+- **The supervisor.** It re-runs the same file as a background worker and blocks in the `wait`
+  builtin. A trapped signal interrupts `wait` at once, whatever any child did with it, so WCE does
+  not apply. On INT, TERM or HUP the supervisor does four things:
+  1. It writes a flag file.
+  2. It sends TERM to the worker, and sends it again every 0.2 s until the worker has gone.
+  3. In `doc_gates.sh` only, it sends KILL after 30 s.
+  4. It prints the verdict and exits non-zero. For `doc_gates.sh` the verdict is
+     `DOC GATES: INTERRUPTED (SIG<name> -- the run did not complete; NO verdict, this is not a PASS)`.
+     For the hook it is `pre-push: 🔴 INTERRUPTED (SIG<name>) ...`, followed by
+     `PREPUSH_VERDICT=FAIL`. On INT the supervisor re-raises SIGINT on itself, so a bash caller's own
+     WCE sees a child killed by SIGINT and stops too.
+- **The worker.** On the line before its final verdict, the worker reads the flag. If the flag is
+  set, it exits 143 and prints no verdict. So a worker whose own trap failed cannot go on to print
+  PASS.
+- **A worker killed by a signal.** If the worker ended by a signal the supervisor never received
+  (rc above 128, for example a KILL), that is reported as INTERRUPTED and the rc is passed through.
+  Otherwise the worker's output and rc pass through unchanged.
+- **Signals and stdin.** The worker starts with SIGINT restored to its default, so a ^C still
+  reaches every leg at once. It gets the caller's stdin, which for the hook carries git's ref lines.
+- **Temp files.** In `doc_gates.sh` the supervisor makes the outer temp root, `docgates_sup.*`, and
+  exports `TMPDIR` as it. The worker's CX-343 root lands inside it, and the supervisor removes it
+  once the worker has gone. That makes KILL safe, and it closes CX-343's residual for a worker
+  killed with SIGKILL. The hook does not send KILL: a killed worker would leave its temp worktree
+  registered.
+- **What is not wrapped.** `--selftest` is not wrapped, because it already waits on its own
+  background run with `wait`.
+- **How the worker is recognised.** The worker is recognised by `_DG_WORKER_OF` (`_PPG_WORKER_OF`
+  in the hook) being equal to its parent's PID, so an inherited value cannot switch the supervisor
+  off.
+- **Line numbers.** In `doc_gates.sh` the code is on the existing `cd` line, with `#@` commentary,
+  so the logical source keeps its 25891 lines. In the hook it is on the existing
+  `export GIT_NO_REPLACE_OBJECTS=1` line, and the explanation follows `exit $RC`, so no line of the
+  hook moves.
+- **Documented.** `documentation/DEVELOPMENT.md` lists both INTERRUPTED lines, and their exit
+  statuses, in its verdict-token table.
+- **Environment.** The hook's Q-949 guard allows `_PPG_WORKER_OF` and `_PPG_SUP_FLAG`, which its own
+  supervisor sets, and drops an inherited `_DG_WORKER_OF` or `_DG_SUP_FLAG`.
+- **How the hook reads its legs.** Its `doc_gates.sh all`, `generated` and always-local legs, and
+  `corrections_inventory.sh --check`, already read any rc other than 0 as FAIL or COULD NOT RUN.
+
+**3. Tests.** `TestQ994Q995Batch47` no longer depends on timing. A stand-in `dirname`, first in
+`PATH`, is used for the fold step of `retract`. On one call it ignores INT, TERM and HUP, closes its
+stdout, records its PID and blocks on a FIFO. The test sends the signal only once two things are
+true: the stand-in is holding, and its parent is seen in `do_wait` (from `/proc/<pid>/wchan`). It
+then waits for the supervisor's flag file and releases the FIFO.
+
+- **INT, TERM and HUP.** Each must end non-zero, with no `DOC GATES: PASS` line, with
+  `DOC GATES: INTERRUPTED` as the last line, and with nothing left in `TMPDIR`. INT must end by
+  SIGINT, TERM with 143 and HUP with 129.
+- **A killed worker.** Once released, the stand-in sends SIGKILL to its own parent, the worker.
+  The run must report INTERRUPTED with rc 137 and leave nothing behind.
+- **The hook.** The hook is driven end to end, with its `doc_gates.sh all` leg as a holding stand-in.
+  An INT must end with `pre-push: ... INTERRUPTED (SIGINT)` and then `PREPUSH_VERDICT=FAIL`, never
+  `PASS`, and must leave no temp worktree.
+- **Shape tests.** These pin the supervisor in both files. The CX-343 trap test now also accounts
+  for the supervisor's traps and its outer root.
+
+On the batch 47 tree before this change, these six tests fail, and every other test in the class
+passes. The INT, TERM and HUP cases print `DOC GATES: PASS (retract)`. With the cured scripts, the
+four interrupt tests passed when repeated 25 times in a row:
+`for i in $(seq 25); do python3 tests.py TestQ994Q995Batch47.test_q995_retract_interrupted_by_int_leaves_nothing TestQ994Q995Batch47.test_q997_term_and_hup_at_the_same_point_end_interrupted TestQ994Q995Batch47.test_q997_a_worker_killed_by_a_signal_is_never_a_pass TestQ994Q995Batch47.test_q997_hook_interrupted_at_a_held_leg_blocks_with_an_explicit_verdict || break; done`.
+
+**4. Not done here.** `scripts/corrections_inventory.sh` (its `--check` traps) and
+`scripts/exec_lane.sh` keep the single-shell trap pattern. A direct ^C of either can be dropped in
+the same way. Under the hook they are descendants of the worker, and the supervisor's verdict does
+not depend on them. SIGKILL of a supervisor alone (not its process group) leaves the worker running
+to completion and leaves the supervisor's empty temp root behind (`docgates_sup.*`; `prepush_sup.*` for the hook, by the same construction), since only the supervisor removes it; measured on `retract`: the worker ran 101 s to `DOC GATES: PASS`, rc 0, and one empty `docgates_sup.*` stayed. A PASS line can still appear if the worker had passed the flag check before the
+signal arrived (every leg had run). The last line and the rc still say INTERRUPTED. The test needs
+Linux `/proc/<pid>/wchan`, and is skipped without it.
+
+**Addendum (2026-10-11): an older mutant had lost its anchor.** Putting the hook's supervisor on the
+`export GIT_NO_REPLACE_OBJECTS=1` line (item 2) removed the whole line that
+`TestQ971WhatACheckBindsTo.test_c_mutant_without_the_export` (batch 40) deleted, and that test failed
+on its exactly-once check. The mutant now replaces only the export statement,
+`export GIT_NO_REPLACE_OBJECTS=1;`, with `:;`, so the supervisor still runs and only the export is gone.
+It plants the same defect: the per-sha check reads the replacement object, not the pushed one. On it
+`_c_hook_case` sees `note:clean`, so `test_c_hook_gates_the_pushed_objects_not_a_replacement` fails;
+the unmutated hook sees `note:BAD` and passes. Every string literal of 12 or more characters in
+`tests.py` was checked against the files this batch changed, before and after. No other literal that
+occurred in one of them is a mutant anchor that is now missing. Two other literals are gone: a path
+in a `doc_gates.sh` comment this batch rewrote, and a string that a batch 47 test requires to be
+absent. The ones that now occur more than once are path names, verdict tokens and prose, and none
+of them is a mutant anchor. The check finds the old anchor when it is run on the
+unfixed `tests.py`, and finds nothing on the tree before batch 47.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 47, Q-997.

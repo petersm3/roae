@@ -156,7 +156,7 @@ set -u
 # adjudicated Q-962 R9. Exported BEFORE the first git read, and inherited by every leg and gate
 # below. A replace ref is not refused: with this set it changes nothing this hook reads, and a
 # [note] names it so its presence is visible.
-export GIT_NO_REPLACE_OBJECTS=1
+export GIT_NO_REPLACE_OBJECTS=1; _ppg_self=$(cd "$(dirname "$0")" && pwd -P)/${0##*/} || _ppg_self=$0; if [ "${_PPG_WORKER_OF:-}" != "$PPID" ]; then _ppg_w=""; _ppg_sr=""; if _ppg_sr=$(mktemp -d "${TMPDIR:-/tmp}/prepush_sup.XXXXXX" 2>/dev/null); then export _PPG_SUP_FLAG="$_ppg_sr/.interrupted"; else _ppg_sr=""; fi; trap '[ -z "$_ppg_sr" ] || rm -rf -- "$_ppg_sr"' EXIT; _ppg_sig() { trap '' INT TERM HUP; [ -z "$_ppg_sr" ] || : > "$_PPG_SUP_FLAG"; if [ -n "$_ppg_w" ]; then kill -TERM "$_ppg_w" 2>/dev/null; while kill -0 "$_ppg_w" 2>/dev/null; do sleep 0.2; kill -TERM "$_ppg_w" 2>/dev/null; done; wait "$_ppg_w" 2>/dev/null; fi; echo "pre-push: 🔴 INTERRUPTED (SIG$1) -- the gates did not complete, so the push is BLOCKED (Q-997)"; echo "PREPUSH_VERDICT=FAIL"; [ -z "$_ppg_sr" ] || rm -rf -- "$_ppg_sr"; if [ "$1" = INT ]; then trap - INT EXIT; kill -INT "$$"; fi; exit "$2"; }; trap '_ppg_sig INT 130' INT; trap '_ppg_sig TERM 143' TERM; trap '_ppg_sig HUP 129' HUP; _ppg_run() { trap - INT QUIT; _PPG_WORKER_OF=$$ exec bash "$_ppg_self" "$@"; }; _ppg_run "$@" <&0 & _ppg_w=$!; wait "$_ppg_w"; _ppg_rc=$?; if [ "$_ppg_rc" -gt 128 ]; then echo "pre-push: 🔴 INTERRUPTED (the hook's worker ended by signal $((_ppg_rc - 128))) -- the gates did not complete, so the push is BLOCKED (Q-997)"; echo "PREPUSH_VERDICT=FAIL"; fi; exit "$_ppg_rc"; fi   # Q-997: a supervisor; see the note at the END of this file
 ROOT=$(git rev-parse --show-toplevel) || exit 1
 _q971_nrep=$(git for-each-ref --format='%(refname)' refs/replace/ 2>/dev/null | wc -l)
 [ "${_q971_nrep:-0}" -gt 0 ] && echo "pre-push: [note] $_q971_nrep refs/replace/* entr(y/ies) present; IGNORED (GIT_NO_REPLACE_OBJECTS=1), the real objects are gated"
@@ -203,8 +203,8 @@ Z40=0000000000000000000000000000000000000000
 # entry that matches nothing the scan finds also fails it, so the lists cannot go stale either way.
 # NOT COVERED, and said so here: a variable read bare (`$NAME` with no default) and never assigned
 # before the read. Under `set -u` that aborts; without it the scan cannot tell it from a local.
-PREPUSH_ENV_ALLOW="ROAE_PREPUSH_RECORD ROAE_PRIVATE_DIR ROAE_REVIEW_QUEUE TMPDIR PATH HOME"
-PREPUSH_ENV_DROP="CITGATE_BASE SHAFAIL_SEEN TOK"
+PREPUSH_ENV_ALLOW="ROAE_PREPUSH_RECORD ROAE_PRIVATE_DIR ROAE_REVIEW_QUEUE TMPDIR PATH HOME _PPG_WORKER_OF _PPG_SUP_FLAG"   # Q-997: the two are set by this hook's own supervisor (see the end of this file); an inherited value is overwritten or fails closed
+PREPUSH_ENV_DROP="CITGATE_BASE SHAFAIL_SEEN TOK _DG_WORKER_OF _DG_SUP_FLAG"   # Q-997: doc_gates.sh's supervisor sets both for its own worker
 # Named entries: inherited reads whose names belong to no family below.
 PREPUSH_ENV_REFUSE_NAMES="ATLAS BATTERY BIN SOLVE MUT ROWRC C2C3_FORCE_STDLIB CMI_KEEP_LOGS REDACT_FILE
   CORPUS_RC DOC_CTX STRICT_FRAG CHAIN_BUDGET CHAIN_MODE PROVE_CONFIG_TIMEOUT LC_LAYERS_COMPLETE LC_RESUME
@@ -1135,6 +1135,40 @@ for sha in $SHAS; do
     _vn="_L_$_v"; echo "PREPUSH_LEG_$_v=${!_vn}"
   done
 
+  # ---- BLOCKING, ALWAYS LOCAL: CORRECTIONS_INVENTORY.tsv is current for the pushed COMMIT (Q-994) ----
+  # The inventory carries one GIT-<sha8> row per correction-bearing commit in `git log`, so whether
+  # it is right depends on the pushed sha's HISTORY, not on its tree. On 2026-10-10 every staged
+  # batch had been regenerated on a stand-in for the real parent (same tree, different commit) and
+  # lacked the parent's row, and every leg here passed it: GATE 8 compares example/ only, and nothing
+  # read this file (stand-in parent audit, roae-private review_2026_09_27). This leg runs the pushed
+  # tree's `corrections_inventory.sh --check` in its worktree: rebuild from this clone's real history,
+  # drop the pushed commit's own row (it cannot contain its own sha), compare with the committed file.
+  # NEVER REUSED from a verdict record, for the same reason: a record is keyed by TREE, and the same
+  # tree on a stand-in parent is exactly the case this leg exists to catch. It costs a few seconds.
+  # MATCH with rc 0 is the only pass; STALE, ERROR (a shallow clone among them), no single verdict
+  # line, or a pushed tree without the script is a FAIL, the rule of the atlas leg above.
+  _L_CORRECTIONS_INVENTORY=FAIL
+  if [ -f "$WT/scripts/corrections_inventory.sh" ]; then
+    _ci_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+                 bash scripts/corrections_inventory.sh --check 2>&1 ); _circ=$?
+    if one_token CORRECTIONS_INVENTORY_CHECK "$_ci_out" && tok_is 'CORRECTIONS_INVENTORY_CHECK=MATCH' && [ "$_circ" -eq 0 ]; then
+      _L_CORRECTIONS_INVENTORY=PASS
+      echo "pre-push: corrections inventory MATCHES the pushed commit's history (its own row excepted)"
+    else
+      echo "pre-push: FAIL — documentation/CORRECTIONS_INVENTORY.tsv is not current for pushed sha $short (rc=$_circ, '${TOK:-<no single CORRECTIONS_INVENTORY_CHECK= line>}')."
+      printf '%s\n' "$_ci_out" | grep -E '^ +(\[check\]|[<>] )' | head -12 | sed 's/^/         /'
+      echo "         Regenerate it ON THE REAL PARENT COMMIT (scripts/corrections_inventory.sh), then commit."
+      echo "         Reproduce: bash scripts/corrections_inventory.sh --check"
+      SHARC=1
+    fi
+  else
+    echo "pre-push: FAIL — pushed sha $short has no scripts/corrections_inventory.sh."
+    echo "  Deleting the generator that this leg checks is the regression it exists to prevent;"
+    echo "  --no-verify is the visible bypass."
+    SHARC=1
+  fi
+  if [ "$_L_CORRECTIONS_INVENTORY" = PASS ]; then echo "PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS"; else echo "PREPUSH_LEG_CORRECTIONS_INVENTORY=FAIL"; fi
+
   # ---- ADVISORY: the Q-479 solve.c battery (2026-09-11) --------------------
   # WHY THIS EXISTS. Four gates in this repository had NO INVOKER: nothing ran
   # them, so at run time each was indistinguishable from a gate that does not
@@ -1692,5 +1726,31 @@ if [ -x "$ROOT/scripts/group_c_n9_rehearsal_gate.sh" ]; then
 fi
 
 # Q-798: the hook's own overall verdict, one whole line, for scripts/prepush_verdict_record.sh.
-if [ "$RC" -eq 0 ]; then echo "PREPUSH_VERDICT=PASS"; else echo "PREPUSH_VERDICT=FAIL"; fi
+if [ -n "${_PPG_SUP_FLAG:-}" ] && [ -e "$_PPG_SUP_FLAG" ]; then exit 143; fi; if [ "$RC" -eq 0 ]; then echo "PREPUSH_VERDICT=PASS"; else echo "PREPUSH_VERDICT=FAIL"; fi   # Q-997: no verdict once the supervisor was signalled
 exit $RC
+
+# ---- Q-997 (batch 47, CX-344): THIS HOOK IS A SUPERVISOR AND A WORKER --------------------------------
+# (Kept after `exit $RC`, which bash never reaches, so no line above it moves.) The code is the one line
+# that exports GIT_NO_REPLACE_OBJECTS near the top. SAME DEFECT AS scripts/doc_gates.sh (Q-997 there):
+# a SIGINT sent to the push's process group reaches this shell and the child it is waiting for, and
+# under bash's wait-and-cooperative-exit (WCE) rule a child that does not die of SIGINT makes bash drop
+# the signal: no INT trap runs and the hook carries on. Its traps were the same `cleanup; exit 130`
+# pattern, so an interrupted push could go on to PREPUSH_VERDICT=PASS. The fix is the same: the hook
+# re-runs itself as a background WORKER (SIGINT restored to default, the caller's stdin, which carries
+# git's ref lines, passed through) and blocks in the `wait` builtin, which a trapped signal interrupts
+# at once whatever any child did with it. On INT, TERM or HUP it creates the flag file $_PPG_SUP_FLAG,
+# sends TERM to the worker (whose own traps remove its temp worktrees) and RE-SENDS it every 0.2 s until
+# the worker is gone, prints `pre-push: INTERRUPTED (SIG<name>)` and PREPUSH_VERDICT=FAIL, and ends
+# non-zero (INT re-raises SIGINT, so git and a bash caller see a hook killed by SIGINT). The re-send and
+# the flag exist because the worker's own TERM trap can fail to run on bash 5.2 when it fires as a
+# command substitution returns (see doc_gates.sh, Q-997); the worker reads the flag on the line before
+# its PREPUSH_VERDICT line and exits 143 instead. No KILL here: a killed worker would leave its temp
+# worktree registered, so a worker that never stops keeps the push waiting, never passing. A
+# worker that ended by a signal this shell never got (rc > 128) is reported the same way. Otherwise the
+# worker's output and rc pass through unchanged. Identified by _PPG_WORKER_OF = the worker's parent PID.
+# Legs (checked for Q-997: `doc_gates.sh all` and `generated`, the always-local doc_gates legs and
+# `corrections_inventory.sh --check`): each reads an rc other than 0 as FAIL or COULD NOT RUN, so a leg
+# killed by a signal cannot read as PASS; doc_gates.sh is itself supervised the same way. NOT fixed:
+# scripts/corrections_inventory.sh (its --check traps are `rm; exit 130`) and scripts/exec_lane.sh
+# keep the single-shell pattern, so a DIRECT ^C of them can be dropped the same way. Under this hook
+# they are its worker's descendants, and this supervisor's verdict does not depend on them.

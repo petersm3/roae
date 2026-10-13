@@ -21095,6 +21095,8 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
             '  *) echo "r167 run" >> "$HK_MARK"; exit 0 ;;\n'
             'esac\n'),
         "tr12_repro_gate.sh": 'echo "tr12 $1" >> "$HK_MARK"\necho "TR12_REPRO_GATE_CURRENT=YES"\n',
+        # Q-994 (batch 47): the always-local inventory leg; its real behaviour is TestQ994Q995Batch47's.
+        "corrections_inventory.sh": 'echo "CORRECTIONS_INVENTORY_CHECK=MATCH"\n',
     }
 
     @classmethod
@@ -28888,7 +28890,15 @@ class TestLaneB29SelftestNeverPlantsInTheCallersTree(unittest.TestCase):
         return r.stdout if r.returncode == 0 else "<status failed: %s>" % r.stderr
 
     def _scratch(self):
-        c = [os.path.join(self.stmp, n, "tree") for n in os.listdir(self.stmp) if n.startswith("doc_gates_selftest.")]
+        # Q-995 (batch 47): doc_gates.sh makes its per-run temp root (docgates_run.*) under TMPDIR first,
+        # so the scratch clone is one level down; both levels are read.
+        def ls(d):
+            try:
+                return os.listdir(d)
+            except OSError:   # removed by the run's own trap between two reads
+                return []
+        tops = [self.stmp] + [os.path.join(self.stmp, n) for n in ls(self.stmp) if n.startswith("docgates_run.")]
+        c = [os.path.join(t, n, "tree") for t in tops for n in ls(t) if n.startswith("doc_gates_selftest.")]
         return [t for t in c if os.path.isdir(os.path.join(t, ".git"))]
 
     def _planting(self):
@@ -39335,10 +39345,12 @@ class TestQ971WhatACheckBindsTo(unittest.TestCase):
         return marks
 
     def test_c_mutant_without_the_export(self):
-        old = "export GIT_NO_REPLACE_OBJECTS=1\n"
+        # Q-997 (batch 47, CX-344) folded the hook's supervisor onto the export's line, so the anchor is
+        # the export statement alone; `:;` keeps the supervisor running and drops only the export.
+        old = "export GIT_NO_REPLACE_OBJECTS=1;"
         self.assertEqual(self.hook_src.count(old), 1)
         marks = self._c_hook_case(
-            hook_src=self.hook_src.replace(old, ""), expect_fixed=False)
+            hook_src=self.hook_src.replace(old, ":;"), expect_fixed=False)
         self.assertIn("note:clean", marks, "the mutant must reproduce the defect: %s" % marks)
 
     def test_c_entry_points_export_before_their_first_git_read(self):
@@ -42445,6 +42457,604 @@ class TestQ993Q936Batch46(unittest.TestCase):
         self.assertNotRegex(self.__doc__, r'\.md:\d', "this docstring must not cite marker lines by number")
 
 # end class TestQ993Q936Batch46 (batch 46, Q-993/Q-936)
+
+
+class TestQ994Q995Batch47(unittest.TestCase):
+    """Q-994 / Q-995 (batch 47).
+
+    Q-994. documentation/CORRECTIONS_INVENTORY.tsv carries one GIT-<sha8> row per correction-bearing
+    commit, so whether it is right depends on the parent COMMIT, not its tree. Nothing read it at push
+    time, so a tree regenerated on a stand-in parent (same tree as the real parent, different commit)
+    passed every gate. `corrections_inventory.sh --check` rebuilds it from the real history, drops
+    HEAD's own row and compares with the committed file; pre_push_gate.sh runs it as a blocking leg.
+    Every case runs the REAL script (copied from this tree) in a throwaway repository:
+      (a) the parent's row deleted -> STALE;  (b) the batch tree built on a stand-in parent and
+      committed on the real one -> STALE;  (c) the same batch regenerated on the real parent -> MATCH;
+      (d) a shallow clone -> ERROR.  Each red case asserts its precondition first, (b) and (c) are the
+      uncured / cured pair, and a mutant without the self-row filter turns (c) STALE, so its MATCH is
+      not vacuous. The hook is driven end to end with the real script: (b) blocks, (c) passes.
+    Q-995. doc_gates.sh legs made `docgates_*` temp dirs under TMPDIR and removed them on their normal
+    return paths only, so a run stopped part-way left them behind. doc_gates.sh now makes one per-run
+    root, exports TMPDIR as it and removes it on EXIT, INT, TERM and HUP. The tests run the legs that
+    make such dirs (retract: docgates_fold/flatev/flatdoc; code-needles: docgates_codeneedle) under a
+    fresh TMPDIR and assert nothing is left, after a normal run and after TERM and INT sent to the
+    run's process group once the leg's dir is seen to exist (the precondition).
+    """
+    INV = "documentation/CORRECTIONS_INVENTORY.tsv"
+    SCRIPT = "scripts/corrections_inventory.sh"
+    REG = "documentation/REDACTED_FIGURES.tsv"
+    HOOK = "scripts/pre_push_gate.sh"
+    HELPER = "scripts/prepush_verdict_record.sh"
+    DG = "scripts/doc_gates.sh"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q994_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _d(self):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "c%d" % self.n)
+        os.makedirs(d)
+        return d
+
+    def _env(self, **extra):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@t", GIT_AUTHOR_DATE="2026-10-10T12:00:00Z",
+                 GIT_COMMITTER_DATE="2026-10-10T12:00:00Z")
+        for k in list(e):
+            if k.startswith("GIT_") and k not in ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME",
+                                                  "GIT_COMMITTER_EMAIL", "GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE"):
+                e.pop(k)
+            if k.startswith("CORRECTIONS_"):
+                e.pop(k)
+        e.update(extra)
+        return e
+
+    def _git(self, repo, *a, inp=None):
+        r = subprocess.run(["git", "-C", repo] + list(a), capture_output=True, text=True, env=self._env(),
+                           input=inp, timeout=120)
+        self.assertEqual(r.returncode, 0, (a, r.stderr))
+        return r.stdout.strip()
+
+    def _src(self, rel):
+        with open(rel, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _wr(self, path, text, mode=0o644):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(path, mode)
+
+    def _regen(self, repo):
+        r = subprocess.run(["bash", self.SCRIPT], cwd=repo, capture_output=True, text=True, env=self._env(), timeout=300)
+        self.assertEqual(r.returncode, 0, "precondition: the generator wrote the inventory\n" + r.stdout + r.stderr)
+
+    def _check(self, repo, script_src=None):
+        if script_src is not None:
+            self._wr(os.path.join(repo, self.SCRIPT), script_src, 0o755)
+        r = subprocess.run(["timeout", "300", "bash", self.SCRIPT, "--check"], cwd=repo, capture_output=True,
+                           text=True, env=self._env(), timeout=330)
+        lines = [l for l in r.stdout.split("\n") if l]
+        self.assertEqual(len(lines), 1, "exactly one stdout line, got %r\n%s" % (lines, r.stderr[-1500:]))
+        return r.returncode, lines[0], r.stderr
+
+    def _rows(self, repo, rev):
+        return self._git(repo, "show", "%s:%s" % (rev, self.INV)).split("\n")
+
+    def _stdout_rows(self, repo):
+        r = subprocess.run(["bash", self.SCRIPT, "--stdout"], cwd=repo, capture_output=True, text=True,
+                           env=self._env(), timeout=300)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return [l.split("\t") for l in r.stdout.split("\n")[1:] if l]
+
+    def _batch_edit(self, repo):
+        with open(os.path.join(repo, "documentation", "NOTES.md"), "a", encoding="utf-8") as fh:
+            fh.write("- batch item: corrected the batch figure in table B\n")
+
+    def _fixture(self, extra=None):
+        """A0 (a correction commit; the git source must not be empty) -> P (a correction commit, the REAL parent, inventory regenerated on
+        A0) -> B (the batch, regenerated on P). S is a stand-in for P: P's tree on A0, another commit,
+        a subject with no correction word. Bs is the same batch regenerated on S; Bx is Bs's tree
+        committed on the real parent P: the 2026-10-10 shape."""
+        d = self._d()
+        repo = os.path.join(d, "repo")
+        os.makedirs(repo)
+        self._git(repo, "init", "-q")
+        self._wr(os.path.join(repo, self.SCRIPT), self._src(self.SCRIPT), 0o755)
+        self._wr(os.path.join(repo, self.REG), self._src(self.REG))
+        self._wr(os.path.join(repo, "documentation", "NOTES.md"),
+                 "".join("- item %d: corrected a typo in table %d\n" % (i, i) for i in range(60)))
+        for rel, body in (extra or {}).items():
+            self._wr(os.path.join(repo, rel), body, 0o755)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "seed tree, corrected layout")
+        a0 = self._git(repo, "rev-parse", "HEAD")
+        self._regen(repo)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "Q-1: correction CX-1, a fixed figure")
+        p = self._git(repo, "rev-parse", "HEAD")
+        self._git(repo, "branch", "-q", "-f", "realparent", p)
+        self._batch_edit(repo)
+        self._regen(repo)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "Batch 1: corrections")
+        b = self._git(repo, "rev-parse", "HEAD")
+        s = self._git(repo, "commit-tree", p + "^{tree}", "-p", a0, "-m", "tmp-standin")
+        self._git(repo, "checkout", "-q", "--detach", s)
+        self._batch_edit(repo)
+        self._regen(repo)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "Batch 1: corrections")
+        bs = self._git(repo, "rev-parse", "HEAD")
+        bx = self._git(repo, "commit-tree", bs + "^{tree}", "-p", p, "-m", "Batch 1: corrections")
+        self._git(repo, "checkout", "-q", "--detach", b)
+        return {"d": d, "repo": repo, "a0": a0, "p": p, "b": b, "s": s, "bs": bs, "bx": bx}
+
+    def _has_git_row(self, rows, sha8):
+        return any(len(c) > 5 and c[4] == "git" and c[5] == sha8 for c in (r.split("\t") for r in rows))
+
+    # ---- Q-994 (c) / (b): the cured and the uncured tree -------------------------------------------
+    def test_q994_c_clean_tree_on_the_real_parent_is_match(self):
+        fx = self._fixture()
+        rows = self._stdout_rows(fx["repo"])
+        self.assertTrue(any(r[4] == "git" and r[5] == fx["b"][:8] for r in rows),
+                        "precondition: the rebuild carries HEAD's own row, so the self-row drop is exercised")
+        self.assertTrue(self._has_git_row(self._rows(fx["repo"], "HEAD"), fx["p"][:8]),
+                        "precondition: the committed file carries the real parent's row")
+        rc, v, err = self._check(fx["repo"])
+        self.assertEqual((rc, v), (0, "CORRECTIONS_INVENTORY_CHECK=MATCH"), err)
+
+    def test_q994_c_mutant_without_the_self_row_drop_goes_stale(self):
+        fx = self._fixture()
+        src = self._src(self.SCRIPT)
+        anchor = """awk -F'\\t' -v h="$self" 'NR==1 || !($5=="git" && $6==h)'"""
+        self.assertEqual(src.count(anchor), 1, "mutant anchor must occur exactly once")
+        rc, v, _ = self._check(fx["repo"], src.replace(anchor, "awk 'NR>=1'"))
+        self.assertEqual((rc, v), (1, "CORRECTIONS_INVENTORY_CHECK=STALE"),
+                         "without the self-row drop the clean tree must read STALE, else (c)'s MATCH proves nothing")
+
+    def test_q994_b_batch_tree_built_on_a_stand_in_parent_is_stale(self):
+        fx = self._fixture()
+        repo = fx["repo"]
+        self.assertNotEqual(fx["s"], fx["p"], "precondition: the stand-in is another commit")
+        self.assertEqual(self._git(repo, "rev-parse", fx["s"] + "^{tree}"), self._git(repo, "rev-parse", fx["p"] + "^{tree}"),
+                         "precondition: the stand-in has the real parent's tree")
+        self.assertEqual(self._git(repo, "diff", "--name-only", fx["b"], fx["bx"]), self.INV,
+                         "precondition: the stand-in batch differs from the regenerated one in the inventory only")
+        self.assertFalse(self._has_git_row(self._rows(repo, fx["bx"]), fx["p"][:8]),
+                         "precondition: the stand-in batch lacks the real parent's row")
+        self._git(repo, "checkout", "-q", "--detach", fx["bs"])
+        rc, v, err = self._check(repo)
+        self.assertEqual((rc, v), (0, "CORRECTIONS_INVENTORY_CHECK=MATCH"),
+                         "precondition: the tree is current for the stand-in's own history\n" + err)
+        self._git(repo, "checkout", "-q", "--detach", fx["bx"])
+        rc, v, err = self._check(repo)
+        self.assertEqual((rc, v), (1, "CORRECTIONS_INVENTORY_CHECK=STALE"), err)
+        self.assertIn(fx["p"][:8], err, "the diagnosis names the missing parent row")
+
+    def test_q994_b_stand_in_with_a_correction_subject_is_stale_too(self):
+        fx = self._fixture()
+        repo = fx["repo"]
+        s2 = self._git(repo, "commit-tree", fx["p"] + "^{tree}", "-p", fx["a0"], "-m", "Q-1: correction CX-1, a fixed figure (re-made)")
+        self._git(repo, "checkout", "-q", "--detach", s2)
+        self._batch_edit(repo)
+        self._regen(repo)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "Batch 1: corrections")
+        t = self._git(repo, "rev-parse", "HEAD^{tree}")
+        bx2 = self._git(repo, "commit-tree", t, "-p", fx["p"], "-m", "Batch 1: corrections")
+        self.assertTrue(self._has_git_row(self._rows(repo, bx2), s2[:8]), "precondition: it carries the stand-in's row")
+        self._git(repo, "checkout", "-q", "--detach", bx2)
+        rc, v, err = self._check(repo)
+        self.assertEqual((rc, v), (1, "CORRECTIONS_INVENTORY_CHECK=STALE"), err)
+
+    # ---- Q-994 (a): the parent's row deleted ---------------------------------------------------------
+    def test_q994_a_parent_row_deleted_is_stale(self):
+        fx = self._fixture()
+        repo = fx["repo"]
+        path = os.path.join(repo, self.INV)
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+        keep = [l for l in lines if not (len(l.split("\t")) > 5 and l.split("\t")[4] == "git" and l.split("\t")[5] == fx["p"][:8])]
+        self.assertEqual(len(lines) - len(keep), 1, "precondition: exactly one parent row existed and was removed")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(keep))
+        self._git(repo, "commit", "-qam", "Batch 1: corrections")
+        rc, v, err = self._check(repo)
+        self.assertEqual((rc, v), (1, "CORRECTIONS_INVENTORY_CHECK=STALE"), err)
+
+    # ---- Q-994 (d): a shallow clone is ERROR, never a pass -----------------------------------------
+    def test_q994_d_shallow_clone_is_error(self):
+        fx = self._fixture()
+        rc, v, _ = self._check(fx["repo"])
+        self.assertEqual(v, "CORRECTIONS_INVENTORY_CHECK=MATCH", "precondition: the full-history clone matches")
+        self._git(fx["repo"], "branch", "-q", "-f", "tip", fx["b"])
+        sh = os.path.join(fx["d"], "shallow")
+        r = subprocess.run(["git", "clone", "-q", "--depth", "1", "--branch", "tip", "file://" + fx["repo"], sh],
+                           capture_output=True, text=True, env=self._env(), timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self._git(sh, "rev-parse", "--is-shallow-repository"), "true", "precondition: the clone is shallow")
+        self.assertEqual(self._git(sh, "rev-parse", "HEAD"), fx["b"], "precondition: the same commit")
+        rc, v, err = self._check(sh)
+        self.assertEqual((rc, v), (2, "CORRECTIONS_INVENTORY_CHECK=ERROR"), err)
+        self.assertIn("shallow", err)
+
+    def test_q994_dirty_inputs_are_error(self):
+        fx = self._fixture()
+        self._batch_edit(fx["repo"])
+        rc, v, err = self._check(fx["repo"])
+        self.assertEqual((rc, v), (2, "CORRECTIONS_INVENTORY_CHECK=ERROR"), "a working tree unlike HEAD cannot be checked\n" + err)
+
+    def test_q994_writer_and_check_share_one_width(self):
+        src = self._src(self.SCRIPT)
+        self.assertEqual(src.count("GIT_SHA_W=8\n"), 1)
+        self.assertEqual(src.count("sha = substr(sha, 1, W)"), 1, "src_git cuts the sha to GIT_SHA_W")
+        self.assertNotIn("substr(sha, 1, 8)", src, "no second, hard-coded width")
+        self.assertEqual(src.count('self=${full:0:$GIT_SHA_W}'), 1, "the check drops HEAD's row by the same width")
+
+    # ---- Q-994: the hook leg, end to end with the real script ----------------------------------------
+    def _hook_fixture(self):
+        q = TestQ798PrepushTreeKeyedReuse
+        stubs = {os.path.join("scripts", k): "#!/bin/bash\n" + v for k, v in q.STUBS.items() if k != "corrections_inventory.sh"}
+        stubs[self.HOOK] = self._src(self.HOOK)
+        stubs[self.HELPER] = self._src(self.HELPER)
+        fx = self._fixture(extra=stubs)
+        bare = os.path.join(fx["d"], "origin.git")
+        subprocess.run(["git", "clone", "-q", "--bare", fx["repo"], bare], check=True, capture_output=True, timeout=120)
+        self._git(fx["repo"], "remote", "add", "origin", bare)
+        self._git(fx["repo"], "fetch", "-q", "origin")
+        return fx
+
+    def _hook(self, fx, sha, base):
+        mark = os.path.join(fx["d"], "mark_%d.log" % random.randrange(1 << 30))
+        e = self._env(HK_MARK=mark, TMPDIR=fx["d"])
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE"):
+            e.pop(k, None)
+        return subprocess.run(["bash", os.path.join(fx["repo"], self.HOOK)], cwd=fx["repo"],
+                              input="refs/heads/main %s refs/heads/main %s\n" % (sha, base),
+                              capture_output=True, text=True, env=e, timeout=900)
+
+    def test_q994_hook_blocks_the_stand_in_tree_and_passes_the_regenerated_one(self):
+        fx = self._hook_fixture()
+        good = self._hook(fx, fx["b"], fx["p"])
+        out = good.stdout.splitlines()
+        self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS", out, good.stdout[-3000:] + good.stderr[-1000:])
+        self.assertIn("PREPUSH_VERDICT=PASS", out, good.stdout[-3000:])
+        self.assertEqual(good.returncode, 0)
+        self.assertEqual(sum(1 for l in out if l.startswith("PREPUSH_LEG_CORRECTIONS_INVENTORY=")), 1)
+        bad = self._hook(fx, fx["bx"], fx["p"])
+        out = bad.stdout.splitlines()
+        self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=FAIL", out, bad.stdout[-3000:])
+        self.assertIn("PREPUSH_VERDICT=FAIL", out)
+        self.assertNotEqual(bad.returncode, 0, "the stand-in tree must not publish")
+        self.assertIn(fx["p"][:8], bad.stdout, "the push log names the missing parent row")
+
+    def test_q994_hook_leg_is_always_local_and_not_carried_by_the_record(self):
+        src = self._src(self.HOOK)
+        end = src.index("fi   # Q-798: end of the covered legs")
+        call = "bash scripts/corrections_inventory.sh --check 2>&1"
+        self.assertEqual(src.count(call), 1)
+        self.assertGreater(src.index(call), end,
+                           "the leg must run outside the record-covered block, whether or not a record matched")
+        rec = self._src(self.HELPER)
+        legs = re.search(r'^HOOK_LEGS="([^"]*)"', rec, re.M).group(1).split()
+        self.assertNotIn("CORRECTIONS_INVENTORY", legs, "a tree-keyed record cannot vouch for a history-keyed leg")
+
+    # ---- Q-995: no temp dir survives a doc-gates leg ---------------------------------------------------
+    def _left(self, t):
+        return sorted(os.path.relpath(os.path.join(dp, n), t) for dp, ds, fs in os.walk(t) for n in ds + fs)
+
+    def test_q995_normal_runs_leave_nothing(self):
+        for gate in ("code-needles", "retract"):
+            t = tempfile.mkdtemp(prefix="q995n_", dir=self.tmp)
+            r = subprocess.run(["timeout", "900", "bash", self.DG, gate], capture_output=True, text=True,
+                               env=self._env(TMPDIR=t), timeout=930)
+            self.assertEqual(r.returncode, 0, "%s: precondition, the leg passes\n%s" % (gate, r.stdout[-1500:]))
+            self.assertEqual(self._left(t), [], "%s left temp files behind" % gate)
+
+    def _interrupt(self, gate, prefix, sig):
+        t = tempfile.mkdtemp(prefix="q995s_", dir=self.tmp)
+        p = subprocess.Popen(["bash", self.DG, gate], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             env=self._env(TMPDIR=t), start_new_session=True, preexec_fn=self._default_signals)
+        import time as _time
+        seen, t0 = [], _time.time()
+        try:
+            while _time.time() - t0 < 120 and p.poll() is None:
+                seen = [x for x in self._left(t) if os.path.basename(x).startswith(prefix)]
+                if seen:
+                    break
+                _time.sleep(0.1)
+            self.assertTrue(seen, "precondition: %s made a %s* dir before the signal" % (gate, prefix))
+            self.assertIsNone(p.poll(), "precondition: the run was still going when signalled")
+            os.killpg(p.pid, sig)
+            rc = p.wait(timeout=300)
+        finally:
+            if p.poll() is None:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait(timeout=60)
+        self.assertNotEqual(rc, 0, "an interrupted run must not exit 0")
+        self.assertEqual(self._left(t), [], "%s interrupted by %s left: %s" % (gate, sig, self._left(t)[:5]))
+
+    def test_q995_retract_interrupted_by_term_leaves_nothing(self):
+        self._interrupt("retract", "docgates_flatdoc.", signal.SIGTERM)
+
+    # ---- Q-997: an interrupt must never end in PASS (deterministic, no timing race) -----------------
+    # The flake this replaces (1 run in 3, RESTACK_B45_B47_REPORT.md): a SIGINT sent to the group while
+    # the shell waits for a child that does NOT die of it is dropped by bash's wait-and-cooperative-exit
+    # (WCE) rule, and the uncured script went on to "DOC GATES: PASS", rc 0. Here that child is made on
+    # purpose, at a known point: a stand-in `dirname` first in PATH, on the call for HOLD_ARG only, ignores
+    # SIGINT (and TERM and HUP, for the sibling cases), closes its stdout (so the shell has left the pipe read and is in waitpid), says it is ready
+    # and blocks on a FIFO. The signal is sent only once the stand-in is ready AND its parent is seen in
+    # do_wait (/proc/<pid>/wchan), and the FIFO is released only once the supervisor's flag file exists.
+    # Nothing depends on timing: on the uncured
+    # script the outcome is PASS rc 0 every time (red), on the cured one INTERRUPTED and non-zero.
+    HOLD_ARG = "README.md"
+
+    def _wchan(self, pid):
+        try:
+            with open("/proc/%d/wchan" % pid) as fh:
+                return fh.read().strip()
+        except OSError:
+            return ""
+
+    def _ppid(self, pid):
+        with open("/proc/%d/stat" % pid) as fh:
+            return int(fh.read().rsplit(")", 1)[1].split()[1])
+
+    @staticmethod
+    def _default_signals():
+        """preexec_fn for every run these tests interrupt. A signal that is IGNORED when bash starts cannot be
+        trapped (bash(1), SIGNALS), and the ignore is inherited: `nohup` ignores HUP and a background job of a
+        script ignores INT, so a suite launched that way sent INT/HUP to a gate that could not see them and
+        read its honest PASS as a failure. Restoring the default disposition in the child makes the test
+        measure the trap, not how the suite was launched."""
+        for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(s, signal.SIG_DFL)
+
+    def _held(self, gate, sig, prefix, stub_tail=""):
+        if not os.path.exists("/proc/self/wchan"):
+            self.skipTest("needs /proc/<pid>/wchan to see the shell in waitpid")
+        d = tempfile.mkdtemp(prefix="q997_", dir=self.tmp)
+        t, bindir = os.path.join(d, "tmp"), os.path.join(d, "bin")
+        os.makedirs(t); os.makedirs(bindir)
+        real = shutil.which("dirname")
+        self.assertTrue(real, "precondition: a real dirname")
+        fifo, ready, pidf = os.path.join(d, "hold"), os.path.join(d, "ready"), os.path.join(d, "stub.pid")
+        os.mkfifo(fifo)
+        with open(os.path.join(bindir, "dirname"), "w") as fh:
+            fh.write('#!/bin/bash\nif [ "${1:-}" = %s ] && mkdir %s 2>/dev/null; then\n'
+                     '  trap "" INT TERM HUP; echo $$ > %s; exec 1>&-\n  read -r _ < %s\n%sfi\nexec %s "$@"\n'
+                     % (self.HOLD_ARG, ready, pidf, fifo, stub_tail, real))
+        os.chmod(os.path.join(bindir, "dirname"), 0o755)
+        env = self._env(TMPDIR=t, PATH=bindir + os.pathsep + os.environ["PATH"])
+        p = subprocess.Popen(["bash", self.DG, gate], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             env=env, start_new_session=True, text=True, preexec_fn=self._default_signals)
+        import time as _time, glob
+        held, fold, t0 = False, [], _time.time()
+        try:
+            while _time.time() - t0 < 120 and p.poll() is None:
+                try:
+                    sp = int(open(pidf).read())
+                    held = self._wchan(self._ppid(sp)) == "do_wait"
+                except (OSError, ValueError):
+                    held = False
+                if held:
+                    break
+                _time.sleep(0.05)
+            self.assertTrue(held, "precondition: the stand-in is holding and its parent is in waitpid")
+            fold = [x for x in self._left(t) if os.path.basename(x).startswith(prefix)]
+            self.assertTrue(fold, "precondition: the leg's %s* dir exists at the hold point" % prefix)
+            if sig is not None:
+                os.killpg(p.pid, sig)
+                # Release only once the supervisor has acted (its flag file exists), so the worker cannot race
+                # ahead of it. The uncured script has no supervisor and no flag: after 20 s it is released anyway.
+                t1 = _time.time()
+                while _time.time() - t1 < 20 and not glob.glob(os.path.join(t, "docgates_sup.*", ".interrupted")):
+                    _time.sleep(0.05)
+            try:   # non-blocking: a stand-in that is gone has no reader, and that must not hang the test
+                fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+                os.write(fd, b"go\n")
+                os.close(fd)
+            except OSError:
+                pass
+            out, err = p.communicate(timeout=300)
+        finally:
+            if p.poll() is None:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait(timeout=60)
+        return p.returncode, out, err, self._left(t)
+
+    def _assert_interrupted(self, rc, out, err, left, what):
+        lines = out.splitlines()
+        self.assertEqual([l for l in lines if l.startswith("DOC GATES: PASS")], [],
+                         "%s: an interrupted run printed PASS (rc %s)\n%s" % (what, rc, out[-1500:] + err[-800:]))
+        self.assertNotEqual(rc, 0, "%s: an interrupted run must not exit 0" % what)
+        self.assertTrue(lines and lines[-1].startswith("DOC GATES: INTERRUPTED"),
+                        "%s: the last line must be the explicit INTERRUPTED verdict\n%s" % (what, out[-800:]))
+        self.assertEqual(left, [], "%s left: %s" % (what, left[:5]))
+
+    def test_q995_retract_interrupted_by_int_leaves_nothing(self):
+        rc, out, err, left = self._held("retract", signal.SIGINT, "docgates_fold.")
+        self._assert_interrupted(rc, out, err, left, "retract + INT")
+        self.assertIn(rc, (-signal.SIGINT, 130), "INT ends the run by SIGINT (cooperative exit for a bash caller)")
+
+    def test_q997_an_inherited_ignore_of_int_and_hup_does_not_decide_the_result(self):
+        """The suite's own launch must not decide these tests: with INT and HUP ignored in THIS process (as
+        under `nohup` or a script's background job), the held retract run is still interrupted by INT and by
+        HUP. Red without `_default_signals`: the ignore is inherited and the gate prints PASS."""
+        saved = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGHUP)}
+        try:
+            for s in saved:
+                signal.signal(s, signal.SIG_IGN)
+            for sig in (signal.SIGINT, signal.SIGHUP):
+                rc, out, err, left = self._held("retract", sig, "docgates_fold.")
+                self._assert_interrupted(rc, out, err, left, "retract + %s with %s ignored by the suite" % (sig.name, sig.name))
+        finally:
+            for s, h in saved.items():
+                signal.signal(s, h)
+
+    def test_q997_term_and_hup_at_the_same_point_end_interrupted(self):
+        for sig, want in ((signal.SIGTERM, 143), (signal.SIGHUP, 129)):
+            rc, out, err, left = self._held("retract", sig, "docgates_fold.")
+            self._assert_interrupted(rc, out, err, left, "retract + %s" % sig.name)
+            self.assertEqual(rc, want)
+            self.assertIn("SIG" + sig.name[3:], out.splitlines()[-1])
+
+    def test_q997_a_worker_killed_by_a_signal_is_never_a_pass(self):
+        """The supervisor never receives a signal: once released, the stand-in SIGKILLs its own parent (the
+        worker this test's run started). The run must report INTERRUPTED, rc 137, not a verdict."""
+        rc, out, err, left = self._held("retract", None, "docgates_fold.",
+                                        stub_tail='  kill -KILL "$PPID"\n')
+        lines = out.splitlines()
+        self.assertEqual([l for l in lines if l.startswith("DOC GATES: PASS")], [], out[-1500:])
+        self.assertEqual(rc, 137, out[-800:] + err[-800:])
+        self.assertTrue(lines and lines[-1].startswith("DOC GATES: INTERRUPTED (the worker ended by signal 9"), out[-800:])
+        self.assertEqual(left, [], "the supervisor's outer root holds what the killed worker left: %s" % left[:5])
+
+    def test_q997_hook_interrupted_at_a_held_leg_blocks_with_an_explicit_verdict(self):
+        """Sibling (pre_push_gate.sh, same trap-and-continue pattern): the hook's `doc_gates.sh all` leg is a
+        stand-in that ignores INT and holds. INT goes to the push's group once the leg holds and its parent
+        is in waitpid, and the leg is released once the hook's supervisor has flagged. The push must end
+        non-zero with `pre-push: ... INTERRUPTED` and PREPUSH_VERDICT=FAIL as its last lines, never PASS, and
+        leave no temp worktree. (The uncured hook exits 130 from its trap with no verdict line: red.)"""
+        if not os.path.exists("/proc/self/wchan"):
+            self.skipTest("needs /proc/<pid>/wchan")
+        import time as _time, glob
+        q = TestQ798PrepushTreeKeyedReuse
+        hold = os.path.join(self.tmp, "q997h_%d" % random.randrange(1 << 30))
+        os.makedirs(hold)
+        os.mkfifo(os.path.join(hold, "fifo"))
+        stubs = {os.path.join("scripts", k): "#!/bin/bash\n" + v for k, v in q.STUBS.items() if k != "corrections_inventory.sh"}
+        stubs["scripts/doc_gates.sh"] = ('#!/bin/bash\necho "doc_gates ${1:-all}" >> "$HK_MARK"\n'
+            'if [ "${1:-}" = all ] && [ -n "${HK_HOLD:-}" ] && mkdir "$HK_HOLD/ready" 2>/dev/null; then\n'
+            '  trap "" INT TERM HUP; echo $$ > "$HK_HOLD/pid"; read -r _ < "$HK_HOLD/fifo"\nfi\nexit 0\n')
+        stubs[self.HOOK] = self._src(self.HOOK)
+        stubs[self.HELPER] = self._src(self.HELPER)
+        fx = self._fixture(extra=stubs)
+        bare = os.path.join(fx["d"], "origin.git")
+        subprocess.run(["git", "clone", "-q", "--bare", fx["repo"], bare], check=True, capture_output=True, timeout=120)
+        self._git(fx["repo"], "remote", "add", "origin", bare)
+        self._git(fx["repo"], "fetch", "-q", "origin")
+        e = self._env(HK_MARK=os.path.join(fx["d"], "mark.log"), TMPDIR=fx["d"], HK_HOLD=hold)
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE"):
+            e.pop(k, None)
+        refs = os.path.join(hold, "refs")
+        with open(refs, "w") as fh:
+            fh.write("refs/heads/main %s refs/heads/main %s\n" % (fx["b"], fx["p"]))
+        with open(refs) as fin:
+            p = subprocess.Popen(["bash", os.path.join(fx["repo"], self.HOOK)], cwd=fx["repo"], stdin=fin,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=e, start_new_session=True,
+                                 preexec_fn=self._default_signals)
+        held, t0 = False, _time.time()
+        try:
+            while _time.time() - t0 < 300 and p.poll() is None:
+                try:
+                    sp = int(open(os.path.join(hold, "pid")).read())
+                    held = self._wchan(self._ppid(sp)) == "do_wait"
+                except (OSError, ValueError):
+                    held = False
+                if held:
+                    break
+                _time.sleep(0.05)
+            self.assertTrue(held, "precondition: the doc_gates-all leg holds and its parent is in waitpid")
+            os.killpg(p.pid, signal.SIGINT)
+            t1 = _time.time()
+            while _time.time() - t1 < 20 and not glob.glob(os.path.join(fx["d"], "prepush_sup.*", ".interrupted")):
+                _time.sleep(0.05)
+            try:
+                fd = os.open(os.path.join(hold, "fifo"), os.O_WRONLY | os.O_NONBLOCK)
+                os.write(fd, b"go\n")
+                os.close(fd)
+            except OSError:
+                pass
+            out, err = p.communicate(timeout=300)
+        finally:
+            if p.poll() is None:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait(timeout=60)
+        lines = out.splitlines()
+        self.assertNotIn("PREPUSH_VERDICT=PASS", lines, out[-2000:])
+        self.assertNotEqual(p.returncode, 0)
+        self.assertGreaterEqual(len(lines), 2, out[-2000:] + err[-800:])
+        self.assertTrue(lines[-2].startswith("pre-push: ") and "INTERRUPTED (SIGINT)" in lines[-2], out[-1500:] + err[-800:])
+        self.assertEqual(lines[-1], "PREPUSH_VERDICT=FAIL")
+        self.assertEqual(glob.glob(os.path.join(fx["d"], "prepush_*")), [], "no temp worktree or supervisor dir left")
+        wt = self._git(fx["repo"], "worktree", "list", "--porcelain")
+        self.assertEqual(wt.count("worktree "), 1, wt)
+        shutil.rmtree(hold, ignore_errors=True)
+
+    def test_q997_supervisor_shape(self):
+        """The supervisor is on the `cd` line (logical source line-neutral), waits with the `wait`
+        builtin, re-raises SIGINT, does not wrap --selftest, and the hook carries the same supervisor."""
+        lines = subprocess.run(["bash", "scripts/doc_gates.d/logical_source.sh"], capture_output=True, text=True,
+                               timeout=120).stdout.split("\n")
+        sup = [l for l in lines if "_DG_WORKER_OF" in l]
+        self.assertEqual(len(sup), 1, "one supervisor line")
+        for needle in ('cd "$(dirname "$0")/.." || exit 2', 'wait "$_dg_w"', 'kill -INT "$$"',
+                       '[ "${1:-}" != --selftest ]', '"$PPID"', "DOC GATES: INTERRUPTED", "trap - INT"):
+            self.assertIn(needle, sup[0])
+        hook = self._src(self.HOOK)
+        hsup = [l for l in hook.split("\n") if "_PPG_WORKER_OF=$$" in l]
+        self.assertEqual(len(hsup), 1)
+        for needle in ('wait "$_ppg_w"', 'kill -INT "$$"', "PREPUSH_VERDICT=FAIL", '"$PPID"', "trap - INT"):
+            self.assertIn(needle, hsup[0])
+        self.assertLess(hook.index("_PPG_WORKER_OF=$$"), hook.index("prepush_env_guard ||"),
+                        "the hook is supervised before it reads anything")
+
+    def test_q995_code_needles_interrupted_by_term_leaves_nothing(self):
+        self._interrupt("code-needles", "docgates_codeneedle.", signal.SIGTERM)
+
+    def test_q995_unwritable_tmpdir_still_fails_loudly(self):
+        r = subprocess.run(["timeout", "300", "bash", self.DG, "code-needles"], capture_output=True, text=True,
+                           env=self._env(TMPDIR="/dev/null"), timeout=330)
+        self.assertNotEqual(r.returncode, 0, "no temp root and no leg dir: the leg must not pass")
+        self.assertIn("[FAIL] mktemp failed", r.stdout)
+
+    def test_q995_every_trap_that_replaces_the_root_one_removes_the_root(self):
+        """Sibling guard: a trap set later in the logical source REPLACES the root's, so each EXIT, INT,
+        TERM or HUP trap must remove the root itself, directly or through _selftest_release."""
+        r = subprocess.run(["bash", "scripts/doc_gates.d/logical_source.sh"], capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0)
+        lines = r.stdout.split("\n")
+        root = [i for i, l in enumerate(lines) if "docgates_run.XXXXXX" in l and "export TMPDIR=" in l]
+        self.assertEqual(len(root), 1, "exactly one temp-root line")
+        sup = [i for i, l in enumerate(lines) if "_DG_WORKER_OF" in l]
+        self.assertEqual(len(sup), 1, "Q-997: one supervisor line")
+        self.assertLess(sup[0], root[0])
+        self.assertIn('mktemp -d "${TMPDIR:-/tmp}/docgates_sup.XXXXXX"', lines[sup[0]], "the supervisor's outer root")
+        first_mk = min(i for i, l in enumerate(lines) if "mktemp" in l and not l.lstrip().startswith("#") and i not in (root[0], sup[0]))
+        self.assertLess(root[0], first_mk, "the root is made before any other mktemp")
+        traps = [(i, l) for i, l in enumerate(lines)
+                 if re.match(r"\s*trap\s+'", l) or re.search(r";\s*trap\s+'", l)]
+        sig_traps = []
+        for i, l in traps:
+            for m in re.finditer(r"trap\s+'([^']*)'\s+([A-Z ]+)", l):
+                if set(m.group(2).split()) & {"EXIT", "INT", "TERM", "HUP"}:
+                    sig_traps.append((i, m.group(1), m.group(2)))
+        self.assertGreaterEqual(len(sig_traps), 12, "population: the root's 4 traps and the two --selftest sets (%d)" % len(sig_traps))
+        # Q-997: the supervisor line comes before the worker's root and owns the OUTER root; its signal
+        # traps call _dg_sup_sig, which stops the worker and removes that root; its EXIT trap removes it.
+        sup_bodies = sorted(body for i, body, _ in sig_traps if i == sup[0])
+        self.assertEqual(sup_bodies, ["", '[ -z "$_dg_sr" ] || rm -rf -- "$_dg_sr"', "_dg_sup_sig HUP 129",
+                                      "_dg_sup_sig INT 130", "_dg_sup_sig TERM 143"])
+        k = lines[sup[0]].index("_dg_sup_sig() {")
+        body = lines[sup[0]][k:lines[sup[0]].index("}; trap", k)]
+        for needle in ('kill -TERM "$_dg_w"', 'wait "$_dg_w"', 'rm -rf -- "$_dg_sr"', ': > "$_DG_SUP_FLAG"'):
+            self.assertIn(needle, body)
+        bad = [(i + 1, body) for i, body, _ in sig_traps
+               if i != sup[0] and "_dg_tmp_cleanup" not in body and "_selftest_release" not in body]
+        self.assertEqual(bad, [], "traps that would drop the temp root on that exit path")
+        rel = "\n".join(lines)
+        k = rel.index("_selftest_release() {")
+        self.assertIn("_dg_tmp_cleanup", rel[k:rel.index("\n  }", k)], "_selftest_release removes the root")
+
+# end class TestQ994Q995Batch47 (batch 47, Q-994/Q-995)
 
 
 if __name__ == "__main__":

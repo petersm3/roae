@@ -204,8 +204,63 @@
 #@ refs/replace/* entry cannot change what any gate reads from git (see scripts/pre_push_gate.sh,
 #@ "Q-971 (c)"); same line, so the logical source keeps its line numbers.
 set -uo pipefail; export GIT_NO_REPLACE_OBJECTS=1
-cd "$(dirname "$0")/.." || exit 2
-RC=0
+#@ 🔴 Q-997 (batch 47, CX-344). AN INTERRUPT COULD END IN "DOC GATES: PASS", rc 0. A SIGINT sent to the
+#@ run's process group (a ^C, a lane stopping a chain) reaches this shell AND whatever child it is
+#@ waiting for. Bash's documented wait-and-cooperative-exit (WCE) rule then decides: if the child did
+#@ not die of SIGINT, bash assumes the child handled it, does NOT act on it, and the script carries on
+#@ (bash manual, SIGNALS: "If the command does not terminate due to SIGINT, the program handled the
+#@ SIGINT itself ... Bash does not treat SIGINT as a fatal signal, either"). The INT trap is never run.
+#@ Measured on bash 5.2.21: `doc_gates.sh retract` interrupted while folding sometimes gave rc 0 and
+#@ "DOC GATES: PASS (retract)" (TestQ994Q995Batch47 reproduces it on every run); the child was a
+#@ command substitution forked as the signal landed,
+#@ which ran the inherited trap text, failed ("unexpected EOF while looking for matching `)'") and so
+#@ exited normally. A trap in this shell cannot fix that: the shell never sees the signal as its own.
+#@ FIX. A run is now two processes. The SUPERVISOR (this block) re-runs this same file as a WORKER in
+#@ the background and blocks in the `wait` builtin. A trapped signal interrupts `wait` immediately
+#@ (bash manual: "the wait builtin ... return[s] immediately with an exit status greater than 128,
+#@ immediately after which the trap is executed"), whatever any child did with it, so WCE never
+#@ applies. On INT, TERM or HUP the supervisor: (1) creates the flag file $_DG_SUP_FLAG; (2) sends TERM
+#@ to the worker and RE-SENDS it every 0.2 s until the worker is gone; (3) after 30 s sends KILL;
+#@ (4) prints `DOC GATES: INTERRUPTED (SIG<name> ...)`, removes its temp root and ends non-zero (INT
+#@ re-raises SIGINT on itself, so a bash caller's own WCE sees a child killed by SIGINT and stops too).
+#@ WHY (2)-(3) AND THE FLAG, measured: the WORKER'S OWN TERM trap is not reliable either. On bash
+#@ 5.2.21 a trap that fires as a command substitution returns can fail to parse ("trap: line 2:
+#@ unexpected EOF while looking for matching `)'"); its body never runs and the worker carried on to
+#@ "DOC GATES: PASS". So the worker reads the flag on the line before its final banner and exits 143
+#@ instead of printing any verdict, a re-sent TERM gets another chance to run the trap, and KILL ends
+#@ a worker that still will not stop. KILL is safe for the temp files: the supervisor makes the OUTER
+#@ temp root `docgates_sup.*` and exports TMPDIR as it, so the worker's own `docgates_run.*` root
+#@ (Q-995, below) and everything else lands inside it, and the supervisor removes it after the worker
+#@ is gone (this also closes Q-995's SIGKILL-of-the-worker residual). If that root cannot be made
+#@ (TMPDIR unwritable, the Q-748a fire-proof), TMPDIR is left alone, there is no flag and no KILL.
+#@ A worker that ENDED BY A SIGNAL the supervisor never received (rc > 128: a KILL, an OOM kill, a
+#@ TERM sent to the worker's PID) is also reported as INTERRUPTED, rc passed through; the worker's
+#@ own verdict and rc pass through unchanged otherwise. The worker is started with SIGINT restored
+#@ to default (an async child would otherwise ignore it), so a ^C still reaches every leg at once, and
+#@ with the caller's stdin (`<&0`; an async child would otherwise read /dev/null).
+#@ `--selftest` is NOT wrapped: it already waits on its own background run with the `wait` builtin
+#@ (below), and its tests signal its PID alone. The worker is recognised by _DG_WORKER_OF = its
+#@ parent's PID, so an inherited value cannot switch the supervisor off. Limits: a PASS line can still
+#@ appear if the worker had passed the flag check before the signal arrived (every leg had run); the
+#@ last line and rc still say INTERRUPTED. SIGKILL of the supervisor alone (not its group) leaves the
+#@ worker running to completion (its PASS and rc 0 then reach a caller that already saw 137) and leaves the supervisor's EMPTY docgates_sup.* behind, since only the supervisor removes it. The same supervisor is in scripts/pre_push_gate.sh (Q-997 there).
+#@ Code: the one line below (the `cd` line), so the logical source keeps its numbering.
+_dg_self=$(cd "$(dirname "$0")" && pwd -P)/${0##*/} || _dg_self=$0; cd "$(dirname "$0")/.." || exit 2; if [ "${_DG_WORKER_OF:-}" != "$PPID" ] && [ "${1:-}" != --selftest ]; then _dg_w=""; _dg_sr=""; if _dg_sr=$(mktemp -d "${TMPDIR:-/tmp}/docgates_sup.XXXXXX" 2>/dev/null); then export TMPDIR="$_dg_sr" _DG_SUP_FLAG="$_dg_sr/.interrupted"; else _dg_sr=""; fi; trap '[ -z "$_dg_sr" ] || rm -rf -- "$_dg_sr"' EXIT; _dg_sup_sig() { trap '' INT TERM HUP; [ -z "$_dg_sr" ] || : > "$_DG_SUP_FLAG"; if [ -n "$_dg_w" ]; then _dg_n=0; kill -TERM "$_dg_w" 2>/dev/null; while kill -0 "$_dg_w" 2>/dev/null; do if [ "$_dg_n" -ge 150 ] && [ -n "$_dg_sr" ]; then kill -KILL "$_dg_w" 2>/dev/null; break; fi; sleep 0.2; _dg_n=$((_dg_n + 1)); kill -TERM "$_dg_w" 2>/dev/null; done; wait "$_dg_w" 2>/dev/null; fi; echo "DOC GATES: INTERRUPTED (SIG$1 -- the run did not complete; NO verdict, this is not a PASS)"; [ -z "$_dg_sr" ] || rm -rf -- "$_dg_sr"; if [ "$1" = INT ]; then trap - INT EXIT; kill -INT "$$"; fi; exit "$2"; }; trap '_dg_sup_sig INT 130' INT; trap '_dg_sup_sig TERM 143' TERM; trap '_dg_sup_sig HUP 129' HUP; _dg_run() { trap - INT QUIT; _DG_WORKER_OF=$$ exec bash "$_dg_self" "$@"; }; _dg_run "$@" <&0 & _dg_w=$!; wait "$_dg_w"; _dg_rc=$?; if [ "$_dg_rc" -gt 128 ]; then echo "DOC GATES: INTERRUPTED (the worker ended by signal $((_dg_rc - 128)) -- the run did not complete; NO verdict, this is not a PASS)"; fi; exit "$_dg_rc"; fi
+#@ 🔴 Q-995 (batch 47). ONE PER-RUN TEMP ROOT, REMOVED ON EXIT, INT, TERM AND HUP. Each leg that
+#@ needs scratch space makes it with mktemp under ${TMPDIR:-/tmp}, and they clean up on their normal
+#@ return paths only. A run stopped part-way (a timeout, ^C, a killed lane) left every directory open
+#@ at that moment behind: 126 `/tmp/docgates_*` directories, 1.4 GB, dating back to 2026-09-08, were
+#@ removed by hand on 2026-10-10 after they twice took the shared disk down to 32 MB free. A trap per
+#@ leg cannot be the fix (the legs are functions in this one shell, and each trap would replace the
+#@ last), so the run makes ONE directory here, exports TMPDIR as it, and removes it on every
+#@ catchable exit. Every mktemp in every leg, module and child process (history_index.sh, python3's
+#@ tempfile) then lands inside it, the legs written later included. The --selftest blocks below set
+#@ their own traps; each of them calls _dg_tmp_cleanup too. If the root cannot be made (TMPDIR
+#@ unwritable, or /dev/null as in the Q-748a fire-proof) TMPDIR is left as it was, so a leg's own
+#@ mktemp failure is still reported by that leg. NOT COVERED: SIGKILL, which no trap catches; such a
+#@ run leaves exactly one `docgates_run.*` directory, which holds everything the run made.
+#@ The code is the one line below (RC=0 and the root): one line, so the logical source keeps its numbering.
+RC=0; _DG_TMPROOT=""; if _DG_TMPROOT=$(mktemp -d "${TMPDIR:-/tmp}/docgates_run.XXXXXX" 2>/dev/null) && _DG_TMPROOT=$(cd "$_DG_TMPROOT" && pwd -P); then export TMPDIR="$_DG_TMPROOT"; else _DG_TMPROOT=""; fi; _dg_tmp_cleanup() { [ -z "$_DG_TMPROOT" ] || rm -rf -- "$_DG_TMPROOT"; }; trap '_dg_tmp_cleanup' EXIT; trap '_dg_tmp_cleanup; exit 130' INT; trap '_dg_tmp_cleanup; exit 143' TERM; trap '_dg_tmp_cleanup; exit 129' HUP
 
 # example/ was excluded here until 2026-08-01. That is a CONTAINER-level exemption — the same
 # construction that let the retracted "hard floor k >= 13" survive in TR-4's body while its
@@ -555,9 +610,9 @@ require_pass_token() {
 #   DOC_GATE_STATUS_ALLOWLIST.txt   gate_status, `allow =`          — python `for l in open(...)`
 #   DOC_GATE_UNMARKED_ALLOWLIST.txt gate_status, `alw5b =` (5b)     — python `for l in open(...)`
 #   DOC_GATE_NUMBER_ALLOWLIST.txt   gate_numbers, `allow=`          — `grep -qxF -- "$key" "$allow"`
-#   CORRECTIONS_INVENTORY.tsv       no consumer in this suite at all; it is WRITTEN by
-#                                   scripts/corrections_inventory.sh, and the only documented
-#                                   reader is the `awk` recipe at CORRECTIONS.md:52
+#   CORRECTIONS_INVENTORY.tsv       no gate in this suite reads it; corrections_inventory.sh WRITES
+#                                   it and its --check (Q-994, a blocking pre_push_gate.sh leg) reads it
+#                                   whole with `git show` + `cmp`; also CORRECTIONS.md's `awk` C4 recipe
 # Python file iteration, grep and awk all yield an unterminated final line. `while read` is
 # the one reader that drops it, and today it is used on exactly the three files already
 # guarded. So SIX guards would have been six no-ops.
@@ -1038,10 +1093,10 @@ if [ "${1:-}" = --selftest ] && [ -z "${DOC_GATES_SELFTEST_INPLACE:-}" ]; then
   _ST_BASE=$(mktemp -d "${TMPDIR:-/tmp}/doc_gates_selftest.XXXXXX") \
     || { echo "REFUSING: mktemp failed, and the self-test never runs in place (Q-911)."; exit 2; }
   _ST_PID=""
-  trap 'rm -rf "$_ST_BASE"' EXIT
-  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; exit 130' INT
-  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; exit 143' TERM
-  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; exit 129' HUP
+  trap 'rm -rf "$_ST_BASE"; _dg_tmp_cleanup' EXIT
+  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; _dg_tmp_cleanup; exit 130' INT
+  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; _dg_tmp_cleanup; exit 143' TERM
+  trap '[ -n "$_ST_PID" ] && kill -TERM "$_ST_PID" 2>/dev/null && wait "$_ST_PID"; rm -rf "$_ST_BASE"; _dg_tmp_cleanup; exit 129' HUP
   if ! ( env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE sh -c '
            git clone -q --shared --no-checkout "$1" "$2" &&
            git -C "$2" remote remove origin &&
@@ -1190,7 +1245,7 @@ if [ "${1:-}" = "--selftest" ]; then
   # tree already proven clean and the lock already held, so it can never discard real work.
   _selftest_release() {
     _selftest_revert
-    rm -rf "$SELFTEST_LOCK" "${_DG_SRC:-}" 2>/dev/null
+    rm -rf "$SELFTEST_LOCK" "${_DG_SRC:-}" 2>/dev/null; _dg_tmp_cleanup   # Q-995: these traps replace the run's own
   }
   trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: INTERRUPTED (tree restored, lock released)"; exit 130' INT
   trap '_selftest_release; echo; echo "DOC GATES SELF-TEST: TERMINATED (tree restored, lock released)"; exit 143' TERM
@@ -6223,7 +6278,7 @@ echo
 #     approximate and a false clear there would be invisible to me. Only the load-bearing
 #     half is proven: the PATTERN matches this site in the whole-file corpus, so whatever the
 #     filter was, it excluded a line the pattern hits.
-if [ "$RC" -ne 0 ]; then
+if [ -n "${_DG_SUP_FLAG:-}" ] && [ -e "$_DG_SUP_FLAG" ]; then exit 143; fi; if [ "$RC" -ne 0 ]; then   # Q-997: no verdict once the supervisor was signalled
   echo "DOC GATES: FINDINGS (see above)"
 elif [ "$MODE" = all ]; then
   echo "DOC GATES: PASS  — hard gates only: 2, 2c, 3, 3b, 4 (incl. 4b), 6, 7, 9, 10 (a+b), 11, 12, 14, 15, 16, 17 (LEG A only), 18 (see the carve-out below), 19, 20, 21, 22 (both legs), 23, 24, 25 (LEG 1 ONLY), 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39 (all four legs), 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59 (see the carve-out below), 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 95. Gates 1, 5 (incl. 5b), 13, 94"

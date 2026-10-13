@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 193 dated sections, 4 of them among the 117 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 194 dated sections, 4 of them among the 118 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -213,6 +213,7 @@
 | 191 | 2026-10-10 | iso | 11156 | [open](HISTORY.md#2026-10-10--literature-batch-2-extension-the-last-unread-item-of-the-publication-freezes-reading-condition-is-read-the-freeze-is-lifted-and-four-sentences-the-2026-09-05-scrub-removed-from-tr-12-return) 2026-10-10 — literature batch 2, extension: the last unread item of the publication freeze's reading condition is read, the freeze is lifted, and four sentences the 2026-09-05 scrub removed from TR-12 return |
 | 192 | 2026-10-10 | iso | 11264 | [open](HISTORY.md#2026-10-10--batch-45-the-last-import-probes-tell-a-crash-from-a-missing-module-the-push-hook-can-publish-an-old-self-declaring-commit-through-main-and-a-flaky-self-test-check-waits-for-what-it-checks) 2026-10-10 — batch 45: the last import probes tell a crash from a missing module, the push hook can publish an old self-declaring commit through main, and a flaky self-test check waits for what it checks |
 | 193 | 2026-10-10 | iso | 11293 | [open](HISTORY.md#2026-10-10--batch-46-three-citations-of-the-per-position-baseline-name-the-two-lines-it-is-stated-on-and-the-correction-marker-inventory-is-re-measured-as-complete) 2026-10-10 — batch 46: three citations of the per-position baseline name the two lines it is stated on, and the correction-marker inventory is re-measured as complete |
+| 194 | 2026-10-10 | iso | 11316 | [open](HISTORY.md#2026-10-10--batch-47-the-corrections-inventory-is-checked-against-the-pushed-commits-real-history-at-push-time-and-doc-gates-runs-no-longer-leave-temp-directories-behind) 2026-10-10 — batch 47: the corrections inventory is checked against the pushed commit's real history at push time, and doc-gates runs no longer leave temp directories behind |
 
 ## Sections with no date in the heading, in file order
 

@@ -11312,3 +11312,33 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 **What did not change.**
 
 - No published number, count, sha or verdict changed.
+
+## 2026-10-10 — batch 47: the corrections inventory is checked against the pushed commit's real history at push time, and doc-gates runs no longer leave temp directories behind
+
+**Batch 47, a stand-in parent (CX-342, Q-994).**
+
+- The corrections inventory lists one row for each correction commit, so it is only right on the
+  exact parent commit. A tree built on a stand-in for that commit (the same files under another
+  commit) lacked the parent's row. Every gate passed it.
+- `corrections_inventory.sh --check` rebuilds the inventory from the real history and compares it
+  with the committed file. The pre-push hook now blocks on it for every push. Tests cover a deleted
+  row, a stand-in parent, a clean tree and a shallow clone.
+
+**Batch 47, leaked temp directories (CX-343, Q-995).**
+
+- A doc-gates run that was stopped part-way left its temp directories behind. 1.4 GB of them
+  had built up by 2026-10-10.
+- Each run now keeps everything in one temp directory and removes it on exit, ^C or TERM. Tests
+  interrupt two such legs and check that nothing is left.
+
+**Batch 47, an interrupt that read as a pass (CX-344, Q-997).**
+
+- A ^C sent to a doc-gates run could be dropped by bash, and the run then printed
+  `DOC GATES: PASS` with exit code 0. The pre-push hook had the same pattern.
+- Both now run as a supervisor that waits on a worker. An interrupted run ends non-zero, and its
+  last line is an explicit INTERRUPTED verdict (for the hook, `PREPUSH_VERDICT=FAIL`). Tests hold a
+  leg at a known point, interrupt it there, and fail on the old scripts.
+
+**What did not change.**
+
+- No published number, count, sha or verdict changed.

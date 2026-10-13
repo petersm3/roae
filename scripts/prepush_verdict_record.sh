@@ -89,6 +89,10 @@ MAX_BYTES=65536
 MAX_TEST_SKIPS=8
 TOOLCHAIN_RE='^gcc-([0-9.]+|none),python-([0-9.]+|none)$'
 # Hook legs the record carries (the hook prints PREPUSH_LEG_<NAME>= for each, per pushed sha).
+# NOT CORRECTIONS_INVENTORY (Q-994, batch 47), deliberately: that leg reads the pushed commit's
+# HISTORY, and a record is keyed by TREE, so it could only ever vouch for the same tree on another
+# parent, which is the case the leg catches. The hook runs it on every push, record or not; its FAIL
+# sets PREPUSH_VERDICT=FAIL, so LEG_HOOK keeps a run it failed from yielding an all-PASS record.
 HOOK_LEGS="DOC_GATES_ALL GENERATED COMPILE_GATE PUBLISHED_CONSISTENCY R167 R167_M3 R167_M4 ATLAS_N31 TR12_OUTPUT_PATHS"
 # Every result a record must carry, all PASS: the hook legs, the hook's own overall verdict, the
 # regression harness, the citation gate over every target, and the reproduction stamp.
