@@ -280,6 +280,24 @@ if [ -z "$DOCS" ]; then
   echo "  [FAIL] the markdown corpus is EMPTY — that is not a clean tree, it is an unreadable one." >&2
   exit 2
 fi
+# 🔴 Q-963 (batch 48; Codex (gpt-6-astra) push-path review Q835 A11#1, A09#13, latent). `$DOCS` and the
+# other `git ls-files` lists in this suite are expanded UNQUOTED (`for f in $DOCS`), so a tracked path
+# holding whitespace would be split into words that name no file, and each consumer would check those
+# instead (a `[ -f ]` skip, a grep of nothing). 0 tracked paths hold whitespace at f9b50120 and here.
+# Quoting every consumer is the wide fix; this is the narrow one that makes the latent case LOUD for all
+# of them at once: such a path is refused before any gate runs. Read with -z, so the check itself
+# cannot be split; a failed listing is a FAIL like the corpus listing above.
+_dg_ws=$(python3 -c '
+import subprocess, sys
+r = subprocess.run(["git", "ls-files", "-z"], capture_output=True)
+if r.returncode: sys.exit(2)
+bad = [p for p in r.stdout.decode("utf-8", "surrogateescape").split("\0") if p and any(c.isspace() for c in p)]
+print("\n".join(bad[:5])); sys.exit(1 if bad else 0)'); case $? in
+  0) ;;
+  1) echo "  [FAIL] tracked path(s) contain whitespace, which this suite's unquoted path lists split into words — NOTHING was checked:" >&2
+     printf '%s\n' "$_dg_ws" | sed 's/^/         /' >&2; exit 2 ;;
+  *) echo "  [FAIL] cannot list the tracked paths (git ls-files -z failed) — NOTHING was checked." >&2; exit 2 ;;
+esac
 
 # ----------------------------------------------------------------------------------
 # ITEM A1 (2026-08-02) — WHAT EVERY GATE DOES WITH A MISSING INPUT.
@@ -372,13 +390,24 @@ fi
 #   clones this project runs are not shallow; `git rev-parse --is-shallow-repository` tells.
 require_tracked() {
   [ -f "$1" ] && return 0
-  if git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; then
+  # Q-963 (batch 48; Codex Q835 A11#3): both git questions are asked so that a FAILING git is not an
+  # answer. `ls-files --error-unmatch` exits 1 for an untracked path and 128 when git itself fails, and
+  # a failed `git log` printed nothing, which read as "never tracked" and gave the [skip] below. Each
+  # failure is now a FAIL (rc 2): a gate cannot skip on a question git did not answer.
+  local _rt_rc
+  git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; _rt_rc=$?
+  if [ "$_rt_rc" -eq 0 ]; then
     echo "  [FAIL] $1 is tracked in git but missing from the working tree"
     echo "         ${2:-A gate whose input is absent has checked nothing. Absence of a tracked input is the strongest possible mismatch, not a reason to skip.}"
     return 2
+  elif [ "$_rt_rc" -ne 1 ]; then
+    echo "  [FAIL] $1 is absent, and git could not say whether it is tracked (ls-files rc $_rt_rc) — NOTHING was checked."
+    return 2
   fi
   local _last
-  _last=$(git log -1 --format='%h %ad' --date=short -- "$1" 2>/dev/null)
+  _last=$(git log -1 --format='%h %ad' --date=short -- "$1" 2>/dev/null) || {
+    echo "  [FAIL] $1 is absent, and git could not read its history (git log failed) — NOTHING was checked."
+    return 2; }
   if [ -n "$_last" ]; then
     echo "  [FAIL] $1 is absent AND untracked, but it HAS history (last touched $_last): it was"
     echo "         renamed or removed in a commit. The gate that names it has been checking nothing"
@@ -841,8 +870,13 @@ require_pass_token() {
 # the block moved all three by 22 — the census demonstrated on the census, caught by the
 # Phase-4 pass and not by any gate. That is the argument for the convention, in one line.
 preflight_support_newlines() {
-  local f bad=0
-  for f in $(git ls-files 'documentation/DOC_GATE_*.txt' 'documentation/*.tsv' 2>/dev/null); do
+  local f bad=0 _psn
+  # Q-963 (batch 48; Codex Q835 A11#4): the enumeration is CHECKED. As a bare `$(...)` in the `for` list a
+  # failed ls-files enumerated nothing, and every support file passed this preflight unread.
+  _psn=$(git ls-files 'documentation/DOC_GATE_*.txt' 'documentation/*.tsv' 2>/dev/null) || {
+    echo "== PREFLIGHT: every gate-support file must end with a newline =="
+    echo "  [FAIL] cannot enumerate the gate-support files (git ls-files failed) — NOTHING was checked."; echo; return 1; }
+  for f in $_psn; do
     require_final_newline "$f" quiet && continue
     if [ "$bad" -eq 0 ]; then
       echo "== PREFLIGHT: every gate-support file must end with a newline =="
@@ -1295,6 +1329,81 @@ if [ "${1:-}" = "--selftest" ]; then
   # four set PASS=1 on the identical condition — drift, not design. All surviving helpers
   # say failure.
 
+  # _inject <python-mutation-source>   (Q-235; landed batch 48)
+  #
+  # 🔴 Q-235, found 2026-08-26 while landing Codex N10 finding 7: "could not inject (anchor moved)"
+  # was printed IDENTICALLY whether the anchor moved because this branch is stale or because the
+  # injection code itself is broken. A new GATE 12 fixture shipped with a regex that reached python
+  # as `\\d` -- a literal backslash -- and its harness line was byte-identical in shape to the GATE
+  # 12 fixtures that failed for real staleness, so it was misattributed to staleness and found only
+  # by running the injection by hand. The injection's AssertionError message was already raised and
+  # thrown away (`2>/dev/null`, or the helpers' bare `python3 -c`). This keeps it.
+  # The fix was written on 2026-08-26 as e36e856d and never reached main: a merge took main's side of
+  # this file and dropped it while the commit became an ancestor (Q-342's class). It is re-written
+  # here against the current harness, and every injection site that prints "could not inject" goes
+  # through it, not only the four helpers the first version covered.
+  #
+  # Runs the mutation, its stdout discarded and its stderr kept. rc 0: INJECT_WHY=$INJECT_OK and return 0.
+  # (INJECT_WHY is INJECT_OK on success.) Otherwise INJECT_WHY holds (1) `why:` = the last non-blank stderr line (the exception python
+  # raised), and (2) one line per repo path quoted in the mutation source that git tracks, saying
+  # whether that file is IDENTICAL to main (then the FIXTURE is the likely cause) or DIFFERS from it
+  # (then branch staleness is). "main" is refs/remotes/origin/main, else refs/heads/main, and the line
+  # names the ref. A HEURISTIC, and each line says "likely": the mutation is arbitrary python and the
+  # paths are grepped from its text. THE why: LINE IS THE PART THAT DOES THE WORK (measured on the
+  # first version: the escaping bug raised "last row version cell is not vN.M", a stale anchor raises
+  # its own assert text, so the two read differently even where the file differs from main both ways).
+  # On main itself the staleness arm is near-dead and FIXTURE is the default, which is right there.
+  # On success INJECT_WHY is INJECT_OK, never empty, so an arm that prints it after a later step failed
+  # (`_inject ... && { ... } || { ... }`) says the injection itself ran.
+  INJECT_OK="         why: (none recorded: the injection itself succeeded)"; INJECT_WHY=""
+  _inject() {
+    local mut="$1" err rc f paths ref="" drc
+    # `2>&1 >/dev/null` in THIS order: stderr to the capture, then stdout to the bin. Reversed, the
+    # capture would take stdout and the traceback would go on being discarded.
+    err=$(python3 -c "$mut" 2>&1 >/dev/null); rc=$?
+    if [ "$rc" -eq 0 ]; then INJECT_WHY="$INJECT_OK"; return 0; fi
+    INJECT_WHY="         why: $(printf '%s\n' "$err" | grep -v '^[[:space:]]*$' | tail -1)"
+    [ -n "$err" ] || INJECT_WHY="         why: python3 exited $rc and printed nothing"
+    for ref in refs/remotes/origin/main refs/heads/main ""; do
+      [ -n "$ref" ] && git rev-parse -q --verify "$ref^{commit}" >/dev/null 2>&1 && break
+    done
+    paths=$(printf '%s' "$mut" | grep -oE "['\"][A-Za-z0-9_./-]+\.(md|py|c|tsv|txt|json|sh)['\"]" | tr -d "'\"" | sort -u)
+    for f in $paths; do
+      git ls-files --error-unmatch -- "$f" >/dev/null 2>&1 || continue
+      if [ -z "$ref" ]; then
+        INJECT_WHY="$INJECT_WHY
+         anchor $f: no origin/main or main here to compare against, so neither cause is ruled out"
+        continue
+      fi
+      git diff --quiet "$ref" -- "$f" 2>/dev/null; drc=$?
+      if [ "$drc" -eq 0 ]; then
+        INJECT_WHY="$INJECT_WHY
+         anchor $f is IDENTICAL to ${ref#refs/*/} -- so this is likely the FIXTURE, not branch staleness"
+      elif [ "$drc" -eq 1 ]; then
+        INJECT_WHY="$INJECT_WHY
+         anchor $f DIFFERS from ${ref#refs/*/} -- branch staleness is the likely cause"
+      else
+        INJECT_WHY="$INJECT_WHY
+         anchor $f: git could not compare it with ${ref#refs/*/} (rc $drc), so neither cause is ruled out"
+      fi
+    done
+    return 1
+  }
+  # THE IN-HARNESS HALF OF ITS PROOF (Q-235). The first version declared _inject NOT-PROVEN-IN-HARNESS,
+  # because its diagnostic path fires only when an injection FAILS. A failing injection that touches no
+  # file does not turn this harness red, so the diagnostic is asserted here: a broken mutation must
+  # fail and its own exception text must be on the why: line, and a clean one must leave INJECT_WHY
+  # as INJECT_OK. The IDENTICAL/DIFFERS arms need a tracked file in a known relation to main, which a live
+  # checkout cannot promise; tests.py (TestQ963Q953Q235Batch48) drives them in a scratch repository.
+  _inject "raise AssertionError('Q-235 probe, a deliberately broken fixture')"; _INJ_RC=$?
+  _INJ_WHY1=$INJECT_WHY
+  if _inject "pass" && [ "$INJECT_WHY" = "$INJECT_OK" ] && [ "$_INJ_RC" -eq 1 ] \
+     && grep -qxF '         why: AssertionError: Q-235 probe, a deliberately broken fixture' <<<"$_INJ_WHY1"; then
+    echo "  [ok]   Q-235 _inject diagnosis — a broken fixture's own exception is kept; a clean injection leaves none"
+  else
+    echo "  [FAIL] Q-235 _inject diagnosis — rc=$_INJ_RC, why=[$_INJ_WHY1], clean=[$INJECT_WHY]"; PASS=1
+  fi
+
   # assert_fires_why <label> <gate-name> <evidence-ERE> <python-mutation>
   #
   # ITEM A5 (task #65, the assertion half). An exit code cannot tell "the gate fired for the
@@ -1312,9 +1421,10 @@ if [ "${1:-}" = "--selftest" ]; then
   # opens at column 0. Keep the shape or GATE 16's per-invocation vacuity guard fails.
   assert_fires_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
-                           echo "         assertion did NOT run. A skipped assertion is not a pass."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
+                        echo "         assertion did NOT run. A skipped assertion is not a pass."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
     _selftest_revert
     # Q-954 sibling sweep (Codex Q835 P-07 (e) shape): any rc != 0 used to count as firing, so a
@@ -1433,8 +1543,9 @@ if [ "${1:-}" = "--selftest" ]; then
   # the hour they were written — caught by this batch's own Phase-4 pass.)
   assert_stays_clean_why() {
     local label="$1" gate="$2" want="$3" mut="$4" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject; assertion did NOT run."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(bash "$0" "$gate" 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -ne 0 ]; then
@@ -1540,8 +1651,8 @@ if [ "${1:-}" = "--selftest" ]; then
   # actually readable out of @{0} (so the object holds the pre-revert tree, not an empty one).
   _A1_REF=refs/doc-gates/selftest-revert
   _a1_before=$(git reflog "$_A1_REF" 2>/dev/null | wc -l)
-  if python3 -c "open('documentation/GUIDE.md','a',encoding='utf-8').write(
-chr(10)+'<!-- A1 snapshot probe: this line is discarded and must stay recoverable -->'+chr(10))" 2>/dev/null; then
+  if _inject "open('documentation/GUIDE.md','a',encoding='utf-8').write(
+chr(10)+'<!-- A1 snapshot probe: this line is discarded and must stay recoverable -->'+chr(10))"; then
     _selftest_revert documentation/GUIDE.md
     _a1_after=$(git reflog "$_A1_REF" 2>/dev/null | wc -l)
     if [ "$_a1_after" -gt "$_a1_before" ] \
@@ -1556,7 +1667,7 @@ chr(10)+'<!-- A1 snapshot probe: this line is discarded and must stay recoverabl
     fi
   else
     echo "  [FAIL] A1 snapshot — could not inject the probe, so the assertion did NOT run."
-    PASS=1
+    printf '%s\n' "$INJECT_WHY"; PASS=1
   fi
   # THE SIGNAL HALF CANNOT BE ASSERTED HERE — a case that TERMs the self-test kills the
   # harness that would report on it. It was proven externally and deterministically on
@@ -1954,12 +2065,12 @@ open('documentation/GUIDE.md','w').write(s+'\n\nPriced as data ([CRITIQUE.md](CR
   # (see the gate's A7 block), so `secrefs` still exits 0 and an rc-based assertion would fail
   # on a working gate. The injected heading creates no dangling reference, so rc 0 is also the
   # correct verdict — asserting on rc would prove the opposite of what is wanted.
-  python3 -c "p='documentation/MCKENNA.md'
+  _inject "p='documentation/MCKENNA.md'
 s=open(p,encoding='utf-8').read()
 import re
 h=[x for x in re.findall(r'^#+\s+(.*?)\s*\$', s, re.M) if 'Rule 2' in x]
 assert len(h)==1, 'anchor moved: %d headings contain \"Rule 2\", expected exactly 1' % len(h)
-open(p,'w',encoding='utf-8').write(s+chr(10)+chr(10)+'## McKenna Rule 25 (self-test heading)'+chr(10))" 2>/dev/null \
+open(p,'w',encoding='utf-8').write(s+chr(10)+chr(10)+'## McKenna Rule 25 (self-test heading)'+chr(10))" \
     && { A7OUT=$(bash "$0" secrefs 2>&1); A7RC=$?
          if [ "$A7RC" -eq 0 ] \
             && grep -q 'resolves against 2 headings, so it does' <<<"$A7OUT" \
@@ -1972,7 +2083,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+chr(10)+'## McKenna Rule 25 (self-t
            PASS=1
          fi
          _selftest_revert documentation/MCKENNA.md; } \
-    || { echo "  [FAIL] GATE 4b ambiguity case — could not inject; assertion did NOT run."; PASS=1; }
+    || { echo "  [FAIL] GATE 4b ambiguity case — could not inject; assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1; }
 
   # ITEM B1 (2026-08-02, drain-2) — SIX LEGS, EACH PROVEN LOAD-BEARING BY A MUTATION THAT
   # MUST CHANGE THE VERDICT. Three of them WIDEN the gate (legs 1, 3, 4), and a widened gate
@@ -2065,9 +2176,9 @@ open(p,'w',encoding='utf-8').write(s+'documentation/GUIDE.md'+t+'documentation/C
   # still exited 0 — i.e. the deletion produces exactly the silent green this asserts against.
   # An assertion that has never been shown to fail is not a proof, which is the whole reason
   # GATE 8 shipped a one-directional comparison.
-  python3 -c "p='documentation/GUIDE.md'
+  _inject "p='documentation/GUIDE.md'
 s=open(p,encoding='utf-8').read()
-open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md) '+chr(167)+'\"Per-branch yield labels in the canonical\" for that.'+chr(10))" 2>/dev/null \
+open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md) '+chr(167)+'\"Per-branch yield labels in the canonical\" for that.'+chr(10))" \
     && { B1OUT=$(bash "$0" secrefs 2>&1); B1RC=$?
          if [ "$B1RC" -eq 0 ] \
             && grep -qE '\[bold-anchor\] documentation/GUIDE\.md:[0-9]+ -> documentation/CRITIQUE\.md' <<<"$B1OUT"; then
@@ -2080,7 +2191,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'See [CRITIQUE.md](CRITIQUE.md) '+c
            PASS=1
          fi
          _selftest_revert documentation/GUIDE.md; } \
-    || { echo "  [FAIL] GATE 4b LEG 6 — could not inject; assertion did NOT run."; PASS=1; }
+    || { echo "  [FAIL] GATE 4b LEG 6 — could not inject; assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1; }
 
   # ITEM B4 (2026-08-02, drain-1) — LEG 7, the PREFIX RULE, proven on the REAL defect that
   # motivated it rather than on a synthesised one. `f3179f8` measured prefix anchoring at 1 of
@@ -2369,9 +2480,9 @@ open(p,'w',encoding='utf-8').write(chr(10).join(L))"
     appendonly-history '1 line\(s\) present in .* are absent from the working copy' \
 "import subprocess
 f='documentation/CORRECTIONS.md'
-revs=subprocess.run(['git','rev-list','HEAD','--',f],capture_output=True,text=True).stdout.split()
+revs=subprocess.run(['git','rev-list','HEAD','--',f],capture_output=True,text=True, check=True).stdout.split()
 assert revs, 'the ledger has no history to test against'
-old=subprocess.run(['git','show',revs[-1]+':'+f],capture_output=True,text=True).stdout.split(chr(10))
+old=subprocess.run(['git','show',revs[-1]+':'+f],capture_output=True,text=True, check=True).stdout.split(chr(10))
 cur=open(f,encoding='utf-8').read().split(chr(10))
 cand=[l for l in old if l.strip() and l in cur]
 assert cand, 'no line of the oldest committed version survives to delete'
@@ -2384,7 +2495,9 @@ open(f,'w',encoding='utf-8').write(chr(10).join(cur))"
   #   world where 10a had caught it — and "10a does not catch it" is the whole claim.
   scratch_appendonly() {
     local label="$1" setup="$2" d rcA rcB rcS
-    d=$(mktemp -d) || { echo "  [SKIP] $label — no tmpdir"; return; }
+    # Q-963 (batch 48; Codex Q835 A11#7): a fire-proof that could not get a tmpdir did NOT run; that is a
+    # FAIL like every other skipped assertion here (ITEM A5), not a [SKIP] that leaves PASS alone.
+    d=$(mktemp -d) || { echo "  [FAIL] $label — no tmpdir, so the assertion did NOT run"; PASS=1; return; }
     ( set -e
       mkdir -p "$d/scripts" "$d/documentation"
       cp "$0" "$d/scripts/doc_gates.sh"; cp -R "$(dirname "$0")/doc_gates.d" "$d/scripts/"
@@ -3007,9 +3120,9 @@ open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
   # ASSERT ON OUTPUT, never on rc: GATE 13 is report-only and returns 0 by design.
   _g13() { DOC_GATE_REVROW_RANGE="$1" bash "$0" revrows 2>&1; }
 
-  if python3 -c "f='reports/TR6_PARITY_SKELETON.md'
+  if _inject "f='reports/TR6_PARITY_SKELETON.md'
 s=open(f,encoding='utf-8').read()
-open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no revision row.'+chr(10))" 2>/dev/null; then
+open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no revision row.'+chr(10))"; then
     G13OUT=$(_g13 'HEAD..HEAD')
     if grep -qE 'WORKTREE reports/TR6_PARITY_SKELETON\.md — 1 body line' <<<"$G13OUT"; then
       echo "  [ok]   GATE 13 worktree — an uncommitted TR body edit with no revision row is noted"
@@ -3019,15 +3132,15 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no re
       PASS=1
     fi
   else
-    echo "  [FAIL] GATE 13 worktree — could not inject, so the assertion did NOT run."; PASS=1
+    echo "  [FAIL] GATE 13 worktree — could not inject, so the assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1
   fi
   _selftest_revert
 
   # The negative control for the worktree leg. Without it, "notes a body edit" is equally
   # consistent with "notes ANY edit to a TR", which would make the gate pure noise.
-  if python3 -c "f='reports/TR6_PARITY_SKELETON.md'
+  if _inject "f='reports/TR6_PARITY_SKELETON.md'
 s=open(f,encoding='utf-8').read()
-open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded below.'+chr(10)+'| v9.99 | 2026-08-02 | Self-test revision row. |'+chr(10))" 2>/dev/null; then
+open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded below.'+chr(10)+'| v9.99 | 2026-08-02 | Self-test revision row. |'+chr(10))"; then
     G13OUT=$(_g13 'HEAD..HEAD')
     # THE VACUITY GUARD, and it is not decoration. "No WORKTREE note" is also what a run
     # prints when the injection never reached the tree — the gate would then say
@@ -3045,7 +3158,7 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded 
       echo "  [ok]   GATE 13 worktree negative control — a body edit WITH a revision row is silent"
     fi
   else
-    echo "  [FAIL] GATE 13 worktree negative control — could not inject; assertion did NOT run."; PASS=1
+    echo "  [FAIL] GATE 13 worktree negative control — could not inject; assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1
   fi
   _selftest_revert
 
@@ -3203,11 +3316,11 @@ open(p,'w',encoding='utf-8').write(s)" 2>/dev/null \
   #     literal: it pins the DISPLACEMENT, which is the property A8 is about, instead of a
   #     coordinate that any edit above the table invalidates.
   A8BASE=$(bash "$0" status 2>&1 | sed -n 's/.*TR4_SIZE_OF_THE_SPACE\.md:\([0-9][0-9]*\) exemption live.*/\1/p' | head -1)
-  python3 -c "s=open('reports/TR4_SIZE_OF_THE_SPACE.md').read()
+  _inject "s=open('reports/TR4_SIZE_OF_THE_SPACE.md').read()
 a='*none — no exact value exists*'
 assert a in s, 'anchor moved'
 i=s.index(a); j=s.rindex(chr(10), 0, i)
-open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest: a line inserted above the anchored row -->'+s[j:])" 2>/dev/null \
+open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest: a line inserted above the anchored row -->'+s[j:])" \
     && { A8OUT=$(bash "$0" status 2>&1)
          if [ -n "$A8BASE" ] \
             && grep -q "TR4_SIZE_OF_THE_SPACE.md:$((A8BASE+1)) exemption live" <<<"$A8OUT" \
@@ -3219,12 +3332,12 @@ open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest:
            PASS=1
          fi
          _selftest_revert; } \
-    || { echo "  [FAIL] GATE 5 allowlist drift case — could not inject; assertion did NOT run."; PASS=1; }
+    || { echo "  [FAIL] GATE 5 allowlist drift case — could not inject; assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1; }
 
   # (2) DEAD ANCHOR still audited. This is the branch A8's option (ii) was said to cost,
   #     and it does not: it never read the line number.
-  python3 -c "open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write(
-'documentation/HISTORY.md'+chr(9)+'a sentence that appears nowhere in the corpus'+chr(10))" 2>/dev/null \
+  _inject "open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write(
+'documentation/HISTORY.md'+chr(9)+'a sentence that appears nowhere in the corpus'+chr(10))" \
     && { A8OUT=$(bash "$0" status 2>&1)
          if grep -q 'anchor no longer appears in the file' <<<"$A8OUT"; then
            echo "  [ok]   GATE 5 allowlist dead-anchor audit — fires, and says prune it"
@@ -3233,16 +3346,16 @@ open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest:
            PASS=1
          fi
          _selftest_revert; } \
-    || { echo "  [FAIL] GATE 5 dead-anchor case — could not inject; assertion did NOT run."; PASS=1; }
+    || { echo "  [FAIL] GATE 5 dead-anchor case — could not inject; assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1; }
 
   # (3) AN UNANCHORED ENTRY SUPPRESSES NOTHING. Under the old scheme it suppressed by line
   #     number, which is the direction that let an unreviewed line inherit somebody else's
   #     exemption. The entry injected here names the exact file:line GATE 5 warns about in
   #     assertion (1) above, so if it still suppressed, the WARN would vanish.
-  python3 -c "s=open('documentation/GUIDE.md').read()
+  _inject "s=open('documentation/GUIDE.md').read()
 open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^31 is a proven count.'+chr(10))
 n=len(open('documentation/GUIDE.md').read().split(chr(10)))-1
-open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUIDE.md:%d'%n+chr(10))" 2>/dev/null \
+open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUIDE.md:%d'%n+chr(10))" \
     && { A8OUT=$(bash "$0" status 2>&1)
          if grep -q 'SUPPRESSES NOTHING' <<<"$A8OUT" \
             && grep -q "carries exact/proven token(s)" <<<"$A8OUT"; then
@@ -3253,7 +3366,7 @@ open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUI
            PASS=1
          fi
          _selftest_revert; } \
-    || { echo "  [FAIL] GATE 5 unanchored case — could not inject; assertion did NOT run."; PASS=1; }
+    || { echo "  [FAIL] GATE 5 unanchored case — could not inject; assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1; }
 
   # GATE 5b (item A4), asserted against ITS OWN MOTIVATING EXAMPLE rather than a synthetic
   # table: the mutation reverts TR-9's C3 ledger cell to the bare-number form it carried
@@ -3302,7 +3415,7 @@ if len(hits) != 1:
 open(os.environ['G5BLINEF'], 'w').write(str(hits[0] + 1))
 open(p, 'w', encoding='utf-8').write(s.replace(a, '1.3287×10³⁸', 1))
 G5BPY
-  if G5BLINEF="$G5BLINEF" python3 "$G5BMUT" 2>&1; then
+  if G5BLINEF="$G5BLINEF" _inject "$(cat "$G5BMUT")"; then   # Q-235: the file's bytes, through _inject
     G5BLINE=$(cat "$G5BLINEF")
     G5BOUT=$(bash "$0" status 2>&1)
     if [ -n "$G5BLINE" ] && grep -q "TR9_PRICING_THE_CONSTRAINTS.md:$G5BLINE .* carries NO status marker" <<<"$G5BOUT"; then
@@ -3315,7 +3428,7 @@ G5BPY
   else
     echo "  [FAIL] GATE 5b — could not inject its anchor, so the assertion did NOT run."
     echo "         Re-anchor it against TR-9's C3 ledger cell; a skipped fire-proof is not a proof."
-    PASS=1
+    printf '%s\n' "$INJECT_WHY"; PASS=1
   fi
   rm -f "$G5BMUT" "$G5BLINEF"
   _selftest_revert reports/TR9_PRICING_THE_CONSTRAINTS.md
@@ -3357,9 +3470,10 @@ G5BPY
   # GATE 15 LEG 3 re-derives it every run.)
   assert_gen_fires() {
     local label="$1" want="$2" mut="$3" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
-                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
+                        echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
     if [ "$rc" -ne 1 ]; then   # Q-954 sweep: rc 1 is the fire; 2/124/137/143 is not
@@ -3511,9 +3625,10 @@ open(p,'w',encoding='utf-8').write(s.replace(a,a.replace('organizing','organisin
   # assert_gen_fires_only <label> <new-leg-ERE> <other-leg-stays-ok-ERE> <mutation>
   assert_gen_fires_only() {
     local label="$1" want="$2" alsowant="$3" mut="$4" out rc
-    python3 -c "$mut" || { echo "  [FAIL] $label — could not inject (anchor moved), so the"
-                           echo "         assertion did NOT run. A skipped fire-proof is not a proof."
-                           PASS=1; _selftest_revert; return; }
+    _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
+                        echo "         assertion did NOT run. A skipped fire-proof is not a proof."
+                        printf '%s\n' "$INJECT_WHY"
+                        PASS=1; _selftest_revert; return; }
     out=$(DOC_GATES_GEN_CACHE="$GEN_CACHE" bash "$0" generated 2>&1); rc=$?
     _selftest_revert
     # Q-983 (batch 42; Codex gpt-6-astra, Q964-D02#3): the fire is rc 1 EXACTLY, as in its Q-954-swept
@@ -4050,7 +4165,7 @@ os.remove(p)"
   # EVIDENCE THAT THE CONTROL IS LOAD-BEARING: a batch that declares an instrument SHOULD
   # trip it, and a batch that trips nothing has probably pinned nothing.
   assert_stays_clean_why "GATE 15 a comment appended to the table changes nothing" instruments \
-    '12 instrument\(s\) in the --selftest region, all declared' \
+    '13 instrument\(s\) in the --selftest region, all declared' \
 "open('documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt','a',encoding='utf-8').write(
     '# GATE 15 negative control: a comment line declares nothing and breaks nothing.'+chr(10))"
 
@@ -4853,12 +4968,12 @@ import os; open(os.environ['_G16B_COPY'],'w',encoding='utf-8').writelines(L)"
   # that bucket is about FINDABILITY BY ID and nothing else. If this leg ever stops firing,
   # the gate has started crediting a verdict to a row that does not carry one, which is the
   # false clear that let the 2026-08-01 sweep call d7 "the last unclassified row".
-  if python3 -c "
+  if _inject "
 p='$_G17_TR'
 s=open(p,encoding='utf-8').read()
 a=' (*data-like* — see headline 1)'
 assert s.count(a)==1, 'ccn4 inline-verdict anchor moved: %d' % s.count(a)
-open(p,'w',encoding='utf-8').write(s.replace(a,'',1))" 2>/dev/null; then
+open(p,'w',encoding='utf-8').write(s.replace(a,'',1))"; then
     G17OUT=$(bash "$0" scoreboard 2>&1); G17RC=$?
     if [ "$G17RC" -eq 0 ] \
        && grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 1/31 rule(s) carry a verdict at the id (d7)' <<<"$G17OUT" \
@@ -4873,7 +4988,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'',1))" 2>/dev/null; then
     fi
     _selftest_revert "$_G17_TR"
   else
-    echo "  [FAIL] GATE 17 LEG 1 — could not inject; the assertion did NOT run."; PASS=1
+    echo "  [FAIL] GATE 17 LEG 1 — could not inject; the assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1
   fi
 
   # LEG 2 — LEG A, hard, on the other historical row. d7 was unclassified for weeks and was
@@ -4919,12 +5034,12 @@ open(p,'w',encoding='utf-8').write(s.replace(a,a+chr(10)+'    (\"zzselftest\", 0
   # grepped the file instead of the bounded region would credit some row with a verdict it
   # does not have; the counts must not move. Without this leg, legs 1-4 are equally consistent
   # with a scan that reads the whole document.
-  if python3 -c "
+  if _inject "
 p='$_G17_TR'
 s=open(p,encoding='utf-8').read()
 a='Wrap-distance finals:'
 assert s.count(a)==1, 'close anchor moved: %d' % s.count(a)
-open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like rows. '+a,1))" 2>/dev/null; then
+open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like rows. '+a,1))"; then
     G17OUT=$(bash "$0" scoreboard 2>&1); G17RC=$?
     if [ "$G17RC" -eq 0 ] \
        && grep -qF 'TR1_EIGHT_CENTURIES_MEASURED.md: 2/31 rule(s) carry a verdict at the id (ccn4, d7)' <<<"$G17OUT"; then
@@ -4937,7 +5052,7 @@ open(p,'w',encoding='utf-8').write(s.replace(a,'These are principled, data-like 
     fi
     _selftest_revert "$_G17_TR"
   else
-    echo "  [FAIL] GATE 17 LEG 5 — could not inject; the assertion did NOT run."; PASS=1
+    echo "  [FAIL] GATE 17 LEG 5 — could not inject; the assertion did NOT run."; printf '%s\n' "$INJECT_WHY"; PASS=1
   fi
 
   # LEG 6 — PHASE-4 ON THIS UNIT'S OWN BATCH, and it is here because the first draft failed
@@ -5251,10 +5366,10 @@ open(p,'w',encoding='utf-8').write(s+'\n\nReproduce: python3 verify.py --recount
   else
     _G25_FEXP=$((_G25_N + (_G25_K == 0 ? 1 : 0)))
     _G25_CEXP=$((_G25_N - (_G25_K > 0 ? 1 : 0)))
-    if python3 -c "
+    if _inject "
 p='documentation/GT_LADDER_FORMAT.md'
 s=open(p,encoding='utf-8').read()
-open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432,109,876 rows.'+chr(10))" 2>/dev/null; then
+open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432,109,876 rows.'+chr(10))"; then
       _G25_F=$(bash "$0" repro-reach 2>&1); _G25_FRC=$?
       _selftest_revert documentation/GT_LADDER_FORMAT.md
       _G25_FN=$(printf '%s' "$_G25_F" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
@@ -5276,18 +5391,18 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
       fi
     else
       echo "  [FAIL] GATE 25 LEG 2 — could not inject the fire case; assertion did NOT run."
-      PASS=1
+      printf '%s\n' "$INJECT_WHY"; PASS=1
     fi
 
     # THE CONTROL, and without it the leg above is equally consistent with "any file carrying
     # a grouped figure is reported" — which would make LEG 2 a note on most of the corpus and
     # therefore a note nobody reads. Same file, same figure, one line apart: the only
     # difference is that the file now names a way to re-derive it.
-    if python3 -c "
+    if _inject "
 p='documentation/GT_LADDER_FORMAT.md'
 s=open(p,encoding='utf-8').read()
 open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432,109,876 rows.'+chr(10)
-                                    +'Reproduce: python3 verify.py --recount'+chr(10))" 2>/dev/null; then
+                                    +'Reproduce: python3 verify.py --recount'+chr(10))"; then
       _G25_C=$(bash "$0" repro-reach 2>&1); _G25_CRC=$?
       _selftest_revert documentation/GT_LADDER_FORMAT.md
       _G25_CN=$(printf '%s' "$_G25_C" | grep -oE '; [0-9]+ publish' | grep -oE '[0-9]+')
@@ -5308,7 +5423,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'The ladder pass emitted 98,765,432
       fi
     else
       echo "  [FAIL] GATE 25 LEG 2 control — could not inject; assertion did NOT run."
-      PASS=1
+      printf '%s\n' "$INJECT_WHY"; PASS=1
     fi
   fi
 

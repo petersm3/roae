@@ -1209,10 +1209,15 @@ gate_code_needles() {
       "$reg"|"$allow"|documentation/CORRECTIONS_INVENTORY.tsv) skipped_named=$((skipped_named+1)); continue;;   # withdrawn wording by construction, by NAME
     esac
     [ -f "$f" ] || continue                                    # tracked-but-deleted: preflight's finding
-    grep -qI . "$f" 2>/dev/null || continue                    # binary by CONTENT (grep -I), not by directory
+    # binary by CONTENT (grep -I), not by directory. Q-963 (batch 48; Codex Q835 A09#14): rc 1 is
+    # "binary or empty"; rc 2 is "could not read it", which used to be skipped as binary too.
+    local _g47_rc; grep -qI . "$f" 2>/dev/null; _g47_rc=$?
+    [ "$_g47_rc" -eq 1 ] && continue
+    [ "$_g47_rc" -eq 0 ] || { echo "  [FAIL] GATE 47 could not read $f (grep rc $_g47_rc), so it was NOT scanned."; rm -rf "$flatdir"; return 1; }
     mkdir -p "$flatdir/$(dirname "$f")"
     # strip leading comment markers, fold like GATE 3, flatten to one whitespace-collapsed line
-    { if [ "$f" = scripts/doc_gates.sh ]; then bash scripts/doc_gates.d/logical_source.sh; else cat "$f"; fi; } | sed -E 's@^[[:space:]]*(#|//|--)+[[:space:]]?@@' | fold_variants | tr '\n' ' ' | tr -s ' ' > "$flatdir/$f"
+    { if [ "$f" = scripts/doc_gates.sh ]; then bash scripts/doc_gates.d/logical_source.sh; else cat "$f"; fi; } | sed -E 's@^[[:space:]]*(#|//|--)+[[:space:]]?@@' | fold_variants | tr '\n' ' ' | tr -s ' ' > "$flatdir/$f" \
+      || { echo "  [FAIL] GATE 47 could not flatten $f into its scan cache, so it was NOT scanned (Q-963)."; rm -rf "$flatdir"; return 1; }
     n=$((n+1))
   done
   if [ "$n" -lt 30 ]; then
@@ -1361,7 +1366,7 @@ gate_sha_prediction() {
   local out
   out=$( { _wm_prelude; cat <<'PY'
 import re, io, subprocess, sys
-files=subprocess.run(["git","ls-files","documentation/*.md","reports/*.md"],capture_output=True,text=True).stdout.split()
+files=subprocess.run(["git","ls-files","documentation/*.md","reports/*.md"],capture_output=True,text=True, check=True).stdout.split()
 files=[f for f in files if not f.startswith("reports/evidence/")]
 SUBJ=lambda s: re.search(r"\bprunes?\b",s) and re.search(r"\bshas?\b|sha lineage",s) and re.search(r"would change|will change|changes? (the|node|canonical)|opens? a new sha lineage|would differ",s)
 # Q-966 (A09#15): sha EVIDENCE is the shared matcher's hex token (wm_hex_re: at least one a-f letter).
@@ -1576,18 +1581,18 @@ gate_seed_provenance() {
   local out
   out=$( { _md_num_prelude; cat <<'PY'
 import re, io, os, subprocess, sys
-ev=subprocess.run(["git","ls-files","reports/evidence/*"],capture_output=True,text=True).stdout.split()
+ev=subprocess.run(["git","ls-files","reports/evidence/*"],capture_output=True,text=True, check=True).stdout.split()
 seeds={}
 for f in ev:
     if not os.path.isfile(f): continue
     try: t=io.open(f,encoding="utf-8",errors="replace").read()
-    except OSError: continue
+    except OSError as e: print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)"%(f,e)); raise SystemExit(0)
     m=re.search(r"SEED OVERRIDE ACTIVE: base=(0[xX][0-9a-fA-F]+|\d+)",t)
     # Q-968 (A09#19): a seed is its integer VALUE (shared number lexer), so base=1001 and base=0x3e9
     # are ONE seed; the lower-cased strings made them two and a same-seed pair passed as independent.
     if m: seeds[f]=md_num(m.group(1)).value
 if len(set(seeds.values()))<2: print("ERROR\tthe evidence tree holds %d SEED OVERRIDE file(s) with distinct bases (need >= 2) — the class cannot be judged"%len(set(seeds.values()))); sys.exit(0)
-files=[f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True).stdout.split() if not f.startswith("reports/evidence/")]
+files=[f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True, check=True).stdout.split() if not f.startswith("reports/evidence/")]
 CLAIM=re.compile(r"independent[- ](draws?|seeds?|replicates?)|independence check",re.I)
 NEG=re.compile(r"\b(not|never|neither|nor|rather than|instead of)\b",re.I)
 n=0
@@ -1673,7 +1678,7 @@ for b in blocks:
     if re.search(r"\b404\b",body) and re.search(r"zero captures|no snapshot|no captures?\b",body,re.I): unrep.append(m.group(1))
 if not unrep: print("ERROR\tno CITATIONS.md entry carries both '404' and 'zero captures/no snapshot' — if the class is gone, retire this gate explicitly rather than let it pass on nothing"); sys.exit(0)
 HEDGE=re.compile(r"unrepeatable|\b404\b|zero captures|no snapshot|cannot be re-?verified|can no longer be re-?verified|no longer be re-?verified|no reader can retrieve|not retrievable",re.I)
-files=[f for f in subprocess.run(["git","ls-files","reports/*.md","documentation/*.md"],capture_output=True,text=True).stdout.split() if f!=C and not f.startswith("reports/evidence/")]
+files=[f for f in subprocess.run(["git","ls-files","reports/*.md","documentation/*.md"],capture_output=True,text=True, check=True).stdout.split() if f!=C and not f.startswith("reports/evidence/")]
 n=0
 for f in files:
     try: d=io.open(f,encoding="utf-8").read()
@@ -1811,7 +1816,7 @@ targets={}
 for l in rows:
     for m in re.finditer(r"\]\(([^)#]+\.md)",l):
         targets[os.path.normpath(os.path.join(os.path.dirname(F),m.group(1)))]=l
-docs=subprocess.run(["git","ls-files","documentation/*.md"],capture_output=True,text=True).stdout.split()
+docs=subprocess.run(["git","ls-files","documentation/*.md"],capture_output=True,text=True, check=True).stdout.split()
 docs=[d for d in docs if d!=F]
 if len(docs)<20: print("ERROR\tonly %d tracked documentation/*.md (need >= 20)"%len(docs)); sys.exit(0)
 miss=[d for d in docs if d not in targets]
@@ -1884,7 +1889,7 @@ FAM={"source code":r"source code|code version|binary",
      "depth":r"depth|SOLVE_DEPTH",
      "node limit":r"node limit|SOLVE_NODE_LIMIT|global budget",
      "per-sub-branch limit":r"per-sub-branch|SOLVE_PER_SUB_BRANCH_LIMIT|per-cell"}
-files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True, check=True).stdout.split()
 n=0
 for f in files:
     t=io.open(f,encoding="utf-8").read()

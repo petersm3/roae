@@ -25,7 +25,7 @@ if [ -z "$SOLVE" ]; then
 else
   # 🔴 EXECUTABLE IS NOT CURRENT -- and this arm did not even check THAT. The build arm above
   # compiles the committed solve.c seconds before use and is safe by construction; $SOLVE is a bare
-  # PATH taken from the environment and, before this guard, was used unexamined. pre_push_compile_gate.sh:218
+  # PATH taken from the environment and, before this guard, was used unexamined. pre_push_compile_gate.sh:226
   # hands in a binary it just built, but `SOLVE=./solve bash scripts/atlas_path_portability_gate.sh`
   # by hand points the gate at whatever artifact is lying in the tree.
   #
@@ -80,8 +80,13 @@ done
 [ -s "$W/A/atlas.json" ] && [ -s "$W/B/atlas.json" ] || {
   echo "  [FAIL] one or both atlases were not produced -- this gate measured NOTHING"
   echo "ATLAS_PATH_PORTABLE=FAIL"; exit 2; }
+# Q-963 (batch 48; Codex Q835 A01#3): each digest must BE a digest. Two failing `sha256sum | cut` gave
+# "" and "", which compared equal and printed PASS for atlases nobody hashed.
 a=$(sha256sum "$W/A/atlas.json" | cut -d' ' -f1)
 b=$(sha256sum "$W/B/atlas.json" | cut -d' ' -f1)
+[[ "$a" =~ ^[0-9a-f]{64}$ ]] && [[ "$b" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "  [ERROR] could not hash the two atlases (got '${a}' and '${b}') -- this gate measured NOTHING"
+  echo "ATLAS_PATH_PORTABLE=ERROR"; exit 2; }
 if [ "$a" != "$b" ]; then
   echo "  [FAIL] two correct runs produced different atlases -- the artifact is not portable"
   echo "         A $a"

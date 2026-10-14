@@ -247,7 +247,17 @@ gate_publication_state() {
   # so a failed enumeration produced an empty $hits and the gate announced the published
   # corpus free of draft markers having read nothing. Consume the guarded $DOCS instead:
   # one enumeration, one guard, and no second place for this to go wrong.
-  hits=$(printf '%s\n' "$DOCS" | xargs grep -nE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' 2>/dev/null)
+  # Q-963 (batch 48; Codex Q835 A07#5): grep runs over $DOCS directly so its status is readable:
+  # 0 = a hit, 1 = none, 2 = a document it could not read. Through `xargs` the last two were one
+  # status (123) and were not read at all, so an unreadable document was a clean one.
+  local _g20_rc
+  # shellcheck disable=SC2086
+  hits=$(grep -HnE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' -- $DOCS 2>/dev/null); _g20_rc=$?
+  [ "$_g20_rc" -le 1 ] || {
+    echo "  [FAIL] GATE 20's per-file scanner FAILED on:"   # the receipt wording the --selftest asserts on, naming the file(s)
+    local _g20_f _g20_n=0; for _g20_f in $DOCS; do [ -r "$_g20_f" ] || { echo "           $_g20_f"; _g20_n=$((_g20_n+1)); }; done
+    [ "$_g20_n" -gt 0 ] || echo "           (every file reads now: grep itself failed)"
+    echo "         grep could not read every tracked .md (rc $_g20_rc), so NOTHING is attested (Q-963)."; return 1; }
   # Q-965 (A07#4): the grep above reads column-0 ATX lines only, so "   ## DRAFT" (indented 1-3
   # spaces, still a heading) and a setext "DRAFT\n=====" passed. The shared normaliser's headings add
   # those forms, outside code fences; a heading inside a `>` block quote is a quotation and is left out
@@ -496,8 +506,13 @@ gate_script_paths() {
     done
     _why=""; }
   local seen=0 dang=0 coll=0 stale=0
-  local topdirs; topdirs=$(git ls-tree -d --name-only HEAD | paste -sd'|')
-  local pairs f; pairs=$(git grep -oE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u)
+  # Q-963 (batch 48; Codex Q835 A07#7): both producers are CHECKED. An empty $topdirs (ls-tree failed)
+  # changed the token pattern, and `git grep` exits 1 for no match but 128 when it fails, which
+  # read as "no backticked path in the corpus": nothing to resolve, [ok].
+  local topdirs _g21_rc; topdirs=$(git ls-tree -d --name-only HEAD | paste -sd'|') && [ -n "$topdirs" ] || {
+    echo "  [FAIL] GATE 21: cannot list the top-level directories (git ls-tree HEAD failed), so NOTHING was checked."; return 1; }
+  local pairs f; pairs=$(git grep -oE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u); _g21_rc=$?
+  [ "$_g21_rc" -le 1 ] || { echo "  [FAIL] GATE 21: git grep failed over the corpus (rc $_g21_rc), so NOTHING was checked."; return 1; }
   seen=$(printf '%s\n' "$pairs" | sed -n 's/^[^:]*://p' | sort -u | grep -c .)
   while read -r t; do
     [ -n "$t" ] || continue
@@ -673,7 +688,9 @@ gate_hex_prefix() {
   # one of its occurrences sits in a marker; one loose occurrence in plain prose and it is PROSE
   # again and still fails. A per-line waiver would let a real typo hide behind one tidy citation.
   local g22rc=0 G22_FLOOR=100; git grep -nHE '[0-9a-fA-F]+(…|\.\.\.)' -- '*.md' 2>"$d/hits.err" > "$d/hits" || g22rc=$?; if [ "$g22rc" -ge 2 ]; then echo "  [FAIL] GATE 22: the token producer (git grep over tracked *.md) failed rc $g22rc, so the population is UNMEASURED and nothing was checked: $(head -c 300 "$d/hits.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi  # Q-883 (2026-09-27): git grep rc 1 = no match (legitimate, and then the floor below fails it); rc >= 2 = the producer failed. This line read `2>/dev/null > hits || true` until Q-883, and a PATH git shim failing only this grep printed `[ok] 0 truncated hex token(s)` and DOC GATES: PASS (Fable E4).
-  python3 - "$d/hits" "$d/tok" "$d/narr" <<'PYTOK'
+  # Q-963 (batch 48): the tokeniser's status is read (a crashed one left the token list empty) and it
+  # no longer reads an unreadable hits file as "no hit".
+  python3 - "$d/hits" "$d/tok" "$d/narr" <<'PYTOK' || { echo "  [FAIL] GATE 22: the token reader failed, so NOTHING was checked."; rm -rf "$d"; return 1; }
 import re, sys
 hits, tokf, narrf = sys.argv[1], sys.argv[2], sys.argv[3]
 TOK  = re.compile(r'[0-9a-fA-F]+(?:\u2026|\.\.\.)')
@@ -690,8 +707,8 @@ MARK = wm_re(r'withdrawn|label\s+corrected|corrected\s+20\d\d|scoped\s+20\d\d|su
 seen, prose = set(), set()
 try:
     fh = open(hits, encoding='utf-8', errors='replace')
-except OSError:
-    fh = []
+except OSError as e:
+    sys.exit("GATE 22: cannot read the token hits file (%s)" % e)
 for line in fh:
     parts = line.split(':', 2)
     body = parts[2] if len(parts) == 3 else line
@@ -798,9 +815,14 @@ gate_scratch_examples() {
   local hits n bad=0 f ln val box need
   # A file: prefixed grep over TRACKED markdown only -- an untracked scratch note must not
   # gate a push, and an unreadable corpus must ERROR rather than report a clean bill.
-  if ! hits=$(git ls-files '*.md' 2>/dev/null | xargs -r grep -noE "e\.g\.,? \*{0,2}[0-9]{3,6}\*{0,2} on a [0-9]+ ?GiB box" 2>/dev/null); then
-    : # grep exits 1 when there are no matches; that is not an error here
-  fi
+  # Q-963 (batch 48; Codex Q835 A07#10): the list and the grep are separate and each status is read.
+  # Through `xargs` a grep that could not read one file (2) and a file with no example (1) were one
+  # status, and both were ignored: the zero-hit floor below caught only the total loss.
+  local _g79_md _g79_rc
+  _g79_md=$(git ls-files '*.md') || { echo "  [FAIL] GATE 79: cannot enumerate the tracked *.md (git ls-files failed)."; return 1; }
+  # shellcheck disable=SC2086
+  hits=$(grep -HnoE "e\.g\.,? \*{0,2}[0-9]{3,6}\*{0,2} on a [0-9]+ ?GiB box" -- $_g79_md 2>/dev/null); _g79_rc=$?
+  [ "$_g79_rc" -le 1 ] || { echo "  [FAIL] GATE 79: grep could not read every tracked *.md (rc $_g79_rc), so NOTHING is attested."; return 1; }
   n=$(printf '%s' "$hits" | grep -c . || true)
   if [ "${n:-0}" -eq 0 ]; then
     echo "  [FAIL] zero sites matched the example pattern across tracked *.md."
@@ -2643,7 +2665,7 @@ gate_tree_invariants() {
       bad=1; continue
     fi
     local files nfiles unread
-    files=$(git ls-files -- $paths 2>/dev/null)
+    files=$(git ls-files -- $paths 2>/dev/null) || { echo "  [FAIL] invariant '${pat:0:40}': git ls-files failed for '$paths'."; bad=1; continue; }
     if [ -z "$files" ]; then
       echo "  [FAIL] invariant '${pat:0:40}': paths '$paths' select ZERO tracked files."
       echo "         An invariant that examined no file is not an invariant that holds."
@@ -2657,7 +2679,13 @@ gate_tree_invariants() {
       bad=1; continue
     fi
     local got
-    got=$(printf '%s\n' "$files" | xargs -r grep -cE -- "$pat" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
+    # Q-963 (batch 48; Codex Q835 A07#20): grep -c over the list directly, so a read failure (2) is not
+    # a file counting zero (1); through `xargs ... | awk` neither status was read and awk printed a sum.
+    local _gi_c _gi_rc
+    # shellcheck disable=SC2086
+    _gi_c=$(grep -cHE -- "$pat" $files 2>/dev/null); _gi_rc=$?
+    [ "$_gi_rc" -le 1 ] || { echo "  [FAIL] invariant '${pat:0:40}': grep could not count over '$paths' (rc $_gi_rc)"; bad=1; continue; }
+    got=$(printf '%s\n' "$_gi_c" | awk -F: '{s+=$NF} END{print s+0}')
     case "${got:-}" in ''|*[!0-9]*) echo "  [FAIL] invariant '${pat:0:40}': could not count over '$paths'"; bad=1; continue;; esac
     if [ "$got" -gt "$max" ]; then
       echo "  [FAIL] invariant VIOLATED: '$pat' appears $got time(s) in $paths, ceiling $max"

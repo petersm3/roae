@@ -86,7 +86,9 @@ else:
     for f in mds:
         if f == "documentation/CORRECTIONS.md":
             continue
-        t = read(f) or ""
+        t = read(f)
+        if t is None:   # Q-963 (batch 48; Codex Q835 A03#10): an unreadable listed file read as empty, i.e. clean
+            fail("R2", "%s is listed but could not be read -- it was NOT checked" % f); continue
         hits += ["%s:%d" % (f, i + 1) for i, l in enumerate(t.split("\n")) if re.search(r"99\.99999[9]", l)]
     if hits:
         fail("R2", "the retired C3-ceiling share survives at %s (the measured split is 90.09 %% strictly below, 9.91 %% tied)" % ", ".join(hits[:5]))
@@ -112,7 +114,9 @@ else:
     for f in files:
         if f in ("documentation/CORRECTIONS.md", "documentation/HISTORY.md"):
             continue
-        t = read(f) or ""
+        t = read(f)
+        if t is None:   # Q-963 (batch 48): as R2 above
+            fail("R17", "%s is listed but could not be read -- it was NOT checked" % f); continue
         hits += ["%s:%d" % (f, i + 1) for i, l in enumerate(t.split("\n"))
                  if re.search(r"kissat[^|;]*&&", l) and "|| true" not in l]
     if hits:

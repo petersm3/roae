@@ -11342,3 +11342,34 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 **What did not change.**
 
 - No published number, count, sha or verdict changed.
+
+## 2026-10-11 — batch 48: a failing tool no longer reads as a clean result at ~45 gate sites, the published-ledger check runs at push time, and a broken self-test fixture is told apart from a stale one
+
+**Batch 48, producer status (CX-345, Q-963).**
+
+- Codex's push-path review listed about 45 gate sites where a failing `git`, `grep`, `sort`,
+  `comm`, `sha256sum`, `mktemp` or write produced an empty or short result, which the gate then
+  read as clean. Each site now reads the tool's status, and a failure is a FAIL or an ERROR.
+- Four source checks in the test suite stop the commonest shapes coming back: unchecked python
+  `git` calls in the doc gates, scans that skip a file they cannot read, listings swallowed by
+  `|| true`, and a status read after an assignment under `set -e`, which exits before the read.
+- Tests put a failing tool in front of the real one and check each gate goes red. They fail on the
+  batch 47 tree.
+
+**Batch 48, a force-push past the ledger check (CX-346, Q-953).**
+
+- The check that a push keeps every published `CORRECTIONS.md` line was off in the pre-push hook,
+  because the hook gates each commit in a detached copy with no published branch to compare with. A
+  rewind to an older commit skipped the gates entirely.
+- The hook now hands the gate the remote's own commit ids, which git gives it, and never skips a
+  non-fast-forward push. Tests cover a force-push, a rewind, a fast-forward and an unknown commit.
+
+**Batch 48, self-test diagnostics (CX-347, Q-235).**
+
+- "could not inject" read the same for a broken fixture and a stale anchor. The self-test now
+  prints the fixture's own error and whether the file it edits differs from main. The fix was
+  first written on 2026-08-26 and was lost in a merge; this re-lands it at every injection site.
+
+**What did not change.**
+
+- No published number, count, sha or verdict changed.

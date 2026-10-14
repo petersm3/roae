@@ -31116,3 +31116,268 @@ of them is a mutant anchor. The check finds the old anchor when it is run on the
 unfixed `tests.py`, and finds nothing on the tree before batch 47.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 47, Q-997.
+
+## CX-345 — about 45 gate sites read a failing producer (git, grep, sort, comm, sha256sum, mktemp, a write) as a clean result; each now reads the producer's status, and four source lints hold the classes a scan can see (scripts/doc_gates.sh; scripts/doc_gates.d/*; scripts/pre_push_gate.sh; scripts/pre_push_compile_gate.sh; scripts/tr12_repro.sh; scripts/tr12_repro_gate.sh; scripts/gate_published_consistency.sh; scripts/tr12_output_paths_gate.sh; scripts/failopen_closure_gate.sh; scripts/corrections_inventory.sh; scripts/group_c_n9_rehearsal_gate.sh; scripts/atlas_path_portability_gate.sh; scripts/f1c5_adopt_digest_gate.sh)
+
+**2026-10-11.** **Source.** Codex (gpt-6-astra), push-path review Q835, lens A: the producer-rc sweep
+row (A01#3, #6, #10; A03#10; A04#1, #2, #8, #12; A05#3, #4, #5, #8; A07#5, #7, #10, #20; A09#14,
+#18; A10#4; A11#3, #4, #7; A12#8; A13#5, #7, #10, #11, #13, #14, #15), its seven R7 additions, and
+the latent word-split pair (A09#13, A11#1). Backlog row Q-963. Batch 48.
+
+**No published number, count, sha or verdict moves.** Every change is in a gate's handling of its
+own inputs. On this tree every gate gives the verdict it gave before. What changes is the verdict
+when a producer fails.
+
+**1. What was wrong.** At each site a command whose output a leg judges could fail, and the failure
+looked like a clean answer. The usual shapes:
+
+- a failed `git ls-files`, `git rev-list` or `git grep` gave an empty list, and an empty list was
+  "nothing to check";
+- `grep` exits 1 for "no match" and 2 for "could not read", and `|| true`, `xargs`, `if` or
+  `[ "$(grep -c ...)" -eq 0 ]` treated the two alike;
+- a failed `sha256sum | cut` gave an empty key, and an empty key matched any key (`RP-` against
+  every RP key) or equalled another empty one;
+- a failed `diff`, `comm` or `sort` printed nothing, and nothing read as "no difference";
+- a write, `mv` or `mktemp` went unchecked before a PASS line;
+- a python scan used `subprocess.run(['git', ...]).stdout` without checking the return code, or
+  skipped a file it could not read with `except OSError: continue`.
+
+The site list was re-verified against this tree before any change. A04#8 (GATE 3's fold cache
+writes) had already been fixed by Q-984 in batch 44. The other sites were still open.
+
+**2. What changed, by file.**
+
+- `scripts/doc_gates.sh`:
+  - `require_tracked` tells "untracked" (ls-files rc 1) from git failing (any other rc), and a failed
+    `git log` is no longer "never tracked". Both are rc 2, a FAIL.
+  - The support-file preflight checks its `git ls-files`.
+  - A `scratch_appendonly` case that cannot get a tmpdir is a FAIL that sets `PASS=1`, not a `[SKIP]`.
+  - A tracked path that contains whitespace is refused before any gate runs, because the suite's path
+    lists are expanded unquoted. There is no such path today.
+- `doc_gates.d/10`: GATE 1 fails on a document it cannot read. GATE 2 checks the doc-side `grep` and
+  `comm`.
+- `doc_gates.d/20`: GATE 3 checks its evidence listing, the digest scanner, and both cache greps
+  (rc 2 is no longer "no hit").
+- `doc_gates.d/30`: GATE 6 checks both `git ls-files` calls and the `savefig` grep (which is now run
+  directly, not through `xargs`), and it fails on an unreadable generator.
+- `doc_gates.d/40`:
+  - GATE 10a asks `rev-parse` and `ls-tree` instead of `cat-file -e`, and checks `git show`, `diff`
+    and both counts.
+  - GATE 10b checks the working-copy read, `for-each-ref`, `rev-list`, every
+    `merge-base --is-ancestor` (rc above 1 is a FAIL, never "not an ancestor"), each baseline's
+    `cat-file`, `grep`, `sort` and `comm`, the `diff`, and the line classifier.
+  - GATE 11 refuses an `RP-`/`RF-` key that is not 8 hex digits.
+- `doc_gates.d/70`: GATE 20 and GATE 79 grep the corpus directly and read rc 2. GATE 21 checks
+  `ls-tree` and `git grep`. GATE 22 checks its token reader. The tree-invariant counts read rc 2.
+- `doc_gates.d/90`: GATE 47 tells a file it cannot read (rc 2) from a binary one (rc 1), and checks
+  each flatten write.
+- Every doc-gate python `git` call now passes `check=True`: 33 calls in nine modules and in
+  doc_gates.sh. Seven python scans in modules 80, 90 and 95 now print their `ERROR` line for an
+  unreadable file instead of skipping it. GATE 93 (`99_lsd_text.sh`) and the transcript gate
+  (`96_transcripts.sh`) fail on a listed file they cannot read.
+- `scripts/pre_push_gate.sh`: a malformed stdin ref line BLOCKS the push. A malformed line is a
+  missing or extra field, or a sha that is not 40 or 64 hex digits. Before, such a line was skipped,
+  and a stdin made only of such lines read as "nothing to gate".
+- `scripts/pre_push_compile_gate.sh`: an unreadable `verify.c` warning log is a FAIL. The first form
+  of that change, `VWARN=$(grep -c ...); _vw_rc=$?`, exited at the assignment under the script's
+  `set -e` on every clean `verify.c` (`grep -c` is rc 1 for zero matches), so the gate was rc 1
+  before any push; the worker's full suite caught it, and the fourth lint in §3 holds that shape.
+- `scripts/tr12_repro.sh`:
+  - `kc_first_last_witness` requires rc 0 from `--kc-member` and from `--kc-profile`, not only
+    their output.
+  - The final verdict and manifest writes are checked. A failed write exits 2 with no
+    `TR12_REPRO=` line on stdout.
+  - Both edits are line-neutral, so no line cited elsewhere moves.
+- `scripts/tr12_repro_gate.sh`:
+  - The stamp guard's comparison and the skip-pin `comm` calls are checked.
+  - `fingerprint()` fails when a member cannot be hashed. The digest of a readable tree is unchanged.
+  - `--stamp` refuses an empty or malformed fingerprint and an unwritable stamp.
+  - All of these edits are line-neutral.
+- `scripts/gate_published_consistency.sh`:
+  - G5 fails when a distance row cannot be read on either side. Before, it skipped the row, so an
+    emptied artifact compared nothing.
+  - G16 and G17 read rc 2.
+  - The bare `[ "$(grep -c ...)" -op N ]` tests in G17, G18 and G19 go through `gpc_n`, which
+    returns -1 for an unreadable file. Each comparison is written so that -1 lands in its FAIL arm.
+- `scripts/tr12_output_paths_gate.sh`: a tracked doc that cannot be read as UTF-8 is an ERROR, with a
+  new cause, `doc-unreadable` (added to DEVELOPMENT.md's token table).
+- `scripts/failopen_closure_gate.sh`: `nice` and `timeout` are probed like the interpreter, so a
+  missing `timeout` is `ERROR launcher-absent:timeout`, not CLOSED. The dead-launcher test also
+  reads a `nice:` diagnostic. An unreadable candidate is an ERROR, not a script that left the
+  population.
+- `scripts/corrections_inventory.sh`:
+  - `redact_list` checks its index and join pipelines and ends with `return 0`. Before, its status
+    was its final `rm -rf`.
+  - Self-test case (13) fails when it cannot make its shim.
+  - The staging file is unique per run (`mktemp` beside the inventory), and the final `mv` is
+    checked.
+- `scripts/group_c_n9_rehearsal_gate.sh`: coverage counts go through `gcount`, which fails on an
+  unreadable file.
+- `scripts/atlas_path_portability_gate.sh` and `scripts/f1c5_adopt_digest_gate.sh`: a digest must
+  be 64 hex digits before it is compared or trusted. The first file's comment citation of
+  `pre_push_compile_gate.sh` is re-pinned to the line it now names.
+
+**3. Tests.** `TestQ963Q953Q235Batch48`.
+
+- **Behavioural cases.** Each case puts a failing tool first on `PATH`: a shim that refuses only the
+  call it targets, and can run the real tool first for a partial failure. Or it hands the leg an
+  unreadable, undecodable or emptied input. Each case asserts its precondition first: the shim's log
+  shows the call, or the file really cannot be read. Then it requires the FAIL or ERROR.
+- **The cases cover:** `require_tracked`; the support preflight; the whitespace refusal; GATE 1, 2,
+  6, 10a, 10b, 11, 20, 21, 47 and 79; the tree invariants; two python scans with python's
+  `git ls-files` refused; G5 with an emptied table (the run reads `PUBLISHED_CONSISTENCY=FAIL`);
+  `gpc_n`; an undecodable doc; `failopen_closure_gate.sh` with an unreadable candidate and with no
+  `timeout` on `PATH`; `check_cov`; the compile gate's count; both digest guards; the skip-pin
+  compare and `fingerprint()`; `kc_first_last_witness`; the verdict write to `/dev/full`;
+  `redact_list` with a failing `sort`; and malformed hook stdin.
+- **Four source lints.** No doc-gate python `git` call may go unchecked. No doc-gate scan may
+  `continue` past a file it could not read. No listing may be swallowed by `|| true`. No tracked
+  shell script that sets `-e` may read a status after an assignment (`X=$(cmd); rc=$?`): under
+  `set -e` the assignment exits first and the read never runs; the form is `rc=0; X=$(cmd) || rc=$?`.
+- **Red run.** On the batch 47 tree with this test class, 44 of the 46 tests in the class fail; each
+  fails at its verdict assertion, or because the function it drives does not exist yet. The two
+  that pass are the Q-953 control that an inherited `DOC_GATES_PUBLISHED_REF` is refused, which
+  the Q-949 guard already did, and the `set -e` status-read lint, which has nothing to flag there:
+  the form it forbids entered with this batch's own first draft of the compile-gate change.
+
+**4. Not done here.**
+
+- **One `continue` stays.** Two module-80 parsers `continue` past a number they cannot parse
+  (`ValueError`). That is a parse limit, not a read failure, and is left alone.
+- **Unexercised failures.** The flatten and copy steps of GATE 47 and GATE 3 are checked but not
+  driven by a test. The python scans are driven for two modes (GATE 3b, alias reach), and the lint
+  holds the other 31 calls.
+- **Stdout PASS with a failing write.** When `tr12_repro.sh` writes its verdict file and then fails
+  to write the manifest, it exits 2 with the PASS line already in the verdict file. A consumer that
+  reads the token and not the exit status would still see PASS. That class is the "PASS token wins
+  over rc" row (Codex Q835 P-05), not this one.
+- **Lint scope.** The lints cover `doc_gates.sh` and `doc_gates.d`. The other gate scripts have no
+  lint; their listed sites are fixed one by one.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 48, Q-963; the sites were
+found by Codex (gpt-6-astra), push-path review Q835.
+
+## CX-346 — GATE 10b's published-lineage arm was off in the pre-push hook's detached worktree, so a force-push that dropped a published ledger line passed; the hook now hands the pushed tree the remote shas it reads on stdin, and a non-fast-forward push is never skipped as already published (scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/pre_push_gate.sh)
+
+**2026-10-11.** **Source.** Codex (gpt-6-astra), push-path review Q835, A05#1, proposed row P-06. It
+was BY-DESIGN at the time and documented in the gate. Backlog row Q-953. Its dependency Q-949 (the
+hook's environment guard) is done. Batch 48.
+
+**No published number, count, sha or verdict moves.**
+
+**1. What was wrong.** GATE 10b judges a ledger line that is missing from the working copy by where
+its commit sits. A commit that is an ancestor of HEAD is a hard FAIL. A commit on this branch's
+published lineage that HEAD no longer contains is also a hard FAIL, because it means the history was
+rewritten. The lineage is `@{push}`, a same-named remote branch, or a same-named `@{upstream}`. A
+detached HEAD has none of these, and the pre-push hook gates each pushed sha in a detached
+worktree. So at push time the rewritten-history arm printed a `[note]` and stood down: an amend or
+force-push that dropped a published `CORRECTIONS.md` line passed GATE 10b. The hook made it worse in
+one case. A REWIND, a push of an older sha that is already reachable from the remote, was skipped as
+"already published", so no content gate ran at all.
+
+**2. What changed.**
+
+- **GATE 10b reads the remote shas.** It accepts `DOC_GATES_PUBLISHED_REF`, a space-separated list of
+  shas. Each must name a commit in this clone, or the gate FAILS and says to fetch: a remote state
+  nobody can read cannot be checked. Each sha is added to the published lineage (so a value can only
+  add a baseline, never remove one), and its history is walked.
+- **A rewind is a loss.** For these refs a published commit that HEAD lacks is the hard FAIL even
+  when HEAD is behind. In a checkout, "behind" is a `[note]` because a pull fixes it. A push of that
+  HEAD to that ref would move the remote back.
+- **The hook passes the shas.** `scripts/pre_push_gate.sh` records, for each pushed sha, the non-zero
+  remote shas git hands it on stdin. It passes them as `DOC_GATES_PUBLISHED_REF` to the pushed tree's
+  `doc_gates.sh all`, and to the always-local `appendonly` leg when a verdict record is reused. A
+  direct run with no stdin passes `@{u}`. An inherited `DOC_GATES_PUBLISHED_REF` was already refused
+  by the Q-949 guard (family `DOC_GATES_*`), so the pusher's shell cannot set it.
+- **A non-fast-forward push is gated.** A push whose remote sha is not an ancestor of the pushed sha
+  is a force or a rewind. It is never skipped as "already published", and the hook prints
+  `NON-FAST-FORWARD`.
+- **Comments.** The gate's comments, and its `[note]` for an unarmed detached HEAD, now describe
+  this.
+
+**3. Tests.** `TestQ963Q953Q235Batch48`. The gate is run in scratch repositories that hold this tree's
+doc gates.
+
+- **A force-push.** An amend that drops a published line, in a detached HEAD, passes unarmed. That
+  pass is asserted first, because it is the disarm being reproduced. Armed with the published sha,
+  the same tree FAILS and names the line.
+- **A rewind.** A rewind FAILS. A mutant without the rewind rule reads it as "behind" and passes, so
+  the case discriminates.
+- **A fast-forward and an unknown sha.** A fast-forward that keeps every line passes armed. A sha the
+  clone does not have FAILS.
+- **The hook.** The hook is driven end to end with stub gates. The pushed tree's `doc_gates.sh all`
+  receives the remote sha. A rewind is gated, not skipped. An inherited `DOC_GATES_PUBLISHED_REF` is
+  refused.
+- **Red run.** On the batch 47 tree, every one of these cases fails except the refusal, which the
+  Q-949 guard already did.
+
+**4. Not done here.**
+
+- **Old trees.** The arm runs in the pushed tree's own gate. A push of a tree older than this batch
+  (a rewind to an old commit, for example) is gated by that tree's GATE 10b, which ignores the
+  variable. The hook now gates such a push instead of skipping it, but only a gate from this batch
+  on reads the remote's ledger.
+- **A tree that predates the doc gates.** A pushed tree with no `doc_gates.sh` FAILS, as before;
+  `--no-verify` is the visible bypass.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 48, Q-953; the finding is
+Codex's (gpt-6-astra), push-path review Q835.
+
+## CX-347 — a broken self-test fixture and a stale anchor printed the same "could not inject" line; the injection's own exception is now kept and the anchor file compared with main, at every injection site (scripts/doc_gates.sh; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt)
+
+**2026-10-11.** **Source.** Backlog row Q-235, found 2026-08-26 while landing Codex N10 finding 7.
+The fix was written that day as `e36e856d`. It never reached `main`: a later merge took `main`'s side
+of `scripts/doc_gates.sh` and dropped it, while the commit became an ancestor. So ancestry
+reported it present and the content was absent. A patch rebased on 2026-09-04 was not committed.
+Batch 48.
+
+**No published number, count, sha or verdict moves.** This is self-test diagnostics only.
+
+**1. What was wrong.** A `--selftest` fire-proof first injects a defect with a python mutation. When
+the mutation's own `assert` failed, the harness printed "could not inject (anchor moved), so the
+assertion did NOT run", or a shorter variant, and discarded the exception. The same line is printed
+when the branch is stale, so the anchor text legitimately moved, and when the fixture itself is
+broken. One run printed that shape at least nine times, and a fixture whose regex reached python as
+`\\d` sat among them unnoticed until it was run by hand.
+
+**2. What changed.**
+
+- **`_inject`.** A new harness function runs the mutation, keeps its stderr, and on failure sets
+  `INJECT_WHY` with two parts:
+  - `why:` followed by the exception python raised;
+  - one line for each tracked repo path quoted in the mutation, saying whether that file is
+    IDENTICAL to main (the FIXTURE is the likely cause) or DIFFERS from it (branch staleness is).
+  "Main" is `origin/main`, else `main`, and each line names the ref it compared with. Each line says
+  "likely": this is a heuristic, because the mutation is arbitrary python and its paths are grepped
+  from its text.
+- **Every injection site uses it.** That covers the four assertion helpers and the inline injections
+  of GATE 4b, 5, 5b (whose file-held mutation is passed through as its bytes), 13, 17 and 25 and the
+  A1 snapshot. Each failure arm prints the diagnosis. GATE 20's receipt case is a `chmod`, not a
+  python injection, and is unchanged.
+- **Proven in-harness.** The first version declared the function NOT-PROVEN-IN-HARNESS. It is now
+  proven inside the harness by a leg beside its definition. A deliberately broken mutation that
+  touches no file must fail with its own exception on the `why:` line, and a clean one must leave
+  `INJECT_WHY` equal to `INJECT_OK` (the "none recorded" line; never empty).
+- **Declared to GATE 15.** `documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt` declares `_inject` as
+  `kind=BLOCK callers=10`, and GATE 15 LEG 3 measures both.
+
+**3. Tests.** `TestQ963Q953Q235Batch48`.
+
+- **The two causes.** The extracted function runs in a scratch repository where `a.md` differs from
+  `main` and `b.md` does not, and the test asserts both of those first. A failing mutation on `a.md`
+  names staleness, and one on `b.md` names the fixture. Each `why:` carries its own assert text. A
+  clean mutation gives no diagnosis.
+- **A mutant.** A mutant that drops stderr loses the message, so those assertions discriminate.
+- **The in-harness leg.** The leg prints `[ok]` with the real function, and `[FAIL]` with
+  `PASS=1` under the same mutant.
+- **The source.** A source check finds every "could not inject" arm and requires `INJECT_WHY` beside
+  it. Only `_inject` may run a mutation with `python3 -c "$mut"`.
+- **GATE 15.** GATE 15 runs green with the BLOCK distance measured.
+- **Red run.** On the batch 47 tree all five fail.
+
+**4. Not done here.** The full `--selftest` was not run for this batch. Its legs that call
+`_inject` are covered by the tests above and by GATE 15. The IDENTICAL and DIFFERS arms cannot be
+asserted inside the live harness, because a checkout cannot promise a tracked file in a known
+relation to main; the tests drive them in a scratch repository.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 48, Q-235.

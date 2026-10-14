@@ -150,12 +150,22 @@ done
 #
 #   <function> <fn-symbol> <covering-file>   -- the covering file must EXIST, must reference the
 #   symbol, and if it is a .sh gate must have an invoker.
+# gcount PATTERN FILE -- grep -c that FAILS (rc 2, nothing printed) when grep cannot read FILE.
+# Q-963 (batch 48; Codex Q835 A01#10): `[ "$(grep -c ...)" -eq 0 ]` on an unreadable file is
+# `[ "" -eq 0 ]`, an ERROR (rc 2) that `if` reads as "false", so the [FAIL] arm was skipped and the
+# coverage read as real.
+gcount(){ local c rc; c=$(grep -c -- "$1" "$2" 2>/dev/null); rc=$?
+  [ "$rc" -le 1 ] && [[ "$c" =~ ^[0-9]+$ ]] || return 2; printf '%s' "$c"; }
 check_cov(){ # check_cov LABEL SYMBOL FILE
-  local label="$1" sym="$2" f="$3"
+  local label="$1" sym="$2" f="$3" _nc
   if [ ! -e "$ROOT/$f" ]; then
     say "[FAIL] $label: named coverage $f does not exist"; fails=$((fails+1)); return
   fi
-  if [ "$(grep -c -- "$sym" "$ROOT/$f")" -eq 0 ]; then
+  if ! _nc=$(gcount "$sym" "$ROOT/$f"); then
+    say "[FAIL] $label: named coverage $f cannot be read -- the coverage is unchecked"
+    fails=$((fails+1)); return
+  fi
+  if [ "$_nc" -eq 0 ]; then
     say "[FAIL] $label: $f exists but never mentions $sym -- the coverage is named, not real"
     fails=$((fails+1)); return
   fi
@@ -195,7 +205,8 @@ check_cov TR12_A5_ORBIT_MEMB  atlas_orbit_membership     scripts/a5_orbit_member
 # produced a false ERROR on a perfectly good tree. Same shape the repo already carries a rule for.
 sed -n '/^_ATLAS_SELECTORS/,/^def atlas_selftest/p' "$ROOT/solve.py" > "$WORK/consumer_region.py"
 grep -c 'def atlas_queries' "$WORK/consumer_region.py" >/dev/null 2>&1 || true
-if [ "$(grep -c 'def atlas_queries' "$WORK/consumer_region.py")" -eq 0 ]; then
+_nq=$(gcount 'def atlas_queries' "$WORK/consumer_region.py") || die "could not read the extracted atlas-consumer region -- the ratchet would measure nothing"
+if [ "$_nq" -eq 0 ]; then
   die "could not locate the atlas-consumer region in solve.py -- the ratchet would measure nothing"
 fi
 NG=$(grep -cE 'n *[!=]= *31' "$WORK/consumer_region.py")

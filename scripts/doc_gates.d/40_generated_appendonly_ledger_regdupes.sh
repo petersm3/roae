@@ -708,20 +708,49 @@ gate_appendonly_head() {
   # report nothing.
   require_tracked "$f" "Deleting the ledger removes every committed line at once: the maximal append-only violation."
   case $? in 1) return 0;; 2) return 1;; esac
-  if ! git cat-file -e "HEAD:$f" 2>/dev/null; then
+  # 🔴 Q-963 (batch 48; Codex (gpt-6-astra) push-path review Q835 A05#3). This was `git cat-file -e
+  # "HEAD:$f"`, whose failure was read as "not in HEAD" whatever made it fail, so a git that could
+  # not read the object store printed [ok] here. The question is now asked so that each answer has
+  # its own exit status: an unborn HEAD is rc 1 of `rev-parse --verify -q`, a path not in HEAD is an
+  # EMPTY `ls-tree` listing with rc 0, and anything else is git failing, which checks nothing.
+  local _g10a_rc _g10a_ls
+  git rev-parse -q --verify 'HEAD^{commit}' >/dev/null 2>&1; _g10a_rc=$?
+  if [ "$_g10a_rc" -eq 1 ]; then
+    echo "  [ok] $f is not yet in HEAD (no commit yet) — nothing committed to be append-only against"
+    return 0
+  elif [ "$_g10a_rc" -ne 0 ]; then
+    echo "  [FAIL] GATE 10a: git could not resolve HEAD (rc $_g10a_rc), so NOTHING was checked."; return 1
+  fi
+  _g10a_ls=$(git ls-tree --name-only HEAD -- "$f" 2>/dev/null) || {
+    echo "  [FAIL] GATE 10a: git ls-tree HEAD failed, so whether $f is committed is unknown — NOTHING was checked."; return 1; }
+  if [ -z "$_g10a_ls" ]; then
     echo "  [ok] $f is not yet in HEAD — nothing committed to be append-only against"
     return 0
   fi
   local tmp gone
   tmp=$(mktemp) || return 1
-  git show "HEAD:$f" 2>/dev/null | _g10_money_align "$f" > "$tmp"   # CX-230: token->marker only
-  # ⚠ Q-284: the `|| true` here is CORRECT and must stay. `grep -c` exits 1 when the count
-  # is ZERO, which is a normal result, not a failure. A sweep that strips every `|| true`
-  # would break this gate. Two of the four sites found were real defects; these two are not.
-  gone=$(diff "$tmp" "$f" | grep -c '^< ' || true)
+  # Q-963: the baseline is a PRODUCER. Unchecked, a failed `git show` left $tmp empty, an empty
+  # baseline has no line to lose, and the gate printed [ok] (pipefail makes the status readable).
+  git show "HEAD:$f" 2>/dev/null | _g10_money_align "$f" > "$tmp" || {   # CX-230: token->marker only
+    echo "  [FAIL] GATE 10a: could not read HEAD:$f, so there was no baseline — NOTHING was checked."; rm -f "$tmp"; return 1; }
+  # ⚠ Q-284: `grep -c` exits 1 when the count is ZERO, which is a normal result, not a failure, so
+  # rc 1 must stay accepted. Q-963 (batch 48): it used to be accepted as `|| true`, which accepted
+  # rc 2 as well, and `diff` exiting 2 (trouble) printed nothing, which counted as ZERO lines gone.
+  # Now diff is run once into a file and must exit 0 or 1, and each count must exit 0 or 1.
+  local _g10a_d
+  _g10a_d=$(mktemp) || { echo "  [FAIL] GATE 10a: mktemp failed, so NOTHING was checked."; rm -f "$tmp"; return 1; }
+  diff "$tmp" "$f" > "$_g10a_d"; _g10a_rc=$?
+  if [ "$_g10a_rc" -gt 1 ]; then
+    echo "  [FAIL] GATE 10a: diff could not compare HEAD:$f with the working copy (rc $_g10a_rc) — NOTHING was checked."
+    rm -f "$tmp" "$_g10a_d"; return 1
+  fi
+  gone=$(grep -c '^< ' "$_g10a_d"); _g10a_rc=$?
+  [ "$_g10a_rc" -le 1 ] || { echo "  [FAIL] GATE 10a: could not count the removed lines (grep rc $_g10a_rc)."; rm -f "$tmp" "$_g10a_d"; return 1; }
   if [ "${gone:-0}" -eq 0 ]; then
     local added
-    added=$(diff "$tmp" "$f" | grep -c '^> ' || true)
+    added=$(grep -c '^> ' "$_g10a_d"); _g10a_rc=$?
+    [ "$_g10a_rc" -le 1 ] || { echo "  [FAIL] GATE 10a: could not count the appended lines (grep rc $_g10a_rc)."; rm -f "$tmp" "$_g10a_d"; return 1; }
+    rm -f "$_g10a_d"
     echo "  [ok] no committed line removed or reworded ($added line(s) appended since HEAD)"
     rm -f "$tmp"; return 0
   fi
@@ -747,8 +776,8 @@ gate_appendonly_head() {
   # dropped word or duplicate, and a hyphen split (`machine-` then `enforced` is two words, not
   # `machine-enforced`) are LOST. A missing blank line has no words and stays a re-wrap.
   local missf
-  missf=$(mktemp) || { echo "  [FAIL] GATE 10a: mktemp failed, so the finding could not be classified."; rm -f "$tmp"; return 1; }
-  diff "$tmp" "$f" > "$missf"
+  missf=$(mktemp) || { echo "  [FAIL] GATE 10a: mktemp failed, so the finding could not be classified."; rm -f "$tmp" "$_g10a_d"; return 1; }
+  mv -f "$_g10a_d" "$missf" || { echo "  [FAIL] GATE 10a: could not keep the diff, so the finding could not be classified."; rm -f "$tmp" "$_g10a_d" "$missf"; return 1; }
   DG_MISS="$missf" DG_N="$gone" python3 - <<'PY'
 import os, re, sys, difflib
 def classify(dt):  # Q-718: a normal-format diff -> (re-wrapped, lost) removed lines, judged hunk by hunk
@@ -834,7 +863,9 @@ PY
 #     a [FAIL] until the branch merges or rebases onto that ref. This holds mid-lane too: a local
 #     commit made while behind a remote ledger append makes the checkout diverged, and it fails.
 # A commit only on OTHER remote branches is a merge-gap [note]. A detached HEAD has no lineage,
-# so this arm is off there (the pre-push hook's per-sha worktree is one), and the gate says so.
+# so this arm is off there and the gate says so, UNLESS DOC_GATES_PUBLISHED_REF names the remote
+# shas (Q-953, batch 48): the pre-push hook's per-sha worktree is detached, and the hook sets it
+# there from the remote shas git hands it, so the arm is armed at push time.
 gate_appendonly_history() {
   echo "== GATE 10b: CORRECTIONS.md has lost no line from ANY committed or published version =="
   local f="documentation/CORRECTIONS.md"
@@ -856,7 +887,12 @@ gate_appendonly_history() {
   g10b_rew=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_diff"; return 1; }
   local g10b_base
   g10b_base=$(mktemp) || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew"; return 1; }
+  # Q-963 (batch 48): `grep -v` exits 1 when every line is blank (a legitimate empty set) and 2 when
+  # the file cannot be read; only 0 and 1 may pass, and sort must succeed.
   grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
+  case "${PIPESTATUS[0]}:${PIPESTATUS[1]}" in [01]:0) ;; *)
+    echo "  [FAIL] GATE 10b: could not read the working copy of $f, so NOTHING was checked."
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1;; esac
   # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
   # remote ref pointing at a commit already walked, contribute nothing.
   # 🔴 Q-283 / Codex N10 finding 8 — reproduced on the PUBLISHED suite 2026-08-28. This walked
@@ -906,8 +942,9 @@ gate_appendonly_history() {
   # conflated. Everything on OTHER remote branches keeps Q-283's [note].
   # A detached HEAD, or a branch with none of the three, has no published lineage here; that is
   # printed, not assumed, so a silent disarm is visible. THE PRE-PUSH HOOK RUNS `all` IN A
-  # DETACHED PER-SHA WORKTREE, so this arm is disarmed there and says so; it is armed in a
-  # developer's own checkout, where a manual run is what sees it.
+  # DETACHED PER-SHA WORKTREE. Until Q-953 (batch 48) this arm was disarmed there and said so;
+  # the hook now passes the remote shas as DOC_GATES_PUBLISHED_REF (the block below), so it is
+  # armed at push time as well as in a developer's own checkout.
   local _g10b_up="" _g10b_ref _g10b_rest _g10b_br _g10b_how=""
   _g10b_br=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
   if _g10b_ref=$(git rev-parse --symbolic-full-name '@{push}' 2>/dev/null) && [ -n "$_g10b_ref" ]; then
@@ -927,11 +964,38 @@ gate_appendonly_history() {
       fi
     fi
   fi
+  # 🔴 Q-953 (batch 48; Codex (gpt-6-astra) push-path review Q835 P-06 / A05#1). THE ARM WAS OFF WHERE
+  # A PUSH IS GATED. pre_push_gate.sh runs `all` and `appendonly` in a DETACHED per-sha worktree, so
+  # none of the three lineages above resolves there, and a force-push that dropped a published ledger
+  # line got the [note] below and a PASS. The hook knows the published state: git hands it, on stdin,
+  # the sha each destination ref has ON THE REMOTE. It now passes those shas here as
+  # DOC_GATES_PUBLISHED_REF (space-separated; an inherited value is refused by the hook's Q-949 guard,
+  # family DOC_GATES_*). Each must name a commit in this clone, or this gate FAILS: a remote sha the
+  # clone does not have is a published state nobody can check, and a push over it would be refused as
+  # non-fast-forward anyway unless forced, which is the case this arm exists for.
+  # AT PUSH TIME "BEHIND" IS A LOSS TOO. In a checkout, a commit on the lineage that HEAD lacks while
+  # HEAD is an ancestor of the lineage means the checkout is behind, and a pull fixes it ([note]). A
+  # PUSH of that HEAD to that ref would MOVE THE REMOTE BACK (a forced rewind), so for these refs any
+  # published commit that is not an ancestor of HEAD is the hard FAIL (_g10b_pushref below).
+  local _g10b_pushref="" _g10b_pr
+  if [ -n "${DOC_GATES_PUBLISHED_REF:-}" ]; then
+    for _g10b_pr in $DOC_GATES_PUBLISHED_REF; do
+      _g10b_ref=$(git rev-parse -q --verify "${_g10b_pr}^{commit}" 2>/dev/null) || {
+        echo "  [FAIL] GATE 10b: the published sha $_g10b_pr (DOC_GATES_PUBLISHED_REF, from the pre-push"
+        echo "         hook) is not a commit in this clone, so the published ledger cannot be checked."
+        echo "         Fetch the remote first. NOTHING was checked."
+        rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1; }
+      _g10b_pushref="$_g10b_pushref $_g10b_ref"
+    done
+    _g10b_pushref="${_g10b_pushref# }"
+    _g10b_up="${_g10b_up:+$_g10b_up }$_g10b_pushref"
+    _g10b_how="${_g10b_how:+$_g10b_how, }the remote sha(s) the pre-push hook was handed"
+  fi
   if [ -n "$_g10b_up" ]; then
     echo "  published lineage of this branch: $_g10b_up [$_g10b_how] (a line there and not here is a hard FAIL)"
   else
     if [ -z "$_g10b_br" ]; then
-      echo "  [note] detached HEAD (the pre-push hook's per-sha worktree is one), so the"
+      echo "  [note] detached HEAD and no DOC_GATES_PUBLISHED_REF (the pre-push hook sets it), so the"
     else
       echo "  [note] branch '$_g10b_br' has no @{push}, no same-named remote branch and no"
       echo "         same-named upstream (an upstream of another name, e.g. origin/main under"
@@ -951,8 +1015,26 @@ gate_appendonly_history() {
   # is always judged under the strictest verdict any commit holding it earns.
   local g10b_pairs _g10b_rank _g10b_seq=0
   g10b_pairs=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1; }
-  for src in $(git rev-list HEAD $(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) \
-               -- "$f" 2>/dev/null); do
+  # Q-963 (batch 48; Codex Q835 A05#4): the walk's two producers are CHECKED. As command
+  # substitutions inside the `for` list, a failed for-each-ref dropped every remote from the walk and
+  # a failed rev-list walked NOTHING, and an empty walk prints "[ok] ... no committed or published
+  # version yet". Q-953: the pre-push remote shas are walked too, so their history is a baseline.
+  local _g10b_refs _g10b_revs
+  _g10b_refs=$(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) || {
+    echo "  [FAIL] GATE 10b: git for-each-ref failed, so the published versions are unknown — NOTHING was checked."
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
+  # shellcheck disable=SC2086
+  _g10b_revs=$(git rev-list HEAD $_g10b_refs $_g10b_pushref -- "$f" 2>/dev/null) || {
+    echo "  [FAIL] GATE 10b: git rev-list failed, so no version of $f was walked — NOTHING was checked."
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
+  # _g10b_anc A B: rc 0 = A is an ancestor of B, 1 = it is not; any other status of
+  # `merge-base --is-ancestor` is git failing, recorded in _g10b_gitfail (Q-963: it read as "no",
+  # which classified a commit of our own lineage as an unmerged branch's, a [note]).
+  local _g10b_gitfail=""
+  _g10b_anc() { local _r; git merge-base --is-ancestor "$1" "$2" 2>/dev/null; _r=$?
+    [ "$_r" -le 1 ] || _g10b_gitfail="${_g10b_gitfail:-merge-base --is-ancestor $1 $2 exited $_r}"
+    return "$_r"; }
+  for src in $_g10b_revs; do
     # 🔴 Q-283 finding 8, second half — a distinction the branch's fix does not draw and this tree
     # needs. Walking remote HISTORIES surfaces two different defects that must not share a verdict:
     #   * the blob's commit IS an ancestor of HEAD  -> a line vanished from OUR OWN lineage. That is
@@ -963,19 +1045,22 @@ gate_appendonly_history() {
     # v4-query-program ONLY — 441 commits divergent. Its 3 lines were never removed from main; they
     # never arrived. Reporting that as "a line was lost" would blame the wrong act and leave a hard
     # gate permanently red for a merge decision the gate cannot make.
-    if git merge-base --is-ancestor "$src" HEAD 2>/dev/null; then
+    if _g10b_anc "$src" HEAD; then
       _g10b_kind=ancestor
     else
       _g10b_kind=unmerged
       for _g10b_ref in $_g10b_up; do
-        if git merge-base --is-ancestor "$src" "$_g10b_ref" 2>/dev/null; then
+        if _g10b_anc "$src" "$_g10b_ref"; then
           # PURELY BEHIND vs REWRITTEN/DIVERGED. If HEAD is itself an ancestor of that upstream,
           # nothing was rewritten: the lines arrive with a fast-forward and a push from here is
           # refused as non-fast-forward anyway. That is a [note] (measured: a `git fetch` that
           # brought a ledger append would otherwise turn this gate red on an untouched tree).
           # If HEAD and the upstream have DIVERGED, the published commit was rewritten past or
           # a merge is pending that could drop it — the hard FAIL.
-          if git merge-base --is-ancestor HEAD "$_g10b_ref" 2>/dev/null; then _g10b_kind=behind; else _g10b_kind=published; fi
+          if _g10b_anc HEAD "$_g10b_ref"; then _g10b_kind=behind; else _g10b_kind=published; fi
+          # Q-953: a remote sha handed over by the pre-push hook is the ref a push would MOVE, so a
+          # published commit there that HEAD lacks is a loss even when HEAD is behind (a rewind).
+          case " $_g10b_pushref " in *" $_g10b_ref "*) _g10b_kind=published;; esac
           break
         fi
       done
@@ -986,6 +1071,11 @@ gate_appendonly_history() {
     _g10b_seq=$((_g10b_seq+1))
     printf '%s %s %s %s %s\n' "$_g10b_rank" "$_g10b_seq" "$src" "$_g10b_kind" "$blob"
   done > "$g10b_pairs"
+  if [ -n "$_g10b_gitfail" ]; then
+    echo "  [FAIL] GATE 10b: git could not answer an ancestry question ($_g10b_gitfail), so a"
+    echo "         baseline could not be classified — NOTHING is attested."
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1
+  fi
   # Q-971 (a): strictest class first, then rev-list order; THEN the blob dedup. A failed sort is
   # a FAIL, never an empty walk (an empty walk prints "[ok] ... no baseline").
   sort -k1,1n -k2,2n -o "$g10b_pairs" "$g10b_pairs" || { echo "  [FAIL] GATE 10b: could not order the baselines, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
@@ -995,15 +1085,29 @@ gate_appendonly_history() {
     n=$((n+1))
     # CX-230: the baseline is aligned to the working copy's `[cost redacted]` lines first (see
     # _g10_money_align above); a pure token->marker line is then not a loss, anything else still is.
-    git cat-file -p "$blob" 2>/dev/null | _g10_money_align "$f" > "$g10b_base"
-    grep -v '^[[:space:]]*$' "$g10b_base" | sort > "$tmp"
-    local lost
-    lost=$(comm -23 "$tmp" "$cur" | wc -l)
+    # Q-963 (batch 48): each producer of this baseline is CHECKED. A failed cat-file, align, grep, sort
+    # or comm used to leave an empty or short baseline or an empty `comm`, and both count as ZERO lost
+    # lines: the version was "checked" and passed. Any of them failing is now a FAIL for the gate.
+    local lost _g10b_ps
+    git cat-file -p "$blob" 2>/dev/null | _g10_money_align "$f" > "$g10b_base" || {
+      echo "  [FAIL] GATE 10b: could not read the version $blob of $f (from $src), so it was NOT checked."; bad=1; continue; }
+    grep -v '^[[:space:]]*$' "$g10b_base" | sort > "$tmp"; _g10b_ps="${PIPESTATUS[0]}:${PIPESTATUS[1]}"
+    case "$_g10b_ps" in [01]:0) ;; *)
+      echo "  [FAIL] GATE 10b: could not prepare the version $blob of $f (grep:sort $_g10b_ps), so it was NOT checked."; bad=1; continue;; esac
+    lost=$(comm -23 "$tmp" "$cur" | wc -l) || {
+      echo "  [FAIL] GATE 10b: comm could not compare the version $blob of $f, so it was NOT checked."; bad=1; continue; }
     if [ "${lost:-0}" -ne 0 ]; then
       # Q-251 / Q-718: split into RE-WRAPS (accumulated, reported once below) and LOST lines.
       local g10b_lostf
       g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
-      diff "$g10b_base" "$f" > "$g10b_diff"; comm -23 "$tmp" "$cur" | DG_DIFF="$g10b_diff" DG_REW="$g10b_rew" python3 -c '
+      diff "$g10b_base" "$f" > "$g10b_diff"; _g10b_ps=$?
+      if [ "$_g10b_ps" -gt 1 ]; then
+        echo "  [FAIL] GATE 10b: diff could not compare the version $blob of $f (rc $_g10b_ps), so its lines were NOT classified."
+        rm -f "$g10b_lostf"; g10b_lostf=""; bad=1; continue
+      fi
+      # Q-963 (batch 48; Codex Q835 A05#5): the classifier's status is read. Unread, a crashed
+      # classifier wrote an empty LOST list, and `lost` below then read 0: a lost line passed.
+      comm -23 "$tmp" "$cur" | DG_DIFF="$g10b_diff" DG_REW="$g10b_rew" python3 -c '
 import os, re, sys, difflib, collections
 def classify(dt):  # Q-718: a normal-format diff -> (re-wrapped, lost) removed lines, judged hunk by hunk
     rew, lost = [], []
@@ -1019,7 +1123,9 @@ R, L = map(collections.Counter, classify(open(os.environ["DG_DIFF"], encoding="u
 for l in (x.rstrip("\n") for x in sys.stdin):
     if L[l] > 0 or R[l] == 0: L[l] -= 1; sys.stdout.write(l + "\n")
     else: R[l] -= 1; rew.write(l + "\n")
-' > "$g10b_lostf"
+' > "$g10b_lostf" || {
+        echo "  [FAIL] GATE 10b: the line classifier failed on the version $blob of $f, so its $lost missing line(s) were NOT classified."
+        rm -f "$g10b_lostf"; g10b_lostf=""; bad=1; continue; }
       lost=$(wc -l < "$g10b_lostf")
     fi
     if [ "${lost:-0}" -ne 0 ]; then
@@ -1160,6 +1266,9 @@ gate_ledger_figures() {
     reg_row_kind loud "$fig" "$note"; case $? in 0) continue;; 2) bad=1; continue;; esac   # Q-761
     n=$((n+1))
     key="RF-$(printf '%s' "$fig" | sha256sum | cut -c1-8)"
+    # Q-963 (batch 48; Codex Q835 A05#8): a failed digest gave the bare key `RF-`, and the `grep -qF`
+    # below then matched ANY RF- key in the ledger, so the row read as recorded. The key must be whole.
+    [[ "$key" =~ ^RF-[0-9a-f]{8}$ ]] || { echo "  [FAIL] could not key \"$fig\" (sha256sum gave \"$key\"), so it was NOT checked."; bad=1; continue; }
     why=''
     if [ -f "$open" ]; then
       why=$(awk -F'\t' -v want="$fig" '$1==want {print $2; exit}' "$open")
@@ -1226,6 +1335,9 @@ gate_ledger_phrases() {
     # CX-230: a HASHED row already IS the phrase's digest; its key is that digest's first 8 digits,
     # the key the text row had.
     if _hr=$(hashed_row_parse "$phrase"); then key="RP-${_hr:0:8}"; fi
+    # Q-963 (batch 48; Codex Q835 A05#8): a failed digest gave the bare key `RP-`, which the `grep -qF`
+    # below matched against ANY RP- key: the row read as recorded. The key must be whole.
+    [[ "$key" =~ ^RP-[0-9a-f]{8}$ ]] || { echo "  [FAIL] could not key a registered retraction (sha256sum gave \"$key\"), so it was NOT checked."; bad=1; continue; }
     if grep -qF -- "$key" "$f"; then
       echo "  [ok] $key recorded"
     else

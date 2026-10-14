@@ -24,10 +24,20 @@ gate_numbers() {
   local tmp allow
   tmp=$(mktemp) || { echo "  [FAIL] GATE 1: mktemp failed, so NOTHING was checked."; return 1; }
   allow="documentation/DOC_GATE_NUMBER_ALLOWLIST.txt"
+  # Q-963 (batch 48; Codex Q835 A04#1): the extraction's producers are CHECKED. grep exits 1 for a file
+  # with no long integer (normal) and 2 for one it cannot read, and the old loop took both as "nothing
+  # here", so an unreadable document was reported on, clean, unread. Report-only governs this gate's
+  # findings, not its ability to run (Q-283 above), so a read failure is a FAIL.
+  local _g1_unread=""
   for f in $DOCS; do
     grep -oE '[0-9][0-9,]{11,}' "$f" 2>/dev/null | tr -d ',' \
       | awk -v F="$f" 'length($0)>=12 && $0 !~ /0000$/ {print length($0)":"substr($0,1,10)"\t"$0"\t"F}'
-  done | sort -u > "$tmp"
+    case "${PIPESTATUS[0]}:${PIPESTATUS[1]}:${PIPESTATUS[2]}" in [01]:0:0) ;; *) _g1_unread="$_g1_unread $f";; esac
+  done > "$tmp" || { echo "  [FAIL] GATE 1: could not write its scratch file, so NOTHING was checked."; rm -f "$tmp"; return 1; }
+  if [ -n "$_g1_unread" ]; then
+    echo "  [FAIL] GATE 1 could not read:$_g1_unread — those documents were NOT checked."; rm -f "$tmp"; return 1
+  fi
+  sort -u -o "$tmp" "$tmp" || { echo "  [FAIL] GATE 1: sort failed, so NOTHING was checked."; rm -f "$tmp"; return 1; }
 
   local found=0
   while read -r key; do
@@ -159,8 +169,14 @@ CLIPY
       echo "  [FAIL] $code could not be parsed, so NOTHING was compared for it."; bad=1
       rm -f "$cf" "$df"; return 1
     fi
+    # Q-963 (batch 48; Codex Q835 A04#2): both producers are CHECKED. grep exits 1 for a doc naming no
+    # flag (normal: every code flag is then missing) and 2 for one it cannot read; a failed `comm`
+    # printed nothing, and an empty `miss` is the [ok] arm below: every flag "documented", none compared.
     grep -oE -- '--[a-z0-9][a-z0-9_-]*' "$doc" | sort -u > "$df"
-    miss=$(comm -23 "$cf" "$df")
+    case "${PIPESTATUS[0]}:${PIPESTATUS[1]}" in [01]:0) ;; *)
+      echo "  [FAIL] $doc could not be read, so NOTHING was compared for $code."; bad=1; rm -f "$cf" "$df"; return 1;; esac
+    miss=$(comm -23 "$cf" "$df") || {
+      echo "  [FAIL] comm could not compare $code with $doc, so NOTHING was compared."; bad=1; rm -f "$cf" "$df"; return 1; }
     # THE PASS LINE CARRIES A CENSUS (item B9, round 9, 2026-08-02). It did not, and the
     # consequence was measured rather than supposed: GATE 2's two negative controls could
     # only ever pin `solve.py fully documented`, a sentence that is printed whenever the leg

@@ -70,7 +70,7 @@ for c, i in cands.items():
 if corpus_dir:
     files = [os.path.join(dp, f) for dp, _, fs in os.walk(corpus_dir) for f in fs if f.endswith(".md")]
 else:
-    r = subprocess.run(["git", "ls-files", "-z", "*.md"], capture_output=True)
+    r = subprocess.run(["git", "ls-files", "-z", "*.md"], capture_output=True, check=True)
     files = [f for f in r.stdout.decode("utf-8", "replace").split("\0") if f and f not in LEDGERS]
 blob = {}
 for f in files:

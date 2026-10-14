@@ -447,20 +447,34 @@ REPRODIGSHAS=""
 NEWREFS=""
 declare -A NEWREF_SHA=()   # Q-950: new branch ref -> the (peeled) sha it publishes
 PUSHED_HEAD_SHAS=""        # Q-950: every sha this push publishes on a refs/heads/ ref
+declare -A PUBREF=()       # Q-953: pushed sha -> the non-zero remote sha(s) it replaces (DOC_GATES_PUBLISHED_REF)
 if [ -t 0 ]; then
   SHAS=$(git rev-parse HEAD) || exit 1
   echo "pre-push: direct invocation (no ref list on stdin) — gating HEAD ${SHAS:0:12}"
   # A plain `git push` publishes HEAD onto its upstream; diff against that
   # when it exists, otherwise fail-closed into the leg.
   UPSTREAM=$(git rev-parse '@{u}' 2>/dev/null || true)
+  [ -n "$UPSTREAM" ] && PUBREF[$SHAS]=$UPSTREAM   # Q-953: the published state a plain push would move
   if needs_generated "$SHAS" "$UPSTREAM"; then GENSHAS=$SHAS; fi
   if needs_resume167 "$SHAS" "$UPSTREAM"; then R167SHAS=$SHAS; fi
   if needs_scripts   "$SHAS" "$UPSTREAM"; then SCRIPTSHAS=$SHAS; fi
   if needs_reprodig  "$SHAS" "$UPSTREAM"; then REPRODIGSHAS=$SHAS; fi
   note_citbase "$SHAS" "$UPSTREAM"
 else
-  while read -r lref lsha rref rsha; do
-    [ -n "${lsha:-}" ] || continue
+  while read -r lref lsha rref rsha _q963_extra; do
+    # 🔴 Q-963 (batch 48; Codex (gpt-6-astra) push-path review Q835, R7, the stdin reader). This was
+    # `[ -n "${lsha:-}" ] || continue`, so a malformed line (a short or non-hex sha, a missing field, an
+    # extra one) was skipped and a stdin of nothing but such lines read as "nothing to gate". githooks(5)
+    # defines the line as `<local ref> <local sha> <remote ref> <remote sha>`; anything else is not a
+    # push this hook can judge, and it BLOCKS. Only a wholly blank line is passed over.
+    [ -n "${lref:-}${lsha:-}${rref:-}${rsha:-}${_q963_extra:-}" ] || continue
+    if [ -n "${_q963_extra:-}" ] || [ -z "${rref:-}" ] \
+       || ! [[ "${lsha:-}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]] || ! [[ "${rsha:-}" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; then
+      echo "pre-push: BLOCKED — malformed ref line on stdin (want '<local ref> <local sha> <remote ref> <remote sha>'):"
+      echo "          '${lref:-} ${lsha:-} ${rref:-} ${rsha:-}${_q963_extra:+ $_q963_extra}'"
+      echo "PREPUSH_VERDICT=FAIL"
+      exit 1
+    fi
     if [ "$lsha" = "$Z40" ]; then
       echo "pre-push: ${rref:-?} — deletion, nothing is published, no gates to run"
       continue
@@ -514,6 +528,23 @@ else
              esac ;;
         esac ;;
     esac
+    # ---- (1c) THE PUBLISHED STATE THIS PUSH MOVES (Q-953, batch 48) --------
+    # The remote sha is what the destination ref holds ON THE REMOTE (githooks(5)), so it is the
+    # published lineage a push from here would move. It is handed to the pushed tree's GATE 10b as
+    # DOC_GATES_PUBLISHED_REF, which arms the published-lineage arm in the detached worktree (it was
+    # off there: Codex Q835 P-06). A non-zero remote sha that is NOT an ancestor of the pushed sha
+    # makes this a NON-FAST-FORWARD push (a force or a rewind), and such a push is never skipped as
+    # "already published" below: a rewind to an older published sha is a published sha, and it was
+    # skipped whole, with the lines it drops unread.
+    _q953_nff=0
+    case "$rsha" in
+      *[!0]*)
+        case " ${PUBREF[$lsha]:-} " in *" $rsha "*) ;; *) PUBREF[$lsha]="${PUBREF[$lsha]:+${PUBREF[$lsha]} }$rsha" ;; esac
+        if [ "$rsha" != "$lsha" ]; then
+          git merge-base --is-ancestor "$rsha" "$lsha" 2>/dev/null; _q953_rc=$?
+          [ "$_q953_rc" -eq 0 ] || _q953_nff=1   # 1 = not an ancestor; anything else = unknown: gate it
+        fi ;;
+    esac
     # ---- (2) SKIP WHAT IS ALREADY PUBLISHED --------------------------------
     # A ref pointing at a commit already reachable on origin publishes NO new
     # tree, so there is nothing to gate. This is not a loophole: to be reachable
@@ -538,7 +569,10 @@ else
       _furl=$(git remote get-url "$_dst" 2>/dev/null) || _furl=""
       _purls=$(git remote get-url --push --all "$_dst" 2>/dev/null) || _purls=""
     fi
-    if [ -n "$_dst" ] && git config --get "remote.$_dst.url" >/dev/null 2>&1 \
+    if [ "$_q953_nff" = 1 ]; then
+      echo "pre-push: ${rref:-?} — NON-FAST-FORWARD: the remote holds ${rsha:0:12}, which ${lsha:0:12} does not contain;"
+      echo "          nothing is skipped as already published, and GATE 10b checks the remote's ledger (Q-953)"
+    elif [ -n "$_dst" ] && git config --get "remote.$_dst.url" >/dev/null 2>&1 \
        && [ -n "$_furl" ] && [ "${2:-}" = "$_furl" ] && [ "$_purls" = "$_furl" ]; then
       for _r in $(git for-each-ref --format='%(refname)' "refs/remotes/$_dst/" 2>/dev/null); do
         if git merge-base --is-ancestor "$lsha" "$_r" 2>/dev/null; then _pub=$_r; break; fi
@@ -836,7 +870,7 @@ for sha in $SHAS; do
     for _lm in branch-registry appendonly revrows tracked-ignored script-paths; do
       echo
       ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
-          ${_cb:+CITGATE_BASE=$_cb} bash scripts/doc_gates.sh "$_lm" ); _lrc=$?
+          DOC_GATES_PUBLISHED_REF="${PUBREF[$sha]:-}" ${_cb:+CITGATE_BASE=$_cb} bash scripts/doc_gates.sh "$_lm" ); _lrc=$?
       if [ "$_lrc" -gt 1 ]; then
         echo "pre-push: 🔴 COULD NOT RUN — local leg 'doc_gates.sh $_lm' in pushed sha $short exited $_lrc."
         SHARC=1
@@ -859,8 +893,9 @@ for sha in $SHAS; do
       echo "          Leg A is VACUOUS on this push (it diffs the pushed sha against itself); leg B"
       echo "          (anchors) still runs. Not blocking: see citgate_base() for why."
     fi
+    # Q-953: DOC_GATES_PUBLISHED_REF = the remote sha(s) this sha replaces (empty for a new ref).
     ( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
-        ${_cb:+CITGATE_BASE=$_cb} bash scripts/doc_gates.sh all ); _arc=$?
+        DOC_GATES_PUBLISHED_REF="${PUBREF[$sha]:-}" ${_cb:+CITGATE_BASE=$_cb} bash scripts/doc_gates.sh all ); _arc=$?
     # Sibling sweep 2026-09-02: same class as the branch-registry leg above. Blocking either way
     # (SHARC=1 in both arms) — what changes is that a pushed tree whose doc_gates.sh does not parse,
     # or which aborted, is no longer reported as a documentation finding it never made.

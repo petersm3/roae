@@ -14,6 +14,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 fail=0
+# gpc_n PATTERN FILE [grep flags] -- the count `grep -c` gives, or -1 when grep cannot read FILE (Q-963,
+# batch 48). `[ "$(grep -c ...)" -eq 0 ]` on an unreadable file is `[ "" -eq 0 ]`, an ERROR that `if`
+# reads as false, so a FAIL arm keyed on "count is 0" or "count > 0" was skipped. Every caller compares
+# so that -1 lands in its FAIL arm (`-le 0` for "must be present", `-ne 0` for "must be absent").
+gpc_n() { local c r; c=$(grep "${@:3}" -c -- "$1" "$2" 2>/dev/null); r=$?
+  if [ "$r" -le 1 ] && [[ "$c" =~ ^[0-9]+$ ]]; then printf '%s' "$c"; else printf '%s' -1; fi; }
 # Q-966: the shared word/token matcher of doc_gates.sh (exact ids in G4, exact KEY=value in G11).
 . scripts/doc_gates.d/word_match.sh 2>/dev/null && declare -F _wm_prelude >/dev/null \
   || { echo "   [FAIL] scripts/doc_gates.d/word_match.sh could not be loaded -- NOTHING was checked"; echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1; }
@@ -234,7 +240,13 @@ if [ -r "$_ART" ] && [ -r "$_LB" ]; then
     # anchor to the distance table -- "| 2 |" occurs in other tables earlier in the file, and the
     # first match anywhere was reading the wrong row (measured: distance-2 read as 34, not 44).
     got=$(awk -v D="$d" -F'|' '/Positions different/{t=1} t && $0 ~ /^\| *'"$d"' *\|/ { gsub(/[^0-9]/,"",$3); print $3; exit }' "$_LB")
-    [ -n "$want" ] && [ -n "$got" ] || continue
+    # Q-963 (batch 48; Codex Q835 R7, the G5 leg): a row that could not be read on
+    # EITHER side used to be skipped (`|| continue`), so an emptied artifact or a moved table compared
+    # nothing and printed [ok]. Both sides of all three rows must be read, as integers.
+    if ! [[ "$want" =~ ^[0-9]+$ ]] || ! [[ "$got" =~ ^[0-9]+$ ]]; then
+      echo "  [FAIL] G5: could not read distance-$d from both $_ART section [28] ('$want') and $_LB ('$got') -- that row was NOT compared"
+      G5=$((G5+1)); continue
+    fi
     if [ "$want" != "$got" ]; then
       echo "  [FAIL] G5: LEADERBOARD publishes distance-$d = $got; $_ART section [28] says $want"
       G5=$((G5+1))
@@ -538,8 +550,10 @@ if [ -r "$_CA16" ]; then
   if ! grep -q 'computed to the last digit' "$_CA16" 2>/dev/null; then
     echo "  [FAIL] G16: $_CA16 no longer defines EXACT -- this leg measured NOTHING"; G16=1
   else
-    _hits=$(grep -cE '= [0-9]+\.[0-9]+×10' "$_CA16" 2>/dev/null || true)
-    if [ "${_hits:-0}" -gt 0 ]; then
+    _hits=$(grep -cE '= [0-9]+\.[0-9]+×10' "$_CA16" 2>/dev/null); _g16rc=$?   # Q-963 (batch 48): rc 2 is not zero rows
+    if [ "$_g16rc" -gt 1 ] || ! [[ "$_hits" =~ ^[0-9]+$ ]]; then
+      echo "  [FAIL] G16: could not count over $_CA16 (grep rc $_g16rc) -- this leg measured NOTHING"; G16=1
+    elif [ "${_hits:-0}" -gt 0 ]; then
       echo "  [FAIL] G16: $_hits row(s) assert '=' against an abbreviated magnitude under the EXACT label"
       G16=$_hits
     else
@@ -581,21 +595,23 @@ if [ -r "$_LB17" ]; then
       echo "  [FAIL] G17: the 'Estimated dead' label stands with no {4, 6, 21} zero-set qualifier"
       _g17=$((_g17+1))
     fi
-    _unq=$(grep -cF 'choices lead to dead branches' "$_LB17" 2>/dev/null || true)
-    if [ "${_unq:-0}" -gt 0 ]; then
+    _unq=$(grep -cF 'choices lead to dead branches' "$_LB17" 2>/dev/null); _g17rc=$?   # Q-963 (batch 48): rc 2 is not zero claims
+    if [ "$_g17rc" -gt 1 ] || ! [[ "$_unq" =~ ^[0-9]+$ ]]; then
+      echo "  [FAIL] G17: could not count over $_LB17 (grep rc $_g17rc)"; _g17=$((_g17+1))
+    elif [ "${_unq:-0}" -gt 0 ]; then
       echo "  [FAIL] G17: $_unq unqualified 'choices lead to dead branches' claim(s) survive"
       _g17=$((_g17+_unq))
     fi
     # Q-764: the three discriminating assertions. grep -c, never grep -q (see the note in G18).
-    if [ "$(grep -icF -- '#9/#10, #13/#14, #43/#44' "$_LB17" 2>/dev/null)" -eq 0 ]; then
+    if [ "$(gpc_n '#9/#10, #13/#14, #43/#44' "$_LB17" -iF)" -le 0 ]; then
       echo "  [FAIL] G17: the {4, 6, 21} zero set is not mapped to #9/#10, #13/#14, #43/#44 (0-based pair index)"
       _g17=$((_g17+1))
     fi
-    if [ "$(grep -icF -- '#7/#8, #11/#12, #41/#42' "$_LB17" 2>/dev/null)" -gt 0 ]; then
+    if [ "$(gpc_n '#7/#8, #11/#12, #41/#42' "$_LB17" -iF)" -ne 0 ]; then
       echo "  [FAIL] G17: the 1-based mapping of the zero set (#7/#8, #11/#12, #41/#42) is still published"
       _g17=$((_g17+1))
     fi
-    if [ "$(grep -icF -- '11 carry positive record counts' "$_LB17" 2>/dev/null)" -gt 0 ]; then
+    if [ "$(gpc_n '11 carry positive record counts' "$_LB17" -iF)" -ne 0 ]; then
       echo "  [FAIL] G17: the 1-based count '11 carry positive record counts' is still published (all 12 do)"
       _g17=$((_g17+1))
     fi
@@ -645,8 +661,8 @@ if [ -r "$_T8" ]; then
       fi
       # grep -c, never grep -q on a pipe: -q exits on first match and a producer dies of SIGPIPE,
       # which under `set -o pipefail` turns a MATCH into a failed pipeline.
-      if [ "$(grep -c '≥~10×' "$_f" 2>/dev/null)" -gt 0 ] \
-         && [ "$(grep -c 'firmer of the two' "$_f" 2>/dev/null)" -eq 0 ]; then
+      if [ "$(gpc_n '≥~10×' "$_f")" -ne 0 ] \
+         && [ "$(gpc_n 'firmer of the two' "$_f")" -le 0 ]; then
         echo "  [FAIL] G18: $_f quotes the ≥~10× BH floor without TR-8's conditional"
         G18=$((G18+1))
       fi
@@ -688,15 +704,15 @@ _M=${G19_DOC:-reports/METHODS.md}
 _T12=${G19_TR12:-reports/TR12_QUERY_PROGRAM.md}
 if [ -r "$_M" ] && [ -r "$_T12" ]; then
   # grep -c, never grep -q on a pipe -- see the note in G18.
-  _est=$(grep -c '95% CI' "$_M" 2>/dev/null)
+  _est=$(gpc_n '95% CI' "$_M")
   # Lines that talk about a price AND carry a dollar figure. awk counts, so nothing is piped into grep.
   _m_usd=$(awk 'tolower($0) ~ /price/ && /[$] ?[0-9]/ {n++} END {print n+0}' "$_M" 2>/dev/null)
-  _row=$(grep -c '^| 1 | \*\*Exact `\\|C15\\|`\*\*' "$_T12" 2>/dev/null)
+  _row=$(gpc_n '^| 1 | \*\*Exact `\\|C15\\|`\*\*' "$_T12")
   _row_ok=$(awk '/^\| 1 \| \*\*Exact `\\\|C15\\\|`\*\*/ && /PRICED AND DECLINED/ && !/[$] ?[0-9]/ {n++} END {print n+0}' "$_T12" 2>/dev/null)
-  if [ "$_est" -eq 0 ]; then
+  if [ "$_est" -le 0 ]; then
     echo "  [FAIL] G19: no confidence-interval row found in $_M -- this leg measured NOTHING"; G19=1
-  elif [ "$(grep -c 'costed and rejected' "$_M" 2>/dev/null)" -eq 0 ] \
-       || [ "$(grep -c 'PRICED AND DECLINED' "$_M" 2>/dev/null)" -eq 0 ]; then
+  elif [ "$(gpc_n 'costed and rejected' "$_M")" -le 0 ] \
+       || [ "$(gpc_n 'PRICED AND DECLINED' "$_M")" -le 0 ]; then
     echo "  [FAIL] G19: $_M reports $_est interval-bearing estimate(s) without saying the exact"
     echo "         computation was PRICED AND DECLINED -- a reader is left to infer no method exists"
     G19=1

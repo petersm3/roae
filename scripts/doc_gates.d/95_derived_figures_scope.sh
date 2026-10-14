@@ -51,7 +51,7 @@ NOLOG = ['560T', '11.2T']
 DS_RX = {'d3 10T': r'\bd3[ _-]10\s?T\b|\b10\s?T[ _-]d3\b|\b10\s?T \(d3\)', 'd2 10T': r'\bd2[ _-]10\s?T\b|\b10\s?T[ _-]d2\b|\b10\s?T \(d2\)',
          '100T': r'\b100\s?T\b', '742M': r'\b742\s?M\b', '560T': r'\b560\s?T\b', '11.2T': r'\b11\.2\s?T\b'}
 def named_pos(s): return sorted((m.start(), d) for d, rx in DS_RX.items() for m in re.finditer(rx, s))
-tracked = set(subprocess.run(['git','ls-files'], capture_output=True, text=True).stdout.split('\n'))
+tracked = set(subprocess.run(['git','ls-files'], capture_output=True, text=True, check=True).stdout.split('\n'))
 def parse(path):
     if path not in tracked: print('ERROR\t%s is not tracked — the dataset map is stale' % path); sys.exit(0)
     try:
@@ -82,7 +82,7 @@ def parse(path):
     return dict(surv=surv, n3=set(surv.values()), chosen=chosen, n6=n6, pairs=pairs, ratios=ratios, n9=n9, all=allnums)
 L = {k: parse(v) for k, v in LOGS.items()}
 def named(s): return [d for d, rx in DS_RX.items() if re.search(rx, s)]
-files = [f for f in subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True).stdout.split('\n')
+files = [f for f in subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True, check=True).stdout.split('\n')
          if f and f not in ('documentation/CORRECTIONS.md', 'documentation/HISTORY.md')]
 NUM = r'(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d,])|(?<![\d.,])\d{5,}(?![\d,])'
 pt = pp = un = 0
@@ -240,7 +240,7 @@ gate_nontrivial_display() {
   local out
   out=$( { _md_norm_prelude; cat <<'PY'
 import re, io, subprocess, sys
-files=[f for f in subprocess.run(["git","ls-files","documentation/*.md","reports/*.md","reports/**/*.md"],capture_output=True,text=True).stdout.split() if f.endswith(".md")]
+files=[f for f in subprocess.run(["git","ls-files","documentation/*.md","reports/*.md","reports/**/*.md"],capture_output=True,text=True, check=True).stdout.split() if f.endswith(".md")]
 files=sorted(set(files))
 n=0
 for f in files:
@@ -315,7 +315,7 @@ gate_witness_count() {
 import re, io, subprocess, sys
 R=sys.argv[1]
 W={"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10,"eleven":11,"twelve":12}
-files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True, check=True).stdout.split()
 heads=0; reg=None
 for f in files:
     lines=io.open(f,encoding="utf-8").read().split("\n")
@@ -426,7 +426,7 @@ for line in io.open(A,encoding="utf-8").read().split("\n"):
     c=line.split("\t")
     if len(c)<5: print("ERROR\t%s row has %d columns, need 5 (file, K, N, M, reason): %r"%(A,len(c),line[:60])); sys.exit(0)
     allow[(c[0],int(c[1]),int(c[2]),int(c[3]))]=[c[4],0]
-files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True, check=True).stdout.split()
 n=0
 for f in files:
     t=io.open(f,encoding="utf-8").read()
@@ -559,7 +559,7 @@ gate_cpu_vendor() {
   out=$( { _md_norm_prelude; cat <<'PY'
 import re, io, subprocess, sys
 OK={"intel":{"xeon","core"},"amd":{"zen","epyc","ryzen"},"arm":{"cobalt","neoverse","altra","graviton"},"ampere":{"altra","neoverse"}}
-files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not f.endswith("CORRECTIONS.md")]
+files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True, check=True).stdout.split() if not f.endswith("CORRECTIONS.md")]
 n=0
 for f in files:
     t=md_text(io.open(f,encoding="utf-8").read())
@@ -796,7 +796,7 @@ def own_sets(sent,pos):
             return set().union(*[BY[k][0] for k in keys]), set().union(*[BY[k][1] for k in keys]), "/".join("d%s %s"%k for k in keys)
     return None
 if not S: print("ERROR\t%s has no '| d? … | **size** | … |' result rows — the registry cannot be read"%R); sys.exit(0)
-files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
+files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True, check=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
 n=0
 for f in files:
     t=io.open(f,encoding="utf-8").read()
@@ -864,8 +864,8 @@ gate_stdlib_claims() {
   local out
   out=$(python3 - <<'PY'
 import ast, re, io, subprocess, sys
-files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
-tracked=set(subprocess.run(["git","ls-files"],capture_output=True,text=True).stdout.split())
+files=[f for f in subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True, check=True).stdout.split() if not (f.endswith("CORRECTIONS.md") or f.endswith("HISTORY.md"))]
+tracked=set(subprocess.run(["git","ls-files"],capture_output=True,text=True, check=True).stdout.split())
 imp={}
 # Q-970 (A10#5, Q-835 Codex review; adjudicated Q-962): IMPORTS ARE READ BY `ast`, NOT BY A LINE PATTERN.
 # The pattern needed the third-party name FIRST after `import`, so `import os, numpy as np` -- the
@@ -1362,12 +1362,12 @@ for k in keys:
     if not got: print("ERROR\tno bibliography entry head yields a surname for chain member '%s' (%s)"%(k,",".join(sorted(keys[k])))); sys.exit(0)
     sur[k]=got
 print("LEDGER\t%s"%(" ".join("%s=%s"%(k,sur[k]) for k in sorted(sur))))
-files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True).stdout.split()
+files=subprocess.run(["git","ls-files","*.md"],capture_output=True,text=True, check=True).stdout.split()
 npara=0
 for f in files:
     if f==C: continue
     try: d=io.open(f,encoding="utf-8",errors="replace").read()
-    except Exception: continue
+    except Exception as e: print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)"%(f,e)); raise SystemExit(0)
     if "CITATIONS.md#" not in d: continue
     off=0
     for p in re.split(r"(\n\s*\n)",d):
@@ -1648,7 +1648,7 @@ if not docs: print("ERROR\tzero reports/TR*.md found — vacuous, treated as fai
 npop=nsumm=nclaim=0
 for f in docs:
     try: t=io.open(f,encoding="utf-8",errors="replace").read()
-    except Exception: continue
+    except Exception as e: print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)"%(f,e)); raise SystemExit(0)
     # Q-965 (A10#26): headings and the scope note go through the shared normaliser. "not decided\nabove."
     # is the scope note (the wrap hid it, so the summary was never judged), and an indented or setext
     # "Executive summary" heading is the heading.
@@ -1765,7 +1765,7 @@ gate_boundary_scope() {
   local out err pop nsc
   out=$( { _md_norm_prelude; cat <<'PY'
 import subprocess, sys
-mds = subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True).stdout.split()
+mds = subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True, check=True).stdout.split()
 if not mds:
     print('ERR\tgit ls-files returned no markdown at all'); sys.exit(0)
 # Correction narration DOCUMENTS the defect and must not be judged as committing it — the GATE 47
@@ -1947,7 +1947,7 @@ except OSError as e:
 undoc = [e for e in ENV if e not in cli]
 for e in undoc:
     print('UNDOC\t%s' % e)
-mds = subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True).stdout.split()
+mds = subprocess.run(['git','ls-files','*.md'], capture_output=True, text=True, check=True).stdout.split()
 if not mds:
     print('ERR\tgit ls-files returned no markdown at all'); sys.exit(0)
 SKIP = ('documentation/CORRECTIONS.md', 'documentation/HISTORY.md')
@@ -2123,7 +2123,7 @@ if not files: print("ERROR\tzero tracked *.md — vacuous, treated as failure.")
 nfiles=nlit=njudged=0
 for f in files:
     try: t=io.open(f,encoding="utf-8",errors="replace").read()
-    except OSError: continue
+    except OSError as e: print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)"%(f,e)); raise SystemExit(0)
     nfiles+=1
     nlit+=len(REC.findall(t))
     pos=0

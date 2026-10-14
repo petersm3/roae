@@ -65,8 +65,22 @@ gate_figures() {
   # states its own count and is still read as complete. Key on the BEHAVIOUR (calls savefig),
   # not on where the file happens to live: "exempt a construction, never a directory" is
   # already this file's own rule, three hundred lines above.
-  gens=$( { git ls-files 'viz/*.py'
-            git ls-files '*.py' | xargs grep -ln 'savefig' 2>/dev/null; } | sort -u)
+  # Q-963 (batch 48): the population's producers are CHECKED. `{ ...; } | sort -u` read neither
+  # ls-files status, and `xargs grep -ln` exits 123 both for "some file has no savefig" (normal) and
+  # for "some file could not be read"; a lost .py then left the population, silently. grep over the
+  # list directly says 0 (some hit), 1 (none) or 2 (a read error, whatever else matched).
+  local _g6_viz _g6_py _g6_sv _g6_rc
+  _g6_viz=$(git ls-files 'viz/*.py') && _g6_py=$(git ls-files '*.py') || {
+    echo "  [FAIL] GATE 6: cannot enumerate the tracked .py files (git ls-files failed), so NOTHING was checked."; return 1; }
+  # shellcheck disable=SC2086
+  _g6_sv=$(grep -ln 'savefig' -- $_g6_py 2>/dev/null); _g6_rc=$?
+  [ "$_g6_rc" -le 1 ] || {
+    echo "  [FAIL] GATE 6: could not read every tracked .py while looking for savefig (grep rc $_g6_rc), so the generator population is unknown."
+    local _g6_f; for _g6_f in $_g6_py; do   # name each file: absent (require_tracked's wording, which the --selftest asserts on) or unreadable
+      [ -r "$_g6_f" ] && continue
+      if [ -e "$_g6_f" ]; then echo "  [FAIL] $_g6_f cannot be read, so it was NOT scanned for savefig."; else require_tracked "$_g6_f" "A tracked .py that is absent cannot be scanned for savefig."; fi
+    done; return 1; }
+  gens=$(printf '%s\n' "$_g6_viz" "$_g6_sv" | grep . | sort -u)
   # ---- THE PUBLISHED-ASSET POPULATION, and the [skip] that was a fail-open ----------
   # Added 2026-09-02 (batch C7) with LEG 3 below, which needs this population anyway.
   #
@@ -79,7 +93,7 @@ gate_figures() {
   # protects nothing at all, and it was the state in which it reported clean. That is the
   # fail-open class — a verdict inferred from an absence that can mean "the check did not run".
   local imgs nimg
-  imgs=$(git ls-files '*.svg' '*.png')
+  imgs=$(git ls-files '*.svg' '*.png') || { echo "  [FAIL] GATE 6: cannot enumerate the image assets (git ls-files failed)."; return 1; }
   nimg=$(printf '%s\n' "$imgs" | grep -c . )
   if [ "$nimg" -eq 0 ]; then
     echo "  [FAIL] zero tracked image assets enumerated — vacuous, treated as failure."
@@ -100,6 +114,11 @@ gate_figures() {
     local grc=0
     require_tracked "$g" "A tracked figure generator that is absent is not a clean generator." || grc=$?
     [ "$grc" -eq 0 ] || bad=1
+    # Q-963 (batch 48; Codex Q835 R7, the figures leg): both scans below read a generator inside an `if` pipeline,
+    # where a redirection that cannot open the file is just "no match". An unreadable generator is a FAIL.
+    if [ "$grc" -eq 0 ] && ! [ -r "$g" ]; then
+      echo "  [FAIL] figure generator $g cannot be read, so it was NOT scanned."; bad=1
+    fi
   done
   [ "$bad" -eq 0 ] || return 1
   # CHARACTER-VARIANT FOLD (2026-08-06): both passes below fold needle and generator
@@ -830,7 +849,7 @@ DRAFT = re.compile(r'^-draft$', re.I)
 DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 out = subprocess.run(['git', 'ls-files', 'reports/TR*.md'],
-                     capture_output=True, text=True)
+                     capture_output=True, text=True, check=True)
 trs = sorted(p for p in out.stdout.split('\n') if p)
 bad = 0
 # ROW CENSUS (item B9, round 9, 2026-08-02). The pass line counted FILES, and the file count

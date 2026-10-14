@@ -164,7 +164,15 @@ if ! gcc -O2 -Wall -Wextra "$VERIFY_C" -lm -lz -o "$TMP_VBIN" 2> "$WARN_LOG"; th
     cat "$WARN_LOG"
     exit 1
 fi
-VWARN=$(grep -c 'warning:' "$WARN_LOG" || true)
+# NOT `VWARN=$(grep -c ...); _vw_rc=$?`: this script runs under `set -e` (line 54), and the zero-warning
+# case is grep rc 1, so that form exits HERE, silently, on every clean verify.c (found by the batch-48 chain).
+_vw_rc=0; VWARN=$(grep -c 'warning:' "$WARN_LOG") || _vw_rc=$?
+# Q-963 (batch 48; Codex Q835 A12#8): grep -c exits 1 for zero warnings (normal) and 2 when it cannot
+# read the log; `|| true` kept both, and `[ "" -ne 0 ]` is an ERROR that `if` read as "zero warnings".
+if [ "$_vw_rc" -gt 1 ] || ! [[ "$VWARN" =~ ^[0-9]+$ ]]; then
+    echo "FAIL: could not count verify.c's warnings (grep rc $_vw_rc on $WARN_LOG), so the zero-warning hold is unchecked"
+    exit 1
+fi
 if [ "$VWARN" -ne 0 ]; then
     echo "FAIL: verify.c emits $VWARN warning(s) under -Wall -Wextra (baseline: zero)"
     cat "$WARN_LOG"

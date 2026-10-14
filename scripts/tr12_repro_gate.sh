@@ -352,11 +352,11 @@ not_input_read_check(){   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#2): the
   return 0
 }
 
-fingerprint(){
-  { fingerprint_files | xargs sha256sum 2>/dev/null
+fingerprint(){   # Q-963 (batch 48): a member that cannot be hashed makes this FAIL (awk exit 1 under pipefail); the digest of a readable tree is unchanged
+  { fingerprint_files | xargs sha256sum 2>/dev/null || echo '!FP-READ-FAILED'
     find scripts/tr12_expected -type f ! -name '_GATE_STAMP.txt' -print0 2>/dev/null \
-      | sort -z | xargs -0 sha256sum 2>/dev/null
-  } | sha256sum | cut -d' ' -f1
+      | sort -z | xargs -0 sha256sum 2>/dev/null || echo '!FP-READ-FAILED'
+  } | awk '/^!FP-READ-FAILED$/ {bad=1} {print} END {exit bad}' | sha256sum | cut -d' ' -f1
 }
 
 # ---- THE STAMP GUARD (Q-546) -------------------------------------------------------------------
@@ -410,7 +410,7 @@ manifest_diff(){
     echo "          manifest agrees with every other empty one; that is not a measurement."
     return 2
   fi
-  local changed; changed=$(sort "$pre" "$post" | uniq -u | sed 's/^[0-9a-f]\{64\}  //' | sort -u)
+  local changed; changed=$(sort "$pre" "$post" | uniq -u | sed 's/^[0-9a-f]\{64\}  //' | sort -u) || { echo "  [ERROR] stamp guard: the manifests could not be compared (sort/uniq/sed failed) -- Q-963"; return 2; }
   local a keep
   for a in "$@"; do
     keep=$(printf '%s\n' "$changed" | grep -vxF "$a"); changed=$keep
@@ -550,8 +550,8 @@ skip_pin_compare(){ # $1 = VERDICTS.txt  $2 = pin file ; prints findings; rc 0 s
   [ -r "$pin" ] || { echo "  [FAIL] skip pin: no pinned skip set at $pin — run scripts/tr12_repro_gate.sh --stamp on a quiet box; an UNPINNED skip set cannot be certified"; return 2; }
   obs=$(observed_skips "$v"); exp=$(grep -vE '^[[:space:]]*(#|$)' "$pin" | sort -u)
   [ -n "$exp" ] || { echo "  [FAIL] skip pin: $pin has zero rows — an empty pin certifies nothing; re-stamp"; return 2; }; local mal; mal=$(malformed_skips "$v" "$pin"); [ -z "$mal" ] || { echo "  [FAIL] skip pin: malformed skip/pending line(s), not TR12_<ROW>=SKIP|PENDING:<code>:"; printf '%s\n' "$mal" | sed 's/^/           /'; return 1; }
-  new=$(comm -23 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp"))
-  gone=$(comm -13 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp"))
+  new=$(comm -23 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp")) || { echo "  [FAIL] skip pin: comm could not compare the skip sets -- Q-963 (an empty diff is not a match)"; return 2; }
+  gone=$(comm -13 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp")) || { echo "  [FAIL] skip pin: comm could not compare the skip sets -- Q-963"; return 2; }
   if [ -z "$new" ] && [ -z "$gone" ]; then
     echo "  [ok] skip set matches the pin ($(printf '%s\n' "$exp" | grep -c .) pinned skip/pending rows)"; return 0
   fi
@@ -935,12 +935,12 @@ if grep -qx 'TR12_REPRO=PASS' "$WORK/out/VERDICTS.txt" 2>/dev/null; then
     stamp_guard; _sgrc=$?
     if [ "$_sgrc" -eq 1 ]; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
     if [ "$_sgrc" -eq 2 ]; then echo "TR12_REPRO_GATE=ERROR"; exit 2; fi
-    FP=$(fingerprint)
+    FP=$(fingerprint) && [[ "$FP" =~ ^[0-9a-f]{64}$ ]] || { echo "  [ERROR] --stamp: the fingerprint could not be computed (got '$FP'), so NOTHING was stamped -- Q-963"; echo "TR12_REPRO_GATE=ERROR"; exit 2; }
     { echo "# Recorded by scripts/tr12_repro_gate.sh --stamp. Proves the committed tree REPRODUCED,"
       echo "# not merely that it was committed. Re-stamp in the SAME commit as any solve.c,"
       echo "# tr12_repro.sh or expected-block change, or --check will correctly report NO."
       echo "fingerprint=$FP"
-    } > "$STAMP"
+    } > "$STAMP" || { echo "  [ERROR] --stamp: could not write $STAMP, so NOTHING was stamped -- Q-963 (Codex Q835 A13#10)"; echo "TR12_REPRO_GATE=ERROR"; exit 2; }
     echo "  [ok] stamped $STAMP"
   fi
   echo "TR12_REPRO_GATE=PASS"; exit 0

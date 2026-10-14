@@ -429,7 +429,7 @@ def canon(s, star):
         out.append(ch)
     return ''.join(out).replace(' +', '+').replace('+ ', '+')
 
-mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True).stdout.split()
+mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True, check=True).stdout.split()
 # COST, evaluated before writing it (box-safety rule): canonicalisation is |mds| ~130
 # files x ~500 lines x 2 star-readings of canon() (a translate + one linear scan each),
 # then |rules| = 2 fixed-substring occ() searches per line per reading ~ 5e5 str.find

@@ -1173,7 +1173,7 @@ gate_framing_era() {
 import re, subprocess, sys, os
 floor = int(sys.argv[1])
 # Population: tracked markdown only. Untracked scratch files are not published.
-files = subprocess.run(["git","ls-files","*.md"], capture_output=True, text=True).stdout.split()
+files = subprocess.run(["git","ls-files","*.md"], capture_output=True, text=True, check=True).stdout.split()
 if not files:
     print("ERROR\tgit ls-files returned no markdown at all"); raise SystemExit(0)
 # A RECIPE, not a mention: `sha256sum -c` is only ever an executable instruction.
@@ -1219,8 +1219,8 @@ bad = []
 for f in files:
     try:
         lines = open(f, encoding="utf-8", errors="replace").read().split("\n")
-    except OSError:
-        continue
+    except OSError as e:
+        print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)" % (f, e)); raise SystemExit(0)
     for i, l in enumerate(lines):
         if not (RECIPE.search(l) or _is_recipe(l)):
             continue
@@ -1285,7 +1285,7 @@ gate_author_directives() {
   local out
   out=$( { _md_norm_prelude; cat <<'PY'
 import re, subprocess, sys
-files = [f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True).stdout.split() if f]
+files = [f for f in subprocess.run(["git","ls-files","reports/*.md"],capture_output=True,text=True, check=True).stdout.split() if f]
 if not files:
     print("ERROR\tgit ls-files matched no reports"); raise SystemExit(0)
 # Directive shapes: modal-about-the-document, and meta-nouns naming a part as a thing to produce.
@@ -1315,7 +1315,7 @@ hits = []
 # source line(s) the match spans.
 for f in files:
     try: text = md_read(f)
-    except OSError: continue
+    except OSError as e: print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)" % (f, e)); raise SystemExit(0)
     lines = text.split("\n")
     units = []
     for b in md_parse(text)[2]:
@@ -1337,7 +1337,7 @@ for f,i,w,l in hits:
 # Structural leg: an outline heading must say it is summaries.
 for f in files:
     try: body = open(f, encoding='utf-8', errors='replace').read()
-    except OSError: continue
+    except OSError as e: print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)" % (f, e)); raise SystemExit(0)
     seen_l = set()
     for m in re.finditer(r'^#+ *Structure \((\d+) sections?\)\s*$', body, re.M):
         seen_l.add(body[:m.start()].count("\n")+1)

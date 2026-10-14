@@ -114,6 +114,12 @@ run_one(){
   # rc ladder below would read as CLOSED. Probe it first so the cause is named, not inferred.
   command -v "$interp" >/dev/null 2>&1 \
     || { rm -rf "$skel"; printf 'ERROR\t-\tinterpreter-absent:%s\n' "$interp"; return; }
+  # Q-963 (batch 48; Codex Q835 R7, the launcher): the LAUNCHER is `nice ... timeout ...`, and with `timeout`
+  # absent it is `nice` that announces the failure ("nice: 'timeout': No such file or directory",
+  # rc 127), which the `^timeout: ` test below never sees: the row graded CLOSED with nothing run.
+  # Both launcher tools are probed first, as the interpreter is.
+  local _lt; for _lt in nice timeout; do command -v "$_lt" >/dev/null 2>&1 \
+    || { rm -rf "$skel"; printf 'ERROR\t-\tlauncher-absent:%s\n' "$_lt"; return; }; done
   out=$(cd "$skel" && HOME=$skel TMPDIR=$skel nice -n 15 timeout -k 5 "$TO" "$interp" "scripts/$name" </dev/null 2>&1); rc=$?
   rm -rf "$skel"
   tok=$(printf '%s\n' "$out" | grep -E "$TOKRE" | head -1 | cut -c1-60)
@@ -131,7 +137,7 @@ run_one(){
   # two. Verified by fixture in --selftest, both directions.
   # `grep -c`, not `grep -q`: see the pipefail/SIGPIPE note above.
   elif [ "$rc" -ge 125 ] && [ "$rc" -le 127 ] \
-       && [ "$(printf '%s\n' "$out" | grep -cE '^timeout: ')" -gt 0 ]; then
+       && [ "$(printf '%s\n' "$out" | grep -cE '^(timeout|nice): ')" -gt 0 ]; then
     printf 'ERROR\t%s\tlauncher-failed\n' "$rc"
   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D07#4): a CLOSED row carries the LAST verdict-shaped token
   # the script printed (or "-"), so a refusal can be told from a crash: bash exits 2 on a syntax
@@ -161,6 +167,9 @@ gate(){
   fi
   for f in "$tree"/scripts/*.sh "$tree"/scripts/*.py; do
     [ -f "$f" ] || continue
+    # Q-963 (batch 48; Codex Q835 R7, the candidate scan): noncomment() reads with `2>/dev/null`, so an UNREADABLE
+    # candidate looked like a script with no verdict token and left the population in silence.
+    [ -r "$f" ] || { printf '  [ERROR ] %-44s cannot be read, so whether it is a gate is unknown\n' "$(basename "$f")"; err=1; continue; }
     [ "$(noncomment "$f" | grep -cE "$SRCTOK")" -gt 0 ] \
       || { [ "$(noncomment "$f" | grep -cE "$SRCDYN")" -gt 0 ] && [ "$(noncomment "$f" | grep -cE "$VWORD")" -gt 0 ]; } \
       || continue   # only gate-shaped scripts (a FAIL-only gate can still exit 0); grep -c, see run_one

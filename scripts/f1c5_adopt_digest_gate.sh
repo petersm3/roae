@@ -56,6 +56,11 @@ SOLVE="$(cd "$(dirname "$SOLVE")" && pwd)/$(basename "$SOLVE")"
 # treats an unmeasured check as ERROR precisely so the two cannot be confused.
 W_PRE="$(mktemp -u "${TMPDIR:-/tmp}/f1c5_pre_XXXXXX")"
 _src_sha=$(sha256sum solve.c 2>/dev/null | cut -d' ' -f1)
+# Q-963 (batch 48; Codex Q835 A01#6): an unhashable solve.c skipped this identity check whole (the
+# `if` had no else), so the stale-binary guard turned itself off exactly when it could not run.
+[[ "${_src_sha:-}" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "  [ERROR] could not hash solve.c (got '${_src_sha:-}'), so the binary's source identity is unchecked"
+  echo "F1C5_ADOPT_DIGEST_GATE=ERROR"; exit 40; }
 if [ -n "${_src_sha:-}" ]; then
   # 🔴 MATERIALISE, THEN GREP. `strings … | grep -qF` under `set -o pipefail` INVERTS THIS CHECK:
   # grep -q exits at the first match and SIGPIPEs strings, so the pipeline reports failure exactly

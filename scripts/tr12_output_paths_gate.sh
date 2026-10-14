@@ -190,7 +190,10 @@ for f in sorted(t for t in tracked if t.endswith(".md") and t not in SKIP):
     try:
         lines, kinds, blks, _unc = md_parse(open(os.path.join(root, f), encoding="utf-8").read())
     except (OSError, UnicodeDecodeError):
-        continue
+        # Q-963 (batch 48; Codex Q835 R7, the doc reader): a tracked doc that cannot be read or decoded was
+        # skipped, and the paths it names were never checked. That is not a pass.
+        print("  [ERROR] %s is tracked but could not be read as UTF-8, so its paths were NOT checked" % f)
+        verdict("ERROR", 2, "doc-unreadable")
     # Q-965 (A02#14, A02#15): fences are matched by opener (a ~~~ line inside a ``` block is content,
     # not a toggle), a heading line is SCANNED like any other line (a broken path on a "## See ..."
     # heading passed), and a "## Revision history" section ends at the next heading of level 1 OR 2

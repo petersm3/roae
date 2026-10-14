@@ -211,18 +211,24 @@ redact_list() {
   t=$(mktemp -d) || return 2
   LC_ALL=C grep -o -h -E "$TOK_RE" "$@" > "$t/raw"; g=$?
   if [ "$g" -gt 1 ]; then echo "CORRECTIONS_INVENTORY=ERROR redact-list-failed grep rc=$g" >&2; rm -rf "$t"; return 2; fi
+  # Q-963 (batch 48; Codex Q835 A13#11): this function's status WAS its final `rm -rf`, so a failed
+  # index or join below returned 0 with a short list, and a registered figure went out unredacted.
+  # Each stage is now checked (pipefail is set), and the function returns 0 only at its end.
   LC_ALL=C sed 's/[.,]*$//' "$t/raw" | LC_ALL=C sort -u \
-    | awk -v D="$t/tok" 'BEGIN { system("mkdir -p \"" D "\"") }
-        { f = D "/" NR; printf "%s", $0 > f; close(f); print NR "\t" $0 }' > "$t/index"
+    | awk -v D="$t/tok" 'BEGIN { if (system("mkdir -p \"" D "\"") != 0) exit 3 }
+        { f = D "/" NR; printf "%s", $0 > f; if (close(f) != 0) exit 3; print NR "\t" $0 }' > "$t/index" \
+    || { echo "CORRECTIONS_INVENTORY=ERROR redact-list-failed index" >&2; rm -rf "$t"; return 2; }
   if [ -s "$t/index" ]; then
     ( cd "$t/tok" && sha256sum -- * ) > "$t/sums" \
       || { echo "CORRECTIONS_INVENTORY=ERROR redact-list-failed sha256sum" >&2; rm -rf "$t"; return 2; }
     awk -F'\t' 'FILENAME == ARGV[1] { if ($0 !~ /^#/ && NF >= 1 && $1 != "") reg[$1] = 1; next }
                 FILENAME == ARGV[2] { split($0, p, "  "); dig[p[2]] = p[1]; next }
                 ($1 in dig) && (dig[$1] in reg) { print length($2) "\t" $2 }' \
-      "$reg" "$t/sums" "$t/index" | sort -t "$(printf '\t')" -k1,1nr | cut -f2-
+      "$reg" "$t/sums" "$t/index" | sort -t "$(printf '\t')" -k1,1nr | cut -f2- \
+      || { echo "CORRECTIONS_INVENTORY=ERROR redact-list-failed join" >&2; rm -rf "$t"; return 2; }
   fi
   rm -rf "$t"
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -612,7 +618,10 @@ selftest() {
 
   # (13) a markdown source that cannot run fails the sweep; it does not publish git rows alone.
   local shim src
-  shim=$(mktemp -d) && {
+  # Q-963 (batch 48; Codex Q835 A13#13): `mktemp && { test }` had no failure arm, so a case that could
+  # not be set up did not run and did not fail.
+  shim=$(mktemp -d) || { echo "  [FAIL] case (13) could not make its shim directory, so it did NOT run"; rc=1; }
+  [ -n "${shim:-}" ] && [ -d "$shim" ] && {
     printf '#!/bin/sh\n[ "$1" = grep ] && { echo "shim: git grep refused" >&2; exit 2; }\nexec %s "$@"\n' \
       "$(command -v git)" > "$shim/git"; chmod +x "$shim/git"
     PATH="$shim:$PATH" sweep >/dev/null 2>&1; src=$?
@@ -816,9 +825,14 @@ case "${1:-}" in
   *)  echo "usage: $0 [--stdout|--summary|--selftest|--check]"; exit 2 ;;
 esac
 
-sweep > "$OUT.new"; SRC=$?
+# Q-963 (batch 48; Codex Q835 A13#15): the staging file is UNIQUE per run (mktemp beside $OUT, so the
+# final mv stays a same-directory rename). A fixed "$OUT.new" let two concurrent runs write one file,
+# and the mv published whichever bytes were there. A run still publishes a complete file of its own.
+NEW=$(mktemp "$OUT.new.XXXXXX") || { echo "CORRECTIONS_INVENTORY=ERROR cannot create a staging file beside $OUT"; exit 2; }
+trap 'rm -f "$NEW"' EXIT
+sweep > "$NEW"; SRC=$?
 if [ "$SRC" -ne 0 ]; then
-  rm -f "$OUT.new"
+  rm -f "$NEW"
   # a failed source already said why (stderr); an id collision (classify rc 3) printed COLLISION rows
   echo "CORRECTIONS_INVENTORY=ERROR sweep-failed rc=$SRC$([ "$SRC" -eq 3 ] && echo ' id-collision') — $OUT NOT overwritten"
   exit 2
@@ -828,13 +842,15 @@ fi
 # script used to print "wrote 0 candidates", overwrite the published inventory with a header-only
 # file, and exit 0. An inventory of a corpus that has carried hundreds of correction sites since
 # 2026-07 is never legitimately empty: refuse to overwrite, and say why.
-NROWS=$(awk 'NR>1' "$OUT.new" | grep -c .)
+NROWS=$(awk 'NR>1' "$NEW" | grep -c .)
 if [ "${NROWS:-0}" -lt 50 ]; then
   echo "CORRECTIONS_INVENTORY=ERROR population-collapsed rows=$NROWS (floor 50) — $OUT NOT overwritten"
   echo "  git grep / git log produced (almost) nothing; this is an unreadable corpus, not a clean one."
-  rm -f "$OUT.new"; exit 2
+  rm -f "$NEW"; exit 2
 fi
-mv "$OUT.new" "$OUT"
+# Q-963 (batch 48; Codex Q835 A13#14): the publish is CHECKED; an unchecked mv printed "wrote N" and "->"
+# below and exited 0 with the old inventory still in place.
+chmod 0644 "$NEW" && mv -f "$NEW" "$OUT" || { echo "CORRECTIONS_INVENTORY=ERROR could not publish $NEW as $OUT — $OUT NOT updated"; exit 2; }
 awk -F'\t' 'NR>1 { c[$3]++; n++ } END {
   printf "wrote %d candidates\n", n
   for (k in c) printf "  %s %6d\n", k, c[k] | "sort" }' "$OUT"

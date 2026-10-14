@@ -31,7 +31,10 @@ gate_retract() {
   # (five ~940 KB r5 subtree logs dominate), 0 hits across all 21 registered phrases.
   # Filtered with a bash case, not a pattern — zero regex, per the SAFETY rule above.
   local evid="" ef evn efloor=120   # Q-708 (2026-09-25): the non-md evidence population gets a receipt and a floor below. Measured 155 files that day; 120 leaves room to retire ~35 without an edit here. Before this, a git mv of reports/evidence emptied $evid and the half ran on nothing at rc 0.
-  for ef in $(git ls-files 'reports/evidence/*' || true); do
+  # Q-963 (batch 48): the evidence listing is CHECKED (it was `|| true`); the floor below caught an
+  # empty one, but as a smaller count, not as the git failure it was.
+  local _g3_ev; _g3_ev=$(git ls-files 'reports/evidence/*') || { echo "  [FAIL] GATE 3: cannot enumerate reports/evidence/ (git ls-files failed), so NOTHING was checked."; return 1; }
+  for ef in $_g3_ev; do
     case "$ef" in *.md) ;; *) evid="$evid $ef";; esac
   done; evn=$(printf '%s\n' $evid | grep -c .); echo "GATE3_EVIDENCE_COUNT=$evn"; [ "$evn" -ge "$efloor" ] || { echo "  [FAIL] GATE 3 evidence half: $evn non-md file(s) tracked under reports/evidence/, floor $efloor. A moved, renamed or emptied evidence tree leaves this half checking nothing."; bad=1; }
   # Pre-fold every doc ONCE (fold_variants above), then run the same normalise+match
@@ -95,7 +98,8 @@ gate_retract() {
         [ -f "$hf" ] && hfiles="$hfiles $hf"
       done
       # shellcheck disable=SC2086
-      hhits=$(hashed_needle_hits "$hh" "$hn" $hfiles)
+      # Q-963 (batch 48): the scanner's status is read; a crashed scanner printed no hit, which is [ok].
+      hhits=$(hashed_needle_hits "$hh" "$hn" $hfiles) || { echo "  [FAIL] hashed row RP-${hh:0:8}: the digest scanner failed, so it was NOT checked."; bad=1; continue; }
       if [ -n "$hhits" ]; then
         echo "  [FAIL] retracted phrasing still present (hashed row RP-${hh:0:8}; the phrase is not restated here)"
         echo "         matched by sha256 of the $hn-character span at a dollar sign   ($note)"
@@ -112,7 +116,10 @@ gate_retract() {
       case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
       [ -f "$folddir/$f" ] || continue
       # normalise the FOLDED file to one whitespace-collapsed line, then fixed-string match
-      if grep -qF -- "$np" "$flatdocdir/$f"; then
+      # Q-963 (batch 48): rc 2 (the cache file unreadable) is not "no hit".
+      local _g3_q; grep -qF -- "$np" "$flatdocdir/$f"; _g3_q=$?
+      [ "$_g3_q" -le 1 ] || { echo "  [FAIL] could not read the scan cache of $f (grep rc $_g3_q), so \"$phrase\" was NOT checked in it."; bad=1; continue; }
+      if [ "$_g3_q" -eq 0 ]; then
         # changelog rows legitimately quote superseded wording; only exempt if EVERY
         # line-level hit is a revision row.
         # RECORD WHERE, not just WHICH FILE (2026-08-02, #65). A bare filename makes the
@@ -146,8 +153,12 @@ gate_retract() {
     # line-preserving folded copy. The changelog-row exemption is deliberately NOT
     # applied here — machine outputs have no `| vN.N |` revision rows, and an evidence
     # file that somehow grew one should not be exempted by it.
-    local eh ef2
-    for eh in $(grep -rlF -- "$np" "$flatevdir" 2>/dev/null || true); do
+    local eh ef2 _g3_eh _g3_rc
+    # Q-963 (batch 48): grep exits 1 for no hit and 2 when it cannot read the cache; `|| true` took both
+    # as "no hit", so an unreadable evidence cache passed every phrase.
+    _g3_eh=$(grep -rlF -- "$np" "$flatevdir" 2>/dev/null); _g3_rc=$?
+    [ "$_g3_rc" -le 1 ] || { echo "  [FAIL] retracted phrasing \"$phrase\": the evidence scan could not read its cache (grep rc $_g3_rc), so it was NOT checked."; bad=1; continue; }
+    for eh in $_g3_eh; do
       ef2=${eh#"$flatevdir/"}
       case "$ef2" in *"$allow"*) continue;; esac        # same allow rule: FILENAME only
       local ehitln
@@ -339,7 +350,7 @@ def canon(s, star):
         s = ''.join(out)
     return s.replace(' +', '+').replace('+ ', '+')
 
-mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True).stdout.split()
+mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True, check=True).stdout.split()
 # EVIDENCE EXTENSION (2026-08-07) — the corpus is no longer markdown-only. The TRs quote
 # reports/evidence/** measurement outputs (.out, .json, .log ...), and this registry's own
 # motivating example ("1.4σ") was caught only because it happened to sit in an evidence
@@ -351,7 +362,7 @@ mds = subprocess.run(['git', 'ls-files', '*.md'], capture_output=True, text=True
 # restatement, hence the `literal` allow class (GATE 18's vocabulary) introduced with
 # this extension; see the allowlist header.
 evid = [f for f in subprocess.run(['git', 'ls-files', 'reports/evidence/*'],
-                                  capture_output=True, text=True).stdout.split()
+                                  capture_output=True, text=True, check=True).stdout.split()
         if not f.endswith('.md')]; EVID_FLOOR = 120; print(f'GATE3B_EVIDENCE_COUNT={len(evid)}')  # Q-708 sibling: same population and floor as GATE 3's evidence half
 # COST, evaluated before writing it (box-safety rule): canonicalisation is |mds| ~ 130
 # files x ~500 lines x 2 star-readings of canon() (a translate + one linear scan each),
@@ -496,7 +507,7 @@ def slug(t):  # Q-816: GitHub's rule. Keep letters, marks, Nd/Nl digits, '_', ' 
     t = re.sub(r'[`*~]', '', t).strip().lower()  # literal '_' survives rendering and stays in the slug
     t = ''.join(c for c in t if c in ' -' or unicodedata.category(c)[0] in 'LM' or unicodedata.category(c) in ('Nd', 'Nl', 'Pc'))
     return t.replace(' ', '-')  # no collapsing: 'A — B' -> 'a--b'; superscripts (No) and emoji (So) drop out
-mds = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
+mds = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True, check=True)
        .stdout.split()]
 anchors = {}
 for m in mds:
@@ -651,7 +662,7 @@ def norm(s):
     s = re.sub(r'\s+', ' ', s)
     return s.strip().strip('.,;:').lower()
 
-mds = subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True).stdout.split()
+mds = subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True, check=True).stdout.split()
 heads, bolds, bybase = {}, {}, {}
 for m in mds:
     txt = open(m, encoding='utf-8', errors='replace').read()
@@ -1045,7 +1056,7 @@ def spelled(line, val):
         if n.kind == 'int' and n.value == want:
             return n.raw
     return None
-files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True)
+files = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True, check=True)
          .stdout.split()]
 seen = 0; bad = 0; hits = set()   # hits: which registry rows actually occur in the corpus
 # GATE 5b state (2026-08-02, item A4). Cost formula, evaluated before writing it: F files x

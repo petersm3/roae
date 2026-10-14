@@ -1608,7 +1608,7 @@ for fn in SCANNED:
 files = []
 for glob in ("*.md", "documentation/DOC_GATE_*.txt", "documentation/*.tsv"):
     files += subprocess.run(["git", "ls-files", glob], capture_output=True, text=True
-                            ).stdout.split()
+                            , check=True).stdout.split()
 
 if not templates:
     print("  [FAIL] zero preflight message templates extracted — the scan is inert, not clean")

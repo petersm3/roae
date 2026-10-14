@@ -65,7 +65,7 @@ if corpus:
                    for dp, _, fs in os.walk(corpus) for f in fs if f.endswith(".md"))
     base = corpus
 else:
-    r = subprocess.run(["git", "ls-files", "-z", "*.md"], capture_output=True)
+    r = subprocess.run(["git", "ls-files", "-z", "*.md"], capture_output=True, check=True)
     files = sorted(f for f in r.stdout.decode("utf-8", "replace").split("\0") if f)
     base = "."
 files = [f for f in files if not f.startswith("example/")]
@@ -73,7 +73,8 @@ blocks = {}   # (file, sha12) -> (line, preceding paragraph)
 for f in files:
     try:
         L, _kind, _blocks, _unc = md_parse(md_read(os.path.join(base, f)))
-    except OSError:
+    except OSError as e:   # Q-963 (batch 48; Codex Q835 A03#10): a listed file that cannot be read was skipped in silence
+        fail.append("%s could not be read (%s), so its transcripts were NOT checked" % (f, e))
         continue
     for u in _unc:
         fail.append("%s:%d a code fence opens here and never closes, so its content to end of file "
@@ -117,7 +118,7 @@ rows = {}
 try:
     tags = set()
     if not corpus:
-        tags = set(subprocess.run(["git", "tag", "-l"], capture_output=True, text=True).stdout.split())
+        tags = set(subprocess.run(["git", "tag", "-l"], capture_output=True, text=True, check=True).stdout.split())
     tests_src = open("tests.py", encoding="utf-8").read() if os.path.exists("tests.py") else ""
     for n, ln in enumerate(open(reg, encoding="utf-8"), 1):
         ln = ln.rstrip("\n")

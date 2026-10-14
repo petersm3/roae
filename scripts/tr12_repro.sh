@@ -2043,10 +2043,10 @@ kc_first_last_witness() {
         echo "${tok}_FAIL	no walk of 2n=$((2 * N_PAIRS)) hexagrams was emitted (got ${nf:-0} field(s)) -- this row cannot publish an extremal walk it did not find"
         return 1
     fi
-    grep -qx 'MEMBER' <<<"$("$SOLVE" --kc-member "$FDIR" "$w" 2>/dev/null)" \
-      || { echo "${tok}_FAIL	--kc-member does not call the emitted walk a member of this f ladder"; erc=1; }
-    cd=$("$SOLVE" --kc-profile "$FDIR" "$GDIR" "$w" 2>/dev/null \
-           | sed -n 's/.*[[:space:]]cd=\([0-9][0-9]*\).*/\1/p' | head -1)
+    local _kcm _kcmrc _kcp _kcprc; _kcm=$("$SOLVE" --kc-member "$FDIR" "$w" 2>/dev/null); _kcmrc=$?; [ "$_kcmrc" -eq 0 ] && grep -qx 'MEMBER' <<<"$_kcm" \
+      || { echo "${tok}_FAIL	--kc-member does not call the emitted walk a member of this f ladder (rc=$_kcmrc; Q-963: MEMBER and rc 0, both)"; erc=1; }
+    _kcp=$("$SOLVE" --kc-profile "$FDIR" "$GDIR" "$w" 2>/dev/null); _kcprc=$?; cd=$(printf '%s\n' "$_kcp" \
+           | sed -n 's/.*[[:space:]]cd=\([0-9][0-9]*\).*/\1/p' | head -1); [ "$_kcprc" -eq 0 ] || cd="rc=$_kcprc"   # Q-963 (batch 48; Codex Q835 R7): the profile's status was lost through `sed | head`
     case "${cd:-}" in
         ''|*[!0-9]*) echo "${tok}_FAIL	--kc-profile printed no numeric cd for the emitted walk (got '${cd:-<none>}')"; erc=1 ;;
         *) [ "$cd" -le "$C3MAX" ] \
@@ -4120,7 +4120,7 @@ fi
 # PENDING withholds is TR12_REPRO_COMPLETE: row_skip counts PENDING into NSKIP, and COMPLETE=YES is
 # emitted only at NSKIP == 0, so one PENDING already forces TR12_REPRO_COMPLETE=NO. The driver was
 # right and the comment was wrong. COMMENT ONLY -- not one executable line changed.)
-AGG_OK=1
+AGG_OK=1; VWF=0   # VWF: Q-963 (batch 48), set when a verdict or manifest write fails
 for t in "${TOKORDER[@]}"; do
     case "${TOKSTATE[$t]}" in FAIL*|ERROR*) AGG_OK=0 ;; esac
 done
@@ -4130,10 +4130,10 @@ if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
     # ran (TR12_REPRO=PASS) and must not read as a passing PROGRAM -- added 2026-09-08 (F-5 D1),
     # when the production driver started running this file pre-scan with --no-scan.
     if [ "$N_PAIRS" -ge 31 ]; then AGGKEY=QUERY_PROGRAM; else AGGKEY=QUERY_DRYRUN; fi
-    if [ "$SCAN_OK" -eq 1 ]; then printf '%s=%s\n' "$AGGKEY" "$PASSTOK" >> "$VERD"
-    else                          printf '%s=SKIP:no-atlas\n' "$AGGKEY" >> "$VERD"; fi
-    printf 'TR12_REPRO=%s\n' "$PASSTOK" >> "$VERD"
-    printf 'TR12_REPRO_GOLDEN_STATE=%s\n' "$GOLDSTATE" >> "$VERD"
+    if [ "$SCAN_OK" -eq 1 ]; then printf '%s=%s\n' "$AGGKEY" "$PASSTOK" >> "$VERD" || VWF=1
+    else                          printf '%s=SKIP:no-atlas\n' "$AGGKEY" >> "$VERD" || VWF=1; fi
+    printf 'TR12_REPRO=%s\n' "$PASSTOK" >> "$VERD" || VWF=1   # Q-963 (batch 48; Codex Q835 A13#5): each write is checked; see the exit below
+    printf 'TR12_REPRO_GOLDEN_STATE=%s\n' "$GOLDSTATE" >> "$VERD" || VWF=1
     say ""
     # 🔴 KCP1 SIDE FINDING S1 (Fable, 2026-09-11). This was `if [ "$REGEN" -eq 1 ]`, so
     # --mint-missing wrote expected blocks and NO _MANIFEST.txt. At n=31 MINTING IS THE PATH --
@@ -4154,11 +4154,11 @@ if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
           echo "#"
           echo "# sha256(block)                                                     block"
           ( cd "$EXPECTDIR" && ls *.txt | grep -v '^_' | sort | xargs sha256sum | sed 's/^/  /' )
-        } > "$EXPECTDIR/_MANIFEST.txt"
+        } > "$EXPECTDIR/_MANIFEST.txt" || VWF=1
         say "expected blocks WRITTEN to $EXPECTDIR — review them before they are committed."
         say "manifest: $EXPECTDIR/_MANIFEST.txt"
     fi
-    say "TR12_REPRO=$PASSTOK"
+    [ "$VWF" = 0 ] || { say "tr12_repro: 🔴 the verdict file $VERD or the manifest could not be written -- NO verdict, exit 2 (Q-963)"; exit 2; }; say "TR12_REPRO=$PASSTOK"
     [ "$GOLDSTATE" = DIFFED ] || say "         ^ NOT a reproduction: ${#MINTED[@]} row(s) were WRITTEN by this run, not diffed."
     exit 0
 else
