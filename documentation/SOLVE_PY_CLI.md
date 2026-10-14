@@ -50,9 +50,9 @@ python3 solve.py --sat-encode OUT.cnf [--sat-c3 pb|adder] [--sat-c4] [--sat-c5]
 # TR-12 atlas consumer (over a `solve --kc-scan` atlas JSON)
 python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR [--atlas-select LIST]
                  [--atlas-q3-trace TRACE.txt] [--atlas-verdicts FILE]
-                 [--xa-nodes-per-sec F --xa-usd-per-hour F --xa-budget-usd F]
-                 [--xa-node-mapping-cert PATH]
-python3 solve.py --atlas-selftest ATLAS.json --atlas-walks WALKS.txt [--atlas-q3-trace TRACE.txt]
+                 [--xa-nodes-per-sec F (--xa-budget-hours F | --xa-usd-per-hour F --xa-budget-usd F)]
+                 [--xa-node-mapping-cert PATH] [--atlas-allow-t-not-run]
+python3 solve.py --atlas-selftest ATLAS.json --atlas-walks WALKS.txt [--atlas-q3-trace TRACE.txt] [--atlas-allow-t-not-run]
 python3 solve.py --atlas-probe ATLAS.json | --atlas-residual-rank ATLAS.json  # TR-12 §12 figures | the probe's residual rank
 
 # TR-8 dof-matched KW-fitting-predicate sampler
@@ -153,7 +153,7 @@ points (`--compute-stats`, `--marginals`, `--bivariate`,
 **v2** analyses and the pipeline modifiers below have no other CLI home:
 
 **Stage 0 — `--encode-solutions OUT_BIN IN [IN ...]`.** The P2 entry points read a
-`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:39021` and `:39028` emit **repr(k)** on the record line, and `solve.py:17151` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
+`solutions.bin`; an exact-uniform *sample* arrives as text. ⚠ **[CORRECTED 2026-09-22 (V3A-055#2) — the encoded population is NOT the draw.** `solve.c:39021` and `:39028` emit **repr(k)** on the record line, and `solve.py:17251` encodes only record lines, so what reaches the binary carries the CANONICAL REPRESENTATIVE's orientation rather than the orientation actually drawn. Measured: KW peak **374.77** as a control, and all 32 single-pair flips differ, ranging **336.32 to 403.11** — while `c3_total` is **INVARIANT at 776** across all 32. So the one public T5-derived figure, **87.9%**, is untouched; only `fft_dominant_freq` and `fft_peak_amplitude` are affected by the substitution.]** This encodes the sample's
 `record` lines into that binary (32-byte `ROAE` header; 32-byte records,
 `byte[i] = (pair_index << 2) | (orient << 1)`, KW-consecutive pair table). A
 **mandatory round-trip gate** re-reads the output with `verify.py`'s own decoder and
@@ -616,6 +616,17 @@ had been claiming.]
                              recounts against. Without it the verdict is
                              SKIP:no-brute-force-walks — never PASS.
 --atlas-keep DIR             --atlas-selftest: keep the emitted tables in DIR.
+--atlas-allow-t-not-run      --atlas-queries/--atlas-selftest: load an atlas whose
+                             t-identity gate did not run (its gates carry
+                             "not-run (requires --kc-tdir)": the scan had no t
+                             ladder). WITHOUT THIS FLAG SUCH AN ATLAS IS REFUSED
+                             AT LOAD (Q-564, 2026-10-11; operator ruling D11 of
+                             2026-09-30), the way a failed or un-emitted gate
+                             is. With it, the atlas loads, a WARNING naming the
+                             gate goes to stderr, and every verdict is
+                             UNVERIFIED ACROSS CHUNKS (VERIFY.md). Every
+                             production path passes --kc-tdir; the flag exists
+                             for diagnostic work on a t-less scan.
 --atlas-fault NAME           TEST ONLY. Deliberately corrupt one emitted column so
                              the gate can be shown able to fail. One of
                              v1-drop-pair, v2-class-swap, xa-drop-branch,
@@ -1024,6 +1035,15 @@ had been claiming.]
 --xa-usd-per-hour F          XA-c/d: worker price anchor.
 --xa-budget-usd F            XA-c/d: the ceiling the EXHAUSTIBLE/INFEASIBLE call
                              is made against.
+--xa-budget-hours F          XA-c/d: a wall-clock ceiling in hours at the
+                             --xa-nodes-per-sec rate, in place of
+                             --xa-usd-per-hour and --xa-budget-usd: the call is
+                             made in time units and xa_verdict.md prints no $
+                             column. Giving it together with either $ anchor is
+                             an error (two ceilings for one call). Added
+                             2026-10-11 (Q-433, operator decision D2(a) of
+                             2026-09-30: a one-sided call stated in node-count or
+                             time units, no money).
 --xa-node-mapping-cert P     XA-c/d: path to a W0-D t-unit -> SOLVE_NODE_LIMIT
                              mapping certificate. WITHOUT A USABLE ONE THE
                              PRICING PATH REFUSES with
@@ -1059,7 +1079,9 @@ had been claiming.]
                              measured.verdict_line and provenance.engine_git
                              beside the priced table. kind limits the call:
                              exact -> EXHAUSTIBLE/INFEASIBLE and
-                             TR12_XA_CD=PASS; upper-bound -> EXHAUSTIBLE or
+                             TR12_XA_CD=PASS (UNDECIDED:hedge for a row inside
+                             the hedge band, and TR12_XA_CD=UNDECIDED:hedge when
+                             that row is the argmin); upper-bound -> EXHAUSTIBLE or
                              UNDECIDED:upper-bound (never INFEASIBLE);
                              lower-bound -> INFEASIBLE or UNDECIDED:lower-bound
                              (never EXHAUSTIBLE); a bound's token is
@@ -1092,9 +1114,10 @@ had been claiming.]
                              W0D_LB_ATLAS_BRANCH_SET_EQ. Verdict
                              XA_W0D_LB_CERT=PASS|FAIL:<why>|ERROR:<why>, exit
                              0/1/2; OUT is written only on PASS. It says
-                             NOTHING about a reduced-n atlas: the consumer does
-                             not check scope, so do not pass it with an n<31
-                             atlas. JSON beyond the Q-768 schema: "scope"
+                             NOTHING about a reduced-n atlas. ⚠ Corrected
+                             2026-10-11: this read "the consumer does not check
+                             scope, so do not pass it with an n<31 atlas"; it
+                             does (Q-841 S5), as the end of this entry says. JSON beyond the Q-768 schema: "scope"
                              {"n": 31, "space", "enumerator", "excluded"};
                              "measured" {"n": [31], "per_n": [{"n", "B0"
                              ("d1:2,..."), "K_prefixes_depth_1_2_3",
@@ -1109,7 +1132,18 @@ had been claiming.]
                              consumer refuses a certificate whose "scope.n"
                              differs from the atlas's n. Evidence and method:
                              reports/evidence/w0d_lower_bound/README.md.
---xa-hedge F                 XA-c/d: throughput hedge for scale (default 2.0).
+--xa-hedge F                 XA-c/d: throughput hedge for scale (default 2.0), a
+                             BAND on the rate: the true rate is taken to lie in
+                             [nodes/sec / hedge, nodes/sec x hedge] (each divided
+                             by the work factor). A row reads EXHAUSTIBLE only if
+                             its cost at the slow end fits the ceiling,
+                             INFEASIBLE only if its cost at the fast end exceeds
+                             it, and UNDECIDED:hedge between; a hedge below 1 is
+                             an error. ⚠ Corrected 2026-10-11 (Q-433): until then
+                             the hedge only divided the rate, which doubled every
+                             cost at the default -- cautious for EXHAUSTIBLE and
+                             the unsound direction for INFEASIBLE, the only call
+                             a lower-bound certificate can print.
 --xa-work-factor F           XA-c/d: engine work factor to divide the rate by
                              (default 1.0 = none).
 --xa-anchor-note TEXT        XA-c/d: provenance string echoed into xa_verdict.md.
@@ -1270,7 +1304,8 @@ and by nothing in the battery. Since 2026-09-26 `TR12_RATIO_COLUMNS` runs the sa
 ### What it will not do
 
 - **It will not invent the XA cost anchors.** Without
-  `--xa-nodes-per-sec`, `--xa-usd-per-hour` and `--xa-budget-usd` the
+  `--xa-nodes-per-sec` and a ceiling (`--xa-budget-hours`, or
+  `--xa-usd-per-hour` with `--xa-budget-usd`) the
   exhaustibility section of `xa_verdict.md` reads PENDING and the token is
   `TR12_XA_CD=PENDING:xa-throughput-anchors`. The exact t-unit column
   stands on its own.

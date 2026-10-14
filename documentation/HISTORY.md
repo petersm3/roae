@@ -11373,3 +11373,42 @@ The two defect classes swept here are Codex (gpt-6-astra) findings from its push
 **What did not change.**
 
 - No published number, count, sha or verdict changed.
+
+## 2026-10-11 — batch 49: the Exhaustion Atlas verdict is published one-sided after its hedge is fixed, the atlas loader refuses an unchecked atlas, and this file's out-of-order headings are named
+
+**Batch 49, the XA hedge (CX-348, Q-433).**
+
+- The XA pricer applied its x2 throughput hedge by halving the rate, which doubled every cost. That
+  could turn a branch that fits its ceiling into INFEASIBLE, the only call a lower-bound
+  certificate can make. The hedge is now a band: INFEASIBLE is called at its fast end, EXHAUSTIBLE
+  at its slow end, and a row between them is undecided. A ceiling can now be given in wall-clock
+  hours instead of money.
+
+**Batch 49, the XA verdict (CX-349, Q-433).**
+
+- TR-12 now publishes the Exhaustion Atlas call, one-sided, as the operator allowed on 2026-09-30:
+  on the public lower-bound certificate, at a rate rounded up from the d3 11.2T canonical run, in
+  wall-clock hours and with no money figure. All 56 branches read INFEASIBLE, and
+  `TR12_XA_CD=ONE-SIDED:lower-bound`. A disclosure watching for this is retired.
+
+**Batch 49, the atlas loader (CX-350, Q-564).**
+
+- An atlas scanned without a t ladder, whose cross-chunk check never ran, used to load as clean.
+  It is now refused unless the reader passes `--atlas-allow-t-not-run`, and then a warning says so.
+
+**Batch 49, reading order in this file (CX-351, Q-686).**
+
+- This file is appended to, never reordered, so a few dated headings appear after a heading with a
+  later date. Each place is listed below by the line of the later heading. Nothing was moved.
+- line 2666: a heading dated 2026-04-22 follows one dated 2026-05-15 (line 2568)
+- line 5643: a heading dated 2026-07-09 follows one dated 2026-07-13 (line 5583)
+- line 9555: a heading dated 2026-06-17 follows one dated 2026-09-23 (line 9448)
+- line 11196: a heading dated 2026-10-09 follows one dated 2026-10-10 (line 11156)
+- line 11223: a heading dated 2026-10-08 follows one dated 2026-10-09 (line 11196)
+
+Q-686=DONE
+
+**What did not change.**
+
+- No count, t-unit figure or sha changed. One published verdict changed: `TR12_XA_CD`, from
+  pending to one-sided INFEASIBLE.

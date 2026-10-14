@@ -338,7 +338,7 @@ documentation/PROJECT_OVERVIEW.md	121	marker	WITHDRAWN	3	GATE 26,GATE 27	reancho
 documentation/PROJECT_OVERVIEW.md	127	marker	Corrected	1	-	reviewed:note-already-reads-stays-5-at-560T	3a7734310380
 documentation/PROJECT_OVERVIEW.md	152	marker	CORRECTED	1	-	reviewed:bullet-already-states-the-positive-only-definition	37d8b2656705
 documentation/PROJECT_OVERVIEW.md	165	marker	Corrected	1	-	reviewed:dated-label;following-sentences-carry-the-withdrawal	30097c8c87c5
-documentation/QUERY_INVENTORY.md	222	marker	Corrected	1	-	reviewed:cell-already-states-the-lower-bound-direction	3c456275085a
+documentation/QUERY_INVENTORY.md	222	marker	Corrected	1	-	reviewed:cell-already-states-the-lower-bound-direction	e41df972346c
 documentation/QUERY_INVENTORY.md	244	marker	Corrected	1	-	reviewed:stale-narrowing-is-already-struck-through	5f70b5c4156d
 documentation/QUERY_INVENTORY.md	250	marker	Corrected	2	-	reviewed:cell-above-still-gives-the-unbuilt-sat-witness-and-cert-path	dacbcd2e9d4c
 documentation/QUERY_INVENTORY.md	260	marker	Corrected	1	-	reviewed:cell-already-names-the-kc-figure	900d958f9aa5
@@ -471,7 +471,7 @@ documentation/SOLVE_C_CLI.md	3518	ledger-link	CORRECTION	n/a	-	not-a-marker	60af
 documentation/SOLVE_C_CLI.md	3587	marker	Corrected	1	-	reviewed:paragraph-already-reads-256-GB	cecef1272b2a
 documentation/SOLVE_C_CLI.md	3596	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	f27afff66d20
 documentation/SOLVE_PY_CLI.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	76e7c2e90141
-documentation/SOLVE_PY_CLI.md	156	marker	CORRECTED	2	-	reviewed:only-statement-that-the-encoded-orientation-is-the-representatives-not-the-draw	fc0c83cdf4eb
+documentation/SOLVE_PY_CLI.md	156	marker	CORRECTED	2	-	reviewed:only-statement-that-the-encoded-orientation-is-the-representatives-not-the-draw	3890e9592351
 documentation/SOLVE_PY_CLI.md	174	marker	CORRECTED	2	-	reviewed:paragraph-above-still-says-the-sampler-is-not-on-main	871c547dbacd
 documentation/SOLVE_PY_CLI.md	241	marker	Corrected	1	-	reviewed:row-already-pins-hexagram-63-first	a9311de1c5bb
 documentation/SOLVE_PY_CLI.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2d2b3ac8d
@@ -479,13 +479,13 @@ documentation/SOLVE_PY_CLI.md	335	marker	CORRECTED	2	-	reviewed:only-statement-t
 documentation/SOLVE_PY_CLI.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	8b35a66b7c6f
 documentation/SOLVE_PY_CLI.md	434	marker	Corrected	1	-	reviewed:dated-label;sentence-already-reads-correctly	69dfe1571f39
 documentation/SOLVE_PY_CLI.md	570	marker	CORRECTED	1	-	reviewed:sentence-already-true-since-the-gate-moved-to-the-emitter	388d511cb961
-documentation/SOLVE_PY_CLI.md	1129	marker	Corrected	1	-	reviewed:row-already-names-flow_div_24	07976c4b6454
-documentation/SOLVE_PY_CLI.md	1430	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1430	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1432	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
-documentation/SOLVE_PY_CLI.md	1559	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
-documentation/SOLVE_PY_CLI.md	1636	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
-documentation/SOLVE_PY_CLI.md	1696	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
+documentation/SOLVE_PY_CLI.md	1163	marker	Corrected	1	-	reviewed:row-already-names-flow_div_24	07976c4b6454
+documentation/SOLVE_PY_CLI.md	1465	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1465	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1467	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
+documentation/SOLVE_PY_CLI.md	1594	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
+documentation/SOLVE_PY_CLI.md	1671	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
+documentation/SOLVE_PY_CLI.md	1731	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
 documentation/SOLVE_SUMMARY.md	85	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-distance-5-block	ee32cf8d5224
 documentation/SOLVE_SUMMARY.md	178	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	9a9b7c6e5eaf
 documentation/SOLVE_SUMMARY.md	191	marker	CORRECTED	1	-	reviewed:table-text-already-re-derived-from-the-logs	3c5b8586e07b
@@ -625,7 +625,7 @@ reports/TR12_QUERY_PROGRAM.md	833	marker	Corrected	1	-	reviewed:output-line-alre
 reports/TR12_QUERY_PROGRAM.md	892	marker	Corrected	1	-	reviewed:text-already-gives-the-TV-distance-and-cell-range	2c1d251a6490
 reports/TR12_QUERY_PROGRAM.md	937	narration	now reads	3	CITATION LINE GATE,GATE 2c	gate-anchored	c9e146cbc23c
 reports/TR12_QUERY_PROGRAM.md	1049	marker	Corrected	1	-	reviewed:text-already-says-the-certificate-is-loaded-and-used	006b75696937
-reports/TR12_QUERY_PROGRAM.md	1096	marker	Corrected	1	-	reviewed:text-already-says-t-price-is-a-floor	5208df717772
+reports/TR12_QUERY_PROGRAM.md	1096	marker	Corrected	1	-	reviewed:text-already-says-t-price-is-a-floor	7f2aabe6394d
 reports/TR12_QUERY_PROGRAM.md	1284	marker	CORRECTED	1	-	reviewed:parenthetical-already-gives-the-Bonferroni-arithmetic	205d798de93b
 reports/TR12_QUERY_PROGRAM.md	1294	ledger-link	CORRECTION	n/a	-	not-a-marker	9d951f2c0a3e
 reports/TR12_QUERY_PROGRAM.md	1437	marker	Corrected	1	-	reviewed:bullet-already-lists-what-f-alone-answers	715e5a15829e
@@ -649,7 +649,7 @@ reports/TR12_QUERY_PROGRAM.md	2161	ledger-link	CORRECTION	n/a	-	not-a-marker	15f
 reports/TR12_QUERY_PROGRAM.md	2161	marker	CORRECTED	1	-	reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check	15f88f5e990f
 reports/TR12_QUERY_PROGRAM.md	2178	marker	Corrected	1	-	reviewed:sentence-already-scopes-12.10	787d37353231
 reports/TR12_QUERY_PROGRAM.md	2196	marker	Corrected	1	-	reviewed:text-already-says-the-file-is-distributed	655061a87291
-reports/TR12_QUERY_PROGRAM.md	2286	marker	Corrected	1	-	reviewed:scope-already-states-the-one-sided-relation	684884e12ba2
+reports/TR12_QUERY_PROGRAM.md	2286	marker	Corrected	1	-	reviewed:scope-already-states-the-one-sided-relation	a5ce32451652
 reports/TR12_QUERY_PROGRAM.md	2396	marker	Corrected	1	-	reviewed:text-already-separates-all-slots-and-interior	747e86000ac1
 reports/TR12_QUERY_PROGRAM.md	2496	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2f8a91dbc
 reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-says-solve.c-differs	1c6c27f1c56a

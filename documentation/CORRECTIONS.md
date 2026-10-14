@@ -31381,3 +31381,141 @@ asserted inside the live harness, because a checkout cannot promise a tracked fi
 relation to main; the tests drive them in a scratch repository.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 48, Q-235.
+
+## CX-348 — the XA pricer's hedge only divided the rate, so its default x2 doubled every cost and could manufacture INFEASIBLE, the one call a lower-bound certificate can make; the hedge is now a band, INFEASIBLE is called at its fast end and EXHAUSTIBLE at its slow end (solve.py; scripts/xa_exact_verdict_gate.sh; documentation/SOLVE_PY_CLI.md; tests.py)
+
+**2026-10-11.** **Source.** Backlog row Q-433, item 5 of a Fable ruling of 2026-09-19 on that row,
+re-found by the gate-G2 triage of 2026-10-10. Batch 49.
+
+**No published number, count or sha moves. A published verdict does, under CX-349.** Before this
+batch no published table was priced, so no published row was ever wrong because of this.
+
+**1. What was wrong.** `atlas_emit_xa` in `solve.py` priced each XA branch at one rate,
+`nodes/sec / (hedge x work factor)`. The `--xa-hedge` default is 2, so every cost doubled. That is
+the cautious direction for an EXHAUSTIBLE call. For an INFEASIBLE call it is the unsound one: a
+branch whose cost at the measured rate fits the ceiling could read INFEASIBLE once the hedge doubled
+it. The only certificate in the tree is a lower bound, and a lower bound can only support
+INFEASIBLE, so on the one path that could publish, the hedge always leaned the wrong way. An exact
+certificate had the same fault on its INFEASIBLE rows.
+
+**2. What changed.**
+
+- **The hedge is a band.** The true rate is taken to lie anywhere in
+  `[nodes/sec / hedge, nodes/sec x hedge]`, each end divided by the work factor, which is a
+  conversion and not an uncertainty. A row reads EXHAUSTIBLE only if its cost at the slow end fits,
+  INFEASIBLE only if its cost at the fast end exceeds the ceiling, and `UNDECIDED:hedge` between
+  them. A bound still limits the call as before: a lower bound gives INFEASIBLE or
+  `UNDECIDED:lower-bound`, an upper bound EXHAUSTIBLE or `UNDECIDED:upper-bound`.
+- **A hedge below 1 is refused.** It would swap the two ends.
+- **A ceiling in hours.** `--xa-budget-hours` sets a wall-clock ceiling in place of the two $
+  anchors, and the table then prints no $ column. Giving both kinds of ceiling is refused. This is
+  what CX-349 publishes with.
+- **The table.** It shows the wall time at both ends, the exact cost at each end, and the shortfall
+  at each end. A row of break-even text follows the call: the least fast-end cost of any row, below
+  which every row reads INFEASIBLE, so a reader can substitute another ceiling.
+- **The token.** An exact certificate still reads `TR12_XA_CD=PASS`, unless the cheapest row falls
+  inside the band; then it reads `UNDECIDED:hedge`. A bound still reads `ONE-SIDED:<kind>`.
+- **One heading.** "Branch extremes" said "the map is uncertified" even when a certificate had been
+  accepted. With one, it now names the relation the certificate proves. Without one, the text is
+  unchanged, and so is every PENDING paragraph a run without a certificate writes.
+
+**3. Tests.** `TestBatch49` and a new leg of `scripts/xa_exact_verdict_gate.sh`. Fixture D sits
+inside the band (1.5x the ceiling at the measured rate, 0.75x at the fast end). It reads UNDECIDED
+for both kinds, in $ and in hours, and the tests assert first that the old arithmetic read it
+INFEASIBLE. Fixture E is past the fast end and reads INFEASIBLE. A hedge below 1 and two ceilings
+are refused. The gate's three exact-arithmetic fixtures are unchanged and still pass. A mutant with
+the old single rate turns the gate's new leg red on fixture D, and a mutant that accepts a hedge
+below 1 turns it red too.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 49, Q-433.
+
+## CX-349 — TR-12 publishes the Exhaustion Atlas verdict, one-sided: on the public lower-bound certificate, at a rate rounded up from the d3 11.2T canonical run and a ceiling in wall-clock hours, every one of the 56 branches reads INFEASIBLE (reports/TR12_QUERY_PROGRAM.md; reports/tr12/xa_verdict.md; reports/tr12/VERDICTS.txt; documentation/QUERY_INVENTORY.md; documentation/DISCLOSURE_CHECKS.tsv; README.md; viz/viz_kc_river.md; reports/evidence/w0d_lower_bound/README.md; tests.py)
+
+**2026-10-11.** **Source.** Backlog rows Q-433 and Q-789. On 2026-09-30 the operator ruled that a
+one-sided call may be published, in node-count or time units, anchored on the public 11.2T
+throughput, with no money figure. Batch 49.
+
+**A published verdict moves.** `TR12_XA_CD` in `reports/tr12/VERDICTS.txt` changes from
+`PENDING:W0-D-node-mapping` to `ONE-SIDED:lower-bound`. No count, t-unit figure or sha moves.
+
+**1. What was withheld.** TR-12 §3 withheld the XA-c/d verdict: first for want of any node-mapping
+certificate, then, once the lower-bound certificate was public, because publishing a one-sided call
+was an operator decision that had not been made.
+
+**2. What is published.** The command is in TR-12 §3 and its v1.28 row. It reads the committed
+atlas and the committed certificate. Its inputs:
+
+- **Rate.** 1.5×10⁹ nodes/s, rounded up from the d3 11.2T canonical run: 11.2×10¹² nodes in
+  7,810 s on one D128als_v7 (`documentation/CANONICAL_HASHES.md` §d3 11.2T), about 1.43×10⁹. An
+  optimistic rate is the cautious side for INFEASIBLE.
+- **Hedge.** The default ×2, applied as the CX-348 band, so INFEASIBLE is called on the cost at
+  3×10⁹ nodes/s.
+- **Ceiling.** 10¹² wall-clock hours on that machine. This is a generous choice, not a finding.
+
+Every branch reads INFEASIBLE. The cheapest needs at least 8.06×10²⁴ hours at the fast end (exactly 8715510093521557687293118823183991737/1080000000000 h), so the
+call holds at any ceiling below that. The certificate bounds production nodes from below, so no row
+can read EXHAUSTIBLE, and the token is never PASS. The places that said the verdict was withheld
+carry a dated note, each on its existing line.
+
+**3. A disclosure that became false.** `documentation/DISCLOSURE_CHECKS.tsv` watched TR-12's v1.0
+statement that the single-branch shortfall factor "has no public reproduction command". Its probe
+fired on the new record, as it was written to. The row is removed, the TR-12 sentence carries a
+dated note, and the probe text is kept in the registry's comments.
+
+**4. Tests.** `TestBatch49` runs the command quoted in TR-12 and requires the committed
+`xa_verdict.md`, `xa_branches.tsv` and `VERDICTS.txt` byte for byte. It checks that all 56 rows
+read INFEASIBLE and that the published table has no $ column.
+`TestQ3AttestedTraceRunsTheQ3LegsAtFull31` now passes the same anchors when it compares
+`VERDICTS.txt`. The two G3 registry tests and one batch-44 plant that used the removed row are
+re-pointed, and one now asserts the removed probe still fires on the real tree.
+
+**5. Not done here.** The repro battery's `c_xa_cd` row still skips, because its n=9 atlas is
+outside the certificate's scope and its n=31 re-run is deferred. Its reason text is unchanged.
+`documentation/PREREG_CLASSA_QUERY_SET.md` says the XA-c/d inputs are unpinned. It is not edited:
+it is a pre-registration escrowed by digest (GATE 86), and TR-12 §3 now states the inputs used.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 49, Q-433.
+
+## CX-350 — the atlas loader accepted an atlas whose t-identity gate never ran; it now refuses one unless `--atlas-allow-t-not-run` is given, and warns when it is (solve.py; documentation/SOLVE_PY_CLI.md; documentation/VERIFY.md; viz/viz_kc_grammar.md; tests.py)
+
+**2026-10-11.** **Source.** Backlog row Q-564, raised 2026-09-12 while fixing Q-560. The operator
+delegated the policy on 2026-09-30, and the default was taken: refuse, with an explicit opt-in.
+Batch 49.
+
+**No published number, count, sha or verdict moves.** Every published atlas was scanned with
+`--kc-tdir`, so every one still loads.
+
+**1. What was wrong.** A scan without `--kc-tdir` writes
+`gates.t_root_eq_f_layer_sum: "not-run (requires --kc-tdir)"` beside `"fails": 0`. The loader
+refused the two failure strings and loaded this one. `documentation/VERIFY.md` already told readers
+to treat such an atlas as unverified across chunks, so the loader disagreed with the document.
+
+**2. What changed.** `atlas_load` refuses any gate whose status is that string, naming the gate and
+the opt-in. `--atlas-queries` and `--atlas-selftest` take `--atlas-allow-t-not-run`. With it the
+atlas loads, and a WARNING on stderr says every verdict is unverified across chunks.
+`documentation/SOLVE_PY_CLI.md` documents the flag, `documentation/VERIFY.md` says the loader now
+refuses, and a `viz/viz_kc_grammar.md` comment that called `--kc-tdir` unneeded says why it is.
+
+**3. Tests.** `TestBatch49` takes the committed n=31 atlas and sets that one gate to the producer's
+string. It asserts first that `fails` is 0 and every other gate reads true, which is what the old
+loader accepted. The atlas is refused in Python and on the command line, and it loads with the
+opt-in, with the warning. A mutant without the refusal arm loads it. An older test that said this
+status "must still load" now asserts the refusal. One n=9 test that scans without a t ladder passes
+the opt-in.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 49, Q-564.
+
+## CX-351 — HISTORY.md's dated headings are out of order in five places; HISTORY_INDEX.md lists them (CX-153), and now a dated note inside HISTORY.md itself names each place (documentation/HISTORY.md)
+
+**2026-10-11.** **Source.** Backlog row Q-686, which post-dated the cure: CX-153 (2026-09-26) recorded three of these places, built `documentation/HISTORY_INDEX.md` (GATE 91 keeps its disagreement list current; it lists all five) and appended a reader's note at HISTORY.md line 9782. What was still missing was the list inside HISTORY.md itself. HISTORY.md is append-only, and its gate compares
+every published version, so the sections are not moved. Batch 49.
+
+**No published number, count, sha or verdict moves.**
+
+**What changed.** The batch 49 entry at the end of `documentation/HISTORY.md` lists each place
+where a dated heading follows one with a later date, with both line numbers and both dates. Three
+were on `main` before this batch; two come from entries appended in batch order after a later-dated
+literature entry. `TestBatch49` measures the inversions above the note and requires the note to list
+exactly those.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 49, Q-686.

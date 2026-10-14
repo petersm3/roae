@@ -10237,7 +10237,7 @@ class TestQ699FieldRowGateAcceptsReducedN(unittest.TestCase):
                   os.path.join(cls.tmp, "atlas.json")],
                  [sys.executable, os.path.join(cls.HERE, _py_src("solve")), "--atlas-queries",
                   os.path.join(cls.tmp, "atlas.json"), "--atlas-out", os.path.join(cls.tmp, "out"),
-                  "--atlas-select", "v1"]]
+                  "--atlas-select", "v1", "--atlas-allow-t-not-run"]]   # Q-564: a t-less scan
         cls.ok, cls.err = True, ""
         for argv in steps:
             r = subprocess.run(argv, capture_output=True, text=True, cwd=cls.HERE)
@@ -11987,7 +11987,10 @@ class TestQ3AttestedTraceRunsTheQ3LegsAtFull31(unittest.TestCase):
         out = os.path.join(self._dir(), "out")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            R = self.S.atlas_queries(self.ATLAS, out, q3_trace=trace, quiet=False)
+            # Q-433 (batch 49): priced with the anchors TR-12 publishes, because the committed
+            # VERDICTS.txt carries the published TR12_XA_CD=ONE-SIDED:lower-bound.
+            R = self.S.atlas_queries(self.ATLAS, out, q3_trace=trace, quiet=False,
+                                     cost=_tr12_xa_published_cost(self.S))
         return R, buf.getvalue().splitlines(), out
 
     def _text(self):
@@ -31161,10 +31164,11 @@ class TestC31KcQuerySurface(unittest.TestCase):
             msg = load(A)
             self.assertIsNotNone(msg, "gate value %r loaded beside fails=0" % (bad,))
             self.assertIn("outside the producer's vocabulary", msg)
-        # the documented un-run status still loads (VERIFY.md policy; not a failed run)
+        # the documented un-run status is refused unless opted in (Q-564, batch 49); its full
+        # red/green pair is TestBatch49.test_q564_*
         A = copy.deepcopy(A0)
         A["gates"]["t_root_eq_f_layer_sum"] = "not-run (requires --kc-tdir)"
-        self.assertIsNone(load(A), "the documented not-run status must still load")
+        self.assertIn("did NOT RUN", load(A) or "", "the not-run status loaded without the opt-in")
         # N04's two states: a FAILED gate and a tail check that did not run
         A = copy.deepcopy(A0)
         A["gates"]["extrema_relookup"] = "see fails"
@@ -36140,7 +36144,8 @@ class TestQ954Q955SelftestLegsCanFail(unittest.TestCase):
 
     def test_q955_no_row_probes_with_a_constant(self):
         rows = self._rows()
-        self.assertEqual(len(rows), 2, "precondition: the two live disclosure rows")
+        # Q-433 (batch 49): two rows until the TR-12 one fired and was removed (CX-349)
+        self.assertEqual(len(rows), 1, "precondition: the one live disclosure row")
         for f, cmd in rows.items():
             self.assertNotIn(re.sub(r"\s", "", cmd), ("", "false", "true", ":"), f)
 
@@ -36166,8 +36171,16 @@ class TestQ954Q955SelftestLegsCanFail(unittest.TestCase):
         g("add", "-A")
         self.assertEqual(self._probe(cmd, d), 0, "a tracked ladder log did not fire the TR-11 probe")
 
+    # Q-433 (batch 49): the TR-12 row was removed when its probe fired (CX-349). Its probe text is
+    # kept in the registry's comment block; it is still graded here, and on the real tree it must
+    # answer 0 -- which is why the row is gone.
+    TR12_PROBE = ("test \"$(grep -c '^TR12_XA_CD=' reports/tr12/VERDICTS.txt 2>/dev/null)\" = 1 || exit 2; "
+                  "grep -qxE 'TR12_XA_CD=(PASS|ONE-SIDED:.+)' reports/tr12/VERDICTS.txt")
+
     def test_q955_tr12_probe_three_valued(self):
-        cmd = self._rows()["reports/TR12_QUERY_PROGRAM.md"]
+        cmd = self.TR12_PROBE
+        self.assertNotIn("reports/TR12_QUERY_PROGRAM.md", self._rows(), "the fired row is still registered")
+        self.assertEqual(self._probe(cmd, self.root), 0, "the published record no longer fires the TR-12 probe")
         d = os.path.join(self.tmp, "tr12tree")
         os.makedirs(os.path.join(d, "reports", "tr12"))
         v = os.path.join(d, "reports", "tr12", "VERDICTS.txt")
@@ -41567,8 +41580,12 @@ class TestQ979Q986Batch44(unittest.TestCase):
     T11 = "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md"
     RUNQ = "\nRun `solve --q964-absent` to reproduce.\n"
     SEB = "\nThe 0.78% relative error gives a 95% CI of "
-    PROBE2 = ("test \"$(grep -c '^TR12_XA_CD=' reports/tr12/VERDICTS.txt 2>/dev/null)\" = 1 || exit 2; "
-              "grep -qxE 'TR12_XA_CD=(PASS|ONE-SIDED:.+)' reports/tr12/VERDICTS.txt")
+    # Q-433 (batch 49): the TR-12 row this plant used fired and was removed (CX-349), so the plant
+    # now blanks the one live row's probe, the TR-11 one. Same shape: `false;` evades the uncured
+    # constant check, and bare `false` is refused by both.
+    PROBE2 = ("git grep -qE '7,?477,?248,?378,?538,?061,?907,?099,?648|83,?855,?263,?774,?549,?546,?015,?506,?432|"
+              "61,?666,?352,?085,?618,?532,?666,?071,?318,?528|2,?155,?118,?806,?480,?613,?893,?163,?229,?118,?464' "
+              "-- . ':!*.md' ':!*.py' ':!*.c' ':!*.h' ':!*.sh'")
     CXP = ("\n## CX-99999\n\nQ964 plant.\n\n- **Documents:** [self](CORRECTIONS.md)\n\n  [target](QUERY_INVENTORY.md)\n"
            "- **Date:** 2026-10-08\n")
     CXC = ("\n## CX-99999\n\nQ964 plant.\n\n- **Documents:** [self](CORRECTIONS.md), [target](QUERY_INVENTORY.md)\n"
@@ -43861,6 +43878,316 @@ class TestQ963Q953Q235Batch48(unittest.TestCase):
 
 
 # end class TestQ963Q953Q235Batch48 (batch 48, Q-963/Q-953/Q-235)
+
+
+import json  # batch 49 (TestBatch49); placed here so no earlier tests.py line moves
+
+# Q-433 (batch 49): the published XA anchors, ONE definition. TestBatch49 checks that TR-12 quotes
+# exactly this command, and TestQ3AttestedTraceRunsTheQ3LegsAtFull31 prices with the same cost.
+_TR12_XA_NOTE = ("rate rounded up from the d3 11.2T canonical run (11.2e12 nodes in 7,810 s on one "
+                 "D128als_v7; documentation/CANONICAL_HASHES.md); ceiling chosen to be generous; "
+                 "TR-12 section 3")
+_TR12_XA_CERT = os.path.join("reports", "evidence", "w0d_lower_bound", "w0d_lower_bound_cert.json")
+
+
+def _tr12_xa_published_cost(S):
+    X = S._ExactAnchor
+    return {"nodes_per_sec": X("1.5e9"), "usd_per_hour": None, "budget_usd": None,
+            "budget_hours": X("1e12"), "hedge": X("2.0"), "work_factor": X("1.0"),
+            "note": _TR12_XA_NOTE, "node_mapping_cert": _TR12_XA_CERT}
+
+
+class TestBatch49(unittest.TestCase):
+    """Batch 49 (gate-G2 groups B and C): Q-433, Q-564, Q-686. Q-142 needed no public edit.
+
+    Q-433 B1 (CX-348). atlas_emit_xa applied the x2 hedge by DIVIDING the rate, so every cost doubled:
+    cautious for EXHAUSTIBLE, unsound for INFEASIBLE -- the only call a lower-bound certificate can
+    make. The hedge is now a band; INFEASIBLE is called at its fast end, EXHAUSTIBLE at its slow end,
+    UNDECIDED:hedge between; a hedge below 1 and two ceilings are refused; --xa-budget-hours prices
+    in hours with no $ column. Each band case asserts its precondition (the pre-fix single-rate
+    arithmetic reads it the other way). The gate leg is shown red under two mutants.
+    Q-433 B2 (CX-349). TR-12 publishes the one-sided call (operator, 2026-09-30): the committed
+    xa_verdict.md / xa_branches.tsv / VERDICTS.txt are what TR-12's quoted command writes, all 56
+    rows read INFEASIBLE, no $ column, and the fired disclosure row is gone.
+    Q-564 (CX-350). An atlas whose t-identity gate did not run is refused at load unless
+    --atlas-allow-t-not-run; precondition: the fixture is exactly what the pre-fix loader accepted.
+    A mutant without the refusal loads it.
+    Q-686 (CX-351). HISTORY.md's chronology note lists exactly the inversions above it.
+    """
+    ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    TR12 = os.path.join("reports", "TR12_QUERY_PROGRAM.md")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.S = _load("solve")
+        cls.tmp = tempfile.mkdtemp(prefix="b49_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, True)
+
+    # ---------------------------------------------------------------- Q-433 B1: the hedge band
+    def _cert(self, kind):
+        p = os.path.join(self.tmp, "cert_%s.json" % kind)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump({"type": "roae-w0d-node-mapping-certificate", "version": 1,
+                       "mapping": {"kind": kind, "nodes_per_t_unit": "1/1", "residual": 0,
+                                   "formula": "TEST: production nodes vs t-units, batch 49",
+                                   "law": "TEST: none"},
+                       "measured": {"n": [9], "per_n": [], "verdict_line": "TEST: no run"},
+                       "provenance": {"engine_git": "TEST:TestBatch49", "engine_source_sha": "T",
+                                      "host_fingerprint": "T", "produced": "T"},
+                       "semantics": "certificate-not-proof"}, fh)
+        return p
+
+    def _price(self, nodes, kind="lower-bound", budget=1000, hedge="2", hours=False, extra=None):
+        S, X = self.S, self.S._ExactAnchor
+        A = {"n": 9, "N_total": "24", "layers": [{"flow": "24"}],
+             "branch_atlas": [{"global_pair": 1, "entry": 2, "exit": 0, "solutions": "24",
+                               "walks": 24, "prefixes_t_units": str(nodes)}]}
+        c = {"nodes_per_sec": X("1"), "hedge": X(hedge), "work_factor": X("1"),
+             "node_mapping_cert": self._cert(kind), "note": "TestBatch49"}
+        if hours:
+            c["budget_hours"] = X(str(budget))
+        else:
+            c.update(usd_per_hour=X("1"), budget_usd=X(str(budget)))
+        c.update(extra or {})
+        out = tempfile.mkdtemp(dir=self.tmp)
+        _t, md, verdict, _g = S.atlas_emit_xa(A, out, cost=c, atlas_path="b49.json")
+        with open(md, encoding="utf-8") as fh:
+            text = fh.read()
+        rows = [l for l in text.splitlines() if l.startswith("| 0 | 1 | %d |" % nodes)]
+        self.assertEqual(len(rows), 1, "no priced branch row -- the case measured nothing")
+        return [x.strip() for x in rows[0].strip().strip("|").split("|")][7], verdict, text
+
+    @staticmethod
+    def _prefix_call(nodes, budget, hedge, kind):
+        """The pre-batch-49 arithmetic: ONE rate, nodes/sec / hedge (nodes/sec = 1, wf = 1)."""
+        from fractions import Fraction
+        ok = Fraction(nodes) * Fraction(hedge) / 3600 <= budget
+        if kind == "exact":
+            return "EXHAUSTIBLE" if ok else "INFEASIBLE"
+        return "INFEASIBLE" if not ok else "UNDECIDED:lower-bound"
+
+    def test_q433_inside_the_band_is_undecided_not_infeasible(self):
+        B = 1000
+        nodes = 3600 * B * 3 // 2          # 1.5x the ceiling at the measured rate
+        for kind, hours, want_row, want_tok in (
+                ("lower-bound", False, "UNDECIDED:lower-bound", "ONE-SIDED:lower-bound"),
+                ("lower-bound", True, "UNDECIDED:lower-bound", "ONE-SIDED:lower-bound"),
+                ("exact", False, "UNDECIDED:hedge", "UNDECIDED:hedge")):
+            with self.subTest(kind=kind, hours=hours):
+                self.assertEqual(self._prefix_call(nodes, B, 2, kind), "INFEASIBLE",
+                                 "precondition: the old single-rate arithmetic manufactures INFEASIBLE here")
+                row, tok, _md = self._price(nodes, kind, B, hours=hours)
+                self.assertEqual((row, tok), (want_row, want_tok))
+
+    def test_q433_past_the_fast_end_is_infeasible(self):
+        B = 1000
+        nodes = 2 * 3600 * B + 2 * 3600    # fast end = B + 1
+        for kind, tok in (("lower-bound", "ONE-SIDED:lower-bound"), ("exact", "PASS")):
+            with self.subTest(kind=kind):
+                self.assertEqual(self._price(nodes, kind, B)[:2], ("INFEASIBLE", tok))
+        # and exactly ON the ceiling at the fast end is not over it
+        self.assertEqual(self._price(2 * 3600 * B, "lower-bound", B)[0], "UNDECIDED:lower-bound")
+
+    def test_q433_exhaustible_needs_the_slow_end_to_fit(self):
+        B = 1000
+        fits_nominal = 3600 * B * 3 // 4    # 0.75x at the measured rate, 1.5x at the slow end
+        self.assertEqual(self._price(fits_nominal, "exact", B, hedge="1")[0], "EXHAUSTIBLE",
+                         "precondition: it fits at the measured rate")
+        self.assertEqual(self._price(fits_nominal, "exact", B)[0], "UNDECIDED:hedge")
+        self.assertEqual(self._price(3600 * B // 2, "exact", B)[0], "EXHAUSTIBLE")   # slow end = B
+
+    def test_q433_refusals(self):
+        with self.assertRaises(self.S.AtlasError) as cm:
+            self._price(10, hedge="0.5")
+        self.assertIn(">= 1", str(cm.exception))
+        with self.assertRaises(self.S.AtlasError) as cm:
+            self._price(10, hours=True, extra={"budget_usd": self.S._ExactAnchor("5")})
+        self.assertIn("not both", str(cm.exception))
+        self._price(10, hedge="1")       # positive control: hedge 1 is legal
+
+    def test_q433_hours_ceiling_prints_no_money(self):
+        _row, _tok, md = self._price(10, hours=True)
+        table = md.split("## Exhaustibility (XA-c/d)", 1)[1]
+        self.assertIn("wall-clock ceiling = 1000 h", table)
+        self.assertNotIn("$", table)
+        _row, _tok, md = self._price(10)
+        self.assertIn("$ exact, fast", md, "positive control: the $ form still prints $")
+
+    def test_q433_the_unsound_literal_is_gone_and_the_cli_carries_the_band(self):
+        with open("solve.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotIn("x_den = x_hedge * x_wf", src)        # the row's proof cell
+        self.assertIn("x_rate_fast = x_nps / x_wf * x_hedge", src)
+        self.assertIn('"--xa-budget-hours", type=_ExactAnchor', src)
+
+    def test_q433_gate_leg_is_red_on_two_mutants(self):
+        with open("solve.py", encoding="utf-8") as fh:
+            src = fh.read()
+        muts = {"single_rate": ("            x_rate_fast = x_nps / x_wf * x_hedge",
+                                "            x_rate_fast = x_nps / x_wf / x_hedge"),
+                "hedge_below_one": ("            if x_hedge < 1:", "            if False:")}
+        for name, (old, new) in [("none", (None, None))] + sorted(muts.items()):
+            with self.subTest(mutant=name):
+                d = os.path.join(self.tmp, "gate_" + name)
+                os.makedirs(os.path.join(d, "scripts"))
+                shutil.copy("scripts/xa_exact_verdict_gate.sh", os.path.join(d, "scripts"))
+                if old is not None:
+                    self.assertEqual(src.count(old), 1, "precondition: the mutation site exists once")
+                with open(os.path.join(d, "solve.py"), "w", encoding="utf-8") as fh:
+                    fh.write(src if old is None else src.replace(old, new))
+                r = subprocess.run(["bash", os.path.join(d, "scripts", "xa_exact_verdict_gate.sh")],
+                                   capture_output=True, text=True, timeout=300)
+                lines = r.stdout.splitlines()
+                if old is None:
+                    self.assertIn("XA_EXACT_VERDICT=OK", lines, r.stdout + r.stderr)
+                else:
+                    self.assertIn("XA_EXACT_VERDICT=FAIL", lines, r.stdout + r.stderr)
+                    self.assertTrue(any("[FAIL] hedge band" in l for l in lines), r.stdout)
+
+    # ---------------------------------------------------------------- Q-433 B2: the publication
+    def _tr12_command(self):
+        with open(self.TR12, encoding="utf-8") as fh:
+            t = fh.read()
+        cmds = re.findall(r"Command: `(python3 solve\.py --atlas-queries [^`]+)`", t)
+        self.assertEqual(len(cmds), 1, "TR-12 quotes the XA command exactly once")
+        return cmds[0]
+
+    def test_q433_tr12_quotes_the_published_anchors(self):
+        import shlex
+        argv = shlex.split(self._tr12_command())
+        want = ["python3", "solve.py", "--atlas-queries", self.ATLAS,
+                "--atlas-q3-trace", "reports/tr12/q3_trace_kw.txt", "--atlas-out", "DIR",
+                "--xa-node-mapping-cert", _TR12_XA_CERT, "--xa-nodes-per-sec", "1.5e9",
+                "--xa-budget-hours", "1e12", "--xa-anchor-note", _TR12_XA_NOTE]
+        self.assertEqual(argv, want)
+
+    def test_q433_the_committed_xa_outputs_are_what_the_tr12_command_writes(self):
+        import shlex
+        out = os.path.join(self.tmp, "pub")
+        argv = [out if a == "DIR" else a for a in shlex.split(self._tr12_command())]
+        argv[0], argv[1] = sys.executable, _py_src("solve")
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=600)
+        self.assertIn(r.returncode, (0, 1), r.stderr[-2000:])   # 1: TR12_A2/A3 FAIL by design
+        for f in ("xa_verdict.md", "xa_branches.tsv", "VERDICTS.txt"):
+            with self.subTest(file=f):
+                with open(os.path.join(out, f), "rb") as a, \
+                        open(os.path.join("reports", "tr12", f), "rb") as b:
+                    self.assertEqual(b.read(), a.read(), "reports/tr12/%s is not what TR-12's command writes" % f)
+
+    def test_q433_published_call_is_one_sided_infeasible_on_every_branch(self):
+        with open(os.path.join("reports", "tr12", "VERDICTS.txt"), encoding="utf-8") as fh:
+            v = fh.read().splitlines()
+        self.assertEqual([l for l in v if l.startswith("TR12_XA_CD=")], ["TR12_XA_CD=ONE-SIDED:lower-bound"])
+        with open(os.path.join("reports", "tr12", "xa_verdict.md"), encoding="utf-8") as fh:
+            md = fh.read()
+        table = md.split("## Exhaustibility (XA-c/d)", 1)[1]
+        rows = [[x.strip() for x in l.strip().strip("|").split("|")] for l in table.splitlines()
+                if re.match(r"^\| \d+ \| \d+ \| \d+ \|", l)]
+        self.assertEqual(len(rows), 56)
+        self.assertEqual({r[7] for r in rows}, {"INFEASIBLE"})
+        self.assertNotIn("$", table)
+        self.assertIn("- kind: `lower-bound`; F = nodes_per_t_unit = `1`", md)
+        self.assertIn("Call: the argmin branch is **INFEASIBLE** at the stated ceiling.", md)
+        with open(os.path.join("documentation", "DISCLOSURE_CHECKS.tsv"), encoding="utf-8") as fh:
+            reg = [l for l in fh.read().splitlines() if l and not l.startswith("#")]
+        self.assertFalse([l for l in reg if l.startswith(self.TR12 + "\t")], "the fired row is still live")
+
+    # ---------------------------------------------------------------- Q-564: the loader
+    def _not_run_atlas(self):
+        with open(self.ATLAS, encoding="utf-8") as fh:
+            A = json.load(fh)
+        g = A["gates"]
+        self.assertEqual(g["fails"], 0, "precondition")
+        self.assertTrue(all(v is True for k, v in g.items() if k != "fails"),
+                        "precondition: every other gate reads true")
+        g["t_root_eq_f_layer_sum"] = "not-run (requires --kc-tdir)"   # the producer's own string
+        p = os.path.join(self.tmp, "atlas_t_not_run.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(A, fh)
+        return p
+
+    def test_q564_t_not_run_is_refused_without_the_opt_in(self):
+        import contextlib, io
+        p = self._not_run_atlas()
+        with open(p, encoding="utf-8") as fh:
+            self.S._atlas_gate_vocab_check(json.load(fh)["gates"], p)   # precondition: in vocabulary
+        with self.assertRaises(self.S.AtlasError) as cm:
+            self.S.atlas_load(p)
+        self.assertIn("did NOT RUN", str(cm.exception))
+        self.assertIn("--atlas-allow-t-not-run", str(cm.exception))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            A = self.S.atlas_load(p, allow_t_not_run=True)
+        self.assertEqual(A["n"], 31)
+        self.assertIn("UNVERIFIED ACROSS CHUNKS", err.getvalue())
+        self.S.atlas_load(self.ATLAS)          # positive control: the published atlas still loads
+
+    def test_q564_cli(self):
+        p = self._not_run_atlas()
+        base = [sys.executable, _py_src("solve"), "--atlas-queries", p, "--atlas-select", "xa"]
+        r = subprocess.run(base + ["--atlas-out", os.path.join(self.tmp, "cli0")],
+                           capture_output=True, text=True, timeout=300)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("did NOT RUN", r.stderr)
+        r = subprocess.run(base + ["--atlas-out", os.path.join(self.tmp, "cli1"), "--atlas-allow-t-not-run"],
+                           capture_output=True, text=True, timeout=300)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("[atlas] WARNING:", r.stderr)
+
+    def test_q564_mutant_without_the_refusal_loads_it(self):
+        with open("solve.py", encoding="utf-8") as fh:
+            src = fh.read()
+        old = "    if not_run and not allow_t_not_run:\n"
+        self.assertEqual(src.count(old), 1, "precondition: the refusal arm exists once")
+        mp = os.path.join(self.tmp, "solve_mut564.py")
+        with open(mp, "w", encoding="utf-8") as fh:
+            fh.write(src.replace(old, "    if False:\n"))
+        spec = importlib.util.spec_from_file_location("solve_mut564", mp)
+        m = importlib.util.module_from_spec(spec)
+        argv, sys.argv = sys.argv, ["solve.py"]
+        try:
+            spec.loader.exec_module(m)
+        finally:
+            sys.argv = argv
+        import contextlib, io
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(m.atlas_load(self._not_run_atlas())["n"], 31,
+                             "the mutant should load what the fix refuses")
+
+    # ---------------------------------------------------------------- Q-686: HISTORY chronology
+    def test_q686_history_note_lists_exactly_the_inversions_above_it(self):
+        import datetime
+        with open(os.path.join("documentation", "HISTORY.md"), encoding="utf-8") as fh:
+            L = fh.read().split("\n")
+        self.assertEqual(L.count("Q-686=DONE"), 1)
+        note = L.index("Q-686=DONE")
+        mon = {m: i for i, m in enumerate(("January February March April May June July August "
+                                           "September October November December").split(), 1)}
+        heads = []
+        for i, l in enumerate(L[:note], 1):
+            if not l.startswith("## "):
+                continue
+            m = (re.match(r"## (\d{4})-(\d{2})-(\d{2})", l)
+                 or re.match(r"## [^(]*\((\d{4})-(\d{2})-(\d{2})[^)]*\)", l))
+            if m:
+                heads.append((i, datetime.date(*map(int, m.groups()))))
+                continue
+            m = re.match(r"## (?:[A-Za-z]+ )?\(?(%s) (\d{1,2})(?:[–-]\d{1,2})?,? (\d{4})" % "|".join(mon), l)
+            if m:
+                heads.append((i, datetime.date(int(m.group(3)), mon[m.group(1)], int(m.group(2)))))
+        self.assertGreater(len(heads), 150, "precondition: the heading parser sees the dated headings")
+        measured = [(b[0], str(b[1]), str(a[1]), a[0]) for a, b in zip(heads, heads[1:]) if b[1] < a[1]]
+        listed = [(int(m.group(1)), m.group(2), m.group(3), int(m.group(4))) for m in
+                  (re.match(r"^- line (\d+): a heading dated (\S+) follows one dated (\S+) \(line (\d+)\)$", l)
+                   for l in L[:note]) if m]
+        self.assertTrue(measured, "precondition: the file has inversions")
+        self.assertEqual(listed, measured)
+
+
+# end class TestBatch49 (batch 49, Q-433/Q-564/Q-686)
 
 
 if __name__ == "__main__":

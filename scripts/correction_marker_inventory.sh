@@ -512,7 +512,8 @@ REVIEWED = {
     ('documentation/QUERY_INVENTORY.md', 'ed40b0b9fb76'):
         ('2', 'reviewed:cell-above-still-describes-the-witness-row-as-unbuilt'),
     # re-keyed batch 35 (was daa1160a9ad7): only a line-number cite on the line moved; re-read, same verdict.
-    ('documentation/QUERY_INVENTORY.md', '3c456275085a'):
+    # re-keyed (was 3c456275085a): batch 49 appended a dated note that the verdict was published one-sided; re-read, same verdict.
+    ('documentation/QUERY_INVENTORY.md', 'e41df972346c'):
         ('1', 'reviewed:cell-already-states-the-lower-bound-direction'),
     ('documentation/QUERY_INVENTORY.md', 'dacbcd2e9d4c'):
         ('2', 'reviewed:cell-above-still-gives-the-unbuilt-sat-witness-and-cert-path'),
@@ -732,7 +733,8 @@ REVIEWED = {
     ('documentation/SOLVE_PY_CLI.md', 'adef18abb0c4'):
         ('1', 'reviewed:paragraph-above-already-omits-F5'),
     # re-keyed batch 35 (was d929e80c48aa): only a line-number cite on the line moved; re-read, same verdict.
-    ('documentation/SOLVE_PY_CLI.md', 'fc0c83cdf4eb'):
+    # re-keyed (was fc0c83cdf4eb): batch 49: only a line-number cite on the line moved; re-read, same verdict.
+    ('documentation/SOLVE_PY_CLI.md', '3890e9592351'):
         ('2', 'reviewed:only-statement-that-the-encoded-orientation-is-the-representatives-not-the-draw'),
     ('documentation/SOLVE_SUMMARY.md', '17330333a03e'):
         ('1', 'reviewed:bullet-already-withdraws-the-superlative-in-its-own-words'),
@@ -891,7 +893,9 @@ REVIEWED = {
         ('1', 'reviewed:text-already-says-the-atlas-is-distributed'),
     ('reports/TR12_QUERY_PROGRAM.md', '474bb47a658a'):
         ('1', 'reviewed:cell-already-says-bound-from-below'),
-    ('reports/TR12_QUERY_PROGRAM.md', '5208df717772'):
+    # re-keyed (was 5208df717772, then 70abc0daf2f9): batch 49 appended the dated publication note (v1.28), then its
+    # review rounded the break-even down (8.06e24, exact value given); re-read, same verdict.
+    ('reports/TR12_QUERY_PROGRAM.md', '7f2aabe6394d'):
         ('1', 'reviewed:text-already-says-t-price-is-a-floor'),
     ('reports/TR12_QUERY_PROGRAM.md', '5cd736162e40'):
         ('1', 'reviewed:text-already-splits-totals-and-per-query'),
@@ -899,7 +903,8 @@ REVIEWED = {
         ('1', 'reviewed:text-already-names-the-real-files'),
     ('reports/TR12_QUERY_PROGRAM.md', '655061a87291'):
         ('1', 'reviewed:text-already-says-the-file-is-distributed'),
-    ('reports/TR12_QUERY_PROGRAM.md', '684884e12ba2'):
+    # re-keyed (was 684884e12ba2): batch 49 added a dated parenthesis (published one-sided); re-read, same verdict.
+    ('reports/TR12_QUERY_PROGRAM.md', 'a5ce32451652'):
         ('1', 'reviewed:scope-already-states-the-one-sided-relation'),
     ('reports/TR12_QUERY_PROGRAM.md', '715e5a15829e'):
         ('1', 'reviewed:bullet-already-lists-what-f-alone-answers'),

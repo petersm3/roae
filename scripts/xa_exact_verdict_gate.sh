@@ -220,13 +220,89 @@ if _bad:
 print("  [ok]   node-mapping refusal fires without a cert AND lifts with one (both directions);")
 print("         the priced run echoes kind, F and the FIXTURE: provenance")
 
+# ---- LEG 2c: THE HEDGE IS A BAND, AND INFEASIBLE IS CALLED AT ITS FAST END (Q-433, batch 49) ----
+# Until batch 49 the hedge only DIVIDED the rate, so the default x2 doubled every cost: cautious
+# for EXHAUSTIBLE, and for INFEASIBLE -- the only call a lower-bound certificate can print -- it
+# MANUFACTURED shortfall. Fixture D sits where that mattered: at the measured rate its cost is 1.5x
+# the ceiling, at the slow end (rate / 2) 3x, at the fast end (rate x 2) 0.75x. So no end of the
+# band supports EXHAUSTIBLE and the fast end does not support INFEASIBLE: honest call UNDECIDED.
+# The old arithmetic read INFEASIBLE here, for both kinds. Fixture E is the positive control: one
+# t-unit further than 2x the ceiling at the fast end, so INFEASIBLE survives the band and the leg
+# cannot pass by refusing to call anything.
+_LB = os.path.join(os.path.dirname(_CERT), "node_mapping_cert_lb.json")
+with open(_CERT, encoding="utf-8") as _fh:
+    _lbdoc = json.load(_fh)
+_lbdoc["mapping"]["kind"] = "lower-bound"
+_lbdoc["mapping"]["formula"] = "FIXTURE: production nodes >= 1 x t-units, asserted ONLY to grade the hedge band"
+with open(_LB, "w", encoding="utf-8") as _fh:
+    json.dump(_lbdoc, _fh)
+
+
+def price_band(nodes, cert, budget, hours=False, hedge="2", extra=None):
+    A = {"n": 9, "N_total": "24", "type": "branch-atlas", "space": "xa-exact-gate-fixture",
+         "semantics": "synthetic fixture for the XA hedge-band leg",
+         "t_root_t_units": str(nodes + 1), "layers": [{"k": 0, "flow": "24"}],
+         "branch_atlas": [{"global_pair": 1, "entry": K[2], "exit": 0, "solutions": "24",
+                           "walks": 24, "prefixes_t_units": str(nodes)}]}
+    c = {"nodes_per_sec": solve._ExactAnchor("1"), "hedge": solve._ExactAnchor(hedge),
+         "work_factor": solve._ExactAnchor("1"), "node_mapping_cert": cert,
+         "note": "xa_exact_verdict_gate.sh hedge-band fixture"}
+    if hours:
+        c["budget_hours"] = solve._ExactAnchor(str(budget))
+    else:
+        c.update(usd_per_hour=solve._ExactAnchor("1"), budget_usd=solve._ExactAnchor(str(budget)))
+    c.update(extra or {})
+    with tempfile.TemporaryDirectory() as d:
+        _t, _m, v, _g = solve.atlas_emit_xa(A, d, cost=c, atlas_path="xa_hedge_band_leg.json")
+        md = open(os.path.join(d, "xa_verdict.md")).read()
+    row = [l for l in md.splitlines() if l.startswith("| 0 | 1 | %d |" % nodes)]
+    if not row:
+        print("  [ERROR] hedge-band leg: no priced branch row -- this leg measured NOTHING.")
+        print("XA_EXACT_VERDICT=ERROR"); sys.exit(2)
+    return [c.strip() for c in row[0].strip().strip("|").split("|")][7], v
+
+
+NODES_D = 3600 * 3 * BUDGET // 2            # 1.5x the ceiling at the measured rate
+NODES_E = 2 * 3600 * BUDGET + 2 * 3600      # fast end = ceiling + 1
+if not (Fraction(NODES_D, 3600) * 2 > BUDGET >= Fraction(NODES_D, 3600) / 2):   # slow > B >= fast
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture D is not inside the hedge band")
+if not (Fraction(NODES_E, 3600) / 2 > BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture E is not over the ceiling at the fast end")
+_band = []
+for label, cert, hours, nodes, want_row, want_tok in (
+        ("D lower-bound $", _LB, False, NODES_D, "UNDECIDED:lower-bound", "ONE-SIDED:lower-bound"),
+        ("D lower-bound hours", _LB, True, NODES_D, "UNDECIDED:lower-bound", "ONE-SIDED:lower-bound"),
+        ("D exact $", _CERT, False, NODES_D, "UNDECIDED:hedge", "UNDECIDED:hedge"),
+        ("E lower-bound $", _LB, False, NODES_E, "INFEASIBLE", "ONE-SIDED:lower-bound"),
+        ("E lower-bound hours", _LB, True, NODES_E, "INFEASIBLE", "ONE-SIDED:lower-bound"),
+        ("E exact $", _CERT, False, NODES_E, "INFEASIBLE", "PASS")):
+    got_row, got_tok = price_band(nodes, cert, BUDGET, hours=hours)
+    if (got_row, got_tok) != (want_row, want_tok):
+        _band.append("fixture %s: row %s / token %s, want %s / %s"
+                     % (label, got_row, got_tok, want_row, want_tok))
+for label, kw, needle in (("hedge below 1", dict(hedge="0.5"), ">= 1"),
+                          ("two ceilings", dict(hours=True, extra={
+                              "usd_per_hour": solve._ExactAnchor("1")}), "not both")):
+    try:
+        price_band(NODES_D, _LB, BUDGET, **kw)
+        _band.append("%s was priced instead of refused" % label)
+    except solve.AtlasError as exc:
+        if needle not in str(exc):
+            _band.append("%s refused for the wrong reason: %s" % (label, exc))
+if _band:
+    for b in _band: print("  [FAIL] hedge band: %s" % b)
+    rc = 1
+else:
+    print("  [ok]   hedge band: inside the band reads UNDECIDED (both kinds, $ and hours), past its")
+    print("         fast end INFEASIBLE; a hedge below 1 and two ceilings are refused")
+
 # ---- LEG 3: the CLI must hand the anchors over as typed decimals ---------
 # The three value fixtures build `cost` directly, so a regression of the argparse
 # `type=` back to plain float is invisible to them (it survived them as a mutant).
 # This leg reads the REAL parser definition out of solve.py's AST.
 import ast
 _ANCHORS = {"--xa-nodes-per-sec", "--xa-usd-per-hour", "--xa-budget-usd",
-            "--xa-hedge", "--xa-work-factor"}
+            "--xa-hedge", "--xa-work-factor", "--xa-budget-hours"}
 seen = {}
 for node in ast.walk(ast.parse(open("solve.py").read())):
     if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
@@ -247,7 +323,8 @@ if wrong:
         print("         typed decimal is destroyed before the exact pricing ever sees it.")
     rc = 1
 else:
-    print("  [ok]   all 5 --xa-* anchors are parsed as _ExactAnchor (typed decimal preserved)")
+    print("  [ok]   all %d --xa-* anchors are parsed as _ExactAnchor (typed decimal preserved)"
+          % len(_ANCHORS))
 if solve._xa_exact(solve._ExactAnchor("0.1")) != Fraction(1, 10):
     print("  [FAIL] _ExactAnchor('0.1') does not price as 1/10.")
     rc = 1

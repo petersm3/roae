@@ -114,7 +114,7 @@ With this certificate and no throughput anchors, `TR12_XA_CD` moves from
 `PENDING:W0-D-node-mapping` to `PENDING:xa-throughput-anchors`. The nodes/sec anchor still has no
 public basis (TR-12 §3), and the repro battery's `c_xa_cd` row still skips for that reason. When an
 operator supplies anchors, the token is `TR12_XA_CD=ONE-SIDED:lower-bound`. Rows can then read
-INFEASIBLE or `UNDECIDED:lower-bound`, and never EXHAUSTIBLE.
+INFEASIBLE or `UNDECIDED:lower-bound`, and never EXHAUSTIBLE. ⚠ *(2026-10-11: the anchors are now supplied and the call is published — every branch reads INFEASIBLE, `TR12_XA_CD=ONE-SIDED:lower-bound`; TR-12 §3 v1.28, `reports/tr12/xa_verdict.md`.)*
 
 ## What it does not prove
 
@@ -131,6 +131,6 @@ INFEASIBLE or `UNDECIDED:lower-bound`, and never EXHAUSTIBLE.
   as with every other structural claim in this repository.
 
 Whether a **one-sided** call can be published in TR-12 is an operator decision. This directory
-does not make that decision.
+does not make that decision. *(The operator ruled on 2026-09-30 that it may, in node-count or time units with no money figure; TR-12 §3 v1.28 publishes it.)*
 
 `provenance.engine_source_sha` and `producer_source_sha` name the `solve.c` and `solve.py` shipped with this certificate (regenerated on the committed tree at assembly; the batch 7–10 pre-publication review checked that every non-provenance field reproduces).

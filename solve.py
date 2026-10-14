@@ -12516,8 +12516,11 @@ def _atlas_ratio_text_ok(text, num, den):
     return (got, e) == (q, e0)
 
 
-def atlas_load(path):
-    """Load an atlas JSON, refusing float literals anywhere in the file."""
+def atlas_load(path, allow_t_not_run=False):
+    """Load an atlas JSON, refusing float literals anywhere in the file.
+
+    An atlas whose t-identity gate did not run (no --kc-tdir at scan time) is refused unless
+    `allow_t_not_run` is set (Q-564; the CLI opt-in is --atlas-allow-t-not-run)."""
     import decimal
     import json as _json
     # A missing, unreadable or non-JSON atlas is the READER's error, not a crash. Refused
@@ -12578,6 +12581,25 @@ def atlas_load(path):
             "publish anything from a table its emitter rejected -- re-run the scan or merge "
             "and fix the input, do not query this file."
             % (path, fails, (": " + ", ".join(failed)) if failed else ""))
+    # 🔴 Q-564 (batch 49; operator D11, 2026-09-30, delegated to orchestrator plus Fable): A GATE
+    # THAT DID NOT RUN NO LONGER LOADS AS THOUGH IT HAD PASSED. "not-run (requires --kc-tdir)" is
+    # the producer's honest statement that the one value-level check tying every merged chunk to an
+    # independent total -- t(root) == sum_k fmass[k] -- was never made; VERIFY.md tells a reader to
+    # treat such an atlas as UNVERIFIED ACROSS CHUNKS. Q-560 refused the two failure strings and
+    # left this one loading beside "fails": 0, pending exactly this ruling. Refused now unless the
+    # caller opts in by name, and an opt-in is announced, never silent. Every production path
+    # already passes --kc-tdir, so the opt-in exists for diagnostic n=9 work on a t-less scan.
+    not_run = sorted(k for k, v in gates.items() if v == "not-run (requires --kc-tdir)")
+    if not_run and not allow_t_not_run:
+        raise AtlasError(
+            "%s: gate(s) %s did NOT RUN (\"not-run (requires --kc-tdir)\"): the scan had no t "
+            "ladder, so nothing ties the merged chunks to an independent total and the atlas is "
+            "UNVERIFIED ACROSS CHUNKS. Re-run the scan with --kc-tdir, or pass "
+            "--atlas-allow-t-not-run to query it knowingly." % (path, ", ".join(not_run)))
+    if not_run:
+        print("[atlas] WARNING: %s: gate(s) %s did not run; loaded ONLY because "
+              "--atlas-allow-t-not-run was given. Every verdict below is UNVERIFIED ACROSS CHUNKS."
+              % (path, ", ".join(not_run)), file=sys.stderr)
     # 🔴 THE CLASS REGISTRY WAS NEVER CHECKED AGAINST THE DATA (Codex KCQ04 #2, executed
     # 2026-09-02, still holding at the 2026-09-08 mutant battery).  The producer emits one
     # by_class key per boundary-distance class (solve.c kc_h_scan_write_layer_row, `dv[5]`);
@@ -13822,15 +13844,6 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                  "at n=9 by `solve --kc-t-cert` (TR-12 XA(iii) / `xa_node_convention.json`,\n"
                  "written into this same artifact root by that command).\n"
                  "This consumer does NOT re-derive it and does not claim it.\n\n")
-        if t_have:
-            lo = min(rows, key=lambda r: int(r[7]))
-            hi = max(rows, key=lambda r: int(r[7]))
-            fh.write("## Branch extremes (t-units; NOT production-DFS nodes -- the map is uncertified)\n\n")
-            fh.write("- cheapest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
-                     "%s solutions\n" % (lo[0], lo[1], lo[2], lo[3], lo[7], lo[5]))
-            fh.write("- costliest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
-                     "%s solutions\n\n" % (hi[0], hi[1], hi[2], hi[3], hi[7], hi[5]))
-        fh.write("## Exhaustibility (XA-c/d)\n\n")
         # Q-772: the certificate is LOADED, and what it says is what prices the rows below. A
         # refusal (None, why) keeps the historical PENDING path; there is no uncertified mode.
         xa_map, xa_refusal = ((None, "no certificate was supplied") if cost is None
@@ -13844,6 +13857,24 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             xa_map, xa_refusal = None, ("the certificate %r is scoped to n=%r (`scope.n`) and this "
                                         "atlas is n=%r; its bound is not a statement about this "
                                         "space" % (xa_map["path"], xa_map["scope_n"], n))
+        if t_have:
+            lo = min(rows, key=lambda r: int(r[7]))
+            hi = max(rows, key=lambda r: int(r[7]))
+            # Q-433 (batch 49): the heading said "the map is uncertified" even when a certificate
+            # had just been accepted; with one, it names the relation the certificate proves. The
+            # no-certificate wording is unchanged byte for byte.
+            if xa_map is None:
+                fh.write("## Branch extremes (t-units; NOT production-DFS nodes -- the map is uncertified)\n\n")
+            else:
+                fh.write("## Branch extremes (t-units; production-DFS nodes %s t-units x F by the "
+                         "%s W0-D certificate below)\n\n"
+                         % ({"exact": "=", "upper-bound": "<=", "lower-bound": ">="}[xa_map["kind"]],
+                            xa_map["kind"]))
+            fh.write("- cheapest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
+                     "%s solutions\n" % (lo[0], lo[1], lo[2], lo[3], lo[7], lo[5]))
+            fh.write("- costliest branch: index %d (pair %d, entry %d, exit %d) -- %s t-units, "
+                     "%s solutions\n\n" % (hi[0], hi[1], hi[2], hi[3], hi[7], hi[5]))
+        fh.write("## Exhaustibility (XA-c/d)\n\n")
         if not t_have:
             fh.write("**PENDING** -- no t-ladder in this atlas, so there is no node cost to price.\n")
             verdict = "PENDING:--kc-t-build"
@@ -13875,11 +13906,13 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             if cost is not None and cost.get("node_mapping_cert") is not None:
                 fh.write("\nThe certificate supplied was REFUSED: %s.\n" % xa_refusal)
             verdict = "PENDING:W0-D-node-mapping"
-        elif cost.get("nodes_per_sec") is None or cost.get("usd_per_hour") is None \
-                or cost.get("budget_usd") is None:
+        elif cost.get("nodes_per_sec") is None or (
+                cost.get("budget_hours") is None
+                and (cost.get("usd_per_hour") is None or cost.get("budget_usd") is None)):
             fh.write("**PENDING** -- the exhaustion wall/$ call needs three operator-supplied\n"
                      "anchors that this consumer will not invent: `--xa-nodes-per-sec`\n"
                      "(from the R-1 pilot artifacts), `--xa-usd-per-hour`, and `--xa-budget-usd`.\n"
+                     "A wall-clock ceiling, `--xa-budget-hours`, may replace the two $ anchors.\n"
                      "The t-unit column above is exact and stands on its own.\n")
             verdict = "PENDING:xa-throughput-anchors"
         else:
@@ -13887,12 +13920,19 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             # EXACT anchors: every quantity below is a rational, so the verdict
             # is decided without a single binary64 rounding.  The %g/%.4g
             # numerals in the table are DISPLAY ONLY (see the note we emit).
+            # Q-433 (batch 49): the ceiling is EITHER a wall-clock budget in hours (time units, no
+            # money: operator D2(a), 2026-09-30) OR the $ pair. Both at once would be two ceilings
+            # for one call, so that is refused rather than resolved silently.
+            in_hours = cost.get("budget_hours") is not None
+            if in_hours and (cost.get("usd_per_hour") is not None
+                             or cost.get("budget_usd") is not None):
+                raise AtlasError("XA: give EITHER a wall-clock ceiling (--xa-budget-hours) OR the "
+                                 "$ pair (--xa-usd-per-hour, --xa-budget-usd), not both")
             x_nps = _xa_exact(cost["nodes_per_sec"])
-            x_uph = _xa_exact(cost["usd_per_hour"])
-            x_bud = _xa_exact(cost["budget_usd"])
+            x_uph = Fraction(1) if in_hours else _xa_exact(cost["usd_per_hour"])
+            x_bud = _xa_exact(cost["budget_hours"] if in_hours else cost["budget_usd"])
             x_hedge = _xa_exact(cost["hedge"])
             x_wf = _xa_exact(cost["work_factor"])
-            x_den = x_hedge * x_wf
             # Q-841 S4: a SIGN check, not only a zero check. --xa-nodes-per-sec -1000 made every
             # cost negative, so every row read EXHAUSTIBLE; --xa-budget-usd -1 made every row
             # INFEASIBLE. Rate, hedge and work factor must be > 0; $/hour and budget >= 0.
@@ -13902,24 +13942,60 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                                                            cost["hedge"], cost["work_factor"]))
             if x_uph < 0 or x_bud < 0:
                 raise AtlasError("XA: $/hour and budget must both be >= 0 (got $/hour = %s, "
-                                 "budget = %s)" % (cost["usd_per_hour"], cost["budget_usd"]))
-            x_rate = x_nps / x_den                     # exact effective nodes/sec
-            rate = float(x_rate)                       # display only
-            fh.write("Anchors (operator-supplied, echoed for the certificate): "
-                     "nodes/sec = %g, hedge = x%g, work factor = x%g, $/hour = %g, "
-                     "budget = $%g. Effective rate = %g nodes/sec. Note: %s\n\n"
-                     % (cost["nodes_per_sec"], cost["hedge"], cost["work_factor"],
-                        cost["usd_per_hour"], cost["budget_usd"], rate,
-                        cost.get("note", "(no anchor note supplied)")))
-            fh.write("Branches ascending by node cost; `cost/budget` is the exact shortfall\n"
-                     "factor when the row reads INFEASIBLE.  The verdict column and the\n"
-                     "shortfall are computed in EXACT rational arithmetic from the exact\n"
-                     "192-bit t-unit counts and the operator's typed decimal anchors; the\n"
-                     "`wall (h)`, `$` and `cost/budget` NUMERALS are 4-significant-digit\n"
-                     "decimal renderings of those exact values, for reading only.  Do not\n"
-                     "re-derive a verdict from the printed numerals -- at the boundary a\n"
-                     "binary64 round trip is enough to reverse the call.  The `$ exact`\n"
-                     "column is the exact rational cost itself.\n\n")
+                                 "budget = %s)" % (cost.get("usd_per_hour"),
+                                                   cost.get("budget_hours") if in_hours
+                                                   else cost.get("budget_usd")))
+            # 🔴 Q-433 (batch 49; Fable E9 item 5, 2026-09-19). THE HEDGE IS A BAND, AND EACH CALL
+            # IS MADE AT THE END OF THE BAND THAT CAN ONLY HURT IT. Until this change the hedge sat
+            # in the denominator alone -- rate = nodes/sec / (hedge x work factor) -- so the default
+            # x2 HALVED the rate and DOUBLED every cost. That is the cautious direction for an
+            # EXHAUSTIBLE call and the unsound one for an INFEASIBLE call, which it could
+            # manufacture: a row whose cost at the measured rate fits the ceiling read INFEASIBLE
+            # once the hedge doubled it. A lower-bound certificate -- the only producer this tree
+            # has -- can ONLY print INFEASIBLE, so on the one publishable path every hedged call
+            # leaned the wrong way. Now: the true rate is taken to lie anywhere in
+            # [nodes/sec / hedge, nodes/sec x hedge] (both divided by the work factor, which is a
+            # conversion, not an uncertainty). EXHAUSTIBLE needs the cost at the SLOW end to fit;
+            # INFEASIBLE needs the cost at the FAST end to exceed; a row between them is
+            # UNDECIDED:hedge. A hedge below 1 would swap the ends, so it is refused.
+            if x_hedge < 1:
+                raise AtlasError("XA: the hedge is an uncertainty factor and must be >= 1 (got %s); "
+                                 "below 1 it would swap the fast and slow ends of the rate band"
+                                 % cost["hedge"])
+            x_rate_slow = x_nps / x_wf / x_hedge       # exact: the pessimistic effective rate
+            x_rate_fast = x_nps / x_wf * x_hedge       # exact: the optimistic effective rate
+            if in_hours:
+                fh.write("Anchors (operator-supplied, echoed for the certificate): "
+                         "nodes/sec = %g, hedge = x%g, work factor = x%g, wall-clock ceiling = "
+                         "%g h. Effective rate band = %g .. %g nodes/sec (slow end = nodes/sec / "
+                         "(work factor x hedge), fast end = nodes/sec x hedge / work factor). "
+                         "Note: %s\n\n"
+                         % (cost["nodes_per_sec"], cost["hedge"], cost["work_factor"],
+                            cost["budget_hours"], float(x_rate_slow), float(x_rate_fast),
+                            cost.get("note", "(no anchor note supplied)")))
+            else:
+                fh.write("Anchors (operator-supplied, echoed for the certificate): "
+                         "nodes/sec = %g, hedge = x%g, work factor = x%g, $/hour = %g, "
+                         "budget = $%g. Effective rate band = %g .. %g nodes/sec (slow end = "
+                         "nodes/sec / (work factor x hedge), fast end = nodes/sec x hedge / work "
+                         "factor). Note: %s\n\n"
+                         % (cost["nodes_per_sec"], cost["hedge"], cost["work_factor"],
+                            cost["usd_per_hour"], cost["budget_usd"], float(x_rate_slow),
+                            float(x_rate_fast), cost.get("note", "(no anchor note supplied)")))
+            fh.write("Branches ascending by node cost. The hedge is a band on the rate: a row reads\n"
+                     "EXHAUSTIBLE only if its cost at the SLOW end of the band fits the ceiling,\n"
+                     "INFEASIBLE only if its cost at the FAST end exceeds it, and UNDECIDED:hedge\n"
+                     "between the two.  `%s` is the shortfall factor at each\n"
+                     "end; on an INFEASIBLE row its fast-end value is the least the shortfall can\n"
+                     "be.  The verdict column and the shortfall are computed in EXACT rational\n"
+                     "arithmetic from the exact 192-bit t-unit counts and the operator's typed\n"
+                     "decimal anchors; the `wall (h)` and `%s` NUMERALS\n"
+                     "are 4-significant-digit decimal renderings of those exact values, for\n"
+                     "reading only.  Do not re-derive a verdict from the printed numerals -- at\n"
+                     "the boundary a binary64 round trip is enough to reverse the call.  The\n"
+                     "`%s exact` columns are the exact rational costs themselves.\n\n"
+                     % (("wall/ceiling", "wall/ceiling", "wall (h)") if in_hours
+                        else ("cost/budget", "cost/budget", "$")))
             # Q-772: the ECHO BLOCK. The factor and the direction of its bound sit beside every
             # priced number, so a copied number carries its qualifier (the ruling, section 2).
             F = xa_map["factor"]
@@ -13949,33 +14025,57 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
             elif kind == "lower-bound":
                 fh.write("The certificate BOUNDS production nodes from BELOW, so an in-budget "
                          "row is UNDECIDED:lower-bound, never EXHAUSTIBLE.\n\n")
-            fh.write("| branch | pair | t-units | nodes (%s t-units x F) | wall (h) | $ | $ exact "
-                     "| verdict | cost/budget |\n" % rel)
+            if in_hours:
+                fh.write("| branch | pair | t-units | nodes (%s t-units x F) | wall (h), fast..slow "
+                         "| wall (h) exact, fast | wall (h) exact, slow | verdict "
+                         "| wall/ceiling, fast..slow |\n" % rel)
+            else:
+                fh.write("| branch | pair | t-units | nodes (%s t-units x F) | wall (h), fast..slow "
+                         "| $ exact, fast | $ exact, slow | verdict | cost/budget, fast..slow |\n"
+                         % rel)
             fh.write("|---|---|---|---|---|---|---|---|---|\n")
             cheapest = None
+            least_fast = None
             for r in sorted(rows, key=lambda r: int(r[7])):
                 x_nodes = Fraction(int(r[7])) * xa_map["factor"]   # exact: 192-bit t x rational F
-                x_hours = x_nodes / x_rate / 3600
-                x_usd = x_hours * x_uph
-                ok = x_usd <= x_bud                    # EXACT comparison
-                x_short = x_usd / x_bud if x_bud else None
+                x_h_fast = x_nodes / x_rate_fast / 3600
+                x_h_slow = x_nodes / x_rate_slow / 3600
+                x_c_fast = x_h_fast * x_uph            # == hours in time units (x_uph = 1)
+                x_c_slow = x_h_slow * x_uph
+                fits = x_c_slow <= x_bud               # EXACT: fits even at the slow end
+                over = x_c_fast > x_bud                # EXACT: exceeds even at the fast end
                 # The call a bound can support. An upper bound on the cost can prove it fits and
-                # never that it does not; a lower bound the mirror image.
+                # never that it does not; a lower bound the mirror image. Within either, the
+                # hedge band can leave a row undecided.
                 if kind == "exact":
-                    rv = "EXHAUSTIBLE" if ok else "INFEASIBLE"
+                    rv = "EXHAUSTIBLE" if fits else "INFEASIBLE" if over else "UNDECIDED:hedge"
                 elif kind == "upper-bound":
-                    rv = "EXHAUSTIBLE" if ok else "UNDECIDED:upper-bound"
+                    rv = "EXHAUSTIBLE" if fits else "UNDECIDED:upper-bound"
                 else:
-                    rv = "INFEASIBLE" if not ok else "UNDECIDED:lower-bound"
+                    rv = "INFEASIBLE" if over else "UNDECIDED:lower-bound"
                 if cheapest is None:
                     cheapest = rv
-                fh.write("| %d | %d | %s | %s | %.4g | %.4g | %s | %s | %s |\n" %
-                         (r[0], r[1], r[7], x_nodes, float(x_hours), float(x_usd), x_usd, rv,
-                          ("%.4g" % float(x_short)) if x_short is not None else "inf"))
+                if least_fast is None or x_c_fast < least_fast:
+                    least_fast = x_c_fast
+                sh = ("%.4g..%.4g" % (float(x_c_fast / x_bud), float(x_c_slow / x_bud))
+                      if x_bud else "inf")
+                fh.write("| %d | %d | %s | %s | %.4g..%.4g | %s | %s | %s | %s |\n" %
+                         (r[0], r[1], r[7], x_nodes, float(x_h_fast), float(x_h_slow),
+                          x_c_fast, x_c_slow, rv, sh))
             fh.write("\nCall: the argmin branch is **%s** at the stated ceiling.\n" % cheapest)
+            if kind != "upper-bound" and least_fast is not None:
+                # The ceiling is the operator's choice; this line is what holds for ANY ceiling, so
+                # a reader can substitute their own without re-running anything.
+                fh.write("\nBreak-even ceiling: the least fast-end cost of any row is `%s` %s "
+                         "(about %.4g). Every row reads INFEASIBLE at any ceiling below it.\n"
+                         % (least_fast, "hours" if in_hours else "$", float(least_fast)))
             # PASS means "the exhaustibility question was answered" to every consumer of
-            # TR12_XA_CD, so a bound -- which answers it only one way -- never reads PASS.
-            verdict = "PASS" if kind == "exact" else "ONE-SIDED:%s" % kind
+            # TR12_XA_CD, so a bound -- which answers it only one way -- never reads PASS, and
+            # neither does an exact map whose argmin call the hedge band leaves open.
+            if kind != "exact":
+                verdict = "ONE-SIDED:%s" % kind
+            else:
+                verdict = "UNDECIDED:hedge" if cheapest == "UNDECIDED:hedge" else "PASS"
     return tsv, md, verdict, gates
 
 
@@ -14877,9 +14977,9 @@ _ATLAS_SELECTORS = ("q3", "q6", "v1", "v2", "v5", "xa", "q10a", "a2", "a3", "a5"
 
 
 def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=None,
-                  cost=None, quiet=False):
+                  cost=None, quiet=False, allow_t_not_run=False):
     """Read a --kc-scan atlas; write the TR-12 evidence TSVs; emit verdicts."""
-    A = atlas_load(atlas_path)
+    A = atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)
     N = _atlas_int(A["N_total"], "N_total")
     n = A["n"]
     sel = set(select) if select else set(_ATLAS_SELECTORS)
@@ -16361,7 +16461,7 @@ def atlas_probe(atlas_path):
     return 0 if fails[0] == 0 else 1
 
 
-def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
+def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None, allow_t_not_run=False):
     """n=9 brute-force gate over the whole consumer.  Emits ATLAS_CONSUMER=."""
     import shutil
     import tempfile
@@ -16374,7 +16474,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None):
                                                ("  " + detail) if detail and not ok else ""))
 
     try:
-        A = atlas_load(atlas_path)
+        A = atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)
     except AtlasError as e:
         # A refusal at load IS the gate's verdict, not a crash: the consumer will not run a
         # single query on an atlas whose producer rejected it or whose class registry does
@@ -18642,6 +18742,10 @@ def main():
     parser.add_argument("--atlas-walks", metavar="FILE", default=None,
                         help="--atlas-selftest: explicit enumeration `solve --kc-enum FDIR` "
                              "(one walk per line) for the brute-force recount")
+    parser.add_argument("--atlas-allow-t-not-run", action="store_true",
+                        help="--atlas-queries/--atlas-selftest: load an atlas whose t-identity gate "
+                             "did not run (scanned without --kc-tdir), which is otherwise refused; "
+                             "a warning names it, and its verdicts are UNVERIFIED ACROSS CHUNKS")
     parser.add_argument("--atlas-keep", metavar="DIR", default=None,
                         help="--atlas-selftest: keep the emitted tables in DIR instead of a tempdir")
     parser.add_argument("--atlas-fault", metavar="NAME", default=None,
@@ -18657,6 +18761,10 @@ def main():
                         help="XA-c/d: worker price anchor")
     parser.add_argument("--xa-budget-usd", type=_ExactAnchor, default=None,
                         help="XA-c/d: the $ ceiling the EXHAUSTIBLE/INFEASIBLE call is made against")
+    parser.add_argument("--xa-budget-hours", type=_ExactAnchor, default=None,
+                        help="XA-c/d: a wall-clock ceiling in hours at the --xa-nodes-per-sec rate, "
+                             "in place of --xa-usd-per-hour/--xa-budget-usd (time units, no money); "
+                             "giving both kinds of ceiling is refused")
     parser.add_argument("--xa-node-mapping-cert", default=None,
                         help="XA-c/d: path to a W0-D t-unit -> SOLVE_NODE_LIMIT mapping certificate "
                              "(the Q-768 schema). WITHOUT A USABLE ONE THE PRICING PATH REFUSES. A "
@@ -18674,7 +18782,10 @@ def main():
                              "be the n=31 atlas (fmass/branch-set cross-check). Emits "
                              "XA_W0D_LB_CERT=PASS|FAIL|ERROR:<reason>; exits 0/1/2")
     parser.add_argument("--xa-hedge", type=_ExactAnchor, default=_ExactAnchor("2.0"),
-                        help="XA-c/d: throughput hedge factor for scale (TR-12 section 3: x2)")
+                        help="XA-c/d: throughput hedge factor for scale (TR-12 section 3: x2), a "
+                             "band: the rate is taken to lie in [nodes/sec / hedge, nodes/sec x "
+                             "hedge]; EXHAUSTIBLE is called at the slow end, INFEASIBLE at the fast "
+                             "end, UNDECIDED:hedge between; must be >= 1")
     parser.add_argument("--xa-work-factor", type=_ExactAnchor, default=_ExactAnchor("1.0"),
                         help="XA-c/d: engine work factor to divide the rate by (default 1.0 = none; "
                              "the R-1 36.14x is an inter-engine factor, supply it deliberately)")
@@ -18708,7 +18819,8 @@ def main():
         sys.exit(atlas_selftest(args.atlas_selftest,
                                 walks_path=args.atlas_walks,
                                 q3_trace=args.atlas_q3_trace,
-                                keep=args.atlas_keep))
+                                keep=args.atlas_keep,
+                                allow_t_not_run=args.atlas_allow_t_not_run))
 
     if args.atlas_queries:
         out = args.atlas_out or (os.path.dirname(os.path.abspath(args.atlas_queries)) or ".")
@@ -18725,6 +18837,7 @@ def main():
         cost = {"nodes_per_sec": args.xa_nodes_per_sec,
                 "usd_per_hour": args.xa_usd_per_hour,
                 "budget_usd": args.xa_budget_usd,
+                "budget_hours": args.xa_budget_hours,
                 "hedge": args.xa_hedge,
                 "work_factor": args.xa_work_factor,
                 "note": args.xa_anchor_note or "(no anchor note supplied)",
@@ -18732,7 +18845,8 @@ def main():
         try:
             res = atlas_queries(args.atlas_queries, out, select=sel,
                                 q3_trace=args.atlas_q3_trace,
-                                verdicts_path=args.atlas_verdicts, cost=cost)
+                                verdicts_path=args.atlas_verdicts, cost=cost,
+                                allow_t_not_run=args.atlas_allow_t_not_run)
         except AtlasError as e:
             print("ERROR: [atlas] %s" % e, file=sys.stderr)
             sys.exit(2)

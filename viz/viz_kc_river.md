@@ -44,7 +44,7 @@ The full reading guide is [How to read it](#how-to-read-it) below.
   and 0 of the 1,540 branch pairs has the smaller mass with the larger cost: no branch is
   small-but-expensive at n=31.
 - **Does not establish.** The Exhaustion Atlas's EXHAUSTIBLE/INFEASIBLE verdict, which is withheld
-  (TR-12 §3); t-units price no production-search node. This is the **reduced form**
+  (TR-12 §3); *(published one-sided on 2026-10-11, TR-12 §3, and not drawn from this figure)* t-units price no production-search node. This is the **reduced form**
   (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is split by distance class, not by
   top-level branch class as §2 first specified, and the joint split by first branch and distance
   class is carried neither by the atlas nor by the ladders. See

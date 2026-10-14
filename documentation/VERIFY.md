@@ -1206,7 +1206,7 @@ interrupted:
    that gate never runs, `gate_fails` is never incremented, and the atlas reports `"fails": 0` with
    every other gate `true`. Since 2026-08-25 the atlas discloses this as
    `gates.t_root_eq_f_layer_sum: "not-run (requires --kc-tdir)"` — **treat any atlas carrying that
-   string as UNVERIFIED ACROSS CHUNKS**, however clean the rest of it looks.
+   string as UNVERIFIED ACROSS CHUNKS**, however clean the rest of it looks. 🔴 **Since 2026-10-11 (Q-564) the loader refuses it** unless the reader passes `--atlas-allow-t-not-run`, and then it says so on stderr.
    **Gate on the tokens, not on the prose.** Both paths emit `KEY=value` lines; match them with
    `grep -qx`, never by scraping the `VERDICT:` sentence, which reads `PASS` whenever nothing
    *failed* — including when the t-identity never *ran*:
@@ -1267,7 +1267,7 @@ interrupted:
    `--kc-layers / --kc-scan-merge`.
    A merged atlas that reports `"not-run (requires --kc-tdir)"` **is not a failed run — it is an
    unchecked one**, which is worse, because nothing in its verdict line says so: the merge still
-   prints `VERDICT: PASS (0 gate failures)`.
+   prints `VERDICT: PASS (0 gate failures)`. `solve.py --atlas-queries` and `--atlas-selftest` therefore refuse it at load (Q-564, 2026-10-11) unless `--atlas-allow-t-not-run` is given.
 5. **Atlas-derived tables (milliseconds):** everything downstream reads the emitted JSON.
 
 **Hardware and cost, honestly labelled.** Sizing guidance from the project's own instrumented

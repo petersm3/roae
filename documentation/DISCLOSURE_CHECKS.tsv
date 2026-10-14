@@ -37,5 +37,11 @@
 #    certificate exists. The published verdict record reports/tr12/VERDICTS.txt says which: the
 #    artifact exists when TR12_XA_CD reads PASS or ONE-SIDED:<kind> rather than PENDING/SKIP. A
 #    missing file, or anything but exactly one TR12_XA_CD line, is rc 2.
+#    🔴 THAT ROW FIRED ON 2026-10-11 AND WAS REMOVED (Q-433, CX-349). TR-12 v1.28 published the XA-c/d
+#    call one-sided, so reports/tr12/VERDICTS.txt reads TR12_XA_CD=ONE-SIDED:lower-bound and the probe
+#    answered 0 -- the disclosure had become false, exactly as the row was written to detect. The TR-12
+#    sentence (its v1.0 revision row) now carries a dated note saying the query has a command. The
+#    probe text is kept here, so the removal can be checked: test "$(grep -c '^TR12_XA_CD='
+#    reports/tr12/VERDICTS.txt 2>/dev/null)" = 1 || exit 2; grep -qxE 'TR12_XA_CD=(PASS|ONE-SIDED:.+)'
+#    reports/tr12/VERDICTS.txt
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	no public artifact	git grep -qE '7,?477,?248,?378,?538,?061,?907,?099,?648|83,?855,?263,?774,?549,?546,?015,?506,?432|61,?666,?352,?085,?618,?532,?666,?071,?318,?528|2,?155,?118,?806,?480,?613,?893,?163,?229,?118,?464' -- . ':!*.md' ':!*.py' ':!*.c' ':!*.h' ':!*.sh'
-reports/TR12_QUERY_PROGRAM.md	no public reproduction command	test "$(grep -c '^TR12_XA_CD=' reports/tr12/VERDICTS.txt 2>/dev/null)" = 1 || exit 2; grep -qxE 'TR12_XA_CD=(PASS|ONE-SIDED:.+)' reports/tr12/VERDICTS.txt

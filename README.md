@@ -380,7 +380,7 @@ class; only the shape across k carries information; it is nearly flat. Lower: ea
 branch's exact solution mass against its exact exhaustion cost; no branch is small-but-expensive at
 n=31. ⚠ This is the **REDUCED** form (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is
 split by distance class, not by top-level branch class. The EXHAUSTIBLE/INFEASIBLE verdict is not
-drawn from this panel and remains withheld. This figure draws distance classes. A completed-solution river split by first branch would be flat across layers — each branch's band is its `solutions(b)` from the lower panel at every k — so it adds nothing. A joint split by first branch and current distance class is carried neither by the atlas nor by the f/g/t ladders: it would need a branch-tagged forward ladder, a new build of order 10² TB, which is not proposed.
+drawn from this panel and remains withheld. *(Updated 2026-10-11: TR-12 §3 now publishes it one-sided from the lower-bound certificate — every branch INFEASIBLE, `TR12_XA_CD=ONE-SIDED:lower-bound`; it is still not drawn from this panel.)* This figure draws distance classes. A completed-solution river split by first branch would be flat across layers — each branch's band is its `solutions(b)` from the lower panel at every k — so it adds nothing. A joint split by first branch and current distance class is carried neither by the atlas nor by the f/g/t ladders: it would need a branch-tagged forward ladder, a new build of order 10² TB, which is not proposed.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_river.svg) · [spec](viz/viz_kc_river.md)
 

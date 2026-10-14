@@ -230,7 +230,7 @@ the consumer writes the full `(d, w)` cross-tab: the committed golden
 
 ```bash
 solve --kc-scan FDIR GDIR reports/tr12/scan/atlas.json --kc-raw [--kc-ooc] [--kc-cache-mb MB]
-#   --kc-tdir is NOT needed for this figure. --kc-raw is NOT needed for the
+#   --kc-tdir is NOT needed for this figure's columns (but since 2026-10-11 the consumer refuses an atlas scanned without it unless given --atlas-allow-t-not-run, Q-564). --kc-raw is NOT needed for the
 #   distance-class-only form (by_class ships unconditionally), but IS REQUIRED for the
 #   (d, w) cross-tab, which derives from layers[].kernel and is absent without it.
 ```
