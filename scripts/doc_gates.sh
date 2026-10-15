@@ -6038,6 +6038,31 @@ G22SHIM
   echo "         are proven only by by-hand transcripts) and GATE 20 (the per-file RECEIPTS"
   echo "         only; neither of its two SCANNING legs has ever been shown to fire) and GATE 22 (its token PRODUCER's rc and population FLOOR only, Q-883; its NEAR and UNRESOLVABLE legs have never been shown to fire)."
 
+  # GATE 27 FRONT-DOOR LEG (CX-356, cleanup M1 follow-up). A matched pair: the same injected
+  # paragraph, carrying a WITHDRAWN marker so the pre-existing marker rule is satisfied in BOTH
+  # legs; the only difference is the page. On a front-door page the leg must fire and name the page
+  # and the figure. On documentation/GUIDE.md (not a front door) the gate must stay green AND its
+  # census must show the injected block was judged (prose blocks = base + 1), so the silence is the
+  # page-set doing its work and not a scan that never looked. The base census is taken from a live
+  # run here, not pinned, for the reason GATE 25's control was converted. Both EREs were taken from
+  # real runs of these mutations (2026-10-15, Fable early review of M1).
+  assert_fires_why "GATE 27 (CX-356) a registered withdrawn figure on a front-door page, marked" \
+    withdrawn-markers 'CX-356: front-door page documentation/README\.md:[0-9]+ states withdrawn figure .3×10³⁷.' \
+"p='documentation/README.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nThe space holds about 3×10³⁷ distinct canonical orderings. ⚠ **[WITHDRAWN 2026-08-24 — doc_gates --selftest injection; reverted by the harness]**\n')"
+  _G27_PB=$(bash "$0" withdrawn-markers 2>&1 | grep -oE '[0-9]+ figure-bearing prose' | grep -oE '^[0-9]+')
+  if [ -z "$_G27_PB" ]; then
+    echo "  [FAIL] GATE 27 (CX-356) negative control — the base withdrawn-markers run printed no prose"
+    echo "         census, so the control below has no base to compare against."
+    PASS=1; _G27_PB=-1
+  fi
+  assert_stays_clean_why "GATE 27 (CX-356) the same marked figure on a page that is not a front door stays silent" \
+    withdrawn-markers "$((_G27_PB + 1))"' figure-bearing prose$' \
+"p='documentation/GUIDE.md'
+s=open(p,encoding='utf-8').read()
+open(p,'w',encoding='utf-8').write(s+'\n\nThe space holds about 3×10³⁷ distinct canonical orderings. ⚠ **[WITHDRAWN 2026-08-24 — doc_gates --selftest injection; reverted by the harness]**\n')"
+
   _selftest_revert
   echo
   [ "$PASS" -eq 0 ] && echo "DOC GATES SELF-TEST: PASS" || echo "DOC GATES SELF-TEST: FAIL"

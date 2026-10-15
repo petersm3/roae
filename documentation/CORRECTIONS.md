@@ -31714,3 +31714,159 @@ A laptop re-derives every verdict token from the shipped files in under a minute
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, Pilot A scorer, measurement and
 publication lanes. Registration, amendment and verdict review: Fable (claude-fable-5-1).
+
+## CX-355 — cleanup batch M1: the front-door pages keep the final fact and a pointer, and the correction narrative they carried is recorded here (documentation/PROJECT_OVERVIEW.md; documentation/README.md; reports/README.md; CLAUDE.md)
+
+**2026-10-11.** **Source.** The operator's public-Markdown cleanup (main docs keep only the final
+confirmed fact, with a short pointer; the correction narrative lives in this ledger), batch M1, the
+front-door pages. Line numbers below are those of the parent tree.
+
+**No published number, count, sha or verdict moves.** Each edited site keeps its final statement.
+Only the narrative of how it was reached leaves the page, and every piece of it is in this ledger or
+in HISTORY.md, at the entry named below.
+
+**1. New record: reports/README.md's TR-4 row (Codex V3A-083#2).** No entry recorded this one. The
+row's inline note read, verbatim:
+
+> ⚠ **[CORRECTED 2026-09-24 — this read "Slice-unique boundaries admit ~10²⁶", attaching TR-4 §5's
+> k=4 survivor count to the five-boundary identifying set. TR-4's own statement (§Abstract; §5,
+> v1.7.1) is that the *first four* boundaries, which inside the 560T slice leave KW plus a single
+> impostor, admit ≈8.4×10²⁵; no survivor count for the full five-boundary set is published. Codex
+> V3A-083#2, adjudicated by Fable; no figure in TR-4 moves.]**
+
+The row now states the final fact (the first four boundaries admit ≈8.4×10²⁵; no count is published
+for all five) and points here.
+
+**2. Note to CX-82 §11: reports/README.md's TR-8 row (Codex V3A-083#1).** CX-82 §11 names "the
+batch-1 fix of `reports/README.md:48` (V3A-083#1)" in passing. The row's own note, dated 2026-09-24,
+read, verbatim:
+
+> ⚠ **[CORRECTED 2026-09-24 — this read "the Gray-code construction proven impossible under the
+> pairing", the v1.0–v1.15 reading TR-8 §3 withdrew: the parity theorem covers McKenna and Mair's
+> all-complement pairing as readily as the classical one, and their construction applies the
+> single-line step only between pair representatives, which the theorem does not touch. Codex
+> V3A-083#1, adjudicated by Fable; the theorem and its Lean check are unchanged.]**
+
+The row keeps its final reading (their hybrid construction is not refuted) and points to CX-82 and
+here.
+
+**3. Note to CX-144: PROJECT_OVERVIEW.md's artifact-size sentence.** CX-144 records the stale
+`enumeration/SOLUTIONS_BIN_LOCATION.txt` locator and says PROJECT_OVERVIEW.md "already carried the
+same correction". It does not record the size range. The page's 2026-09-01 correction, in its own
+words: "this sentence deliberately quotes no single range, because the "~10-65 GB each" that stood
+here was already below the 100T size printed further down this same page. Note that
+`enumeration/SOLUTIONS_BIN_LOCATION.txt`, which this sentence used to link as the locator, is **not**
+current: it names a 23.7 GB artifact and its own 2026-04-17 note records that artifact as a 742M-era
+undercount to be replaced." The sentence now gives the live sizes, points to CANONICAL_HASHES.md, and
+says the locator file is not current.
+
+**4. Sites trimmed whose narrative was already recorded.** Each was checked against the entry by
+content before it was removed:
+
+| site (parent tree) | narrative removed | recorded at |
+|---|---|---|
+| PROJECT_OVERVIEW.md:18 and :127 | the boundary minimum at 560T was once reported as 4 ("non-monotone"), a survivor-counting error | CX-06 |
+| PROJECT_OVERVIEW.md:59 | the erroneous Mawangdui array, the earlier "3 of 4" and the shared-design-principle inference | CX-07 |
+| PROJECT_OVERVIEW.md:96 | the scope paragraph previously left the whole question undecided (added 2026-09-02) | the 2026-09-02 entry on the independence universal, item 2 (RP-212288d7) |
+| PROJECT_OVERVIEW.md:152 | the 16.3% was stated without its definition; how it was re-derived (Q-753, Codex V3A-043#1) | CX-78 item 3. The page keeps the measured 15,310 of 24,321 as a fact. |
+| PROJECT_OVERVIEW.md:165-170 | the withdrawn joint-KDE headline ("< 10⁻⁵" rank, "~12,800×" deficit) and its circularity audit | HISTORY.md, the 2026-07-18/26 eight-lens hardening pass; the page's own 2026-07-26 revision note; DISTRIBUTIONAL_ANALYSIS.md |
+| documentation/README.md:59 | "(Corrected 2026-09-25, Q-763.)" | CX-125 |
+| reports/README.md:42 | the TR-2 row once said the confusability failure was limited to V=0 (V3A-088#1 sibling, Q-778) | CX-84 item 3 |
+| reports/README.md:80-88 | the paragraph once promised versioned DOIs; no such deposit exists | CX-31 |
+
+**5. Left in place, and why.**
+- **Gate-anchored (six markers, PROJECT_OVERVIEW.md:102, :103 ×2, :111, :113 ×2).** The citation
+  line gate, GATE 2c and GATE 56 read these lines. Moving them without first re-anchoring those gates
+  would narrow what the gates check, so they stay.
+- **PROJECT_OVERVIEW.md:121, the ⚠ WITHDRAWN note.** GATE 26 and GATE 27 are already anchored on the
+  ledger, but the withdrawn ≈3×10³⁷ figure is still on that line. Removing the note would leave the
+  figure unmarked. Removing the figure is a content change, not a cleanup, so it is made separately,
+  in CX-356, which restates the line with the current value.
+- **Not corrections.** PROJECT_OVERVIEW.md:3, documentation/README.md:38 and README.md:333 say where
+  the page used to live. reports/README.md:73 describes the marker form itself.
+- **CLAUDE.md.** It is the operator's file and is edited only with the operator's approval (CX-331
+  item 6). Its eight markers are not touched in this batch. The one approved edit, to its
+  ephemeral-OS-disk rule, is item 7 below.
+
+**6. reports/README.md's policy sentence.** Its "What these reports means" paragraph said the three
+unnumbered files in `reports/` are corrected by "a dated inline `⚠ [CORRECTED …]` marker at the
+claim". After this batch the index itself carries undated pointers, `(corrected; CORRECTIONS
+CX-<n>)`, with the date in the CX entry, while METHODS.md and FULL31_EXACT_AGGREGATES.md still carry
+dated markers. The paragraph now says which file uses which form. No policy changes.
+
+**7. Note to CX-125: CLAUDE.md's ephemeral-OS-disk rule (Q-763).** CX-125 scoped DEPLOYMENT.md's rule 6
+to sizes that have local storage and left the same rule in CLAUDE.md, the operator's file, as written:
+"Prefer ephemeral OS disks (`--ephemeral-os-disk true`) for VMs that will be deleted at session end —
+halves cleanup work and guarantees OS disk doesn't leak." Q-763 carried that site as operator-owned.
+With the operator's approval given through the orchestrator (2026-10-11), the rule is now scoped the
+same way: only on a size that has local storage. The Dals_v7 family this project runs on has none,
+Microsoft's Dalsv7-series page lists "Ephemeral OS Disk — Not Supported", `az vm create` with the flag
+is refused there — observed on D4als_v7 and D8als_v7 in 2026-08, in this project's own launch records —
+and the failed create leaves the NIC, public IP and NSG behind. On Dals_v7 the rule now says to create
+with `--os-disk-delete-option Delete`, which DEPLOYMENT.md rule 6 already says and the project's launch
+scripts already pass. The replacement text was verified by Fable (claude-fable-5-1) against
+Microsoft's page, the flag's `az vm create --help` entry and those scripts. Rule 3 grows from three
+lines to ten; no other line of CLAUDE.md changes, no published number, count, sha or verdict moves,
+and the file's eight correction markers are not touched (item 5).
+
+**8. reports/README.md:69-70, :94 and :107, the count of numbered reports (Codex V3B-14#44).** The
+"What these reports means" paragraph, stated 2026-09-02, said the policy governs "the eleven numbered
+reports in the table — TR-1 through TR-11 — and only those". TR-12 joined the table on 2026-09-05 and
+carries a Revision history, so the sentence had been wrong since that day. It now says twelve, TR-1
+through TR-12. Nothing else in the paragraph changes. The same count stood on two more lines of the
+page, :94 ("no frozen ref holds the eleven-report suite") and :107 ("The eleven reports cover the
+project's findings"); both now say twelve. Codex v3 lens B raised the three sites together as
+V3B-14#44 (adjudicated 2026-09-06); this is where it is closed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cleanup batch M1.
+
+## CX-356 — PROJECT_OVERVIEW.md still led its 3-point trajectory paragraph with the withdrawn ≈3×10³⁷ distinct-canonical figure and the ≈1 part in 10²⁷ coverage built on it; the line now states the current value, and GATE 27 no longer accepts a withdrawn figure on a front-door page, marked or not (documentation/PROJECT_OVERVIEW.md; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; tests.py)
+
+**2026-10-11.** **Source.** Cleanup batch M1 (CX-355 item 5) held this line because the fix is a
+content change. Line numbers are those of the parent tree.
+
+**What was published.** PROJECT_OVERVIEW.md:121, the "3-point scaling trajectory" paragraph, read:
+
+> …but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts it at **≈10³⁸**
+> (≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space and no feasible budget approaches exhaustion … *[both figures WITHDRAWN 2026-08-24; editorial note, not in the original]*
+
+with ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ distinct-canonical figure on this line exceeds its own
+31! ≈ 8.2228×10³³ ceiling by ~4,013×; see documentation/CORRECTIONS.md]** at the end of the
+paragraph, some 600 characters after the figure. Two figures on the line are withdrawn by the
+2026-08-24 entry: the ≈3×10³⁷, and the "≈1 part in 10²⁷" that pairs 560T's distinct records with a
+raw denominator. The marker named only the first.
+
+**What it says now.** The Monte-Carlo estimate is **≈1.33×10³⁸ raw** (orientation-explicit)
+orderings (TR-4 §Abstract; METHODS.md §"Canonical quantities"). The distinct canonical count, which
+is what the records count, has no point estimate: it lies between 560T's 1.0525×10¹⁰ and
+31! ≈ 8.2228×10³³ (the 2026-08-24 entry's bounds). Exhaustion stays infeasible on the
+dedup-independent floor of the 2026-08-28 per-branch entry: even the smallest first-level branch holds
+≥≈10²⁷ canonical orderings under the worst-case 2³⁰ dedup bound, ≈10¹⁷× beyond 560T
+(SEARCH_SPACE_SIZE.md §"per first-level branch"). The rest of the paragraph is unchanged, and no
+published number, count, sha or verdict moves.
+
+**Why no gate caught it.** GATE 27 (WITHDRAWN_FIGURES.tsv) requires only that a paragraph stating a
+registered withdrawn figure carry *some* supersession word, and says so: it "cannot judge whether a
+marker is apt". The paragraph carried WITHDRAWN, so both of its registered figures passed, including
+the coverage denominator the marker did not name. GATE 26 reads the same marker. Both gates did what
+they say. The gap is that nothing asked a front-door page to state the current value rather than a
+marked withdrawn one.
+
+**The gate change.** GATE 27 now has a front-door leg. On README.md, documentation/PROJECT_OVERVIEW.md,
+documentation/README.md and reports/README.md, any registered withdrawn figure is a failure, with or
+without a marker or a ledger anchor. The leg fails if any of the four pages is missing from the
+corpus, or if it read zero blocks. reports/CAPSTONE_GUIDE.md is left out on purpose: its "One figure
+is withdrawn" paragraph names the ≈3.3×10³⁷ to tell a reader which earlier number not to trust, and it
+is the only other front-door page that names one. Measured: on the parent tree's PROJECT_OVERVIEW.md
+the new gate fails twice at :121 (`3×10³⁷`, `1 part in 10²⁷`), and the old gate passes it; on the
+corrected page both pass. tests.py `TestCleanupM1Followup` holds the red and the green legs.
+
+**Sweep.** Outside this ledger, the withdrawn figure and its coverage denominator still occur on 30
+lines of the parent tree in 14 other public Markdown files (31 with this batch's own HISTORY.md entry,
+which names the figure as withdrawn) (BRANCHES_EXPLAINED, SOLVE_SUMMARY, TR-4, SEARCH_SPACE_SIZE,
+HISTORY, LEADERBOARD, CANONICAL_HASHES, f11/RESULTS, TR-12, METHODS, CAPSTONE_GUIDE, SOLVE, CRITIQUE,
+CITATIONS). GATE 27 passes on every one, so each carries a marker or is a changelog or correction
+record. None is on a front-door page. Restating them with the current value is body-page cleanup,
+left to later batches.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cleanup batch M1 follow-up.

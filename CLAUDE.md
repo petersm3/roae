@@ -207,7 +207,14 @@ real billing cost and accumulates across sessions.
    has specifically authorized keeping it.
 3. **Prefer ephemeral OS disks** (`--ephemeral-os-disk true`) for VMs
    that will be deleted at session end — halves cleanup work and
-   guarantees OS disk doesn't leak.
+   guarantees OS disk doesn't leak. **Only on a size that has local
+   storage.** The Dals_v7 family this project runs on (the Spot SKU
+   table above) has none, and Microsoft's Dalsv7-series page lists
+   "Ephemeral OS Disk — Not Supported"; `az vm create` with that flag is
+   refused there (seen on D4als_v7 and D8als_v7, 2026-08) and the failed
+   create still leaves the NIC, public IP and NSG behind. On Dals_v7,
+   create with `--os-disk-delete-option Delete` so the managed OS disk is
+   removed with the VM (DEPLOYMENT.md rule 6, scoped 2026-09-25, Q-763).
 4. **Data disks (like `solver-data`, `solver-data-westus3`) are NEVER
    deleted by Claude.** Detach before VM delete. User explicit approval
    needed to touch data-disk contents or delete the disk itself.

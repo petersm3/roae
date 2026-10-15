@@ -984,6 +984,14 @@ gate_withdrawn_markers() {
 import sys, io, re
 REG="documentation/WITHDRAWN_FIGURES.tsv"
 EXEMPT={"documentation/CORRECTIONS.md"}
+# CX-356 (cleanup M1 follow-up): the FRONT-DOOR pages state a registered withdrawn figure NOWHERE,
+# marked or not. The marker rule below cannot judge aptness, and PROJECT_OVERVIEW.md:121 showed the
+# cost: it led with the withdrawn 3x10^37 as live prose for six weeks, and one WITHDRAWN word that
+# named only that figure also exempted the withdrawn coverage denominator beside it. These pages
+# carry the current value and a CX pointer; the figure itself lives in the ledger. NOT in the set:
+# reports/CAPSTONE_GUIDE.md, whose "One figure is withdrawn" paragraph names the figure on purpose,
+# to tell a reader which earlier number not to trust (measured: it is the only other front-door hit).
+FRONT={"README.md","documentation/PROJECT_OVERVIEW.md","documentation/README.md","reports/README.md"}
 MARK=wm_re(r"withdrawn|label\s+corrected|corrected\s+20\d\d|scoped\s+20\d\d|superseded|retract\w*|run\s+description\s+corrected")  # Q-966 (A08#11): whole words via the shared matcher, and a NEGATED marker is none -- "remains unretracted", "not superseded" exempted before.  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
 import os
 LEDGER="documentation/CORRECTIONS.md"
@@ -1029,7 +1037,7 @@ print("ACCEPTED\t%d"%len(figs))
 if not figs: print("NOFIGS"); sys.exit(0)
 files=[l.strip() for l in sys.stdin if l.strip()]
 if not files: print("EMPTY"); sys.exit(0)
-n=0; nfiles=0; pop_rows=0; pop_blocks=0
+n=0; nfiles=0; pop_rows=0; pop_blocks=0; nfront=0
 for f in files:
     if f in EXEMPT: continue
     nfiles+=1
@@ -1072,6 +1080,15 @@ for f in files:
         # with ~40 known occurrences, so a scan that matched none of them is a broken scan.
         pop_rows+=sum(1 for j,l in rows if any(fig in l for fig,why in figs))
         if prose and any(fig in " ".join(l for j,l in prose) for fig,why in figs): pop_blocks+=1
+        if f in FRONT:
+            nfront+=1
+            for j,l in rows+prose:
+                for fig,why in figs:
+                    if fig in l: print("FRONT\t%s\t%d\t%s\t%s"%(f,bs+j,fig,blines[j].strip()[:120])); n+=1
+            ptext=" ".join(l for j,l in prose)
+            for fig,why in figs:   # a figure that spans a wrap, named on the first line of the block
+                if fig in ptext and not any(fig in l for j,l in prose): print("FRONT\t%s\t%d\t%s\t%s"%(f,bs,fig,blines[0].strip()[:120])); n+=1
+            continue
         hit=False
         for j,l in rows:
             if wm_has(l,MARK): continue
@@ -1097,6 +1114,12 @@ for f in files:
 print("POP\t%d\t%d\t%d"%(nfiles,pop_rows,pop_blocks))
 print("LEDGER\t%d"%len(ENT))
 print("COUNT\t%d"%n)
+print("FRONTBLK\t%d"%nfront)
+# a front-door page on disk that never reached the corpus is unchecked; a tree with none (a test fixture) is said
+FP=[x for x in sorted(FRONT) if os.path.isfile(x)]
+for x in FP:
+    if x not in files: print("FRONTMISS\t%s"%x)
+print("FRONTPRES\t%d"%len(FP))
 ') || { echo "  [FAIL] GATE 27 scanner failed — NOTHING was checked."; return 1; }
   grep -qx 'EMPTY' <<<"$out" && { echo "  [FAIL] corpus reached GATE 27 empty."; return 1; }
   grep -qx 'NOFIGS' <<<"$out" && { echo "  [FAIL] $REG parsed to zero figures."; return 1; }
@@ -1118,6 +1141,7 @@ print("COUNT\t%d"%n)
   fi
   local rc=0 hrc=0
   while IFS=$'\t' read -r tag f ln fig line; do
+    [ "$tag" = FRONT ] && { echo "  [FAIL] CX-356: front-door page $f:$ln states withdrawn figure '$fig'; a front door states the CURRENT value and a CX pointer, never the withdrawn one, marked or not"; echo "         $line"; rc=1; continue; }
     [ "$tag" = HASHROW ] && { echo "  [FAIL] Q-761: $REG line \"$f\" is comment-shaped (\"# ...\") but carries data column(s), so it is not checked. Register the figure without the leading \"# \"."; hrc=1; continue; }; [ "$tag" = HIT ] || continue
     echo "  [FAIL] $f:$ln restates withdrawn figure '$fig' with NO supersession marker and no ledger anchor quoting it"
     echo "         $line"
@@ -1134,6 +1158,22 @@ print("COUNT\t%d"%n)
   echo "       carries a supersession marker, or links a ledger entry (CX id) that quotes the figure —"
   echo "       population: $pf files scanned, $pr figure-bearing table rows and $pb figure-bearing prose"
   echo "       blocks judged; $(printf '%s\n' "$out" | awk -F'\t' '$1=="LEDGER"{print $2; exit}') CX entries readable as anchors"
+  local _nf; _nf=$(printf '%s\n' "$out" | awk -F'\t' '$1=="FRONTBLK"{print $2; exit}')
+  local _fm; _fm=$(printf '%s\n' "$out" | awk -F'\t' '$1=="FRONTMISS"{print "         " $2}')
+  [ -n "$_fm" ] && { echo "  [FAIL] CX-356: front-door page(s) never reached GATE 27, so they were not checked:"; printf '%s\n' "$_fm"; return 1; }
+  local _np; _np=$(printf '%s\n' "$out" | awk -F'\t' '$1=="FRONTPRES"{print $2; exit}')
+  if ! grep -qxE '[0-9]+' <<<"${_nf:-}" || ! grep -qxE '[0-9]+' <<<"${_np:-}"; then
+    echo "  [FAIL] CX-356: the front-door leg printed no census, so it did not complete."
+    return 1
+  fi
+  if [ "$_np" -eq 0 ]; then
+    echo "  [note] CX-356 front-door leg: none of its four pages exists in this tree, so it checked nothing"
+  elif [ "$_nf" -eq 0 ]; then
+    echo "  [FAIL] CX-356: $_np front-door page(s) exist but the leg read zero blocks of them."
+    return 1
+  else
+    echo "  [ok] CX-356 front-door leg: $_nf blocks of $_np front-door pages state no registered withdrawn figure at all"
+  fi
   return 0
 }
 

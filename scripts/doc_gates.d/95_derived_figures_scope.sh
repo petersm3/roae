@@ -1751,7 +1751,7 @@ PY
 # 12 sites, 11 scoped, **1 FIRE at documentation/PROJECT_OVERVIEW.md:96** — the exact A01 row 32
 # site, "eliminate non-KW solutions that no combination of other boundaries can reach", rc 1.
 # NOTE `git log -S` DOES NOT FIND THAT COMMIT: the fix moved the phrase from :96 into the
-# revision narration at :211, so the occurrence COUNT never changed and the pickaxe reports only
+# revision narration at :208, so the occurrence COUNT never changed and the pickaxe reports only
 # a 2026-07-03 commit. `-G` finds it. Recorded because the wrong tool here reads as "no fix ever
 # landed" rather than "the count did not move".
 #

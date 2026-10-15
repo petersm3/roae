@@ -39,13 +39,13 @@ record. Reproducibility contract: [CANONICAL_HASHES](../documentation/CANONICAL_
 | # | Report | One-line claim | Verification core |
 |---|---|---|---|
 | [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) | Eight Centuries, Measured | The literature's rules at population scale: forced / typical / discriminating; the grand precursor; the conflict | the flagship; all modalities |
-| [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules cannot all hold at once (no C1∩C2∩C4∩C5-valid ordering can be perfect under all four); the incompatibility **rules out** damage to an all-four-perfect original; whether KW's anomalies are an arranger's trade-off or damage to the three-rule-perfect precursor is weighed, not settled; a pre-registered Bayes factor favored corruption of the three-graded-rule precursor over soft tendency — but **that pair failed its own confusability gate** (M_tend self-recovery 68/100 against a frozen 70; the failure is concentrated at V=0 (0/277) but not confined there — nine more failures fall at V=1–4 (56/63 at V=1–2, 59/61 at V=3–4) — and the received sequence has V=6, inside the V=5–7 stratum whose 51/51 is pooled, not V=6's own rate ⚠ **[CORRECTED 2026-09-24 — this said the failure was limited to the V=0 stratum, which the by-V table in `evidence/f11halfb/RESULTS.md` contradicts; TR-2 v1.35 was corrected the same day. Codex V3A-088#1 sibling, Q-778; no count, bar or verdict moves.]**), and the BF and ≈0.9998 posterior are now **withdrawn as claimed results** ([CORRECTIONS](../documentation/CORRECTIONS.md) CX-25, CX-26): they stand as the as-computed record — recorded, not claimed — pending a V-matched gate frozen before it runs. It is also **two-model only**: it does not exclude a greedy/local builder, nor that the three rules are post-hoc regularities, and the wider four-class comparison that would have tested those rivals was pre-registered, ran, **failed its own synthetic-draw confusability gate, and is permanently withheld** (TR-2 §6.3) | SAT + DRAT certs + pre-registered BF |
+| [TR-2](TR2_THE_RULES_CONFLICT.md) | The Rules Conflict | The four strongest rules cannot all hold at once (no C1∩C2∩C4∩C5-valid ordering can be perfect under all four); the incompatibility **rules out** damage to an all-four-perfect original; whether KW's anomalies are an arranger's trade-off or damage to the three-rule-perfect precursor is weighed, not settled; a pre-registered Bayes factor favored corruption of the three-graded-rule precursor over soft tendency — but **that pair failed its own confusability gate** (M_tend self-recovery 68/100 against a frozen 70; the failure is concentrated at V=0 (0/277) but not confined there — nine more failures fall at V=1–4 (56/63 at V=1–2, 59/61 at V=3–4) — and the received sequence has V=6, inside the V=5–7 stratum whose 51/51 is pooled, not V=6's own rate (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-84)), and the BF and ≈0.9998 posterior are now **withdrawn as claimed results** ([CORRECTIONS](../documentation/CORRECTIONS.md) CX-25, CX-26): they stand as the as-computed record — recorded, not claimed — pending a V-matched gate frozen before it runs. It is also **two-model only**: it does not exclude a greedy/local builder, nor that the three rules are post-hoc regularities, and the wider four-class comparison that would have tested those rivals was pre-registered, ran, **failed its own synthetic-draw confusability gate, and is permanently withheld** (TR-2 §6.3) | SAT + DRAT certs + pre-registered BF |
 | [TR-3](TR3_REPRODUCIBLE_ENUMERATION.md) | Reproducible Enumeration at Scale | 10.5B records, twice byte-identical across two independent runs (5 + 7 = 12 Spot evictions total) at 15–20% of on-demand cost | sha registry + gates |
-| [TR-4](TR4_SIZE_OF_THE_SPACE.md) | The Size of the Space | This project's own uniqueness hypothesis is false: ≈5.21×10³¹ orderings satisfy C1–C7 and King Wen is unique only within budgeted enumerated slices (1.3287×10³⁸ satisfy C1–C5; both are raw orientation-explicit counts — [METHODS](METHODS.md) §"Canonical quantities" — and both are estimates with stated CIs). A measured confirmation of prior under-determination claims ([prior negatives](../documentation/CITATIONS.md#uniqueness-conjecture)); the magnitude is a single-instrument estimate. The first four of King Wen's five 560T slice-identifying boundaries still admit ≈8.4×10²⁵ full-space orderings ⚠ **[CORRECTED 2026-09-24 — this read "Slice-unique boundaries admit ~10²⁶", attaching TR-4 §5's k=4 survivor count to the five-boundary identifying set. TR-4's own statement (§Abstract; §5, v1.7.1) is that the *first four* boundaries, which inside the 560T slice leave KW plus a single impostor, admit ≈8.4×10²⁵; no survivor count for the full five-boundary set is published. Codex V3A-083#2, adjudicated by Fable; no figure in TR-4 moves.]** | validated estimator |
+| [TR-4](TR4_SIZE_OF_THE_SPACE.md) | The Size of the Space | This project's own uniqueness hypothesis is false: ≈5.21×10³¹ orderings satisfy C1–C7 and King Wen is unique only within budgeted enumerated slices (1.3287×10³⁸ satisfy C1–C5; both are raw orientation-explicit counts — [METHODS](METHODS.md) §"Canonical quantities" — and both are estimates with stated CIs). A measured confirmation of prior under-determination claims ([prior negatives](../documentation/CITATIONS.md#uniqueness-conjecture)); the magnitude is a single-instrument estimate. The first four of King Wen's five 560T slice-identifying boundaries still admit ≈8.4×10²⁵ full-space orderings; no survivor count for the full five-boundary set is published (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-355) | validated estimator |
 | [TR-5](TR5_SYMMETRY.md) | Symmetry | Order-48 group, complete over all 64! relabelings (v2.0; prose-proven with machine-checked finite parts — see §3 scope); free action (every solution has exactly 23 record-level twins); a published negative corrected | proof + Lean + tree isomorphism |
 | [TR-6](TR6_PARITY_SKELETON.md) | The Parity Skeleton | Exactly 15 alternations, always | prose + Lean kernel + SAT certs |
 | [TR-7](TR7_CIRCULAR_READING.md) | The Circular Reading | Wrap parity forced; 5-wraps are 17.4% of the space yet 0 in 10.5B slice records | Lean + SAT witness + estimator |
-| [TR-8](TR8_REORDERING_REVISITED.md) | A Reordering Revisited | [McKenna & Mair (1979)](../documentation/CITATIONS.md#mckenna-mair1979): premise measured (the claimed defects are among the sequence's rarest configurations, subject to TR-8's specification caveat); no fully smooth (Gray-path) ordering can realize any complement/inversion pairing, so the received order cannot be smoothed into a Gray path — their *hybrid* construction is not refuted ⚠ **[CORRECTED 2026-09-24 — this read "the Gray-code construction proven impossible under the pairing", the v1.0–v1.15 reading TR-8 §3 withdrew: the parity theorem covers McKenna and Mair's all-complement pairing as readily as the classical one, and their construction applies the single-line step only between pair representatives, which the theorem does not touch. Codex V3A-083#1, adjudicated by Fable; the theorem and its Lean check are unchanged.]** | 2-line proof + sampling |
+| [TR-8](TR8_REORDERING_REVISITED.md) | A Reordering Revisited | [McKenna & Mair (1979)](../documentation/CITATIONS.md#mckenna-mair1979): premise measured (the claimed defects are among the sequence's rarest configurations, subject to TR-8's specification caveat); no fully smooth (Gray-path) ordering can realize any complement/inversion pairing, so the received order cannot be smoothed into a Gray path — their *hybrid* construction is not refuted (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-82, CX-355) | 2-line proof + sampling |
 | [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) | Pricing the Constraints | C1 explains ~146 bits (and is optimal); C5 is confirmed description; **about 105–139 bits unexplained** (a range, not a point — the endpoints depend on which layers are granted explanatory standing: 105.4 retains every cut, even the data-like pins; 139.1 = log₂\|C1∩C2∩C4\| is the residual against the claimed-explanatory layers alone) | measured ledger (conventions stated) |
 | [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) | A Textual Archaeology, Measured | [Davis's (2012)](../documentation/CITATIONS.md#davis2012) structural claims tested against the population: flagship units typical, one uniqueness claim corrected, exact templates data-like | pre-registered batch + corpus control |
 | [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) | Exact Counting by Symmetry Quotient | The suite's exact full-scale counts: \|C1∩C2∩C4\| = 7.5706×10⁴¹ (the suite's **first** exact full-scale count, 2026-07-04) and \|C1∩C2∩C4∩C5\| = 1.097051×10³⁹ (the second, 2026-07-16; independently recomputed at full scale 2026-07-25 by verify.c's IE transfer-walk engine — a different algorithm class, exact MATCH; mod-24- and ladder-corroborated), each computed to the last digit; the estimator validated absolutely at 10³⁹ | symmetry-quotient DP + out-of-core mode + mod-24 gate |
@@ -66,26 +66,21 @@ corrected result documented in [TR-5](TR5_SYMMETRY.md)). Citations should name a
 `abc1234`". Where a journal article is one frozen argument, these reports are the maintained state of
 what is known — with its full history attached.
 
-**What "these reports" means here, stated 2026-09-02.** The policy above governs the **eleven numbered
-reports** in the table — TR-1 through TR-11 — and only those. Three files in this directory are not
+**What "these reports" means here, stated 2026-09-02.** The policy above governs the **twelve numbered
+reports** in the table — TR-1 through TR-12 — and only those. Three files in this directory are not
 numbered reports and carry **no Revision History**: this index, [METHODS](METHODS.md), and
 [FULL31_EXACT_AGGREGATES](FULL31_EXACT_AGGREGATES.md). All three are still corrected in the open, but by
-a different mechanism: a dated inline `⚠ [CORRECTED …]` marker at the claim, plus — for anything
-load-bearing — an entry in [CORRECTIONS](../documentation/CORRECTIONS.md). Both already carry such
-markers (METHODS.md on C4's attestation and on the estimator's scope; FULL31_EXACT_AGGREGATES.md on a
-withdrawn instrument sentence). Cite those two by **commit sha alone**; they have no version to name.
+a different mechanism: a mark at the claim, plus — for anything load-bearing — an entry in [CORRECTIONS](../documentation/CORRECTIONS.md).
+METHODS.md and FULL31_EXACT_AGGREGATES.md use a dated inline `⚠ [CORRECTED …]` marker (METHODS.md on C4's attestation and
+the estimator's scope, FULL31 on a withdrawn instrument sentence); cite those two by **commit sha alone**, they have no version to name.
+This index keeps the corrected fact and an undated pointer, `(corrected; CORRECTIONS CX-<n>)`; the date is in that CX entry.
 This scope was left undecided when the policy was written, and the paragraph above read as though every
 file under `reports/` were versioned — it was not, and is not.
 
-*Corrected 2026-08-07 (CX-31).* This paragraph previously read "Snapshots are **archived with
-versioned DOIs** (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what you
-read)." **No such archival exists.** There is no Zenodo deposit for this project, `CITATION.cff`
-carries no DOI or identifier key, and [DEVELOPMENT.md](../documentation/DEVELOPMENT.md) records the
-deposits as **declined by operator direction on 2026-04-18**. The sentence described infrastructure
-that was considered and rejected, and it sat in the paragraph that tells readers how to trust the
-record's permanence — the worst possible place for a claim that is not true. **The pinning mechanism
-is git-native**: a commit sha is content-addressed and immutable, which is the property a DOI would
-have been bought for. Cite the sha.
+**The pinning mechanism is git-native**: a commit sha is content-addressed and immutable. Cite the
+sha. There is no DOI deposit for this project, and `CITATION.cff` carries no DOI or identifier key;
+[DEVELOPMENT.md](../documentation/DEVELOPMENT.md) records the deposits as declined by operator
+direction on 2026-04-18 (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-31).
 
 The repository-level [`CITATION.cff`](../CITATION.cff) follows that rule from the other side. It is what
 GitHub's "Cite this repository" button and reference managers read — without a human in the loop — so it
@@ -96,7 +91,7 @@ add the sha they read. Until 2026-09-01 it pinned commit `9169b0e5`, which by th
 not even this index. The machine-readable citation was sending readers to a tree in which the reports they
 had come to check do not exist, while the README sent human readers to `main`. The release tag
 `reports-v1.0` resolves to that same commit and has the same holes, and no later suite-version tag was
-ever cut, so no frozen ref holds the eleven-report suite: the pinning rule in [METHODS](METHODS.md)
+ever cut, so no frozen ref holds the twelve-report suite: the pinning rule in [METHODS](METHODS.md)
 §"Environment (version pinning)" — pin to a commit sha — is discharged by the citer, on the state they
 read, and cannot be discharged in advance by a static file. That reasoning is recorded in `CITATION.cff`'s
 own comments, so the next reader of that file finds the argument and not just the fields.
@@ -109,7 +104,7 @@ v1.2 to v1.6: these are suite-wide version-alignment bumps applied across the wh
 deleted entries; the skipped numbers were never issued for that report. Git history is the full audit trail.)*
 
 ## Completeness principle
-The eleven reports cover the project's **findings**. Instruments, engineering internals, and the
+The twelve reports cover the project's **findings**. Instruments, engineering internals, and the
 exploratory statistical corpus (the 28-analysis suite, trigram profile, distributional studies) are
 covered by the standing documentation set (CLI references, [DEVELOPMENT](../documentation/DEVELOPMENT.md), [DISTRIBUTIONAL_ANALYSIS](../documentation/DISTRIBUTIONAL_ANALYSIS.md),
 example/) — deliberately not duplicated as reports. If a future result rises to finding-grade, it becomes

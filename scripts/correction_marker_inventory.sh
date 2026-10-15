@@ -486,16 +486,6 @@ REVIEWED = {
         ('2', 'reviewed:bullet-above-still-lists-King-Wen-beside-the-gated-checks'),
     ('documentation/PERFORMANCE_HISTORY.md', 'e459f31d3a93'):
         ('2', 'reviewed:bullet-above-still-says-checkpoint-is-the-sole-resume-input'),
-    ('documentation/PROJECT_OVERVIEW.md', '30097c8c87c5'):
-        ('1', 'reviewed:dated-label;following-sentences-carry-the-withdrawal'),
-    ('documentation/PROJECT_OVERVIEW.md', '37d8b2656705'):
-        ('1', 'reviewed:bullet-already-states-the-positive-only-definition'),
-    ('documentation/PROJECT_OVERVIEW.md', '3a7734310380'):
-        ('1', 'reviewed:note-already-reads-stays-5-at-560T'),
-    ('documentation/PROJECT_OVERVIEW.md', '519fab82ca45'):
-        ('1', 'reviewed:bullet-already-reads-2-of-4'),
-    ('documentation/PROJECT_OVERVIEW.md', '90f401aa2eb2'):
-        ('1', 'reviewed:sentence-already-reads-monotone-4-then-5'),
     ('documentation/QUERY_INVENTORY.md', '099315cf46f4'):
         ('1', 'reviewed:cell-already-names-the-landed-consumer'),
     ('documentation/QUERY_INVENTORY.md', '5153589a8057'):
@@ -521,8 +511,6 @@ REVIEWED = {
         ('1', 'reviewed:box-already-says-the-identity-row-runs'),
     ('documentation/QUERY_INVENTORY.md', 'ebfbea5d0154'):
         ('1', 'reviewed:stale-clause-is-already-struck-through'),
-    ('documentation/README.md', 'b808b2d22f64'):
-        ('1', 'reviewed:bare-dated-tag;entry-already-reads-correctly'),
     ('documentation/REBUILD_FROM_SPEC.md', '0d6f61a86d87'):
         ('1', 'reviewed:paragraph-above-already-says-absence-is-not-a-failure'),
     ('documentation/REBUILD_FROM_SPEC.md', '27b224f7bdae'):
@@ -848,14 +836,8 @@ REVIEWED = {
         ('1', 'reviewed:sentence-before-already-states-exact-counts-and-what-the-gates-check'),
     ('reports/FULL31_EXACT_AGGREGATES.md', 'dd87654435af'):
         ('1', 'reviewed:paragraph-already-names-the-instrument-date-and-what-the-package-checks'),
-    ('reports/README.md', '2a35a3c9c536'):
+    ('reports/README.md', '8550e36f57a9'):
         ('1', 'reviewed:meta-mention-of-the-marker-form-in-code;not-a-correction'),
-    ('reports/README.md', '31f8297b0b33'):
-        ('1', 'reviewed:row-already-scopes-to-the-Gray-path-claim'),
-    ('reports/README.md', 'b4ce93c76e88'):
-        ('1', 'reviewed:row-already-scopes-to-the-first-four-boundaries'),
-    ('reports/README.md', 'eeaba5fb691c'):
-        ('1', 'reviewed:row-already-says-not-confined-to-V-0'),
     ('reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md', '07a138384de5'):
         ('2', 'reviewed:only-statement-that-the-archived-outputs-carry-no-se-field'),
     ('reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md', '2e8f4b7da1d6'):

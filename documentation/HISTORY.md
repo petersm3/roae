@@ -11458,3 +11458,16 @@ Q-686=DONE
   verdict script. The verdict tokens can be re-derived from the shipped files on a laptop in under a
   minute.
 - No published number, count, sha or verdict changed. No scoreboard row was added.
+
+## 2026-10-11 — cleanup batch M1: the front-door pages keep the final fact, and their correction narrative moves to the ledger
+
+- PROJECT_OVERVIEW.md, documentation/README.md and reports/README.md now state each corrected
+  finding once, in its final form, with a short pointer to its CORRECTIONS.md entry. The narrative of
+  how each was corrected was already in the ledger, or is added to it by CX-355, which lists every
+  site. No number, count, sha or verdict changed.
+- Six gate-anchored markers in PROJECT_OVERVIEW.md stay where they are, and CLAUDE.md's eight
+  correction markers are not touched (CX-355 item 5). One rule of CLAUDE.md, the ephemeral-OS-disk
+  rule, is scoped to sizes with local storage, with the operator's approval (Q-763; CX-355 item 7).
+- PROJECT_OVERVIEW.md:121 no longer states the withdrawn ≈3×10³⁷ distinct-canonical figure. It gives
+  the ≈1.33×10³⁸ raw estimate and the bounds on the distinct canonical count, and GATE 27 now fails a
+  withdrawn figure on any of the four front-door pages, marked or not (CX-356).

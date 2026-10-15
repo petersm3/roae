@@ -44755,6 +44755,363 @@ class TestC8Scorer(unittest.TestCase):
 # end class TestC8Scorer (PREREG_C8SCREEN_2026_10_11 §7.1)
 
 
+class TestCleanupM1(unittest.TestCase):
+    """Cleanup batch M1 (CX-355): the front-door pages keep the final fact and a short pointer, and the
+    correction narrative they carried lives in CORRECTIONS.md or HISTORY.md.
+    (a) No M1 doc still carries a removed narrative, and every correction marker left in an M1 doc
+        sits in a paragraph this batch deliberately held (gate-anchored, the withdrawn-figure note, or
+        the marker-form description).
+    (b) Every removed narrative is findable, by content, in the ledger entry named for it.
+    (c) Every pointer the batch wrote names an entry that exists.
+    Red: each removed narrative put back (in memory) must fail (a); each ledger needle removed must
+    fail (b); each pointer bent to a missing id must fail (c). File-colon-line strings are built by
+    _p, so this class carries no literal citation of its own."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PO = "documentation/PROJECT_OVERVIEW.md"
+    DR = "documentation/README.md"
+    RR = "reports/README.md"
+    COR = "documentation/CORRECTIONS.md"
+    HIS = "documentation/HISTORY.md"
+    CMI = "scripts/correction_marker_inventory.sh"
+    _p = staticmethod(lambda f, n: f + ":" + str(n))
+    # the marker grammar of scripts/correction_marker_inventory.sh, copied; test_marker_grammar_in_sync
+    # fails if the script's copy changes.
+    HIT_SRC = r"\[CORRECTED|\[CORRECTION|now reads|\[WITHDRAWN|\[RETRACTED|\[SUPERSEDED"
+    PAREN_SRC = (r'\((?i:(corrected|correction|superseded|withdrawn|retracted))\b'
+                 r'(?=(?:[^()\n]|\n(?![ \t]*\n)){0,40}?\b20[0-9]{2}-[0-9]{2}-[0-9]{2}|[ \t]*[:—–])')
+    # paragraphs whose markers this batch left in place (CX-355 item 5), named by content
+    HELD = {
+        PO: ['Boundaries 15-19 are fully redundant', 'this bullet named "Boundaries 26 and 27"',
+             'previously reported as "4, set {4, 27, 25, 21}"', 'this bullet closed on an unrestricted universal'],
+        DR: [],
+        RR: ['use a dated inline `⚠ [CORRECTED …]` marker'],
+    }
+    # (doc, removed narrative, pointer now in its place, [(ledger, entry-heading regex, [needles])])
+    ITEMS = [
+        (PO, ' *(corrected 2026-07-04: an earlier version reported "4 again at 560T, non-monotone" — a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*.',
+         ' (corrected; [CORRECTIONS](CORRECTIONS.md) CX-06; detail in [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)).',
+         [(COR, r"CX-06\b", ["back to 4 at 560T", "survivor-counting error", "monotone 4 → 5 → 5"])]),
+        (PO, 'which is the live record; this sentence deliberately quotes no single range, because the "~10-65 GB each" that stood here was already below the 100T size printed further down this same page. Note that `enumeration/SOLUTIONS_BIN_LOCATION.txt`, which this sentence used to link as the locator, is **not** current: it names a 23.7 GB artifact and its own 2026-04-17 note records that artifact as a 742M-era undercount to be replaced.',
+         'which is the live record. `enumeration/SOLUTIONS_BIN_LOCATION.txt` is **not** a current locator: it names a 23.7 GB, 742M-era artifact (corrected; [CORRECTIONS](CORRECTIONS.md) CX-144, CX-355).',
+         [(COR, r"CX-144\b", ["SOLUTIONS_BIN_LOCATION.txt", "already carried the same correction"]),
+          (COR, r"CX-355\b", ['"~10-65 GB each"', "742M-era undercount to be replaced"])]),
+        (PO, ' *(Corrected 2026-07-05: an earlier erroneous Mawangdui array scored zero, and this bullet previously claimed "3 of 4" and a shared classical design principle; the corrected array follows [Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2 — see CITATIONS.md errata.)*',
+         ' The Mawangdui array follows [Shaughnessy 2022](CITATIONS.md#shaughnessy2022), Table 11.2 (corrected; [CORRECTIONS](CORRECTIONS.md) CX-07).',
+         [(COR, r"CX-07\b", ["three of the four tested ancient orderings satisfy C2", "shared classical design principle",
+                             "The project's Mawangdui array was wrong", "Shaughnessy 2022, Table 11.2"])]),
+        (PO, ' *(Added 2026-09-02, adjudicated correction: this paragraph previously left the whole question undecided.)*',
+         ' (corrected; RP-212288d7 in [CORRECTIONS](CORRECTIONS.md)).',
+         [(COR, r"2026-09-02 — an order-preservation argument", ["RP-212288d7", "the unrestricted reading is closed as false"]),
+          (COR, r"CX-355\b", ["previously left the whole question undecided"])]),
+        (PO, ' *(corrected 2026-07-04: this note previously claimed "4 again at 560T"; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md))*.',
+         ' (corrected; [CORRECTIONS](CORRECTIONS.md) CX-06).',
+         [(COR, r"CX-06\b", ["back to 4 at 560T", "survivor-counting error"])]),
+        (PO, ' ⚠ **[CORRECTED 2026-09-24 (Q-753) — this bullet previously stated the 16.3% without its definition, as if zero-yield variants had been compared. They had not. Re-derived from the tracked 100T enum log by generating all 158,364 depth-3 cells feasible under C2 and the C5 budget after the C4 opening (the published cell count), joining the 60,533 `Wrote` lines, and scoring every other feasible cell as 0: the positive-only grouping reproduces 1,636 of 10,027 exactly. Counting zeros, 15,310 of 24,321 multi-variant groups are all-equal, mostly because every variant is 0. Adjudicated by Fable (Codex V3A-043#1).]**',
+         ' Scoring every feasible variant that emitted nothing as 0, 15,310 of 24,321 multi-variant groups are all-equal, mostly because every variant is 0 (corrected; [CORRECTIONS](CORRECTIONS.md) CX-78).',
+         [(COR, r"CX-78\b", ["(Q-753; Codex V3A-043#1)", "without saying that only variants that emitted records were compared",
+                             "the positive-only grouping reproduces 1,636 of 10,027 exactly"])]),
+        (PO, '**Headline result (corrected 2026-07-26):** an earlier version of this section\nreported KW\'s joint-density rank as "< 10⁻⁵" with a log-density "~12,800× lower than\nany sampled ordering", driven by KW being extreme on four dimensions simultaneously.\nA circularity audit found that all four named driver dimensions were tautological,\nKW-extracted, or extreme by construction — the result was an artifact of scoring KW\nagainst its own template, and it is withdrawn. On the two KW-independent dimensions',
+         '**Headline result.** On the two KW-independent dimensions',
+         [(HIS, r"2026-07-18/26: An eight-lens adversarial hardening pass", ['joint-KDE "~12,800× deficit / <10⁻⁵ rank"', "tautological and KW-extracted dimensions"]),
+          (COR, r"CX-355\b", ['"< 10⁻⁵" rank, "~12,800×" deficit'])]),
+        (DR, ' (Corrected 2026-09-25, Q-763.)',
+         ' (corrected; [CORRECTIONS](CORRECTIONS.md) CX-125)',
+         [(COR, r"CX-125\b", ["documentation/README.md sends reproduction readers to the enumeration recipe"])]),
+        (RR, ' ⚠ **[CORRECTED 2026-09-24 — this said the failure was limited to the V=0 stratum, which the by-V table in `evidence/f11halfb/RESULTS.md` contradicts; TR-2 v1.35 was corrected the same day. Codex V3A-088#1 sibling, Q-778; no count, bar or verdict moves.]**',
+         ' (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-84)',
+         [(COR, r"CX-84\b", ["TR-2 row (V3A-088#1 sibling, P2; the Q-778 verify token)", "limited to the V=0 stratum",
+                             "Fixed** to match TR-2 v1.35"])]),
+        (RR, ' full-space orderings ⚠ **[CORRECTED 2026-09-24 — this read "Slice-unique boundaries admit ~10²⁶", attaching TR-4 §5\'s k=4 survivor count to the five-boundary identifying set. TR-4\'s own statement (§Abstract; §5, v1.7.1) is that the *first four* boundaries, which inside the 560T slice leave KW plus a single impostor, admit ≈8.4×10²⁵; no survivor count for the full five-boundary set is published. Codex V3A-083#2, adjudicated by Fable; no figure in TR-4 moves.]** |',
+         ' full-space orderings; no survivor count for the full five-boundary set is published (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-355) |',
+         [(COR, r"CX-355\b", ['this read "Slice-unique boundaries admit ~10²⁶", attaching TR-4 §5\'s k=4 survivor count to the five-boundary identifying set',
+                              "Codex V3A-083#2, adjudicated by Fable; no figure in TR-4 moves."])]),
+        (RR, ' ⚠ **[CORRECTED 2026-09-24 — this read "the Gray-code construction proven impossible under the pairing", the v1.0–v1.15 reading TR-8 §3 withdrew: the parity theorem covers McKenna and Mair\'s all-complement pairing as readily as the classical one, and their construction applies the single-line step only between pair representatives, which the theorem does not touch. Codex V3A-083#1, adjudicated by Fable; the theorem and its Lean check are unchanged.]** |',
+         ' (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-82, CX-355) |',
+         [(COR, r"CX-82\b", ["the batch-1 fix of `" + _p.__func__("reports/README.md", 48) + "` (V3A-083#1)"]),
+          (COR, r"CX-355\b", ['this read "the Gray-code construction proven impossible under the pairing", the v1.0–v1.15 reading TR-8 §3 withdrew',
+                              "Codex V3A-083#1, adjudicated by Fable; the theorem and its Lean check are unchanged."])]),
+        (RR, '*Corrected 2026-08-07 (CX-31).* This paragraph previously read "Snapshots are **archived with\nversioned DOIs** (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what you\nread)." **No such archival exists.**',
+         '**The pinning mechanism is git-native**: a commit sha is content-addressed and immutable. Cite the\nsha. There is no DOI deposit for this project, and `CITATION.cff` carries no DOI or identifier key;\n[DEVELOPMENT.md](../documentation/DEVELOPMENT.md) records the deposits as declined by operator\ndirection on 2026-04-18 (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-31).',
+         [(COR, r"CX-31\b", ['"Snapshots are **archived with versioned DOIs** (Zenodo: a concept DOI resolves to the latest state; version DOIs pin what you read)."',
+                             "declined by operator direction, 2026-04-18"])]),
+    ]
+
+    # pointers written outside an ITEMS replacement
+    EXTRA = [(PO, '(corrected; [HISTORY.md](HISTORY.md),\nthe eight-lens adversarial hardening pass)'),
+             (PO, '(corrected; [CORRECTIONS](CORRECTIONS.md) CX-356)')]
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    @staticmethod
+    def _norm(s):
+        s = re.sub(r"\n[ \t]*(?:>[ \t]*)?", " ", s)   # join wrapped and block-quoted lines
+        return re.sub(r"[ \t]+", " ", s)
+
+    def _section(self, text, head):
+        """The ledger entry whose heading matches `head`, up to the next CX or dated heading."""
+        lines = text.split("\n")
+        start = [i for i, l in enumerate(lines) if re.match(r"^#{2,3} " + head, l)]
+        if len(start) != 1:
+            return None
+        out = [lines[start[0]]]
+        for l in lines[start[0] + 1:]:
+            if re.match(r"^#{2,3} (CX-\d|\d{4}-\d\d-\d\d)", l):
+                break
+            out.append(l)
+        return "\n".join(out)
+
+    def _check_a(self, docs):
+        hit, paren = re.compile(self.HIT_SRC), re.compile(self.PAREN_SRC)
+        bad = []
+        for doc, removed, _new, _leg in self.ITEMS:
+            if removed in docs[doc]:
+                bad.append("%s still carries a removed narrative: %r" % (doc, removed[:60]))
+        for doc, text in docs.items():
+            for para in re.split(r"\n[ \t]*\n", text):
+                # `[CORRECTIONS](…)` is a ledger link, not a marker (the inventory's ledger-link kind)
+                marks = [m for m in hit.finditer(para) if para[m.end():m.end() + 1] != "S"]
+                if (marks or paren.search(para)) and not any(h in para for h in self.HELD[doc]):
+                    bad.append("%s: marker outside the held set: %r" % (doc, para[:80]))
+        return bad
+
+    def _check_b(self, ledgers):
+        bad = []
+        for doc, removed, _new, legs in self.ITEMS:
+            for led, head, needles in legs:
+                sec = self._section(ledgers[led], head)
+                if sec is None:
+                    bad.append("%s: no single entry %r" % (led, head)); continue
+                ns = self._norm(sec)
+                for n in needles:
+                    if self._norm(n) not in ns:
+                        bad.append("%s %r lacks %r (for %s)" % (led, head, n[:50], doc))
+        return bad
+
+    def _check_c(self, docs, ledgers):
+        bad = []
+        heads = set(re.findall(r"^#{2,3} (CX-\d+)\b", ledgers[self.COR], re.M))
+        for doc, new in [(i[0], i[2]) for i in self.ITEMS] + self.EXTRA:
+            if new not in docs[doc]:
+                bad.append("%s: pointer text missing: %r" % (doc, new[:60])); continue
+            ms = list(re.finditer(r"\(corrected; ([^()]*(?:\([^()]*\)[^()]*)*)\)", new))
+            if not ms and "(corrected;" in new:
+                bad.append("%s: unparsed pointer %r" % (doc, new[:60]))
+            for m in ms:
+                body = m.group(1)
+                for cx in re.findall(r"CX-\d+", body):
+                    if cx not in heads:
+                        bad.append("%s: %s has no entry" % (doc, cx))
+                for rp in re.findall(r"RP-[0-9a-f]{8}", body):
+                    if rp not in ledgers[self.COR]:
+                        bad.append("%s: %s not in CORRECTIONS.md" % (doc, rp))
+                for link in re.findall(r"\]\(([^)#]+)", body):
+                    if not os.path.isfile(os.path.normpath(os.path.join(self.ROOT, os.path.dirname(doc), link))):
+                        bad.append("%s: link %s does not resolve" % (doc, link))
+                if "HISTORY.md" in body and "eight-lens adversarial hardening pass" in body:
+                    if self._section(ledgers[self.HIS], r"2026-07-18/26: An eight-lens adversarial hardening pass") is None:
+                        bad.append("%s: HISTORY section missing" % doc)
+                if not re.search(r"CX-\d+|RP-[0-9a-f]{8}|HISTORY\.md", body):
+                    bad.append("%s: pointer names no entry: %r" % (doc, body))
+        return bad
+
+    def _docs(self):
+        return {d: self._read(d) for d in (self.PO, self.DR, self.RR)}
+
+    def _ledgers(self):
+        return {self.COR: self._read(self.COR), self.HIS: self._read(self.HIS)}
+
+    def test_marker_grammar_in_sync(self):
+        src = self._read(self.CMI)
+        self.assertIn("HIT = re.compile(r'" + self.HIT_SRC + "')", src)
+        self.assertIn(self.PAREN_SRC.split("(?=")[0], src)
+        self.assertIn("(?=(?:[^()\\n]|\\n(?![ \\t]*\\n)){0,40}?\\b20[0-9]{2}-[0-9]{2}-[0-9]{2}|[ \\t]*[:\\u2014\\u2013])", src)
+
+    def test_a_no_removed_narrative_left(self):
+        self.assertEqual(self._check_a(self._docs()), [])
+
+    def test_a_red_each_narrative_put_back(self):
+        docs = self._docs()
+        for doc, removed, new, _legs in self.ITEMS:
+            self.assertEqual(docs[doc].count(new), 1, "precondition: pointer present once in %s" % doc)
+            mut = dict(docs); mut[doc] = docs[doc].replace(new, removed, 1)
+            self.assertNotEqual(self._check_a(mut), [], "reinserting %r must fail (a)" % removed[:50])
+
+    def test_a_red_unheld_marker(self):
+        docs = self._docs()
+        mut = dict(docs); mut[self.DR] = docs[self.DR] + "\n\nA line. ⚠ **[CORRECTED 2026-10-11 — planted.]**\n"
+        self.assertNotEqual(self._check_a(mut), [])
+
+    def test_b_narrative_in_ledger(self):
+        self.assertEqual(self._check_b(self._ledgers()), [])
+
+    def test_b_red_each_needle_removed(self):
+        led = self._ledgers()
+        for _doc, _removed, _new, legs in self.ITEMS:
+            for lf, head, needles in legs:
+                for n in needles:
+                    self.assertIn(self._norm(n), self._norm(led[lf]), "precondition: needle present")
+                    sec = self._section(led[lf], head)
+                    mut = dict(led)
+                    mut[lf] = led[lf].replace(sec, self._norm(sec).replace(self._norm(n), ""), 1)
+                    self.assertNotEqual(self._check_b(mut), [], "removing %r must fail (b)" % n[:40])
+
+    def test_c_pointers_resolve(self):
+        self.assertEqual(self._check_c(self._docs(), self._ledgers()), [])
+
+    def test_c_red_bent_pointer(self):
+        docs, led = self._docs(), self._ledgers()
+        for cx in ("CX-06", "CX-355", "CX-125"):
+            mut_led = dict(led)
+            mut_led[self.COR] = re.sub(r"^(#{2,3}) " + cx + r"\b", r"\1 CX-X" + cx[3:], led[self.COR], flags=re.M)
+            self.assertNotEqual(self._check_c(docs, mut_led), [], "deleting the %s heading must fail (c)" % cx)
+        mut_led = dict(led); mut_led[self.COR] = led[self.COR].replace("RP-212288d7", "RP-00000000")
+        self.assertNotEqual(self._check_c(docs, mut_led), [])
+
+# end class TestCleanupM1 (cleanup batch M1, CX-355)
+
+
+class TestCleanupM1Followup(unittest.TestCase):
+    """Cleanup M1 follow-up (CX-356). PROJECT_OVERVIEW.md's 3-point trajectory paragraph led with the
+    withdrawn 3x10^37 distinct-canonical figure and the 1-part-in-10^27 coverage built on it, and GATE 27
+    passed it because one WITHDRAWN word sat in the paragraph. (1) The page now states the current value:
+    the raw 1.33x10^38 estimate and the [1.0525x10^10, 31!] bounds, with a CX-356 pointer. (2) GATE 27's
+    front-door leg fails a registered withdrawn figure on a front-door page, marked or not; it is run in a
+    scratch git repo with the real gate modules and the real WITHDRAWN_FIGURES.tsv. Red: the old
+    paragraph shape on the planted page, the same with a ledger anchor, and a mutant with the leg removed
+    lets the old paragraph through. Green: the current paragraph, and the same marked figure on a page
+    that is not a front door."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PO = "documentation/PROJECT_OVERVIEW.md"
+    REG = "documentation/WITHDRAWN_FIGURES.tsv"
+    OLD = ("but an unbiased Monte-Carlo estimate (Knuth random-probe, validated <1%) puts it at **≈10³⁸** "
+           "(≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷ of the space and "
+           "no feasible budget approaches exhaustion. ⚠ **[WITHDRAWN 2026-08-24 — the ≈3×10³⁷ "
+           "distinct-canonical figure on this line exceeds its own 31! ≈ 8.2228×10³³ ceiling by ~4,013×; "
+           "see documentation/CORRECTIONS.md]**\n")
+    NEW_NEEDLES = ["**≈1.33×10³⁸ raw** (orientation-explicit) orderings",
+                   "it lies between 560T's 1.0525×10¹⁰ and 31! ≈ 8.2228×10³³ (corrected; [CORRECTIONS](CORRECTIONS.md) CX-356)",
+                   "≥≈10²⁷ canonical orderings under the worst-case 2³⁰ dedup bound"]
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _figs(self):
+        out = []
+        for ln in self._read(self.REG).split("\n"):
+            c = ln.split("\t")
+            if ln.strip() and not ln.startswith("#") and len(c) >= 2:
+                out.append(c[0])
+        self.assertIn("3×10³⁷", out, "precondition: the figure is registered")
+        self.assertIn("1 part in 10²⁷", out, "precondition: the coverage denominator is registered")
+        return out
+
+    def _trajectory_para(self):
+        paras = [p for p in re.split(r"\n[ \t]*\n", self._read(self.PO)) if "3-point scaling trajectory" in p]
+        self.assertEqual(len(paras), 1, "precondition: one trajectory paragraph")
+        return paras[0]
+
+    def test_po_states_current_value(self):
+        para = self._trajectory_para()
+        for n in self.NEW_NEEDLES:
+            self.assertIn(n, para)
+        self.assertEqual([f for f in self._figs() if f in self._read(self.PO)], [])
+
+    def test_po_red_old_paragraph(self):
+        # the no-figure check above goes red on the paragraph as published
+        self.assertEqual(sorted(f for f in self._figs() if f in self.OLD), ["1 part in 10²⁷", "3×10³⁷"])
+
+    def test_cx356_records_the_old_line(self):
+        cor = self._read("documentation/CORRECTIONS.md")
+        heads = re.findall(r"^## CX-356\b.*$", cor, re.M)
+        self.assertEqual(len(heads), 1)
+        sec = cor[cor.index(heads[0]):]
+        for n in ["(≈3×10³⁷ distinct-canonical), so even 560T's 10.5 B records is ≈1 part in 10²⁷",
+                  "The marker named only the first.", "**Why no gate caught it.**", "front-door leg"]:
+            self.assertIn(n, self._norm(sec))
+
+    @staticmethod
+    def _norm(s):
+        return re.sub(r"[ \t]+", " ", re.sub(r"\n[ \t]*(?:>[ \t]*)?", " ", s))
+
+    # ----------------------------------------------------------- GATE 27, front-door leg, in a scratch repo
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="m1fu_")
+        cls.repo = os.path.join(cls.tmp, "repo")
+        for d in ("docs", "documentation", "reports"):
+            os.makedirs(os.path.join(cls.repo, d))
+        shutil.copytree(os.path.join(cls.ROOT, "scripts", "doc_gates.d"), os.path.join(cls.repo, "scripts", "doc_gates.d"))
+        shutil.copy2(os.path.join(cls.ROOT, "scripts", "doc_gates.sh"), os.path.join(cls.repo, "scripts", "doc_gates.sh"))
+        shutil.copy2(os.path.join(cls.ROOT, cls.REG), os.path.join(cls.repo, cls.REG))
+        with open(os.path.join(cls.repo, "documentation", "CORRECTIONS.md"), "w", encoding="utf-8") as fh:
+            fh.write("# Corrections\n\n## CX-356 — the front-door line\n\nIt read ≈3×10³⁷ distinct-canonical.\n")
+        for f in ("README.md", "documentation/README.md", "reports/README.md"):
+            with open(os.path.join(cls.repo, f), "w", encoding="utf-8") as fh:
+                fh.write("# Index\n\nNothing withdrawn here.\n")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _gate(self, po, note="Plain.\n"):
+        for rel, text in ((self.PO, po), ("docs/NOTE.md", note)):
+            with open(os.path.join(self.repo, rel), "w", encoding="utf-8") as fh:
+                fh.write(text)
+        g = ["git", "-C", self.repo]
+        if not os.path.isdir(os.path.join(self.repo, ".git")):
+            subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "f"], check=True)
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "withdrawn-markers"], cwd=self.repo,
+                           capture_output=True, text=True, timeout=300)
+        out = r.stdout + r.stderr
+        self.assertIn("== GATE 27:", out, "precondition: GATE 27 ran")
+        return r.returncode, out
+
+    def test_gate_red_old_paragraph_on_front_door(self):
+        rc, out = self._gate(self.OLD)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("CX-356: front-door page " + self.PO, out)
+        self.assertIn("withdrawn figure '3×10³⁷'", out)
+        self.assertIn("withdrawn figure '1 part in 10²⁷'", out)
+
+    def test_gate_red_even_with_ledger_anchor(self):
+        rc, out = self._gate("It held ≈3×10³⁷ ([CORRECTIONS CX-356](CORRECTIONS.md)).\n")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("CX-356: front-door page", out)
+
+    def test_gate_green_current_paragraph(self):
+        # NOTE.md carries a marked figure so that GATE 27's own zero-population check has something to see
+        rc, out = self._gate(self._trajectory_para() + "\n", note=self.OLD)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("[ok] CX-356 front-door leg:", out)
+        self.assertIn("of 4 front-door pages", out)
+
+    def test_gate_green_marked_figure_off_the_front_door(self):
+        rc, out = self._gate("Plain.\n", note=self.OLD)
+        self.assertEqual(rc, 0, out)
+
+    def test_gate_mutant_page_dropped_lets_old_paragraph_through(self):
+        mod = os.path.join(self.repo, "scripts", "doc_gates.d", "80_repro_reach_claim_shapes.sh")
+        with open(mod, encoding="utf-8") as fh:
+            src = fh.read()
+        want = '"documentation/PROJECT_OVERVIEW.md",'
+        self.assertEqual(src.count(want), 1, "precondition: the mutant applies")
+        try:
+            with open(mod, "w", encoding="utf-8") as fh:
+                fh.write(src.replace(want, "", 1))   # the page dropped from the front-door set
+            rc, out = self._gate(self.OLD)
+            self.assertEqual(rc, 0, "without the leg the marked paragraph passes, which is the CX-356 gap\n" + out)
+        finally:
+            with open(mod, "w", encoding="utf-8") as fh:
+                fh.write(src)
+
+# end class TestCleanupM1Followup (cleanup M1 follow-up, CX-356)
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

@@ -5,10 +5,10 @@ CLAUDE.md	23	ledger-link	CORRECTION	n/a	-	not-a-marker	841e6af12c78
 CLAUDE.md	116	marker	CORRECTED	1	-	reviewed:rule-above-already-states-the-split-policy	00465bcfc043
 CLAUDE.md	118	marker	CORRECTED	1	-	reviewed:operative-rule-below-already-states-the-split-policy	d2b8083d4fde
 CLAUDE.md	167	marker	CORRECTED	1	-	reviewed:bare-date-tag;following-sentences-carry-the-withdrawal	d3a86349b512
-CLAUDE.md	354	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
-CLAUDE.md	358	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
-CLAUDE.md	388	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
-CLAUDE.md	389	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
+CLAUDE.md	361	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
+CLAUDE.md	365	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
+CLAUDE.md	395	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
+CLAUDE.md	396	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
 README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	073e3d84aa02
 README.md	146	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
 README.md	296	ledger-link	CORRECTION	n/a	-	not-a-marker	fca6f9b47e6d
@@ -326,19 +326,20 @@ documentation/PREREG_CLASSA_QUERY_SET.md	530	marker	CORRECTED	3	GATE 86(file)	ga
 documentation/PREREG_CLASSA_QUERY_SET.md	613	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ac89ca1c4b99
 documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md	66	ledger-link	CORRECTION	n/a	-	not-a-marker	d399f520849e
 documentation/PROJECT_OVERVIEW.md	14	ledger-link	CORRECTION	n/a	-	not-a-marker	3a7d8baee073
-documentation/PROJECT_OVERVIEW.md	18	marker	Corrected	1	-	reviewed:sentence-already-reads-monotone-4-then-5	90f401aa2eb2
+documentation/PROJECT_OVERVIEW.md	18	ledger-link	CORRECTION	n/a	-	not-a-marker	16243f168b74
+documentation/PROJECT_OVERVIEW.md	43	ledger-link	CORRECTION	n/a	-	not-a-marker	feb53903acfe
 documentation/PROJECT_OVERVIEW.md	53	ledger-link	CORRECTION	n/a	-	not-a-marker	92255bf4c636
-documentation/PROJECT_OVERVIEW.md	59	marker	Corrected	1	-	reviewed:bullet-already-reads-2-of-4	519fab82ca45
+documentation/PROJECT_OVERVIEW.md	59	ledger-link	CORRECTION	n/a	-	not-a-marker	11b00335f8a3
+documentation/PROJECT_OVERVIEW.md	96	ledger-link	CORRECTION	n/a	-	not-a-marker	9189fe1b7c53
 documentation/PROJECT_OVERVIEW.md	102	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	19b739cabf35
 documentation/PROJECT_OVERVIEW.md	103	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	d26fa9adc4aa
 documentation/PROJECT_OVERVIEW.md	103	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	d26fa9adc4aa
 documentation/PROJECT_OVERVIEW.md	111	marker	Corrected	3	GATE 56	gate-anchored	65e16c47a8ab
 documentation/PROJECT_OVERVIEW.md	113	marker	CORRECTED	3	GATE 56	gate-anchored	ae0f0d5cac61
 documentation/PROJECT_OVERVIEW.md	113	marker	Corrected	3	GATE 56	gate-anchored	ae0f0d5cac61
-documentation/PROJECT_OVERVIEW.md	121	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	60448a559084
-documentation/PROJECT_OVERVIEW.md	127	marker	Corrected	1	-	reviewed:note-already-reads-stays-5-at-560T	3a7734310380
-documentation/PROJECT_OVERVIEW.md	152	marker	CORRECTED	1	-	reviewed:bullet-already-states-the-positive-only-definition	37d8b2656705
-documentation/PROJECT_OVERVIEW.md	165	marker	Corrected	1	-	reviewed:dated-label;following-sentences-carry-the-withdrawal	30097c8c87c5
+documentation/PROJECT_OVERVIEW.md	121	ledger-link	CORRECTION	n/a	-	not-a-marker	c3020c84b8e5
+documentation/PROJECT_OVERVIEW.md	127	ledger-link	CORRECTION	n/a	-	not-a-marker	f6c355aa68e9
+documentation/PROJECT_OVERVIEW.md	152	ledger-link	CORRECTION	n/a	-	not-a-marker	7016a1667869
 documentation/QUERY_INVENTORY.md	222	marker	Corrected	1	-	reviewed:cell-already-states-the-lower-bound-direction	e41df972346c
 documentation/QUERY_INVENTORY.md	244	marker	Corrected	1	-	reviewed:stale-narrowing-is-already-struck-through	5f70b5c4156d
 documentation/QUERY_INVENTORY.md	250	marker	Corrected	2	-	reviewed:cell-above-still-gives-the-unbuilt-sat-witness-and-cert-path	dacbcd2e9d4c
@@ -351,7 +352,7 @@ documentation/QUERY_INVENTORY.md	458	marker	Corrected	1	-	reviewed:stale-clause-
 documentation/QUERY_INVENTORY.md	549	marker	Corrected	1	-	reviewed:box-already-says-the-identity-row-runs	dd19eb8d2b73
 documentation/QUERY_INVENTORY.md	936	marker	Corrected	2	-	reviewed:cell-above-still-describes-the-witness-row-as-unbuilt	ed40b0b9fb76
 documentation/README.md	19	ledger-link	CORRECTION	n/a	-	not-a-marker	5a5a9991ed3f
-documentation/README.md	59	marker	Corrected	1	-	reviewed:bare-dated-tag;entry-already-reads-correctly	b808b2d22f64
+documentation/README.md	59	ledger-link	CORRECTION	n/a	-	not-a-marker	3725148749d8
 documentation/REBUILD_FROM_SPEC.md	47	marker	CORRECTED	1	-	reviewed:text-already-says-reject-nonzero-reserved-bytes	316359bbd462
 documentation/REBUILD_FROM_SPEC.md	49	marker	CORRECTED	1	-	reviewed:following-text-already-says-the-gap-closed	8d2089d7f4a6
 documentation/REBUILD_FROM_SPEC.md	151	marker	CORRECTED	1	-	reviewed:paragraph-above-already-puts-the-range-test-first	d16a31b227ea
@@ -584,13 +585,13 @@ reports/METHODS.md	553	ledger-link	CORRECTION	n/a	-	not-a-marker	2ae7abd23d87
 reports/METHODS.md	554	ledger-link	RETRACTED	n/a	-	not-a-marker	629963a97751
 reports/METHODS.md	586	ledger-link	CORRECTION	n/a	-	not-a-marker	a9e1def5639d
 reports/README.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	7e543a92c01a
-reports/README.md	42	ledger-link	CORRECTION	n/a	-	not-a-marker	eeaba5fb691c
-reports/README.md	42	marker	CORRECTED	1	-	reviewed:row-already-says-not-confined-to-V-0	eeaba5fb691c
-reports/README.md	44	marker	CORRECTED	1	-	reviewed:row-already-scopes-to-the-first-four-boundaries	b4ce93c76e88
-reports/README.md	48	marker	CORRECTED	1	-	reviewed:row-already-scopes-to-the-Gray-path-claim	31f8297b0b33
-reports/README.md	73	marker	CORRECTED	1	-	reviewed:meta-mention-of-the-marker-form-in-code;not-a-correction	2a35a3c9c536
-reports/README.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	433fc133688e
-reports/README.md	95	ledger-link	CORRECTION	n/a	-	not-a-marker	53a19f3161f1
+reports/README.md	42	ledger-link	CORRECTION	n/a	-	not-a-marker	9fb867b3160f
+reports/README.md	44	ledger-link	CORRECTION	n/a	-	not-a-marker	76dd0475ef23
+reports/README.md	48	ledger-link	CORRECTION	n/a	-	not-a-marker	b015ef40d536
+reports/README.md	73	ledger-link	CORRECTION	n/a	-	not-a-marker	ed97bcc1bfe3
+reports/README.md	74	marker	CORRECTED	1	-	reviewed:meta-mention-of-the-marker-form-in-code;not-a-correction	8550e36f57a9
+reports/README.md	83	ledger-link	CORRECTION	n/a	-	not-a-marker	a6765da1e44c
+reports/README.md	90	ledger-link	CORRECTION	n/a	-	not-a-marker	53a19f3161f1
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	85	marker	CORRECTED	2	-	reviewed:only-statement-that-the-archived-outputs-carry-no-se-field	07a138384de5
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	116	marker	CORRECTED	1	-	reviewed:row-already-reads-does-not-meet-the-bar	475777f8f1d6
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	117	marker	CORRECTED	1	-	reviewed:row-already-reads-NULL	4f2bbde898c9

@@ -56,7 +56,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 
 - **[CANONICAL_HASHES.md](CANONICAL_HASHES.md)** — The canonical sha256 registry. Every published canonical run with reproducibility env vars, record counts, and validation status. **Single source of truth for canonical anchors.**
 - **[SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md)** — Binary format of `solutions.bin` (32-byte records, header, canonical-equivalence mask).
-- **[REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md)** — An independent verifier recipe — rebuild the checks from the spec and verify a published `solutions.bin`; not an enumerator guide. To reproduce a canonical *enumeration*, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"How to re-derive from scratch" and [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §8. (Corrected 2026-09-25, Q-763.)
+- **[REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md)** — An independent verifier recipe — rebuild the checks from the spec and verify a published `solutions.bin`; not an enumerator guide. To reproduce a canonical *enumeration*, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"How to re-derive from scratch" and [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §8. (corrected; [CORRECTIONS](CORRECTIONS.md) CX-125)
 - **[REPRODUCE.md](REPRODUCE.md)** — Rebuild the small exact catalogs (n ≤ 19) yourself and match their digests, downloading nothing: the commands, the byte counts and the sha256 digests, plus the three mistakes that would make you think the engine is wrong.
 
 - **[VERIFY.md](VERIFY.md)** — The independent second instruments (`verify.py`, `verify.c`): what each recomputes, and why derivation-independence rather than re-execution is what makes them independent.
